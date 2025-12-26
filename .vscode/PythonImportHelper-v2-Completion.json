@@ -1,0 +1,1404 @@
+[
+    {
+        "label": "numpy",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "numpy",
+        "description": "numpy",
+        "detail": "numpy",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformDataset",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformDataset",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformDataset",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformDataset",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformDataset",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "get_raw_files",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformDataset",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "cli",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformDataset",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformDataset",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformDataset",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformDataset",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformDataset",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformDataset",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformDataset",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "matplotlib.pyplot",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "matplotlib.pyplot",
+        "description": "matplotlib.pyplot",
+        "detail": "matplotlib.pyplot",
+        "documentation": {}
+    },
+    {
+        "label": "sys",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "sys",
+        "description": "sys",
+        "detail": "sys",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "pytest",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "pytest",
+        "description": "pytest",
+        "detail": "pytest",
+        "documentation": {}
+    },
+    {
+        "label": "make_csv",
+        "importPath": "tests.utils",
+        "description": "tests.utils",
+        "isExtraImport": true,
+        "detail": "tests.utils",
+        "documentation": {}
+    },
+    {
+        "label": "make_simple_csv",
+        "importPath": "tests.utils",
+        "description": "tests.utils",
+        "isExtraImport": true,
+        "detail": "tests.utils",
+        "documentation": {}
+    },
+    {
+        "label": "make_csv",
+        "importPath": "tests.utils",
+        "description": "tests.utils",
+        "isExtraImport": true,
+        "detail": "tests.utils",
+        "documentation": {}
+    },
+    {
+        "label": "make_csv",
+        "importPath": "tests.utils",
+        "description": "tests.utils",
+        "isExtraImport": true,
+        "detail": "tests.utils",
+        "documentation": {}
+    },
+    {
+        "label": "make_csv",
+        "importPath": "tests.utils",
+        "description": "tests.utils",
+        "isExtraImport": true,
+        "detail": "tests.utils",
+        "documentation": {}
+    },
+    {
+        "label": "make_csv",
+        "importPath": "tests.utils",
+        "description": "tests.utils",
+        "isExtraImport": true,
+        "detail": "tests.utils",
+        "documentation": {}
+    },
+    {
+        "label": "json",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "json",
+        "description": "json",
+        "detail": "json",
+        "documentation": {}
+    },
+    {
+        "label": "DAQAnalyzer",
+        "importPath": "waveform_analysis.utils.daq",
+        "description": "waveform_analysis.utils.daq",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.utils.daq",
+        "documentation": {}
+    },
+    {
+        "label": "DAQAnalyzer",
+        "importPath": "waveform_analysis.utils.daq",
+        "description": "waveform_analysis.utils.daq",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.utils.daq",
+        "documentation": {}
+    },
+    {
+        "label": "DAQAnalyzer",
+        "importPath": "waveform_analysis.utils.daq",
+        "description": "waveform_analysis.utils.daq",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.utils.daq",
+        "documentation": {}
+    },
+    {
+        "label": "DAQAnalyzer",
+        "importPath": "waveform_analysis.utils.daq",
+        "description": "waveform_analysis.utils.daq",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.utils.daq",
+        "documentation": {}
+    },
+    {
+        "label": "DAQAnalyzer",
+        "importPath": "waveform_analysis.utils.daq",
+        "description": "waveform_analysis.utils.daq",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.utils.daq",
+        "documentation": {}
+    },
+    {
+        "label": "pandas",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "pandas",
+        "description": "pandas",
+        "detail": "pandas",
+        "documentation": {}
+    },
+    {
+        "label": "get_raw_files",
+        "importPath": "waveform_analysis.core",
+        "description": "waveform_analysis.core",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core",
+        "documentation": {}
+    },
+    {
+        "label": "get_waveforms",
+        "importPath": "waveform_analysis.core",
+        "description": "waveform_analysis.core",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core",
+        "documentation": {}
+    },
+    {
+        "label": "os",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "os",
+        "description": "os",
+        "detail": "os",
+        "documentation": {}
+    },
+    {
+        "label": "pickle",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "pickle",
+        "description": "pickle",
+        "detail": "pickle",
+        "documentation": {}
+    },
+    {
+        "label": "functools",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "functools",
+        "description": "functools",
+        "detail": "functools",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Callable",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Callable",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "bisect",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "bisect",
+        "description": "bisect",
+        "detail": "bisect",
+        "documentation": {}
+    },
+    {
+        "label": "re",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "re",
+        "description": "re",
+        "detail": "re",
+        "documentation": {}
+    },
+    {
+        "label": "defaultdict",
+        "importPath": "collections",
+        "description": "collections",
+        "isExtraImport": true,
+        "detail": "collections",
+        "documentation": {}
+    },
+    {
+        "label": "time",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "time",
+        "description": "time",
+        "detail": "time",
+        "documentation": {}
+    },
+    {
+        "label": "Minuit",
+        "importPath": "iminuit",
+        "description": "iminuit",
+        "isExtraImport": true,
+        "detail": "iminuit",
+        "documentation": {}
+    },
+    {
+        "label": "LeastSquares",
+        "importPath": "iminuit.cost",
+        "description": "iminuit.cost",
+        "isExtraImport": true,
+        "detail": "iminuit.cost",
+        "documentation": {}
+    },
+    {
+        "label": "BaseFitter",
+        "importPath": "pyDAW",
+        "description": "pyDAW",
+        "isExtraImport": true,
+        "detail": "pyDAW",
+        "documentation": {}
+    },
+    {
+        "label": "norm",
+        "importPath": "scipy.stats",
+        "description": "scipy.stats",
+        "isExtraImport": true,
+        "detail": "scipy.stats",
+        "documentation": {}
+    },
+    {
+        "label": "jax",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "jax",
+        "description": "jax",
+        "detail": "jax",
+        "documentation": {}
+    },
+    {
+        "label": "vmap",
+        "importPath": "jax",
+        "description": "jax",
+        "isExtraImport": true,
+        "detail": "jax",
+        "documentation": {}
+    },
+    {
+        "label": "jax.numpy",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "jax.numpy",
+        "description": "jax.numpy",
+        "detail": "jax.numpy",
+        "documentation": {}
+    },
+    {
+        "label": "erf",
+        "importPath": "jax.scipy.special",
+        "description": "jax.scipy.special",
+        "isExtraImport": true,
+        "detail": "jax.scipy.special",
+        "documentation": {}
+    },
+    {
+        "label": "annotations",
+        "importPath": "__future__",
+        "description": "__future__",
+        "isExtraImport": true,
+        "detail": "__future__",
+        "documentation": {}
+    },
+    {
+        "label": "logging",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "logging",
+        "description": "logging",
+        "detail": "logging",
+        "documentation": {}
+    },
+    {
+        "label": "datetime",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "datetime",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "argparse",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "argparse",
+        "description": "argparse",
+        "detail": "argparse",
+        "documentation": {}
+    },
+    {
+        "label": "setup",
+        "importPath": "setuptools",
+        "description": "setuptools",
+        "isExtraImport": true,
+        "detail": "setuptools",
+        "documentation": {}
+    },
+    {
+        "label": "example_custom_features",
+        "kind": 2,
+        "importPath": "examples.advanced_features",
+        "description": "examples.advanced_features",
+        "peekOfCode": "def example_custom_features():\n    \"\"\"示例：注册和使用自定义特征\"\"\"\n    print(\"\\n\" + \"=\" * 60)\n    print(\"自定义特征示例\")\n    print(\"=\" * 60)\n    dataset = WaveformDataset(char=\"50V_OV_circulation_20thr\", n_channels=2, start_channel_slice=6)\n    # 加载和处理数据\n    try:\n        (dataset.load_raw_data().extract_waveforms().structure_waveforms())\n    except FileNotFoundError:",
+        "detail": "examples.advanced_features",
+        "documentation": {}
+    },
+    {
+        "label": "example_custom_pairing",
+        "kind": 2,
+        "importPath": "examples.advanced_features",
+        "description": "examples.advanced_features",
+        "peekOfCode": "def example_custom_pairing():\n    \"\"\"示例：使用自定义配对策略\"\"\"\n    print(\"\\n\" + \"=\" * 60)\n    print(\"自定义配对策略示例\")\n    print(\"=\" * 60)\n    dataset = WaveformDataset(char=\"50V_OV_circulation_20thr\", n_channels=2, start_channel_slice=6)\n    # 处理到分组阶段\n    try:\n        (\n            dataset.load_raw_data()",
+        "detail": "examples.advanced_features",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "examples.basic_analysis",
+        "description": "examples.basic_analysis",
+        "peekOfCode": "def main():\n    \"\"\"主函数 - 完整数据处理流程示例\"\"\"\n    print(\"=\" * 60)\n    print(\"波形数据分析示例\")\n    print(\"=\" * 60)\n    # 1. 创建数据集实例\n    print(\"\\n1. 创建数据集...\")\n    dataset = WaveformDataset(char=\"50V_OV_circulation_20thr\", n_channels=2, start_channel_slice=6)\n    # 2. 执行完整处理流程（链式调用）\n    print(\"\\n2. 执行数据处理流程...\")",
+        "detail": "examples.basic_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "plot_example_waveforms",
+        "kind": 2,
+        "importPath": "examples.basic_analysis",
+        "description": "examples.basic_analysis",
+        "peekOfCode": "def plot_example_waveforms(dataset, n_examples=4):\n    \"\"\"绘制示例波形\"\"\"\n    df_paired = dataset.get_paired_events()\n    fig, axes = plt.subplots(2, 2, figsize=(12, 8))\n    axes = axes.flatten()\n    for i in range(min(n_examples, len(df_paired))):\n        ax = axes[i]\n        result_ch6 = dataset.get_waveform_at(event_idx=i, channel=0)\n        result_ch7 = dataset.get_waveform_at(event_idx=i, channel=1)\n        if result_ch6 and result_ch7:",
+        "detail": "examples.basic_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "example_without_waveforms",
+        "kind": 2,
+        "importPath": "examples.skip_waveforms",
+        "description": "examples.skip_waveforms",
+        "peekOfCode": "def example_without_waveforms():\n    \"\"\"示例：不加载波形，仅提取特征数据\"\"\"\n    print(\"=\" * 60)\n    print(\"不加载波形数据示例\")\n    print(\"=\" * 60)\n    # 创建数据集，指定 load_waveforms=False\n    dataset = WaveformDataset(\n        char=\"50V_OV_circulation_20thr\",\n        n_channels=2,\n        start_channel_slice=6,",
+        "detail": "examples.skip_waveforms",
+        "documentation": {}
+    },
+    {
+        "label": "example_with_and_without_comparison",
+        "kind": 2,
+        "importPath": "examples.skip_waveforms",
+        "description": "examples.skip_waveforms",
+        "peekOfCode": "def example_with_and_without_comparison():\n    \"\"\"对比：加载vs不加载波形的性能差异\"\"\"\n    import time\n    print(\"\\n\" + \"=\" * 60)\n    print(\"性能对比示例\")\n    print(\"=\" * 60)\n    # 加载波形\n    print(\"\\n1. 加载波形数据...\")\n    start = time.time()\n    dataset_with_waves = WaveformDataset(",
+        "detail": "examples.skip_waveforms",
+        "documentation": {}
+    },
+    {
+        "label": "example_memory_usage",
+        "kind": 2,
+        "importPath": "examples.skip_waveforms",
+        "description": "examples.skip_waveforms",
+        "peekOfCode": "def example_memory_usage():\n    \"\"\"估计内存使用情况\"\"\"\n    import sys\n    print(\"\\n\" + \"=\" * 60)\n    print(\"内存使用估计\")\n    print(\"=\" * 60)\n    # 加载波形\n    print(\"\\n1. 加载波形...\")\n    dataset_with = WaveformDataset(char=\"50V_OV_circulation_20thr\", n_channels=2, load_waveforms=True)\n    try:",
+        "detail": "examples.skip_waveforms",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "scripts.demo_skip_waveforms",
+        "description": "scripts.demo_skip_waveforms",
+        "peekOfCode": "def main():\n    print(\"\\n\" + \"=\" * 70)\n    print(\"演示：选择不加载原始波形以节省内存\")\n    print(\"=\" * 70)\n    # 方法 1: 加载波形（默认）\n    print(\"\\n📌 方法 1: 加载波形（load_waveforms=True，默认）\")\n    print(\"-\" * 70)\n    print(\"\"\"\n    dataset = WaveformDataset(\n        char=\"50V_OV_circulation_20thr\",",
+        "detail": "scripts.demo_skip_waveforms",
+        "documentation": {}
+    },
+    {
+        "label": "project_root",
+        "kind": 5,
+        "importPath": "scripts.demo_skip_waveforms",
+        "description": "scripts.demo_skip_waveforms",
+        "peekOfCode": "project_root = Path(__file__).parent.parent\nsys.path.insert(0, str(project_root))\nfrom waveform_analysis import WaveformDataset\ndef main():\n    print(\"\\n\" + \"=\" * 70)\n    print(\"演示：选择不加载原始波形以节省内存\")\n    print(\"=\" * 70)\n    # 方法 1: 加载波形（默认）\n    print(\"\\n📌 方法 1: 加载波形（load_waveforms=True，默认）\")\n    print(\"-\" * 70)",
+        "detail": "scripts.demo_skip_waveforms",
+        "documentation": {}
+    },
+    {
+        "label": "check_import",
+        "kind": 2,
+        "importPath": "scripts.verify_install",
+        "description": "scripts.verify_install",
+        "peekOfCode": "def check_import():\n    \"\"\"检查包导入\"\"\"\n    print(\"1. 检查包导入...\")\n    try:\n        import waveform_analysis\n        print(f\"   ✅ waveform_analysis 版本: {waveform_analysis.__version__}\")\n    except ImportError as e:\n        print(f\"   ❌ 导入失败: {e}\")\n        return False\n    return True",
+        "detail": "scripts.verify_install",
+        "documentation": {}
+    },
+    {
+        "label": "check_core_modules",
+        "kind": 2,
+        "importPath": "scripts.verify_install",
+        "description": "scripts.verify_install",
+        "peekOfCode": "def check_core_modules():\n    \"\"\"检查核心模块\"\"\"\n    print(\"\\n2. 检查核心模块...\")\n    try:\n        from waveform_analysis import (\n            WaveformDataset,\n            WaveformStruct,\n            build_waveform_df,\n            get_raw_files,\n            get_waveforms,",
+        "detail": "scripts.verify_install",
+        "documentation": {}
+    },
+    {
+        "label": "check_submodules",
+        "kind": 2,
+        "importPath": "scripts.verify_install",
+        "description": "scripts.verify_install",
+        "peekOfCode": "def check_submodules():\n    \"\"\"检查子模块\"\"\"\n    print(\"\\n3. 检查子模块...\")\n    modules = [\n        (\"waveform_analysis.core\", [\"loader\", \"processor\", \"dataset\"]),\n        (\"waveform_analysis.fitting\", [\"models\"]),\n        (\"waveform_analysis.utils\", []),\n    ]\n    all_ok = True\n    for pkg, subs in modules:",
+        "detail": "scripts.verify_install",
+        "documentation": {}
+    },
+    {
+        "label": "check_cli",
+        "kind": 2,
+        "importPath": "scripts.verify_install",
+        "description": "scripts.verify_install",
+        "peekOfCode": "def check_cli():\n    \"\"\"检查命令行工具\"\"\"\n    print(\"\\n4. 检查命令行工具...\")\n    import subprocess\n    try:\n        result = subprocess.run([\"waveform-process\", \"--version\"], capture_output=True, text=True, timeout=5)\n        if result.returncode == 0:\n            print(f\"   ✅ CLI 工具可用: {result.stdout.strip()}\")\n            return True\n        else:",
+        "detail": "scripts.verify_install",
+        "documentation": {}
+    },
+    {
+        "label": "check_dataset_creation",
+        "kind": 2,
+        "importPath": "scripts.verify_install",
+        "description": "scripts.verify_install",
+        "peekOfCode": "def check_dataset_creation():\n    \"\"\"检查数据集创建\"\"\"\n    print(\"\\n5. 检查数据集创建...\")\n    try:\n        from waveform_analysis import WaveformDataset\n        dataset = WaveformDataset(char=\"test\", n_channels=2)\n        print(\"   ✅ WaveformDataset 可以创建\")\n        print(f\"      - char: {dataset.char}\")\n        print(f\"      - n_channels: {dataset.n_channels}\")\n        return True",
+        "detail": "scripts.verify_install",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "scripts.verify_install",
+        "description": "scripts.verify_install",
+        "peekOfCode": "def main():\n    \"\"\"主函数\"\"\"\n    print(\"=\" * 60)\n    print(\"Waveform Analysis 安装验证\")\n    print(\"=\" * 60)\n    checks = [\n        check_import,\n        check_core_modules,\n        check_submodules,\n        check_cli,",
+        "detail": "scripts.verify_install",
+        "documentation": {}
+    },
+    {
+        "label": "make_csv_fn",
+        "kind": 2,
+        "importPath": "tests.conftest",
+        "description": "tests.conftest",
+        "peekOfCode": "def make_csv_fn():\n    \"\"\"Fixture that returns the make_csv helper function.\"\"\"\n    return make_csv\n@pytest.fixture\ndef make_simple_csv_fn():\n    \"\"\"Fixture that returns the make_simple_csv helper function.\"\"\"\n    return make_simple_csv\n@pytest.fixture\ndef create_daq_run(tmp_path: Path):\n    \"\"\"Factory fixture to create a DAQ run directory structure.",
+        "detail": "tests.conftest",
+        "documentation": {}
+    },
+    {
+        "label": "make_simple_csv_fn",
+        "kind": 2,
+        "importPath": "tests.conftest",
+        "description": "tests.conftest",
+        "peekOfCode": "def make_simple_csv_fn():\n    \"\"\"Fixture that returns the make_simple_csv helper function.\"\"\"\n    return make_simple_csv\n@pytest.fixture\ndef create_daq_run(tmp_path: Path):\n    \"\"\"Factory fixture to create a DAQ run directory structure.\n    Usage:\n        daq_root, run_dir, raw_dir = create_daq_run('my_run')\n        # optionally create files with make_csv_fn in tests\n    \"\"\"",
+        "detail": "tests.conftest",
+        "documentation": {}
+    },
+    {
+        "label": "create_daq_run",
+        "kind": 2,
+        "importPath": "tests.conftest",
+        "description": "tests.conftest",
+        "peekOfCode": "def create_daq_run(tmp_path: Path):\n    \"\"\"Factory fixture to create a DAQ run directory structure.\n    Usage:\n        daq_root, run_dir, raw_dir = create_daq_run('my_run')\n        # optionally create files with make_csv_fn in tests\n    \"\"\"\n    def _create(run_name: str = \"run\"):\n        daq_root = tmp_path / \"DAQ\"\n        run_dir = daq_root / run_name\n        raw_dir = run_dir / \"RAW\"",
+        "detail": "tests.conftest",
+        "documentation": {}
+    },
+    {
+        "label": "test_import",
+        "kind": 2,
+        "importPath": "tests.test_basic",
+        "description": "tests.test_basic",
+        "peekOfCode": "def test_import():\n    \"\"\"测试包可以正常导入\"\"\"\n    from waveform_analysis import (\n        WaveformDataset,\n        WaveformStruct,\n        build_waveform_df,\n        get_raw_files,\n        get_waveforms,\n        group_multi_channel_hits,\n    )",
+        "detail": "tests.test_basic",
+        "documentation": {}
+    },
+    {
+        "label": "test_waveform_struct",
+        "kind": 2,
+        "importPath": "tests.test_basic",
+        "description": "tests.test_basic",
+        "peekOfCode": "def test_waveform_struct():\n    \"\"\"测试波形结构化\"\"\"\n    from waveform_analysis.core import WaveformStruct\n    # 创建模拟数据\n    mock_waveforms = [np.random.randn(100, 807), np.random.randn(100, 807)]\n    struct = WaveformStruct(mock_waveforms)\n    st_waveforms = struct.structrue_waveforms()\n    assert len(st_waveforms) == 2\n    assert len(st_waveforms[0]) == 100\ndef test_dataset_init():",
+        "detail": "tests.test_basic",
+        "documentation": {}
+    },
+    {
+        "label": "test_dataset_init",
+        "kind": 2,
+        "importPath": "tests.test_basic",
+        "description": "tests.test_basic",
+        "peekOfCode": "def test_dataset_init():\n    \"\"\"测试数据集初始化\"\"\"\n    try:\n        dataset = WaveformDataset(char=\"test_dataset\", n_channels=2, start_channel_slice=6)\n        assert dataset.char == \"test_dataset\"\n        assert dataset.n_channels == 2\n    except FileNotFoundError:\n        # 如果测试数据不存在，跳过\n        pytest.skip(\"Test data not available\")\nif __name__ == \"__main__\":",
+        "detail": "tests.test_basic",
+        "documentation": {}
+    },
+    {
+        "label": "test_chain_continues_on_error",
+        "kind": 2,
+        "importPath": "tests.test_chainable_steps",
+        "description": "tests.test_chainable_steps",
+        "peekOfCode": "def test_chain_continues_on_error(tmp_path: Path):\n    # prepare run with minimal files\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"chain_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    make_csv(raw_dir, 6, 0, 1000, 1100, n_samples=10)\n    ds = WaveformDataset(char=\"chain_run\", data_root=str(daq_root), use_daq_scan=True)\n    # 替换类方法为出错版本并用 chainable_step 包装\n    def _bad_structure(self, verbose: bool = True):",
+        "detail": "tests.test_chainable_steps",
+        "documentation": {}
+    },
+    {
+        "label": "test_fail_on_error_behavior",
+        "kind": 2,
+        "importPath": "tests.test_chainable_steps",
+        "description": "tests.test_chainable_steps",
+        "peekOfCode": "def test_fail_on_error_behavior(tmp_path: Path):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"chain_run2\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    from tests.utils import make_csv\n    make_csv(raw_dir, 6, 0, 2000, 2100, n_samples=10)\n    ds = WaveformDataset(char=\"chain_run2\", data_root=str(daq_root), use_daq_scan=True)\n    # 替换类方法为出错版本并用 chainable_step 包装\n    def _bad_build_dataframe(self, verbose: bool = True):",
+        "detail": "tests.test_chainable_steps",
+        "documentation": {}
+    },
+    {
+        "label": "test_cli_show_daq_returns_zero",
+        "kind": 2,
+        "importPath": "tests.test_cli_show_daq",
+        "description": "tests.test_cli_show_daq",
+        "peekOfCode": "def test_cli_show_daq_returns_zero(tmp_path: Path, monkeypatch):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"cli_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    # create minimal CSVs\n    n_samples = 50\n    header = \"HEADER;X;TIMETAG;\" + \";\".join(f\"S{i}\" for i in range(n_samples)) + \"\\n\"\n    from tests.utils import make_simple_csv\n    make_simple_csv(raw_dir, 6, 0, 1000, n_samples=50)",
+        "detail": "tests.test_cli_show_daq",
+        "documentation": {}
+    },
+    {
+        "label": "test_scan_single_run",
+        "kind": 2,
+        "importPath": "tests.test_daq",
+        "description": "tests.test_daq",
+        "peekOfCode": "def test_scan_single_run(tmp_path: Path, make_csv_fn):\n    # 准备模拟 DAQ 目录\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"test_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    # 创建两个通道的 CSV 文件\n    make_csv_fn(raw_dir, 1, 0, 1000, 2000)\n    make_csv_fn(raw_dir, 2, 0, 1500, 2500)\n    # 运行扫描",
+        "detail": "tests.test_daq",
+        "documentation": {}
+    },
+    {
+        "label": "test_waveformdataset_loads_using_daq_scan",
+        "kind": 2,
+        "importPath": "tests.test_daq_integration",
+        "description": "tests.test_daq_integration",
+        "peekOfCode": "def test_waveformdataset_loads_using_daq_scan(tmp_path: Path):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"my_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    # create CH6/CH7 files to match start_channel_slice default 6\n    make_csv(raw_dir, 6, 0, 1000, 2000)\n    make_csv(raw_dir, 7, 0, 1500, 2500)\n    # Use DAQ scan integration\n    ds = WaveformDataset(char=\"my_run\", data_root=str(daq_root), use_daq_scan=True)",
+        "detail": "tests.test_daq_integration",
+        "documentation": {}
+    },
+    {
+        "label": "test_waveformdataset_loads_using_daq_report",
+        "kind": 2,
+        "importPath": "tests.test_daq_integration",
+        "description": "tests.test_daq_integration",
+        "peekOfCode": "def test_waveformdataset_loads_using_daq_report(tmp_path: Path):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"report_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    make_csv(raw_dir, 6, 0, 1000, 2000)\n    # create json report\n    analyzer = DAQAnalyzer(str(daq_root))\n    analyzer.scan_all_runs()\n    out = tmp_path / \"report.json\"",
+        "detail": "tests.test_daq_integration",
+        "documentation": {}
+    },
+    {
+        "label": "test_summary_includes_daq_info",
+        "kind": 2,
+        "importPath": "tests.test_daq_report_factory_and_summary",
+        "description": "tests.test_daq_report_factory_and_summary",
+        "peekOfCode": "def test_summary_includes_daq_info(tmp_path: Path, make_csv_fn):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"summ_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    # create channel files\n    make_csv(raw_dir, 6, 0, 1000, 2000)\n    make_csv(raw_dir, 7, 0, 1500, 2500)\n    ds = WaveformDataset(char=\"summ_run\", data_root=str(daq_root), use_daq_scan=True)\n    ds.check_daq_status()",
+        "detail": "tests.test_daq_report_factory_and_summary",
+        "documentation": {}
+    },
+    {
+        "label": "test_from_daq_report_runs_pipeline",
+        "kind": 2,
+        "importPath": "tests.test_daq_report_factory_and_summary",
+        "description": "tests.test_daq_report_factory_and_summary",
+        "peekOfCode": "def test_from_daq_report_runs_pipeline(tmp_path: Path):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"factory_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    # create minimal CSVs\n    make_csv_fn(raw_dir, 6, 0, 1000, 2000)\n    make_csv_fn(raw_dir, 7, 0, 1500, 2500)\n    analyzer = DAQAnalyzer(str(daq_root))\n    analyzer.scan_all_runs()",
+        "detail": "tests.test_daq_report_factory_and_summary",
+        "documentation": {}
+    },
+    {
+        "label": "test_summary_from_daq_scan_includes_fields",
+        "kind": 2,
+        "importPath": "tests.test_daq_summary_scan",
+        "description": "tests.test_daq_summary_scan",
+        "peekOfCode": "def test_summary_from_daq_scan_includes_fields(tmp_path: Path):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"scan_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    make_csv(raw_dir, 6, 0, 1000, 2000)\n    make_csv(raw_dir, 7, 0, 1500, 2500)\n    ds = WaveformDataset(char=\"scan_run\", data_root=str(daq_root), use_daq_scan=True, daq_root=str(daq_root))\n    info = ds.check_daq_status()\n    assert info is not None",
+        "detail": "tests.test_daq_summary_scan",
+        "documentation": {}
+    },
+    {
+        "label": "tmp_simple_csv",
+        "kind": 2,
+        "importPath": "tests.test_display_run_channel_details",
+        "description": "tests.test_display_run_channel_details",
+        "peekOfCode": "def tmp_simple_csv(tmp_path):\n    csv_path = tmp_path / \"file.csv\"\n    make_csv(csv_path, samples=40)\n    return csv_path\n@pytest.fixture\ndef sample_df(tmp_simple_csv):\n    # load into DataFrame similar to loader behavior for testing styler\n    df = pd.read_csv(tmp_simple_csv, sep=';', header=None)\n    df = df.apply(pd.to_numeric, errors='coerce')\n    return df",
+        "detail": "tests.test_display_run_channel_details",
+        "documentation": {}
+    },
+    {
+        "label": "sample_df",
+        "kind": 2,
+        "importPath": "tests.test_display_run_channel_details",
+        "description": "tests.test_display_run_channel_details",
+        "peekOfCode": "def sample_df(tmp_simple_csv):\n    # load into DataFrame similar to loader behavior for testing styler\n    df = pd.read_csv(tmp_simple_csv, sep=';', header=None)\n    df = df.apply(pd.to_numeric, errors='coerce')\n    return df\ndef test_display_run_channel_details_prints(tmp_path: Path):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"disp_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)",
+        "detail": "tests.test_display_run_channel_details",
+        "documentation": {}
+    },
+    {
+        "label": "test_display_run_channel_details_prints",
+        "kind": 2,
+        "importPath": "tests.test_display_run_channel_details",
+        "description": "tests.test_display_run_channel_details",
+        "peekOfCode": "def test_display_run_channel_details_prints(tmp_path: Path):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"disp_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    make_csv(raw_dir, 6, 0, 1000, 2000)\n    make_csv(raw_dir, 7, 0, 1500, 2500)\n    analyzer = DAQAnalyzer(str(daq_root))\n    analyzer.scan_all_runs()\n    # ensure it doesn't raise and returns self",
+        "detail": "tests.test_display_run_channel_details",
+        "documentation": {}
+    },
+    {
+        "label": "test_raw_file_loader",
+        "kind": 2,
+        "importPath": "tests.test_loader",
+        "description": "tests.test_loader",
+        "peekOfCode": "def test_raw_file_loader():\n    \"\"\"测试原始文件加载器\"\"\"\n    from waveform_analysis.core.loader import RawFileLoader\n    loader = RawFileLoader(n_channels=8, char=\"test\")\n    assert loader.n_channels == 8\n    assert loader.base_dir.name == \"RAW\"\nif __name__ == \"__main__\":\n    pytest.main([__file__, \"-v\"])",
+        "detail": "tests.test_loader",
+        "documentation": {}
+    },
+    {
+        "label": "test_without_waveforms",
+        "kind": 2,
+        "importPath": "tests.test_skip_waveforms",
+        "description": "tests.test_skip_waveforms",
+        "peekOfCode": "def test_without_waveforms(tmp_path: Path):\n    \"\"\"测试：不加载波形\"\"\"\n    print(\"\\n\" + \"=\" * 70)\n    print(\"测试 1: 不加载波形 (load_waveforms=False)\")\n    print(\"=\" * 70)\n    data_root = tmp_path / \"DAQ\"\n    run_dir = data_root / \"50V_OV_circulation_20thr\"\n    (run_dir / \"RAW\").mkdir(parents=True)\n    dataset = WaveformDataset(\n        char=\"50V_OV_circulation_20thr\", n_channels=2, start_channel_slice=6, load_waveforms=False, data_root=str(data_root)",
+        "detail": "tests.test_skip_waveforms",
+        "documentation": {}
+    },
+    {
+        "label": "test_with_waveforms",
+        "kind": 2,
+        "importPath": "tests.test_skip_waveforms",
+        "description": "tests.test_skip_waveforms",
+        "peekOfCode": "def test_with_waveforms(tmp_path: Path):\n    \"\"\"测试：加载波形\"\"\"\n    print(\"\\n\" + \"=\" * 70)\n    print(\"测试 2: 加载波形 (load_waveforms=True，默认)\")\n    print(\"=\" * 70)\n    data_root = tmp_path / \"DAQ\"\n    run_dir = data_root / \"50V_OV_circulation_20thr\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    # create a tiny CSV so load_raw_data can find something",
+        "detail": "tests.test_skip_waveforms",
+        "documentation": {}
+    },
+    {
+        "label": "test_memory_cache",
+        "kind": 2,
+        "importPath": "tests.test_step_caching",
+        "description": "tests.test_step_caching",
+        "peekOfCode": "def test_memory_cache(tmp_path: Path):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"cache_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    from tests.utils import make_simple_csv\n    make_simple_csv(raw_dir, 6, 0, 1000)\n    ds = WaveformDataset(char=\"cache_run\", data_root=str(daq_root), use_daq_scan=True)\n    # enable caching for structure_waveforms to store st_waveforms and pair_len\n    ds.set_step_cache(\"structure_waveforms\", enabled=True, attrs=[\"st_waveforms\", \"pair_len\"])",
+        "detail": "tests.test_step_caching",
+        "documentation": {}
+    },
+    {
+        "label": "test_persistent_cache",
+        "kind": 2,
+        "importPath": "tests.test_step_caching",
+        "description": "tests.test_step_caching",
+        "peekOfCode": "def test_persistent_cache(tmp_path: Path):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"cache_run2\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    from tests.utils import make_simple_csv\n    make_simple_csv(raw_dir, 6, 0, 2000)\n    ds = WaveformDataset(char=\"cache_run2\", data_root=str(daq_root), use_daq_scan=True)\n    cache_file = tmp_path / \"struct_cache.pkl\"\n    ds.set_step_cache(",
+        "detail": "tests.test_step_caching",
+        "documentation": {}
+    },
+    {
+        "label": "make_csv",
+        "kind": 2,
+        "importPath": "tests.utils",
+        "description": "tests.utils",
+        "peekOfCode": "def make_csv(dirpath: Path, ch: int, idx: int, start_tag: int, end_tag: int, n_samples: int = 200, meta: bool = True):\n    \"\"\"Create a CSV file with header and three rows (start, mid, end).\n    dirpath: Path to RAW directory\n    ch, idx: channel and index used in filename\n    start_tag, end_tag: timetag values\n    n_samples: number of sample columns (S0..)\n    meta: whether to add a metadata line before header (so skiprows=2 in loader works)\n    \"\"\"\n    fname = dirpath / f\"RUN_CH{ch}_{idx}.CSV\"\n    sample_headers = \";\".join(f\"S{i}\" for i in range(n_samples))",
+        "detail": "tests.utils",
+        "documentation": {}
+    },
+    {
+        "label": "make_simple_csv",
+        "kind": 2,
+        "importPath": "tests.utils",
+        "description": "tests.utils",
+        "peekOfCode": "def make_simple_csv(dirpath: Path, ch: int, idx: int, tag: int, n_samples: int = 50):\n    \"\"\"Create a simpler CSV used by some tests (two data rows)\"\"\"\n    fname = dirpath / f\"RUN_CH{ch}_{idx}.CSV\"\n    header = \"HEADER;X;TIMETAG;\" + \";\".join(f\"S{i}\" for i in range(n_samples)) + \"\\n\"\n    body = \"\".join(f\"v;1;{tag + i};\" + \";\".join(str((tag + i + j) % 100) for j in range(n_samples)) + \"\\n\" for i in range(2))\n    fname.write_text(header + body, encoding=\"utf-8\")",
+        "detail": "tests.utils",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "tests.verify_load_waveforms_feature",
+        "description": "tests.verify_load_waveforms_feature",
+        "peekOfCode": "def main():\n    print(\"\\n\" + \"=\" * 70)\n    print(\"✅ 内存优化功能验证\")\n    print(\"=\" * 70)\n    # 测试 1: 参数可用性\n    print(\"\\n📌 测试 1: load_waveforms 参数可用性\")\n    print(\"-\" * 70)\n    try:\n        ds_false = WaveformDataset(char=\"50V_OV_circulation_20thr\", load_waveforms=False)\n        print(f\"✅ load_waveforms=False: {ds_false.load_waveforms}\")",
+        "detail": "tests.verify_load_waveforms_feature",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformDataset",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.dataset",
+        "description": "waveform_analysis.core.dataset",
+        "peekOfCode": "class WaveformDataset:\n    \"\"\"\n    统一的波形数据集容器，封装整个数据处理流程。\n    支持链式调用，简化数据加载、预处理和分析。\n    使用示例：\n        dataset = WaveformDataset(char=\"50V_OV_circulation_20thr\", n_channels=2)\n        dataset.load_raw_data().extract_waveforms().structure_waveforms()\\\\\n               .build_waveform_features().build_dataframe().group_events()\\\\\n               .pair_events().save_results()\n        df_paired = dataset.get_paired_events()",
+        "detail": "waveform_analysis.core.dataset",
+        "documentation": {}
+    },
+    {
+        "label": "RawFileLoader",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "peekOfCode": "class RawFileLoader:\n    \"\"\"Efficient loader for DAQ waveform files with channel-aware grouping.\"\"\"\n    # **预编译正则**减少重复 cost\n    _ch_re = re.compile(r\"CH(\\d+)\")\n    _idx_re = re.compile(r\"_(\\d+)\\.CSV$\", re.IGNORECASE)\n    def __init__(self, n_channels: int = 6, char: str = \"All_SelfTrigger\"):\n        self.base_dir = Path(f\"./DAQ/{char}/RAW\")\n        self.n_channels = n_channels\n        self.pattern = f\"DataR_CH*@VX2730_53013_{char}*.CSV\"\n    def _extract(self, filename: str) -> Optional[tuple[int, int]]:",
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_raw_files",
+        "kind": 2,
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "peekOfCode": "def get_raw_files(n_channels=6, char=\"All_SelfTrigger\"):\n    return RawFileLoader(n_channels, char).get_raw_files()\ndef get_waveforms(raw_filess: List[List[str]]):\n    \"\"\"将所有 CSV 加载并拼接成 numpy 数组（fast mode）。\"\"\"\n    waveforms = []\n    for files in raw_filess:\n        if not files:\n            waveforms.append(np.array([]))\n            continue\n        arrs = []",
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_waveforms",
+        "kind": 2,
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "peekOfCode": "def get_waveforms(raw_filess: List[List[str]]):\n    \"\"\"将所有 CSV 加载并拼接成 numpy 数组（fast mode）。\"\"\"\n    waveforms = []\n    for files in raw_filess:\n        if not files:\n            waveforms.append(np.array([]))\n            continue\n        arrs = []\n        for f in files:\n            try:",
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "build_filetime_index",
+        "kind": 2,
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "peekOfCode": "def build_filetime_index(raw_filess):\n    \"\"\"建立基于文件 mtime 的快速查找表。\"\"\"\n    indexed = []\n    for ch_files in raw_filess:\n        if not ch_files:\n            indexed.append([])\n            continue\n        times = [(os.path.getmtime(f), f) for f in ch_files]\n        times.sort()\n        indexed.append(times)",
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_files_by_filetime",
+        "kind": 2,
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "peekOfCode": "def get_files_by_filetime(indexed_table, t_query_mtime):\n    \"\"\"\n    使用二分查找（bisect），找到最接近的时间文件，比原实现更快。\n    \"\"\"\n    result = {}\n    for ch, entries in enumerate(indexed_table):\n        if not entries:\n            continue\n        timestamps = [t for t, _ in entries]\n        pos = bisect.bisect_left(timestamps, t_query_mtime)",
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_files_before",
+        "kind": 2,
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "peekOfCode": "def get_files_before(raw_filess, files_by_time):\n    sel_raw_filess = []\n    for channel_idx, channel_files in enumerate(raw_filess):\n        target_fp = files_by_time.get(channel_idx)\n        if not target_fp:\n            sel_raw_filess.append([])\n            continue\n        if target_fp in channel_files:\n            matched_pos = channel_files.index(target_fp)\n            sel_raw_filess.append(channel_files[: matched_pos + 1])",
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformStruct",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.processor",
+        "description": "waveform_analysis.core.processor",
+        "peekOfCode": "class WaveformStruct:\n    def __init__(self, waveforms):\n        self.waveforms = waveforms\n        self.pair_length = None\n        self.waveform_structureds = None\n    def _structrue_waveform(self, waves=None):\n        # If no explicit waves passed, use the first channel\n        if waves is None:\n            if not self.waveforms:\n                return np.zeros(0, dtype=[(\"baseline\", \"f8\"), (\"timestamp\", \"i8\"), (\"pair_length\", \"i8\"), (\"wave\", \"O\")])",
+        "detail": "waveform_analysis.core.processor",
+        "documentation": {}
+    },
+    {
+        "label": "Datas",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.processor",
+        "description": "waveform_analysis.core.processor",
+        "peekOfCode": "class Datas:\n    def __init__(self, cache_dir) -> None:\n        self.cache_dir = cache_dir\n        df_file = os.path.join(cache_dir, \"df.feather\")\n        event_file = os.path.join(cache_dir, \"df_events.feather\")\n        self.df = pd.read_feather(df_file)\n        self.df_events = pd.read_feather(event_file)\ndef hist_count_ratio(data_a, data_b, bins):\n    counts_a, bin_edges = np.histogram(data_a, bins=bins)\n    counts_b, _ = np.histogram(data_b, bins=bins)",
+        "detail": "waveform_analysis.core.processor",
+        "documentation": {}
+    },
+    {
+        "label": "build_waveform_df",
+        "kind": 2,
+        "importPath": "waveform_analysis.core.processor",
+        "description": "waveform_analysis.core.processor",
+        "peekOfCode": "def build_waveform_df(st_waveforms, peaks, charges, pair_len, n_channels=6):\n    \"\"\"把每个通道的 timestamp / charge / peak / channel 拼成一个 DataFrame.\"\"\"\n    all_timestamps = []\n    all_charges = []\n    all_peaks = []\n    all_channels = []\n    for ch in range(n_channels):\n        n = pair_len[ch]\n        # 如果 timestamp 是 1D（每个事件一个值），这行是 OK 的；\n        # 如果是 2D（事件 × 采样点），可以改成 .mean(axis=1) 或 [:, 0]",
+        "detail": "waveform_analysis.core.processor",
+        "documentation": {}
+    },
+    {
+        "label": "group_multi_channel_hits",
+        "kind": 2,
+        "importPath": "waveform_analysis.core.processor",
+        "description": "waveform_analysis.core.processor",
+        "peekOfCode": "def group_multi_channel_hits(df, time_window_ns):\n    \"\"\"\n    在 df 中按 timestamp 聚类，找“同一事件的多通道触发”，并在簇内部\n    按 channel 从小到大对 (channels, charges, peaks, timestamps) 同步排序。\n    \"\"\"\n    time_window_ps = time_window_ns * 1e3\n    # 先按时间排序一次\n    df_sorted = df.sort_values(\"timestamp\").reset_index(drop=True)\n    # 一次性取成 numpy 数组，后面循环只处理索引，少做 iloc / array 构造\n    ts_all = df_sorted[\"timestamp\"].to_numpy()",
+        "detail": "waveform_analysis.core.processor",
+        "documentation": {}
+    },
+    {
+        "label": "encode_groups_binary",
+        "kind": 2,
+        "importPath": "waveform_analysis.core.processor",
+        "description": "waveform_analysis.core.processor",
+        "peekOfCode": "def encode_groups_binary(channels):\n    \"\"\"\n    任意组出现了部分成员（不成对） -> 整体返回 0（异常）\n    所有组要么完整出现，要么完全不出现。\n    \"\"\"\n    if channels is None or len(channels) == 0:\n        return 0\n    ch_set = set(map(int, channels))\n    code = 0\n    for weight, group_members in GROUP_WEIGHTS.items():",
+        "detail": "waveform_analysis.core.processor",
+        "documentation": {}
+    },
+    {
+        "label": "encode_channels_binary",
+        "kind": 2,
+        "importPath": "waveform_analysis.core.processor",
+        "description": "waveform_analysis.core.processor",
+        "peekOfCode": "def encode_channels_binary(channels):\n    \"\"\"\n    将 channel 列表转换为二进制位掩码。\n    例如 [0,3,5] → 1<<0 | 1<<3 | 1<<5 = 41\n    \"\"\"\n    if not channels:\n        return 0\n    mask = 0\n    for ch in channels:\n        mask |= 1 << int(ch)",
+        "detail": "waveform_analysis.core.processor",
+        "documentation": {}
+    },
+    {
+        "label": "mask_to_channels",
+        "kind": 2,
+        "importPath": "waveform_analysis.core.processor",
+        "description": "waveform_analysis.core.processor",
+        "peekOfCode": "def mask_to_channels(mask):\n    \"\"\"\n    将 bitmask 转回 channel 列表。\n    例如 41 (0b101001) → [0,3,5]\n    \"\"\"\n    if mask is None or mask == 0:\n        return []\n    channels = []\n    bit_pos = 0\n    while mask > 0:",
+        "detail": "waveform_analysis.core.processor",
+        "documentation": {}
+    },
+    {
+        "label": "channels_to_mask",
+        "kind": 2,
+        "importPath": "waveform_analysis.core.processor",
+        "description": "waveform_analysis.core.processor",
+        "peekOfCode": "def channels_to_mask(channels):\n    \"\"\"\n    将 channels 列表转换为 bitmask。\n    例如 [0,3,5] → 41 (二进制 0b101001)\n    \"\"\"\n    if not channels:\n        return 0\n    mask = 0\n    for ch in channels:\n        mask |= 1 << int(ch)",
+        "detail": "waveform_analysis.core.processor",
+        "documentation": {}
+    },
+    {
+        "label": "get_paired_data",
+        "kind": 2,
+        "importPath": "waveform_analysis.core.processor",
+        "description": "waveform_analysis.core.processor",
+        "peekOfCode": "def get_paired_data(df_events, group_mask, char):\n    \"\"\"\n    根据 encode_groups_binary 的加权结果筛选事件，\n    并返回 (char) 对应的 numpy 数组。\n    \"\"\"\n    # 1. 解码：mask → 哪些 group 出现\n    # 直接利用 bit 运算：mask 扣哪个 weight，就说明哪个 group 出现\n    selected_groups = []\n    for weight, members in GROUP_WEIGHTS.items():\n        if group_mask & weight:  # bit on → 已包含该 group",
+        "detail": "waveform_analysis.core.processor",
+        "documentation": {}
+    },
+    {
+        "label": "energy_rec",
+        "kind": 2,
+        "importPath": "waveform_analysis.core.processor",
+        "description": "waveform_analysis.core.processor",
+        "peekOfCode": "def energy_rec(data):\n    x, y = data\n    energy = np.sqrt(np.prod([x, y], axis=0)) * 2\n    return energy\ndef lr_log_ratio(data):\n    x, y = data\n    log_ratio = np.log(x) - np.log(y)\n    return log_ratio\nclass Datas:\n    def __init__(self, cache_dir) -> None:",
+        "detail": "waveform_analysis.core.processor",
+        "documentation": {}
+    },
+    {
+        "label": "lr_log_ratio",
+        "kind": 2,
+        "importPath": "waveform_analysis.core.processor",
+        "description": "waveform_analysis.core.processor",
+        "peekOfCode": "def lr_log_ratio(data):\n    x, y = data\n    log_ratio = np.log(x) - np.log(y)\n    return log_ratio\nclass Datas:\n    def __init__(self, cache_dir) -> None:\n        self.cache_dir = cache_dir\n        df_file = os.path.join(cache_dir, \"df.feather\")\n        event_file = os.path.join(cache_dir, \"df_events.feather\")\n        self.df = pd.read_feather(df_file)",
+        "detail": "waveform_analysis.core.processor",
+        "documentation": {}
+    },
+    {
+        "label": "hist_count_ratio",
+        "kind": 2,
+        "importPath": "waveform_analysis.core.processor",
+        "description": "waveform_analysis.core.processor",
+        "peekOfCode": "def hist_count_ratio(data_a, data_b, bins):\n    counts_a, bin_edges = np.histogram(data_a, bins=bins)\n    counts_b, _ = np.histogram(data_b, bins=bins)\n    ratio = np.divide(\n        counts_a,\n        counts_b,\n        out=np.zeros_like(counts_a, dtype=float),\n        where=counts_b > 0,\n    )\n    return bin_edges, counts_a, counts_b, ratio",
+        "detail": "waveform_analysis.core.processor",
+        "documentation": {}
+    },
+    {
+        "label": "GROUP_MAP",
+        "kind": 5,
+        "importPath": "waveform_analysis.core.processor",
+        "description": "waveform_analysis.core.processor",
+        "peekOfCode": "GROUP_MAP = {\n    0: 1,\n    1: 1,  # group0: channels [0,1]\n    2: 3,\n    3: 3,  # group1: channels [2,3]\n    4: 7,\n    5: 7,  # group2: channels [4,5]\n}\n# 组合权重（用于组完整性编码）\nGROUP_WEIGHTS = {",
+        "detail": "waveform_analysis.core.processor",
+        "documentation": {}
+    },
+    {
+        "label": "GROUP_WEIGHTS",
+        "kind": 5,
+        "importPath": "waveform_analysis.core.processor",
+        "description": "waveform_analysis.core.processor",
+        "peekOfCode": "GROUP_WEIGHTS = {\n    1: {0, 1},  # weight 1 → 组 {0,1}\n    3: {2, 3},  # weight 3 → 组 {2,3}\n    7: {4, 5},  # weight 7 → 组 {4,5}\n}\ndef encode_groups_binary(channels):\n    \"\"\"\n    任意组出现了部分成员（不成对） -> 整体返回 0（异常）\n    所有组要么完整出现，要么完全不出现。\n    \"\"\"",
+        "detail": "waveform_analysis.core.processor",
+        "documentation": {}
+    },
+    {
+        "label": "LandauGaussFitter",
+        "kind": 6,
+        "importPath": "waveform_analysis.fitting.models",
+        "description": "waveform_analysis.fitting.models",
+        "peekOfCode": "class LandauGaussFitter(BaseFitter):\n    def __init__(self, x, y, fit_range, param):\n        super().__init__(x, y, fit_range, param)\n        self.mpv = param[0]\n        self.eta = param[1]\n        self.sigma = param[2]\n        self.const = param[3]\n        self.mu2 = param[4] if len(param) > 4 else 400\n        self.sigma2 = param[5] if len(param) > 5 else 80\n        self.A2 = param[6] if len(param) > 6 else 1e5",
+        "detail": "waveform_analysis.fitting.models",
+        "documentation": {}
+    },
+    {
+        "label": "LandauGaussFitter2",
+        "kind": 6,
+        "importPath": "waveform_analysis.fitting.models",
+        "description": "waveform_analysis.fitting.models",
+        "peekOfCode": "class LandauGaussFitter2(BaseFitter):\n    def __init__(self, x, y, fit_range, param):\n        super().__init__(x, y, fit_range, param)\n        self.mpv = param[0]\n    def fit_func(self, x, mpv, eta, sigma, const):\n        \"\"\"\n        Landau-Gauss 分布的具体实现\n        \"\"\"\n        xi = (x - mpv) / eta\n        landau_part = np.exp(-0.5 * (xi + np.exp(-xi))) / eta",
+        "detail": "waveform_analysis.fitting.models",
+        "documentation": {}
+    },
+    {
+        "label": "gauss",
+        "kind": 2,
+        "importPath": "waveform_analysis.fitting.models",
+        "description": "waveform_analysis.fitting.models",
+        "peekOfCode": "def gauss(x, mu, sigma, amp=1.0):\n    \"\"\"\n    高斯分布（归一化形式乘以振幅）\n    返回 amp * N(mu, sigma)(x)\n    \"\"\"\n    return amp * np.exp(-0.5 * ((x - mu) / sigma) ** 2) / (sigma * np.sqrt(2 * np.pi))\ndef landau_pdf_approx(x, mpv, eta):\n    \"\"\"\n    Landau PDF 近似（不依赖 ROOT）\n    基于 ROOT 的标准参数化：L(x; mpv, eta)",
+        "detail": "waveform_analysis.fitting.models",
+        "documentation": {}
+    },
+    {
+        "label": "landau_pdf_approx",
+        "kind": 2,
+        "importPath": "waveform_analysis.fitting.models",
+        "description": "waveform_analysis.fitting.models",
+        "peekOfCode": "def landau_pdf_approx(x, mpv, eta):\n    \"\"\"\n    Landau PDF 近似（不依赖 ROOT）\n    基于 ROOT 的标准参数化：L(x; mpv, eta)\n    使用常见的数值逼近\n    \"\"\"\n    y = (x - mpv) / eta\n    # 标准 Landau PDF：exp(-0.5*(y + exp(-y)))  / eta\n    return jnp.exp(-0.5 * (y + jnp.exp(-y))) / eta\ndef landau_gauss_jax(x, mpv, eta, sigma, n_steps=100):",
+        "detail": "waveform_analysis.fitting.models",
+        "documentation": {}
+    },
+    {
+        "label": "landau_gauss_jax",
+        "kind": 2,
+        "importPath": "waveform_analysis.fitting.models",
+        "description": "waveform_analysis.fitting.models",
+        "peekOfCode": "def landau_gauss_jax(x, mpv, eta, sigma, n_steps=100):\n    \"\"\"\n    用 JAX 实现的 Landau ⊗ Gaussian 卷积（修复版）\n    参数：\n        x       : array，求值点 (1D)\n        mpv     : Landau 的最可能值 (标量)\n        eta     : Landau 宽度参数 (标量)\n        sigma   : 高斯宽度 (标量)\n        n_steps : 积分步数 (标量)\n    返回：",
+        "detail": "waveform_analysis.fitting.models",
+        "documentation": {}
+    },
+    {
+        "label": "DAQRun",
+        "kind": 6,
+        "importPath": "waveform_analysis.utils.daq",
+        "description": "waveform_analysis.utils.daq",
+        "peekOfCode": "class DAQRun:\n    \"\"\"单个 DAQ 运行的数据和分析类\"\"\"\n    ALLOWED_EXTS = (\".CSV\", \".csv\")\n    CH_PATTERN = re.compile(r\"CH(\\d+)\")\n    IDX_PATTERN = re.compile(r\"_(\\d+)\\.CSV$\", re.IGNORECASE)\n    def __init__(self, run_name: str, run_path: str | Path):\n        self.run_name = run_name\n        self.run_path = str(run_path)\n        self.raw_dir = os.path.join(self.run_path, \"RAW\")\n        self.description = self._load_description()",
+        "detail": "waveform_analysis.utils.daq",
+        "documentation": {}
+    },
+    {
+        "label": "DAQAnalyzer",
+        "kind": 6,
+        "importPath": "waveform_analysis.utils.daq",
+        "description": "waveform_analysis.utils.daq",
+        "peekOfCode": "class DAQAnalyzer:\n    \"\"\"DAQ 数据分析器：管理所有运行的统一分析\"\"\"\n    def __init__(self, daq_root: str | Path = \"DAQ\") -> None:\n        self.daq_root = str(daq_root)\n        self.runs: Dict[str, DAQRun] = {}\n        self.df_runs: Optional[pd.DataFrame] = None\n        self.total_bytes = 0\n    @staticmethod\n    def format_size(bytes_val: int) -> str:\n        for unit in [\"B\", \"KB\", \"MB\", \"GB\", \"TB\"]:",
+        "detail": "waveform_analysis.utils.daq",
+        "documentation": {}
+    },
+    {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "waveform_analysis.utils.daq",
+        "description": "waveform_analysis.utils.daq",
+        "peekOfCode": "logger = logging.getLogger(__name__)\nclass DAQRun:\n    \"\"\"单个 DAQ 运行的数据和分析类\"\"\"\n    ALLOWED_EXTS = (\".CSV\", \".csv\")\n    CH_PATTERN = re.compile(r\"CH(\\d+)\")\n    IDX_PATTERN = re.compile(r\"_(\\d+)\\.CSV$\", re.IGNORECASE)\n    def __init__(self, run_name: str, run_path: str | Path):\n        self.run_name = run_name\n        self.run_path = str(run_path)\n        self.raw_dir = os.path.join(self.run_path, \"RAW\")",
+        "detail": "waveform_analysis.utils.daq",
+        "documentation": {}
+    },
+    {
+        "label": "__all__",
+        "kind": 5,
+        "importPath": "waveform_analysis.utils.daq",
+        "description": "waveform_analysis.utils.daq",
+        "peekOfCode": "__all__ = [\"DAQRun\", \"DAQAnalyzer\"]\nif __name__ == \"__main__\":\n    import argparse\n    parser = argparse.ArgumentParser(description=\"DAQ Analysis - CLI for quick scanning\")\n    parser.add_argument(\"--root\", type=str, default=\"DAQ\", help=\"DAQ root directory\")\n    parser.add_argument(\"--out\", type=str, default=\"daq_analysis.json\", help=\"输出 JSON 文件路径\")\n    args = parser.parse_args()\n    logging.basicConfig(level=logging.INFO)\n    analyzer = DAQAnalyzer(args.root)\n    analyzer.scan_all_runs()",
+        "detail": "waveform_analysis.utils.daq",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "waveform_analysis.cli",
+        "description": "waveform_analysis.cli",
+        "peekOfCode": "def main():\n    \"\"\"主命令行入口\"\"\"\n    parser = argparse.ArgumentParser(\n        description=\"Waveform Analysis - 波形数据处理工具\",\n        formatter_class=argparse.RawDescriptionHelpFormatter,\n        epilog=\"\"\"\n示例:\n  # 处理单个数据集\n  waveform-process --char 50V_OV_circulation_20thr --output results.csv\n  # 指定时间窗口",
+        "detail": "waveform_analysis.cli",
+        "documentation": {}
+    },
+    {
+        "label": "DAQRun",
+        "kind": 6,
+        "importPath": "DAQAnalyzer",
+        "description": "DAQAnalyzer",
+        "peekOfCode": "class DAQRun:\n    \"\"\"单个 DAQ 运行的数据和分析类\"\"\"\n    # 仅处理 CSV 数据文件，避免误读 .root/.dat\n    ALLOWED_EXTS = (\".CSV\", \".csv\")\n    CH_PATTERN = re.compile(r\"CH(\\d+)\")\n    IDX_PATTERN = re.compile(r\"_(\\d+)\\.CSV$\", re.IGNORECASE)\n    def __init__(self, run_name, run_path):\n        self.run_name = run_name\n        self.run_path = run_path\n        self.raw_dir = os.path.join(run_path, \"RAW\")",
+        "detail": "DAQAnalyzer",
+        "documentation": {}
+    },
+    {
+        "label": "DAQAnalyzer",
+        "kind": 6,
+        "importPath": "DAQAnalyzer",
+        "description": "DAQAnalyzer",
+        "peekOfCode": "class DAQAnalyzer:\n    \"\"\"DAQ 数据分析器：管理所有运行的统一分析\"\"\"\n    def __init__(self, daq_root=\"DAQ\"):\n        self.daq_root = daq_root\n        self.runs = {}  # {run_name: DAQRun}\n        self.df_runs = None\n        self.total_bytes = 0\n    @staticmethod\n    def format_size(bytes_val):\n        \"\"\"将字节转换为易读格式\"\"\"",
+        "detail": "DAQAnalyzer",
+        "documentation": {}
+    }
+]

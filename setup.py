@@ -1,0 +1,9 @@
+"""
+Setup script for backward compatibility with editable installs.
+Prefer using pyproject.toml for configuration.
+"""
+
+from setuptools import setup
+
+# All configuration is in pyproject.toml
+setup()

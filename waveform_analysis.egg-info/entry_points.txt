@@ -1,0 +1,2 @@
+[console_scripts]
+waveform-process = waveform_analysis.cli:main
