@@ -10,7 +10,7 @@ from waveform_analysis.core import get_raw_files, get_waveforms
 
 def test_raw_file_loader():
     """测试原始文件加载器"""
-    from waveform_analysis.core.loader import RawFileLoader
+    from utils.data_processing.loader import RawFileLoader
 
     loader = RawFileLoader(n_channels=8, char="test")
     assert loader.n_channels == 8

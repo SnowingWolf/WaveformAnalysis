@@ -41,6 +41,22 @@
         "documentation": {}
     },
     {
+        "label": "Context",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "Plugin",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
         "label": "WaveformDataset",
         "importPath": "waveform_analysis",
         "description": "waveform_analysis",
@@ -50,6 +66,14 @@
     },
     {
         "label": "get_raw_files",
+        "importPath": "waveform_analysis",
+        "description": "waveform_analysis",
+        "isExtraImport": true,
+        "detail": "waveform_analysis",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformDataset",
         "importPath": "waveform_analysis",
         "description": "waveform_analysis",
         "isExtraImport": true,
@@ -275,6 +299,30 @@
         "documentation": {}
     },
     {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
         "label": "pytest",
         "kind": 6,
         "isExtraImport": true,
@@ -332,6 +380,33 @@
         "documentation": {}
     },
     {
+        "label": "os",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "os",
+        "description": "os",
+        "detail": "os",
+        "documentation": {}
+    },
+    {
+        "label": "pickle",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "pickle",
+        "description": "pickle",
+        "detail": "pickle",
+        "documentation": {}
+    },
+    {
+        "label": "time",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "time",
+        "description": "time",
+        "detail": "time",
+        "documentation": {}
+    },
+    {
         "label": "json",
         "kind": 6,
         "isExtraImport": true,
@@ -373,7 +448,7 @@
         "documentation": {}
     },
     {
-        "label": "DAQAnalyzer",
+        "label": "adapt_daq_run",
         "importPath": "waveform_analysis.utils.daq",
         "description": "waveform_analysis.utils.daq",
         "isExtraImport": true,
@@ -381,12 +456,19 @@
         "documentation": {}
     },
     {
-        "label": "pandas",
-        "kind": 6,
+        "label": "adapt_daq_run",
+        "importPath": "waveform_analysis.utils.daq",
+        "description": "waveform_analysis.utils.daq",
         "isExtraImport": true,
-        "importPath": "pandas",
-        "description": "pandas",
-        "detail": "pandas",
+        "detail": "waveform_analysis.utils.daq",
+        "documentation": {}
+    },
+    {
+        "label": "DAQAnalyzer",
+        "importPath": "waveform_analysis.utils.daq",
+        "description": "waveform_analysis.utils.daq",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.utils.daq",
         "documentation": {}
     },
     {
@@ -406,191 +488,21 @@
         "documentation": {}
     },
     {
-        "label": "os",
+        "label": "hashlib",
         "kind": 6,
         "isExtraImport": true,
-        "importPath": "os",
-        "description": "os",
-        "detail": "os",
+        "importPath": "hashlib",
+        "description": "hashlib",
+        "detail": "hashlib",
         "documentation": {}
     },
     {
-        "label": "pickle",
+        "label": "logging",
         "kind": 6,
         "isExtraImport": true,
-        "importPath": "pickle",
-        "description": "pickle",
-        "detail": "pickle",
-        "documentation": {}
-    },
-    {
-        "label": "functools",
-        "kind": 6,
-        "isExtraImport": true,
-        "importPath": "functools",
-        "description": "functools",
-        "detail": "functools",
-        "documentation": {}
-    },
-    {
-        "label": "Any",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Callable",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Dict",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "List",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Optional",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Tuple",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Dict",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "List",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Optional",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Any",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Callable",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Dict",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "List",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Optional",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Tuple",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Dict",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "List",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Optional",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Tuple",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "bisect",
-        "kind": 6,
-        "isExtraImport": true,
-        "importPath": "bisect",
-        "description": "bisect",
-        "detail": "bisect",
+        "importPath": "logging",
+        "description": "logging",
+        "detail": "logging",
         "documentation": {}
     },
     {
@@ -603,6 +515,868 @@
         "documentation": {}
     },
     {
+        "label": "warnings",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "warnings",
+        "description": "warnings",
+        "detail": "warnings",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Iterator",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Type",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Union",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "cast",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Iterator",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Callable",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Callable",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Literal",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Type",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Union",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Iterator",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Iterable",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Iterator",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Type",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Union",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "cast",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Iterator",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Callable",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Union",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "pandas",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "pandas",
+        "description": "pandas",
+        "detail": "pandas",
+        "documentation": {}
+    },
+    {
+        "label": "plot_lineage_labview",
+        "importPath": "waveform_analysis.utils.visualization.lineage_visualizer",
+        "description": "waveform_analysis.utils.visualization.lineage_visualizer",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.utils.visualization.lineage_visualizer",
+        "documentation": {}
+    },
+    {
+        "label": "plot_lineage_labview",
+        "importPath": "waveform_analysis.utils.visualization.lineage_visualizer",
+        "description": "waveform_analysis.utils.visualization.lineage_visualizer",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.utils.visualization.lineage_visualizer",
+        "documentation": {}
+    },
+    {
+        "label": "functools",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "functools",
+        "description": "functools",
+        "detail": "functools",
+        "documentation": {}
+    },
+    {
+        "label": "adapt_daq_run",
+        "importPath": "waveform_analysis.utils.daq.daq",
+        "description": "waveform_analysis.utils.daq.daq",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.utils.daq.daq",
+        "documentation": {}
+    },
+    {
+        "label": "get_raw_files",
+        "importPath": "waveform_analysis.utils.data_processing.loader",
+        "description": "waveform_analysis.utils.data_processing.loader",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.utils.data_processing.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_waveforms",
+        "importPath": "waveform_analysis.utils.data_processing.loader",
+        "description": "waveform_analysis.utils.data_processing.loader",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.utils.data_processing.loader",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformStruct",
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "build_waveform_df",
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "find_hits",
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "group_multi_channel_hits",
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "contextlib",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "contextlib",
+        "description": "contextlib",
+        "detail": "contextlib",
+        "documentation": {}
+    },
+    {
+        "label": "nullcontext",
+        "importPath": "contextlib",
+        "description": "contextlib",
+        "isExtraImport": true,
+        "detail": "contextlib",
+        "documentation": {}
+    },
+    {
+        "label": "dataclass",
+        "importPath": "dataclasses",
+        "description": "dataclasses",
+        "isExtraImport": true,
+        "detail": "dataclasses",
+        "documentation": {}
+    },
+    {
+        "label": "field",
+        "importPath": "dataclasses",
+        "description": "dataclasses",
+        "isExtraImport": true,
+        "detail": "dataclasses",
+        "documentation": {}
+    },
+    {
+        "label": "dataclass",
+        "importPath": "dataclasses",
+        "description": "dataclasses",
+        "isExtraImport": true,
+        "detail": "dataclasses",
+        "documentation": {}
+    },
+    {
+        "label": "field",
+        "importPath": "dataclasses",
+        "description": "dataclasses",
+        "isExtraImport": true,
+        "detail": "dataclasses",
+        "documentation": {}
+    },
+    {
+        "label": "abc",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "abc",
+        "description": "abc",
+        "detail": "abc",
+        "documentation": {}
+    },
+    {
+        "label": "inspect",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "inspect",
+        "description": "inspect",
+        "detail": "inspect",
+        "documentation": {}
+    },
+    {
+        "label": "PEAK_DTYPE",
+        "importPath": "waveform_analysis.utils.data_processing.wavestruct",
+        "description": "waveform_analysis.utils.data_processing.wavestruct",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.utils.data_processing.wavestruct",
+        "documentation": {}
+    },
+    {
+        "label": "RECORD_DTYPE",
+        "importPath": "waveform_analysis.utils.data_processing.wavestruct",
+        "description": "waveform_analysis.utils.data_processing.wavestruct",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.utils.data_processing.wavestruct",
+        "documentation": {}
+    },
+    {
         "label": "defaultdict",
         "importPath": "collections",
         "description": "collections",
@@ -611,12 +1385,11 @@
         "documentation": {}
     },
     {
-        "label": "time",
-        "kind": 6,
+        "label": "defaultdict",
+        "importPath": "collections",
+        "description": "collections",
         "isExtraImport": true,
-        "importPath": "time",
-        "description": "time",
-        "detail": "time",
+        "detail": "collections",
         "documentation": {}
     },
     {
@@ -694,28 +1467,134 @@
         "documentation": {}
     },
     {
-        "label": "logging",
+        "label": "annotations",
+        "importPath": "__future__",
+        "description": "__future__",
+        "isExtraImport": true,
+        "detail": "__future__",
+        "documentation": {}
+    },
+    {
+        "label": "annotations",
+        "importPath": "__future__",
+        "description": "__future__",
+        "isExtraImport": true,
+        "detail": "__future__",
+        "documentation": {}
+    },
+    {
+        "label": "datetime",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "datetime",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "datetime",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "csv",
         "kind": 6,
         "isExtraImport": true,
-        "importPath": "logging",
-        "description": "logging",
-        "detail": "logging",
+        "importPath": "csv",
+        "description": "csv",
+        "detail": "csv",
         "documentation": {}
     },
     {
-        "label": "datetime",
-        "importPath": "datetime",
-        "description": "datetime",
+        "label": "bisect",
+        "kind": 6,
         "isExtraImport": true,
-        "detail": "datetime",
+        "importPath": "bisect",
+        "description": "bisect",
+        "detail": "bisect",
         "documentation": {}
     },
     {
-        "label": "datetime",
-        "importPath": "datetime",
-        "description": "datetime",
+        "label": "networkx",
+        "kind": 6,
         "isExtraImport": true,
-        "detail": "datetime",
+        "importPath": "networkx",
+        "description": "networkx",
+        "detail": "networkx",
+        "documentation": {}
+    },
+    {
+        "label": "FancyArrowPatch",
+        "importPath": "matplotlib.patches",
+        "description": "matplotlib.patches",
+        "isExtraImport": true,
+        "detail": "matplotlib.patches",
+        "documentation": {}
+    },
+    {
+        "label": "Rectangle",
+        "importPath": "matplotlib.patches",
+        "description": "matplotlib.patches",
+        "isExtraImport": true,
+        "detail": "matplotlib.patches",
+        "documentation": {}
+    },
+    {
+        "label": "LineageGraphModel",
+        "importPath": "waveform_analysis.core.models",
+        "description": "waveform_analysis.core.models",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.models",
+        "documentation": {}
+    },
+    {
+        "label": "build_lineage_graph",
+        "importPath": "waveform_analysis.core.models",
+        "description": "waveform_analysis.core.models",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.models",
+        "documentation": {}
+    },
+    {
+        "label": "LineageStyle",
+        "importPath": "waveform_analysis.core.utils",
+        "description": "waveform_analysis.core.utils",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.utils",
+        "documentation": {}
+    },
+    {
+        "label": "get_plugin_dtype",
+        "importPath": "waveform_analysis.core.utils",
+        "description": "waveform_analysis.core.utils",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.utils",
+        "documentation": {}
+    },
+    {
+        "label": "get_plugin_title",
+        "importPath": "waveform_analysis.core.utils",
+        "description": "waveform_analysis.core.utils",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.utils",
+        "documentation": {}
+    },
+    {
+        "label": "get_plugins_from_context",
+        "importPath": "waveform_analysis.core.utils",
+        "description": "waveform_analysis.core.utils",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.utils",
         "documentation": {}
     },
     {
@@ -814,6 +1693,24 @@
         "description": "scripts.demo_skip_waveforms",
         "peekOfCode": "project_root = Path(__file__).parent.parent\nsys.path.insert(0, str(project_root))\nfrom waveform_analysis import WaveformDataset\ndef main():\n    print(\"\\n\" + \"=\" * 70)\n    print(\"演示：选择不加载原始波形以节省内存\")\n    print(\"=\" * 70)\n    # 方法 1: 加载波形（默认）\n    print(\"\\n📌 方法 1: 加载波形（load_waveforms=True，默认）\")\n    print(\"-\" * 70)",
         "detail": "scripts.demo_skip_waveforms",
+        "documentation": {}
+    },
+    {
+        "label": "DummyPlugin",
+        "kind": 6,
+        "importPath": "scripts.test_profiler",
+        "description": "scripts.test_profiler",
+        "peekOfCode": "class DummyPlugin(Plugin):\n    provides = \"dummy_data\"\n    dtype = [(\"val\", \"f4\")]\n    def compute(self, context, run_id):\n        import time\n        time.sleep(0.1)  # Simulate work\n        return np.zeros(10, dtype=self.dtype)\ndef test_profiler():\n    st = Context(storage_dir=\"./test_profiler_data\")\n    st.register(DummyPlugin)",
+        "detail": "scripts.test_profiler",
+        "documentation": {}
+    },
+    {
+        "label": "test_profiler",
+        "kind": 2,
+        "importPath": "scripts.test_profiler",
+        "description": "scripts.test_profiler",
+        "peekOfCode": "def test_profiler():\n    st = Context(storage_dir=\"./test_profiler_data\")\n    st.register(DummyPlugin)\n    print(\"Running plugin first time (compute + save)...\")\n    data = st.get_data(\"run_001\", \"dummy_data\")\n    print(f\"Result: {data}\")\n    print(\"\\nRunning plugin second time (load from cache)...\")\n    data = st.get_data(\"run_001\", \"dummy_data\")\n    print(f\"Result: {data}\")\n    print(\"\\nProfiling Summary:\")",
+        "detail": "scripts.test_profiler",
         "documentation": {}
     },
     {
@@ -925,6 +1822,15 @@
         "documentation": {}
     },
     {
+        "label": "test_persistent_cache_invalidates_on_file_change",
+        "kind": 2,
+        "importPath": "tests.test_cache_invalidation",
+        "description": "tests.test_cache_invalidation",
+        "peekOfCode": "def test_persistent_cache_invalidates_on_file_change(tmp_path: Path, make_csv_fn):\n    # Set up a DAQ-like run structure\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"inv_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    # create a CSV file for channel 6\n    make_csv_fn(raw_dir, 6, 0, 1000, 2000)\n    cache_path = tmp_path / \"load_cache.pkl\"\n    ds = WaveformDataset(char=\"inv_run\", data_root=str(daq_root), use_daq_scan=True)",
+        "detail": "tests.test_cache_invalidation",
+        "documentation": {}
+    },
+    {
         "label": "test_chain_continues_on_error",
         "kind": 2,
         "importPath": "tests.test_chainable_steps",
@@ -983,7 +1889,7 @@
         "kind": 2,
         "importPath": "tests.test_daq_report_factory_and_summary",
         "description": "tests.test_daq_report_factory_and_summary",
-        "peekOfCode": "def test_summary_includes_daq_info(tmp_path: Path, make_csv_fn):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"summ_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    # create channel files\n    make_csv(raw_dir, 6, 0, 1000, 2000)\n    make_csv(raw_dir, 7, 0, 1500, 2500)\n    ds = WaveformDataset(char=\"summ_run\", data_root=str(daq_root), use_daq_scan=True)\n    ds.check_daq_status()",
+        "peekOfCode": "def test_summary_includes_daq_info(tmp_path: Path, make_csv_fn):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"summ_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    # create channel files\n    make_csv_fn(raw_dir, 6, 0, 1000, 2000)\n    make_csv_fn(raw_dir, 7, 0, 1500, 2500)\n    ds = WaveformDataset(char=\"summ_run\", data_root=str(daq_root), use_daq_scan=True)\n    ds.check_daq_status()",
         "detail": "tests.test_daq_report_factory_and_summary",
         "documentation": {}
     },
@@ -992,7 +1898,7 @@
         "kind": 2,
         "importPath": "tests.test_daq_report_factory_and_summary",
         "description": "tests.test_daq_report_factory_and_summary",
-        "peekOfCode": "def test_from_daq_report_runs_pipeline(tmp_path: Path):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"factory_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    # create minimal CSVs\n    make_csv_fn(raw_dir, 6, 0, 1000, 2000)\n    make_csv_fn(raw_dir, 7, 0, 1500, 2500)\n    analyzer = DAQAnalyzer(str(daq_root))\n    analyzer.scan_all_runs()",
+        "peekOfCode": "def test_from_daq_report_runs_pipeline(tmp_path: Path, make_csv_fn):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"factory_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    # create minimal CSVs\n    make_csv_fn(raw_dir, 6, 0, 1000, 2000)\n    make_csv_fn(raw_dir, 7, 0, 1500, 2500)\n    analyzer = DAQAnalyzer(str(daq_root))\n    analyzer.scan_all_runs()",
         "detail": "tests.test_daq_report_factory_and_summary",
         "documentation": {}
     },
@@ -1001,26 +1907,8 @@
         "kind": 2,
         "importPath": "tests.test_daq_summary_scan",
         "description": "tests.test_daq_summary_scan",
-        "peekOfCode": "def test_summary_from_daq_scan_includes_fields(tmp_path: Path):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"scan_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    make_csv(raw_dir, 6, 0, 1000, 2000)\n    make_csv(raw_dir, 7, 0, 1500, 2500)\n    ds = WaveformDataset(char=\"scan_run\", data_root=str(daq_root), use_daq_scan=True, daq_root=str(daq_root))\n    info = ds.check_daq_status()\n    assert info is not None",
+        "peekOfCode": "def test_summary_from_daq_scan_includes_fields(tmp_path: Path, make_csv_fn):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"scan_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)\n    make_csv_fn(raw_dir, 6, 0, 1000, 2000)\n    make_csv_fn(raw_dir, 7, 0, 1500, 2500)\n    ds = WaveformDataset(char=\"scan_run\", data_root=str(daq_root), use_daq_scan=True, daq_root=str(daq_root))\n    info = ds.check_daq_status()\n    assert info is not None",
         "detail": "tests.test_daq_summary_scan",
-        "documentation": {}
-    },
-    {
-        "label": "tmp_simple_csv",
-        "kind": 2,
-        "importPath": "tests.test_display_run_channel_details",
-        "description": "tests.test_display_run_channel_details",
-        "peekOfCode": "def tmp_simple_csv(tmp_path):\n    csv_path = tmp_path / \"file.csv\"\n    make_csv(csv_path, samples=40)\n    return csv_path\n@pytest.fixture\ndef sample_df(tmp_simple_csv):\n    # load into DataFrame similar to loader behavior for testing styler\n    df = pd.read_csv(tmp_simple_csv, sep=';', header=None)\n    df = df.apply(pd.to_numeric, errors='coerce')\n    return df",
-        "detail": "tests.test_display_run_channel_details",
-        "documentation": {}
-    },
-    {
-        "label": "sample_df",
-        "kind": 2,
-        "importPath": "tests.test_display_run_channel_details",
-        "description": "tests.test_display_run_channel_details",
-        "peekOfCode": "def sample_df(tmp_simple_csv):\n    # load into DataFrame similar to loader behavior for testing styler\n    df = pd.read_csv(tmp_simple_csv, sep=';', header=None)\n    df = df.apply(pd.to_numeric, errors='coerce')\n    return df\ndef test_display_run_channel_details_prints(tmp_path: Path):\n    daq_root = tmp_path / \"DAQ\"\n    run_dir = daq_root / \"disp_run\"\n    raw_dir = run_dir / \"RAW\"\n    raw_dir.mkdir(parents=True)",
-        "detail": "tests.test_display_run_channel_details",
         "documentation": {}
     },
     {
@@ -1037,7 +1925,7 @@
         "kind": 2,
         "importPath": "tests.test_loader",
         "description": "tests.test_loader",
-        "peekOfCode": "def test_raw_file_loader():\n    \"\"\"测试原始文件加载器\"\"\"\n    from waveform_analysis.core.loader import RawFileLoader\n    loader = RawFileLoader(n_channels=8, char=\"test\")\n    assert loader.n_channels == 8\n    assert loader.base_dir.name == \"RAW\"\nif __name__ == \"__main__\":\n    pytest.main([__file__, \"-v\"])",
+        "peekOfCode": "def test_raw_file_loader():\n    \"\"\"测试原始文件加载器\"\"\"\n    from utils.data_processing.loader import RawFileLoader\n    loader = RawFileLoader(n_channels=8, char=\"test\")\n    assert loader.n_channels == 8\n    assert loader.base_dir.name == \"RAW\"\nif __name__ == \"__main__\":\n    pytest.main([__file__, \"-v\"])",
         "detail": "tests.test_loader",
         "documentation": {}
     },
@@ -1046,7 +1934,16 @@
         "kind": 2,
         "importPath": "tests.test_skip_waveforms",
         "description": "tests.test_skip_waveforms",
-        "peekOfCode": "def test_without_waveforms(tmp_path: Path):\n    \"\"\"测试：不加载波形\"\"\"\n    print(\"\\n\" + \"=\" * 70)\n    print(\"测试 1: 不加载波形 (load_waveforms=False)\")\n    print(\"=\" * 70)\n    data_root = tmp_path / \"DAQ\"\n    run_dir = data_root / \"50V_OV_circulation_20thr\"\n    (run_dir / \"RAW\").mkdir(parents=True)\n    dataset = WaveformDataset(\n        char=\"50V_OV_circulation_20thr\", n_channels=2, start_channel_slice=6, load_waveforms=False, data_root=str(data_root)",
+        "peekOfCode": "def test_without_waveforms(create_daq_run):\n    \"\"\"测试：不加载波形（使用 fixture）。\"\"\"\n    daq_root, run_dir, raw_dir = create_daq_run(\"50V_OV_circulation_20thr\")\n    dataset = WaveformDataset(\n        char=\"50V_OV_circulation_20thr\",\n        n_channels=2,\n        start_channel_slice=6,\n        load_waveforms=False,\n        data_root=str(daq_root),\n    )",
+        "detail": "tests.test_skip_waveforms",
+        "documentation": {}
+    },
+    {
+        "label": "test_with_waveforms",
+        "kind": 2,
+        "importPath": "tests.test_skip_waveforms",
+        "description": "tests.test_skip_waveforms",
+        "peekOfCode": "def test_with_waveforms(create_daq_run, make_simple_csv_fn):\n    \"\"\"测试：加载波形（使用 fixture）。\"\"\"\n    daq_root, run_dir, raw_dir = create_daq_run(\"50V_OV_circulation_20thr\")\n    # create a tiny CSV so load_raw_data can find something\n    make_simple_csv_fn(raw_dir, 6, 0, 1234, n_samples=20)\n    dataset = WaveformDataset(\n        char=\"50V_OV_circulation_20thr\",\n        n_channels=2,\n        start_channel_slice=6,\n        load_waveforms=True,",
         "detail": "tests.test_skip_waveforms",
         "documentation": {}
     },
@@ -1078,6 +1975,69 @@
         "documentation": {}
     },
     {
+        "label": "GoodDAQWithMethod",
+        "kind": 6,
+        "importPath": "tests.test_utils_daq_adapter",
+        "description": "tests.test_utils_daq_adapter",
+        "peekOfCode": "class GoodDAQWithMethod:\n    def __init__(self, paths):\n        self._paths = paths\n    def get_channel_paths(self, n_channels):\n        out = [list(p) for p in self._paths]\n        if len(out) < n_channels:\n            out.extend([[]] * (n_channels - len(out)))\n        return out[:n_channels]\nclass BadMethodWithChannelFiles:\n    def __init__(self, channel_files):",
+        "detail": "tests.test_utils_daq_adapter",
+        "documentation": {}
+    },
+    {
+        "label": "BadMethodWithChannelFiles",
+        "kind": 6,
+        "importPath": "tests.test_utils_daq_adapter",
+        "description": "tests.test_utils_daq_adapter",
+        "peekOfCode": "class BadMethodWithChannelFiles:\n    def __init__(self, channel_files):\n        self.channel_files = channel_files\n    def get_channel_paths(self, n_channels):\n        raise RuntimeError(\"simulated failure\")\ndef test_adapter_prefers_existing_method():\n    daq = GoodDAQWithMethod(paths=[[\"a.csv\"], [], [\"c1.csv\", \"c2.csv\"]])\n    adapted = adapt_daq_run(daq)\n    res = adapted.get_channel_paths(4)\n    assert isinstance(res, list)",
+        "detail": "tests.test_utils_daq_adapter",
+        "documentation": {}
+    },
+    {
+        "label": "test_adapter_prefers_existing_method",
+        "kind": 2,
+        "importPath": "tests.test_utils_daq_adapter",
+        "description": "tests.test_utils_daq_adapter",
+        "peekOfCode": "def test_adapter_prefers_existing_method():\n    daq = GoodDAQWithMethod(paths=[[\"a.csv\"], [], [\"c1.csv\", \"c2.csv\"]])\n    adapted = adapt_daq_run(daq)\n    res = adapted.get_channel_paths(4)\n    assert isinstance(res, list)\n    assert len(res) == 4\n    assert res[0] == [\"a.csv\"]\n    assert res[1] == []\n    assert res[2] == [\"c1.csv\", \"c2.csv\"]\n    assert res[3] == []",
+        "detail": "tests.test_utils_daq_adapter",
+        "documentation": {}
+    },
+    {
+        "label": "test_adapter_falls_back_to_channel_files_on_method_error",
+        "kind": 2,
+        "importPath": "tests.test_utils_daq_adapter",
+        "description": "tests.test_utils_daq_adapter",
+        "peekOfCode": "def test_adapter_falls_back_to_channel_files_on_method_error():\n    cf = {\n        0: [{\"path\": \"p0_first\"}, \"p0_second\"],\n        2: [{\"path\": \"p2_only\"}],\n    }\n    daq = BadMethodWithChannelFiles(channel_files=cf)\n    adapted = adapt_daq_run(daq)\n    res = adapted.get_channel_paths(4)\n    assert res[0] == [\"p0_first\", \"p0_second\"]\n    assert res[1] == []",
+        "detail": "tests.test_utils_daq_adapter",
+        "documentation": {}
+    },
+    {
+        "label": "test_adapter_accepts_plain_dict_mapping",
+        "kind": 2,
+        "importPath": "tests.test_utils_daq_adapter",
+        "description": "tests.test_utils_daq_adapter",
+        "peekOfCode": "def test_adapter_accepts_plain_dict_mapping():\n    mapping = {0: [\"d0_1\", {\"path\": \"d0_2\"}], 2: [\"d2_1\"]}\n    adapted = adapt_daq_run(mapping)\n    res = adapted.get_channel_paths(4)\n    assert res[0] == [\"d0_1\", \"d0_2\"]\n    assert res[1] == []\n    assert res[2] == [\"d2_1\"]\n    assert res[3] == []\ndef test_adapter_unknown_shape_returns_empty_lists():\n    class Unknown: ...",
+        "detail": "tests.test_utils_daq_adapter",
+        "documentation": {}
+    },
+    {
+        "label": "test_adapter_unknown_shape_returns_empty_lists",
+        "kind": 2,
+        "importPath": "tests.test_utils_daq_adapter",
+        "description": "tests.test_utils_daq_adapter",
+        "peekOfCode": "def test_adapter_unknown_shape_returns_empty_lists():\n    class Unknown: ...\n    adapted = adapt_daq_run(Unknown())\n    assert adapted.get_channel_paths(3) == [[], [], []]\ndef test_channel_files_non_dict_is_ignored():\n    class HasListChannelFiles:\n        def __init__(self):\n            self.channel_files = [\"not\", \"a\", \"dict\"]\n    adapted = adapt_daq_run(HasListChannelFiles())\n    assert adapted.get_channel_paths(2) == [[], []]",
+        "detail": "tests.test_utils_daq_adapter",
+        "documentation": {}
+    },
+    {
+        "label": "test_channel_files_non_dict_is_ignored",
+        "kind": 2,
+        "importPath": "tests.test_utils_daq_adapter",
+        "description": "tests.test_utils_daq_adapter",
+        "peekOfCode": "def test_channel_files_non_dict_is_ignored():\n    class HasListChannelFiles:\n        def __init__(self):\n            self.channel_files = [\"not\", \"a\", \"dict\"]\n    adapted = adapt_daq_run(HasListChannelFiles())\n    assert adapted.get_channel_paths(2) == [[], []]",
+        "detail": "tests.test_utils_daq_adapter",
+        "documentation": {}
+    },
+    {
         "label": "make_csv",
         "kind": 2,
         "importPath": "tests.utils",
@@ -1091,7 +2051,7 @@
         "kind": 2,
         "importPath": "tests.utils",
         "description": "tests.utils",
-        "peekOfCode": "def make_simple_csv(dirpath: Path, ch: int, idx: int, tag: int, n_samples: int = 50):\n    \"\"\"Create a simpler CSV used by some tests (two data rows)\"\"\"\n    fname = dirpath / f\"RUN_CH{ch}_{idx}.CSV\"\n    header = \"HEADER;X;TIMETAG;\" + \";\".join(f\"S{i}\" for i in range(n_samples)) + \"\\n\"\n    body = \"\".join(f\"v;1;{tag + i};\" + \";\".join(str((tag + i + j) % 100) for j in range(n_samples)) + \"\\n\" for i in range(2))\n    fname.write_text(header + body, encoding=\"utf-8\")",
+        "peekOfCode": "def make_simple_csv(dirpath: Path, ch: int, idx: int, tag: int, n_samples: int = 50):\n    \"\"\"Create a simpler CSV used by some tests (two data rows)\"\"\"\n    fname = dirpath / f\"RUN_CH{ch}_{idx}.CSV\"\n    header = \"HEADER;X;TIMETAG;\" + \";\".join(f\"S{i}\" for i in range(n_samples)) + \"\\n\"\n    body = \"\".join(\n        f\"v;1;{tag + i};\" + \";\".join(str((tag + i + j) % 100) for j in range(n_samples)) + \"\\n\" for i in range(2)\n    )\n    fname.write_text(header + body, encoding=\"utf-8\")",
         "detail": "tests.utils",
         "documentation": {}
     },
@@ -1105,192 +2065,228 @@
         "documentation": {}
     },
     {
+        "label": "Context",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.cache",
+        "description": "waveform_analysis.core.cache",
+        "peekOfCode": "class Context(CacheMixin, PluginMixin):\n    \"\"\"\n    The Context orchestrates plugins and manages data storage/caching.\n    Inspired by strax, it is the main entry point for data analysis.\n    \"\"\"\n    def __init__(\n        self,\n        storage_dir: str = \"./strax_data\",\n        config: Optional[Dict[str, Any]] = None,\n        storage: Optional[Any] = None,",
+        "detail": "waveform_analysis.core.cache",
+        "documentation": {}
+    },
+    {
+        "label": "MemmapStorage",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.context",
+        "description": "waveform_analysis.core.context",
+        "peekOfCode": "class MemmapStorage:\n    \"\"\"\n    Handles persistence of structured numpy data using binary files and memmap.\n    \"\"\"\n    STORAGE_VERSION = \"1.0.0\"\n    def __init__(self, base_dir: str, profiler: Optional[Any] = None):\n        self.base_dir = base_dir\n        self.profiler = profiler\n        if not os.path.exists(base_dir):\n            os.makedirs(base_dir, exist_ok=True)",
+        "detail": "waveform_analysis.core.context",
+        "documentation": {}
+    },
+    {
         "label": "WaveformDataset",
         "kind": 6,
         "importPath": "waveform_analysis.core.dataset",
         "description": "waveform_analysis.core.dataset",
-        "peekOfCode": "class WaveformDataset:\n    \"\"\"\n    统一的波形数据集容器，封装整个数据处理流程。\n    支持链式调用，简化数据加载、预处理和分析。\n    使用示例：\n        dataset = WaveformDataset(char=\"50V_OV_circulation_20thr\", n_channels=2)\n        dataset.load_raw_data().extract_waveforms().structure_waveforms()\\\\\n               .build_waveform_features().build_dataframe().group_events()\\\\\n               .pair_events().save_results()\n        df_paired = dataset.get_paired_events()",
+        "peekOfCode": "class WaveformDataset(Context, StepMixin):\n    \"\"\"\n    统一的波形数据集容器，封装整个数据处理流程。\n    现在基于 Context 构建，利用插件化架构。\n    \"\"\"\n    def __init__(\n        self,\n        char: str = \"50V_OV_circulation_20thr\",\n        n_channels: int = 2,\n        start_channel_slice: int = 6,",
         "detail": "waveform_analysis.core.dataset",
         "documentation": {}
     },
     {
-        "label": "RawFileLoader",
+        "label": "CacheMixin",
         "kind": 6,
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "peekOfCode": "class RawFileLoader:\n    \"\"\"Efficient loader for DAQ waveform files with channel-aware grouping.\"\"\"\n    # **预编译正则**减少重复 cost\n    _ch_re = re.compile(r\"CH(\\d+)\")\n    _idx_re = re.compile(r\"_(\\d+)\\.CSV$\", re.IGNORECASE)\n    def __init__(self, n_channels: int = 6, char: str = \"All_SelfTrigger\"):\n        self.base_dir = Path(f\"./DAQ/{char}/RAW\")\n        self.n_channels = n_channels\n        self.pattern = f\"DataR_CH*@VX2730_53013_{char}*.CSV\"\n    def _extract(self, filename: str) -> Optional[tuple[int, int]]:",
-        "detail": "waveform_analysis.core.loader",
+        "importPath": "waveform_analysis.core.mixins",
+        "description": "waveform_analysis.core.mixins",
+        "peekOfCode": "class CacheMixin:\n    \"\"\"Mixin for handling memory and disk caching in WaveformDataset.\"\"\"\n    def __init__(self):\n        # _cache: { step_name: {attr_name: value, ...} }\n        self._cache: Dict[str, Dict[str, object]] = {}\n        # _cache_config: { step_name: {enabled: bool, attrs: [str], persist_path: Optional[str]} }\n        self._cache_config: Dict[str, Dict[str, object]] = {}\n        self.cache_dir: Optional[str] = None\n    def set_step_cache(\n        self,",
+        "detail": "waveform_analysis.core.mixins",
         "documentation": {}
     },
     {
-        "label": "get_raw_files",
-        "kind": 2,
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "peekOfCode": "def get_raw_files(n_channels=6, char=\"All_SelfTrigger\"):\n    return RawFileLoader(n_channels, char).get_raw_files()\ndef get_waveforms(raw_filess: List[List[str]]):\n    \"\"\"将所有 CSV 加载并拼接成 numpy 数组（fast mode）。\"\"\"\n    waveforms = []\n    for files in raw_filess:\n        if not files:\n            waveforms.append(np.array([]))\n            continue\n        arrs = []",
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "get_waveforms",
-        "kind": 2,
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "peekOfCode": "def get_waveforms(raw_filess: List[List[str]]):\n    \"\"\"将所有 CSV 加载并拼接成 numpy 数组（fast mode）。\"\"\"\n    waveforms = []\n    for files in raw_filess:\n        if not files:\n            waveforms.append(np.array([]))\n            continue\n        arrs = []\n        for f in files:\n            try:",
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "build_filetime_index",
-        "kind": 2,
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "peekOfCode": "def build_filetime_index(raw_filess):\n    \"\"\"建立基于文件 mtime 的快速查找表。\"\"\"\n    indexed = []\n    for ch_files in raw_filess:\n        if not ch_files:\n            indexed.append([])\n            continue\n        times = [(os.path.getmtime(f), f) for f in ch_files]\n        times.sort()\n        indexed.append(times)",
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "get_files_by_filetime",
-        "kind": 2,
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "peekOfCode": "def get_files_by_filetime(indexed_table, t_query_mtime):\n    \"\"\"\n    使用二分查找（bisect），找到最接近的时间文件，比原实现更快。\n    \"\"\"\n    result = {}\n    for ch, entries in enumerate(indexed_table):\n        if not entries:\n            continue\n        timestamps = [t for t, _ in entries]\n        pos = bisect.bisect_left(timestamps, t_query_mtime)",
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "get_files_before",
-        "kind": 2,
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "peekOfCode": "def get_files_before(raw_filess, files_by_time):\n    sel_raw_filess = []\n    for channel_idx, channel_files in enumerate(raw_filess):\n        target_fp = files_by_time.get(channel_idx)\n        if not target_fp:\n            sel_raw_filess.append([])\n            continue\n        if target_fp in channel_files:\n            matched_pos = channel_files.index(target_fp)\n            sel_raw_filess.append(channel_files[: matched_pos + 1])",
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "WaveformStruct",
+        "label": "StepMixin",
         "kind": 6,
-        "importPath": "waveform_analysis.core.processor",
-        "description": "waveform_analysis.core.processor",
-        "peekOfCode": "class WaveformStruct:\n    def __init__(self, waveforms):\n        self.waveforms = waveforms\n        self.pair_length = None\n        self.waveform_structureds = None\n    def _structrue_waveform(self, waves=None):\n        # If no explicit waves passed, use the first channel\n        if waves is None:\n            if not self.waveforms:\n                return np.zeros(0, dtype=[(\"baseline\", \"f8\"), (\"timestamp\", \"i8\"), (\"pair_length\", \"i8\"), (\"wave\", \"O\")])",
-        "detail": "waveform_analysis.core.processor",
+        "importPath": "waveform_analysis.core.mixins",
+        "description": "waveform_analysis.core.mixins",
+        "peekOfCode": "class StepMixin:\n    \"\"\"Mixin for chainable step management and error tracking.\"\"\"\n    chainable_step = staticmethod(chainable_step)\n    def __init__(self):\n        self._step_errors: Dict[str, str] = {}\n        self._step_status: Dict[str, str] = {}\n        self._last_failed_step: Optional[str] = None\n        self.raise_on_error: bool = False\n    def _record_step_success(self, name: str) -> None:\n        self._step_status[name] = \"success\"",
+        "detail": "waveform_analysis.core.mixins",
         "documentation": {}
     },
     {
-        "label": "Datas",
+        "label": "PluginMixin",
         "kind": 6,
-        "importPath": "waveform_analysis.core.processor",
-        "description": "waveform_analysis.core.processor",
-        "peekOfCode": "class Datas:\n    def __init__(self, cache_dir) -> None:\n        self.cache_dir = cache_dir\n        df_file = os.path.join(cache_dir, \"df.feather\")\n        event_file = os.path.join(cache_dir, \"df_events.feather\")\n        self.df = pd.read_feather(df_file)\n        self.df_events = pd.read_feather(event_file)\ndef hist_count_ratio(data_a, data_b, bins):\n    counts_a, bin_edges = np.histogram(data_a, bins=bins)\n    counts_b, _ = np.histogram(data_b, bins=bins)",
-        "detail": "waveform_analysis.core.processor",
+        "importPath": "waveform_analysis.core.mixins",
+        "description": "waveform_analysis.core.mixins",
+        "peekOfCode": "class PluginMixin:\n    \"\"\"Mixin for orchestrating plugins in WaveformDataset.\"\"\"\n    def __init__(self):\n        self._plugins: Dict[str, Any] = {}\n    def register_plugin(self, plugin: Any, allow_override: bool = False) -> None:\n        \"\"\"\n        Register a plugin instance with strict validation.\n        \"\"\"\n        # 1. Basic validation\n        if hasattr(plugin, \"validate\"):",
+        "detail": "waveform_analysis.core.mixins",
         "documentation": {}
     },
     {
-        "label": "build_waveform_df",
+        "label": "chainable_step",
         "kind": 2,
-        "importPath": "waveform_analysis.core.processor",
-        "description": "waveform_analysis.core.processor",
-        "peekOfCode": "def build_waveform_df(st_waveforms, peaks, charges, pair_len, n_channels=6):\n    \"\"\"把每个通道的 timestamp / charge / peak / channel 拼成一个 DataFrame.\"\"\"\n    all_timestamps = []\n    all_charges = []\n    all_peaks = []\n    all_channels = []\n    for ch in range(n_channels):\n        n = pair_len[ch]\n        # 如果 timestamp 是 1D（每个事件一个值），这行是 OK 的；\n        # 如果是 2D（事件 × 采样点），可以改成 .mean(axis=1) 或 [:, 0]",
-        "detail": "waveform_analysis.core.processor",
+        "importPath": "waveform_analysis.core.mixins",
+        "description": "waveform_analysis.core.mixins",
+        "peekOfCode": "def chainable_step(fn: Callable):\n    \"\"\"Decorator for chainable steps with integrated caching and error handling.\"\"\"\n    @functools.wraps(fn)\n    def wrapper(self, *args, **kwargs):\n        name = fn.__name__\n        cfg: Dict[str, Any] = {}\n        # 打印当前步骤\n        verbose = kwargs.get(\"verbose\", True)\n        run_id = kwargs.get(\"run_id\") or getattr(self, \"char\", \"default\")\n        # 首次运行打印完整报告",
+        "detail": "waveform_analysis.core.mixins",
         "documentation": {}
     },
     {
-        "label": "group_multi_channel_hits",
+        "label": "PortModel",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.model",
+        "description": "waveform_analysis.core.model",
+        "peekOfCode": "class PortModel:\n    id: str\n    name: str\n    kind: str  # 'in' or 'out'\n    dtype: str\n    parent_node_id: str\n    index: int\n@dataclass\nclass NodeModel:\n    id: str",
+        "detail": "waveform_analysis.core.model",
+        "documentation": {}
+    },
+    {
+        "label": "NodeModel",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.model",
+        "description": "waveform_analysis.core.model",
+        "peekOfCode": "class NodeModel:\n    id: str\n    key: str\n    title: str\n    plugin_class: str\n    description: str = \"\"\n    config: Dict[str, Any] = field(default_factory=dict)\n    in_ports: List[PortModel] = field(default_factory=list)\n    out_ports: List[PortModel] = field(default_factory=list)\n    depth: int = 0",
+        "detail": "waveform_analysis.core.model",
+        "documentation": {}
+    },
+    {
+        "label": "EdgeModel",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.model",
+        "description": "waveform_analysis.core.model",
+        "peekOfCode": "class EdgeModel:\n    source_node_id: str\n    source_port_id: str\n    target_node_id: str\n    target_port_id: str\n    dtype: str = \"unknown\"\n@dataclass\nclass LineageGraphModel:\n    nodes: Dict[str, NodeModel] = field(default_factory=dict)\n    edges: List[EdgeModel] = field(default_factory=list)",
+        "detail": "waveform_analysis.core.model",
+        "documentation": {}
+    },
+    {
+        "label": "LineageGraphModel",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.model",
+        "description": "waveform_analysis.core.model",
+        "peekOfCode": "class LineageGraphModel:\n    nodes: Dict[str, NodeModel] = field(default_factory=dict)\n    edges: List[EdgeModel] = field(default_factory=list)\n    metadata: Dict[str, Any] = field(default_factory=dict)\n    def to_mermaid(self) -> str:\n        \"\"\"\n        将模型转换为 Mermaid.js 流程图字符串。\n        \"\"\"\n        lines = [\"graph LR\"]\n        # 1. 定义节点",
+        "detail": "waveform_analysis.core.model",
+        "documentation": {}
+    },
+    {
+        "label": "build_lineage_graph",
         "kind": 2,
-        "importPath": "waveform_analysis.core.processor",
-        "description": "waveform_analysis.core.processor",
-        "peekOfCode": "def group_multi_channel_hits(df, time_window_ns):\n    \"\"\"\n    在 df 中按 timestamp 聚类，找“同一事件的多通道触发”，并在簇内部\n    按 channel 从小到大对 (channels, charges, peaks, timestamps) 同步排序。\n    \"\"\"\n    time_window_ps = time_window_ns * 1e3\n    # 先按时间排序一次\n    df_sorted = df.sort_values(\"timestamp\").reset_index(drop=True)\n    # 一次性取成 numpy 数组，后面循环只处理索引，少做 iloc / array 构造\n    ts_all = df_sorted[\"timestamp\"].to_numpy()",
-        "detail": "waveform_analysis.core.processor",
+        "importPath": "waveform_analysis.core.model",
+        "description": "waveform_analysis.core.model",
+        "peekOfCode": "def build_lineage_graph(\n    lineage: Dict[str, Any],\n    target_name: str,\n    plugins: Optional[Dict[str, Any]] = None,\n) -> LineageGraphModel:\n    \"\"\"\n    将血缘字典转换为纯数据结构的 LineageGraphModel。\n    \"\"\"\n    from waveform_analysis.core.utils import get_plugin_dtype, get_plugin_title\n    model = LineageGraphModel()",
+        "detail": "waveform_analysis.core.model",
         "documentation": {}
     },
     {
-        "label": "encode_groups_binary",
+        "label": "Option",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.plugins",
+        "description": "waveform_analysis.core.plugins",
+        "peekOfCode": "class Option:\n    \"\"\"\n    A configuration option for a plugin.\n    \"\"\"\n    def __init__(\n        self,\n        default: Any = None,\n        type: Optional[Union[Type, tuple]] = None,\n        help: str = \"\",\n        validate: Optional[callable] = None,",
+        "detail": "waveform_analysis.core.plugins",
+        "documentation": {}
+    },
+    {
+        "label": "Plugin",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.plugins",
+        "description": "waveform_analysis.core.plugins",
+        "peekOfCode": "class Plugin(abc.ABC):\n    \"\"\"\n    Base class for all processing plugins.\n    Inspired by strax, each plugin defines what it provides and what it depends on.\n    \"\"\"\n    provides: str = \"\"\n    depends_on: List[str] = []\n    options: Dict[str, Option] = {}\n    save_when: str = \"never\"\n    dtype: Optional[np.dtype] = None  # Legacy, use output_dtype for new plugins",
+        "detail": "waveform_analysis.core.plugins",
+        "documentation": {}
+    },
+    {
+        "label": "RawFilesPlugin",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.standard_plugins",
+        "description": "waveform_analysis.core.standard_plugins",
+        "peekOfCode": "class RawFilesPlugin(Plugin):\n    \"\"\"Plugin to find raw CSV files.\"\"\"\n    provides = \"raw_files\"\n    description = \"Scan the data directory and group raw CSV files by channel number.\"\n    options = {\n        \"n_channels\": Option(default=2, type=int, help=\"Number of channels to load\"),\n        \"start_channel_slice\": Option(default=6, type=int, help=\"Starting channel index\"),\n        \"data_root\": Option(default=\"DAQ\", type=str, help=\"Root directory for data\"),\n    }\n    def compute(self, context: Any, run_id: str, **kwargs) -> List[List[str]]:",
+        "detail": "waveform_analysis.core.standard_plugins",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformsPlugin",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.standard_plugins",
+        "description": "waveform_analysis.core.standard_plugins",
+        "peekOfCode": "class WaveformsPlugin(Plugin):\n    \"\"\"Plugin to extract waveforms from raw files.\"\"\"\n    provides = \"waveforms\"\n    depends_on = [\"raw_files\"]\n    description = \"Read and parse waveform data from raw CSV files.\"\n    options = {\n        \"start_channel_slice\": Option(default=6, type=int),\n        \"n_channels\": Option(default=2, type=int),\n    }\n    def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:",
+        "detail": "waveform_analysis.core.standard_plugins",
+        "documentation": {}
+    },
+    {
+        "label": "StWaveformsPlugin",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.standard_plugins",
+        "description": "waveform_analysis.core.standard_plugins",
+        "peekOfCode": "class StWaveformsPlugin(Plugin):\n    \"\"\"Plugin to structure waveforms into NumPy arrays.\"\"\"\n    provides = \"st_waveforms\"\n    depends_on = [\"waveforms\"]\n    output_dtype = np.dtype(RECORD_DTYPE)\n    def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:\n        from waveform_analysis.utils.data_processing.processor import WaveformStruct\n        waveforms = context.get_data(run_id, \"waveforms\")\n        waveform_struct = WaveformStruct(waveforms)\n        st_waveforms = waveform_struct.structrue_waveforms(show_progress=context.config.get(\"show_progress\", True))",
+        "detail": "waveform_analysis.core.standard_plugins",
+        "documentation": {}
+    },
+    {
+        "label": "HitFinderPlugin",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.standard_plugins",
+        "description": "waveform_analysis.core.standard_plugins",
+        "peekOfCode": "class HitFinderPlugin(Plugin):\n    \"\"\"Example implementation of the HitFinder as a plugin.\"\"\"\n    provides = \"hits\"\n    depends_on = [\"st_waveforms\", \"event_len\"]\n    input_dtype = {\"st_waveforms\": np.dtype(RECORD_DTYPE)}\n    output_dtype = np.dtype(PEAK_DTYPE)\n    def compute(self, context: Any, run_id: str, threshold: float = 10.0, **kwargs) -> List[np.ndarray]:\n        from waveform_analysis.utils.data_processing.processor import find_hits\n        st_waveforms = context.get_data(run_id, \"st_waveforms\")\n        event_len = context.get_data(run_id, \"event_len\")",
+        "detail": "waveform_analysis.core.standard_plugins",
+        "documentation": {}
+    },
+    {
+        "label": "MemmapStorage",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.storage",
+        "description": "waveform_analysis.core.storage",
+        "peekOfCode": "class MemmapStorage:\n    \"\"\"\n    Handles persistence of structured numpy data using binary files and memmap.\n    \"\"\"\n    STORAGE_VERSION = \"1.0.0\"\n    def __init__(self, base_dir: str, profiler: Optional[Any] = None):\n        self.base_dir = base_dir\n        self.profiler = profiler\n        if not os.path.exists(base_dir):\n            os.makedirs(base_dir, exist_ok=True)",
+        "detail": "waveform_analysis.core.storage",
+        "documentation": {}
+    },
+    {
+        "label": "Profiler",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.utils",
+        "description": "waveform_analysis.core.utils",
+        "peekOfCode": "class Profiler:\n    \"\"\"\n    Lightweight profiler to track execution time of different components.\n    \"\"\"\n    def __init__(self):\n        self.durations = defaultdict(float)\n        self.counts = defaultdict(int)\n    @contextlib.contextmanager\n    def timeit(self, key: str):\n        start = time.perf_counter()",
+        "detail": "waveform_analysis.core.utils",
+        "documentation": {}
+    },
+    {
+        "label": "LineageStyle",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.utils",
+        "description": "waveform_analysis.core.utils",
+        "peekOfCode": "class LineageStyle:\n    \"\"\"样式配置，供可视化与其它工具共享。\"\"\"\n    node_width: float = 3.2\n    node_height: float = 2.0\n    header_height: float = 0.35\n    port_size: float = 0.12\n    x_gap: float = 4.5\n    y_gap: float = 2.8\n    node_bg: str = \"#f5f6fa\"\n    node_edge: str = \"#2f3640\"",
+        "detail": "waveform_analysis.core.utils",
+        "documentation": {}
+    },
+    {
+        "label": "OneTimeGenerator",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.utils",
+        "description": "waveform_analysis.core.utils",
+        "peekOfCode": "class OneTimeGenerator:\n    \"\"\"\n    A wrapper for generators that ensures they are only consumed once.\n    Raises RuntimeError if __iter__ is called more than once.\n    \"\"\"\n    def __init__(self, generator, name=\"Generator\"):\n        self.generator = generator\n        self.name = name\n        self.consumed = False\n    def __iter__(self):",
+        "detail": "waveform_analysis.core.utils",
+        "documentation": {}
+    },
+    {
+        "label": "get_plugins_from_context",
         "kind": 2,
-        "importPath": "waveform_analysis.core.processor",
-        "description": "waveform_analysis.core.processor",
-        "peekOfCode": "def encode_groups_binary(channels):\n    \"\"\"\n    任意组出现了部分成员（不成对） -> 整体返回 0（异常）\n    所有组要么完整出现，要么完全不出现。\n    \"\"\"\n    if channels is None or len(channels) == 0:\n        return 0\n    ch_set = set(map(int, channels))\n    code = 0\n    for weight, group_members in GROUP_WEIGHTS.items():",
-        "detail": "waveform_analysis.core.processor",
+        "importPath": "waveform_analysis.core.utils",
+        "description": "waveform_analysis.core.utils",
+        "peekOfCode": "def get_plugins_from_context(ctx: Any) -> Dict[str, Any]:\n    if ctx is None:\n        return {}\n    return getattr(ctx, \"_plugins\", getattr(ctx, \"plugins\", {}))\ndef get_plugin_dtype(name: str, plugins: Dict[str, Any]) -> str:\n    if name == \"raw_files\":\n        return \"List[List[str]]\"\n    if name == \"waveforms\":\n        return \"List[np.ndarray]\"\n    plugin = plugins.get(name)",
+        "detail": "waveform_analysis.core.utils",
         "documentation": {}
     },
     {
-        "label": "encode_channels_binary",
+        "label": "get_plugin_dtype",
         "kind": 2,
-        "importPath": "waveform_analysis.core.processor",
-        "description": "waveform_analysis.core.processor",
-        "peekOfCode": "def encode_channels_binary(channels):\n    \"\"\"\n    将 channel 列表转换为二进制位掩码。\n    例如 [0,3,5] → 1<<0 | 1<<3 | 1<<5 = 41\n    \"\"\"\n    if not channels:\n        return 0\n    mask = 0\n    for ch in channels:\n        mask |= 1 << int(ch)",
-        "detail": "waveform_analysis.core.processor",
+        "importPath": "waveform_analysis.core.utils",
+        "description": "waveform_analysis.core.utils",
+        "peekOfCode": "def get_plugin_dtype(name: str, plugins: Dict[str, Any]) -> str:\n    if name == \"raw_files\":\n        return \"List[List[str]]\"\n    if name == \"waveforms\":\n        return \"List[np.ndarray]\"\n    plugin = plugins.get(name)\n    if plugin:\n        for attr in (\"dtype\", \"output_dtype\", \"DTYPE\"):\n            val = getattr(plugin, attr, None)\n            if val:",
+        "detail": "waveform_analysis.core.utils",
         "documentation": {}
     },
     {
-        "label": "mask_to_channels",
+        "label": "get_plugin_title",
         "kind": 2,
-        "importPath": "waveform_analysis.core.processor",
-        "description": "waveform_analysis.core.processor",
-        "peekOfCode": "def mask_to_channels(mask):\n    \"\"\"\n    将 bitmask 转回 channel 列表。\n    例如 41 (0b101001) → [0,3,5]\n    \"\"\"\n    if mask is None or mask == 0:\n        return []\n    channels = []\n    bit_pos = 0\n    while mask > 0:",
-        "detail": "waveform_analysis.core.processor",
-        "documentation": {}
-    },
-    {
-        "label": "channels_to_mask",
-        "kind": 2,
-        "importPath": "waveform_analysis.core.processor",
-        "description": "waveform_analysis.core.processor",
-        "peekOfCode": "def channels_to_mask(channels):\n    \"\"\"\n    将 channels 列表转换为 bitmask。\n    例如 [0,3,5] → 41 (二进制 0b101001)\n    \"\"\"\n    if not channels:\n        return 0\n    mask = 0\n    for ch in channels:\n        mask |= 1 << int(ch)",
-        "detail": "waveform_analysis.core.processor",
-        "documentation": {}
-    },
-    {
-        "label": "get_paired_data",
-        "kind": 2,
-        "importPath": "waveform_analysis.core.processor",
-        "description": "waveform_analysis.core.processor",
-        "peekOfCode": "def get_paired_data(df_events, group_mask, char):\n    \"\"\"\n    根据 encode_groups_binary 的加权结果筛选事件，\n    并返回 (char) 对应的 numpy 数组。\n    \"\"\"\n    # 1. 解码：mask → 哪些 group 出现\n    # 直接利用 bit 运算：mask 扣哪个 weight，就说明哪个 group 出现\n    selected_groups = []\n    for weight, members in GROUP_WEIGHTS.items():\n        if group_mask & weight:  # bit on → 已包含该 group",
-        "detail": "waveform_analysis.core.processor",
-        "documentation": {}
-    },
-    {
-        "label": "energy_rec",
-        "kind": 2,
-        "importPath": "waveform_analysis.core.processor",
-        "description": "waveform_analysis.core.processor",
-        "peekOfCode": "def energy_rec(data):\n    x, y = data\n    energy = np.sqrt(np.prod([x, y], axis=0)) * 2\n    return energy\ndef lr_log_ratio(data):\n    x, y = data\n    log_ratio = np.log(x) - np.log(y)\n    return log_ratio\nclass Datas:\n    def __init__(self, cache_dir) -> None:",
-        "detail": "waveform_analysis.core.processor",
-        "documentation": {}
-    },
-    {
-        "label": "lr_log_ratio",
-        "kind": 2,
-        "importPath": "waveform_analysis.core.processor",
-        "description": "waveform_analysis.core.processor",
-        "peekOfCode": "def lr_log_ratio(data):\n    x, y = data\n    log_ratio = np.log(x) - np.log(y)\n    return log_ratio\nclass Datas:\n    def __init__(self, cache_dir) -> None:\n        self.cache_dir = cache_dir\n        df_file = os.path.join(cache_dir, \"df.feather\")\n        event_file = os.path.join(cache_dir, \"df_events.feather\")\n        self.df = pd.read_feather(df_file)",
-        "detail": "waveform_analysis.core.processor",
-        "documentation": {}
-    },
-    {
-        "label": "hist_count_ratio",
-        "kind": 2,
-        "importPath": "waveform_analysis.core.processor",
-        "description": "waveform_analysis.core.processor",
-        "peekOfCode": "def hist_count_ratio(data_a, data_b, bins):\n    counts_a, bin_edges = np.histogram(data_a, bins=bins)\n    counts_b, _ = np.histogram(data_b, bins=bins)\n    ratio = np.divide(\n        counts_a,\n        counts_b,\n        out=np.zeros_like(counts_a, dtype=float),\n        where=counts_b > 0,\n    )\n    return bin_edges, counts_a, counts_b, ratio",
-        "detail": "waveform_analysis.core.processor",
-        "documentation": {}
-    },
-    {
-        "label": "GROUP_MAP",
-        "kind": 5,
-        "importPath": "waveform_analysis.core.processor",
-        "description": "waveform_analysis.core.processor",
-        "peekOfCode": "GROUP_MAP = {\n    0: 1,\n    1: 1,  # group0: channels [0,1]\n    2: 3,\n    3: 3,  # group1: channels [2,3]\n    4: 7,\n    5: 7,  # group2: channels [4,5]\n}\n# 组合权重（用于组完整性编码）\nGROUP_WEIGHTS = {",
-        "detail": "waveform_analysis.core.processor",
-        "documentation": {}
-    },
-    {
-        "label": "GROUP_WEIGHTS",
-        "kind": 5,
-        "importPath": "waveform_analysis.core.processor",
-        "description": "waveform_analysis.core.processor",
-        "peekOfCode": "GROUP_WEIGHTS = {\n    1: {0, 1},  # weight 1 → 组 {0,1}\n    3: {2, 3},  # weight 3 → 组 {2,3}\n    7: {4, 5},  # weight 7 → 组 {4,5}\n}\ndef encode_groups_binary(channels):\n    \"\"\"\n    任意组出现了部分成员（不成对） -> 整体返回 0（异常）\n    所有组要么完整出现，要么完全不出现。\n    \"\"\"",
-        "detail": "waveform_analysis.core.processor",
+        "importPath": "waveform_analysis.core.utils",
+        "description": "waveform_analysis.core.utils",
+        "peekOfCode": "def get_plugin_title(name: str, info: Dict[str, Any], plugins: Dict[str, Any]) -> str:\n    plugin = plugins.get(name)\n    if plugin:\n        for attr in (\"name\", \"plugin_name\", \"display_name\"):\n            val = getattr(plugin, attr, None)\n            if val:\n                return str(val)\n        return plugin.__class__.__name__\n    return str(info.get(\"plugin_class\", name))",
+        "detail": "waveform_analysis.core.utils",
         "documentation": {}
     },
     {
@@ -1339,39 +2335,372 @@
         "documentation": {}
     },
     {
-        "label": "DAQRun",
-        "kind": 6,
-        "importPath": "waveform_analysis.utils.daq",
-        "description": "waveform_analysis.utils.daq",
-        "peekOfCode": "class DAQRun:\n    \"\"\"单个 DAQ 运行的数据和分析类\"\"\"\n    ALLOWED_EXTS = (\".CSV\", \".csv\")\n    CH_PATTERN = re.compile(r\"CH(\\d+)\")\n    IDX_PATTERN = re.compile(r\"_(\\d+)\\.CSV$\", re.IGNORECASE)\n    def __init__(self, run_name: str, run_path: str | Path):\n        self.run_name = run_name\n        self.run_path = str(run_path)\n        self.raw_dir = os.path.join(self.run_path, \"RAW\")\n        self.description = self._load_description()",
-        "detail": "waveform_analysis.utils.daq",
-        "documentation": {}
-    },
-    {
         "label": "DAQAnalyzer",
         "kind": 6,
-        "importPath": "waveform_analysis.utils.daq",
-        "description": "waveform_analysis.utils.daq",
-        "peekOfCode": "class DAQAnalyzer:\n    \"\"\"DAQ 数据分析器：管理所有运行的统一分析\"\"\"\n    def __init__(self, daq_root: str | Path = \"DAQ\") -> None:\n        self.daq_root = str(daq_root)\n        self.runs: Dict[str, DAQRun] = {}\n        self.df_runs: Optional[pd.DataFrame] = None\n        self.total_bytes = 0\n    @staticmethod\n    def format_size(bytes_val: int) -> str:\n        for unit in [\"B\", \"KB\", \"MB\", \"GB\", \"TB\"]:",
-        "detail": "waveform_analysis.utils.daq",
+        "importPath": "waveform_analysis.utils.daq.__pycache__.daq_analyzer",
+        "description": "waveform_analysis.utils.daq.__pycache__.daq_analyzer",
+        "peekOfCode": "class DAQAnalyzer:\n    \"\"\"DAQ 数据分析器：管理所有运行的统一分析（显示/保存等）。\"\"\"\n    def __init__(self, daq_root: str | Path = \"DAQ\") -> None:\n        self.daq_root = str(daq_root)\n        self.runs: Dict[str, DAQRun] = {}\n        self.df_runs: Optional[pd.DataFrame] = None\n        self.total_bytes = 0\n    @staticmethod\n    def format_size(bytes_val: int) -> str:\n        for unit in [\"B\", \"KB\", \"MB\", \"GB\", \"TB\"]:",
+        "detail": "waveform_analysis.utils.daq.__pycache__.daq_analyzer",
         "documentation": {}
     },
     {
         "label": "logger",
         "kind": 5,
-        "importPath": "waveform_analysis.utils.daq",
-        "description": "waveform_analysis.utils.daq",
-        "peekOfCode": "logger = logging.getLogger(__name__)\nclass DAQRun:\n    \"\"\"单个 DAQ 运行的数据和分析类\"\"\"\n    ALLOWED_EXTS = (\".CSV\", \".csv\")\n    CH_PATTERN = re.compile(r\"CH(\\d+)\")\n    IDX_PATTERN = re.compile(r\"_(\\d+)\\.CSV$\", re.IGNORECASE)\n    def __init__(self, run_name: str, run_path: str | Path):\n        self.run_name = run_name\n        self.run_path = str(run_path)\n        self.raw_dir = os.path.join(self.run_path, \"RAW\")",
-        "detail": "waveform_analysis.utils.daq",
+        "importPath": "waveform_analysis.utils.daq.__pycache__.daq_analyzer",
+        "description": "waveform_analysis.utils.daq.__pycache__.daq_analyzer",
+        "peekOfCode": "logger = logging.getLogger(__name__)\nfrom .daq_run import DAQRun\nclass DAQAnalyzer:\n    \"\"\"DAQ 数据分析器：管理所有运行的统一分析（显示/保存等）。\"\"\"\n    def __init__(self, daq_root: str | Path = \"DAQ\") -> None:\n        self.daq_root = str(daq_root)\n        self.runs: Dict[str, DAQRun] = {}\n        self.df_runs: Optional[pd.DataFrame] = None\n        self.total_bytes = 0\n    @staticmethod",
+        "detail": "waveform_analysis.utils.daq.__pycache__.daq_analyzer",
         "documentation": {}
     },
     {
         "label": "__all__",
         "kind": 5,
-        "importPath": "waveform_analysis.utils.daq",
-        "description": "waveform_analysis.utils.daq",
-        "peekOfCode": "__all__ = [\"DAQRun\", \"DAQAnalyzer\"]\nif __name__ == \"__main__\":\n    import argparse\n    parser = argparse.ArgumentParser(description=\"DAQ Analysis - CLI for quick scanning\")\n    parser.add_argument(\"--root\", type=str, default=\"DAQ\", help=\"DAQ root directory\")\n    parser.add_argument(\"--out\", type=str, default=\"daq_analysis.json\", help=\"输出 JSON 文件路径\")\n    args = parser.parse_args()\n    logging.basicConfig(level=logging.INFO)\n    analyzer = DAQAnalyzer(args.root)\n    analyzer.scan_all_runs()",
-        "detail": "waveform_analysis.utils.daq",
+        "importPath": "waveform_analysis.utils.daq.__pycache__.daq_analyzer",
+        "description": "waveform_analysis.utils.daq.__pycache__.daq_analyzer",
+        "peekOfCode": "__all__ = [\"DAQAnalyzer\"]",
+        "detail": "waveform_analysis.utils.daq.__pycache__.daq_analyzer",
+        "documentation": {}
+    },
+    {
+        "label": "_DAQRunAdapter",
+        "kind": 6,
+        "importPath": "waveform_analysis.utils.daq.daq",
+        "description": "waveform_analysis.utils.daq.daq",
+        "peekOfCode": "class _DAQRunAdapter:\n    \"\"\"Lightweight adapter exposing a stable minimal DAQRun protocol:\n    - get_channel_paths(n_channels) -> List[List[str]]\n    - channel_files -> dict mapping ch -> list(entries)\n    This adapter wraps objects that either already implement the method,\n    or provide a `channel_files` attribute, or are plain dict mappings.\n    \"\"\"\n    def __init__(self, src: Any):\n        self._src = src\n    def get_channel_paths(self, n_channels: int):",
+        "detail": "waveform_analysis.utils.daq.daq",
+        "documentation": {}
+    },
+    {
+        "label": "adapt_daq_run",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.daq.daq",
+        "description": "waveform_analysis.utils.daq.daq",
+        "peekOfCode": "def adapt_daq_run(obj: Any):\n    \"\"\"Return an adapter providing `get_channel_paths(n_channels)` for obj.\n    Use this in loader/dataset to normalize inputs from different DAQ tooling.\n    \"\"\"\n    return _DAQRunAdapter(obj)\n__all__ = [\"DAQRun\", \"DAQAnalyzer\"]",
+        "detail": "waveform_analysis.utils.daq.daq",
+        "documentation": {}
+    },
+    {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "waveform_analysis.utils.daq.daq",
+        "description": "waveform_analysis.utils.daq.daq",
+        "peekOfCode": "logger = logging.getLogger(__name__)\nclass _DAQRunAdapter:\n    \"\"\"Lightweight adapter exposing a stable minimal DAQRun protocol:\n    - get_channel_paths(n_channels) -> List[List[str]]\n    - channel_files -> dict mapping ch -> list(entries)\n    This adapter wraps objects that either already implement the method,\n    or provide a `channel_files` attribute, or are plain dict mappings.\n    \"\"\"\n    def __init__(self, src: Any):\n        self._src = src",
+        "detail": "waveform_analysis.utils.daq.daq",
+        "documentation": {}
+    },
+    {
+        "label": "__all__",
+        "kind": 5,
+        "importPath": "waveform_analysis.utils.daq.daq",
+        "description": "waveform_analysis.utils.daq.daq",
+        "peekOfCode": "__all__ = [\"DAQRun\", \"DAQAnalyzer\"]",
+        "detail": "waveform_analysis.utils.daq.daq",
+        "documentation": {}
+    },
+    {
+        "label": "DAQAnalyzer",
+        "kind": 6,
+        "importPath": "waveform_analysis.utils.daq.daq_analyzer",
+        "description": "waveform_analysis.utils.daq.daq_analyzer",
+        "peekOfCode": "class DAQAnalyzer:\n    \"\"\"DAQ 数据分析器：管理所有运行的统一分析（显示/保存等）。\"\"\"\n    def __init__(self, daq_root: str | Path = \"DAQ\") -> None:\n        self.daq_root = str(daq_root)\n        self.runs: Dict[str, DAQRun] = {}\n        self.df_runs: Optional[pd.DataFrame] = None\n        self.total_bytes = 0\n    @staticmethod\n    def format_size(bytes_val: int) -> str:\n        for unit in [\"B\", \"KB\", \"MB\", \"GB\", \"TB\"]:",
+        "detail": "waveform_analysis.utils.daq.daq_analyzer",
+        "documentation": {}
+    },
+    {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "waveform_analysis.utils.daq.daq_analyzer",
+        "description": "waveform_analysis.utils.daq.daq_analyzer",
+        "peekOfCode": "logger = logging.getLogger(__name__)\nfrom .daq_run import DAQRun\nclass DAQAnalyzer:\n    \"\"\"DAQ 数据分析器：管理所有运行的统一分析（显示/保存等）。\"\"\"\n    def __init__(self, daq_root: str | Path = \"DAQ\") -> None:\n        self.daq_root = str(daq_root)\n        self.runs: Dict[str, DAQRun] = {}\n        self.df_runs: Optional[pd.DataFrame] = None\n        self.total_bytes = 0\n    @staticmethod",
+        "detail": "waveform_analysis.utils.daq.daq_analyzer",
+        "documentation": {}
+    },
+    {
+        "label": "__all__",
+        "kind": 5,
+        "importPath": "waveform_analysis.utils.daq.daq_analyzer",
+        "description": "waveform_analysis.utils.daq.daq_analyzer",
+        "peekOfCode": "__all__ = [\"DAQAnalyzer\"]",
+        "detail": "waveform_analysis.utils.daq.daq_analyzer",
+        "documentation": {}
+    },
+    {
+        "label": "Context",
+        "kind": 6,
+        "importPath": "waveform_analysis.utils.daq.daq_run",
+        "description": "waveform_analysis.utils.daq.daq_run",
+        "peekOfCode": "class Context(CacheMixin, PluginMixin):\n    \"\"\"\n    The Context orchestrates plugins and manages data storage/caching.\n    Inspired by strax, it is the main entry point for data analysis.\n    \"\"\"\n    def __init__(\n        self,\n        storage_dir: str = \"./strax_data\",\n        config: Optional[Dict[str, Any]] = None,\n        storage: Optional[Any] = None,",
+        "detail": "waveform_analysis.utils.daq.daq_run",
+        "documentation": {}
+    },
+    {
+        "label": "parse_files_generator",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.io",
+        "description": "waveform_analysis.utils.data_processing.io",
+        "peekOfCode": "def parse_files_generator(\n    file_paths: List[str],\n    skiprows: int = 2,\n    delimiter: str = \";\",\n    chunksize: int = 1000,\n    show_progress: bool = False,\n) -> Iterator[np.ndarray]:\n    \"\"\"\n    Yields chunks of parsed waveform data from a list of files.\n    \"\"\"",
+        "detail": "waveform_analysis.utils.data_processing.io",
+        "documentation": {}
+    },
+    {
+        "label": "parse_and_stack_files",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.io",
+        "description": "waveform_analysis.utils.data_processing.io",
+        "peekOfCode": "def parse_and_stack_files(\n    file_paths: List[str],\n    skiprows: int = 2,\n    delimiter: str = \";\",\n    chunksize: int | None = None,\n    n_jobs: int = 1,\n    use_process_pool: bool = False,\n    show_progress: bool = False,\n) -> np.ndarray:\n    \"\"\"Parse a list of CSV files and return a single vstacked numpy array.",
+        "detail": "waveform_analysis.utils.data_processing.io",
+        "documentation": {}
+    },
+    {
+        "label": "logger",
+        "kind": 5,
+        "importPath": "waveform_analysis.utils.data_processing.io",
+        "description": "waveform_analysis.utils.data_processing.io",
+        "peekOfCode": "logger = logging.getLogger(__name__)\ndef parse_files_generator(\n    file_paths: List[str],\n    skiprows: int = 2,\n    delimiter: str = \";\",\n    chunksize: int = 1000,\n    show_progress: bool = False,\n) -> Iterator[np.ndarray]:\n    \"\"\"\n    Yields chunks of parsed waveform data from a list of files.",
+        "detail": "waveform_analysis.utils.data_processing.io",
+        "documentation": {}
+    },
+    {
+        "label": "RawFileLoader",
+        "kind": 6,
+        "importPath": "waveform_analysis.utils.data_processing.loader",
+        "description": "waveform_analysis.utils.data_processing.loader",
+        "peekOfCode": "class RawFileLoader:\n    \"\"\"Efficient loader for DAQ waveform files with channel-aware grouping.\"\"\"\n    # **预编译正则**减少重复 cost\n    _ch_re = re.compile(r\"CH(\\d+)\")\n    _idx_re = re.compile(r\"_(\\d+)\\.CSV$\", re.IGNORECASE)\n    def __init__(self, n_channels: int = 6, char: str = \"All_SelfTrigger\", data_root: str = \"DAQ\"):\n        self.base_dir = Path(data_root) / char / \"RAW\"\n        self.n_channels = n_channels\n        self.pattern = \"*CH*.CSV\"\n    def _extract(self, filename: str) -> Optional[tuple[int, int]]:",
+        "detail": "waveform_analysis.utils.data_processing.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_raw_files",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.loader",
+        "description": "waveform_analysis.utils.data_processing.loader",
+        "peekOfCode": "def get_raw_files(n_channels=6, char=\"All_SelfTrigger\", daq_run=None, data_root=\"DAQ\"):\n    \"\"\"返回每个通道的文件列表。\n    参数:\n        n_channels: 通道数\n        char: 运行标识（用于按原始路径匹配）\n        daq_run: 可选的 `DAQRun` 对象（来自 `waveform_analysis.utils.daq`），\n                 若提供则用其文件列表替代基于文件系统的扫描。\n        data_root: 数据根目录\n    \"\"\"\n    if daq_run is not None:",
+        "detail": "waveform_analysis.utils.data_processing.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_waveforms_generator",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.loader",
+        "description": "waveform_analysis.utils.data_processing.loader",
+        "peekOfCode": "def get_waveforms_generator(\n    raw_filess: Optional[List[List[str]]] = None,\n    daq_run=None,\n    n_channels: int = 6,\n    chunksize: int = 1000,\n    show_progress: bool = False,\n):\n    \"\"\"\n    Yields synchronized chunks of waveforms for all channels.\n    Returns a generator of tuples/lists, where each element is a list of numpy arrays (one per channel).",
+        "detail": "waveform_analysis.utils.data_processing.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_waveforms",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.loader",
+        "description": "waveform_analysis.utils.data_processing.loader",
+        "peekOfCode": "def get_waveforms(\n    raw_filess: Optional[List[List[str]]] = None,\n    daq_run=None,\n    n_channels: int = 6,\n    show_progress: bool = False,\n):\n    \"\"\"将所有 CSV 加载并拼接成 numpy 数组（fast mode）。\n    参数:\n        raw_filess: 可选的每通道文件路径列表\n        daq_run: 可选的 DAQRun 结果（对象或 dict），优先用于构建文件列表",
+        "detail": "waveform_analysis.utils.data_processing.loader",
+        "documentation": {}
+    },
+    {
+        "label": "build_filetime_index",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.loader",
+        "description": "waveform_analysis.utils.data_processing.loader",
+        "peekOfCode": "def build_filetime_index(raw_filess):\n    \"\"\"建立基于文件 mtime 的快速查找表。\"\"\"\n    indexed = []\n    for ch_files in raw_filess:\n        if not ch_files:\n            indexed.append([])\n            continue\n        times = [(os.path.getmtime(f), f) for f in ch_files]\n        times.sort()\n        indexed.append(times)",
+        "detail": "waveform_analysis.utils.data_processing.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_files_by_filetime",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.loader",
+        "description": "waveform_analysis.utils.data_processing.loader",
+        "peekOfCode": "def get_files_by_filetime(indexed_table, t_query_mtime):\n    \"\"\"\n    使用二分查找（bisect），找到最接近的时间文件，比原实现更快。\n    \"\"\"\n    result = {}\n    for ch, entries in enumerate(indexed_table):\n        if not entries:\n            continue\n        timestamps = [t for t, _ in entries]\n        pos = bisect.bisect_left(timestamps, t_query_mtime)",
+        "detail": "waveform_analysis.utils.data_processing.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_files_before",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.loader",
+        "description": "waveform_analysis.utils.data_processing.loader",
+        "peekOfCode": "def get_files_before(raw_filess, files_by_time):\n    sel_raw_filess = []\n    for channel_idx, channel_files in enumerate(raw_filess):\n        target_fp = files_by_time.get(channel_idx)\n        if not target_fp:\n            sel_raw_filess.append([])\n            continue\n        if target_fp in channel_files:\n            matched_pos = channel_files.index(target_fp)\n            sel_raw_filess.append(channel_files[: matched_pos + 1])",
+        "detail": "waveform_analysis.utils.data_processing.loader",
+        "documentation": {}
+    },
+    {
+        "label": "Datas",
+        "kind": 6,
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "peekOfCode": "class Datas:\n    def __init__(self, cache_dir) -> None:\n        self.cache_dir = cache_dir\n        df_file = os.path.join(cache_dir, \"df.feather\")\n        event_file = os.path.join(cache_dir, \"df_events.feather\")\n        self.df = pd.read_feather(df_file)\n        self.df_events = pd.read_feather(event_file)\ndef hist_count_ratio(data_a, data_b, bins):\n    counts_a, bin_edges = np.histogram(data_a, bins=bins)\n    counts_b, _ = np.histogram(data_b, bins=bins)",
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "find_hits",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "peekOfCode": "def find_hits(\n    waves: np.ndarray,\n    baselines: np.ndarray,\n    threshold: float,\n    left_extension: int = 2,\n    right_extension: int = 2,\n) -> np.ndarray:\n    \"\"\"\n    Vectorized hit-finding. Finds contiguous regions where (baseline - wave) > threshold.\n    Args:",
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "build_waveform_df",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "peekOfCode": "def build_waveform_df(\n    st_waveforms,\n    peaks,\n    charges,\n    event_len,\n    n_channels=6,\n    peak_max_min=None,\n    peak_baseline=None,\n):\n    \"\"\"把每个通道的 timestamp / charge / peak / channel 拼成一个 DataFrame。",
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "group_multi_channel_hits",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "peekOfCode": "def group_multi_channel_hits(df, time_window_ns, show_progress: bool = False):\n    \"\"\"\n    在 df 中按 timestamp 聚类，找“同一事件的多通道触发”，并在簇内部\n    按 channel 从小到大对 (channels, charges, peaks, timestamps) 同步排序。\n    \"\"\"\n    time_window_ps = time_window_ns * 1e3\n    # 先按时间排序一次\n    df_sorted = df.sort_values(\"timestamp\").reset_index(drop=True)\n    # 一次性取成 numpy 数组，后面循环只处理索引，少做 iloc / array 构造\n    ts_all = df_sorted[\"timestamp\"].to_numpy()",
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "encode_groups_binary",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "peekOfCode": "def encode_groups_binary(channels):\n    \"\"\"\n    任意组出现了部分成员（不成对） -> 整体返回 0（异常）\n    所有组要么完整出现，要么完全不出现。\n    \"\"\"\n    if channels is None or len(channels) == 0:\n        return 0\n    ch_set = set(map(int, channels))\n    code = 0\n    for weight, group_members in GROUP_WEIGHTS.items():",
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "encode_channels_binary",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "peekOfCode": "def encode_channels_binary(channels):\n    \"\"\"\n    将 channel 列表转换为二进制位掩码。\n    例如 [0,3,5] → 1<<0 | 1<<3 | 1<<5 = 41\n    \"\"\"\n    if not channels:\n        return 0\n    mask = 0\n    for ch in channels:\n        mask |= 1 << int(ch)",
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "mask_to_channels",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "peekOfCode": "def mask_to_channels(mask):\n    \"\"\"\n    将 bitmask 转回 channel 列表。\n    例如 41 (0b101001) → [0,3,5]\n    \"\"\"\n    if mask is None or mask == 0:\n        return []\n    channels = []\n    bit_pos = 0\n    while mask > 0:",
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "channels_to_mask",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "peekOfCode": "def channels_to_mask(channels):\n    \"\"\"\n    将 channels 列表转换为 bitmask。\n    例如 [0,3,5] → 41 (二进制 0b101001)\n    \"\"\"\n    if not channels:\n        return 0\n    mask = 0\n    for ch in channels:\n        mask |= 1 << int(ch)",
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "get_paired_data",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "peekOfCode": "def get_paired_data(df_events, group_mask, char):\n    \"\"\"\n    根据 encode_groups_binary 的加权结果筛选事件，\n    并返回 (char) 对应的 numpy 数组。\n    \"\"\"\n    # 1. 解码：mask → 哪些 group 出现\n    # 直接利用 bit 运算：mask 扣哪个 weight，就说明哪个 group 出现\n    selected_groups = []\n    for weight, members in GROUP_WEIGHTS.items():\n        if group_mask & weight:  # bit on → 已包含该 group",
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "energy_rec",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "peekOfCode": "def energy_rec(data):\n    x, y = data\n    energy = np.sqrt(np.prod([x, y], axis=0)) * 2\n    return energy\ndef lr_log_ratio(data):\n    x, y = data\n    log_ratio = np.log(x) - np.log(y)\n    return log_ratio\nclass Datas:\n    def __init__(self, cache_dir) -> None:",
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "lr_log_ratio",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "peekOfCode": "def lr_log_ratio(data):\n    x, y = data\n    log_ratio = np.log(x) - np.log(y)\n    return log_ratio\nclass Datas:\n    def __init__(self, cache_dir) -> None:\n        self.cache_dir = cache_dir\n        df_file = os.path.join(cache_dir, \"df.feather\")\n        event_file = os.path.join(cache_dir, \"df_events.feather\")\n        self.df = pd.read_feather(df_file)",
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "hist_count_ratio",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "peekOfCode": "def hist_count_ratio(data_a, data_b, bins):\n    counts_a, bin_edges = np.histogram(data_a, bins=bins)\n    counts_b, _ = np.histogram(data_b, bins=bins)\n    ratio = np.divide(\n        counts_a,\n        counts_b,\n        out=np.zeros_like(counts_a, dtype=float),\n        where=counts_b > 0,\n    )\n    return bin_edges, counts_a, counts_b, ratio",
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "GROUP_MAP",
+        "kind": 5,
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "peekOfCode": "GROUP_MAP = {\n    0: 1,\n    1: 1,  # group0: channels [0,1]\n    2: 3,\n    3: 3,  # group1: channels [2,3]\n    4: 7,\n    5: 7,  # group2: channels [4,5]\n}\n# 组合权重（用于组完整性编码）\nGROUP_WEIGHTS = {",
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "GROUP_WEIGHTS",
+        "kind": 5,
+        "importPath": "waveform_analysis.utils.data_processing.processor",
+        "description": "waveform_analysis.utils.data_processing.processor",
+        "peekOfCode": "GROUP_WEIGHTS = {\n    1: {0, 1},  # weight 1 → 组 {0,1}\n    3: {2, 3},  # weight 3 → 组 {2,3}\n    7: {4, 5},  # weight 7 → 组 {4,5}\n}\ndef encode_groups_binary(channels):\n    \"\"\"\n    任意组出现了部分成员（不成对） -> 整体返回 0（异常）\n    所有组要么完整出现，要么完全不出现。\n    \"\"\"",
+        "detail": "waveform_analysis.utils.data_processing.processor",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformStruct",
+        "kind": 6,
+        "importPath": "waveform_analysis.utils.data_processing.wavestruct",
+        "description": "waveform_analysis.utils.data_processing.wavestruct",
+        "peekOfCode": "class WaveformStruct:\n    def __init__(self, waveforms):\n        self.waveforms = waveforms\n        self.event_length = None\n        self.waveform_structureds = None\n    def _structrue_waveform(self, waves=None):\n        # If no explicit waves passed, use the first channel\n        if waves is None:\n            if not self.waveforms:\n                return np.zeros(0, dtype=RECORD_DTYPE)",
+        "detail": "waveform_analysis.utils.data_processing.wavestruct",
+        "documentation": {}
+    },
+    {
+        "label": "RECORD_DTYPE",
+        "kind": 5,
+        "importPath": "waveform_analysis.utils.data_processing.wavestruct",
+        "description": "waveform_analysis.utils.data_processing.wavestruct",
+        "peekOfCode": "RECORD_DTYPE = [\n    (\"baseline\", \"f8\"),  # float64 for baseline\n    (\"timestamp\", \"i8\"),  # int64 for ps-level timestamps\n    (\"event_length\", \"i8\"),  # length of the event\n    (\"wave\", \"O\"),  # object for variable length waveform (or fixed if padded)\n]\n# Peak: A detected peak in a waveform\nPEAK_DTYPE = [\n    (\"time\", \"i8\"),  # time of the peak\n    (\"area\", \"f4\"),  # area of the peak",
+        "detail": "waveform_analysis.utils.data_processing.wavestruct",
+        "documentation": {}
+    },
+    {
+        "label": "PEAK_DTYPE",
+        "kind": 5,
+        "importPath": "waveform_analysis.utils.data_processing.wavestruct",
+        "description": "waveform_analysis.utils.data_processing.wavestruct",
+        "peekOfCode": "PEAK_DTYPE = [\n    (\"time\", \"i8\"),  # time of the peak\n    (\"area\", \"f4\"),  # area of the peak\n    (\"height\", \"f4\"),  # height of the peak\n    (\"width\", \"f4\"),  # width of the peak\n    (\"channel\", \"i2\"),  # channel index\n    (\"event_index\", \"i8\"),  # index of the event in the dataset\n]\nclass WaveformStruct:\n    def __init__(self, waveforms):",
+        "detail": "waveform_analysis.utils.data_processing.wavestruct",
+        "documentation": {}
+    },
+    {
+        "label": "plot_lineage_labview",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.visualization.lineage_visulizer",
+        "description": "waveform_analysis.utils.visualization.lineage_visulizer",
+        "peekOfCode": "def plot_lineage_labview(\n    lineage: Any,\n    target_name: str,\n    context: Any = None,\n    style: Optional[LineageStyle] = None,\n    show_dtype_on_wire: bool = True,\n    **kwargs,\n):\n    \"\"\"\n    绘制高度可定制的 LabVIEW 风格插件血缘图。",
+        "detail": "waveform_analysis.utils.visualization.lineage_visulizer",
+        "documentation": {}
+    },
+    {
+        "label": "plot_waveforms",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.visualization.visulizer",
+        "description": "waveform_analysis.utils.visualization.visulizer",
+        "peekOfCode": "def plot_waveforms(\n    waveforms: Union[np.ndarray, List[np.ndarray]],\n    hits: Optional[np.ndarray] = None,\n    event_index: int = 0,\n    channels: Optional[List[int]] = None,\n    title: str = \"Waveform Viewer\",\n):\n    \"\"\"\n    Creates an interactive Plotly figure for browsing waveforms and hits.\n    Args:",
+        "detail": "waveform_analysis.utils.visualization.visulizer",
+        "documentation": {}
+    },
+    {
+        "label": "create_interactive_browser",
+        "kind": 2,
+        "importPath": "waveform_analysis.utils.visualization.visulizer",
+        "description": "waveform_analysis.utils.visualization.visulizer",
+        "peekOfCode": "def create_interactive_browser(context, run_id: str):\n    \"\"\"\n    Returns a function that can be used with ipywidgets.interact to browse events.\n    \"\"\"\n    # This is intended for use in a Jupyter Notebook\n    waveforms = context.get_data(run_id, \"st_waveforms\")\n    hits = context.get_data(run_id, \"hits\")\n    def browse(event_index=0):\n        fig = plot_waveforms(waveforms, hits, event_index=event_index)\n        fig.show()",
+        "detail": "waveform_analysis.utils.visualization.visulizer",
         "documentation": {}
     },
     {
@@ -1379,7 +2708,7 @@
         "kind": 2,
         "importPath": "waveform_analysis.cli",
         "description": "waveform_analysis.cli",
-        "peekOfCode": "def main():\n    \"\"\"主命令行入口\"\"\"\n    parser = argparse.ArgumentParser(\n        description=\"Waveform Analysis - 波形数据处理工具\",\n        formatter_class=argparse.RawDescriptionHelpFormatter,\n        epilog=\"\"\"\n示例:\n  # 处理单个数据集\n  waveform-process --char 50V_OV_circulation_20thr --output results.csv\n  # 指定时间窗口",
+        "peekOfCode": "def main():\n    \"\"\"主命令行入口\"\"\"\n    parser = argparse.ArgumentParser(\n        description=\"Waveform Analysis - waveform data processing toolkit\",\n        formatter_class=argparse.RawDescriptionHelpFormatter,\n        epilog=\"\"\"\n示例:\n  # 处理单个数据集\n  waveform-process --char 50V_OV_circulation_20thr --output results.csv\n  # 指定时间窗口",
         "detail": "waveform_analysis.cli",
         "documentation": {}
     },

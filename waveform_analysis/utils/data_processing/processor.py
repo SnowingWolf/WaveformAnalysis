@@ -19,120 +19,135 @@ import pandas as pd
 """
 
 
-class WaveformStruct:
-    def __init__(self, waveforms):
-        self.waveforms = waveforms
-        self.pair_length = None
-        self.waveform_structureds = None
-
-    def _structrue_waveform(self, waves=None):
-        # If no explicit waves passed, use the first channel
-        if waves is None:
-            if not self.waveforms:
-                return np.zeros(
-                    0, dtype=[("baseline", "f8"), ("timestamp", "i8"), ("pair_length", "i8"), ("wave", "O")]
-                )
-            waves = self.waveforms[0]
-
-        # If waves is empty, return an empty structured array
-        if len(waves) == 0:
-            return np.zeros(0, dtype=[("baseline", "f8"), ("timestamp", "i8"), ("pair_length", "i8"), ("wave", "O")])
-
-        waveform_structured = np.zeros(
-            len(waves),
-            dtype=[
-                ("baseline", "f8"),
-                ("timestamp", "i8"),
-                ("pair_length", "i8"),
-                ("wave", "O"),
-            ],
-        )
-
-        # Safely compute baseline and timestamp
-        try:
-            baseline_vals = np.mean(waves[:, 7:47].astype(float), axis=1)
-        except Exception:
-            # Fallback: compute per-row mean for rows that have enough samples
-            baselines = []
-            for row in waves:
-                try:
-                    vals = np.asarray(row[7:], dtype=float)
-                    if vals.size > 0:
-                        baselines.append(np.mean(vals))
-                    else:
-                        baselines.append(np.nan)
-                except Exception:
-                    baselines.append(np.nan)
-            baseline_vals = np.array(baselines, dtype=float)
-
-        try:
-            timestamps = waves[:, 2].astype(np.int64)
-        except Exception:
-            # Fallback: extract element 2 from each row
-            timestamps = np.array([int(row[2]) for row in waves], dtype=np.int64)
-
-        waveform_structured["baseline"] = baseline_vals
-        waveform_structured["timestamp"] = timestamps
-        waveform_structured["wave"] = [row[7:] for row in waves]
-        return waveform_structured
-
-    def structrue_waveforms(self):
-        self.waveform_structureds = [self._structrue_waveform(waves) for waves in self.waveforms]
-        return self.waveform_structureds
-
-    def get_pair_length(self):
-        pair_length = np.array([len(wave) for wave in self.waveforms])
-
-        # 重塑为 (n_pairs, 2) 的形状进行处理
-        n = len(pair_length)
-        if n % 2 == 0:
-            # 偶数个元素
-            reshaped = pair_length.reshape(-1, 2)
-            min_vals = np.min(reshaped, axis=1)
-            paired_length = np.repeat(min_vals, 2)
-        else:
-            reshaped = pair_length[:-1].reshape(-1, 2)
-            min_vals = np.min(reshaped, axis=1)
-            paired_length = np.concatenate([np.repeat(min_vals, 2), [pair_length[-1]]])
-
-        self.pair_length = paired_length
-        return paired_length
+from .wavestruct import PEAK_DTYPE, WaveformStruct
 
 
-def build_waveform_df(st_waveforms, peaks, charges, pair_len, n_channels=6):
-    """把每个通道的 timestamp / charge / peak / channel 拼成一个 DataFrame."""
+def find_hits(
+    waves: np.ndarray,
+    baselines: np.ndarray,
+    threshold: float,
+    left_extension: int = 2,
+    right_extension: int = 2,
+) -> np.ndarray:
+    """
+    Vectorized hit-finding. Finds contiguous regions where (baseline - wave) > threshold.
+
+    Args:
+        waves: 2D array of waveforms (n_events, n_samples)
+        baselines: 1D array of baselines (n_events)
+        threshold: threshold for hit detection
+        left_extension: number of samples to extend hit to the left
+        right_extension: number of samples to extend hit to the right
+
+    Returns:
+        A structured array of hits (PEAK_DTYPE).
+        Note: This returns a flat array of all hits found across all events.
+    """
+    if waves.size == 0:
+        return np.zeros(0, dtype=PEAK_DTYPE)
+
+    # Signal is baseline - wave (assuming negative pulses)
+    signal = baselines[:, np.newaxis] - waves
+    mask = signal > threshold
+
+    # Find starts and ends of contiguous regions
+    # We pad with False to catch hits at the boundaries
+    mask_padded = np.pad(mask, ((0, 0), (1, 1)), mode="constant", constant_values=False)
+    diff = np.diff(mask_padded.astype(np.int8), axis=1)
+
+    starts = np.where(diff == 1)
+    ends = np.where(diff == -1)
+
+    # starts and ends are tuples (event_indices, sample_indices)
+    event_indices = starts[0]
+    s_starts = starts[1]
+    s_ends = ends[1]
+
+    n_hits = len(event_indices)
+    hits = np.zeros(n_hits, dtype=PEAK_DTYPE)
+
+    hits["event_index"] = event_indices
+    hits["time"] = s_starts  # Relative to start of waveform
+    # We'll calculate area, height, width later if needed, or just return the bounds
+
+    # For area and height, we need to loop or use advanced indexing
+    # Since hits can have different lengths, full vectorization of area is tricky
+    # but we can do it per-hit or using some tricks.
+    # For now, let's just store the bounds and basic info.
+
+    for i in range(n_hits):
+        ev_idx = event_indices[i]
+        s_start = max(0, s_starts[i] - left_extension)
+        s_end = min(waves.shape[1], s_ends[i] + right_extension)
+
+        hit_wave = signal[ev_idx, s_start:s_end]
+        hits[i]["area"] = np.sum(hit_wave)
+        hits[i]["height"] = np.max(hit_wave)
+        hits[i]["width"] = s_end - s_start
+        hits[i]["time"] = s_start
+
+    return hits
+
+
+def build_waveform_df(
+    st_waveforms,
+    peaks,
+    charges,
+    event_len,
+    n_channels=6,
+    peak_max_min=None,
+    peak_baseline=None,
+):
+    """把每个通道的 timestamp / charge / peak / channel 拼成一个 DataFrame。
+
+    新增：
+        - peak_max_min: 最大值减最小值的峰值（与历史 peak 含义一致，默认等于 peaks）
+        - peak_baseline: 基于 baseline 的峰值（baseline - 窗口最小值），默认等于 peaks
+    """
     all_timestamps = []
     all_charges = []
     all_peaks = []
+    all_peaks_mm = []
+    all_peaks_base = []
     all_channels = []
 
+    # 回退到原 peak 数组以保持兼容
+    peak_max_min = peak_max_min if peak_max_min is not None else peaks
+    peak_baseline = peak_baseline if peak_baseline is not None else peaks
+
     for ch in range(n_channels):
-        n = pair_len[ch]
-        # 如果 timestamp 是 1D（每个事件一个值），这行是 OK 的；
-        # 如果是 2D（事件 × 采样点），可以改成 .mean(axis=1) 或 [:, 0]
+        n = event_len[ch]
         ts = np.asarray(st_waveforms[ch]["timestamp"][:n])
         qs = np.asarray(charges[ch][:n])
         ps = np.asarray(peaks[ch][:n])
+        ps_mm = np.asarray(peak_max_min[ch][:n])
+        ps_base = np.asarray(peak_baseline[ch][:n])
 
         all_timestamps.append(ts)
         all_charges.append(qs)
         all_peaks.append(ps)
+        all_peaks_mm.append(ps_mm)
+        all_peaks_base.append(ps_base)
         all_channels.append(np.full_like(ts, ch, dtype=int))
 
     all_timestamps = np.concatenate(all_timestamps)
     all_charges = np.concatenate(all_charges)
     all_peaks = np.concatenate(all_peaks)
+    all_peaks_mm = np.concatenate(all_peaks_mm)
+    all_peaks_base = np.concatenate(all_peaks_base)
     all_channels = np.concatenate(all_channels)
 
     return pd.DataFrame({
         "timestamp": all_timestamps,
         "charge": all_charges,
-        "peak": all_peaks,
+        "peak": all_peaks,  # 保持历史列名
+        "peak_max_min": all_peaks_mm,
+        "peak_baseline": all_peaks_base,
         "channel": all_channels,
     })
 
 
-def group_multi_channel_hits(df, time_window_ns):
+def group_multi_channel_hits(df, time_window_ns, show_progress: bool = False):
     """
     在 df 中按 timestamp 聚类，找“同一事件的多通道触发”，并在簇内部
     按 channel 从小到大对 (channels, charges, peaks, timestamps) 同步排序。
@@ -164,30 +179,42 @@ def group_multi_channel_hits(df, time_window_ns):
             ]
         )
 
-    # 聚类：clusters 保存的是“索引列表”
-    clusters = []
-    current_idx = [0]
+    # 聚类：使用向量化预筛选 + 优化循环
+    # 找出所有可能成为簇起始点的索引（与前一个点差距大于 window）
+    # 注意：这与“相对于簇首点”逻辑略有不同，但在稀疏数据下一致。
+    # 为了保持逻辑完全一致，我们使用一个优化的循环。
 
-    for i in range(1, n):
-        t0 = ts_all[current_idx[0]]
-        if ts_all[i] - t0 > time_window_ps:
-            clusters.append(current_idx)
-            current_idx = [i]
-        else:
-            current_idx.append(i)
-
-    if current_idx:
-        clusters.append(current_idx)
+    cluster_starts = [0]
+    if n > 0:
+        t0 = ts_all[0]
+        for i in range(1, n):
+            if ts_all[i] - t0 > time_window_ps:
+                cluster_starts.append(i)
+                t0 = ts_all[i]
+    cluster_starts.append(n)
 
     # 整理成 records，并在簇内部按 channel 排序
     records = []
-    for event_id, idx_list in enumerate(clusters):
-        idx_arr = np.asarray(idx_list, dtype=int)
 
-        ts = ts_all[idx_arr]
-        chs = ch_all[idx_arr]
-        qs = q_all[idx_arr]
-        ps = p_all[idx_arr]
+    # Optional progress bar for record processing
+    if show_progress:
+        try:
+            from tqdm import tqdm
+
+            pbar_clusters = tqdm(range(len(cluster_starts) - 1), desc="Processing clusters", leave=False)
+        except ImportError:
+            pbar_clusters = range(len(cluster_starts) - 1)
+    else:
+        pbar_clusters = range(len(cluster_starts) - 1)
+
+    for i in pbar_clusters:
+        start_idx = cluster_starts[i]
+        end_idx = cluster_starts[i + 1]
+
+        ts = ts_all[start_idx:end_idx]
+        chs = ch_all[start_idx:end_idx]
+        qs = q_all[start_idx:end_idx]
+        ps = p_all[start_idx:end_idx]
 
         # 按 channel 从小到大排序
         sort_idx = np.argsort(chs.astype(int))
@@ -197,10 +224,10 @@ def group_multi_channel_hits(df, time_window_ns):
         ts_sorted = ts[sort_idx]
 
         records.append({
-            "event_id": event_id,
-            "t_min": ts_sorted.min(),
-            "t_max": ts_sorted.max(),
-            "dt/ns": ts_sorted.max() - ts_sorted.min(),
+            "event_id": i,
+            "t_min": ts_sorted[0],  # 已排序
+            "t_max": ts_sorted[-1] if len(ts_sorted) > 1 else ts_sorted[0],
+            "dt/ns": (ts_sorted.max() - ts_sorted.min()) / 1e3,  # 转换为 ns
             "n_hits": len(ts_sorted),
             "channels": chs_sorted,
             "charges": qs_sorted,

@@ -1,0 +1,29 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C++ build artifacts
+*.o
+*.so
+build/
+bin/
+
+# Environments
+.venv/
+env/
+venv/
+ENV/
+
+# Data and logs
+*.log
+*.root
+*.h5
+*.dat
+data/
+output/
+
+# IDEs and OS
+.vscode/
+.idea/
+.DS_Store

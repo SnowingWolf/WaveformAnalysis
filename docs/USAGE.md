@@ -12,6 +12,11 @@
 
 ### 方法 1: 使用安装脚本（推荐）
 
+## 📢 最近更新
+
+- `dataset.get_data(run_id, "df" / "df_events" / "df_paired")` 会自动触发构建 DataFrame、分组事件、配对事件等 `_ensure_*` 步骤，较少手动步骤调用。
+- `Context` 不再把 `stream` 插件的生成器绑定成类属性，多次获取 `waveforms_stream`、`st_waveforms_stream` 或 `hits_stream` 时会重新构建迭代器，保障流式分析可以多次运行。
+
 ```bash
 ./install.sh
 ```
@@ -43,12 +48,12 @@ from waveform_analysis import WaveformDataset
 ```python
 # 创建数据集实例
 dataset = WaveformDataset(
-    char="50V_OV_circulation_20thr",  # 数据集标识
+    char="50V_OV_circulation_20thr",  # 默认 Run ID
     n_channels=2,                      # 通道数
     start_channel_slice=6              # 起始通道
 )
 
-# 链式调用处理流程
+# 链式调用处理流程 (默认作用于 self.char)
 (dataset
     .load_raw_data()                    # 加载原始文件
     .extract_waveforms()                # 提取波形
@@ -58,16 +63,20 @@ dataset = WaveformDataset(
     .group_events()                     # 事件分组
     .pair_events()                      # 事件配对
     .save_results())                    # 保存结果
+
+# 显式指定 Run ID (支持在同一个实例中处理多个 Run)
+dataset.load_raw_data(run_id="another_run_001")
+dataset.extract_waveforms(run_id="another_run_001")
 ```
 
-### 3. 获取结果
+### 3. 访问结果
 
 ```python
-# 获取配对后的事件
+# 获取默认 Run 的配对事件
 df_paired = dataset.get_paired_events()
 
-# 获取原始事件
-df_raw = dataset.get_raw_events()
+# 获取特定 Run 的数据
+df_another = dataset.get_data("another_run_001", "df_paired")
 
 # 获取摘要信息
 summary = dataset.summary()
@@ -82,6 +91,25 @@ wave, baseline = dataset.get_waveform_at(event_idx=0, channel=0)
 
 # 转换为 mV
 wave_mv = (wave - baseline) * 0.024
+```
+
+### 5. Generator 语义与一次性消费
+
+为了处理大规模数据，某些插件（如 `extract_waveforms`）可能返回 `generator`。
+
+- **一次性消费**：Generator 只能被迭代一次。如果尝试第二次迭代，系统会抛出 `RuntimeError`。
+- **自动缓存**：当您迭代 Generator 时，系统会自动将其内容保存到磁盘缓存中。
+- **持久化访问**：一旦 Generator 被消费完，后续通过 `get_data()` 获取的将是磁盘上的 `memmap` 对象，支持多次随机访问。
+
+```python
+# 第一次获取：返回 OneTimeGenerator
+gen = dataset.get_data(run_id="run1", name="waveforms")
+for chunk in gen:
+    process(chunk) # 此时数据正在被写入磁盘
+
+# 第二次获取：返回 np.memmap (支持多次访问)
+data = dataset.get_data(run_id="run1", name="waveforms")
+print(data[0]) 
 ```
 
 ## 高级功能

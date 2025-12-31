@@ -1,0 +1,73 @@
+"""DAQ 工具：包含 DAQRun 和 DAQAnalyzer
+
+This module exposes DAQRun and DAQAnalyzer from their dedicated modules so
+external imports can continue to use ``waveform_analysis.utils.daq`` as the
+public entrypoint.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any, Iterable
+
+from .daq_analyzer import DAQAnalyzer
+from .daq_run import DAQRun
+
+logger = logging.getLogger(__name__)
+
+
+class _DAQRunAdapter:
+    """Lightweight adapter exposing a stable minimal DAQRun protocol:
+
+    - get_channel_paths(n_channels) -> List[List[str]]
+    - channel_files -> dict mapping ch -> list(entries)
+
+    This adapter wraps objects that either already implement the method,
+    or provide a `channel_files` attribute, or are plain dict mappings.
+    """
+
+    def __init__(self, src: Any):
+        self._src = src
+
+    def get_channel_paths(self, n_channels: int):
+        # If source already provides the method, prefer it
+        if hasattr(self._src, "get_channel_paths"):
+            try:
+                return self._src.get_channel_paths(n_channels)
+            except Exception:
+                logger.debug("get_channel_paths existed but raised; falling back", exc_info=True)
+
+        # If source exposes channel_files mapping, construct ordered paths
+        cf = getattr(self._src, "channel_files", None)
+        if cf is not None and isinstance(cf, dict):
+            out = [[] for _ in range(n_channels)]
+            for ch in range(n_channels):
+                entries = cf.get(ch, [])
+                # entries may be dicts with 'path' and optional 'index', or plain paths
+                # Preserve provided order; entries is expected to be in acquisition order
+                paths = [str(e.get("path")) if isinstance(e, dict) else str(e) for e in entries]
+                out[ch] = paths
+            return out
+
+        # If source is itself a dict mapping
+        if isinstance(self._src, dict):
+            out = [[] for _ in range(n_channels)]
+            for ch in range(n_channels):
+                entries = self._src.get(ch, [])
+                paths = [str(e.get("path")) if isinstance(e, dict) else str(e) for e in entries]
+                out[ch] = paths
+            return out
+
+        # Unknown shape: return empty lists
+        return [[] for _ in range(n_channels)]
+
+
+def adapt_daq_run(obj: Any):
+    """Return an adapter providing `get_channel_paths(n_channels)` for obj.
+
+    Use this in loader/dataset to normalize inputs from different DAQ tooling.
+    """
+    return _DAQRunAdapter(obj)
+
+
+__all__ = ["DAQRun", "DAQAnalyzer"]

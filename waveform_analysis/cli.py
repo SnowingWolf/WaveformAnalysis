@@ -13,7 +13,7 @@ from waveform_analysis.utils.daq import DAQAnalyzer
 def main():
     """主命令行入口"""
     parser = argparse.ArgumentParser(
-        description="Waveform Analysis - 波形数据处理工具",
+        description="Waveform Analysis - waveform data processing toolkit",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:

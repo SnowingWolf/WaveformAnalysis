@@ -12,43 +12,61 @@
 pip install -e .
 ```
 
-### 2. 验证安装
+### 2. 核心概念
+
+- **Context**: 管理所有配置和插件的中心对象。
+- **Plugin**: 独立的处理单元（如：找文件、提波形、找 Hit）。
+- **Data Name**: 插件产出的数据标识（如：`raw_files`, `hits`）。
+
+### 3. 运行第一个流式处理任务
 
 ```python
-# 打开 Python 交互式环境
-python3
-
-# 尝试导入
->>> from waveform_analysis import WaveformDataset
->>> print("安装成功！")
-```
-
-### 3. 运行第一个示例
-
-```python
-from waveform_analysis import WaveformDataset
-
-# 创建数据集
-dataset = WaveformDataset(
-    char="50V_OV_circulation_20thr",
-    n_channels=2,
-    start_channel_slice=6
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.standard_plugins import RawFilesPlugin
+from waveform_analysis.core.streaming_plugins import (
+    StreamingWaveformsPlugin, 
+    StreamingStWaveformsPlugin, 
+    StreamingHitsPlugin
 )
 
-# 处理数据（链式调用）
-(dataset
-    .load_raw_data()
-    .extract_waveforms()
-    .structure_waveforms()
-    .build_waveform_features()
-    .build_dataframe()
-    .group_events()
-    .pair_events()
-    .save_results())
+# 1. 初始化 Context
+ctx = Context(storage_dir="./strax_data")
 
-# 查看结果
-df = dataset.get_paired_events()
-print(f"配对事件数: {len(df)}")
+# 2. 注册你需要的插件
+ctx.register_plugin(RawFilesPlugin())
+ctx.register_plugin(StreamingWaveformsPlugin())
+ctx.register_plugin(StreamingStWaveformsPlugin())
+ctx.register_plugin(StreamingHitsPlugin())
+
+# 3. 设置配置参数
+ctx.set_config({
+    "data_root": "DAQ",
+    "n_channels": 2,
+    "threshold": 15.0,
+    "chunksize": 1000
+})
+
+# 4. 获取数据
+# 第一次运行会触发计算并保存缓存
+hits = ctx.get_data("run_001", "hits")
+
+# hits 是一个 numpy.memmap 对象，支持切片访问而不占用大量内存
+print(f"Found {len(hits)} hits")
+print(hits[0])
+```
+
+### 4. 可视化结果
+
+```python
+from waveform_analysis.utils.visualizer import plot_waveforms
+
+# 获取一波结构化波形（流式）
+st_waves_gen = ctx.get_data("run_001", "st_waveforms_stream")
+first_chunk = next(st_waves_gen)
+
+# 绘制第一个 Event
+fig = plot_waveforms(first_chunk, hits, event_index=0)
+fig.show()
 ```
 
 ### 4. 内存优化：只加载特征，跳过原始波形
@@ -134,6 +152,18 @@ ds.clear_cache()  # 清空所有步骤缓存
 ```
 
 注意：默认不会监视文件变更，需通过 `watch_attrs` 指定要监视的属性（通常是 `raw_files` 或包含路径的属性）。
+
+关于 WATCH_SIG_KEY
+
+当你启用持久化缓存并配置了 `watch_attrs` 时，系统会将用于验证缓存的签名写入持久化文件，键名为包级常量 `WATCH_SIG_KEY`（值：`"__watch_sig__"`）。
+你可以从包顶层导入并在脚本或测试中引用它：
+
+```python
+from waveform_analysis import WATCH_SIG_KEY
+print(WATCH_SIG_KEY)  # "__watch_sig__"
+```
+
+更多实现细节与实践建议请参阅文档：`docs/CACHE.md`。
 
 ### DAQ 扫描概览
 
