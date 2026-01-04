@@ -4264,6 +4264,24 @@
         "documentation": {}
     },
     {
+        "label": "option",
+        "kind": 2,
+        "importPath": "waveform_analysis.core.plugins",
+        "description": "waveform_analysis.core.plugins",
+        "peekOfCode": "def option(name: str, **kwargs):\n    \"\"\"\n    Decorator to add an option to a Plugin class.\n    Usage:\n        @option('my_option', default=10, help='...')\n        class MyPlugin(Plugin):\n            ...\n    \"\"\"\n    def decorator(cls):\n        if not hasattr(cls, \"options\") or \"options\" not in cls.__dict__:",
+        "detail": "waveform_analysis.core.plugins",
+        "documentation": {}
+    },
+    {
+        "label": "takes_config",
+        "kind": 2,
+        "importPath": "waveform_analysis.core.plugins",
+        "description": "waveform_analysis.core.plugins",
+        "peekOfCode": "def takes_config(config_dict: Dict[str, Option]):\n    \"\"\"\n    Decorator to add multiple options to a Plugin class.\n    Usage:\n        @takes_config({\n            'opt1': Option(default=1),\n            'opt2': Option(default=2)\n        })\n        class MyPlugin(Plugin):\n            ...",
+        "detail": "waveform_analysis.core.plugins",
+        "documentation": {}
+    },
+    {
         "label": "WaveformStruct",
         "kind": 6,
         "importPath": "waveform_analysis.core.processor",

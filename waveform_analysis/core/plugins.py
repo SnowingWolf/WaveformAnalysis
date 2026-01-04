@@ -12,7 +12,12 @@ from typing import Any, Dict, List, Literal, Optional, Type, Union
 
 import numpy as np
 
+from .utils import exporter
 
+export, __all__ = exporter()
+
+
+@export
 class Option:
     """
     A configuration option for a plugin.
@@ -24,11 +29,13 @@ class Option:
         type: Optional[Union[Type, tuple]] = None,
         help: str = "",
         validate: Optional[callable] = None,
+        track: bool = True,
     ):
         self.default = default
         self.type = type
         self.help = help
         self.validate = validate
+        self.track = track
 
     def validate_value(self, name: str, value: Any, plugin_name: str = "unknown"):
         """Validate and potentially convert the value."""
@@ -58,6 +65,49 @@ class Option:
         return value
 
 
+@export
+def option(name: str, **kwargs):
+    """
+    Decorator to add an option to a Plugin class.
+    Usage:
+        @option('my_option', default=10, help='...')
+        class MyPlugin(Plugin):
+            ...
+    """
+
+    def decorator(cls):
+        if not hasattr(cls, "options") or "options" not in cls.__dict__:
+            # Ensure we have our own options dict, not sharing with parent
+            cls.options = getattr(cls, "options", {}).copy()
+        cls.options[name] = Option(**kwargs)
+        return cls
+
+    return decorator
+
+
+@export
+def takes_config(config_dict: Dict[str, Option]):
+    """
+    Decorator to add multiple options to a Plugin class.
+    Usage:
+        @takes_config({
+            'opt1': Option(default=1),
+            'opt2': Option(default=2)
+        })
+        class MyPlugin(Plugin):
+            ...
+    """
+
+    def decorator(cls):
+        if not hasattr(cls, "options") or "options" not in cls.__dict__:
+            cls.options = getattr(cls, "options", {}).copy()
+        cls.options.update(config_dict)
+        return cls
+
+    return decorator
+
+
+@export
 class Plugin(abc.ABC):
     """
     Base class for all processing plugins.
@@ -79,6 +129,20 @@ class Plugin(abc.ABC):
     # Metadata for tracking
     _registered_from_module: Optional[str] = None
     _registered_class: Optional[str] = None
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Merge options from base classes to support inheritance
+        all_options = {}
+        for base in reversed(cls.__mro__):
+            # Collect from 'options'
+            if hasattr(base, "options") and isinstance(base.options, dict):
+                all_options.update(base.options)
+            # Collect from 'takes_config'
+            if hasattr(base, "takes_config") and isinstance(base.takes_config, dict):
+                # Support strax-style takes_config attribute
+                all_options.update(base.takes_config)
+        cls.options = all_options
 
     @property
     def config_keys(self) -> List[str]:

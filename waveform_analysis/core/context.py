@@ -577,11 +577,19 @@ class Context(CacheMixin, PluginMixin):
             return plugin.get_lineage(self)
 
         _visited.add(data_name)
+
+        # Filter config to only include tracked options
+        config = {}
+        for k in plugin.config_keys:
+            opt = plugin.options.get(k)
+            if opt and getattr(opt, "track", True):
+                config[k] = self.get_config(plugin, k)
+
         lineage = {
             "plugin_class": plugin.__class__.__name__,
             "plugin_version": getattr(plugin, "version", "0.0.0"),
             "description": getattr(plugin, "description", ""),
-            "config": {k: self.get_config(plugin, k) for k in plugin.config_keys},
+            "config": config,
             "depends_on": {dep: self.get_lineage(dep, _visited=_visited.copy()) for dep in plugin.depends_on},
         }
         if plugin.dtype is not None:
