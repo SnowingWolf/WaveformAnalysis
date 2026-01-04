@@ -11,14 +11,14 @@ from waveform_analysis import WaveformDataset, get_raw_files
 def test_import():
     """测试包可以正常导入"""
     from waveform_analysis import (
+        DAQAnalyzer,
+        DAQRun,
         WaveformDataset,
         WaveformStruct,
         build_waveform_df,
         get_raw_files,
         get_waveforms,
         group_multi_channel_hits,
-        DAQRun,
-        DAQAnalyzer,
     )
 
     assert WaveformDataset is not None
@@ -35,7 +35,7 @@ def test_waveform_struct():
     mock_waveforms = [np.random.randn(100, 807), np.random.randn(100, 807)]
 
     struct = WaveformStruct(mock_waveforms)
-    st_waveforms = struct.structrue_waveforms()
+    st_waveforms = struct.structure_waveforms()
 
     assert len(st_waveforms) == 2
     assert len(st_waveforms[0]) == 100
@@ -47,7 +47,7 @@ def test_waveform_struct_empty():
 
     mock_waveforms = [np.array([]).reshape(0, 807), np.array([]).reshape(0, 807)]
     struct = WaveformStruct(mock_waveforms)
-    st_waveforms = struct.structrue_waveforms()
+    st_waveforms = struct.structure_waveforms()
 
     assert len(st_waveforms) == 2
     assert len(st_waveforms[0]) == 0
@@ -69,11 +69,7 @@ def test_dataset_init():
 def test_dataset_init_skip_waveforms():
     """测试数据集初始化（跳过波形加载）"""
     try:
-        dataset = WaveformDataset(
-            char="test_dataset",
-            n_channels=2,
-            load_waveforms=False
-        )
+        dataset = WaveformDataset(char="test_dataset", n_channels=2, load_waveforms=False)
         assert dataset.load_waveforms is False
     except FileNotFoundError:
         pytest.skip("Test data not available")
@@ -83,7 +79,7 @@ def test_dataset_attributes():
     """测试数据集属性初始化"""
     try:
         dataset = WaveformDataset(char="test", n_channels=2)
-        
+
         # 检查容器初始化
         assert dataset.raw_files == []
         assert dataset.waveforms == []
@@ -91,7 +87,7 @@ def test_dataset_attributes():
         assert dataset.df is None
         assert dataset.df_events is None
         assert dataset.df_paired is None
-        
+
         # 检查默认参数
         assert dataset.peaks_range == (40, 90)
         assert dataset.charge_range == (60, 400)
@@ -104,7 +100,7 @@ def test_dataset_step_tracking():
     """测试步骤状态跟踪"""
     try:
         dataset = WaveformDataset(char="test", n_channels=2)
-        
+
         # 检查步骤跟踪初始化
         assert dataset._step_errors == {}
         assert dataset._step_status == {}

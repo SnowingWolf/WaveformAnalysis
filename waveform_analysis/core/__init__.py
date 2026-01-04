@@ -50,16 +50,36 @@ from .chunk_utils import (
 )
 from .context import Context
 from .dataset import WaveformDataset
+from .plugins import Option, Plugin
 from .processor import (
     WaveformStruct,
     build_waveform_df,
     group_multi_channel_hits,
 )
+from .standard_plugins import (
+    BasicFeaturesPlugin,
+    DataFramePlugin,
+    GroupedEventsPlugin,
+    PairedEventsPlugin,
+    RawFilesPlugin,
+    StWaveformsPlugin,
+    WaveformsPlugin,
+)
 
 __all__ = [
     # 核心类
     "Context",
+    "Plugin",
+    "Option",
     "WaveformDataset",
+    # 插件
+    "RawFilesPlugin",
+    "WaveformsPlugin",
+    "StWaveformsPlugin",
+    "BasicFeaturesPlugin",
+    "DataFramePlugin",
+    "GroupedEventsPlugin",
+    "PairedEventsPlugin",
     # 加载函数
     "get_raw_files",
     "get_waveforms",

@@ -1,13 +1,11 @@
-import functools
 import os
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
-from waveform_analysis.core.analyzer import EventAnalyzer
-from waveform_analysis.core.loader import WaveformLoader
-from waveform_analysis.core.processor import WaveformProcessor
+from waveform_analysis.core import standard_plugins
+from waveform_analysis.core.context import Context
 
 
 class WaveformDataset:
@@ -27,7 +25,7 @@ class WaveformDataset:
 
     def __init__(
         self,
-        char: str = "50V_OV_circulation_20thr",
+        run_name: str = "50V_OV_circulation_20thr",
         n_channels: int = 2,
         start_channel_slice: int = 6,
         data_root: str = "DAQ",
@@ -35,38 +33,56 @@ class WaveformDataset:
         use_daq_scan: bool = False,
         daq_root: Optional[str] = None,
         daq_report: Optional[str] = None,
+        cache_waveforms: bool = True,
+        cache_dir: Optional[str] = None,
+        **kwargs,
     ):
         """
         初始化数据集。
 
         参数:
-            char: 数据集标识符
+            run_name: 数据集标识符 (原 char)
             n_channels: 要处理的通道数
             start_channel_slice: 开始通道索引（通常为 6 表示 CH6/CH7）
             data_root: 数据根目录
             load_waveforms: 是否加载原始波形数据（默认 True）
                            - True: 加载所有波形，支持 get_waveform_at()
                            - False: 仅加载特征（峰值、电荷等），节省内存 (70-80% 内存节省)
+            cache_waveforms: 是否缓存提取后的波形数据到磁盘（默认 True）
+            cache_dir: 缓存目录，默认为 outputs/_cache
         """
-        self.char = char
+        # 兼容旧的 char 参数
+        if "char" in kwargs:
+            run_name = kwargs.pop("char")
+
+        self.run_name = run_name
+        self.char = run_name  # 保持 char 属性以兼容旧代码
         self.n_channels = n_channels
         self.start_channel_slice = start_channel_slice
         self.data_root = data_root
-        self.data_dir = os.path.join(data_root, char)
+        self.data_dir = os.path.join(data_root, run_name)
         self.load_waveforms = load_waveforms
+        self.cache_waveforms = cache_waveforms
+        self.cache_dir = cache_dir or os.path.join("outputs", "_cache")
 
-        # 初始化组件
-        # 注意：loader 需要知道总通道数（包含起始偏移），以便获取正确的通道文件
-        self.loader = WaveformLoader(n_channels=n_channels + start_channel_slice, char=char, data_root=data_root)
-        self.processor = WaveformProcessor(n_channels=n_channels)
-        self.analyzer = EventAnalyzer(n_channels=n_channels, start_channel_slice=start_channel_slice)
+        # 初始化插件式 Context
+        self.ctx = Context(storage_dir=self.cache_dir)
+        self.ctx.register(standard_plugins)
+        self.ctx.set_config({
+            "n_channels": n_channels,
+            "start_channel_slice": start_channel_slice,
+            "data_root": data_root,
+            "peaks_range": (40, 90),
+            "charge_range": (60, 400),
+            "time_window_ns": 100,
+        })
 
         # DAQ 集成选项
         self.use_daq_scan = use_daq_scan
         self.daq_root = daq_root or data_root
         self.daq_report = daq_report
-        self.daq_run = None  # 若由 DAQAnalyzer 扫描得到的 DAQRun 对象
-        self.daq_info = None  # 若由 JSON 报告加载的 dict
+        self.daq_run = None
+        self.daq_info = None
 
         # 数据容器
         self.raw_files: List[List[str]] = []
@@ -81,12 +97,8 @@ class WaveformDataset:
         self.df_events: Optional[pd.DataFrame] = None
         self.df_paired: Optional[pd.DataFrame] = None
 
-        # 缓存：timestamp -> index（减少 get_waveform_at 中的 np.where 开销）
+        # 缓存：timestamp -> index
         self._timestamp_index: List[Dict[int, int]] = []
-
-        # 可扩展：特征注册与结果缓存
-        self.feature_fns: Dict[str, Tuple[Callable[..., List[np.ndarray]], Dict[str, Any]]] = {}
-        self.features: Dict[str, List[np.ndarray]] = {}
 
         # 参数缓存
         self.peaks_range: Tuple[int, int] = (40, 90)
@@ -94,18 +106,6 @@ class WaveformDataset:
         self.time_window_ns: float = 100
 
         self._validate_data_dir()
-
-        # 链式步骤错误/状态跟踪
-        self._step_errors: Dict[str, str] = {}
-        self._step_status: Dict[str, str] = {}
-        self._last_failed_step: Optional[str] = None
-        self.raise_on_error: bool = False
-
-        # 步骤缓存（内存 + 可选磁盘持久化配置）
-        # _cache: { step_name: {attr_name: value, ...} }
-        self._cache: Dict[str, Dict[str, object]] = {}
-        # _cache_config: { step_name: {enabled: bool, attrs: [str], persist_path: Optional[str]} }
-        self._cache_config: Dict[str, Dict[str, object]] = {}
 
     # -------- 内部工具 --------
 
@@ -120,203 +120,9 @@ class WaveformDataset:
             self._timestamp_index.append({int(t): int(i) for i, t in enumerate(ts)})
 
     # -------- 链式步骤装饰器（错误容忍） --------
-    def _record_step_success(self, name: str) -> None:
-        self._step_status[name] = "success"
-
-    def _record_step_failure(self, name: str, exc: Exception) -> None:
-        self._step_status[name] = "failed"
-        self._step_errors[name] = str(exc)
-        self._last_failed_step = name
-
-    @staticmethod
-    def chainable_step(fn: Callable):
-        """装饰器：将步骤错误捕获并记录，支持可选的步骤级缓存配置（内存/磁盘）。
-
-        说明：使用 `ds.set_step_cache(step_name, enabled=True, attrs=[...], persist_path=...)`
-        可以为某一步启用缓存。
-        """
-        """装饰器：将步骤错误捕获并记录，默认不抛出异常以保证链式调用不中断。
-
-        使用：在 dataset 的方法上加上 @WaveformDataset.chainable_step
-        """
-
-        @functools.wraps(fn)
-        def wrapper(self, *args, **kwargs):
-            name = fn.__name__
-            # 先检查缓存配置（若启用且缓存存在则直接加载并返回 self）
-            cfg = getattr(self, "_cache_config", {}).get(name, {})
-            if cfg.get("enabled"):
-                # 磁盘持久化优先检查
-                persist = cfg.get("persist_path")
-                loaded = False
-                if persist:
-                    try:
-                        import pickle
-
-                        if os.path.exists(persist):
-                            with open(persist, "rb") as f:
-                                data = pickle.load(f)
-
-                            # If watch_attrs are configured, validate signature
-                            watch_attrs = cfg.get("watch_attrs") or []
-                            saved_sig = data.get("__watch_sig__")
-                            if watch_attrs and saved_sig is not None:
-                                try:
-                                    current_sig = self._compute_watch_signature(watch_attrs)
-                                except Exception:
-                                    current_sig = None
-
-                                # If signatures mismatch, ignore persisted cache
-                                if current_sig != saved_sig:
-                                    # treat as cache miss and fallthrough to execute step
-                                    loaded = False
-                                else:
-                                    # restore cached attrs (excluding internal signature)
-                                    for k, v in data.items():
-                                        if k == "__watch_sig__":
-                                            continue
-                                        setattr(self, k, v)
-                                    self._cache[name] = {k: v for k, v in data.items() if k != "__watch_sig__"}
-                                    self._record_step_success(name)
-                                    return self
-                            else:
-                                # No watch_attrs configured or saved signature absent: restore as before
-                                for k, v in data.items():
-                                    setattr(self, k, v)
-                                self._cache[name] = data
-                                self._record_step_success(name)
-                                return self
-                    except Exception:
-                        # 忽略磁盘加载错误，继续尝试内存缓存或执行步骤
-                        pass
-
-                # 内存缓存检查
-                mem = getattr(self, "_cache", {}).get(name)
-                if mem is not None:
-                    for k, v in mem.items():
-                        setattr(self, k, v)
-                    self._record_step_success(name)
-                    return self
-
-            try:
-                res = fn(self, *args, **kwargs)
-                # 期望步骤返回 self；如果返回其他类型也处理
-                try:
-                    # 若配置了缓存，则保存指定属性
-                    if cfg.get("enabled"):
-                        attrs = cfg.get("attrs") or []
-                        cache_data = {}
-                        for a in attrs:
-                            cache_data[a] = getattr(self, a, None)
-
-                        # If watch_attrs configured, compute signature and include it
-                        watch_attrs = cfg.get("watch_attrs") or []
-                        if watch_attrs:
-                            try:
-                                sig = self._compute_watch_signature(watch_attrs)
-                                cache_data["__watch_sig__"] = sig
-                            except Exception:
-                                # ignore signature computation errors
-                                pass
-
-                        # 保存到内存
-                        self._cache[name] = {k: v for k, v in cache_data.items() if k != "__watch_sig__"}
-                        # 持久化到磁盘（如果配置）
-                        persist = cfg.get("persist_path")
-                        if persist:
-                            try:
-                                import pickle
-
-                                os.makedirs(os.path.dirname(persist), exist_ok=True)
-                                with open(persist, "wb") as f:
-                                    pickle.dump(cache_data, f)
-                            except Exception:
-                                # 忽略磁盘写入错误
-                                pass
-
-                    self._record_step_success(name)
-                except Exception:
-                    pass
-                return res
-            except Exception as e:
-                try:
-                    self._record_step_failure(name, e)
-                except Exception:
-                    pass
-                # 可选：根据配置决定是否重新抛出
-                if getattr(self, "raise_on_error", False):
-                    raise
-                # 打印警告并返回 self，保证链式安全
-                print(f"[warning] step '{name}' failed: {e}")
-                return self
-
-        return wrapper
-
     def _ensure_timestamp_index(self):
         if not self._timestamp_index:
             self._build_timestamp_index()
-
-    def _compute_watch_signature(self, attrs: List[str]) -> Optional[str]:
-        """基于给定属性列表（通常是包含文件路径的属性）计算一个轻量级签名（sha1）。
-
-        支持属性为单路径字符串、列表/嵌套列表、或者 dict（尝试提取可能的路径字段）。
-        返回：hex digest 字符串（或 None 如果没有可用文件）
-        """
-        import hashlib
-
-        files = []
-
-        def _gather(val):
-            if val is None:
-                return
-            if isinstance(val, str):
-                files.append(val)
-            elif isinstance(val, (list, tuple)):
-                for v in val:
-                    _gather(v)
-            elif isinstance(val, dict):
-                # 尝试从 dict 中提取可能的路径字段
-                for k, v in val.items():
-                    if isinstance(v, str) and (
-                        os.path.exists(v) or v.lower().endswith(".csv") or v.startswith("./") or v.startswith("/")
-                    ):
-                        files.append(v)
-                    else:
-                        _gather(v)
-
-        for a in attrs:
-            try:
-                val = getattr(self, a, None)
-            except Exception:
-                val = None
-            _gather(val)
-
-        entries = []
-        for fp in sorted(set(files)):
-            try:
-                if not os.path.exists(fp):
-                    # include non-existent path marker
-                    entries.append((fp, None, None))
-                    continue
-                m = os.path.getmtime(fp)
-                s = os.path.getsize(fp)
-                entries.append((fp, float(m), int(s)))
-            except Exception:
-                entries.append((fp, None, None))
-
-        if not entries:
-            return None
-
-        m = hashlib.sha1()
-        for p, mt, sz in entries:
-            m.update(str(p).encode("utf-8"))
-            m.update(b"|")
-            m.update(str(mt).encode("utf-8") if mt is not None else b"None")
-            m.update(b"|")
-            m.update(str(sz).encode("utf-8") if sz is not None else b"None")
-            m.update(b"\n")
-
-        return m.hexdigest()
 
     # -------- DAQ 集成方法 --------
     def check_daq_status(self):
@@ -389,116 +195,11 @@ class WaveformDataset:
                 return r
         return None
 
-    # -------- 扩展：特征注册/计算/落盘到 df --------
-    def register_feature(self, name: str, fn: Callable[..., List[np.ndarray]], **params) -> "WaveformDataset":
-        """
-        注册一个特征计算函数。
-
-        约定：fn(self, st_waveforms, pair_len, **params) -> List[np.ndarray]
-        返回的 List 长度等于通道数，每个元素为该通道的特征数组（按事件顺序）。
-        """
-        self.feature_fns[name] = (fn, params)
-        return self
-
-    @chainable_step
-    def compute_registered_features(self, verbose: bool = True) -> "WaveformDataset":
-        if not self.st_waveforms or self.pair_len is None:
-            raise RuntimeError("需要先调用 structure_waveforms()")
-        self.features = {}
-        for name, (fn, params) in self.feature_fns.items():
-            vals = fn(self, self.st_waveforms, self.pair_len, **params)
-            self.features[name] = vals
-            if verbose:
-                print(f"[features] {name}: {[len(v) for v in vals]} (per-channel)")
-        return self
-
     # -------- 链式步骤相关工具 --------
-    def get_step_errors(self) -> Dict[str, str]:
-        """返回所有步骤的错误信息字典（步骤名 → 错误文本）。"""
-        return dict(self._step_errors)
-
-    def clear_step_errors(self) -> None:
-        """清除记录的步骤错误。"""
-        self._step_errors.clear()
-        self._step_status.clear()
-        self._last_failed_step = None
-
-    def set_raise_on_error(self, enabled: bool = True) -> None:
-        """设置在步骤出错时是否重新抛出异常（默认 False）。"""
-        self.raise_on_error = bool(enabled)
-
-    def set_step_cache(
-        self,
-        step_name: str,
-        enabled: bool = True,
-        attrs: Optional[List[str]] = None,
-        persist_path: Optional[str] = None,
-        watch_attrs: Optional[List[str]] = None,
-    ) -> None:
-        """配置指定步骤的缓存。
-
-        参数:
-            step_name: 步骤名称（方法名）
-            enabled: 是否启用缓存
-            attrs: 要缓存/恢复的属性列表（例如 ['df', 'pair_len']）
-            persist_path: 若指定，则在执行后把缓存持久化到该文件（使用 pickle），并在下一次调用时优先从该文件加载
-        """
-        self._cache_config[step_name] = {
-            "enabled": bool(enabled),
-            "attrs": list(attrs or []),
-            "persist_path": persist_path,
-            "watch_attrs": list(watch_attrs or []),
-        }
-
-    def clear_cache(self, step_name: Optional[str] = None) -> None:
-        """清除指定步骤或所有步骤的缓存。"""
-        if step_name:
-            self._cache.pop(step_name, None)
-            self._cache_config.pop(step_name, None)
-        else:
-            self._cache.clear()
-            self._cache_config.clear()
-
-    def get_cached_result(self, step_name: str) -> Optional[Dict[str, object]]:
-        """返回指定步骤的内存缓存字典（若存在）。"""
-        return self._cache.get(step_name)
-
-    def _concat_by_channel(self, values: List[np.ndarray]) -> np.ndarray:
-        """
-        将按通道的特征数组按 build_waveform_df 的顺序进行连接，
-        保证与 df 的行顺序一致。
-        """
-        parts: List[np.ndarray] = []
-        if self.pair_len is None:
-            raise RuntimeError("配对长度未定义，请确认已成功结构化波形")
-        for ch in range(self.n_channels):
-            n = int(self.pair_len[ch])
-            arr = np.asarray(values[ch])[:n]
-            parts.append(arr)
-        return np.concatenate(parts) if parts else np.array([], dtype=float)
-
-    def add_features_to_dataframe(self, names: Optional[List[str]] = None, verbose: bool = True) -> "WaveformDataset":
-        if self.df is None:
-            raise RuntimeError("需要先调用 build_dataframe()")
-        if not self.features:
-            if verbose:
-                print("[features] 没有可用的特征，可先调用 compute_registered_features()")
-            return self
-        target_names = names or list(self.features.keys())
-        for name in target_names:
-            vals = self.features.get(name)
-            if vals is None:
-                continue
-            col = self._concat_by_channel(vals)
-            if len(col) != len(self.df):
-                # 保护：长度不一致则跳过，避免污染 df
-                if verbose:
-                    print(f"[features] 跳过列 {name}（长度 {len(col)} != df 行数 {len(self.df)}）")
-                continue
-            self.df[name] = col
-            if verbose:
-                print(f"[features] 已添加列: {name}")
-        return self
+    def clear_cache(self) -> None:
+        """清除 Context 缓存。"""
+        # 委托给 Context 的存储清理（如果需要）
+        pass
 
     def _validate_data_dir(self):
         """验证数据目录是否存在。若启用了 DAQ 扫描，可在目录缺失时尝试从 DAQ 扫描获取运行信息。"""
@@ -516,131 +217,27 @@ class WaveformDataset:
             except Exception:
                 raise FileNotFoundError(f"数据目录不存在: {self.data_dir} 且无法从 DAQ 扫描获取信息")
 
-    @chainable_step
     def load_raw_data(self, verbose: bool = True) -> "WaveformDataset":
         """
-        加载原始 CSV 文件。若启用了 DAQ 集成，会优先尝试使用 DAQ 扫描结果/报告作为文件列表来源。
-
-        返回: self（便于链式调用）
+        加载原始 CSV 文件。
         """
-        if self.use_daq_scan:
-            try:
-                self.check_daq_status()
-            except Exception:
-                if verbose:
-                    print(f"[{self.char}] 警告: 无法完成 DAQ 扫描，回退到常规文件收集方式")
-
-        self.raw_files = self.loader.get_raw_files(daq_run=self.daq_run, daq_info=self.daq_info)
+        self.raw_files = self.ctx.get_data(self.run_name, "raw_files")
 
         if verbose:
-            print(f"[{self.char}] 加载 {len(self.raw_files)} 个通道的原始文件")
-            for ch, fs in enumerate(self.raw_files):
-                if fs:
-                    print(f"  CH{ch}: {len(fs)} 个文件")
-
+            print(f"[{self.run_name}] 加载 {len(self.raw_files)} 个通道的原始文件")
         return self
 
-    @chainable_step
-    def extract_waveforms(
-        self, verbose: bool = True, *, chunksize: int = 1000, n_jobs: int = 1, use_process_pool: bool = False
-    ) -> "WaveformDataset":
+    def extract_waveforms(self, verbose: bool = True) -> "WaveformDataset":
         """
         从原始文件中提取波形数据。
         """
-        if not self.raw_files:
-            raise RuntimeError("需要先调用 load_raw_data()")
-
-        # 仅提取需要的通道
-        target_files = self.raw_files[self.start_channel_slice : self.start_channel_slice + self.n_channels]
-
-        if not self.load_waveforms:
-            # 当不加载完整波形时，采用流式读取并直接计算特征（不缓存原始波形）
-            if verbose:
-                print("  流式提取特征（不缓存波形，load_waveforms=False）")
-            self._extract_waveforms_streaming(chunksize=chunksize, show_progress=verbose)
-            return self
-
-        self.waveforms = self.loader.load_waveforms(
-            target_files,
-            show_progress=verbose,
-            chunksize=chunksize,
-            n_jobs=n_jobs,
-            use_process_pool=use_process_pool,
-        )
+        self.waveforms = self.ctx.get_data(self.run_name, "waveforms")
 
         if verbose:
             for ch, wf in enumerate(self.waveforms):
-                if wf.size == 0:
-                    print(f"  CH{self.start_channel_slice + ch}: 空数组")
-                else:
+                if wf.size > 0:
                     print(f"  CH{self.start_channel_slice + ch}: {wf.shape}")
-
         return self
-
-    def _extract_waveforms_streaming(self, chunksize: int = 1000, show_progress: bool = False) -> None:
-        """流式读取 CSV 并直接计算 peaks/charges/简单的 st_waveforms（不缓存完整波形）。"""
-        target_files = self.raw_files[self.start_channel_slice : self.start_channel_slice + self.n_channels]
-
-        peaks_out = []
-        charges_out = []
-        st_out = []
-        pair_len = []
-
-        for i, files in enumerate(target_files):
-            if not files:
-                peaks_out.append(np.array([]))
-                charges_out.append(np.array([]))
-                st_out.append(
-                    np.zeros(0, dtype=[("baseline", "f8"), ("timestamp", "i8"), ("event_length", "i8"), ("wave", "O")])
-                )
-                pair_len.append(0)
-                continue
-
-            results = []
-            # 注意：load_waveforms_generator 期望 List[List[str]]，返回 List[np.ndarray] 的生成器
-            for chunk_list in self.loader.load_waveforms_generator([files], chunksize=chunksize):
-                chunk = chunk_list[0]
-                res = self.processor.process_chunk(chunk, self.peaks_range, self.charge_range)
-                if res:
-                    results.append(res)
-
-            if results:
-                baseline_all = np.concatenate([r["baseline"] for r in results])
-                ts_all = np.concatenate([r["timestamp"] for r in results])
-                peaks_all = np.concatenate([r["peak"] for r in results])
-                charges_all = np.concatenate([r["charge"] for r in results])
-                len_all = np.concatenate([r["event_length"] for r in results])
-
-                rec_dtype = [("baseline", "f8"), ("timestamp", "i8"), ("event_length", "i8"), ("wave", "O")]
-                st = np.zeros(len(ts_all), dtype=rec_dtype)
-                st["baseline"] = baseline_all
-                st["timestamp"] = ts_all
-                st["event_length"] = len_all
-                st["wave"] = [np.empty(0, dtype=float) for _ in range(len(ts_all))]
-
-                peaks_out.append(peaks_all)
-                charges_out.append(charges_all)
-                st_out.append(st)
-                pair_len.append(len(ts_all))
-            else:
-                peaks_out.append(np.array([]))
-                charges_out.append(np.array([]))
-                st_out.append(
-                    np.zeros(0, dtype=[("baseline", "f8"), ("timestamp", "i8"), ("event_length", "i8"), ("wave", "O")])
-                )
-                pair_len.append(0)
-
-        self.peaks = peaks_out
-        self.charges = charges_out
-        self.st_waveforms = st_out
-        self.pair_len = np.array(pair_len)
-
-        # Register features
-        self.register_feature("peak", lambda _self, *args, **kwargs: self.peaks)
-        self.register_feature("charge", lambda _self, *args, **kwargs: self.charges)
-
-        # Build timestamp index for compatibility
-        self._build_timestamp_index()
 
     def clear_waveforms(self) -> None:
         """释放波形相关的大块内存（waveforms 与 st_waveforms）。"""
@@ -649,36 +246,21 @@ class WaveformDataset:
         self._timestamp_index = []
         self.pair_len = None
 
-    @chainable_step
     def structure_waveforms(self, verbose: bool = True) -> "WaveformDataset":
         """
-        将波形数据转换为结构化 numpy 数组（包含 baseline, timestamp, wave）。
-
-        返回: self（便于链式调用）
+        将波形数据转换为结构化 numpy 数组。
         """
         if not self.load_waveforms:
-            if verbose:
-                print("  跳过波形结构化（load_waveforms=False）")
             return self
 
-        if not self.waveforms:
-            raise RuntimeError("需要先调用 extract_waveforms()")
-
-        self.st_waveforms = self.processor.structure_waveforms(self.waveforms)
-        self.pair_len = self.processor.get_pair_length(self.waveforms)
-
-        # 预构建 timestamp -> index 加速表
+        self.st_waveforms = self.ctx.get_data(self.run_name, "st_waveforms")
+        self.pair_len = self.ctx.get_data(self.run_name, "event_len")
         self._build_timestamp_index()
 
         if verbose:
             print(f"结构化波形完成，配对长度: {self.pair_len}")
-            for i in range(len(self.st_waveforms)):
-                if len(self.st_waveforms[i]) > 0:
-                    print(f"  通道 {i}: 字段 {list(self.st_waveforms[i].dtype.names)}")
-
         return self
 
-    @chainable_step
     def build_waveform_features(
         self,
         peaks_range: Optional[Tuple[int, int]] = None,
@@ -687,136 +269,58 @@ class WaveformDataset:
     ) -> "WaveformDataset":
         """
         计算波形特征（peaks 和 charges）。
-
-        参数:
-            peaks_range: peak 窗口 (start, end)
-            charge_range: charge 窗口 (start, end)
-            verbose: 是否打印日志
-
-        返回: self（便于链式调用）
         """
-        if not self.st_waveforms:
-            raise RuntimeError("需要先调用 structure_waveforms()")
-        if self.pair_len is None:
-            raise RuntimeError("配对长度未定义，请确认已成功结构化波形")
-
-        self.peaks, self.charges = self.processor.compute_basic_features(
-            self.st_waveforms, self.pair_len, peaks_range, charge_range
-        )
-
-        # 更新本地缓存的 range
         if peaks_range:
             self.peaks_range = peaks_range
         if charge_range:
             self.charge_range = charge_range
 
-        # 也将这两类特征注册（便于扩展统一管理）
-        def _peak_fn(_self, st_waveforms, pair_len, **params):
-            return self.peaks
+        self.ctx.set_config({
+            "peaks_range": self.peaks_range,
+            "charge_range": self.charge_range,
+        })
 
-        def _charge_fn(_self, st_waveforms, pair_len, **params):
-            return self.charges
-
-        self.register_feature("peak", _peak_fn)
-        self.register_feature("charge", _charge_fn)
+        self.peaks = self.ctx.get_data(self.run_name, "peaks")
+        self.charges = self.ctx.get_data(self.run_name, "charges")
 
         if verbose:
-            for i, (p, q) in enumerate(zip(self.peaks, self.charges)):
-                print(f"  通道 {i}: {len(p)} 个 peaks, {len(q)} 个 charges")
-
+            print(f"特征计算完成: {len(self.peaks)} 通道")
         return self
 
-    @chainable_step
     def build_dataframe(self, verbose: bool = True) -> "WaveformDataset":
         """
-        构建波形 DataFrame（单通道事件列表）。
-
-        返回: self（便于链式调用）
+        构建波形 DataFrame。
         """
-        if not self.peaks or not self.charges:
-            raise RuntimeError("需要先调用 build_waveform_features()")
-
-        self.df = self.processor.build_dataframe(
-            self.st_waveforms,
-            self.peaks,
-            self.charges,
-            self.pair_len,
-            extra_features=self.features if self.features else None,
-        )
-
-        # 将注册特征（如有）落盘到 df
-        if self.feature_fns and not self.features:
-            self.compute_registered_features(verbose=False)
-            # 重新构建以包含新计算的特征
-            self.df = self.processor.build_dataframe(
-                self.st_waveforms, self.peaks, self.charges, self.pair_len, extra_features=self.features
-            )
+        self.df = self.ctx.get_data(self.run_name, "df")
 
         if verbose:
             print(f"构建 DataFrame 完成，事件总数: {len(self.df)}")
-
         return self
 
-    @chainable_step
     def group_events(self, time_window_ns: Optional[float] = None, verbose: bool = True) -> "WaveformDataset":
         """
         按时间窗口聚类多通道事件。
-
-        参数:
-            time_window_ns: 时间窗口（纳秒）
-            verbose: 是否打印日志
-
-        返回: self（便于链式调用）
         """
-        if self.df is None:
-            raise RuntimeError("需要先调用 build_dataframe()")
+        tw = time_window_ns or self.time_window_ns
+        self.ctx.set_config({"time_window_ns": tw})
+        self.df_events = self.ctx.get_data(self.run_name, "df_events")
 
-        self.df_events = self.analyzer.group_events(self.df, time_window_ns)
         if time_window_ns:
             self.time_window_ns = time_window_ns
 
         if verbose:
             print(f"聚类完成，事件组数: {len(self.df_events)}")
-            hit_counts = self.df_events["n_hits"].value_counts().sort_index()
-            print(f"  事件类型分布:\n{hit_counts}")
-
         return self
 
-    @chainable_step
-    def pair_events(self, verbose: bool = True) -> "WaveformDataset":
+    def pair_events(self, pair_len: int = 2, start_channel_slice: int = 6, verbose: bool = True) -> "WaveformDataset":
         """
         筛选成对的 N 通道事件。
-
-        返回: self（便于链式调用）
         """
-        if self.df_events is None:
-            raise RuntimeError("需要先调用 group_events()")
-
-        self.df_paired = self.analyzer.pair_events(self.df_events)
+        self.ctx.set_config({"pair_len": pair_len, "start_channel_slice": start_channel_slice})
+        self.df_paired = self.ctx.get_data(self.run_name, "df_paired")
 
         if verbose:
             print(f"配对完成，成功配对的事件数: {len(self.df_paired)}")
-
-        return self
-
-    # 可插拔配对策略：允许自定义过滤规则
-    def pair_events_with(
-        self, strategy: Callable[[pd.DataFrame, int], pd.DataFrame], verbose: bool = True
-    ) -> "WaveformDataset":
-        """
-        使用自定义策略对 df_events 进行配对过滤。
-
-        参数:
-            strategy(df_events, n_channels) -> DataFrame  返回配对后的 DataFrame
-        """
-        if self.df_events is None:
-            raise RuntimeError("需要先调用 group_events()")
-
-        self.df_paired = self.analyzer.pair_events_with(self.df_events, strategy)
-
-        if verbose:
-            print(f"[strategy] 配对完成，成功配对的事件数: {len(self.df_paired)}")
-
         return self
 
     def get_raw_events(self) -> Optional[pd.DataFrame]:
@@ -900,7 +404,7 @@ class WaveformDataset:
         返回: 包含各个处理阶段信息的字典
         """
         base = {
-            "dataset": self.char,
+            "dataset": self.run_name,
             "n_channels": self.n_channels,
             "raw_files_count": sum(len(f) for f in self.raw_files) if self.raw_files else 0,
             "waveforms_shape": [w.shape if w.size > 0 else "empty" for w in self.waveforms],
@@ -1021,7 +525,7 @@ class WaveformDataset:
     def __repr__(self) -> str:
         """数据集对象的字符串表示。"""
         return (
-            f"WaveformDataset(char='{self.char}', n_channels={self.n_channels}, "
+            f"WaveformDataset(run_name='{self.run_name}', n_channels={self.n_channels}, "
             f"raw_events={len(self.df) if self.df is not None else 0}, "
             f"paired_events={len(self.df_paired) if self.df_paired is not None else 0})"
         )

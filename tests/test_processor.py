@@ -24,14 +24,14 @@ class TestWaveformStruct:
         assert struct.pair_length is None
         assert struct.waveform_structureds is None
 
-    def test_structrue_waveform_empty(self):
+    def test_structure_waveform_empty(self):
         """测试空波形结构化"""
         struct = WaveformStruct([])
-        result = struct._structrue_waveform()
+        result = struct._structure_waveform()
         assert len(result) == 0
         assert result.dtype.names == ("baseline", "timestamp", "pair_length", "wave")
 
-    def test_structrue_waveform_with_data(self):
+    def test_structure_waveform_with_data(self):
         """测试带数据的波形结构化"""
         # 创建模拟数据：807 列 (7 header + 800 samples)
         n_rows = 5
@@ -40,14 +40,14 @@ class TestWaveformStruct:
         waveforms[0][:, 2] = np.arange(1000, 1000 + n_rows)
 
         struct = WaveformStruct(waveforms)
-        result = struct._structrue_waveform(waveforms[0])
+        result = struct._structure_waveform(waveforms[0])
 
         assert len(result) == n_rows
         assert "baseline" in result.dtype.names
         assert "timestamp" in result.dtype.names
         assert "wave" in result.dtype.names
 
-    def test_structrue_waveforms(self):
+    def test_structure_waveforms(self):
         """测试多通道波形结构化"""
         n_rows = 10
         waveforms = [
@@ -58,7 +58,7 @@ class TestWaveformStruct:
             w[:, 2] = np.arange(1000, 1000 + n_rows)
 
         struct = WaveformStruct(waveforms)
-        result = struct.structrue_waveforms()
+        result = struct.structure_waveforms()
 
         assert len(result) == 2
         assert len(result[0]) == n_rows

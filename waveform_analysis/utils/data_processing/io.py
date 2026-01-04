@@ -40,16 +40,36 @@ def parse_files_generator(
             continue
 
         try:
-            # Always use chunked reading for generator
-            chunk_iter = pd.read_csv(
-                fp,
-                delimiter=delimiter,
-                skiprows=skiprows,
-                header=None,
-                engine="c",
-                chunksize=chunksize,
-                on_bad_lines="warn",
-            )
+            # Use pyarrow engine if available for faster parsing
+            engine = "c"
+            try:
+                import pyarrow
+
+                engine = "pyarrow"
+            except ImportError:
+                pass
+
+            if chunksize:
+                chunk_iter = pd.read_csv(
+                    fp,
+                    delimiter=delimiter,
+                    skiprows=skiprows,
+                    header=None,
+                    engine=engine,
+                    chunksize=chunksize,
+                    on_bad_lines="warn",
+                )
+            else:
+                chunk_iter = [
+                    pd.read_csv(
+                        fp,
+                        delimiter=delimiter,
+                        skiprows=skiprows,
+                        header=None,
+                        engine=engine,
+                        on_bad_lines="warn",
+                    )
+                ]
 
             for chunk in chunk_iter:
                 print(f"DEBUG: parse_files_generator yielded a chunk of size {len(chunk)}")
@@ -116,13 +136,21 @@ def parse_and_stack_files(
         file_arrs = []
         # attempt chunked reading per-file if chunksize provided
         try:
+            engine = "c"
+            try:
+                import pyarrow
+
+                engine = "pyarrow"
+            except ImportError:
+                pass
+
             if chunksize:
                 chunk_iter = pd.read_csv(
                     fp,
                     delimiter=delimiter,
                     skiprows=skiprows,
                     header=None,
-                    engine="c",
+                    engine=engine,
                     chunksize=chunksize,
                     on_bad_lines="warn",  # Strax-like: warn on bad lines instead of failing
                 )
@@ -133,7 +161,7 @@ def parse_and_stack_files(
                         delimiter=delimiter,
                         skiprows=skiprows,
                         header=None,
-                        engine="c",
+                        engine=engine,
                         on_bad_lines="warn",
                     )
                 ]

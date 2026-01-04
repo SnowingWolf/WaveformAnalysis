@@ -5,6 +5,7 @@ import warnings
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import numpy as np
+import pandas as pd
 
 
 class MemmapStorage:
@@ -114,7 +115,12 @@ class MemmapStorage:
         os.rename(tmp_meta_path, meta_path)
 
     def finalize_save(
-        self, key: str, total_count: int, dtype: np.dtype, extra_metadata: Optional[Dict[str, Any]] = None
+        self,
+        key: str,
+        total_count: int,
+        dtype: np.dtype,
+        extra_metadata: Optional[Dict[str, Any]] = None,
+        shape: Optional[Tuple[int, ...]] = None,
     ):
         """Finalize a save operation by renaming temp files and writing metadata."""
         bin_path, meta_path, _ = self._get_paths(key)
@@ -134,8 +140,9 @@ class MemmapStorage:
                 "itemsize": _dtype.itemsize,
                 "storage_version": self.STORAGE_VERSION,
                 "timestamp": time.time(),
+                "shape": shape if shape else (total_count,),
             }
-            if hasattr(_dtype, "descr"):
+            if _dtype.names is not None:
                 metadata["dtype_descr"] = _dtype.descr
 
             if extra_metadata:
@@ -152,6 +159,7 @@ class MemmapStorage:
         stream: Iterator[np.ndarray],
         dtype: np.dtype,
         extra_metadata: Optional[Dict[str, Any]] = None,
+        shape: Optional[Tuple[int, ...]] = None,
     ) -> int:
         """
         Consumes a stream of numpy arrays and saves them to a binary file.
@@ -177,7 +185,7 @@ class MemmapStorage:
                         except Exception as e:
                             raise RuntimeError(f"Error writing chunk to {tmp_bin_path}: {str(e)}") from e
 
-                self.finalize_save(key, total_count, dtype, extra_metadata)
+                self.finalize_save(key, total_count, dtype, extra_metadata, shape=shape)
                 return total_count
             except Exception as e:
                 # Cleanup on failure
@@ -194,6 +202,12 @@ class MemmapStorage:
                         os.remove(tmp_bin_path)
                     except:
                         pass
+
+    def save_memmap(self, key: str, data: np.ndarray, extra_metadata: Optional[Dict[str, Any]] = None):
+        """Save a single numpy array to storage."""
+        if data is None or data.size == 0:
+            return
+        self.save_stream(key, iter([data]), data.dtype, extra_metadata, shape=data.shape)
 
     def get_metadata(self, key: str) -> Optional[Dict[str, Any]]:
         """Retrieve metadata for a given key."""
@@ -232,9 +246,10 @@ class MemmapStorage:
 
             count = meta["count"]
             itemsize = meta["itemsize"]
+            shape = meta.get("shape", (count,))
 
             # Integrity Check: File Size
-            expected_size = count * itemsize
+            expected_size = np.prod(shape) * itemsize
             actual_size = os.path.getsize(bin_path)
             if actual_size != expected_size:
                 warnings.warn(
@@ -260,7 +275,7 @@ class MemmapStorage:
                 warnings.warn(f"Failed to reconstruct dtype for {key}: {str(e)}")
                 return None
 
-            return np.memmap(bin_path, dtype=dtype, mode="r", shape=(count,))
+            return np.memmap(bin_path, dtype=dtype, mode="r", shape=tuple(shape))
 
     def exists(self, key: str) -> bool:
         bin_path, meta_path, _ = self._get_paths(key)
@@ -275,9 +290,10 @@ class MemmapStorage:
                 return False
             count = meta.get("count")
             itemsize = meta.get("itemsize")
+            shape = meta.get("shape", (count,))
             if count is None or itemsize is None:
                 return False
-            expected_size = int(count) * int(itemsize)
+            expected_size = int(np.prod(shape)) * int(itemsize)
             actual_size = os.path.getsize(bin_path)
             if actual_size != expected_size:
                 return False
@@ -309,3 +325,15 @@ class MemmapStorage:
         if meta:
             return meta.get("count", 0)
         return 0
+
+    def save_dataframe(self, key: str, df: pd.DataFrame):
+        """Save a pandas DataFrame as Parquet."""
+        path = os.path.join(self.base_dir, f"{key}.parquet")
+        df.to_parquet(path)
+
+    def load_dataframe(self, key: str) -> Optional[pd.DataFrame]:
+        """Load a pandas DataFrame from Parquet."""
+        path = os.path.join(self.base_dir, f"{key}.parquet")
+        if os.path.exists(path):
+            return pd.read_parquet(path)
+        return None

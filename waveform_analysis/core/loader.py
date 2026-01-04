@@ -25,12 +25,17 @@ class WaveformLoader:
     _ch_re = re.compile(r"CH(\d+)")
     _idx_re = re.compile(r"_(\d+)\.CSV$", re.IGNORECASE)
 
-    def __init__(self, n_channels: int = 6, char: str = "All_SelfTrigger", data_root: str = "DAQ"):
-        self.base_dir = Path(data_root) / char / "RAW"
+    def __init__(self, n_channels: int = 6, run_name: str = "All_SelfTrigger", data_root: str = "DAQ", **kwargs):
+        # 兼容旧的 char 参数
+        if "char" in kwargs:
+            run_name = kwargs.pop("char")
+
+        self.base_dir = Path(data_root) / run_name / "RAW"
         self.n_channels = n_channels
         self.pattern = "*CH*.CSV"
         self.data_root = data_root
-        self.char = char
+        self.run_name = run_name
+        self.char = run_name  # 保持 char 属性以兼容旧代码
 
     def _extract(self, filename: str) -> Optional[Tuple[int, int]]:
         """解析文件名，返回 (channel, file_index)"""

@@ -25,6 +25,25 @@ class CacheManager:
     """
 
     @staticmethod
+    def get_key(step_name: str, run_name: str = "", **params) -> str:
+        """
+        生成缓存键。
+
+        Args:
+            step_name: 步骤名称
+            run_name: 运行名称
+            **params: 影响缓存的其他参数
+
+        Returns:
+            缓存键字符串
+        """
+        parts = [step_name, run_name]
+        for k, v in sorted(params.items()):
+            parts.append(f"{k}={v}")
+        combined = "|".join(parts)
+        return hashlib.sha1(combined.encode()).hexdigest()
+
+    @staticmethod
     def compute_watch_signature(obj: Any, watch_attrs: List[str]) -> str:
         """
         计算监视属性的签名，用于检测数据是否发生变化。
@@ -51,17 +70,20 @@ class CacheManager:
                 except OSError:
                     sig_parts.append(f"{attr}:error")
             elif isinstance(val, (list, tuple)):
-                # 如果是文件列表
-                file_sigs = []
-                for item in val:
+                # 如果是文件列表（支持嵌套列表）
+                def _get_file_sig(item):
                     if isinstance(item, str) and os.path.exists(item):
                         try:
                             stat = os.stat(item)
-                            file_sigs.append(f"{stat.st_mtime}:{stat.st_size}")
+                            return f"{stat.st_mtime}:{stat.st_size}"
                         except OSError:
-                            file_sigs.append("error")
+                            return "error"
+                    elif isinstance(item, (list, tuple)):
+                        return f"[{','.join([_get_file_sig(i) for i in item])}]"
                     else:
-                        file_sigs.append(str(item))
+                        return str(item)
+
+                file_sigs = [_get_file_sig(item) for item in val]
                 sig_parts.append(f"{attr}:[{','.join(file_sigs)}]")
             else:
                 # 其他类型，使用字符串表示

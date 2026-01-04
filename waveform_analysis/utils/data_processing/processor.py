@@ -15,7 +15,7 @@ import pandas as pd
 - build_waveform_df: 构建基础 DataFrame
 - group_multi_channel_hits: 按时间窗口聚类事件
 - WaveformDataset: 统一的数据容器和处理流程（支持链式调用）
-- Datas: 从缓存加载数据
+- ResultData: 从缓存加载数据
 """
 
 
@@ -365,7 +365,7 @@ def lr_log_ratio(data):
     return log_ratio
 
 
-class Datas:
+class ResultData:
     def __init__(self, cache_dir) -> None:
         self.cache_dir = cache_dir
         df_file = os.path.join(cache_dir, "df.feather")

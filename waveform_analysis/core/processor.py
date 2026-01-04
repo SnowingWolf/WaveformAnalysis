@@ -17,7 +17,7 @@ class WaveformStruct:
         self.pair_length = None
         self.waveform_structureds = None
 
-    def _structrue_waveform(self, waves=None):
+    def _structure_waveform(self, waves=None):
         # If no explicit waves passed, use the first channel
         if waves is None:
             if not self.waveforms:
@@ -68,8 +68,8 @@ class WaveformStruct:
         waveform_structured["wave"] = [row[7:] for row in waves]
         return waveform_structured
 
-    def structrue_waveforms(self):
-        self.waveform_structureds = [self._structrue_waveform(waves) for waves in self.waveforms]
+    def structure_waveforms(self):
+        self.waveform_structureds = [self._structure_waveform(waves) for waves in self.waveforms]
         return self.waveform_structureds
 
     def get_pair_length(self):
@@ -108,7 +108,7 @@ class WaveformProcessor:
         将原始波形数组转换为结构化数组。
         """
         structurer = WaveformStruct(waveforms)
-        return structurer.structrue_waveforms()
+        return structurer.structure_waveforms()
 
     def get_pair_length(self, waveforms: List[np.ndarray]) -> np.ndarray:
         """
@@ -451,7 +451,7 @@ def lr_log_ratio(data):
 
 
 @export
-class Datas:
+class ResultData:
     def __init__(self, cache_dir) -> None:
         self.cache_dir = cache_dir
         df_file = os.path.join(cache_dir, "df.feather")

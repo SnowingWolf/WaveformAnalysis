@@ -14,6 +14,7 @@ import warnings
 from typing import Any, Dict, Iterator, List, Optional, Type, Union, cast
 
 import numpy as np
+import pandas as pd
 
 from waveform_analysis.utils.visualization.lineage_visualizer import plot_lineage_labview
 
@@ -227,9 +228,11 @@ class Context(CacheMixin, PluginMixin):
     def _load_from_disk_with_check(self, run_id: str, name: str, key: str) -> Optional[Any]:
         """Internal helper to load data from disk with lineage verification."""
         if not self.storage.exists(key):
-            return None
+            # Check if it's a multi-channel data (e.g. peaks_ch0)
+            if not self.storage.exists(f"{key}_ch0"):
+                return None
 
-        meta = self.storage.get_metadata(key)
+        meta = self.storage.get_metadata(key) or self.storage.get_metadata(f"{key}_ch0")
         if meta and "lineage" in meta:
             current_lineage = self.get_lineage(name)
             import json
@@ -240,7 +243,19 @@ class Context(CacheMixin, PluginMixin):
                 warnings.warn(f"Lineage mismatch for '{name}' in cache. Recomputing.", UserWarning)
                 return None
 
-        data = self.storage.load_memmap(key)
+        # Determine how to load
+        if meta.get("type") == "dataframe":
+            data = self.storage.load_dataframe(key)
+        elif self.storage.exists(f"{key}_ch0"):
+            # Load multi-channel data
+            data = []
+            i = 0
+            while self.storage.exists(f"{key}_ch{i}"):
+                data.append(self.storage.load_memmap(f"{key}_ch{i}"))
+                i += 1
+        else:
+            data = self.storage.load_memmap(key)
+
         if data is not None:
             self._set_data(run_id, name, data)
         return data
@@ -398,26 +413,37 @@ class Context(CacheMixin, PluginMixin):
 
                     # Handle saving
                     if plugin.save_when == "always" or (plugin.save_when == "target" and name == data_name):
-                        if target_dtype is None:
-                            # We can't save without dtype for memmap
-                            self._set_data(run_id, name, result)
-                        elif is_generator:
-                            # It's a generator, wrap it to save while yielding
-                            with self.profiler.timeit("context.save_cache"):
-                                result = self._wrap_generator_to_save(
-                                    run_id, name, cast(Iterator, result), target_dtype, lineage=lineage
-                                )
-                            # Wrap with OneTimeGenerator to prevent multiple consumption issues
-                            result = OneTimeGenerator(result, name=f"Data '{name}' for run '{run_id}'")
-                            self._set_data(run_id, name, result)
-                        else:
-                            # It's a static array, save it directly
-                            with self.profiler.timeit("context.save_cache"):
-                                self.storage.save_stream(
-                                    key, [result], target_dtype, extra_metadata={"lineage": lineage}
-                                )
-                            data = self.storage.load_memmap(key)
-                            self._set_data(run_id, name, data)
+                        with self.profiler.timeit("context.save_cache"):
+                            if isinstance(result, pd.DataFrame):
+                                # Save DataFrame as Parquet
+                                self.storage.save_dataframe(key, result)
+                                self.storage.save_metadata(key, {"lineage": lineage, "type": "dataframe"})
+                                self._set_data(run_id, name, result)
+                            elif isinstance(result, list) and all(isinstance(x, np.ndarray) for x in result):
+                                # Save list of arrays (e.g. per-channel data)
+                                for i, arr in enumerate(result):
+                                    ch_key = f"{key}_ch{i}"
+                                    self.storage.save_memmap(ch_key, arr, extra_metadata={"lineage": lineage})
+                                self._set_data(run_id, name, result)
+                            elif target_dtype is not None:
+                                if is_generator:
+                                    # It's a generator, wrap it to save while yielding
+                                    result = self._wrap_generator_to_save(
+                                        run_id, name, cast(Iterator, result), target_dtype, lineage=lineage
+                                    )
+                                    # Wrap with OneTimeGenerator to prevent multiple consumption issues
+                                    result = OneTimeGenerator(result, name=f"Data '{name}' for run '{run_id}'")
+                                    self._set_data(run_id, name, result)
+                                else:
+                                    # It's a static array, save it directly
+                                    self.storage.save_stream(
+                                        key, [result], target_dtype, extra_metadata={"lineage": lineage}
+                                    )
+                                    data = self.storage.load_memmap(key)
+                                    self._set_data(run_id, name, data)
+                            else:
+                                # Fallback: just set in memory
+                                self._set_data(run_id, name, result)
                     else:
                         self._set_data(run_id, name, result)
 

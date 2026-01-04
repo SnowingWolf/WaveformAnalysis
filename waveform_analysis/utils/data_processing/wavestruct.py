@@ -26,7 +26,7 @@ class WaveformStruct:
         self.event_length = None
         self.waveform_structureds = None
 
-    def _structrue_waveform(self, waves=None):
+    def _structure_waveform(self, waves=None):
         # If no explicit waves passed, use the first channel
         if waves is None:
             if not self.waveforms:
@@ -67,7 +67,7 @@ class WaveformStruct:
         waveform_structured["wave"] = [row[7:] for row in waves]
         return waveform_structured
 
-    def structrue_waveforms(self, show_progress: bool = False):
+    def structure_waveforms(self, show_progress: bool = False):
         if show_progress:
             try:
                 from tqdm import tqdm
@@ -78,7 +78,7 @@ class WaveformStruct:
         else:
             pbar = self.waveforms
 
-        self.waveform_structureds = [self._structrue_waveform(waves) for waves in pbar]
+        self.waveform_structureds = [self._structure_waveform(waves) for waves in pbar]
         return self.waveform_structureds
 
     def get_event_length(self):
