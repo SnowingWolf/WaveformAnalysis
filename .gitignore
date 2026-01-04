@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
 
 # C++ build artifacts
 *.o
@@ -14,16 +15,21 @@ bin/
 env/
 venv/
 ENV/
+.pytest_cache/
+htmlcov/
+dist/
+*.egg-info/
 
 # Data and logs
 *.log
 *.root
 *.h5
 *.dat
-data/
-output/
+DAQ/
+outputs/
+_side_effects/
 
 # IDEs and OS
 .vscode/
-.idea/
+.idea/git commit -m "Stop tracking .pyc files"
 .DS_Store

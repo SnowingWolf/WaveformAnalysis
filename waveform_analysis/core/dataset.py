@@ -5,8 +5,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from .loader import get_raw_files, get_waveforms
-from .processor import WaveformStruct, build_waveform_df, group_multi_channel_hits
+from waveform_analysis.core.analyzer import EventAnalyzer
+from waveform_analysis.core.loader import WaveformLoader
+from waveform_analysis.core.processor import WaveformProcessor
 
 
 class WaveformDataset:
@@ -53,6 +54,12 @@ class WaveformDataset:
         self.data_root = data_root
         self.data_dir = os.path.join(data_root, char)
         self.load_waveforms = load_waveforms
+
+        # 初始化组件
+        # 注意：loader 需要知道总通道数（包含起始偏移），以便获取正确的通道文件
+        self.loader = WaveformLoader(n_channels=n_channels + start_channel_slice, char=char, data_root=data_root)
+        self.processor = WaveformProcessor(n_channels=n_channels)
+        self.analyzer = EventAnalyzer(n_channels=n_channels, start_channel_slice=start_channel_slice)
 
         # DAQ 集成选项
         self.use_daq_scan = use_daq_scan
@@ -516,94 +523,131 @@ class WaveformDataset:
 
         返回: self（便于链式调用）
         """
-        # 优先使用 DAQ 扫描信息（若启用）
         if self.use_daq_scan:
             try:
                 self.check_daq_status()
             except Exception:
-                # 若扫描失败，后续会回退到原始加载方式
                 if verbose:
                     print(f"[{self.char}] 警告: 无法完成 DAQ 扫描，回退到常规文件收集方式")
 
-            # 若有 DAQRun 对象（本地扫描），直接使用其文件路径信息
-            if self.daq_run is not None and getattr(self.daq_run, "channel_files", None):
-                max_ch = (
-                    max(self.daq_run.channel_files.keys())
-                    if self.daq_run.channel_files
-                    else self.start_channel_slice + self.n_channels - 1
-                )
-                n = max(self.start_channel_slice + self.n_channels, max_ch + 1)
-                raw_filess = [[] for _ in range(n)]
-                for ch, files in self.daq_run.channel_files.items():
-                    sorted_files = sorted(files, key=lambda x: x.get("index", 0))
-                    raw_filess[ch] = [f["path"] for f in sorted_files]
-
-                self.raw_files = raw_filess
-
-                if verbose:
-                    print(f"[{self.char}] 从 DAQ 扫描结果加载 {len(raw_filess)} 个通道文件信息")
-                return self
-
-            # 若加载自 JSON 报告
-            if self.daq_info is not None:
-                channel_details = self.daq_info.get("channel_details", {})
-                run_path = self.daq_info.get("path", self.data_dir)
-                max_ch = (
-                    max(int(k) for k in channel_details.keys())
-                    if channel_details
-                    else self.start_channel_slice + self.n_channels - 1
-                )
-                n = max(self.start_channel_slice + self.n_channels, max_ch + 1)
-                raw_filess = [[] for _ in range(n)]
-                for ch_str, chdata in channel_details.items():
-                    ch = int(ch_str)
-                    files = chdata.get("files", [])
-                    sorted_files = sorted(files, key=lambda x: x.get("index", 0))
-                    raw_filess[ch] = [os.path.join(run_path, "RAW", f["filename"]) for f in sorted_files]
-
-                self.raw_files = raw_filess
-
-                if verbose:
-                    print(f"[{self.char}] 从 DAQ 报告加载 {len(raw_filess)} 个通道文件信息")
-                return self
-
-        # 回退到默认的文件查找
-        raw_filess = get_raw_files(n_channels=self.start_channel_slice + self.n_channels, char=self.char)
-        self.raw_files = raw_filess
+        self.raw_files = self.loader.get_raw_files(daq_run=self.daq_run, daq_info=self.daq_info)
 
         if verbose:
-            print(f"[{self.char}] 加载 {len(raw_filess)} 个通道的原始文件")
-            for ch, fs in enumerate(raw_filess):
-                print(f"  CH{ch}: {len(fs)} 个文件")
+            print(f"[{self.char}] 加载 {len(self.raw_files)} 个通道的原始文件")
+            for ch, fs in enumerate(self.raw_files):
+                if fs:
+                    print(f"  CH{ch}: {len(fs)} 个文件")
 
         return self
 
     @chainable_step
-    def extract_waveforms(self, verbose: bool = True) -> "WaveformDataset":
+    def extract_waveforms(
+        self, verbose: bool = True, *, chunksize: int = 1000, n_jobs: int = 1, use_process_pool: bool = False
+    ) -> "WaveformDataset":
         """
         从原始文件中提取波形数据。
-
-        返回: self（便于链式调用）
         """
-        if not self.load_waveforms:
-            if verbose:
-                print("  跳过波形提取（load_waveforms=False）")
-            return self
-
         if not self.raw_files:
             raise RuntimeError("需要先调用 load_raw_data()")
 
-        waveforms = get_waveforms(self.raw_files[self.start_channel_slice :])
-        self.waveforms = waveforms
+        # 仅提取需要的通道
+        target_files = self.raw_files[self.start_channel_slice : self.start_channel_slice + self.n_channels]
+
+        if not self.load_waveforms:
+            # 当不加载完整波形时，采用流式读取并直接计算特征（不缓存原始波形）
+            if verbose:
+                print("  流式提取特征（不缓存波形，load_waveforms=False）")
+            self._extract_waveforms_streaming(chunksize=chunksize, show_progress=verbose)
+            return self
+
+        self.waveforms = self.loader.load_waveforms(
+            target_files,
+            show_progress=verbose,
+            chunksize=chunksize,
+            n_jobs=n_jobs,
+            use_process_pool=use_process_pool,
+        )
 
         if verbose:
-            for ch, wf in enumerate(waveforms):
+            for ch, wf in enumerate(self.waveforms):
                 if wf.size == 0:
                     print(f"  CH{self.start_channel_slice + ch}: 空数组")
                 else:
                     print(f"  CH{self.start_channel_slice + ch}: {wf.shape}")
 
         return self
+
+    def _extract_waveforms_streaming(self, chunksize: int = 1000, show_progress: bool = False) -> None:
+        """流式读取 CSV 并直接计算 peaks/charges/简单的 st_waveforms（不缓存完整波形）。"""
+        target_files = self.raw_files[self.start_channel_slice : self.start_channel_slice + self.n_channels]
+
+        peaks_out = []
+        charges_out = []
+        st_out = []
+        pair_len = []
+
+        for i, files in enumerate(target_files):
+            if not files:
+                peaks_out.append(np.array([]))
+                charges_out.append(np.array([]))
+                st_out.append(
+                    np.zeros(0, dtype=[("baseline", "f8"), ("timestamp", "i8"), ("event_length", "i8"), ("wave", "O")])
+                )
+                pair_len.append(0)
+                continue
+
+            results = []
+            # 注意：load_waveforms_generator 期望 List[List[str]]，返回 List[np.ndarray] 的生成器
+            for chunk_list in self.loader.load_waveforms_generator([files], chunksize=chunksize):
+                chunk = chunk_list[0]
+                res = self.processor.process_chunk(chunk, self.peaks_range, self.charge_range)
+                if res:
+                    results.append(res)
+
+            if results:
+                baseline_all = np.concatenate([r["baseline"] for r in results])
+                ts_all = np.concatenate([r["timestamp"] for r in results])
+                peaks_all = np.concatenate([r["peak"] for r in results])
+                charges_all = np.concatenate([r["charge"] for r in results])
+                len_all = np.concatenate([r["event_length"] for r in results])
+
+                rec_dtype = [("baseline", "f8"), ("timestamp", "i8"), ("event_length", "i8"), ("wave", "O")]
+                st = np.zeros(len(ts_all), dtype=rec_dtype)
+                st["baseline"] = baseline_all
+                st["timestamp"] = ts_all
+                st["event_length"] = len_all
+                st["wave"] = [np.empty(0, dtype=float) for _ in range(len(ts_all))]
+
+                peaks_out.append(peaks_all)
+                charges_out.append(charges_all)
+                st_out.append(st)
+                pair_len.append(len(ts_all))
+            else:
+                peaks_out.append(np.array([]))
+                charges_out.append(np.array([]))
+                st_out.append(
+                    np.zeros(0, dtype=[("baseline", "f8"), ("timestamp", "i8"), ("event_length", "i8"), ("wave", "O")])
+                )
+                pair_len.append(0)
+
+        self.peaks = peaks_out
+        self.charges = charges_out
+        self.st_waveforms = st_out
+        self.pair_len = np.array(pair_len)
+
+        # Register features
+        self.register_feature("peak", lambda _self, *args, **kwargs: self.peaks)
+        self.register_feature("charge", lambda _self, *args, **kwargs: self.charges)
+
+        # Build timestamp index for compatibility
+        self._build_timestamp_index()
+
+    def clear_waveforms(self) -> None:
+        """释放波形相关的大块内存（waveforms 与 st_waveforms）。"""
+        self.waveforms = []
+        self.st_waveforms = []
+        self._timestamp_index = []
+        self.pair_len = None
 
     @chainable_step
     def structure_waveforms(self, verbose: bool = True) -> "WaveformDataset":
@@ -620,9 +664,8 @@ class WaveformDataset:
         if not self.waveforms:
             raise RuntimeError("需要先调用 extract_waveforms()")
 
-        waveform_struct = WaveformStruct(self.waveforms)
-        self.st_waveforms = waveform_struct.structrue_waveforms()
-        self.pair_len = waveform_struct.get_pair_length()
+        self.st_waveforms = self.processor.structure_waveforms(self.waveforms)
+        self.pair_len = self.processor.get_pair_length(self.waveforms)
 
         # 预构建 timestamp -> index 加速表
         self._build_timestamp_index()
@@ -657,44 +700,28 @@ class WaveformDataset:
         if self.pair_len is None:
             raise RuntimeError("配对长度未定义，请确认已成功结构化波形")
 
-        if peaks_range is not None:
+        self.peaks, self.charges = self.processor.compute_basic_features(
+            self.st_waveforms, self.pair_len, peaks_range, charge_range
+        )
+
+        # 更新本地缓存的 range
+        if peaks_range:
             self.peaks_range = peaks_range
-        if charge_range is not None:
+        if charge_range:
             self.charge_range = charge_range
-
-        start_p, end_p = self.peaks_range
-        start_c, end_c = self.charge_range
-
-        peaks = [
-            np.array([
-                np.max(wave["wave"][start_p:end_p]) - np.min(wave["wave"][start_p:end_p])
-                for wave in self.st_waveforms[i]
-            ])[: self.pair_len[i]]
-            for i in range(len(self.st_waveforms))
-        ]
-
-        charges = [
-            np.array([np.sum(wave["baseline"] - wave["wave"][start_c:end_c]) for wave in self.st_waveforms[i]])[
-                : self.pair_len[i]
-            ]
-            for i in range(len(self.st_waveforms))
-        ]
-
-        self.peaks = peaks
-        self.charges = charges
 
         # 也将这两类特征注册（便于扩展统一管理）
         def _peak_fn(_self, st_waveforms, pair_len, **params):
-            return peaks
+            return self.peaks
 
         def _charge_fn(_self, st_waveforms, pair_len, **params):
-            return charges
+            return self.charges
 
         self.register_feature("peak", _peak_fn)
         self.register_feature("charge", _charge_fn)
 
         if verbose:
-            for i, (p, q) in enumerate(zip(peaks, charges)):
+            for i, (p, q) in enumerate(zip(self.peaks, self.charges)):
                 print(f"  通道 {i}: {len(p)} 个 peaks, {len(q)} 个 charges")
 
         return self
@@ -709,16 +736,21 @@ class WaveformDataset:
         if not self.peaks or not self.charges:
             raise RuntimeError("需要先调用 build_waveform_features()")
 
-        self.df = build_waveform_df(
-            self.st_waveforms, self.peaks, self.charges, self.pair_len, n_channels=self.n_channels
+        self.df = self.processor.build_dataframe(
+            self.st_waveforms,
+            self.peaks,
+            self.charges,
+            self.pair_len,
+            extra_features=self.features if self.features else None,
         )
+
         # 将注册特征（如有）落盘到 df
-        if self.features or self.feature_fns:
-            # 若尚未计算，先计算一次
-            if not self.features:
-                self.compute_registered_features(verbose=False)
-            self.add_features_to_dataframe(verbose=False)
-        self.df.sort_values("timestamp", inplace=True)
+        if self.feature_fns and not self.features:
+            self.compute_registered_features(verbose=False)
+            # 重新构建以包含新计算的特征
+            self.df = self.processor.build_dataframe(
+                self.st_waveforms, self.peaks, self.charges, self.pair_len, extra_features=self.features
+            )
 
         if verbose:
             print(f"构建 DataFrame 完成，事件总数: {len(self.df)}")
@@ -739,10 +771,9 @@ class WaveformDataset:
         if self.df is None:
             raise RuntimeError("需要先调用 build_dataframe()")
 
-        if time_window_ns is not None:
+        self.df_events = self.analyzer.group_events(self.df, time_window_ns)
+        if time_window_ns:
             self.time_window_ns = time_window_ns
-
-        self.df_events = group_multi_channel_hits(self.df, self.time_window_ns)
 
         if verbose:
             print(f"聚类完成，事件组数: {len(self.df_events)}")
@@ -761,20 +792,7 @@ class WaveformDataset:
         if self.df_events is None:
             raise RuntimeError("需要先调用 group_events()")
 
-        df_paired = self.df_events[
-            (self.df_events["n_hits"] == self.n_channels)
-            & (self.df_events["channels"].apply(lambda x: np.array_equal(x, list(range(self.n_channels)))))
-        ].copy()
-
-        # 计算时间差（单位: ns）
-        df_paired["delta_t"] = df_paired["timestamps"].apply(lambda x: (x[-1] - x[0]) / 1000.0)
-
-        # 提取各通道的 charges 和 peaks
-        for i in range(self.n_channels):
-            df_paired[f"charge_ch{self.start_channel_slice + i}"] = df_paired["charges"].apply(lambda x: x[i])
-            df_paired[f"peak_ch{self.start_channel_slice + i}"] = df_paired["peaks"].apply(lambda x: x[i])
-
-        self.df_paired = df_paired
+        self.df_paired = self.analyzer.pair_events(self.df_events)
 
         if verbose:
             print(f"配对完成，成功配对的事件数: {len(self.df_paired)}")
@@ -794,25 +812,7 @@ class WaveformDataset:
         if self.df_events is None:
             raise RuntimeError("需要先调用 group_events()")
 
-        df_paired = strategy(self.df_events, self.n_channels).copy()
-
-        # 若策略未计算 delta_t，这里进行补充
-        if "timestamps" in df_paired.columns and "delta_t" not in df_paired.columns:
-            df_paired["delta_t"] = df_paired["timestamps"].apply(lambda x: (x[-1] - x[0]) / 1000.0)
-
-        # 若策略保留了 charges / peaks，则生成派生列
-        if "charges" in df_paired.columns:
-            for i in range(min(self.n_channels, 8)):
-                df_paired[f"charge_ch{self.start_channel_slice + i}"] = df_paired["charges"].apply(
-                    lambda x: x[i] if len(x) > i else np.nan
-                )
-        if "peaks" in df_paired.columns:
-            for i in range(min(self.n_channels, 8)):
-                df_paired[f"peak_ch{self.start_channel_slice + i}"] = df_paired["peaks"].apply(
-                    lambda x: x[i] if len(x) > i else np.nan
-                )
-
-        self.df_paired = df_paired
+        self.df_paired = self.analyzer.pair_events_with(self.df_events, strategy)
 
         if verbose:
             print(f"[strategy] 配对完成，成功配对的事件数: {len(self.df_paired)}")

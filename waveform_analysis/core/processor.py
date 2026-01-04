@@ -4,21 +4,13 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-"""
-完成数据的预处理
-1. waveform ==> df
-2. df ==> df_events
-3. channels mask & group mask 两种
+from waveform_analysis.core.utils import exporter
 
-模块结构：
-- WaveformStruct: 波形结构化处理
-- build_waveform_df: 构建基础 DataFrame
-- group_multi_channel_hits: 按时间窗口聚类事件
-- WaveformDataset: 统一的数据容器和处理流程（支持链式调用）
-- Datas: 从缓存加载数据
-"""
+# 初始化 exporter
+export, __all__ = exporter()
 
 
+@export
 class WaveformStruct:
     def __init__(self, waveforms):
         self.waveforms = waveforms
@@ -99,6 +91,118 @@ class WaveformStruct:
         return paired_length
 
 
+@export
+class WaveformProcessor:
+    """
+    负责波形处理、特征提取和 DataFrame 构建。
+    """
+
+    def __init__(self, n_channels: int = 2):
+        self.n_channels = n_channels
+        self.peaks_range = (40, 90)
+        self.charge_range = (60, 400)
+        self.feature_fns: Dict[str, Tuple[Callable[..., List[np.ndarray]], Dict[str, Any]]] = {}
+
+    def structure_waveforms(self, waveforms: List[np.ndarray]) -> List[np.ndarray]:
+        """
+        将原始波形数组转换为结构化数组。
+        """
+        structurer = WaveformStruct(waveforms)
+        return structurer.structrue_waveforms()
+
+    def get_pair_length(self, waveforms: List[np.ndarray]) -> np.ndarray:
+        """
+        获取各通道波形的配对长度。
+        """
+        structurer = WaveformStruct(waveforms)
+        return structurer.get_pair_length()
+
+    def compute_basic_features(
+        self,
+        st_waveforms: List[np.ndarray],
+        pair_len: np.ndarray,
+        peaks_range: Optional[Tuple[int, int]] = None,
+        charge_range: Optional[Tuple[int, int]] = None,
+    ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+        """
+        计算基础特征：peaks 和 charges。
+        """
+        if peaks_range is not None:
+            self.peaks_range = peaks_range
+        if charge_range is not None:
+            self.charge_range = charge_range
+
+        start_p, end_p = self.peaks_range
+        start_c, end_c = self.charge_range
+
+        peaks = [
+            np.array([
+                np.max(wave["wave"][start_p:end_p]) - np.min(wave["wave"][start_p:end_p]) for wave in st_waveforms[i]
+            ])[: pair_len[i]]
+            for i in range(len(st_waveforms))
+        ]
+
+        charges = [
+            np.array([np.sum(wave["baseline"] - wave["wave"][start_c:end_c]) for wave in st_waveforms[i]])[
+                : pair_len[i]
+            ]
+            for i in range(len(st_waveforms))
+        ]
+
+        return peaks, charges
+
+    def build_dataframe(
+        self,
+        st_waveforms: List[np.ndarray],
+        peaks: List[np.ndarray],
+        charges: List[np.ndarray],
+        pair_len: np.ndarray,
+        extra_features: Optional[Dict[str, List[np.ndarray]]] = None,
+    ) -> pd.DataFrame:
+        """
+        构建波形 DataFrame。
+        """
+        df = build_waveform_df(st_waveforms, peaks, charges, pair_len, n_channels=self.n_channels)
+
+        if extra_features:
+            for name, feat_list in extra_features.items():
+                all_feat = np.concatenate([feat[: pair_len[i]] for i, feat in enumerate(feat_list)])
+                df[name] = all_feat
+
+        return df.sort_values("timestamp")
+
+    def process_chunk(
+        self, chunk: np.ndarray, peaks_range: Tuple[int, int], charge_range: Tuple[int, int]
+    ) -> Dict[str, np.ndarray]:
+        """
+        处理一个数据块，提取特征。
+        """
+        start_p, end_p = peaks_range
+        start_c, end_c = charge_range
+
+        if chunk.shape[1] <= 7:
+            return {}
+
+        waves = chunk[:, 7:].astype(float)
+        baseline_vals = np.nanmean(waves[:, :40], axis=1)
+        ts = chunk[:, 2].astype(np.int64)
+
+        p_seg = waves[:, start_p:end_p]
+        c_seg = waves[:, start_c:end_c]
+
+        peaks_vals = np.nanmax(p_seg, axis=1) - np.nanmin(p_seg, axis=1)
+        charges_vals = np.nansum(baseline_vals[:, None] - c_seg, axis=1)
+
+        return {
+            "baseline": baseline_vals,
+            "timestamp": ts,
+            "peak": peaks_vals,
+            "charge": charges_vals,
+            "event_length": np.full(len(ts), waves.shape[1]),
+        }
+
+
+@export
 def build_waveform_df(st_waveforms, peaks, charges, pair_len, n_channels=6):
     """把每个通道的 timestamp / charge / peak / channel 拼成一个 DataFrame."""
     all_timestamps = []
@@ -132,6 +236,7 @@ def build_waveform_df(st_waveforms, peaks, charges, pair_len, n_channels=6):
     })
 
 
+@export
 def group_multi_channel_hits(df, time_window_ns):
     """
     在 df 中按 timestamp 聚类，找“同一事件的多通道触发”，并在簇内部
@@ -228,6 +333,7 @@ GROUP_WEIGHTS = {
 }
 
 
+@export
 def encode_groups_binary(channels):
     """
     任意组出现了部分成员（不成对） -> 整体返回 0（异常）
@@ -257,6 +363,7 @@ def encode_groups_binary(channels):
     return code
 
 
+@export
 def encode_channels_binary(channels):
     """
     将 channel 列表转换为二进制位掩码。
@@ -272,6 +379,7 @@ def encode_channels_binary(channels):
     return mask
 
 
+@export
 def mask_to_channels(mask):
     """
     将 bitmask 转回 channel 列表。
@@ -290,6 +398,7 @@ def mask_to_channels(mask):
     return channels
 
 
+@export
 def channels_to_mask(channels):
     """
     将 channels 列表转换为 bitmask。
@@ -304,6 +413,7 @@ def channels_to_mask(channels):
     return mask
 
 
+@export
 def get_paired_data(df_events, group_mask, char):
     """
     根据 encode_groups_binary 的加权结果筛选事件，
@@ -326,18 +436,21 @@ def get_paired_data(df_events, group_mask, char):
     return np.array(dft[char].to_list(), dtype=np.float64)
 
 
+@export
 def energy_rec(data):
     x, y = data
     energy = np.sqrt(np.prod([x, y], axis=0)) * 2
     return energy
 
 
+@export
 def lr_log_ratio(data):
     x, y = data
     log_ratio = np.log(x) - np.log(y)
     return log_ratio
 
 
+@export
 class Datas:
     def __init__(self, cache_dir) -> None:
         self.cache_dir = cache_dir
@@ -348,6 +461,7 @@ class Datas:
         self.df_events = pd.read_feather(event_file)
 
 
+@export
 def hist_count_ratio(data_a, data_b, bins):
     counts_a, bin_edges = np.histogram(data_a, bins=bins)
     counts_b, _ = np.histogram(data_b, bins=bins)

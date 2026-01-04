@@ -34,10 +34,10 @@ dataset.load_raw_data().extract_waveforms().build_waveform_features()...
 
 ### 当 `load_waveforms=False` 时
 
-1. **`extract_waveforms()`**: 被跳过
-   - 不读取 CSV 文件中的波形数据
-   - 打印：`"跳过波形提取（load_waveforms=False）"`
-   - 速度快 10-100 倍
+1. **`extract_waveforms()`**: 采用流式提取（不缓存完整波形）
+   - 按块读取 CSV 并直接计算峰值、电荷等特征（不将所有波形同时驻留内存）
+   - 调用示例：`extract_waveforms(chunksize=1000)`（通过 `chunksize` 控制分块大小）
+   - 速度/内存依赖于 IO 与块大小，能在有限内存下处理大数据集
 
 2. **`structure_waveforms()`**: 被跳过
    - 不整理波形为 numpy 数组

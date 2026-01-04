@@ -9,13 +9,13 @@ __version__ = "0.1.0"
 __author__ = "Your Name"
 
 from .core.dataset import WaveformDataset
-from .core.loader import get_raw_files, get_waveforms
 from .core.processor import (
     WaveformStruct,
     build_waveform_df,
     group_multi_channel_hits,
 )
 from .utils.daq import DAQAnalyzer, DAQRun
+from .utils.loader import get_raw_files, get_waveforms
 
 __all__ = [
     "WaveformDataset",

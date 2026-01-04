@@ -121,6 +121,37 @@ python examples/advanced_features.py
 python examples/skip_waveforms.py
 ```
 
+### 7. 运行测试（本地，含 Conda 支持）
+
+仓库提供脚本 `scripts/run_tests.sh` 来自动 source conda 并激活 `pyroot-kernel` 环境后运行 `pytest`：
+
+```bash
+# 直接运行（脚本会在目标环境中使用 `conda run -n` 执行 pytest）
+./scripts/run_tests.sh
+
+# 或通过 Makefile
+make test
+
+# 使用不同的环境名（例如 my-env）
+CONDA_ENV=my-env ./scripts/run_tests.sh -q
+```
+
+脚本会在所选环境中找不到 `pytest` 时，尝试使用 `conda run -n <env> pip install pytest pytest-cov` 安装。  
+
+### 基准测试（I/O 性能）
+
+仓库还提供一个简单的 I/O 基准脚本 `scripts/benchmark_io.py`，用于比较不同 `chunksize` 与 `n_jobs` 设置下的解析耗时：
+
+```bash
+# 运行默认基准（50 个文件，2 通道，200 采样，2 次重复）
+make bench
+
+# 或直接运行并指定参数
+python scripts/benchmark_io.py --n-files 100 --n-channels 2 --n-samples 500 --reps 3 --chunksizes None 1000 500 --n-jobs 1 4
+```
+
+脚本会在临时目录下生成测试 CSV 并打印平均耗时，便于选择合适的 `chunksize` 与并行度以达到快/内存的折衷。
+
 ### 缓存与自动失效（可选）
 
 为了加速重复运行，你可以为某个 pipeline 步骤启用缓存（内存或磁盘持久化）。当原始文件改变时，也可以自动使磁盘缓存失效并强制重新计算。

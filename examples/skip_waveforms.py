@@ -27,7 +27,7 @@ def example_without_waveforms():
     try:
         (
             dataset.load_raw_data()  # ✅ 加载文件列表
-            .extract_waveforms()  # ✅ 跳过（因为 load_waveforms=False）
+            .extract_waveforms()  # ✅ 流式提取特征并跳过缓存波形（load_waveforms=False）
             .structure_waveforms()  # ✅ 跳过（因为 load_waveforms=False）
             .build_waveform_features()  # ✅ 从文件读取并计算特征
             .build_dataframe()  # ✅ 构建 DataFrame

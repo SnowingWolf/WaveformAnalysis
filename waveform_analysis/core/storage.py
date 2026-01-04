@@ -60,14 +60,31 @@ class MemmapStorage:
                             if content:
                                 lock_info = json.loads(content)
                                 if time.time() - lock_info.get("timestamp", 0) > stale_timeout:
-                                    # Lock is stale, try to remove it
-                                    warnings.warn(
-                                        f"Removing stale lock file at {lock_path} (PID {lock_info.get('pid')}, "
-                                        f"age {time.time() - lock_info.get('timestamp'):.1f}s)",
-                                        UserWarning,
-                                    )
-                                    os.remove(lock_path)
-                                    continue  # Try to acquire again
+                                    # Lock appears stale by timestamp; additionally check PID liveness when possible
+                                    lock_pid = lock_info.get("pid")
+                                    is_alive = False
+                                    try:
+                                        if lock_pid is not None:
+                                            # os.kill(pid, 0) is a portable way on POSIX to check for liveness
+                                            os.kill(int(lock_pid), 0)
+                                            is_alive = True
+                                    except ProcessLookupError:
+                                        # No such process -> not alive
+                                        is_alive = False
+                                    except Exception:
+                                        # On platforms where os.kill cannot be used this way or other error,
+                                        # be conservative and treat the process as not alive to allow cleanup.
+                                        is_alive = False
+
+                                    if not is_alive:
+                                        warnings.warn(
+                                            f"Removing stale lock file at {lock_path} (PID {lock_info.get('pid')}, "
+                                            f"age {time.time() - lock_info.get('timestamp'):.1f}s)",
+                                            UserWarning,
+                                        )
+                                        os.remove(lock_path)
+                                        continue  # Try to acquire again
+                                    # If PID is alive, do not remove the lock; wait and retry
                     except (json.JSONDecodeError, OSError, ValueError):
                         # If file is empty or corrupted, we might want to remove it if it's old
                         # But for now, just wait and retry
@@ -247,4 +264,48 @@ class MemmapStorage:
 
     def exists(self, key: str) -> bool:
         bin_path, meta_path, _ = self._get_paths(key)
-        return os.path.exists(bin_path) and os.path.exists(meta_path)
+        # Basic existence checks
+        if not (os.path.exists(bin_path) and os.path.exists(meta_path)):
+            return False
+
+        # Validate metadata and file size to avoid false positives on corruption
+        try:
+            meta = self.get_metadata(key)
+            if meta is None:
+                return False
+            count = meta.get("count")
+            itemsize = meta.get("itemsize")
+            if count is None or itemsize is None:
+                return False
+            expected_size = int(count) * int(itemsize)
+            actual_size = os.path.getsize(bin_path)
+            if actual_size != expected_size:
+                return False
+            # Optional: check storage version
+            if meta.get("storage_version") != self.STORAGE_VERSION:
+                return False
+            return True
+        except Exception:
+            return False
+
+    def delete(self, key: str):
+        """Delete data and metadata for a key."""
+        bin_path, meta_path, lock_path = self._get_paths(key)
+        for p in [bin_path, meta_path, lock_path]:
+            if os.path.exists(p):
+                os.remove(p)
+
+    def list_keys(self) -> List[str]:
+        """List all keys in the storage."""
+        keys = []
+        for f in os.listdir(self.base_dir):
+            if f.endswith(".json"):
+                keys.append(f[:-5])
+        return keys
+
+    def get_size(self, key: str) -> int:
+        """Get the number of records for a key."""
+        meta = self.get_metadata(key)
+        if meta:
+            return meta.get("count", 0)
+        return 0

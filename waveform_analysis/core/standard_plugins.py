@@ -19,7 +19,7 @@ class RawFilesPlugin(Plugin):
     }
 
     def compute(self, context: Any, run_id: str, **kwargs) -> List[List[str]]:
-        from waveform_analysis.utils.data_processing.loader import get_raw_files
+        from waveform_analysis.utils.loader import get_raw_files
 
         n_channels = context.get_config(self, "n_channels")
         start_channel_slice = context.get_config(self, "start_channel_slice")
@@ -48,7 +48,7 @@ class WaveformsPlugin(Plugin):
     }
 
     def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
-        from waveform_analysis.utils.data_processing.loader import get_waveforms
+        from waveform_analysis.utils.loader import get_waveforms
 
         start = context.get_config(self, "start_channel_slice")
         n_channels = context.get_config(self, "n_channels")

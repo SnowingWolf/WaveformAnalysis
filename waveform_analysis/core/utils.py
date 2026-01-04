@@ -2,7 +2,78 @@ import contextlib
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
+
+# =============================================================================
+# Exporter - 模块 API 导出管理
+# =============================================================================
+
+T = TypeVar("T")
+_EXPORT_SENTINEL = object()
+
+
+def exporter(export_self: bool = False) -> Tuple[Any, List[str]]:
+    """
+    创建一个模块 API 导出管理器，类似 strax.exporter()。
+
+    返回一个 (export, __all__) 元组：
+    - export: 装饰器或函数，用于标记要导出的函数/类/常量
+    - __all__: 字符串列表，包含所有被标记的名称
+
+    用法:
+        # 在模块开头
+        export, __all__ = exporter()
+
+        @export
+        def my_public_function():
+            pass
+
+        @export(name="AlternativeName")
+        class MyPublicClass:
+            pass
+
+        # 导出常量
+        MY_CONSTANT = export(42, "MY_CONSTANT")
+
+    Args:
+        export_self: 如果为 True，将 'exporter' 加入 __all__
+
+    Returns:
+        (export, __all__) 元组
+    """
+    __all__: List[str] = []
+
+    if export_self:
+        __all__.append("exporter")
+
+    def export(obj: Any = _EXPORT_SENTINEL, name: Optional[str] = None) -> Any:
+        """
+        导出对象。支持作为装饰器、带参数的装饰器或普通函数使用。
+        """
+        # 处理 @export(name="...") 情况 (作为装饰器工厂)
+        if obj is _EXPORT_SENTINEL:
+            return lambda o: export(o, name=name)
+
+        # 获取导出名称
+        actual_name = name or getattr(obj, "__name__", None)
+
+        if actual_name is None:
+            raise ValueError(
+                f"Cannot export {obj!r}: it has no __name__ and no name was provided. "
+                "For constants, use: CONST = export(value, name='CONST')"
+            )
+
+        if actual_name not in __all__:
+            __all__.append(actual_name)
+
+        return obj
+
+    return export, __all__
+
+
+# =============================================================================
+# Profiler - 性能分析
+# =============================================================================
 
 
 class Profiler:
@@ -22,6 +93,22 @@ class Profiler:
         finally:
             self.durations[key] += time.perf_counter() - start
             self.counts[key] += 1
+
+    def profile(self, key: Optional[str] = None):
+        """
+        Decorator to profile a function.
+        """
+
+        def decorator(func):
+            name = key or func.__name__
+
+            def wrapper(*args, **kwargs):
+                with self.timeit(name):
+                    return func(*args, **kwargs)
+
+            return wrapper
+
+        return decorator
 
     def reset(self):
         self.durations.clear()
@@ -76,11 +163,9 @@ class LineageStyle:
     font_size_key: int = 8
     font_size_port: int = 7
     font_size_wire: int = 7
-
     wire_linewidth: float = 2.5
     arrow_mutation_scale: float = 12
     wire_alpha: float = 0.8
-
     verbose: int = 1
 
 
