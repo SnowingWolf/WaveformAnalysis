@@ -844,6 +844,14 @@
         "documentation": {}
     },
     {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
         "label": "List",
         "importPath": "typing",
         "description": "typing",
@@ -1792,6 +1800,14 @@
         "documentation": {}
     },
     {
+        "label": "Context",
+        "importPath": "waveform_analysis.core.context",
+        "description": "waveform_analysis.core.context",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.context",
+        "documentation": {}
+    },
+    {
         "label": "Option",
         "importPath": "waveform_analysis.core.plugins",
         "description": "waveform_analysis.core.plugins",
@@ -1889,6 +1905,14 @@
     },
     {
         "label": "get_waveforms",
+        "importPath": "waveform_analysis.core",
+        "description": "waveform_analysis.core",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core",
+        "documentation": {}
+    },
+    {
+        "label": "standard_plugins",
         "importPath": "waveform_analysis.core",
         "description": "waveform_analysis.core",
         "isExtraImport": true,
@@ -2001,14 +2025,6 @@
     },
     {
         "label": "group_multi_channel_hits",
-        "importPath": "waveform_analysis.core.processor",
-        "description": "waveform_analysis.core.processor",
-        "isExtraImport": true,
-        "detail": "waveform_analysis.core.processor",
-        "documentation": {}
-    },
-    {
-        "label": "WaveformProcessor",
         "importPath": "waveform_analysis.core.processor",
         "description": "waveform_analysis.core.processor",
         "isExtraImport": true,
@@ -2275,126 +2291,6 @@
         "documentation": {}
     },
     {
-        "label": "EventAnalyzer",
-        "importPath": "waveform_analysis.core.analyzer",
-        "description": "waveform_analysis.core.analyzer",
-        "isExtraImport": true,
-        "detail": "waveform_analysis.core.analyzer",
-        "documentation": {}
-    },
-    {
-        "label": "WaveformLoader",
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "isExtraImport": true,
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "WaveformLoader",
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "isExtraImport": true,
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "get_raw_files",
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "isExtraImport": true,
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "get_waveforms",
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "isExtraImport": true,
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "build_filetime_index",
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "isExtraImport": true,
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "get_files_by_filetime",
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "isExtraImport": true,
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "get_files_before",
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "isExtraImport": true,
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "WaveformLoader",
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "isExtraImport": true,
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "build_filetime_index",
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "isExtraImport": true,
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "get_files_before",
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "isExtraImport": true,
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "get_files_by_filetime",
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "isExtraImport": true,
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "get_raw_files",
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "isExtraImport": true,
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "get_waveforms",
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "isExtraImport": true,
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
-        "label": "get_waveforms_generator",
-        "importPath": "waveform_analysis.core.loader",
-        "description": "waveform_analysis.core.loader",
-        "isExtraImport": true,
-        "detail": "waveform_analysis.core.loader",
-        "documentation": {}
-    },
-    {
         "label": "contextlib",
         "kind": 6,
         "isExtraImport": true,
@@ -2518,6 +2414,110 @@
         "importPath": "csv",
         "description": "csv",
         "detail": "csv",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformLoader",
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_raw_files",
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_waveforms",
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "build_filetime_index",
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_files_by_filetime",
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_files_before",
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "WaveformLoader",
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "build_filetime_index",
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_files_before",
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_files_by_filetime",
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_raw_files",
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_waveforms",
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.loader",
+        "documentation": {}
+    },
+    {
+        "label": "get_waveforms_generator",
+        "importPath": "waveform_analysis.core.loader",
+        "description": "waveform_analysis.core.loader",
+        "isExtraImport": true,
+        "detail": "waveform_analysis.core.loader",
         "documentation": {}
     },
     {
@@ -2855,7 +2855,7 @@
         "kind": 2,
         "importPath": "tests.test_basic",
         "description": "tests.test_basic",
-        "peekOfCode": "def test_import():\n    \"\"\"测试包可以正常导入\"\"\"\n    from waveform_analysis import (\n        WaveformDataset,\n        WaveformStruct,\n        build_waveform_df,\n        get_raw_files,\n        get_waveforms,\n        group_multi_channel_hits,\n        DAQRun,",
+        "peekOfCode": "def test_import():\n    \"\"\"测试包可以正常导入\"\"\"\n    from waveform_analysis import (\n        DAQAnalyzer,\n        DAQRun,\n        WaveformDataset,\n        WaveformStruct,\n        build_waveform_df,\n        get_raw_files,\n        get_waveforms,",
         "detail": "tests.test_basic",
         "documentation": {}
     },
@@ -2864,7 +2864,7 @@
         "kind": 2,
         "importPath": "tests.test_basic",
         "description": "tests.test_basic",
-        "peekOfCode": "def test_waveform_struct():\n    \"\"\"测试波形结构化\"\"\"\n    from waveform_analysis.core import WaveformStruct\n    # 创建模拟数据\n    mock_waveforms = [np.random.randn(100, 807), np.random.randn(100, 807)]\n    struct = WaveformStruct(mock_waveforms)\n    st_waveforms = struct.structrue_waveforms()\n    assert len(st_waveforms) == 2\n    assert len(st_waveforms[0]) == 100\ndef test_waveform_struct_empty():",
+        "peekOfCode": "def test_waveform_struct():\n    \"\"\"测试波形结构化\"\"\"\n    from waveform_analysis.core import WaveformStruct\n    # 创建模拟数据\n    mock_waveforms = [np.random.randn(100, 807), np.random.randn(100, 807)]\n    struct = WaveformStruct(mock_waveforms)\n    st_waveforms = struct.structure_waveforms()\n    assert len(st_waveforms) == 2\n    assert len(st_waveforms[0]) == 100\ndef test_waveform_struct_empty():",
         "detail": "tests.test_basic",
         "documentation": {}
     },
@@ -2873,7 +2873,7 @@
         "kind": 2,
         "importPath": "tests.test_basic",
         "description": "tests.test_basic",
-        "peekOfCode": "def test_waveform_struct_empty():\n    \"\"\"测试空波形结构化\"\"\"\n    from waveform_analysis.core import WaveformStruct\n    mock_waveforms = [np.array([]).reshape(0, 807), np.array([]).reshape(0, 807)]\n    struct = WaveformStruct(mock_waveforms)\n    st_waveforms = struct.structrue_waveforms()\n    assert len(st_waveforms) == 2\n    assert len(st_waveforms[0]) == 0\ndef test_dataset_init():\n    \"\"\"测试数据集初始化\"\"\"",
+        "peekOfCode": "def test_waveform_struct_empty():\n    \"\"\"测试空波形结构化\"\"\"\n    from waveform_analysis.core import WaveformStruct\n    mock_waveforms = [np.array([]).reshape(0, 807), np.array([]).reshape(0, 807)]\n    struct = WaveformStruct(mock_waveforms)\n    st_waveforms = struct.structure_waveforms()\n    assert len(st_waveforms) == 2\n    assert len(st_waveforms[0]) == 0\ndef test_dataset_init():\n    \"\"\"测试数据集初始化\"\"\"",
         "detail": "tests.test_basic",
         "documentation": {}
     },
@@ -2891,7 +2891,7 @@
         "kind": 2,
         "importPath": "tests.test_basic",
         "description": "tests.test_basic",
-        "peekOfCode": "def test_dataset_init_skip_waveforms():\n    \"\"\"测试数据集初始化（跳过波形加载）\"\"\"\n    try:\n        dataset = WaveformDataset(\n            char=\"test_dataset\",\n            n_channels=2,\n            load_waveforms=False\n        )\n        assert dataset.load_waveforms is False\n    except FileNotFoundError:",
+        "peekOfCode": "def test_dataset_init_skip_waveforms():\n    \"\"\"测试数据集初始化（跳过波形加载）\"\"\"\n    try:\n        dataset = WaveformDataset(char=\"test_dataset\", n_channels=2, load_waveforms=False)\n        assert dataset.load_waveforms is False\n    except FileNotFoundError:\n        pytest.skip(\"Test data not available\")\ndef test_dataset_attributes():\n    \"\"\"测试数据集属性初始化\"\"\"\n    try:",
         "detail": "tests.test_basic",
         "documentation": {}
     },
@@ -3503,7 +3503,7 @@
         "kind": 6,
         "importPath": "tests.test_processor",
         "description": "tests.test_processor",
-        "peekOfCode": "class TestWaveformStruct:\n    \"\"\"WaveformStruct 类测试\"\"\"\n    def test_init(self):\n        \"\"\"测试初始化\"\"\"\n        waveforms = [np.random.randn(10, 807)]\n        struct = WaveformStruct(waveforms)\n        assert struct.waveforms is waveforms\n        assert struct.pair_length is None\n        assert struct.waveform_structureds is None\n    def test_structrue_waveform_empty(self):",
+        "peekOfCode": "class TestWaveformStruct:\n    \"\"\"WaveformStruct 类测试\"\"\"\n    def test_init(self):\n        \"\"\"测试初始化\"\"\"\n        waveforms = [np.random.randn(10, 807)]\n        struct = WaveformStruct(waveforms)\n        assert struct.waveforms is waveforms\n        assert struct.pair_length is None\n        assert struct.waveform_structureds is None\n    def test_structure_waveform_empty(self):",
         "detail": "tests.test_processor",
         "documentation": {}
     },
@@ -3782,7 +3782,7 @@
         "kind": 6,
         "importPath": "waveform_analysis.core.cache",
         "description": "waveform_analysis.core.cache",
-        "peekOfCode": "class CacheManager:\n    \"\"\"\n    缓存管理器 - 提供缓存数据的加载、保存和签名计算功能。\n    \"\"\"\n    @staticmethod\n    def compute_watch_signature(obj: Any, watch_attrs: List[str]) -> str:\n        \"\"\"\n        计算监视属性的签名，用于检测数据是否发生变化。\n        签名基于文件的 mtime 和 size 计算 SHA1 哈希。\n        Args:",
+        "peekOfCode": "class CacheManager:\n    \"\"\"\n    缓存管理器 - 提供缓存数据的加载、保存和签名计算功能。\n    \"\"\"\n    @staticmethod\n    def get_key(step_name: str, run_name: str = \"\", **params) -> str:\n        \"\"\"\n        生成缓存键。\n        Args:\n            step_name: 步骤名称",
         "detail": "waveform_analysis.core.cache",
         "documentation": {}
     },
@@ -3791,7 +3791,7 @@
         "kind": 5,
         "importPath": "waveform_analysis.core.cache",
         "description": "waveform_analysis.core.cache",
-        "peekOfCode": "WATCH_SIG_KEY = \"__watch_sig__\"\n__all__.append(\"WATCH_SIG_KEY\")\n@export\nclass CacheManager:\n    \"\"\"\n    缓存管理器 - 提供缓存数据的加载、保存和签名计算功能。\n    \"\"\"\n    @staticmethod\n    def compute_watch_signature(obj: Any, watch_attrs: List[str]) -> str:\n        \"\"\"",
+        "peekOfCode": "WATCH_SIG_KEY = \"__watch_sig__\"\n__all__.append(\"WATCH_SIG_KEY\")\n@export\nclass CacheManager:\n    \"\"\"\n    缓存管理器 - 提供缓存数据的加载、保存和签名计算功能。\n    \"\"\"\n    @staticmethod\n    def get_key(step_name: str, run_name: str = \"\", **params) -> str:\n        \"\"\"",
         "detail": "waveform_analysis.core.cache",
         "documentation": {}
     },
@@ -4106,7 +4106,7 @@
         "kind": 6,
         "importPath": "waveform_analysis.core.loader",
         "description": "waveform_analysis.core.loader",
-        "peekOfCode": "class WaveformLoader:\n    \"\"\"\n    高效的 DAQ 波形文件加载器，支持按通道分组。\n    \"\"\"\n    # 预编译正则\n    _ch_re = re.compile(r\"CH(\\d+)\")\n    _idx_re = re.compile(r\"_(\\d+)\\.CSV$\", re.IGNORECASE)\n    def __init__(self, n_channels: int = 6, char: str = \"All_SelfTrigger\", data_root: str = \"DAQ\"):\n        self.base_dir = Path(data_root) / char / \"RAW\"\n        self.n_channels = n_channels",
+        "peekOfCode": "class WaveformLoader:\n    \"\"\"\n    高效的 DAQ 波形文件加载器，支持按通道分组。\n    \"\"\"\n    # 预编译正则\n    _ch_re = re.compile(r\"CH(\\d+)\")\n    _idx_re = re.compile(r\"_(\\d+)\\.CSV$\", re.IGNORECASE)\n    def __init__(self, n_channels: int = 6, run_name: str = \"All_SelfTrigger\", data_root: str = \"DAQ\", **kwargs):\n        # 兼容旧的 char 参数\n        if \"char\" in kwargs:",
         "detail": "waveform_analysis.core.loader",
         "documentation": {}
     },
@@ -4268,7 +4268,7 @@
         "kind": 6,
         "importPath": "waveform_analysis.core.processor",
         "description": "waveform_analysis.core.processor",
-        "peekOfCode": "class WaveformStruct:\n    def __init__(self, waveforms):\n        self.waveforms = waveforms\n        self.pair_length = None\n        self.waveform_structureds = None\n    def _structrue_waveform(self, waves=None):\n        # If no explicit waves passed, use the first channel\n        if waves is None:\n            if not self.waveforms:\n                return np.zeros(",
+        "peekOfCode": "class WaveformStruct:\n    def __init__(self, waveforms):\n        self.waveforms = waveforms\n        self.pair_length = None\n        self.waveform_structureds = None\n    def _structure_waveform(self, waves=None):\n        # If no explicit waves passed, use the first channel\n        if waves is None:\n            if not self.waveforms:\n                return np.zeros(",
         "detail": "waveform_analysis.core.processor",
         "documentation": {}
     },
@@ -4282,11 +4282,11 @@
         "documentation": {}
     },
     {
-        "label": "Datas",
+        "label": "ResultData",
         "kind": 6,
         "importPath": "waveform_analysis.core.processor",
         "description": "waveform_analysis.core.processor",
-        "peekOfCode": "class Datas:\n    def __init__(self, cache_dir) -> None:\n        self.cache_dir = cache_dir\n        df_file = os.path.join(cache_dir, \"df.feather\")\n        event_file = os.path.join(cache_dir, \"df_events.feather\")\n        self.df = pd.read_feather(df_file)\n        self.df_events = pd.read_feather(event_file)\n@export\ndef hist_count_ratio(data_a, data_b, bins):\n    counts_a, bin_edges = np.histogram(data_a, bins=bins)",
+        "peekOfCode": "class ResultData:\n    def __init__(self, cache_dir) -> None:\n        self.cache_dir = cache_dir\n        df_file = os.path.join(cache_dir, \"df.feather\")\n        event_file = os.path.join(cache_dir, \"df_events.feather\")\n        self.df = pd.read_feather(df_file)\n        self.df_events = pd.read_feather(event_file)\n@export\ndef hist_count_ratio(data_a, data_b, bins):\n    counts_a, bin_edges = np.histogram(data_a, bins=bins)",
         "detail": "waveform_analysis.core.processor",
         "documentation": {}
     },
@@ -4367,7 +4367,7 @@
         "kind": 2,
         "importPath": "waveform_analysis.core.processor",
         "description": "waveform_analysis.core.processor",
-        "peekOfCode": "def lr_log_ratio(data):\n    x, y = data\n    log_ratio = np.log(x) - np.log(y)\n    return log_ratio\n@export\nclass Datas:\n    def __init__(self, cache_dir) -> None:\n        self.cache_dir = cache_dir\n        df_file = os.path.join(cache_dir, \"df.feather\")\n        event_file = os.path.join(cache_dir, \"df_events.feather\")",
+        "peekOfCode": "def lr_log_ratio(data):\n    x, y = data\n    log_ratio = np.log(x) - np.log(y)\n    return log_ratio\n@export\nclass ResultData:\n    def __init__(self, cache_dir) -> None:\n        self.cache_dir = cache_dir\n        df_file = os.path.join(cache_dir, \"df.feather\")\n        event_file = os.path.join(cache_dir, \"df_events.feather\")",
         "detail": "waveform_analysis.core.processor",
         "documentation": {}
     },
@@ -4421,7 +4421,7 @@
         "kind": 6,
         "importPath": "waveform_analysis.core.standard_plugins",
         "description": "waveform_analysis.core.standard_plugins",
-        "peekOfCode": "class StWaveformsPlugin(Plugin):\n    \"\"\"Plugin to structure waveforms into NumPy arrays.\"\"\"\n    provides = \"st_waveforms\"\n    depends_on = [\"waveforms\"]\n    output_dtype = np.dtype(RECORD_DTYPE)\n    def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:\n        from waveform_analysis.utils.data_processing.processor import WaveformStruct\n        waveforms = context.get_data(run_id, \"waveforms\")\n        waveform_struct = WaveformStruct(waveforms)\n        st_waveforms = waveform_struct.structrue_waveforms(show_progress=context.config.get(\"show_progress\", True))",
+        "peekOfCode": "class StWaveformsPlugin(Plugin):\n    \"\"\"Plugin to structure waveforms into NumPy arrays.\"\"\"\n    provides = \"st_waveforms\"\n    depends_on = [\"waveforms\"]\n    output_dtype = np.dtype(RECORD_DTYPE)\n    def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:\n        from waveform_analysis.utils.data_processing.processor import WaveformStruct\n        waveforms = context.get_data(run_id, \"waveforms\")\n        waveform_struct = WaveformStruct(waveforms)\n        st_waveforms = waveform_struct.structure_waveforms(show_progress=context.config.get(\"show_progress\", True))",
         "detail": "waveform_analysis.core.standard_plugins",
         "documentation": {}
     },
@@ -4431,6 +4431,60 @@
         "importPath": "waveform_analysis.core.standard_plugins",
         "description": "waveform_analysis.core.standard_plugins",
         "peekOfCode": "class HitFinderPlugin(Plugin):\n    \"\"\"Example implementation of the HitFinder as a plugin.\"\"\"\n    provides = \"hits\"\n    depends_on = [\"st_waveforms\", \"event_len\"]\n    input_dtype = {\"st_waveforms\": np.dtype(RECORD_DTYPE)}\n    output_dtype = np.dtype(PEAK_DTYPE)\n    def compute(self, context: Any, run_id: str, threshold: float = 10.0, **kwargs) -> List[np.ndarray]:\n        from waveform_analysis.utils.data_processing.processor import find_hits\n        st_waveforms = context.get_data(run_id, \"st_waveforms\")\n        event_len = context.get_data(run_id, \"event_len\")",
+        "detail": "waveform_analysis.core.standard_plugins",
+        "documentation": {}
+    },
+    {
+        "label": "BasicFeaturesPlugin",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.standard_plugins",
+        "description": "waveform_analysis.core.standard_plugins",
+        "peekOfCode": "class BasicFeaturesPlugin(Plugin):\n    \"\"\"Plugin to compute basic features (peaks and charges).\"\"\"\n    provides = \"basic_features\"\n    depends_on = [\"st_waveforms\"]\n    save_when = \"never\"\n    options = {\n        \"peaks_range\": Option(default=None, type=tuple),\n        \"charge_range\": Option(default=None, type=tuple),\n    }\n    def compute(self, context: Any, run_id: str, **kwargs) -> Dict[str, List[np.ndarray]]:",
+        "detail": "waveform_analysis.core.standard_plugins",
+        "documentation": {}
+    },
+    {
+        "label": "PeaksPlugin",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.standard_plugins",
+        "description": "waveform_analysis.core.standard_plugins",
+        "peekOfCode": "class PeaksPlugin(Plugin):\n    \"\"\"Plugin to provide peaks from basic_features.\"\"\"\n    provides = \"peaks\"\n    depends_on = [\"basic_features\"]\n    save_when = \"always\"\n    def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:\n        return context.get_data(run_id, \"basic_features\")[\"peaks\"]\nclass ChargesPlugin(Plugin):\n    \"\"\"Plugin to provide charges from basic_features.\"\"\"\n    provides = \"charges\"",
+        "detail": "waveform_analysis.core.standard_plugins",
+        "documentation": {}
+    },
+    {
+        "label": "ChargesPlugin",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.standard_plugins",
+        "description": "waveform_analysis.core.standard_plugins",
+        "peekOfCode": "class ChargesPlugin(Plugin):\n    \"\"\"Plugin to provide charges from basic_features.\"\"\"\n    provides = \"charges\"\n    depends_on = [\"basic_features\"]\n    save_when = \"always\"\n    def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:\n        return context.get_data(run_id, \"basic_features\")[\"charges\"]\nclass DataFramePlugin(Plugin):\n    \"\"\"Plugin to build the initial single-channel events DataFrame.\"\"\"\n    provides = \"df\"",
+        "detail": "waveform_analysis.core.standard_plugins",
+        "documentation": {}
+    },
+    {
+        "label": "DataFramePlugin",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.standard_plugins",
+        "description": "waveform_analysis.core.standard_plugins",
+        "peekOfCode": "class DataFramePlugin(Plugin):\n    \"\"\"Plugin to build the initial single-channel events DataFrame.\"\"\"\n    provides = \"df\"\n    depends_on = [\"st_waveforms\", \"peaks\", \"charges\"]\n    save_when = \"always\"\n    def compute(self, context: Any, run_id: str, **kwargs) -> Any:\n        from waveform_analysis.core.processor import WaveformProcessor\n        st_waveforms = context.get_data(run_id, \"st_waveforms\")\n        peaks = context.get_data(run_id, \"peaks\")\n        charges = context.get_data(run_id, \"charges\")",
+        "detail": "waveform_analysis.core.standard_plugins",
+        "documentation": {}
+    },
+    {
+        "label": "GroupedEventsPlugin",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.standard_plugins",
+        "description": "waveform_analysis.core.standard_plugins",
+        "peekOfCode": "class GroupedEventsPlugin(Plugin):\n    \"\"\"Plugin to group events by time window.\"\"\"\n    provides = \"df_events\"\n    depends_on = [\"df\"]\n    save_when = \"always\"\n    options = {\n        \"time_window_ns\": Option(default=100.0, type=float),\n    }\n    def compute(self, context: Any, run_id: str, **kwargs) -> Any:\n        from waveform_analysis.core.analyzer import EventAnalyzer",
+        "detail": "waveform_analysis.core.standard_plugins",
+        "documentation": {}
+    },
+    {
+        "label": "PairedEventsPlugin",
+        "kind": 6,
+        "importPath": "waveform_analysis.core.standard_plugins",
+        "description": "waveform_analysis.core.standard_plugins",
+        "peekOfCode": "class PairedEventsPlugin(Plugin):\n    \"\"\"Plugin to pair events across channels.\"\"\"\n    provides = \"df_paired\"\n    depends_on = [\"df_events\"]\n    save_when = \"always\"\n    def compute(self, context: Any, run_id: str, **kwargs) -> Any:\n        from waveform_analysis.core.analyzer import EventAnalyzer\n        df_events = context.get_data(run_id, \"df_events\")\n        n_channels = context.config.get(\"n_channels\", 2)\n        start_channel_slice = context.config.get(\"start_channel_slice\", 6)",
         "detail": "waveform_analysis.core.standard_plugins",
         "documentation": {}
     },
@@ -4696,11 +4750,11 @@
         "documentation": {}
     },
     {
-        "label": "Datas",
+        "label": "ResultData",
         "kind": 6,
         "importPath": "waveform_analysis.utils.data_processing.processor",
         "description": "waveform_analysis.utils.data_processing.processor",
-        "peekOfCode": "class Datas:\n    def __init__(self, cache_dir) -> None:\n        self.cache_dir = cache_dir\n        df_file = os.path.join(cache_dir, \"df.feather\")\n        event_file = os.path.join(cache_dir, \"df_events.feather\")\n        self.df = pd.read_feather(df_file)\n        self.df_events = pd.read_feather(event_file)\ndef hist_count_ratio(data_a, data_b, bins):\n    counts_a, bin_edges = np.histogram(data_a, bins=bins)\n    counts_b, _ = np.histogram(data_b, bins=bins)",
+        "peekOfCode": "class ResultData:\n    def __init__(self, cache_dir) -> None:\n        self.cache_dir = cache_dir\n        df_file = os.path.join(cache_dir, \"df.feather\")\n        event_file = os.path.join(cache_dir, \"df_events.feather\")\n        self.df = pd.read_feather(df_file)\n        self.df_events = pd.read_feather(event_file)\ndef hist_count_ratio(data_a, data_b, bins):\n    counts_a, bin_edges = np.histogram(data_a, bins=bins)\n    counts_b, _ = np.histogram(data_b, bins=bins)",
         "detail": "waveform_analysis.utils.data_processing.processor",
         "documentation": {}
     },
@@ -4781,7 +4835,7 @@
         "kind": 2,
         "importPath": "waveform_analysis.utils.data_processing.processor",
         "description": "waveform_analysis.utils.data_processing.processor",
-        "peekOfCode": "def energy_rec(data):\n    x, y = data\n    energy = np.sqrt(np.prod([x, y], axis=0)) * 2\n    return energy\ndef lr_log_ratio(data):\n    x, y = data\n    log_ratio = np.log(x) - np.log(y)\n    return log_ratio\nclass Datas:\n    def __init__(self, cache_dir) -> None:",
+        "peekOfCode": "def energy_rec(data):\n    x, y = data\n    energy = np.sqrt(np.prod([x, y], axis=0)) * 2\n    return energy\ndef lr_log_ratio(data):\n    x, y = data\n    log_ratio = np.log(x) - np.log(y)\n    return log_ratio\nclass ResultData:\n    def __init__(self, cache_dir) -> None:",
         "detail": "waveform_analysis.utils.data_processing.processor",
         "documentation": {}
     },
@@ -4790,7 +4844,7 @@
         "kind": 2,
         "importPath": "waveform_analysis.utils.data_processing.processor",
         "description": "waveform_analysis.utils.data_processing.processor",
-        "peekOfCode": "def lr_log_ratio(data):\n    x, y = data\n    log_ratio = np.log(x) - np.log(y)\n    return log_ratio\nclass Datas:\n    def __init__(self, cache_dir) -> None:\n        self.cache_dir = cache_dir\n        df_file = os.path.join(cache_dir, \"df.feather\")\n        event_file = os.path.join(cache_dir, \"df_events.feather\")\n        self.df = pd.read_feather(df_file)",
+        "peekOfCode": "def lr_log_ratio(data):\n    x, y = data\n    log_ratio = np.log(x) - np.log(y)\n    return log_ratio\nclass ResultData:\n    def __init__(self, cache_dir) -> None:\n        self.cache_dir = cache_dir\n        df_file = os.path.join(cache_dir, \"df.feather\")\n        event_file = os.path.join(cache_dir, \"df_events.feather\")\n        self.df = pd.read_feather(df_file)",
         "detail": "waveform_analysis.utils.data_processing.processor",
         "documentation": {}
     },
@@ -4826,7 +4880,7 @@
         "kind": 6,
         "importPath": "waveform_analysis.utils.data_processing.wavestruct",
         "description": "waveform_analysis.utils.data_processing.wavestruct",
-        "peekOfCode": "class WaveformStruct:\n    def __init__(self, waveforms):\n        self.waveforms = waveforms\n        self.event_length = None\n        self.waveform_structureds = None\n    def _structrue_waveform(self, waves=None):\n        # If no explicit waves passed, use the first channel\n        if waves is None:\n            if not self.waveforms:\n                return np.zeros(0, dtype=RECORD_DTYPE)",
+        "peekOfCode": "class WaveformStruct:\n    def __init__(self, waveforms):\n        self.waveforms = waveforms\n        self.event_length = None\n        self.waveform_structureds = None\n    def _structure_waveform(self, waves=None):\n        # If no explicit waves passed, use the first channel\n        if waves is None:\n            if not self.waveforms:\n                return np.zeros(0, dtype=RECORD_DTYPE)",
         "detail": "waveform_analysis.utils.data_processing.wavestruct",
         "documentation": {}
     },

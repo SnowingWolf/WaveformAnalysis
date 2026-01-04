@@ -1,8 +1,9 @@
 """
-Context - 数据分析的核心上下文管理器
+Context 模块 - 插件系统的核心调度器。
 
-Context 类负责协调插件并管理数据存储/缓存。
-受 strax 启发，它是数据分析的主要入口点。
+负责管理插件注册、依赖解析、配置分发以及数据缓存的生命周期。
+它是整个分析框架的“大脑”，通过 DAG（有向无环图）确保数据按需、有序地计算。
+支持多级缓存校验和血缘追踪，是实现高效、可重复分析的基础。
 """
 
 import hashlib
@@ -76,7 +77,7 @@ class Context(CacheMixin, PluginMixin):
                 self.register_plugin(p(), allow_override=allow_override)
             elif isinstance(p, Plugin):
                 self.register_plugin(p, allow_override=allow_override)
-            elif hasattr(p, "__path__"):  # It's a module
+            elif hasattr(p, "__path__") or hasattr(p, "__file__"):  # It's a module
                 self._register_from_module(p, allow_override=allow_override)
             else:
                 # Fallback for other types if needed

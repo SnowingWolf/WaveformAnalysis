@@ -1,3 +1,10 @@
+"""
+Mixins 模块 - 增强 WaveformDataset 功能的混合类。
+
+提供缓存管理、特征注册、绘图支持以及 DAQ 状态检查等扩展功能。
+通过多重继承将这些功能注入到 WaveformDataset 中，保持核心类的简洁。
+"""
+
 import functools
 import os
 from contextlib import nullcontext

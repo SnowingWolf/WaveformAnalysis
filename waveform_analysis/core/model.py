@@ -1,3 +1,10 @@
+"""
+Model 模块 - 框架内部数据模型定义。
+
+定义了插件系统、数据流图以及配置管理中使用的基础数据结构，
+如 PortModel, NodeModel, GraphModel 等，用于描述处理流程的拓扑结构。
+"""
+
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 

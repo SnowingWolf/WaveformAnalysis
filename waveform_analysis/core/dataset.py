@@ -1,3 +1,11 @@
+"""
+Dataset 模块 - 面向用户的高层 API 封装。
+
+WaveformDataset 类作为框架的主要入口，通过链式调用 (Fluent Interface) 封装了
+从数据加载到分析结果保存的完整流程。它内部委托 Context 进行插件调度，
+在保持 API 简洁的同时，利用了插件系统的缓存和依赖管理能力。
+"""
+
 import os
 from typing import Any, Callable, Dict, List, Optional, Tuple
 

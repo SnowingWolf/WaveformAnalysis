@@ -41,7 +41,12 @@
 - **侧效应隔离**: 副作用插件的输出被隔离在 `_side_effects/{run_id}/{plugin_name}` 目录下。
 - **自动缓存机制**: `Context` 在运行插件前会检查磁盘缓存，如果血缘哈希匹配，则直接加载 `memmap`。
 
-### 2.4 数据访问层 (Data Access Layer)
+### 2.4 时间分块层 (Chunking Layer)
+- **`Chunk`**: 数据的基本载体。它不仅包含 NumPy 数组，还封装了时间边界 (`start`, `end`) 和运行信息。
+- **时间区间操作**: 提供 `split`, `merge`, `clip` 等操作，确保在处理连续时间流数据时的正确性。
+- **严格校验**: 自动检查数据的单调性、重叠以及是否超出分块边界，是保证物理分析准确性的基石。
+
+### 2.5 数据访问层 (Data Access Layer)
 - **`WaveformDataset`**: 高级封装层，提供链式调用接口。
     - 兼容性：通过 Property 映射 `self.char` 到 `Context` 的无状态存储。
     - 灵活性：支持在链式调用中临时切换 `run_id`。

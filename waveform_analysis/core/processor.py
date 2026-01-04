@@ -1,3 +1,10 @@
+"""
+Processor 模块 - 波形信号处理核心逻辑。
+
+包含基线扣除、峰值查找、电荷积分以及波形结构化 (WaveformStruct) 等核心算法。
+支持批量处理数据块，并能将处理结果转换为结构化的 NumPy 数组或 DataFrame。
+"""
+
 import os
 from typing import Any, Callable, Dict, List, Optional, Tuple
 

@@ -1,18 +1,29 @@
-import numpy as np
-import pandas as pd
+"""
+Analyzer 模块 - 高层事件分析与配对逻辑。
+
+提供 EventAnalyzer 类，用于对多通道命中 (Hits) 进行时间窗口聚类 (Grouping)
+以及跨通道的事件配对 (Pairing)，是生成最终物理分析结果的关键步骤。
+"""
+
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import numpy as np
+import pandas as pd
+
 from waveform_analysis.core.utils import exporter
+
 from .processor import group_multi_channel_hits
 
 # 初始化 exporter
 export, __all__ = exporter()
+
 
 @export
 class EventAnalyzer:
     """
     负责事件聚类、配对与分析。
     """
+
     def __init__(self, n_channels: int = 2, start_channel_slice: int = 6):
         self.n_channels = n_channels
         self.start_channel_slice = start_channel_slice
@@ -24,7 +35,7 @@ class EventAnalyzer:
         """
         if time_window_ns is not None:
             self.time_window_ns = time_window_ns
-        
+
         return group_multi_channel_hits(df, self.time_window_ns)
 
     def pair_events(self, df_events: pd.DataFrame) -> pd.DataFrame:

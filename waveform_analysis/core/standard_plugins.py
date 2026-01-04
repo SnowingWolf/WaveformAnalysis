@@ -1,3 +1,10 @@
+"""
+Standard Plugins 模块 - 包含波形分析流程的标准插件实现。
+
+定义了从原始文件扫描、波形提取、结构化到特征计算和事件配对的完整插件链。
+这些插件是 WaveformDataset 内部调用的核心逻辑单元。
+"""
+
 from typing import Any, Dict, List, Optional
 
 import numpy as np

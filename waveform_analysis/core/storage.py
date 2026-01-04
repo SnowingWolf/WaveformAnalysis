@@ -1,3 +1,10 @@
+"""
+Storage 模块 - 负责数据的持久化与加载。
+
+实现了基于 NumPy Memmap 的多通道数组存储和基于 Parquet 的 DataFrame 存储。
+支持原子写入、元数据管理以及存储版本的校验，确保数据的完整性与一致性。
+"""
+
 import json
 import os
 import time

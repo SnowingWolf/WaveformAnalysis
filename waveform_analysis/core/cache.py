@@ -1,7 +1,8 @@
 """
-Cache module - 缓存管理工具
+Cache 模块 - 缓存管理与签名校验。
 
-提供 CacheManager 和缓存签名常量。
+提供 CacheManager 用于计算数据签名（基于文件修改时间和大小），
+支持血缘追踪 (Lineage) 校验，确保当原始数据或处理逻辑发生变化时，缓存能自动失效。
 """
 
 import hashlib

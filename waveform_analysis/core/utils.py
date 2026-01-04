@@ -1,3 +1,10 @@
+"""
+Utils 模块 - 核心工具函数与导出管理。
+
+包含模块 API 导出管理器 (exporter)、性能计时器以及通用的数据结构处理工具。
+它是框架内部使用的基础工具集。
+"""
+
 import contextlib
 import time
 from collections import defaultdict

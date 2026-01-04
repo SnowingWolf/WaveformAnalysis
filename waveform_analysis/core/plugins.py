@@ -1,3 +1,11 @@
+"""
+Plugins 模块 - 定义插件和配置选项的基类。
+
+本模块提供了 Plugin 和 Option 类，用于构建可扩展的数据处理管道。
+每个插件声明其提供的数据项 (provides) 和依赖项 (depends_on)，
+由 Context 自动解析执行顺序。
+"""
+
 import abc
 import inspect
 from typing import Any, Dict, List, Literal, Optional, Type, Union

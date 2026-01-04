@@ -11,9 +11,17 @@ waveform-analysis/
 │   │
 │   ├── core/                      # 核心功能模块
 │   │   ├── __init__.py
-│   │   ├── loader.py              # 数据加载：RawFileLoader, get_raw_files, get_waveforms
-│   │   ├── processor.py           # 数据处理：WaveformStruct, build_waveform_df, group_multi_channel_hits
-│   │   └── dataset.py             # 数据集封装：WaveformDataset 主类
+│   │   ├── context.py             # 核心调度：Context 类，管理插件与缓存
+│   │   ├── plugins.py             # 插件基类：Plugin, Option
+│   │   ├── standard_plugins.py    # 标准插件：RawFiles, Waveforms, Features 等
+│   │   ├── dataset.py             # 高层 API：WaveformDataset 链式封装
+│   │   ├── storage.py             # 数据存储：MemmapStorage, Parquet 存储
+│   │   ├── cache.py               # 缓存管理：Lineage 校验与签名
+│   │   ├── loader.py              # 数据加载：WaveformLoader
+│   │   ├── processor.py           # 信号处理：WaveformStruct, 峰值查找
+│   │   ├── analyzer.py            # 事件分析：聚类与配对逻辑
+│   │   ├── chunk_utils.py         # 时间分块：Chunk 对象与时间区间操作
+│   │   └── utils.py               # 基础工具：exporter, 计时器
 │   │
 │   ├── fitting/                   # 拟合模块
 │   │   ├── __init__.py
@@ -80,23 +88,46 @@ waveform-analysis/
 
 ### waveform_analysis/core/
 
-核心数据处理功能。
+核心数据处理功能，采用插件化架构。
+
+#### `context.py`
+
+核心调度模块：
+- `Context`: 管理插件注册、依赖解析、配置分发和数据缓存。
+
+#### `plugins.py` & `standard_plugins.py`
+
+插件定义与实现：
+- `Plugin`, `Option`: 插件基类。
+- `RawFilesPlugin`, `WaveformsPlugin`, `BasicFeaturesPlugin` 等：标准分析流程的实现。
+
+#### `dataset.py`
+
+高层 API 模块：
+- `WaveformDataset`: 提供链式调用接口，内部委托 `Context` 执行。
+
+#### `storage.py` & `cache.py`
+
+存储与缓存：
+- `MemmapStorage`: 基于内存映射的高效数组存储。
+- `CacheManager`: 基于血缘 (Lineage) 的缓存校验。
 
 #### `loader.py`
 
 数据加载模块：
-- `RawFileLoader`: 文件加载类
-- `get_raw_files()`: 获取原始文件列表
-- `get_waveforms()`: 加载波形数据
-- `build_filetime_index()`: 建立文件时间索引
+- `WaveformLoader`: 负责扫描 DAQ 目录并加载原始波形。
 
-#### `processor.py`
+#### `processor.py` & `analyzer.py`
 
-数据处理模块：
-- `WaveformStruct`: 波形结构化类
-- `build_waveform_df()`: 构建波形 DataFrame
-- `group_multi_channel_hits()`: 多通道事件分组
-- 编码/解码辅助函数
+算法模块：
+- `WaveformStruct`: 波形结构化处理。
+- `EventAnalyzer`: 事件聚类与配对逻辑。
+
+#### `chunk_utils.py`
+
+时间分块工具：
+- `Chunk`: 封装数据与时间边界，支持分割与合并。
+- 提供时间区间校验、重分块 (rechunk) 等底层工具。
 
 #### `dataset.py`
 

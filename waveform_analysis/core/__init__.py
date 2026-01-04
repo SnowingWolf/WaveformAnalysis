@@ -1,5 +1,9 @@
 """
-Core module - 核心数据处理功能
+Core 模块 - WaveformAnalysis 框架的核心实现。
+
+包含数据加载 (Loader)、信号处理 (Processor)、事件分析 (Analyzer)、
+插件系统 (Plugins/Context) 以及存储管理 (Storage/Cache) 等核心组件。
+通过此模块导出公共 API，供用户和 CLI 调用。
 """
 
 # Chunk 处理工具
