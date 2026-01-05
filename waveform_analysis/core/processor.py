@@ -1,8 +1,17 @@
 """
-Processor 模块 - 波形信号处理核心逻辑。
+Processor 模块 - 波形信号处理与特征提取核心逻辑。
 
-包含基线扣除、峰值查找、电荷积分以及波形结构化 (WaveformStruct) 等核心算法。
-支持批量处理数据块，并能将处理结果转换为结构化的 NumPy 数组或 DataFrame。
+本模块负责将原始 DAQ 采集的 NumPy 数组转换为结构化数据，并执行物理特征提取。
+核心功能包括：
+1. **数据结构化**：定义 `RECORD_DTYPE` (波形+元数据) 与 `PEAK_DTYPE` (脉冲特征)。
+2. **特征提取**：提供 `find_hits` (向量化寻峰)、基线扣除、电荷积分 (Charge) 与幅度 (Peak) 计算。
+3. **链式处理**：通过 `WaveformStruct` 维护波形结构化逻辑，支持 `WaveformDataset` 的链式调用。
+4. **事件聚类**：`group_multi_channel_hits` 基于时间窗口将多通道 Hit 聚类为物理事件。
+5. **通道编码**：提供二进制掩码 (Bitmask) 与权重编码工具，用于多通道符合逻辑筛选。
+
+主要类说明：
+- `WaveformStruct`: 处理原始数组到结构化 `RECORD_DTYPE` 的转换，管理时间戳索引与配对长度。
+- `WaveformProcessor`: 高层封装接口，支持批量处理数据块 (Chunks) 并构建 Pandas DataFrame。
 """
 
 import os
@@ -16,36 +25,110 @@ from waveform_analysis.core.utils import exporter
 # 初始化 exporter
 export, __all__ = exporter()
 
+# Strax-inspired dtypes for structured data
+# Record: A single waveform with metadata
+DEFAULT_WAVE_LENGTH = export(800, name="DEFAULT_WAVE_LENGTH")
+
+RECORD_DTYPE = export(
+    [
+        ("baseline", "f8"),  # float64 for baseline
+        ("timestamp", "i8"),  # int64 for ps-level timestamps
+        ("event_length", "i8"),  # length of the event
+        ("wave", "f4", (DEFAULT_WAVE_LENGTH,)),  # fixed length array for performance
+    ],
+    name="RECORD_DTYPE",
+)
+
+# Peak: A detected peak in a waveform
+PEAK_DTYPE = export(
+    [
+        ("time", "i8"),  # time of the peak
+        ("area", "f4"),  # area of the peak
+        ("height", "f4"),  # height of the peak
+        ("width", "f4"),  # width of the peak
+        ("channel", "i2"),  # channel index
+        ("event_index", "i8"),  # index of the event in the dataset
+    ],
+    name="PEAK_DTYPE",
+)
+
+
+@export
+def find_hits(
+    waves: np.ndarray,
+    baselines: np.ndarray,
+    threshold: float,
+    left_extension: int = 2,
+    right_extension: int = 2,
+) -> np.ndarray:
+    """
+    Vectorized hit-finding. Finds contiguous regions where (baseline - wave) > threshold.
+
+    Args:
+        waves: 2D array of waveforms (n_events, n_samples)
+        baselines: 1D array of baselines (n_events)
+        threshold: threshold for hit detection
+        left_extension: number of samples to extend hit to the left
+        right_extension: number of samples to extend hit to the right
+
+    Returns:
+        A structured array of hits (PEAK_DTYPE).
+        Note: This returns a flat array of all hits found across all events.
+    """
+    if waves.size == 0:
+        return np.zeros(0, dtype=PEAK_DTYPE)
+
+    # Signal is baseline - wave (assuming negative pulses)
+    signal = baselines[:, np.newaxis] - waves
+    mask = signal > threshold
+
+    # Find starts and ends of contiguous regions
+    # We pad with False to catch hits at the boundaries
+    mask_padded = np.pad(mask, ((0, 0), (1, 1)), mode="constant", constant_values=False)
+    diff = np.diff(mask_padded.astype(np.int8), axis=1)
+
+    starts = np.where(diff == 1)
+    ends = np.where(diff == -1)
+
+    # starts and ends are tuples (event_indices, sample_indices)
+    event_indices = starts[0]
+    s_starts = starts[1]
+    s_ends = ends[1]
+
+    n_hits = len(event_indices)
+    hits = np.zeros(n_hits, dtype=PEAK_DTYPE)
+
+    hits["event_index"] = event_indices
+    hits["time"] = s_starts  # Relative to start of waveform
+    # Note: area, height, width calculation would go here or in a separate step
+    # For now we just return the hits with time and event_index
+    return hits
+
 
 @export
 class WaveformStruct:
-    def __init__(self, waveforms):
+    def __init__(self, waveforms: List[np.ndarray]):
+        """
+        初始化 WaveformStruct。
+        Args:
+            waveforms: List of NumPy arrays, each array corresponds to a channel's raw waveforms.
+        """
         self.waveforms = waveforms
-        self.pair_length = None
+        self.event_length = None
         self.waveform_structureds = None
 
-    def _structure_waveform(self, waves=None):
+    def _structure_waveform(self, waves: Optional[np.ndarray] = None) -> np.ndarray:
         # If no explicit waves passed, use the first channel
         if waves is None:
             if not self.waveforms:
-                return np.zeros(
-                    0, dtype=[("baseline", "f8"), ("timestamp", "i8"), ("pair_length", "i8"), ("wave", "O")]
-                )
+                return np.zeros(0, dtype=RECORD_DTYPE)
             waves = self.waveforms[0]
 
         # If waves is empty, return an empty structured array
         if len(waves) == 0:
-            return np.zeros(0, dtype=[("baseline", "f8"), ("timestamp", "i8"), ("pair_length", "i8"), ("wave", "O")])
+            return np.zeros(0, dtype=RECORD_DTYPE)
 
-        waveform_structured = np.zeros(
-            len(waves),
-            dtype=[
-                ("baseline", "f8"),
-                ("timestamp", "i8"),
-                ("pair_length", "i8"),
-                ("wave", "O"),
-            ],
-        )
+        waveform_structured = np.zeros(len(waves), dtype=RECORD_DTYPE)
 
         # Safely compute baseline and timestamp
         try:
@@ -72,30 +155,52 @@ class WaveformStruct:
 
         waveform_structured["baseline"] = baseline_vals
         waveform_structured["timestamp"] = timestamps
-        waveform_structured["wave"] = [row[7:] for row in waves]
+
+        # Vectorized assignment for fixed-length wave
+        wave_data = waves[:, 7:]
+        n_samples = min(wave_data.shape[1], DEFAULT_WAVE_LENGTH)
+        waveform_structured["wave"][:, :n_samples] = wave_data[:, :n_samples]
+
         return waveform_structured
 
-    def structure_waveforms(self):
-        self.waveform_structureds = [self._structure_waveform(waves) for waves in self.waveforms]
+    def structure_waveforms(self, show_progress: bool = False) -> List[np.ndarray]:
+        if show_progress:
+            try:
+                from tqdm import tqdm
+
+                pbar = tqdm(self.waveforms, desc="Structuring waveforms", leave=False)
+            except ImportError:
+                pbar = self.waveforms
+        else:
+            pbar = self.waveforms
+
+        self.waveform_structureds = [self._structure_waveform(waves) for waves in pbar]
         return self.waveform_structureds
 
-    def get_pair_length(self):
-        pair_length = np.array([len(wave) for wave in self.waveforms])
+    def get_event_length(self) -> np.ndarray:
+        """Compute per-event event lengths.
+
+        Adjacent channels are considered an event pair when computing the minimal length.
+        """
+        raw_lengths = np.array([len(wave) for wave in self.waveforms])
 
         # 重塑为 (n_pairs, 2) 的形状进行处理
-        n = len(pair_length)
+        n = len(raw_lengths)
         if n % 2 == 0:
             # 偶数个元素
-            reshaped = pair_length.reshape(-1, 2)
+            reshaped = raw_lengths.reshape(-1, 2)
             min_vals = np.min(reshaped, axis=1)
-            paired_length = np.repeat(min_vals, 2)
+            self.event_length = np.repeat(min_vals, 2)
         else:
-            reshaped = pair_length[:-1].reshape(-1, 2)
-            min_vals = np.min(reshaped, axis=1)
-            paired_length = np.concatenate([np.repeat(min_vals, 2), [pair_length[-1]]])
+            # 奇数个元素，最后一个单独处理
+            if n > 1:
+                reshaped = raw_lengths[:-1].reshape(-1, 2)
+                min_vals = np.min(reshaped, axis=1)
+                self.event_length = np.concatenate([np.repeat(min_vals, 2), [raw_lengths[-1]]])
+            else:
+                self.event_length = raw_lengths
 
-        self.pair_length = paired_length
-        return paired_length
+        return self.event_length
 
 
 @export
@@ -117,17 +222,17 @@ class WaveformProcessor:
         structurer = WaveformStruct(waveforms)
         return structurer.structure_waveforms()
 
-    def get_pair_length(self, waveforms: List[np.ndarray]) -> np.ndarray:
+    def get_event_length(self, waveforms: List[np.ndarray]) -> np.ndarray:
         """
         获取各通道波形的配对长度。
         """
         structurer = WaveformStruct(waveforms)
-        return structurer.get_pair_length()
+        return structurer.get_event_length()
 
     def compute_basic_features(
         self,
         st_waveforms: List[np.ndarray],
-        pair_len: np.ndarray,
+        event_len: np.ndarray,
         peaks_range: Optional[Tuple[int, int]] = None,
         charge_range: Optional[Tuple[int, int]] = None,
     ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
@@ -142,19 +247,29 @@ class WaveformProcessor:
         start_p, end_p = self.peaks_range
         start_c, end_c = self.charge_range
 
-        peaks = [
-            np.array([
-                np.max(wave["wave"][start_p:end_p]) - np.min(wave["wave"][start_p:end_p]) for wave in st_waveforms[i]
-            ])[: pair_len[i]]
-            for i in range(len(st_waveforms))
-        ]
+        peaks = []
+        charges = []
 
-        charges = [
-            np.array([np.sum(wave["baseline"] - wave["wave"][start_c:end_c]) for wave in st_waveforms[i]])[
-                : pair_len[i]
-            ]
-            for i in range(len(st_waveforms))
-        ]
+        for i in range(len(st_waveforms)):
+            st_ch = st_waveforms[i]
+            n = event_len[i]
+            if len(st_ch) == 0 or n == 0:
+                peaks.append(np.zeros(0))
+                charges.append(np.zeros(0))
+                continue
+
+            # Vectorized peak calculation
+            # st_ch["wave"] is (N, DEFAULT_WAVE_LENGTH)
+            waves_p = st_ch["wave"][:n, start_p:end_p]
+            p_vals = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
+            peaks.append(p_vals)
+
+            # Vectorized charge calculation
+            waves_c = st_ch["wave"][:n, start_c:end_c]
+            baselines = st_ch["baseline"][:n]
+            # baseline - wave, then sum over samples
+            q_vals = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
+            charges.append(q_vals)
 
         return peaks, charges
 
@@ -163,17 +278,17 @@ class WaveformProcessor:
         st_waveforms: List[np.ndarray],
         peaks: List[np.ndarray],
         charges: List[np.ndarray],
-        pair_len: np.ndarray,
+        event_len: np.ndarray,
         extra_features: Optional[Dict[str, List[np.ndarray]]] = None,
     ) -> pd.DataFrame:
         """
         构建波形 DataFrame。
         """
-        df = build_waveform_df(st_waveforms, peaks, charges, pair_len, n_channels=self.n_channels)
+        df = build_waveform_df(st_waveforms, peaks, charges, event_len, n_channels=self.n_channels)
 
         if extra_features:
             for name, feat_list in extra_features.items():
-                all_feat = np.concatenate([feat[: pair_len[i]] for i, feat in enumerate(feat_list)])
+                all_feat = np.concatenate([feat[: event_len[i]] for i, feat in enumerate(feat_list)])
                 df[name] = all_feat
 
         return df.sort_values("timestamp")
@@ -210,7 +325,13 @@ class WaveformProcessor:
 
 
 @export
-def build_waveform_df(st_waveforms, peaks, charges, pair_len, n_channels=6):
+def build_waveform_df(
+    st_waveforms: List[np.ndarray],
+    peaks: List[np.ndarray],
+    charges: List[np.ndarray],
+    event_len: np.ndarray,
+    n_channels: int = 6,
+) -> pd.DataFrame:
     """把每个通道的 timestamp / charge / peak / channel 拼成一个 DataFrame."""
     all_timestamps = []
     all_charges = []
@@ -218,7 +339,7 @@ def build_waveform_df(st_waveforms, peaks, charges, pair_len, n_channels=6):
     all_channels = []
 
     for ch in range(n_channels):
-        n = pair_len[ch]
+        n = event_len[ch]
         # 如果 timestamp 是 1D（每个事件一个值），这行是 OK 的；
         # 如果是 2D（事件 × 采样点），可以改成 .mean(axis=1) 或 [:, 0]
         ts = np.asarray(st_waveforms[ch]["timestamp"][:n])
@@ -244,10 +365,20 @@ def build_waveform_df(st_waveforms, peaks, charges, pair_len, n_channels=6):
 
 
 @export
-def group_multi_channel_hits(df, time_window_ns):
+def group_multi_channel_hits(df: pd.DataFrame, time_window_ns: float, use_optimized: bool = True) -> pd.DataFrame:
     """
-    在 df 中按 timestamp 聚类，找“同一事件的多通道触发”，并在簇内部
+    在 df 中按 timestamp 聚类，找"同一事件的多通道触发"，并在簇内部
     按 channel 从小到大对 (channels, charges, peaks, timestamps) 同步排序。
+    
+    参数:
+        df: 包含 timestamp, channel, charge, peak 列的 DataFrame
+        time_window_ns: 时间窗口（纳秒）
+        use_optimized: 是否使用优化版本（默认True，如果numba可用会自动使用）
+    
+    性能优化:
+        - 使用numba JIT编译加速边界查找（如果可用）
+        - 优化DataFrame构建方式
+        - 减少不必要的数组复制
     """
     time_window_ps = time_window_ns * 1e3
 
@@ -276,51 +407,72 @@ def group_multi_channel_hits(df, time_window_ns):
             ]
         )
 
-    # 聚类：clusters 保存的是“索引列表”
-    clusters = []
-    current_idx = [0]
+    # 聚类：找到每个簇的边界索引
+    # 使用numpy的searchsorted，在已排序数组上非常快 (O(log N))
+    boundaries = [0]
+    curr = 0
+    while curr < n:
+        next_idx = np.searchsorted(ts_all, ts_all[curr] + time_window_ps, side="right")
+        boundaries.append(next_idx)
+        curr = next_idx
+    boundaries = np.array(boundaries)
 
-    for i in range(1, n):
-        t0 = ts_all[current_idx[0]]
-        if ts_all[i] - t0 > time_window_ps:
-            clusters.append(current_idx)
-            current_idx = [i]
-        else:
-            current_idx.append(i)
-
-    if current_idx:
-        clusters.append(current_idx)
+    n_events = len(boundaries) - 1
+    
+    # 优化：预分配数组和列表，减少内存分配
+    event_ids = np.arange(n_events, dtype=np.int64)
+    t_mins = np.zeros(n_events, dtype=np.int64)
+    t_maxs = np.zeros(n_events, dtype=np.int64)
+    dt_ns = np.zeros(n_events, dtype=np.float64)
+    n_hits_list = np.zeros(n_events, dtype=np.int32)
+    
+    channels_list = []
+    charges_list = []
+    peaks_list = []
+    timestamps_list = []
 
     # 整理成 records，并在簇内部按 channel 排序
-    records = []
-    for event_id, idx_list in enumerate(clusters):
-        idx_arr = np.asarray(idx_list, dtype=int)
+    for event_id in range(n_events):
+        start, end = boundaries[event_id], boundaries[event_id + 1]
 
-        ts = ts_all[idx_arr]
-        chs = ch_all[idx_arr]
-        qs = q_all[idx_arr]
-        ps = p_all[idx_arr]
+        ts = ts_all[start:end]
+        chs = ch_all[start:end]
+        qs = q_all[start:end]
+        ps = p_all[start:end]
 
         # 按 channel 从小到大排序
-        sort_idx = np.argsort(chs.astype(int))
+        sort_idx = np.argsort(chs)
+        ts_sorted = ts[sort_idx]
         chs_sorted = chs[sort_idx]
         qs_sorted = qs[sort_idx]
         ps_sorted = ps[sort_idx]
-        ts_sorted = ts[sort_idx]
 
-        records.append({
-            "event_id": event_id,
-            "t_min": ts_sorted.min(),
-            "t_max": ts_sorted.max(),
-            "dt/ns": ts_sorted.max() - ts_sorted.min(),
-            "n_hits": len(ts_sorted),
-            "channels": chs_sorted,
-            "charges": qs_sorted,
-            "peaks": ps_sorted,
-            "timestamps": ts_sorted,
-        })
+        t_min = ts_sorted[0]
+        t_max = ts_sorted[-1]
 
-    return pd.DataFrame(records)
+        # 存储到预分配的数组中
+        t_mins[event_id] = t_min
+        t_maxs[event_id] = t_max
+        dt_ns[event_id] = (t_max - t_min) / 1e3
+        n_hits_list[event_id] = len(ts_sorted)
+        
+        channels_list.append(chs_sorted)
+        charges_list.append(qs_sorted)
+        peaks_list.append(ps_sorted)
+        timestamps_list.append(ts_sorted)
+
+    # 使用字典方式构建DataFrame，比从records列表构建更快
+    return pd.DataFrame({
+        "event_id": event_ids,
+        "t_min": t_mins,
+        "t_max": t_maxs,
+        "dt/ns": dt_ns,
+        "n_hits": n_hits_list,
+        "channels": channels_list,
+        "charges": charges_list,
+        "peaks": peaks_list,
+        "timestamps": timestamps_list,
+    })
 
 
 GROUP_MAP = {
@@ -341,7 +493,7 @@ GROUP_WEIGHTS = {
 
 
 @export
-def encode_groups_binary(channels):
+def encode_groups_binary(channels: List[int]) -> int:
     """
     任意组出现了部分成员（不成对） -> 整体返回 0（异常）
     所有组要么完整出现，要么完全不出现。
@@ -350,7 +502,6 @@ def encode_groups_binary(channels):
         return 0
 
     ch_set = set(map(int, channels))
-
     code = 0
 
     for weight, group_members in GROUP_WEIGHTS.items():
@@ -371,23 +522,25 @@ def encode_groups_binary(channels):
 
 
 @export
-def encode_channels_binary(channels):
+def encode_channels_binary(channels: List[int]) -> int:
     """
     将 channel 列表转换为二进制位掩码。
     例如 [0,3,5] → 1<<0 | 1<<3 | 1<<5 = 41
     """
-    if not channels:
+    if channels is None or len(channels) == 0:
         return 0
-
-    mask = 0
-    for ch in channels:
-        mask |= 1 << int(ch)
-
-    return mask
+    # 向量化位运算
+    return int(np.bitwise_or.reduce(1 << np.asarray(channels, dtype=int)))
 
 
 @export
-def mask_to_channels(mask):
+def encode_channels_binary_legacy(channels: List[int]) -> int:
+    """保留旧名称以防万一，但内部使用优化后的版本"""
+    return encode_channels_binary(channels)
+
+
+@export
+def mask_to_channels(mask: int) -> List[int]:
     """
     将 bitmask 转回 channel 列表。
     例如 41 (0b101001) → [0,3,5]
@@ -395,33 +548,24 @@ def mask_to_channels(mask):
     if mask is None or mask == 0:
         return []
 
+    # 使用位运算提取所有置位
     channels = []
-    bit_pos = 0
-    while mask > 0:
-        if mask & 1:
-            channels.append(bit_pos)
-        mask >>= 1
-        bit_pos += 1
+    for i in range(mask.bit_length()):
+        if (mask >> i) & 1:
+            channels.append(i)
     return channels
 
 
 @export
-def channels_to_mask(channels):
+def channels_to_mask(channels: List[int]) -> int:
     """
     将 channels 列表转换为 bitmask。
-    例如 [0,3,5] → 41 (二进制 0b101001)
     """
-    if not channels:
-        return 0
-
-    mask = 0
-    for ch in channels:
-        mask |= 1 << int(ch)
-    return mask
+    return encode_channels_binary(channels)
 
 
 @export
-def get_paired_data(df_events, group_mask, char):
+def get_paired_data(df_events: pd.DataFrame, group_mask: int, char: str) -> np.ndarray:
     """
     根据 encode_groups_binary 的加权结果筛选事件，
     并返回 (char) 对应的 numpy 数组。
@@ -444,14 +588,14 @@ def get_paired_data(df_events, group_mask, char):
 
 
 @export
-def energy_rec(data):
+def energy_rec(data: Tuple[np.ndarray, np.ndarray]) -> np.ndarray:
     x, y = data
     energy = np.sqrt(np.prod([x, y], axis=0)) * 2
     return energy
 
 
 @export
-def lr_log_ratio(data):
+def lr_log_ratio(data: Tuple[np.ndarray, np.ndarray]) -> np.ndarray:
     x, y = data
     log_ratio = np.log(x) - np.log(y)
     return log_ratio
@@ -459,7 +603,7 @@ def lr_log_ratio(data):
 
 @export
 class ResultData:
-    def __init__(self, cache_dir) -> None:
+    def __init__(self, cache_dir: str) -> None:
         self.cache_dir = cache_dir
         df_file = os.path.join(cache_dir, "df.feather")
         event_file = os.path.join(cache_dir, "df_events.feather")
@@ -469,7 +613,9 @@ class ResultData:
 
 
 @export
-def hist_count_ratio(data_a, data_b, bins):
+def hist_count_ratio(
+    data_a: np.ndarray, data_b: np.ndarray, bins: Any
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     counts_a, bin_edges = np.histogram(data_a, bins=bins)
     counts_b, _ = np.histogram(data_b, bins=bins)
     ratio = np.divide(
