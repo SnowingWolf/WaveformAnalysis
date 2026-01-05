@@ -118,7 +118,6 @@ class Plugin(abc.ABC):
     depends_on: List[str] = []
     options: Dict[str, Option] = {}
     save_when: str = "never"
-    dtype: Optional[np.dtype] = None  # Legacy, use output_dtype for new plugins
     output_dtype: Optional[np.dtype] = None
     input_dtype: Dict[str, np.dtype] = {}
     output_kind: Literal["static", "stream"] = "static"

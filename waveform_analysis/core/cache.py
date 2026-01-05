@@ -26,19 +26,19 @@ class CacheManager:
     """
 
     @staticmethod
-    def get_key(step_name: str, run_name: str = "", **params) -> str:
+    def get_key(step_name: str, char: str = "", **params) -> str:
         """
         生成缓存键。
 
         Args:
             step_name: 步骤名称
-            run_name: 运行名称
+            char: 运行名称
             **params: 影响缓存的其他参数
 
         Returns:
             缓存键字符串
         """
-        parts = [step_name, run_name]
+        parts = [step_name, char]
         for k, v in sorted(params.items()):
             parts.append(f"{k}={v}")
         combined = "|".join(parts)

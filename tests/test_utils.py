@@ -11,7 +11,7 @@ from waveform_analysis.core.utils import (
     OneTimeGenerator,
     Profiler,
     exporter,
-    get_plugin_dtype,
+    get_plugin_dtypes,
     get_plugin_title,
     get_plugins_from_context,
 )
@@ -245,30 +245,36 @@ class TestHelperFunctions:
         result = get_plugins_from_context(MockContext())
         assert result == {"plugin1": "value1"}
 
-    def test_get_plugin_dtype_raw_files(self):
+    def test_get_plugin_dtypes_raw_files(self):
         """测试 raw_files 类型"""
-        result = get_plugin_dtype("raw_files", {})
-        assert result == "List[List[str]]"
+        in_dt, out_dt = get_plugin_dtypes("raw_files", {})
+        assert out_dt == "List[List[str]]"
 
-    def test_get_plugin_dtype_waveforms(self):
+    def test_get_plugin_dtypes_waveforms(self):
         """测试 waveforms 类型"""
-        result = get_plugin_dtype("waveforms", {})
-        assert result == "List[np.ndarray]"
+        in_dt, out_dt = get_plugin_dtypes("waveforms", {})
+        assert in_dt == "List[List[str]]"
+        assert out_dt == "List[np.ndarray]"
 
-    def test_get_plugin_dtype_unknown(self):
+    def test_get_plugin_dtypes_unknown(self):
         """测试未知类型"""
-        result = get_plugin_dtype("unknown", {})
-        assert result == "Unknown"
+        in_dt, out_dt = get_plugin_dtypes("unknown", {})
+        assert out_dt == "Unknown"
 
     def test_get_plugin_title_from_name(self):
         """测试从插件获取标题"""
 
         class MockPlugin:
             name = "Test Plugin"
+            output_dtype = "float64"
 
         plugins = {"test": MockPlugin()}
         result = get_plugin_title("test", {}, plugins)
         assert result == "Test Plugin"
+
+        # 顺便测试 get_plugin_dtypes 对自定义插件的支持
+        in_dt, out_dt = get_plugin_dtypes("test", plugins)
+        assert out_dt == "float64"
 
     def test_get_plugin_title_fallback(self):
         """测试标题回退"""

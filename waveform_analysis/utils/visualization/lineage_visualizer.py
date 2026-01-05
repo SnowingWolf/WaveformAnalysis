@@ -6,7 +6,7 @@ import numpy as np
 from matplotlib.patches import FancyArrowPatch, Rectangle
 
 from waveform_analysis.core.model import LineageGraphModel, build_lineage_graph
-from waveform_analysis.core.utils import LineageStyle, get_plugin_dtype, get_plugin_title, get_plugins_from_context
+from waveform_analysis.core.utils import LineageStyle, get_plugin_dtypes, get_plugin_title, get_plugins_from_context
 
 
 def plot_lineage_labview(

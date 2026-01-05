@@ -195,6 +195,8 @@ class CacheMixin:
             load_sig: 是否加载磁盘文件以验证签名（较慢）。
         """
         report = {}
+        
+        # 1. 检查 Legacy CacheMixin 配置
         for name, cfg in self._cache_config.items():
             in_mem = name in self._cache
             on_disk = False
@@ -220,6 +222,33 @@ class CacheMixin:
                 "backend": cfg.get("backend"),
                 "path": persist_path,
             }
+            
+        # 2. 检查 Context (Plugin-based) 状态
+        if hasattr(self, "ctx"):
+            run_id = getattr(self, "run_name", getattr(self, "char", "default"))
+            for name in self.ctx.list_provided_data():
+                # 避免重复显示
+                if name in report:
+                    continue
+                    
+                in_mem = self.ctx._get_data_from_memory(run_id, name) is not None
+                key = self.ctx.key_for(run_id, name)
+                on_disk = self.ctx.storage.exists(key)
+                
+                # 获取后端类型
+                backend = "numpy"
+                meta = self.ctx.storage.get_metadata(key) or self.ctx.storage.get_metadata(f"{key}_ch0")
+                if meta and meta.get("type") == "dataframe":
+                    backend = "parquet"
+                
+                report[name] = {
+                    "in_memory": in_mem,
+                    "on_disk": on_disk,
+                    "disk_valid": on_disk, # 只要存在即认为有效（Lineage 在 storage.exists 中校验）
+                    "backend": backend,
+                    "path": self.ctx.storage_dir,
+                }
+                
         return report
 
     def print_cache_report(self, verify: bool = False) -> None:

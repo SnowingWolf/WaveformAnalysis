@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
+
 class DAQRun:
     """单个 DAQ 运行的数据和分析类"""
 
@@ -16,8 +17,25 @@ class DAQRun:
     CH_PATTERN = re.compile(r"CH(\d+)")
     IDX_PATTERN = re.compile(r"_(\d+)\.CSV$", re.IGNORECASE)
 
+    @staticmethod
+    def format_time_ps(ps_val: Optional[int]) -> str:
+        if ps_val is None:
+            return "N/A"
+
+        if ps_val < 1e3:
+            return f"{ps_val:.0f} ps"
+        elif ps_val < 1e6:
+            return f"{ps_val / 1e3:.2f} ns"
+        elif ps_val < 1e9:
+            return f"{ps_val / 1e6:.2f} us"
+        elif ps_val < 1e12:
+            return f"{ps_val / 1e9:.2f} ms"
+        else:
+            return f"{ps_val / 1e12:.2f} s"
+
     def __init__(self, run_name: str, run_path: str | Path):
         self.run_name = run_name
+        self.char = run_name
         self.run_path = str(run_path)
         self.raw_dir = os.path.join(self.run_path, "RAW")
 
@@ -184,19 +202,3 @@ class DAQRun:
             "channel_str": ", ".join(map(str, sorted(list(self.channels)))) if self.channels else "-",
             "path": self.run_path,
         }
-
-    @staticmethod
-    def format_time_ps(ps_val: Optional[int]) -> str:
-        if ps_val is None:
-            return "N/A"
-
-        if ps_val < 1e3:
-            return f"{ps_val:.0f} ps"
-        elif ps_val < 1e6:
-            return f"{ps_val / 1e3:.2f} ns"
-        elif ps_val < 1e9:
-            return f"{ps_val / 1e6:.2f} us"
-        elif ps_val < 1e12:
-            return f"{ps_val / 1e9:.2f} ms"
-        else:
-            return f"{ps_val / 1e12:.2f} s"

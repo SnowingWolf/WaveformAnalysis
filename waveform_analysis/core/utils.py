@@ -211,18 +211,38 @@ def get_plugins_from_context(ctx: Any) -> Dict[str, Any]:
     return getattr(ctx, "_plugins", getattr(ctx, "plugins", {}))
 
 
-def get_plugin_dtype(name: str, plugins: Dict[str, Any]) -> str:
+def get_plugin_dtypes(name: str, plugins: Dict[str, Any]) -> Tuple[str, str]:
+    """同时获取插件的输入与输出数据类型。"""
+    in_dtype = "None"
+    out_dtype = "Unknown"
+
     if name == "raw_files":
-        return "List[List[str]]"
-    if name == "waveforms":
-        return "List[np.ndarray]"
-    plugin = plugins.get(name)
-    if plugin:
-        for attr in ("dtype", "output_dtype", "DTYPE"):
-            val = getattr(plugin, attr, None)
-            if val:
-                return str(val)
-    return "Unknown"
+        out_dtype = "List[List[str]]"
+    elif name == "waveforms":
+        in_dtype = "List[List[str]]"
+        out_dtype = "List[np.ndarray]"
+    else:
+        plugin = plugins.get(name)
+        if plugin:
+            # 获取输出类型 (统一使用 output_dtype)
+            for attr in ("output_dtype", "DTYPE"):
+                val = getattr(plugin, attr, None)
+                if val:
+                    out_dtype = str(val)
+                    break
+
+            # 获取输入类型
+            input_dtypes = getattr(plugin, "input_dtype", {})
+            if input_dtypes:
+                # 如果有明确的输入类型定义，则显示类型名
+                in_dtype = ", ".join([str(v) for v in input_dtypes.values()])
+            else:
+                # 否则显示依赖项名称作为占位
+                deps = getattr(plugin, "depends_on", [])
+                if deps:
+                    in_dtype = ", ".join(deps)
+
+    return in_dtype, out_dtype
 
 
 def get_plugin_title(name: str, info: Dict[str, Any], plugins: Dict[str, Any]) -> str:

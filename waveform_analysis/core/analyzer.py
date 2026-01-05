@@ -29,14 +29,26 @@ class EventAnalyzer:
         self.start_channel_slice = start_channel_slice
         self.time_window_ns = 100
 
-    def group_events(self, df: pd.DataFrame, time_window_ns: Optional[float] = None) -> pd.DataFrame:
+    def group_events(
+        self,
+        df: pd.DataFrame,
+        time_window_ns: Optional[float] = None,
+        use_numba: bool = True,
+        n_processes: Optional[int] = None,
+    ) -> pd.DataFrame:
         """
         按时间窗口聚类多通道事件。
+        
+        参数:
+            df: 包含 timestamp, channel, charge, peak 列的 DataFrame
+            time_window_ns: 时间窗口（纳秒）
+            use_numba: 是否使用numba加速（默认True）
+            n_processes: 多进程数量（None=单进程，>1=多进程）
         """
         if time_window_ns is not None:
             self.time_window_ns = time_window_ns
 
-        return group_multi_channel_hits(df, self.time_window_ns)
+        return group_multi_channel_hits(df, self.time_window_ns, use_numba=use_numba, n_processes=n_processes)
 
     def pair_events(self, df_events: pd.DataFrame) -> pd.DataFrame:
         """

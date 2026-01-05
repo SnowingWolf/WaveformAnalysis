@@ -79,7 +79,7 @@ def build_lineage_graph(
     """
     将血缘字典转换为纯数据结构的 LineageGraphModel。
     """
-    from waveform_analysis.core.utils import get_plugin_dtype, get_plugin_title
+    from waveform_analysis.core.utils import get_plugin_dtypes, get_plugin_title
 
     model = LineageGraphModel()
     plugins = plugins or {}
@@ -114,14 +114,21 @@ def build_lineage_graph(
             depth=plugin_depth.get(p, 0),
         )
 
+        # 获取输入输出类型
+        from waveform_analysis.core.utils import get_plugin_dtypes
+
+        in_dtype_str, out_dtype_str = get_plugin_dtypes(p, plugins)
+
         # 输入端口
         deps = sorted((info.get("depends_on", {}) or {}).keys())
         for i, dep_p in enumerate(deps):
+            # 获取依赖项的输出类型作为本端口的输入类型
+            _, dep_out_dtype = get_plugin_dtypes(dep_p, plugins)
             port = PortModel(
                 id=f"IN::{p}::{i}",
                 name=dep_p,
                 kind="in",
-                dtype=get_plugin_dtype(dep_p, plugins),
+                dtype=dep_out_dtype,
                 parent_node_id=p,
                 index=i,
             )
@@ -135,7 +142,7 @@ def build_lineage_graph(
                 id=f"OUT::{p}::{i}",
                 name=label,
                 kind="out",
-                dtype=get_plugin_dtype(p, plugins),
+                dtype=out_dtype_str,
                 parent_node_id=p,
                 index=i,
             )

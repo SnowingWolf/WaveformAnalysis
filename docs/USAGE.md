@@ -48,7 +48,7 @@ from waveform_analysis import WaveformDataset
 ```python
 # 创建数据集实例
 dataset = WaveformDataset(
-    char="50V_OV_circulation_20thr",  # 默认 Run ID
+    run_name="50V_OV_circulation_20thr",  # 默认 Run ID
     n_channels=2,                      # 通道数
     start_channel_slice=6              # 起始通道
 )
@@ -254,7 +254,7 @@ waveform-process --help
 ```python
 # 不加载波形数据以节省内存
 dataset = WaveformDataset(
-    char="50V_OV_circulation_20thr",
+    run_name="50V_OV_circulation_20thr",
     n_channels=2,
     load_waveforms=False  # 关键：不加载原始波形
 )

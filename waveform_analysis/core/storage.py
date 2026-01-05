@@ -285,28 +285,55 @@ class MemmapStorage:
             return np.memmap(bin_path, dtype=dtype, mode="r", shape=tuple(shape))
 
     def exists(self, key: str) -> bool:
+        """
+        检查给定 key 的数据是否存在，支持单文件（二进制/memmap, parquet）和多通道格式。
+        """
+        # 1. 首先检查单文件是否存在
+        if self._check_single_exists(key):
+            return True
+
+        # 2. 检查多通道是否存在（回退到 _ch0）
+        if not key.endswith("_ch0") and self._check_single_exists(f"{key}_ch0"):
+            return True
+
+        return False
+
+    def _check_single_exists(self, key: str) -> bool:
+        """内部辅助方法：检查单个 key 的数据完整性。"""
         bin_path, meta_path, _ = self._get_paths(key)
-        # Basic existence checks
-        if not (os.path.exists(bin_path) and os.path.exists(meta_path)):
+        parquet_path = os.path.join(self.base_dir, f"{key}.parquet")
+
+        # 所有格式都必须有元数据文件
+        if not os.path.exists(meta_path):
             return False
 
-        # Validate metadata and file size to avoid false positives on corruption
         try:
             meta = self.get_metadata(key)
             if meta is None:
                 return False
+
+            # 情况 1: DataFrame (Parquet)
+            if meta.get("type") == "dataframe":
+                return os.path.exists(parquet_path)
+
+            # 情况 2: 二进制/Memmap (.bin)
+            if not os.path.exists(bin_path):
+                return False
+
+            # 二进制文件的完整性检查
             count = meta.get("count")
             itemsize = meta.get("itemsize")
             shape = meta.get("shape", (count,))
-            if count is None or itemsize is None:
-                return False
-            expected_size = int(np.prod(shape)) * int(itemsize)
-            actual_size = os.path.getsize(bin_path)
-            if actual_size != expected_size:
-                return False
-            # Optional: check storage version
+            if count is not None and itemsize is not None:
+                expected_size = int(np.prod(shape)) * int(itemsize)
+                actual_size = os.path.getsize(bin_path)
+                if actual_size != expected_size:
+                    return False
+
+            # 存储版本检查
             if meta.get("storage_version") != self.STORAGE_VERSION:
                 return False
+
             return True
         except Exception:
             return False

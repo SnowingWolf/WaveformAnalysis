@@ -38,7 +38,7 @@
 - 增强 `compute_watch_signature` 以支持嵌套列表（如 `raw_files`）。
 - 添加 `get_key` 静态方法，统一缓存键生成逻辑。
 
-#### `waveform_analysis/utils/data_processing/io.py` ⭐ I/O 优化
+#### `waveform_analysis/utils/io.py` ⭐ I/O 优化
 - 将 `pd.read_csv` 默认引擎改为 `pyarrow`。
 
 ---
@@ -154,7 +154,7 @@ from waveform_analysis import WaveformDataset
 
 # 节省内存的方式
 dataset = WaveformDataset(
-    char="50V_OV_circulation_20thr",
+    run_name="50V_OV_circulation_20thr",
     load_waveforms=False  # 关键参数
 )
 
@@ -197,7 +197,7 @@ print(f"平均峰值: {df['peak_ch6'].mean():.1f} ADC")
 
 ```python
 # 旧代码完全有效
-dataset = WaveformDataset(char="50V_OV_circulation_20thr")
+dataset = WaveformDataset(run_name="50V_OV_circulation_20thr")
 # 等同于 load_waveforms=True（默认）
 ```
 

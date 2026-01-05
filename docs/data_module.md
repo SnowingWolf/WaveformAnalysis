@@ -13,7 +13,7 @@
 from data import WaveformDataset
 
 dataset = (
-    WaveformDataset(char="50V_OV_circulation_20thr", n_channels=2, start_channel_slice=6)
+    WaveformDataset(run_name="50V_OV_circulation_20thr", n_channels=2, start_channel_slice=6)
         .load_raw_data()
         .extract_waveforms()
         .structure_waveforms()
@@ -39,11 +39,11 @@ wave, baseline = dataset.get_waveform_at(event_idx=0, channel=0)
 
 ```python
 # 1) 注册一个自定义特征函数
-def my_rise_time(self, st_waveforms, pair_len, start=50, end=150):
+def my_rise_time(self, st_waveforms, event_length, start=50, end=150):
     vals = []
     for ch in range(len(st_waveforms)):
         arr = []
-        n = int(pair_len[ch])
+        n = int(event_length[ch])
         for wave in st_waveforms[ch][:n]:
             seg = np.asarray(wave["wave"][start:end])
             # 示例：到达最大值的一半所需样本数（伪代码）
@@ -59,7 +59,7 @@ dataset.add_features_to_dataframe(names=["rise_time"])   # 在 df 中新增列
 ```
 
 说明：
-- 特征函数签名：`fn(self, st_waveforms, pair_len, **params) -> List[np.ndarray]`；返回列表长度等于通道数。
+- 特征函数签名：`fn(self, st_waveforms, event_length, **params) -> List[np.ndarray]`；返回列表长度等于通道数。
 - `add_features_to_dataframe()` 会按与 `build_waveform_df` 一致的顺序拼接，并添加列到 `df`。
 
 ## 自定义配对策略

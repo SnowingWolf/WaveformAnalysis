@@ -14,7 +14,7 @@ def example_custom_features():
     print("自定义特征示例")
     print("=" * 60)
 
-    dataset = WaveformDataset(char="50V_OV_circulation_20thr", n_channels=2, start_channel_slice=6)
+    dataset = WaveformDataset(run_name="50V_OV_circulation_20thr", n_channels=2, start_channel_slice=6)
 
     # 加载和处理数据
     try:
@@ -77,7 +77,7 @@ def example_custom_pairing():
     print("自定义配对策略示例")
     print("=" * 60)
 
-    dataset = WaveformDataset(char="50V_OV_circulation_20thr", n_channels=2, start_channel_slice=6)
+    dataset = WaveformDataset(run_name="50V_OV_circulation_20thr", n_channels=2, start_channel_slice=6)
 
     # 处理到分组阶段
     try:

@@ -1,6 +1,7 @@
 # Copilot Instructions for WaveformAnalysis
 
 - **项目基调**：`waveform_analysis` 是 DAQ 波形分析包，核心是插件化上下文 (`core/context.py` + `plugins.py`) 与链式的 `WaveformDataset` 封装 (`core/dataset.py`)；默认数据目录 `DAQ/<char>`，输出到 `outputs/`。
+- **架构职责澄清**：保持 **Context** 与 **WaveformDataset** 的职责隔离——Context 只负责插件 DAG、配置、血缘与缓存；Dataset 仅做链式封装与结果访问（通过 Context），任何数据处理逻辑应下沉为插件。避免在 Dataset 中维护与 Context 平行的状态，属性映射（如 `self.char` → Context）要确保单一可信源。
 - **安装与环境**：优先 `./install.sh` 或 `pip install -e .`（开发依赖 `pip install -e ".[dev]"`）。Python ≥3.8，`pyproject.toml` 配置了 Black/pytest/mypy。
   - **本地环境**：指定 Python 路径 `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python` (Conda: `pyroot-kernel`)。需手动激活 Conda (`conda_first`) 后激活环境。
 - **测试习惯**：运行 `pytest -v --cov=waveform_analysis --cov-report=html --cov-report=term`（pyproject 已内置 addopts）。
@@ -12,6 +13,7 @@
 - **事件配对策略**：`group_events` 使用 `time_window_ns`（默认 100）窗口分组；`pair_events` 依赖 `pair_len` 和 channel 顺序，默认通道起始 `start_channel_slice=6` 对应 CH6/CH7。
 - **缓存与签名**：步骤级缓存通过 `set_step_cache(step, enabled=True, attrs=[...], persist_path=..., watch_attrs=[...])`；持久化时写入 `WATCH_SIG_KEY="__watch_sig__"`（mtime/size SHA1），签名不匹配视为 cache miss。
 - **插件式 Context**：`Context.get_data(run_id, name)` 会按 DAG 解析 `depends_on`，必须显式传 `run_id`；插件需声明 `provides/depends_on/options/version/dtype`，`compute` 返回 ndarray/generator，`is_side_effect` 输出隔离到 `_side_effects/{run_id}/{plugin}`。
+- **插件职责单一**：每个 Plugin 只做一件事（明确输入/输出）。新增功能请新增独立插件而非在现有插件叠加职责，确保 `compute` 简短、可测、可替换。为贡献者提供简单模板/示例，说明如何声明 `provides/depends_on/options`、如何注册到 Context。
 - **存储策略**：默认 `MemmapStorage`（`core/storage.py`）零拷贝访问，原子写 `.tmp`→rename，校验 `dtype.descr`、`STORAGE_VERSION`；生成器被包装为 `OneTimeGenerator`，消费后若需重跑会重新构建。
 - **血缘追踪**：`Context.key_for` 将插件名、版本、配置、dtype、依赖 lineage 哈希后作为缓存键；逻辑变化自动失效旧缓存，`lineage_visualizer` 在 `utils/visualization/lineage_visualizer.py`。
 - **时间区间与 Chunk 操作**（`core/chunk_utils.py`）：
@@ -49,6 +51,12 @@
     MY_CONST = export(42, name="MY_CONST")
     ```
   - 禁止手动维护 `__all__ = [...]` 列表。
+- **命名与风格一致性**：
+  - 纠正文案/命名：例如 `WaveformStruct` 的 `_structure_waveform` 保持正确拼写；统一使用 `event_length`（替代 `pair_len/pair_length` 混用）。
+  - 术语统一：waveforms / events / hits / chunks 等业务名词在变量、列名、文档中保持一致，不混用 chunk/block 等别名。
+  - 命名规范：类用大驼峰，函数/变量用小写+下划线，常量全大写。
+  - **Run 标识符**：统一使用 `run_name` 替代 `char`。
+- **文档与注释**：继续保留中文注释/文档的丰富度；公共 API 的 docstring 建议附带简短英文描述，方便潜在英文用户/贡献者。新增插件/模块时同步更新 `docs/ARCHITECTURE.md` 或相关指南。
 - **数据处理哲学**：
   - 效仿 `strax`，优先使用 `Chunk` 对象封装 `(data, start, end)`。
   - 核心逻辑（如 `split`, `merge`）应作为 `Chunk` 的方法或 `chunk_utils` 中的导出函数。

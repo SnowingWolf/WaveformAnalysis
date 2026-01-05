@@ -14,15 +14,16 @@ import pandas as pd
 
 from waveform_analysis.core import standard_plugins
 from waveform_analysis.core.context import Context
+from waveform_analysis.core.mixins import CacheMixin, StepMixin, chainable_step
 
 
-class WaveformDataset:
+class WaveformDataset(CacheMixin, StepMixin):
     """
     统一的波形数据集容器，封装整个数据处理流程。
     支持链式调用，简化数据加载、预处理和分析。
     
     使用示例：
-        dataset = WaveformDataset(char="50V_OV_circulation_20thr", n_channels=2)
+        dataset = WaveformDataset(run_name="50V_OV_circulation_20thr", n_channels=2)
         dataset.load_raw_data().extract_waveforms().structure_waveforms()\\
                .build_waveform_features().build_dataframe().group_events()\\
                .pair_events().save_results()
@@ -49,7 +50,7 @@ class WaveformDataset:
         初始化数据集。
 
         参数:
-            run_name: 数据集标识符 (原 char)
+            run_name: 数据集标识符
             n_channels: 要处理的通道数
             start_channel_slice: 开始通道索引（通常为 6 表示 CH6/CH7）
             data_root: 数据根目录
@@ -59,6 +60,9 @@ class WaveformDataset:
             cache_waveforms: 是否缓存提取后的波形数据到磁盘（默认 True）
             cache_dir: 缓存目录，默认为 outputs/_cache
         """
+        CacheMixin.__init__(self)
+        StepMixin.__init__(self)
+
         # 兼容旧的 char 参数
         if "char" in kwargs:
             run_name = kwargs.pop("char")
@@ -96,7 +100,7 @@ class WaveformDataset:
         self.raw_files: List[List[str]] = []
         self.waveforms: List[np.ndarray] = []
         self.st_waveforms: List[np.ndarray] = []
-        self.pair_len: Optional[np.ndarray] = None
+        self.event_length: Optional[np.ndarray] = None
 
         # 特征和结果
         self.peaks: List[np.ndarray] = []
@@ -148,7 +152,7 @@ class WaveformDataset:
 
             analyzer = DAQAnalyzer(self.daq_root)
             analyzer.scan_all_runs()
-            run = analyzer.get_run(self.char)
+            run = analyzer.get_run(self.run_name)
             if run is None:
                 # 未在扫描结果中找到
                 self.daq_run = None
@@ -197,7 +201,7 @@ class WaveformDataset:
 
         # 从报告中查找匹配的 run
         for r in report.get("runs", []):
-            if r.get("run_name") == self.char:
+            if r.get("run_name") == self.run_name:
                 self.daq_info = r
                 self.daq_run = None
                 return r
@@ -220,11 +224,12 @@ class WaveformDataset:
                 info = self.check_daq_status()
                 if info is None:
                     raise FileNotFoundError(
-                        f"数据目录 {self.data_dir} 不存在，DAQ 扫描也未发现运行 {self.char} (daq_root={self.daq_root})"
+                        f"数据目录 {self.data_dir} 不存在，DAQ 扫描也未发现运行 {self.run_name} (daq_root={self.daq_root})"
                     )
             except Exception:
                 raise FileNotFoundError(f"数据目录不存在: {self.data_dir} 且无法从 DAQ 扫描获取信息")
 
+    @chainable_step
     def load_raw_data(self, verbose: bool = True) -> "WaveformDataset":
         """
         加载原始 CSV 文件。
@@ -235,11 +240,12 @@ class WaveformDataset:
             print(f"[{self.run_name}] 加载 {len(self.raw_files)} 个通道的原始文件")
         return self
 
-    def extract_waveforms(self, verbose: bool = True) -> "WaveformDataset":
+    @chainable_step
+    def extract_waveforms(self, verbose: bool = True, **kwargs) -> "WaveformDataset":
         """
         从原始文件中提取波形数据。
         """
-        self.waveforms = self.ctx.get_data(self.run_name, "waveforms")
+        self.waveforms = self.ctx.get_data(self.run_name, "waveforms", **kwargs)
 
         if verbose:
             for ch, wf in enumerate(self.waveforms):
@@ -252,8 +258,9 @@ class WaveformDataset:
         self.waveforms = []
         self.st_waveforms = []
         self._timestamp_index = []
-        self.pair_len = None
+        self.event_length = None
 
+    @chainable_step
     def structure_waveforms(self, verbose: bool = True) -> "WaveformDataset":
         """
         将波形数据转换为结构化 numpy 数组。
@@ -262,13 +269,14 @@ class WaveformDataset:
             return self
 
         self.st_waveforms = self.ctx.get_data(self.run_name, "st_waveforms")
-        self.pair_len = self.ctx.get_data(self.run_name, "event_len")
+        self.event_length = self.ctx.get_data(self.run_name, "event_length")
         self._build_timestamp_index()
 
         if verbose:
-            print(f"结构化波形完成，配对长度: {self.pair_len}")
+            print(f"结构化波形完成，配对长度: {self.event_length}")
         return self
 
+    @chainable_step
     def build_waveform_features(
         self,
         peaks_range: Optional[Tuple[int, int]] = None,
@@ -295,6 +303,7 @@ class WaveformDataset:
             print(f"特征计算完成: {len(self.peaks)} 通道")
         return self
 
+    @chainable_step
     def build_dataframe(self, verbose: bool = True) -> "WaveformDataset":
         """
         构建波形 DataFrame。
@@ -305,12 +314,29 @@ class WaveformDataset:
             print(f"构建 DataFrame 完成，事件总数: {len(self.df)}")
         return self
 
-    def group_events(self, time_window_ns: Optional[float] = None, verbose: bool = True) -> "WaveformDataset":
+    @chainable_step
+    def group_events(
+        self,
+        time_window_ns: Optional[float] = None,
+        use_numba: bool = True,
+        n_processes: Optional[int] = None,
+        verbose: bool = True,
+    ) -> "WaveformDataset":
         """
         按时间窗口聚类多通道事件。
+        
+        参数:
+            time_window_ns: 时间窗口（纳秒）
+            use_numba: 是否使用numba加速（默认True）
+            n_processes: 多进程数量（None=单进程，>1=多进程）
+            verbose: 是否打印日志
         """
         tw = time_window_ns or self.time_window_ns
-        self.ctx.set_config({"time_window_ns": tw})
+        self.ctx.set_config({
+            "time_window_ns": tw,
+            "use_numba": use_numba,
+            "n_processes": n_processes,
+        })
         self.df_events = self.ctx.get_data(self.run_name, "df_events")
 
         if time_window_ns:
@@ -318,13 +344,27 @@ class WaveformDataset:
 
         if verbose:
             print(f"聚类完成，事件组数: {len(self.df_events)}")
+            if n_processes and n_processes > 1:
+                print(f"  使用 {n_processes} 个进程并行处理")
+            elif use_numba:
+                try:
+                    import numba
+                    print(f"  使用 numba 加速")
+                except ImportError:
+                    pass
         return self
 
-    def pair_events(self, pair_len: int = 2, start_channel_slice: int = 6, verbose: bool = True) -> "WaveformDataset":
+    @chainable_step
+    def pair_events(
+        self, n_channels: Optional[int] = None, start_channel_slice: Optional[int] = None, verbose: bool = True
+    ) -> "WaveformDataset":
         """
         筛选成对的 N 通道事件。
         """
-        self.ctx.set_config({"pair_len": pair_len, "start_channel_slice": start_channel_slice})
+        n_ch = n_channels or self.n_channels
+        start_ch = start_channel_slice or self.start_channel_slice
+
+        self.ctx.set_config({"n_channels": n_ch, "start_channel_slice": start_ch})
         self.df_paired = self.ctx.get_data(self.run_name, "df_paired")
 
         if verbose:
@@ -390,8 +430,8 @@ class WaveformDataset:
         os.makedirs(output_dir, exist_ok=True)
 
         if self.df_paired is not None and len(self.df_paired) > 0:
-            csv_path = os.path.join(output_dir, f"{self.char}_paired.csv")
-            pq_path = os.path.join(output_dir, f"{self.char}_paired.parquet")
+            csv_path = os.path.join(output_dir, f"{self.run_name}_paired.csv")
+            pq_path = os.path.join(output_dir, f"{self.run_name}_paired.parquet")
 
             self.df_paired.to_csv(csv_path, index=False)
             self.df_paired.to_parquet(pq_path)
@@ -478,7 +518,7 @@ class WaveformDataset:
     @classmethod
     def from_daq_report(
         cls,
-        char: str,
+        run_name: str,
         daq_report: str | dict,
         data_root: str = "DAQ",
         load_waveforms: bool = True,
@@ -490,7 +530,7 @@ class WaveformDataset:
         """基于 DAQ JSON 报告或 report dict 创建并可选地运行完整处理流程的便利工厂。
 
         参数:
-            char: 运行名
+            run_name: 运行名
             daq_report: JSON 文件路径或已加载的 dict
             data_root: DAQ 根目录（仅用于相对路径解析）
             load_waveforms: 是否在管道中加载原始波形
@@ -502,7 +542,7 @@ class WaveformDataset:
         返回: WaveformDataset 实例
         """
         ds = cls(
-            char=char,
+            run_name=run_name,
             n_channels=n_channels,
             start_channel_slice=start_channel_slice,
             data_root=data_root,

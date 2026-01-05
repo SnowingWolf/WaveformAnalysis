@@ -13,7 +13,7 @@ def test_without_waveforms(create_daq_run):
     daq_root, run_dir, raw_dir = create_daq_run("50V_OV_circulation_20thr")
 
     dataset = WaveformDataset(
-        char="50V_OV_circulation_20thr",
+        run_name="50V_OV_circulation_20thr",
         n_channels=2,
         start_channel_slice=6,
         load_waveforms=False,
@@ -38,7 +38,7 @@ def test_with_waveforms(create_daq_run, make_simple_csv_fn):
     make_simple_csv_fn(raw_dir, 6, 0, 1234, n_samples=20)
 
     dataset = WaveformDataset(
-        char="50V_OV_circulation_20thr",
+        run_name="50V_OV_circulation_20thr",
         n_channels=2,
         start_channel_slice=6,
         load_waveforms=True,
@@ -75,7 +75,7 @@ def test_with_waveforms(tmp_path: Path):
     make_simple_csv(raw_dir, 6, 0, 1234, n_samples=20)
 
     dataset = WaveformDataset(
-        char="50V_OV_circulation_20thr",
+        run_name="50V_OV_circulation_20thr",
         n_channels=2,
         start_channel_slice=6,
         load_waveforms=True,  # 显式指定，但这是默认值

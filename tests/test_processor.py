@@ -7,6 +7,8 @@ import pandas as pd
 import pytest
 
 from waveform_analysis.core.processor import (
+    DEFAULT_WAVE_LENGTH,
+    RECORD_DTYPE,
     WaveformStruct,
     build_waveform_df,
     group_multi_channel_hits,
@@ -21,7 +23,7 @@ class TestWaveformStruct:
         waveforms = [np.random.randn(10, 807)]
         struct = WaveformStruct(waveforms)
         assert struct.waveforms is waveforms
-        assert struct.pair_length is None
+        assert struct.event_length is None
         assert struct.waveform_structureds is None
 
     def test_structure_waveform_empty(self):
@@ -29,7 +31,7 @@ class TestWaveformStruct:
         struct = WaveformStruct([])
         result = struct._structure_waveform()
         assert len(result) == 0
-        assert result.dtype.names == ("baseline", "timestamp", "pair_length", "wave")
+        assert result.dtype.names == ("baseline", "timestamp", "event_length", "wave")
 
     def test_structure_waveform_with_data(self):
         """测试带数据的波形结构化"""
@@ -64,7 +66,7 @@ class TestWaveformStruct:
         assert len(result[0]) == n_rows
         assert len(result[1]) == n_rows
 
-    def test_get_pair_length_even(self):
+    def test_get_event_length_even(self):
         """测试偶数通道的配对长度"""
         waveforms = [
             np.random.randn(100, 807),
@@ -73,17 +75,17 @@ class TestWaveformStruct:
             np.random.randn(85, 807),
         ]
         struct = WaveformStruct(waveforms)
-        pair_len = struct.get_pair_length()
+        event_len = struct.get_event_length()
 
-        assert len(pair_len) == 4
+        assert len(event_len) == 4
         # 第一对：min(100, 80) = 80
-        assert pair_len[0] == 80
-        assert pair_len[1] == 80
+        assert event_len[0] == 80
+        assert event_len[1] == 80
         # 第二对：min(90, 85) = 85
-        assert pair_len[2] == 85
-        assert pair_len[3] == 85
+        assert event_len[2] == 85
+        assert event_len[3] == 85
 
-    def test_get_pair_length_odd(self):
+    def test_get_event_length_odd(self):
         """测试奇数通道的配对长度"""
         waveforms = [
             np.random.randn(100, 807),
@@ -91,12 +93,12 @@ class TestWaveformStruct:
             np.random.randn(90, 807),
         ]
         struct = WaveformStruct(waveforms)
-        pair_len = struct.get_pair_length()
+        event_len = struct.get_event_length()
 
-        assert len(pair_len) == 3
-        assert pair_len[0] == 80
-        assert pair_len[1] == 80
-        assert pair_len[2] == 90  # 最后一个保持原值
+        assert len(event_len) == 3
+        assert event_len[0] == 80
+        assert event_len[1] == 80
+        assert event_len[2] == 90  # 最后一个保持原值
 
 
 class TestBuildWaveformDf:
@@ -104,15 +106,12 @@ class TestBuildWaveformDf:
 
     def test_build_empty(self):
         """测试空数据构建"""
-        st_waveforms = [
-            np.zeros(0, dtype=[("baseline", "f8"), ("timestamp", "i8"), ("pair_length", "i8"), ("wave", "O")])
-            for _ in range(2)
-        ]
+        st_waveforms = [np.zeros(0, dtype=RECORD_DTYPE) for _ in range(2)]
         peaks = [np.array([]), np.array([])]
         charges = [np.array([]), np.array([])]
-        pair_len = np.array([0, 0])
+        event_len = np.array([0, 0])
 
-        df = build_waveform_df(st_waveforms, peaks, charges, pair_len, n_channels=2)
+        df = build_waveform_df(st_waveforms, peaks, charges, event_len, n_channels=2)
 
         assert isinstance(df, pd.DataFrame)
         assert len(df) == 0
@@ -125,14 +124,14 @@ class TestBuildWaveformDf:
         charges = []
 
         for ch in range(2):
-            st = np.zeros(n, dtype=[("baseline", "f8"), ("timestamp", "i8"), ("pair_length", "i8"), ("wave", "O")])
+            st = np.zeros(n, dtype=RECORD_DTYPE)
             st["timestamp"] = np.arange(1000 + ch * 100, 1000 + ch * 100 + n)
             st_waveforms.append(st)
             peaks.append(np.random.randn(n))
             charges.append(np.random.randn(n))
 
-        pair_len = np.array([n, n])
-        df = build_waveform_df(st_waveforms, peaks, charges, pair_len, n_channels=2)
+        event_len = np.array([n, n])
+        df = build_waveform_df(st_waveforms, peaks, charges, event_len, n_channels=2)
 
         assert len(df) == n * 2
         assert "timestamp" in df.columns

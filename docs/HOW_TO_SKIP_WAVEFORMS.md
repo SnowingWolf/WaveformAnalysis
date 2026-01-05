@@ -6,7 +6,7 @@
 
 ```python
 dataset = WaveformDataset(
-    char="50V_OV_circulation_20thr",
+    run_name="50V_OV_circulation_20thr",
     load_waveforms=False  # ← 关键：不加载波形
 )
 ```
@@ -24,7 +24,7 @@ from waveform_analysis import WaveformDataset
 
 # 不加载波形
 dataset = WaveformDataset(
-    char="50V_OV_circulation_20thr",
+    run_name="50V_OV_circulation_20thr",
     n_channels=2,
     start_channel_slice=6,
     load_waveforms=False  # 跳过波形加载
@@ -83,7 +83,7 @@ from waveform_analysis import WaveformDataset
 
 # 仅需要统计特征时
 dataset = WaveformDataset(
-    char="50V_OV_circulation_20thr",
+    run_name="50V_OV_circulation_20thr",
     load_waveforms=False
 )
 
@@ -111,7 +111,7 @@ wave = dataset.get_waveform_at(0)
 ```python
 # 需要可视化波形时
 dataset = WaveformDataset(
-    char="50V_OV_circulation_20thr",
+    run_name="50V_OV_circulation_20thr",
     load_waveforms=True  # 加载波形（默认值）
 )
 

@@ -258,6 +258,8 @@ class Context(CacheMixin, PluginMixin):
             data = self.storage.load_memmap(key)
 
         if data is not None:
+            if self.config.get("show_progress", True):
+                print(f"[cache] Loaded '{name}' from disk (run_id: {run_id})")
             self._set_data(run_id, name, data)
         return data
 
@@ -393,8 +395,8 @@ class Context(CacheMixin, PluginMixin):
                             f"output_kind is 'static' but compute() returned an iterator."
                         )
 
-                    # Use output_dtype (preferred) or legacy dtype
-                    target_dtype = plugin.output_dtype if plugin.output_dtype is not None else plugin.dtype
+                    # Use output_dtype
+                    target_dtype = plugin.output_dtype
 
                     skip_dtype_conversion = (
                         isinstance(result, list)
@@ -592,9 +594,9 @@ class Context(CacheMixin, PluginMixin):
             "config": config,
             "depends_on": {dep: self.get_lineage(dep, _visited=_visited.copy()) for dep in plugin.depends_on},
         }
-        if plugin.dtype is not None:
+        if plugin.output_dtype is not None:
             # Standardize dtype to avoid version differences in str(dtype)
-            lineage["dtype"] = np.dtype(plugin.dtype).descr
+            lineage["dtype"] = np.dtype(plugin.output_dtype).descr
         return lineage
 
     def show_config(self, data_name: Optional[str] = None):

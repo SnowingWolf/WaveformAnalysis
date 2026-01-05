@@ -15,7 +15,7 @@ def test_streaming_feature_extraction(tmp_path: Path, make_simple_csv_fn):
     make_simple_csv_fn(raw_dir, 7, 0, 1005, n_samples=80)
 
     ds = WaveformDataset(
-        char="50V_OV_circulation_20thr",
+        run_name="50V_OV_circulation_20thr",
         n_channels=2,
         start_channel_slice=6,
         load_waveforms=False,

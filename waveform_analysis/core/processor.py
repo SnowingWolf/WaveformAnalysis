@@ -21,6 +21,20 @@ import numpy as np
 import pandas as pd
 
 from waveform_analysis.core.utils import exporter
+from waveform_analysis.core.executor_manager import get_executor
+
+# 尝试导入numba（可选）
+try:
+    from numba import jit, prange
+    NUMBA_AVAILABLE = True
+except ImportError:
+    NUMBA_AVAILABLE = False
+    # 定义占位符
+    def jit(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+    prange = range
 
 # 初始化 exporter
 export, __all__ = exporter()
@@ -365,7 +379,12 @@ def build_waveform_df(
 
 
 @export
-def group_multi_channel_hits(df: pd.DataFrame, time_window_ns: float, use_optimized: bool = True) -> pd.DataFrame:
+def group_multi_channel_hits(
+    df: pd.DataFrame,
+    time_window_ns: float,
+    use_numba: bool = True,
+    n_processes: Optional[int] = None,
+) -> pd.DataFrame:
     """
     在 df 中按 timestamp 聚类，找"同一事件的多通道触发"，并在簇内部
     按 channel 从小到大对 (channels, charges, peaks, timestamps) 同步排序。
@@ -373,12 +392,24 @@ def group_multi_channel_hits(df: pd.DataFrame, time_window_ns: float, use_optimi
     参数:
         df: 包含 timestamp, channel, charge, peak 列的 DataFrame
         time_window_ns: 时间窗口（纳秒）
-        use_optimized: 是否使用优化版本（默认True，如果numba可用会自动使用）
+        use_numba: 是否使用numba加速（默认True，如果numba可用）
+        n_processes: 多进程数量（None=单进程，>1=多进程，默认None）
     
     性能优化:
         - 使用numba JIT编译加速边界查找（如果可用）
+        - 支持多进程并行处理事件簇（适用于超大数据集）
         - 优化DataFrame构建方式
         - 减少不必要的数组复制
+    
+    示例:
+        # 使用numba加速（单进程）
+        df_events = group_multi_channel_hits(df, time_window_ns=100)
+        
+        # 使用多进程（4个进程）
+        df_events = group_multi_channel_hits(df, time_window_ns=100, n_processes=4)
+        
+        # 禁用numba，使用多进程
+        df_events = group_multi_channel_hits(df, time_window_ns=100, use_numba=False, n_processes=4)
     """
     time_window_ps = time_window_ns * 1e3
 
@@ -407,72 +438,225 @@ def group_multi_channel_hits(df: pd.DataFrame, time_window_ns: float, use_optimi
             ]
         )
 
-    # 聚类：找到每个簇的边界索引
-    # 使用numpy的searchsorted，在已排序数组上非常快 (O(log N))
-    boundaries = [0]
-    curr = 0
-    while curr < n:
-        next_idx = np.searchsorted(ts_all, ts_all[curr] + time_window_ps, side="right")
-        boundaries.append(next_idx)
-        curr = next_idx
-    boundaries = np.array(boundaries)
+    # 查找边界（使用numba加速如果可用）
+    if use_numba and NUMBA_AVAILABLE:
+        boundaries = _find_cluster_boundaries_numba(ts_all, time_window_ps)
+    else:
+        boundaries = [0]
+        curr = 0
+        while curr < n:
+            next_idx = np.searchsorted(ts_all, ts_all[curr] + time_window_ps, side="right")
+            boundaries.append(next_idx)
+            curr = next_idx
+        boundaries = np.array(boundaries)
 
     n_events = len(boundaries) - 1
     
-    # 优化：预分配数组和列表，减少内存分配
-    event_ids = np.arange(n_events, dtype=np.int64)
-    t_mins = np.zeros(n_events, dtype=np.int64)
-    t_maxs = np.zeros(n_events, dtype=np.int64)
-    dt_ns = np.zeros(n_events, dtype=np.float64)
-    n_hits_list = np.zeros(n_events, dtype=np.int32)
+    # 多进程处理（适用于超大数据集）
+    if n_processes and n_processes > 1 and n_events > 1000:  # 只有事件数足够多时才使用多进程
+        # 将事件分块
+        chunk_size = max(1, n_events // n_processes)
+        chunks = []
+        for i in range(0, n_events, chunk_size):
+            chunks.append((i, min(i + chunk_size, n_events)))
+        
+        # 准备参数
+        args_list = [
+            (ts_all, ch_all, q_all, p_all, boundaries, start, end)
+            for start, end in chunks
+        ]
+        
+        # 多进程处理（使用全局执行器管理器）
+        records = []
+        from concurrent.futures import as_completed
+        
+        with get_executor(
+            "event_grouping",
+            executor_type="process",
+            max_workers=n_processes,
+            reuse=True
+        ) as executor:
+            futures = {executor.submit(_process_event_chunk, args): args for args in args_list}
+            for future in as_completed(futures):
+                try:
+                    chunk_records = future.result()
+                    records.extend(chunk_records)
+                except Exception as e:
+                    print(f"处理块时出错: {e}")
+                    # 回退到单进程处理该块
+                    args = futures[future]
+                    chunk_records = _process_event_chunk(args)
+                    records.extend(chunk_records)
+        
+        # 按event_id排序（因为多进程处理顺序可能不同）
+        records.sort(key=lambda x: x["event_id"])
+        
+        # 构建DataFrame
+        return pd.DataFrame(records)
     
-    channels_list = []
-    charges_list = []
-    peaks_list = []
-    timestamps_list = []
+    else:
+        # 单进程处理（优化版本）
+        event_ids = np.arange(n_events, dtype=np.int64)
+        t_mins = np.zeros(n_events, dtype=np.int64)
+        t_maxs = np.zeros(n_events, dtype=np.int64)
+        dt_ns = np.zeros(n_events, dtype=np.float64)
+        n_hits_list = np.zeros(n_events, dtype=np.int32)
+        
+        channels_list = []
+        charges_list = []
+        peaks_list = []
+        timestamps_list = []
 
-    # 整理成 records，并在簇内部按 channel 排序
-    for event_id in range(n_events):
-        start, end = boundaries[event_id], boundaries[event_id + 1]
+        # 处理每个事件
+        for event_id in range(n_events):
+            start, end = boundaries[event_id], boundaries[event_id + 1]
 
+            ts = ts_all[start:end]
+            chs = ch_all[start:end]
+            qs = q_all[start:end]
+            ps = p_all[start:end]
+
+            # 按channel排序
+            sort_idx = np.argsort(chs)
+            ts_sorted = ts[sort_idx]
+            chs_sorted = chs[sort_idx]
+            qs_sorted = qs[sort_idx]
+            ps_sorted = ps[sort_idx]
+
+            t_min = ts_sorted[0]
+            t_max = ts_sorted[-1]
+
+            # 存储结果
+            t_mins[event_id] = t_min
+            t_maxs[event_id] = t_max
+            dt_ns[event_id] = (t_max - t_min) / 1e3
+            n_hits_list[event_id] = len(ts_sorted)
+            
+            channels_list.append(chs_sorted)
+            charges_list.append(qs_sorted)
+            peaks_list.append(ps_sorted)
+            timestamps_list.append(ts_sorted)
+
+        # 使用字典方式构建DataFrame
+        return pd.DataFrame({
+            "event_id": event_ids,
+            "t_min": t_mins,
+            "t_max": t_maxs,
+            "dt/ns": dt_ns,
+            "n_hits": n_hits_list,
+            "channels": channels_list,
+            "charges": charges_list,
+            "peaks": peaks_list,
+            "timestamps": timestamps_list,
+        })
+
+
+# Numba加速的边界查找函数（模块级别定义，numba要求）
+if NUMBA_AVAILABLE:
+    @jit(nopython=True, cache=True)
+    def _find_cluster_boundaries_numba(ts_all: np.ndarray, time_window_ps: float) -> np.ndarray:
+        """
+        使用numba加速的边界查找。
+        
+        参数:
+            ts_all: 已排序的时间戳数组
+            time_window_ps: 时间窗口（皮秒）
+        
+        返回:
+            边界索引数组
+        """
+        n = len(ts_all)
+        if n == 0:
+            return np.array([0])
+        
+        boundaries = [0]
+        curr = 0
+        
+        while curr < n:
+            target = ts_all[curr] + time_window_ps
+            # 二分查找（比searchsorted稍快，因为numba编译）
+            left, right = curr, n
+            while left < right:
+                mid = (left + right) // 2
+                if ts_all[mid] <= target:
+                    left = mid + 1
+                else:
+                    right = mid
+            next_idx = left
+            boundaries.append(next_idx)
+            curr = next_idx
+        
+        return np.array(boundaries)
+else:
+    def _find_cluster_boundaries_numba(ts_all: np.ndarray, time_window_ps: float) -> np.ndarray:
+        """回退到numpy实现"""
+        n = len(ts_all)
+        if n == 0:
+            return np.array([0])
+        boundaries = [0]
+        curr = 0
+        while curr < n:
+            next_idx = np.searchsorted(ts_all, ts_all[curr] + time_window_ps, side="right")
+            boundaries.append(next_idx)
+            curr = next_idx
+        return np.array(boundaries)
+
+
+def _process_event_chunk(args: Tuple) -> List[Dict]:
+    """
+    处理事件块（用于多进程）。
+    
+    参数:
+        args: (ts_all, ch_all, q_all, p_all, boundaries, start_idx, end_idx)
+        注意：numpy数组在多进程间传递时需要确保是可序列化的
+    
+    返回:
+        事件记录列表
+    """
+    # 解包参数
+    ts_all, ch_all, q_all, p_all, boundaries, start_idx, end_idx = args
+    
+    # 确保是numpy数组（多进程传递后可能变成列表）
+    ts_all = np.asarray(ts_all)
+    ch_all = np.asarray(ch_all)
+    q_all = np.asarray(q_all)
+    p_all = np.asarray(p_all)
+    boundaries = np.asarray(boundaries)
+    
+    records = []
+    for i in range(start_idx, end_idx):
+        if i >= len(boundaries) - 1:
+            break
+        start, end = int(boundaries[i]), int(boundaries[i + 1])
+        
         ts = ts_all[start:end]
         chs = ch_all[start:end]
         qs = q_all[start:end]
         ps = p_all[start:end]
-
-        # 按 channel 从小到大排序
+        
+        # 按channel排序
         sort_idx = np.argsort(chs)
         ts_sorted = ts[sort_idx]
         chs_sorted = chs[sort_idx]
         qs_sorted = qs[sort_idx]
         ps_sorted = ps[sort_idx]
-
-        t_min = ts_sorted[0]
-        t_max = ts_sorted[-1]
-
-        # 存储到预分配的数组中
-        t_mins[event_id] = t_min
-        t_maxs[event_id] = t_max
-        dt_ns[event_id] = (t_max - t_min) / 1e3
-        n_hits_list[event_id] = len(ts_sorted)
         
-        channels_list.append(chs_sorted)
-        charges_list.append(qs_sorted)
-        peaks_list.append(ps_sorted)
-        timestamps_list.append(ts_sorted)
-
-    # 使用字典方式构建DataFrame，比从records列表构建更快
-    return pd.DataFrame({
-        "event_id": event_ids,
-        "t_min": t_mins,
-        "t_max": t_maxs,
-        "dt/ns": dt_ns,
-        "n_hits": n_hits_list,
-        "channels": channels_list,
-        "charges": charges_list,
-        "peaks": peaks_list,
-        "timestamps": timestamps_list,
-    })
+        t_min = int(ts_sorted[0])
+        t_max = int(ts_sorted[-1])
+        
+        records.append({
+            "event_id": int(i),
+            "t_min": t_min,
+            "t_max": t_max,
+            "dt/ns": float((t_max - t_min) / 1e3),
+            "n_hits": int(len(ts_sorted)),
+            "channels": chs_sorted.copy(),  # 确保是独立的数组
+            "charges": qs_sorted.copy(),
+            "peaks": ps_sorted.copy(),
+            "timestamps": ts_sorted.copy(),
+        })
+    
+    return records
 
 
 GROUP_MAP = {

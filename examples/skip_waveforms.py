@@ -17,7 +17,7 @@ def example_without_waveforms():
 
     # 创建数据集，指定 load_waveforms=False
     dataset = WaveformDataset(
-        char="50V_OV_circulation_20thr",
+        run_name="50V_OV_circulation_20thr",
         n_channels=2,
         start_channel_slice=6,
         load_waveforms=False,  # 不加载原始波形！
@@ -90,7 +90,7 @@ def example_with_and_without_comparison():
     print("\n1. 加载波形数据...")
     start = time.time()
     dataset_with_waves = WaveformDataset(
-        char="50V_OV_circulation_20thr", n_channels=2, start_channel_slice=6, load_waveforms=True
+        run_name="50V_OV_circulation_20thr", n_channels=2, start_channel_slice=6, load_waveforms=True
     )
 
     try:
@@ -114,7 +114,7 @@ def example_with_and_without_comparison():
     print("\n2. 不加载波形数据...")
     start = time.time()
     dataset_no_waves = WaveformDataset(
-        char="50V_OV_circulation_20thr", n_channels=2, start_channel_slice=6, load_waveforms=False
+        run_name="50V_OV_circulation_20thr", n_channels=2, start_channel_slice=6, load_waveforms=False
     )
 
     try:
@@ -164,7 +164,7 @@ def example_memory_usage():
 
     # 加载波形
     print("\n1. 加载波形...")
-    dataset_with = WaveformDataset(char="50V_OV_circulation_20thr", n_channels=2, load_waveforms=True)
+    dataset_with = WaveformDataset(run_name="50V_OV_circulation_20thr", n_channels=2, load_waveforms=True)
 
     try:
         dataset_with.load_raw_data(verbose=False).extract_waveforms(verbose=False)
@@ -181,7 +181,7 @@ def example_memory_usage():
 
     # 不加载波形
     print("\n2. 不加载波形...")
-    dataset_without = WaveformDataset(char="50V_OV_circulation_20thr", n_channels=2, load_waveforms=False)
+    dataset_without = WaveformDataset(run_name="50V_OV_circulation_20thr", n_channels=2, load_waveforms=False)
 
     try:
         dataset_without.load_raw_data(verbose=False).extract_waveforms(verbose=False)

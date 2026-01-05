@@ -200,7 +200,7 @@ load_waveforms=True   →  需要波形、可视化、有充足内存
 from waveform_analysis import WaveformDataset
 
 dataset = WaveformDataset(
-    char="50V_OV_circulation_20thr",
+    run_name="50V_OV_circulation_20thr",
     load_waveforms=False  # ← 就是这个！
 )
 ```

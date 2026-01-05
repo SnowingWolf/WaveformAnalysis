@@ -18,7 +18,7 @@
 
 ### 2.1 上下文层 (Context Layer)
 - **`Context`**: 系统的核心协调者。它管理插件注册、配置分发、依赖解析以及存储调度。
-- **显式 Run ID**: 所有数据操作均需指定 `run_id`，数据存储在 `_results[(run_id, data_name)]` 中。
+- **显式 Run ID**: 所有数据操作均需指定 `run_id`，数据存储在 `_results[(run_id, data_name)]` 中.
 - **重入保护 (Re-entrancy Guard)**: 自动检测并阻止插件依赖链中的循环调用。
 - **依赖解析 (DAG)**: 自动构建有向无环图，确定插件的执行顺序。
 
@@ -46,13 +46,38 @@
 - **时间区间操作**: 提供 `split`, `merge`, `clip` 等操作，确保在处理连续时间流数据时的正确性。
 - **严格校验**: 自动检查数据的单调性、重叠以及是否超出分块边界，是保证物理分析准确性的基石。
 
-### 2.5 数据访问层 (Data Access Layer)
+### 2.5 执行器管理层 (Executor Management Layer)
+- **`ExecutorManager`**: 全局单例，统一管理线程池和进程池资源。
+    - **资源重用**: 支持执行器重用，避免频繁创建和销毁的开销。
+    - **引用计数**: 自动管理执行器的生命周期，确保资源正确释放。
+    - **上下文管理器**: 提供 `get_executor()` 上下文管理器，自动获取和释放执行器。
+    - **预定义配置**: 提供多种预定义配置（IO密集型、CPU密集型等），简化使用。
+- **`ExecutorConfig`**: 执行器配置管理。
+    - **预定义配置**: `io_intensive`, `cpu_intensive`, `large_data`, `small_data` 等。
+    - **自定义配置**: 支持注册自定义执行器配置。
+- **便捷函数**:
+    - `parallel_map()`: 并行 map 操作，自动选择合适的执行器类型。
+    - `parallel_apply()`: 并行 apply 操作，支持 DataFrame 并行处理。
+
+### 2.6 流式处理层 (Streaming Layer)
+- **`StreamingPlugin`**: 支持流式处理的插件基类。
+    - **Chunk 流处理**: `compute()` 返回 chunk 迭代器，而不是静态数据。
+    - **自动并行化**: 支持自动将 chunk 分发到多个工作线程/进程处理。
+    - **时间边界对齐**: 自动验证和处理 chunk 的时间边界。
+    - **灵活配置**: 可配置 chunk 大小、并行策略和执行器类型。
+- **`StreamingContext`**: 流式处理的上下文管理器。
+    - **数据流获取**: `get_stream()` 获取数据流，支持时间范围过滤。
+    - **Chunk 迭代**: `iter_chunks()` 便捷的 chunk 迭代接口。
+    - **流合并**: `merge_stream()` 合并多个数据流。
+    - **自动转换**: 自动将静态数据转换为 chunk 流，或将流式数据合并为静态数据。
+
+### 2.7 数据访问层 (Data Access Layer)
 - **`WaveformDataset`**: 高级封装层，提供链式调用接口。
     - 兼容性：通过 Property 映射 `self.char` 到 `Context` 的无状态存储。
     - 灵活性：支持在链式调用中临时切换 `run_id`。
 - **`IO Module`**: 
     - **流式解析**: `parse_files_generator` 支持分块读取 CSV。
-    - **并行化**: 支持多进程并行解析。
+    - **并行化**: 使用全局执行器管理器进行多进程并行解析。
 - **`DAQ Adapters`**: 统一不同硬件厂商的数据组织格式。
 
 ---
@@ -84,31 +109,138 @@
 
 ### 3.3 性能优化路径
 - **向量化**: 尽可能使用 Numpy 广播机制（如 `compute_stacked_waveforms`）。
-- **并行化**: IO 密集型任务使用 `ThreadPoolExecutor`，计算密集型任务可选 `ProcessPoolExecutor`。
-- **加速器**: 针对热点循环（如波形归一化）提供可选的 `Numba` 加速路径。
+- **并行化**: 
+    - **全局执行器管理**: 通过 `ExecutorManager` 统一管理线程池和进程池，支持资源重用和自动清理。
+    - **IO 密集型任务**: 使用 `ThreadPoolExecutor`（通过预定义配置 `io_intensive`）。
+    - **CPU 密集型任务**: 使用 `ProcessPoolExecutor`（通过预定义配置 `cpu_intensive`）。
+    - **自适应选择**: 根据任务类型和数据规模自动选择最优的并行策略。
+- **加速器**: 
+    - **Numba JIT**: 针对热点循环（如波形归一化、边界查找）提供可选的 `Numba` 加速路径。
+    - **多进程加速**: 对于大规模数据集，支持多进程并行处理（如 `group_multi_channel_hits`）。
+    - **混合优化**: 结合 Numba 和 multiprocessing，实现最佳性能。
 
 ---
 
-## 4. 数据流向图
+## 4. 标准插件链
+
+### 4.1 插件依赖关系
+
+系统定义了以下标准插件，按执行顺序排列：
+
+1. **`RawFilesPlugin`**: 扫描数据目录，生成文件路径清单
+   - `provides`: `raw_files`
+   - `depends_on`: `[]`
+
+2. **`WaveformsPlugin`**: 从原始文件提取波形数据
+   - `provides`: `waveforms`
+   - `depends_on`: `["raw_files"]`
+
+3. **`StWaveformsPlugin`**: 将波形数据转换为结构化 NumPy 数组
+   - `provides`: `st_waveforms`
+   - `depends_on`: `["waveforms"]`
+   - 内部存储 `_waveform_struct` 供 `EventLengthPlugin` 使用
+
+4. **`EventLengthPlugin`**: 计算配对事件长度（相邻通道的最小长度）
+   - `provides`: `event_length`
+   - `depends_on`: `["st_waveforms"]`
+   - 优先使用 `StWaveformsPlugin` 存储的 `_waveform_struct`，否则从 `st_waveforms` 重新计算
+
+5. **`BasicFeaturesPlugin`**: 计算基础特征（峰值、电荷）
+   - `provides`: `basic_features`
+   - `depends_on`: `["st_waveforms", "event_length"]`
+
+6. **`PeaksPlugin`**: 提供峰值数据
+   - `provides`: `peaks`
+   - `depends_on`: `["basic_features"]`
+
+7. **`ChargesPlugin`**: 提供电荷数据
+   - `provides`: `charges`
+   - `depends_on`: `["basic_features"]`
+
+8. **`DataFramePlugin`**: 构建单通道事件 DataFrame
+   - `provides`: `df`
+   - `depends_on`: `["st_waveforms", "peaks", "charges", "event_length"]`
+
+9. **`GroupedEventsPlugin`**: 按时间窗口聚类多通道事件
+   - `provides`: `df_events`
+   - `depends_on`: `["df"]`
+   - 支持 Numba 加速和多进程并行
+
+10. **`PairedEventsPlugin`**: 跨通道配对事件
+    - `provides`: `df_paired`
+    - `depends_on`: `["df_events"]`
+
+### 4.2 数据流向图
 
 ```mermaid
 graph TD
-    A[原始 CSV 文件] -->|RawFileLoader| B(文件路径清单)
-    B -->|IO: Parallel Parse| C(原始波形数组)
-    C -->|WaveformStruct| D(结构化波形)
-    D -->|Processor: Features| E(特征数组)
-    D -->|Processor: Grouping| F(事件 DataFrame)
-    E -->|Merge| F
-    F -->|Strategy| G(配对事件/分析结果)
-    G -->|Persistence| H[Parquet/CSV/Cache]
+    A[原始 CSV 文件] -->|RawFilesPlugin| B(raw_files: 文件路径清单)
+    B -->|WaveformsPlugin| C(waveforms: 原始波形数组)
+    C -->|StWaveformsPlugin| D(st_waveforms: 结构化波形)
+    D -->|EventLengthPlugin| E(event_length: 配对事件长度)
+    D -->|BasicFeaturesPlugin| F(basic_features: 特征字典)
+    E -->|BasicFeaturesPlugin| F
+    F -->|PeaksPlugin| G(peaks: 峰值数组)
+    F -->|ChargesPlugin| H(charges: 电荷数组)
+    D -->|DataFramePlugin| I(df: 单通道事件 DataFrame)
+    G -->|DataFramePlugin| I
+    H -->|DataFramePlugin| I
+    E -->|DataFramePlugin| I
+    I -->|GroupedEventsPlugin<br/>Numba + Multiprocessing| J(df_events: 聚类事件 DataFrame)
+    J -->|PairedEventsPlugin| K(df_paired: 配对事件 DataFrame)
+    K -->|Persistence| L[Parquet/CSV/Cache]
+    
+    style E fill:#e1f5ff
+    style F fill:#fff4e1
+    style J fill:#e8f5e9
 ```
 
 ---
 
 ## 5. 目录规范
 
-- `waveform_analysis/core/`: 存放核心逻辑（Dataset, Loader, IO, Processor）。
+- `waveform_analysis/core/`: 存放核心逻辑
+    - `context.py`: Context 核心调度器
+    - `plugins.py`: Plugin 基类定义
+    - `standard_plugins.py`: 标准插件实现（包括 EventLengthPlugin）
+    - `dataset.py`: WaveformDataset 高层 API
+    - `storage.py`: MemmapStorage 存储后端
+    - `cache.py`: 缓存管理和血缘追踪
+    - `loader.py`: 数据加载器
+    - `processor.py`: 信号处理和特征提取（支持 Numba）
+    - `analyzer.py`: 事件分析和配对（支持多进程）
+    - `executor_manager.py`: 全局执行器管理器
+    - `executor_config.py`: 执行器配置定义
+    - `streaming.py`: 流式处理框架（StreamingPlugin, StreamingContext）
+    - `streaming_plugins.py`: 流式处理插件示例
 - `waveform_analysis/utils/`: 存放通用工具（DAQ 适配器, 绘图, 向量化算法）。
 - `waveform_analysis/fitting/`: 存放物理拟合模型。
 - `tests/`: 严格对应的单元测试与集成测试。
-- `docs/`: 模块化文档，涵盖架构、缓存、内存优化等专题。
+- `docs/`: 模块化文档，涵盖架构、缓存、内存优化、执行器管理等专题。
+
+## 6. 最新更新 (Recent Updates)
+
+### 6.1 EventLengthPlugin 独立化
+- **问题**: 之前 `event_length` 由 `StWaveformsPlugin` 作为副作用设置，导致从缓存加载时无法正确获取。
+- **解决方案**: 创建独立的 `EventLengthPlugin`，使其成为可缓存和自动加载的独立数据项。
+- **优势**: 
+  - 依赖关系更清晰
+  - 支持独立缓存和加载
+  - 可以从 `st_waveforms` 重新计算（即使没有 `_waveform_struct`）
+
+### 6.2 全局执行器管理框架
+- **新增组件**: `ExecutorManager` 和 `ExecutorConfig`
+- **功能**:
+  - 统一管理线程池和进程池资源
+  - 支持执行器重用和自动清理
+  - 提供预定义配置（IO密集型、CPU密集型等）
+  - 上下文管理器支持，确保资源正确释放
+- **集成点**:
+  - `processor.py`: `group_multi_channel_hits` 使用执行器管理器
+  - `loader.py`: `load_waveforms` 使用执行器管理器
+  - `io.py`: `parse_and_stack_files` 使用执行器管理器
+
+### 6.3 性能优化增强
+- **Numba 集成**: `group_multi_channel_hits` 支持 Numba JIT 加速边界查找
+- **多进程支持**: 大规模数据集支持多进程并行处理
+- **混合优化**: 结合 Numba 和 multiprocessing，实现最佳性能

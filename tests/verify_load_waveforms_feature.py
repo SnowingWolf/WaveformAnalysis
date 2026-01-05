@@ -16,14 +16,14 @@ def main():
     print("-" * 70)
 
     try:
-        ds_false = WaveformDataset(char="50V_OV_circulation_20thr", load_waveforms=False)
+        ds_false = WaveformDataset(run_name="50V_OV_circulation_20thr", load_waveforms=False)
         print(f"✅ load_waveforms=False: {ds_false.load_waveforms}")
     except Exception as e:
         print(f"❌ 失败: {e}")
         return False
 
     try:
-        ds_true = WaveformDataset(char="50V_OV_circulation_20thr", load_waveforms=True)
+        ds_true = WaveformDataset(run_name="50V_OV_circulation_20thr", load_waveforms=True)
         print(f"✅ load_waveforms=True: {ds_true.load_waveforms}")
     except Exception as e:
         print(f"❌ 失败: {e}")
@@ -34,7 +34,7 @@ def main():
     print("-" * 70)
 
     try:
-        ds_default = WaveformDataset(char="50V_OV_circulation_20thr")
+        ds_default = WaveformDataset(run_name="50V_OV_circulation_20thr")
         assert ds_default.load_waveforms == True, "默认值应该是 True"
         print(f"✅ 默认值 (未指定): {ds_default.load_waveforms} (正确)")
     except Exception as e:
@@ -46,7 +46,7 @@ def main():
     print("-" * 70)
 
     try:
-        ds = WaveformDataset(char="50V_OV_circulation_20thr", load_waveforms=False)
+        ds = WaveformDataset(run_name="50V_OV_circulation_20thr", load_waveforms=False)
         print("建议: 测试 extract_waveforms() 是否正确跳过...")
         print("  检查方法: 调用 dataset.load_raw_data().extract_waveforms()")
         print("  预期输出: '跳过波形提取（load_waveforms=False）'")
@@ -60,7 +60,7 @@ def main():
     print("-" * 70)
 
     try:
-        ds = WaveformDataset(char="50V_OV_circulation_20thr", load_waveforms=False)
+        ds = WaveformDataset(run_name="50V_OV_circulation_20thr", load_waveforms=False)
         print("建议: 测试 structure_waveforms() 是否正确跳过...")
         print("  预期输出: '跳过波形结构化（load_waveforms=False）'")
         print("✅ 方法已正确修改")
@@ -73,7 +73,7 @@ def main():
     print("-" * 70)
 
     try:
-        ds = WaveformDataset(char="50V_OV_circulation_20thr", load_waveforms=False)
+        ds = WaveformDataset(run_name="50V_OV_circulation_20thr", load_waveforms=False)
         print("建议: 测试 get_waveform_at() 是否返回 None...")
         print("  预期行为: 返回 None，打印警告信息")
         print("  警告内容: '⚠️  波形数据未加载（load_waveforms=False）'")
@@ -103,7 +103,7 @@ def main():
     
     # 节省内存的方式
     dataset = WaveformDataset(
-        char="50V_OV_circulation_20thr",
+        run_name="50V_OV_circulation_20thr",
         load_waveforms=False  # ← 关键参数
     )
     

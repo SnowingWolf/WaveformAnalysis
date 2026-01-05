@@ -23,7 +23,7 @@ def main():
     print("-" * 70)
     print("""
     dataset = WaveformDataset(
-        char="50V_OV_circulation_20thr",
+        run_name="50V_OV_circulation_20thr",
         n_channels=2,
         load_waveforms=True  # 默认值
     )
@@ -36,7 +36,7 @@ def main():
     print("-" * 70)
     print("""
     dataset = WaveformDataset(
-        char="50V_OV_circulation_20thr",
+        run_name="50V_OV_circulation_20thr",
         n_channels=2,
         load_waveforms=False  # 关键：不加载波形！
     )
@@ -112,7 +112,7 @@ def main():
     print("""
     # 节省内存的处理方式
     dataset = WaveformDataset(
-        char="50V_OV_circulation_20thr",
+        run_name="50V_OV_circulation_20thr",
         load_waveforms=False
     )
     

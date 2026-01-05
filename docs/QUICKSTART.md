@@ -76,7 +76,7 @@ fig.show()
 ```python
 # 创建数据集，不加载原始波形
 dataset = WaveformDataset(
-    char="50V_OV_circulation_20thr",
+    run_name="50V_OV_circulation_20thr",
     n_channels=2,
     load_waveforms=False  # 关键：节省内存
 )

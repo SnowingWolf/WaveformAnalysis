@@ -349,18 +349,13 @@ def parse_and_stack_files(
 
     if n_jobs and n_jobs > 1:
         from concurrent.futures import as_completed
+        from waveform_analysis.core.executor_manager import get_executor
 
-        # allow choosing process-based executor for CPU-bound coercion
-        if use_process_pool:
-            from concurrent.futures import ProcessPoolExecutor
-
-            Executor = ProcessPoolExecutor
-        else:
-            from concurrent.futures import ThreadPoolExecutor
-
-            Executor = ThreadPoolExecutor
-
-        with Executor(max_workers=n_jobs) as ex:
+        # 使用全局执行器管理器
+        executor_type = "process" if use_process_pool else "thread"
+        executor_name = "file_parsing_process" if use_process_pool else "file_parsing_thread"
+        
+        with get_executor(executor_name, executor_type, max_workers=n_jobs, reuse=True) as ex:
             futures = {ex.submit(_parse_single, fp): fp for fp in fps}
             results_map = {}
             for future in as_completed(futures):

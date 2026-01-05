@@ -19,7 +19,7 @@ def main():
 
     # 1. 创建数据集实例
     print("\n1. 创建数据集...")
-    dataset = WaveformDataset(char="50V_OV_circulation_20thr", n_channels=2, start_channel_slice=6)
+    dataset = WaveformDataset(run_name="50V_OV_circulation_20thr", n_channels=2, start_channel_slice=6)
 
     # 2. 执行完整处理流程（链式调用）
     print("\n2. 执行数据处理流程...")

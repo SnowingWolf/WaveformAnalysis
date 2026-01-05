@@ -244,8 +244,9 @@ class TestMemmapStorage:
         with open(meta_path, "r") as f:
             meta = json.load(f)
 
-        # 篡改元数据使 count 不匹配
+        # 篡改元数据使 count 和 shape 不匹配
         meta["count"] = 9999
+        meta["shape"] = [9999]
         with open(meta_path, "w") as f:
             json.dump(meta, f)
 

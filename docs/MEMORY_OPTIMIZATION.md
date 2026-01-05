@@ -13,7 +13,7 @@
 from waveform_analysis import WaveformDataset
 
 dataset = WaveformDataset(
-    char="50V_OV_circulation_20thr",
+    run_name="50V_OV_circulation_20thr",
     load_waveforms=True  # 默认值，加载波形
 )
 
@@ -23,7 +23,7 @@ dataset.load_raw_data().extract_waveforms().build_waveform_features()...
 ### 节省内存（跳过波形）
 ```python
 dataset = WaveformDataset(
-    char="50V_OV_circulation_20thr",
+    run_name="50V_OV_circulation_20thr",
     load_waveforms=False  # 关键：不加载原始波形
 )
 
@@ -148,7 +148,7 @@ import matplotlib.pyplot as plt
 
 # 创建数据集，不加载波形
 dataset = WaveformDataset(
-    char="50V_OV_circulation_20thr",
+    run_name="50V_OV_circulation_20thr",
     n_channels=2,
     load_waveforms=False  # 节省内存
 )
@@ -225,7 +225,7 @@ print(f"加速: {time1/time2:.1f}x")
 
 ```python
 # 旧代码仍然有效
-dataset = WaveformDataset(char="50V_OV_circulation_20thr")
+dataset = WaveformDataset(run_name="50V_OV_circulation_20thr")
 # 等同于 load_waveforms=True（默认）
 ```
 

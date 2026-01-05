@@ -7,7 +7,7 @@ from waveform_analysis import WaveformDataset
 
 # 不加载波形（节省内存）
 dataset = WaveformDataset(
-    char="50V_OV_circulation_20thr",
+    run_name="50V_OV_circulation_20thr",
     load_waveforms=False  # ← 就是这个！
 )
 

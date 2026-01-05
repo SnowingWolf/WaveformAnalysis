@@ -13,13 +13,15 @@ waveform-analysis/
 │   │   ├── __init__.py
 │   │   ├── context.py             # 核心调度：Context 类，管理插件与缓存
 │   │   ├── plugins.py             # 插件基类：Plugin, Option
-│   │   ├── standard_plugins.py    # 标准插件：RawFiles, Waveforms, Features 等
+│   │   ├── standard_plugins.py    # 标准插件：RawFiles, Waveforms, EventLength, Features 等
 │   │   ├── dataset.py             # 高层 API：WaveformDataset 链式封装
 │   │   ├── storage.py             # 数据存储：MemmapStorage, Parquet 存储
 │   │   ├── cache.py               # 缓存管理：Lineage 校验与签名
 │   │   ├── loader.py              # 数据加载：WaveformLoader
-│   │   ├── processor.py           # 信号处理：WaveformStruct, 峰值查找
-│   │   ├── analyzer.py            # 事件分析：聚类与配对逻辑
+│   │   ├── processor.py           # 信号处理：WaveformStruct, 峰值查找（支持 Numba）
+│   │   ├── analyzer.py            # 事件分析：聚类与配对逻辑（支持多进程）
+│   │   ├── executor_manager.py    # 全局执行器管理：ExecutorManager, 统一管理线程/进程池
+│   │   ├── executor_config.py     # 执行器配置：预定义配置和配置管理
 │   │   ├── chunk_utils.py         # 时间分块：Chunk 对象与时间区间操作
 │   │   └── utils.py               # 基础工具：exporter, 计时器
 │   │
@@ -27,8 +29,12 @@ waveform-analysis/
 │   │   ├── __init__.py
 │   │   └── models.py              # 拟合模型：Landau-Gauss, LandauGaussFitter
 │   │
-│   └── utils/                     # 工具函数（预留）
-│       └── __init__.py
+│   └── utils/                     # 工具函数
+│       ├── __init__.py
+│       ├── io.py                  # I/O 工具：CSV 解析、生成器
+│       ├── loader.py              # 加载器适配：兼容性导出
+│       ├── daq/                   # DAQ 工具：DAQRun, DAQAnalyzer
+│       └── visualization/         # 可视化工具：波形绘图、血缘图
 │
 ├── tests/                         # 测试目录
 │   ├── __init__.py
@@ -61,12 +67,7 @@ waveform-analysis/
 ├── CONTRIBUTING.md                # 贡献指南
 ├── .gitignore                     # Git 忽略文件
 ├── install.sh                     # 快速安装脚本
-│
-├── data.py                        # 原始文件（保留用于向后兼容）
-├── dataset.py                     # 原始文件（保留用于向后兼容）
-├── load.py                        # 原始文件（保留用于向后兼容）
-├── fit.py                         # 原始文件（保留用于向后兼容）
-└── *.ipynb                        # Jupyter 笔记本（保留）
+└── *.ipynb                        # Jupyter 笔记本
 ```
 
 ## 模块说明
@@ -122,6 +123,15 @@ waveform-analysis/
 算法模块：
 - `WaveformStruct`: 波形结构化处理。
 - `EventAnalyzer`: 事件聚类与配对逻辑。
+- **性能优化**: 支持 Numba JIT 加速和多进程并行处理。
+
+#### `executor_manager.py` & `executor_config.py`
+
+执行器管理模块：
+- `ExecutorManager`: 全局单例，统一管理线程池和进程池资源。
+- `get_executor()`: 上下文管理器，自动获取和释放执行器。
+- `parallel_map()` / `parallel_apply()`: 便捷的并行操作函数。
+- `EXECUTOR_CONFIGS`: 预定义配置（IO密集型、CPU密集型等）。
 
 #### `chunk_utils.py`
 
@@ -151,7 +161,19 @@ waveform-analysis/
 
 ### waveform_analysis/utils/
 
-工具函数模块（预留用于扩展）。
+工具函数模块，包含 I/O、加载适配、DAQ 分析和可视化工具。
+
+#### `io.py`
+底层 I/O 工具，提供高效的 CSV 解析和流式生成器。
+
+#### `loader.py`
+加载器适配层，将 `core/loader.py` 的功能导出为兼容旧版本的 API。
+
+#### `daq/`
+DAQ 相关工具，包括 `DAQRun` 和 `DAQAnalyzer`。
+
+#### `visualization/`
+可视化工具，包括波形绘制和血缘追踪图生成。
 
 ## 配置文件
 

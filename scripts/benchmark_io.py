@@ -50,7 +50,7 @@ def bench(n_files: int, n_channels: int, n_samples: int, chunksize_list, n_jobs_
                 times = []
                 for _ in range(reps):
                     ds = WaveformDataset(
-                        char="50V_OV_circulation_20thr",
+                        run_name="50V_OV_circulation_20thr",
                         n_channels=n_channels,
                         start_channel_slice=6,
                         load_waveforms=True,

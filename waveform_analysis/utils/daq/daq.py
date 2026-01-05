@@ -12,9 +12,16 @@ from typing import Any, Iterable
 
 from .daq_analyzer import DAQAnalyzer
 from .daq_run import DAQRun
+from waveform_analysis.core.utils import exporter
 
 logger = logging.getLogger(__name__)
 
+
+export, __all__ = exporter()
+
+# 导出已有的类
+export(DAQAnalyzer)
+export(DAQRun)
 
 class _DAQRunAdapter:
     """Lightweight adapter exposing a stable minimal DAQRun protocol:
@@ -62,6 +69,7 @@ class _DAQRunAdapter:
         return [[] for _ in range(n_channels)]
 
 
+@export
 def adapt_daq_run(obj: Any):
     """Return an adapter providing `get_channel_paths(n_channels)` for obj.
 

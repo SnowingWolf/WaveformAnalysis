@@ -56,8 +56,8 @@ def test_waveform_struct_empty():
 def test_dataset_init():
     """测试数据集初始化"""
     try:
-        dataset = WaveformDataset(char="test_dataset", n_channels=2, start_channel_slice=6)
-        assert dataset.char == "test_dataset"
+        dataset = WaveformDataset(run_name="test_dataset", n_channels=2, start_channel_slice=6)
+        assert dataset.run_name == "test_dataset"
         assert dataset.n_channels == 2
         assert dataset.start_channel_slice == 6
         assert dataset.load_waveforms is True  # 默认值
@@ -69,7 +69,7 @@ def test_dataset_init():
 def test_dataset_init_skip_waveforms():
     """测试数据集初始化（跳过波形加载）"""
     try:
-        dataset = WaveformDataset(char="test_dataset", n_channels=2, load_waveforms=False)
+        dataset = WaveformDataset(run_name="test_dataset", n_channels=2, load_waveforms=False)
         assert dataset.load_waveforms is False
     except FileNotFoundError:
         pytest.skip("Test data not available")
@@ -78,7 +78,7 @@ def test_dataset_init_skip_waveforms():
 def test_dataset_attributes():
     """测试数据集属性初始化"""
     try:
-        dataset = WaveformDataset(char="test", n_channels=2)
+        dataset = WaveformDataset(run_name="test", n_channels=2)
 
         # 检查容器初始化
         assert dataset.raw_files == []

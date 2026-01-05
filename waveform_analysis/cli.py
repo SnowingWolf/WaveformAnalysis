@@ -18,17 +18,24 @@ def main():
         epilog="""
 示例:
   # 处理单个数据集
-  waveform-process --char 50V_OV_circulation_20thr --output results.csv
+  waveform-process --run-name 50V_OV_circulation_20thr --output results.csv
   
   # 指定时间窗口
-  waveform-process --char 50V_OV_circulation_20thr --time-window 200
+  waveform-process --run-name 50V_OV_circulation_20thr --time-window 200
   
   # 详细输出
-  waveform-process --char 50V_OV_circulation_20thr --verbose
+  waveform-process --run-name 50V_OV_circulation_20thr --verbose
         """,
     )
 
-    parser.add_argument("--char", type=str, required=False, help="数据集标识符（目录名）。当使用 --show-daq 时可省略。")
+    parser.add_argument(
+        "--run-name",
+        "--char",
+        type=str,
+        dest="run_name",
+        required=False,
+        help="数据集标识符（目录名）。当使用 --show-daq 时可省略。",
+    )
 
     parser.add_argument("--n-channels", type=int, default=2, help="处理的通道数（默认: 2）")
 
@@ -55,14 +62,14 @@ def main():
 
     # 创建数据集
     if args.verbose:
-        print(f"处理数据集: {args.char}")
+        print(f"处理数据集: {args.run_name}")
         print(f"通道数: {args.n_channels}")
         print(f"时间窗口: {args.time_window} ns")
 
     try:
-        # 若为普通数据处理（非 --show-daq），则 --char 为必需
-        if not args.show_daq and not args.char:
-            print("错误: --char 是必需的（除非使用 --show-daq）", file=sys.stderr)
+        # 若为普通数据处理（非 --show-daq），则 --run-name 为必需
+        if not args.show_daq and not args.run_name:
+            print("错误: --run-name 是必需的（除非使用 --show-daq）", file=sys.stderr)
             return 2
 
         # DAQ 扫描分支
@@ -85,7 +92,9 @@ def main():
             return 0
 
         # 正常数据处理分支
-        dataset = WaveformDataset(char=args.char, n_channels=args.n_channels, start_channel_slice=args.start_channel)
+        dataset = WaveformDataset(
+            run_name=args.run_name, n_channels=args.n_channels, start_channel_slice=args.start_channel
+        )
 
         # 执行处理流程
         (

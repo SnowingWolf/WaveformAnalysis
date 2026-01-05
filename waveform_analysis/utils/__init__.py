@@ -3,6 +3,7 @@ Utils module - 工具函数
 """
 
 from .daq import DAQAnalyzer, DAQRun
+from .io import parse_files_generator
 from .loader import (
     RawFileLoader,
     build_filetime_index,

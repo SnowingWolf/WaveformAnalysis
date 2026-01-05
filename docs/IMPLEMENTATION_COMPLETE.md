@@ -119,7 +119,7 @@ from waveform_analysis import WaveformDataset
 
 # 方案 A: 只需要特征（推荐用于大数据集）
 dataset = WaveformDataset(
-    char="50V_OV_circulation_20thr",
+    run_name="50V_OV_circulation_20thr",
     load_waveforms=False  # 关键
 )
 
@@ -131,7 +131,7 @@ print(f"平均峰值: {df['peak_ch6'].mean():.1f} ADC")
 
 # 方案 B: 需要原始波形（用于可视化）
 dataset = WaveformDataset(
-    char="50V_OV_circulation_20thr",
+    run_name="50V_OV_circulation_20thr",
     load_waveforms=True  # 默认值
 )
 

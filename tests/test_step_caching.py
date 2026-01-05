@@ -16,10 +16,10 @@ def test_memory_cache(tmp_path: Path):
 
     make_simple_csv(raw_dir, 6, 0, 1000)
 
-    ds = WaveformDataset(char="cache_run", data_root=str(daq_root), use_daq_scan=True)
+    ds = WaveformDataset(run_name="cache_run", data_root=str(daq_root), use_daq_scan=True)
 
-    # enable caching for structure_waveforms to store st_waveforms and pair_len
-    ds.set_step_cache("structure_waveforms", enabled=True, attrs=["st_waveforms", "pair_len"])
+    # enable caching for structure_waveforms to store st_waveforms and event_length
+    ds.set_step_cache("structure_waveforms", enabled=True, attrs=["st_waveforms", "event_length"])
 
     # run first time: should execute and create cache
     ds.load_raw_data()
@@ -52,10 +52,10 @@ def test_persistent_cache(tmp_path: Path):
 
     make_simple_csv(raw_dir, 6, 0, 2000)
 
-    ds = WaveformDataset(char="cache_run2", data_root=str(daq_root), use_daq_scan=True)
+    ds = WaveformDataset(run_name="cache_run2", data_root=str(daq_root), use_daq_scan=True)
     cache_file = tmp_path / "struct_cache.pkl"
     ds.set_step_cache(
-        "structure_waveforms", enabled=True, attrs=["st_waveforms", "pair_len"], persist_path=str(cache_file)
+        "structure_waveforms", enabled=True, attrs=["st_waveforms", "event_length"], persist_path=str(cache_file)
     )
 
     ds.load_raw_data()
@@ -65,9 +65,9 @@ def test_persistent_cache(tmp_path: Path):
     assert cache_file.exists()
 
     # create new dataset instance and ensure loading from disk cache works
-    ds2 = WaveformDataset(char="cache_run2", data_root=str(daq_root), use_daq_scan=True)
+    ds2 = WaveformDataset(run_name="cache_run2", data_root=str(daq_root), use_daq_scan=True)
     ds2.set_step_cache(
-        "structure_waveforms", enabled=True, attrs=["st_waveforms", "pair_len"], persist_path=str(cache_file)
+        "structure_waveforms", enabled=True, attrs=["st_waveforms", "event_length"], persist_path=str(cache_file)
     )
     ds2.load_raw_data()
     # calling structure_waveforms should load cache instead of executing

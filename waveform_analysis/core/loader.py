@@ -9,6 +9,7 @@ import bisect
 import os
 import re
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
@@ -104,23 +105,67 @@ class WaveformLoader:
         chunksize: Optional[int] = None,
         n_jobs: int = 1,
         use_process_pool: bool = False,
+        channel_workers: Optional[int] = None,
+        channel_executor: str = "thread",
     ) -> List[np.ndarray]:
         """
         加载所有 CSV 文件并拼接成 numpy 数组。
-        """
-        from waveform_analysis.utils.data_processing.io import parse_and_stack_files
 
-        waveforms = []
-        for i, files in enumerate(raw_filess):
-            wf = parse_and_stack_files(
-                files,
-                show_progress=(show_progress and i == 0),
-                chunksize=chunksize,
-                n_jobs=n_jobs,
-                use_process_pool=use_process_pool,
-            )
-            waveforms.append(wf)
-        return waveforms
+        参数:
+            raw_filess: 每个通道的文件列表。
+            show_progress: 仅对第一个通道显示进度条。
+            chunksize: 传递给 parse_and_stack_files 的分块大小。
+            n_jobs: 通道内 CSV 解析的并行度（parse_and_stack_files 内部使用）。
+            use_process_pool: 是否在单通道内使用进程池。
+            channel_workers: **新增** 通道级并行度；>1 时为每个通道分配线程并行解析。
+            channel_executor: 通道级并行的执行器类型，"thread" (默认) 或 "process"。
+        """
+        from waveform_analysis.utils.io import parse_and_stack_files
+
+        if channel_workers is None or channel_workers <= 1:
+            waveforms = []
+            for i, files in enumerate(raw_filess):
+                wf = parse_and_stack_files(
+                    files,
+                    show_progress=(show_progress and i == 0),
+                    chunksize=chunksize,
+                    n_jobs=n_jobs,
+                    use_process_pool=use_process_pool,
+                )
+                waveforms.append(wf)
+            return waveforms
+
+        # 通道级并行：为每个通道分配一个任务，完成后按原顺序收集
+        # 使用全局执行器管理器
+        from waveform_analysis.core.executor_manager import get_executor
+        from concurrent.futures import as_completed
+        
+        waveforms = [None] * len(raw_filess)
+        executor_name = f"channel_loading_{channel_executor}"
+        
+        with get_executor(
+            executor_name,
+            executor_type=channel_executor,
+            max_workers=channel_workers,
+            reuse=True
+        ) as ex:
+            futures = {
+                ex.submit(
+                    parse_and_stack_files,
+                    files,
+                    show_progress=(show_progress and idx == 0),
+                    chunksize=chunksize,
+                    n_jobs=n_jobs,
+                    use_process_pool=use_process_pool,
+                ): idx
+                for idx, files in enumerate(raw_filess)
+            }
+
+            for fut in as_completed(futures):
+                idx = futures[fut]
+                waveforms[idx] = fut.result()
+
+        return waveforms  # type: ignore[return-value]
 
     def load_waveforms_generator(
         self,
@@ -130,7 +175,7 @@ class WaveformLoader:
         """
         流式加载波形，每次返回一个 chunk 的数据。
         """
-        from waveform_analysis.utils.data_processing.io import parse_files_generator
+        from waveform_analysis.utils.io import parse_files_generator
 
         gens = [parse_files_generator(files, chunksize=chunksize) for files in raw_filess]
         return zip(*gens)
@@ -139,14 +184,14 @@ class WaveformLoader:
 @export
 def get_raw_files(
     n_channels: int = 6,
-    char: str = "All_SelfTrigger",
+    run_name: str = "All_SelfTrigger",
     daq_run: Optional[Any] = None,
     data_root: str = "DAQ",
 ) -> List[List[str]]:
     """
     获取每个通道的文件列表。支持直接从 DAQRun 对象或文件系统扫描。
     """
-    loader = WaveformLoader(n_channels, char, data_root)
+    loader = WaveformLoader(n_channels, run_name, data_root)
     return loader.get_raw_files(daq_run)
 
 
@@ -155,17 +200,36 @@ def get_waveforms(
     raw_filess: Optional[List[List[str]]] = None,
     daq_run: Optional[Any] = None,
     n_channels: int = 6,
-    show_progress: bool = False,
+    show_progress: bool = True,
     chunksize: Optional[int] = None,
     n_jobs: int = 1,
     use_process_pool: bool = False,
+    channel_workers: Optional[int] = None,  # 可选参数,
+    channel_executor: str = "thread",
     data_root: str = "DAQ",
-    char: str = "All_SelfTrigger",
+    run_name: str = "All_SelfTrigger",
 ) -> List[np.ndarray]:
     """
-    加载所有 CSV 文件并拼接成 numpy 数组。
+    加载波形数据的便捷函数。
+
+    Args:
+        raw_filess (Optional[List[List[str]]], optional): 每个通道的文件路径列表。默认为 None。
+        daq_run (Optional[Any], optional): DAQRun 对象，用于自动获取文件路径。默认为 None。
+        n_channels (int, optional): 通道数量。默认为 6。
+        show_progress (bool, optional): 是否显示加载进度条。默认为 True。
+        chunksize (Optional[int], optional): 解析 CSV 时的分块大小。默认为 None。
+        n_jobs (int, optional): 单个通道内解析文件的并行任务数。默认为 1。
+        use_process_pool (bool, optional): 是否在解析 CSV 时使用进程池。默认为 False。
+        channel_workers (Optional[int], optional): 通道级并行的并发数。默认为 None。
+        channel_executor (str, optional): 通道级并行的执行器类型 ("thread" 或 "process")。默认为 "thread"。
+        data_root (str, optional): 数据根目录。默认为 "DAQ"。
+        run_name (str, optional): 运行名称。默认为 "All_SelfTrigger"。
+
+    Returns:
+        List[np.ndarray]: 包含每个通道波形数据的 numpy 数组列表。
     """
-    loader = WaveformLoader(n_channels, char, data_root)
+
+    loader: WaveformLoader = WaveformLoader(n_channels, run_name, data_root)
     if raw_filess is None:
         raw_filess = loader.get_raw_files(daq_run)
 
@@ -175,6 +239,8 @@ def get_waveforms(
         chunksize=chunksize,
         n_jobs=n_jobs,
         use_process_pool=use_process_pool,
+        channel_workers=channel_workers,
+        channel_executor=channel_executor,
     )
 
 
@@ -186,12 +252,12 @@ def get_waveforms_generator(
     chunksize: int = 1000,
     show_progress: bool = False,
     data_root: str = "DAQ",
-    char: str = "All_SelfTrigger",
+    run_name: str = "All_SelfTrigger",
 ):
     """
     返回一个生成器，按 chunk 产生同步的波形数据。
     """
-    loader = WaveformLoader(n_channels, char, data_root)
+    loader = WaveformLoader(n_channels, run_name, data_root)
     if raw_filess is None:
         raw_filess = loader.get_raw_files(daq_run)
 
