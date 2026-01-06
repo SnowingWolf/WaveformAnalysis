@@ -50,23 +50,43 @@ class EventAnalyzer:
 
         return group_multi_channel_hits(df, self.time_window_ns, use_numba=use_numba, n_processes=n_processes)
 
-    def pair_events(self, df_events: pd.DataFrame) -> pd.DataFrame:
+    def pair_events(self, df_events: pd.DataFrame, time_window_ns: Optional[float] = None) -> pd.DataFrame:
         """
         筛选成对的 N 通道事件。
+        
+        配对条件：
+        - 事件的时间跨度（dt/ns）在指定的时间窗口内（默认100ns）
+        - 不严格要求所有通道都存在，只要时间窗口满足即可
+        
+        参数:
+            df_events: 分组后的事件DataFrame
+            time_window_ns: 时间窗口（纳秒），默认使用self.time_window_ns
         """
-        df_paired = df_events[
-            (df_events["n_hits"] == self.n_channels)
-            & (df_events["channels"].apply(lambda x: np.array_equal(x, list(range(self.n_channels)))))
-        ].copy()
+        tw = time_window_ns if time_window_ns is not None else self.time_window_ns
+        
+        # 筛选条件：事件时间跨度在时间窗口内
+        # dt/ns列已经在group_events中计算好了
+        df_paired = df_events[df_events["dt/ns"] <= tw].copy()
 
-        # 计算时间差（单位: ns）
+        # 计算时间差（单位: ns）- 如果还没有计算
+        if "delta_t" not in df_paired.columns:
+            if not df_paired.empty:
+                df_paired["delta_t"] = df_paired["timestamps"].apply(lambda x: (x[-1] - x[0]) / 1000.0)
+
+        # 提取各通道的 charges 和 peaks（动态处理，根据实际通道数）
         if not df_paired.empty:
-            df_paired["delta_t"] = df_paired["timestamps"].apply(lambda x: (x[-1] - x[0]) / 1000.0)
-
-            # 提取各通道的 charges 和 peaks
             for i in range(self.n_channels):
-                df_paired[f"charge_ch{self.start_channel_slice + i}"] = df_paired["charges"].apply(lambda x: x[i])
-                df_paired[f"peak_ch{self.start_channel_slice + i}"] = df_paired["peaks"].apply(lambda x: x[i])
+                ch_name = f"charge_ch{self.start_channel_slice + i}"
+                pk_name = f"peak_ch{self.start_channel_slice + i}"
+                
+                def get_ch_value(arr, idx):
+                    """安全地获取数组索引值"""
+                    if isinstance(arr, (list, np.ndarray)) and len(arr) > idx:
+                        return arr[idx]
+                    return np.nan
+                
+                df_paired[ch_name] = df_paired["charges"].apply(lambda x: get_ch_value(x, i))
+                df_paired[pk_name] = df_paired["peaks"].apply(lambda x: get_ch_value(x, i))
 
         return df_paired
 

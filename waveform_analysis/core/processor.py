@@ -14,6 +14,7 @@ Processor 模块 - 波形信号处理与特征提取核心逻辑。
 - `WaveformProcessor`: 高层封装接口，支持批量处理数据块 (Chunks) 并构建 Pandas DataFrame。
 """
 
+import logging
 import os
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -22,6 +23,9 @@ import pandas as pd
 
 from waveform_analysis.core.utils import exporter
 from waveform_analysis.core.executor_manager import get_executor
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 # 尝试导入numba（可选）
 try:
@@ -192,28 +196,12 @@ class WaveformStruct:
         return self.waveform_structureds
 
     def get_event_length(self) -> np.ndarray:
-        """Compute per-event event lengths.
+        """Compute per-channel event lengths.
 
-        Adjacent channels are considered an event pair when computing the minimal length.
+        Each channel uses its own actual event count (no forced pairing).
         """
-        raw_lengths = np.array([len(wave) for wave in self.waveforms])
-
-        # 重塑为 (n_pairs, 2) 的形状进行处理
-        n = len(raw_lengths)
-        if n % 2 == 0:
-            # 偶数个元素
-            reshaped = raw_lengths.reshape(-1, 2)
-            min_vals = np.min(reshaped, axis=1)
-            self.event_length = np.repeat(min_vals, 2)
-        else:
-            # 奇数个元素，最后一个单独处理
-            if n > 1:
-                reshaped = raw_lengths[:-1].reshape(-1, 2)
-                min_vals = np.min(reshaped, axis=1)
-                self.event_length = np.concatenate([np.repeat(min_vals, 2), [raw_lengths[-1]]])
-            else:
-                self.event_length = raw_lengths
-
+        # 每个通道使用自己的实际长度，不再强制配对
+        self.event_length = np.array([len(wave) for wave in self.waveforms])
         return self.event_length
 
 
@@ -236,22 +224,16 @@ class WaveformProcessor:
         structurer = WaveformStruct(waveforms)
         return structurer.structure_waveforms()
 
-    def get_event_length(self, waveforms: List[np.ndarray]) -> np.ndarray:
-        """
-        获取各通道波形的配对长度。
-        """
-        structurer = WaveformStruct(waveforms)
-        return structurer.get_event_length()
-
     def compute_basic_features(
         self,
         st_waveforms: List[np.ndarray],
-        event_len: np.ndarray,
         peaks_range: Optional[Tuple[int, int]] = None,
         charge_range: Optional[Tuple[int, int]] = None,
     ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         """
         计算基础特征：peaks 和 charges。
+        
+        每个通道使用自己的全部事件数（不再需要 event_length 限制）。
         """
         if peaks_range is not None:
             self.peaks_range = peaks_range
@@ -266,21 +248,20 @@ class WaveformProcessor:
 
         for i in range(len(st_waveforms)):
             st_ch = st_waveforms[i]
-            n = event_len[i]
-            if len(st_ch) == 0 or n == 0:
+            if len(st_ch) == 0:
                 peaks.append(np.zeros(0))
                 charges.append(np.zeros(0))
                 continue
 
             # Vectorized peak calculation
             # st_ch["wave"] is (N, DEFAULT_WAVE_LENGTH)
-            waves_p = st_ch["wave"][:n, start_p:end_p]
+            waves_p = st_ch["wave"][:, start_p:end_p]
             p_vals = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
             peaks.append(p_vals)
 
             # Vectorized charge calculation
-            waves_c = st_ch["wave"][:n, start_c:end_c]
-            baselines = st_ch["baseline"][:n]
+            waves_c = st_ch["wave"][:, start_c:end_c]
+            baselines = st_ch["baseline"]
             # baseline - wave, then sum over samples
             q_vals = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
             charges.append(q_vals)
@@ -292,17 +273,19 @@ class WaveformProcessor:
         st_waveforms: List[np.ndarray],
         peaks: List[np.ndarray],
         charges: List[np.ndarray],
-        event_len: np.ndarray,
         extra_features: Optional[Dict[str, List[np.ndarray]]] = None,
     ) -> pd.DataFrame:
         """
         构建波形 DataFrame。
+        
+        每个通道使用自己的全部事件数（不再需要 event_length 限制）。
         """
-        df = build_waveform_df(st_waveforms, peaks, charges, event_len, n_channels=self.n_channels)
+        df = build_waveform_df(st_waveforms, peaks, charges, n_channels=self.n_channels)
 
         if extra_features:
             for name, feat_list in extra_features.items():
-                all_feat = np.concatenate([feat[: event_len[i]] for i, feat in enumerate(feat_list)])
+                # 使用每个特征数组的完整长度
+                all_feat = np.concatenate([feat for feat in feat_list])
                 df[name] = all_feat
 
         return df.sort_values("timestamp")
@@ -334,7 +317,6 @@ class WaveformProcessor:
             "timestamp": ts,
             "peak": peaks_vals,
             "charge": charges_vals,
-            "event_length": np.full(len(ts), waves.shape[1]),
         }
 
 
@@ -343,22 +325,22 @@ def build_waveform_df(
     st_waveforms: List[np.ndarray],
     peaks: List[np.ndarray],
     charges: List[np.ndarray],
-    event_len: np.ndarray,
     n_channels: int = 6,
 ) -> pd.DataFrame:
-    """把每个通道的 timestamp / charge / peak / channel 拼成一个 DataFrame."""
+    """把每个通道的 timestamp / charge / peak / channel 拼成一个 DataFrame.
+    
+    每个通道使用自己的全部事件数（不再需要 event_length 限制）。
+    """
     all_timestamps = []
     all_charges = []
     all_peaks = []
     all_channels = []
 
     for ch in range(n_channels):
-        n = event_len[ch]
-        # 如果 timestamp 是 1D（每个事件一个值），这行是 OK 的；
-        # 如果是 2D（事件 × 采样点），可以改成 .mean(axis=1) 或 [:, 0]
-        ts = np.asarray(st_waveforms[ch]["timestamp"][:n])
-        qs = np.asarray(charges[ch][:n])
-        ps = np.asarray(peaks[ch][:n])
+        # 使用每个通道的全部事件数
+        ts = np.asarray(st_waveforms[ch]["timestamp"])
+        qs = np.asarray(charges[ch])
+        ps = np.asarray(peaks[ch])
 
         all_timestamps.append(ts)
         all_charges.append(qs)
@@ -391,9 +373,17 @@ def group_multi_channel_hits(
     
     参数:
         df: 包含 timestamp, channel, charge, peak 列的 DataFrame
-        time_window_ns: 时间窗口（纳秒）
+            - timestamp 列的单位为 ps（皮秒）
+        time_window_ns: 时间窗口（纳秒），默认值为100ns
+            - 内部会转换为 ps 单位与 timestamp 进行比较
+            - 例如：100ns = 100,000ps
         use_numba: 是否使用numba加速（默认True，如果numba可用）
         n_processes: 多进程数量（None=单进程，>1=多进程，默认None）
+    
+    注意:
+        - timestamp 列的单位为 ps（皮秒）
+        - time_window_ns 参数单位为 ns（纳秒），内部会自动转换为 ps 进行比较
+        - 时间窗口转换：time_window_ps = time_window_ns * 1e3
     
     性能优化:
         - 使用numba JIT编译加速边界查找（如果可用）
@@ -402,7 +392,7 @@ def group_multi_channel_hits(
         - 减少不必要的数组复制
     
     示例:
-        # 使用numba加速（单进程）
+        # 使用numba加速（单进程），时间窗口100ns
         df_events = group_multi_channel_hits(df, time_window_ns=100)
         
         # 使用多进程（4个进程）
@@ -481,9 +471,12 @@ def group_multi_channel_hits(
                 try:
                     chunk_records = future.result()
                     records.extend(chunk_records)
+                except (MemoryError, KeyboardInterrupt):
+                    # 致命错误：立即抛出
+                    raise
                 except Exception as e:
-                    print(f"处理块时出错: {e}")
-                    # 回退到单进程处理该块
+                    logger.warning(f"Multiprocessing chunk failed ({e}), falling back to single-process")
+                    # 可恢复错误：回退到单进程处理该块
                     args = futures[future]
                     chunk_records = _process_event_chunk(args)
                     records.extend(chunk_records)
@@ -650,10 +643,10 @@ def _process_event_chunk(args: Tuple) -> List[Dict]:
             "t_max": t_max,
             "dt/ns": float((t_max - t_min) / 1e3),
             "n_hits": int(len(ts_sorted)),
-            "channels": chs_sorted.copy(),  # 确保是独立的数组
-            "charges": qs_sorted.copy(),
-            "peaks": ps_sorted.copy(),
-            "timestamps": ts_sorted.copy(),
+            "channels": chs_sorted,  # 只读访问，无需复制
+            "charges": qs_sorted,
+            "peaks": ps_sorted,
+            "timestamps": ts_sorted,
         })
     
     return records

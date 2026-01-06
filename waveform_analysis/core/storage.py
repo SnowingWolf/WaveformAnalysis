@@ -5,6 +5,7 @@ Storage 模块 - 负责数据的持久化与加载。
 支持原子写入、元数据管理以及存储版本的校验，确保数据的完整性与一致性。
 """
 
+import fcntl
 import json
 import os
 import time
@@ -13,6 +14,42 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+
+
+class BufferedStreamWriter:
+    """
+    Buffered writer for efficient stream writing to reduce system calls.
+    """
+    def __init__(self, file_handle, buffer_size=4 * 1024 * 1024):  # 4MB default buffer
+        self.file = file_handle
+        self.buffer = bytearray(buffer_size)
+        self.buffer_pos = 0
+        self.buffer_size = buffer_size
+
+    def write_array(self, arr: np.ndarray):
+        """Write numpy array to buffer, flushing when necessary."""
+        data = arr.tobytes()
+        data_len = len(data)
+
+        # If data larger than buffer, write directly
+        if data_len > self.buffer_size:
+            self.flush()
+            self.file.write(data)
+            return
+
+        # If data doesn't fit in remaining buffer space, flush first
+        if data_len > self.buffer_size - self.buffer_pos:
+            self.flush()
+
+        # Copy data to buffer
+        self.buffer[self.buffer_pos:self.buffer_pos + data_len] = data
+        self.buffer_pos += data_len
+
+    def flush(self):
+        """Flush buffer to file."""
+        if self.buffer_pos > 0:
+            self.file.write(memoryview(self.buffer)[:self.buffer_pos])
+            self.buffer_pos = 0
 
 
 class MemmapStorage:
@@ -41,75 +78,63 @@ class MemmapStorage:
         lock_path = os.path.join(self.base_dir, f"{key}.lock")
         return bin_path, meta_path, lock_path
 
-    def _acquire_lock(self, lock_path: str, timeout: int = 10, stale_timeout: int = 600) -> bool:
+    def _acquire_lock(self, lock_path: str, timeout: int = 10) -> Optional[int]:
         """
-        Acquire a file-based lock with stale lock detection.
-        Writes PID and timestamp into the lock file.
+        Acquire an atomic file-based lock using fcntl (POSIX/Linux).
+        Returns file descriptor on success, None on timeout.
         """
         with self._timeit("storage.acquire_lock"):
             start_time = time.time()
-            pid = os.getpid()
+            attempt = 0
 
             while time.time() - start_time < timeout:
                 try:
-                    # Use x mode to create exclusively
-                    fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                    # Open or create the lock file
+                    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o644)
+
                     try:
-                        lock_info = {"pid": pid, "timestamp": time.time()}
-                        os.write(fd, json.dumps(lock_info).encode())
-                    finally:
+                        # Use fcntl for atomic locking (non-blocking)
+                        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        # Successfully acquired lock
+                        return fd
+
+                    except (BlockingIOError, OSError, IOError):
+                        # Lock is held by another process
                         os.close(fd)
-                    return True
-                except FileExistsError:
-                    # Check if the existing lock is stale
-                    try:
-                        with open(lock_path, "r") as f:
-                            content = f.read()
-                            if content:
-                                lock_info = json.loads(content)
-                                if time.time() - lock_info.get("timestamp", 0) > stale_timeout:
-                                    # Lock appears stale by timestamp; additionally check PID liveness when possible
-                                    lock_pid = lock_info.get("pid")
-                                    is_alive = False
-                                    try:
-                                        if lock_pid is not None:
-                                            # os.kill(pid, 0) is a portable way on POSIX to check for liveness
-                                            os.kill(int(lock_pid), 0)
-                                            is_alive = True
-                                    except ProcessLookupError:
-                                        # No such process -> not alive
-                                        is_alive = False
-                                    except Exception:
-                                        # On platforms where os.kill cannot be used this way or other error,
-                                        # be conservative and treat the process as not alive to allow cleanup.
-                                        is_alive = False
 
-                                    if not is_alive:
-                                        warnings.warn(
-                                            f"Removing stale lock file at {lock_path} (PID {lock_info.get('pid')}, "
-                                            f"age {time.time() - lock_info.get('timestamp'):.1f}s)",
-                                            UserWarning,
-                                        )
-                                        os.remove(lock_path)
-                                        continue  # Try to acquire again
-                                    # If PID is alive, do not remove the lock; wait and retry
-                    except (json.JSONDecodeError, OSError, ValueError):
-                        # If file is empty or corrupted, we might want to remove it if it's old
-                        # But for now, just wait and retry
-                        pass
+                        # Exponential backoff: start at 1ms, max 100ms
+                        sleep_time = min(0.001 * (2 ** attempt), 0.1)
+                        time.sleep(sleep_time)
+                        attempt += 1
 
+                except Exception as e:
+                    warnings.warn(
+                        f"Unexpected error acquiring lock {lock_path}: {e}",
+                        UserWarning
+                    )
                     time.sleep(0.1)
-        return False
 
-    def _release_lock(self, lock_path: str):
-        """Release the lock file."""
-        if os.path.exists(lock_path):
+            return None
+
+    def _release_lock(self, fd: Optional[int], lock_path: str):
+        """Release the lock and close file descriptor."""
+        if fd is not None:
             try:
-                # Optional: check if it's our lock before removing
-                # For simplicity and robustness against crashes, we just remove it
-                os.remove(lock_path)
+                fcntl.flock(fd, fcntl.LOCK_UN)
             except Exception:
-                pass
+                pass  # Best effort unlock
+
+            try:
+                os.close(fd)
+            except Exception:
+                pass  # Best effort close
+
+        # Clean up lock file (best effort, ignore errors)
+        try:
+            if os.path.exists(lock_path):
+                os.remove(lock_path)
+        except Exception:
+            pass
 
     def save_metadata(self, key: str, metadata: Dict[str, Any]):
         """Atomically save metadata for a key."""
@@ -176,21 +201,27 @@ class MemmapStorage:
             bin_path, _, lock_path = self._get_paths(key)
             tmp_bin_path = bin_path + ".tmp"
 
-            if not self._acquire_lock(lock_path):
+            # Acquire lock
+            lock_fd = self._acquire_lock(lock_path)
+            if lock_fd is None:
                 raise RuntimeError(f"Could not acquire lock for {key} after timeout.")
 
             total_count = 0
             try:
                 with open(tmp_bin_path, "wb") as f:
+                    writer = BufferedStreamWriter(f)
                     for chunk in stream:
                         if len(chunk) == 0:
                             continue
                         try:
                             arr = np.asarray(chunk, dtype=dtype)
-                            f.write(arr.tobytes())
+                            writer.write_array(arr)
                             total_count += len(arr)
                         except Exception as e:
                             raise RuntimeError(f"Error writing chunk to {tmp_bin_path}: {str(e)}") from e
+
+                    # Flush remaining data
+                    writer.flush()
 
                 self.finalize_save(key, total_count, dtype, extra_metadata, shape=shape)
                 return total_count
@@ -199,15 +230,16 @@ class MemmapStorage:
                 if os.path.exists(tmp_bin_path):
                     try:
                         os.remove(tmp_bin_path)
-                    except:
+                    except Exception:
                         pass
                 raise e
             finally:
-                self._release_lock(lock_path)
+                self._release_lock(lock_fd, lock_path)
+                # Remove temp file if it still exists (shouldn't happen on success)
                 if os.path.exists(tmp_bin_path):
                     try:
                         os.remove(tmp_bin_path)
-                    except:
+                    except Exception:
                         pass
 
     def save_memmap(self, key: str, data: np.ndarray, extra_metadata: Optional[Dict[str, Any]] = None):

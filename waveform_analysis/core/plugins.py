@@ -8,13 +8,26 @@ Plugins 模块 - 定义插件和配置选项的基类。
 
 import abc
 import inspect
-from typing import Any, Dict, List, Literal, Optional, Type, Union
+import logging
+from typing import Any, Dict, List, Literal, Optional, Type, Tuple, Union
 
 import numpy as np
 
 from .utils import exporter
 
 export, __all__ = exporter()
+
+logger = logging.getLogger(__name__)
+
+# 尝试导入 packaging 用于语义化版本
+try:
+    from packaging.version import Version, InvalidVersion
+    PACKAGING_AVAILABLE = True
+except ImportError:
+    PACKAGING_AVAILABLE = False
+    Version = None
+    InvalidVersion = None
+    logger.warning("packaging library not available, version constraints will not work")
 
 
 @export
@@ -115,7 +128,7 @@ class Plugin(abc.ABC):
     """
 
     provides: str = ""
-    depends_on: List[str] = []
+    depends_on: List[Union[str, Tuple[str, str]]] = []  # Support version constraints
     options: Dict[str, Option] = {}
     save_when: str = "never"
     output_dtype: Optional[np.dtype] = None
@@ -128,6 +141,29 @@ class Plugin(abc.ABC):
     # Metadata for tracking
     _registered_from_module: Optional[str] = None
     _registered_class: Optional[str] = None
+
+    @property
+    def semantic_version(self):
+        """Get semantic version object from version string."""
+        if not PACKAGING_AVAILABLE:
+            return None
+        try:
+            return Version(self.version)
+        except (InvalidVersion, TypeError):
+            logger.warning(f"Plugin {self.__class__.__name__} has invalid version '{self.version}', using 0.0.0")
+            return Version("0.0.0")
+
+    def get_dependency_name(self, dep: Union[str, Tuple[str, str]]) -> str:
+        """Extract dependency name from dependency specification."""
+        if isinstance(dep, tuple):
+            return dep[0]
+        return dep
+
+    def get_dependency_version_spec(self, dep: Union[str, Tuple[str, str]]) -> Optional[str]:
+        """Extract version specification from dependency specification."""
+        if isinstance(dep, tuple) and len(dep) > 1:
+            return dep[1]
+        return None
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -162,8 +198,31 @@ class Plugin(abc.ABC):
             )
 
         for dep in self.depends_on:
-            if not isinstance(dep, str):
-                raise TypeError(f"Plugin {self.provides}: dependency '{dep}' must be a string")
+            if isinstance(dep, str):
+                continue  # Simple string dependency
+            elif isinstance(dep, tuple):
+                if len(dep) != 2:
+                    raise ValueError(
+                        f"Plugin {self.provides}: dependency tuple must be (name, version_spec), got {dep}"
+                    )
+                dep_name, version_spec = dep
+                if not isinstance(dep_name, str):
+                    raise TypeError(f"Plugin {self.provides}: dependency name must be a string, got {type(dep_name)}")
+                if not isinstance(version_spec, str):
+                    raise TypeError(f"Plugin {self.provides}: version spec must be a string, got {type(version_spec)}")
+                # Validate version spec syntax if packaging is available
+                if PACKAGING_AVAILABLE:
+                    try:
+                        from packaging.specifiers import SpecifierSet
+                        SpecifierSet(version_spec)
+                    except Exception as e:
+                        raise ValueError(
+                            f"Plugin {self.provides}: invalid version specifier '{version_spec}': {e}"
+                        )
+            else:
+                raise TypeError(
+                    f"Plugin {self.provides}: dependency must be a string or tuple (name, version_spec), got {type(dep)}"
+                )
 
         if not isinstance(self.options, dict):
             raise TypeError(f"Plugin {self.provides}: 'options' must be a dict")
@@ -191,7 +250,9 @@ class Plugin(abc.ABC):
             pass
 
         for dep, dt in self.input_dtype.items():
-            if dep not in self.depends_on:
+            # Extract dependency name if it's a tuple
+            dep_names = [self.get_dependency_name(d) for d in self.depends_on]
+            if dep not in dep_names:
                 raise ValueError(
                     f"Plugin {self.provides}: input_dtype specified for '{dep}', but it's not in depends_on"
                 )

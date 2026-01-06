@@ -337,7 +337,10 @@ class PluginMixin:
                 f"Use allow_override=True if you want to replace it."
             )
 
-        # 3. Record metadata
+        # 3. Version compatibility check
+        self._validate_plugin_dependencies(plugin)
+
+        # 4. Record metadata
         import inspect
 
         plugin._registered_class = plugin.__class__.__name__
@@ -347,8 +350,53 @@ class PluginMixin:
         except Exception:
             plugin._registered_from_module = "unknown"
 
-        # 4. Register
+        # 5. Register
         self._plugins[provides] = plugin
+
+    def _validate_plugin_dependencies(self, plugin: Any) -> None:
+        """
+        Validate that plugin dependencies are compatible with registered plugins.
+        """
+        try:
+            from packaging.version import Version
+            from packaging.specifiers import SpecifierSet
+            PACKAGING_AVAILABLE = True
+        except ImportError:
+            PACKAGING_AVAILABLE = False
+            return  # Skip validation if packaging not available
+
+        for dep in plugin.depends_on:
+            # Extract dependency name and version spec
+            if isinstance(dep, tuple):
+                dep_name, version_spec = dep
+            else:
+                dep_name = dep
+                version_spec = None
+
+            # Check if dependency is already registered
+            if dep_name in self._plugins:
+                provider = self._plugins[dep_name]
+
+                # Validate version if spec is provided
+                if version_spec and PACKAGING_AVAILABLE:
+                    try:
+                        provider_version = provider.semantic_version
+                        if provider_version is None:
+                            continue  # Skip if provider doesn't have valid version
+
+                        spec = SpecifierSet(version_spec)
+                        if provider_version not in spec:
+                            raise ValueError(
+                                f"Plugin '{plugin.provides}' requires '{dep_name}' {version_spec}, "
+                                f"but version {provider_version} is registered"
+                            )
+                    except Exception as e:
+                        # Log warning but don't fail - allows graceful degradation
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(
+                            f"Version validation failed for {plugin.provides} -> {dep_name}: {e}"
+                        )
 
     def resolve_dependencies(self, target: str) -> List[str]:
         """

@@ -51,15 +51,35 @@ class WaveformsPlugin(Plugin):
     options = {
         "start_channel_slice": Option(default=6, type=int),
         "n_channels": Option(default=2, type=int),
+        "channel_workers": Option(default=None, help="Number of parallel workers for channel-level processing (None=auto, uses min(n_channels, cpu_count))"),
+        "channel_executor": Option(default="thread", type=str, help="Executor type for channel-level parallelism: 'thread' or 'process'"),
     }
 
     def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
+        import multiprocessing
         from waveform_analysis.utils.loader import get_waveforms
 
         start = context.get_config(self, "start_channel_slice")
-        end = start + context.config.get("n_channels", 2)
+        n_channels = context.config.get("n_channels", 2)
+        end = start + n_channels
         raw_files = context.get_data(run_id, "raw_files")
-        return get_waveforms(raw_files[start:end], show_progress=context.config.get("show_progress", True))
+        
+        # Get parallel processing configuration
+        channel_workers = context.get_config(self, "channel_workers")
+        channel_executor = context.get_config(self, "channel_executor")
+        
+        # Enable multithreading acceleration by default: use number of channels or CPU count, whichever is smaller
+        if channel_workers is None:
+            channel_workers = min(n_channels, multiprocessing.cpu_count())
+        
+        show_progress = context.config.get("show_progress", True)
+        
+        return get_waveforms(
+            raw_filess=raw_files[start:end],
+            show_progress=show_progress,
+            channel_workers=channel_workers,
+            channel_executor=channel_executor,
+        )
 
 
 class StWaveformsPlugin(Plugin):
@@ -74,74 +94,30 @@ class StWaveformsPlugin(Plugin):
         waveforms = context.get_data(run_id, "waveforms")
         waveform_struct = WaveformStruct(waveforms)
         st_waveforms = waveform_struct.structure_waveforms(show_progress=context.config.get("show_progress", True))
-        # Store waveform_struct in context for EventLengthPlugin to use
-        context._set_data(run_id, "_waveform_struct", waveform_struct)
         return st_waveforms
-
-
-class EventLengthPlugin(Plugin):
-    """Plugin to compute event lengths from structured waveforms.
-    
-    Computes paired event lengths where adjacent channels are considered pairs.
-    For each pair, the minimum length is used for both channels.
-    """
-
-    provides = "event_length"
-    depends_on = ["st_waveforms"]
-    save_when = "always"
-
-    def compute(self, context: Any, run_id: str, **kwargs) -> np.ndarray:
-        # Try to get waveform_struct from StWaveformsPlugin if available
-        waveform_struct = context._get_data_from_memory(run_id, "_waveform_struct")
-        if waveform_struct is not None:
-            return waveform_struct.get_event_length()
-        
-        # Otherwise, recompute from st_waveforms
-        st_waveforms = context.get_data(run_id, "st_waveforms")
-        # Compute raw lengths for each channel
-        raw_lengths = np.array([len(st_ch) for st_ch in st_waveforms])
-        
-        # Compute paired lengths (same logic as WaveformStruct.get_event_length)
-        n = len(raw_lengths)
-        if n % 2 == 0:
-            # Even number of channels: pair them up
-            reshaped = raw_lengths.reshape(-1, 2)
-            min_vals = np.min(reshaped, axis=1)
-            event_length = np.repeat(min_vals, 2)
-        else:
-            # Odd number of channels: pair all but the last one
-            if n > 1:
-                reshaped = raw_lengths[:-1].reshape(-1, 2)
-                min_vals = np.min(reshaped, axis=1)
-                event_length = np.concatenate([np.repeat(min_vals, 2), [raw_lengths[-1]]])
-            else:
-                event_length = raw_lengths
-        
-        return event_length
 
 
 class HitFinderPlugin(Plugin):
     """Example implementation of the HitFinder as a plugin."""
 
     provides = "hits"
-    depends_on = ["st_waveforms", "event_length"]
+    depends_on = ["st_waveforms"]
     input_dtype = {"st_waveforms": np.dtype(RECORD_DTYPE)}
     output_dtype = np.dtype(PEAK_DTYPE)
 
     def compute(self, context: Any, run_id: str, threshold: float = 10.0, **kwargs) -> List[np.ndarray]:
         st_waveforms = context.get_data(run_id, "st_waveforms")
-        event_length = context.get_data(run_id, "event_length")
 
         hits_list = []
         for i in range(len(st_waveforms)):
             st_ch = st_waveforms[i]
-            n = event_length[i]
             if len(st_ch) == 0:
                 hits_list.append(np.zeros(0, dtype=kwargs.get("dtype", object)))
                 continue
 
-            waves_2d = np.stack(st_ch["wave"][:n])
-            hits = find_hits(waves_2d, st_ch["baseline"][:n], threshold=threshold)
+            # 使用每个通道的全部事件数
+            waves_2d = np.stack(st_ch["wave"])
+            hits = find_hits(waves_2d, st_ch["baseline"], threshold=threshold)
             hits_list.append(hits)
         return hits_list
 
@@ -150,7 +126,7 @@ class BasicFeaturesPlugin(Plugin):
     """Plugin to compute basic features (peaks and charges)."""
 
     provides = "basic_features"
-    depends_on = ["st_waveforms", "event_length"]
+    depends_on = ["st_waveforms"]
     save_when = "never"
     options = {
         "peaks_range": Option(default=None, type=tuple),
@@ -161,13 +137,12 @@ class BasicFeaturesPlugin(Plugin):
         from waveform_analysis.core.processor import WaveformProcessor
 
         st_waveforms = context.get_data(run_id, "st_waveforms")
-        event_length = context.get_data(run_id, "event_length")
 
         peaks_range = context.get_config(self, "peaks_range")
         charge_range = context.get_config(self, "charge_range")
 
         processor = WaveformProcessor(n_channels=len(st_waveforms))
-        peaks, charges = processor.compute_basic_features(st_waveforms, event_length, peaks_range, charge_range)
+        peaks, charges = processor.compute_basic_features(st_waveforms, peaks_range, charge_range)
 
         return {"peaks": peaks, "charges": charges}
 
@@ -198,7 +173,7 @@ class DataFramePlugin(Plugin):
     """Plugin to build the initial single-channel events DataFrame."""
 
     provides = "df"
-    depends_on = ["st_waveforms", "peaks", "charges", "event_length"]
+    depends_on = ["st_waveforms", "peaks", "charges"]
     save_when = "always"
 
     def compute(self, context: Any, run_id: str, **kwargs) -> Any:
@@ -207,14 +182,12 @@ class DataFramePlugin(Plugin):
         st_waveforms = context.get_data(run_id, "st_waveforms")
         peaks = context.get_data(run_id, "peaks")
         charges = context.get_data(run_id, "charges")
-        event_length = context.get_data(run_id, "event_length")
 
         processor = WaveformProcessor(n_channels=len(st_waveforms))
         df = processor.build_dataframe(
             st_waveforms,
             peaks,
             charges,
-            event_length,
         )
         return df
 
@@ -260,6 +233,7 @@ class PairedEventsPlugin(Plugin):
 
         n_channels = context.config.get("n_channels", 2)
         start_channel_slice = context.config.get("start_channel_slice", 6)
+        time_window_ns = context.config.get("time_window_ns", 100.0)  # 从配置获取时间窗口
 
         analyzer = EventAnalyzer(n_channels=n_channels, start_channel_slice=start_channel_slice)
-        return analyzer.pair_events(df_events)
+        return analyzer.pair_events(df_events, time_window_ns=time_window_ns)

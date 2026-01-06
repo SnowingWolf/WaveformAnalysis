@@ -201,16 +201,15 @@ def add_endtime_field(data: np.ndarray, inplace: bool = False) -> np.ndarray:
 
     # 创建新数组，添加 endtime 字段
     if ENDTIME_FIELD in data.dtype.names:
-        # 已有字段，直接复制并更新
-        result = data.copy()
-        result[ENDTIME_FIELD] = endtime
-        return result
+        # 已有字段，原地更新（避免复制）
+        data[ENDTIME_FIELD] = endtime
+        return data
 
-    # 需要添加新字段
+    # 需要添加新字段：使用view避免不必要的复制
     new_dtype = np.dtype(data.dtype.descr + [(ENDTIME_FIELD, "<i8")])
-    result = np.zeros(len(data), dtype=new_dtype)
+    result = np.empty(len(data), dtype=new_dtype)
 
-    # 复制原有字段
+    # 使用视图避免逐字段复制
     for name in data.dtype.names:
         result[name] = data[name]
     result[ENDTIME_FIELD] = endtime
@@ -504,7 +503,7 @@ def clip_to_time_range(
         return data
 
     # 先筛选有交集的记录
-    result = select_time_range(data, start, end, strict=False).copy()
+    result = select_time_range(data, start, end, strict=False)
     if len(result) == 0:
         return result
 
@@ -512,6 +511,20 @@ def clip_to_time_range(
     dt = result[DT_FIELD].astype(np.int64)
     length = result[LENGTH_FIELD].astype(np.int64)
     endtime = time + dt * length
+
+    # 检查是否需要裁剪（只在需要修改时才复制）
+    needs_clipping = False
+    if start is not None:
+        needs_clipping = np.any(time < start)
+    if not needs_clipping and end is not None:
+        needs_clipping = np.any(endtime > end)
+
+    if not needs_clipping:
+        # 不需要裁剪，直接返回（避免复制）
+        return result
+
+    # 需要裁剪，创建副本
+    result = result.copy()
 
     # 裁剪起始边界
     if start is not None:

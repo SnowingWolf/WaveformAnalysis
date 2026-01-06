@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import re
+import threading
 import warnings
 from typing import Any, Dict, Iterator, List, Optional, Type, Union, cast
 
@@ -37,15 +38,48 @@ class Context(CacheMixin, PluginMixin):
         storage_dir: str = "./strax_data",
         config: Optional[Dict[str, Any]] = None,
         storage: Optional[Any] = None,
+        plugin_dirs: Optional[List[str]] = None,
+        auto_discover_plugins: bool = False,
     ):
+        """
+        Initialize Context.
+
+        Args:
+            storage_dir: 默认存储目录（使用 MemmapStorage 时）
+            config: 全局配置字典
+            storage: 自定义存储后端（必须实现 StorageBackend 接口）
+                    如果为 None，使用默认的 MemmapStorage
+            plugin_dirs: 插件搜索目录列表
+            auto_discover_plugins: 是否自动发现并注册插件
+
+        Examples:
+            >>> # 使用默认 memmap 存储
+            >>> ctx = Context(storage_dir="./data")
+
+            >>> # 使用 SQLite 存储
+            >>> from waveform_analysis.core.storage_backends import SQLiteBackend
+            >>> ctx = Context(storage=SQLiteBackend("./data.db"))
+
+            >>> # 使用工厂函数
+            >>> from waveform_analysis.core.storage_backends import create_storage_backend
+            >>> storage = create_storage_backend("sqlite", db_path="./data.db")
+            >>> ctx = Context(storage=storage)
+        """
         CacheMixin.__init__(self)
         PluginMixin.__init__(self)
 
         self.profiler = Profiler()
         self.storage_dir = storage_dir
         self.config = config or {}
+
         # Extensibility: Allow custom storage backend
-        self.storage = storage or MemmapStorage(self.storage_dir, profiler=self.profiler)
+        if storage is not None:
+            # 验证存储后端接口（可选，记录警告）
+            self._validate_storage_backend(storage)
+            self.storage = storage
+        else:
+            # 默认使用 MemmapStorage
+            self.storage = MemmapStorage(self.storage_dir, profiler=self.profiler)
 
         # Setup logger
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -60,8 +94,14 @@ class Context(CacheMixin, PluginMixin):
         self._results: Dict[tuple, Any] = {}
         # Re-entrancy guard: track (run_id, data_name) currently being computed
         self._in_progress: Dict[tuple, Any] = {}
+        self._in_progress_lock = threading.Lock()  # Protect concurrent access
         # Cache of validated configs per plugin signature
         self._resolved_config_cache: Dict[tuple, Dict[str, Any]] = {}
+
+        # Plugin discovery
+        self.plugin_dirs = plugin_dirs or []
+        if auto_discover_plugins:
+            self.discover_and_register_plugins()
 
         # Ensure storage directory exists if using default
         if not storage and not os.path.exists(self.storage_dir):
@@ -91,9 +131,70 @@ class Context(CacheMixin, PluginMixin):
             if inspect.isclass(obj) and issubclass(obj, Plugin) and obj != Plugin:
                 self.register_plugin(obj(), allow_override=allow_override)
 
+    def discover_and_register_plugins(self, allow_override: bool = False) -> int:
+        """
+        自动发现并注册插件
+
+        发现顺序：
+        1. Entry points (waveform_analysis.plugins)
+        2. 配置的插件目录
+
+        Args:
+            allow_override: 是否允许覆盖已注册的插件
+
+        Returns:
+            注册的插件数量
+        """
+        from waveform_analysis.core.plugin_loader import PluginLoader
+
+        loader = PluginLoader(self.plugin_dirs)
+        total_discovered = loader.discover_all()
+
+        # 注册发现的插件
+        registered = 0
+        for plugin_class in loader.get_plugins():
+            try:
+                self.register_plugin(plugin_class(), allow_override=allow_override)
+                registered += 1
+            except Exception as e:
+                self.logger.warning(f"Failed to register plugin {plugin_class.__name__}: {e}")
+
+        # 报告失败的插件
+        failed = loader.get_failed_plugins()
+        if failed:
+            self.logger.warning(f"Failed to load {len(failed)} plugins")
+            for name, error in list(failed.items())[:5]:  # 只显示前5个
+                self.logger.debug(f"  - {name}: {error}")
+
+        self.logger.info(f"Plugin discovery: {registered}/{total_discovered} plugins registered")
+        return registered
+
     def set_config(self, config: Dict[str, Any]):
         """Update the context configuration."""
         self.config.update(config)
+
+    def _validate_storage_backend(self, storage: Any) -> None:
+        """
+        验证存储后端是否实现了必需的接口
+
+        如果后端缺少必需方法，记录警告但不阻止使用。
+        """
+        required_methods = [
+            'exists', 'save_memmap', 'load_memmap',
+            'save_metadata', 'get_metadata', 'delete',
+            'list_keys', 'get_size', 'save_stream', 'finalize_save'
+        ]
+
+        missing_methods = []
+        for method in required_methods:
+            if not hasattr(storage, method) or not callable(getattr(storage, method)):
+                missing_methods.append(method)
+
+        if missing_methods:
+            self.logger.warning(
+                f"Storage backend {storage.__class__.__name__} is missing methods: {missing_methods}. "
+                "This may cause errors during operation."
+            )
 
     def _resolve_config_value(self, plugin: Plugin, name: str) -> Any:
         """Compute configuration value for an option without validation."""
@@ -289,14 +390,15 @@ class Context(CacheMixin, PluginMixin):
         Override run_plugin to add saving logic and config resolution.
         """
         with self.profiler.timeit("context.run_plugin"):
-            # Re-entrancy guard
-            if (run_id, data_name) in self._in_progress:
-                raise RuntimeError(
-                    f"Re-entrant call for ({run_id}, {data_name}) detected. "
-                    "This usually indicates a circular dependency at runtime."
-                )
+            # Re-entrancy guard (thread-safe)
+            with self._in_progress_lock:
+                if (run_id, data_name) in self._in_progress:
+                    raise RuntimeError(
+                        f"Re-entrant call for ({run_id}, {data_name}) detected. "
+                        "This usually indicates a circular dependency at runtime."
+                    )
+                self._in_progress[(run_id, data_name)] = True
 
-            self._in_progress[(run_id, data_name)] = True
             try:
                 # 1. Resolve execution plan
                 try:
@@ -452,7 +554,8 @@ class Context(CacheMixin, PluginMixin):
 
                 return self._get_data_from_memory(run_id, data_name)
             finally:
-                del self._in_progress[(run_id, data_name)]
+                with self._in_progress_lock:
+                    self._in_progress.pop((run_id, data_name), None)
 
     def _wrap_generator_to_save(
         self,
@@ -473,7 +576,8 @@ class Context(CacheMixin, PluginMixin):
 
         def wrapper():
             # Acquire lock before starting the stream
-            if not self.storage._acquire_lock(lock_path):
+            lock_fd = self.storage._acquire_lock(lock_path)
+            if lock_fd is None:
                 self.logger.warning(f"Could not acquire lock for {key}, skipping cache write.")
                 yield from generator
                 return
@@ -534,11 +638,11 @@ class Context(CacheMixin, PluginMixin):
                 if os.path.exists(tmp_bin_path):
                     try:
                         os.remove(tmp_bin_path)
-                    except:
+                    except Exception:
                         pass
                 raise e
             finally:
-                self.storage._release_lock(lock_path)
+                self.storage._release_lock(lock_fd, lock_path)
                 if os.path.exists(tmp_bin_path):
                     try:
                         os.remove(tmp_bin_path)

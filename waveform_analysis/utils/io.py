@@ -18,6 +18,9 @@ def parse_files_generator(
 ) -> Iterator[np.ndarray]:
     """
     Yields chunks of parsed waveform data from a list of files.
+    
+    Note: Only the first file in the list will skip header rows (skiprows).
+    Subsequent files will not skip any rows (skiprows=0) as they don't contain headers.
     """
     print(f"DEBUG: parse_files_generator called with {len(file_paths)} files")
     if not file_paths:
@@ -34,10 +37,13 @@ def parse_files_generator(
     else:
         pbar = file_paths
 
-    for fp in pbar:
+    for file_idx, fp in enumerate(pbar):
         p = Path(fp)
         if not p.exists() or p.stat().st_size == 0:
             continue
+
+        # Only the first file has header, subsequent files don't
+        file_skiprows = skiprows if file_idx == 0 else 0
 
         try:
             # Use pyarrow engine if available for faster parsing
@@ -53,7 +59,7 @@ def parse_files_generator(
                 chunk_iter = pd.read_csv(
                     fp,
                     delimiter=delimiter,
-                    skiprows=skiprows,
+                    skiprows=file_skiprows,
                     header=None,
                     engine=engine,
                     chunksize=chunksize,
@@ -64,7 +70,7 @@ def parse_files_generator(
                     pd.read_csv(
                         fp,
                         delimiter=delimiter,
-                        skiprows=skiprows,
+                        skiprows=file_skiprows,
                         header=None,
                         engine=engine,
                         on_bad_lines="warn",
@@ -112,6 +118,9 @@ def parse_and_stack_files(
     drops all-empty rows, attempts numeric coercion for TIMETAG and samples,
     and returns an empty array if no valid data. When `chunksize` is set,
     files are read in streaming chunks to reduce memory usage.
+    
+    Note: Only the first file in the list will skip header rows (skiprows).
+    Subsequent files will not skip any rows (skiprows=0) as they don't contain headers.
     """
     if not file_paths:
         return np.array([])
@@ -127,7 +136,7 @@ def parse_and_stack_files(
     else:
         pbar = file_paths
 
-    def _parse_single(fp: str):
+    def _parse_single(fp: str, file_skiprows: int):
         p = Path(fp)
         if not p.exists() or p.stat().st_size == 0:
             logger.debug("Skipping empty or missing file %s", fp)
@@ -148,7 +157,7 @@ def parse_and_stack_files(
                 chunk_iter = pd.read_csv(
                     fp,
                     delimiter=delimiter,
-                    skiprows=skiprows,
+                    skiprows=file_skiprows,
                     header=None,
                     engine=engine,
                     chunksize=chunksize,
@@ -159,7 +168,7 @@ def parse_and_stack_files(
                     pd.read_csv(
                         fp,
                         delimiter=delimiter,
-                        skiprows=skiprows,
+                        skiprows=file_skiprows,
                         header=None,
                         engine=engine,
                         on_bad_lines="warn",
@@ -181,15 +190,15 @@ def parse_and_stack_files(
                         right = numeric.astype(np.float64).reset_index(drop=True)
                         chunk = pd.concat([left, right], axis=1)
                         chunk.dropna(subset=[2], inplace=True)
-                    except Exception:
-                        logger.debug("Failed to coerce numeric columns for chunk in %s", fp, exc_info=True)
+                    except Exception as e:
+                        logger.warning("Failed to coerce numeric columns for chunk in %s: %s", fp, e)
                     if chunk.empty:
                         continue
                     try:
                         file_arrs.append(chunk.to_numpy())
-                    except Exception:
-                        logger.debug(
-                            "to_numpy failed for chunk in %s; falling back to per-row coercion", fp, exc_info=True
+                    except Exception as e:
+                        logger.warning(
+                            "to_numpy failed for chunk in %s: %s; falling back to per-row coercion", fp, e
                         )
                         rows = [list(r) for r in chunk.values]
                         max_cols = max(len(r) for r in rows)
@@ -221,13 +230,13 @@ def parse_and_stack_files(
         # Primary attempt: pandas read_csv with the fast C engine
         df = None
         try:
-            df = pd.read_csv(fp, delimiter=delimiter, skiprows=skiprows, header=None, engine="c")
+            df = pd.read_csv(fp, delimiter=delimiter, skiprows=file_skiprows, header=None, engine="c")
         except Exception:
             logger.debug("pandas read_csv (C engine) failed for %s, trying python engine with on_bad_lines='skip'", fp)
             try:
                 # on_bad_lines='skip' will drop malformed rows rather than failing
                 df = pd.read_csv(
-                    fp, delimiter=delimiter, skiprows=skiprows, header=None, engine="python", on_bad_lines="skip"
+                    fp, delimiter=delimiter, skiprows=file_skiprows, header=None, engine="python", on_bad_lines="skip"
                 )
             except Exception:
                 logger.debug(
@@ -243,13 +252,13 @@ def parse_and_stack_files(
                     sniff_delim = sniffed.delimiter
                     logger.debug("Sniffed delimiter '%s' for %s; retrying pandas read_csv", sniff_delim, fp)
                     try:
-                        df = pd.read_csv(fp, delimiter=sniff_delim, skiprows=skiprows, header=None, engine="c")
+                        df = pd.read_csv(fp, delimiter=sniff_delim, skiprows=file_skiprows, header=None, engine="c")
                     except Exception:
                         try:
                             df = pd.read_csv(
                                 fp,
                                 delimiter=sniff_delim,
-                                skiprows=skiprows,
+                                skiprows=file_skiprows,
                                 header=None,
                                 engine="python",
                                 on_bad_lines="skip",
@@ -266,7 +275,7 @@ def parse_and_stack_files(
             bad_lines = []
             with p.open("r", encoding="utf-8", errors="replace") as fh:
                 # skip header lines if any
-                for _ in range(skiprows):
+                for _ in range(file_skiprows):
                     try:
                         next(fh)
                     except StopIteration:
@@ -307,8 +316,8 @@ def parse_and_stack_files(
             # TIMETAG may sometimes be string; attempt to coerce common numeric formats
             df.iloc[:, 2] = pd.to_numeric(df.iloc[:, 2], errors="coerce")
             df.dropna(subset=[2], inplace=True)
-        except Exception:
-            logger.debug("Failed to coerce numeric columns for %s", fp, exc_info=True)
+        except Exception as e:
+            logger.warning("Failed to coerce numeric columns for %s: %s", fp, e)
 
         if df.empty:
             logger.debug("No numeric data left after coercion: %s", fp)
@@ -356,7 +365,11 @@ def parse_and_stack_files(
         executor_name = "file_parsing_process" if use_process_pool else "file_parsing_thread"
         
         with get_executor(executor_name, executor_type, max_workers=n_jobs, reuse=True) as ex:
-            futures = {ex.submit(_parse_single, fp): fp for fp in fps}
+            # Only first file skips header rows, subsequent files don't
+            futures = {
+                ex.submit(_parse_single, fp, skiprows if idx == 0 else 0): fp 
+                for idx, fp in enumerate(fps)
+            }
             results_map = {}
             for future in as_completed(futures):
                 fp = futures[future]
@@ -373,8 +386,10 @@ def parse_and_stack_files(
             results = [results_map[fp] for fp in fps]
     else:
         results = []
-        for fp in fps:
-            results.append(_parse_single(fp))
+        for idx, fp in enumerate(fps):
+            # Only first file skips header rows, subsequent files don't
+            file_skiprows = skiprows if idx == 0 else 0
+            results.append(_parse_single(fp, file_skiprows))
             if pbar:
                 pbar.update(1)
 

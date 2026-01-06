@@ -41,29 +41,32 @@ class ExecutorManager:
     """
     
     _instance: Optional["ExecutorManager"] = None
-    _lock = threading.Lock()
-    
+    _lock = threading.RLock()  # Use RLock for reentrant locking
+
     def __new__(cls):
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super().__new__(cls)
-                    cls._instance._initialized = False
+                    instance = super().__new__(cls)
+                    instance._initialized = False
+                    cls._instance = instance
         return cls._instance
-    
+
     def __init__(self):
-        if self._initialized:
-            return
-        
-        self._executors: Dict[str, Executor] = {}
-        self._executor_configs: Dict[str, Dict[str, Any]] = {}
-        self._executor_refs: Dict[str, int] = {}  # 引用计数
-        self._lock = threading.Lock()
-        self._default_max_workers = multiprocessing.cpu_count()
-        
-        # 注册退出时的清理函数
-        atexit.register(self.shutdown_all)
-        self._initialized = True
+        # Thread-safe initialization check
+        with self._lock:
+            if self._initialized:
+                return
+
+            self._executors: Dict[str, Executor] = {}
+            self._executor_configs: Dict[str, Dict[str, Any]] = {}
+            self._executor_refs: Dict[str, int] = {}  # 引用计数
+            self._executor_lock = threading.Lock()  # Separate lock for executor operations
+            self._default_max_workers = multiprocessing.cpu_count()
+
+            # 注册退出时的清理函数
+            atexit.register(self.shutdown_all)
+            self._initialized = True
     
     def get_executor(
         self,
@@ -90,19 +93,19 @@ class ExecutorManager:
             max_workers = self._default_max_workers
         
         key = f"{name}_{executor_type}_{max_workers}"
-        
-        with self._lock:
+
+        with self._executor_lock:
             if reuse and key in self._executors:
                 # 重用现有执行器
                 self._executor_refs[key] += 1
                 return self._executors[key]
-            
+
             # 创建新执行器
             if executor_type == "process":
                 executor = ProcessPoolExecutor(max_workers=max_workers, **kwargs)
             else:
                 executor = ThreadPoolExecutor(max_workers=max_workers, **kwargs)
-            
+
             self._executors[key] = executor
             self._executor_configs[key] = {
                 "name": name,
@@ -111,26 +114,26 @@ class ExecutorManager:
                 **kwargs
             }
             self._executor_refs[key] = 1
-            
+
             return executor
-    
+
     def release_executor(self, name: str, executor_type: str = "thread", max_workers: Optional[int] = None):
         """
         释放执行器引用（引用计数减1）。
-        
+
         当引用计数为0时，执行器会被关闭。
         """
         if max_workers is None:
             max_workers = self._default_max_workers
-        
+
         key = f"{name}_{executor_type}_{max_workers}"
-        
-        with self._lock:
+
+        with self._executor_lock:
             if key in self._executor_refs:
                 self._executor_refs[key] -= 1
                 if self._executor_refs[key] <= 0:
                     self._shutdown_executor(key)
-    
+
     def _shutdown_executor(self, key: str, wait: bool = True):
         """关闭指定执行器"""
         if key in self._executors:
@@ -139,24 +142,24 @@ class ExecutorManager:
             del self._executors[key]
             del self._executor_configs[key]
             del self._executor_refs[key]
-    
+
     def shutdown_all(self, wait: bool = True):
         """关闭所有执行器"""
-        with self._lock:
+        with self._executor_lock:
             for key in list(self._executors.keys()):
                 self._shutdown_executor(key, wait=wait)
-    
+
     def shutdown_executor(self, name: str, executor_type: str = "thread", max_workers: Optional[int] = None, wait: bool = True):
         """关闭指定名称的执行器"""
         if max_workers is None:
             max_workers = self._default_max_workers
-        
+
         key = f"{name}_{executor_type}_{max_workers}"
-        
-        with self._lock:
+
+        with self._executor_lock:
             if key in self._executors:
                 self._shutdown_executor(key, wait=wait)
-    
+
     @contextmanager
     def executor(
         self,
@@ -168,7 +171,7 @@ class ExecutorManager:
     ) -> Iterator[Executor]:
         """
         上下文管理器：自动获取和释放执行器。
-        
+
         示例:
             with manager.executor("my_task", "process", max_workers=4) as ex:
                 futures = [ex.submit(func, arg) for arg in args]
@@ -179,10 +182,10 @@ class ExecutorManager:
             yield executor
         finally:
             self.release_executor(name, executor_type, max_workers)
-    
+
     def list_executors(self) -> Dict[str, Dict[str, Any]]:
         """列出所有活跃的执行器"""
-        with self._lock:
+        with self._executor_lock:
             return {
                 key: {
                     **self._executor_configs[key],

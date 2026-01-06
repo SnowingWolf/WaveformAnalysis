@@ -100,7 +100,6 @@ class WaveformDataset(CacheMixin, StepMixin):
         self.raw_files: List[List[str]] = []
         self.waveforms: List[np.ndarray] = []
         self.st_waveforms: List[np.ndarray] = []
-        self.event_length: Optional[np.ndarray] = None
 
         # 特征和结果
         self.peaks: List[np.ndarray] = []
@@ -258,7 +257,6 @@ class WaveformDataset(CacheMixin, StepMixin):
         self.waveforms = []
         self.st_waveforms = []
         self._timestamp_index = []
-        self.event_length = None
 
     @chainable_step
     def structure_waveforms(self, verbose: bool = True) -> "WaveformDataset":
@@ -269,11 +267,11 @@ class WaveformDataset(CacheMixin, StepMixin):
             return self
 
         self.st_waveforms = self.ctx.get_data(self.run_name, "st_waveforms")
-        self.event_length = self.ctx.get_data(self.run_name, "event_length")
         self._build_timestamp_index()
 
         if verbose:
-            print(f"结构化波形完成，配对长度: {self.event_length}")
+            n_events = [len(st_ch) for st_ch in self.st_waveforms]
+            print(f"结构化波形完成，各通道事件数: {n_events}")
         return self
 
     @chainable_step

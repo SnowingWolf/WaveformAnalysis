@@ -146,68 +146,33 @@ class TestMemmapStorage:
         assert storage.get_size("nonexistent") == 0
 
     def test_lock_mechanism(self, storage):
-        """测试文件锁机制"""
+        """测试文件锁机制（fcntl based）"""
         _, _, lock_path = storage._get_paths("lock_test")
 
         # Acquire lock
-        assert storage._acquire_lock(lock_path)
-        # Try to acquire again (should fail if not re-entrant, but our impl uses simple open)
-        # Actually our impl uses:
-        # with open(lock_path, "w") as f: f.write(str(os.getpid()))
-        # It doesn't actually block other processes unless we use fcntl.
-        # Let's check the implementation.
-        storage._release_lock(lock_path)
-        assert not os.path.exists(lock_path)
+        lock_fd = storage._acquire_lock(lock_path)
+        assert lock_fd is not None, "Should acquire lock successfully"
 
+        # Release lock
+        storage._release_lock(lock_fd, lock_path)
+
+        # Lock file may still exist but should be releasable
+        # (fcntl locks are released when fd is closed)
+
+    @pytest.mark.skip(reason="Stale lock detection not used with fcntl locks")
     def test_acquire_removes_stale_lock(self, storage, tmp_path):
-        """测试过期锁会被移除"""
-        _, _, lock_path = storage._get_paths("stale_test")
+        """测试过期锁会被移除（不适用于fcntl）"""
+        pass
 
-        # 写入一个旧的锁信息（较早的 timestamp）
-        stale_info = {"pid": 999999, "timestamp": time.time() - 1000}
-        with open(lock_path, "w") as f:
-            json.dump(stale_info, f)
-
-        # 通过传入较小的 stale_timeout 确保被认为是过期锁
-        assert storage._acquire_lock(lock_path, timeout=1, stale_timeout=1)
-        storage._release_lock(lock_path)
-        assert not os.path.exists(lock_path)
-
+    @pytest.mark.skip(reason="Live lock check not used with fcntl locks")
     def test_acquire_respects_live_lock(self, storage, tmp_path, monkeypatch):
-        """如果 PID 被认为是存活的，acquire 不应移除锁"""
-        _, _, lock_path = storage._get_paths("live_test")
+        """如果 PID 被认为是存活的，acquire 不应移除锁（不适用于fcntl）"""
+        pass
 
-        stale_info = {"pid": 9999, "timestamp": time.time() - 1000}
-        with open(lock_path, "w") as f:
-            json.dump(stale_info, f)
-
-        # 模拟 os.kill 不抛异常，表示进程仍然存活
-        def fake_kill(pid, sig):
-            return None
-
-        monkeypatch.setattr(os, "kill", fake_kill)
-
-        assert not storage._acquire_lock(lock_path, timeout=0.5, stale_timeout=1)
-        # 锁文件应保留
-        assert os.path.exists(lock_path)
-
+    @pytest.mark.skip(reason="PID-based lock detection not used with fcntl locks")
     def test_acquire_removes_stale_lock_when_pid_dead(self, storage, tmp_path, monkeypatch):
-        """如果 PID 不存在（os.kill 抛出），应移除锁并获取"""
-        _, _, lock_path = storage._get_paths("stale_pid_test")
-
-        stale_info = {"pid": 9999, "timestamp": time.time() - 1000}
-        with open(lock_path, "w") as f:
-            json.dump(stale_info, f)
-
-        # 模拟 os.kill 抛出 ProcessLookupError，表示进程不存在
-        def fake_kill(pid, sig):
-            raise ProcessLookupError
-
-        monkeypatch.setattr(os, "kill", fake_kill)
-
-        assert storage._acquire_lock(lock_path, timeout=1, stale_timeout=1)
-        storage._release_lock(lock_path)
-        assert not os.path.exists(lock_path)
+        """如果 PID 不存在（os.kill 抛出），应移除锁并获取（不适用于fcntl）"""
+        pass
 
     def test_load_memmap_not_exists(self, storage):
         """测试加载不存在的 memmap"""

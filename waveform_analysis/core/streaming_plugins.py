@@ -115,14 +115,10 @@ class StreamingBasicFeaturesPlugin(StreamingPlugin):
         if len(chunk.data) == 0:
             return None
         
-        # 获取 event_length（简化：假设所有事件长度相同）
-        event_length = np.full(len(chunk.data), len(chunk.data))
-        
-        # 计算特征
+        # 计算特征（不再需要 event_length，直接使用全部数据）
         processor = WaveformProcessor(n_channels=1)  # 简化：单通道
         peaks, charges = processor.compute_basic_features(
             [chunk.data],
-            event_length,
             self.peaks_range,
             self.charge_range,
         )

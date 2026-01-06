@@ -7,6 +7,14 @@
 
 ## [未发布]
 
+### 修复
+- **CSV 表头处理**: 修复了 CSV 文件读取时的表头处理问题
+  - 现在只有每个通道的第一个文件会跳过表头行（`skiprows`）
+  - 后续文件不再跳过任何行（`skiprows=0`），因为它们不包含表头
+  - 影响函数：`parse_and_stack_files` 和 `parse_files_generator`
+  - 相关文档：`docs/CSV_HEADER_HANDLING.md`
+  - 测试：`tests/test_csv_header_handling.py`
+
 ### 计划功能
 - 并行处理支持
 - 更多内置拟合模型
