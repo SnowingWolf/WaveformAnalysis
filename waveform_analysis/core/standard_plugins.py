@@ -93,7 +93,13 @@ class StWaveformsPlugin(Plugin):
     def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
         waveforms = context.get_data(run_id, "waveforms")
         waveform_struct = WaveformStruct(waveforms)
-        st_waveforms = waveform_struct.structure_waveforms(show_progress=context.config.get("show_progress", True))
+        # 通道号现在从CSV的BOARD/CHANNEL字段读取并映射，不再使用start_channel_slice
+        # 保留start_channel_slice参数以向后兼容，但实际不再使用
+        start_channel_slice = context.config.get("start_channel_slice", 0)
+        st_waveforms = waveform_struct.structure_waveforms(
+            show_progress=context.config.get("show_progress", True),
+            start_channel_slice=start_channel_slice  # 保留参数以兼容，但不再使用
+        )
         return st_waveforms
 
 
@@ -183,11 +189,16 @@ class DataFramePlugin(Plugin):
         peaks = context.get_data(run_id, "peaks")
         charges = context.get_data(run_id, "charges")
 
+        # 通道号现在从st_waveforms中的channel字段读取（从BOARD/CHANNEL映射得到）
+        # 保留start_channel_slice参数以向后兼容，但实际不再使用
+        start_channel_slice = context.config.get("start_channel_slice", 0)
+
         processor = WaveformProcessor(n_channels=len(st_waveforms))
         df = processor.build_dataframe(
             st_waveforms,
             peaks,
             charges,
+            start_channel_slice=start_channel_slice,  # 保留参数以兼容，但不再使用
         )
         return df
 

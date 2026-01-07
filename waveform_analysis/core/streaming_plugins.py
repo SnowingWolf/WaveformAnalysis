@@ -53,7 +53,13 @@ class StreamingStWaveformsPlugin(StreamingPlugin):
         
         # 结构化处理
         struct = WaveformStruct(waveforms)
-        st_waveforms = struct.structure_waveforms(show_progress=False)
+        # 通道号现在从CSV的BOARD/CHANNEL字段读取并映射，不再使用start_channel_slice
+        # 保留start_channel_slice参数以向后兼容，但实际不再使用
+        start_channel_slice = context.config.get("start_channel_slice", 0)
+        st_waveforms = struct.structure_waveforms(
+            show_progress=False,
+            start_channel_slice=start_channel_slice  # 保留参数以兼容，但不再使用
+        )
         
         # 合并所有通道的结构化数据
         if len(st_waveforms) > 0:

@@ -52,6 +52,7 @@ RECORD_DTYPE = export(
         ("baseline", "f8"),  # float64 for baseline
         ("timestamp", "i8"),  # int64 for ps-level timestamps
         ("event_length", "i8"),  # length of the event
+        ("channel", "i2"),  # int16 for channel index (physical channel number)
         ("wave", "f4", (DEFAULT_WAVE_LENGTH,)),  # fixed length array for performance
     ],
     name="RECORD_DTYPE",
@@ -124,6 +125,27 @@ def find_hits(
 
 
 @export
+def create_channel_mapping(board_channel_pairs: List[Tuple[int, int]]) -> Dict[Tuple[int, int], int]:
+    """
+    创建 (BOARD, CHANNEL) 到物理通道号的映射。
+    
+    参数:
+        board_channel_pairs: (BOARD, CHANNEL) 元组列表
+    
+    返回:
+        映射字典：{(BOARD, CHANNEL): 物理通道号}
+        
+    示例:
+        >>> pairs = [(0, 0), (0, 1), (0, 2), (1, 0)]
+        >>> mapping = create_channel_mapping(pairs)
+        >>> mapping
+        {(0, 0): 0, (0, 1): 1, (0, 2): 2, (1, 0): 3}
+    """
+    unique_pairs = sorted(set(board_channel_pairs))
+    return {pair: idx for idx, pair in enumerate(unique_pairs)}
+
+
+@export
 class WaveformStruct:
     def __init__(self, waveforms: List[np.ndarray]):
         """
@@ -135,7 +157,18 @@ class WaveformStruct:
         self.event_length = None
         self.waveform_structureds = None
 
-    def _structure_waveform(self, waves: Optional[np.ndarray] = None) -> np.ndarray:
+    def _structure_waveform(
+        self, 
+        waves: Optional[np.ndarray] = None, 
+        channel_mapping: Optional[Dict[Tuple[int, int], int]] = None
+    ) -> np.ndarray:
+        """
+        将波形数组转换为结构化数组。
+        
+        参数:
+            waves: 波形数组，如果为 None 则使用第一个通道
+            channel_mapping: (BOARD, CHANNEL) 到物理通道号的映射字典
+        """
         # If no explicit waves passed, use the first channel
         if waves is None:
             if not self.waveforms:
@@ -147,6 +180,31 @@ class WaveformStruct:
             return np.zeros(0, dtype=RECORD_DTYPE)
 
         waveform_structured = np.zeros(len(waves), dtype=RECORD_DTYPE)
+
+        # 从 CSV 数据中提取 BOARD 和 CHANNEL（第0列和第1列）
+        try:
+            board_vals = waves[:, 0].astype(int)  # BOARD 列
+            channel_vals = waves[:, 1].astype(int)  # CHANNEL 列
+        except Exception:
+            # 回退：如果无法读取 BOARD/CHANNEL，使用默认值
+            logger.warning("无法从波形数据中提取 BOARD/CHANNEL，使用回退逻辑")
+            board_vals = np.zeros(len(waves), dtype=int)
+            channel_vals = np.zeros(len(waves), dtype=int)
+
+        # 使用通道映射转换为物理通道号
+        if channel_mapping:
+            physical_channels = np.array([
+                channel_mapping.get((int(b), int(c)), -1) 
+                for b, c in zip(board_vals, channel_vals)
+            ])
+            # 检查是否有未映射的通道
+            if np.any(physical_channels == -1):
+                unmapped = set(zip(board_vals[physical_channels == -1], channel_vals[physical_channels == -1]))
+                logger.warning(f"发现未映射的 (BOARD, CHANNEL) 组合: {unmapped}")
+        else:
+            # 回退：只使用 CHANNEL（向后兼容）
+            logger.debug("未提供通道映射，使用 CHANNEL 字段作为物理通道号")
+            physical_channels = channel_vals
 
         # Safely compute baseline and timestamp
         try:
@@ -166,22 +224,54 @@ class WaveformStruct:
             baseline_vals = np.array(baselines, dtype=float)
 
         try:
-            timestamps = waves[:, 2].astype(np.int64)
+            timestamps = waves[:, 2].astype(np.int64)  # TIMETAG 列（第2列）
         except Exception:
             # Fallback: extract element 2 from each row
             timestamps = np.array([int(row[2]) for row in waves], dtype=np.int64)
 
         waveform_structured["baseline"] = baseline_vals
         waveform_structured["timestamp"] = timestamps
+        waveform_structured["channel"] = physical_channels  # 使用从 BOARD/CHANNEL 映射得到的物理通道号
 
         # Vectorized assignment for fixed-length wave
+        # SAMPLES 从第 7 列开始（索引 7+）
         wave_data = waves[:, 7:]
         n_samples = min(wave_data.shape[1], DEFAULT_WAVE_LENGTH)
         waveform_structured["wave"][:, :n_samples] = wave_data[:, :n_samples]
 
         return waveform_structured
 
-    def structure_waveforms(self, show_progress: bool = False) -> List[np.ndarray]:
+    def structure_waveforms(self, show_progress: bool = False, start_channel_slice: int = 0) -> List[np.ndarray]:
+        """
+        将所有通道的波形转换为结构化数组。
+        
+        参数:
+            show_progress: 是否显示进度条
+            start_channel_slice: 起始通道偏移量（保留以兼容，但不再使用，改为从CSV读取BOARD/CHANNEL）
+        """
+        # 第一步：扫描所有波形数据，收集所有唯一的 (BOARD, CHANNEL) 组合
+        all_board_channel_pairs = []
+        for waves in self.waveforms:
+            if len(waves) > 0:
+                try:
+                    # 从 CSV 数据中提取 BOARD 和 CHANNEL（第0列和第1列）
+                    boards = waves[:, 0].astype(int)
+                    channels = waves[:, 1].astype(int)
+                    all_board_channel_pairs.extend(zip(boards, channels))
+                except Exception:
+                    logger.warning("无法从波形数据中提取 BOARD/CHANNEL，跳过该通道")
+                    continue
+        
+        # 创建 (BOARD, CHANNEL) 到物理通道号的映射
+        if all_board_channel_pairs:
+            channel_mapping = create_channel_mapping(all_board_channel_pairs)
+            logger.debug(f"创建通道映射: {channel_mapping}")
+        else:
+            # 如果没有找到 BOARD/CHANNEL 数据，使用回退逻辑
+            logger.warning("未找到 BOARD/CHANNEL 数据，使用回退逻辑（基于列表索引）")
+            channel_mapping = None
+        
+        # 第二步：使用映射处理每个通道
         if show_progress:
             try:
                 from tqdm import tqdm
@@ -192,7 +282,10 @@ class WaveformStruct:
         else:
             pbar = self.waveforms
 
-        self.waveform_structureds = [self._structure_waveform(waves) for waves in pbar]
+        self.waveform_structureds = [
+            self._structure_waveform(waves, channel_mapping=channel_mapping) 
+            for waves in pbar
+        ]
         return self.waveform_structureds
 
     def get_event_length(self) -> np.ndarray:
@@ -274,13 +367,22 @@ class WaveformProcessor:
         peaks: List[np.ndarray],
         charges: List[np.ndarray],
         extra_features: Optional[Dict[str, List[np.ndarray]]] = None,
+        start_channel_slice: int = 0,
     ) -> pd.DataFrame:
         """
         构建波形 DataFrame。
         
         每个通道使用自己的全部事件数（不再需要 event_length 限制）。
+        
+        参数:
+            start_channel_slice: 起始通道偏移量（保留以向后兼容，但不再使用；通道号现在从st_waveforms中的channel字段读取，该字段由BOARD/CHANNEL映射得到）
         """
-        df = build_waveform_df(st_waveforms, peaks, charges, n_channels=self.n_channels)
+        # 使用实际的 st_waveforms 长度，确保处理所有通道
+        df = build_waveform_df(
+            st_waveforms, peaks, charges, 
+            n_channels=len(st_waveforms),  # 使用实际长度而不是 self.n_channels
+            start_channel_slice=start_channel_slice
+        )
 
         if extra_features:
             for name, feat_list in extra_features.items():
@@ -325,12 +427,36 @@ def build_waveform_df(
     st_waveforms: List[np.ndarray],
     peaks: List[np.ndarray],
     charges: List[np.ndarray],
-    n_channels: int = 6,
+    n_channels: Optional[int] = None,
+    start_channel_slice: int = 0,
 ) -> pd.DataFrame:
     """把每个通道的 timestamp / charge / peak / channel 拼成一个 DataFrame.
     
     每个通道使用自己的全部事件数（不再需要 event_length 限制）。
+    
+    参数:
+        n_channels: 通道数量（可选），如果未提供则使用 len(st_waveforms)
+        start_channel_slice: 起始通道偏移量（保留以向后兼容，但不再使用；通道号现在从st_waveforms中的channel字段读取，该字段由BOARD/CHANNEL映射得到）
     """
+    # 使用实际的 st_waveforms 长度，确保处理所有有数据的通道
+    actual_n_channels = len(st_waveforms)
+    if n_channels is not None and n_channels != actual_n_channels:
+        logger.warning(
+            f"build_waveform_df: n_channels ({n_channels}) != len(st_waveforms) ({actual_n_channels}), "
+            f"using actual length {actual_n_channels}"
+        )
+    n_channels = actual_n_channels
+    
+    # 验证 peaks 和 charges 的长度匹配
+    if len(peaks) != n_channels:
+        raise ValueError(
+            f"peaks list length ({len(peaks)}) != st_waveforms length ({n_channels})"
+        )
+    if len(charges) != n_channels:
+        raise ValueError(
+            f"charges list length ({len(charges)}) != st_waveforms length ({n_channels})"
+        )
+    
     all_timestamps = []
     all_charges = []
     all_peaks = []
@@ -345,7 +471,9 @@ def build_waveform_df(
         all_timestamps.append(ts)
         all_charges.append(qs)
         all_peaks.append(ps)
-        all_channels.append(np.full_like(ts, ch, dtype=int))
+        # 从 st_waveforms 中提取实际的 channel 值（从 BOARD/CHANNEL 映射得到）
+        actual_channels = np.asarray(st_waveforms[ch]["channel"])
+        all_channels.append(actual_channels)
 
     all_timestamps = np.concatenate(all_timestamps)
     all_charges = np.concatenate(all_charges)
