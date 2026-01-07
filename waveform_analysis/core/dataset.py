@@ -207,10 +207,38 @@ class WaveformDataset(CacheMixin, StepMixin):
         return None
 
     # -------- 链式步骤相关工具 --------
-    def clear_cache(self) -> None:
-        """清除 Context 缓存。"""
-        # 委托给 Context 的存储清理（如果需要）
-        pass
+    def clear_cache(
+        self, 
+        step_name: Optional[str] = None,
+        clear_memory: bool = True,
+        clear_disk: bool = True
+    ) -> int:
+        """
+        清理缓存。
+        
+        参数:
+            step_name: 步骤名称（如 "st_waveforms", "df"），如果为 None 则清理所有步骤
+            clear_memory: 是否清理内存缓存
+            clear_disk: 是否清理磁盘缓存
+        
+        返回:
+            清理的缓存项数量
+        
+        示例:
+            >>> ds = WaveformDataset(...)
+            >>> # 清理单个步骤的缓存
+            >>> ds.clear_cache("st_waveforms")
+            >>> # 清理所有缓存
+            >>> ds.clear_cache()
+            >>> # 只清理内存缓存
+            >>> ds.clear_cache("df", clear_disk=False)
+        """
+        return self.ctx.clear_cache_for(
+            self.run_name, 
+            step_name, 
+            clear_memory=clear_memory,
+            clear_disk=clear_disk
+        )
 
     def _validate_data_dir(self):
         """验证数据目录是否存在。若启用了 DAQ 扫描，可在目录缺失时尝试从 DAQ 扫描获取运行信息。"""

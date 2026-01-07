@@ -98,6 +98,12 @@ class Context(CacheMixin, PluginMixin):
         # Cache of validated configs per plugin signature
         self._resolved_config_cache: Dict[tuple, Dict[str, Any]] = {}
 
+        # Performance optimization caches
+        self._execution_plan_cache: Dict[str, List[str]] = {}  # data_name -> execution plan
+        self._lineage_cache: Dict[str, Dict[str, Any]] = {}    # data_name -> lineage dict
+        self._lineage_hash_cache: Dict[str, str] = {}          # data_name -> lineage hash
+        self._key_cache: Dict[tuple, str] = {}                 # (run_id, data_name) -> key
+
         # Plugin discovery
         self.plugin_dirs = plugin_dirs or []
         if auto_discover_plugins:
@@ -251,6 +257,51 @@ class Context(CacheMixin, PluginMixin):
         """Clear cached validated configurations."""
         self._resolved_config_cache.clear()
 
+    def clear_performance_caches(self):
+        """
+        Clear all performance optimization caches.
+
+        Should be called when plugins are registered/unregistered or
+        when plugin configurations change.
+        """
+        self._execution_plan_cache.clear()
+        self._lineage_cache.clear()
+        self._lineage_hash_cache.clear()
+        self._key_cache.clear()
+        self.logger.debug("Performance caches cleared")
+
+    def _invalidate_caches_for(self, data_name: str):
+        """
+        Invalidate caches that depend on a specific data type.
+
+        Called when a plugin providing data_name is registered or changed.
+        """
+        # Clear execution plan cache for data_name and anything that depends on it
+        if data_name in self._execution_plan_cache:
+            del self._execution_plan_cache[data_name]
+
+        # Find and clear plans that include this data_name
+        to_remove = []
+        for cached_name, plan in self._execution_plan_cache.items():
+            if data_name in plan:
+                to_remove.append(cached_name)
+
+        for name in to_remove:
+            del self._execution_plan_cache[name]
+
+        # Clear lineage caches
+        if data_name in self._lineage_cache:
+            del self._lineage_cache[data_name]
+        if data_name in self._lineage_hash_cache:
+            del self._lineage_hash_cache[data_name]
+
+        # Clear key cache entries for this data_name
+        keys_to_remove = [k for k in self._key_cache if k[1] == data_name]
+        for k in keys_to_remove:
+            del self._key_cache[k]
+
+        self.logger.debug(f"Caches invalidated for '{data_name}'")
+
     def _set_data(self, run_id: str, name: str, value: Any):
         """Internal helper to set data in _results and optionally as attribute."""
         self._results[(run_id, name)] = value
@@ -400,10 +451,15 @@ class Context(CacheMixin, PluginMixin):
                 self._in_progress[(run_id, data_name)] = True
 
             try:
-                # 1. Resolve execution plan
+                # 1. Resolve execution plan (with caching)
                 try:
                     with self.profiler.timeit("context.resolve_dependencies"):
-                        plan = self.resolve_dependencies(data_name)
+                        # Check cache first
+                        if data_name in self._execution_plan_cache:
+                            plan = self._execution_plan_cache[data_name]
+                        else:
+                            plan = self.resolve_dependencies(data_name)
+                            self._execution_plan_cache[data_name] = plan
                 except ValueError:
                     val = self._get_data_from_memory(run_id, data_name)
                     if val is not None:
@@ -663,7 +719,13 @@ class Context(CacheMixin, PluginMixin):
     def get_lineage(self, data_name: str, _visited: Optional[set] = None) -> Dict[str, Any]:
         """
         Get the lineage (recipe) for a data type.
+
+        Uses caching for performance optimization.
         """
+        # Check cache (only for non-recursive calls)
+        if _visited is None and data_name in self._lineage_cache:
+            return self._lineage_cache[data_name]
+
         if _visited is None:
             _visited = set()
 
@@ -701,6 +763,11 @@ class Context(CacheMixin, PluginMixin):
         if plugin.output_dtype is not None:
             # Standardize dtype to avoid version differences in str(dtype)
             lineage["dtype"] = np.dtype(plugin.output_dtype).descr
+
+        # Cache the lineage (only for top-level calls)
+        if len(_visited) == 1:  # Top-level call
+            self._lineage_cache[data_name] = lineage
+
         return lineage
 
     def show_config(self, data_name: Optional[str] = None):
@@ -751,17 +818,149 @@ class Context(CacheMixin, PluginMixin):
     def key_for(self, run_id: str, data_name: str) -> str:
         """
         Get a unique key (hash) for a data type and run.
+
+        Uses caching for performance optimization.
         """
+        # Check cache first
+        cache_key = (run_id, data_name)
+        if cache_key in self._key_cache:
+            return self._key_cache[cache_key]
+
         import hashlib
         import json
 
-        lineage = self.get_lineage(data_name)
-        # Use default=str to handle any non-serializable objects gracefully,
-        # though we try to standardize them in get_lineage.
-        lineage_json = json.dumps(lineage, sort_keys=True, default=str)
-        lineage_hash = hashlib.sha1(lineage_json.encode()).hexdigest()[:8]
+        # Check if we have cached lineage hash
+        if data_name in self._lineage_hash_cache:
+            lineage_hash = self._lineage_hash_cache[data_name]
+        else:
+            lineage = self.get_lineage(data_name)
+            # Use default=str to handle any non-serializable objects gracefully,
+            # though we try to standardize them in get_lineage.
+            lineage_json = json.dumps(lineage, sort_keys=True, default=str)
+            lineage_hash = hashlib.sha1(lineage_json.encode()).hexdigest()[:8]
+            self._lineage_hash_cache[data_name] = lineage_hash
 
-        return f"{run_id}-{data_name}-{lineage_hash}"
+        key = f"{run_id}-{data_name}-{lineage_hash}"
+        self._key_cache[cache_key] = key
+        return key
+
+    def clear_cache_for(
+        self, 
+        run_id: str, 
+        data_name: Optional[str] = None,
+        clear_memory: bool = True,
+        clear_disk: bool = True
+    ) -> int:
+        """
+        清理指定运行和步骤的缓存。
+        
+        参数:
+            run_id: 运行 ID
+            data_name: 数据名称（步骤名称），如果为 None 则清理所有步骤
+            clear_memory: 是否清理内存缓存
+            clear_disk: 是否清理磁盘缓存
+        
+        返回:
+            清理的缓存项数量
+        
+        示例:
+            >>> ctx = Context()
+            >>> # 清理单个步骤的缓存
+            >>> ctx.clear_cache_for("run_001", "st_waveforms")
+            >>> # 清理所有步骤的缓存
+            >>> ctx.clear_cache_for("run_001")
+            >>> # 只清理内存缓存
+            >>> ctx.clear_cache_for("run_001", "df", clear_disk=False)
+        """
+        count = 0
+        
+        # 确定要清理的数据名称列表
+        if data_name is None:
+            # 清理所有已注册插件提供的数据
+            data_names = list(self._plugins.keys())
+        else:
+            data_names = [data_name]
+        
+        for name in data_names:
+            # 清理内存缓存
+            if clear_memory:
+                key = (run_id, name)
+                if key in self._results:
+                    del self._results[key]
+                    count += 1
+                    self.logger.debug(f"Cleared memory cache for ({run_id}, {name})")
+            
+            # 清理磁盘缓存
+            if clear_disk:
+                try:
+                    cache_key = self.key_for(run_id, name)
+                    deleted = self._delete_disk_cache(cache_key)
+                    count += deleted
+                    if deleted > 0:
+                        self.logger.debug(f"Cleared disk cache for ({run_id}, {name})")
+                except Exception as e:
+                    self.logger.warning(f"Failed to clear disk cache for ({run_id}, {name}): {e}")
+        
+        return count
+    
+    def _delete_disk_cache(self, key: str) -> int:
+        """
+        删除磁盘缓存（包括多通道数据和 DataFrame）。
+        
+        参数:
+            key: 缓存键
+        
+        返回:
+            删除的缓存项数量
+        """
+        count = 0
+        
+        # 删除主缓存文件
+        if self.storage.exists(key):
+            try:
+                self.storage.delete(key)
+                count += 1
+            except Exception as e:
+                self.logger.warning(f"Failed to delete cache key {key}: {e}")
+        
+        # 删除多通道数据（{key}_ch0, {key}_ch1, ...）
+        ch_idx = 0
+        while True:
+            ch_key = f"{key}_ch{ch_idx}"
+            if self.storage.exists(ch_key):
+                try:
+                    self.storage.delete(ch_key)
+                    count += 1
+                except Exception as e:
+                    self.logger.warning(f"Failed to delete multi-channel cache {ch_key}: {e}")
+                ch_idx += 1
+            else:
+                break
+        
+        # 删除 DataFrame 缓存（{key}.parquet）
+        # 检查 storage 是否支持 DataFrame 存储（有 save_dataframe 方法）
+        if hasattr(self.storage, 'save_dataframe'):
+            # 对于 MemmapStorage，parquet 文件存储在 base_dir 中
+            if hasattr(self.storage, 'base_dir'):
+                parquet_path = os.path.join(self.storage.base_dir, f"{key}.parquet")
+                if os.path.exists(parquet_path):
+                    try:
+                        os.remove(parquet_path)
+                        count += 1
+                    except Exception as e:
+                        self.logger.warning(f"Failed to delete parquet file {parquet_path}: {e}")
+            # 对于其他存储后端，如果 db_path 存在，可能在同目录下
+            elif hasattr(self.storage, 'db_path'):
+                base_dir = os.path.dirname(self.storage.db_path)
+                parquet_path = os.path.join(base_dir, f"{key}.parquet")
+                if os.path.exists(parquet_path):
+                    try:
+                        os.remove(parquet_path)
+                        count += 1
+                    except Exception as e:
+                        self.logger.warning(f"Failed to delete parquet file {parquet_path}: {e}")
+        
+        return count
 
     def __repr__(self):
         return f"Context(storage='{self.storage_dir}', plugins={self.list_provided_data()})"
