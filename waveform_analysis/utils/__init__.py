@@ -13,6 +13,11 @@ from .loader import (
     get_waveforms,
     get_waveforms_generator,
 )
+from .event_filters import (
+    filter_events_by_function,
+    filter_coincidence_events,
+    extract_channel_attributes,
+)
 
 __all__ = [
     "DAQRun",
@@ -24,4 +29,7 @@ __all__ = [
     "build_filetime_index",
     "get_files_by_filetime",
     "get_files_before",
+    "filter_events_by_function",
+    "filter_coincidence_events",
+    "extract_channel_attributes",
 ]
