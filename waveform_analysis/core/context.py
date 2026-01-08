@@ -849,7 +849,8 @@ class Context(CacheMixin, PluginMixin):
         run_id: str, 
         data_name: Optional[str] = None,
         clear_memory: bool = True,
-        clear_disk: bool = True
+        clear_disk: bool = True,
+        verbose: bool = True
     ) -> int:
         """
         清理指定运行和步骤的缓存。
@@ -859,6 +860,7 @@ class Context(CacheMixin, PluginMixin):
             data_name: 数据名称（步骤名称），如果为 None 则清理所有步骤
             clear_memory: 是否清理内存缓存
             clear_disk: 是否清理磁盘缓存
+            verbose: 是否显示详细的清理信息
         
         返回:
             清理的缓存项数量
@@ -873,13 +875,19 @@ class Context(CacheMixin, PluginMixin):
             >>> ctx.clear_cache_for("run_001", "df", clear_disk=False)
         """
         count = 0
+        memory_count = 0
+        disk_count = 0
         
         # 确定要清理的数据名称列表
         if data_name is None:
             # 清理所有已注册插件提供的数据
             data_names = list(self._plugins.keys())
+            if verbose:
+                print(f"[清理缓存] 运行: {run_id}, 清理所有数据类型的缓存 ({len(data_names)} 个)")
         else:
             data_names = [data_name]
+            if verbose:
+                print(f"[清理缓存] 运行: {run_id}, 数据类型: {data_name}")
         
         for name in data_names:
             # 清理内存缓存
@@ -887,19 +895,39 @@ class Context(CacheMixin, PluginMixin):
                 key = (run_id, name)
                 if key in self._results:
                     del self._results[key]
+                    memory_count += 1
                     count += 1
+                    if verbose:
+                        print(f"  ✓ 已清理内存缓存: ({run_id}, {name})")
                     self.logger.debug(f"Cleared memory cache for ({run_id}, {name})")
+                elif verbose:
+                    print(f"  - 内存缓存不存在: ({run_id}, {name})")
             
             # 清理磁盘缓存
             if clear_disk:
                 try:
                     cache_key = self.key_for(run_id, name)
                     deleted = self._delete_disk_cache(cache_key)
+                    disk_count += deleted
                     count += deleted
                     if deleted > 0:
+                        if verbose:
+                            print(f"  ✓ 已清理磁盘缓存: {cache_key} ({deleted} 个文件)")
                         self.logger.debug(f"Cleared disk cache for ({run_id}, {name})")
+                    elif verbose:
+                        print(f"  - 磁盘缓存不存在: {cache_key}")
                 except Exception as e:
+                    if verbose:
+                        print(f"  ✗ 清理磁盘缓存失败: ({run_id}, {name}) - {e}")
                     self.logger.warning(f"Failed to clear disk cache for ({run_id}, {name}): {e}")
+        
+        # 总结信息
+        if verbose:
+            print(f"[清理完成] 总计: {count} 个缓存项 (内存: {memory_count}, 磁盘: {disk_count})")
+            if count == 0:
+                print("  ⚠️  没有找到需要清理的缓存")
+            else:
+                print("  ✓ 缓存清理成功")
         
         return count
     
