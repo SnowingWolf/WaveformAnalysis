@@ -285,7 +285,7 @@ class WaveformDataset(CacheMixin, StepMixin):
         self.waveforms = []
         self.st_waveforms = []
         self._timestamp_index = []
-
+pp
     @chainable_step
     def structure_waveforms(self, verbose: bool = True) -> "WaveformDataset":
         """

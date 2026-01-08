@@ -232,6 +232,8 @@ class SQLiteBackend:
 
     def save_memmap(self, key: str, data: np.ndarray, extra_metadata: Optional[Dict[str, Any]] = None) -> None:
         blob = data.tobytes()
+        # 保存 dtype 描述符（支持结构化数组）
+        # 使用 str(data.dtype) 并在加载时通过 np.dtype() 重建
         dtype_str = str(data.dtype)
         shape_str = json.dumps(data.shape)
         count = len(data)
@@ -268,7 +270,15 @@ class SQLiteBackend:
 
         blob, dtype_str, shape_str = row
         shape = tuple(json.loads(shape_str))
-        dtype = np.dtype(dtype_str)
+
+        # 从字符串重建 dtype（支持结构化数组）
+        # 结构化数组: "[('time', '<i8'), ('value', '<f8')]"
+        # 简单数组: "int64" or "<i8"
+        try:
+            dtype = np.dtype(eval(dtype_str) if dtype_str.startswith('[') else dtype_str)
+        except:
+            # 回退：尝试直接解析
+            dtype = np.dtype(dtype_str)
 
         # 从 blob 重建数组
         arr = np.frombuffer(blob, dtype=dtype)

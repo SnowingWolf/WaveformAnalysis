@@ -13,3 +13,5 @@
 
 利用缓存避免重复计算：项目已经实现了按步骤缓存机制（内存字典 _cache 和磁盘持久化），并提供了 set_step_cache 接口配置GitHub
 。目前缓存使用 Python 的 pickle 序列化，缓存大量 NumPy 数据时可能占用时间和空间。建议充分利用 joblib 后端对大数组更高效的序列化：事实上，在新版 CacheManager.save_data 中已经支持选择 backend 为 "joblib"。可以将默认持久化改为 joblib，从而利用 joblib 对 NumPy数组的mmap保存和压缩功能，提升缓存写读性能。此外，可考虑在特征计算后将关键中间结果（如结构化波形数组、DataFrame）缓存为列式存储格式（如 Feather）而非pickle。例如，将 self.df 和 self.df_events 保存为 Feather，有需要时再快速加载。缓存机制也应确保易于失效和更新：项目架构文档提到通过输入文件签名和参数变更来判定缓存有效性，实际实现中可引入文件hash或mtime监测，以防使用过期缓存。
+
+

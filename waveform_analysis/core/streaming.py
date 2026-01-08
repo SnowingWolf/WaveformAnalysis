@@ -17,7 +17,6 @@ from .chunk_utils import (
     check_chunk_boundaries,
     get_endtime,
 )
-from .executor_manager import parallel_map
 from .executor_config import get_config
 from .plugins import Plugin
 from .utils import exporter
@@ -28,21 +27,22 @@ export, __all__ = exporter()
 class StreamingPlugin(Plugin):
     """
     支持流式处理的插件基类。
-    
+
     与普通 Plugin 的区别：
     - `compute()` 接收 chunk 迭代器，返回 chunk 迭代器
     - 自动处理时间边界对齐
     - 支持并行处理多个 chunk
-    
+
     使用方式：
     1. 继承 StreamingPlugin
     2. 重写 `compute_chunk()` 方法处理单个 chunk
     3. 设置 `output_kind = "stream"`（自动设置）
     """
-    
+
     # 流式处理相关配置
     chunk_size: int = 50000  # 默认 chunk 大小
     parallel: bool = True  # 是否并行处理
+    parallel_batch_size: Optional[int] = None  # 并行处理批量大小（None=自动）
     executor_type: str = "thread"  # 执行器类型
     max_workers: Optional[int] = None  # 最大工作线程/进程数
     
@@ -204,46 +204,77 @@ class StreamingPlugin(Plugin):
         **kwargs
     ) -> Generator[Chunk, None, None]:
         """
-        并行处理 chunk 流。
-        
+        并行处理 chunk 流（优化版：批量处理，避免完全物化）。
+
+        改进：
+        - 不再将整个流物化到列表
+        - 分批处理：每次处理 batch_size 个 chunk
+        - 保持流式处理的内存优势
+
         Args:
             input_chunks: 输入 chunk 迭代器
             context: Context 对象
             run_id: 运行 ID
             **kwargs: 其他参数
-            
+
         Yields:
             处理后的 chunk（保持顺序）
         """
-        # 收集所有 chunk（为了并行处理，需要先收集）
-        chunk_list = list(input_chunks)
-        
-        if len(chunk_list) == 0:
-            return
-        
+        import itertools
+        from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+
+        # 批量大小：避免完全物化，但保持并行效率
+        # 优先使用配置值，否则自动计算（max_workers 的 2-3 倍）
+        if self.parallel_batch_size is not None:
+            batch_size = self.parallel_batch_size
+        else:
+            batch_size = max(10, (self.max_workers or 4) * 3)
+
         # 准备并行处理函数
         def process_chunk(chunk: Chunk) -> Chunk:
-            return self.compute_chunk(chunk, context, run_id, **kwargs)
-        
-        # 获取执行器配置
-        config = get_config("io_intensive" if self.executor_type == "thread" else "cpu_intensive")
-        if self.max_workers is not None:
-            config["max_workers"] = self.max_workers
-        
-        # 并行处理
-        results = parallel_map(
-            process_chunk,
-            chunk_list,
-            executor_type=self.executor_type,
-            max_workers=self.max_workers,
-        )
-        
-        # 验证并 yield 结果
-        for result in results:
+            result = self.compute_chunk(chunk, context, run_id, **kwargs)
             if result is not None:
                 self._validate_chunk(result)
-                yield result
-    
+            return result
+
+        # 选择执行器类型
+        executor_cls = ThreadPoolExecutor if self.executor_type == "thread" else ProcessPoolExecutor
+
+        # 分批处理流
+        with executor_cls(max_workers=self.max_workers) as executor:
+            chunk_iter = iter(input_chunks)
+
+            while True:
+                # 取一批 chunk
+                batch = list(itertools.islice(chunk_iter, batch_size))
+                if not batch:
+                    break  # 流已耗尽
+
+                # 提交批量任务
+                future_to_idx = {
+                    executor.submit(process_chunk, chunk): idx
+                    for idx, chunk in enumerate(batch)
+                }
+
+                # 收集结果（保持顺序）
+                results = [None] * len(batch)
+                for future in as_completed(future_to_idx):
+                    idx = future_to_idx[future]
+                    try:
+                        result = future.result()
+                        results[idx] = result
+                    except Exception as e:
+                        # 记录错误但继续处理其他 chunk
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Error processing chunk {idx}: {e}")
+                        raise  # 重新抛出，让上层处理
+
+                # 按顺序 yield 结果
+                for result in results:
+                    if result is not None:
+                        yield result
+
     def _validate_chunk(self, chunk: Chunk):
         """
         验证 chunk 的时间边界。

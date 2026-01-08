@@ -353,6 +353,10 @@ class PluginMixin:
         # 5. Register
         self._plugins[provides] = plugin
 
+        # 6. Invalidate caches for this data type
+        if hasattr(self, '_invalidate_caches_for'):
+            self._invalidate_caches_for(provides)
+
     def _validate_plugin_dependencies(self, plugin: Any) -> None:
         """
         Validate that plugin dependencies are compatible with registered plugins.

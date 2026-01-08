@@ -28,6 +28,7 @@ from .core.processor import (
 )
 from .utils.daq import DAQAnalyzer, DAQRun
 from .utils.loader import get_raw_files, get_waveforms
+from .utils.preview import WaveformPreviewer, preview_waveforms
 
 __all__ = [
     "WaveformDataset",
@@ -51,4 +52,7 @@ __all__ = [
     "StreamingPlugin",
     "StreamingContext",
     "get_streaming_context",
+    # 波形预览
+    "WaveformPreviewer",
+    "preview_waveforms",
 ]
