@@ -18,11 +18,10 @@ def parse_files_generator(
 ) -> Iterator[np.ndarray]:
     """
     Yields chunks of parsed waveform data from a list of files.
-    
+
     Note: Only the first file in the list will skip header rows (skiprows).
     Subsequent files will not skip any rows (skiprows=0) as they don't contain headers.
     """
-    print(f"DEBUG: parse_files_generator called with {len(file_paths)} files")
     if not file_paths:
         return
 
@@ -47,13 +46,14 @@ def parse_files_generator(
 
         try:
             # Use pyarrow engine if available for faster parsing
+            # Note: pyarrow doesn't support chunksize, so use 'c' engine when chunking
             engine = "c"
-            try:
-                import pyarrow
-
-                engine = "pyarrow"
-            except ImportError:
-                pass
+            if not chunksize:
+                try:
+                    import pyarrow
+                    engine = "pyarrow"
+                except ImportError:
+                    pass
 
             if chunksize:
                 chunk_iter = pd.read_csv(
@@ -78,7 +78,6 @@ def parse_files_generator(
                 ]
 
             for chunk in chunk_iter:
-                print(f"DEBUG: parse_files_generator yielded a chunk of size {len(chunk)}")
                 chunk.dropna(how="all", inplace=True)
                 if chunk.empty:
                     continue
@@ -145,13 +144,15 @@ def parse_and_stack_files(
         file_arrs = []
         # attempt chunked reading per-file if chunksize provided
         try:
+            # Use pyarrow engine if available for faster parsing
+            # Note: pyarrow doesn't support chunksize, so use 'c' engine when chunking
             engine = "c"
-            try:
-                import pyarrow
-
-                engine = "pyarrow"
-            except ImportError:
-                pass
+            if not chunksize:
+                try:
+                    import pyarrow
+                    engine = "pyarrow"
+                except ImportError:
+                    pass
 
             if chunksize:
                 chunk_iter = pd.read_csv(
