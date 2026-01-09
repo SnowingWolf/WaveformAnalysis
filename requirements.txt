@@ -5,3 +5,5 @@ scipy>=1.7.0
 iminuit>=2.0.0
 jax>=0.4.0
 jaxlib>=0.4.0
+tqdm>=4.66.0
+psutil>=5.9.0

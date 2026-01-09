@@ -49,6 +49,36 @@
   - 可配置的工作进程数
   - 任务完成状态跟踪
 
+#### Phase 3 Enhancement: 批量处理高级功能 (NEW)
+- **统一进度追踪系统** (`core/progress_tracker.py`)
+  - `ProgressTracker`: tqdm集成的进度条系统
+  - 支持嵌套进度条显示
+  - 自动计算ETA和吞吐量
+  - 线程安全设计
+  - 辅助函数：`format_time()`, `format_throughput()`
+  - 集成到 `BatchProcessor.process_runs()` 和 `process_with_custom_func()`
+
+- **任务取消机制** (`core/cancellation.py`)
+  - `CancellationToken`: 线程安全的取消令牌
+  - `CancellationManager`: 全局取消管理器（单例模式）
+  - 信号处理：优雅的Ctrl+C中断处理
+  - 取消回调：自动资源清理
+  - `TaskCancelledException`: 任务取消异常
+  - 集成到 `BatchProcessor` 支持中途取消任务
+
+- **动态负载均衡** (`core/load_balancer.py`)
+  - `DynamicLoadBalancer`: 自适应worker数量调整
+  - 基于psutil的系统资源监控（CPU、内存）
+  - 可配置的阈值（cpu_threshold, memory_threshold）
+  - 根据任务大小智能分配资源
+  - 任务历史记录和统计
+  - 辅助函数：`get_system_info()`
+
+- **改进的错误处理**:
+  - 批处理中的取消检查
+  - Future清理和executor shutdown
+  - KeyboardInterrupt捕获和转换
+
 #### Phase 3.2: 数据导出统一接口
 - **统一导出器**: 多格式数据导出支持 (`core/batch_export.py`)
   - `DataExporter`: 统一的导出接口
@@ -90,6 +120,10 @@
 - **新增**: `tests/test_time_range_query.py` - 时间范围查询测试 (7个测试, 全部通过)
 - **新增**: `tests/test_strax_adapter.py` - Strax适配器测试 (10个测试, 核心功能通过)
 - **覆盖率**: 新增模块代码覆盖率 46-80%
+
+### 依赖
+- **新增**: `tqdm>=4.66.0` - 进度条显示库（用于统一进度追踪）
+- **新增**: `psutil>=5.9.0` - 系统资源监控库（用于动态负载均衡）
 
 ### 修复
 - **CSV 表头处理**: 修复了 CSV 文件读取时的表头处理问题

@@ -10,6 +10,7 @@
 
 import logging
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
@@ -60,6 +61,8 @@ class BatchProcessor:
         max_workers: Optional[int] = None,
         show_progress: bool = True,
         on_error: str = 'continue',  # 'continue', 'stop', 'raise'
+        progress_tracker: Optional[Any] = None,  # 新增：进度追踪器
+        cancellation_token: Optional[Any] = None,  # 新增：取消令牌
     ) -> Dict[str, Any]:
         """
         批量处理多个run
@@ -70,57 +73,163 @@ class BatchProcessor:
             max_workers: 最大并行工作进程数
             show_progress: 是否显示进度
             on_error: 错误处理策略
+            progress_tracker: 进度追踪器（可选，如为None则自动创建）
+            cancellation_token: 取消令牌（可选，如为None则自动创建）
 
         Returns:
             结果字典 {run_id: data or error}
         """
+        from waveform_analysis.core.progress_tracker import (
+            ProgressTracker, format_throughput, format_time
+        )
+        from waveform_analysis.core.cancellation import (
+            CancellationToken, get_cancellation_manager, TaskCancelledException
+        )
+
         results = {}
         errors = {}
+        start_time = time.time()
 
-        if max_workers == 1:
-            # 串行处理
-            for i, run_id in enumerate(run_ids):
-                if show_progress:
-                    print(f"Processing {i+1}/{len(run_ids)}: {run_id}")
+        # 创建或使用cancellation_token
+        owns_token = False
+        if cancellation_token is None:
+            cancellation_token = CancellationToken()
+            cancel_manager = get_cancellation_manager()
+            cancel_manager.enable()
+            cancel_manager.register_token(cancellation_token)
+            owns_token = True
 
-                try:
-                    data = self.context.get_data(run_id, data_name)
-                    results[run_id] = data
-                except Exception as e:
-                    errors[run_id] = e
-                    self.logger.error(f"Failed to process {run_id}: {e}")
+        # 创建或使用progress_tracker
+        owns_tracker = False
+        if progress_tracker is None and show_progress:
+            progress_tracker = ProgressTracker()
+            owns_tracker = True
 
-                    if on_error == 'stop':
+        # 创建主进度条
+        bar_name = None
+        if progress_tracker:
+            bar_name = f"batch_{data_name}"
+            progress_tracker.create_bar(
+                bar_name,
+                total=len(run_ids),
+                desc=f"Processing {data_name}",
+                unit="run"
+            )
+
+        try:
+            if max_workers == 1:
+                # 串行处理
+                for i, run_id in enumerate(run_ids):
+                    # 检查取消
+                    if cancellation_token.is_cancelled():
+                        self.logger.info(f"Processing cancelled. Processed {i}/{len(run_ids)} runs.")
                         break
-                    elif on_error == 'raise':
-                        raise
-        else:
-            # 并行处理
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                future_to_run = {
-                    executor.submit(self.context.get_data, run_id, data_name): run_id
-                    for run_id in run_ids
-                }
-
-                completed = 0
-                for future in as_completed(future_to_run):
-                    run_id = future_to_run[future]
-                    completed += 1
-
-                    if show_progress:
-                        print(f"Completed {completed}/{len(run_ids)}: {run_id}")
 
                     try:
-                        data = future.result()
+                        data = self.context.get_data(run_id, data_name)
                         results[run_id] = data
+                    except TaskCancelledException:
+                        self.logger.info("Task cancelled during processing")
+                        break
                     except Exception as e:
                         errors[run_id] = e
                         self.logger.error(f"Failed to process {run_id}: {e}")
 
-                        if on_error == 'raise':
+                        if on_error == 'stop':
+                            break
+                        elif on_error == 'raise':
                             raise
 
-        if errors and show_progress:
+                    # 更新进度
+                    if progress_tracker:
+                        progress_tracker.update(bar_name, n=1)
+                        elapsed = time.time() - start_time
+                        throughput = (i + 1) / elapsed if elapsed > 0 else 0
+                        progress_tracker.set_postfix(
+                            bar_name,
+                            success=len(results),
+                            failed=len(errors),
+                            throughput=format_throughput(throughput, "run")
+                        )
+            else:
+                # 并行处理
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    # 注册executor清理回调
+                    def shutdown_executor():
+                        """在取消时立即关闭executor"""
+                        try:
+                            executor.shutdown(wait=False, cancel_futures=True)
+                        except Exception as e:
+                            self.logger.debug(f"Error shutting down executor: {e}")
+
+                    cancellation_token.register_callback(shutdown_executor)
+
+                    # 提交任务
+                    future_to_run = {
+                        executor.submit(self.context.get_data, run_id, data_name): run_id
+                        for run_id in run_ids
+                    }
+
+                    completed = 0
+                    for future in as_completed(future_to_run):
+                        # 检查取消
+                        if cancellation_token.is_cancelled():
+                            # 取消未完成的future
+                            for f in future_to_run:
+                                if not f.done():
+                                    f.cancel()
+                            self.logger.info(f"Processing cancelled. Processed {completed}/{len(run_ids)} runs.")
+                            break
+
+                        run_id = future_to_run[future]
+                        completed += 1
+
+                        try:
+                            data = future.result()
+                            results[run_id] = data
+                        except TaskCancelledException:
+                            self.logger.info(f"Task cancelled: {run_id}")
+                            break
+                        except Exception as e:
+                            errors[run_id] = e
+                            self.logger.error(f"Failed to process {run_id}: {e}")
+
+                            if on_error == 'raise':
+                                raise
+
+                        # 更新进度
+                        if progress_tracker:
+                            progress_tracker.update(bar_name, n=1)
+                            elapsed = time.time() - start_time
+                            throughput = completed / elapsed if elapsed > 0 else 0
+                            eta = progress_tracker.calculate_eta(bar_name)
+                            progress_tracker.set_postfix(
+                                bar_name,
+                                success=len(results),
+                                failed=len(errors),
+                                throughput=format_throughput(throughput, "run"),
+                                ETA=format_time(eta) if eta else "N/A"
+                            )
+
+        except KeyboardInterrupt:
+            # 捕获KeyboardInterrupt并转换为取消
+            self.logger.info("Interrupted by user (KeyboardInterrupt)")
+            cancellation_token.cancel()
+            raise
+        finally:
+            # 关闭进度条
+            if progress_tracker and bar_name:
+                progress_tracker.close(bar_name)
+            if owns_tracker and progress_tracker:
+                progress_tracker.close_all()
+
+            # 注销取消token
+            if owns_token:
+                cancel_manager = get_cancellation_manager()
+                cancel_manager.unregister_token(cancellation_token)
+
+        if errors and show_progress and not progress_tracker:
+            # 如果没有进度条，打印错误摘要
             print(f"\nCompleted with {len(errors)} errors")
 
         return {'results': results, 'errors': errors}
@@ -131,6 +240,7 @@ class BatchProcessor:
         func: Callable,
         max_workers: Optional[int] = None,
         show_progress: bool = True,
+        progress_tracker: Optional[Any] = None,  # 新增：进度追踪器
     ) -> Dict[str, Any]:
         """
         使用自定义函数批量处理
@@ -140,33 +250,80 @@ class BatchProcessor:
             func: 处理函数 func(context, run_id) -> result
             max_workers: 最大并行工作进程数
             show_progress: 是否显示进度
+            progress_tracker: 进度追踪器（可选）
 
         Returns:
             结果字典 {run_id: result}
         """
+        from waveform_analysis.core.progress_tracker import (
+            ProgressTracker, format_throughput, format_time
+        )
+
         results = {}
+        start_time = time.time()
 
-        if max_workers == 1:
-            for i, run_id in enumerate(run_ids):
-                if show_progress:
-                    print(f"Processing {i+1}/{len(run_ids)}: {run_id}")
-                results[run_id] = func(self.context, run_id)
-        else:
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                future_to_run = {
-                    executor.submit(func, self.context, run_id): run_id
-                    for run_id in run_ids
-                }
+        # 创建或使用progress_tracker
+        owns_tracker = False
+        if progress_tracker is None and show_progress:
+            progress_tracker = ProgressTracker()
+            owns_tracker = True
 
-                completed = 0
-                for future in as_completed(future_to_run):
-                    run_id = future_to_run[future]
-                    completed += 1
+        # 创建主进度条
+        bar_name = None
+        if progress_tracker:
+            bar_name = "batch_custom"
+            progress_tracker.create_bar(
+                bar_name,
+                total=len(run_ids),
+                desc="Processing (custom)",
+                unit="run"
+            )
 
-                    if show_progress:
-                        print(f"Completed {completed}/{len(run_ids)}: {run_id}")
+        try:
+            if max_workers == 1:
+                for i, run_id in enumerate(run_ids):
+                    results[run_id] = func(self.context, run_id)
 
-                    results[run_id] = future.result()
+                    # 更新进度
+                    if progress_tracker:
+                        progress_tracker.update(bar_name, n=1)
+                        elapsed = time.time() - start_time
+                        throughput = (i + 1) / elapsed if elapsed > 0 else 0
+                        progress_tracker.set_postfix(
+                            bar_name,
+                            throughput=format_throughput(throughput, "run")
+                        )
+            else:
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    future_to_run = {
+                        executor.submit(func, self.context, run_id): run_id
+                        for run_id in run_ids
+                    }
+
+                    completed = 0
+                    for future in as_completed(future_to_run):
+                        run_id = future_to_run[future]
+                        completed += 1
+                        results[run_id] = future.result()
+
+                        # 更新进度
+                        if progress_tracker:
+                            progress_tracker.update(bar_name, n=1)
+                            elapsed = time.time() - start_time
+                            throughput = completed / elapsed if elapsed > 0 else 0
+                            eta = progress_tracker.calculate_eta(bar_name)
+                            progress_tracker.set_postfix(
+                                bar_name,
+                                throughput=format_throughput(throughput, "run"),
+                                ETA=format_time(eta) if eta else "N/A"
+                            )
+
+        finally:
+            # 关闭进度条
+            if progress_tracker and bar_name:
+                progress_tracker.close(bar_name)
+            if owns_tracker and progress_tracker:
+                progress_tracker.close_all()
 
         return results
 
