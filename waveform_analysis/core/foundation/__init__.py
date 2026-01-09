@@ -49,7 +49,16 @@ from .utils import (
 )
 
 # 进度追踪
-from .progress import ProgressTracker
+from .progress import (
+    ProgressTracker,
+    with_progress,
+    progress_iter,
+    progress_map,
+    get_global_tracker,
+    reset_global_tracker,
+    format_time,
+    format_throughput,
+)
 
 __all__ = [
     # 异常处理
@@ -73,4 +82,11 @@ __all__ = [
     "OneTimeGenerator",
     # 进度追踪
     "ProgressTracker",
+    "with_progress",
+    "progress_iter",
+    "progress_map",
+    "get_global_tracker",
+    "reset_global_tracker",
+    "format_time",
+    "format_throughput",
 ]

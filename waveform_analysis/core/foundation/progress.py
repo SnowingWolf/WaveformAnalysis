@@ -7,12 +7,15 @@
 - 嵌套进度显示
 - ETA和吞吐量计算
 - 线程安全
+- 装饰器支持
 """
 
+import functools
+import inspect
 import logging
 import threading
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Iterable, Iterator, Optional, TypeVar, Union
 
 from tqdm import tqdm
 
@@ -20,6 +23,10 @@ from waveform_analysis.core.foundation.utils import exporter
 
 logger = logging.getLogger(__name__)
 export, __all__ = exporter()
+
+# 类型变量
+T = TypeVar('T')
+F = TypeVar('F', bound=Callable[..., Any])
 
 
 # ===========================
@@ -344,3 +351,331 @@ def format_throughput(throughput: float, unit: str = "it") -> str:
         return f"{throughput:.1f} {unit}/s"
     else:
         return f"{int(throughput)} {unit}/s"
+
+
+# ===========================
+# 全局进度追踪器
+# ===========================
+
+# 全局单例进度追踪器（线程本地）
+_local = threading.local()
+
+
+def _get_global_tracker() -> ProgressTracker:
+    """获取全局进度追踪器（线程安全）"""
+    if not hasattr(_local, 'tracker'):
+        _local.tracker = ProgressTracker()
+    return _local.tracker
+
+
+@export
+def get_global_tracker() -> ProgressTracker:
+    """
+    获取全局进度追踪器实例
+
+    每个线程有独立的追踪器实例，避免多线程冲突。
+
+    Returns:
+        ProgressTracker 实例
+
+    Example:
+        >>> tracker = get_global_tracker()
+        >>> tracker.create_bar("task1", total=100, desc="Processing")
+    """
+    return _get_global_tracker()
+
+
+@export
+def reset_global_tracker():
+    """
+    重置全局进度追踪器
+
+    关闭所有进度条并创建新的追踪器实例。
+    通常用于测试或需要清理状态的场景。
+    """
+    if hasattr(_local, 'tracker'):
+        _local.tracker.close_all()
+        del _local.tracker
+
+
+# ===========================
+# 进度追踪装饰器
+# ===========================
+
+@export
+def with_progress(
+    total: Optional[int] = None,
+    desc: Optional[str] = None,
+    unit: str = "it",
+    disable: bool = False,
+    tracker: Optional[ProgressTracker] = None,
+    bar_name: Optional[str] = None,
+    show_result: bool = False,
+    **tqdm_kwargs
+) -> Callable[[F], F]:
+    """
+    统一的进度追踪装饰器
+
+    自动为函数添加进度追踪功能。支持：
+    - 普通函数：显示执行状态
+    - 返回可迭代对象的函数：自动包装为进度迭代器
+    - 生成器函数：逐步显示生成进度
+
+    Args:
+        total: 总任务数（如果函数返回可迭代对象，可自动推断）
+        desc: 进度条描述（默认使用函数名）
+        unit: 进度单位（默认"it"）
+        disable: 是否禁用进度条
+        tracker: 使用的进度追踪器（默认使用全局追踪器）
+        bar_name: 进度条名称（默认使用函数名）
+        show_result: 是否在完成后显示结果统计
+        **tqdm_kwargs: 传递给 tqdm 的其他参数
+
+    Returns:
+        装饰后的函数
+
+    Examples:
+        >>> @with_progress(total=100, desc="Processing items")
+        ... def process_items():
+        ...     for i in range(100):
+        ...         yield i
+        ...
+        >>> list(process_items())  # 自动显示进度
+
+        >>> @with_progress(desc="Loading data")
+        ... def load_data(files):
+        ...     return [load_file(f) for f in files]
+        ...
+        >>> load_data(['a.csv', 'b.csv', 'c.csv'])  # 显示加载进度
+    """
+    def decorator(func: F) -> F:
+        # 获取函数签名信息
+        func_name = func.__name__
+        is_generator = inspect.isgeneratorfunction(func)
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # 确定使用的追踪器
+            _tracker = tracker if tracker is not None else get_global_tracker()
+
+            # 确定进度条名称和描述
+            _bar_name = bar_name or f"{func_name}_{id(wrapper)}"
+            _desc = desc or f"Executing {func_name}"
+
+            # 如果是生成器函数，包装生成器
+            if is_generator:
+                return _wrap_generator(
+                    func(*args, **kwargs),
+                    _tracker,
+                    _bar_name,
+                    _desc,
+                    unit,
+                    total,
+                    disable,
+                    show_result,
+                    **tqdm_kwargs
+                )
+
+            # 普通函数：执行并可能包装返回值
+            start_time = time.time()
+            result = func(*args, **kwargs)
+            elapsed = time.time() - start_time
+
+            # 如果返回可迭代对象（非字符串），包装为进度迭代器
+            if hasattr(result, '__iter__') and not isinstance(result, (str, bytes)):
+                _total = total
+                if _total is None and hasattr(result, '__len__'):
+                    try:
+                        _total = len(result)
+                    except (TypeError, AttributeError):
+                        pass
+
+                return progress_iter(
+                    result,
+                    total=_total,
+                    desc=_desc,
+                    unit=unit,
+                    disable=disable,
+                    tracker=_tracker,
+                    bar_name=_bar_name,
+                    **tqdm_kwargs
+                )
+
+            # 普通返回值：可选显示执行时间
+            if show_result and not disable:
+                logger.info(f"{func_name} completed in {format_time(elapsed)}")
+
+            return result
+
+        return wrapper
+
+    return decorator
+
+
+def _wrap_generator(
+    gen: Iterator[T],
+    tracker: ProgressTracker,
+    bar_name: str,
+    desc: str,
+    unit: str,
+    total: Optional[int],
+    disable: bool,
+    show_result: bool,
+    **tqdm_kwargs
+) -> Iterator[T]:
+    """
+    包装生成器，添加进度追踪
+
+    Args:
+        gen: 原始生成器
+        tracker: 进度追踪器
+        bar_name: 进度条名称
+        desc: 描述
+        unit: 单位
+        total: 总数
+        disable: 是否禁用
+        show_result: 是否显示结果
+        **tqdm_kwargs: tqdm 参数
+
+    Yields:
+        生成器的元素
+    """
+    # 创建进度条
+    if not disable:
+        tracker.create_bar(
+            bar_name,
+            total=total or 0,
+            desc=desc,
+            unit=unit,
+            **tqdm_kwargs
+        )
+
+    count = 0
+    start_time = time.time()
+
+    try:
+        for item in gen:
+            yield item
+            count += 1
+
+            if not disable:
+                tracker.update(bar_name, n=1)
+
+                # 更新吞吐量
+                if count % 10 == 0:  # 每10个更新一次，减少开销
+                    throughput = tracker.calculate_throughput(bar_name)
+                    if throughput is not None:
+                        tracker.set_postfix(bar_name, speed=format_throughput(throughput, unit))
+
+    finally:
+        # 关闭进度条
+        if not disable:
+            tracker.close(bar_name)
+
+            # 可选：显示统计信息
+            if show_result:
+                elapsed = time.time() - start_time
+                avg_speed = count / elapsed if elapsed > 0 else 0
+                logger.info(
+                    f"Generator completed: {count} {unit}s in {format_time(elapsed)} "
+                    f"({format_throughput(avg_speed, unit)})"
+                )
+
+
+@export
+def progress_iter(
+    iterable: Iterable[T],
+    total: Optional[int] = None,
+    desc: str = "Processing",
+    unit: str = "it",
+    disable: bool = False,
+    tracker: Optional[ProgressTracker] = None,
+    bar_name: Optional[str] = None,
+    **tqdm_kwargs
+) -> Iterator[T]:
+    """
+    为可迭代对象添加进度条
+
+    独立函数版本，不需要装饰器。
+
+    Args:
+        iterable: 可迭代对象
+        total: 总数（默认自动推断）
+        desc: 描述
+        unit: 单位
+        disable: 是否禁用
+        tracker: 进度追踪器
+        bar_name: 进度条名称
+        **tqdm_kwargs: tqdm 参数
+
+    Yields:
+        可迭代对象的元素
+
+    Example:
+        >>> for item in progress_iter(data_list, desc="Processing data"):
+        ...     process(item)
+    """
+    _tracker = tracker if tracker is not None else get_global_tracker()
+    _bar_name = bar_name or f"progress_iter_{id(iterable)}"
+
+    # 尝试获取长度
+    _total = total
+    if _total is None and hasattr(iterable, '__len__'):
+        try:
+            _total = len(iterable)
+        except (TypeError, AttributeError):
+            pass
+
+    # 使用生成器包装函数
+    def _gen():
+        for item in iterable:
+            yield item
+
+    return _wrap_generator(
+        _gen(),
+        _tracker,
+        _bar_name,
+        desc,
+        unit,
+        _total,
+        disable,
+        False,  # 不显示结果统计
+        **tqdm_kwargs
+    )
+
+
+@export
+def progress_map(
+    func: Callable[[T], Any],
+    iterable: Iterable[T],
+    total: Optional[int] = None,
+    desc: str = "Mapping",
+    unit: str = "it",
+    disable: bool = False,
+    **tqdm_kwargs
+) -> list:
+    """
+    带进度条的 map 函数
+
+    类似内置 map，但显示进度。
+
+    Args:
+        func: 要应用的函数
+        iterable: 可迭代对象
+        total: 总数
+        desc: 描述
+        unit: 单位
+        disable: 是否禁用
+        **tqdm_kwargs: tqdm 参数
+
+    Returns:
+        结果列表
+
+    Example:
+        >>> results = progress_map(lambda x: x**2, range(100), desc="Squaring")
+    """
+    results = []
+    for item in progress_iter(iterable, total=total, desc=desc, unit=unit, disable=disable, **tqdm_kwargs):
+        results.append(func(item))
+    return results
+
