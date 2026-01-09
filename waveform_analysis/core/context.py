@@ -436,10 +436,17 @@ class Context(CacheMixin, PluginMixin):
             self._set_data(run_id, name, data)
         return data
 
-    def get_data(self, run_id: str, data_name: str, **kwargs) -> Any:
+    def get_data(self, run_id: str, data_name: str, show_progress: bool = False, progress_desc: Optional[str] = None, **kwargs) -> Any:
         """
         Retrieve data by name for a specific run.
         If data is not in memory/cache, it will trigger the necessary plugins.
+
+        参数:
+            run_id: Run identifier
+            data_name: Name of the data to retrieve
+            show_progress: Whether to show progress bar during plugin execution
+            progress_desc: Custom description for progress bar (default: auto-generated)
+            **kwargs: Additional arguments passed to plugins
         """
         # 1. Check memory cache
         val = self._get_data_from_memory(run_id, data_name)
@@ -463,11 +470,18 @@ class Context(CacheMixin, PluginMixin):
                 return data
 
         # 3. Run plugin (this will also handle dependencies)
-        return self.run_plugin(run_id, data_name, **kwargs)
+        return self.run_plugin(run_id, data_name, show_progress=show_progress, progress_desc=progress_desc, **kwargs)
 
-    def run_plugin(self, run_id: str, data_name: str, **kwargs) -> Any:
+    def run_plugin(self, run_id: str, data_name: str, show_progress: bool = False, progress_desc: Optional[str] = None, **kwargs) -> Any:
         """
         Override run_plugin to add saving logic and config resolution.
+
+        参数:
+            run_id: Run identifier
+            data_name: Name of the data to produce
+            show_progress: Whether to show progress bar during plugin execution
+            progress_desc: Custom description for progress bar (default: auto-generated)
+            **kwargs: Additional arguments passed to plugins
         """
         with self.profiler.timeit("context.run_plugin"):
             # Re-entrancy guard (thread-safe)
@@ -478,6 +492,10 @@ class Context(CacheMixin, PluginMixin):
                         "This usually indicates a circular dependency at runtime."
                     )
                 self._in_progress[(run_id, data_name)] = True
+
+            # 初始化进度追踪
+            tracker = None
+            bar_name = None
 
             try:
                 # 1. Resolve execution plan (with caching)
@@ -495,6 +513,14 @@ class Context(CacheMixin, PluginMixin):
                         return val
                     raise
 
+                # 创建进度条（如果需要）
+                if show_progress and len(plan) > 0:
+                    from waveform_analysis.core.foundation.progress import get_global_tracker
+                    tracker = get_global_tracker()
+                    bar_name = f"load_{run_id}_{data_name}"
+                    desc = progress_desc or f"Loading {data_name}"
+                    tracker.create_bar(bar_name, total=len(plan), desc=desc, unit="plugin")
+
                 # 2. Execute plan in order
                 for name in plan:
                     # Check memory cache again (might have been loaded as dependency)
@@ -504,6 +530,10 @@ class Context(CacheMixin, PluginMixin):
                         if self.stats_collector and self.stats_collector.is_enabled():
                             self.stats_collector.start_execution(name, run_id)
                             self.stats_collector.end_execution(name, success=True, cache_hit=True)
+
+                        # 更新进度条（缓存命中）
+                        if tracker and bar_name:
+                            tracker.update(bar_name, n=1)
                         continue
 
                     # Check disk cache for dependencies too
@@ -516,6 +546,10 @@ class Context(CacheMixin, PluginMixin):
                             # For cache hits, we still track that the plugin was "executed" (from cache)
                             self.stats_collector.start_execution(name, run_id)
                             self.stats_collector.end_execution(name, success=True, cache_hit=True)
+
+                        # 更新进度条（缓存命中）
+                        if tracker and bar_name:
+                            tracker.update(bar_name, n=1)
                         continue
 
                     if name not in self._plugins:
@@ -716,8 +750,16 @@ class Context(CacheMixin, PluginMixin):
                             output_size_mb=output_size_mb
                         )
 
+                    # 更新进度条
+                    if tracker and bar_name:
+                        tracker.update(bar_name, n=1)
+
                 return self._get_data_from_memory(run_id, data_name)
             finally:
+                # 关闭进度条
+                if tracker and bar_name:
+                    tracker.close(bar_name)
+
                 with self._in_progress_lock:
                     self._in_progress.pop((run_id, data_name), None)
 

@@ -22,6 +22,8 @@ from .manager import (
     get_executor,
     parallel_map,
     parallel_apply,
+    ParallelProgressConfig,
+    parallel_progress,
     configure_default_workers,
     get_default_workers,
     get_stats,
@@ -48,6 +50,9 @@ __all__ = [
     "get_executor",
     "parallel_map",
     "parallel_apply",
+    # 进度配置
+    "ParallelProgressConfig",
+    "parallel_progress",
     "configure_default_workers",
     "get_default_workers",
     "get_stats",

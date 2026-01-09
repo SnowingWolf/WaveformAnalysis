@@ -7,16 +7,18 @@
 - 自动资源清理和重用
 - 配置管理和性能优化
 - 上下文管理器支持
+- 动态负载均衡（可选）
 """
 import atexit
 import multiprocessing
 import threading
+import time
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 
 from concurrent.futures import (
     Executor,
-    Future,
     ProcessPoolExecutor,
     ThreadPoolExecutor,
     as_completed,
@@ -26,6 +28,9 @@ from waveform_analysis.core.foundation.utils import exporter
 
 # 初始化 exporter
 export, __all__ = exporter()
+
+# 线程本地存储，用于进度配置
+_thread_local = threading.local()
 
 
 class ExecutorManager:
@@ -208,6 +213,82 @@ class ExecutorManager:
         }
 
 
+# ===========================
+# 进度配置系统
+# ===========================
+
+@export
+@dataclass
+class ParallelProgressConfig:
+    """
+    并行执行进度条配置
+    
+    可以通过装饰器或上下文管理器设置，让 parallel_map/parallel_apply 自动显示进度条。
+    
+    使用方式:
+        # 方式1：装饰函数
+        @parallel_progress(desc="Processing files", unit="file")
+        def process_file(file_path):
+            return load_file(file_path)
+        
+        results = parallel_map(process_file, file_list)  # 自动显示进度条
+        
+        # 方式2：使用上下文管理器
+        with ParallelProgressConfig(desc="Batch processing", unit="batch"):
+            results = parallel_map(process_file, file_list)  # 使用上下文配置
+    """
+    enabled: bool = True
+    desc: Optional[str] = None
+    unit: str = "it"
+    
+    @classmethod
+    def get_current(cls) -> Optional['ParallelProgressConfig']:
+        """获取当前线程的配置"""
+        return getattr(_thread_local, 'parallel_progress_config', None)
+    
+    def __enter__(self):
+        """上下文管理器入口"""
+        _thread_local.parallel_progress_config = self
+        return self
+    
+    def __exit__(self, *args):
+        """上下文管理器退出"""
+        if hasattr(_thread_local, 'parallel_progress_config'):
+            delattr(_thread_local, 'parallel_progress_config')
+
+
+@export
+def parallel_progress(desc: Optional[str] = None, unit: str = "it", enabled: bool = True):
+    """
+    装饰器：为函数配置并行执行的进度条
+    
+    使用方式:
+        @parallel_progress(desc="Processing files", unit="file")
+        def process_file(file_path):
+            return load_file(file_path)
+        
+        # 调用时自动使用进度条
+        results = parallel_map(process_file, file_list)
+    
+    参数:
+        desc: 进度条描述（默认使用函数名）
+        unit: 进度单位（默认"it"）
+        enabled: 是否启用进度条（默认True）
+    
+    返回:
+        装饰后的函数
+    """
+    def decorator(func: Callable) -> Callable:
+        # 将配置存储在函数属性中
+        func._parallel_progress = ParallelProgressConfig(
+            enabled=enabled,
+            desc=desc or f"Processing {func.__name__}",
+            unit=unit
+        )
+        return func
+    return decorator
+
+
 # 全局单例实例
 _manager = ExecutorManager()
 
@@ -256,11 +337,14 @@ def parallel_map(
     max_workers: Optional[int] = None,
     executor_name: Optional[str] = None,
     reuse_executor: bool = False,
+    progress_callback: Optional[Callable[[int], None]] = None,
     **kwargs
 ) -> List[Any]:
     """
     并行执行函数（类似map，但并行）。
-    
+
+    自动检测进度配置（如果函数被 @parallel_progress 装饰或使用 ParallelProgressConfig 上下文）。
+
     参数:
         func: 要执行的函数
         iterable: 输入数据列表
@@ -268,35 +352,105 @@ def parallel_map(
         max_workers: 最大工作线程/进程数
         executor_name: 执行器名称（用于重用）
         reuse_executor: 是否重用执行器
+        progress_callback: 进度回调函数，每完成一个任务时调用
+                          接收参数：当前完成的任务索引
+                          优先级：progress_callback > 函数配置 > 线程配置
         **kwargs: 传递给执行器的其他参数
-    
+
     返回:
         结果列表（保持输入顺序）
-    
+
     示例:
+        # 基本用法
         results = parallel_map(process_file, file_list, executor_type="process", max_workers=4)
+
+        # 使用装饰器配置进度条
+        @parallel_progress(desc="Processing files", unit="file")
+        def process_file(file_path):
+            return load_file(file_path)
+        
+        results = parallel_map(process_file, file_list)  # 自动显示进度条
+
+        # 使用上下文管理器配置进度条
+        with ParallelProgressConfig(desc="Batch processing", unit="batch"):
+            results = parallel_map(process_file, file_list)
+
+        # 使用自定义进度回调（优先级最高）
+        def update_progress(idx):
+            print(f"Completed {idx}")
+        results = parallel_map(process_file, file_list, progress_callback=update_progress)
     """
+    # 自动检测进度配置（优先级：progress_callback > 函数配置 > 线程配置）
+    progress_config = None
+    tracker = None
+    bar_name = None
+    
+    if progress_callback is None:
+        # 检查函数配置
+        progress_config = getattr(func, '_parallel_progress', None)
+        
+        # 如果没有，检查线程配置
+        if progress_config is None:
+            progress_config = ParallelProgressConfig.get_current()
+        
+        # 如果配置存在且启用，创建进度条
+        if progress_config and progress_config.enabled:
+            from waveform_analysis.core.foundation.progress import (
+                get_global_tracker, format_throughput
+            )
+            
+            tracker = get_global_tracker()
+            bar_name = f"parallel_map_{id(iterable)}"
+            
+            tracker.create_bar(
+                bar_name,
+                total=len(iterable),
+                desc=progress_config.desc,
+                unit=progress_config.unit
+            )
+            
+            def update_progress(idx):
+                tracker.update(bar_name, n=1)
+                if (idx + 1) % 10 == 0:
+                    throughput = tracker.calculate_throughput(bar_name)
+                    if throughput:
+                        tracker.set_postfix(
+                            bar_name,
+                            speed=format_throughput(throughput, progress_config.unit)
+                        )
+            
+            progress_callback = update_progress
+    
     if executor_name is None:
         executor_name = f"parallel_map_{id(func)}"
-    
+
     if max_workers is None:
         max_workers = min(len(iterable), multiprocessing.cpu_count())
-    
-    with get_executor(executor_name, executor_type, max_workers, reuse_executor, **kwargs) as executor:
-        # 提交所有任务
-        futures = {executor.submit(func, item): idx for idx, item in enumerate(iterable)}
-        
-        # 收集结果（保持顺序）
-        results = [None] * len(iterable)
-        for future in as_completed(futures):
-            idx = futures[future]
-            try:
-                results[idx] = future.result()
-            except Exception as e:
-                # 可以选择记录错误或重新抛出
-                raise RuntimeError(f"任务 {idx} 执行失败: {e}") from e
-        
-        return results
+
+    try:
+        with get_executor(executor_name, executor_type, max_workers, reuse_executor, **kwargs) as executor:
+            # 提交所有任务
+            futures = {executor.submit(func, item): idx for idx, item in enumerate(iterable)}
+
+            # 收集结果（保持顺序）
+            results = [None] * len(iterable)
+            for future in as_completed(futures):
+                idx = futures[future]
+                try:
+                    results[idx] = future.result()
+
+                    # 调用进度回调
+                    if progress_callback:
+                        progress_callback(idx)
+
+                except Exception as e:
+                    raise RuntimeError(f"任务 {idx} 执行失败: {e}") from e
+
+            return results
+    finally:
+        # 清理进度条
+        if tracker and bar_name:
+            tracker.close(bar_name)
 
 
 @export
@@ -307,11 +461,14 @@ def parallel_apply(
     max_workers: Optional[int] = None,
     executor_name: Optional[str] = None,
     reuse_executor: bool = False,
+    progress_callback: Optional[Callable[[int], None]] = None,
     **kwargs
 ) -> List[Any]:
     """
     并行执行函数（支持多参数）。
-    
+
+    自动检测进度配置（如果函数被 @parallel_progress 装饰或使用 ParallelProgressConfig 上下文）。
+
     参数:
         func: 要执行的函数
         args_list: 参数元组列表，每个元组对应一次函数调用
@@ -319,35 +476,101 @@ def parallel_apply(
         max_workers: 最大工作线程/进程数
         executor_name: 执行器名称（用于重用）
         reuse_executor: 是否重用执行器
+        progress_callback: 进度回调函数，每完成一个任务时调用
+                          接收参数：当前完成的任务索引
+                          优先级：progress_callback > 函数配置 > 线程配置
         **kwargs: 传递给执行器的其他参数
-    
+
     返回:
         结果列表（保持输入顺序）
-    
+
     示例:
+        # 基本用法
         args_list = [(x, y) for x, y in zip(xs, ys)]
         results = parallel_apply(process_pair, args_list, executor_type="process", max_workers=4)
+
+        # 使用装饰器配置进度条
+        @parallel_progress(desc="Processing pairs", unit="pair")
+        def process_pair(x, y):
+            return x + y
+        
+        results = parallel_apply(process_pair, args_list)  # 自动显示进度条
+
+        # 使用上下文管理器配置进度条
+        with ParallelProgressConfig(desc="Batch processing", unit="batch"):
+            results = parallel_apply(process_pair, args_list)
     """
+    # 自动检测进度配置（优先级：progress_callback > 函数配置 > 线程配置）
+    progress_config = None
+    tracker = None
+    bar_name = None
+    
+    if progress_callback is None:
+        # 检查函数配置
+        progress_config = getattr(func, '_parallel_progress', None)
+        
+        # 如果没有，检查线程配置
+        if progress_config is None:
+            progress_config = ParallelProgressConfig.get_current()
+        
+        # 如果配置存在且启用，创建进度条
+        if progress_config and progress_config.enabled:
+            from waveform_analysis.core.foundation.progress import (
+                get_global_tracker, format_throughput
+            )
+            
+            tracker = get_global_tracker()
+            bar_name = f"parallel_apply_{id(args_list)}"
+            
+            tracker.create_bar(
+                bar_name,
+                total=len(args_list),
+                desc=progress_config.desc,
+                unit=progress_config.unit
+            )
+            
+            def update_progress(idx):
+                tracker.update(bar_name, n=1)
+                if (idx + 1) % 10 == 0:
+                    throughput = tracker.calculate_throughput(bar_name)
+                    if throughput:
+                        tracker.set_postfix(
+                            bar_name,
+                            speed=format_throughput(throughput, progress_config.unit)
+                        )
+            
+            progress_callback = update_progress
+    
     if executor_name is None:
         executor_name = f"parallel_apply_{id(func)}"
-    
+
     if max_workers is None:
         max_workers = min(len(args_list), multiprocessing.cpu_count())
-    
-    with get_executor(executor_name, executor_type, max_workers, reuse_executor, **kwargs) as executor:
-        # 提交所有任务
-        futures = {executor.submit(func, *args): idx for idx, args in enumerate(args_list)}
-        
-        # 收集结果（保持顺序）
-        results = [None] * len(args_list)
-        for future in as_completed(futures):
-            idx = futures[future]
-            try:
-                results[idx] = future.result()
-            except Exception as e:
-                raise RuntimeError(f"任务 {idx} 执行失败: {e}") from e
-        
-        return results
+
+    try:
+        with get_executor(executor_name, executor_type, max_workers, reuse_executor, **kwargs) as executor:
+            # 提交所有任务
+            futures = {executor.submit(func, *args): idx for idx, args in enumerate(args_list)}
+
+            # 收集结果（保持顺序）
+            results = [None] * len(args_list)
+            for future in as_completed(futures):
+                idx = futures[future]
+                try:
+                    results[idx] = future.result()
+
+                    # 调用进度回调
+                    if progress_callback:
+                        progress_callback(idx)
+
+                except Exception as e:
+                    raise RuntimeError(f"任务 {idx} 执行失败: {e}") from e
+
+            return results
+    finally:
+        # 清理进度条
+        if tracker and bar_name:
+            tracker.close(bar_name)
 
 
 @export

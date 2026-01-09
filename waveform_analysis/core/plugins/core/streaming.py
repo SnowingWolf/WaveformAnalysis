@@ -71,40 +71,65 @@ class StreamingPlugin(Plugin):
         return chunk
     
     def compute(
-        self, context: Any, run_id: str, **kwargs
+        self, context: Any, run_id: str, show_progress: bool = False, progress_desc: Optional[str] = None, **kwargs
     ) -> Union[Generator[Chunk, None, None], Iterator[Chunk]]:
         """
         流式处理入口：接收 chunk 迭代器，返回 chunk 迭代器。
-        
+
         默认实现：
         1. 从依赖获取 chunk 流
         2. 对每个 chunk 调用 compute_chunk()
         3. 可选并行处理
         4. 验证时间边界
-        
+
         Args:
             context: Context 对象
             run_id: 运行 ID
+            show_progress: 是否显示进度条
+            progress_desc: 进度条描述（默认自动生成）
             **kwargs: 其他参数
-            
+
         Yields:
             处理后的 chunk
         """
         # 获取依赖的 chunk 流
         input_chunks = self._get_input_chunks(context, run_id, **kwargs)
-        
-        # 并行处理配置
-        if self.parallel and self.max_workers is not None and self.max_workers > 1:
-            # 并行处理
-            yield from self._compute_parallel(input_chunks, context, run_id, **kwargs)
-        else:
-            # 串行处理
-            for chunk in input_chunks:
-                result = self.compute_chunk(chunk, context, run_id, **kwargs)
-                if result is not None:
-                    # 验证时间边界
-                    self._validate_chunk(result)
-                    yield result
+
+        # 初始化进度追踪
+        tracker = None
+        bar_name = None
+
+        if show_progress:
+            from waveform_analysis.core.foundation.progress import get_global_tracker
+            tracker = get_global_tracker()
+            bar_name = f"stream_{self.provides}_{run_id}"
+            desc = progress_desc or f"Streaming {self.provides}"
+            # 注意：流式处理可能无法预先知道 total，设为 0 表示不确定
+            tracker.create_bar(bar_name, total=0, desc=desc, unit="chunk")
+
+        try:
+            # 并行处理配置
+            if self.parallel and self.max_workers is not None and self.max_workers > 1:
+                # 并行处理
+                for chunk in self._compute_parallel(input_chunks, context, run_id, **kwargs):
+                    if chunk is not None:
+                        if tracker and bar_name:
+                            tracker.update(bar_name, n=1)
+                        yield chunk
+            else:
+                # 串行处理
+                for chunk in input_chunks:
+                    result = self.compute_chunk(chunk, context, run_id, **kwargs)
+                    if result is not None:
+                        # 验证时间边界
+                        self._validate_chunk(result)
+                        if tracker and bar_name:
+                            tracker.update(bar_name, n=1)
+                        yield result
+        finally:
+            # 关闭进度条
+            if tracker and bar_name:
+                tracker.close(bar_name)
     
     def _get_input_chunks(
         self, context: Any, run_id: str, **kwargs
