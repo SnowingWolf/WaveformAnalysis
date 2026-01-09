@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """DAQAnalyzer: aggregate runs and notebook/terminal display helpers."""
 
 from __future__ import annotations

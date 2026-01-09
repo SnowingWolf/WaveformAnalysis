@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Waveform Analysis - 波形数据分析工具包
 

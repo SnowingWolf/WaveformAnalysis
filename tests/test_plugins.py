@@ -5,7 +5,7 @@ Plugins 模块测试
 import numpy as np
 import pytest
 
-from waveform_analysis.core.plugins import Option, Plugin
+from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 
 class TestOption:

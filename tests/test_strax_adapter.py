@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.strax_adapter import (
+from waveform_analysis.core.plugins.core.adapters import (
     StraxPluginAdapter,
     StraxContextAdapter,
     create_strax_context,

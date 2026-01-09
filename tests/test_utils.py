@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from waveform_analysis.core.utils import (
+from waveform_analysis.core.foundation.utils import (
     LineageStyle,
     OneTimeGenerator,
     Profiler,

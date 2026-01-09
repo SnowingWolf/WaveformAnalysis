@@ -115,7 +115,7 @@ for chunk in parse_files_generator(files, skiprows=2, chunksize=1000):
 每个通道的文件列表是独立处理的，每个通道的第一个文件都会跳过表头：
 
 ```python
-from waveform_analysis.core.loader import get_waveforms
+from waveform_analysis.core.waveform_loader import get_waveforms
 
 # 每个通道的文件列表
 raw_files = [

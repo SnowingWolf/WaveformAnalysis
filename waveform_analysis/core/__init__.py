@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Core 模块 - WaveformAnalysis 框架的核心实现。
 
@@ -14,7 +15,7 @@ from waveform_analysis.utils.loader import (
     get_waveforms,
 )
 
-from .chunk_utils import (
+from .processing.chunk import (
     CHANNEL_FIELD,
     DT_FIELD,
     ENDTIME_FIELD,
@@ -54,14 +55,14 @@ from .chunk_utils import (
 )
 from .context import Context
 from .dataset import WaveformDataset
-from .exceptions import ErrorContext, ErrorSeverity, PluginError
-from .plugins import Option, Plugin
-from .processor import (
+from .foundation.exceptions import ErrorContext, ErrorSeverity, PluginError
+from .plugins.core.base import Option, Plugin
+from .processing.processor import (
     WaveformStruct,
     build_waveform_df,
     group_multi_channel_hits,
 )
-from .standard_plugins import (
+from .plugins.builtin.standard import (
     BasicFeaturesPlugin,
     DataFramePlugin,
     GroupedEventsPlugin,
@@ -69,6 +70,24 @@ from .standard_plugins import (
     RawFilesPlugin,
     StWaveformsPlugin,
     WaveformsPlugin,
+)
+
+# 向后兼容：导出 storage 子模块的主要类
+# 用户仍然可以使用 `from waveform_analysis.core import MemmapStorage`
+from .storage import (
+    MemmapStorage,
+    CacheManager,
+    StorageBackend,
+    CompressionManager,
+    IntegrityChecker,
+)
+
+# 向后兼容：导出 execution 子模块的主要函数
+from .execution import (
+    get_executor,
+    parallel_map,
+    parallel_apply,
+    get_timeout_manager,
 )
 
 __all__ = [
@@ -81,6 +100,17 @@ __all__ = [
     "ErrorSeverity",
     "PluginError",
     "ErrorContext",
+    # 存储层（向后兼容）
+    "MemmapStorage",
+    "CacheManager",
+    "StorageBackend",
+    "CompressionManager",
+    "IntegrityChecker",
+    # 执行层（向后兼容）
+    "get_executor",
+    "parallel_map",
+    "parallel_apply",
+    "get_timeout_manager",
     # 插件
     "RawFilesPlugin",
     "WaveformsPlugin",

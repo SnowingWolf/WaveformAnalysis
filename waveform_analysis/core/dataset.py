@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Dataset 模块 - 面向用户的高层 API 封装。
 
@@ -14,7 +15,7 @@ import pandas as pd
 
 from waveform_analysis.core import standard_plugins
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.mixins import CacheMixin, StepMixin, chainable_step
+from waveform_analysis.core.foundation.mixins import CacheMixin, StepMixin, chainable_step
 
 
 class WaveformDataset(CacheMixin, StepMixin):

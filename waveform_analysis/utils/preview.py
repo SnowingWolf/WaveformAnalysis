@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 波形预览模块 - 轻量级波形快速预览工具
 
@@ -25,10 +26,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
-from waveform_analysis.core.loader import WaveformLoader
-from waveform_analysis.core.processor import RECORD_DTYPE, DEFAULT_WAVE_LENGTH
+from waveform_analysis.core.processing.loader import WaveformLoader
+from waveform_analysis.core.processing.processor import RECORD_DTYPE, DEFAULT_WAVE_LENGTH
 from waveform_analysis.utils.io import parse_files_generator
-from waveform_analysis.core.utils import exporter
+from waveform_analysis.core.foundation.utils import exporter
 
 # 初始化 logger 和 exporter
 logger = logging.getLogger(__name__)

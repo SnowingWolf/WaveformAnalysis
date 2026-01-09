@@ -5,12 +5,12 @@
 import time
 import pytest
 
-from waveform_analysis.core.timeout_manager import (
+from waveform_analysis.core.execution.timeout import (
     TimeoutManager,
     get_timeout_manager,
     with_timeout,
 )
-from waveform_analysis.core.exceptions import PluginTimeoutError
+from waveform_analysis.core.foundation.exceptions import PluginTimeoutError
 
 
 class TestTimeoutManager:
@@ -169,7 +169,7 @@ class TestPluginWithTimeout:
 
     def test_plugin_timeout_attribute(self):
         """测试Plugin有timeout属性"""
-        from waveform_analysis.core.plugins import Plugin
+        from waveform_analysis.core.plugins.core.base import Plugin
 
         class TestPlugin(Plugin):
             provides = "test_data"
@@ -183,7 +183,7 @@ class TestPluginWithTimeout:
 
     def test_plugin_default_no_timeout(self):
         """测试Plugin默认无超时"""
-        from waveform_analysis.core.plugins import Plugin
+        from waveform_analysis.core.plugins.core.base import Plugin
 
         class TestPlugin(Plugin):
             provides = "test_data"

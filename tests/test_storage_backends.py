@@ -8,7 +8,7 @@ import tempfile
 import numpy as np
 import pytest
 
-from waveform_analysis.core.storage_backends import (
+from waveform_analysis.core.storage.backends import (
     SQLiteBackend,
     StorageBackend,
     create_storage_backend,
@@ -16,7 +16,7 @@ from waveform_analysis.core.storage_backends import (
 )
 from waveform_analysis.core.storage import MemmapStorage
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import Plugin
+from waveform_analysis.core.plugins.core.base import Plugin
 
 
 class TestStorageBackendProtocol:

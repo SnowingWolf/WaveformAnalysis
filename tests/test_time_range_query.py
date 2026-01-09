@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import Plugin
-from waveform_analysis.core.time_range_query import (
+from waveform_analysis.core.plugins.core.base import Plugin
+from waveform_analysis.core.data.query import (
     TimeIndex,
     TimeRangeQueryEngine,
 )

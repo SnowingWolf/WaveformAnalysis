@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from waveform_analysis.core.chunk_utils import (
+from waveform_analysis.core.processing.chunk import (
     DT_FIELD,
     ENDTIME_FIELD,
     LENGTH_FIELD,

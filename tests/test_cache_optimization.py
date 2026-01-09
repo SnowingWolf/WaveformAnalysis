@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import Plugin
+from waveform_analysis.core.plugins.core.base import Plugin
 
 
 class TestCacheOptimization:

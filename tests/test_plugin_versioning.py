@@ -5,7 +5,7 @@
 import pytest
 import numpy as np
 
-from waveform_analysis.core.plugins import Plugin
+from waveform_analysis.core.plugins.core.base import Plugin
 from waveform_analysis.core.context import Context
 
 

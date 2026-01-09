@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 动态负载均衡模块 (Phase 3 Enhancement)
 
@@ -18,7 +19,7 @@ try:
 except ImportError:
     psutil = None
 
-from waveform_analysis.core.utils import exporter
+from waveform_analysis.core.foundation.utils import exporter
 
 logger = logging.getLogger(__name__)
 export, __all__ = exporter()

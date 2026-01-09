@@ -8,7 +8,7 @@ import shutil
 import pytest
 import numpy as np
 
-from waveform_analysis.core.integrity import (
+from waveform_analysis.core.storage.integrity import (
     IntegrityChecker,
     get_integrity_checker,
     compute_file_checksum,

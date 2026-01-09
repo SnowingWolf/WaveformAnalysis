@@ -7,7 +7,7 @@ import matplotlib
 matplotlib.use('Agg')
 
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import Option, Plugin
+from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 
 class MockPlugin(Plugin):

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from waveform_analysis.core.processor import (
+from waveform_analysis.core.processing.processor import (
     DEFAULT_WAVE_LENGTH,
     RECORD_DTYPE,
     WaveformStruct,

@@ -5,8 +5,8 @@
 import numpy as np
 import pytest
 
-from waveform_analysis.core.streaming import StreamingPlugin
-from waveform_analysis.core.chunk_utils import Chunk
+from waveform_analysis.core.plugins.core.streaming import StreamingPlugin
+from waveform_analysis.core.processing.chunk import Chunk
 from waveform_analysis.core.context import Context
 
 

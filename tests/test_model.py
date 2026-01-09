@@ -4,7 +4,7 @@ Model 模块测试
 
 import pytest
 
-from waveform_analysis.core.model import (
+from waveform_analysis.core.foundation.model import (
     EdgeModel,
     LineageGraphModel,
     NodeModel,

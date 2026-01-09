@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 任务取消模块 (Phase 3 Enhancement)
 
@@ -13,7 +14,7 @@ import signal
 import threading
 from typing import Callable, List, Optional, Set
 
-from waveform_analysis.core.utils import exporter
+from waveform_analysis.core.foundation.utils import exporter
 
 logger = logging.getLogger(__name__)
 export, __all__ = exporter()

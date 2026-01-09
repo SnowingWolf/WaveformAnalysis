@@ -1,0 +1,123 @@
+# -*- coding: utf-8 -*-
+"""
+Processing 子模块 - 数据处理流水线
+
+提供数据加载、信号处理、事件分析和 Chunk 管理功能。
+
+主要组件：
+- WaveformLoader: 波形数据加载器
+- WaveformStruct: 波形结构化处理
+- EventAnalyzer: 事件分析器
+- Chunk: 时间对齐的数据块管理
+
+向后兼容：
+所有导出的类和函数可以通过以下方式导入：
+    from waveform_analysis.core.processing import WaveformStruct
+    from waveform_analysis.core import WaveformStruct  # 通过 core.__init__.py 兼容
+"""
+
+# 数据加载
+from .loader import WaveformLoader
+
+# 信号处理
+from .processor import (
+    WaveformStruct,
+    build_waveform_df,
+    group_multi_channel_hits,
+    find_hits,
+    RECORD_DTYPE,
+    PEAK_DTYPE,
+)
+
+# 事件分析
+from .analyzer import EventAnalyzer
+
+# Chunk 工具
+from .chunk import (
+    # 常量
+    TIME_FIELD,
+    DT_FIELD,
+    LENGTH_FIELD,
+    ENDTIME_FIELD,
+    CHANNEL_FIELD,
+    # 数据类
+    Chunk,
+    ChunkInfo,
+    ValidationResult,
+    # Endtime 操作
+    compute_endtime,
+    add_endtime_field,
+    validate_endtime,
+    get_endtime,
+    # 检查函数
+    check_monotonic,
+    check_no_overlap,
+    check_sorted_by_time,
+    check_chunk_boundaries,
+    check_chunk_continuity,
+    # 时间范围操作
+    get_time_range,
+    select_time_range,
+    clip_to_time_range,
+    # Chunk 分割
+    split_by_time,
+    split_by_count,
+    split_by_breaks,
+    merge_chunks,
+    # Rechunk
+    rechunk,
+    rechunk_to_boundaries,
+    # 工具函数
+    sort_by_time,
+    concat_sorted,
+)
+
+__all__ = [
+    # 数据加载
+    "WaveformLoader",
+    # 信号处理
+    "WaveformStruct",
+    "build_waveform_df",
+    "group_multi_channel_hits",
+    "find_hits",
+    "RECORD_DTYPE",
+    "PEAK_DTYPE",
+    # 事件分析
+    "EventAnalyzer",
+    # Chunk 常量
+    "TIME_FIELD",
+    "DT_FIELD",
+    "LENGTH_FIELD",
+    "ENDTIME_FIELD",
+    "CHANNEL_FIELD",
+    # Chunk 数据类
+    "Chunk",
+    "ChunkInfo",
+    "ValidationResult",
+    # Endtime 操作
+    "compute_endtime",
+    "add_endtime_field",
+    "validate_endtime",
+    "get_endtime",
+    # 检查函数
+    "check_monotonic",
+    "check_no_overlap",
+    "check_sorted_by_time",
+    "check_chunk_boundaries",
+    "check_chunk_continuity",
+    # 时间范围操作
+    "get_time_range",
+    "select_time_range",
+    "clip_to_time_range",
+    # Chunk 分割
+    "split_by_time",
+    "split_by_count",
+    "split_by_breaks",
+    "merge_chunks",
+    # Rechunk
+    "rechunk",
+    "rechunk_to_boundaries",
+    # 工具函数
+    "sort_by_time",
+    "concat_sorted",
+]

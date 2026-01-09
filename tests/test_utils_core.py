@@ -3,7 +3,7 @@ import time
 import numpy as np
 import pytest
 
-from waveform_analysis.core.utils import (
+from waveform_analysis.core.foundation.utils import (
     OneTimeGenerator,
     Profiler,
     exporter,

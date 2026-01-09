@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Context 模块 - 插件系统的核心调度器。
 
@@ -20,11 +21,11 @@ import pandas as pd
 
 from waveform_analysis.utils.visualization.lineage_visualizer import plot_lineage_labview
 
-from .exceptions import ErrorSeverity
-from .mixins import CacheMixin, PluginMixin
-from .plugins import Plugin
-from .storage import MemmapStorage
-from .utils import OneTimeGenerator, Profiler
+from .foundation.exceptions import ErrorSeverity
+from .foundation.mixins import CacheMixin, PluginMixin
+from .plugins.core.base import Plugin
+from .storage.memmap import MemmapStorage
+from .foundation.utils import OneTimeGenerator, Profiler
 
 
 class Context(CacheMixin, PluginMixin):
@@ -63,11 +64,11 @@ class Context(CacheMixin, PluginMixin):
             >>> ctx = Context(storage_dir="./data")
 
             >>> # 使用 SQLite 存储
-            >>> from waveform_analysis.core.storage_backends import SQLiteBackend
+            >>> from waveform_analysis.core.storage.backends import SQLiteBackend
             >>> ctx = Context(storage=SQLiteBackend("./data.db"))
 
             >>> # 使用工厂函数
-            >>> from waveform_analysis.core.storage_backends import create_storage_backend
+            >>> from waveform_analysis.core.storage.backends import create_storage_backend
             >>> storage = create_storage_backend("sqlite", db_path="./data.db")
             >>> ctx = Context(storage=storage)
 
@@ -171,7 +172,7 @@ class Context(CacheMixin, PluginMixin):
         Returns:
             注册的插件数量
         """
-        from waveform_analysis.core.plugin_loader import PluginLoader
+        from waveform_analysis.core.plugins.core.loader import PluginLoader
 
         loader = PluginLoader(self.plugin_dirs)
         total_discovered = loader.discover_all()
@@ -1255,7 +1256,7 @@ class Context(CacheMixin, PluginMixin):
             >>> # 查询所有数据后特定时间的记录
             >>> data = ctx.get_data_time_range('run_001', 'st_waveforms', start_time=1000000)
         """
-        from waveform_analysis.core.time_range_query import TimeRangeQueryEngine
+        from waveform_analysis.core.data.query import TimeRangeQueryEngine
 
         # 懒加载查询引擎
         if not hasattr(self, '_time_query_engine'):
@@ -1325,7 +1326,7 @@ class Context(CacheMixin, PluginMixin):
             >>> # 预先构建索引以提高查询性能
             >>> ctx.build_time_index('run_001', 'st_waveforms', endtime_field='computed')
         """
-        from waveform_analysis.core.time_range_query import TimeRangeQueryEngine
+        from waveform_analysis.core.data.query import TimeRangeQueryEngine
 
         # 懒加载查询引擎
         if not hasattr(self, '_time_query_engine'):

@@ -8,7 +8,7 @@ import shutil
 import pytest
 import numpy as np
 
-from waveform_analysis.core.compression import (
+from waveform_analysis.core.storage.compression import (
     Blosc2Compression,
     LZ4Compression,
     ZstdCompression,

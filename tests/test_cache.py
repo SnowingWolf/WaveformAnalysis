@@ -7,7 +7,7 @@ import tempfile
 
 import pytest
 
-from waveform_analysis.core.cache import WATCH_SIG_KEY, CacheManager
+from waveform_analysis.core.storage.cache import WATCH_SIG_KEY, CacheManager
 
 
 class TestWatchSigKey:

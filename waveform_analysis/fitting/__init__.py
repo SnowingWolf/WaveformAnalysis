@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Fitting module - 数据拟合模型
 """

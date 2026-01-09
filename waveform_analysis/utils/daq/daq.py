@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """DAQ 工具：包含 DAQRun 和 DAQAnalyzer
 
 This module exposes DAQRun and DAQAnalyzer from their dedicated modules so
@@ -12,7 +13,7 @@ from typing import Any, Iterable
 
 from .daq_analyzer import DAQAnalyzer
 from .daq_run import DAQRun
-from waveform_analysis.core.utils import exporter
+from waveform_analysis.core.foundation.utils import exporter
 
 logger = logging.getLogger(__name__)
 
