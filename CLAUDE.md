@@ -77,6 +77,19 @@ waveform-process --show-daq --daq-root DAQ
 
 ## Architecture Overview
 
+### Core Structure (Modular Subdirectories)
+
+从 2026-01 版本开始，`core/` 目录采用**模块化子目录架构**，将原本扁平的 27 个文件重构为 6 个功能子目录：
+
+- **`storage/`**: 存储层（memmap, backends, cache, compression, integrity）
+- **`execution/`**: 执行层（manager, config, timeout）
+- **`plugins/`**: 插件系统（分离 core/ 和 builtin/）
+- **`processing/`**: 数据处理（loader, processor, analyzer, chunk）
+- **`data/`**: 数据管理（query, export）
+- **`foundation/`**: 框架基础（exceptions, mixins, model, utils, progress）
+
+核心文件 `context.py` 和 `dataset.py` 保持在 core/ 根目录。
+
 ### Core Components
 
 1. **Context Layer** (`core/context.py`)
@@ -86,27 +99,33 @@ waveform-process --show-daq --daq-root DAQ
    - Automatic dependency resolution with cycle detection
    - Lineage-based caching with SHA1 hashing of plugin code, version, config, dtype
 
-2. **Plugin System** (`core/plugins.py`, `core/standard_plugins.py`)
+2. **Plugin System** (`core/plugins/core/base.py`, `core/plugins/builtin/standard.py`)
+   - **Modular**: Core infrastructure (`plugins/core/`) 与内置插件（`plugins/builtin/`）分离
    - Each plugin declares: `provides`, `depends_on`, `options`, `version`, `dtype`
    - `compute()` returns ndarray or generator
    - `is_side_effect=True` isolates outputs to `_side_effects/{run_id}/{plugin_name}`
    - Standard plugins: RawFiles → Waveforms → StWaveforms → EventLength → Features → DataFrame → GroupedEvents → PairedEvents
 
-3. **Storage Layer** (`core/storage.py`)
-   - `MemmapStorage`: Zero-copy array persistence with atomic writes (`.tmp` → rename)
+3. **Storage Layer** (`core/storage/`)
+   - `MemmapStorage` (`storage/memmap.py`): Zero-copy array persistence with atomic writes (`.tmp` → rename)
+   - `StorageBackend` (`storage/backends.py`): Pluggable backends (SQLite, etc.)
+   - `CacheManager` (`storage/cache.py`): Lineage-based cache validation
+   - `CompressionManager` (`storage/compression.py`): Blosc2, LZ4, Zstd, Gzip
+   - `IntegrityChecker` (`storage/integrity.py`): Checksum validation
    - Validates `dtype.descr` and `STORAGE_VERSION`
    - File locking for concurrent access protection
    - Watch signature (`WATCH_SIG_KEY`) tracks input file mtime/size for cache invalidation
 
-4. **Streaming Framework** (`core/streaming.py`, `core/streaming_plugins.py`)
+4. **Streaming Framework** (`core/plugins/core/streaming.py`, `core/plugins/builtin/streaming_examples.py`)
    - `StreamingPlugin`: Returns chunk iterators instead of static data
    - `StreamingContext`: Manages chunk flows with automatic parallelization
    - Time-aligned chunk processing with boundary validation
    - Mixed static/streaming plugin support
 
-5. **Executor Management** (`core/executor_manager.py`, `core/executor_config.py`)
-   - Global singleton `ExecutorManager` for thread/process pool reuse
-   - Predefined configs: `io_intensive`, `cpu_intensive`, `large_data`, `small_data`
+5. **Executor Management** (`core/execution/`)
+   - `ExecutorManager` (`execution/manager.py`): Global singleton for thread/process pool reuse
+   - `EXECUTOR_CONFIGS` (`execution/config.py`): Predefined configs: `io_intensive`, `cpu_intensive`, `large_data`, `small_data`
+   - `TimeoutManager` (`execution/timeout.py`): Timeout control
    - Context manager support: `with get_executor('io_intensive') as executor:`
    - Helper functions: `parallel_map()`, `parallel_apply()`
 
@@ -116,34 +135,34 @@ waveform-process --show-daq --daq-root DAQ
    - Feature registration system
    - Timestamp indexing for fast `get_waveform_at()` lookups
 
-7. **Chunk Utilities** (`core/chunk_utils.py`)
+7. **Chunk Utilities** (`core/processing/chunk.py`)
    - `Chunk(data, start, end, run_id, ...)`: Encapsulates data with time boundaries
    - Time range operations: `select_time_range()`, `clip_to_time_range()`
    - Validation: `check_monotonic()`, `check_no_overlap()`, `check_chunk_boundaries()`
    - Splitting/merging: `split_by_time()`, `merge_chunks()`, `rechunk()`
 
-8. **Time Range Query** (`core/time_range_query.py`) [NEW - Phase 2.2]
+8. **Time Range Query** (`core/data/query.py`) [NEW - Phase 2.2]
    - `TimeIndex`: Efficient time indexing with O(log n) binary search queries
    - `TimeRangeQueryEngine`: Manages multiple data type indices
    - Context integration: `get_data_time_range()`, `build_time_index()`, `clear_time_index()`
    - Query result caching for repeated queries
    - Example: `ctx.get_data_time_range('run_001', 'st_waveforms', start_time=1000, end_time=2000)`
 
-9. **Strax Plugin Adapter** (`core/strax_adapter.py`) [NEW - Phase 2.3]
+9. **Strax Plugin Adapter** (`core/plugins/core/adapters.py`) [NEW - Phase 2.3]
    - `StraxPluginAdapter`: Wraps strax plugins for seamless integration
    - `StraxContextAdapter`: Provides strax-style API (`get_array`, `get_df`, `search_field`)
    - Automatic metadata extraction and parameter mapping
    - Configuration option compatibility
    - Example: `adapter = wrap_strax_plugin(MyStraxPlugin); ctx.register_plugin(adapter)`
 
-10. **Batch Processing & Export** (`core/batch_export.py`) [NEW - Phase 3.1 & 3.2]
+10. **Batch Processing & Export** (`core/data/export.py`) [NEW - Phase 3.1 & 3.2]
     - `BatchProcessor`: Parallel/serial processing of multiple runs
     - `DataExporter`: Unified export interface (Parquet, HDF5, CSV, JSON, NumPy)
     - Progress tracking and flexible error handling
     - Example: `processor.process_runs(run_ids, 'peaks', max_workers=4)`
     - Example: `exporter.export(data, 'output.parquet')`
 
-11. **Hot Reload** (`core/hot_reload.py`) [NEW - Phase 3.3]
+11. **Hot Reload** (`core/plugins/core/hot_reload.py`) [NEW - Phase 3.3]
     - `PluginHotReloader`: File change monitoring and automatic module reloading
     - Cache consistency maintenance after reload
     - Auto-reload daemon thread support
@@ -179,11 +198,11 @@ CSV Files → RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin → Event
 - Pass `run_id` explicitly to all `Context.get_data()` calls
 - Missing `run_id` causes data overwrites and lineage conflicts
 
-### Module Exports (`core/utils.py`)
+### Module Exports (`core/foundation/utils.py`)
 All new modules **must** use the `exporter()` pattern:
 
 ```python
-from waveform_analysis.core.utils import exporter
+from waveform_analysis.core.foundation.utils import exporter
 export, __all__ = exporter()
 
 @export
@@ -406,7 +425,14 @@ reloader.disable_auto_reload()
 
 ## File Structure Notes
 
-- `waveform_analysis/core/`: Core processing logic (context, plugins, storage, executor management)
+- `waveform_analysis/core/`: Core processing logic (modular subdirectories since 2026-01)
+  - `context.py`, `dataset.py`: Core files (root level)
+  - `storage/`: Storage layer (memmap, backends, cache, compression, integrity)
+  - `execution/`: Execution layer (manager, config, timeout)
+  - `plugins/`: Plugin system (core/ infrastructure, builtin/ plugins)
+  - `processing/`: Data processing (loader, processor, analyzer, chunk)
+  - `data/`: Data management (query, export)
+  - `foundation/`: Framework basics (exceptions, mixins, model, utils, progress)
 - `waveform_analysis/utils/`: Utilities (DAQ adapters, I/O, visualization)
 - `waveform_analysis/fitting/`: Physics fitting models
 - `tests/`: Unit and integration tests

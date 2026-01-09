@@ -9,21 +9,61 @@ waveform-analysis/
 │   ├── __init__.py                # 包初始化，导出主要 API
 │   ├── cli.py                     # 命令行接口
 │   │
-│   ├── core/                      # 核心功能模块
-│   │   ├── __init__.py
+│   ├── core/                      # 核心功能模块（模块化子目录结构）
+│   │   ├── __init__.py            # 统一导出，保持向后兼容
 │   │   ├── context.py             # 核心调度：Context 类，管理插件与缓存
-│   │   ├── plugins.py             # 插件基类：Plugin, Option
-│   │   ├── standard_plugins.py    # 标准插件：RawFiles, Waveforms, EventLength, Features 等
 │   │   ├── dataset.py             # 高层 API：WaveformDataset 链式封装
-│   │   ├── storage.py             # 数据存储：MemmapStorage, Parquet 存储
-│   │   ├── cache.py               # 缓存管理：Lineage 校验与签名
-│   │   ├── loader.py              # 数据加载：WaveformLoader
-│   │   ├── processor.py           # 信号处理：WaveformStruct, 峰值查找（支持 Numba）
-│   │   ├── analyzer.py            # 事件分析：聚类与配对逻辑（支持多进程）
-│   │   ├── executor_manager.py    # 全局执行器管理：ExecutorManager, 统一管理线程/进程池
-│   │   ├── executor_config.py     # 执行器配置：预定义配置和配置管理
-│   │   ├── chunk_utils.py         # 时间分块：Chunk 对象与时间区间操作
-│   │   └── utils.py               # 基础工具：exporter, 计时器
+│   │   ├── cancellation.py        # 取消管理
+│   │   ├── load_balancer.py       # 负载均衡
+│   │   │
+│   │   ├── storage/               # 存储层（5个文件）
+│   │   │   ├── __init__.py
+│   │   │   ├── memmap.py          # 基于 memmap 的零拷贝存储
+│   │   │   ├── backends.py        # 可插拔存储后端（SQLite等）
+│   │   │   ├── cache.py           # 缓存管理：Lineage 校验与签名
+│   │   │   ├── compression.py     # 压缩管理：Blosc2, LZ4, Zstd
+│   │   │   └── integrity.py       # 数据完整性检查
+│   │   │
+│   │   ├── execution/             # 执行层（3个文件）
+│   │   │   ├── __init__.py
+│   │   │   ├── manager.py         # ExecutorManager：统一管理线程/进程池
+│   │   │   ├── config.py          # 执行器配置：IO密集型、CPU密集型等
+│   │   │   └── timeout.py         # 超时管理：TimeoutManager
+│   │   │
+│   │   ├── plugins/               # 插件系统（核心和内置分离）
+│   │   │   ├── __init__.py        # 统一导出
+│   │   │   ├── core/              # 核心基础设施（6个文件）
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── base.py        # 插件基类：Plugin, Option
+│   │   │   │   ├── streaming.py   # 流式插件基类
+│   │   │   │   ├── loader.py      # 插件动态加载器
+│   │   │   │   ├── stats.py       # 插件性能统计
+│   │   │   │   ├── hot_reload.py  # 插件热重载
+│   │   │   │   └── adapters.py    # Strax 插件适配器
+│   │   │   └── builtin/           # 内置插件（2个文件）
+│   │   │       ├── __init__.py
+│   │   │       ├── standard.py    # 标准插件：RawFiles, Waveforms, Features 等
+│   │   │       └── streaming_examples.py  # 流式插件示例
+│   │   │
+│   │   ├── processing/            # 数据处理（4个文件）
+│   │   │   ├── __init__.py
+│   │   │   ├── loader.py          # 数据加载：WaveformLoader
+│   │   │   ├── processor.py       # 信号处理：WaveformStruct（支持 Numba）
+│   │   │   ├── analyzer.py        # 事件分析：聚类与配对（支持多进程）
+│   │   │   └── chunk.py           # Chunk 对象与时间区间操作
+│   │   │
+│   │   ├── data/                  # 数据管理（2个文件）
+│   │   │   ├── __init__.py
+│   │   │   ├── query.py           # 时间范围查询：TimeRangeQueryEngine
+│   │   │   └── export.py          # 批量处理和导出：BatchProcessor, DataExporter
+│   │   │
+│   │   └── foundation/            # 框架基础（5个文件）
+│   │       ├── __init__.py
+│   │       ├── exceptions.py      # 异常类和错误处理
+│   │       ├── mixins.py          # 功能混合类：CacheMixin
+│   │       ├── model.py           # 数据模型：LineageGraphModel
+│   │       ├── utils.py           # 工具函数：exporter, Profiler
+│   │       └── progress.py        # 进度追踪：ProgressTracker
 │   │
 │   ├── fitting/                   # 拟合模块
 │   │   ├── __init__.py
@@ -89,64 +129,102 @@ waveform-analysis/
 
 ### waveform_analysis/core/
 
-核心数据处理功能，采用插件化架构。
+核心数据处理功能，采用**模块化子目录架构**，将原本扁平的 27 个文件重构为 6 个功能子目录。
 
-#### `context.py`
+#### 核心文件（保持扁平）
 
+**`context.py`**
 核心调度模块：
-- `Context`: 管理插件注册、依赖解析、配置分发和数据缓存。
+- `Context`: 管理插件注册、依赖解析、配置分发和数据缓存
+- 支持多级缓存校验和血缘追踪
 
-#### `plugins.py` & `standard_plugins.py`
-
-插件定义与实现：
-- `Plugin`, `Option`: 插件基类。
-- `RawFilesPlugin`, `WaveformsPlugin`, `BasicFeaturesPlugin` 等：标准分析流程的实现。
-
-#### `dataset.py`
-
+**`dataset.py`**
 高层 API 模块：
-- `WaveformDataset`: 提供链式调用接口，内部委托 `Context` 执行。
+- `WaveformDataset`: 提供链式调用接口，内部委托 `Context` 执行
 
-#### `storage.py` & `cache.py`
+#### `storage/` - 存储层（5个文件）
 
-存储与缓存：
-- `MemmapStorage`: 基于内存映射的高效数组存储。
-- `CacheManager`: 基于血缘 (Lineage) 的缓存校验。
+数据持久化、缓存管理和压缩：
 
-#### `loader.py`
+- **`memmap.py`**: 基于 `numpy.memmap` 的零拷贝存储
+- **`backends.py`**: 可插拔存储后端（MemmapBackend, SQLiteBackend）
+- **`cache.py`**: 基于 Lineage 的缓存校验与签名管理
+- **`compression.py`**: 压缩管理（Blosc2, LZ4, Zstd, Gzip）
+- **`integrity.py`**: 数据完整性检查（校验和、验证）
 
-数据加载模块：
-- `WaveformLoader`: 负责扫描 DAQ 目录并加载原始波形。
+#### `execution/` - 执行层（3个文件）
 
-#### `processor.py` & `analyzer.py`
+并行执行和超时管理：
 
-算法模块：
-- `WaveformStruct`: 波形结构化处理。
-- `EventAnalyzer`: 事件聚类与配对逻辑。
-- **性能优化**: 支持 Numba JIT 加速和多进程并行处理。
+- **`manager.py`**: `ExecutorManager` 全局单例，统一管理线程/进程池
+- **`config.py`**: 预定义配置（IO密集型、CPU密集型、大数据、小数据）
+- **`timeout.py`**: `TimeoutManager` 超时控制
 
-#### `executor_manager.py` & `executor_config.py`
+便捷函数：`get_executor()`, `parallel_map()`, `parallel_apply()`
 
-执行器管理模块：
-- `ExecutorManager`: 全局单例，统一管理线程池和进程池资源。
-- `get_executor()`: 上下文管理器，自动获取和释放执行器。
-- `parallel_map()` / `parallel_apply()`: 便捷的并行操作函数。
-- `EXECUTOR_CONFIGS`: 预定义配置（IO密集型、CPU密集型等）。
+#### `plugins/` - 插件系统（核心和内置分离）
 
-#### `chunk_utils.py`
+**`plugins/core/`** - 核心基础设施（6个文件）：
+- **`base.py`**: 插件基类 `Plugin` 和配置 `Option`
+- **`streaming.py`**: 流式插件基类 `StreamingPlugin`
+- **`loader.py`**: 插件动态加载器 `PluginLoader`
+- **`stats.py`**: 插件性能统计 `PluginStatsCollector`
+- **`hot_reload.py`**: 插件热重载 `PluginHotReloader`
+- **`adapters.py`**: Strax 插件适配器 `StraxPluginAdapter`
 
-时间分块工具：
-- `Chunk`: 封装数据与时间边界，支持分割与合并。
-- 提供时间区间校验、重分块 (rechunk) 等底层工具。
+**`plugins/builtin/`** - 内置插件（2个文件）：
+- **`standard.py`**: 标准数据处理插件
+  - `RawFilesPlugin`, `WaveformsPlugin`, `StWaveformsPlugin`
+  - `BasicFeaturesPlugin`, `DataFramePlugin`
+  - `GroupedEventsPlugin`, `PairedEventsPlugin`
+- **`streaming_examples.py`**: 流式处理插件示例
 
-#### `dataset.py`
+#### `processing/` - 数据处理（4个文件）
 
-数据集封装模块：
-- `WaveformDataset`: 完整数据处理流程封装
-  - 链式调用支持
-  - 特征注册系统
-  - 自定义配对策略
-  - 时间戳索引缓存
+数据加载、信号处理和事件分析：
+
+- **`loader.py`**: `WaveformLoader` 数据加载器
+- **`processor.py`**: 信号处理（`WaveformStruct`, 峰值查找，支持 Numba JIT）
+- **`analyzer.py`**: 事件分析（聚类与配对，支持多进程）
+- **`chunk.py`**: `Chunk` 对象与时间区间操作工具
+
+#### `data/` - 数据管理（2个文件）
+
+时间范围查询和批量导出：
+
+- **`query.py`**: `TimeRangeQueryEngine` 时间范围查询引擎
+- **`export.py`**: 批量处理和导出
+  - `BatchProcessor`: 多运行批量处理
+  - `DataExporter`: 统一数据导出（Parquet, HDF5, CSV, JSON）
+
+#### `foundation/` - 框架基础（5个文件）
+
+异常处理、Mixin、模型和工具函数：
+
+- **`exceptions.py`**: 异常类（`PluginError`, `ErrorSeverity`）
+- **`mixins.py`**: 功能混合类（`CacheMixin`, `StepMixin`）
+- **`model.py`**: 数据模型（`LineageGraphModel`）
+- **`utils.py`**: 工具函数（`exporter`, `Profiler`）
+- **`progress.py`**: 进度追踪（`ProgressTracker`）
+
+#### 向后兼容
+
+所有公共 API 通过 `core/__init__.py` 统一导出，保持完全向后兼容：
+
+```python
+# 仍然可用
+from waveform_analysis.core import Plugin, MemmapStorage
+from waveform_analysis.core import get_executor, WaveformStruct
+```
+
+推荐使用新路径：
+```python
+# 新路径更清晰
+from waveform_analysis.core.plugins import Plugin
+from waveform_analysis.core.storage import MemmapStorage
+from waveform_analysis.core.execution import get_executor
+from waveform_analysis.core.processing import WaveformStruct
+```
 
 ### waveform_analysis/fitting/
 
