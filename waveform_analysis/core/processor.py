@@ -68,7 +68,7 @@ PEAK_DTYPE = export(
         ("channel", "i2"),  # channel index
         ("event_index", "i8"),  # index of the event in the dataset
     ],
-    name="PEAK_DTYPE",
+    name="PEAK_DTYPE", 
 )
 
 
@@ -128,21 +128,24 @@ def find_hits(
 def create_channel_mapping(board_channel_pairs: List[Tuple[int, int]]) -> Dict[Tuple[int, int], int]:
     """
     创建 (BOARD, CHANNEL) 到物理通道号的映射。
-    
+
+    物理通道号直接使用 CHANNEL 值（假设所有数据来自同一个 BOARD）。
+
     参数:
         board_channel_pairs: (BOARD, CHANNEL) 元组列表
-    
+
     返回:
         映射字典：{(BOARD, CHANNEL): 物理通道号}
-        
+
     示例:
-        >>> pairs = [(0, 0), (0, 1), (0, 2), (1, 0)]
+        >>> pairs = [(0, 0), (0, 2), (0, 3)]
         >>> mapping = create_channel_mapping(pairs)
         >>> mapping
-        {(0, 0): 0, (0, 1): 1, (0, 2): 2, (1, 0): 3}
+        {(0, 0): 0, (0, 2): 2, (0, 3): 3}
     """
-    unique_pairs = sorted(set(board_channel_pairs))
-    return {pair: idx for idx, pair in enumerate(unique_pairs)}
+    unique_pairs = set(board_channel_pairs)
+    # 物理通道号直接使用 CHANNEL 值
+    return {(board, channel): channel for board, channel in unique_pairs}
 
 
 @export

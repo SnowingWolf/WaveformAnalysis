@@ -6,14 +6,18 @@ Mixins 模块 - 增强 WaveformDataset 功能的混合类。
 """
 
 import functools
+import logging
 import os
+import traceback
 from contextlib import nullcontext
+from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
 from .cache import WATCH_SIG_KEY, CacheManager
+from .exceptions import ErrorSeverity
 
 
 def chainable_step(fn: Callable):
@@ -120,7 +124,18 @@ def chainable_step(fn: Callable):
             self._record_step_failure(name, e)
             if getattr(self, "raise_on_error", False):
                 raise
-            print(f"[warning] step '{name}' failed: {e}")
+            
+            # 获取 logger（从 self 或创建新的）
+            logger = getattr(self, "logger", None)
+            if logger is None:
+                logger = logging.getLogger(self.__class__.__name__)
+                if not logger.handlers:
+                    handler = logging.StreamHandler()
+                    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+                    handler.setFormatter(formatter)
+                    logger.addHandler(handler)
+            
+            logger.warning(f"Step '{name}' failed: {e}")
             return self
 
     return wrapper
@@ -287,30 +302,90 @@ class StepMixin:
     chainable_step = staticmethod(chainable_step)
 
     def __init__(self):
-        self._step_errors: Dict[str, str] = {}
+        self._step_errors: Dict[str, Dict[str, Any]] = {}  # 改为结构化
         self._step_status: Dict[str, str] = {}
         self._last_failed_step: Optional[str] = None
         self.raise_on_error: bool = False
+        self._error_stats: Dict[str, int] = {}  # 新增错误统计
+        self._store_traceback: bool = False  # 可配置是否存储traceback
 
     def _record_step_success(self, name: str) -> None:
         self._step_status[name] = "success"
 
     def _record_step_failure(self, name: str, exc: Exception) -> None:
         self._step_status[name] = "failed"
-        self._step_errors[name] = str(exc)
+        
+        # 结构化错误信息
+        error_info = {
+            "message": str(exc),
+            "type": type(exc).__name__,
+            "timestamp": datetime.now().isoformat(),
+            "severity": getattr(exc, 'severity', ErrorSeverity.FATAL).value if hasattr(exc, 'severity') else 'unknown',
+            "recoverable": getattr(exc, 'recoverable', False),
+        }
+        
+        # 可选：存储traceback（如果配置了）
+        if self._store_traceback:
+            error_info["traceback"] = traceback.format_exc()
+        
+        self._step_errors[name] = error_info
         self._last_failed_step = name
+        
+        # 错误统计
+        error_type = type(exc).__name__
+        self._error_stats[error_type] = self._error_stats.get(error_type, 0) + 1
 
     def set_raise_on_error(self, value: bool) -> None:
         """Toggle whether chainable steps raise on failure."""
         self.raise_on_error = bool(value)
+    
+    def set_store_traceback(self, value: bool) -> None:
+        """Toggle whether to store traceback in error info."""
+        self._store_traceback = bool(value)
 
-    def get_step_errors(self) -> Dict[str, str]:
-        return self._step_errors
+    def get_step_errors(self) -> Dict[str, Dict[str, Any]]:  # 更新返回类型
+        return self._step_errors.copy()
 
     def clear_step_errors(self) -> None:
         self._step_errors.clear()
         self._step_status.clear()
         self._last_failed_step = None
+        self._error_stats.clear()
+    
+    def get_error_summary(self) -> Dict[str, Any]:
+        """获取所有错误的汇总报告"""
+        if not self._step_errors:
+            return {"status": "success", "errors": []}
+        
+        errors_by_type = {}
+        for step, error_info in self._step_errors.items():
+            error_type = error_info.get("type", "Unknown")
+            if error_type not in errors_by_type:
+                errors_by_type[error_type] = []
+            errors_by_type[error_type].append({
+                "step": step,
+                "message": error_info.get("message"),
+                "severity": error_info.get("severity", "unknown"),
+                "timestamp": error_info.get("timestamp")
+            })
+        
+        return {
+            "status": "failed",
+            "total_errors": len(self._step_errors),
+            "failed_steps": list(self._step_errors.keys()),
+            "errors_by_type": errors_by_type,
+            "last_failed_step": self._last_failed_step,
+            "error_stats": self._error_stats.copy()
+        }
+    
+    def get_error_statistics(self) -> Dict[str, Any]:
+        """获取错误统计信息"""
+        return {
+            "total_errors": len(self._step_errors),
+            "errors_by_type": self._error_stats.copy(),
+            "failed_steps_count": len(self._step_errors),
+            "last_failed_step": self._last_failed_step
+        }
 
 
 class PluginMixin:

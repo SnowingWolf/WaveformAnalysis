@@ -20,7 +20,7 @@ import pandas as pd
 
 from waveform_analysis.utils.visualization.lineage_visualizer import plot_lineage_labview
 
-from .cache import WATCH_SIG_KEY, CacheManager
+from .exceptions import ErrorSeverity
 from .mixins import CacheMixin, PluginMixin
 from .plugins import Plugin
 from .storage import MemmapStorage
@@ -40,6 +40,9 @@ class Context(CacheMixin, PluginMixin):
         storage: Optional[Any] = None,
         plugin_dirs: Optional[List[str]] = None,
         auto_discover_plugins: bool = False,
+        enable_stats: bool = False,
+        stats_mode: str = 'basic',
+        stats_log_file: Optional[str] = None,
     ):
         """
         Initialize Context.
@@ -51,6 +54,9 @@ class Context(CacheMixin, PluginMixin):
                     如果为 None，使用默认的 MemmapStorage
             plugin_dirs: 插件搜索目录列表
             auto_discover_plugins: 是否自动发现并注册插件
+            enable_stats: 是否启用插件性能统计
+            stats_mode: 统计模式 ('off', 'basic', 'detailed')
+            stats_log_file: 统计日志文件路径
 
         Examples:
             >>> # 使用默认 memmap 存储
@@ -64,6 +70,9 @@ class Context(CacheMixin, PluginMixin):
             >>> from waveform_analysis.core.storage_backends import create_storage_backend
             >>> storage = create_storage_backend("sqlite", db_path="./data.db")
             >>> ctx = Context(storage=storage)
+
+            >>> # 启用详细统计和日志
+            >>> ctx = Context(enable_stats=True, stats_mode='detailed', stats_log_file='./logs/plugins.log')
         """
         CacheMixin.__init__(self)
         PluginMixin.__init__(self)
@@ -89,6 +98,17 @@ class Context(CacheMixin, PluginMixin):
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
         self.logger.setLevel(logging.INFO)
+
+        # Setup plugin statistics collector
+        self.enable_stats = enable_stats
+        self.stats_collector = None
+        if enable_stats:
+            from waveform_analysis.core.plugin_stats import PluginStatsCollector
+            # Create dedicated collector for this context (not global singleton)
+            self.stats_collector = PluginStatsCollector(
+                mode=stats_mode,
+                log_file=stats_log_file
+            )
 
         # Dedicated storage for results to avoid namespace pollution
         self._results: Dict[tuple, Any] = {}
@@ -423,6 +443,10 @@ class Context(CacheMixin, PluginMixin):
         # 1. Check memory cache
         val = self._get_data_from_memory(run_id, data_name)
         if val is not None:
+            # Memory cache hit at top level - record stats if enabled
+            if self.stats_collector and self.stats_collector.is_enabled():
+                self.stats_collector.start_execution(data_name, run_id)
+                self.stats_collector.end_execution(data_name, success=True, cache_hit=True)
             return val
 
         # 2. Check disk cache (memmap)
@@ -431,6 +455,10 @@ class Context(CacheMixin, PluginMixin):
             key = self.key_for(run_id, data_name)
             data = self._load_from_disk_with_check(run_id, data_name, key)
             if data is not None:
+                # Disk cache hit at top level - record stats if enabled
+                if self.stats_collector and self.stats_collector.is_enabled():
+                    self.stats_collector.start_execution(data_name, run_id)
+                    self.stats_collector.end_execution(data_name, success=True, cache_hit=True)
                 return data
 
         # 3. Run plugin (this will also handle dependencies)
@@ -469,7 +497,12 @@ class Context(CacheMixin, PluginMixin):
                 # 2. Execute plan in order
                 for name in plan:
                     # Check memory cache again (might have been loaded as dependency)
-                    if self._get_data_from_memory(run_id, name) is not None:
+                    mem_cached = self._get_data_from_memory(run_id, name)
+                    if mem_cached is not None:
+                        # Memory cache hit - record stats if enabled
+                        if self.stats_collector and self.stats_collector.is_enabled():
+                            self.stats_collector.start_execution(name, run_id)
+                            self.stats_collector.end_execution(name, success=True, cache_hit=True)
                         continue
 
                     # Check disk cache for dependencies too
@@ -477,6 +510,11 @@ class Context(CacheMixin, PluginMixin):
                     with self.profiler.timeit("context.load_cache"):
                         data = self._load_from_disk_with_check(run_id, name, key)
                     if data is not None:
+                        # Cache hit - record stats if enabled
+                        if self.stats_collector and self.stats_collector.is_enabled():
+                            # For cache hits, we still track that the plugin was "executed" (from cache)
+                            self.stats_collector.start_execution(name, run_id)
+                            self.stats_collector.end_execution(name, success=True, cache_hit=True)
                         continue
 
                     if name not in self._plugins:
@@ -507,32 +545,78 @@ class Context(CacheMixin, PluginMixin):
                                 f"Expected dtype {expected_dtype}, but got {actual_dtype}."
                             )
 
+                    # Calculate input size for stats (detailed mode)
+                    input_size_mb = None
+                    if self.stats_collector and self.stats_collector.mode == 'detailed':
+                        try:
+                            total_bytes = 0
+                            for dep_name in plugin.depends_on:
+                                dep_data = self._get_data_from_memory(run_id, dep_name)
+                                if dep_data is not None:
+                                    if isinstance(dep_data, np.ndarray):
+                                        total_bytes += dep_data.nbytes
+                                    elif isinstance(dep_data, list):
+                                        total_bytes += sum(
+                                            arr.nbytes for arr in dep_data
+                                            if isinstance(arr, np.ndarray)
+                                        )
+                            input_size_mb = total_bytes / (1024 * 1024) if total_bytes > 0 else None
+                        except Exception:
+                            pass  # Best effort
+
                     # Side-effect isolation
                     if getattr(plugin, "is_side_effect", False):
                         side_effect_dir = os.path.join(self.storage_dir, "_side_effects", run_id, name)
                         os.makedirs(side_effect_dir, exist_ok=True)
                         kwargs["output_dir"] = side_effect_dir
 
+                    # Start stats collection
+                    if self.stats_collector and self.stats_collector.is_enabled():
+                        self.stats_collector.start_execution(name, run_id, input_size_mb=input_size_mb)
+
                     try:
                         # Call plugin compute with explicit run_id
                         with self.profiler.timeit(f"plugin.{name}.compute"):
                             result = plugin.compute(self, run_id, **kwargs)
                     except Exception as e:
+                        # Record error in stats
+                        if self.stats_collector and self.stats_collector.is_enabled():
+                            self.stats_collector.end_execution(name, success=False, cache_hit=False, error=e)
+
                         # Error handling hook
                         plugin.on_error(self, e)
 
-                        # Detailed error logging
-                        import traceback
+                        # 检查错误严重程度
+                        severity = getattr(e, 'severity', ErrorSeverity.FATAL)
+                        recoverable = getattr(e, 'recoverable', False)
 
-                        print(f"\nError in plugin '{name}' ({plugin.__class__.__name__}):")
-                        print(f"Run ID: {run_id}")
-                        print(f"Config: { {k: self.get_config(plugin, k) for k in plugin.config_keys} }")
-                        print(f"Traceback:\n{traceback.format_exc()}")
+                        # 收集错误上下文
+                        error_context = self._collect_error_context(plugin, run_id)
 
-                        raise RuntimeError(f"Plugin '{name}' failed: {str(e)}") from e
+                        # 根据严重程度处理
+                        if severity == ErrorSeverity.FATAL:
+                            # 致命错误：记录并抛出
+                            self._log_error(name, e, run_id, plugin, error_context)
+                            raise RuntimeError(f"Plugin '{name}' failed: {str(e)}") from e
+                        elif severity == ErrorSeverity.RECOVERABLE and recoverable:
+                            # 可恢复错误：记录警告，尝试降级处理
+                            self.logger.warning(f"Plugin '{name}' failed but recoverable: {e}")
+                            # 可以在这里添加降级逻辑
+                            raise RuntimeError(f"Plugin '{name}' failed: {str(e)}") from e
+                        else:
+                            # 默认处理
+                            self._log_error(name, e, run_id, plugin, error_context)
+                            raise RuntimeError(f"Plugin '{name}' failed: {str(e)}") from e
                     finally:
                         # Cleanup hook
-                        plugin.cleanup(self)
+                        try:
+                            plugin.cleanup(self)
+                        except Exception as cleanup_error:
+                            # 记录清理错误，但不掩盖原始错误
+                            self.logger.warning(
+                                f"Plugin '{name}' cleanup failed: {cleanup_error}",
+                                exc_info=True
+                            )
 
                     lineage = self.get_lineage(name)
 
@@ -608,6 +692,29 @@ class Context(CacheMixin, PluginMixin):
                     else:
                         self._set_data(run_id, name, result)
 
+                    # Calculate output size for stats (detailed mode)
+                    output_size_mb = None
+                    if self.stats_collector and self.stats_collector.mode == 'detailed':
+                        try:
+                            if isinstance(result, np.ndarray):
+                                output_size_mb = result.nbytes / (1024 * 1024)
+                            elif isinstance(result, list) and all(isinstance(x, np.ndarray) for x in result):
+                                total_bytes = sum(arr.nbytes for arr in result)
+                                output_size_mb = total_bytes / (1024 * 1024)
+                            elif isinstance(result, pd.DataFrame):
+                                output_size_mb = result.memory_usage(deep=True).sum() / (1024 * 1024)
+                        except Exception:
+                            pass  # Best effort
+
+                    # Record successful execution in stats
+                    if self.stats_collector and self.stats_collector.is_enabled():
+                        self.stats_collector.end_execution(
+                            name,
+                            success=True,
+                            cache_hit=False,
+                            output_size_mb=output_size_mb
+                        )
+
                 return self._get_data_from_memory(run_id, data_name)
             finally:
                 with self._in_progress_lock:
@@ -626,9 +733,8 @@ class Context(CacheMixin, PluginMixin):
         Uses file locking and atomic writes for integrity.
         """
         key = self.key_for(run_id, data_name)
-        bin_path, meta_path, lock_path = self.storage._get_paths(key)
+        bin_path, _meta_path, lock_path = self.storage._get_paths(key)
         tmp_bin_path = bin_path + ".tmp"
-        tmp_meta_path = meta_path + ".tmp"
 
         def wrapper():
             # Acquire lock before starting the stream
@@ -702,7 +808,7 @@ class Context(CacheMixin, PluginMixin):
                 if os.path.exists(tmp_bin_path):
                     try:
                         os.remove(tmp_bin_path)
-                    except:
+                    except Exception:
                         pass
 
         return wrapper()
@@ -715,6 +821,53 @@ class Context(CacheMixin, PluginMixin):
     def profiling_summary(self) -> str:
         """Return a summary of the profiling data."""
         return self.profiler.summary()
+
+    def get_performance_report(self, plugin_name: Optional[str] = None, format: str = 'text') -> Any:
+        """
+        获取插件性能统计报告
+
+        Args:
+            plugin_name: 插件名称,None返回所有插件的统计
+            format: 报告格式 ('text' 或 'dict')
+
+        Returns:
+            性能报告(文本或字典格式)
+
+        Example:
+            >>> ctx = Context(enable_stats=True, stats_mode='detailed')
+            >>> # ... 执行一些插件 ...
+            >>> print(ctx.get_performance_report())
+            >>> # 或获取特定插件的统计
+            >>> stats = ctx.get_performance_report(plugin_name='my_plugin', format='dict')
+        """
+        if not self.stats_collector or not self.stats_collector.is_enabled():
+            return "Performance statistics are disabled. Enable with enable_stats=True"
+
+        if plugin_name:
+            stats = self.stats_collector.get_statistics(plugin_name)
+            if format == 'dict':
+                return stats
+            else:
+                # Generate text report for single plugin
+                from waveform_analysis.core.plugin_stats import PluginStatistics
+                if not stats or plugin_name not in stats:
+                    return f"No statistics available for plugin '{plugin_name}'"
+
+                s = stats[plugin_name]
+                lines = [
+                    f"Performance Report for '{plugin_name}':",
+                    f"  Total calls: {s.total_calls}",
+                    f"  Cache hit rate: {s.cache_hit_rate():.1%} ({s.cache_hits}/{s.total_calls})",
+                    f"  Success rate: {s.success_rate():.1%}",
+                    f"  Time: mean={s.mean_time:.3f}s, min={s.min_time:.3f}s, max={s.max_time:.3f}s",
+                ]
+                if self.stats_collector.mode == 'detailed':
+                    lines.append(f"  Memory: peak={s.peak_memory_mb:.2f}MB, avg={s.avg_memory_mb:.2f}MB")
+                if s.recent_errors:
+                    lines.append(f"  Recent errors: {len(s.recent_errors)}")
+                return "\n".join(lines)
+        else:
+            return self.stats_collector.generate_report(format=format)
 
     def get_lineage(self, data_name: str, _visited: Optional[set] = None) -> Dict[str, Any]:
         """
@@ -989,6 +1142,242 @@ class Context(CacheMixin, PluginMixin):
                         self.logger.warning(f"Failed to delete parquet file {parquet_path}: {e}")
         
         return count
+
+    def _collect_error_context(self, plugin: Plugin, run_id: str) -> Dict[str, Any]:
+        """收集错误发生时的上下文信息"""
+        from datetime import datetime
+        
+        context = {
+            "run_id": run_id,
+            "plugin": plugin.provides,
+            "plugin_class": plugin.__class__.__name__,
+            "config": {k: self.get_config(plugin, k) for k in plugin.config_keys},
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # 收集依赖数据的信息
+        dependencies_info = {}
+        for dep in plugin.depends_on:
+            dep_name = dep if isinstance(dep, str) else dep[0]
+            try:
+                dep_data = self._get_data_from_memory(run_id, dep_name)
+                if dep_data is not None:
+                    if isinstance(dep_data, np.ndarray):
+                        dependencies_info[dep_name] = {
+                            "shape": dep_data.shape,
+                            "dtype": str(dep_data.dtype),
+                            "size_mb": dep_data.nbytes / (1024 * 1024)
+                        }
+                    elif isinstance(dep_data, list):
+                        dependencies_info[dep_name] = {
+                            "length": len(dep_data),
+                            "type": type(dep_data[0]).__name__ if dep_data else "empty"
+                        }
+                    elif isinstance(dep_data, pd.DataFrame):
+                        dependencies_info[dep_name] = {
+                            "shape": dep_data.shape,
+                            "columns": list(dep_data.columns),
+                            "size_mb": dep_data.memory_usage(deep=True).sum() / (1024 * 1024)
+                        }
+            except Exception:
+                pass  # 忽略收集上下文时的错误
+        
+        context["dependencies_info"] = dependencies_info
+        
+        # 内存使用情况（可选，需要psutil）
+        try:
+            import psutil
+            process = psutil.Process()
+            context["memory_mb"] = process.memory_info().rss / (1024 * 1024)
+        except ImportError:
+            context["memory_mb"] = None
+        
+        return context
+
+    def _log_error(self, plugin_name: str, exception: Exception, run_id: str, 
+                   plugin: Plugin, error_context: Dict[str, Any]) -> None:
+        """统一的错误日志记录方法"""
+        log_level = self.logger.level
+        if log_level <= logging.DEBUG:
+            self.logger.error(
+                f"Plugin '{plugin_name}' ({plugin.__class__.__name__}) failed",
+                exc_info=True,
+                extra={
+                    "run_id": run_id,
+                    "plugin_name": plugin_name,
+                    "plugin_class": plugin.__class__.__name__,
+                    "config": {k: self.get_config(plugin, k) for k in plugin.config_keys},
+                    "error_context": error_context
+                }
+            )
+        elif log_level <= logging.INFO:
+            self.logger.error(
+                f"Plugin '{plugin_name}' ({plugin.__class__.__name__}) failed: {type(exception).__name__}: {exception}",
+                extra={"run_id": run_id, "plugin_name": plugin_name}
+            )
+        else:
+            self.logger.error(f"Plugin '{plugin_name}' failed: {exception}")
+
+    # ===========================
+    # 时间范围查询 (Phase 2.2)
+    # ===========================
+
+    def get_data_time_range(
+        self,
+        run_id: str,
+        data_name: str,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
+        time_field: str = 'time',
+        endtime_field: Optional[str] = None,
+        auto_build_index: bool = True
+    ) -> np.ndarray:
+        """
+        查询数据的时间范围
+
+        Args:
+            run_id: 运行ID
+            data_name: 数据名称
+            start_time: 起始时间(包含)
+            end_time: 结束时间(不包含)
+            time_field: 时间字段名
+            endtime_field: 结束时间字段名('computed'表示计算endtime)
+            auto_build_index: 自动构建时间索引
+
+        Returns:
+            符合条件的数据子集
+
+        Examples:
+            >>> # 查询特定时间范围的波形数据
+            >>> data = ctx.get_data_time_range('run_001', 'st_waveforms',
+            ...                                 start_time=1000000, end_time=2000000)
+            >>>
+            >>> # 查询所有数据后特定时间的记录
+            >>> data = ctx.get_data_time_range('run_001', 'st_waveforms', start_time=1000000)
+        """
+        from waveform_analysis.core.time_range_query import TimeRangeQueryEngine
+
+        # 懒加载查询引擎
+        if not hasattr(self, '_time_query_engine'):
+            self._time_query_engine = TimeRangeQueryEngine()
+
+        engine = self._time_query_engine
+
+        # 获取完整数据
+        data = self.get_data(run_id, data_name)
+
+        if data is None or len(data) == 0:
+            return np.array([], dtype=data.dtype if data is not None else np.float64)
+
+        # 如果不是结构化数组,返回完整数据
+        if not isinstance(data, np.ndarray) or data.dtype.names is None:
+            self.logger.warning(f"Data '{data_name}' is not a structured array, returning full data")
+            return data
+
+        # 如果没有时间字段,返回完整数据
+        if time_field not in data.dtype.names:
+            self.logger.warning(f"Time field '{time_field}' not found in {data_name}, returning full data")
+            return data
+
+        # 构建索引(如果需要)
+        if auto_build_index and not engine.has_index(run_id, data_name):
+            engine.build_index(run_id, data_name, data, time_field, endtime_field)
+
+        # 查询
+        if engine.has_index(run_id, data_name):
+            indices = engine.query(run_id, data_name, start_time, end_time)
+            if indices is not None and len(indices) > 0:
+                return data[indices]
+            else:
+                return np.array([], dtype=data.dtype)
+        else:
+            # 回退到直接过滤
+            self.logger.warning(f"No index for {data_name}, using direct filtering")
+            times = data[time_field]
+
+            if start_time is None:
+                start_time = times.min()
+            if end_time is None:
+                end_time = times.max() + 1
+
+            mask = (times >= start_time) & (times < end_time)
+            return data[mask]
+
+    def build_time_index(
+        self,
+        run_id: str,
+        data_name: str,
+        time_field: str = 'time',
+        endtime_field: Optional[str] = None,
+        force_rebuild: bool = False
+    ):
+        """
+        为数据构建时间索引
+
+        Args:
+            run_id: 运行ID
+            data_name: 数据名称
+            time_field: 时间字段名
+            endtime_field: 结束时间字段名('computed'表示计算endtime)
+            force_rebuild: 强制重建索引
+
+        Examples:
+            >>> # 预先构建索引以提高查询性能
+            >>> ctx.build_time_index('run_001', 'st_waveforms', endtime_field='computed')
+        """
+        from waveform_analysis.core.time_range_query import TimeRangeQueryEngine
+
+        # 懒加载查询引擎
+        if not hasattr(self, '_time_query_engine'):
+            self._time_query_engine = TimeRangeQueryEngine()
+
+        engine = self._time_query_engine
+
+        # 获取数据
+        data = self.get_data(run_id, data_name)
+
+        if data is None or len(data) == 0:
+            self.logger.warning(f"No data found for {data_name}, cannot build index")
+            return
+
+        # 构建索引
+        engine.build_index(run_id, data_name, data, time_field, endtime_field, force_rebuild)
+
+    def clear_time_index(self, run_id: Optional[str] = None, data_name: Optional[str] = None):
+        """
+        清除时间索引
+
+        Args:
+            run_id: 运行ID,None则清除所有
+            data_name: 数据名称,None则清除指定run_id的所有索引
+
+        Examples:
+            >>> # 清除特定数据的索引
+            >>> ctx.clear_time_index('run_001', 'st_waveforms')
+            >>>
+            >>> # 清除特定run的所有索引
+            >>> ctx.clear_time_index('run_001')
+            >>>
+            >>> # 清除所有索引
+            >>> ctx.clear_time_index()
+        """
+        if hasattr(self, '_time_query_engine'):
+            self._time_query_engine.clear_index(run_id, data_name)
+
+    def get_time_index_stats(self) -> Dict[str, Any]:
+        """
+        获取时间索引统计信息
+
+        Returns:
+            统计信息字典
+
+        Examples:
+            >>> stats = ctx.get_time_index_stats()
+            >>> print(f"Total indices: {stats['total_indices']}")
+        """
+        if hasattr(self, '_time_query_engine'):
+            return self._time_query_engine.get_stats()
+        return {'total_indices': 0, 'indices': {}}
 
     def __repr__(self):
         return f"Context(storage='{self.storage_dir}', plugins={self.list_provided_data()})"

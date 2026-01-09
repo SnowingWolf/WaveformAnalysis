@@ -122,6 +122,33 @@ waveform-process --show-daq --daq-root DAQ
    - Validation: `check_monotonic()`, `check_no_overlap()`, `check_chunk_boundaries()`
    - Splitting/merging: `split_by_time()`, `merge_chunks()`, `rechunk()`
 
+8. **Time Range Query** (`core/time_range_query.py`) [NEW - Phase 2.2]
+   - `TimeIndex`: Efficient time indexing with O(log n) binary search queries
+   - `TimeRangeQueryEngine`: Manages multiple data type indices
+   - Context integration: `get_data_time_range()`, `build_time_index()`, `clear_time_index()`
+   - Query result caching for repeated queries
+   - Example: `ctx.get_data_time_range('run_001', 'st_waveforms', start_time=1000, end_time=2000)`
+
+9. **Strax Plugin Adapter** (`core/strax_adapter.py`) [NEW - Phase 2.3]
+   - `StraxPluginAdapter`: Wraps strax plugins for seamless integration
+   - `StraxContextAdapter`: Provides strax-style API (`get_array`, `get_df`, `search_field`)
+   - Automatic metadata extraction and parameter mapping
+   - Configuration option compatibility
+   - Example: `adapter = wrap_strax_plugin(MyStraxPlugin); ctx.register_plugin(adapter)`
+
+10. **Batch Processing & Export** (`core/batch_export.py`) [NEW - Phase 3.1 & 3.2]
+    - `BatchProcessor`: Parallel/serial processing of multiple runs
+    - `DataExporter`: Unified export interface (Parquet, HDF5, CSV, JSON, NumPy)
+    - Progress tracking and flexible error handling
+    - Example: `processor.process_runs(run_ids, 'peaks', max_workers=4)`
+    - Example: `exporter.export(data, 'output.parquet')`
+
+11. **Hot Reload** (`core/hot_reload.py`) [NEW - Phase 3.3]
+    - `PluginHotReloader`: File change monitoring and automatic module reloading
+    - Cache consistency maintenance after reload
+    - Auto-reload daemon thread support
+    - Example: `reloader = enable_hot_reload(ctx, ['my_plugin'], auto_reload=True)`
+
 ### Data Flow (Standard Pipeline)
 
 ```
@@ -244,7 +271,7 @@ for chunk in stream_ctx.get_stream("st_waveforms_stream"):
     process_chunk(chunk)
 ```
 
-### Adding Custom Features1
+### Adding Custom Features
 ```python
 def my_feature_fn(self, st_waveforms, event_length, **params):
     # Returns list of feature arrays (one per channel)
@@ -252,6 +279,112 @@ def my_feature_fn(self, st_waveforms, event_length, **params):
 
 ds.register_feature("my_feature", my_feature_fn, param1=value1)
 ds.compute_registered_features()  # Called during build_dataframe()
+```
+
+### Using New Features (Phase 2 & 3)
+
+#### Time Range Queries
+```python
+from waveform_analysis.core.context import Context
+
+ctx = Context()
+# ... register plugins and set config ...
+
+# Query specific time range
+data = ctx.get_data_time_range(
+    'run_001', 'st_waveforms',
+    start_time=1000000,
+    end_time=2000000
+)
+
+# Pre-build index for better performance
+ctx.build_time_index('run_001', 'st_waveforms', endtime_field='computed')
+
+# Get index statistics
+stats = ctx.get_time_index_stats()
+print(f"Total indices: {stats['total_indices']}")
+```
+
+#### Strax Plugin Integration
+```python
+from waveform_analysis.core.strax_adapter import (
+    wrap_strax_plugin,
+    create_strax_context
+)
+
+# Wrap existing strax plugin
+adapter = wrap_strax_plugin(MyStraxPlugin)
+ctx.register_plugin(adapter)
+
+# Or use strax-style API
+strax_ctx = create_strax_context('./data')
+strax_ctx.register(MyStraxPlugin)
+data = strax_ctx.get_array('run_001', 'peaks')
+df = strax_ctx.get_df('run_001', ['peaks', 'hits'])
+```
+
+#### Batch Processing
+```python
+from waveform_analysis.core.batch_export import BatchProcessor
+
+processor = BatchProcessor(ctx)
+
+# Process multiple runs in parallel
+results = processor.process_runs(
+    run_ids=['run_001', 'run_002', 'run_003'],
+    data_name='peaks',
+    max_workers=4,
+    show_progress=True,
+    on_error='continue'  # 'continue', 'stop', or 'raise'
+)
+
+# Access results
+for run_id, data in results['results'].items():
+    print(f"{run_id}: {len(data)} events")
+
+# Check errors
+if results['errors']:
+    print(f"Errors: {results['errors']}")
+```
+
+#### Data Export
+```python
+from waveform_analysis.core.batch_export import DataExporter, batch_export
+
+# Export single dataset
+exporter = DataExporter()
+exporter.export(data, 'output.parquet')  # Auto-detect format
+exporter.export(data, 'output.hdf5', key='waveforms')
+exporter.export(data, 'output.csv')
+
+# Batch export multiple runs
+batch_export(
+    ctx,
+    run_ids=['run_001', 'run_002'],
+    data_name='peaks',
+    output_dir='./exports',
+    format='parquet',
+    max_workers=4
+)
+```
+
+#### Hot Reload (Development)
+```python
+from waveform_analysis.core.hot_reload import enable_hot_reload
+
+# Enable auto-reload for development
+reloader = enable_hot_reload(
+    ctx,
+    plugin_names=['my_plugin'],
+    auto_reload=True,
+    interval=2.0  # Check every 2 seconds
+)
+
+# Manually reload after changes
+reloader.reload_plugin('my_plugin', clear_cache=True)
+
+# Disable when done
+reloader.disable_auto_reload()
 ```
 
 ## Common Pitfalls

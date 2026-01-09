@@ -54,6 +54,7 @@ from .chunk_utils import (
 )
 from .context import Context
 from .dataset import WaveformDataset
+from .exceptions import ErrorContext, ErrorSeverity, PluginError
 from .plugins import Option, Plugin
 from .processor import (
     WaveformStruct,
@@ -76,6 +77,10 @@ __all__ = [
     "Plugin",
     "Option",
     "WaveformDataset",
+    # 异常处理
+    "ErrorSeverity",
+    "PluginError",
+    "ErrorContext",
     # 插件
     "RawFilesPlugin",
     "WaveformsPlugin",
