@@ -6,7 +6,7 @@ Analyzer 模块 - 高层事件分析与配对逻辑。
 以及跨通道的事件配对 (Pairing)，是生成最终物理分析结果的关键步骤。
 """
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Callable, Optional
 
 import numpy as np
 import pandas as pd
@@ -26,6 +26,17 @@ class EventAnalyzer:
     """
 
     def __init__(self, n_channels: int = 2, start_channel_slice: int = 6):
+        """
+        初始化事件分析器
+
+        Args:
+            n_channels: 分析的通道数（默认2）
+            start_channel_slice: 起始通道索引（默认6）
+
+        初始化内容:
+        - 通道数和起始索引
+        - 默认时间窗口（100ns）
+        """
         self.n_channels = n_channels
         self.start_channel_slice = start_channel_slice
         self.time_window_ns = 100

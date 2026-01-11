@@ -12,11 +12,11 @@ Chunk Utilities - 时间区间与分块操作
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Generator, Iterator, List, Optional, Tuple, Union
+from typing import Generator, Iterator, List, Optional, Tuple
 
 import numpy as np
 
-from ...foundation.utils import exporter
+from waveform_analysis.core.foundation.utils import exporter
 
 # 初始化 exporter
 export, __all__ = exporter()
@@ -56,6 +56,25 @@ class Chunk:
         data_type: str = "raw",
         data_kind: str = "waveforms",
     ):
+        """
+        初始化 Chunk 对象
+
+        封装一块时间范围内的数据，类似于 strax 的 Chunk。
+
+        Args:
+            data: 结构化数组数据，必须包含时间字段
+            start: 块的起始时间（ns）
+            end: 块的结束时间（ns）
+            run_id: 运行标识符（默认 "unknown"）
+            data_type: 数据类型标签（默认 "raw"）
+            data_kind: 数据种类标签（默认 "waveforms"）
+
+        Raises:
+            ValueError: 如果数据的起始时间早于 chunk start，或结束时间晚于 chunk end
+
+        Note:
+            自动执行边界校验，确保数据时间范围在 [start, end) 内。
+        """
         self.data = data
         self.start = int(start)
         self.end = int(end)
@@ -776,7 +795,7 @@ def rechunk(
     def flush_buffer() -> Tuple[np.ndarray, ChunkInfo]:
         nonlocal buffer, buffer_size, chunk_i
         if not buffer:
-            return None, None
+            return None, ChunkInfo()
 
         merged = np.concatenate(buffer) if len(buffer) > 1 else buffer[0]
         time = merged[TIME_FIELD]

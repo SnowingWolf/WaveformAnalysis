@@ -10,12 +10,11 @@ import bisect
 import os
 import re
 from collections import defaultdict
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import numpy as np
-import pandas as pd
 
 from waveform_analysis.core.foundation.utils import exporter
 from waveform_analysis.utils.daq import adapt_daq_run
@@ -41,6 +40,23 @@ class WaveformLoader:
         data_root: str = "DAQ",
         **kwargs,
     ):
+        """
+        初始化波形加载器
+
+        配置数据加载路径和通道数。
+
+        Args:
+            n_channels: 通道数量（默认6）
+            run_name: 运行名称（默认 "All_SelfTrigger"）
+            data_root: 数据根目录（默认 "DAQ"）
+            **kwargs: 额外参数（如 char，用于向后兼容）
+
+        初始化内容:
+        - 数据目录路径: {data_root}/{run_name}/RAW
+        - 文件匹配模式: *CH*.CSV
+        - 通道数配置
+        - 保留 char 属性以向后兼容
+        """
         # 兼容旧的 char 参数
         if "char" in kwargs:
             run_name = kwargs.pop("char")
@@ -153,7 +169,6 @@ class WaveformLoader:
         # 通道级并行：为每个通道分配一个任务，完成后按原顺序收集
         # 使用全局执行器管理器
         from waveform_analysis.core.execution.manager import get_executor
-        from concurrent.futures import as_completed
 
         waveforms = [None] * len(raw_filess)
         executor_name = f"channel_loading_{channel_executor}"

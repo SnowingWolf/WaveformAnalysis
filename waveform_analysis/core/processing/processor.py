@@ -22,8 +22,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from waveform_analysis.core.foundation.utils import exporter
 from waveform_analysis.core.execution.manager import get_executor
+from waveform_analysis.core.foundation.constants import FeatureDefaults
+from waveform_analysis.core.foundation.utils import exporter
 
 # Setup logger
 logger = logging.getLogger(__name__)
@@ -309,9 +310,20 @@ class WaveformProcessor:
     """
 
     def __init__(self, n_channels: int = 2):
+        """
+        初始化波形处理器
+
+        Args:
+            n_channels: 通道数量（默认2）
+
+        初始化内容:
+        - 通道数配置
+        - 默认的峰值和电荷计算范围
+        - 特征函数注册字典
+        """
         self.n_channels = n_channels
-        self.peaks_range = (40, 90)
-        self.charge_range = (60, 400)
+        self.peaks_range = FeatureDefaults.PEAK_RANGE
+        self.charge_range = FeatureDefaults.CHARGE_RANGE
         self.feature_fns: Dict[str, Tuple[Callable[..., List[np.ndarray]], Dict[str, Any]]] = {}
 
     def structure_waveforms(self, waveforms: List[np.ndarray]) -> List[np.ndarray]:
@@ -913,6 +925,22 @@ def lr_log_ratio(data: Tuple[np.ndarray, np.ndarray]) -> np.ndarray:
 @export
 class ResultData:
     def __init__(self, cache_dir: str) -> None:
+        """
+        初始化结果数据加载器
+
+        从缓存目录加载预处理的 DataFrame 结果。
+
+        Args:
+            cache_dir: 缓存目录路径，应包含 df.feather 和 df_events.feather
+
+        Raises:
+            FileNotFoundError: 如果缓存文件不存在
+
+        Examples:
+            >>> result = ResultData('./cache')
+            >>> print(result.df.head())
+            >>> print(result.df_events.head())
+        """
         self.cache_dir = cache_dir
         df_file = os.path.join(cache_dir, "df.feather")
         event_file = os.path.join(cache_dir, "df_events.feather")
