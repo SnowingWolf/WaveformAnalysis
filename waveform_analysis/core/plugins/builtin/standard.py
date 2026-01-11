@@ -10,8 +10,8 @@ from typing import Any, Dict, List
 
 import numpy as np
 
-from .base import Option, Plugin
-from ...processor import PEAK_DTYPE, RECORD_DTYPE, WaveformStruct, find_hits
+from ..core.base import Option, Plugin
+from ...processing.processor import PEAK_DTYPE, RECORD_DTYPE, WaveformStruct, find_hits
 
 
 class RawFilesPlugin(Plugin):
@@ -26,6 +26,24 @@ class RawFilesPlugin(Plugin):
     }
 
     def compute(self, context: Any, run_id: str, **kwargs) -> List[List[str]]:
+        """
+        扫描数据目录并按通道分组原始 CSV 文件
+
+        从配置的数据目录中查找指定运行的所有原始波形文件，并按通道号分组。
+        支持 DAQ 集成，可以直接从 DAQ 元数据中获取文件列表。
+
+        Args:
+            context: Context 实例，用于访问配置和缓存
+            run_id: 运行标识符（运行名称）
+            **kwargs: 依赖数据（此插件无依赖）
+
+        Returns:
+            List[List[str]]: 按通道分组的文件路径列表
+
+        Examples:
+            >>> raw_files = ctx.get_data('run_001', 'raw_files')
+            >>> print(f"通道数: {len(raw_files)}")
+        """
         from waveform_analysis.utils.loader import get_raw_files
 
         n_channels = context.get_config(self, "n_channels")
@@ -57,6 +75,24 @@ class WaveformsPlugin(Plugin):
     }
 
     def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
+        """
+        从原始 CSV 文件中提取波形数据
+
+        读取并解析原始 CSV 文件，提取每个通道的波形数据。
+        支持并行处理加速，可配置使用线程池或进程池进行通道级并行。
+
+        Args:
+            context: Context 实例
+            run_id: 运行标识符
+            **kwargs: 依赖数据，包含 raw_files（由 RawFilesPlugin 提供）
+
+        Returns:
+            List[np.ndarray]: 每个通道的波形数据列表
+
+        Examples:
+            >>> waveforms = ctx.get_data('run_001', 'waveforms')
+            >>> print(f"通道0波形形状: {waveforms[0].shape}")
+        """
         import multiprocessing
         from waveform_analysis.utils.loader import get_waveforms
 
@@ -92,6 +128,24 @@ class StWaveformsPlugin(Plugin):
     output_dtype = np.dtype(RECORD_DTYPE)
 
     def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
+        """
+        将波形数据结构化为 NumPy 结构化数组
+
+        将原始波形列表转换为包含时间戳、基线、通道号和波形数据的结构化数组。
+        这是数据流中的关键步骤，为后续特征提取提供统一的数据格式。
+
+        Args:
+            context: Context 实例
+            run_id: 运行标识符
+            **kwargs: 依赖数据，包含 waveforms（由 WaveformsPlugin 提供）
+
+        Returns:
+            List[np.ndarray]: 每个通道的结构化数组，dtype 为 RECORD_DTYPE
+
+        Examples:
+            >>> st_waveforms = ctx.get_data('run_001', 'st_waveforms')
+            >>> print(st_waveforms[0].dtype.names)
+        """
         waveforms = context.get_data(run_id, "waveforms")
         waveform_struct = WaveformStruct(waveforms)
         # 通道号现在从CSV的BOARD/CHANNEL字段读取并映射，不再使用start_channel_slice
@@ -113,6 +167,25 @@ class HitFinderPlugin(Plugin):
     output_dtype = np.dtype(PEAK_DTYPE)
 
     def compute(self, context: Any, run_id: str, threshold: float = 10.0, **kwargs) -> List[np.ndarray]:
+        """
+        从结构化波形中检测 Hit 事件
+
+        使用阈值法从波形中识别和定位 Hit（超过阈值的信号峰值）。
+        返回每个 Hit 的时间、面积、高度和宽度等特征。
+
+        Args:
+            context: Context 实例
+            run_id: 运行标识符
+            threshold: Hit 检测阈值（默认10.0）
+            **kwargs: 依赖数据，包含 st_waveforms
+
+        Returns:
+            List[np.ndarray]: 每个通道的 Hit 列表，dtype 为 PEAK_DTYPE
+
+        Examples:
+            >>> hits = ctx.get_data('run_001', 'hits')
+            >>> print(f"通道0的Hit数: {len(hits[0])}")
+        """
         st_waveforms = context.get_data(run_id, "st_waveforms")
 
         hits_list = []
@@ -141,6 +214,20 @@ class BasicFeaturesPlugin(Plugin):
     }
 
     def compute(self, context: Any, run_id: str, **kwargs) -> Dict[str, List[np.ndarray]]:
+        """
+        计算基础波形特征（峰值和电荷）
+
+        .. deprecated::
+            建议使用 PeaksPlugin 和 ChargesPlugin 替代
+
+        Args:
+            context: Context 实例
+            run_id: 运行标识符
+            **kwargs: 依赖数据，包含 st_waveforms
+
+        Returns:
+            Dict[str, List[np.ndarray]]: 包含 'peaks' 和 'charges' 的字典
+        """
         from waveform_analysis.core.processing.processor import WaveformProcessor
 
         st_waveforms = context.get_data(run_id, "st_waveforms")
@@ -162,6 +249,24 @@ class PeaksPlugin(Plugin):
     save_when = "always"
 
     def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
+        """
+        从结构化波形中计算峰值特征
+
+        在配置的时间窗口内查找波形的最大峰值（最大值 - 最小值）。
+        使用向量化计算，高效处理大量波形数据。
+
+        Args:
+            context: Context 实例
+            run_id: 运行标识符
+            **kwargs: 依赖数据，包含 basic_features
+
+        Returns:
+            List[np.ndarray]: 每个通道的峰值数组
+
+        Examples:
+            >>> peaks = ctx.get_data('run_001', 'peaks')
+            >>> print(f"峰值范围: {peaks[0].min():.2f} - {peaks[0].max():.2f}")
+        """
         return context.get_data(run_id, "basic_features")["peaks"]
 
 
@@ -173,6 +278,24 @@ class ChargesPlugin(Plugin):
     save_when = "always"
 
     def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
+        """
+        从结构化波形中计算电荷积分
+
+        在配置的时间窗口内对波形进行积分（baseline - wave），计算总电荷。
+        使用向量化计算提高效率。
+
+        Args:
+            context: Context 实例
+            run_id: 运行标识符
+            **kwargs: 依赖数据，包含 basic_features
+
+        Returns:
+            List[np.ndarray]: 每个通道的电荷数组
+
+        Examples:
+            >>> charges = ctx.get_data('run_001', 'charges')
+            >>> print(f"电荷范围: {charges[0].min():.2f} - {charges[0].max():.2f}")
+        """
         return context.get_data(run_id, "basic_features")["charges"]
 
 
@@ -184,6 +307,23 @@ class DataFramePlugin(Plugin):
     save_when = "always"
 
     def compute(self, context: Any, run_id: str, **kwargs) -> Any:
+        """
+        构建单通道事件的 DataFrame
+
+        整合结构化波形、峰值和电荷特征，构建包含所有事件信息的 pandas DataFrame。
+
+        Args:
+            context: Context 实例
+            run_id: 运行标识符
+            **kwargs: 依赖数据，包含 st_waveforms, peaks, charges
+
+        Returns:
+            pd.DataFrame: 包含所有通道事件的 DataFrame
+
+        Examples:
+            >>> df = ctx.get_data('run_001', 'df')
+            >>> print(f"总事件数: {len(df)}")
+        """
         from waveform_analysis.core.processing.processor import WaveformProcessor
 
         st_waveforms = context.get_data(run_id, "st_waveforms")
@@ -215,6 +355,24 @@ class GroupedEventsPlugin(Plugin):
     }
 
     def compute(self, context: Any, run_id: str, **kwargs) -> Any:
+        """
+        按时间窗口分组多通道事件
+
+        在指定的时间窗口内识别多通道同时触发的事件，并将它们分组。
+        支持 Numba 加速和多进程并行处理。
+
+        Args:
+            context: Context 实例
+            run_id: 运行标识符
+            **kwargs: 依赖数据，包含 df
+
+        Returns:
+            pd.DataFrame: 分组后的事件
+
+        Examples:
+            >>> df_events = ctx.get_data('run_001', 'df_events')
+            >>> print(f"事件组数: {df_events['event_id'].nunique()}")
+        """
         from waveform_analysis.core.processing.analyzer import EventAnalyzer
 
         df = context.get_data(run_id, "df")
@@ -239,6 +397,23 @@ class PairedEventsPlugin(Plugin):
     save_when = "always"
 
     def compute(self, context: Any, run_id: str, **kwargs) -> Any:
+        """
+        配对跨通道的符合事件
+
+        识别满足时间符合条件的多通道事件对，用于符合测量分析。
+
+        Args:
+            context: Context 实例
+            run_id: 运行标识符
+            **kwargs: 依赖数据，包含 df_events
+
+        Returns:
+            pd.DataFrame: 配对事件
+
+        Examples:
+            >>> df_paired = ctx.get_data('run_001', 'df_paired')
+            >>> print(f"配对数: {len(df_paired)}")
+        """
         from waveform_analysis.core.processing.analyzer import EventAnalyzer
 
         df_events = context.get_data(run_id, "df_events")
