@@ -87,7 +87,8 @@ waveform-analysis/
 │
 ├── docs/                          # 文档目录
 │   ├── data_module.md             # 原有的模块文档
-│   └── USAGE.md                   # 使用指南
+│   ├── USAGE.md                   # 使用指南
+│   └── CONTEXT_PROCESSOR_WORKFLOW.md  # Context 和 Processor 使用流程演示
 │
 ├── scripts/                       # 辅助脚本（预留）
 │
