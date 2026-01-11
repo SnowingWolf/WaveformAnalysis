@@ -1,8 +1,36 @@
 # -*- coding: utf-8 -*-
+"""
+数据 I/O 工具 - 高效的波形数据读取和解析
+
+本模块提供流式和批量读取 CSV 波形文件的工具函数。
+
+主要功能:
+- parse_files_generator: 流式生成器，逐块读取大型文件
+- 支持多种分隔符（CSV, TSV 等）
+- 自动处理文件头（仅首个文件跳过头部）
+- 可配置的 chunk size 用于内存优化
+- 可选的进度条显示（需要 tqdm）
+- 支持 PyArrow 引擎加速解析
+
+性能特性:
+- 内存高效：流式处理，不一次性加载整个文件
+- 支持并行：可与多进程配合处理多通道数据
+- 容错处理：自动跳过空文件或损坏文件
+
+Examples:
+    >>> from waveform_analysis.utils.io import parse_files_generator
+    >>> files = ['path/to/CH0_0.CSV', 'path/to/CH0_1.CSV']
+    >>> for chunk in parse_files_generator(files, chunksize=1000):
+    ...     process_chunk(chunk)
+
+Note:
+    推荐安装 pyarrow 以获得更快的解析速度:
+    pip install pyarrow
+"""
 import csv
 import logging
 from pathlib import Path
-from typing import Iterator, List
+from typing import Iterator, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -107,7 +135,7 @@ def parse_and_stack_files(
     file_paths: List[str],
     skiprows: int = 2,
     delimiter: str = ";",
-    chunksize: int | None = None,
+    chunksize: Optional[int] = None,
     n_jobs: int = 1,
     use_process_pool: bool = False,
     show_progress: bool = False,

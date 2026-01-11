@@ -1,15 +1,37 @@
 # -*- coding: utf-8 -*-
+"""
+物理拟合模型 - 波形数据的高级拟合工具
+
+本模块提供用于波形分析的物理模型拟合器，特别是 Landau-Gaussian 卷积拟合。
+
+主要功能:
+- Landau-Gaussian 卷积拟合（基于 JAX 实现）
+- 高斯分布和 Landau 分布的数值近似
+- 使用 iminuit 进行参数优化
+- 支持 GPU 加速（通过 JAX）
+
+典型应用场景:
+- SiPM/PMT 信号的能量谱拟合
+- 粒子探测器的电荷响应拟合
+- 闪烁体光输出曲线分析
+
+Examples:
+    >>> from waveform_analysis.fitting.models import LandauGaussFitter
+    >>> fitter = LandauGaussFitter(x_data, y_data)
+    >>> fitter.fit()
+    >>> print(fitter.params)
+
+Note:
+    本模块需要安装 JAX 和 iminuit:
+    pip install jax jaxlib iminuit
+"""
 import numpy as np
 from iminuit import Minuit
-from iminuit.cost import LeastSquares
 from pyDAW import BaseFitter
-from scipy.stats import norm
 
 
 import jax
 import jax.numpy as jnp
-from jax import vmap
-from jax.scipy.special import erf
 
 
 def gauss(x, mu, sigma, amp=1.0):
@@ -80,6 +102,21 @@ def landau_gauss_jax(x, mpv, eta, sigma, n_steps=100):
 
 class LandauGaussFitter(BaseFitter):
     def __init__(self, x, y, fit_range, param):
+        """
+        初始化 Landau-Gauss 拟合器（JAX 版本）
+
+        拟合 Landau ⊗ Gaussian 卷积加额外高斯峰的模型。
+
+        Args:
+            x: X 轴数据（能量/电荷）
+            y: Y 轴数据（计数）
+            fit_range: 拟合范围 (xmin, xmax)
+            param: 初始参数 [mpv, eta, sigma, const, mu2, sigma2, A2]
+
+        初始化内容:
+        - 设置 Landau-Gauss 参数
+        - 转换为 JAX 数组以加速计算
+        """
         super().__init__(x, y, fit_range, param)
         self.mpv = param[0]
         self.eta = param[1]
@@ -247,6 +284,20 @@ class LandauGaussFitter(BaseFitter):
 
 class LandauGaussFitter2(BaseFitter):
     def __init__(self, x, y, fit_range, param):
+        """
+        初始化 Landau-Gauss 拟合器（简化版本）
+
+        使用近似的 Landau-Gauss 乘积形式（而非卷积）。
+
+        Args:
+            x: X 轴数据（能量/电荷）
+            y: Y 轴数据（计数）
+            fit_range: 拟合范围 (xmin, xmax)
+            param: 初始参数 [mpv, eta, sigma, const]
+
+        Note:
+            此版本使用乘积近似，计算更快但精度较低。
+        """
         super().__init__(x, y, fit_range, param)
         self.mpv = param[0]
 

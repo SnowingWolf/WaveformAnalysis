@@ -1,7 +1,33 @@
+"""
+通用可视化工具 - 交互式波形和事件浏览器
+
+本模块提供基于 Plotly 的交互式波形可视化工具。
+
+主要功能:
+- 多通道波形的交互式绘图
+- Hit/Peak 事件的高亮显示
+- 支持事件索引浏览
+- 自动布局和通道分组
+- 响应式交互（缩放、平移、悬停）
+
+可视化特性:
+- 子图布局：每个通道独立显示，共享 X 轴
+- Hit 标记：自动在波形上标记检测到的 Hit
+- 交互式控制：Plotly 工具栏支持缩放、导出等操作
+- 自定义样式：可配置标题、颜色、布局
+
+Examples:
+    >>> from waveform_analysis.utils.visualization.visulizer import plot_waveforms
+    >>> waveforms = [ch0_waves, ch1_waves]  # 每个通道的波形数组
+    >>> plot_waveforms(waveforms, event_index=0, title="Run 001")
+
+Note:
+    需要安装 Plotly:
+    pip install plotly
+"""
 from typing import List, Optional, Union
 
 import numpy as np
-import pandas as pd
 
 
 def plot_waveforms(

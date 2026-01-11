@@ -1,4 +1,29 @@
 # -*- coding: utf-8 -*-
+"""
+DAQ 运行数据管理 - 单个运行的数据结构和统计信息
+
+本模块提供 DAQRun 类，用于管理和分析单个 DAQ 运行的原始数据文件。
+
+主要功能:
+- 扫描运行目录中的 RAW 文件并按通道分组
+- 计算文件大小、事件数、采集时间等统计信息
+- 提供运行级和通道级的元数据访问
+- 支持多通道数据的结构化管理
+- 格式化输出采集时间（支持 ps/ns/us/ms/s 单位）
+
+数据结构:
+- channel_files: 按通道组织的文件列表（包含路径、大小、索引）
+- channel_stats: 每个通道的统计信息（事件数、总大小、时间范围）
+- run_path: 运行根目录路径
+- description: 从 description.txt 读取的运行描述
+
+Examples:
+    >>> from waveform_analysis.utils.daq import DAQRun
+    >>> run = DAQRun('50V_OV_circulation', './DAQ/50V_OV_circulation')
+    >>> run.scan()  # 扫描所有文件
+    >>> print(f"通道数: {len(run.channels)}")
+    >>> print(run.channel_stats[0])  # 查看通道0的统计信息
+"""
 from __future__ import annotations
 
 import logging
@@ -34,7 +59,22 @@ class DAQRun:
         else:
             return f"{ps_val / 1e12:.2f} s"
 
-    def __init__(self, run_name: str, run_path: str | Path):
+    def __init__(self, run_name: str, run_path: Union[str, Path]):
+        """
+        初始化 DAQ 运行对象
+
+        扫描运行目录并统计所有通道的文件信息。
+
+        Args:
+            run_name: 运行名称
+            run_path: 运行根目录路径
+
+        初始化内容:
+        - 加载运行描述
+        - 扫描 RAW 目录中的所有通道文件
+        - 计算文件大小和事件数统计
+        - 构建通道级元数据
+        """
         self.run_name = run_name
         self.char = run_name
         self.run_path = str(run_path)

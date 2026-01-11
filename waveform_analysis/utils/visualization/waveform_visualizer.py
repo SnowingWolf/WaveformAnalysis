@@ -1,7 +1,40 @@
+"""
+波形可视化工具 - 专用波形浏览和分析界面
+
+本模块提供波形数据的高级可视化功能，支持交互式浏览和分析。
+
+主要功能:
+- 单事件/多通道波形展示
+- Hit/Peak 自动标注和高亮
+- 交互式事件浏览器
+- 支持自定义通道选择
+- Plotly 驱动的响应式界面
+
+可视化组件:
+- plot_waveforms: 核心绘图函数
+- 多子图布局：每个通道独立显示
+- Hit 标记：在波形上显示检测到的峰值
+- 工具栏：缩放、平移、导出图像
+
+典型应用:
+- 质量控制：快速检查波形形状
+- Hit 验证：确认峰值检测正确性
+- 数据探索：浏览不同事件的波形特征
+- 报告生成：导出高质量的波形图像
+
+Examples:
+    >>> from waveform_analysis.utils.visualization.waveform_visualizer import plot_waveforms
+    >>> import numpy as np
+    >>> waveforms = [np.random.randn(100, 500) for _ in range(2)]
+    >>> plot_waveforms(waveforms, event_index=5, channels=[0, 1])
+
+Note:
+    本模块需要 Plotly:
+    pip install plotly
+"""
 from typing import List, Optional, Union
 
 import numpy as np
-import pandas as pd
 
 
 def plot_waveforms(
