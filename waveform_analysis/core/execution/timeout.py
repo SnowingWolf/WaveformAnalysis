@@ -41,6 +41,19 @@ class TimeoutManager:
     """
 
     def __init__(self):
+        """
+        初始化超时管理器
+
+        根据当前平台（Unix/Windows）选择合适的超时实现机制。
+
+        初始化内容:
+        - 检测操作系统类型（Unix 使用 signal，Windows 使用 threading.Timer）
+        - 初始化超时统计字典（记录超时事件）
+
+        Attributes:
+            is_unix: 是否为 Unix 系统（Linux/macOS）
+            _timeout_stats: 超时统计字典，记录各函数的超时次数
+        """
         self.is_unix = platform.system() in ['Linux', 'Darwin']
         self._timeout_stats: Dict[str, int] = {}
 

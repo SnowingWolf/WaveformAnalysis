@@ -59,6 +59,22 @@ class ExecutorManager:
         return cls._instance
 
     def __init__(self):
+        """
+        初始化全局执行器管理器（单例模式）
+
+        仅在首次创建实例时初始化内部状态。后续调用会被忽略。
+
+        初始化内容:
+        - 执行器字典和配置
+        - 引用计数器
+        - 线程锁（用于线程安全操作）
+        - 默认 worker 数量（CPU 核心数）
+        - 负载均衡器支持（可选）
+        - 注册退出清理钩子
+
+        Note:
+            由于单例模式，请使用 get_instance() 获取实例，而非直接调用构造函数。
+        """
         # Thread-safe initialization check
         with self._lock:
             if self._initialized:
@@ -69,6 +85,10 @@ class ExecutorManager:
             self._executor_refs: Dict[str, int] = {}  # 引用计数
             self._executor_lock = threading.Lock()  # Separate lock for executor operations
             self._default_max_workers = multiprocessing.cpu_count()
+
+            # 负载均衡器支持
+            self._load_balancer: Optional[Any] = None  # DynamicLoadBalancer实例
+            self._load_balancing_enabled = False
 
             # 注册退出时的清理函数
             atexit.register(self.shutdown_all)
@@ -212,6 +232,51 @@ class ExecutorManager:
             "cpu_count": multiprocessing.cpu_count(),
         }
 
+    def enable_load_balancing(
+        self,
+        min_workers: int = 1,
+        max_workers: Optional[int] = None,
+        cpu_threshold: float = 0.8,
+        memory_threshold: float = 0.85,
+        check_interval: float = 5.0
+    ):
+        """
+        启用动态负载均衡
+
+        Args:
+            min_workers: 最小worker数量
+            max_workers: 最大worker数量（None=使用默认值）
+            cpu_threshold: CPU使用率阈值（0-1）
+            memory_threshold: 内存使用率阈值（0-1）
+            check_interval: 检查间隔（秒）
+        """
+        from waveform_analysis.core.load_balancer import DynamicLoadBalancer
+
+        self._load_balancer = DynamicLoadBalancer(
+            min_workers=min_workers,
+            max_workers=max_workers or self._default_max_workers,
+            cpu_threshold=cpu_threshold,
+            memory_threshold=memory_threshold,
+            check_interval=check_interval
+        )
+        self._load_balancing_enabled = True
+
+    def disable_load_balancing(self):
+        """禁用动态负载均衡"""
+        self._load_balancing_enabled = False
+        self._load_balancer = None
+
+    def get_load_balancer_stats(self) -> Optional[Dict]:
+        """
+        获取负载均衡统计信息
+
+        Returns:
+            统计信息字典，如果未启用则返回None
+        """
+        if self._load_balancer:
+            return self._load_balancer.get_statistics()
+        return None
+
 
 # ===========================
 # 进度配置系统
@@ -338,6 +403,8 @@ def parallel_map(
     executor_name: Optional[str] = None,
     reuse_executor: bool = False,
     progress_callback: Optional[Callable[[int], None]] = None,
+    use_load_balancer: bool = True,
+    estimated_task_size: Optional[int] = None,
     **kwargs
 ) -> List[Any]:
     """
@@ -355,6 +422,8 @@ def parallel_map(
         progress_callback: 进度回调函数，每完成一个任务时调用
                           接收参数：当前完成的任务索引
                           优先级：progress_callback > 函数配置 > 线程配置
+        use_load_balancer: 是否使用负载均衡器（如果已启用）
+        estimated_task_size: 估计的任务大小（字节），用于负载均衡
         **kwargs: 传递给执行器的其他参数
 
     返回:
@@ -368,7 +437,7 @@ def parallel_map(
         @parallel_progress(desc="Processing files", unit="file")
         def process_file(file_path):
             return load_file(file_path)
-        
+
         results = parallel_map(process_file, file_list)  # 自动显示进度条
 
         # 使用上下文管理器配置进度条
@@ -379,6 +448,13 @@ def parallel_map(
         def update_progress(idx):
             print(f"Completed {idx}")
         results = parallel_map(process_file, file_list, progress_callback=update_progress)
+
+        # 使用负载均衡
+        results = parallel_map(
+            process_file, file_list,
+            use_load_balancer=True,
+            estimated_task_size=10*1024*1024  # 10MB per task
+        )
     """
     # 自动检测进度配置（优先级：progress_callback > 函数配置 > 线程配置）
     progress_config = None
@@ -420,12 +496,28 @@ def parallel_map(
                         )
             
             progress_callback = update_progress
-    
+
     if executor_name is None:
         executor_name = f"parallel_map_{id(func)}"
 
-    if max_workers is None:
-        max_workers = min(len(iterable), multiprocessing.cpu_count())
+    # 动态调整 max_workers (如果启用负载均衡)
+    if max_workers is None or (use_load_balancer and _manager._load_balancing_enabled):
+        if _manager._load_balancing_enabled and _manager._load_balancer and use_load_balancer:
+            optimal_workers = _manager._load_balancer.get_optimal_workers(
+                n_tasks=len(iterable),
+                estimated_task_size=estimated_task_size
+            )
+            # 如果用户指定了 max_workers,取两者较小值
+            if max_workers is not None:
+                max_workers = min(max_workers, optimal_workers)
+            else:
+                max_workers = optimal_workers
+        elif max_workers is None:
+            max_workers = min(len(iterable), multiprocessing.cpu_count())
+
+    # 记录开始时间(用于统计)
+    start_time = time.time() if (_manager._load_balancing_enabled and use_load_balancer) else None
+    successful_tasks = 0
 
     try:
         with get_executor(executor_name, executor_type, max_workers, reuse_executor, **kwargs) as executor:
@@ -438,6 +530,7 @@ def parallel_map(
                 idx = futures[future]
                 try:
                     results[idx] = future.result()
+                    successful_tasks += 1
 
                     # 调用进度回调
                     if progress_callback:
@@ -445,6 +538,14 @@ def parallel_map(
 
                 except Exception as e:
                     raise RuntimeError(f"任务 {idx} 执行失败: {e}") from e
+
+            # 记录任务完成统计
+            if _manager._load_balancing_enabled and _manager._load_balancer and start_time:
+                duration = time.time() - start_time
+                _manager._load_balancer.record_task_completion(
+                    duration=duration,
+                    success=(successful_tasks == len(iterable))
+                )
 
             return results
     finally:
@@ -462,6 +563,8 @@ def parallel_apply(
     executor_name: Optional[str] = None,
     reuse_executor: bool = False,
     progress_callback: Optional[Callable[[int], None]] = None,
+    use_load_balancer: bool = True,
+    estimated_task_size: Optional[int] = None,
     **kwargs
 ) -> List[Any]:
     """
@@ -479,6 +582,8 @@ def parallel_apply(
         progress_callback: 进度回调函数，每完成一个任务时调用
                           接收参数：当前完成的任务索引
                           优先级：progress_callback > 函数配置 > 线程配置
+        use_load_balancer: 是否使用负载均衡器（如果已启用）
+        estimated_task_size: 估计的任务大小（字节），用于负载均衡
         **kwargs: 传递给执行器的其他参数
 
     返回:
@@ -493,12 +598,19 @@ def parallel_apply(
         @parallel_progress(desc="Processing pairs", unit="pair")
         def process_pair(x, y):
             return x + y
-        
+
         results = parallel_apply(process_pair, args_list)  # 自动显示进度条
 
         # 使用上下文管理器配置进度条
         with ParallelProgressConfig(desc="Batch processing", unit="batch"):
             results = parallel_apply(process_pair, args_list)
+
+        # 使用负载均衡
+        results = parallel_apply(
+            process_pair, args_list,
+            use_load_balancer=True,
+            estimated_task_size=5*1024*1024  # 5MB per task
+        )
     """
     # 自动检测进度配置（优先级：progress_callback > 函数配置 > 线程配置）
     progress_config = None
@@ -540,12 +652,28 @@ def parallel_apply(
                         )
             
             progress_callback = update_progress
-    
+
     if executor_name is None:
         executor_name = f"parallel_apply_{id(func)}"
 
-    if max_workers is None:
-        max_workers = min(len(args_list), multiprocessing.cpu_count())
+    # 动态调整 max_workers (如果启用负载均衡)
+    if max_workers is None or (use_load_balancer and _manager._load_balancing_enabled):
+        if _manager._load_balancing_enabled and _manager._load_balancer and use_load_balancer:
+            optimal_workers = _manager._load_balancer.get_optimal_workers(
+                n_tasks=len(args_list),
+                estimated_task_size=estimated_task_size
+            )
+            # 如果用户指定了 max_workers,取两者较小值
+            if max_workers is not None:
+                max_workers = min(max_workers, optimal_workers)
+            else:
+                max_workers = optimal_workers
+        elif max_workers is None:
+            max_workers = min(len(args_list), multiprocessing.cpu_count())
+
+    # 记录开始时间(用于统计)
+    start_time = time.time() if (_manager._load_balancing_enabled and use_load_balancer) else None
+    successful_tasks = 0
 
     try:
         with get_executor(executor_name, executor_type, max_workers, reuse_executor, **kwargs) as executor:
@@ -558,6 +686,7 @@ def parallel_apply(
                 idx = futures[future]
                 try:
                     results[idx] = future.result()
+                    successful_tasks += 1
 
                     # 调用进度回调
                     if progress_callback:
@@ -565,6 +694,14 @@ def parallel_apply(
 
                 except Exception as e:
                     raise RuntimeError(f"任务 {idx} 执行失败: {e}") from e
+
+            # 记录任务完成统计
+            if _manager._load_balancing_enabled and _manager._load_balancer and start_time:
+                duration = time.time() - start_time
+                _manager._load_balancer.record_task_completion(
+                    duration=duration,
+                    success=(successful_tasks == len(args_list))
+                )
 
             return results
     finally:
@@ -597,3 +734,46 @@ def get_stats() -> Dict[str, Any]:
     """获取执行器统计信息（便捷函数）"""
     return _manager.get_stats()
 
+
+@export
+def enable_global_load_balancing(
+    min_workers: int = 1,
+    max_workers: Optional[int] = None,
+    cpu_threshold: float = 0.8,
+    memory_threshold: float = 0.85,
+    check_interval: float = 5.0
+):
+    """
+    启用全局负载均衡（便捷函数）
+
+    Args:
+        min_workers: 最小worker数量
+        max_workers: 最大worker数量（None=使用默认值）
+        cpu_threshold: CPU使用率阈值（0-1）
+        memory_threshold: 内存使用率阈值（0-1）
+        check_interval: 检查间隔（秒）
+    """
+    _manager.enable_load_balancing(
+        min_workers=min_workers,
+        max_workers=max_workers,
+        cpu_threshold=cpu_threshold,
+        memory_threshold=memory_threshold,
+        check_interval=check_interval
+    )
+
+
+@export
+def disable_global_load_balancing():
+    """禁用全局负载均衡（便捷函数）"""
+    _manager.disable_load_balancing()
+
+
+@export
+def get_load_balancer_stats() -> Optional[Dict]:
+    """
+    获取负载均衡统计信息（便捷函数）
+
+    Returns:
+        统计信息字典，如果未启用则返回None
+    """
+    return _manager.get_load_balancer_stats()
