@@ -8,7 +8,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import pandas as pd
 
@@ -39,7 +39,17 @@ from .daq_run import DAQRun
 class DAQAnalyzer:
     """DAQ 数据分析器：管理所有运行的统一分析（显示/保存等）。"""
 
-    def __init__(self, daq_root: str | Path = "DAQ") -> None:
+    def __init__(self, daq_root: Union[str, Path] = "DAQ") -> None:
+        """
+        初始化 DAQ 数据分析器
+
+        Args:
+            daq_root: DAQ 数据根目录（默认 "DAQ"）
+
+        初始化内容:
+        - 设置 DAQ 根目录
+        - 初始化运行字典和统计信息
+        """
         self.daq_root = str(daq_root)
         self.runs: Dict[str, DAQRun] = {}
         self.df_runs: Optional[pd.DataFrame] = None
@@ -114,7 +124,6 @@ class DAQAnalyzer:
 
     def scan_all_runs(self) -> "DAQAnalyzer":
         # 局部导入 os 以提高在 autoreload/部分导入失败时的鲁棒性
-        import os
 
         if not os.path.exists(self.daq_root):
             logger.error("找不到目录 %s", self.daq_root)
@@ -363,7 +372,7 @@ class DAQAnalyzer:
         return self
 
     def save_to_json(
-        self, output_path: str | Path = "daq_analysis.json", include_file_details: bool = True
+        self, output_path: Union[str, Path] = "daq_analysis.json", include_file_details: bool = True
     ) -> Optional[str]:
         if self.df_runs is None or self.df_runs.empty:
             logger.error("尚未扫描运行数据，请先调用 scan_all_runs()")

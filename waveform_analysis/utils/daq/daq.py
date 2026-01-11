@@ -9,7 +9,7 @@ public entrypoint.
 from __future__ import annotations
 
 import logging
-from typing import Any, Iterable
+from typing import Any
 
 from .daq_analyzer import DAQAnalyzer
 from .daq_run import DAQRun
@@ -35,6 +35,17 @@ class _DAQRunAdapter:
     """
 
     def __init__(self, src: Any):
+        """
+        初始化 DAQ 运行适配器
+
+        包装不同来源的 DAQ 运行对象，提供统一的接口。
+
+        Args:
+            src: DAQ 运行对象（可以是 DAQRun, dict, 或任何提供 channel_files 的对象）
+
+        Note:
+            适配器会尝试调用 get_channel_paths 方法，如果不存在则从 channel_files 属性构建。
+        """
         self._src = src
 
     def get_channel_paths(self, n_channels: int):
