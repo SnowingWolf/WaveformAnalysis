@@ -8,13 +8,12 @@ Plugins 模块 - 定义插件和配置选项的基类。
 """
 
 import abc
-import inspect
 import logging
 from typing import Any, Dict, List, Literal, Optional, Type, Tuple, Union
 
 import numpy as np
 
-from ...utils import exporter
+from waveform_analysis.core.foundation.utils import exporter
 
 export, __all__ = exporter()
 
@@ -45,6 +44,20 @@ class Option:
         validate: Optional[callable] = None,
         track: bool = True,
     ):
+        """
+        初始化插件配置选项
+
+        Args:
+            default: 默认值（默认 None）
+            type: 期望的类型（int, float, str, bool 等，默认 None 表示任意类型）
+            help: 帮助文本，说明此选项的用途
+            validate: 自定义验证函数，接收值并返回 bool（默认 None）
+            track: 是否追踪此选项用于 lineage（默认 True）
+
+        Examples:
+            >>> threshold_option = Option(default=10.0, type=float, help="Hit 检测阈值")
+            >>> n_channels_option = Option(default=2, type=int, help="通道数量", track=True)
+        """
         self.default = default
         self.type = type
         self.help = help
@@ -53,6 +66,10 @@ class Option:
 
     def validate_value(self, name: str, value: Any, plugin_name: str = "unknown"):
         """Validate and potentially convert the value."""
+        # 如果值为 None 且默认值也为 None，允许通过（可选参数）
+        if value is None and self.default is None:
+            return None
+        
         # Type conversion attempt
         if self.type is not None and not isinstance(value, self.type):
             try:
@@ -156,13 +173,49 @@ class Plugin(abc.ABC):
             return Version("0.0.0")
 
     def get_dependency_name(self, dep: Union[str, Tuple[str, str]]) -> str:
-        """Extract dependency name from dependency specification."""
+        """从依赖规范中提取依赖名称。
+
+        插件的依赖可以是简单的字符串（插件名），也可以是包含版本约束的元组。
+        此方法统一提取依赖的名称部分。
+
+        Args:
+            dep: 依赖规范，可以是：
+                - 字符串：简单的插件名，如 "waveforms"
+                - 元组：(插件名, 版本约束)，如 ("waveforms", ">=1.0.0")
+
+        Returns:
+            提取的插件名称字符串
+
+        Examples:
+            >>> plugin.get_dependency_name("waveforms")
+            "waveforms"
+            >>> plugin.get_dependency_name(("waveforms", ">=1.0.0"))
+            "waveforms"
+        """
         if isinstance(dep, tuple):
             return dep[0]
         return dep
 
     def get_dependency_version_spec(self, dep: Union[str, Tuple[str, str]]) -> Optional[str]:
-        """Extract version specification from dependency specification."""
+        """从依赖规范中提取版本约束。
+
+        当依赖声明包含版本约束时（元组形式），提取版本规范字符串。
+        支持 PEP 440 版本说明符，如 ">=1.0.0", "==2.1.0", "~=1.2.0" 等。
+
+        Args:
+            dep: 依赖规范，可以是：
+                - 字符串：简单的插件名（无版本约束）
+                - 元组：(插件名, 版本约束)
+
+        Returns:
+            版本约束字符串，如果没有约束则返回 None
+
+        Examples:
+            >>> plugin.get_dependency_version_spec("waveforms")
+            None
+            >>> plugin.get_dependency_version_spec(("waveforms", ">=1.0.0"))
+            ">=1.0.0"
+        """
         if isinstance(dep, tuple) and len(dep) > 1:
             return dep[1]
         return None

@@ -10,7 +10,7 @@
 
 import os
 import logging
-from typing import Optional, Literal, Dict, Any
+from typing import Literal, Dict, Any
 import warnings
 
 from waveform_analysis.core.foundation.utils import exporter
@@ -43,6 +43,11 @@ class IntegrityChecker:
     ALGORITHM_PRIORITY = ['xxhash64', 'xxhash32', 'sha256', 'md5']
 
     def __init__(self):
+        """
+        初始化完整性检查器
+
+        检测并选择最快的可用哈希算法（优先级：xxhash64 > xxhash32 > sha256 > md5）
+        """
         self._available_algorithms = self._detect_available_algorithms()
 
     def _detect_available_algorithms(self) -> Dict[str, bool]:

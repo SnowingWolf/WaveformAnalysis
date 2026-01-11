@@ -86,6 +86,18 @@ class Blosc2Compression:
         shuffle: int = 2,      # 0=no shuffle, 1=byte shuffle, 2=bit shuffle
         nthreads: int = 4,     # 压缩线程数
     ):
+        """
+        初始化 Blosc2 压缩算法
+
+        Args:
+            cname: 压缩算法名称（zstd/lz4/lz4hc/zlib/blosclz，默认 zstd）
+            clevel: 压缩级别 0-9（默认5）
+            shuffle: Shuffle 模式（0=无, 1=字节, 2=位，默认2）
+            nthreads: 压缩线程数（默认4）
+
+        Note:
+            需要安装 blosc2: pip install blosc2
+        """
         self.cname = cname
         self.clevel = clevel
         self.shuffle = shuffle
@@ -352,6 +364,15 @@ class CompressionManager:
     _BACKEND_PRIORITY = ['blosc2', 'lz4', 'zstd', 'gzip']
 
     def __init__(self):
+        """
+        初始化压缩管理器
+
+        注册所有可用的压缩后端（blosc2, lz4, zstd, gzip）并管理实例缓存。
+
+        初始化内容:
+        - 注册压缩后端字典
+        - 初始化实例缓存（避免重复创建）
+        """
         self._backends: Dict[str, Type] = {
             'blosc2': Blosc2Compression,
             'lz4': LZ4Compression,

@@ -7,20 +7,22 @@
 - 插件自动处理 chunk 流
 - 自动并行化和资源管理
 - 时间边界对齐和验证
+- 动态负载均衡（可选）
 """
 
+import time
 from typing import Any, Dict, Generator, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 
-from ...chunk_utils import (
+from ...processing.chunk import (
     Chunk,
     check_chunk_boundaries,
     get_endtime,
 )
 from ...execution.config import get_config
 from .base import Plugin
-from ...utils import exporter
+from waveform_analysis.core.foundation.utils import exporter
 
 export, __all__ = exporter()
 
@@ -33,11 +35,13 @@ class StreamingPlugin(Plugin):
     - `compute()` 接收 chunk 迭代器，返回 chunk 迭代器
     - 自动处理时间边界对齐
     - 支持并行处理多个 chunk
+    - 可选的动态负载均衡
 
     使用方式：
     1. 继承 StreamingPlugin
     2. 重写 `compute_chunk()` 方法处理单个 chunk
     3. 设置 `output_kind = "stream"`（自动设置）
+    4. 可选：启用负载均衡 `use_load_balancer = True`
     """
 
     # 流式处理相关配置
@@ -46,11 +50,44 @@ class StreamingPlugin(Plugin):
     parallel_batch_size: Optional[int] = None  # 并行处理批量大小（None=自动）
     executor_type: str = "thread"  # 执行器类型
     max_workers: Optional[int] = None  # 最大工作线程/进程数
-    
+
+    # 负载均衡配置
+    use_load_balancer: bool = False  # 是否使用独立的负载均衡器
+    load_balancer_config: Optional[Dict[str, Any]] = None  # 负载均衡器配置
+
     def __init__(self):
         """初始化流式插件，自动设置 output_kind 为 stream"""
         super().__init__()
         self.output_kind = "stream"  # 流式插件总是输出流
+        self._load_balancer: Optional[Any] = None  # DynamicLoadBalancer实例
+
+        # 如果启用负载均衡,创建实例
+        if self.use_load_balancer:
+            self._init_load_balancer()
+
+    def _init_load_balancer(self):
+        """初始化负载均衡器"""
+        from waveform_analysis.core.load_balancer import DynamicLoadBalancer
+
+        config = self.load_balancer_config or {}
+        self._load_balancer = DynamicLoadBalancer(
+            min_workers=config.get('min_workers', 1),
+            max_workers=config.get('max_workers', self.max_workers),
+            cpu_threshold=config.get('cpu_threshold', 0.8),
+            memory_threshold=config.get('memory_threshold', 0.85),
+            check_interval=config.get('check_interval', 5.0)
+        )
+
+    def get_load_balancer_stats(self) -> Optional[Dict]:
+        """
+        获取插件的负载均衡统计信息
+
+        Returns:
+            统计信息字典，如果未启用则返回None
+        """
+        if self._load_balancer:
+            return self._load_balancer.get_statistics()
+        return None
     
     def compute_chunk(self, chunk: Chunk, context: Any, run_id: str, **kwargs) -> Chunk:
         """
@@ -230,12 +267,13 @@ class StreamingPlugin(Plugin):
         **kwargs
     ) -> Generator[Chunk, None, None]:
         """
-        并行处理 chunk 流（优化版：批量处理，避免完全物化）。
+        并行处理 chunk 流（优化版：批量处理，避免完全物化，支持负载均衡）。
 
         改进：
         - 不再将整个流物化到列表
         - 分批处理：每次处理 batch_size 个 chunk
         - 保持流式处理的内存优势
+        - 可选的动态负载均衡
 
         Args:
             input_chunks: 输入 chunk 迭代器
@@ -249,12 +287,26 @@ class StreamingPlugin(Plugin):
         import itertools
         from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 
-        # 批量大小：避免完全物化，但保持并行效率
-        # 优先使用配置值，否则自动计算（max_workers 的 2-3 倍）
+        # 动态计算 max_workers (如果启用负载均衡)
+        max_workers = self.max_workers
+        if self._load_balancer:
+            # 估算chunk数量(基于历史统计或默认值)
+            stats = self._load_balancer.get_statistics()
+            estimated_n_chunks = stats.get('total_tasks', 100) if stats['total_tasks'] > 0 else 100
+            max_workers = self._load_balancer.get_optimal_workers(
+                n_tasks=estimated_n_chunks,
+                estimated_task_size=None  # chunk大小难以预估
+            )
+
+        # 批量大小：优先使用配置值，否则根据worker数量自动计算
         if self.parallel_batch_size is not None:
             batch_size = self.parallel_batch_size
         else:
-            batch_size = max(10, (self.max_workers or 4) * 3)
+            batch_size = max(10, (max_workers or 4) * 3)
+
+        # 记录开始时间(用于统计)
+        start_time = time.time() if self._load_balancer else None
+        processed_chunks = 0
 
         # 准备并行处理函数
         def process_chunk(chunk: Chunk) -> Chunk:
@@ -267,39 +319,49 @@ class StreamingPlugin(Plugin):
         executor_cls = ThreadPoolExecutor if self.executor_type == "thread" else ProcessPoolExecutor
 
         # 分批处理流
-        with executor_cls(max_workers=self.max_workers) as executor:
-            chunk_iter = iter(input_chunks)
+        try:
+            with executor_cls(max_workers=max_workers) as executor:
+                chunk_iter = iter(input_chunks)
 
-            while True:
-                # 取一批 chunk
-                batch = list(itertools.islice(chunk_iter, batch_size))
-                if not batch:
-                    break  # 流已耗尽
+                while True:
+                    # 取一批 chunk
+                    batch = list(itertools.islice(chunk_iter, batch_size))
+                    if not batch:
+                        break  # 流已耗尽
 
-                # 提交批量任务
-                future_to_idx = {
-                    executor.submit(process_chunk, chunk): idx
-                    for idx, chunk in enumerate(batch)
-                }
+                    # 提交批量任务
+                    future_to_idx = {
+                        executor.submit(process_chunk, chunk): idx
+                        for idx, chunk in enumerate(batch)
+                    }
 
-                # 收集结果（保持顺序）
-                results = [None] * len(batch)
-                for future in as_completed(future_to_idx):
-                    idx = future_to_idx[future]
-                    try:
-                        result = future.result()
-                        results[idx] = result
-                    except Exception as e:
-                        # 记录错误但继续处理其他 chunk
-                        import logging
-                        logger = logging.getLogger(__name__)
-                        logger.error(f"Error processing chunk {idx}: {e}")
-                        raise  # 重新抛出，让上层处理
+                    # 收集结果（保持顺序）
+                    results = [None] * len(batch)
+                    for future in as_completed(future_to_idx):
+                        idx = future_to_idx[future]
+                        try:
+                            result = future.result()
+                            results[idx] = result
+                        except Exception as e:
+                            # 记录错误但继续处理其他 chunk
+                            import logging
+                            logger = logging.getLogger(__name__)
+                            logger.error(f"Error processing chunk {idx}: {e}")
+                            raise  # 重新抛出，让上层处理
 
-                # 按顺序 yield 结果
-                for result in results:
-                    if result is not None:
-                        yield result
+                    # 按顺序 yield 结果
+                    for result in results:
+                        if result is not None:
+                            processed_chunks += 1
+                            yield result
+        finally:
+            # 记录统计信息
+            if self._load_balancer and start_time:
+                duration = time.time() - start_time
+                self._load_balancer.record_task_completion(
+                    duration=duration,
+                    success=True  # 能执行到这里说明没有异常
+                )
 
     def _validate_chunk(self, chunk: Chunk):
         """
@@ -401,6 +463,16 @@ class StreamingContext:
             # 创建临时流式插件包装来转换数据
             class TempWrapper(StreamingPlugin):
                 def __init__(self, chunk_size, run_id, data_name):
+                    """
+                    初始化临时流式插件包装器
+
+                    用于将静态数据转换为流式 chunks。
+
+                    Args:
+                        chunk_size: 每个 chunk 的大小
+                        run_id: 运行标识符
+                        data_name: 数据名称（用于 provides）
+                    """
                     super().__init__()
                     self.provides = data_name
                     self.depends_on = []
@@ -434,7 +506,7 @@ class StreamingContext:
         Returns:
             裁剪后的 chunk
         """
-        from ...chunk_utils import select_time_range
+        from ...processing.chunk import select_time_range
         
         if len(chunk.data) == 0:
             return chunk
@@ -495,7 +567,7 @@ class StreamingContext:
         Yields:
             合并后的 chunk
         """
-        from ...chunk_utils import merge_chunks  # sort_by_time is handled by merge_chunks, sort_by_time
+        from ...processing.chunk import merge_chunks  # sort_by_time is handled by merge_chunks, sort_by_time
         
         # 收集所有 chunk
         all_chunks = []

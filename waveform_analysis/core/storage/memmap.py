@@ -12,6 +12,7 @@ Storage 模块 - 负责数据的持久化与加载。
 
 import fcntl
 import json
+import logging
 import os
 import time
 import warnings
@@ -20,12 +21,25 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
+# 设置日志记录器
+logger = logging.getLogger(__name__)
+
 
 class BufferedStreamWriter:
     """
     Buffered writer for efficient stream writing to reduce system calls.
     """
     def __init__(self, file_handle, buffer_size=4 * 1024 * 1024):  # 4MB default buffer
+        """
+        初始化缓冲流写入器
+
+        Args:
+            file_handle: 文件句柄（已打开的文件对象）
+            buffer_size: 缓冲区大小（字节，默认 4MB）
+
+        Note:
+            通过缓冲减少系统调用次数，提升写入性能。
+        """
         self.file = file_handle
         self.buffer = bytearray(buffer_size)
         self.buffer_pos = 0
@@ -73,12 +87,16 @@ class MemmapStorage:
         enable_checksum: bool = False,
         checksum_algorithm: str = 'xxhash64',
         verify_on_load: bool = False,
+        work_dir: Optional[str] = None,
+        use_run_subdirs: bool = True,
+        data_subdir: str = "data",
+        side_effects_subdir: str = "side_effects",
     ):
         """
         Initialize MemmapStorage.
 
         Args:
-            base_dir: Base directory for storage
+            base_dir: Base directory for storage (legacy mode fallback)
             profiler: Optional profiler for performance tracking
             compression: Compression backend name ('blosc2', 'lz4', 'zstd', 'gzip') or instance.
                         None means no compression (default, uses memmap).
@@ -86,6 +104,20 @@ class MemmapStorage:
             enable_checksum: Enable checksum computation for data integrity
             checksum_algorithm: Checksum algorithm ('xxhash64', 'sha256', 'md5')
             verify_on_load: Verify checksum when loading data (may impact performance)
+            work_dir: Work directory for hierarchical storage (new mode).
+                     If None, uses base_dir with flat structure (legacy mode).
+            use_run_subdirs: Whether to use run_id subdirectories (only applies when work_dir is set)
+            data_subdir: Subdirectory name for data files (default: "data")
+            side_effects_subdir: Subdirectory name for side effect outputs (default: "side_effects")
+
+        Storage Modes:
+            1. Legacy mode (work_dir=None):
+               - All files in base_dir root (flat structure)
+               - Path: base_dir/{key}.bin
+
+            2. New hierarchical mode (work_dir set):
+               - Files organized by run_id
+               - Path: work_dir/{run_id}/data/{key}.bin
         """
         self.base_dir = base_dir
         self.profiler = profiler
@@ -95,8 +127,24 @@ class MemmapStorage:
         self.checksum_algorithm = checksum_algorithm
         self.verify_on_load = verify_on_load
 
+        # work_dir 模式配置
+        if work_dir is not None:
+            # 新模式：使用 work_dir 分层结构
+            self.work_dir = work_dir
+            self.use_run_subdirs = use_run_subdirs
+        else:
+            # 旧模式：使用 base_dir 扁平结构
+            self.work_dir = base_dir
+            self.use_run_subdirs = False
+
+        self.data_subdir = data_subdir
+        self.side_effects_subdir = side_effects_subdir
+
+        # 确保基础目录存在
         if not os.path.exists(base_dir):
             os.makedirs(base_dir, exist_ok=True)
+        if work_dir is not None and not os.path.exists(work_dir):
+            os.makedirs(work_dir, exist_ok=True)
 
         # Setup compression if specified
         if compression is not None:
@@ -137,11 +185,79 @@ class MemmapStorage:
 
         return nullcontext()
 
-    def _get_paths(self, key: str) -> Tuple[str, str, str]:
-        bin_path = os.path.join(self.base_dir, f"{key}.bin")
-        meta_path = os.path.join(self.base_dir, f"{key}.json")
-        lock_path = os.path.join(self.base_dir, f"{key}.lock")
+    def _get_paths(self, key: str, run_id: Optional[str] = None) -> Tuple[str, str, str]:
+        """
+        生成存储路径。
+
+        Args:
+            key: 缓存键 (格式: "run_id-data_name-lineage_hash" 或 "data_name-hash")
+            run_id: 显式传入的 run_id（推荐）。如果为 None 则从 key 解析。
+
+        Returns:
+            (bin_path, meta_path, lock_path)
+
+        Storage Modes:
+            - 旧模式 (use_run_subdirs=False): base_dir/{key}.bin
+            - 新模式 (use_run_subdirs=True): work_dir/{run_id}/data/{key}.bin
+        """
+        # 确定根目录
+        if self.use_run_subdirs:
+            # 新模式：按 run_id 分目录
+            # 从 key 提取 run_id（如果未显式传入）
+            if run_id is None:
+                # key 格式: "run_001-data_name-hash" -> run_id = "run_001"
+                parts = key.split('-')
+                if len(parts) >= 1:
+                    run_id = parts[0]
+                else:
+                    run_id = "default"
+
+            root = os.path.join(self.work_dir, run_id, self.data_subdir)
+            os.makedirs(root, exist_ok=True)
+        else:
+            # 旧模式：扁平结构
+            root = self.base_dir
+
+        bin_path = os.path.join(root, f"{key}.bin")
+        meta_path = os.path.join(root, f"{key}.json")
+        lock_path = os.path.join(root, f"{key}.lock")
         return bin_path, meta_path, lock_path
+
+    def get_run_data_dir(self, run_id: str) -> str:
+        """
+        获取指定 run 的数据目录路径。
+
+        Args:
+            run_id: 运行标识符
+
+        Returns:
+            run 的数据目录绝对路径
+
+        Notes:
+            - 新模式: work_dir/{run_id}/data/
+            - 旧模式: base_dir/
+        """
+        if self.use_run_subdirs:
+            return os.path.join(self.work_dir, run_id, self.data_subdir)
+        return self.base_dir
+
+    def get_run_side_effects_dir(self, run_id: str) -> str:
+        """
+        获取指定 run 的副作用输出目录路径。
+
+        Args:
+            run_id: 运行标识符
+
+        Returns:
+            run 的副作用目录绝对路径
+
+        Notes:
+            - 新模式: work_dir/{run_id}/side_effects/
+            - 旧模式: base_dir/_side_effects/{run_id}/
+        """
+        if self.use_run_subdirs:
+            return os.path.join(self.work_dir, run_id, self.side_effects_subdir)
+        return os.path.join(self.base_dir, "_side_effects", run_id)
 
     def _acquire_lock(self, lock_path: str, timeout: int = 10) -> Optional[int]:
         """
@@ -172,38 +288,56 @@ class MemmapStorage:
                         time.sleep(sleep_time)
                         attempt += 1
 
+                except (PermissionError, FileNotFoundError) as e:
+                    # 文件权限问题或目录不存在
+                    logger.error(
+                        f"Permission or file access error acquiring lock {lock_path}: {e}",
+                        exc_info=True
+                    )
+                    time.sleep(0.1)
                 except Exception as e:
-                    warnings.warn(
+                    # 其他未预期的错误
+                    logger.error(
                         f"Unexpected error acquiring lock {lock_path}: {e}",
-                        UserWarning
+                        exc_info=True
                     )
                     time.sleep(0.1)
 
             return None
 
     def _release_lock(self, fd: Optional[int], lock_path: str):
-        """Release the lock and close file descriptor."""
+        """释放锁并关闭文件描述符"""
         if fd is not None:
             try:
                 fcntl.flock(fd, fcntl.LOCK_UN)
-            except Exception:
-                pass  # Best effort unlock
+            except (OSError, IOError) as e:
+                # 锁可能已经被释放或文件已关闭
+                logger.warning(f"Failed to unlock {lock_path}: {e}")
+            except Exception as e:
+                # 其他未预期的错误
+                logger.error(f"Unexpected error unlocking {lock_path}: {e}", exc_info=True)
 
             try:
                 os.close(fd)
-            except Exception:
-                pass  # Best effort close
+            except (OSError, IOError) as e:
+                # 文件描述符可能已经关闭
+                logger.warning(f"Failed to close file descriptor for {lock_path}: {e}")
+            except Exception as e:
+                logger.error(f"Unexpected error closing fd for {lock_path}: {e}", exc_info=True)
 
-        # Clean up lock file (best effort, ignore errors)
+        # 清理锁文件（尽力而为）
         try:
             if os.path.exists(lock_path):
                 os.remove(lock_path)
-        except Exception:
-            pass
+        except (PermissionError, OSError) as e:
+            # 文件可能已被删除或权限不足
+            logger.debug(f"Could not remove lock file {lock_path}: {e}")
+        except Exception as e:
+            logger.warning(f"Unexpected error removing lock file {lock_path}: {e}")
 
-    def save_metadata(self, key: str, metadata: Dict[str, Any]):
+    def save_metadata(self, key: str, metadata: Dict[str, Any], run_id: Optional[str] = None):
         """Atomically save metadata for a key."""
-        _, meta_path, _ = self._get_paths(key)
+        _, meta_path, _ = self._get_paths(key, run_id)
         tmp_meta_path = meta_path + ".tmp"
         with open(tmp_meta_path, "w") as f:
             json.dump(metadata, f, default=str)
@@ -218,9 +352,10 @@ class MemmapStorage:
         dtype: np.dtype,
         extra_metadata: Optional[Dict[str, Any]] = None,
         shape: Optional[Tuple[int, ...]] = None,
+        run_id: Optional[str] = None,
     ):
         """Finalize a save operation by renaming temp files and writing metadata."""
-        bin_path, meta_path, _ = self._get_paths(key)
+        bin_path, meta_path, _ = self._get_paths(key, run_id)
         tmp_bin_path = bin_path + ".tmp"
 
         if total_count > 0:
@@ -232,6 +367,7 @@ class MemmapStorage:
             # Apply compression if enabled
             compressed = False
             compression_ratio = 1.0
+            compressed_size = 0  # 初始化以避免未绑定警告
             original_size = os.path.getsize(bin_path)
             final_file_path = bin_path  # Track which file to compute checksum on
 
@@ -267,8 +403,15 @@ class MemmapStorage:
                     if os.path.exists(compressed_path):
                         try:
                             os.remove(compressed_path)
-                        except Exception:
-                            pass
+                        except (PermissionError, OSError) as cleanup_err:
+                            logger.warning(
+                                f"Failed to remove partial compressed file {compressed_path}: {cleanup_err}"
+                            )
+                        except Exception as cleanup_err:
+                            logger.error(
+                                f"Unexpected error removing compressed file {compressed_path}: {cleanup_err}",
+                                exc_info=True
+                            )
 
             # Compute checksum if enabled
             checksum = None
@@ -311,7 +454,7 @@ class MemmapStorage:
             if extra_metadata:
                 metadata.update(extra_metadata)
 
-            self.save_metadata(key, metadata)
+            self.save_metadata(key, metadata, run_id)
         else:
             if os.path.exists(tmp_bin_path):
                 os.remove(tmp_bin_path)
@@ -323,13 +466,14 @@ class MemmapStorage:
         dtype: np.dtype,
         extra_metadata: Optional[Dict[str, Any]] = None,
         shape: Optional[Tuple[int, ...]] = None,
+        run_id: Optional[str] = None,
     ) -> int:
         """
         Consumes a stream of numpy arrays and saves them to a binary file.
         Returns the total number of items saved.
         """
         with self._timeit("storage.save"):
-            bin_path, _, lock_path = self._get_paths(key)
+            bin_path, _, lock_path = self._get_paths(key, run_id)
             tmp_bin_path = bin_path + ".tmp"
 
             # Acquire lock
@@ -354,15 +498,22 @@ class MemmapStorage:
                     # Flush remaining data
                     writer.flush()
 
-                self.finalize_save(key, total_count, dtype, extra_metadata, shape=shape)
+                self.finalize_save(key, total_count, dtype, extra_metadata, shape=shape, run_id=run_id)
                 return total_count
             except Exception as e:
                 # Cleanup on failure
                 if os.path.exists(tmp_bin_path):
                     try:
                         os.remove(tmp_bin_path)
-                    except Exception:
-                        pass
+                    except (PermissionError, OSError) as cleanup_err:
+                        logger.warning(
+                            f"Failed to remove temporary file {tmp_bin_path} after error: {cleanup_err}"
+                        )
+                    except Exception as cleanup_err:
+                        logger.error(
+                            f"Unexpected error removing temp file {tmp_bin_path}: {cleanup_err}",
+                            exc_info=True
+                        )
                 raise e
             finally:
                 self._release_lock(lock_fd, lock_path)
@@ -370,19 +521,32 @@ class MemmapStorage:
                 if os.path.exists(tmp_bin_path):
                     try:
                         os.remove(tmp_bin_path)
-                    except Exception:
-                        pass
+                    except (PermissionError, OSError) as cleanup_err:
+                        logger.warning(
+                            f"Failed to remove lingering temp file {tmp_bin_path}: {cleanup_err}"
+                        )
+                    except Exception as cleanup_err:
+                        logger.error(
+                            f"Unexpected error removing temp file {tmp_bin_path}: {cleanup_err}",
+                            exc_info=True
+                        )
 
-    def save_memmap(self, key: str, data: np.ndarray, extra_metadata: Optional[Dict[str, Any]] = None):
+    def save_memmap(
+        self,
+        key: str,
+        data: np.ndarray,
+        extra_metadata: Optional[Dict[str, Any]] = None,
+        run_id: Optional[str] = None,
+    ):
         """Save a single numpy array to storage."""
         if data is None or data.size == 0:
             return
-        self.save_stream(key, iter([data]), data.dtype, extra_metadata, shape=data.shape)
+        self.save_stream(key, iter([data]), data.dtype, extra_metadata, shape=data.shape, run_id=run_id)
 
-    def get_metadata(self, key: str) -> Optional[Dict[str, Any]]:
+    def get_metadata(self, key: str, run_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Retrieve metadata for a given key."""
         with self._timeit("storage.get_metadata"):
-            _, meta_path, _ = self._get_paths(key)
+            _, meta_path, _ = self._get_paths(key, run_id)
             if not os.path.exists(meta_path):
                 return None
             try:
@@ -392,18 +556,18 @@ class MemmapStorage:
                 warnings.warn(f"Failed to read metadata at {meta_path}: {str(e)}")
                 return None
 
-    def load_memmap(self, key: str) -> Optional[np.ndarray]:
+    def load_memmap(self, key: str, run_id: Optional[str] = None) -> Optional[np.ndarray]:
         """
         Loads a binary file as a read-only memmap with integrity checks.
 
         If data is compressed, it will be fully loaded into memory (not memmap).
         """
         with self._timeit("storage.load"):
-            bin_path, meta_path, _ = self._get_paths(key)
+            bin_path, meta_path, _ = self._get_paths(key, run_id)
             if not os.path.exists(meta_path):
                 return None
 
-            meta = self.get_metadata(key)
+            meta = self.get_metadata(key, run_id)
             if meta is None:
                 return None
 
@@ -440,7 +604,7 @@ class MemmapStorage:
 
             # Handle compressed data
             if is_compressed:
-                return self._load_compressed(key, meta, dtype, shape)
+                return self._load_compressed(key, meta, dtype, shape, run_id)
 
             # Handle uncompressed data (original memmap logic)
             if not os.path.exists(bin_path):
@@ -483,10 +647,11 @@ class MemmapStorage:
         key: str,
         meta: Dict[str, Any],
         dtype: np.dtype,
-        shape: Tuple[int, ...]
+        shape: Tuple[int, ...],
+        run_id: Optional[str] = None,
     ) -> Optional[np.ndarray]:
         """Load compressed data (returns in-memory array, not memmap)"""
-        bin_path, _, _ = self._get_paths(key)
+        bin_path, _, _ = self._get_paths(key, run_id)
 
         # Get compression algorithm
         compression_name = meta.get("compression")
@@ -549,31 +714,37 @@ class MemmapStorage:
             warnings.warn(f"Failed to decompress {key}: {e}")
             return None
 
-    def exists(self, key: str) -> bool:
+    def exists(self, key: str, run_id: Optional[str] = None) -> bool:
         """
         检查给定 key 的数据是否存在，支持单文件（二进制/memmap, parquet）和多通道格式。
         """
         # 1. 首先检查单文件是否存在
-        if self._check_single_exists(key):
+        if self._check_single_exists(key, run_id):
             return True
 
         # 2. 检查多通道是否存在（回退到 _ch0）
-        if not key.endswith("_ch0") and self._check_single_exists(f"{key}_ch0"):
+        if not key.endswith("_ch0") and self._check_single_exists(f"{key}_ch0", run_id):
             return True
 
         return False
 
-    def _check_single_exists(self, key: str) -> bool:
+    def _check_single_exists(self, key: str, run_id: Optional[str] = None) -> bool:
         """内部辅助方法：检查单个 key 的数据完整性。"""
-        bin_path, meta_path, _ = self._get_paths(key)
-        parquet_path = os.path.join(self.base_dir, f"{key}.parquet")
+        bin_path, meta_path, _ = self._get_paths(key, run_id)
+
+        # 获取 parquet 路径（需要考虑分层模式）
+        if self.use_run_subdirs and run_id:
+            parquet_root = os.path.join(self.work_dir, run_id, self.data_subdir)
+        else:
+            parquet_root = self.base_dir
+        parquet_path = os.path.join(parquet_root, f"{key}.parquet")
 
         # 所有格式都必须有元数据文件
         if not os.path.exists(meta_path):
             return False
 
         try:
-            meta = self.get_metadata(key)
+            meta = self.get_metadata(key, run_id)
             if meta is None:
                 return False
 
@@ -592,7 +763,13 @@ class MemmapStorage:
                         backend = manager.get_backend(compression_name, fallback=False)
                         compressed_path = bin_path + backend.extension
                         return os.path.exists(compressed_path)
-                    except Exception:
+                    except ImportError as e:
+                        logger.debug(f"Compression module not available: {e}")
+                        return False
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to check compressed file for {key} with {compression_name}: {e}"
+                        )
                         return False
                 return False
 
@@ -616,39 +793,111 @@ class MemmapStorage:
                 return False
 
             return True
-        except Exception:
+        except (json.JSONDecodeError, IOError) as e:
+            # JSON 解析错误或 I/O 错误
+            logger.debug(f"Failed to check existence of {key}: JSON or I/O error: {e}")
+            return False
+        except Exception as e:
+            # 其他未预期的错误
+            logger.warning(f"Unexpected error checking existence of {key}: {e}", exc_info=False)
             return False
 
-    def delete(self, key: str):
+    def delete(self, key: str, run_id: Optional[str] = None):
         """Delete data and metadata for a key."""
-        bin_path, meta_path, lock_path = self._get_paths(key)
+        bin_path, meta_path, lock_path = self._get_paths(key, run_id)
         for p in [bin_path, meta_path, lock_path]:
             if os.path.exists(p):
                 os.remove(p)
 
-    def list_keys(self) -> List[str]:
-        """List all keys in the storage."""
+    def list_keys(self, run_id: Optional[str] = None) -> List[str]:
+        """
+        List all keys in the storage.
+
+        Args:
+            run_id: If specified and use_run_subdirs is True, list keys for this run.
+                   If None in run_subdirs mode, returns empty list (need to specify run).
+        """
         keys = []
-        for f in os.listdir(self.base_dir):
-            if f.endswith(".json"):
-                keys.append(f[:-5])
+
+        if self.use_run_subdirs:
+            if run_id is None:
+                # 在分层模式下，不指定 run_id 则返回空
+                return keys
+            data_dir = os.path.join(self.work_dir, run_id, self.data_subdir)
+            if not os.path.exists(data_dir):
+                return keys
+            for f in os.listdir(data_dir):
+                if f.endswith(".json"):
+                    keys.append(f[:-5])
+        else:
+            for f in os.listdir(self.base_dir):
+                if f.endswith(".json"):
+                    keys.append(f[:-5])
+
         return keys
 
-    def get_size(self, key: str) -> int:
+    def list_runs(self) -> List[str]:
+        """
+        List all run IDs in the work_dir.
+
+        Returns:
+            List of run_id strings. Empty list if not in run_subdirs mode.
+        """
+        if not self.use_run_subdirs:
+            return []
+
+        runs = []
+        if os.path.exists(self.work_dir):
+            for d in os.listdir(self.work_dir):
+                data_dir = os.path.join(self.work_dir, d, self.data_subdir)
+                # 只有包含 data 子目录的才算有效 run
+                if os.path.isdir(data_dir):
+                    runs.append(d)
+        return sorted(runs)
+
+    def get_size(self, key: str, run_id: Optional[str] = None) -> int:
         """Get the number of records for a key."""
-        meta = self.get_metadata(key)
+        meta = self.get_metadata(key, run_id)
         if meta:
             return meta.get("count", 0)
         return 0
 
-    def save_dataframe(self, key: str, df: pd.DataFrame):
+    def save_dataframe(self, key: str, df: pd.DataFrame, run_id: Optional[str] = None):
         """Save a pandas DataFrame as Parquet."""
-        path = os.path.join(self.base_dir, f"{key}.parquet")
+        if self.use_run_subdirs:
+            # 提取 run_id（如果未显式传入）
+            effective_run_id = run_id
+            if effective_run_id is None:
+                parts = key.split('-')
+                if len(parts) >= 1:
+                    effective_run_id = parts[0]
+            if effective_run_id:
+                data_dir = os.path.join(self.work_dir, effective_run_id, self.data_subdir)
+                os.makedirs(data_dir, exist_ok=True)
+                path = os.path.join(data_dir, f"{key}.parquet")
+            else:
+                path = os.path.join(self.base_dir, f"{key}.parquet")
+        else:
+            path = os.path.join(self.base_dir, f"{key}.parquet")
         df.to_parquet(path)
 
-    def load_dataframe(self, key: str) -> Optional[pd.DataFrame]:
+    def load_dataframe(self, key: str, run_id: Optional[str] = None) -> Optional[pd.DataFrame]:
         """Load a pandas DataFrame from Parquet."""
-        path = os.path.join(self.base_dir, f"{key}.parquet")
+        if self.use_run_subdirs:
+            # 提取 run_id（如果未显式传入）
+            effective_run_id = run_id
+            if effective_run_id is None:
+                parts = key.split('-')
+                if len(parts) >= 1:
+                    effective_run_id = parts[0]
+            if effective_run_id:
+                data_dir = os.path.join(self.work_dir, effective_run_id, self.data_subdir)
+                path = os.path.join(data_dir, f"{key}.parquet")
+            else:
+                path = os.path.join(self.base_dir, f"{key}.parquet")
+        else:
+            path = os.path.join(self.base_dir, f"{key}.parquet")
+
         if os.path.exists(path):
             return pd.read_parquet(path)
         return None
@@ -800,12 +1049,12 @@ class MemmapStorage:
                 })
 
         if verbose:
-            print(f"\nIntegrity Check Results:")
+            print("\nIntegrity Check Results:")
             print(f"  Total files: {results['total']}")
             print(f"  Valid: {results['valid']}")
             print(f"  Invalid: {results['invalid']}")
             if results['errors']:
-                print(f"\nErrors:")
+                print("\nErrors:")
                 for err in results['errors']:
                     print(f"  - {err['key']}: {err['error']}")
 
