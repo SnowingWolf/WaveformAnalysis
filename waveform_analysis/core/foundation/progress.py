@@ -15,7 +15,7 @@ import inspect
 import logging
 import threading
 import time
-from typing import Any, Callable, Dict, Iterable, Iterator, Optional, TypeVar, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, Optional, TypeVar
 
 from tqdm import tqdm
 
@@ -158,6 +158,11 @@ class ProgressTracker:
 
             bar = self._bars[name]
             bar.update(n)
+
+            # 如果进度条被禁用，tqdm.update 不会更新 n 值
+            # 我们手动更新以便测试和跟踪
+            if self.disable:
+                bar.n += n
 
     def set_postfix(self, name: str, **kwargs):
         """

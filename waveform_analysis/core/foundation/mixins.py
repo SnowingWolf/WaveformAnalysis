@@ -12,12 +12,10 @@ import os
 import traceback
 from contextlib import nullcontext
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
-import numpy as np
-import pandas as pd
 
-from .storage.cache import WATCH_SIG_KEY, CacheManager
+from ..storage.cache import WATCH_SIG_KEY, CacheManager
 from .exceptions import ErrorSeverity
 
 
@@ -146,6 +144,19 @@ class CacheMixin:
     """Mixin for handling memory and disk caching in WaveformDataset."""
 
     def __init__(self):
+        """
+        初始化缓存管理 Mixin
+
+        设置内存和磁盘缓存的基础数据结构。
+
+        初始化内容:
+        - _cache: 内存缓存字典，格式为 {step_name: {attr_name: value}}
+        - _cache_config: 缓存配置字典，存储每个步骤的缓存策略
+        - cache_dir: 磁盘缓存根目录（默认为 None）
+
+        Note:
+            这是一个 Mixin 类，需要与 WaveformDataset 或类似类组合使用。
+        """
         # _cache: { step_name: {attr_name: value, ...} }
         self._cache: Dict[str, Dict[str, object]] = {}
         # _cache_config: { step_name: {enabled: bool, attrs: [str], persist_path: Optional[str]} }
@@ -274,9 +285,9 @@ class CacheMixin:
             verify: 是否通过加载磁盘文件来验证签名（对于大文件可能较慢）。
         """
         report = self.check_cache_status(load_sig=verify)
-        print(f"\nCache report (before running steps):")
+        print("\nCache report (before running steps):")
         if not verify:
-            print(f"注: 'Valid' 列仅表示文件存在，未验证内容签名 (使用 verify=True 验证)")
+            print("注: 'Valid' 列仅表示文件存在，未验证内容签名 (使用 verify=True 验证)")
         print(f"{'Step Name':<25} | {'Mem':<5} | {'Disk':<5} | {'Valid':<5} | {'Backend':<8}")
         print("-" * 65)
         for name, s in report.items():
@@ -303,6 +314,22 @@ class StepMixin:
     chainable_step = staticmethod(chainable_step)
 
     def __init__(self):
+        """
+        初始化步骤管理 Mixin
+
+        设置步骤状态追踪和错误处理机制。
+
+        初始化内容:
+        - _step_errors: 结构化错误信息字典 {step_name: {error, traceback, timestamp, ...}}
+        - _step_status: 步骤状态字典 {step_name: "success" | "failed"}
+        - _last_failed_step: 最后失败的步骤名称
+        - raise_on_error: 是否在错误时立即抛出异常（默认 False）
+        - _error_stats: 错误统计字典 {error_type: count}
+        - _store_traceback: 是否存储完整的 traceback（默认 False）
+
+        Note:
+            这是一个 Mixin 类，提供链式调用和错误追踪功能。
+        """
         self._step_errors: Dict[str, Dict[str, Any]] = {}  # 改为结构化
         self._step_status: Dict[str, str] = {}
         self._last_failed_step: Optional[str] = None
@@ -393,6 +420,17 @@ class PluginMixin:
     """Mixin for orchestrating plugins in WaveformDataset."""
 
     def __init__(self):
+        """
+        初始化插件管理 Mixin
+
+        设置插件注册和管理的数据结构。
+
+        初始化内容:
+        - _plugins: 插件字典 {provides: plugin_instance}
+
+        Note:
+            这是一个 Mixin 类，提供插件注册和访问功能。
+        """
         self._plugins: Dict[str, Any] = {}
 
     def register_plugin(self, plugin: Any, allow_override: bool = False) -> None:
