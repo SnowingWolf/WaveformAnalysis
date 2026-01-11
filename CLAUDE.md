@@ -75,6 +75,69 @@ waveform-process --scan-daq --daq-root DAQ
 waveform-process --show-daq --daq-root DAQ
 ```
 
+## Configuration Management
+
+WaveformAnalysis 提供灵活的配置系统，支持全局配置和插件特定配置。
+
+### 查看插件配置选项
+
+```python
+# 列出所有插件的配置选项
+ctx.list_plugin_configs()
+
+# 只查看特定插件的配置
+ctx.list_plugin_configs(plugin_name='waveforms')
+
+# 获取配置字典而不打印（用于程序化处理）
+config_info = ctx.list_plugin_configs(verbose=False)
+```
+
+`list_plugin_configs()` 功能特性：
+- 📦 显示所有插件的配置选项、默认值、类型和帮助文本
+- ✓/⚙️ 图标区分默认值和已修改的配置
+- 🔧 明确标记已自定义的配置值
+- 📊 统计已注册插件数、配置选项总数和已修改配置数
+- 📝 自动换行处理长描述和帮助文本
+- 🎨 清晰的表格边框和层次结构
+
+### 查看当前配置值
+
+```python
+# 显示全局配置（包含配置项使用情况）
+ctx.show_config()
+
+# 显示特定插件的详细配置
+ctx.show_config('waveforms')
+
+# 显示全局配置但不显示使用情况
+ctx.show_config(show_usage=False)
+```
+
+`show_config()` 增强功能特性：
+- 🔍 **智能分析配置项使用情况** - 自动识别哪些插件使用了每个全局配置项
+- 📂 **三类配置分组显示**：
+  - **全局配置项** - 被插件使用的配置，显示使用插件列表
+  - **插件特定配置** - 仅对单个插件生效的配置（嵌套字典或点分隔）
+  - **未使用配置** - 未被任何插件使用的配置项（帮助发现配置错误）
+- ⚙️ **详细的插件配置视图** - 查看特定插件时显示完整信息：
+  - 配置值与默认值对比
+  - 配置项类型和说明
+  - 自定义状态标记
+- 📊 **统计概览** - 一目了然地看到配置项分布情况
+
+### 设置配置
+
+```python
+# 全局配置
+ctx.set_config({'n_channels': 2, 'threshold': 50})
+
+# 插件特定配置（推荐，避免冲突）
+ctx.set_config({'threshold': 50}, plugin_name='peaks')
+
+# 查看当前配置值
+ctx.show_config('plugin_name')
+```
+
 ## Architecture Overview
 
 ### Core Structure (Modular Subdirectories)
@@ -281,6 +344,37 @@ ctx.set_config({"data_root": "DAQ", "n_channels": 2})
 hits = ctx.get_data("run_001", "hits")  # Auto-resolves dependencies
 ```
 
+### Preview Execution (运行前确认 Lineage)
+```python
+# 在实际执行前预览执行计划
+ctx.preview_execution('run_001', 'signal_peaks')
+
+# 输出包含：
+# - 执行计划（插件执行顺序）
+# - 依赖关系树
+# - 自定义配置参数（仅显示非默认值）
+# - 缓存状态（哪些已缓存，哪些需要计算）
+
+# 程序化使用预览结果
+result = ctx.preview_execution('run_001', 'signal_peaks')
+needs_compute = [p for p, s in result['cache_status'].items() if s['needs_compute']]
+print(f"需要计算 {len(needs_compute)} 个插件")
+
+# 确认后执行
+data = ctx.get_data('run_001', 'signal_peaks')
+
+# 不同详细程度
+ctx.preview_execution('run_001', 'signal_peaks', verbose=0)  # 简洁
+ctx.preview_execution('run_001', 'signal_peaks', verbose=1)  # 标准（默认）
+ctx.preview_execution('run_001', 'signal_peaks', verbose=2)  # 详细
+
+# 选择性显示
+ctx.preview_execution('run_001', 'signal_peaks',
+                      show_tree=False,   # 不显示依赖树
+                      show_config=True,  # 显示配置
+                      show_cache=True)   # 显示缓存状态
+```
+
 ### Streaming Processing
 ```python
 from waveform_analysis.core.streaming import get_streaming_context
@@ -406,6 +500,81 @@ reloader.reload_plugin('my_plugin', clear_cache=True)
 reloader.disable_auto_reload()
 ```
 
+#### Lineage Visualization (血缘图可视化)
+
+WaveformAnalysis 提供两种高级血缘图可视化模式，支持智能颜色高亮和完整交互功能。
+
+##### LabVIEW 风格（Matplotlib）
+```python
+# 基础用法
+ctx.plot_lineage("df_paired", kind="labview")
+
+# 交互式模式（鼠标悬停显示详情、点击显示依赖）
+ctx.plot_lineage("df_paired", kind="labview", interactive=True)
+
+# 显示详细信息
+ctx.plot_lineage("df_paired", kind="labview", verbose=2, interactive=True)
+```
+
+##### Plotly 高级交互式
+```python
+# Plotly 模式（始终交互式，支持缩放、平移、悬停）
+ctx.plot_lineage("df_paired", kind="plotly", verbose=2)
+
+# 自定义样式
+from waveform_analysis.core.foundation.utils import LineageStyle
+style = LineageStyle(
+    node_width=4.0,
+    node_height=2.0,
+    verbose=2
+)
+ctx.plot_lineage("df_paired", kind="plotly", style=style)
+```
+
+##### Verbose 等级说明
+- `verbose=0`: 仅显示插件标题
+- `verbose=1`: 显示标题 + key
+- `verbose=2`: 显示标题 + key + class（推荐）
+- `verbose>=3`: 同 verbose=2
+
+##### 智能颜色高亮
+
+系统自动根据节点类型应用颜色方案：
+
+| 节点类型 | 颜色 | 识别规则 |
+|---------|------|---------|
+| 原始数据 | 🔵 蓝色系 | RawFiles, Loader, Reader |
+| 结构化数组 | 🟢 绿色系 | 多字段 dtype（如 `[('time', '<f8'), ...]`）|
+| DataFrame | 🟠 橙色系 | DataFrame, df 关键词 |
+| 聚合数据 | 🟣 紫色系 | Group, Pair, Aggregate, Merge |
+| 副作用 | 🌸 粉红色系 | Export, Save, Write |
+| 中间处理 | ⚪ 灰色系 | 其他节点 |
+
+颜色高亮在两种模式下均自动生效，无需额外配置。
+
+##### Plotly 模式特性
+
+- ✅ **真实矩形绘制**：使用 shapes API 绘制节点和端口，尺寸精确
+- ✅ **完整交互性**：缩放、平移、悬停提示、框选
+- ✅ **坐标同步修复**：拖拽时光标和节点位置完全同步
+- ✅ **1:1 比例保持**：确保节点不变形
+- ✅ **端口可见**：显示彩色输入/输出端口
+- ✅ **类型标注**：悬停提示包含节点类型信息
+
+##### 注意事项
+
+1. **Interactive 参数**：
+   - LabVIEW 模式：`interactive=True` 启用 matplotlib 交互功能
+   - Plotly 模式：始终交互式，`interactive` 参数被忽略
+
+2. **性能考虑**：
+   - LabVIEW 模式适合静态导出和简单交互
+   - Plotly 模式适合复杂图形的深度探索
+
+3. **依赖**：
+   - LabVIEW 模式：需要 matplotlib（标准依赖）
+   - Plotly 模式：需要 `pip install plotly`
+
 ## Common Pitfalls
 
 1. **Generator Exhaustion**: Generators can only be consumed once; repeat access triggers recomputation
@@ -415,6 +584,10 @@ reloader.disable_auto_reload()
 5. **Chunk Boundaries**: Record endtime must not exceed chunk boundary; validate with `check_chunk_boundaries()`
 6. **Timestamp Index**: After modifying `st_waveforms`, call `_build_timestamp_index()` to rebuild index
 7. **Waveform Access**: With `load_waveforms=False`, `get_waveform_at()` returns None
+8. **Plugin dtype**: `output_dtype` can be either:
+   - Valid NumPy dtype (e.g., `np.dtype([('time', '<f8'), ('charge', '<f4')])`)
+   - Type annotation strings for non-array outputs (e.g., `"List[np.ndarray]"`, `"pd.DataFrame"`)
+   - Framework automatically handles both cases in lineage tracking and validation
 
 ## Testing Notes
 
@@ -450,4 +623,7 @@ reloader.disable_auto_reload()
 - `docs/MEMORY_OPTIMIZATION.md`: Memory-saving techniques
 - `docs/EXECUTOR_MANAGER_GUIDE.md`: Parallel execution management
 - `docs/QUICKSTART.md`: Quick start examples
+- `docs/PREVIEW_EXECUTION.md`: Preview execution plans before running
+- `docs/SIGNAL_PROCESSING_PLUGINS.md`: Signal processing plugins (filtering, peak detection)
+- **Lineage Visualization**: See `CLAUDE.md` § Lineage Visualization for color-coded interactive graph features
 - `.github/copilot-instructions.md`: Detailed development guidelines (Chinese)

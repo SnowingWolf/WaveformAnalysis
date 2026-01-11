@@ -3,8 +3,8 @@
 ## 高优先级（立即实施）
 
 ### 1. 统一进度追踪系统
-- [ ] 创建统一的进度追踪装饰器 `@with_progress`
-- [ ] 为 `parallel_map` 和 `parallel_apply` 添加进度条支持
+- [x] 创建统一的进度追踪装饰器 `@with_progress`
+- [x] 为 `parallel_map` 和 `parallel_apply` 添加进度条支持
 - [x] 实现嵌套进度条（主任务 + 子任务）
 - [x] 显示 ETA（预计剩余时间）和吞吐量统计
 - [x] 支持 tqdm 和自定义进度条后端
@@ -34,7 +34,7 @@
 - [x] 添加内存使用率监控
 - [x] 实现负载均衡算法（根据任务大小分配）
 - [x] 添加配置选项（min_workers, max_workers, cpu_threshold, memory_threshold）
-- [ ] 集成到 ExecutorManager 中
+- [x] 集成到 ExecutorManager 中
 
 ### 5. 数据一致性检查器
 - [ ] 创建 `DataConsistencyChecker` 类
@@ -52,7 +52,7 @@
 - [x] 添加缓存策略配置接口（CacheManager 已实现基础功能）
 - [x] 集成到 Context 的缓存管理中（基础缓存管理已集成）
 
-### 7. 任务优先级队列
+### 7. FINISHED 任务优先级队列
 - [ ] 创建 `PriorityExecutor` 类
 - [ ] 实现优先级任务队列（PriorityQueue）
 - [ ] 支持任务暂停和恢复
@@ -60,14 +60,14 @@
 - [ ] 添加优先级配置接口
 - [ ] 集成到 ExecutorManager 中
 
-### 8. 文件结构重构（代码质量改进）🟡
+### 8. FINISHED 文件结构重构（代码质量改进）
 
 #### 阶段1：合并和重命名（低风险，高收益）
-- [ ] **合并 processor 文件**
-  - [ ] 将 `processor_optimized.py` 的内容整合到 `processor.py`
-  - [ ] 使用条件导入或特性标志（`USE_NUMBA`）选择优化版本
-  - [ ] 删除 `processor_optimized.py`
-  - [ ] 更新所有导入路径
+- [x] **合并 processor 文件**
+  - [x] 将 `processor_optimized.py` 的内容整合到 `processor.py`
+  - [x] 使用条件导入或特性标志（`USE_NUMBA`）选择优化版本
+  - [x] 删除 `processor_optimized.py`
+  - [x] 更新所有导入路径
 
 - [ ] **解决 loader.py 命名冲突**
   - [ ] 重命名 `core/loader.py` → `core/waveform_loader.py`
@@ -79,7 +79,7 @@
   - [ ] `processor_optimized.py` → 合并到 `processor.py`（见上）
   - [ ] 检查 `storage_backends.py` 的使用情况，决定是否合并或重命名
 
-#### 阶段2：创建存储子目录（存储相关文件较多）
+#### 阶段2：创建存储子目录（存储相关文件较多）  
 - [ ] **创建 `core/storage/` 目录**
   - [ ] 创建 `core/storage/__init__.py`
   - [ ] 移动 `storage.py` → `storage/memmap.py`
@@ -365,11 +365,13 @@ core/
 - [ ] 优化大数据集的探索体验
 
 ### 11. 插件依赖可视化增强
-- [ ] 实现交互式依赖图（使用 plotly/d3.js）
-- [ ] 添加依赖分析功能 `analyze_dependencies()`
-- [ ] 识别关键路径和并行机会
-- [ ] 识别性能瓶颈
-- [ ] 生成优化建议
+- [X] 实现交互式依赖图（使用 plotly/d3.js）
+- [X] 添加依赖分析功能 `analyze_dependencies()`
+- [X] 识别关键路径和并行机会
+- [X] 识别性能瓶颈
+- [X] 生成优化建议
+- [X] 可视化高亮（关键路径、瓶颈节点、并行组）
+- [X] 导出分析报告（Markdown、JSON）
 
 ### 12. 数据血缘追踪增强
 - [ ] 实现详细的血缘追踪 `get_detailed_lineage()`
@@ -437,17 +439,7 @@ core/
 - [x] 已实现 `TimeRangeQueryEngine`（Phase 2.2）
 - [x] 已实现 `TimeIndex` 和高效查询算法
 
-## 性能优化建议（来自 TODO.md 原始内容）
 
-### 数据加载与 I/O 优化
-- [ ] 并行读取 CSV 文件：利用 ThreadPoolExecutor 或 joblib 同时读取多个文件
-- [ ] 分块读取与流式处理：使用 `parse_files_generator` 逐块处理，降低内存峰值
-- [ ] 利用高效数据格式：将波形数据转换为二进制格式（.npy, Feather/Parquet, HDF5）
-
-### 内存占用与缓存优化
-- [ ] 按需保存与释放波形数据：改进 `load_waveforms=False` 模式，边读边算特征
-- [ ] 利用缓存避免重复计算：使用 joblib 后端优化大数组序列化
-- [ ] 缓存失效机制：引入文件 hash 或 mtime 监测，防止使用过期缓存
 
 ## 备注
 
