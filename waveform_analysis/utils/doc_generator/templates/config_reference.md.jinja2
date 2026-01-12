@@ -1,0 +1,56 @@
+# 配置参考文档
+
+> 自动生成于 {{ now() }}
+
+本文档列出了所有插件的配置选项。
+
+---
+
+## 目录
+
+{% for plugin_name in config_data.keys() %}
+- [{{ plugin_name }}](#{{ plugin_name | replace('_', '-') }})
+{% endfor %}
+
+---
+
+{% for plugin_name, plugin_data in config_data.items() %}
+## {{ plugin_name }}
+
+**类名**: `{{ plugin_data.class_name }}`
+**版本**: {{ plugin_data.version }}
+**提供数据**: `{{ plugin_data.provides }}`
+**依赖**: {% if plugin_data.depends_on %}{{ plugin_data.depends_on | join(', ') }}{% else %}无{% endif %}
+
+{{ plugin_data.doc }}
+
+### 配置选项
+
+{% if plugin_data.options %}
+{% for opt in plugin_data.options %}
+#### `{{ opt.name }}`
+
+- **类型**: `{{ opt.type }}`
+- **默认值**: `{{ opt.default }}`
+- **说明**: {{ opt.help }}
+
+**使用示例**:
+
+```python
+ctx.set_config({'{{ opt.name }}': <value>}, plugin_name='{{ plugin_name }}')
+```
+
+---
+{% endfor %}
+{% else %}
+该插件没有配置选项。
+{% endif %}
+
+---
+
+{% endfor %}
+
+---
+
+**生成时间**: {{ now() }}
+**工具**: WaveformAnalysis DocGenerator

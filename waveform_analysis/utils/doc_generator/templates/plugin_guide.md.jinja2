@@ -1,0 +1,151 @@
+# 插件开发指南
+
+> 自动生成于 {{ now() }}
+
+本指南介绍如何开发自定义插件。
+
+---
+
+## 插件基类
+
+### {{ guide_data.plugin_base.name }}
+
+{{ guide_data.plugin_base.doc }}
+
+#### 核心方法
+
+{% for method in guide_data.plugin_base.methods %}
+##### `{{ method.name }}{{ method.signature }}`
+
+{{ method.doc }}
+
+{% if method.examples %}
+**示例**:
+
+```python
+{% for example in method.examples %}
+{{ example }}
+{% endfor %}
+```
+{% endif %}
+
+---
+{% endfor %}
+
+---
+
+## 标准插件示例
+
+以下是一些内置插件的实现示例，可作为开发参考。
+
+{% for plugin in guide_data.standard_plugins %}
+### {{ plugin.name }}
+
+**类名**: `{{ plugin.class_name }}`
+**版本**: {{ plugin.version }}
+**提供数据**: `{{ plugin.provides }}`
+**依赖**: {% if plugin.depends_on %}{{ plugin.depends_on | join(', ') }}{% else %}无{% endif %}
+
+{{ plugin.doc }}
+
+{% if plugin.options %}
+**配置选项**:
+
+{% for opt in plugin.options %}
+- `{{ opt.name }}` ({{ opt.type }}): {{ opt.help }} (默认: {{ opt.default }})
+{% endfor %}
+{% endif %}
+
+---
+{% endfor %}
+
+---
+
+## 开发自定义插件
+
+### 基本模板
+
+```python
+from waveform_analysis.core.plugins.core.base import Plugin, Option
+import numpy as np
+
+class MyCustomPlugin(Plugin):
+    """自定义插件示例"""
+
+    # 必需属性
+    provides = 'my_data'
+    depends_on = ['waveforms']
+    version = '1.0.0'
+
+    # 可选属性
+    options = {
+        'threshold': Option(
+            default=10.0,
+            type=float,
+            help='阈值参数'
+        ),
+    }
+
+    # 输出数据类型
+    output_dtype = np.dtype([
+        ('time', '<f8'),
+        ('value', '<f4'),
+    ])
+
+    def compute(self, waveforms, run_id):
+        """
+        核心计算逻辑
+
+        Args:
+            waveforms: 依赖的数据（自动传入）
+            run_id: 运行 ID
+
+        Returns:
+            结构化数组或生成器
+        """
+        # 获取配置
+        threshold = self.config.get('threshold', 10.0)
+
+        # 处理逻辑
+        result = []
+        for wf in waveforms:
+            # ... 计算 ...
+            pass
+
+        return np.array(result, dtype=self.output_dtype)
+
+# 注册插件
+from waveform_analysis.core.context import Context
+ctx = Context()
+ctx.register(MyCustomPlugin())
+
+# 使用插件
+data = ctx.get_data('run_001', 'my_data')
+```
+
+### 最佳实践
+
+1. **命名规范**
+   - 类名: PascalCase (如 `MyCustomPlugin`)
+   - provides: snake_case (如 `my_data`)
+   - 版本号: 遵循 Semantic Versioning
+
+2. **性能优化**
+   - 使用生成器处理大数据
+   - 利用 NumPy 向量化
+   - 考虑使用 Numba JIT
+
+3. **配置管理**
+   - 使用 `Option` 定义配置项
+   - 提供合理的默认值
+   - 添加详细的帮助文本
+
+4. **测试**
+   - 为插件编写单元测试
+   - 测试边界情况
+   - 验证缓存一致性
+
+---
+
+**生成时间**: {{ now() }}
+**工具**: WaveformAnalysis DocGenerator

@@ -27,6 +27,9 @@ from .manager import (
     configure_default_workers,
     get_default_workers,
     get_stats,
+    enable_global_load_balancing,
+    disable_global_load_balancing,
+    get_load_balancer_stats,
 )
 
 # 执行器配置
@@ -43,6 +46,9 @@ from .timeout import (
     with_timeout,
 )
 
+# 验证管理
+from .validation import ValidationManager
+
 __all__ = [
     # 执行器管理
     "ExecutorManager",
@@ -56,6 +62,10 @@ __all__ = [
     "configure_default_workers",
     "get_default_workers",
     "get_stats",
+    # 负载均衡
+    "enable_global_load_balancing",
+    "disable_global_load_balancing",
+    "get_load_balancer_stats",
     # 执行器配置
     "EXECUTOR_CONFIGS",
     "get_config",
@@ -64,4 +74,6 @@ __all__ = [
     "TimeoutManager",
     "get_timeout_manager",
     "with_timeout",
+    # 验证管理
+    "ValidationManager",
 ]

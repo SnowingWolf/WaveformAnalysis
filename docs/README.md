@@ -1,216 +1,135 @@
 # 📚 WaveformAnalysis 文档中心
 
-欢迎使用 WaveformAnalysis 文档！本文档库提供完整的使用指南、API 参考和架构说明。
-
-## 🚀 快速开始
-
-- **新用户？** 从 [快速入门指南](QUICKSTART.md) 开始
-- **急需答案？** 查看 [快速参考](QUICK_REFERENCE.md)
-- **想看示例？** 浏览 [使用指南](USAGE.md)
-
-## 📖 文档导航
-
-### 🎯 入门指南 (Getting Started)
-
-适合首次使用或快速上手的用户。
-
-| 文档 | 时间 | 说明 |
-|------|------|------|
-| [QUICKSTART.md](QUICKSTART.md) | 10 分钟 | 快速入门教程，包含基本示例 |
-| [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | 2 分钟 | 常用操作速查表 |
-| [USAGE.md](USAGE.md) | 15 分钟 | 详细使用指南和最佳实践 |
-
-### 📚 API 参考 (API Reference)
-
-详细的 API 文档和配置说明。
-
-| 文档 | 说明 |
-|------|------|
-| [api_reference.md](api_reference.md) | 完整 API 参考文档 |
-| [config_reference.md](config_reference.md) | 配置选项参考 |
-| [plugin_guide.md](plugin_guide.md) | 插件开发指南 |
-
-### 🏗️ 架构设计 (Architecture)
-
-系统架构和设计文档。
-
-| 文档 | 说明 |
-|------|------|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | 系统架构总览 |
-| [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | 项目结构说明 |
-| [CONTEXT_PROCESSOR_WORKFLOW.md](CONTEXT_PROCESSOR_WORKFLOW.md) | Context 和 Processor 工作流程 |
-| [data_module.md](data_module.md) | 数据模块设计 |
-
-### ✨ 核心特性 (Features)
-
-各项功能的详细说明和使用指南。
-
-#### 数据处理
-
-| 文档 | 说明 |
-|------|------|
-| [STREAMING_GUIDE.md](STREAMING_GUIDE.md) | 流式处理指南 |
-| [CACHE.md](CACHE.md) | 缓存机制说明 |
-| [CSV_HEADER_HANDLING.md](CSV_HEADER_HANDLING.md) | CSV 头部处理 |
-
-#### 性能优化
-
-| 文档 | 说明 |
-|------|------|
-| [MEMORY_OPTIMIZATION.md](MEMORY_OPTIMIZATION.md) | 内存优化完整指南 |
-| [HOW_TO_SKIP_WAVEFORMS.md](HOW_TO_SKIP_WAVEFORMS.md) | 跳过波形加载以节省内存 |
-| [PERFORMANCE_OPTIMIZATION.md](PERFORMANCE_OPTIMIZATION.md) | 性能优化技巧 |
-| [OPTIMIZATION_SUMMARY.md](OPTIMIZATION_SUMMARY.md) | 优化总结 |
-
-#### 高级功能
-
-| 文档 | 说明 |
-|------|------|
-| [EXECUTOR_MANAGER_GUIDE.md](EXECUTOR_MANAGER_GUIDE.md) | 执行器管理器使用指南 |
-| [EXECUTOR_FRAMEWORK_SUMMARY.md](EXECUTOR_FRAMEWORK_SUMMARY.md) | 执行器框架总结 |
-| [DEPENDENCY_ANALYSIS_GUIDE.md](DEPENDENCY_ANALYSIS_GUIDE.md) | 依赖分析指南 |
-| [PROGRESS_TRACKING_GUIDE.md](PROGRESS_TRACKING_GUIDE.md) | 进度追踪指南 |
-| [NUMBA_MULTIPROCESS_GUIDE.md](NUMBA_MULTIPROCESS_GUIDE.md) | Numba 多进程指南 |
-
-### 🛠️ 开发指南 (Development)
-
-面向贡献者和插件开发者。
-
-| 文档 | 说明 |
-|------|------|
-| [plugin_guide.md](plugin_guide.md) | 插件开发完整指南 |
-| [IMPORT_STYLE_GUIDE.md](IMPORT_STYLE_GUIDE.md) | 导入风格规范 |
-
-### 📝 更新记录 (Updates & Changelog)
-
-版本更新和功能改进记录。
-
-| 文档 | 说明 |
-|------|------|
-| [NEW_FEATURES.md](NEW_FEATURES.md) | 新功能说明 |
-| [UPDATE_SUMMARY.md](UPDATE_SUMMARY.md) | 更新总结 |
-| [IMPLEMENTATION_COMPLETE.md](IMPLEMENTATION_COMPLETE.md) | 实现完成总结 |
-| [FORMAT_IMPROVEMENTS.md](FORMAT_IMPROVEMENTS.md) | 格式改进 |
-| [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) | 项目总结 |
+欢迎使用 WaveformAnalysis 文档！这是一个用于处理和分析 DAQ 系统波形数据的 Python 包。
 
 ---
 
-## 🎓 学习路径推荐
+## 🚀 快速开始（5 分钟）
 
-### 初学者路径（30 分钟）
+**新用户？** 从这里开始：
 
-```
-1. QUICKSTART.md（10 分钟）
-   ↓
-2. QUICK_REFERENCE.md（2 分钟）
-   ↓
-3. 运行示例代码
-   ↓
-4. 查看 USAGE.md 了解更多
-```
+- 🎯 [快速入门教程](quickstart/QUICKSTART.md) - 10 分钟上手
+- ⚡ [速查表](quickstart/QUICK_REFERENCE.md) - 2 分钟速查
+- 📖 [使用指南](quickstart/USAGE.md) - 15 分钟深入
 
-### 进阶用户路径（1-2 小时）
+**快速示例**:
 
-```
-1. ARCHITECTURE.md（15 分钟）- 理解系统架构
-   ↓
-2. STREAMING_GUIDE.md（15 分钟）- 学习流式处理
-   ↓
-3. MEMORY_OPTIMIZATION.md（20 分钟）- 优化内存使用
-   ↓
-4. api_reference.md（按需查阅）
-   ↓
-5. plugin_guide.md（30 分钟）- 开发自定义插件
-```
+```python
+from waveform_analysis import WaveformDataset
 
-### 插件开发者路径（2-3 小时）
+# 创建数据集
+ds = WaveformDataset(run_name="50V_OV_circulation_20thr", n_channels=2)
 
-```
-1. plugin_guide.md（30 分钟）- 插件开发基础
-   ↓
-2. ARCHITECTURE.md（15 分钟）- 系统架构
-   ↓
-3. CONTEXT_PROCESSOR_WORKFLOW.md（15 分钟）- 工作流程
-   ↓
-4. api_reference.md（按需查阅）
-   ↓
-5. IMPORT_STYLE_GUIDE.md（10 分钟）- 代码规范
-   ↓
-6. 实践：开发你的第一个插件
+# 处理数据（链式调用）
+(ds.load_raw_data()
+   .extract_waveforms()
+   .build_dataframe()
+   .group_events())
+
+# 获取结果
+df = ds.get_dataframe()
 ```
 
 ---
 
-## 🔍 按场景查找
+## 📂 文档导航
 
-### 我想...
+### 🚀 [快速开始](quickstart/README.md)
+> 10-30 分钟快速掌握核心功能
 
-#### 快速开始使用
-→ [QUICKSTART.md](QUICKSTART.md)
+**包含**: 快速入门 | 速查表 | 使用指南
 
-#### 优化内存使用
-→ [MEMORY_OPTIMIZATION.md](MEMORY_OPTIMIZATION.md)
-→ [HOW_TO_SKIP_WAVEFORMS.md](HOW_TO_SKIP_WAVEFORMS.md)
+---
 
-#### 提升处理速度
-→ [PERFORMANCE_OPTIMIZATION.md](PERFORMANCE_OPTIMIZATION.md)
-→ [EXECUTOR_MANAGER_GUIDE.md](EXECUTOR_MANAGER_GUIDE.md)
-→ [NUMBA_MULTIPROCESS_GUIDE.md](NUMBA_MULTIPROCESS_GUIDE.md)
+### 🏗️ [架构设计](architecture/README.md)
+> 理解系统设计和数据流程
 
-#### 开发自定义插件
-→ [plugin_guide.md](plugin_guide.md)
-→ [api_reference.md](api_reference.md)
+**包含**: 系统架构 | 项目结构 | 工作流程 | 数据模块
 
-#### 理解系统架构
-→ [ARCHITECTURE.md](ARCHITECTURE.md)
-→ [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+---
 
-#### 处理大数据集
-→ [STREAMING_GUIDE.md](STREAMING_GUIDE.md)
-→ [MEMORY_OPTIMIZATION.md](MEMORY_OPTIMIZATION.md)
+### ✨ [功能特性](features/README.md)
+> 详细的功能说明和使用指南
 
-#### 配置系统行为
-→ [config_reference.md](config_reference.md)
-→ [USAGE.md](USAGE.md)
+**分类**:
+- 📊 [数据处理](features/data-processing/README.md) - 流式处理 | 缓存 | CSV 处理
+- ⚡ [性能优化](features/performance/README.md) - 内存优化 | 性能提升
+- 🔧 [高级功能](features/advanced/README.md) - 执行器管理 | 依赖分析 | 进度追踪
+
+---
+
+### 📚 [API 参考](api/README.md)
+> 完整的 API 文档和配置说明
+
+**包含**: API 参考 | 配置参考 | 插件开发指南
+
+---
+
+### 🛠️ [开发指南](development/README.md)
+> 贡献代码和开发插件的指南
+
+**包含**: 开发规范 | 代码风格 | 插件开发
+
+---
+
+### 📝 [更新记录](updates/README.md)
+> 版本更新和功能改进记录
+
+**包含**: 新功能 | 更新总结 | 实现记录
+
+---
+
+## 🎯 按场景查找
+
+| 我想... | 文档 | 时间 |
+|---------|------|------|
+| 快速上手 | [快速入门](quickstart/QUICKSTART.md) | 10 分钟 |
+| 优化内存 | [内存优化](features/performance/MEMORY_OPTIMIZATION.md) | 15 分钟 |
+| 提升性能 | [性能优化](features/performance/PERFORMANCE_OPTIMIZATION.md) | 10 分钟 |
+| 开发插件 | [插件指南](api/plugin_guide.md) | 30 分钟 |
+| 理解架构 | [系统架构](architecture/ARCHITECTURE.md) | 20 分钟 |
+| 处理大数据 | [流式处理](features/data-processing/STREAMING_GUIDE.md) | 15 分钟 |
+
+---
+
+## 🎓 推荐学习路径
+
+### 初学者（30 分钟）
+```
+快速入门 → 运行示例 → 速查表
+```
+
+### 进阶用户（2 小时）
+```
+系统架构 → 流式处理 → 内存优化 → 插件开发
+```
+
+### 插件开发者（3 小时）
+```
+插件指南 → 系统架构 → API 参考 → 开发规范
+```
 
 ---
 
 ## 💡 常见问题
 
 **Q: 从哪里开始？**
-A: 新用户从 [QUICKSTART.md](QUICKSTART.md) 开始，有经验的用户可以直接查看 [QUICK_REFERENCE.md](QUICK_REFERENCE.md)。
+A: 新用户从 [快速入门](quickstart/QUICKSTART.md) 开始。
 
 **Q: 如何节省内存？**
-A: 查看 [MEMORY_OPTIMIZATION.md](MEMORY_OPTIMIZATION.md) 和 [HOW_TO_SKIP_WAVEFORMS.md](HOW_TO_SKIP_WAVEFORMS.md)。
-
-**Q: 如何提升性能？**
-A: 查看 [PERFORMANCE_OPTIMIZATION.md](PERFORMANCE_OPTIMIZATION.md) 和 [EXECUTOR_MANAGER_GUIDE.md](EXECUTOR_MANAGER_GUIDE.md)。
+A: 查看 [内存优化指南](features/performance/MEMORY_OPTIMIZATION.md)。
 
 **Q: 如何开发插件？**
-A: 从 [plugin_guide.md](plugin_guide.md) 开始，然后查看 [api_reference.md](api_reference.md)。
-
-**Q: 文档在哪里？**
-A: 所有文档都在 `docs/` 目录下，主索引是 [docs/README.md](README.md)。
+A: 从 [插件开发指南](api/plugin_guide.md) 开始。
 
 ---
 
 ## 📞 获取帮助
 
-- **问题反馈**: [GitHub Issues](https://github.com/anthropics/waveform-analysis/issues)
-- **功能请求**: [GitHub Discussions](https://github.com/anthropics/waveform-analysis/discussions)
+- **问题反馈**: GitHub Issues
+- **功能请求**: GitHub Discussions
 - **文档改进**: 欢迎提交 Pull Request
 
 ---
 
-## 🌟 最新更新
-
-查看 [NEW_FEATURES.md](NEW_FEATURES.md) 了解最新功能，或访问 [UPDATE_SUMMARY.md](UPDATE_SUMMARY.md) 查看详细更新记录。
-
----
-
-**快速链接**:
-[快速入门](QUICKSTART.md) |
-[API 参考](api_reference.md) |
-[架构设计](ARCHITECTURE.md) |
-[插件开发](plugin_guide.md) |
-[性能优化](PERFORMANCE_OPTIMIZATION.md)
+**快速链接**: [快速入门](quickstart/QUICKSTART.md) | [API 参考](api/README.md) | [系统架构](architecture/ARCHITECTURE.md)

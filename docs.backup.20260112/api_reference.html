@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WaveformAnalysis API 参考</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 40px;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 8px;
+        }
+        h3 {
+            color: #7f8c8d;
+            margin-top: 30px;
+        }
+        h4 {
+            color: #95a5a6;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            background: #ecf0f1;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        pre {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            background: #ecf0f1;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        .timestamp {
+            color: #95a5a6;
+            font-size: 0.9em;
+            text-align: right;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ecf0f1;
+        }
+        .toc {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .toc ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .toc li {
+            margin: 8px 0;
+        }
+        .toc a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        .toc a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>API 参考文档</h1>
+        <p><em>自动生成于 2026-01-11 15:30:45</em></p>
+
+        <div class="toc">
+            <h2>目录</h2>
+            <ul>
+                <li><a href="#Context">Context</a></li>
+                <li><a href="#WaveformDataset">WaveformDataset</a></li>
+            </ul>
+        </div>
+
+        <h2 id="Context">Context</h2>
+        <p>The Context orchestrates plugins and manages data storage/caching.
+Inspired by strax, it is the main entry point for data analysis.</p>
+
+        <h3>方法</h3>
+
+        <h4 id="Context-__init__">__init__(self, storage_dir: str = './strax_data', config: Optional[Dict[str, Any]] = None, storage: Optional[Any] = None, plugin_dirs: Optional[List[str]] = None, auto_discover_plugins: bool = False, enable_stats: bool = False, stats_mode: str = 'basic', stats_log_file: Optional[str] = None, work_dir: Optional[str] = None, use_run_subdirs: bool = True)</h4>
+        <p>Initialize Context.<br><br>Args:<br>    storage_dir: 默认存储目录（使用 MemmapStorage 时的旧版模式）<br>    config: 全局配置字典<br>    storage: 自定义存储后端（必须实现 StorageBackend 接口）<br>            如果为 None，使用默认的 MemmapStorage<br>    plugin_dirs: 插件搜索目录列表<br>    auto_discover_plugins: 是否自动发现并注册插件<br>    enable_stats: 是否启用插件性能统计<br>    stats_mode: 统计模式 ('off', 'basic', 'detailed')<br>    stats_log_file: 统计日志文件路径<br>    work_dir: 工作目录（新版分层模式）。如果设置，数据将按 run_id 分目录存储。<br>    use_run_subdirs: 是否启用 run_id 子目录（仅当 work_dir 设置时生效）<br><br>Storage Modes:<br>    1. 旧版兼容模式（work_dir=None 且 storage_dir 有旧缓存）：<br>       - 所有文件在 storage_dir 根目录（扁平结构）<br><br>    2. 新版分层模式（work_dir=None 且 storage_dir 为空，或显式设置 work_dir）：<br>       - 数据按 run_id 分目录存储<br>       - 结构：work_dir/{run_id}/data/*.bin<br><br>Examples:<br>    >>> # 旧版兼容模式（storage_dir 有旧缓存会自动检测）<br>    >>> ctx = Context(storage_dir="./strax_data")<br><br>    >>> # 新版分层模式（显式指定 work_dir）<br>    >>> ctx = Context(work_dir="./workspace")<br><br>    >>> # 使用 SQLite 存储<br>    >>> from waveform_analysis.core.storage.backends import SQLiteBackend<br>    >>> ctx = Context(storage=SQLiteBackend("./data.db"))<br><br>    >>> # 启用详细统计和日志<br>    >>> ctx = Context(enable_stats=True, stats_mode='detailed', stats_log_file='./logs/plugins.log')</p>
+
+        <p><strong>示例:</strong></p>
+        <pre><code>>>> # 旧版兼容模式（storage_dir 有旧缓存会自动检测）
+>>> ctx = Context(storage_dir="./strax_data")
+</code></pre>
+        <h4 id="Context-analyze_dependencies">analyze_dependencies(self, target_name: str, include_performance: bool = True, run_id: Optional[str] = None)</h4>
+        <p>分析插件依赖关系，识别关键路径、并行机会和性能瓶颈<br><br>Args:<br>    target_name: 目标数据名称<br>    include_performance: 是否包含性能数据分析（需要enable_stats=True）<br>    run_id: 可选的run_id，用于获取特定运行的性能数据（暂未使用，为未来扩展预留）<br><br>Returns:<br>    DependencyAnalysisResult: 分析结果对象<br><br>Example:<br>    >>> ctx = Context(enable_stats=True)<br>    >>> # ... 注册插件并执行一些操作 ...<br>    >>> analysis = ctx.analyze_dependencies('paired_events')<br>    >>> print(analysis.summary())<br>    >>> analysis.to_markdown('report.md')  # 导出为 Markdown<br>    >>> data = analysis.to_dict()          # 导出为字典（可保存为 JSON）<br><br>    # 可视化增强<br>    >>> from waveform_analysis.utils.visualization import plot_lineage_labview<br>    >>> plot_lineage_labview(<br>    ...     ctx.get_lineage('paired_events'),<br>    ...     'paired_events',<br>    ...     context=ctx,<br>    ...     analysis_result=analysis,<br>    ...     highlight_critical_path=True,<br>    ...     highlight_bottlenecks=True<br>    ... )</p>
+
+        <p><strong>示例:</strong></p>
+        <pre><code>>>> ctx = Context(enable_stats=True)
+>>> # ... 注册插件并执行一些操作 ...
+>>> analysis = ctx.analyze_dependencies('paired_events')
+>>> print(analysis.summary())
+>>> analysis.to_markdown('report.md')  # 导出为 Markdown
+>>> data = analysis.to_dict()          # 导出为字典（可保存为 JSON）
+</code></pre>
+        <h4 id="Context-build_time_index">build_time_index(self, run_id: str, data_name: str, time_field: str = 'time', endtime_field: Optional[str] = None, force_rebuild: bool = False)</h4>
+        <p>为数据构建时间索引<br><br>Args:<br>    run_id: 运行ID<br>    data_name: 数据名称<br>    time_field: 时间字段名<br>    endtime_field: 结束时间字段名('computed'表示计算endtime)<br>    force_rebuild: 强制重建索引<br><br>Examples:<br>    >>> # 预先构建索引以提高查询性能<br>    >>> ctx.build_time_index('run_001', 'st_waveforms', endtime_field='computed')</p>
+
+        <p><strong>示例:</strong></p>
+        <pre><code>>>> # 预先构建索引以提高查询性能
+>>> ctx.build_time_index('run_001', 'st_waveforms', endtime_field='computed')
+</code></pre>
+        <h4 id="Context-check_cache_status">check_cache_status(self, load_sig: bool = False) -> Dict[str, Dict[str, Any]]</h4>
+        <p>检查所有步骤的缓存状态。<br><br>Args:<br>    load_sig: 是否加载磁盘文件以验证签名（较慢）。</p>
+
+        <h4 id="Context-clear_cache">clear_cache(self, step_name: Optional[str] = None) -> None</h4>
+        <p>清除指定步骤或所有步骤的缓存。</p>
+
+        <h4 id="Context-clear_cache_for">clear_cache_for(self, run_id: str, data_name: Optional[str] = None, clear_memory: bool = True, clear_disk: bool = True, verbose: bool = True) -> int</h4>
+        <p>清理指定运行和步骤的缓存。<br><br>参数:<br>    run_id: 运行 ID<br>    data_name: 数据名称（步骤名称），如果为 None 则清理所有步骤<br>    clear_memory: 是否清理内存缓存<br>    clear_disk: 是否清理磁盘缓存<br>    verbose: 是否显示详细的清理信息<br><br>返回:<br>    清理的缓存项数量<br><br>示例:<br>    >>> ctx = Context()<br>    >>> # 清理单个步骤的缓存<br>    >>> ctx.clear_cache_for("run_001", "st_waveforms")<br>    >>> # 清理所有步骤的缓存<br>    >>> ctx.clear_cache_for("run_001")<br>    >>> # 只清理内存缓存<br>    >>> ctx.clear_cache_for("run_001", "df", clear_disk=False)</p>
+
+        <h4 id="Context-clear_config_cache">clear_config_cache(self)</h4>
+        <p>Clear cached validated configurations.</p>
+
+        <h4 id="Context-clear_performance_caches">clear_performance_caches(self)</h4>
+        <p>Clear all performance optimization caches.<br><br>Should be called when plugins are registered/unregistered or<br>when plugin configurations change.</p>
+
+        <h4 id="Context-clear_time_index">clear_time_index(self, run_id: Optional[str] = None, data_name: Optional[str] = None)</h4>
+        <p>清除时间索引<br><br>Args:<br>    run_id: 运行ID,None则清除所有<br>    data_name: 数据名称,None则清除指定run_id的所有索引<br><br>Examples:<br>    >>> # 清除特定数据的索引<br>    >>> ctx.clear_time_index('run_001', 'st_waveforms')<br>    >>><br>    >>> # 清除特定run的所有索引<br>    >>> ctx.clear_time_index('run_001')<br>    >>><br>    >>> # 清除所有索引<br>    >>> ctx.clear_time_index()</p>
+
+        <p><strong>示例:</strong></p>
+        <pre><code>>>> # 清除特定数据的索引
+>>> ctx.clear_time_index('run_001', 'st_waveforms')
+>>>
+>>> # 清除特定run的所有索引
+>>> ctx.clear_time_index('run_001')
+>>>
+>>> # 清除所有索引
+>>> ctx.clear_time_index()
+</code></pre>
+        <h4 id="Context-discover_and_register_plugins">discover_and_register_plugins(self, allow_override: bool = False) -> int</h4>
+        <p>自动发现并注册插件<br><br>发现顺序：<br>1. Entry points (waveform_analysis.plugins)<br>2. 配置的插件目录<br><br>Args:<br>    allow_override: 是否允许覆盖已注册的插件<br><br>Returns:<br>    注册的插件数量</p>
+
+        <h4 id="Context-get_cached_result">get_cached_result(self, step_name: str) -> Optional[Dict[str, object]]</h4>
+        <p>返回指定步骤的内存缓存字典（若存在）。</p>
+
+        <h4 id="Context-get_config">get_config(self, plugin: waveform_analysis.core.plugins.core.base.Plugin, name: str) -> Any</h4>
+        <p>获取插件的配置值（带验证和类型转换）。<br><br>这是获取插件配置的推荐方法。相比 _resolve_config_value，此方法会：<br>1. 应用插件选项的类型验证<br>2. 执行值的范围检查（如果定义）<br>3. 调用自定义验证器（如果存在）<br><br>配置支持命名空间，查找顺序同 _resolve_config_value。<br><br>Args:<br>    plugin: 目标插件实例<br>    name: 配置选项名称<br><br>Returns:<br>    验证并可能转换后的配置值<br><br>Raises:<br>    KeyError: 当插件没有该配置选项时<br>    ValueError: 当配置值不符合验证规则时<br>    TypeError: 当配置值类型不匹配时<br><br>Examples:<br>    >>> # 假设选项定义为 Option(type=int, validator=lambda x: 0 < x < 100)<br>    >>> ctx.config = {'my_plugin': {'threshold': '50'}}  # 字符串形式<br>    >>> ctx.get_config(plugin, 'threshold')<br>    50  # 自动转换为 int<br><br>    >>> ctx.config = {'threshold': 150}  # 超出范围<br>    >>> ctx.get_config(plugin, 'threshold')<br>    ValueError: threshold must satisfy validator</p>
+
+        <p><strong>示例:</strong></p>
+        <pre><code>>>> # 假设选项定义为 Option(type=int, validator=lambda x: 0 < x < 100)
+>>> ctx.config = {'my_plugin': {'threshold': '50'}}  # 字符串形式
+>>> ctx.get_config(plugin, 'threshold')
+50  # 自动转换为 int
+</code></pre>
+        <h4 id="Context-get_data">get_data(self, run_id: str, data_name: str, show_progress: bool = False, progress_desc: Optional[str] = None, **kwargs) -> Any</h4>
+        <p>Retrieve data by name for a specific run.<br>If data is not in memory/cache, it will trigger the necessary plugins.<br><br>参数:<br>    run_id: Run identifier<br>    data_name: Name of the data to retrieve<br>    show_progress: Whether to show progress bar during plugin execution<br>    progress_desc: Custom description for progress bar (default: auto-generated)<br>    **kwargs: Additional arguments passed to plugins</p>
+
+        <h4 id="Context-get_data_time_range">get_data_time_range(self, run_id: str, data_name: str, start_time: Optional[int] = None, end_time: Optional[int] = None, time_field: str = 'time', endtime_field: Optional[str] = None, auto_build_index: bool = True) -> numpy.ndarray</h4>
+        <p>查询数据的时间范围<br><br>Args:<br>    run_id: 运行ID<br>    data_name: 数据名称<br>    start_time: 起始时间(包含)<br>    end_time: 结束时间(不包含)<br>    time_field: 时间字段名<br>    endtime_field: 结束时间字段名('computed'表示计算endtime)<br>    auto_build_index: 自动构建时间索引<br><br>Returns:<br>    符合条件的数据子集<br><br>Examples:<br>    >>> # 查询特定时间范围的波形数据<br>    >>> data = ctx.get_data_time_range('run_001', 'st_waveforms',<br>    ...                                 start_time=1000000, end_time=2000000)<br>    >>><br>    >>> # 查询所有数据后特定时间的记录<br>    >>> data = ctx.get_data_time_range('run_001', 'st_waveforms', start_time=1000000)</p>
+
+        <p><strong>示例:</strong></p>
+        <pre><code>>>> # 查询特定时间范围的波形数据
+>>> data = ctx.get_data_time_range('run_001', 'st_waveforms',
+...                                 start_time=1000000, end_time=2000000)
+>>>
+>>> # 查询所有数据后特定时间的记录
+>>> data = ctx.get_data_time_range('run_001', 'st_waveforms', start_time=1000000)
+</code></pre>
+        <h4 id="Context-get_lineage">get_lineage(self, data_name: str, _visited: Optional[set] = None) -> Dict[str, Any]</h4>
+        <p>Get the lineage (recipe) for a data type.<br><br>Uses caching for performance optimization.</p>
+
+        <h4 id="Context-get_performance_report">get_performance_report(self, plugin_name: Optional[str] = None, format: str = 'text') -> Any</h4>
+        <p>获取插件性能统计报告<br><br>Args:<br>    plugin_name: 插件名称,None返回所有插件的统计<br>    format: 报告格式 ('text' 或 'dict')<br><br>Returns:<br>    性能报告(文本或字典格式)<br><br>Example:<br>    >>> ctx = Context(enable_stats=True, stats_mode='detailed')<br>    >>> # ... 执行一些插件 ...<br>    >>> print(ctx.get_performance_report())<br>    >>> # 或获取特定插件的统计<br>    >>> stats = ctx.get_performance_report(plugin_name='my_plugin', format='dict')</p>
+
+        <p><strong>示例:</strong></p>
+        <pre><code>>>> ctx = Context(enable_stats=True, stats_mode='detailed')
+>>> # ... 执行一些插件 ...
+>>> print(ctx.get_performance_report())
+>>> # 或获取特定插件的统计
+>>> stats = ctx.get_performance_report(plugin_name='my_plugin', format='dict')
+</code></pre>
+        <h4 id="Context-get_plugin">get_plugin(self, plugin_name: str) -> waveform_analysis.core.plugins.core.base.Plugin</h4>
+        <p>获取已注册的插件对象<br><br>返回插件对象，可以直接访问和修改其属性。<br><br>Args:<br>    plugin_name: 插件名称（provides 属性）<br><br>Returns:<br>    Plugin: 插件对象<br><br>Raises:<br>    KeyError: 当插件未注册时<br><br>Examples:<br>    >>> ctx = Context()<br>    >>> ctx.register(WaveformsPlugin())<br>    >>><br>    >>> # 获取插件并修改属性<br>    >>> plugin = ctx.get_plugin('waveforms')<br>    >>> plugin.save_when = 'always'<br>    >>> plugin.timeout = 300<br>    >>><br>    >>> # 链式调用<br>    >>> ctx.get_plugin('st_waveforms').save_when = 'never'<br>    >>><br>    >>> # 查看插件配置<br>    >>> print(ctx.get_plugin('waveforms').save_when)<br>    >>> print(ctx.get_plugin('waveforms').options)</p>
+
+        <p><strong>示例:</strong></p>
+        <pre><code>>>> ctx = Context()
+>>> ctx.register(WaveformsPlugin())
+>>>
+>>> # 获取插件并修改属性
+>>> plugin = ctx.get_plugin('waveforms')
+>>> plugin.save_when = 'always'
+>>> plugin.timeout = 300
+>>>
+>>> # 链式调用
+>>> ctx.get_plugin('st_waveforms').save_when = 'never'
+>>>
+>>> # 查看插件配置
+>>> print(ctx.get_plugin('waveforms').save_when)
+>>> print(ctx.get_plugin('waveforms').options)
+</code></pre>
+        <h4 id="Context-get_time_index_stats">get_time_index_stats(self) -> Dict[str, Any]</h4>
+        <p>获取时间索引统计信息<br><br>Returns:<br>    统计信息字典<br><br>Examples:<br>    >>> stats = ctx.get_time_index_stats()<br>    >>> print(f"Total indices: {stats['total_indices']}")</p>
+
+        <p><strong>示例:</strong></p>
+        <pre><code>>>> stats = ctx.get_time_index_stats()
+>>> print(f"Total indices: {stats['total_indices']}")
+</code></pre>
+        <h4 id="Context-help">help(self, topic: Optional[str] = None, search: Optional[str] = None, verbose: bool = False) -> str</h4>
+        <p>显示帮助信息<br><br>Args:<br>    topic: 帮助主题 ('quickstart', 'config', 'plugins', 'performance', 'examples')<br>    search: 搜索关键词（在方法名、插件名、配置项中搜索）<br>    verbose: 显示详细信息（新手模式）<br><br>Returns:<br>    帮助文本<br><br>Examples:<br>    >>> ctx.help()  # 显示快速参考<br>    >>> ctx.help('quickstart')  # 快速开始指南<br>    >>> ctx.help('config')  # 配置管理帮助<br>    >>> ctx.help(search='time_range')  # 搜索相关方法<br>    >>> ctx.help('quickstart', verbose=True)  # 详细模式</p>
+
+        <p><strong>示例:</strong></p>
+        <pre><code>>>> ctx.help()  # 显示快速参考
+>>> ctx.help('quickstart')  # 快速开始指南
+>>> ctx.help('config')  # 配置管理帮助
+>>> ctx.help(search='time_range')  # 搜索相关方法
+>>> ctx.help('quickstart', verbose=True)  # 详细模式
+</code></pre>
+        <h4 id="Context-key_for">key_for(self, run_id: str, data_name: str) -> str</h4>
+        <p>Get a unique key (hash) for a data type and run.<br><br>Uses caching for performance optimization.</p>
+
+        <h4 id="Context-list_plugin_configs">list_plugin_configs(self, plugin_name: Optional[str] = None, show_current_values: bool = True, verbose: bool = True) -> Dict[str, Any]</h4>
+        <p>列出所有插件的配置选项<br><br>显示每个插件可用的配置选项，包括：<br>- 选项名称<br>- 默认值<br>- 类型<br>- 帮助文本<br>- 当前配置值（如果已设置）<br><br>Args:<br>    plugin_name: 可选，指定插件名称以只显示该插件的配置<br>    show_current_values: 是否显示当前配置值<br>    verbose: 是否显示详细信息（类型、帮助文本等）<br><br>Returns:<br>    插件配置信息字典<br><br>Examples:<br>    >>> ctx = Context()<br>    >>> ctx.register(RawFilesPlugin(), WaveformsPlugin())<br>    >>><br>    >>> # 列出所有插件的配置选项<br>    >>> ctx.list_plugin_configs()<br>    >>><br>    >>> # 只列出特定插件的配置<br>    >>> ctx.list_plugin_configs(plugin_name='waveforms')<br>    >>><br>    >>> # 获取配置字典而不打印<br>    >>> config_info = ctx.list_plugin_configs(verbose=False)</p>
+
+        <p><strong>示例:</strong></p>
+        <pre><code>>>> ctx = Context()
+>>> ctx.register(RawFilesPlugin(), WaveformsPlugin())
+>>>
+>>> # 列出所有插件的配置选项
+>>> ctx.list_plugin_configs()
+>>>
+>>> # 只列出特定插件的配置
+>>> ctx.list_plugin_configs(plugin_name='waveforms')
+>>>
+>>> # 获取配置字典而不打印
+>>> config_info = ctx.list_plugin_configs(verbose=False)
+</code></pre>
+        <h4 id="Context-list_provided_data">list_provided_data(self) -> List[str]</h4>
+        <p>List all data types provided by registered plugins.</p>
+
+        <h4 id="Context-plot_lineage">plot_lineage(self, data_name: str, kind: str = 'labview', **kwargs)</h4>
+        <p>Visualize the lineage of a data type.<br><br>Args:<br>    data_name: Name of the target data.<br>    kind: Visualization style ('labview', 'mermaid', or 'plotly').<br>    **kwargs: Additional arguments passed to the visualizer.</p>
+
+        <h4 id="Context-print_cache_report">print_cache_report(self, verify: bool = False) -> None</h4>
+        <p>打印缓存状态报告。<br><br>Args:<br>    verify: 是否通过加载磁盘文件来验证签名（对于大文件可能较慢）。</p>
+
+        <h4 id="Context-quickstart">quickstart(self, template: str = 'basic', **params) -> str</h4>
+        <p>生成快速开始代码模板<br><br>Args:<br>    template: 模板名称 ('basic', 'basic_analysis', 'memory_efficient')<br>    **params: 模板参数（如 run_id, n_channels）<br><br>Returns:<br>    可执行的 Python 代码字符串<br><br>Examples:<br>    >>> code = ctx.quickstart('basic')<br>    >>> print(code)  # 或保存到文件<br>    >>><br>    >>> # 自定义参数<br>    >>> code = ctx.quickstart('basic', run_id='run_002', n_channels=4)<br>    >>><br>    >>> # 保存到文件<br>    >>> with open('my_analysis.py', 'w') as f:<br>    ...     f.write(ctx.quickstart('basic'))</p>
+
+        <p><strong>示例:</strong></p>
+        <pre><code>>>> code = ctx.quickstart('basic')
+>>> print(code)  # 或保存到文件
+>>>
+>>> # 自定义参数
+>>> code = ctx.quickstart('basic', run_id='run_002', n_channels=4)
+>>>
+>>> # 保存到文件
+>>> with open('my_analysis.py', 'w') as f:
+...     f.write(ctx.quickstart('basic'))
+</code></pre>
+        <h4 id="Context-register">register(self, *plugins: Union[waveform_analysis.core.plugins.core.base.Plugin, Type[waveform_analysis.core.plugins.core.base.Plugin], Any], allow_override: bool = False)</h4>
+        <p>注册一个或多个插件到 Context 中。<br><br>此方法是注册插件的便捷接口，支持多种输入类型：<br>- 插件实例：直接注册<br>- 插件类：自动实例化后注册<br>- Python 模块：自动发现模块中的所有 Plugin 子类并注册<br><br>注册后的插件可以通过其 `provides` 属性标识的数据名称来访问。<br>Context 会自动管理插件之间的依赖关系，并在获取数据时按需执行。<br><br>Args:<br>    *plugins: 要注册的插件，可以是以下类型之一：<br>        - Plugin 实例：已实例化的插件对象<br>        - Plugin 类：插件类，会自动调用无参构造函数实例化<br>        - Python 模块：包含 Plugin 子类的模块，会自动发现并注册所有插件类<br>    allow_override: 如果为 True，允许覆盖已注册的同名插件（基于 `provides` 属性）<br>                  如果为 False（默认），注册同名插件会抛出 RuntimeError<br><br>Raises:<br>    RuntimeError: 当尝试注册已存在的插件且 `allow_override=False` 时<br>    ValueError: 当插件验证失败时（通过 `plugin.validate()` 方法）<br>    TypeError: 当插件依赖版本不兼容时<br><br>Examples:<br>    >>> from waveform_analysis.core.context import Context<br>    >>> from waveform_analysis.core.plugins.builtin.standard import (<br>    ...     RawFilesPlugin, WaveformsPlugin, StWaveformsPlugin<br>    ... )<br>    >>><br>    >>> ctx = Context(storage_dir="./strax_data")<br>    >>><br>    >>> # 方式1: 注册插件实例<br>    >>> ctx.register(RawFilesPlugin())<br>    >>><br>    >>> # 方式2: 注册插件类（会自动实例化）<br>    >>> ctx.register(WaveformsPlugin)<br>    >>><br>    >>> # 方式3: 一次注册多个插件<br>    >>> ctx.register(<br>    ...     RawFilesPlugin(),<br>    ...     WaveformsPlugin(),<br>    ...     StWaveformsPlugin()<br>    ... )<br>    >>><br>    >>> # 方式4: 注册模块中的所有插件<br>    >>> import waveform_analysis.core.plugins.builtin.standard as standard_plugins<br>    >>> ctx.register(standard_plugins)<br>    >>><br>    >>> # 方式5: 允许覆盖已注册的插件<br>    >>> ctx.register(RawFilesPlugin(), allow_override=True)<br>    >>><br>    >>> # 注册后可以通过数据名称访问<br>    >>> raw_files = ctx.get_data("run_001", "raw_files")<br><br>Notes:<br>    - 插件注册时会自动调用 `plugin.validate()` 进行验证<br>    - 注册插件会清除相关的执行计划缓存，确保依赖关系正确<br>    - 如果插件类需要参数，请先实例化再传入，不要直接传入类<br>    - 模块注册会递归查找所有 Plugin 子类，但会跳过 Plugin 基类本身</p>
+
+        <p><strong>示例:</strong></p>
+        <pre><code>>>> from waveform_analysis.core.context import Context
+>>> from waveform_analysis.core.plugins.builtin.standard import (
+...     RawFilesPlugin, WaveformsPlugin, StWaveformsPlugin
+... )
+>>>
+>>> ctx = Context(storage_dir="./strax_data")
+>>>
+>>> # 方式1: 注册插件实例
+>>> ctx.register(RawFilesPlugin())
+>>>
+>>> # 方式2: 注册插件类（会自动实例化）
+>>> ctx.register(WaveformsPlugin)
+>>>
+>>> # 方式3: 一次注册多个插件
+>>> ctx.register(
+...     RawFilesPlugin(),
+...     WaveformsPlugin(),
+...     StWaveformsPlugin()
+... )
+>>>
+>>> # 方式4: 注册模块中的所有插件
+>>> import waveform_analysis.core.plugins.builtin.standard as standard_plugins
+>>> ctx.register(standard_plugins)
+>>>
+>>> # 方式5: 允许覆盖已注册的插件
+>>> ctx.register(RawFilesPlugin(), allow_override=True)
+>>>
+>>> # 注册后可以通过数据名称访问
+>>> raw_files = ctx.get_data("run_001", "raw_files")
+</code></pre>
+        <h4 id="Context-register_plugin">register_plugin(self, plugin: Any, allow_override: bool = False) -> None</h4>
+        <p>Register a plugin instance with strict validation.</p>
+
+        <h4 id="Context-resolve_dependencies">resolve_dependencies(self, target: str) -> List[str]</h4>
+        <p>Resolve dependencies and return a list of data_names to compute in order.<br>Uses topological sort to determine execution order and detect cycles.</p>
+
+        <h4 id="Context-run_plugin">run_plugin(self, run_id: str, data_name: str, show_progress: bool = False, progress_desc: Optional[str] = None, **kwargs) -> Any</h4>
+        <p>Override run_plugin to add saving logic and config resolution.<br><br>参数:<br>    run_id: Run identifier<br>    data_name: Name of the data to produce<br>    show_progress: Whether to show progress bar during plugin execution<br>    progress_desc: Custom description for progress bar (default: auto-generated)<br>    **kwargs: Additional arguments passed to plugins</p>
+
+        <h4 id="Context-save_step_cache">save_step_cache(self, step_name: str, path: str, backend: str = 'joblib') -> bool</h4>
+        <p>将当前内存缓存写入磁盘，格式与装饰器加载时期待的 persist 文件兼容。</p>
+
+        <h4 id="Context-set_config">set_config(self, config: Dict[str, Any], plugin_name: Optional[str] = None)</h4>
+        <p>更新上下文配置。<br><br>支持三种配置方式：<br>1. 全局配置：set_config({'threshold': 50})<br>2. 插件特定配置（命名空间）：set_config({'threshold': 50}, plugin_name='my_plugin')<br>3. 嵌套字典格式：set_config({'my_plugin': {'threshold': 50}})<br><br>Args:<br>    config: 配置字典<br>    plugin_name: 可选，如果提供，则所有配置项都会作为该插件的命名空间配置<br><br>Examples:<br>    >>> # 全局配置<br>    >>> ctx.set_config({'n_channels': 2, 'threshold': 50})<br>    <br>    >>> # 插件特定配置（推荐，避免冲突）<br>    >>> ctx.set_config({'threshold': 50}, plugin_name='peaks')<br>    >>> # 等价于: ctx.set_config({'peaks': {'threshold': 50}})<br>    >>> # 或: ctx.set_config({'peaks.threshold': 50})<br>    <br>    >>> # 查看配置归属<br>    >>> ctx.list_plugin_configs()  # 列出所有插件的配置选项</p>
+
+        <p><strong>示例:</strong></p>
+        <pre><code>>>> # 全局配置
+>>> ctx.set_config({'n_channels': 2, 'threshold': 50})
+</code></pre>
+        <h4 id="Context-set_step_cache">set_step_cache(self, step_name: str, enabled: bool = True, attrs: Optional[List[str]] = None, persist_path: Optional[str] = None, watch_attrs: Optional[List[str]] = None, backend: str = 'joblib') -> None</h4>
+        <p>配置指定步骤的缓存。</p>
+
+        <h4 id="Context-show_config">show_config(self, data_name: Optional[str] = None, show_usage: bool = True)</h4>
+        <p>显示当前配置，并标识每个配置项对应的插件<br><br>Args:<br>    data_name: 可选，指定插件名称以只显示该插件的配置<br>    show_usage: 是否显示配置项被哪些插件使用（仅在显示全局配置时有效）<br><br>Examples:<br>    >>> # 显示全局配置，包含配置项使用情况<br>    >>> ctx.show_config()<br><br>    >>> # 显示特定插件的配置<br>    >>> ctx.show_config('waveforms')<br><br>    >>> # 显示全局配置，但不显示使用情况<br>    >>> ctx.show_config(show_usage=False)</p>
+
+        <p><strong>示例:</strong></p>
+        <pre><code>>>> # 显示全局配置，包含配置项使用情况
+>>> ctx.show_config()
+</code></pre>
+
+        <h2 id="WaveformDataset">WaveformDataset</h2>
+        <p>统一的波形数据集容器，封装整个数据处理流程。
+支持链式调用，简化数据加载、预处理和分析。
+
+使用示例：
+    dataset = WaveformDataset(run_name="50V_OV_circulation_20thr", n_channels=2)
+    dataset.load_raw_data().extract_waveforms().structure_waveforms()\
+           .build_waveform_features().build_dataframe().group_events()\
+           .pair_events().save_results()
+    
+    df_paired = dataset.get_paired_events()
+    summary = dataset.summary()</p>
+
+        <h3>方法</h3>
+
+        <h4 id="WaveformDataset-__init__">__init__(self, run_name: str = '50V_OV_circulation_20thr', n_channels: int = 2, start_channel_slice: int = 6, data_root: str = 'DAQ', load_waveforms: bool = True, use_daq_scan: bool = False, daq_root: Optional[str] = None, daq_report: Optional[str] = None, cache_waveforms: bool = True, cache_dir: Optional[str] = None, **kwargs)</h4>
+        <p>初始化数据集。<br><br>参数:<br>    run_name: 数据集标识符<br>    n_channels: 要处理的通道数<br>    start_channel_slice: 开始通道索引（通常为 6 表示 CH6/CH7）<br>    data_root: 数据根目录<br>    load_waveforms: 是否加载原始波形数据（默认 True）<br>                   - True: 加载所有波形，支持 get_waveform_at()<br>                   - False: 仅加载特征（峰值、电荷等），节省内存 (70-80% 内存节省)<br>    cache_waveforms: 是否缓存提取后的波形数据到磁盘（默认 True）<br>    cache_dir: 缓存目录，默认为 outputs/_cache</p>
+
+        <h4 id="WaveformDataset-build_dataframe">build_dataframe(self, verbose: bool = True) -> 'WaveformDataset'</h4>
+        <p>构建波形 DataFrame。</p>
+
+        <h4 id="WaveformDataset-build_waveform_features">build_waveform_features(self, peaks_range: Optional[Tuple[int, int]] = None, charge_range: Optional[Tuple[int, int]] = None, verbose: bool = True) -> 'WaveformDataset'</h4>
+        <p>计算波形特征（peaks 和 charges）。</p>
+
+        <h4 id="WaveformDataset-chainable_step">chainable_step(fn: Callable)</h4>
+        <p>Decorator for chainable steps with integrated caching and error handling.</p>
+
+        <h4 id="WaveformDataset-check_cache_status">check_cache_status(self, load_sig: bool = False) -> Dict[str, Dict[str, Any]]</h4>
+        <p>检查所有步骤的缓存状态。<br><br>Args:<br>    load_sig: 是否加载磁盘文件以验证签名（较慢）。</p>
+
+        <h4 id="WaveformDataset-check_daq_status">check_daq_status(self)</h4>
+        <p>尝试使用 DAQAnalyzer（或 JSON 报告）获取当前运行的元信息。<br><br>返回: dict 或 None（若没有找到）</p>
+
+        <h4 id="WaveformDataset-clear_cache">clear_cache(self, step_name: Optional[str] = None, clear_memory: bool = True, clear_disk: bool = True) -> int</h4>
+        <p>清理缓存。<br><br>参数:<br>    step_name: 步骤名称（如 "st_waveforms", "df"），如果为 None 则清理所有步骤<br>    clear_memory: 是否清理内存缓存<br>    clear_disk: 是否清理磁盘缓存<br><br>返回:<br>    清理的缓存项数量<br><br>示例:<br>    >>> ds = WaveformDataset(...)<br>    >>> # 清理单个步骤的缓存<br>    >>> ds.clear_cache("st_waveforms")<br>    >>> # 清理所有缓存<br>    >>> ds.clear_cache()<br>    >>> # 只清理内存缓存<br>    >>> ds.clear_cache("df", clear_disk=False)</p>
+
+        <h4 id="WaveformDataset-clear_step_errors">clear_step_errors(self) -> None</h4>
+        <p></p>
+
+        <h4 id="WaveformDataset-clear_waveforms">clear_waveforms(self) -> None</h4>
+        <p>释放波形相关的大块内存（waveforms 与 st_waveforms）。</p>
+
+        <h4 id="WaveformDataset-extract_waveforms">extract_waveforms(self, verbose: bool = True, **kwargs) -> 'WaveformDataset'</h4>
+        <p>从原始文件中提取波形数据。</p>
+
+        <h4 id="WaveformDataset-get_cached_result">get_cached_result(self, step_name: str) -> Optional[Dict[str, object]]</h4>
+        <p>返回指定步骤的内存缓存字典（若存在）。</p>
+
+        <h4 id="WaveformDataset-get_error_statistics">get_error_statistics(self) -> Dict[str, Any]</h4>
+        <p>获取错误统计信息</p>
+
+        <h4 id="WaveformDataset-get_error_summary">get_error_summary(self) -> Dict[str, Any]</h4>
+        <p>获取所有错误的汇总报告</p>
+
+        <h4 id="WaveformDataset-get_grouped_events">get_grouped_events(self) -> Optional[pandas.core.frame.DataFrame]</h4>
+        <p>获取分组后的事件 DataFrame。</p>
+
+        <h4 id="WaveformDataset-get_paired_events">get_paired_events(self) -> Optional[pandas.core.frame.DataFrame]</h4>
+        <p>获取配对的事件 DataFrame。</p>
+
+        <h4 id="WaveformDataset-get_raw_events">get_raw_events(self) -> Optional[pandas.core.frame.DataFrame]</h4>
+        <p>获取原始事件 DataFrame（未分组）。</p>
+
+        <h4 id="WaveformDataset-get_step_errors">get_step_errors(self) -> Dict[str, Dict[str, Any]]</h4>
+        <p></p>
+
+        <h4 id="WaveformDataset-get_waveform_at">get_waveform_at(self, event_idx: int, channel: int = 0) -> Optional[Tuple[numpy.ndarray, float]]</h4>
+        <p>获取指定事件和通道的原始波形及其 baseline。<br><br>参数:<br>    event_idx: df_paired 中的事件索引<br>    channel: 通道索引（相对于 start_channel_slice）<br><br>返回: (波形数组, baseline) 或 None</p>
+
+        <h4 id="WaveformDataset-group_events">group_events(self, time_window_ns: Optional[float] = None, use_numba: bool = True, n_processes: Optional[int] = None, verbose: bool = True) -> 'WaveformDataset'</h4>
+        <p>按时间窗口聚类多通道事件。<br><br>参数:<br>    time_window_ns: 时间窗口（纳秒）<br>    use_numba: 是否使用numba加速（默认True）<br>    n_processes: 多进程数量（None=单进程，>1=多进程）<br>    verbose: 是否打印日志</p>
+
+        <h4 id="WaveformDataset-help">help(self, topic: Optional[str] = None, verbose: bool = False) -> str</h4>
+        <p>显示数据集使用帮助<br><br>Args:<br>    topic: 帮助主题（None/'workflow' 显示链式调用流程，其他主题转发给 Context）<br>    verbose: 显示详细信息<br><br>Examples:<br>    >>> ds.help()  # 显示工作流程<br>    >>> ds.help('workflow')  # 显示工作流程（同上）<br>    >>> ds.help('config')  # 转发给 ctx.help('config')</p>
+
+        <p><strong>示例:</strong></p>
+        <pre><code>>>> ds.help()  # 显示工作流程
+>>> ds.help('workflow')  # 显示工作流程（同上）
+>>> ds.help('config')  # 转发给 ctx.help('config')
+</code></pre>
+        <h4 id="WaveformDataset-load_raw_data">load_raw_data(self, verbose: bool = True) -> 'WaveformDataset'</h4>
+        <p>加载原始 CSV 文件。</p>
+
+        <h4 id="WaveformDataset-pair_events">pair_events(self, n_channels: Optional[int] = None, start_channel_slice: Optional[int] = None, verbose: bool = True) -> 'WaveformDataset'</h4>
+        <p>筛选成对的 N 通道事件。</p>
+
+        <h4 id="WaveformDataset-print_cache_report">print_cache_report(self, verify: bool = False) -> None</h4>
+        <p>打印缓存状态报告。<br><br>Args:<br>    verify: 是否通过加载磁盘文件来验证签名（对于大文件可能较慢）。</p>
+
+        <h4 id="WaveformDataset-save_results">save_results(self, output_dir: str = 'outputs', verbose: bool = True) -> 'WaveformDataset'</h4>
+        <p>保存处理结果（CSV 和 Parquet 格式）。<br><br>参数:<br>    output_dir: 输出目录<br>    verbose: 是否打印日志<br><br>返回: self（便于链式调用）</p>
+
+        <h4 id="WaveformDataset-save_step_cache">save_step_cache(self, step_name: str, path: str, backend: str = 'joblib') -> bool</h4>
+        <p>将当前内存缓存写入磁盘，格式与装饰器加载时期待的 persist 文件兼容。</p>
+
+        <h4 id="WaveformDataset-set_raise_on_error">set_raise_on_error(self, value: bool) -> None</h4>
+        <p>Toggle whether chainable steps raise on failure.</p>
+
+        <h4 id="WaveformDataset-set_step_cache">set_step_cache(self, step_name: str, enabled: bool = True, attrs: Optional[List[str]] = None, persist_path: Optional[str] = None, watch_attrs: Optional[List[str]] = None, backend: str = 'joblib') -> None</h4>
+        <p>配置指定步骤的缓存。</p>
+
+        <h4 id="WaveformDataset-set_store_traceback">set_store_traceback(self, value: bool) -> None</h4>
+        <p>Toggle whether to store traceback in error info.</p>
+
+        <h4 id="WaveformDataset-structure_waveforms">structure_waveforms(self, verbose: bool = True) -> 'WaveformDataset'</h4>
+        <p>将波形数据转换为结构化 numpy 数组。</p>
+
+        <h4 id="WaveformDataset-summary">summary(self) -> Dict[str, Any]</h4>
+        <p>获取数据处理摘要信息。<br><br>返回: 包含各个处理阶段信息的字典</p>
+
+
+
+        <div class="timestamp">
+            <p><strong>生成时间</strong>: 2026-01-11 15:30:45</p>
+            <p><strong>工具</strong>: WaveformAnalysis DocGenerator</p>
+        </div>
+    </div>
+</body>
+</html>

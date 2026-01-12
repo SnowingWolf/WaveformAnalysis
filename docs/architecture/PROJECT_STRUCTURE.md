@@ -1,3 +1,7 @@
+**导航**: [文档中心](../README.md) > [架构设计](README.md) > 项目结构
+
+---
+
 # 项目结构说明
 
 ## 完整目录树
@@ -87,7 +91,8 @@ waveform-analysis/
 │
 ├── docs/                          # 文档目录
 │   ├── data_module.md             # 原有的模块文档
-│   └── USAGE.md                   # 使用指南
+│   ├── USAGE.md                   # 使用指南
+│   └── CONTEXT_PROCESSOR_WORKFLOW.md  # Context 和 Processor 使用流程演示
 │
 ├── scripts/                       # 辅助脚本（预留）
 │

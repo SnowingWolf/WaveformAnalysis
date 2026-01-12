@@ -6,7 +6,6 @@ Exceptions 模块 - 异常处理基础类和工具。
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Optional
 
@@ -72,6 +71,16 @@ class PluginTimeoutError(PluginError):
         message: str,
         context: Optional[ErrorContext] = None,
     ):
+        """
+        初始化插件超时异常
+
+        Args:
+            message: 错误消息
+            context: 错误上下文信息（可选）
+
+        Note:
+            此异常被标记为 RECOVERABLE，可恢复的。
+        """
         super().__init__(
             message,
             severity=ErrorSeverity.RECOVERABLE,

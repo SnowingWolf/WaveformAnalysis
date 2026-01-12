@@ -19,15 +19,15 @@
 """
 
 import logging
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.figure import Figure
 
+from waveform_analysis.core.foundation.constants import FeatureDefaults
 from waveform_analysis.core.processing.loader import WaveformLoader
-from waveform_analysis.core.processing.processor import RECORD_DTYPE, DEFAULT_WAVE_LENGTH
+from waveform_analysis.core.processing.processor import DEFAULT_WAVE_LENGTH, RECORD_DTYPE
 from waveform_analysis.utils.io import parse_files_generator
 from waveform_analysis.core.foundation.utils import exporter
 
@@ -318,8 +318,8 @@ class WaveformPreviewer:
     def compute_features(
         self,
         waveforms: np.ndarray,
-        peaks_range: Tuple[int, int] = (40, 90),
-        charge_range: Tuple[int, int] = (60, 400),
+        peaks_range: Tuple[int, int] = FeatureDefaults.PEAK_RANGE,
+        charge_range: Tuple[int, int] = FeatureDefaults.CHARGE_RANGE,
     ) -> Dict[str, np.ndarray]:
         """
         计算波形特征。
@@ -374,8 +374,8 @@ class WaveformPreviewer:
         self,
         waveforms: np.ndarray,
         annotate: bool = True,
-        peaks_range: Tuple[int, int] = (40, 90),
-        charge_range: Tuple[int, int] = (60, 400),
+        peaks_range: Tuple[int, int] = FeatureDefaults.PEAK_RANGE,
+        charge_range: Tuple[int, int] = FeatureDefaults.CHARGE_RANGE,
         figsize: Tuple[int, int] = (12, 6),
         sampling_interval_ns: float = 2.0,
         **kwargs,
@@ -494,8 +494,8 @@ class WaveformPreviewer:
         self,
         waveforms: np.ndarray,
         annotate: bool = True,
-        peaks_range: Tuple[int, int] = (40, 90),
-        charge_range: Tuple[int, int] = (60, 400),
+        peaks_range: Tuple[int, int] = FeatureDefaults.PEAK_RANGE,
+        charge_range: Tuple[int, int] = FeatureDefaults.CHARGE_RANGE,
         ncols: int = 2,
         figsize_per_plot: Tuple[int, int] = (6, 4),
         sampling_interval_ns: float = 2.0,

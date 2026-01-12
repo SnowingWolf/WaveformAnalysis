@@ -4,7 +4,7 @@
 
 提供常用的执行器配置模板，便于快速使用。
 """
-from typing import Dict, Optional
+from typing import Dict
 
 from waveform_analysis.core.foundation.utils import exporter
 

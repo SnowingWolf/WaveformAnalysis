@@ -138,7 +138,7 @@ class DynamicLoadBalancer:
             elif cpu_percent < 0.5 * self.cpu_threshold * 100 and memory_percent < 0.7 * self.memory_threshold:
                 # 资源充足，增加worker
                 suggested_workers = min(self.max_workers, self._current_workers + 1)
-                self.logger.debug(f"Resources available, increasing workers")
+                self.logger.debug("Resources available, increasing workers")
             else:
                 # 保持当前worker数量
                 suggested_workers = self._current_workers

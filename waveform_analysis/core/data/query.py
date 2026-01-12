@@ -9,10 +9,9 @@
 - 查询性能优化
 """
 
-import bisect
 import logging
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Union
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 

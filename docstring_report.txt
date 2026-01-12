@@ -1,0 +1,107 @@
+================================================================================
+缺失 Docstring 的详细列表
+================================================================================
+
+
+FUNCTIONS (24 个缺失):
+--------------------------------------------------------------------------------
+  - waveform_analysis/core/execution/manager.py:decorator
+  - waveform_analysis/core/execution/manager.py:update_progress
+  - waveform_analysis/core/execution/manager.py:update_progress
+  - waveform_analysis/core/execution/timeout.py:decorator
+  - waveform_analysis/core/execution/timeout.py:wrapper
+  - waveform_analysis/core/foundation/mixins.py:wrapper
+  - waveform_analysis/core/foundation/model.py:traverse
+  - waveform_analysis/core/foundation/progress.py:decorator
+  - waveform_analysis/core/foundation/progress.py:wrapper
+  - waveform_analysis/core/plugins/core/base.py:decorator
+  - waveform_analysis/core/plugins/core/base.py:decorator
+  - waveform_analysis/core/processing/chunk.py:flush_buffer
+  - waveform_analysis/core/processing/processor.py:decorator
+  - waveform_analysis/core/processing/processor.py:energy_rec
+  - waveform_analysis/core/processing/processor.py:hist_count_ratio
+  - waveform_analysis/core/processing/processor.py:jit
+  - waveform_analysis/core/processing/processor.py:lr_log_ratio
+  - waveform_analysis/utils/event_filters.py:decorator
+  - waveform_analysis/utils/event_filters.py:jit
+  - waveform_analysis/utils/visualization/lineage_visualizer.py:draw_wire
+  - waveform_analysis/utils/visualization/lineage_visualizer.py:get_downstream_y_avg
+  - waveform_analysis/utils/visualization/lineage_visualizer.py:get_downstream_y_avg
+  - waveform_analysis/utils/visualization/visulizer.py:browse
+  - waveform_analysis/utils/visualization/waveform_visualizer.py:browse
+
+CLASSES (9 个缺失):
+--------------------------------------------------------------------------------
+  - waveform_analysis/core/foundation/model.py:EdgeModel
+  - waveform_analysis/core/foundation/model.py:LineageGraphModel
+  - waveform_analysis/core/foundation/model.py:NodeModel
+  - waveform_analysis/core/foundation/model.py:PortModel
+  - waveform_analysis/core/plugins/core/streaming.py:TempWrapper
+  - waveform_analysis/core/processing/processor.py:ResultData
+  - waveform_analysis/core/processing/processor.py:WaveformStruct
+  - waveform_analysis/fitting/models.py:LandauGaussFitter
+  - waveform_analysis/fitting/models.py:LandauGaussFitter2
+
+METHODS (57 个缺失):
+--------------------------------------------------------------------------------
+  - waveform_analysis/core/execution/timeout.py:TimeoutManager.timeout_handler
+  - waveform_analysis/core/foundation/mixins.py:PluginMixin.visit
+  - waveform_analysis/core/foundation/mixins.py:StepMixin.clear_step_errors
+  - waveform_analysis/core/foundation/mixins.py:StepMixin.get_step_errors
+  - waveform_analysis/core/foundation/quickstart_templates.py:BasicAnalysisTemplate.generate
+  - waveform_analysis/core/foundation/quickstart_templates.py:MemoryEfficientTemplate.generate
+  - waveform_analysis/core/foundation/utils.py:Profiler.decorator
+  - waveform_analysis/core/foundation/utils.py:Profiler.wrapper
+  - waveform_analysis/core/plugins/core/hot_reload.py:PluginHotReloader.check_loop
+  - waveform_analysis/core/processing/chunk.py:Chunk.duration
+  - waveform_analysis/core/processing/chunk.py:Chunk.nbytes
+  - waveform_analysis/core/storage/backends.py:SQLiteBackend.delete
+  - waveform_analysis/core/storage/backends.py:SQLiteBackend.exists
+  - waveform_analysis/core/storage/backends.py:SQLiteBackend.get_metadata
+  - waveform_analysis/core/storage/backends.py:SQLiteBackend.get_size
+  - waveform_analysis/core/storage/backends.py:SQLiteBackend.list_keys
+  - waveform_analysis/core/storage/backends.py:SQLiteBackend.load_memmap
+  - waveform_analysis/core/storage/backends.py:SQLiteBackend.save_memmap
+  - waveform_analysis/core/storage/backends.py:SQLiteBackend.save_metadata
+  - waveform_analysis/core/storage/compression.py:Blosc2Compression.compress
+  - waveform_analysis/core/storage/compression.py:Blosc2Compression.decompress
+  - waveform_analysis/core/storage/compression.py:Blosc2Compression.extension
+  - waveform_analysis/core/storage/compression.py:Blosc2Compression.is_available
+  - waveform_analysis/core/storage/compression.py:Blosc2Compression.name
+  - waveform_analysis/core/storage/compression.py:Blosc2Compression.speed_priority
+  - waveform_analysis/core/storage/compression.py:GzipCompression.compress
+  - waveform_analysis/core/storage/compression.py:GzipCompression.decompress
+  - waveform_analysis/core/storage/compression.py:GzipCompression.extension
+  - waveform_analysis/core/storage/compression.py:GzipCompression.is_available
+  - waveform_analysis/core/storage/compression.py:GzipCompression.name
+  - waveform_analysis/core/storage/compression.py:GzipCompression.speed_priority
+  - waveform_analysis/core/storage/compression.py:LZ4Compression.compress
+  - waveform_analysis/core/storage/compression.py:LZ4Compression.decompress
+  - waveform_analysis/core/storage/compression.py:LZ4Compression.extension
+  - waveform_analysis/core/storage/compression.py:LZ4Compression.is_available
+  - waveform_analysis/core/storage/compression.py:LZ4Compression.name
+  - waveform_analysis/core/storage/compression.py:LZ4Compression.speed_priority
+  - waveform_analysis/core/storage/compression.py:ZstdCompression.compress
+  - waveform_analysis/core/storage/compression.py:ZstdCompression.decompress
+  - waveform_analysis/core/storage/compression.py:ZstdCompression.extension
+  - waveform_analysis/core/storage/compression.py:ZstdCompression.is_available
+  - waveform_analysis/core/storage/compression.py:ZstdCompression.name
+  - waveform_analysis/core/storage/compression.py:ZstdCompression.speed_priority
+  - waveform_analysis/fitting/models.py:LandauGaussFitter.chi2
+  - waveform_analysis/utils/daq/daq.py:_DAQRunAdapter.get_channel_paths
+  - waveform_analysis/utils/daq/daq_analyzer.py:DAQAnalyzer.display_overview
+  - waveform_analysis/utils/daq/daq_analyzer.py:DAQAnalyzer.display_run_channel_details
+  - waveform_analysis/utils/daq/daq_analyzer.py:DAQAnalyzer.format_size
+  - waveform_analysis/utils/daq/daq_analyzer.py:DAQAnalyzer.get_all_runs
+  - waveform_analysis/utils/daq/daq_analyzer.py:DAQAnalyzer.get_run
+  - waveform_analysis/utils/daq/daq_analyzer.py:DAQAnalyzer.save_to_json
+  - waveform_analysis/utils/daq/daq_analyzer.py:DAQAnalyzer.scan_all_runs
+  - waveform_analysis/utils/daq/daq_run.py:DAQRun.compute_acquisition_times
+  - waveform_analysis/utils/daq/daq_run.py:DAQRun.format_time_ps
+  - waveform_analysis/utils/daq/daq_run.py:DAQRun.get_channel_file_details
+  - waveform_analysis/utils/daq/daq_run.py:DAQRun.get_channel_summary
+  - waveform_analysis/utils/daq/daq_run.py:DAQRun.to_dict
+
+================================================================================
+总计缺失: 90 个
+================================================================================

@@ -269,6 +269,7 @@ df.to_parquet('my_results.parquet')
 ## 下一步
 
 - 阅读完整文档：[docs/USAGE.md](USAGE.md)
+- 学习 Context 和 Processor 使用流程：[docs/CONTEXT_PROCESSOR_WORKFLOW.md](CONTEXT_PROCESSOR_WORKFLOW.md)
 - 查看更多示例：[examples/](../WaveformAnalysis/examples)
 - 了解项目结构：[docs/PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
 - 学习贡献指南：[CONTRIBUTING.md](../CONTRIBUTING.md)

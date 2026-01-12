@@ -16,6 +16,10 @@ Plugins Builtin 子模块 - 内置标准插件
 - GroupedEventsPlugin: 事件分组
 - PairedEventsPlugin: 事件配对
 
+信号处理插件：
+- FilteredWaveformsPlugin: 波形滤波（Butterworth、Savitzky-Golay）
+- SignalPeaksPlugin: 基于滤波波形的高级峰值检测
+
 流式插件示例：
 - StreamingStWaveformsPlugin: 流式波形结构化
 - StreamingBasicFeaturesPlugin: 流式特征提取
@@ -48,8 +52,29 @@ from .streaming_examples import (
     StreamingFilterPlugin,
 )
 
+# 信号处理插件
+from .signal_processing import (
+    FilteredWaveformsPlugin,
+    SignalPeaksPlugin,
+    ADVANCED_PEAK_DTYPE,
+)
+
+# 标准插件列表（方便批量注册）
+standard_plugins = [
+    RawFilesPlugin(),
+    WaveformsPlugin(),
+    StWaveformsPlugin(),
+    HitFinderPlugin(),
+    BasicFeaturesPlugin(),
+    PeaksPlugin(),
+    ChargesPlugin(),
+    DataFramePlugin(),
+    GroupedEventsPlugin(),
+    PairedEventsPlugin(),
+]
+
 __all__ = [
-    # 标准插件
+    # 标准插件类
     "RawFilesPlugin",
     "WaveformsPlugin",
     "StWaveformsPlugin",
@@ -60,8 +85,14 @@ __all__ = [
     "DataFramePlugin",
     "GroupedEventsPlugin",
     "PairedEventsPlugin",
+    # 信号处理插件
+    "FilteredWaveformsPlugin",
+    "SignalPeaksPlugin",
+    "ADVANCED_PEAK_DTYPE",
     # 流式插件示例
     "StreamingStWaveformsPlugin",
     "StreamingBasicFeaturesPlugin",
     "StreamingFilterPlugin",
+    # 便捷列表
+    "standard_plugins",
 ]

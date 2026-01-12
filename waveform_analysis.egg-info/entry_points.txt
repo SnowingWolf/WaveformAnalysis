@@ -1,2 +1,3 @@
 [console_scripts]
+waveform-docs = waveform_analysis.utils.cli_docs:main
 waveform-process = waveform_analysis.cli:main

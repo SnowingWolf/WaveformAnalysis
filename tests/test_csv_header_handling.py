@@ -161,13 +161,14 @@ def test_parse_and_stack_files_parallel_processing(tmp_path):
     
     # 使用并行处理
     result_parallel = parse_and_stack_files(files, skiprows=2, delimiter=";", n_jobs=2)
-    
+
     # 使用串行处理
     result_serial = parse_and_stack_files(files, skiprows=2, delimiter=";", n_jobs=1)
-    
+
     # 结果应该相同
     assert result_parallel.shape == result_serial.shape
-    assert np.allclose(result_parallel, result_serial), "Parallel and serial results should match"
+    # 由于数组可能包含字符串列，使用 array_equal 而不是 allclose
+    assert np.array_equal(result_parallel, result_serial), "Parallel and serial results should match"
 
 
 def test_parse_and_stack_files_channel_independence(tmp_path):
