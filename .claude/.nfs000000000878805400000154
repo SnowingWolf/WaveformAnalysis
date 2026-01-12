@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push)",
+      "Bash(python test_load_balancer_integration.py:*)",
+      "Bash(./scripts/run_tests.sh:*)",
+      "Bash(find:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(tee:*)",
+      "Bash(python -c:*)",
+      "Bash(grep:*)"
+    ]
+  }
+}

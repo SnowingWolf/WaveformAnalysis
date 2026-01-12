@@ -112,7 +112,7 @@ def main():
         df_paired = dataset.get_paired_events()
 
         if args.verbose:
-            print(f"\n处理完成！")
+            print("\n处理完成！")
             print(f"配对事件数: {len(df_paired)}")
 
         # 保存结果

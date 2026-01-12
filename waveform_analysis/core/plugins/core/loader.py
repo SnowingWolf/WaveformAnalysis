@@ -163,7 +163,6 @@ class PluginLoader:
 
             # 查找所有插件类
             count = 0
-            from waveform_analysis.core.plugins.core.base import Plugin
 
             for attr_name in dir(module):
                 if attr_name.startswith('_'):

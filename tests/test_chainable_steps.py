@@ -32,9 +32,9 @@ def test_chain_continues_on_error(tmp_path: Path):
     assert res is ds
 
     errors = ds.get_step_errors()
-    # the recorded error key may be the wrapper name; just assert some structure-related error exists
+    # 新的结构化错误格式：errors[step_name] = {"message": "...", "type": "...", ...}
     assert any("structure" in k for k in errors.keys())
-    assert any("intentional structure error" in v for v in errors.values())
+    assert any("intentional structure error" in v.get("message", "") for v in errors.values())
 
     # clear errors and ensure clear works
     ds.clear_step_errors()

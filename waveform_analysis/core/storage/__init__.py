@@ -30,6 +30,7 @@ from .backends import (
 
 # 缓存管理
 from .cache import CacheManager
+from .cache_manager import RuntimeCacheManager
 
 # 压缩管理
 from .compression import (
@@ -60,6 +61,7 @@ __all__ = [
     "validate_storage_backend",
     # 缓存管理
     "CacheManager",
+    "RuntimeCacheManager",
     # 压缩管理
     "Blosc2Compression",
     "LZ4Compression",

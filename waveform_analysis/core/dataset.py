@@ -7,15 +7,19 @@ WaveformDataset 类作为框架的主要入口，通过链式调用 (Fluent Inte
 在保持 API 简洁的同时，利用了插件系统的缓存和依赖管理能力。
 """
 
+# 1. Standard library imports
 import os
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
+# 2. Third-party imports
 import numpy as np
 import pandas as pd
 
-from waveform_analysis.core import standard_plugins
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.foundation.mixins import CacheMixin, StepMixin, chainable_step
+# 3. Local imports (使用相对导入)
+from .context import Context
+from .foundation.constants import FeatureDefaults
+from .foundation.mixins import CacheMixin, StepMixin, chainable_step
+from .plugins import builtin as standard_plugins
 
 
 class WaveformDataset(CacheMixin, StepMixin):
@@ -85,9 +89,9 @@ class WaveformDataset(CacheMixin, StepMixin):
             "n_channels": n_channels,
             "start_channel_slice": start_channel_slice,
             "data_root": data_root,
-            "peaks_range": (40, 90),
-            "charge_range": (60, 400),
-            "time_window_ns": 100,
+            "peaks_range": FeatureDefaults.PEAK_RANGE,
+            "charge_range": FeatureDefaults.CHARGE_RANGE,
+            "time_window_ns": FeatureDefaults.TIME_WINDOW_NS,
         })
 
         # DAQ 集成选项
@@ -113,9 +117,9 @@ class WaveformDataset(CacheMixin, StepMixin):
         self._timestamp_index: List[Dict[int, int]] = []
 
         # 参数缓存
-        self.peaks_range: Tuple[int, int] = (40, 90)
-        self.charge_range: Tuple[int, int] = (60, 400)
-        self.time_window_ns: float = 100
+        self.peaks_range: Tuple[int, int] = FeatureDefaults.PEAK_RANGE
+        self.charge_range: Tuple[int, int] = FeatureDefaults.CHARGE_RANGE
+        self.time_window_ns: float = FeatureDefaults.TIME_WINDOW_NS
 
         self._validate_data_dir()
 
@@ -376,7 +380,7 @@ class WaveformDataset(CacheMixin, StepMixin):
             elif use_numba:
                 try:
                     import numba
-                    print(f"  使用 numba 加速")
+                    print("  使用 numba 加速")
                 except ImportError:
                     pass
         return self
@@ -552,7 +556,7 @@ class WaveformDataset(CacheMixin, StepMixin):
         run_pipeline: bool = True,
         n_channels: int = 2,
         start_channel_slice: int = 6,
-        time_window_ns: float | None = None,
+        time_window_ns: Optional[float] = None,
     ) -> "WaveformDataset":
         """基于 DAQ JSON 报告或 report dict 创建并可选地运行完整处理流程的便利工厂。
 
@@ -596,6 +600,85 @@ class WaveformDataset(CacheMixin, StepMixin):
             ds.pair_events(verbose=False)
 
         return ds
+
+    def help(self, topic: Optional[str] = None, verbose: bool = False) -> str:
+        """
+        显示数据集使用帮助
+
+        Args:
+            topic: 帮助主题（None/'workflow' 显示链式调用流程，其他主题转发给 Context）
+            verbose: 显示详细信息
+
+        Examples:
+            >>> ds.help()  # 显示工作流程
+            >>> ds.help('workflow')  # 显示工作流程（同上）
+            >>> ds.help('config')  # 转发给 ctx.help('config')
+        """
+        if topic is None or topic in ['workflow', 'chain']:
+            return self._show_workflow_help(verbose)
+        else:
+            # 转发给 Context
+            return self.ctx.help(topic, verbose=verbose)
+
+    def _show_workflow_help(self, verbose: bool = False) -> str:
+        """显示 WaveformDataset 工作流程帮助"""
+        help_text = """
+╔══════════════════════════════════════════════════════════════════════════════╗
+║ WaveformDataset 工作流程                                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 标准分析流程（链式调用）:
+────────────────────────────────────────────────────────────────────────────────
+from waveform_analysis import WaveformDataset
+
+ds = WaveformDataset(run_name='your_run', n_channels=2)
+(ds
+    .load_raw_data()            # 1. 加载 CSV 原始数据
+    .extract_waveforms()        # 2. 提取波形数组
+    .structure_waveforms()      # 3. 转换为结构化数组
+    .build_waveform_features()  # 4. 计算 peaks/charges
+    .build_dataframe()          # 5. 构建 DataFrame
+    .group_events(time_window_ns=100)  # 6. 按时间窗口分组
+    .pair_events())             # 7. 筛选成对事件
+
+# 获取结果
+df_paired = ds.get_paired_events()
+────────────────────────────────────────────────────────────────────────────────
+
+💡 内存优化技巧:
+  ds = WaveformDataset(run_name='...', load_waveforms=False)
+  # 跳过步骤 2-3，节省 70-80% 内存
+
+🔗 更多帮助:
+  ds.help('config')       # 配置管理
+  ds.help('quickstart')   # 快速开始模板
+"""
+
+        if verbose:
+            help_text += """
+📊 数据流详解:
+  1. load_raw_data()         → self.raw_data (List[pd.DataFrame])
+  2. extract_waveforms()     → self.waveforms (List[np.ndarray])
+  3. structure_waveforms()   → self.st_waveforms (np.ndarray, structured)
+  4. build_waveform_features() → self.char/self.peaks/self.charges
+  5. build_dataframe()       → self.df (pd.DataFrame)
+  6. group_events()          → self.df_grouped (pd.DataFrame)
+  7. pair_events()           → self.df_paired (pd.DataFrame)
+
+📍 数据访问方法:
+  ds.get_raw_events()        # 获取原始事件
+  ds.get_grouped_events()    # 获取分组事件
+  ds.get_paired_events()     # 获取配对事件
+  ds.get_waveform_at(index)  # 获取指定波形
+  ds.summary()               # 显示摘要信息
+
+🎯 快速开始:
+  • 基础分析: ds.ctx.quickstart('basic')
+  • 内存优化: ds.ctx.quickstart('memory_efficient')
+"""
+
+        print(help_text)
+        return help_text
 
     def __repr__(self) -> str:
         """数据集对象的字符串表示。"""

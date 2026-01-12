@@ -10,16 +10,15 @@
 """
 
 import logging
-import os
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait, FIRST_COMPLETED
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 
-from waveform_analysis.core.foundation.utils import exporter
+from waveform_analysis.core.foundation.utils import exporter, is_notebook_environment
 
 logger = logging.getLogger(__name__)
 export, __all__ = exporter()
@@ -62,23 +61,30 @@ class BatchProcessor:
         max_workers: Optional[int] = None,
         show_progress: bool = True,
         on_error: str = 'continue',  # 'continue', 'stop', 'raise'
-        progress_tracker: Optional[Any] = None,  # 新增：进度追踪器
-        cancellation_token: Optional[Any] = None,  # 新增：取消令牌
+        progress_tracker: Optional[Any] = None,
+        cancellation_token: Optional[Any] = None,
+        jupyter_mode: Optional[bool] = None,
+        progress_update_interval: float = 0.5,
     ) -> Dict[str, Any]:
         """
-        批量处理多个run
+        批量处理多个run (优化版: 支持Jupyter环境)
 
         Args:
             run_ids: 运行ID列表
             data_name: 要处理的数据名称
             max_workers: 最大并行工作进程数
             show_progress: 是否显示进度
-            on_error: 错误处理策略
+            on_error: 错误处理策略 ('continue', 'stop', 'raise')
             progress_tracker: 进度追踪器（可选，如为None则自动创建）
             cancellation_token: 取消令牌（可选，如为None则自动创建）
+            jupyter_mode: Jupyter优化模式
+                - None (默认): 自动检测环境
+                - True: 强制使用Jupyter优化（轮询模式，禁用信号处理）
+                - False: 强制使用标准模式（as_completed，启用信号处理）
+            progress_update_interval: 进度更新最小间隔（秒），用于减少锁争用
 
         Returns:
-            结果字典 {run_id: data or error}
+            结果字典 {'results': {run_id: data}, 'errors': {run_id: error}}
         """
         from waveform_analysis.core.foundation.progress import (
             ProgressTracker, format_throughput, format_time
@@ -87,28 +93,44 @@ class BatchProcessor:
             CancellationToken, get_cancellation_manager, TaskCancelledException
         )
 
+        # 自动检测 Jupyter 环境
+        if jupyter_mode is None:
+            jupyter_mode = is_notebook_environment()
+
+        if jupyter_mode:
+            self.logger.debug("Running in Jupyter-optimized mode (polling-based)")
+
         results = {}
         errors = {}
         start_time = time.time()
 
         # 创建或使用cancellation_token
         owns_token = False
+        cancel_manager = None
         if cancellation_token is None:
             cancellation_token = CancellationToken()
-            cancel_manager = get_cancellation_manager()
-            cancel_manager.enable()
-            cancel_manager.register_token(cancellation_token)
             owns_token = True
 
+            # 只在非 Jupyter 环境中启用信号处理
+            if not jupyter_mode:
+                cancel_manager = get_cancellation_manager()
+                cancel_manager.enable()
+                cancel_manager.register_token(cancellation_token)
+            else:
+                self.logger.debug("Jupyter mode: skipping signal handler registration")
+
         # 创建或使用progress_tracker
+        # 在 Jupyter 环境下，禁用 tqdm 进度条（会导致阻塞），改用简单输出
         owns_tracker = False
-        if progress_tracker is None and show_progress:
+        use_simple_progress = jupyter_mode and show_progress
+
+        if not jupyter_mode and progress_tracker is None and show_progress:
             progress_tracker = ProgressTracker()
             owns_tracker = True
 
-        # 创建主进度条
+        # 创建主进度条（仅非 Jupyter 模式）
         bar_name = None
-        if progress_tracker:
+        if progress_tracker and not jupyter_mode:
             bar_name = f"batch_{data_name}"
             progress_tracker.create_bar(
                 bar_name,
@@ -116,6 +138,55 @@ class BatchProcessor:
                 desc=f"Processing {data_name}",
                 unit="run"
             )
+
+        # Jupyter 模式下的简单进度显示
+        if use_simple_progress:
+            print(f"Processing {data_name}: 0/{len(run_ids)} runs", end="", flush=True)
+
+        # 进度更新状态（用于批量更新）
+        last_progress_update = start_time
+        pending_progress_count = 0
+
+        def _update_progress(completed_count: int, force: bool = False):
+            """批量更新进度以减少锁争用"""
+            nonlocal last_progress_update, pending_progress_count
+
+            now = time.time()
+
+            # Jupyter 模式：简单输出
+            if use_simple_progress:
+                if force or (now - last_progress_update >= 0.5):
+                    print(f"\rProcessing {data_name}: {completed_count}/{len(run_ids)} runs", end="", flush=True)
+                    last_progress_update = now
+                return
+
+            # 标准模式：使用 ProgressTracker
+            if not progress_tracker or not bar_name:
+                return
+
+            should_update = force or (
+                pending_progress_count > 0 and
+                (now - last_progress_update >= progress_update_interval)
+            )
+
+            if should_update and pending_progress_count > 0:
+                progress_tracker.update(bar_name, n=pending_progress_count)
+
+                # 减少 set_postfix 调用频率（每秒最多一次）
+                if force or (now - last_progress_update >= 1.0):
+                    elapsed = now - start_time
+                    throughput = completed_count / elapsed if elapsed > 0 else 0
+                    eta = progress_tracker.calculate_eta(bar_name)
+                    progress_tracker.set_postfix(
+                        bar_name,
+                        success=len(results),
+                        failed=len(errors),
+                        throughput=format_throughput(throughput, "run"),
+                        ETA=format_time(eta) if eta else "N/A"
+                    )
+
+                last_progress_update = now
+                pending_progress_count = 0
 
         try:
             if max_workers == 1:
@@ -141,17 +212,8 @@ class BatchProcessor:
                         elif on_error == 'raise':
                             raise
 
-                    # 更新进度
-                    if progress_tracker:
-                        progress_tracker.update(bar_name, n=1)
-                        elapsed = time.time() - start_time
-                        throughput = (i + 1) / elapsed if elapsed > 0 else 0
-                        progress_tracker.set_postfix(
-                            bar_name,
-                            success=len(results),
-                            failed=len(errors),
-                            throughput=format_throughput(throughput, "run")
-                        )
+                    pending_progress_count += 1
+                    _update_progress(i + 1, force=(i == len(run_ids) - 1))
             else:
                 # 并行处理
                 with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -171,46 +233,87 @@ class BatchProcessor:
                         for run_id in run_ids
                     }
 
-                    completed = 0
-                    for future in as_completed(future_to_run):
-                        # 检查取消
-                        if cancellation_token.is_cancelled():
-                            # 取消未完成的future
-                            for f in future_to_run:
-                                if not f.done():
+                    if jupyter_mode:
+                        # Jupyter 优化模式：使用 wait() 轮询避免 as_completed 阻塞
+                        pending = set(future_to_run.keys())
+                        completed = 0
+
+                        while pending:
+                            # 检查取消
+                            if cancellation_token.is_cancelled():
+                                for f in pending:
                                     f.cancel()
-                            self.logger.info(f"Processing cancelled. Processed {completed}/{len(run_ids)} runs.")
-                            break
+                                self.logger.info(
+                                    f"Processing cancelled. Processed {completed}/{len(run_ids)} runs."
+                                )
+                                break
 
-                        run_id = future_to_run[future]
-                        completed += 1
-
-                        try:
-                            data = future.result()
-                            results[run_id] = data
-                        except TaskCancelledException:
-                            self.logger.info(f"Task cancelled: {run_id}")
-                            break
-                        except Exception as e:
-                            errors[run_id] = e
-                            self.logger.error(f"Failed to process {run_id}: {e}")
-
-                            if on_error == 'raise':
-                                raise
-
-                        # 更新进度
-                        if progress_tracker:
-                            progress_tracker.update(bar_name, n=1)
-                            elapsed = time.time() - start_time
-                            throughput = completed / elapsed if elapsed > 0 else 0
-                            eta = progress_tracker.calculate_eta(bar_name)
-                            progress_tracker.set_postfix(
-                                bar_name,
-                                success=len(results),
-                                failed=len(errors),
-                                throughput=format_throughput(throughput, "run"),
-                                ETA=format_time(eta) if eta else "N/A"
+                            # 使用短超时轮询，保持响应性
+                            done, pending = wait(
+                                pending,
+                                timeout=0.1,  # 100ms 轮询间隔
+                                return_when=FIRST_COMPLETED
                             )
+
+                            for future in done:
+                                run_id = future_to_run[future]
+                                completed += 1
+
+                                try:
+                                    data = future.result(timeout=0)  # 已完成，立即返回
+                                    results[run_id] = data
+                                except TaskCancelledException:
+                                    self.logger.info(f"Task cancelled: {run_id}")
+                                    cancellation_token.cancel()
+                                    break
+                                except Exception as e:
+                                    errors[run_id] = e
+                                    self.logger.error(f"Failed to process {run_id}: {e}")
+                                    if on_error == 'raise':
+                                        raise
+
+                                pending_progress_count += 1
+
+                            # 批量进度更新
+                            _update_progress(completed)
+
+                        # 最终进度更新
+                        _update_progress(completed, force=True)
+
+                    else:
+                        # 标准模式：使用 as_completed（非 Jupyter 环境）
+                        completed = 0
+                        for future in as_completed(future_to_run):
+                            # 检查取消
+                            if cancellation_token.is_cancelled():
+                                for f in future_to_run:
+                                    if not f.done():
+                                        f.cancel()
+                                self.logger.info(
+                                    f"Processing cancelled. Processed {completed}/{len(run_ids)} runs."
+                                )
+                                break
+
+                            run_id = future_to_run[future]
+                            completed += 1
+
+                            try:
+                                data = future.result()
+                                results[run_id] = data
+                            except TaskCancelledException:
+                                self.logger.info(f"Task cancelled: {run_id}")
+                                break
+                            except Exception as e:
+                                errors[run_id] = e
+                                self.logger.error(f"Failed to process {run_id}: {e}")
+                                if on_error == 'raise':
+                                    raise
+
+                            pending_progress_count += 1
+                            _update_progress(completed)
+
+                        # 最终进度更新
+                        _update_progress(completed, force=True)
 
         except KeyboardInterrupt:
             # 捕获KeyboardInterrupt并转换为取消
@@ -218,15 +321,18 @@ class BatchProcessor:
             cancellation_token.cancel()
             raise
         finally:
+            # Jupyter 模式：完成进度显示
+            if use_simple_progress:
+                print(f"\rProcessing {data_name}: {len(results)}/{len(run_ids)} runs ✓")
+
             # 关闭进度条
             if progress_tracker and bar_name:
                 progress_tracker.close(bar_name)
             if owns_tracker and progress_tracker:
                 progress_tracker.close_all()
 
-            # 注销取消token
-            if owns_token:
-                cancel_manager = get_cancellation_manager()
+            # 注销取消token（仅在非 Jupyter 模式下注册过）
+            if owns_token and cancel_manager:
                 cancel_manager.unregister_token(cancellation_token)
 
         if errors and show_progress and not progress_tracker:
@@ -241,10 +347,12 @@ class BatchProcessor:
         func: Callable,
         max_workers: Optional[int] = None,
         show_progress: bool = True,
-        progress_tracker: Optional[Any] = None,  # 新增：进度追踪器
+        progress_tracker: Optional[Any] = None,
+        jupyter_mode: Optional[bool] = None,
+        progress_update_interval: float = 0.5,
     ) -> Dict[str, Any]:
         """
-        使用自定义函数批量处理
+        使用自定义函数批量处理 (优化版: 支持Jupyter环境)
 
         Args:
             run_ids: 运行ID列表
@@ -252,6 +360,8 @@ class BatchProcessor:
             max_workers: 最大并行工作进程数
             show_progress: 是否显示进度
             progress_tracker: 进度追踪器（可选）
+            jupyter_mode: Jupyter优化模式 (None=自动检测)
+            progress_update_interval: 进度更新最小间隔（秒）
 
         Returns:
             结果字典 {run_id: result}
@@ -260,18 +370,25 @@ class BatchProcessor:
             ProgressTracker, format_throughput, format_time
         )
 
+        # 自动检测 Jupyter 环境
+        if jupyter_mode is None:
+            jupyter_mode = is_notebook_environment()
+
         results = {}
         start_time = time.time()
 
         # 创建或使用progress_tracker
+        # 在 Jupyter 环境下，禁用 tqdm 进度条（会导致阻塞），改用简单输出
         owns_tracker = False
-        if progress_tracker is None and show_progress:
+        use_simple_progress = jupyter_mode and show_progress
+
+        if not jupyter_mode and progress_tracker is None and show_progress:
             progress_tracker = ProgressTracker()
             owns_tracker = True
 
-        # 创建主进度条
+        # 创建主进度条（仅非 Jupyter 模式）
         bar_name = None
-        if progress_tracker:
+        if progress_tracker and not jupyter_mode:
             bar_name = "batch_custom"
             progress_tracker.create_bar(
                 bar_name,
@@ -280,20 +397,58 @@ class BatchProcessor:
                 unit="run"
             )
 
+        # Jupyter 模式下的简单进度显示
+        if use_simple_progress:
+            print(f"Processing (custom): 0/{len(run_ids)} runs", end="", flush=True)
+
+        # 进度更新状态（用于批量更新）
+        last_progress_update = start_time
+        pending_progress_count = 0
+
+        def _update_progress(completed_count: int, force: bool = False):
+            """批量更新进度以减少锁争用"""
+            nonlocal last_progress_update, pending_progress_count
+
+            now = time.time()
+
+            # Jupyter 模式：简单输出
+            if use_simple_progress:
+                if force or (now - last_progress_update >= 0.5):
+                    print(f"\rProcessing (custom): {completed_count}/{len(run_ids)} runs", end="", flush=True)
+                    last_progress_update = now
+                return
+
+            # 标准模式：使用 ProgressTracker
+            if not progress_tracker or not bar_name:
+                return
+
+            should_update = force or (
+                pending_progress_count > 0 and
+                (now - last_progress_update >= progress_update_interval)
+            )
+
+            if should_update and pending_progress_count > 0:
+                progress_tracker.update(bar_name, n=pending_progress_count)
+
+                if force or (now - last_progress_update >= 1.0):
+                    elapsed = now - start_time
+                    throughput = completed_count / elapsed if elapsed > 0 else 0
+                    eta = progress_tracker.calculate_eta(bar_name)
+                    progress_tracker.set_postfix(
+                        bar_name,
+                        throughput=format_throughput(throughput, "run"),
+                        ETA=format_time(eta) if eta else "N/A"
+                    )
+
+                last_progress_update = now
+                pending_progress_count = 0
+
         try:
             if max_workers == 1:
                 for i, run_id in enumerate(run_ids):
                     results[run_id] = func(self.context, run_id)
-
-                    # 更新进度
-                    if progress_tracker:
-                        progress_tracker.update(bar_name, n=1)
-                        elapsed = time.time() - start_time
-                        throughput = (i + 1) / elapsed if elapsed > 0 else 0
-                        progress_tracker.set_postfix(
-                            bar_name,
-                            throughput=format_throughput(throughput, "run")
-                        )
+                    pending_progress_count += 1
+                    _update_progress(i + 1, force=(i == len(run_ids) - 1))
             else:
                 with ThreadPoolExecutor(max_workers=max_workers) as executor:
                     future_to_run = {
@@ -301,25 +456,44 @@ class BatchProcessor:
                         for run_id in run_ids
                     }
 
-                    completed = 0
-                    for future in as_completed(future_to_run):
-                        run_id = future_to_run[future]
-                        completed += 1
-                        results[run_id] = future.result()
+                    if jupyter_mode:
+                        # Jupyter 优化模式：使用 wait() 轮询
+                        pending = set(future_to_run.keys())
+                        completed = 0
 
-                        # 更新进度
-                        if progress_tracker:
-                            progress_tracker.update(bar_name, n=1)
-                            elapsed = time.time() - start_time
-                            throughput = completed / elapsed if elapsed > 0 else 0
-                            eta = progress_tracker.calculate_eta(bar_name)
-                            progress_tracker.set_postfix(
-                                bar_name,
-                                throughput=format_throughput(throughput, "run"),
-                                ETA=format_time(eta) if eta else "N/A"
+                        while pending:
+                            done, pending = wait(
+                                pending,
+                                timeout=0.1,
+                                return_when=FIRST_COMPLETED
                             )
 
+                            for future in done:
+                                run_id = future_to_run[future]
+                                completed += 1
+                                results[run_id] = future.result(timeout=0)
+                                pending_progress_count += 1
+
+                            _update_progress(completed)
+
+                        _update_progress(completed, force=True)
+                    else:
+                        # 标准模式：使用 as_completed
+                        completed = 0
+                        for future in as_completed(future_to_run):
+                            run_id = future_to_run[future]
+                            completed += 1
+                            results[run_id] = future.result()
+                            pending_progress_count += 1
+                            _update_progress(completed)
+
+                        _update_progress(completed, force=True)
+
         finally:
+            # Jupyter 模式：完成进度显示
+            if use_simple_progress:
+                print(f"\rProcessing (custom): {len(results)}/{len(run_ids)} runs ✓")
+
             # 关闭进度条
             if progress_tracker and bar_name:
                 progress_tracker.close(bar_name)

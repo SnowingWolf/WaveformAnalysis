@@ -87,7 +87,7 @@ class TestWaveformStruct:
         assert len(result[1]) == n_rows
 
     def test_get_event_length_even(self):
-        """测试偶数通道的配对长度"""
+        """测试偶数通道的事件长度（每个通道使用自己的长度）"""
         waveforms = [
             np.random.randn(100, 807),
             np.random.randn(80, 807),
@@ -98,15 +98,14 @@ class TestWaveformStruct:
         event_len = struct.get_event_length()
 
         assert len(event_len) == 4
-        # 第一对：min(100, 80) = 80
-        assert event_len[0] == 80
+        # 每个通道使用自己的实际长度（不再配对）
+        assert event_len[0] == 100
         assert event_len[1] == 80
-        # 第二对：min(90, 85) = 85
-        assert event_len[2] == 85
+        assert event_len[2] == 90
         assert event_len[3] == 85
 
     def test_get_event_length_odd(self):
-        """测试奇数通道的配对长度"""
+        """测试奇数通道的事件长度（每个通道使用自己的长度）"""
         waveforms = [
             np.random.randn(100, 807),
             np.random.randn(80, 807),
@@ -116,9 +115,10 @@ class TestWaveformStruct:
         event_len = struct.get_event_length()
 
         assert len(event_len) == 3
-        assert event_len[0] == 80
+        # 每个通道使用自己的实际长度
+        assert event_len[0] == 100
         assert event_len[1] == 80
-        assert event_len[2] == 90  # 最后一个保持原值
+        assert event_len[2] == 90
 
 
 class TestBuildWaveformDf:

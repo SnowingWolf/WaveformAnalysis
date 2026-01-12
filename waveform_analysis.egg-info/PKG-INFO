@@ -33,8 +33,12 @@ Requires-Dist: pytest-cov>=3.0.0; extra == "dev"
 Requires-Dist: black>=22.0.0; extra == "dev"
 Requires-Dist: flake8>=4.0.0; extra == "dev"
 Requires-Dist: mypy>=0.950; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
 Requires-Dist: ipython>=8.0.0; extra == "dev"
 Requires-Dist: jupyter>=1.0.0; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: sphinx>=4.0.0; extra == "docs"
 Requires-Dist: sphinx-rtd-theme>=1.0.0; extra == "docs"
+Requires-Dist: jinja2>=3.0.0; extra == "docs"
+Provides-Extra: docgen
+Requires-Dist: jinja2>=3.0.0; extra == "docgen"

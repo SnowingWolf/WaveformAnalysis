@@ -85,23 +85,58 @@ def build_lineage_graph(
     model = LineageGraphModel()
     plugins = plugins or {}
 
+    # 第一阶段：遍历收集所有节点和依赖关系
     visited = set()
     plugin_info = {}
-    plugin_depth = {}
+    dependencies = {}  # {node: [依赖的节点列表]}
 
-    def traverse(name, info, depth=0):
+    def traverse(name, info):
         if name in visited:
-            plugin_depth[name] = min(plugin_depth.get(name, depth), depth)
             return
         visited.add(name)
         info = info or {}
         plugin_info[name] = info
-        plugin_depth[name] = depth
         deps = info.get("depends_on", {}) or {}
+        dependencies[name] = list(deps.keys())
         for dep_name, dep_info in deps.items():
-            traverse(dep_name, dep_info, depth + 1)
+            traverse(dep_name, dep_info)
 
     traverse(target_name, lineage)
+
+    # 第二阶段：计算正确的 depth（从目标到源的最长路径）
+    # depth 表示从该节点到目标节点的最长路径长度
+    plugin_depth: Dict[str, int] = {target_name: 0}
+
+    # 构建反向依赖图：谁依赖这个节点
+    dependents = {name: [] for name in plugin_info}  # {node: [依赖它的节点列表]}
+    for node, deps in dependencies.items():
+        for dep in deps:
+            if dep in dependents:
+                dependents[dep].append(node)
+
+    # 使用迭代算法计算 depth，直到收敛
+    changed = True
+    while changed:
+        changed = False
+        for node in plugin_info:
+            if node == target_name:
+                continue
+            # depth = max(所有依赖它的节点的 depth) + 1
+            max_dep_depth = -1
+            for dependent in dependents[node]:
+                if dependent in plugin_depth:
+                    max_dep_depth = max(max_dep_depth, plugin_depth[dependent])
+            if max_dep_depth >= 0:
+                new_depth = max_dep_depth + 1
+                if node not in plugin_depth or plugin_depth[node] != new_depth:
+                    plugin_depth[node] = new_depth
+                    changed = True
+
+    # 对于没有被任何节点依赖的源节点，设置默认 depth
+    max_depth = max(plugin_depth.values()) if plugin_depth else 0
+    for node in plugin_info:
+        if node not in plugin_depth:
+            plugin_depth[node] = max_depth + 1
 
     # 1. 创建节点和端口
     for p, info in plugin_info.items():
@@ -116,7 +151,6 @@ def build_lineage_graph(
         )
 
         # 获取输入输出类型
-        from waveform_analysis.core.foundation.utils import get_plugin_dtypes
 
         in_dtype_str, out_dtype_str = get_plugin_dtypes(p, plugins)
 

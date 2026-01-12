@@ -10,7 +10,7 @@ Strax Plugin适配器 (Phase 2.3)
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Tuple, Type, Union
 
 import numpy as np
 

@@ -245,7 +245,7 @@ class TestPlugin:
             def compute(self, context, run_id):
                 return None
 
-        with pytest.raises(TypeError, match="dependency '123' must be a string"):
+        with pytest.raises(TypeError, match="dependency must be a string or tuple"):
             BadDependsPlugin().validate()
 
     def test_plugin_optional_methods(self):

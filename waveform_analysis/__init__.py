@@ -10,19 +10,19 @@ __version__ = "0.1.0"
 __author__ = "Your Name"
 
 from .core.dataset import WaveformDataset
-from .core.executor_config import EXECUTOR_CONFIGS, get_config, register_config
-from .core.executor_manager import (
+from .core.execution.config import EXECUTOR_CONFIGS, get_config, register_config
+from .core.execution.manager import (
     get_executor,
     get_executor_manager,
     parallel_apply,
     parallel_map,
 )
-from .core.streaming import (
+from .core.plugins.core.streaming import (
     StreamingContext,
     StreamingPlugin,
     get_streaming_context,
 )
-from .core.processor import (
+from .core.processing.processor import (
     WaveformStruct,
     build_waveform_df,
     group_multi_channel_hits,

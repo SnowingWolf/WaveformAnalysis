@@ -5,13 +5,14 @@
 这些插件演示了如何将现有处理逻辑转换为流式处理。
 """
 
-from typing import Any, Iterator
+from typing import Any
 
 import numpy as np
 
-from ...chunk_utils import Chunk, get_endtime
-from .streaming import StreamingPlugin
-from ...utils import exporter
+from waveform_analysis.core.foundation.constants import FeatureDefaults
+from waveform_analysis.core.foundation.utils import exporter
+from ...processing.chunk import Chunk, get_endtime
+from ..core.streaming import StreamingPlugin
 
 export, __all__ = exporter()
 
@@ -40,7 +41,7 @@ class StreamingStWaveformsPlugin(StreamingPlugin):
         Returns:
             结构化波形 chunk
         """
-        from .processor import WaveformStruct, RECORD_DTYPE
+        from .processor import WaveformStruct
         
         # 假设 chunk.data 是波形数组列表
         if isinstance(chunk.data, list):
@@ -91,18 +92,23 @@ class StreamingStWaveformsPlugin(StreamingPlugin):
 class StreamingBasicFeaturesPlugin(StreamingPlugin):
     """
     流式基础特征插件示例。
-    
+
     从结构化波形流计算峰值和电荷。
     """
-    
+
     provides = "basic_features_stream"
     depends_on = ["st_waveforms_stream"]
     description = "Stream basic features (peaks and charges) from structured waveforms"
-    
+
     def __init__(self):
+        """
+        初始化流式基础特征插件
+
+        设置默认的峰值和电荷计算范围。
+        """
         super().__init__()
-        self.peaks_range = (40, 90)
-        self.charge_range = (60, 400)
+        self.peaks_range = FeatureDefaults.PEAK_RANGE
+        self.charge_range = FeatureDefaults.CHARGE_RANGE
     
     def compute_chunk(self, chunk: Chunk, context: Any, run_id: str, **kwargs) -> Chunk:
         """
@@ -155,15 +161,20 @@ class StreamingBasicFeaturesPlugin(StreamingPlugin):
 class StreamingFilterPlugin(StreamingPlugin):
     """
     流式过滤插件示例。
-    
+
     根据条件过滤 chunk 中的数据。
     """
-    
+
     provides = "filtered_stream"
     depends_on = ["basic_features_stream"]
     description = "Filter chunks based on conditions"
-    
+
     def __init__(self):
+        """
+        初始化流式过滤插件
+
+        设置默认的电荷过滤范围（0 到正无穷）。
+        """
         super().__init__()
         self.min_charge = 0.0
         self.max_charge = np.inf

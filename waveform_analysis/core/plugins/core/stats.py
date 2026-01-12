@@ -481,7 +481,7 @@ class PluginStatsCollector:
             lines.append(f"  Success rate: {stats.success_rate():.1%}")
             lines.append(f"  Failed calls: {stats.failed_calls}")
             lines.append("")
-            lines.append(f"  Time statistics:")
+            lines.append("  Time statistics:")
             lines.append(f"    Total: {stats.total_time:.2f}s")
             lines.append(f"    Mean:  {stats.mean_time:.3f}s")
             lines.append(f"    Min:   {stats.min_time:.3f}s")
@@ -489,7 +489,7 @@ class PluginStatsCollector:
 
             if self.mode == 'detailed':
                 lines.append("")
-                lines.append(f"  Memory statistics:")
+                lines.append("  Memory statistics:")
                 lines.append(f"    Peak: {stats.peak_memory_mb:.2f} MB")
                 lines.append(f"    Avg:  {stats.avg_memory_mb:.2f} MB")
 

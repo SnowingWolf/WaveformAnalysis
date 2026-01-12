@@ -42,12 +42,17 @@ dev = [
     "black>=22.0.0",
     "flake8>=4.0.0",
     "mypy>=0.950",
+    "ruff>=0.1.0",
     "ipython>=8.0.0",
     "jupyter>=1.0.0",
 ]
 docs = [
     "sphinx>=4.0.0",
     "sphinx-rtd-theme>=1.0.0",
+    "jinja2>=3.0.0",
+]
+docgen = [
+    "jinja2>=3.0.0",
 ]
 
 [project.urls]
@@ -58,6 +63,7 @@ Repository = "https://github.com/yourusername/waveform-analysis.git"
 
 [project.scripts]
 waveform-process = "waveform_analysis.cli:main"
+waveform-docs = "waveform_analysis.utils.cli_docs:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -81,3 +87,41 @@ python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    "*.egg-info",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade (自动升级语法，但会保持 Python 3.8 兼容)
+]
+ignore = [
+    "E501",  # line too long (handled by black)
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["waveform_analysis"]
+force-sort-within-sections = true
+force-wrap-aliases = true
+split-on-trailing-comma = true
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true  # 保持 Union[str, Path] 而不是 str | Path (Python 3.8 兼容)
