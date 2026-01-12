@@ -1,6 +1,12 @@
+**导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [数据处理](README.md) > 流式处理
+
+---
+
 # 流式处理框架指南
 
 本文档介绍如何使用流式处理框架，将 Chunk、Plugin 和 ExecutorManager 结合起来，实现类似 strax 的流式数据处理。
+
+---
 
 ## 概述
 

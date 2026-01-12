@@ -1,6 +1,12 @@
+**导航**: [文档中心](../README.md) > [架构设计](README.md) > 工作流程
+
+---
+
 # Context 和 Processor 数据处理流程演示
 
 本文档详细介绍如何使用 `Context` 和 `Processor` 进行波形数据的完整处理流程。
+
+---
 
 ## 目录
 

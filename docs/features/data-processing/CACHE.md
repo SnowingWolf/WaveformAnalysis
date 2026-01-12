@@ -1,6 +1,12 @@
+**导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [数据处理](README.md) > 缓存系统
+
+---
+
 # 缓存与 Lineage 系统
 
 本项目采用基于 **Lineage Hashing** 和 **numpy.memmap** 的高性能缓存系统。
+
+---
 
 ## 核心机制
 

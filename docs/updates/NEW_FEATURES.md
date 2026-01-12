@@ -1,6 +1,12 @@
+**导航**: [文档中心](../README.md) > [更新记录](README.md) > 新功能文档
+
+---
+
 # 新功能文档 (Phase 2 & 3)
 
 本文档描述WaveformAnalysis框架Phase 2和Phase 3新增的高级功能。
+
+---
 
 ## 目录
 

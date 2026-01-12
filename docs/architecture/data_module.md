@@ -1,6 +1,12 @@
+**导航**: [文档中心](../README.md) > [架构设计](README.md) > 数据模块
+
+---
+
 # data.py 使用、扩展与性能提示
 
 本文件说明 `data.py` 中的主要组件、使用流程与性能优化要点。
+
+---
 
 ## 模块组件
 - **WaveformStruct**：把原始波形数组结构化为包含 `baseline / timestamp / wave` 的记录，并给出每通道的配对长度。

@@ -1,3 +1,7 @@
+**导航**: [文档中心](../README.md) > [架构设计](README.md) > 架构设计文档
+
+---
+
 # WaveformAnalysis 架构设计文档
 
 本文档详细说明了 `WaveformAnalysis` 工具包的规范化架构设计、核心模式以及数据流向。

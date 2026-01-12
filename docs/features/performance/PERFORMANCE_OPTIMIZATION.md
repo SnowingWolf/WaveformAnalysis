@@ -1,8 +1,14 @@
+**导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [性能优化](README.md) > 性能优化指南
+
+---
+
 # Grouped Events 性能优化指南
 
 ## 优化概述
 
 `group_multi_channel_hits` 函数已经过优化，主要改进包括：
+
+---
 
 ### 1. Numba JIT 编译加速（可选）
 

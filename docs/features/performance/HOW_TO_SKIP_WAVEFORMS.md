@@ -1,8 +1,14 @@
+**导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [性能优化](README.md) > 跳过波形加载
+
+---
+
 # 回答：如何选择不加载原始的波形？
 
 ## 简短答案
 
 使用 `load_waveforms=False` 参数：
+
+---
 
 ```python
 dataset = WaveformDataset(
