@@ -60,6 +60,15 @@ from .core import (
 )
 
 # 从 builtin 子模块导出内置插件
+# #region agent log
+import json
+import os
+_log_path = "/mnt/data/Run3/.cursor/debug.log"
+try:
+    with open(_log_path, "a") as f:
+        f.write(json.dumps({"sessionId": "debug-session", "runId": "post-fix", "hypothesisId": "A", "location": "plugins/__init__.py:63", "message": "Attempting to import from builtin", "data": {"importing_from": "builtin"}, "timestamp": __import__("time").time() * 1000}) + "\n")
+except: pass
+# #endregion
 from .builtin import (
     # 标准插件
     RawFilesPlugin,
@@ -72,11 +81,21 @@ from .builtin import (
     DataFramePlugin,
     GroupedEventsPlugin,
     PairedEventsPlugin,
+    # 信号处理插件
+    FilteredWaveformsPlugin,
+    SignalPeaksPlugin,
     # 流式插件示例
     StreamingStWaveformsPlugin,
     StreamingBasicFeaturesPlugin,
     StreamingFilterPlugin,
 )
+# #region agent log
+try:
+    _available_plugins = [name for name in dir() if name.endswith("Plugin")]
+    with open(_log_path, "a") as f:
+        f.write(json.dumps({"sessionId": "debug-session", "runId": "post-fix", "hypothesisId": "B", "location": "plugins/__init__.py:81", "message": "Available plugins after builtin import", "data": {"available_plugins": _available_plugins, "has_FilterPlugin": "FilterPlugin" in dir(), "has_FilteredWaveformsPlugin": "FilteredWaveformsPlugin" in dir()}, "timestamp": __import__("time").time() * 1000}) + "\n")
+except: pass
+# #endregion
 
 __all__ = [
     # 插件基类
@@ -117,6 +136,9 @@ __all__ = [
     "DataFramePlugin",
     "GroupedEventsPlugin",
     "PairedEventsPlugin",
+    # 信号处理插件
+    "FilteredWaveformsPlugin",
+    "SignalPeaksPlugin",
     # 流式插件示例
     "StreamingStWaveformsPlugin",
     "StreamingBasicFeaturesPlugin",

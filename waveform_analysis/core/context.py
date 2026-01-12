@@ -255,7 +255,7 @@ class Context(CacheMixin, PluginMixin):
             >>>
             >>> ctx = Context(storage_dir="./strax_data")
             >>>
-            >>> # 方式1: 注册插件实例
+            >>> # 方式1: 注册插件实例   
             >>> ctx.register(RawFilesPlugin())
             >>>
             >>> # 方式2: 注册插件类（会自动实例化）

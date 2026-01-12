@@ -2,7 +2,7 @@
 
 ---
 
-# CSV 表头处理说明
+# VX2730 CSV 表头处理说明
 
 ## 概述
 
@@ -181,7 +181,7 @@ v;1;3000;30;31;32;...
 
 ## 测试
 
-完整的测试用例位于 `tests/test_csv_header_handling.py`，包括：
+完整的测试用例位于 `tests/test_DAQ_CSV_HEADER_HANDLING.py`，包括：
 
 - ✅ 混合表头文件的正确解析
 - ✅ 单个文件（带表头）的处理
@@ -193,7 +193,7 @@ v;1;3000;30;31;32;...
 运行测试：
 
 ```bash
-pytest tests/test_csv_header_handling.py -v
+pytest tests/test_DAQ_CSV_HEADER_HANDLING.py -v
 ```
 
 ## 兼容性
@@ -212,7 +212,7 @@ pytest tests/test_csv_header_handling.py -v
 ## 相关文件
 
 - `waveform_analysis/utils/io.py` - 核心实现
-- `tests/test_csv_header_handling.py` - 测试用例
+- `tests/test_DAQ_CSV_HEADER_HANDLING.py` - 测试用例
 - `waveform_analysis/core/loader.py` - 文件加载器（使用上述函数）
 
 ## 更新历史

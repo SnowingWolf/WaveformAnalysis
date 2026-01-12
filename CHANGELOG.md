@@ -130,8 +130,8 @@
   - 现在只有每个通道的第一个文件会跳过表头行（`skiprows`）
   - 后续文件不再跳过任何行（`skiprows=0`），因为它们不包含表头
   - 影响函数：`parse_and_stack_files` 和 `parse_files_generator`
-  - 相关文档：`docs/CSV_HEADER_HANDLING.md`
-  - 测试：`tests/test_csv_header_handling.py`
+  - 相关文档：`docs/DAQ_CSV_HEADER_HANDLING.md`
+  - 测试：`tests/test_DAQ_CSV_HEADER_HANDLING.py`
 
 ### 性能改进
 - **时间查询**: 从O(n)线性扫描优化到O(log n)二分查找
