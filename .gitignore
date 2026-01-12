@@ -67,6 +67,9 @@ test-results/
 test_output/
 junit/
 
+# Deprecated code and documentation
+deprecated/
+
 # ================================
 # Type Checking
 # ================================
