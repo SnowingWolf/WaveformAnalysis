@@ -34,3 +34,4 @@ _side_effects/
 .idea/git commit -m "Stop tracking .pyc files"
 .DS_Store
 .vscode/PythonImportHelper-v2-Completion.json
+.claude/ cat .gitignore
