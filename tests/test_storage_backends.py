@@ -234,7 +234,7 @@ class TestContextWithCustomStorage:
         db_path = tmp_path / "test.db"
         storage = SQLiteBackend(str(db_path))
         ctx = Context(storage=storage)
-        ctx.register_plugin(SimplePlugin())
+        ctx.register_plugin_(SimplePlugin())
 
         data = ctx.get_data("run_001", "test_data")
         np.testing.assert_array_equal(data, np.array([1, 2, 3, 4, 5]))

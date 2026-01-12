@@ -162,12 +162,23 @@ ctx.show_config('plugin_name')
    - Automatic dependency resolution with cycle detection
    - Lineage-based caching with SHA1 hashing of plugin code, version, config, dtype
 
-2. **Plugin System** (`core/plugins/core/base.py`, `core/plugins/builtin/standard.py`)
+2. **Plugin System** (`core/plugins/`)
    - **Modular**: Core infrastructure (`plugins/core/`) 与内置插件（`plugins/builtin/`）分离
+   - **Accelerator-based Architecture** (since 2026-01): 按加速器划分插件
+     - `builtin/cpu/`: CPU 实现（NumPy/SciPy/Numba）
+     - `builtin/jax/`: JAX GPU 实现（待开发）
+     - `builtin/streaming/`: 流式处理插件（待开发）
+     - `builtin/legacy/`: 向后兼容层（弃用警告）
    - Each plugin declares: `provides`, `depends_on`, `options`, `version`, `dtype`
    - `compute()` returns ndarray or generator
    - `is_side_effect=True` isolates outputs to `_side_effects/{run_id}/{plugin_name}`
-   - Standard plugins: RawFiles → Waveforms → StWaveforms → EventLength → Features → DataFrame → GroupedEvents → PairedEvents
+   - **CPU Standard Plugins**:
+     - Data processing: RawFiles → Waveforms → StWaveforms → Features → DataFrame → GroupedEvents → PairedEvents
+     - Signal processing: FilteredWaveforms (Butterworth/Savitzky-Golay), SignalPeaks (scipy.signal)
+   - **Plugin Organization**:
+     - `cpu/standard.py`: 10个标准数据处理插件
+     - `cpu/filtering.py`: FilteredWaveformsPlugin
+     - `cpu/peak_finding.py`: SignalPeaksPlugin
 
 3. **Storage Layer** (`core/storage/`)
    - `MemmapStorage` (`storage/memmap.py`): Zero-copy array persistence with atomic writes (`.tmp` → rename)
@@ -302,6 +313,83 @@ MY_CONST = export(42, name="MY_CONST")
 - **Vectorization**: Prefer NumPy broadcasting over explicit loops
 - **IO parallelization**: Use `ExecutorManager` with `io_intensive` config
 - **CPU parallelization**: Use `ExecutorManager` with `cpu_intensive` config
+
+## Plugin Architecture and Import Guide
+
+### Accelerator-Based Plugin Organization (Since 2026-01)
+
+插件按照计算加速器类型组织，支持 CPU、JAX（GPU）和流式处理：
+
+```
+builtin/
+├── cpu/              # CPU 实现 (NumPy/SciPy/Numba)
+│   ├── standard.py   # 标准数据处理插件
+│   ├── filtering.py  # 滤波插件
+│   └── peak_finding.py # 寻峰插件
+├── jax/              # JAX GPU 实现（待开发）
+├── streaming/        # 流式处理插件（待开发）
+└── legacy/           # 向后兼容（弃用）
+```
+
+### Plugin Import Methods
+
+```python
+# 方法 1: 从 cpu/ 直接导入（推荐，明确指定加速器）
+from waveform_analysis.core.plugins.builtin.cpu import (
+    RawFilesPlugin,
+    WaveformsPlugin,
+    FilteredWaveformsPlugin,
+    SignalPeaksPlugin,
+)
+
+# 方法 2: 从 builtin/ 导入（向后兼容，默认使用 CPU 实现）
+from waveform_analysis.core.plugins.builtin import (
+    RawFilesPlugin,
+    WaveformsPlugin,
+    FilteredWaveformsPlugin,
+    SignalPeaksPlugin,
+)
+
+# 方法 3: 从 legacy/ 导入（不推荐，会发出弃用警告）
+from waveform_analysis.core.plugins.builtin.legacy import RawFilesPlugin
+# DeprecationWarning: RawFilesPlugin 已被弃用，将在下一个主版本中移除...
+```
+
+### Available CPU Plugins
+
+#### 标准数据处理插件 (`cpu/standard.py`)
+- `RawFilesPlugin`: 扫描和分组原始 CSV 文件
+- `WaveformsPlugin`: 提取波形数据
+- `StWaveformsPlugin`: 结构化波形数组
+- `HitFinderPlugin`: 检测 Hit 事件
+- `BasicFeaturesPlugin`: 计算基础特征
+- `PeaksPlugin`: 峰值特征提取
+- `ChargesPlugin`: 电荷积分
+- `DataFramePlugin`: 构建 DataFrame
+- `GroupedEventsPlugin`: 时间窗口分组（支持 Numba 加速）
+- `PairedEventsPlugin`: 跨通道事件配对
+
+#### 信号处理插件
+- `FilteredWaveformsPlugin` (`cpu/filtering.py`): 波形滤波
+  - Butterworth 带通滤波器
+  - Savitzky-Golay 滤波器
+- `SignalPeaksPlugin` (`cpu/peak_finding.py`): 高级峰值检测
+  - 基于 scipy.signal.find_peaks
+  - 支持导数检测、高度、距离、显著性等参数
+  - 返回 `ADVANCED_PEAK_DTYPE` 结构化数组
+
+### Migration Guide from Legacy Plugins
+
+如果你的代码使用了旧的导入方式，建议迁移到新架构：
+
+```python
+# 旧方式（会发出警告）
+from waveform_analysis.core.plugins.builtin.standard import RawFilesPlugin
+from waveform_analysis.core.plugins.builtin.signal_processing import FilteredWaveformsPlugin
+
+# 新方式（推荐）
+from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin, FilteredWaveformsPlugin
+```
 
 ## Common Patterns
 
@@ -602,7 +690,22 @@ ctx.plot_lineage("df_paired", kind="plotly", style=style)
   - `context.py`, `dataset.py`: Core files (root level)
   - `storage/`: Storage layer (memmap, backends, cache, compression, integrity)
   - `execution/`: Execution layer (manager, config, timeout)
-  - `plugins/`: Plugin system (core/ infrastructure, builtin/ plugins)
+  - `plugins/`: Plugin system (按加速器划分架构，since 2026-01)
+    - `core/`: Plugin infrastructure (base, streaming, adapters, hot_reload, etc.)
+    - `builtin/`: Built-in plugins organized by accelerator
+      - `cpu/`: CPU implementations (NumPy/SciPy/Numba)
+        - `standard.py`: 10 standard data processing plugins
+        - `filtering.py`: FilteredWaveformsPlugin (Butterworth, Savitzky-Golay)
+        - `peak_finding.py`: SignalPeaksPlugin (scipy.signal.find_peaks)
+      - `jax/`: JAX GPU implementations (待开发 - Phase 2)
+      - `streaming/`: Streaming plugins (待开发 - Phase 3)
+        - `cpu/`: CPU streaming plugins
+        - `jax/`: JAX streaming plugins
+      - `legacy/`: Deprecated plugins for backward compatibility
+        - `__init__.py`: Lazy import with deprecation warnings
+        - `standard.py`: Original standard plugins
+        - `signal_processing.py`: Original signal processing plugins
+      - `streaming_examples.py`: Streaming plugin examples (待迁移)
   - `processing/`: Data processing (loader, processor, analyzer, chunk)
   - `data/`: Data management (query, export)
   - `foundation/`: Framework basics (exceptions, mixins, model, utils, progress)

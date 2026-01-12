@@ -44,10 +44,23 @@ waveform-analysis/
 │   │   │   │   ├── stats.py       # 插件性能统计
 │   │   │   │   ├── hot_reload.py  # 插件热重载
 │   │   │   │   └── adapters.py    # Strax 插件适配器
-│   │   │   └── builtin/           # 内置插件（2个文件）
-│   │   │       ├── __init__.py
-│   │   │       ├── standard.py    # 标准插件：RawFiles, Waveforms, Features 等
-│   │   │       └── streaming_examples.py  # 流式插件示例
+│   │   │   └── builtin/           # 内置插件（按加速器划分，since 2026-01）
+│   │   │       ├── __init__.py    # 统一导出（从 cpu/ 导入）
+│   │   │       ├── cpu/           # CPU 实现
+│   │   │       │   ├── __init__.py
+│   │   │       │   ├── standard.py          # 10个标准插件
+│   │   │       │   ├── filtering.py         # FilteredWaveformsPlugin
+│   │   │       │   └── peak_finding.py      # SignalPeaksPlugin
+│   │   │       ├── jax/           # JAX GPU 实现（待开发）
+│   │   │       │   └── __init__.py
+│   │   │       ├── streaming/     # 流式插件（待开发）
+│   │   │       │   ├── cpu/
+│   │   │       │   └── jax/
+│   │   │       ├── legacy/        # 向后兼容层（弃用警告）
+│   │   │       │   ├── __init__.py          # 延迟导入 + 弃用警告
+│   │   │       │   ├── standard.py          # 原始标准插件
+│   │   │       │   └── signal_processing.py # 原始信号处理插件
+│   │   │       └── streaming_examples.py    # 流式插件示例
 │   │   │
 │   │   ├── processing/            # 数据处理（4个文件）
 │   │   │   ├── __init__.py
@@ -177,12 +190,64 @@ waveform-analysis/
 - **`hot_reload.py`**: 插件热重载 `PluginHotReloader`
 - **`adapters.py`**: Strax 插件适配器 `StraxPluginAdapter`
 
-**`plugins/builtin/`** - 内置插件（2个文件）：
-- **`standard.py`**: 标准数据处理插件
-  - `RawFilesPlugin`, `WaveformsPlugin`, `StWaveformsPlugin`
-  - `BasicFeaturesPlugin`, `DataFramePlugin`
-  - `GroupedEventsPlugin`, `PairedEventsPlugin`
-- **`streaming_examples.py`**: 流式处理插件示例
+**`plugins/builtin/`** - 内置插件（按加速器划分架构，since 2026-01）：
+
+**按加速器组织的插件结构**：
+```
+builtin/
+├── cpu/                      # CPU 实现 (NumPy/SciPy/Numba)
+│   ├── __init__.py           # 导出所有 CPU 插件
+│   ├── standard.py           # 10个标准数据处理插件
+│   ├── filtering.py          # FilteredWaveformsPlugin (Butterworth, Savitzky-Golay)
+│   └── peak_finding.py       # SignalPeaksPlugin (scipy.signal.find_peaks)
+├── jax/                      # JAX GPU 实现（待开发 - Phase 2）
+│   ├── __init__.py
+│   ├── filtering.py          # JAX 滤波插件（待实现）
+│   └── peak_finding.py       # JAX 寻峰插件（待实现）
+├── streaming/                # 流式处理插件（待开发 - Phase 3）
+│   ├── cpu/                  # CPU 流式插件
+│   └── jax/                  # JAX 流式插件
+├── legacy/                   # 向后兼容层（弃用警告）
+│   ├── __init__.py           # 延迟导入 + 弃用警告
+│   ├── standard.py           # 原始标准插件
+│   └── signal_processing.py  # 原始信号处理插件
+└── streaming_examples.py     # 流式插件示例（待迁移）
+```
+
+**CPU 标准数据处理插件** (`cpu/standard.py`):
+- `RawFilesPlugin`: 扫描和分组原始 CSV 文件
+- `WaveformsPlugin`: 提取波形数据
+- `StWaveformsPlugin`: 结构化波形数组
+- `HitFinderPlugin`: 检测 Hit 事件
+- `BasicFeaturesPlugin`: 计算基础特征（峰值和电荷）
+- `PeaksPlugin`: 峰值特征提取
+- `ChargesPlugin`: 电荷积分
+- `DataFramePlugin`: 构建 DataFrame
+- `GroupedEventsPlugin`: 时间窗口分组（支持 Numba 加速）
+- `PairedEventsPlugin`: 跨通道事件配对
+
+**CPU 信号处理插件**:
+- **FilteredWaveformsPlugin** (`cpu/filtering.py`): 波形滤波
+  - Butterworth 带通滤波器
+  - Savitzky-Golay 滤波器
+- **SignalPeaksPlugin** (`cpu/peak_finding.py`): 高级峰值检测
+  - 基于 scipy.signal.find_peaks
+  - 支持导数检测、高度、距离、显著性等参数
+  - 返回 ADVANCED_PEAK_DTYPE 结构化数组
+
+**导入方式**:
+```python
+# 推荐：从 cpu/ 直接导入（明确指定加速器）
+from waveform_analysis.core.plugins.builtin.cpu import (
+    RawFilesPlugin, FilteredWaveformsPlugin, SignalPeaksPlugin
+)
+
+# 向后兼容：从 builtin/ 导入（默认使用 CPU 实现）
+from waveform_analysis.core.plugins.builtin import RawFilesPlugin
+
+# 不推荐：从 legacy/ 导入（会发出弃用警告）
+from waveform_analysis.core.plugins.builtin.legacy import RawFilesPlugin
+```
 
 #### `processing/` - 数据处理（4个文件）
 

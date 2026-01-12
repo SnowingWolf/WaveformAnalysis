@@ -1,37 +1,331 @@
+# ================================
+# Python
+# ================================
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 *.pyc
+*.pyo
+*.pyd
 
-# C++ build artifacts
-*.o
+# C extensions
 *.so
+*.o
+
+# Distribution / packaging
+.Python
 build/
-bin/
-
-# Environments
-.venv/
-env/
-venv/
-ENV/
-.pytest_cache/
-htmlcov/
+develop-eggs/
 dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Data and logs
+# PyInstaller
+*.manifest
+*.spec
+
+# ================================
+# Virtual Environments
+# ================================
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.conda/
+
+# ================================
+# Testing and Coverage
+# ================================
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+*.cover
 *.log
+nosetests.xml
+test-results/
+test_output/
+junit/
+
+# ================================
+# Type Checking
+# ================================
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# ================================
+# Linting and Formatting
+# ================================
+.ruff_cache/
+.pylint.d/
+.black.cache/
+
+# ================================
+# IDEs and Editors
+# ================================
+# VSCode
+.vscode/
+.vscode/*
+!.vscode/settings.json.template
+!.vscode/extensions.json.template
+*.code-workspace
+.vscode/PythonImportHelper-v2-Completion.json
+
+# PyCharm / IntelliJ
+.idea/
+*.iml
+*.iws
+.idea_modules/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.vim/
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Spyder
+.spyderproject
+.spyproject
+
+# ================================
+# Jupyter Notebooks
+# ================================
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+*.ipynb_checkpoints
+
+# Jupyter NB Checkpoints
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# ================================
+# Data Files (Project Specific)
+# ================================
+# DAQ data directory
+DAQ/
+data/
+raw_data/
+
+# Output directories
+outputs/
+output/
+results/
+plots/
+figures/
+
+# Strax data and cache
+strax_data/
+_side_effects/
+.strax_cache/
+
+# Large data files
 *.root
 *.h5
+*.hdf5
 *.dat
-DAQ/
-outputs/
-_side_effects/
+*.bin
+*.csv
+!examples/**/*.csv
+!tests/fixtures/**/*.csv
 
-# IDEs and OS
-.vscode/
-.idea/git commit -m "Stop tracking .pyc files"
+# Temporary data
+*.tmp
+*.temp
+*.bak
+
+# ================================
+# Documentation
+# ================================
+# Sphinx documentation
+docs/_build/
+docs/_static/
+docs/_templates/
+docs/build/
+docs/source/generated/
+
+# Auto-generated API docs
+docs/api_reference.html
+docs/api_reference.md
+test_docs/
+test_docs_cli/
+
+# Documentation backups
+docs.backup*/
+*.backup/
+
+# ================================
+# Claude AI Assistant
+# ================================
+.claude/
+claude_output/
+
+# ================================
+# Build and Installation
+# ================================
+bin/
+target/
+*.egg-info
+.installed.cfg
+install.log
+
+# ================================
+# Profiling and Performance
+# ================================
+*.prof
+*.lprof
+*.pstats
+
+# ================================
+# OS Specific
+# ================================
+# macOS
 .DS_Store
-.vscode/PythonImportHelper-v2-Completion.json
-.claude/ cat .gitignore
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ================================
+# Temporary and Cache Files
+# ================================
+*.log
+*.lock
+.cache/
+cache/
+tmp/
+temp/
+*.tmp
+
+# ================================
+# Git and Version Control
+# ================================
+# GitHub specific (if you want to track .github/ remove this line)
+.github/
+
+# ================================
+# Project Specific
+# ================================
+# Benchmark results
+benchmark_results/
+benchmarks/results/
+
+# Temporary scripts
+scratch/
+sandbox/
+test_*.py
+debug_*.py
+!tests/test_*.py
+
+# Old and backup files
+*.old
+*.orig
+*.save
+~*
+
+# Compiled documentation
+*.pdf
+!docs/**/*.pdf
+
+# Large output files
+*.png
+*.jpg
+*.jpeg
+!docs/**/*.png
+!docs/**/*.jpg
+!examples/**/*.png
+
+# NFS temporary files
+.nfs*
+
+# Tasks and todos (personal)
+tasks.md
+TODO.md
+NOTES.md
+
+# Environment variables (if containing secrets)
+.env
+.env.local
+.env.*.local
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+!tests/fixtures/**/*.sqlite3
+
+# ================================
+# Miscellaneous
+# ================================
+# Backup files created by various editors
+*~
+*.swp
+*.swo
+*.swn
+
+# Package manager lock files (uncomment if you want to ignore them)
+# poetry.lock
+# Pipfile.lock
+
+# Ignore specific test outputs
+usage.ipynb
+docstring_report.txt
+debug_*.py
+
+# Ignore old implementation plans and summaries
+*_COMPLETE.md
+*_SUMMARY.md
+*_IMPROVEMENT_PLAN.md
+*_STATUS_AND_RECOMMENDATIONS.md
+LOAD_BALANCER_INTEGRATION_SUMMARY.md
+HELP_SYSTEM_*.md
+DOCS_*.md
+IMPLEMENTATION_COMPLETE.md
+UPDATE_SUMMARY.md

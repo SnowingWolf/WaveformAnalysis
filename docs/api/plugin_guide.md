@@ -5,8 +5,91 @@
 # 插件开发指南
 
 > 自动生成于 2026-01-11 19:23:26
+> **更新**: 2026-01-12 - 添加按加速器划分的插件架构说明
 
 本指南介绍如何开发自定义插件。
+
+---
+
+## 插件架构概览
+
+### 按加速器划分的插件组织（Since 2026-01）
+
+WaveformAnalysis 采用按计算加速器类型组织插件的架构，便于在不同硬件平台上优化性能：
+
+```
+waveform_analysis/core/plugins/builtin/
+├── cpu/              # CPU 实现 (NumPy/SciPy/Numba)
+│   ├── standard.py   # 标准数据处理插件（10个）
+│   ├── filtering.py  # FilteredWaveformsPlugin
+│   └── peak_finding.py # SignalPeaksPlugin
+├── jax/              # JAX GPU 实现（待开发）
+│   ├── filtering.py  # JAX 滤波插件
+│   └── peak_finding.py # JAX 寻峰插件
+├── streaming/        # 流式处理插件（待开发）
+│   ├── cpu/
+│   └── jax/
+└── legacy/           # 向后兼容层（弃用）
+```
+
+### 导入插件的三种方式
+
+```python
+# 方法 1: 从 cpu/ 直接导入（推荐，明确指定加速器）
+from waveform_analysis.core.plugins.builtin.cpu import (
+    RawFilesPlugin,
+    FilteredWaveformsPlugin,
+    SignalPeaksPlugin,
+)
+
+# 方法 2: 从 builtin/ 导入（向后兼容，默认使用 CPU 实现）
+from waveform_analysis.core.plugins.builtin import (
+    RawFilesPlugin,
+    FilteredWaveformsPlugin,
+)
+
+# 方法 3: 从 legacy/ 导入（不推荐，会发出弃用警告）
+from waveform_analysis.core.plugins.builtin.legacy import RawFilesPlugin
+# DeprecationWarning: RawFilesPlugin 已被弃用，将在下一个主版本中移除...
+```
+
+### 可用的 CPU 插件
+
+#### 标准数据处理插件 (`cpu/standard.py`)
+- `RawFilesPlugin`: 扫描和分组原始 CSV 文件
+- `WaveformsPlugin`: 提取波形数据
+- `StWaveformsPlugin`: 结构化波形数组
+- `HitFinderPlugin`: 检测 Hit 事件
+- `BasicFeaturesPlugin`: 计算基础特征
+- `PeaksPlugin`: 峰值特征提取
+- `ChargesPlugin`: 电荷积分
+- `DataFramePlugin`: 构建 DataFrame
+- `GroupedEventsPlugin`: 时间窗口分组（支持 Numba 加速）
+- `PairedEventsPlugin`: 跨通道事件配对
+
+#### 信号处理插件
+- `FilteredWaveformsPlugin` (`cpu/filtering.py`): 波形滤波
+  - Butterworth 带通滤波器
+  - Savitzky-Golay 滤波器
+- `SignalPeaksPlugin` (`cpu/peak_finding.py`): 高级峰值检测
+  - 基于 scipy.signal.find_peaks
+  - 支持导数检测、高度、距离、显著性等参数
+
+### 迁移指南
+
+如果你的代码使用旧的导入方式，建议迁移到新架构：
+
+```python
+# 旧方式（会发出弃用警告）
+from waveform_analysis.core.plugins.builtin.standard import RawFilesPlugin
+from waveform_analysis.core.plugins.builtin.signal_processing import FilteredWaveformsPlugin
+
+# 新方式（推荐）
+from waveform_analysis.core.plugins.builtin.cpu import (
+    RawFilesPlugin,
+    FilteredWaveformsPlugin,
+)
+```
 
 ---
 

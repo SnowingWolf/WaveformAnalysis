@@ -4,16 +4,62 @@
 
 # 信号处理插件文档
 
+> **更新**: 2026-01-12 - 插件架构重构，按加速器划分
+
 ## 概述
 
-WaveformAnalysis 新增了两个信号处理插件，用于波形滤波和高级峰值检测：
+WaveformAnalysis 提供了两个信号处理插件，用于波形滤波和高级峰值检测：
 
 1. **FilteredWaveformsPlugin** - 波形滤波插件
 2. **SignalPeaksPlugin** - 基于滤波波形的峰值检测插件
 
 这些插件提供了比标准插件更灵活的信号处理功能，特别适合需要精细控制滤波参数和峰值检测的场景。
 
----
+## 架构变化 (2026-01)
+
+### 新的插件位置
+
+信号处理插件已从扁平结构迁移到按加速器划分的架构：
+
+**之前**:
+```python
+from waveform_analysis.core.plugins.builtin.signal_processing import (
+    FilteredWaveformsPlugin,
+    SignalPeaksPlugin,
+)
+```
+
+**现在（推荐）**:
+```python
+# CPU 实现（推荐，明确指定加速器）
+from waveform_analysis.core.plugins.builtin.cpu import (
+    FilteredWaveformsPlugin,
+    SignalPeaksPlugin,
+)
+
+# 或者从 builtin/ 导入（向后兼容）
+from waveform_analysis.core.plugins.builtin import (
+    FilteredWaveformsPlugin,
+    SignalPeaksPlugin,
+)
+```
+
+### 文件位置
+
+- **CPU 实现**:
+  - `waveform_analysis/core/plugins/builtin/cpu/filtering.py` - FilteredWaveformsPlugin
+  - `waveform_analysis/core/plugins/builtin/cpu/peak_finding.py` - SignalPeaksPlugin
+- **JAX 实现（待开发）**:
+  - `waveform_analysis/core/plugins/builtin/jax/filtering.py` - JAX 滤波插件
+  - `waveform_analysis/core/plugins/builtin/jax/peak_finding.py` - JAX 寻峰插件
+
+### 向后兼容
+
+旧的导入方式仍然可用，但会发出弃用警告：
+```python
+# 会发出 DeprecationWarning
+from waveform_analysis.core.plugins.builtin.legacy import FilteredWaveformsPlugin
+```
 
 ---
 
@@ -49,7 +95,7 @@ WaveformAnalysis 新增了两个信号处理插件，用于波形滤波和高级
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin import (
+from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     WaveformsPlugin,
     StWaveformsPlugin,
@@ -147,7 +193,7 @@ ADVANCED_PEAK_DTYPE = np.dtype([
 #### 示例 1: 基本峰值检测
 
 ```python
-from waveform_analysis.core.plugins.builtin import SignalPeaksPlugin
+from waveform_analysis.core.plugins.builtin.cpu import SignalPeaksPlugin
 
 # 注册峰值检测插件
 ctx.register_plugin(SignalPeaksPlugin())
@@ -176,7 +222,7 @@ for ch_idx, peaks_ch in enumerate(signal_peaks):
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin import (
+from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     WaveformsPlugin,
     StWaveformsPlugin,

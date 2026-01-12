@@ -39,7 +39,7 @@ def example_basic_preview():
     ]
 
     for plugin in plugins:
-        ctx.register_plugin(plugin)
+        ctx.register_plugin_(plugin)
 
     # 设置配置
     ctx.set_config({
@@ -83,7 +83,7 @@ def example_different_verbosity():
 
     for plugin in [RawFilesPlugin(), WaveformsPlugin(), StWaveformsPlugin(),
                    FilteredWaveformsPlugin(), SignalPeaksPlugin()]:
-        ctx.register_plugin(plugin)
+        ctx.register_plugin_(plugin)
 
     ctx.set_config({"data_root": "DAQ", "n_channels": 2})
     ctx.set_config({"filter_type": "BW", "lowcut": 0.05, "highcut": 0.8},
@@ -112,7 +112,7 @@ def example_selective_display():
 
     for plugin in [RawFilesPlugin(), WaveformsPlugin(), StWaveformsPlugin(),
                    FilteredWaveformsPlugin(), SignalPeaksPlugin()]:
-        ctx.register_plugin(plugin)
+        ctx.register_plugin_(plugin)
 
     ctx.set_config({"data_root": "DAQ", "n_channels": 2})
 
@@ -145,7 +145,7 @@ def example_programmatic_use():
 
     for plugin in [RawFilesPlugin(), WaveformsPlugin(), StWaveformsPlugin(),
                    FilteredWaveformsPlugin(), SignalPeaksPlugin()]:
-        ctx.register_plugin(plugin)
+        ctx.register_plugin_(plugin)
 
     ctx.set_config({"data_root": "DAQ", "n_channels": 2})
 
@@ -194,7 +194,7 @@ def example_workflow():
 
     for plugin in [RawFilesPlugin(), WaveformsPlugin(), StWaveformsPlugin(),
                    FilteredWaveformsPlugin(), SignalPeaksPlugin()]:
-        ctx.register_plugin(plugin)
+        ctx.register_plugin_(plugin)
 
     ctx.set_config({
         "data_root": "DAQ",
@@ -243,7 +243,7 @@ def example_compare_multiple_targets():
 
     for plugin in [RawFilesPlugin(), WaveformsPlugin(), StWaveformsPlugin(),
                    FilteredWaveformsPlugin(), SignalPeaksPlugin()]:
-        ctx.register_plugin(plugin)
+        ctx.register_plugin_(plugin)
 
     ctx.set_config({"data_root": "DAQ", "n_channels": 2})
 

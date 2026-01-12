@@ -100,7 +100,7 @@ def test_strax_plugin_adapter_compute():
 
     # 注册原始记录插件
     raw_adapter = wrap_strax_plugin(MockStraxRawRecordsPlugin)
-    ctx.register_plugin(raw_adapter)
+    ctx.register_plugin_(raw_adapter)
 
     # 获取原始记录
     raw_data = ctx.get_data('run_001', 'raw_records')
@@ -117,8 +117,8 @@ def test_strax_plugin_adapter_with_dependencies():
     raw_adapter = wrap_strax_plugin(MockStraxRawRecordsPlugin)
     peaks_adapter = wrap_strax_plugin(MockStraxPeaksPlugin)
 
-    ctx.register_plugin(raw_adapter)
-    ctx.register_plugin(peaks_adapter)
+    ctx.register_plugin_(raw_adapter)
+    ctx.register_plugin_(peaks_adapter)
 
     # 设置配置
     ctx.set_config({'peak_threshold': 50.0})

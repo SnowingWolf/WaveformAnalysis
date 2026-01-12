@@ -46,6 +46,7 @@ class Context(CacheMixin, PluginMixin):
     _RESERVED_NAMES = frozenset({
         "analyze_dependencies",
         "build_time_index",
+        "clear_cache",
         "clear_cache_for",
         "clear_config_cache",
         "clear_performance_caches",
@@ -285,14 +286,14 @@ class Context(CacheMixin, PluginMixin):
         """
         for p in plugins:
             if isinstance(p, type) and issubclass(p, Plugin):
-                self.register_plugin(p(), allow_override=allow_override)
+                self.register_plugin_(p(), allow_override=allow_override)
             elif isinstance(p, Plugin):
-                self.register_plugin(p, allow_override=allow_override)
+                self.register_plugin_(p, allow_override=allow_override)
             elif hasattr(p, "__path__") or hasattr(p, "__file__"):  # It's a module
                 self._register_from_module(p, allow_override=allow_override)
             else:
                 # Fallback for other types if needed
-                self.register_plugin(p, allow_override=allow_override)
+                self.register_plugin_(p, allow_override=allow_override)
 
     def _register_from_module(self, module, allow_override: bool = False):
         """Helper to register all Plugin classes found in a module."""
@@ -300,7 +301,7 @@ class Context(CacheMixin, PluginMixin):
 
         for name, obj in inspect.getmembers(module):
             if inspect.isclass(obj) and issubclass(obj, Plugin) and obj != Plugin:
-                self.register_plugin(obj(), allow_override=allow_override)
+                self.register_plugin_(obj(), allow_override=allow_override)
 
     def discover_and_register_plugins(self, allow_override: bool = False) -> int:
         """
@@ -325,7 +326,7 @@ class Context(CacheMixin, PluginMixin):
         registered = 0
         for plugin_class in loader.get_plugins():
             try:
-                self.register_plugin(plugin_class(), allow_override=allow_override)
+                self.register_plugin_(plugin_class(), allow_override=allow_override)
                 registered += 1
             except Exception as e:
                 self.logger.warning(f"Failed to register plugin {plugin_class.__name__}: {e}")
@@ -2145,6 +2146,23 @@ class Context(CacheMixin, PluginMixin):
         key = f"{run_id}-{data_name}-{lineage_hash}"
         self._key_cache[cache_key] = key
         return key
+
+    def clear_cache(self, step_name: Optional[str] = None) -> None:
+        """
+        清除指定步骤或所有步骤的缓存。
+        
+        注意：此方法来自 CacheMixin，用于清除旧的步骤级缓存系统（基于 _cache 和 _cache_config）。
+        对于 Context 的插件系统缓存，应该使用 clear_cache_for() 方法来清除运行级缓存。
+        
+        参数:
+            step_name: 步骤名称，如果为 None 则清除所有步骤的缓存
+        
+        建议:
+            对于 Context 的插件数据缓存，请使用 clear_cache_for(run_id, data_name) 方法。
+            此方法主要用于兼容旧的步骤级缓存系统。
+        """
+        # 调用父类 CacheMixin 的方法
+        super().clear_cache(step_name)
 
     def clear_cache_for(
         self, 

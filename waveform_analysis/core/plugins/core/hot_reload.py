@@ -165,12 +165,14 @@ class PluginHotReloader:
             new_plugin = plugin_class()
 
             # 重新注册插件(允许覆盖)
+            # 注意：register_plugin 会自动调用 _invalidate_caches_for 清除性能缓存
             self.context.register_plugin(new_plugin, allow_override=True)
 
-            # 清除缓存
+            # 清除性能缓存（register_plugin 已自动清除，这里是为了日志记录）
             if clear_cache:
-                self.context.clear_cache(data_name=plugin_name)
-                self.logger.info(f"Cleared cache for plugin '{plugin_name}'")
+                # register_plugin 已经通过 _invalidate_caches_for 清除了相关缓存
+                # 如果需要清除数据缓存（_results），请使用 clear_cache_for(run_id, data_name)
+                self.logger.info(f"Cache invalidated for plugin '{plugin_name}' (via register_plugin)")
 
             # 更新监控信息
             info['mtime'] = os.path.getmtime(path)

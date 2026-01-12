@@ -421,7 +421,7 @@ class PluginMixin:
 
     def __init__(self):
         """
-        初始化插件管理 Mixin
+初始化插件管理 Mixin
 
         设置插件注册和管理的数据结构。
 
@@ -433,10 +433,11 @@ class PluginMixin:
         """
         self._plugins: Dict[str, Any] = {}
 
-    def register_plugin(self, plugin: Any, allow_override: bool = False) -> None:
-        """
+    def register_plugin_(self, plugin: Any, allow_override: bool = False) -> None:
+        """(DONT USE THIS METHOD DIRECTLY, USE CONTEXT.REGISTER INSTEAD)
         Register a plugin instance with strict validation.
         """
+
         # 1. Basic validation
         if hasattr(plugin, "validate"):
             plugin.validate()
