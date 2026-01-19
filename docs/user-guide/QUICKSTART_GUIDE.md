@@ -288,12 +288,12 @@ waveform-process --help
 ## 下一步
 
 - [配置管理](../features/context/CONFIGURATION.md) - 详细配置说明
-- [插件教程](../features/plugin/SIMPLE_PLUGIN_TUTORIAL.md) - 自定义插件开发
+- [插件教程](../features/plugin/SIMPLE_PLUGIN_GUIDE.md) - 自定义插件开发
 - [血缘可视化](../features/context/LINEAGE_VISUALIZATION_GUIDE.md) - 可视化数据流
 
 ---
 
 **快速链接**:
 [配置管理](../features/context/CONFIGURATION.md) |
-[插件教程](../features/plugin/SIMPLE_PLUGIN_TUTORIAL.md) |
+[插件教程](../features/plugin/SIMPLE_PLUGIN_GUIDE.md) |
 [示例代码](EXAMPLES_GUIDE.md)

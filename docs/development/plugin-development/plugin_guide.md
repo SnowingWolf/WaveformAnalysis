@@ -9,7 +9,7 @@
 
 本指南介绍如何开发自定义插件。
 
-> 🎯 **初学者？** 如果你是第一次写插件，建议先阅读 [最简单的插件教程](../features/plugin/SIMPLE_PLUGIN_TUTORIALTUTORIAL.md)（10 分钟），然后再回到这里深入学习。
+> 🎯 **初学者？** 如果你是第一次写插件，建议先阅读 [最简单的插件教程](../features/plugin/SIMPLE_PLUGIN_GUIDETUTORIAL.md)（10 分钟），然后再回到这里深入学习。
 
 ---
 

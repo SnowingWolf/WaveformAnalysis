@@ -23,7 +23,7 @@ TOPIC_DOC_MAPPING: Dict[str, List[str]] = {
     ],
     'plugins': [
         'features/plugin/README.md',
-        'features/plugin/SIMPLE_PLUGIN_TUTORIAL.md',
+        'features/plugin/SIMPLE_PLUGIN_GUIDE.md',
         'features/plugin/SIGNAL_PROCESSING_PLUGINS.md',
     ],
     'performance': [

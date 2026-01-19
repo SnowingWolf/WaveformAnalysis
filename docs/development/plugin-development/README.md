@@ -10,7 +10,7 @@
 
 | 文档 | 时间 | 难度 | 说明 |
 |------|------|------|------|
-| [SIMPLE_PLUGIN_TUTORIAL.md](SIMPLE_PLUGIN_TUTORIAL.md) | 10 分钟 | ⭐ 入门 | 最简单的插件教程 |
+| [SIMPLE_PLUGIN_GUIDE.md](SIMPLE_PLUGIN_GUIDE.md) | 10 分钟 | ⭐ 入门 | 最简单的插件教程 |
 | [plugin_guide.md](plugin_guide.md) | 30 分钟 | ⭐⭐⭐ 高级 | 插件开发完整指南 |
 
 ---
@@ -20,7 +20,7 @@
 ### 插件开发入门（40 分钟）
 
 ```
-1. SIMPLE_PLUGIN_TUTORIAL.md（10 分钟）- 第一个插件
+1. SIMPLE_PLUGIN_GUIDE.md（10 分钟）- 第一个插件
    ↓
 2. plugin_guide.md（30 分钟）- 深入学习
 ```
@@ -32,7 +32,7 @@
 ### 我想...
 
 #### 写第一个插件
-→ [SIMPLE_PLUGIN_TUTORIAL.md](SIMPLE_PLUGIN_TUTORIAL.md)
+→ [SIMPLE_PLUGIN_GUIDE.md](SIMPLE_PLUGIN_GUIDE.md)
 
 #### 学习高级功能
 → [plugin_guide.md](plugin_guide.md)
@@ -50,4 +50,4 @@
 
 ---
 
-**快速链接**: [简单教程](SIMPLE_PLUGIN_TUTORIAL.md) | [完整指南](plugin_guide.md)
+**快速链接**: [简单教程](SIMPLE_PLUGIN_GUIDE.md) | [完整指南](plugin_guide.md)

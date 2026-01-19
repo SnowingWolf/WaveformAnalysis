@@ -334,7 +334,7 @@ ctx.show_config()
 
 - [快速开始](QUICKSTART_GUIDE.md) - 入门教程
 - [配置管理](../features/context/CONFIGURATION.md) - 详细配置说明
-- [插件教程](../features/plugin/SIMPLE_PLUGIN_TUTORIAL.md) - 自定义插件开发
+- [插件教程](../features/plugin/SIMPLE_PLUGIN_GUIDE.md) - 自定义插件开发
 - [API 参考](../api/README.md) - API 文档
 
 ---

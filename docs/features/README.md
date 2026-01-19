@@ -24,9 +24,9 @@
 **包含文档**: 5 个 | **阅读时间**: 60-90 分钟
 
 ### 🛠️ [工具函数](utils/README.md)
-事件筛选、波形预览等实用工具。
+DAQ 适配器、事件筛选、波形预览等实用工具。
 
-**包含文档**: 2 个 | **阅读时间**: 30-45 分钟
+**包含文档**: 3 个 | **阅读时间**: 50-60 分钟
 
 ---
 
@@ -66,6 +66,9 @@
 #### 处理 CSV 文件头
 → [advanced/IO_CSV_HEADER_HANDLING.md](advanced/IO_CSV_HEADER_HANDLING.md)
 
+#### 配置 DAQ 数据格式
+→ [utils/DAQ_ADAPTER_GUIDE.md](utils/DAQ_ADAPTER_GUIDE.md)
+
 #### 可视化数据血缘
 → [context/LINEAGE_VISUALIZATION_GUIDE.md](context/LINEAGE_VISUALIZATION_GUIDE.md)
 
@@ -88,7 +91,7 @@
 → [plugin/SIGNAL_PROCESSING_PLUGINS.md](plugin/SIGNAL_PROCESSING_PLUGINS.md)
 
 #### 开发自定义插件
-→ [plugin/SIMPLE_PLUGIN_TUTORIAL.md](plugin/SIMPLE_PLUGIN_TUTORIAL.md)
+→ [plugin/SIMPLE_PLUGIN_GUIDE.md](plugin/SIMPLE_PLUGIN_GUIDE.md)
 
 ---
 
