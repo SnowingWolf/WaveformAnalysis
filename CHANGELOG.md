@@ -7,6 +7,64 @@
 
 ## [未发布]
 
+### 新增
+
+#### DAQ 完整适配器层 (2026-01)
+- **统一格式读取接口** (`utils/formats/`)
+  - `FormatSpec`: 数据格式规范（列映射、时间戳单位、分隔符等）
+  - `ColumnMapping`: CSV 列索引配置（board, channel, timestamp, samples）
+  - `TimestampUnit`: 时间戳单位枚举（ps, ns, us, ms, s）
+  - `FormatReader`: 格式读取器抽象基类
+
+- **目录结构适配** (`utils/formats/directory.py`)
+  - `DirectoryLayout`: 目录结构配置（raw_subdir, file patterns, channel regex）
+  - 支持灵活的目录布局（VX2730 标准布局、扁平布局等）
+  - 自动文件扫描和通道识别
+
+- **完整 DAQ 适配器** (`utils/formats/adapter.py`)
+  - `DAQAdapter`: 结合 FormatReader + DirectoryLayout 的完整适配器
+  - `scan_run()`: 扫描运行目录，返回按通道分组的文件
+  - `load_channel()`: 加载单个通道数据
+  - `extract_and_convert()`: 提取列并转换时间戳
+  - 适配器注册表：`register_adapter()`, `get_adapter()`, `list_adapters()`
+
+- **VX2730 实现** (`utils/formats/vx2730.py`)
+  - `VX2730_SPEC`: CAEN VX2730 格式规范（分号分隔、2行头部、ps时间戳、800采样点）
+  - `VX2730_LAYOUT`: VX2730 目录布局（RAW 子目录、CH\d+ 模式）
+  - `VX2730Reader`: CSV 格式读取器（支持 pandas 和 numpy 回退）
+  - `VX2730_ADAPTER`: 预注册的完整适配器
+
+- **向后兼容集成**
+  - `io.py`: 添加 `format_type` 和 `format_reader` 参数
+  - `daq_run.py`: 使用 `DirectoryLayout` 替代硬编码
+  - `loader.py`: 支持 `daq_adapter` 参数
+  - `standard.py`: 插件支持 `daq_adapter` 配置选项
+  - `preview.py`: `WaveformPreviewer` 支持适配器
+
+- **测试**: `tests/test_daq_adapter.py` - 21个单元测试全部通过
+
+#### 缓存管理工具 (2026-01)
+- **缓存分析器** (`core/storage/cache_analyzer.py`)
+  - `CacheAnalyzer`: 扫描和分析缓存条目
+  - `CacheEntry`: 缓存条目数据类
+  - 按条件过滤（大小、年龄、运行ID）
+
+- **缓存诊断** (`core/storage/cache_diagnostics.py`)
+  - `CacheDiagnostics`: 检测缓存问题
+  - 问题类型：版本不匹配、元数据缺失、校验失败等
+  - 自动修复功能（支持 dry-run）
+
+- **智能清理** (`core/storage/cache_cleaner.py`)
+  - `CacheCleaner`: 多策略清理
+  - 清理策略：LRU、OLDEST、LARGEST、VERSION_MISMATCH 等
+  - 清理计划预览和执行
+
+- **统计收集** (`core/storage/cache_statistics.py`)
+  - `CacheStatsCollector`: 收集详细统计
+  - 导出统计到 JSON
+
+- **CLI 命令**: `waveform-cache` (info, stats, diagnose, list, clean)
+
 ### 新增 (Phase 2 & 3)
 
 #### Phase 2.2: 数据时间范围查询优化
