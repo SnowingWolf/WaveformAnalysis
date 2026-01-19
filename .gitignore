@@ -292,6 +292,7 @@ debug_*.py
 tasks.md
 TODO.md
 NOTES.md
+list_all.ipynb
 
 # Environment variables (if containing secrets)
 .env
