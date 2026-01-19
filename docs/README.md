@@ -6,12 +6,6 @@
 
 ## 🚀 快速开始（5 分钟）
 
-**新用户？** 从这里开始：
-
-- 🎯 [快速入门教程](quickstart/QUICKSTART.md) - 10 分钟上手
-- ⚡ [速查表](quickstart/QUICK_REFERENCE.md) - 2 分钟速查
-- 📖 [使用指南](quickstart/USAGE.md) - 15 分钟深入
-
 **快速示例**:
 
 ```python
@@ -34,48 +28,39 @@ df = ds.get_dataframe()
 
 ## 📂 文档导航
 
-### 🚀 [快速开始](quickstart/README.md)
-> 10-30 分钟快速掌握核心功能
+### 📖 [用户指南](user-guide/README.md)
+> 面向使用者：如何使用 Context 和 Plugin 完成数据处理任务
 
-**包含**: 快速入门 | 速查表 | 使用指南
-
----
-
-### 🏗️ [架构设计](architecture/README.md)
-> 理解系统设计和数据流程
-
-**包含**: 系统架构 | 项目结构 | 工作流程 | 数据模块
+**包含**:
+- 🎛️ [Context 使用](user-guide/context/README.md) - 配置管理 | 执行预览 | 依赖分析 | 血缘可视化
+- 🔌 [Plugin 使用](user-guide/plugin/README.md) - 信号处理 | 流式处理 | Strax 适配
+- 📊 [数据处理](user-guide/data-processing/README.md) - 缓存机制 | 并行执行 | 进度追踪
 
 ---
 
-### ✨ [功能特性](features/README.md)
-> 详细的功能说明和使用指南
+### 🛠️ [开发者指南](developer-guide/README.md)
+> 面向开发者：系统架构、插件开发和代码规范
 
-**分类**:
-- 📊 [数据处理](features/data-processing/README.md) - 流式处理 | 缓存 | CSV 处理
-- ⚡ [性能优化](features/performance/README.md) - 内存优化 | 性能提升
-- 🔧 [高级功能](features/advanced/README.md) - 执行器管理 | 依赖分析 | 进度追踪
-
----
-
-### 📚 [API 参考](api/README.md)
-> 完整的 API 文档和配置说明
-
-**包含**: API 参考 | 配置参考 | 插件开发指南
+**包含**:
+- 🏗️ [架构设计](developer-guide/architecture/README.md) - 系统架构 | 工作流程 | 项目结构
+- 🔧 [插件开发](developer-guide/plugin-development/README.md) - 入门教程 | 完整指南
+- 📚 [API 参考](developer-guide/api/README.md) - API 文档 | 配置参考
+- 📝 [开发规范](developer-guide/contributing/README.md) - 导入风格 | 代码约定
 
 ---
 
-### 🛠️ [开发指南](development/README.md)
-> 贡献代码和开发插件的指南
+### 🔧 [命令行工具](cli/README.md)
+> 命令行接口使用指南
 
-**包含**: 开发规范 | 代码风格 | 插件开发
+**包含**:
+- 📊 [waveform-process](cli/WAVEFORM_PROCESS.md) - 数据处理和 DAQ 扫描
+- 💾 [waveform-cache](cli/WAVEFORM_CACHE.md) - 缓存管理和诊断
+- 📝 [waveform-docs](cli/WAVEFORM_DOCS.md) - 文档自动生成
 
 ---
 
 ### 📝 [更新记录](updates/README.md)
 > 版本更新和功能改进记录
-
-**包含**: 新功能 | 更新总结 | 实现记录
 
 ---
 
@@ -83,30 +68,25 @@ df = ds.get_dataframe()
 
 | 我想... | 文档 | 时间 |
 |---------|------|------|
-| 快速上手 | [快速入门](quickstart/QUICKSTART.md) | 10 分钟 |
-| 优化内存 | [内存优化](features/performance/MEMORY_OPTIMIZATION.md) | 15 分钟 |
-| 提升性能 | [性能优化](features/performance/PERFORMANCE_OPTIMIZATION.md) | 10 分钟 |
-| 开发插件 | [插件指南](api/plugin_guide.md) | 30 分钟 |
-| 理解架构 | [系统架构](architecture/ARCHITECTURE.md) | 20 分钟 |
-| 处理大数据 | [流式处理](features/data-processing/STREAMING_GUIDE.md) | 15 分钟 |
+| 可视化插件依赖 | [血缘图预览](user-guide/context/LINEAGE_VISUALIZATION.md) | 15 分钟 |
+| 预览执行计划 | [预览执行](user-guide/context/PREVIEW_EXECUTION.md) | 15 分钟 |
+| 使用信号处理插件 | [信号处理插件](user-guide/plugin/SIGNAL_PROCESSING_PLUGINS.md) | 15 分钟 |
+| 并行处理数据 | [执行器管理](user-guide/data-processing/EXECUTOR_MANAGER_GUIDE.md) | 20 分钟 |
+| 开发自定义插件 | [插件开发教程](developer-guide/plugin-development/SIMPLE_PLUGIN_TUTORIAL.md) | 10 分钟 |
+| 理解系统架构 | [系统架构](developer-guide/architecture/ARCHITECTURE.md) | 20 分钟 |
 
 ---
 
 ## 🎓 推荐学习路径
 
-### 初学者（30 分钟）
+### 使用者路径（1 小时）
 ```
-快速入门 → 运行示例 → 速查表
-```
-
-### 进阶用户（2 小时）
-```
-系统架构 → 流式处理 → 内存优化 → 插件开发
+血缘图预览 → 预览执行 → 使用内置插件 → 并行处理
 ```
 
-### 插件开发者（3 小时）
+### 开发者路径（2 小时）
 ```
-插件指南 → 系统架构 → API 参考 → 开发规范
+插件开发教程 → 系统架构 → API 参考 → 开发规范
 ```
 
 ---
@@ -114,13 +94,23 @@ df = ds.get_dataframe()
 ## 💡 常见问题
 
 **Q: 从哪里开始？**
-A: 新用户从 [快速入门](quickstart/QUICKSTART.md) 开始。
+A: 使用者从 [用户指南](user-guide/README.md) 开始，开发者从 [开发者指南](developer-guide/README.md) 开始。
 
-**Q: 如何节省内存？**
-A: 查看 [内存优化指南](features/performance/MEMORY_OPTIMIZATION.md)。
+**Q: 如何可视化插件依赖？**
+A: 查看 [血缘图预览](user-guide/context/LINEAGE_VISUALIZATION.md)。
 
 **Q: 如何开发插件？**
-A: 从 [插件开发指南](api/plugin_guide.md) 开始。
+A: 从 [最简单的插件教程](developer-guide/plugin-development/SIMPLE_PLUGIN_TUTORIAL.md) 开始。
+
+---
+
+## 🔧 文档维护
+
+更新面包屑导航：
+```bash
+python3 scripts/update_breadcrumbs.py        # 实际更新
+python3 scripts/update_breadcrumbs.py --dry-run  # 预览模式
+```
 
 ---
 
@@ -132,4 +122,4 @@ A: 从 [插件开发指南](api/plugin_guide.md) 开始。
 
 ---
 
-**快速链接**: [快速入门](quickstart/QUICKSTART.md) | [API 参考](api/README.md) | [系统架构](architecture/ARCHITECTURE.md)
+**快速链接**: [用户指南](user-guide/README.md) | [开发者指南](developer-guide/README.md) | [命令行工具](cli/README.md) | [更新记录](updates/README.md)

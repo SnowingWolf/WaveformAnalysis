@@ -460,7 +460,7 @@ Visualize the lineage of a data type.
 
 
 **参数:**
-- `template`: 模板名称 ('basic', 'basic_analysis', 'memory_efficient') **params: 模板参数（如 run_id, n_channels）
+- `template`: 模板名称 ('basic', 'basic_analysis') **params: 模板参数（如 run_id, n_channels）
 
 **返回:**
 

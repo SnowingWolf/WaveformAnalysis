@@ -2741,7 +2741,7 @@ class Context(CacheMixin, PluginMixin):
         生成快速开始代码模板
 
         Args:
-            template: 模板名称 ('basic', 'basic_analysis', 'memory_efficient')
+            template: 模板名称 ('basic', 'basic_analysis')
             **params: 模板参数（如 run_id, n_channels）
 
         Returns:
@@ -2767,6 +2767,151 @@ class Context(CacheMixin, PluginMixin):
         code = TEMPLATES[template].generate(self, **params)
         print(code)
         return code
+
+    # ===========================
+    # 缓存管理工具 (Cache Management)
+    # ===========================
+
+    def analyze_cache(
+        self,
+        run_id: Optional[str] = None,
+        verbose: bool = True
+    ) -> 'CacheAnalyzer':
+        """获取缓存分析器实例并执行扫描
+
+        创建一个 CacheAnalyzer 实例来分析缓存状态，支持按 run_id 过滤。
+
+        Args:
+            run_id: 仅分析指定运行的缓存，None 则分析所有
+            verbose: 是否显示扫描进度
+
+        Returns:
+            CacheAnalyzer 实例（已完成扫描）
+
+        Examples:
+            >>> # 获取缓存分析器
+            >>> analyzer = ctx.analyze_cache()
+            >>>
+            >>> # 查看所有条目
+            >>> entries = analyzer.get_entries()
+            >>> print(f"共 {len(entries)} 个缓存条目")
+            >>>
+            >>> # 按条件过滤
+            >>> large = analyzer.get_entries(min_size=1024*1024)
+            >>> old = analyzer.get_entries(max_age_days=30)
+            >>>
+            >>> # 打印摘要
+            >>> analyzer.print_summary(detailed=True)
+        """
+        from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
+
+        analyzer = CacheAnalyzer(self)
+        run_ids = [run_id] if run_id else None
+        analyzer.scan(verbose=verbose, run_ids=run_ids)
+        return analyzer
+
+    def diagnose_cache(
+        self,
+        run_id: Optional[str] = None,
+        auto_fix: bool = False,
+        dry_run: bool = True,
+        verbose: bool = True
+    ) -> List['DiagnosticIssue']:
+        """诊断缓存问题
+
+        检查缓存的完整性、版本一致性、孤儿文件等问题。
+
+        Args:
+            run_id: 仅诊断指定运行，None 则诊断所有
+            auto_fix: 是否自动修复可修复的问题
+            dry_run: 如果 auto_fix=True，是否仅预演（不实际执行）
+            verbose: 是否显示详细信息
+
+        Returns:
+            DiagnosticIssue 列表
+
+        Examples:
+            >>> # 诊断所有缓存
+            >>> issues = ctx.diagnose_cache()
+            >>>
+            >>> # 诊断特定运行
+            >>> issues = ctx.diagnose_cache(run_id='run_001')
+            >>>
+            >>> # 自动修复（先 dry-run）
+            >>> issues = ctx.diagnose_cache(auto_fix=True, dry_run=True)
+            >>>
+            >>> # 实际修复
+            >>> issues = ctx.diagnose_cache(auto_fix=True, dry_run=False)
+        """
+        from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
+        from waveform_analysis.core.storage.cache_diagnostics import CacheDiagnostics
+
+        analyzer = CacheAnalyzer(self)
+        analyzer.scan(verbose=False)
+
+        diag = CacheDiagnostics(analyzer)
+        issues = diag.diagnose(run_id=run_id, verbose=verbose)
+
+        if verbose:
+            diag.print_report(issues)
+
+        if auto_fix and issues:
+            fixable = [i for i in issues if i.fixable]
+            if fixable:
+                result = diag.auto_fix(issues, dry_run=dry_run)
+                if verbose:
+                    print(f"\n[修复结果] 总计: {result['total']}, "
+                          f"可修复: {result['fixable']}, "
+                          f"{'将修复' if dry_run else '已修复'}: {result['fixed']}")
+
+        return issues
+
+    def cache_stats(
+        self,
+        run_id: Optional[str] = None,
+        detailed: bool = False,
+        export_path: Optional[str] = None
+    ) -> 'CacheStatistics':
+        """获取缓存统计信息
+
+        收集并显示缓存使用情况的统计信息。
+
+        Args:
+            run_id: 仅统计指定运行，None 则统计所有
+            detailed: 是否显示详细统计（按运行、按数据类型）
+            export_path: 如果指定，导出统计到文件（支持 .json, .csv）
+
+        Returns:
+            CacheStatistics 统计数据
+
+        Examples:
+            >>> # 获取基本统计
+            >>> stats = ctx.cache_stats()
+            >>>
+            >>> # 详细统计
+            >>> stats = ctx.cache_stats(detailed=True)
+            >>>
+            >>> # 特定运行的统计
+            >>> stats = ctx.cache_stats(run_id='run_001', detailed=True)
+            >>>
+            >>> # 导出统计
+            >>> stats = ctx.cache_stats(export_path='cache_stats.json')
+        """
+        from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
+        from waveform_analysis.core.storage.cache_statistics import CacheStatsCollector
+
+        analyzer = CacheAnalyzer(self)
+        analyzer.scan(verbose=False)
+
+        collector = CacheStatsCollector(analyzer)
+        stats = collector.collect(run_id=run_id)
+        collector.print_summary(stats, detailed=detailed)
+
+        if export_path:
+            fmt = 'csv' if export_path.endswith('.csv') else 'json'
+            collector.export_stats(stats, export_path, format=fmt)
+
+        return stats
 
     def __repr__(self):
         return f"Context(storage='{self.storage_dir}', plugins={self.list_provided_data()})"

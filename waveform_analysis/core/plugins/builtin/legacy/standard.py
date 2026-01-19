@@ -6,7 +6,7 @@ Standard Plugins 模块 - 包含波形分析流程的标准插件实现。
 这些插件是 WaveformDataset 内部调用的核心逻辑单元。
 """
 
-from typing import Any, Dict, List
+from typing import Any, List
 
 import numpy as np
 
@@ -202,51 +202,15 @@ class HitFinderPlugin(Plugin):
         return hits_list
 
 
-class BasicFeaturesPlugin(Plugin):
-    """Plugin to compute basic features (peaks and charges)."""
-
-    provides = "basic_features"
-    depends_on = ["st_waveforms"]
-    save_when = "never"
-    options = {
-        "peaks_range": Option(default=None, type=tuple),
-        "charge_range": Option(default=None, type=tuple),
-    }
-
-    def compute(self, context: Any, run_id: str, **kwargs) -> Dict[str, List[np.ndarray]]:
-        """
-        计算基础波形特征（峰值和电荷）
-
-        .. deprecated::
-            建议使用 PeaksPlugin 和 ChargesPlugin 替代
-
-        Args:
-            context: Context 实例
-            run_id: 运行标识符
-            **kwargs: 依赖数据，包含 st_waveforms
-
-        Returns:
-            Dict[str, List[np.ndarray]]: 包含 'peaks' 和 'charges' 的字典
-        """
-        from waveform_analysis.core.processing.processor import WaveformProcessor
-
-        st_waveforms = context.get_data(run_id, "st_waveforms")
-
-        peaks_range = context.get_config(self, "peaks_range")
-        charge_range = context.get_config(self, "charge_range")
-
-        processor = WaveformProcessor(n_channels=len(st_waveforms))
-        peaks, charges = processor.compute_basic_features(st_waveforms, peaks_range, charge_range)
-
-        return {"peaks": peaks, "charges": charges}
-
-
 class PeaksPlugin(Plugin):
-    """Plugin to provide peaks from basic_features."""
+    """Plugin to compute peak features from structured waveforms."""
 
     provides = "peaks"
-    depends_on = ["basic_features"]
+    depends_on = ["st_waveforms"]
     save_when = "always"
+    options = {
+        "peaks_range": Option(default=None, type=tuple, help="峰值计算范围 (start, end)"),
+    }
 
     def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
         """
@@ -258,7 +222,7 @@ class PeaksPlugin(Plugin):
         Args:
             context: Context 实例
             run_id: 运行标识符
-            **kwargs: 依赖数据，包含 basic_features
+            **kwargs: 依赖数据
 
         Returns:
             List[np.ndarray]: 每个通道的峰值数组
@@ -267,15 +231,25 @@ class PeaksPlugin(Plugin):
             >>> peaks = ctx.get_data('run_001', 'peaks')
             >>> print(f"峰值范围: {peaks[0].min():.2f} - {peaks[0].max():.2f}")
         """
-        return context.get_data(run_id, "basic_features")["peaks"]
+        from waveform_analysis.core.processing.processor import WaveformProcessor
+
+        st_waveforms = context.get_data(run_id, "st_waveforms")
+        peaks_range = context.get_config(self, "peaks_range")
+
+        processor = WaveformProcessor(n_channels=len(st_waveforms))
+        peaks, _ = processor.compute_basic_features(st_waveforms, peaks_range=peaks_range)
+        return peaks
 
 
 class ChargesPlugin(Plugin):
-    """Plugin to provide charges from basic_features."""
+    """Plugin to compute charge features from structured waveforms."""
 
     provides = "charges"
-    depends_on = ["basic_features"]
+    depends_on = ["st_waveforms"]
     save_when = "always"
+    options = {
+        "charge_range": Option(default=None, type=tuple, help="电荷计算范围 (start, end)"),
+    }
 
     def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
         """
@@ -287,7 +261,7 @@ class ChargesPlugin(Plugin):
         Args:
             context: Context 实例
             run_id: 运行标识符
-            **kwargs: 依赖数据，包含 basic_features
+            **kwargs: 依赖数据
 
         Returns:
             List[np.ndarray]: 每个通道的电荷数组
@@ -296,7 +270,14 @@ class ChargesPlugin(Plugin):
             >>> charges = ctx.get_data('run_001', 'charges')
             >>> print(f"电荷范围: {charges[0].min():.2f} - {charges[0].max():.2f}")
         """
-        return context.get_data(run_id, "basic_features")["charges"]
+        from waveform_analysis.core.processing.processor import WaveformProcessor
+
+        st_waveforms = context.get_data(run_id, "st_waveforms")
+        charge_range = context.get_config(self, "charge_range")
+
+        processor = WaveformProcessor(n_channels=len(st_waveforms))
+        _, charges = processor.compute_basic_features(st_waveforms, charge_range=charge_range)
+        return charges
 
 
 class DataFramePlugin(Plugin):

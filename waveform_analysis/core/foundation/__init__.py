@@ -60,6 +60,14 @@ from .progress import (
     format_throughput,
 )
 
+# 文档读取器
+from .doc_reader import (
+    DocReader,
+    get_doc_reader,
+    find_docs_root,
+    TOPIC_DOC_MAPPING,
+)
+
 __all__ = [
     # 异常处理
     "ErrorSeverity",
@@ -89,4 +97,9 @@ __all__ = [
     "reset_global_tracker",
     "format_time",
     "format_throughput",
+    # 文档读取器
+    "DocReader",
+    "get_doc_reader",
+    "find_docs_root",
+    "TOPIC_DOC_MAPPING",
 ]

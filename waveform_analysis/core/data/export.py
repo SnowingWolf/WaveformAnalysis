@@ -24,9 +24,6 @@ logger = logging.getLogger(__name__)
 export, __all__ = exporter()
 
 
-# ===========================
-# 批量处理 (Phase 3.1)
-# ===========================
 
 @export
 class BatchProcessor:
@@ -60,7 +57,7 @@ class BatchProcessor:
         data_name: str,
         max_workers: Optional[int] = None,
         show_progress: bool = True,
-        on_error: str = 'continue',  # 'continue', 'stop', 'raise'
+        on_error: str = "continue",  # 'continue', 'stop', 'raise'
         progress_tracker: Optional[Any] = None,
         cancellation_token: Optional[Any] = None,
         jupyter_mode: Optional[bool] = None,
@@ -87,10 +84,14 @@ class BatchProcessor:
             结果字典 {'results': {run_id: data}, 'errors': {run_id: error}}
         """
         from waveform_analysis.core.foundation.progress import (
-            ProgressTracker, format_throughput, format_time
+            ProgressTracker,
+            format_throughput,
+            format_time,
         )
         from waveform_analysis.core.cancellation import (
-            CancellationToken, get_cancellation_manager, TaskCancelledException
+            CancellationToken,
+            get_cancellation_manager,
+            TaskCancelledException,
         )
 
         # 自动检测 Jupyter 环境
@@ -133,10 +134,7 @@ class BatchProcessor:
         if progress_tracker and not jupyter_mode:
             bar_name = f"batch_{data_name}"
             progress_tracker.create_bar(
-                bar_name,
-                total=len(run_ids),
-                desc=f"Processing {data_name}",
-                unit="run"
+                bar_name, total=len(run_ids), desc=f"Processing {data_name}", unit="run"
             )
 
         # Jupyter 模式下的简单进度显示
@@ -156,7 +154,11 @@ class BatchProcessor:
             # Jupyter 模式：简单输出
             if use_simple_progress:
                 if force or (now - last_progress_update >= 0.5):
-                    print(f"\rProcessing {data_name}: {completed_count}/{len(run_ids)} runs", end="", flush=True)
+                    print(
+                        f"\rProcessing {data_name}: {completed_count}/{len(run_ids)} runs",
+                        end="",
+                        flush=True,
+                    )
                     last_progress_update = now
                 return
 
@@ -165,8 +167,8 @@ class BatchProcessor:
                 return
 
             should_update = force or (
-                pending_progress_count > 0 and
-                (now - last_progress_update >= progress_update_interval)
+                pending_progress_count > 0
+                and (now - last_progress_update >= progress_update_interval)
             )
 
             if should_update and pending_progress_count > 0:
@@ -182,7 +184,7 @@ class BatchProcessor:
                         success=len(results),
                         failed=len(errors),
                         throughput=format_throughput(throughput, "run"),
-                        ETA=format_time(eta) if eta else "N/A"
+                        ETA=format_time(eta) if eta else "N/A",
                     )
 
                 last_progress_update = now
@@ -194,7 +196,9 @@ class BatchProcessor:
                 for i, run_id in enumerate(run_ids):
                     # 检查取消
                     if cancellation_token.is_cancelled():
-                        self.logger.info(f"Processing cancelled. Processed {i}/{len(run_ids)} runs.")
+                        self.logger.info(
+                            f"Processing cancelled. Processed {i}/{len(run_ids)} runs."
+                        )
                         break
 
                     try:
@@ -207,9 +211,9 @@ class BatchProcessor:
                         errors[run_id] = e
                         self.logger.error(f"Failed to process {run_id}: {e}")
 
-                        if on_error == 'stop':
+                        if on_error == "stop":
                             break
-                        elif on_error == 'raise':
+                        elif on_error == "raise":
                             raise
 
                     pending_progress_count += 1
@@ -252,7 +256,7 @@ class BatchProcessor:
                             done, pending = wait(
                                 pending,
                                 timeout=0.1,  # 100ms 轮询间隔
-                                return_when=FIRST_COMPLETED
+                                return_when=FIRST_COMPLETED,
                             )
 
                             for future in done:
@@ -269,7 +273,7 @@ class BatchProcessor:
                                 except Exception as e:
                                     errors[run_id] = e
                                     self.logger.error(f"Failed to process {run_id}: {e}")
-                                    if on_error == 'raise':
+                                    if on_error == "raise":
                                         raise
 
                                 pending_progress_count += 1
@@ -306,7 +310,7 @@ class BatchProcessor:
                             except Exception as e:
                                 errors[run_id] = e
                                 self.logger.error(f"Failed to process {run_id}: {e}")
-                                if on_error == 'raise':
+                                if on_error == "raise":
                                     raise
 
                             pending_progress_count += 1
@@ -339,7 +343,7 @@ class BatchProcessor:
             # 如果没有进度条，打印错误摘要
             print(f"\nCompleted with {len(errors)} errors")
 
-        return {'results': results, 'errors': errors}
+        return {"results": results, "errors": errors}
 
     def process_with_custom_func(
         self,
@@ -367,7 +371,9 @@ class BatchProcessor:
             结果字典 {run_id: result}
         """
         from waveform_analysis.core.foundation.progress import (
-            ProgressTracker, format_throughput, format_time
+            ProgressTracker,
+            format_throughput,
+            format_time,
         )
 
         # 自动检测 Jupyter 环境
@@ -391,10 +397,7 @@ class BatchProcessor:
         if progress_tracker and not jupyter_mode:
             bar_name = "batch_custom"
             progress_tracker.create_bar(
-                bar_name,
-                total=len(run_ids),
-                desc="Processing (custom)",
-                unit="run"
+                bar_name, total=len(run_ids), desc="Processing (custom)", unit="run"
             )
 
         # Jupyter 模式下的简单进度显示
@@ -414,7 +417,11 @@ class BatchProcessor:
             # Jupyter 模式：简单输出
             if use_simple_progress:
                 if force or (now - last_progress_update >= 0.5):
-                    print(f"\rProcessing (custom): {completed_count}/{len(run_ids)} runs", end="", flush=True)
+                    print(
+                        f"\rProcessing (custom): {completed_count}/{len(run_ids)} runs",
+                        end="",
+                        flush=True,
+                    )
                     last_progress_update = now
                 return
 
@@ -423,8 +430,8 @@ class BatchProcessor:
                 return
 
             should_update = force or (
-                pending_progress_count > 0 and
-                (now - last_progress_update >= progress_update_interval)
+                pending_progress_count > 0
+                and (now - last_progress_update >= progress_update_interval)
             )
 
             if should_update and pending_progress_count > 0:
@@ -437,7 +444,7 @@ class BatchProcessor:
                     progress_tracker.set_postfix(
                         bar_name,
                         throughput=format_throughput(throughput, "run"),
-                        ETA=format_time(eta) if eta else "N/A"
+                        ETA=format_time(eta) if eta else "N/A",
                     )
 
                 last_progress_update = now
@@ -452,8 +459,7 @@ class BatchProcessor:
             else:
                 with ThreadPoolExecutor(max_workers=max_workers) as executor:
                     future_to_run = {
-                        executor.submit(func, self.context, run_id): run_id
-                        for run_id in run_ids
+                        executor.submit(func, self.context, run_id): run_id for run_id in run_ids
                     }
 
                     if jupyter_mode:
@@ -462,11 +468,7 @@ class BatchProcessor:
                         completed = 0
 
                         while pending:
-                            done, pending = wait(
-                                pending,
-                                timeout=0.1,
-                                return_when=FIRST_COMPLETED
-                            )
+                            done, pending = wait(pending, timeout=0.1, return_when=FIRST_COMPLETED)
 
                             for future in done:
                                 run_id = future_to_run[future]
@@ -503,9 +505,7 @@ class BatchProcessor:
         return results
 
 
-# ===========================
-# 数据导出 (Phase 3.2)
-# ===========================
+
 
 @export
 class DataExporter:
@@ -519,7 +519,7 @@ class DataExporter:
         exporter.export(data, 'output.parquet', format='parquet')
     """
 
-    SUPPORTED_FORMATS = ['parquet', 'hdf5', 'csv', 'json', 'npy', 'npz']
+    SUPPORTED_FORMATS = ["parquet", "hdf5", "csv", "json", "npy", "npz"]
 
     def __init__(self):
         """初始化导出器"""
@@ -530,7 +530,7 @@ class DataExporter:
         data: Union[np.ndarray, pd.DataFrame, Dict[str, Any]],
         output_path: Union[str, Path],
         format: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         导出数据到文件
@@ -546,7 +546,7 @@ class DataExporter:
 
         # 推断格式
         if format is None:
-            format = output_path.suffix.lstrip('.')
+            format = output_path.suffix.lstrip(".")
 
         format = format.lower()
 
@@ -557,17 +557,17 @@ class DataExporter:
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         # 根据格式导出
-        if format == 'parquet':
+        if format == "parquet":
             self._export_parquet(data, output_path, **kwargs)
-        elif format == 'hdf5' or format == 'h5':
+        elif format == "hdf5" or format == "h5":
             self._export_hdf5(data, output_path, **kwargs)
-        elif format == 'csv':
+        elif format == "csv":
             self._export_csv(data, output_path, **kwargs)
-        elif format == 'json':
+        elif format == "json":
             self._export_json(data, output_path, **kwargs)
-        elif format == 'npy':
+        elif format == "npy":
             self._export_npy(data, output_path, **kwargs)
-        elif format == 'npz':
+        elif format == "npz":
             self._export_npz(data, output_path, **kwargs)
 
         self.logger.info(f"Exported data to {output_path} (format: {format})")
@@ -577,10 +577,10 @@ class DataExporter:
         df = self._to_dataframe(data)
         df.to_parquet(output_path, **kwargs)
 
-    def _export_hdf5(self, data, output_path, key='data', **kwargs):
+    def _export_hdf5(self, data, output_path, key="data", **kwargs):
         """导出为HDF5格式"""
         df = self._to_dataframe(data)
-        df.to_hdf(output_path, key=key, mode='w', **kwargs)
+        df.to_hdf(output_path, key=key, mode="w", **kwargs)
 
     def _export_csv(self, data, output_path, **kwargs):
         """导出为CSV格式"""
@@ -593,7 +593,8 @@ class DataExporter:
             data.to_json(output_path, **kwargs)
         elif isinstance(data, dict):
             import json
-            with open(output_path, 'w') as f:
+
+            with open(output_path, "w") as f:
                 json.dump(data, f, **kwargs)
         else:
             df = self._to_dataframe(data)
@@ -626,7 +627,7 @@ class DataExporter:
                 return pd.DataFrame(data)
             else:
                 # 普通数组
-                return pd.DataFrame({'data': data})
+                return pd.DataFrame({"data": data})
         elif isinstance(data, dict):
             return pd.DataFrame(data)
         else:
@@ -639,7 +640,7 @@ def batch_export(
     run_ids: List[str],
     data_name: str,
     output_dir: Union[str, Path],
-    format: str = 'parquet',
+    format: str = "parquet",
     max_workers: Optional[int] = None,
 ):
     """
@@ -661,14 +662,11 @@ def batch_export(
 
     # 批量获取数据
     batch_results = processor.process_runs(
-        run_ids=run_ids,
-        data_name=data_name,
-        max_workers=max_workers,
-        show_progress=True
+        run_ids=run_ids, data_name=data_name, max_workers=max_workers, show_progress=True
     )
 
     # 导出每个run的数据
-    for run_id, data in batch_results['results'].items():
+    for run_id, data in batch_results["results"].items():
         output_path = output_dir / f"{run_id}_{data_name}.{format}"
         try:
             exporter.export(data, output_path, format=format)

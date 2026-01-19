@@ -1,0 +1,299 @@
+# 快速开始指南
+
+**导航**: [文档中心](../README.md) > [用户指南](README.md) > 快速开始指南
+
+> 阅读时间: 10 分钟 | 难度: ⭐ 入门
+
+本文档帮助你在 5 分钟内快速上手 WaveformAnalysis。
+
+---
+
+## 📋 目录
+
+1. [快速安装](#快速安装)
+2. [核心概念](#核心概念)
+3. [场景 1: 基础分析流程](#场景-1-基础分析流程)
+4. [场景 2: 内存优化流程](#场景-2-内存优化流程)
+5. [场景 3: 批量处理](#场景-3-批量处理)
+6. [场景 4: 流式处理](#场景-4-流式处理)
+7. [快速参考卡](#快速参考卡)
+
+---
+
+## 快速安装
+
+### 方式 1: 使用安装脚本（推荐）
+
+```bash
+./install.sh
+```
+
+### 方式 2: 手动安装
+
+```bash
+# 开发模式安装
+pip install -e .
+
+# 带开发依赖
+pip install -e ".[dev]"
+```
+
+### 方式 3: Conda 环境
+
+```bash
+# 激活环境
+conda activate pyroot-kernel
+
+# 安装
+pip install -e .
+```
+
+---
+
+## 核心概念
+
+在开始之前，了解以下核心概念：
+
+| 概念 | 说明 |
+|------|------|
+| **Context** | 插件系统调度器，管理依赖、配置、缓存 |
+| **Plugin** | 数据处理单元（RawFiles → Waveforms → Peaks） |
+| **Lineage** | 自动血缘追踪，确保缓存一致性 |
+| **Dataset** | 高级链式接口，封装 Context |
+
+---
+
+## 场景 1: 基础分析流程
+
+**推荐新手使用** - 使用 Context API 进行标准分析。
+
+### 完整代码模板
+
+```python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""基础波形分析"""
+
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin import standard_plugins
+
+def main():
+    # 1. 初始化 Context
+    ctx = Context(storage_dir='./strax_data')
+    ctx.register(standard_plugins)
+
+    # 2. 设置配置
+    ctx.set_config({
+        'data_root': 'DAQ',
+        'n_channels': 2,
+        'threshold': 15.0,
+    })
+
+    # 3. 获取数据（自动触发依赖链）
+    run_id = 'run_001'
+    print(f"Processing run: {run_id}")
+    peaks = ctx.get_data(run_id, 'peaks')
+    print(f"Found {len(peaks)} peaks")
+
+    # 4. 可视化血缘图（可选）
+    ctx.plot_lineage('peaks', kind='labview')
+
+    return peaks
+
+if __name__ == '__main__':
+    result = main()
+    print(f"Analysis complete. Result shape: {result.shape}")
+```
+
+### 说明
+
+| 步骤 | 说明 |
+|------|------|
+| `Context(storage_dir=...)` | 创建 Context，指定缓存目录 |
+| `ctx.register(...)` | 注册标准插件集 |
+| `ctx.set_config(...)` | 设置全局配置 |
+| `ctx.get_data(run_id, name)` | 获取数据，自动触发依赖链 |
+
+### 数据流
+
+```
+raw_files → waveforms → st_waveforms → peaks
+```
+
+### 预期
+
+- **运行时间**: 约 30 秒（取决于数据量）
+- **缓存位置**: `./strax_data/`
+- **输出**: NumPy 结构化数组
+
+---
+
+## 场景 2: 内存优化流程
+
+**适合大数据集** - 跳过波形加载，节省 70-80% 内存。
+
+### 完整代码模板
+
+```python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""内存优化分析 - 跳过波形加载"""
+
+from waveform_analysis import WaveformDataset
+
+def main():
+    # load_waveforms=False 跳过波形数据加载
+    ds = WaveformDataset(
+        run_name='run_001',
+        n_channels=2,
+        load_waveforms=False  # 关键：跳过波形加载
+    )
+
+    # 链式调用（波形步骤会被跳过）
+    (ds
+        .load_raw_data()
+        .extract_waveforms()        # 跳过
+        .structure_waveforms()      # 跳过
+        .build_waveform_features()  # 仍会计算特征
+        .build_dataframe()
+        .group_events(time_window_ns=100)
+        .pair_events())
+
+    # 获取结果
+    df_paired = ds.get_paired_events()
+    print(f"Processed {len(df_paired)} paired events")
+
+    # 显示摘要
+    print("\nDataset summary:")
+    print(ds.summary())
+
+    return df_paired
+
+if __name__ == '__main__':
+    result = main()
+    print(f"\nResult columns: {result.columns.tolist()}")
+    print(f"Memory saved: ~70-80% compared to full waveform loading")
+```
+
+### 注意事项
+
+- `get_waveform_at()` 会返回 `None`
+- 适合只需要特征数据的场景
+- 显著减少内存占用
+
+---
+
+## 场景 3: 批量处理
+
+**处理多个 run** - 并行处理多个数据集。
+
+### 代码模板
+
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.data.export import BatchProcessor
+from waveform_analysis.core.plugins.builtin import standard_plugins
+
+# 初始化
+ctx = Context(storage_dir='./strax_data')
+ctx.register(standard_plugins)
+ctx.set_config({'data_root': 'DAQ', 'n_channels': 2})
+
+# 批量处理
+processor = BatchProcessor(ctx)
+results = processor.process_runs(
+    run_ids=['run_001', 'run_002', 'run_003'],
+    data_name='peaks',
+    max_workers=4,
+    show_progress=True,
+    on_error='continue'  # 'continue', 'stop', 'raise'
+)
+
+# 访问结果
+for run_id, data in results['results'].items():
+    print(f"{run_id}: {len(data)} events")
+
+# 检查错误
+if results['errors']:
+    print(f"Errors: {results['errors']}")
+```
+
+---
+
+## 场景 4: 流式处理
+
+**处理大数据** - 分块处理，内存友好。
+
+### 代码模板
+
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.core.streaming import get_streaming_context
+from waveform_analysis.core.plugins.builtin import standard_plugins
+
+# 初始化
+ctx = Context(storage_dir='./strax_data')
+ctx.register(standard_plugins)
+ctx.set_config({'data_root': 'DAQ', 'n_channels': 2})
+
+# 创建流式上下文
+stream_ctx = get_streaming_context(ctx, run_id='run_001', chunk_size=50000)
+
+# 分块处理
+for chunk in stream_ctx.get_stream('st_waveforms_stream'):
+    # 处理每个数据块
+    process_chunk(chunk)
+    print(f"Processed chunk: {chunk.start} - {chunk.end}")
+```
+
+---
+
+## 快速参考卡
+
+### 常用命令
+
+| 操作 | 代码 |
+|------|------|
+| 创建 Context | `ctx = Context(storage_dir='./data')` |
+| 注册插件 | `ctx.register(standard_plugins)` |
+| 设置配置 | `ctx.set_config({'n_channels': 2})` |
+| 获取数据 | `ctx.get_data('run_001', 'peaks')` |
+| 查看帮助 | `ctx.help()` |
+| 查看配置 | `ctx.show_config()` |
+| 血缘可视化 | `ctx.plot_lineage('peaks')` |
+| 预览执行 | `ctx.preview_execution('run_001', 'peaks')` |
+
+### 快速代码模板
+
+```python
+# 生成代码模板
+ctx.quickstart('basic')              # 基础分析
+```
+
+### CLI 命令
+
+```bash
+# 处理数据
+waveform-process --run-name run_001 --verbose
+
+# 扫描 DAQ 目录
+waveform-process --scan-daq --daq-root DAQ
+
+# 显示帮助
+waveform-process --help
+```
+
+---
+
+## 下一步
+
+- [配置管理](../features/context/CONFIGURATION.md) - 详细配置说明
+- [插件教程](../features/plugin/SIMPLE_PLUGIN_TUTORIAL.md) - 自定义插件开发
+- [血缘可视化](../features/context/LINEAGE_VISUALIZATION_GUIDE.md) - 可视化数据流
+
+---
+
+**快速链接**:
+[配置管理](../features/context/CONFIGURATION.md) |
+[插件教程](../features/plugin/SIMPLE_PLUGIN_TUTORIAL.md) |
+[示例代码](EXAMPLES_GUIDE.md)

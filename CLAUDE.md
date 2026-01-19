@@ -245,18 +245,20 @@ ctx.show_config('plugin_name')
 ### Data Flow (Standard Pipeline)
 
 ```
-CSV Files → RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin → EventLengthPlugin
-                                                                           ↓
-                                                                    BasicFeaturesPlugin
-                                                                     ↙           ↘
-                                                               PeaksPlugin   ChargesPlugin
-                                                                     ↘           ↙
-                                                                   DataFramePlugin
-                                                                           ↓
-                                                                 GroupedEventsPlugin
-                                                                   (Numba + MP)
-                                                                           ↓
-                                                                 PairedEventsPlugin
+CSV Files → RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin
+                                                       ↓
+                                              ┌───────┴───────┐
+                                              ↓               ↓
+                                        PeaksPlugin    ChargesPlugin
+                                              ↓               ↓
+                                              └───────┬───────┘
+                                                      ↓
+                                               DataFramePlugin
+                                                      ↓
+                                            GroupedEventsPlugin
+                                               (Numba + MP)
+                                                      ↓
+                                            PairedEventsPlugin
 ```
 
 ## Important Conventions
@@ -362,9 +364,8 @@ from waveform_analysis.core.plugins.builtin.legacy import RawFilesPlugin
 - `WaveformsPlugin`: 提取波形数据
 - `StWaveformsPlugin`: 结构化波形数组
 - `HitFinderPlugin`: 检测 Hit 事件
-- `BasicFeaturesPlugin`: 计算基础特征
-- `PeaksPlugin`: 峰值特征提取
-- `ChargesPlugin`: 电荷积分
+- `PeaksPlugin`: 峰值特征计算（直接依赖 st_waveforms）
+- `ChargesPlugin`: 电荷积分计算（直接依赖 st_waveforms）
 - `DataFramePlugin`: 构建 DataFrame
 - `GroupedEventsPlugin`: 时间窗口分组（支持 Numba 加速）
 - `PairedEventsPlugin`: 跨通道事件配对
@@ -663,6 +664,142 @@ ctx.plot_lineage("df_paired", kind="plotly", style=style)
    - LabVIEW 模式：需要 matplotlib（标准依赖）
    - Plotly 模式：需要 `pip install plotly`
 
+## Cache Management (缓存管理)
+
+WaveformAnalysis 提供完整的缓存管理工具集，用于分析、诊断、清理和统计缓存数据。
+
+### Python API
+
+#### 快速使用
+
+```python
+# 获取缓存分析器
+analyzer = ctx.analyze_cache()
+
+# 查看缓存统计
+stats = ctx.cache_stats(detailed=True)
+
+# 诊断缓存问题
+issues = ctx.diagnose_cache(run_id='run_001')
+
+# 自动修复（dry-run）
+ctx.diagnose_cache(run_id='run_001', auto_fix=True, dry_run=True)
+```
+
+#### 高级用法
+
+```python
+from waveform_analysis.core.storage import (
+    CacheAnalyzer,
+    CacheDiagnostics,
+    CacheCleaner,
+    CacheStatsCollector,
+    CleanupStrategy,
+)
+
+# 1. 分析缓存
+analyzer = CacheAnalyzer(ctx)
+analyzer.scan()
+
+# 获取所有条目
+entries = analyzer.get_entries()
+
+# 按条件过滤
+large = analyzer.get_entries(min_size=1024*1024)  # > 1MB
+old = analyzer.get_entries(max_age_days=30)       # > 30 天
+run_entries = analyzer.get_entries(run_id='run_001')
+
+# 打印摘要
+analyzer.print_summary(detailed=True)
+
+# 2. 诊断问题
+diag = CacheDiagnostics(analyzer)
+issues = diag.diagnose()
+diag.print_report(issues)
+
+# 自动修复
+result = diag.auto_fix(issues, dry_run=True)
+
+# 3. 智能清理
+cleaner = CacheCleaner(analyzer)
+
+# 创建清理计划
+plan = cleaner.plan_cleanup(
+    strategy=CleanupStrategy.LRU,
+    target_size_mb=1024
+)
+cleaner.preview_plan(plan, detailed=True)
+
+# 执行清理
+cleaner.execute(plan, dry_run=False)
+
+# 按年龄清理
+cleaner.cleanup_by_age(max_age_days=30, dry_run=True)
+
+# 清理到目标大小
+cleaner.cleanup_to_target_size(target_total_mb=500, dry_run=True)
+
+# 4. 统计收集
+collector = CacheStatsCollector(analyzer)
+stats = collector.collect()
+collector.print_summary(stats, detailed=True)
+
+# 导出统计
+collector.export_stats(stats, 'cache_stats.json')
+```
+
+### 清理策略
+
+| 策略 | 说明 |
+|------|------|
+| `LRU` | 按创建时间排序，删除最旧的 |
+| `OLDEST` | 最旧的优先 |
+| `LARGEST` | 最大的优先 |
+| `VERSION_MISMATCH` | 插件版本不匹配的 |
+| `FAILED_INTEGRITY` | 完整性检查失败的 |
+| `BY_RUN` | 按运行清理 |
+| `BY_DATA_TYPE` | 按数据类型清理 |
+
+### CLI 命令
+
+```bash
+# 缓存概览
+waveform-cache info [--run RUN_ID] [--detailed] [--storage-dir PATH]
+
+# 详细统计
+waveform-cache stats [--run RUN_ID] [--detailed] [--export stats.json]
+
+# 诊断问题
+waveform-cache diagnose [--run RUN_ID] [--fix] [--dry-run]
+
+# 列出缓存条目
+waveform-cache list [--run RUN_ID] [--data-type TYPE] [--min-size BYTES]
+
+# 清理缓存
+waveform-cache clean --strategy lru --size-mb 500 [--dry-run]
+waveform-cache clean --strategy oldest --days 30 [--no-dry-run]
+waveform-cache clean --strategy largest --max-entries 10 --dry-run
+```
+
+### 诊断问题类型
+
+| 类型 | 严重性 | 说明 |
+|------|--------|------|
+| `VERSION_MISMATCH` | warning | 插件版本与缓存不匹配 |
+| `MISSING_METADATA` | error | 元数据文件缺失 |
+| `MISSING_DATA_FILE` | error | 数据文件缺失 |
+| `SIZE_MISMATCH` | error | 文件大小不匹配 |
+| `CHECKSUM_FAILED` | error | 校验和验证失败 |
+| `ORPHAN_FILE` | warning | 孤儿文件（无元数据） |
+| `STORAGE_VERSION_MISMATCH` | warning | 存储版本不匹配 |
+
+### 安全特性
+
+- **默认 dry-run**: 所有清理和修复操作默认为演练模式
+- **线程安全**: CacheAnalyzer 使用锁保护缓存索引
+- **增量扫描**: 支持增量扫描避免重复遍历
+- **详细预览**: 执行前可预览所有将要执行的操作
+
 ## Common Pitfalls
 
 1. **Generator Exhaustion**: Generators can only be consumed once; repeat access triggers recomputation
@@ -689,6 +826,10 @@ ctx.plot_lineage("df_paired", kind="plotly", style=style)
 - `waveform_analysis/core/`: Core processing logic (modular subdirectories since 2026-01)
   - `context.py`, `dataset.py`: Core files (root level)
   - `storage/`: Storage layer (memmap, backends, cache, compression, integrity)
+    - `cache_analyzer.py`: 缓存分析器和 CacheEntry 数据类
+    - `cache_diagnostics.py`: 缓存诊断和修复工具
+    - `cache_cleaner.py`: 智能缓存清理策略
+    - `cache_statistics.py`: 缓存统计收集和报告
   - `execution/`: Execution layer (manager, config, timeout)
   - `plugins/`: Plugin system (按加速器划分架构，since 2026-01)
     - `core/`: Plugin infrastructure (base, streaming, adapters, hot_reload, etc.)
@@ -709,9 +850,14 @@ ctx.plot_lineage("df_paired", kind="plotly", style=style)
   - `processing/`: Data processing (loader, processor, analyzer, chunk)
   - `data/`: Data management (query, export)
   - `foundation/`: Framework basics (exceptions, mixins, model, utils, progress)
+- `waveform_analysis/cli_cache.py`: 缓存管理 CLI 命令 (waveform-cache)
 - `waveform_analysis/utils/`: Utilities (DAQ adapters, I/O, visualization)
 - `waveform_analysis/fitting/`: Physics fitting models
 - `tests/`: Unit and integration tests
+  - `test_cache_analyzer.py`: CacheAnalyzer 测试
+  - `test_cache_diagnostics.py`: CacheDiagnostics 测试
+  - `test_cache_cleaner.py`: CacheCleaner 测试
+  - `test_cache_statistics.py`: CacheStatsCollector 测试
 - `examples/`: Usage demonstrations
 - `docs/`: Architecture, guides, and implementation details
 - `scripts/`: Helper scripts (testing, benchmarking)

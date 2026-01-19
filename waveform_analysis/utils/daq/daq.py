@@ -28,7 +28,7 @@ class _DAQRunAdapter:
     """Lightweight adapter exposing a stable minimal DAQRun protocol:
 
     - get_channel_paths(n_channels) -> List[List[str]]
-    - channel_files -> dict mapping ch -> list(entries)
+    - channel_files -> dict mapping ch -> list(entries)z
 
     This adapter wraps objects that either already implement the method,
     or provide a `channel_files` attribute, or are plain dict mappings.
@@ -83,7 +83,7 @@ class _DAQRunAdapter:
 
 @export
 def adapt_daq_run(obj: Any):
-    """Return an adapter providing `get_channel_paths(n_channels)` for obj.
+    """Return an adapter providing `get_channel_paths(n_channels)` for obj. 
 
     Use this in loader/dataset to normalize inputs from different DAQ tooling.
     """

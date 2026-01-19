@@ -33,6 +33,7 @@ dependencies = [
     "iminuit>=2.0.0",
     "jax>=0.4.0",
     "jaxlib>=0.4.0",
+    "tqdm>=4.60.0",
 ]
 
 [project.optional-dependencies]
@@ -64,6 +65,7 @@ Repository = "https://github.com/yourusername/waveform-analysis.git"
 [project.scripts]
 waveform-process = "waveform_analysis.cli:main"
 waveform-docs = "waveform_analysis.utils.cli_docs:main"
+waveform-cache = "waveform_analysis.cli_cache:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
