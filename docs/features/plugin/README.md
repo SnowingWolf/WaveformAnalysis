@@ -10,7 +10,7 @@
 
 | 文档 | 时间 | 难度 | 说明 |
 |------|------|------|------|
-| [SIMPLE_PLUGIN_TUTORIAL.md](SIMPLE_PLUGIN_TUTORIAL.md) | 10 分钟 | ⭐ 入门 | 最简单的插件教程 - 从零开始 |
+| [SIMPLE_PLUGIN_GUIDE.md](SIMPLE_PLUGIN_GUIDE.md) | 10 分钟 | ⭐ 入门 | 最简单的插件教程 - 从零开始 |
 | [SIGNAL_PROCESSING_PLUGINS.md](SIGNAL_PROCESSING_PLUGINS.md) | 15 分钟 | ⭐⭐⭐ 高级 | 信号处理插件文档 |
 | [STREAMING_PLUGINS_GUIDE.md](STREAMING_PLUGINS_GUIDE.md) | 20 分钟 | ⭐⭐⭐ 高级 | 流式插件开发指南 |
 | [STRAX_PLUGINS_ADAPTER.md](STRAX_PLUGINS_ADAPTER.md) | 15 分钟 | ⭐⭐⭐ 高级 | Strax 插件适配器 |
@@ -22,7 +22,7 @@
 ### 插件开发入门（40 分钟）
 
 ```
-1. SIMPLE_PLUGIN_TUTORIAL.md（10 分钟）- 最简单的插件
+1. SIMPLE_PLUGIN_GUIDE.md（10 分钟）- 最简单的插件
    ↓
 2. [插件开发完整指南](../../api/plugin_guide.md)（30 分钟）- 深入学习
 ```
@@ -46,7 +46,7 @@
 ### 我想...
 
 #### 写第一个插件
-→ [SIMPLE_PLUGIN_TUTORIAL.md](SIMPLE_PLUGIN_TUTORIAL.md)
+→ [SIMPLE_PLUGIN_GUIDE.md](SIMPLE_PLUGIN_GUIDE.md)
 
 #### 使用信号处理插件
 → [SIGNAL_PROCESSING_PLUGINS.md](SIGNAL_PROCESSING_PLUGINS.md)
@@ -71,6 +71,6 @@
 ---
 
 **快速链接**:
-[最简单的插件教程](SIMPLE_PLUGIN_TUTORIAL.md) |
+[最简单的插件教程](SIMPLE_PLUGIN_GUIDE.md) |
 [信号处理插件](SIGNAL_PROCESSING_PLUGINS.md) |
 [插件开发完整指南](../../api/plugin_guide.md)

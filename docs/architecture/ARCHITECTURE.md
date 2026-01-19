@@ -82,7 +82,12 @@
 - **`IO Module`**: 
     - **流式解析**: `parse_files_generator` 支持分块读取 CSV。
     - **并行化**: 使用全局执行器管理器进行多进程并行解析。
-- **`DAQ Adapters`**: 统一不同硬件厂商的数据组织格式。
+- **`DAQ Adapters`** (`utils/formats/`): 统一不同硬件厂商的数据组织格式。
+    - **格式规范 (`FormatSpec`)**: 定义 CSV 列映射、时间戳单位、分隔符等。
+    - **目录布局 (`DirectoryLayout`)**: 定义目录结构、文件模式、通道识别规则。
+    - **适配器 (`DAQAdapter`)**: 结合格式读取器和目录布局的完整适配器。
+    - **注册表**: 支持自定义格式和适配器的注册和获取。
+    - **内置支持**: VX2730 (CAEN) 数字化仪格式。
 
 ---
 
@@ -217,22 +222,56 @@ graph TD
     - `executor_config.py`: 执行器配置定义
     - `streaming.py`: 流式处理框架（StreamingPlugin, StreamingContext）
     - `streaming_plugins.py`: 流式处理插件示例
-- `waveform_analysis/utils/`: 存放通用工具（DAQ 适配器, 绘图, 向量化算法）。
+- `waveform_analysis/utils/`: 存放通用工具
+    - `formats/`: DAQ 数据格式适配器
+        - `base.py`: 基础类（FormatSpec, ColumnMapping, TimestampUnit, FormatReader）
+        - `directory.py`: 目录布局（DirectoryLayout）
+        - `adapter.py`: DAQ 适配器（DAQAdapter）
+        - `vx2730.py`: VX2730 完整实现
+        - `registry.py`: 格式和适配器注册表
+    - `daq/`: DAQ 数据分析工具
+    - `io.py`: 文件 I/O 工具
+    - `preview.py`: 波形预览工具
 - `waveform_analysis/fitting/`: 存放物理拟合模型。
 - `tests/`: 严格对应的单元测试与集成测试。
 - `docs/`: 模块化文档，涵盖架构、缓存、内存优化、执行器管理等专题。
 
 ## 6. 最新更新 (Recent Updates)
 
-### 6.1 EventLengthPlugin 独立化
+### 6.1 DAQ 完整适配器层 (2026-01)
+- **新增模块**: `waveform_analysis/utils/formats/`
+- **核心组件**:
+  - `FormatSpec`: 格式规范数据类（列映射、时间戳单位、分隔符）
+  - `ColumnMapping`: CSV 列索引配置
+  - `TimestampUnit`: 时间戳单位枚举（ps, ns, us, ms, s）
+  - `FormatReader`: 格式读取器抽象基类
+  - `DirectoryLayout`: 目录结构配置
+  - `DAQAdapter`: 完整适配器（FormatReader + DirectoryLayout）
+- **内置适配器**: VX2730 (CAEN 数字化仪)
+- **集成点**:
+  - `io.py`: `parse_and_stack_files()` 支持 `format_type` 参数
+  - `daq_run.py`: 使用 `DirectoryLayout` 替代硬编码
+  - `loader.py`: 支持 `daq_adapter` 参数
+  - `standard.py`: 插件支持 `daq_adapter` 配置选项
+
+### 6.2 缓存管理工具集 (2026-01)
+- **新增模块**: `core/storage/cache_*.py`
+- **核心组件**:
+  - `CacheAnalyzer`: 缓存分析器，扫描和过滤缓存条目
+  - `CacheDiagnostics`: 缓存诊断，检测和修复问题
+  - `CacheCleaner`: 智能清理，多种清理策略
+  - `CacheStatsCollector`: 统计收集和报告
+- **CLI 命令**: `waveform-cache` (info, stats, diagnose, list, clean)
+
+### 6.3 EventLengthPlugin 独立化
 - **问题**: 之前 `event_length` 由 `StWaveformsPlugin` 作为副作用设置，导致从缓存加载时无法正确获取。
 - **解决方案**: 创建独立的 `EventLengthPlugin`，使其成为可缓存和自动加载的独立数据项。
-- **优势**: 
+- **优势**:
   - 依赖关系更清晰
   - 支持独立缓存和加载
   - 可以从 `st_waveforms` 重新计算（即使没有 `_waveform_struct`）
 
-### 6.2 全局执行器管理框架
+### 6.4 全局执行器管理框架
 - **新增组件**: `ExecutorManager` 和 `ExecutorConfig`
 - **功能**:
   - 统一管理线程池和进程池资源
@@ -244,7 +283,7 @@ graph TD
   - `loader.py`: `load_waveforms` 使用执行器管理器
   - `io.py`: `parse_and_stack_files` 使用执行器管理器
 
-### 6.3 性能优化增强
+### 6.5 性能优化增强
 - **Numba 集成**: `group_multi_channel_hits` 支持 Numba JIT 加速边界查找
 - **多进程支持**: 大规模数据集支持多进程并行处理
 - **混合优化**: 结合 Numba 和 multiprocessing，实现最佳性能

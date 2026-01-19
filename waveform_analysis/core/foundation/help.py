@@ -221,7 +221,7 @@ class PluginHelp:
 
 请确保 docs/ 目录存在并包含以下文件:
   • docs/features/plugin/README.md
-  • docs/features/plugin/SIMPLE_PLUGIN_TUTORIAL.md
+  • docs/features/plugin/SIMPLE_PLUGIN_GUIDE.md
 
 📦 常用插件命令:
   ctx.list_provided_data()             # 查看可用数据类型

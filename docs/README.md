@@ -72,7 +72,7 @@ df = ds.get_dataframe()
 | 预览执行计划 | [预览执行](user-guide/context/PREVIEW_EXECUTION.md) | 15 分钟 |
 | 使用信号处理插件 | [信号处理插件](user-guide/plugin/SIGNAL_PROCESSING_PLUGINS.md) | 15 分钟 |
 | 并行处理数据 | [执行器管理](user-guide/data-processing/EXECUTOR_MANAGER_GUIDE.md) | 20 分钟 |
-| 开发自定义插件 | [插件开发教程](developer-guide/plugin-development/SIMPLE_PLUGIN_TUTORIAL.md) | 10 分钟 |
+| 开发自定义插件 | [插件开发教程](developer-guide/plugin-development/SIMPLE_PLUGIN_GUIDE.md) | 10 分钟 |
 | 理解系统架构 | [系统架构](developer-guide/architecture/ARCHITECTURE.md) | 20 分钟 |
 
 ---
@@ -100,7 +100,7 @@ A: 使用者从 [用户指南](user-guide/README.md) 开始，开发者从 [开�
 A: 查看 [血缘图预览](user-guide/context/LINEAGE_VISUALIZATION.md)。
 
 **Q: 如何开发插件？**
-A: 从 [最简单的插件教程](developer-guide/plugin-development/SIMPLE_PLUGIN_TUTORIAL.md) 开始。
+A: 从 [最简单的插件教程](developer-guide/plugin-development/SIMPLE_PLUGIN_GUIDE.md) 开始。
 
 ---
 

@@ -1,9 +1,43 @@
 **导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [插件功能](README.md) > Strax 适配器
 
-# Phase 2 & 3 新功能快速参考
 
-## 📚 新增文件清单
+---
 
+## 🎯 主要功能亮点
+
+###  时间范围查询优化
+- ⚡ **O(log n)** 查询复杂度（二分查找）
+- 🔍 支持时间点和范围查询
+- 💾 查询结果缓存
+- 📊 索引统计和管理
+
+###  Strax插件适配器
+- 🔌 无缝集成strax插件
+- 🔄 自动元数据提取
+- 🎨 strax风格API支持
+- ⚙️ 智能参数映射
+
+###  多运行批量处理
+- 🚀 并行处理支持
+- 📈 进度跟踪
+- 🛡️ 灵活的错误处理
+- 🎛️ 自定义处理函数
+
+###  数据导出统一接口
+- 📦 6种格式支持（Parquet, HDF5, CSV, JSON, NPY, NPZ）
+- 🔄 自动格式推断
+- 💪 智能类型转换
+- ⚡ 批量导出
+
+###  插件热重载
+- 🔥 文件变化自动监控
+- ⚡ 即时重载
+- 🧹 缓存自动清理
+- 👨‍💻 开发友好
+
+---
+
+##  文档目录
 ### 核心模块
 1. `waveform_analysis/core/time_range_query.py` - 时间范围查询优化
 2. `waveform_analysis/core/strax_adapter.py` - Strax插件适配器
@@ -14,10 +48,6 @@
 5. `tests/test_time_range_query.py` - 时间范围查询测试
 6. `tests/test_strax_adapter.py` - Strax适配器测试
 
-### 文档文件
-7. `docs/NEW_FEATURES.md` - 完整的新功能文档
-8. `CLAUDE.md` - 更新了核心组件说明
-9. `CHANGELOG.md` - 更新了变更日志
 
 ---
 
@@ -86,41 +116,7 @@ reloader = enable_hot_reload(ctx, ['my_plugin'], auto_reload=True)
 | 数据导出 | (集成在batch_export) | ✅ | - |
 | 热重载 | (手动测试) | ✅ | - |
 
----
 
-## 🎯 主要功能亮点
-
-### Phase 2.2: 时间范围查询优化
-- ⚡ **O(log n)** 查询复杂度（二分查找）
-- 🔍 支持时间点和范围查询
-- 💾 查询结果缓存
-- 📊 索引统计和管理
-
-### Phase 2.3: Strax插件适配器
-- 🔌 无缝集成strax插件
-- 🔄 自动元数据提取
-- 🎨 strax风格API支持
-- ⚙️ 智能参数映射
-
-### Phase 3.1: 多运行批量处理
-- 🚀 并行处理支持
-- 📈 进度跟踪
-- 🛡️ 灵活的错误处理
-- 🎛️ 自定义处理函数
-
-### Phase 3.2: 数据导出统一接口
-- 📦 6种格式支持（Parquet, HDF5, CSV, JSON, NPY, NPZ）
-- 🔄 自动格式推断
-- 💪 智能类型转换
-- ⚡ 批量导出
-
-### Phase 3.3: 插件热重载
-- 🔥 文件变化自动监控
-- ⚡ 即时重载
-- 🧹 缓存自动清理
-- 👨‍💻 开发友好
-
----
 
 ## 💡 使用建议
 
@@ -161,4 +157,4 @@ reloader = enable_hot_reload(ctx, ['my_plugin'], auto_reload=True)
 ---
 
 **最后更新**: 2026-01-09
-**版本**: Phase 2 & 3 Complete
+**版本**: None 

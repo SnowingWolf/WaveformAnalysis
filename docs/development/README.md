@@ -22,7 +22,7 @@
 从零开始学习插件开发。
 
 **包含文档**:
-- [最简单的插件教程](plugin-development/SIMPLE_PLUGIN_TUTORIAL.md) - 10 分钟入门
+- [最简单的插件教程](plugin-development/SIMPLE_PLUGIN_GUIDE.md) - 10 分钟入门
 - [插件开发完整指南](plugin-development/plugin_guide.md) - 深入学习
 
 ---
