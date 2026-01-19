@@ -25,7 +25,6 @@ class TestHelpSystem:
         output = ctx.help('quickstart')
 
         assert 'basic' in output
-        assert 'memory_efficient' in output
         assert '快速开始指南' in output
 
     def test_context_help_config_topic(self):
@@ -72,18 +71,6 @@ class TestHelpSystem:
         assert 'Context(' in code
         assert 'get_data' in code
         assert 'def main()' in code
-
-        # 验证是否为有效 Python 代码
-        compile(code, '<string>', 'exec')
-
-    def test_context_quickstart_template_memory_efficient(self):
-        """测试生成 memory_efficient 模板"""
-        ctx = Context()
-        code = ctx.quickstart('memory_efficient')
-
-        assert 'WaveformDataset' in code
-        assert 'load_waveforms=False' in code
-        assert '节省 70-80% 内存' in code
 
         # 验证是否为有效 Python 代码
         compile(code, '<string>', 'exec')
@@ -192,7 +179,7 @@ class TestHelpSystem:
         """测试 quickstart 模板的完整性"""
         ctx = Context()
 
-        for template_name in ['basic', 'basic_analysis', 'memory_efficient']:
+        for template_name in ['basic', 'basic_analysis']:
             code = ctx.quickstart(template_name)
 
             # 所有模板应该包含基本元素

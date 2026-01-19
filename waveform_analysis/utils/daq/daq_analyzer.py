@@ -23,19 +23,15 @@ try:
             return False
 
 except Exception:
-
     def _display(x):
         print(x)
 
     def _in_notebook() -> bool:
         return False
 
-
 logger = logging.getLogger(__name__)
 
 from .daq_run import DAQRun
-
-
 class DAQAnalyzer:
     """DAQ 数据分析器：管理所有运行的统一分析（显示/保存等）。"""
 
@@ -457,3 +453,4 @@ class DAQAnalyzer:
 
 
 __all__ = ["DAQAnalyzer"]
+    

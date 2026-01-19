@@ -1,58 +1,73 @@
-# 🛠️ 开发指南
+# 🛠️ 开发者指南
 
-**导航**: [文档中心](../README.md) > 开发指南
+**导航**: [文档中心](../README.md) > 开发者指南
 
-为贡献者和维护者提供的开发规范和指南。
-
----
-
-## 📚 文档列表
-
-| 文档 | 时间 | 难度 | 说明 |
-|------|------|------|------|
-| [IMPORT_STYLE_GUIDE.md](IMPORT_STYLE_GUIDE.md) | 10 分钟 | ⭐⭐ 中级 | 导入风格和代码规范 |
+本指南面向 WaveformAnalysis 的开发者，介绍系统架构、插件开发和代码规范。
 
 ---
 
-## 🎓 开发工作流
+## 📂 文档分类
 
-### 开发新功能（1-2 小时）
+### 🏗️ [架构设计](architecture/README.md)
+系统架构和设计文档。
 
+**包含文档**:
+- [系统架构](architecture/ARCHITECTURE.md) - 整体架构设计
+- [Context 工作流](architecture/CONTEXT_PROCESSOR_WORKFLOW.md) - 数据流和执行流程
+- [项目结构](architecture/PROJECT_STRUCTURE.md) - 目录和模块组织
+
+---
+
+### 🔧 [插件开发](plugin-development/README.md)
+从零开始学习插件开发。
+
+**包含文档**:
+- [最简单的插件教程](plugin-development/SIMPLE_PLUGIN_TUTORIAL.md) - 10 分钟入门
+- [插件开发完整指南](plugin-development/plugin_guide.md) - 深入学习
+
+---
+
+### 📚 [API 参考](api/README.md)
+完整的 API 文档和配置参考。
+
+**包含文档**:
+- [API 参考](api/api_reference.md) - Context 和 Dataset API
+- [配置参考](api/config_reference.md) - 所有配置选项
+
+---
+
+### 📝 [开发规范](contributing/README.md)
+代码规范和贡献指南。
+
+**包含文档**:
+- [导入风格指南](contributing/IMPORT_STYLE_GUIDE.md) - Python 导入规范
+
+---
+
+## 🎓 学习路径
+
+### 插件开发入门（1 小时）
 ```
-1. 阅读架构文档 - 了解系统设计
-   ↓
-2. 查看现有实现 - 学习最佳实践
-   ↓
-3. 编写代码 - 遵循代码规范
-   ↓
-4. 编写测试 - 确保质量
-   ↓
-5. 提交代码 - 遵循提交规范
+1. 最简单的插件教程 → 2. 插件开发完整指南
 ```
 
----
+### 架构深入（2 小时）
+```
+1. 系统架构 → 2. Context 工作流 → 3. 项目结构
+```
 
-## 🔍 快速查找
-
-### 我想...
-
-#### 了解代码规范
-→ [IMPORT_STYLE_GUIDE.md](IMPORT_STYLE_GUIDE.md)
-
-#### 开发插件
-→ [../api/plugin_guide.md](../api/plugin_guide.md)
-
-#### 理解架构
-→ [../architecture/ARCHITECTURE.md](../architecture/ARCHITECTURE.md)
+### 贡献代码（30 分钟）
+```
+1. 导入风格指南 → 2. API 参考
+```
 
 ---
 
 ## 🔗 相关资源
 
-- [API 参考](../api/README.md) - API 使用
-- [架构设计](../architecture/README.md) - 系统架构
-- [插件指南](../api/plugin_guide.md) - 插件开发
+- [用户指南](../user-guide/README.md) - Context 和 Plugin 使用
+- [更新记录](../updates/README.md) - 版本历史
 
 ---
 
-**开始开发** → [IMPORT_STYLE_GUIDE.md](IMPORT_STYLE_GUIDE.md) | [插件指南](../api/plugin_guide.md)
+**快速链接**: [架构](architecture/README.md) | [插件开发](plugin-development/README.md) | [API](api/README.md)

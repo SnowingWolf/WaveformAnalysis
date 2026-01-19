@@ -63,9 +63,6 @@ def demo_quickstart_templates():
     print("\n--- Basic Analysis Template ---")
     code = ctx.quickstart('basic', run_id='demo_run', n_channels=2)
 
-    print("\n--- Memory Efficient Template ---")
-    code = ctx.quickstart('memory_efficient', run_name='demo_run')
-
     # 保存到文件（示例）
     # with open('generated_analysis.py', 'w') as f:
     #     f.write(code)

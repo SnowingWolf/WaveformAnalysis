@@ -1,3 +1,4 @@
 [console_scripts]
+waveform-cache = waveform_analysis.cli_cache:main
 waveform-docs = waveform_analysis.utils.cli_docs:main
 waveform-process = waveform_analysis.cli:main
