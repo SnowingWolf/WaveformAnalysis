@@ -1,0 +1,73 @@
+# 📖 用户指南
+
+**导航**: [文档中心](../README.md) > 用户指南
+
+本指南面向 WaveformAnalysis 的使用者，帮助你快速上手并掌握常见使用场景。
+
+---
+
+## 📂 文档分类
+
+### 🚀 快速开始
+
+| 文档 | 时间 | 说明 |
+|------|------|------|
+| [QUICKSTART_GUIDE.md](QUICKSTART_GUIDE.md) | 10 分钟 | 5分钟快速上手，包含代码模板 |
+| [EXAMPLES_GUIDE.md](EXAMPLES_GUIDE.md) | 20 分钟 | 常见场景示例集合 |
+
+### 🎛️ [Context 使用](context/README.md)
+
+与 Context 交互的详细指南：配置管理、数据获取、执行预览等。
+
+---
+
+## 🎓 学习路径
+
+### 快速入门（30 分钟）
+
+```
+1. QUICKSTART_GUIDE.md（10 分钟）- 快速上手
+   ↓
+2. EXAMPLES_GUIDE.md（20 分钟）- 常见场景
+```
+
+### 进阶使用（2 小时）
+
+```
+1. 快速入门（30 分钟）
+   ↓
+2. Context 使用指南（1.5 小时）
+```
+
+---
+
+## 🔍 按场景查找
+
+### 我想...
+
+#### 快速上手
+→ [QUICKSTART_GUIDE.md](QUICKSTART_GUIDE.md)
+
+#### 查看代码示例
+→ [EXAMPLES_GUIDE.md](EXAMPLES_GUIDE.md)
+
+#### 管理配置
+→ [../features/context/CONFIGURATION.md](../features/context/CONFIGURATION.md)
+
+#### 可视化血缘
+→ [../features/context/LINEAGE_VISUALIZATION_GUIDE.md](../features/context/LINEAGE_VISUALIZATION_GUIDE.md)
+
+---
+
+## 🔗 相关资源
+
+- [功能特性](../features/README.md) - 详细功能说明
+- [开发者指南](../developer-guide/README.md) - 插件开发和架构设计
+- [API 参考](../api/README.md) - API 文档
+
+---
+
+**快速链接**:
+[快速开始](QUICKSTART_GUIDE.md) |
+[示例代码](EXAMPLES_GUIDE.md) |
+[Context 使用](context/README.md)

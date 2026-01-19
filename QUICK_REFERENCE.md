@@ -1,23 +1,5 @@
 # Phase 2 & 3 新功能快速参考
 
-## 📚 新增文件清单
-
-### 核心模块
-1. `waveform_analysis/core/time_range_query.py` - 时间范围查询优化
-2. `waveform_analysis/core/strax_adapter.py` - Strax插件适配器
-3. `waveform_analysis/core/batch_export.py` - 批量处理与数据导出
-4. `waveform_analysis/core/hot_reload.py` - 插件热重载
-
-### 测试文件
-5. `tests/test_time_range_query.py` - 时间范围查询测试
-6. `tests/test_strax_adapter.py` - Strax适配器测试
-
-### 文档文件
-7. `docs/NEW_FEATURES.md` - 完整的新功能文档
-8. `CLAUDE.md` - 更新了核心组件说明
-9. `CHANGELOG.md` - 更新了变更日志
-
----
 
 ## ⚡ 快速上手
 

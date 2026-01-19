@@ -80,66 +80,8 @@ if __name__ == '__main__':
 '''
 
 
-@export
-class MemoryEfficientTemplate(QuickstartTemplate):
-    """内存优化流程模板"""
-    name = 'memory_efficient'
-    description = '内存优化流程（节省 70-80% 内存）'
-
-    def generate(self, ctx: 'Context', run_name: str = 'run_001',
-                 n_channels: int = 2) -> str:
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        return f'''#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""
-内存优化分析 - 自动生成于 {timestamp}
-
-跳过波形加载，只计算特征（节省 70-80% 内存）
-"""
-
-from waveform_analysis import WaveformDataset
-
-def main():
-    # load_waveforms=False 跳过波形数据加载
-    ds = WaveformDataset(
-        run_name='{run_name}',
-        n_channels={n_channels},
-        load_waveforms=False  # 关键：跳过波形加载
-    )
-
-    # 链式调用（波形步骤会被跳过）
-    (ds
-        .load_raw_data()
-        .extract_waveforms()        # 跳过
-        .structure_waveforms()      # 跳过
-        .build_waveform_features()  # 仍会计算特征
-        .build_dataframe()
-        .group_events(time_window_ns=100)
-        .pair_events())
-
-    # 获取结果
-    df_paired = ds.get_paired_events()
-    print(f"Processed {{len(df_paired)}} paired events")
-
-    # 显示摘要
-    print("\\nDataset summary:")
-    print(ds.summary())
-
-    # 注意: get_waveform_at() 会返回 None
-    # wf = ds.get_waveform_at(0)  # None
-
-    return df_paired
-
-if __name__ == '__main__':
-    result = main()
-    print(f"\\nResult columns: {{result.columns.tolist()}}")
-    print(f"Memory saved: ~70-80% compared to full waveform loading")
-'''
-
-
 # 模板注册表
 TEMPLATES = {
     'basic': BasicAnalysisTemplate(),
     'basic_analysis': BasicAnalysisTemplate(),
-    'memory_efficient': MemoryEfficientTemplate(),
 }

@@ -1,4 +1,4 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: waveform-analysis
 Version: 0.1.0
 Summary: 波形数据分析工具包 - 用于处理DAQ系统采集的波形数据
@@ -27,6 +27,7 @@ Requires-Dist: scipy>=1.7.0
 Requires-Dist: iminuit>=2.0.0
 Requires-Dist: jax>=0.4.0
 Requires-Dist: jaxlib>=0.4.0
+Requires-Dist: tqdm>=4.60.0
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: pytest-cov>=3.0.0; extra == "dev"

@@ -63,7 +63,6 @@ from .processing.processor import (
     group_multi_channel_hits,
 )
 from .plugins.builtin.standard import (
-    BasicFeaturesPlugin,
     DataFramePlugin,
     GroupedEventsPlugin,
     PairedEventsPlugin,
@@ -115,7 +114,6 @@ __all__ = [
     "RawFilesPlugin",
     "WaveformsPlugin",
     "StWaveformsPlugin",
-    "BasicFeaturesPlugin",
     "DataFramePlugin",
     "GroupedEventsPlugin",
     "PairedEventsPlugin",

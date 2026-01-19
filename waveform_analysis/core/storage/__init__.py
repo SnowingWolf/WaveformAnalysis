@@ -11,6 +11,13 @@ Storage 子模块 - 存储层统一接口
 - CompressionManager: 压缩管理器
 - IntegrityChecker: 数据完整性检查
 
+缓存管理工具（新增）：
+- CacheAnalyzer: 缓存扫描与索引
+- CacheEntry: 缓存条目元数据
+- CacheDiagnostics: 缓存诊断与修复
+- CacheCleaner: 智能清理策略
+- CacheStatsCollector: 统计收集与报告
+
 向后兼容：
 所有导出的类和函数可以通过以下方式导入：
     from waveform_analysis.core.storage import MemmapStorage
@@ -50,6 +57,12 @@ from .integrity import (
     verify_file_checksum,
 )
 
+# 缓存管理工具
+from .cache_analyzer import CacheAnalyzer, CacheEntry
+from .cache_diagnostics import CacheDiagnostics, DiagnosticIssue, DiagnosticIssueType
+from .cache_cleaner import CacheCleaner, CleanupPlan, CleanupStrategy
+from .cache_statistics import CacheStatsCollector, CacheStatistics
+
 __all__ = [
     # Memmap 存储
     "MemmapStorage",
@@ -74,4 +87,15 @@ __all__ = [
     "get_integrity_checker",
     "compute_file_checksum",
     "verify_file_checksum",
+    # 缓存管理工具
+    "CacheAnalyzer",
+    "CacheEntry",
+    "CacheDiagnostics",
+    "DiagnosticIssue",
+    "DiagnosticIssueType",
+    "CacheCleaner",
+    "CleanupPlan",
+    "CleanupStrategy",
+    "CacheStatsCollector",
+    "CacheStatistics",
 ]

@@ -2,15 +2,28 @@
 """
 Dataset 模块 - 面向用户的高层 API 封装。
 
-WaveformDataset 类作为框架的主要入口，通过链式调用 (Fluent Interface) 封装了
-从数据加载到分析结果保存的完整流程。它内部委托 Context 进行插件调度，
-在保持 API 简洁的同时，利用了插件系统的缓存和依赖管理能力。
+**已弃用**: 本模块中的 `WaveformDataset` 类已被弃用，将在下一个主版本中移除。
+请使用 `Context` 和插件系统替代。
+
+迁移指南:
+    旧代码:
+        from waveform_analysis import WaveformDataset
+        ds = WaveformDataset(run_name="run_001", n_channels=2)
+        ds.load_raw_data().extract_waveforms()...
+
+    新代码:
+        from waveform_analysis.core import Context
+        from waveform_analysis.core.plugins.builtin import standard_plugins
+        ctx = Context()
+        ctx.register(standard_plugins)
+        ctx.set_config({'n_channels': 2, 'data_root': 'DAQ'})
+        peaks = ctx.get_data('run_001', 'peaks')
 """
 
 # 1. Standard library imports
 import os
 import warnings
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 # 2. Third-party imports
 import numpy as np
@@ -28,7 +41,22 @@ class WaveformDataset(CacheMixin, StepMixin):
     统一的波形数据集容器，封装整个数据处理流程。
     支持链式调用，简化数据加载、预处理和分析。
     
-    使用示例：
+    .. deprecated:: 0.2.0
+        `WaveformDataset` 已被弃用，将在下一个主版本中移除。
+        请使用 `Context` 和插件系统替代。
+        
+        迁移示例:
+            旧代码:
+                ds = WaveformDataset(run_name="run_001", n_channels=2)
+                ds.load_raw_data().extract_waveforms()...
+            
+            新代码:
+                ctx = Context()
+                ctx.register(standard_plugins)
+                ctx.set_config({'n_channels': 2, 'data_root': 'DAQ'})
+                peaks = ctx.get_data('run_001', 'peaks')
+    
+    使用示例（已弃用）：
         dataset = WaveformDataset(run_name="50V_OV_circulation_20thr", n_channels=2)
         dataset.load_raw_data().extract_waveforms().structure_waveforms()\\
                .build_waveform_features().build_dataframe().group_events()\\
@@ -55,6 +83,10 @@ class WaveformDataset(CacheMixin, StepMixin):
         """
         初始化数据集。
 
+        .. deprecated:: 0.2.0
+            `WaveformDataset` 已被弃用，将在下一个主版本中移除。
+            请使用 `Context` 和插件系统替代。
+
         参数:
             run_name: 数据集标识符
             n_channels: 要处理的通道数
@@ -66,6 +98,15 @@ class WaveformDataset(CacheMixin, StepMixin):
             cache_waveforms: 是否缓存提取后的波形数据到磁盘（默认 True）
             cache_dir: 缓存目录，默认为 outputs/_cache
         """
+        warnings.warn(
+            "WaveformDataset 已被弃用，将在下一个主版本中移除。"
+            "请使用 Context 和插件系统替代。"
+            "迁移指南: 使用 ctx = Context() 和 ctx.register() 注册插件，"
+            "然后使用 ctx.get_data(run_id, data_name) 获取数据。"
+            "更多信息请参考文档: docs/user-guide/QUICKSTART_GUIDE.md",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         CacheMixin.__init__(self)
         StepMixin.__init__(self)
 
@@ -551,7 +592,7 @@ class WaveformDataset(CacheMixin, StepMixin):
     def from_daq_report(
         cls,
         run_name: str,
-        daq_report: str | dict,
+        daq_report: Union[str, dict],
         data_root: str = "DAQ",
         load_waveforms: bool = True,
         run_pipeline: bool = True,
@@ -675,7 +716,6 @@ df_paired = ds.get_paired_events()
 
 🎯 快速开始:
   • 基础分析: ds.ctx.quickstart('basic')
-  • 内存优化: ds.ctx.quickstart('memory_efficient')
 """
 
         print(help_text)
