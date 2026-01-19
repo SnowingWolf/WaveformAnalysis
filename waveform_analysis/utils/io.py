@@ -139,6 +139,8 @@ def parse_and_stack_files(
     n_jobs: int = 1,
     use_process_pool: bool = False,
     show_progress: bool = False,
+    format_type: Optional[str] = None,
+    format_reader: Optional["FormatReader"] = None,
 ) -> np.ndarray:
     """Parse a list of CSV files and return a single vstacked numpy array.
 
@@ -146,10 +148,30 @@ def parse_and_stack_files(
     drops all-empty rows, attempts numeric coercion for TIMETAG and samples,
     and returns an empty array if no valid data. When `chunksize` is set,
     files are read in streaming chunks to reduce memory usage.
-    
+
     Note: Only the first file in the list will skip header rows (skiprows).
     Subsequent files will not skip any rows (skiprows=0) as they don't contain headers.
+
+    Args:
+        file_paths: 文件路径列表
+        skiprows: 首文件跳过的行数（默认2）
+        delimiter: CSV 分隔符（默认";"）
+        chunksize: 分块大小（可选）
+        n_jobs: 并行任务数
+        use_process_pool: 是否使用进程池
+        show_progress: 是否显示进度条
+        format_type: 格式类型名称（如 "vx2730_csv"），使用新的格式读取器
+        format_reader: 格式读取器实例（可选），优先于 format_type
+
+    Returns:
+        所有文件数据堆叠后的数组
     """
+    # 如果提供了 format_reader 或 format_type，使用新的格式读取器
+    if format_reader is not None or format_type is not None:
+        if format_reader is None:
+            from waveform_analysis.utils.formats import get_format_reader
+            format_reader = get_format_reader(format_type)
+        return format_reader.read_files(file_paths, show_progress=show_progress)
     if not file_paths:
         return np.array([])
 

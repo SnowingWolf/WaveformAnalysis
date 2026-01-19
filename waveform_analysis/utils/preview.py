@@ -49,6 +49,7 @@ class WaveformPreviewer:
         run_name: 运行名称，对应 DAQ 数据目录名
         data_root: DAQ 数据根目录，默认为 "DAQ"
         n_channels: 通道总数，默认为 6
+        daq_adapter: DAQ 适配器名称（如 "vx2730"），用于处理不同格式
 
     示例:
         >>> previewer = WaveformPreviewer(
@@ -59,7 +60,13 @@ class WaveformPreviewer:
         >>> fig = previewer.plot_grid(waveforms, annotate=True)
     """
 
-    def __init__(self, run_name: str, data_root: str = "DAQ", n_channels: int = 6):
+    def __init__(
+        self,
+        run_name: str,
+        data_root: str = "DAQ",
+        n_channels: int = 6,
+        daq_adapter: Optional[str] = None,
+    ):
         """
         初始化波形预览器。
 
@@ -67,14 +74,19 @@ class WaveformPreviewer:
             run_name: 运行名称
             data_root: 数据根目录
             n_channels: 通道总数
+            daq_adapter: DAQ 适配器名称（如 "vx2730"）
         """
         self.run_name = run_name
         self.data_root = data_root
         self.n_channels = n_channels
+        self.daq_adapter = daq_adapter
 
         # 初始化加载器
         self._loader = WaveformLoader(
-            n_channels=n_channels, run_name=run_name, data_root=data_root
+            n_channels=n_channels,
+            run_name=run_name,
+            data_root=data_root,
+            daq_adapter=daq_adapter,
         )
 
         # 缓存文件列表
@@ -82,7 +94,7 @@ class WaveformPreviewer:
 
         logger.debug(
             f"WaveformPreviewer initialized: run_name={run_name}, "
-            f"n_channels={n_channels}, data_root={data_root}"
+            f"n_channels={n_channels}, data_root={data_root}, daq_adapter={daq_adapter}"
         )
 
     def _get_raw_files(self) -> List[List[str]]:
