@@ -25,7 +25,7 @@ ADVANCED_PEAK_DTYPE = np.dtype(
         ("integral", "f4"),  # 峰值积分（面积）
         ("edge_start", "f4"),  # 峰值起始边缘（左边界）
         ("edge_end", "f4"),  # 峰值结束边缘（右边界）
-        ("timestamp", "i8"),  # 事件时间戳
+        ("timestamp", "i8"),  # 全局时间戳（事件时间戳 + 峰值位置 * 采样间隔）
         ("channel", "i2"),  # 通道号
         ("event_index", "i8"),  # 事件索引
     ]
@@ -84,6 +84,11 @@ class SignalPeaksPlugin(Plugin):
             type=str,
             help="峰高计算方法: 'diff' (积分差分) 或 'minmax' (最大最小值差)",
         ),
+        "sampling_interval_ns": Option(
+            default=2.0,
+            type=float,
+            help="采样间隔（纳秒），用于计算全局时间戳。默认 2.0 ns",
+        ),
     }
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> List[np.ndarray]:
@@ -115,6 +120,7 @@ class SignalPeaksPlugin(Plugin):
         width = context.get_config(self, "width")
         threshold = context.get_config(self, "threshold")
         height_method = context.get_config(self, "height_method")
+        sampling_interval_ns = context.get_config(self, "sampling_interval_ns")
 
         # 获取依赖数据
         filtered_waveforms = context.get_data(run_id, "filtered_waveforms")
@@ -150,6 +156,7 @@ class SignalPeaksPlugin(Plugin):
                     width,
                     threshold,
                     height_method,
+                    sampling_interval_ns,
                 )
 
                 if len(event_peaks) > 0:
@@ -179,6 +186,7 @@ class SignalPeaksPlugin(Plugin):
         width: int,
         threshold: Union[float, None],
         height_method: str,
+        sampling_interval_ns: float,
     ) -> List[tuple]:
         """
         在单个波形中检测峰值
@@ -186,7 +194,7 @@ class SignalPeaksPlugin(Plugin):
         Args:
             waveform: 滤波后的波形数组
             baseline: 基线值（用于反转法检测负脉冲）
-            timestamp: 事件时间戳
+            timestamp: 事件时间戳（事件开始时间）
             channel: 通道号
             event_index: 事件索引
             use_derivative: 是否使用导数检测峰值
@@ -196,6 +204,7 @@ class SignalPeaksPlugin(Plugin):
             width: 最小宽度
             threshold: 阈值条件
             height_method: 峰高计算方法
+            sampling_interval_ns: 采样间隔（纳秒），用于计算全局时间戳
 
         Returns:
             峰值特征元组列表
@@ -238,13 +247,28 @@ class SignalPeaksPlugin(Plugin):
             # 计算峰积分（这里简单设置为 None，后续可扩展）
             peak_integral = None
 
+            # 计算全局时间戳：事件时间戳 + 峰值位置 * 采样间隔
+            # 假设时间戳单位是纳秒（如果时间戳是皮秒，需要相应调整）
+            # 这里假设 timestamp 已经是纳秒单位，采样间隔也是纳秒
+            # 如果 timestamp 是皮秒，需要将 sampling_interval_ns 转换为皮秒
+            # 为了兼容性，我们检查时间戳的大小来判断单位
+            # 如果时间戳很大（> 1e12），可能是皮秒；否则可能是纳秒
+            if timestamp > 1e12:
+                # 时间戳是皮秒，需要将采样间隔转换为皮秒
+                sampling_interval = sampling_interval_ns * 1e3  # ns -> ps
+            else:
+                # 时间戳是纳秒
+                sampling_interval = sampling_interval_ns
+
+            global_timestamp = int(timestamp + pos * sampling_interval)
+
             peak_tuple = (
                 int(pos),  # position
                 float(peak_height),  # height
                 float(peak_integral) if peak_integral is not None else 0.0,  # integral
                 float(edge_start),  # edge_start
                 float(edge_end),  # edge_end
-                int(timestamp),  # timestamp
+                int(global_timestamp),  # timestamp: 全局时间戳
                 int(channel),  # channel
                 int(event_index),  # event_index
             )
