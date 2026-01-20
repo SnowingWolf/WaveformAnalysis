@@ -29,6 +29,9 @@ from .filtering import FilteredWaveformsPlugin
 # CPU 寻峰插件
 from .peak_finding import SignalPeaksPlugin, ADVANCED_PEAK_DTYPE
 
+# CPU 波形宽度插件
+from .waveform_width import WaveformWidthPlugin, WAVEFORM_WIDTH_DTYPE
+
 __all__ = [
     # 标准插件
     "RawFilesPlugin",
@@ -45,4 +48,7 @@ __all__ = [
     # 寻峰插件
     "SignalPeaksPlugin",
     "ADVANCED_PEAK_DTYPE",
+    # 波形宽度插件
+    "WaveformWidthPlugin",
+    "WAVEFORM_WIDTH_DTYPE",
 ]
