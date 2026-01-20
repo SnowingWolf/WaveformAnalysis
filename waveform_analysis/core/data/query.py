@@ -11,11 +11,15 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from datetime import datetime
 
 import numpy as np
 
 from waveform_analysis.core.foundation.utils import exporter
+
+if TYPE_CHECKING:
+    from waveform_analysis.core.foundation.time_conversion import EpochInfo, TimeConverter
 
 logger = logging.getLogger(__name__)
 export, __all__ = exporter()
@@ -32,10 +36,19 @@ class TimeIndex:
     时间索引,支持快速时间范围查询
 
     使用二分查找实现O(log n)的查询复杂度
+
+    Attributes:
+        times: 时间戳数组(已排序)
+        indices: 对应的原始索引
+        endtimes: 结束时间(如果有)
+        epoch_info: Epoch 元数据(用于绝对时间查询)
     """
     times: np.ndarray  # 时间戳数组(已排序)
     indices: np.ndarray  # 对应的原始索引
     endtimes: Optional[np.ndarray] = None  # 结束时间(如果有)
+
+    # Epoch 元数据(用于绝对时间查询)
+    epoch_info: Optional["EpochInfo"] = None
 
     # 元数据
     min_time: int = 0
@@ -44,6 +57,9 @@ class TimeIndex:
 
     # 索引构建时间
     build_time: float = 0.0
+
+    # 缓存的 TimeConverter
+    _converter: Optional["TimeConverter"] = None
 
     def __post_init__(self):
         """初始化后处理"""
@@ -141,6 +157,97 @@ class TimeIndex:
 
         return len(self.query_range(start_time, end_time)) > 0
 
+    def _get_converter(self) -> Optional["TimeConverter"]:
+        """获取或创建 TimeConverter 实例"""
+        if self._converter is not None:
+            return self._converter
+
+        if self.epoch_info is None:
+            return None
+
+        from waveform_analysis.core.foundation.time_conversion import TimeConverter
+        self._converter = TimeConverter(self.epoch_info)
+        return self._converter
+
+    def query_range_absolute(
+        self,
+        start_dt: Optional[datetime] = None,
+        end_dt: Optional[datetime] = None
+    ) -> np.ndarray:
+        """
+        使用 datetime 对象查询时间范围内的记录索引
+
+        Args:
+            start_dt: 起始时间(datetime, 包含)
+            end_dt: 结束时间(datetime, 不包含)
+
+        Returns:
+            符合条件的原始索引数组
+
+        Raises:
+            ValueError: 如果没有设置 epoch_info
+
+        Example:
+            >>> from datetime import datetime, timezone
+            >>> start = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+            >>> end = datetime(2024, 1, 1, 12, 0, 10, tzinfo=timezone.utc)
+            >>> indices = index.query_range_absolute(start, end)
+        """
+        converter = self._get_converter()
+        if converter is None:
+            raise ValueError(
+                "无法使用绝对时间查询：未设置 epoch_info。"
+                "请先调用 ctx.set_epoch() 或 ctx.auto_extract_epoch()。"
+            )
+
+        start_rel, end_rel = converter.convert_time_range(start_dt, end_dt)
+
+        # 如果没有指定边界，使用索引的边界
+        if start_rel is None:
+            start_rel = self.min_time
+        if end_rel is None:
+            end_rel = self.max_time + 1  # +1 因为 end 不包含
+
+        return self.query_range(start_rel, end_rel)
+
+    def query_point_absolute(self, dt: datetime) -> Optional[int]:
+        """
+        使用 datetime 对象查询包含特定时间点的记录
+
+        Args:
+            dt: 时间点(datetime)
+
+        Returns:
+            记录索引,如果没有则返回None
+
+        Raises:
+            ValueError: 如果没有设置 epoch_info
+        """
+        converter = self._get_converter()
+        if converter is None:
+            raise ValueError(
+                "无法使用绝对时间查询：未设置 epoch_info。"
+                "请先调用 ctx.set_epoch() 或 ctx.auto_extract_epoch()。"
+            )
+
+        time_rel = converter.absolute_to_relative(dt)
+        return self.query_point(int(time_rel))
+
+    def get_time_range_absolute(self) -> Optional[Tuple[datetime, datetime]]:
+        """
+        获取索引覆盖的绝对时间范围
+
+        Returns:
+            (min_datetime, max_datetime) 元组，或 None 如果没有 epoch_info
+        """
+        converter = self._get_converter()
+        if converter is None:
+            return None
+
+        min_dt = converter.relative_to_absolute(self.min_time)
+        max_dt = converter.relative_to_absolute(self.max_time)
+        return (min_dt, max_dt)
+
 
 @export
 class TimeRangeQueryEngine:
@@ -162,7 +269,8 @@ class TimeRangeQueryEngine:
         data: np.ndarray,
         time_field: str = 'time',
         endtime_field: Optional[str] = None,
-        force_rebuild: bool = False
+        force_rebuild: bool = False,
+        epoch_info: Optional["EpochInfo"] = None,
     ) -> TimeIndex:
         """
         为数据构建时间索引
@@ -174,6 +282,7 @@ class TimeRangeQueryEngine:
             time_field: 时间字段名
             endtime_field: 结束时间字段名(可选)
             force_rebuild: 强制重建索引
+            epoch_info: Epoch 元数据(用于绝对时间查询)
 
         Returns:
             构建的时间索引
@@ -222,6 +331,7 @@ class TimeRangeQueryEngine:
             times=times,
             indices=indices,
             endtimes=endtimes,
+            epoch_info=epoch_info,
             build_time=time.time() - start_time
         )
 

@@ -186,3 +186,5 @@ class GenericCSVReader(FormatReader):
                             a = np.pad(a, pad_width, mode='constant', constant_values=np.nan)
                         padded.append(a)
                     yield np.vstack(padded)
+
+
