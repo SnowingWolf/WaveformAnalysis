@@ -28,11 +28,26 @@ Plugins Builtin 子模块 - 内置标准插件
 # #region agent log
 import json
 import os
+
 _log_path = "/mnt/data/Run3/.cursor/debug.log"
 try:
     with open(_log_path, "a") as f:
-        f.write(json.dumps({"sessionId": "debug-session", "runId": "post-fix", "hypothesisId": "C", "location": "plugins/builtin/__init__.py:28", "message": "Importing from cpu module", "data": {"importing_FilteredWaveformsPlugin": True}, "timestamp": __import__("time").time() * 1000}) + "\n")
-except: pass
+        f.write(
+            json.dumps(
+                {
+                    "sessionId": "debug-session",
+                    "runId": "post-fix",
+                    "hypothesisId": "C",
+                    "location": "plugins/builtin/__init__.py:28",
+                    "message": "Importing from cpu module",
+                    "data": {"importing_FilteredWaveformsPlugin": True},
+                    "timestamp": __import__("time").time() * 1000,
+                }
+            )
+            + "\n"
+        )
+except:
+    pass
 # #endregion
 from .cpu import (
     RawFilesPlugin,
@@ -47,12 +62,32 @@ from .cpu import (
     FilteredWaveformsPlugin,
     SignalPeaksPlugin,
     ADVANCED_PEAK_DTYPE,
+    WaveformWidthPlugin,
+    WAVEFORM_WIDTH_DTYPE,
 )
+
 # #region agent log
 try:
     with open(_log_path, "a") as f:
-        f.write(json.dumps({"sessionId": "debug-session", "runId": "post-fix", "hypothesisId": "C", "location": "plugins/builtin/__init__.py:42", "message": "After cpu import", "data": {"has_FilteredWaveformsPlugin": "FilteredWaveformsPlugin" in dir(), "has_FilterPlugin": "FilterPlugin" in dir()}, "timestamp": __import__("time").time() * 1000}) + "\n")
-except: pass
+        f.write(
+            json.dumps(
+                {
+                    "sessionId": "debug-session",
+                    "runId": "post-fix",
+                    "hypothesisId": "C",
+                    "location": "plugins/builtin/__init__.py:42",
+                    "message": "After cpu import",
+                    "data": {
+                        "has_FilteredWaveformsPlugin": "FilteredWaveformsPlugin" in dir(),
+                        "has_FilterPlugin": "FilterPlugin" in dir(),
+                    },
+                    "timestamp": __import__("time").time() * 1000,
+                }
+            )
+            + "\n"
+        )
+except:
+    pass
 # #endregion
 
 # 流式插件示例（待迁移到 streaming/）
@@ -90,6 +125,8 @@ __all__ = [
     "FilteredWaveformsPlugin",
     "SignalPeaksPlugin",
     "ADVANCED_PEAK_DTYPE",
+    "WaveformWidthPlugin",
+    "WAVEFORM_WIDTH_DTYPE",
     # 流式插件示例
     "StreamingStWaveformsPlugin",
     "StreamingBasicFeaturesPlugin",

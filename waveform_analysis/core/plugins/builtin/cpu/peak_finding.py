@@ -133,10 +133,13 @@ class SignalPeaksPlugin(Plugin):
             for event_idx, (filtered_waveform, st_waveform) in enumerate(zip(filtered_ch, st_ch)):
                 timestamp = st_waveform["timestamp"]
                 channel = st_waveform["channel"]
+                # 获取 baseline（用于反转法检测负脉冲）
+                baseline = st_waveform["baseline"] if "baseline" in st_waveform.dtype.names else None
 
                 # 检测峰值
                 event_peaks = self._find_peaks_in_waveform(
                     filtered_waveform,
+                    baseline,
                     timestamp,
                     channel,
                     event_idx,
@@ -165,6 +168,7 @@ class SignalPeaksPlugin(Plugin):
     def _find_peaks_in_waveform(
         self,
         waveform: np.ndarray,
+        baseline: Union[float, None],
         timestamp: int,
         channel: int,
         event_index: int,
@@ -181,6 +185,7 @@ class SignalPeaksPlugin(Plugin):
 
         Args:
             waveform: 滤波后的波形数组
+            baseline: 基线值（用于反转法检测负脉冲）
             timestamp: 事件时间戳
             channel: 通道号
             event_index: 事件索引
@@ -200,7 +205,14 @@ class SignalPeaksPlugin(Plugin):
             # 使用一阶导数的负值（下降沿代表原波形的峰值）
             detection_signal = -np.diff(waveform)
         else:
-            detection_signal = waveform
+            # 反转法：使用 baseline - waveform 来检测负脉冲的谷值
+            # 对于负脉冲：波形谷值 -> (baseline - waveform) 后变成峰值
+            if baseline is not None:
+                detection_signal = baseline - waveform
+            else:
+                # 如果没有 baseline，使用波形均值作为基线
+                baseline_approx = np.mean(waveform)
+                detection_signal = baseline_approx - waveform
 
         # 检测峰值
         peak_positions, properties = find_peaks(

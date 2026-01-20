@@ -62,7 +62,7 @@ from .processing.processor import (
     build_waveform_df,
     group_multi_channel_hits,
 )
-from .plugins.builtin.standard import (
+from .plugins.builtin import (
     DataFramePlugin,
     GroupedEventsPlugin,
     PairedEventsPlugin,

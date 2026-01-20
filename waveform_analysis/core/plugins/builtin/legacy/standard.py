@@ -125,6 +125,7 @@ class StWaveformsPlugin(Plugin):
     provides = "st_waveforms"
     depends_on = ["waveforms"]
     save_when = "always"
+    # output_dtype 使用默认的 RECORD_DTYPE，但实际会根据原始数据的波形长度动态调整
     output_dtype = np.dtype(RECORD_DTYPE)
 
     def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
@@ -133,6 +134,9 @@ class StWaveformsPlugin(Plugin):
 
         将原始波形列表转换为包含时间戳、基线、通道号和波形数据的结构化数组。
         这是数据流中的关键步骤，为后续特征提取提供统一的数据格式。
+        
+        注意：波形长度会根据原始数据的实际长度动态确定，不再固定使用 DEFAULT_WAVE_LENGTH。
+        如果原始数据的波形长度与默认值不同，会自动创建相应长度的 dtype。
 
         Args:
             context: Context 实例
@@ -140,11 +144,12 @@ class StWaveformsPlugin(Plugin):
             **kwargs: 依赖数据，包含 waveforms（由 WaveformsPlugin 提供）
 
         Returns:
-            List[np.ndarray]: 每个通道的结构化数组，dtype 为 RECORD_DTYPE
+            List[np.ndarray]: 每个通道的结构化数组，dtype 根据实际波形长度动态创建
 
         Examples:
             >>> st_waveforms = ctx.get_data('run_001', 'st_waveforms')
             >>> print(st_waveforms[0].dtype.names)
+            >>> print(st_waveforms[0]["wave"].shape)  # 波形长度根据实际数据确定
         """
         waveforms = context.get_data(run_id, "waveforms")
         waveform_struct = WaveformStruct(waveforms)
