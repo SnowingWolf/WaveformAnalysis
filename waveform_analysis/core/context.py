@@ -15,6 +15,7 @@ import os
 import re
 import threading
 import warnings
+from datetime import datetime
 from typing import Any, Dict, Iterator, List, Optional, Type, Union, cast
 
 # 2. Third-party imports
@@ -78,7 +79,7 @@ class Context(CacheMixin, PluginMixin):
 
     def __init__(
         self,
-        storage_dir: str = "./strax_data",
+        storage_dir: Optional[str] = None,
         config: Optional[Dict[str, Any]] = None,
         storage: Optional[Any] = None,
         plugin_dirs: Optional[List[str]] = None,
@@ -86,14 +87,14 @@ class Context(CacheMixin, PluginMixin):
         enable_stats: bool = False,
         stats_mode: str = 'basic',
         stats_log_file: Optional[str] = None,
-        work_dir: Optional[str] = None,
         use_run_subdirs: bool = True,
     ):
         """
         Initialize Context.
 
         Args:
-            storage_dir: 默认存储目录（使用 MemmapStorage 时的旧版模式）
+            storage_dir: 存储目录，数据按 run_id 分目录存储。
+                        如果为 None，将使用 config['data_root'] 作为存储目录。
             config: 全局配置字典
             storage: 自定义存储后端（必须实现 StorageBackend 接口）
                     如果为 None，使用默认的 MemmapStorage
@@ -102,23 +103,18 @@ class Context(CacheMixin, PluginMixin):
             enable_stats: 是否启用插件性能统计
             stats_mode: 统计模式 ('off', 'basic', 'detailed')
             stats_log_file: 统计日志文件路径
-            work_dir: 工作目录（新版分层模式）。如果设置，数据将按 run_id 分目录存储。
-            use_run_subdirs: 是否启用 run_id 子目录（仅当 work_dir 设置时生效）
+            use_run_subdirs: 是否启用 run_id 子目录
 
-        Storage Modes:
-            1. 旧版兼容模式（work_dir=None 且 storage_dir 有旧缓存）：
-               - 所有文件在 storage_dir 根目录（扁平结构）
-
-            2. 新版分层模式（work_dir=None 且 storage_dir 为空，或显式设置 work_dir）：
-               - 数据按 run_id 分目录存储
-               - 结构：work_dir/{run_id}/data/*.bin
+        Storage Structure:
+            数据按 run_id 分目录存储：storage_dir/{run_id}/_cache/*.bin
 
         Examples:
-            >>> # 旧版兼容模式（storage_dir 有旧缓存会自动检测）
-            >>> ctx = Context(storage_dir="./strax_data")
+            >>> # 使用 data_root 作为存储目录（推荐）
+            >>> ctx = Context(config={"data_root": "DAQ"})
+            >>> # 缓存将存储在 DAQ/{run_id}/_cache/
 
-            >>> # 新版分层模式（显式指定 work_dir）
-            >>> ctx = Context(work_dir="./workspace")
+            >>> # 显式指定存储目录
+            >>> ctx = Context(storage_dir="./strax_data")
 
             >>> # 使用 SQLite 存储
             >>> from waveform_analysis.core.storage.backends import SQLiteBackend
@@ -131,9 +127,13 @@ class Context(CacheMixin, PluginMixin):
         PluginMixin.__init__(self)
 
         self.profiler = Profiler()
-        self.storage_dir = storage_dir
-        self.work_dir = work_dir
         self.config = config or {}
+
+        # 确定存储目录：优先使用显式指定的 storage_dir，否则使用 data_root
+        if storage_dir is None:
+            storage_dir = self.config.get("data_root", "DAQ")
+
+        self.storage_dir = storage_dir
 
         # Extensibility: Allow custom storage backend
         if storage is not None:
@@ -141,31 +141,12 @@ class Context(CacheMixin, PluginMixin):
             self._validate_storage_backend(storage)
             self.storage = storage
         else:
-            # 智能默认：检测旧缓存，自动回退
-            if work_dir is None:
-                # 未指定 work_dir，检测 storage_dir 是否有旧缓存
-                if self._has_legacy_cache(storage_dir):
-                    # 存在旧缓存，使用旧模式（扁平结构）
-                    self.storage = MemmapStorage(
-                        storage_dir,
-                        profiler=self.profiler
-                    )
-                else:
-                    # 全新项目，使用新模式（work_dir=storage_dir）
-                    self.storage = MemmapStorage(
-                        storage_dir,
-                        work_dir=storage_dir,
-                        use_run_subdirs=use_run_subdirs,
-                        profiler=self.profiler
-                    )
-            else:
-                # 显式指定 work_dir，使用新模式
-                self.storage = MemmapStorage(
-                    storage_dir,  # 保留用于回退
-                    work_dir=work_dir,
-                    use_run_subdirs=use_run_subdirs,
-                    profiler=self.profiler
-                )
+            self.storage = MemmapStorage(
+                storage_dir,
+                work_dir=storage_dir,
+                use_run_subdirs=use_run_subdirs,
+                profiler=self.profiler
+            )
 
         # Setup logger
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -221,6 +202,14 @@ class Context(CacheMixin, PluginMixin):
 
         # Help system (lazy initialization)
         self._help_system = None
+
+        # Epoch management (per-run time reference)
+        self._epoch_cache: Dict[str, Any] = {}  # run_id -> EpochInfo
+
+        # Epoch configuration defaults
+        self.config.setdefault("auto_extract_epoch", True)
+        self.config.setdefault("epoch_extraction_strategy", "auto")  # "auto", "filename", "csv_header", "first_event"
+        self.config.setdefault("epoch_filename_patterns", None)  # None = use defaults
 
     def register(self, *plugins: Union[Plugin, Type[Plugin], Any], allow_override: bool = False):
         """
@@ -387,42 +376,6 @@ class Context(CacheMixin, PluginMixin):
 
         # 清除配置缓存，确保新配置生效
         self.clear_config_cache()
-
-    @staticmethod
-    def _has_legacy_cache(base_dir: str) -> bool:
-        """
-        检测是否存在旧格式缓存（扁平结构）
-
-        检查 base_dir 根目录下是否有形如 "run_xxx-data_name-hash.bin" 的文件。
-        如果存在，说明这是旧版缓存目录，应该使用旧模式。
-
-        Args:
-            base_dir: 检查的目录路径
-
-        Returns:
-            True 如果存在旧格式缓存文件，False 否则
-        """
-        if not os.path.exists(base_dir):
-            return False
-
-        try:
-            for f in os.listdir(base_dir):
-                # 跳过目录和隐藏文件
-                if f.startswith('.') or f.startswith('_'):
-                    continue
-                # 检查是否是旧格式的 .bin 或 .json 文件
-                if f.endswith('.bin') or f.endswith('.json'):
-                    # 旧格式: "run_xxx-data_name-hash.bin"
-                    # 解析文件名，检查是否包含 run_id 前缀
-                    parts = f.rsplit('.', 1)[0].split('-')
-                    if len(parts) >= 2:
-                        # 文件名包含多个 - 分隔的部分，可能是旧格式
-                        return True
-        except (PermissionError, OSError):
-            # 如果无法读取目录，假设是新项目
-            return False
-
-        return False
 
     def _validate_storage_backend(self, storage: Any) -> None:
         """
@@ -2162,7 +2115,7 @@ class Context(CacheMixin, PluginMixin):
             此方法主要用于兼容旧的步骤级缓存系统。
         """
         # 调用父类 CacheMixin 的方法
-        super().clear_cache(step_name)
+        self.clear_cache_for(self.run_id,step_name,clear_memory=True,clear_disk=True,verbose=True)
 
     def clear_cache_for(
         self, 
@@ -2326,10 +2279,15 @@ class Context(CacheMixin, PluginMixin):
         end_time: Optional[int] = None,
         time_field: str = 'time',
         endtime_field: Optional[str] = None,
-        auto_build_index: bool = True
-    ) -> np.ndarray:
+        auto_build_index: bool = True,
+        channel: Optional[int] = None
+    ) -> Union[np.ndarray, List[np.ndarray]]:
         """
         查询数据的时间范围
+
+        支持两种数据类型：
+        - 单个结构化数组: 返回过滤后的数组
+        - List[np.ndarray]: 返回过滤后的列表（或指定通道的数组）
 
         Args:
             run_id: 运行ID
@@ -2339,18 +2297,24 @@ class Context(CacheMixin, PluginMixin):
             time_field: 时间字段名
             endtime_field: 结束时间字段名('computed'表示计算endtime)
             auto_build_index: 自动构建时间索引
+            channel: 指定通道号（仅用于多通道数据），None 表示返回所有通道
 
         Returns:
-            符合条件的数据子集
-            
+            符合条件的数据子集：
+            - 单个数组数据: 返回 np.ndarray
+            - 多通道数据: 返回 List[np.ndarray] 或指定通道的 np.ndarray
 
         Examples:
-            >>> # 查询特定时间范围的波形数据
+            >>> # 查询特定时间范围的波形数据（多通道）
             >>> data = ctx.get_data_time_range('run_001', 'st_waveforms',
             ...                                 start_time=1000000, end_time=2000000)
+            >>> len(data)  # 返回列表，长度为通道数
+            2
             >>>
-            >>> # 查询所有数据后特定时间的记录
-            >>> data = ctx.get_data_time_range('run_001', 'st_waveforms', start_time=1000000)
+            >>> # 只查询特定通道
+            >>> ch0_data = ctx.get_data_time_range('run_001', 'st_waveforms',
+            ...                                     start_time=1000000, end_time=2000000,
+            ...                                     channel=0)
         """
         from waveform_analysis.core.data.query import TimeRangeQueryEngine
 
@@ -2363,14 +2327,43 @@ class Context(CacheMixin, PluginMixin):
         # 获取完整数据
         data = self.get_data(run_id, data_name)
 
-        if data is None or len(data) == 0:
-            return np.array([], dtype=data.dtype if data is not None else np.float64)
+        if data is None:
+            return np.array([], dtype=np.float64)
 
-        # 如果不是结构化数组,返回完整数据
-        if not isinstance(data, np.ndarray) or data.dtype.names is None:
-            self.logger.warning(f"Data '{data_name}' is not a structured array, returning full data")
+        # 检测数据类型
+        if isinstance(data, list) and len(data) > 0 and isinstance(data[0], np.ndarray):
+            # List[np.ndarray] 类型 - 多通道数据
+            return self._query_multi_channel_time_range(
+                engine, run_id, data_name, data, start_time, end_time,
+                time_field, endtime_field, auto_build_index, channel
+            )
+        elif isinstance(data, np.ndarray):
+            if len(data) == 0:
+                return np.array([], dtype=data.dtype)
+            if data.dtype.names is None:
+                self.logger.warning(f"Data '{data_name}' is not a structured array, returning full data")
+                return data
+            return self._query_single_array_time_range(
+                engine, run_id, data_name, data, start_time, end_time,
+                time_field, endtime_field, auto_build_index
+            )
+        else:
+            self.logger.warning(f"Data '{data_name}' is not a supported type, returning as-is")
             return data
 
+    def _query_single_array_time_range(
+        self,
+        engine: Any,
+        run_id: str,
+        data_name: str,
+        data: np.ndarray,
+        start_time: Optional[int],
+        end_time: Optional[int],
+        time_field: str,
+        endtime_field: Optional[str],
+        auto_build_index: bool
+    ) -> np.ndarray:
+        """查询单个结构化数组的时间范围"""
         # 如果没有时间字段,返回完整数据
         if time_field not in data.dtype.names:
             self.logger.warning(f"Time field '{time_field}' not found in {data_name}, returning full data")
@@ -2392,13 +2385,130 @@ class Context(CacheMixin, PluginMixin):
             self.logger.warning(f"No index for {data_name}, using direct filtering")
             times = data[time_field]
 
-            if start_time is None:
-                start_time = times.min()
-            if end_time is None:
-                end_time = times.max() + 1
+            filter_start = start_time if start_time is not None else int(times.min())
+            filter_end = end_time if end_time is not None else int(times.max()) + 1
 
-            mask = (times >= start_time) & (times < end_time)
+            mask = (times >= filter_start) & (times < filter_end)
             return data[mask]
+
+    def _query_multi_channel_time_range(
+        self,
+        engine: Any,
+        run_id: str,
+        data_name: str,
+        data: List[np.ndarray],
+        start_time: Optional[int],
+        end_time: Optional[int],
+        time_field: str,
+        endtime_field: Optional[str],
+        auto_build_index: bool,
+        channel: Optional[int]
+    ) -> Union[np.ndarray, List[np.ndarray]]:
+        """
+        查询多通道数据的时间范围
+
+        Args:
+            engine: TimeRangeQueryEngine 实例
+            run_id: 运行ID
+            data_name: 数据名称
+            data: 多通道数据列表
+            start_time: 起始时间
+            end_time: 结束时间
+            time_field: 时间字段名
+            endtime_field: 结束时间字段名
+            auto_build_index: 自动构建索引
+            channel: 指定通道，None 表示所有通道
+
+        Returns:
+            过滤后的数据（列表或单个数组）
+        """
+        n_channels = len(data)
+
+        # 自动构建索引（如果需要）
+        if auto_build_index:
+            # 检查是否已有多通道索引元数据
+            has_indices = hasattr(self, '_multi_channel_indices') and \
+                          (run_id, data_name) in self._multi_channel_indices
+
+            if not has_indices:
+                self.build_time_index(run_id, data_name, time_field, endtime_field)
+
+        # 如果指定了通道，只查询该通道
+        if channel is not None:
+            if channel < 0 or channel >= n_channels:
+                self.logger.warning(f"Channel {channel} out of range [0, {n_channels}), returning empty array")
+                return np.array([], dtype=data[0].dtype if n_channels > 0 else np.float64)
+
+            return self._query_channel_time_range(
+                engine, run_id, data_name, data[channel], channel,
+                start_time, end_time, time_field
+            )
+
+        # 查询所有通道
+        results = []
+        for ch_idx, ch_data in enumerate(data):
+            result = self._query_channel_time_range(
+                engine, run_id, data_name, ch_data, ch_idx,
+                start_time, end_time, time_field
+            )
+            results.append(result)
+
+        return results
+
+    def _query_channel_time_range(
+        self,
+        engine: Any,
+        run_id: str,
+        data_name: str,
+        ch_data: np.ndarray,
+        ch_idx: int,
+        start_time: Optional[int],
+        end_time: Optional[int],
+        time_field: str
+    ) -> np.ndarray:
+        """
+        查询单个通道的时间范围
+
+        Args:
+            engine: TimeRangeQueryEngine 实例
+            run_id: 运行ID
+            data_name: 数据名称
+            ch_data: 通道数据
+            ch_idx: 通道索引
+            start_time: 起始时间
+            end_time: 结束时间
+            time_field: 时间字段名
+
+        Returns:
+            过滤后的数据
+        """
+        if ch_data is None or len(ch_data) == 0:
+            return np.array([], dtype=ch_data.dtype if ch_data is not None else np.float64)
+
+        index_name = f"{data_name}_ch{ch_idx}"
+
+        # 尝试使用索引
+        if engine.has_index(run_id, index_name):
+            indices = engine.query(run_id, index_name, start_time, end_time)
+            if indices is not None and len(indices) > 0:
+                return ch_data[indices]
+            else:
+                return np.array([], dtype=ch_data.dtype)
+        else:
+            # 回退到直接过滤
+            if time_field not in ch_data.dtype.names:
+                self.logger.warning(f"Time field '{time_field}' not found in channel {ch_idx}")
+                return ch_data
+
+            times = ch_data[time_field]
+            if len(times) == 0:
+                return np.array([], dtype=ch_data.dtype)
+
+            filter_start = start_time if start_time is not None else int(times.min())
+            filter_end = end_time if end_time is not None else int(times.max()) + 1
+
+            mask = (times >= filter_start) & (times < filter_end)
+            return ch_data[mask]
 
     def build_time_index(
         self,
@@ -2407,9 +2517,13 @@ class Context(CacheMixin, PluginMixin):
         time_field: str = 'time',
         endtime_field: Optional[str] = None,
         force_rebuild: bool = False
-    ):
+    ) -> Dict[str, Any]:
         """
         为数据构建时间索引
+
+        支持两种数据类型：
+        - 单个结构化数组: 构建单个索引
+        - List[np.ndarray]: 为每个通道分别构建索引
 
         Args:
             run_id: 运行ID
@@ -2418,9 +2532,20 @@ class Context(CacheMixin, PluginMixin):
             endtime_field: 结束时间字段名('computed'表示计算endtime)
             force_rebuild: 强制重建索引
 
+        Returns:
+            索引构建结果字典，包含：
+            - 'type': 'single' 或 'multi_channel'
+            - 'indices': 索引名称列表
+            - 'stats': 各索引的统计信息
+
         Examples:
-            >>> # 预先构建索引以提高查询性能
-            >>> ctx.build_time_index('run_001', 'st_waveforms', endtime_field='computed')
+            >>> # 为 st_waveforms (List[np.ndarray]) 构建多通道索引
+            >>> result = ctx.build_time_index('run_001', 'st_waveforms', endtime_field='computed')
+            >>> print(result['type'])  # 'multi_channel'
+            >>> print(result['indices'])  # ['st_waveforms_ch0', 'st_waveforms_ch1']
+            >>>
+            >>> # 为单个结构化数组构建索引
+            >>> ctx.build_time_index('run_001', 'peaks')
         """
         from waveform_analysis.core.data.query import TimeRangeQueryEngine
 
@@ -2433,12 +2558,114 @@ class Context(CacheMixin, PluginMixin):
         # 获取数据
         data = self.get_data(run_id, data_name)
 
-        if data is None or len(data) == 0:
+        if data is None or (hasattr(data, '__len__') and len(data) == 0):
             self.logger.warning(f"No data found for {data_name}, cannot build index")
-            return
+            return {'type': 'empty', 'indices': [], 'stats': {}}
 
-        # 构建索引
-        engine.build_index(run_id, data_name, data, time_field, endtime_field, force_rebuild)
+        # 检测数据类型
+        if isinstance(data, list) and len(data) > 0 and isinstance(data[0], np.ndarray):
+            # List[np.ndarray] 类型 - 多通道数据
+            return self._build_multi_channel_time_index(
+                engine, run_id, data_name, data, time_field, endtime_field, force_rebuild
+            )
+        elif isinstance(data, np.ndarray) and data.dtype.names is not None:
+            # 单个结构化数组
+            engine.build_index(run_id, data_name, data, time_field, endtime_field, force_rebuild)
+            index = engine.get_index(run_id, data_name)
+            return {
+                'type': 'single',
+                'indices': [data_name],
+                'stats': {
+                    data_name: {
+                        'n_records': index.n_records if index else 0,
+                        'time_range': (index.min_time, index.max_time) if index else (0, 0),
+                        'build_time': index.build_time if index else 0.0,
+                    }
+                }
+            }
+        else:
+            self.logger.warning(f"Data '{data_name}' is not a supported type for time indexing")
+            return {'type': 'unsupported', 'indices': [], 'stats': {}}
+
+    def _build_multi_channel_time_index(
+        self,
+        engine: Any,
+        run_id: str,
+        data_name: str,
+        data: List[np.ndarray],
+        time_field: str,
+        endtime_field: Optional[str],
+        force_rebuild: bool
+    ) -> Dict[str, Any]:
+        """
+        为多通道数据构建时间索引
+
+        Args:
+            engine: TimeRangeQueryEngine 实例
+            run_id: 运行ID
+            data_name: 数据名称
+            data: 多通道数据列表
+            time_field: 时间字段名
+            endtime_field: 结束时间字段名
+            force_rebuild: 强制重建索引
+
+        Returns:
+            索引构建结果字典
+        """
+        indices = []
+        stats = {}
+        n_channels = len(data)
+
+        self.logger.info(f"Building time index for {data_name} with {n_channels} channels")
+
+        for ch_idx, ch_data in enumerate(data):
+            if ch_data is None or len(ch_data) == 0:
+                self.logger.warning(f"Channel {ch_idx} is empty, skipping")
+                continue
+
+            # 检查是否为结构化数组
+            if not isinstance(ch_data, np.ndarray) or ch_data.dtype.names is None:
+                self.logger.warning(f"Channel {ch_idx} is not a structured array, skipping")
+                continue
+
+            # 检查时间字段是否存在
+            if time_field not in ch_data.dtype.names:
+                self.logger.warning(f"Time field '{time_field}' not found in channel {ch_idx}, skipping")
+                continue
+
+            # 为每个通道构建索引，key 格式为 {data_name}_ch{i}
+            index_name = f"{data_name}_ch{ch_idx}"
+            engine.build_index(run_id, index_name, ch_data, time_field, endtime_field, force_rebuild)
+
+            index = engine.get_index(run_id, index_name)
+            if index:
+                indices.append(index_name)
+                stats[index_name] = {
+                    'channel': ch_idx,
+                    'n_records': index.n_records,
+                    'time_range': (index.min_time, index.max_time),
+                    'build_time': index.build_time,
+                }
+
+        # 同时记录一个元数据索引，标记这是多通道数据
+        if not hasattr(self, '_multi_channel_indices'):
+            self._multi_channel_indices = {}
+        self._multi_channel_indices[(run_id, data_name)] = {
+            'n_channels': n_channels,
+            'channel_indices': indices,
+        }
+
+        self.logger.info(
+            f"Built {len(indices)} channel indices for {data_name}, "
+            f"total records: {sum(s['n_records'] for s in stats.values())}"
+        )
+
+        return {
+            'type': 'multi_channel',
+            'n_channels': n_channels,
+            'indices': indices,
+            'stats': stats,
+        }
 
     def clear_time_index(self, run_id: Optional[str] = None, data_name: Optional[str] = None):
         """
@@ -2475,6 +2702,229 @@ class Context(CacheMixin, PluginMixin):
         if hasattr(self, '_time_query_engine'):
             return self._time_query_engine.get_stats()
         return {'total_indices': 0, 'indices': {}}
+
+    # ===========================
+    # Epoch 管理 API（绝对时间支持）
+    # ===========================
+
+    def set_epoch(
+        self,
+        run_id: str,
+        epoch: Union[datetime, float, str],
+        time_unit: str = "ns",
+    ) -> None:
+        """
+        手动设置 run 的 epoch（时间基准）
+
+        Args:
+            run_id: 运行标识符
+            epoch: Epoch 值，支持多种格式：
+                - datetime: Python datetime 对象
+                - float: Unix 时间戳（秒）
+                - str: ISO 8601 格式字符串（如 "2024-01-01T12:00:00Z"）
+            time_unit: 相对时间单位（"ps", "ns", "us", "ms", "s"）
+
+        Examples:
+            >>> from datetime import datetime, timezone
+            >>>
+            >>> # 使用 datetime 对象
+            >>> epoch = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+            >>> ctx.set_epoch('run_001', epoch)
+            >>>
+            >>> # 使用 Unix 时间戳
+            >>> ctx.set_epoch('run_001', 1704110400.0)
+            >>>
+            >>> # 使用 ISO 字符串
+            >>> ctx.set_epoch('run_001', "2024-01-01T12:00:00Z")
+        """
+        from waveform_analysis.core.foundation.time_conversion import EpochInfo
+        from waveform_analysis.utils.formats.base import TimestampUnit
+
+        # 转换时间单位
+        unit_map = {
+            "ps": TimestampUnit.PICOSECONDS,
+            "ns": TimestampUnit.NANOSECONDS,
+            "us": TimestampUnit.MICROSECONDS,
+            "ms": TimestampUnit.MILLISECONDS,
+            "s": TimestampUnit.SECONDS,
+        }
+        ts_unit = unit_map.get(time_unit.lower(), TimestampUnit.NANOSECONDS)
+
+        # 解析 epoch
+        if isinstance(epoch, datetime):
+            epoch_info = EpochInfo.from_datetime(epoch, source="manual", time_unit=ts_unit)
+        elif isinstance(epoch, (int, float)):
+            epoch_info = EpochInfo.from_timestamp(float(epoch), source="manual", time_unit=ts_unit)
+        elif isinstance(epoch, str):
+            # 解析 ISO 8601 字符串
+            dt = datetime.fromisoformat(epoch.replace("Z", "+00:00"))
+            epoch_info = EpochInfo.from_datetime(dt, source="manual", time_unit=ts_unit)
+        else:
+            raise TypeError(f"不支持的 epoch 类型: {type(epoch)}")
+
+        self._epoch_cache[run_id] = epoch_info
+        self.logger.info(f"Set epoch for {run_id}: {epoch_info}")
+
+    def get_epoch(self, run_id: str) -> Optional[Any]:
+        """
+        获取 run 的 epoch 元数据
+
+        Args:
+            run_id: 运行标识符
+
+        Returns:
+            EpochInfo 实例，如果未设置则返回 None
+
+        Examples:
+            >>> epoch_info = ctx.get_epoch('run_001')
+            >>> if epoch_info:
+            ...     print(f"Epoch: {epoch_info.epoch_datetime}")
+            ...     print(f"Source: {epoch_info.epoch_source}")
+        """
+        return self._epoch_cache.get(run_id)
+
+    def auto_extract_epoch(
+        self,
+        run_id: str,
+        strategy: str = "auto",
+        file_paths: Optional[List[str]] = None,
+    ) -> Any:
+        """
+        自动从数据文件提取 epoch
+
+        Args:
+            run_id: 运行标识符
+            strategy: 提取策略（"auto", "filename", "csv_header", "first_event"）
+            file_paths: 数据文件路径列表（如果为 None，从 raw_files 获取）
+
+        Returns:
+            提取的 EpochInfo 实例
+
+        Raises:
+            ValueError: 如果无法提取 epoch
+
+        Examples:
+            >>> # 自动提取（优先从文件名）
+            >>> epoch_info = ctx.auto_extract_epoch('run_001')
+            >>>
+            >>> # 指定策略
+            >>> epoch_info = ctx.auto_extract_epoch('run_001', strategy='filename')
+        """
+        from waveform_analysis.core.foundation.time_conversion import EpochExtractor
+
+        # 如果没有提供文件路径，尝试从 raw_files 获取
+        if file_paths is None:
+            try:
+                raw_files = self.get_data(run_id, 'raw_files')
+                if raw_files is not None and len(raw_files) > 0:
+                    # raw_files 可能是 List[List[str]]（按通道分组）
+                    if isinstance(raw_files[0], list):
+                        file_paths = [f for ch_files in raw_files for f in ch_files]
+                    else:
+                        file_paths = list(raw_files)
+            except Exception as e:
+                self.logger.warning(f"无法获取 raw_files: {e}")
+
+        if not file_paths:
+            raise ValueError(
+                f"无法提取 epoch：未找到数据文件。"
+                f"请确保 run '{run_id}' 有 raw_files 数据，或手动提供 file_paths 参数。"
+            )
+
+        # 创建提取器并提取 epoch
+        extractor = EpochExtractor(
+            filename_patterns=self.config.get("epoch_filename_patterns")
+        )
+        epoch_info = extractor.auto_extract(
+            file_paths=file_paths,
+            strategy=strategy,
+        )
+
+        # 缓存 epoch
+        self._epoch_cache[run_id] = epoch_info
+        self.logger.info(f"Auto-extracted epoch for {run_id}: {epoch_info}")
+
+        return epoch_info
+
+    def get_data_time_range_absolute(
+        self,
+        run_id: str,
+        data_name: str,
+        start_dt: Optional[datetime] = None,
+        end_dt: Optional[datetime] = None,
+        time_field: str = 'time',
+        endtime_field: Optional[str] = None,
+        auto_build_index: bool = True,
+        channel: Optional[int] = None,
+        auto_extract_epoch: bool = True,
+    ) -> Union[np.ndarray, List[np.ndarray]]:
+        """
+        使用绝对时间（datetime）查询数据
+
+        与 get_data_time_range() 功能相同，但使用 datetime 对象指定时间范围。
+
+        Args:
+            run_id: 运行标识符
+            data_name: 数据名称
+            start_dt: 起始时间（datetime，包含）
+            end_dt: 结束时间（datetime，不包含）
+            time_field: 时间字段名
+            endtime_field: 结束时间字段名
+            auto_build_index: 自动构建时间索引
+            channel: 指定通道号（仅用于多通道数据）
+            auto_extract_epoch: 如果未设置 epoch，是否自动提取
+
+        Returns:
+            符合条件的数据子集
+
+        Raises:
+            ValueError: 如果未设置 epoch 且无法自动提取
+
+        Examples:
+            >>> from datetime import datetime, timezone
+            >>>
+            >>> start = datetime(2024, 1, 1, 12, 0, 10, tzinfo=timezone.utc)
+            >>> end = datetime(2024, 1, 1, 12, 0, 20, tzinfo=timezone.utc)
+            >>>
+            >>> data = ctx.get_data_time_range_absolute(
+            ...     'run_001', 'peaks',
+            ...     start_dt=start, end_dt=end
+            ... )
+        """
+        from waveform_analysis.core.foundation.time_conversion import TimeConverter
+
+        # 获取或提取 epoch
+        epoch_info = self.get_epoch(run_id)
+        if epoch_info is None:
+            if auto_extract_epoch and self.config.get("auto_extract_epoch", True):
+                try:
+                    epoch_info = self.auto_extract_epoch(run_id)
+                except ValueError as e:
+                    raise ValueError(
+                        f"无法使用绝对时间查询：{e}\n"
+                        f"请使用 ctx.set_epoch('{run_id}', epoch) 手动设置 epoch。"
+                    ) from e
+            else:
+                raise ValueError(
+                    f"无法使用绝对时间查询：run '{run_id}' 未设置 epoch。\n"
+                    f"请使用 ctx.set_epoch() 或 ctx.auto_extract_epoch() 设置 epoch。"
+                )
+
+        # 转换时间范围
+        converter = TimeConverter(epoch_info)
+        start_rel, end_rel = converter.convert_time_range(start_dt, end_dt)
+
+        # 调用原始的相对时间查询方法
+        return self.get_data_time_range(
+            run_id=run_id,
+            data_name=data_name,
+            start_time=start_rel,
+            end_time=end_rel,
+            time_field=time_field,
+            endtime_field=endtime_field,
+            auto_build_index=auto_build_index,
+            channel=channel,
+        )
 
     def preview_execution(
         self,

@@ -79,7 +79,7 @@
 - **`WaveformDataset`**: 高级封装层，提供链式调用接口。
     - 兼容性：通过 Property 映射 `self.char` 到 `Context` 的无状态存储。
     - 灵活性：支持在链式调用中临时切换 `run_id`。
-- **`IO Module`**: 
+- **`IO Module`**:
     - **流式解析**: `parse_files_generator` 支持分块读取 CSV。
     - **并行化**: 使用全局执行器管理器进行多进程并行解析。
 - **`DAQ Adapters`** (`utils/formats/`): 统一不同硬件厂商的数据组织格式。
@@ -88,6 +88,25 @@
     - **适配器 (`DAQAdapter`)**: 结合格式读取器和目录布局的完整适配器。
     - **注册表**: 支持自定义格式和适配器的注册和获取。
     - **内置支持**: VX2730 (CAEN) 数字化仪格式。
+
+### 2.8 数据处理层 (Data Processing Layer)
+- **`WaveformStruct`** (`core/processing/processor.py`): 波形结构化处理器，已解耦 DAQ 格式依赖。
+    - **配置驱动**: 通过 `WaveformStructConfig` 配置类指定 DAQ 格式。
+    - **动态 dtype**: 根据实际波形长度动态创建 `RECORD_DTYPE`。
+    - **列映射**: 从 `FormatSpec` 读取列索引（board, channel, timestamp, samples_start, baseline_start/end）。
+    - **向后兼容**: 无配置时默认使用 VX2730 格式。
+    - **多种创建方式**:
+        - 默认: `WaveformStruct(waveforms)` - 使用 VX2730 配置
+        - 适配器: `WaveformStruct.from_adapter(waveforms, "vx2730")` - 从适配器名称创建
+        - 自定义: `WaveformStruct(waveforms, config=custom_config)` - 使用自定义配置
+- **`WaveformStructConfig`**: 波形结构化配置类。
+    - **格式规范**: 封装 `FormatSpec` 和波形长度配置。
+    - **工厂方法**: `default_vx2730()`, `from_adapter(adapter_name)`。
+    - **优先级**: wave_length > format_spec.expected_samples > DEFAULT_WAVE_LENGTH。
+- **插件集成**: `StWaveformsPlugin` 支持 `daq_adapter` 配置选项。
+    - 与 `RawFilesPlugin` 和 `WaveformsPlugin` 的 `daq_adapter` 选项保持一致。
+    - 全局配置: `ctx.set_config({'daq_adapter': 'vx2730'})`。
+    - 插件特定配置: `ctx.set_config({'daq_adapter': 'vx2730'}, plugin_name='st_waveforms')`。
 
 ---
 

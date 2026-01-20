@@ -12,12 +12,16 @@ Processor 模块 - 波形信号处理与特征提取核心逻辑。
 
 主要类说明：
 - `WaveformStruct`: 处理原始数组到结构化 `RECORD_DTYPE` 的转换，管理时间戳索引与配对长度。
+- `WaveformStructConfig`: 波形结构化配置类，解耦 DAQ 设备依赖。
 - `WaveformProcessor`: 高层封装接口，支持批量处理数据块 (Chunks) 并构建 Pandas DataFrame。
 """
 
+from __future__ import annotations
+
 import logging
 import os
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -25,6 +29,9 @@ import pandas as pd
 from waveform_analysis.core.execution.manager import get_executor
 from waveform_analysis.core.foundation.constants import FeatureDefaults
 from waveform_analysis.core.foundation.utils import exporter
+
+if TYPE_CHECKING:
+    from waveform_analysis.utils.formats.base import FormatSpec
 
 # Setup logger
 logger = logging.getLogger(__name__)
@@ -50,15 +57,134 @@ export, __all__ = exporter()
 DEFAULT_WAVE_LENGTH = export(800, name="DEFAULT_WAVE_LENGTH")
 
 RECORD_DTYPE = export(
+    
     [
         ("baseline", "f8"),  # float64 for baseline
         ("timestamp", "i8"),  # int64 for ps-level timestamps
         ("event_length", "i8"),  # length of the event
         ("channel", "i2"),  # int16 for channel index (physical channel number)
         ("wave", "f4", (DEFAULT_WAVE_LENGTH,)),  # fixed length array for performance
+
     ],
     name="RECORD_DTYPE",
 )
+
+
+@export
+def create_record_dtype(wave_length: int) -> np.dtype:
+    """
+    根据实际的波形长度动态创建 RECORD_DTYPE。
+
+    参数:
+        wave_length: 波形数据的实际长度（采样点数）
+
+    返回:
+        动态创建的 RECORD_DTYPE，wave 字段长度为 wave_length
+
+    示例:
+        >>> dtype = create_record_dtype(1600)
+        >>> arr = np.zeros(10, dtype=dtype)
+        >>> print(arr["wave"].shape)  # (10, 1600)
+    """
+    return np.dtype([
+        ("baseline", "f8"),  # float64 for baseline
+        ("timestamp", "i8"),  # int64 for ps-level timestamps
+        ("event_length", "i8"),  # length of the event
+        ("channel", "i2"),  # int16 for channel index (physical channel number)
+        ("wave", "f4", (wave_length,)),  # dynamic length array based on actual data
+    ])
+
+
+@export
+@dataclass
+class WaveformStructConfig:
+    """波形结构化配置 - 解耦 DAQ 设备依赖
+
+    通过配置类封装 DAQ 格式的列映射和波形长度信息，使 WaveformStruct
+    不再硬编码 VX2730 特定的列索引。
+
+    Attributes:
+        format_spec: DAQ 格式规范（包含列映射、时间戳单位等）
+        wave_length: 可选的波形长度覆盖值。None 时使用 format_spec.expected_samples
+
+    示例:
+        >>> from waveform_analysis.utils.formats import VX2730_SPEC
+        >>> config = WaveformStructConfig(format_spec=VX2730_SPEC)
+        >>> print(config.get_wave_length())  # 800
+
+        >>> # 自定义配置
+        >>> from waveform_analysis.utils.formats import FormatSpec, ColumnMapping
+        >>> custom_spec = FormatSpec(
+        ...     name="custom_daq",
+        ...     columns=ColumnMapping(
+        ...         board=0, channel=1, timestamp=3,
+        ...         samples_start=10, baseline_start=10, baseline_end=50
+        ...     ),
+        ...     expected_samples=1000
+        ... )
+        >>> config = WaveformStructConfig(format_spec=custom_spec)
+    """
+    format_spec: "FormatSpec"
+    wave_length: Optional[int] = None
+
+    @classmethod
+    def default_vx2730(cls) -> "WaveformStructConfig":
+        """返回 VX2730 默认配置（向后兼容）
+
+        Returns:
+            使用 VX2730_SPEC 的 WaveformStructConfig 实例
+
+        示例:
+            >>> config = WaveformStructConfig.default_vx2730()
+            >>> print(config.format_spec.name)  # 'vx2730_csv'
+        """
+        from waveform_analysis.utils.formats import VX2730_SPEC
+        return cls(format_spec=VX2730_SPEC, wave_length=800)
+
+    @classmethod
+    def from_adapter(cls, adapter_name: str = "vx2730") -> "WaveformStructConfig":
+        """从已注册的 DAQ 适配器创建配置
+
+        Args:
+            adapter_name: 适配器名称（如 'vx2730'）
+
+        Returns:
+            WaveformStructConfig 实例
+
+        Raises:
+            ValueError: 如果适配器未注册
+
+        示例:
+            >>> config = WaveformStructConfig.from_adapter("vx2730")
+        """
+        from waveform_analysis.utils.formats import get_adapter
+        adapter = get_adapter(adapter_name)
+        return cls(
+            format_spec=adapter.format_spec,
+            wave_length=adapter.format_spec.expected_samples
+        )
+
+    def get_wave_length(self) -> int:
+        """获取实际波形长度
+
+        优先级: wave_length > format_spec.expected_samples > DEFAULT_WAVE_LENGTH
+
+        Returns:
+            波形长度（采样点数）
+        """
+        if self.wave_length is not None:
+            return self.wave_length
+        if self.format_spec.expected_samples is not None:
+            return self.format_spec.expected_samples
+        return DEFAULT_WAVE_LENGTH
+
+    def get_record_dtype(self) -> np.dtype:
+        """获取对应的 RECORD_DTYPE
+
+        Returns:
+            根据波形长度动态创建的 RECORD_DTYPE
+        """
+        return create_record_dtype(self.get_wave_length())
 
 # Peak: A detected peak in a waveform
 PEAK_DTYPE = export(
@@ -152,24 +278,89 @@ def create_channel_mapping(board_channel_pairs: List[Tuple[int, int]]) -> Dict[T
 
 @export
 class WaveformStruct:
-    def __init__(self, waveforms: List[np.ndarray]):
-        """
-        初始化 WaveformStruct。
+    """波形结构化处理器
+
+    将原始 DAQ 采集的 NumPy 数组转换为结构化数组（RECORD_DTYPE）。
+
+    支持两种使用方式：
+    1. 无配置（向后兼容）：使用 VX2730 默认列索引
+    2. 使用配置：通过 WaveformStructConfig 指定列索引，支持多种 DAQ 格式
+
+    Attributes:
+        waveforms: 原始波形数据列表
+        config: 结构化配置（列映射、波形长度等）
+        record_dtype: 根据配置创建的 RECORD_DTYPE
+        event_length: 每个通道的事件数
+        waveform_structureds: 结构化后的波形数据
+
+    示例:
+        >>> # 方式1: 向后兼容（无参数，默认 VX2730）
+        >>> struct = WaveformStruct(waveforms)
+        >>> st_waveforms = struct.structure_waveforms()
+
+        >>> # 方式2: 使用配置
+        >>> config = WaveformStructConfig.default_vx2730()
+        >>> struct = WaveformStruct(waveforms, config=config)
+
+        >>> # 方式3: 从适配器名称创建
+        >>> struct = WaveformStruct.from_adapter(waveforms, "vx2730")
+
+        >>> # 方式4: 自定义格式
+        >>> from waveform_analysis.utils.formats import FormatSpec, ColumnMapping
+        >>> custom_spec = FormatSpec(
+        ...     name="custom_daq",
+        ...     columns=ColumnMapping(timestamp=3, samples_start=10),
+        ...     expected_samples=1000
+        ... )
+        >>> config = WaveformStructConfig(format_spec=custom_spec)
+        >>> struct = WaveformStruct(waveforms, config=config)
+    """
+
+    def __init__(
+        self,
+        waveforms: List[np.ndarray],
+        config: Optional[WaveformStructConfig] = None
+    ):
+        """初始化 WaveformStruct。
+
         Args:
-            waveforms: List of NumPy arrays, each array corresponds to a channel's raw waveforms.
+            waveforms: 原始波形数据列表，每个元素对应一个通道的数据
+            config: 结构化配置。None 时使用 VX2730 默认配置（向后兼容）
         """
         self.waveforms = waveforms
+        self.config = config or WaveformStructConfig.default_vx2730()
+        self.record_dtype = self.config.get_record_dtype()
         self.event_length = None
         self.waveform_structureds = None
 
+    @classmethod
+    def from_adapter(
+        cls,
+        waveforms: List[np.ndarray],
+        adapter_name: str = "vx2730"
+    ) -> "WaveformStruct":
+        """从 DAQ 适配器创建 WaveformStruct（便捷方法）
+
+        Args:
+            waveforms: 原始波形数据列表
+            adapter_name: 适配器名称（如 'vx2730'）
+
+        Returns:
+            WaveformStruct 实例
+
+        示例:
+            >>> struct = WaveformStruct.from_adapter(waveforms, "vx2730")
+        """
+        config = WaveformStructConfig.from_adapter(adapter_name)
+        return cls(waveforms, config)
+
     def _structure_waveform(
-        self, 
-        waves: Optional[np.ndarray] = None, 
+        self,
+        waves: Optional[np.ndarray] = None,
         channel_mapping: Optional[Dict[Tuple[int, int], int]] = None
     ) -> np.ndarray:
-        """
-        将波形数组转换为结构化数组。
-        
+        """将波形数组转换为结构化数组。
+
         参数:
             waves: 波形数组，如果为 None 则使用第一个通道
             channel_mapping: (BOARD, CHANNEL) 到物理通道号的映射字典
@@ -177,19 +368,48 @@ class WaveformStruct:
         # If no explicit waves passed, use the first channel
         if waves is None:
             if not self.waveforms:
-                return np.zeros(0, dtype=RECORD_DTYPE)
+                return np.zeros(0, dtype=self.record_dtype)
             waves = self.waveforms[0]
 
         # If waves is empty, return an empty structured array
         if len(waves) == 0:
-            return np.zeros(0, dtype=RECORD_DTYPE)
+            return np.zeros(0, dtype=self.record_dtype)
 
-        waveform_structured = np.zeros(len(waves), dtype=RECORD_DTYPE)
+        # 从配置获取列映射
+        cols = self.config.format_spec.columns
+        config_wave_length = self.config.get_wave_length()
 
-        # 从 CSV 数据中提取 BOARD 和 CHANNEL（第0列和第1列）
+        # 确定实际的波形长度（从 samples_start 列开始）
+        samples_end = cols.samples_end if cols.samples_end is not None else waves.shape[1]
+        if waves.shape[1] > cols.samples_start:
+            wave_data = waves[:, cols.samples_start:samples_end]
+        else:
+            wave_data = np.zeros((len(waves), 0))
+        actual_wave_length = wave_data.shape[1] if wave_data.size > 0 else 0
+
+        # 确定使用的 dtype 和波形长度
+        if actual_wave_length == 0:
+            record_dtype = self.record_dtype
+            wave_length = config_wave_length
+        else:
+            # 如果实际长度与配置长度相同，使用实例 dtype 以保持兼容性
+            if actual_wave_length == config_wave_length:
+                record_dtype = self.record_dtype
+                wave_length = config_wave_length
+            else:
+                # 使用实际波形长度创建动态 dtype
+                wave_length = actual_wave_length
+                record_dtype = create_record_dtype(wave_length)
+                logger.debug(
+                    f"使用动态波形长度: {wave_length} (配置长度: {config_wave_length})"
+                )
+
+        waveform_structured = np.zeros(len(waves), dtype=record_dtype)
+
+        # 从 CSV 数据中提取 BOARD 和 CHANNEL（使用配置的列索引）
         try:
-            board_vals = waves[:, 0].astype(int)  # BOARD 列
-            channel_vals = waves[:, 1].astype(int)  # CHANNEL 列
+            board_vals = waves[:, cols.board].astype(int)
+            channel_vals = waves[:, cols.channel].astype(int)
         except Exception:
             # 回退：如果无法读取 BOARD/CHANNEL，使用默认值
             logger.warning("无法从波形数据中提取 BOARD/CHANNEL，使用回退逻辑")
@@ -199,27 +419,33 @@ class WaveformStruct:
         # 使用通道映射转换为物理通道号
         if channel_mapping:
             physical_channels = np.array([
-                channel_mapping.get((int(b), int(c)), -1) 
+                channel_mapping.get((int(b), int(c)), -1)
                 for b, c in zip(board_vals, channel_vals)
             ])
             # 检查是否有未映射的通道
             if np.any(physical_channels == -1):
-                unmapped = set(zip(board_vals[physical_channels == -1], channel_vals[physical_channels == -1]))
+                unmapped = set(zip(
+                    board_vals[physical_channels == -1],
+                    channel_vals[physical_channels == -1]
+                ))
                 logger.warning(f"发现未映射的 (BOARD, CHANNEL) 组合: {unmapped}")
         else:
             # 回退：只使用 CHANNEL（向后兼容）
             logger.debug("未提供通道映射，使用 CHANNEL 字段作为物理通道号")
             physical_channels = channel_vals
 
-        # Safely compute baseline and timestamp
+        # Safely compute baseline（使用配置的基线范围）
         try:
-            baseline_vals = np.mean(waves[:, 7:47].astype(float), axis=1)
+            baseline_vals = np.mean(
+                waves[:, cols.baseline_start:cols.baseline_end].astype(float),
+                axis=1
+            )
         except Exception:
             # Fallback: compute per-row mean for rows that have enough samples
             baselines = []
             for row in waves:
                 try:
-                    vals = np.asarray(row[7:], dtype=float)
+                    vals = np.asarray(row[cols.samples_start:], dtype=float)
                     if vals.size > 0:
                         baselines.append(np.mean(vals))
                     else:
@@ -228,45 +454,55 @@ class WaveformStruct:
                     baselines.append(np.nan)
             baseline_vals = np.array(baselines, dtype=float)
 
+        # 提取时间戳（使用配置的列索引）
         try:
-            timestamps = waves[:, 2].astype(np.int64)  # TIMETAG 列（第2列）
+            timestamps = waves[:, cols.timestamp].astype(np.int64)
         except Exception:
-            # Fallback: extract element 2 from each row
-            timestamps = np.array([int(row[2]) for row in waves], dtype=np.int64)
+            # Fallback: extract element from each row
+            timestamps = np.array(
+                [int(row[cols.timestamp]) for row in waves],
+                dtype=np.int64
+            )
 
         waveform_structured["baseline"] = baseline_vals
         waveform_structured["timestamp"] = timestamps
-        waveform_structured["channel"] = physical_channels  # 使用从 BOARD/CHANNEL 映射得到的物理通道号
+        waveform_structured["channel"] = physical_channels
 
-        # Vectorized assignment for fixed-length wave
-        # SAMPLES 从第 7 列开始（索引 7+）
-        wave_data = waves[:, 7:]
-        n_samples = min(wave_data.shape[1], DEFAULT_WAVE_LENGTH)
-        waveform_structured["wave"][:, :n_samples] = wave_data[:, :n_samples]
+        # Vectorized assignment for wave data
+        # 使用实际波形长度，但不超过 dtype 中定义的长度
+        if wave_data.size > 0:
+            n_samples = min(wave_data.shape[1], wave_length)
+            waveform_structured["wave"][:, :n_samples] = wave_data[:, :n_samples].astype(np.float32)
 
         return waveform_structured
 
-    def structure_waveforms(self, show_progress: bool = False, start_channel_slice: int = 0) -> List[np.ndarray]:
-        """
-        将所有通道的波形转换为结构化数组。
-        
+    def structure_waveforms(
+        self,
+        show_progress: bool = False,
+        start_channel_slice: int = 0
+    ) -> List[np.ndarray]:
+        """将所有通道的波形转换为结构化数组。
+
         参数:
             show_progress: 是否显示进度条
-            start_channel_slice: 起始通道偏移量（保留以兼容，但不再使用，改为从CSV读取BOARD/CHANNEL）
+            start_channel_slice: 起始通道偏移量（保留以兼容，已弃用）
         """
+        # 从配置获取列映射
+        cols = self.config.format_spec.columns
+
         # 第一步：扫描所有波形数据，收集所有唯一的 (BOARD, CHANNEL) 组合
         all_board_channel_pairs = []
         for waves in self.waveforms:
             if len(waves) > 0:
                 try:
-                    # 从 CSV 数据中提取 BOARD 和 CHANNEL（第0列和第1列）
-                    boards = waves[:, 0].astype(int)
-                    channels = waves[:, 1].astype(int)
+                    # 从 CSV 数据中提取 BOARD 和 CHANNEL（使用配置的列索引）
+                    boards = waves[:, cols.board].astype(int)
+                    channels = waves[:, cols.channel].astype(int)
                     all_board_channel_pairs.extend(zip(boards, channels))
                 except Exception:
                     logger.warning("无法从波形数据中提取 BOARD/CHANNEL，跳过该通道")
                     continue
-        
+
         # 创建 (BOARD, CHANNEL) 到物理通道号的映射
         if all_board_channel_pairs:
             channel_mapping = create_channel_mapping(all_board_channel_pairs)
@@ -275,7 +511,7 @@ class WaveformStruct:
             # 如果没有找到 BOARD/CHANNEL 数据，使用回退逻辑
             logger.warning("未找到 BOARD/CHANNEL 数据，使用回退逻辑（基于列表索引）")
             channel_mapping = None
-        
+
         # 第二步：使用映射处理每个通道
         if show_progress:
             try:
@@ -288,7 +524,7 @@ class WaveformStruct:
             pbar = self.waveforms
 
         self.waveform_structureds = [
-            self._structure_waveform(waves, channel_mapping=channel_mapping) 
+            self._structure_waveform(waves, channel_mapping=channel_mapping)
             for waves in pbar
         ]
         return self.waveform_structureds

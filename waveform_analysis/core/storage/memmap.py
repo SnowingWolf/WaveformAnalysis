@@ -89,7 +89,7 @@ class MemmapStorage:
         verify_on_load: bool = False,
         work_dir: Optional[str] = None,
         use_run_subdirs: bool = True,
-        data_subdir: str = "data",
+        data_subdir: str = "_cache",
         side_effects_subdir: str = "side_effects",
     ):
         """
@@ -107,7 +107,7 @@ class MemmapStorage:
             work_dir: Work directory for hierarchical storage (new mode).
                      If None, uses base_dir with flat structure (legacy mode).
             use_run_subdirs: Whether to use run_id subdirectories (only applies when work_dir is set)
-            data_subdir: Subdirectory name for data files (default: "data")
+            data_subdir: Subdirectory name for data files (default: "_cache")
             side_effects_subdir: Subdirectory name for side effect outputs (default: "side_effects")
 
         Storage Modes:
@@ -117,7 +117,7 @@ class MemmapStorage:
 
             2. New hierarchical mode (work_dir set):
                - Files organized by run_id
-               - Path: work_dir/{run_id}/data/{key}.bin
+               - Path: work_dir/{run_id}/_cache/{key}.bin
         """
         self.base_dir = base_dir
         self.profiler = profiler
@@ -198,7 +198,7 @@ class MemmapStorage:
 
         Storage Modes:
             - 旧模式 (use_run_subdirs=False): base_dir/{key}.bin
-            - 新模式 (use_run_subdirs=True): work_dir/{run_id}/data/{key}.bin
+            - 新模式 (use_run_subdirs=True): work_dir/{run_id}/_cache/{key}.bin
         """
         # 确定根目录
         if self.use_run_subdirs:
@@ -234,7 +234,7 @@ class MemmapStorage:
             run 的数据目录绝对路径
 
         Notes:
-            - 新模式: work_dir/{run_id}/data/
+            - 新模式: work_dir/{run_id}/_cache/
             - 旧模式: base_dir/
         """
         if self.use_run_subdirs:
