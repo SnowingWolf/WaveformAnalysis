@@ -7,6 +7,41 @@
 
 ## [未发布]
 
+### 变更
+
+#### WaveformStruct DAQ 解耦 (2026-01)
+- **WaveformStructConfig 配置类**: 新增配置类解耦 DAQ 格式依赖 (`core/processing/processor.py`)
+  - `WaveformStructConfig`: 封装 `FormatSpec` 和波形长度配置
+  - `default_vx2730()`: 返回 VX2730 默认配置（向后兼容）
+  - `from_adapter(adapter_name)`: 从已注册的 DAQ 适配器创建配置
+  - `get_wave_length()`: 获取波形长度（优先级：wave_length > format_spec.expected_samples > DEFAULT）
+  - `get_record_dtype()`: 动态创建 RECORD_DTYPE
+- **WaveformStruct 重构**: 移除 VX2730 硬编码，支持多种 DAQ 格式
+  - 添加 `config` 参数，支持自定义 DAQ 格式
+  - 添加 `from_adapter()` 类方法，便捷地从适配器名称创建实例
+  - 替换所有硬编码列索引（board, channel, timestamp, samples_start, baseline_start/end）
+  - 支持动态波形长度，自动适配实际数据
+  - **向后兼容**: 无参数调用默认使用 VX2730 配置
+- **插件集成**: `StWaveformsPlugin` 支持 `daq_adapter` 配置选项
+  - 根据配置选择使用适配器或默认 VX2730 配置
+  - 与 `RawFilesPlugin` 和 `WaveformsPlugin` 的 `daq_adapter` 选项保持一致
+- **测试**: 新增 15 个单元测试全部通过 (`tests/test_waveform_struct_decoupling.py`)
+  - 配置类功能测试（4 个）
+  - 动态 dtype 创建测试（3 个）
+  - 解耦功能测试（5 个）
+  - 边界情况测试（3 个）
+- **文档**: 更新 CLAUDE.md，添加使用示例和最佳实践
+
+#### 缓存路径优化 (2026-01)
+- **缓存目录重命名**: 将缓存子目录从 `data/` 改为 `_cache/`
+  - 新路径格式：`{data_root}/{run_id}/_cache/*.bin`
+  - 例如：`DAQ/run_001/_cache/run_001-peaks-abc123.bin`
+  - 更清晰地区分原始数据和缓存数据
+- **Context 初始化优化**: `storage_dir` 参数改为可选
+  - 如果未指定 `storage_dir`，将使用 `config['data_root']` 作为存储目录
+  - 推荐用法：`Context(config={"data_root": "DAQ"})`
+  - 向后兼容：仍可显式指定 `storage_dir`
+
 ### 新增
 
 #### DAQ 完整适配器层 (2026-01)

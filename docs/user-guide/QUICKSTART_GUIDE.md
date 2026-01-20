@@ -16,7 +16,8 @@
 4. [场景 2: 内存优化流程](#场景-2-内存优化流程)
 5. [场景 3: 批量处理](#场景-3-批量处理)
 6. [场景 4: 流式处理](#场景-4-流式处理)
-7. [快速参考卡](#快速参考卡)
+7. [场景 5: 使用自定义 DAQ 格式](#场景-5-使用自定义-daq-格式)
+8. [快速参考卡](#快速参考卡)
 
 ---
 
@@ -244,6 +245,97 @@ for chunk in stream_ctx.get_stream('st_waveforms_stream'):
     # 处理每个数据块
     process_chunk(chunk)
     print(f"Processed chunk: {chunk.start} - {chunk.end}")
+```
+
+---
+
+## 场景 5: 使用自定义 DAQ 格式
+
+**支持多种 DAQ 系统** - 使用 DAQ 适配器处理不同格式的数据。
+
+### 方式 1: 使用内置适配器（推荐）
+
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import (
+    RawFilesPlugin, WaveformsPlugin, StWaveformsPlugin
+)
+
+# 初始化 Context
+ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
+
+# 注册插件
+ctx.register_plugin(RawFilesPlugin())
+ctx.register_plugin(WaveformsPlugin())
+ctx.register_plugin(StWaveformsPlugin())
+
+# 为所有插件设置 DAQ 适配器（全局配置）
+ctx.set_config({'daq_adapter': 'vx2730'})
+
+# 获取数据（自动使用配置的适配器）
+st_waveforms = ctx.get_data('run_001', 'st_waveforms')
+print(f"Loaded {len(st_waveforms)} channels")
+```
+
+### 方式 2: 自定义 DAQ 格式
+
+```python
+from waveform_analysis.core.processing.processor import WaveformStruct, WaveformStructConfig
+from waveform_analysis.utils.formats import FormatSpec, ColumnMapping
+
+# 定义自定义格式
+custom_spec = FormatSpec(
+    name="my_daq",
+    columns=ColumnMapping(
+        board=0,           # BOARD 列索引
+        channel=1,         # CHANNEL 列索引
+        timestamp=3,       # 时间戳列索引
+        samples_start=10,  # 波形数据起始列
+        baseline_start=10, # 基线计算起始列
+        baseline_end=50    # 基线计算结束列
+    ),
+    expected_samples=1000  # 预期采样点数
+)
+
+# 创建配置
+config = WaveformStructConfig(format_spec=custom_spec)
+
+# 使用自定义配置
+struct = WaveformStruct(waveforms, config=config)
+st_waveforms = struct.structure_waveforms()
+```
+
+### 方式 3: 注册自定义适配器
+
+```python
+from waveform_analysis.utils.formats import register_adapter, DAQAdapter
+from waveform_analysis.utils.formats.base import FormatSpec, ColumnMapping
+from waveform_analysis.utils.formats.directory import DirectoryLayout
+
+# 定义格式规范
+my_spec = FormatSpec(
+    name="my_daq",
+    columns=ColumnMapping(board=0, channel=1, timestamp=3, samples_start=10),
+    expected_samples=1000
+)
+
+# 定义目录布局
+my_layout = DirectoryLayout(
+    raw_subdir="DATA",
+    file_pattern="*.csv",
+    channel_regex=r"CH(\d+)"
+)
+
+# 创建并注册适配器
+my_adapter = DAQAdapter(
+    name="my_daq",
+    format_spec=my_spec,
+    directory_layout=my_layout
+)
+register_adapter(my_adapter)
+
+# 在 Context 中使用
+ctx.set_config({'daq_adapter': 'my_daq'})
 ```
 
 ---
