@@ -25,7 +25,7 @@ ADVANCED_PEAK_DTYPE = np.dtype(
         ("integral", "f4"),  # 峰值积分（面积）
         ("edge_start", "f4"),  # 峰值起始边缘（左边界）
         ("edge_end", "f4"),  # 峰值结束边缘（右边界）
-        ("timestamp", "i8"),  # 事件时间戳
+        ("timestamp", "i8"),  # 全局时间戳（事件时间戳 + 峰值位置 * 采样间隔）
         ("channel", "i2"),  # 通道号
         ("event_index", "i8"),  # 事件索引
     ]
@@ -40,6 +40,18 @@ class SignalPeaksPlugin(Plugin):
     计算峰值的位置、高度、积分、边缘等特征。
 
     注意：此插件命名为 SignalPeaksPlugin 以区别于标准 PeaksPlugin。
+
+    配置示例：
+        >>> # 使用 VX2730 适配器（时间戳单位为皮秒）
+        >>> ctx.set_config({
+        ...     'daq_adapter': 'vx2730',
+        ...     'sampling_interval_ns': 2.0,
+        ... }, plugin_name='signal_peaks')
+
+        >>> # 不指定适配器（向后兼容，使用数值判断）
+        >>> ctx.set_config({
+        ...     'sampling_interval_ns': 2.0,
+        ... }, plugin_name='signal_peaks')
     """
 
     provides = "signal_peaks"
@@ -84,6 +96,16 @@ class SignalPeaksPlugin(Plugin):
             type=str,
             help="峰高计算方法: 'diff' (积分差分) 或 'minmax' (最大最小值差)",
         ),
+        "sampling_interval_ns": Option(
+            default=2.0,
+            type=float,
+            help="采样间隔（纳秒），用于计算全局时间戳。默认 2.0 ns",
+        ),
+        "daq_adapter": Option(
+            default=None,
+            type=str,
+            help="DAQ 适配器名称（如 'vx2730'），用于确定时间戳单位。未指定时使用数值判断逻辑",
+        ),
     }
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> List[np.ndarray]:
@@ -115,6 +137,11 @@ class SignalPeaksPlugin(Plugin):
         width = context.get_config(self, "width")
         threshold = context.get_config(self, "threshold")
         height_method = context.get_config(self, "height_method")
+        sampling_interval_ns = context.get_config(self, "sampling_interval_ns")
+        daq_adapter = context.get_config(self, "daq_adapter")
+
+        # 确定时间戳单位
+        timestamp_unit = self._get_timestamp_unit(daq_adapter)
 
         # 获取依赖数据
         filtered_waveforms = context.get_data(run_id, "filtered_waveforms")
@@ -150,6 +177,8 @@ class SignalPeaksPlugin(Plugin):
                     width,
                     threshold,
                     height_method,
+                    sampling_interval_ns,
+                    timestamp_unit,  # 新增参数
                 )
 
                 if len(event_peaks) > 0:
@@ -179,6 +208,8 @@ class SignalPeaksPlugin(Plugin):
         width: int,
         threshold: Union[float, None],
         height_method: str,
+        sampling_interval_ns: float,
+        timestamp_unit: Union[str, None],  # 新增参数
     ) -> List[tuple]:
         """
         在单个波形中检测峰值
@@ -186,7 +217,7 @@ class SignalPeaksPlugin(Plugin):
         Args:
             waveform: 滤波后的波形数组
             baseline: 基线值（用于反转法检测负脉冲）
-            timestamp: 事件时间戳
+            timestamp: 事件时间戳（事件开始时间）
             channel: 通道号
             event_index: 事件索引
             use_derivative: 是否使用导数检测峰值
@@ -196,6 +227,9 @@ class SignalPeaksPlugin(Plugin):
             width: 最小宽度
             threshold: 阈值条件
             height_method: 峰高计算方法
+            sampling_interval_ns: 采样间隔（纳秒），用于计算全局时间戳
+            timestamp_unit: 时间戳单位 ('ps', 'ns', 'us', 'ms', 's')，
+                            None 表示使用旧的数值判断逻辑
 
         Returns:
             峰值特征元组列表
@@ -238,13 +272,44 @@ class SignalPeaksPlugin(Plugin):
             # 计算峰积分（这里简单设置为 None，后续可扩展）
             peak_integral = None
 
+            # 计算全局时间戳：事件时间戳 + 峰值位置 * 采样间隔
+            # 根据时间戳单位调整采样间隔
+            if timestamp_unit is None:
+                # 向后兼容：使用旧的数值判断逻辑
+                if timestamp > 1e12:
+                    sampling_interval = sampling_interval_ns * 1e3  # ns -> ps
+                else:
+                    sampling_interval = sampling_interval_ns
+            else:
+                # 使用适配器提供的时间戳单位
+                if timestamp_unit == "ps":
+                    # 时间戳是皮秒，采样间隔也转换为皮秒
+                    sampling_interval = sampling_interval_ns * 1e3  # ns -> ps
+                elif timestamp_unit == "ns":
+                    # 时间戳是纳秒，采样间隔保持纳秒
+                    sampling_interval = sampling_interval_ns
+                elif timestamp_unit == "us":
+                    # 时间戳是微秒，采样间隔转换为微秒
+                    sampling_interval = sampling_interval_ns * 1e-3  # ns -> us
+                elif timestamp_unit == "ms":
+                    # 时间戳是毫秒，采样间隔转换为毫秒
+                    sampling_interval = sampling_interval_ns * 1e-6  # ns -> ms
+                elif timestamp_unit == "s":
+                    # 时间戳是秒，采样间隔转换为秒
+                    sampling_interval = sampling_interval_ns * 1e-9  # ns -> s
+                else:
+                    # 未知单位，使用纳秒
+                    sampling_interval = sampling_interval_ns
+
+            global_timestamp = int(timestamp + pos * sampling_interval)
+
             peak_tuple = (
                 int(pos),  # position
                 float(peak_height),  # height
                 float(peak_integral) if peak_integral is not None else 0.0,  # integral
                 float(edge_start),  # edge_start
                 float(edge_end),  # edge_end
-                int(timestamp),  # timestamp
+                int(global_timestamp),  # timestamp: 全局时间戳
                 int(channel),  # channel
                 int(event_index),  # event_index
             )
@@ -293,3 +358,30 @@ class SignalPeaksPlugin(Plugin):
             raise ValueError(f"不支持的峰高计算方法: {method}")
 
         return float(peak_height)
+
+    def _get_timestamp_unit(self, daq_adapter: Union[str, None]) -> Union[str, None]:
+        """
+        获取时间戳单位
+
+        Args:
+            daq_adapter: DAQ 适配器名称
+
+        Returns:
+            时间戳单位字符串 ('ps', 'ns', 'us', 'ms', 's')，
+            None 表示未指定适配器（使用旧的数值判断逻辑）
+        """
+        if daq_adapter is None:
+            # 向后兼容：未指定适配器时返回 None，使用旧逻辑
+            return None
+
+        try:
+            from waveform_analysis.utils.formats import get_adapter
+
+            adapter = get_adapter(daq_adapter)
+            return adapter.format_spec.timestamp_unit.value  # 返回 'ps', 'ns' 等
+        except Exception as e:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(f"无法获取适配器 '{daq_adapter}' 的时间戳单位: {e}")
+            return None
