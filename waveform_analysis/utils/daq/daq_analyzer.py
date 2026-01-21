@@ -17,6 +17,7 @@ try:
     from IPython.display import display as _display
 
     def _in_notebook() -> bool:
+        # Detect IPython kernel presence without hard failure.
         try:
             return get_ipython() is not None
         except Exception:
@@ -27,6 +28,7 @@ except Exception:
         print(x)
 
     def _in_notebook() -> bool:
+        # Fallback when IPython is unavailable.
         return False
 
 logger = logging.getLogger(__name__)
@@ -53,6 +55,7 @@ class DAQAnalyzer:
 
     @staticmethod
     def format_size(bytes_val: int) -> str:
+        # Human-readable byte size formatter with binary units.
         for unit in ["B", "KB", "MB", "GB", "TB"]:
             if bytes_val < 1024:
                 return f"{bytes_val:.2f} {unit}"
@@ -118,7 +121,8 @@ class DAQAnalyzer:
             return self._html_wrap(f"{duration_s:.3f} s", "#c67f00")
         return self._html_wrap(f"{duration_s:.3f} s", "#1b7a1b")
 
-    def scan_all_runs(self) -> "DAQAnalyzer":
+    def scan_all_runs(self) -> DAQAnalyzer:
+        # Scan DAQ root and load each run directory as a DAQRun.
         # 局部导入 os 以提高在 autoreload/部分导入失败时的鲁棒性
 
         if not os.path.exists(self.daq_root):
@@ -133,6 +137,7 @@ class DAQAnalyzer:
             if not os.path.isdir(run_path):
                 continue
 
+            # Aggregate per-run metadata for overview stats.
             run = DAQRun(run_name, run_path)
             self.runs[run_name] = run
             self.total_bytes += run.total_bytes
@@ -141,6 +146,7 @@ class DAQAnalyzer:
         return self
 
     def _build_dataframe(self) -> None:
+        # Build the overview DataFrame from per-run dicts.
         run_dicts = [run.to_dict() for run in self.runs.values()]
         self.df_runs = pd.DataFrame(run_dicts)
 
@@ -151,6 +157,7 @@ class DAQAnalyzer:
         return list(self.runs.values())
 
     def _build_channel_rows(self, stats: Dict[int, Dict]) -> List[Dict]:
+        # Normalize channel stats into row dicts for DataFrame display.
         rows = []
         for ch in sorted(stats.keys()):
             s = stats[ch]
@@ -169,6 +176,7 @@ class DAQAnalyzer:
         return rows
 
     def _display_file_details_for_channel(self, run: DAQRun, ch: int) -> None:
+        # Show per-file details for a given channel if requested.
         files = run.get_channel_file_details(ch)
         if not files:
             return
@@ -192,11 +200,12 @@ class DAQAnalyzer:
             for fr in frows:
                 print(fr)
 
-    def display_overview(self) -> "DAQAnalyzer":
+    def display_overview(self) -> DAQAnalyzer:
         if self.df_runs is None or self.df_runs.empty:
             print("No runs scanned. Call scan_all_runs() first.")
             return self
 
+        # Prepare columns for both notebook and terminal views.
         df = self.df_runs.copy()
         df["size_mb"] = df["total_bytes"].apply(lambda v: float(int(v) if v is not None else 0) / (1024**2))
         df["size_readable"] = df["total_bytes"].apply(lambda v: self.format_size(int(v) if v is not None else 0))
@@ -206,6 +215,7 @@ class DAQAnalyzer:
             try:
                 from IPython.display import display as _ipydisplay
 
+                # Rich notebook styling with gradients.
                 styled_df = (
                     df[["run_name", "file_count", "size_mb", "size_readable", "channel_count", "channel_str", "path"]]
                     .rename(
@@ -241,6 +251,7 @@ class DAQAnalyzer:
             except Exception:
                 _display(df[display_cols])
         else:
+            # Compact terminal output with ANSI colors.
             rows = []
             for _, r in df[display_cols].iterrows():
                 try:
@@ -265,6 +276,7 @@ class DAQAnalyzer:
             print(f"错误: 找不到运行 {run_name}")
             return self
 
+        # Ensure acquisition times are computed before summarizing.
         run.compute_acquisition_times()
         stats = run.get_channel_summary()
 
@@ -279,12 +291,12 @@ class DAQAnalyzer:
             try:
                 from IPython.display import HTML as _HTML
 
-                # Use pandas Styler to apply background gradients similar to display_overview
+                # Use pandas Styler to apply background gradients similar to display_overview.
                 df_display = df.copy()
 
-                # ensure numeric columns exist for styling
+                # Ensure numeric columns exist for styling.
                 df_display["total_size_bytes"] = df_display["total_size_bytes"].fillna(0).astype(float)
-                # duration in seconds may be None; keep numeric for conditional formatting
+                # Duration in seconds may be None; keep numeric for conditional formatting.
                 df_display["duration_s"] = df_display["duration_s"].where(df_display["duration_s"].notna(), None)
 
                 try:
@@ -322,7 +334,7 @@ class DAQAnalyzer:
 
                     _ipydisplay(styled)
                 except Exception:
-                    # fallback to basic HTML table if styler fails
+                    # Fallback to basic HTML table if styler fails.
                     df_display["size_html"] = [
                         self._html_color_size(stats.get(int(i.replace("CH", "")), {}).get("total_size_bytes", 0))
                         for i in df_display.index
@@ -338,6 +350,7 @@ class DAQAnalyzer:
             except Exception:
                 _display(df)
         else:
+            # Plain terminal table with colored size/duration fields.
             df_display = df.copy()
             df_display["total_size"] = df_display["total_size_bytes"].apply(
                 lambda v: self.format_size(int(v) if v is not None else 0)
@@ -362,6 +375,7 @@ class DAQAnalyzer:
             print("\n".join(out_lines))
 
         if show_files:
+            # Optionally show file list details per channel.
             for ch in sorted(stats.keys()):
                 self._display_file_details_for_channel(run, ch)
 
@@ -374,9 +388,11 @@ class DAQAnalyzer:
             logger.error("尚未扫描运行数据，请先调用 scan_all_runs()")
             return None
 
+        # Ensure each run has computed time statistics before export.
         for run in self.runs.values():
             run.compute_acquisition_times()
 
+        # Build export payload with metadata and per-run details.
         output_data = {
             "metadata": {
                 "scan_time": datetime.now().isoformat(),
@@ -393,6 +409,7 @@ class DAQAnalyzer:
             run = self.runs[run_name]
             stats = run.get_channel_summary()
 
+            # Per-run block with optional per-file details.
             run_data = {
                 "run_name": run.run_name,
                 "description": run.description,
@@ -423,6 +440,7 @@ class DAQAnalyzer:
                     channel_data["files"] = []
                     if files:
                         for file_info in files:
+                            # Preserve raw values and readable formats.
                             file_data = {
                                 "filename": file_info["filename"],
                                 "index": file_info["index"],

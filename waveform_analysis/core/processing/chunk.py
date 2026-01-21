@@ -31,16 +31,50 @@ DT_FIELD = "dt"
 LENGTH_FIELD = "length"
 ENDTIME_FIELD = "endtime"
 CHANNEL_FIELD = "channel"
+TIMESTAMP_FIELD = "timestamp"
+EVENT_LENGTH_FIELD = "event_length"
 
-__all__.extend(["TIME_FIELD", "DT_FIELD", "LENGTH_FIELD", "ENDTIME_FIELD", "CHANNEL_FIELD"])
+__all__.extend(
+    [
+        "TIME_FIELD",
+        "DT_FIELD",
+        "LENGTH_FIELD",
+        "ENDTIME_FIELD",
+        "CHANNEL_FIELD",
+        "TIMESTAMP_FIELD",
+        "EVENT_LENGTH_FIELD",
+    ]
+)
 
 # Chunk 处理默认参数
-DEFAULT_CHUNK_SIZE = 50000  # 默认 chunk 大小
-DEFAULT_BREAK_THRESHOLD_NS = 1_000_000_000  # 1秒间隔认为是 break
+DEFAULT_CHUNK_SIZE = 500_000  # 默认 chunk 大小
+DEFAULT_BREAK_THRESHOLD_NS = 10_000_000_000  # 1秒间隔认为是 break
 
 __all__.extend(["DEFAULT_CHUNK_SIZE", "DEFAULT_BREAK_THRESHOLD_NS"])
 
 
+def _resolve_time_field(data: np.ndarray, time_field: str) -> str:
+    """解析时间字段名，允许 time -> timestamp 的回退。"""
+    if not hasattr(data, "dtype") or data.dtype.names is None:
+        raise TypeError("Data must be a structured numpy array")
+    if time_field in data.dtype.names:
+        return time_field
+    if time_field == TIME_FIELD and TIMESTAMP_FIELD in data.dtype.names:
+        return TIMESTAMP_FIELD
+    return time_field
+
+
+def _resolve_length_field(data: np.ndarray, length_field: str) -> str:
+    """解析长度字段名，允许 length -> event_length 的回退。"""
+    if not hasattr(data, "dtype") or data.dtype.names is None:
+        raise TypeError("Data must be a structured numpy array")
+    if length_field in data.dtype.names:
+        return length_field
+    if length_field == LENGTH_FIELD and EVENT_LENGTH_FIELD in data.dtype.names:
+        return EVENT_LENGTH_FIELD
+    return length_field
+
+ 
 @export
 class Chunk:
     """
@@ -55,6 +89,12 @@ class Chunk:
         run_id: str = "unknown",
         data_type: str = "raw",
         data_kind: str = "waveforms",
+        time_field: str = TIME_FIELD,
+        dt_field: str = DT_FIELD,
+        length_field: str = LENGTH_FIELD,
+        endtime_field: str = ENDTIME_FIELD,
+        dt: Optional[float] = None,
+        metadata: Optional[dict] = None,
     ):
         """
         初始化 Chunk 对象
@@ -82,16 +122,32 @@ class Chunk:
         self.data_type = data_type
         self.data_kind = data_kind
         self.dtype = data.dtype
+        self.time_field = time_field
+        self.dt_field = dt_field
+        self.length_field = length_field
+        self.endtime_field = endtime_field
+        self.dt = dt
+        self.metadata = metadata or {}
 
         # 基础校验
         if len(data) > 0:
-            data_start = data[0][TIME_FIELD]
+            resolved_time_field = _resolve_time_field(data, self.time_field)
+            resolved_length_field = _resolve_length_field(data, self.length_field)
+            time_values = data[resolved_time_field]
+            data_start = int(np.min(time_values))
             if data_start < self.start:
                 raise ValueError(f"Chunk data starts at {data_start}, before chunk start {self.start}")
 
             # 使用 get_endtime 获取最后一条记录的结束时间
             # 注意：这里假设 get_endtime 已经定义或在下面定义
-            data_end = get_endtime(data).max()
+            data_end = get_endtime(
+                data,
+                time_field=resolved_time_field,
+                endtime_field=self.endtime_field,
+                dt_field=self.dt_field,
+                length_field=resolved_length_field,
+                dt=self.dt,
+            ).max()
             if data_end > self.end:
                 raise ValueError(f"Chunk data ends at {data_end}, after chunk end {self.end}")
 
@@ -112,11 +168,38 @@ class Chunk:
     def split(self, t: int):
         """在时间 t 处切割 Chunk"""
         t = max(min(t, self.end), self.start)
-        mask = self.data[TIME_FIELD] < t
+        resolved_time_field = _resolve_time_field(self.data, self.time_field)
+        mask = self.data[resolved_time_field] < t
 
         return (
-            Chunk(self.data[mask], self.start, t, self.run_id, self.data_type, self.data_kind),
-            Chunk(self.data[~mask], t, self.end, self.run_id, self.data_type, self.data_kind),
+            Chunk(
+                self.data[mask],
+                self.start,
+                t,
+                self.run_id,
+                self.data_type,
+                self.data_kind,
+                time_field=self.time_field,
+                dt_field=self.dt_field,
+                length_field=self.length_field,
+                endtime_field=self.endtime_field,
+                dt=self.dt,
+                metadata=self.metadata,
+            ),
+            Chunk(
+                self.data[~mask],
+                t,
+                self.end,
+                self.run_id,
+                self.data_type,
+                self.data_kind,
+                time_field=self.time_field,
+                dt_field=self.dt_field,
+                length_field=self.length_field,
+                endtime_field=self.endtime_field,
+                dt=self.dt,
+                metadata=self.metadata,
+            ),
         )
 
 
@@ -176,12 +259,22 @@ class ValidationResult:
 
 
 @export
-def compute_endtime(data: np.ndarray) -> np.ndarray:
+def compute_endtime(
+    data: np.ndarray,
+    time_field: str = TIME_FIELD,
+    dt_field: str = DT_FIELD,
+    length_field: str = LENGTH_FIELD,
+    dt: Optional[float] = None,
+) -> np.ndarray:
     """
     计算 endtime = time + dt * length
 
     Args:
-        data: 包含 time, dt, length 字段的结构化数组
+        data: 结构化数组
+        time_field: 时间字段名（默认 "time"，允许回退到 "timestamp"）
+        dt_field: 采样间隔字段名（默认 "dt"）
+        length_field: 长度字段名（默认 "length"，允许回退到 "event_length"）
+        dt: 可选的固定采样间隔（覆盖 dt_field）
 
     Returns:
         endtime 数组 (int64)
@@ -189,14 +282,27 @@ def compute_endtime(data: np.ndarray) -> np.ndarray:
     Raises:
         KeyError: 缺少必要字段
     """
-    _validate_time_fields(data, require_length=True)
+    resolved_time_field = _resolve_time_field(data, time_field)
+    resolved_length_field = _resolve_length_field(data, length_field)
+    _validate_time_fields(
+        data,
+        require_length=True,
+        time_field=resolved_time_field,
+        dt_field=dt_field,
+        length_field=resolved_length_field,
+        dt=dt,
+    )
 
-    time = data[TIME_FIELD]
-    dt = data[DT_FIELD]
-    length = data[LENGTH_FIELD]
+    time = data[resolved_time_field].astype(np.int64)
+    length = data[resolved_length_field].astype(np.int64)
 
-    # 使用 int64 防止溢出
-    return time.astype(np.int64) + dt.astype(np.int64) * length.astype(np.int64)
+    if dt is None:
+        dt_values = data[dt_field].astype(np.int64)
+        endtime = time + dt_values * length
+    else:
+        endtime = time + (np.asarray(dt, dtype=np.float64) * length)
+
+    return endtime.astype(np.int64)
 
 
 @export
@@ -276,19 +382,50 @@ def validate_endtime(data: np.ndarray, tolerance_ns: int = 0) -> ValidationResul
 
 
 @export
-def get_endtime(data: np.ndarray) -> np.ndarray:
+def get_endtime(
+    data: np.ndarray,
+    time_field: str = TIME_FIELD,
+    endtime_field: str = ENDTIME_FIELD,
+    dt_field: str = DT_FIELD,
+    length_field: str = LENGTH_FIELD,
+    dt: Optional[float] = None,
+) -> np.ndarray:
     """
     获取 endtime，如果没有 endtime 字段则计算
 
     Args:
         data: 结构化数组
+        time_field: 时间字段名
+        endtime_field: 结束时间字段名
+        dt_field: 采样间隔字段名
+        length_field: 长度字段名
+        dt: 可选的固定采样间隔（覆盖 dt_field）
 
     Returns:
         endtime 数组
     """
-    if ENDTIME_FIELD in data.dtype.names:
-        return data[ENDTIME_FIELD]
-    return compute_endtime(data)
+    if not hasattr(data, "dtype") or data.dtype.names is None:
+        raise TypeError("Data must be a structured numpy array")
+
+    if endtime_field in data.dtype.names:
+        return data[endtime_field]
+
+    resolved_time_field = _resolve_time_field(data, time_field)
+    resolved_length_field = _resolve_length_field(data, length_field)
+
+    # 无长度/采样间隔时，将记录视为瞬时事件
+    if resolved_length_field not in data.dtype.names:
+        return data[resolved_time_field]
+    if dt is None and dt_field not in data.dtype.names:
+        return data[resolved_time_field]
+
+    return compute_endtime(
+        data,
+        time_field=resolved_time_field,
+        dt_field=dt_field,
+        length_field=resolved_length_field,
+        dt=dt,
+    )
 
 
 # =============================================================================
@@ -438,7 +575,14 @@ def check_sorted_by_time(data: np.ndarray) -> ValidationResult:
 
 
 @export
-def get_time_range(data: np.ndarray) -> Tuple[int, int]:
+def get_time_range(
+    data: np.ndarray,
+    time_field: str = TIME_FIELD,
+    endtime_field: str = ENDTIME_FIELD,
+    dt_field: str = DT_FIELD,
+    length_field: str = LENGTH_FIELD,
+    dt: Optional[float] = None,
+) -> Tuple[int, int]:
     """
     获取数据的时间范围 [min_time, max_endtime)
 
@@ -451,8 +595,16 @@ def get_time_range(data: np.ndarray) -> Tuple[int, int]:
     if len(data) == 0:
         return (0, 0)
 
-    time = data[TIME_FIELD]
-    endtime = get_endtime(data)
+    resolved_time_field = _resolve_time_field(data, time_field)
+    time = data[resolved_time_field]
+    endtime = get_endtime(
+        data,
+        time_field=resolved_time_field,
+        endtime_field=endtime_field,
+        dt_field=dt_field,
+        length_field=length_field,
+        dt=dt,
+    )
 
     return (int(np.min(time)), int(np.max(endtime)))
 
@@ -463,6 +615,11 @@ def select_time_range(
     start: Optional[int] = None,
     end: Optional[int] = None,
     strict: bool = False,
+    time_field: str = TIME_FIELD,
+    endtime_field: str = ENDTIME_FIELD,
+    dt_field: str = DT_FIELD,
+    length_field: str = LENGTH_FIELD,
+    dt: Optional[float] = None,
 ) -> np.ndarray:
     """
     选择时间范围内的记录
@@ -479,8 +636,16 @@ def select_time_range(
     if len(data) == 0:
         return data
 
-    time = data[TIME_FIELD]
-    endtime = get_endtime(data)
+    resolved_time_field = _resolve_time_field(data, time_field)
+    time = data[resolved_time_field]
+    endtime = get_endtime(
+        data,
+        time_field=resolved_time_field,
+        endtime_field=endtime_field,
+        dt_field=dt_field,
+        length_field=length_field,
+        dt=dt,
+    )
 
     mask = np.ones(len(data), dtype=bool)
 
@@ -686,6 +851,11 @@ def split_by_breaks(
     data: np.ndarray,
     break_threshold_ns: int = DEFAULT_BREAK_THRESHOLD_NS,
     min_chunk_size: int = 1,
+    time_field: str = TIME_FIELD,
+    endtime_field: str = ENDTIME_FIELD,
+    dt_field: str = DT_FIELD,
+    length_field: str = LENGTH_FIELD,
+    dt: Optional[float] = None,
 ) -> Generator[Tuple[np.ndarray, ChunkInfo], None, None]:
     """
     按时间间隙分割数据（在大间隙处断开）
@@ -701,8 +871,16 @@ def split_by_breaks(
     if len(data) == 0:
         return
 
-    time = data[TIME_FIELD]
-    endtime = get_endtime(data)
+    resolved_time_field = _resolve_time_field(data, time_field)
+    time = data[resolved_time_field]
+    endtime = get_endtime(
+        data,
+        time_field=resolved_time_field,
+        endtime_field=endtime_field,
+        dt_field=dt_field,
+        length_field=length_field,
+        dt=dt,
+    )
 
     # 计算记录之间的间隙
     gaps = time[1:].astype(np.int64) - endtime[:-1].astype(np.int64)
@@ -723,8 +901,15 @@ def split_by_breaks(
 
         chunk_data = data[start_idx:end_idx]
 
-        chunk_time = chunk_data[TIME_FIELD]
-        chunk_endtime = get_endtime(chunk_data)
+        chunk_time = chunk_data[resolved_time_field]
+        chunk_endtime = get_endtime(
+            chunk_data,
+            time_field=resolved_time_field,
+            endtime_field=endtime_field,
+            dt_field=dt_field,
+            length_field=length_field,
+            dt=dt,
+        )
 
         info = ChunkInfo(
             start_time=int(np.min(chunk_time)),
@@ -940,6 +1125,11 @@ def check_chunk_boundaries(
     data: np.ndarray,
     chunk_start: int,
     chunk_end: int,
+    time_field: str = TIME_FIELD,
+    endtime_field: str = ENDTIME_FIELD,
+    dt_field: str = DT_FIELD,
+    length_field: str = LENGTH_FIELD,
+    dt: Optional[float] = None,
 ) -> ValidationResult:
     """
     检查数据是否违反 chunk 边界
@@ -962,8 +1152,16 @@ def check_chunk_boundaries(
         result.stats = {"n_records": 0, "violations": 0}
         return result
 
-    time = data[TIME_FIELD]
-    endtime = get_endtime(data)
+    resolved_time_field = _resolve_time_field(data, time_field)
+    time = data[resolved_time_field]
+    endtime = get_endtime(
+        data,
+        time_field=resolved_time_field,
+        endtime_field=endtime_field,
+        dt_field=dt_field,
+        length_field=length_field,
+        dt=dt,
+    )
 
     # 检查起始边界
     before_start = time < chunk_start
@@ -1059,14 +1257,23 @@ def check_chunk_continuity(
 # =============================================================================
 
 
-def _validate_time_fields(data: np.ndarray, require_length: bool = True):
+def _validate_time_fields(
+    data: np.ndarray,
+    require_length: bool = True,
+    time_field: str = TIME_FIELD,
+    dt_field: str = DT_FIELD,
+    length_field: str = LENGTH_FIELD,
+    dt: Optional[float] = None,
+):
     """验证数组包含必要的时间字段"""
     if not hasattr(data, "dtype") or data.dtype.names is None:
         raise TypeError("Data must be a structured numpy array")
 
-    required = [TIME_FIELD, DT_FIELD]
+    required = [_resolve_time_field(data, time_field)]
+    if dt is None:
+        required.append(dt_field)
     if require_length:
-        required.append(LENGTH_FIELD)
+        required.append(_resolve_length_field(data, length_field))
 
     missing = [f for f in required if f not in data.dtype.names]
     if missing:

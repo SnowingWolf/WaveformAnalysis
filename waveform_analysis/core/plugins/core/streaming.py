@@ -1,13 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-流式处理框架 - 整合 Chunk、Plugin 和 ExecutorManager
+流式处理框架 - 整合 Chunk、Plugin 和 ExecutorManager。
 
-受 strax 启发的流式处理系统，支持：
-- 数据以 chunk 形式流动
-- 插件自动处理 chunk 流
-- 自动并行化和资源管理
-- 时间边界对齐和验证
-- 动态负载均衡（可选）
+受 strax 启发的流式处理系统，主要特性：
+- 数据以 Chunk 形式流动，保持低内存占用
+- StreamingPlugin 自动处理 Chunk 流并可并行化
+- 支持时间边界校验、断点分段和 halo 扩展
+- 可选动态负载均衡(DynamicLoadBalancer)
+
+关键约定：
+- Chunk.metadata 会包含 main_start/main_end/segment_id，用于裁剪与状态重置
+- time 字段默认使用 TIME_FIELD，缺失时会回退到 TIMESTAMP_FIELD
+
+Examples:
+    from waveform_analysis.core.plugins.core.streaming import get_streaming_context
+
+    stream_ctx = get_streaming_context(ctx, run_id="run_001", chunk_size=50000)
+    for chunk in stream_ctx.get_stream("st_waveforms_stream"):
+        handle_chunk(chunk)
 """
 
 import time
@@ -19,12 +29,31 @@ from ...processing.chunk import (
     Chunk,
     check_chunk_boundaries,
     get_endtime,
+    TIME_FIELD,
+    DT_FIELD,
+    LENGTH_FIELD,
+    ENDTIME_FIELD,
+    TIMESTAMP_FIELD,
+    DEFAULT_BREAK_THRESHOLD_NS,
+    split_by_breaks,
+    select_time_range,
 )
 from ...execution.config import get_config
 from .base import Plugin
 from waveform_analysis.core.foundation.utils import exporter
 
 export, __all__ = exporter()
+
+
+def _pick_time_field(data: np.ndarray, preferred: str) -> Optional[str]:
+    """选择可用的时间字段名（默认支持 time -> timestamp 回退）。"""
+    if not hasattr(data, "dtype") or data.dtype.names is None:
+        return None
+    if preferred in data.dtype.names:
+        return preferred
+    if preferred == TIME_FIELD and TIMESTAMP_FIELD in data.dtype.names:
+        return TIMESTAMP_FIELD
+    return None
 
 
 class StreamingPlugin(Plugin):
@@ -42,6 +71,19 @@ class StreamingPlugin(Plugin):
     2. 重写 `compute_chunk()` 方法处理单个 chunk
     3. 设置 `output_kind = "stream"`（自动设置）
     4. 可选：启用负载均衡 `use_load_balancer = True`
+
+    Chunk 处理约定：
+    - 输入 chunk 可能带 halo，核心时间区间保存在 metadata 的 main_start/main_end
+    - `_postprocess_result()` 会将非 Chunk 输出包装成 Chunk，并裁剪到 main_* 范围
+    - `clip_strict=True` 时会进行严格边界裁剪（见 select_time_range）
+
+    关键配置（常用）：
+    - chunk_size: 静态数据切分大小
+    - break_threshold_ns: 断点阈值（split_by_breaks 分段）
+    - required_halo_ns/left/right: halo 扩展范围
+    - parallel/executor_type/max_workers: 并行策略
+    - is_stateful/reset_on_break: 状态插件在分段切换时的处理策略
+    - time_field/dt_field/length_field/endtime_field: 时间字段名配置
     """
 
     # 流式处理相关配置
@@ -50,6 +92,21 @@ class StreamingPlugin(Plugin):
     parallel_batch_size: Optional[int] = None  # 并行处理批量大小（None=自动）
     executor_type: str = "thread"  # 执行器类型
     max_workers: Optional[int] = None  # 最大工作线程/进程数
+    time_field: str = TIME_FIELD  # 时间字段名
+    dt_field: str = DT_FIELD  # 采样间隔字段名
+    length_field: str = LENGTH_FIELD  # 长度字段名
+    endtime_field: str = ENDTIME_FIELD  # 结束时间字段名
+    dt: Optional[float] = None  # 可选的固定采样间隔（覆盖 dt_field）
+    output_time_field: str = TIME_FIELD  # 输出时间字段名
+    output_endtime_field: str = ENDTIME_FIELD  # 输出结束时间字段名
+    output_data_kind: str = "stream"  # 输出数据类型标签
+    required_halo_ns: int = 0  # 对称 halo
+    required_halo_left_ns: int = 0  # 左侧 halo
+    required_halo_right_ns: int = 0  # 右侧 halo
+    clip_strict: bool = False  # 输出裁剪策略
+    is_stateful: bool = False  # 是否有状态
+    reset_on_break: bool = True  # break 时是否重置状态
+    break_threshold_ns: int = DEFAULT_BREAK_THRESHOLD_NS  # break 阈值
 
     # 负载均衡配置
     use_load_balancer: bool = False  # 是否使用独立的负载均衡器
@@ -71,11 +128,11 @@ class StreamingPlugin(Plugin):
 
         config = self.load_balancer_config or {}
         self._load_balancer = DynamicLoadBalancer(
-            min_workers=config.get('min_workers', 1),
-            max_workers=config.get('max_workers', self.max_workers),
-            cpu_threshold=config.get('cpu_threshold', 0.8),
-            memory_threshold=config.get('memory_threshold', 0.85),
-            check_interval=config.get('check_interval', 5.0)
+            min_workers=config.get("min_workers", 1),
+            max_workers=config.get("max_workers", self.max_workers),
+            cpu_threshold=config.get("cpu_threshold", 0.8),
+            memory_threshold=config.get("memory_threshold", 0.85),
+            check_interval=config.get("check_interval", 5.0),
         )
 
     def get_load_balancer_stats(self) -> Optional[Dict]:
@@ -88,27 +145,145 @@ class StreamingPlugin(Plugin):
         if self._load_balancer:
             return self._load_balancer.get_statistics()
         return None
-    
+
+    def reset_state(self) -> None:
+        """Reset internal state for stateful plugins."""
+        return None
+
+    def _get_required_halo(self) -> Tuple[int, int]:
+        left = self.required_halo_left_ns or 0
+        right = self.required_halo_right_ns or 0
+        if self.required_halo_ns:
+            left = max(left, self.required_halo_ns)
+            right = max(right, self.required_halo_ns)
+        return int(left), int(right)
+
+    def _iter_segments(
+        self,
+        data: np.ndarray,
+        time_field: str,
+    ) -> Iterator[Tuple[np.ndarray, int, int, int]]:
+        if self.break_threshold_ns and self.break_threshold_ns > 0:
+            segment_id = 0
+            for segment_data, info in split_by_breaks(
+                data,
+                break_threshold_ns=self.break_threshold_ns,
+                min_chunk_size=1,
+                time_field=time_field,
+                endtime_field=self.endtime_field,
+                dt_field=self.dt_field,
+                length_field=self.length_field,
+                dt=self.dt,
+            ):
+                yield segment_data, int(info.start_time), int(info.end_time), segment_id
+                segment_id += 1
+            return
+
+        if len(data) == 0:
+            return
+
+        endtime = get_endtime(
+            data,
+            time_field=time_field,
+            endtime_field=self.endtime_field,
+            dt_field=self.dt_field,
+            length_field=self.length_field,
+            dt=self.dt,
+        )
+        start_time = int(np.min(data[time_field]))
+        end_time = int(np.max(endtime))
+        yield data, start_time, end_time, 0
+
     def compute_chunk(self, chunk: Chunk, context: Any, run_id: str, **kwargs) -> Chunk:
         """
         处理单个 chunk。
-        
+
         子类应该重写此方法来实现具体的处理逻辑。
-        
+
         Args:
-            chunk: 输入 chunk
+            chunk: 输入 chunk（可能带 halo）
             context: Context 对象
             run_id: 运行 ID
             **kwargs: 其他参数
-            
+
         Returns:
-            处理后的 chunk
+            处理后的 chunk、可转换的数据，或 None（表示丢弃该 chunk）
         """
         # 默认实现：直接返回（子类应重写）
         return chunk
-    
+
+    def _postprocess_result(self, result: Any, input_chunk: Chunk) -> Optional[Chunk]:
+        if result is None:
+            return None
+        if not isinstance(result, Chunk):
+            result = Chunk(
+                data=np.asarray(result),
+                start=input_chunk.metadata.get("main_start", input_chunk.start),
+                end=input_chunk.metadata.get("main_end", input_chunk.end),
+                run_id=input_chunk.run_id,
+                data_type=self.provides,
+                data_kind=self.output_data_kind,
+                time_field=self.output_time_field,
+                dt_field=self.dt_field,
+                length_field=self.length_field,
+                endtime_field=self.output_endtime_field,
+                dt=self.dt,
+                metadata={"segment_id": input_chunk.metadata.get("segment_id")},
+            )
+
+        main_start = input_chunk.metadata.get("main_start")
+        main_end = input_chunk.metadata.get("main_end")
+        if main_start is None or main_end is None:
+            return result
+
+        if not hasattr(result.data, "dtype") or result.data.dtype.names is None:
+            return result
+
+        time_field = result.time_field
+        clipped_data = select_time_range(
+            result.data,
+            start=main_start,
+            end=main_end,
+            strict=self.clip_strict,
+            time_field=time_field,
+            endtime_field=result.endtime_field,
+            dt_field=result.dt_field,
+            length_field=result.length_field,
+            dt=result.dt,
+        )
+
+        if len(clipped_data) == 0:
+            return None
+
+        metadata = dict(result.metadata)
+        metadata.update({
+            "main_start": main_start,
+            "main_end": main_end,
+            "segment_id": input_chunk.metadata.get("segment_id"),
+        })
+
+        return Chunk(
+            data=clipped_data,
+            start=int(main_start),
+            end=int(main_end),
+            run_id=result.run_id,
+            data_type=result.data_type,
+            data_kind=result.data_kind,
+            time_field=time_field,
+            dt_field=result.dt_field,
+            length_field=result.length_field,
+            endtime_field=result.endtime_field,
+            dt=result.dt,
+            metadata=metadata,
+        )
+
     def compute(
-        self, context: Any, run_id: str, show_progress: bool = False, progress_desc: Optional[str] = None, **kwargs
+        self,
+        context: Any,
+        run_id: str,
+        show_progress: bool = False,
+        progress_desc: Optional[str] = None,
+        **kwargs,
     ) -> Union[Generator[Chunk, None, None], Iterator[Chunk]]:
         """
         流式处理入口：接收 chunk 迭代器，返回 chunk 迭代器。
@@ -116,7 +291,7 @@ class StreamingPlugin(Plugin):
         默认实现：
         1. 从依赖获取 chunk 流
         2. 对每个 chunk 调用 compute_chunk()
-        3. 可选并行处理
+        3. 可选并行处理（状态插件会自动退回串行）
         4. 验证时间边界
 
         Args:
@@ -131,6 +306,17 @@ class StreamingPlugin(Plugin):
         """
         # 获取依赖的 chunk 流
         input_chunks = self._get_input_chunks(context, run_id, **kwargs)
+        executor_config = kwargs.pop("executor_config", None)
+        resolved_executor_config = self._normalize_executor_config(executor_config)
+        effective_max_workers = resolved_executor_config.get("max_workers", self.max_workers)
+
+        if self.is_stateful and self.parallel:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "Stateful plugin %s running sequentially to preserve order.", self.provides
+            )
+            self.parallel = False
 
         # 初始化进度追踪
         tracker = None
@@ -138,17 +324,26 @@ class StreamingPlugin(Plugin):
 
         if show_progress:
             from waveform_analysis.core.foundation.progress import get_global_tracker
+
             tracker = get_global_tracker()
             bar_name = f"stream_{self.provides}_{run_id}"
             desc = progress_desc or f"Streaming {self.provides}"
             # 注意：流式处理可能无法预先知道 total，设为 0 表示不确定
             tracker.create_bar(bar_name, total=0, desc=desc, unit="chunk")
 
+        last_segment_id = None
+
         try:
             # 并行处理配置
-            if self.parallel and self.max_workers is not None and self.max_workers > 1:
+            if self.parallel and effective_max_workers is not None and effective_max_workers > 1:
                 # 并行处理
-                for chunk in self._compute_parallel(input_chunks, context, run_id, **kwargs):
+                for chunk in self._compute_parallel(
+                    input_chunks,
+                    context,
+                    run_id,
+                    executor_config=resolved_executor_config,
+                    **kwargs,
+                ):
                     if chunk is not None:
                         if tracker and bar_name:
                             tracker.update(bar_name, n=1)
@@ -156,7 +351,13 @@ class StreamingPlugin(Plugin):
             else:
                 # 串行处理
                 for chunk in input_chunks:
+                    if self.is_stateful and self.reset_on_break:
+                        segment_id = chunk.metadata.get("segment_id")
+                        if segment_id is not None and segment_id != last_segment_id:
+                            self.reset_state()
+                            last_segment_id = segment_id
                     result = self.compute_chunk(chunk, context, run_id, **kwargs)
+                    result = self._postprocess_result(result, chunk)
                     if result is not None:
                         # 验证时间边界
                         self._validate_chunk(result)
@@ -167,87 +368,177 @@ class StreamingPlugin(Plugin):
             # 关闭进度条
             if tracker and bar_name:
                 tracker.close(bar_name)
-    
-    def _get_input_chunks(
-        self, context: Any, run_id: str, **kwargs
-    ) -> Iterator[Chunk]:
+
+    def _normalize_executor_config(self, executor_config: Optional[Union[str, Dict[str, Any]]]) -> Dict[str, Any]:
+        if executor_config is None:
+            return {}
+        if isinstance(executor_config, str):
+            return get_config(executor_config)
+        if isinstance(executor_config, dict):
+            return executor_config.copy()
+        raise TypeError("executor_config must be a dict or a known config name")
+
+    def _get_input_chunks(self, context: Any, run_id: str, **kwargs) -> Iterator[Chunk]:
         """
         从依赖获取 chunk 流。
-        
+
         如果依赖是流式插件，直接获取其输出流。
-        如果是静态数据，转换为 chunk 流。
+        如果是静态数据，转换为 chunk 流（按时间或固定长度切分）。
+        当前实现只使用 depends_on 的第一个依赖。
         """
         if not self.depends_on:
             # 无依赖，返回空迭代器
             return iter([])
-        
+
         # 获取第一个依赖（简化：只支持单个依赖）
         dep_name = self.depends_on[0]
         dep_data = context.get_data(run_id, dep_name)
-        
+
         # 检查是否是 chunk 流
         if isinstance(dep_data, (Generator, Iterator)):
             # 已经是流，直接返回
             return dep_data
-        
+
         # 静态数据，转换为 chunk 流
         return self._data_to_chunks(dep_data, run_id)
-    
+
     def _data_to_chunks(self, data: Any, run_id: str) -> Iterator[Chunk]:
         """
         将静态数据转换为 chunk 流。
-        
+
         Args:
             data: 静态数据（可以是 numpy 数组、列表等）
             run_id: 运行 ID
-            
+
         Yields:
             Chunk 对象
+
+        Notes:
+            - 若数据包含时间字段，会按 break_threshold_ns 分段，并支持 halo 扩展
+            - 若无时间字段，则按 chunk_size 固定切分
         """
         if isinstance(data, np.ndarray):
             # NumPy 数组：按 chunk_size 分割
             n = len(data)
+            resolved_time_field = _pick_time_field(data, self.time_field)
+            if resolved_time_field:
+                halo_left, halo_right = self._get_required_halo()
+                for segment_data, segment_start, segment_end, segment_id in self._iter_segments(
+                    data, resolved_time_field
+                ):
+                    seg_len = len(segment_data)
+                    for i in range(0, seg_len, self.chunk_size):
+                        main_data = segment_data[i : i + self.chunk_size]
+                        if len(main_data) == 0:
+                            continue
+
+                        time = main_data[resolved_time_field]
+                        endtime = get_endtime(
+                            main_data,
+                            time_field=resolved_time_field,
+                            endtime_field=self.endtime_field,
+                            dt_field=self.dt_field,
+                            length_field=self.length_field,
+                            dt=self.dt,
+                        )
+                        main_start = int(np.min(time))
+                        main_end = int(np.max(endtime))
+                        extended_start = max(segment_start, main_start - halo_left)
+                        extended_end = min(segment_end, main_end + halo_right)
+
+                        extended_data = select_time_range(
+                            segment_data,
+                            start=extended_start,
+                            end=extended_end,
+                            strict=False,
+                            time_field=resolved_time_field,
+                            endtime_field=self.endtime_field,
+                            dt_field=self.dt_field,
+                            length_field=self.length_field,
+                            dt=self.dt,
+                        )
+
+                        yield Chunk(
+                            data=extended_data,
+                            start=extended_start,
+                            end=extended_end,
+                            run_id=run_id,
+                            data_type=self.provides,
+                            time_field=resolved_time_field,
+                            dt_field=self.dt_field,
+                            length_field=self.length_field,
+                            endtime_field=self.endtime_field,
+                            dt=self.dt,
+                            metadata={
+                                "main_start": main_start,
+                                "main_end": main_end,
+                                "segment_id": segment_id,
+                            },
+                        )
+                return
+
             for i in range(0, n, self.chunk_size):
                 chunk_data = data[i : i + self.chunk_size]
                 if len(chunk_data) == 0:
                     continue
-                
-                # 计算时间范围
-                if "time" in chunk_data.dtype.names:
-                    time = chunk_data["time"]
-                    endtime = get_endtime(chunk_data)
-                    start_time = int(np.min(time))
-                    end_time = int(np.max(endtime))
-                else:
-                    start_time = i
-                    end_time = i + len(chunk_data)
-                
+
+                start_time = i
+                end_time = i + len(chunk_data)
+
                 yield Chunk(
                     data=chunk_data,
                     start=start_time,
                     end=end_time,
                     run_id=run_id,
                     data_type=self.provides,
+                    time_field=self.time_field,
+                    dt_field=self.dt_field,
+                    length_field=self.length_field,
+                    endtime_field=self.endtime_field,
+                    dt=self.dt,
+                    metadata={
+                        "main_start": start_time,
+                        "main_end": end_time,
+                        "segment_id": 0,
+                    },
                 )
         elif isinstance(data, list):
             # 列表：每个元素作为一个 chunk（简化处理）
             for i, item in enumerate(data):
                 if isinstance(item, np.ndarray) and len(item) > 0:
-                    if "time" in item.dtype.names:
-                        time = item["time"]
-                        endtime = get_endtime(item)
+                    resolved_time_field = _pick_time_field(item, self.time_field)
+                    if resolved_time_field:
+                        time = item[resolved_time_field]
+                        endtime = get_endtime(
+                            item,
+                            time_field=resolved_time_field,
+                            endtime_field=self.endtime_field,
+                            dt_field=self.dt_field,
+                            length_field=self.length_field,
+                            dt=self.dt,
+                        )
                         start_time = int(np.min(time))
                         end_time = int(np.max(endtime))
                     else:
                         start_time = i
                         end_time = i + 1
-                    
+
                     yield Chunk(
                         data=item,
                         start=start_time,
                         end=end_time,
                         run_id=run_id,
                         data_type=self.provides,
+                        time_field=resolved_time_field or self.time_field,
+                        dt_field=self.dt_field,
+                        length_field=self.length_field,
+                        endtime_field=self.endtime_field,
+                        dt=self.dt,
+                        metadata={
+                            "main_start": start_time,
+                            "main_end": end_time,
+                            "segment_id": i,
+                        },
                     )
         else:
             # 其他类型：包装为单个 chunk
@@ -258,13 +549,14 @@ class StreamingPlugin(Plugin):
                 run_id=run_id,
                 data_type=self.provides,
             )
-    
+
     def _compute_parallel(
         self,
         input_chunks: Iterator[Chunk],
         context: Any,
         run_id: str,
-        **kwargs
+        executor_config: Optional[Dict[str, Any]] = None,
+        **kwargs,
     ) -> Generator[Chunk, None, None]:
         """
         并行处理 chunk 流（优化版：批量处理，避免完全物化，支持负载均衡）。
@@ -282,20 +574,25 @@ class StreamingPlugin(Plugin):
             **kwargs: 其他参数
 
         Yields:
-            处理后的 chunk（保持顺序）
+            处理后的 chunk（保持顺序；异常会重新抛出）
         """
         import itertools
-        from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+        from concurrent.futures import as_completed
+        from waveform_analysis.core.execution.manager import ExecutorManager
+
+        resolved_executor_config = self._normalize_executor_config(executor_config)
+        executor_type = resolved_executor_config.get("executor_type", self.executor_type)
+        max_workers = resolved_executor_config.get("max_workers", self.max_workers)
+        reuse = resolved_executor_config.get("reuse", True)
 
         # 动态计算 max_workers (如果启用负载均衡)
-        max_workers = self.max_workers
         if self._load_balancer:
             # 估算chunk数量(基于历史统计或默认值)
             stats = self._load_balancer.get_statistics()
-            estimated_n_chunks = stats.get('total_tasks', 100) if stats['total_tasks'] > 0 else 100
+            estimated_n_chunks = stats.get("total_tasks", 100) if stats["total_tasks"] > 0 else 100
             max_workers = self._load_balancer.get_optimal_workers(
                 n_tasks=estimated_n_chunks,
-                estimated_task_size=None  # chunk大小难以预估
+                estimated_task_size=None,  # chunk大小难以预估
             )
 
         # 批量大小：优先使用配置值，否则根据worker数量自动计算
@@ -309,18 +606,23 @@ class StreamingPlugin(Plugin):
         processed_chunks = 0
 
         # 准备并行处理函数
-        def process_chunk(chunk: Chunk) -> Chunk:
+        def process_chunk(chunk: Chunk) -> Optional[Chunk]:
             result = self.compute_chunk(chunk, context, run_id, **kwargs)
+            result = self._postprocess_result(result, chunk)
             if result is not None:
                 self._validate_chunk(result)
             return result
 
-        # 选择执行器类型
-        executor_cls = ThreadPoolExecutor if self.executor_type == "thread" else ProcessPoolExecutor
-
         # 分批处理流
         try:
-            with executor_cls(max_workers=max_workers) as executor:
+            manager = ExecutorManager()
+            executor_name = f"stream_{self.provides}"
+            with manager.executor(
+                executor_name,
+                executor_type=executor_type,
+                max_workers=max_workers,
+                reuse=reuse,
+            ) as executor:
                 chunk_iter = iter(input_chunks)
 
                 while True:
@@ -330,10 +632,7 @@ class StreamingPlugin(Plugin):
                         break  # 流已耗尽
 
                     # 提交批量任务
-                    future_to_idx = {
-                        executor.submit(process_chunk, chunk): idx
-                        for idx, chunk in enumerate(batch)
-                    }
+                    future_to_idx = {executor.submit(process_chunk, chunk): idx for idx, chunk in enumerate(batch)}
 
                     # 收集结果（保持顺序）
                     results = [None] * len(batch)
@@ -345,6 +644,7 @@ class StreamingPlugin(Plugin):
                         except Exception as e:
                             # 记录错误但继续处理其他 chunk
                             import logging
+
                             logger = logging.getLogger(__name__)
                             logger.error(f"Error processing chunk {idx}: {e}")
                             raise  # 重新抛出，让上层处理
@@ -360,38 +660,45 @@ class StreamingPlugin(Plugin):
                 duration = time.time() - start_time
                 self._load_balancer.record_task_completion(
                     duration=duration,
-                    success=True  # 能执行到这里说明没有异常
+                    success=True,  # 能执行到这里说明没有异常
                 )
 
     def _validate_chunk(self, chunk: Chunk):
         """
         验证 chunk 的时间边界。
-        
+
         Args:
             chunk: 要验证的 chunk
-            
+
         Raises:
             ValueError: 如果验证失败
         """
         if len(chunk.data) == 0:
             return
-        
+
         # 检查时间边界
-        if "time" in chunk.data.dtype.names:
-            validation = check_chunk_boundaries(chunk.data, chunk.start, chunk.end)
+        if hasattr(chunk.data, "dtype") and chunk.data.dtype.names is not None:
+            validation = check_chunk_boundaries(
+                chunk.data,
+                chunk.start,
+                chunk.end,
+                time_field=chunk.time_field,
+                endtime_field=chunk.endtime_field,
+                dt_field=chunk.dt_field,
+                length_field=chunk.length_field,
+                dt=chunk.dt,
+            )
             if not validation.is_valid:
-                raise ValueError(
-                    f"Chunk boundary violation in {self.provides}: {validation.errors}"
-                )
+                raise ValueError(f"Chunk boundary violation in {self.provides}: {validation.errors}")
 
 
 class StreamingContext:
     """
     流式处理上下文管理器。
-    
+
     整合 chunk、插件和执行器管理器，提供类似 strax 的流式处理体验。
     """
-    
+
     def __init__(
         self,
         context: Any,  # 原始 Context 对象
@@ -402,7 +709,7 @@ class StreamingContext:
     ):
         """
         初始化流式处理上下文。
-        
+
         Args:
             context: 原始 Context 对象
             run_id: 运行 ID
@@ -415,35 +722,38 @@ class StreamingContext:
         self.chunk_size = chunk_size
         self.parallel = parallel
         self.executor_config = executor_config or get_config("io_intensive")
-    
-    def get_stream(
-        self,
-        data_name: str,
-        time_range: Optional[Tuple[int, int]] = None,
-        **kwargs
-    ) -> Iterator[Chunk]:
+
+    def get_stream(self, data_name: str, time_range: Optional[Tuple[int, int]] = None, **kwargs) -> Iterator[Chunk]:
         """
         获取数据流。
-        
+
         Args:
             data_name: 数据名称
             time_range: 时间范围 (start, end)，可选
             **kwargs: 其他参数
-            
+
         Yields:
             Chunk 对象
+
+        Notes:
+            - 对流式插件，直接调用 plugin.compute()
+            - 对静态插件，内部使用临时 StreamingPlugin 将数据切成 chunk
+            - time_range 会先按重叠过滤，再对 chunk 做裁剪
         """
         # 获取插件
         if data_name not in self.context._plugins:
             raise ValueError(f"No plugin registered for '{data_name}'")
-        
+
         plugin = self.context._plugins[data_name]
-        
+
+        if "executor_config" not in kwargs:
+            kwargs["executor_config"] = self.executor_config
+
         # 检查是否是流式插件
         if isinstance(plugin, StreamingPlugin):
             # 流式插件：直接获取流
             stream = plugin.compute(self.context, self.run_id, **kwargs)
-            
+
             # 应用时间范围过滤
             if time_range is not None:
                 start, end = time_range
@@ -459,7 +769,7 @@ class StreamingContext:
         else:
             # 普通插件：获取静态数据并转换为流
             data = self.context.get_data(self.run_id, data_name, **kwargs)
-            
+
             # 创建临时流式插件包装来转换数据
             class TempWrapper(StreamingPlugin):
                 def __init__(self, chunk_size, run_id, data_name):
@@ -477,12 +787,12 @@ class StreamingContext:
                     self.provides = data_name
                     self.depends_on = []
                     self.chunk_size = chunk_size
-            
+
             wrapper = TempWrapper(self.chunk_size, self.run_id, data_name)
-            
+
             # 转换为流
             stream = wrapper._data_to_chunks(data, self.run_id)
-            
+
             # 应用时间范围过滤
             if time_range is not None:
                 start, end = time_range
@@ -493,37 +803,55 @@ class StreamingContext:
                         yield chunk
             else:
                 yield from stream
-    
+
     def _clip_chunk(self, chunk: Chunk, start: int, end: int) -> Chunk:
         """
         裁剪 chunk 到指定时间范围。
-        
+
         Args:
             chunk: 输入 chunk
             start: 起始时间
             end: 结束时间
-            
+
         Returns:
             裁剪后的 chunk
         """
         from ...processing.chunk import select_time_range
-        
+
         if len(chunk.data) == 0:
             return chunk
-        
+
         # 选择时间范围内的数据
-        clipped_data = select_time_range(chunk.data, start, end, strict=False)
-        
+        clipped_data = select_time_range(
+            chunk.data,
+            start,
+            end,
+            strict=False,
+            time_field=chunk.time_field,
+            endtime_field=chunk.endtime_field,
+            dt_field=chunk.dt_field,
+            length_field=chunk.length_field,
+            dt=chunk.dt,
+        )
+
         # 计算新的时间范围
-        if len(clipped_data) > 0 and "time" in clipped_data.dtype.names:
-            time = clipped_data["time"]
-            endtime = get_endtime(clipped_data)
+        resolved_time_field = _pick_time_field(clipped_data, chunk.time_field)
+        if len(clipped_data) > 0 and resolved_time_field:
+            time = clipped_data[resolved_time_field]
+            endtime = get_endtime(
+                clipped_data,
+                time_field=resolved_time_field,
+                endtime_field=chunk.endtime_field,
+                dt_field=chunk.dt_field,
+                length_field=chunk.length_field,
+                dt=chunk.dt,
+            )
             new_start = max(int(np.min(time)), start)
             new_end = min(int(np.max(endtime)), end)
         else:
             new_start = max(chunk.start, start)
             new_end = min(chunk.end, end)
-        
+
         return Chunk(
             data=clipped_data,
             start=new_start,
@@ -531,66 +859,64 @@ class StreamingContext:
             run_id=chunk.run_id,
             data_type=chunk.data_type,
             data_kind=chunk.data_kind,
+            time_field=chunk.time_field,
+            dt_field=chunk.dt_field,
+            length_field=chunk.length_field,
+            endtime_field=chunk.endtime_field,
+            dt=chunk.dt,
+            metadata=dict(chunk.metadata),
         )
-    
-    def iter_chunks(
-        self,
-        data_name: str,
-        time_range: Optional[Tuple[int, int]] = None,
-        **kwargs
-    ) -> Iterator[Chunk]:
+
+    def iter_chunks(self, data_name: str, time_range: Optional[Tuple[int, int]] = None, **kwargs) -> Iterator[Chunk]:
         """
         迭代数据流的便捷方法。
-        
+
         Args:
             data_name: 数据名称
             time_range: 时间范围，可选
             **kwargs: 其他参数
-            
+
         Yields:
             Chunk 对象
         """
         yield from self.get_stream(data_name, time_range, **kwargs)
-    
-    def merge_stream(
-        self,
-        streams: List[Iterator[Chunk]],
-        sort: bool = True
-    ) -> Iterator[Chunk]:
+
+    def merge_stream(self, streams: List[Iterator[Chunk]], sort: bool = True) -> Iterator[Chunk]:
         """
         合并多个数据流。
-        
+
         Args:
             streams: 数据流列表
             sort: 是否按时间排序
-            
+
         Yields:
             合并后的 chunk
         """
         from ...processing.chunk import merge_chunks  # sort_by_time is handled by merge_chunks, sort_by_time
-        
+
         # 收集所有 chunk
         all_chunks = []
         for stream in streams:
             for chunk in stream:
                 all_chunks.append(chunk.data)
-        
+
         if len(all_chunks) == 0:
             return
-        
+
         # 合并
         merged_data = merge_chunks(iter(all_chunks), sort=sort)
-        
+
         # 计算时间范围
-        if len(merged_data) > 0 and "time" in merged_data.dtype.names:
-            time = merged_data["time"]
-            endtime = get_endtime(merged_data)
+        resolved_time_field = _pick_time_field(merged_data, TIME_FIELD)
+        if len(merged_data) > 0 and resolved_time_field:
+            time = merged_data[resolved_time_field]
+            endtime = get_endtime(merged_data, time_field=resolved_time_field)
             start_time = int(np.min(time))
             end_time = int(np.max(endtime))
         else:
             start_time = 0
             end_time = len(merged_data)
-        
+
         # 返回单个 chunk
         yield Chunk(
             data=merged_data,
@@ -598,6 +924,7 @@ class StreamingContext:
             end=end_time,
             run_id=self.run_id,
             data_type="merged",
+            time_field=resolved_time_field or TIME_FIELD,
         )
 
 
@@ -612,16 +939,15 @@ def get_streaming_context(
 ) -> StreamingContext:
     """
     创建流式处理上下文。
-    
+
     Args:
         context: Context 对象
         run_id: 运行 ID
         chunk_size: 默认 chunk 大小
         parallel: 是否启用并行处理
         executor_config: 执行器配置
-        
+
     Returns:
         StreamingContext 对象
     """
     return StreamingContext(context, run_id, chunk_size, parallel, executor_config)
-

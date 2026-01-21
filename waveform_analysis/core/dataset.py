@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """
+
 Dataset 模块 - 面向用户的高层 API 封装。
 
 **已弃用**: 本模块中的 `WaveformDataset` 类已被弃用，将在下一个主版本中移除。
@@ -254,23 +255,18 @@ class WaveformDataset(CacheMixin, StepMixin):
         return None
 
     # -------- 链式步骤相关工具 --------
-    def clear_cache(
-        self, 
-        step_name: Optional[str] = None,
-        clear_memory: bool = True,
-        clear_disk: bool = True
-    ) -> int:
+    def clear_cache(self, step_name: Optional[str] = None, clear_memory: bool = True, clear_disk: bool = True) -> int:
         """
         清理缓存。
-        
+
         参数:
             step_name: 步骤名称（如 "st_waveforms", "df"），如果为 None 则清理所有步骤
             clear_memory: 是否清理内存缓存
             clear_disk: 是否清理磁盘缓存
-        
+
         返回:
             清理的缓存项数量
-        
+
         示例:
             >>> ds = WaveformDataset(...)
             >>> # 清理单个步骤的缓存
@@ -280,12 +276,7 @@ class WaveformDataset(CacheMixin, StepMixin):
             >>> # 只清理内存缓存
             >>> ds.clear_cache("df", clear_disk=False)
         """
-        return self.ctx.clear_cache_for(
-            self.run_name, 
-            step_name, 
-            clear_memory=clear_memory,
-            clear_disk=clear_disk
-        )
+        return self.ctx.clear_cache_for(self.run_name, step_name, clear_memory=clear_memory, clear_disk=clear_disk)
 
     def _validate_data_dir(self):
         """验证数据目录是否存在。若启用了 DAQ 扫描，可在目录缺失时尝试从 DAQ 扫描获取运行信息。"""
@@ -325,6 +316,14 @@ class WaveformDataset(CacheMixin, StepMixin):
             for ch, wf in enumerate(self.waveforms):
                 if wf.size > 0:
                     print(f"  CH{self.start_channel_slice + ch}: {wf.shape}")
+
+        # 当 load_waveforms=False 时，跳过大波形驻留，但仍要产出特征
+        if not self.load_waveforms:
+            # 直接计算峰值/电荷（依赖链会按需计算 st_waveforms）
+            self.peaks = self.ctx.get_data(self.run_name, "peaks")
+            self.charges = self.ctx.get_data(self.run_name, "charges")
+            # 释放波形内存占用
+            self.waveforms = []
         return self
 
     def clear_waveforms(self) -> None:
@@ -397,7 +396,7 @@ class WaveformDataset(CacheMixin, StepMixin):
     ) -> "WaveformDataset":
         """
         按时间窗口聚类多通道事件。
-        
+
         参数:
             time_window_ns: 时间窗口（纳秒）
             use_numba: 是否使用numba加速（默认True）
@@ -422,6 +421,7 @@ class WaveformDataset(CacheMixin, StepMixin):
             elif use_numba:
                 try:
                     import numba
+
                     print("  使用 numba 加速")
                 except ImportError:
                     pass
@@ -656,7 +656,7 @@ class WaveformDataset(CacheMixin, StepMixin):
             >>> ds.help('workflow')  # 显示工作流程（同上）
             >>> ds.help('config')  # 转发给 ctx.help('config')
         """
-        if topic is None or topic in ['workflow', 'chain']:
+        if topic is None or topic in ["workflow", "chain"]:
             return self._show_workflow_help(verbose)
         else:
             # 转发给 Context
