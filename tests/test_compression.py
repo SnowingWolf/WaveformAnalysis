@@ -140,6 +140,7 @@ class TestMemmapStorageCompression:
     def setup_method(self):
         """Setup temporary directory"""
         self.temp_dir = tempfile.mkdtemp()
+        self.test_run_id = "test_run"
         print(f"\nTest directory: {self.temp_dir}")
 
     def teardown_method(self):
@@ -155,16 +156,16 @@ class TestMemmapStorageCompression:
         data = np.array([1, 2, 3, 4, 5], dtype=np.int32)
 
         # Save
-        storage.save_memmap('test_key', data)
+        storage.save_memmap('test_key', data, run_id=self.test_run_id)
 
         # Check metadata
-        meta = storage.get_metadata('test_key')
+        meta = storage.get_metadata('test_key', run_id=self.test_run_id)
         assert meta is not None
         assert meta.get('compressed', False) is False
         assert 'compression' not in meta
 
         # Load
-        loaded = storage.load_memmap('test_key')
+        loaded = storage.load_memmap('test_key', run_id=self.test_run_id)
         assert loaded is not None
         np.testing.assert_array_equal(loaded, data)
 
@@ -180,10 +181,10 @@ class TestMemmapStorageCompression:
         data[:100] = 1.0
 
         # Save
-        storage.save_memmap('test_compressed', data)
+        storage.save_memmap('test_compressed', data, run_id=self.test_run_id)
 
         # Check metadata
-        meta = storage.get_metadata('test_compressed')
+        meta = storage.get_metadata('test_compressed', run_id=self.test_run_id)
         assert meta is not None
         assert meta['compressed'] is True
         assert meta['compression'] == 'gzip'
@@ -191,13 +192,13 @@ class TestMemmapStorageCompression:
         assert meta['compression_ratio'] > 1.0  # 应该有压缩效果
 
         # Check compressed file exists
-        bin_path = os.path.join(self.temp_dir, 'test_compressed.bin')
+        bin_path = os.path.join(self.temp_dir, self.test_run_id, '_cache', 'test_compressed.bin')
         compressed_path = bin_path + '.gz'
         assert os.path.exists(compressed_path)
         assert not os.path.exists(bin_path)  # 原始文件应该被删除
 
         # Load
-        loaded = storage.load_memmap('test_compressed')
+        loaded = storage.load_memmap('test_compressed', run_id=self.test_run_id)
         assert loaded is not None
         np.testing.assert_array_equal(loaded, data)
 
@@ -209,9 +210,9 @@ class TestMemmapStorageCompression:
         storage = MemmapStorage(self.temp_dir, compression='gzip')
 
         data = np.array([1, 2, 3], dtype=np.int32)
-        storage.save_memmap('test_exists', data)
+        storage.save_memmap('test_exists', data, run_id=self.test_run_id)
 
-        assert storage.exists('test_exists')
+        assert storage.exists('test_exists', run_id=self.test_run_id)
 
     def test_storage_structured_array_compression(self):
         """测试structured array的压缩"""
@@ -229,8 +230,8 @@ class TestMemmapStorageCompression:
         data['value'] = np.random.randn(100)
 
         # Save and load
-        storage.save_memmap('structured_test', data)
-        loaded = storage.load_memmap('structured_test')
+        storage.save_memmap('structured_test', data, run_id=self.test_run_id)
+        loaded = storage.load_memmap('structured_test', run_id=self.test_run_id)
 
         assert loaded is not None
         assert loaded.dtype == data.dtype
@@ -241,11 +242,11 @@ class TestMemmapStorageCompression:
         # Create old version data (without compression)
         storage_old = MemmapStorage(self.temp_dir)
         data = np.array([1, 2, 3, 4, 5], dtype=np.int32)
-        storage_old.save_memmap('old_data', data)
+        storage_old.save_memmap('old_data', data, run_id=self.test_run_id)
 
         # Load with new storage (compression aware)
         storage_new = MemmapStorage(self.temp_dir, compression='gzip')
-        loaded = storage_new.load_memmap('old_data')
+        loaded = storage_new.load_memmap('old_data', run_id=self.test_run_id)
 
         assert loaded is not None
         np.testing.assert_array_equal(loaded, data)
@@ -255,11 +256,11 @@ class TestMemmapStorageCompression:
         # Save with gzip
         storage_save = MemmapStorage(self.temp_dir, compression='gzip')
         data = np.array([1, 2, 3, 4, 5], dtype=np.int32)
-        storage_save.save_memmap('test_key', data)
+        storage_save.save_memmap('test_key', data, run_id=self.test_run_id)
 
         # Load with no compression configured (should still work)
         storage_load = MemmapStorage(self.temp_dir)
-        loaded = storage_load.load_memmap('test_key')
+        loaded = storage_load.load_memmap('test_key', run_id=self.test_run_id)
 
         assert loaded is not None
         np.testing.assert_array_equal(loaded, data)

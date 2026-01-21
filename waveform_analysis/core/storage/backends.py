@@ -391,7 +391,7 @@ def create_storage_backend(backend_type: str = "memmap", **kwargs) -> StorageBac
         from waveform_analysis.core.storage.memmap import MemmapStorage
         storage_dir = kwargs.get("storage_dir", "./strax_data")
         profiler = kwargs.get("profiler", None)
-        return MemmapStorage(storage_dir, profiler=profiler)
+        return MemmapStorage(work_dir=storage_dir, profiler=profiler)
 
     elif backend_type == "sqlite":
         db_path = kwargs.get("db_path")

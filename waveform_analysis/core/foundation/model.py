@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Model 模块 - 框架内部数据模型定义。
+Model 模块 (lineage 图) - 框架内部数据模型定义。
 
 定义了插件系统、数据流图以及配置管理中使用的基础数据结构，
 如 PortModel, NodeModel, GraphModel 等，用于描述处理流程的拓扑结构。
@@ -52,6 +52,7 @@ class LineageGraphModel:
         """
         将模型转换为 Mermaid.js 流程图字符串。
         """
+        # Start a left-to-right flowchart.
         lines = ["graph LR"]
 
         # 1. 定义节点
@@ -83,6 +84,7 @@ def build_lineage_graph(
     from waveform_analysis.core.foundation.utils import get_plugin_dtypes, get_plugin_title
 
     model = LineageGraphModel()
+    # Normalize plugins map to simplify downstream lookups.
     plugins = plugins or {}
 
     # 第一阶段：遍历收集所有节点和依赖关系
@@ -91,6 +93,7 @@ def build_lineage_graph(
     dependencies = {}  # {node: [依赖的节点列表]}
 
     def traverse(name, info):
+        # DFS to collect node info and dependency edges.
         if name in visited:
             return
         visited.add(name)
@@ -212,6 +215,7 @@ def build_lineage_graph(
                     break
 
             if source_port and target_port:
+                # Link the matching output/input port pair.
                 model.edges.append(
                     EdgeModel(
                         source_node_id=source_node.id,

@@ -173,6 +173,7 @@ class TestStorageWithChecksum:
     def setup_method(self):
         """Setup temporary directory"""
         self.temp_dir = tempfile.mkdtemp()
+        self.test_run_id = "test_run"
 
     def teardown_method(self):
         """Cleanup"""
@@ -184,9 +185,9 @@ class TestStorageWithChecksum:
         storage = MemmapStorage(self.temp_dir, enable_checksum=False)
 
         data = np.array([1, 2, 3, 4, 5], dtype=np.int32)
-        storage.save_memmap('test_key', data)
+        storage.save_memmap('test_key', data, run_id=self.test_run_id)
 
-        meta = storage.get_metadata('test_key')
+        meta = storage.get_metadata('test_key', run_id=self.test_run_id)
         assert 'checksum' not in meta
 
     def test_storage_with_checksum(self):
@@ -198,16 +199,16 @@ class TestStorageWithChecksum:
         )
 
         data = np.array([1, 2, 3, 4, 5], dtype=np.int32)
-        storage.save_memmap('test_key', data)
+        storage.save_memmap('test_key', data, run_id=self.test_run_id)
 
         # Check metadata contains checksum
-        meta = storage.get_metadata('test_key')
+        meta = storage.get_metadata('test_key', run_id=self.test_run_id)
         assert 'checksum' in meta
         assert 'checksum_algorithm' in meta
         assert meta['checksum_algorithm'] == 'sha256'
 
         # Load should work
-        loaded = storage.load_memmap('test_key')
+        loaded = storage.load_memmap('test_key', run_id=self.test_run_id)
         assert loaded is not None
         np.testing.assert_array_equal(loaded, data)
 
@@ -221,7 +222,7 @@ class TestStorageWithChecksum:
         )
 
         data = np.array([1, 2, 3, 4, 5], dtype=np.int32)
-        storage_save.save_memmap('test_key', data)
+        storage_save.save_memmap('test_key', data, run_id=self.test_run_id)
 
         # Load with verification enabled
         storage_load = MemmapStorage(
@@ -230,7 +231,7 @@ class TestStorageWithChecksum:
             verify_on_load=True
         )
 
-        loaded = storage_load.load_memmap('test_key')
+        loaded = storage_load.load_memmap('test_key', run_id=self.test_run_id)
         assert loaded is not None
         np.testing.assert_array_equal(loaded, data)
 
@@ -244,16 +245,16 @@ class TestStorageWithChecksum:
         )
 
         data = np.array([1, 2, 3, 4, 5], dtype=np.int32)
-        storage.save_memmap('test_key', data)
+        storage.save_memmap('test_key', data, run_id=self.test_run_id)
 
         # Corrupt the file
-        bin_path = os.path.join(self.temp_dir, 'test_key.bin')
+        bin_path = os.path.join(self.temp_dir, self.test_run_id, '_cache', 'test_key.bin')
         with open(bin_path, 'r+b') as f:
             f.seek(0)
             f.write(b'\x00\x00\x00\x00')
 
         # Loading should fail (or warn and return None)
-        loaded = storage.load_memmap('test_key')
+        loaded = storage.load_memmap('test_key', run_id=self.test_run_id)
         assert loaded is None
 
     def test_storage_checksum_with_compression(self):
@@ -268,16 +269,16 @@ class TestStorageWithChecksum:
         data = np.zeros(100, dtype=np.float64)
         data[:10] = 1.0
 
-        storage.save_memmap('test_compressed', data)
+        storage.save_memmap('test_compressed', data, run_id=self.test_run_id)
 
         # Check metadata
-        meta = storage.get_metadata('test_compressed')
+        meta = storage.get_metadata('test_compressed', run_id=self.test_run_id)
         assert meta['compressed'] is True
         assert 'checksum' in meta
         assert 'checksum_algorithm' in meta
 
         # Load and verify
-        loaded = storage.load_memmap('test_compressed')
+        loaded = storage.load_memmap('test_compressed', run_id=self.test_run_id)
         assert loaded is not None
         np.testing.assert_array_equal(loaded, data)
 
@@ -291,10 +292,10 @@ class TestStorageWithChecksum:
         # Save multiple files
         for i in range(3):
             data = np.array([i, i+1, i+2], dtype=np.int32)
-            storage.save_memmap(f'test_{i}', data)
+            storage.save_memmap(f'test_{i}', data, run_id=self.test_run_id)
 
         # Verify integrity
-        results = storage.verify_integrity(verbose=False)
+        results = storage.verify_integrity(run_id=self.test_run_id, verbose=False)
 
         assert results['total'] == 3
         assert results['valid'] == 3
@@ -309,15 +310,15 @@ class TestStorageWithChecksum:
 
         # Save a file
         data = np.array([1, 2, 3], dtype=np.int32)
-        storage.save_memmap('test_key', data)
+        storage.save_memmap('test_key', data, run_id=self.test_run_id)
 
         # Corrupt the file
-        bin_path = os.path.join(self.temp_dir, 'test_key.bin')
+        bin_path = os.path.join(self.temp_dir, self.test_run_id, '_cache', 'test_key.bin')
         with open(bin_path, 'r+b') as f:
             f.write(b'\xFF' * 12)
 
         # Verify should detect corruption
-        results = storage.verify_integrity(verbose=False)
+        results = storage.verify_integrity(run_id=self.test_run_id, verbose=False)
 
         assert results['total'] == 1
         assert results['invalid'] == 1
