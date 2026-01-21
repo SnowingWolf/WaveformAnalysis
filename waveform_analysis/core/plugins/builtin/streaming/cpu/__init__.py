@@ -10,5 +10,12 @@
 **流式支持**: ✓
 """
 
-# 导出将在后续阶段中添加
-__all__ = []
+from waveform_analysis.core.foundation.utils import exporter
+
+from .signal_peaks import SignalPeaksStreamPlugin
+
+export, __all__ = exporter()
+
+__all__.extend([
+    "SignalPeaksStreamPlugin",
+])

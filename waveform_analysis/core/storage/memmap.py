@@ -5,9 +5,10 @@ Storage 模块 - 负责数据的持久化与加载。
 实现了基于 NumPy Memmap 的多通道数组存储和基于 Parquet 的 DataFrame 存储。
 支持原子写入、元数据管理以及存储版本的校验，确保数据的完整性与一致性。
 
-新增功能:
-- 可选的数据压缩支持(blosc2, lz4, zstd, gzip)
-- 压缩数据不支持memmap,但节省存储空间
+存储架构：
+- 分层结构：work_dir/{run_id}/_cache/{key}.bin
+- 支持数据压缩（blosc2, lz4, zstd, gzip）
+- 压缩数据不支持 memmap，但节省存储空间
 """
 
 import fcntl
@@ -80,23 +81,22 @@ class MemmapStorage:
 
     def __init__(
         self,
-        base_dir: str,
+        work_dir: str,
         profiler: Optional[Any] = None,
         compression: Optional[Union[str, Any]] = None,
         compression_kwargs: Optional[Dict[str, Any]] = None,
         enable_checksum: bool = False,
         checksum_algorithm: str = 'xxhash64',
         verify_on_load: bool = False,
-        work_dir: Optional[str] = None,
-        use_run_subdirs: bool = True,
         data_subdir: str = "_cache",
         side_effects_subdir: str = "side_effects",
     ):
         """
-        Initialize MemmapStorage.
+        Initialize MemmapStorage with hierarchical storage structure.
 
         Args:
-            base_dir: Base directory for storage (legacy mode fallback)
+            work_dir: Work directory for hierarchical storage.
+                     Files organized as: work_dir/{run_id}/_cache/{key}.bin
             profiler: Optional profiler for performance tracking
             compression: Compression backend name ('blosc2', 'lz4', 'zstd', 'gzip') or instance.
                         None means no compression (default, uses memmap).
@@ -104,46 +104,32 @@ class MemmapStorage:
             enable_checksum: Enable checksum computation for data integrity
             checksum_algorithm: Checksum algorithm ('xxhash64', 'sha256', 'md5')
             verify_on_load: Verify checksum when loading data (may impact performance)
-            work_dir: Work directory for hierarchical storage (new mode).
-                     If None, uses base_dir with flat structure (legacy mode).
-            use_run_subdirs: Whether to use run_id subdirectories (only applies when work_dir is set)
             data_subdir: Subdirectory name for data files (default: "_cache")
             side_effects_subdir: Subdirectory name for side effect outputs (default: "side_effects")
 
-        Storage Modes:
-            1. Legacy mode (work_dir=None):
-               - All files in base_dir root (flat structure)
-               - Path: base_dir/{key}.bin
-
-            2. New hierarchical mode (work_dir set):
-               - Files organized by run_id
-               - Path: work_dir/{run_id}/_cache/{key}.bin
+        Storage Structure:
+            work_dir/
+            ├── {run_id}/
+            │   ├── _cache/          # Data files
+            │   │   ├── {key}.bin
+            │   │   ├── {key}.json
+            │   │   └── ...
+            │   └── side_effects/    # Side effect outputs
+            │       └── ...
+            └── ...
         """
-        self.base_dir = base_dir
+        self.work_dir = work_dir
         self.profiler = profiler
         self.compression = None
         self.compression_backend = None
         self.enable_checksum = enable_checksum
         self.checksum_algorithm = checksum_algorithm
         self.verify_on_load = verify_on_load
-
-        # work_dir 模式配置
-        if work_dir is not None:
-            # 新模式：使用 work_dir 分层结构
-            self.work_dir = work_dir
-            self.use_run_subdirs = use_run_subdirs
-        else:
-            # 旧模式：使用 base_dir 扁平结构
-            self.work_dir = base_dir
-            self.use_run_subdirs = False
-
         self.data_subdir = data_subdir
         self.side_effects_subdir = side_effects_subdir
 
-        # 确保基础目录存在
-        if not os.path.exists(base_dir):
-            os.makedirs(base_dir, exist_ok=True)
-        if work_dir is not None and not os.path.exists(work_dir):
+        # 确保工作目录存在
+        if not os.path.exists(work_dir):
             os.makedirs(work_dir, exist_ok=True)
 
         # Setup compression if specified
@@ -187,7 +173,7 @@ class MemmapStorage:
 
     def _get_paths(self, key: str, run_id: Optional[str] = None) -> Tuple[str, str, str]:
         """
-        生成存储路径。
+        生成存储路径（分层结构）。
 
         Args:
             key: 缓存键 (格式: "run_id-data_name-lineage_hash" 或 "data_name-hash")
@@ -196,27 +182,20 @@ class MemmapStorage:
         Returns:
             (bin_path, meta_path, lock_path)
 
-        Storage Modes:
-            - 旧模式 (use_run_subdirs=False): base_dir/{key}.bin
-            - 新模式 (use_run_subdirs=True): work_dir/{run_id}/_cache/{key}.bin
+        Storage Path:
+            work_dir/{run_id}/_cache/{key}.bin
         """
-        # 确定根目录
-        if self.use_run_subdirs:
-            # 新模式：按 run_id 分目录
-            # 从 key 提取 run_id（如果未显式传入）
-            if run_id is None:
-                # key 格式: "run_001-data_name-hash" -> run_id = "run_001"
-                parts = key.split('-')
-                if len(parts) >= 1:
-                    run_id = parts[0]
-                else:
-                    run_id = "default"
+        # 从 key 提取 run_id（如果未显式传入）
+        if run_id is None:
+            # key 格式: "run_001-data_name-hash" -> run_id = "run_001"
+            parts = key.split('-')
+            if len(parts) >= 1:
+                run_id = parts[0]
+            else:
+                run_id = "default"
 
-            root = os.path.join(self.work_dir, run_id, self.data_subdir)
-            os.makedirs(root, exist_ok=True)
-        else:
-            # 旧模式：扁平结构
-            root = self.base_dir
+        root = os.path.join(self.work_dir, run_id, self.data_subdir)
+        os.makedirs(root, exist_ok=True)
 
         bin_path = os.path.join(root, f"{key}.bin")
         meta_path = os.path.join(root, f"{key}.json")
@@ -231,15 +210,9 @@ class MemmapStorage:
             run_id: 运行标识符
 
         Returns:
-            run 的数据目录绝对路径
-
-        Notes:
-            - 新模式: work_dir/{run_id}/_cache/
-            - 旧模式: base_dir/
+            run 的数据目录绝对路径 (work_dir/{run_id}/_cache/)
         """
-        if self.use_run_subdirs:
-            return os.path.join(self.work_dir, run_id, self.data_subdir)
-        return self.base_dir
+        return os.path.join(self.work_dir, run_id, self.data_subdir)
 
     def get_run_side_effects_dir(self, run_id: str) -> str:
         """
@@ -249,15 +222,9 @@ class MemmapStorage:
             run_id: 运行标识符
 
         Returns:
-            run 的副作用目录绝对路径
-
-        Notes:
-            - 新模式: work_dir/{run_id}/side_effects/
-            - 旧模式: base_dir/_side_effects/{run_id}/
+            run 的副作用目录绝对路径 (work_dir/{run_id}/side_effects/)
         """
-        if self.use_run_subdirs:
-            return os.path.join(self.work_dir, run_id, self.side_effects_subdir)
-        return os.path.join(self.base_dir, "_side_effects", run_id)
+        return os.path.join(self.work_dir, run_id, self.side_effects_subdir)
 
     def _acquire_lock(self, lock_path: str, timeout: int = 10) -> Optional[int]:
         """
@@ -732,11 +699,16 @@ class MemmapStorage:
         """内部辅助方法：检查单个 key 的数据完整性。"""
         bin_path, meta_path, _ = self._get_paths(key, run_id)
 
-        # 获取 parquet 路径（需要考虑分层模式）
-        if self.use_run_subdirs and run_id:
-            parquet_root = os.path.join(self.work_dir, run_id, self.data_subdir)
-        else:
-            parquet_root = self.base_dir
+        # 获取 parquet 路径
+        effective_run_id = run_id
+        if effective_run_id is None:
+            parts = key.split('-')
+            if len(parts) >= 1:
+                effective_run_id = parts[0]
+            else:
+                effective_run_id = "default"
+
+        parquet_root = os.path.join(self.work_dir, effective_run_id, self.data_subdir)
         parquet_path = os.path.join(parquet_root, f"{key}.parquet")
 
         # 所有格式都必须有元数据文件
@@ -814,25 +786,24 @@ class MemmapStorage:
         List all keys in the storage.
 
         Args:
-            run_id: If specified and use_run_subdirs is True, list keys for this run.
-                   If None in run_subdirs mode, returns empty list (need to specify run).
+            run_id: Run ID to list keys for. If None, returns empty list (must specify run).
+
+        Returns:
+            List of cache keys for the specified run
         """
         keys = []
 
-        if self.use_run_subdirs:
-            if run_id is None:
-                # 在分层模式下，不指定 run_id 则返回空
-                return keys
-            data_dir = os.path.join(self.work_dir, run_id, self.data_subdir)
-            if not os.path.exists(data_dir):
-                return keys
-            for f in os.listdir(data_dir):
-                if f.endswith(".json"):
-                    keys.append(f[:-5])
-        else:
-            for f in os.listdir(self.base_dir):
-                if f.endswith(".json"):
-                    keys.append(f[:-5])
+        if run_id is None:
+            # 分层模式下，必须指定 run_id
+            return keys
+
+        data_dir = os.path.join(self.work_dir, run_id, self.data_subdir)
+        if not os.path.exists(data_dir):
+            return keys
+
+        for f in os.listdir(data_dir):
+            if f.endswith(".json"):
+                keys.append(f[:-5])
 
         return keys
 
@@ -841,11 +812,8 @@ class MemmapStorage:
         List all run IDs in the work_dir.
 
         Returns:
-            List of run_id strings. Empty list if not in run_subdirs mode.
+            List of run_id strings
         """
-        if not self.use_run_subdirs:
-            return []
-
         runs = []
         if os.path.exists(self.work_dir):
             for d in os.listdir(self.work_dir):
@@ -864,39 +832,33 @@ class MemmapStorage:
 
     def save_dataframe(self, key: str, df: pd.DataFrame, run_id: Optional[str] = None):
         """Save a pandas DataFrame as Parquet."""
-        if self.use_run_subdirs:
-            # 提取 run_id（如果未显式传入）
-            effective_run_id = run_id
-            if effective_run_id is None:
-                parts = key.split('-')
-                if len(parts) >= 1:
-                    effective_run_id = parts[0]
-            if effective_run_id:
-                data_dir = os.path.join(self.work_dir, effective_run_id, self.data_subdir)
-                os.makedirs(data_dir, exist_ok=True)
-                path = os.path.join(data_dir, f"{key}.parquet")
+        # 提取 run_id（如果未显式传入）
+        effective_run_id = run_id
+        if effective_run_id is None:
+            parts = key.split('-')
+            if len(parts) >= 1:
+                effective_run_id = parts[0]
             else:
-                path = os.path.join(self.base_dir, f"{key}.parquet")
-        else:
-            path = os.path.join(self.base_dir, f"{key}.parquet")
+                effective_run_id = "default"
+
+        data_dir = os.path.join(self.work_dir, effective_run_id, self.data_subdir)
+        os.makedirs(data_dir, exist_ok=True)
+        path = os.path.join(data_dir, f"{key}.parquet")
         df.to_parquet(path)
 
     def load_dataframe(self, key: str, run_id: Optional[str] = None) -> Optional[pd.DataFrame]:
         """Load a pandas DataFrame from Parquet."""
-        if self.use_run_subdirs:
-            # 提取 run_id（如果未显式传入）
-            effective_run_id = run_id
-            if effective_run_id is None:
-                parts = key.split('-')
-                if len(parts) >= 1:
-                    effective_run_id = parts[0]
-            if effective_run_id:
-                data_dir = os.path.join(self.work_dir, effective_run_id, self.data_subdir)
-                path = os.path.join(data_dir, f"{key}.parquet")
+        # 提取 run_id（如果未显式传入）
+        effective_run_id = run_id
+        if effective_run_id is None:
+            parts = key.split('-')
+            if len(parts) >= 1:
+                effective_run_id = parts[0]
             else:
-                path = os.path.join(self.base_dir, f"{key}.parquet")
-        else:
-            path = os.path.join(self.base_dir, f"{key}.parquet")
+                effective_run_id = "default"
+
+        data_dir = os.path.join(self.work_dir, effective_run_id, self.data_subdir)
+        path = os.path.join(data_dir, f"{key}.parquet")
 
         if os.path.exists(path):
             return pd.read_parquet(path)
@@ -904,10 +866,11 @@ class MemmapStorage:
 
     def verify_integrity(
         self,
+        run_id: Optional[str] = None,
         verbose: bool = True
     ) -> Dict[str, Any]:
         """
-        验证所有存储数据的完整性
+        验证存储数据的完整性
 
         检查:
         1. Metadata与实际文件的一致性
@@ -915,6 +878,7 @@ class MemmapStorage:
         3. Checksum验证(如果有)
 
         Args:
+            run_id: 运行标识符。如果为 None，验证所有 runs。
             verbose: 是否打印详细信息
 
         Returns:
@@ -932,12 +896,29 @@ class MemmapStorage:
             'errors': []
         }
 
-        keys = self.list_keys()
+        # 如果指定了 run_id，只验证该 run
+        if run_id is not None:
+            keys = self.list_keys(run_id)
+        else:
+            # 验证所有 runs
+            keys = []
+            for rid in self.list_runs():
+                keys.extend(self.list_keys(rid))
+
         results['total'] = len(keys)
 
         for key in keys:
             try:
-                meta = self.get_metadata(key)
+                # 从 key 提取 run_id
+                key_run_id = run_id
+                if key_run_id is None:
+                    parts = key.split('-')
+                    if len(parts) >= 1:
+                        key_run_id = parts[0]
+                    else:
+                        key_run_id = "default"
+
+                meta = self.get_metadata(key, key_run_id)
                 if meta is None:
                     results['invalid'] += 1
                     results['errors'].append({
@@ -948,7 +929,8 @@ class MemmapStorage:
 
                 # Check if it's a DataFrame
                 if meta.get('type') == 'dataframe':
-                    parquet_path = os.path.join(self.base_dir, f"{key}.parquet")
+                    data_dir = os.path.join(self.work_dir, key_run_id, self.data_subdir)
+                    parquet_path = os.path.join(data_dir, f"{key}.parquet")
                     if not os.path.exists(parquet_path):
                         results['invalid'] += 1
                         results['errors'].append({
@@ -960,7 +942,7 @@ class MemmapStorage:
                     continue
 
                 # Check binary files
-                bin_path, _, _ = self._get_paths(key)
+                bin_path, _, _ = self._get_paths(key, key_run_id)
                 is_compressed = meta.get('compressed', False)
 
                 if is_compressed:

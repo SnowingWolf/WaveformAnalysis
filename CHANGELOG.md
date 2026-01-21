@@ -9,6 +9,30 @@
 
 ### 变更
 
+#### MemmapStorage 架构简化 (2026-01)
+- **移除 Legacy 存储模式**: 删除旧的扁平存储结构支持 (`core/storage/memmap.py`)
+  - 移除 `base_dir` 参数，统一使用 `work_dir`
+  - 移除 `use_run_subdirs` 参数，强制使用分层结构
+  - 简化所有方法，移除旧模式分支逻辑
+  - **破坏性变更**: 不再支持扁平存储结构
+- **API 变化**:
+  - `MemmapStorage(work_dir)` - 必须提供 work_dir 参数
+  - 所有数据操作方法都需要 `run_id` 参数
+  - `list_keys(run_id)` - 必须指定 run_id
+  - `verify_integrity(run_id=None)` - 支持验证单个或所有 runs
+- **Context 更新**: 移除 `use_run_subdirs` 参数
+  - 简化初始化：`MemmapStorage(work_dir=storage_dir, profiler=self.profiler)`
+  - 更新 parquet 路径处理逻辑
+- **测试更新**: 所有测试文件已更新以支持新 API
+  - `test_storage.py`: 21 个测试全部通过
+  - `test_integrity.py`: 20 个测试全部通过
+  - `test_compression.py`: 16 个测试通过
+  - `test_storage_backends.py`: 24/25 个测试通过
+- **迁移指南**: 旧代码需要更新
+  - 将 `MemmapStorage(base_dir)` 改为 `MemmapStorage(work_dir)`
+  - 所有存储操作添加 `run_id` 参数
+  - 数据将存储在 `work_dir/{run_id}/_cache/` 而非 `base_dir/`
+
 #### WaveformStruct DAQ 解耦 (2026-01)
 - **WaveformStructConfig 配置类**: 新增配置类解耦 DAQ 格式依赖 (`core/processing/processor.py`)
   - `WaveformStructConfig`: 封装 `FormatSpec` 和波形长度配置

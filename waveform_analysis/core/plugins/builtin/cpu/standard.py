@@ -285,7 +285,6 @@ class HitFinderPlugin(Plugin):
 
     provides = "hits"
     depends_on = ["st_waveforms"]
-    input_dtype = {"st_waveforms": np.dtype(RECORD_DTYPE)}
     output_dtype = np.dtype(PEAK_DTYPE)
 
     def compute(
