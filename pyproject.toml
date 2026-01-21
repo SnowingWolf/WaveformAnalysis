@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "waveform-analysis"
-version = "0.1.0"
+version = "0.2.0"
 description = "波形数据分析工具包 - 用于处理DAQ系统采集的波形数据"
 readme = "README.md"
 requires-python = ">=3.8"
