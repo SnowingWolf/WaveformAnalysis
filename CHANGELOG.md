@@ -52,6 +52,19 @@
 - **时间戳单位统一**: `st_waveforms` 的 `timestamp` 统一转换为 ps（按 `FormatSpec.timestamp_unit`）
 - **流式默认时间字段**: `StreamingPlugin.time_field` 默认使用 `timestamp`（ps）
 - **断点阈值单位**: `break_threshold_ps` 作为统一命名与单位（ps），替代 `break_threshold_ns`
+- **兼容别名移除**: `break_threshold_ns` 兼容别名移除，统一使用 `break_threshold_ps`
+
+#### 流式执行优化 (2026-02)
+- **并行批处理**: 流式插件支持批量提交与顺序回收，失败时取消未完成任务
+- **配置扩展**: 支持 `executor_config`/`parallel_batch_size`/`load_balancer_config.worker_buckets`
+- **进程池回退**: `executor_type="process"` 不可 pickle 时自动回退到线程池并告警
+
+#### CLI 处理流程调整 (2026-02)
+- `waveform-process` 改为基于 `Context` + `standard_plugins` 执行
+- 未指定 `--output` 时默认输出到 `outputs/{run_name}_paired.csv`
+
+#### 执行器释放策略调整 (2026-02)
+- `ExecutorManager.release_executor()` 增加 `wait` 参数，支持非阻塞释放
 
 #### WaveformStruct DAQ 解耦 (2026-01)
 - **WaveformStructConfig 配置类**: 新增配置类解耦 DAQ 格式依赖 (`core/processing/processor.py`)
@@ -87,6 +100,9 @@
   - 向后兼容：仍可显式指定 `storage_dir`
 
 ### 新增
+
+#### 缓存分析插件 (2026-02)
+- **CacheAnalysisPlugin**: 内置缓存分析插件，可在 Context 中直接生成缓存报告
 
 #### DAQ 完整适配器层 (2026-01)
 - **统一格式读取接口** (`utils/formats/`)

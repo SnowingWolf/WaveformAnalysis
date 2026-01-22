@@ -42,6 +42,7 @@ peaks = ctx.get_data(run_id, "peaks")
 
 **包含**:
 - 🎛️ [Context 功能](features/context/README.md) - 配置管理 | 执行预览 | 依赖分析 | 血缘可视化
+- 🧭 [核心功能](features/core/README.md) - 时间字段统一 | 绝对时间查询 | DAQ 时间基准
 - 🔌 [插件功能](features/plugin/README.md) - 信号处理 | 流式处理 | Strax 适配
 - 🔧 [高级功能](features/advanced/README.md) - 并行执行 | 进度追踪 | CSV 处理
 - 🛠️ [工具函数](features/utils/README.md) - DAQ 适配器 | 事件筛选 | 波形预览
