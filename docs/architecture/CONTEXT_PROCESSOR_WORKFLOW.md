@@ -408,20 +408,18 @@ print(f"列名: {df.columns.tolist()}")
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.core.streaming import StreamingPlugin
+from waveform_analysis.core.plugins.core.streaming import get_streaming_context
+from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin, WaveformsPlugin
 
 # 对于大数据，使用流式处理
 ctx = Context(storage_dir="./strax_data")
 
-# 注册流式插件
-from waveform_analysis.core.plugins.builtin.streaming_examples import (
-    StreamingWaveformsPlugin,
-)
-
-ctx.register(StreamingWaveformsPlugin())
+# 注册常规插件
+ctx.register(RawFilesPlugin(), WaveformsPlugin())
 
 # 获取流式数据（返回生成器）
-waveform_stream = ctx.get_data("run_001", "waveforms_stream")
+stream_ctx = get_streaming_context(ctx, run_id="run_001", chunk_size=50000)
+waveform_stream = stream_ctx.get_stream("waveforms")
 
 # 逐个处理 chunk
 for chunk in waveform_stream:
@@ -620,7 +618,7 @@ st_waveforms = ctx.get_data("run_001", "st_waveforms")  # 再测试下一步
 - [项目结构说明](PROJECT_STRUCTURE.md)
 - [插件系统指南](NEW_FEATURES.md)
 - [快速开始指南](QUICKSTART.md)
-- [缓存机制说明](CACHE.md)
+- [缓存机制说明](../features/context/DATA_ACCESS.md#缓存机制)
 - [流式处理指南](STREAMING_GUIDE.md)
 
 ---
@@ -634,4 +632,3 @@ st_waveforms = ctx.get_data("run_001", "st_waveforms")  # 再测试下一步
 3. **结合使用**: 实现从原始数据到分析结果的完整流水线
 
 通过合理使用这两个组件，可以构建高效、可维护的数据分析工作流。
-

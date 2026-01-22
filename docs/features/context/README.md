@@ -52,6 +52,9 @@ Context 相关的功能文档，包括依赖分析、血缘可视化、执行预
 #### 获取数据
 → [DATA_ACCESS.md](DATA_ACCESS.md)
 
+#### 缓存机制
+→ [DATA_ACCESS.md#缓存机制](DATA_ACCESS.md#缓存机制)
+
 #### 管理插件
 → [PLUGIN_MANAGEMENT.md](PLUGIN_MANAGEMENT.md)
 
@@ -81,6 +84,7 @@ Context 相关的功能文档，包括依赖分析、血缘可视化、执行预
 **快速链接**:
 [配置管理](CONFIGURATION.md) |
 [数据获取](DATA_ACCESS.md) |
+[缓存机制](DATA_ACCESS.md#缓存机制) |
 [插件管理](PLUGIN_MANAGEMENT.md) |
 [预览执行](PREVIEW_EXECUTION.md) |
 [血缘可视化](LINEAGE_VISUALIZATION_GUIDE.md) |

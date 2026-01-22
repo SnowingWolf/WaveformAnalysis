@@ -13,7 +13,7 @@
 - 扫描 DAQ 目录并导出 JSON 报告
 - 显示指定运行的 DAQ 通道详情
 
-> ⚠️ **注意**: 本命令目前基于 `WaveformDataset`（已弃用）。建议迁移到基于 `Context` 和插件系统的新 API。
+> ✅ 本命令基于 `Context` 和插件系统。`WaveformDataset` 已弃用，仅保留兼容层。
 
 ---
 
@@ -170,23 +170,23 @@ waveform-process --run-name run_001 --verbose
 
 ## 注意事项
 
-1. **已弃用警告**: 本命令基于 `WaveformDataset`（已弃用），建议迁移到新的 `Context` API
+1. **推荐路径**: CLI 与 `Context` API 保持一致；`WaveformDataset` 仅保留兼容层
 2. **参数互斥**: `--scan-daq` 会忽略其他处理选项
 3. **文件格式**: 输出文件格式由文件扩展名决定（`.csv` 或 `.parquet`）
 4. **默认行为**: 如果不指定 `--output`，结果会保存到 `outputs/` 目录
 
 ---
 
-## 迁移到新 API
+## 使用 Context API
 
-建议使用基于 `Context` 的新 API：
+CLI 与 `Context` 的执行路径一致，下面是对应的最简代码：
 
 ```python
 from waveform_analysis.core import Context
 from waveform_analysis.core.plugins.builtin import standard_plugins
 
 ctx = Context()
-ctx.register(standard_plugins)
+ctx.register(*standard_plugins)
 ctx.set_config({'n_channels': 2, 'data_root': 'DAQ'})
 peaks = ctx.get_data('run_001', 'peaks')
 ```

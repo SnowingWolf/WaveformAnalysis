@@ -198,8 +198,8 @@ executor = manager.get_executor("my_task", "process", max_workers=4)
 futures = [executor.submit(process, item) for item in items]
 results = [f.result() for f in futures]
 
-# 释放执行器（引用计数减1）
-manager.release_executor("my_task", "process", max_workers=4)
+# 释放执行器（引用计数减1，wait=True 会等待任务完成）
+manager.release_executor("my_task", "process", max_workers=4, wait=True)
 
 # 或直接关闭
 manager.shutdown_executor("my_task", "process", max_workers=4)
@@ -331,7 +331,7 @@ with get_executor("task", "process", max_workers=4) as ex:
 # ❌ 不推荐（需要手动管理）
 executor = manager.get_executor("task", "process", max_workers=4)
 # ... 使用执行器 ...
-manager.release_executor("task", "process", max_workers=4)
+manager.release_executor("task", "process", max_workers=4, wait=True)
 ```
 
 ### 4. 重用执行器
@@ -532,11 +532,13 @@ with get_executor("feature_compute", "process", max_workers=8, reuse=True) as ex
 ### ExecutorManager
 
 - `get_executor(name, executor_type, max_workers, reuse, **kwargs)` - 获取执行器
-- `release_executor(name, executor_type, max_workers)` - 释放执行器
+- `release_executor(name, executor_type, max_workers, wait=True)` - 释放执行器
 - `shutdown_executor(name, executor_type, max_workers, wait)` - 关闭执行器
 - `shutdown_all(wait)` - 关闭所有执行器
 - `list_executors()` - 列出所有执行器
 - `get_stats()` - 获取统计信息
+
+`wait=False` 可用于快速释放并取消未完成任务（如异常中止时）。
 
 ### 便捷函数
 

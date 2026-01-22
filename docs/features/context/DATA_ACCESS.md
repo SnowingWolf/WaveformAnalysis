@@ -14,10 +14,11 @@
 
 1. [基本数据获取](#基本数据获取)
 2. [缓存机制](#缓存机制)
-3. [进度显示](#进度显示)
-4. [时间范围查询](#时间范围查询)
-5. [批量获取](#批量获取)
-6. [常见问题](#常见问题)
+3. [缓存扫描与诊断](#缓存扫描与诊断)
+4. [进度显示](#进度显示)
+5. [时间范围查询](#时间范围查询)
+6. [批量获取](#批量获取)
+7. [常见问题](#常见问题)
 
 ---
 
@@ -81,6 +82,44 @@ Context 使用三级缓存加速数据访问：
 # 3. 执行插件计算 → 计算并缓存结果
 ```
 
+### 核心机制
+
+#### Lineage Hashing (血缘追踪)
+
+每个数据对象（如 `hits`）都有一个唯一的 Lineage，包含：
+- **Plugin**: 插件类名
+- **Version**: 插件版本号
+- **Config**: 插件及上游插件的配置
+- **DType**: 标准化 dtype（`dtype.descr`）
+- **Dependencies**: 上游数据的 Lineage
+
+Lineage 会序列化并计算 SHA1 哈希，作为缓存键的一部分。
+配置/版本/dtype 任意变化都会导致缓存自动失效并重新计算。
+相同配置和代码会指向相同缓存键，保证结果确定性。
+加载缓存时会比对元数据中的 lineage，若不一致会提示并强制重算。
+
+#### Memmap 存储 (零拷贝访问)
+
+结构化数组使用 `numpy.memmap` 存储：
+- **原子写入**: 先写 `.tmp`，成功后重命名为 `.bin`
+- **按需加载**: 读取时只映射，不一次性加载全量数据
+- **超大数据支持**: 可处理超内存数据集
+- **快速启动**: 建立映射几乎是瞬时的
+
+### 缓存目录结构
+
+默认缓存目录为 `storage_dir`（默认 `./strax_data`）：
+
+```text
+strax_data/
+├── run_001-hits-abc12345.bin      # 二进制数据 (memmap)
+├── run_001-hits-abc12345.json     # 元数据 (dtype, lineage, count)
+└── _side_effects/                 # 侧效应插件输出 (绘图, 导出等)
+    └── run_001/
+        └── my_plot_plugin/
+            └── plot.png
+```
+
 ### 缓存状态查看
 
 ```python
@@ -93,6 +132,8 @@ for plugin, status in result['cache_status'].items():
         print(f"{plugin}: 内存缓存")
     elif status['on_disk']:
         print(f"{plugin}: 磁盘缓存")
+    elif status.get('pruned'):
+        print(f"{plugin}: 缓存剪枝")
     else:
         print(f"{plugin}: 需要计算")
 ```
@@ -100,14 +141,203 @@ for plugin, status in result['cache_status'].items():
 ### 清除缓存
 
 ```python
-# 清除特定数据的内存缓存
-ctx.clear_data("run_001", "waveforms")
+# 清除指定 run + 数据的内存/磁盘缓存
+ctx.clear_cache_for("run_001", "waveforms")
 
-# 清除特定 run 的所有内存缓存
-ctx.clear_run("run_001")
+# 仅清除内存缓存（保留磁盘）
+ctx.clear_cache_for("run_001", "waveforms", clear_disk=False)
 
-# 清除所有内存缓存
-ctx.clear_all()
+# 清除 run 的全部缓存（内存 + 磁盘）
+ctx.clear_cache_for("run_001")
+```
+
+> 提示：`clear_cache()` 是旧的步骤级缓存接口，插件数据缓存请使用 `clear_cache_for()`。
+
+### 注意事项
+
+- **DType 一致性**: 插件必须定义 `dtype`，确保 memmap 可解析。
+- **并发安全**: 存储使用文件锁协调写入，但不适合跨节点/网络文件系统的强一致写入。
+
+### 步骤级缓存与 WATCH_SIG_KEY (WaveformDataset)
+
+`WaveformDataset` 提供步骤级缓存（内存 + 可选磁盘持久化），用于缓存
+`st_waveforms`、`event_len` 等中间结果。
+
+```python
+ds.set_step_cache(
+    "load_raw_data",
+    enabled=True,
+    attrs=["raw_files"],
+    persist_path="/tmp/load_cache.pkl",
+    watch_attrs=["raw_files"]
+)
+ds.load_raw_data()
+```
+
+#### 加载行为
+
+- 若配置了 `watch_attrs` 且缓存中包含 `WATCH_SIG_KEY`，会计算签名并比较。
+- 签名一致 → 直接恢复缓存；不一致 → 视为 cache miss 并覆盖缓存。
+- 若未配置 `watch_attrs`，则直接恢复全部缓存内容（旧行为）。
+
+`WATCH_SIG_KEY` 可从包顶层导入：
+
+```python
+from waveform_analysis import WATCH_SIG_KEY
+```
+
+### CI 与实践建议
+
+- CI 中建议使用临时目录存放持久化缓存，避免污染工作区。
+- 可缓存依赖/测试数据，但不建议缓存可能导致非确定性的结果文件。
+- 推荐覆盖点：
+  - 持久化缓存创建与读取
+  - `watch_attrs` 导致的缓存失效
+  - 内存缓存启用/禁用行为
+
+简化的 GitHub Actions 示例：
+
+```yaml
+name: Python tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: python -m pip install -r requirements.txt
+      - name: Run tests
+        run: pytest -q
+      - name: Upload test artifacts (optional)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: .pytest_cache
+```
+
+### 实践小贴士
+
+- 网络文件系统可能导致 mtime 精度不足，必要时把 `watch_attrs` 设为更稳定的内容。
+- 多进程共享缓存时，确保写入是原子操作（临时文件 + 重命名）。
+
+---
+
+## 缓存扫描与诊断
+
+Context 也提供便捷接口：
+
+```python
+analyzer = ctx.analyze_cache()
+stats = ctx.cache_stats(detailed=True)
+issues = ctx.diagnose_cache(auto_fix=True, dry_run=True)
+```
+
+### 扫描与索引（CacheAnalyzer）
+
+`CacheAnalyzer` 用于扫描当前 storage 目录并构建缓存索引，支持增量扫描和过滤查询：
+
+```python
+from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
+
+analyzer = CacheAnalyzer(ctx)
+analyzer.scan()  # 默认增量扫描
+
+# 强制刷新索引
+analyzer.scan(force_refresh=True)
+
+# 按条件过滤条目
+entries = analyzer.get_entries(run_id="run_001", min_size=1024 * 1024)
+
+# 查看摘要
+analyzer.print_summary(detailed=True)
+```
+
+### 缓存统计（CacheStatsCollector）
+
+`CacheStatsCollector` 汇总缓存规模、按 run/数据类型统计，并支持导出 JSON/CSV：
+
+```python
+from waveform_analysis.core.storage.cache_statistics import CacheStatsCollector
+
+collector = CacheStatsCollector(analyzer)
+stats = collector.collect()
+collector.print_summary(stats, detailed=True)
+
+# 导出统计
+collector.export_stats(stats, "cache_stats.json", format="json")
+collector.export_stats(stats, "cache_stats.csv", format="csv")
+```
+
+### 缓存分析插件（CacheAnalysisPlugin）
+
+如果需要在 Context 中直接获取缓存分析报告，可注册 `CacheAnalysisPlugin`：
+
+```python
+from waveform_analysis.core.plugins.builtin.cpu import CacheAnalysisPlugin
+
+ctx.register_plugin(CacheAnalysisPlugin())
+report = ctx.get_data("run_001", "cache_analysis", include_entries=False)
+print(report["summary"])
+```
+
+### 诊断问题（CacheDiagnostics）
+
+`CacheDiagnostics` 用于检查版本不匹配、数据文件缺失、大小不匹配、校验和失败、
+孤儿文件等问题，并支持自动修复（建议先 dry-run）：
+
+```python
+from waveform_analysis.core.storage.cache_diagnostics import CacheDiagnostics
+
+diag = CacheDiagnostics(analyzer)
+issues = diag.diagnose(
+    run_id="run_001",
+    check_integrity=True,
+    check_orphans=True,
+    check_versions=True
+)
+
+diag.print_report(issues, group_by="severity")
+
+# 预演修复
+diag.auto_fix(issues, dry_run=True)
+```
+
+### 清理缓存（CacheCleaner）
+
+`CacheCleaner` 支持按 LRU、最大文件、版本不匹配等策略清理缓存，
+执行前可预览计划：
+
+```python
+from waveform_analysis.core.storage.cache_cleaner import CacheCleaner, CleanupStrategy
+
+cleaner = CacheCleaner(analyzer)
+plan = cleaner.plan_cleanup(
+    strategy=CleanupStrategy.LRU,
+    target_size_mb=500
+)
+
+cleaner.preview_plan(plan, detailed=True)
+cleaner.execute(plan, dry_run=True)
+```
+
+### 运行时缓存检查（RuntimeCacheManager）
+
+`RuntimeCacheManager` 是 Context 内部的运行时缓存检查器，用于统一检查内存/磁盘缓存。
+通常只在调试或高级用法中直接使用：
+
+```python
+from waveform_analysis.core.storage.cache_manager import RuntimeCacheManager
+
+cache_manager = RuntimeCacheManager(ctx)
+cache_key = ctx.key_for("run_001", "st_waveforms")
+
+data, cache_hit = cache_manager.check_cache("run_001", "st_waveforms", cache_key)
+print(f"cache_hit={cache_hit}")
 ```
 
 ---
@@ -190,7 +420,7 @@ print(stats)
 ### 时间字段配置
 
 ```python
-# 如果数据使用非标准时间字段
+# 如果数据使用非标准时间字段（流式默认使用 timestamp）
 ctx.build_time_index(
     "run_001", "st_waveforms",
     time_field="timestamp",  # 自定义时间字段名
@@ -354,15 +584,21 @@ raw_files = ctx.get_data("run_001", "raw_files")
 print(raw_files)  # 通常是文件路径列表
 ```
 
+### Q6: 可以把缓存文件提交到仓库用于加速 CI 吗？
+
+**A**: 不建议。缓存可能依赖本地路径、mtime 或环境差异，提交后容易导致不可预期的结果。
+如需加速 CI，建议缓存依赖或测试生成的数据，并保持缓存可失效。
+
 ---
 
 ## 相关文档
 
 - [插件管理](PLUGIN_MANAGEMENT.md) - 注册和管理插件
 - [配置管理](CONFIGURATION.md) - 设置插件配置
-- [缓存机制](../data-processing/CACHE.md) - 详细缓存说明
+- [缓存机制](#缓存机制) - 缓存原理与目录结构
+- [缓存管理 CLI](../../cli/WAVEFORM_CACHE.md) - 缓存扫描、诊断与清理
 - [预览执行](PREVIEW_EXECUTION.md) - 执行前预览
-- [依赖分析](DEPENDENCY_ANALYSIS_VS_PREVIEW_EXECUTION.md) 依赖分析
+- [依赖分析](DEPENDENCY_ANALYSIS_VS_PREVIEW_EXECUTION.md) - 依赖分析
 
 
 ---

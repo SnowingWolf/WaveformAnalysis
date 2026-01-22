@@ -40,7 +40,7 @@ print(f"Found {len(peaks)} peaks")
 查询特定时间范围内的数据：
 
 ```python
-# 使用时间范围查询
+# 使用时间范围查询（默认 time 字段，ns）
 data = ctx.get_data_time_range(
     'run_001',
     'st_waveforms',
@@ -49,7 +49,7 @@ data = ctx.get_data_time_range(
 )
 print(f"Found {len(data)} events in time range")
 
-# 预构建索引以提高性能
+# 预构建索引以提高性能（如需按 timestamp 查询，显式指定 time_field='timestamp'）
 ctx.build_time_index('run_001', 'st_waveforms', endtime_field='computed')
 
 # 获取索引统计
@@ -118,6 +118,8 @@ ctx.preview_execution('run_001', 'signal_peaks', verbose=2)  # 详细
 result = ctx.preview_execution('run_001', 'signal_peaks')
 needs_compute = [p for p, s in result['cache_status'].items() if s['needs_compute']]
 print(f"需要计算 {len(needs_compute)} 个插件")
+pruned = [p for p, s in result['cache_status'].items() if s.get('pruned')]
+print(f"缓存剪枝 {len(pruned)} 个插件")
 ```
 
 ---

@@ -15,8 +15,10 @@
 | [IMPLEMENTATION_COMPLETE.md](IMPLEMENTATION_COMPLETE.md) | 5 分钟 | ⭐ 入门 | 实现完成总结 |
 | [FORMAT_IMPROVEMENTS.md](FORMAT_IMPROVEMENTS.md) | 3 分钟 | ⭐ 入门 | 文档格式改进记录 |
 | [DOCS_OPTIMIZATION_SUMMARY.md](DOCS_OPTIMIZATION_SUMMARY.md) | 5 分钟 | ⭐ 入门 | 文档优化总结 |
+| [DOC_SYNC_CHECKLIST.md](DOC_SYNC_CHECKLIST.md) | 5 分钟 | ⭐ 入门 | 文档同步检查清单 |
 | [DOCS_ORGANIZATION_PLAN.md](DOCS_ORGANIZATION_PLAN.md) | 10 分钟 | ⭐⭐ 中级 | 文档组织计划 |
 | [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) | 15 分钟 | ⭐⭐ 中级 | 项目总结 |
+| [STORAGE_MIGRATION_GUIDE.md](../STORAGE_MIGRATION_GUIDE.md) | 10 分钟 | ⭐⭐ 中级 | 存储结构迁移指南 |
 
 ---
 
@@ -44,6 +46,12 @@
 
 #### 了解文档改进
 → [DOCS_OPTIMIZATION_SUMMARY.md](DOCS_OPTIMIZATION_SUMMARY.md)
+
+#### 文档同步检查
+→ [DOC_SYNC_CHECKLIST.md](DOC_SYNC_CHECKLIST.md)
+
+#### 存储迁移
+→ [STORAGE_MIGRATION_GUIDE.md](../STORAGE_MIGRATION_GUIDE.md)
 
 ---
 

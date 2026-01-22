@@ -27,6 +27,10 @@
 - 支持并行处理多个 chunk
 - `output_kind` 自动设置为 `"stream"`
 
+默认行为：
+- `time_field` 默认使用 `timestamp`（ps）
+- 断点阈值使用 `break_threshold_ps`（ps）
+
 **基本用法**：
 
 ```python
@@ -103,6 +107,13 @@ class MyParallelPlugin(StreamingPlugin):
     chunk_size = 50000  # chunk 大小
 ```
 
+### 4. 高级配置
+
+- `executor_config`: 运行时覆盖执行器配置（例如 `executor_type`, `max_workers`, `reuse`）。
+- `parallel_batch_size`: 并行批处理大小（默认自动按 worker 估算）。
+- `use_load_balancer`/`load_balancer_config`: 动态负载均衡（可配置 `worker_buckets` 进行 worker 数量量化）。
+- `executor_type="process"` 需要插件、Context、kwargs 可 pickle，否则会自动回退到线程池并告警。
+
 ## 完整示例
 
 ### 示例 1：流式特征提取
@@ -169,7 +180,7 @@ for chunk in stream_ctx.get_stream("features_stream"):
 
 ```python
 # 只处理特定时间范围的数据
-time_range = (1000000, 2000000)  # 纳秒
+time_range = (1_000_000_000_000, 2_000_000_000_000)  # ps（默认 timestamp）
 
 for chunk in stream_ctx.get_stream("features_stream", time_range=time_range):
     # chunk 已自动裁剪到时间范围
@@ -262,7 +273,7 @@ plugin.max_workers = 8  # 8 个进程
 
 ```python
 # 只处理感兴趣的时间范围
-time_range = (start_time, end_time)
+time_range = (start_time, end_time)  # 单位与 time_field 一致（默认 timestamp ps）
 for chunk in stream_ctx.get_stream("data", time_range=time_range):
     process(chunk)
 ```
@@ -300,4 +311,3 @@ for chunk in stream_ctx.get_stream("data", time_range=time_range):
 - 提高处理效率（自动并行化）
 - 简化代码（自动处理时间边界）
 - 提高可维护性（清晰的插件接口）
-
