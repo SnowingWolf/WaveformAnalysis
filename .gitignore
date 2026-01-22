@@ -196,6 +196,7 @@ docs.backup*/
 # ================================
 .claude/
 claude_output/
+AGENTS.md
 
 # ================================
 # Build and Installation
