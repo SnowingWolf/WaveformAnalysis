@@ -36,10 +36,10 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 # 创建 Context 并注册插件
 ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
 
-ctx.register_plugin(WaveformsPlugin())
-ctx.register_plugin(StWaveformsPlugin())
-ctx.register_plugin(SignalPeaksPlugin())
-ctx.register_plugin(WaveformWidthPlugin())
+ctx.register(WaveformsPlugin())
+ctx.register(StWaveformsPlugin())
+ctx.register(SignalPeaksPlugin())
+ctx.register(WaveformWidthPlugin())
 
 # 配置参数
 ctx.set_config({
@@ -65,7 +65,7 @@ for ch_idx, ch_widths in enumerate(widths):
 from waveform_analysis.core.plugins.builtin.cpu import FilteredWaveformsPlugin
 
 # 注册滤波插件
-ctx.register_plugin(FilteredWaveformsPlugin())
+ctx.register(FilteredWaveformsPlugin())
 
 # 配置滤波参数
 ctx.set_config({

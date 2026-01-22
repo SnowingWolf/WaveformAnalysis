@@ -280,7 +280,7 @@ collector.export_stats(stats, "cache_stats.csv", format="csv")
 ```python
 from waveform_analysis.core.plugins.builtin.cpu import CacheAnalysisPlugin
 
-ctx.register_plugin(CacheAnalysisPlugin())
+ctx.register(CacheAnalysisPlugin())
 report = ctx.get_data("run_001", "cache_analysis", include_entries=False)
 print(report["summary"])
 ```

@@ -195,7 +195,7 @@ class MyStraxPlugin:
 # 包装并注册
 ctx = Context()
 adapter = wrap_strax_plugin(MyStraxPlugin)
-ctx.register_plugin(adapter)
+ctx.register(adapter)
 
 # 正常使用
 data = ctx.get_data('run_001', 'my_data')
@@ -245,7 +245,7 @@ class StraxPluginWithConfig:
 
 # 包装后，配置会正确传递
 adapter = wrap_strax_plugin(StraxPluginWithConfig)
-ctx.register_plugin(adapter)
+ctx.register(adapter)
 ctx.set_config({'threshold': 20.0})
 data = ctx.get_data('run_001', 'processed_data')  # 使用threshold=20.0
 ```
@@ -538,7 +538,7 @@ reloader.reload_all_updated(clear_cache=True)
 ```python
 # 1. 启动开发环境
 ctx = Context()
-ctx.register_plugin(MyPlugin())
+ctx.register(MyPlugin())
 
 reloader = enable_hot_reload(
     ctx,

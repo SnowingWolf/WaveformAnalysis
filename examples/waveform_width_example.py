@@ -27,11 +27,11 @@ def example_basic_usage():
     ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
 
     # 注册必要的插件
-    ctx.register_plugin(WaveformsPlugin())
-    ctx.register_plugin(StWaveformsPlugin())
-    ctx.register_plugin(FilteredWaveformsPlugin())  # 可选，用于滤波
-    ctx.register_plugin(SignalPeaksPlugin())  # 必需，提供峰值检测
-    ctx.register_plugin(WaveformWidthPlugin())  # 波形宽度插件
+    ctx.register(WaveformsPlugin())
+    ctx.register(StWaveformsPlugin())
+    ctx.register(FilteredWaveformsPlugin())  # 可选，用于滤波
+    ctx.register(SignalPeaksPlugin())  # 必需，提供峰值检测
+    ctx.register(WaveformWidthPlugin())  # 波形宽度插件
 
     # 配置插件参数
     ctx.set_config(
@@ -90,11 +90,11 @@ def example_with_filtered_waveforms():
     ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
 
     # 注册插件
-    ctx.register_plugin(WaveformsPlugin())
-    ctx.register_plugin(StWaveformsPlugin())
-    ctx.register_plugin(FilteredWaveformsPlugin())
-    ctx.register_plugin(SignalPeaksPlugin())
-    ctx.register_plugin(WaveformWidthPlugin())
+    ctx.register(WaveformsPlugin())
+    ctx.register(StWaveformsPlugin())
+    ctx.register(FilteredWaveformsPlugin())
+    ctx.register(SignalPeaksPlugin())
+    ctx.register(WaveformWidthPlugin())
 
     # 配置滤波参数
     ctx.set_config(
@@ -139,10 +139,10 @@ def example_custom_thresholds():
 
     ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
 
-    ctx.register_plugin(WaveformsPlugin())
-    ctx.register_plugin(StWaveformsPlugin())
-    ctx.register_plugin(SignalPeaksPlugin())
-    ctx.register_plugin(WaveformWidthPlugin())
+    ctx.register(WaveformsPlugin())
+    ctx.register(StWaveformsPlugin())
+    ctx.register(SignalPeaksPlugin())
+    ctx.register(WaveformWidthPlugin())
 
     # 使用 20%-80% 阈值（而不是默认的 10%-90%）
     ctx.set_config(
@@ -177,10 +177,10 @@ def example_data_analysis():
 
     ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
 
-    ctx.register_plugin(WaveformsPlugin())
-    ctx.register_plugin(StWaveformsPlugin())
-    ctx.register_plugin(SignalPeaksPlugin())
-    ctx.register_plugin(WaveformWidthPlugin())
+    ctx.register(WaveformsPlugin())
+    ctx.register(StWaveformsPlugin())
+    ctx.register(SignalPeaksPlugin())
+    ctx.register(WaveformWidthPlugin())
 
     ctx.set_config({"sampling_rate": 0.5}, plugin_name="waveform_width")
 

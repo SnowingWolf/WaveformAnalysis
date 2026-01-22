@@ -47,7 +47,7 @@ class StraxPluginAdapter(Plugin):
         adapter = StraxPluginAdapter(StraxMyPlugin)
 
         # 注册到Context
-        ctx.register_plugin(adapter())
+        ctx.register(adapter())
     """
 
     def __init__(self, strax_plugin_class: Type):
@@ -281,12 +281,12 @@ class StraxContextAdapter:
         """
         # 检查是否已经是我们的Plugin
         if isinstance(plugin_class, Plugin):
-            self.context.register_plugin(plugin_class)
+            self.context.register(plugin_class)
         else:
             # 包装为适配器
             adapter = StraxPluginAdapter(plugin_class)
             if adapter.is_compatible():
-                self.context.register_plugin(adapter)
+                self.context.register(adapter)
             else:
                 raise ValueError(f"Incompatible strax plugin: {plugin_class}")
 

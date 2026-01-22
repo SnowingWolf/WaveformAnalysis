@@ -112,7 +112,7 @@ class SignalPeaksPlugin(Plugin):
             List[np.ndarray]: 每个通道的峰值列表，dtype 为 ADVANCED_PEAK_DTYPE
 
         Examples:
-            >>> ctx.register_plugin(SignalPeaksPlugin())
+            >>> ctx.register(SignalPeaksPlugin())
             >>> ctx.set_config({'height': 30, 'prominence': 0.7}, plugin_name='signal_peaks')
             >>> peaks = ctx.get_data('run_001', 'signal_peaks')
             >>> print(f"通道0的峰值数: {len(peaks[0])}")

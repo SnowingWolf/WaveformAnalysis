@@ -128,11 +128,11 @@ from waveform_analysis.core.plugins.builtin import *
 
 # 创建 Context 并注册插件
 ctx = Context(storage_dir="./strax_data")
-ctx.register_plugin(RawFilesPlugin())
-ctx.register_plugin(WaveformsPlugin())
-ctx.register_plugin(StWaveformsPlugin())
-ctx.register_plugin(FilteredWaveformsPlugin())
-ctx.register_plugin(SignalPeaksPlugin())
+ctx.register(RawFilesPlugin())
+ctx.register(WaveformsPlugin())
+ctx.register(StWaveformsPlugin())
+ctx.register(FilteredWaveformsPlugin())
+ctx.register(SignalPeaksPlugin())
 
 # 设置配置
 ctx.set_config({"data_root": "DAQ", "n_channels": 2})
