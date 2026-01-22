@@ -51,7 +51,7 @@ class WaveformWidthPlugin(Plugin):
     """
 
     provides = "waveform_width"
-    depends_on = ["signal_peaks", "st_waveforms", "filtered_waveforms"]
+    depends_on = ["signal_peaks", "st_waveforms"]
     description = "Calculate rise/fall time based on peak detection results."
     version = "1.0.1"
     save_when = "always"
@@ -64,9 +64,9 @@ class WaveformWidthPlugin(Plugin):
             help="是否使用滤波后的波形（需要先注册 FilteredWaveformsPlugin）",
         ),
         "sampling_rate": Option(
-            default=0.5,
+            default=None,
             type=float,
-            help="采样率（GHz），用于将采样点数转换为时间（ns）",
+            help="采样率（GHz），未显式设置时优先从 DAQ 适配器推断",
         ),
         "daq_adapter": Option(
             default=None,
@@ -118,8 +118,8 @@ class WaveformWidthPlugin(Plugin):
             >>> from waveform_analysis.core.plugins.builtin.cpu import (
             ...     SignalPeaksPlugin, WaveformWidthPlugin
             ... )
-            >>> ctx.register_plugin(SignalPeaksPlugin())
-            >>> ctx.register_plugin(WaveformWidthPlugin())
+            >>> ctx.register(SignalPeaksPlugin())
+            >>> ctx.register(WaveformWidthPlugin())
             >>> ctx.set_config({'sampling_rate': 1.0}, plugin_name='waveform_width')
             >>> widths = ctx.get_data('run_001', 'waveform_width')
             >>> print(f"通道0平均上升时间: {np.mean(widths[0]['rise_time']):.2f} ns")
@@ -133,6 +133,8 @@ class WaveformWidthPlugin(Plugin):
                 daq_adapter,
                 sampling_rate,
             )
+        if sampling_rate is None:
+            sampling_rate = 0.5
         rise_low = context.get_config(self, "rise_low")
         rise_high = context.get_config(self, "rise_high")
         fall_high = context.get_config(self, "fall_high")
