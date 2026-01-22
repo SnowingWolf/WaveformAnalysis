@@ -23,7 +23,7 @@
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin import standard_plugins
+from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
 
 # 初始化
 ctx = Context(storage_dir='./strax_data')

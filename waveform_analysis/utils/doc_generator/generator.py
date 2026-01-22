@@ -108,7 +108,7 @@ class DocGenerator:
         """
         if self.ctx is None:
             from waveform_analysis.core.context import Context
-            from waveform_analysis.core.plugins.builtin import standard_plugins
+            from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
             self.ctx = Context()
             self.ctx.register(standard_plugins)
 

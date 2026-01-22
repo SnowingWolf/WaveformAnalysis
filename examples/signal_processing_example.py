@@ -18,7 +18,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin import (
+from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     WaveformsPlugin,
     StWaveformsPlugin,

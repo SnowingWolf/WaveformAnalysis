@@ -16,7 +16,7 @@ from typing import Any, List, Optional
 
 import numpy as np
 
-from ...core.base import Option, Plugin
+from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 
 WAVEFORM_WIDTH_INTEGRAL_DTYPE = np.dtype([

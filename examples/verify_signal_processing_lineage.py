@@ -12,7 +12,7 @@
 
 import sys
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin import (
+from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     WaveformsPlugin,
     StWaveformsPlugin,
@@ -212,7 +212,7 @@ def verify_data_types():
     print("6. 验证数据类型")
     print("=" * 70)
 
-    from waveform_analysis.core.plugins.builtin.signal_processing import ADVANCED_PEAK_DTYPE
+    from waveform_analysis.core.plugins.builtin.cpu import ADVANCED_PEAK_DTYPE
 
     print("\nADVANCED_PEAK_DTYPE 字段:")
     for name in ADVANCED_PEAK_DTYPE.names:

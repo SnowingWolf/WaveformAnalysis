@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin import standard_plugins
+from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
 from waveform_analysis.utils.daq import DAQAnalyzer
 
 

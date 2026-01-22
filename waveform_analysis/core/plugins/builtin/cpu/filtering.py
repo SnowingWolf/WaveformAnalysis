@@ -16,7 +16,7 @@ from typing import Any, List, Optional
 import numpy as np
 from scipy.signal import butter, savgol_filter, sosfiltfilt
 
-from ...core.base import Option, Plugin
+from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 logger = logging.getLogger(__name__)
 
