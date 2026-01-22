@@ -15,7 +15,7 @@ import logging
 import os
 import re
 import threading
-from typing import Any, Dict, Iterator, List, Optional, Type, Union, cast
+from typing import Any, Dict, Iterator, List, Optional, Set, Type, Union, cast
 import warnings
 
 # 2. Third-party imports
@@ -655,6 +655,71 @@ class Context(CacheMixin, PluginMixin):
             self._set_data(run_id, name, data)
         return data
 
+    def _is_disk_cache_valid(self, run_id: str, name: str, key: str) -> bool:
+        """Check whether disk cache exists and lineage matches without loading data."""
+        storage = self._get_storage_for_data_name(name)
+        meta_key = key
+        if not storage.exists(key, run_id):
+            # Check if it's a multi-channel data (e.g. peaks_ch0)
+            if not storage.exists(f"{key}_ch0", run_id):
+                return False
+            meta_key = f"{key}_ch0"
+
+        try:
+            meta = storage.get_metadata(meta_key, run_id)
+        except Exception:
+            return False
+
+        if meta and "lineage" in meta:
+            current_lineage = self.get_lineage(name)
+            s1 = json.dumps(meta["lineage"], sort_keys=True, default=str)
+            s2 = json.dumps(current_lineage, sort_keys=True, default=str)
+            return s1 == s2
+
+        # No lineage metadata: treat as valid (consistent with _load_from_disk_with_check)
+        return True
+
+    def _is_cache_hit(self, run_id: str, name: str, load: bool = False) -> bool:
+        """Check memory/disk cache status. Optionally loads disk cache into memory."""
+        if self._get_data_from_memory(run_id, name) is not None:
+            return True
+
+        if name not in self._plugins:
+            return False
+
+        key = self.key_for(run_id, name)
+        if load:
+            _data, cache_hit = self._cache_manager.check_cache(run_id, name, key)
+            return cache_hit
+
+        return self._is_disk_cache_valid(run_id, name, key)
+
+    def _compute_needed_set(self, run_id: str, data_name: str, plan: List[str]) -> Set[str]:
+        """Compute the set of steps that actually need execution for this run."""
+        needed: Set[str] = set()
+        visited: Set[str] = set()
+
+        def dfs(name: str) -> None:
+            if name in visited:
+                return
+            visited.add(name)
+
+            if self._is_cache_hit(run_id, name, load=False):
+                return
+
+            if name not in self._plugins:
+                return
+
+            plugin = self._plugins[name]
+            for dep_name in getattr(plugin, "depends_on", []) or []:
+                dfs(dep_name)
+            needed.add(name)
+
+        dfs(data_name)
+
+        # Keep order consistent with the execution plan
+        return {name for name in plan if name in needed}
+
     def get_data(
         self, run_id: str, data_name: str, show_progress: bool = False, progress_desc: Optional[str] = None, **kwargs
     ) -> Any:
@@ -715,6 +780,16 @@ class Context(CacheMixin, PluginMixin):
             bar_name = None
 
             try:
+                # Fast-path: return from memory/disk cache if available
+                cached = self._get_data_from_memory(run_id, data_name)
+                if cached is not None:
+                    return cached
+                if data_name in self._plugins:
+                    key = self.key_for(run_id, data_name)
+                    cached = self._load_from_disk_with_check(run_id, data_name, key)
+                    if cached is not None:
+                        return cached
+
                 # 2. Resolve execution plan (with caching and fallback)
                 plan = self._resolve_execution_plan(run_id, data_name)
 
@@ -722,11 +797,25 @@ class Context(CacheMixin, PluginMixin):
                 if not plan:
                     return self._get_data_from_memory(run_id, data_name)
 
+                # 2.5 Compute which steps actually need execution (cache-aware)
+                needed_set = self._compute_needed_set(run_id, data_name, plan)
+
                 # 3. Initialize progress tracking
                 tracker, bar_name = self._init_progress_tracking(show_progress, plan, run_id, data_name, progress_desc)
 
                 # 4. Execute plan in order
                 for name in plan:
+                    if name not in needed_set:
+                        self._record_cache_hit(name, run_id, tracker, bar_name)
+                        if name == data_name and self._get_data_from_memory(run_id, name) is None:
+                            key = self.key_for(run_id, name)
+                            data = self._load_from_disk_with_check(run_id, name, key)
+                            if data is None:
+                                self._execute_single_plugin(
+                                    name, run_id, data_name, kwargs, tracker, bar_name
+                                )
+                        continue
+
                     self._execute_single_plugin(name, run_id, data_name, kwargs, tracker, bar_name)
 
                 return self._get_data_from_memory(run_id, data_name)
@@ -2020,6 +2109,17 @@ class Context(CacheMixin, PluginMixin):
         # 统一构建模型
         model = build_lineage_graph(lineage, data_name, plugins=getattr(self, "_plugins", {}))
 
+        # 验证模型是否正确构建
+        if model is None:
+            raise ValueError(f"build_lineage_graph returned None for data_name '{data_name}'. This may indicate an issue with the lineage data.")
+
+        from .foundation.model import LineageGraphModel
+        if not isinstance(model, LineageGraphModel):
+            raise ValueError(
+                f"build_lineage_graph returned unexpected type: {type(model).__name__}, "
+                f"expected LineageGraphModel for data_name '{data_name}'."
+            )
+
         if kind == "labview":
             return plot_lineage_labview(model, data_name, context=self, **kwargs)
         elif kind == "mermaid":
@@ -2935,34 +3035,38 @@ class Context(CacheMixin, PluginMixin):
 
         # 1. 解析执行计划
         try:
-            execution_plan = self.resolve_dependencies(data_name)
+            execution_plan = self._resolve_execution_plan(run_id, data_name)
         except Exception as e:
             print(f"✗ 无法解析依赖关系: {e}")
             return {"error": str(e)}
 
-        # 2. 检查缓存状态
+        # 2. 计算本次实际需要执行的步骤（cache-aware）
+        needed_set = self._compute_needed_set(run_id, data_name, execution_plan)
+
+        # 3. 检查缓存状态
         cache_status = {}
         if show_cache:
             for plugin_name in execution_plan:
                 # 检查内存缓存
-                in_memory = (run_id, plugin_name) in self._results
+                in_memory = self._get_data_from_memory(run_id, plugin_name) is not None
 
                 # 检查磁盘缓存
                 on_disk = False
                 if plugin_name in self._plugins:
                     try:
                         key = self.key_for(run_id, plugin_name)
-                        on_disk = self.storage.exists(key, run_id)
+                        on_disk = self._is_disk_cache_valid(run_id, plugin_name, key)
                     except Exception:
                         pass
 
                 cache_status[plugin_name] = {
                     "in_memory": in_memory,
                     "on_disk": on_disk,
-                    "needs_compute": not (in_memory or on_disk),
+                    "needs_compute": plugin_name in needed_set,
+                    "pruned": (plugin_name not in needed_set) and not (in_memory or on_disk),
                 }
 
-        # 3. 收集配置信息
+        # 4. 收集配置信息
         configs = {}
         if show_config:
             for plugin_name in execution_plan:
@@ -2984,16 +3088,17 @@ class Context(CacheMixin, PluginMixin):
                     if plugin_config:
                         configs[plugin_name] = plugin_config
 
-        # 4. 构建结果字典
+        # 5. 构建结果字典
         result = {
             "target": data_name,
             "run_id": run_id,
             "execution_plan": execution_plan,
             "cache_status": cache_status,
             "configs": configs,
+            "needed_set": sorted(needed_set),
         }
 
-        # 5. 打印格式化输出
+        # 6. 打印格式化输出
         self._print_preview(
             result, show_tree=show_tree, show_config=show_config, show_cache=show_cache, verbose=verbose
         )
@@ -3022,6 +3127,8 @@ class Context(CacheMixin, PluginMixin):
                     status_mark = " ✓ [内存]"
                 elif status["on_disk"]:
                     status_mark = " ✓ [磁盘]"
+                elif status.get("pruned"):
+                    status_mark = " ↳ [剪枝]"
                 else:
                     status_mark = " ⚙️ [需计算]"
 
@@ -3046,12 +3153,14 @@ class Context(CacheMixin, PluginMixin):
 
         # 4. 缓存状态汇总
         if show_cache:
-            cache_summary = {"in_memory": 0, "on_disk": 0, "needs_compute": 0}
+            cache_summary = {"in_memory": 0, "on_disk": 0, "needs_compute": 0, "pruned": 0}
             for status in info["cache_status"].values():
                 if status["in_memory"]:
                     cache_summary["in_memory"] += 1
                 elif status["on_disk"]:
                     cache_summary["on_disk"] += 1
+                elif status.get("pruned"):
+                    cache_summary["pruned"] += 1
                 else:
                     cache_summary["needs_compute"] += 1
 
@@ -3059,6 +3168,7 @@ class Context(CacheMixin, PluginMixin):
             print(f"  • 内存缓存: {cache_summary['in_memory']} 个")
             print(f"  • 磁盘缓存: {cache_summary['on_disk']} 个")
             print(f"  • 需要计算: {cache_summary['needs_compute']} 个")
+            print(f"  • 已剪枝: {cache_summary['pruned']} 个")
 
         print("\n" + "=" * 70 + "\n")
 
