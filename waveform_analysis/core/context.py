@@ -9,6 +9,7 @@ Context 模块 - 插件系统的核心调度器。
 
 # 1. Standard library imports
 from datetime import datetime
+
 import hashlib
 import json
 import logging
@@ -811,9 +812,7 @@ class Context(CacheMixin, PluginMixin):
                             key = self.key_for(run_id, name)
                             data = self._load_from_disk_with_check(run_id, name, key)
                             if data is None:
-                                self._execute_single_plugin(
-                                    name, run_id, data_name, kwargs, tracker, bar_name
-                                )
+                                self._execute_single_plugin(name, run_id, data_name, kwargs, tracker, bar_name)
                         continue
 
                     self._execute_single_plugin(name, run_id, data_name, kwargs, tracker, bar_name)
@@ -1566,41 +1565,54 @@ class Context(CacheMixin, PluginMixin):
 
         return lineage
 
+    @staticmethod
+    def _format_display_value(value: Any, width: int) -> str:
+        value_str = repr(value) if value is not None else "None"
+        if len(value_str) > width:
+            return value_str[: max(0, width - 3)] + "..."
+        return value_str
+
+    def _style_options_table(self, df_display, show_current_values: bool):
+        def _highlight_modified(row):
+            styles = [""] * len(row)
+            if show_current_values and row.get("track") is False:
+                styles = ["background-color: #ffe6e6"] * len(row)
+            elif show_current_values and row.get("status") == "已修改":
+                styles = ["background-color: #fff6bf"] * len(row)
+            if show_current_values and row.get("status") == "已修改":
+                if "current" in df_display.columns:
+                    idx = df_display.columns.get_loc("current")
+                    styles[idx] = "color: #c00000; font-weight: 600;"
+            return styles
+
+        styler = df_display.style
+        if show_current_values:
+            styler = styler.apply(_highlight_modified, axis=1)
+        return styler
+
     def list_plugin_configs(
-        self, plugin_name: Optional[str] = None, show_current_values: bool = True, verbose: bool = True
-    ) -> Dict[str, Any]:
+        self,
+        plugin_name: Optional[str] = None,
+        show_current_values: bool = True,
+        verbose: bool = True,
+        as_dataframe: bool = True,  # 新增：是否用 DataFrame 展示
+        show_full_help: bool = False,
+    ):
         """
-        列出所有插件的配置选项
+        列出插件配置选项（支持 DataFrame 展示）
 
-        显示每个插件可用的配置选项，包括：
-        - 选项名称
-        - 默认值
-        - 类型
-        - 帮助文本
-        - 当前配置值（如果已设置）
-
-        Args:
-            plugin_name: 可选，指定插件名称以只显示该插件的配置
-            show_current_values: 是否显示当前配置值
-            verbose: 是否显示详细信息（类型、帮助文本等）
+        与 show_config 的关系：
+        - list_plugin_configs 面向“配置选项清单”，展示插件有哪些可配置项、默认值/当前值、修改状态。
+        - show_config 在指定 plugin_name 时会直接复用本方法，以确保展示样式一致。
+        - show_config 在未指定 plugin_name 时展示“当前配置汇总”（全局/插件特定/未使用）。
 
         Returns:
-            插件配置信息字典
-
-        Examples:
-            >>> ctx = Context()
-            >>> ctx.register(RawFilesPlugin(), WaveformsPlugin())
-            >>>
-            >>> # 列出所有插件的配置选项
-            >>> ctx.list_plugin_configs()
-            >>>
-            >>> # 只列出特定插件的配置
-            >>> ctx.list_plugin_configs(plugin_name='waveforms')
-            >>>
-            >>> # 获取配置字典而不打印
-            >>> config_info = ctx.list_plugin_configs(verbose=False)
+            默认仍返回 result dict；
+            如果 as_dataframe=True 且 verbose=True，会额外显示 DataFrame；
+            如果你想拿到 DataFrame 对象，可以把最后两行的 return 改成 return result, df_plugins, df_options
         """
-        result = {}
+
+        result: Dict[str, Any] = {}
 
         # 确定要显示的插件列表
         if plugin_name is not None:
@@ -1651,156 +1663,110 @@ class Context(CacheMixin, PluginMixin):
 
             result[name] = plugin_info
 
-        # 打印格式化输出
-        if verbose:
-            # 统计信息
-            total_options = sum(len(info["options"]) for info in result.values())
-            modified_count = 0
-            if show_current_values:
-                for info in result.values():
-                    for opt_info in info["options"].values():
-                        if not opt_info.get("is_default", True):
+        # DataFrame 展示
+        if verbose and as_dataframe:
+            import pandas as pd
+
+            # 在 notebook 中 display（若不可用则 fallback）
+            try:
+                from IPython.display import display
+            except Exception:
+                display = None
+
+            # 1) 插件概览表
+            plugin_rows = []
+            for pname, info in result.items():
+                options_count = len(info["options"])
+                modified_count = 0
+                if show_current_values:
+                    for opt in info["options"].values():
+                        if not opt.get("is_default", True):
                             modified_count += 1
+                plugin_rows.append({
+                    "plugin": pname,
+                    "class": info["class"],
+                    "version": info["version"],
+                    "description": info["description"],
+                    "options": options_count,
+                    "modified": modified_count if show_current_values else None,
+                })
 
-            # 标题
-            if plugin_name is not None:
-                print(f"\n╔{'═' * 78}╗")
-                print(f"║ 插件配置详情: {plugin_name:<60} ║")
-                print(f"╚{'═' * 78}╝")
+            df_plugins = pd.DataFrame(plugin_rows)
+            if show_current_values:
+                df_plugins = df_plugins.sort_values(by=["modified", "plugin"], ascending=[False, True])
             else:
-                print(f"\n╔{'═' * 78}╗")
-                print(f"║ 所有插件配置概览{' ' * 60}║")
-                print(f"║ • 已注册插件: {len(plugins_to_show):<3}  • 配置选项总数: {total_options:<4}", end="")
-                if show_current_values and modified_count > 0:
-                    print(f" • 已修改: {modified_count:<3}        ║")
-                else:
-                    print(f"{' ' * 17}║")
-                print(f"╚{'═' * 78}╝")
+                df_plugins = df_plugins.sort_values(by=["plugin"])
+            df_plugins = df_plugins.set_index("plugin")
 
-            for idx, (name, info) in enumerate(result.items(), 1):
-                # 插件标题
-                print(f"\n┌{'─' * 78}┐")
-                print(f"│ {idx}. 📦 {name:<71}│")
-                print(f"├{'─' * 78}┤")
+            # 2) 选项明细表（MultiIndex：plugin / option）
+            option_rows = []
+            for pname, info in result.items():
+                for opt_name, opt in info["options"].items():
+                    default_raw = opt.get("default", None)
+                    current_raw = opt.get("current_value", None) if show_current_values else None
+                    is_default = opt.get("is_default", True) if show_current_values else None
+                    status = "默认" if is_default or is_default is None else "已修改"
+                    option_rows.append({
+                        "plugin": pname,
+                        "option": opt_name,
+                        "type": opt.get("type", "Any"),
+                        "default": self._format_display_value(default_raw, 60),
+                        "current": self._format_display_value(current_raw, 60) if show_current_values else None,
+                        "status": status if show_current_values else None,
+                        "help": opt.get("help", "")
+                        if show_full_help
+                        else self._format_display_value(opt.get("help", ""), 80),
+                        "track": opt.get("track", True),
+                        "_is_default": is_default,
+                        "_default_raw": default_raw,
+                        "_current_raw": current_raw,
+                    })
 
-                # 基本信息
-                print(f"│   类名:   {info['class']:<64}│")
-                if info["version"] and info["version"] != "0.0.0":
-                    print(f"│   版本:   {info['version']:<64}│")
-                if info["description"]:
-                    # 处理长描述，自动换行
-                    desc = info["description"]
-                    desc_width = 64
-                    if len(desc) <= desc_width:
-                        print(f"│   描述:   {desc:<{desc_width}}│")
-                    else:
-                        # 分行显示
-                        words = desc.split()
-                        lines = []
-                        current_line = ""
-                        for word in words:
-                            if len(current_line) + len(word) + 1 <= desc_width:
-                                current_line += word + " "
-                            else:
-                                lines.append(current_line.rstrip())
-                                current_line = word + " "
-                        if current_line:
-                            lines.append(current_line.rstrip())
+            df_options = pd.DataFrame(option_rows)
+            if show_current_values:
+                df_options = df_options.sort_values(
+                    by=["_is_default", "plugin", "option"], ascending=[True, True, True]
+                )
+            else:
+                df_options = df_options.sort_values(by=["plugin", "option"])
+            df_options = df_options.set_index(["plugin", "option"])
 
-                        print(f"│   描述:   {lines[0]:<{desc_width}}│")
-                        for line in lines[1:]:
-                            print(f"│           {line:<{desc_width}}│")
+            # 展示
+            if display is not None:
+                print("\n📦 插件概览")
+                display(df_plugins)
 
-                if not info["options"]:
-                    print(f"│{' ' * 78}│")
-                    print(f"│   ℹ️  此插件无可配置选项{' ' * 47}│")
-                else:
-                    # 配置选项
-                    print(f"├{'─' * 78}┤")
-                    print(f"│   ⚙️  配置选项 ({len(info['options'])} 个){' ' * (59 - len(str(len(info['options']))))}│")
-                    print(f"├{'─' * 78}┤")
+                print("\n⚙️ 配置选项明细")
+                df_display = df_options.drop(columns=["_is_default", "_default_raw", "_current_raw"])
 
-                    for opt_idx, (opt_name, opt_info) in enumerate(info["options"].items(), 1):
-                        # 选项名称
-                        status_icon = "✓" if opt_info.get("is_default", True) else "⚙️"
-                        print(f"│{' ' * 78}│")
-                        print(f"│   {opt_idx}. {status_icon} {opt_name:<67}│")
+                styler = self._style_options_table(df_display, show_current_values)
+                display(styler)
+            else:
+                print("\n📦 插件概览")
+                print(df_plugins.to_string())
 
-                        # 类型和默认值
-                        type_str = f"[{opt_info['type']}]"
-                        default_str = repr(opt_info["default"]) if opt_info["default"] is not None else "None"
-                        if len(default_str) > 40:
-                            default_str = default_str[:37] + "..."
-                        print(f"│      类型: {type_str:<35} 默认值: {default_str:<26}│")
+                print("\n⚙️ 配置选项明细")
+                fallback = df_options.drop(columns=["_is_default", "_default_raw", "_current_raw"])
+                print(fallback.to_string())
 
-                        # 当前值
-                        if show_current_values and "current_value" in opt_info:
-                            current_str = (
-                                repr(opt_info["current_value"]) if opt_info["current_value"] is not None else "None"
-                            )
-                            if len(current_str) > 50:
-                                current_str = current_str[:47] + "..."
-                            if opt_info["is_default"]:
-                                print(f"│      当前值: {current_str:<40} (使用默认){' ' * 16}│")
-                            else:
-                                print(f"│      当前值: {current_str:<40} (已自定义) 🔧{' ' * 13}│")
-
-                        # 帮助文本
-                        if opt_info["help"]:
-                            help_text = opt_info["help"]
-                            help_width = 66
-                            if len(help_text) <= help_width:
-                                print(f"│      说明: {help_text:<{help_width}}│")
-                            else:
-                                # 自动换行
-                                words = help_text.split()
-                                lines = []
-                                current_line = ""
-                                for word in words:
-                                    if len(current_line) + len(word) + 1 <= help_width:
-                                        current_line += word + " "
-                                    else:
-                                        lines.append(current_line.rstrip())
-                                        current_line = word + " "
-                                if current_line:
-                                    lines.append(current_line.rstrip())
-
-                                print(f"│      说明: {lines[0]:<{help_width}}│")
-                                for line in lines[1:]:
-                                    print(f"│            {line:<{help_width}}│")
-
-                        # 特殊标记
-                        if not opt_info["track"]:
-                            print(f"│      ⚠️  此选项不追踪血缘{' ' * 50}│")
-
-                print(f"└{'─' * 78}┘")
-
-            # 底部提示
-            print(f"\n╔{'═' * 78}╗")
-            print(f"║ 💡 使用提示{' ' * 65}║")
-            print(f"╠{'═' * 78}╣")
-            print(f"║  • 设置全局配置:{' ' * 61}║")
-            print(f"║    ctx.set_config({{'option_name': value}}){' ' * 39}║")
-            print(f"║{' ' * 78}║")
-            print(f"║  • 设置插件特定配置:{' ' * 57}║")
-            print(f"║    ctx.set_config({{'option_name': value}}, plugin_name='plugin_name'){' ' * 9}║")
-            print(f"║{' ' * 78}║")
-            print(f"║  • 查看当前配置值:{' ' * 59}║")
-            print(f"║    ctx.show_config('plugin_name'){' ' * 43}║")
-            print(f"║{' ' * 78}║")
-            print(f"║  • 查看特定插件配置:{' ' * 57}║")
-            print(f"║    ctx.list_plugin_configs(plugin_name='plugin_name'){' ' * 23}║")
-            print(f"╚{'═' * 78}╝\n")
+            # 如果你希望函数直接把 DF 返回出去，把下面这行改成：
+            # return result, df_plugins, df_options
 
         return result
 
-    def show_config(self, data_name: Optional[str] = None, show_usage: bool = True):
+    def show_config(
+        self,
+        data_name: Optional[str] = None,
+        show_usage: bool = True,
+        show_full_help: bool = False,
+    ):
         """
         显示当前配置，并标识每个配置项对应的插件
 
         Args:
             data_name: 可选，指定插件名称以只显示该插件的配置
             show_usage: 是否显示配置项被哪些插件使用（仅在显示全局配置时有效）
+            show_full_help: 是否显示完整 help 文本（默认截断）
 
         Examples:
             >>> # 显示全局配置，包含配置项使用情况
@@ -1811,131 +1777,30 @@ class Context(CacheMixin, PluginMixin):
 
             >>> # 显示全局配置，但不显示使用情况
             >>> ctx.show_config(show_usage=False)
+
+        关联说明：
+            - 若 data_name 指定为插件名，会直接调用 list_plugin_configs 来展示该插件的“配置项清单”。
+            - 若 data_name 未指定，则展示“当前配置汇总”（全局/插件特定/未使用）。
         """
         if data_name and data_name in self._plugins:
             # 显示特定插件的配置
-            self._show_plugin_config(data_name)
+            self._show_plugin_config(data_name, show_full_help=show_full_help)
         else:
             # 显示全局配置
-            self._show_global_config(show_usage)
+            self._show_global_config(show_usage, show_full_help=show_full_help)
 
-    def _show_plugin_config(self, plugin_name: str):
-        """显示特定插件的配置（详细版）"""
-        plugin = self._plugins[plugin_name]
+    def _show_plugin_config(self, plugin_name: str, show_full_help: bool = False):
+        """显示特定插件的配置（表格版）"""
+        self.list_plugin_configs(
+            plugin_name=plugin_name,
+            show_current_values=True,
+            verbose=True,
+            as_dataframe=True,
+            show_full_help=show_full_help,
+        )
 
-        # 获取插件的实际配置值
-        cfg = {}
-        for key in plugin.config_keys:
-            try:
-                cfg[key] = self.get_config(plugin, key)
-            except (KeyError, ValueError) as e:
-                cfg[key] = f"<Error: {e}>"
-
-        # 标题
-        print(f"\n╔{'═' * 78}╗")
-        print(f"║ 插件配置: {plugin_name:<64} ║")
-        print(f"╚{'═' * 78}╝")
-
-        # 插件基本信息
-        print(f"\n┌{'─' * 78}┐")
-        print(f"│ 插件信息{' ' * 68}│")
-        print(f"├{'─' * 78}┤")
-        print(f"│   类名:   {plugin.__class__.__name__:<64}│")
-        print(f"│   版本:   {getattr(plugin, 'version', '0.0.0'):<64}│")
-
-        desc = getattr(plugin, "description", "")
-        if desc:
-            # 处理长描述
-            desc_width = 64
-            if len(desc) <= desc_width:
-                print(f"│   描述:   {desc:<{desc_width}}│")
-            else:
-                words = desc.split()
-                lines = []
-                current_line = ""
-                for word in words:
-                    if len(current_line) + len(word) + 1 <= desc_width:
-                        current_line += word + " "
-                    else:
-                        lines.append(current_line.rstrip())
-                        current_line = word + " "
-                if current_line:
-                    lines.append(current_line.rstrip())
-
-                print(f"│   描述:   {lines[0]:<{desc_width}}│")
-                for line in lines[1:]:
-                    print(f"│           {line:<{desc_width}}│")
-        print(f"└{'─' * 78}┘")
-
-        # 配置值
-        if not cfg:
-            print(f"\n  ℹ️  此插件无配置项")
-        else:
-            print(f"\n┌{'─' * 78}┐")
-            print(f"│ 配置项 ({len(cfg)} 个){' ' * 64}│")
-            print(f"├{'─' * 78}┤")
-
-            for idx, (key, value) in enumerate(cfg.items(), 1):
-                # 获取选项信息
-                option = plugin.options.get(key)
-                default_value = option.default if option else None
-                is_default = value == default_value
-
-                # 状态图标
-                status_icon = "✓" if is_default else "⚙️"
-
-                print(f"│{' ' * 78}│")
-                print(f"│   {idx}. {status_icon} {key:<67}│")
-
-                # 值显示
-                value_str = repr(value) if value is not None else "None"
-                if len(value_str) > 60:
-                    value_str = value_str[:57] + "..."
-
-                if is_default:
-                    print(f"│      值: {value_str:<40} (默认值){' ' * 20}│")
-                else:
-                    print(f"│      值: {value_str:<40} (已自定义) 🔧{' ' * 17}│")
-
-                # 类型信息
-                if option:
-                    type_str = (
-                        option.type.__name__
-                        if hasattr(option.type, "__name__")
-                        else str(option.type)
-                        if option.type
-                        else "Any"
-                    )
-                    print(f"│      类型: [{type_str}]{' ' * 63}│"[:78] + "│")
-
-                    if option.help:
-                        help_text = option.help
-                        help_width = 66
-                        if len(help_text) <= help_width:
-                            print(f"│      说明: {help_text:<{help_width}}│")
-                        else:
-                            words = help_text.split()
-                            lines = []
-                            current_line = ""
-                            for word in words:
-                                if len(current_line) + len(word) + 1 <= help_width:
-                                    current_line += word + " "
-                                else:
-                                    lines.append(current_line.rstrip())
-                                    current_line = word + " "
-                            if current_line:
-                                lines.append(current_line.rstrip())
-
-                            print(f"│      说明: {lines[0]:<{help_width}}│")
-                            for line in lines[1:]:
-                                print(f"│            {line:<{help_width}}│")
-
-            print(f"└{'─' * 78}┘")
-
-        print()  # 空行
-
-    def _show_global_config(self, show_usage: bool = True):
-        """显示全局配置（增强版）"""
+    def _show_global_config(self, show_usage: bool = True, show_full_help: bool = False):
+        """显示全局配置（表格版）"""
         # 分析配置项使用情况
         config_usage = {}  # config_key -> [plugin_names]
         plugin_specific_configs = {}  # plugin_name -> {config_key: value}
@@ -1983,112 +1848,108 @@ class Context(CacheMixin, PluginMixin):
                 unused_configs[key] = value
 
         # 统计信息
-        total_configs = (
-            len(global_configs) + len(unused_configs) + sum(len(v) for v in plugin_specific_configs.values())
+        cache_root = os.path.abspath(self.storage_dir)
+        data_subdir = getattr(self.storage, "data_subdir", "_cache")
+        run_name = (
+            getattr(self, "run_name", None)
+            or self.config.get("run_name")
+            or self.config.get("run_id")
+            or "{run_name}"
         )
-
-        # 标题
-        print(f"\n╔{'═' * 78}╗")
-        print(f"║ 全局配置概览{' ' * 64}║")
+        cache_dir = os.path.join(cache_root, str(run_name), data_subdir)
+        print("\n配置概览")
+        print(f"缓存目录: {cache_dir}")
         print(
-            f"║ • 全局配置项: {len(global_configs):<3}  • 插件特定配置: {len(plugin_specific_configs):<3}  • 未使用配置: {len(unused_configs):<3}    ║"
+            f"全局配置项: {len(global_configs)}  插件特定配置: {len(plugin_specific_configs)}  "
+            f"未使用配置: {len(unused_configs)}"
         )
-        print(f"╚{'═' * 78}╝")
 
-        # 1. 显示全局配置（被插件使用的）
+        import pandas as pd
+
+        try:
+            from IPython.display import display
+        except Exception:
+            display = None
+
+        # 1. 全局配置表
         if global_configs:
-            print(f"\n┌{'─' * 78}┐")
-            print(f"│ 全局配置项 ({len(global_configs)} 个){' ' * 59}│")
-            print(f"├{'─' * 78}┤")
+            rows = []
+            for key in sorted(global_configs.keys()):
+                used_by = config_usage.get(key, [])
+                used_by_str = ", ".join(used_by) if show_usage else None
+                rows.append({
+                    "key": key,
+                    "value": self._format_display_value(global_configs[key], 80),
+                    "used_by": self._format_display_value(used_by_str, 80) if show_usage else None,
+                })
+            df_global = pd.DataFrame(rows).set_index("key")
 
-            for idx, (key, value) in enumerate(global_configs.items(), 1):
-                value_str = repr(value) if value is not None else "None"
-                if len(value_str) > 50:
-                    value_str = value_str[:47] + "..."
+            print("\n📦 全局配置项")
+            if display is not None:
+                display(df_global if show_usage else df_global.drop(columns=["used_by"]))
+            else:
+                fallback = df_global if show_usage else df_global.drop(columns=["used_by"])
+                print(fallback.to_string())
 
-                print(f"│{' ' * 78}│")
-                print(f"│   {idx}. {key:<71}│")
-                print(f"│      值: {value_str:<67}│")
-
-                if show_usage and key in config_usage:
-                    plugins_using = config_usage[key]
-                    plugins_str = ", ".join(plugins_using)
-
-                    if len(plugins_str) <= 60:
-                        print(f"│      使用插件: {plugins_str:<61}│")
-                    else:
-                        # 换行显示
-                        words = plugins_str.split(", ")
-                        lines = []
-                        current_line = ""
-                        for word in words:
-                            test_line = current_line + (", " if current_line else "") + word
-                            if len(test_line) <= 60:
-                                current_line = test_line
-                            else:
-                                if current_line:
-                                    lines.append(current_line)
-                                current_line = word
-                        if current_line:
-                            lines.append(current_line)
-
-                        print(f"│      使用插件: {lines[0]:<61}│")
-                        for line in lines[1:]:
-                            print(f"│                {line:<61}│")
-
-            print(f"└{'─' * 78}┘")
-
-        # 2. 显示插件特定配置
+        # 2. 插件特定配置表
         if plugin_specific_configs:
-            print(f"\n┌{'─' * 78}┐")
-            print(f"│ 插件特定配置 ({len(plugin_specific_configs)} 个插件){' ' * 48}│")
-            print(f"├{'─' * 78}┤")
-
-            for plugin_idx, (plugin_name, configs) in enumerate(plugin_specific_configs.items(), 1):
+            option_rows = []
+            for plugin_name, configs in plugin_specific_configs.items():
                 plugin = self._plugins.get(plugin_name)
-                print(f"│{' ' * 78}│")
-                print(f"│   {plugin_idx}. 📦 {plugin_name}{' ' * 65}│"[:78] + "│")
+                for key, value in configs.items():
+                    option = plugin.options.get(key) if plugin else None
+                    default_raw = option.default if option else None
+                    is_default = value == default_raw if option else False
+                    status = "默认" if is_default else "已修改"
+                    option_rows.append({
+                        "plugin": plugin_name,
+                        "option": key,
+                        "type": option.type.__name__
+                        if option and hasattr(option.type, "__name__")
+                        else str(option.type)
+                        if option and option.type
+                        else "Any",
+                        "default": self._format_display_value(default_raw, 60),
+                        "current": self._format_display_value(value, 60),
+                        "status": status,
+                        "help": option.help
+                        if (option and show_full_help)
+                        else self._format_display_value(option.help, 80)
+                        if option
+                        else "",
+                        "track": option.track if option else True,
+                        "_is_default": is_default,
+                    })
 
-                for config_idx, (key, value) in enumerate(configs.items(), 1):
-                    value_str = repr(value) if value is not None else "None"
-                    if len(value_str) > 55:
-                        value_str = value_str[:52] + "..."
+            df_plugin = pd.DataFrame(option_rows)
+            df_plugin = df_plugin.sort_values(by=["_is_default", "plugin", "option"], ascending=[True, True, True])
+            df_plugin = df_plugin.set_index(["plugin", "option"])
+            df_display = df_plugin.drop(columns=["_is_default"])
 
-                    print(f"│      {config_idx}. {key}: {value_str:<60}│"[:78] + "│")
+            print("\n⚙️ 插件特定配置")
+            if display is not None:
+                display(self._style_options_table(df_display, show_current_values=True))
+            else:
+                print(df_display.to_string())
 
-            print(f"└{'─' * 78}┘")
-
-        # 3. 显示未使用的配置项
+        # 3. 未使用配置表
         if unused_configs:
-            print(f"\n┌{'─' * 78}┐")
-            print(f"│ ⚠️  未使用的配置项 ({len(unused_configs)} 个){' ' * 50}│")
-            print(f"├{'─' * 78}┤")
+            rows = []
+            for key in sorted(unused_configs.keys()):
+                rows.append({
+                    "key": key,
+                    "value": self._format_display_value(unused_configs[key], 80),
+                    "note": "未被任何已注册插件使用",
+                })
+            df_unused = pd.DataFrame(rows).set_index("key")
 
-            for idx, (key, value) in enumerate(unused_configs.items(), 1):
-                value_str = repr(value) if value is not None else "None"
-                if len(value_str) > 55:
-                    value_str = value_str[:52] + "..."
-
-                print(f"│{' ' * 78}│")
-                print(f"│   {idx}. {key}: {value_str:<68}│"[:78] + "│")
-                print(f"│      💡 此配置项未被任何已注册插件使用{' ' * 38}│")
-
-            print(f"└{'─' * 78}┘")
-
-        # 4. 底部提示
-        print(f"\n╔{'═' * 78}╗")
-        print(f"║ 💡 提示{' ' * 71}║")
-        print(f"╠{'═' * 78}╣")
-        print(f"║  • 查看特定插件配置:{' ' * 57}║")
-        print(f"║    ctx.show_config('plugin_name'){' ' * 43}║")
-        print(f"║{' ' * 78}║")
-        print(f"║  • 查看所有插件的配置选项:{' ' * 51}║")
-        print(f"║    ctx.list_plugin_configs(){' ' * 48}║")
-        print(f"║{' ' * 78}║")
-        print(f"║  • 设置配置:{' ' * 65}║")
-        print(f"║    ctx.set_config({{'key': value}}){' ' * 45}║")
-        print(f"║    ctx.set_config({{'key': value}}, plugin_name='plugin'){' ' * 19}║")
-        print(f"╚{'═' * 78}╝\n")
+            print("\n⚠️ 未使用配置")
+            if display is not None:
+                display(df_unused.style.apply(
+                    lambda _: ["background-color: #ffe6e6"] * len(df_unused.columns), axis=1
+                ))
+            else:
+                print(df_unused.to_string())
 
     def plot_lineage(self, data_name: str, kind: str = "labview", **kwargs):
         """
@@ -2111,9 +1972,12 @@ class Context(CacheMixin, PluginMixin):
 
         # 验证模型是否正确构建
         if model is None:
-            raise ValueError(f"build_lineage_graph returned None for data_name '{data_name}'. This may indicate an issue with the lineage data.")
+            raise ValueError(
+                f"build_lineage_graph returned None for data_name '{data_name}'. This may indicate an issue with the lineage data."
+            )
 
         from .foundation.model import LineageGraphModel
+
         if not isinstance(model, LineageGraphModel):
             raise ValueError(
                 f"build_lineage_graph returned unexpected type: {type(model).__name__}, "
@@ -3336,6 +3200,7 @@ class Context(CacheMixin, PluginMixin):
             >>> # 实际修复
             >>> issues = ctx.diagnose_cache(auto_fix=True, dry_run=False)
         """
+
         from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
         from waveform_analysis.core.storage.cache_diagnostics import CacheDiagnostics, DiagnosticIssue
 
