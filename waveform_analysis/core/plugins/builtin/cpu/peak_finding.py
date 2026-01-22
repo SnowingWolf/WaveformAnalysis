@@ -42,13 +42,6 @@ class SignalPeaksPlugin(Plugin):
     注意：此插件命名为 SignalPeaksPlugin 以区别于标准 PeaksPlugin。
 
     配置示例：
-        >>> # 使用 VX2730 适配器（时间戳单位为皮秒）
-        >>> ctx.set_config({
-        ...     'daq_adapter': 'vx2730',
-        ...     'sampling_interval_ns': 2.0,
-        ... }, plugin_name='signal_peaks')
-
-        >>> # 不指定适配器（向后兼容，使用数值判断）
         >>> ctx.set_config({
         ...     'sampling_interval_ns': 2.0,
         ... }, plugin_name='signal_peaks')
@@ -57,7 +50,7 @@ class SignalPeaksPlugin(Plugin):
     provides = "signal_peaks"
     depends_on = ["filtered_waveforms", "st_waveforms"]
     description = "Detect peaks in filtered waveforms and extract peak features."
-    version = "1.0.0"
+    version = "1.0.2"
     save_when = "always"  # 峰值数据较小，总是保存
     output_dtype = ADVANCED_PEAK_DTYPE
 
@@ -101,11 +94,6 @@ class SignalPeaksPlugin(Plugin):
             type=float,
             help="采样间隔（纳秒），用于计算全局时间戳。默认 2.0 ns",
         ),
-        "daq_adapter": Option(
-            default=None,
-            type=str,
-            help="DAQ 适配器名称（如 'vx2730'），用于确定时间戳单位。未指定时使用数值判断逻辑",
-        ),
     }
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> List[np.ndarray]:
@@ -138,10 +126,15 @@ class SignalPeaksPlugin(Plugin):
         threshold = context.get_config(self, "threshold")
         height_method = context.get_config(self, "height_method")
         sampling_interval_ns = context.get_config(self, "sampling_interval_ns")
-        daq_adapter = context.get_config(self, "daq_adapter")
+        daq_adapter = self._get_global_daq_adapter(context)
+        if not self._has_config(context, "sampling_interval_ns"):
+            sampling_interval_ns = self._get_sampling_interval_from_adapter(
+                daq_adapter,
+                sampling_interval_ns,
+            )
 
-        # 确定时间戳单位
-        timestamp_unit = self._get_timestamp_unit(daq_adapter)
+        # st_waveforms 的 timestamp 已统一为 ps
+        timestamp_unit = "ps"
 
         # 获取依赖数据
         filtered_waveforms = context.get_data(run_id, "filtered_waveforms")
@@ -228,8 +221,7 @@ class SignalPeaksPlugin(Plugin):
             threshold: 阈值条件
             height_method: 峰高计算方法
             sampling_interval_ns: 采样间隔（纳秒），用于计算全局时间戳
-            timestamp_unit: 时间戳单位 ('ps', 'ns', 'us', 'ms', 's')，
-                            None 表示使用旧的数值判断逻辑
+            timestamp_unit: 时间戳单位（st_waveforms 中已统一为 'ps'）
 
         Returns:
             峰值特征元组列表
@@ -359,29 +351,36 @@ class SignalPeaksPlugin(Plugin):
 
         return float(peak_height)
 
-    def _get_timestamp_unit(self, daq_adapter: Union[str, None]) -> Union[str, None]:
-        """
-        获取时间戳单位
+    def _get_global_daq_adapter(self, context: Any) -> Union[str, None]:
+        config = getattr(context, "config", {})
+        return config.get("daq_adapter")
 
-        Args:
-            daq_adapter: DAQ 适配器名称
+    def _has_config(self, context: Any, name: str) -> bool:
+        config = getattr(context, "config", {})
+        provides = self.provides
+        if provides in config and isinstance(config[provides], dict):
+            if name in config[provides]:
+                return True
+        if f"{provides}.{name}" in config:
+            return True
+        return name in config
 
-        Returns:
-            时间戳单位字符串 ('ps', 'ns', 'us', 'ms', 's')，
-            None 表示未指定适配器（使用旧的数值判断逻辑）
-        """
-        if daq_adapter is None:
-            # 向后兼容：未指定适配器时返回 None，使用旧逻辑
-            return None
-
+    def _get_sampling_interval_from_adapter(
+        self,
+        daq_adapter: Union[str, None],
+        default_value: float,
+    ) -> float:
+        if not daq_adapter:
+            return default_value
         try:
             from waveform_analysis.utils.formats import get_adapter
-
+        except Exception:
+            return default_value
+        try:
             adapter = get_adapter(daq_adapter)
-            return adapter.format_spec.timestamp_unit.value  # 返回 'ps', 'ns' 等
-        except Exception as e:
-            import logging
-
-            logger = logging.getLogger(__name__)
-            logger.warning(f"无法获取适配器 '{daq_adapter}' 的时间戳单位: {e}")
-            return None
+        except ValueError:
+            return default_value
+        sampling_rate_hz = adapter.sampling_rate_hz
+        if not sampling_rate_hz:
+            return default_value
+        return 1e9 / float(sampling_rate_hz)

@@ -74,6 +74,11 @@ class DAQAdapter:
         """获取目录布局（别名）"""
         return self.directory_layout
 
+    @property
+    def sampling_rate_hz(self) -> Optional[float]:
+        """获取采样率（Hz）"""
+        return self.format_spec.sampling_rate_hz
+
     def get_raw_path(self, data_root: str, run_name: str) -> Path:
         """获取原始数据目录
 
@@ -312,6 +317,25 @@ class DAQAdapter:
             验证是否通过
         """
         return self.format_reader.validate_data(data)
+
+    def get_file_epoch(self, file_path: Path) -> int:
+        """获取文件创建时间作为 epoch (纳秒)
+
+        Args:
+            file_path: 文件路径
+
+        Returns:
+            文件创建时间的 Unix 时间戳（纳秒）
+
+        Examples:
+            >>> adapter = get_adapter("vx2730")
+            >>> epoch_ns = adapter.get_file_epoch(Path("data.csv"))
+            >>> print(f"Epoch: {epoch_ns} ns")
+        """
+        stat = file_path.stat()
+        # 优先使用 st_birthtime (macOS)，否则用 st_mtime
+        ctime = getattr(stat, 'st_birthtime', stat.st_mtime)
+        return int(ctime * 1e9)  # 秒 → 纳秒
 
 
 # 适配器注册表

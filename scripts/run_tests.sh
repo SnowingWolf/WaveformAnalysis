@@ -19,8 +19,7 @@ fi
 
 # Prefer using `conda run -n` to avoid shell activation side-effects
 # Check if pytest is available in the target env; if not, install it via pip inside env
-echo "Using conda env: $CONDA_ENV (running tests with `conda run -n`)
-"
+echo "Using conda env: $CONDA_ENV (running tests with conda run -n $CONDA_ENV)"
 
 # Check pytest availability
 set +e

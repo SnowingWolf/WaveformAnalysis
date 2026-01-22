@@ -53,14 +53,13 @@ waveform-analysis/
 │   │   │       │   └── peak_finding.py      # SignalPeaksPlugin
 │   │   │       ├── jax/           # JAX GPU 实现（待开发）
 │   │   │       │   └── __init__.py
-│   │   │       ├── streaming/     # 流式插件（待开发）
+│   │   │       ├── streaming/     # 流式插件
 │   │   │       │   ├── cpu/
 │   │   │       │   └── jax/
 │   │   │       ├── legacy/        # 向后兼容层（弃用警告）
 │   │   │       │   ├── __init__.py          # 延迟导入 + 弃用警告
 │   │   │       │   ├── standard.py          # 原始标准插件
-│   │   │       │   └── signal_processing.py # 原始信号处理插件
-│   │   │       └── streaming_examples.py    # 流式插件示例
+│   │   │       │   └── signal_processing.py # 兼容垫片（已弃用）
 │   │   │
 │   │   ├── processing/            # 数据处理（4个文件）
 │   │   │   ├── __init__.py
@@ -204,14 +203,13 @@ builtin/
 │   ├── __init__.py
 │   ├── filtering.py          # JAX 滤波插件（待实现）
 │   └── peak_finding.py       # JAX 寻峰插件（待实现）
-├── streaming/                # 流式处理插件（待开发 - Phase 3）
+├── streaming/                # 流式处理插件
 │   ├── cpu/                  # CPU 流式插件
 │   └── jax/                  # JAX 流式插件
 ├── legacy/                   # 向后兼容层（弃用警告）
 │   ├── __init__.py           # 延迟导入 + 弃用警告
 │   ├── standard.py           # 原始标准插件
-│   └── signal_processing.py  # 原始信号处理插件
-└── streaming_examples.py     # 流式插件示例（待迁移）
+│   └── signal_processing.py  # 兼容垫片（已弃用）
 ```
 
 **CPU 标准数据处理插件** (`cpu/standard.py`):

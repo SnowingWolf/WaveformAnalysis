@@ -49,6 +49,7 @@ class TestFormatSpec:
         assert spec.header_rows_first_file == 2
         assert spec.header_rows_other_files == 0
         assert spec.expected_samples == 800
+        assert spec.sampling_rate_hz == 500e6
 
     def test_timestamp_scale(self):
         """测试时间戳转换因子"""
@@ -182,6 +183,7 @@ class TestDAQAdapter:
         assert adapter.name == "vx2730"
         assert adapter.format_spec == VX2730_SPEC
         assert adapter.directory_layout == VX2730_LAYOUT
+        assert adapter.sampling_rate_hz == 500e6
 
     def test_get_adapter(self):
         """测试获取适配器"""

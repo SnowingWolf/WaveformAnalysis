@@ -23,7 +23,7 @@ WaveformAnalysis 提供了两个信号处理插件，用于波形滤波和高级
 
 **之前**:
 ```python
-from waveform_analysis.core.plugins.builtin.signal_processing import (
+from waveform_analysis.core.plugins.builtin.cpu import (
     FilteredWaveformsPlugin,
     SignalPeaksPlugin,
 )
@@ -170,13 +170,15 @@ ADVANCED_PEAK_DTYPE = np.dtype([
     ("integral", "f4"),      # 峰值积分（面积）
     ("edge_start", "f4"),    # 峰值起始边缘
     ("edge_end", "f4"),      # 峰值结束边缘
-    ("timestamp", "i8"),     # 事件时间戳
+    ("timestamp", "i8"),     # 事件时间戳（ps）
     ("channel", "i2"),       # 通道号
     ("event_index", "i8"),   # 事件索引
 ])
 ```
 
 ### 配置选项
+
+`timestamp` 来源于 `st_waveforms`，已统一为 ps。
 
 | 选项 | 默认值 | 类型 | 说明 |
 |------|--------|------|------|
@@ -355,7 +357,7 @@ RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin → FilteredWaveformsPl
 你可以继承 `FilteredWaveformsPlugin` 并重写 `_apply_filter` 方法来添加自定义滤波器：
 
 ```python
-from waveform_analysis.core.plugins.builtin.signal_processing import FilteredWaveformsPlugin
+from waveform_analysis.core.plugins.builtin.cpu import FilteredWaveformsPlugin
 
 class CustomFilterPlugin(FilteredWaveformsPlugin):
     provides = "custom_filtered_waveforms"
@@ -374,7 +376,7 @@ class CustomFilterPlugin(FilteredWaveformsPlugin):
 类似地，你可以继承 `SignalPeaksPlugin` 并自定义峰值检测逻辑：
 
 ```python
-from waveform_analysis.core.plugins.builtin.signal_processing import SignalPeaksPlugin
+from waveform_analysis.core.plugins.builtin.cpu import SignalPeaksPlugin
 
 class CustomPeaksPlugin(SignalPeaksPlugin):
     provides = "custom_peaks"

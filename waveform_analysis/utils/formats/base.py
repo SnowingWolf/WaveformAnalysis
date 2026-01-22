@@ -99,6 +99,7 @@ class FormatSpec:
         header_rows_other_files: 其他文件跳过的头部行数
         delimiter: CSV 分隔符
         expected_samples: 预期的波形采样点数（可选）
+        sampling_rate_hz: 采样率（Hz，可选）
         metadata: 额外元数据字典
 
     Examples:
@@ -121,6 +122,7 @@ class FormatSpec:
     header_rows_other_files: int = 0    # 其他文件头部行数
     delimiter: str = ";"                # CSV 分隔符
     expected_samples: Optional[int] = None  # 预期采样点数
+    sampling_rate_hz: Optional[float] = None  # 采样率（Hz）
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def get_timestamp_scale(self) -> float:
