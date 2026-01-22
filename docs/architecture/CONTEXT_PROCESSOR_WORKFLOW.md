@@ -59,7 +59,7 @@
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.standard import (
+from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     WaveformsPlugin,
     StWaveformsPlugin,
@@ -91,7 +91,7 @@ ctx = Context(config={
     "n_channels": 2,
     "threshold": 50.0,
     "peaks_range": (40, 90),
-    "charge_range": (60, 400),
+    "charge_range": (0, None),
 })
 
 # 方式2: 运行时更新配置
@@ -148,7 +148,7 @@ processor = WaveformProcessor(n_channels=len(waveforms))
 peaks, charges = processor.compute_basic_features(
     st_waveforms,
     peaks_range=(40, 90),
-    charge_range=(60, 400)
+    charge_range=(0, None)
 )
 
 print(f"找到 {len(peaks)} 个峰值")
@@ -301,7 +301,7 @@ exporter.export_to_csv(
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.standard import (
+from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     WaveformsPlugin,
     StWaveformsPlugin,
@@ -319,7 +319,7 @@ ctx = Context(
         "start_channel_slice": 6,
         "data_root": "DAQ",
         "peaks_range": (40, 90),
-        "charge_range": (60, 400),
+        "charge_range": (0, None),
         "time_window_ns": 1000,
         "show_progress": True,
     }
@@ -389,14 +389,14 @@ processor = WaveformProcessor(n_channels=2)
 peaks, charges = processor.compute_basic_features(
     st_waveforms,
     peaks_range=(40, 90),
-    charge_range=(60, 400)
+    charge_range=(0, None)
 )
 
 # 使用 Processor 进行批量处理并构建 DataFrame
 df = processor.build_waveform_df(
     st_waveforms,
     peaks_range=(40, 90),
-    charge_range=(60, 400)
+    charge_range=(0, None)
 )
 
 print(df.head())

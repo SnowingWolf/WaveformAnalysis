@@ -13,8 +13,8 @@ from typing import Any, List, Optional
 
 import numpy as np
 
-from ...core.base import Option, Plugin
-from ....processing.processor import PEAK_DTYPE, RECORD_DTYPE, WaveformStruct, find_hits
+from waveform_analysis.core.plugins.core.base import Option, Plugin
+from waveform_analysis.core.processing.processor import PEAK_DTYPE, RECORD_DTYPE, WaveformStruct, find_hits
 
 
 class RawFilesPlugin(Plugin):
@@ -417,7 +417,11 @@ class ChargesPlugin(Plugin):
     depends_on = ["st_waveforms"]
     save_when = "always"
     options = {
-        "charge_range": Option(default=None, type=tuple, help="电荷计算范围 (start, end)"),
+        "charge_range": Option(
+            default=(0, None),
+            type=tuple,
+            help="电荷计算范围 (start, end)，end=None 表示积分到波形末端",
+        ),
     }
 
     def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:

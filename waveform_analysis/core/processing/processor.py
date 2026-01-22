@@ -592,7 +592,7 @@ class WaveformProcessor:
         self,
         st_waveforms: List[np.ndarray],
         peaks_range: Optional[Tuple[int, int]] = None,
-        charge_range: Optional[Tuple[int, int]] = None,
+        charge_range: Optional[Tuple[int, Optional[int]]] = None,
     ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         """
         计算基础特征：peaks 和 charges。
@@ -664,7 +664,10 @@ class WaveformProcessor:
         return df.sort_values("timestamp")
 
     def process_chunk(
-        self, chunk: np.ndarray, peaks_range: Tuple[int, int], charge_range: Tuple[int, int]
+        self,
+        chunk: np.ndarray,
+        peaks_range: Tuple[int, int],
+        charge_range: Tuple[int, Optional[int]],
     ) -> Dict[str, np.ndarray]:
         """
         处理一个数据块，提取特征。
