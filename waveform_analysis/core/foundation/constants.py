@@ -21,8 +21,8 @@ class FeatureDefaults:
     # 峰值计算的采样点范围 (起始, 结束)
     PEAK_RANGE = (40, 90)
 
-    # 电荷计算的采样点范围 (起始, 结束)
-    CHARGE_RANGE = (60, 400)
+    # 电荷计算的采样点范围 (起始, 结束；结束为 None 表示波形末端)
+    CHARGE_RANGE = (0, None)
 
     # 基线计算的采样点范围 (起始, 结束)
     BASELINE_RANGE = (0, 20)

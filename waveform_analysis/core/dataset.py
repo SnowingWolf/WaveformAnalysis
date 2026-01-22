@@ -14,7 +14,7 @@ Dataset 模块 - 面向用户的高层 API 封装。
 
     新代码:
         from waveform_analysis.core import Context
-        from waveform_analysis.core.plugins.builtin import standard_plugins
+        from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
         ctx = Context()
         ctx.register(standard_plugins)
         ctx.set_config({'n_channels': 2, 'data_root': 'DAQ'})
@@ -30,11 +30,11 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-# 3. Local imports (使用相对导入)
+# 3. Local imports
 from .context import Context
 from .foundation.constants import FeatureDefaults
 from .foundation.mixins import CacheMixin, StepMixin, chainable_step
-from .plugins import builtin as standard_plugins
+from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
 
 
 class WaveformDataset(CacheMixin, StepMixin):
@@ -161,7 +161,7 @@ class WaveformDataset(CacheMixin, StepMixin):
 
         # 参数缓存
         self.peaks_range: Tuple[int, int] = FeatureDefaults.PEAK_RANGE
-        self.charge_range: Tuple[int, int] = FeatureDefaults.CHARGE_RANGE
+        self.charge_range: Tuple[int, Optional[int]] = FeatureDefaults.CHARGE_RANGE
         self.time_window_ns: float = FeatureDefaults.TIME_WINDOW_NS
 
         self._validate_data_dir()

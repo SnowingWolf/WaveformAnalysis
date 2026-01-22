@@ -58,7 +58,7 @@ fig = previewer.plot_overlay(
     waveforms[:10],
     annotate=True,              # 标注基线、峰值、积分区域
     peaks_range=(40, 90),       # 峰值检测区间
-    charge_range=(60, 400),     # 电荷积分区间
+    charge_range=(0, None),     # 电荷积分区间（默认整段波形）
     figsize=(14, 6)
 )
 plt.show()
@@ -253,7 +253,7 @@ print(f"  建议阈值（均值 - 2σ）: {suggested_threshold:.2f} ADC")
 
 ---
 
-##### `compute_features(waveforms, peaks_range=(40, 90), charge_range=(60, 400))`
+##### `compute_features(waveforms, peaks_range=(40, 90), charge_range=(0, None))`
 计算波形特征。
 
 **参数**：

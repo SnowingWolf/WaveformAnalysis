@@ -131,7 +131,7 @@ class StreamingFeaturesPlugin(StreamingPlugin):
     def __init__(self):
         super().__init__()
         self.peaks_range = (40, 90)
-        self.charge_range = (60, 400)
+        self.charge_range = (0, None)
     
     def compute_chunk(self, chunk: Chunk, context, run_id, **kwargs) -> Chunk:
         """从结构化波形计算特征"""
