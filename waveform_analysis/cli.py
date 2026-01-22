@@ -7,7 +7,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from waveform_analysis import WaveformDataset
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin import standard_plugins
 from waveform_analysis.utils.daq import DAQAnalyzer
 
 
@@ -93,23 +94,15 @@ def main():
             return 0
 
         # 正常数据处理分支
-        dataset = WaveformDataset(
-            run_name=args.run_name, n_channels=args.n_channels, start_channel_slice=args.start_channel
-        )
-
-        # 执行处理流程
-        (
-            dataset.load_raw_data()
-            .extract_waveforms()
-            .structure_waveforms()
-            .build_waveform_features()
-            .build_dataframe()
-            .group_events(time_window_ns=args.time_window)
-            .pair_events()
-        )
+        ctx = Context(config={"data_root": args.daq_root, "n_channels": args.n_channels})
+        ctx.register(*standard_plugins)
+        ctx.set_config({
+            "start_channel_slice": args.start_channel,
+            "time_window_ns": args.time_window,
+        })
 
         # 获取结果
-        df_paired = dataset.get_paired_events()
+        df_paired = ctx.get_data(args.run_name, "df_paired")
 
         if args.verbose:
             print("\n处理完成！")
@@ -118,17 +111,17 @@ def main():
         # 保存结果
         if args.output:
             output_path = Path(args.output)
-            if output_path.suffix == ".parquet":
-                df_paired.to_parquet(output_path)
-            else:
-                df_paired.to_csv(output_path, index=False)
-
-            if args.verbose:
-                print(f"结果已保存到: {output_path}")
         else:
-            dataset.save_results()
-            if args.verbose:
-                print(f"结果已保存到: outputs/{args.char}_paired.csv")
+            output_path = Path("outputs") / f"{args.run_name}_paired.csv"
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        if output_path.suffix == ".parquet":
+            df_paired.to_parquet(output_path)
+        else:
+            df_paired.to_csv(output_path, index=False)
+
+        if args.verbose:
+            print(f"结果已保存到: {output_path}")
 
         return 0
 

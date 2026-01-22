@@ -75,10 +75,6 @@ from .builtin import (
     FilteredWaveformsPlugin,
     SignalPeaksPlugin,
     WaveformWidthPlugin,
-    # 流式插件示例
-    StreamingStWaveformsPlugin,
-    StreamingBasicFeaturesPlugin,
-    StreamingFilterPlugin,
     SignalPeaksStreamPlugin,
 )
 
@@ -124,9 +120,5 @@ __all__ = [
     "FilteredWaveformsPlugin",
     "SignalPeaksPlugin",
     "WaveformWidthPlugin",
-    # 流式插件示例
-    "StreamingStWaveformsPlugin",
-    "StreamingBasicFeaturesPlugin",
-    "StreamingFilterPlugin",
     "SignalPeaksStreamPlugin",
 ]

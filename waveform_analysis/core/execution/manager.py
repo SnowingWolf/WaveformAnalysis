@@ -143,7 +143,13 @@ class ExecutorManager:
 
             return executor
 
-    def release_executor(self, name: str, executor_type: str = "thread", max_workers: Optional[int] = None):
+    def release_executor(
+        self,
+        name: str,
+        executor_type: str = "thread",
+        max_workers: Optional[int] = None,
+        wait: bool = True,
+    ):
         """
         释放执行器引用（引用计数减1）。
 
@@ -158,7 +164,7 @@ class ExecutorManager:
             if key in self._executor_refs:
                 self._executor_refs[key] -= 1
                 if self._executor_refs[key] <= 0:
-                    self._shutdown_executor(key)
+                    self._shutdown_executor(key, wait=wait)
 
     def _shutdown_executor(self, key: str, wait: bool = True):
         """关闭指定执行器"""

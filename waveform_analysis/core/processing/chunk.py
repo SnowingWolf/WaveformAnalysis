@@ -48,9 +48,9 @@ __all__.extend(
 
 # Chunk 处理默认参数
 DEFAULT_CHUNK_SIZE = 500_000  # 默认 chunk 大小
-DEFAULT_BREAK_THRESHOLD_NS = 10_000_000_000  # 1秒间隔认为是 break
+DEFAULT_BREAK_THRESHOLD_PS = 10_000_000_000_000  # 默认 break 阈值（ps）
 
-__all__.extend(["DEFAULT_CHUNK_SIZE", "DEFAULT_BREAK_THRESHOLD_NS"])
+__all__.extend(["DEFAULT_CHUNK_SIZE", "DEFAULT_BREAK_THRESHOLD_PS"])
 
 
 def _resolve_time_field(data: np.ndarray, time_field: str) -> str:
@@ -849,7 +849,7 @@ def split_by_count(
 @export
 def split_by_breaks(
     data: np.ndarray,
-    break_threshold_ns: int = DEFAULT_BREAK_THRESHOLD_NS,
+    break_threshold_ps: int = DEFAULT_BREAK_THRESHOLD_PS,
     min_chunk_size: int = 1,
     time_field: str = TIME_FIELD,
     endtime_field: str = ENDTIME_FIELD,
@@ -862,7 +862,7 @@ def split_by_breaks(
 
     Args:
         data: 结构化数组（应已按时间排序）
-        break_threshold_ns: 间隙阈值 (纳秒)，超过此值则断开
+        break_threshold_ps: 间隙阈值 (皮秒)，超过此值则断开
         min_chunk_size: 最小 chunk 大小
 
     Yields:
@@ -886,7 +886,7 @@ def split_by_breaks(
     gaps = time[1:].astype(np.int64) - endtime[:-1].astype(np.int64)
 
     # 找到断点（间隙超过阈值）
-    break_indices = np.where(gaps > break_threshold_ns)[0] + 1
+    break_indices = np.where(gaps > break_threshold_ps)[0] + 1
 
     # 添加首尾
     break_indices = np.concatenate([[0], break_indices, [len(data)]])
