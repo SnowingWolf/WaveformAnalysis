@@ -9,6 +9,15 @@
 
 ### 变更
 
+#### DAQ 采样率自动映射 (2026-01)
+- **FormatSpec 新增采样率字段**: `sampling_rate_hz` 并由 DAQAdapter 暴露
+- **VX2730 采样率配置**: 默认设置为 500 MHz
+- **插件自动推断**: `signal_peaks`/`signal_peaks_stream` 在未显式配置时由适配器推断 `sampling_interval_ns`；
+  `waveform_width` 在未显式配置时推断 `sampling_rate`（GHz）
+- **滤波器采样率自动推断**: `filtered_waveforms` 在未显式配置 `fs` 时由适配器推断（GHz）
+- **信号处理插件路径统一**: `builtin/signal_processing.py` 变为弃用兼容垫片，建议使用 `builtin/cpu`
+- **峰值插件配置简化**: `signal_peaks`/`signal_peaks_stream` 移除 `daq_adapter` 插件选项，改为读取全局 `daq_adapter`
+
 #### MemmapStorage 架构简化 (2026-01)
 - **移除 Legacy 存储模式**: 删除旧的扁平存储结构支持 (`core/storage/memmap.py`)
   - 移除 `base_dir` 参数，统一使用 `work_dir`
@@ -32,6 +41,17 @@
   - 将 `MemmapStorage(base_dir)` 改为 `MemmapStorage(work_dir)`
   - 所有存储操作添加 `run_id` 参数
   - 数据将存储在 `work_dir/{run_id}/_cache/` 而非 `base_dir/`
+
+#### 时间字段统一方案 (2026-01-22)
+- **RECORD_DTYPE 新增 time 字段**: 引入绝对系统时间支持 (`core/processing/processor.py`)
+  - `time` (i8): 绝对系统时间（Unix 时间戳，纳秒 ns）
+  - `timestamp` (i8): ADC 原始时间戳（皮秒 ps，统一为 ps）
+  - 时间转换公式：`time = epoch_ns + timestamp // 1000`
+- **DAQAdapter 新增方法**: `get_file_epoch()` 从文件创建时间获取 epoch (`utils/formats/adapter.py`)
+  - 优先使用 `st_birthtime` (macOS)，否则使用 `st_mtime`
+- **时间戳单位统一**: `st_waveforms` 的 `timestamp` 统一转换为 ps（按 `FormatSpec.timestamp_unit`）
+- **流式默认时间字段**: `StreamingPlugin.time_field` 默认使用 `timestamp`（ps）
+- **断点阈值单位**: `break_threshold_ps` 作为统一命名与单位（ps），替代 `break_threshold_ns`
 
 #### WaveformStruct DAQ 解耦 (2026-01)
 - **WaveformStructConfig 配置类**: 新增配置类解耦 DAQ 格式依赖 (`core/processing/processor.py`)

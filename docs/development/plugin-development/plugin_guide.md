@@ -86,7 +86,7 @@ from waveform_analysis.core.plugins.builtin.legacy import RawFilesPlugin
 ```python
 # 旧方式（会发出弃用警告）
 from waveform_analysis.core.plugins.builtin.standard import RawFilesPlugin
-from waveform_analysis.core.plugins.builtin.signal_processing import FilteredWaveformsPlugin
+from waveform_analysis.core.plugins.builtin.cpu import FilteredWaveformsPlugin
 
 # 新方式（推荐）
 from waveform_analysis.core.plugins.builtin.cpu import (

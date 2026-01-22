@@ -9,7 +9,7 @@ CPU Standard Plugins - 标准波形分析插件（NumPy/SciPy 实现）
 这些插件使用 CPU 计算，支持 Numba JIT 加速和多进程并行处理。
 """
 
-from typing import Any, List
+from typing import Any, List, Optional
 
 import numpy as np
 
@@ -155,7 +155,7 @@ class WaveformsPlugin(Plugin):
 
         # ========== 获取通道切片配置 ==========
         start = context.get_config(self, "start_channel_slice")
-        n_channels = context.config.get("n_channels", 2)
+        n_channels = context.get_config(self, "n_channels")
         end = start + n_channels
         raw_files = context.get_data(run_id, "raw_files")
 
@@ -232,6 +232,36 @@ class StWaveformsPlugin(Plugin):
         ),
     }
 
+    def _get_record_dtype(self, daq_adapter: Optional[str]) -> np.dtype:
+        from waveform_analysis.core.processing.processor import WaveformStructConfig
+        if daq_adapter:
+            config = WaveformStructConfig.from_adapter(daq_adapter)
+        else:
+            config = WaveformStructConfig.default_vx2730()
+        return config.get_record_dtype()
+
+    def get_lineage(self, context: Any) -> dict:
+        config = {}
+        for key in self.config_keys:
+            option = self.options.get(key)
+            if option and getattr(option, "track", True):
+                config[key] = context.get_config(self, key)
+
+        daq_adapter = config.get("daq_adapter")
+        lineage = {
+            "plugin_class": self.__class__.__name__,
+            "plugin_version": getattr(self, "version", "0.0.0"),
+            "description": getattr(self, "description", ""),
+            "config": config,
+            "depends_on": {dep: context.get_lineage(dep) for dep in self.depends_on},
+        }
+        try:
+            dtype = self._get_record_dtype(daq_adapter)
+            lineage["dtype"] = np.dtype(dtype).descr
+        except Exception:
+            lineage["dtype"] = str(self.output_dtype)
+        return lineage
+
     def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
         """
         将波形数据结构化为 NumPy 结构化数组
@@ -264,12 +294,29 @@ class StWaveformsPlugin(Plugin):
         # 获取 daq_adapter 配置
         daq_adapter = context.get_config(self, "daq_adapter")
 
-        # 根据配置创建 WaveformStruct
+        # 获取 epoch（从 DAQ 适配器或文件创建时间）
+        epoch_ns = None
         if daq_adapter:
-            waveform_struct = WaveformStruct.from_adapter(waveforms, daq_adapter)
+            from waveform_analysis.utils.formats import get_adapter
+            from pathlib import Path
+
+            adapter = get_adapter(daq_adapter)
+            raw_files = context.get_data(run_id, "raw_files")
+
+            # 从第一个通道的第一个文件获取 epoch
+            if raw_files and raw_files[0]:
+                first_file = Path(raw_files[0][0])
+                epoch_ns = adapter.get_file_epoch(first_file)
+
+        # 根据配置创建 WaveformStruct
+        from waveform_analysis.core.processing.processor import WaveformStructConfig
+        if daq_adapter:
+            config = WaveformStructConfig.from_adapter(daq_adapter)
         else:
-            # 默认使用 VX2730 配置（向后兼容）
-            waveform_struct = WaveformStruct(waveforms)
+            config = WaveformStructConfig.default_vx2730()
+        config.epoch_ns = epoch_ns
+        self.output_dtype = config.get_record_dtype()
+        waveform_struct = WaveformStruct(waveforms, config=config)
 
         # 通道号现在从CSV的BOARD/CHANNEL字段读取并映射，不再使用start_channel_slice
         # 保留start_channel_slice参数以向后兼容，但实际不再使用
@@ -315,7 +362,7 @@ class HitFinderPlugin(Plugin):
         for i in range(len(st_waveforms)):
             st_ch = st_waveforms[i]
             if len(st_ch) == 0:
-                hits_list.append(np.zeros(0, dtype=kwargs.get("dtype", object)))
+                hits_list.append(np.zeros(0, dtype=PEAK_DTYPE))
                 continue
 
             # 使用每个通道的全部事件数

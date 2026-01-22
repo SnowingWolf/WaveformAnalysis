@@ -12,6 +12,7 @@ CAEN VX2730 数字化仪完整适配器
 - 分隔符: 分号 (;)
 - 首文件有 2 行头部，其他文件无头部
 - 时间戳单位: 皮秒 (ps)
+- 采样率: 500 MHz
 - 列布局: BOARD;CHANNEL;TIMETAG;...;SAMPLES[7:]
 - 预期采样点数: 800
 - 目录结构: DAQ/{run_name}/RAW/*.CSV
@@ -76,6 +77,7 @@ class VX2730Spec:
             header_rows_other_files=0,
             delimiter=";",
             expected_samples=800,
+            sampling_rate_hz=500e6,
             metadata={
                 "manufacturer": "CAEN",
                 "model": "VX2730",
