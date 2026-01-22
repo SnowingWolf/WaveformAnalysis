@@ -1,10 +1,6 @@
-**导航**: [文档中心](../README.md) > [API 参考](README.md) > API 参考文档
-
----
-
 # API 参考文档
 
-> 自动生成于 2026-01-11 19:23:26
+> 自动生成于 2026-01-22 18:31:44
 
 本文档包含 WaveformAnalysis 的完整 API 参考。
 
@@ -24,32 +20,66 @@ Inspired by strax, it is the main entry point for data analysis.
 
 ### 方法
 
-#### `__init__(self, storage_dir: str = './strax_data', config: Optional[Dict[str, Any]] = None, storage: Optional[Any] = None, plugin_dirs: Optional[List[str]] = None, auto_discover_plugins: bool = False, enable_stats: bool = False, stats_mode: str = 'basic', stats_log_file: Optional[str] = None, work_dir: Optional[str] = None, use_run_subdirs: bool = True)`
+#### `__init__(self, config: Union[Dict[str, Any], NoneType] = None, storage: Union[Any, NoneType] = None, storage_dir: Union[str, NoneType] = None, plugin_dirs: Union[List[str], NoneType] = None, auto_discover_plugins: bool = False, enable_stats: bool = False, stats_mode: str = 'basic', stats_log_file: Union[str, NoneType] = None)`
 
 Initialize Context.
 
 
 **参数:**
-- `storage_dir`: 默认存储目录（使用 MemmapStorage 时的旧版模式）
 - `config`: 全局配置字典
+- `可选配置`: config['plugin_backends'] = {'peaks': SQLiteBackend(...), ...}
+- `storage_dir`: (Old:run_name)存储目录 (默认的 memmap 后端), 数据按 run_id 分目录存储。 如果为 None，将使用 config['data_root'] 作为存储目录。
 - `storage`: 自定义存储后端（必须实现 StorageBackend 接口） 如果为 None，使用默认的 MemmapStorage
 - `plugin_dirs`: 插件搜索目录列表
 - `auto_discover_plugins`: 是否自动发现并注册插件
 - `enable_stats`: 是否启用插件性能统计
 - `stats_mode`: 统计模式 ('off', 'basic', 'detailed')
-- `stats_log_file`: 统计日志文件路径
-- `work_dir`: 工作目录（新版分层模式）。如果设置，数据将按 run_id 分目录存储。
-- `use_run_subdirs`: 是否启用 run_id 子目录（仅当 work_dir 设置时生效） Storage Modes: 1. 旧版兼容模式（work_dir=None 且 storage_dir 有旧缓存）： - 所有文件在 storage_dir 根目录（扁平结构） 2. 新版分层模式（work_dir=None 且 storage_dir 为空，或显式设置 work_dir）： - 数据按 run_id 分目录存储 - 结构：work_dir/{run_id}/data/*.bin
+- `stats_log_file`: 统计日志文件路径 Storage Structure: 数据按 run_id 分目录存储：storage_dir/{run_id}/_cache/*.bin
 
 **示例:**
 
 ```python
->>> # 旧版兼容模式（storage_dir 有旧缓存会自动检测）
->>> ctx = Context(storage_dir="./strax_data")
+>>> # 使用 data_root 作为存储目录（推荐）
+>>> ctx = Context(config={"data_root": "DAQ"})
+>>> # 缓存将存储在 DAQ/{run_id}/_cache/
 ```
 
 ---
-#### `analyze_dependencies(self, target_name: str, include_performance: bool = True, run_id: Optional[str] = None)`
+#### `analyze_cache(self, run_id: Union[str, NoneType] = None, verbose: bool = True) -> waveform_analysis.core.storage.cache_analyzer.CacheAnalyzer`
+
+获取缓存分析器实例并执行扫描
+
+创建一个 CacheAnalyzer 实例来分析缓存状态，支持按 run_id 过滤。
+
+
+**参数:**
+- `run_id`: 仅分析指定运行的缓存，None 则分析所有
+- `verbose`: 是否显示扫描进度
+
+**返回:**
+
+CacheAnalyzer 实例（已完成扫描）
+
+**示例:**
+
+```python
+>>> # 获取缓存分析器
+>>> analyzer = ctx.analyze_cache()
+>>>
+>>> # 查看所有条目
+>>> entries = analyzer.get_entries()
+>>> print(f"共 {len(entries)} 个缓存条目")
+>>>
+>>> # 按条件过滤
+>>> large = analyzer.get_entries(min_size=1024*1024)
+>>> old = analyzer.get_entries(max_age_days=30)
+>>>
+>>> # 打印摘要
+>>> analyzer.print_summary(detailed=True)
+```
+
+---
+#### `analyze_dependencies(self, target_name: str, include_performance: bool = True, run_id: Union[str, NoneType] = None)`
 
 分析插件依赖关系，识别关键路径、并行机会和性能瓶颈
 
@@ -75,9 +105,41 @@ DependencyAnalysisResult: 分析结果对象
 ```
 
 ---
-#### `build_time_index(self, run_id: str, data_name: str, time_field: str = 'time', endtime_field: Optional[str] = None, force_rebuild: bool = False)`
+#### `auto_extract_epoch(self, run_id: str, strategy: str = 'auto', file_paths: Union[List[str], NoneType] = None) -> Any`
+
+自动从数据文件提取 epoch
+
+
+**参数:**
+- `run_id`: 运行标识符
+- `strategy`: 提取策略（"auto", "filename", "csv_header", "first_event"）
+- `file_paths`: 数据文件路径列表（如果为 None，从 raw_files 获取）
+
+**返回:**
+
+提取的 EpochInfo 实例
+
+**异常:**
+- `ValueError`: 如果无法提取 epoch
+
+**示例:**
+
+```python
+>>> # 自动提取（优先从文件名）
+>>> epoch_info = ctx.auto_extract_epoch('run_001')
+>>>
+>>> # 指定策略
+>>> epoch_info = ctx.auto_extract_epoch('run_001', strategy='filename')
+```
+
+---
+#### `build_time_index(self, run_id: str, data_name: str, time_field: str = 'time', endtime_field: Union[str, NoneType] = None, force_rebuild: bool = False) -> Dict[str, Any]`
 
 为数据构建时间索引
+
+支持两种数据类型：
+- 单个结构化数组: 构建单个索引
+- List[np.ndarray]: 为每个通道分别构建索引
 
 
 **参数:**
@@ -87,11 +149,53 @@ DependencyAnalysisResult: 分析结果对象
 - `endtime_field`: 结束时间字段名('computed'表示计算endtime)
 - `force_rebuild`: 强制重建索引
 
+**返回:**
+
+索引构建结果字典，包含： - 'type': 'single' 或 'multi_channel' - 'indices': 索引名称列表 - 'stats': 各索引的统计信息
+
 **示例:**
 
 ```python
->>> # 预先构建索引以提高查询性能
->>> ctx.build_time_index('run_001', 'st_waveforms', endtime_field='computed')
+>>> # 为 st_waveforms (List[np.ndarray]) 构建多通道索引
+>>> result = ctx.build_time_index('run_001', 'st_waveforms', endtime_field='computed')
+>>> print(result['type'])  # 'multi_channel'
+>>> print(result['indices'])  # ['st_waveforms_ch0', 'st_waveforms_ch1']
+>>>
+>>> # 为单个结构化数组构建索引
+>>> ctx.build_time_index('run_001', 'peaks')
+```
+
+---
+#### `cache_stats(self, run_id: Union[str, NoneType] = None, detailed: bool = False, export_path: Union[str, NoneType] = None) -> waveform_analysis.core.storage.cache_statistics.CacheStatistics`
+
+获取缓存统计信息
+
+收集并显示缓存使用情况的统计信息。
+
+
+**参数:**
+- `run_id`: 仅统计指定运行，None 则统计所有
+- `detailed`: 是否显示详细统计（按运行、按数据类型）
+- `export_path`: 如果指定，导出统计到文件（支持 .json, .csv）
+
+**返回:**
+
+CacheStatistics 统计数据
+
+**示例:**
+
+```python
+>>> # 获取基本统计
+>>> stats = ctx.cache_stats()
+>>>
+>>> # 详细统计
+>>> stats = ctx.cache_stats(detailed=True)
+>>>
+>>> # 特定运行的统计
+>>> stats = ctx.cache_stats(run_id='run_001', detailed=True)
+>>>
+>>> # 导出统计
+>>> stats = ctx.cache_stats(export_path='cache_stats.json')
 ```
 
 ---
@@ -105,13 +209,21 @@ DependencyAnalysisResult: 分析结果对象
 
 
 ---
-#### `clear_cache(self, step_name: Optional[str] = None) -> None`
+#### `clear_cache(self, step_name: Union[str, NoneType] = None) -> None`
 
 清除指定步骤或所有步骤的缓存。
 
+注意：此方法来自 CacheMixin，用于清除旧的步骤级缓存系统（基于 _cache 和 _cache_config）。
+对于 Context 的插件系统缓存，应该使用 clear_cache_for() 方法来清除运行级缓存。
+
+
+**参数:**
+- `step_name`: 步骤名称，如果为 None 则清除所有步骤的缓存
+- `建议`: 对于 Context 的插件数据缓存，请使用 clear_cache_for(run_id, data_name) 方法。 此方法主要用于兼容旧的步骤级缓存系统。
+
 
 ---
-#### `clear_cache_for(self, run_id: str, data_name: Optional[str] = None, clear_memory: bool = True, clear_disk: bool = True, verbose: bool = True) -> int`
+#### `clear_cache_for(self, run_id: str, data_name: Union[str, NoneType] = None, clear_memory: bool = True, clear_disk: bool = True, verbose: bool = True) -> int`
 
 清理指定运行和步骤的缓存。
 
@@ -144,7 +256,7 @@ when plugin configurations change.
 
 
 ---
-#### `clear_time_index(self, run_id: Optional[str] = None, data_name: Optional[str] = None)`
+#### `clear_time_index(self, run_id: Union[str, NoneType] = None, data_name: Union[str, NoneType] = None)`
 
 清除时间索引
 
@@ -167,6 +279,40 @@ when plugin configurations change.
 ```
 
 ---
+#### `diagnose_cache(self, run_id: Union[str, NoneType] = None, auto_fix: bool = False, dry_run: bool = True, verbose: bool = True) -> List[waveform_analysis.core.storage.cache_diagnostics.DiagnosticIssue]`
+
+诊断缓存问题
+
+检查缓存的完整性、版本一致性、孤儿文件等问题。
+
+
+**参数:**
+- `run_id`: 仅诊断指定运行，None 则诊断所有
+- `auto_fix`: 是否自动修复可修复的问题
+- `dry_run`: 如果 auto_fix=True，是否仅预演（不实际执行）
+- `verbose`: 是否显示详细信息
+
+**返回:**
+
+List[DiagnosticIssue]
+
+**示例:**
+
+```python
+>>> # 诊断所有缓存
+>>> issues = ctx.diagnose_cache()
+>>>
+>>> # 诊断特定运行
+>>> issues = ctx.diagnose_cache(run_id='run_001')
+>>>
+>>> # 自动修复（先 dry-run）
+>>> issues = ctx.diagnose_cache(auto_fix=True, dry_run=True)
+>>>
+>>> # 实际修复
+>>> issues = ctx.diagnose_cache(auto_fix=True, dry_run=False)
+```
+
+---
 #### `discover_and_register_plugins(self, allow_override: bool = False) -> int`
 
 自动发现并注册插件
@@ -185,7 +331,7 @@ when plugin configurations change.
 
 
 ---
-#### `get_cached_result(self, step_name: str) -> Optional[Dict[str, object]]`
+#### `get_cached_result(self, step_name: str) -> Union[Dict[str, object], NoneType]`
 
 返回指定步骤的内存缓存字典（若存在）。
 
@@ -226,7 +372,7 @@ when plugin configurations change.
 ```
 
 ---
-#### `get_data(self, run_id: str, data_name: str, show_progress: bool = False, progress_desc: Optional[str] = None, **kwargs) -> Any`
+#### `get_data(self, run_id: str, data_name: str, show_progress: bool = False, progress_desc: Union[str, NoneType] = None, **kwargs) -> Any`
 
 Retrieve data by name for a specific run.
 If data is not in memory/cache, it will trigger the necessary plugins.
@@ -240,9 +386,13 @@ If data is not in memory/cache, it will trigger the necessary plugins.
 
 
 ---
-#### `get_data_time_range(self, run_id: str, data_name: str, start_time: Optional[int] = None, end_time: Optional[int] = None, time_field: str = 'time', endtime_field: Optional[str] = None, auto_build_index: bool = True) -> numpy.ndarray`
+#### `get_data_time_range(self, run_id: str, data_name: str, start_time: Union[int, NoneType] = None, end_time: Union[int, NoneType] = None, time_field: str = 'time', endtime_field: Union[str, NoneType] = None, auto_build_index: bool = True, channel: Union[int, NoneType] = None) -> Union[numpy.ndarray, List[numpy.ndarray]]`
 
 查询数据的时间范围
+
+支持两种数据类型：
+- 单个结构化数组: 返回过滤后的数组
+- List[np.ndarray]: 返回过滤后的列表（或指定通道的数组）
 
 
 **参数:**
@@ -253,32 +403,106 @@ If data is not in memory/cache, it will trigger the necessary plugins.
 - `time_field`: 时间字段名
 - `endtime_field`: 结束时间字段名('computed'表示计算endtime)
 - `auto_build_index`: 自动构建时间索引
+- `channel`: 指定通道号（仅用于多通道数据），None 表示返回所有通道
+
+**返回:**
+
+符合条件的数据子集： - 单个数组数据: 返回 np.ndarray - 多通道数据: 返回 List[np.ndarray] 或指定通道的 np.ndarray
+
+**示例:**
+
+```python
+>>> # 查询特定时间范围的波形数据（多通道）
+>>> data = ctx.get_data_time_range('run_001', 'st_waveforms',
+...                                 start_time=1000000, end_time=2000000)
+>>> len(data)  # 返回列表，长度为通道数
+2
+>>>
+>>> # 只查询特定通道
+>>> ch0_data = ctx.get_data_time_range('run_001', 'st_waveforms',
+...                                     start_time=1000000, end_time=2000000,
+...                                     channel=0)
+```
+
+---
+#### `get_data_time_range_absolute(self, run_id: str, data_name: str, start_dt: Union[datetime.datetime, NoneType] = None, end_dt: Union[datetime.datetime, NoneType] = None, time_field: str = 'time', endtime_field: Union[str, NoneType] = None, auto_build_index: bool = True, channel: Union[int, NoneType] = None, auto_extract_epoch: bool = True) -> Union[numpy.ndarray, List[numpy.ndarray]]`
+
+使用绝对时间（datetime）查询数据
+
+与 get_data_time_range() 功能相同，但使用 datetime 对象指定时间范围。
+
+
+**参数:**
+- `run_id`: 运行标识符
+- `data_name`: 数据名称
+- `start_dt`: 起始时间（datetime，包含）
+- `end_dt`: 结束时间（datetime，不包含）
+- `time_field`: 时间字段名
+- `endtime_field`: 结束时间字段名
+- `auto_build_index`: 自动构建时间索引
+- `channel`: 指定通道号（仅用于多通道数据）
+- `auto_extract_epoch`: 如果未设置 epoch，是否自动提取
 
 **返回:**
 
 符合条件的数据子集
 
+**异常:**
+- `ValueError`: 如果未设置 epoch 且无法自动提取
+
 **示例:**
 
 ```python
->>> # 查询特定时间范围的波形数据
->>> data = ctx.get_data_time_range('run_001', 'st_waveforms',
-...                                 start_time=1000000, end_time=2000000)
+>>> from datetime import datetime, timezone
 >>>
->>> # 查询所有数据后特定时间的记录
->>> data = ctx.get_data_time_range('run_001', 'st_waveforms', start_time=1000000)
+>>> start = datetime(2024, 1, 1, 12, 0, 10, tzinfo=timezone.utc)
+>>> end = datetime(2024, 1, 1, 12, 0, 20, tzinfo=timezone.utc)
+>>>
+>>> data = ctx.get_data_time_range_absolute(
+...     'run_001', 'peaks',
+...     start_dt=start, end_dt=end
+... )
 ```
 
 ---
-#### `get_lineage(self, data_name: str, _visited: Optional[set] = None) -> Dict[str, Any]`
+#### `get_epoch(self, run_id: str) -> Union[Any, NoneType]`
 
-Get the lineage (recipe) for a data type.
+获取 run 的 epoch 元数据
 
-Uses caching for performance optimization.
+
+**参数:**
+- `run_id`: 运行标识符
+
+**返回:**
+
+EpochInfo 实例，如果未设置则返回 None
+
+**示例:**
+
+```python
+>>> epoch_info = ctx.get_epoch('run_001')
+>>> if epoch_info:
+...     print(f"Epoch: {epoch_info.epoch_datetime}")
+...     print(f"Source: {epoch_info.epoch_source}")
+```
+
+---
+#### `get_lineage(self, data_name: str, _visited: Union[set, NoneType] = None) -> Dict[str, Any]`
+
+Get the lineage (recipe) for a data type. Uses caching for performance optimization.
+
+
+**参数:**
+- `data_name`: The name of the data type for which to retrieve the lineage.
+- `_visited`: Internal parameter used to track visited data names during recursion to detect and handle circular dependencies. Defaults to None.
+
+**返回:**
+
+A dictionary representing the lineage of the specified data type.
 
 
 ---
-#### `get_performance_report(self, plugin_name: Optional[str] = None, format: str = 'text') -> Any`
+#### `get_performance_report(self, plugin_name: Union[str, NoneType] = None, format: str = 'text') -> Any`
 
 获取插件性能统计报告
 
@@ -356,7 +580,7 @@ Plugin: 插件对象
 ```
 
 ---
-#### `help(self, topic: Optional[str] = None, search: Optional[str] = None, verbose: bool = False) -> str`
+#### `help(self, topic: Union[str, NoneType] = None, search: Union[str, NoneType] = None, verbose: bool = False) -> str`
 
 显示帮助信息
 
@@ -389,7 +613,7 @@ Uses caching for performance optimization.
 
 
 ---
-#### `list_plugin_configs(self, plugin_name: Optional[str] = None, show_current_values: bool = True, verbose: bool = True) -> Dict[str, Any]`
+#### `list_plugin_configs(self, plugin_name: Union[str, NoneType] = None, show_current_values: bool = True, verbose: bool = True) -> Dict[str, Any]`
 
 列出所有插件的配置选项
 
@@ -442,6 +666,37 @@ Visualize the lineage of a data type.
 - `data_name`: Name of the target data.
 - `kind`: Visualization style ('labview', 'mermaid', or 'plotly'). **kwargs: Additional arguments passed to the visualizer.
 
+
+---
+#### `preview_execution(self, run_id: str, data_name: str, show_tree: bool = True, show_config: bool = True, show_cache: bool = True, verbose: int = 1) -> Dict[str, Any]`
+
+预览数据获取的执行计划（不实际执行计算）
+
+在调用 get_data() 之前查看将要执行的操作，包括：
+- 执行计划（插件执行顺序）
+- 依赖关系树
+- 配置参数（仅显示非默认值）
+- 缓存状态（哪些数据已缓存，哪些需要计算）
+
+
+**参数:**
+- `run_id`: 运行标识符
+- `data_name`: 要获取的数据名称
+- `show_tree`: 是否显示依赖关系树
+- `show_config`: 是否显示配置参数
+- `show_cache`: 是否显示缓存状态
+- `verbose`: 显示详细程度 (0=简洁, 1=标准, 2=详细)
+
+**返回:**
+
+包含执行计划详情的字典
+
+**示例:**
+
+```python
+>>> # 基本预览
+>>> ctx.preview_execution('run_001', 'signal_peaks')
+```
 
 ---
 #### `print_cache_report(self, verify: bool = False) -> None`
@@ -543,8 +798,9 @@ Context 会自动管理插件之间的依赖关系，并在获取数据时按需
 ```
 
 ---
-#### `register_plugin(self, plugin: Any, allow_override: bool = False) -> None`
+#### `register_plugin_(self, plugin: Any, allow_override: bool = False) -> None`
 
+(DONT USE THIS METHOD DIRECTLY, USE CONTEXT.REGISTER INSTEAD)
 Register a plugin instance with strict validation.
 
 
@@ -556,7 +812,7 @@ Uses topological sort to determine execution order and detect cycles.
 
 
 ---
-#### `run_plugin(self, run_id: str, data_name: str, show_progress: bool = False, progress_desc: Optional[str] = None, **kwargs) -> Any`
+#### `run_plugin(self, run_id: str, data_name: str, show_progress: bool = False, progress_desc: Union[str, NoneType] = None, **kwargs) -> Any`
 
 Override run_plugin to add saving logic and config resolution.
 
@@ -575,7 +831,7 @@ Override run_plugin to add saving logic and config resolution.
 
 
 ---
-#### `set_config(self, config: Dict[str, Any], plugin_name: Optional[str] = None)`
+#### `set_config(self, config: Dict[str, Any], plugin_name: Union[str, NoneType] = None)`
 
 更新上下文配置。
 
@@ -597,13 +853,40 @@ Override run_plugin to add saving logic and config resolution.
 ```
 
 ---
-#### `set_step_cache(self, step_name: str, enabled: bool = True, attrs: Optional[List[str]] = None, persist_path: Optional[str] = None, watch_attrs: Optional[List[str]] = None, backend: str = 'joblib') -> None`
+#### `set_epoch(self, run_id: str, epoch: Union[datetime.datetime, float, str], time_unit: str = 'ns') -> None`
+
+手动设置 run 的 epoch（时间基准）
+
+
+**参数:**
+- `run_id`: 运行标识符
+- `epoch`: Epoch 值，支持多种格式： - datetime: Python datetime 对象 - float: Unix 时间戳（秒） - str: ISO 8601 格式字符串（如 "2024-01-01T12:00:00Z"）
+- `time_unit`: 相对时间单位（"ps", "ns", "us", "ms", "s"）
+
+**示例:**
+
+```python
+>>> from datetime import datetime, timezone
+>>>
+>>> # 使用 datetime 对象
+>>> epoch = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+>>> ctx.set_epoch('run_001', epoch)
+>>>
+>>> # 使用 Unix 时间戳
+>>> ctx.set_epoch('run_001', 1704110400.0)
+>>>
+>>> # 使用 ISO 字符串
+>>> ctx.set_epoch('run_001', "2024-01-01T12:00:00Z")
+```
+
+---
+#### `set_step_cache(self, step_name: str, enabled: bool = True, attrs: Union[List[str], NoneType] = None, persist_path: Union[str, NoneType] = None, watch_attrs: Union[List[str], NoneType] = None, backend: str = 'joblib') -> None`
 
 配置指定步骤的缓存。
 
 
 ---
-#### `show_config(self, data_name: Optional[str] = None, show_usage: bool = True)`
+#### `show_config(self, data_name: Union[str, NoneType] = None, show_usage: bool = True)`
 
 显示当前配置，并标识每个配置项对应的插件
 
@@ -626,7 +909,22 @@ Override run_plugin to add saving logic and config resolution.
 统一的波形数据集容器，封装整个数据处理流程。
 支持链式调用，简化数据加载、预处理和分析。
 
-使用示例：
+.. deprecated:: 0.2.0
+    `WaveformDataset` 已被弃用，将在下一个主版本中移除。
+    请使用 `Context` 和插件系统替代。
+    
+    迁移示例:
+        旧代码:
+            ds = WaveformDataset(run_name="run_001", n_channels=2)
+            ds.load_raw_data().extract_waveforms()...
+        
+        新代码:
+            ctx = Context()
+            ctx.register(standard_plugins)
+            ctx.set_config({'n_channels': 2, 'data_root': 'DAQ'})
+            peaks = ctx.get_data('run_001', 'peaks')
+
+使用示例（已弃用）：
     dataset = WaveformDataset(run_name="50V_OV_circulation_20thr", n_channels=2)
     dataset.load_raw_data().extract_waveforms().structure_waveforms()\
            .build_waveform_features().build_dataframe().group_events()\
@@ -637,9 +935,13 @@ Override run_plugin to add saving logic and config resolution.
 
 ### 方法
 
-#### `__init__(self, run_name: str = '50V_OV_circulation_20thr', n_channels: int = 2, start_channel_slice: int = 6, data_root: str = 'DAQ', load_waveforms: bool = True, use_daq_scan: bool = False, daq_root: Optional[str] = None, daq_report: Optional[str] = None, cache_waveforms: bool = True, cache_dir: Optional[str] = None, **kwargs)`
+#### `__init__(self, run_name: str = '50V_OV_circulation_20thr', n_channels: int = 2, start_channel_slice: int = 6, data_root: str = 'DAQ', load_waveforms: bool = True, use_daq_scan: bool = False, daq_root: Union[str, NoneType] = None, daq_report: Union[str, NoneType] = None, cache_waveforms: bool = True, cache_dir: Union[str, NoneType] = None, **kwargs)`
 
 初始化数据集。
+
+.. deprecated:: 0.2.0
+    `WaveformDataset` 已被弃用，将在下一个主版本中移除。
+    请使用 `Context` 和插件系统替代。
 
 
 **参数:**
@@ -659,7 +961,7 @@ Override run_plugin to add saving logic and config resolution.
 
 
 ---
-#### `build_waveform_features(self, peaks_range: Optional[Tuple[int, int]] = None, charge_range: Optional[Tuple[int, int]] = None, verbose: bool = True) -> 'WaveformDataset'`
+#### `build_waveform_features(self, peaks_range: Union[Tuple[int, int], NoneType] = None, charge_range: Union[Tuple[int, int], NoneType] = None, verbose: bool = True) -> 'WaveformDataset'`
 
 计算波形特征（peaks 和 charges）。
 
@@ -689,7 +991,7 @@ Decorator for chainable steps with integrated caching and error handling.
 
 
 ---
-#### `clear_cache(self, step_name: Optional[str] = None, clear_memory: bool = True, clear_disk: bool = True) -> int`
+#### `clear_cache(self, step_name: Union[str, NoneType] = None, clear_memory: bool = True, clear_disk: bool = True) -> int`
 
 清理缓存。
 
@@ -723,7 +1025,7 @@ Decorator for chainable steps with integrated caching and error handling.
 
 
 ---
-#### `get_cached_result(self, step_name: str) -> Optional[Dict[str, object]]`
+#### `get_cached_result(self, step_name: str) -> Union[Dict[str, object], NoneType]`
 
 返回指定步骤的内存缓存字典（若存在）。
 
@@ -741,19 +1043,19 @@ Decorator for chainable steps with integrated caching and error handling.
 
 
 ---
-#### `get_grouped_events(self) -> Optional[pandas.core.frame.DataFrame]`
+#### `get_grouped_events(self) -> Union[pandas.core.frame.DataFrame, NoneType]`
 
 获取分组后的事件 DataFrame。
 
 
 ---
-#### `get_paired_events(self) -> Optional[pandas.core.frame.DataFrame]`
+#### `get_paired_events(self) -> Union[pandas.core.frame.DataFrame, NoneType]`
 
 获取配对的事件 DataFrame。
 
 
 ---
-#### `get_raw_events(self) -> Optional[pandas.core.frame.DataFrame]`
+#### `get_raw_events(self) -> Union[pandas.core.frame.DataFrame, NoneType]`
 
 获取原始事件 DataFrame（未分组）。
 
@@ -765,7 +1067,7 @@ Decorator for chainable steps with integrated caching and error handling.
 
 
 ---
-#### `get_waveform_at(self, event_idx: int, channel: int = 0) -> Optional[Tuple[numpy.ndarray, float]]`
+#### `get_waveform_at(self, event_idx: int, channel: int = 0) -> Union[Tuple[numpy.ndarray, float], NoneType]`
 
 获取指定事件和通道的原始波形及其 baseline。
 
@@ -777,7 +1079,7 @@ Decorator for chainable steps with integrated caching and error handling.
 
 
 ---
-#### `group_events(self, time_window_ns: Optional[float] = None, use_numba: bool = True, n_processes: Optional[int] = None, verbose: bool = True) -> 'WaveformDataset'`
+#### `group_events(self, time_window_ns: Union[float, NoneType] = None, use_numba: bool = True, n_processes: Union[int, NoneType] = None, verbose: bool = True) -> 'WaveformDataset'`
 
 按时间窗口聚类多通道事件。
 
@@ -790,7 +1092,7 @@ Decorator for chainable steps with integrated caching and error handling.
 
 
 ---
-#### `help(self, topic: Optional[str] = None, verbose: bool = False) -> str`
+#### `help(self, topic: Union[str, NoneType] = None, verbose: bool = False) -> str`
 
 显示数据集使用帮助
 
@@ -814,7 +1116,7 @@ Decorator for chainable steps with integrated caching and error handling.
 
 
 ---
-#### `pair_events(self, n_channels: Optional[int] = None, start_channel_slice: Optional[int] = None, verbose: bool = True) -> 'WaveformDataset'`
+#### `pair_events(self, n_channels: Union[int, NoneType] = None, start_channel_slice: Union[int, NoneType] = None, verbose: bool = True) -> 'WaveformDataset'`
 
 筛选成对的 N 通道事件。
 
@@ -854,7 +1156,7 @@ Toggle whether chainable steps raise on failure.
 
 
 ---
-#### `set_step_cache(self, step_name: str, enabled: bool = True, attrs: Optional[List[str]] = None, persist_path: Optional[str] = None, watch_attrs: Optional[List[str]] = None, backend: str = 'joblib') -> None`
+#### `set_step_cache(self, step_name: str, enabled: bool = True, attrs: Union[List[str], NoneType] = None, persist_path: Union[str, NoneType] = None, watch_attrs: Union[List[str], NoneType] = None, backend: str = 'joblib') -> None`
 
 配置指定步骤的缓存。
 
@@ -884,5 +1186,5 @@ Toggle whether to store traceback in error info.
 
 ---
 
-**生成时间**: 2026-01-11 19:23:26
+**生成时间**: 2026-01-22 18:31:44
 **工具**: WaveformAnalysis DocGenerator
