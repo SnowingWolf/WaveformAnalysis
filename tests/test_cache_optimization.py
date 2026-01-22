@@ -54,6 +54,188 @@ class TestCacheOptimization:
         data2 = ctx.get_data("run_002", "data_c")
         np.testing.assert_array_equal(data2, np.array([3]))
 
+    def test_step_cache_skip_in_plan(self, tmp_path):
+        """测试执行计划中缓存命中时跳过执行"""
+
+        dtype = np.dtype([("v", "i4")])
+        executed = []
+
+        class TrackingContext(Context):
+            def _execute_single_plugin(self, name, run_id, data_name, kwargs, tracker, bar_name):
+                executed.append(name)
+                return super()._execute_single_plugin(name, run_id, data_name, kwargs, tracker, bar_name)
+
+        class PluginA(Plugin):
+            provides = "data_a"
+            output_dtype = dtype
+
+            def compute(self, context, run_id):
+                return np.array([(1,)], dtype=self.output_dtype)
+
+        class PluginB(Plugin):
+            provides = "data_b"
+            depends_on = ["data_a"]
+            output_dtype = dtype
+
+            def compute(self, context, run_id):
+                _ = context.get_data(run_id, "data_a")
+                return np.array([(2,)], dtype=self.output_dtype)
+
+        class PluginC(Plugin):
+            provides = "data_c"
+            depends_on = ["data_b"]
+            output_dtype = dtype
+
+            def compute(self, context, run_id):
+                _ = context.get_data(run_id, "data_b")
+                return np.array([(3,)], dtype=self.output_dtype)
+
+        ctx = TrackingContext(storage_dir=str(tmp_path))
+        ctx.register_plugin_(PluginA())
+        ctx.register_plugin_(PluginB())
+        ctx.register_plugin_(PluginC())
+
+        run_id = "run_cache_skip"
+        ctx._set_data(run_id, "data_a", np.array([(1,)], dtype=dtype))
+
+        data = ctx.get_data(run_id, "data_c")
+        np.testing.assert_array_equal(data, np.array([(3,)], dtype=dtype))
+        assert executed == ["data_b", "data_c"]
+
+    def test_prune_upstream_when_mid_cached(self, tmp_path):
+        """测试中间节点缓存命中时剪枝上游依赖"""
+
+        dtype = np.dtype([("v", "i4")])
+        executed = []
+
+        class TrackingContext(Context):
+            def _execute_single_plugin(self, name, run_id, data_name, kwargs, tracker, bar_name):
+                executed.append(name)
+                return super()._execute_single_plugin(name, run_id, data_name, kwargs, tracker, bar_name)
+
+        class PluginA(Plugin):
+            provides = "data_a"
+            output_dtype = dtype
+
+            def compute(self, context, run_id):
+                return np.array([(1,)], dtype=self.output_dtype)
+
+        class PluginB(Plugin):
+            provides = "data_b"
+            depends_on = ["data_a"]
+            output_dtype = dtype
+
+            def compute(self, context, run_id):
+                _ = context.get_data(run_id, "data_a")
+                return np.array([(2,)], dtype=self.output_dtype)
+
+        class PluginC(Plugin):
+            provides = "data_c"
+            depends_on = ["data_b"]
+            output_dtype = dtype
+
+            def compute(self, context, run_id):
+                _ = context.get_data(run_id, "data_b")
+                return np.array([(3,)], dtype=self.output_dtype)
+
+        ctx = TrackingContext(storage_dir=str(tmp_path))
+        ctx.register_plugin_(PluginA())
+        ctx.register_plugin_(PluginB())
+        ctx.register_plugin_(PluginC())
+
+        run_id = "run_prune_mid"
+        ctx._set_data(run_id, "data_b", np.array([(2,)], dtype=dtype))
+
+        data = ctx.get_data(run_id, "data_c")
+        np.testing.assert_array_equal(data, np.array([(3,)], dtype=dtype))
+        assert executed == ["data_c"]
+
+    def test_prune_upstream_when_mid_cached_on_disk(self, tmp_path):
+        """测试中间节点磁盘缓存命中时剪枝上游依赖"""
+
+        dtype = np.dtype([("v", "i4")])
+        executed = []
+
+        class TrackingContext(Context):
+            def _execute_single_plugin(self, name, run_id, data_name, kwargs, tracker, bar_name):
+                executed.append(name)
+                return super()._execute_single_plugin(name, run_id, data_name, kwargs, tracker, bar_name)
+
+        class PluginA(Plugin):
+            provides = "data_a"
+            output_dtype = dtype
+
+            def compute(self, context, run_id):
+                return np.array([(1,)], dtype=self.output_dtype)
+
+        class PluginB(Plugin):
+            provides = "data_b"
+            depends_on = ["data_a"]
+            output_dtype = dtype
+            save_when = "always"
+
+            def compute(self, context, run_id):
+                _ = context.get_data(run_id, "data_a")
+                return np.array([(2,)], dtype=self.output_dtype)
+
+        class PluginC(Plugin):
+            provides = "data_c"
+            depends_on = ["data_b"]
+            output_dtype = dtype
+
+            def compute(self, context, run_id):
+                _ = context.get_data(run_id, "data_b")
+                return np.array([(3,)], dtype=self.output_dtype)
+
+        ctx = TrackingContext(storage_dir=str(tmp_path))
+        ctx.register_plugin_(PluginA())
+        ctx.register_plugin_(PluginB())
+        ctx.register_plugin_(PluginC())
+
+        run_id = "run_prune_disk"
+        _ = ctx.get_data(run_id, "data_b")
+        key_b = ctx.key_for(run_id, "data_b")
+        assert ctx.storage.exists(key_b, run_id)
+
+        executed.clear()
+        ctx._results.pop((run_id, "data_a"), None)
+        ctx._results.pop((run_id, "data_b"), None)
+
+        data = ctx.get_data(run_id, "data_c")
+        np.testing.assert_array_equal(data, np.array([(3,)], dtype=dtype))
+        assert executed == ["data_c"]
+
+    def test_run_plugin_loads_disk_cache(self, tmp_path):
+        """测试 run_plugin 在缓存命中时会加载磁盘数据"""
+
+        dtype = np.dtype([("v", "i4")])
+        executed = []
+
+        class TrackingContext(Context):
+            def _execute_single_plugin(self, name, run_id, data_name, kwargs, tracker, bar_name):
+                executed.append(name)
+                return super()._execute_single_plugin(name, run_id, data_name, kwargs, tracker, bar_name)
+
+        class PluginA(Plugin):
+            provides = "data_a"
+            output_dtype = dtype
+            save_when = "always"
+
+            def compute(self, context, run_id):
+                return np.array([(1,)], dtype=self.output_dtype)
+
+        ctx = TrackingContext(storage_dir=str(tmp_path))
+        ctx.register_plugin_(PluginA())
+
+        run_id = "run_disk_cache"
+        _ = ctx.get_data(run_id, "data_a")
+        executed.clear()
+        ctx._results.pop((run_id, "data_a"), None)
+
+        data = ctx.run_plugin(run_id, "data_a")
+        np.testing.assert_array_equal(data, np.array([(1,)], dtype=dtype))
+        assert executed == []
+
     def test_lineage_cache(self):
         """测试血缘缓存"""
 

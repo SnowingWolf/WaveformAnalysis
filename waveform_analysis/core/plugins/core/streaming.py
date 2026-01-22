@@ -4,13 +4,28 @@
 
 受 strax 启发的流式处理系统，主要特性：
 - 数据以 Chunk 形式流动，保持低内存占用
-- StreamingPlugin 自动处理 Chunk 流并可并行化
+- StreamingPlugin 自动处理 Chunk 流并可并行化（批处理、顺序回收）
 - 支持时间边界校验、断点分段和 halo 扩展
-- 可选动态负载均衡(DynamicLoadBalancer)
+- 可选动态负载均衡（DynamicLoadBalancer）
+- 支持进度条跟踪与 executor_config 统一配置
+- 兼容静态数据，自动转换为 chunk 流
 
 关键约定：
-- Chunk.metadata 会包含 main_start/main_end/segment_id，用于裁剪与状态重置
-- time 字段默认使用 TIME_FIELD，缺失时会回退到 TIMESTAMP_FIELD
+- Chunk.metadata 包含 main_start/main_end/segment_id，用于裁剪与状态重置
+ - time 字段默认使用 TIMESTAMP_FIELD（ps）
+
+运行逻辑（高层）：
+1. StreamingContext.get_stream 选择插件：
+   - 流式插件：直接调用 compute()
+   - 静态插件：临时包装为 StreamingPlugin 并切分为 chunk
+2. StreamingPlugin.compute 获取输入流：
+   - 依赖是流式数据则直接迭代
+   - 依赖是静态数组则 _data_to_chunks 分段并可扩展 halo
+3. compute_chunk 逐块处理，_postprocess_result 负责：
+   - 包装非 Chunk 输出
+   - 按 main_start/main_end 裁剪输出
+4. _validate_chunk 校验时间边界，保障 endtime ≤ chunk.end
+5. 并行模式下使用 ExecutorManager 批量提交任务并按顺序产出结果
 
 Examples:
     from waveform_analysis.core.plugins.core.streaming import get_streaming_context
@@ -20,6 +35,8 @@ Examples:
         handle_chunk(chunk)
 """
 
+import logging
+import pickle
 import time
 from typing import Any, Dict, Generator, Iterator, List, Optional, Tuple, Union
 
@@ -34,7 +51,7 @@ from ...processing.chunk import (
     LENGTH_FIELD,
     ENDTIME_FIELD,
     TIMESTAMP_FIELD,
-    DEFAULT_BREAK_THRESHOLD_NS,
+    DEFAULT_BREAK_THRESHOLD_PS,
     split_by_breaks,
     select_time_range,
 )
@@ -42,17 +59,42 @@ from ...execution.config import get_config
 from .base import Plugin
 from waveform_analysis.core.foundation.utils import exporter
 
+logger = logging.getLogger(__name__)
 export, __all__ = exporter()
 
 
+def _is_pickleable(obj: Any) -> bool:
+    try:
+        pickle.dumps(obj)
+    except Exception:
+        return False
+    return True
+
+
+def _process_chunk_worker(
+    plugin: "StreamingPlugin",
+    chunk: Chunk,
+    context: Any,
+    run_id: str,
+    kwargs: Dict[str, Any],
+) -> Optional[Chunk]:
+    result = plugin.compute_chunk(chunk, context, run_id, **kwargs)
+    result = plugin._postprocess_result(result, chunk)
+    if result is not None:
+        plugin._validate_chunk(result)
+    return result
+
+
 def _pick_time_field(data: np.ndarray, preferred: str) -> Optional[str]:
-    """选择可用的时间字段名（默认支持 time -> timestamp 回退）。"""
+    """选择可用的时间字段名（优先使用 preferred）。"""
     if not hasattr(data, "dtype") or data.dtype.names is None:
         return None
     if preferred in data.dtype.names:
         return preferred
     if preferred == TIME_FIELD and TIMESTAMP_FIELD in data.dtype.names:
         return TIMESTAMP_FIELD
+    if preferred == TIMESTAMP_FIELD and TIME_FIELD in data.dtype.names:
+        return TIME_FIELD
     return None
 
 
@@ -79,9 +121,12 @@ class StreamingPlugin(Plugin):
 
     关键配置（常用）：
     - chunk_size: 静态数据切分大小
-    - break_threshold_ns: 断点阈值（split_by_breaks 分段）
+    - break_threshold_ps: 断点阈值（单位与 time_field 一致，默认 ps）
     - required_halo_ns/left/right: halo 扩展范围
     - parallel/executor_type/max_workers: 并行策略
+    - parallel_batch_size: 并行批处理大小（None=自动）
+    - executor_config: 统一执行器配置，覆盖类属性
+    - load_balancer_config.worker_buckets: discrete worker buckets (e.g. [2, 4, 8])
     - is_stateful/reset_on_break: 状态插件在分段切换时的处理策略
     - time_field/dt_field/length_field/endtime_field: 时间字段名配置
     """
@@ -92,12 +137,12 @@ class StreamingPlugin(Plugin):
     parallel_batch_size: Optional[int] = None  # 并行处理批量大小（None=自动）
     executor_type: str = "thread"  # 执行器类型
     max_workers: Optional[int] = None  # 最大工作线程/进程数
-    time_field: str = TIME_FIELD  # 时间字段名
+    time_field: str = TIMESTAMP_FIELD  # 时间字段名（默认 timestamp）
     dt_field: str = DT_FIELD  # 采样间隔字段名
     length_field: str = LENGTH_FIELD  # 长度字段名
     endtime_field: str = ENDTIME_FIELD  # 结束时间字段名
     dt: Optional[float] = None  # 可选的固定采样间隔（覆盖 dt_field）
-    output_time_field: str = TIME_FIELD  # 输出时间字段名
+    output_time_field: str = TIMESTAMP_FIELD  # 输出时间字段名
     output_endtime_field: str = ENDTIME_FIELD  # 输出结束时间字段名
     output_data_kind: str = "stream"  # 输出数据类型标签
     required_halo_ns: int = 0  # 对称 halo
@@ -106,7 +151,7 @@ class StreamingPlugin(Plugin):
     clip_strict: bool = False  # 输出裁剪策略
     is_stateful: bool = False  # 是否有状态
     reset_on_break: bool = True  # break 时是否重置状态
-    break_threshold_ns: int = DEFAULT_BREAK_THRESHOLD_NS  # break 阈值
+    break_threshold_ps: int = DEFAULT_BREAK_THRESHOLD_PS  # break 阈值（默认 ps）
 
     # 负载均衡配置
     use_load_balancer: bool = False  # 是否使用独立的负载均衡器
@@ -146,6 +191,54 @@ class StreamingPlugin(Plugin):
             return self._load_balancer.get_statistics()
         return None
 
+    def _resolve_worker_buckets(self, max_workers: Optional[int]) -> List[int]:
+        config = self.load_balancer_config or {}
+        buckets: List[int] = []
+        raw_buckets = config.get("worker_buckets")
+
+        if raw_buckets:
+            for value in raw_buckets:
+                try:
+                    bucket = int(value)
+                except (TypeError, ValueError):
+                    continue
+                if bucket > 0:
+                    buckets.append(bucket)
+        else:
+            bucket_max = max_workers
+            if bucket_max is None and self._load_balancer:
+                bucket_max = self._load_balancer.max_workers
+            if bucket_max is None:
+                bucket_max = 1
+            bucket_max = max(1, int(bucket_max))
+            bucket = 1
+            while bucket < bucket_max:
+                buckets.append(bucket)
+                bucket *= 2
+            buckets.append(bucket_max)
+
+        bucket_min = 1
+        if self._load_balancer:
+            bucket_min = max(1, int(self._load_balancer.min_workers))
+        buckets.append(bucket_min)
+
+        if max_workers is not None:
+            buckets.append(max(1, int(max_workers)))
+
+        buckets = sorted(set(buckets))
+        if not buckets:
+            return [max(1, int(max_workers or 1))]
+        return buckets
+
+    def _quantize_workers(self, suggested: int, max_workers: Optional[int]) -> int:
+        if suggested < 1:
+            suggested = 1
+        buckets = self._resolve_worker_buckets(max_workers)
+        for bucket in buckets:
+            if bucket >= suggested:
+                return bucket
+        return buckets[-1]
+
     def reset_state(self) -> None:
         """Reset internal state for stateful plugins."""
         return None
@@ -163,11 +256,11 @@ class StreamingPlugin(Plugin):
         data: np.ndarray,
         time_field: str,
     ) -> Iterator[Tuple[np.ndarray, int, int, int]]:
-        if self.break_threshold_ns and self.break_threshold_ns > 0:
+        if self.break_threshold_ps and self.break_threshold_ps > 0:
             segment_id = 0
             for segment_data, info in split_by_breaks(
                 data,
-                break_threshold_ns=self.break_threshold_ns,
+                break_threshold_ps=self.break_threshold_ps,
                 min_chunk_size=1,
                 time_field=time_field,
                 endtime_field=self.endtime_field,
@@ -414,7 +507,7 @@ class StreamingPlugin(Plugin):
             Chunk 对象
 
         Notes:
-            - 若数据包含时间字段，会按 break_threshold_ns 分段，并支持 halo 扩展
+            - 若数据包含时间字段，会按 break_threshold_ps 分段，并支持 halo 扩展
             - 若无时间字段，则按 chunk_size 固定切分
         """
         if isinstance(data, np.ndarray):
@@ -574,7 +667,7 @@ class StreamingPlugin(Plugin):
             **kwargs: 其他参数
 
         Yields:
-            处理后的 chunk（保持顺序；异常会重新抛出）
+            处理后的 chunk（保持顺序；异常会重新抛出并取消未完成任务）
         """
         import itertools
         from concurrent.futures import as_completed
@@ -584,16 +677,27 @@ class StreamingPlugin(Plugin):
         executor_type = resolved_executor_config.get("executor_type", self.executor_type)
         max_workers = resolved_executor_config.get("max_workers", self.max_workers)
         reuse = resolved_executor_config.get("reuse", True)
+        max_workers_cap = max_workers
 
         # 动态计算 max_workers (如果启用负载均衡)
         if self._load_balancer:
             # 估算chunk数量(基于历史统计或默认值)
             stats = self._load_balancer.get_statistics()
             estimated_n_chunks = stats.get("total_tasks", 100) if stats["total_tasks"] > 0 else 100
-            max_workers = self._load_balancer.get_optimal_workers(
+            suggested_workers = self._load_balancer.get_optimal_workers(
                 n_tasks=estimated_n_chunks,
                 estimated_task_size=None,  # chunk大小难以预估
             )
+            max_workers = self._quantize_workers(suggested_workers, max_workers_cap)
+
+        if executor_type == "process":
+            if not _is_pickleable(self) or not _is_pickleable(context) or not _is_pickleable(kwargs):
+                logger.warning(
+                    "Streaming plugin %s is not pickleable with process executor; "
+                    "falling back to thread executor.",
+                    self.provides,
+                )
+                executor_type = "thread"
 
         # 批量大小：优先使用配置值，否则根据worker数量自动计算
         if self.parallel_batch_size is not None:
@@ -604,63 +708,76 @@ class StreamingPlugin(Plugin):
         # 记录开始时间(用于统计)
         start_time = time.time() if self._load_balancer else None
         processed_chunks = 0
-
-        # 准备并行处理函数
-        def process_chunk(chunk: Chunk) -> Optional[Chunk]:
-            result = self.compute_chunk(chunk, context, run_id, **kwargs)
-            result = self._postprocess_result(result, chunk)
-            if result is not None:
-                self._validate_chunk(result)
-            return result
+        success = True
 
         # 分批处理流
+        shutdown_wait = True
+        manager = ExecutorManager()
+        executor_name = f"stream_{self.provides}"
+        executor = manager.get_executor(
+            executor_name,
+            executor_type=executor_type,
+            max_workers=max_workers,
+            reuse=reuse,
+        )
         try:
-            manager = ExecutorManager()
-            executor_name = f"stream_{self.provides}"
-            with manager.executor(
+            chunk_iter = iter(input_chunks)
+
+            while True:
+                # 取一批 chunk
+                batch = list(itertools.islice(chunk_iter, batch_size))
+                if not batch:
+                    break  # 流已耗尽
+
+                # 提交批量任务
+                future_to_idx = {
+                    executor.submit(_process_chunk_worker, self, chunk, context, run_id, kwargs): idx
+                    for idx, chunk in enumerate(batch)
+                }
+
+                # 收集结果（保持顺序）
+                results = [None] * len(batch)
+                for future in as_completed(future_to_idx):
+                    idx = future_to_idx[future]
+                    try:
+                        result = future.result()
+                        results[idx] = result
+                    except Exception as e:
+                        import logging
+
+                        success = False
+                        shutdown_wait = False
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Error processing chunk {idx}: {e}")
+                        for pending in future_to_idx:
+                            if pending is future:
+                                continue
+                            if not pending.done():
+                                pending.cancel()
+                        raise  # 失败即停：异常向上抛出
+
+                # 按顺序 yield 结果
+                for result in results:
+                    if result is not None:
+                        processed_chunks += 1
+                        yield result
+        except Exception:
+            success = False
+            shutdown_wait = False
+            raise
+        finally:
+            manager.release_executor(
                 executor_name,
                 executor_type=executor_type,
                 max_workers=max_workers,
-                reuse=reuse,
-            ) as executor:
-                chunk_iter = iter(input_chunks)
-
-                while True:
-                    # 取一批 chunk
-                    batch = list(itertools.islice(chunk_iter, batch_size))
-                    if not batch:
-                        break  # 流已耗尽
-
-                    # 提交批量任务
-                    future_to_idx = {executor.submit(process_chunk, chunk): idx for idx, chunk in enumerate(batch)}
-
-                    # 收集结果（保持顺序）
-                    results = [None] * len(batch)
-                    for future in as_completed(future_to_idx):
-                        idx = future_to_idx[future]
-                        try:
-                            result = future.result()
-                            results[idx] = result
-                        except Exception as e:
-                            # 记录错误但继续处理其他 chunk
-                            import logging
-
-                            logger = logging.getLogger(__name__)
-                            logger.error(f"Error processing chunk {idx}: {e}")
-                            raise  # 重新抛出，让上层处理
-
-                    # 按顺序 yield 结果
-                    for result in results:
-                        if result is not None:
-                            processed_chunks += 1
-                            yield result
-        finally:
+                wait=shutdown_wait,
+            )
             # 记录统计信息
             if self._load_balancer and start_time:
                 duration = time.time() - start_time
                 self._load_balancer.record_task_completion(
                     duration=duration,
-                    success=True,  # 能执行到这里说明没有异常
+                    success=success,
                 )
 
     def _validate_chunk(self, chunk: Chunk):
@@ -697,6 +814,10 @@ class StreamingContext:
     流式处理上下文管理器。
 
     整合 chunk、插件和执行器管理器，提供类似 strax 的流式处理体验。
+
+    运行逻辑：
+    - 对流式插件：直接获取输出流并支持 time_range 裁剪
+    - 对静态插件：读取静态数据，临时包装为 StreamingPlugin 再切分为 chunk
     """
 
     def __init__(

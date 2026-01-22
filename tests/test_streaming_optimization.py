@@ -5,13 +5,20 @@
 import numpy as np
 import pytest
 
-from waveform_analysis.core.plugins.core.streaming import StreamingPlugin
-from waveform_analysis.core.processing.chunk import Chunk
+from waveform_analysis.core.plugins.core.streaming import StreamingPlugin, _pick_time_field
+from waveform_analysis.core.processing.chunk import Chunk, TIME_FIELD, TIMESTAMP_FIELD
 from waveform_analysis.core.context import Context
+from waveform_analysis.core.execution.manager import ExecutorManager
 
 
 class TestStreamingOptimization:
     """测试流式处理的批量优化"""
+
+    def test_pick_time_field_time_only(self):
+        """时间字段仅包含 time 时应回退到 time"""
+        dtype = np.dtype([(TIME_FIELD, "i8"), ("value", "f4")])
+        data = np.zeros(1, dtype=dtype)
+        assert _pick_time_field(data, TIMESTAMP_FIELD) == TIME_FIELD
 
     def test_parallel_batch_processing(self):
         """测试并行批量处理避免完全物化"""
@@ -214,6 +221,49 @@ class TestStreamingOptimization:
         # 应该在遇到错误时抛出异常
         with pytest.raises(ValueError, match="Test error"):
             list(plugin._compute_parallel(input_stream, ctx, "test"))
+
+    def test_parallel_error_release_no_wait(self, monkeypatch):
+        """异常时应避免阻塞等待执行器关闭"""
+
+        dtype = np.dtype([("time", "i8"), ("dt", "i8"), ("length", "i8"), ("value", "f4")])
+        calls = []
+        original_release = ExecutorManager.release_executor
+
+        def release_spy(self, name, executor_type="thread", max_workers=None, wait=True):
+            calls.append(wait)
+            return original_release(self, name, executor_type, max_workers, wait=wait)
+
+        monkeypatch.setattr(ExecutorManager, "release_executor", release_spy)
+
+        class ErrorReleasePlugin(StreamingPlugin):
+            provides = "error_release"
+            parallel = True
+            max_workers = 2
+            parallel_batch_size = 2
+
+            def compute_chunk(self, chunk, context, run_id, **kwargs):
+                if chunk.data["time"][0] == 0:
+                    raise RuntimeError("boom")
+                return chunk
+
+        def chunk_generator():
+            for i in range(3):
+                data = np.array([(i, 1, 1, float(i))], dtype=dtype)
+                yield Chunk(
+                    data=data,
+                    start=i,
+                    end=i + 1,
+                    run_id="test",
+                    data_type="input"
+                )
+
+        plugin = ErrorReleasePlugin()
+        ctx = Context()
+
+        with pytest.raises(RuntimeError, match="boom"):
+            list(plugin._compute_parallel(chunk_generator(), ctx, "test"))
+
+        assert calls == [False]
 
     def test_order_preservation(self):
         """测试并行处理保持顺序"""
