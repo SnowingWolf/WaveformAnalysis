@@ -90,7 +90,7 @@ from waveform_analysis.core.context import Context
 ctx = Context()
 # ... 注册插件和配置 ...
 
-# 查询特定时间范围
+# 查询特定时间范围（默认使用 time 字段，ns）
 data = ctx.get_data_time_range(
     'run_001',
     'st_waveforms',
@@ -103,7 +103,7 @@ print(f"Found {len(data)} records in time range")
 
 #### 预构建索引
 ```python
-# 预先构建索引以提高性能
+# 预先构建索引以提高性能（如需按 timestamp 查询，显式指定 time_field='timestamp'）
 ctx.build_time_index(
     'run_001',
     'st_waveforms',

@@ -9,14 +9,19 @@
 ## 📂 功能分类
 
 ### 🔧 [高级功能](advanced/README.md)
-执行器管理、缓存机制、进度追踪、CSV 处理等高级功能。
+执行器管理、进度追踪、CSV 处理等高级功能。
 
-**包含文档**: 5 个 | **阅读时间**: 1-2 小时
+**包含文档**: 3 个 | **阅读时间**: 40-60 分钟
 
 ### 🔗 [Context 功能](context/README.md)
 依赖分析、血缘可视化、执行预览、配置管理、数据访问等 Context 相关功能。
 
 **包含文档**: 7 个 | **阅读时间**: 90-120 分钟
+
+### 🧭 [核心功能](core/README.md)
+时间字段统一、绝对时间查询与 DAQ 时间基准相关机制。
+
+**包含文档**: 3 个 | **阅读时间**: 30-40 分钟
 
 ### 🔌 [插件功能](plugin/README.md)
 信号处理插件、流式处理插件、Strax 适配器、插件开发教程。
@@ -37,7 +42,9 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 ```
 1. Context 功能入门（30 分钟）
    ↓
-2. 工具函数（30 分钟）
+2. 核心功能（20 分钟）
+   ↓
+3. 工具函数（30 分钟）
 ```
 
 ### 高级功能路径（2 小时）
@@ -58,7 +65,7 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 → [advanced/EXECUTOR_MANAGER_GUIDE.md](advanced/EXECUTOR_MANAGER_GUIDE.md)
 
 #### 了解缓存机制
-→ [advanced/CACHE.md](advanced/CACHE.md)
+→ [context/DATA_ACCESS.md#缓存机制](context/DATA_ACCESS.md#缓存机制)
 
 #### 追踪进度
 → [advanced/PROGRESS_TRACKING_GUIDE.md](advanced/PROGRESS_TRACKING_GUIDE.md)
@@ -80,6 +87,12 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 
 #### 管理配置
 → [context/CONFIGURATION.md](context/CONFIGURATION.md)
+
+#### 理解时间字段
+→ [core/TIME_FIELD_UNIFICATION.md](core/TIME_FIELD_UNIFICATION.md)
+
+#### 绝对时间查询
+→ [core/ABSOLUTE_TIME_GUIDE.md](core/ABSOLUTE_TIME_GUIDE.md)
 
 #### 筛选事件数据
 → [utils/EVENT_FILTERS_GUIDE.md](utils/EVENT_FILTERS_GUIDE.md)
@@ -106,5 +119,6 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 **浏览功能**:
 [高级功能](advanced/README.md) |
 [Context 功能](context/README.md) |
+[核心功能](core/README.md) |
 [插件功能](plugin/README.md) |
 [工具函数](utils/README.md)

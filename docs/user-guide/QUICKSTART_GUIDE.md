@@ -13,11 +13,10 @@
 1. [快速安装](#快速安装)
 2. [核心概念](#核心概念)
 3. [场景 1: 基础分析流程](#场景-1-基础分析流程)
-4. [场景 2: 内存优化流程](#场景-2-内存优化流程)
-5. [场景 3: 批量处理](#场景-3-批量处理)
-6. [场景 4: 流式处理](#场景-4-流式处理)
-7. [场景 5: 使用自定义 DAQ 格式](#场景-5-使用自定义-daq-格式)
-8. [快速参考卡](#快速参考卡)
+4. [场景 2: 批量处理](#场景-2-批量处理)
+5. [场景 3: 流式处理](#场景-3-流式处理)
+6. [场景 4: 使用自定义 DAQ 格式](#场景-4-使用自定义-daq-格式)
+7. [快速参考卡](#快速参考卡)
 
 ---
 
@@ -55,12 +54,13 @@ pip install -e .
 
 在开始之前，了解以下核心概念：
 
+> ✅ 推荐路径：新代码请使用 **Context**。`WaveformDataset` 已弃用，仅保留兼容层。
+
 | 概念 | 说明 |
 |------|------|
 | **Context** | 插件系统调度器，管理依赖、配置、缓存 |
 | **Plugin** | 数据处理单元（RawFiles → Waveforms → Peaks） |
 | **Lineage** | 自动血缘追踪，确保缓存一致性 |
-| **Dataset** | 高级链式接口，封装 Context |
 
 ---
 
@@ -81,7 +81,7 @@ from waveform_analysis.core.plugins.builtin import standard_plugins
 def main():
     # 1. 初始化 Context
     ctx = Context(storage_dir='./strax_data')
-    ctx.register(standard_plugins)
+    ctx.register(*standard_plugins)
 
     # 2. 设置配置
     ctx.set_config({
@@ -129,62 +129,7 @@ raw_files → waveforms → st_waveforms → peaks
 
 ---
 
-## 场景 2: 内存优化流程
-
-**适合大数据集** - 跳过波形加载，节省 70-80% 内存。
-
-### 完整代码模板
-
-```python
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""内存优化分析 - 跳过波形加载"""
-
-from waveform_analysis import WaveformDataset
-
-def main():
-    # load_waveforms=False 跳过波形数据加载
-    ds = WaveformDataset(
-        run_name='run_001',
-        n_channels=2,
-        load_waveforms=False  # 关键：跳过波形加载
-    )
-
-    # 链式调用（波形步骤会被跳过）
-    (ds
-        .load_raw_data()
-        .extract_waveforms()        # 跳过
-        .structure_waveforms()      # 跳过
-        .build_waveform_features()  # 仍会计算特征
-        .build_dataframe()
-        .group_events(time_window_ns=100)
-        .pair_events())
-
-    # 获取结果
-    df_paired = ds.get_paired_events()
-    print(f"Processed {len(df_paired)} paired events")
-
-    # 显示摘要
-    print("\nDataset summary:")
-    print(ds.summary())
-
-    return df_paired
-
-if __name__ == '__main__':
-    result = main()
-    print(f"\nResult columns: {result.columns.tolist()}")
-    print(f"Memory saved: ~70-80% compared to full waveform loading")
-```
-
-### 注意事项
-
-- `get_waveform_at()` 会返回 `None`
-- 适合只需要特征数据的场景
-- 显著减少内存占用
-
----
-
-## 场景 3: 批量处理
+## 场景 2: 批量处理
 
 **处理多个 run** - 并行处理多个数据集。
 
@@ -197,7 +142,7 @@ from waveform_analysis.core.plugins.builtin import standard_plugins
 
 # 初始化
 ctx = Context(storage_dir='./strax_data')
-ctx.register(standard_plugins)
+ctx.register(*standard_plugins)
 ctx.set_config({'data_root': 'DAQ', 'n_channels': 2})
 
 # 批量处理
@@ -221,7 +166,7 @@ if results['errors']:
 
 ---
 
-## 场景 4: 流式处理
+## 场景 3: 流式处理
 
 **处理大数据** - 分块处理，内存友好。
 
@@ -234,14 +179,14 @@ from waveform_analysis.core.plugins.builtin import standard_plugins
 
 # 初始化
 ctx = Context(storage_dir='./strax_data')
-ctx.register(standard_plugins)
+ctx.register(*standard_plugins)
 ctx.set_config({'data_root': 'DAQ', 'n_channels': 2})
 
 # 创建流式上下文
 stream_ctx = get_streaming_context(ctx, run_id='run_001', chunk_size=50000)
 
 # 分块处理
-for chunk in stream_ctx.get_stream('st_waveforms_stream'):
+for chunk in stream_ctx.get_stream('st_waveforms'):
     # 处理每个数据块
     process_chunk(chunk)
     print(f"Processed chunk: {chunk.start} - {chunk.end}")
@@ -249,7 +194,7 @@ for chunk in stream_ctx.get_stream('st_waveforms_stream'):
 
 ---
 
-## 场景 5: 使用自定义 DAQ 格式
+## 场景 4: 使用自定义 DAQ 格式
 
 **支持多种 DAQ 系统** - 使用 DAQ 适配器处理不同格式的数据。
 
@@ -281,7 +226,7 @@ print(f"Loaded {len(st_waveforms)} channels")
 
 ```python
 from waveform_analysis.core.processing.processor import WaveformStruct, WaveformStructConfig
-from waveform_analysis.utils.formats import FormatSpec, ColumnMapping
+from waveform_analysis.utils.formats import FormatSpec, ColumnMapping, TimestampUnit
 
 # 定义自定义格式
 custom_spec = FormatSpec(
@@ -294,6 +239,7 @@ custom_spec = FormatSpec(
         baseline_start=10, # 基线计算起始列
         baseline_end=50    # 基线计算结束列
     ),
+    timestamp_unit=TimestampUnit.NANOSECONDS,  # 按实际单位设置
     expected_samples=1000  # 预期采样点数
 )
 
@@ -305,17 +251,20 @@ struct = WaveformStruct(waveforms, config=config)
 st_waveforms = struct.structure_waveforms()
 ```
 
+说明：`st_waveforms` 的 `timestamp` 会按 `FormatSpec.timestamp_unit` 统一转换为 ps。
+
 ### 方式 3: 注册自定义适配器
 
 ```python
 from waveform_analysis.utils.formats import register_adapter, DAQAdapter
-from waveform_analysis.utils.formats.base import FormatSpec, ColumnMapping
+from waveform_analysis.utils.formats.base import FormatSpec, ColumnMapping, TimestampUnit
 from waveform_analysis.utils.formats.directory import DirectoryLayout
 
 # 定义格式规范
 my_spec = FormatSpec(
     name="my_daq",
     columns=ColumnMapping(board=0, channel=1, timestamp=3, samples_start=10),
+    timestamp_unit=TimestampUnit.NANOSECONDS,  # 按实际单位设置
     expected_samples=1000
 )
 
@@ -347,7 +296,7 @@ ctx.set_config({'daq_adapter': 'my_daq'})
 | 操作 | 代码 |
 |------|------|
 | 创建 Context | `ctx = Context(storage_dir='./data')` |
-| 注册插件 | `ctx.register(standard_plugins)` |
+| 注册插件 | `ctx.register(*standard_plugins)` |
 | 设置配置 | `ctx.set_config({'n_channels': 2})` |
 | 获取数据 | `ctx.get_data('run_001', 'peaks')` |
 | 查看帮助 | `ctx.help()` |

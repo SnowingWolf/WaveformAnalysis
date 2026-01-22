@@ -2,7 +2,7 @@
 
 **导航**: [文档中心](../../README.md) > [功能特性](../README.md) > 高级功能
 
-执行器管理、缓存机制、进度追踪、CSV 处理等高级功能。
+执行器管理、进度追踪、CSV 处理等高级功能。
 
 ---
 
@@ -10,7 +10,6 @@
 
 | 文档 | 时间 | 难度 | 说明 |
 |------|------|------|------|
-| [CACHE.md](CACHE.md) | 15 分钟 | ⭐⭐ 中级 | 缓存机制与血缘追踪 |
 | [EXECUTOR_MANAGER_GUIDE.md](EXECUTOR_MANAGER_GUIDE.md) | 20 分钟 | ⭐⭐⭐ 高级 | 执行器管理框架完整指南（架构、使用、最佳实践） |
 | [PROGRESS_TRACKING_GUIDE.md](PROGRESS_TRACKING_GUIDE.md) | 10 分钟 | ⭐⭐ 中级 | 进度追踪功能使用指南 |
 | [IO_CSV_HEADER_HANDLING.md](IO_CSV_HEADER_HANDLING.md) | 10 分钟 | ⭐⭐ 中级 | CSV 文件头处理策略 |
@@ -19,16 +18,14 @@
 
 ## 🎓 学习路径
 
-### 高级功能入门（55 分钟）
+### 高级功能入门（40 分钟）
 
 ```
-1. CACHE.md（15 分钟）- 缓存机制
+1. PROGRESS_TRACKING_GUIDE.md（10 分钟）- 进度追踪
    ↓
-2. PROGRESS_TRACKING_GUIDE.md（10 分钟）- 进度追踪
+2. EXECUTOR_MANAGER_GUIDE.md（20 分钟）- 执行器管理
    ↓
-3. EXECUTOR_MANAGER_GUIDE.md（20 分钟）- 执行器管理
-   ↓
-4. IO_CSV_HEADER_HANDLING.md（10 分钟）- CSV 处理
+3. IO_CSV_HEADER_HANDLING.md（10 分钟）- CSV 处理
 ```
 
 ---
@@ -38,7 +35,7 @@
 ### 我想...
 
 #### 了解缓存机制
-→ [CACHE.md](CACHE.md)
+→ [../context/DATA_ACCESS.md#缓存机制](../context/DATA_ACCESS.md#缓存机制)
 
 #### 管理并行执行
 → [EXECUTOR_MANAGER_GUIDE.md](EXECUTOR_MANAGER_GUIDE.md)
@@ -69,7 +66,6 @@
 ---
 
 **快速链接**:
-[缓存机制](CACHE.md) |
 [执行器管理](EXECUTOR_MANAGER_GUIDE.md) |
 [进度追踪](PROGRESS_TRACKING_GUIDE.md) |
 [CSV 处理](IO_CSV_HEADER_HANDLING.md)

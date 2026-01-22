@@ -80,6 +80,7 @@ def preview_execution(
     'execution_plan': List[str],      # 插件执行顺序列表
     'cache_status': Dict[str, dict],  # 每个插件的缓存状态
     'configs': Dict[str, dict],       # 非默认配置参数
+    'needed_set': List[str],          # 实际需要执行的步骤（cache-aware）
 }
 ```
 
@@ -90,11 +91,14 @@ def preview_execution(
     'plugin_name': {
         'in_memory': bool,     # 是否在内存中
         'on_disk': bool,       # 是否在磁盘上
-        'needs_compute': bool  # 是否需要计算
+        'needs_compute': bool, # 是否需要计算
+        'pruned': bool         # 是否因缓存剪枝而跳过
     },
     ...
 }
 ```
+
+`pruned=True` 表示该步骤在本次执行中会被跳过（依赖或自身缓存命中）。
 
 #### configs 结构
 

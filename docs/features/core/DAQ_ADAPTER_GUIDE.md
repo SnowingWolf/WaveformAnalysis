@@ -120,6 +120,8 @@ spec = FormatSpec(
 )
 ```
 
+`st_waveforms` 内的 `timestamp` 会按 `FormatSpec.timestamp_unit` 统一转换为 ps。
+
 ### 2. DirectoryLayout (目录布局)
 
 定义 DAQ 数据的目录结构。

@@ -205,6 +205,11 @@ cached = sum(1 for s in result['cache_status'].values() if s['on_disk'] or s['in
 needs_compute = sum(1 for s in result['cache_status'].values() if s['needs_compute'])
 
 print(f"已缓存: {cached} 个，需计算: {needs_compute} 个")
+
+# 可选：查看剪枝与实际执行步骤
+pruned = [p for p, s in result['cache_status'].items() if s.get('pruned')]
+print(f"缓存剪枝: {len(pruned)} 个")
+print(f"实际执行步骤: {len(result['needed_set'])} 个")
 ```
 
 **第二步：依赖分析（找出缓存问题）**

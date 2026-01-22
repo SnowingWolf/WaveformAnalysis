@@ -89,7 +89,7 @@ A: 使用 `--help` 选项，例如 `waveform-process --help`
 A: 使用 `--verbose` 选项查看详细错误信息
 
 **Q: waveform-process 基于什么实现？**
-A: 目前基于 `WaveformDataset`（已弃用），建议迁移到 `Context` 和插件系统
+A: 基于 `Context` 和插件系统；`WaveformDataset` 已弃用，仅保留兼容层
 
 ---
 

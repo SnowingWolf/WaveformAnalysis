@@ -15,7 +15,7 @@
 | [QUICKSTART_GUIDE.md](QUICKSTART_GUIDE.md) | 10 分钟 | 5分钟快速上手，包含代码模板 |
 | [EXAMPLES_GUIDE.md](EXAMPLES_GUIDE.md) | 20 分钟 | 常见场景示例集合 |
 
-### 🎛️ [Context 使用](context/README.md)
+### 🎛️ [Context 使用](../features/context/README.md)
 
 与 Context 交互的详细指南：配置管理、数据获取、执行预览等。
 
@@ -62,7 +62,7 @@
 ## 🔗 相关资源
 
 - [功能特性](../features/README.md) - 详细功能说明
-- [开发者指南](../developer-guide/README.md) - 插件开发和架构设计
+- [开发者指南](../development/README.md) - 插件开发和架构设计
 - [API 参考](../api/README.md) - API 文档
 
 ---
@@ -70,4 +70,4 @@
 **快速链接**:
 [快速开始](QUICKSTART_GUIDE.md) |
 [示例代码](EXAMPLES_GUIDE.md) |
-[Context 使用](context/README.md)
+[Context 使用](../features/context/README.md)

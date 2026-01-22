@@ -105,6 +105,8 @@ spec = FormatSpec(
 )
 ```
 
+`st_waveforms` 内的 `timestamp` 会按 `FormatSpec.timestamp_unit` 统一转换为 ps。
+
 ### 时间戳单位
 
 ```python
@@ -423,7 +425,7 @@ ctx.set_config({'daq_adapter': 'my_adapter'}, plugin_name='raw_files')
 ## 🔗 相关资源
 
 - [波形预览](waveform_preview.md) - 支持适配器的波形预览工具
-- [缓存管理](../advanced/CACHE.md) - 缓存机制说明
+- [缓存管理](../context/DATA_ACCESS.md#缓存机制) - 缓存机制说明
 - [API 参考](../../api/api_reference.md) - 完整 API 文档
 
 ---

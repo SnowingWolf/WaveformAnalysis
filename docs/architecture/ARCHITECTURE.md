@@ -108,6 +108,18 @@
     - 全局配置: `ctx.set_config({'daq_adapter': 'vx2730'})`。
     - 插件特定配置: `ctx.set_config({'daq_adapter': 'vx2730'}, plugin_name='st_waveforms')`。
 
+### 2.9 时间字段统一 (Time Field Unification)
+- **RECORD_DTYPE 双时间字段**: 同时支持绝对时间和相对时间。
+    - **`time` (i8)**: 绝对系统时间（Unix 时间戳，纳秒 ns）
+    - **`timestamp` (i8)**: ADC 原始时间戳（皮秒 ps，统一为 ps）
+    - **转换公式**: `time = epoch_ns + timestamp // 1000`
+- **Epoch 自动获取**: 通过 `DAQAdapter.get_file_epoch()` 从文件创建时间获取。
+    - 优先使用 `st_birthtime` (macOS)，否则使用 `st_mtime`
+    - 返回 Unix 时间戳（纳秒）
+- **WaveformStructConfig 扩展**: 新增 `epoch_ns` 属性传递时间基准。
+- **自动生效**: `chunk.py`、`query.py` 默认优先使用 `time` 字段；`streaming.py` 默认使用 `timestamp`（ps）。
+- **向后兼容**: 无 epoch 时降级为相对时间（`time = timestamp // 1000`）。
+
 ---
 
 ## 3. 关键机制说明
