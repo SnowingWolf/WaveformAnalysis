@@ -39,6 +39,18 @@ from .waveform_width_integral import (
 # Cache analysis plugin
 from .cache_analysis import CacheAnalysisPlugin
 
+standard_plugins = [
+    RawFilesPlugin(),
+    WaveformsPlugin(),
+    StWaveformsPlugin(),
+    HitFinderPlugin(),
+    PeaksPlugin(),
+    ChargesPlugin(),
+    DataFramePlugin(),
+    GroupedEventsPlugin(),
+    PairedEventsPlugin(),
+]
+
 __all__ = [
     # 标准插件
     "RawFilesPlugin",
@@ -62,4 +74,5 @@ __all__ = [
     "WAVEFORM_WIDTH_INTEGRAL_DTYPE",
     # Cache analysis
     "CacheAnalysisPlugin",
+    "standard_plugins",
 ]
