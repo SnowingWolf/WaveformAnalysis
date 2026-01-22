@@ -93,10 +93,11 @@ class TestCacheCleaner:
         analyzer.scan(verbose=False)
 
         cleaner = CacheCleaner(analyzer)
-        plan = cleaner.plan_cleanup(
+        cleaner.plan_cleanup(
             strategy=CleanupStrategy.LRU,
             max_entries=2
         )
+        plan = cleaner.plan
 
         assert isinstance(plan, CleanupPlan)
         assert plan.strategy == CleanupStrategy.LRU
@@ -108,10 +109,11 @@ class TestCacheCleaner:
         analyzer.scan(verbose=False)
 
         cleaner = CacheCleaner(analyzer)
-        plan = cleaner.plan_cleanup(
+        cleaner.plan_cleanup(
             strategy=CleanupStrategy.LARGEST,
             max_entries=1
         )
+        plan = cleaner.plan
 
         assert isinstance(plan, CleanupPlan)
         if plan.entries_to_delete:
@@ -126,10 +128,11 @@ class TestCacheCleaner:
         analyzer.scan(verbose=False)
 
         cleaner = CacheCleaner(analyzer)
-        plan = cleaner.plan_cleanup(
+        cleaner.plan_cleanup(
             strategy=CleanupStrategy.LRU,
             target_size_mb=0.001  # 很小的目标
         )
+        plan = cleaner.plan
 
         assert isinstance(plan, CleanupPlan)
 
@@ -139,10 +142,11 @@ class TestCacheCleaner:
         analyzer.scan(verbose=False)
 
         cleaner = CacheCleaner(analyzer)
-        plan = cleaner.plan_cleanup(
+        cleaner.plan_cleanup(
             strategy=CleanupStrategy.OLDEST,
             keep_recent_days=5  # 保留最近 5 天
         )
+        plan = cleaner.plan
 
         # 应该不会删除最近 5 天内的数据
         for entry in plan.entries_to_delete:
@@ -154,10 +158,11 @@ class TestCacheCleaner:
         analyzer.scan(verbose=False)
 
         cleaner = CacheCleaner(analyzer)
-        plan = cleaner.plan_cleanup(
+        cleaner.plan_cleanup(
             strategy=CleanupStrategy.BY_RUN,
             run_id='run_001'
         )
+        plan = cleaner.plan
 
         # 所有条目应该属于 run_001
         for entry in plan.entries_to_delete:
@@ -169,12 +174,12 @@ class TestCacheCleaner:
         analyzer.scan(verbose=False)
 
         cleaner = CacheCleaner(analyzer)
-        plan = cleaner.plan_cleanup(
+        cleaner.plan_cleanup(
             strategy=CleanupStrategy.LRU,
             max_entries=2
         )
 
-        cleaner.preview_plan(plan, detailed=True)
+        cleaner.preview_plan(detailed=True)
         captured = capsys.readouterr()
         assert '清理计划' in captured.out
 
@@ -184,14 +189,14 @@ class TestCacheCleaner:
         analyzer.scan(verbose=False)
 
         cleaner = CacheCleaner(analyzer)
-        plan = cleaner.plan_cleanup(
+        cleaner.plan_cleanup(
             strategy=CleanupStrategy.LRU,
             max_entries=1
         )
 
         initial_count = len(analyzer.get_entries())
 
-        result = cleaner.execute(plan, dry_run=True)
+        result = cleaner.execute(dry_run=True)
 
         assert result['dry_run'] is True
         assert 'deleted' in result
@@ -213,15 +218,15 @@ class TestCacheCleaner:
         if not initial_entries:
             pytest.skip("没有缓存数据可清理")
 
-        plan = cleaner.plan_cleanup(
+        cleaner.plan_cleanup(
             strategy=CleanupStrategy.LRU,
             max_entries=1
         )
 
-        if plan.entry_count == 0:
+        if cleaner.plan.entry_count == 0:
             pytest.skip("没有条目需要清理")
 
-        result = cleaner.execute(plan, dry_run=False)
+        result = cleaner.execute(dry_run=False)
 
         assert result['dry_run'] is False
         assert result['deleted'] >= 0
@@ -284,7 +289,8 @@ class TestCacheCleaner:
         analyzer.scan(verbose=False)
 
         cleaner = CacheCleaner(analyzer)
-        plan = cleaner.plan_cleanup(strategy=CleanupStrategy.LRU)
+        cleaner.plan_cleanup(strategy=CleanupStrategy.LRU)
+        plan = cleaner.plan
 
         assert plan.entry_count == 0
         assert plan.total_size_to_free == 0

@@ -290,8 +290,11 @@ graph TD
 - **核心组件**:
   - `CacheAnalyzer`: 缓存分析器，扫描和过滤缓存条目
   - `CacheDiagnostics`: 缓存诊断，检测和修复问题
-  - `CacheCleaner`: 智能清理，多种清理策略
+  - `CacheCleaner`: 智能清理，多种清理策略（LRU/OLDEST/LARGEST/版本不匹配/完整性失败）
   - `CacheStatsCollector`: 统计收集和报告
+- **使用要点**:
+  - 先 `CacheAnalyzer.scan()`，再创建清理计划并预览
+  - 支持 `dry_run` 演练、按 run 或数据类型限定范围
 - **CLI 命令**: `waveform-cache` (info, stats, diagnose, list, clean)
 
 ### 6.3 EventLengthPlugin 独立化

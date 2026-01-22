@@ -211,21 +211,21 @@ def cmd_clean(args):
     strategy = strategy_map[args.strategy]
 
     # 创建清理计划
-    plan = cleaner.plan_cleanup(
+    cleaner.plan_cleanup(
         strategy=strategy,
         target_size_mb=args.size_mb,
         keep_recent_days=args.days,
         run_id=args.run,
         data_name=args.data_type,
-        max_entries=args.max_entries
+        max_entries=args.max_entries,
     )
 
-    if plan.entry_count == 0:
+    if cleaner.plan.entry_count == 0:
         print("\n没有找到需要清理的缓存条目")
         return
 
     # 预览计划
-    cleaner.preview_plan(plan, detailed=args.verbose)
+    cleaner.preview_plan(detailed=args.verbose)
 
     # 执行清理
     if args.dry_run:
@@ -233,7 +233,7 @@ def cmd_clean(args):
         print("要实际执行清理，请添加 --no-dry-run 选项")
     else:
         print("\n正在执行清理...")
-        result = cleaner.execute(plan, dry_run=False)
+        result = cleaner.execute(dry_run=False)
         print(f"\n清理完成: 删除 {result['deleted']} 条目, "
               f"释放 {result['freed_human']}")
 
