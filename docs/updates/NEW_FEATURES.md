@@ -14,6 +14,7 @@
   - [2.1 插件性能统计和监控](#21-插件性能统计和监控)
   - [2.2 数据时间范围查询优化](#22-数据时间范围查询优化)
   - [2.3 Strax插件适配器](#23-strax插件适配器)
+  - [2.4 时间字段统一方案](#24-时间字段统一方案)
 - [Phase 3: 高级功能](#phase-3-高级功能)
   - [3.1 多运行批量处理](#31-多运行批量处理)
   - [3.2 数据导出统一接口](#32-数据导出统一接口)
@@ -248,6 +249,27 @@ ctx.register_plugin(adapter)
 ctx.set_config({'threshold': 20.0})
 data = ctx.get_data('run_001', 'processed_data')  # 使用threshold=20.0
 ```
+
+---
+
+### 2.4 时间字段统一方案
+
+**状态:** ✅ 新实现
+
+**核心变化:**
+- `RECORD_DTYPE` 新增 `time` 字段（绝对时间，ns），`timestamp` 统一为 ps
+- 时间转换公式：`time = epoch_ns + timestamp // 1000`
+- `st_waveforms.timestamp` 按 `FormatSpec.timestamp_unit` 统一转换为 ps
+- 流式处理默认 `time_field="timestamp"`，断点阈值使用 `break_threshold_ps`
+
+**使用示例:**
+```python
+st_waveforms = ctx.get_data('run_001', 'st_waveforms')
+print(st_waveforms[0]['timestamp'][0])  # ps
+print(st_waveforms[0]['time'][0])       # ns
+```
+
+更多细节请参考 [TIME_FIELD_UNIFICATION.md](../features/core/TIME_FIELD_UNIFICATION.md)。
 
 ---
 
