@@ -22,7 +22,7 @@ Plugins 子模块 - 插件系统统一入口
     from waveform_analysis.core.plugins.core import Plugin, StreamingPlugin
 
     # 内置插件
-    from waveform_analysis.core.plugins.builtin import RawFilesPlugin
+    from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin
 
 向后兼容：
     from waveform_analysis.core import Plugin  # 仍然可用
@@ -60,7 +60,7 @@ from .core import (
 )
 
 # 从 builtin 子模块导出内置插件
-from .builtin import (
+from .builtin.cpu import (
     # 标准插件
     RawFilesPlugin,
     WaveformsPlugin,
@@ -75,8 +75,8 @@ from .builtin import (
     FilteredWaveformsPlugin,
     SignalPeaksPlugin,
     WaveformWidthPlugin,
-    SignalPeaksStreamPlugin,
 )
+from .builtin.streaming import SignalPeaksStreamPlugin
 
 __all__ = [
     # 插件基类

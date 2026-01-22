@@ -36,12 +36,6 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     FilteredWaveformsPlugin,
     SignalPeaksPlugin,
 )
-
-# 或者从 builtin/ 导入（向后兼容）
-from waveform_analysis.core.plugins.builtin import (
-    FilteredWaveformsPlugin,
-    SignalPeaksPlugin,
-)
 ```
 
 ### 文件位置
@@ -58,7 +52,7 @@ from waveform_analysis.core.plugins.builtin import (
 旧的导入方式仍然可用，但会发出弃用警告：
 ```python
 # 会发出 DeprecationWarning
-from waveform_analysis.core.plugins.builtin.legacy import FilteredWaveformsPlugin
+from waveform_analysis.core.plugins.builtin.cpu import FilteredWaveformsPlugin
 ```
 
 ---

@@ -14,7 +14,7 @@ from typing import Any, List, Union
 import numpy as np
 from scipy.signal import find_peaks
 
-from ...core.base import Option, Plugin
+from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 
 # 定义峰值数据类型（扩展自原始 PEAK_DTYPE，增加边缘信息）

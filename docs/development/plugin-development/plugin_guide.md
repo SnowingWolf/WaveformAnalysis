@@ -34,25 +34,14 @@ waveform_analysis/core/plugins/builtin/
 └── legacy/           # 向后兼容层（弃用）
 ```
 
-### 导入插件的三种方式
+### 导入插件（显式 CPU）
 
 ```python
-# 方法 1: 从 cpu/ 直接导入（推荐，明确指定加速器）
 from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     FilteredWaveformsPlugin,
     SignalPeaksPlugin,
 )
-
-# 方法 2: 从 builtin/ 导入（向后兼容，默认使用 CPU 实现）
-from waveform_analysis.core.plugins.builtin import (
-    RawFilesPlugin,
-    FilteredWaveformsPlugin,
-)
-
-# 方法 3: 从 legacy/ 导入（不推荐，会发出弃用警告）
-from waveform_analysis.core.plugins.builtin.legacy import RawFilesPlugin
-# DeprecationWarning: RawFilesPlugin 已被弃用，将在下一个主版本中移除...
 ```
 
 ### 可用的 CPU 插件
@@ -85,7 +74,7 @@ from waveform_analysis.core.plugins.builtin.legacy import RawFilesPlugin
 
 ```python
 # 旧方式（会发出弃用警告）
-from waveform_analysis.core.plugins.builtin.standard import RawFilesPlugin
+from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin
 from waveform_analysis.core.plugins.builtin.cpu import FilteredWaveformsPlugin
 
 # 新方式（推荐）

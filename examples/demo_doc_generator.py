@@ -8,7 +8,7 @@ WaveformAnalysis 文档生成器演示
 
 from waveform_analysis.utils.doc_generator import DocGenerator
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin import standard_plugins
+from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
 
 
 def demo_basic_usage():

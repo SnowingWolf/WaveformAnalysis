@@ -767,7 +767,7 @@ Context 会自动管理插件之间的依赖关系，并在获取数据时按需
 
 ```python
 >>> from waveform_analysis.core.context import Context
->>> from waveform_analysis.core.plugins.builtin.standard import (
+>>> from waveform_analysis.core.plugins.builtin.cpu import (
 ...     RawFilesPlugin, WaveformsPlugin, StWaveformsPlugin
 ... )
 >>>
@@ -787,7 +787,7 @@ Context 会自动管理插件之间的依赖关系，并在获取数据时按需
 ... )
 >>>
 >>> # 方式4: 注册模块中的所有插件
->>> import waveform_analysis.core.plugins.builtin.standard as standard_plugins
+>>> import waveform_analysis.core.plugins.builtin.cpu as standard_plugins
 >>> ctx.register(standard_plugins)
 >>>
 >>> # 方式5: 允许覆盖已注册的插件
