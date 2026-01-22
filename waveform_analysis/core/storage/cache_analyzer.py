@@ -6,6 +6,8 @@
 - 扫描和索引缓存条目
 - 查询和过滤缓存数据
 - 统计缓存大小和分布
+
+
 """
 
 import os
@@ -43,6 +45,7 @@ class CacheEntry:
         file_path: 数据文件完整路径
         metadata: 原始元数据字典
     """
+
     run_id: str
     data_name: str
     key: str
@@ -82,6 +85,7 @@ class CacheEntry:
     def created_at_str(self) -> str:
         """返回人类可读的创建时间"""
         import datetime
+
         return datetime.datetime.fromtimestamp(self.created_at).strftime("%Y-%m-%d %H:%M:%S")
 
 
@@ -97,7 +101,7 @@ class CacheAnalyzer:
         - 线程安全的缓存索引
         - 灵活的过滤和查询接口
 
-    Examples:
+    Examples:e
         >>> from waveform_analysis.core.context import Context
         >>> ctx = Context(storage_dir='./cache')
         >>>
@@ -115,7 +119,7 @@ class CacheAnalyzer:
         >>> large_entries = analyzer.get_entries(min_size=1024*1024)
     """
 
-    def __init__(self, context: 'Context'):
+    def __init__(self, context: "Context"):
         """初始化 CacheAnalyzer
 
         Args:
@@ -133,10 +137,7 @@ class CacheAnalyzer:
         return self.ctx.storage
 
     def scan(
-        self,
-        force_refresh: bool = False,
-        run_ids: Optional[List[str]] = None,
-        verbose: bool = True
+        self, force_refresh: bool = False, run_ids: Optional[List[str]] = None, verbose: bool = True
     ) -> Dict[str, List[CacheEntry]]:
         """扫描缓存目录，构建索引
 
@@ -157,7 +158,7 @@ class CacheAnalyzer:
             all_runs = self.storage.list_runs()
 
             # 如果存储不支持 run_subdirs 模式，尝试从 key 中提取 run_id
-            if not all_runs and hasattr(self.storage, 'use_run_subdirs'):
+            if not all_runs and hasattr(self.storage, "use_run_subdirs"):
                 if not self.storage.use_run_subdirs:
                     all_runs = self._extract_runs_from_flat_storage()
 
@@ -181,8 +182,10 @@ class CacheAnalyzer:
 
             if verbose and runs_to_scan:
                 total_size = sum(e.size_bytes for entries in self._cache_index.values() for e in entries)
-                print(f"[CacheAnalyzer] 扫描完成: {len(self._cache_index)} 个运行, "
-                      f"{total_entries} 个缓存条目, 总大小 {self._format_size(total_size)}")
+                print(
+                    f"[CacheAnalyzer] 扫描完成: {len(self._cache_index)} 个运行, "
+                    f"{total_entries} 个缓存条目, 总大小 {self._format_size(total_size)}"
+                )
 
             return self._cache_index.copy()
 
@@ -192,7 +195,7 @@ class CacheAnalyzer:
         keys = self.storage.list_keys()
         for key in keys:
             # key 格式: "run_id-data_name-lineage_hash"
-            parts = key.split('-')
+            parts = key.split("-")
             if len(parts) >= 2:
                 runs.add(parts[0])
         return sorted(runs)
@@ -212,7 +215,7 @@ class CacheAnalyzer:
         keys = self.storage.list_keys(run_id)
 
         # 如果是扁平模式，过滤出属于该 run 的 key
-        if not keys and hasattr(self.storage, 'use_run_subdirs'):
+        if not keys and hasattr(self.storage, "use_run_subdirs"):
             if not self.storage.use_run_subdirs:
                 all_keys = self.storage.list_keys()
                 keys = [k for k in all_keys if k.startswith(f"{run_id}-")]
@@ -240,7 +243,7 @@ class CacheAnalyzer:
 
         # 解析 key 获取 data_name
         # key 格式: "run_id-data_name-lineage_hash"
-        parts = key.split('-')
+        parts = key.split("-")
         if len(parts) >= 2:
             data_name = parts[1]
         else:
@@ -257,14 +260,14 @@ class CacheAnalyzer:
             data_name=data_name,
             key=key,
             size_bytes=size_bytes,
-            created_at=metadata.get('timestamp', 0),
+            created_at=metadata.get("timestamp", 0),
             plugin_version=plugin_version,
-            dtype_str=metadata.get('dtype', 'unknown'),
-            count=metadata.get('count', 0),
-            compressed=metadata.get('compressed', False),
-            has_checksum='checksum' in metadata,
+            dtype_str=metadata.get("dtype", "unknown"),
+            count=metadata.get("count", 0),
+            compressed=metadata.get("compressed", False),
+            has_checksum="checksum" in metadata,
             file_path=file_path,
-            metadata=metadata
+            metadata=metadata,
         )
 
     def _get_file_info(self, key: str, run_id: str, metadata: Dict[str, Any]) -> tuple:
@@ -274,40 +277,41 @@ class CacheAnalyzer:
             (file_path, size_bytes)
         """
         # 获取路径
-        if hasattr(self.storage, '_get_paths'):
+        if hasattr(self.storage, "_get_paths"):
             bin_path, _, _ = self.storage._get_paths(key, run_id)
         else:
             bin_path = os.path.join(self.storage.base_dir, f"{key}.bin")
 
         # 检查是否压缩
-        is_compressed = metadata.get('compressed', False)
+        is_compressed = metadata.get("compressed", False)
         if is_compressed:
-            compression = metadata.get('compression', '')
+            compression = metadata.get("compression", "")
             # 常见压缩扩展名映射
             ext_map = {
-                'blosc2': '.blosc2',
-                'lz4': '.lz4',
-                'zstd': '.zst',
-                'gzip': '.gz',
+                "blosc2": ".blosc2",
+                "lz4": ".lz4",
+                "zstd": ".zst",
+                "gzip": ".gz",
             }
-            ext = ext_map.get(compression, f'.{compression}')
+            ext = ext_map.get(compression, f".{compression}")
             file_path = bin_path + ext
-            size_bytes = metadata.get('compressed_size', 0)
+            size_bytes = metadata.get("compressed_size", 0)
         else:
             file_path = bin_path
             # 计算大小
-            count = metadata.get('count', 0)
-            itemsize = metadata.get('itemsize', 0)
-            shape = metadata.get('shape', (count,))
+            count = metadata.get("count", 0)
+            itemsize = metadata.get("itemsize", 0)
+            shape = metadata.get("shape", (count,))
             if count and itemsize:
                 import numpy as np
+
                 size_bytes = int(np.prod(shape)) * itemsize
             else:
                 size_bytes = 0
 
         # 如果元数据中有大小信息，优先使用
-        if 'original_size' in metadata and not is_compressed:
-            size_bytes = metadata['original_size']
+        if "original_size" in metadata and not is_compressed:
+            size_bytes = metadata["original_size"]
 
         # 尝试从实际文件获取大小
         if os.path.exists(file_path):
@@ -321,23 +325,23 @@ class CacheAnalyzer:
     def _extract_plugin_version(self, data_name: str, metadata: Dict[str, Any]) -> str:
         """提取插件版本号"""
         # 首先尝试从 metadata 中获取
-        if 'plugin_version' in metadata:
-            return str(metadata['plugin_version'])
+        if "plugin_version" in metadata:
+            return str(metadata["plugin_version"])
 
         # 尝试从 lineage 中获取
-        lineage = metadata.get('lineage', {})
+        lineage = metadata.get("lineage", {})
         if isinstance(lineage, dict):
-            version = lineage.get('version')
+            version = lineage.get("version")
             if version is not None:
                 return str(version)
 
         # 尝试从已注册的插件获取
-        if hasattr(self.ctx, '_plugins') and data_name in self.ctx._plugins:
+        if hasattr(self.ctx, "_plugins") and data_name in self.ctx._plugins:
             plugin = self.ctx._plugins[data_name]
-            if hasattr(plugin, 'version'):
+            if hasattr(plugin, "version"):
                 return str(plugin.version)
 
-        return 'unknown'
+        return "unknown"
 
     def get_entries(
         self,
@@ -347,7 +351,7 @@ class CacheAnalyzer:
         max_size: Optional[int] = None,
         min_age_days: Optional[float] = None,
         max_age_days: Optional[float] = None,
-        compressed_only: Optional[bool] = None
+        compressed_only: Optional[bool] = None,
     ) -> List[CacheEntry]:
         """获取缓存条目，支持多种过滤条件
 
@@ -428,14 +432,14 @@ class CacheAnalyzer:
 
         if not entries:
             return {
-                'run_id': run_id,
-                'total_entries': 0,
-                'total_size_bytes': 0,
-                'total_size_human': '0 B',
-                'data_types': [],
-                'compressed_count': 0,
-                'oldest_entry': None,
-                'newest_entry': None,
+                "run_id": run_id,
+                "total_entries": 0,
+                "total_size_bytes": 0,
+                "total_size_human": "0 B",
+                "data_types": [],
+                "compressed_count": 0,
+                "oldest_entry": None,
+                "newest_entry": None,
             }
 
         total_size = sum(e.size_bytes for e in entries)
@@ -446,14 +450,14 @@ class CacheAnalyzer:
         newest = max(entries, key=lambda e: e.created_at)
 
         return {
-            'run_id': run_id,
-            'total_entries': len(entries),
-            'total_size_bytes': total_size,
-            'total_size_human': self._format_size(total_size),
-            'data_types': sorted(data_types),
-            'compressed_count': compressed_count,
-            'oldest_entry': oldest,
-            'newest_entry': newest,
+            "run_id": run_id,
+            "total_entries": len(entries),
+            "total_size_bytes": total_size,
+            "total_size_human": self._format_size(total_size),
+            "data_types": sorted(data_types),
+            "compressed_count": compressed_count,
+            "oldest_entry": oldest,
+            "newest_entry": newest,
         }
 
     def get_all_runs(self) -> List[str]:
@@ -473,24 +477,22 @@ class CacheAnalyzer:
         for entry in entries:
             if entry.data_name not in summary:
                 summary[entry.data_name] = {
-                    'count': 0,
-                    'total_size_bytes': 0,
-                    'runs': set(),
-                    'versions': set(),
+                    "count": 0,
+                    "total_size_bytes": 0,
+                    "runs": set(),
+                    "versions": set(),
                 }
 
-            summary[entry.data_name]['count'] += 1
-            summary[entry.data_name]['total_size_bytes'] += entry.size_bytes
-            summary[entry.data_name]['runs'].add(entry.run_id)
-            summary[entry.data_name]['versions'].add(entry.plugin_version)
+            summary[entry.data_name]["count"] += 1
+            summary[entry.data_name]["total_size_bytes"] += entry.size_bytes
+            summary[entry.data_name]["runs"].add(entry.run_id)
+            summary[entry.data_name]["versions"].add(entry.plugin_version)
 
         # 转换 set 为 list 以便序列化
         for data_name in summary:
-            summary[data_name]['runs'] = sorted(summary[data_name]['runs'])
-            summary[data_name]['versions'] = sorted(summary[data_name]['versions'])
-            summary[data_name]['total_size_human'] = self._format_size(
-                summary[data_name]['total_size_bytes']
-            )
+            summary[data_name]["runs"] = sorted(summary[data_name]["runs"])
+            summary[data_name]["versions"] = sorted(summary[data_name]["versions"])
+            summary[data_name]["total_size_human"] = self._format_size(summary[data_name]["total_size_bytes"])
 
         return summary
 
@@ -528,7 +530,7 @@ class CacheAnalyzer:
         print(f"  运行数量: {len(runs)}")
         print(f"  缓存条目: {len(entries)}")
         print(f"  总大小: {self._format_size(total_size)}")
-        print(f"  压缩条目: {compressed_count} ({100*compressed_count/len(entries):.1f}%)")
+        print(f"  压缩条目: {compressed_count} ({100 * compressed_count / len(entries):.1f}%)")
 
         if detailed:
             print("\n按数据类型统计:")
