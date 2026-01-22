@@ -31,6 +31,10 @@ from .peak_finding import SignalPeaksPlugin, ADVANCED_PEAK_DTYPE
 
 # CPU 波形宽度插件
 from .waveform_width import WaveformWidthPlugin, WAVEFORM_WIDTH_DTYPE
+from .waveform_width_integral import (
+    WaveformWidthIntegralPlugin,
+    WAVEFORM_WIDTH_INTEGRAL_DTYPE,
+)
 
 # Cache analysis plugin
 from .cache_analysis import CacheAnalysisPlugin
@@ -54,6 +58,8 @@ __all__ = [
     # 波形宽度插件
     "WaveformWidthPlugin",
     "WAVEFORM_WIDTH_DTYPE",
+    "WaveformWidthIntegralPlugin",
+    "WAVEFORM_WIDTH_INTEGRAL_DTYPE",
     # Cache analysis
     "CacheAnalysisPlugin",
 ]
