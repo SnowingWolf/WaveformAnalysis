@@ -151,8 +151,9 @@
 
 - **智能清理** (`core/storage/cache_cleaner.py`)
   - `CacheCleaner`: 多策略清理
-  - 清理策略：LRU、OLDEST、LARGEST、VERSION_MISMATCH 等
-  - 清理计划预览和执行
+  - 清理策略：LRU、OLDEST、LARGEST、VERSION_MISMATCH、FAILED_INTEGRITY 等
+  - 支持 dry-run 预演、按 run 或数据类型限定范围
+  - 清理计划预览与执行统计
 
 - **统计收集** (`core/storage/cache_statistics.py`)
   - `CacheStatsCollector`: 收集详细统计

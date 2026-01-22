@@ -309,21 +309,64 @@ diag.auto_fix(issues, dry_run=True)
 
 ### 清理缓存（CacheCleaner）
 
-`CacheCleaner` 支持按 LRU、最大文件、版本不匹配等策略清理缓存，
-执行前可预览计划：
+`CacheCleaner` 支持按 LRU、最大文件、版本不匹配等策略清理缓存。
+建议先用 `CacheAnalyzer` 扫描并预览清理计划，再执行实际删除。
+
+可用策略（`CleanupStrategy`）：
+- `LRU`: 最近最少使用（按创建时间排序，优先删除最早创建）
+- `OLDEST`: 最旧的（同 LRU，但语义更直观）
+- `LARGEST`: 最大文件优先
+- `VERSION_MISMATCH`: 插件版本不匹配的缓存
+- `FAILED_INTEGRITY`: 完整性检查失败或文件异常
+- `BY_RUN`: 按 run 清理
+- `BY_DATA_TYPE`: 按数据类型清理
+
+常用参数说明：
+- `target_size_mb`: 目标释放空间（与 `max_entries` 二选一）
+- `max_entries`: 最多删除条目数
+- `keep_recent_days`: 保留最近 N 天的数据
+- `run_id` / `data_name`: 限定清理范围
+- `dry_run`: 演练模式，默认建议 `True`
 
 ```python
+from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
 from waveform_analysis.core.storage.cache_cleaner import CacheCleaner, CleanupStrategy
 
+analyzer = CacheAnalyzer(ctx)
+analyzer.scan()
+
 cleaner = CacheCleaner(analyzer)
-plan = cleaner.plan_cleanup(
+cleaner.plan_cleanup(
     strategy=CleanupStrategy.LRU,
     target_size_mb=500
-)
-
-cleaner.preview_plan(plan, detailed=True)
-cleaner.execute(plan, dry_run=True)
+).preview_plan(detailed=True)
+cleaner.execute(dry_run=True)
 ```
+
+更多用法示例：
+
+```python
+# 1) 按目标总大小清理（保留到 2GB）
+cleaner.cleanup_to_target_size(target_total_mb=2048, strategy=CleanupStrategy.LRU, dry_run=True)
+
+# 2) 按年龄清理（保留 7 天内数据）
+cleaner.cleanup_by_age(max_age_days=7, dry_run=True)
+
+# 3) 只清理某个 run
+cleaner.cleanup_run("run_001", dry_run=True)
+
+# 4) 只清理某个数据类型
+cleaner.cleanup_data_type("peaks", dry_run=True)
+
+# 5) 仅清理版本不匹配或完整性失败的条目
+cleaner.plan_cleanup(strategy=CleanupStrategy.VERSION_MISMATCH)
+cleaner.execute(dry_run=True)
+```
+
+注意事项：
+- `VERSION_MISMATCH` 依赖已注册插件的 `version` 信息
+- `FAILED_INTEGRITY` 会检查文件缺失和大小异常
+- `dry_run=False` 才会实际删除文件，建议先预览
 
 ### 运行时缓存检查（RuntimeCacheManager）
 
