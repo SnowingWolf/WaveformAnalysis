@@ -350,11 +350,13 @@ class TestSplitByCount:
 class TestSplitByBreaks:
     def test_split_at_breaks(self):
         data = make_test_data(n=20, gap=100)
+        data[TIME_FIELD] *= 1000
+        data[DT_FIELD] *= 1000
 
         # 在中间插入大间隙
-        data[TIME_FIELD][10:] += 2_000_000_000  # 2秒间隙
+        data[TIME_FIELD][10:] += 2_000_000_000_000  # 2秒间隙（ps）
 
-        chunks = list(split_by_breaks(data, break_threshold_ns=1_000_000_000))
+        chunks = list(split_by_breaks(data, break_threshold_ps=1_000_000_000_000))
         assert len(chunks) == 2
 
 

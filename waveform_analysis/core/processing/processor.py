@@ -57,10 +57,11 @@ export, __all__ = exporter()
 DEFAULT_WAVE_LENGTH = export(800, name="DEFAULT_WAVE_LENGTH")
 
 RECORD_DTYPE = export(
-    
+
     [
+        ("time", "i8"),  # int64 for absolute system time (ns)
         ("baseline", "f8"),  # float64 for baseline
-        ("timestamp", "i8"),  # int64 for ps-level timestamps
+        ("timestamp", "i8"),  # int64 for ps-level timestamps (ADC raw)
         ("event_length", "i8"),  # length of the event
         ("channel", "i2"),  # int16 for channel index (physical channel number)
         ("wave", "f4", (DEFAULT_WAVE_LENGTH,)),  # fixed length array for performance
@@ -87,8 +88,9 @@ def create_record_dtype(wave_length: int) -> np.dtype:
         >>> print(arr["wave"].shape)  # (10, 1600)
     """
     return np.dtype([
+        ("time", "i8"),  # int64 for absolute system time (ns)
         ("baseline", "f8"),  # float64 for baseline
-        ("timestamp", "i8"),  # int64 for ps-level timestamps
+        ("timestamp", "i8"),  # int64 for ps-level timestamps (ADC raw)
         ("event_length", "i8"),  # length of the event
         ("channel", "i2"),  # int16 for channel index (physical channel number)
         ("wave", "f4", (wave_length,)),  # dynamic length array based on actual data
@@ -126,6 +128,7 @@ class WaveformStructConfig:
     """
     format_spec: "FormatSpec"
     wave_length: Optional[int] = None
+    epoch_ns: Optional[int] = None  # 文件创建时间 (Unix ns)
 
     @classmethod
     def default_vx2730(cls) -> "WaveformStructConfig":
@@ -464,9 +467,25 @@ class WaveformStruct:
                 dtype=np.int64
             )
 
+        # 统一时间戳单位为 ps（不同 DAQ 适配器使用不同单位）
+        timestamp_scale = self.config.format_spec.get_timestamp_scale_to_ps()
+        if timestamp_scale != 1.0:
+            if float(timestamp_scale).is_integer():
+                timestamps = timestamps * int(timestamp_scale)
+            else:
+                timestamps = (timestamps.astype(np.float64) * timestamp_scale).astype(np.int64)
+
         waveform_structured["baseline"] = baseline_vals
         waveform_structured["timestamp"] = timestamps
         waveform_structured["channel"] = physical_channels
+
+        # 填充 time 字段（绝对系统时间 ns）
+        if self.config.epoch_ns is not None:
+            # time = epoch_ns + timestamp_ps // 1000
+            waveform_structured["time"] = self.config.epoch_ns + timestamps // 1000
+        else:
+            # 默认：相对时间 ns（向后兼容）
+            waveform_structured["time"] = timestamps // 1000
 
         # Vectorized assignment for wave data
         # 使用实际波形长度，但不超过 dtype 中定义的长度

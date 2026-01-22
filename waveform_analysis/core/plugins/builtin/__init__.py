@@ -13,7 +13,8 @@ Plugins Builtin 子模块 - 内置标准插件
 - 待实现：JAX 加速版本的滤波和寻峰插件
 
 **流式插件** (`builtin/streaming/`):
-- 待实现：CPU 和 JAX 流式插件
+- CPU 流式插件: SignalPeaksStreamPlugin
+- JAX 流式插件待实现
 
 **遗留插件** (`builtin/legacy/`):
 - 向后兼容保留，将在下一个主版本中移除
@@ -40,14 +41,10 @@ from .cpu import (
     ADVANCED_PEAK_DTYPE,
     WaveformWidthPlugin,
     WAVEFORM_WIDTH_DTYPE,
+    CacheAnalysisPlugin,
 )
 
-# 流式插件示例（待迁移到 streaming/）
-from .streaming_examples import (
-    StreamingStWaveformsPlugin,
-    StreamingBasicFeaturesPlugin,
-    StreamingFilterPlugin,
-)
+# 流式插件
 from .streaming import SignalPeaksStreamPlugin
 
 # 标准插件列表（方便批量注册）
@@ -80,10 +77,8 @@ __all__ = [
     "ADVANCED_PEAK_DTYPE",
     "WaveformWidthPlugin",
     "WAVEFORM_WIDTH_DTYPE",
-    # 流式插件示例
-    "StreamingStWaveformsPlugin",
-    "StreamingBasicFeaturesPlugin",
-    "StreamingFilterPlugin",
+    "CacheAnalysisPlugin",
+    # 流式插件
     "SignalPeaksStreamPlugin",
     # 便捷列表
     "standard_plugins",

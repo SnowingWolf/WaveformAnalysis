@@ -257,10 +257,18 @@ def plot_lineage_labview(
     if isinstance(lineage, dict):
         plugins = get_plugins_from_context(context)
         model = build_lineage_graph(lineage, target_name, plugins)
+        # 验证 build_lineage_graph 返回了正确的类型
+        if not isinstance(model, LineageGraphModel):
+            raise ValueError(
+                f"build_lineage_graph returned unexpected type: {type(model).__name__}, "
+                f"expected LineageGraphModel. This may indicate a bug in build_lineage_graph."
+            )
     elif isinstance(lineage, LineageGraphModel):
         model = lineage
     else:
-        raise ValueError("lineage must be a dict or LineageGraphModel")
+        raise ValueError(
+            f"lineage must be a dict or LineageGraphModel, but got {type(lineage).__name__}: {lineage}"
+        )
 
     # 2. 布局计算 (基于模型)
     pos = {}
@@ -879,10 +887,18 @@ def plot_lineage_plotly(
     if isinstance(lineage, dict):
         plugins = get_plugins_from_context(context)
         model = build_lineage_graph(lineage, target_name, plugins)
+        # 验证 build_lineage_graph 返回了正确的类型
+        if not isinstance(model, LineageGraphModel):
+            raise ValueError(
+                f"build_lineage_graph returned unexpected type: {type(model).__name__}, "
+                f"expected LineageGraphModel. This may indicate a bug in build_lineage_graph."
+            )
     elif isinstance(lineage, LineageGraphModel):
         model = lineage
     else:
-        raise ValueError("lineage must be a dict or LineageGraphModel")
+        raise ValueError(
+            f"lineage must be a dict or LineageGraphModel, but got {type(lineage).__name__}: {lineage}"
+        )
 
     # 2. 布局计算
     pos = {}

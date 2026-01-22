@@ -3,8 +3,9 @@
 流式 CPU 插件模块
 
 本模块包含 CPU 实现的流式插件：
-- structure.py: StreamingStWaveformsPlugin
-- features.py: StreamingBasicFeaturesPlugin
+- signal_peaks.py: SignalPeaksStreamPlugin
+
+其余流式插件正在规划中。
 
 **加速器**: CPU (NumPy)
 **流式支持**: ✓
