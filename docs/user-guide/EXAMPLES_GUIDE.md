@@ -138,7 +138,7 @@ from waveform_analysis.core.plugins.core.adapters import (
 
 # 方式 1: 包装单个插件
 adapter = wrap_strax_plugin(MyStraxPlugin)
-ctx.register_plugin(adapter)
+ctx.register(adapter)
 
 # 方式 2: 使用 Strax 风格 API
 strax_ctx = create_strax_context('./data')
@@ -230,8 +230,8 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 )
 
 # 注册信号处理插件
-ctx.register_plugin(FilteredWaveformsPlugin())
-ctx.register_plugin(SignalPeaksPlugin())
+ctx.register(FilteredWaveformsPlugin())
+ctx.register(SignalPeaksPlugin())
 
 # 配置滤波器
 ctx.set_config({

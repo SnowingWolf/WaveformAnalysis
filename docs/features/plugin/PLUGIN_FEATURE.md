@@ -69,7 +69,7 @@ from waveform_analysis.core.strax_adapter import wrap_strax_plugin
 
 # 包装strax插件
 adapter = wrap_strax_plugin(MyStraxPlugin)
-ctx.register_plugin(adapter)
+ctx.register(adapter)
 ```
 
 ### 3. 批量处理

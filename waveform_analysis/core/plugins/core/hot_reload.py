@@ -166,7 +166,7 @@ class PluginHotReloader:
 
             # 重新注册插件(允许覆盖)
             # 注意：register_plugin 会自动调用 _invalidate_caches_for 清除性能缓存
-            self.context.register_plugin(new_plugin, allow_override=True)
+            self.context.register(new_plugin, allow_override=True)
 
             # 清除性能缓存（register_plugin 已自动清除，这里是为了日志记录）
             if clear_cache:

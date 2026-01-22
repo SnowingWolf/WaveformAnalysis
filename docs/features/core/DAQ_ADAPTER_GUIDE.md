@@ -70,9 +70,9 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 
 # 初始化（默认使用 VX2730 格式）
 ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
-ctx.register_plugin(RawFilesPlugin())
-ctx.register_plugin(WaveformsPlugin())
-ctx.register_plugin(StWaveformsPlugin())
+ctx.register(RawFilesPlugin())
+ctx.register(WaveformsPlugin())
+ctx.register(StWaveformsPlugin())
 
 # 获取数据（自动使用 VX2730 配置）
 st_waveforms = ctx.get_data('run_001', 'st_waveforms')

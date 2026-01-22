@@ -20,10 +20,10 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 )
 
 ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
-ctx.register_plugin(RawFilesPlugin())
-ctx.register_plugin(WaveformsPlugin())
-ctx.register_plugin(StWaveformsPlugin())
-ctx.register_plugin(PeaksPlugin())
+ctx.register(RawFilesPlugin())
+ctx.register(WaveformsPlugin())
+ctx.register(StWaveformsPlugin())
+ctx.register(PeaksPlugin())
 
 # 推荐：为整个数据流设置一致的 DAQ 适配器
 ctx.set_config({"daq_adapter": "vx2730"})

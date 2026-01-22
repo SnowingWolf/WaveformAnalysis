@@ -98,7 +98,7 @@ class FilteredWaveformsPlugin(Plugin):
             List[np.ndarray]: 每个通道的滤波后波形列表，每个数组形状为 (n_events, n_samples)
 
         Examples:
-            >>> ctx.register_plugin(FilteredWaveformsPlugin())
+            >>> ctx.register(FilteredWaveformsPlugin())
             >>> ctx.set_config({'filter_type': 'SG', 'sg_window_size': 11}, plugin_name='filtered_waveforms')
             >>> filtered = ctx.get_data('run_001', 'filtered_waveforms')
             >>> print(f"通道0滤波波形形状: {filtered[0].shape}")
@@ -256,7 +256,7 @@ class SignalPeaksPlugin(Plugin):
             List[np.ndarray]: 每个通道的峰值列表，dtype 为 ADVANCED_PEAK_DTYPE
 
         Examples:
-            >>> ctx.register_plugin(PeaksPlugin())
+            >>> ctx.register(PeaksPlugin())
             >>> ctx.set_config({'height': 30, 'prominence': 0.7}, plugin_name='peaks')
             >>> peaks = ctx.get_data('run_001', 'peaks')
             >>> print(f"通道0的峰值数: {len(peaks[0])}")

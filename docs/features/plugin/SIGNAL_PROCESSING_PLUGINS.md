@@ -104,10 +104,10 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 
 # 创建 Context 并注册插件
 ctx = Context(storage_dir="./strax_data")
-ctx.register_plugin(RawFilesPlugin())
-ctx.register_plugin(WaveformsPlugin())
-ctx.register_plugin(StWaveformsPlugin())
-ctx.register_plugin(FilteredWaveformsPlugin())
+ctx.register(RawFilesPlugin())
+ctx.register(WaveformsPlugin())
+ctx.register(StWaveformsPlugin())
+ctx.register(FilteredWaveformsPlugin())
 
 # 配置全局参数
 ctx.set_config({
@@ -198,7 +198,7 @@ ADVANCED_PEAK_DTYPE = np.dtype([
 from waveform_analysis.core.plugins.builtin.cpu import SignalPeaksPlugin
 
 # 注册峰值检测插件
-ctx.register_plugin(SignalPeaksPlugin())
+ctx.register(SignalPeaksPlugin())
 
 # 配置峰值检测参数
 ctx.set_config({
@@ -234,11 +234,11 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 
 # 创建 Context 并注册所有插件
 ctx = Context(storage_dir="./strax_data")
-ctx.register_plugin(RawFilesPlugin())
-ctx.register_plugin(WaveformsPlugin())
-ctx.register_plugin(StWaveformsPlugin())
-ctx.register_plugin(FilteredWaveformsPlugin())
-ctx.register_plugin(SignalPeaksPlugin())
+ctx.register(RawFilesPlugin())
+ctx.register(WaveformsPlugin())
+ctx.register(StWaveformsPlugin())
+ctx.register(FilteredWaveformsPlugin())
+ctx.register(SignalPeaksPlugin())
 
 # 全局配置
 ctx.set_config({
