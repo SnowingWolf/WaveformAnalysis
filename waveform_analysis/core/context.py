@@ -13,6 +13,7 @@ import copy
 import functools
 import hashlib
 import importlib
+import inspect
 import json
 import logging
 import os
@@ -909,6 +910,77 @@ class Context(CacheMixin, PluginMixin):
         """Return storage backend for a plugin data name (fallback to default)."""
         return self._plugin_backends.get(data_name, self.storage)
 
+    def _storage_supports_run_id(self, storage: Any, method_name: str) -> bool:
+        """Check whether a storage method accepts run_id."""
+        method = getattr(storage, method_name, None)
+        if method is None:
+            return False
+        try:
+            params = inspect.signature(method).parameters
+        except (TypeError, ValueError):
+            return False
+        if "run_id" in params:
+            return True
+        return any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
+
+    def _storage_call(
+        self,
+        storage: Any,
+        method_name: str,
+        key: str,
+        run_id: Optional[str] = None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Any:
+        """Call a storage method with run_id when supported."""
+        method = getattr(storage, method_name)
+        if run_id is not None and self._storage_supports_run_id(storage, method_name):
+            return method(key, *args, run_id=run_id, **kwargs)
+        return method(key, *args, **kwargs)
+
+    def _storage_exists(self, storage: Any, key: str, run_id: Optional[str]) -> bool:
+        return bool(self._storage_call(storage, "exists", key, run_id))
+
+    def _storage_get_metadata(self, storage: Any, key: str, run_id: Optional[str]) -> Optional[Dict[str, Any]]:
+        return self._storage_call(storage, "get_metadata", key, run_id)
+
+    def _storage_load_memmap(self, storage: Any, key: str, run_id: Optional[str]) -> Optional[np.ndarray]:
+        return self._storage_call(storage, "load_memmap", key, run_id)
+
+    def _storage_load_dataframe(self, storage: Any, key: str, run_id: Optional[str]) -> Optional[pd.DataFrame]:
+        return self._storage_call(storage, "load_dataframe", key, run_id)
+
+    def _storage_save_memmap(
+        self,
+        storage: Any,
+        key: str,
+        data: np.ndarray,
+        extra_metadata: Optional[Dict[str, Any]],
+        run_id: Optional[str],
+    ) -> None:
+        self._storage_call(storage, "save_memmap", key, run_id, data, extra_metadata=extra_metadata)
+
+    def _storage_save_metadata(
+        self,
+        storage: Any,
+        key: str,
+        metadata: Dict[str, Any],
+        run_id: Optional[str],
+    ) -> None:
+        self._storage_call(storage, "save_metadata", key, run_id, metadata)
+
+    def _storage_save_dataframe(
+        self,
+        storage: Any,
+        key: str,
+        data: pd.DataFrame,
+        run_id: Optional[str],
+    ) -> None:
+        self._storage_call(storage, "save_dataframe", key, run_id, data)
+
+    def _storage_delete(self, storage: Any, key: str, run_id: Optional[str]) -> None:
+        self._storage_call(storage, "delete", key, run_id)
+
     def _resolve_config_value(self, plugin: Plugin, name: str) -> Any:
         """计算插件配置选项的值（不进行验证）。
 
@@ -1062,12 +1134,14 @@ class Context(CacheMixin, PluginMixin):
     def _load_from_disk_with_check(self, run_id: str, name: str, key: str) -> Optional[Any]:
         """Internal helper to load data from disk with lineage verification."""
         storage = self._get_storage_for_data_name(name)
-        if not storage.exists(key, run_id):
+        if not self._storage_exists(storage, key, run_id):
             # Check if it's a multi-channel data (e.g. peaks_ch0)
-            if not storage.exists(f"{key}_ch0", run_id):
+            if not self._storage_exists(storage, f"{key}_ch0", run_id):
                 return None
 
-        meta = storage.get_metadata(key, run_id) or storage.get_metadata(f"{key}_ch0", run_id)
+        meta = self._storage_get_metadata(storage, key, run_id) or self._storage_get_metadata(
+            storage, f"{key}_ch0", run_id
+        )
         if meta and "lineage" in meta:
             current_lineage = self.get_lineage(name)
             import json
@@ -1080,16 +1154,16 @@ class Context(CacheMixin, PluginMixin):
 
         # Determine how to load
         if meta.get("type") == "dataframe":
-            data = storage.load_dataframe(key, run_id)
-        elif storage.exists(f"{key}_ch0", run_id):
+            data = self._storage_load_dataframe(storage, key, run_id)
+        elif self._storage_exists(storage, f"{key}_ch0", run_id):
             # Load multi-channel data
             data = []
             i = 0
-            while storage.exists(f"{key}_ch{i}", run_id):
-                data.append(storage.load_memmap(f"{key}_ch{i}", run_id))
+            while self._storage_exists(storage, f"{key}_ch{i}", run_id):
+                data.append(self._storage_load_memmap(storage, f"{key}_ch{i}", run_id))
                 i += 1
         else:
-            data = storage.load_memmap(key, run_id)
+            data = self._storage_load_memmap(storage, key, run_id)
 
         if data is not None:
             if self.config.get("show_progress", True):
@@ -1101,14 +1175,14 @@ class Context(CacheMixin, PluginMixin):
         """Check whether disk cache exists and lineage matches without loading data."""
         storage = self._get_storage_for_data_name(name)
         meta_key = key
-        if not storage.exists(key, run_id):
+        if not self._storage_exists(storage, key, run_id):
             # Check if it's a multi-channel data (e.g. peaks_ch0)
-            if not storage.exists(f"{key}_ch0", run_id):
+            if not self._storage_exists(storage, f"{key}_ch0", run_id):
                 return False
             meta_key = f"{key}_ch0"
 
         try:
-            meta = storage.get_metadata(meta_key, run_id)
+            meta = self._storage_get_metadata(storage, meta_key, run_id)
         except Exception:
             return False
 
@@ -1501,16 +1575,20 @@ class Context(CacheMixin, PluginMixin):
         Returns:
             可能包装后的结果
         """
+        storage = self._get_storage_for_data_name(name)
         if isinstance(result, pd.DataFrame):
             # Save DataFrame as Parquet
-            self.storage.save_dataframe(key, result, run_id)
-            self.storage.save_metadata(key, {"lineage": lineage, "type": "dataframe"}, run_id)
+            if hasattr(storage, "save_dataframe"):
+                self._storage_save_dataframe(storage, key, result, run_id)
+                self._storage_save_metadata(storage, key, {"lineage": lineage, "type": "dataframe"}, run_id)
+            else:
+                raise RuntimeError(f"Storage backend {storage.__class__.__name__} does not support DataFrame.")
             self._set_data(run_id, name, result)
         elif isinstance(result, list) and all(isinstance(x, np.ndarray) for x in result):
             # Save list of arrays (e.g. per-channel data)
             for i, arr in enumerate(result):
                 ch_key = f"{key}_ch{i}"
-                self.storage.save_memmap(ch_key, arr, extra_metadata={"lineage": lineage}, run_id=run_id)
+                self._storage_save_memmap(storage, ch_key, arr, {"lineage": lineage}, run_id)
             self._set_data(run_id, name, result)
         elif target_dtype is not None:
             if is_generator:
@@ -1523,10 +1601,8 @@ class Context(CacheMixin, PluginMixin):
                 self._set_data(run_id, name, result)
             else:
                 # It's a static array, save it directly
-                self.storage.save_stream(
-                    key, [result], target_dtype, extra_metadata={"lineage": lineage}, run_id=run_id
-                )
-                data = self.storage.load_memmap(key, run_id)
+                self._storage_save_memmap(storage, key, result, {"lineage": lineage}, run_id)
+                data = self._storage_load_memmap(storage, key, run_id)
                 self._set_data(run_id, name, data)
                 result = data  # Return loaded data
         else:
@@ -2354,9 +2430,9 @@ class Context(CacheMixin, PluginMixin):
         storage = self._get_storage_for_data_name(data_name) if data_name else self.storage
 
         # 删除主缓存文件
-        if storage.exists(key, run_id):
+        if self._storage_exists(storage, key, run_id):
             try:
-                storage.delete(key, run_id)
+                self._storage_delete(storage, key, run_id)
                 count += 1
             except Exception as e:
                 self.logger.warning(f"Failed to delete cache key {key}: {e}")
@@ -2365,9 +2441,9 @@ class Context(CacheMixin, PluginMixin):
         ch_idx = 0
         while True:
             ch_key = f"{key}_ch{ch_idx}"
-            if storage.exists(ch_key, run_id):
+            if self._storage_exists(storage, ch_key, run_id):
                 try:
-                    storage.delete(ch_key, run_id)
+                    self._storage_delete(storage, ch_key, run_id)
                     count += 1
                 except Exception as e:
                     self.logger.warning(f"Failed to delete multi-channel cache {ch_key}: {e}")

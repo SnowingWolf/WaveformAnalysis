@@ -31,7 +31,7 @@ class TestWaveformStruct:
         struct = WaveformStruct([])
         result = struct._structure_waveform()
         assert len(result) == 0
-        assert result.dtype.names == ("baseline", "timestamp", "event_length", "channel", "wave")
+        assert result.dtype.names == np.dtype(RECORD_DTYPE).names
 
     def test_structure_waveform_with_data(self):
         """测试带数据的波形结构化"""

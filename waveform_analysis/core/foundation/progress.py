@@ -72,7 +72,7 @@ class ProgressTracker:
         """
         self._bars: Dict[str, tqdm] = {}
         self._bar_info: Dict[str, Dict[str, Any]] = {}  # 存储进度条元信息
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self.disable = disable
         self._position_counter = 0  # 用于分配position
 
@@ -121,13 +121,14 @@ class ProgressTracker:
                 self._position_counter += 1
 
             # 创建tqdm进度条
+            bar_disable = kwargs.pop("disable", self.disable)
             bar = tqdm(
                 total=total,
                 desc=desc,
                 unit=unit,
                 position=position,
                 leave=True,
-                disable=self.disable,
+                disable=bar_disable,
                 **kwargs
             )
 
@@ -683,4 +684,3 @@ def progress_map(
     for item in progress_iter(iterable, total=total, desc=desc, unit=unit, disable=disable, **tqdm_kwargs):
         results.append(func(item))
     return results
-

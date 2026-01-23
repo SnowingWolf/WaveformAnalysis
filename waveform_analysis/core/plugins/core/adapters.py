@@ -333,15 +333,25 @@ class StraxContextAdapter:
 
         arrays = self.get_array(run_id, targets, **kwargs)
 
+        def _structured_to_df(arr: np.ndarray) -> pd.DataFrame:
+            """Convert structured array to DataFrame, preserving multi-dim fields as list values."""
+            data = {}
+            for field in arr.dtype.names or []:
+                values = arr[field]
+                if getattr(values, "ndim", 1) > 1:
+                    data[field] = values.tolist()
+                else:
+                    data[field] = values
+            return pd.DataFrame(data)
+
         if isinstance(targets, str):
             # 单个目标 - 转换为DataFrame
             if isinstance(arrays, np.ndarray):
                 if arrays.dtype.names:
                     # 结构化数组
-                    return pd.DataFrame(arrays)
-                else:
-                    # 普通数组
-                    return pd.DataFrame({'data': arrays})
+                    return _structured_to_df(arrays)
+                # 普通数组
+                return pd.DataFrame({'data': arrays})
             return arrays
         else:
             # 多个目标
@@ -349,7 +359,7 @@ class StraxContextAdapter:
             for target, arr in arrays.items():
                 if isinstance(arr, np.ndarray):
                     if arr.dtype.names:
-                        results[target] = pd.DataFrame(arr)
+                        results[target] = _structured_to_df(arr)
                     else:
                         results[target] = pd.DataFrame({'data': arr})
                 else:

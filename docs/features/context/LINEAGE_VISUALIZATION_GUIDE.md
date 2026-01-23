@@ -455,8 +455,38 @@ ctx.plot_lineage(
 | `verbose` | 信息详细程度 | 1 |
 | `wire_linewidth` | 连线宽度 | 1.5 |
 | `wire_alpha` | 连线透明度 | 0.6 |
+| `wire_capstyle` | 线端样式 | `round` |
+| `wire_joinstyle` | 转角样式 | `round` |
+| `layout_reorder` | 是否重排以减少交叉 | `True` |
+| `layout_iterations` | 重排迭代次数 | 3 |
+| `wire_style_by_category` | 语义化线条样式 | 内置映射 |
+| `wire_style_overrides` | 自定义线条样式覆盖 | `{}` |
+| `port_groups` | 端口分组规则 | `{}` |
 
 ---
+
+### 线条语义化 + 端口分组
+
+```python
+from waveform_analysis.core.foundation.utils import LineageStyle
+
+style = LineageStyle(
+    # 线条语义化：按 dtype/名称覆盖样式
+    wire_style_overrides={
+        "peaks": {"dash": "dash", "width": 2.0},
+        "charges": {"dash": "dot", "alpha": 0.6},
+        "dataframe": {"dash": "dot", "width": 1.6, "alpha": 0.55},
+    },
+    # 端口分组：列表顺序 = 上->下
+    port_groups={
+        "dataframe": {
+            "in": [["peaks"], ["st_waveforms"], ["charges"]],
+        }
+    },
+)
+
+ctx.plot_lineage("df_paired", kind="labview", style=style)
+```
 
 ## 完整示例
 

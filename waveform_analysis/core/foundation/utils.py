@@ -242,6 +242,17 @@ class LineageStyle:
     wire_joinstyle: str = "round"
     bundle_enabled: bool = True
     bundle_offset: float = 0.6
+    layout_reorder: bool = True
+    layout_iterations: int = 3
+    wire_style_by_category: Dict[str, Dict[str, Any]] = field(
+        default_factory=lambda: {
+            "dataframe": {"width": 1.6, "alpha": 0.55, "dash": "dot"},
+            "structured": {"width": 2.8, "alpha": 0.85},
+            "list_array": {"width": 2.2, "alpha": 0.7, "dash": "dash"},
+        }
+    )
+    wire_style_overrides: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    port_groups: Dict[str, Dict[str, List[List[str]]]] = field(default_factory=dict)
     arrow_mutation_scale: float = 12
     wire_alpha: float = 0.8
     verbose: int = 1
