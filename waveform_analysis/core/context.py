@@ -9,7 +9,6 @@ Context 模块 - 插件系统的核心调度器。
 
 # 1. Standard library imports
 from datetime import datetime
-
 import hashlib
 import json
 import logging
@@ -741,6 +740,9 @@ class Context(CacheMixin, PluginMixin):
             progress_desc: Custom description for progress bar (default: auto-generated)
             **kwargs: Additional arguments passed to plugins
         """
+        # Remember the most recent run_id for display purposes (e.g., show_config()).
+        self._last_run_id = run_id
+
         # 1. Check memory cache
         val = self._get_data_from_memory(run_id, data_name)
         if val is not None:
@@ -762,20 +764,45 @@ class Context(CacheMixin, PluginMixin):
                     self.stats_collector.end_execution(data_name, success=True, cache_hit=True)
                 return data
 
-        # 3. Run plugin (this will also handle dependencies)
-        return self.run_plugin(run_id, data_name, show_progress=show_progress, progress_desc=progress_desc, **kwargs)
+        # 3. Resolve plan and compute needed steps (cache-aware)
+        plan = self._resolve_execution_plan(run_id, data_name)
+        if not plan:
+            return self._get_data_from_memory(run_id, data_name)
+        needed_set = self._compute_needed_set(run_id, data_name, plan)
+
+        # 4. Execute plan
+        return self.run_plugin(
+            run_id,
+            data_name,
+            show_progress=show_progress,
+            progress_desc=progress_desc,
+            plan=plan,
+            needed_set=needed_set,
+            **kwargs,
+        )
 
     def run_plugin(
-        self, run_id: str, data_name: str, show_progress: bool = False, progress_desc: Optional[str] = None, **kwargs
+        self,
+        run_id: str,
+        data_name: str,
+        show_progress: bool = False,
+        progress_desc: Optional[str] = None,
+        plan: Optional[List[str]] = None,
+        needed_set: Optional[Set[str]] = None,
+        **kwargs,
     ) -> Any:
         """
         Override run_plugin to add saving logic and config resolution.
+        运行插件, 包括依赖解析和进度追踪,
+        注意：run_plugin 假定需要执行并跳过缓存判断，直接触发计算。
 
         参数:
             run_id: Run identifier
             data_name: Name of the data to produce
             show_progress: Whether to show progress bar during plugin execution
             progress_desc: Custom description for progress bar (default: auto-generated)
+            plan: 可选，预先解析好的执行计划
+            needed_set: 可选，需要执行的插件集合（由外部计算）
             **kwargs: Additional arguments passed to plugins
         """
         with self.profiler.timeit("context.run_plugin"):
@@ -787,25 +814,16 @@ class Context(CacheMixin, PluginMixin):
             bar_name = None
 
             try:
-                # Fast-path: return from memory/disk cache if available
-                cached = self._get_data_from_memory(run_id, data_name)
-                if cached is not None:
-                    return cached
-                if data_name in self._plugins:
-                    key = self.key_for(run_id, data_name)
-                    cached = self._load_from_disk_with_check(run_id, data_name, key)
-                    if cached is not None:
-                        return cached
-
-                # 2. Resolve execution plan (with caching and fallback)
-                plan = self._resolve_execution_plan(run_id, data_name)
+                # 2. Resolve execution plan
+                if plan is None:
+                    plan = self._resolve_execution_plan(run_id, data_name)
 
                 # Early return if data already in memory
                 if not plan:
                     return self._get_data_from_memory(run_id, data_name)
 
-                # 2.5 Compute which steps actually need execution (cache-aware)
-                needed_set = self._compute_needed_set(run_id, data_name, plan)
+                if needed_set is None:
+                    needed_set = set(plan)
 
                 # 3. Initialize progress tracking
                 tracker, bar_name = self._init_progress_tracking(show_progress, plan, run_id, data_name, progress_desc)
@@ -813,20 +831,28 @@ class Context(CacheMixin, PluginMixin):
                 # 4. Execute plan in order
                 for name in plan:
                     if name not in needed_set:
-                        self._record_cache_hit(name, run_id, tracker, bar_name)
+                        if tracker and bar_name:
+                            tracker.update(bar_name, n=1)
                         if name == data_name and self._get_data_from_memory(run_id, name) is None:
                             key = self.key_for(run_id, name)
                             data = self._load_from_disk_with_check(run_id, name, key)
                             if data is None:
-                                self._execute_single_plugin(name, run_id, data_name, kwargs, tracker, bar_name)
+                                self._execute_single_plugin(
+                                    name, run_id, data_name, kwargs, tracker, bar_name, skip_cache_check=True
+                                )
                         continue
 
-                    self._execute_single_plugin(name, run_id, data_name, kwargs, tracker, bar_name)
+                    self._execute_single_plugin(
+                        name, run_id, data_name, kwargs, tracker, bar_name, skip_cache_check=True
+                    )
 
                 return self._get_data_from_memory(run_id, data_name)
             finally:
                 # 5. Cleanup execution state
-                self._cleanup_execution(run_id, data_name, tracker, bar_name)
+                if tracker and bar_name:
+                    tracker.close(bar_name)
+                with self._in_progress_lock:
+                    self._in_progress.pop((run_id, data_name), None)
 
     def _check_reentrancy(self, run_id: str, data_name: str) -> None:
         """检查并记录重入状态
@@ -837,6 +863,8 @@ class Context(CacheMixin, PluginMixin):
 
         Raises:
             RuntimeError: 当检测到重入调用时
+
+
         """
         with self._in_progress_lock:
             if (run_id, data_name) in self._in_progress:
@@ -900,36 +928,6 @@ class Context(CacheMixin, PluginMixin):
             return tracker, bar_name
         return None, None
 
-    def _cleanup_execution(self, run_id: str, data_name: str, tracker: Optional[Any], bar_name: Optional[str]) -> None:
-        """清理执行状态
-
-        Args:
-            run_id: 运行标识符
-            data_name: 数据名称
-            tracker: 进度追踪器
-            bar_name: 进度条名称
-        """
-        # Close progress bar
-        if tracker and bar_name:
-            tracker.close(bar_name)
-
-        # Remove re-entrancy flag
-        with self._in_progress_lock:
-            self._in_progress.pop((run_id, data_name), None)
-
-    def _record_cache_hit(self, name: str, run_id: str, tracker: Optional[Any], bar_name: Optional[str]) -> None:
-        """记录缓存命中并更新进度
-
-        Args:
-            name: 插件名称
-            run_id: 运行标识符
-            tracker: 进度追踪器
-            bar_name: 进度条名称
-        """
-        # 更新进度条（缓存命中）
-        if tracker and bar_name:
-            tracker.update(bar_name, n=1)
-
     def _calculate_input_size(self, plugin: Plugin, run_id: str) -> Optional[float]:
         """计算插件输入数据大小（MB）
 
@@ -939,6 +937,8 @@ class Context(CacheMixin, PluginMixin):
 
         Returns:
             输入数据大小（MB），如果无法计算则返回 None
+
+
         """
         if not (self.stats_collector and self.stats_collector.mode == "detailed"):
             return None
@@ -1219,12 +1219,19 @@ class Context(CacheMixin, PluginMixin):
             tracker.update(bar_name, n=1)
 
     def _execute_single_plugin(
-        self, name: str, run_id: str, data_name: str, kwargs: dict, tracker: Optional[Any], bar_name: Optional[str]
+        self,
+        name: str,
+        run_id: str,
+        data_name: str,
+        kwargs: dict,
+        tracker: Optional[Any],
+        bar_name: Optional[str],
+        skip_cache_check: bool = False,
     ) -> None:
         """执行单个插件的完整流程
 
         协调单个插件的完整执行，包括：
-        1. 检查缓存
+        1. 可选缓存检查
         2. 获取插件
         3. 打印进度
         4. 验证（配置和输入 dtype）
@@ -1240,19 +1247,20 @@ class Context(CacheMixin, PluginMixin):
             kwargs: 传递给插件的参数
             tracker: 进度追踪器
             bar_name: 进度条名称
+            skip_cache_check: 是否跳过缓存检查并强制执行
 
         Raises:
             RuntimeError: 当插件不存在或执行失败时
         """
-        # Check cache (memory + disk)
         key = self.key_for(run_id, name)
-        data, cache_hit = self._cache_manager.check_cache(run_id, name, key)
-
-        if cache_hit:
-            # Update progress bar (cache hit)
-            if tracker and bar_name:
-                tracker.update(bar_name, n=1)
-            return
+        if not skip_cache_check:
+            # Check cache (memory + disk)
+            _data, cache_hit = self._cache_manager.check_cache(run_id, name, key)
+            if cache_hit:
+                # Update progress bar (cache hit)
+                if tracker and bar_name:
+                    tracker.update(bar_name, n=1)
+                return
 
         if name not in self._plugins:
             raise RuntimeError(f"Dependency '{name}' is missing and no plugin provides it.")
@@ -1290,6 +1298,11 @@ class Context(CacheMixin, PluginMixin):
         """
         Wraps a generator to save its output to disk while yielding.
         Uses file locking and atomic writes for integrity.
+
+        Notes:
+            - Writes to a temporary file and atomically renames on completion.
+            - Uses storage locks to avoid concurrent writes.
+            - If lock acquisition fails, the generator is yielded without caching.
         """
         key = self.key_for(run_id, data_name)
         bin_path, _meta_path, lock_path = self.storage._get_paths(key)
@@ -1582,13 +1595,13 @@ class Context(CacheMixin, PluginMixin):
         def _highlight_modified(row):
             styles = [""] * len(row)
             if show_current_values and row.get("track") is False:
-                styles = ["background-color: #ffe6e6"] * len(row)
+                styles = ["background-color: var(--jp-error-color2, rgba(255, 120, 120, 0.2));"] * len(row)
             elif show_current_values and row.get("status") == "已修改":
-                styles = ["background-color: #fff6bf"] * len(row)
+                styles = ["background-color: var(--jp-warn-color2, rgba(255, 210, 90, 0.2));"] * len(row)
             if show_current_values and row.get("status") == "已修改":
                 if "current" in df_display.columns:
                     idx = df_display.columns.get_loc("current")
-                    styles[idx] = "color: #c00000; font-weight: 600;"
+                    styles[idx] = styles[idx] + " color: var(--jp-error-color1, #c00000); font-weight: 600;"
             return styles
 
         styler = df_display.style
@@ -1765,6 +1778,7 @@ class Context(CacheMixin, PluginMixin):
         data_name: Optional[str] = None,
         show_usage: bool = True,
         show_full_help: bool = False,
+        run_name: Optional[str] = None,
     ):
         """
         显示当前配置，并标识每个配置项对应的插件
@@ -1773,6 +1787,7 @@ class Context(CacheMixin, PluginMixin):
             data_name: 可选，指定插件名称以只显示该插件的配置
             show_usage: 是否显示配置项被哪些插件使用（仅在显示全局配置时有效）
             show_full_help: 是否显示完整 help 文本（默认截断）
+            run_name: 可选，显示缓存目录时使用的运行名（仅全局配置视图）
 
         Examples:
             >>> # 显示全局配置，包含配置项使用情况
@@ -1784,6 +1799,12 @@ class Context(CacheMixin, PluginMixin):
             >>> # 显示全局配置，但不显示使用情况
             >>> ctx.show_config(show_usage=False)
 
+            >>> # 指定运行名，显示实际缓存目录
+            >>> ctx.show_config(run_name='run_001')
+
+            >>> # 自动使用最近一次 get_data(run_id=...) 的 run_id
+            >>> ctx.show_config()
+
         关联说明：
             - 若 data_name 指定为插件名，会直接调用 list_plugin_configs 来展示该插件的“配置项清单”。
             - 若 data_name 未指定，则展示“当前配置汇总”（全局/插件特定/未使用）。
@@ -1793,7 +1814,7 @@ class Context(CacheMixin, PluginMixin):
             self._show_plugin_config(data_name, show_full_help=show_full_help)
         else:
             # 显示全局配置
-            self._show_global_config(show_usage, show_full_help=show_full_help)
+            self._show_global_config(show_usage, show_full_help=show_full_help, run_name=run_name)
 
     def _show_plugin_config(self, plugin_name: str, show_full_help: bool = False):
         """显示特定插件的配置（表格版）"""
@@ -1805,7 +1826,12 @@ class Context(CacheMixin, PluginMixin):
             show_full_help=show_full_help,
         )
 
-    def _show_global_config(self, show_usage: bool = True, show_full_help: bool = False):
+    def _show_global_config(
+        self,
+        show_usage: bool = True,
+        show_full_help: bool = False,
+        run_name: Optional[str] = None,
+    ):
         """显示全局配置（表格版）"""
         # 分析配置项使用情况
         config_usage = {}  # config_key -> [plugin_names]
@@ -1856,12 +1882,18 @@ class Context(CacheMixin, PluginMixin):
         # 统计信息
         cache_root = os.path.abspath(self.storage_dir)
         data_subdir = getattr(self.storage, "data_subdir", "_cache")
-        run_name = (
-            getattr(self, "run_name", None) or self.config.get("run_name") or self.config.get("run_id") or "{run_name}"
-        )
-        cache_dir = os.path.join(cache_root, str(run_name), data_subdir)
+        run_name_value = run_name
+        if run_name_value is None:
+            run_name_value = getattr(self, "run_name", None) or self.config.get("run_name") or self.config.get("run_id")
+        if run_name_value is None:
+            run_name_value = getattr(self, "_last_run_id", None)
+        run_name_display = str(run_name_value) if run_name_value is not None else "<run_id>"
+        cache_dir = os.path.join(cache_root, run_name_display, data_subdir)
         print("\n配置概览")
-        print(f"缓存目录: {cache_dir}")
+        if run_name_value is None:
+            print(f"缓存目录: {cache_dir} (run_id 在 get_data 时传入)")
+        else:
+            print(f"缓存目录: {cache_dir}")
         print(
             f"全局配置项: {len(global_configs)}  插件特定配置: {len(plugin_specific_configs)}  "
             f"未使用配置: {len(unused_configs)}"
@@ -1948,7 +1980,15 @@ class Context(CacheMixin, PluginMixin):
 
             print("\n⚠️ 未使用配置")
             if display is not None:
-                display(df_unused.style.apply(lambda _: ["background-color: #ffe6e6"] * len(df_unused.columns), axis=1))
+                display(
+                    df_unused.style.apply(
+                        lambda _: (
+                            ["background-color: var(--jp-error-color2, rgba(255, 120, 120, 0.2));"]
+                            * len(df_unused.columns)
+                        ),
+                        axis=1,
+                    )
+                )
             else:
                 print(df_unused.to_string())
 

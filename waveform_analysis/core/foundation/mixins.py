@@ -10,6 +10,7 @@ import functools
 import logging
 import os
 import traceback
+import warnings
 from contextlib import nullcontext
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
@@ -20,7 +21,7 @@ from .exceptions import ErrorSeverity
 
 
 def chainable_step(fn: Callable):
-    """Decorator for chainable steps with integrated caching and error handling."""
+    """Deprecated: chainable steps are legacy WaveformDataset APIs."""
 
     @functools.wraps(fn)
     def wrapper(self, *args, **kwargs):
@@ -123,7 +124,7 @@ def chainable_step(fn: Callable):
             self._record_step_failure(name, e)
             if getattr(self, "raise_on_error", False):
                 raise
-            
+
             # 获取 logger（从 self 或创建新的）
             logger = getattr(self, "logger", None)
             if logger is None:
@@ -133,7 +134,7 @@ def chainable_step(fn: Callable):
                     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
                     handler.setFormatter(formatter)
                     logger.addHandler(handler)
-            
+
             logger.warning(f"Step '{name}' failed: {e}")
             return self
 
@@ -141,7 +142,7 @@ def chainable_step(fn: Callable):
 
 
 class CacheMixin:
-    """Mixin for handling memory and disk caching in WaveformDataset."""
+    """Legacy step-cache mixin (WaveformDataset only; deprecated)."""
 
     def __init__(self):
         """
@@ -162,6 +163,8 @@ class CacheMixin:
         # _cache_config: { step_name: {enabled: bool, attrs: [str], persist_path: Optional[str]} }
         self._cache_config: Dict[str, Dict[str, object]] = {}
         self.cache_dir: Optional[str] = None
+        # Optional Context for cache reporting; set by consumers that embed Context.
+        self.ctx: Optional[Any] = None
 
     def set_step_cache(
         self,
@@ -172,7 +175,12 @@ class CacheMixin:
         watch_attrs: Optional[List[str]] = None,
         backend: str = "joblib",
     ) -> None:
-        """配置指定步骤的缓存。"""
+        """配置指定步骤的缓存（将于下个主版本废弃）。"""
+        warnings.warn(
+            "set_step_cache is deprecated and will be removed in the next major version. Use Context caching instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self._cache_config[step_name] = {
             "enabled": bool(enabled),
             "attrs": list(attrs or []),
@@ -222,7 +230,7 @@ class CacheMixin:
             load_sig: 是否加载磁盘文件以验证签名（较慢）。
         """
         report = {}
-        
+
         # 1. 检查 Legacy CacheMixin 配置
         for name, cfg in self._cache_config.items():
             in_mem = name in self._cache
@@ -249,33 +257,7 @@ class CacheMixin:
                 "backend": cfg.get("backend"),
                 "path": persist_path,
             }
-            
-        # 2. 检查 Context (Plugin-based) 状态
-        if hasattr(self, "ctx"):
-            run_id = getattr(self, "run_name", getattr(self, "char", "default"))
-            for name in self.ctx.list_provided_data():
-                # 避免重复显示
-                if name in report:
-                    continue
-                    
-                in_mem = self.ctx._get_data_from_memory(run_id, name) is not None
-                key = self.ctx.key_for(run_id, name)
-                on_disk = self.ctx.storage.exists(key)
-                
-                # 获取后端类型
-                backend = "numpy"
-                meta = self.ctx.storage.get_metadata(key) or self.ctx.storage.get_metadata(f"{key}_ch0")
-                if meta and meta.get("type") == "dataframe":
-                    backend = "parquet"
-                
-                report[name] = {
-                    "in_memory": in_mem,
-                    "on_disk": on_disk,
-                    "disk_valid": on_disk, # 只要存在即认为有效（Lineage 在 storage.exists 中校验）
-                    "backend": backend,
-                    "path": self.ctx.storage_dir,
-                }
-                
+
         return report
 
     def print_cache_report(self, verify: bool = False) -> None:
@@ -309,7 +291,7 @@ class CacheMixin:
 
 
 class StepMixin:
-    """Mixin for chainable step management and error tracking."""
+    """Deprecated: chainable step tracking for legacy WaveformDataset."""
 
     chainable_step = staticmethod(chainable_step)
 
@@ -342,23 +324,23 @@ class StepMixin:
 
     def _record_step_failure(self, name: str, exc: Exception) -> None:
         self._step_status[name] = "failed"
-        
+
         # 结构化错误信息
         error_info = {
             "message": str(exc),
             "type": type(exc).__name__,
             "timestamp": datetime.now().isoformat(),
-            "severity": getattr(exc, 'severity', ErrorSeverity.FATAL).value if hasattr(exc, 'severity') else 'unknown',
-            "recoverable": getattr(exc, 'recoverable', False),
+            "severity": getattr(exc, "severity", ErrorSeverity.FATAL).value if hasattr(exc, "severity") else "unknown",
+            "recoverable": getattr(exc, "recoverable", False),
         }
-        
+
         # 可选：存储traceback（如果配置了）
         if self._store_traceback:
             error_info["traceback"] = traceback.format_exc()
-        
+
         self._step_errors[name] = error_info
         self._last_failed_step = name
-        
+
         # 错误统计
         error_type = type(exc).__name__
         self._error_stats[error_type] = self._error_stats.get(error_type, 0) + 1
@@ -366,7 +348,7 @@ class StepMixin:
     def set_raise_on_error(self, value: bool) -> None:
         """Toggle whether chainable steps raise on failure."""
         self.raise_on_error = bool(value)
-    
+
     def set_store_traceback(self, value: bool) -> None:
         """Toggle whether to store traceback in error info."""
         self._store_traceback = bool(value)
@@ -379,12 +361,12 @@ class StepMixin:
         self._step_status.clear()
         self._last_failed_step = None
         self._error_stats.clear()
-    
+
     def get_error_summary(self) -> Dict[str, Any]:
         """获取所有错误的汇总报告"""
         if not self._step_errors:
             return {"status": "success", "errors": []}
-        
+
         errors_by_type = {}
         for step, error_info in self._step_errors.items():
             error_type = error_info.get("type", "Unknown")
@@ -394,25 +376,25 @@ class StepMixin:
                 "step": step,
                 "message": error_info.get("message"),
                 "severity": error_info.get("severity", "unknown"),
-                "timestamp": error_info.get("timestamp")
+                "timestamp": error_info.get("timestamp"),
             })
-        
+
         return {
             "status": "failed",
             "total_errors": len(self._step_errors),
             "failed_steps": list(self._step_errors.keys()),
             "errors_by_type": errors_by_type,
             "last_failed_step": self._last_failed_step,
-            "error_stats": self._error_stats.copy()
+            "error_stats": self._error_stats.copy(),
         }
-    
+
     def get_error_statistics(self) -> Dict[str, Any]:
         """获取错误统计信息"""
         return {
             "total_errors": len(self._step_errors),
             "errors_by_type": self._error_stats.copy(),
             "failed_steps_count": len(self._step_errors),
-            "last_failed_step": self._last_failed_step
+            "last_failed_step": self._last_failed_step,
         }
 
 
@@ -421,17 +403,21 @@ class PluginMixin:
 
     def __init__(self):
         """
-初始化插件管理 Mixin
+        初始化插件管理 Mixin
 
-        设置插件注册和管理的数据结构。
+                设置插件注册和管理的数据结构。
 
-        初始化内容:
-        - _plugins: 插件字典 {provides: plugin_instance}
+                初始化内容:
+                - _plugins: 插件字典 {provides: plugin_instance}
 
-        Note:
-            这是一个 Mixin 类，提供插件注册和访问功能。
+                Note:
+                    这是一个 Mixin 类，提供插件注册和访问功能。
         """
         self._plugins: Dict[str, Any] = {}
+
+    def _invalidate_caches_for(self, data_name: str) -> None:
+        """Hook for subclasses to clear caches after plugin registration."""
+        return None
 
     def register_plugin_(self, plugin: Any, allow_override: bool = False) -> None:
         """(DONT USE THIS METHOD DIRECTLY, USE CONTEXT.REGISTER INSTEAD)
@@ -469,7 +455,7 @@ class PluginMixin:
         self._plugins[provides] = plugin
 
         # 6. Invalidate caches for this data type
-        if hasattr(self, '_invalidate_caches_for'):
+        if hasattr(self, "_invalidate_caches_for"):
             self._invalidate_caches_for(provides)
 
     def _validate_plugin_dependencies(self, plugin: Any) -> None:
@@ -479,6 +465,7 @@ class PluginMixin:
         try:
             from packaging.version import Version
             from packaging.specifiers import SpecifierSet
+
             PACKAGING_AVAILABLE = True
         except ImportError:
             PACKAGING_AVAILABLE = False
@@ -512,10 +499,9 @@ class PluginMixin:
                     except Exception as e:
                         # Log warning but don't fail - allows graceful degradation
                         import logging
+
                         logger = logging.getLogger(__name__)
-                        logger.warning(
-                            f"Version validation failed for {plugin.provides} -> {dep_name}: {e}"
-                        )
+                        logger.warning(f"Version validation failed for {plugin.provides} -> {dep_name}: {e}")
 
     def resolve_dependencies(self, target: str) -> List[str]:
         """
@@ -554,12 +540,15 @@ class PluginMixin:
                 visiting_stack.append(node)
                 plugin = self._plugins[node]
                 for dep in plugin.depends_on:
+                    dep_name = dep[0] if isinstance(dep, tuple) else dep
                     try:
-                        visit(dep)
+                        visit(dep_name)
                     except ValueError as e:
                         # Re-raise with path information
                         if "No plugin registered" in str(e):
-                            raise ValueError(f"Missing dependency: {' -> '.join(visiting_stack + [dep])}") from None
+                            raise ValueError(
+                                f"Missing dependency: {' -> '.join(visiting_stack + [dep_name])}"
+                            ) from None
                         raise
 
                 visiting_stack.pop()
@@ -575,59 +564,3 @@ class PluginMixin:
 
         visit(target)
         return plan
-
-    def run_plugin(self, run_id: str, data_name: str, **kwargs) -> Any:
-        """
-        Run a plugin that provides data_name, automatically resolving dependencies.
-        """
-        # This method is usually overridden by Context to add caching/saving.
-        # If not overridden, we use a simple implementation.
-
-        # 1. Resolve execution plan
-        try:
-            plan = self.resolve_dependencies(data_name)
-        except ValueError:
-            _get_mem = getattr(self, "_get_data_from_memory", None)
-            if _get_mem:
-                val = _get_mem(run_id, data_name)
-                if val is not None:
-                    return val
-            elif hasattr(self, data_name) and getattr(self, data_name) is not None:
-                return getattr(self, data_name)
-            raise
-
-        # 2. Execute plan in order
-        for name in plan:
-            # Check if already computed
-            _get_mem = getattr(self, "_get_data_from_memory", None)
-            if _get_mem:
-                if _get_mem(run_id, name) is not None:
-                    continue
-            elif hasattr(self, name) and getattr(self, name) is not None:
-                continue
-
-            if name not in self._plugins:
-                raise RuntimeError(f"Dependency '{name}' is missing and no plugin provides it.")
-
-            plugin = self._plugins[name]
-            # Inject run_id into kwargs
-            plugin_kwargs = kwargs.copy()
-            plugin_kwargs["run_id"] = run_id
-            result = plugin.compute(self, **plugin_kwargs)
-
-            # Use _set_data if available (Context has it)
-            _set_data = getattr(self, "_set_data", None)
-            if _set_data:
-                try:
-                    _set_data(run_id, name, result)
-                except TypeError:
-                    # Fallback for old _set_data signature if any
-                    _set_data(name, result)
-            else:
-                setattr(self, name, result)
-
-        # Use _get_data_from_memory if available
-        _get_mem = getattr(self, "_get_data_from_memory", None)
-        if _get_mem:
-            return _get_mem(run_id, data_name)
-        return getattr(self, data_name)
