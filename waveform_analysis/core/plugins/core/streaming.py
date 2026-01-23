@@ -39,6 +39,7 @@ import logging
 import pickle
 import time
 from typing import Any, Dict, Generator, Iterator, List, Optional, Tuple, Union
+import warnings
 
 import numpy as np
 
@@ -62,6 +63,20 @@ from .base import Plugin
 
 logger = logging.getLogger(__name__)
 export, __all__ = exporter()
+
+_STREAMING_CONFIG_KEYS = {
+    "chunk_size",
+    "parallel",
+    "executor_type",
+    "max_workers",
+    "parallel_batch_size",
+    "break_threshold_ps",
+    "required_halo_ns",
+    "required_halo_left_ns",
+    "required_halo_right_ns",
+    "clip_strict",
+    "executor_config",
+}
 
 
 def _is_pickleable(obj: Any) -> bool:
@@ -163,6 +178,7 @@ class StreamingPlugin(Plugin):
         super().__init__()
         self.output_kind = "stream"  # 流式插件总是输出流
         self._load_balancer: Optional[Any] = None  # DynamicLoadBalancer实例
+        self._warned_legacy_streaming_config = False
 
         # 如果启用负载均衡,创建实例
         if self.use_load_balancer:
@@ -243,6 +259,79 @@ class StreamingPlugin(Plugin):
     def reset_state(self) -> None:
         """Reset internal state for stateful plugins."""
         return None
+
+    def _filter_streaming_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        filtered: Dict[str, Any] = {}
+        unknown: List[str] = []
+        for key, value in config.items():
+            if key in _STREAMING_CONFIG_KEYS:
+                filtered[key] = value
+            else:
+                unknown.append(key)
+        if unknown:
+            warnings.warn(
+                f"Unknown streaming_config keys for {self.provides}: {sorted(unknown)}",
+                UserWarning,
+                stacklevel=2,
+            )
+        return filtered
+
+    def _get_default_streaming_config(self) -> Dict[str, Any]:
+        defaults: Dict[str, Any] = {"executor_config": None}
+        for key in _STREAMING_CONFIG_KEYS:
+            if key == "executor_config":
+                continue
+            defaults[key] = getattr(type(self), key, getattr(self, key, None))
+        return defaults
+
+    def _get_legacy_streaming_config(self, context: Any) -> Dict[str, Any]:
+        config = getattr(context, "config", {})
+        if not isinstance(config, dict):
+            return {}
+
+        provides = self.provides
+        legacy: Dict[str, Any] = {}
+        for key in _STREAMING_CONFIG_KEYS:
+            if provides in config and isinstance(config[provides], dict) and key in config[provides]:
+                legacy[key] = config[provides][key]
+                continue
+            dotted_key = f"{provides}.{key}"
+            if dotted_key in config:
+                legacy[key] = config[dotted_key]
+                continue
+            if key in config:
+                legacy[key] = config[key]
+        return legacy
+
+    def _collect_streaming_config(
+        self,
+        context: Any,
+        streaming_config: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        merged = self._get_default_streaming_config()
+        legacy = self._get_legacy_streaming_config(context)
+        if legacy:
+            if not self._warned_legacy_streaming_config:
+                warnings.warn(
+                    "Streaming config should be passed via streaming_config; "
+                    f"legacy keys detected for {self.provides}: {sorted(legacy)}",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                self._warned_legacy_streaming_config = True
+            merged.update(legacy)
+        if streaming_config:
+            if not isinstance(streaming_config, dict):
+                raise TypeError("streaming_config must be a dict")
+            merged.update(self._filter_streaming_config(streaming_config))
+        return merged
+
+    def _apply_streaming_config(self, config: Dict[str, Any]) -> None:
+        for key in _STREAMING_CONFIG_KEYS:
+            if key == "executor_config":
+                continue
+            if key in config:
+                setattr(self, key, config[key])
 
     def _get_required_halo(self) -> Tuple[int, int]:
         left = self.required_halo_left_ns or 0
@@ -398,9 +487,16 @@ class StreamingPlugin(Plugin):
         Yields:
             处理后的 chunk
         """
+        # 解析 streaming_config 并应用
+        streaming_config = kwargs.pop("streaming_config", None)
+        resolved_streaming_config = self._collect_streaming_config(context, streaming_config)
+        self._apply_streaming_config(resolved_streaming_config)
+
         # 获取依赖的 chunk 流
         input_chunks = self._get_input_chunks(context, run_id, **kwargs)
         executor_config = kwargs.pop("executor_config", None)
+        if executor_config is None:
+            executor_config = resolved_streaming_config.get("executor_config")
         resolved_executor_config = self._normalize_executor_config(executor_config)
         effective_max_workers = resolved_executor_config.get("max_workers", self.max_workers)
 
@@ -429,7 +525,8 @@ class StreamingPlugin(Plugin):
 
         try:
             # 并行处理配置
-            if self.parallel and effective_max_workers is not None and effective_max_workers > 1:
+            can_parallel = self.parallel and (effective_max_workers is None or effective_max_workers > 1)
+            if can_parallel:
                 # 并行处理
                 for chunk in self._compute_parallel(
                     input_chunks,
@@ -829,6 +926,7 @@ class StreamingContext:
         chunk_size: int = 50000,
         parallel: bool = True,
         executor_config: Optional[Dict[str, Any]] = None,
+        streaming_config: Optional[Dict[str, Any]] = None,
     ):
         """
         初始化流式处理上下文。
@@ -839,12 +937,38 @@ class StreamingContext:
             chunk_size: 默认 chunk 大小
             parallel: 是否启用并行处理
             executor_config: 执行器配置
+            streaming_config: 统一流式配置（覆盖 chunk_size/parallel 等）
         """
         self.context = context
         self.run_id = run_id
-        self.chunk_size = chunk_size
-        self.parallel = parallel
-        self.executor_config = executor_config or get_config("io_intensive")
+        self.streaming_config = self._normalize_streaming_config(
+            chunk_size,
+            parallel,
+            executor_config,
+            streaming_config,
+        )
+        self.chunk_size = self.streaming_config.get("chunk_size", chunk_size)
+        self.parallel = self.streaming_config.get("parallel", parallel)
+        self.executor_config = self.streaming_config.get("executor_config", get_config("io_intensive"))
+
+    def _normalize_streaming_config(
+        self,
+        chunk_size: int,
+        parallel: bool,
+        executor_config: Optional[Dict[str, Any]],
+        streaming_config: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        normalized = {
+            "chunk_size": chunk_size,
+            "parallel": parallel,
+        }
+        if executor_config is not None:
+            normalized["executor_config"] = executor_config
+        if streaming_config:
+            if not isinstance(streaming_config, dict):
+                raise TypeError("streaming_config must be a dict")
+            normalized.update(streaming_config)
+        return normalized
 
     def get_stream(self, data_name: str, time_range: Optional[Tuple[int, int]] = None, **kwargs) -> Iterator[Chunk]:
         """
@@ -869,8 +993,18 @@ class StreamingContext:
 
         plugin = self.context._plugins[data_name]
 
+        streaming_config = kwargs.get("streaming_config", self.streaming_config)
+        if streaming_config is None:
+            streaming_config = {}
+        if not isinstance(streaming_config, dict):
+            raise TypeError("streaming_config must be a dict")
+        if "streaming_config" not in kwargs:
+            kwargs["streaming_config"] = streaming_config
         if "executor_config" not in kwargs:
-            kwargs["executor_config"] = self.executor_config
+            if streaming_config.get("executor_config") is not None:
+                kwargs["executor_config"] = streaming_config["executor_config"]
+            else:
+                kwargs["executor_config"] = self.executor_config
 
         # 检查是否是流式插件
         if isinstance(plugin, StreamingPlugin):
@@ -895,23 +1029,23 @@ class StreamingContext:
 
             # 创建临时流式插件包装来转换数据
             class TempWrapper(StreamingPlugin):
-                def __init__(self, chunk_size, run_id, data_name):
+                def __init__(self, run_id, data_name):
                     """
                     初始化临时流式插件包装器
 
                     用于将静态数据转换为流式 chunks。
 
                     Args:
-                        chunk_size: 每个 chunk 的大小
                         run_id: 运行标识符
                         data_name: 数据名称（用于 provides）
                     """
                     super().__init__()
                     self.provides = data_name
                     self.depends_on = []
-                    self.chunk_size = chunk_size
 
-            wrapper = TempWrapper(self.chunk_size, self.run_id, data_name)
+            wrapper = TempWrapper(self.run_id, data_name)
+            resolved_config = wrapper._collect_streaming_config(self.context, streaming_config)
+            wrapper._apply_streaming_config(resolved_config)
 
             # 转换为流
             stream = wrapper._data_to_chunks(data, self.run_id)
@@ -1061,6 +1195,7 @@ def get_streaming_context(
     chunk_size: int = 50000,
     parallel: bool = True,
     executor_config: Optional[Dict[str, Any]] = None,
+    streaming_config: Optional[Dict[str, Any]] = None,
 ) -> StreamingContext:
     """
     创建流式处理上下文。
@@ -1071,8 +1206,16 @@ def get_streaming_context(
         chunk_size: 默认 chunk 大小
         parallel: 是否启用并行处理
         executor_config: 执行器配置
+        streaming_config: 统一流式配置（覆盖 chunk_size/parallel 等）
 
     Returns:
         StreamingContext 对象
     """
-    return StreamingContext(context, run_id, chunk_size, parallel, executor_config)
+    return StreamingContext(
+        context,
+        run_id,
+        chunk_size,
+        parallel,
+        executor_config,
+        streaming_config,
+    )
