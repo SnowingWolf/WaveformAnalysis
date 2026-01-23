@@ -5,7 +5,7 @@ CPU Standard Plugins - 标准波形分析插件（NumPy/SciPy 实现）
 **加速器**: CPU (NumPy/SciPy/Numba)
 **功能**: 从原始文件扫描到特征计算和事件配对的完整插件链
 
-本模块包含波形分析流程的标准插件实现，是 WaveformDataset 内部调用的核心逻辑单元。
+本模块包含波形分析流程的标准插件实现，是标准处理流程的核心逻辑单元。
 这些插件使用 CPU 计算，支持 Numba JIT 加速和多进程并行处理。
 """
 
@@ -55,7 +55,7 @@ class RawFilesPlugin(Plugin):
             >>> raw_files = ctx.get_data('run_001', 'raw_files')
             >>> print(f"通道数: {len(raw_files)}")
         """
-        from waveform_analysis.utils.loader import get_raw_files
+        from waveform_analysis.core.processing.loader import get_raw_files
 
         n_channels = context.get_config(self, "n_channels")
         start_channel_slice = context.get_config(self, "start_channel_slice")
@@ -157,7 +157,7 @@ class WaveformsPlugin(Plugin):
         """
         import multiprocessing
 
-        from waveform_analysis.utils.loader import get_waveforms
+        from waveform_analysis.core.processing.loader import get_waveforms
 
         # ========== 获取通道切片配置 ==========
         start = context.get_config(self, "start_channel_slice")

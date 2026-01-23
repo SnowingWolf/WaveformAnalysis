@@ -8,8 +8,6 @@ Loader 模块 - 原始数据加载与文件索引。
 支持通过 DAQ 适配器配置不同的 DAQ 系统格式和目录结构。
 """
 
-import bisect
-from collections import defaultdict
 from concurrent.futures import as_completed
 import os
 from pathlib import Path
@@ -29,7 +27,7 @@ export, __all__ = exporter()
 
 
 @export
-class WaveformLoader:
+class WaveformLoaderCSV:
     """
     高效的 DAQ 波形文件加载器，支持按通道分组。
 
@@ -93,6 +91,7 @@ class WaveformLoader:
     def _load_adapter(self, adapter_name: str) -> None:
         """延迟加载适配器"""
         from waveform_analysis.utils.formats import get_adapter
+
         self._adapter = get_adapter(adapter_name)
 
     @property
@@ -113,11 +112,9 @@ class WaveformLoader:
         file_idx = int(idx_match.group(1)) if idx_match else 0
         return ch, file_idx
 
-    def get_raw_files(
-        self, daq_run: Optional[Any] = None, daq_info: Optional[Dict] = None
-    ) -> List[List[str]]:
+    def get_raw_files(self, daq_run: Optional[Any] = None, daq_info: Optional[Dict] = None) -> List[List[str]]:
         """
-        获取每个通道的文件列表。支持直接从 DAQRun 对象、DAQ 报告 dict、适配器或文件系统扫描。
+        获取每个通道的文件列表。支持直接从 DAQRun 对象、DAQ 报告 dict 或适配器。
         """
         # 0. 如果有适配器，使用适配器扫描
         if self._adapter is not None:
@@ -134,23 +131,21 @@ class WaveformLoader:
             run_path = daq_info.get("path", str(self.base_dir.parent.parent))
 
             # 确定通道数
-            max_ch = max(
-                [int(k) for k in channel_details.keys()] + [self.n_channels - 1]
-            )
+            max_ch = max([int(k) for k in channel_details.keys()] + [self.n_channels - 1])
             raw_filess = [[] for _ in range(max_ch + 1)]
 
             for ch_str, chdata in channel_details.items():
                 ch = int(ch_str)
                 files = chdata.get("files", [])
                 sorted_files = sorted(files, key=lambda x: x.get("index", 0))
-                raw_filess[ch] = [
-                    os.path.join(run_path, "RAW", f["filename"]) for f in sorted_files
-                ]
+                raw_filess[ch] = [os.path.join(run_path, "RAW", f["filename"]) for f in sorted_files]
 
             return raw_filess
 
-        # 3. 最后回退到文件系统扫描
-        return self._get_raw_files_default()
+        raise ValueError(
+            "No DAQ adapter or DAQ metadata provided. "
+            "Set daq_adapter or pass daq_run/daq_info to get_raw_files."
+        )
 
     def _get_raw_files_with_adapter(self) -> List[List[str]]:
         """使用适配器获取文件列表"""
@@ -163,29 +158,7 @@ class WaveformLoader:
             return [[] for _ in range(self.n_channels)]
 
         max_ch = max(list(channel_files.keys()) + [self.n_channels - 1])
-        return [
-            [str(fp) for fp in channel_files.get(ch, [])]
-            for ch in range(max_ch + 1)
-        ]
-
-    def _get_raw_files_default(self) -> List[List[str]]:
-        """使用默认方式获取文件列表"""
-        groups = defaultdict(list)
-        if not self.base_dir.exists():
-            return [[] for _ in range(self.n_channels)]
-
-        for file in self.base_dir.glob(self.pattern):
-            parsed = self._extract(file.name)
-            if parsed is None:
-                continue
-
-            ch, idx = parsed
-            groups[ch].append((idx, str(file)))
-
-        max_ch = max(list(groups.keys()) + [self.n_channels - 1])
-        return [
-            [fp for _, fp in sorted(groups.get(ch, []))] for ch in range(max_ch + 1)
-        ]
+        return [[str(fp) for fp in channel_files.get(ch, [])] for ch in range(max_ch + 1)]
 
     def load_waveforms(
         self,
@@ -265,9 +238,7 @@ class WaveformLoader:
         """
         from waveform_analysis.utils.io import parse_files_generator
 
-        gens = [
-            parse_files_generator(files, chunksize=chunksize) for files in raw_filess
-        ]
+        gens = [parse_files_generator(files, chunksize=chunksize) for files in raw_filess]
         return zip(*gens)
 
 
@@ -289,7 +260,7 @@ def get_raw_files(
         data_root: 数据根目录
         daq_adapter: DAQ 适配器名称（如 "vx2730"），可选
     """
-    loader = WaveformLoader(n_channels, run_name, data_root, daq_adapter=daq_adapter)
+    loader = WaveformLoaderCSV(n_channels, run_name, data_root, daq_adapter=daq_adapter)
     return loader.get_raw_files(daq_run)
 
 
@@ -329,7 +300,7 @@ def get_waveforms(
         包含每个通道波形数据的 numpy 数组列表
     """
 
-    loader = WaveformLoader(n_channels, run_name, data_root, daq_adapter=daq_adapter)
+    loader = WaveformLoaderCSV(n_channels, run_name, data_root, daq_adapter=daq_adapter)
     if raw_filess is None:
         raw_filess = loader.get_raw_files(daq_run)
 
@@ -359,72 +330,8 @@ def get_waveforms_generator(
     返回一个生成器，按 chunk 产生同步的波形数据。
     """
     _ = show_progress  # 保留以兼容，但未使用
-    loader = WaveformLoader(n_channels, run_name, data_root, daq_adapter=daq_adapter)
+    loader = WaveformLoaderCSV(n_channels, run_name, data_root, daq_adapter=daq_adapter)
     if raw_filess is None:
         raw_filess = loader.get_raw_files(daq_run)
 
     return loader.load_waveforms_generator(raw_filess, chunksize=chunksize)
-
-
-@export
-def build_filetime_index(raw_filess: List[List[str]]) -> List[List[Tuple[float, str]]]:
-    """建立基于文件 mtime 的快速查找表。"""
-    indexed = []
-    for ch_files in raw_filess:
-        if not ch_files:
-            indexed.append([])
-            continue
-
-        times = [(os.path.getmtime(f), f) for f in ch_files]
-        times.sort()
-        indexed.append(times)
-
-    return indexed
-
-
-@export
-def get_files_by_filetime(
-    indexed_table: List[List[Tuple[float, str]]], t_query_mtime: float
-) -> Dict[int, str]:
-    """
-    使用二分查找（bisect），找到最接近的时间文件。
-    """
-    result = {}
-
-    for ch, entries in enumerate(indexed_table):
-        if not entries:
-            continue
-
-        timestamps = [t for t, _ in entries]
-        pos = bisect.bisect_left(timestamps, t_query_mtime)
-
-        # 找到最接近值（检查 pos 和 pos-1）
-        cand = []
-        if pos < len(timestamps):
-            cand.append((abs(timestamps[pos] - t_query_mtime), pos))
-        if pos > 0:
-            cand.append((abs(timestamps[pos - 1] - t_query_mtime), pos - 1))
-
-        _, best = min(cand)
-        result[ch] = entries[best][1]
-
-    return result
-
-
-@export
-def get_files_before(
-    raw_filess: List[List[str]], files_by_time: Dict[int, str]
-) -> List[List[str]]:
-    """获取指定文件之前的所有文件。"""
-    sel_raw_filess = []
-    for channel_idx, channel_files in enumerate(raw_filess):
-        target_fp = files_by_time.get(channel_idx)
-        if not target_fp:
-            sel_raw_filess.append([])
-            continue
-        if target_fp in channel_files:
-            matched_pos = channel_files.index(target_fp)
-            sel_raw_filess.append(channel_files[: matched_pos + 1])
-        else:
-            sel_raw_filess.append([target_fp])
-    return sel_raw_filess
