@@ -71,7 +71,8 @@ waveform-analysis/
 │   │   ├── data/                  # 数据管理（2个文件）
 │   │   │   ├── __init__.py
 │   │   │   ├── query.py           # 时间范围查询：TimeRangeQueryEngine
-│   │   │   └── export.py          # 批量处理和导出：BatchProcessor, DataExporter
+│   │   │   ├── batch_processor.py # 批量处理：BatchProcessor
+│   │   │   └── export.py          # 数据导出：DataExporter, batch_export
 │   │   │
 │   │   └── foundation/            # 框架基础（5个文件）
 │   │       ├── __init__.py
