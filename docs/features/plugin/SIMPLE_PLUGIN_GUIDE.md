@@ -311,7 +311,7 @@ ctx.analyze_dependencies("plugin_provides_name")
 | 属性 | 类型 | 必需 | 说明 |
 |------|------|------|------|
 | `provides` | `str` | ✅ | 插件提供的数据名称（唯一标识） |
-| `depends_on` | `List[str]` | ✅ | 依赖的插件列表（数据名称） |
+| `depends_on` | `List[str]`/`List[Tuple[str, str]]` | ✅ | 依赖的插件列表（支持版本约束元组） |
 | `compute()` | `method` | ✅ | 核心计算逻辑方法 |
 
 ### 可选属性
@@ -319,10 +319,59 @@ ctx.analyze_dependencies("plugin_provides_name")
 | 属性 | 类型 | 说明 |
 |------|------|------|
 | `options` | `Dict[str, Option]` | 配置选项字典 |
-| `output_dtype` | `np.dtype` | 输出数据类型（用于结构化数组） |
+| `output_dtype` | `np.dtype` | 输出数据类型（影响缓存与 lineage） |
+| `input_dtype` | `Dict[str, np.dtype]` | 依赖数据期望 dtype（用于输入校验） |
+| `output_kind` | `"static"`/`"stream"` | 输出类型（流式插件要求返回迭代器） |
 | `description` | `str` | 插件描述 |
-| `version` | `str` | 插件版本号 |
+| `version` | `str` | 插件版本号（参与 lineage hash） |
 | `save_when` | `str` | 缓存策略：`"never"`, `"target"`, `"always"` |
+| `is_side_effect` | `bool` | 标记副作用插件（输出会隔离到 `_side_effects`） |
+| `timeout` | `float` | 单次执行超时时间（秒，None 表示不限制） |
+
+### 字段补充说明
+
+- `depends_on`: 可写为 `["waveforms"]` 或 `[("waveforms", ">=1.0.0")]`。
+- `output_kind`: `stream` 表示 `compute()` 必须返回 generator/iterator。
+- `output_dtype`: 用于输出 dtype 校验、memmap 存储和 lineage。
+- `input_dtype`: 仅在声明的依赖上生效，用于运行前 dtype 兼容检查。
+- `is_side_effect`: 常用于绘图、导出、写文件等非数据产出场景。
+
+### Option 字段说明
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `default` | `Any` | 默认值 |
+| `type` | `Type`/`tuple` | 类型检查与自动转换 |
+| `help` | `str` | 配置说明 |
+| `validate` | `callable` | 自定义校验函数，返回 bool |
+| `track` | `bool` | 是否进入 lineage（默认 True） |
+
+### 通过装饰器配置 options
+
+如果希望把配置定义写得更清晰，可以使用装饰器 `@option` 或 `@takes_config`：
+
+```python
+from waveform_analysis.core.plugins.core.base import Plugin, Option, option, takes_config
+
+@option("threshold", default=10.0, type=float, help="阈值参数")
+class MyDecoratedPlugin(Plugin):
+    provides = "my_data"
+    depends_on = ["st_waveforms"]
+
+    def compute(self, context, run_id, **kwargs):
+        threshold = context.get_config(self, "threshold")
+        return []
+```
+
+```python
+@takes_config({
+    "threshold": Option(default=10.0, type=float, help="阈值参数"),
+    "window": Option(default=5, type=int, help="窗口长度"),
+})
+class MyMultiConfigPlugin(Plugin):
+    provides = "my_data"
+    depends_on = ["st_waveforms"]
+```
 
 ---
 
