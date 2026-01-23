@@ -279,14 +279,88 @@ def _path_intersects_boxes(path: List[tuple], boxes: List[dict], skip_ids: set) 
     return False
 
 
+def _layer_positions(nodes_by_depth: Dict[int, List[str]], y_gap: float) -> Dict[str, float]:
+    node_y = {}
+    for depth, layer in nodes_by_depth.items():
+        for idx, node_id in enumerate(layer):
+            y = (idx - (len(layer) - 1) / 2.0) * y_gap
+            node_y[node_id] = y
+    return node_y
+
+
+def _build_adjacency(edges: List[Any]) -> tuple:
+    upstream_map: Dict[str, List[str]] = {}
+    downstream_map: Dict[str, List[str]] = {}
+    for edge in edges:
+        downstream_map.setdefault(edge.source_node_id, []).append(edge.target_node_id)
+        upstream_map.setdefault(edge.target_node_id, []).append(edge.source_node_id)
+    return upstream_map, downstream_map
+
+
+def _order_layer(
+    layer: List[str],
+    neighbors: Dict[str, List[str]],
+    node_y: Dict[str, float],
+) -> List[str]:
+    if len(layer) <= 1:
+        return layer
+
+    def sort_key(node_id: str, fallback: int) -> tuple:
+        y_vals = [node_y[n] for n in neighbors.get(node_id, []) if n in node_y]
+        avg_y = sum(y_vals) / len(y_vals) if y_vals else node_y.get(node_id, fallback)
+        return (avg_y, fallback)
+
+    ordered = []
+    for idx, node_id in enumerate(layer):
+        ordered.append((sort_key(node_id, idx), node_id))
+    ordered.sort(key=lambda item: item[0])
+    return [node_id for _, node_id in ordered]
+
+
+def _reorder_layers(
+    nodes_by_depth: Dict[int, List[str]],
+    edges: List[Any],
+    y_gap: float,
+    iterations: int,
+) -> Dict[int, List[str]]:
+    layers = {depth: list(layer) for depth, layer in nodes_by_depth.items()}
+    if not layers:
+        return layers
+
+    upstream_map, downstream_map = _build_adjacency(edges)
+    max_depth = max(layers.keys())
+    iterations = max(0, int(iterations))
+
+    for _ in range(iterations):
+        node_y = _layer_positions(layers, y_gap)
+        for depth in range(1, max_depth + 1):
+            layers[depth] = _order_layer(layers[depth], downstream_map, node_y)
+
+        node_y = _layer_positions(layers, y_gap)
+        for depth in range(max_depth - 1, 0, -1):
+            layers[depth] = _order_layer(layers[depth], upstream_map, node_y)
+
+    return layers
+
+
 def _order_ports(
+    node: NodeModel,
     ports: List[PortModel],
     edges: List[Any],
     pos: dict,
+    style: LineageStyle,
     direction: str,
 ) -> List[PortModel]:
     if len(ports) <= 1:
         return ports
+
+    groups = style.port_groups.get(node.key, {})
+    direction_groups = groups.get(direction, [])
+    default_group = len(direction_groups) // 2 if direction_groups else 0
+    group_index = {}
+    for idx, group in enumerate(direction_groups):
+        for name in group:
+            group_index[name] = idx
 
     port_to_ys = {port.id: [] for port in ports}
     for edge in edges:
@@ -302,6 +376,9 @@ def _order_ports(
     def sort_key(port: PortModel) -> tuple:
         ys = port_to_ys.get(port.id, [])
         avg_y = sum(ys) / len(ys) if ys else 0.0
+        group = group_index.get(port.name, default_group)
+        if direction_groups:
+            return (group, avg_y, port.index)
         return (avg_y, port.index)
 
     return sorted(ports, key=sort_key)
@@ -317,8 +394,8 @@ def _set_port_positions(
             continue
         x, y = pos[node_id]
 
-        in_ports = _order_ports(node.in_ports, model.edges, pos, "in")
-        out_ports = _order_ports(node.out_ports, model.edges, pos, "out")
+        in_ports = _order_ports(node, node.in_ports, model.edges, pos, style, "in")
+        out_ports = _order_ports(node, node.out_ports, model.edges, pos, style, "out")
 
         for k, port in enumerate(in_ports):
             if len(in_ports) > 1:
@@ -403,6 +480,54 @@ def _route_edge_path(
     return default_path, label_pos
 
 
+def _classify_edge_category(dtype: str) -> str:
+    if not dtype:
+        return "unknown"
+
+    dtype_lower = dtype.lower()
+    if "dataframe" in dtype_lower:
+        return "dataframe"
+    if "list" in dtype_lower and "ndarray" in dtype_lower:
+        return "list_array"
+    if "[(" in dtype_lower or "structured" in dtype_lower:
+        return "structured"
+    if "ndarray" in dtype_lower:
+        return "array"
+    return "unknown"
+
+
+def _resolve_wire_style(edge: Any, style: LineageStyle) -> dict:
+    dtype = edge.dtype or ""
+    color = style.type_colors.get(dtype, style.type_colors.get("Unknown", "#95a5a6"))
+    width = style.wire_linewidth
+    alpha = style.wire_alpha
+    dash = "solid"
+
+    category = _classify_edge_category(dtype)
+    category_style = style.wire_style_by_category.get(category, {})
+    color = category_style.get("color", color)
+    width = category_style.get("width", width)
+    alpha = category_style.get("alpha", alpha)
+    dash = category_style.get("dash", dash)
+
+    match_text = f"{edge.source_node_id} {edge.target_node_id} {dtype}".lower()
+    for match, overrides in style.wire_style_overrides.items():
+        if match.lower() in match_text:
+            color = overrides.get("color", color)
+            width = overrides.get("width", width)
+            alpha = overrides.get("alpha", alpha)
+            dash = overrides.get("dash", dash)
+
+    return {"color": color, "width": width, "alpha": alpha, "dash": dash}
+
+
+def _mpl_dash(dash: Optional[str]) -> str:
+    if not dash or dash == "solid":
+        return "solid"
+    mapping = {"dash": "dashed", "dot": "dotted", "dashdot": "dashdot"}
+    return mapping.get(dash, dash)
+
+
 def plot_lineage_labview(
     lineage: Any,
     target_name: str,
@@ -460,37 +585,24 @@ def plot_lineage_labview(
     for node_id, node in model.nodes.items():
         nodes_by_depth.setdefault(node.depth, []).append(node_id)
 
-    max_d = max(n.depth for n in model.nodes.values()) if model.nodes else 0
+    for depth in nodes_by_depth:
+        nodes_by_depth[depth] = sorted(nodes_by_depth[depth])
 
-    # 构建下游节点映射（用于智能排序减少连线交叉）
-    downstream_map = {}  # {node_id: [下游节点列表]}
-    for node_id in model.nodes:
-        downstream_map[node_id] = []
-    for edge in model.edges:
-        downstream_map[edge.source_node_id].append(edge.target_node_id)
+    if s.layout_reorder:
+        nodes_by_depth = _reorder_layers(
+            nodes_by_depth,
+            model.edges,
+            s.y_gap,
+            s.layout_iterations,
+        )
 
-    # 从 depth=0 开始处理，这样可以根据下游节点位置排序上游节点
+    max_d = max(nodes_by_depth.keys()) if nodes_by_depth else 0
     for d in sorted(nodes_by_depth.keys()):
-        vis = nodes_by_depth[d]
+        layer = nodes_by_depth[d]
         x = (max_d - d) * s.x_gap
-
-        if d == 0:
-            # 目标节点层，按字母顺序
-            vis = sorted(vis)
-        else:
-            # 根据下游节点的 y 坐标平均值排序，减少连线交叉
-            def get_downstream_y_avg(node_id):
-                downstream = downstream_map.get(node_id, [])
-                if not downstream:
-                    return 0
-                y_coords = [pos[dn][1] for dn in downstream if dn in pos]
-                return sum(y_coords) / len(y_coords) if y_coords else 0
-
-            vis = sorted(vis, key=lambda n: (get_downstream_y_avg(n), n))
-
-        for i, vi in enumerate(vis):
-            y = (i - (len(vis) - 1) / 2.0) * s.y_gap
-            pos[vi] = (x, y)
+        for i, node_id in enumerate(layer):
+            y = (i - (len(layer) - 1) / 2.0) * s.y_gap
+            pos[node_id] = (x, y)
 
     _set_port_positions(model, pos, s)
 
@@ -517,19 +629,21 @@ def plot_lineage_labview(
     fig, ax = plt.subplots(figsize=(max(12, max_d * 3), 6))
     node_boxes = _build_node_boxes(model, pos, s)
 
-    def draw_wire(path: List[tuple], color: str) -> None:
+    def draw_wire(path: List[tuple], wire_style: dict) -> None:
         # 提高连线的zorder，确保在节点之上（节点zorder=3-5）
         line_x = [point[0] for point in path]
         line_y = [point[1] for point in path]
+        linestyle = _mpl_dash(wire_style.get("dash"))
         ax.plot(
             line_x,
             line_y,
-            color=color,
-            lw=s.wire_linewidth,
-            alpha=s.wire_alpha,
+            color=wire_style["color"],
+            lw=wire_style["width"],
+            alpha=wire_style["alpha"],
             zorder=10,
             solid_capstyle=s.wire_capstyle,
             solid_joinstyle=s.wire_joinstyle,
+            linestyle=linestyle,
         )
         start = path[-2]
         end = path[-1]
@@ -538,8 +652,10 @@ def plot_lineage_labview(
                 start,
                 end,
                 arrowstyle="-|>",
-                color=color,
+                color=wire_style["color"],
                 mutation_scale=s.arrow_mutation_scale,
+                linewidth=wire_style["width"],
+                linestyle=linestyle,
                 zorder=11,
             )
         )
@@ -750,19 +866,19 @@ def plot_lineage_labview(
 
     # 绘制连线（在节点之后绘制，zorder更高，确保在节点之上）
     for edge in model.edges:
-        c = s.type_colors.get(edge.dtype, s.type_colors["Unknown"])
+        wire_style = _resolve_wire_style(edge, s)
         p1 = pos.get(edge.source_port_id)
         p2 = pos.get(edge.target_port_id)
         if p1 and p2:
             path, label_pos = _route_edge_path(p1, p2, edge, node_boxes, s)
-            draw_wire(path, c)
+            draw_wire(path, wire_style)
             if data_wires:
                 ax.text(
                     label_pos[0],
                     label_pos[1] + 0.12,
                     edge.dtype,
                     fontsize=s.font_size_wire,
-                    color=c,
+                    color=wire_style["color"],
                     ha="center",
                     bbox=dict(fc="white", ec="none", alpha=0.7, boxstyle="round,pad=0.1"),
                     zorder=12,
@@ -1099,37 +1215,24 @@ def plot_lineage_plotly(
     for node_id, node in model.nodes.items():
         nodes_by_depth.setdefault(node.depth, []).append(node_id)
 
-    max_d = max(n.depth for n in model.nodes.values()) if model.nodes else 0
+    for depth in nodes_by_depth:
+        nodes_by_depth[depth] = sorted(nodes_by_depth[depth])
 
-    # 构建下游节点映射（用于智能排序减少连线交叉）
-    downstream_map = {}  # {node_id: [下游节点列表]}
-    for node_id in model.nodes:
-        downstream_map[node_id] = []
-    for edge in model.edges:
-        downstream_map[edge.source_node_id].append(edge.target_node_id)
+    if s.layout_reorder:
+        nodes_by_depth = _reorder_layers(
+            nodes_by_depth,
+            model.edges,
+            s.y_gap,
+            s.layout_iterations,
+        )
 
-    # 从 depth=0 开始处理，这样可以根据下游节点位置排序上游节点
+    max_d = max(nodes_by_depth.keys()) if nodes_by_depth else 0
     for d in sorted(nodes_by_depth.keys()):
-        vis = nodes_by_depth[d]
+        layer = nodes_by_depth[d]
         x = (max_d - d) * s.x_gap
-
-        if d == 0:
-            # 目标节点层，按字母顺序
-            vis = sorted(vis)
-        else:
-            # 根据下游节点的 y 坐标平均值排序，减少连线交叉
-            def get_downstream_y_avg(node_id):
-                downstream = downstream_map.get(node_id, [])
-                if not downstream:
-                    return 0
-                y_coords = [pos[dn][1] for dn in downstream if dn in pos]
-                return sum(y_coords) / len(y_coords) if y_coords else 0
-
-            vis = sorted(vis, key=lambda n: (get_downstream_y_avg(n), n))
-
-        for i, vi in enumerate(vis):
-            y = (i - (len(vis) - 1) / 2.0) * s.y_gap
-            pos[vi] = (x, y)
+        for i, node_id in enumerate(layer):
+            y = (i - (len(layer) - 1) / 2.0) * s.y_gap
+            pos[node_id] = (x, y)
 
     _set_port_positions(model, pos, s)
 
@@ -1150,7 +1253,13 @@ def plot_lineage_plotly(
         line_x = [point[0] for point in path]
         line_y = [point[1] for point in path]
 
-        color = s.type_colors.get(edge.dtype, s.type_colors.get("Unknown", "#95a5a6"))
+        wire_style = _resolve_wire_style(edge, s)
+        line_style = {
+            "color": wire_style["color"],
+            "width": wire_style["width"],
+        }
+        if wire_style.get("dash") and wire_style["dash"] != "solid":
+            line_style["dash"] = wire_style["dash"]
 
         # 连线 trace
         traces.append(
@@ -1158,7 +1267,8 @@ def plot_lineage_plotly(
                 x=line_x,
                 y=line_y,
                 mode="lines",
-                line={"color": color, "width": s.wire_linewidth},
+                line=line_style,
+                opacity=wire_style["alpha"],
                 hoverinfo="text",
                 hovertext=f"类型: {edge.dtype}",
                 showlegend=False,
@@ -1411,7 +1521,7 @@ def plot_lineage_plotly(
         start_x, start_y = path[-2]
         end_x, end_y = path[-1]
 
-        color = s.type_colors.get(edge.dtype, s.type_colors.get("Unknown", "#95a5a6"))
+        wire_style = _resolve_wire_style(edge, s)
 
         # 箭头注释
         annotations.append(
@@ -1427,8 +1537,8 @@ def plot_lineage_plotly(
                 "showarrow": True,
                 "arrowhead": 2,
                 "arrowsize": 1,
-                "arrowwidth": s.wire_linewidth,
-                "arrowcolor": color,
+                "arrowwidth": wire_style["width"],
+                "arrowcolor": wire_style["color"],
             }
         )
 
@@ -1440,9 +1550,9 @@ def plot_lineage_plotly(
                     "y": label_pos[1] + 0.12,
                     "text": edge.dtype,
                     "showarrow": False,
-                    "font": {"size": s.font_size_wire, "color": color},
+                    "font": {"size": s.font_size_wire, "color": wire_style["color"]},
                     "bgcolor": "white",
-                    "bordercolor": color,
+                    "bordercolor": wire_style["color"],
                     "borderwidth": 1,
                     "borderpad": 2,
                     "opacity": 0.9,

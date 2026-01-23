@@ -59,7 +59,6 @@ DEFAULT_WAVE_LENGTH = export(800, name="DEFAULT_WAVE_LENGTH")
 RECORD_DTYPE = export(
 
     [
-        ("time", "i8"),  # int64 for absolute system time (ns)
         ("baseline", "f8"),  # float64 for baseline
         ("timestamp", "i8"),  # int64 for ps-level timestamps (ADC raw)
         ("event_length", "i8"),  # length of the event
@@ -88,7 +87,6 @@ def create_record_dtype(wave_length: int) -> np.dtype:
         >>> print(arr["wave"].shape)  # (10, 1600)
     """
     return np.dtype([
-        ("time", "i8"),  # int64 for absolute system time (ns)
         ("baseline", "f8"),  # float64 for baseline
         ("timestamp", "i8"),  # int64 for ps-level timestamps (ADC raw)
         ("event_length", "i8"),  # length of the event
@@ -480,12 +478,13 @@ class WaveformStruct:
         waveform_structured["channel"] = physical_channels
 
         # 填充 time 字段（绝对系统时间 ns）
-        if self.config.epoch_ns is not None:
-            # time = epoch_ns + timestamp_ps // 1000
-            waveform_structured["time"] = self.config.epoch_ns + timestamps // 1000
-        else:
-            # 默认：相对时间 ns（向后兼容）
-            waveform_structured["time"] = timestamps // 1000
+        if "time" in waveform_structured.dtype.names:
+            if self.config.epoch_ns is not None:
+                # time = epoch_ns + timestamp_ps // 1000
+                waveform_structured["time"] = self.config.epoch_ns + timestamps // 1000
+            else:
+                # 默认：相对时间 ns（向后兼容）
+                waveform_structured["time"] = timestamps // 1000
 
         # Vectorized assignment for wave data
         # 使用实际波形长度，但不超过 dtype 中定义的长度

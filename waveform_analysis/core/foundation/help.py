@@ -87,12 +87,17 @@ class HelpSystem:
         )
 
         if from_docs and content:
+            if verbose:
+                content = content + "\n\n" + self._build_verbose_footer(topic)
             # 添加来源提示
             source_hint = "\n💡 文档来源: docs/ 目录 (实时同步)\n"
             return content + source_hint
 
         # 文档不可用，返回错误提示
-        return self._topics[topic].show()
+        fallback = self._topics[topic].show()
+        if verbose:
+            fallback = fallback + "\n\n详细模式: 文档不可用，无法显示更多内容。\n"
+        return fallback
 
     def _quick_reference(self) -> str:
         """默认快速参考"""
@@ -154,6 +159,17 @@ class HelpSystem:
 
 💡 使用 ctx.help() 查看快速参考
 """
+
+    def _build_verbose_footer(self, topic: str) -> str:
+        """详细模式下追加文档来源信息，确保内容更完整"""
+        available_docs = self.doc_reader.list_available_docs().get(topic, [])
+        if not available_docs:
+            return "详细模式: 未找到可用文档清单。"
+
+        lines = ["详细模式: 文档来源明细"]
+        for doc_path in available_docs:
+            lines.append(f"- docs/{doc_path}")
+        return "\n".join(lines)
 
 
 @export
