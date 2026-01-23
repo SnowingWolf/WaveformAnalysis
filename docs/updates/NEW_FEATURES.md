@@ -279,7 +279,7 @@ print(st_waveforms[0]['time'][0])       # ns
 
 **状态:** ✅ 新实现
 
-**模块:** `waveform_analysis.core.batch_export`
+**模块:** `waveform_analysis.core.data`
 
 **核心类:**
 - `BatchProcessor`: 批量处理器
@@ -289,12 +289,13 @@ print(st_waveforms[0]['time'][0])       # ns
 - 进度跟踪
 - 灵活的错误处理
 - 自定义处理函数
+- 自动上下文工厂（thread: `ctx.clone()` / process: `ctx.create_context_factory()`）
 
 **使用示例:**
 
 #### 基础批量处理
 ```python
-from waveform_analysis.core.batch_export import BatchProcessor
+from waveform_analysis.core.data import BatchProcessor
 from waveform_analysis.core.context import Context
 
 ctx = Context()
@@ -340,7 +341,7 @@ def custom_process(ctx, run_id):
     return result
 
 # 批量执行自定义函数
-results = processor.process_with_custom_func(
+results = processor.process_func(
     run_ids=['run_001', 'run_002'],
     func=custom_process,
     max_workers=2,
@@ -375,7 +376,7 @@ results_parallel = processor.process_runs(
 
 **状态:** ✅ 新实现
 
-**模块:** `waveform_analysis.core.batch_export`
+**模块:** `waveform_analysis.core.data`
 
 **核心类:**
 - `DataExporter`: 统一导出器
@@ -392,7 +393,7 @@ results_parallel = processor.process_runs(
 
 #### 单文件导出
 ```python
-from waveform_analysis.core.batch_export import DataExporter
+from waveform_analysis.core.data import DataExporter
 import numpy as np
 import pandas as pd
 
@@ -434,7 +435,7 @@ exporter.export(df, 'output.json', indent=2)
 
 #### 批量导出
 ```python
-from waveform_analysis.core.batch_export import batch_export
+from waveform_analysis.core.data import batch_export
 
 # 批量导出多个run的数据
 batch_export(
@@ -455,7 +456,7 @@ batch_export(
 #### 完整工作流
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.batch_export import BatchProcessor, DataExporter
+from waveform_analysis.core.data import BatchProcessor, DataExporter
 
 ctx = Context()
 processor = BatchProcessor(ctx)

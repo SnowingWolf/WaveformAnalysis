@@ -219,6 +219,190 @@ def _get_node_colors(node_type: str) -> tuple:
     return color_scheme.get(node_type, color_scheme['intermediate'])
 
 
+def _build_node_boxes(
+    model: LineageGraphModel,
+    pos: dict,
+    style: LineageStyle,
+) -> List[dict]:
+    """Create node bounding boxes used for simple wire obstacle avoidance."""
+    margin = max(0.2, style.port_size * 2)
+    boxes = []
+    for node_id in model.nodes:
+        if node_id not in pos:
+            continue
+        x, y = pos[node_id]
+        half_w = style.node_width / 2 + margin
+        half_h = style.node_height / 2 + margin
+        boxes.append(
+            {
+                "id": node_id,
+                "x_min": x - half_w,
+                "x_max": x + half_w,
+                "y_min": y - half_h,
+                "y_max": y + half_h,
+            }
+        )
+    return boxes
+
+
+def _segment_intersects_box(p1: tuple, p2: tuple, box: dict) -> bool:
+    x1, y1 = p1
+    x2, y2 = p2
+    if abs(y1 - y2) < 1e-9:
+        y = y1
+        x_min, x_max = sorted([x1, x2])
+        return (
+            box["y_min"] <= y <= box["y_max"]
+            and x_min <= box["x_max"]
+            and x_max >= box["x_min"]
+        )
+    if abs(x1 - x2) < 1e-9:
+        x = x1
+        y_min, y_max = sorted([y1, y2])
+        return (
+            box["x_min"] <= x <= box["x_max"]
+            and y_min <= box["y_max"]
+            and y_max >= box["y_min"]
+        )
+    return False
+
+
+def _path_intersects_boxes(path: List[tuple], boxes: List[dict], skip_ids: set) -> bool:
+    for i in range(len(path) - 1):
+        p1 = path[i]
+        p2 = path[i + 1]
+        for box in boxes:
+            if box["id"] in skip_ids:
+                continue
+            if _segment_intersects_box(p1, p2, box):
+                return True
+    return False
+
+
+def _order_ports(
+    ports: List[PortModel],
+    edges: List[Any],
+    pos: dict,
+    direction: str,
+) -> List[PortModel]:
+    if len(ports) <= 1:
+        return ports
+
+    port_to_ys = {port.id: [] for port in ports}
+    for edge in edges:
+        if direction == "in" and edge.target_port_id in port_to_ys:
+            src_pos = pos.get(edge.source_node_id)
+            if src_pos:
+                port_to_ys[edge.target_port_id].append(src_pos[1])
+        elif direction == "out" and edge.source_port_id in port_to_ys:
+            tgt_pos = pos.get(edge.target_node_id)
+            if tgt_pos:
+                port_to_ys[edge.source_port_id].append(tgt_pos[1])
+
+    def sort_key(port: PortModel) -> tuple:
+        ys = port_to_ys.get(port.id, [])
+        avg_y = sum(ys) / len(ys) if ys else 0.0
+        return (avg_y, port.index)
+
+    return sorted(ports, key=sort_key)
+
+
+def _set_port_positions(
+    model: LineageGraphModel,
+    pos: dict,
+    style: LineageStyle,
+) -> None:
+    for node_id, node in model.nodes.items():
+        if node_id not in pos:
+            continue
+        x, y = pos[node_id]
+
+        in_ports = _order_ports(node.in_ports, model.edges, pos, "in")
+        out_ports = _order_ports(node.out_ports, model.edges, pos, "out")
+
+        for k, port in enumerate(in_ports):
+            if len(in_ports) > 1:
+                dy = (k - (len(in_ports) - 1) / 2.0) * 0.4
+            else:
+                dy = 0
+            pos[port.id] = (x - style.node_width / 2, y + dy)
+
+        for k, port in enumerate(out_ports):
+            if len(out_ports) > 1:
+                dy = (k - (len(out_ports) - 1) / 2.0) * 0.4
+            else:
+                dy = 0
+            pos[port.id] = (x + style.node_width / 2, y + dy)
+
+
+def _route_edge_path(
+    p1: tuple,
+    p2: tuple,
+    edge: Any,
+    boxes: List[dict],
+    style: LineageStyle,
+) -> tuple:
+    """Return a Manhattan path and label position that avoids node boxes when possible."""
+    x1, y1 = p1
+    x2, y2 = p2
+    mx = (x1 + x2) / 2.0
+    skip_ids = {edge.source_node_id, edge.target_node_id}
+
+    default_path = [(x1, y1), (mx, y1), (mx, y2), (x2, y2)]
+    if not _path_intersects_boxes(default_path, boxes, skip_ids):
+        label_pos = (mx, (y1 + y2) / 2.0)
+        return default_path, label_pos
+
+    direction = 1 if x2 >= x1 else -1
+    stub = max(0.4, style.port_size * 4)
+    x1_stub = x1 + direction * stub
+    x2_stub = x2 - direction * stub
+
+    x_min = min(x1_stub, x2_stub)
+    x_max = max(x1_stub, x2_stub)
+    corridor_boxes = []
+    for box in boxes:
+        if box["id"] in skip_ids:
+            continue
+        if box["x_max"] < x_min or box["x_min"] > x_max:
+            continue
+        corridor_boxes.append(box)
+
+    candidates = []
+    if corridor_boxes:
+        y_min = min(box["y_min"] for box in corridor_boxes)
+        y_max = max(box["y_max"] for box in corridor_boxes)
+        clearance = max(style.port_size * 4, style.node_height * 0.2, 0.4)
+        candidates.extend([y_max + clearance, y_min - clearance])
+
+    y_mid = (y1 + y2) / 2.0
+    lane_step = max(style.y_gap * 0.6, 0.8)
+    candidates = [y_mid] + candidates
+    for i in range(1, 4):
+        candidates.append(y_mid + i * lane_step)
+        candidates.append(y_mid - i * lane_step)
+
+    seen = set()
+    for y_detour in candidates:
+        if y_detour in seen:
+            continue
+        seen.add(y_detour)
+        path = [
+            (x1, y1),
+            (x1_stub, y1),
+            (x1_stub, y_detour),
+            (x2_stub, y_detour),
+            (x2_stub, y2),
+            (x2, y2),
+        ]
+        if not _path_intersects_boxes(path, boxes, skip_ids):
+            label_pos = ((x1_stub + x2_stub) / 2.0, y_detour)
+            return path, label_pos
+
+    label_pos = (mx, (y1 + y2) / 2.0)
+    return default_path, label_pos
+
+
 def plot_lineage_labview(
     lineage: Any,
     target_name: str,
@@ -308,14 +492,7 @@ def plot_lineage_labview(
             y = (i - (len(vis) - 1) / 2.0) * s.y_gap
             pos[vi] = (x, y)
 
-            # 计算端口位置
-            node = model.nodes[vi]
-            for k, port in enumerate(node.in_ports):
-                dy = (k - (len(node.in_ports) - 1) / 2.0) * 0.4 if len(node.in_ports) > 1 else 0
-                pos[port.id] = (x - s.node_width / 2, y + dy)
-            for k, port in enumerate(node.out_ports):
-                dy = (k - (len(node.out_ports) - 1) / 2.0) * 0.4 if len(node.out_ports) > 1 else 0
-                pos[port.id] = (x + s.node_width / 2, y + dy)
+    _set_port_positions(model, pos, s)
 
     # 3. 准备分析数据（用于高亮）
     critical_path_set = set()
@@ -338,19 +515,34 @@ def plot_lineage_labview(
 
     # 4. 绘图
     fig, ax = plt.subplots(figsize=(max(12, max_d * 3), 6))
+    node_boxes = _build_node_boxes(model, pos, s)
 
-    def draw_wire(p1, p2, color):
-        x1, y1 = p1
-        x2, y2 = p2
-        mx = (x1 + x2) / 2.0
+    def draw_wire(path: List[tuple], color: str) -> None:
         # 提高连线的zorder，确保在节点之上（节点zorder=3-5）
-        ax.plot([x1, mx, mx, x2], [y1, y1, y2, y2], color=color, lw=s.wire_linewidth, alpha=s.wire_alpha, zorder=10)
+        line_x = [point[0] for point in path]
+        line_y = [point[1] for point in path]
+        ax.plot(
+            line_x,
+            line_y,
+            color=color,
+            lw=s.wire_linewidth,
+            alpha=s.wire_alpha,
+            zorder=10,
+            solid_capstyle=s.wire_capstyle,
+            solid_joinstyle=s.wire_joinstyle,
+        )
+        start = path[-2]
+        end = path[-1]
         ax.add_patch(
             FancyArrowPatch(
-                (mx, y2), (x2, y2), arrowstyle="-|>", color=color, mutation_scale=s.arrow_mutation_scale, zorder=11
+                start,
+                end,
+                arrowstyle="-|>",
+                color=color,
+                mutation_scale=s.arrow_mutation_scale,
+                zorder=11,
             )
         )
-        return mx, (y1 + y2) / 2.0
 
     # 先绘制节点（zorder=3-5），后绘制连线（zorder=10-11），这样连线在节点上方
     # 绘制节点
@@ -562,11 +754,12 @@ def plot_lineage_labview(
         p1 = pos.get(edge.source_port_id)
         p2 = pos.get(edge.target_port_id)
         if p1 and p2:
-            mx, my = draw_wire(p1, p2, c)
+            path, label_pos = _route_edge_path(p1, p2, edge, node_boxes, s)
+            draw_wire(path, c)
             if data_wires:
                 ax.text(
-                    mx,
-                    my + 0.12,
+                    label_pos[0],
+                    label_pos[1] + 0.12,
                     edge.dtype,
                     fontsize=s.font_size_wire,
                     color=c,
@@ -938,18 +1131,7 @@ def plot_lineage_plotly(
             y = (i - (len(vis) - 1) / 2.0) * s.y_gap
             pos[vi] = (x, y)
 
-            # 计算端口位置
-            node = model.nodes[vi]
-            for k, port in enumerate(node.in_ports):
-                dy = (k - (len(node.in_ports) - 1) / 2.0) * 0.4 if len(node.in_ports) > 1 else 0
-                pos[port.id] = (x - s.node_width / 2, y + dy)
-            for k, port in enumerate(node.out_ports):
-                dy = (
-                    (k - (len(node.out_ports) - 1) / 2.0) * 0.4
-                    if len(node.out_ports) > 1
-                    else 0
-                )
-                pos[port.id] = (x + s.node_width / 2, y + dy)
+    _set_port_positions(model, pos, s)
 
     # 3. 创建 plotly traces 和 shapes
     traces = []
@@ -957,19 +1139,16 @@ def plot_lineage_plotly(
     node_annotations = []  # 用于节点文本
 
     # 绘制连线
+    node_boxes = _build_node_boxes(model, pos, s)
     for edge in model.edges:
         p1 = pos.get(edge.source_port_id)
         p2 = pos.get(edge.target_port_id)
         if not p1 or not p2:
             continue
 
-        x1, y1 = p1
-        x2, y2 = p2
-        mx = (x1 + x2) / 2.0
-
-        # 创建连线路径
-        line_x = [x1, mx, mx, x2]
-        line_y = [y1, y1, y2, y2]
+        path, label_pos = _route_edge_path(p1, p2, edge, node_boxes, s)
+        line_x = [point[0] for point in path]
+        line_y = [point[1] for point in path]
 
         color = s.type_colors.get(edge.dtype, s.type_colors.get("Unknown", "#95a5a6"))
 
@@ -1228,18 +1407,19 @@ def plot_lineage_plotly(
         if not p1 or not p2:
             continue
 
-        x1, y1 = p1
-        x2, y2 = p2
+        path, label_pos = _route_edge_path(p1, p2, edge, node_boxes, s)
+        start_x, start_y = path[-2]
+        end_x, end_y = path[-1]
 
         color = s.type_colors.get(edge.dtype, s.type_colors.get("Unknown", "#95a5a6"))
 
         # 箭头注释
         annotations.append(
             {
-                "ax": (x1 + x2) / 2.0,
-                "ay": y2,
-                "x": x2,
-                "y": y2,
+                "ax": start_x,
+                "ay": start_y,
+                "x": end_x,
+                "y": end_y,
                 "xref": "x",
                 "yref": "y",
                 "axref": "x",
@@ -1256,8 +1436,8 @@ def plot_lineage_plotly(
         if data_wires:
             annotations.append(
                 {
-                    "x": (x1 + x2) / 2.0,
-                    "y": (y1 + y2) / 2.0 + 0.12,
+                    "x": label_pos[0],
+                    "y": label_pos[1] + 0.12,
                     "text": edge.dtype,
                     "showarrow": False,
                     "font": {"size": s.font_size_wire, "color": color},

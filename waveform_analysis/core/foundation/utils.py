@@ -238,6 +238,10 @@ class LineageStyle:
     font_size_port: int = 7
     font_size_wire: int = 7
     wire_linewidth: float = 2.5
+    wire_capstyle: str = "round"
+    wire_joinstyle: str = "round"
+    bundle_enabled: bool = True
+    bundle_offset: float = 0.6
     arrow_mutation_scale: float = 12
     wire_alpha: float = 0.8
     verbose: int = 1

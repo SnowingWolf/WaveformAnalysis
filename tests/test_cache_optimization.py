@@ -61,9 +61,11 @@ class TestCacheOptimization:
         executed = []
 
         class TrackingContext(Context):
-            def _execute_single_plugin(self, name, run_id, data_name, kwargs, tracker, bar_name):
+            def _execute_single_plugin(self, name, run_id, data_name, kwargs, tracker, bar_name, **extra):
                 executed.append(name)
-                return super()._execute_single_plugin(name, run_id, data_name, kwargs, tracker, bar_name)
+                return super()._execute_single_plugin(
+                    name, run_id, data_name, kwargs, tracker, bar_name, **extra
+                )
 
         class PluginA(Plugin):
             provides = "data_a"
@@ -109,9 +111,11 @@ class TestCacheOptimization:
         executed = []
 
         class TrackingContext(Context):
-            def _execute_single_plugin(self, name, run_id, data_name, kwargs, tracker, bar_name):
+            def _execute_single_plugin(self, name, run_id, data_name, kwargs, tracker, bar_name, **extra):
                 executed.append(name)
-                return super()._execute_single_plugin(name, run_id, data_name, kwargs, tracker, bar_name)
+                return super()._execute_single_plugin(
+                    name, run_id, data_name, kwargs, tracker, bar_name, **extra
+                )
 
         class PluginA(Plugin):
             provides = "data_a"
@@ -157,9 +161,11 @@ class TestCacheOptimization:
         executed = []
 
         class TrackingContext(Context):
-            def _execute_single_plugin(self, name, run_id, data_name, kwargs, tracker, bar_name):
+            def _execute_single_plugin(self, name, run_id, data_name, kwargs, tracker, bar_name, **extra):
                 executed.append(name)
-                return super()._execute_single_plugin(name, run_id, data_name, kwargs, tracker, bar_name)
+                return super()._execute_single_plugin(
+                    name, run_id, data_name, kwargs, tracker, bar_name, **extra
+                )
 
         class PluginA(Plugin):
             provides = "data_a"
@@ -206,15 +212,17 @@ class TestCacheOptimization:
         assert executed == ["data_c"]
 
     def test_run_plugin_loads_disk_cache(self, tmp_path):
-        """测试 run_plugin 在缓存命中时会加载磁盘数据"""
+        """测试 run_plugin 强制执行并忽略缓存"""
 
         dtype = np.dtype([("v", "i4")])
         executed = []
 
         class TrackingContext(Context):
-            def _execute_single_plugin(self, name, run_id, data_name, kwargs, tracker, bar_name):
+            def _execute_single_plugin(self, name, run_id, data_name, kwargs, tracker, bar_name, **extra):
                 executed.append(name)
-                return super()._execute_single_plugin(name, run_id, data_name, kwargs, tracker, bar_name)
+                return super()._execute_single_plugin(
+                    name, run_id, data_name, kwargs, tracker, bar_name, **extra
+                )
 
         class PluginA(Plugin):
             provides = "data_a"
@@ -234,7 +242,7 @@ class TestCacheOptimization:
 
         data = ctx._run_plugin(run_id, "data_a")
         np.testing.assert_array_equal(data, np.array([(1,)], dtype=dtype))
-        assert executed == []
+        assert executed == ["data_a"]
 
     def test_lineage_cache(self):
         """测试血缘缓存"""

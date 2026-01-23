@@ -16,6 +16,10 @@
 它本质上是对 `ctx.get_data(run_id, data_name)` 的批量调度封装。并行模式下建议使用
 `context_factory` 为每个任务创建独立 Context，避免共享状态污染。
 
+自动克隆支持：
+- thread 模式未提供 `context_factory` 时，会自动使用 `ctx.clone()`
+- process 模式可用 `ctx.create_context_factory()` 生成可 picklable 的 factory
+
 ---
 
 ## 适用场景
@@ -62,7 +66,7 @@ def count_peaks(ctx, run_id):
     peaks = ctx.get_data(run_id, "peaks")
     return len(peaks)
 
-stats = processor.process_with_custom_func(
+stats = processor.process_func(
     run_ids=["run_001", "run_002"],
     func=count_peaks,
     max_workers=2,
@@ -83,6 +87,18 @@ result = processor.process_runs(
     max_workers=4,
     context_factory=make_context,
     executor_type="thread",  # 或 "process"
+)
+```
+
+### 5. 进程池工厂函数（推荐）
+
+```python
+result = processor.process_runs(
+    run_ids=["run_001", "run_002"],
+    data_name="peaks",
+    max_workers=4,
+    context_factory=ctx.create_context_factory(),
+    executor_type="process",
 )
 ```
 
@@ -119,6 +135,9 @@ def process_runs(
 ) -> Dict[str, Any]
 ```
 
+`context_factory` 可选：thread 模式会自动使用 `ctx.clone()`，process 模式建议使用
+`ctx.create_context_factory()`。
+
 返回：
 
 ```python
@@ -130,10 +149,10 @@ def process_runs(
 }
 ```
 
-### process_with_custom_func
+### process_func
 
 ```python
-def process_with_custom_func(
+def process_func(
     run_ids: List[str],
     func: Callable,  # func(context, run_id) -> result
     max_workers: Optional[int] = None,
