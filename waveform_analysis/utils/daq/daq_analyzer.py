@@ -8,7 +8,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import pandas as pd
 
@@ -37,22 +37,34 @@ logger = logging.getLogger(__name__)
 
 from .daq_run import DAQRun
 
+if TYPE_CHECKING:
+    from waveform_analysis.utils.formats import DAQAdapter, DirectoryLayout
+
 
 class DAQAnalyzer:
     """DAQ 数据分析器：管理所有运行的统一分析（显示/保存等）。"""
 
-    def __init__(self, daq_root: Union[str, Path] = "DAQ") -> None:
+    def __init__(
+        self,
+        daq_root: Union[str, Path] = "DAQ",
+        daq_adapter: Optional[Union[str, "DAQAdapter"]] = None,
+        directory_layout: Optional["DirectoryLayout"] = None,
+    ) -> None:
         """
         初始化 DAQ 数据分析器
 
         Args:
             daq_root: DAQ 数据根目录（默认 "DAQ"）
+            daq_adapter: DAQ 适配器名称或实例（可选）
+            directory_layout: 目录布局配置（可选，优先于 daq_adapter）
 
         初始化内容:
         - 设置 DAQ 根目录
         - 初始化运行字典和统计信息
         """
         self.daq_root = str(daq_root)
+        self.daq_adapter = daq_adapter
+        self.directory_layout = directory_layout
         self.runs: Dict[str, DAQRun] = {}
         self.df_runs: Optional[pd.DataFrame] = None
         self.total_bytes = 0
@@ -142,7 +154,12 @@ class DAQAnalyzer:
                 continue
 
             # Aggregate per-run metadata for overview stats.
-            run = DAQRun(run_name, run_path)
+            run = DAQRun(
+                run_name,
+                run_path,
+                daq_adapter=self.daq_adapter,
+                directory_layout=self.directory_layout,
+            )
             self.runs[run_name] = run
             self.total_bytes += run.total_bytes
 

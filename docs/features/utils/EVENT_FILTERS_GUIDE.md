@@ -532,12 +532,12 @@ peaks = extract_channel_attributes(df_filtered, channels=[2, 3], attribute='peak
 ## 相关资源
 
 - [数据处理指南](README.md) - 其他数据处理功能
-- [性能优化指南](../performance/PERFORMANCE_OPTIMIZATION.md) - 性能优化技巧
+- [高级功能指南](../advanced/README.md) - 并行执行与性能相关设置
 - [API 参考](../../api/README.md) - 完整 API 文档
 
 ---
 
 **快速链接**:
 [数据处理指南](README.md) |
-[性能优化](../performance/README.md) |
+[高级功能](../advanced/README.md) |
 [API 参考](../../api/README.md)

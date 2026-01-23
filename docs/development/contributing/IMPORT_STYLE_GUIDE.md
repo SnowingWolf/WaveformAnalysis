@@ -1,4 +1,4 @@
-**导航**: [文档中心](../../README.md) > [开发者指南](../README.md) > [开发规范](README.md) > 导入风格指南
+**导航**: [文档中心](../../README.md) > [development](../README.md) > [开发规范](README.md) > 导入风格指南
 
 ---
 

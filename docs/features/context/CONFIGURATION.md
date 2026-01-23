@@ -404,7 +404,7 @@ ctx.set_config(saved_config)
 - [插件管理](PLUGIN_MANAGEMENT.md) - 注册和管理插件
 - [数据获取](DATA_ACCESS.md) - 获取数据
 - [预览执行](PREVIEW_EXECUTION.md) - 确认配置生效
-- [配置参考](../../developer-guide/api/config_reference.md) - 完整配置选项列表
+- [配置参考](../../api/config_reference.md) - 完整配置选项列表
 
 ---
 

@@ -451,7 +451,7 @@ python examples/demo_preview_execution.py
 
 ## 参考文档
 
-- [Context API 文档](../docs/ARCHITECTURE.md#context-layer)
-- [依赖分析](../docs/DEPENDENCY_ANALYSIS_GUIDE.md)
-- [Lineage 可视化](../CLAUDE.md#lineage-visualization)
-- [配置管理](../CLAUDE.md#configuration-management)
+- [Context API 文档](../../architecture/ARCHITECTURE.md#context-layer)
+- [依赖分析](DEPENDENCY_ANALYSIS_GUIDE.md)
+- [Lineage 可视化](../../../CLAUDE.md#lineage-visualization)
+- [配置管理](../../../CLAUDE.md#configuration-management)

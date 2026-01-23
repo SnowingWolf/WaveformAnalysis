@@ -1,4 +1,4 @@
-**导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [插件功能](README.md) > Strax 适配器
+**导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [插件功能](README.md) > 查询时间范围
 
 
 ---
@@ -152,7 +152,7 @@ reloader = enable_hot_reload(ctx, ['my_plugin'], auto_reload=True)
 
 - [项目主页](https://github.com/yourusername/waveform-analysis)
 - [问题追踪](https://github.com/yourusername/waveform-analysis/issues)
-- [贡献指南](CONTRIBUTING.md)
+- [贡献指南](../../development/contributing/README.md)
 
 ---
 

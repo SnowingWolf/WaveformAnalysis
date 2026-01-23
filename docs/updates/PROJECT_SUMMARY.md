@@ -185,11 +185,11 @@ API 接口完全兼容，只需更新导入即可！
 
 ## 📚 文档资源
 
-- **快速开始**: [QUICKSTART.md](./QUICKSTART.md)
-- **详细文档**: [docs/USAGE.md](USAGE.md)
-- **项目结构**: [docs/PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
-- **贡献指南**: [CONTRIBUTING.md](../CONTRIBUTING.md)
-- **原模块文档**: [docs/data_module.md](data_module.md)
+- **快速开始**: [QUICKSTART_GUIDE.md](../user-guide/QUICKSTART_GUIDE.md)
+- **详细文档**: [用户指南](../user-guide/README.md)
+- **项目结构**: [PROJECT_STRUCTURE.md](../architecture/PROJECT_STRUCTURE.md)
+- **贡献指南**: [开发规范](../development/contributing/README.md)
+- **架构设计**: [ARCHITECTURE.md](../architecture/README.md)
 
 ## 🎯 下一步建议
 

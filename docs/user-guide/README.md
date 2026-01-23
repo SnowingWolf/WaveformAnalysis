@@ -6,6 +6,14 @@
 
 ---
 
+## ✅ 你将掌握
+
+- 如何用 Context 跑通一次完整的数据处理流程
+- 常见场景的代码模板与参数配置
+- 下一步深入到功能文档与插件细节的入口
+
+---
+
 ## 📂 文档分类
 
 ### 🚀 快速开始
@@ -51,11 +59,17 @@
 #### 查看代码示例
 → [EXAMPLES_GUIDE.md](EXAMPLES_GUIDE.md)
 
+#### 查看 DAQ 运行概览
+→ [../features/utils/DAQ_ANALYZER_GUIDE.md](../features/utils/DAQ_ANALYZER_GUIDE.md)
+
 #### 管理配置
 → [../features/context/CONFIGURATION.md](../features/context/CONFIGURATION.md)
 
 #### 可视化血缘
 → [../features/context/LINEAGE_VISUALIZATION_GUIDE.md](../features/context/LINEAGE_VISUALIZATION_GUIDE.md)
+
+#### 查看内置插件细节
+→ [../plugins/README.md](../plugins/README.md)
 
 ---
 

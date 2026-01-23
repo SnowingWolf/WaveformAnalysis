@@ -331,8 +331,8 @@ print(f"描述: {plugin.description}")
 
 - [配置管理](CONFIGURATION.md) - 设置插件配置
 - [数据获取](DATA_ACCESS.md) - 获取插件产出的数据
-- [插件开发](../../developer-guide/plugin-development/README.md) - 开发自定义插件
+- [插件开发](../../development/plugin-development/README.md) - 开发自定义插件
 
 ---
 
-**快速链接**: [配置管理](CONFIGURATION.md) | [数据获取](DATA_ACCESS.md) | [血缘可视化](LINEAGE_VISUALIZATION.md)
+**快速链接**: [配置管理](CONFIGURATION.md) | [数据获取](DATA_ACCESS.md) | [血缘可视化](LINEAGE_VISUALIZATION_GUIDE.md)

@@ -381,9 +381,9 @@ def analyze_dependencies(
 
 ### 相关文档
 
-- [ARCHITECTURE.md](../docs/ARCHITECTURE.md) - 整体架构
+- [ARCHITECTURE.md](../../architecture/ARCHITECTURE.md) - 整体架构
 - [缓存机制](DATA_ACCESS.md#缓存机制) - 缓存机制
-- [EXECUTOR_MANAGER_GUIDE.md](../docs/EXECUTOR_MANAGER_GUIDE.md) - 并行执行
+- [EXECUTOR_MANAGER_GUIDE.md](../advanced/EXECUTOR_MANAGER_GUIDE.md) - 并行执行
 
 ## ❓ 常见问题
 

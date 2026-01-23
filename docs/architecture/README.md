@@ -13,7 +13,6 @@
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 20 分钟 | ⭐⭐⭐ 高级 | 系统总体架构和设计原则 |
 | [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | 10 分钟 | ⭐⭐ 中级 | 项目目录结构和模块说明 |
 | [CONTEXT_PROCESSOR_WORKFLOW.md](CONTEXT_PROCESSOR_WORKFLOW.md) | 15 分钟 | ⭐⭐⭐ 高级 | Context 和 Processor 工作流程 |
-| [data_module.md](data_module.md) | 10 分钟 | ⭐⭐ 中级 | 数据模块设计文档 |
 
 ---
 

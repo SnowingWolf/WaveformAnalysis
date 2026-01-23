@@ -189,7 +189,7 @@ results = batch_processor.process_runs(
 )
 
 # 结果是一个字典：{run_id: data}
-for run_id, data in results.items():
+for run_id, data in results.items():e
     print(f"{run_id}: {len(data)} 个特征")
 ```
 
@@ -616,10 +616,10 @@ st_waveforms = ctx.get_data("run_001", "st_waveforms")  # 再测试下一步
 ## 相关文档
 
 - [项目结构说明](PROJECT_STRUCTURE.md)
-- [插件系统指南](NEW_FEATURES.md)
-- [快速开始指南](QUICKSTART.md)
+- [插件系统指南](../updates/NEW_FEATURES.md)
+- [快速开始指南](../user-guide/QUICKSTART_GUIDE.md)
 - [缓存机制说明](../features/context/DATA_ACCESS.md#缓存机制)
-- [流式处理指南](STREAMING_GUIDE.md)
+- [流式处理指南](../features/plugin/STREAMING_PLUGINS_GUIDE.md)
 
 ---
 
