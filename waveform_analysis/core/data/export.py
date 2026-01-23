@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 export, __all__ = exporter()
 
 
-
 @export
 class BatchProcessor:
     """
@@ -133,9 +132,7 @@ class BatchProcessor:
         bar_name = None
         if progress_tracker and not jupyter_mode:
             bar_name = f"batch_{data_name}"
-            progress_tracker.create_bar(
-                bar_name, total=len(run_ids), desc=f"Processing {data_name}", unit="run"
-            )
+            progress_tracker.create_bar(bar_name, total=len(run_ids), desc=f"Processing {data_name}", unit="run")
 
         # Jupyter 模式下的简单进度显示
         if use_simple_progress:
@@ -167,8 +164,7 @@ class BatchProcessor:
                 return
 
             should_update = force or (
-                pending_progress_count > 0
-                and (now - last_progress_update >= progress_update_interval)
+                pending_progress_count > 0 and (now - last_progress_update >= progress_update_interval)
             )
 
             if should_update and pending_progress_count > 0:
@@ -196,9 +192,7 @@ class BatchProcessor:
                 for i, run_id in enumerate(run_ids):
                     # 检查取消
                     if cancellation_token.is_cancelled():
-                        self.logger.info(
-                            f"Processing cancelled. Processed {i}/{len(run_ids)} runs."
-                        )
+                        self.logger.info(f"Processing cancelled. Processed {i}/{len(run_ids)} runs.")
                         break
 
                     try:
@@ -233,8 +227,7 @@ class BatchProcessor:
 
                     # 提交任务
                     future_to_run = {
-                        executor.submit(self.context.get_data, run_id, data_name): run_id
-                        for run_id in run_ids
+                        executor.submit(self.context.get_data, run_id, data_name): run_id for run_id in run_ids
                     }
 
                     if jupyter_mode:
@@ -247,9 +240,7 @@ class BatchProcessor:
                             if cancellation_token.is_cancelled():
                                 for f in pending:
                                     f.cancel()
-                                self.logger.info(
-                                    f"Processing cancelled. Processed {completed}/{len(run_ids)} runs."
-                                )
+                                self.logger.info(f"Processing cancelled. Processed {completed}/{len(run_ids)} runs.")
                                 break
 
                             # 使用短超时轮询，保持响应性
@@ -293,9 +284,7 @@ class BatchProcessor:
                                 for f in future_to_run:
                                     if not f.done():
                                         f.cancel()
-                                self.logger.info(
-                                    f"Processing cancelled. Processed {completed}/{len(run_ids)} runs."
-                                )
+                                self.logger.info(f"Processing cancelled. Processed {completed}/{len(run_ids)} runs.")
                                 break
 
                             run_id = future_to_run[future]
@@ -396,9 +385,7 @@ class BatchProcessor:
         bar_name = None
         if progress_tracker and not jupyter_mode:
             bar_name = "batch_custom"
-            progress_tracker.create_bar(
-                bar_name, total=len(run_ids), desc="Processing (custom)", unit="run"
-            )
+            progress_tracker.create_bar(bar_name, total=len(run_ids), desc="Processing (custom)", unit="run")
 
         # Jupyter 模式下的简单进度显示
         if use_simple_progress:
@@ -430,8 +417,7 @@ class BatchProcessor:
                 return
 
             should_update = force or (
-                pending_progress_count > 0
-                and (now - last_progress_update >= progress_update_interval)
+                pending_progress_count > 0 and (now - last_progress_update >= progress_update_interval)
             )
 
             if should_update and pending_progress_count > 0:
@@ -458,9 +444,7 @@ class BatchProcessor:
                     _update_progress(i + 1, force=(i == len(run_ids) - 1))
             else:
                 with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                    future_to_run = {
-                        executor.submit(func, self.context, run_id): run_id for run_id in run_ids
-                    }
+                    future_to_run = {executor.submit(func, self.context, run_id): run_id for run_id in run_ids}
 
                     if jupyter_mode:
                         # Jupyter 优化模式：使用 wait() 轮询
@@ -503,8 +487,6 @@ class BatchProcessor:
                 progress_tracker.close_all()
 
         return results
-
-
 
 
 @export
