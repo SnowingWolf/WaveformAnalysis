@@ -1861,7 +1861,7 @@ class Context(CacheMixin, PluginMixin):
         Args:
             data_name: Name of the target data.
             kind: Visualization style ('labview', 'mermaid', or 'plotly').
-            **kwargs: Additional arguments passed to the visualizer.
+            **kwargs: Additional arguments passed to the visualizer (e.g., save_path).
         """
         from .foundation.model import build_lineage_graph
 

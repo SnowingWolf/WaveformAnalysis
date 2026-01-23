@@ -222,6 +222,15 @@ graph TD
 ctx.plot_lineage("df_paired", kind="plotly", verbose=2)
 ```
 
+### 连线数据类型来源
+
+连线的颜色与类型标签来自**插件输出 dtype**：
+
+1. 构建 LineageGraph 时读取插件的 `output_dtype`/`dtype` 并写入输出端口
+2. 连线使用源节点输出端口的 dtype 作为数据类型
+
+因此，若需要改变某条连线的类型显示，请调整对应插件的输出 dtype 定义。
+
 ---
 
 ## Verbose 等级
@@ -230,10 +239,12 @@ ctx.plot_lineage("df_paired", kind="plotly", verbose=2)
 
 | verbose | 显示内容 |
 |---------|---------|
-| `0` | 仅显示插件标题 |
-| `1` | 显示标题 + key |
-| `2` | 显示标题 + key + class（推荐） |
+| `0` | 仅显示标题（key） |
+| `1` | 显示标题（key）+ class |
+| `2` | 显示 class + description + config |
 | `>=3` | 同 verbose=2 |
+
+说明：标题当前显示的是数据 key（节点 key），而非插件展示名。
 
 ### 使用示例
 
@@ -650,8 +661,13 @@ ctx.plot_lineage(
 
 - **LabVIEW 模式**：可以使用 matplotlib 的保存功能
 - **Plotly 模式**：可以使用 plotly 的导出功能（需要 kaleido）
+- **通用方式**：直接传 `save_path` 参数自动导出
 
 ```python
+# 通用方式（自动导出）
+ctx.plot_lineage("df", kind="labview", save_path="lineage.png")
+ctx.plot_lineage("df", kind="plotly", save_path="lineage.png")  # 需要 pip install kaleido
+
 # LabVIEW 模式
 fig = ctx.plot_lineage("df", kind="labview")
 fig.savefig("lineage.png", dpi=300)

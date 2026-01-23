@@ -354,7 +354,7 @@ def _order_ports(
     if len(ports) <= 1:
         return ports
 
-    groups = style.port_groups.get(node.key, {})
+    groups = getattr(style, "port_groups", {}).get(node.key, {})
     direction_groups = groups.get(direction, [])
     default_group = len(direction_groups) // 2 if direction_groups else 0
     group_index = {}
@@ -504,14 +504,14 @@ def _resolve_wire_style(edge: Any, style: LineageStyle) -> dict:
     dash = "solid"
 
     category = _classify_edge_category(dtype)
-    category_style = style.wire_style_by_category.get(category, {})
+    category_style = getattr(style, "wire_style_by_category", {}).get(category, {})
     color = category_style.get("color", color)
     width = category_style.get("width", width)
     alpha = category_style.get("alpha", alpha)
     dash = category_style.get("dash", dash)
 
     match_text = f"{edge.source_node_id} {edge.target_node_id} {dtype}".lower()
-    for match, overrides in style.wire_style_overrides.items():
+    for match, overrides in getattr(style, "wire_style_overrides", {}).items():
         if match.lower() in match_text:
             color = overrides.get("color", color)
             width = overrides.get("width", width)
@@ -528,11 +528,66 @@ def _mpl_dash(dash: Optional[str]) -> str:
     return mapping.get(dash, dash)
 
 
+def _wrap_text_lines(text: str, max_width: int, max_lines: Optional[int] = None) -> List[str]:
+    lines = textwrap.wrap(text, width=max_width, break_long_words=False)
+    if max_lines is None or max_lines <= 0 or len(lines) <= max_lines:
+        return lines
+    lines = lines[:max_lines]
+    if lines:
+        lines[-1] = lines[-1].rstrip(".") + "..."
+    return lines
+
+
+def _estimate_node_height(node: NodeModel, style: LineageStyle, max_width_chars: int) -> float:
+    line_height = 0.16
+    padding_top = 0.1
+    padding_bottom = 0.2
+    gap = 0.0
+
+    class_lines = 1 if style.verbose >= 1 else 0
+    desc_lines = 0
+    cfg_lines = 0
+
+    if style.verbose >= 2 and node.description:
+        desc_lines = len(_wrap_text_lines(node.description, max_width_chars))
+    if style.verbose >= 2 and node.config:
+        cfg_lines = min(5, len(node.config))
+
+    if class_lines and desc_lines:
+        gap += 0.05
+    if desc_lines and cfg_lines:
+        gap += 0.05
+
+    content_height = (class_lines + desc_lines + cfg_lines) * line_height + gap
+    return style.header_height + padding_top + padding_bottom + content_height
+
+
+def _auto_adjust_layout(model: LineageGraphModel, style: LineageStyle) -> None:
+    if not getattr(style, "auto_fit_text", True):
+        return
+
+    max_width_chars = int(style.node_width * 10)
+    if not model.nodes:
+        return
+
+    required_heights = [
+        _estimate_node_height(node, style, max_width_chars) for node in model.nodes.values()
+    ]
+    max_required = max(required_heights) if required_heights else style.node_height
+    if max_required > style.node_height:
+        style.node_height = max_required
+
+    min_gap = style.node_height * 1.25
+    if style.y_gap < min_gap:
+        style.y_gap = min_gap
+
+
 def plot_lineage_labview(
     lineage: Any,
     target_name: str,
     context: Any = None,
     style: Optional[LineageStyle] = None,
+    save_path: Optional[str] = None,
     data_wires: bool = False,
     interactive: bool = False,
     analysis_result: Any = None,  # DependencyAnalysisResult
@@ -549,6 +604,7 @@ def plot_lineage_labview(
         target_name: 目标数据名称。
         context: Context 实例，用于获取插件信息。
         style: 样式配置。
+        save_path: 可选，保存图片路径。
         data_wires: 是否在连线上显示数据类型。
         interactive: 是否启用交互式功能（鼠标悬停显示详情）。
         analysis_result: DependencyAnalysisResult 对象（可选）。
@@ -579,6 +635,8 @@ def plot_lineage_labview(
             f"lineage must be a dict or LineageGraphModel, but got {type(lineage).__name__}: {lineage}"
         )
 
+    _auto_adjust_layout(model, s)
+
     # 2. 布局计算 (基于模型)
     pos = {}
     nodes_by_depth: Dict[int, List[str]] = {}
@@ -588,12 +646,12 @@ def plot_lineage_labview(
     for depth in nodes_by_depth:
         nodes_by_depth[depth] = sorted(nodes_by_depth[depth])
 
-    if s.layout_reorder:
+    if getattr(s, "layout_reorder", True):
         nodes_by_depth = _reorder_layers(
             nodes_by_depth,
             model.edges,
             s.y_gap,
-            s.layout_iterations,
+            getattr(s, "layout_iterations", 3),
         )
 
     max_d = max(nodes_by_depth.keys()) if nodes_by_depth else 0
@@ -641,8 +699,8 @@ def plot_lineage_labview(
             lw=wire_style["width"],
             alpha=wire_style["alpha"],
             zorder=10,
-            solid_capstyle=s.wire_capstyle,
-            solid_joinstyle=s.wire_joinstyle,
+            solid_capstyle=getattr(s, "wire_capstyle", "round"),
+            solid_joinstyle=getattr(s, "wire_joinstyle", "round"),
             linestyle=linestyle,
         )
         start = path[-2]
@@ -766,7 +824,7 @@ def plot_lineage_labview(
         ax.text(
             x,
             y + s.node_height / 2 - s.header_height / 2,
-            node.title,
+            node.key,
             fontsize=s.font_size_title,
             fontweight="bold",
             color=s.text_color,
@@ -775,48 +833,46 @@ def plot_lineage_labview(
             zorder=5,
         )
 
-        # 根据 verbose 等级显示 key/class
+        # 根据 verbose 等级显示 class
+        line_height = 0.16
+        content_top = y + s.node_height / 2 - s.header_height - 0.1
+        content_bottom = y - s.node_height / 2 + 0.2
+        class_y = content_top - 0.05
         if s.verbose >= 1:
             ax.text(
                 x,
-                y + 0.25,
-                f"key: {node.key}",
-                fontsize=s.font_size_key,
-                style="italic",
-                color=s.text_color,
-                ha="center",
-                zorder=5,
-            )
-        if s.verbose >= 2:
-            ax.text(
-                x,
-                y + 0.1,
+                class_y,
                 f"class: {node.plugin_class}",
                 fontsize=s.font_size_key - 1,
                 color="#7f8c8d",
                 ha="center",
+                va="center",
                 zorder=5,
             )
 
         # 显示自定义描述（支持换行）
-        if node.description and s.verbose >= 1:
-            # 根据节点宽度计算每行最大字符数（大约每单位宽度20个字符）
-            max_width_chars = int(s.node_width * 12)  # 根据节点宽度调整
-            # 使用textwrap换行
-            wrapped_desc = textwrap.fill(node.description, width=max_width_chars, break_long_words=False)
-            # 计算需要的行数来调整y位置
-            num_lines = len(wrapped_desc.split('\n'))
-            desc_y = y - 0.1 - (num_lines - 1) * 0.15  # 每行间隔0.15
-            ax.text(
-                x,
-                desc_y,
-                wrapped_desc,
-                fontsize=s.font_size_key - 1,
-                color="#34495e",
-                ha="center",
-                va="top",
-                zorder=5,
-            )
+        desc_top = class_y - line_height * 0.9
+        cfg = node.config
+        cfg_items = list(cfg.items()) if cfg else []
+        cfg_lines = min(5, len(cfg_items)) if (cfg and s.verbose >= 2) else 0
+        cfg_height = cfg_lines * line_height
+        cfg_top = content_bottom + cfg_height if cfg_lines else content_bottom
+        max_desc_lines = int((desc_top - cfg_top - 0.05) / line_height)
+
+        if node.description and s.verbose >= 2 and max_desc_lines > 0:
+            max_width_chars = int(s.node_width * 12)
+            desc_lines = _wrap_text_lines(node.description, max_width_chars, max_desc_lines)
+            if desc_lines:
+                ax.text(
+                    x,
+                    desc_top,
+                    "\n".join(desc_lines),
+                    fontsize=s.font_size_key - 1,
+                    color="#34495e",
+                    ha="center",
+                    va="top",
+                    zorder=5,
+                )
 
         # 并行组标记
         if node_id in parallel_group_map:
@@ -848,14 +904,11 @@ def plot_lineage_labview(
             )
 
         # 配置信息
-        cfg = node.config
-        if cfg and s.verbose >= 1:
-            max_items = 5 if s.verbose >= 2 else 3
-            cfg_items = list(cfg.items())[:max_items]
-            cfg_text = "\n".join([f"{k}: {v}" for k, v in cfg_items])
+        if cfg and s.verbose >= 2 and cfg_lines > 0:
+            cfg_text = "\n".join([f"{k}: {v}" for k, v in cfg_items[:cfg_lines]])
             ax.text(
                 x,
-                y - s.node_height / 2 + 0.15,
+                content_bottom,
                 cfg_text,
                 fontsize=s.font_size_port - 1,
                 ha="center",
@@ -887,6 +940,8 @@ def plot_lineage_labview(
     ax.set_title(f"Data Lineage: {target_name}", fontsize=14, fontweight="bold", pad=20)
     ax.axis("off")
     plt.tight_layout()
+    if save_path:
+        fig.savefig(save_path, dpi=300, bbox_inches="tight", pad_inches=0.2)
 
     # 交互式功能
     if interactive:
@@ -1138,6 +1193,7 @@ def plot_lineage_plotly(
     target_name: str,
     context: Any = None,
     style: Optional[LineageStyle] = None,
+    save_path: Optional[str] = None,
     data_wires: bool = False,
     interactive: bool = True,
     **kwargs,
@@ -1156,6 +1212,7 @@ def plot_lineage_plotly(
         target_name: 目标数据名称。
         context: Context 实例，用于获取插件信息。
         style: 样式配置（部分样式参数会被转换为 plotly 格式）。
+        save_path: 可选，保存图片路径。
         data_wires: 是否在连线上显示数据类型。
         interactive: Plotly 图表始终是交互式的，此参数仅为兼容性保留（会被忽略）。
 
@@ -1165,9 +1222,9 @@ def plot_lineage_plotly(
     注意:
         - Plotly 模式始终是交互式的，不需要 interactive 参数
         - 使用 style.verbose 参数控制节点上显示的信息量：
-          * verbose=0: 仅显示标题
-          * verbose=1: 显示标题 + key
-          * verbose=2: 显示标题 + key + class
+          * verbose=0: 仅显示标题（key）
+          * verbose=1: 显示标题（key）+ class
+          * verbose=2: 显示 class + description + config
     """
     try:
         import plotly.graph_objects as go
@@ -1209,6 +1266,8 @@ def plot_lineage_plotly(
             f"lineage must be a dict or LineageGraphModel, but got {type(lineage).__name__}: {lineage}"
         )
 
+    _auto_adjust_layout(model, s)
+
     # 2. 布局计算
     pos = {}
     nodes_by_depth: Dict[int, List[str]] = {}
@@ -1218,12 +1277,12 @@ def plot_lineage_plotly(
     for depth in nodes_by_depth:
         nodes_by_depth[depth] = sorted(nodes_by_depth[depth])
 
-    if s.layout_reorder:
+    if getattr(s, "layout_reorder", True):
         nodes_by_depth = _reorder_layers(
             nodes_by_depth,
             model.edges,
             s.y_gap,
-            s.layout_iterations,
+            getattr(s, "layout_iterations", 3),
         )
 
     max_d = max(nodes_by_depth.keys()) if nodes_by_depth else 0
@@ -1431,7 +1490,7 @@ def plot_lineage_plotly(
             node_annotations.append({
                 'x': x,
                 'y': y + half_h - s.header_height / 2,
-                'text': f"<b>{node.title}</b>",
+                'text': f"<b>{node.key}</b>",
                 'showarrow': False,
                 'font': {'size': s.font_size_title, 'color': s.text_color},
                 'xanchor': 'center',
@@ -1440,21 +1499,12 @@ def plot_lineage_plotly(
 
             # 根据 verbose 等级添加额外信息
             # 计算需要的信息行数，动态调整节点高度
-            info_y_start = y + 0.2  # 从标题下方开始
-            current_y = info_y_start
-            if s.verbose >= 1:
-                node_annotations.append({
-                    'x': x,
-                    'y': current_y,
-                    'text': f"<i>key: {node.key}</i>",
-                    'showarrow': False,
-                    'font': {'size': s.font_size_key, 'color': s.text_color},
-                    'xanchor': 'center',
-                    'yanchor': 'middle',
-                })
-                current_y -= 0.18
+            line_height = 0.16
+            content_top = y + half_h - s.header_height - 0.1
+            content_bottom = y - half_h + 0.2
 
-            if s.verbose >= 2:
+            current_y = content_top - 0.05
+            if s.verbose >= 1:
                 node_annotations.append({
                     'x': x,
                     'y': current_y,
@@ -1464,38 +1514,34 @@ def plot_lineage_plotly(
                     'xanchor': 'center',
                     'yanchor': 'middle',
                 })
-                current_y -= 0.18
+                current_y -= line_height
 
-            # 显示自定义描述（与LabVIEW样式一致）
-            desc_bottom_y = current_y
-            if node.description and s.verbose >= 1:
-                # 根据节点宽度计算每行最大字符数
-                max_width_chars = int(s.node_width * 10)  # 减小字符数，增加换行
-                wrapped_desc_lines = textwrap.wrap(node.description, width=max_width_chars, break_long_words=False)
-                # Plotly annotations使用HTML的<br>标签换行
-                wrapped_desc_html = "<br>".join(wrapped_desc_lines)
-                num_lines = len(wrapped_desc_lines)
-                # description从上到下排列
-                desc_top_y = current_y
-                desc_bottom_y = current_y - (num_lines - 1) * 0.14 - 0.12  # 每行间隔0.14
-                node_annotations.append({
-                    'x': x,
-                    'y': desc_top_y - (num_lines - 1) * 0.07,  # 居中位置
-                    'text': wrapped_desc_html,
-                    'showarrow': False,
-                    'font': {'size': s.font_size_key - 1, 'color': '#34495e'},
-                    'xanchor': 'center',
-                    'yanchor': 'middle',  # 使用middle让多行居中
-                })
-                current_y = desc_bottom_y - 0.15
-
-            # 配置信息（与LabVIEW样式一致，放在底部）
             cfg = node.config
-            if cfg and s.verbose >= 1:
-                max_items = 5 if s.verbose >= 2 else 3
-                cfg_items = list(cfg.items())[:max_items]
-                cfg_text = "<br>".join([f"{k}: {v}" for k, v in cfg_items])
-                cfg_y = y - s.node_height / 2 + 0.2  # 底部位置，留出空间
+            cfg_items = list(cfg.items()) if cfg else []
+            cfg_lines = min(5, len(cfg_items)) if (cfg and s.verbose >= 2) else 0
+            cfg_height = cfg_lines * line_height
+            cfg_top = content_bottom + cfg_height if cfg_lines else content_bottom
+            max_desc_lines = int((current_y - cfg_top - 0.05) / line_height)
+
+            if node.description and s.verbose >= 2 and max_desc_lines > 0:
+                max_width_chars = int(s.node_width * 10)
+                desc_lines = _wrap_text_lines(node.description, max_width_chars, max_desc_lines)
+                if desc_lines:
+                    wrapped_desc_html = "<br>".join(desc_lines)
+                    node_annotations.append({
+                        'x': x,
+                        'y': current_y,
+                        'text': wrapped_desc_html,
+                        'showarrow': False,
+                        'font': {'size': s.font_size_key - 1, 'color': '#34495e'},
+                        'xanchor': 'center',
+                        'yanchor': 'top',
+                    })
+                    current_y -= line_height * len(desc_lines)
+
+            if cfg and s.verbose >= 2 and cfg_lines > 0:
+                cfg_text = "<br>".join([f"{k}: {v}" for k, v in cfg_items[:cfg_lines]])
+                cfg_y = content_bottom
                 node_annotations.append({
                     'x': x,
                     'y': cfg_y,
@@ -1605,5 +1651,8 @@ def plot_lineage_plotly(
         width=max(1200, max_d * 300),
         dragmode="pan",  # 默认为平移模式
     )
+
+    if save_path:
+        fig.write_image(save_path)
 
     fig.show()

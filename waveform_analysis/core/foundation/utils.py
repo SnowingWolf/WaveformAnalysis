@@ -244,11 +244,31 @@ class LineageStyle:
     bundle_offset: float = 0.6
     layout_reorder: bool = True
     layout_iterations: int = 3
+    auto_fit_text: bool = True
     wire_style_by_category: Dict[str, Dict[str, Any]] = field(
         default_factory=lambda: {
-            "dataframe": {"width": 1.6, "alpha": 0.55, "dash": "dot"},
-            "structured": {"width": 2.8, "alpha": 0.85},
-            "list_array": {"width": 2.2, "alpha": 0.7, "dash": "dash"},
+            "dataframe": {
+                "color": "#ef6c00",
+                "width": 1.6,
+                "alpha": 0.55,
+                "dash": "dot",
+            },
+            "structured": {
+                "color": "#2e7d32",
+                "width": 2.8,
+                "alpha": 0.85,
+            },
+            "list_array": {
+                "color": "#f1c40f",
+                "width": 2.2,
+                "alpha": 0.7,
+                "dash": "dash",
+            },
+            "array": {
+                "color": "#7f8c8d",
+                "width": 2.0,
+                "alpha": 0.7,
+            },
         }
     )
     wire_style_overrides: Dict[str, Dict[str, Any]] = field(default_factory=dict)
