@@ -7,7 +7,6 @@ CPU Streaming Signal Peaks Plugin.
 """
 
 import logging
-import os
 from typing import Any, Iterator, List, Optional, Union
 
 import numpy as np
@@ -50,6 +49,10 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
     required_halo_ns = 0
     clip_strict = False
     is_stateful = False
+    chunk_size = 4096
+    parallel = True
+    executor_type = "process"
+    max_workers = None
 
     options = {
         "use_derivative": Option(
@@ -71,26 +74,6 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
             default=2.0,
             type=float,
             help="采样间隔（纳秒），用于计算全局时间戳。默认 2.0 ns",
-        ),
-        "chunk_size": Option(
-            default=4096,
-            type=int,
-            help="每个 chunk 包含的事件数",
-        ),
-        "parallel": Option(
-            default=True,
-            type=bool,
-            help="是否启用并行处理",
-        ),
-        "executor_type": Option(
-            default="process",
-            type=str,
-            help="执行器类型: 'thread' 或 'process'",
-        ),
-        "max_workers": Option(
-            default=None,
-            type=int,
-            help="最大工作线程/进程数, None 表示使用 CPU 核心数",
         ),
     }
 
@@ -115,13 +98,6 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
             )
         # st_waveforms 的 timestamp 已统一为 ps
         self._timestamp_unit = "ps"
-
-        self.chunk_size = int(context.get_config(self, "chunk_size"))
-        self.parallel = context.get_config(self, "parallel")
-        self.executor_type = context.get_config(self, "executor_type")
-        self.max_workers = context.get_config(self, "max_workers")
-        if self.max_workers is None:
-            self.max_workers = os.cpu_count() or 1
 
         self.time_field = TIMESTAMP_FIELD
         self.length_field = EVENT_LENGTH_FIELD

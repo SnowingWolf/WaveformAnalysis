@@ -34,7 +34,7 @@
 **基本用法**：
 
 ```python
-from waveform_analysis.core.streaming import StreamingPlugin
+from waveform_analysis.core.plugins.core.streaming import StreamingPlugin
 from waveform_analysis.core.chunk_utils import Chunk
 
 class MyStreamingPlugin(StreamingPlugin):
@@ -78,14 +78,17 @@ class MyStreamingPlugin(StreamingPlugin):
 **基本用法**：
 
 ```python
-from waveform_analysis.core.streaming import get_streaming_context
+from waveform_analysis.core.plugins.core.streaming import get_streaming_context
 
 # 创建流式处理上下文
 stream_ctx = get_streaming_context(
     context=ctx,  # 原始 Context 对象
     run_id="my_run",
-    chunk_size=50000,  # 默认 chunk 大小
-    parallel=True,  # 启用并行处理
+    streaming_config={
+        "chunk_size": 50000,  # 默认 chunk 大小
+        "parallel": True,  # 启用并行处理
+        "executor_config": "io_intensive",
+    },
 )
 
 # 获取数据流
@@ -109,6 +112,8 @@ class MyParallelPlugin(StreamingPlugin):
 
 ### 4. 高级配置
 
+- `streaming_config`: 统一配置流式参数（如 `chunk_size`, `parallel`, `executor_type`,
+  `max_workers`, `executor_config`, `break_threshold_ps`, `required_halo_ns`, `clip_strict`）。
 - `executor_config`: 运行时覆盖执行器配置（例如 `executor_type`, `max_workers`, `reuse`）。
 - `parallel_batch_size`: 并行批处理大小（默认自动按 worker 估算）。
 - `use_load_balancer`/`load_balancer_config`: 动态负载均衡（可配置 `worker_buckets` 进行 worker 数量量化）。
@@ -119,7 +124,7 @@ class MyParallelPlugin(StreamingPlugin):
 ### 示例 1：流式特征提取
 
 ```python
-from waveform_analysis.core.streaming import StreamingPlugin, get_streaming_context
+from waveform_analysis.core.plugins.core.streaming import StreamingPlugin, get_streaming_context
 from waveform_analysis.core.chunk_utils import Chunk
 from waveform_analysis.core.processor import WaveformProcessor
 import numpy as np
@@ -253,7 +258,11 @@ class StaticFromStream(Plugin):
 - **推荐**：根据数据特征调整，通常 10K-100K 记录
 
 ```python
-plugin.chunk_size = 50000  # 根据实际情况调整
+stream_ctx = get_streaming_context(
+    context=ctx,
+    run_id="my_run",
+    streaming_config={"chunk_size": 50000},
+)
 ```
 
 ### 2. 并行处理配置
@@ -263,8 +272,14 @@ plugin.chunk_size = 50000  # 根据实际情况调整
 - **工作线程数**：通常设置为 CPU 核心数
 
 ```python
-plugin.executor_type = "process"  # CPU 密集型
-plugin.max_workers = 8  # 8 个进程
+stream_ctx = get_streaming_context(
+    context=ctx,
+    run_id="my_run",
+    streaming_config={
+        "executor_type": "process",  # CPU 密集型
+        "max_workers": 8,  # 8 个进程
+    },
+)
 ```
 
 ### 3. 时间范围过滤
