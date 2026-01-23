@@ -109,7 +109,7 @@ class HelpSystem:
 🚀 快速开始
 ────────────────────────────────────────────────────────────────────────────────
   from waveform_analysis.core.context import Context
-  from waveform_analysis.core.plugins.builtin import standard_plugins
+  from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
 
   ctx = Context(storage_dir='./data')
   ctx.register(standard_plugins)

@@ -21,8 +21,7 @@ Plugins Builtin 子模块 - 内置标准插件
 
 向后兼容：
 所有插件可以通过以下方式导入：
-    from waveform_analysis.core.plugins.builtin import RawFilesPlugin
-    from waveform_analysis.core import RawFilesPlugin  # 通过 core.__init__.py 兼容
+    from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin
 """
 
 # CPU 标准插件

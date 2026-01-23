@@ -243,7 +243,7 @@ class Context(CacheMixin, PluginMixin):
 
         Examples:
             >>> from waveform_analysis.core.context import Context
-            >>> from waveform_analysis.core.plugins.builtin.standard import (
+            >>> from waveform_analysis.core.plugins.builtin.cpu import (
             ...     RawFilesPlugin, WaveformsPlugin, StWaveformsPlugin
             ... )
             >>>
@@ -263,7 +263,7 @@ class Context(CacheMixin, PluginMixin):
             ... )
             >>>
             >>> # 方式4: 注册模块中的所有插件
-            >>> import waveform_analysis.core.plugins.builtin.standard as standard_plugins
+            >>> import waveform_analysis.core.plugins.builtin.cpu as standard_plugins
             >>> ctx.register(standard_plugins)
             >>>
             >>> # 方式5: 允许覆盖已注册的插件
@@ -380,6 +380,7 @@ class Context(CacheMixin, PluginMixin):
 
         # 清除配置缓存，确保新配置生效
         self.clear_config_cache()
+        self.clear_performance_caches()  # 配置变了，必须让 lineage/hash/key 失效
 
     def _validate_storage_backend(self, storage: Any) -> None:
         """
@@ -1851,10 +1852,7 @@ class Context(CacheMixin, PluginMixin):
         cache_root = os.path.abspath(self.storage_dir)
         data_subdir = getattr(self.storage, "data_subdir", "_cache")
         run_name = (
-            getattr(self, "run_name", None)
-            or self.config.get("run_name")
-            or self.config.get("run_id")
-            or "{run_name}"
+            getattr(self, "run_name", None) or self.config.get("run_name") or self.config.get("run_id") or "{run_name}"
         )
         cache_dir = os.path.join(cache_root, str(run_name), data_subdir)
         print("\n配置概览")
@@ -1945,9 +1943,7 @@ class Context(CacheMixin, PluginMixin):
 
             print("\n⚠️ 未使用配置")
             if display is not None:
-                display(df_unused.style.apply(
-                    lambda _: ["background-color: #ffe6e6"] * len(df_unused.columns), axis=1
-                ))
+                display(df_unused.style.apply(lambda _: ["background-color: #ffe6e6"] * len(df_unused.columns), axis=1))
             else:
                 print(df_unused.to_string())
 

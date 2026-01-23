@@ -42,7 +42,7 @@ from typing import Any, Dict, Generator, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 
-from ...processing.chunk import (
+from waveform_analysis.core.processing.chunk import (
     Chunk,
     check_chunk_boundaries,
     get_endtime,
@@ -55,7 +55,7 @@ from ...processing.chunk import (
     split_by_breaks,
     select_time_range,
 )
-from ...execution.config import get_config
+from waveform_analysis.core.execution.config import get_config
 from .base import Plugin
 from waveform_analysis.core.foundation.utils import exporter
 
@@ -937,7 +937,7 @@ class StreamingContext:
         Returns:
             裁剪后的 chunk
         """
-        from ...processing.chunk import select_time_range
+        from waveform_analysis.core.processing.chunk import select_time_range
 
         if len(chunk.data) == 0:
             return chunk
@@ -1013,7 +1013,7 @@ class StreamingContext:
         Yields:
             合并后的 chunk
         """
-        from ...processing.chunk import merge_chunks  # sort_by_time is handled by merge_chunks, sort_by_time
+        from waveform_analysis.core.processing.chunk import merge_chunks  # sort_by_time is handled by merge_chunks, sort_by_time
 
         # 收集所有 chunk
         all_chunks = []

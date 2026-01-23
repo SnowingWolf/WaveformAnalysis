@@ -24,6 +24,7 @@ try:
             return False
 
 except Exception:
+
     def _display(x):
         print(x)
 
@@ -31,9 +32,12 @@ except Exception:
         # Fallback when IPython is unavailable.
         return False
 
+
 logger = logging.getLogger(__name__)
 
 from .daq_run import DAQRun
+
+
 class DAQAnalyzer:
     """DAQ 数据分析器：管理所有运行的统一分析（显示/保存等）。"""
 
@@ -157,7 +161,7 @@ class DAQAnalyzer:
         return list(self.runs.values())
 
     def _build_channel_rows(self, stats: Dict[int, Dict]) -> List[Dict]:
-        # Normalize channel stats into row dicts for DataFrame display.
+        # Normalize channel stats iento row dicts for DataFrame display.
         rows = []
         for ch in sorted(stats.keys()):
             s = stats[ch]
@@ -192,7 +196,6 @@ class DAQAnalyzer:
                 "timetag_max": DAQRun.format_time_ps(fi.get("timetag_max")),
                 "modified": fi.get("mtime"),
             })
-
         try:
             fdf = pd.DataFrame(frows).set_index("index")
             _display(fdf)
@@ -270,7 +273,7 @@ class DAQAnalyzer:
 
         return self
 
-    def display_run_channel_details(self, run_name: str, show_files: bool = False) -> "DAQAnalyzer":
+    def display_run_channel_details(self, run_name: str, show_files: bool = False) -> DAQAnalyzer:
         run = self.get_run(run_name)
         if run is None:
             print(f"错误: 找不到运行 {run_name}")
@@ -315,7 +318,7 @@ class DAQAnalyzer:
                         .background_gradient(subset=["大小(字节)"], cmap="Reds")
                         .format({
                             "大小(字节)": lambda v: self.format_size(int(v) if v is not None else 0),
-                            "持续(s)": lambda v: (f"{v:.3f} s" if (v is not None) else "N/A"),
+                            "持续(s)": lambda v: f"{v:.3f} s" if (v is not None) else "N/A",
                         })
                         .set_properties(**{"text-align": "left"})
                         .set_table_styles([
@@ -471,4 +474,3 @@ class DAQAnalyzer:
 
 
 __all__ = ["DAQAnalyzer"]
-    
