@@ -60,7 +60,7 @@ ctx.register(
 )
 
 # 方式 4: 注册模块中的所有插件
-from waveform_analysis.core.plugins.builtin import cpu
+import waveform_analysis.core.plugins.builtin.cpu as cpu
 ctx.register(cpu)  # 自动发现并注册模块中所有 Plugin 子类
 
 # 方式 5: 使用列表批量注册
@@ -201,7 +201,7 @@ ctx.register(
 
 ```python
 # 注册整个模块中的所有插件
-from waveform_analysis.core.plugins.builtin import cpu
+import waveform_analysis.core.plugins.builtin.cpu as cpu
 ctx.register(cpu)
 
 # 查看注册了哪些

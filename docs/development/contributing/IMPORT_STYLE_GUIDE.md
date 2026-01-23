@@ -30,7 +30,7 @@ from ...chunk_utils import Chunk
 ```python
 # 在 plugins/core/base.py 中
 from .streaming import StreamingPlugin
-from ..builtin.standard import RawFilesPlugin
+from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin
 ```
 
 **不推荐：**
@@ -49,7 +49,7 @@ from ....utils import something           # 四级相对导入
 **允许：**
 ```python
 from .base import Plugin                  # 一级相对导入
-from ..builtin import RawFilesPlugin     # 二级相对导入
+from ..foundation.utils import exporter  # 二级相对导入
 ```
 
 ### 4. 类型注解兼容 Python 3.8
@@ -147,7 +147,7 @@ mypy waveform_analysis/ --show-error-codes
 
 **A:** 只在同一包内的文件之间使用相对导入。例如：
 - `plugins/core/base.py` → `plugins/core/streaming.py`: 使用 `from .streaming import`
-- `plugins/core/base.py` → `plugins/builtin/standard.py`: 使用 `from ..builtin.standard import`
+- `plugins/core/base.py` → `plugins/builtin/cpu/standard.py`: 使用 `from waveform_analysis.core.plugins.builtin.cpu import`
 
 ### Q: 什么时候使用绝对导入？
 
@@ -202,7 +202,7 @@ from waveform_analysis.core.processing.chunk import Chunk, get_endtime
 
 # 同一包内（相对导入）
 from .base import Plugin
-from ..builtin.standard import RawFilesPlugin
+from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin
 ```
 
 ### ❌ 错误示例
@@ -239,5 +239,4 @@ from waveform_analysis.core.chunk_utils import Chunk
 - 2024: 建立导入规范，统一使用绝对导入
 - 2024: 添加 ruff 自动修复支持
 - 2024: 添加导入检查脚本
-
 
