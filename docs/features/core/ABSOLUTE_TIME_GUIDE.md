@@ -1,3 +1,5 @@
+**导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [core](README.md) > 绝对时间查询指南
+
 # 绝对时间查询指南
 
 本指南介绍如何在 WaveformAnalysis 中使用绝对时间（datetime）进行数据查询。

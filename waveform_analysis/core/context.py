@@ -233,6 +233,7 @@ class Context(CacheMixin, PluginMixin):
                 - Plugin 实例：已实例化的插件对象
                 - Plugin 类：插件类，会自动调用无参构造函数实例化
                 - Python 模块：包含 Plugin 子类的模块，会自动发现并注册所有插件类
+                - 插件序列：list/tuple/set，内部元素会被展开注册
             allow_override: 如果为 True，允许覆盖已注册的同名插件（基于 `provides` 属性）
                           如果为 False（默认），注册同名插件会抛出 RuntimeError
 
@@ -279,6 +280,10 @@ class Context(CacheMixin, PluginMixin):
             - 模块注册会递归查找所有 Plugin 子类，但会跳过 Plugin 基类本身
         """
         for p in plugins:
+            if isinstance(p, (list, tuple, set)):
+                for item in p:
+                    self.register(item, allow_override=allow_override)
+                continue
             if isinstance(p, type) and issubclass(p, Plugin):
                 self.register_plugin_(p(), allow_override=allow_override)
             elif isinstance(p, Plugin):

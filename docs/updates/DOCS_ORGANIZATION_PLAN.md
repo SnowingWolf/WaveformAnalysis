@@ -216,16 +216,16 @@ docs/
 ### 1. 面包屑导航
 在每个文档顶部添加：
 ```markdown
-**导航**: [文档中心](README.md) > [功能特性](indexes/features.md) > 内存优化
+**导航**: [文档中心](../README.md) > [功能特性](../features/README.md) > 内存优化
 ```
 
 ### 2. 相关文档链接
 在每个文档底部添加：
 ```markdown
 ## 相关文档
-- 上一篇: [快速入门](QUICKSTART.md)
-- 下一篇: [性能优化](PERFORMANCE_OPTIMIZATION.md)
-- 相关: [流式处理指南](STREAMING_GUIDE.md)
+- 上一篇: [快速入门](../user-guide/QUICKSTART_GUIDE.md)
+- 下一篇: [执行器管理](../features/advanced/EXECUTOR_MANAGER_GUIDE.md)
+- 相关: [流式处理指南](../features/plugin/STREAMING_PLUGINS_GUIDE.md)
 ```
 
 ### 3. 标签系统

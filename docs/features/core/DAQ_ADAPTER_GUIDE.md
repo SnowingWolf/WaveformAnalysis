@@ -1,6 +1,6 @@
 # DAQ 适配器使用指南
 
-**导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [核心功能](README.md) > DAQ 适配器指南
+**导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [core](README.md) > DAQ 适配器使用指南
 
 > 阅读时间: 15 分钟 | 难度: ⭐⭐ 进阶
 

@@ -1,4 +1,4 @@
-**导航**: [文档中心](../../README.md) > [开发者指南](../README.md) > [插件开发](README.md) > 插件开发完整指南
+**导航**: [文档中心](../../README.md) > [development](../README.md) > [插件开发](README.md) > 插件开发完整指南
 
 ---
 
@@ -9,7 +9,7 @@
 
 本指南介绍如何开发自定义插件。
 
-> 🎯 **初学者？** 如果你是第一次写插件，建议先阅读 [最简单的插件教程](../features/plugin/SIMPLE_PLUGIN_GUIDETUTORIAL.md)（10 分钟），然后再回到这里深入学习。
+> 🎯 **初学者？** 如果你是第一次写插件，建议先阅读 [最简单的插件教程](../../features/plugin/SIMPLE_PLUGIN_GUIDE.md)（10 分钟），然后再回到这里深入学习。
 
 ---
 
@@ -66,7 +66,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
   - 基于 scipy.signal.find_peaks
   - 支持导数检测、高度、距离、显著性等参数
 
-> 📖 **详细文档**: 查看 [信号处理插件完整文档](../features/plugin/SIGNAL_PROCESSING_PLUGINS.md) 了解详细的使用方法、配置选项和示例。
+> 📖 **详细文档**: 查看 [信号处理插件完整文档](../../features/plugin/SIGNAL_PROCESSING_PLUGINS.md) 了解详细的使用方法、配置选项和示例。
 
 ### 迁移指南
 

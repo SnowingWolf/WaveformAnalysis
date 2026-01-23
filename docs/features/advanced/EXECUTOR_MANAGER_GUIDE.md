@@ -556,6 +556,6 @@ with get_executor("feature_compute", "process", max_workers=8, reuse=True) as ex
 ---
 
 **快速链接**:
-[依赖分析](DEPENDENCY_ANALYSIS_GUIDE.md) |
+[依赖分析](../context/DEPENDENCY_ANALYSIS_GUIDE.md) |
 [进度追踪](PROGRESS_TRACKING_GUIDE.md) |
-[性能优化](../performance/README.md)
+[高级功能](README.md)

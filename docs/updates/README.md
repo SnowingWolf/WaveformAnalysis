@@ -6,6 +6,14 @@
 
 ---
 
+## ✅ 如何使用
+
+- 想了解最新功能：先看 `NEW_FEATURES.md`
+- 只关心变更摘要：直接看 `UPDATE_SUMMARY.md`
+- 需要迁移指导：查看 `STORAGE_MIGRATION_GUIDE.md`
+
+---
+
 ## 📚 文档列表
 
 | 文档 | 时间 | 难度 | 说明 |
@@ -57,7 +65,7 @@
 
 ## 🔗 相关资源
 
-- [快速开始](../quickstart/README.md) - 开始使用新功能
+- [快速开始](../user-guide/QUICKSTART_GUIDE.md) - 开始使用新功能
 - [功能特性](../features/README.md) - 详细功能说明
 - [API 参考](../api/README.md) - API 文档
 

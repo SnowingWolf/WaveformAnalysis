@@ -6,6 +6,14 @@
 
 ---
 
+## ✅ 使用建议
+
+- 想了解系统能力全貌：从本页的功能分类进入
+- 只关心某个功能：直接跳到“按场景查找”
+- 需要插件具体细节：查看 [插件详解](../plugins/README.md)
+
+---
+
 ## 📂 功能分类
 
 ### 🔧 [高级功能](advanced/README.md)
@@ -76,6 +84,9 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 #### 配置 DAQ 数据格式
 → [utils/DAQ_ADAPTER_GUIDE.md](utils/DAQ_ADAPTER_GUIDE.md)
 
+#### 查看 DAQ 运行概览
+→ [utils/DAQ_ANALYZER_GUIDE.md](utils/DAQ_ANALYZER_GUIDE.md)
+
 #### 可视化数据血缘
 → [context/LINEAGE_VISUALIZATION_GUIDE.md](context/LINEAGE_VISUALIZATION_GUIDE.md)
 
@@ -103,6 +114,9 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 #### 使用信号处理插件
 → [plugin/SIGNAL_PROCESSING_PLUGINS.md](plugin/SIGNAL_PROCESSING_PLUGINS.md)
 
+#### 查看内置插件详解
+→ [../plugins/README.md](../plugins/README.md)
+
 #### 开发自定义插件
 → [plugin/SIMPLE_PLUGIN_GUIDE.md](plugin/SIMPLE_PLUGIN_GUIDE.md)
 
@@ -113,6 +127,7 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 - [用户指南](../user-guide/README.md) - 快速入门
 - [API 参考](../api/README.md) - API 文档
 - [架构设计](../architecture/README.md) - 系统架构
+- [插件详解](../plugins/README.md) - 内置插件说明
 
 ---
 

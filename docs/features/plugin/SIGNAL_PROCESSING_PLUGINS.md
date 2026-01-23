@@ -385,9 +385,9 @@ class CustomPeaksPlugin(SignalPeaksPlugin):
 
 ## 参考文档
 
-- [WaveformAnalysis 架构文档](../docs/ARCHITECTURE.md)
-- [插件开发指南](../docs/PLUGIN_DEVELOPMENT.md)
-- [配置管理指南](../CLAUDE.md#configuration-management)
+- [WaveformAnalysis 架构文档](../../architecture/ARCHITECTURE.md)
+- [插件开发指南](../../development/plugin-development/README.md)
+- [配置管理指南](../../../CLAUDE.md#configuration-management)
 
 ---
 

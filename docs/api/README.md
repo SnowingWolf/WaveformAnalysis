@@ -74,7 +74,7 @@
 
 ## 🔗 相关资源
 
-- [快速开始](../quickstart/README.md) - 基础使用
+- [快速开始](../user-guide/QUICKSTART_GUIDE.md) - 基础使用
 - [功能特性](../features/README.md) - 功能说明
 - [开发指南](../development/README.md) - 开发规范
 

@@ -170,14 +170,14 @@ docs/
 
 1. **为现有文档添加面包屑导航**
    ```markdown
-   **导航**: [文档中心](README.md) > [入门指南](indexes/getting-started.md) > 快速开始
+   **导航**: [文档中心](../README.md) > [用户指南](../user-guide/README.md) > 快速开始
    ```
 
 2. **为现有文档添加相关链接**
    ```markdown
    ## 相关文档
-   - 上一篇: [快速开始](QUICKSTART.md)
-   - 下一篇: [API 参考](api_reference.md)
+   - 上一篇: [快速开始](../user-guide/QUICKSTART_GUIDE.md)
+   - 下一篇: [API 参考](../api/api_reference.md)
    ```
 
 3. **更新项目根 README.md**

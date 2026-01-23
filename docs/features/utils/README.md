@@ -11,6 +11,7 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 | 文档 | 时间 | 难度 | 说明 |
 |------|------|------|------|
 | [DAQ_ADAPTER_GUIDE.md](DAQ_ADAPTER_GUIDE.md) | 20 分钟 | ⭐⭐ 中级 | DAQ 适配器层使用指南（格式读取、目录结构） |
+| [DAQ_ANALYZER_GUIDE.md](DAQ_ANALYZER_GUIDE.md) | 10 分钟 | ⭐ 入门 | DAQ 运行概览与统计导出 |
 | [EVENT_FILTERS_GUIDE.md](EVENT_FILTERS_GUIDE.md) | 15 分钟 | ⭐⭐ 中级 | 事件筛选工具使用指南 |
 | [waveform_preview.md](waveform_preview.md) | 15 分钟 | ⭐⭐ 中级 | 波形预览工具使用指南 |
 
@@ -18,14 +19,16 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 
 ## 🎓 学习路径
 
-### 工具函数入门（50 分钟）
+### 工具函数入门（60 分钟）
 
 ```
 1. DAQ_ADAPTER_GUIDE.md（20 分钟）- DAQ 数据格式适配
    ↓
-2. EVENT_FILTERS_GUIDE.md（15 分钟）- 事件筛选
+2. DAQ_ANALYZER_GUIDE.md（10 分钟）- 运行概览与统计
    ↓
-3. waveform_preview.md（15 分钟）- 波形预览
+3. EVENT_FILTERS_GUIDE.md（15 分钟）- 事件筛选
+   ↓
+4. waveform_preview.md（15 分钟）- 波形预览
 ```
 
 ---
@@ -39,6 +42,9 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 
 #### 配置不同的目录结构
 → [DAQ_ADAPTER_GUIDE.md](DAQ_ADAPTER_GUIDE.md)
+
+#### 查看 DAQ 运行概览
+→ [DAQ_ANALYZER_GUIDE.md](DAQ_ANALYZER_GUIDE.md)
 
 #### 筛选事件数据
 → [EVENT_FILTERS_GUIDE.md](EVENT_FILTERS_GUIDE.md)
@@ -58,5 +64,6 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 
 **快速链接**:
 [DAQ 适配器](DAQ_ADAPTER_GUIDE.md) |
+[DAQ 运行分析器](DAQ_ANALYZER_GUIDE.md) |
 [事件筛选](EVENT_FILTERS_GUIDE.md) |
 [波形预览](waveform_preview.md)

@@ -35,6 +35,18 @@ peaks = ctx.get_data(run_id, "peaks")
 
 ---
 
+## 🧭 选择入口
+
+如果你不确定从哪里开始，可以按角色选择入口：
+
+- **第一次使用** → [用户指南](user-guide/README.md)
+- **想了解功能全貌** → [功能特性](features/README.md)
+- **需要插件细节** → [插件详解](plugins/README.md)
+- **准备开发扩展** → [开发者指南](development/README.md)
+- **只看 CLI** → [命令行工具](cli/README.md)
+
+---
+
 ## 📂 文档导航
 
 ### ✨ [功能特性](features/README.md)
@@ -46,6 +58,14 @@ peaks = ctx.get_data(run_id, "peaks")
 - 🔌 [插件功能](features/plugin/README.md) - 信号处理 | 流式处理 | Strax 适配
 - 🔧 [高级功能](features/advanced/README.md) - 并行执行 | 进度追踪 | CSV 处理
 - 🛠️ [工具函数](features/utils/README.md) - DAQ 适配器 | 事件筛选 | 波形预览
+
+---
+
+### 🔌 [插件详解](plugins/README.md)
+> 面向使用者：内置插件的具体用法与实现细节
+
+**包含**:
+- ⚙️ [内置插件](plugins/README.md) - 电荷计算方法对比 | Waveform Width 插件
 
 ---
 
@@ -82,6 +102,8 @@ peaks = ctx.get_data(run_id, "peaks")
 | 可视化插件依赖 | [血缘图预览](features/context/LINEAGE_VISUALIZATION_GUIDE.md) | 15 分钟 |
 | 预览执行计划 | [预览执行](features/context/PREVIEW_EXECUTION.md) | 15 分钟 |
 | 使用信号处理插件 | [信号处理插件](features/plugin/SIGNAL_PROCESSING_PLUGINS.md) | 15 分钟 |
+| 查看内置插件详解 | [插件详解](plugins/README.md) | 10 分钟 |
+| 查看 DAQ 运行概览 | [DAQ 运行分析器](features/utils/DAQ_ANALYZER_GUIDE.md) | 10 分钟 |
 | 并行处理数据 | [执行器管理](features/advanced/EXECUTOR_MANAGER_GUIDE.md) | 20 分钟 |
 | 开发自定义插件 | [插件开发教程](features/plugin/SIMPLE_PLUGIN_GUIDE.md) | 10 分钟 |
 | 理解系统架构 | [系统架构](architecture/ARCHITECTURE.md) | 20 分钟 |
@@ -89,6 +111,11 @@ peaks = ctx.get_data(run_id, "peaks")
 ---
 
 ## 🎓 推荐学习路径
+
+### 新手路径（30 分钟）
+```
+快速上手 → 常见示例 → Context 使用
+```
 
 ### 使用者路径（1 小时）
 ```
@@ -133,4 +160,4 @@ python3 scripts/update_breadcrumbs.py --dry-run  # 预览模式
 
 ---
 
-**快速链接**: [功能特性](features/README.md) | [开发者指南](development/README.md) | [命令行工具](cli/README.md) | [更新记录](updates/README.md)
+**快速链接**: [功能特性](features/README.md) | [插件详解](plugins/README.md) | [开发者指南](development/README.md) | [命令行工具](cli/README.md) | [更新记录](updates/README.md)

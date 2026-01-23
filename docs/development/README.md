@@ -1,20 +1,28 @@
 # 🛠️ 开发者指南
 
-**导航**: [文档中心](../README.md) > 开发者指南
+**导航**: [文档中心](../README.md) > development
 
 本指南面向 WaveformAnalysis 的开发者，介绍系统架构、插件开发和代码规范。
 
 ---
 
+## ✅ 适合谁
+
+- 想理解系统架构与核心模块的人
+- 需要开发或维护插件的人
+- 参与贡献与扩展的开发者
+
+---
+
 ## 📂 文档分类
 
-### 🏗️ [架构设计](architecture/README.md)
+### 🏗️ [架构设计](../architecture/README.md)
 系统架构和设计文档。
 
 **包含文档**:
-- [系统架构](architecture/ARCHITECTURE.md) - 整体架构设计
-- [Context 工作流](architecture/CONTEXT_PROCESSOR_WORKFLOW.md) - 数据流和执行流程
-- [项目结构](architecture/PROJECT_STRUCTURE.md) - 目录和模块组织
+- [系统架构](../architecture/ARCHITECTURE.md) - 整体架构设计
+- [Context 工作流](../architecture/CONTEXT_PROCESSOR_WORKFLOW.md) - 数据流和执行流程
+- [项目结构](../architecture/PROJECT_STRUCTURE.md) - 目录和模块组织
 
 ---
 
@@ -22,17 +30,17 @@
 从零开始学习插件开发。
 
 **包含文档**:
-- [最简单的插件教程](plugin-development/SIMPLE_PLUGIN_GUIDE.md) - 10 分钟入门
+- [最简单的插件教程](../features/plugin/SIMPLE_PLUGIN_GUIDE.md) - 10 分钟入门
 - [插件开发完整指南](plugin-development/plugin_guide.md) - 深入学习
 
 ---
 
-### 📚 [API 参考](api/README.md)
+### 📚 [API 参考](../api/README.md)
 完整的 API 文档和配置参考。
 
 **包含文档**:
-- [API 参考](api/api_reference.md) - Context 和 Dataset API
-- [配置参考](api/config_reference.md) - 所有配置选项
+- [API 参考](../api/api_reference.md) - Context 和 Dataset API
+- [配置参考](../api/config_reference.md) - 所有配置选项
 
 ---
 
@@ -70,4 +78,4 @@
 
 ---
 
-**快速链接**: [架构](architecture/README.md) | [插件开发](plugin-development/README.md) | [API](api/README.md)
+**快速链接**: [架构](../architecture/README.md) | [插件开发](plugin-development/README.md) | [API](../api/README.md)
