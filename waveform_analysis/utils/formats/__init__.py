@@ -42,11 +42,26 @@ Examples:
 """
 
 # 基础类
+# DAQ 适配器
+from .adapter import (
+    DAQAdapter,
+    get_adapter,
+    is_adapter_registered,
+    list_adapters,
+    register_adapter,
+    unregister_adapter,
+)
 from .base import (
     ColumnMapping,
     FormatReader,
     FormatSpec,
     TimestampUnit,
+)
+
+# 目录布局
+from .directory import (
+    FLAT_LAYOUT,
+    DirectoryLayout,
 )
 
 # 通用 CSV 读取器
@@ -62,28 +77,12 @@ from .registry import (
     unregister_format,
 )
 
-# 目录布局
-from .directory import (
-    DirectoryLayout,
-    FLAT_LAYOUT,
-)
-
-# DAQ 适配器
-from .adapter import (
-    DAQAdapter,
-    get_adapter,
-    is_adapter_registered,
-    list_adapters,
-    register_adapter,
-    unregister_adapter,
-)
-
 # VX2730 完整适配器（包含格式规范、目录布局、读取器）
 from .vx2730 import (
-    VX2730Reader,
     VX2730_ADAPTER,
     VX2730_LAYOUT,
     VX2730_SPEC,
+    VX2730Reader,
     VX2730Spec,
 )
 

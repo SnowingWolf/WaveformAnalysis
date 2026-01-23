@@ -13,6 +13,7 @@ Examples:
 from typing import Dict, List, Optional, Type
 
 from waveform_analysis.core.foundation.utils import exporter
+
 from .base import FormatReader, FormatSpec
 
 export, __all__ = exporter()

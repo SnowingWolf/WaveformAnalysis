@@ -14,8 +14,8 @@ from typing import Any, Dict, List, Tuple, Type, Union
 
 import numpy as np
 
-from waveform_analysis.core.plugins.core.base import Plugin
 from waveform_analysis.core.foundation.utils import exporter
+from waveform_analysis.core.plugins.core.base import Plugin
 
 logger = logging.getLogger(__name__)
 export, __all__ = exporter()

@@ -18,9 +18,9 @@ Examples:
     >>> groups = layout.group_files_by_channel(raw_path)
 """
 
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
+import re
 from typing import Dict, List, Optional
 
 from waveform_analysis.core.foundation.utils import exporter

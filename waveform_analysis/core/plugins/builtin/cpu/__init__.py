@@ -11,33 +11,32 @@ CPU 插件模块 - 使用 NumPy/SciPy 实现
 """
 
 # 标准数据处理插件
-from .standard import (
-    RawFilesPlugin,
-    WaveformsPlugin,
-    StWaveformsPlugin,
-    HitFinderPlugin,
-    PeaksPlugin,
-    ChargesPlugin,
-    DataFramePlugin,
-    GroupedEventsPlugin,
-    PairedEventsPlugin,
-)
+# Cache analysis plugin
+from .cache_analysis import CacheAnalysisPlugin
 
 # CPU 滤波插件
 from .filtering import FilteredWaveformsPlugin
 
 # CPU 寻峰插件
-from .peak_finding import SignalPeaksPlugin, ADVANCED_PEAK_DTYPE
-
-# CPU 波形宽度插件
-from .waveform_width import WaveformWidthPlugin, WAVEFORM_WIDTH_DTYPE
-from .waveform_width_integral import (
-    WaveformWidthIntegralPlugin,
-    WAVEFORM_WIDTH_INTEGRAL_DTYPE,
+from .peak_finding import ADVANCED_PEAK_DTYPE, SignalPeaksPlugin
+from .standard import (
+    ChargesPlugin,
+    DataFramePlugin,
+    GroupedEventsPlugin,
+    HitFinderPlugin,
+    PairedEventsPlugin,
+    PeaksPlugin,
+    RawFilesPlugin,
+    StWaveformsPlugin,
+    WaveformsPlugin,
 )
 
-# Cache analysis plugin
-from .cache_analysis import CacheAnalysisPlugin
+# CPU 波形宽度插件
+from .waveform_width import WAVEFORM_WIDTH_DTYPE, WaveformWidthPlugin
+from .waveform_width_integral import (
+    WAVEFORM_WIDTH_INTEGRAL_DTYPE,
+    WaveformWidthIntegralPlugin,
+)
 
 standard_plugins = [
     RawFilesPlugin(),

@@ -18,7 +18,6 @@ import numpy as np
 
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
-
 WAVEFORM_WIDTH_INTEGRAL_DTYPE = np.dtype([
     ("t10", "f4"),  # 10% 积分点（ns）
     ("t90", "f4"),  # 90% 积分点（ns）
@@ -46,6 +45,7 @@ class WaveformWidthIntegralPlugin(Plugin):
     description = "Event-wise integral quantile width using st_waveforms baseline."
     version = "1.0.0"
     save_when = "always"
+
     output_dtype = WAVEFORM_WIDTH_INTEGRAL_DTYPE
 
     options = {

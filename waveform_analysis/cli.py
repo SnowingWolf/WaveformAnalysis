@@ -4,8 +4,8 @@
 """
 
 import argparse
-import sys
 from pathlib import Path
+import sys
 
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import standard_plugins

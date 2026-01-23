@@ -81,6 +81,7 @@ def process(path: str | Path) -> int | None:  # Python 3.10+ 语法
 | `waveform_analysis.core.processor` | `waveform_analysis.core.processing.processor` |
 | `waveform_analysis.core.analyzer` | `waveform_analysis.core.processing.analyzer` |
 | `waveform_analysis.core.executor_manager` | `waveform_analysis.core.execution.manager` |
+| `waveform_analysis.core.executor_config` | `waveform_analysis.core.execution.config` |
 | `waveform_analysis.core.storage` | `waveform_analysis.core.storage.memmap` |
 | `waveform_analysis.core.cache` | `waveform_analysis.core.storage.cache` |
 
@@ -239,4 +240,3 @@ from waveform_analysis.core.chunk_utils import Chunk
 - 2024: 建立导入规范，统一使用绝对导入
 - 2024: 添加 ruff 自动修复支持
 - 2024: 添加导入检查脚本
-

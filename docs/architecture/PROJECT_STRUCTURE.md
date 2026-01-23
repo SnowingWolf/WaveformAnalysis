@@ -400,8 +400,8 @@ from data import WaveformDataset
 from load import get_raw_files
 
 # 新方式
-from waveform_analysis import WaveformDataset
-from waveform_analysis.core import get_raw_files
+from waveform_analysis.core.dataset import WaveformDataset
+from waveform_analysis.utils.loader import get_raw_files
 ```
 
 ## 扩展指南

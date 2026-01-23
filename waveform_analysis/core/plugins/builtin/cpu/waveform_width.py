@@ -19,7 +19,6 @@ import numpy as np
 
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
-
 # 定义波形宽度数据类型
 WAVEFORM_WIDTH_DTYPE = np.dtype(
     [

@@ -10,19 +10,18 @@
 - 动态负载均衡（可选）
 """
 import atexit
-import multiprocessing
-import threading
-import time
-from contextlib import contextmanager
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
-
 from concurrent.futures import (
     Executor,
     ProcessPoolExecutor,
     ThreadPoolExecutor,
     as_completed,
 )
+from contextlib import contextmanager
+from dataclasses import dataclass
+import multiprocessing
+import threading
+import time
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 
 from waveform_analysis.core.foundation.utils import exporter
 
@@ -478,7 +477,8 @@ def parallel_map(
         # 如果配置存在且启用，创建进度条
         if progress_config and progress_config.enabled:
             from waveform_analysis.core.foundation.progress import (
-                get_global_tracker, format_throughput
+                format_throughput,
+                get_global_tracker,
             )
             
             tracker = get_global_tracker()
@@ -634,7 +634,8 @@ def parallel_apply(
         # 如果配置存在且启用，创建进度条
         if progress_config and progress_config.enabled:
             from waveform_analysis.core.foundation.progress import (
-                get_global_tracker, format_throughput
+                format_throughput,
+                get_global_tracker,
             )
             
             tracker = get_global_tracker()

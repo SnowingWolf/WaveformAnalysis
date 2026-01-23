@@ -193,8 +193,9 @@ class PluginLoader:
             是否为有效插件类
         """
         try:
-            from waveform_analysis.core.plugins.core.base import Plugin
             import inspect
+
+            from waveform_analysis.core.plugins.core.base import Plugin
 
             return (
                 inspect.isclass(obj) and

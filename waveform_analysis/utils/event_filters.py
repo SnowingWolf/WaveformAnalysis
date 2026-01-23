@@ -4,9 +4,10 @@
 
 提供用于筛选和提取事件数据的通用函数，支持numba加速。
 """
+from typing import Callable, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
-from typing import Callable, Dict, List, Optional
 
 # 尝试导入 numba 用于加速
 try:

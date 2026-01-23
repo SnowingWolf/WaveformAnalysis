@@ -6,9 +6,9 @@
 
 """
 
-import time
 from dataclasses import dataclass, field
 from enum import Enum
+import time
 from typing import Any, Dict, List, Optional
 
 from ..foundation.utils import exporter

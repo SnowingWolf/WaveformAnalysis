@@ -5,10 +5,10 @@
 生成 Markdown/HTML/PDF 格式的文档。
 """
 
-from typing import Optional, Dict, Any, List, Type
+from datetime import datetime
 import inspect
 from pathlib import Path
-from datetime import datetime
+from typing import Any, Dict, List, Optional, Type
 
 from waveform_analysis.core.foundation.utils import exporter
 
@@ -68,6 +68,7 @@ class DocGenerator:
         """
         from waveform_analysis.core.context import Context
         from waveform_analysis.core.dataset import WaveformDataset
+
         from .extractors import MetadataExtractor
 
         extractor = MetadataExtractor()
@@ -141,6 +142,7 @@ class DocGenerator:
             >>> gen.generate_plugin_guide('docs/plugin_guide.md')
         """
         from waveform_analysis.core.plugins.core.base import Plugin
+
         from .extractors import MetadataExtractor
 
         extractor = MetadataExtractor()

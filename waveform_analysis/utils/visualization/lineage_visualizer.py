@@ -140,11 +140,11 @@ plot_lineage_labview(
    - 节点数量 < 20：两种模式性能相当
    - 节点数量 > 20：Plotly 模式交互性更好
 """
-from typing import Any, Dict, List, Optional
 import textwrap
+from typing import Any, Dict, List, Optional
 
-import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, FancyArrowPatch, Rectangle
+import matplotlib.pyplot as plt
 
 from waveform_analysis.core.foundation.model import (
     LineageGraphModel,

@@ -39,9 +39,10 @@ import numpy as np
 import pandas as pd
 
 from waveform_analysis.core.foundation.utils import exporter
+
+from .adapter import DAQAdapter, register_adapter
 from .base import ColumnMapping, FormatReader, FormatSpec, TimestampUnit
 from .directory import DirectoryLayout
-from .adapter import DAQAdapter, register_adapter
 
 export, __all__ = exporter()
 

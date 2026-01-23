@@ -8,8 +8,8 @@ Context 模块 - 插件系统的核心调度器。
 """
 
 # 1. Standard library imports
-from datetime import datetime
 import copy
+from datetime import datetime
 import functools
 import hashlib
 import importlib
@@ -3493,7 +3493,10 @@ class Context(CacheMixin, PluginMixin):
         """
 
         from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
-        from waveform_analysis.core.storage.cache_diagnostics import CacheDiagnostics, DiagnosticIssue
+        from waveform_analysis.core.storage.cache_diagnostics import (
+            CacheDiagnostics,
+            DiagnosticIssue,
+        )
 
         analyzer = CacheAnalyzer(self)
         analyzer.scan(verbose=False)

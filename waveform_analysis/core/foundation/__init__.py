@@ -18,10 +18,17 @@ Foundation 子模块 - 框架基础设施
 """
 
 # 异常处理
+# 文档读取器
+from .doc_reader import (
+    TOPIC_DOC_MAPPING,
+    DocReader,
+    find_docs_root,
+    get_doc_reader,
+)
 from .exceptions import (
+    ErrorContext,
     ErrorSeverity,
     PluginError,
-    ErrorContext,
     PluginTimeoutError,
 )
 
@@ -34,38 +41,30 @@ from .mixins import (
 
 # 模型
 from .model import (
-    PortModel,
-    NodeModel,
     EdgeModel,
     LineageGraphModel,
-)
-
-# 工具函数
-from .utils import (
-    exporter,
-    Profiler,
-    LineageStyle,
-    OneTimeGenerator,
+    NodeModel,
+    PortModel,
 )
 
 # 进度追踪
 from .progress import (
     ProgressTracker,
-    with_progress,
+    format_throughput,
+    format_time,
+    get_global_tracker,
     progress_iter,
     progress_map,
-    get_global_tracker,
     reset_global_tracker,
-    format_time,
-    format_throughput,
+    with_progress,
 )
 
-# 文档读取器
-from .doc_reader import (
-    DocReader,
-    get_doc_reader,
-    find_docs_root,
-    TOPIC_DOC_MAPPING,
+# 工具函数
+from .utils import (
+    LineageStyle,
+    OneTimeGenerator,
+    Profiler,
+    exporter,
 )
 
 __all__ = [

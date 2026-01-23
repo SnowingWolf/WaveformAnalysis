@@ -25,13 +25,11 @@ Note:
     本模块需要安装 JAX 和 iminuit:
     pip install jax jaxlib iminuit
 """
-import numpy as np
 from iminuit import Minuit
-from pyDAW import BaseFitter
-
-
 import jax
 import jax.numpy as jnp
+import numpy as np
+from pyDAW import BaseFitter
 
 
 def gauss(x, mu, sigma, amp=1.0):

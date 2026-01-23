@@ -16,8 +16,9 @@
 """
 
 import logging
+from typing import Any, Dict, Optional, Protocol, Type
 import warnings
-from typing import Protocol, Optional, Dict, Any, Type
+
 import numpy as np
 
 from waveform_analysis.core.foundation.utils import exporter

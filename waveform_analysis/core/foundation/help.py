@@ -5,7 +5,8 @@ Help 系统核心实现
 文档不可用时显示友好的错误提示。
 """
 
-from typing import Optional, Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Optional
+
 from waveform_analysis.core.foundation.utils import exporter
 
 if TYPE_CHECKING:

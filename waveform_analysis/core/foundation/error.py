@@ -6,8 +6,8 @@
 """
 
 # 1. Standard library imports
-import logging
 from datetime import datetime
+import logging
 from typing import Any, Callable, Dict
 
 # 2. Third-party imports

@@ -11,8 +11,8 @@ WaveformAnalysis 文档生成工具 CLI
 """
 
 import argparse
-import sys
 from pathlib import Path
+import sys
 
 
 def main():

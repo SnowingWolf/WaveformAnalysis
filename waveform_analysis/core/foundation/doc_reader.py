@@ -5,9 +5,10 @@
 支持回退到内置内容。
 """
 
-import re
 from pathlib import Path
-from typing import Optional, Dict, List, Tuple
+import re
+from typing import Dict, List, Optional, Tuple
+
 from waveform_analysis.core.foundation.utils import exporter
 
 export, __all__ = exporter()
