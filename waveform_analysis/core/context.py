@@ -215,6 +215,10 @@ class Context(CacheMixin, PluginMixin):
         self.config.setdefault("epoch_extraction_strategy", "auto")  # "auto", "filename", "csv_header", "first_event"
         self.config.setdefault("epoch_filename_patterns", None)  # None = use defaults
 
+    # ===========================
+    # Registers & Config plugins in the  Context. and get data
+    # ===========================
+
     def register(self, *plugins: Union[Plugin, Type[Plugin], Any], allow_override: bool = False):
         """
         注册一个或多个插件到 Context 中。
@@ -292,14 +296,6 @@ class Context(CacheMixin, PluginMixin):
             else:
                 # Fallback for other types if needed
                 self.register_plugin_(p, allow_override=allow_override)
-
-    def _register_from_module(self, module, allow_override: bool = False):
-        """Helper to register all Plugin classes found in a module."""
-        import inspect
-
-        for name, obj in inspect.getmembers(module):
-            if inspect.isclass(obj) and issubclass(obj, Plugin) and obj != Plugin:
-                self.register_plugin_(obj(), allow_override=allow_override)
 
     def discover_and_register_plugins(self, allow_override: bool = False) -> int:
         """
@@ -386,6 +382,328 @@ class Context(CacheMixin, PluginMixin):
         self.clear_config_cache()
         self.clear_performance_caches()  # 配置变了，必须让 lineage/hash/key 失效
 
+    def get_config(self, plugin: Plugin, name: str) -> Any:
+        """获取插件的配置值（带验证和类型转换）。
+
+        这是获取插件配置的推荐方法。相比 _resolve_config_value，此方法会：
+        1. 应用插件选项的类型验证
+        2. 执行值的范围检查（如果定义）
+        3. 调用自定义验证器（如果存在）
+
+        配置支持命名空间，查找顺序同 _resolve_config_value。
+
+        Args:
+            plugin: 目标插件实例
+            name: 配置选项名称
+
+        Returns:
+            验证并可能转换后的配置值
+
+        Raises:
+            KeyError: 当插件没有该配置选项时
+            ValueError: 当配置值不符合验证规则时
+            TypeError: 当配置值类型不匹配时
+
+        Examples:
+            >>> # 假设选项定义为 Option(type=int, validator=lambda x: 0 < x < 100)
+            >>> ctx.config = {'my_plugin': {'threshold': '50'}}  # 字符串形式
+            >>> ctx.get_config(plugin, 'threshold')
+            50  # 自动转换为 int
+
+            >>> ctx.config = {'threshold': 150}  # 超出范围
+            >>> ctx.get_config(plugin, 'threshold')
+            ValueError: threshold must satisfy validator
+        """
+        raw_value = self._resolve_config_value(plugin, name)
+        option = plugin.options[name]
+        return option.validate_value(name, raw_value, plugin_name=plugin.provides)
+
+    def get_plugin(self, plugin_name: str) -> Plugin:
+        """
+        获取已注册的插件对象
+
+        返回插件对象，可以直接访问和修改其属性。
+
+        Args:
+            plugin_name: 插件名称（provides 属性）
+
+        Returns:
+            Plugin: 插件对象
+
+        Raises:
+            KeyError: 当插件未注册时
+
+        Examples:
+            >>> ctx = Context()
+            >>> ctx.register(WaveformsPlugin())
+            >>>
+            >>> # 获取插件并修改属性
+            >>> plugin = ctx.get_plugin('waveforms')
+            >>> plugin.save_when = 'always'
+            >>> plugin.timeout = 300
+            >>>
+            >>> # 链式调用
+            >>> ctx.get_plugin('st_waveforms').save_when = 'never'
+            >>>
+            >>> # 查看插件配置
+            >>> print(ctx.get_plugin('waveforms').save_when)
+            >>> print(ctx.get_plugin('waveforms').options)
+        """
+        if plugin_name not in self._plugins:
+            available = ", ".join(self._plugins.keys())
+            raise KeyError(f"Plugin '{plugin_name}' is not registered. Available plugins: {available}")
+        return self._plugins[plugin_name]
+
+    def show_config(
+        self,
+        data_name: Optional[str] = None,
+        show_usage: bool = True,
+        show_full_help: bool = False,
+        run_name: Optional[str] = None,
+    ):
+        """
+        显示当前配置，并标识每个配置项对应的插件
+
+        Args:
+            data_name: 可选，指定插件名称以只显示该插件的配置
+            show_usage: 是否显示配置项被哪些插件使用（仅在显示全局配置时有效）
+            show_full_help: 是否显示完整 help 文本（默认截断）
+            run_name: 可选，显示缓存目录时使用的运行名（仅全局配置视图）
+
+        Examples:
+            >>> # 显示全局配置，包含配置项使用情况
+            >>> ctx.show_config()
+
+            >>> # 显示特定插件的配置
+            >>> ctx.show_config('waveforms')
+
+            >>> # 显示全局配置，但不显示使用情况
+            >>> ctx.show_config(show_usage=False)
+
+            >>> # 指定运行名，显示实际缓存目录
+            >>> ctx.show_config(run_name='run_001')
+
+            >>> # 自动使用最近一次 get_data(run_id=...) 的 run_id
+            >>> ctx.show_config()
+
+        关联说明：
+            - 若 data_name 指定为插件名，会直接调用 list_plugin_configs 来展示该插件的“配置项清单”。
+            - 若 data_name 未指定，则展示“当前配置汇总”（全局/插件特定/未使用）。
+        """
+        if data_name and data_name in self._plugins:
+            # 显示特定插件的配置
+            self._show_plugin_config(data_name, show_full_help=show_full_help)
+        else:
+            # 显示全局配置
+            self._show_global_config(show_usage, show_full_help=show_full_help, run_name=run_name)
+
+    def _register_from_module(self, module, allow_override: bool = False):
+        """Helper to register all Plugin classes found in a module."""
+        import inspect
+
+        for name, obj in inspect.getmembers(module):
+            if inspect.isclass(obj) and issubclass(obj, Plugin) and obj != Plugin:
+                self.register_plugin_(obj(), allow_override=allow_override)
+
+    # ===========================
+    # Get Data 
+    # 1. Cache & Storage backend validation and retrieval
+    # 2. Analysis of dependencies --> Execution plan --> Run Plugin
+    # ===========================
+    
+    def get_data(
+        self, run_id: str, data_name: str, show_progress: bool = False, progress_desc: Optional[str] = None, **kwargs
+    ) -> Any:
+        """
+        Retrieve data by name for a specific run.
+        If data is not in memory/cache, it will trigger the necessary plugins.
+
+        参数:
+            run_id: Run identifier
+            data_name: Name of the data to retrieve
+            show_progress: Whether to show progress bar during plugin execution
+            progress_desc: Custom description for progress bar (default: auto-generated)
+            **kwargs: Additional arguments passed to plugins
+        """
+        # Remember the most recent run_id for display purposes (e.g., show_config()).
+        self._last_run_id = run_id
+
+        # 1. Check memory cache
+        val = self._get_data_from_memory(run_id, data_name)
+        if val is not None:
+            # Memory cache hit at top level - record stats if enabled
+            if self.stats_collector and self.stats_collector.is_enabled():
+                self.stats_collector.start_execution(data_name, run_id)
+                self.stats_collector.end_execution(data_name, success=True, cache_hit=True)
+            return val
+
+        # 2. Check disk cache (memmap)
+        # Only check if it's a plugin-provided data
+        if data_name in self._plugins:
+            key = self.key_for(run_id, data_name)
+            data = self._load_from_disk_with_check(run_id, data_name, key)
+            if data is not None:
+                # Disk cache hit at top level - record stats if enabled
+                if self.stats_collector and self.stats_collector.is_enabled():
+                    self.stats_collector.start_execution(data_name, run_id)
+                    self.stats_collector.end_execution(data_name, success=True, cache_hit=True)
+                return data
+
+        # 3. Resolve plan and compute needed steps (cache-aware)
+        plan = self._resolve_execution_plan(run_id, data_name)
+        if not plan:
+            return self._get_data_from_memory(run_id, data_name)
+        needed_set = self._compute_needed_set(run_id, data_name, plan)
+
+        # 4. Execute plan
+        return self._run_plugin(
+            run_id,
+            data_name,
+            show_progress=show_progress,
+            progress_desc=progress_desc,
+            plan=plan,
+            needed_set=needed_set,
+            **kwargs,
+        )
+
+    def list_provided_data(self) -> List[str]:
+        """List all data types provided by registered plugins."""
+        return list(self._plugins.keys())
+
+    def clear_performance_caches(self):
+        """
+        Clear all performance optimization caches.
+
+        Should be called when plugins are registered/unregistered or
+        when plugin configurations change.
+        """
+        self._execution_plan_cache.clear()
+        self._lineage_cache.clear()
+        self._lineage_hash_cache.clear()
+        self._key_cache.clear()
+        self.logger.debug("Performance caches cleared")
+
+
+        def key_for(self, run_id: str, data_name: str) -> str:
+        """
+        Get a unique key (hash) for a data type and run.
+
+        Uses caching for performance optimization.
+        """
+        # Check cache first
+        cache_key = (run_id, data_name)
+        if cache_key in self._key_cache:
+            return self._key_cache[cache_key]
+
+        import hashlib
+        import json
+
+        # Check if we have cached lineage hash
+        if data_name in self._lineage_hash_cache:
+            lineage_hash = self._lineage_hash_cache[data_name]
+        else:
+            lineage = self.get_lineage(data_name)
+            # Use default=str to handle any non-serializable objects gracefully,
+            # though we try to standardize them in get_lineage.
+            lineage_json = json.dumps(lineage, sort_keys=True, default=str)
+            lineage_hash = hashlib.sha1(lineage_json.encode()).hexdigest()[:8]
+            self._lineage_hash_cache[data_name] = lineage_hash
+
+        key = f"{run_id}-{data_name}-{lineage_hash}"
+        self._key_cache[cache_key] = key
+        return key
+
+    def clear_cache_for(
+        self,
+        run_id: str,
+        data_name: Optional[str] = None,
+        clear_memory: bool = True,
+        clear_disk: bool = True,
+        verbose: bool = True,
+    ) -> int:
+        """
+        清理指定运行和步骤的缓存。
+
+        参数:
+            run_id: 运行 ID
+            data_name: 数据名称（步骤名称），如果为 None 则清理所有步骤
+            clear_memory: 是否清理内存缓存
+            clear_disk: 是否清理磁盘缓存
+            verbose: 是否显示详细的清理信息
+
+        返回:
+            清理的缓存项数量
+
+        示例:
+            >>> ctx = Context()
+            >>> # 清理单个步骤的缓存
+            >>> ctx.clear_cache_for("run_001", "st_waveforms")
+            >>> # 清理所有步骤的缓存
+            >>> ctx.clear_cache_for("run_001")
+            >>> # 只清理内存缓存
+            >>> ctx.clear_cache_for("run_001", "df", clear_disk=False)
+        """
+        count = 0
+        memory_count = 0
+        disk_count = 0
+
+        # 确定要清理的数据名称列表
+        if data_name is None:
+            # 清理所有已注册插件提供的数据
+            data_names = list(self._plugins.keys())
+            if verbose:
+                print(f"[清理缓存] 运行: {run_id}, 清理所有数据类型的缓存 ({len(data_names)} 个)")
+        else:
+            data_names = [data_name]
+            if verbose:
+                print(f"[清理缓存] 运行: {run_id}, 数据类型: {data_name}")
+
+        for name in data_names:
+            # 清理内存缓存
+            if clear_memory:
+                key = (run_id, name)
+                if key in self._results:
+                    del self._results[key]
+                    memory_count += 1
+                    count += 1
+                    if verbose:
+                        print(f"  ✓ 已清理内存缓存: ({run_id}, {name})")
+                    self.logger.debug(f"Cleared memory cache for ({run_id}, {name})")
+                elif verbose:
+                    print(f"  - 内存缓存不存在: ({run_id}, {name})")
+
+            # 清理磁盘缓存
+            if clear_disk:
+                try:
+                    cache_key = self.key_for(run_id, name)
+                    deleted = self._delete_disk_cache(cache_key, run_id, data_name=name)
+                    disk_count += deleted
+                    count += deleted
+                    if deleted > 0:
+                        if verbose:
+                            print(f"  ✓ 已清理磁盘缓存: {cache_key} ({deleted} 个文件)")
+                        self.logger.debug(f"Cleared disk cache for ({run_id}, {name})")
+                    elif verbose:
+                        print(f"  - 磁盘缓存不存在: {cache_key}")
+                except Exception as e:
+                    if verbose:
+                        print(f"  ✗ 清理磁盘缓存失败: ({run_id}, {name}) - {e}")
+                    self.logger.warning(f"Failed to clear disk cache for ({run_id}, {name}): {e}")
+
+        # 总结信息
+        if verbose:
+            print(f"[清理完成] 总计: {count} 个缓存项 (内存: {memory_count}, 磁盘: {disk_count})")
+            if count == 0:
+                print("  ⚠️  没有找到需要清理的缓存")
+            else:
+                print("  ✓ 缓存清理成功")
+
+        return count
+
+    def clear_config_cache(self):
+        """Clear cached validated configurations."""
+        self._resolved_config_cache.clear()
+
     def _validate_storage_backend(self, storage: Any) -> None:
         """
         验证存储后端是否实现了必需的接口
@@ -467,42 +785,6 @@ class Context(CacheMixin, PluginMixin):
             return self.config[f"{provides}.{name}"]
         return self.config.get(name, option.default)
 
-    def get_config(self, plugin: Plugin, name: str) -> Any:
-        """获取插件的配置值（带验证和类型转换）。
-
-        这是获取插件配置的推荐方法。相比 _resolve_config_value，此方法会：
-        1. 应用插件选项的类型验证
-        2. 执行值的范围检查（如果定义）
-        3. 调用自定义验证器（如果存在）
-
-        配置支持命名空间，查找顺序同 _resolve_config_value。
-
-        Args:
-            plugin: 目标插件实例
-            name: 配置选项名称
-
-        Returns:
-            验证并可能转换后的配置值
-
-        Raises:
-            KeyError: 当插件没有该配置选项时
-            ValueError: 当配置值不符合验证规则时
-            TypeError: 当配置值类型不匹配时
-
-        Examples:
-            >>> # 假设选项定义为 Option(type=int, validator=lambda x: 0 < x < 100)
-            >>> ctx.config = {'my_plugin': {'threshold': '50'}}  # 字符串形式
-            >>> ctx.get_config(plugin, 'threshold')
-            50  # 自动转换为 int
-
-            >>> ctx.config = {'threshold': 150}  # 超出范围
-            >>> ctx.get_config(plugin, 'threshold')
-            ValueError: threshold must satisfy validator
-        """
-        raw_value = self._resolve_config_value(plugin, name)
-        option = plugin.options[name]
-        return option.validate_value(name, raw_value, plugin_name=plugin.provides)
-
     def _make_config_signature(self, raw_config: Dict[str, Any]) -> str:
         """Generate a stable signature for a plugin's raw config dict."""
 
@@ -528,23 +810,6 @@ class Context(CacheMixin, PluginMixin):
             validated[name] = option.validate_value(name, raw_config[name], plugin_name=plugin.provides)
         self._resolved_config_cache[cache_key] = validated
         return validated
-
-    def clear_config_cache(self):
-        """Clear cached validated configurations."""
-        self._resolved_config_cache.clear()
-
-    def clear_performance_caches(self):
-        """
-        Clear all performance optimization caches.
-
-        Should be called when plugins are registered/unregistered or
-        when plugin configurations change.
-        """
-        self._execution_plan_cache.clear()
-        self._lineage_cache.clear()
-        self._lineage_hash_cache.clear()
-        self._key_cache.clear()
-        self.logger.debug("Performance caches cleared")
 
     def _invalidate_caches_for(self, data_name: str):
         """
@@ -726,62 +991,7 @@ class Context(CacheMixin, PluginMixin):
         # Keep order consistent with the execution plan
         return {name for name in plan if name in needed}
 
-    def get_data(
-        self, run_id: str, data_name: str, show_progress: bool = False, progress_desc: Optional[str] = None, **kwargs
-    ) -> Any:
-        """
-        Retrieve data by name for a specific run.
-        If data is not in memory/cache, it will trigger the necessary plugins.
-
-        参数:
-            run_id: Run identifier
-            data_name: Name of the data to retrieve
-            show_progress: Whether to show progress bar during plugin execution
-            progress_desc: Custom description for progress bar (default: auto-generated)
-            **kwargs: Additional arguments passed to plugins
-        """
-        # Remember the most recent run_id for display purposes (e.g., show_config()).
-        self._last_run_id = run_id
-
-        # 1. Check memory cache
-        val = self._get_data_from_memory(run_id, data_name)
-        if val is not None:
-            # Memory cache hit at top level - record stats if enabled
-            if self.stats_collector and self.stats_collector.is_enabled():
-                self.stats_collector.start_execution(data_name, run_id)
-                self.stats_collector.end_execution(data_name, success=True, cache_hit=True)
-            return val
-
-        # 2. Check disk cache (memmap)
-        # Only check if it's a plugin-provided data
-        if data_name in self._plugins:
-            key = self.key_for(run_id, data_name)
-            data = self._load_from_disk_with_check(run_id, data_name, key)
-            if data is not None:
-                # Disk cache hit at top level - record stats if enabled
-                if self.stats_collector and self.stats_collector.is_enabled():
-                    self.stats_collector.start_execution(data_name, run_id)
-                    self.stats_collector.end_execution(data_name, success=True, cache_hit=True)
-                return data
-
-        # 3. Resolve plan and compute needed steps (cache-aware)
-        plan = self._resolve_execution_plan(run_id, data_name)
-        if not plan:
-            return self._get_data_from_memory(run_id, data_name)
-        needed_set = self._compute_needed_set(run_id, data_name, plan)
-
-        # 4. Execute plan
-        return self.run_plugin(
-            run_id,
-            data_name,
-            show_progress=show_progress,
-            progress_desc=progress_desc,
-            plan=plan,
-            needed_set=needed_set,
-            **kwargs,
-        )
-
-    def run_plugin(
+    def _run_plugin(
         self,
         run_id: str,
         data_name: str,
@@ -1393,45 +1603,53 @@ class Context(CacheMixin, PluginMixin):
 
         return wrapper()
 
-    def list_provided_data(self) -> List[str]:
-        """List all data types provided by registered plugins."""
-        return list(self._plugins.keys())
-
-    def get_plugin(self, plugin_name: str) -> Plugin:
+    # ===========================
+    # Lineage and dependence analysis
+    # ===========================
+    
+    def plot_lineage(self, data_name: str, kind: str = "labview", **kwargs):
         """
-        获取已注册的插件对象
-
-        返回插件对象，可以直接访问和修改其属性。
+        Visualize the lineage of a data type.
 
         Args:
-            plugin_name: 插件名称（provides 属性）
-
-        Returns:
-            Plugin: 插件对象
-
-        Raises:
-            KeyError: 当插件未注册时
-
-        Examples:
-            >>> ctx = Context()
-            >>> ctx.register(WaveformsPlugin())
-            >>>
-            >>> # 获取插件并修改属性
-            >>> plugin = ctx.get_plugin('waveforms')
-            >>> plugin.save_when = 'always'
-            >>> plugin.timeout = 300
-            >>>
-            >>> # 链式调用
-            >>> ctx.get_plugin('st_waveforms').save_when = 'never'
-            >>>
-            >>> # 查看插件配置
-            >>> print(ctx.get_plugin('waveforms').save_when)
-            >>> print(ctx.get_plugin('waveforms').options)
+            data_name: Name of the target data.
+            kind: Visualization style ('labview', 'mermaid', or 'plotly').
+            **kwargs: Additional arguments passed to the visualizer.
         """
-        if plugin_name not in self._plugins:
-            available = ", ".join(self._plugins.keys())
-            raise KeyError(f"Plugin '{plugin_name}' is not registered. Available plugins: {available}")
-        return self._plugins[plugin_name]
+        from .foundation.model import build_lineage_graph
+
+        lineage = self.get_lineage(data_name)
+        if not lineage:
+            print(f"No lineage found for '{data_name}'")
+            return
+
+        # 统一构建模型
+        model = build_lineage_graph(lineage, data_name, plugins=getattr(self, "_plugins", {}))
+
+        # 验证模型是否正确构建
+        if model is None:
+            raise ValueError(
+                f"build_lineage_graph returned None for data_name '{data_name}'. This may indicate an issue with the lineage data."
+            )
+
+        from .foundation.model import LineageGraphModel
+
+        if not isinstance(model, LineageGraphModel):
+            raise ValueError(
+                f"build_lineage_graph returned unexpected type: {type(model).__name__}, "
+                f"expected LineageGraphModel for data_name '{data_name}'."
+            )
+
+        if kind == "labview":
+            return plot_lineage_labview(model, data_name, context=self, **kwargs)
+        elif kind == "mermaid":
+            mermaid_str = model.to_mermaid()
+            print(mermaid_str)
+            return mermaid_str
+        elif kind == "plotly":
+            return plot_lineage_plotly(model, data_name, context=self, **kwargs)
+        else:
+            raise ValueError(f"Unsupported visualization kind: {kind}. Supported: 'labview', 'mermaid', 'plotly'")
 
     @property
     def profiling_summary(self) -> str:
@@ -1773,49 +1991,6 @@ class Context(CacheMixin, PluginMixin):
 
         return result
 
-    def show_config(
-        self,
-        data_name: Optional[str] = None,
-        show_usage: bool = True,
-        show_full_help: bool = False,
-        run_name: Optional[str] = None,
-    ):
-        """
-        显示当前配置，并标识每个配置项对应的插件
-
-        Args:
-            data_name: 可选，指定插件名称以只显示该插件的配置
-            show_usage: 是否显示配置项被哪些插件使用（仅在显示全局配置时有效）
-            show_full_help: 是否显示完整 help 文本（默认截断）
-            run_name: 可选，显示缓存目录时使用的运行名（仅全局配置视图）
-
-        Examples:
-            >>> # 显示全局配置，包含配置项使用情况
-            >>> ctx.show_config()
-
-            >>> # 显示特定插件的配置
-            >>> ctx.show_config('waveforms')
-
-            >>> # 显示全局配置，但不显示使用情况
-            >>> ctx.show_config(show_usage=False)
-
-            >>> # 指定运行名，显示实际缓存目录
-            >>> ctx.show_config(run_name='run_001')
-
-            >>> # 自动使用最近一次 get_data(run_id=...) 的 run_id
-            >>> ctx.show_config()
-
-        关联说明：
-            - 若 data_name 指定为插件名，会直接调用 list_plugin_configs 来展示该插件的“配置项清单”。
-            - 若 data_name 未指定，则展示“当前配置汇总”（全局/插件特定/未使用）。
-        """
-        if data_name and data_name in self._plugins:
-            # 显示特定插件的配置
-            self._show_plugin_config(data_name, show_full_help=show_full_help)
-        else:
-            # 显示全局配置
-            self._show_global_config(show_usage, show_full_help=show_full_help, run_name=run_name)
-
     def _show_plugin_config(self, plugin_name: str, show_full_help: bool = False):
         """显示特定插件的配置（表格版）"""
         self.list_plugin_configs(
@@ -1992,183 +2167,6 @@ class Context(CacheMixin, PluginMixin):
             else:
                 print(df_unused.to_string())
 
-    def plot_lineage(self, data_name: str, kind: str = "labview", **kwargs):
-        """
-        Visualize the lineage of a data type.
-
-        Args:
-            data_name: Name of the target data.
-            kind: Visualization style ('labview', 'mermaid', or 'plotly').
-            **kwargs: Additional arguments passed to the visualizer.
-        """
-        from .foundation.model import build_lineage_graph
-
-        lineage = self.get_lineage(data_name)
-        if not lineage:
-            print(f"No lineage found for '{data_name}'")
-            return
-
-        # 统一构建模型
-        model = build_lineage_graph(lineage, data_name, plugins=getattr(self, "_plugins", {}))
-
-        # 验证模型是否正确构建
-        if model is None:
-            raise ValueError(
-                f"build_lineage_graph returned None for data_name '{data_name}'. This may indicate an issue with the lineage data."
-            )
-
-        from .foundation.model import LineageGraphModel
-
-        if not isinstance(model, LineageGraphModel):
-            raise ValueError(
-                f"build_lineage_graph returned unexpected type: {type(model).__name__}, "
-                f"expected LineageGraphModel for data_name '{data_name}'."
-            )
-
-        if kind == "labview":
-            return plot_lineage_labview(model, data_name, context=self, **kwargs)
-        elif kind == "mermaid":
-            mermaid_str = model.to_mermaid()
-            print(mermaid_str)
-            return mermaid_str
-        elif kind == "plotly":
-            return plot_lineage_plotly(model, data_name, context=self, **kwargs)
-        else:
-            raise ValueError(f"Unsupported visualization kind: {kind}. Supported: 'labview', 'mermaid', 'plotly'")
-
-    def key_for(self, run_id: str, data_name: str) -> str:
-        """
-        Get a unique key (hash) for a data type and run.
-
-        Uses caching for performance optimization.
-        """
-        # Check cache first
-        cache_key = (run_id, data_name)
-        if cache_key in self._key_cache:
-            return self._key_cache[cache_key]
-
-        import hashlib
-        import json
-
-        # Check if we have cached lineage hash
-        if data_name in self._lineage_hash_cache:
-            lineage_hash = self._lineage_hash_cache[data_name]
-        else:
-            lineage = self.get_lineage(data_name)
-            # Use default=str to handle any non-serializable objects gracefully,
-            # though we try to standardize them in get_lineage.
-            lineage_json = json.dumps(lineage, sort_keys=True, default=str)
-            lineage_hash = hashlib.sha1(lineage_json.encode()).hexdigest()[:8]
-            self._lineage_hash_cache[data_name] = lineage_hash
-
-        key = f"{run_id}-{data_name}-{lineage_hash}"
-        self._key_cache[cache_key] = key
-        return key
-
-    def clear_cache(self, step_name: Optional[str] = None) -> None:
-        """
-        清除指定步骤或所有步骤的缓存。
-
-        注意：此方法来自 CacheMixin，用于清除旧的步骤级缓存系统（基于 _cache 和 _cache_config）。
-        对于 Context 的插件系统缓存，应该使用 clear_cache_for() 方法来清除运行级缓存。
-
-        参数:
-            step_name: 步骤名称，如果为 None 则清除所有步骤的缓存
-
-        建议:
-            对于 Context 的插件数据缓存，请使用 clear_cache_for(run_id, data_name) 方法。
-            此方法主要用于兼容旧的步骤级缓存系统。
-        """
-        # 调用父类 CacheMixin 的方法
-        self.clear_cache_for(self.run_id, step_name, clear_memory=True, clear_disk=True, verbose=True)
-
-    def clear_cache_for(
-        self,
-        run_id: str,
-        data_name: Optional[str] = None,
-        clear_memory: bool = True,
-        clear_disk: bool = True,
-        verbose: bool = True,
-    ) -> int:
-        """
-        清理指定运行和步骤的缓存。
-
-        参数:
-            run_id: 运行 ID
-            data_name: 数据名称（步骤名称），如果为 None 则清理所有步骤
-            clear_memory: 是否清理内存缓存
-            clear_disk: 是否清理磁盘缓存
-            verbose: 是否显示详细的清理信息
-
-        返回:
-            清理的缓存项数量
-
-        示例:
-            >>> ctx = Context()
-            >>> # 清理单个步骤的缓存
-            >>> ctx.clear_cache_for("run_001", "st_waveforms")
-            >>> # 清理所有步骤的缓存
-            >>> ctx.clear_cache_for("run_001")
-            >>> # 只清理内存缓存
-            >>> ctx.clear_cache_for("run_001", "df", clear_disk=False)
-        """
-        count = 0
-        memory_count = 0
-        disk_count = 0
-
-        # 确定要清理的数据名称列表
-        if data_name is None:
-            # 清理所有已注册插件提供的数据
-            data_names = list(self._plugins.keys())
-            if verbose:
-                print(f"[清理缓存] 运行: {run_id}, 清理所有数据类型的缓存 ({len(data_names)} 个)")
-        else:
-            data_names = [data_name]
-            if verbose:
-                print(f"[清理缓存] 运行: {run_id}, 数据类型: {data_name}")
-
-        for name in data_names:
-            # 清理内存缓存
-            if clear_memory:
-                key = (run_id, name)
-                if key in self._results:
-                    del self._results[key]
-                    memory_count += 1
-                    count += 1
-                    if verbose:
-                        print(f"  ✓ 已清理内存缓存: ({run_id}, {name})")
-                    self.logger.debug(f"Cleared memory cache for ({run_id}, {name})")
-                elif verbose:
-                    print(f"  - 内存缓存不存在: ({run_id}, {name})")
-
-            # 清理磁盘缓存
-            if clear_disk:
-                try:
-                    cache_key = self.key_for(run_id, name)
-                    deleted = self._delete_disk_cache(cache_key, run_id, data_name=name)
-                    disk_count += deleted
-                    count += deleted
-                    if deleted > 0:
-                        if verbose:
-                            print(f"  ✓ 已清理磁盘缓存: {cache_key} ({deleted} 个文件)")
-                        self.logger.debug(f"Cleared disk cache for ({run_id}, {name})")
-                    elif verbose:
-                        print(f"  - 磁盘缓存不存在: {cache_key}")
-                except Exception as e:
-                    if verbose:
-                        print(f"  ✗ 清理磁盘缓存失败: ({run_id}, {name}) - {e}")
-                    self.logger.warning(f"Failed to clear disk cache for ({run_id}, {name}): {e}")
-
-        # 总结信息
-        if verbose:
-            print(f"[清理完成] 总计: {count} 个缓存项 (内存: {memory_count}, 磁盘: {disk_count})")
-            if count == 0:
-                print("  ⚠️  没有找到需要清理的缓存")
-            else:
-                print("  ✓ 缓存清理成功")
-
-        return count
-
     def _delete_disk_cache(self, key: str, run_id: Optional[str] = None, data_name: Optional[str] = None) -> int:
         """
         删除磁盘缓存（包括多通道数据和 DataFrame）。
@@ -2232,6 +2230,84 @@ class Context(CacheMixin, PluginMixin):
     # ===========================
     # 时间范围查询
     # ===========================
+
+    
+    def build_time_index(
+        self,
+        run_id: str,
+        data_name: str,
+        time_field: str = "time",
+        endtime_field: Optional[str] = None,
+        force_rebuild: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        为数据构建时间索引
+
+        支持两种数据类型：
+        - 单个结构化数组: 构建单个索引
+        - List[np.ndarray]: 为每个通道分别构建索引
+
+        Args:
+            run_id: 运行ID
+            data_name: 数据名称
+            time_field: 时间字段名
+            endtime_field: 结束时间字段名('computed'表示计算endtime)
+            force_rebuild: 强制重建索引
+
+        Returns:
+            索引构建结果字典，包含：
+            - 'type': 'single' 或 'multi_channel'
+            - 'indices': 索引名称列表
+            - 'stats': 各索引的统计信息
+
+        Examples:
+            >>> # 为 st_waveforms (List[np.ndarray]) 构建多通道索引
+            >>> result = ctx.build_time_index('run_001', 'st_waveforms', endtime_field='computed')
+            >>> print(result['type'])  # 'multi_channel'
+            >>> print(result['indices'])  # ['st_waveforms_ch0', 'st_waveforms_ch1']
+            >>>
+            >>> # 为单个结构化数组构建索引
+            >>> ctx.build_time_index('run_001', 'peaks')
+        """
+        from waveform_analysis.core.data.query import TimeRangeQueryEngine
+
+        # 懒加载查询引擎
+        if not hasattr(self, "_time_query_engine"):
+            self._time_query_engine = TimeRangeQueryEngine()
+
+        engine = self._time_query_engine
+
+        # 获取数据
+        data = self.get_data(run_id, data_name)
+
+        if data is None or (hasattr(data, "__len__") and len(data) == 0):
+            self.logger.warning(f"No data found for {data_name}, cannot build index")
+            return {"type": "empty", "indices": [], "stats": {}}
+
+        # 检测数据类型
+        if isinstance(data, list) and len(data) > 0 and isinstance(data[0], np.ndarray):
+            # List[np.ndarray] 类型 - 多通道数据
+            return self._build_multi_channel_time_index(
+                engine, run_id, data_name, data, time_field, endtime_field, force_rebuild
+            )
+        elif isinstance(data, np.ndarray) and data.dtype.names is not None:
+            # 单个结构化数组
+            engine.build_index(run_id, data_name, data, time_field, endtime_field, force_rebuild)
+            index = engine.get_index(run_id, data_name)
+            return {
+                "type": "single",
+                "indices": [data_name],
+                "stats": {
+                    data_name: {
+                        "n_records": index.n_records if index else 0,
+                        "time_range": (index.min_time, index.max_time) if index else (0, 0),
+                        "build_time": index.build_time if index else 0.0,
+                    }
+                },
+            }
+        else:
+            self.logger.warning(f"Data '{data_name}' is not a supported type for time indexing")
+            return {"type": "unsupported", "indices": [], "stats": {}}
 
     def get_data_time_range(
         self,
@@ -2319,6 +2395,42 @@ class Context(CacheMixin, PluginMixin):
         else:
             self.logger.warning(f"Data '{data_name}' is not a supported type, returning as-is")
             return data
+
+    def clear_time_index(self, run_id: Optional[str] = None, data_name: Optional[str] = None):
+        """
+        清除时间索引
+
+        Args:
+            run_id: 运行ID,None则清除所有
+            data_name: 数据名称,None则清除指定run_id的所有索引
+
+        Examples:
+            >>> # 清除特定数据的索引
+            >>> ctx.clear_time_index('run_001', 'st_waveforms')
+            >>>
+            >>> # 清除特定run的所有索引
+            >>> ctx.clear_time_index('run_001')
+            >>>
+            >>> # 清除所有索引
+            >>> ctx.clear_time_index()
+        """
+        if hasattr(self, "_time_query_engine"):
+            self._time_query_engine.clear_index(run_id, data_name)
+
+    def get_time_index_stats(self) -> Dict[str, Any]:
+        """
+        获取时间索引统计信息
+
+        Returns:
+            统计信息字典
+
+        Examples:
+            >>> stats = ctx.get_time_index_stats()
+            >>> print(f"Total indices: {stats['total_indices']}")
+        """
+        if hasattr(self, "_time_query_engine"):
+            return self._time_query_engine.get_stats()
+        return {"total_indices": 0, "indices": {}}
 
     def _query_single_array_time_range(
         self,
@@ -2476,83 +2588,6 @@ class Context(CacheMixin, PluginMixin):
             mask = (times >= filter_start) & (times < filter_end)
             return ch_data[mask]
 
-    def build_time_index(
-        self,
-        run_id: str,
-        data_name: str,
-        time_field: str = "time",
-        endtime_field: Optional[str] = None,
-        force_rebuild: bool = False,
-    ) -> Dict[str, Any]:
-        """
-        为数据构建时间索引
-
-        支持两种数据类型：
-        - 单个结构化数组: 构建单个索引
-        - List[np.ndarray]: 为每个通道分别构建索引
-
-        Args:
-            run_id: 运行ID
-            data_name: 数据名称
-            time_field: 时间字段名
-            endtime_field: 结束时间字段名('computed'表示计算endtime)
-            force_rebuild: 强制重建索引
-
-        Returns:
-            索引构建结果字典，包含：
-            - 'type': 'single' 或 'multi_channel'
-            - 'indices': 索引名称列表
-            - 'stats': 各索引的统计信息
-
-        Examples:
-            >>> # 为 st_waveforms (List[np.ndarray]) 构建多通道索引
-            >>> result = ctx.build_time_index('run_001', 'st_waveforms', endtime_field='computed')
-            >>> print(result['type'])  # 'multi_channel'
-            >>> print(result['indices'])  # ['st_waveforms_ch0', 'st_waveforms_ch1']
-            >>>
-            >>> # 为单个结构化数组构建索引
-            >>> ctx.build_time_index('run_001', 'peaks')
-        """
-        from waveform_analysis.core.data.query import TimeRangeQueryEngine
-
-        # 懒加载查询引擎
-        if not hasattr(self, "_time_query_engine"):
-            self._time_query_engine = TimeRangeQueryEngine()
-
-        engine = self._time_query_engine
-
-        # 获取数据
-        data = self.get_data(run_id, data_name)
-
-        if data is None or (hasattr(data, "__len__") and len(data) == 0):
-            self.logger.warning(f"No data found for {data_name}, cannot build index")
-            return {"type": "empty", "indices": [], "stats": {}}
-
-        # 检测数据类型
-        if isinstance(data, list) and len(data) > 0 and isinstance(data[0], np.ndarray):
-            # List[np.ndarray] 类型 - 多通道数据
-            return self._build_multi_channel_time_index(
-                engine, run_id, data_name, data, time_field, endtime_field, force_rebuild
-            )
-        elif isinstance(data, np.ndarray) and data.dtype.names is not None:
-            # 单个结构化数组
-            engine.build_index(run_id, data_name, data, time_field, endtime_field, force_rebuild)
-            index = engine.get_index(run_id, data_name)
-            return {
-                "type": "single",
-                "indices": [data_name],
-                "stats": {
-                    data_name: {
-                        "n_records": index.n_records if index else 0,
-                        "time_range": (index.min_time, index.max_time) if index else (0, 0),
-                        "build_time": index.build_time if index else 0.0,
-                    }
-                },
-            }
-        else:
-            self.logger.warning(f"Data '{data_name}' is not a supported type for time indexing")
-            return {"type": "unsupported", "indices": [], "stats": {}}
-
     def _build_multi_channel_time_index(
         self,
         engine: Any,
@@ -2632,42 +2667,6 @@ class Context(CacheMixin, PluginMixin):
             "indices": indices,
             "stats": stats,
         }
-
-    def clear_time_index(self, run_id: Optional[str] = None, data_name: Optional[str] = None):
-        """
-        清除时间索引
-
-        Args:
-            run_id: 运行ID,None则清除所有
-            data_name: 数据名称,None则清除指定run_id的所有索引
-
-        Examples:
-            >>> # 清除特定数据的索引
-            >>> ctx.clear_time_index('run_001', 'st_waveforms')
-            >>>
-            >>> # 清除特定run的所有索引
-            >>> ctx.clear_time_index('run_001')
-            >>>
-            >>> # 清除所有索引
-            >>> ctx.clear_time_index()
-        """
-        if hasattr(self, "_time_query_engine"):
-            self._time_query_engine.clear_index(run_id, data_name)
-
-    def get_time_index_stats(self) -> Dict[str, Any]:
-        """
-        获取时间索引统计信息
-
-        Returns:
-            统计信息字典
-
-        Examples:
-            >>> stats = ctx.get_time_index_stats()
-            >>> print(f"Total indices: {stats['total_indices']}")
-        """
-        if hasattr(self, "_time_query_engine"):
-            return self._time_query_engine.get_stats()
-        return {"total_indices": 0, "indices": {}}
 
     # ===========================
     # Epoch 管理 API（绝对时间支持）
@@ -3109,6 +3108,10 @@ class Context(CacheMixin, PluginMixin):
         for i, dep in enumerate(dependencies):
             is_last_dep = i == len(dependencies) - 1
             self._print_dependency_tree(dep, prefix + extension, is_last_dep, visited.copy())
+
+    # ==========================
+    # 帮助系统和快速开始模板
+    # ==========================
 
     def help(self, topic: Optional[str] = None, search: Optional[str] = None, verbose: bool = False) -> str:
         """

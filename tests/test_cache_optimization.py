@@ -232,7 +232,7 @@ class TestCacheOptimization:
         executed.clear()
         ctx._results.pop((run_id, "data_a"), None)
 
-        data = ctx.run_plugin(run_id, "data_a")
+        data = ctx._run_plugin(run_id, "data_a")
         np.testing.assert_array_equal(data, np.array([(1,)], dtype=dtype))
         assert executed == []
 
