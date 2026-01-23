@@ -233,18 +233,11 @@ builtin/
   - 支持导数检测、高度、距离、显著性等参数
   - 返回 ADVANCED_PEAK_DTYPE 结构化数组
 
-**导入方式**:
+**导入方式（显式 CPU）**:
 ```python
-# 推荐：从 cpu/ 直接导入（明确指定加速器）
 from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin, FilteredWaveformsPlugin, SignalPeaksPlugin
 )
-
-# 向后兼容：从 builtin/ 导入（默认使用 CPU 实现）
-from waveform_analysis.core.plugins.builtin import RawFilesPlugin
-
-# 不推荐：从 legacy/ 导入（会发出弃用警告）
-from waveform_analysis.core.plugins.builtin.legacy import RawFilesPlugin
 ```
 
 #### `processing/` - 数据处理（4个文件）

@@ -10,7 +10,7 @@
 """
 
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.standard import (
+from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     WaveformsPlugin,
     StWaveformsPlugin,

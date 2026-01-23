@@ -183,7 +183,7 @@ CLI 与 `Context` 的执行路径一致，下面是对应的最简代码：
 
 ```python
 from waveform_analysis.core import Context
-from waveform_analysis.core.plugins.builtin import standard_plugins
+from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
 
 ctx = Context()
 ctx.register(*standard_plugins)

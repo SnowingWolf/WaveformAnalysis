@@ -124,7 +124,7 @@ def preview_execution(
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin import *
+from waveform_analysis.core.plugins.builtin.cpu import *
 
 # 创建 Context 并注册插件
 ctx = Context(storage_dir="./strax_data")

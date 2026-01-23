@@ -76,7 +76,7 @@ pip install -e .
 """基础波形分析"""
 
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin import standard_plugins
+from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
 
 def main():
     # 1. 初始化 Context
@@ -138,7 +138,7 @@ raw_files → waveforms → st_waveforms → peaks
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.data.export import BatchProcessor
-from waveform_analysis.core.plugins.builtin import standard_plugins
+from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
 
 # 初始化
 ctx = Context(storage_dir='./strax_data')
@@ -175,7 +175,7 @@ if results['errors']:
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.core.streaming import get_streaming_context
-from waveform_analysis.core.plugins.builtin import standard_plugins
+from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
 
 # 初始化
 ctx = Context(storage_dir='./strax_data')
