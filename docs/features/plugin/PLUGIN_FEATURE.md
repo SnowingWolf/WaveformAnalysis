@@ -40,7 +40,7 @@
 ### 核心模块
 1. `waveform_analysis/core/time_range_query.py` - 时间范围查询优化
 2. `waveform_analysis/core/strax_adapter.py` - Strax插件适配器
-3. `waveform_analysis/core/batch_export.py` - 批量处理与数据导出
+3. `waveform_analysis/core/data/batch_processor.py` / `export.py` - 批量处理与数据导出
 4. `waveform_analysis/core/hot_reload.py` - 插件热重载
 
 ### 测试文件
@@ -73,7 +73,7 @@ ctx.register(adapter)
 
 ### 3. 批量处理
 ```python
-from waveform_analysis.core.batch_export import BatchProcessor
+from waveform_analysis.core.data import BatchProcessor
 
 processor = BatchProcessor(ctx)
 results = processor.process_runs(['run_001', 'run_002'], 'peaks', max_workers=4)
@@ -81,7 +81,7 @@ results = processor.process_runs(['run_001', 'run_002'], 'peaks', max_workers=4)
 
 ### 4. 数据导出
 ```python
-from waveform_analysis.core.batch_export import DataExporter
+from waveform_analysis.core.data import DataExporter
 
 exporter = DataExporter()
 exporter.export(data, 'output.parquet')
@@ -111,8 +111,8 @@ reloader = enable_hot_reload(ctx, ['my_plugin'], auto_reload=True)
 |------|---------|------|--------|
 | 时间范围查询 | test_time_range_query.py | ✅ 7/7 通过 | 56% |
 | Strax适配器 | test_strax_adapter.py | ✅ 核心功能通过 | 79% |
-| 批量处理 | (集成在batch_export) | ✅ | - |
-| 数据导出 | (集成在batch_export) | ✅ | - |
+| 批量处理 | (集成在core.data) | ✅ | - |
+| 数据导出 | (集成在core.data) | ✅ | - |
 | 热重载 | (手动测试) | ✅ | - |
 
 

@@ -3,19 +3,22 @@
 Batch processing utilities for Context.
 """
 
+from concurrent.futures import (
+    FIRST_COMPLETED,
+    ProcessPoolExecutor,
+    ThreadPoolExecutor,
+    as_completed,
+    wait,
+)
 import logging
 import shutil
 import tempfile
 import time
 import traceback
-from concurrent.futures import (
-    ThreadPoolExecutor,
-    ProcessPoolExecutor,
-    as_completed,
-    wait,
-    FIRST_COMPLETED,
-)
 from typing import Any, Callable, Dict, List, Optional, Tuple
+
+from waveform_analysis.core.cancellation import CancellationToken
+from waveform_analysis.core.foundation.progress import ProgressTracker
 
 from waveform_analysis.core.foundation.utils import exporter, is_notebook_environment
 
@@ -174,6 +177,25 @@ class BatchProcessor:
         self.context = context
         self.logger = logging.getLogger(self.__class__.__name__)
 
+    def _resolve_context_factory(
+        self,
+        context_factory: Optional[Callable[[], Any]],
+        executor_type: str,
+    ) -> Optional[Callable[[], Any]]:
+        if context_factory is not None:
+            return context_factory
+
+        if executor_type == "thread" and hasattr(self.context, "clone"):
+            return self.context.clone
+
+        if executor_type == "process" and hasattr(self.context, "create_context_factory"):
+            try:
+                return self.context.create_context_factory()
+            except Exception as exc:
+                self.logger.warning("Failed to build process-safe context_factory: %s", exc)
+
+        return None
+
     def process_runs(
         self,
         run_ids: List[str],
@@ -185,8 +207,8 @@ class BatchProcessor:
         clean_temp_cache: bool = True,
         show_progress: bool = True,
         on_error: str = "continue",  # 'continue', 'stop', 'raise'
-        progress_tracker: Optional[Any] = None,
-        cancellation_token: Optional[Any] = None,
+        progress_tracker: Optional[ProgressTracker] = None,
+        cancellation_token: Optional[CancellationToken] = None,
         jupyter_mode: Optional[bool] = None,
         progress_update_interval: float = 0.5,
         poll_interval: float = 0.1,
@@ -201,6 +223,8 @@ class BatchProcessor:
             data_name: 要处理的数据名称
             max_workers: 最大并行工作进程数
             context_factory: 并行时为每个任务创建独立 Context 的工厂函数
+                - thread 模式可自动使用 ctx.clone()
+                - process 模式会尝试 ctx.create_context_factory()
             executor_type: 执行器类型 ("thread" 或 "process")
             storage_dir_strategy: 缓存目录策略 ("shared" | "per_worker" | "readonly")
             clean_temp_cache: 是否清理临时缓存目录
@@ -220,15 +244,15 @@ class BatchProcessor:
         Returns:
             结果字典 {'results': ..., 'errors': ..., 'meta': ..., 'ordered_run_ids': ...}
         """
+        from waveform_analysis.core.cancellation import (
+            CancellationToken,
+            TaskCancelledException,
+            get_cancellation_manager,
+        )
         from waveform_analysis.core.foundation.progress import (
             ProgressTracker,
             format_throughput,
             format_time,
-        )
-        from waveform_analysis.core.cancellation import (
-            CancellationToken,
-            get_cancellation_manager,
-            TaskCancelledException,
         )
 
         # 自动检测 Jupyter 环境
@@ -251,9 +275,13 @@ class BatchProcessor:
             raise ValueError("storage_dir_strategy must be 'shared', 'per_worker', or 'readonly'")
 
         parallel_requested = max_workers is None or (max_workers is not None and max_workers > 1)
+        if parallel_requested:
+            context_factory = self._resolve_context_factory(context_factory, executor_type)
         use_parallel = parallel_requested
         if use_parallel and context_factory is None:
-            self.logger.warning("context_factory is required for parallel execution; falling back to serial mode.")
+            self.logger.warning(
+                "context_factory is required for parallel execution; falling back to serial mode."
+            )
             use_parallel = False
             max_workers = 1
 
@@ -473,9 +501,7 @@ class BatchProcessor:
                             # 检查取消
                             if cancellation_token.is_cancelled():
                                 _cancel_pending(pending)
-                                self.logger.info(
-                                    f"Processing cancelled. Processed {completed}/{len(run_ids)} runs."
-                                )
+                                self.logger.info(f"Processing cancelled. Processed {completed}/{len(run_ids)} runs.")
                                 _mark_skipped([future_to_run[f] for f in pending])
                                 break
 
@@ -525,9 +551,7 @@ class BatchProcessor:
                             # 检查取消
                             if cancellation_token.is_cancelled():
                                 _cancel_pending([f for f in future_to_run if not f.done()])
-                                self.logger.info(
-                                    f"Processing cancelled. Processed {completed}/{len(run_ids)} runs."
-                                )
+                                self.logger.info(f"Processing cancelled. Processed {completed}/{len(run_ids)} runs.")
                                 _mark_skipped([future_to_run[f] for f in future_to_run if not f.done()])
                                 break
 
@@ -588,7 +612,7 @@ class BatchProcessor:
             "ordered_run_ids": ordered_run_ids,
         }
 
-    def process_with_custom_func(
+    def process_func(
         self,
         run_ids: List[str],
         func: Callable,
@@ -614,6 +638,8 @@ class BatchProcessor:
             func: 处理函数 func(context, run_id) -> result
             max_workers: 最大并行工作进程数
             context_factory: 并行时为每个任务创建独立 Context 的工厂函数
+                - thread 模式可自动使用 ctx.clone()
+                - process 模式会尝试 ctx.create_context_factory()
             executor_type: 执行器类型 ("thread" 或 "process")
             storage_dir_strategy: 缓存目录策略 ("shared" | "per_worker" | "readonly")
             clean_temp_cache: 是否清理临时缓存目录
@@ -652,9 +678,13 @@ class BatchProcessor:
             raise ValueError("storage_dir_strategy must be 'shared', 'per_worker', or 'readonly'")
 
         parallel_requested = max_workers is None or (max_workers is not None and max_workers > 1)
+        if parallel_requested:
+            context_factory = self._resolve_context_factory(context_factory, executor_type)
         use_parallel = parallel_requested
         if use_parallel and context_factory is None:
-            self.logger.warning("context_factory is required for parallel execution; falling back to serial mode.")
+            self.logger.warning(
+                "context_factory is required for parallel execution; falling back to serial mode."
+            )
             use_parallel = False
             max_workers = 1
 
@@ -907,7 +937,7 @@ class BatchProcessor:
         configs: List[Dict[str, Any]],
         max_workers: Optional[int] = None,
         context_factory: Optional[Callable[[], Any]] = None,
-        executor_type: str = "thread",
+        executor_type: str = "process",
         storage_dir_strategy: str = "shared",
         clean_temp_cache: bool = True,
         show_progress: bool = True,
@@ -929,6 +959,8 @@ class BatchProcessor:
             configs: 配置列表（每个元素为 dict）
             max_workers: 最大并行工作进程数
             context_factory: 并行时为每个任务创建独立 Context 的工厂函数
+                - thread 模式可自动使用 ctx.clone()
+                - process 模式会尝试 ctx.create_context_factory()
             executor_type: 执行器类型 ("thread" 或 "process")
             storage_dir_strategy: 缓存目录策略 ("shared" | "per_worker" | "readonly")
             clean_temp_cache: 是否清理临时缓存目录
@@ -946,6 +978,10 @@ class BatchProcessor:
         """
         results: List[Dict[str, Any]] = []
 
+        parallel_requested = max_workers is None or (max_workers is not None and max_workers > 1)
+        if parallel_requested:
+            context_factory = self._resolve_context_factory(context_factory, executor_type)
+
         if tmp_cache:
             storage_dir_strategy = "per_worker"
             if context_factory is None:
@@ -957,6 +993,7 @@ class BatchProcessor:
                 ctx.set_config(config, plugin_name=plugin_name)
                 if hasattr(ctx, "clear_performance_caches"):
                     ctx.clear_performance_caches()
+
                 batch = self.process_runs(
                     run_ids=run_ids,
                     data_name=data_name,
@@ -974,11 +1011,13 @@ class BatchProcessor:
                     retry_on=retry_on,
                 )
             else:
+
                 def _config_factory(config=config) -> Any:
                     ctx = context_factory()
                     ctx.set_config(config, plugin_name=plugin_name)
                     if hasattr(ctx, "clear_performance_caches"):
                         ctx.clear_performance_caches()
+
                     return ctx
 
                 batch = self.process_runs(

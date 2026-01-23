@@ -9,13 +9,16 @@ Context 模块 - 插件系统的核心调度器。
 
 # 1. Standard library imports
 from datetime import datetime
+import copy
+import functools
 import hashlib
+import importlib
 import json
 import logging
 import os
 import re
 import threading
-from typing import Any, Dict, Iterator, List, Optional, Set, Type, Union, cast
+from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Type, Union, cast
 import warnings
 
 # 2. Third-party imports
@@ -35,6 +38,59 @@ from .foundation.utils import OneTimeGenerator, Profiler
 from .plugins.core.base import Plugin
 from .storage.cache_manager import RuntimeCacheManager
 from .storage.memmap import MemmapStorage
+
+
+def _safe_copy_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    try:
+        return copy.deepcopy(config)
+    except Exception:
+        return config.copy()
+
+
+def _apply_memmap_settings(storage: MemmapStorage, spec: Dict[str, Any]) -> None:
+    storage.enable_checksum = spec.get("enable_checksum", storage.enable_checksum)
+    storage.checksum_algorithm = spec.get("checksum_algorithm", storage.checksum_algorithm)
+    storage.verify_on_load = spec.get("verify_on_load", storage.verify_on_load)
+    storage.data_subdir = spec.get("data_subdir", storage.data_subdir)
+    storage.side_effects_subdir = spec.get("side_effects_subdir", storage.side_effects_subdir)
+    compression = spec.get("compression")
+    if compression:
+        storage._setup_compression(compression, {})
+
+
+def _import_plugin_class(module_name: str, class_name: str) -> Any:
+    module = importlib.import_module(module_name)
+    return getattr(module, class_name)
+
+
+def _create_context_from_spec(spec: Dict[str, Any]) -> "Context":
+    config = _safe_copy_config(spec.get("config", {}))
+    ctx = Context(
+        config=config,
+        storage_dir=spec.get("storage_dir"),
+        plugin_dirs=spec.get("plugin_dirs"),
+        auto_discover_plugins=False,
+        enable_stats=spec.get("enable_stats", False),
+        stats_mode=spec.get("stats_mode", "basic"),
+        stats_log_file=spec.get("stats_log_file"),
+    )
+
+    storage_spec = spec.get("storage")
+    if storage_spec and isinstance(ctx.storage, MemmapStorage):
+        _apply_memmap_settings(ctx.storage, storage_spec)
+
+    for plugin_spec in spec.get("plugins", []):
+        plugin_cls = _import_plugin_class(plugin_spec["module"], plugin_spec["class"])
+        try:
+            plugin = plugin_cls()
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to instantiate {plugin_spec['module']}.{plugin_spec['class']} without arguments. "
+                "Please provide context_factory for custom plugin initialization."
+            ) from exc
+        ctx.register(plugin, allow_override=True)
+
+    return ctx
 
 
 class Context(CacheMixin, PluginMixin):
@@ -214,6 +270,122 @@ class Context(CacheMixin, PluginMixin):
         self.config.setdefault("auto_extract_epoch", True)
         self.config.setdefault("epoch_extraction_strategy", "auto")  # "auto", "filename", "csv_header", "first_event"
         self.config.setdefault("epoch_filename_patterns", None)  # None = use defaults
+
+    def clone(self) -> "Context":
+        """
+        Create a new Context with the same config and plugin registrations.
+
+        The clone has empty caches/results and is safe for threaded batch execution.
+        For process-based parallelism, prefer create_context_factory().
+        """
+        config = _safe_copy_config(self.config)
+        stats_mode = "basic"
+        stats_log_file = None
+        if self.stats_collector is not None:
+            stats_mode = getattr(self.stats_collector, "mode", "basic")
+            stats_log_file = getattr(self.stats_collector, "log_file", None)
+
+        new_ctx = Context(
+            config=config,
+            storage_dir=self.storage_dir,
+            plugin_dirs=list(self.plugin_dirs),
+            auto_discover_plugins=False,
+            enable_stats=self.enable_stats,
+            stats_mode=stats_mode,
+            stats_log_file=stats_log_file,
+        )
+
+        if isinstance(self.storage, MemmapStorage) and isinstance(new_ctx.storage, MemmapStorage):
+            _apply_memmap_settings(new_ctx.storage, self._build_memmap_storage_spec())
+        elif hasattr(self.storage, "clone"):
+            try:
+                new_ctx.storage = self.storage.clone()
+            except Exception as exc:
+                self.logger.warning("Failed to clone storage backend, sharing instance: %s", exc)
+                new_ctx.storage = self.storage
+        else:
+            if self.storage is not new_ctx.storage:
+                self.logger.warning(
+                    "Context.clone is sharing a non-MemmapStorage backend across contexts."
+                )
+                new_ctx.storage = self.storage
+
+        if self._plugin_backends:
+            new_ctx._plugin_backends = self._plugin_backends.copy()
+
+        for plugin in self._plugins.values():
+            plugin_copy = None
+            if hasattr(plugin, "clone"):
+                try:
+                    plugin_copy = plugin.clone()
+                except Exception:
+                    plugin_copy = None
+            if plugin_copy is None:
+                try:
+                    plugin_copy = copy.deepcopy(plugin)
+                except Exception:
+                    try:
+                        plugin_copy = plugin.__class__()
+                    except Exception as exc:
+                        self.logger.warning(
+                            "Failed to clone plugin %s: %s", plugin.__class__.__name__, exc
+                        )
+                        continue
+            new_ctx.register(plugin_copy, allow_override=True)
+
+        return new_ctx
+
+    def _build_memmap_storage_spec(self) -> Dict[str, Any]:
+        return {
+            "type": "memmap",
+            "compression": getattr(self.storage, "compression", None),
+            "enable_checksum": getattr(self.storage, "enable_checksum", False),
+            "checksum_algorithm": getattr(self.storage, "checksum_algorithm", "xxhash64"),
+            "verify_on_load": getattr(self.storage, "verify_on_load", False),
+            "data_subdir": getattr(self.storage, "data_subdir", "_cache"),
+            "side_effects_subdir": getattr(self.storage, "side_effects_subdir", "side_effects"),
+        }
+
+    def _build_context_factory_spec(self) -> Dict[str, Any]:
+        if not isinstance(self.storage, MemmapStorage):
+            raise ValueError("Auto context factory requires MemmapStorage; provide context_factory instead.")
+
+        plugins = []
+        for plugin in self._plugins.values():
+            module_name = plugin._registered_from_module or plugin.__class__.__module__
+            class_name = plugin._registered_class or plugin.__class__.__name__
+            if module_name in ("__main__", "__mp_main__"):
+                raise ValueError(
+                    f"Plugin {class_name} is defined in {module_name}; provide context_factory explicitly."
+                )
+            plugins.append({"module": module_name, "class": class_name})
+
+        stats_mode = "basic"
+        stats_log_file = None
+        if self.stats_collector is not None:
+            stats_mode = getattr(self.stats_collector, "mode", "basic")
+            stats_log_file = getattr(self.stats_collector, "log_file", None)
+
+        return {
+            "config": _safe_copy_config(self.config),
+            "storage_dir": self.storage_dir,
+            "plugin_dirs": list(self.plugin_dirs),
+            "enable_stats": self.enable_stats,
+            "stats_mode": stats_mode,
+            "stats_log_file": stats_log_file,
+            "storage": self._build_memmap_storage_spec(),
+            "plugins": plugins,
+        }
+
+    def create_context_factory(self) -> Callable[[], "Context"]:
+        """
+        Build a picklable context_factory for process-based executors.
+
+        Requires importable plugin classes and MemmapStorage; otherwise provide
+        a custom context_factory.
+        """
+        spec = self._build_context_factory_spec()
+        return functools.partial(_create_context_from_spec, spec)
 
     # ===========================
     # Registers & Config plugins in the  Context. and get data

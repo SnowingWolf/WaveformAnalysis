@@ -193,7 +193,7 @@
 - **测试**: 全面的适配器测试 (`tests/test_strax_adapter.py`)
 
 #### Phase 3.1: 多运行批量处理
-- **批量处理器**: 高效的多运行并行处理 (`core/batch_export.py`)
+- **批量处理器**: 高效的多运行并行处理 (`core/data/batch_processor.py`)
   - `BatchProcessor`: 支持串行/并行处理
   - 进度跟踪和实时反馈
   - 灵活的错误处理策略 (`continue`, `stop`, `raise`)
@@ -210,7 +210,7 @@
   - 自动计算ETA和吞吐量
   - 线程安全设计
   - 辅助函数：`format_time()`, `format_throughput()`
-  - 集成到 `BatchProcessor.process_runs()` 和 `process_with_custom_func()`
+  - 集成到 `BatchProcessor.process_runs()` 和 `process_func()`
 
 - **任务取消机制** (`core/cancellation.py`)
   - `CancellationToken`: 线程安全的取消令牌
@@ -234,7 +234,7 @@
   - KeyboardInterrupt捕获和转换
 
 #### Phase 3.2: 数据导出统一接口
-- **统一导出器**: 多格式数据导出支持 (`core/batch_export.py`)
+- **统一导出器**: 多格式数据导出支持 (`core/data/export.py`)
   - `DataExporter`: 统一的导出接口
   - 支持格式: Parquet, HDF5, CSV, JSON, NumPy (.npy, .npz)
   - 自动格式推断（从文件扩展名）
