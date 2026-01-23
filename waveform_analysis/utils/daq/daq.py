@@ -11,9 +11,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from waveform_analysis.core.foundation.utils import exporter
+
 from .daq_analyzer import DAQAnalyzer
 from .daq_run import DAQRun
-from waveform_analysis.core.foundation.utils import exporter
 
 logger = logging.getLogger(__name__)
 

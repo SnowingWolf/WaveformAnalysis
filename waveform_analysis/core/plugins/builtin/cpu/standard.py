@@ -14,7 +14,12 @@ from typing import Any, List, Optional
 import numpy as np
 
 from waveform_analysis.core.plugins.core.base import Option, Plugin
-from waveform_analysis.core.processing.processor import PEAK_DTYPE, RECORD_DTYPE, WaveformStruct, find_hits
+from waveform_analysis.core.processing.processor import (
+    PEAK_DTYPE,
+    RECORD_DTYPE,
+    WaveformStruct,
+    find_hits,
+)
 
 
 class RawFilesPlugin(Plugin):
@@ -151,6 +156,7 @@ class WaveformsPlugin(Plugin):
             - CPU 密集型场景：channel_executor="process", use_process_pool=True
         """
         import multiprocessing
+
         from waveform_analysis.utils.loader import get_waveforms
 
         # ========== 获取通道切片配置 ==========
@@ -297,8 +303,9 @@ class StWaveformsPlugin(Plugin):
         # 获取 epoch（从 DAQ 适配器或文件创建时间）
         epoch_ns = None
         if daq_adapter:
-            from waveform_analysis.utils.formats import get_adapter
             from pathlib import Path
+
+            from waveform_analysis.utils.formats import get_adapter
 
             adapter = get_adapter(daq_adapter)
             raw_files = context.get_data(run_id, "raw_files")

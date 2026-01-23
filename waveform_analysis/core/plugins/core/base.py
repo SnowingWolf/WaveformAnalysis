@@ -9,7 +9,7 @@ Plugins 模块 - 定义插件和配置选项的基类。
 
 import abc
 import logging
-from typing import Any, Dict, List, Literal, Optional, Type, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Type, Union
 
 import numpy as np
 
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # 尝试导入 packaging 用于语义化版本
 try:
-    from packaging.version import Version, InvalidVersion
+    from packaging.version import InvalidVersion, Version
     PACKAGING_AVAILABLE = True
 except ImportError:
     PACKAGING_AVAILABLE = False

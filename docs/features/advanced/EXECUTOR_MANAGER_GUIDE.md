@@ -67,7 +67,7 @@
 ### 1. 使用上下文管理器（推荐）
 
 ```python
-from waveform_analysis.core.executor_manager import get_executor
+from waveform_analysis.core.execution import get_executor
 from concurrent.futures import as_completed
 
 # 使用线程池
@@ -84,7 +84,7 @@ with get_executor("my_task", "process", max_workers=4) as ex:
 ### 2. 使用便捷函数
 
 ```python
-from waveform_analysis.core.executor_manager import parallel_map, parallel_apply
+from waveform_analysis.core.execution import parallel_map, parallel_apply
 
 # parallel_map: 类似map，但并行执行
 results = parallel_map(process_file, file_list, executor_type="process", max_workers=4)
@@ -97,8 +97,8 @@ results = parallel_apply(process_pair, args_list, executor_type="process", max_w
 ### 3. 使用预定义配置
 
 ```python
-from waveform_analysis.core.executor_manager import get_executor
-from waveform_analysis.core.executor_config import get_config
+from waveform_analysis.core.execution import get_executor
+from waveform_analysis.core.execution import get_config
 
 # 使用预定义配置
 config = get_config("cpu_intensive")  # 或 "io_intensive", "large_data" 等
@@ -130,7 +130,7 @@ with get_executor("my_task", **config) as ex:
 ### 场景1: 文件IO（线程池）
 
 ```python
-from waveform_analysis.core.executor_manager import get_executor
+from waveform_analysis.core.execution import get_executor
 
 with get_executor("file_io", "thread", max_workers=10) as ex:
     futures = [ex.submit(load_file, f) for f in files]
@@ -148,8 +148,8 @@ with get_executor("computation", "process", max_workers=8) as ex:
 ### 场景3: 使用预定义配置
 
 ```python
-from waveform_analysis.core.executor_manager import get_executor
-from waveform_analysis.core.executor_config import get_config
+from waveform_analysis.core.execution import get_executor
+from waveform_analysis.core.execution import get_config
 
 config = get_config("cpu_intensive")
 with get_executor("my_task", **config) as ex:
@@ -159,7 +159,7 @@ with get_executor("my_task", **config) as ex:
 ### 场景4: 并行map
 
 ```python
-from waveform_analysis.core.executor_manager import parallel_map
+from waveform_analysis.core.execution import parallel_map
 
 results = parallel_map(process_item, items, executor_type="process", max_workers=4)
 ```
@@ -171,7 +171,7 @@ results = parallel_map(process_item, items, executor_type="process", max_workers
 ### 1. 执行器重用
 
 ```python
-from waveform_analysis.core.executor_manager import get_executor
+from waveform_analysis.core.execution import get_executor
 
 # 第一次使用：创建执行器
 with get_executor("shared_task", "process", max_workers=4, reuse=True) as ex1:
@@ -187,7 +187,7 @@ with get_executor("shared_task", "process", max_workers=4, reuse=True) as ex2:
 ### 2. 手动管理执行器
 
 ```python
-from waveform_analysis.core.executor_manager import get_executor_manager
+from waveform_analysis.core.execution import get_executor_manager
 
 manager = get_executor_manager()
 
@@ -208,7 +208,7 @@ manager.shutdown_executor("my_task", "process", max_workers=4)
 ### 3. 查看执行器状态
 
 ```python
-from waveform_analysis.core.executor_manager import get_executor_manager, get_stats
+from waveform_analysis.core.execution import get_executor_manager, get_stats
 
 manager = get_executor_manager()
 
@@ -230,7 +230,7 @@ for name, info in executors.items():
 ### 4. 配置默认工作线程数
 
 ```python
-from waveform_analysis.core.executor_manager import configure_default_workers
+from waveform_analysis.core.execution import configure_default_workers
 
 # 设置默认值为8
 configure_default_workers(8)
@@ -242,7 +242,7 @@ configure_default_workers()  # 使用 multiprocessing.cpu_count()
 ### 5. 扩展性：添加新配置
 
 ```python
-from waveform_analysis.core.executor_config import register_config
+from waveform_analysis.core.execution import register_config
 
 register_config("my_custom", {
     "executor_type": "process",
@@ -263,7 +263,7 @@ with ProcessPoolExecutor(max_workers=n_processes) as executor:
     ...
 
 # 新代码（使用全局管理器）
-from waveform_analysis.core.executor_manager import get_executor
+from waveform_analysis.core.execution import get_executor
 
 with get_executor("event_grouping", "process", max_workers=n_processes, reuse=True) as executor:
     ...
@@ -278,7 +278,7 @@ with ExecutorCls(max_workers=channel_workers) as ex:
     ...
 
 # 新代码
-from waveform_analysis.core.executor_manager import get_executor
+from waveform_analysis.core.execution import get_executor
 
 with get_executor("channel_loading", channel_executor, max_workers=channel_workers, reuse=True) as ex:
     ...
@@ -292,7 +292,7 @@ with ThreadPoolExecutor(max_workers=file_workers) as ex:
     ...
 
 # 新代码
-from waveform_analysis.core.executor_manager import get_executor
+from waveform_analysis.core.execution import get_executor
 
 with get_executor("file_parsing", "thread", max_workers=file_workers, reuse=True) as ex:
     ...
@@ -367,7 +367,7 @@ with get_executor("task", "process", max_workers=4) as ex:
 定期检查执行器状态，及时清理不用的执行器：
 
 ```python
-from waveform_analysis.core.executor_manager import get_executor_manager
+from waveform_analysis.core.execution import get_executor_manager
 
 manager = get_executor_manager()
 stats = manager.get_stats()
@@ -501,8 +501,8 @@ except Exception as e:
 ## 完整工作流示例
 
 ```python
-from waveform_analysis.core.executor_manager import get_executor, parallel_map
-from waveform_analysis.core.executor_config import get_config
+from waveform_analysis.core.execution import get_executor, parallel_map
+from waveform_analysis.core.execution import get_config
 from concurrent.futures import as_completed
 
 # 1. 使用预定义配置加载文件（IO密集型）

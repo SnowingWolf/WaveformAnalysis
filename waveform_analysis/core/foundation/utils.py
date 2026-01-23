@@ -12,10 +12,10 @@ Utils 模块 - 核心工具函数与导出管理。
 它是框架内部使用的基础工具集，所有新模块必须使用本模块提供的 exporter 管理其公共接口。
 """
 
-import contextlib
-import time
 from collections import defaultdict
+import contextlib
 from dataclasses import dataclass, field
+import time
 from typing import Any, Dict, List, Optional, Tuple, TypeVar
 
 # =============================================================================

@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 
 from waveform_analysis.core.foundation.utils import exporter
+
 from .base import FormatReader, FormatSpec
 
 export, __all__ = exporter()

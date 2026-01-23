@@ -26,21 +26,21 @@ Plugins Builtin 子模块 - 内置标准插件
 
 # CPU 标准插件
 from .cpu import (
-    RawFilesPlugin,
-    WaveformsPlugin,
-    StWaveformsPlugin,
-    HitFinderPlugin,
-    PeaksPlugin,
-    ChargesPlugin,
-    DataFramePlugin,
-    GroupedEventsPlugin,
-    PairedEventsPlugin,
-    FilteredWaveformsPlugin,
-    SignalPeaksPlugin,
     ADVANCED_PEAK_DTYPE,
-    WaveformWidthPlugin,
     WAVEFORM_WIDTH_DTYPE,
     CacheAnalysisPlugin,
+    ChargesPlugin,
+    DataFramePlugin,
+    FilteredWaveformsPlugin,
+    GroupedEventsPlugin,
+    HitFinderPlugin,
+    PairedEventsPlugin,
+    PeaksPlugin,
+    RawFilesPlugin,
+    SignalPeaksPlugin,
+    StWaveformsPlugin,
+    WaveformsPlugin,
+    WaveformWidthPlugin,
 )
 
 # 流式插件

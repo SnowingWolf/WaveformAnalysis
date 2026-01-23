@@ -32,6 +32,7 @@ from typing import Dict, Iterator, List, Optional
 import numpy as np
 
 from waveform_analysis.core.foundation.utils import exporter
+
 from .base import FormatReader, FormatSpec
 from .directory import DirectoryLayout
 

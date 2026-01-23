@@ -16,8 +16,8 @@ import json
 import logging
 import os
 import time
-import warnings
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -730,7 +730,9 @@ class MemmapStorage:
                 if compression_name:
                     # Get the expected extension
                     try:
-                        from waveform_analysis.core.storage.compression import get_compression_manager
+                        from waveform_analysis.core.storage.compression import (
+                            get_compression_manager,
+                        )
                         manager = get_compression_manager()
                         backend = manager.get_backend(compression_name, fallback=False)
                         compressed_path = bin_path + backend.extension
@@ -950,7 +952,9 @@ class MemmapStorage:
                     compression_name = meta.get('compression')
                     if compression_name:
                         try:
-                            from waveform_analysis.core.storage.compression import get_compression_manager
+                            from waveform_analysis.core.storage.compression import (
+                                get_compression_manager,
+                            )
                             manager = get_compression_manager()
                             backend = manager.get_backend(compression_name, fallback=False)
                             file_path = bin_path + backend.extension

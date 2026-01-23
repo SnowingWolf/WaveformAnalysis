@@ -11,7 +11,12 @@ from typing import Any, List
 import numpy as np
 
 from waveform_analysis.core.plugins.core.base import Option, Plugin
-from waveform_analysis.core.processing.processor import PEAK_DTYPE, RECORD_DTYPE, WaveformStruct, find_hits
+from waveform_analysis.core.processing.processor import (
+    PEAK_DTYPE,
+    RECORD_DTYPE,
+    WaveformStruct,
+    find_hits,
+)
 
 
 class RawFilesPlugin(Plugin):
@@ -94,6 +99,7 @@ class WaveformsPlugin(Plugin):
             >>> print(f"通道0波形形状: {waveforms[0].shape}")
         """
         import multiprocessing
+
         from waveform_analysis.utils.loader import get_waveforms
 
         start = context.get_config(self, "start_channel_slice")

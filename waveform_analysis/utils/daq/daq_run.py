@@ -32,11 +32,11 @@ Examples:
 """
 from __future__ import annotations
 
+from datetime import datetime
 import logging
 import os
-import re
-from datetime import datetime
 from pathlib import Path
+import re
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 if TYPE_CHECKING:

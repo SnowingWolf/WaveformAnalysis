@@ -4,6 +4,11 @@ Utils module - 工具函数
 """
 
 from .daq import DAQAnalyzer, DAQRun
+from .event_filters import (
+    extract_channel_attributes,
+    filter_coincidence_events,
+    filter_events_by_function,
+)
 from .io import parse_files_generator
 from .loader import (
     RawFileLoader,
@@ -13,11 +18,6 @@ from .loader import (
     get_raw_files,
     get_waveforms,
     get_waveforms_generator,
-)
-from .event_filters import (
-    filter_events_by_function,
-    filter_coincidence_events,
-    extract_channel_attributes,
 )
 
 __all__ = [

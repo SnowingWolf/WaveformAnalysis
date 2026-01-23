@@ -410,6 +410,7 @@ def parse_and_stack_files(
 
     if n_jobs and n_jobs > 1:
         from concurrent.futures import as_completed
+
         from waveform_analysis.core.execution.manager import get_executor
 
         # 使用全局执行器管理器

@@ -33,11 +33,11 @@
 >>> relative_ns = converter.absolute_to_relative(query_dt)
 """
 
-import re
-from datetime import datetime, timezone, timedelta
 from dataclasses import dataclass
-from typing import Optional, List, Union, Dict, Any, Tuple
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import re
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 

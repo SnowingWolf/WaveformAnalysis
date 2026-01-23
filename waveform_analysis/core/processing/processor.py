@@ -18,10 +18,10 @@ Processor 模块 - 波形信号处理与特征提取核心逻辑。
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import logging
 import os
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd

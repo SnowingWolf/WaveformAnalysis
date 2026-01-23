@@ -6,7 +6,8 @@
 
 import inspect
 import re
-from typing import Type, Dict, Any, List
+from typing import Any, Dict, List, Type
+
 from waveform_analysis.core.foundation.utils import exporter
 
 export, __all__ = exporter()

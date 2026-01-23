@@ -14,14 +14,14 @@ import numpy as np
 from scipy.signal import find_peaks
 
 from waveform_analysis.core.foundation.utils import exporter
+from waveform_analysis.core.plugins.builtin.cpu.peak_finding import ADVANCED_PEAK_DTYPE
 from waveform_analysis.core.plugins.core import Option, StreamingPlugin
 from waveform_analysis.core.processing.chunk import (
-    Chunk,
     EVENT_LENGTH_FIELD,
     TIMESTAMP_FIELD,
+    Chunk,
     get_endtime,
 )
-from waveform_analysis.core.plugins.builtin.cpu.peak_finding import ADVANCED_PEAK_DTYPE
 
 export, __all__ = exporter()
 

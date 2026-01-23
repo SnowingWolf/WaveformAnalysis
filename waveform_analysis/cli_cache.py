@@ -6,8 +6,8 @@
 """
 
 import argparse
-import sys
 from pathlib import Path
+import sys
 
 
 def create_parser() -> argparse.ArgumentParser:

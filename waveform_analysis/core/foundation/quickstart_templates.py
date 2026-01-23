@@ -6,6 +6,7 @@
 
 from datetime import datetime
 from typing import TYPE_CHECKING
+
 from waveform_analysis.core.foundation.utils import exporter
 
 if TYPE_CHECKING:

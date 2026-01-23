@@ -28,6 +28,8 @@ class FilteredWaveformsPlugin(Plugin):
     version = "1.0.2"
     save_when = "target"
 
+    output_dtype = np.dtype([("wave", "f4", (0,))])  # 动态长度数组
+
     options = {
         "filter_type": Option(default="SG", type=str, help="滤波器类型: 'BW' 或 'SG'"),
         "lowcut": Option(default=0.1, type=float, help="BW 低频截止"),
@@ -95,13 +97,9 @@ class FilteredWaveformsPlugin(Plugin):
                 sg_window_size += 1
                 logger.warning("SG 窗口大小已调整为奇数: %s", sg_window_size)
             if sg_poly_order >= sg_window_size:
-                raise ValueError(
-                    f"SG 多项式阶数 ({sg_poly_order}) 必须小于窗口大小 ({sg_window_size})"
-                )
+                raise ValueError(f"SG 多项式阶数 ({sg_poly_order}) 必须小于窗口大小 ({sg_window_size})")
 
-            logger.debug(
-                "SG 滤波器参数: window_size=%s poly_order=%s", sg_window_size, sg_poly_order
-            )
+            logger.debug("SG 滤波器参数: window_size=%s poly_order=%s", sg_window_size, sg_poly_order)
 
         st_waveforms = context.get_data(run_id, "st_waveforms")
         filtered_waveforms_list: List[np.ndarray] = []

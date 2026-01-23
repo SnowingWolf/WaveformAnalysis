@@ -6,15 +6,14 @@ Mixins 模块 - 增强 WaveformDataset 功能的混合类。
 通过多重继承将这些功能注入到 WaveformDataset 中，保持核心类的简洁。
 """
 
+from contextlib import nullcontext
+from datetime import datetime
 import functools
 import logging
 import os
 import traceback
-import warnings
-from contextlib import nullcontext
-from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
-
+import warnings
 
 from ..storage.cache import WATCH_SIG_KEY, CacheManager
 from .exceptions import ErrorSeverity
@@ -463,8 +462,8 @@ class PluginMixin:
         Validate that plugin dependencies are compatible with registered plugins.
         """
         try:
-            from packaging.version import Version
             from packaging.specifiers import SpecifierSet
+            from packaging.version import Version
 
             PACKAGING_AVAILABLE = True
         except ImportError:

@@ -42,22 +42,23 @@ from typing import Any, Dict, Generator, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 
+from waveform_analysis.core.execution.config import get_config
+from waveform_analysis.core.foundation.utils import exporter
 from waveform_analysis.core.processing.chunk import (
+    DEFAULT_BREAK_THRESHOLD_PS,
+    DT_FIELD,
+    ENDTIME_FIELD,
+    LENGTH_FIELD,
+    TIME_FIELD,
+    TIMESTAMP_FIELD,
     Chunk,
     check_chunk_boundaries,
     get_endtime,
-    TIME_FIELD,
-    DT_FIELD,
-    LENGTH_FIELD,
-    ENDTIME_FIELD,
-    TIMESTAMP_FIELD,
-    DEFAULT_BREAK_THRESHOLD_PS,
-    split_by_breaks,
     select_time_range,
+    split_by_breaks,
 )
-from waveform_analysis.core.execution.config import get_config
+
 from .base import Plugin
-from waveform_analysis.core.foundation.utils import exporter
 
 logger = logging.getLogger(__name__)
 export, __all__ = exporter()
@@ -669,8 +670,9 @@ class StreamingPlugin(Plugin):
         Yields:
             处理后的 chunk（保持顺序；异常会重新抛出并取消未完成任务）
         """
-        import itertools
         from concurrent.futures import as_completed
+        import itertools
+
         from waveform_analysis.core.execution.manager import ExecutorManager
 
         resolved_executor_config = self._normalize_executor_config(executor_config)
@@ -1013,7 +1015,9 @@ class StreamingContext:
         Yields:
             合并后的 chunk
         """
-        from waveform_analysis.core.processing.chunk import merge_chunks  # sort_by_time is handled by merge_chunks, sort_by_time
+        from waveform_analysis.core.processing.chunk import (
+            merge_chunks,  # sort_by_time is handled by merge_chunks, sort_by_time
+        )
 
         # 收集所有 chunk
         all_chunks = []

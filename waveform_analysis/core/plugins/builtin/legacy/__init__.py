@@ -55,15 +55,15 @@ def __getattr__(name):
     if name in standard_plugins:
         _deprecated_import(name, standard_plugins[name])
         from .standard import (
-            RawFilesPlugin,
-            WaveformsPlugin,
-            StWaveformsPlugin,
-            HitFinderPlugin,
-            PeaksPlugin,
             ChargesPlugin,
             DataFramePlugin,
             GroupedEventsPlugin,
+            HitFinderPlugin,
             PairedEventsPlugin,
+            PeaksPlugin,
+            RawFilesPlugin,
+            StWaveformsPlugin,
+            WaveformsPlugin,
         )
         return locals()[name]
 
@@ -71,9 +71,9 @@ def __getattr__(name):
     if name in signal_plugins:
         _deprecated_import(name, signal_plugins[name])
         from .signal_processing import (
+            ADVANCED_PEAK_DTYPE,
             FilteredWaveformsPlugin,
             SignalPeaksPlugin,
-            ADVANCED_PEAK_DTYPE,
         )
         return locals()[name]
 
