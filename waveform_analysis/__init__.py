@@ -39,7 +39,6 @@ from .core.storage import (
     StorageBackend,
 )
 from .utils.daq import DAQAnalyzer, DAQRun
-from .utils.loader import get_raw_files, get_waveforms
 from .utils.preview import WaveformPreviewer, preview_waveforms
 
 __all__ = [
@@ -49,8 +48,6 @@ __all__ = [
     "ErrorSeverity",
     "PluginError",
     "ErrorContext",
-    "get_raw_files",
-    "get_waveforms",
     "WaveformStruct",
     "build_waveform_df",
     "group_multi_channel_hits",

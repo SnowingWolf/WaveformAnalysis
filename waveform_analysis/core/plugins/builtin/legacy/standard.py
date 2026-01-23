@@ -3,7 +3,7 @@
 Standard Plugins 模块 - 包含波形分析流程的标准插件实现。
 
 定义了从原始文件扫描、波形提取、结构化到特征计算和事件配对的完整插件链。
-这些插件是 WaveformDataset 内部调用的核心逻辑单元。
+这些插件提供早期处理流程的核心逻辑单元。
 """
 
 from typing import Any, List
@@ -49,7 +49,7 @@ class RawFilesPlugin(Plugin):
             >>> raw_files = ctx.get_data('run_001', 'raw_files')
             >>> print(f"通道数: {len(raw_files)}")
         """
-        from waveform_analysis.utils.loader import get_raw_files
+        from waveform_analysis.core.processing.loader import get_raw_files
 
         n_channels = context.get_config(self, "n_channels")
         start_channel_slice = context.get_config(self, "start_channel_slice")
@@ -100,7 +100,7 @@ class WaveformsPlugin(Plugin):
         """
         import multiprocessing
 
-        from waveform_analysis.utils.loader import get_waveforms
+        from waveform_analysis.core.processing.loader import get_waveforms
 
         start = context.get_config(self, "start_channel_slice")
         n_channels = context.config.get("n_channels", 2)

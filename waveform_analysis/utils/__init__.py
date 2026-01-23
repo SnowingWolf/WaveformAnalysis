@@ -3,6 +3,21 @@
 Utils module - 工具函数
 """
 
+try:
+    from waveform_analysis.core.processing.loader import (
+        WaveformLoaderCSV as _WaveformLoader,
+        get_raw_files,
+        get_waveforms,
+        get_waveforms_generator,
+    )
+except ImportError:
+    from waveform_analysis.core.processing.loader import (
+        WaveformLoader as _WaveformLoader,
+        get_raw_files,
+        get_waveforms,
+        get_waveforms_generator,
+    )
+
 from .daq import DAQAnalyzer, DAQRun
 from .event_filters import (
     extract_channel_attributes,
@@ -10,15 +25,8 @@ from .event_filters import (
     filter_events_by_function,
 )
 from .io import parse_files_generator
-from .loader import (
-    RawFileLoader,
-    build_filetime_index,
-    get_files_before,
-    get_files_by_filetime,
-    get_raw_files,
-    get_waveforms,
-    get_waveforms_generator,
-)
+
+RawFileLoader = _WaveformLoader
 
 __all__ = [
     "DAQRun",
@@ -27,9 +35,6 @@ __all__ = [
     "get_raw_files",
     "get_waveforms",
     "get_waveforms_generator",
-    "build_filetime_index",
-    "get_files_by_filetime",
-    "get_files_before",
     "filter_events_by_function",
     "filter_coincidence_events",
     "extract_channel_attributes",

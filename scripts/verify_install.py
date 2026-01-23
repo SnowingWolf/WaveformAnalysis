@@ -25,13 +25,12 @@ def check_core_modules():
     print("\n2. 检查核心模块...")
     try:
         from waveform_analysis import (
-            WaveformDataset,
+            Context,
             WaveformStruct,
             build_waveform_df,
-            get_raw_files,
-            get_waveforms,
             group_multi_channel_hits,
         )
+        from waveform_analysis.core.processing.loader import get_raw_files, get_waveforms
 
         print("   ✅ 所有核心模块可导入")
         return True
@@ -44,7 +43,7 @@ def check_submodules():
     """检查子模块"""
     print("\n3. 检查子模块...")
     modules = [
-        ("waveform_analysis.core", ["loader", "processor", "dataset"]),
+        ("waveform_analysis.core", ["loader", "processor"]),
         ("waveform_analysis.fitting", ["models"]),
         ("waveform_analysis.utils", []),
     ]
@@ -85,22 +84,6 @@ def check_cli():
         return False
 
 
-def check_dataset_creation():
-    """检查数据集创建"""
-    print("\n5. 检查数据集创建...")
-    try:
-        from waveform_analysis import WaveformDataset
-
-        dataset = WaveformDataset(char="test", n_channels=2)
-        print("   ✅ WaveformDataset 可以创建")
-        print(f"      - char: {dataset.char}")
-        print(f"      - n_channels: {dataset.n_channels}")
-        return True
-    except Exception as e:
-        print(f"   ❌ 数据集创建失败: {e}")
-        return False
-
-
 def main():
     """主函数"""
     print("=" * 60)
@@ -112,7 +95,6 @@ def main():
         check_core_modules,
         check_submodules,
         check_cli,
-        check_dataset_creation,
     ]
 
     results = [check() for check in checks]
@@ -129,7 +111,7 @@ def main():
     if passed == total:
         print("\n✅ 所有检查通过！包已正确安装。")
         print("\n下一步:")
-        print("  - 运行示例: python examples/basic_analysis.py")
+        print("  - 运行示例: waveform-process --scan-daq --daq-root DAQ")
         print("  - 查看文档: cat QUICKSTART.md")
         print("  - 运行测试: pytest tests/")
         return 0
