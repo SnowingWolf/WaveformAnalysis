@@ -94,8 +94,7 @@
             <h2>目录</h2>
             <ul>
                 <li><a href="#Context">Context</a></li>
-                <li><a href="#WaveformDataset">WaveformDataset</a></li>
-            </ul>
+                            </ul>
         </div>
 
         <h2 id="Context">Context</h2>
@@ -456,133 +455,6 @@ Inspired by strax, it is the main entry point for data analysis.</p>
         <pre><code>>>> # 显示全局配置，包含配置项使用情况
 >>> ctx.show_config()
 </code></pre>
-
-        <h2 id="WaveformDataset">WaveformDataset</h2>
-        <p>统一的波形数据集容器，封装整个数据处理流程。
-支持链式调用，简化数据加载、预处理和分析。
-
-.. deprecated:: 0.2.0
-    `WaveformDataset` 已被弃用，将在下一个主版本中移除。
-    请使用 `Context` 和插件系统替代。
-    
-    迁移示例:
-        旧代码:
-            ds = WaveformDataset(run_name="run_001", n_channels=2)
-            ds.load_raw_data().extract_waveforms()...
-        
-        新代码:
-            ctx = Context()
-            ctx.register(standard_plugins)
-            ctx.set_config({'n_channels': 2, 'data_root': 'DAQ'})
-            peaks = ctx.get_data('run_001', 'peaks')
-
-使用示例（已弃用）：
-    dataset = WaveformDataset(run_name="50V_OV_circulation_20thr", n_channels=2)
-    dataset.load_raw_data().extract_waveforms().structure_waveforms()\
-           .build_waveform_features().build_dataframe().group_events()\
-           .pair_events().save_results()
-    
-    df_paired = dataset.get_paired_events()
-    summary = dataset.summary()</p>
-
-        <h3>方法</h3>
-
-        <h4 id="WaveformDataset-__init__">__init__(self, run_name: str = '50V_OV_circulation_20thr', n_channels: int = 2, start_channel_slice: int = 6, data_root: str = 'DAQ', load_waveforms: bool = True, use_daq_scan: bool = False, daq_root: Union[str, NoneType] = None, daq_report: Union[str, NoneType] = None, cache_waveforms: bool = True, cache_dir: Union[str, NoneType] = None, **kwargs)</h4>
-        <p>初始化数据集。<br><br>.. deprecated:: 0.2.0<br>    `WaveformDataset` 已被弃用，将在下一个主版本中移除。<br>    请使用 `Context` 和插件系统替代。<br><br><br>**参数:**<br>- `run_name`: 数据集标识符<br>- `n_channels`: 要处理的通道数<br>- `start_channel_slice`: 开始通道索引（通常为 6 表示 CH6/CH7）<br>- `data_root`: 数据根目录<br>- `load_waveforms`: 是否加载原始波形数据（默认 True） - True: 加载所有波形，支持 get_waveform_at() - False: 仅加载特征（峰值、电荷等），节省内存 (70-80% 内存节省)<br>- `cache_waveforms`: 是否缓存提取后的波形数据到磁盘（默认 True）<br>- `cache_dir`: 缓存目录，默认为 outputs/_cache</p>
-
-        <h4 id="WaveformDataset-build_dataframe">build_dataframe(self, verbose: bool = True) -> 'WaveformDataset'</h4>
-        <p>构建波形 DataFrame。</p>
-
-        <h4 id="WaveformDataset-build_waveform_features">build_waveform_features(self, peaks_range: Union[Tuple[int, int], NoneType] = None, charge_range: Union[Tuple[int, int], NoneType] = None, verbose: bool = True) -> 'WaveformDataset'</h4>
-        <p>计算波形特征（peaks 和 charges）。</p>
-
-        <h4 id="WaveformDataset-chainable_step">chainable_step(fn: Callable)</h4>
-        <p>Decorator for chainable steps with integrated caching and error handling.</p>
-
-        <h4 id="WaveformDataset-check_cache_status">check_cache_status(self, load_sig: bool = False) -> Dict[str, Dict[str, Any]]</h4>
-        <p>检查所有步骤的缓存状态。<br><br><br>**参数:**<br>- `load_sig`: 是否加载磁盘文件以验证签名（较慢）。</p>
-
-        <h4 id="WaveformDataset-check_daq_status">check_daq_status(self)</h4>
-        <p>尝试使用 DAQAnalyzer（或 JSON 报告）获取当前运行的元信息。<br><br>返回: dict 或 None（若没有找到）</p>
-
-        <h4 id="WaveformDataset-clear_cache">clear_cache(self, step_name: Union[str, NoneType] = None, clear_memory: bool = True, clear_disk: bool = True) -> int</h4>
-        <p>清理缓存。<br><br><br>**参数:**<br>- `step_name`: 步骤名称（如 "st_waveforms", "df"），如果为 None 则清理所有步骤<br>- `clear_memory`: 是否清理内存缓存<br>- `clear_disk`: 是否清理磁盘缓存<br><br>**返回:**<br><br>清理的缓存项数量</p>
-
-        <h4 id="WaveformDataset-clear_step_errors">clear_step_errors(self) -> None</h4>
-        <p></p>
-
-        <h4 id="WaveformDataset-clear_waveforms">clear_waveforms(self) -> None</h4>
-        <p>释放波形相关的大块内存（waveforms 与 st_waveforms）。</p>
-
-        <h4 id="WaveformDataset-extract_waveforms">extract_waveforms(self, verbose: bool = True, **kwargs) -> 'WaveformDataset'</h4>
-        <p>从原始文件中提取波形数据。</p>
-
-        <h4 id="WaveformDataset-get_cached_result">get_cached_result(self, step_name: str) -> Union[Dict[str, object], NoneType]</h4>
-        <p>返回指定步骤的内存缓存字典（若存在）。</p>
-
-        <h4 id="WaveformDataset-get_error_statistics">get_error_statistics(self) -> Dict[str, Any]</h4>
-        <p>获取错误统计信息</p>
-
-        <h4 id="WaveformDataset-get_error_summary">get_error_summary(self) -> Dict[str, Any]</h4>
-        <p>获取所有错误的汇总报告</p>
-
-        <h4 id="WaveformDataset-get_grouped_events">get_grouped_events(self) -> Union[pandas.core.frame.DataFrame, NoneType]</h4>
-        <p>获取分组后的事件 DataFrame。</p>
-
-        <h4 id="WaveformDataset-get_paired_events">get_paired_events(self) -> Union[pandas.core.frame.DataFrame, NoneType]</h4>
-        <p>获取配对的事件 DataFrame。</p>
-
-        <h4 id="WaveformDataset-get_raw_events">get_raw_events(self) -> Union[pandas.core.frame.DataFrame, NoneType]</h4>
-        <p>获取原始事件 DataFrame（未分组）。</p>
-
-        <h4 id="WaveformDataset-get_step_errors">get_step_errors(self) -> Dict[str, Dict[str, Any]]</h4>
-        <p></p>
-
-        <h4 id="WaveformDataset-get_waveform_at">get_waveform_at(self, event_idx: int, channel: int = 0) -> Union[Tuple[numpy.ndarray, float], NoneType]</h4>
-        <p>获取指定事件和通道的原始波形及其 baseline。<br><br><br>**参数:**<br>- `event_idx`: df_paired 中的事件索引<br>- `channel`: 通道索引（相对于 start_channel_slice）<br>- `返回`: (波形数组, baseline) 或 None</p>
-
-        <h4 id="WaveformDataset-group_events">group_events(self, time_window_ns: Union[float, NoneType] = None, use_numba: bool = True, n_processes: Union[int, NoneType] = None, verbose: bool = True) -> 'WaveformDataset'</h4>
-        <p>按时间窗口聚类多通道事件。<br><br><br>**参数:**<br>- `time_window_ns`: 时间窗口（纳秒）<br>- `use_numba`: 是否使用numba加速（默认True）<br>- `n_processes`: 多进程数量（None=单进程，>1=多进程）<br>- `verbose`: 是否打印日志</p>
-
-        <h4 id="WaveformDataset-help">help(self, topic: Union[str, NoneType] = None, verbose: bool = False) -> str</h4>
-        <p>显示数据集使用帮助<br><br><br>**参数:**<br>- `topic`: 帮助主题（None/'workflow' 显示链式调用流程，其他主题转发给 Context）<br>- `verbose`: 显示详细信息</p>
-
-        <p><strong>示例:</strong></p>
-        <pre><code>>>> ds.help()  # 显示工作流程
->>> ds.help('workflow')  # 显示工作流程（同上）
->>> ds.help('config')  # 转发给 ctx.help('config')
-</code></pre>
-        <h4 id="WaveformDataset-load_raw_data">load_raw_data(self, verbose: bool = True) -> 'WaveformDataset'</h4>
-        <p>加载原始 CSV 文件。</p>
-
-        <h4 id="WaveformDataset-pair_events">pair_events(self, n_channels: Union[int, NoneType] = None, start_channel_slice: Union[int, NoneType] = None, verbose: bool = True) -> 'WaveformDataset'</h4>
-        <p>筛选成对的 N 通道事件。</p>
-
-        <h4 id="WaveformDataset-print_cache_report">print_cache_report(self, verify: bool = False) -> None</h4>
-        <p>打印缓存状态报告。<br><br><br>**参数:**<br>- `verify`: 是否通过加载磁盘文件来验证签名（对于大文件可能较慢）。</p>
-
-        <h4 id="WaveformDataset-save_results">save_results(self, output_dir: str = 'outputs', verbose: bool = True) -> 'WaveformDataset'</h4>
-        <p>保存处理结果（CSV 和 Parquet 格式）。<br><br><br>**参数:**<br>- `output_dir`: 输出目录<br>- `verbose`: 是否打印日志<br>- `返回`: self（便于链式调用）</p>
-
-        <h4 id="WaveformDataset-save_step_cache">save_step_cache(self, step_name: str, path: str, backend: str = 'joblib') -> bool</h4>
-        <p>将当前内存缓存写入磁盘，格式与装饰器加载时期待的 persist 文件兼容。</p>
-
-        <h4 id="WaveformDataset-set_raise_on_error">set_raise_on_error(self, value: bool) -> None</h4>
-        <p>Toggle whether chainable steps raise on failure.</p>
-
-        <h4 id="WaveformDataset-set_step_cache">set_step_cache(self, step_name: str, enabled: bool = True, attrs: Union[List[str], NoneType] = None, persist_path: Union[str, NoneType] = None, watch_attrs: Union[List[str], NoneType] = None, backend: str = 'joblib') -> None</h4>
-        <p>配置指定步骤的缓存。</p>
-
-        <h4 id="WaveformDataset-set_store_traceback">set_store_traceback(self, value: bool) -> None</h4>
-        <p>Toggle whether to store traceback in error info.</p>
-
-        <h4 id="WaveformDataset-structure_waveforms">structure_waveforms(self, verbose: bool = True) -> 'WaveformDataset'</h4>
-        <p>将波形数据转换为结构化 numpy 数组。</p>
-
-        <h4 id="WaveformDataset-summary">summary(self) -> Dict[str, Any]</h4>
-        <p>获取数据处理摘要信息。<br><br>返回: 包含各个处理阶段信息的字典</p>
-
-
 
         <div class="timestamp">
             <p><strong>生成时间</strong>: 2026-01-22 18:31:52</p>

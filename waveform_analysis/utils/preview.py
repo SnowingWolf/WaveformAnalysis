@@ -6,7 +6,7 @@
 用于确定阈值、基线等参数。
 
 主要特性:
-- 无需完整 WaveformDataset 处理流程
+- 无需完整处理流程
 - 支持按事件范围或时间戳范围选择波形
 - 提供叠加显示和分格显示两种可视化模式
 - 自动标注基线、峰值、积分区域等关键特征
@@ -27,7 +27,7 @@ import numpy as np
 
 from waveform_analysis.core.foundation.constants import FeatureDefaults
 from waveform_analysis.core.foundation.utils import exporter
-from waveform_analysis.core.processing.loader import WaveformLoader
+from waveform_analysis.core.processing.loader import WaveformLoaderCSV
 from waveform_analysis.core.processing.processor import DEFAULT_WAVE_LENGTH, RECORD_DTYPE
 from waveform_analysis.utils.io import parse_files_generator
 
@@ -42,7 +42,7 @@ class WaveformPreviewer:
     轻量级波形预览器，快速查看原始波形数据。
 
     该类提供快速加载和可视化原始波形数据的功能，无需运行完整的
-    WaveformDataset 处理流程。适合在数据处理前快速查看数据质量
+    完整处理流程。适合在数据处理前快速查看数据质量
     和确定处理参数。
 
     参数:
@@ -82,7 +82,7 @@ class WaveformPreviewer:
         self.daq_adapter = daq_adapter
 
         # 初始化加载器
-        self._loader = WaveformLoader(
+        self._loader = WaveformLoaderCSV(
             n_channels=n_channels,
             run_name=run_name,
             data_root=data_root,
@@ -106,14 +106,10 @@ class WaveformPreviewer:
         """
         if self._raw_files is None:
             self._raw_files = self._loader.get_raw_files()
-            logger.debug(
-                f"Loaded file lists for {len(self._raw_files)} channels"
-            )
+            logger.debug(f"Loaded file lists for {len(self._raw_files)} channels")
         return self._raw_files
 
-    def load_by_range(
-        self, channel: int, start_event: int, end_event: int
-    ) -> np.ndarray:
+    def load_by_range(self, channel: int, start_event: int, end_event: int) -> np.ndarray:
         """
         按事件范围加载波形数据。
 
@@ -135,9 +131,7 @@ class WaveformPreviewer:
         raw_files = self._get_raw_files()
 
         if channel >= len(raw_files):
-            logger.warning(
-                f"Channel {channel} does not exist (n_channels={self.n_channels})"
-            )
+            logger.warning(f"Channel {channel} does not exist (n_channels={self.n_channels})")
             return np.zeros(0, dtype=RECORD_DTYPE)
 
         channel_files = raw_files[channel]
@@ -150,9 +144,7 @@ class WaveformPreviewer:
         collected = []
         event_counter = 0
 
-        logger.debug(
-            f"Loading events {start_event} to {end_event} from channel {channel}"
-        )
+        logger.debug(f"Loading events {start_event} to {end_event} from channel {channel}")
 
         for chunk in parse_files_generator(channel_files, chunksize=1000):
             chunk_size = len(chunk)
@@ -180,10 +172,7 @@ class WaveformPreviewer:
 
         # 3. 合并并结构化
         if not collected:
-            logger.warning(
-                f"No events found in range [{start_event}, {end_event}) "
-                f"for channel {channel}"
-            )
+            logger.warning(f"No events found in range [{start_event}, {end_event}) for channel {channel}")
             return np.zeros(0, dtype=RECORD_DTYPE)
 
         raw_data = np.vstack(collected)
@@ -191,9 +180,7 @@ class WaveformPreviewer:
 
         return self._structure_minimal(raw_data, channel)
 
-    def load_by_timestamp(
-        self, channel: int, start_ts: int, end_ts: int
-    ) -> np.ndarray:
+    def load_by_timestamp(self, channel: int, start_ts: int, end_ts: int) -> np.ndarray:
         """
         按时间戳范围加载波形数据。
 
@@ -218,9 +205,7 @@ class WaveformPreviewer:
         raw_files = self._get_raw_files()
 
         if channel >= len(raw_files):
-            logger.warning(
-                f"Channel {channel} does not exist (n_channels={self.n_channels})"
-            )
+            logger.warning(f"Channel {channel} does not exist (n_channels={self.n_channels})")
             return np.zeros(0, dtype=RECORD_DTYPE)
 
         channel_files = raw_files[channel]
@@ -232,10 +217,7 @@ class WaveformPreviewer:
         # 2. 流式扫描，筛选时间戳范围
         collected = []
 
-        logger.debug(
-            f"Loading events with timestamp in [{start_ts}, {end_ts}) "
-            f"from channel {channel}"
-        )
+        logger.debug(f"Loading events with timestamp in [{start_ts}, {end_ts}) from channel {channel}")
 
         for chunk in parse_files_generator(channel_files, chunksize=1000):
             # 提取时间戳列（CSV 第3列，索引为2）
@@ -253,17 +235,12 @@ class WaveformPreviewer:
 
             # 提前停止优化：如果当前 chunk 的最小时间戳已超过 end_ts
             if len(timestamps) > 0 and np.min(timestamps) >= end_ts:
-                logger.debug(
-                    f"Stopping early: min_ts={np.min(timestamps)} >= end_ts={end_ts}"
-                )
+                logger.debug(f"Stopping early: min_ts={np.min(timestamps)} >= end_ts={end_ts}")
                 break
 
         # 3. 合并并结构化
         if not collected:
-            logger.warning(
-                f"No events found in timestamp range [{start_ts}, {end_ts}) "
-                f"for channel {channel}"
-            )
+            logger.warning(f"No events found in timestamp range [{start_ts}, {end_ts}) for channel {channel}")
             return np.zeros(0, dtype=RECORD_DTYPE)
 
         raw_data = np.vstack(collected)
@@ -271,9 +248,7 @@ class WaveformPreviewer:
 
         return self._structure_minimal(raw_data, channel)
 
-    def _structure_minimal(
-        self, raw_data: np.ndarray, channel: int
-    ) -> np.ndarray:
+    def _structure_minimal(self, raw_data: np.ndarray, channel: int) -> np.ndarray:
         """
         轻量级结构化：仅提取预览所需字段。
 
@@ -310,9 +285,7 @@ class WaveformPreviewer:
         try:
             wave_data = raw_data[:, 7:]
             n_samples = min(wave_data.shape[1], DEFAULT_WAVE_LENGTH)
-            result["wave"][:, :n_samples] = wave_data[:, :n_samples].astype(
-                np.float32
-            )
+            result["wave"][:, :n_samples] = wave_data[:, :n_samples].astype(np.float32)
         except (IndexError, ValueError) as e:
             logger.debug(f"Failed to extract waveforms: {e}")
 
@@ -321,9 +294,7 @@ class WaveformPreviewer:
         result["channel"] = channel
         result["event_length"] = 0  # 不计算，保持为0
 
-        logger.debug(
-            f"Structured {n_events} events for channel {channel}"
-        )
+        logger.debug(f"Structured {n_events} events for channel {channel}")
 
         return result
 
@@ -367,9 +338,7 @@ class WaveformPreviewer:
         wave_seg_p = waves[:, peaks_range[0] : peaks_range[1]]
         # 峰值 = baseline - wave 的最大值（假设负脉冲）
         peaks = np.max(baselines[:, None] - wave_seg_p, axis=1)
-        peak_positions = peaks_range[0] + np.argmax(
-            baselines[:, None] - wave_seg_p, axis=1
-        )
+        peak_positions = peaks_range[0] + np.argmax(baselines[:, None] - wave_seg_p, axis=1)
 
         # 电荷积分
         wave_seg_c = waves[:, charge_range[0] : charge_range[1]]
@@ -489,8 +458,7 @@ class WaveformPreviewer:
 
         title = kwargs.get(
             "title",
-            f"Waveform Overlay - Channel {waveforms[0]['channel']} "
-            f"({len(waveforms)} events)",
+            f"Waveform Overlay - Channel {waveforms[0]['channel']} ({len(waveforms)} events)",
         )
         ax.set_title(title, fontsize=14)
 
@@ -625,9 +593,7 @@ class WaveformPreviewer:
 
         # 添加全局轴标签
         fig.text(0.5, 0.04, "Time [ns]", ha="center", fontsize=12)
-        fig.text(
-            0.04, 0.5, "ADC Value", va="center", rotation="vertical", fontsize=12
-        )
+        fig.text(0.04, 0.5, "ADC Value", va="center", rotation="vertical", fontsize=12)
         plt.tight_layout(rect=[0.05, 0.05, 1, 1])
 
         return fig
@@ -682,9 +648,7 @@ def preview_waveforms(
         raise ValueError("Cannot specify both event_range and timestamp_range")
 
     # 初始化预览器
-    previewer = WaveformPreviewer(
-        run_name=run_name, data_root=data_root, n_channels=n_channels
-    )
+    previewer = WaveformPreviewer(run_name=run_name, data_root=data_root, n_channels=n_channels)
 
     # 加载波形
     if event_range is not None:

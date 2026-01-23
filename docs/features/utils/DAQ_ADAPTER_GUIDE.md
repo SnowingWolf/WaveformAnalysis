@@ -61,18 +61,6 @@ ctx.set_config({'daq_adapter': 'vx2730'})
 data = ctx.get_data('run_001', 'waveforms')
 ```
 
-### 在 WaveformDataset 中使用
-
-```python
-from waveform_analysis import WaveformDataset
-
-# 使用默认 VX2730 适配器（向后兼容）
-ds = WaveformDataset(run_name="run_001", n_channels=2)
-ds.load_raw_data()
-```
-
----
-
 ## 📐 格式规范 (FormatSpec)
 
 `FormatSpec` 定义 DAQ 数据文件的格式：
@@ -397,12 +385,12 @@ layout = DirectoryLayout(name="custom", raw_subdir="data")
 run = DAQRun("run_001", "DAQ/run_001", directory_layout=layout)
 ```
 
-### 与 WaveformLoader 集成
+### 与 WaveformLoaderCSV 集成
 
 ```python
-from waveform_analysis.core.processing import WaveformLoader
+from waveform_analysis.core.processing import WaveformLoaderCSV
 
-loader = WaveformLoader(
+loader = WaveformLoaderCSV(
     n_channels=2,
     run_name="run_001",
     data_root="DAQ",

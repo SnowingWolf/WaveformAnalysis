@@ -261,18 +261,19 @@ peaks = ctx.get_data('run_001', 'signal_peaks')
 
 | 文件 | 说明 |
 |------|------|
-| `examples/basic_analysis.py` | 基础分析流程 |
-| `examples/advanced_features.py` | 高级功能演示 |
 | `examples/config_management_example.py` | 配置管理示例 |
+| `examples/signal_processing_example.py` | 信号处理示例 |
+| `examples/streaming_plugins_demo.py` | 流式插件演示 |
+| `examples/preview_quickstart.md` | 预览工具快速指南 |
 
 ### 运行示例
 
 ```bash
-# 运行基础分析
-python examples/basic_analysis.py
+# 配置管理示例
+python examples/config_management_example.py
 
-# 指定数据目录
-python examples/basic_analysis.py --data-root /path/to/DAQ
+# 流式插件演示
+python examples/streaming_plugins_demo.py
 ```
 
 ---

@@ -1095,7 +1095,7 @@ class Context(CacheMixin, PluginMixin):
         # Safe attribute access: whitelist and conflict check
         # Whitelist: valid python identifier
         if re.match(r"^[a-zA-Z_]\w*$", name):
-            # Check if it's a property on the class (e.g. in WaveformDataset)
+            # Check if it's a property on the class
             cls_attr = getattr(self.__class__, name, None)
             is_prop = isinstance(cls_attr, property)
 

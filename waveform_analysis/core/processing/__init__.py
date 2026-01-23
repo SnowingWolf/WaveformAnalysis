@@ -5,7 +5,7 @@ Processing 子模块 - 数据处理流水线
 提供数据加载、信号处理、事件分析和 Chunk 管理功能。
 
 主要组件：
-- WaveformLoader: 波形数据加载器
+- WaveformLoaderCSV: 波形数据加载器
 - WaveformStruct: 波形结构化处理
 - EventAnalyzer: 事件分析器
 - Chunk: 时间对齐的数据块管理
@@ -59,7 +59,7 @@ from .chunk import (
     split_by_time,
     validate_endtime,
 )
-from .loader import WaveformLoader
+from .loader import WaveformLoaderCSV
 
 # 信号处理
 from .processor import (
@@ -73,7 +73,7 @@ from .processor import (
 
 __all__ = [
     # 数据加载
-    "WaveformLoader",
+    "WaveformLoaderCSV",
     # 信号处理
     "WaveformStruct",
     "build_waveform_df",

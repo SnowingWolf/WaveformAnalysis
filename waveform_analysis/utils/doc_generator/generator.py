@@ -67,7 +67,6 @@ class DocGenerator:
             >>> gen.generate_api_reference('docs/api_reference.md')
         """
         from waveform_analysis.core.context import Context
-        from waveform_analysis.core.dataset import WaveformDataset
 
         from .extractors import MetadataExtractor
 
@@ -76,7 +75,6 @@ class DocGenerator:
         # 提取 API 信息
         api_data = {
             'Context': extractor.extract_class_api(Context),
-            'WaveformDataset': extractor.extract_class_api(WaveformDataset),
         }
 
         # 渲染模板

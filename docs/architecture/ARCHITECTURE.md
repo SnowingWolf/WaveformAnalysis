@@ -76,7 +76,6 @@
     - **自动转换**: 自动将静态数据转换为 chunk 流，或将流式数据合并为静态数据。
 
 ### 2.7 数据访问层 (Data Access Layer)
-- **`WaveformDataset`**: 高级封装层，提供链式调用接口。
     - 兼容性：通过 Property 映射 `self.char` 到 `Context` 的无状态存储。
     - 灵活性：支持在链式调用中临时切换 `run_id`。
 - **`IO Module`**:
@@ -243,7 +242,6 @@ graph TD
     - `context.py`: Context 核心调度器
     - `plugins.py`: Plugin 基类定义
     - `standard_plugins.py`: 标准插件实现（包括 EventLengthPlugin）
-    - `dataset.py`: WaveformDataset 高层 API
     - `storage.py`: MemmapStorage 存储后端
     - `cache.py`: 缓存管理和血缘追踪
     - `loader.py`: 数据加载器

@@ -296,8 +296,8 @@ class ExamplesHelp:
   ctx.quickstart('basic')              # 基础分析流程
 
 📁 完整示例程序:
-  • examples/basic_analysis.py
   • examples/config_management_example.py
+  • examples/streaming_plugins_demo.py
 
 如需帮助，请参考 CLAUDE.md 文件。
 """

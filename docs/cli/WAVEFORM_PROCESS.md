@@ -13,7 +13,7 @@
 - 扫描 DAQ 目录并导出 JSON 报告
 - 显示指定运行的 DAQ 通道详情
 
-> ✅ 本命令基于 `Context` 和插件系统。`WaveformDataset` 已弃用，仅保留兼容层。
+> ✅ 本命令基于 `Context` 和插件系统。
 
 ---
 
@@ -170,7 +170,7 @@ waveform-process --run-name run_001 --verbose
 
 ## 注意事项
 
-1. **推荐路径**: CLI 与 `Context` API 保持一致；`WaveformDataset` 仅保留兼容层
+1. **推荐路径**: CLI 与 `Context` API 保持一致
 2. **参数互斥**: `--scan-daq` 会忽略其他处理选项
 3. **文件格式**: 输出文件格式由文件扩展名决定（`.csv` 或 `.parquet`）
 4. **默认行为**: 如果不指定 `--output`，结果会保存到 `outputs/` 目录

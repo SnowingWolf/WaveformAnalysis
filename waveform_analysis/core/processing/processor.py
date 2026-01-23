@@ -6,7 +6,7 @@ Processor 模块 - 波形信号处理与特征提取核心逻辑。
 核心功能包括：
 1. **数据结构化**：定义 `RECORD_DTYPE` (波形+元数据) 与 `PEAK_DTYPE` (脉冲特征)。
 2. **特征提取**：提供 `find_hits` (向量化寻峰)、基线扣除、电荷积分 (Charge) 与幅度 (Peak) 计算。
-3. **链式处理**：通过 `WaveformStruct` 维护波形结构化逻辑，支持 `WaveformDataset` 的链式调用。
+3. **链式处理**：通过 `WaveformStruct` 维护波形结构化逻辑，支持流式或批处理流程。
 4. **事件聚类**：`group_multi_channel_hits` 基于时间窗口将多通道 Hit 聚类为物理事件。
 5. **通道编码**：提供二进制掩码 (Bitmask) 与权重编码工具，用于多通道符合逻辑筛选。
 

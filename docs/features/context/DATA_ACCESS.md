@@ -158,34 +158,6 @@ ctx.clear_cache_for("run_001")
 - **DType 一致性**: 插件必须定义 `dtype`，确保 memmap 可解析。
 - **并发安全**: 存储使用文件锁协调写入，但不适合跨节点/网络文件系统的强一致写入。
 
-### 步骤级缓存与 WATCH_SIG_KEY (WaveformDataset)
-
-`WaveformDataset` 提供步骤级缓存（内存 + 可选磁盘持久化），用于缓存
-`st_waveforms`、`event_len` 等中间结果。
-
-```python
-ds.set_step_cache(
-    "load_raw_data",
-    enabled=True,
-    attrs=["raw_files"],
-    persist_path="/tmp/load_cache.pkl",
-    watch_attrs=["raw_files"]
-)
-ds.load_raw_data()
-```
-
-#### 加载行为
-
-- 若配置了 `watch_attrs` 且缓存中包含 `WATCH_SIG_KEY`，会计算签名并比较。
-- 签名一致 → 直接恢复缓存；不一致 → 视为 cache miss 并覆盖缓存。
-- 若未配置 `watch_attrs`，则直接恢复全部缓存内容（旧行为）。
-
-`WATCH_SIG_KEY` 可从包顶层导入：
-
-```python
-from waveform_analysis import WATCH_SIG_KEY
-```
-
 ### CI 与实践建议
 
 - CI 中建议使用临时目录存放持久化缓存，避免污染工作区。
