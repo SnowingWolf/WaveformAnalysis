@@ -583,8 +583,7 @@ class Context(CacheMixin, PluginMixin):
         self._key_cache.clear()
         self.logger.debug("Performance caches cleared")
 
-
-        def key_for(self, run_id: str, data_name: str) -> str:
+    def key_for(self, run_id: str, data_name: str) -> str:
         """
         Get a unique key (hash) for a data type and run.
 

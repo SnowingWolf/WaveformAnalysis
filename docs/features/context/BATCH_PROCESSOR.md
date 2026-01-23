@@ -6,14 +6,15 @@
 
 ## 概述
 
-`BatchProcessor` 用于批量处理多个 `run_id`，内部复用同一个 `Context`，并提供：
+`BatchProcessor` 用于批量处理多个 `run_id`，并提供：
 
-- ✅ 并行处理（线程池）
+- ✅ 并行处理（线程 / 进程）
 - ✅ 进度跟踪（终端或 Jupyter）
 - ✅ 取消执行（CancellationToken）
 - ✅ 统一错误收集
 
-它本质上是对 `ctx.get_data(run_id, data_name)` 的批量调度封装。
+它本质上是对 `ctx.get_data(run_id, data_name)` 的批量调度封装。并行模式下建议使用
+`context_factory` 为每个任务创建独立 Context，避免共享状态污染。
 
 ---
 
@@ -31,7 +32,7 @@
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.data.export import BatchProcessor
+from waveform_analysis.core.data.batch_processor import BatchProcessor
 
 ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
 # ... 注册插件 ...
@@ -40,12 +41,8 @@ processor = BatchProcessor(ctx)
 result = processor.process_runs(
     run_ids=["run_001", "run_002"],
     data_name="peaks",
-    max_workers=4,
-    on_error="continue",
+    max_workers=1,
 )
-
-data_by_run = result["results"]
-errors_by_run = result["errors"]
 ```
 
 ### 2. Jupyter 优化模式
@@ -72,6 +69,23 @@ stats = processor.process_with_custom_func(
 )
 ```
 
+### 4. 并行模式（独立 Context）
+
+```python
+def make_context():
+    ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
+    # ... 注册插件 ...
+    return ctx
+
+result = processor.process_runs(
+    run_ids=["run_001", "run_002"],
+    data_name="peaks",
+    max_workers=4,
+    context_factory=make_context,
+    executor_type="thread",  # 或 "process"
+)
+```
+
 ---
 
 ## API 参考
@@ -89,12 +103,19 @@ def process_runs(
     run_ids: List[str],
     data_name: str,
     max_workers: Optional[int] = None,
+    context_factory: Optional[Callable[[], Context]] = None,
+    executor_type: str = "thread",
+    storage_dir_strategy: str = "shared",
+    clean_temp_cache: bool = True,
     show_progress: bool = True,
     on_error: str = "continue",      # continue / stop / raise
     progress_tracker: Optional[Any] = None,
     cancellation_token: Optional[Any] = None,
     jupyter_mode: Optional[bool] = None,
     progress_update_interval: float = 0.5,
+    poll_interval: float = 0.1,
+    retries: int = 0,
+    retry_on: Optional[Tuple[type, ...]] = None,
 ) -> Dict[str, Any]
 ```
 
@@ -103,7 +124,9 @@ def process_runs(
 ```python
 {
     "results": {run_id: data},
-    "errors": {run_id: exception}
+    "errors": {run_id: {"type": ..., "message": ..., "traceback": ...}},
+    "meta": {run_id: {"status": "...", "elapsed": ..., "attempts": ...}},
+    "ordered_run_ids": [...]
 }
 ```
 
@@ -114,25 +137,64 @@ def process_with_custom_func(
     run_ids: List[str],
     func: Callable,  # func(context, run_id) -> result
     max_workers: Optional[int] = None,
+    context_factory: Optional[Callable[[], Context]] = None,
+    executor_type: str = "thread",
+    storage_dir_strategy: str = "shared",
+    clean_temp_cache: bool = True,
     show_progress: bool = True,
+    on_error: str = "continue",
     progress_tracker: Optional[Any] = None,
     jupyter_mode: Optional[bool] = None,
     progress_update_interval: float = 0.5,
+    poll_interval: float = 0.1,
+    retries: int = 0,
+    retry_on: Optional[Tuple[type, ...]] = None,
 ) -> Dict[str, Any]
 ```
 
 返回：
 
 ```python
-{run_id: result}
+{
+    "results": {run_id: result},
+    "errors": {run_id: {"type": ..., "message": ..., "traceback": ...}},
+    "meta": {run_id: {"status": "...", "elapsed": ..., "attempts": ...}},
+    "ordered_run_ids": [...]
+}
+```
+
+---
+
+### process_runs_with_config_grid
+
+```python
+def process_runs_with_config_grid(
+    run_ids: List[str],
+    data_name: str,
+    plugin_name: str,
+    configs: List[Dict[str, Any]],
+    max_workers: Optional[int] = None,
+    context_factory: Optional[Callable[[], Context]] = None,
+    executor_type: str = "thread",
+    storage_dir_strategy: str = "shared",
+    clean_temp_cache: bool = True,
+    show_progress: bool = True,
+    on_error: str = "continue",
+    jupyter_mode: Optional[bool] = None,
+    progress_update_interval: float = 0.5,
+    poll_interval: float = 0.1,
+    retries: int = 0,
+    retry_on: Optional[Tuple[type, ...]] = None,
+    tmp_cache: bool = False,
+) -> Dict[str, Any]
 ```
 
 ---
 
 ## 并行与缓存注意事项
 
-1. **线程模型**  
-   `BatchProcessor` 使用 `ThreadPoolExecutor`，适合 I/O 密集型任务。
+1. **执行器模型**  
+   `executor_type="thread"` 适合 I/O 密集型任务，`"process"` 适合 CPU 密集型任务。
 
 2. **Context 内存缓存增长**  
    同一个 `Context` 批量跑多个 run，内存缓存可能持续增长。  
@@ -142,13 +204,16 @@ def process_with_custom_func(
    ctx.clear_cache_for("run_001")
    ```
 
-3. **线程安全建议**  
-   `Context` 内部有多个可变缓存结构，严格并发场景建议：
+3. **并行安全建议**  
+   `Context` 内部有多个可变缓存结构，建议：
    - `max_workers=1` 串行执行，或
-   - 每个线程使用独立 `Context`
+   - 并行时提供 `context_factory`，为每个任务创建独立 Context
 
 4. **性能统计**  
    `stats_collector` 绑定在 `Context` 上。多个 run 的统计会累计在同一个收集器中。
+
+5. **ProcessPool 提示**  
+   使用 `executor_type="process"` 时，`context_factory` 必须可被 pickle。
 
 ---
 
