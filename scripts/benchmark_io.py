@@ -11,7 +11,8 @@ import tempfile
 import time
 from pathlib import Path
 
-from waveform_analysis import WaveformDataset
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin, WaveformsPlugin
 
 # Simple helper (self-contained) to create CSV files similar to tests.utils
 
@@ -49,20 +50,31 @@ def bench(n_files: int, n_channels: int, n_samples: int, chunksize_list, n_jobs_
                 # run several reps
                 times = []
                 for _ in range(reps):
-                    ds = WaveformDataset(
-                        run_name="50V_OV_circulation_20thr",
-                        n_channels=n_channels,
-                        start_channel_slice=6,
-                        load_waveforms=True,
-                        data_root=str(data_root),
+                    ctx = Context(
+                        config={
+                            "data_root": str(data_root),
+                            "n_channels": n_channels,
+                            "start_channel_slice": 6,
+                        },
+                        storage_dir=str(tmpdir / "_cache"),
                     )
-                    ds.load_raw_data()
+                    ctx.register_plugin(RawFilesPlugin())
+                    ctx.register_plugin(WaveformsPlugin())
+                    ctx.set_config(
+                        {"chunksize": chunksize, "n_jobs": n_jobs},
+                        plugin_name="waveforms",
+                    )
+                    ctx.get_data("50V_OV_circulation_20thr", "raw_files")
                     t1 = time.perf_counter()
-                    ds.extract_waveforms(chunksize=chunksize, n_jobs=n_jobs)
+                    ctx.get_data("50V_OV_circulation_20thr", "waveforms")
                     t2 = time.perf_counter()
                     times.append(t2 - t1)
-                    # clear to free memory
-                    ds.clear_waveforms()
+                    ctx.clear_cache_for(
+                        "50V_OV_circulation_20thr",
+                        "waveforms",
+                        clear_disk=False,
+                        verbose=False,
+                    )
                 avg = sum(times) / len(times)
                 chk = "None" if chunksize is None else str(chunksize)
                 print(f"chunksize={chk:>4} n_jobs={n_jobs:2} -> avg extract time: {avg:.3f}s (reps={reps})")

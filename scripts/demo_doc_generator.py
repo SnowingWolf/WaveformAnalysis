@@ -103,7 +103,7 @@ def main():
     print("=" * 80)
     print()
     print("📚 生成的文档类型：")
-    print("  • API 参考 (Markdown/HTML) - Context 和 WaveformDataset 完整 API")
+    print("  • API 参考 (Markdown/HTML) - Context 完整 API")
     print("  • 配置参考 (Markdown) - 所有插件的配置选项")
     print("  • 插件开发指南 (Markdown) - Plugin 基类和示例")
     print()

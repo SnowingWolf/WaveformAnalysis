@@ -52,7 +52,7 @@ echo "安装完成！"
 echo "=================================="
 echo
 echo "快速开始:"
-echo "  1. 运行示例: python examples/basic_analysis.py"
+echo "  1. 运行示例: python examples/config_management_example.py"
 echo "  2. 运行测试: pytest tests/"
 echo "  3. 使用CLI: waveform-process --help"
 echo

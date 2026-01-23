@@ -16,7 +16,6 @@ waveform-analysis/
 │   ├── core/                      # 核心功能模块（模块化子目录结构）
 │   │   ├── __init__.py            # 统一导出，保持向后兼容
 │   │   ├── context.py             # 核心调度：Context 类，管理插件与缓存
-│   │   ├── dataset.py             # 高层 API：WaveformDataset 链式封装
 │   │   ├── cancellation.py        # 取消管理
 │   │   ├── load_balancer.py       # 负载均衡
 │   │   │
@@ -63,7 +62,7 @@ waveform-analysis/
 │   │   │
 │   │   ├── processing/            # 数据处理（4个文件）
 │   │   │   ├── __init__.py
-│   │   │   ├── loader.py          # 数据加载：WaveformLoader
+│   │   │   ├── loader.py          # 数据加载：WaveformLoaderCSV
 │   │   │   ├── processor.py       # 信号处理：WaveformStruct（支持 Numba）
 │   │   │   ├── analyzer.py        # 事件分析：聚类与配对（支持多进程）
 │   │   │   └── chunk.py           # Chunk 对象与时间区间操作
@@ -95,12 +94,11 @@ waveform-analysis/
 │
 ├── tests/                         # 测试目录
 │   ├── __init__.py
-│   ├── test_basic.py              # 基本功能测试
 │   └── test_loader.py             # 加载器测试
 │
-├── examples/                      # 示例脚本
-│   ├── basic_analysis.py          # 基础分析示例
-│   └── advanced_features.py       # 高级功能示例
+├── examples/                      # 示例脚本/文档
+│   ├── preview_quickstart.md      # 预览工具快速指南
+│   └── demo_doc_generator.py      # 文档生成示例
 │
 ├── docs/                          # 文档目录
 │   ├── data_module.md             # 原有的模块文档
@@ -137,8 +135,7 @@ waveform-analysis/
 #### `__init__.py`
 
 包的入口点，导出主要 API：
-- `WaveformDataset`: 主数据集类
-- `get_raw_files`, `get_waveforms`: 数据加载函数
+- `Context`: 核心调度类
 - `WaveformStruct`, `build_waveform_df`, `group_multi_channel_hits`: 数据处理函数
 
 #### `cli.py`
@@ -155,10 +152,6 @@ waveform-analysis/
 核心调度模块：
 - `Context`: 管理插件注册、依赖解析、配置分发和数据缓存
 - 支持多级缓存校验和血缘追踪
-
-**`dataset.py`**
-高层 API 模块：
-- `WaveformDataset`: 提供链式调用接口，内部委托 `Context` 执行
 
 #### `storage/` - 存储层（5个文件）
 
@@ -245,7 +238,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 
 数据加载、信号处理和事件分析：
 
-- **`loader.py`**: `WaveformLoader` 数据加载器
+- **`loader.py`**: `WaveformLoaderCSV` 数据加载器
 - **`processor.py`**: 信号处理（`WaveformStruct`, 峰值查找，支持 Numba JIT）
 - **`analyzer.py`**: 事件分析（聚类与配对，支持多进程）
 - **`chunk.py`**: `Chunk` 对象与时间区间操作工具
@@ -264,7 +257,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 异常处理、Mixin、模型和工具函数：
 
 - **`exceptions.py`**: 异常类（`PluginError`, `ErrorSeverity`）
-- **`mixins.py`**: 功能混合类（`CacheMixin`, `StepMixin`）
+- **`mixins.py`**: 功能混合类（`CacheMixin`）
 - **`model.py`**: 数据模型（`LineageGraphModel`）
 - **`utils.py`**: 工具函数（`exporter`, `Profiler`）
 - **`progress.py`**: 进度追踪（`ProgressTracker`）
@@ -364,10 +357,13 @@ pip install waveform-analysis
 ### 作为包使用
 
 ```python
-from waveform_analysis import WaveformDataset
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin, WaveformsPlugin
 
-dataset = WaveformDataset(char="...")
-dataset.load_raw_data().extract_waveforms()...
+ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
+ctx.register(RawFilesPlugin())
+ctx.register(WaveformsPlugin())
+waveforms = ctx.get_data("run_001", "waveforms")
 ```
 
 ### 使用命令行工具
@@ -376,32 +372,10 @@ dataset.load_raw_data().extract_waveforms()...
 waveform-process --char dataset_name --verbose
 ```
 
-### 运行示例
-
-```bash
-python examples/basic_analysis.py
-```
-
 ### 运行测试
 
 ```bash
 pytest tests/
-```
-
-## 向后兼容
-
-项目根目录保留了原始的 Python 文件（`data.py`, `load.py` 等），以保持向后兼容性。现有的 Jupyter 笔记本可以继续使用这些文件。
-
-要迁移到新的包结构，只需修改导入语句：
-
-```python
-# 旧方式
-from data import WaveformDataset
-from load import get_raw_files
-
-# 新方式
-from waveform_analysis.core.dataset import WaveformDataset
-from waveform_analysis.utils.loader import get_raw_files
 ```
 
 ## 扩展指南
@@ -409,8 +383,7 @@ from waveform_analysis.utils.loader import get_raw_files
 ### 添加新特征
 
 1. 在适当的模块中定义特征计算函数
-2. 使用 `dataset.register_feature()` 注册
-3. 或直接添加到 `processor.py` 中
+2. 通过新增插件或在处理模块中添加计算逻辑
 
 ### 添加新的拟合模型
 

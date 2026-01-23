@@ -1,147 +1,21 @@
 # -*- coding: utf-8 -*-
 """
-Mixins 模块 - 增强 WaveformDataset 功能的混合类。
+Mixins 模块 - 框架基础功能混合类。
 
-提供缓存管理、特征注册、绘图支持以及 DAQ 状态检查等扩展功能。
-通过多重继承将这些功能注入到 WaveformDataset 中，保持核心类的简洁。
+提供缓存管理与插件编排支持等扩展功能。
 """
 
 from contextlib import nullcontext
-from datetime import datetime
-import functools
 import logging
 import os
-import traceback
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import warnings
 
 from ..storage.cache import WATCH_SIG_KEY, CacheManager
-from .exceptions import ErrorSeverity
-
-
-def chainable_step(fn: Callable):
-    """Deprecated: chainable steps are legacy WaveformDataset APIs."""
-
-    @functools.wraps(fn)
-    def wrapper(self, *args, **kwargs):
-        name = fn.__name__
-        cfg: Dict[str, Any] = {}
-
-        # 打印当前步骤
-        verbose = kwargs.get("verbose", True)
-        run_id = kwargs.get("run_id") or getattr(self, "char", "default")
-
-        # 首次运行打印完整报告
-        if verbose and not getattr(self, "_cache_report_printed", False):
-            if hasattr(self, "print_cache_report"):
-                self.print_cache_report()
-                setattr(self, "_cache_report_printed", True)
-
-        if verbose:
-            print(f"[*] Running step: {name} (run_id: {run_id})")
-            if hasattr(self, "check_cache_status"):
-                status = self.check_cache_status(load_sig=False).get(name)
-                if status:
-                    m = "YES" if status["in_memory"] else "no"
-                    d = "YES" if status["on_disk"] else "no"
-                    # 如果不在磁盘上，Valid 显示 -
-                    # 如果在磁盘上但未验证，Valid 显示 ?
-                    # 如果在磁盘上且验证通过，Valid 显示 YES
-                    if not status["on_disk"]:
-                        v = "-"
-                    elif status["disk_valid"]:
-                        v = "YES"
-                    else:
-                        v = "?"
-                    print(f"    [cache-status] Mem: {m}, Disk: {d}, Valid: {v}")
-
-        try:
-            # 缓存逻辑集成
-            if hasattr(self, "_cache_config"):
-                cfg = self._cache_config.get(name, {})
-                if cfg.get("enabled"):
-                    # 磁盘加载逻辑
-                    persist = cfg.get("persist_path")
-                    backend = cfg.get("backend", "joblib")
-                    if persist:
-                        data = CacheManager.load_data(persist, backend)
-                        if data:
-                            watch_attrs = cfg.get("watch_attrs") or []
-                            saved_sig = data.get(WATCH_SIG_KEY)
-                            if not watch_attrs or saved_sig == CacheManager.compute_watch_signature(self, watch_attrs):
-                                for k, v in data.items():
-                                    if k != WATCH_SIG_KEY:
-                                        # Use _set_data if available (Context/WaveformDataset)
-                                        if hasattr(self, "_set_data"):
-                                            self._set_data(run_id, k, v)
-                                        else:
-                                            # Fallback for regular attributes, avoid setting read-only properties
-                                            cls_attr = getattr(self.__class__, k, None)
-                                            if not isinstance(cls_attr, property):
-                                                setattr(self, k, v)
-                                self._cache[name] = {k: v for k, v in data.items() if k != WATCH_SIG_KEY}
-                                self._record_step_success(name)
-                                if verbose:
-                                    print(f"[cache] Step '{name}' loaded from disk (run_id: {run_id})")
-                                return self
-                    # 内存加载逻辑
-                    mem = self._cache.get(name)
-                    if mem is not None:
-                        for k, v in mem.items():
-                            if hasattr(self, "_set_data"):
-                                self._set_data(run_id, k, v)
-                            else:
-                                # Fallback for regular attributes, avoid setting read-only properties
-                                cls_attr = getattr(self.__class__, k, None)
-                                if not isinstance(cls_attr, property):
-                                    setattr(self, k, v)
-                        self._record_step_success(name)
-                        if verbose:
-                            print(f"[cache] Step '{name}' loaded from memory (run_id: {run_id})")
-                        return self
-
-            # 执行实际函数
-            res = fn(self, *args, **kwargs)
-
-            # 缓存结果
-            if cfg.get("enabled"):
-                cache_attrs = cfg.get("cache_attrs") or []
-                cache_data = {}
-                for attr in cache_attrs:
-                    if hasattr(self, attr):
-                        cache_data[attr] = getattr(self, attr)
-
-                self._cache[name] = cache_data
-                if cfg.get("persist_path"):
-                    if cfg.get("watch_attrs"):
-                        cache_data[WATCH_SIG_KEY] = CacheManager.compute_watch_signature(self, cfg["watch_attrs"])
-                    CacheManager.save_data(cfg["persist_path"], cache_data, cfg.get("backend", "joblib"))
-
-            self._record_step_success(name)
-            return self if res is None else res
-        except Exception as e:
-            self._record_step_failure(name, e)
-            if getattr(self, "raise_on_error", False):
-                raise
-
-            # 获取 logger（从 self 或创建新的）
-            logger = getattr(self, "logger", None)
-            if logger is None:
-                logger = logging.getLogger(self.__class__.__name__)
-                if not logger.handlers:
-                    handler = logging.StreamHandler()
-                    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-                    handler.setFormatter(formatter)
-                    logger.addHandler(handler)
-
-            logger.warning(f"Step '{name}' failed: {e}")
-            return self
-
-    return wrapper
 
 
 class CacheMixin:
-    """Legacy step-cache mixin (WaveformDataset only; deprecated)."""
+    """Legacy step-cache mixin retained for compatibility."""
 
     def __init__(self):
         """
@@ -155,7 +29,7 @@ class CacheMixin:
         - cache_dir: 磁盘缓存根目录（默认为 None）
 
         Note:
-            这是一个 Mixin 类，需要与 WaveformDataset 或类似类组合使用。
+            这是一个 Mixin 类，需要与 legacy workflow 或类似类组合使用。
         """
         # _cache: { step_name: {attr_name: value, ...} }
         self._cache: Dict[str, Dict[str, object]] = {}
@@ -289,116 +163,8 @@ class CacheMixin:
         print()
 
 
-class StepMixin:
-    """Deprecated: chainable step tracking for legacy WaveformDataset."""
-
-    chainable_step = staticmethod(chainable_step)
-
-    def __init__(self):
-        """
-        初始化步骤管理 Mixin
-
-        设置步骤状态追踪和错误处理机制。
-
-        初始化内容:
-        - _step_errors: 结构化错误信息字典 {step_name: {error, traceback, timestamp, ...}}
-        - _step_status: 步骤状态字典 {step_name: "success" | "failed"}
-        - _last_failed_step: 最后失败的步骤名称
-        - raise_on_error: 是否在错误时立即抛出异常（默认 False）
-        - _error_stats: 错误统计字典 {error_type: count}
-        - _store_traceback: 是否存储完整的 traceback（默认 False）
-
-        Note:
-            这是一个 Mixin 类，提供链式调用和错误追踪功能。
-        """
-        self._step_errors: Dict[str, Dict[str, Any]] = {}  # 改为结构化
-        self._step_status: Dict[str, str] = {}
-        self._last_failed_step: Optional[str] = None
-        self.raise_on_error: bool = False
-        self._error_stats: Dict[str, int] = {}  # 新增错误统计
-        self._store_traceback: bool = False  # 可配置是否存储traceback
-
-    def _record_step_success(self, name: str) -> None:
-        self._step_status[name] = "success"
-
-    def _record_step_failure(self, name: str, exc: Exception) -> None:
-        self._step_status[name] = "failed"
-
-        # 结构化错误信息
-        error_info = {
-            "message": str(exc),
-            "type": type(exc).__name__,
-            "timestamp": datetime.now().isoformat(),
-            "severity": getattr(exc, "severity", ErrorSeverity.FATAL).value if hasattr(exc, "severity") else "unknown",
-            "recoverable": getattr(exc, "recoverable", False),
-        }
-
-        # 可选：存储traceback（如果配置了）
-        if self._store_traceback:
-            error_info["traceback"] = traceback.format_exc()
-
-        self._step_errors[name] = error_info
-        self._last_failed_step = name
-
-        # 错误统计
-        error_type = type(exc).__name__
-        self._error_stats[error_type] = self._error_stats.get(error_type, 0) + 1
-
-    def set_raise_on_error(self, value: bool) -> None:
-        """Toggle whether chainable steps raise on failure."""
-        self.raise_on_error = bool(value)
-
-    def set_store_traceback(self, value: bool) -> None:
-        """Toggle whether to store traceback in error info."""
-        self._store_traceback = bool(value)
-
-    def get_step_errors(self) -> Dict[str, Dict[str, Any]]:  # 更新返回类型
-        return self._step_errors.copy()
-
-    def clear_step_errors(self) -> None:
-        self._step_errors.clear()
-        self._step_status.clear()
-        self._last_failed_step = None
-        self._error_stats.clear()
-
-    def get_error_summary(self) -> Dict[str, Any]:
-        """获取所有错误的汇总报告"""
-        if not self._step_errors:
-            return {"status": "success", "errors": []}
-
-        errors_by_type = {}
-        for step, error_info in self._step_errors.items():
-            error_type = error_info.get("type", "Unknown")
-            if error_type not in errors_by_type:
-                errors_by_type[error_type] = []
-            errors_by_type[error_type].append({
-                "step": step,
-                "message": error_info.get("message"),
-                "severity": error_info.get("severity", "unknown"),
-                "timestamp": error_info.get("timestamp"),
-            })
-
-        return {
-            "status": "failed",
-            "total_errors": len(self._step_errors),
-            "failed_steps": list(self._step_errors.keys()),
-            "errors_by_type": errors_by_type,
-            "last_failed_step": self._last_failed_step,
-            "error_stats": self._error_stats.copy(),
-        }
-
-    def get_error_statistics(self) -> Dict[str, Any]:
-        """获取错误统计信息"""
-        return {
-            "total_errors": len(self._step_errors),
-            "errors_by_type": self._error_stats.copy(),
-            "failed_steps_count": len(self._step_errors),
-            "last_failed_step": self._last_failed_step,
-        }
-
-
 class PluginMixin:
-    """Mixin for orchestrating plugins in WaveformDataset."""
+    """Mixin for orchestrating plugins in legacy workflow."""
 
     def __init__(self):
         """
