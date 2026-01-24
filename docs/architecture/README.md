@@ -13,6 +13,7 @@
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 20 分钟 | ⭐⭐⭐ 高级 | 系统总体架构和设计原则 |
 | [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | 10 分钟 | ⭐⭐ 中级 | 项目目录结构和模块说明 |
 | [CONTEXT_PROCESSOR_WORKFLOW.md](CONTEXT_PROCESSOR_WORKFLOW.md) | 15 分钟 | ⭐⭐⭐ 高级 | Context 和 Processor 工作流程 |
+| [RECORDS_WAVE_POOL.md](RECORDS_WAVE_POOL.md) | 15 分钟 | ⭐⭐⭐ 高级 | Records + WavePool 数据中间层设计 |
 
 ---
 
@@ -56,4 +57,5 @@
 **快速链接**:
 [系统架构](ARCHITECTURE.md) |
 [项目结构](PROJECT_STRUCTURE.md) |
-[工作流程](CONTEXT_PROCESSOR_WORKFLOW.md)
+[工作流程](CONTEXT_PROCESSOR_WORKFLOW.md) |
+[Records + WavePool](RECORDS_WAVE_POOL.md)

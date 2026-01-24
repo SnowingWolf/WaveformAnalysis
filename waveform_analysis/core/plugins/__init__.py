@@ -39,11 +39,13 @@ from .builtin.cpu import (
     HitFinderPlugin,
     PairedEventsPlugin,
     PeaksPlugin,
+    RecordsPlugin,
     # 标准插件
     RawFilesPlugin,
     SignalPeaksPlugin,
     StWaveformsPlugin,
     WaveformsPlugin,
+    WavePoolPlugin,
     WaveformWidthPlugin,
 )
 from .builtin.streaming import SignalPeaksStreamPlugin
@@ -115,9 +117,11 @@ __all__ = [
     "DataFramePlugin",
     "GroupedEventsPlugin",
     "PairedEventsPlugin",
+    "RecordsPlugin",
     # 信号处理插件
     "FilteredWaveformsPlugin",
     "SignalPeaksPlugin",
     "WaveformWidthPlugin",
     "SignalPeaksStreamPlugin",
+    "WavePoolPlugin",
 ]

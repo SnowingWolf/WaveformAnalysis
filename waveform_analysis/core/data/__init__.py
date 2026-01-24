@@ -21,6 +21,7 @@ from .query import (
     TimeRangeQueryEngine,
     TimeRangeCache,
 )
+from .records_view import RecordsView, records_view
 
 # 批量处理和导出
 from .batch_processor import BatchProcessor
@@ -31,6 +32,8 @@ __all__ = [
     "TimeIndex",
     "TimeRangeQueryEngine",
     "TimeRangeCache",
+    "RecordsView",
+    "records_view",
     # 批量处理和导出
     "BatchProcessor",
     "DataExporter",

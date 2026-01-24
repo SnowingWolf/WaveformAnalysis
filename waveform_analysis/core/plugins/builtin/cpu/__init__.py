@@ -19,6 +19,7 @@ from .filtering import FilteredWaveformsPlugin
 
 # CPU 寻峰插件
 from .peak_finding import ADVANCED_PEAK_DTYPE, SignalPeaksPlugin
+from .records import RecordsPlugin, WavePoolPlugin
 from .standard import (
     ChargesPlugin,
     DataFramePlugin,
@@ -73,5 +74,8 @@ __all__ = [
     "WAVEFORM_WIDTH_INTEGRAL_DTYPE",
     # Cache analysis
     "CacheAnalysisPlugin",
+    # Records + wave_pool
+    "RecordsPlugin",
+    "WavePoolPlugin",
     "standard_plugins",
 ]

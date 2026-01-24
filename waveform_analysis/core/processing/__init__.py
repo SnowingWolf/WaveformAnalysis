@@ -70,6 +70,13 @@ from .processor import (
     find_hits,
     group_multi_channel_hits,
 )
+from .records import (
+    RECORDS_DTYPE,
+    RecordsBundle,
+    build_records_from_st_waveforms,
+    build_records_from_st_waveforms_sharded,
+    merge_records_parts,
+)
 
 __all__ = [
     # 数据加载
@@ -81,6 +88,11 @@ __all__ = [
     "find_hits",
     "RECORD_DTYPE",
     "PEAK_DTYPE",
+    "RECORDS_DTYPE",
+    "RecordsBundle",
+    "build_records_from_st_waveforms",
+    "build_records_from_st_waveforms_sharded",
+    "merge_records_parts",
     # 事件分析
     "EventAnalyzer",
     # Chunk 常量
