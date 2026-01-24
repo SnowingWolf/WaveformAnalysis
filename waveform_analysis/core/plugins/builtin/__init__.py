@@ -36,10 +36,12 @@ from .cpu import (
     HitFinderPlugin,
     PairedEventsPlugin,
     PeaksPlugin,
+    RecordsPlugin,
     RawFilesPlugin,
     SignalPeaksPlugin,
     StWaveformsPlugin,
     WaveformsPlugin,
+    WavePoolPlugin,
     WaveformWidthPlugin,
 )
 
@@ -70,6 +72,7 @@ __all__ = [
     "DataFramePlugin",
     "GroupedEventsPlugin",
     "PairedEventsPlugin",
+    "RecordsPlugin",
     # 信号处理插件
     "FilteredWaveformsPlugin",
     "SignalPeaksPlugin",
@@ -77,6 +80,7 @@ __all__ = [
     "WaveformWidthPlugin",
     "WAVEFORM_WIDTH_DTYPE",
     "CacheAnalysisPlugin",
+    "WavePoolPlugin",
     # 流式插件
     "SignalPeaksStreamPlugin",
     # 便捷列表

@@ -739,6 +739,7 @@ class Context(CacheMixin, PluginMixin):
             **kwargs,
         )
 
+
     def list_provided_data(self) -> List[str]:
         """List all data types provided by registered plugins."""
         return list(self._plugins.keys())
