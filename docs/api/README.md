@@ -10,7 +10,7 @@
 
 | 文档 | 时间 | 难度 | 说明 |
 |------|------|------|------|
-| [api_reference.md](api_reference.md) | 按需 | ⭐⭐ 中级 | 完整 API 参考文档（Context, Dataset） |
+| [api_reference.md](api_reference.md) | 按需 | ⭐⭐ 中级 | 完整 API 参考文档（Context） |
 | [api_reference.html](api_reference.html) | 按需 | ⭐⭐ 中级 | API 参考文档（HTML 版本） |
 | [config_reference.md](config_reference.md) | 15 分钟 | ⭐⭐ 中级 | 所有插件的配置选项参考 |
 | [SIMPLE_PLUGIN_GUIDE.md](../features/plugin/SIMPLE_PLUGIN_GUIDE.md) | 10 分钟 | ⭐ 入门 | 最简单的插件教程 - 从零开始 |
@@ -51,9 +51,6 @@
 
 #### 查找 Context API
 → [api_reference.md#context](api_reference.md)
-
-#### 查找 Dataset API
-→ [api_reference.md#waveformdataset](api_reference.md)
 
 #### 了解配置选项
 → [config_reference.md](config_reference.md)

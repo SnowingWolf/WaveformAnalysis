@@ -39,7 +39,7 @@
 完整的 API 文档和配置参考。
 
 **包含文档**:
-- [API 参考](../api/api_reference.md) - Context 和 Dataset API
+- [API 参考](../api/api_reference.md) - Context API
 - [配置参考](../api/config_reference.md) - 所有配置选项
 
 ---
