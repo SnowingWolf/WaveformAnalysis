@@ -28,6 +28,7 @@ Plugins Builtin 子模块 - 内置标准插件
 from .cpu import (
     ADVANCED_PEAK_DTYPE,
     WAVEFORM_WIDTH_DTYPE,
+    WAVEFORM_WIDTH_INTEGRAL_DTYPE,
     CacheAnalysisPlugin,
     ChargesPlugin,
     DataFramePlugin,
@@ -45,6 +46,7 @@ from .cpu import (
     StWaveformsPlugin,
     WaveformsPlugin,
     WaveformWidthPlugin,
+    WaveformWidthIntegralPlugin,
 )
 
 # 流式插件
@@ -84,6 +86,8 @@ __all__ = [
     "ADVANCED_PEAK_DTYPE",
     "WaveformWidthPlugin",
     "WAVEFORM_WIDTH_DTYPE",
+    "WaveformWidthIntegralPlugin",
+    "WAVEFORM_WIDTH_INTEGRAL_DTYPE",
     "CacheAnalysisPlugin",
     # 流式插件
     "SignalPeaksStreamPlugin",

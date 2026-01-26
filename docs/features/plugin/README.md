@@ -8,35 +8,35 @@
 
 ## 📚 文档列表
 
-| 文档 | 时间 | 难度 | 说明 |
-|------|------|------|------|
-| [SIMPLE_PLUGIN_GUIDE.md](SIMPLE_PLUGIN_GUIDE.md) | 10 分钟 | ⭐ 入门 | 最简单的插件教程 - 从零开始 |
-| [SIGNAL_PROCESSING_PLUGINS.md](SIGNAL_PROCESSING_PLUGINS.md) | 15 分钟 | ⭐⭐⭐ 高级 | 信号处理插件文档 |
-| [STREAMING_PLUGINS_GUIDE.md](STREAMING_PLUGINS_GUIDE.md) | 20 分钟 | ⭐⭐⭐ 高级 | 流式插件开发指南 |
-| [PLUGIN_FEATURE.md](PLUGIN_FEATURE.md) | 15 分钟 | ⭐⭐⭐ 高级 | Strax 插件适配器 |
+| 文档 | 说明 |
+| --- | --- |
+| [SIMPLE_PLUGIN_GUIDE.md](SIMPLE_PLUGIN_GUIDE.md) | 最简单的插件教程 - 从零开始 |
+| [SIGNAL_PROCESSING_PLUGINS.md](SIGNAL_PROCESSING_PLUGINS.md) | 信号处理插件文档 |
+| [STREAMING_PLUGINS_GUIDE.md](STREAMING_PLUGINS_GUIDE.md) | 流式插件开发指南 |
+| [PLUGIN_FEATURE.md](PLUGIN_FEATURE.md) | Strax 插件适配器 |
 
 ---
 
 ## 🎓 学习路径
 
-### 插件开发入门（40 分钟）
+### 插件开发入门
 
 ```
-1. SIMPLE_PLUGIN_GUIDE.md（10 分钟）- 最简单的插件
+1. SIMPLE_PLUGIN_GUIDE.md - 最简单的插件
    ↓
-2. [插件开发完整指南](../../api/plugin_guide.md)（30 分钟）- 深入学习
+2. [插件开发完整指南](../../api/plugin_guide.md)- 深入学习
 ```
 
-### 高级插件开发（1.5 小时）
+### 高级插件开发
 
 ```
-1. 插件开发入门（40 分钟）
+1. 插件开发入门
    ↓
-2. SIGNAL_PROCESSING_PLUGINS.md（15 分钟）- 信号处理插件
+2. SIGNAL_PROCESSING_PLUGINS.md - 信号处理插件
    ↓
-3. STREAMING_PLUGINS_GUIDE.md（20 分钟）- 流式插件
+3. STREAMING_PLUGINS_GUIDE.md - 流式插件
    ↓
-4. PLUGIN_FEATURE.md（15 分钟）- Strax 适配
+4. PLUGIN_FEATURE.md - Strax 适配
 ```
 
 ---
