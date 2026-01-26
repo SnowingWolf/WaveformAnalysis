@@ -197,7 +197,20 @@ class Context(CacheMixin, PluginMixin):
             self._validate_storage_backend(storage)
             self.storage = storage
         else:
-            self.storage = MemmapStorage(work_dir=storage_dir, profiler=self.profiler)
+            compression = self.config.get("compression")
+            compression_kwargs = self.config.get("compression_kwargs")
+            enable_checksum = self.config.get("enable_checksum", False)
+            verify_on_load = self.config.get("verify_on_load", False)
+            checksum_algorithm = self.config.get("checksum_algorithm", "xxhash64")
+            self.storage = MemmapStorage(
+                work_dir=storage_dir,
+                profiler=self.profiler,
+                compression=compression,
+                compression_kwargs=compression_kwargs,
+                enable_checksum=enable_checksum,
+                checksum_algorithm=checksum_algorithm,
+                verify_on_load=verify_on_load,
+            )
 
         # Setup logger
 

@@ -69,6 +69,7 @@ class RawFilesPlugin(Plugin):
             daq_adapter=daq_adapter,
         )
 
+
 class WaveformsPlugin(Plugin):
     """Plugin to extract waveforms from raw files."""
 
@@ -104,8 +105,6 @@ class WaveformsPlugin(Plugin):
             help="Chunk size for CSV reading (None=read entire file, enables PyArrow; set value to enable chunked reading but disables PyArrow)",
         ),
     }
-    
-    
 
     def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
         """
@@ -233,7 +232,7 @@ class WaveformsPlugin(Plugin):
         # 双层并行架构：
         # - 外层：通道级并行（channel_workers 个通道同时处理）
         # - 内层：文件级并行（每个通道内 n_jobs 个文件同时处理）
-        # 两层并行可以叠加使用，实现最大性能提升（通常 4-12 倍）
+        # 两层并行可以叠加使用
         return get_waveforms(
             raw_filess=raw_files,
             show_progress=show_progress,
@@ -245,6 +244,7 @@ class WaveformsPlugin(Plugin):
             use_process_pool=use_process_pool,
             chunksize=chunksize,
         )
+
 
 class StWaveformsPlugin(Plugin):
     """Plugin to structure waveforms into NumPy arrays."""
@@ -263,6 +263,7 @@ class StWaveformsPlugin(Plugin):
 
     def _get_record_dtype(self, daq_adapter: Optional[str]) -> np.dtype:
         from waveform_analysis.core.processing.processor import WaveformStructConfig
+
         if daq_adapter:
             config = WaveformStructConfig.from_adapter(daq_adapter)
         else:
@@ -340,6 +341,7 @@ class StWaveformsPlugin(Plugin):
 
         # 根据配置创建 WaveformStruct
         from waveform_analysis.core.processing.processor import WaveformStructConfig
+
         if daq_adapter:
             config = WaveformStructConfig.from_adapter(daq_adapter)
         else:
@@ -356,6 +358,7 @@ class StWaveformsPlugin(Plugin):
             start_channel_slice=start_channel_slice,  # 保留参数以兼容，但不再使用
         )
         return st_waveforms
+
 
 class HitFinderPlugin(Plugin):
     """Example implementation of the HitFinder as a plugin."""
@@ -400,6 +403,7 @@ class HitFinderPlugin(Plugin):
             hits = find_hits(waves_2d, st_ch["baseline"], threshold=threshold)
             hits_list.append(hits)
         return hits_list
+
 
 class PeaksPlugin(Plugin):
     """Plugin to compute peak features from structured waveforms."""
@@ -481,7 +485,6 @@ class ChargesPlugin(Plugin):
         processor = WaveformProcessor(n_channels=len(st_waveforms))
         _, charges = processor.compute_basic_features(st_waveforms, charge_range=charge_range)
         return charges
-
 
 
 class DataFramePlugin(Plugin):
