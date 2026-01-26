@@ -33,6 +33,7 @@ RECORDS_DTYPE = export(
     ),
     name="RECORDS_DTYPE",
 )
+EVENTS_DTYPE = export(RECORDS_DTYPE, name="EVENTS_DTYPE")
 
 
 @export
@@ -40,6 +41,9 @@ RECORDS_DTYPE = export(
 class RecordsBundle:
     records: np.ndarray
     wave_pool: np.ndarray
+
+
+EventsBundle = export(RecordsBundle, name="EventsBundle")
 
 
 def _clip_wave_to_uint16(wave: np.ndarray) -> np.ndarray:

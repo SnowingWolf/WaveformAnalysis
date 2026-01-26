@@ -123,7 +123,19 @@ def records_view(source: Any, run_id: str) -> RecordsView:
     """
     Factory function to create a RecordsView from a Context-like source.
     """
-    from waveform_analysis.core.plugins.builtin.cpu.records import get_records_bundle
+    provided = []
+    if hasattr(source, "list_provided_data"):
+        try:
+            provided = source.list_provided_data()
+        except Exception:
+            provided = []
 
-    bundle = get_records_bundle(source, run_id)
+    if "events" in provided:
+        from waveform_analysis.core.plugins.builtin.cpu.events import get_events_bundle
+
+        bundle = get_events_bundle(source, run_id)
+    else:
+        from waveform_analysis.core.plugins.builtin.cpu.records import get_records_bundle
+
+        bundle = get_records_bundle(source, run_id)
     return RecordsView(bundle.records, bundle.wave_pool)
