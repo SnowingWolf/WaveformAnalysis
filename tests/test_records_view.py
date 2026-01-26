@@ -3,7 +3,7 @@
 import numpy as np
 
 from waveform_analysis.core.data.records_view import RecordsView
-from waveform_analysis.core.processing.records import RECORDS_DTYPE
+from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
 
 
 def _make_sample_view():
