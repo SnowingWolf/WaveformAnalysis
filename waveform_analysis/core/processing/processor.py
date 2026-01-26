@@ -526,9 +526,13 @@ class WaveformStruct:
             channel_mapping = create_channel_mapping(all_board_channel_pairs)
             logger.debug(f"创建通道映射: {channel_mapping}")
         else:
-            # 如果没有找到 BOARD/CHANNEL 数据，使用回退逻辑
-            logger.warning("未找到 BOARD/CHANNEL 数据，使用回退逻辑（基于列表索引）")
-            channel_mapping = None
+            message = (
+                "未找到 BOARD/CHANNEL 数据，无法建立通道映射。"
+                "请检查 daq_adapter/ColumnMapping 与 CSV 列布局是否匹配。"
+                f"当前列映射: board={cols.board}, channel={cols.channel}, "
+                f"timestamp={cols.timestamp}, samples_start={cols.samples_start}."
+            )
+            raise ValueError(message)
 
         # 第二步：使用映射处理每个通道
         if show_progress:
