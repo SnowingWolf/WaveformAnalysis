@@ -132,7 +132,10 @@ def _build_records_from_channels(
         if "channel" in ch.dtype.names:
             records["channel"][cursor:cursor + count] = ch["channel"]
         else:
-            records["channel"][cursor:cursor + count] = channel_fallback
+            raise ValueError(
+                "st_waveforms missing required 'channel' field; "
+                "cannot derive channel mapping from list indices."
+            )
 
         if "baseline" in ch.dtype.names:
             records["baseline"][cursor:cursor + count] = ch["baseline"]
