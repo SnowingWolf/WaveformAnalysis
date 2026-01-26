@@ -8,24 +8,24 @@
 
 ## 📚 文档列表
 
-| 文档 | 时间 | 难度 | 说明 |
-|------|------|------|------|
-| [EXECUTOR_MANAGER_GUIDE.md](EXECUTOR_MANAGER_GUIDE.md) | 20 分钟 | ⭐⭐⭐ 高级 | 执行器管理框架完整指南（架构、使用、最佳实践） |
-| [PROGRESS_TRACKING_GUIDE.md](PROGRESS_TRACKING_GUIDE.md) | 10 分钟 | ⭐⭐ 中级 | 进度追踪功能使用指南 |
-| [IO_CSV_HEADER_HANDLING.md](IO_CSV_HEADER_HANDLING.md) | 10 分钟 | ⭐⭐ 中级 | CSV 文件头处理策略 |
+| 文档 | 说明 |
+| --- | --- |
+| [EXECUTOR_MANAGER_GUIDE.md](EXECUTOR_MANAGER_GUIDE.md) | 执行器管理框架完整指南（架构、使用、最佳实践） |
+| [PROGRESS_TRACKING_GUIDE.md](PROGRESS_TRACKING_GUIDE.md) | 进度追踪功能使用指南 |
+| [IO_CSV_HEADER_HANDLING.md](IO_CSV_HEADER_HANDLING.md) | CSV 文件头处理策略 |
 
 ---
 
 ## 🎓 学习路径
 
-### 高级功能入门（40 分钟）
+### 高级功能入门
 
 ```
-1. PROGRESS_TRACKING_GUIDE.md（10 分钟）- 进度追踪
+1. PROGRESS_TRACKING_GUIDE.md - 进度追踪
    ↓
-2. EXECUTOR_MANAGER_GUIDE.md（20 分钟）- 执行器管理
+2. EXECUTOR_MANAGER_GUIDE.md - 执行器管理
    ↓
-3. IO_CSV_HEADER_HANDLING.md（10 分钟）- CSV 处理
+3. IO_CSV_HEADER_HANDLING.md - CSV 处理
 ```
 
 ---

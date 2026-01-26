@@ -161,13 +161,13 @@ wave, baseline = dataset.get_waveform_at(0)  # ✅ 有效
 
 ## 📋 文档导航
 
-| 需求 | 文件 | 时间 |
-|------|------|------|
-| 极速上手 | `QUICK_REFERENCE.md` | ⚡ 2 分钟 |
-| 快速答案 | `HOW_TO_SKIP_WAVEFORMS.md` | 🎯 5 分钟 |
-| 完整指南 | `docs/MEMORY_OPTIMIZATION.md` | 📖 15 分钟 |
-| 代码示例 | `examples/skip_waveforms.py` | 💻 可运行 |
-| 性能测试 | `scripts/demo_skip_waveforms.py` | 📊 可运行 |
+| 需求 | 文件 |
+| --- | --- |
+| 极速上手 | `QUICK_REFERENCE.md` |
+| 快速答案 | `HOW_TO_SKIP_WAVEFORMS.md` |
+| 完整指南 | `docs/MEMORY_OPTIMIZATION.md` |
+| 代码示例 | `examples/skip_waveforms.py` |
+| 性能测试 | `scripts/demo_skip_waveforms.py` |
 
 ---
 
@@ -188,22 +188,22 @@ wave, baseline = dataset.get_waveform_at(0)  # ✅ 有效
 
 ## 🎯 快速开始
 
-### 1️⃣ 查看快速参考（2 分钟）
+### 1️⃣ 查看快速参考
 ```bash
 cat QUICK_REFERENCE.md
 ```
 
-### 2️⃣ 查看快速答案（5 分钟）
+### 2️⃣ 查看快速答案
 ```bash
 cat HOW_TO_SKIP_WAVEFORMS.md
 ```
 
-### 3️⃣ 运行演示脚本（5 分钟）
+### 3️⃣ 运行演示脚本
 ```bash
 python scripts/demo_skip_waveforms.py
 ```
 
-### 4️⃣ 查看完整示例（10 分钟）
+### 4️⃣ 查看完整示例
 ```bash
 python examples/skip_waveforms.py
 ```
@@ -251,9 +251,9 @@ dataset = WaveformDataset(..., load_waveforms=False)
 
 ## 📚 最后的建议
 
-1. **第一次使用**：阅读 `QUICK_REFERENCE.md`（2 分钟）
-2. **需要详细说明**：查看 `HOW_TO_SKIP_WAVEFORMS.md`（5 分钟）
-3. **想要完整指南**：阅读 `docs/MEMORY_OPTIMIZATION.md`（15 分钟）
+1. **第一次使用**：阅读 `QUICK_REFERENCE.md`
+2. **需要详细说明**：查看 `HOW_TO_SKIP_WAVEFORMS.md`
+3. **想要完整指南**：阅读 `docs/MEMORY_OPTIMIZATION.md`
 4. **想看代码**：运行 `examples/skip_waveforms.py`
 5. **开始使用**：在你的代码中添加 `load_waveforms=False`
 

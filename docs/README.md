@@ -4,7 +4,7 @@
 
 ---
 
-## 🚀 快速开始（5 分钟）
+## 🚀 快速开始
 
 > ✅ 推荐路径：新代码请使用 **Context**。
 
@@ -94,32 +94,32 @@ peaks = ctx.get_data(run_id, "peaks")
 
 ## 🎯 按场景查找
 
-| 我想... | 文档 | 时间 |
-|---------|------|------|
-| 可视化插件依赖 | [血缘图预览](features/context/LINEAGE_VISUALIZATION_GUIDE.md) | 15 分钟 |
-| 预览执行计划 | [预览执行](features/context/PREVIEW_EXECUTION.md) | 15 分钟 |
-| 使用信号处理插件 | [信号处理插件](features/plugin/SIGNAL_PROCESSING_PLUGINS.md) | 15 分钟 |
-| 查看内置插件详解 | [插件详解](plugins/README.md) | 10 分钟 |
-| 查看 DAQ 运行概览 | [DAQ 运行分析器](features/utils/DAQ_ANALYZER_GUIDE.md) | 10 分钟 |
-| 并行处理数据 | [执行器管理](features/advanced/EXECUTOR_MANAGER_GUIDE.md) | 20 分钟 |
-| 开发自定义插件 | [插件开发教程](features/plugin/SIMPLE_PLUGIN_GUIDE.md) | 10 分钟 |
-| 理解系统架构 | [系统架构](architecture/ARCHITECTURE.md) | 20 分钟 |
+| 我想... | 文档 |
+| --- | --- |
+| 可视化插件依赖 | [血缘图预览](features/context/LINEAGE_VISUALIZATION_GUIDE.md) |
+| 预览执行计划 | [预览执行](features/context/PREVIEW_EXECUTION.md) |
+| 使用信号处理插件 | [信号处理插件](features/plugin/SIGNAL_PROCESSING_PLUGINS.md) |
+| 查看内置插件详解 | [插件详解](plugins/README.md) |
+| 查看 DAQ 运行概览 | [DAQ 运行分析器](features/utils/DAQ_ANALYZER_GUIDE.md) |
+| 并行处理数据 | [执行器管理](features/advanced/EXECUTOR_MANAGER_GUIDE.md) |
+| 开发自定义插件 | [插件开发教程](features/plugin/SIMPLE_PLUGIN_GUIDE.md) |
+| 理解系统架构 | [系统架构](architecture/ARCHITECTURE.md) |
 
 ---
 
 ## 🎓 推荐学习路径
 
-### 新手路径（30 分钟）
+### 新手路径
 ```
 快速上手 → 常见示例 → Context 使用
 ```
 
-### 使用者路径（1 小时）
+### 使用者路径
 ```
 血缘图预览 → 预览执行 → 使用内置插件 → 并行处理
 ```
 
-### 开发者路径（2 小时）
+### 开发者路径
 ```
 插件开发教程 → 系统架构 → API 参考 → 开发规范
 ```

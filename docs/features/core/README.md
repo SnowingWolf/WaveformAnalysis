@@ -8,24 +8,24 @@
 
 ## 📚 文档列表
 
-| 文档 | 时间 | 难度 | 说明 |
-|------|------|------|------|
-| [TIME_FIELD_UNIFICATION.md](TIME_FIELD_UNIFICATION.md) | 10 分钟 | ⭐⭐ 中级 | time/timestamp 字段统一与单位规则 |
-| [ABSOLUTE_TIME_GUIDE.md](ABSOLUTE_TIME_GUIDE.md) | 15 分钟 | ⭐⭐ 中级 | 绝对时间查询与 epoch 管理 |
-| [DAQ_ADAPTER_GUIDE.md](DAQ_ADAPTER_GUIDE.md) | 15 分钟 | ⭐⭐ 中级 | DAQ 适配器时间基准与格式配置 |
+| 文档 | 说明 |
+| --- | --- |
+| [TIME_FIELD_UNIFICATION.md](TIME_FIELD_UNIFICATION.md) | time/timestamp 字段统一与单位规则 |
+| [ABSOLUTE_TIME_GUIDE.md](ABSOLUTE_TIME_GUIDE.md) | 绝对时间查询与 epoch 管理 |
+| [DAQ_ADAPTER_GUIDE.md](DAQ_ADAPTER_GUIDE.md) | DAQ 适配器时间基准与格式配置 |
 
 ---
 
 ## 🎓 学习路径
 
-### 核心机制入门（40 分钟）
+### 核心机制入门
 
 ```
-1. TIME_FIELD_UNIFICATION.md（10 分钟）- 时间字段与单位规则
+1. TIME_FIELD_UNIFICATION.md - 时间字段与单位规则
    ↓
-2. ABSOLUTE_TIME_GUIDE.md（15 分钟）- 绝对时间查询
+2. ABSOLUTE_TIME_GUIDE.md - 绝对时间查询
    ↓
-3. DAQ_ADAPTER_GUIDE.md（15 分钟）- DAQ 时间基准配置
+3. DAQ_ADAPTER_GUIDE.md - DAQ 时间基准配置
 ```
 
 ---

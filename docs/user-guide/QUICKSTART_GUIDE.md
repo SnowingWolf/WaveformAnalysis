@@ -2,9 +2,8 @@
 
 **导航**: [文档中心](../README.md) > [用户指南](README.md) > 快速开始指南
 
-> 阅读时间: 10 分钟 | 难度: ⭐ 入门
 
-本文档帮助你在 5 分钟内快速上手 WaveformAnalysis。
+本文档帮助你快速上手 WaveformAnalysis。
 
 ---
 

@@ -8,20 +8,20 @@
 
 ## 📚 文档列表
 
-| 文档 | 时间 | 难度 | 说明 |
-|------|------|------|------|
-| [api_reference.md](api_reference.md) | 按需 | ⭐⭐ 中级 | 完整 API 参考文档（Context） |
-| [api_reference.html](api_reference.html) | 按需 | ⭐⭐ 中级 | API 参考文档（HTML 版本） |
-| [config_reference.md](config_reference.md) | 15 分钟 | ⭐⭐ 中级 | 所有插件的配置选项参考 |
-| [SIMPLE_PLUGIN_GUIDE.md](../features/plugin/SIMPLE_PLUGIN_GUIDE.md) | 10 分钟 | ⭐ 入门 | 最简单的插件教程 - 从零开始 |
-| [plugin_guide.md](plugin_guide.md) | 30 分钟 | ⭐⭐⭐ 高级 | 插件开发完整指南 |
-| [SIGNAL_PROCESSING_PLUGINS.md](../features/plugin/SIGNAL_PROCESSING_PLUGINS.md) | 15 分钟 | ⭐⭐⭐ 高级 | 信号处理插件文档 |
+| 文档 | 说明 |
+| --- | --- |
+| [api_reference.md](api_reference.md) | 完整 API 参考文档（Context） |
+| [api_reference.html](api_reference.html) | API 参考文档（HTML 版本） |
+| [config_reference.md](config_reference.md) | 所有插件的配置选项参考 |
+| [SIMPLE_PLUGIN_GUIDE.md](../features/plugin/SIMPLE_PLUGIN_GUIDE.md) | 最简单的插件教程 - 从零开始 |
+| [plugin_guide.md](plugin_guide.md) | 插件开发完整指南 |
+| [SIGNAL_PROCESSING_PLUGINS.md](../features/plugin/SIGNAL_PROCESSING_PLUGINS.md) | 信号处理插件文档 |
 
 ---
 
 ## 🎓 学习路径
 
-### API 查找路径（10 分钟）
+### API 查找路径
 
 ```
 1. api_reference.md - 查找需要的方法
@@ -31,16 +31,16 @@
 3. 应用到自己的代码中
 ```
 
-### 插件开发路径（1 小时）
+### 插件开发路径
 
 ```
-1. SIMPLE_PLUGIN_GUIDE.md（10 分钟）- 写第一个插件
+1. SIMPLE_PLUGIN_GUIDE.md - 写第一个插件
    ↓
-2. plugin_guide.md（30 分钟）- 深入学习插件开发
+2. plugin_guide.md - 深入学习插件开发
    ↓
-3. config_reference.md（15 分钟）- 了解配置选项
+3. config_reference.md - 了解配置选项
    ↓
-4. api_reference.md（按需）- 查阅相关 API
+4. api_reference.md（按需） - 查阅相关 API
 ```
 
 ---

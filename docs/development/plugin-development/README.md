@@ -8,21 +8,21 @@
 
 ## 📚 文档列表
 
-| 文档 | 时间 | 难度 | 说明 |
-|------|------|------|------|
-| [SIMPLE_PLUGIN_GUIDE.md](../../features/plugin/SIMPLE_PLUGIN_GUIDE.md) | 10 分钟 | ⭐ 入门 | 最简单的插件教程 |
-| [plugin_guide.md](plugin_guide.md) | 30 分钟 | ⭐⭐⭐ 高级 | 插件开发完整指南 |
+| 文档 | 说明 |
+| --- | --- |
+| [SIMPLE_PLUGIN_GUIDE.md](../../features/plugin/SIMPLE_PLUGIN_GUIDE.md) | 最简单的插件教程 |
+| [plugin_guide.md](plugin_guide.md) | 插件开发完整指南 |
 
 ---
 
 ## 🎓 学习路径
 
-### 插件开发入门（40 分钟）
+### 插件开发入门
 
 ```
-1. SIMPLE_PLUGIN_GUIDE.md（10 分钟）- 第一个插件
+1. SIMPLE_PLUGIN_GUIDE.md - 第一个插件
    ↓
-2. plugin_guide.md（30 分钟）- 深入学习
+2. plugin_guide.md - 深入学习
 ```
 
 ---

@@ -8,9 +8,9 @@
 
 ## 📚 文档列表
 
-| 文档 | 时间 | 难度 | 说明 |
-|------|------|------|------|
-| [IMPORT_STYLE_GUIDE.md](IMPORT_STYLE_GUIDE.md) | 15 分钟 | ⭐⭐ 中级 | Python 导入规范 |
+| 文档 | 说明 |
+| --- | --- |
+| [IMPORT_STYLE_GUIDE.md](IMPORT_STYLE_GUIDE.md) | Python 导入规范 |
 
 ---
 

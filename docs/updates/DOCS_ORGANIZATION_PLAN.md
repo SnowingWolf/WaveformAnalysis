@@ -182,7 +182,6 @@ docs/
    title: 快速入门
    category: getting-started
    difficulty: beginner
-   time: 10 分钟
    ---
    ```
 

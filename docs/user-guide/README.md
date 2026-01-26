@@ -18,10 +18,10 @@
 
 ### 🚀 快速开始
 
-| 文档 | 时间 | 说明 |
-|------|------|------|
-| [QUICKSTART_GUIDE.md](QUICKSTART_GUIDE.md) | 10 分钟 | 5分钟快速上手，包含代码模板 |
-| [EXAMPLES_GUIDE.md](EXAMPLES_GUIDE.md) | 20 分钟 | 常见场景示例集合 |
+| 文档 | 说明 |
+| --- | --- |
+| [QUICKSTART_GUIDE.md](QUICKSTART_GUIDE.md) | 快速上手，包含代码模板 |
+| [EXAMPLES_GUIDE.md](EXAMPLES_GUIDE.md) | 常见场景示例集合 |
 
 ### 🎛️ [Context 使用](../features/context/README.md)
 
@@ -31,20 +31,20 @@
 
 ## 🎓 学习路径
 
-### 快速入门（30 分钟）
+### 快速入门
 
 ```
-1. QUICKSTART_GUIDE.md（10 分钟）- 快速上手
+1. QUICKSTART_GUIDE.md - 快速上手
    ↓
-2. EXAMPLES_GUIDE.md（20 分钟）- 常见场景
+2. EXAMPLES_GUIDE.md - 常见场景
 ```
 
-### 进阶使用（2 小时）
+### 进阶使用
 
 ```
-1. 快速入门（30 分钟）
+1. 快速入门
    ↓
-2. Context 使用指南（1.5 小时）
+2. Context 使用指南
 ```
 
 ---

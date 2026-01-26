@@ -2,7 +2,6 @@
 
 **导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [core](README.md) > 时间字段统一方案
 
-> 阅读时间: 10 分钟 | 难度: ⭐⭐ 进阶
 
 本文档说明 WaveformAnalysis 中时间字段的统一设计方案，包括 `time` 和 `timestamp` 字段的定义、用途和实现细节。
 
