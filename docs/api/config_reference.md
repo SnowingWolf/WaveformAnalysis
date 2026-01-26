@@ -17,6 +17,7 @@
 - [df](#df)
 - [df_events](#df-events)
 - [df_paired](#df-paired)
+- [events_grouped](#events-grouped)
 
 ---
 
@@ -293,6 +294,58 @@ Plugin to pair events across channels.
 ### 配置选项
 
 该插件没有配置选项。
+
+---
+
+---
+
+## events_grouped
+
+**类名**: `EventsGroupedPlugin`
+**版本**: 0.1.0
+**提供数据**: `events_grouped`
+**依赖**: events_df
+Group events_df into multi-channel events by time window.
+
+### 配置选项
+
+#### `time_window_ns`
+
+- **类型**: `<class 'float'>`
+- **默认值**: `100.0`
+- **说明**: Grouping time window in ns (converted to ps internally).
+
+**使用示例**:
+
+```python
+ctx.set_config({'time_window_ns': <value>}, plugin_name='events_grouped')
+```
+
+---
+#### `use_numba`
+
+- **类型**: `<class 'bool'>`
+- **默认值**: `True`
+- **说明**: Enable numba acceleration when available.
+
+**使用示例**:
+
+```python
+ctx.set_config({'use_numba': <value>}, plugin_name='events_grouped')
+```
+
+---
+#### `n_processes`
+
+- **类型**: `<class 'int'>`
+- **默认值**: `None`
+- **说明**: Process count for multiprocessing; None or <=1 disables it.
+
+**使用示例**:
+
+```python
+ctx.set_config({'n_processes': <value>}, plugin_name='events_grouped')
+```
 
 ---
 
