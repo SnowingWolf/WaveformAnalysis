@@ -71,7 +71,9 @@ from .processor import (
     group_multi_channel_hits,
 )
 from .records_builder import (
+    EVENTS_DTYPE,
     RECORDS_DTYPE,
+    EventsBundle,
     RecordsBundle,
     build_records_from_st_waveforms,
     build_records_from_st_waveforms_sharded,
@@ -91,7 +93,9 @@ __all__ = [
     "RECORD_DTYPE",
     "PEAK_DTYPE",
     "RECORDS_DTYPE",
+    "EVENTS_DTYPE",
     "RecordsBundle",
+    "EventsBundle",
     "build_records_from_st_waveforms",
     "build_records_from_st_waveforms_sharded",
     "build_records_from_waveforms",

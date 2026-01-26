@@ -28,6 +28,7 @@
     - [2. Merge 阶段（k-way merge）](#2-merge-阶段k-way-merge)
   - [并行与 GPU 职责划分](#并行与-gpu-职责划分)
   - [RecordsView 与用户 API](#recordsview-与用户-api)
+  - [插件使用指南](#插件使用指南)
   - [缓存与存储布局](#缓存与存储布局)
   - [向后兼容性](#向后兼容性)
   - [阶段规划](#阶段规划)
@@ -198,7 +199,36 @@ subset = rv.query_time_window(t_min, t_max)  # 使用 timestamp
 API 约定：
 - `query_time_window()` **只使用 `timestamp`**
 - `time` 仅用于显示/对齐，不进入默认查询逻辑
-- `records` 为公开插件产物，`wave_pool` 作为内部 bundle，由 `RecordsView` 访问
+- `events`（推荐）或 `records`（兼容）为公开插件产物
+- `wave_pool` 作为内部 bundle，由 `RecordsView` 访问
+
+---
+
+## 插件使用指南
+
+### 1. Events 管线（基于 records/wave_pool）
+
+推荐用于变长波形/大规模数据流。插件链：
+
+```
+RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin → EventsPlugin → EventFramePlugin
+```
+
+输出：
+- `events`: 结构化事件索引表
+- `events_df`: 事件 DataFrame（timestamp/charge/peak/channel）
+
+### 2. st_waveforms 管线（现有）
+
+沿用当前稳定链路：
+
+```
+RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin → PeaksPlugin → ChargesPlugin
+             → DataFramePlugin → GroupedEventsPlugin → PairedEventsPlugin
+```
+
+输出：
+- `df` / `df_events` / `df_paired`
 
 ---
 
@@ -208,7 +238,7 @@ API 约定：
 - `wave_pool`: 内部 bundle 数据（当前不作为公开 data_name）
 
 缓存策略：
-- `RecordsPlugin` lineage 统一驱动 `records`/`wave_pool` 一致性
+- `EventsPlugin` lineage 统一驱动 `records`/`wave_pool` 一致性
 - merge 结束后原子写入 (`.tmp` → rename)
 - 两者保持一致性（版本/配置/依赖一致）
 
@@ -221,8 +251,8 @@ API 约定：
 ## 向后兼容性
 
 - 现有 `st_waveforms` 管线保留并继续支持
-- `records` 管线直接依赖 `raw_files`，与 `st_waveforms` 解耦
-- 新增 `records` 不替代旧数据类型，`wave_pool` 保持为内部数据
+- `events`/`records` 管线当前默认从 `st_waveforms` 构建（`v1725` 直接走 `raw_files`）
+- 新增 `events` 不替代旧数据类型，`wave_pool` 保持为内部数据
 - 可选适配层：
   - `records → st_waveforms` 只读视图（供旧特征插件复用）
   - 逐步迁移新特征插件基于 RecordsView
@@ -232,7 +262,7 @@ API 约定：
 ## 阶段规划
 
 1. **Phase 1**: 数据模型与存储实现
-   - 新增 `RecordsPlugin`（内部 wave_pool bundle）
+   - 新增 `EventsPlugin` / `EventFramePlugin`（内部 wave_pool bundle）
    - 基础 memmap 存储与 lineage 记录
 
 2. **Phase 2**: RecordsView 与查询
@@ -240,7 +270,7 @@ API 约定：
    - timestamp-based 时间窗口查询
 
 3. **Phase 3**: Streaming 与 GPU 插件整合
-   - StreamingRecordsPlugin
+   - StreamingEventsPlugin
    - GPU 侧特征插件对接
 
 ---

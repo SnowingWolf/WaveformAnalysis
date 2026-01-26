@@ -31,6 +31,8 @@ from .cpu import (
     CacheAnalysisPlugin,
     ChargesPlugin,
     DataFramePlugin,
+    EventFramePlugin,
+    EventsPlugin,
     FilteredWaveformsPlugin,
     GroupedEventsPlugin,
     HitFinderPlugin,
@@ -72,6 +74,8 @@ __all__ = [
     "GroupedEventsPlugin",
     "PairedEventsPlugin",
     "RecordsPlugin",
+    "EventsPlugin",
+    "EventFramePlugin",
     # 信号处理插件
     "FilteredWaveformsPlugin",
     "SignalPeaksPlugin",
