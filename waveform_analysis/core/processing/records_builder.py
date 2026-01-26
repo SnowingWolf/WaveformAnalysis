@@ -264,36 +264,6 @@ def build_records_from_v1725_files(
 
 
 @export
-def build_records_from_waveforms(
-    waveforms: List[np.ndarray],
-    dt_ns: int,
-) -> RecordsBundle:
-    if isinstance(waveforms, np.ndarray):
-        waveforms = [waveforms]
-
-    if not waveforms:
-        return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
-
-    waves = []
-    for ch in waveforms:
-        if ch is None or len(ch) == 0:
-            continue
-        if ch.dtype.names is None or "wave" not in ch.dtype.names:
-            raise ValueError("waveforms must contain structured arrays with 'wave' field")
-        has_trunc = "trunc" in ch.dtype.names
-        has_channel = "channel" in ch.dtype.names
-        for rec in ch:
-            timestamp_ps = int(rec["timestamp"]) * int(dt_ns) * 1000
-            baseline = int(rec["baseline"]) if "baseline" in ch.dtype.names else 0
-            flags = 1 if (has_trunc and bool(rec["trunc"])) else 0
-            channel = int(rec["channel"]) if has_channel else 0
-            waveform = np.asarray(rec["wave"])
-            waves.append((channel, timestamp_ps, baseline, flags, waveform))
-
-    return _build_records_from_wave_list(waves, default_dt_ns=dt_ns)
-
-
-@export
 def merge_records_parts(parts: Sequence[RecordsBundle]) -> RecordsBundle:
     """
     Merge sorted records parts and build a global wave_pool.

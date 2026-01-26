@@ -242,6 +242,13 @@ RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin → PeaksPlugin → Cha
 - merge 结束后原子写入 (`.tmp` → rename)
 - 两者保持一致性（版本/配置/依赖一致）
 
+Lineage 细节（适配器分支）：
+- `RecordsPlugin.get_lineage()` 会把实际生效的 `daq_adapter` 写入 lineage，避免不同适配器复用同一缓存键。
+- 依赖固定为 `raw_files`，即便内部可能构建 `st_waveforms`，对外 lineage 仍保持稳定的上游边。
+- `EventsPlugin.get_lineage()` 会根据 `daq_adapter` 分支依赖：
+  - `v1725` → `depends_on = {"raw_files": ...}`
+  - 其他适配器 → `depends_on = {"st_waveforms": ...}`
+
 可选实现方式：
 - 引入 `RecordsBundle`（包含 `records` + `wave_pool`）
 - `Context` 使用内部 bundle 缓存 `wave_pool`，不暴露为公开数据名
