@@ -1,10 +1,6 @@
-**导航**: [文档中心](../README.md) > [API 参考](README.md) > 配置参考
-
----
-
 # 配置参考文档
 
-> 自动生成于 2026-01-11 19:23:26
+> 自动生成于 2026-01-26 13:44:28
 
 本文档列出了所有插件的配置选项。
 
@@ -16,7 +12,6 @@
 - [waveforms](#waveforms)
 - [st_waveforms](#st-waveforms)
 - [hits](#hits)
-- [basic_features](#basic-features)
 - [peaks](#peaks)
 - [charges](#charges)
 - [df](#df)
@@ -28,39 +23,13 @@
 ## raw_files
 
 **类名**: `RawFilesPlugin`
-**版本**: 0.0.0
+**版本**: 0.0.2
 **提供数据**: `raw_files`
 **依赖**: 无
 Plugin to find raw CSV files.
 
 ### 配置选项
 
-#### `n_channels`
-
-- **类型**: `<class 'int'>`
-- **默认值**: `2`
-- **说明**: Number of channels to load
-
-**使用示例**:
-
-```python
-ctx.set_config({'n_channels': <value>}, plugin_name='raw_files')
-```
-
----
-#### `start_channel_slice`
-
-- **类型**: `<class 'int'>`
-- **默认值**: `6`
-- **说明**: Starting channel index
-
-**使用示例**:
-
-```python
-ctx.set_config({'start_channel_slice': <value>}, plugin_name='raw_files')
-```
-
----
 #### `data_root`
 
 - **类型**: `<class 'str'>`
@@ -74,50 +43,37 @@ ctx.set_config({'data_root': <value>}, plugin_name='raw_files')
 ```
 
 ---
+#### `daq_adapter`
+
+- **类型**: `<class 'str'>`
+- **默认值**: `vx2730`
+- **说明**: DAQ adapter name (e.g., 'vx2730')
+
+**使用示例**:
+
+```python
+ctx.set_config({'daq_adapter': <value>}, plugin_name='raw_files')
+```
+
+---
 
 ---
 
 ## waveforms
 
 **类名**: `WaveformsPlugin`
-**版本**: 0.0.0
+**版本**: 0.0.2
 **提供数据**: `waveforms`
 **依赖**: raw_files
 Plugin to extract waveforms from raw files.
 
 ### 配置选项
 
-#### `start_channel_slice`
-
-- **类型**: `<class 'int'>`
-- **默认值**: `6`
-- **说明**: 
-
-**使用示例**:
-
-```python
-ctx.set_config({'start_channel_slice': <value>}, plugin_name='waveforms')
-```
-
----
-#### `n_channels`
-
-- **类型**: `<class 'int'>`
-- **默认值**: `2`
-- **说明**: 
-
-**使用示例**:
-
-```python
-ctx.set_config({'n_channels': <value>}, plugin_name='waveforms')
-```
-
----
 #### `channel_workers`
 
 - **类型**: `None`
 - **默认值**: `None`
-- **说明**: Number of parallel workers for channel-level processing (None=auto, uses min(n_channels, cpu_count))
+- **说明**: Number of parallel workers for channel-level processing (None=auto, uses min(len(raw_files), cpu_count))
 
 **使用示例**:
 
@@ -139,6 +95,58 @@ ctx.set_config({'channel_executor': <value>}, plugin_name='waveforms')
 ```
 
 ---
+#### `daq_adapter`
+
+- **类型**: `<class 'str'>`
+- **默认值**: `vx2730`
+- **说明**: DAQ adapter name (e.g., 'vx2730')
+
+**使用示例**:
+
+```python
+ctx.set_config({'daq_adapter': <value>}, plugin_name='waveforms')
+```
+
+---
+#### `n_jobs`
+
+- **类型**: `<class 'int'>`
+- **默认值**: `None`
+- **说明**: Number of parallel workers for file-level processing within each channel (None=auto, uses min(max_file_count, 50))
+
+**使用示例**:
+
+```python
+ctx.set_config({'n_jobs': <value>}, plugin_name='waveforms')
+```
+
+---
+#### `use_process_pool`
+
+- **类型**: `<class 'bool'>`
+- **默认值**: `False`
+- **说明**: Whether to use process pool for file-level parallelism (False=thread pool for I/O, True=process pool for CPU-intensive)
+
+**使用示例**:
+
+```python
+ctx.set_config({'use_process_pool': <value>}, plugin_name='waveforms')
+```
+
+---
+#### `chunksize`
+
+- **类型**: `<class 'int'>`
+- **默认值**: `None`
+- **说明**: Chunk size for CSV reading (None=read entire file, enables PyArrow; set value to enable chunked reading but disables PyArrow)
+
+**使用示例**:
+
+```python
+ctx.set_config({'chunksize': <value>}, plugin_name='waveforms')
+```
+
+---
 
 ---
 
@@ -152,7 +160,19 @@ Plugin to structure waveforms into NumPy arrays.
 
 ### 配置选项
 
-该插件没有配置选项。
+#### `daq_adapter`
+
+- **类型**: `<class 'str'>`
+- **默认值**: `vx2730`
+- **说明**: DAQ adapter name (default: 'vx2730').
+
+**使用示例**:
+
+```python
+ctx.set_config({'daq_adapter': <value>}, plugin_name='st_waveforms')
+```
+
+---
 
 ---
 
@@ -170,13 +190,13 @@ Example implementation of the HitFinder as a plugin.
 
 ---
 
-## basic_features
+## peaks
 
-**类名**: `BasicFeaturesPlugin`
+**类名**: `PeaksPlugin`
 **版本**: 0.0.0
-**提供数据**: `basic_features`
+**提供数据**: `peaks`
 **依赖**: st_waveforms
-Plugin to compute basic features (peaks and charges).
+Plugin to compute peak features from structured waveforms.
 
 ### 配置选项
 
@@ -184,42 +204,15 @@ Plugin to compute basic features (peaks and charges).
 
 - **类型**: `<class 'tuple'>`
 - **默认值**: `None`
-- **说明**: 
+- **说明**: 峰值计算范围 (start, end)
 
 **使用示例**:
 
 ```python
-ctx.set_config({'peaks_range': <value>}, plugin_name='basic_features')
+ctx.set_config({'peaks_range': <value>}, plugin_name='peaks')
 ```
 
 ---
-#### `charge_range`
-
-- **类型**: `<class 'tuple'>`
-- **默认值**: `None`
-- **说明**: 
-
-**使用示例**:
-
-```python
-ctx.set_config({'charge_range': <value>}, plugin_name='basic_features')
-```
-
----
-
----
-
-## peaks
-
-**类名**: `PeaksPlugin`
-**版本**: 0.0.0
-**提供数据**: `peaks`
-**依赖**: basic_features
-Plugin to provide peaks from basic_features.
-
-### 配置选项
-
-该插件没有配置选项。
 
 ---
 
@@ -228,12 +221,24 @@ Plugin to provide peaks from basic_features.
 **类名**: `ChargesPlugin`
 **版本**: 0.0.0
 **提供数据**: `charges`
-**依赖**: basic_features
-Plugin to provide charges from basic_features.
+**依赖**: st_waveforms
+Plugin to compute charge features from structured waveforms.
 
 ### 配置选项
 
-该插件没有配置选项。
+#### `charge_range`
+
+- **类型**: `<class 'tuple'>`
+- **默认值**: `(0, None)`
+- **说明**: 电荷计算范围 (start, end)，end=None 表示积分到波形末端
+
+**使用示例**:
+
+```python
+ctx.set_config({'charge_range': <value>}, plugin_name='charges')
+```
+
+---
 
 ---
 
@@ -294,5 +299,5 @@ Plugin to pair events across channels.
 
 ---
 
-**生成时间**: 2026-01-11 19:23:26
+**生成时间**: 2026-01-26 13:44:28
 **工具**: WaveformAnalysis DocGenerator

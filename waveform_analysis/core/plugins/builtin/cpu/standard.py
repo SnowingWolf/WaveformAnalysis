@@ -27,12 +27,10 @@ class RawFilesPlugin(Plugin):
 
     provides = "raw_files"
     description = "Scan the data directory and group raw CSV files by channel number."
-    version = "0.0.1"
+    version = "0.0.2"
     options = {
-        "n_channels": Option(default=2, type=int, help="Number of channels to load"),
-        "start_channel_slice": Option(default=6, type=int, help="Starting channel index"),
         "data_root": Option(default="DAQ", type=str, help="Root directory for data"),
-        "daq_adapter": Option(default=None, type=str, help="DAQ adapter name (e.g., 'vx2730')"),
+        "daq_adapter": Option(default="vx2730", type=str, help="DAQ adapter name (e.g., 'vx2730')"),
     }
 
     def compute(self, context: Any, run_id: str, **kwargs) -> List[List[str]]:
@@ -42,6 +40,7 @@ class RawFilesPlugin(Plugin):
         从配置的数据目录中查找指定运行的所有原始波形文件，并按通道号分组。
         支持 DAQ 集成，可以直接从 DAQ 元数据中获取文件列表。
         支持通过 daq_adapter 参数指定 DAQ 适配器来处理不同格式。
+        通道选择由 DAQ 适配器或 DAQ 元数据决定，不再通过插件配置裁剪。
 
         Args:
             context: Context 实例，用于访问配置和缓存
@@ -57,8 +56,6 @@ class RawFilesPlugin(Plugin):
         """
         from waveform_analysis.core.processing.loader import get_raw_files
 
-        n_channels = context.get_config(self, "n_channels")
-        start_channel_slice = context.get_config(self, "start_channel_slice")
         data_root = context.get_config(self, "data_root")
         daq_adapter = context.get_config(self, "daq_adapter")
 
@@ -66,7 +63,6 @@ class RawFilesPlugin(Plugin):
         daq_run = getattr(context, "daq_run", None)
 
         return get_raw_files(
-            n_channels=n_channels + start_channel_slice,
             run_name=run_id,
             data_root=data_root,
             daq_run=daq_run,
@@ -76,24 +72,22 @@ class RawFilesPlugin(Plugin):
 class WaveformsPlugin(Plugin):
     """Plugin to extract waveforms from raw files."""
 
-    version = "0.0.1"
+    version = "0.0.2"
     provides = "waveforms"
     depends_on = ["raw_files"]
     description = "Read and parse waveform data from raw CSV files."
     save_when = "never"
     options = {
-        "start_channel_slice": Option(default=6, type=int),
-        "n_channels": Option(default=2, type=int),
         "channel_workers": Option(
             default=None,
-            help="Number of parallel workers for channel-level processing (None=auto, uses min(n_channels, cpu_count))",
+            help="Number of parallel workers for channel-level processing (None=auto, uses min(len(raw_files), cpu_count))",
         ),
         "channel_executor": Option(
             default="thread",
             type=str,
             help="Executor type for channel-level parallelism: 'thread' or 'process'",
         ),
-        "daq_adapter": Option(default=None, type=str, help="DAQ adapter name (e.g., 'vx2730')"),
+        "daq_adapter": Option(default="vx2730", type=str, help="DAQ adapter name (e.g., 'vx2730')"),
         "n_jobs": Option(
             default=None,
             type=int,
@@ -159,11 +153,10 @@ class WaveformsPlugin(Plugin):
 
         from waveform_analysis.core.processing.loader import get_waveforms
 
-        # ========== 获取通道切片配置 ==========
-        start = context.get_config(self, "start_channel_slice")
-        n_channels = context.get_config(self, "n_channels")
-        end = start + n_channels
         raw_files = context.get_data(run_id, "raw_files")
+        n_channels = len(raw_files)
+        if n_channels == 0:
+            return []
 
         # ========== 通道级并行配置 ==========
         # 通道级并行：多个通道同时处理，每个通道分配一个 worker
@@ -186,7 +179,7 @@ class WaveformsPlugin(Plugin):
         # - 文件数少时（如 10 个文件），使用 10 个并行任务，充分利用资源
         # - 文件数多时（如 100 个文件），限制为 50 个，避免过度并行导致开销
         if n_jobs is None:
-            selected_files = raw_files[start:end]
+            selected_files = raw_files
             if selected_files:
                 # 计算所有通道中文件数的最大值
                 file_counts = [len(files) for files in selected_files if files]
@@ -204,7 +197,7 @@ class WaveformsPlugin(Plugin):
         # 注意：这里不需要额外配置，parse_and_stack_files 会自动处理
 
         # ========== 其他配置 ==========
-        daq_adapter = context.config.get("daq_adapter")
+        daq_adapter = context.get_config(self, "daq_adapter")
         if isinstance(daq_adapter, str):
             daq_adapter = daq_adapter.lower()
         show_progress = context.config.get("show_progress", True)
@@ -213,12 +206,6 @@ class WaveformsPlugin(Plugin):
             from waveform_analysis.utils.formats import get_adapter
 
             adapter = get_adapter(daq_adapter)
-            if start != 0:
-                context.logger.warning(
-                    "v1725 ignores start_channel_slice=%s; using 0 for multi-channel bin.",
-                    start,
-                )
-                start = 0
 
             files = []
             for group in raw_files:
@@ -248,11 +235,12 @@ class WaveformsPlugin(Plugin):
         # - 内层：文件级并行（每个通道内 n_jobs 个文件同时处理）
         # 两层并行可以叠加使用，实现最大性能提升（通常 4-12 倍）
         return get_waveforms(
-            raw_filess=raw_files[start:end],
+            raw_filess=raw_files,
             show_progress=show_progress,
             channel_workers=channel_workers,
             channel_executor=channel_executor,
             daq_adapter=daq_adapter,
+            n_channels=n_channels,
             n_jobs=n_jobs,
             use_process_pool=use_process_pool,
             chunksize=chunksize,
@@ -267,9 +255,9 @@ class StWaveformsPlugin(Plugin):
     output_dtype = np.dtype(RECORD_DTYPE)
     options = {
         "daq_adapter": Option(
-            default=None,
+            default="vx2730",
             type=str,
-            help="DAQ adapter name (e.g., 'vx2730'). If None, uses VX2730 default configuration."
+            help="DAQ adapter name (default: 'vx2730').",
         ),
     }
 

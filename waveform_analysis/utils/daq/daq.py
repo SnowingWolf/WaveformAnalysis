@@ -9,7 +9,7 @@ public entrypoint.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from waveform_analysis.core.foundation.utils import exporter
 
@@ -28,7 +28,7 @@ export(DAQRun)
 class _DAQRunAdapter:
     """Lightweight adapter exposing a stable minimal DAQRun protocol:
 
-    - get_channel_paths(n_channels) -> List[List[str]]
+    - get_channel_paths(n_channels) -> List[List[str]]  (n_channels can be None)
     - channel_files -> dict mapping ch -> list(entries)z
 
     This adapter wraps objects that either already implement the method,
@@ -49,7 +49,22 @@ class _DAQRunAdapter:
         """
         self._src = src
 
-    def get_channel_paths(self, n_channels: int):
+    def _infer_channel_count(self) -> Optional[int]:
+        cf = getattr(self._src, "channel_files", None)
+        if isinstance(cf, dict) and cf:
+            return max(int(k) for k in cf.keys()) + 1
+        if isinstance(self._src, dict) and self._src:
+            return max(int(k) for k in self._src.keys()) + 1
+        return None
+
+    def get_channel_paths(self, n_channels: Optional[int]):
+        if n_channels is None:
+            inferred = self._infer_channel_count()
+            if inferred is None:
+                logger.warning("Unable to infer channel count from DAQ run metadata.")
+                return []
+            n_channels = inferred
+
         # If source already provides the method, prefer it
         if hasattr(self._src, "get_channel_paths"):
             try:

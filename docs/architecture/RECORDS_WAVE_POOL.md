@@ -221,6 +221,7 @@ API 约定：
 ## 向后兼容性
 
 - 现有 `st_waveforms` 管线保留并继续支持
+- `records` 管线直接依赖 `raw_files`，与 `st_waveforms` 解耦
 - 新增 `records` 不替代旧数据类型，`wave_pool` 保持为内部数据
 - 可选适配层：
   - `records → st_waveforms` 只读视图（供旧特征插件复用）

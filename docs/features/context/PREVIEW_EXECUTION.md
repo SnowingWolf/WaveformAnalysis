@@ -135,7 +135,7 @@ ctx.register(FilteredWaveformsPlugin())
 ctx.register(SignalPeaksPlugin())
 
 # 设置配置
-ctx.set_config({"data_root": "DAQ", "n_channels": 2})
+ctx.set_config({"data_root": "DAQ", "daq_adapter": "vx2730"})
 ctx.set_config({"filter_type": "SG"}, plugin_name="filtered_waveforms")
 
 # 预览执行计划

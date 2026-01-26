@@ -36,7 +36,7 @@ from waveform_analysis.core.context import Context
 ctx = Context(storage_dir="./cache")
 
 # 全局配置
-ctx.set_config({'n_channels': 2})
+ctx.set_config({'daq_adapter': 'vx2730'})
 
 # 插件特定配置
 ctx.set_config({'threshold': 50}, plugin_name='peaks')
@@ -60,8 +60,8 @@ def set_config(
 ```python
 # 设置全局配置（所有插件都能访问）
 ctx.set_config({
-    'n_channels': 2,
     'data_root': 'DAQ',
+    'daq_adapter': 'vx2730',
     'threshold': 50,
 })
 ```
@@ -91,8 +91,8 @@ ctx.set_config({
 ```python
 # 一次设置多个插件的配置
 ctx.set_config({
-    'n_channels': 2,           # 全局
     'data_root': 'DAQ',        # 全局
+    'daq_adapter': 'vx2730',   # 全局
     'peaks': {
         'threshold': 50,
         'min_distance': 10
@@ -228,8 +228,8 @@ ctx.set_config({
 
 ```python
 ctx.set_config({
-    'n_channels': 2,           # 通道数量
     'data_root': 'DAQ',        # 数据根目录
+    'daq_adapter': 'vx2730',   # DAQ 适配器
     'show_progress': True,     # 显示进度条
 })
 ```

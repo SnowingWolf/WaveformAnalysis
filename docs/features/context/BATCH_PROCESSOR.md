@@ -38,7 +38,7 @@
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.data.batch_processor import BatchProcessor
 
-ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 # ... 注册插件 ...
 
 processor = BatchProcessor(ctx)
@@ -77,7 +77,7 @@ stats = processor.process_func(
 
 ```python
 def make_context():
-    ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
+    ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
     # ... 注册插件 ...
     return ctx
 

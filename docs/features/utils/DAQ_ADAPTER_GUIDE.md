@@ -391,7 +391,6 @@ run = DAQRun("run_001", "DAQ/run_001", directory_layout=layout)
 from waveform_analysis.core.processing import WaveformLoaderCSV
 
 loader = WaveformLoaderCSV(
-    n_channels=2,
     run_name="run_001",
     data_root="DAQ",
     daq_adapter="vx2730",

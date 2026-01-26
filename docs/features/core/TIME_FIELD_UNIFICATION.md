@@ -155,13 +155,10 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 )
 
 # 初始化并设置 DAQ 适配器
-ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 ctx.register(RawFilesPlugin())
 ctx.register(WaveformsPlugin())
 ctx.register(StWaveformsPlugin())
-
-# 设置适配器（自动获取 epoch）
-ctx.set_config({'daq_adapter': 'vx2730'})
 
 # 获取数据
 st_waveforms = ctx.get_data('run_001', 'st_waveforms')

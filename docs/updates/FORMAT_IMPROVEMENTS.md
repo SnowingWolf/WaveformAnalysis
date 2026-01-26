@@ -128,16 +128,16 @@
 `config_reference.md` 保持原有清晰格式：
 
 ```markdown
-#### `n_channels`
+#### `daq_adapter`
 
-- **类型**: `<class 'int'>`
-- **默认值**: `2`
-- **说明**: Number of channels to load
+- **类型**: `<class 'str'>`
+- **默认值**: `vx2730`
+- **说明**: DAQ adapter name
 
 **使用示例**:
 
 \`\`\`python
-ctx.set_config({'n_channels': <value>}, plugin_name='raw_files')
+ctx.set_config({'daq_adapter': <value>}, plugin_name='raw_files')
 \`\`\`
 ```
 

@@ -1,88 +1,8 @@
-**导航**: [文档中心](../README.md) > [API 参考](README.md) > 插件开发完整指南
-
----
-
 # 插件开发指南
 
-> 自动生成于 2026-01-11 19:23:26
-> **更新**: 2026-01-12 - 添加按加速器划分的插件架构说明
+> 自动生成于 2026-01-26 13:44:46
 
 本指南介绍如何开发自定义插件。
-
-> 🎯 **初学者？** 如果你是第一次写插件，建议先阅读 [最简单的插件教程](../features/plugin/SIMPLE_PLUGIN_GUIDE.md)（10 分钟），然后再回到这里深入学习。
-
----
-
-## 插件架构概览
-
-### 按加速器划分的插件组织（Since 2026-01）
-
-WaveformAnalysis 采用按计算加速器类型组织插件的架构，便于在不同硬件平台上优化性能：
-
-```
-waveform_analysis/core/plugins/builtin/
-├── cpu/              # CPU 实现 (NumPy/SciPy/Numba)
-│   ├── standard.py   # 标准数据处理插件（10个）
-│   ├── filtering.py  # FilteredWaveformsPlugin
-│   └── peak_finding.py # SignalPeaksPlugin
-├── jax/              # JAX GPU 实现（待开发）
-│   ├── filtering.py  # JAX 滤波插件
-│   └── peak_finding.py # JAX 寻峰插件
-├── streaming/        # 流式处理插件（待开发）
-│   ├── cpu/
-│   └── jax/
-└── legacy/           # 向后兼容层（弃用）
-```
-
-### 导入插件（显式 CPU）
-
-```python
-from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin,
-    FilteredWaveformsPlugin,
-    SignalPeaksPlugin,
-)
-```
-
-### 可用的 CPU 插件
-
-#### 标准数据处理插件 (`cpu/standard.py`)
-- `RawFilesPlugin`: 扫描和分组原始 CSV 文件
-- `WaveformsPlugin`: 提取波形数据
-- `StWaveformsPlugin`: 结构化波形数组
-- `HitFinderPlugin`: 检测 Hit 事件
-- `BasicFeaturesPlugin`: 计算基础特征
-- `PeaksPlugin`: 峰值特征提取
-- `ChargesPlugin`: 电荷积分
-- `DataFramePlugin`: 构建 DataFrame
-- `GroupedEventsPlugin`: 时间窗口分组（支持 Numba 加速）
-- `PairedEventsPlugin`: 跨通道事件配对
-
-#### 信号处理插件
-- `FilteredWaveformsPlugin` (`cpu/filtering.py`): 波形滤波
-  - Butterworth 带通滤波器
-  - Savitzky-Golay 滤波器
-- `SignalPeaksPlugin` (`cpu/peak_finding.py`): 高级峰值检测
-  - 基于 scipy.signal.find_peaks
-  - 支持导数检测、高度、距离、显著性等参数
-
-> 📖 **详细文档**: 查看 [信号处理插件完整文档](../features/plugin/SIGNAL_PROCESSING_PLUGINS.md) 了解详细的使用方法、配置选项和示例。
-
-### 迁移指南
-
-如果你的代码使用旧的导入方式，建议迁移到新架构：
-
-```python
-# 旧方式（会发出弃用警告）
-from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin
-from waveform_analysis.core.plugins.builtin.cpu import FilteredWaveformsPlugin
-
-# 新方式（推荐）
-from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin,
-    FilteredWaveformsPlugin,
-)
-```
 
 ---
 
@@ -138,7 +58,7 @@ Should return the data specified in 'provides'.
 ```
 
 ---
-##### `get_dependency_version_spec(self, dep: Union[str, Tuple[str, str]]) -> Optional[str]`
+##### `get_dependency_version_spec(self, dep: Union[str, Tuple[str, str]]) -> Union[str, NoneType]`
 
 从依赖规范中提取版本约束。
 
@@ -186,32 +106,33 @@ Called during registration.
 ### raw_files
 
 **类名**: `RawFilesPlugin`
-**版本**: 0.0.0
+**版本**: 0.0.2
 **提供数据**: `raw_files`
 **依赖**: 无
 Plugin to find raw CSV files.
 
 **配置选项**:
 
-- `n_channels` (<class 'int'>): Number of channels to load (默认: 2)
-- `start_channel_slice` (<class 'int'>): Starting channel index (默认: 6)
 - `data_root` (<class 'str'>): Root directory for data (默认: DAQ)
+- `daq_adapter` (<class 'str'>): DAQ adapter name (e.g., 'vx2730') (默认: vx2730)
 
 ---
 ### waveforms
 
 **类名**: `WaveformsPlugin`
-**版本**: 0.0.0
+**版本**: 0.0.2
 **提供数据**: `waveforms`
 **依赖**: raw_files
 Plugin to extract waveforms from raw files.
 
 **配置选项**:
 
-- `start_channel_slice` (<class 'int'>):  (默认: 6)
-- `n_channels` (<class 'int'>):  (默认: 2)
-- `channel_workers` (None): Number of parallel workers for channel-level processing (None=auto, uses min(n_channels, cpu_count)) (默认: None)
+- `channel_workers` (None): Number of parallel workers for channel-level processing (None=auto, uses min(len(raw_files), cpu_count)) (默认: None)
 - `channel_executor` (<class 'str'>): Executor type for channel-level parallelism: 'thread' or 'process' (默认: thread)
+- `daq_adapter` (<class 'str'>): DAQ adapter name (e.g., 'vx2730') (默认: vx2730)
+- `n_jobs` (<class 'int'>): Number of parallel workers for file-level processing within each channel (None=auto, uses min(max_file_count, 50)) (默认: None)
+- `use_process_pool` (<class 'bool'>): Whether to use process pool for file-level parallelism (False=thread pool for I/O, True=process pool for CPU-intensive) (默认: False)
+- `chunksize` (<class 'int'>): Chunk size for CSV reading (None=read entire file, enables PyArrow; set value to enable chunked reading but disables PyArrow) (默认: None)
 
 ---
 ### st_waveforms
@@ -222,6 +143,9 @@ Plugin to extract waveforms from raw files.
 **依赖**: waveforms
 Plugin to structure waveforms into NumPy arrays.
 
+**配置选项**:
+
+- `daq_adapter` (<class 'str'>): DAQ adapter name (default: 'vx2730'). (默认: vx2730)
 
 ---
 
@@ -313,5 +237,5 @@ data = ctx.get_data('run_001', 'my_data')
 
 ---
 
-**生成时间**: 2026-01-11 19:23:26
+**生成时间**: 2026-01-26 13:44:46
 **工具**: WaveformAnalysis DocGenerator

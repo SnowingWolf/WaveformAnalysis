@@ -69,7 +69,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 )
 
 # 初始化（默认使用 VX2730 格式）
-ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 ctx.register(RawFilesPlugin())
 ctx.register(WaveformsPlugin())
 ctx.register(StWaveformsPlugin())
@@ -183,7 +183,7 @@ print(f"时间戳单位: {VX2730_SPEC.timestamp_unit}")
 print(f"采样点数: {VX2730_SPEC.expected_samples}")
 
 # 使用适配器扫描文件
-files = VX2730_ADAPTER.scan_run("DAQ/run_001", n_channels=2)
+files = VX2730_ADAPTER.scan_run("DAQ", "run_001")
 print(f"找到 {len(files)} 个通道的文件")
 
 # 加载单个通道
@@ -431,7 +431,7 @@ print(f"列映射: {adapter.format_spec.columns}")
 print(f"时间戳单位: {adapter.format_spec.timestamp_unit}")
 
 # 测试文件扫描
-files = adapter.scan_run("DAQ/test_run", n_channels=2)
+files = adapter.scan_run("DAQ", "test_run")
 print(f"找到 {len(files)} 个通道")
 
 # 测试数据加载
@@ -486,7 +486,7 @@ def test_my_daq_adapter():
     assert adapter.format_spec.expected_samples == 1000
 
     # 测试文件扫描
-    files = adapter.scan_run("test_data/my_daq_run", n_channels=2)
+    files = adapter.scan_run("test_data", "my_daq_run")
     assert len(files) == 2
 
     # 测试数据加载
