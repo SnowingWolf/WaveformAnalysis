@@ -3,6 +3,7 @@
 """
 
 import pytest
+from pathlib import Path
 
 from waveform_analysis.core.processing.loader import WaveformLoaderCSV, get_waveforms
 
@@ -31,19 +32,19 @@ def test_raw_file_loader_extract():
 
 
 def test_get_raw_files_empty_dir(tmp_path):
-    """测试未配置适配器时直接调用会报错"""
+    """空目录下返回空通道列表（默认适配器）"""
     raw_dir = tmp_path / "DAQ" / "empty_run" / "RAW"
     raw_dir.mkdir(parents=True)
 
-    loader = WaveformLoaderCSV(n_channels=2, char="empty_run")
-    loader.base_dir = raw_dir
+    loader = WaveformLoaderCSV(n_channels=2, char="empty_run", data_root=str(tmp_path / "DAQ"))
 
-    with pytest.raises(ValueError, match="daq_adapter|daq_run|daq_info"):
-        loader.get_raw_files()
+    raw_filess = loader.get_raw_files()
+    assert len(raw_filess) == 2
+    assert raw_filess == [[], []]
 
 
 def test_get_raw_files_with_data(tmp_path, make_csv_fn):
-    """测试未配置适配器时即使有文件也会报错"""
+    """有文件时返回按通道分组的列表（默认适配器）"""
     raw_dir = tmp_path / "DAQ" / "test_run" / "RAW"
     raw_dir.mkdir(parents=True)
 
@@ -52,12 +53,12 @@ def test_get_raw_files_with_data(tmp_path, make_csv_fn):
     make_csv_fn(raw_dir, ch=0, idx=1, start_tag=2001, end_tag=3000)
     make_csv_fn(raw_dir, ch=1, idx=0, start_tag=1000, end_tag=2000)
 
-    loader = WaveformLoaderCSV(n_channels=2, char="test_run")
-    loader.base_dir = raw_dir
-    loader.pattern = "RUN_CH*_*.CSV"
+    loader = WaveformLoaderCSV(n_channels=2, char="test_run", data_root=str(tmp_path / "DAQ"))
 
-    with pytest.raises(ValueError, match="daq_adapter|daq_run|daq_info"):
-        loader.get_raw_files()
+    raw_filess = loader.get_raw_files()
+    assert len(raw_filess) == 2
+    assert [Path(p).name for p in raw_filess[0]] == ["RUN_CH0_0.CSV", "RUN_CH0_1.CSV"]
+    assert [Path(p).name for p in raw_filess[1]] == ["RUN_CH1_0.CSV"]
 
 
 def test_get_waveforms_empty():
