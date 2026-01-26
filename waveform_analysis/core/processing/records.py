@@ -18,13 +18,17 @@ export, __all__ = exporter()
 RECORDS_DTYPE = export(
     np.dtype(
         [
-            ("timestamp", "i8"),   # ADC timestamp (ps)
-            ("pid", "i4"),         # partition id (tie-breaker)
-            ("channel", "i2"),     # physical channel
-            ("baseline", "f8"),    # baseline (match st_waveforms)
-            ("wave_offset", "i8"), # index in wave_pool
-            ("event_length", "i4"),# waveform length in samples
-            ("time", "i8"),        # system time (ns, optional semantics)
+            ("timestamp", "i8"),    # ADC timestamp (ps)
+            ("pid", "i4"),          # partition id (tie-breaker)
+            ("channel", "i2"),      # physical channel
+            ("baseline", "f8"),     # baseline (match st_waveforms)
+            ("event_id", "i8"),     # sequential id after sorting
+            ("dt", "i4"),           # sample interval (ns, aligned to time)
+            ("trigger_type", "i2"), # trigger type code
+            ("flags", "u4"),        # bit flags
+            ("wave_offset", "i8"),  # index in wave_pool
+            ("event_length", "i4"), # waveform length in samples
+            ("time", "i8"),         # system time (ns, optional semantics)
         ]
     ),
     name="RECORDS_DTYPE",
@@ -47,8 +51,55 @@ def _clip_wave_to_uint16(wave: np.ndarray) -> np.ndarray:
     return data.astype(np.uint16, copy=False)
 
 
+def _build_records_from_wave_list(
+    waves: Sequence[Tuple[int, int, int, int, np.ndarray]],
+    default_dt_ns: int,
+) -> RecordsBundle:
+    if not waves:
+        return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
+
+    total_records = len(waves)
+    records = np.zeros(total_records, dtype=RECORDS_DTYPE)
+    source_idx = np.arange(total_records, dtype=np.int64)
+
+    for i, (channel, timestamp_ps, baseline, flags, waveform) in enumerate(waves):
+        records["timestamp"][i] = timestamp_ps
+        records["pid"][i] = 0
+        records["channel"][i] = channel
+        records["baseline"][i] = baseline
+        records["dt"][i] = np.int32(default_dt_ns)
+        records["trigger_type"][i] = 0
+        records["flags"][i] = np.uint32(flags)
+        length = int(len(waveform))
+        if length > np.iinfo(np.int32).max:
+            raise ValueError("event_length exceeds int32 range")
+        records["event_length"][i] = np.int32(length)
+        records["time"][i] = int(timestamp_ps // 1000)
+
+    seq = np.arange(total_records, dtype=np.int64)
+    order = np.lexsort((seq, records["channel"], records["pid"], records["timestamp"]))
+    records = records[order]
+    source_idx = source_idx[order]
+
+    total_samples = int(records["event_length"].astype(np.int64, copy=False).sum())
+    wave_pool = np.zeros(total_samples, dtype=np.uint16)
+
+    wave_cursor = 0
+    for idx in range(total_records):
+        wave = waves[int(source_idx[idx])][4]
+        length = int(records["event_length"][idx])
+        if length > 0:
+            wave_pool[wave_cursor:wave_cursor + length] = _clip_wave_to_uint16(wave[:length])
+        records["wave_offset"][idx] = wave_cursor
+        wave_cursor += length
+
+    records["event_id"] = np.arange(total_records, dtype=np.int64)
+    return RecordsBundle(records=records, wave_pool=wave_pool)
+
+
 def _build_records_from_channels(
-    channels: Sequence[Tuple[np.ndarray, int]]
+    channels: Sequence[Tuple[np.ndarray, int]],
+    default_dt_ns: int
 ) -> RecordsBundle:
     if not channels:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
@@ -95,6 +146,25 @@ def _build_records_from_channels(
         else:
             records["event_length"][cursor:cursor + count] = 0
 
+        if "dt" in ch.dtype.names:
+            records["dt"][cursor:cursor + count] = ch["dt"].astype(np.int32, copy=False)
+        else:
+            records["dt"][cursor:cursor + count] = np.int32(default_dt_ns)
+
+        if "trigger_type" in ch.dtype.names:
+            records["trigger_type"][cursor:cursor + count] = ch["trigger_type"].astype(
+                np.int16, copy=False
+            )
+        else:
+            records["trigger_type"][cursor:cursor + count] = 0
+
+        if "flags" in ch.dtype.names:
+            records["flags"][cursor:cursor + count] = ch["flags"].astype(
+                np.uint32, copy=False
+            )
+        else:
+            records["flags"][cursor:cursor + count] = 0
+
         if "time" in ch.dtype.names:
             records["time"][cursor:cursor + count] = ch["time"]
         else:
@@ -107,6 +177,7 @@ def _build_records_from_channels(
     seq = np.arange(total_records, dtype=np.int64)
     order = np.lexsort((seq, records["channel"], records["pid"], records["timestamp"]))
     records = records[order]
+    records["event_id"] = np.arange(total_records, dtype=np.int64)
     source_channel = source_channel[order]
     source_row = source_row[order]
 
@@ -143,14 +214,79 @@ def _build_records_from_channels(
 
 
 @export
-def build_records_from_st_waveforms(st_waveforms: List[np.ndarray]) -> RecordsBundle:
+def build_records_from_st_waveforms(
+    st_waveforms: List[np.ndarray],
+    default_dt_ns: int = 1,
+) -> RecordsBundle:
     """
     Build records + wave_pool from st_waveforms.
 
     Baseline implementation: single pass, sorted by (timestamp, pid, channel).
     """
     channels = [(ch, idx) for idx, ch in enumerate(st_waveforms)]
-    return _build_records_from_channels(channels)
+    return _build_records_from_channels(channels, default_dt_ns=default_dt_ns)
+
+
+@export
+def build_records_from_v1725_files(
+    file_paths: List[str],
+    dt_ns: int,
+) -> RecordsBundle:
+    if not file_paths:
+        return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
+
+    from waveform_analysis.utils.formats import get_adapter
+
+    adapter = get_adapter("v1725")
+    reader = adapter.format_reader
+    if not hasattr(reader, "iter_waves"):
+        raise RuntimeError("V1725 adapter does not provide iter_waves")
+
+    parts = []
+    for file_path in file_paths:
+        waves = []
+        for wave in reader.iter_waves([file_path]):
+            timestamp_ps = int(wave.timestamp) * int(dt_ns) * 1000
+            flags = 1 if wave.trunc else 0
+            waves.append((wave.channel, timestamp_ps, wave.baseline, flags, wave.waveform))
+        if waves:
+            parts.append(_build_records_from_wave_list(waves, default_dt_ns=dt_ns))
+
+    if not parts:
+        return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
+    if len(parts) == 1:
+        return parts[0]
+    return merge_records_parts(parts)
+
+
+@export
+def build_records_from_waveforms(
+    waveforms: List[np.ndarray],
+    dt_ns: int,
+) -> RecordsBundle:
+    if isinstance(waveforms, np.ndarray):
+        waveforms = [waveforms]
+
+    if not waveforms:
+        return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
+
+    waves = []
+    for ch in waveforms:
+        if ch is None or len(ch) == 0:
+            continue
+        if ch.dtype.names is None or "wave" not in ch.dtype.names:
+            raise ValueError("waveforms must contain structured arrays with 'wave' field")
+        has_trunc = "trunc" in ch.dtype.names
+        has_channel = "channel" in ch.dtype.names
+        for rec in ch:
+            timestamp_ps = int(rec["timestamp"]) * int(dt_ns) * 1000
+            baseline = int(rec["baseline"]) if "baseline" in ch.dtype.names else 0
+            flags = 1 if (has_trunc and bool(rec["trunc"])) else 0
+            channel = int(rec["channel"]) if has_channel else 0
+            waveform = np.asarray(rec["wave"])
+            waves.append((channel, timestamp_ps, baseline, flags, waveform))
+
+    return _build_records_from_wave_list(waves, default_dt_ns=dt_ns)
 
 
 @export
@@ -218,6 +354,7 @@ def merge_records_parts(parts: Sequence[RecordsBundle]) -> RecordsBundle:
             )
             heapq.heappush(heap, key)
 
+    records_out["event_id"] = np.arange(total_records, dtype=np.int64)
     return RecordsBundle(records=records_out, wave_pool=wave_pool_out)
 
 
@@ -225,6 +362,7 @@ def merge_records_parts(parts: Sequence[RecordsBundle]) -> RecordsBundle:
 def build_records_from_st_waveforms_sharded(
     st_waveforms: List[np.ndarray],
     part_size: int = 200_000,
+    default_dt_ns: int = 1,
 ) -> RecordsBundle:
     """
     Build records + wave_pool using sharded parts and k-way merge.
@@ -233,11 +371,11 @@ def build_records_from_st_waveforms_sharded(
     total records <= part_size, this falls back to the baseline builder.
     """
     if part_size <= 0:
-        return build_records_from_st_waveforms(st_waveforms)
+        return build_records_from_st_waveforms(st_waveforms, default_dt_ns=default_dt_ns)
 
     total_records = sum(len(ch) for ch in st_waveforms)
     if total_records <= part_size:
-        return build_records_from_st_waveforms(st_waveforms)
+        return build_records_from_st_waveforms(st_waveforms, default_dt_ns=default_dt_ns)
 
     parts: List[RecordsBundle] = []
     for ch_idx, ch in enumerate(st_waveforms):
@@ -247,7 +385,10 @@ def build_records_from_st_waveforms_sharded(
         start = 0
         while start < count:
             stop = min(count, start + part_size)
-            part = _build_records_from_channels([(ch[start:stop], ch_idx)])
+            part = _build_records_from_channels(
+                [(ch[start:stop], ch_idx)],
+                default_dt_ns=default_dt_ns,
+            )
             if len(part.records) > 0:
                 parts.append(part)
             start = stop
@@ -256,4 +397,6 @@ def build_records_from_st_waveforms_sharded(
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
     if len(parts) == 1:
         return parts[0]
-    return merge_records_parts(parts)
+    merged = merge_records_parts(parts)
+    merged.records["event_id"] = np.arange(len(merged.records), dtype=np.int64)
+    return merged

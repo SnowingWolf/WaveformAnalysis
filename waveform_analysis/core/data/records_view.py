@@ -1,20 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-RecordsView provides read-only access to records + wave_pool.
+RecordsView provides read-only access to records with an internal wave_pool.
 """
 
-from typing import Iterable, Optional, Protocol, Tuple, Union
+from typing import Any, Iterable, Optional, Tuple, Union
 
 import numpy as np
 
 from waveform_analysis.core.foundation.utils import exporter
 
 export, __all__ = exporter()
-
-
-class _RecordsSource(Protocol):
-    def get_data(self, run_id: str, data_name: str):
-        ...
 
 
 @export
@@ -124,10 +119,11 @@ class RecordsView:
 
 
 @export
-def records_view(source: _RecordsSource, run_id: str) -> RecordsView:
+def records_view(source: Any, run_id: str) -> RecordsView:
     """
     Factory function to create a RecordsView from a Context-like source.
     """
-    records = source.get_data(run_id, "records")
-    wave_pool = source.get_data(run_id, "wave_pool")
-    return RecordsView(records, wave_pool)
+    from waveform_analysis.core.plugins.builtin.cpu.records import get_records_bundle
+
+    bundle = get_records_bundle(source, run_id)
+    return RecordsView(bundle.records, bundle.wave_pool)

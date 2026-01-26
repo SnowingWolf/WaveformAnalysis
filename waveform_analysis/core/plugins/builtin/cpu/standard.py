@@ -204,8 +204,43 @@ class WaveformsPlugin(Plugin):
         # 注意：这里不需要额外配置，parse_and_stack_files 会自动处理
 
         # ========== 其他配置 ==========
-        daq_adapter = context.get_config(self, "daq_adapter")
+        daq_adapter = context.config.get("daq_adapter")
+        if isinstance(daq_adapter, str):
+            daq_adapter = daq_adapter.lower()
         show_progress = context.config.get("show_progress", True)
+
+        if daq_adapter == "v1725":
+            from waveform_analysis.utils.formats import get_adapter
+
+            adapter = get_adapter(daq_adapter)
+            if start != 0:
+                context.logger.warning(
+                    "v1725 ignores start_channel_slice=%s; using 0 for multi-channel bin.",
+                    start,
+                )
+                start = 0
+
+            files = []
+            for group in raw_files:
+                if group:
+                    files.extend(group)
+            # Deduplicate while preserving order
+            seen = set()
+            file_list = []
+            for path in files:
+                if path in seen:
+                    continue
+                seen.add(path)
+                file_list.append(path)
+
+            if not file_list:
+                return np.array([], dtype=np.float64).reshape(0, 0)
+
+            data = adapter.format_reader.read_files(file_list, show_progress=show_progress)
+            if data.size == 0:
+                return data
+            context.logger.info("v1725 returns unsplit waveforms (single array)")
+            return data
 
         # ========== 执行波形加载 ==========
         # 双层并行架构：

@@ -45,7 +45,6 @@ from .builtin.cpu import (
     SignalPeaksPlugin,
     StWaveformsPlugin,
     WaveformsPlugin,
-    WavePoolPlugin,
     WaveformWidthPlugin,
 )
 from .builtin.streaming import SignalPeaksStreamPlugin
@@ -123,5 +122,4 @@ __all__ = [
     "SignalPeaksPlugin",
     "WaveformWidthPlugin",
     "SignalPeaksStreamPlugin",
-    "WavePoolPlugin",
 ]
