@@ -318,6 +318,16 @@ list_all.ipynb
 # Package manager lock files (uncomment if you want to ignore them)
 # poetry.lock
 # Pipfile.lock
+package-lock.json
+package.json
+
+# Node dependencies
+node_modules/
+
+# Local tools/skills
+skills/
+diagnose_cache.py
+setup.py
 
 # Ignore specific test outputs
 usage.ipynb
