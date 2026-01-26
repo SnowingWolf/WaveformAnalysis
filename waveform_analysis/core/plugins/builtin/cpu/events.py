@@ -191,12 +191,12 @@ class EventsPlugin(Plugin):
         "events_part_size": Option(
             default=200_000,
             type=int,
-            help="Max events per shard; <=0 disables sharding.",
+            help="Max events per shard in the records bundle; <=0 disables sharding.",
         ),
         "events_dt_ns": Option(
             default=None,
             type=int,
-            help="Sample interval in ns (defaults to DAQ adapter rate or 1ns).",
+            help="Sample interval in ns (defaults to adapter rate or 1ns).",
         ),
     }
     version = "0.1.0"
@@ -242,17 +242,17 @@ class EventFramePlugin(Plugin):
         "peaks_range": Option(
             default=FeatureDefaults.PEAK_RANGE,
             type=tuple,
-            help="Peak calculation range (start, end).",
+            help="Peak range in samples (start, end); end=None uses full length.",
         ),
         "charge_range": Option(
             default=FeatureDefaults.CHARGE_RANGE,
             type=tuple,
-            help="Charge integration range (start, end).",
+            help="Charge range in samples (start, end); end=None uses full length.",
         ),
         "include_event_id": Option(
             default=True,
             type=bool,
-            help="Include event_id column in the output DataFrame.",
+            help="Include event_id column in events_df output.",
         ),
     }
     version = "0.1.0"
@@ -294,17 +294,17 @@ class EventsGroupedPlugin(Plugin):
         "time_window_ns": Option(
             default=100.0,
             type=float,
-            help="Grouping time window in ns (converted to ps internally).",
+            help="Grouping window in ns (converted to ps internally).",
         ),
         "use_numba": Option(
             default=True,
             type=bool,
-            help="Enable numba acceleration when available.",
+            help="Use numba-accelerated boundary search when available.",
         ),
         "n_processes": Option(
             default=None,
             type=int,
-            help="Process count for multiprocessing; None or <=1 disables it.",
+            help="Worker processes for grouping; None or <=1 disables it.",
         ),
     }
     version = "0.1.0"

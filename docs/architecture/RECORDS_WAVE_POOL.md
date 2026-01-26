@@ -218,6 +218,17 @@ RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin → EventsPlugin → Ev
 - `events`: 结构化事件索引表
 - `events_df`: 事件 DataFrame（timestamp/charge/peak/channel）
 
+插件说明（records 管线）：
+- `RecordsPlugin` → `records`（依赖 `raw_files`）
+  - 关键配置：`records_part_size`, `records_dt_ns`, `daq_adapter`
+  - 继承波形加载参数：`channel_workers`, `channel_executor`, `n_jobs`, `use_process_pool`, `chunksize`
+- `EventsPlugin` → `events`（依赖 `raw_files`；内部 bundle + wave_pool）
+  - 关键配置：`events_part_size`, `events_dt_ns`
+- `EventFramePlugin` → `events_df`（依赖 `events`）
+  - 关键配置：`peaks_range`, `charge_range`, `include_event_id`
+- `EventsGroupedPlugin` → `events_grouped`（依赖 `events_df`）
+  - 关键配置：`time_window_ns`, `use_numba`, `n_processes`
+
 ### 2. st_waveforms 管线（现有）
 
 沿用当前稳定链路：
