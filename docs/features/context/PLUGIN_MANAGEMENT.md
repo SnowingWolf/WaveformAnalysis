@@ -183,6 +183,24 @@ ctx.register(
 )
 ```
 
+### 注册 records 管线插件
+
+```python
+from waveform_analysis.core.plugins.builtin.cpu import (
+    RecordsPlugin,
+    EventsPlugin,
+    EventFramePlugin,
+    EventsGroupedPlugin,
+)
+
+ctx.register(
+    RecordsPlugin(),
+    EventsPlugin(),
+    EventFramePlugin(),
+    EventsGroupedPlugin(),
+)
+```
+
 ### 注册信号处理插件
 
 ```python

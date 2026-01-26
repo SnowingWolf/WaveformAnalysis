@@ -182,35 +182,35 @@ class RecordsPlugin(Plugin):
         "daq_adapter": Option(
             default="vx2730",
             type=str,
-            help="DAQ adapter name (e.g., 'vx2730').",
+            help="DAQ adapter name for records bundle (e.g., 'vx2730', 'v1725').",
         ),
         "channel_workers": Option(
             default=None,
-            help="Number of parallel workers for channel-level processing.",
+            help="Workers for channel-level waveform loading (None=auto).",
             track=False,
         ),
         "channel_executor": Option(
             default="thread",
             type=str,
-            help="Executor type for channel-level parallelism.",
+            help="Channel-level executor type: 'thread' or 'process'.",
             track=False,
         ),
         "n_jobs": Option(
             default=None,
             type=int,
-            help="Number of parallel workers for file-level processing per channel.",
+            help="Workers per channel for file-level parsing (None=auto).",
             track=False,
         ),
         "use_process_pool": Option(
             default=False,
             type=bool,
-            help="Whether to use process pool for file-level parsing.",
+            help="Use a process pool for file-level parsing (False=thread pool).",
             track=False,
         ),
         "chunksize": Option(
             default=None,
             type=int,
-            help="Chunk size for CSV reading (None=read entire file).",
+            help="CSV read chunk size; None reads full file (PyArrow if available).",
             track=False,
         ),
         "records_part_size": Option(
@@ -221,7 +221,7 @@ class RecordsPlugin(Plugin):
         "records_dt_ns": Option(
             default=None,
             type=int,
-            help="Sample interval in ns (defaults to DAQ adapter rate or 1ns).",
+            help="Sample interval in ns (defaults to adapter rate or 1ns).",
         ),
     }
     version = "0.4.0"

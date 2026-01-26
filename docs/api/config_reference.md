@@ -17,6 +17,9 @@
 - [df](#df)
 - [df_events](#df-events)
 - [df_paired](#df-paired)
+- [records](#records)
+- [events](#events)
+- [events_df](#events-df)
 - [events_grouped](#events-grouped)
 
 ---
@@ -294,6 +297,214 @@ Plugin to pair events across channels.
 ### 配置选项
 
 该插件没有配置选项。
+
+---
+
+---
+
+## records
+
+**类名**: `RecordsPlugin`
+**版本**: 0.4.0
+**提供数据**: `records`
+**依赖**: raw_files
+Build records (event index table) from raw_files.
+
+### 配置选项
+
+#### `daq_adapter`
+
+- **类型**: `<class 'str'>`
+- **默认值**: `vx2730`
+- **说明**: DAQ adapter name (e.g., 'vx2730', 'v1725').
+
+**使用示例**:
+
+```python
+ctx.set_config({'daq_adapter': <value>}, plugin_name='records')
+```
+
+---
+#### `channel_workers`
+
+- **类型**: `None`
+- **默认值**: `None`
+- **说明**: Workers for channel-level waveform loading (None=auto).
+
+**使用示例**:
+
+```python
+ctx.set_config({'channel_workers': <value>}, plugin_name='records')
+```
+
+---
+#### `channel_executor`
+
+- **类型**: `<class 'str'>`
+- **默认值**: `thread`
+- **说明**: Channel-level executor type: 'thread' or 'process'.
+
+**使用示例**:
+
+```python
+ctx.set_config({'channel_executor': <value>}, plugin_name='records')
+```
+
+---
+#### `n_jobs`
+
+- **类型**: `<class 'int'>`
+- **默认值**: `None`
+- **说明**: Workers per channel for file-level parsing (None=auto).
+
+**使用示例**:
+
+```python
+ctx.set_config({'n_jobs': <value>}, plugin_name='records')
+```
+
+---
+#### `use_process_pool`
+
+- **类型**: `<class 'bool'>`
+- **默认值**: `False`
+- **说明**: Use a process pool for file-level parsing (False=thread pool).
+
+**使用示例**:
+
+```python
+ctx.set_config({'use_process_pool': <value>}, plugin_name='records')
+```
+
+---
+#### `chunksize`
+
+- **类型**: `<class 'int'>`
+- **默认值**: `None`
+- **说明**: CSV read chunk size; None reads full file (PyArrow if available).
+
+**使用示例**:
+
+```python
+ctx.set_config({'chunksize': <value>}, plugin_name='records')
+```
+
+---
+#### `records_part_size`
+
+- **类型**: `<class 'int'>`
+- **默认值**: `200000`
+- **说明**: Max events per records shard; <=0 disables sharding.
+
+**使用示例**:
+
+```python
+ctx.set_config({'records_part_size': <value>}, plugin_name='records')
+```
+
+---
+#### `records_dt_ns`
+
+- **类型**: `<class 'int'>`
+- **默认值**: `None`
+- **说明**: Sample interval in ns (defaults to adapter rate or 1ns).
+
+**使用示例**:
+
+```python
+ctx.set_config({'records_dt_ns': <value>}, plugin_name='records')
+```
+
+---
+
+---
+
+## events
+
+**类名**: `EventsPlugin`
+**版本**: 0.1.0
+**提供数据**: `events`
+**依赖**: raw_files
+Provide event index data backed by the records bundle.
+
+### 配置选项
+
+#### `events_part_size`
+
+- **类型**: `<class 'int'>`
+- **默认值**: `200000`
+- **说明**: Max events per shard in the records bundle; <=0 disables sharding.
+
+**使用示例**:
+
+```python
+ctx.set_config({'events_part_size': <value>}, plugin_name='events')
+```
+
+---
+#### `events_dt_ns`
+
+- **类型**: `<class 'int'>`
+- **默认值**: `None`
+- **说明**: Sample interval in ns (defaults to adapter rate or 1ns).
+
+**使用示例**:
+
+```python
+ctx.set_config({'events_dt_ns': <value>}, plugin_name='events')
+```
+
+---
+
+---
+
+## events_df
+
+**类名**: `EventFramePlugin`
+**版本**: 0.1.0
+**提供数据**: `events_df`
+**依赖**: events
+Build an events DataFrame from the records bundle.
+
+### 配置选项
+
+#### `peaks_range`
+
+- **类型**: `<class 'tuple'>`
+- **默认值**: `(0, None)`
+- **说明**: Peak range in samples (start, end); end=None uses full length.
+
+**使用示例**:
+
+```python
+ctx.set_config({'peaks_range': <value>}, plugin_name='events_df')
+```
+
+---
+#### `charge_range`
+
+- **类型**: `<class 'tuple'>`
+- **默认值**: `(0, None)`
+- **说明**: Charge range in samples (start, end); end=None uses full length.
+
+**使用示例**:
+
+```python
+ctx.set_config({'charge_range': <value>}, plugin_name='events_df')
+```
+
+---
+#### `include_event_id`
+
+- **类型**: `<class 'bool'>`
+- **默认值**: `True`
+- **说明**: Include event_id column in events_df output.
+
+**使用示例**:
+
+```python
+ctx.set_config({'include_event_id': <value>}, plugin_name='events_df')
+```
 
 ---
 
