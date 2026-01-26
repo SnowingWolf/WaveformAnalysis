@@ -163,6 +163,14 @@ None
 ```
 
 ---
+##### `get_lineage(self, context: Any) -> dict`
+
+Optional hook to override Context lineage generation.
+If a plugin defines this method, `Context.get_lineage()` will use it instead of
+the default lineage builder. This is useful when lineage needs to reflect
+internal branching (e.g., adapter-specific paths) or custom dtype handling.
+
+---
 ##### `on_error(self, context: Any, exception: Exception)`
 
 Optional hook called when compute() raises an exception.

@@ -283,6 +283,20 @@ ctx.register(VersionedPlugin())
 
 ---
 
+## 执行期钩子与输出策略
+
+Context 在执行插件时会识别以下可选钩子/属性，用于覆盖默认行为或调整输出策略：
+
+- `get_lineage(context)`: 若插件实现，`Context.get_lineage()` 会优先使用它生成血缘信息。
+- `clone()`: `Context.clone()` 复制插件时优先调用；否则使用 deepcopy 或无参构造回退。
+- `on_error(context, exception)`: `compute()` 抛错时调用，可做日志或资源清理。
+- `cleanup(context)`: `compute()` 结束后调用（成功/失败都会执行）。
+- `output_kind`: 控制静态/流式输出，影响输出契约校验与保存方式。
+- `output_dtype`: 用于 dtype 校验/转换，并参与 lineage hash。
+- `save_when`/`is_side_effect`: 控制缓存写入时机与副作用输出目录（`_side_effects/{run_id}/{plugin}`）。
+
+---
+
 ## 常见问题
 
 ### Q1: 如何知道插件提供什么数据？
