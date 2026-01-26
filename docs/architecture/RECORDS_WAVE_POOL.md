@@ -8,22 +8,29 @@
 
 本文档提出一种面向大跨度波形长度、百万级事件、流式/并行/异构计算场景的
 数据中间层设计。核心思路是用一个按时间有序的索引表 `records` 搭配一维
-波形池 `wave_pool`，在保证可扩展与高性能的同时保持统一的用户访问体验。
+波形池 `wave_pool`（内部 bundle），在保证可扩展与高性能的同时保持统一的
+用户访问体验。
 
 ---
 
 ## 📋 目录
 
-1. [概述](#概述)
-2. [设计目标](#设计目标)
-3. [数据模型](#数据模型)
-4. [时间语义与排序](#时间语义与排序)
-5. [构建流程与外部归并](#构建流程与外部归并)
-6. [并行与 GPU 职责划分](#并行与-gpu-职责划分)
-7. [RecordsView 与用户 API](#recordsview-与用户-api)
-8. [缓存与存储布局](#缓存与存储布局)
-9. [向后兼容性](#向后兼容性)
-10. [阶段规划](#阶段规划)
+- [Records + WavePool 数据中间层设计](#records--wavepool-数据中间层设计)
+  - [📋 目录](#-目录)
+  - [概述](#概述)
+  - [设计目标](#设计目标)
+  - [数据模型](#数据模型)
+    - [1. `records`（事件索引表）](#1-records事件索引表)
+    - [2. `wave_pool`（波形池）](#2-wave_pool波形池)
+  - [时间语义与排序](#时间语义与排序)
+  - [构建流程与外部归并](#构建流程与外部归并)
+    - [1. Worker 并行阶段](#1-worker-并行阶段)
+    - [2. Merge 阶段（k-way merge）](#2-merge-阶段k-way-merge)
+  - [并行与 GPU 职责划分](#并行与-gpu-职责划分)
+  - [RecordsView 与用户 API](#recordsview-与用户-api)
+  - [缓存与存储布局](#缓存与存储布局)
+  - [向后兼容性](#向后兼容性)
+  - [阶段规划](#阶段规划)
 
 ---
 
@@ -65,19 +72,25 @@
 
 推荐字段如下（可在后续实现中微调）：
 
-| 字段 | 类型 | 单位 | 说明 |
-|------|------|------|------|
-| `timestamp` | int64 | ps | ADC 时间戳（主排序与查询） |
-| `pid` | int32 | - | 采集/分片 ID，用于稳定排序与追溯 |
-| `channel` | int16 | - | 物理通道号 |
-| `baseline` | float64 | ADC counts | 基线值（与现有 st_waveforms 对齐） |
-| `wave_offset` | int64 | sample index | 在 wave_pool 中的起始索引 |
-| `event_length` | int32 | samples | 波形长度 |
-| `time` | int64 | ns | 系统时间，仅用于对齐/展示 |
+| 字段           | 类型    | 单位         | 说明                               |
+| -------------- | ------- | ------------ | ---------------------------------- |
+| `timestamp`    | int64   | ps           | ADC 时间戳（主排序与查询）         |
+| `pid`          | int32   | -            | 采集/分片 ID，用于稳定排序与追溯   |
+| `channel`      | int16   | -            | 物理通道号                         |
+| `baseline`     | float64 | ADC counts   | 基线值（与现有 st_waveforms 对齐） |
+| `event_id`     | int64   | -            | 排序后的全局顺序编号               |
+| `dt`           | int32   | ns           | 采样间隔（与 time 同单位）         |
+| `trigger_type` | int16   | -            | 触发类型编码                       |
+| `flags`        | uint32  | -            | 位图标记（质量/异常等）            |
+| `wave_offset`  | int64   | sample index | 在 wave_pool 中的起始索引          |
+| `event_length` | int32   | samples      | 波形长度                           |
+| `time`         | int64   | ns           | 系统时间，仅用于对齐/展示          |
 
 说明：
 - 字段命名遵循统一术语：使用 `event_length`，避免 `wave_length`/`pair_len`。
 - `baseline` 使用 `float64` 以保持与现有 `st_waveforms` 一致的数值表现。
+- `event_id` 在排序完成后生成，保证全局稳定顺序。
+- `dt` 以 ns 记录，便于与 `time` 一起计算 endtime。
 - `event_length` 使用 `int32`，支持最大约 21 亿采样点。
 - `time` 字段**始终存在**但不参与默认查询与排序，仅作跨系统对齐或显示用途。
 
@@ -177,40 +190,38 @@ while heap:
 from waveform_analysis.core.data import records_view
 
 rv = records_view(ctx, run_id)
-
 wave = rv.wave(i, baseline_correct=True)
-
 waves, mask = rv.waves([0, 10, 20], pad_to=2048, mask=True)
-
 subset = rv.query_time_window(t_min, t_max)  # 使用 timestamp
 ```
 
 API 约定：
 - `query_time_window()` **只使用 `timestamp`**
 - `time` 仅用于显示/对齐，不进入默认查询逻辑
+- `records` 为公开插件产物，`wave_pool` 作为内部 bundle，由 `RecordsView` 访问
 
 ---
 
 ## 缓存与存储布局
 
 - `records`: `numpy.memmap` 结构化数组
-- `wave_pool`: `numpy.memmap` 一维 `uint16`
+- `wave_pool`: 内部 bundle 数据（当前不作为公开 data_name）
 
 缓存策略：
-- `records` 与 `wave_pool` 使用同一 lineage
+- `RecordsPlugin` lineage 统一驱动 `records`/`wave_pool` 一致性
 - merge 结束后原子写入 (`.tmp` → rename)
 - 两者保持一致性（版本/配置/依赖一致）
 
 可选实现方式：
 - 引入 `RecordsBundle`（包含 `records` + `wave_pool`）
-- `Context` 识别 bundle 并分别保存两个 memmap
+- `Context` 使用内部 bundle 缓存 `wave_pool`，不暴露为公开数据名
 
 ---
 
 ## 向后兼容性
 
 - 现有 `st_waveforms` 管线保留并继续支持
-- 新增 `records`/`wave_pool` 不替代旧数据类型
+- 新增 `records` 不替代旧数据类型，`wave_pool` 保持为内部数据
 - 可选适配层：
   - `records → st_waveforms` 只读视图（供旧特征插件复用）
   - 逐步迁移新特征插件基于 RecordsView
@@ -220,7 +231,7 @@ API 约定：
 ## 阶段规划
 
 1. **Phase 1**: 数据模型与存储实现
-   - 新增 `records`/`wave_pool` 构建插件
+   - 新增 `RecordsPlugin`（内部 wave_pool bundle）
    - 基础 memmap 存储与 lineage 记录
 
 2. **Phase 2**: RecordsView 与查询

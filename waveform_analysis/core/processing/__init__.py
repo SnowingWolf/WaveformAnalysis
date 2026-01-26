@@ -75,6 +75,8 @@ from .records import (
     RecordsBundle,
     build_records_from_st_waveforms,
     build_records_from_st_waveforms_sharded,
+    build_records_from_waveforms,
+    build_records_from_v1725_files,
     merge_records_parts,
 )
 
@@ -92,6 +94,8 @@ __all__ = [
     "RecordsBundle",
     "build_records_from_st_waveforms",
     "build_records_from_st_waveforms_sharded",
+    "build_records_from_waveforms",
+    "build_records_from_v1725_files",
     "merge_records_parts",
     # 事件分析
     "EventAnalyzer",

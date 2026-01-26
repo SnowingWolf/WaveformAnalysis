@@ -41,7 +41,6 @@ from .cpu import (
     SignalPeaksPlugin,
     StWaveformsPlugin,
     WaveformsPlugin,
-    WavePoolPlugin,
     WaveformWidthPlugin,
 )
 
@@ -80,7 +79,6 @@ __all__ = [
     "WaveformWidthPlugin",
     "WAVEFORM_WIDTH_DTYPE",
     "CacheAnalysisPlugin",
-    "WavePoolPlugin",
     # 流式插件
     "SignalPeaksStreamPlugin",
     # 便捷列表

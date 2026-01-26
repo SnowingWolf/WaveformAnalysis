@@ -85,9 +85,18 @@ from .vx2730 import (
     VX2730Reader,
     VX2730Spec,
 )
+from .v1725 import (
+    V1725_ADAPTER,
+    V1725_LAYOUT,
+    V1725_SPEC,
+    V1725Adapter,
+    V1725Reader,
+    V1725Spec,
+)
 
 # 自动注册内置格式
 register_format("vx2730_csv", VX2730Reader, VX2730_SPEC)
+register_format("v1725_bin", V1725Reader, V1725_SPEC)
 
 __all__ = [
     # 基础类
@@ -120,4 +129,11 @@ __all__ = [
     "VX2730_LAYOUT",
     "VX2730_SPEC",
     "VX2730Spec",
+    # V1725 adapter
+    "V1725Reader",
+    "V1725Adapter",
+    "V1725_ADAPTER",
+    "V1725_LAYOUT",
+    "V1725_SPEC",
+    "V1725Spec",
 ]
