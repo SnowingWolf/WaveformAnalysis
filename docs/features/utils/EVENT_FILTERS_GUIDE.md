@@ -260,7 +260,7 @@ from waveform_analysis.utils.event_filters import (
     extract_channel_attributes,
 )
 
-# 1. 准备数据（从 Context 或 Dataset 获取）
+# 1. 准备数据（从 Context 获取）
 # 假设你已经有了 df_events
 # df_events = ctx.get_data(run_name, "df_events")
 
