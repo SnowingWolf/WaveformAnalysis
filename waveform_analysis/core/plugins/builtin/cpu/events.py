@@ -281,3 +281,44 @@ class EventFramePlugin(Plugin):
 
         df = pd.DataFrame(payload)
         return df.sort_values("timestamp")
+
+
+@export
+class EventsGroupedPlugin(Plugin):
+    """Group events_df into multi-channel events by time window."""
+
+    provides = "events_grouped"
+    depends_on = ["events_df"]
+    save_when = "always"
+    options = {
+        "time_window_ns": Option(
+            default=100.0,
+            type=float,
+            help="Grouping time window in ns (converted to ps internally).",
+        ),
+        "use_numba": Option(
+            default=True,
+            type=bool,
+            help="Enable numba acceleration when available.",
+        ),
+        "n_processes": Option(
+            default=None,
+            type=int,
+            help="Process count for multiprocessing; None or <=1 disables it.",
+        ),
+    }
+    version = "0.1.0"
+
+    def compute(self, context: Any, run_id: str, **kwargs) -> Any:
+        from waveform_analysis.core.processing.processor import group_multi_channel_hits
+
+        df = context.get_data(run_id, "events_df")
+        time_window_ns = context.get_config(self, "time_window_ns")
+        use_numba = context.get_config(self, "use_numba")
+        n_processes = context.get_config(self, "n_processes")
+        return group_multi_channel_hits(
+            df,
+            time_window_ns=time_window_ns,
+            use_numba=use_numba,
+            n_processes=n_processes,
+        )

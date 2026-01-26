@@ -38,6 +38,7 @@ from .builtin.cpu import (
     GroupedEventsPlugin,
     HitFinderPlugin,
     EventFramePlugin,
+    EventsGroupedPlugin,
     EventsPlugin,
     PairedEventsPlugin,
     PeaksPlugin,
@@ -121,6 +122,7 @@ __all__ = [
     "RecordsPlugin",
     "EventsPlugin",
     "EventFramePlugin",
+    "EventsGroupedPlugin",
     # 信号处理插件
     "FilteredWaveformsPlugin",
     "SignalPeaksPlugin",

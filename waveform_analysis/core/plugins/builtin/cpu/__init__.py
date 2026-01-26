@@ -19,7 +19,7 @@ from .filtering import FilteredWaveformsPlugin
 
 # CPU 寻峰插件
 from .peak_finding import ADVANCED_PEAK_DTYPE, SignalPeaksPlugin
-from .events import EventFramePlugin, EventsPlugin
+from .events import EventFramePlugin, EventsGroupedPlugin, EventsPlugin
 from .records import RecordsPlugin
 from .standard import (
     ChargesPlugin,
@@ -78,6 +78,7 @@ __all__ = [
     # Events
     "EventsPlugin",
     "EventFramePlugin",
+    "EventsGroupedPlugin",
     # Records
     "RecordsPlugin",
     "standard_plugins",

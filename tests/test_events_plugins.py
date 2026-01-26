@@ -4,6 +4,7 @@ import numpy as np
 
 from waveform_analysis.core.plugins.builtin.cpu.events import (
     EventFramePlugin,
+    EventsGroupedPlugin,
     EventsPlugin,
 )
 from waveform_analysis.core.processing.records_builder import EVENTS_DTYPE, RecordsBundle
@@ -32,6 +33,23 @@ class _FakeContext:
 
     def _set_data(self, run_id, name, data):
         self._results[(run_id, name)] = data
+
+    def get_data(self, run_id, data_name):
+        cached = self._results.get((run_id, data_name))
+        if cached is not None:
+            return cached
+
+        if data_name == "events_df":
+            plugin = EventFramePlugin()
+            data = plugin.compute(self, run_id)
+        elif data_name == "events_grouped":
+            plugin = EventsGroupedPlugin()
+            data = plugin.compute(self, run_id)
+        else:
+            raise KeyError(f"Unsupported data_name: {data_name}")
+
+        self._results[(run_id, data_name)] = data
+        return data
 
 
 def _seed_events_bundle(ctx, run_id):
@@ -68,3 +86,17 @@ def test_event_frame_plugin_basic_features():
 
     assert np.allclose(df["peak"].to_numpy(), np.array([2.0, 1.0]))
     assert np.allclose(df["charge"].to_numpy(), np.array([3.0, 7.0]))
+
+
+def test_events_grouped_plugin_chain():
+    run_id = "run_002"
+    ctx = _FakeContext(config={"events_grouped.time_window_ns": 0.05})
+    _seed_events_bundle(ctx, run_id)
+
+    df_events = ctx.get_data(run_id, "events_grouped")
+
+    assert (run_id, "events_df") in ctx._results
+    assert len(df_events) == 2
+    assert list(df_events["n_hits"]) == [1, 1]
+    assert list(df_events["channels"].iloc[0]) == [0]
+    assert list(df_events["channels"].iloc[1]) == [1]
