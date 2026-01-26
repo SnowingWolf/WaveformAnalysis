@@ -70,7 +70,7 @@ from .processor import (
     find_hits,
     group_multi_channel_hits,
 )
-from .records import (
+from .records_builder import (
     RECORDS_DTYPE,
     RecordsBundle,
     build_records_from_st_waveforms,
