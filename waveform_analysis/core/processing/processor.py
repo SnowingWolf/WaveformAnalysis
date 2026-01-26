@@ -510,8 +510,10 @@ class WaveformStruct:
 
         # 第一步：扫描所有波形数据，收集所有唯一的 (BOARD, CHANNEL) 组合
         all_board_channel_pairs = []
+        has_data = False
         for waves in self.waveforms:
             if len(waves) > 0:
+                has_data = True
                 try:
                     # 从 CSV 数据中提取 BOARD 和 CHANNEL（使用配置的列索引）
                     boards = waves[:, cols.board].astype(int)
@@ -522,6 +524,12 @@ class WaveformStruct:
                     continue
 
         # 创建 (BOARD, CHANNEL) 到物理通道号的映射
+        if not has_data:
+            self.waveform_structureds = [
+                self._structure_waveform(waves, channel_mapping=None)
+                for waves in self.waveforms
+            ]
+            return self.waveform_structureds
         if all_board_channel_pairs:
             channel_mapping = create_channel_mapping(all_board_channel_pairs)
             logger.debug(f"创建通道映射: {channel_mapping}")

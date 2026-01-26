@@ -30,6 +30,27 @@ WaveformAnalysis 提供灵活的配置系统，支持：
 - **插件特定配置** - 只对特定插件生效的配置
 - **配置优先级** - 插件特定配置 > 全局配置 > 默认值
 
+---
+
+## Context 初始化配置参考
+
+`Context(config=...)` 中的全局配置会被 Context 或核心模块直接读取。插件级配置请使用
+`ctx.list_plugin_configs()` 查看。
+
+| 配置键 | 默认值 | 说明 |
+| --- | --- | --- |
+| `data_root` | `"DAQ"` | DAQ 根目录，同时作为默认缓存目录 `storage_dir` |
+| `daq_adapter` | `None` | 默认 DAQ 适配器名称（RawFiles/Waveforms/StWaveforms/Records/Events 可用） |
+| `n_channels` | `None` | 通道数；为空时尽量通过扫描自动推断 |
+| `show_progress` | `True` | 是否显示加载/处理进度条 |
+| `start_channel_slice` | `0` | 兼容旧流程的通道偏移（新流程不再使用） |
+| `plugin_backends` | `None` | 按数据名指定存储后端：`{"st_waveforms": MemmapStorage(...), ...}` |
+| `compression` | `None` | 默认存储压缩后端（如 `"blosc2"`, `"zstd"`, `"lz4"`, `"gzip"` 或实例） |
+| `compression_kwargs` | `None` | 传给压缩后端的参数（如 `{"level": 3}`） |
+| `enable_checksum` | `False` | 写入时生成校验和 |
+| `verify_on_load` | `False` | 读取时校验数据完整性 |
+| `checksum_algorithm` | `"xxhash64"` | 校验算法（`xxhash64` / `sha256` / `md5`） |
+
 ```python
 from waveform_analysis.core.context import Context
 
