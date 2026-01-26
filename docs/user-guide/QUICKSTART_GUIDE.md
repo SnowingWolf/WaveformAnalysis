@@ -86,7 +86,7 @@ def main():
     # 2. 设置配置
     ctx.set_config({
         'data_root': 'DAQ',
-        'n_channels': 2,
+        'daq_adapter': 'vx2730',
         'threshold': 15.0,
     })
 
@@ -143,7 +143,7 @@ from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
 # 初始化
 ctx = Context(storage_dir='./strax_data')
 ctx.register(*standard_plugins)
-ctx.set_config({'data_root': 'DAQ', 'n_channels': 2})
+ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 
 # 批量处理
 processor = BatchProcessor(ctx)
@@ -180,7 +180,7 @@ from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
 # 初始化
 ctx = Context(storage_dir='./strax_data')
 ctx.register(*standard_plugins)
-ctx.set_config({'data_root': 'DAQ', 'n_channels': 2})
+ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 
 # 创建流式上下文
 stream_ctx = get_streaming_context(ctx, run_id='run_001', chunk_size=50000)
@@ -207,7 +207,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 )
 
 # 初始化 Context
-ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 
 # 注册插件
 ctx.register(RawFilesPlugin())
@@ -297,7 +297,7 @@ ctx.set_config({'daq_adapter': 'my_daq'})
 |------|------|
 | 创建 Context | `ctx = Context(storage_dir='./data')` |
 | 注册插件 | `ctx.register(*standard_plugins)` |
-| 设置配置 | `ctx.set_config({'n_channels': 2})` |
+| 设置配置 | `ctx.set_config({'daq_adapter': 'vx2730'})` |
 | 获取数据 | `ctx.get_data('run_001', 'peaks')` |
 | 查看帮助 | `ctx.help()` |
 | 查看配置 | `ctx.show_config()` |

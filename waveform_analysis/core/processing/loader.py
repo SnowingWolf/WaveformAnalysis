@@ -32,7 +32,7 @@ class WaveformLoaderCSV:
     高效的 DAQ 波形文件加载器，支持按通道分组。
 
     Attributes:
-        n_channels: 通道数量
+        n_channels: 通道数量（可选）
         run_name: 运行名称
         data_root: 数据根目录
         daq_adapter: DAQ 适配器（可选）
@@ -44,7 +44,7 @@ class WaveformLoaderCSV:
 
     def __init__(
         self,
-        n_channels: int = 6,
+        n_channels: Optional[int] = None,
         run_name: str = "All_SelfTrigger",
         data_root: str = "DAQ",
         daq_adapter: Optional[str] = None,
@@ -56,16 +56,16 @@ class WaveformLoaderCSV:
         配置数据加载路径和通道数。
 
         Args:
-            n_channels: 通道数量（默认6）
+            n_channels: 通道数量（可选，默认 None）
             run_name: 运行名称（默认 "All_SelfTrigger"）
             data_root: 数据根目录（默认 "DAQ"）
-            daq_adapter: DAQ 适配器名称（如 "vx2730"），可选
+            daq_adapter: DAQ 适配器名称（如 "vx2730"），默认使用 vx2730
             **kwargs: 额外参数（如 char，用于向后兼容）
 
         初始化内容:
         - 数据目录路径: {data_root}/{run_name}/RAW
         - 文件匹配模式: *CH*.CSV
-        - 通道数配置
+        - 通道数配置（可选）
         - 保留 char 属性以向后兼容
         """
         # 兼容旧的 char 参数
@@ -79,6 +79,9 @@ class WaveformLoaderCSV:
         self.pattern = "*CH*.CSV"
 
         # 初始化适配器
+        if daq_adapter is None:
+            daq_adapter = "vx2730"
+
         self._adapter: Optional["DAQAdapter"] = None
         self._adapter_name = daq_adapter
 
@@ -112,7 +115,11 @@ class WaveformLoaderCSV:
         file_idx = int(idx_match.group(1)) if idx_match else 0
         return ch, file_idx
 
-    def get_raw_files(self, daq_run: Optional[Any] = None, daq_info: Optional[Dict] = None) -> List[List[str]]:
+    def get_raw_files(
+        self,
+        daq_run: Optional[Any] = None,
+        daq_info: Optional[Dict] = None
+    ) -> List[List[str]]:
         """
         获取每个通道的文件列表。支持直接从 DAQRun 对象、DAQ 报告 dict 或适配器。
         """
@@ -131,7 +138,9 @@ class WaveformLoaderCSV:
             run_path = daq_info.get("path", str(self.base_dir.parent.parent))
 
             # 确定通道数
-            max_ch = max([int(k) for k in channel_details.keys()] + [self.n_channels - 1])
+            max_ch = max([int(k) for k in channel_details.keys()])
+            if self.n_channels is not None:
+                max_ch = max(max_ch, self.n_channels - 1)
             raw_filess = [[] for _ in range(max_ch + 1)]
 
             for ch_str, chdata in channel_details.items():
@@ -142,23 +151,55 @@ class WaveformLoaderCSV:
 
             return raw_filess
 
-        raise ValueError(
-            "No DAQ adapter or DAQ metadata provided. "
-            "Set daq_adapter or pass daq_run/daq_info to get_raw_files."
-        )
+        # 3. 回退到本地目录扫描（无需预设通道数）
+        return self._scan_raw_files()
 
     def _get_raw_files_with_adapter(self) -> List[List[str]]:
         """使用适配器获取文件列表"""
         try:
             channel_files = self._adapter.scan_run(self.data_root, self.run_name)
         except FileNotFoundError:
+            if self.n_channels is None:
+                return []
             return [[] for _ in range(self.n_channels)]
 
         if not channel_files:
+            if self.n_channels is None:
+                return []
             return [[] for _ in range(self.n_channels)]
 
-        max_ch = max(list(channel_files.keys()) + [self.n_channels - 1])
+        max_ch = max(list(channel_files.keys()))
+        if self.n_channels is not None:
+            max_ch = max(max_ch, self.n_channels - 1)
         return [[str(fp) for fp in channel_files.get(ch, [])] for ch in range(max_ch + 1)]
+
+    def _scan_raw_files(self) -> List[List[str]]:
+        if not self.base_dir.exists():
+            raise FileNotFoundError(f"目录不存在: {self.base_dir}")
+
+        files = list(self.base_dir.glob(self.pattern))
+        channel_map: Dict[int, List[Tuple[int, str]]] = {}
+        for fp in files:
+            parsed = self._extract(fp.name)
+            if parsed is None:
+                continue
+            ch, idx = parsed
+            channel_map.setdefault(ch, []).append((idx, str(fp)))
+
+        if not channel_map:
+            if self.n_channels is None:
+                return []
+            return [[] for _ in range(self.n_channels)]
+
+        max_ch = max(channel_map.keys())
+        if self.n_channels is not None:
+            max_ch = max(max_ch, self.n_channels - 1)
+
+        raw_filess = [[] for _ in range(max_ch + 1)]
+        for ch, entries in channel_map.items():
+            entries.sort(key=lambda x: x[0])
+            raw_filess[ch] = [path for _, path in entries]
+        return raw_filess
 
     def load_waveforms(
         self,
@@ -244,21 +285,21 @@ class WaveformLoaderCSV:
 
 @export
 def get_raw_files(
-    n_channels: int = 6,
+    n_channels: Optional[int] = None,
     run_name: str = "All_SelfTrigger",
     daq_run: Optional[Any] = None,
     data_root: str = "DAQ",
-    daq_adapter: Optional[str] = None,
+    daq_adapter: Optional[str] = "vx2730",
 ) -> List[List[str]]:
     """
     获取每个通道的文件列表。支持直接从 DAQRun 对象、适配器或文件系统扫描。
 
     Args:
-        n_channels: 通道数量
+        n_channels: 通道数量（可选）
         run_name: 运行名称
         daq_run: DAQRun 对象（可选）
         data_root: 数据根目录
-        daq_adapter: DAQ 适配器名称（如 "vx2730"），可选
+        daq_adapter: DAQ 适配器名称（如 "vx2730"）
     """
     loader = WaveformLoaderCSV(n_channels, run_name, data_root, daq_adapter=daq_adapter)
     return loader.get_raw_files(daq_run)
@@ -277,7 +318,7 @@ def get_waveforms(
     channel_executor: str = "thread",
     data_root: str = "DAQ",
     run_name: str = "All_SelfTrigger",
-    daq_adapter: Optional[str] = None,
+    daq_adapter: Optional[str] = "vx2730",
 ) -> List[np.ndarray]:
     """
     加载波形数据的便捷函数。
@@ -294,7 +335,7 @@ def get_waveforms(
         channel_executor: 通道级并行的执行器类型
         data_root: 数据根目录
         run_name: 运行名称
-        daq_adapter: DAQ 适配器名称（如 "vx2730"），可选
+        daq_adapter: DAQ 适配器名称（如 "vx2730"）
 
     Returns:
         包含每个通道波形数据的 numpy 数组列表
@@ -324,7 +365,7 @@ def get_waveforms_generator(
     show_progress: bool = False,
     data_root: str = "DAQ",
     run_name: str = "All_SelfTrigger",
-    daq_adapter: Optional[str] = None,
+    daq_adapter: Optional[str] = "vx2730",
 ):
     """
     返回一个生成器，按 chunk 产生同步的波形数据。

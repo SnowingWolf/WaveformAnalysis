@@ -36,7 +36,6 @@ import matplotlib.pyplot as plt
 # 1. 初始化预览器
 previewer = WaveformPreviewer(
     run_name="49V_OV_circulation_CH0_Coincidence_20dB",
-    n_channels=4,
     data_root="DAQ"
 )
 
@@ -112,8 +111,7 @@ fig = preview_waveforms(
     channel=3,
     event_range=(0, 20),
     plot_mode='overlay',     # 'overlay' 或 'grid'
-    annotate=True,
-    n_channels=4
+    annotate=True
 )
 plt.show()
 ```
@@ -225,7 +223,7 @@ print(f"  建议阈值（均值 - 2σ）: {suggested_threshold:.2f} ADC")
 |------|------|--------|------|
 | `run_name` | str | - | 运行名称（必需） |
 | `data_root` | str | "DAQ" | 数据根目录 |
-| `n_channels` | int | 6 | 通道总数 |
+| `n_channels` | int | 6 | 通道总数（可选，用于限制扫描范围） |
 
 #### 主要方法
 
@@ -307,7 +305,7 @@ print(f"  建议阈值（均值 - 2σ）: {suggested_threshold:.2f} ADC")
 - `annotate` (bool): 是否标注特征
 - `save_path` (str): 保存路径（可选）
 - `data_root` (str): 数据根目录
-- `n_channels` (int): 通道总数
+- `n_channels` (int): 通道总数（可选，用于限制扫描范围）
 
 **返回**：Matplotlib Figure 对象
 
@@ -372,7 +370,7 @@ preview_waveforms(
 
 检查以下几点：
 1. 确认该通道的原始文件存在于 `DAQ/<run_name>/RAW/` 目录
-2. 检查 `n_channels` 参数是否正确
+2. 检查 `daq_adapter` 配置是否正确
 3. 确认通道号从 0 开始计数
 
 ```python

@@ -36,7 +36,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 )
 
 # 创建 Context 并注册插件
-ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 
 ctx.register(WaveformsPlugin())
 ctx.register(StWaveformsPlugin())

@@ -106,8 +106,7 @@ ctx.register(FilteredWaveformsPlugin())
 # 配置全局参数
 ctx.set_config({
     "data_root": "DAQ",
-    "n_channels": 2,
-    "start_channel_slice": 6,
+    "daq_adapter": "vx2730",
 })
 
 # 配置 SG 滤波器
@@ -237,8 +236,7 @@ ctx.register(SignalPeaksPlugin())
 # 全局配置
 ctx.set_config({
     "data_root": "DAQ",
-    "n_channels": 2,
-    "start_channel_slice": 6,
+    "daq_adapter": "vx2730",
 })
 
 # 滤波配置

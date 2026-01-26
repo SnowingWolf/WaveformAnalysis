@@ -186,32 +186,33 @@ Called during registration.
 ### raw_files
 
 **类名**: `RawFilesPlugin`
-**版本**: 0.0.0
+**版本**: 0.0.2
 **提供数据**: `raw_files`
 **依赖**: 无
 Plugin to find raw CSV files.
 
 **配置选项**:
 
-- `n_channels` (<class 'int'>): Number of channels to load (默认: 2)
-- `start_channel_slice` (<class 'int'>): Starting channel index (默认: 6)
 - `data_root` (<class 'str'>): Root directory for data (默认: DAQ)
+- `daq_adapter` (<class 'str'>): DAQ adapter name (默认: vx2730)
 
 ---
 ### waveforms
 
 **类名**: `WaveformsPlugin`
-**版本**: 0.0.0
+**版本**: 0.0.2
 **提供数据**: `waveforms`
 **依赖**: raw_files
 Plugin to extract waveforms from raw files.
 
 **配置选项**:
 
-- `start_channel_slice` (<class 'int'>):  (默认: 6)
-- `n_channels` (<class 'int'>):  (默认: 2)
-- `channel_workers` (None): Number of parallel workers for channel-level processing (None=auto, uses min(n_channels, cpu_count)) (默认: None)
+- `channel_workers` (None): Number of parallel workers for channel-level processing (None=auto, uses min(len(raw_files), cpu_count)) (默认: None)
 - `channel_executor` (<class 'str'>): Executor type for channel-level parallelism: 'thread' or 'process' (默认: thread)
+- `n_jobs` (<class 'int'>): Number of parallel workers for file-level processing within each channel (默认: None)
+- `use_process_pool` (<class 'bool'>): Whether to use process pool for file-level parallelism (默认: False)
+- `chunksize` (<class 'int'>): Chunk size for CSV reading (默认: None)
+- `daq_adapter` (<class 'str'>): DAQ adapter name (默认: vx2730)
 
 ---
 ### st_waveforms

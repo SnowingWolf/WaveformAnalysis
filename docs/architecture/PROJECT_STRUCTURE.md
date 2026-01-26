@@ -360,7 +360,7 @@ pip install waveform-analysis
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin, WaveformsPlugin
 
-ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 ctx.register(RawFilesPlugin())
 ctx.register(WaveformsPlugin())
 waveforms = ctx.get_data("run_001", "waveforms")

@@ -187,7 +187,7 @@ from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
 
 ctx = Context()
 ctx.register(*standard_plugins)
-ctx.set_config({'n_channels': 2, 'data_root': 'DAQ'})
+ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 peaks = ctx.get_data('run_001', 'peaks')
 ```
 

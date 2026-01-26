@@ -28,7 +28,7 @@ from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
 # 初始化
 ctx = Context(storage_dir='./strax_data')
 ctx.register(standard_plugins)
-ctx.set_config({'data_root': 'DAQ', 'n_channels': 2})
+ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 
 # 获取数据
 peaks = ctx.get_data('run_001', 'peaks')
@@ -89,7 +89,7 @@ ctx.show_config()
 ctx.show_config('waveforms')
 
 # 设置配置
-ctx.set_config({'n_channels': 2, 'threshold': 50})
+ctx.set_config({'daq_adapter': 'vx2730', 'threshold': 50})
 
 # 插件特定配置（推荐，避免冲突）
 ctx.set_config({'threshold': 50}, plugin_name='peaks')

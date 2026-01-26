@@ -70,9 +70,8 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 ctx = Context(
     storage_dir="./strax_data",  # 数据存储目录
     config={
-        "n_channels": 2,
-        "start_channel_slice": 6,
         "data_root": "DAQ",
+        "daq_adapter": "vx2730",
     }
 )
 
@@ -88,10 +87,10 @@ ctx.register(BasicFeaturesPlugin())
 ```python
 # 方式1: 初始化时配置
 ctx = Context(config={
-    "n_channels": 2,
     "threshold": 50.0,
     "peaks_range": (40, 90),
     "charge_range": (0, None),
+    "daq_adapter": "vx2730",
 })
 
 # 方式2: 运行时更新配置
@@ -102,7 +101,7 @@ ctx.set_config({
 
 # 方式3: 为特定插件设置配置（推荐，避免冲突）
 ctx.set_config({"threshold": 50.0}, plugin_name="peaks")
-ctx.set_config({"n_channels": 4}, plugin_name="raw_files")
+ctx.set_config({"daq_adapter": "vx2730"}, plugin_name="raw_files")
 
 # 查看当前配置
 ctx.show_config()  # 显示全局配置
@@ -315,9 +314,8 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 ctx = Context(
     storage_dir="./strax_data",
     config={
-        "n_channels": 2,
-        "start_channel_slice": 6,
         "data_root": "DAQ",
+        "daq_adapter": "vx2730",
         "peaks_range": (40, 90),
         "charge_range": (0, None),
         "time_window_ns": 1000,
@@ -462,7 +460,7 @@ print(f"缓存命中率: {stats.get('hit_rate', 0):.2%}")
 ```python
 # ✅ 推荐：使用插件命名空间
 ctx.set_config({"threshold": 50.0}, plugin_name="peaks")
-ctx.set_config({"n_channels": 2}, plugin_name="raw_files")
+ctx.set_config({"daq_adapter": "vx2730"}, plugin_name="raw_files")
 
 # ❌ 不推荐：全局配置可能冲突
 ctx.set_config({"threshold": 50.0})  # 如果有多个插件使用 threshold，会冲突
