@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # 尝试导入 packaging 用于语义化版本
 try:
     from packaging.version import InvalidVersion, Version
+
     PACKAGING_AVAILABLE = True
 except ImportError:
     PACKAGING_AVAILABLE = False
@@ -69,7 +70,7 @@ class Option:
         # 如果值为 None 且默认值也为 None，允许通过（可选参数）
         if value is None and self.default is None:
             return None
-        
+
         # Type conversion attempt
         if self.type is not None and not isinstance(value, self.type):
             try:
@@ -269,11 +270,10 @@ class Plugin(abc.ABC):
                 if PACKAGING_AVAILABLE:
                     try:
                         from packaging.specifiers import SpecifierSet
+
                         SpecifierSet(version_spec)
                     except Exception as e:
-                        raise ValueError(
-                            f"Plugin {self.provides}: invalid version specifier '{version_spec}': {e}"
-                        )
+                        raise ValueError(f"Plugin {self.provides}: invalid version specifier '{version_spec}': {e}")
             else:
                 raise TypeError(
                     f"Plugin {self.provides}: dependency must be a string or tuple (name, version_spec), got {type(dep)}"
