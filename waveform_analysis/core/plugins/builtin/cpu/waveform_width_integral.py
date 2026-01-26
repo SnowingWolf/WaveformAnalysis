@@ -3,13 +3,13 @@
 CPU Waveform Width Integral Plugin - 事件级积分分位数宽度
 
 **加速器**: CPU (NumPy)
-**功能**: 对每条事件波形计算积分分位数宽度 (t10/t90)。
+**功能**: 对每条事件波形计算积分分位数宽度 (t_low/t_high)。
 
 核心口径：
 1) 输出是“按事件”的，不按峰；一条记录 = 一个 event_index
 2) baseline 仅来自 st_waveforms.baseline（插件不再估计 baseline）
 3) 若 use_filtered=True，波形使用 filtered_waveforms，但 baseline 仍来自 st_waveforms
-4) t10/t90 是波形内部的相对位置；timestamp 保持 ADC 事件时间语义
+4) t_low/t_high 是波形内部的相对位置；timestamp 保持 ADC 事件时间语义
 """
 
 from typing import Any, List, Optional
@@ -19,11 +19,11 @@ import numpy as np
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 WAVEFORM_WIDTH_INTEGRAL_DTYPE = np.dtype([
-    ("t10", "f4"),  # 10% 积分点（ns）
-    ("t90", "f4"),  # 90% 积分点（ns）
-    ("width", "f4"),  # t90 - t10（ns）
-    ("t10_samples", "f4"),  # 10% 积分点（采样点索引）
-    ("t90_samples", "f4"),  # 90% 积分点（采样点索引）
+    ("t_low", "f4"),  # 低分位积分点（ns，对应 q_low）
+    ("t_high", "f4"),  # 高分位积分点（ns，对应 q_high）
+    ("width", "f4"),  # t_high - t_low（ns）
+    ("t_low_samples", "f4"),  # 低分位积分点（采样点索引）
+    ("t_high_samples", "f4"),  # 高分位积分点（采样点索引）
     ("width_samples", "f4"),  # 宽度（采样点数）
     ("q_total", "f8"),  # 总电荷/总面积（基线校正后）
     ("timestamp", "i8"),  # 事件时间戳（ADC）
@@ -36,14 +36,14 @@ class WaveformWidthIntegralPlugin(Plugin):
     """
     事件级积分分位数宽度 (Event-wise Integral Quantile Width)。
 
-    对每条波形进行基线校正后积分，计算累计积分的 t10/t90 并得到宽度。
+    对每条波形进行基线校正后积分，计算累计积分的 t_low/t_high 并得到宽度。
     baseline 始终来自 st_waveforms.baseline，与系统其它特征一致。
     """
 
     provides = "waveform_width_integral"
     depends_on = ["st_waveforms", "filtered_waveforms"]
     description = "Event-wise integral quantile width using st_waveforms baseline."
-    version = "1.0.0"
+    version = "1.1.0"
     save_when = "always"
 
     output_dtype = WAVEFORM_WIDTH_INTEGRAL_DTYPE
@@ -148,29 +148,29 @@ class WaveformWidthIntegralPlugin(Plugin):
                 q_total = float(np.sum(x))
 
                 if q_total <= 0 or not np.isfinite(q_total):
-                    t10_samples = 0.0
-                    t90_samples = 0.0
+                    t_low_samples = 0.0
+                    t_high_samples = 0.0
                     width_samples = 0.0
                 else:
                     cumsum = np.cumsum(x)
-                    t10_idx = int(np.searchsorted(cumsum, q_low * q_total, side="left"))
-                    t90_idx = int(np.searchsorted(cumsum, q_high * q_total, side="left"))
-                    t10_samples = float(t10_idx)
-                    t90_samples = float(t90_idx)
-                    width_samples = float(max(t90_idx - t10_idx, 0))
+                    t_low_idx = int(np.searchsorted(cumsum, q_low * q_total, side="left"))
+                    t_high_idx = int(np.searchsorted(cumsum, q_high * q_total, side="left"))
+                    t_low_samples = float(t_low_idx)
+                    t_high_samples = float(t_high_idx)
+                    width_samples = float(max(t_high_idx - t_low_idx, 0))
 
-                t10 = float(t10_samples * dt)
-                t90 = float(t90_samples * dt)
+                t_low = float(t_low_samples * dt)
+                t_high = float(t_high_samples * dt)
                 width = float(width_samples * dt)
                 timestamp = int(record["timestamp"])
                 channel = int(record["channel"]) if "channel" in record.dtype.names else int(ch_idx)
 
                 channel_widths.append((
-                    t10,
-                    t90,
+                    t_low,
+                    t_high,
                     width,
-                    t10_samples,
-                    t90_samples,
+                    t_low_samples,
+                    t_high_samples,
                     width_samples,
                     q_total,
                     timestamp,

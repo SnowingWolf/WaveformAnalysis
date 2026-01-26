@@ -55,7 +55,7 @@ q_total = sum(x)  # 对整个波形求和
   - `"positive"`: 仅计算正信号部分 `max(signal, 0)`
   - `"negative"`: 仅计算负信号部分 `max(-signal, 0)`
   - `"auto"`: 自动选择面积更大的极性
-- **用途**: 主要用于计算积分分位数宽度（t10/t90），`q_total` 是副产品
+- **用途**: 主要用于计算积分分位数宽度（t_low/t_high，取决于 q_low/q_high），`q_total` 是副产品
 
 **代码实现:**
 ```python
@@ -84,7 +84,7 @@ q_total = float(np.sum(x))
 | **极性过滤** | 无 | 支持 positive/negative/auto |
 | **主要用途** | 电荷特征提取 | 积分分位数宽度计算（q_total 为副产品） |
 | **计算效率** | 向量化，高效 | 逐事件循环，较慢 |
-| **输出格式** | `List[np.ndarray]` (每个通道一个数组) | 结构化数组，包含 t10/t90/width 等字段 |
+| **输出格式** | `List[np.ndarray]` (每个通道一个数组) | 结构化数组，包含 t_low/t_high/width 等字段 |
 
 ---
 
@@ -130,7 +130,7 @@ q_total = float(np.sum(x))
 **使用 WaveformWidthIntegralPlugin["q_total"] 当:**
 - 需要计算整个波形的总电荷
 - 需要根据极性过滤信号
-- 同时需要积分分位数宽度信息（t10/t90）
+- 同时需要积分分位数宽度信息（t_low/t_high）
 - 需要更精确的电荷估计（包含整个信号）
 
 ---

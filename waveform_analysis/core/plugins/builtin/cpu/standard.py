@@ -82,27 +82,32 @@ class WaveformsPlugin(Plugin):
         "channel_workers": Option(
             default=None,
             help="Number of parallel workers for channel-level processing (None=auto, uses min(len(raw_files), cpu_count))",
+            track=False,
         ),
         "channel_executor": Option(
             default="thread",
             type=str,
             help="Executor type for channel-level parallelism: 'thread' or 'process'",
+            track=False,
         ),
         "daq_adapter": Option(default="vx2730", type=str, help="DAQ adapter name (e.g., 'vx2730')"),
         "n_jobs": Option(
             default=None,
             type=int,
             help="Number of parallel workers for file-level processing within each channel (None=auto, uses min(max_file_count, 50))",
+            track=False,
         ),
         "use_process_pool": Option(
             default=False,
             type=bool,
             help="Whether to use process pool for file-level parallelism (False=thread pool for I/O, True=process pool for CPU-intensive)",
+            track=False,
         ),
         "chunksize": Option(
             default=None,
             type=int,
             help="Chunk size for CSV reading (None=read entire file, enables PyArrow; set value to enable chunked reading but disables PyArrow)",
+            track=False,
         ),
     }
 
