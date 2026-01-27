@@ -1,28 +1,27 @@
 # Worktree Workflow
 
-This repository uses four git worktrees to isolate core work and plugin work while
-keeping integration clean and repeatable.
+This repository uses three git worktrees to isolate core work and plugin work
+while keeping integration clean and repeatable. The root `WaveformAnalysis/`
+directory acts as a management directory (optional); avoid active development
+there when possible.
 
 ## Worktree Roles and Discipline
 
 - core worktree: only change `waveform_analysis/core/**` and core-adjacent shared
   layers such as `waveform_analysis/utils/**` or core dependencies in
   `pyproject.toml`.
-- records worktree: only change records plugin implementation, docs, and tests
-  (prefer `tests/plugins/**` and `docs/plugins/**` records content, plus any
-  `waveform_analysis/**records**` modules).
-- st_waveforms worktree: only change st_waveforms plugin implementation, docs,
-  and tests (prefer `tests/plugins/**`, `docs/plugins/**`, and related modules).
-- integration worktree: no development. Only for merging core/records/stw branches, running
-  full tests, updating `CHANGELOG.md`, and tagging releases.
+- plugins worktree: only change plugin implementations (records + stw), plugin
+  docs, and plugin tests (prefer `tests/plugins/**`, `docs/plugins/**`, and
+  plugin-related modules).
+- integration worktree: no development. Only for merging core/plugins branches,
+  running full tests, updating `CHANGELOG.md`, and tagging releases.
 
 ## Branch Naming and Commit Messages
 
-Core/records/stw branches:
+Core/plugins branches:
 
 - `wip/core`
-- `wip/records`
-- `wip/stw`
+- `wip/plugins`
 
 Integration branch (temporary):
 
@@ -35,14 +34,14 @@ Main branch policy:
 Commit message suggestions:
 
 - `feat(core): ...`
-- `fix(records): ...`
-- `refactor(stw): ...`
+- `fix(plugins): ...`
+- `refactor(plugins): ...`
 - `test: ...`
 - `docs: ...`
 
 ## Create Worktrees
 
-The script below creates four worktrees next to the repo:
+The script below creates three worktrees next to the repo:
 
 ```bash
 ./scripts/worktrees/create.sh
@@ -50,7 +49,7 @@ The script below creates four worktrees next to the repo:
 
 Defaults:
 
-- `--prefix ..` (worktrees are created as `../wa-core`, `../wa-records`, `../wa-stw`, `../wa-integration`)
+- `--prefix ..` (worktrees are created as `../wa-core`, `../wa-plugins`, `../wa-integration`)
 
 ## Bootstrap a Venv per Worktree
 
@@ -60,10 +59,7 @@ Each worktree has its own `.venv`:
 cd ../wa-core
 ./scripts/worktrees/bootstrap_venv.sh
 
-cd ../wa-records
-./scripts/worktrees/bootstrap_venv.sh --with-core ../wa-core
-
-cd ../wa-stw
+cd ../wa-plugins
 ./scripts/worktrees/bootstrap_venv.sh --with-core ../wa-core
 ```
 
@@ -75,7 +71,7 @@ path to avoid editable path confusion across worktrees.
 Prefer rebase for single-developer flows:
 
 ```bash
-git switch wip/records
+git switch wip/plugins
 git fetch origin
 git rebase wip/core
 ```
@@ -93,8 +89,7 @@ Run the integration script from `../wa-integration`:
 ```bash
 ./scripts/worktrees/integrate.sh \
   --core wip/core \
-  --records wip/records \
-  --stw wip/stw
+  --plugins wip/plugins
 ```
 
 The script creates (or reuses) `wip/integration`, merges branches in
@@ -102,7 +97,7 @@ order, and runs tests (default: `make test`).
 
 ## Merge to main
 
-Recommended: use squash merges for each core/records/stw branch:
+Recommended: use squash merges for each core/plugins branch:
 
 ```bash
 git switch main
@@ -110,11 +105,11 @@ git merge --squash wip/core
 git commit -m "feat(core): core changes"
 ```
 
-Repeat per branch (core, records, stw). Update `CHANGELOG.md` as needed.
+Repeat per branch (core, plugins). Update `CHANGELOG.md` as needed.
 
 Merge order and verification:
 
-- Merge order: `core` → `records` → `stw`
+- Merge order: `core` → `plugins`
 - After each squash merge, run `make test` on `main` (or at least `make test-core` plus the
   relevant plugin test target) to keep chapter commits reliable and bisect-friendly.
 
@@ -128,7 +123,7 @@ Common commands:
 Removing a worktree:
 
 ```bash
-git worktree remove ../wa-records
+git worktree remove ../wa-plugins
 ```
 
 ## Common Pitfalls
@@ -149,8 +144,7 @@ git worktree remove ../wa-records
 
 # 2) Bootstrap venvs
 cd ../wa-core && ./scripts/worktrees/bootstrap_venv.sh
-cd ../wa-records && ./scripts/worktrees/bootstrap_venv.sh --with-core ../wa-core
-cd ../wa-stw && ./scripts/worktrees/bootstrap_venv.sh --with-core ../wa-core
+cd ../wa-plugins && ./scripts/worktrees/bootstrap_venv.sh --with-core ../wa-core
 
 # 3) Develop and run scoped tests
 make test-core
@@ -161,6 +155,5 @@ make test-stw
 cd ../wa-integration
 ./scripts/worktrees/integrate.sh \
   --core wip/core \
-  --records wip/records \
-  --stw wip/stw
+  --plugins wip/plugins
 ```

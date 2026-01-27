@@ -2,12 +2,11 @@
 set -euo pipefail
 
 core_branch=""
-records_branch=""
-stw_branch=""
+plugins_branch=""
 tests_cmd="make test"
 
 usage() {
-  echo "Usage: $0 --core <branch> --records <branch> --stw <branch> [--tests <cmd>]"
+  echo "Usage: $0 --core <branch> --plugins <branch> [--tests <cmd>]"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -16,12 +15,8 @@ while [[ $# -gt 0 ]]; do
       core_branch="${2:-}"
       shift 2
       ;;
-    --records)
-      records_branch="${2:-}"
-      shift 2
-      ;;
-    --stw)
-      stw_branch="${2:-}"
+    --plugins)
+      plugins_branch="${2:-}"
       shift 2
       ;;
     --tests)
@@ -40,7 +35,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$core_branch" || -z "$records_branch" || -z "$stw_branch" ]]; then
+if [[ -z "$core_branch" || -z "$plugins_branch" ]]; then
   echo "Missing required arguments."
   usage
   exit 1
@@ -71,8 +66,7 @@ merge_branch() {
 }
 
 merge_branch "${core_branch}"
-merge_branch "${records_branch}"
-merge_branch "${stw_branch}"
+merge_branch "${plugins_branch}"
 
 echo "Running tests: ${tests_cmd}"
 if ! eval "${tests_cmd}"; then
