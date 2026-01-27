@@ -58,9 +58,9 @@ class ErrorManager:
         self,
         plugin: Any,
         run_id: str,
-        context: Optional[Any] = None,
         get_config_fn: Callable[[Any, str], Any],
-        get_data_fn: Callable[[str, str], Any]
+        get_data_fn: Callable[[str, str], Any],
+        context: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """收集错误发生时的上下文信息
 
