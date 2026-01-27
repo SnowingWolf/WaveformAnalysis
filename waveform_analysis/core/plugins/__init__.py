@@ -31,6 +31,7 @@ Plugins 子模块 - 插件系统统一入口
 # 从 core 子模块导出核心基础设施
 # 从 builtin 子模块导出内置插件
 from .builtin.cpu import (
+    BasicFeaturesPlugin,
     ChargesPlugin,
     DataFramePlugin,
     # 信号处理插件
@@ -114,6 +115,7 @@ __all__ = [
     "WaveformsPlugin",
     "StWaveformsPlugin",
     "HitFinderPlugin",
+    "BasicFeaturesPlugin",
     "PeaksPlugin",
     "ChargesPlugin",
     "DataFramePlugin",

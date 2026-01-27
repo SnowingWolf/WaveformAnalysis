@@ -37,6 +37,7 @@ def __getattr__(name):
         "WaveformsPlugin": "waveform_analysis.core.plugins.builtin.cpu.standard",
         "StWaveformsPlugin": "waveform_analysis.core.plugins.builtin.cpu.standard",
         "HitFinderPlugin": "waveform_analysis.core.plugins.builtin.cpu.standard",
+        "BasicFeaturesPlugin": "waveform_analysis.core.plugins.builtin.cpu.standard",
         "PeaksPlugin": "waveform_analysis.core.plugins.builtin.cpu.standard",
         "ChargesPlugin": "waveform_analysis.core.plugins.builtin.cpu.standard",
         "DataFramePlugin": "waveform_analysis.core.plugins.builtin.cpu.standard",
@@ -55,6 +56,7 @@ def __getattr__(name):
     if name in standard_plugins:
         _deprecated_import(name, standard_plugins[name])
         from .standard import (
+            BasicFeaturesPlugin,
             ChargesPlugin,
             DataFramePlugin,
             GroupedEventsPlugin,
@@ -86,6 +88,7 @@ __all__ = [
     "WaveformsPlugin",
     "StWaveformsPlugin",
     "HitFinderPlugin",
+    "BasicFeaturesPlugin",
     "PeaksPlugin",
     "ChargesPlugin",
     "DataFramePlugin",

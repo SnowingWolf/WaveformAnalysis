@@ -213,8 +213,68 @@ class HitFinderPlugin(Plugin):
         return hits_list
 
 
+class BasicFeaturesPlugin(Plugin):
+    """Plugin to compute basic height/area features from structured waveforms."""
+
+    provides = "basic_features"
+    depends_on = ["st_waveforms"]
+    save_when = "always"
+    options = {
+        "height_range": Option(default=None, type=tuple, help="高度计算范围 (start, end)"),
+        "area_range": Option(
+            default=(0, None),
+            type=tuple,
+            help="面积计算范围 (start, end)，end=None 表示积分到波形末端",
+        ),
+        "peaks_range": Option(default=None, type=tuple, help="(deprecated) height_range 别名"),
+        "charge_range": Option(
+            default=(0, None),
+            type=tuple,
+            help="(deprecated) area_range 别名",
+        ),
+    }
+
+    def compute(self, context: Any, run_id: str, **kwargs) -> dict:
+        """
+        计算基础特征（height/area）
+
+        height = max - min
+        area = sum(baseline - wave)
+
+        Returns:
+            dict: {"height": List[np.ndarray], "area": List[np.ndarray]}
+        """
+        from waveform_analysis.core.processing.processor import WaveformProcessor
+
+        st_waveforms = context.get_data(run_id, "st_waveforms")
+        height_range = context.get_config(self, "height_range")
+        area_range = context.get_config(self, "area_range")
+        if self._has_config(context, "peaks_range") and not self._has_config(context, "height_range"):
+            height_range = context.get_config(self, "peaks_range")
+        if self._has_config(context, "charge_range") and not self._has_config(context, "area_range"):
+            area_range = context.get_config(self, "charge_range")
+
+        processor = WaveformProcessor(n_channels=len(st_waveforms))
+        heights, areas = processor.compute_basic_features(
+            st_waveforms,
+            peaks_range=height_range,
+            charge_range=area_range,
+        )
+        return {"height": heights, "area": areas}
+
+    def _has_config(self, context: Any, name: str) -> bool:
+        config = getattr(context, "config", {})
+        provides = self.provides
+        if provides in config and isinstance(config[provides], dict):
+            if name in config[provides]:
+                return True
+        if f"{provides}.{name}" in config:
+            return True
+        return name in config
+
+
 class PeaksPlugin(Plugin):
-    """Plugin to compute peak features from structured waveforms."""
+    """Deprecated: use BasicFeaturesPlugin (height/area) instead."""
 
     provides = "peaks"
     depends_on = ["st_waveforms"]
@@ -253,7 +313,7 @@ class PeaksPlugin(Plugin):
 
 
 class ChargesPlugin(Plugin):
-    """Plugin to compute charge features from structured waveforms."""
+    """Deprecated: use BasicFeaturesPlugin (height/area) instead."""
 
     provides = "charges"
     depends_on = ["st_waveforms"]
@@ -299,19 +359,19 @@ class DataFramePlugin(Plugin):
     """Plugin to build the initial single-channel events DataFrame."""
 
     provides = "df"
-    depends_on = ["st_waveforms", "peaks", "charges"]
+    depends_on = ["st_waveforms", "basic_features"]
     save_when = "always"
 
     def compute(self, context: Any, run_id: str, **kwargs) -> Any:
         """
         构建单通道事件的 DataFrame
 
-        整合结构化波形、峰值和电荷特征，构建包含所有事件信息的 pandas DataFrame。
+        整合结构化波形与 height/area 特征，构建包含所有事件信息的 pandas DataFrame。
 
         Args:
             context: Context 实例
             run_id: 运行标识符
-            **kwargs: 依赖数据，包含 st_waveforms, peaks, charges
+        **kwargs: 依赖数据，包含 st_waveforms, basic_features
 
         Returns:
             pd.DataFrame: 包含所有通道事件的 DataFrame
@@ -323,8 +383,9 @@ class DataFramePlugin(Plugin):
         from waveform_analysis.core.processing.processor import WaveformProcessor
 
         st_waveforms = context.get_data(run_id, "st_waveforms")
-        peaks = context.get_data(run_id, "peaks")
-        charges = context.get_data(run_id, "charges")
+        basic_features = context.get_data(run_id, "basic_features")
+        heights = basic_features["height"]
+        areas = basic_features["area"]
 
         # 通道号现在从st_waveforms中的channel字段读取（从BOARD/CHANNEL映射得到）
         # 保留start_channel_slice参数以向后兼容，但实际不再使用
@@ -333,8 +394,8 @@ class DataFramePlugin(Plugin):
         processor = WaveformProcessor(n_channels=len(st_waveforms))
         df = processor.build_dataframe(
             st_waveforms,
-            peaks,
-            charges,
+            heights,
+            areas,
             start_channel_slice=start_channel_slice,  # 保留参数以兼容，但不再使用
         )
         return df

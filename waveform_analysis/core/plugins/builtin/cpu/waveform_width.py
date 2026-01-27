@@ -50,7 +50,7 @@ class WaveformWidthPlugin(Plugin):
     """
 
     provides = "waveform_width"
-    depends_on = ["signal_peaks", "st_waveforms"]
+    depends_on = []
     description = "Calculate rise/fall time based on peak detection results."
     version = "1.0.1"
     save_when = "always"

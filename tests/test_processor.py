@@ -127,10 +127,10 @@ class TestBuildWaveformDf:
     def test_build_empty(self):
         """测试空数据构建"""
         st_waveforms = [np.zeros(0, dtype=RECORD_DTYPE) for _ in range(2)]
-        peaks = [np.array([]), np.array([])]
-        charges = [np.array([]), np.array([])]
+        heights = [np.array([]), np.array([])]
+        areas = [np.array([]), np.array([])]
 
-        df = build_waveform_df(st_waveforms, peaks, charges, n_channels=2, start_channel_slice=0)
+        df = build_waveform_df(st_waveforms, heights, areas, n_channels=2, start_channel_slice=0)
 
         assert isinstance(df, pd.DataFrame)
         assert len(df) == 0
@@ -139,23 +139,23 @@ class TestBuildWaveformDf:
         """测试带数据的 DataFrame 构建"""
         n = 5
         st_waveforms = []
-        peaks = []
-        charges = []
+        heights = []
+        areas = []
 
         for ch in range(2):
             st = np.zeros(n, dtype=RECORD_DTYPE)
             st["timestamp"] = np.arange(1000 + ch * 100, 1000 + ch * 100 + n)
             st["channel"] = ch  # 设置 channel 字段
             st_waveforms.append(st)
-            peaks.append(np.random.randn(n))
-            charges.append(np.random.randn(n))
+            heights.append(np.random.randn(n))
+            areas.append(np.random.randn(n))
 
-        df = build_waveform_df(st_waveforms, peaks, charges, n_channels=2, start_channel_slice=0)
+        df = build_waveform_df(st_waveforms, heights, areas, n_channels=2, start_channel_slice=0)
 
         assert len(df) == n * 2
         assert "timestamp" in df.columns
-        assert "charge" in df.columns
-        assert "peak" in df.columns
+        assert "area" in df.columns
+        assert "height" in df.columns
         assert "channel" in df.columns
         # 验证 channel 字段包含正确的通道号
         assert set(df["channel"].unique()) == {0, 1}
@@ -164,8 +164,8 @@ class TestBuildWaveformDf:
         """测试自动检测通道数（不传递 n_channels 参数）"""
         n = 3
         st_waveforms = []
-        peaks = []
-        charges = []
+        heights = []
+        areas = []
         
         # 创建 4 个通道的数据
         for ch in range(4):
@@ -173,11 +173,11 @@ class TestBuildWaveformDf:
             st["timestamp"] = np.arange(1000 + ch * 100, 1000 + ch * 100 + n)
             st["channel"] = ch
             st_waveforms.append(st)
-            peaks.append(np.random.randn(n))
-            charges.append(np.random.randn(n))
+            heights.append(np.random.randn(n))
+            areas.append(np.random.randn(n))
         
         # 不传递 n_channels，应该自动检测为 4
-        df = build_waveform_df(st_waveforms, peaks, charges, start_channel_slice=0)
+        df = build_waveform_df(st_waveforms, heights, areas, start_channel_slice=0)
         
         assert len(df) == n * 4
         assert set(df["channel"].unique()) == {0, 1, 2, 3}
@@ -188,7 +188,7 @@ class TestGroupMultiChannelHits:
 
     def test_empty_df(self):
         """测试空 DataFrame"""
-        df = pd.DataFrame(columns=["timestamp", "charge", "peak", "channel"])
+        df = pd.DataFrame(columns=["timestamp", "area", "height", "channel"])
         result = group_multi_channel_hits(df, time_window_ns=100)
 
         assert len(result) == 0
@@ -198,8 +198,8 @@ class TestGroupMultiChannelHits:
         """测试单个事件簇"""
         df = pd.DataFrame({
             "timestamp": [1000000, 1000010, 1000020],  # 在 100ns 窗口内
-            "charge": [100, 200, 300],
-            "peak": [10, 20, 30],
+            "area": [100, 200, 300],
+            "height": [10, 20, 30],
             "channel": [0, 1, 0],
         })
 
@@ -212,8 +212,8 @@ class TestGroupMultiChannelHits:
         """测试多个事件簇"""
         df = pd.DataFrame({
             "timestamp": [1000000, 1000010, 2000000, 2000010],  # 两个簇
-            "charge": [100, 200, 300, 400],
-            "peak": [10, 20, 30, 40],
+            "area": [100, 200, 300, 400],
+            "height": [10, 20, 30, 40],
             "channel": [0, 1, 0, 1],
         })
 
