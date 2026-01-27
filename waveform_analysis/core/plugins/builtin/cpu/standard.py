@@ -418,7 +418,18 @@ class PeaksPlugin(Plugin):
     save_when = "always"
     options = {
         "peaks_range": Option(default=None, type=tuple, help="峰值计算范围 (start, end)"),
+        "use_filtered": Option(
+            default=False,
+            type=bool,
+            help="是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin）",
+        ),
     }
+
+    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
+        deps = ["st_waveforms"]
+        if context.get_config(self, "use_filtered"):
+            deps.append("filtered_waveforms")
+        return deps
 
     def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
         """
@@ -443,9 +454,24 @@ class PeaksPlugin(Plugin):
 
         st_waveforms = context.get_data(run_id, "st_waveforms")
         peaks_range = context.get_config(self, "peaks_range")
+        use_filtered = context.get_config(self, "use_filtered")
+
+        if use_filtered:
+            try:
+                filtered_waveforms = context.get_data(run_id, "filtered_waveforms")
+            except Exception:
+                raise ValueError(
+                    "use_filtered=True 但无法获取 filtered_waveforms。请先注册 FilteredWaveformsPlugin。"
+                )
+        else:
+            filtered_waveforms = None
 
         processor = WaveformProcessor(n_channels=len(st_waveforms))
-        peaks, _ = processor.compute_basic_features(st_waveforms, peaks_range=peaks_range)
+        peaks, _ = processor.compute_basic_features(
+            st_waveforms,
+            peaks_range=peaks_range,
+            waveforms_override=filtered_waveforms,
+        )
         return peaks
 
 
@@ -461,7 +487,18 @@ class ChargesPlugin(Plugin):
             type=tuple,
             help="电荷计算范围 (start, end)，end=None 表示积分到波形末端",
         ),
+        "use_filtered": Option(
+            default=False,
+            type=bool,
+            help="是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin）",
+        ),
     }
+
+    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
+        deps = ["st_waveforms"]
+        if context.get_config(self, "use_filtered"):
+            deps.append("filtered_waveforms")
+        return deps
 
     def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
         """
@@ -486,9 +523,24 @@ class ChargesPlugin(Plugin):
 
         st_waveforms = context.get_data(run_id, "st_waveforms")
         charge_range = context.get_config(self, "charge_range")
+        use_filtered = context.get_config(self, "use_filtered")
+
+        if use_filtered:
+            try:
+                filtered_waveforms = context.get_data(run_id, "filtered_waveforms")
+            except Exception:
+                raise ValueError(
+                    "use_filtered=True 但无法获取 filtered_waveforms。请先注册 FilteredWaveformsPlugin。"
+                )
+        else:
+            filtered_waveforms = None
 
         processor = WaveformProcessor(n_channels=len(st_waveforms))
-        _, charges = processor.compute_basic_features(st_waveforms, charge_range=charge_range)
+        _, charges = processor.compute_basic_features(
+            st_waveforms,
+            charge_range=charge_range,
+            waveforms_override=filtered_waveforms,
+        )
         return charges
 
 

@@ -221,6 +221,17 @@ class Plugin(abc.ABC):
             return dep[1]
         return None
 
+    def resolve_depends_on(
+        self, context: Any, run_id: Optional[str] = None
+    ) -> List[Union[str, Tuple[str, str]]]:
+        """
+        Resolve dependencies dynamically based on context/config.
+
+        Default behavior returns the static depends_on list.
+        Override this method to implement dynamic dependencies.
+        """
+        return list(self.depends_on) if self.depends_on else []
+
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         # Merge options from base classes to support inheritance

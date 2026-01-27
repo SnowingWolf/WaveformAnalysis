@@ -216,6 +216,12 @@ class WaveformWidthPlugin(Plugin):
 
         return width_list
 
+    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
+        deps = ["signal_peaks", "st_waveforms"]
+        if context.get_config(self, "use_filtered"):
+            deps.append("filtered_waveforms")
+        return deps
+
     def _has_config(self, context: Any, name: str) -> bool:
         config = getattr(context, "config", {})
         provides = self.provides

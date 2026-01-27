@@ -8,7 +8,7 @@
 # 1. Standard library imports
 from datetime import datetime
 import logging
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
 # 2. Third-party imports
 import numpy as np
@@ -34,6 +34,7 @@ class ErrorManager:
         >>> # 收集错误上下文
         >>> context = error_manager.collect_context(
         ...     plugin, run_id,
+        ...     context=ctx,
         ...     get_config_fn=ctx.get_config,
         ...     get_data_fn=ctx._get_data_from_memory
         ... )
@@ -57,6 +58,7 @@ class ErrorManager:
         self,
         plugin: Any,
         run_id: str,
+        context: Optional[Any] = None,
         get_config_fn: Callable[[Any, str], Any],
         get_data_fn: Callable[[str, str], Any]
     ) -> Dict[str, Any]:
@@ -65,6 +67,7 @@ class ErrorManager:
         Args:
             plugin: 插件实例
             run_id: 运行 ID
+            context: Context 实例（可选，用于动态依赖解析）
             get_config_fn: 获取配置的回调函数 (plugin, key) -> value
             get_data_fn: 获取数据的回调函数 (run_id, name) -> data
 
@@ -88,8 +91,19 @@ class ErrorManager:
 
         # 收集依赖数据信息
         dependencies_info = {}
-        for dep in plugin.depends_on:
-            dep_name = dep if isinstance(dep, str) else dep[0]
+        if context is not None and hasattr(plugin, "resolve_depends_on"):
+            try:
+                deps = plugin.resolve_depends_on(context, run_id=run_id)
+            except TypeError:
+                deps = plugin.resolve_depends_on(context)
+        else:
+            deps = getattr(plugin, "depends_on", []) or []
+
+        for dep in deps:
+            if hasattr(plugin, "get_dependency_name"):
+                dep_name = plugin.get_dependency_name(dep)
+            else:
+                dep_name = dep if isinstance(dep, str) else dep[0]
             try:
                 dep_data = get_data_fn(run_id, dep_name)
                 if dep_data is not None:

@@ -689,11 +689,35 @@ class MemmapStorage:
         if self._check_single_exists(key, run_id):
             return True
 
-        # 2. 检查多通道是否存在（回退到 _ch0）
+        # 2. 检查多通道是否存在（先回退到 _ch0）
         if not key.endswith("_ch0") and self._check_single_exists(f"{key}_ch0", run_id):
             return True
 
+        # 3. 检查任意通道号（key_ch*）
+        if self._list_channel_keys(key, run_id):
+            return True
+
         return False
+
+    def _list_channel_keys(self, key: str, run_id: Optional[str] = None) -> List[str]:
+        """列出指定 key 的所有多通道缓存 key（key_ch*）。"""
+        if run_id is None:
+            parts = key.split('-')
+            if len(parts) >= 1:
+                run_id = parts[0]
+            else:
+                run_id = "default"
+
+        data_dir = os.path.join(self.work_dir, run_id, self.data_subdir)
+        if not os.path.exists(data_dir):
+            return []
+
+        prefix = f"{key}_ch"
+        keys = []
+        for f in os.listdir(data_dir):
+            if f.endswith(".json") and f.startswith(prefix):
+                keys.append(f[:-5])
+        return keys
 
     def _check_single_exists(self, key: str, run_id: Optional[str] = None) -> bool:
         """内部辅助方法：检查单个 key 的数据完整性。"""

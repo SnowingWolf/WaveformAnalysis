@@ -577,12 +577,14 @@ class StreamingPlugin(Plugin):
         如果是静态数据，转换为 chunk 流（按时间或固定长度切分）。
         当前实现只使用 depends_on 的第一个依赖。
         """
-        if not self.depends_on:
+        deps = self.resolve_depends_on(context, run_id=run_id) if hasattr(self, "resolve_depends_on") else self.depends_on
+        if not deps:
             # 无依赖，返回空迭代器
             return iter([])
 
         # 获取第一个依赖（简化：只支持单个依赖）
-        dep_name = self.depends_on[0]
+        dep_name = deps[0]
+        dep_name = self.get_dependency_name(dep_name) if hasattr(self, "get_dependency_name") else dep_name
         dep_data = context.get_data(run_id, dep_name)
 
         # 检查是否是 chunk 流

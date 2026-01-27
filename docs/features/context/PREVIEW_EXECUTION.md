@@ -80,9 +80,12 @@ def preview_execution(
     'execution_plan': List[str],      # 插件执行顺序列表
     'cache_status': Dict[str, dict],  # 每个插件的缓存状态
     'configs': Dict[str, dict],       # 非默认配置参数
+    'resolved_depends_on': Dict[str, List[str]],  # 解析后的依赖列表
     'needed_set': List[str],          # 实际需要执行的步骤（cache-aware）
 }
 ```
+
+当 `verbose >= 2` 时，控制台输出会显示“解析后依赖”区块，便于确认动态依赖的实际解析结果。
 
 #### cache_status 结构
 

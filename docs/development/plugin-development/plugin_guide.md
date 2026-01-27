@@ -298,6 +298,24 @@ ctx.register(MyCustomPlugin())
 data = ctx.get_data('run_001', 'my_data')
 ```
 
+### 动态依赖
+
+当插件依赖需要随配置切换时，可实现 `resolve_depends_on(context, run_id=None)`，
+Context 会使用解析后的依赖构建 DAG 和 lineage。
+
+```python
+class PeaksPlugin(Plugin):
+    provides = "peaks"
+    depends_on = ["st_waveforms"]
+    options = {"use_filtered": Option(default=False, type=bool)}
+
+    def resolve_depends_on(self, context, run_id=None):
+        deps = ["st_waveforms"]
+        if context.get_config(self, "use_filtered"):
+            deps.append("filtered_waveforms")
+        return deps
+```
+
 ### 最佳实践
 
 1. **命名规范**

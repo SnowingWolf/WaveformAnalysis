@@ -184,6 +184,29 @@ class PluginMixin:
         """Hook for subclasses to clear caches after plugin registration."""
         return None
 
+    def _get_plugin_depends_on(self, plugin: Any, run_id: Optional[str] = None) -> List[Any]:
+        """Return plugin dependency specs, resolving dynamically when supported."""
+        if hasattr(plugin, "resolve_depends_on"):
+            try:
+                deps = plugin.resolve_depends_on(self, run_id=run_id)
+            except TypeError:
+                deps = plugin.resolve_depends_on(self)
+        else:
+            deps = getattr(plugin, "depends_on", []) or []
+        return list(deps or [])
+
+    def _get_plugin_dependency_names(self, plugin: Any, run_id: Optional[str] = None) -> List[str]:
+        """Return dependency names (no version specs)."""
+        deps = self._get_plugin_depends_on(plugin, run_id=run_id)
+        names = []
+        for dep in deps:
+            if hasattr(plugin, "get_dependency_name"):
+                dep_name = plugin.get_dependency_name(dep)
+            else:
+                dep_name = dep[0] if isinstance(dep, tuple) else dep
+            names.append(dep_name)
+        return names
+
     def register_plugin_(self, plugin: Any, allow_override: bool = False) -> None:
         """(DONT USE THIS METHOD DIRECTLY, USE CONTEXT.REGISTER INSTEAD)
         Register a plugin instance with strict validation.
@@ -236,7 +259,7 @@ class PluginMixin:
             PACKAGING_AVAILABLE = False
             return  # Skip validation if packaging not available
 
-        for dep in plugin.depends_on:
+        for dep in self._get_plugin_depends_on(plugin):
             # Extract dependency name and version spec
             if isinstance(dep, tuple):
                 dep_name, version_spec = dep
@@ -268,7 +291,7 @@ class PluginMixin:
                         logger = logging.getLogger(__name__)
                         logger.warning(f"Version validation failed for {plugin.provides} -> {dep_name}: {e}")
 
-    def resolve_dependencies(self, target: str) -> List[str]:
+    def resolve_dependencies(self, target: str, run_id: Optional[str] = None) -> List[str]:
         """
         Resolve dependencies and return a list of data_names to compute in order.
         Uses topological sort to determine execution order and detect cycles.
@@ -304,8 +327,7 @@ class PluginMixin:
 
                 visiting_stack.append(node)
                 plugin = self._plugins[node]
-                for dep in plugin.depends_on:
-                    dep_name = dep[0] if isinstance(dep, tuple) else dep
+                for dep_name in self._get_plugin_dependency_names(plugin, run_id=run_id):
                     try:
                         visit(dep_name)
                     except ValueError as e:

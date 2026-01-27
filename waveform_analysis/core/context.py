@@ -319,9 +319,7 @@ class Context(CacheMixin, PluginMixin):
                 new_ctx.storage = self.storage
         else:
             if self.storage is not new_ctx.storage:
-                self.logger.warning(
-                    "Context.clone is sharing a non-MemmapStorage backend across contexts."
-                )
+                self.logger.warning("Context.clone is sharing a non-MemmapStorage backend across contexts.")
                 new_ctx.storage = self.storage
 
         if self._plugin_backends:
@@ -341,9 +339,7 @@ class Context(CacheMixin, PluginMixin):
                     try:
                         plugin_copy = plugin.__class__()
                     except Exception as exc:
-                        self.logger.warning(
-                            "Failed to clone plugin %s: %s", plugin.__class__.__name__, exc
-                        )
+                        self.logger.warning("Failed to clone plugin %s: %s", plugin.__class__.__name__, exc)
                         continue
             new_ctx.register(plugin_copy, allow_override=True)
 
@@ -692,11 +688,11 @@ class Context(CacheMixin, PluginMixin):
                 self.register_plugin_(obj(), allow_override=allow_override)
 
     # ===========================
-    # Get Data 
+    # Get Data
     # 1. Cache & Storage backend validation and retrieval
     # 2. Analysis of dependencies --> Execution plan --> Run Plugin
     # ===========================
-    
+
     def get_data(
         self, run_id: str, data_name: str, show_progress: bool = False, progress_desc: Optional[str] = None, **kwargs
     ) -> Any:
@@ -751,7 +747,6 @@ class Context(CacheMixin, PluginMixin):
             needed_set=needed_set,
             **kwargs,
         )
-
 
     def list_provided_data(self) -> List[str]:
         """List all data types provided by registered plugins."""
@@ -995,6 +990,45 @@ class Context(CacheMixin, PluginMixin):
     def _storage_delete(self, storage: Any, key: str, run_id: Optional[str]) -> None:
         self._storage_call(storage, "delete", key, run_id)
 
+    def _storage_list_keys(self, storage: Any, run_id: Optional[str]) -> List[str]:
+        """List keys from storage, filtering by run_id when needed."""
+        method = getattr(storage, "list_keys", None)
+        if method is None:
+            return []
+        try:
+            if run_id is not None and self._storage_supports_run_id(storage, "list_keys"):
+                return method(run_id=run_id)
+            keys = method()
+        except Exception:
+            return []
+        if run_id is None:
+            return keys
+        prefix = f"{run_id}-"
+        return [k for k in keys if k.startswith(prefix)]
+
+    def _list_channel_keys(self, storage: Any, run_id: Optional[str], key: str) -> List[str]:
+        """List multi-channel cache keys (key_ch*) for a base key."""
+        prefix = f"{key}_ch"
+        keys = [k for k in self._storage_list_keys(storage, run_id) if k.startswith(prefix)]
+        if keys:
+
+            def _ch_index(k: str) -> float:
+                suffix = k[len(prefix) :]
+                try:
+                    return float(int(suffix))
+                except ValueError:
+                    return float("inf")
+
+            return sorted(keys, key=_ch_index)
+
+        # Fallback to contiguous scan if list_keys is unavailable.
+        keys = []
+        ch_idx = 0
+        while self._storage_exists(storage, f"{key}_ch{ch_idx}", run_id):
+            keys.append(f"{key}_ch{ch_idx}")
+            ch_idx += 1
+        return keys
+
     def _resolve_config_value(self, plugin: Plugin, name: str) -> Any:
         """计算插件配置选项的值（不进行验证）。
 
@@ -1148,14 +1182,15 @@ class Context(CacheMixin, PluginMixin):
     def _load_from_disk_with_check(self, run_id: str, name: str, key: str) -> Optional[Any]:
         """Internal helper to load data from disk with lineage verification."""
         storage = self._get_storage_for_data_name(name)
-        if not self._storage_exists(storage, key, run_id):
-            # Check if it's a multi-channel data (e.g. peaks_ch0)
-            if not self._storage_exists(storage, f"{key}_ch0", run_id):
-                return None
+        channel_keys = self._list_channel_keys(storage, run_id, key)
+        has_base = self._storage_exists(storage, key, run_id)
+        if not has_base and not channel_keys:
+            return None
 
-        meta = self._storage_get_metadata(storage, key, run_id) or self._storage_get_metadata(
-            storage, f"{key}_ch0", run_id
-        )
+        meta_key = channel_keys[0] if channel_keys else key
+        meta = self._storage_get_metadata(storage, meta_key, run_id)
+        if meta is None and has_base and meta_key != key:
+            meta = self._storage_get_metadata(storage, key, run_id)
         if meta and "lineage" in meta:
             current_lineage = self.get_lineage(name)
             import json
@@ -1167,15 +1202,12 @@ class Context(CacheMixin, PluginMixin):
                 return None
 
         # Determine how to load
+        meta = meta or {}
         if meta.get("type") == "dataframe":
             data = self._storage_load_dataframe(storage, key, run_id)
-        elif self._storage_exists(storage, f"{key}_ch0", run_id):
+        elif channel_keys:
             # Load multi-channel data
-            data = []
-            i = 0
-            while self._storage_exists(storage, f"{key}_ch{i}", run_id):
-                data.append(self._storage_load_memmap(storage, f"{key}_ch{i}", run_id))
-                i += 1
+            data = [self._storage_load_memmap(storage, ch_key, run_id) for ch_key in channel_keys]
         else:
             data = self._storage_load_memmap(storage, key, run_id)
 
@@ -1188,12 +1220,11 @@ class Context(CacheMixin, PluginMixin):
     def _is_disk_cache_valid(self, run_id: str, name: str, key: str) -> bool:
         """Check whether disk cache exists and lineage matches without loading data."""
         storage = self._get_storage_for_data_name(name)
-        meta_key = key
-        if not self._storage_exists(storage, key, run_id):
-            # Check if it's a multi-channel data (e.g. peaks_ch0)
-            if not self._storage_exists(storage, f"{key}_ch0", run_id):
-                return False
-            meta_key = f"{key}_ch0"
+        channel_keys = self._list_channel_keys(storage, run_id, key)
+        has_base = self._storage_exists(storage, key, run_id)
+        if not has_base and not channel_keys:
+            return False
+        meta_key = channel_keys[0] if channel_keys else key
 
         try:
             meta = self._storage_get_metadata(storage, meta_key, run_id)
@@ -1241,7 +1272,7 @@ class Context(CacheMixin, PluginMixin):
                 return
 
             plugin = self._plugins[name]
-            for dep_name in getattr(plugin, "depends_on", []) or []:
+            for dep_name in self._get_plugin_dependency_names(plugin, run_id=run_id):
                 dfs(dep_name)
             needed.add(name)
 
@@ -1362,7 +1393,7 @@ class Context(CacheMixin, PluginMixin):
                 if data_name in self._execution_plan_cache:
                     plan = self._execution_plan_cache[data_name]
                 else:
-                    plan = self.resolve_dependencies(data_name)
+                    plan = self.resolve_dependencies(data_name, run_id=run_id)
                     self._execution_plan_cache[data_name] = plan
             return plan
         except ValueError:
@@ -1414,7 +1445,7 @@ class Context(CacheMixin, PluginMixin):
 
         try:
             total_bytes = 0
-            for dep_name in plugin.depends_on:
+            for dep_name in self._get_plugin_dependency_names(plugin, run_id=run_id):
                 dep_data = self._get_data_from_memory(run_id, dep_name)
                 if dep_data is not None:
                     if isinstance(dep_data, np.ndarray):
@@ -1532,7 +1563,11 @@ class Context(CacheMixin, PluginMixin):
 
             # 收集错误上下文
             error_context = self._error_manager.collect_context(
-                plugin, run_id, get_config_fn=self.get_config, get_data_fn=self._get_data_from_memory
+                plugin,
+                run_id,
+                context=self,
+                get_config_fn=self.get_config,
+                get_data_fn=self._get_data_from_memory,
             )
 
             # 根据严重程度处理
@@ -1867,7 +1902,7 @@ class Context(CacheMixin, PluginMixin):
     # ===========================
     # Lineage and dependence analysis
     # ===========================
-    
+
     def plot_lineage(self, data_name: str, kind: str = "labview", **kwargs):
         """
         Visualize the lineage of a data type.
@@ -2042,12 +2077,13 @@ class Context(CacheMixin, PluginMixin):
             if opt and getattr(opt, "track", True):
                 config[k] = self.get_config(plugin, k)
 
+        dep_names = self._get_plugin_dependency_names(plugin)
         lineage = {
             "plugin_class": plugin.__class__.__name__,
             "plugin_version": getattr(plugin, "version", "0.0.0"),
             "description": getattr(plugin, "description", ""),
             "config": config,
-            "depends_on": {dep: self.get_lineage(dep, _visited=_visited.copy()) for dep in plugin.depends_on},
+            "depends_on": {dep: self.get_lineage(dep, _visited=_visited.copy()) for dep in dep_names},
         }
         if plugin.output_dtype is not None:
             # Standardize dtype to avoid version differences in str(dtype)
@@ -2451,19 +2487,13 @@ class Context(CacheMixin, PluginMixin):
             except Exception as e:
                 self.logger.warning(f"Failed to delete cache key {key}: {e}")
 
-        # 删除多通道数据（{key}_ch0, {key}_ch1, ...）
-        ch_idx = 0
-        while True:
-            ch_key = f"{key}_ch{ch_idx}"
-            if self._storage_exists(storage, ch_key, run_id):
-                try:
-                    self._storage_delete(storage, ch_key, run_id)
-                    count += 1
-                except Exception as e:
-                    self.logger.warning(f"Failed to delete multi-channel cache {ch_key}: {e}")
-                ch_idx += 1
-            else:
-                break
+        # 删除多通道数据（{key}_ch*）
+        for ch_key in self._list_channel_keys(storage, run_id, key):
+            try:
+                self._storage_delete(storage, ch_key, run_id)
+                count += 1
+            except Exception as e:
+                self.logger.warning(f"Failed to delete multi-channel cache {ch_key}: {e}")
 
         # 删除 DataFrame 缓存（{key}.parquet）
         # 检查 storage 是否支持 DataFrame 存储（有 save_dataframe 方法）
@@ -2492,7 +2522,6 @@ class Context(CacheMixin, PluginMixin):
     # 时间范围查询
     # ===========================
 
-    
     def build_time_index(
         self,
         run_id: str,
@@ -3254,12 +3283,20 @@ class Context(CacheMixin, PluginMixin):
                         configs[plugin_name] = plugin_config
 
         # 5. 构建结果字典
+        resolved_depends_on = {}
+        if show_tree or verbose > 1:
+            for plugin_name in execution_plan:
+                plugin = self._plugins.get(plugin_name)
+                if plugin is None:
+                    continue
+                resolved_depends_on[plugin_name] = self._get_plugin_dependency_names(plugin, run_id=run_id)
         result = {
             "target": data_name,
             "run_id": run_id,
             "execution_plan": execution_plan,
             "cache_status": cache_status,
             "configs": configs,
+            "resolved_depends_on": resolved_depends_on,
             "needed_set": sorted(needed_set),
         }
 
@@ -3303,9 +3340,17 @@ class Context(CacheMixin, PluginMixin):
         # 2. 依赖关系树
         if show_tree:
             print(f"\n{'🌳 依赖关系树' if verbose > 0 else '依赖关系树'}:")
-            self._print_dependency_tree(info["target"], prefix="  ")
+            self._print_dependency_tree(info["target"], prefix="  ", run_id=info.get("run_id"))
 
-        # 3. 配置参数
+        # 3. 解析后的依赖（verbose > 1）
+        if verbose > 1 and info.get("resolved_depends_on"):
+            print(f"\n{'🔗 解析后依赖' if verbose > 0 else '解析后依赖'}:")
+            for plugin_name in info["execution_plan"]:
+                deps = info["resolved_depends_on"].get(plugin_name, [])
+                if deps:
+                    print(f"  • {plugin_name}: {', '.join(deps)}")
+
+        # 4. 配置参数
         if show_config and info["configs"]:
             print(f"\n{'⚙️ 自定义配置' if verbose > 0 else '自定义配置'}:")
             for plugin_name, plugin_config in info["configs"].items():
@@ -3316,7 +3361,7 @@ class Context(CacheMixin, PluginMixin):
         elif show_config:
             print(f"\n{'⚙️ 自定义配置' if verbose > 0 else '自定义配置'}: 无（使用所有默认值）")
 
-        # 4. 缓存状态汇总
+        # 5. 缓存状态汇总
         if show_cache:
             cache_summary = {"in_memory": 0, "on_disk": 0, "needs_compute": 0, "pruned": 0}
             for status in info["cache_status"].values():
@@ -3338,7 +3383,12 @@ class Context(CacheMixin, PluginMixin):
         print("\n" + "=" * 70 + "\n")
 
     def _print_dependency_tree(
-        self, data_name: str, prefix: str = "", is_last: bool = True, visited: Optional[set] = None
+        self,
+        data_name: str,
+        prefix: str = "",
+        is_last: bool = True,
+        visited: Optional[set] = None,
+        run_id: Optional[str] = None,
     ):
         """递归打印依赖关系树"""
         if visited is None:
@@ -3359,7 +3409,7 @@ class Context(CacheMixin, PluginMixin):
             return
 
         plugin = self._plugins[data_name]
-        dependencies = plugin.depends_on if hasattr(plugin, "depends_on") else []
+        dependencies = self._get_plugin_dependency_names(plugin, run_id=run_id)
 
         if not dependencies:
             return
@@ -3368,7 +3418,7 @@ class Context(CacheMixin, PluginMixin):
         extension = "   " if is_last else "│  "
         for i, dep in enumerate(dependencies):
             is_last_dep = i == len(dependencies) - 1
-            self._print_dependency_tree(dep, prefix + extension, is_last_dep, visited.copy())
+            self._print_dependency_tree(dep, prefix + extension, is_last_dep, visited.copy(), run_id=run_id)
 
     # ==========================
     # 帮助系统和快速开始模板

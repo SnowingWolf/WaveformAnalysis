@@ -41,7 +41,7 @@ class WaveformWidthIntegralPlugin(Plugin):
     """
 
     provides = "waveform_width_integral"
-    depends_on = ["st_waveforms", "filtered_waveforms"]
+    depends_on = ["st_waveforms"]
     description = "Event-wise integral quantile width using st_waveforms baseline."
     version = "1.1.0"
     save_when = "always"
@@ -186,6 +186,12 @@ class WaveformWidthIntegralPlugin(Plugin):
             width_list.append(widths_array)
 
         return width_list
+
+    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
+        deps = ["st_waveforms"]
+        if context.get_config(self, "use_filtered"):
+            deps.append("filtered_waveforms")
+        return deps
 
     def _has_config(self, context: Any, name: str) -> bool:
         config = getattr(context, "config", {})
