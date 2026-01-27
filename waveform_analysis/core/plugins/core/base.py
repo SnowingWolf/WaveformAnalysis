@@ -9,6 +9,7 @@ Plugins 模块 - 定义插件和配置选项的基类。
 
 import abc
 import logging
+import warnings
 from typing import Any, Dict, List, Literal, Optional, Tuple, Type, Union
 
 import numpy as np
@@ -221,9 +222,7 @@ class Plugin(abc.ABC):
             return dep[1]
         return None
 
-    def resolve_depends_on(
-        self, context: Any, run_id: Optional[str] = None
-    ) -> List[Union[str, Tuple[str, str]]]:
+    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[Union[str, Tuple[str, str]]]:
         """
         Resolve dependencies dynamically based on context/config.
 
@@ -256,14 +255,25 @@ class Plugin(abc.ABC):
         Validate the plugin structure and configuration.
         Called during registration.
         """
+        # Ensure provides is set
         if not self.provides:
             raise ValueError(f"Plugin {self.__class__.__name__} must specify 'provides'")
 
+        # Validate depends_on type
         if not isinstance(self.depends_on, (list, tuple)):
             raise TypeError(
                 f"Plugin {self.provides}: 'depends_on' must be a list or tuple, got {type(self.depends_on)}"
             )
 
+        # static depends_on and dynamic depends_on should not both be used
+        if type(self).resolve_depends_on is not Plugin.resolve_depends_on and self.depends_on:
+            warnings.warn(
+                f"Plugin {self.provides}: resolve_depends_on() is defined; prefer depends_on=[] to avoid confusion.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        # Validate each dependency
         for dep in self.depends_on:
             if isinstance(dep, str):
                 continue  # Simple string dependency
@@ -299,10 +309,12 @@ class Plugin(abc.ABC):
             if key not in self.options:
                 raise ValueError(f"Plugin {self.provides}: config_key '{key}' is not defined in 'options'")
 
+        # Validate each option
         for k, v in self.options.items():
             if not isinstance(v, Option):
                 raise TypeError(f"Plugin {self.provides}: option '{k}' must be an instance of Option")
 
+        # cache settings, validate save_when
         if self.save_when not in ("never", "always", "target"):
             raise ValueError(f"Plugin {self.provides}: 'save_when' must be one of ('never', 'always', 'target')")
 
@@ -315,6 +327,7 @@ class Plugin(abc.ABC):
             # Basic check, np.dtype constructor is very flexible
             pass
 
+        # Validate input_dtype keys against depends_on
         for dep, dt in self.input_dtype.items():
             # Extract dependency name if it's a tuple
             dep_names = [self.get_dependency_name(d) for d in self.depends_on]
