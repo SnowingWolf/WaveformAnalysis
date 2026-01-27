@@ -43,7 +43,7 @@ fi
 
 current_branch="$(git rev-parse --abbrev-ref HEAD)"
 if [[ "$current_branch" != "main" && "$current_branch" != wip/integration-* ]]; then
-  echo "Run this from the integration worktree on main or wip/integration-*."
+  echo "Run this from the main worktree on main or wip/integration-*."
   exit 1
 fi
 

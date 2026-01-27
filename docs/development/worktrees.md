@@ -1,20 +1,20 @@
 # Worktree Workflow
 
-This repository uses three git worktrees to isolate core work and plugin work
+This repository uses two git worktrees to isolate core work and plugin work
 while keeping integration clean and repeatable. The root `WaveformAnalysis/`
-directory acts as a management directory (optional); avoid active development
-there when possible.
+directory acts as the management/integration worktree; avoid active
+development there when possible.
 
 ## Worktree Roles and Discipline
 
+- main worktree (`WaveformAnalysis/`): management/integration only. Use it for
+  merging `wip/core` + `wip/plugins`, running full tests, and releases.
 - core worktree: only change `waveform_analysis/core/**` and core-adjacent shared
   layers such as `waveform_analysis/utils/**` or core dependencies in
   `pyproject.toml`.
 - plugins worktree: only change plugin implementations (records + stw), plugin
   docs, and plugin tests (prefer `tests/plugins/**`, `docs/plugins/**`, and
   plugin-related modules).
-- integration worktree: no development. Only for merging core/plugins branches,
-  running full tests, updating `CHANGELOG.md`, and tagging releases.
 
 ## Branch Naming and Commit Messages
 
@@ -41,7 +41,7 @@ Commit message suggestions:
 
 ## Create Worktrees
 
-The script below creates three worktrees next to the repo:
+The script below creates two worktrees next to the repo:
 
 ```bash
 ./scripts/worktrees/create.sh
@@ -49,7 +49,7 @@ The script below creates three worktrees next to the repo:
 
 Defaults:
 
-- `--prefix ..` (worktrees are created as `../wa-core`, `../wa-plugins`, `../wa-integration`)
+- `--prefix ..` (worktrees are created as `../wa-core`, `../wa-plugins`)
 
 ## Bootstrap a Venv per Worktree
 
@@ -84,7 +84,7 @@ git merge wip/core
 
 ## Integration Flow
 
-Run the integration script from `../wa-integration`:
+Run the integration script from the main worktree (`WaveformAnalysis/`):
 
 ```bash
 ./scripts/worktrees/integrate.sh \
@@ -92,8 +92,8 @@ Run the integration script from `../wa-integration`:
   --plugins wip/plugins
 ```
 
-The script creates (or reuses) `wip/integration`, merges branches in
-order, and runs tests (default: `make test`).
+The script creates (or reuses) `wip/integration`, merges branches, and
+runs tests (default: `make test`).
 
 ## Merge to main
 
@@ -133,7 +133,7 @@ git worktree remove ../wa-plugins
   `git worktree prune`.
 - Editable installs can point at the wrong worktree. Verify with `pip show -f waveform-analysis`
   or `python -c "import waveform_analysis; print(waveform_analysis.__file__)"`.
-- Avoid running development commands in the integration worktree.
+- Avoid running development commands in the main worktree.
 - Keep venvs separate; do not reuse `.venv` across worktrees.
 
 ## Quickstart (3 minutes)
@@ -150,8 +150,8 @@ cd ../wa-plugins && ./scripts/worktrees/bootstrap_venv.sh --with-core ../wa-core
 make test-core
 make test-plugins
 
-# 4) Integration validation
-cd ../wa-integration
+# 4) Integration validation (from the main worktree)
+cd /path/to/WaveformAnalysis
 ./scripts/worktrees/integrate.sh \
   --core wip/core \
   --plugins wip/plugins
