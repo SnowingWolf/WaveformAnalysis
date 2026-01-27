@@ -40,8 +40,7 @@ prefix="${prefix%/}"
 
 paths=(
   "${prefix}/wa-core"
-  "${prefix}/wa-records"
-  "${prefix}/wa-stw"
+  "${prefix}/wa-plugins"
   "${prefix}/wa-integration"
 )
 
@@ -54,9 +53,8 @@ for path in "${paths[@]}"; do
 done
 
 git worktree add "${prefix}/wa-core" -b "wip/core"
-git worktree add "${prefix}/wa-records" -b "wip/records"
-git worktree add "${prefix}/wa-stw" -b "wip/stw"
+git worktree add "${prefix}/wa-plugins" -b "wip/plugins"
 git worktree add "${prefix}/wa-integration" main
 
 echo "Worktrees created under ${prefix}:"
-echo "  wa-core, wa-records, wa-stw, wa-integration"
+echo "  wa-core, wa-plugins, wa-integration"
