@@ -8,7 +8,8 @@ development there when possible.
 ## Worktree Roles and Discipline
 
 - main worktree (`WaveformAnalysis/`): management/integration only. Use it for
-  merging `wip/core` + `wip/plugins`, running full tests, and releases.
+  merging `wip/core` + `wip/plugins`, running full tests, and releases. The
+  default branch may be `main` or `master`.
 - core worktree: only change `waveform_analysis/core/**` and core-adjacent shared
   layers such as `waveform_analysis/utils/**` or core dependencies in
   `pyproject.toml`.
@@ -80,7 +81,8 @@ git merge wip/core
 
 ## Integration Flow
 
-Run the integration script from the main worktree (`WaveformAnalysis/`):
+Run the integration script from the main worktree (`WaveformAnalysis/`) on
+`main` or `master`:
 
 ```bash
 ./scripts/worktrees/integrate.sh \

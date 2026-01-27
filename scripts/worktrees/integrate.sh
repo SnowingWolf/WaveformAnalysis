@@ -42,8 +42,8 @@ if [[ -z "$core_branch" || -z "$plugins_branch" ]]; then
 fi
 
 current_branch="$(git rev-parse --abbrev-ref HEAD)"
-if [[ "$current_branch" != "main" ]]; then
-  echo "Run this from the main worktree on main."
+if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
+  echo "Run this from the main worktree on main or master."
   exit 1
 fi
 
