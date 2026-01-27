@@ -109,6 +109,31 @@ class MyDependentPlugin(Plugin):
 - 使用 `context.get_data(run_id, "data_name")` 获取依赖数据
 - Context 会自动处理依赖关系，确保依赖的插件先执行
 
+### 动态依赖（可选）
+
+当依赖需要根据配置切换（例如是否使用滤波波形）时，可以实现
+`resolve_depends_on(context, run_id=None)` 来动态返回依赖列表。Context 会使用
+解析后的依赖构建 DAG 和 lineage。
+
+```python
+class PeaksPlugin(Plugin):
+    provides = "peaks"
+    depends_on = ["st_waveforms"]
+    options = {"use_filtered": Option(default=False, type=bool)}
+
+    def resolve_depends_on(self, context, run_id=None):
+        deps = ["st_waveforms"]
+        if context.get_config(self, "use_filtered"):
+            deps.append("filtered_waveforms")
+        return deps
+```
+
+全局开关示例：
+
+```python
+ctx.set_config({"use_filtered": True})
+```
+
 ---
 
 ## 添加配置选项
@@ -323,6 +348,7 @@ ctx.analyze_dependencies("plugin_provides_name")
 | `input_dtype` | `Dict[str, np.dtype]` | 依赖数据期望 dtype（用于输入校验） |
 | `output_kind` | `"static"`/`"stream"` | 输出类型（流式插件要求返回迭代器） |
 | `description` | `str` | 插件描述 |
+| `resolve_depends_on()` | `method` | 动态依赖解析（根据配置返回依赖列表） |
 | `version` | `str` | 插件版本号（参与 lineage hash） |
 | `save_when` | `str` | 缓存策略：`"never"`, `"target"`, `"always"` |
 | `is_side_effect` | `bool` | 标记副作用插件（输出会隔离到 `_side_effects`） |
@@ -459,7 +485,7 @@ class MyPlugin(Plugin):
 
 ### Q: 插件执行顺序是如何确定的？
 
-A: Context 会根据 `depends_on` 自动构建依赖图，确保依赖的插件先执行。
+A: Context 会根据 `depends_on` 或 `resolve_depends_on()` 的解析结果自动构建依赖图，确保依赖的插件先执行。
 
 ### Q: 可以在插件中访问其他插件吗？
 

@@ -21,6 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 import os
+import warnings
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -604,6 +605,7 @@ class WaveformProcessor:
         st_waveforms: List[np.ndarray],
         peaks_range: Optional[Tuple[int, int]] = None,
         charge_range: Optional[Tuple[int, Optional[int]]] = None,
+        waveforms_override: Optional[List[np.ndarray]] = None,
     ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         """
         计算基础特征：peaks 和 charges。
@@ -628,15 +630,48 @@ class WaveformProcessor:
                 charges.append(np.zeros(0))
                 continue
 
+            waves = st_ch["wave"]
+            if waveforms_override is not None:
+                if i < len(waveforms_override):
+                    waves = waveforms_override[i]
+                else:
+                    waves = None
+
+            if waves is None or len(waves) == 0:
+                peaks.append(np.zeros(0))
+                charges.append(np.zeros(0))
+                continue
+            if waves.ndim != 2:
+                warnings.warn(
+                    f"Waveforms for channel {i} are not 2D; skip feature calculation.",
+                    UserWarning,
+                )
+                peaks.append(np.zeros(0))
+                charges.append(np.zeros(0))
+                continue
+
+            n_events = len(st_ch)
+            if waves.shape[0] != n_events:
+                n_events = min(waves.shape[0], n_events)
+                if n_events == 0:
+                    peaks.append(np.zeros(0))
+                    charges.append(np.zeros(0))
+                    continue
+                warnings.warn(
+                    f"Waveforms length mismatch on channel {i}: "
+                    f"{waves.shape[0]} vs {len(st_ch)}; truncating to {n_events}.",
+                    UserWarning,
+                )
+
             # Vectorized peak calculation
             # st_ch["wave"] is (N, DEFAULT_WAVE_LENGTH)
-            waves_p = st_ch["wave"][:, start_p:end_p]
+            waves_p = waves[:n_events, start_p:end_p]
             p_vals = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
             peaks.append(p_vals)
 
             # Vectorized charge calculation
-            waves_c = st_ch["wave"][:, start_c:end_c]
-            baselines = st_ch["baseline"]
+            waves_c = waves[:n_events, start_c:end_c]
+            baselines = st_ch["baseline"][:n_events]
             # baseline - wave, then sum over samples
             q_vals = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
             charges.append(q_vals)
