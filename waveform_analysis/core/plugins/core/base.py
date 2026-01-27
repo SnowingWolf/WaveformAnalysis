@@ -8,6 +8,7 @@ Plugins 模块 - 定义插件和配置选项的基类。
 """
 
 import abc
+import inspect
 import logging
 import warnings
 from typing import Any, Dict, List, Literal, Optional, Tuple, Type, Union
@@ -267,8 +268,19 @@ class Plugin(abc.ABC):
 
         # static depends_on and dynamic depends_on should not both be used
         if type(self).resolve_depends_on is not Plugin.resolve_depends_on and self.depends_on:
+            location = None
+            try:
+                source_file = inspect.getsourcefile(self.__class__) or inspect.getfile(self.__class__)
+                source_line = inspect.getsourcelines(self.__class__)[1]
+                if source_file:
+                    location = f"{source_file}:{source_line}"
+            except Exception:
+                location = None
+            location_hint = f" @ {location}" if location else ""
             warnings.warn(
-                f"Plugin {self.provides}: resolve_depends_on() is defined; prefer depends_on=[] to avoid confusion.",
+                f"Plugin {self.provides} ({self.__class__.__name__}{location_hint}): "
+                "resolve_depends_on() is defined but depends_on is not empty "
+                f"({self.depends_on!r}). Prefer depends_on=[] to avoid confusion.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -362,4 +374,14 @@ class Plugin(abc.ABC):
         pass
 
     def __repr__(self):
+        has_dynamic = type(self).resolve_depends_on is not Plugin.resolve_depends_on
+        if has_dynamic:
+            resolver_name = getattr(type(self).resolve_depends_on, "__name__", "resolve_depends_on")
+            dynamic_marker = f"<dynamic:{resolver_name}>"
+            if self.depends_on:
+                return (
+                    f"Plugin({self.provides}, depends_on={dynamic_marker}, "
+                    f"static_depends_on={self.depends_on})"
+                )
+            return f"Plugin({self.provides}, depends_on={dynamic_marker})"
         return f"Plugin({self.provides}, depends_on={self.depends_on})"
