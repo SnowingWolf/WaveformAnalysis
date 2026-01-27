@@ -23,10 +23,6 @@ Core/plugins branches:
 - `wip/core`
 - `wip/plugins`
 
-Integration branch (temporary):
-
-- `wip/integration`
-
 Main branch policy:
 
 - `main` accepts chapter-level commits only (prefer squash merges, 1-3 commits per change).
@@ -92,8 +88,8 @@ Run the integration script from the main worktree (`WaveformAnalysis/`):
   --plugins wip/plugins
 ```
 
-The script creates (or reuses) `wip/integration`, merges branches, and
-runs tests (default: `make test`).
+The script merges `wip/core` + `wip/plugins` into `main` and runs tests
+(default: `make test`). Use it only on a clean working tree.
 
 ## Merge to main
 

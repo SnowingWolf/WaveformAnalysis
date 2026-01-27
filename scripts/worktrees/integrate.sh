@@ -42,16 +42,14 @@ if [[ -z "$core_branch" || -z "$plugins_branch" ]]; then
 fi
 
 current_branch="$(git rev-parse --abbrev-ref HEAD)"
-if [[ "$current_branch" != "main" && "$current_branch" != wip/integration-* ]]; then
-  echo "Run this from the main worktree on main or wip/integration-*."
+if [[ "$current_branch" != "main" ]]; then
+  echo "Run this from the main worktree on main."
   exit 1
 fi
 
-integration_branch="wip/integration"
-if git show-ref --verify --quiet "refs/heads/${integration_branch}"; then
-  git switch "${integration_branch}"
-else
-  git switch -c "${integration_branch}" main
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "Working tree is not clean. Commit or stash changes before integrating."
+  exit 1
 fi
 
 merge_branch() {
@@ -60,7 +58,6 @@ merge_branch() {
   if ! git merge --no-ff "${branch}"; then
     echo "Merge failed for ${branch}."
     echo "Next steps: git merge --abort"
-    echo "If needed: git reset --hard main"
     exit 1
   fi
 }
@@ -71,6 +68,6 @@ merge_branch "${plugins_branch}"
 echo "Running tests: ${tests_cmd}"
 if ! eval "${tests_cmd}"; then
   echo "Tests failed."
-  echo "Next steps: fix, or git reset --hard main (or git merge --abort if needed)."
+  echo "Next steps: fix the failures or undo the merge manually."
   exit 1
 fi
