@@ -63,7 +63,8 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     WaveformsPlugin,
     StWaveformsPlugin,
-    BasicFeaturesPlugin,
+    PeaksPlugin,
+    ChargesPlugin,
 )
 
 # 创建 Context 实例
@@ -79,7 +80,8 @@ ctx = Context(
 ctx.register(RawFilesPlugin())
 ctx.register(WaveformsPlugin())
 ctx.register(StWaveformsPlugin())
-ctx.register(BasicFeaturesPlugin())
+ctx.register(PeaksPlugin())
+ctx.register(ChargesPlugin())
 ```
 
 ### 2. 配置参数
@@ -87,7 +89,6 @@ ctx.register(BasicFeaturesPlugin())
 ```python
 # 方式1: 初始化时配置
 ctx = Context(config={
-    "threshold": 50.0,
     "peaks_range": (40, 90),
     "charge_range": (0, None),
     "daq_adapter": "vx2730",
@@ -95,12 +96,13 @@ ctx = Context(config={
 
 # 方式2: 运行时更新配置
 ctx.set_config({
-    "threshold": 60.0,
+    "peaks_range": (45, 95),
     "show_progress": True,
 })
 
 # 方式3: 为特定插件设置配置（推荐，避免冲突）
-ctx.set_config({"threshold": 50.0}, plugin_name="peaks")
+ctx.set_config({"peaks_range": (40, 90)}, plugin_name="peaks")
+ctx.set_config({"charge_range": (0, None)}, plugin_name="charges")
 ctx.set_config({"daq_adapter": "vx2730"}, plugin_name="raw_files")
 
 # 查看当前配置
@@ -124,8 +126,9 @@ st_waveforms = ctx.get_data("run_001", "st_waveforms")
 print(f"结构化波形数量: {len(st_waveforms)}")
 
 # 获取特征数据（会自动执行完整的插件链）
-features = ctx.get_data("run_001", "basic_features")
-print(f"特征数据: {features}")
+peaks = ctx.get_data("run_001", "peaks")
+charges = ctx.get_data("run_001", "charges")
+print(f"峰值通道数: {len(peaks)}，电荷通道数: {len(charges)}")
 ```
 
 ### 4. 使用 Processor 进行信号处理
@@ -162,13 +165,13 @@ print(f"计算了 {len(charges)} 个电荷值")
 
 ```python
 # 查看数据血缘关系
-lineage = ctx.get_lineage("basic_features")
+lineage = ctx.get_lineage("peaks")
 print(lineage)
 
 # 可视化依赖图
-ctx.plot_lineage("basic_features", kind="plotly")
+ctx.plot_lineage("peaks", kind="plotly")
 # 或
-ctx.plot_lineage("basic_features", kind="mermaid")  # 输出 Mermaid 图
+ctx.plot_lineage("peaks", kind="mermaid")  # 输出 Mermaid 图
 ```
 
 ### 2. 批量处理多个运行
@@ -182,14 +185,16 @@ batch_processor = BatchProcessor(ctx)
 # 批量处理多个运行
 results = batch_processor.process_runs(
     run_ids=["run_001", "run_002", "run_003"],
-    data_name="basic_features",
+    data_name="peaks",
     max_workers=4,  # 并行处理
     show_progress=True,
 )
 
-# 结果是一个字典：{run_id: data}
-for run_id, data in results.items():e
-    print(f"{run_id}: {len(data)} 个特征")
+# 结果结构：{"results": ..., "errors": ..., "meta": ...}
+for run_id, data in results["results"].items():
+    print(f"{run_id}: {len(data)} 个通道的峰值")
+if results["errors"]:
+    print(f"Errors: {results['errors']}")
 ```
 
 ### 3. 时间范围查询
@@ -209,17 +214,13 @@ time_range_data = ctx.get_data_time_range(
 ```python
 from waveform_analysis.core.plugins.core.base import Plugin, Option, option
 
+@option('threshold', default=50.0, type=float, help='检测阈值')
 class CustomFeaturePlugin(Plugin):
     """自定义特征提取插件"""
-    
+
     provides = "custom_features"
     depends_on = ["st_waveforms"]
-    
-    # 定义配置选项
-    @option('threshold', default=50.0, type=float, help='检测阈值')
-    class CustomFeaturePlugin:
-        pass
-    
+
     def compute(self, context, run_id, **kwargs):
         # 获取依赖数据
         st_waveforms = context.get_data(run_id, "st_waveforms")
@@ -260,7 +261,7 @@ print(report)
 
 # 使用 Numba 加速（自动检测）
 # Processor 会自动使用 Numba JIT 编译（如果可用）
-processor = WaveformProcessor(n_channels=2, use_numba=True)
+processor = WaveformProcessor(n_channels=2)
 ```
 
 ### 6. 数据导出
@@ -269,27 +270,17 @@ processor = WaveformProcessor(n_channels=2, use_numba=True)
 from waveform_analysis.core.data.export import DataExporter
 
 # 创建导出器
-exporter = DataExporter(ctx)
+exporter = DataExporter()
 
 # 导出为不同格式
-exporter.export_to_parquet(
-    run_id="run_001",
-    data_name="basic_features",
-    output_path="./outputs/features.parquet"
-)
+peaks = ctx.get_data("run_001", "peaks")
+exporter.export(peaks, "./outputs/peaks.parquet", format="parquet")
 
-exporter.export_to_hdf5(
-    run_id="run_001",
-    data_name="st_waveforms",
-    output_path="./outputs/waveforms.h5",
-    key="waveforms"
-)
+st_waveforms = ctx.get_data("run_001", "st_waveforms")
+exporter.export(st_waveforms, "./outputs/waveforms.h5", format="hdf5", key="waveforms")
 
-exporter.export_to_csv(
-    run_id="run_001",
-    data_name="basic_features",
-    output_path="./outputs/features.csv"
-)
+charges = ctx.get_data("run_001", "charges")
+exporter.export(charges, "./outputs/charges.csv", format="csv")
 ```
 
 ---
@@ -304,7 +295,8 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     WaveformsPlugin,
     StWaveformsPlugin,
-    BasicFeaturesPlugin,
+    PeaksPlugin,
+    ChargesPlugin,
     DataFramePlugin,
     GroupedEventsPlugin,
     PairedEventsPlugin,
@@ -328,7 +320,8 @@ plugins = [
     RawFilesPlugin(),
     WaveformsPlugin(),
     StWaveformsPlugin(),
-    BasicFeaturesPlugin(),
+    PeaksPlugin(),
+    ChargesPlugin(),
     DataFramePlugin(),
     GroupedEventsPlugin(),
     PairedEventsPlugin(),
@@ -391,10 +384,10 @@ peaks, charges = processor.compute_basic_features(
 )
 
 # 使用 Processor 进行批量处理并构建 DataFrame
-df = processor.build_waveform_df(
+df = processor.build_dataframe(
     st_waveforms,
-    peaks_range=(40, 90),
-    charge_range=(0, None)
+    peaks,
+    charges,
 )
 
 print(df.head())
@@ -441,11 +434,11 @@ data2 = ctx.get_data("run_001", "st_waveforms")  # 快速加载！
 # 清除特定数据的缓存
 ctx.clear_cache_for("run_001", "st_waveforms")
 
-# 清除所有缓存
-ctx.clear_cache()
+# 清除该 run 的所有缓存
+ctx.clear_cache_for("run_001")
 
 # 查看缓存统计
-stats = ctx.get_cache_stats()
+stats = ctx.cache_stats()
 print(f"缓存命中率: {stats.get('hit_rate', 0):.2%}")
 ```
 
@@ -459,11 +452,11 @@ print(f"缓存命中率: {stats.get('hit_rate', 0):.2%}")
 
 ```python
 # ✅ 推荐：使用插件命名空间
-ctx.set_config({"threshold": 50.0}, plugin_name="peaks")
+ctx.set_config({"peaks_range": (40, 90)}, plugin_name="peaks")
 ctx.set_config({"daq_adapter": "vx2730"}, plugin_name="raw_files")
 
 # ❌ 不推荐：全局配置可能冲突
-ctx.set_config({"threshold": 50.0})  # 如果有多个插件使用 threshold，会冲突
+ctx.set_config({"peaks_range": (40, 90)})  # 如果有多个插件使用 peaks_range，会冲突
 ```
 
 **查看配置归属**
@@ -480,7 +473,7 @@ for plugin_name, plugin in ctx._plugins.items():
 ctx.show_config("peaks")  # 显示 peaks 插件的当前配置值
 
 # 手动查找配置项属于哪个插件
-config_key = "threshold"
+config_key = "peaks_range"
 matching_plugins = [
     name for name, plugin in ctx._plugins.items() 
     if config_key in plugin.options
@@ -560,9 +553,9 @@ class MyPlugin(Plugin):
 
 ### Q1: 如何知道需要注册哪些插件？
 
-A: 查看数据血缘关系。如果要获取 `basic_features`，运行：
+A: 查看数据血缘关系。如果要获取 `peaks`，运行：
 ```python
-lineage = ctx.get_lineage("basic_features")
+lineage = ctx.get_lineage("peaks")
 print(lineage)  # 会显示所有依赖的插件
 ```
 
@@ -570,7 +563,7 @@ print(lineage)  # 会显示所有依赖的插件
 
 A: 使用插件命名空间：
 ```python
-ctx.set_config({"threshold": 50.0}, plugin_name="peaks")  # 只影响 peaks 插件
+ctx.set_config({"peaks_range": (40, 90)}, plugin_name="peaks")  # 只影响 peaks 插件
 ```
 
 ### Q3: 如何加速数据处理？
@@ -601,7 +594,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 # 2. 查看执行计划
-plan = ctx.analyze_dependencies("basic_features")
+plan = ctx.analyze_dependencies("peaks")
 print(plan)
 
 # 3. 逐步执行

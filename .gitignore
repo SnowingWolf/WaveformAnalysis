@@ -30,6 +30,7 @@ wheels/
 pip-wheel-metadata/
 share/python-wheels/
 *.egg-info/
+waveform_analysis.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
@@ -244,6 +245,7 @@ $RECYCLE.BIN/
 *.lock
 .cache/
 cache/
+*_cache/
 tmp/
 temp/
 *.tmp

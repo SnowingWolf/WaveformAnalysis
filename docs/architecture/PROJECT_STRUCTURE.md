@@ -47,7 +47,7 @@ waveform-analysis/
 │   │   │       ├── __init__.py    # 统一导出（从 cpu/ 导入）
 │   │   │       ├── cpu/           # CPU 实现
 │   │   │       │   ├── __init__.py
-│   │   │       │   ├── standard.py          # 10个标准插件
+│   │   │       │   ├── standard.py          # 标准数据处理插件
 │   │   │       │   ├── filtering.py         # FilteredWaveformsPlugin
 │   │   │       │   └── peak_finding.py      # SignalPeaksPlugin
 │   │   │       ├── jax/           # JAX GPU 实现（待开发）
@@ -60,26 +60,32 @@ waveform-analysis/
 │   │   │       │   ├── standard.py          # 原始标准插件
 │   │   │       │   └── signal_processing.py # 兼容垫片（已弃用）
 │   │   │
-│   │   ├── processing/            # 数据处理（4个文件）
+│   │   ├── processing/            # 数据处理（5个文件）
 │   │   │   ├── __init__.py
 │   │   │   ├── loader.py          # 数据加载：WaveformLoaderCSV
 │   │   │   ├── processor.py       # 信号处理：WaveformStruct（支持 Numba）
 │   │   │   ├── analyzer.py        # 事件分析：聚类与配对（支持多进程）
-│   │   │   └── chunk.py           # Chunk 对象与时间区间操作
+│   │   │   ├── chunk.py           # Chunk 对象与时间区间操作
+│   │   │   └── records_builder.py # Records + wave_pool 构建
 │   │   │
-│   │   ├── data/                  # 数据管理（2个文件）
+│   │   ├── data/                  # 数据管理（5个文件）
 │   │   │   ├── __init__.py
 │   │   │   ├── query.py           # 时间范围查询：TimeRangeQueryEngine
 │   │   │   ├── batch_processor.py # 批量处理：BatchProcessor
-│   │   │   └── export.py          # 数据导出：DataExporter, batch_export
+│   │   │   ├── export.py          # 数据导出：DataExporter, batch_export
+│   │   │   ├── dependency_analysis.py # 插件依赖分析
+│   │   │   └── records_view.py    # RecordsView 访问接口
 │   │   │
-│   │   └── foundation/            # 框架基础（5个文件）
+│   │   └── foundation/            # 框架基础（多个文件）
 │   │       ├── __init__.py
+│   │       ├── constants.py       # 常量与默认值
 │   │       ├── exceptions.py      # 异常类和错误处理
+│   │       ├── error.py           # 错误上下文与日志
 │   │       ├── mixins.py          # 功能混合类：CacheMixin
 │   │       ├── model.py           # 数据模型：LineageGraphModel
 │   │       ├── utils.py           # 工具函数：exporter, Profiler
-│   │       └── progress.py        # 进度追踪：ProgressTracker
+│   │       ├── progress.py        # 进度追踪：ProgressTracker
+│   │       └── time_conversion.py # 时间转换工具
 │   │
 │   ├── fitting/                   # 拟合模块
 │   │   ├── __init__.py
@@ -88,9 +94,13 @@ waveform-analysis/
 │   └── utils/                     # 工具函数
 │       ├── __init__.py
 │       ├── io.py                  # I/O 工具：CSV 解析、生成器
-│       ├── loader.py              # 加载器适配：兼容性导出
+│       ├── preview.py             # 波形预览工具
+│       ├── formats/               # DAQ 格式适配器
 │       ├── daq/                   # DAQ 工具：DAQRun, DAQAnalyzer
-│       └── visualization/         # 可视化工具：波形绘图、血缘图
+│       ├── visualization/         # 可视化工具：波形绘图、血缘图
+│       ├── cache_tools.py         # 缓存辅助工具
+│       ├── cli_docs.py            # CLI 文档生成辅助
+│       └── doc_generator/         # 文档生成工具
 │
 ├── tests/                         # 测试目录
 │   ├── __init__.py
@@ -101,9 +111,15 @@ waveform-analysis/
 │   └── demo_doc_generator.py      # 文档生成示例
 │
 ├── docs/                          # 文档目录
-│   ├── data_module.md             # 原有的模块文档
-│   ├── USAGE.md                   # 使用指南
-│   └── CONTEXT_PROCESSOR_WORKFLOW.md  # Context 和 Processor 使用流程演示
+│   ├── README.md                  # 文档索引
+│   ├── architecture/              # 架构设计
+│   ├── development/               # 开发指南
+│   ├── features/                  # 功能特性
+│   ├── api/                       # API 参考
+│   ├── cli/                       # CLI 文档
+│   ├── user-guide/                # 用户指南
+│   ├── plugins/                   # 插件文档
+│   └── updates/                   # 更新记录
 │
 ├── scripts/                       # 辅助脚本（预留）
 │
@@ -190,7 +206,7 @@ waveform-analysis/
 builtin/
 ├── cpu/                      # CPU 实现 (NumPy/SciPy/Numba)
 │   ├── __init__.py           # 导出所有 CPU 插件
-│   ├── standard.py           # 10个标准数据处理插件
+│   ├── standard.py           # 标准数据处理插件
 │   ├── filtering.py          # FilteredWaveformsPlugin (Butterworth, Savitzky-Golay)
 │   └── peak_finding.py       # SignalPeaksPlugin (scipy.signal.find_peaks)
 ├── jax/                      # JAX GPU 实现（待开发 - Phase 2）
@@ -211,7 +227,6 @@ builtin/
 - `WaveformsPlugin`: 提取波形数据
 - `StWaveformsPlugin`: 结构化波形数组
 - `HitFinderPlugin`: 检测 Hit 事件
-- `BasicFeaturesPlugin`: 计算基础特征（峰值和电荷）
 - `PeaksPlugin`: 峰值特征提取
 - `ChargesPlugin`: 电荷积分
 - `DataFramePlugin`: 构建 DataFrame
@@ -234,7 +249,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 )
 ```
 
-#### `processing/` - 数据处理（4个文件）
+#### `processing/` - 数据处理（5个文件）
 
 数据加载、信号处理和事件分析：
 
@@ -242,25 +257,30 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 - **`processor.py`**: 信号处理（`WaveformStruct`, 峰值查找，支持 Numba JIT）
 - **`analyzer.py`**: 事件分析（聚类与配对，支持多进程）
 - **`chunk.py`**: `Chunk` 对象与时间区间操作工具
+- **`records_builder.py`**: Records + wave_pool 构建工具
 
-#### `data/` - 数据管理（2个文件）
+#### `data/` - 数据管理（5个文件）
 
 时间范围查询和批量导出：
 
 - **`query.py`**: `TimeRangeQueryEngine` 时间范围查询引擎
-- **`export.py`**: 批量处理和导出
-  - `BatchProcessor`: 多运行批量处理
-  - `DataExporter`: 统一数据导出（Parquet, HDF5, CSV, JSON）
+- **`batch_processor.py`**: `BatchProcessor` 多运行批量处理
+- **`export.py`**: `DataExporter` 统一数据导出（Parquet, HDF5, CSV, JSON）
+- **`dependency_analysis.py`**: 插件依赖分析与性能瓶颈识别
+- **`records_view.py`**: `RecordsView` 访问 records + wave_pool
 
-#### `foundation/` - 框架基础（5个文件）
+#### `foundation/` - 框架基础（多个文件）
 
 异常处理、Mixin、模型和工具函数：
 
+- **`constants.py`**: 常量与默认值
 - **`exceptions.py`**: 异常类（`PluginError`, `ErrorSeverity`）
+- **`error.py`**: 错误上下文与日志
 - **`mixins.py`**: 功能混合类（`CacheMixin`）
 - **`model.py`**: 数据模型（`LineageGraphModel`）
 - **`utils.py`**: 工具函数（`exporter`, `Profiler`）
 - **`progress.py`**: 进度追踪（`ProgressTracker`）
+- **`time_conversion.py`**: 时间转换工具
 
 #### 向后兼容
 
@@ -299,8 +319,11 @@ from waveform_analysis.core.processing import WaveformStruct
 #### `io.py`
 底层 I/O 工具，提供高效的 CSV 解析和流式生成器。
 
-#### `loader.py`
-加载器适配层，将 `core/loader.py` 的功能导出为兼容旧版本的 API。
+#### `formats/`
+DAQ 数据格式适配器与目录布局（`FormatSpec`, `DirectoryLayout`, `DAQAdapter`）。
+
+#### `preview.py`
+波形预览工具与快速可视化入口。
 
 #### `daq/`
 DAQ 相关工具，包括 `DAQRun` 和 `DAQAnalyzer`。
@@ -369,7 +392,7 @@ waveforms = ctx.get_data("run_001", "waveforms")
 ### 使用命令行工具
 
 ```bash
-waveform-process --char dataset_name --verbose
+waveform-process --run-name dataset_name --verbose
 ```
 
 ### 运行测试
