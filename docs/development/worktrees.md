@@ -148,8 +148,7 @@ cd ../wa-plugins && ./scripts/worktrees/bootstrap_venv.sh --with-core ../wa-core
 
 # 3) Develop and run scoped tests
 make test-core
-make test-records
-make test-stw
+make test-plugins
 
 # 4) Integration validation
 cd ../wa-integration

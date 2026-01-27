@@ -1,5 +1,5 @@
 # Add project-level Makefile commands here
-.PHONY: dev test lint fmt clean test-core test-records test-stw bench
+.PHONY: dev test lint fmt clean test-core test-records test-stw test-plugins bench
 
 dev:
 	pip install -e ".[dev]"
@@ -27,6 +27,8 @@ test-records:
 
 test-stw:
 	pytest -q tests -k "waveform_struct or waveform_width or st_waveforms"
+
+test-plugins: test-records test-stw
 
 bench:
 	python scripts/benchmark_io.py --n-files 50 --n-channels 2 --n-samples 200 --reps 2
