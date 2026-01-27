@@ -3,7 +3,7 @@
 Events plugins built on the records bundle.
 """
 
-from typing import Any, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -184,7 +184,7 @@ class EventsPlugin(Plugin):
     """Provide event index data backed by the records bundle."""
 
     provides = "events"
-    depends_on = ["raw_files"]
+    depends_on = []
     save_when = "always"
     output_dtype = EVENTS_DTYPE
     options = {
@@ -201,6 +201,12 @@ class EventsPlugin(Plugin):
     }
     version = "0.1.0"
 
+    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
+        adapter_name = _resolve_adapter_name(context)
+        if adapter_name == "v1725":
+            return ["raw_files"]
+        return ["st_waveforms"]
+
     def get_lineage(self, context: Any) -> dict:
         adapter_name = _resolve_adapter_name(context)
         config = {}
@@ -211,10 +217,7 @@ class EventsPlugin(Plugin):
         if adapter_name:
             config["daq_adapter"] = adapter_name
 
-        if adapter_name == "v1725":
-            depends = {"raw_files": context.get_lineage("raw_files")}
-        else:
-            depends = {"st_waveforms": context.get_lineage("st_waveforms")}
+        depends = {dep: context.get_lineage(dep) for dep in self.resolve_depends_on(context)}
 
         lineage = {
             "plugin_class": self.__class__.__name__,
