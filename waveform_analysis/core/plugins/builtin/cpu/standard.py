@@ -372,9 +372,7 @@ class HitFinderPlugin(Plugin):
     depends_on = ["st_waveforms"]
     output_dtype = np.dtype(PEAK_DTYPE)
 
-    def compute(
-        self, context: Any, run_id: str, threshold: float = 10.0, **kwargs
-    ) -> List[np.ndarray]:
+    def compute(self, context: Any, run_id: str, threshold: float = 10.0, **kwargs) -> List[np.ndarray]:
         """
         从结构化波形中检测 Hit 事件
 
@@ -460,9 +458,7 @@ class PeaksPlugin(Plugin):
             try:
                 filtered_waveforms = context.get_data(run_id, "filtered_waveforms")
             except Exception:
-                raise ValueError(
-                    "use_filtered=True 但无法获取 filtered_waveforms。请先注册 FilteredWaveformsPlugin。"
-                )
+                raise ValueError("use_filtered=True 但无法获取 filtered_waveforms。请先注册 FilteredWaveformsPlugin。")
         else:
             filtered_waveforms = None
 
@@ -529,9 +525,7 @@ class ChargesPlugin(Plugin):
             try:
                 filtered_waveforms = context.get_data(run_id, "filtered_waveforms")
             except Exception:
-                raise ValueError(
-                    "use_filtered=True 但无法获取 filtered_waveforms。请先注册 FilteredWaveformsPlugin。"
-                )
+                raise ValueError("use_filtered=True 但无法获取 filtered_waveforms。请先注册 FilteredWaveformsPlugin。")
         else:
             filtered_waveforms = None
 

@@ -11,6 +11,7 @@
 ## 1. 设计哲学
 
 - **插件化 (Plugin-based)**: 受 `strax` 启发，将处理逻辑拆分为独立的插件，每个插件声明其“提供什么”和“依赖什么”。
+- **模块化核心 (Modular Core)**: `core/` 采用分层子目录（storage/execution/plugins/processing/data/foundation），职责清晰、可扩展。
 - **无状态上下文 (Stateless Context)**: 核心调度器不再依赖全局可变状态（如 `self.char`），而是通过显式传递 `run_id` 来隔离不同运行的数据。
 - **流式处理 (Streaming)**: 采用生成器模式，数据以分块（Chunk）形式流过处理链，极大地降低了内存占用。
 - **血缘追踪 (Lineage Tracking)**: 通过哈希插件代码、版本和配置参数，确保数据的可追溯性和缓存的准确性。
@@ -35,6 +36,12 @@
     - `is_side_effect`: 标记插件是否具有副作用（如生成绘图、导出文件）。
     - `compute`: 核心计算逻辑。
     - `on_error` / `cleanup`: 生命周期钩子，确保异常处理和资源释放。
+- **插件分层**:
+    - `plugins/core/`: 核心基础设施（`base`, `streaming`, `loader`, `stats`, `hot_reload`, `adapters`）。
+    - `plugins/builtin/`: 内置插件，按加速器划分（`cpu/`, `jax/`, `streaming/`, `legacy/`）。
+- **兼容与扩展**:
+    - `StreamingPlugin` 支持 Chunk 流式计算。
+    - `StraxPluginAdapter`/`StraxContextAdapter` 提供 strax 插件与 API 兼容。
 
 ### 2.3 存储层 (Storage Layer)
 - **`MemmapStorage`**: 负责将结构化数组持久化为二进制文件。
@@ -75,12 +82,17 @@
     - **流合并**: `merge_stream()` 合并多个数据流。
     - **自动转换**: 自动将静态数据转换为 chunk 流，或将流式数据合并为静态数据。
 
-### 2.7 数据访问层 (Data Access Layer)
-    - 兼容性：通过 Property 映射 `self.char` 到 `Context` 的无状态存储。
-    - 灵活性：支持在链式调用中临时切换 `run_id`。
-- **`IO Module`**:
-    - **流式解析**: `parse_files_generator` 支持分块读取 CSV。
-    - **并行化**: 使用全局执行器管理器进行多进程并行解析。
+### 2.7 数据管理与查询层 (Data & Query Layer)
+- **时间范围查询** (`core/data/query.py`):
+    - `TimeRangeQueryEngine` + `TimeIndex` 支持按时间段检索数据。
+    - `get_data_time_range`/`build_time_index` 支持多通道数据与索引缓存。
+    - `get_data_time_range_absolute` 支持 `datetime` 绝对时间查询（依赖 epoch）。
+- **批量处理与导出** (`core/data/batch_processor.py`, `core/data/export.py`):
+    - `BatchProcessor` 并行处理多个 run。
+    - `DataExporter`/`batch_export` 统一导出 Parquet/HDF5/CSV/JSON/NumPy。
+- **依赖分析** (`core/data/dependency_analysis.py`): DAG 结构与性能瓶颈分析，支持报告输出。
+- **Records 视图** (`core/data/records_view.py`): `RecordsView` 提供 records + wave_pool 的零拷贝访问接口。
+- **`IO Module`** (`utils/io.py`): `parse_and_stack_files`/`parse_files_generator` 支持流式解析与并行加载。
 - **`DAQ Adapters`** (`utils/formats/`): 统一不同硬件厂商的数据组织格式。
     - **格式规范 (`FormatSpec`)**: 定义 CSV 列映射、时间戳单位、分隔符等。
     - **目录布局 (`DirectoryLayout`)**: 定义目录结构、文件模式、通道识别规则。
@@ -102,22 +114,26 @@
     - **格式规范**: 封装 `FormatSpec` 和波形长度配置。
     - **工厂方法**: `default_vx2730()`, `from_adapter(adapter_name)`。
     - **优先级**: wave_length > format_spec.expected_samples > DEFAULT_WAVE_LENGTH。
+- **`WaveformProcessor` / `EventAnalyzer`**:
+    - `WaveformProcessor` 计算 peaks/charges 并构建 DataFrame。
+    - `EventAnalyzer` 负责多通道事件分组与配对（Numba/多进程可选）。
+- **Records + WavePool** (`core/processing/records_builder.py`):
+    - 构建 `RecordsBundle(records, wave_pool)` 以支持变长波形的连续存储。
+    - 适用于大规模数据的零拷贝访问与下游索引。
 - **插件集成**: `StWaveformsPlugin` 支持 `daq_adapter` 配置选项。
     - 与 `RawFilesPlugin` 和 `WaveformsPlugin` 的 `daq_adapter` 选项保持一致。
     - 全局配置: `ctx.set_config({'daq_adapter': 'vx2730'})`。
     - 插件特定配置: `ctx.set_config({'daq_adapter': 'vx2730'}, plugin_name='st_waveforms')`。
 
 ### 2.9 时间字段统一 (Time Field Unification)
-- **RECORD_DTYPE 双时间字段**: 同时支持绝对时间和相对时间。
-    - **`time` (i8)**: 绝对系统时间（Unix 时间戳，纳秒 ns）
-    - **`timestamp` (i8)**: ADC 原始时间戳（皮秒 ps，统一为 ps）
-    - **转换公式**: `time = epoch_ns + timestamp // 1000`
-- **Epoch 自动获取**: 通过 `DAQAdapter.get_file_epoch()` 从文件创建时间获取。
-    - 优先使用 `st_birthtime` (macOS)，否则使用 `st_mtime`
-    - 返回 Unix 时间戳（纳秒）
-- **WaveformStructConfig 扩展**: 新增 `epoch_ns` 属性传递时间基准。
-- **自动生效**: `chunk.py`、`query.py` 默认优先使用 `time` 字段；`streaming.py` 默认使用 `timestamp`（ps）。
-- **向后兼容**: 无 epoch 时降级为相对时间（`time = timestamp // 1000`）。
+- **时间字段约定**:
+    - **`timestamp` (i8)**: ADC 原始时间戳，统一为 ps。
+    - **`time` (i8)**: 可选的系统时间（ns），用于绝对时间查询与对齐。
+- **Epoch 获取**: `DAQAdapter.get_file_epoch()` 可从文件创建时间推导 `epoch_ns`。
+- **WaveformStructConfig**: `epoch_ns` 参与时间转换；当 dtype 包含 `time` 字段时自动填充。
+- **时间字段解析**:
+    - `chunk.py`/`query.py` 默认使用 `time`，不存在时回退到 `timestamp`。
+    - 若没有 `epoch_ns`，`time` 使用 `timestamp // 1000` 的相对时间（ns）。
 
 ---
 
@@ -177,37 +193,36 @@
 3. **`StWaveformsPlugin`**: 将波形数据转换为结构化 NumPy 数组
    - `provides`: `st_waveforms`
    - `depends_on`: `["waveforms"]`
-   - 内部存储 `_waveform_struct` 供 `EventLengthPlugin` 使用
-
-4. **`EventLengthPlugin`**: 计算配对事件长度（相邻通道的最小长度）
-   - `provides`: `event_length`
+4. **`FilteredWaveformsPlugin`** *(可选)*: 对波形进行滤波
+   - `provides`: `filtered_waveforms`
    - `depends_on`: `["st_waveforms"]`
-   - 优先使用 `StWaveformsPlugin` 存储的 `_waveform_struct`，否则从 `st_waveforms` 重新计算
 
-5. **`BasicFeaturesPlugin`**: 计算基础特征（峰值、电荷）
-   - `provides`: `basic_features`
-   - `depends_on`: `["st_waveforms", "event_length"]`
-
-6. **`PeaksPlugin`**: 提供峰值数据
+5. **`PeaksPlugin`**: 提供峰值数据
    - `provides`: `peaks`
-   - `depends_on`: `["basic_features"]`
+   - `depends_on`: `["st_waveforms"]`
+   - 可选依赖 `filtered_waveforms`（`use_filtered=True`）
 
-7. **`ChargesPlugin`**: 提供电荷数据
+6. **`ChargesPlugin`**: 提供电荷数据
    - `provides`: `charges`
-   - `depends_on`: `["basic_features"]`
+   - `depends_on`: `["st_waveforms"]`
+   - 可选依赖 `filtered_waveforms`（`use_filtered=True`）
 
-8. **`DataFramePlugin`**: 构建单通道事件 DataFrame
+7. **`DataFramePlugin`**: 构建单通道事件 DataFrame
    - `provides`: `df`
-   - `depends_on`: `["st_waveforms", "peaks", "charges", "event_length"]`
+   - `depends_on`: `["st_waveforms", "peaks", "charges"]`
 
-9. **`GroupedEventsPlugin`**: 按时间窗口聚类多通道事件
+8. **`GroupedEventsPlugin`**: 按时间窗口聚类多通道事件
    - `provides`: `df_events`
    - `depends_on`: `["df"]`
    - 支持 Numba 加速和多进程并行
 
-10. **`PairedEventsPlugin`**: 跨通道配对事件
-    - `provides`: `df_paired`
-    - `depends_on`: `["df_events"]`
+9. **`PairedEventsPlugin`**: 跨通道配对事件
+   - `provides`: `df_paired`
+   - `depends_on`: `["df_events"]`
+
+**可选扩展插件**：
+- **`HitFinderPlugin`**: `hits`（依赖 `st_waveforms`）
+- **`SignalPeaksPlugin`**: `signal_peaks`（依赖 `filtered_waveforms` + `st_waveforms`）
 
 ### 4.2 数据流向图
 
@@ -216,106 +231,69 @@ graph TD
     A[原始 CSV 文件] -->|RawFilesPlugin| B(raw_files: 文件路径清单)
     B -->|WaveformsPlugin| C(waveforms: 原始波形数组)
     C -->|StWaveformsPlugin| D(st_waveforms: 结构化波形)
-    D -->|EventLengthPlugin| E(event_length: 配对事件长度)
-    D -->|BasicFeaturesPlugin| F(basic_features: 特征字典)
-    E -->|BasicFeaturesPlugin| F
-    F -->|PeaksPlugin| G(peaks: 峰值数组)
-    F -->|ChargesPlugin| H(charges: 电荷数组)
-    D -->|DataFramePlugin| I(df: 单通道事件 DataFrame)
-    G -->|DataFramePlugin| I
-    H -->|DataFramePlugin| I
-    E -->|DataFramePlugin| I
-    I -->|GroupedEventsPlugin<br/>Numba + Multiprocessing| J(df_events: 聚类事件 DataFrame)
-    J -->|PairedEventsPlugin| K(df_paired: 配对事件 DataFrame)
-    K -->|Persistence| L[Parquet/CSV/Cache]
+    D -->|FilteredWaveformsPlugin| E(filtered_waveforms: 滤波波形)
+    D -->|PeaksPlugin| F(peaks: 峰值数组)
+    D -->|ChargesPlugin| G(charges: 电荷数组)
+    E -.->|PeaksPlugin(use_filtered)| F
+    E -.->|ChargesPlugin(use_filtered)| G
+    D -->|DataFramePlugin| H(df: 单通道事件 DataFrame)
+    F -->|DataFramePlugin| H
+    G -->|DataFramePlugin| H
+    H -->|GroupedEventsPlugin<br/>Numba + Multiprocessing| I(df_events: 聚类事件 DataFrame)
+    I -->|PairedEventsPlugin| J(df_paired: 配对事件 DataFrame)
+    D -->|HitFinderPlugin| K(hits: Hit 列表)
+    E -->|SignalPeaksPlugin| L(signal_peaks: 高级峰值)
+    J -->|Persistence| M[Parquet/CSV/Cache]
     
     style E fill:#e1f5ff
-    style F fill:#fff4e1
-    style J fill:#e8f5e9
+    style I fill:#e8f5e9
 ```
 
 ---
 
 ## 5. 目录规范
 
-- `waveform_analysis/core/`: 存放核心逻辑
+- `waveform_analysis/core/`: 核心逻辑（模块化子目录架构）
     - `context.py`: Context 核心调度器
-    - `plugins.py`: Plugin 基类定义
-    - `standard_plugins.py`: 标准插件实现（包括 EventLengthPlugin）
-    - `storage.py`: MemmapStorage 存储后端
-    - `cache.py`: 缓存管理和血缘追踪
-    - `loader.py`: 数据加载器
-    - `processor.py`: 信号处理和特征提取（支持 Numba）
-    - `analyzer.py`: 事件分析和配对（支持多进程）
-    - `executor_manager.py`: 全局执行器管理器
-    - `executor_config.py`: 执行器配置定义
-    - `streaming.py`: 流式处理框架（StreamingPlugin, StreamingContext）
-    - `streaming_plugins.py`: 流式处理插件示例
-- `waveform_analysis/utils/`: 存放通用工具
+    - `cancellation.py` / `load_balancer.py`: 取消与负载控制
+    - `storage/`: memmap 缓存、压缩、完整性、缓存工具
+    - `execution/`: 执行器管理与超时控制
+    - `plugins/`: 插件核心设施与内置插件（CPU/JAX/Streaming/Legacy）
+    - `processing/`: loader/processor/analyzer/chunk/records_builder
+    - `data/`: query/batch_processor/export/dependency_analysis/records_view
+    - `foundation/`: exceptions/model/utils/progress/constants 等基础能力
+- `waveform_analysis/utils/`: 通用工具
     - `formats/`: DAQ 数据格式适配器
-        - `base.py`: 基础类（FormatSpec, ColumnMapping, TimestampUnit, FormatReader）
-        - `directory.py`: 目录布局（DirectoryLayout）
-        - `adapter.py`: DAQ 适配器（DAQAdapter）
-        - `vx2730.py`: VX2730 完整实现
-        - `registry.py`: 格式和适配器注册表
     - `daq/`: DAQ 数据分析工具
     - `io.py`: 文件 I/O 工具
     - `preview.py`: 波形预览工具
-- `waveform_analysis/fitting/`: 存放物理拟合模型。
-- `tests/`: 严格对应的单元测试与集成测试。
-- `docs/`: 模块化文档，涵盖架构、缓存、内存优化、执行器管理等专题。
+- `waveform_analysis/fitting/`: 物理拟合模型。
+- `tests/`: 单元测试与集成测试。
+- `docs/`: 架构、缓存、执行器与功能专题文档。
 
 ## 6. 最新更新 (Recent Updates)
 
-### 6.1 DAQ 完整适配器层 (2026-01)
+### 6.1 模块化核心与插件分层 (2026-01)
+- `core/` 拆分为 storage/execution/plugins/processing/data/foundation，Context 保持在根目录。
+- 内置插件按加速器分层：`builtin/cpu/`, `builtin/jax/`, `builtin/streaming/`, `builtin/legacy/`。
+
+### 6.2 DAQ 适配器与 WaveformStruct 解耦 (2026-01)
 - **新增模块**: `waveform_analysis/utils/formats/`
-- **核心组件**:
-  - `FormatSpec`: 格式规范数据类（列映射、时间戳单位、分隔符）
-  - `ColumnMapping`: CSV 列索引配置
-  - `TimestampUnit`: 时间戳单位枚举（ps, ns, us, ms, s）
-  - `FormatReader`: 格式读取器抽象基类
-  - `DirectoryLayout`: 目录结构配置
-  - `DAQAdapter`: 完整适配器（FormatReader + DirectoryLayout）
-- **内置适配器**: VX2730 (CAEN 数字化仪)
-- **集成点**:
-  - `io.py`: `parse_and_stack_files()` 支持 `format_type` 参数
-  - `daq_run.py`: 使用 `DirectoryLayout` 替代硬编码
-  - `loader.py`: 支持 `daq_adapter` 参数
-  - `standard.py`: 插件支持 `daq_adapter` 配置选项
+- **核心组件**: `FormatSpec`/`DirectoryLayout`/`DAQAdapter` 统一格式与目录布局。
+- **集成点**: `RawFilesPlugin`/`WaveformsPlugin`/`StWaveformsPlugin` 支持 `daq_adapter` 配置。
 
-### 6.2 缓存管理工具集 (2026-01)
-- **新增模块**: `core/storage/cache_*.py`
-- **核心组件**:
-  - `CacheAnalyzer`: 缓存分析器，扫描和过滤缓存条目
-  - `CacheDiagnostics`: 缓存诊断，检测和修复问题
-  - `CacheCleaner`: 智能清理，多种清理策略（LRU/OLDEST/LARGEST/版本不匹配/完整性失败）
-  - `CacheStatsCollector`: 统计收集和报告
-- **使用要点**:
-  - 先 `CacheAnalyzer.scan()`，再创建清理计划并预览
-  - 支持 `dry_run` 演练、按 run 或数据类型限定范围
-- **CLI 命令**: `waveform-cache` (info, stats, diagnose, list, clean)
+### 6.3 时间范围查询与索引 (Phase 2.2)
+- `TimeRangeQueryEngine` + `TimeIndex` 支持时间段检索与缓存索引。
+- `get_data_time_range`/`get_data_time_range_absolute` 支持相对/绝对时间查询。
 
-### 6.3 EventLengthPlugin 独立化
-- **问题**: 之前 `event_length` 由 `StWaveformsPlugin` 作为副作用设置，导致从缓存加载时无法正确获取。
-- **解决方案**: 创建独立的 `EventLengthPlugin`，使其成为可缓存和自动加载的独立数据项。
-- **优势**:
-  - 依赖关系更清晰
-  - 支持独立缓存和加载
-  - 可以从 `st_waveforms` 重新计算（即使没有 `_waveform_struct`）
+### 6.4 Strax 适配与热重载 (Phase 2.3 / 3.3)
+- `StraxPluginAdapter`/`StraxContextAdapter` 提供 strax 兼容接口。
+- `PluginHotReloader` 支持插件热重载与缓存一致性维护。
 
-### 6.4 全局执行器管理框架
-- **新增组件**: `ExecutorManager` 和 `ExecutorConfig`
-- **功能**:
-  - 统一管理线程池和进程池资源
-  - 支持执行器重用和自动清理
-  - 提供预定义配置（IO密集型、CPU密集型等）
-  - 上下文管理器支持，确保资源正确释放
-- **集成点**:
-  - `processor.py`: `group_multi_channel_hits` 使用执行器管理器
-  - `loader.py`: `load_waveforms` 使用执行器管理器
-  - `io.py`: `parse_and_stack_files` 使用执行器管理器
+### 6.5 批量处理与导出 (Phase 3.1 / 3.2)
+- `BatchProcessor` 并行处理多个 run，支持错误策略与进度追踪。
+- `DataExporter`/`batch_export` 提供统一导出接口。
 
-### 6.5 性能优化增强
-- **Numba 集成**: `group_multi_channel_hits` 支持 Numba JIT 加速边界查找
-- **多进程支持**: 大规模数据集支持多进程并行处理
-- **混合优化**: 结合 Numba 和 multiprocessing，实现最佳性能
+### 6.6 缓存管理工具集 (2026-01)
+- `CacheAnalyzer`/`CacheDiagnostics`/`CacheCleaner`/`CacheStatsCollector` 提供扫描、诊断与清理。
+- CLI 支持 `waveform-cache` (info, stats, diagnose, list, clean)。
