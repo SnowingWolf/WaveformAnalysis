@@ -608,7 +608,7 @@ class WaveformProcessor:
         waveforms_override: Optional[List[np.ndarray]] = None,
     ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         """
-        计算基础特征：peaks 和 charges。
+        计算基础特征：height 和 area。
         
         每个通道使用自己的全部事件数（不再需要 event_length 限制）。
         """
@@ -620,14 +620,14 @@ class WaveformProcessor:
         start_p, end_p = self.peaks_range
         start_c, end_c = self.charge_range
 
-        peaks = []
-        charges = []
+        heights = []
+        areas = []
 
         for i in range(len(st_waveforms)):
             st_ch = st_waveforms[i]
             if len(st_ch) == 0:
-                peaks.append(np.zeros(0))
-                charges.append(np.zeros(0))
+                heights.append(np.zeros(0))
+                areas.append(np.zeros(0))
                 continue
 
             waves = st_ch["wave"]
@@ -638,24 +638,24 @@ class WaveformProcessor:
                     waves = None
 
             if waves is None or len(waves) == 0:
-                peaks.append(np.zeros(0))
-                charges.append(np.zeros(0))
+                heights.append(np.zeros(0))
+                areas.append(np.zeros(0))
                 continue
             if waves.ndim != 2:
                 warnings.warn(
                     f"Waveforms for channel {i} are not 2D; skip feature calculation.",
                     UserWarning,
                 )
-                peaks.append(np.zeros(0))
-                charges.append(np.zeros(0))
+                heights.append(np.zeros(0))
+                areas.append(np.zeros(0))
                 continue
 
             n_events = len(st_ch)
             if waves.shape[0] != n_events:
                 n_events = min(waves.shape[0], n_events)
                 if n_events == 0:
-                    peaks.append(np.zeros(0))
-                    charges.append(np.zeros(0))
+                    heights.append(np.zeros(0))
+                    areas.append(np.zeros(0))
                     continue
                 warnings.warn(
                     f"Waveforms length mismatch on channel {i}: "
@@ -663,26 +663,26 @@ class WaveformProcessor:
                     UserWarning,
                 )
 
-            # Vectorized peak calculation
+            # Vectorized height calculation
             # st_ch["wave"] is (N, DEFAULT_WAVE_LENGTH)
             waves_p = waves[:n_events, start_p:end_p]
-            p_vals = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
-            peaks.append(p_vals)
+            height_vals = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
+            heights.append(height_vals)
 
-            # Vectorized charge calculation
+            # Vectorized area calculation
             waves_c = waves[:n_events, start_c:end_c]
             baselines = st_ch["baseline"][:n_events]
             # baseline - wave, then sum over samples
-            q_vals = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
-            charges.append(q_vals)
+            area_vals = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
+            areas.append(area_vals)
 
-        return peaks, charges
+        return heights, areas
 
     def build_dataframe(
         self,
         st_waveforms: List[np.ndarray],
-        peaks: List[np.ndarray],
-        charges: List[np.ndarray],
+        heights: List[np.ndarray],
+        areas: List[np.ndarray],
         extra_features: Optional[Dict[str, List[np.ndarray]]] = None,
         start_channel_slice: int = 0,
     ) -> pd.DataFrame:
@@ -696,7 +696,7 @@ class WaveformProcessor:
         """
         # 使用实际的 st_waveforms 长度，确保处理所有通道
         df = build_waveform_df(
-            st_waveforms, peaks, charges, 
+            st_waveforms, heights, areas,
             n_channels=len(st_waveforms),  # 使用实际长度而不是 self.n_channels
             start_channel_slice=start_channel_slice
         )
@@ -737,20 +737,20 @@ class WaveformProcessor:
         return {
             "baseline": baseline_vals,
             "timestamp": ts,
-            "peak": peaks_vals,
-            "charge": charges_vals,
+            "height": peaks_vals,
+            "area": charges_vals,
         }
 
 
 @export
 def build_waveform_df(
     st_waveforms: List[np.ndarray],
-    peaks: List[np.ndarray],
-    charges: List[np.ndarray],
+    heights: List[np.ndarray],
+    areas: List[np.ndarray],
     n_channels: Optional[int] = None,
     start_channel_slice: int = 0,
 ) -> pd.DataFrame:
-    """把每个通道的 timestamp / charge / peak / channel 拼成一个 DataFrame.
+    """把每个通道的 timestamp / area / height / channel 拼成一个 DataFrame.
     
     每个通道使用自己的全部事件数（不再需要 event_length 限制）。
     
@@ -767,43 +767,43 @@ def build_waveform_df(
         )
     n_channels = actual_n_channels
     
-    # 验证 peaks 和 charges 的长度匹配
-    if len(peaks) != n_channels:
+    # 验证 heights 和 areas 的长度匹配
+    if len(heights) != n_channels:
         raise ValueError(
-            f"peaks list length ({len(peaks)}) != st_waveforms length ({n_channels})"
+            f"heights list length ({len(heights)}) != st_waveforms length ({n_channels})"
         )
-    if len(charges) != n_channels:
+    if len(areas) != n_channels:
         raise ValueError(
-            f"charges list length ({len(charges)}) != st_waveforms length ({n_channels})"
+            f"areas list length ({len(areas)}) != st_waveforms length ({n_channels})"
         )
     
     all_timestamps = []
-    all_charges = []
-    all_peaks = []
+    all_areas = []
+    all_heights = []
     all_channels = []
 
     for ch in range(n_channels):
         # 使用每个通道的全部事件数
         ts = np.asarray(st_waveforms[ch]["timestamp"])
-        qs = np.asarray(charges[ch])
-        ps = np.asarray(peaks[ch])
+        area_vals = np.asarray(areas[ch])
+        height_vals = np.asarray(heights[ch])
 
         all_timestamps.append(ts)
-        all_charges.append(qs)
-        all_peaks.append(ps)
+        all_areas.append(area_vals)
+        all_heights.append(height_vals)
         # 从 st_waveforms 中提取实际的 channel 值（从 BOARD/CHANNEL 映射得到）
         actual_channels = np.asarray(st_waveforms[ch]["channel"])
         all_channels.append(actual_channels)
 
     all_timestamps = np.concatenate(all_timestamps)
-    all_charges = np.concatenate(all_charges)
-    all_peaks = np.concatenate(all_peaks)
+    all_areas = np.concatenate(all_areas)
+    all_heights = np.concatenate(all_heights)
     all_channels = np.concatenate(all_channels)
 
     return pd.DataFrame({
         "timestamp": all_timestamps,
-        "charge": all_charges,
-        "peak": all_peaks,
+        "area": all_areas,
+        "height": all_heights,
         "channel": all_channels,
     })
 
@@ -817,10 +817,10 @@ def group_multi_channel_hits(
 ) -> pd.DataFrame:
     """
     在 df 中按 timestamp 聚类，找"同一事件的多通道触发"，并在簇内部
-    按 channel 从小到大对 (channels, charges, peaks, timestamps) 同步排序。
+    按 channel 从小到大对 (channels, areas, heights, timestamps) 同步排序。
     
     参数:
-        df: 包含 timestamp, channel, charge, peak 列的 DataFrame
+        df: 包含 timestamp, channel, area, height 列的 DataFrame
             - timestamp 列的单位为 ps（皮秒）
         time_window_ns: 时间窗口（纳秒），默认值为100ns
             - 内部会转换为 ps 单位与 timestamp 进行比较
@@ -857,8 +857,12 @@ def group_multi_channel_hits(
     # 一次性取成 numpy 数组，后面循环只处理索引，少做 iloc / array 构造
     ts_all = df_sorted["timestamp"].to_numpy()
     ch_all = df_sorted["channel"].to_numpy()
-    q_all = df_sorted["charge"].to_numpy()
-    p_all = df_sorted["peak"].to_numpy()
+    area_col = "area" if "area" in df_sorted.columns else "charge"
+    height_col = "height" if "height" in df_sorted.columns else "peak"
+    if area_col not in df_sorted.columns or height_col not in df_sorted.columns:
+        raise KeyError("df must contain area/height (or charge/peak) columns")
+    area_all = df_sorted[area_col].to_numpy()
+    height_all = df_sorted[height_col].to_numpy()
 
     n = len(df_sorted)
     if n == 0:
@@ -870,8 +874,8 @@ def group_multi_channel_hits(
                 "dt/ns",
                 "n_hits",
                 "channels",
-                "charges",
-                "peaks",
+                "areas",
+                "heights",
                 "timestamps",
             ]
         )
@@ -900,7 +904,7 @@ def group_multi_channel_hits(
         
         # 准备参数
         args_list = [
-            (ts_all, ch_all, q_all, p_all, boundaries, start, end)
+            (ts_all, ch_all, area_all, height_all, boundaries, start, end)
             for start, end in chunks
         ]
         
@@ -944,8 +948,8 @@ def group_multi_channel_hits(
         n_hits_list = np.zeros(n_events, dtype=np.int32)
         
         channels_list = []
-        charges_list = []
-        peaks_list = []
+        areas_list = []
+        heights_list = []
         timestamps_list = []
 
         # 处理每个事件
@@ -954,15 +958,15 @@ def group_multi_channel_hits(
 
             ts = ts_all[start:end]
             chs = ch_all[start:end]
-            qs = q_all[start:end]
-            ps = p_all[start:end]
+            areas = area_all[start:end]
+            heights = height_all[start:end]
 
             # 按channel排序
             sort_idx = np.argsort(chs)
             ts_sorted = ts[sort_idx]
             chs_sorted = chs[sort_idx]
-            qs_sorted = qs[sort_idx]
-            ps_sorted = ps[sort_idx]
+            areas_sorted = areas[sort_idx]
+            heights_sorted = heights[sort_idx]
 
             t_min = ts_sorted[0]
             t_max = ts_sorted[-1]
@@ -974,8 +978,8 @@ def group_multi_channel_hits(
             n_hits_list[event_id] = len(ts_sorted)
             
             channels_list.append(chs_sorted)
-            charges_list.append(qs_sorted)
-            peaks_list.append(ps_sorted)
+            areas_list.append(areas_sorted)
+            heights_list.append(heights_sorted)
             timestamps_list.append(ts_sorted)
 
         # 使用字典方式构建DataFrame
@@ -986,8 +990,8 @@ def group_multi_channel_hits(
             "dt/ns": dt_ns,
             "n_hits": n_hits_list,
             "channels": channels_list,
-            "charges": charges_list,
-            "peaks": peaks_list,
+            "areas": areas_list,
+            "heights": heights_list,
             "timestamps": timestamps_list,
         })
 
@@ -1055,13 +1059,13 @@ def _process_event_chunk(args: Tuple) -> List[Dict]:
         事件记录列表
     """
     # 解包参数
-    ts_all, ch_all, q_all, p_all, boundaries, start_idx, end_idx = args
+    ts_all, ch_all, area_all, height_all, boundaries, start_idx, end_idx = args
     
     # 确保是numpy数组（多进程传递后可能变成列表）
     ts_all = np.asarray(ts_all)
     ch_all = np.asarray(ch_all)
-    q_all = np.asarray(q_all)
-    p_all = np.asarray(p_all)
+    area_all = np.asarray(area_all)
+    height_all = np.asarray(height_all)
     boundaries = np.asarray(boundaries)
     
     records = []
@@ -1072,15 +1076,15 @@ def _process_event_chunk(args: Tuple) -> List[Dict]:
         
         ts = ts_all[start:end]
         chs = ch_all[start:end]
-        qs = q_all[start:end]
-        ps = p_all[start:end]
+        areas = area_all[start:end]
+        heights = height_all[start:end]
         
         # 按channel排序
         sort_idx = np.argsort(chs)
         ts_sorted = ts[sort_idx]
         chs_sorted = chs[sort_idx]
-        qs_sorted = qs[sort_idx]
-        ps_sorted = ps[sort_idx]
+        areas_sorted = areas[sort_idx]
+        heights_sorted = heights[sort_idx]
         
         t_min = int(ts_sorted[0])
         t_max = int(ts_sorted[-1])
@@ -1092,8 +1096,8 @@ def _process_event_chunk(args: Tuple) -> List[Dict]:
             "dt/ns": float((t_max - t_min) / 1e3),
             "n_hits": int(len(ts_sorted)),
             "channels": chs_sorted,  # 只读访问，无需复制
-            "charges": qs_sorted,
-            "peaks": ps_sorted,
+            "areas": areas_sorted,
+            "heights": heights_sorted,
             "timestamps": ts_sorted,
         })
     

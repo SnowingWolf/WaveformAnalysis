@@ -41,7 +41,7 @@ class WaveformWidthIntegralPlugin(Plugin):
     """
 
     provides = "waveform_width_integral"
-    depends_on = ["st_waveforms"]
+    depends_on = []
     description = "Event-wise integral quantile width using st_waveforms baseline."
     version = "1.1.0"
     save_when = "always"

@@ -52,7 +52,7 @@ class EventAnalyzer:
         按时间窗口聚类多通道事件。
         
         参数:
-            df: 包含 timestamp, channel, charge, peak 列的 DataFrame
+            df: 包含 timestamp, channel, area, height 列的 DataFrame
             time_window_ns: 时间窗口（纳秒）
             use_numba: 是否使用numba加速（默认True）
             n_processes: 多进程数量（None=单进程，>1=多进程）
@@ -85,11 +85,13 @@ class EventAnalyzer:
             if not df_paired.empty:
                 df_paired["delta_t"] = df_paired["timestamps"].apply(lambda x: (x[-1] - x[0]) / 1000.0)
 
-        # 提取各通道的 charges 和 peaks（动态处理，根据实际通道数）
+        # 提取各通道的 areas 和 heights（动态处理，根据实际通道数）
         if not df_paired.empty:
+            areas_key = "areas" if "areas" in df_paired.columns else "charges"
+            heights_key = "heights" if "heights" in df_paired.columns else "peaks"
             for i in range(self.n_channels):
-                ch_name = f"charge_ch{self.start_channel_slice + i}"
-                pk_name = f"peak_ch{self.start_channel_slice + i}"
+                ch_name = f"area_ch{self.start_channel_slice + i}"
+                pk_name = f"height_ch{self.start_channel_slice + i}"
                 
                 def get_ch_value(arr, idx):
                     """安全地获取数组索引值"""
@@ -97,8 +99,8 @@ class EventAnalyzer:
                         return arr[idx]
                     return np.nan
                 
-                df_paired[ch_name] = df_paired["charges"].apply(lambda x: get_ch_value(x, i))
-                df_paired[pk_name] = df_paired["peaks"].apply(lambda x: get_ch_value(x, i))
+                df_paired[ch_name] = df_paired[areas_key].apply(lambda x: get_ch_value(x, i))
+                df_paired[pk_name] = df_paired[heights_key].apply(lambda x: get_ch_value(x, i))
 
         return df_paired
 
@@ -114,15 +116,17 @@ class EventAnalyzer:
         if "timestamps" in df_paired.columns and "delta_t" not in df_paired.columns:
             df_paired["delta_t"] = df_paired["timestamps"].apply(lambda x: (x[-1] - x[0]) / 1000.0)
 
-        # 若策略保留了 charges / peaks，则生成派生列
-        if "charges" in df_paired.columns:
+        # 若策略保留了 areas / heights，则生成派生列
+        if "areas" in df_paired.columns or "charges" in df_paired.columns:
+            areas_key = "areas" if "areas" in df_paired.columns else "charges"
             for i in range(min(self.n_channels, 8)):
-                df_paired[f"charge_ch{self.start_channel_slice + i}"] = df_paired["charges"].apply(
+                df_paired[f"area_ch{self.start_channel_slice + i}"] = df_paired[areas_key].apply(
                     lambda x: x[i] if len(x) > i else np.nan
                 )
-        if "peaks" in df_paired.columns:
+        if "heights" in df_paired.columns or "peaks" in df_paired.columns:
+            heights_key = "heights" if "heights" in df_paired.columns else "peaks"
             for i in range(min(self.n_channels, 8)):
-                df_paired[f"peak_ch{self.start_channel_slice + i}"] = df_paired["peaks"].apply(
+                df_paired[f"height_ch{self.start_channel_slice + i}"] = df_paired[heights_key].apply(
                     lambda x: x[i] if len(x) > i else np.nan
                 )
 
