@@ -1,5 +1,7 @@
 import os
 import shutil
+import threading
+import time
 
 import numpy as np
 import pytest
@@ -7,6 +9,9 @@ import matplotlib
 matplotlib.use('Agg')
 
 from waveform_analysis.core.context import Context
+from waveform_analysis.core.cancellation import CancellationToken
+from waveform_analysis.core.data.batch_processor import BatchProcessor
+from waveform_analysis.core.execution.timeout import get_timeout_manager, with_timeout
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 
@@ -235,3 +240,222 @@ def test_context_is_stored(context):
     context.get_data(run_id, "mock_data")
 
     assert context.storage.exists(key)
+
+
+def test_context_cache_order_for_dependency(tmp_path, capsys):
+    """Ensure cached dependencies are loaded before downstream plugins run."""
+    calls = {"base": 0, "derived": 0}
+
+    class BasePlugin(Plugin):
+        provides = "base"
+        save_when = "always"
+        output_dtype = np.dtype([("val", "i4")])
+
+        def compute(self, context, run_id, **kwargs):
+            calls["base"] += 1
+            return np.array([(1,)], dtype=self.output_dtype)
+
+    class DerivedPlugin(Plugin):
+        provides = "derived"
+        depends_on = ["base"]
+        output_dtype = np.dtype([("val", "i4")])
+
+        def compute(self, context, run_id, **kwargs):
+            calls["derived"] += 1
+            data = context.get_data(run_id, "base")
+            return np.array([(int(data[0]["val"]) + 1,)], dtype=self.output_dtype)
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(BasePlugin, DerivedPlugin)
+
+    run_id = "run1"
+    ctx.get_data(run_id, "derived")
+    assert calls == {"base": 1, "derived": 1}
+
+    ctx.clear_cache_for(run_id, clear_disk=False, verbose=False)
+    capsys.readouterr()
+
+    ctx.get_data(run_id, "derived")
+    out = capsys.readouterr().out
+
+    assert "[cache] Loaded 'base'" in out
+    assert "[+] Running plugin: derived" in out
+    assert out.index("[cache] Loaded 'base'") < out.index("[+] Running plugin: derived")
+    assert "[+] Running plugin: base" not in out
+    assert calls == {"base": 1, "derived": 2}
+
+
+def test_context_minimal_dag_happy_path(tmp_path):
+    """Validate minimal DAG execution order and cache consistency."""
+    order = []
+    dtype = np.dtype([("val", "i4")])
+
+    class PluginA(Plugin):
+        provides = "data_a"
+        output_dtype = dtype
+
+        def compute(self, context, run_id, **kwargs):
+            order.append("A")
+            return np.array([(1,), (2,)], dtype=self.output_dtype)
+
+    class PluginB(Plugin):
+        provides = "data_b"
+        depends_on = ["data_a"]
+        output_dtype = dtype
+
+        def compute(self, context, run_id, **kwargs):
+            order.append("B")
+            data_a = context.get_data(run_id, "data_a")
+            return np.array([(int(x["val"]) + 10,) for x in data_a], dtype=self.output_dtype)
+
+    class PluginC(Plugin):
+        provides = "data_c"
+        depends_on = ["data_b"]
+        output_dtype = dtype
+
+        def compute(self, context, run_id, **kwargs):
+            order.append("C")
+            data_b = context.get_data(run_id, "data_b")
+            return np.array([(int(x["val"]) * 2,) for x in data_b], dtype=self.output_dtype)
+
+    ctx_no_cache = Context(storage_dir=str(tmp_path / "no_cache"))
+    ctx_no_cache.register(PluginA, PluginB, PluginC)
+    result_no_cache = ctx_no_cache.get_data("run1", "data_c")
+
+    assert order == ["A", "B", "C"]
+    assert result_no_cache.dtype == dtype
+    assert result_no_cache.shape == (2,)
+    assert int(result_no_cache[0]["val"]) == 22
+    assert int(result_no_cache[1]["val"]) == 24
+
+    order.clear()
+    ctx_cache = Context(storage_dir=str(tmp_path / "with_cache"))
+    ctx_cache.register(PluginA, PluginB, PluginC)
+    for plugin in ctx_cache._plugins.values():
+        plugin.save_when = "always"
+
+    ctx_cache.get_data("run1", "data_c")
+    ctx_cache.clear_cache_for("run1", clear_disk=False, verbose=False)
+    result_cached = ctx_cache.get_data("run1", "data_c")
+
+    assert np.array_equal(result_no_cache, result_cached)
+
+
+def test_context_dag_failure_propagation(tmp_path):
+    """Ensure failures stop downstream plugins and avoid partial cache writes."""
+    calls = {"A": 0, "B": 0, "C": 0}
+    dtype = np.dtype([("val", "i4")])
+
+    class PluginA(Plugin):
+        provides = "data_a"
+        save_when = "always"
+        output_dtype = dtype
+
+        def compute(self, context, run_id, **kwargs):
+            calls["A"] += 1
+            return np.array([(1,)], dtype=self.output_dtype)
+
+    class PluginB(Plugin):
+        provides = "data_b"
+        depends_on = ["data_a"]
+        save_when = "always"
+        output_dtype = dtype
+
+        def compute(self, context, run_id, **kwargs):
+            calls["B"] += 1
+            raise ValueError("boom")
+
+    class PluginC(Plugin):
+        provides = "data_c"
+        depends_on = ["data_b"]
+        output_dtype = dtype
+
+        def compute(self, context, run_id, **kwargs):
+            calls["C"] += 1
+            return np.array([(3,)], dtype=self.output_dtype)
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(PluginA, PluginB, PluginC)
+
+    with pytest.raises(RuntimeError, match="Plugin 'data_b' failed"):
+        ctx.get_data("run1", "data_c")
+
+    assert calls == {"A": 1, "B": 1, "C": 0}
+
+    key_a = ctx.key_for("run1", "data_a")
+    key_b = ctx.key_for("run1", "data_b")
+    key_c = ctx.key_for("run1", "data_c")
+
+    assert ctx.storage.exists(key_a)
+    assert not ctx.storage.exists(key_b)
+    assert not ctx.storage.exists(key_c)
+
+
+def test_batch_processor_cancellation_skips_remaining(tmp_path):
+    """Cancellation should stop remaining runs without partial cache output."""
+    dtype = np.dtype([("val", "i4")])
+    cancellation_token = CancellationToken()
+
+    class SlowPlugin(Plugin):
+        provides = "slow_data"
+        save_when = "always"
+        output_dtype = dtype
+
+        def compute(self, context, run_id, **kwargs):
+            time.sleep(0.05)
+            return np.array([(1,)], dtype=self.output_dtype)
+
+    def cancel_soon():
+        time.sleep(0.01)
+        cancellation_token.cancel()
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(SlowPlugin)
+    processor = BatchProcessor(ctx)
+
+    thread = threading.Thread(target=cancel_soon)
+    thread.start()
+
+    result = processor.process_runs(
+        run_ids=["run1", "run2"],
+        data_name="slow_data",
+        max_workers=1,
+        show_progress=False,
+        cancellation_token=cancellation_token,
+        jupyter_mode=True,
+    )
+
+    thread.join()
+
+    assert result["meta"]["run1"]["status"] == "success"
+    assert result["meta"]["run2"]["status"] == "skipped"
+    assert ctx.storage.exists(ctx.key_for("run1", "slow_data"))
+    assert not ctx.storage.exists(ctx.key_for("run2", "slow_data"))
+
+
+def test_context_timeout_does_not_cache(tmp_path, monkeypatch):
+    """Timeouts should surface as failures and avoid cache writes."""
+    dtype = np.dtype([("val", "i4")])
+    manager = get_timeout_manager()
+    manager.reset_stats()
+    monkeypatch.setattr(manager, "is_unix", False)
+
+    class TimeoutPlugin(Plugin):
+        provides = "timeout_data"
+        save_when = "always"
+        output_dtype = dtype
+
+        @with_timeout(timeout=0.01)
+        def compute(self, context, run_id, **kwargs):
+            time.sleep(0.05)
+            return np.array([(1,)], dtype=self.output_dtype)
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(TimeoutPlugin)
+
+    with pytest.raises(RuntimeError, match="Plugin 'timeout_data' failed"):
+        ctx.get_data("run1", "timeout_data")
+
+    key = ctx.key_for("run1", "timeout_data")
+    assert not ctx.storage.exists(key)
+    assert manager.get_timeout_stats().get("compute", 0) >= 1

@@ -11,6 +11,7 @@
 | 文档 | 说明 |
 | --- | --- |
 | [IMPORT_STYLE_GUIDE.md](IMPORT_STYLE_GUIDE.md) | Python 导入规范 |
+| [COMMIT_CONVENTION.md](COMMIT_CONVENTION.md) | 提交规范（Conventional Commits） |
 
 ---
 
@@ -21,6 +22,9 @@
 #### 了解导入规范
 → [IMPORT_STYLE_GUIDE.md](IMPORT_STYLE_GUIDE.md)
 
+#### 了解提交规范
+→ [COMMIT_CONVENTION.md](COMMIT_CONVENTION.md)
+
 ---
 
 ## 🔗 相关资源
@@ -30,4 +34,4 @@
 
 ---
 
-**快速链接**: [导入规范](IMPORT_STYLE_GUIDE.md)
+**快速链接**: [导入规范](IMPORT_STYLE_GUIDE.md) | [提交规范](COMMIT_CONVENTION.md)
