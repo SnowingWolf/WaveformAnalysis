@@ -1333,13 +1333,8 @@ class Context(CacheMixin, PluginMixin):
                     if name not in needed_set:
                         key = self.key_for(run_id, name)
                         _data, cache_hit = self._cache_manager.check_cache(run_id, name, key)
-                        if cache_hit:
-                            if tracker and bar_name:
-                                tracker.update(bar_name, n=1)
-                            continue
-                        self._execute_single_plugin(
-                            name, run_id, data_name, kwargs, tracker, bar_name, skip_cache_check=True
-                        )
+                        if tracker and bar_name:
+                            tracker.update(bar_name, n=1)
                         continue
 
                     self._execute_single_plugin(
