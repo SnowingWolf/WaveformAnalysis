@@ -20,6 +20,7 @@ from waveform_analysis.core.storage.cache_statistics import CacheStatsCollector
 
 export, __all__ = exporter()
 
+# Fields for CSV export of cache entries
 _ENTRY_FIELDS = [
     "run_id",
     "data_name",

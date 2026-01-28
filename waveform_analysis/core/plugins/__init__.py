@@ -31,7 +31,7 @@ Plugins 子模块 - 插件系统统一入口
 # 从 core 子模块导出核心基础设施
 # 从 builtin 子模块导出内置插件
 from .builtin.cpu import (
-    ChargesPlugin,
+    BasicFeaturesPlugin,
     DataFramePlugin,
     # 信号处理插件
     FilteredWaveformsPlugin,
@@ -41,7 +41,6 @@ from .builtin.cpu import (
     EventsGroupedPlugin,
     EventsPlugin,
     PairedEventsPlugin,
-    PeaksPlugin,
     RecordsPlugin,
     # 标准插件
     RawFilesPlugin,
@@ -114,8 +113,7 @@ __all__ = [
     "WaveformsPlugin",
     "StWaveformsPlugin",
     "HitFinderPlugin",
-    "PeaksPlugin",
-    "ChargesPlugin",
+    "BasicFeaturesPlugin",
     "DataFramePlugin",
     "GroupedEventsPlugin",
     "PairedEventsPlugin",

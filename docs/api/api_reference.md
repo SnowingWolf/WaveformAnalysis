@@ -163,7 +163,7 @@ DependencyAnalysisResult: 分析结果对象
 >>> print(result['indices'])  # ['st_waveforms_ch0', 'st_waveforms_ch1']
 >>>
 >>> # 为单个结构化数组构建索引
->>> ctx.build_time_index('run_001', 'peaks')
+>>> ctx.build_time_index('run_001', 'basic_features')
 ```
 
 ---

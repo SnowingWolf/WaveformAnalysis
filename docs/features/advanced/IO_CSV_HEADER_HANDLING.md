@@ -113,7 +113,7 @@ files = [
 # 流式读取，自动处理表头
 for chunk in parse_files_generator(files, skiprows=2, chunksize=1000):
     # 处理每个数据块
-    process_chunk(chunk)
+    handle_chunk(chunk)
 ```
 
 ### 多通道处理
@@ -218,4 +218,3 @@ pytest tests/test_DAQ_CSV_HEADER_HANDLING.py -v
 ## 更新历史
 
 - **2024-12-XX**: 初始实现，支持智能表头处理
-

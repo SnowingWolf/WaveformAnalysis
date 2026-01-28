@@ -42,14 +42,14 @@
 - 执行计划优化
 - 血缘追踪
 
-### Processor 类
+### Processor 组件
 
-`WaveformProcessor` 和 `WaveformStruct` 负责：
+`WaveformStruct` 与 event_grouping.py 中的函数负责：
 
 - 将原始波形数组转换为结构化数据
 - 提取物理特征（峰值、电荷、时间等）
 - 支持多通道事件聚类和配对
-- 性能优化（Numba JIT 编译）
+- 可选的 Numba JIT 编译加速（如多通道事件聚类）
 
 ---
 
@@ -80,8 +80,7 @@ ctx = Context(
 ctx.register(RawFilesPlugin())
 ctx.register(WaveformsPlugin())
 ctx.register(StWaveformsPlugin())
-ctx.register(PeaksPlugin())
-ctx.register(ChargesPlugin())
+ctx.register(BasicFeaturesPlugin())
 ```
 
 ### 2. 配置参数
@@ -89,25 +88,25 @@ ctx.register(ChargesPlugin())
 ```python
 # 方式1: 初始化时配置
 ctx = Context(config={
-    "peaks_range": (40, 90),
-    "charge_range": (0, None),
+    "height_range": (40, 90),
+    "area_range": (0, None),
     "daq_adapter": "vx2730",
 })
 
 # 方式2: 运行时更新配置
 ctx.set_config({
-    "peaks_range": (45, 95),
+    "height_range": (45, 95),
     "show_progress": True,
 })
 
 # 方式3: 为特定插件设置配置（推荐，避免冲突）
-ctx.set_config({"peaks_range": (40, 90)}, plugin_name="peaks")
-ctx.set_config({"charge_range": (0, None)}, plugin_name="charges")
+ctx.set_config({"height_range": (40, 90)}, plugin_name="basic_features")
+ctx.set_config({"area_range": (0, None)}, plugin_name="basic_features")
 ctx.set_config({"daq_adapter": "vx2730"}, plugin_name="raw_files")
 
 # 查看当前配置
 ctx.show_config()  # 显示全局配置
-ctx.show_config("peaks")  # 显示特定插件的配置
+ctx.show_config("basic_features")  # 显示特定插件的配置
 ```
 
 ### 3. 获取数据（自动触发插件执行）
@@ -126,35 +125,28 @@ st_waveforms = ctx.get_data("run_001", "st_waveforms")
 print(f"结构化波形数量: {len(st_waveforms)}")
 
 # 获取特征数据（会自动执行完整的插件链）
-peaks = ctx.get_data("run_001", "peaks")
-charges = ctx.get_data("run_001", "charges")
-print(f"峰值通道数: {len(peaks)}，电荷通道数: {len(charges)}")
+basic_features = ctx.get_data("run_001", "basic_features")
+heights = [ch["height"] for ch in basic_features]
+areas = [ch["area"] for ch in basic_features]
+print(f"高度通道数: {len(heights)}，面积通道数: {len(areas)}")
 ```
 
 ### 4. 使用 Processor 进行信号处理
 
 ```python
-from waveform_analysis.core.processing.processor import (
-    WaveformStruct,
-    WaveformProcessor,
-)
+from waveform_analysis.core.processing.waveform_struct import WaveformStruct
 
 # 方式1: 使用 WaveformStruct 直接处理
 waveform_struct = WaveformStruct(waveforms)
 structured = waveform_struct.structure_waveforms(show_progress=True)
 
-# 方式2: 使用 WaveformProcessor 进行批量处理
-processor = WaveformProcessor(n_channels=len(waveforms))
+# 方式2: 通过插件链获取特征
+basic_features = ctx.get_data("run_001", "basic_features")
+heights = [ch["height"] for ch in basic_features]
+areas = [ch["area"] for ch in basic_features]
 
-# 提取基本特征
-peaks, charges = processor.compute_basic_features(
-    st_waveforms,
-    peaks_range=(40, 90),
-    charge_range=(0, None)
-)
-
-print(f"找到 {len(peaks)} 个峰值")
-print(f"计算了 {len(charges)} 个电荷值")
+print(f"找到 {len(heights)} 个高度值")
+print(f"计算了 {len(areas)} 个面积值")
 ```
 
 ---
@@ -165,13 +157,13 @@ print(f"计算了 {len(charges)} 个电荷值")
 
 ```python
 # 查看数据血缘关系
-lineage = ctx.get_lineage("peaks")
+lineage = ctx.get_lineage("basic_features")
 print(lineage)
 
 # 可视化依赖图
-ctx.plot_lineage("peaks", kind="plotly")
+ctx.plot_lineage("basic_features", kind="plotly")
 # 或
-ctx.plot_lineage("peaks", kind="mermaid")  # 输出 Mermaid 图
+ctx.plot_lineage("basic_features", kind="mermaid")  # 输出 Mermaid 图
 ```
 
 ### 2. 批量处理多个运行
@@ -185,14 +177,14 @@ batch_processor = BatchProcessor(ctx)
 # 批量处理多个运行
 results = batch_processor.process_runs(
     run_ids=["run_001", "run_002", "run_003"],
-    data_name="peaks",
+    data_name="basic_features",
     max_workers=4,  # 并行处理
     show_progress=True,
 )
 
 # 结果结构：{"results": ..., "errors": ..., "meta": ...}
 for run_id, data in results["results"].items():
-    print(f"{run_id}: {len(data)} 个通道的峰值")
+    print(f"{run_id}: {len(data['height'])} 个通道的高度")
 if results["errors"]:
     print(f"Errors: {results['errors']}")
 ```
@@ -260,8 +252,8 @@ report = ctx.get_performance_report()
 print(report)
 
 # 使用 Numba 加速（自动检测）
-# Processor 会自动使用 Numba JIT 编译（如果可用）
-processor = WaveformProcessor(n_channels=2)
+# group_multi_channel_hits 会在 numba 可用时自动使用 JIT
+# df_events = group_multi_channel_hits(df, time_window_ns=100, use_numba=True)
 ```
 
 ### 6. 数据导出
@@ -273,14 +265,13 @@ from waveform_analysis.core.data.export import DataExporter
 exporter = DataExporter()
 
 # 导出为不同格式
-peaks = ctx.get_data("run_001", "peaks")
-exporter.export(peaks, "./outputs/peaks.parquet", format="parquet")
+basic_features = ctx.get_data("run_001", "basic_features")
+exporter.export([ch["height"] for ch in basic_features], "./outputs/heights.parquet", format="parquet")
 
 st_waveforms = ctx.get_data("run_001", "st_waveforms")
 exporter.export(st_waveforms, "./outputs/waveforms.h5", format="hdf5", key="waveforms")
 
-charges = ctx.get_data("run_001", "charges")
-exporter.export(charges, "./outputs/charges.csv", format="csv")
+exporter.export([ch["area"] for ch in basic_features], "./outputs/areas.csv", format="csv")
 ```
 
 ---
@@ -295,8 +286,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     WaveformsPlugin,
     StWaveformsPlugin,
-    PeaksPlugin,
-    ChargesPlugin,
+    BasicFeaturesPlugin,
     DataFramePlugin,
     GroupedEventsPlugin,
     PairedEventsPlugin,
@@ -308,8 +298,8 @@ ctx = Context(
     config={
         "data_root": "DAQ",
         "daq_adapter": "vx2730",
-        "peaks_range": (40, 90),
-        "charge_range": (0, None),
+        "height_range": (40, 90),
+        "area_range": (0, None),
         "time_window_ns": 1000,
         "show_progress": True,
     }
@@ -320,8 +310,7 @@ plugins = [
     RawFilesPlugin(),
     WaveformsPlugin(),
     StWaveformsPlugin(),
-    PeaksPlugin(),
-    ChargesPlugin(),
+    BasicFeaturesPlugin(),
     DataFramePlugin(),
     GroupedEventsPlugin(),
     PairedEventsPlugin(),
@@ -340,14 +329,14 @@ import matplotlib.pyplot as plt
 # df_paired 已经是 DataFrame，不需要转换
 df = df_paired if isinstance(df_paired, pd.DataFrame) else pd.DataFrame(df_paired)
 
-# 绘制峰值分布
+# 绘制高度分布
 fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-axes[0].hist(df['peak_ch6'], bins=50, alpha=0.7, label='CH6')
-axes[0].hist(df['peak_ch7'], bins=50, alpha=0.7, label='CH7')
-axes[0].set_xlabel('Peak [ADC]')
+axes[0].hist(df['height_ch6'], bins=50, alpha=0.7, label='CH6')
+axes[0].hist(df['height_ch7'], bins=50, alpha=0.7, label='CH7')
+axes[0].set_xlabel('Height [ADC]')
 axes[0].set_ylabel('Counts')
 axes[0].legend()
-axes[0].set_title('Peak Distribution')
+axes[0].set_title('Height Distribution')
 
 # 绘制时间差分布
 axes[1].hist(df['delta_t'], bins=50)
@@ -360,35 +349,55 @@ plt.savefig('./outputs/analysis_results.png')
 plt.show()
 
 print(f"总共找到 {len(df)} 个配对事件")
-print(f"平均峰值 (CH6): {df['peak_ch6'].mean():.2f}")
-print(f"平均峰值 (CH7): {df['peak_ch7'].mean():.2f}")
+print(f"平均高度 (CH6): {df['height_ch6'].mean():.2f}")
+print(f"平均高度 (CH7): {df['height_ch7'].mean():.2f}")
 ```
 
-### 示例2: 使用 Processor 进行自定义处理
+### 示例2: 使用处理函数进行自定义处理
 
 ```python
-from waveform_analysis.core.processing.processor import WaveformProcessor
 import numpy as np
-
-# 创建处理器
-processor = WaveformProcessor(n_channels=2)
+import pandas as pd
 
 # 假设已有结构化波形数据
 # st_waveforms 是 List[np.ndarray]，每个数组对应一个通道
 
-# 提取特征
-peaks, charges = processor.compute_basic_features(
-    st_waveforms,
-    peaks_range=(40, 90),
-    charge_range=(0, None)
-)
+# 提取特征（示例：手动计算 height/area）
+height_range = (40, 90)
+area_range = (0, None)
+start_p, end_p = height_range
+start_c, end_c = area_range
 
-# 使用 Processor 进行批量处理并构建 DataFrame
-df = processor.build_dataframe(
-    st_waveforms,
-    peaks,
-    charges,
-)
+heights = []
+areas = []
+for st_ch in st_waveforms:
+    if len(st_ch) == 0:
+        heights.append(np.zeros(0))
+        areas.append(np.zeros(0))
+        continue
+
+    waves = st_ch["wave"]
+    baselines = st_ch["baseline"]
+    waves_p = waves[:, start_p:end_p]
+    height_vals = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
+    waves_c = waves[:, start_c:end_c]
+    area_vals = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
+
+    heights.append(height_vals)
+    areas.append(area_vals)
+
+# 构建 DataFrame（逻辑与 DataFramePlugin 一致）
+all_timestamps = np.concatenate([st["timestamp"] for st in st_waveforms])
+all_areas = np.concatenate(areas)
+all_heights = np.concatenate(heights)
+all_channels = np.concatenate([st["channel"] for st in st_waveforms])
+
+df = pd.DataFrame({
+    "timestamp": all_timestamps,
+    "area": all_areas,
+    "height": all_heights,
+    "channel": all_channels,
+}).sort_values("timestamp")
 
 print(df.head())
 print(f"数据形状: {df.shape}")
@@ -452,11 +461,11 @@ print(f"缓存命中率: {stats.get('hit_rate', 0):.2%}")
 
 ```python
 # ✅ 推荐：使用插件命名空间
-ctx.set_config({"peaks_range": (40, 90)}, plugin_name="peaks")
+ctx.set_config({"height_range": (40, 90)}, plugin_name="basic_features")
 ctx.set_config({"daq_adapter": "vx2730"}, plugin_name="raw_files")
 
 # ❌ 不推荐：全局配置可能冲突
-ctx.set_config({"peaks_range": (40, 90)})  # 如果有多个插件使用 peaks_range，会冲突
+ctx.set_config({"height_range": (40, 90)})  # 如果有多个插件使用 height_range，会冲突
 ```
 
 **查看配置归属**
@@ -470,10 +479,10 @@ for plugin_name, plugin in ctx._plugins.items():
     print()
 
 # 查看特定插件的配置
-ctx.show_config("peaks")  # 显示 peaks 插件的当前配置值
+ctx.show_config("basic_features")  # 显示 basic_features 插件的当前配置值
 
 # 手动查找配置项属于哪个插件
-config_key = "peaks_range"
+config_key = "height_range"
 matching_plugins = [
     name for name, plugin in ctx._plugins.items() 
     if config_key in plugin.options
@@ -553,9 +562,9 @@ class MyPlugin(Plugin):
 
 ### Q1: 如何知道需要注册哪些插件？
 
-A: 查看数据血缘关系。如果要获取 `peaks`，运行：
+A: 查看数据血缘关系。如果要获取 `basic_features`，运行：
 ```python
-lineage = ctx.get_lineage("peaks")
+lineage = ctx.get_lineage("basic_features")
 print(lineage)  # 会显示所有依赖的插件
 ```
 
@@ -563,7 +572,7 @@ print(lineage)  # 会显示所有依赖的插件
 
 A: 使用插件命名空间：
 ```python
-ctx.set_config({"peaks_range": (40, 90)}, plugin_name="peaks")  # 只影响 peaks 插件
+ctx.set_config({"height_range": (40, 90)}, plugin_name="basic_features")  # 只影响 basic_features 插件
 ```
 
 ### Q3: 如何加速数据处理？
@@ -594,7 +603,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 # 2. 查看执行计划
-plan = ctx.analyze_dependencies("peaks")
+plan = ctx.analyze_dependencies("basic_features")
 print(plan)
 
 # 3. 逐步执行

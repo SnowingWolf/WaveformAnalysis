@@ -200,7 +200,7 @@ print(f"加载了 {len(data)} 个事件")
 
 ```python
 from waveform_analysis.utils.formats.base import FormatSpec, ColumnMapping
-from waveform_analysis.core.processing.processor import WaveformStruct, WaveformStructConfig
+from waveform_analysis.core.processing.waveform_struct import WaveformStruct, WaveformStructConfig
 
 # 定义自定义列映射
 custom_spec = FormatSpec(
@@ -373,7 +373,7 @@ st_waveforms = ctx.get_data('run_001', 'st_waveforms')
 `WaveformStruct` 现在支持动态波形长度：
 
 ```python
-from waveform_analysis.core.processing.processor import create_record_dtype
+from waveform_analysis.core.processing.waveform_struct import create_record_dtype
 
 # 创建不同长度的 dtype
 dtype_800 = create_record_dtype(800)   # VX2730 标准长度

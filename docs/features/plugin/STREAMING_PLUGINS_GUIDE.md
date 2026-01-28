@@ -35,7 +35,7 @@
 
 ```python
 from waveform_analysis.core.plugins.core.streaming import StreamingPlugin
-from waveform_analysis.core.chunk_utils import Chunk
+from waveform_analysis.core.processing.chunk import Chunk
 
 class MyStreamingPlugin(StreamingPlugin):
     provides = "my_stream"
@@ -125,8 +125,7 @@ class MyParallelPlugin(StreamingPlugin):
 
 ```python
 from waveform_analysis.core.plugins.core.streaming import StreamingPlugin, get_streaming_context
-from waveform_analysis.core.chunk_utils import Chunk
-from waveform_analysis.core.processor import WaveformProcessor
+from waveform_analysis.core.processing.chunk import Chunk
 import numpy as np
 
 class StreamingFeaturesPlugin(StreamingPlugin):
@@ -135,22 +134,27 @@ class StreamingFeaturesPlugin(StreamingPlugin):
     
     def __init__(self):
         super().__init__()
-        self.peaks_range = (40, 90)
-        self.charge_range = (0, None)
+        self.height_range = (40, 90)
+        self.area_range = (0, None)
     
     def compute_chunk(self, chunk: Chunk, context, run_id, **kwargs) -> Chunk:
         """从结构化波形计算特征"""
         if len(chunk.data) == 0:
             return None
         
-        processor = WaveformProcessor(n_channels=1)
-        event_length = np.full(len(chunk.data), len(chunk.data))
-        peaks, charges = processor.compute_basic_features(
-            [chunk.data],
-            event_length,
-            self.peaks_range,
-            self.charge_range,
-        )
+        waves = chunk.data["wave"]
+        baselines = chunk.data["baseline"]
+        if waves.ndim != 2:
+            return None
+
+        start_p, end_p = self.height_range
+        start_c, end_c = self.area_range
+
+        waves_p = waves[:, start_p:end_p]
+        heights = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
+
+        waves_c = waves[:, start_c:end_c]
+        areas = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
         
         # 创建特征数组
         feature_dtype = np.dtype([
@@ -159,11 +163,11 @@ class StreamingFeaturesPlugin(StreamingPlugin):
             ("charge", "<f4"),
         ])
         
-        n = len(peaks[0])
+        n = len(heights)
         features = np.zeros(n, dtype=feature_dtype)
         features["time"] = chunk.data["time"][:n]
-        features["peak"] = peaks[0]
-        features["charge"] = charges[0]
+        features["peak"] = heights
+        features["charge"] = areas
         
         return Chunk(
             data=features,
@@ -189,7 +193,7 @@ time_range = (1_000_000_000_000, 2_000_000_000_000)  # ps（默认 timestamp）
 
 for chunk in stream_ctx.get_stream("features_stream", time_range=time_range):
     # chunk 已自动裁剪到时间范围
-    process_chunk(chunk)
+    handle_chunk(chunk)
 ```
 
 ### 示例 3：合并多个流
@@ -204,7 +208,7 @@ merged = stream_ctx.merge_stream([stream1, stream2], sort=True)
 
 for chunk in merged:
     # 处理合并后的数据
-    process_chunk(chunk)
+    handle_chunk(chunk)
 ```
 
 ## 与现有系统的集成

@@ -122,8 +122,8 @@ def _compute_event_features(
     charge_range: Optional[Tuple[Optional[int], Optional[int]]],
 ) -> Tuple[np.ndarray, np.ndarray]:
     n_records = len(records)
-    peaks = np.zeros(n_records, dtype=np.float64)
-    charges = np.zeros(n_records, dtype=np.float64)
+    heights = np.zeros(n_records, dtype=np.float64)
+    areas = np.zeros(n_records, dtype=np.float64)
 
     p_start, p_end = _coerce_range(peaks_range, FeatureDefaults.PEAK_RANGE)
     c_start, c_end = _coerce_range(charge_range, FeatureDefaults.CHARGE_RANGE)
@@ -138,15 +138,15 @@ def _compute_event_features(
         start, end = _slice_bounds(length, p_start, p_end)
         if start < end:
             segment = wave[start:end]
-            peaks[idx] = float(segment.max() - segment.min())
+            heights[idx] = float(segment.max() - segment.min())
 
         start, end = _slice_bounds(length, c_start, c_end)
         if start < end:
             baseline = float(records["baseline"][idx])
             segment = wave[start:end].astype(np.float64, copy=False)
-            charges[idx] = float(np.sum(baseline - segment))
+            areas[idx] = float(np.sum(baseline - segment))
 
-    return peaks, charges
+    return heights, areas
 
 
 def get_events_bundle(context: Any, run_id: str) -> RecordsBundle:
@@ -266,7 +266,7 @@ class EventFramePlugin(Plugin):
 
         peaks_range = context.get_config(self, "peaks_range")
         charge_range = context.get_config(self, "charge_range")
-        peaks, charges = _compute_event_features(
+        heights, areas = _compute_event_features(
             records,
             bundle.wave_pool,
             peaks_range=peaks_range,
@@ -275,8 +275,8 @@ class EventFramePlugin(Plugin):
 
         payload = {
             "timestamp": records["timestamp"],
-            "charge": charges,
-            "peak": peaks,
+            "area": areas,
+            "height": heights,
             "channel": records["channel"],
         }
         if context.get_config(self, "include_event_id"):
@@ -313,7 +313,7 @@ class EventsGroupedPlugin(Plugin):
     version = "0.1.0"
 
     def compute(self, context: Any, run_id: str, **kwargs) -> Any:
-        from waveform_analysis.core.processing.processor import group_multi_channel_hits
+        from waveform_analysis.core.processing.event_grouping import group_multi_channel_hits
 
         df = context.get_data(run_id, "events_df")
         time_window_ns = context.get_config(self, "time_window_ns")
