@@ -1331,15 +1331,15 @@ class Context(CacheMixin, PluginMixin):
                 # 4. Execute plan in order
                 for name in plan:
                     if name not in needed_set:
-                        if tracker and bar_name:
-                            tracker.update(bar_name, n=1)
-                        if name == data_name and self._get_data_from_memory(run_id, name) is None:
-                            key = self.key_for(run_id, name)
-                            data = self._load_from_disk_with_check(run_id, name, key)
-                            if data is None:
-                                self._execute_single_plugin(
-                                    name, run_id, data_name, kwargs, tracker, bar_name, skip_cache_check=True
-                                )
+                        key = self.key_for(run_id, name)
+                        _data, cache_hit = self._cache_manager.check_cache(run_id, name, key)
+                        if cache_hit:
+                            if tracker and bar_name:
+                                tracker.update(bar_name, n=1)
+                            continue
+                        self._execute_single_plugin(
+                            name, run_id, data_name, kwargs, tracker, bar_name, skip_cache_check=True
+                        )
                         continue
 
                     self._execute_single_plugin(
