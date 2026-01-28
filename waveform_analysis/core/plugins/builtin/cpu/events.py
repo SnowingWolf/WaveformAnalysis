@@ -313,7 +313,7 @@ class EventsGroupedPlugin(Plugin):
     version = "0.1.0"
 
     def compute(self, context: Any, run_id: str, **kwargs) -> Any:
-        from waveform_analysis.core.processing.processor import group_multi_channel_hits
+        from waveform_analysis.core.processing.event_grouping import group_multi_channel_hits
 
         df = context.get_data(run_id, "events_df")
         time_window_ns = context.get_config(self, "time_window_ns")

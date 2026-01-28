@@ -60,10 +60,11 @@ waveform-analysis/
 │   │   │       │   ├── standard.py          # 原始标准插件
 │   │   │       │   └── signal_processing.py # 兼容垫片（已弃用）
 │   │   │
-│   │   ├── processing/            # 数据处理（5个文件）
+│   │   ├── processing/            # 数据处理（6个文件）
 │   │   │   ├── __init__.py
 │   │   │   ├── loader.py          # 数据加载：WaveformLoaderCSV
-│   │   │   ├── processor.py       # 信号处理：WaveformStruct（支持 Numba）
+│   │   │   ├── event_grouping.py  # 命中检测 + 事件聚类（支持 Numba/多进程）
+│   │   │   ├── waveform_struct.py # 波形结构化：WaveformStruct（DAQ 解耦）
 │   │   │   ├── analyzer.py        # 事件分析：聚类与配对（支持多进程）
 │   │   │   ├── chunk.py           # Chunk 对象与时间区间操作
 │   │   │   └── records_builder.py # Records + wave_pool 构建
@@ -152,7 +153,7 @@ waveform-analysis/
 
 包的入口点，导出主要 API：
 - `Context`: 核心调度类
-- `WaveformStruct`, `build_waveform_df`, `group_multi_channel_hits`: 数据处理函数
+- `WaveformStruct`, `group_multi_channel_hits`: 数据处理函数
 
 #### `cli.py`
 
@@ -249,12 +250,13 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 )
 ```
 
-#### `processing/` - 数据处理（5个文件）
+#### `processing/` - 数据处理（6个文件）
 
 数据加载、信号处理和事件分析：
 
 - **`loader.py`**: `WaveformLoaderCSV` 数据加载器
-- **`processor.py`**: 信号处理（`WaveformStruct`, 峰值查找，支持 Numba JIT）
+- **`event_grouping.py`**: 命中检测与事件聚类（支持 Numba JIT）
+- **`waveform_struct.py`**: `WaveformStruct` 波形结构化（DAQ 解耦）
 - **`analyzer.py`**: 事件分析（聚类与配对，支持多进程）
 - **`chunk.py`**: `Chunk` 对象与时间区间操作工具
 - **`records_builder.py`**: Records + wave_pool 构建工具

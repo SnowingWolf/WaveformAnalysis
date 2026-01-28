@@ -44,7 +44,7 @@
 
 ### Processor 组件
 
-`WaveformStruct` 与 processor.py 中的函数负责：
+`WaveformStruct` 与 event_grouping.py 中的函数负责：
 
 - 将原始波形数组转换为结构化数据
 - 提取物理特征（峰值、电荷、时间等）

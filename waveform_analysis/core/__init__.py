@@ -56,7 +56,7 @@ from .processing.chunk import (
     split_by_time,
     validate_endtime,
 )
-from .processing.processor import group_multi_channel_hits
+from .processing.event_grouping import group_multi_channel_hits
 from .processing.waveform_struct import WaveformStruct
 
 # 向后兼容：导出 storage 子模块的主要类

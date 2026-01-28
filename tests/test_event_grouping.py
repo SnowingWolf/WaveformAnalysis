@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-processor 模块测试
+processing 模块测试
 """
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from waveform_analysis.core.processing.processor import group_multi_channel_hits
+from waveform_analysis.core.processing.event_grouping import group_multi_channel_hits
 from waveform_analysis.core.processing.waveform_struct import RECORD_DTYPE, WaveformStruct
 
 

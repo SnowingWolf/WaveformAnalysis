@@ -1,16 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Processor 模块 - 波形信号处理与特征提取核心逻辑。
+Event grouping utilities for hit finding and clustering.
 
-本模块负责波形信号处理与特征提取。
 核心功能包括：
-1. **特征提取**：提供 `find_hits` (向量化寻峰)、基线扣除、电荷积分 (Charge) 与幅度 (Peak) 计算。
-2. **事件聚类**：`group_multi_channel_hits` 基于时间窗口将多通道 Hit 聚类为物理事件。
-3. **通道编码**：提供二进制掩码 (Bitmask) 与权重编码工具，用于多通道符合逻辑筛选。
-
-说明：
-- `WaveformStruct` 已移至 `waveform_struct` 模块。
-- `DataFramePlugin`: 在插件层拼接结构化波形与特征 DataFrame。
+1. **寻峰**：`find_hits` 进行向量化 hit 检测。
+2. **事件聚类**：`group_multi_channel_hits` 基于时间窗口将多通道 hit 聚类为事件。
 """
 
 from __future__ import annotations
@@ -112,7 +106,6 @@ def find_hits(
     return hits
 
 
-@export
 @export
 def group_multi_channel_hits(
     df: pd.DataFrame,

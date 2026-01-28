@@ -62,7 +62,7 @@ from .chunk import (
 from .loader import WaveformLoaderCSV
 
 # 信号处理
-from .processor import (
+from .event_grouping import (
     PEAK_DTYPE,
     find_hits,
     group_multi_channel_hits,
