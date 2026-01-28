@@ -219,11 +219,21 @@ class PluginMixin:
         provides = plugin.provides
 
         # 2. Uniqueness check
-        if provides in self._plugins and not allow_override:
+        if provides in self._plugins:
             existing = self._plugins[provides]
-            raise RuntimeError(
-                f"Plugin conflict: '{provides}' is already provided by {existing.__class__.__name__}. "
-                f"Use allow_override=True if you want to replace it."
+            if not allow_override:
+                raise RuntimeError(
+                    f"Plugin conflict: '{provides}' is already provided by {existing.__class__.__name__}. "
+                    f"Use allow_override=True if you want to replace it."
+                )
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                "Overriding plugin '%s': %s(%s) -> %s(%s) (allow_override=True)",
+                provides,
+                existing.__class__.__name__,
+                existing.__class__.__module__,
+                plugin.__class__.__name__,
+                plugin.__class__.__module__,
             )
 
         # 3. Version compatibility check
