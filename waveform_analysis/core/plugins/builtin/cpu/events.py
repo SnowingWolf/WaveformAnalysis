@@ -11,8 +11,8 @@ import pandas as pd
 from waveform_analysis.core.foundation.constants import FeatureDefaults
 from waveform_analysis.core.foundation.utils import exporter
 from waveform_analysis.core.plugins.core.base import Option, Plugin
+from waveform_analysis.core.processing.dtypes import EVENTS_DTYPE
 from waveform_analysis.core.processing.records_builder import (
-    EVENTS_DTYPE,
     RecordsBundle,
     build_records_from_st_waveforms_sharded,
     build_records_from_v1725_files,
@@ -217,14 +217,12 @@ class EventsPlugin(Plugin):
         if adapter_name:
             config["daq_adapter"] = adapter_name
 
-        depends = {dep: context.get_lineage(dep) for dep in self.resolve_depends_on(context)}
-
         lineage = {
             "plugin_class": self.__class__.__name__,
             "plugin_version": getattr(self, "version", "0.0.0"),
             "description": getattr(self, "description", ""),
             "config": config,
-            "depends_on": depends,
+            "depends_on": self._build_depends_lineage(context),
             "dtype": np.dtype(self.output_dtype).descr,
         }
         return lineage
