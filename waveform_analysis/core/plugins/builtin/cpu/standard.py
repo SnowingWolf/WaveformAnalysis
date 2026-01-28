@@ -12,14 +12,21 @@ CPU Standard Plugins - 标准波形分析插件（NumPy/SciPy 实现）
 from typing import Any, List, Optional
 
 import numpy as np
+import warnings
 
+from waveform_analysis.core.foundation.constants import FeatureDefaults
 from waveform_analysis.core.plugins.core.base import Option, Plugin
-from waveform_analysis.core.processing.processor import (
-    PEAK_DTYPE,
+from waveform_analysis.core.processing.processor import PEAK_DTYPE, find_hits
+from waveform_analysis.core.processing.waveform_struct import (
     RECORD_DTYPE,
     WaveformStruct,
-    find_hits,
+    WaveformStructConfig,
 )
+
+BASIC_FEATURES_DTYPE = np.dtype([
+    ("height", "f4"),
+    ("area", "f4"),
+])
 
 
 class RawFilesPlugin(Plugin):
@@ -267,8 +274,6 @@ class StWaveformsPlugin(Plugin):
     }
 
     def _get_record_dtype(self, daq_adapter: Optional[str]) -> np.dtype:
-        from waveform_analysis.core.processing.processor import WaveformStructConfig
-
         if daq_adapter:
             config = WaveformStructConfig.from_adapter(daq_adapter)
         else:
@@ -306,23 +311,6 @@ class StWaveformsPlugin(Plugin):
 
         支持通过 daq_adapter 配置选项指定 DAQ 适配器，以支持不同的 DAQ 格式。
         如果未指定，则使用 VX2730 默认配置（向后兼容）。
-
-        Args:
-            context: Context 实例
-            run_id: 运行标识符
-            **kwargs: 依赖数据，包含 waveforms（由 WaveformsPlugin 提供）
-
-        Returns:
-            List[np.ndarray]: 每个通道的结构化数组，dtype 为 RECORD_DTYPE
-
-        Examples:
-            >>> # 默认使用 VX2730 配置
-            >>> st_waveforms = ctx.get_data('run_001', 'st_waveforms')
-            >>> print(st_waveforms[0].dtype.names)
-
-            >>> # 指定 DAQ 适配器
-            >>> ctx.set_config({'daq_adapter': 'vx2730'}, plugin_name='st_waveforms')
-            >>> st_waveforms = ctx.get_data('run_001', 'st_waveforms')
         """
         waveforms = context.get_data(run_id, "waveforms")
 
@@ -345,8 +333,6 @@ class StWaveformsPlugin(Plugin):
                 epoch_ns = adapter.get_file_epoch(first_file)
 
         # 根据配置创建 WaveformStruct
-        from waveform_analysis.core.processing.processor import WaveformStructConfig
-
         if daq_adapter:
             config = WaveformStructConfig.from_adapter(daq_adapter)
         else:
@@ -414,6 +400,7 @@ class BasicFeaturesPlugin(Plugin):
     provides = "basic_features"
     depends_on = []
     save_when = "always"
+    output_dtype = BASIC_FEATURES_DTYPE
     options = {
         "height_range": Option(default=None, type=tuple, help="高度计算范围 (start, end)"),
         "area_range": Option(
@@ -421,12 +408,6 @@ class BasicFeaturesPlugin(Plugin):
             type=tuple,
             help="面积计算范围 (start, end)，end=None 表示积分到波形末端",
         ),
-        "peaks_range": Option(default=None, type=tuple, help="(deprecated) height_range 别名"),
-        "charge_range": Option(
-            default=(0, None),
-            type=tuple,
-            help="(deprecated) area_range 别名",
-        ),
         "use_filtered": Option(
             default=False,
             type=bool,
@@ -440,7 +421,7 @@ class BasicFeaturesPlugin(Plugin):
             deps.append("filtered_waveforms")
         return deps
 
-    def compute(self, context: Any, run_id: str, **kwargs) -> dict:
+    def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
         """
         计算基础特征（height/area）
 
@@ -448,17 +429,11 @@ class BasicFeaturesPlugin(Plugin):
         area = sum(baseline - wave)
 
         Returns:
-            dict: {"height": List[np.ndarray], "area": List[np.ndarray]}
+            List[np.ndarray]: 每个通道一个结构化数组，包含 height/area 字段
         """
-        from waveform_analysis.core.processing.processor import WaveformProcessor
-
         st_waveforms = context.get_data(run_id, "st_waveforms")
         height_range = context.get_config(self, "height_range")
         area_range = context.get_config(self, "area_range")
-        if self._has_config(context, "peaks_range") and not self._has_config(context, "height_range"):
-            height_range = context.get_config(self, "peaks_range")
-        if self._has_config(context, "charge_range") and not self._has_config(context, "area_range"):
-            area_range = context.get_config(self, "charge_range")
 
         use_filtered = context.get_config(self, "use_filtered")
         if use_filtered:
@@ -469,154 +444,74 @@ class BasicFeaturesPlugin(Plugin):
         else:
             filtered_waveforms = None
 
-        processor = WaveformProcessor(n_channels=len(st_waveforms))
-        heights, areas = processor.compute_basic_features(
-            st_waveforms,
-            peaks_range=height_range,
-            charge_range=area_range,
-            waveforms_override=filtered_waveforms,
-        )
-        return {"height": heights, "area": areas}
+        if height_range is None:
+            height_range = FeatureDefaults.PEAK_RANGE
+        if area_range is None:
+            area_range = FeatureDefaults.CHARGE_RANGE
 
-    def _has_config(self, context: Any, name: str) -> bool:
-        config = getattr(context, "config", {})
-        provides = self.provides
-        if provides in config and isinstance(config[provides], dict):
-            if name in config[provides]:
-                return True
-        if f"{provides}.{name}" in config:
-            return True
-        return name in config
+        start_p, end_p = height_range
+        start_c, end_c = area_range
 
+        heights = []
+        areas = []
 
-class PeaksPlugin(Plugin):
-    """Deprecated: use BasicFeaturesPlugin (height/area) instead."""
+        for i in range(len(st_waveforms)):
+            st_ch = st_waveforms[i]
+            if len(st_ch) == 0:
+                heights.append(np.zeros(0))
+                areas.append(np.zeros(0))
+                continue
 
-    provides = "peaks"
-    depends_on = []
-    save_when = "always"
-    options = {
-        "peaks_range": Option(default=None, type=tuple, help="峰值计算范围 (start, end)"),
-        "use_filtered": Option(
-            default=False,
-            type=bool,
-            help="是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin）",
-        ),
-    }
+            waves = st_ch["wave"]
+            if filtered_waveforms is not None:
+                if i < len(filtered_waveforms):
+                    waves = filtered_waveforms[i]
+                else:
+                    waves = None
 
-    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
-        deps = ["st_waveforms"]
-        if context.get_config(self, "use_filtered"):
-            deps.append("filtered_waveforms")
-        return deps
+            if waves is None or len(waves) == 0:
+                heights.append(np.zeros(0))
+                areas.append(np.zeros(0))
+                continue
+            if waves.ndim != 2:
+                warnings.warn(
+                    f"Waveforms for channel {i} are not 2D; skip feature calculation.",
+                    UserWarning,
+                )
+                heights.append(np.zeros(0))
+                areas.append(np.zeros(0))
+                continue
 
-    def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
-        """
-        从结构化波形中计算峰值特征
+            n_events = len(st_ch)
+            if waves.shape[0] != n_events:
+                n_events = min(waves.shape[0], n_events)
+                if n_events == 0:
+                    heights.append(np.zeros(0))
+                    areas.append(np.zeros(0))
+                    continue
+                warnings.warn(
+                    f"Waveforms length mismatch on channel {i}: "
+                    f"{waves.shape[0]} vs {len(st_ch)}; truncating to {n_events}.",
+                    UserWarning,
+                )
 
-        在配置的时间窗口内查找波形的最大峰值（最大值 - 最小值）。
-        使用向量化计算，高效处理大量波形数据。
+            waves_p = waves[:n_events, start_p:end_p]
+            height_vals = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
+            heights.append(height_vals)
 
-        Args:
-            context: Context 实例
-            run_id: 运行标识符
-            **kwargs: 依赖数据
-
-        Returns:
-            List[np.ndarray]: 每个通道的峰值数组
-
-        Examples:
-            >>> peaks = ctx.get_data('run_001', 'peaks')
-            >>> print(f"峰值范围: {peaks[0].min():.2f} - {peaks[0].max():.2f}")
-        """
-        from waveform_analysis.core.processing.processor import WaveformProcessor
-
-        st_waveforms = context.get_data(run_id, "st_waveforms")
-        peaks_range = context.get_config(self, "peaks_range")
-        use_filtered = context.get_config(self, "use_filtered")
-
-        if use_filtered:
-            try:
-                filtered_waveforms = context.get_data(run_id, "filtered_waveforms")
-            except Exception:
-                raise ValueError("use_filtered=True 但无法获取 filtered_waveforms。请先注册 FilteredWaveformsPlugin。")
-        else:
-            filtered_waveforms = None
-
-        processor = WaveformProcessor(n_channels=len(st_waveforms))
-        peaks, _ = processor.compute_basic_features(
-            st_waveforms,
-            peaks_range=peaks_range,
-            waveforms_override=filtered_waveforms,
-        )
-        return peaks
-
-
-class ChargesPlugin(Plugin):
-    """Deprecated: use BasicFeaturesPlugin (height/area) instead."""
-
-    provides = "charges"
-    depends_on = []
-    save_when = "always"
-    options = {
-        "charge_range": Option(
-            default=(0, None),
-            type=tuple,
-            help="电荷计算范围 (start, end)，end=None 表示积分到波形末端",
-        ),
-        "use_filtered": Option(
-            default=False,
-            type=bool,
-            help="是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin）",
-        ),
-    }
-
-    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
-        deps = ["st_waveforms"]
-        if context.get_config(self, "use_filtered"):
-            deps.append("filtered_waveforms")
-        return deps
-
-    def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
-        """
-        从结构化波形中计算电荷积分
-
-        在配置的时间窗口内对波形进行积分（baseline - wave），计算总电荷。
-        使用向量化计算提高效率。
-
-        Args:
-            context: Context 实例
-            run_id: 运行标识符
-            **kwargs: 依赖数据
-
-        Returns:
-            List[np.ndarray]: 每个通道的电荷数组
-
-        Examples:
-            >>> charges = ctx.get_data('run_001', 'charges')
-            >>> print(f"电荷范围: {charges[0].min():.2f} - {charges[0].max():.2f}")
-        """
-        from waveform_analysis.core.processing.processor import WaveformProcessor
-
-        st_waveforms = context.get_data(run_id, "st_waveforms")
-        charge_range = context.get_config(self, "charge_range")
-        use_filtered = context.get_config(self, "use_filtered")
-
-        if use_filtered:
-            try:
-                filtered_waveforms = context.get_data(run_id, "filtered_waveforms")
-            except Exception:
-                raise ValueError("use_filtered=True 但无法获取 filtered_waveforms。请先注册 FilteredWaveformsPlugin。")
-        else:
-            filtered_waveforms = None
-
-        processor = WaveformProcessor(n_channels=len(st_waveforms))
-        _, charges = processor.compute_basic_features(
-            st_waveforms,
-            charge_range=charge_range,
-            waveforms_override=filtered_waveforms,
-        )
-        return charges
+            waves_c = waves[:n_events, start_c:end_c]
+            baselines = st_ch["baseline"][:n_events]
+            area_vals = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
+            areas.append(area_vals)
+        features = []
+        for height_ch, area_ch in zip(heights, areas):
+            n_events = len(height_ch)
+            ch_features = np.zeros(n_events, dtype=BASIC_FEATURES_DTYPE)
+            if n_events > 0:
+                ch_features["height"] = height_ch
+                ch_features["area"] = area_ch
+            features.append(ch_features)
+        return features
 
 
 class DataFramePlugin(Plugin):
@@ -644,25 +539,50 @@ class DataFramePlugin(Plugin):
             >>> df = ctx.get_data('run_001', 'df')
             >>> print(f"总事件数: {len(df)}")
         """
-        from waveform_analysis.core.processing.processor import WaveformProcessor
+        import pandas as pd
 
         st_waveforms = context.get_data(run_id, "st_waveforms")
         basic_features = context.get_data(run_id, "basic_features")
-        heights = basic_features["height"]
-        areas = basic_features["area"]
+        heights = [ch_features["height"] for ch_features in basic_features]
+        areas = [ch_features["area"] for ch_features in basic_features]
 
-        # 通道号现在从st_waveforms中的channel字段读取（从BOARD/CHANNEL映射得到）
-        # 保留start_channel_slice参数以向后兼容，但实际不再使用
-        start_channel_slice = context.config.get("start_channel_slice", 0)
+        n_channels = len(st_waveforms)
+        if len(heights) != n_channels:
+            raise ValueError(
+                f"heights list length ({len(heights)}) != st_waveforms length ({n_channels})"
+            )
+        if len(areas) != n_channels:
+            raise ValueError(
+                f"areas list length ({len(areas)}) != st_waveforms length ({n_channels})"
+            )
 
-        processor = WaveformProcessor(n_channels=len(st_waveforms))
-        df = processor.build_dataframe(
-            st_waveforms,
-            heights,
-            areas,
-            start_channel_slice=start_channel_slice,  # 保留参数以兼容，但不再使用
-        )
-        return df
+        all_timestamps = []
+        all_areas = []
+        all_heights = []
+        all_channels = []
+
+        for ch in range(n_channels):
+            ts = np.asarray(st_waveforms[ch]["timestamp"])
+            area_vals = np.asarray(areas[ch])
+            height_vals = np.asarray(heights[ch])
+
+            all_timestamps.append(ts)
+            all_areas.append(area_vals)
+            all_heights.append(height_vals)
+            all_channels.append(np.asarray(st_waveforms[ch]["channel"]))
+
+        all_timestamps = np.concatenate(all_timestamps)
+        all_areas = np.concatenate(all_areas)
+        all_heights = np.concatenate(all_heights)
+        all_channels = np.concatenate(all_channels)
+
+        df = pd.DataFrame({
+            "timestamp": all_timestamps,
+            "area": all_areas,
+            "height": all_heights,
+            "channel": all_channels,
+        })
+        return df.sort_values("timestamp")
 
 
 class GroupedEventsPlugin(Plugin):

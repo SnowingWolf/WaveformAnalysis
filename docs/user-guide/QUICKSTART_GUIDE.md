@@ -92,17 +92,19 @@ def main():
     # 3. 获取数据（自动触发依赖链）
     run_id = 'run_001'
     print(f"Processing run: {run_id}")
-    peaks = ctx.get_data(run_id, 'peaks')
-    print(f"Found {len(peaks)} peaks")
+    basic_features = ctx.get_data(run_id, 'basic_features')
+    heights = [ch['height'] for ch in basic_features]
+    areas = [ch['area'] for ch in basic_features]
+    print(f"Found {len(heights)} height arrays")
 
     # 4. 可视化血缘图（可选）
-    ctx.plot_lineage('peaks', kind='labview')
+    ctx.plot_lineage('basic_features', kind='labview')
 
-    return peaks
+    return heights
 
 if __name__ == '__main__':
     result = main()
-    print(f"Analysis complete. Result shape: {result.shape}")
+    print(f"Analysis complete. Channels: {len(result)}")
 ```
 
 ### 说明
@@ -117,7 +119,7 @@ if __name__ == '__main__':
 ### 数据流
 
 ```
-raw_files → waveforms → st_waveforms → peaks
+raw_files → waveforms → st_waveforms → basic_features
 ```
 
 ### 预期
@@ -148,7 +150,7 @@ ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 processor = BatchProcessor(ctx)
 results = processor.process_runs(
     run_ids=['run_001', 'run_002', 'run_003'],
-    data_name='peaks',
+    data_name='basic_features',
     max_workers=4,
     show_progress=True,
     on_error='continue'  # 'continue', 'stop', 'raise'
@@ -187,7 +189,7 @@ stream_ctx = get_streaming_context(ctx, run_id='run_001', chunk_size=50000)
 # 分块处理
 for chunk in stream_ctx.get_stream('st_waveforms'):
     # 处理每个数据块
-    process_chunk(chunk)
+    handle_chunk(chunk)
     print(f"Processed chunk: {chunk.start} - {chunk.end}")
 ```
 
@@ -224,7 +226,7 @@ print(f"Loaded {len(st_waveforms)} channels")
 ### 方式 2: 自定义 DAQ 格式
 
 ```python
-from waveform_analysis.core.processing.processor import WaveformStruct, WaveformStructConfig
+from waveform_analysis.core.processing.waveform_struct import WaveformStruct, WaveformStructConfig
 from waveform_analysis.utils.formats import FormatSpec, ColumnMapping, TimestampUnit
 
 # 定义自定义格式
@@ -297,11 +299,11 @@ ctx.set_config({'daq_adapter': 'my_daq'})
 | 创建 Context | `ctx = Context(storage_dir='./data')` |
 | 注册插件 | `ctx.register(*standard_plugins)` |
 | 设置配置 | `ctx.set_config({'daq_adapter': 'vx2730'})` |
-| 获取数据 | `ctx.get_data('run_001', 'peaks')` |
+| 获取数据 | `ctx.get_data('run_001', 'basic_features')` |
 | 查看帮助 | `ctx.help()` |
 | 查看配置 | `ctx.show_config()` |
-| 血缘可视化 | `ctx.plot_lineage('peaks')` |
-| 预览执行 | `ctx.preview_execution('run_001', 'peaks')` |
+| 血缘可视化 | `ctx.plot_lineage('basic_features')` |
+| 预览执行 | `ctx.preview_execution('run_001', 'basic_features')` |
 
 ### 快速代码模板
 

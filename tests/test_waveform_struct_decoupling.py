@@ -8,7 +8,7 @@
 import numpy as np
 import pytest
 
-from waveform_analysis.core.processing.processor import (
+from waveform_analysis.core.processing.waveform_struct import (
     WaveformStruct,
     WaveformStructConfig,
     create_record_dtype,
