@@ -392,7 +392,7 @@ def get_executor(
         from waveform_analysis.core.execution.manager import get_executor
         
         with get_executor("data_processing", "process", max_workers=4) as ex:
-            futures = [ex.submit(process_chunk, chunk) for chunk in chunks]
+            futures = [ex.submit(handle_chunk, chunk) for chunk in chunks]
             results = [f.result() for f in as_completed(futures)]
     """
     with _manager.executor(name, executor_type, max_workers, reuse, **kwargs) as executor:

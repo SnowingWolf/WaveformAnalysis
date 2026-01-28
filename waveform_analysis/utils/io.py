@@ -21,7 +21,7 @@ Examples:
     >>> from waveform_analysis.utils.io import parse_files_generator
     >>> files = ['path/to/CH0_0.CSV', 'path/to/CH0_1.CSV']
     >>> for chunk in parse_files_generator(files, chunksize=1000):
-    ...     process_chunk(chunk)
+    ...     handle_chunk(chunk)
 
 Note:
     推荐安装 pyarrow 以获得更快的解析速度:

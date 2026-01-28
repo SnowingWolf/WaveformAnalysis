@@ -64,12 +64,10 @@ from .loader import WaveformLoaderCSV
 # 信号处理
 from .processor import (
     PEAK_DTYPE,
-    RECORD_DTYPE,
-    WaveformStruct,
-    build_waveform_df,
     find_hits,
     group_multi_channel_hits,
 )
+from .waveform_struct import RECORD_DTYPE, WaveformStruct
 from .records_builder import (
     EVENTS_DTYPE,
     RECORDS_DTYPE,
@@ -86,7 +84,6 @@ __all__ = [
     "WaveformLoaderCSV",
     # 信号处理
     "WaveformStruct",
-    "build_waveform_df",
     "group_multi_channel_hits",
     "find_hits",
     "RECORD_DTYPE",

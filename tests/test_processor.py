@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 processor 模块测试
 """
@@ -6,13 +7,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from waveform_analysis.core.processing.processor import (
-    DEFAULT_WAVE_LENGTH,
-    RECORD_DTYPE,
-    WaveformStruct,
-    build_waveform_df,
-    group_multi_channel_hits,
-)
+from waveform_analysis.core.processing.processor import group_multi_channel_hits
+from waveform_analysis.core.processing.waveform_struct import RECORD_DTYPE, WaveformStruct
 
 
 class TestWaveformStruct:
@@ -119,68 +115,6 @@ class TestWaveformStruct:
         assert event_len[0] == 100
         assert event_len[1] == 80
         assert event_len[2] == 90
-
-
-class TestBuildWaveformDf:
-    """build_waveform_df 函数测试"""
-
-    def test_build_empty(self):
-        """测试空数据构建"""
-        st_waveforms = [np.zeros(0, dtype=RECORD_DTYPE) for _ in range(2)]
-        heights = [np.array([]), np.array([])]
-        areas = [np.array([]), np.array([])]
-
-        df = build_waveform_df(st_waveforms, heights, areas, n_channels=2, start_channel_slice=0)
-
-        assert isinstance(df, pd.DataFrame)
-        assert len(df) == 0
-
-    def test_build_with_data(self):
-        """测试带数据的 DataFrame 构建"""
-        n = 5
-        st_waveforms = []
-        heights = []
-        areas = []
-
-        for ch in range(2):
-            st = np.zeros(n, dtype=RECORD_DTYPE)
-            st["timestamp"] = np.arange(1000 + ch * 100, 1000 + ch * 100 + n)
-            st["channel"] = ch  # 设置 channel 字段
-            st_waveforms.append(st)
-            heights.append(np.random.randn(n))
-            areas.append(np.random.randn(n))
-
-        df = build_waveform_df(st_waveforms, heights, areas, n_channels=2, start_channel_slice=0)
-
-        assert len(df) == n * 2
-        assert "timestamp" in df.columns
-        assert "area" in df.columns
-        assert "height" in df.columns
-        assert "channel" in df.columns
-        # 验证 channel 字段包含正确的通道号
-        assert set(df["channel"].unique()) == {0, 1}
-    
-    def test_build_auto_detect_channels(self):
-        """测试自动检测通道数（不传递 n_channels 参数）"""
-        n = 3
-        st_waveforms = []
-        heights = []
-        areas = []
-        
-        # 创建 4 个通道的数据
-        for ch in range(4):
-            st = np.zeros(n, dtype=RECORD_DTYPE)
-            st["timestamp"] = np.arange(1000 + ch * 100, 1000 + ch * 100 + n)
-            st["channel"] = ch
-            st_waveforms.append(st)
-            heights.append(np.random.randn(n))
-            areas.append(np.random.randn(n))
-        
-        # 不传递 n_channels，应该自动检测为 4
-        df = build_waveform_df(st_waveforms, heights, areas, start_channel_slice=0)
-        
-        assert len(df) == n * 4
-        assert set(df["channel"].unique()) == {0, 1, 2, 3}
 
 
 class TestGroupMultiChannelHits:

@@ -68,7 +68,7 @@ def main():
     # 3. 获取数据（自动触发依赖链）
     print(f"Processing run: {run_id}")
     basic_features = ctx.get_data('{run_id}', 'basic_features')
-    heights = basic_features['height']
+    heights = [ch['height'] for ch in basic_features]
     print(f"Found {{len(heights)}} height arrays")
 
     # 4. 可视化血缘图（可选）

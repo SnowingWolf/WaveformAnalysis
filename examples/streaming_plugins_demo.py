@@ -15,7 +15,7 @@ from waveform_analysis.core.foundation.constants import FeatureDefaults
 from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin, WaveformsPlugin
 from waveform_analysis.core.plugins.core.streaming import StreamingPlugin, get_streaming_context
 from waveform_analysis.core.processing.chunk import Chunk, get_endtime
-from waveform_analysis.core.processing.processor import WaveformProcessor, WaveformStruct
+from waveform_analysis.core.processing.waveform_struct import WaveformStruct
 
 
 class StreamingStWaveformsPlugin(StreamingPlugin):
@@ -79,12 +79,19 @@ class StreamingBasicFeaturesPlugin(StreamingPlugin):
         if len(chunk.data) == 0:
             return None
 
-        processor = WaveformProcessor(n_channels=1)
-        heights, areas = processor.compute_basic_features(
-            [chunk.data],
-            self.peaks_range,
-            self.charge_range,
-        )
+        waves = chunk.data["wave"]
+        baselines = chunk.data["baseline"]
+        if waves.ndim != 2:
+            return None
+
+        start_p, end_p = self.peaks_range
+        start_c, end_c = self.charge_range
+
+        waves_p = waves[:, start_p:end_p]
+        height_vals = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
+
+        waves_c = waves[:, start_c:end_c]
+        area_vals = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
 
         feature_dtype = np.dtype(
             [
@@ -93,14 +100,14 @@ class StreamingBasicFeaturesPlugin(StreamingPlugin):
                 ("area", "<f4"),
             ]
         )
-        n_items = len(heights[0])
+        n_items = len(height_vals)
         features = np.zeros(n_items, dtype=feature_dtype)
         if "time" in chunk.data.dtype.names:
             features["time"] = chunk.data["time"][:n_items]
         else:
             features["time"] = np.arange(n_items)
-        features["height"] = heights[0]
-        features["area"] = areas[0]
+        features["height"] = height_vals
+        features["area"] = area_vals
 
         return Chunk(
             data=features,

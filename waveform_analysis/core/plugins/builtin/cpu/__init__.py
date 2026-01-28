@@ -23,12 +23,10 @@ from .events import EventFramePlugin, EventsGroupedPlugin, EventsPlugin
 from .records import RecordsPlugin
 from .standard import (
     BasicFeaturesPlugin,
-    ChargesPlugin,
     DataFramePlugin,
     GroupedEventsPlugin,
     HitFinderPlugin,
     PairedEventsPlugin,
-    PeaksPlugin,
     RawFilesPlugin,
     StWaveformsPlugin,
     WaveformsPlugin,
@@ -59,8 +57,6 @@ __all__ = [
     "StWaveformsPlugin",
     "HitFinderPlugin",
     "BasicFeaturesPlugin",
-    "PeaksPlugin",
-    "ChargesPlugin",
     "DataFramePlugin",
     "GroupedEventsPlugin",
     "PairedEventsPlugin",

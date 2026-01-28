@@ -27,7 +27,6 @@ def check_core_modules():
         from waveform_analysis import (
             Context,
             WaveformStruct,
-            build_waveform_df,
             group_multi_channel_hits,
         )
         from waveform_analysis.core.processing.loader import get_raw_files, get_waveforms

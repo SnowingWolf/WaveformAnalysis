@@ -56,11 +56,8 @@ from .processing.chunk import (
     split_by_time,
     validate_endtime,
 )
-from .processing.processor import (
-    WaveformStruct,
-    build_waveform_df,
-    group_multi_channel_hits,
-)
+from .processing.processor import group_multi_channel_hits
+from .processing.waveform_struct import WaveformStruct
 
 # 向后兼容：导出 storage 子模块的主要类
 # 用户仍然可以使用 `from waveform_analysis.core import MemmapStorage`
@@ -94,7 +91,6 @@ __all__ = [
     "get_timeout_manager",
     # 处理函数
     "WaveformStruct",
-    "build_waveform_df",
     "group_multi_channel_hits",
     # Chunk 常量
     "TIME_FIELD",
