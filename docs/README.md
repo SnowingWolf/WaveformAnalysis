@@ -16,18 +16,20 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     WaveformsPlugin,
     StWaveformsPlugin,
-    PeaksPlugin,
+    BasicFeaturesPlugin,
 )
 
 ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 ctx.register(RawFilesPlugin())
 ctx.register(WaveformsPlugin())
 ctx.register(StWaveformsPlugin())
-ctx.register(PeaksPlugin())
+ctx.register(BasicFeaturesPlugin())
 
 # 处理数据
 run_id = "run_001"
-peaks = ctx.get_data(run_id, "peaks")
+basic_features = ctx.get_data(run_id, "basic_features")
+heights = [ch["height"] for ch in basic_features]
+areas = [ch["area"] for ch in basic_features]
 ```
 
 ---

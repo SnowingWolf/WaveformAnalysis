@@ -39,7 +39,7 @@
   - `test_storage_backends.py`: 24/25 个测试通过
 - **迁移指南**: 旧代码需要更新
   - 将 `MemmapStorage(base_dir)` 改为 `MemmapStorage(work_dir)`
-  - 所有存储操作添加 `run_id` 参数
+- 所有存储操作添加 `run_id` 参数
   - 数据将存储在 `work_dir/{run_id}/_cache/` 而非 `base_dir/`
 
 #### 时间字段统一方案 (2026-01-22)

@@ -61,7 +61,7 @@ import numpy as np
 # df_events 包含 'channels' 列（每个事件包含一个通道数组）
 df_events = pd.DataFrame({
     'channels': [[2, 3], [2], [3], [2, 3, 4], [1, 2]],
-    'charges': [[10.5, 12.3], [8.2], [9.1], [11.0, 12.5, 13.2], [7.5, 8.0]],
+    'areas': [[10.5, 12.3], [8.2], [9.1], [11.0, 12.5, 13.2], [7.5, 8.0]],
     'time': [100, 200, 300, 400, 500],
 })
 
@@ -70,10 +70,10 @@ df_filtered = filter_coincidence_events(df_events, channels=[2, 3])
 print(f"筛选后的事件数: {len(df_filtered)}")
 # 输出: 筛选后的事件数: 2
 
-# 提取通道 2 和 3 的电荷值
-charges_dict = extract_channel_attributes(df_filtered, channels=[2, 3], attribute='charges')
-print(f"通道 2 的电荷: {charges_dict[2]}")
-print(f"通道 3 的电荷: {charges_dict[3]}")
+# 提取通道 2 和 3 的面积值
+areas_dict = extract_channel_attributes(df_filtered, channels=[2, 3], attribute='areas')
+print(f"通道 2 的面积: {areas_dict[2]}")
+print(f"通道 3 的面积: {areas_dict[3]}")
 ```
 
 ---
@@ -108,12 +108,12 @@ def filter_events_by_function(
 
 ```python
 # 示例 1: 筛选整行（基于多个列）
-def filter_by_time_and_charge(row):
-    return row['time'] > 200 and max(row['charges']) > 10.0
+def filter_by_time_and_area(row):
+    return row['time'] > 200 and max(row['areas']) > 10.0
 
 df_filtered = filter_events_by_function(
     df_events,
-    filter_func=filter_by_time_and_charge
+    filter_func=filter_by_time_and_area
 )
 
 # 示例 2: 筛选特定列（向量化优化）
@@ -204,7 +204,7 @@ df_filtered = filter_coincidence_events(
 def extract_channel_attributes(
     df_filtered: pd.DataFrame,
     channels: List[int],
-    attribute: str = 'charges',
+    attribute: str = 'areas',
     use_numba: Optional[bool] = None,
 ) -> Dict[int, List]:
 ```
@@ -213,7 +213,7 @@ def extract_channel_attributes(
 
 - `df_filtered`: 筛选后的事件 DataFrame
 - `channels`: 要提取的通道列表，如 `[2, 3]`
-- `attribute`: 要提取的属性名称，如 `'charges'`, `'peaks'`, `'timestamps'`
+- `attribute`: 要提取的属性名称，如 `'areas'`, `'heights'`, `'timestamps'`
 - `use_numba`: 是否使用 Numba 加速（默认 `None`，自动检测）
 
 #### 返回值
@@ -223,19 +223,19 @@ def extract_channel_attributes(
 #### 使用示例
 
 ```python
-# 提取通道 2 和 3 的电荷值
-charges_dict = extract_channel_attributes(
+# 提取通道 2 和 3 的面积值
+areas_dict = extract_channel_attributes(
     df_filtered,
     channels=[2, 3],
-    attribute='charges'
+    attribute='areas'
 )
 # 返回: {2: [10.5, 11.0], 3: [12.3, 12.5]}
 
-# 提取峰值信息
-peaks_dict = extract_channel_attributes(
+# 提取高度信息
+heights_dict = extract_channel_attributes(
     df_filtered,
     channels=[0, 1],
-    attribute='peaks'
+    attribute='heights'
 )
 
 # 提取时间戳
@@ -273,19 +273,19 @@ df_coincidence = filter_coincidence_events(
 
 print(f"Coincidence 事件数: {len(df_coincidence)}")
 
-# 3. 提取各通道的电荷值
-charges_dict = extract_channel_attributes(
+# 3. 提取各通道的面积值
+areas_dict = extract_channel_attributes(
     df_coincidence,
     channels=[2, 3],
-    attribute='charges'
+    attribute='areas'
 )
 
 # 4. 分析数据
-for ch, charges in charges_dict.items():
+for ch, areas in areas_dict.items():
     print(f"通道 {ch}:")
-    print(f"  事件数: {len(charges)}")
-    print(f"  平均电荷: {np.mean(charges):.2f}")
-    print(f"  最大电荷: {np.max(charges):.2f}")
+    print(f"  事件数: {len(areas)}")
+    print(f"  平均面积: {np.mean(areas):.2f}")
+    print(f"  最大面积: {np.max(areas):.2f}")
 ```
 
 ### 与 Context 集成示例
@@ -311,10 +311,10 @@ df_events = ctx.get_data(run_name, "df_events")
 df_coincidence = filter_coincidence_events(df_events, channels=[2, 3])
 
 # 提取属性
-charges = extract_channel_attributes(
+areas = extract_channel_attributes(
     df_coincidence,
     channels=[2, 3],
-    attribute='charges'
+    attribute='areas'
 )
 
 # 进一步分析...
@@ -325,14 +325,14 @@ charges = extract_channel_attributes(
 ```python
 from waveform_analysis.utils.event_filters import filter_events_by_function
 
-# 筛选电荷总和大于阈值的多通道事件
-def filter_by_total_charge(row):
-    total_charge = sum(row['charges'])
-    return total_charge > 50.0
+# 筛选面积总和大于阈值的多通道事件
+def filter_by_total_area(row):
+    total_area = sum(row['areas'])
+    return total_area > 50.0
 
-df_high_charge = filter_events_by_function(
+df_high_area = filter_events_by_function(
     df_events,
-    filter_func=filter_by_total_charge
+    filter_func=filter_by_total_area
 )
 
 # 筛选时间窗口内的事件
@@ -462,7 +462,7 @@ filter_coincidence_events(
 extract_channel_attributes(
     df_filtered: pd.DataFrame,
     channels: List[int],
-    attribute: str = 'charges',
+    attribute: str = 'areas',
     use_numba: Optional[bool] = None,
 ) -> Dict[int, List]
 ```
@@ -511,7 +511,7 @@ print(f"Numba 可用: {NUMBA_AVAILABLE}")
 def complex_filter(row):
     return (
         len(row['channels']) >= 2 and
-        max(row['charges']) > 10.0 and
+        max(row['areas']) > 10.0 and
         row['time'] > 1000
     )
 
@@ -523,8 +523,8 @@ df_filtered = filter_events_by_function(df_events, complex_filter)
 多次调用 `extract_channel_attributes`：
 
 ```python
-charges = extract_channel_attributes(df_filtered, channels=[2, 3], attribute='charges')
-peaks = extract_channel_attributes(df_filtered, channels=[2, 3], attribute='peaks')
+areas = extract_channel_attributes(df_filtered, channels=[2, 3], attribute='areas')
+heights = extract_channel_attributes(df_filtered, channels=[2, 3], attribute='heights')
 ```
 
 ---

@@ -14,18 +14,18 @@
 
 **计算公式:**
 ```python
-q = sum(baseline - wave)  # 在 charge_range 范围内
+q = sum(baseline - wave)  # 在 area_range 范围内
 ```
 
 **关键特性:**
-- **积分范围**: 由 `charge_range` 决定（默认: `(0, None)`，即整个波形）
+- **积分范围**: 由 `area_range` 决定（默认: `(0, None)`，即整个波形）
 - **符号约定**: `baseline - wave`（对于负脉冲，结果为正）
 - **极性处理**: 无极性过滤，直接对 `baseline - wave` 求和
 - **向量化计算**: 使用 NumPy 向量化操作，高效处理大量事件
 
 **代码实现:**
 ```python
-waves_c = st_ch["wave"][:, start_c:end_c]  # 切片到 charge_range
+waves_c = st_ch["wave"][:, start_c:end_c]  # 切片到 area_range
 baselines = st_ch["baseline"]
 q_vals = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
 ```
@@ -77,9 +77,9 @@ q_total = float(np.sum(x))
 
 ### 3. 主要差异总结
 
-| 特性 | ChargesPlugin | WaveformWidthIntegralPlugin["q_total"] |
+| 特性 | BasicFeaturesPlugin["area"] | WaveformWidthIntegralPlugin["q_total"] |
 |------|--------------|----------------------------------------|
-| **积分范围** | `charge_range` (默认整段波形，可配置子区间) | 整个波形 |
+| **积分范围** | `area_range` (默认整段波形，可配置子区间) | 整个波形 |
 | **符号约定** | `baseline - wave` | `wave - baseline` |
 | **极性过滤** | 无 | 支持 positive/negative/auto |
 | **主要用途** | 电荷特征提取 | 积分分位数宽度计算（q_total 为副产品） |
@@ -95,22 +95,22 @@ q_total = float(np.sum(x))
 1. **符号关系**:
    - 如果 `polarity="auto"` 且自动选择了负极性，则：
      ```
-     q_total ≈ -charge (在相同范围内)
+     q_total ≈ -area (在相同范围内)
      ```
    - 如果 `polarity="positive"`，则符号可能不同
 
 2. **范围差异**:
    - `q_total` 包含整个波形的积分
-   - `charge` 取决于 `charge_range`，当配置为子区间时仅积分部分波形
-   - 当 `charge_range` 不覆盖全波形时，`abs(q_total) >= abs(charge)`（在相同极性下）
+   - `area` 取决于 `area_range`，当配置为子区间时仅积分部分波形
+   - 当 `area_range` 不覆盖全波形时，`abs(q_total) >= abs(area)`（在相同极性下）
 
 3. **实际示例**:
    ```python
-   # 假设波形长度为 500 采样点，charge_range=(60, 400)
+   # 假设波形长度为 500 采样点，area_range=(60, 400)
    # 对于负脉冲信号：
 
-   # ChargesPlugin
-   charge = sum(baseline - wave[60:400])  # 仅 60-400 范围
+   # BasicFeaturesPlugin
+   area = sum(baseline - wave[60:400])  # 仅 60-400 范围
 
    # WaveformWidthIntegralPlugin (polarity="auto", 选择负极性)
    q_total = sum(-(wave - baseline))  # 整个波形 0-500
@@ -121,7 +121,7 @@ q_total = float(np.sum(x))
 
 ### 5. 使用建议
 
-**使用 ChargesPlugin 当:**
+**使用 BasicFeaturesPlugin["area"] 当:**
 - 需要快速计算指定时间窗口的电荷
 - 需要与历史分析保持一致
 - 仅关注信号主要部分的电荷
@@ -139,24 +139,24 @@ q_total = float(np.sum(x))
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import ChargesPlugin, WaveformWidthIntegralPlugin
+from waveform_analysis.core.plugins.builtin.cpu import BasicFeaturesPlugin, WaveformWidthIntegralPlugin
 
 ctx = Context()
 
 # 注册插件
-ctx.register(ChargesPlugin())
+ctx.register(BasicFeaturesPlugin())
 ctx.register(WaveformWidthIntegralPlugin())
 
 # 计算电荷
-charges = ctx.get_data('run_001', 'charges')  # List[np.ndarray]
+basic_features = ctx.get_data('run_001', 'basic_features')  # List[np.ndarray]
 width_integral = ctx.get_data('run_001', 'waveform_width_integral')  # List[np.ndarray]
 
 # 比较结果
-ch0_charge = charges[0]  # 每个事件的电荷（charge_range 范围内）
+ch0_area = basic_features[0]['area']  # 每个事件的电荷（area_range 范围内）
 ch0_q_total = width_integral[0]['q_total']  # 每个事件的总电荷（整个波形）
 
 # 注意符号和范围的差异
-print(f"Charge range: {ch0_charge.min():.2f} - {ch0_charge.max():.2f}")
+print(f"Area range: {ch0_area.min():.2f} - {ch0_area.max():.2f}")
 print(f"Q_total range: {ch0_q_total.min():.2f} - {ch0_q_total.max():.2f}")
 ```
 
