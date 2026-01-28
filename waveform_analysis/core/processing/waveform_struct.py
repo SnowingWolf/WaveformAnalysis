@@ -14,6 +14,11 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 import numpy as np
 
 from waveform_analysis.core.foundation.utils import exporter
+from waveform_analysis.core.processing.dtypes import (
+    DEFAULT_WAVE_LENGTH as _DEFAULT_WAVE_LENGTH,
+    RECORD_DTYPE as _RECORD_DTYPE,
+    create_record_dtype as _create_record_dtype,
+)
 
 if TYPE_CHECKING:
     from waveform_analysis.utils.formats.base import FormatSpec
@@ -24,45 +29,9 @@ logger = logging.getLogger(__name__)
 # 初始化 exporter
 export, __all__ = exporter()
 
-# Strax-inspired dtypes for structured data
-# Record: A single waveform with metadata
-DEFAULT_WAVE_LENGTH = export(800, name="DEFAULT_WAVE_LENGTH")
-
-RECORD_DTYPE = export(
-    [
-        ("baseline", "f8"),  # float64 for baseline
-        ("timestamp", "i8"),  # int64 for ps-level timestamps (ADC raw)
-        ("event_length", "i8"),  # length of the event
-        ("channel", "i2"),  # int16 for channel index (physical channel number)
-        ("wave", "f4", (DEFAULT_WAVE_LENGTH,)),  # fixed length array for performance
-    ],
-    name="RECORD_DTYPE",
-)
-
-
-@export
-def create_record_dtype(wave_length: int) -> np.dtype:
-    """
-    根据实际的波形长度动态创建 RECORD_DTYPE。
-
-    参数:
-        wave_length: 波形数据的实际长度（采样点数）
-
-    返回:
-        动态创建的 RECORD_DTYPE，wave 字段长度为 wave_length
-
-    示例:
-        >>> dtype = create_record_dtype(1600)
-        >>> arr = np.zeros(10, dtype=dtype)
-        >>> print(arr["wave"].shape)  # (10, 1600)
-    """
-    return np.dtype([
-        ("baseline", "f8"),  # float64 for baseline
-        ("timestamp", "i8"),  # int64 for ps-level timestamps (ADC raw)
-        ("event_length", "i8"),  # length of the event
-        ("channel", "i2"),  # int16 for channel index (physical channel number)
-        ("wave", "f4", (wave_length,)),  # dynamic length array based on actual data
-    ])
+DEFAULT_WAVE_LENGTH = export(_DEFAULT_WAVE_LENGTH, name="DEFAULT_WAVE_LENGTH")
+RECORD_DTYPE = export(_RECORD_DTYPE, name="RECORD_DTYPE")
+create_record_dtype = export(_create_record_dtype, name="create_record_dtype")
 
 
 @export
@@ -222,26 +191,40 @@ class WaveformStruct:
         >>> struct = WaveformStruct(waveforms, config=config)
     """
 
-    def __init__(self, waveforms: List[np.ndarray], config: Optional[WaveformStructConfig] = None):
+    def __init__(
+        self,
+        waveforms: List[np.ndarray],
+        config: Optional[WaveformStructConfig] = None,
+        upstream_baselines: Optional[List[np.ndarray]] = None,
+    ):
         """初始化 WaveformStruct。
 
         Args:
             waveforms: 原始波形数据列表，每个元素对应一个通道的数据
             config: 结构化配置。None 时使用 VX2730 默认配置（向后兼容）
+            upstream_baselines: 上游插件提供的 baseline 列表（可选）
+                               每个元素是一个通道的 baseline 数组
         """
         self.waveforms = waveforms
         self.config = config or WaveformStructConfig.default_vx2730()
         self.record_dtype = self.config.get_record_dtype()
         self.event_length = None
         self.waveform_structureds = None
+        self.upstream_baselines = upstream_baselines
 
     @classmethod
-    def from_adapter(cls, waveforms: List[np.ndarray], adapter_name: str = "vx2730") -> "WaveformStruct":
+    def from_adapter(
+        cls,
+        waveforms: List[np.ndarray],
+        adapter_name: str = "vx2730",
+        upstream_baselines: Optional[List[np.ndarray]] = None,
+    ) -> "WaveformStruct":
         """从 DAQ 适配器创建 WaveformStruct（便捷方法）
 
         Args:
             waveforms: 原始波形数据列表
             adapter_name: 适配器名称（如 'vx2730'）
+            upstream_baselines: 上游插件提供的 baseline 列表（可选）
 
         Returns:
             WaveformStruct 实例
@@ -250,16 +233,20 @@ class WaveformStruct:
             >>> struct = WaveformStruct.from_adapter(waveforms, "vx2730")
         """
         config = WaveformStructConfig.from_adapter(adapter_name)
-        return cls(waveforms, config)
+        return cls(waveforms, config, upstream_baselines)
 
     def _structure_waveform(
-        self, waves: Optional[np.ndarray] = None, channel_mapping: Optional[Dict[Tuple[int, int], int]] = None
+        self,
+        waves: Optional[np.ndarray] = None,
+        channel_mapping: Optional[Dict[Tuple[int, int], int]] = None,
+        channel_idx: int = 0,
     ) -> np.ndarray:
         """将波形数组转换为结构化数组。
 
         参数:
             waves: 波形数组，如果为 None 则使用第一个通道
             channel_mapping: (BOARD, CHANNEL) 到物理通道号的映射字典
+            channel_idx: 当前通道索引，用于获取对应的 upstream_baseline
         """
         # If no explicit waves passed, use the first channel
         if waves is None:
@@ -357,6 +344,19 @@ class WaveformStruct:
                 timestamps = (timestamps.astype(np.float64) * timestamp_scale).astype(np.int64)
 
         waveform_structured["baseline"] = baseline_vals
+
+        # 赋值 baseline_upstream 字段（新增逻辑）
+        if self.upstream_baselines is not None and channel_idx < len(self.upstream_baselines):
+            upstream_bl = self.upstream_baselines[channel_idx]
+            if upstream_bl is not None and len(upstream_bl) == len(waves):
+                waveform_structured["baseline_upstream"] = upstream_bl
+            else:
+                # 长度不匹配或为 None，填充 NaN
+                waveform_structured["baseline_upstream"] = np.nan
+        else:
+            # 没有上游 baseline，填充 NaN
+            waveform_structured["baseline_upstream"] = np.nan
+
         waveform_structured["timestamp"] = timestamps
         waveform_structured["channel"] = physical_channels
 
@@ -403,11 +403,14 @@ class WaveformStruct:
                     continue
 
         # 创建 (BOARD, CHANNEL) 到物理通道号的映射
+
+        # 处理无数据情况
         if not has_data:
             self.waveform_structureds = [
                 self._structure_waveform(waves, channel_mapping=None) for waves in self.waveforms
             ]
             return self.waveform_structureds
+        # 创建通道映射
         if all_board_channel_pairs:
             channel_mapping = create_channel_mapping(all_board_channel_pairs)
             logger.debug(f"创建通道映射: {channel_mapping}")
@@ -425,13 +428,16 @@ class WaveformStruct:
             try:
                 from tqdm import tqdm
 
-                pbar = tqdm(self.waveforms, desc="Structuring waveforms", leave=False)
+                pbar = tqdm(enumerate(self.waveforms), desc="Structuring waveforms", leave=False, total=len(self.waveforms))
             except ImportError:
-                pbar = self.waveforms
+                pbar = enumerate(self.waveforms)
         else:
-            pbar = self.waveforms
+            pbar = enumerate(self.waveforms)
 
-        self.waveform_structureds = [self._structure_waveform(waves, channel_mapping=channel_mapping) for waves in pbar]
+        self.waveform_structureds = [
+            self._structure_waveform(waves, channel_mapping=channel_mapping, channel_idx=idx)
+            for idx, waves in pbar
+        ]
         return self.waveform_structureds
 
     def get_event_length(self) -> np.ndarray:
@@ -442,4 +448,3 @@ class WaveformStruct:
         # 每个通道使用自己的实际长度，不再强制配对
         self.event_length = np.array([len(wave) for wave in self.waveforms])
         return self.event_length
-

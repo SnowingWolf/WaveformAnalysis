@@ -17,6 +17,7 @@ import pandas as pd
 
 from waveform_analysis.core.execution.manager import get_executor
 from waveform_analysis.core.foundation.utils import exporter
+from waveform_analysis.core.processing.dtypes import PEAK_DTYPE as _PEAK_DTYPE
 
 # Setup logger
 logger = logging.getLogger(__name__)
@@ -40,18 +41,7 @@ except ImportError:
 # 初始化 exporter
 export, __all__ = exporter()
 
-# Peak: A detected peak in a waveform
-PEAK_DTYPE = export(
-    [
-        ("time", "i8"),  # time of the peak
-        ("area", "f4"),  # area of the peak
-        ("height", "f4"),  # height of the peak
-        ("width", "f4"),  # width of the peak
-        ("channel", "i2"),  # channel index
-        ("event_index", "i8"),  # index of the event in the dataset
-    ],
-    name="PEAK_DTYPE",
-)
+PEAK_DTYPE = export(_PEAK_DTYPE, name="PEAK_DTYPE")
 
 
 @export

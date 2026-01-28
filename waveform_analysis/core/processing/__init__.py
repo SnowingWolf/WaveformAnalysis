@@ -62,15 +62,10 @@ from .chunk import (
 from .loader import WaveformLoaderCSV
 
 # 信号处理
-from .event_grouping import (
-    PEAK_DTYPE,
-    find_hits,
-    group_multi_channel_hits,
-)
-from .waveform_struct import RECORD_DTYPE, WaveformStruct
+from .dtypes import EVENTS_DTYPE, PEAK_DTYPE, RECORDS_DTYPE, RECORD_DTYPE
+from .event_grouping import find_hits, group_multi_channel_hits
+from .waveform_struct import WaveformStruct
 from .records_builder import (
-    EVENTS_DTYPE,
-    RECORDS_DTYPE,
     EventsBundle,
     RecordsBundle,
     build_records_from_st_waveforms,
