@@ -15,7 +15,7 @@ from typing import Any, List, Optional
 import numpy as np
 
 from waveform_analysis.core.plugins.core.base import Option, Plugin
-from waveform_analysis.core.processing.dtypes import RECORD_DTYPE
+from waveform_analysis.core.processing.dtypes import ST_WAVEFORM_DTYPE
 from waveform_analysis.core.processing.waveform_struct import WaveformStruct, WaveformStructConfig
 
 
@@ -25,7 +25,7 @@ class StWaveformsPlugin(Plugin):
     provides = "st_waveforms"
     depends_on = []
     save_when = "always"
-    output_dtype = np.dtype(RECORD_DTYPE)
+    output_dtype = np.dtype(ST_WAVEFORM_DTYPE)
     options = {
         "daq_adapter": Option(
             default="vx2730",
