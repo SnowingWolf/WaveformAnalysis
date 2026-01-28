@@ -16,7 +16,11 @@ import numpy as np
 from waveform_analysis.core.foundation.utils import exporter
 from waveform_analysis.core.processing.dtypes import (
     DEFAULT_WAVE_LENGTH as _DEFAULT_WAVE_LENGTH,
-    RECORD_DTYPE as _RECORD_DTYPE,
+)
+from waveform_analysis.core.processing.dtypes import (
+    ST_WAVEFORM_DTYPE as _ST_WAVEFORM_DTYPE,
+)
+from waveform_analysis.core.processing.dtypes import (
     create_record_dtype as _create_record_dtype,
 )
 
@@ -30,7 +34,7 @@ logger = logging.getLogger(__name__)
 export, __all__ = exporter()
 
 DEFAULT_WAVE_LENGTH = export(_DEFAULT_WAVE_LENGTH, name="DEFAULT_WAVE_LENGTH")
-RECORD_DTYPE = export(_RECORD_DTYPE, name="RECORD_DTYPE")
+ST_WAVEFORM_DTYPE = export(_ST_WAVEFORM_DTYPE, name="ST_WAVEFORM_DTYPE")
 create_record_dtype = export(_create_record_dtype, name="create_record_dtype")
 
 
@@ -119,10 +123,10 @@ class WaveformStructConfig:
         return DEFAULT_WAVE_LENGTH
 
     def get_record_dtype(self) -> np.dtype:
-        """获取对应的 RECORD_DTYPE
+        """获取对应的 ST_WAVEFORM_DTYPE
 
         Returns:
-            根据波形长度动态创建的 RECORD_DTYPE
+            根据波形长度动态创建的 ST_WAVEFORM_DTYPE
         """
         return create_record_dtype(self.get_wave_length())
 
@@ -155,7 +159,7 @@ def create_channel_mapping(board_channel_pairs: List[Tuple[int, int]]) -> Dict[T
 class WaveformStruct:
     """波形结构化处理器
 
-    将原始 DAQ 采集的 NumPy 数组转换为结构化数组（RECORD_DTYPE）。
+    将原始 DAQ 采集的 NumPy 数组转换为结构化数组（ST_WAVEFORM_DTYPE）。
 
     支持两种使用方式：
     1. 无配置（向后兼容）：使用 VX2730 默认列索引
@@ -164,7 +168,7 @@ class WaveformStruct:
     Attributes:
         waveforms: 原始波形数据列表
         config: 结构化配置（列映射、波形长度等）
-        record_dtype: 根据配置创建的 RECORD_DTYPE
+        record_dtype: 根据配置创建的 ST_WAVEFORM_DTYPE
         event_length: 每个通道的事件数
         waveform_structureds: 结构化后的波形数据
 
@@ -428,15 +432,16 @@ class WaveformStruct:
             try:
                 from tqdm import tqdm
 
-                pbar = tqdm(enumerate(self.waveforms), desc="Structuring waveforms", leave=False, total=len(self.waveforms))
+                pbar = tqdm(
+                    enumerate(self.waveforms), desc="Structuring waveforms", leave=False, total=len(self.waveforms)
+                )
             except ImportError:
                 pbar = enumerate(self.waveforms)
         else:
             pbar = enumerate(self.waveforms)
 
         self.waveform_structureds = [
-            self._structure_waveform(waves, channel_mapping=channel_mapping, channel_idx=idx)
-            for idx, waves in pbar
+            self._structure_waveform(waves, channel_mapping=channel_mapping, channel_idx=idx) for idx, waves in pbar
         ]
         return self.waveform_structureds
 

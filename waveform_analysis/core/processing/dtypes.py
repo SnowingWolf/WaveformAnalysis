@@ -16,7 +16,7 @@ export, __all__ = exporter()
 # Record: A single waveform with metadata
 DEFAULT_WAVE_LENGTH = export(800, name="DEFAULT_WAVE_LENGTH")
 
-RECORD_DTYPE = export(
+ST_WAVEFORM_DTYPE = export(
     [
         ("baseline", "f8"),  # float64 for baseline (computed by WaveformStruct)
         ("baseline_upstream", "f8"),  # float64 for upstream baseline (optional)
@@ -25,20 +25,20 @@ RECORD_DTYPE = export(
         ("channel", "i2"),  # int16 for channel index (physical channel number)
         ("wave", "f4", (DEFAULT_WAVE_LENGTH,)),  # fixed length array for performance
     ],
-    name="RECORD_DTYPE",
+    name="ST_WAVEFORM_DTYPE",
 )
 
 
 @export
 def create_record_dtype(wave_length: int) -> np.dtype:
     """
-    根据实际的波形长度动态创建 RECORD_DTYPE。
+    根据实际的波形长度动态创建 ST_WAVEFORM_DTYPE。
 
     参数:@
         wave_length: 波形数据的实际长度（采样点数）
 
     返回:
-        动态创建的 RECORD_DTYPE，wave 字段长度为 wave_length
+        动态创建的 ST_WAVEFORM_DTYPE，wave 字段长度为 wave_length
 
     示例:
         >>> dtype = create_record_dtype(1600)
