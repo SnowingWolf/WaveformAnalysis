@@ -232,6 +232,48 @@ class Plugin(abc.ABC):
         """
         return list(self.depends_on) if self.depends_on else []
 
+    def _build_depends_lineage(self, context: Any) -> dict:
+        """
+        构建依赖血缘的辅助方法。
+
+        自动根据插件的依赖声明（depends_on 或 resolve_depends_on）
+        构建完整的依赖血缘字典。
+
+        Args:
+            context: Context 实例，用于获取依赖的血缘信息
+
+        Returns:
+            dict: 依赖名称到血缘信息的映射
+
+        Examples:
+            >>> def get_lineage(self, context):
+            ...     lineage = {
+            ...         "plugin_class": self.__class__.__name__,
+            ...         "config": {...},
+            ...         "depends_on": self._build_depends_lineage(context),
+            ...     }
+            ...     return lineage
+        """
+        # 获取依赖列表（支持动态依赖）
+        if hasattr(self, "resolve_depends_on"):
+            try:
+                deps = self.resolve_depends_on(context, run_id=None)
+            except TypeError:
+                # 兼容不接受 run_id 参数的旧版本
+                deps = self.resolve_depends_on(context)
+        else:
+            deps = self.depends_on or []
+
+        # 构建依赖血缘字典
+        depends_lineage = {}
+        for dep in deps:
+            # 提取依赖名称（去除版本约束）
+            dep_name = self.get_dependency_name(dep)
+            # 递归获取依赖的血缘
+            depends_lineage[dep_name] = context.get_lineage(dep_name)
+
+        return depends_lineage
+
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         # Merge options from base classes to support inheritance

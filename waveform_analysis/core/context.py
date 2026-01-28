@@ -430,20 +430,20 @@ class Context(CacheMixin, PluginMixin):
         Examples:
             >>> from waveform_analysis.core.context import Context
             >>> from waveform_analysis.core.plugins.builtin.cpu import (
-            ...     RawFilesPlugin, WaveformsPlugin, StWaveformsPlugin
+            ...     RawFileNamesPlugin, WaveformsPlugin, StWaveformsPlugin
             ... )
             >>>
             >>> ctx = Context(storage_dir="./strax_data")
             >>>
             >>> # 方式1: 注册插件实例
-            >>> ctx.register(RawFilesPlugin())
+            >>> ctx.register(RawFileNamesPlugin())
             >>>
             >>> # 方式2: 注册插件类（会自动实例化）
             >>> ctx.register(WaveformsPlugin)
             >>>
             >>> # 方式3: 一次注册多个插件
             >>> ctx.register(
-            ...     RawFilesPlugin(),
+            ...     RawFileNamesPlugin(),
             ...     WaveformsPlugin(),
             ...     StWaveformsPlugin()
             ... )
@@ -453,7 +453,7 @@ class Context(CacheMixin, PluginMixin):
             >>> ctx.register(standard_plugins)
             >>>
             >>> # 方式5: 允许覆盖已注册的插件
-            >>> ctx.register(RawFilesPlugin(), allow_override=True)
+            >>> ctx.register(RawFileNamesPlugin(), allow_override=True)
             >>>
             >>> # 注册后可以通过数据名称访问
             >>> raw_files = ctx.get_data("run_001", "raw_files")
