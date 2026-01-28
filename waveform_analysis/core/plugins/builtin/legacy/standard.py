@@ -13,7 +13,7 @@ import warnings
 
 from waveform_analysis.core.foundation.constants import FeatureDefaults
 from waveform_analysis.core.plugins.core.base import Option, Plugin
-from waveform_analysis.core.processing.processor import PEAK_DTYPE, find_hits
+from waveform_analysis.core.processing.event_grouping import PEAK_DTYPE, find_hits
 from waveform_analysis.core.processing.waveform_struct import RECORD_DTYPE, WaveformStruct
 
 BASIC_FEATURES_DTYPE = np.dtype([

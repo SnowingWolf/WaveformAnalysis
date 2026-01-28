@@ -101,7 +101,7 @@
     - **内置支持**: VX2730 (CAEN) 数字化仪格式。
 
 ### 2.8 数据处理层 (Data Processing Layer)
-- **`WaveformStruct`** (`core/processing/processor.py`): 波形结构化处理器，已解耦 DAQ 格式依赖。
+- **`WaveformStruct`** (`core/processing/waveform_struct.py`): 波形结构化处理器，已解耦 DAQ 格式依赖。
     - **配置驱动**: 通过 `WaveformStructConfig` 配置类指定 DAQ 格式。
     - **动态 dtype**: 根据实际波形长度动态创建 `RECORD_DTYPE`。
     - **列映射**: 从 `FormatSpec` 读取列索引（board, channel, timestamp, samples_start, baseline_start/end）。
@@ -252,7 +252,7 @@ graph TD
     - `storage/`: memmap 缓存、压缩、完整性、缓存工具
     - `execution/`: 执行器管理与超时控制
     - `plugins/`: 插件核心设施与内置插件（CPU/JAX/Streaming/Legacy）
-    - `processing/`: loader/processor/analyzer/chunk/records_builder
+    - `processing/`: loader/event_grouping/waveform_struct/analyzer/chunk/records_builder
     - `data/`: query/batch_processor/export/dependency_analysis/records_view
     - `foundation/`: exceptions/model/utils/progress/constants 等基础能力
 - `waveform_analysis/utils/`: 通用工具

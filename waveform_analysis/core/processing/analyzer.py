@@ -13,7 +13,7 @@ import pandas as pd
 
 from waveform_analysis.core.foundation.utils import exporter
 
-from .processor import group_multi_channel_hits
+from .event_grouping import group_multi_channel_hits
 
 # 初始化 exporter
 export, __all__ = exporter()
