@@ -114,6 +114,11 @@ class ExecutorManager:
         返回:
             Executor 实例
         """
+        if executor_type not in ("thread", "process"):
+            raise ValueError(
+                f"executor_type must be 'thread' or 'process', got '{executor_type}'"
+            )
+
         if max_workers is None:
             max_workers = self._default_max_workers
         
@@ -126,21 +131,30 @@ class ExecutorManager:
                 return self._executors[key]
 
             # 创建新执行器
-            if executor_type == "process":
-                executor = ProcessPoolExecutor(max_workers=max_workers, **kwargs)
-            else:
-                executor = ThreadPoolExecutor(max_workers=max_workers, **kwargs)
+            executor = self._create_executor(executor_type, max_workers, **kwargs)
 
-            self._executors[key] = executor
-            self._executor_configs[key] = {
-                "name": name,
-                "type": executor_type,
-                "max_workers": max_workers,
-                **kwargs
-            }
-            self._executor_refs[key] = 1
+            if reuse:
+                self._executors[key] = executor
+                self._executor_configs[key] = {
+                    "name": name,
+                    "type": executor_type,
+                    "max_workers": max_workers,
+                    **kwargs
+                }
+                self._executor_refs[key] = 1
 
             return executor
+
+    def _create_executor(
+        self,
+        executor_type: str,
+        max_workers: int,
+        **kwargs
+    ) -> Executor:
+        """创建执行器实例"""
+        if executor_type == "process":
+            return ProcessPoolExecutor(max_workers=max_workers, **kwargs)
+        return ThreadPoolExecutor(max_workers=max_workers, **kwargs)
 
     def release_executor(
         self,
@@ -198,6 +212,7 @@ class ExecutorManager:
         executor_type: str = "thread",
         max_workers: Optional[int] = None,
         reuse: bool = True,
+        wait_on_exit: bool = False,
         **kwargs
     ) -> Iterator[Executor]:
         """
@@ -207,12 +222,18 @@ class ExecutorManager:
             with manager.executor("my_task", "process", max_workers=4) as ex:
                 futures = [ex.submit(func, arg) for arg in args]
                 results = [f.result() for f in futures]
+
+        参数:
+            wait_on_exit: 退出时是否等待执行器关闭
         """
         executor = self.get_executor(name, executor_type, max_workers, reuse, **kwargs)
         try:
             yield executor
         finally:
-            self.release_executor(name, executor_type, max_workers)
+            if reuse:
+                self.release_executor(name, executor_type, max_workers, wait=wait_on_exit)
+            else:
+                executor.shutdown(wait=wait_on_exit)
 
     def list_executors(self) -> Dict[str, Dict[str, Any]]:
         """列出所有活跃的执行器"""
