@@ -373,7 +373,7 @@ st_waveforms = ctx.get_data('run_001', 'st_waveforms')
 `WaveformStruct` 现在支持动态波形长度：
 
 ```python
-from waveform_analysis.core.processing.waveform_struct import create_record_dtype
+from waveform_analysis.core.processing.dtypes import create_record_dtype
 
 # 创建不同长度的 dtype
 dtype_800 = create_record_dtype(800)   # VX2730 标准长度

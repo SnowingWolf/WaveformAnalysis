@@ -234,7 +234,7 @@ def test_plugin_with_mock_data(ctx):
         print("\n创建模拟数据以测试插件逻辑...")
 
         # 创建模拟的结构化波形数据
-        from waveform_analysis.core.processing.waveform_struct import RECORD_DTYPE
+        from waveform_analysis.core.processing.dtypes import RECORD_DTYPE
 
         n_events = 5
         n_samples = 100

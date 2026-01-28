@@ -28,7 +28,7 @@ import numpy as np
 from waveform_analysis.core.foundation.constants import FeatureDefaults
 from waveform_analysis.core.foundation.utils import exporter
 from waveform_analysis.core.processing.loader import WaveformLoaderCSV
-from waveform_analysis.core.processing.waveform_struct import DEFAULT_WAVE_LENGTH, RECORD_DTYPE
+from waveform_analysis.core.processing.dtypes import DEFAULT_WAVE_LENGTH, RECORD_DTYPE
 from waveform_analysis.utils.io import parse_files_generator
 
 # 初始化 logger 和 exporter
