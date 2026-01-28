@@ -56,8 +56,8 @@ print(f"加载了 {len(waveforms)} 个波形")
 fig = previewer.plot_overlay(
     waveforms[:10],
     annotate=True,              # 标注基线、峰值、积分区域
-    peaks_range=(40, 90),       # 峰值检测区间
-    charge_range=(0, None),     # 电荷积分区间（默认整段波形）
+    height_range=(40, 90),       # 峰值检测区间
+    area_range=(0, None),     # 电荷积分区间（默认整段波形）
     figsize=(14, 6)
 )
 plt.show()
@@ -251,13 +251,13 @@ print(f"  建议阈值（均值 - 2σ）: {suggested_threshold:.2f} ADC")
 
 ---
 
-##### `compute_features(waveforms, peaks_range=(40, 90), charge_range=(0, None))`
+##### `compute_features(waveforms, height_range=(40, 90), area_range=(0, None))`
 计算波形特征。
 
 **参数**：
 - `waveforms` (ndarray): 结构化数组
-- `peaks_range` (tuple): 峰值检测区间
-- `charge_range` (tuple): 电荷积分区间
+- `height_range` (tuple): 峰值检测区间
+- `area_range` (tuple): 电荷积分区间
 
 **返回**：字典，包含 'peaks', 'charges', 'peak_positions', 'baselines'
 
@@ -269,8 +269,8 @@ print(f"  建议阈值（均值 - 2σ）: {suggested_threshold:.2f} ADC")
 **参数**：
 - `waveforms` (ndarray): 结构化数组
 - `annotate` (bool): 是否标注特征
-- `peaks_range` (tuple): 峰值检测区间
-- `charge_range` (tuple): 电荷积分区间
+- `height_range` (tuple): 峰值检测区间
+- `area_range` (tuple): 电荷积分区间
 - `figsize` (tuple): 图像大小
 - `sampling_interval_ns` (float): 采样间隔（ns）
 
@@ -330,8 +330,8 @@ print(f"CH2 总事件数（至少）: {len(waveforms)}")
 ```python
 fig = previewer.plot_overlay(
     waveforms,
-    peaks_range=(50, 100),      # 自定义峰值区间
-    charge_range=(80, 500)      # 自定义积分区间
+    height_range=(50, 100),      # 自定义峰值区间
+    area_range=(80, 500)      # 自定义积分区间
 )
 ```
 

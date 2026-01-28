@@ -12,6 +12,7 @@
 - [waveforms](#waveforms)
 - [st_waveforms](#st-waveforms)
 - [hits](#hits)
+- [basic_features](#basic-features)
 - [peaks](#peaks)
 - [charges](#charges)
 - [df](#df)
@@ -194,17 +195,95 @@ Example implementation of the HitFinder as a plugin.
 
 ---
 
+## basic_features
+
+**类名**: `BasicFeaturesPlugin`
+**版本**: 0.0.0
+**提供数据**: `basic_features`
+**依赖**: st_waveforms
+Plugin to compute height/area features from structured waveforms.
+
+### 配置选项
+
+#### `height_range`
+
+- **类型**: `<class 'tuple'>`
+- **默认值**: `None`
+- **说明**: 高度计算范围 (start, end)
+
+**使用示例**:
+
+```python
+ctx.set_config({'height_range': <value>}, plugin_name='basic_features')
+```
+
+---
+#### `area_range`
+
+- **类型**: `<class 'tuple'>`
+- **默认值**: `(0, None)`
+- **说明**: 面积计算范围 (start, end)，end=None 表示积分到波形末端
+
+**使用示例**:
+
+```python
+ctx.set_config({'area_range': <value>}, plugin_name='basic_features')
+```
+
+---
+#### `height_range`
+
+- **类型**: `<class 'tuple'>`
+- **默认值**: `None`
+- **说明**: (deprecated) height_range 别名
+
+**使用示例**:
+
+```python
+ctx.set_config({'height_range': <value>}, plugin_name='basic_features')
+```
+
+---
+#### `area_range`
+
+- **类型**: `<class 'tuple'>`
+- **默认值**: `(0, None)`
+- **说明**: (deprecated) area_range 别名
+
+**使用示例**:
+
+```python
+ctx.set_config({'area_range': <value>}, plugin_name='basic_features')
+```
+
+---
+#### `use_filtered`
+
+- **类型**: `<class 'bool'>`
+- **默认值**: `False`
+- **说明**: 是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin）
+
+**使用示例**:
+
+```python
+ctx.set_config({'use_filtered': <value>}, plugin_name='basic_features')
+```
+
+---
+
+---
+
 ## peaks
 
 **类名**: `PeaksPlugin`
 **版本**: 0.0.0
 **提供数据**: `peaks`
 **依赖**: st_waveforms
-Plugin to compute peak features from structured waveforms.
+Deprecated: use BasicFeaturesPlugin (height/area) instead.
 
 ### 配置选项
 
-#### `peaks_range`
+#### `height_range`
 
 - **类型**: `<class 'tuple'>`
 - **默认值**: `None`
@@ -213,7 +292,7 @@ Plugin to compute peak features from structured waveforms.
 **使用示例**:
 
 ```python
-ctx.set_config({'peaks_range': <value>}, plugin_name='peaks')
+ctx.set_config({'height_range': <value>}, plugin_name='basic_features')
 ```
 
 ---
@@ -226,11 +305,11 @@ ctx.set_config({'peaks_range': <value>}, plugin_name='peaks')
 **版本**: 0.0.0
 **提供数据**: `charges`
 **依赖**: st_waveforms
-Plugin to compute charge features from structured waveforms.
+Deprecated: use BasicFeaturesPlugin (height/area) instead.
 
 ### 配置选项
 
-#### `charge_range`
+#### `area_range`
 
 - **类型**: `<class 'tuple'>`
 - **默认值**: `(0, None)`
@@ -239,7 +318,7 @@ Plugin to compute charge features from structured waveforms.
 **使用示例**:
 
 ```python
-ctx.set_config({'charge_range': <value>}, plugin_name='charges')
+ctx.set_config({'area_range': <value>}, plugin_name='basic_features')
 ```
 
 ---
@@ -251,7 +330,7 @@ ctx.set_config({'charge_range': <value>}, plugin_name='charges')
 **类名**: `DataFramePlugin`
 **版本**: 0.0.0
 **提供数据**: `df`
-**依赖**: st_waveforms, peaks, charges
+**依赖**: st_waveforms, basic_features
 Plugin to build the initial single-channel events DataFrame.
 
 ### 配置选项
@@ -468,7 +547,7 @@ Build an events DataFrame from the records bundle.
 
 ### 配置选项
 
-#### `peaks_range`
+#### `height_range`
 
 - **类型**: `<class 'tuple'>`
 - **默认值**: `(0, None)`
@@ -477,11 +556,11 @@ Build an events DataFrame from the records bundle.
 **使用示例**:
 
 ```python
-ctx.set_config({'peaks_range': <value>}, plugin_name='events_df')
+ctx.set_config({'height_range': <value>}, plugin_name='events_df')
 ```
 
 ---
-#### `charge_range`
+#### `area_range`
 
 - **类型**: `<class 'tuple'>`
 - **默认值**: `(0, None)`
@@ -490,7 +569,7 @@ ctx.set_config({'peaks_range': <value>}, plugin_name='events_df')
 **使用示例**:
 
 ```python
-ctx.set_config({'charge_range': <value>}, plugin_name='events_df')
+ctx.set_config({'area_range': <value>}, plugin_name='events_df')
 ```
 
 ---

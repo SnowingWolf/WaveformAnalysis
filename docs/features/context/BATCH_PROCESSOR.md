@@ -44,7 +44,7 @@ ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 processor = BatchProcessor(ctx)
 result = processor.process_runs(
     run_ids=["run_001", "run_002"],
-    data_name="peaks",
+    data_name='basic_features',
     max_workers=1,
 )
 ```
@@ -54,7 +54,7 @@ result = processor.process_runs(
 ```python
 result = processor.process_runs(
     run_ids=["run_001", "run_002"],
-    data_name="peaks",
+    data_name='basic_features',
     jupyter_mode=True,   # 或 None 自动检测
 )
 ```
@@ -63,7 +63,7 @@ result = processor.process_runs(
 
 ```python
 def count_peaks(ctx, run_id):
-    peaks = ctx.get_data(run_id, "peaks")
+    peaks = ctx.get_data(run_id, "basic_features")
     return len(peaks)
 
 stats = processor.process_func(
@@ -83,7 +83,7 @@ def make_context():
 
 result = processor.process_runs(
     run_ids=["run_001", "run_002"],
-    data_name="peaks",
+    data_name='basic_features',
     max_workers=4,
     context_factory=make_context,
     executor_type="thread",  # 或 "process"
@@ -95,7 +95,7 @@ result = processor.process_runs(
 ```python
 result = processor.process_runs(
     run_ids=["run_001", "run_002"],
-    data_name="peaks",
+    data_name='basic_features',
     max_workers=4,
     context_factory=ctx.create_context_factory(),
     executor_type="process",
@@ -250,7 +250,7 @@ from waveform_analysis.core.cancellation import CancellationToken
 token = CancellationToken()
 result = processor.process_runs(
     run_ids=["run_001", "run_002"],
-    data_name="peaks",
+    data_name='basic_features',
     cancellation_token=token,
 )
 

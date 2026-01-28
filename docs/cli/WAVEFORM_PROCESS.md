@@ -188,7 +188,7 @@ from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
 ctx = Context()
 ctx.register(*standard_plugins)
 ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
-peaks = ctx.get_data('run_001', 'peaks')
+basic_features = ctx.get_data('run_001', 'basic_features')
 ```
 
 更多信息请参考 [用户指南](../user-guide/README.md)。

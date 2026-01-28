@@ -60,7 +60,7 @@ end = datetime(2024, 1, 1, 12, 0, 20, tzinfo=timezone.utc)
 # 查询数据
 data = ctx.get_data_time_range_absolute(
     'run_001',
-    'peaks',
+    'basic_features',
     start_dt=start,
     end_dt=end
 )
@@ -193,10 +193,10 @@ relative_times = converter.absolute_to_relative(dts)
 
 ```python
 # 构建索引（epoch 会自动传递）
-ctx.build_time_index('run_001', 'peaks')
+ctx.build_time_index('run_001', 'basic_features')
 
 # 获取索引的绝对时间范围
-index = ctx._time_query_engine.get_index('run_001', 'peaks')
+index = ctx._time_query_engine.get_index('run_001', 'basic_features')
 time_range = index.get_time_range_absolute()
 if time_range:
     min_dt, max_dt = time_range
@@ -241,7 +241,7 @@ ctx.set_epoch('run_001', datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc))
 # 相对时间查询（纳秒）
 data = ctx.get_data_time_range(
     'run_001',
-    'peaks',
+    'basic_features',
     start_time=10_000_000_000,  # 10秒
     end_time=20_000_000_000     # 20秒
 )
@@ -276,7 +276,7 @@ epoch_info = ctx.get_epoch('run_001')
 print(epoch_info)  # 显示 epoch 详情
 
 # 获取数据的绝对时间范围
-index = ctx._time_query_engine.get_index('run_001', 'peaks')
+index = ctx._time_query_engine.get_index('run_001', 'basic_features')
 time_range = index.get_time_range_absolute()
 print(f"数据时间范围: {time_range}")
 ```

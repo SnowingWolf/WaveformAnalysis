@@ -30,8 +30,10 @@ ctx.register(standard_plugins)
 ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 
 # 获取数据
-peaks = ctx.get_data('run_001', 'peaks')
-print(f"Found {len(peaks)} peaks")
+basic_features = ctx.get_data('run_001', 'basic_features')
+heights = [ch['height'] for ch in basic_features]
+areas = [ch['area'] for ch in basic_features]
+print(f"Found {len(heights)} height arrays")
 ```
 
 ### 2. 时间范围查询
@@ -91,7 +93,7 @@ ctx.show_config('waveforms')
 ctx.set_config({'daq_adapter': 'vx2730', 'threshold': 50})
 
 # 插件特定配置（推荐，避免冲突）
-ctx.set_config({'threshold': 50}, plugin_name='peaks')
+ctx.set_config({'height_range': (0, None)}, plugin_name='basic_features')
 ```
 
 ### 6. 预览执行计划
@@ -168,7 +170,7 @@ exporter.export(data, 'output.npy')
 batch_export(
     ctx,
     run_ids=['run_001', 'run_002', 'run_003'],
-    data_name='peaks',
+    data_name='basic_features',
     output_dir='./exports',
     format='parquet',
     max_workers=4
@@ -206,7 +208,7 @@ reloader.disable_auto_reload()
 ctx = Context(enable_stats=True, stats_mode='detailed')
 
 # 执行操作
-peaks = ctx.get_data('run_001', 'peaks')
+basic_features = ctx.get_data('run_001', 'basic_features')
 df = ctx.get_data('run_001', 'dataframe')
 
 # 查看性能报告
@@ -283,14 +285,14 @@ python examples/streaming_plugins_demo.py
 
 ```python
 ctx.list_provided_data()
-# ['raw_files', 'waveforms', 'st_waveforms', 'peaks', 'charges', ...]
+# ['raw_files', 'waveforms', 'st_waveforms', 'basic_features', ...]
 ```
 
 ### Q2: 如何清除缓存？
 
 ```python
 # 清除特定数据的缓存
-ctx.clear_cache('run_001', 'peaks')
+ctx.clear_cache('run_001', 'basic_features')
 
 # 清除所有缓存
 import shutil
@@ -315,7 +317,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 # 使用预览模式
-ctx.preview_execution('run_001', 'peaks', verbose=2)
+ctx.preview_execution('run_001', 'basic_features', verbose=2)
 ```
 
 ### Q5: 数据文件找不到怎么办？
