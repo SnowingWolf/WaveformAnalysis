@@ -255,7 +255,7 @@ register_config("my_custom", {
 
 ## 集成到现有代码
 
-### 在 processor.py 中的使用
+### 在 event_grouping.py 中的使用
 
 ```python
 # 旧代码
@@ -265,7 +265,7 @@ with ProcessPoolExecutor(max_workers=n_processes) as executor:
 # 新代码（使用全局管理器）
 from waveform_analysis.core.execution import get_executor
 
-with get_executor("event_grouping", "process", max_workers=n_processes, reuse=True) as executor:
+with get_executor("event_grouping", "process", max_workers=en_processes, reuse=True) as executor:
     ...
 ```
 

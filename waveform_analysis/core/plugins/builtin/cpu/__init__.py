@@ -22,12 +22,11 @@ from .peak_finding import ADVANCED_PEAK_DTYPE, SignalPeaksPlugin
 from .events import EventFramePlugin, EventsGroupedPlugin, EventsPlugin
 from .records import RecordsPlugin
 from .standard import (
-    ChargesPlugin,
+    BasicFeaturesPlugin,
     DataFramePlugin,
     GroupedEventsPlugin,
     HitFinderPlugin,
     PairedEventsPlugin,
-    PeaksPlugin,
     RawFilesPlugin,
     StWaveformsPlugin,
     WaveformsPlugin,
@@ -45,8 +44,7 @@ standard_plugins = [
     WaveformsPlugin(),
     StWaveformsPlugin(),
     HitFinderPlugin(),
-    PeaksPlugin(),
-    ChargesPlugin(),
+    BasicFeaturesPlugin(),
     DataFramePlugin(),
     GroupedEventsPlugin(),
     PairedEventsPlugin(),
@@ -58,8 +56,7 @@ __all__ = [
     "WaveformsPlugin",
     "StWaveformsPlugin",
     "HitFinderPlugin",
-    "PeaksPlugin",
-    "ChargesPlugin",
+    "BasicFeaturesPlugin",
     "DataFramePlugin",
     "GroupedEventsPlugin",
     "PairedEventsPlugin",

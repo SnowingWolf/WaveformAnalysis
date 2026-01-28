@@ -58,7 +58,7 @@ ctx = Context(storage_dir="./cache")
 ctx.set_config({'daq_adapter': 'vx2730'})
 
 # 插件特定配置
-ctx.set_config({'threshold': 50}, plugin_name='peaks')
+ctx.set_config({'threshold': 50}, plugin_name='basic_features')
 ```
 
 ---
@@ -89,7 +89,7 @@ ctx.set_config({
 
 ```python
 # 方式 1: 使用 plugin_name 参数（推荐）
-ctx.set_config({'threshold': 50}, plugin_name='peaks')
+ctx.set_config({'threshold': 50}, plugin_name='basic_features')
 ctx.set_config({'filter_type': 'SG'}, plugin_name='filtered_waveforms')
 
 # 方式 2: 嵌套字典格式
@@ -300,7 +300,7 @@ ctx.set_config({
 
 ```python
 # ✅ 推荐：明确指定插件
-ctx.set_config({'threshold': 50}, plugin_name='peaks')
+ctx.set_config({'threshold': 50}, plugin_name='basic_features')
 
 # ⚠️ 不推荐：全局配置可能影响多个插件
 ctx.set_config({'threshold': 50})
@@ -335,11 +335,11 @@ data = ctx.get_data("run_001", "filtered_waveforms")
 
 ```python
 # 修改配置
-ctx.set_config({'threshold': 100}, plugin_name='peaks')
+ctx.set_config({'threshold': 100}, plugin_name='basic_features')
 
 # 清除相关缓存（配置变更会自动使缓存失效）
 # 但如果需要强制重新计算：
-ctx.clear_data("run_001", "peaks")
+ctx.clear_data("run_001", "basic_features")
 ```
 
 ---
@@ -372,7 +372,7 @@ if 'plugin_name' in ctx.config:
     del ctx.config['plugin_name']
 
 # 或者重新设置为默认值
-ctx.set_config({'threshold': 10}, plugin_name='peaks')  # 假设默认是 10
+ctx.set_config({'threshold': 10}, plugin_name='basic_features')  # 假设默认是 10
 ```
 
 ### Q3: 如何查看插件的默认值？
@@ -380,10 +380,10 @@ ctx.set_config({'threshold': 10}, plugin_name='peaks')  # 假设默认是 10
 **A**:
 ```python
 # 方式 1: 使用 list_plugin_configs
-ctx.list_plugin_configs(plugin_name='peaks')
+ctx.list_plugin_configs(plugin_name='basic_features')
 
 # 方式 2: 直接访问插件
-plugin = ctx._plugins['peaks']
+plugin = ctx._plugins['basic_features']
 for name, opt in plugin.options.items():
     print(f"{name}: {opt.default}")
 ```
@@ -393,10 +393,10 @@ for name, opt in plugin.options.items():
 **A**: 是的，配置是 lineage 的一部分。配置变更会导致缓存失效：
 ```python
 # 修改配置后，缓存自动失效
-ctx.set_config({'threshold': 100}, plugin_name='peaks')
+ctx.set_config({'threshold': 100}, plugin_name='basic_features')
 
 # 下次 get_data 会重新计算
-data = ctx.get_data("run_001", "peaks")  # 重新计算
+data = ctx.get_data("run_001", "basic_features")  # 重新计算
 ```
 
 ### Q5: 如何导出/保存配置？

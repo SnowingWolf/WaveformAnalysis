@@ -67,13 +67,14 @@ def main():
 
     # 3. 获取数据（自动触发依赖链）
     print(f"Processing run: {run_id}")
-    peaks = ctx.get_data('{run_id}', 'peaks')
-    print(f"Found {{len(peaks)}} peaks")
+    basic_features = ctx.get_data('{run_id}', 'basic_features')
+    heights = [ch['height'] for ch in basic_features]
+    print(f"Found {{len(heights)}} height arrays")
 
     # 4. 可视化血缘图（可选）
-    # ctx.plot_lineage('peaks', kind='labview')
+    # ctx.plot_lineage('basic_features', kind='labview')
 
-    return peaks
+    return heights
 
 if __name__ == '__main__':
     result = main()

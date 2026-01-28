@@ -15,7 +15,7 @@ from waveform_analysis.core.foundation.constants import FeatureDefaults
 from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin, WaveformsPlugin
 from waveform_analysis.core.plugins.core.streaming import StreamingPlugin, get_streaming_context
 from waveform_analysis.core.processing.chunk import Chunk, get_endtime
-from waveform_analysis.core.processing.processor import WaveformProcessor, WaveformStruct
+from waveform_analysis.core.processing.waveform_struct import WaveformStruct
 
 
 class StreamingStWaveformsPlugin(StreamingPlugin):
@@ -64,11 +64,11 @@ class StreamingStWaveformsPlugin(StreamingPlugin):
 
 
 class StreamingBasicFeaturesPlugin(StreamingPlugin):
-    """Compute peak and charge features from structured waveforms."""
+    """Compute height and area features from structured waveforms."""
 
     provides = "basic_features_stream"
     depends_on = ["st_waveforms_stream"]
-    description = "Stream basic features (peaks and charges) from structured waveforms"
+    description = "Stream basic features (height and area) from structured waveforms"
 
     def __init__(self) -> None:
         super().__init__()
@@ -79,28 +79,35 @@ class StreamingBasicFeaturesPlugin(StreamingPlugin):
         if len(chunk.data) == 0:
             return None
 
-        processor = WaveformProcessor(n_channels=1)
-        peaks, charges = processor.compute_basic_features(
-            [chunk.data],
-            self.peaks_range,
-            self.charge_range,
-        )
+        waves = chunk.data["wave"]
+        baselines = chunk.data["baseline"]
+        if waves.ndim != 2:
+            return None
+
+        start_p, end_p = self.peaks_range
+        start_c, end_c = self.charge_range
+
+        waves_p = waves[:, start_p:end_p]
+        height_vals = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
+
+        waves_c = waves[:, start_c:end_c]
+        area_vals = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
 
         feature_dtype = np.dtype(
             [
                 ("time", "<i8"),
-                ("peak", "<f4"),
-                ("charge", "<f4"),
+                ("height", "<f4"),
+                ("area", "<f4"),
             ]
         )
-        n_items = len(peaks[0])
+        n_items = len(height_vals)
         features = np.zeros(n_items, dtype=feature_dtype)
         if "time" in chunk.data.dtype.names:
             features["time"] = chunk.data["time"][:n_items]
         else:
             features["time"] = np.arange(n_items)
-        features["peak"] = peaks[0]
-        features["charge"] = charges[0]
+        features["height"] = height_vals
+        features["area"] = area_vals
 
         return Chunk(
             data=features,
@@ -112,7 +119,7 @@ class StreamingBasicFeaturesPlugin(StreamingPlugin):
 
 
 class StreamingFilterPlugin(StreamingPlugin):
-    """Filter chunks by charge range."""
+    """Filter chunks by area range."""
 
     provides = "filtered_stream"
     depends_on = ["basic_features_stream"]
@@ -120,16 +127,16 @@ class StreamingFilterPlugin(StreamingPlugin):
 
     def __init__(self) -> None:
         super().__init__()
-        self.min_charge = 0.0
-        self.max_charge = np.inf
+        self.min_area = 0.0
+        self.max_area = np.inf
 
     def compute_chunk(self, chunk: Chunk, context: Any, run_id: str, **kwargs) -> Chunk:
         if len(chunk.data) == 0:
             return None
 
-        if "charge" in chunk.data.dtype.names:
-            mask = (chunk.data["charge"] >= self.min_charge) & (
-                chunk.data["charge"] <= self.max_charge
+        if "area" in chunk.data.dtype.names:
+            mask = (chunk.data["area"] >= self.min_area) & (
+                chunk.data["area"] <= self.max_area
             )
             filtered_data = chunk.data[mask]
         else:

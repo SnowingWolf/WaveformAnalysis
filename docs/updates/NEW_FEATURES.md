@@ -49,13 +49,13 @@ ctx = Context(
 )
 
 # 正常使用Context
-data = ctx.get_data('run_001', 'peaks')
+data = ctx.get_data('run_001', 'basic_features')
 
 # 获取统计信息
 if ctx.stats_collector:
-    stats = ctx.stats_collector.get_statistics('peaks')
-    print(f"Cache hit rate: {stats['peaks'].cache_hit_rate():.1%}")
-    print(f"Average time: {stats['peaks'].mean_time:.3f}s")
+    stats = ctx.stats_collector.get_statistics('basic_features')
+    print(f"Cache hit rate: {stats['basic_features'].cache_hit_rate():.1%}")
+    print(f"Average time: {stats['basic_features'].mean_time:.3f}s")
 
     # 生成报告
     report = ctx.stats_collector.generate_report(format='text')
@@ -306,7 +306,7 @@ processor = BatchProcessor(ctx)
 # 批量处理多个run
 results = processor.process_runs(
     run_ids=['run_001', 'run_002', 'run_003'],
-    data_name='peaks',
+    data_name='basic_features',
     max_workers=4,        # 并行度
     show_progress=True,   # 显示进度
     on_error='continue'   # 错误处理: 'continue', 'stop', 'raise'
@@ -329,14 +329,15 @@ for run_id, error in results['errors'].items():
 def custom_process(ctx, run_id):
     """自定义处理逻辑"""
     # 获取数据
-    peaks = ctx.get_data(run_id, 'peaks')
+    basic_features = ctx.get_data(run_id, 'basic_features')
     hits = ctx.get_data(run_id, 'hits')
 
     # 自定义处理
+    areas = [ch['area'] for ch in basic_features]
     result = {
-        'n_peaks': len(peaks),
+        'n_heights': len(basic_features),
         'n_hits': len(hits),
-        'peak_areas': peaks['area'].sum(),
+        'total_area': sum(float(a.sum()) for a in areas),
     }
     return result
 
@@ -350,7 +351,7 @@ results = processor.process_func(
 
 # 结果是字典
 for run_id, result in results.items():
-    print(f"{run_id}: {result['n_peaks']} peaks, {result['n_hits']} hits")
+    print(f"{run_id}: {result['n_heights']} heights, {result['n_hits']} hits")
 ```
 
 #### 串行 vs 并行
@@ -358,14 +359,14 @@ for run_id, result in results.items():
 # 串行处理（调试时有用）
 results_serial = processor.process_runs(
     run_ids=run_ids,
-    data_name='peaks',
+    data_name='basic_features',
     max_workers=1  # 串行
 )
 
 # 并行处理（生产环境）
 results_parallel = processor.process_runs(
     run_ids=run_ids,
-    data_name='peaks',
+    data_name='basic_features',
     max_workers=None  # 使用默认线程数
 )
 ```
@@ -441,16 +442,16 @@ from waveform_analysis.core.data import batch_export
 batch_export(
     ctx,
     run_ids=['run_001', 'run_002', 'run_003'],
-    data_name='peaks',
+    data_name='basic_features',
     output_dir='./exports',
     format='parquet',
     max_workers=4
 )
 
 # 输出文件:
-# ./exports/run_001_peaks.parquet
-# ./exports/run_002_peaks.parquet
-# ./exports/run_003_peaks.parquet
+# ./exports/run_001_basic_features.parquet
+# ./exports/run_002_basic_features.parquet
+# ./exports/run_003_basic_features.parquet
 ```
 
 #### 完整工作流
@@ -464,14 +465,14 @@ exporter = DataExporter()
 
 # 1. 批量处理
 run_ids = ['run_001', 'run_002', 'run_003']
-results = processor.process_runs(run_ids, 'peaks', max_workers=4)
+results = processor.process_runs(run_ids, 'basic_features', max_workers=4)
 
 # 2. 导出每个结果
 import os
 os.makedirs('./exports', exist_ok=True)
 
 for run_id, data in results['results'].items():
-    output_path = f'./exports/{run_id}_peaks.parquet'
+    output_path = f'./exports/{run_id}_basic_features.parquet'
     exporter.export(data, output_path)
     print(f"Exported {run_id} to {output_path}")
 ```

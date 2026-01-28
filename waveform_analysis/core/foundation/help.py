@@ -120,7 +120,7 @@ class HelpSystem:
   ctx = Context(storage_dir='./data')
   ctx.register(standard_plugins)
   ctx.set_config({'n_channels': 2})
-  data = ctx.get_data('run_001', 'peaks')
+  data = ctx.get_data('run_001', 'basic_features')
 ────────────────────────────────────────────────────────────────────────────────
 
 📖 帮助主题
@@ -242,7 +242,7 @@ class PluginHelp:
 
 📦 常用插件命令:
   ctx.list_provided_data()             # 查看可用数据类型
-  ctx.plot_lineage('peaks')            # 可视化依赖关系
+  ctx.plot_lineage('basic_features')   # 可视化依赖关系
   ctx.register(plugin)                 # 注册插件
 
 如需帮助，请参考 CLAUDE.md 文件。

@@ -101,7 +101,7 @@
     - **内置支持**: VX2730 (CAEN) 数字化仪格式。
 
 ### 2.8 数据处理层 (Data Processing Layer)
-- **`WaveformStruct`** (`core/processing/processor.py`): 波形结构化处理器，已解耦 DAQ 格式依赖。
+- **`WaveformStruct`** (`core/processing/waveform_struct.py`): 波形结构化处理器，已解耦 DAQ 格式依赖。
     - **配置驱动**: 通过 `WaveformStructConfig` 配置类指定 DAQ 格式。
     - **动态 dtype**: 根据实际波形长度动态创建 `RECORD_DTYPE`。
     - **列映射**: 从 `FormatSpec` 读取列索引（board, channel, timestamp, samples_start, baseline_start/end）。
@@ -114,8 +114,9 @@
     - **格式规范**: 封装 `FormatSpec` 和波形长度配置。
     - **工厂方法**: `default_vx2730()`, `from_adapter(adapter_name)`。
     - **优先级**: wave_length > format_spec.expected_samples > DEFAULT_WAVE_LENGTH。
-- **`WaveformProcessor` / `EventAnalyzer`**:
-    - `WaveformProcessor` 计算 peaks/charges 并构建 DataFrame。
+- **特征计算与事件分析**:
+    - 基础特征由 `BasicFeaturesPlugin` 计算（height/area）。
+    - `DataFramePlugin` 拼接 DataFrame。
     - `EventAnalyzer` 负责多通道事件分组与配对（Numba/多进程可选）。
 - **Records + WavePool** (`core/processing/records_builder.py`):
     - 构建 `RecordsBundle(records, wave_pool)` 以支持变长波形的连续存储。
@@ -197,26 +198,21 @@
    - `provides`: `filtered_waveforms`
    - `depends_on`: `["st_waveforms"]`
 
-5. **`PeaksPlugin`**: 提供峰值数据
-   - `provides`: `peaks`
+5. **`BasicFeaturesPlugin`**: 提供高度/面积数据
+   - `provides`: `basic_features`
    - `depends_on`: `["st_waveforms"]`
    - 可选依赖 `filtered_waveforms`（`use_filtered=True`）
 
-6. **`ChargesPlugin`**: 提供电荷数据
-   - `provides`: `charges`
-   - `depends_on`: `["st_waveforms"]`
-   - 可选依赖 `filtered_waveforms`（`use_filtered=True`）
-
-7. **`DataFramePlugin`**: 构建单通道事件 DataFrame
+6. **`DataFramePlugin`**: 构建单通道事件 DataFrame
    - `provides`: `df`
-   - `depends_on`: `["st_waveforms", "peaks", "charges"]`
+   - `depends_on`: `["st_waveforms", "basic_features"]`
 
-8. **`GroupedEventsPlugin`**: 按时间窗口聚类多通道事件
+7. **`GroupedEventsPlugin`**: 按时间窗口聚类多通道事件
    - `provides`: `df_events`
    - `depends_on`: `["df"]`
    - 支持 Numba 加速和多进程并行
 
-9. **`PairedEventsPlugin`**: 跨通道配对事件
+8. **`PairedEventsPlugin`**: 跨通道配对事件
    - `provides`: `df_paired`
    - `depends_on`: `["df_events"]`
 
@@ -232,13 +228,10 @@ graph TD
     B -->|WaveformsPlugin| C(waveforms: 原始波形数组)
     C -->|StWaveformsPlugin| D(st_waveforms: 结构化波形)
     D -->|FilteredWaveformsPlugin| E(filtered_waveforms: 滤波波形)
-    D -->|PeaksPlugin| F(peaks: 峰值数组)
-    D -->|ChargesPlugin| G(charges: 电荷数组)
-    E -.->|PeaksPlugin(use_filtered)| F
-    E -.->|ChargesPlugin(use_filtered)| G
+    D -->|BasicFeaturesPlugin| F(basic_features: height/area)
+    E -.->|BasicFeaturesPlugin(use_filtered)| F
     D -->|DataFramePlugin| H(df: 单通道事件 DataFrame)
     F -->|DataFramePlugin| H
-    G -->|DataFramePlugin| H
     H -->|GroupedEventsPlugin<br/>Numba + Multiprocessing| I(df_events: 聚类事件 DataFrame)
     I -->|PairedEventsPlugin| J(df_paired: 配对事件 DataFrame)
     D -->|HitFinderPlugin| K(hits: Hit 列表)
@@ -259,7 +252,7 @@ graph TD
     - `storage/`: memmap 缓存、压缩、完整性、缓存工具
     - `execution/`: 执行器管理与超时控制
     - `plugins/`: 插件核心设施与内置插件（CPU/JAX/Streaming/Legacy）
-    - `processing/`: loader/processor/analyzer/chunk/records_builder
+    - `processing/`: loader/event_grouping/waveform_struct/analyzer/chunk/records_builder
     - `data/`: query/batch_processor/export/dependency_analysis/records_view
     - `foundation/`: exceptions/model/utils/progress/constants 等基础能力
 - `waveform_analysis/utils/`: 通用工具

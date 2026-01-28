@@ -215,7 +215,7 @@ RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin → EventsPlugin → Ev
 
 输出：
 - `events`: 结构化事件索引表
-- `events_df`: 事件 DataFrame（timestamp/charge/peak/channel）
+- `events_df`: 事件 DataFrame（timestamp/area/height/channel）
 
 插件说明（records 管线）：
 - `RecordsPlugin` → `records`（依赖 `raw_files`）
@@ -224,7 +224,7 @@ RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin → EventsPlugin → Ev
 - `EventsPlugin` → `events`（依赖 `raw_files`；内部 bundle + wave_pool）
   - 关键配置：`events_part_size`, `events_dt_ns`
 - `EventFramePlugin` → `events_df`（依赖 `events`）
-  - 关键配置：`peaks_range`, `charge_range`, `include_event_id`
+  - 关键配置：`height_range`, `area_range`, `include_event_id`
 - `EventsGroupedPlugin` → `events_grouped`（依赖 `events_df`）
   - 关键配置：`time_window_ns`, `use_numba`, `n_processes`
 
@@ -233,7 +233,7 @@ RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin → EventsPlugin → Ev
 沿用当前稳定链路：
 
 ```
-RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin → PeaksPlugin → ChargesPlugin
+RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin → BasicFeaturesPlugin
              → DataFramePlugin → GroupedEventsPlugin → PairedEventsPlugin
 ```
 

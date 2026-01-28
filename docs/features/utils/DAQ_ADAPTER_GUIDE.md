@@ -194,7 +194,7 @@ data = adapter.load_channel("DAQ", "run_001", channel=0, show_progress=True)
 
 # 生成器模式加载（内存优化）
 for chunk in adapter.load_channel_generator("DAQ", "run_001", channel=0, chunk_size=10):
-    process_chunk(chunk)
+    handle_chunk(chunk)
 
 # 提取列并转换时间戳
 extracted = adapter.extract_and_convert(data)

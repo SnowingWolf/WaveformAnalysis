@@ -26,11 +26,8 @@ from .core.plugins.core.streaming import (
     StreamingPlugin,
     get_streaming_context,
 )
-from .core.processing.processor import (
-    WaveformStruct,
-    build_waveform_df,
-    group_multi_channel_hits,
-)
+from .core.processing.event_grouping import group_multi_channel_hits
+from .core.processing.waveform_struct import WaveformStruct
 from .core.storage import (
     CacheManager,
     CompressionManager,
@@ -49,7 +46,6 @@ __all__ = [
     "PluginError",
     "ErrorContext",
     "WaveformStruct",
-    "build_waveform_df",
     "group_multi_channel_hits",
     "DAQRun",
     "DAQAnalyzer",

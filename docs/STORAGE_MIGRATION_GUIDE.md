@@ -223,7 +223,7 @@ storage.save_memmap("key", data, run_id=DEFAULT_RUN_ID)
 ```python
 ctx = Context(config={"data_root": "DAQ"})
 # run_id 会自动从 get_data 调用中传递给存储层
-data = ctx.get_data("run_001", "peaks")
+data = ctx.get_data("run_001", "basic_features")
 ```
 
 ## 兼容性说明
