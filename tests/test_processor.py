@@ -8,7 +8,8 @@ import pandas as pd
 import pytest
 
 from waveform_analysis.core.processing.event_grouping import group_multi_channel_hits
-from waveform_analysis.core.processing.waveform_struct import ST_WAVEFORM_DTYPE, WaveformStruct
+from waveform_analysis.core.processing.dtypes import ST_WAVEFORM_DTYPE
+from waveform_analysis.core.plugins.builtin.cpu.waveforms import WaveformStruct
 
 
 class TestWaveformStruct:
