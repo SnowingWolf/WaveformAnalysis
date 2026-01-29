@@ -1,4 +1,4 @@
-**导航**: [文档中心](../../README.md) > [plugins](../README.md) > [builtin](README.md) > 电荷计算方法对比
+**导航**: [文档中心](../../README.md) > [插件详解](../README.md) > [builtin](README.md) > 电荷计算方法对比
 
 # 电荷计算方法对比
 

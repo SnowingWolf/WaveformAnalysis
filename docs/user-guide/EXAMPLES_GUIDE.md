@@ -2,23 +2,12 @@
 
 **导航**: [文档中心](../README.md) > [用户指南](README.md) > 常见场景示例
 
-
-本文档汇集常见的使用场景和代码示例。
-
----
-
-## 📋 目录
-
-1. [基础操作示例](#基础操作示例)
-2. [高级场景示例](#高级场景示例)
-3. [完整示例程序](#完整示例程序)
-4. [常见问题](#常见问题)
-
----
+本文档汇集常见使用场景与代码示例，覆盖基础流程、配置管理、可视化与高级功能。
+示例以 CPU 内置插件为主，运行前请按需替换 `run_001` 和数据路径。
 
 ## 基础操作示例
 
-### 1. 基础分析流程
+### 基础分析流程
 
 ```python
 from waveform_analysis.core.context import Context
@@ -29,38 +18,49 @@ ctx = Context(storage_dir='./strax_data')
 ctx.register(standard_plugins)
 ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 
-# 获取数据
+# 计算与读取
 basic_features = ctx.get_data('run_001', 'basic_features')
 heights = [ch['height'] for ch in basic_features]
 areas = [ch['area'] for ch in basic_features]
 print(f"Found {len(heights)} height arrays")
 ```
 
-### 2. 时间范围查询
-
-查询特定时间范围内的数据：
+### 配置管理
 
 ```python
-# 使用时间范围查询（默认 time 字段，ns）
-data = ctx.get_data_time_range(
-    'run_001',
-    'st_waveforms',
-    start_time=1000000,  # 起始时间（ns）
-    end_time=2000000     # 结束时间（ns）
-)
-print(f"Found {len(data)} events in time range")
+# 查看可用配置项
+ctx.list_plugin_configs()
+ctx.list_plugin_configs('waveforms')  # 特定插件
 
-# 预构建索引以提高性能（如需按 timestamp 查询，显式指定 time_field='timestamp'）
-ctx.build_time_index('run_001', 'st_waveforms', endtime_field='computed')
+# 查看当前配置
+ctx.show_config()
+ctx.show_config('waveforms')
 
-# 获取索引统计
-stats = ctx.get_time_index_stats()
-print(f"Total indices: {stats['total_indices']}")
+# 设置配置（全局）
+ctx.set_config({'daq_adapter': 'vx2730', 'threshold': 50})
+
+# 插件特定配置（推荐，避免冲突）
+ctx.set_config({'height_range': (0, None)}, plugin_name='basic_features')
 ```
 
-### 3. 血缘可视化
+### 预览执行计划
 
-可视化数据处理流程：
+```python
+# 预览执行计划
+ctx.preview_execution('run_001', 'signal_peaks')
+
+# 不同详细程度
+ctx.preview_execution('run_001', 'signal_peaks', verbose=0)  # 简洁
+ctx.preview_execution('run_001', 'signal_peaks', verbose=1)  # 标准
+ctx.preview_execution('run_001', 'signal_peaks', verbose=2)  # 详细
+
+# 程序化使用
+result = ctx.preview_execution('run_001', 'signal_peaks')
+needs_compute = [p for p, s in result['cache_status'].items() if s['needs_compute']]
+print(f"需要计算 {len(needs_compute)} 个插件")
+```
+
+### 血缘可视化
 
 ```python
 # LabVIEW 风格（Matplotlib）
@@ -78,58 +78,11 @@ style = LineageStyle(node_width=4.0, node_height=2.0, verbose=2)
 ctx.plot_lineage('df_paired', kind='plotly', style=style)
 ```
 
-### 4. 配置管理
-
-```python
-# 查看可用配置选项
-ctx.list_plugin_configs()
-ctx.list_plugin_configs('waveforms')  # 特定插件
-
-# 查看当前配置
-ctx.show_config()
-ctx.show_config('waveforms')
-
-# 设置配置
-ctx.set_config({'daq_adapter': 'vx2730', 'threshold': 50})
-
-# 插件特定配置（推荐，避免冲突）
-ctx.set_config({'height_range': (0, None)}, plugin_name='basic_features')
-```
-
-### 6. 预览执行计划
-
-在执行前预览：
-
-```python
-# 预览执行计划
-ctx.preview_execution('run_001', 'signal_peaks')
-
-# 输出包含:
-# - 执行计划（插件执行顺序）
-# - 依赖关系树
-# - 自定义配置参数
-# - 缓存状态
-
-# 不同详细程度
-ctx.preview_execution('run_001', 'signal_peaks', verbose=0)  # 简洁
-ctx.preview_execution('run_001', 'signal_peaks', verbose=1)  # 标准
-ctx.preview_execution('run_001', 'signal_peaks', verbose=2)  # 详细
-
-# 程序化使用
-result = ctx.preview_execution('run_001', 'signal_peaks')
-needs_compute = [p for p, s in result['cache_status'].items() if s['needs_compute']]
-print(f"需要计算 {len(needs_compute)} 个插件")
-pruned = [p for p, s in result['cache_status'].items() if s.get('pruned')]
-print(f"缓存剪枝 {len(pruned)} 个插件")
-```
-
----
-
 ## 高级场景示例
 
-### 1. Strax 插件集成
+以下示例假设已完成基础初始化并获得 `ctx`。
 
-将现有的 Strax 插件集成到 WaveformAnalysis：
+### Strax 插件集成
 
 ```python
 from waveform_analysis.core.plugins.core.adapters import (
@@ -151,12 +104,13 @@ df = strax_ctx.get_df('run_001', ['peaks', 'hits'])
 strax_ctx.search_field('time')
 ```
 
-### 2. 批量导出数据
-
-导出到多种格式：
+### 批量导出数据
 
 ```python
 from waveform_analysis.core.data.export import DataExporter, batch_export
+
+# 获取待导出的数据
+data = ctx.get_data('run_001', 'basic_features')
 
 # 单个数据集导出
 exporter = DataExporter()
@@ -177,9 +131,7 @@ batch_export(
 )
 ```
 
-### 3. 热重载插件（开发模式）
-
-开发时自动重载插件：
+### 热重载插件（开发模式）
 
 ```python
 from waveform_analysis.core.plugins.core.hot_reload import enable_hot_reload
@@ -199,11 +151,11 @@ reloader.reload_plugin('my_plugin', clear_cache=True)
 reloader.disable_auto_reload()
 ```
 
-### 4. 性能分析
-
-启用性能统计：
+### 性能分析
 
 ```python
+from waveform_analysis.core.context import Context
+
 # 启用统计收集
 ctx = Context(stats_mode='detailed')
 
@@ -220,9 +172,7 @@ for plugin_name, plugin_stats in stats.items():
     print(f"{plugin_name}: {plugin_stats['total_time']:.2f}s")
 ```
 
-### 5. 信号处理
-
-使用信号处理插件：
+### 信号处理
 
 ```python
 from waveform_analysis.core.plugins.builtin.cpu import (
@@ -230,6 +180,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     SignalPeaksPlugin,
 )
 
+# 假设 ctx 已初始化并注册基础插件
 # 注册信号处理插件
 ctx.register(FilteredWaveformsPlugin())
 ctx.register(SignalPeaksPlugin())
@@ -254,11 +205,9 @@ filtered = ctx.get_data('run_001', 'filtered_waveforms')
 peaks = ctx.get_data('run_001', 'signal_peaks')
 ```
 
----
-
 ## 完整示例程序
 
-项目 `examples/` 目录包含更多完整示例：
+项目 `examples/` 目录包含更多完整示例（部分示例需要 DAQ 数据支持）：
 
 | 文件 | 说明 |
 |------|------|
@@ -267,17 +216,12 @@ peaks = ctx.get_data('run_001', 'signal_peaks')
 | `examples/streaming_plugins_demo.py` | 流式插件演示 |
 | `examples/preview_quickstart.md` | 预览工具快速指南 |
 
-### 运行示例
+运行示例：
 
 ```bash
-# 配置管理示例
 python examples/config_management_example.py
-
-# 流式插件演示
 python examples/streaming_plugins_demo.py
 ```
-
----
 
 ## 常见问题
 
@@ -294,7 +238,7 @@ ctx.list_provided_data()
 # 清除特定数据的缓存
 ctx.clear_cache('run_001', 'basic_features')
 
-# 清除所有缓存
+# 清除所有缓存（注意：会删除已缓存结果）
 import shutil
 shutil.rmtree('./strax_data')
 ```
@@ -322,8 +266,6 @@ ctx.preview_execution('run_001', 'basic_features', verbose=2)
 
 ### Q5: 数据文件找不到怎么办？
 
-检查以下设置：
-
 ```python
 # 确认 data_root 配置正确
 ctx.show_config()
@@ -332,18 +274,9 @@ ctx.show_config()
 # 确保目录结构正确
 ```
 
----
-
-## 🔗 相关资源
+## 相关资源
 
 - [快速开始](QUICKSTART_GUIDE.md) - 入门教程
 - [配置管理](../features/context/CONFIGURATION.md) - 详细配置说明
 - [插件教程](../features/plugin/SIMPLE_PLUGIN_GUIDE.md) - 自定义插件开发
 - [API 参考](../api/README.md) - API 文档
-
----
-
-**快速链接**:
-[快速开始](QUICKSTART_GUIDE.md) |
-[配置管理](../features/context/CONFIGURATION.md) |
-[血缘可视化](../features/context/LINEAGE_VISUALIZATION_GUIDE.md)

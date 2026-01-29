@@ -12,28 +12,15 @@ from typing import List, Sequence, Tuple
 import numpy as np
 
 from waveform_analysis.core.foundation.utils import exporter
+from waveform_analysis.core.processing.dtypes import (
+    EVENTS_DTYPE as _EVENTS_DTYPE,
+    RECORDS_DTYPE as _RECORDS_DTYPE,
+)
 
 export, __all__ = exporter()
 
-RECORDS_DTYPE = export(
-    np.dtype(
-        [
-            ("timestamp", "i8"),    # ADC timestamp (ps)
-            ("pid", "i4"),          # partition id (tie-breaker)
-            ("channel", "i2"),      # physical channel
-            ("baseline", "f8"),     # baseline (match st_waveforms)
-            ("event_id", "i8"),     # sequential id after sorting
-            ("dt", "i4"),           # sample interval (ns, aligned to time)
-            ("trigger_type", "i2"), # trigger type code
-            ("flags", "u4"),        # bit flags
-            ("wave_offset", "i8"),  # index in wave_pool
-            ("event_length", "i4"), # waveform length in samples
-            ("time", "i8"),         # system time (ns, optional semantics)
-        ]
-    ),
-    name="RECORDS_DTYPE",
-)
-EVENTS_DTYPE = export(RECORDS_DTYPE, name="EVENTS_DTYPE")
+RECORDS_DTYPE = export(_RECORDS_DTYPE, name="RECORDS_DTYPE")
+EVENTS_DTYPE = export(_EVENTS_DTYPE, name="EVENTS_DTYPE")
 
 
 @export
@@ -71,6 +58,7 @@ def _build_records_from_wave_list(
         records["pid"][i] = 0
         records["channel"][i] = channel
         records["baseline"][i] = baseline
+        records["baseline_upstream"][i] = np.nan
         records["dt"][i] = np.int32(default_dt_ns)
         records["trigger_type"][i] = 0
         records["flags"][i] = np.uint32(flags)
@@ -141,6 +129,11 @@ def _build_records_from_channels(
             records["baseline"][cursor:cursor + count] = ch["baseline"]
         else:
             records["baseline"][cursor:cursor + count] = 0.0
+
+        if "baseline_upstream" in ch.dtype.names:
+            records["baseline_upstream"][cursor:cursor + count] = ch["baseline_upstream"]
+        else:
+            records["baseline_upstream"][cursor:cursor + count] = np.nan
 
         if "event_length" in ch.dtype.names:
             lengths = ch["event_length"].astype(np.int64, copy=False)

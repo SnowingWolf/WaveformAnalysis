@@ -6,8 +6,6 @@
 
 本文档介绍如何使用流式处理框架，将 Chunk、Plugin 和 ExecutorManager 结合起来，实现类似 strax 的流式数据处理。
 
----
-
 ## 概述
 
 流式处理框架的核心思想：
@@ -18,7 +16,7 @@
 
 ## 核心组件
 
-### 1. StreamingPlugin
+### StreamingPlugin
 
 `StreamingPlugin` 是支持流式处理的插件基类。与普通 `Plugin` 的区别：
 
@@ -31,8 +29,6 @@
 - `time_field` 默认使用 `timestamp`（ps）
 - 断点阈值使用 `break_threshold_ps`（ps）
 
-**基本用法**：
-
 ```python
 from waveform_analysis.core.plugins.core.streaming import StreamingPlugin
 from waveform_analysis.core.processing.chunk import Chunk
@@ -40,23 +36,10 @@ from waveform_analysis.core.processing.chunk import Chunk
 class MyStreamingPlugin(StreamingPlugin):
     provides = "my_stream"
     depends_on = ["input_stream"]
-    
+
     def compute_chunk(self, chunk: Chunk, context, run_id, **kwargs) -> Chunk:
-        """
-        处理单个 chunk。
-        
-        Args:
-            chunk: 输入 chunk
-            context: Context 对象
-            run_id: 运行 ID
-            
-        Returns:
-            处理后的 chunk
-        """
-        # 处理逻辑
+        """处理单个 chunk"""
         processed_data = process_data(chunk.data)
-        
-        # 返回新 chunk（保持时间边界）
         return Chunk(
             data=processed_data,
             start=chunk.start,
@@ -66,7 +49,7 @@ class MyStreamingPlugin(StreamingPlugin):
         )
 ```
 
-### 2. StreamingContext
+### StreamingContext
 
 `StreamingContext` 是流式处理的上下文管理器，提供：
 
@@ -75,51 +58,39 @@ class MyStreamingPlugin(StreamingPlugin):
 - 合并多个流：`merge_stream()`
 - 时间范围过滤：自动裁剪 chunk 到指定时间范围
 
-**基本用法**：
-
 ```python
 from waveform_analysis.core.plugins.core.streaming import get_streaming_context
 
-# 创建流式处理上下文
 stream_ctx = get_streaming_context(
-    context=ctx,  # 原始 Context 对象
+    context=ctx,
     run_id="my_run",
     streaming_config={
-        "chunk_size": 50000,  # 默认 chunk 大小
-        "parallel": True,  # 启用并行处理
+        "chunk_size": 50000,
+        "parallel": True,
         "executor_config": "io_intensive",
     },
 )
 
-# 获取数据流
 for chunk in stream_ctx.get_stream("my_stream"):
     print(f"Processing chunk: {chunk.start} - {chunk.end}, {len(chunk)} records")
-    # 处理 chunk...
 ```
 
-### 3. 并行处理配置
-
-`StreamingPlugin` 支持自动并行处理：
+### 并行处理配置
 
 ```python
 class MyParallelPlugin(StreamingPlugin):
-    # 配置并行处理
-    parallel = True  # 启用并行
-    executor_type = "process"  # 使用进程池（CPU 密集型）或 "thread"（IO 密集型）
-    max_workers = 4  # 最大工作线程/进程数
-    chunk_size = 50000  # chunk 大小
+    parallel = True              # 启用并行
+    executor_type = "process"    # 使用进程池（CPU 密集型）或 "thread"（IO 密集型）
+    max_workers = 4              # 最大工作线程/进程数
+    chunk_size = 50000           # chunk 大小
 ```
 
-### 4. 高级配置
+高级配置选项：
+- `streaming_config`: 统一配置流式参数
+- `executor_config`: 运行时覆盖执行器配置
+- `use_load_balancer`: 动态负载均衡
 
-- `streaming_config`: 统一配置流式参数（如 `chunk_size`, `parallel`, `executor_type`,
-  `max_workers`, `executor_config`, `break_threshold_ps`, `required_halo_ns`, `clip_strict`）。
-- `executor_config`: 运行时覆盖执行器配置（例如 `executor_type`, `max_workers`, `reuse`）。
-- `parallel_batch_size`: 并行批处理大小（默认自动按 worker 估算）。
-- `use_load_balancer`/`load_balancer_config`: 动态负载均衡（可配置 `worker_buckets` 进行 worker 数量量化）。
-- `executor_type="process"` 需要插件、Context、kwargs 可 pickle，否则会自动回退到线程池并告警。
-
-## 完整示例
+## 使用示例
 
 ### 示例 1：流式特征提取
 
@@ -131,51 +102,29 @@ import numpy as np
 class StreamingFeaturesPlugin(StreamingPlugin):
     provides = "features_stream"
     depends_on = ["st_waveforms_stream"]
-    
+
     def __init__(self):
         super().__init__()
         self.height_range = (40, 90)
-        self.area_range = (0, None)
-    
+
     def compute_chunk(self, chunk: Chunk, context, run_id, **kwargs) -> Chunk:
-        """从结构化波形计算特征"""
         if len(chunk.data) == 0:
             return None
-        
+
         waves = chunk.data["wave"]
         baselines = chunk.data["baseline"]
-        if waves.ndim != 2:
-            return None
 
-        start_p, end_p = self.height_range
-        start_c, end_c = self.area_range
+        heights = np.max(waves[:, 40:90], axis=1) - np.min(waves[:, 40:90], axis=1)
+        areas = np.sum(baselines[:, np.newaxis] - waves, axis=1)
 
-        waves_p = waves[:, start_p:end_p]
-        heights = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
-
-        waves_c = waves[:, start_c:end_c]
-        areas = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
-        
-        # 创建特征数组
-        feature_dtype = np.dtype([
-            ("time", "<i8"),
-            ("peak", "<f4"),
-            ("charge", "<f4"),
-        ])
-        
-        n = len(heights)
-        features = np.zeros(n, dtype=feature_dtype)
-        features["time"] = chunk.data["time"][:n]
+        feature_dtype = np.dtype([("time", "<i8"), ("peak", "<f4"), ("charge", "<f4")])
+        features = np.zeros(len(heights), dtype=feature_dtype)
+        features["time"] = chunk.data["time"][:len(heights)]
         features["peak"] = heights
         features["charge"] = areas
-        
-        return Chunk(
-            data=features,
-            start=chunk.start,
-            end=chunk.end,
-            run_id=run_id,
-            data_type=self.provides,
-        )
+
+        return Chunk(data=features, start=chunk.start, end=chunk.end,
+                     run_id=run_id, data_type=self.provides)
 
 # 使用
 ctx.register(StreamingFeaturesPlugin())
@@ -185,29 +134,20 @@ for chunk in stream_ctx.get_stream("features_stream"):
     print(f"Chunk: {chunk.start}-{chunk.end}, {len(chunk)} features")
 ```
 
-### 示例 2：时间范围过滤
+### 示例 2：时间范围过滤与流合并
 
 ```python
 # 只处理特定时间范围的数据
-time_range = (1_000_000_000_000, 2_000_000_000_000)  # ps（默认 timestamp）
-
+time_range = (1_000_000_000_000, 2_000_000_000_000)  # ps
 for chunk in stream_ctx.get_stream("features_stream", time_range=time_range):
-    # chunk 已自动裁剪到时间范围
     handle_chunk(chunk)
-```
 
-### 示例 3：合并多个流
-
-```python
-# 获取多个数据流
+# 合并多个流
 stream1 = stream_ctx.get_stream("stream1")
 stream2 = stream_ctx.get_stream("stream2")
-
-# 合并流
 merged = stream_ctx.merge_stream([stream1, stream2], sort=True)
 
 for chunk in merged:
-    # 处理合并后的数据
     handle_chunk(chunk)
 ```
 
@@ -215,27 +155,19 @@ for chunk in merged:
 
 ### 将普通插件转换为流式插件
 
-普通插件返回静态数据，流式插件返回 chunk 流。转换步骤：
+1. 继承 `StreamingPlugin`
+2. 重写 `compute_chunk()` 方法
+3. 注册插件
 
-1. **继承 `StreamingPlugin`**：
-   ```python
-   class MyStreamingPlugin(StreamingPlugin):
-       provides = "my_stream"
-       depends_on = ["input_data"]
-   ```
+```python
+class MyStreamingPlugin(StreamingPlugin):
+    provides = "my_stream"
+    depends_on = ["input_data"]
 
-2. **重写 `compute_chunk()`**：
-   ```python
-   def compute_chunk(self, chunk: Chunk, context, run_id, **kwargs) -> Chunk:
-       # 处理单个 chunk
-       processed = process(chunk.data)
-       return Chunk(data=processed, start=chunk.start, end=chunk.end, ...)
-   ```
-
-3. **注册插件**：
-   ```python
-   ctx.register(MyStreamingPlugin())
-   ```
+    def compute_chunk(self, chunk: Chunk, context, run_id, **kwargs) -> Chunk:
+        processed = process(chunk.data)
+        return Chunk(data=processed, start=chunk.start, end=chunk.end, ...)
+```
 
 ### 混合使用静态和流式插件
 
@@ -243,33 +175,15 @@ for chunk in merged:
 - 流式插件可以依赖静态数据（自动转换为 chunk 流）
 - 静态插件可以依赖流式数据（需要先合并流）
 
-```python
-# 流式插件依赖静态数据
-class StreamFromStatic(StreamingPlugin):
-    depends_on = ["static_data"]  # 静态数据会自动转换为流
-
-# 静态插件依赖流式数据（需要先获取完整数据）
-class StaticFromStream(Plugin):
-    depends_on = ["stream_data"]  # 需要先合并流
-```
-
 ## 性能优化
 
-### 1. 选择合适的 chunk 大小
+### 选择合适的 chunk 大小
 
 - **小 chunk**：内存占用低，但并行开销大
 - **大 chunk**：并行效率高，但内存占用大
 - **推荐**：根据数据特征调整，通常 10K-100K 记录
 
-```python
-stream_ctx = get_streaming_context(
-    context=ctx,
-    run_id="my_run",
-    streaming_config={"chunk_size": 50000},
-)
-```
-
-### 2. 并行处理配置
+### 并行处理配置
 
 - **IO 密集型**：使用 `executor_type="thread"`
 - **CPU 密集型**：使用 `executor_type="process"`
@@ -280,21 +194,11 @@ stream_ctx = get_streaming_context(
     context=ctx,
     run_id="my_run",
     streaming_config={
-        "executor_type": "process",  # CPU 密集型
-        "max_workers": 8,  # 8 个进程
+        "chunk_size": 50000,
+        "executor_type": "process",
+        "max_workers": 8,
     },
 )
-```
-
-### 3. 时间范围过滤
-
-在处理大数据集时，使用时间范围过滤可以显著减少处理量：
-
-```python
-# 只处理感兴趣的时间范围
-time_range = (start_time, end_time)  # 单位与 time_field 一致（默认 timestamp ps）
-for chunk in stream_ctx.get_stream("data", time_range=time_range):
-    process(chunk)
 ```
 
 ## 最佳实践
@@ -316,17 +220,9 @@ for chunk in stream_ctx.get_stream("data", time_range=time_range):
 | 缓存 | 支持 | 支持（通过 Context） |
 | 执行器管理 | 内置 | ExecutorManager |
 
-## 总结
+## 相关文档
 
-流式处理框架提供了：
-- ✅ 类似 strax 的流式处理体验
-- ✅ 自动并行化和资源管理
-- ✅ 时间边界对齐和验证
-- ✅ 与现有插件系统无缝集成
-- ✅ 灵活的执行器配置
-
-通过使用流式处理框架，可以：
-- 降低内存占用（数据以 chunk 形式流动）
-- 提高处理效率（自动并行化）
-- 简化代码（自动处理时间边界）
-- 提高可维护性（清晰的插件接口）
+- [信号处理插件](SIGNAL_PROCESSING_PLUGINS.md)
+- [插件开发指南](../../development/plugin-development/README.md)
+- [ExecutorManager 指南](../advanced/EXECUTOR_MANAGER_GUIDE.md)
+- [架构文档](../../architecture/ARCHITECTURE.md)

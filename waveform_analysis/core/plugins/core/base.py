@@ -39,6 +39,23 @@ except ImportError:
 class Option:
     """
     A configuration option for a plugin.
+
+    支持类型验证、单位转换、范围约束、弃用警告等功能。
+
+    Attributes:
+        default: 默认值
+        type: 期望的类型
+        help: 帮助文本
+        validate: 自定义验证函数
+        track: 是否追踪用于 lineage
+        unit: 用户输入单位（如 "ns", "ps", "Hz"）
+        internal_unit: 内部存储单位（用于自动转换）
+        choices: 允许的值列表
+        min_value: 最小值约束
+        max_value: 最大值约束
+        deprecated: 是否已弃用
+        deprecated_message: 弃用提示信息
+        alias: 旧名称别名
     """
 
     def __init__(
@@ -48,6 +65,15 @@ class Option:
         help: str = "",
         validate: Optional[callable] = None,
         track: bool = True,
+        # 新增字段
+        unit: Optional[str] = None,
+        internal_unit: Optional[str] = None,
+        choices: Optional[List[Any]] = None,
+        min_value: Optional[float] = None,
+        max_value: Optional[float] = None,
+        deprecated: bool = False,
+        deprecated_message: str = "",
+        alias: Optional[str] = None,
     ):
         """
         初始化插件配置选项
@@ -58,24 +84,142 @@ class Option:
             help: 帮助文本，说明此选项的用途
             validate: 自定义验证函数，接收值并返回 bool（默认 None）
             track: 是否追踪此选项用于 lineage（默认 True）
+            unit: 用户输入单位，如 "ns", "ps", "Hz"（默认 None）
+            internal_unit: 内部存储单位，当与 unit 不同时自动转换（默认 None）
+            choices: 允许的值列表（默认 None 表示不限制）
+            min_value: 最小值约束（默认 None 表示无下限）
+            max_value: 最大值约束（默认 None 表示无上限）
+            deprecated: 标记为已弃用（默认 False）
+            deprecated_message: 弃用提示信息（默认空字符串）
+            alias: 旧名称别名，用于向后兼容（默认 None）
 
         Examples:
             >>> threshold_option = Option(default=10.0, type=float, help="Hit 检测阈值")
             >>> n_channels_option = Option(default=2, type=int, help="通道数量", track=True)
+
+            >>> # 带单位的选项
+            >>> interval_option = Option(
+            ...     default=1.0,
+            ...     type=float,
+            ...     help="采样间隔",
+            ...     unit="ns",
+            ...     internal_unit="ps",  # 内部以皮秒存储
+            ... )
+
+            >>> # 带范围约束的选项
+            >>> gain_option = Option(
+            ...     default=1.0,
+            ...     type=float,
+            ...     help="增益",
+            ...     min_value=0.1,
+            ...     max_value=10.0,
+            ... )
+
+            >>> # 带选项列表的选项
+            >>> mode_option = Option(
+            ...     default="auto",
+            ...     type=str,
+            ...     help="检测模式",
+            ...     choices=["auto", "manual", "hybrid"],
+            ... )
+
+            >>> # 弃用的选项
+            >>> old_option = Option(
+            ...     default=100,
+            ...     type=int,
+            ...     deprecated=True,
+            ...     deprecated_message="Use 'new_threshold' instead",
+            ... )
         """
         self.default = default
         self.type = type
         self.help = help
         self.validate = validate
         self.track = track
+        # 新增字段
+        self.unit = unit
+        self.internal_unit = internal_unit
+        self.choices = choices
+        self.min_value = min_value
+        self.max_value = max_value
+        self.deprecated = deprecated
+        self.deprecated_message = deprecated_message
+        self.alias = alias
+
+    def _convert_unit(self, value: float, plugin_name: str, name: str) -> float:
+        """
+        将值从用户单位转换为内部单位。
+
+        Args:
+            value: 用户输入的值
+            plugin_name: 插件名称（用于错误信息）
+            name: 选项名称（用于错误信息）
+
+        Returns:
+            转换后的值
+        """
+        if self.unit is None or self.internal_unit is None:
+            return value
+        if self.unit == self.internal_unit:
+            return value
+
+        # 延迟导入避免循环依赖
+        from waveform_analysis.core.compat import (
+            StandardUnits,
+            convert_frequency,
+            convert_time,
+        )
+
+        # 判断是时间单位还是频率单位
+        if self.unit in StandardUnits.TIME_TO_PS and self.internal_unit in StandardUnits.TIME_TO_PS:
+            return convert_time(value, self.unit, self.internal_unit)
+        elif self.unit in StandardUnits.FREQ_TO_HZ and self.internal_unit in StandardUnits.FREQ_TO_HZ:
+            return convert_frequency(value, self.unit, self.internal_unit)
+        else:
+            # 不支持的单位组合，记录警告但不转换
+            logger.warning(
+                f"Plugin '{plugin_name}' option '{name}': "
+                f"Cannot convert from '{self.unit}' to '{self.internal_unit}', "
+                f"unsupported unit combination"
+            )
+            return value
 
     def validate_value(self, name: str, value: Any, plugin_name: str = "unknown"):
-        """Validate and potentially convert the value."""
+        """
+        验证并转换配置值。
+
+        执行以下验证和转换：
+        1. 弃用警告（如果 deprecated=True）
+        2. 类型转换和验证
+        3. choices 验证
+        4. min_value/max_value 范围验证
+        5. 单位转换（如果 unit != internal_unit）
+        6. 自定义验证函数
+
+        Args:
+            name: 选项名称
+            value: 要验证的值
+            plugin_name: 插件名称（用于错误信息）
+
+        Returns:
+            验证并转换后的值
+
+        Raises:
+            TypeError: 类型验证失败
+            ValueError: 值验证失败（choices、范围、自定义验证）
+        """
+        # 1. 弃用警告
+        if self.deprecated:
+            msg = f"Plugin '{plugin_name}' option '{name}' is deprecated."
+            if self.deprecated_message:
+                msg += f" {self.deprecated_message}"
+            warnings.warn(msg, DeprecationWarning, stacklevel=4)
+
         # 如果值为 None 且默认值也为 None，允许通过（可选参数）
         if value is None and self.default is None:
             return None
 
-        # Type conversion attempt
+        # 2. Type conversion attempt
         if self.type is not None and not isinstance(value, self.type):
             try:
                 if self.type is int:
@@ -95,9 +239,36 @@ class Option:
                 f"Plugin '{plugin_name}' option '{name}' must be of type {self.type}, "
                 f"but got {type(value).__name__} (value: {value!r})"
             )
+
+        # 3. Choices validation
+        if self.choices is not None and value not in self.choices:
+            raise ValueError(
+                f"Plugin '{plugin_name}' option '{name}' must be one of {self.choices}, "
+                f"but got {value!r}"
+            )
+
+        # 4. Range validation (only for numeric types)
+        if isinstance(value, (int, float)):
+            if self.min_value is not None and value < self.min_value:
+                raise ValueError(
+                    f"Plugin '{plugin_name}' option '{name}' must be >= {self.min_value}, "
+                    f"but got {value}"
+                )
+            if self.max_value is not None and value > self.max_value:
+                raise ValueError(
+                    f"Plugin '{plugin_name}' option '{name}' must be <= {self.max_value}, "
+                    f"but got {value}"
+                )
+
+        # 5. Unit conversion
+        if isinstance(value, (int, float)) and self.unit and self.internal_unit:
+            value = self._convert_unit(value, plugin_name, name)
+
+        # 6. Custom validation
         if self.validate is not None:
             if not self.validate(value):
                 raise ValueError(f"Plugin '{plugin_name}' option '{name}' failed validation for value: {value!r}")
+
         return value
 
 
@@ -234,6 +405,48 @@ class Plugin(abc.ABC):
         Override this method to implement dynamic dependencies.
         """
         return list(self.depends_on) if self.depends_on else []
+
+    def _build_depends_lineage(self, context: Any) -> dict:
+        """
+        构建依赖血缘的辅助方法。
+
+        自动根据插件的依赖声明（depends_on 或 resolve_depends_on）
+        构建完整的依赖血缘字典。
+
+        Args:
+            context: Context 实例，用于获取依赖的血缘信息
+
+        Returns:
+            dict: 依赖名称到血缘信息的映射
+
+        Examples:
+            >>> def get_lineage(self, context):
+            ...     lineage = {
+            ...         "plugin_class": self.__class__.__name__,
+            ...         "config": {...},
+            ...         "depends_on": self._build_depends_lineage(context),
+            ...     }
+            ...     return lineage
+        """
+        # 获取依赖列表（支持动态依赖）
+        if hasattr(self, "resolve_depends_on"):
+            try:
+                deps = self.resolve_depends_on(context, run_id=None)
+            except TypeError:
+                # 兼容不接受 run_id 参数的旧版本
+                deps = self.resolve_depends_on(context)
+        else:
+            deps = self.depends_on or []
+
+        # 构建依赖血缘字典
+        depends_lineage = {}
+        for dep in deps:
+            # 提取依赖名称（去除版本约束）
+            dep_name = self.get_dependency_name(dep)
+            # 递归获取依赖的血缘
+            depends_lineage[dep_name] = context.get_lineage(dep_name)
+
+        return depends_lineage
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -375,6 +588,43 @@ class Plugin(abc.ABC):
         Useful for releasing resources like file handles.
         """
         pass
+
+    def validate_config(self, context: Any) -> Dict[str, Any]:
+        """
+        验证并返回此插件的已解析配置。
+
+        遍历插件的所有配置选项，从 context 获取配置值。
+        Context.get_config() 已经执行了验证和单位转换。
+
+        Args:
+            context: Context 实例，用于获取配置值
+
+        Returns:
+            验证后的配置字典，键为选项名，值为验证/转换后的值
+
+        Raises:
+            TypeError: 类型验证失败
+            ValueError: 值验证失败（choices、范围、自定义验证）
+
+        Examples:
+            >>> class MyPlugin(Plugin):
+            ...     provides = "my_data"
+            ...     options = {
+            ...         "threshold": Option(default=10.0, type=float, min_value=0),
+            ...         "mode": Option(default="auto", choices=["auto", "manual"]),
+            ...     }
+            ...
+            >>> plugin = MyPlugin()
+            >>> ctx.set_config({"threshold": 15.0, "mode": "manual"})
+            >>> validated = plugin.validate_config(ctx)
+            >>> validated
+            {'threshold': 15.0, 'mode': 'manual'}
+        """
+        validated = {}
+        for key in self.options:
+            # get_config 已经执行了验证和单位转换
+            validated[key] = context.get_config(self, key)
+        return validated
 
     def __repr__(self):
         has_dynamic = type(self).resolve_depends_on is not Plugin.resolve_depends_on

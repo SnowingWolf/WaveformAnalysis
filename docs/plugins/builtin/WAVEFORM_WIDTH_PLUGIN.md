@@ -1,4 +1,4 @@
-**导航**: [文档中心](../../README.md) > [plugins](../README.md) > [builtin](README.md) > WaveformWidthPlugin 使用指南
+**导航**: [文档中心](../../README.md) > [插件详解](../README.md) > [builtin](README.md) > WaveformWidthPlugin 使用指南
 
 # WaveformWidthPlugin 使用指南
 

@@ -1,24 +1,21 @@
-# 命令行工具 (CLI)
+# 命令行工具
 
-**导航**: [文档中心](../README.md) > cli
+**导航**: [文档中心](../README.md) > 命令行工具
 
-WaveformAnalysis 提供了三个命令行工具，用于数据处理、缓存管理和文档生成。
-
----
+WaveformAnalysis 提供三个命令行工具，用于数据处理、缓存管理和文档生成。
 
 ## 工具概览
 
-| 工具 | 命令 | 功能 | 文档 |
-|------|------|------|------|
-| **数据处理** | `waveform-process` | 处理波形数据、扫描 DAQ 目录 | [详细文档](WAVEFORM_PROCESS.md) |
-| **缓存管理** | `waveform-cache` | 管理缓存数据、诊断和清理 | [详细文档](WAVEFORM_CACHE.md) |
-| **文档生成** | `waveform-docs` | 自动生成 API 文档 | [详细文档](WAVEFORM_DOCS.md) |
-
----
+| 命令 | 功能 | 文档 |
+|------|------|------|
+| `waveform-process` | 处理波形数据、扫描 DAQ 目录 | [详细文档](WAVEFORM_PROCESS.md) |
+| `waveform-cache` | 管理缓存数据、诊断和清理 | [详细文档](WAVEFORM_CACHE.md) |
+| `waveform-docs` | 自动生成 API 文档 | [详细文档](WAVEFORM_DOCS.md) |
 
 ## 快速参考
 
 ### waveform-process
+
 ```bash
 # 处理单个数据集
 waveform-process --run-name run_001 --output results.csv
@@ -31,6 +28,7 @@ waveform-process --show-daq run_001
 ```
 
 ### waveform-cache
+
 ```bash
 # 查看缓存信息
 waveform-cache info --storage-dir ./strax_data
@@ -40,6 +38,7 @@ waveform-cache clean --strategy lru --size-mb 500 --no-dry-run
 ```
 
 ### waveform-docs
+
 ```bash
 # 生成 API 文档
 waveform-docs generate api --output docs/api.md
@@ -48,11 +47,9 @@ waveform-docs generate api --output docs/api.md
 waveform-docs generate all
 ```
 
----
+## 安装
 
-## 安装和入口点
-
-这些 CLI 工具通过 `pyproject.toml` 中的 `[project.scripts]` 配置自动安装：
+CLI 工具通过 `pyproject.toml` 中的 `[project.scripts]` 配置自动安装：
 
 ```toml
 [project.scripts]
@@ -61,39 +58,23 @@ waveform-cache = "waveform_analysis.cli_cache:main"
 waveform-docs = "waveform_analysis.utils.cli_docs:main"
 ```
 
-安装包后，这些命令会自动可用：
+安装包后命令自动可用：
 
 ```bash
 pip install -e .
 waveform-process --help
-waveform-cache --help
-waveform-docs --help
 ```
-
----
-
-## 详细文档
-
-- [waveform-process 使用指南](WAVEFORM_PROCESS.md) - 数据处理和 DAQ 扫描
-- [waveform-cache 使用指南](WAVEFORM_CACHE.md) - 缓存管理和诊断
-- [waveform-docs 使用指南](WAVEFORM_DOCS.md) - 文档自动生成
-
----
 
 ## 常见问题
 
 **Q: 如何查看命令的帮助信息？**
-A: 使用 `--help` 选项，例如 `waveform-process --help`
+
+使用 `--help` 选项，例如 `waveform-process --help`
 
 **Q: 命令执行失败怎么办？**
-A: 使用 `--verbose` 选项查看详细错误信息
+
+使用 `--verbose` 选项查看详细错误信息
 
 **Q: waveform-process 基于什么实现？**
-A: 基于 `Context` 和插件系统
 
----
-
-**快速链接**: 
-[数据处理](WAVEFORM_PROCESS.md) | 
-[缓存管理](WAVEFORM_CACHE.md) | 
-[文档生成](WAVEFORM_DOCS.md)
+基于 `Context` 和插件系统

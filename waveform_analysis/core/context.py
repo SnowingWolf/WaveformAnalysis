@@ -81,7 +81,7 @@ def _create_context_from_spec(spec: Dict[str, Any]) -> "Context":
     ctx = Context(
         config=config,
         storage_dir=spec.get("storage_dir"),
-        plugin_dirs=spec.get("plugin_dirs"),
+        external_plugin_dirs=spec.get("plugin_dirs"),
         auto_discover_plugins=False,
         stats_mode=spec.get("stats_mode", "off"),
         stats_log_file=spec.get("stats_log_file"),
@@ -148,13 +148,13 @@ class Context(CacheMixin, PluginMixin):
     def __init__(
         self,
         config: Optional[Dict[str, Any]] = None,
-        storage: Optional[Any] = None,
+        storage_backend: Optional[Any] = None,
         storage_dir: Optional[str] = None,
-        plugin_dirs: Optional[List[str]] = None,
+        external_plugin_dirs: Optional[List[str]] = None,
         auto_discover_plugins: bool = False,
         stats_mode: str = "off",
         stats_log_file: Optional[str] = None,
-    ):
+    ) -> None:
         """
         Initialize Context.
 
@@ -163,9 +163,9 @@ class Context(CacheMixin, PluginMixin):
                     可选配置: config['plugin_backends'] = {'peaks': SQLiteBackend(...), ...}
             storage_dir: (Old:run_name)存储目录 (默认的 memmap 后端), 数据按 run_id 分目录存储。
                         如果为 None，将使用 config['data_root'] 作为存储目录。
-            storage: 自定义存储后端（必须实现 StorageBackend 接口）
+            storage_backend: 自定义存储后端（必须实现 StorageBackend 接口）
                     如果为 None，使用默认的 MemmapStorage
-            plugin_dirs: 插件搜索目录列表
+            external_plugin_dirs: 插件搜索目录列表
             auto_discover_plugins: 是否自动发现并注册插件
             stats_mode: 统计模式 ('off', 'basic', 'detailed')，'off' 表示禁用统计
             stats_log_file: 统计日志文件路径
@@ -201,10 +201,10 @@ class Context(CacheMixin, PluginMixin):
         self.storage_dir = storage_dir
 
         # Extensibility: Allow custom storage backend
-        if storage is not None:
+        if storage_backend is not None:
             # 验证存储后端接口（可选，记录警告）
-            self._validate_storage_backend(storage)
-            self.storage = storage
+            self._validate_storage_backend(storage_backend)
+            self.storage = storage_backend
         else:
             compression = self.config.get("compression")
             compression_kwargs = self.config.get("compression_kwargs")
@@ -275,12 +275,12 @@ class Context(CacheMixin, PluginMixin):
         self._key_cache: Dict[tuple, str] = {}  # (run_id, data_name) -> key
 
         # Plugin discovery
-        self.plugin_dirs = plugin_dirs or []
+        self.plugin_dirs = external_plugin_dirs or []
         if auto_discover_plugins:
             self.discover_and_register_plugins()
 
         # Ensure storage directory exists if using default
-        if not storage and not os.path.exists(self.storage_dir):
+        if not storage_backend and not os.path.exists(self.storage_dir):
             os.makedirs(self.storage_dir, exist_ok=True)
 
         # Help system (lazy initialization)
@@ -315,7 +315,7 @@ class Context(CacheMixin, PluginMixin):
         new_ctx = Context(
             config=config,
             storage_dir=self.storage_dir,
-            plugin_dirs=list(self.plugin_dirs),
+            external_plugin_dirs=list(self.plugin_dirs),
             auto_discover_plugins=False,
             stats_mode=stats_mode if self.enable_stats else "off",
             stats_log_file=stats_log_file,
@@ -449,20 +449,20 @@ class Context(CacheMixin, PluginMixin):
         Examples:
             >>> from waveform_analysis.core.context import Context
             >>> from waveform_analysis.core.plugins.builtin.cpu import (
-            ...     RawFilesPlugin, WaveformsPlugin, StWaveformsPlugin
+            ...     RawFileNamesPlugin, WaveformsPlugin, StWaveformsPlugin
             ... )
             >>>
             >>> ctx = Context(storage_dir="./strax_data")
             >>>
             >>> # 方式1: 注册插件实例
-            >>> ctx.register(RawFilesPlugin())
+            >>> ctx.register(RawFileNamesPlugin())
             >>>
             >>> # 方式2: 注册插件类（会自动实例化）
             >>> ctx.register(WaveformsPlugin)
             >>>
             >>> # 方式3: 一次注册多个插件
             >>> ctx.register(
-            ...     RawFilesPlugin(),
+            ...     RawFileNamesPlugin(),
             ...     WaveformsPlugin(),
             ...     StWaveformsPlugin()
             ... )
@@ -472,7 +472,7 @@ class Context(CacheMixin, PluginMixin):
             >>> ctx.register(standard_plugins)
             >>>
             >>> # 方式5: 允许覆盖已注册的插件
-            >>> ctx.register(RawFilesPlugin(), allow_override=True)
+            >>> ctx.register(RawFileNamesPlugin(), allow_override=True)
             >>>
             >>> # 方式6: 要求插件必须有 spec（严格模式）
             >>> ctx.register(MyPlugin(), require_spec=True)
@@ -549,6 +549,8 @@ class Context(CacheMixin, PluginMixin):
         2. 插件特定配置（命名空间）：set_config({'threshold': 50}, plugin_name='my_plugin')
         3. 嵌套字典格式：set_config({'my_plugin': {'threshold': 50}})
 
+        自动迁移旧配置名：如果配置中包含已弃用的配置名，会自动替换为新名称并发出警告。
+
         Args:
             config: 配置字典
             plugin_name: 可选，如果提供，则所有配置项都会作为该插件的命名空间配置
@@ -565,6 +567,11 @@ class Context(CacheMixin, PluginMixin):
             >>> # 查看配置归属
             >>> ctx.list_plugin_configs()  # 列出所有插件的配置选项
         """
+        # 迁移旧配置名（自动发出弃用警告）
+        from waveform_analysis.core.compat import migrate_config
+
+        config = migrate_config(config, warn=True)
+
         if plugin_name is not None:
             # 按插件名称设置配置，自动使用命名空间
             if plugin_name not in self._plugins:
