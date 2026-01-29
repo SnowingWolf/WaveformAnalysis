@@ -6,7 +6,7 @@ Processing 子模块 - 数据处理流水线
 
 主要组件：
 - WaveformLoaderCSV: 波形数据加载器
-- WaveformStruct: 波形结构化处理
+- WaveformStruct: 波形结构化处理（从 plugins.builtin.cpu.waveforms 导入）
 - EventAnalyzer: 事件分析器
 - Chunk: 时间对齐的数据块管理
 
@@ -72,13 +72,21 @@ from .records_builder import (
     build_records_from_v1725_files,
     merge_records_parts,
 )
-from .waveform_struct import WaveformStruct
+
+# WaveformStruct 从新位置导入（向后兼容）
+from waveform_analysis.core.plugins.builtin.cpu.waveforms import (
+    WaveformStruct,
+    WaveformStructConfig,
+    create_channel_mapping,
+)
 
 __all__ = [
     # 数据加载
     "WaveformLoaderCSV",
     # 信号处理
     "WaveformStruct",
+    "WaveformStructConfig",
+    "create_channel_mapping",
     "group_multi_channel_hits",
     "find_hits",
     "ST_WAVEFORM_DTYPE",

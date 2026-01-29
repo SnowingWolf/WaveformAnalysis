@@ -8,11 +8,13 @@
 import numpy as np
 import pytest
 
-from waveform_analysis.core.processing.waveform_struct import (
-    DEFAULT_WAVE_LENGTH,
-    ST_WAVEFORM_DTYPE,
+from waveform_analysis.core.plugins.builtin.cpu.waveforms import (
     WaveformStruct,
     WaveformStructConfig,
+)
+from waveform_analysis.core.processing.dtypes import (
+    DEFAULT_WAVE_LENGTH,
+    ST_WAVEFORM_DTYPE,
     create_record_dtype,
 )
 from waveform_analysis.utils.formats import VX2730_SPEC

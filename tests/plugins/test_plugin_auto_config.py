@@ -5,7 +5,6 @@ from tests.utils import DummyContext
 from waveform_analysis.core.plugins.builtin.cpu.filtering import FilteredWaveformsPlugin
 from waveform_analysis.core.plugins.builtin.cpu.standard import (
     HitFinderPlugin,
-    StWaveformsPlugin,
     WaveformsPlugin,
 )
 from waveform_analysis.core.processing.dtypes import PEAK_DTYPE, create_record_dtype
@@ -74,7 +73,7 @@ def test_st_waveforms_lineage_uses_adapter_dtype():
     adapter_name = "test_adapter_lineage"
     _register_test_adapter(adapter_name, expected_samples=16)
     try:
-        plugin = StWaveformsPlugin()
+        plugin = WaveformsPlugin()
         config = {"st_waveforms": {"daq_adapter": adapter_name}}
         ctx = DummyContext(config)
         lineage = plugin.get_lineage(ctx)
