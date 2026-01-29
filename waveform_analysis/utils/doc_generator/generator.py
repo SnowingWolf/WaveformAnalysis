@@ -195,3 +195,191 @@ class DocGenerator:
 
         print("-" * 60)
         print(f"✅ 所有文档已生成到: {output_dir}")
+
+    def _parse_dtype(self, dtype) -> str:
+        """
+        解析 dtype 为可读字符串
+
+        Args:
+            dtype: numpy dtype 或类型对象
+
+        Returns:
+            dtype 的字符串表示
+        """
+        if dtype is None:
+            return "N/A"
+        try:
+            import numpy as np
+            if isinstance(dtype, np.dtype):
+                # 结构化 dtype，格式化字段
+                if dtype.names:
+                    fields = []
+                    for name in dtype.names:
+                        field_dtype = dtype.fields[name][0]
+                        fields.append(f"('{name}', {field_dtype})")
+                    return f"[{', '.join(fields)}]"
+                return str(dtype)
+            return str(dtype)
+        except Exception:
+            return str(dtype)
+
+    def _parse_options(self, plugin) -> List[Dict[str, Any]]:
+        """
+        解析插件的配置选项，包含单位信息
+
+        Args:
+            plugin: 插件实例
+
+        Returns:
+            选项信息列表
+        """
+        options = []
+        if not hasattr(plugin, 'options'):
+            return options
+
+        for opt_name, opt in plugin.options.items():
+            opt_info = {
+                'name': opt_name,
+                'default': getattr(opt, 'default', None),
+                'type': self._format_type(getattr(opt, 'type', None)),
+                'help': getattr(opt, 'help', ''),
+                'track': getattr(opt, 'track', True),
+                # 新增字段
+                'unit': getattr(opt, 'unit', None),
+                'internal_unit': getattr(opt, 'internal_unit', None),
+                'choices': getattr(opt, 'choices', None),
+                'min_value': getattr(opt, 'min_value', None),
+                'max_value': getattr(opt, 'max_value', None),
+                'deprecated': getattr(opt, 'deprecated', False),
+                'deprecated_message': getattr(opt, 'deprecated_message', ''),
+                'alias': getattr(opt, 'alias', None),
+            }
+            options.append(opt_info)
+
+        return options
+
+    def _format_type(self, type_obj) -> str:
+        """
+        格式化类型对象为字符串
+
+        Args:
+            type_obj: 类型对象
+
+        Returns:
+            类型的字符串表示
+        """
+        if type_obj is None:
+            return "Any"
+        if isinstance(type_obj, tuple):
+            return " | ".join(t.__name__ if hasattr(t, '__name__') else str(t) for t in type_obj)
+        if hasattr(type_obj, '__name__'):
+            return type_obj.__name__
+        return str(type_obj)
+
+    def generate_plugin_doc(self, plugin, output_path: str):
+        """
+        使用统一模板为单个插件生成文档
+
+        Args:
+            plugin: 插件实例
+            output_path: 输出文件路径
+
+        Examples:
+            >>> gen = DocGenerator(ctx)
+            >>> plugin = ctx.get_plugin('waveforms')
+            >>> gen.generate_plugin_doc(plugin, 'docs/plugins/waveforms.md')
+        """
+        template = self.jinja_env.get_template('plugin_doc.md.j2')
+
+        # 构建插件数据
+        plugin_data = {
+            'provides': plugin.provides,
+            'version': getattr(plugin, 'version', '0.0.0'),
+            'class_name': plugin.__class__.__name__,
+            'description': getattr(plugin, 'description', '') or inspect.getdoc(plugin.__class__) or '',
+            'depends_on': [
+                dep if isinstance(dep, str) else dep[0]
+                for dep in (plugin.depends_on or [])
+            ],
+            'output_dtype': self._parse_dtype(getattr(plugin, 'output_dtype', None)),
+            'input_dtype': getattr(plugin, 'input_dtype', {}),
+            'save_when': getattr(plugin, 'save_when', 'never'),
+            'output_kind': getattr(plugin, 'output_kind', 'static'),
+            'options': self._parse_options(plugin),
+        }
+
+        content = template.render(plugin=plugin_data)
+
+        # 写入文件
+        output = Path(output_path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(content, encoding='utf-8')
+
+        print(f"✅ 插件文档已生成: {output_path}")
+
+    def generate_all_plugins(self, output_dir: str = 'docs/plugins'):
+        """
+        为所有注册插件生成文档
+
+        Args:
+            output_dir: 输出目录
+
+        Examples:
+            >>> gen = DocGenerator(ctx)
+            >>> gen.generate_all_plugins('docs/plugins/')
+        """
+        if self.ctx is None:
+            from waveform_analysis.core.context import Context
+            from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
+            self.ctx = Context()
+            self.ctx.register(standard_plugins)
+
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        print(f"开始生成插件文档到目录: {output_dir}")
+        print("-" * 60)
+
+        generated = 0
+        for name, plugin in self.ctx._plugins.items():
+            try:
+                plugin_file = output_path / f"{name}.md"
+                self.generate_plugin_doc(plugin, str(plugin_file))
+                generated += 1
+            except Exception as e:
+                print(f"⚠️ 生成 {name} 文档失败: {e}")
+
+        print("-" * 60)
+        print(f"✅ 已生成 {generated}/{len(self.ctx._plugins)} 个插件文档到: {output_dir}")
+
+        # 生成索引文件
+        self._generate_plugin_index(output_path)
+
+    def _generate_plugin_index(self, output_dir: Path):
+        """
+        生成插件索引文件
+
+        Args:
+            output_dir: 输出目录
+        """
+        if self.ctx is None:
+            return
+
+        index_content = ["# 插件索引\n"]
+        index_content.append(f"> 共 {len(self.ctx._plugins)} 个插件\n\n")
+
+        # 按类别分组（如果有的话）
+        index_content.append("| 插件名 | 版本 | 描述 |\n")
+        index_content.append("|--------|------|------|\n")
+
+        for name, plugin in sorted(self.ctx._plugins.items()):
+            version = getattr(plugin, 'version', '0.0.0')
+            desc = getattr(plugin, 'description', '') or ''
+            # 截断过长的描述
+            if len(desc) > 50:
+                desc = desc[:47] + "..."
+            index_content.append(f"| [{name}]({name}.md) | {version} | {desc} |\n")
+
+        index_file = output_dir / "index.md"
+        index_file.write_text(''.join(index_content), encoding='utf-8')
+        print(f"✅ 插件索引已生成: {index_file}")
