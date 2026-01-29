@@ -18,6 +18,11 @@ from waveform_analysis.core.config import (
     ResolvedConfig,
     get_adapter_info,
 )
+from waveform_analysis.core.config.compat import (
+    _compare_versions,
+    _parse_version,
+    get_current_version,
+)
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 
@@ -338,6 +343,33 @@ class TestConfigResolver:
         assert "sampling_rate_hz" in options
         assert "dt_ns" in options
         assert "dt_ps" in options
+        assert "sampling_interval_ns" in options
+
+    def test_resolve_alias_with_deprecation(self):
+        class AliasPlugin(Plugin):
+            provides = "alias_plugin"
+            depends_on = []
+            options = {
+                "break_threshold_ps": Option(default=2000, type=int, help="阈值（ps）"),
+            }
+
+            def compute(self, context, run_id, **kwargs):
+                return None
+
+        resolver = ConfigResolver(compat_manager=CompatManager())
+        plugin = AliasPlugin()
+        config = {"break_threshold_ns": 1500}
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            resolved = resolver.resolve(plugin, config)
+
+            assert resolved.get("break_threshold_ps") == 1500
+            cv = resolved.get_value("break_threshold_ps")
+            assert cv is not None
+            assert cv.original_key == "break_threshold_ns"
+            assert cv.canonical_key == "break_threshold_ps"
+            assert any(issubclass(item.category, DeprecationWarning) for item in w)
 
 
 # ============================================================================
@@ -357,6 +389,10 @@ class TestCompatManager:
         canonical, used = compat_manager.resolve_alias("any_plugin", "threshold")
         assert canonical == "threshold"
         assert used is False
+
+    def test_get_aliases_for(self, compat_manager):
+        aliases = compat_manager.get_aliases_for("any_plugin", "break_threshold_ps")
+        assert "break_threshold_ns" in aliases
 
     def test_warn_deprecation(self, compat_manager):
         with warnings.catch_warnings(record=True) as w:
@@ -472,3 +508,146 @@ class TestIntegration:
         # 无 adapter 时返回 None
         ctx2 = Context(config={})
         assert ctx2.get_adapter_info() is None
+
+    def test_lineage_includes_inferred_config(self):
+        """推断值应纳入 lineage config"""
+        from waveform_analysis.core.context import Context
+        from waveform_analysis.core.plugins.builtin.cpu import RecordsPlugin
+
+        ctx = Context(config={"daq_adapter": "vx2730"})
+        ctx.register(RecordsPlugin())
+
+        lineage = ctx.get_lineage("records")
+        assert "records_dt_ns" in lineage.get("config", {})
+        assert lineage["config"]["records_dt_ns"] == 2
+
+
+# ============================================================================
+# Version Comparison Tests
+# ============================================================================
+
+
+class TestVersionComparison:
+    """版本比较函数测试"""
+
+    def test_parse_version_simple(self):
+        assert _parse_version("1.0.0") == (1, 0, 0)
+        assert _parse_version("2.1.3") == (2, 1, 3)
+
+    def test_parse_version_with_prerelease(self):
+        # 预发布标识会被截断，只保留数字部分
+        assert _parse_version("1.0.0a1") == (1, 0, 0)
+        assert _parse_version("2.0.0rc1") == (2, 0, 0)
+
+    def test_compare_versions_less_than(self):
+        assert _compare_versions("0.1.0", "1.0.0") == -1
+        assert _compare_versions("1.0.0", "1.1.0") == -1
+        assert _compare_versions("1.1.0", "1.1.1") == -1
+
+    def test_compare_versions_equal(self):
+        assert _compare_versions("1.0.0", "1.0.0") == 0
+        assert _compare_versions("2.1.3", "2.1.3") == 0
+
+    def test_compare_versions_greater_than(self):
+        assert _compare_versions("1.0.0", "0.1.0") == 1
+        assert _compare_versions("1.1.0", "1.0.0") == 1
+        assert _compare_versions("2.0.0", "1.9.9") == 1
+
+    def test_compare_versions_different_lengths(self):
+        assert _compare_versions("1.0", "1.0.0") == 0
+        assert _compare_versions("1.0.1", "1.0") == 1
+
+    def test_get_current_version(self):
+        version = get_current_version()
+        assert isinstance(version, str)
+        assert "." in version
+
+
+# ============================================================================
+# Deprecation Expiry Tests
+# ============================================================================
+
+
+class TestDeprecationExpiry:
+    """弃用到期报错测试"""
+
+    def test_warn_deprecation_within_window(self):
+        """弃用窗口内应发出警告"""
+        # 注册一个 removed_in 版本远大于当前版本的弃用项
+        CompatManager.register_deprecation(DeprecationInfo(
+            old_name="test_old_param",
+            new_name="test_new_param",
+            deprecated_in="0.1.0",
+            removed_in="99.0.0",  # 远未到期
+        ))
+
+        manager = CompatManager()
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            manager.warn_deprecation("test_old_param", "test_context")
+
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "test_old_param" in str(w[0].message)
+
+        # 清理
+        CompatManager.DEPRECATIONS = [
+            d for d in CompatManager.DEPRECATIONS
+            if d.old_name != "test_old_param"
+        ]
+
+    def test_warn_deprecation_after_removal(self):
+        """过期后应抛出错误"""
+        # 注册一个 removed_in 版本小于当前版本的弃用项
+        CompatManager.register_deprecation(DeprecationInfo(
+            old_name="test_expired_param",
+            new_name="test_new_param",
+            deprecated_in="0.0.1",
+            removed_in="0.0.2",  # 已过期（当前版本 >= 0.1.0）
+        ))
+
+        manager = CompatManager()
+
+        with pytest.raises(ValueError) as exc_info:
+            manager.warn_deprecation("test_expired_param", "test_context")
+
+        assert "test_expired_param" in str(exc_info.value)
+        assert "was removed in version 0.0.2" in str(exc_info.value)
+        assert "test_new_param" in str(exc_info.value)
+
+        # 清理
+        CompatManager.DEPRECATIONS = [
+            d for d in CompatManager.DEPRECATIONS
+            if d.old_name != "test_expired_param"
+        ]
+
+    def test_warn_deprecation_at_removal_version(self):
+        """恰好在移除版本时应抛出错误"""
+        current = get_current_version()
+
+        CompatManager.register_deprecation(DeprecationInfo(
+            old_name="test_exact_version_param",
+            new_name="test_new_param",
+            deprecated_in="0.0.1",
+            removed_in=current,  # 恰好是当前版本
+        ))
+
+        manager = CompatManager()
+
+        with pytest.raises(ValueError) as exc_info:
+            manager.warn_deprecation("test_exact_version_param")
+
+        assert "was removed in version" in str(exc_info.value)
+
+        # 清理
+        CompatManager.DEPRECATIONS = [
+            d for d in CompatManager.DEPRECATIONS
+            if d.old_name != "test_exact_version_param"
+        ]
+
+    def test_warn_deprecation_unknown_name_no_error(self):
+        """未注册的名称不应报错"""
+        manager = CompatManager()
+        # 不应抛出异常
+        manager.warn_deprecation("unknown_param_name")

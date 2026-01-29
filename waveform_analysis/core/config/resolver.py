@@ -3,7 +3,7 @@
 配置解析器
 
 ConfigResolver 负责将配置从"入口 → 生效值"的过程统一实现。
-支持多级配置来源：显式配置 > 插件默认 > adapter 推断 > 全局默认。
+支持多级配置来源：显式配置 > adapter 推断 > 插件默认。
 """
 
 import logging
@@ -31,9 +31,8 @@ class ConfigResolver:
 
     配置合并优先级（从高到低）：
     1. 显式配置（用户通过 set_config 设置）
-    2. 插件默认值（plugin.options[key].default）
-    3. Adapter 推断值（从 DAQ adapter 推断）
-    4. 全局默认值
+    2. Adapter 推断值（从 DAQ adapter 推断）
+    3. 插件默认值（plugin.options[key].default）
 
     Attributes:
         ADAPTER_INFERRED_OPTIONS: 可从 adapter 推断的配置项映射
@@ -49,9 +48,16 @@ class ConfigResolver:
     # 格式: {config_key: lambda adapter_info: value}
     ADAPTER_INFERRED_OPTIONS: Dict[str, Callable[[AdapterInfo], Any]] = {
         "sampling_rate_hz": lambda info: info.sampling_rate_hz,
-        "sampling_rate": lambda info: info.sampling_rate_hz,
+        # sampling_rate / fs 默认按 GHz 约定
+        "sampling_rate": lambda info: (info.sampling_rate_hz / 1e9) if info.sampling_rate_hz else None,
+        "fs": lambda info: (info.sampling_rate_hz / 1e9) if info.sampling_rate_hz else None,
+        # 采样间隔（ns/ps）
+        "sampling_interval_ns": lambda info: info.dt_ns,
         "dt_ns": lambda info: info.dt_ns,
         "dt_ps": lambda info: info.dt_ps,
+        "dt": lambda info: info.dt_ns,
+        "records_dt_ns": lambda info: info.dt_ns,
+        "events_dt_ns": lambda info: info.dt_ns,
         "timestamp_unit": lambda info: info.timestamp_unit,
         "expected_samples": lambda info: info.expected_samples,
     }
@@ -95,18 +101,15 @@ class ConfigResolver:
 
         # 解析每个配置选项
         for opt_name, option in plugin.options.items():
-            # 处理别名
+            # 处理别名（插件 option 的 canonical 化）
             canonical_name = opt_name
-            original_name = opt_name
             if self._compat_manager:
-                canonical_name, alias_used = self._compat_manager.resolve_alias(
-                    plugin_name, opt_name
-                )
-                if alias_used:
-                    original_name = opt_name
+                mapped_name, _ = self._compat_manager.resolve_alias(plugin_name, opt_name)
+                if mapped_name in plugin.options:
+                    canonical_name = mapped_name
 
-            # 按优先级查找配置值
-            value, source, inferred_from = self._resolve_single_value(
+            # 按优先级查找配置值（支持 alias 输入）
+            value, source, inferred_from, original_name = self._resolve_single_value(
                 plugin_name=plugin_name,
                 opt_name=canonical_name,
                 option=option,
@@ -118,6 +121,14 @@ class ConfigResolver:
             validated_value = option.validate_value(
                 canonical_name, value, plugin_name=plugin_name
             )
+
+            # 如果使用别名且已弃用，发出警告
+            if (
+                self._compat_manager
+                and original_name != canonical_name
+                and self._compat_manager.is_deprecated(original_name)
+            ):
+                self._compat_manager.warn_deprecation(original_name, plugin_name)
 
             values[canonical_name] = ConfigValue(
                 value=validated_value,
@@ -151,27 +162,36 @@ class ConfigResolver:
             adapter_info: Adapter 信息
 
         Returns:
-            (value, source, inferred_from) 元组
+            (value, source, inferred_from, original_key) 元组
         """
-        # 1. 检查显式配置（插件特定命名空间）
+        # 1. 检查显式配置（支持 alias 输入）
+        names_to_check = [opt_name]
+        if self._compat_manager:
+            aliases = self._compat_manager.get_aliases_for(plugin_name, opt_name)
+            for alias in aliases:
+                if alias not in names_to_check:
+                    names_to_check.append(alias)
+
         if plugin_name in config and isinstance(config[plugin_name], dict):
-            if opt_name in config[plugin_name]:
-                return (
-                    config[plugin_name][opt_name],
-                    ConfigSource.EXPLICIT,
-                    None,
-                )
+            for name in names_to_check:
+                if name in config[plugin_name]:
+                    return (
+                        config[plugin_name][name],
+                        ConfigSource.EXPLICIT,
+                        None,
+                        name,
+                    )
 
-        # 2. 检查显式配置（点分隔格式）
-        dotted_key = f"{plugin_name}.{opt_name}"
-        if dotted_key in config:
-            return (config[dotted_key], ConfigSource.EXPLICIT, None)
+        for name in names_to_check:
+            dotted_key = f"{plugin_name}.{name}"
+            if dotted_key in config:
+                return (config[dotted_key], ConfigSource.EXPLICIT, None, name)
 
-        # 3. 检查显式配置（全局）
-        if opt_name in config:
-            return (config[opt_name], ConfigSource.EXPLICIT, None)
+        for name in names_to_check:
+            if name in config:
+                return (config[name], ConfigSource.EXPLICIT, None, name)
 
-        # 4. 检查 adapter 推断
+        # 2. 检查 adapter 推断
         if adapter_info and opt_name in self.ADAPTER_INFERRED_OPTIONS:
             infer_func = self.ADAPTER_INFERRED_OPTIONS[opt_name]
             inferred_value = infer_func(adapter_info)
@@ -180,10 +200,11 @@ class ConfigResolver:
                     inferred_value,
                     ConfigSource.ADAPTER_INFERRED,
                     f"{adapter_info.name}.{opt_name}",
+                    opt_name,
                 )
 
-        # 5. 使用插件默认值
-        return (option.default, ConfigSource.PLUGIN_DEFAULT, None)
+        # 3. 使用插件默认值
+        return (option.default, ConfigSource.PLUGIN_DEFAULT, None, opt_name)
 
     def resolve_value(
         self,
@@ -203,27 +224,41 @@ class ConfigResolver:
         Returns:
             ConfigValue 实例
         """
-        if name not in plugin.options:
-            raise KeyError(f"Plugin '{plugin.provides}' does not have option '{name}'")
+        canonical_name = name
+        if self._compat_manager:
+            canonical_name, _ = self._compat_manager.resolve_alias(plugin.provides, name)
+
+        if canonical_name not in plugin.options:
+            if name in plugin.options:
+                canonical_name = name
+            else:
+                raise KeyError(f"Plugin '{plugin.provides}' does not have option '{name}'")
 
         adapter_info = get_adapter_info(adapter_name) if adapter_name else None
-        option = plugin.options[name]
+        option = plugin.options[canonical_name]
 
-        value, source, inferred_from = self._resolve_single_value(
+        value, source, inferred_from, original_name = self._resolve_single_value(
             plugin_name=plugin.provides,
-            opt_name=name,
+            opt_name=canonical_name,
             option=option,
             config=config,
             adapter_info=adapter_info,
         )
 
-        validated_value = option.validate_value(name, value, plugin_name=plugin.provides)
+        validated_value = option.validate_value(canonical_name, value, plugin_name=plugin.provides)
+
+        if (
+            self._compat_manager
+            and original_name != canonical_name
+            and self._compat_manager.is_deprecated(original_name)
+        ):
+            self._compat_manager.warn_deprecation(original_name, plugin.provides)
 
         return ConfigValue(
             value=validated_value,
             source=source,
-            original_key=name,
-            canonical_key=name,
+            original_key=original_name,
+            canonical_key=canonical_name,
             inferred_from=inferred_from,
         )
 
@@ -270,5 +305,4 @@ class ConfigResolver:
             配置键名列表
         """
         return list(cls.ADAPTER_INFERRED_OPTIONS.keys())
-
 
