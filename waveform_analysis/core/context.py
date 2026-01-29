@@ -31,6 +31,14 @@ from ..utils.visualization.lineage_visualizer import (
     plot_lineage_labview,
     plot_lineage_plotly,
 )
+from .config import (
+    AdapterInfo,
+    CompatManager,
+    ConfigResolver,
+    ConfigSource,
+    ResolvedConfig,
+    get_adapter_info,
+)
 from .execution.validation import ValidationManager
 from .foundation.error import ErrorManager
 from .foundation.exceptions import ErrorSeverity
@@ -281,6 +289,10 @@ class Context(CacheMixin, PluginMixin):
         self.config.setdefault("auto_extract_epoch", True)
         self.config.setdefault("epoch_extraction_strategy", "auto")  # "auto", "filename", "csv_header", "first_event"
         self.config.setdefault("epoch_filename_patterns", None)  # None = use defaults
+
+        # Initialize ConfigResolver and CompatManager for unified config handling
+        self._compat_manager = CompatManager()
+        self._config_resolver = ConfigResolver(compat_manager=self._compat_manager)
 
     def clone(self) -> "Context":
         """
@@ -594,6 +606,107 @@ class Context(CacheMixin, PluginMixin):
         raw_value = self._resolve_config_value(plugin, name)
         option = plugin.options[name]
         return option.validate_value(name, raw_value, plugin_name=plugin.provides)
+
+    def get_resolved_config(
+        self,
+        plugin: Union[Plugin, str],
+        adapter_name: Optional[str] = None,
+    ) -> ResolvedConfig:
+        """获取插件的完整解析配置（带来源追踪）
+
+        使用 ConfigResolver 解析插件的所有配置值，并追踪每个值的来源。
+        支持从 DAQ adapter 自动推断配置值（如采样率、时间间隔等）。
+
+        Args:
+            plugin: 插件实例或插件名称
+            adapter_name: DAQ adapter 名称（可选，用于推断配置值）
+                         如果未指定，会尝试从 config['daq_adapter'] 获取
+
+        Returns:
+            ResolvedConfig 实例，包含所有配置值及其来源信息
+
+        Examples:
+            >>> resolved = ctx.get_resolved_config("waveforms", adapter_name="vx2730")
+            >>> print(resolved.get("sampling_rate_hz"))
+            500000000.0
+
+            >>> # 查看配置来源
+            >>> print(resolved.summary(verbose=True))
+
+            >>> # 获取所有推断的值
+            >>> print(resolved.get_inferred_values())
+        """
+        # 获取插件实例
+        if isinstance(plugin, str):
+            if plugin not in self._plugins:
+                raise KeyError(f"Plugin '{plugin}' is not registered")
+            plugin = self._plugins[plugin]
+
+        # 确定 adapter 名称
+        if adapter_name is None:
+            adapter_name = self.config.get("daq_adapter")
+
+        return self._config_resolver.resolve(
+            plugin=plugin,
+            config=self.config,
+            adapter_name=adapter_name,
+        )
+
+    def show_resolved_config(
+        self,
+        plugin: Union[Plugin, str, None] = None,
+        verbose: bool = True,
+        adapter_name: Optional[str] = None,
+    ) -> None:
+        """显示插件的解析配置（带来源信息）
+
+        以友好的格式显示插件配置的解析结果，包括每个配置值的来源。
+
+        Args:
+            plugin: 插件实例、插件名称或 None（显示所有插件）
+            verbose: 是否显示详细信息（包含来源）
+            adapter_name: DAQ adapter 名称（可选）
+
+        Examples:
+            >>> # 显示单个插件的配置
+            >>> ctx.show_resolved_config("waveforms", verbose=True)
+
+            >>> # 显示所有插件的配置
+            >>> ctx.show_resolved_config()
+        """
+        if adapter_name is None:
+            adapter_name = self.config.get("daq_adapter")
+
+        if plugin is None:
+            # 显示所有插件
+            plugins_to_show = list(self._plugins.values())
+        elif isinstance(plugin, str):
+            if plugin not in self._plugins:
+                print(f"Plugin '{plugin}' is not registered")
+                return
+            plugins_to_show = [self._plugins[plugin]]
+        else:
+            plugins_to_show = [plugin]
+
+        for p in plugins_to_show:
+            resolved = self.get_resolved_config(p, adapter_name=adapter_name)
+            print(resolved.summary(verbose=verbose))
+            print()
+
+    def get_adapter_info(self, adapter_name: Optional[str] = None) -> Optional[AdapterInfo]:
+        """获取 DAQ adapter 信息
+
+        Args:
+            adapter_name: adapter 名称（可选，默认从 config['daq_adapter'] 获取）
+
+        Returns:
+            AdapterInfo 实例或 None
+        """
+        if adapter_name is None:
+            adapter_name = self.config.get("daq_adapter")
+        if adapter_name is None:
+            return None
+        return get_adapter_info(adapter_name)
 
     def get_plugin(self, plugin_name: str) -> Plugin:
         """
@@ -2082,6 +2195,14 @@ class Context(CacheMixin, PluginMixin):
             except (TypeError, ValueError):
                 # If dtype is not a valid numpy dtype (e.g., "List[str]"), store as string
                 lineage["dtype"] = str(plugin.output_dtype)
+
+        # Add adapter_info for top-level calls
+        if len(_visited) == 1:
+            adapter_name = self.config.get("daq_adapter")
+            if adapter_name:
+                adapter_info = get_adapter_info(adapter_name)
+                if adapter_info:
+                    lineage["adapter_info"] = adapter_info.to_dict()
 
         # Cache the lineage (only for top-level calls)
         if len(_visited) == 1:  # Top-level call
