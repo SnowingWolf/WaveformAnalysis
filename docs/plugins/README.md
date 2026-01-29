@@ -19,6 +19,7 @@
 
 - [电荷计算方法对比](builtin/CHARGE_COMPARISON.md)
 - [Waveform Width 插件](builtin/WAVEFORM_WIDTH_PLUGIN.md)
+- [插件编写规范](PLUGIN_AUTHORING_GUIDE.md)
 
 ---
 
