@@ -4,6 +4,62 @@
 
 ---
 
+## 🎯 核心架构概览
+
+```mermaid
+flowchart LR
+    subgraph Context["🎛️ Context"]
+        REG["register()"]
+        GET["get_data()"]
+        PLOT["plot_lineage()"]
+    end
+
+    subgraph Plugin["🔌 Plugin"]
+        PROVIDES["provides"]
+        DEPENDS["depends_on"]
+        COMPUTE["compute()"]
+    end
+
+    subgraph Lineage["🔗 Lineage"]
+        TREE["依赖树"]
+        VIS["可视化"]
+    end
+
+    subgraph Cache["💾 Cache"]
+        SIG["签名验证"]
+        STORE["缓存存储"]
+    end
+
+    Plugin -->|注册| REG
+    GET -->|解析| DEPENDS
+    DEPENDS -->|构建| TREE
+    PLOT -->|渲染| VIS
+    TREE -->|哈希| SIG
+    SIG -->|验证| STORE
+    COMPUTE -->|缓存| STORE
+
+    style PLOT fill:#ffeb3b,stroke:#f57c00,stroke-width:2px
+```
+
+**四大核心组件**：
+
+| 组件 | 职责 | 关键方法 |
+|------|------|----------|
+| **Context** | 中央调度器，管理插件和数据流 | `register()`, `get_data()`, `plot_lineage()` |
+| **Plugin** | 数据处理单元，声明输入输出 | `provides`, `depends_on`, `compute()` |
+| **Lineage** | 血缘追踪，可视化数据流 | 支持 LabVIEW / Plotly / Mermaid 三种模式 |
+| **Cache** | 智能缓存，基于血缘签名验证 | 内存缓存 + 磁盘持久化 |
+
+**亮点功能** - 一行代码可视化数据血缘：
+
+```python
+ctx.plot_lineage("df_paired", kind="plotly", interactive=True)
+```
+
+👉 详见 [血缘可视化指南](features/context/LINEAGE_VISUALIZATION_GUIDE.md)
+
+---
+
 ## 🚀 快速开始
 
 > ✅ 推荐路径：新代码请使用 **Context**。
