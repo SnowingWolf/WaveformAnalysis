@@ -14,14 +14,14 @@
 **文件**: `waveform_analysis/core/processing/dtypes.py` (新建)
 
 **修改内容**:
-- 将 RECORD_DTYPE、create_record_dtype、DEFAULT_WAVE_LENGTH 等定义从 waveform_struct.py 移到独立的 dtypes.py
-- 在 RECORD_DTYPE 中添加 `baseline_upstream` 字段（float64）
+- 将 ST_WAVEFORM_DTYPE、create_record_dtype、DEFAULT_WAVE_LENGTH 等定义从 waveform_struct.py 移到独立的 dtypes.py
+- 在 ST_WAVEFORM_DTYPE 中添加 `baseline_upstream` 字段（float64）
 - 在 create_record_dtype() 中添加 `baseline_upstream` 字段
 - 在 RECORDS_DTYPE 中添加 `baseline_upstream` 字段
 
-**新的 RECORD_DTYPE 结构**:
+**新的 ST_WAVEFORM_DTYPE 结构**:
 ```python
-RECORD_DTYPE = [
+ST_WAVEFORM_DTYPE = [
     ("baseline", "f8"),           # WaveformStruct 计算的 baseline
     ("baseline_upstream", "f8"),  # 上游插件提供的 baseline (新增)
     ("timestamp", "i8"),
@@ -35,7 +35,7 @@ RECORD_DTYPE = [
 **文件**: `waveform_analysis/core/processing/waveform_struct.py`
 
 **修改内容**:
-- 从 dtypes.py 导入 RECORD_DTYPE 等定义
+- 从 dtypes.py 导入 ST_WAVEFORM_DTYPE 等定义
 - `__init__()`: 添加 `upstream_baselines` 参数
 - `from_adapter()`: 添加 `upstream_baselines` 参数
 - `_structure_waveform()`:
@@ -157,7 +157,7 @@ class MyAnalysisPlugin(Plugin):
 **测试文件**: `tests/test_dual_baseline.py`
 
 **测试覆盖**:
-1. ✅ RECORD_DTYPE 包含两个 baseline 字段
+1. ✅ ST_WAVEFORM_DTYPE 包含两个 baseline 字段
 2. ✅ create_record_dtype() 包含两个 baseline 字段
 3. ✅ 无上游 baseline 时，baseline_upstream 为 NaN
 4. ✅ 有上游 baseline 时，正确保存上游值
@@ -171,7 +171,7 @@ python3 tests/test_dual_baseline.py
 
 **测试结果**:
 ```
-✓ RECORD_DTYPE 包含两个 baseline 字段
+✓ ST_WAVEFORM_DTYPE 包含两个 baseline 字段
 ✓ create_record_dtype() 包含两个 baseline 字段
 ✓ 无上游 baseline 测试通过
 ✓ 有上游 baseline 测试通过
@@ -289,7 +289,7 @@ if np.any(mask):
 ## 总结
 
 ### 实施成果
-✅ 成功添加 baseline_upstream 字段到 RECORD_DTYPE
+✅ 成功添加 baseline_upstream 字段到 ST_WAVEFORM_DTYPE
 ✅ WaveformStruct 支持接收和保存上游 baseline
 ✅ StWaveformsPlugin 支持动态依赖和配置
 ✅ 完全向后兼容，现有代码无需修改
