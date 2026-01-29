@@ -56,10 +56,9 @@ docgen = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/waveform-analysis"
-Documentation = "https://waveform-analysis.readthedocs.io"
-Repository = "https://github.com/yourusername/waveform-analysis.git"
-"Bug Tracker" = "https://github.com/yourusername/waveform-analysis/issues"
+Homepage = "https://github.com/SnowingWolf/WaveformAnalysis/blob/master/docs/features/README.md"
+Repository = "https://github.com/SnowingWolf/WaveformAnalysis.git"
+"Bug Tracker" = "https://github.com/SnowingWolf/WaveformAnalysis/issues"
 
 [project.scripts]
 waveform-process = "waveform_analysis.cli:main"
