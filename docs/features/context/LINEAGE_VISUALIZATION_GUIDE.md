@@ -556,7 +556,6 @@ ctx.plot_lineage(
 # 1. 启用性能统计
 ctx = Context(
     storage_dir="./cache",
-    enable_stats=True,
     stats_mode='detailed'
 )
 

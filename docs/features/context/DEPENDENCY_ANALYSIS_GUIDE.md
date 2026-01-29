@@ -66,8 +66,7 @@ from waveform_analysis.core.context import Context
 
 # 启用性能统计
 ctx = Context(
-    enable_stats=True,
-    stats_mode='detailed'  # 'basic' 或 'detailed'
+    stats_mode='detailed'  # 'off', 'basic' 或 'detailed'
 )
 # ... 注册插件并执行数据处理 ...
 
@@ -217,7 +216,7 @@ analysis.save_markdown('project_architecture.md')
 
 ```python
 # 1. 启用详细性能统计
-ctx = Context(enable_stats=True, stats_mode='detailed')
+ctx = Context(stats_mode='detailed')
 # ... 执行数据处理 ...
 
 # 2. 分析瓶颈
@@ -352,7 +351,7 @@ def analyze_dependencies(
 
 参数：
 - `target_name`: 目标数据名称
-- `include_performance`: 是否包含性能数据（需要 `enable_stats=True`）
+- `include_performance`: 是否包含性能数据（需要 `stats_mode='basic'` 或 `'detailed'`）
 - `run_id`: 保留参数，当前未使用
 
 返回：`DependencyAnalysisResult` 对象
@@ -389,9 +388,9 @@ def analyze_dependencies(
 
 ### Q: 如何启用性能统计？
 
-A: 在创建 Context 时设置 `enable_stats=True`：
+A: 在创建 Context 时设置 `stats_mode`：
 ```python
-ctx = Context(enable_stats=True, stats_mode='detailed')
+ctx = Context(stats_mode='detailed')
 ```
 
 ### Q: 静态分析和动态分析有什么区别？

@@ -71,8 +71,7 @@ def _create_context_from_spec(spec: Dict[str, Any]) -> "Context":
         storage_dir=spec.get("storage_dir"),
         plugin_dirs=spec.get("plugin_dirs"),
         auto_discover_plugins=False,
-        enable_stats=spec.get("enable_stats", False),
-        stats_mode=spec.get("stats_mode", "basic"),
+        stats_mode=spec.get("stats_mode", "off"),
         stats_log_file=spec.get("stats_log_file"),
     )
 
@@ -141,8 +140,7 @@ class Context(CacheMixin, PluginMixin):
         storage_dir: Optional[str] = None,
         plugin_dirs: Optional[List[str]] = None,
         auto_discover_plugins: bool = False,
-        enable_stats: bool = False,
-        stats_mode: str = "basic",
+        stats_mode: str = "off",
         stats_log_file: Optional[str] = None,
     ):
         """
@@ -157,8 +155,7 @@ class Context(CacheMixin, PluginMixin):
                     如果为 None，使用默认的 MemmapStorage
             plugin_dirs: 插件搜索目录列表
             auto_discover_plugins: 是否自动发现并注册插件
-            enable_stats: 是否启用插件性能统计
-            stats_mode: 统计模式 ('off', 'basic', 'detailed')
+            stats_mode: 统计模式 ('off', 'basic', 'detailed')，'off' 表示禁用统计
             stats_log_file: 统计日志文件路径
 
         Storage Structure:
@@ -177,7 +174,7 @@ class Context(CacheMixin, PluginMixin):
             >>> ctx = Context(storage=SQLiteBackend("./data.db"))
 
             >>> # 启用详细统计和日志
-            >>> ctx = Context(enable_stats=True, stats_mode='detailed', stats_log_file='./logs/plugins.log')
+            >>> ctx = Context(stats_mode='detailed', stats_log_file='./logs/plugins.log')
         """
         CacheMixin.__init__(self)
         PluginMixin.__init__(self)
@@ -243,9 +240,9 @@ class Context(CacheMixin, PluginMixin):
         self._validation_manager = ValidationManager(self)
 
         # Setup plugin statistics collector
-        self.enable_stats = enable_stats
+        self.enable_stats = stats_mode != "off"
         self.stats_collector = None
-        if enable_stats:
+        if self.enable_stats:
             from waveform_analysis.core.plugins.core.stats import PluginStatsCollector
 
             # Create dedicated collector for this context (not global singleton)
@@ -293,7 +290,7 @@ class Context(CacheMixin, PluginMixin):
         For process-based parallelism, prefer create_context_factory().
         """
         config = _safe_copy_config(self.config)
-        stats_mode = "basic"
+        stats_mode = "off"
         stats_log_file = None
         if self.stats_collector is not None:
             stats_mode = getattr(self.stats_collector, "mode", "basic")
@@ -304,8 +301,7 @@ class Context(CacheMixin, PluginMixin):
             storage_dir=self.storage_dir,
             plugin_dirs=list(self.plugin_dirs),
             auto_discover_plugins=False,
-            enable_stats=self.enable_stats,
-            stats_mode=stats_mode,
+            stats_mode=stats_mode if self.enable_stats else "off",
             stats_log_file=stats_log_file,
         )
 
@@ -370,7 +366,7 @@ class Context(CacheMixin, PluginMixin):
                 )
             plugins.append({"module": module_name, "class": class_name})
 
-        stats_mode = "basic"
+        stats_mode = "off"
         stats_log_file = None
         if self.stats_collector is not None:
             stats_mode = getattr(self.stats_collector, "mode", "basic")
@@ -380,8 +376,7 @@ class Context(CacheMixin, PluginMixin):
             "config": _safe_copy_config(self.config),
             "storage_dir": self.storage_dir,
             "plugin_dirs": list(self.plugin_dirs),
-            "enable_stats": self.enable_stats,
-            "stats_mode": stats_mode,
+            "stats_mode": stats_mode if self.enable_stats else "off",
             "stats_log_file": stats_log_file,
             "storage": self._build_memmap_storage_spec(),
             "plugins": plugins,
@@ -1959,14 +1954,14 @@ class Context(CacheMixin, PluginMixin):
             性能报告(文本或字典格式)
 
         Example:
-            >>> ctx = Context(enable_stats=True, stats_mode='detailed')
+            >>> ctx = Context(stats_mode='detailed')
             >>> # ... 执行一些插件 ...
             >>> print(ctx.get_performance_report())
             >>> # 或获取特定插件的统计
             >>> stats = ctx.get_performance_report(plugin_name='my_plugin', format='dict')
         """
         if not self.stats_collector or not self.stats_collector.is_enabled():
-            return "Performance statistics are disabled. Enable with enable_stats=True"
+            return "Performance statistics are disabled. Enable with stats_mode='basic' or 'detailed'"
 
         if plugin_name:
             stats = self.stats_collector.get_statistics(plugin_name)
@@ -1999,14 +1994,14 @@ class Context(CacheMixin, PluginMixin):
 
         Args:
             target_name: 目标数据名称
-            include_performance: 是否包含性能数据分析（需要enable_stats=True）
+            include_performance: 是否包含性能数据分析（需要stats_mode='basic'或'detailed'）
             run_id: 可选的run_id，用于获取特定运行的性能数据（暂未使用，为未来扩展预留）
 
         Returns:
             DependencyAnalysisResult: 分析结果对象
 
         Example:
-            >>> ctx = Context(enable_stats=True)
+            >>> ctx = Context(stats_mode='basic')
             >>> # ... 注册插件并执行一些操作 ...
             >>> analysis = ctx.analyze_dependencies('paired_events')
             >>> print(analysis.summary())

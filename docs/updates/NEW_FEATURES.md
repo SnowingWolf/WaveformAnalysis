@@ -43,7 +43,6 @@ from waveform_analysis.core.context import Context
 
 # 创建Context时启用统计
 ctx = Context(
-    enable_stats=True,
     stats_mode='detailed',  # 'off', 'basic', or 'detailed'
     stats_log_file='./logs/plugins.log'
 )
