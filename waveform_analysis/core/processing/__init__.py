@@ -6,7 +6,7 @@ Processing 子模块 - 数据处理流水线
 
 主要组件：
 - WaveformLoaderCSV: 波形数据加载器
-- WaveformStruct: 波形结构化处理
+- WaveformStruct: 波形结构化处理（从 plugins.builtin.cpu.waveforms 导入）
 - EventAnalyzer: 事件分析器
 - Chunk: 时间对齐的数据块管理
 
@@ -59,18 +59,12 @@ from .chunk import (
     split_by_time,
     validate_endtime,
 )
-from .loader import WaveformLoaderCSV
 
 # 信号处理
-from .event_grouping import (
-    PEAK_DTYPE,
-    find_hits,
-    group_multi_channel_hits,
-)
-from .waveform_struct import RECORD_DTYPE, WaveformStruct
+from .dtypes import EVENTS_DTYPE, PEAK_DTYPE, RECORDS_DTYPE, ST_WAVEFORM_DTYPE
+from .event_grouping import find_hits, group_multi_channel_hits
+from .loader import WaveformLoaderCSV
 from .records_builder import (
-    EVENTS_DTYPE,
-    RECORDS_DTYPE,
     EventsBundle,
     RecordsBundle,
     build_records_from_st_waveforms,
@@ -79,14 +73,23 @@ from .records_builder import (
     merge_records_parts,
 )
 
+# WaveformStruct 从新位置导入（向后兼容）
+from waveform_analysis.core.plugins.builtin.cpu.waveforms import (
+    WaveformStruct,
+    WaveformStructConfig,
+    create_channel_mapping,
+)
+
 __all__ = [
     # 数据加载
     "WaveformLoaderCSV",
     # 信号处理
     "WaveformStruct",
+    "WaveformStructConfig",
+    "create_channel_mapping",
     "group_multi_channel_hits",
     "find_hits",
-    "RECORD_DTYPE",
+    "ST_WAVEFORM_DTYPE",
     "PEAK_DTYPE",
     "RECORDS_DTYPE",
     "EVENTS_DTYPE",

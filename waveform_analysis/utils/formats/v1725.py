@@ -159,7 +159,7 @@ class V1725Reader(FormatReader):
             [
                 ("channel", "i2"),
                 ("timestamp", "i8"),
-                ("baseline", "i4"),
+                ("baseline", "f8"),  # 使用 float64 以匹配 RECORD_DTYPE
                 ("trunc", "b1"),
                 ("wave", "O"),
             ]
@@ -168,7 +168,7 @@ class V1725Reader(FormatReader):
         for i, wave in enumerate(waves):
             arr[i]["channel"] = wave.channel
             arr[i]["timestamp"] = wave.timestamp
-            arr[i]["baseline"] = wave.baseline
+            arr[i]["baseline"] = float(wave.baseline)  # 转换为 float64
             arr[i]["trunc"] = wave.trunc
             arr[i]["wave"] = wave.waveform
         return arr

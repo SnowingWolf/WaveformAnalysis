@@ -267,6 +267,7 @@ sandbox/
 test_*.py
 debug_*.py
 !tests/test_*.py
+!tests/**/test_*.py
 !**/tests/test_*.py
 
 # Old and backup files

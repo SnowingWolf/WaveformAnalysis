@@ -256,7 +256,7 @@ data = ctx.get_data('run_001', 'processed_data')  # 使用threshold=20.0
 **状态:** ✅ 新实现
 
 **核心变化:**
-- `RECORD_DTYPE` 新增 `time` 字段（绝对时间，ns），`timestamp` 统一为 ps
+- `ST_WAVEFORM_DTYPE` 新增 `time` 字段（绝对时间，ns），`timestamp` 统一为 ps
 - 时间转换公式：`time = epoch_ns + timestamp // 1000`
 - `st_waveforms.timestamp` 按 `FormatSpec.timestamp_unit` 统一转换为 ps
 - 流式处理默认 `time_field="timestamp"`，断点阈值使用 `break_threshold_ps`

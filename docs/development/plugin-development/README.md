@@ -1,63 +1,30 @@
-# 🔧 插件开发指南
+# 插件开发
 
-**导航**: [文档中心](../../README.md) > [development](../README.md) > 插件开发
+**导航**: [文档中心](../../README.md) > [开发者指南](../README.md) > 插件开发
 
 从零开始学习如何开发自定义插件。
 
----
-
-## 📚 文档列表
+## 文档列表
 
 | 文档 | 说明 |
-| --- | --- |
-| [SIMPLE_PLUGIN_GUIDE.md](../../features/plugin/SIMPLE_PLUGIN_GUIDE.md) | 最简单的插件教程 |
-| [plugin_guide.md](plugin_guide.md) | 插件开发完整指南 |
-| [PLUGIN_SCAFFOLD.md](PLUGIN_SCAFFOLD.md) | 插件脚手架与测试夹具 |
-| [PLUGIN_SPEC_GUIDE.md](PLUGIN_SPEC_GUIDE.md) | PluginSpec 与 ConfigField 高级指南 |
+|------|------|
+| [插件开发教程](../../features/plugin/SIMPLE_PLUGIN_GUIDE.md) | 从零开始写第一个插件 |
+| [插件开发完整指南](plugin_guide.md) | 深入学习插件开发 |
+| [插件脚手架](PLUGIN_SCAFFOLD.md) | 插件脚手架与测试夹具 |
+| [PluginSpec 指南](PLUGIN_SPEC_GUIDE.md) | PluginSpec 与 ConfigField 高级指南 |
 
----
+## 学习路径
 
-## 🎓 学习路径
+1. [插件开发教程](../../features/plugin/SIMPLE_PLUGIN_GUIDE.md) - 第一个插件
+2. [插件开发完整指南](plugin_guide.md) - 深入学习
+3. [PluginSpec 指南](PLUGIN_SPEC_GUIDE.md) - 高级功能（可选）
 
-### 插件开发入门
+## 插件示例
 
-```
-1. SIMPLE_PLUGIN_GUIDE.md - 第一个插件
-   ↓
-2. plugin_guide.md - 深入学习
-   ↓
-3. PLUGIN_SPEC_GUIDE.md - 高级功能（可选）
-```
+查看内置插件源码：`waveform_analysis/core/plugins/builtin/cpu/`
 
----
-
-## 🔍 快速查找
-
-### 我想...
-
-#### 写第一个插件
-→ [SIMPLE_PLUGIN_GUIDE.md](../../features/plugin/SIMPLE_PLUGIN_GUIDE.md)
-
-#### 学习高级功能
-→ [plugin_guide.md](plugin_guide.md)
-
-#### 查看插件示例
-→ 查看 `waveform_analysis/core/plugins/builtin/cpu/`
-
-#### 快速验证新插件
-→ [PLUGIN_SCAFFOLD.md](PLUGIN_SCAFFOLD.md)
-
-#### 了解 PluginSpec 和 ConfigField
-→ [PLUGIN_SPEC_GUIDE.md](PLUGIN_SPEC_GUIDE.md)
-
----
-
-## 🔗 相关资源
+## 相关资源
 
 - [架构设计](../../architecture/README.md) - 理解系统架构
 - [API 参考](../../api/README.md) - 完整 API 文档
-- [Plugin 使用](../../features/plugin/README.md) - 内置插件使用
-
----
-
-**快速链接**: [简单教程](../../features/plugin/SIMPLE_PLUGIN_GUIDE.md) | [完整指南](plugin_guide.md)
+- [插件功能](../../features/plugin/README.md) - 内置插件使用

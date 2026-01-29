@@ -103,7 +103,7 @@
 ### 2.8 数据处理层 (Data Processing Layer)
 - **`WaveformStruct`** (`core/processing/waveform_struct.py`): 波形结构化处理器，已解耦 DAQ 格式依赖。
     - **配置驱动**: 通过 `WaveformStructConfig` 配置类指定 DAQ 格式。
-    - **动态 dtype**: 根据实际波形长度动态创建 `RECORD_DTYPE`。
+    - **动态 dtype**: 根据实际波形长度动态创建 `ST_WAVEFORM_DTYPE`。
     - **列映射**: 从 `FormatSpec` 读取列索引（board, channel, timestamp, samples_start, baseline_start/end）。
     - **向后兼容**: 无配置时默认使用 VX2730 格式。
     - **多种创建方式**:

@@ -9,7 +9,7 @@ Plugins 子模块 - 插件系统统一入口
     from waveform_analysis.core.plugins import Plugin, Option
 
     # 导入内置插件
-    from waveform_analysis.core.plugins import RawFilesPlugin, WaveformsPlugin
+    from waveform_analysis.core.plugins import RawFileNamesPlugin, WaveformsPlugin
 
     # 导入插件加载器
     from waveform_analysis.core.plugins import PluginLoader
@@ -22,7 +22,7 @@ Plugins 子模块 - 插件系统统一入口
     from waveform_analysis.core.plugins.core import Plugin, StreamingPlugin
 
     # 内置插件
-    from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin
+    from waveform_analysis.core.plugins.builtin.cpu import RawFileNamesPlugin
 
 向后兼容：
     from waveform_analysis.core import Plugin  # 仍然可用
@@ -43,10 +43,11 @@ from .builtin.cpu import (
     PairedEventsPlugin,
     RecordsPlugin,
     # 标准插件
-    RawFilesPlugin,
+    RawFileNamesPlugin,
     SignalPeaksPlugin,
-    StWaveformsPlugin,
     WaveformsPlugin,
+    WaveformStruct,
+    WaveformStructConfig,
     WaveformWidthPlugin,
 )
 from .builtin.streaming import SignalPeaksStreamPlugin
@@ -109,9 +110,10 @@ __all__ = [
     "strax_dtype_to_numpy",
     "numpy_dtype_to_strax",
     # 标准插件
-    "RawFilesPlugin",
+    "RawFileNamesPlugin",
     "WaveformsPlugin",
-    "StWaveformsPlugin",
+    "WaveformStruct",
+    "WaveformStructConfig",
     "HitFinderPlugin",
     "BasicFeaturesPlugin",
     "DataFramePlugin",

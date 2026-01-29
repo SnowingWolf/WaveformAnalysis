@@ -27,8 +27,8 @@ import numpy as np
 
 from waveform_analysis.core.foundation.constants import FeatureDefaults
 from waveform_analysis.core.foundation.utils import exporter
+from waveform_analysis.core.processing.dtypes import DEFAULT_WAVE_LENGTH, ST_WAVEFORM_DTYPE
 from waveform_analysis.core.processing.loader import WaveformLoaderCSV
-from waveform_analysis.core.processing.waveform_struct import DEFAULT_WAVE_LENGTH, RECORD_DTYPE
 from waveform_analysis.utils.io import parse_files_generator
 
 # 初始化 logger 和 exporter
@@ -121,7 +121,7 @@ class WaveformPreviewer:
             end_event: 结束事件索引（不包含）
 
         返回:
-            结构化数组（RECORD_DTYPE），包含 baseline, timestamp, channel, wave 等字段
+            结构化数组（ST_WAVEFORM_DTYPE），包含 baseline, timestamp, channel, wave 等字段
 
         示例:
             >>> waveforms = previewer.load_by_range(channel=0, start_event=10, end_event=20)
@@ -132,13 +132,13 @@ class WaveformPreviewer:
 
         if channel >= len(raw_files):
             logger.warning(f"Channel {channel} does not exist (n_channels={self.n_channels})")
-            return np.zeros(0, dtype=RECORD_DTYPE)
+            return np.zeros(0, dtype=ST_WAVEFORM_DTYPE)
 
         channel_files = raw_files[channel]
 
         if not channel_files:
             logger.warning(f"No files found for channel {channel}")
-            return np.zeros(0, dtype=RECORD_DTYPE)
+            return np.zeros(0, dtype=ST_WAVEFORM_DTYPE)
 
         # 2. 流式读取并累计事件计数
         collected = []
@@ -173,7 +173,7 @@ class WaveformPreviewer:
         # 3. 合并并结构化
         if not collected:
             logger.warning(f"No events found in range [{start_event}, {end_event}) for channel {channel}")
-            return np.zeros(0, dtype=RECORD_DTYPE)
+            return np.zeros(0, dtype=ST_WAVEFORM_DTYPE)
 
         raw_data = np.vstack(collected)
         logger.debug(f"Loaded {len(raw_data)} events, structuring...")
@@ -192,7 +192,7 @@ class WaveformPreviewer:
             end_ts: 结束时间戳（ps，不包含）
 
         返回:
-            结构化数组（RECORD_DTYPE）
+            结构化数组（ST_WAVEFORM_DTYPE）
 
         示例:
             >>> waveforms = previewer.load_by_timestamp(
@@ -206,13 +206,13 @@ class WaveformPreviewer:
 
         if channel >= len(raw_files):
             logger.warning(f"Channel {channel} does not exist (n_channels={self.n_channels})")
-            return np.zeros(0, dtype=RECORD_DTYPE)
+            return np.zeros(0, dtype=ST_WAVEFORM_DTYPE)
 
         channel_files = raw_files[channel]
 
         if not channel_files:
             logger.warning(f"No files found for channel {channel}")
-            return np.zeros(0, dtype=RECORD_DTYPE)
+            return np.zeros(0, dtype=ST_WAVEFORM_DTYPE)
 
         # 2. 流式扫描，筛选时间戳范围
         collected = []
@@ -241,7 +241,7 @@ class WaveformPreviewer:
         # 3. 合并并结构化
         if not collected:
             logger.warning(f"No events found in timestamp range [{start_ts}, {end_ts}) for channel {channel}")
-            return np.zeros(0, dtype=RECORD_DTYPE)
+            return np.zeros(0, dtype=ST_WAVEFORM_DTYPE)
 
         raw_data = np.vstack(collected)
         logger.debug(f"Loaded {len(raw_data)} events, structuring...")
@@ -254,7 +254,7 @@ class WaveformPreviewer:
 
         与 WaveformStruct._structure_waveform 的区别：
         - 不处理 BOARD/CHANNEL 映射（已知单通道）
-        - 不填充完整 RECORD_DTYPE（仅需 baseline, timestamp, wave）
+        - 不填充完整 ST_WAVEFORM_DTYPE（仅需 baseline, timestamp, wave）
         - 更快速、更轻量
 
         参数:
@@ -262,10 +262,10 @@ class WaveformPreviewer:
             channel: 通道号
 
         返回:
-            结构化数组（RECORD_DTYPE）
+            结构化数组（ST_WAVEFORM_DTYPE）
         """
         n_events = len(raw_data)
-        result = np.zeros(n_events, dtype=RECORD_DTYPE)
+        result = np.zeros(n_events, dtype=ST_WAVEFORM_DTYPE)
 
         # 提取基线（前40个采样点均值，对应CSV第7-46列）
         try:
@@ -308,7 +308,7 @@ class WaveformPreviewer:
         计算波形特征。
 
         参数:
-            waveforms: 结构化数组（RECORD_DTYPE）
+            waveforms: 结构化数组（ST_WAVEFORM_DTYPE）
             peaks_range: 峰值检测区间（采样点索引），默认 (40, 90)
             charge_range: 电荷积分区间（采样点索引），默认 (60, 400)
 
@@ -367,7 +367,7 @@ class WaveformPreviewer:
         在同一图上叠加显示多个波形，可选地标注关键特征（基线、峰值、积分区域）。
 
         参数:
-            waveforms: 结构化数组（RECORD_DTYPE）
+            waveforms: 结构化数组（ST_WAVEFORM_DTYPE）
             annotate: 是否标注特征（基线、峰值、积分区域），默认 True
             peaks_range: 峰值检测区间，默认 (40, 90)
             charge_range: 电荷积分区间，默认 (60, 400)
@@ -485,7 +485,7 @@ class WaveformPreviewer:
         分格显示每个波形（每个波形一个子图）。
 
         参数:
-            waveforms: 结构化数组（RECORD_DTYPE）
+            waveforms: 结构化数组（ST_WAVEFORM_DTYPE）
             annotate: 是否标注特征，默认 True
             peaks_range: 峰值检测区间，默认 (40, 90)
             charge_range: 电荷积分区间，默认 (60, 400)
