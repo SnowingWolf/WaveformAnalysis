@@ -137,7 +137,7 @@ ctx.plot_lineage('df_paired', kind='plotly', verbose=2)
 
 ```python
 # 启用性能统计
-ctx = Context(enable_stats=True, stats_mode='detailed')
+ctx = Context(stats_mode='detailed')
 
 # 执行数据处理
 data = ctx.get_data('run_001', 'df_paired')
@@ -305,7 +305,6 @@ from waveform_analysis.core.plugins import *
 # 创建 Context（启用性能统计）
 ctx = Context(
     storage_dir="./cache",
-    enable_stats=True,
     stats_mode='detailed'
 )
 
@@ -551,7 +550,6 @@ from waveform_analysis.core.context import Context
 # 创建 Context
 ctx = Context(
     storage_dir="./cache",
-    enable_stats=True,
     stats_mode='detailed'
 )
 
