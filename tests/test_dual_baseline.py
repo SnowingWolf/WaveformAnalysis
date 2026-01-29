@@ -9,33 +9,34 @@ import numpy as np
 
 
 def test_record_dtype_has_both_baselines():
-    """测试 RECORD_DTYPE 包含两个 baseline 字段"""
+    """测试 ST_WAVEFORM_DTYPE 包含两个 baseline 字段"""
     import sys
+
     # 确保使用当前目录的模块
-    if '.' not in sys.path:
-        sys.path.insert(0, '.')
+    if "." not in sys.path:
+        sys.path.insert(0, ".")
 
     # 强制重新加载模块
-    if 'waveform_analysis.core.processing.dtypes' in sys.modules:
-        del sys.modules['waveform_analysis.core.processing.dtypes']
-    if 'waveform_analysis.core.processing.waveform_struct' in sys.modules:
-        del sys.modules['waveform_analysis.core.processing.waveform_struct']
+    if "waveform_analysis.core.processing.dtypes" in sys.modules:
+        del sys.modules["waveform_analysis.core.processing.dtypes"]
+    if "waveform_analysis.core.processing.waveform_struct" in sys.modules:
+        del sys.modules["waveform_analysis.core.processing.waveform_struct"]
 
-    from waveform_analysis.core.processing.dtypes import RECORD_DTYPE
+    from waveform_analysis.core.processing.dtypes import ST_WAVEFORM_DTYPE
 
-    dtype = np.dtype(RECORD_DTYPE)
+    dtype = np.dtype(ST_WAVEFORM_DTYPE)
     field_names = list(dtype.names) if dtype.names else []
 
     print(f"Field names: {field_names}")
 
-    assert "baseline" in field_names, "RECORD_DTYPE 应包含 baseline 字段"
-    assert "baseline_upstream" in field_names, "RECORD_DTYPE 应包含 baseline_upstream 字段"
+    assert "baseline" in field_names, "ST_WAVEFORM_DTYPE 应包含 baseline 字段"
+    assert "baseline_upstream" in field_names, "ST_WAVEFORM_DTYPE 应包含 baseline_upstream 字段"
 
     # 验证字段类型
     assert dtype.fields["baseline"][0] == np.float64, "baseline 应为 float64"
     assert dtype.fields["baseline_upstream"][0] == np.float64, "baseline_upstream 应为 float64"
 
-    print("✓ RECORD_DTYPE 包含两个 baseline 字段")
+    print("✓ ST_WAVEFORM_DTYPE 包含两个 baseline 字段")
 
 
 def test_create_record_dtype_has_both_baselines():

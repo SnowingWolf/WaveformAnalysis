@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from waveform_analysis.core.processing.event_grouping import group_multi_channel_hits
-from waveform_analysis.core.processing.waveform_struct import RECORD_DTYPE, WaveformStruct
+from waveform_analysis.core.processing.waveform_struct import ST_WAVEFORM_DTYPE, WaveformStruct
 
 
 class TestWaveformStruct:
@@ -27,7 +27,7 @@ class TestWaveformStruct:
         struct = WaveformStruct([])
         result = struct._structure_waveform()
         assert len(result) == 0
-        assert result.dtype.names == np.dtype(RECORD_DTYPE).names
+        assert result.dtype.names == np.dtype(ST_WAVEFORM_DTYPE).names
 
     def test_structure_waveform_with_data(self):
         """测试带数据的波形结构化"""
