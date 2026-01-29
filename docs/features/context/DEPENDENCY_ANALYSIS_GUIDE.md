@@ -60,7 +60,9 @@ DAG 深度: 6, 宽度: 2
 
 ```python
 # 启用性能统计
-ctx = Context(enable_stats=True, stats_mode='detailed')
+ctx = Context(
+    stats_mode='detailed'  # 'off', 'basic' 或 'detailed'
+)
 # ... 注册插件并执行数据处理 ...
 
 # 执行动态分析（包含性能数据）
@@ -117,11 +119,26 @@ plot_lineage_labview(
 
 ## 实际应用场景
 
-### 场景 1：性能调优
+### 场景 1：静态分析
 
 ```python
-# 启用详细性能统计
-ctx = Context(enable_stats=True, stats_mode='detailed')
+# 1. 静态分析快速理解
+analysis = ctx.analyze_dependencies('final_output', include_performance=False)
+print(analysis.summary())
+
+# 2. 查看层次结构
+for depth, plugins in analysis.layers.items():
+    print(f"深度 {depth}: {', '.join(plugins)}")
+
+# 3. 导出文档
+analysis.save_markdown('project_architecture.md')
+```
+
+### 场景 2：性能调优
+
+```python
+# 1. 启用详细性能统计
+ctx = Context(stats_mode='detailed')
 # ... 执行数据处理 ...
 
 # 分析瓶颈
@@ -181,7 +198,7 @@ def analyze_dependencies(
 
 参数：
 - `target_name`: 目标数据名称
-- `include_performance`: 是否包含性能数据（需要 `enable_stats=True`）
+- `include_performance`: 是否包含性能数据（需要 `stats_mode='basic'` 或 `'detailed'`）
 - `run_id`: 保留参数，当前未使用
 
 ### DependencyAnalysisResult 属性
@@ -216,10 +233,9 @@ def analyze_dependencies(
 
 ### Q: 如何启用性能统计？
 
-在创建 Context 时设置 `enable_stats=True`：
-
+在创建 Context 时设置 `stats_mode`：
 ```python
-ctx = Context(enable_stats=True, stats_mode='detailed')
+ctx = Context(stats_mode='detailed')
 ```
 
 ### Q: 静态分析和动态分析有什么区别？

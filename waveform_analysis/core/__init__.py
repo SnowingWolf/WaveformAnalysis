@@ -57,7 +57,7 @@ from .processing.chunk import (
     validate_endtime,
 )
 from .processing.event_grouping import group_multi_channel_hits
-from .processing.waveform_struct import WaveformStruct
+from .plugins.builtin.cpu.waveforms import WaveformStruct, WaveformStructConfig
 
 # 向后兼容：导出 storage 子模块的主要类
 # 用户仍然可以使用 `from waveform_analysis.core import MemmapStorage`

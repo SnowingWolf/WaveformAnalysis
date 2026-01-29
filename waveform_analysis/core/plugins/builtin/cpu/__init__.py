@@ -4,8 +4,7 @@ CPU 插件模块 - 使用 NumPy/SciPy 实现
 
 本模块包含所有 CPU 实现的插件：
 - raw_files.py: 原始文件扫描插件
-- waveforms.py: 波形提取插件
-- st_waveforms.py: 波形结构化插件
+- waveforms.py: 波形提取与结构化插件（包含 WaveformStruct）
 - hit_finder.py: Hit 检测插件
 - basic_features.py: 基础特征计算插件
 - dataframe.py: DataFrame 构建插件
@@ -16,11 +15,14 @@ CPU 插件模块 - 使用 NumPy/SciPy 实现
 **加速器**: CPU (NumPy/SciPy/Numba)
 """
 
-# 数据加载插件
-from .waveforms import RawFileNamesPlugin, WaveformsPlugin
-
-# 波形结构化插件
-from .st_waveforms import StWaveformsPlugin
+# 数据加载与结构化插件
+from .waveforms import (
+    RawFileNamesPlugin,
+    WaveformsPlugin,
+    WaveformStruct,
+    WaveformStructConfig,
+    create_channel_mapping,
+)
 
 # 特征提取插件
 from .hit_finder import HitFinderPlugin
@@ -57,7 +59,6 @@ from .waveform_width_integral import (
 standard_plugins = [
     RawFileNamesPlugin(),
     WaveformsPlugin(),
-    StWaveformsPlugin(),
     HitFinderPlugin(),
     BasicFeaturesPlugin(),
     DataFramePlugin(),
@@ -69,7 +70,9 @@ __all__ = [
     # 标准插件
     "RawFileNamesPlugin",
     "WaveformsPlugin",
-    "StWaveformsPlugin",
+    "WaveformStruct",
+    "WaveformStructConfig",
+    "create_channel_mapping",
     "HitFinderPlugin",
     "BasicFeaturesPlugin",
     "BASIC_FEATURES_DTYPE",

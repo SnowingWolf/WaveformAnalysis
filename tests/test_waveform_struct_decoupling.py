@@ -8,11 +8,13 @@
 import numpy as np
 import pytest
 
-from waveform_analysis.core.processing.waveform_struct import (
-    DEFAULT_WAVE_LENGTH,
-    ST_WAVEFORM_DTYPE,
+from waveform_analysis.core.plugins.builtin.cpu.waveforms import (
     WaveformStruct,
     WaveformStructConfig,
+)
+from waveform_analysis.core.processing.dtypes import (
+    DEFAULT_WAVE_LENGTH,
+    ST_WAVEFORM_DTYPE,
     create_record_dtype,
 )
 from waveform_analysis.utils.formats import VX2730_SPEC
@@ -56,7 +58,14 @@ class TestWaveformStructConfig:
         """测试动态创建 ST_WAVEFORM_DTYPE"""
         config = WaveformStructConfig(format_spec=VX2730_SPEC, wave_length=1000)
         dtype = config.get_record_dtype()
-        assert dtype.names == ("baseline", "timestamp", "event_length", "channel", "wave")
+        assert dtype.names == (
+            "baseline",
+            "baseline_upstream",
+            "timestamp",
+            "event_length",
+            "channel",
+            "wave",
+        )
         assert dtype["wave"].shape == (1000,)
 
 
@@ -71,7 +80,14 @@ class TestDynamicRecordDtype:
     def test_create_record_dtype_custom(self):
         """测试自定义波形长度的 dtype"""
         dtype = create_record_dtype(1000)
-        assert dtype.names == ("baseline", "timestamp", "event_length", "channel", "wave")
+        assert dtype.names == (
+            "baseline",
+            "baseline_upstream",
+            "timestamp",
+            "event_length",
+            "channel",
+            "wave",
+        )
         assert dtype["wave"].shape == (1000,)
 
     def test_create_record_dtype_array(self):

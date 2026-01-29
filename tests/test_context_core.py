@@ -1,37 +1,18 @@
-import os
-import shutil
 import threading
 import time
 
+import matplotlib
 import numpy as np
 import pytest
-import matplotlib
-matplotlib.use('Agg')
 
-from waveform_analysis.core.context import Context
+matplotlib.use("Agg")
+
+from tests.utils import DependentPlugin, MockPlugin
 from waveform_analysis.core.cancellation import CancellationToken
+from waveform_analysis.core.context import Context
 from waveform_analysis.core.data.batch_processor import BatchProcessor
 from waveform_analysis.core.execution.timeout import get_timeout_manager, with_timeout
 from waveform_analysis.core.plugins.core.base import Option, Plugin
-
-
-class MockPlugin(Plugin):
-    provides = "mock_data"
-    depends_on = []
-    output_dtype = np.dtype([("time", "f8"), ("value", "f8")])
-
-    def compute(self, context, run_id, **kwargs):
-        return np.array([(1.0, 10.0), (2.0, 20.0)], dtype=self.output_dtype)
-
-
-class DependentPlugin(Plugin):
-    provides = "dependent_data"
-    depends_on = ["mock_data"]
-    output_dtype = np.dtype([("time", "f8"), ("sum", "f8")])
-
-    def compute(self, context, run_id, **kwargs):
-        mock_data = context.get_data(run_id, "mock_data")
-        return np.array([(d["time"], d["value"] + 1) for d in mock_data], dtype=self.output_dtype)
 
 
 @pytest.fixture
@@ -459,3 +440,312 @@ def test_context_timeout_does_not_cache(tmp_path, monkeypatch):
     key = ctx.key_for("run1", "timeout_data")
     assert not ctx.storage.exists(key)
     assert manager.get_timeout_stats().get("compute", 0) >= 1
+
+
+# =============================================================================
+# Context.clone() Tests
+# =============================================================================
+
+
+def test_context_clone_basic(tmp_path):
+    """Test Context clone creates independent instance with same plugins."""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(MockPlugin)
+    ctx.register(DependentPlugin)
+    ctx.set_config({"test_key": "test_value"})
+
+    cloned = ctx.clone()
+
+    # Verify plugins are registered
+    assert "mock_data" in cloned._plugins
+    assert "dependent_data" in cloned._plugins
+
+    # Verify config is copied
+    assert cloned.config.get("test_key") == "test_value"
+
+    # Verify storage_dir is same
+    assert cloned.storage_dir == ctx.storage_dir
+
+
+def test_context_clone_config_independence(tmp_path):
+    """Test cloned context has independent config."""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(MockPlugin)
+    ctx.set_config({"shared_key": "original"})
+
+    cloned = ctx.clone()
+
+    # Modify cloned config
+    cloned.set_config({"shared_key": "modified"})
+
+    # Original should be unchanged
+    assert ctx.config.get("shared_key") == "original"
+    assert cloned.config.get("shared_key") == "modified"
+
+
+def test_context_clone_empty_results(tmp_path):
+    """Test cloned context starts with empty results cache."""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(MockPlugin)
+
+    # Populate original context
+    ctx.get_data("run1", "mock_data")
+    assert ("run1", "mock_data") in ctx._results
+
+    cloned = ctx.clone()
+
+    # Cloned should have empty results
+    assert ("run1", "mock_data") not in cloned._results
+
+
+# =============================================================================
+# Context.get_plugin() Tests
+# =============================================================================
+
+
+def test_context_get_plugin_valid(tmp_path):
+    """Test getting a registered plugin."""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(MockPlugin)
+
+    plugin = ctx.get_plugin("mock_data")
+
+    assert plugin is not None
+    assert plugin.provides == "mock_data"
+    assert isinstance(plugin, MockPlugin)
+
+
+def test_context_get_plugin_invalid(tmp_path):
+    """Test getting non-existent plugin raises KeyError."""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(MockPlugin)
+
+    with pytest.raises(KeyError, match="Plugin 'nonexistent' is not registered"):
+        ctx.get_plugin("nonexistent")
+
+
+def test_context_get_plugin_modify_attributes(tmp_path):
+    """Test modifying plugin attributes via get_plugin."""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(MockPlugin)
+
+    plugin = ctx.get_plugin("mock_data")
+    plugin.save_when = "always"
+
+    # Verify modification persists
+    assert ctx._plugins["mock_data"].save_when == "always"
+
+
+# =============================================================================
+# Time Index Tests
+# =============================================================================
+
+
+def test_context_build_time_index_single_array(tmp_path):
+    """Test building time index for single structured array."""
+    dtype = np.dtype([("time", "<i8"), ("value", "<f8")])
+
+    class TimeDataPlugin(Plugin):
+        provides = "time_data"
+        output_dtype = dtype
+
+        def compute(self, context, run_id, **kwargs):
+            return np.array(
+                [(100, 1.0), (200, 2.0), (300, 3.0), (400, 4.0), (500, 5.0)],
+                dtype=self.output_dtype,
+            )
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(TimeDataPlugin)
+
+    result = ctx.build_time_index("run1", "time_data")
+
+    assert result["type"] == "single"
+    assert "time_data" in result["indices"]
+    assert result["stats"]["time_data"]["n_records"] == 5
+
+
+def test_context_build_time_index_multi_channel(tmp_path):
+    """Test building time index for multi-channel data (List[np.ndarray])."""
+    dtype = np.dtype([("time", "<i8"), ("value", "<f8")])
+
+    class MultiChannelPlugin(Plugin):
+        provides = "multi_channel_data"
+        output_dtype = "List[np.ndarray]"
+
+        def compute(self, context, run_id, **kwargs):
+            ch0 = np.array([(100, 1.0), (200, 2.0), (300, 3.0)], dtype=dtype)
+            ch1 = np.array([(150, 1.5), (250, 2.5), (350, 3.5)], dtype=dtype)
+            return [ch0, ch1]
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(MultiChannelPlugin)
+
+    result = ctx.build_time_index("run1", "multi_channel_data")
+
+    assert result["type"] == "multi_channel"
+    assert result["n_channels"] == 2
+    assert "multi_channel_data_ch0" in result["indices"]
+    assert "multi_channel_data_ch1" in result["indices"]
+
+
+def test_context_get_data_time_range_single(tmp_path):
+    """Test querying time range for single array."""
+    dtype = np.dtype([("time", "<i8"), ("value", "<f8")])
+
+    class TimeDataPlugin(Plugin):
+        provides = "time_data"
+        output_dtype = dtype
+
+        def compute(self, context, run_id, **kwargs):
+            return np.array(
+                [(100, 1.0), (200, 2.0), (300, 3.0), (400, 4.0), (500, 5.0)],
+                dtype=self.output_dtype,
+            )
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(TimeDataPlugin)
+
+    # Query subset
+    result = ctx.get_data_time_range("run1", "time_data", start_time=200, end_time=400)
+
+    assert len(result) == 2
+    assert result[0]["time"] == 200
+    assert result[1]["time"] == 300
+
+
+def test_context_get_data_time_range_boundaries(tmp_path):
+    """Test time range query boundary conditions."""
+    dtype = np.dtype([("time", "<i8"), ("value", "<f8")])
+
+    class TimeDataPlugin(Plugin):
+        provides = "time_data"
+        output_dtype = dtype
+
+        def compute(self, context, run_id, **kwargs):
+            return np.array(
+                [(100, 1.0), (200, 2.0), (300, 3.0)],
+                dtype=self.output_dtype,
+            )
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(TimeDataPlugin)
+
+    # Query with no results
+    result = ctx.get_data_time_range("run1", "time_data", start_time=400, end_time=500)
+    assert len(result) == 0
+
+    # Query all data
+    result = ctx.get_data_time_range("run1", "time_data", start_time=0, end_time=1000)
+    assert len(result) == 3
+
+
+# =============================================================================
+# Epoch Tests
+# =============================================================================
+
+
+def test_context_set_get_epoch_datetime(tmp_path):
+    """Test setting and getting epoch with datetime."""
+    from datetime import datetime, timezone
+
+    ctx = Context(storage_dir=str(tmp_path))
+
+    epoch = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    ctx.set_epoch("run1", epoch)
+
+    epoch_info = ctx.get_epoch("run1")
+    assert epoch_info is not None
+    assert epoch_info.epoch_source == "manual"
+
+
+def test_context_set_epoch_timestamp(tmp_path):
+    """Test setting epoch with Unix timestamp."""
+    ctx = Context(storage_dir=str(tmp_path))
+
+    ctx.set_epoch("run1", 1704110400.0)
+
+    epoch_info = ctx.get_epoch("run1")
+    assert epoch_info is not None
+
+
+def test_context_set_epoch_iso_string(tmp_path):
+    """Test setting epoch with ISO 8601 string."""
+    ctx = Context(storage_dir=str(tmp_path))
+
+    ctx.set_epoch("run1", "2024-01-01T12:00:00Z")
+
+    epoch_info = ctx.get_epoch("run1")
+    assert epoch_info is not None
+
+
+def test_context_get_epoch_not_set(tmp_path):
+    """Test getting epoch when not set returns None."""
+    ctx = Context(storage_dir=str(tmp_path))
+
+    epoch_info = ctx.get_epoch("run1")
+    assert epoch_info is None
+
+
+# =============================================================================
+# Preview Execution Tests
+# =============================================================================
+
+
+def test_context_preview_execution_basic(tmp_path, capsys):
+    """Test preview_execution shows execution plan."""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(MockPlugin)
+    ctx.register(DependentPlugin)
+
+    result = ctx.preview_execution("run1", "dependent_data")
+
+    assert result["target"] == "dependent_data"
+    assert result["run_id"] == "run1"
+    assert "execution_plan" in result
+    assert "mock_data" in result["execution_plan"]
+    assert "dependent_data" in result["execution_plan"]
+
+
+def test_context_preview_execution_cache_status(tmp_path):
+    """Test preview_execution shows cache status."""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(MockPlugin)
+
+    # First call - nothing cached
+    result = ctx.preview_execution("run1", "mock_data", show_cache=True)
+    assert result["cache_status"]["mock_data"]["needs_compute"] is True
+
+    # Compute data
+    ctx.get_data("run1", "mock_data")
+
+    # Second call - should show in memory
+    result = ctx.preview_execution("run1", "mock_data", show_cache=True)
+    assert result["cache_status"]["mock_data"]["in_memory"] is True
+
+
+def test_context_preview_execution_invalid_data(tmp_path):
+    """Test preview_execution with invalid data name raises error."""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(MockPlugin)
+
+    with pytest.raises(ValueError, match="数据类型 'nonexistent' 未注册"):
+        ctx.preview_execution("run1", "nonexistent")
+
+
+def test_context_preview_execution_verbose_levels(tmp_path, capsys):
+    """Test preview_execution with different verbose levels."""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(MockPlugin)
+    ctx.register(DependentPlugin)
+
+    # Verbose 0 - minimal output
+    ctx.preview_execution("run1", "dependent_data", verbose=0)
+    out0 = capsys.readouterr().out
+
+    # Verbose 2 - detailed output
+    ctx.preview_execution("run1", "dependent_data", verbose=2)
+    out2 = capsys.readouterr().out
+
+    # Verbose 2 should have more content
+    assert len(out2) >= len(out0)

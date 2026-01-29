@@ -2,7 +2,7 @@
 """
 测试双 Baseline 功能
 
-验证 WaveformStruct 和 StWaveformsPlugin 是否正确支持双 baseline 字段。
+验证 WaveformStruct 和 WaveformsPlugin 是否正确支持双 baseline 字段。
 """
 
 import numpy as np
@@ -19,8 +19,6 @@ def test_record_dtype_has_both_baselines():
     # 强制重新加载模块
     if "waveform_analysis.core.processing.dtypes" in sys.modules:
         del sys.modules["waveform_analysis.core.processing.dtypes"]
-    if "waveform_analysis.core.processing.waveform_struct" in sys.modules:
-        del sys.modules["waveform_analysis.core.processing.waveform_struct"]
 
     from waveform_analysis.core.processing.dtypes import ST_WAVEFORM_DTYPE
 
@@ -41,7 +39,7 @@ def test_record_dtype_has_both_baselines():
 
 def test_create_record_dtype_has_both_baselines():
     """测试 create_record_dtype() 包含两个 baseline 字段"""
-    from waveform_analysis.core.processing.waveform_struct import create_record_dtype
+    from waveform_analysis.core.processing.dtypes import create_record_dtype
 
     dtype = create_record_dtype(1000)
     field_names = list(dtype.names)
@@ -58,7 +56,7 @@ def test_create_record_dtype_has_both_baselines():
 
 def test_waveform_struct_without_upstream_baseline():
     """测试没有上游 baseline 的情况"""
-    from waveform_analysis.core.processing.waveform_struct import WaveformStruct
+    from waveform_analysis.core.plugins.builtin.cpu.waveforms import WaveformStruct
 
     # 创建测试数据（模拟 VX2730 CSV 格式）
     # 列: BOARD, CHANNEL, RECORD_LENGTH, TIMESTAMP, TRIGGER_ID, DC_OFFSET, BASELINE_START, BASELINE_END, 波形数据...
@@ -103,7 +101,7 @@ def test_waveform_struct_without_upstream_baseline():
 
 def test_waveform_struct_with_upstream_baseline():
     """测试有上游 baseline 的情况"""
-    from waveform_analysis.core.processing.waveform_struct import WaveformStruct
+    from waveform_analysis.core.plugins.builtin.cpu.waveforms import WaveformStruct
 
     # 创建测试数据
     n_events = 10
@@ -146,7 +144,7 @@ def test_waveform_struct_with_upstream_baseline():
 
 def test_waveform_struct_upstream_baseline_length_mismatch():
     """测试上游 baseline 长度不匹配的情况"""
-    from waveform_analysis.core.processing.waveform_struct import WaveformStruct
+    from waveform_analysis.core.plugins.builtin.cpu.waveforms import WaveformStruct
 
     # 创建测试数据
     n_events = 10
@@ -181,7 +179,7 @@ def test_waveform_struct_upstream_baseline_length_mismatch():
 
 def test_waveform_struct_multiple_channels():
     """测试多通道情况"""
-    from waveform_analysis.core.processing.waveform_struct import WaveformStruct
+    from waveform_analysis.core.plugins.builtin.cpu.waveforms import WaveformStruct
 
     # 创建 3 个通道的测试数据
     n_events = 10

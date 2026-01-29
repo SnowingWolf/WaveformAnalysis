@@ -15,7 +15,7 @@ from waveform_analysis.core.processing.records_builder import (
     build_records_from_st_waveforms_sharded,
     build_records_from_v1725_files,
 )
-from waveform_analysis.core.processing.waveform_struct import WaveformStruct, WaveformStructConfig
+from waveform_analysis.core.plugins.builtin.cpu.waveforms import WaveformStruct, WaveformStructConfig
 
 _BUNDLE_CACHE_NAME = "_records_bundle"
 

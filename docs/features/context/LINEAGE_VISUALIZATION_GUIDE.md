@@ -237,9 +237,14 @@ ctx.plot_lineage("df_paired", kind="labview", interactive=True, verbose=2)
 ### 示例 2: 与依赖分析结合
 
 ```python
-# 启用性能统计
-ctx = Context(storage_dir="./cache", enable_stats=True, stats_mode='detailed')
-# ... 注册插件并处理数据 ...
+# 1. 启用性能统计
+ctx = Context(
+    storage_dir="./cache",
+    stats_mode='detailed'
+)
+
+# 2. 注册插件并处理数据
+# ... (注册和处理代码) ...
 
 # 执行依赖分析
 analysis = ctx.analyze_dependencies("df_paired", include_performance=True)

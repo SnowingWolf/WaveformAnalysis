@@ -45,8 +45,9 @@ from .builtin.cpu import (
     # 标准插件
     RawFileNamesPlugin,
     SignalPeaksPlugin,
-    StWaveformsPlugin,
     WaveformsPlugin,
+    WaveformStruct,
+    WaveformStructConfig,
     WaveformWidthPlugin,
 )
 from .builtin.streaming import SignalPeaksStreamPlugin
@@ -111,7 +112,8 @@ __all__ = [
     # 标准插件
     "RawFileNamesPlugin",
     "WaveformsPlugin",
-    "StWaveformsPlugin",
+    "WaveformStruct",
+    "WaveformStructConfig",
     "HitFinderPlugin",
     "BasicFeaturesPlugin",
     "DataFramePlugin",
