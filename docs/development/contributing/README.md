@@ -12,6 +12,7 @@
 | --- | --- |
 | [IMPORT_STYLE_GUIDE.md](IMPORT_STYLE_GUIDE.md) | Python 导入规范 |
 | [COMMIT_CONVENTION.md](COMMIT_CONVENTION.md) | 提交规范（Conventional Commits） |
+| [DOC_ANCHOR_GUIDE.md](DOC_ANCHOR_GUIDE.md) | 文档同步规范（Doc Anchor） |
 
 ---
 
@@ -25,6 +26,9 @@
 #### 了解提交规范
 → [COMMIT_CONVENTION.md](COMMIT_CONVENTION.md)
 
+#### 了解文档同步规范
+→ [DOC_ANCHOR_GUIDE.md](DOC_ANCHOR_GUIDE.md)
+
 ---
 
 ## 🔗 相关资源
@@ -34,4 +38,4 @@
 
 ---
 
-**快速链接**: [导入规范](IMPORT_STYLE_GUIDE.md) | [提交规范](COMMIT_CONVENTION.md)
+**快速链接**: [导入规范](IMPORT_STYLE_GUIDE.md) | [提交规范](COMMIT_CONVENTION.md) | [文档同步](DOC_ANCHOR_GUIDE.md)
