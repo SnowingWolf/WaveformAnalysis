@@ -2,7 +2,8 @@
 
 **导航**: [文档中心](../README.md) > [用户指南](README.md) > 常见场景示例
 
-本文档汇集常见的使用场景和代码示例。
+本文档汇集常见使用场景与代码示例，覆盖基础流程、配置管理、可视化与高级功能。
+示例以 CPU 内置插件为主，运行前请按需替换 `run_001` 和数据路径。
 
 ## 基础操作示例
 
@@ -17,55 +18,17 @@ ctx = Context(storage_dir='./strax_data')
 ctx.register(standard_plugins)
 ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 
-# 获取数据
+# 计算与读取
 basic_features = ctx.get_data('run_001', 'basic_features')
 heights = [ch['height'] for ch in basic_features]
 areas = [ch['area'] for ch in basic_features]
 print(f"Found {len(heights)} height arrays")
 ```
 
-### 时间范围查询
-
-```python
-# 使用时间范围查询（默认 time 字段，ns）
-data = ctx.get_data_time_range(
-    'run_001',
-    'st_waveforms',
-    start_time=1000000,  # 起始时间（ns）
-    end_time=2000000     # 结束时间（ns）
-)
-print(f"Found {len(data)} events in time range")
-
-# 预构建索引以提高性能
-ctx.build_time_index('run_001', 'st_waveforms', endtime_field='computed')
-
-# 获取索引统计
-stats = ctx.get_time_index_stats()
-print(f"Total indices: {stats['total_indices']}")
-```
-
-### 血缘可视化
-
-```python
-# LabVIEW 风格（Matplotlib）
-ctx.plot_lineage('df_paired', kind='labview')
-
-# 交互式模式
-ctx.plot_lineage('df_paired', kind='labview', interactive=True)
-
-# Plotly 高级交互式
-ctx.plot_lineage('df_paired', kind='plotly', verbose=2)
-
-# 自定义样式
-from waveform_analysis.core.foundation.utils import LineageStyle
-style = LineageStyle(node_width=4.0, node_height=2.0, verbose=2)
-ctx.plot_lineage('df_paired', kind='plotly', style=style)
-```
-
 ### 配置管理
 
 ```python
-# 查看可用配置选项
+# 查看可用配置项
 ctx.list_plugin_configs()
 ctx.list_plugin_configs('waveforms')  # 特定插件
 
@@ -73,7 +36,7 @@ ctx.list_plugin_configs('waveforms')  # 特定插件
 ctx.show_config()
 ctx.show_config('waveforms')
 
-# 设置配置
+# 设置配置（全局）
 ctx.set_config({'daq_adapter': 'vx2730', 'threshold': 50})
 
 # 插件特定配置（推荐，避免冲突）
@@ -97,7 +60,27 @@ needs_compute = [p for p, s in result['cache_status'].items() if s['needs_comput
 print(f"需要计算 {len(needs_compute)} 个插件")
 ```
 
+### 血缘可视化
+
+```python
+# LabVIEW 风格（Matplotlib）
+ctx.plot_lineage('df_paired', kind='labview')
+
+# 交互式模式
+ctx.plot_lineage('df_paired', kind='labview', interactive=True)
+
+# Plotly 高级交互式
+ctx.plot_lineage('df_paired', kind='plotly', verbose=2)
+
+# 自定义样式
+from waveform_analysis.core.foundation.utils import LineageStyle
+style = LineageStyle(node_width=4.0, node_height=2.0, verbose=2)
+ctx.plot_lineage('df_paired', kind='plotly', style=style)
+```
+
 ## 高级场景示例
+
+以下示例假设已完成基础初始化并获得 `ctx`。
 
 ### Strax 插件集成
 
@@ -125,6 +108,9 @@ strax_ctx.search_field('time')
 
 ```python
 from waveform_analysis.core.data.export import DataExporter, batch_export
+
+# 获取待导出的数据
+data = ctx.get_data('run_001', 'basic_features')
 
 # 单个数据集导出
 exporter = DataExporter()
@@ -168,6 +154,8 @@ reloader.disable_auto_reload()
 ### 性能分析
 
 ```python
+from waveform_analysis.core.context import Context
+
 # 启用统计收集
 ctx = Context(enable_stats=True, stats_mode='detailed')
 
@@ -192,6 +180,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     SignalPeaksPlugin,
 )
 
+# 假设 ctx 已初始化并注册基础插件
 # 注册信号处理插件
 ctx.register(FilteredWaveformsPlugin())
 ctx.register(SignalPeaksPlugin())
@@ -218,7 +207,7 @@ peaks = ctx.get_data('run_001', 'signal_peaks')
 
 ## 完整示例程序
 
-项目 `examples/` 目录包含更多完整示例：
+项目 `examples/` 目录包含更多完整示例（部分示例需要 DAQ 数据支持）：
 
 | 文件 | 说明 |
 |------|------|
@@ -249,7 +238,7 @@ ctx.list_provided_data()
 # 清除特定数据的缓存
 ctx.clear_cache('run_001', 'basic_features')
 
-# 清除所有缓存
+# 清除所有缓存（注意：会删除已缓存结果）
 import shutil
 shutil.rmtree('./strax_data')
 ```
