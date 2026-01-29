@@ -12,10 +12,40 @@ WaveformAnalysis 提供灵活的配置系统：
 - **插件特定配置** - 只对特定插件生效的配置
 - **配置优先级** - 插件特定配置 > 全局配置 > 默认值
 
+---
+
+## Context 初始化配置参考
+
+`Context(config=...)` 中的全局配置会被 Context 或核心模块直接读取。插件级配置请使用
+`ctx.list_plugin_configs()` 查看。
+
+| 配置键 | 默认值 | 说明 |
+| --- | --- | --- |
+| `data_root` | `"DAQ"` | DAQ 根目录，同时作为默认缓存目录 `storage_dir` |
+| `daq_adapter` | `None` | 默认 DAQ 适配器名称（RawFiles/Waveforms/StWaveforms/Records/Events 可用） |
+| `n_channels` | `None` | 通道数；为空时尽量通过扫描自动推断 |
+| `show_progress` | `True` | 是否显示加载/处理进度条 |
+| `start_channel_slice` | `0` | 兼容旧流程的通道偏移（新流程不再使用） |
+| `plugin_backends` | `None` | 按数据名指定存储后端：`{"st_waveforms": MemmapStorage(...), ...}` |
+| `compression` | `None` | 默认存储压缩后端（如 `"blosc2"`, `"zstd"`, `"lz4"`, `"gzip"` 或实例） |
+| `compression_kwargs` | `None` | 传给压缩后端的参数（如 `{"level": 3}`） |
+| `enable_checksum` | `False` | 写入时生成校验和 |
+| `verify_on_load` | `False` | 读取时校验数据完整性 |
+| `checksum_algorithm` | `"xxhash64"` | 校验算法（`xxhash64` / `sha256` / `md5`） |
+
+### data_root 与 storage_dir 的关系
+
+- `data_root`：**原始数据根目录**。RawFilesPlugin 等插件会从这里读取原始数据，
+  默认路径为 `{data_root}/{run_id}/RAW`（或由 DAQ adapter 决定）。
+- `storage_dir`：**缓存/结果目录**。MemmapStorage 会写入
+  `storage_dir/{run_id}/_cache/`（以及 parquet/元数据等）。
+- 若不显式传 `storage_dir`，Context 会使用 `data_root` 作为默认缓存目录。
+- 若显式传 `storage_dir`，仍需在 `config` 中设置 `data_root` 指向原始数据目录，
+  否则原始数据会从默认 `DAQ` 读取。
 ```python
 from waveform_analysis.core.context import Context
 
-ctx = Context(storage_dir="./cache")
+ctx = Context(config={"data_root": "/data/DAQ"}, storage_dir="./cache")
 
 # 全局配置
 ctx.set_config({'daq_adapter': 'vx2730'})
@@ -23,18 +53,6 @@ ctx.set_config({'daq_adapter': 'vx2730'})
 # 插件特定配置
 ctx.set_config({'threshold': 50}, plugin_name='basic_features')
 ```
-
-## Context 初始化配置
-
-| 配置键 | 默认值 | 说明 |
-|--------|--------|------|
-| `data_root` | `"DAQ"` | DAQ 根目录 |
-| `daq_adapter` | `None` | 默认 DAQ 适配器名称 |
-| `n_channels` | `None` | 通道数（为空时自动推断） |
-| `show_progress` | `True` | 是否显示进度条 |
-| `compression` | `None` | 存储压缩后端（如 `"blosc2"`, `"zstd"`） |
-| `enable_checksum` | `False` | 写入时生成校验和 |
-| `verify_on_load` | `False` | 读取时校验数据完整性 |
 
 ## 设置配置
 

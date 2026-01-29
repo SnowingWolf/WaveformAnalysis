@@ -269,7 +269,7 @@ class PerformanceHelp:
 ⚡ 常用优化技巧:
   • 跳过波形加载: load_waveforms=False (节省 70-80%)
   • 调整块大小: set_config({'chunksize': 5000})
-  • 启用统计: Context(enable_stats=True)
+  • 启用统计: Context(stats_mode='basic')
 
 如需帮助，请参考 CLAUDE.md 文件。
 """

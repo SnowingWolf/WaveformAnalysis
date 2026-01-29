@@ -14,13 +14,13 @@
 
 | 文档 | 说明 |
 |------|------|
-| [快速上手](QUICKSTART_GUIDE.md) | 从零开始，包含代码模板 |
-| [常见示例](EXAMPLES_GUIDE.md) | 常见场景示例集合 |
+| [QUICKSTART_GUIDE.md](QUICKSTART_GUIDE.md) | 快速上手（含黄金路径），包含代码模板 |
+| [EXAMPLES_GUIDE.md](EXAMPLES_GUIDE.md) | 常见场景示例集合 |
 | [Context 使用](../features/context/README.md) | 配置管理、数据获取、执行预览 |
 
 ## 学习路径
 
-1. [快速上手](QUICKSTART_GUIDE.md) - 跑通第一个流程
+1. [快速上手](QUICKSTART_GUIDE.md) - 跑通第一个流程（含 5 分钟上手）
 2. [常见示例](EXAMPLES_GUIDE.md) - 了解更多场景
 3. [Context 功能](../features/context/README.md) - 深入 Context 使用
 
@@ -28,13 +28,13 @@
 
 | 场景 | 文档 |
 |------|------|
+| 5 分钟上手 | [QUICKSTART_GUIDE.md#5-分钟上手](QUICKSTART_GUIDE.md#5-分钟上手) |
 | 快速上手 | [QUICKSTART_GUIDE.md](QUICKSTART_GUIDE.md) |
 | 查看代码示例 | [EXAMPLES_GUIDE.md](EXAMPLES_GUIDE.md) |
 | 查看 DAQ 运行概览 | [DAQ_ANALYZER_GUIDE.md](../features/utils/DAQ_ANALYZER_GUIDE.md) |
 | 管理配置 | [CONFIGURATION.md](../features/context/CONFIGURATION.md) |
 | 可视化血缘 | [LINEAGE_VISUALIZATION_GUIDE.md](../features/context/LINEAGE_VISUALIZATION_GUIDE.md) |
 | 查看内置插件细节 | [插件详解](../plugins/README.md) |
-
 ## 相关资源
 
 - [功能特性](../features/README.md) - 详细功能说明

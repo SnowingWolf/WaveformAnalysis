@@ -157,7 +157,7 @@ reloader.disable_auto_reload()
 from waveform_analysis.core.context import Context
 
 # 启用统计收集
-ctx = Context(enable_stats=True, stats_mode='detailed')
+ctx = Context(stats_mode='detailed')
 
 # 执行操作
 basic_features = ctx.get_data('run_001', 'basic_features')
