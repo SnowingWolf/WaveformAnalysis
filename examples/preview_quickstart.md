@@ -235,7 +235,7 @@ print(f"  建议阈值（均值 - 2σ）: {suggested_threshold:.2f} ADC")
 - `start_event` (int): 起始事件索引（包含）
 - `end_event` (int): 结束事件索引（不包含）
 
-**返回**：结构化数组 (RECORD_DTYPE)
+**返回**：结构化数组 (ST_WAVEFORM_DTYPE)
 
 ---
 
@@ -247,7 +247,7 @@ print(f"  建议阈值（均值 - 2σ）: {suggested_threshold:.2f} ADC")
 - `start_ts` (int): 起始时间戳（ps，包含）
 - `end_ts` (int): 结束时间戳（ps，不包含）
 
-**返回**：结构化数组 (RECORD_DTYPE)
+**返回**：结构化数组 (ST_WAVEFORM_DTYPE)
 
 ---
 
@@ -392,10 +392,10 @@ previewer._get_raw_files()
 
 ### 数据结构
 
-加载的波形数据使用 `RECORD_DTYPE` 结构化数组：
+加载的波形数据使用 `ST_WAVEFORM_DTYPE` 结构化数组：
 
 ```python
-RECORD_DTYPE = [
+ST_WAVEFORM_DTYPE = [
     ('baseline', 'f8'),         # 基线值（float64）
     ('timestamp', 'i8'),        # 时间戳，单位 ps（int64）
     ('event_length', 'i8'),     # 事件长度（int64）

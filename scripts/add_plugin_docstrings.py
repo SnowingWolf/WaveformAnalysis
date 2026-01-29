@@ -6,12 +6,12 @@
 这个脚本会安全地为所有12个标准插件的 compute() 方法添加完整的 Google 风格 docstring。
 """
 
-import re
 from pathlib import Path
+import re
 
 # 定义所有插件的 docstring
 DOCSTRINGS = {
-    'RawFilesPlugin': '''        """
+    "RawFilesPlugin": '''        """
         扫描数据目录并按通道分组原始 CSV 文件
 
         从配置的数据目录中查找指定运行的所有原始波形文件，并按通道号分组。
@@ -30,7 +30,7 @@ DOCSTRINGS = {
             >>> print(f"通道数: {len(raw_files)}")
         """
 ''',
-    'WaveformsPlugin': '''        """
+    "WaveformsPlugin": '''        """
         从原始 CSV 文件中提取波形数据
 
         读取并解析原始 CSV 文件，提取每个通道的波形数据。
@@ -49,7 +49,7 @@ DOCSTRINGS = {
             >>> print(f"通道0波形形状: {waveforms[0].shape}")
         """
 ''',
-    'StWaveformsPlugin': '''        """
+    "StWaveformsPlugin": '''        """
         将波形数据结构化为 NumPy 结构化数组
 
         将原始波形列表转换为包含时间戳、基线、通道号和波形数据的结构化数组。
@@ -61,14 +61,14 @@ DOCSTRINGS = {
             **kwargs: 依赖数据，包含 waveforms（由 WaveformsPlugin 提供）
 
         Returns:
-            List[np.ndarray]: 每个通道的结构化数组，dtype 为 RECORD_DTYPE
+            List[np.ndarray]: 每个通道的结构化数组，dtype 为 ST_WAVEFORM_DTYPE
 
         Examples:
             >>> st_waveforms = ctx.get_data('run_001', 'st_waveforms')
             >>> print(st_waveforms[0].dtype.names)
         """
 ''',
-    'HitFinderPlugin': '''        """
+    "HitFinderPlugin": '''        """
         从结构化波形中检测 Hit 事件
 
         使用阈值法从波形中识别和定位 Hit（超过阈值的信号峰值）。
@@ -88,7 +88,7 @@ DOCSTRINGS = {
             >>> print(f"通道0的Hit数: {len(hits[0])}")
         """
 ''',
-    'BasicFeaturesPlugin': '''        """
+    "BasicFeaturesPlugin": '''        """
         计算基础波形特征（峰值和电荷）
 
         .. deprecated::
@@ -103,7 +103,7 @@ DOCSTRINGS = {
             Dict[str, List[np.ndarray]]: 包含 'peaks' 和 'charges' 的字典
         """
 ''',
-    'PeaksPlugin': '''        """
+    "PeaksPlugin": '''        """
         从结构化波形中计算峰值特征
 
         在配置的时间窗口内查找波形的最大峰值（最大值 - 最小值）。
@@ -122,7 +122,7 @@ DOCSTRINGS = {
             >>> print(f"峰值范围: {peaks[0].min():.2f} - {peaks[0].max():.2f}")
         """
 ''',
-    'ChargesPlugin': '''        """
+    "ChargesPlugin": '''        """
         从结构化波形中计算电荷积分
 
         在配置的时间窗口内对波形进行积分（baseline - wave），计算总电荷。
@@ -141,7 +141,7 @@ DOCSTRINGS = {
             >>> print(f"电荷范围: {charges[0].min():.2f} - {charges[0].max():.2f}")
         """
 ''',
-    'DataFramePlugin': '''        """
+    "DataFramePlugin": '''        """
         构建单通道事件的 DataFrame
 
         整合结构化波形、峰值和电荷特征，构建包含所有事件信息的 pandas DataFrame。
@@ -159,7 +159,7 @@ DOCSTRINGS = {
             >>> print(f"总事件数: {len(df)}")
         """
 ''',
-    'GroupedEventsPlugin': '''        """
+    "GroupedEventsPlugin": '''        """
         按时间窗口分组多通道事件
 
         在指定的时间窗口内识别多通道同时触发的事件，并将它们分组。
@@ -178,7 +178,7 @@ DOCSTRINGS = {
             >>> print(f"事件组数: {df_events['event_id'].nunique()}")
         """
 ''',
-    'PairedEventsPlugin': '''        """
+    "PairedEventsPlugin": '''        """
         配对跨通道的符合事件
 
         识别满足时间符合条件的多通道事件对，用于符合测量分析。
@@ -196,7 +196,7 @@ DOCSTRINGS = {
             >>> print(f"配对数: {len(df_paired)}")
         """
 ''',
-    'FilterPlugin': '''        """
+    "FilterPlugin": '''        """
         对波形数据应用数字滤波
 
         支持多种滤波器类型（Butterworth、Gaussian、移动平均等）。
@@ -210,7 +210,7 @@ DOCSTRINGS = {
             List[np.ndarray]: 滤波后的结构化数组
         """
 ''',
-    'WaveformRecognitionPlugin': '''        """
+    "WaveformRecognitionPlugin": '''        """
         高级波形识别和特征提取
 
         使用多种识别算法从波形中提取事件。
@@ -226,17 +226,18 @@ DOCSTRINGS = {
 ''',
 }
 
-def add_docstrings(filepath='waveform_analysis/core/plugins/builtin/standard.py'):
+
+def add_docstrings(filepath="waveform_analysis/core/plugins/builtin/standard.py"):
     """为 compute 方法添加 docstring"""
 
-    with open(filepath, 'r', encoding='utf-8') as f:
+    with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
 
     # 为每个插件添加 docstring
     for plugin_name, docstring in DOCSTRINGS.items():
         # 查找 compute 方法定义的正则表达式
         # 匹配：def compute(self, context: Any, run_id: str, ...) -> ...:
-        pattern = rf'(class {plugin_name}\(Plugin\):.*?)(def compute\(self,.*?\):)\s*\n(\s+)(\S)'
+        pattern = rf"(class {plugin_name}\(Plugin\):.*?)(def compute\(self,.*?\):)\s*\n(\s+)(\S)"
 
         def replacer(match):
             before_class = match.group(1)
@@ -249,18 +250,19 @@ def add_docstrings(filepath='waveform_analysis/core/plugins/builtin/standard.py'
                 return match.group(0)  # 已有 docstring，跳过
 
             # 添加 docstring
-            return f'{before_class}{method_def}\n{docstring}{indent}{first_code_char}'
+            return f"{before_class}{method_def}\n{docstring}{indent}{first_code_char}"
 
         content = re.sub(pattern, replacer, content, flags=re.DOTALL)
 
     # 写回文件
-    with open(filepath, 'w', encoding='utf-8') as f:
+    with open(filepath, "w", encoding="utf-8") as f:
         f.write(content)
 
     print(f"✅ 已为 {len(DOCSTRINGS)} 个插件添加 docstring")
     print(f"📄 文件: {filepath}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     print("=" * 80)
     print("开始为标准插件添加 docstring...")
     print("=" * 80)
