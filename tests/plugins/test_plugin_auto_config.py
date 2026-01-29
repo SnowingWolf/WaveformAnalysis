@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 
+from tests.utils import DummyContext
 from waveform_analysis.core.plugins.builtin.cpu.filtering import FilteredWaveformsPlugin
 from waveform_analysis.core.plugins.builtin.cpu.standard import (
     HitFinderPlugin,
@@ -18,30 +19,6 @@ from waveform_analysis.utils.formats import (
     register_adapter,
     unregister_adapter,
 )
-
-
-class DummyContext:
-    def __init__(self, config, data=None):
-        self.config = config
-        self._data = data or {}
-
-    def get_config(self, plugin, name):
-        provides = plugin.provides
-        if provides in self.config and isinstance(self.config[provides], dict):
-            if name in self.config[provides]:
-                return self.config[provides][name]
-        namespaced_key = f"{provides}.{name}"
-        if namespaced_key in self.config:
-            return self.config[namespaced_key]
-        if name in self.config:
-            return self.config[name]
-        return plugin.options[name].default
-
-    def get_data(self, _run_id, name):
-        return self._data[name]
-
-    def get_lineage(self, _name):
-        return {}
 
 
 def _register_test_adapter(name, expected_samples, sampling_rate_hz=1e9):

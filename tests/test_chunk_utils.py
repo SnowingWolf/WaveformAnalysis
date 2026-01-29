@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 
+from tests.utils import make_test_data, make_test_dtype
 from waveform_analysis.core.processing.chunk import (
     DT_FIELD,
     ENDTIME_FIELD,
@@ -40,46 +41,6 @@ from waveform_analysis.core.processing.chunk import (
     time_to_samples,
     validate_endtime,
 )
-
-# =============================================================================
-# 测试数据生成器
-# =============================================================================
-
-
-def make_test_dtype(with_endtime: bool = False):
-    """创建测试用 dtype"""
-    fields = [
-        (TIME_FIELD, "<i8"),
-        (DT_FIELD, "<i4"),
-        (LENGTH_FIELD, "<i4"),
-    ]
-    if with_endtime:
-        fields.append((ENDTIME_FIELD, "<i8"))
-    return np.dtype(fields)
-
-
-def make_test_data(
-    n: int = 10,
-    start_time: int = 0,
-    dt: int = 10,
-    length: int = 100,
-    gap: int = 0,
-    with_endtime: bool = False,
-) -> np.ndarray:
-    """创建测试数据"""
-    dtype = make_test_dtype(with_endtime)
-    data = np.zeros(n, dtype=dtype)
-
-    current_time = start_time
-    for i in range(n):
-        data[i][TIME_FIELD] = current_time
-        data[i][DT_FIELD] = dt
-        data[i][LENGTH_FIELD] = length
-        if with_endtime:
-            data[i][ENDTIME_FIELD] = current_time + dt * length
-        current_time += dt * length + gap
-
-    return data
 
 
 # =============================================================================
