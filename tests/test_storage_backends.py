@@ -8,15 +8,15 @@ import tempfile
 import numpy as np
 import pytest
 
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.core.base import Plugin
+from waveform_analysis.core.storage import MemmapStorage
 from waveform_analysis.core.storage.backends import (
     SQLiteBackend,
     StorageBackend,
     create_storage_backend,
     validate_storage_backend,
 )
-from waveform_analysis.core.storage import MemmapStorage
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.core.base import Plugin
 
 
 class TestStorageBackendProtocol:
@@ -208,7 +208,7 @@ class TestContextWithCustomStorage:
         db_path = tmp_path / "test.db"
         storage = SQLiteBackend(str(db_path))
 
-        ctx = Context(storage=storage)
+        ctx = Context(storage_backend=storage)
         assert ctx.storage is storage
         assert isinstance(ctx.storage, SQLiteBackend)
 
@@ -217,7 +217,7 @@ class TestContextWithCustomStorage:
         db_path = tmp_path / "test.db"
         storage = create_storage_backend("sqlite", db_path=str(db_path))
 
-        ctx = Context(storage=storage)
+        ctx = Context(storage_backend=storage)
         assert isinstance(ctx.storage, SQLiteBackend)
 
     def test_context_plugin_data_with_sqlite(self, tmp_path):
@@ -233,7 +233,7 @@ class TestContextWithCustomStorage:
 
         db_path = tmp_path / "test.db"
         storage = SQLiteBackend(str(db_path))
-        ctx = Context(storage=storage)
+        ctx = Context(storage_backend=storage)
         ctx.register_plugin_(SimplePlugin())
 
         data = ctx.get_data("run_001", "test_data")
