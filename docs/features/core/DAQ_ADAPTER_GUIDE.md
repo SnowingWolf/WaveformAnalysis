@@ -52,7 +52,7 @@ DAQAdapter (完整适配器)
 WaveformStruct (波形结构化)
     └── 使用 FormatSpec 进行列映射
     ↓
-结构化数组 (RECORD_DTYPE)
+结构化数组 (ST_WAVEFORM_DTYPE)
 ```
 
 ---
@@ -368,7 +368,7 @@ ctx.set_config({'daq_adapter': 'vx2730'}, plugin_name='st_waveforms')
 st_waveforms = ctx.get_data('run_001', 'st_waveforms')
 ```
 
-### 动态 RECORD_DTYPE
+### 动态 ST_WAVEFORM_DTYPE
 
 `WaveformStruct` 现在支持动态波形长度：
 
