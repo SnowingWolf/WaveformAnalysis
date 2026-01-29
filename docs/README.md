@@ -62,6 +62,8 @@ ctx.plot_lineage("df_paired", kind="plotly", interactive=True)
 
 ## 🚀 快速开始
 
+> **新手推荐**：[黄金路径](user-guide/GOLDEN_PATH.md) - 只看这一页就能跑起来
+
 > ✅ 推荐路径：新代码请使用 **Context**。
 
 **快速示例**:

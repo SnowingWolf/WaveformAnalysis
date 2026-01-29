@@ -20,6 +20,7 @@
 
 | 文档 | 说明 |
 | --- | --- |
+| [GOLDEN_PATH.md](GOLDEN_PATH.md) | **黄金路径** - 只看这一页就能跑起来 |
 | [QUICKSTART_GUIDE.md](QUICKSTART_GUIDE.md) | 快速上手，包含代码模板 |
 | [EXAMPLES_GUIDE.md](EXAMPLES_GUIDE.md) | 常见场景示例集合 |
 
@@ -34,9 +35,11 @@
 ### 快速入门
 
 ```
-1. QUICKSTART_GUIDE.md - 快速上手
+1. GOLDEN_PATH.md - 黄金路径（5分钟上手）
    ↓
-2. EXAMPLES_GUIDE.md - 常见场景
+2. QUICKSTART_GUIDE.md - 更多场景
+   ↓
+3. EXAMPLES_GUIDE.md - 常见示例
 ```
 
 ### 进阶使用
@@ -52,6 +55,9 @@
 ## 🔍 按场景查找
 
 ### 我想...
+
+#### 5 分钟跑通
+→ [GOLDEN_PATH.md](GOLDEN_PATH.md)
 
 #### 快速上手
 → [QUICKSTART_GUIDE.md](QUICKSTART_GUIDE.md)
