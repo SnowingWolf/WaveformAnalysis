@@ -12,6 +12,8 @@
 | --- | --- |
 | [SIMPLE_PLUGIN_GUIDE.md](../../features/plugin/SIMPLE_PLUGIN_GUIDE.md) | 最简单的插件教程 |
 | [plugin_guide.md](plugin_guide.md) | 插件开发完整指南 |
+| [PLUGIN_SCAFFOLD.md](PLUGIN_SCAFFOLD.md) | 插件脚手架与测试夹具 |
+| [PLUGIN_SPEC_GUIDE.md](PLUGIN_SPEC_GUIDE.md) | PluginSpec 与 ConfigField 高级指南 |
 
 ---
 
@@ -23,6 +25,8 @@
 1. SIMPLE_PLUGIN_GUIDE.md - 第一个插件
    ↓
 2. plugin_guide.md - 深入学习
+   ↓
+3. PLUGIN_SPEC_GUIDE.md - 高级功能（可选）
 ```
 
 ---
@@ -39,6 +43,12 @@
 
 #### 查看插件示例
 → 查看 `waveform_analysis/core/plugins/builtin/cpu/`
+
+#### 快速验证新插件
+→ [PLUGIN_SCAFFOLD.md](PLUGIN_SCAFFOLD.md)
+
+#### 了解 PluginSpec 和 ConfigField
+→ [PLUGIN_SPEC_GUIDE.md](PLUGIN_SPEC_GUIDE.md)
 
 ---
 
