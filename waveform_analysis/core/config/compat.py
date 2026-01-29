@@ -147,11 +147,21 @@ class CompatManager:
     ]
 
     def __init__(self):
-        """初始化兼容层管理器"""
-        # 构建快速查找索引
-        self._deprecation_index: Dict[str, DeprecationInfo] = {
-            d.old_name: d for d in self.DEPRECATIONS
-        }
+        """初始化兼容层管理器
+
+        Note:
+            弃用信息直接从类属性 DEPRECATIONS 读取，
+            因此 register_deprecation() 可在实例化后调用。
+        """
+        pass
+
+    def _get_deprecation_index(self) -> Dict[str, DeprecationInfo]:
+        """获取弃用信息索引（动态构建）
+
+        Returns:
+            {old_name: DeprecationInfo} 字典
+        """
+        return {d.old_name: d for d in self.DEPRECATIONS}
 
     def resolve_alias(
         self,
@@ -238,10 +248,11 @@ class CompatManager:
             >>> manager = CompatManager()
             >>> manager.warn_deprecation("break_threshold_ns", "peaks")
         """
-        if old_name not in self._deprecation_index:
+        deprecation_index = self._get_deprecation_index()
+        if old_name not in deprecation_index:
             return
 
-        info = self._deprecation_index[old_name]
+        info = deprecation_index[old_name]
         current_version = get_current_version()
 
         # 版本已过期，抛出错误
@@ -269,7 +280,7 @@ class CompatManager:
         Returns:
             是否已弃用
         """
-        return name in self._deprecation_index
+        return name in self._get_deprecation_index()
 
     def get_deprecation_info(self, name: str) -> Optional[DeprecationInfo]:
         """获取弃用信息
@@ -280,7 +291,7 @@ class CompatManager:
         Returns:
             DeprecationInfo 或 None
         """
-        return self._deprecation_index.get(name)
+        return self._get_deprecation_index().get(name)
 
     @classmethod
     def register_alias(
