@@ -241,21 +241,54 @@ class MetadataExtractor:
             'depends_on': plugin.depends_on,
             'version': getattr(plugin, 'version', 'unknown'),
             'doc': inspect.getdoc(plugin.__class__) or '',
+            'description': getattr(plugin, 'description', ''),
+            'save_when': getattr(plugin, 'save_when', 'never'),
+            'output_kind': getattr(plugin, 'output_kind', 'static'),
+            'output_dtype': getattr(plugin, 'output_dtype', None),
+            'input_dtype': getattr(plugin, 'input_dtype', {}),
             'options': [],
         }
 
-        # 提取配置选项
+        # 提取配置选项（包含新增的单位信息等字段）
         if hasattr(plugin, 'options'):
             for opt_name, opt in plugin.options.items():
                 opt_info = {
                     'name': opt_name,
-                    'default': str(getattr(opt, 'default', 'N/A')),
-                    'type': str(getattr(opt, 'type', 'Any')),
+                    'default': getattr(opt, 'default', None),
+                    'type': self._format_type(getattr(opt, 'type', None)),
                     'help': getattr(opt, 'help', ''),
+                    'track': getattr(opt, 'track', True),
+                    # 新增字段
+                    'unit': getattr(opt, 'unit', None),
+                    'internal_unit': getattr(opt, 'internal_unit', None),
+                    'choices': getattr(opt, 'choices', None),
+                    'min_value': getattr(opt, 'min_value', None),
+                    'max_value': getattr(opt, 'max_value', None),
+                    'deprecated': getattr(opt, 'deprecated', False),
+                    'deprecated_message': getattr(opt, 'deprecated_message', ''),
+                    'alias': getattr(opt, 'alias', None),
                 }
                 metadata['options'].append(opt_info)
 
         return metadata
+
+    def _format_type(self, type_obj) -> str:
+        """
+        格式化类型对象为字符串
+
+        Args:
+            type_obj: 类型对象
+
+        Returns:
+            类型的字符串表示
+        """
+        if type_obj is None:
+            return "Any"
+        if isinstance(type_obj, tuple):
+            return " | ".join(t.__name__ if hasattr(t, '__name__') else str(t) for t in type_obj)
+        if hasattr(type_obj, '__name__'):
+            return type_obj.__name__
+        return str(type_obj)
 
     def extract_plugin_configs(self, ctx) -> Dict[str, Any]:
         """
