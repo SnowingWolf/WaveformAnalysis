@@ -6,42 +6,11 @@ CSV 表头处理测试
 - 后续文件不包含表头，不需要跳过
 """
 
-from pathlib import Path
-
 import numpy as np
 import pytest
 
+from tests.utils import make_csv_with_header, make_csv_without_header
 from waveform_analysis.utils.io import parse_and_stack_files, parse_files_generator
-
-
-def make_csv_with_header(dirpath: Path, ch: int, idx: int, start_tag: int, end_tag: int, n_samples: int = 50):
-    """创建带表头的CSV文件（第一个文件）"""
-    fname = dirpath / f"RUN_CH{ch}_{idx}.CSV"
-    sample_headers = ";".join(f"S{i}" for i in range(n_samples))
-    header = f"HEADER;X;TIMETAG;{sample_headers}\n"
-    
-    # 元数据行
-    meta = "META;INFO\n"
-    
-    def row(tag):
-        samples = ";".join(str((tag + i) % 100) for i in range(n_samples))
-        return f"v;1;{tag};{samples}\n"
-    
-    content = meta + header + row(start_tag) + row((start_tag + end_tag) // 2) + row(end_tag)
-    fname.write_text(content, encoding="utf-8")
-
-
-def make_csv_without_header(dirpath: Path, ch: int, idx: int, start_tag: int, end_tag: int, n_samples: int = 50):
-    """创建不带表头的CSV文件（后续文件）"""
-    fname = dirpath / f"RUN_CH{ch}_{idx}.CSV"
-    
-    def row(tag):
-        samples = ";".join(str((tag + i) % 100) for i in range(n_samples))
-        return f"v;1;{tag};{samples}\n"
-    
-    # 没有元数据和表头，直接是数据行
-    content = row(start_tag) + row((start_tag + end_tag) // 2) + row(end_tag)
-    fname.write_text(content, encoding="utf-8")
 
 
 def test_parse_and_stack_files_with_mixed_headers(tmp_path):
