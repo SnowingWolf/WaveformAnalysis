@@ -27,7 +27,7 @@ from .core.plugins.core.streaming import (
     get_streaming_context,
 )
 from .core.processing.event_grouping import group_multi_channel_hits
-from .core.processing.waveform_struct import WaveformStruct
+from .core.plugins.builtin.cpu.waveforms import WaveformStruct, WaveformStructConfig
 from .core.storage import (
     CacheManager,
     CompressionManager,

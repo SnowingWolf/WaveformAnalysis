@@ -103,8 +103,8 @@ Inspired by strax, it is the main entry point for data analysis.</p>
 
         <h3>方法</h3>
 
-        <h4 id="Context-__init__">__init__(self, config: Union[Dict[str, Any], NoneType] = None, storage: Union[Any, NoneType] = None, storage_dir: Union[str, NoneType] = None, plugin_dirs: Union[List[str], NoneType] = None, auto_discover_plugins: bool = False, enable_stats: bool = False, stats_mode: str = 'basic', stats_log_file: Union[str, NoneType] = None)</h4>
-        <p>Initialize Context.<br><br><br>**参数:**<br>- `config`: 全局配置字典<br>- `可选配置`: config['plugin_backends'] = {'peaks': SQLiteBackend(...), ...}<br>- `storage_dir`: (Old:run_name)存储目录 (默认的 memmap 后端), 数据按 run_id 分目录存储。 如果为 None，将使用 config['data_root'] 作为存储目录。<br>- `storage`: 自定义存储后端（必须实现 StorageBackend 接口） 如果为 None，使用默认的 MemmapStorage<br>- `plugin_dirs`: 插件搜索目录列表<br>- `auto_discover_plugins`: 是否自动发现并注册插件<br>- `enable_stats`: 是否启用插件性能统计<br>- `stats_mode`: 统计模式 ('off', 'basic', 'detailed')<br>- `stats_log_file`: 统计日志文件路径 Storage Structure: 数据按 run_id 分目录存储：storage_dir/{run_id}/_cache/*.bin</p>
+        <h4 id="Context-__init__">__init__(self, config: Union[Dict[str, Any], NoneType] = None, storage: Union[Any, NoneType] = None, storage_dir: Union[str, NoneType] = None, plugin_dirs: Union[List[str], NoneType] = None, auto_discover_plugins: bool = False, stats_mode: str = 'off', stats_log_file: Union[str, NoneType] = None)</h4>
+        <p>Initialize Context.<br><br><br>**参数:**<br>- `config`: 全局配置字典<br>- `可选配置`: config['plugin_backends'] = {'peaks': SQLiteBackend(...), ...}<br>- `storage_dir`: (Old:run_name)存储目录 (默认的 memmap 后端), 数据按 run_id 分目录存储。 如果为 None，将使用 config['data_root'] 作为存储目录。<br>- `storage`: 自定义存储后端（必须实现 StorageBackend 接口） 如果为 None，使用默认的 MemmapStorage<br>- `plugin_dirs`: 插件搜索目录列表<br>- `auto_discover_plugins`: 是否自动发现并注册插件<br>- `stats_mode`: 统计模式 ('off', 'basic', 'detailed')，'off' 表示禁用统计<br>- `stats_log_file`: 统计日志文件路径 Storage Structure: 数据按 run_id 分目录存储：storage_dir/{run_id}/_cache/*.bin</p>
 
         <p><strong>示例:</strong></p>
         <pre><code>>>> # 使用 data_root 作为存储目录（推荐）
@@ -130,10 +130,10 @@ Inspired by strax, it is the main entry point for data analysis.</p>
 >>> analyzer.print_summary(detailed=True)
 </code></pre>
         <h4 id="Context-analyze_dependencies">analyze_dependencies(self, target_name: str, include_performance: bool = True, run_id: Union[str, NoneType] = None)</h4>
-        <p>分析插件依赖关系，识别关键路径、并行机会和性能瓶颈<br><br><br>**参数:**<br>- `target_name`: 目标数据名称<br>- `include_performance`: 是否包含性能数据分析（需要enable_stats=True）<br>- `run_id`: 可选的run_id，用于获取特定运行的性能数据（暂未使用，为未来扩展预留）<br><br>**返回:**<br><br>DependencyAnalysisResult: 分析结果对象</p>
+        <p>分析插件依赖关系，识别关键路径、并行机会和性能瓶颈<br><br><br>**参数:**<br>- `target_name`: 目标数据名称<br>- `include_performance`: 是否包含性能数据分析（需要stats_mode='basic'或'detailed'）<br>- `run_id`: 可选的run_id，用于获取特定运行的性能数据（暂未使用，为未来扩展预留）<br><br>**返回:**<br><br>DependencyAnalysisResult: 分析结果对象</p>
 
         <p><strong>示例:</strong></p>
-        <pre><code>>>> ctx = Context(enable_stats=True)
+        <pre><code>>>> ctx = Context(stats_mode='basic')
 >>> # ... 注册插件并执行一些操作 ...
 >>> analysis = ctx.analyze_dependencies('paired_events')
 >>> print(analysis.summary())
@@ -285,7 +285,7 @@ Inspired by strax, it is the main entry point for data analysis.</p>
         <p>获取插件性能统计报告<br><br><br>**参数:**<br>- `plugin_name`: 插件名称,None返回所有插件的统计<br>- `format`: 报告格式 ('text' 或 'dict')<br><br>**返回:**<br><br>性能报告(文本或字典格式)</p>
 
         <p><strong>示例:</strong></p>
-        <pre><code>>>> ctx = Context(enable_stats=True, stats_mode='detailed')
+        <pre><code>>>> ctx = Context(stats_mode='detailed')
 >>> # ... 执行一些插件 ...
 >>> print(ctx.get_performance_report())
 >>> # 或获取特定插件的统计

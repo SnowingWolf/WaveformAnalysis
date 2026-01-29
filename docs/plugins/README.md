@@ -15,6 +15,7 @@
 |------|------|
 | [电荷计算方法对比](builtin/CHARGE_COMPARISON.md) | 比较不同电荷定义和计算方法 |
 | [Waveform Width 插件](builtin/WAVEFORM_WIDTH_PLUGIN.md) | 积分宽度计算的实现细节 |
+| [插件编写规范](PLUGIN_AUTHORING_GUIDE.md) | 插件目录、声明、配置、缓存与测试规范 |
 
 ## 相关资源
 

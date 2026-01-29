@@ -6,9 +6,8 @@ CPU Standard Plugins - 标准波形分析插件（统一导入入口）
 **功能**: 从原始文件扫描到特征计算和事件配对的完整插件链
 
 本模块作为标准插件的统一导入入口，所有插件已拆分到独立文件中：
-- RawFileNamesPlugin → raw_files.py
-- WaveformsPlugin → waveforms.py
-- StWaveformsPlugin → st_waveforms.py
+- RawFileNamesPlugin → waveforms.py
+- WaveformsPlugin → waveforms.py (合并了原 StWaveformsPlugin)
 - HitFinderPlugin → hit_finder.py
 - BasicFeaturesPlugin → basic_features.py
 - DataFramePlugin → dataframe.py
@@ -27,8 +26,7 @@ CPU Standard Plugins - 标准波形分析插件（统一导入入口）
 
 # 从独立文件导入所有插件
 from .raw_files import RawFileNamesPlugin
-from .waveforms import WaveformsPlugin
-from .st_waveforms import StWaveformsPlugin
+from .waveforms import WaveformsPlugin, WaveformStruct, WaveformStructConfig
 from .hit_finder import HitFinderPlugin
 from .basic_features import BASIC_FEATURES_DTYPE, BasicFeaturesPlugin
 from .dataframe import DataFramePlugin
@@ -38,7 +36,6 @@ from .event_analysis import GroupedEventsPlugin, PairedEventsPlugin
 standard_plugins = [
     RawFileNamesPlugin(),
     WaveformsPlugin(),
-    StWaveformsPlugin(),
     HitFinderPlugin(),
     BasicFeaturesPlugin(),
     DataFramePlugin(),
@@ -49,7 +46,8 @@ standard_plugins = [
 __all__ = [
     "RawFileNamesPlugin",
     "WaveformsPlugin",
-    "StWaveformsPlugin",
+    "WaveformStruct",
+    "WaveformStructConfig",
     "HitFinderPlugin",
     "BasicFeaturesPlugin",
     "BASIC_FEATURES_DTYPE",

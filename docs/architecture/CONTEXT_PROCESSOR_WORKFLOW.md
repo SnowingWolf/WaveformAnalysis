@@ -242,8 +242,7 @@ custom_features = ctx.get_data("run_001", "custom_features")
 # 启用插件性能统计
 ctx = Context(
     storage_dir="./strax_data",
-    enable_stats=True,
-    stats_mode='detailed',  # 'basic' 或 'detailed'
+    stats_mode='detailed',  # 'off', 'basic' 或 'detailed'
     stats_log_file='./logs/plugin_stats.log'
 )
 
@@ -505,7 +504,7 @@ except RuntimeError as e:
 
 ```python
 # 1. 启用性能统计，找出瓶颈
-ctx = Context(enable_stats=True, stats_mode='detailed')
+ctx = Context(stats_mode='detailed')
 
 # 2. 使用并行处理
 ctx.set_config({
