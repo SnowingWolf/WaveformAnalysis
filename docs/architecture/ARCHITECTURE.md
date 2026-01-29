@@ -138,7 +138,222 @@
 
 ---
 
-## 3. 关键机制说明
+## 3. 组件交互流程
+
+### 3.1 插件注册流程
+
+```mermaid
+flowchart TD
+    USER["用户代码"] --> REG["ctx.register(plugin)"]
+
+    REG --> PARSE["Context.register()"]
+
+    subgraph PARSE_SUB["支持多种输入类型"]
+        P1["插件实例"]
+        P2["插件类"]
+        P3["Python 模块"]
+        P4["插件序列"]
+    end
+
+    PARSE --> PARSE_SUB
+    PARSE_SUB --> MIXIN["PluginMixin.register_plugin_()"]
+
+    subgraph MIXIN_SUB["注册验证"]
+        V1["plugin.validate()"]
+        V2["检查 provides 唯一性"]
+        V3["验证依赖版本兼容性"]
+        V4["记录元数据"]
+        V5["注册到 _plugins 字典"]
+    end
+
+    MIXIN --> MIXIN_SUB
+    MIXIN_SUB --> INVALIDATE["_invalidate_caches_for()"]
+    INVALIDATE --> DONE["注册完成"]
+
+    style REG fill:#e3f2fd,stroke:#1976d2
+    style MIXIN_SUB fill:#e8f5e9,stroke:#388e3c
+```
+
+**流程说明**：
+1. 用户调用 `ctx.register()` 注册插件
+2. Context 支持多种输入类型：实例、类、模块、序列
+3. `PluginMixin.register_plugin_()` 执行验证和注册
+4. 注册后自动失效相关缓存，确保数据一致性
+
+### 3.2 血缘追踪流程
+
+```mermaid
+flowchart TD
+    USER["用户代码"] --> PLOT["ctx.plot_lineage('target_data')"]
+
+    PLOT --> GET_LINEAGE["get_lineage('target_data')"]
+
+    subgraph LINEAGE_BUILD["构建血缘树"]
+        L1["检查 _lineage_cache"]
+        L2["递归遍历依赖树"]
+        L3["获取插件配置<br/>(仅 track=True 的选项)"]
+        L4["获取依赖名称列表"]
+        L5["递归调用 get_lineage(dep)"]
+        L6["缓存结果到 _lineage_cache"]
+
+        L1 --> L2 --> L3 --> L4 --> L5 --> L6
+    end
+
+    GET_LINEAGE --> LINEAGE_BUILD
+    LINEAGE_BUILD --> BUILD_GRAPH["build_lineage_graph()"]
+
+    subgraph GRAPH_BUILD["构建图模型"]
+        G1["第一阶段: DFS 遍历收集节点"]
+        G2["第二阶段: 计算 depth (最长路径)"]
+        G3["第三阶段: 创建 NodeModel + PortModel"]
+        G4["第四阶段: 创建 EdgeModel (连线)"]
+
+        G1 --> G2 --> G3 --> G4
+    end
+
+    BUILD_GRAPH --> GRAPH_BUILD
+    GRAPH_BUILD --> VIS["可视化函数"]
+
+    subgraph VIS_SUB["渲染输出"]
+        V1["plot_lineage_labview()"]
+        V2["plot_lineage_plotly()"]
+        V3["to_mermaid()"]
+    end
+
+    VIS --> VIS_SUB
+
+    subgraph RENDER["渲染步骤"]
+        R1["自动分类节点类型"]
+        R2["应用颜色高亮"]
+        R3["布局计算"]
+        R4["绘制节点、端口、连线"]
+        R5["显示或保存图形"]
+    end
+
+    VIS_SUB --> RENDER
+
+    style PLOT fill:#ffeb3b,stroke:#f57c00
+    style LINEAGE_BUILD fill:#e3f2fd,stroke:#1976d2
+    style GRAPH_BUILD fill:#fff3e0,stroke:#f57c00
+    style VIS_SUB fill:#f3e5f5,stroke:#7b1fa2
+```
+
+**流程说明**：
+1. `get_lineage()` 递归遍历插件的 `depends_on` 构建依赖树
+2. `build_lineage_graph()` 将血缘字典转换为 `LineageGraphModel`
+3. 可视化函数根据 `kind` 参数选择渲染方式（LabVIEW/Plotly/Mermaid）
+4. 智能颜色高亮自动识别节点类型（原始数据、DataFrame、聚合等）
+
+### 3.3 缓存验证流程
+
+```mermaid
+flowchart TD
+    USER["ctx.get_data(run_id, name)"] --> CHECK["RuntimeCacheManager.check_cache()"]
+
+    subgraph CACHE_CHECK["缓存检查"]
+        direction TB
+        MEM["检查内存缓存<br/>check_memory_cache(run_id, name)"]
+        DISK["检查磁盘缓存<br/>check_disk_cache(run_id, name, key)"]
+        SIG["验证血缘签名<br/>compute_lineage_hash()"]
+
+        MEM -->|未命中| DISK
+        DISK -->|未命中| SIG
+    end
+
+    CHECK --> CACHE_CHECK
+
+    CACHE_CHECK -->|缓存命中| HIT["返回缓存数据"]
+    CACHE_CHECK -->|缓存未命中/失效| COMPUTE["执行插件计算"]
+
+    subgraph COMPUTE_SUB["计算流程"]
+        C1["解析依赖 (递归)"]
+        C2["调用 plugin.compute()"]
+        C3["验证输出契约"]
+        C4["保存到内存缓存"]
+        C5["持久化到磁盘"]
+    end
+
+    COMPUTE --> COMPUTE_SUB
+    COMPUTE_SUB --> RETURN["返回数据"]
+    HIT --> RETURN
+
+    style USER fill:#e3f2fd,stroke:#1976d2
+    style CACHE_CHECK fill:#f3e5f5,stroke:#7b1fa2
+    style COMPUTE_SUB fill:#e8f5e9,stroke:#388e3c
+```
+
+**流程说明**：
+1. 首先检查内存缓存（最快）
+2. 内存未命中则检查磁盘缓存
+3. 磁盘缓存需验证血缘签名（基于插件版本、配置、上游依赖哈希）
+4. 缓存失效或未命中时执行插件计算，结果自动缓存
+
+### 3.4 组件关系总览
+
+```mermaid
+flowchart LR
+    subgraph Context["🎛️ Context (中央调度器)"]
+        REG["register()"]
+        GET["get_data()"]
+        PLOT["plot_lineage()"]
+    end
+
+    subgraph Plugin["🔌 Plugin (处理单元)"]
+        PROVIDES["provides: str"]
+        DEPENDS["depends_on: List"]
+        OPTIONS["options: Dict"]
+        COMPUTE["compute()"]
+    end
+
+    subgraph Lineage["🔗 Lineage (血缘追踪)"]
+        TREE["依赖树"]
+        GRAPH["LineageGraphModel"]
+        VIS["可视化"]
+    end
+
+    subgraph Cache["💾 Cache (缓存机制)"]
+        MEM["内存缓存"]
+        DISK["磁盘缓存"]
+        SIG["签名验证"]
+    end
+
+    Plugin -->|注册| REG
+    REG -->|存储| Context
+
+    GET -->|解析| DEPENDS
+    DEPENDS -->|构建| TREE
+
+    PLOT -->|渲染| VIS
+    TREE -->|转换| GRAPH
+    GRAPH --> VIS
+
+    OPTIONS -->|track=True| TREE
+    TREE -->|计算哈希| SIG
+    SIG -->|验证| MEM
+    SIG -->|验证| DISK
+
+    COMPUTE -->|结果| MEM
+    MEM -->|持久化| DISK
+
+    style Context fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style Plugin fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style Lineage fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style Cache fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style PLOT fill:#ffeb3b,stroke:#f57c00,stroke-width:2px
+```
+
+**核心交互点**：
+| 交互 | 说明 |
+|------|------|
+| Plugin → Context | 插件通过 `register()` 注册到 `_plugins` 字典 |
+| depends_on → Lineage | `get_lineage()` 递归遍历依赖构建血缘树 |
+| options → Cache | 仅 `track=True` 的选项参与血缘哈希计算 |
+| Lineage → Cache | 血缘哈希用于缓存键生成和验证 |
+| compute() → Cache | 计算结果自动缓存到内存和磁盘 |
+
+---
+
+## 4. 关键机制说明
 
 ### 3.1 血缘哈希 (Lineage Hash)
 数据的唯一标识由以下因素决定：
@@ -150,7 +365,7 @@
 
 这意味着如果你修改了阈值、更改了处理算法或升级了插件版本，系统会自动识别并重新计算，而不会错误地使用旧缓存。
 
-### 3.2 安全性与鲁棒性
+### 4.2 安全性与鲁棒性
 - **输出契约校验**: 自动验证插件返回的数据类型是否符合声明。
 - **原子性写入**: 使用 `.tmp` 临时文件确保数据写入的完整性，防止因崩溃产生损坏的缓存。
 - **并发保护**: 通过文件锁机制确保多进程环境下的缓存一致性。
@@ -163,7 +378,7 @@
 
 **缓存检查工具**: 提供 `ds.print_cache_report()` 方法，允许用户在执行流水线前预览各步骤的缓存状态（内存/磁盘/有效性）。
 
-### 3.3 性能优化路径
+### 4.3 性能优化路径
 - **向量化**: 尽可能使用 Numpy 广播机制（如 `compute_stacked_waveforms`）。
 - **并行化**: 
     - **全局执行器管理**: 通过 `ExecutorManager` 统一管理线程池和进程池，支持资源重用和自动清理。
@@ -177,9 +392,9 @@
 
 ---
 
-## 4. 标准插件链
+## 5. 标准插件链
 
-### 4.1 插件依赖关系
+### 5.1 插件依赖关系
 
 系统定义了以下标准插件，按执行顺序排列：
 
@@ -220,7 +435,7 @@
 - **`HitFinderPlugin`**: `hits`（依赖 `st_waveforms`）
 - **`SignalPeaksPlugin`**: `signal_peaks`（依赖 `filtered_waveforms` + `st_waveforms`）
 
-### 4.2 数据流向图
+### 5.2 数据流向图
 
 ```mermaid
 graph TD
@@ -244,7 +459,7 @@ graph TD
 
 ---
 
-## 5. 目录规范
+## 6. 目录规范
 
 - `waveform_analysis/core/`: 核心逻辑（模块化子目录架构）
     - `context.py`: Context 核心调度器
@@ -264,29 +479,29 @@ graph TD
 - `tests/`: 单元测试与集成测试。
 - `docs/`: 架构、缓存、执行器与功能专题文档。
 
-## 6. 最新更新 (Recent Updates)
+## 7. 最新更新 (Recent Updates)
 
-### 6.1 模块化核心与插件分层 (2026-01)
+### 7.1 模块化核心与插件分层 (2026-01)
 - `core/` 拆分为 storage/execution/plugins/processing/data/foundation，Context 保持在根目录。
 - 内置插件按加速器分层：`builtin/cpu/`, `builtin/jax/`, `builtin/streaming/`, `builtin/legacy/`。
 
-### 6.2 DAQ 适配器与 WaveformStruct 解耦 (2026-01)
+### 7.2 DAQ 适配器与 WaveformStruct 解耦 (2026-01)
 - **新增模块**: `waveform_analysis/utils/formats/`
 - **核心组件**: `FormatSpec`/`DirectoryLayout`/`DAQAdapter` 统一格式与目录布局。
 - **集成点**: `RawFilesPlugin`/`WaveformsPlugin`/`StWaveformsPlugin` 支持 `daq_adapter` 配置。
 
-### 6.3 时间范围查询与索引 (Phase 2.2)
+### 7.3 时间范围查询与索引 (Phase 2.2)
 - `TimeRangeQueryEngine` + `TimeIndex` 支持时间段检索与缓存索引。
 - `get_data_time_range`/`get_data_time_range_absolute` 支持相对/绝对时间查询。
 
-### 6.4 Strax 适配与热重载 (Phase 2.3 / 3.3)
+### 7.4 Strax 适配与热重载 (Phase 2.3 / 3.3)
 - `StraxPluginAdapter`/`StraxContextAdapter` 提供 strax 兼容接口。
 - `PluginHotReloader` 支持插件热重载与缓存一致性维护。
 
-### 6.5 批量处理与导出 (Phase 3.1 / 3.2)
+### 7.5 批量处理与导出 (Phase 3.1 / 3.2)
 - `BatchProcessor` 并行处理多个 run，支持错误策略与进度追踪。
 - `DataExporter`/`batch_export` 提供统一导出接口。
 
-### 6.6 缓存管理工具集 (2026-01)
+### 7.6 缓存管理工具集 (2026-01)
 - `CacheAnalyzer`/`CacheDiagnostics`/`CacheCleaner`/`CacheStatsCollector` 提供扫描、诊断与清理。
 - CLI 支持 `waveform-cache` (info, stats, diagnose, list, clean)。

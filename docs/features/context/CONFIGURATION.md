@@ -49,10 +49,20 @@ WaveformAnalysis 提供灵活的配置系统，支持：
 | `verify_on_load` | `False` | 读取时校验数据完整性 |
 | `checksum_algorithm` | `"xxhash64"` | 校验算法（`xxhash64` / `sha256` / `md5`） |
 
+### data_root 与 storage_dir 的关系
+
+- `data_root`：**原始数据根目录**。RawFilesPlugin 等插件会从这里读取原始数据，
+  默认路径为 `{data_root}/{run_id}/RAW`（或由 DAQ adapter 决定）。
+- `storage_dir`：**缓存/结果目录**。MemmapStorage 会写入
+  `storage_dir/{run_id}/_cache/`（以及 parquet/元数据等）。
+- 若不显式传 `storage_dir`，Context 会使用 `data_root` 作为默认缓存目录。
+- 若显式传 `storage_dir`，仍需在 `config` 中设置 `data_root` 指向原始数据目录，
+  否则原始数据会从默认 `DAQ` 读取。
+
 ```python
 from waveform_analysis.core.context import Context
 
-ctx = Context(storage_dir="./cache")
+ctx = Context(config={"data_root": "/data/DAQ"}, storage_dir="./cache")
 
 # 全局配置
 ctx.set_config({'daq_adapter': 'vx2730'})
