@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# DOC: docs/features/context/CONFIGURATION.md#配置类型
 """
 配置系统类型定义
 

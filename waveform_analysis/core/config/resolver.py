@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# DOC: docs/features/context/CONFIGURATION.md#配置优先级
 """
 配置解析器
 

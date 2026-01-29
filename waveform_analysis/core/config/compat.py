@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# DOC: docs/features/context/CONFIGURATION.md#兼容层
 """
 兼容层管理器
 
