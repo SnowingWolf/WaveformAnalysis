@@ -1,6 +1,6 @@
 # waveform-docs 命令参考
 
-**导航**: [文档中心](../README.md) > [cli](README.md) > waveform-docs 命令参考
+**导航**: [文档中心](../README.md) > [命令行工具](README.md) > waveform-docs 命令参考
 
 `waveform-docs` 是 WaveformAnalysis 的文档生成工具，用于自动生成 API 参考、配置参考和插件指南。
 

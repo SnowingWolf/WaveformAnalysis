@@ -9,8 +9,8 @@ from typing import Any, Optional
 import numpy as np
 
 from waveform_analysis.core.plugins.core.base import Option, Plugin
+from waveform_analysis.core.processing.dtypes import RECORDS_DTYPE
 from waveform_analysis.core.processing.records_builder import (
-    RECORDS_DTYPE,
     RecordsBundle,
     build_records_from_st_waveforms_sharded,
     build_records_from_v1725_files,
@@ -235,13 +235,13 @@ class RecordsPlugin(Plugin):
                 config[key] = context.get_config(self, key)
         if adapter_name:
             config["daq_adapter"] = adapter_name
-        depends = {"raw_files": context.get_lineage("raw_files")}
+
         lineage = {
             "plugin_class": self.__class__.__name__,
             "plugin_version": getattr(self, "version", "0.0.0"),
             "description": getattr(self, "description", ""),
             "config": config,
-            "depends_on": depends,
+            "depends_on": self._build_depends_lineage(context),
             "dtype": np.dtype(self.output_dtype).descr,
         }
         return lineage

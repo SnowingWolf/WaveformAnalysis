@@ -11,13 +11,14 @@
 """
 
 import sys
+
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin,
-    WaveformsPlugin,
-    StWaveformsPlugin,
     FilteredWaveformsPlugin,
+    RawFilesPlugin,
     SignalPeaksPlugin,
+    StWaveformsPlugin,
+    WaveformsPlugin,
 )
 
 
@@ -45,7 +46,7 @@ def verify_plugin_registration():
         print(f"  - 依赖数据: {plugin.depends_on}")
         print(f"  - 版本: {plugin.version}")
         print(f"  - 保存策略: {getattr(plugin, 'save_when', 'default')}")
-        if hasattr(plugin, 'output_dtype'):
+        if hasattr(plugin, "output_dtype"):
             print(f"  - 输出类型: {plugin.output_dtype}")
         print()
 
@@ -64,7 +65,7 @@ def verify_dependency_chain(ctx):
 
     try:
         # 获取依赖关系（不实际执行）
-        if hasattr(ctx, '_plugins') and target in ctx._plugins:
+        if hasattr(ctx, "_plugins") and target in ctx._plugins:
             plugin = ctx._plugins[target]
             print(f"\n{target}:")
             print(f"  ↓ 依赖于: {plugin.depends_on}")
@@ -88,6 +89,7 @@ def verify_dependency_chain(ctx):
     except Exception as e:
         print(f"✗ 依赖链验证失败: {e}")
         import traceback
+
         traceback.print_exc()
 
 
@@ -99,7 +101,7 @@ def verify_plugin_configs(ctx):
 
     # 检查 FilteredWaveformsPlugin 配置
     print("\nFilteredWaveformsPlugin 配置选项:")
-    plugin = ctx._plugins.get('filtered_waveforms')
+    plugin = ctx._plugins.get("filtered_waveforms")
     if plugin:
         for opt_name, opt_obj in plugin.options.items():
             print(f"  - {opt_name}:")
@@ -109,7 +111,7 @@ def verify_plugin_configs(ctx):
 
     # 检查 SignalPeaksPlugin 配置
     print("\nSignalPeaksPlugin 配置选项:")
-    plugin = ctx._plugins.get('signal_peaks')
+    plugin = ctx._plugins.get("signal_peaks")
     if plugin:
         for opt_name, opt_obj in plugin.options.items():
             print(f"  - {opt_name}:")
@@ -132,15 +134,21 @@ def verify_lineage_tracking(ctx):
         "n_channels": 2,
     })
 
-    ctx.set_config({
-        "filter_type": "SG",
-        "sg_window_size": 11,
-    }, plugin_name="filtered_waveforms")
+    ctx.set_config(
+        {
+            "filter_type": "SG",
+            "sg_window_size": 11,
+        },
+        plugin_name="filtered_waveforms",
+    )
 
-    ctx.set_config({
-        "height": 30.0,
-        "prominence": 0.7,
-    }, plugin_name="signal_peaks")
+    ctx.set_config(
+        {
+            "height": 30.0,
+            "prominence": 0.7,
+        },
+        plugin_name="signal_peaks",
+    )
 
     print("\n配置已设置:")
     print("  全局配置: data_root=DAQ, n_channels=2")
@@ -149,7 +157,7 @@ def verify_lineage_tracking(ctx):
 
     # 检查插件 lineage 信息
     print("\n插件 Lineage 信息:")
-    for plugin_name in ['filtered_waveforms', 'signal_peaks']:
+    for plugin_name in ["filtered_waveforms", "signal_peaks"]:
         if plugin_name in ctx._plugins:
             plugin = ctx._plugins[plugin_name]
             print(f"\n{plugin_name}:")
@@ -160,7 +168,7 @@ def verify_lineage_tracking(ctx):
 
             # 获取该插件的有效配置
             effective_config = {}
-            if hasattr(plugin, 'options'):
+            if hasattr(plugin, "options"):
                 for opt_name in plugin.options:
                     value = ctx.get_config(plugin, opt_name)
                     effective_config[opt_name] = value
@@ -183,18 +191,20 @@ def visualize_lineage(ctx):
         # 尝试生成 lineage 可视化
         print("\n尝试生成 signal_peaks 的依赖图...")
 
-        if hasattr(ctx, 'plot_lineage'):
+        if hasattr(ctx, "plot_lineage"):
             import matplotlib
-            matplotlib.use('Agg')  # 非交互式后端
+
+            matplotlib.use("Agg")  # 非交互式后端
 
             # 生成可视化（LabVIEW 风格）
-            ctx.plot_lineage('signal_peaks', kind='labview', verbose=2)
+            ctx.plot_lineage("signal_peaks", kind="labview", verbose=2)
             print("✓ LabVIEW 风格依赖图已保存")
 
             # 如果安装了 plotly，也生成交互式版本
             try:
                 import plotly
-                ctx.plot_lineage('signal_peaks', kind='plotly', verbose=2)
+
+                ctx.plot_lineage("signal_peaks", kind="plotly", verbose=2)
                 print("✓ Plotly 交互式依赖图已保存")
             except ImportError:
                 print("! Plotly 未安装，跳过交互式可视化")
@@ -234,7 +244,7 @@ def test_plugin_with_mock_data(ctx):
         print("\n创建模拟数据以测试插件逻辑...")
 
         # 创建模拟的结构化波形数据
-        from waveform_analysis.core.processing.waveform_struct import RECORD_DTYPE
+        from waveform_analysis.core.processing.dtypes import ST_WAVEFORM_DTYPE
 
         n_events = 5
         n_samples = 100
@@ -242,11 +252,11 @@ def test_plugin_with_mock_data(ctx):
         # 模拟数据
         mock_st_waveforms = []
         for ch_idx in range(2):
-            ch_data = np.zeros(n_events, dtype=RECORD_DTYPE)
-            ch_data['baseline'] = 100.0
-            ch_data['timestamp'] = np.arange(n_events) * 1000
-            ch_data['event_length'] = n_samples
-            ch_data['channel'] = ch_idx
+            ch_data = np.zeros(n_events, dtype=ST_WAVEFORM_DTYPE)
+            ch_data["baseline"] = 100.0
+            ch_data["timestamp"] = np.arange(n_events) * 1000
+            ch_data["event_length"] = n_samples
+            ch_data["channel"] = ch_idx
 
             # 创建模拟波形（带噪声的正弦波 + 峰值）
             for i in range(n_events):
@@ -255,8 +265,8 @@ def test_plugin_with_mock_data(ctx):
                 # 添加一些峰值
                 peak_pos = np.random.randint(20, 80, 3)
                 for pos in peak_pos:
-                    wave[pos:pos+5] += 50
-                ch_data['wave'][i] = wave
+                    wave[pos : pos + 5] += 50
+                ch_data["wave"][i] = wave
 
             mock_st_waveforms.append(ch_data)
 
@@ -264,7 +274,7 @@ def test_plugin_with_mock_data(ctx):
         print(f"  每个通道: {n_events} 个事件, 每个事件 {n_samples} 个采样点")
 
         # 直接测试 FilteredWaveformsPlugin
-        filter_plugin = ctx._plugins.get('filtered_waveforms')
+        filter_plugin = ctx._plugins.get("filtered_waveforms")
         if filter_plugin:
             print("\n测试 FilteredWaveformsPlugin...")
 
@@ -272,61 +282,63 @@ def test_plugin_with_mock_data(ctx):
             class MockContext:
                 def get_config(self, plugin, key):
                     defaults = {
-                        'filter_type': 'SG',
-                        'sg_window_size': 11,
-                        'sg_poly_order': 2,
+                        "filter_type": "SG",
+                        "sg_window_size": 11,
+                        "sg_poly_order": 2,
                     }
                     return defaults.get(key, plugin.options[key].default)
 
                 def get_data(self, run_id, data_name):
-                    if data_name == 'st_waveforms':
+                    if data_name == "st_waveforms":
                         return mock_st_waveforms
                     return None
 
             mock_ctx = MockContext()
 
             try:
-                filtered_result = filter_plugin.compute(mock_ctx, 'test_run')
+                filtered_result = filter_plugin.compute(mock_ctx, "test_run")
                 print(f"✓ 滤波成功: {len(filtered_result)} 个通道")
                 for ch_idx, filtered_ch in enumerate(filtered_result):
                     print(f"  通道 {ch_idx}: {filtered_ch.shape}")
 
                 # 测试 SignalPeaksPlugin
-                peaks_plugin = ctx._plugins.get('signal_peaks')
+                peaks_plugin = ctx._plugins.get("signal_peaks")
                 if peaks_plugin:
                     print("\n测试 SignalPeaksPlugin...")
 
                     class MockContextWithFiltered(MockContext):
                         def get_data(self, run_id, data_name):
-                            if data_name == 'st_waveforms':
+                            if data_name == "st_waveforms":
                                 return mock_st_waveforms
-                            elif data_name == 'filtered_waveforms':
+                            elif data_name == "filtered_waveforms":
                                 return filtered_result
                             return None
 
                         def get_config(self, plugin, key):
                             defaults = {
-                                'use_derivative': True,
-                                'height': 10.0,
-                                'distance': 2,
-                                'prominence': 0.5,
-                                'width': 2,
-                                'height_method': 'minmax',
+                                "use_derivative": True,
+                                "height": 10.0,
+                                "distance": 2,
+                                "prominence": 0.5,
+                                "width": 2,
+                                "height_method": "minmax",
                             }
                             return defaults.get(key, plugin.options[key].default)
 
                     mock_ctx2 = MockContextWithFiltered()
-                    peaks_result = peaks_plugin.compute(mock_ctx2, 'test_run')
+                    peaks_result = peaks_plugin.compute(mock_ctx2, "test_run")
                     print(f"✓ 峰值检测成功: {len(peaks_result)} 个通道")
                     for ch_idx, peaks_ch in enumerate(peaks_result):
                         print(f"  通道 {ch_idx}: {len(peaks_ch)} 个峰值")
                         if len(peaks_ch) > 0:
-                            print(f"    示例峰值: position={peaks_ch[0]['position']}, "
-                                  f"height={peaks_ch[0]['height']:.2f}")
+                            print(
+                                f"    示例峰值: position={peaks_ch[0]['position']}, height={peaks_ch[0]['height']:.2f}"
+                            )
 
             except Exception as e:
                 print(f"✗ 测试失败: {e}")
                 import traceback
+
                 traceback.print_exc()
 
         print("\n✓ 模拟数据测试完成")
@@ -336,6 +348,7 @@ def test_plugin_with_mock_data(ctx):
     except Exception as e:
         print(f"✗ 模拟数据测试失败: {e}")
         import traceback
+
         traceback.print_exc()
 
 
@@ -388,6 +401,7 @@ def main():
     except Exception as e:
         print(f"\n✗ 验证过程出错: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

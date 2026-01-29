@@ -1,6 +1,6 @@
 # waveform-cache 命令参考
 
-**导航**: [文档中心](../README.md) > [cli](README.md) > waveform-cache 命令参考
+**导航**: [文档中心](../README.md) > [命令行工具](README.md) > waveform-cache 命令参考
 
 `waveform-cache` 是 WaveformAnalysis 的缓存管理工具，用于查看、诊断和清理缓存数据。
 

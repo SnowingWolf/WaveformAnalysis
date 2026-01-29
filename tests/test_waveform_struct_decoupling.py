@@ -9,14 +9,14 @@ import numpy as np
 import pytest
 
 from waveform_analysis.core.processing.waveform_struct import (
+    DEFAULT_WAVE_LENGTH,
+    ST_WAVEFORM_DTYPE,
     WaveformStruct,
     WaveformStructConfig,
     create_record_dtype,
-    DEFAULT_WAVE_LENGTH,
-    RECORD_DTYPE,
 )
 from waveform_analysis.utils.formats import VX2730_SPEC
-from waveform_analysis.utils.formats.base import FormatSpec, ColumnMapping
+from waveform_analysis.utils.formats.base import ColumnMapping, FormatSpec
 
 
 class TestWaveformStructConfig:
@@ -47,15 +47,13 @@ class TestWaveformStructConfig:
 
         # 优先级3: DEFAULT_WAVE_LENGTH（当 expected_samples 为 None）
         custom_spec = FormatSpec(
-            name="custom",
-            columns=ColumnMapping(timestamp=2, samples_start=7),
-            expected_samples=None
+            name="custom", columns=ColumnMapping(timestamp=2, samples_start=7), expected_samples=None
         )
         config = WaveformStructConfig(format_spec=custom_spec, wave_length=None)
         assert config.get_wave_length() == DEFAULT_WAVE_LENGTH
 
     def test_get_record_dtype(self):
-        """测试动态创建 RECORD_DTYPE"""
+        """测试动态创建 ST_WAVEFORM_DTYPE"""
         config = WaveformStructConfig(format_spec=VX2730_SPEC, wave_length=1000)
         dtype = config.get_record_dtype()
         assert dtype.names == ("baseline", "timestamp", "event_length", "channel", "wave")
@@ -63,12 +61,12 @@ class TestWaveformStructConfig:
 
 
 class TestDynamicRecordDtype:
-    """测试动态 RECORD_DTYPE 创建"""
+    """测试动态 ST_WAVEFORM_DTYPE 创建"""
 
     def test_create_record_dtype_default(self):
-        """测试默认波形长度的 dtype 与全局 RECORD_DTYPE 一致"""
+        """测试默认波形长度的 dtype 与全局 ST_WAVEFORM_DTYPE 一致"""
         dtype = create_record_dtype(DEFAULT_WAVE_LENGTH)
-        assert dtype == RECORD_DTYPE
+        assert dtype == ST_WAVEFORM_DTYPE
 
     def test_create_record_dtype_custom(self):
         """测试自定义波形长度的 dtype"""
@@ -122,7 +120,7 @@ class TestWaveformStructDecoupling:
         """测试向后兼容：无配置时使用 VX2730 默认配置"""
         struct = WaveformStruct(mock_waveforms_vx2730)
         assert struct.config.format_spec.name == "vx2730_csv"
-        assert struct.record_dtype == RECORD_DTYPE
+        assert struct.record_dtype == ST_WAVEFORM_DTYPE
 
     def test_from_adapter_vx2730(self, mock_waveforms_vx2730):
         """测试从适配器创建 WaveformStruct"""
@@ -130,7 +128,7 @@ class TestWaveformStructDecoupling:
         assert struct.config.format_spec.name == "vx2730_csv"
         st_waveforms = struct.structure_waveforms()
         assert len(st_waveforms) == 2
-        assert st_waveforms[0].dtype == RECORD_DTYPE
+        assert st_waveforms[0].dtype == ST_WAVEFORM_DTYPE
 
     def test_custom_format_config(self, mock_waveforms_custom):
         """测试自定义格式配置"""
@@ -142,9 +140,9 @@ class TestWaveformStructDecoupling:
                 timestamp=3,  # 时间戳在列3
                 samples_start=10,  # 波形数据从列10开始
                 baseline_start=10,
-                baseline_end=50
+                baseline_end=50,
             ),
-            expected_samples=1000
+            expected_samples=1000,
         )
         config = WaveformStructConfig(format_spec=custom_spec)
         struct = WaveformStruct(mock_waveforms_custom, config=config)
@@ -168,9 +166,9 @@ class TestWaveformStructDecoupling:
                 timestamp=3,  # 时间戳在列3（不是VX2730的列2）
                 samples_start=10,
                 baseline_start=10,
-                baseline_end=50
+                baseline_end=50,
             ),
-            expected_samples=1000
+            expected_samples=1000,
         )
         config = WaveformStructConfig(format_spec=custom_spec)
         struct = WaveformStruct(mock_waveforms_custom, config=config)
@@ -190,14 +188,9 @@ class TestWaveformStructDecoupling:
         custom_spec = FormatSpec(
             name="custom_daq",
             columns=ColumnMapping(
-                board=0,
-                channel=1,
-                timestamp=3,
-                samples_start=10,
-                baseline_start=10,
-                baseline_end=50
+                board=0, channel=1, timestamp=3, samples_start=10, baseline_start=10, baseline_end=50
             ),
-            expected_samples=1000
+            expected_samples=1000,
         )
         config = WaveformStructConfig(format_spec=custom_spec, wave_length=1000)
         struct = WaveformStruct(mock_waveforms_custom, config=config)

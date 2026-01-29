@@ -1,6 +1,6 @@
 # waveform-process 命令参考
 
-**导航**: [文档中心](../README.md) > [cli](README.md) > waveform-process 命令参考
+**导航**: [文档中心](../README.md) > [命令行工具](README.md) > waveform-process 命令参考
 
 `waveform-process` 是 WaveformAnalysis 的主要命令行工具，用于处理波形数据和扫描 DAQ 目录。
 

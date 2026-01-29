@@ -46,10 +46,10 @@
 
 ## 字段定义
 
-### RECORD_DTYPE 结构
+### ST_WAVEFORM_DTYPE 结构
 
 ```python
-RECORD_DTYPE = [
+ST_WAVEFORM_DTYPE = [
     ("time", "i8"),        # 绝对系统时间 (Unix ns)
     ("baseline", "f8"),    # 基线值
     ("timestamp", "i8"),   # ADC 原始时间戳 (ps)
@@ -214,7 +214,7 @@ time = timestamp // 1000  # 相对时间 ns
 
 ### 旧缓存失效
 
-由于 `RECORD_DTYPE` 结构变化，旧缓存会自动失效并重新计算：
+由于 `ST_WAVEFORM_DTYPE` 结构变化，旧缓存会自动失效并重新计算：
 
 - dtype 变化触发 lineage hash 变化
 - Context 自动检测并重新计算数据

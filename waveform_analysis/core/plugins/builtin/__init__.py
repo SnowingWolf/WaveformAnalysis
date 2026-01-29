@@ -5,7 +5,7 @@ Plugins Builtin 子模块 - 内置标准插件
 本模块采用按加速器划分的插件架构（自 2026-01 版本起）：
 
 **CPU 插件** (`builtin/cpu/`):
-- 标准数据处理插件: RawFiles, Waveforms, StWaveforms, Features, DataFrame, Events
+- 标准数据处理插件: RawFileNames, Waveforms, StWaveforms, Features, DataFrame, Events
 - 滤波插件: FilteredWaveformsPlugin (scipy)
 - 寻峰插件: SignalPeaksPlugin (scipy)
 
@@ -21,7 +21,7 @@ Plugins Builtin 子模块 - 内置标准插件
 
 向后兼容：
 所有插件可以通过以下方式导入：
-    from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin
+    from waveform_analysis.core.plugins.builtin.cpu import RawFileNamesPlugin
 """
 
 # CPU 标准插件
@@ -40,7 +40,7 @@ from .cpu import (
     HitFinderPlugin,
     PairedEventsPlugin,
     RecordsPlugin,
-    RawFilesPlugin,
+    RawFileNamesPlugin,
     SignalPeaksPlugin,
     StWaveformsPlugin,
     WaveformsPlugin,
@@ -53,7 +53,7 @@ from .streaming import SignalPeaksStreamPlugin
 
 # 标准插件列表（方便批量注册）
 standard_plugins = [
-    RawFilesPlugin(),
+    RawFileNamesPlugin(),
     WaveformsPlugin(),
     StWaveformsPlugin(),
     HitFinderPlugin(),
@@ -65,7 +65,7 @@ standard_plugins = [
 
 __all__ = [
     # 标准插件类
-    "RawFilesPlugin",
+    "RawFileNamesPlugin",
     "WaveformsPlugin",
     "StWaveformsPlugin",
     "HitFinderPlugin",
