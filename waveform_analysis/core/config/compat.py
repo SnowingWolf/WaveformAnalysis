@@ -15,6 +15,66 @@ from waveform_analysis.core.foundation.utils import exporter
 export, __all__ = exporter()
 
 
+def _parse_version(version: str) -> Tuple[int, ...]:
+    """解析版本字符串为元组
+
+    Args:
+        version: 版本字符串，如 "1.2.3"
+
+    Returns:
+        版本元组，如 (1, 2, 3)
+    """
+    parts = []
+    for part in version.split("."):
+        # 处理可能的预发布标识，如 "1.0.0a1"
+        numeric = ""
+        for char in part:
+            if char.isdigit():
+                numeric += char
+            else:
+                break
+        parts.append(int(numeric) if numeric else 0)
+    return tuple(parts)
+
+
+def _compare_versions(v1: str, v2: str) -> int:
+    """比较两个版本字符串
+
+    Args:
+        v1: 第一个版本
+        v2: 第二个版本
+
+    Returns:
+        -1 如果 v1 < v2
+         0 如果 v1 == v2
+         1 如果 v1 > v2
+    """
+    t1 = _parse_version(v1)
+    t2 = _parse_version(v2)
+
+    # 补齐长度
+    max_len = max(len(t1), len(t2))
+    t1 = t1 + (0,) * (max_len - len(t1))
+    t2 = t2 + (0,) * (max_len - len(t2))
+
+    if t1 < t2:
+        return -1
+    elif t1 > t2:
+        return 1
+    return 0
+
+
+@export
+def get_current_version() -> str:
+    """获取当前 waveform_analysis 版本
+
+    Returns:
+        版本字符串
+    """
+    from waveform_analysis import __version__
+    return __version__
+
+
 @export
 @dataclass
 class DeprecationInfo:
@@ -129,18 +189,50 @@ class CompatManager:
         # 3. 无别名，返回原名
         return (param_name, False)
 
+    def get_aliases_for(self, plugin_name: str, canonical_name: str) -> List[str]:
+        """列出某个规范名对应的旧别名
+
+        Args:
+            plugin_name: 插件名称
+            canonical_name: 规范化参数名
+
+        Returns:
+            旧参数名列表
+        """
+        aliases: List[str] = []
+
+        # 插件级别别名
+        plugin_aliases = self.PARAM_ALIASES.get(plugin_name, {})
+        for old_name, new_name in plugin_aliases.items():
+            if new_name == canonical_name:
+                aliases.append(old_name)
+
+        # 全局别名
+        global_aliases = self.PARAM_ALIASES.get("__global__", {})
+        for old_name, new_name in global_aliases.items():
+            if new_name == canonical_name:
+                aliases.append(old_name)
+
+        return aliases
+
     def warn_deprecation(
         self,
         old_name: str,
         context: Optional[str] = None,
         stacklevel: int = 2,
     ) -> None:
-        """发出弃用警告
+        """发出弃用警告或抛出错误
+
+        当前版本 < removed_in 时发出 DeprecationWarning，
+        当前版本 >= removed_in 时抛出 ValueError。
 
         Args:
             old_name: 已弃用的名称
             context: 上下文信息（如插件名）
             stacklevel: 警告堆栈级别
+
+        Raises:
+            ValueError: 当前版本已超过 removed_in 版本
 
         Examples:
             >>> manager = CompatManager()
@@ -150,6 +242,17 @@ class CompatManager:
             return
 
         info = self._deprecation_index[old_name]
+        current_version = get_current_version()
+
+        # 版本已过期，抛出错误
+        if _compare_versions(current_version, info.removed_in) >= 0:
+            ctx_prefix = f"[{context}] " if context else ""
+            raise ValueError(
+                f"{ctx_prefix}'{old_name}' was removed in version {info.removed_in}. "
+                f"Use '{info.new_name}' instead."
+            )
+
+        # 版本未过期，发出警告
         message = info.get_warning_message()
 
         if context:
