@@ -21,7 +21,7 @@ Inspired by strax, it is the main entry point for data analysis.
 
 ### 方法
 
-#### `__init__(self, config: Union[Dict[str, Any], NoneType] = None, storage: Union[Any, NoneType] = None, storage_dir: Union[str, NoneType] = None, plugin_dirs: Union[List[str], NoneType] = None, auto_discover_plugins: bool = False, enable_stats: bool = False, stats_mode: str = 'basic', stats_log_file: Union[str, NoneType] = None)`
+#### `__init__(self, config: Union[Dict[str, Any], NoneType] = None, storage: Union[Any, NoneType] = None, storage_dir: Union[str, NoneType] = None, plugin_dirs: Union[List[str], NoneType] = None, auto_discover_plugins: bool = False, stats_mode: str = 'off', stats_log_file: Union[str, NoneType] = None)`
 
 Initialize Context.
 
@@ -33,8 +33,7 @@ Initialize Context.
 - `storage`: 自定义存储后端（必须实现 StorageBackend 接口） 如果为 None，使用默认的 MemmapStorage
 - `plugin_dirs`: 插件搜索目录列表
 - `auto_discover_plugins`: 是否自动发现并注册插件
-- `enable_stats`: 是否启用插件性能统计
-- `stats_mode`: 统计模式 ('off', 'basic', 'detailed')
+- `stats_mode`: 统计模式 ('off', 'basic', 'detailed')，'off' 表示禁用统计
 - `stats_log_file`: 统计日志文件路径 Storage Structure: 数据按 run_id 分目录存储：storage_dir/{run_id}/_cache/*.bin
 
 **示例:**
@@ -87,7 +86,7 @@ CacheAnalyzer 实例（已完成扫描）
 
 **参数:**
 - `target_name`: 目标数据名称
-- `include_performance`: 是否包含性能数据分析（需要enable_stats=True）
+- `include_performance`: 是否包含性能数据分析（需要stats_mode='basic'或'detailed'）
 - `run_id`: 可选的run_id，用于获取特定运行的性能数据（暂未使用，为未来扩展预留）
 
 **返回:**
@@ -97,7 +96,7 @@ DependencyAnalysisResult: 分析结果对象
 **示例:**
 
 ```python
->>> ctx = Context(enable_stats=True)
+>>> ctx = Context(stats_mode='basic')
 >>> # ... 注册插件并执行一些操作 ...
 >>> analysis = ctx.analyze_dependencies('paired_events')
 >>> print(analysis.summary())
@@ -519,7 +518,7 @@ A dictionary representing the lineage of the specified data type.
 **示例:**
 
 ```python
->>> ctx = Context(enable_stats=True, stats_mode='detailed')
+>>> ctx = Context(stats_mode='detailed')
 >>> # ... 执行一些插件 ...
 >>> print(ctx.get_performance_report())
 >>> # 或获取特定插件的统计
