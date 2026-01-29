@@ -43,7 +43,7 @@
   - 数据将存储在 `work_dir/{run_id}/_cache/` 而非 `base_dir/`
 
 #### 时间字段统一方案 (2026-01-22)
-- **RECORD_DTYPE 新增 time 字段**: 引入绝对系统时间支持 (`core/processing/processor.py`)
+- **ST_WAVEFORM_DTYPE 新增 time 字段**: 引入绝对系统时间支持 (`core/processing/processor.py`)
   - `time` (i8): 绝对系统时间（Unix 时间戳，纳秒 ns）
   - `timestamp` (i8): ADC 原始时间戳（皮秒 ps，统一为 ps）
   - 时间转换公式：`time = epoch_ns + timestamp // 1000`
@@ -72,7 +72,7 @@
   - `default_vx2730()`: 返回 VX2730 默认配置（向后兼容）
   - `from_adapter(adapter_name)`: 从已注册的 DAQ 适配器创建配置
   - `get_wave_length()`: 获取波形长度（优先级：wave_length > format_spec.expected_samples > DEFAULT）
-  - `get_record_dtype()`: 动态创建 RECORD_DTYPE
+  - `get_record_dtype()`: 动态创建 ST_WAVEFORM_DTYPE
 - **WaveformStruct 重构**: 移除 VX2730 硬编码，支持多种 DAQ 格式
   - 添加 `config` 参数，支持自定义 DAQ 格式
   - 添加 `from_adapter()` 类方法，便捷地从适配器名称创建实例
