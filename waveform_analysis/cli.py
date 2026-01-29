@@ -60,6 +60,10 @@ def main():
 
     parser.add_argument("--version", action="version", version="%(prog)s 0.1.0")
 
+    # 配置显示选项
+    parser.add_argument("--show-config", action="store_true", help="显示解析后的配置信息（包含来源追踪）")
+    parser.add_argument("--daq-adapter", type=str, default="vx2730", help="DAQ 适配器名称（默认: vx2730）")
+
     args = parser.parse_args()
 
     # 创建数据集
@@ -69,9 +73,9 @@ def main():
         print(f"时间窗口: {args.time_window} ns")
 
     try:
-        # 若为普通数据处理（非 --show-daq），则 --run-name 为必需
-        if not args.show_daq and not args.run_name:
-            print("错误: --run-name 是必需的（除非使用 --show-daq）", file=sys.stderr)
+        # 若为普通数据处理（非 --show-daq, --show-config），则 --run-name 为必需
+        if not args.show_daq and not args.show_config and not args.scan_daq and not args.run_name:
+            print("错误: --run-name 是必需的（除非使用 --show-daq, --show-config 或 --scan-daq）", file=sys.stderr)
             return 2
 
         # DAQ 扫描分支
@@ -93,13 +97,55 @@ def main():
             analyzer.display_run_channel_details(args.show_daq, show_files=args.show_daq_files)
             return 0
 
+        # 显示配置信息
+        if args.show_config:
+            ctx = Context(config={
+                "data_root": args.daq_root,
+                "n_channels": args.n_channels,
+                "daq_adapter": args.daq_adapter,
+            })
+            ctx.register(*standard_plugins)
+            ctx.set_config({
+                "start_channel_slice": args.start_channel,
+                "time_window_ns": args.time_window,
+            })
+
+            print("=" * 60)
+            print("配置解析结果 (Configuration Resolution)")
+            print("=" * 60)
+
+            # 显示 adapter 信息
+            adapter_info = ctx.get_adapter_info()
+            if adapter_info:
+                print(f"\nDAQ Adapter: {adapter_info.name}")
+                print(f"  采样率: {adapter_info.sampling_rate_hz / 1e6:.1f} MHz")
+                print(f"  时间戳单位: {adapter_info.timestamp_unit}")
+                print(f"  采样间隔: {adapter_info.dt_ns} ns ({adapter_info.dt_ps} ps)")
+
+            # 显示关键插件的配置
+            print("\n" + "-" * 60)
+            ctx.show_resolved_config(verbose=args.verbose)
+
+            return 0
+
         # 正常数据处理分支
-        ctx = Context(config={"data_root": args.daq_root, "n_channels": args.n_channels})
+        ctx = Context(config={
+            "data_root": args.daq_root,
+            "n_channels": args.n_channels,
+            "daq_adapter": args.daq_adapter,
+        })
         ctx.register(*standard_plugins)
         ctx.set_config({
             "start_channel_slice": args.start_channel,
             "time_window_ns": args.time_window,
         })
+
+        # verbose 模式下显示关键配置摘要
+        if args.verbose:
+            adapter_info = ctx.get_adapter_info()
+            if adapter_info:
+                print(f"DAQ Adapter: {adapter_info.name} ({adapter_info.sampling_rate_hz / 1e6:.0f} MHz)")
+            print(f"配置: n_channels={args.n_channels}, start_channel={args.start_channel}, time_window={args.time_window} ns")
 
         # 获取结果
         df_paired = ctx.get_data(args.run_name, "df_paired")
