@@ -2,58 +2,24 @@
 
 **导航**: [文档中心](../README.md) > [用户指南](README.md) > 快速开始指南
 
-
 本文档帮助你快速上手 WaveformAnalysis。
-
----
-
-## 📋 目录
-
-1. [快速安装](#快速安装)
-2. [核心概念](#核心概念)
-3. [场景 1: 基础分析流程](#场景-1-基础分析流程)
-4. [场景 2: 批量处理](#场景-2-批量处理)
-5. [场景 3: 流式处理](#场景-3-流式处理)
-6. [场景 4: 使用自定义 DAQ 格式](#场景-4-使用自定义-daq-格式)
-7. [快速参考卡](#快速参考卡)
-
----
 
 ## 快速安装
 
-### 方式 1: 使用安装脚本（推荐）
-
 ```bash
+# 方式 1: 使用安装脚本（推荐）
 ./install.sh
-```
 
-### 方式 2: 手动安装
-
-```bash
-# 开发模式安装
+# 方式 2: 手动安装
 pip install -e .
 
-# 带开发依赖
+# 方式 3: 带开发依赖
 pip install -e ".[dev]"
 ```
 
-### 方式 3: Conda 环境
-
-```bash
-# 激活环境
-conda activate pyroot-kernel
-
-# 安装
-pip install -e .
-```
-
----
-
 ## 核心概念
 
-在开始之前，了解以下核心概念：
-
-> ✅ 推荐路径：新代码请使用 **Context**。
+推荐使用 **Context** API 进行数据处理。
 
 | 概念 | 说明 |
 |------|------|
@@ -61,13 +27,9 @@ pip install -e .
 | **Plugin** | 数据处理单元（RawFiles → Waveforms → Peaks） |
 | **Lineage** | 自动血缘追踪，确保缓存一致性 |
 
----
-
 ## 场景 1: 基础分析流程
 
-**推荐新手使用** - 使用 Context API 进行标准分析。
-
-### 完整代码模板
+推荐新手使用，使用 Context API 进行标准分析。
 
 ```python
 #!/usr/bin/env python
@@ -107,34 +69,11 @@ if __name__ == '__main__':
     print(f"Analysis complete. Channels: {len(result)}")
 ```
 
-### 说明
-
-| 步骤 | 说明 |
-|------|------|
-| `Context(storage_dir=...)` | 创建 Context，指定缓存目录 |
-| `ctx.register(...)` | 注册标准插件集 |
-| `ctx.set_config(...)` | 设置全局配置 |
-| `ctx.get_data(run_id, name)` | 获取数据，自动触发依赖链 |
-
-### 数据流
-
-```
-raw_files → waveforms → st_waveforms → basic_features
-```
-
-### 预期
-
-- **运行时间**: 约 30 秒（取决于数据量）
-- **缓存位置**: `./strax_data/`
-- **输出**: NumPy 结构化数组
-
----
+数据流：`raw_files → waveforms → st_waveforms → basic_features`
 
 ## 场景 2: 批量处理
 
-**处理多个 run** - 并行处理多个数据集。
-
-### 代码模板
+处理多个 run，并行处理多个数据集。
 
 ```python
 from waveform_analysis.core.context import Context
@@ -165,13 +104,9 @@ if results['errors']:
     print(f"Errors: {results['errors']}")
 ```
 
----
-
 ## 场景 3: 流式处理
 
-**处理大数据** - 分块处理，内存友好。
-
-### 代码模板
+处理大数据，分块处理，内存友好。
 
 ```python
 from waveform_analysis.core.context import Context
@@ -193,13 +128,9 @@ for chunk in stream_ctx.get_stream('st_waveforms'):
     print(f"Processed chunk: {chunk.start} - {chunk.end}")
 ```
 
----
-
 ## 场景 4: 使用自定义 DAQ 格式
 
-**支持多种 DAQ 系统** - 使用 DAQ 适配器处理不同格式的数据。
-
-### 方式 1: 使用内置适配器（推荐）
+### 使用内置适配器（推荐）
 
 ```python
 from waveform_analysis.core.context import Context
@@ -215,46 +146,12 @@ ctx.register(RawFilesPlugin())
 ctx.register(WaveformsPlugin())
 ctx.register(StWaveformsPlugin())
 
-# 为所有插件设置 DAQ 适配器（全局配置）
-ctx.set_config({'daq_adapter': 'vx2730'})
-
 # 获取数据（自动使用配置的适配器）
 st_waveforms = ctx.get_data('run_001', 'st_waveforms')
 print(f"Loaded {len(st_waveforms)} channels")
 ```
 
-### 方式 2: 自定义 DAQ 格式
-
-```python
-from waveform_analysis.core.processing.waveform_struct import WaveformStruct, WaveformStructConfig
-from waveform_analysis.utils.formats import FormatSpec, ColumnMapping, TimestampUnit
-
-# 定义自定义格式
-custom_spec = FormatSpec(
-    name="my_daq",
-    columns=ColumnMapping(
-        board=0,           # BOARD 列索引
-        channel=1,         # CHANNEL 列索引
-        timestamp=3,       # 时间戳列索引
-        samples_start=10,  # 波形数据起始列
-        baseline_start=10, # 基线计算起始列
-        baseline_end=50    # 基线计算结束列
-    ),
-    timestamp_unit=TimestampUnit.NANOSECONDS,  # 按实际单位设置
-    expected_samples=1000  # 预期采样点数
-)
-
-# 创建配置
-config = WaveformStructConfig(format_spec=custom_spec)
-
-# 使用自定义配置
-struct = WaveformStruct(waveforms, config=config)
-st_waveforms = struct.structure_waveforms()
-```
-
-说明：`st_waveforms` 的 `timestamp` 会按 `FormatSpec.timestamp_unit` 统一转换为 ps。
-
-### 方式 3: 注册自定义适配器
+### 注册自定义适配器
 
 ```python
 from waveform_analysis.utils.formats import register_adapter, DAQAdapter
@@ -265,7 +162,7 @@ from waveform_analysis.utils.formats.directory import DirectoryLayout
 my_spec = FormatSpec(
     name="my_daq",
     columns=ColumnMapping(board=0, channel=1, timestamp=3, samples_start=10),
-    timestamp_unit=TimestampUnit.NANOSECONDS,  # 按实际单位设置
+    timestamp_unit=TimestampUnit.NANOSECONDS,
     expected_samples=1000
 )
 
@@ -288,9 +185,7 @@ register_adapter(my_adapter)
 ctx.set_config({'daq_adapter': 'my_daq'})
 ```
 
----
-
-## 快速参考卡
+## 快速参考
 
 ### 常用命令
 
@@ -305,13 +200,6 @@ ctx.set_config({'daq_adapter': 'my_daq'})
 | 血缘可视化 | `ctx.plot_lineage('basic_features')` |
 | 预览执行 | `ctx.preview_execution('run_001', 'basic_features')` |
 
-### 快速代码模板
-
-```python
-# 生成代码模板
-ctx.quickstart('basic')              # 基础分析
-```
-
 ### CLI 命令
 
 ```bash
@@ -325,17 +213,9 @@ waveform-process --scan-daq --daq-root DAQ
 waveform-process --help
 ```
 
----
-
 ## 下一步
 
 - [配置管理](../features/context/CONFIGURATION.md) - 详细配置说明
 - [插件教程](../features/plugin/SIMPLE_PLUGIN_GUIDE.md) - 自定义插件开发
 - [血缘可视化](../features/context/LINEAGE_VISUALIZATION_GUIDE.md) - 可视化数据流
-
----
-
-**快速链接**:
-[配置管理](../features/context/CONFIGURATION.md) |
-[插件教程](../features/plugin/SIMPLE_PLUGIN_GUIDE.md) |
-[示例代码](EXAMPLES_GUIDE.md)
+- [示例代码](EXAMPLES_GUIDE.md) - 更多使用场景

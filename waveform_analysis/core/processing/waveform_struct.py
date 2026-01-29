@@ -107,7 +107,7 @@ class WaveformStructConfig:
 
         adapter = get_adapter(adapter_name)
         return cls(format_spec=adapter.format_spec, wave_length=adapter.format_spec.expected_samples)
-
+                   
     def get_wave_length(self) -> int:
         """获取实际波形长度
 
