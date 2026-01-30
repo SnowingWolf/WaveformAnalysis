@@ -1160,11 +1160,11 @@ waveform-cache clean --strategy largest --max-entries 10 --dry-run
 - `docs/architecture/ARCHITECTURE.md`: Complete architecture and data flow
 - `docs/features/context/DATA_ACCESS.md`: Data access, cache behavior, and cache analysis
 - `docs/features/context/CONFIGURATION.md`: Configuration management and resolved config
-- `docs/features/plugin/STREAMING_PLUGINS_GUIDE.md`: Streaming framework usage
+- `docs/plugins/guides/STREAMING_PLUGINS_GUIDE.md`: Streaming framework usage
 - `docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md`: Parallel execution management
 - `docs/user-guide/QUICKSTART_GUIDE.md`: Quick start examples
 - `docs/features/context/PREVIEW_EXECUTION.md`: Preview execution plans before running
-- `docs/features/plugin/SIGNAL_PROCESSING_PLUGINS.md`: Signal processing plugins (filtering, peak detection)
+- `docs/plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md`: Signal processing plugins (filtering, peak detection)
 - `docs/development/plugin-development/PLUGIN_SPEC_GUIDE.md`: PluginSpec and ConfigField advanced guide [NEW]
 - **Lineage Visualization**: See `CLAUDE.md` § Lineage Visualization for color-coded interactive graph features
 - `.github/copilot-instructions.md`: Detailed development guidelines (Chinese)
