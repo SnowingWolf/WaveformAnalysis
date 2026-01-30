@@ -17,30 +17,24 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  # 查看缓存信息
+  # 查看缓存信息（全局选项在子命令之后）
   waveform-cache info --storage-dir ./strax_data
 
   # 详细统计
-  waveform-cache stats --detailed --storage-dir ./strax_data
+  waveform-cache stats --detailed --storage-dir ./strax_data -v
 
   # 诊断缓存问题
-  waveform-cache diagnose --run run_001
+  waveform-cache diagnose --run run_001 --verbose
 
   # 清理旧缓存（预览）
   waveform-cache clean --strategy oldest --days 30 --dry-run
 
   # 实际清理
-  waveform-cache clean --strategy lru --size-mb 500
+  waveform-cache clean --strategy lru --size-mb 500 --no-dry-run
         """,
     )
 
-    # 全局选项（在主解析器中定义，用于在子命令之前使用）
-    parser.add_argument(
-        "--storage-dir", type=str, default="./strax_data", help="缓存存储目录（默认: ./strax_data）"
-    )
-    parser.add_argument("--verbose", "-v", action="store_true", help="显示详细信息")
-
-    # 创建全局选项的 parent parser，用于在子命令之后使用
+    # 创建全局选项的 parent parser（所有子命令继承）
     global_parser = argparse.ArgumentParser(add_help=False)
     global_parser.add_argument(
         "--storage-dir", type=str, default="./strax_data", help="缓存存储目录（默认: ./strax_data）"
@@ -50,18 +44,18 @@ def create_parser() -> argparse.ArgumentParser:
     # 子命令
     subparsers = parser.add_subparsers(dest="command", help="可用命令")
 
-    # info 命令（添加 parents 以支持全局选项在子命令之后使用）
+    # info 命令
     info_parser = subparsers.add_parser("info", help="显示缓存概览", parents=[global_parser])
     info_parser.add_argument("--run", type=str, help="仅显示指定运行")
     info_parser.add_argument("--detailed", action="store_true", help="显示详细信息")
 
-    # stats 命令（添加 parents 以支持全局选项在子命令之后使用）
+    # stats 命令
     stats_parser = subparsers.add_parser("stats", help="显示缓存统计", parents=[global_parser])
     stats_parser.add_argument("--run", type=str, help="仅统计指定运行")
     stats_parser.add_argument("--detailed", action="store_true", help="显示详细统计")
     stats_parser.add_argument("--export", type=str, help="导出统计到文件（.json 或 .csv）")
 
-    # diagnose 命令（添加 parents 以支持全局选项在子命令之后使用）
+    # diagnose 命令
     diag_parser = subparsers.add_parser("diagnose", help="诊断缓存问题", parents=[global_parser])
     diag_parser.add_argument("--run", type=str, help="仅诊断指定运行")
     diag_parser.add_argument("--fix", action="store_true", help="自动修复可修复的问题")
@@ -72,7 +66,7 @@ def create_parser() -> argparse.ArgumentParser:
         "--no-dry-run", action="store_false", dest="dry_run", help="实际执行修复操作"
     )
 
-    # clean 命令（添加 parents 以支持全局选项在子命令之后使用）
+    # clean 命令
     clean_parser = subparsers.add_parser("clean", help="清理缓存", parents=[global_parser])
     clean_parser.add_argument(
         "--strategy",
@@ -92,7 +86,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
     clean_parser.add_argument("--max-entries", type=int, help="最多删除的条目数")
 
-    # list 命令（添加 parents 以支持全局选项在子命令之后使用）
+    # list 命令
     list_parser = subparsers.add_parser("list", help="列出缓存条目", parents=[global_parser])
     list_parser.add_argument("--run", type=str, help="按运行过滤")
     list_parser.add_argument("--data-type", type=str, help="按数据类型过滤")
