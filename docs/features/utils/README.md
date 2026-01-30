@@ -8,14 +8,14 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 
 | 文档 | 说明 |
 |------|------|
-| [DAQ 适配器](DAQ_ADAPTER_GUIDE.md) | DAQ 适配器层使用指南（格式读取、目录结构） |
+| [DAQ 适配器](../../plugins/DAQ_ADAPTER_GUIDE.md) | DAQ 适配器层使用指南（格式读取、目录结构） |
 | [DAQ 运行分析器](DAQ_ANALYZER_GUIDE.md) | DAQ 运行概览与统计导出 |
 | [事件筛选](EVENT_FILTERS_GUIDE.md) | 事件筛选工具使用指南 |
 | [波形预览](waveform_preview.md) | 波形预览工具使用指南 |
 
 ## 学习路径
 
-1. [DAQ 适配器](DAQ_ADAPTER_GUIDE.md) - DAQ 数据格式适配
+1. [DAQ 适配器](../../plugins/DAQ_ADAPTER_GUIDE.md) - DAQ 数据格式适配
 2. [DAQ 运行分析器](DAQ_ANALYZER_GUIDE.md) - 运行概览与统计
 3. [事件筛选](EVENT_FILTERS_GUIDE.md) - 事件筛选
 4. [波形预览](waveform_preview.md) - 波形预览

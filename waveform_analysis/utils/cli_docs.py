@@ -3,11 +3,7 @@
 WaveformAnalysis 文档生成工具 CLI
 
 用法:
-  waveform-docs generate api              # 生成 API 参考
-  waveform-docs generate config           # 生成配置参考
-  waveform-docs generate plugins          # 生成插件指南
   waveform-docs generate plugins-auto     # 自动生成 builtin 插件文档
-  waveform-docs generate all              # 生成所有文档
   waveform-docs check coverage            # 检查文档覆盖率
 """
 
@@ -22,17 +18,11 @@ def main():
         description="WaveformAnalysis 文档生成工具",
         epilog="""
 示例:
-  # 生成 API 参考文档
-  waveform-docs generate api --output docs/api.md
-
   # 自动生成 builtin 插件文档
   waveform-docs generate plugins-auto -o docs/plugins/builtin/auto/
 
   # 检查文档覆盖率
   waveform-docs check coverage --strict
-
-  # 生成所有文档
-  waveform-docs generate all --output docs/
 """,
     )
 
@@ -43,27 +33,15 @@ def main():
     gen_parser = subparsers.add_parser("generate", help="生成文档")
     gen_parser.add_argument(
         "doc_type",
-        choices=["api", "config", "plugins", "plugins-auto", "all"],
+        choices=["plugins-auto"],
         help="文档类型",
     )
     gen_parser.add_argument("--output", "-o", type=str, help="输出路径（文件或目录）")
     gen_parser.add_argument(
-        "--format",
-        "-f",
-        choices=["markdown", "html"],
-        default="markdown",
-        help="输出格式（默认: markdown）",
-    )
-    gen_parser.add_argument(
-        "--with-context",
-        action="store_true",
-        help="使用完整 Context 上下文（注册所有标准插件）",
-    )
-    gen_parser.add_argument(
         "--plugin",
         "-p",
         type=str,
-        help="生成单个插件文档（仅用于 plugins-auto）",
+        help="生成单个插件文档",
     )
 
     # check 子命令
@@ -108,10 +86,7 @@ def main():
 
 def cmd_generate(args):
     """处理 generate 命令"""
-    if args.doc_type == "plugins-auto":
-        return generate_plugins_auto(args)
-    else:
-        return generate_docs(args)
+    return generate_plugins_auto(args)
 
 
 def generate_plugins_auto(args):
@@ -150,63 +125,6 @@ def generate_plugins_auto(args):
             for _provides, path in sorted(results.items()):
                 print(f"   - {path.name}")
 
-        return 0
-
-    except ImportError as e:
-        print(f"❌ 缺少依赖: {e}")
-        print("提示: 运行 'pip install jinja2' 安装依赖")
-        return 1
-
-    except Exception as e:
-        print(f"❌ 生成文档时出错: {e}")
-        import traceback
-
-        traceback.print_exc()
-        return 1
-
-
-def generate_docs(args):
-    """生成文档（原有功能）"""
-    try:
-        from waveform_analysis.utils.doc_generator import DocGenerator
-
-        # 初始化生成器
-        ctx = None
-        if args.with_context:
-            from waveform_analysis.core.context import Context
-            from waveform_analysis.core.plugins import profiles
-
-            ctx = Context()
-            ctx.register(*profiles.cpu_default())
-            print("✅ 已加载 Context 和标准插件")
-
-        generator = DocGenerator(ctx)
-
-        # 确定输出路径
-        output_path = args.output or "docs"
-
-        # 生成文档
-        if args.doc_type == "api":
-            if not args.output:
-                output_path = f'docs/api_reference.{args.format.replace("markdown", "md")}'
-            generator.generate_api_reference(output_path, format=args.format)
-
-        elif args.doc_type == "config":
-            if not args.output:
-                output_path = "docs/config_reference.md"
-            generator.generate_config_reference(output_path)
-
-        elif args.doc_type == "plugins":
-            if not args.output:
-                output_path = "docs/plugin_guide.md"
-            generator.generate_plugin_guide(output_path)
-
-        elif args.doc_type == "all":
-            if not args.output:
-                output_path = "docs"
-            generator.generate_all(output_path)
-
-        print("\n✅ 文档生成成功")
         return 0
 
     except ImportError as e:
