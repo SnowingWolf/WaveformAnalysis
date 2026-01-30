@@ -1,0 +1,55 @@
+name: Documentation Check
+
+on:
+  push:
+    paths:
+      - 'waveform_analysis/core/plugins/**'
+      - 'waveform_analysis/utils/plugin_doc_generator.py'
+      - 'waveform_analysis/utils/doc_coverage.py'
+      - 'waveform_analysis/utils/templates/**'
+      - 'docs/plugins/**'
+      - '.github/workflows/docs-check.yml'
+  pull_request:
+    paths:
+      - 'waveform_analysis/core/plugins/**'
+      - 'waveform_analysis/utils/plugin_doc_generator.py'
+      - 'waveform_analysis/utils/doc_coverage.py'
+      - 'waveform_analysis/utils/templates/**'
+      - 'docs/plugins/**'
+      - '.github/workflows/docs-check.yml'
+
+jobs:
+  doc-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,docgen]"
+
+      - name: Generate plugin documentation
+        run: |
+          python -m waveform_analysis.utils.cli_docs generate plugins-auto -o docs/plugins/builtin/auto/
+
+      - name: Check documentation coverage
+        run: |
+          python -m waveform_analysis.utils.cli_docs check coverage --strict
+
+      - name: Check for uncommitted doc changes
+        run: |
+          git diff --exit-code docs/plugins/builtin/auto/ || \
+            (echo "::error::Auto-generated docs are out of date. Run 'waveform-docs generate plugins-auto -o docs/plugins/builtin/auto/'" && exit 1)
+
+      - name: Upload generated docs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-plugin-docs
+          path: docs/plugins/builtin/auto/
