@@ -51,12 +51,12 @@ class BasicAnalysisTemplate(QuickstartTemplate):
 """
 
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
+from waveform_analysis.core.plugins import profiles
 
 def main():
     # 1. 初始化 Context
     ctx = Context(storage_dir='./strax_data')
-    ctx.register(standard_plugins)
+    ctx.register(*profiles.cpu_default())
 
     # 2. 设置配置
     ctx.set_config({{

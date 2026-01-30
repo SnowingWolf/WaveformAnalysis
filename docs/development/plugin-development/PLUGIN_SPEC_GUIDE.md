@@ -6,7 +6,7 @@
 
 > **适合人群**: 框架开发者、高级用户
 >
-> 本文档介绍 `PluginSpec` 和 `ConfigField`，这是面向框架内部和高级场景的功能。
+> 本文档介绍 `PluginSpec` 和 `ConfigField`，这是面向框架内部和高级场景的功能。[^source]
 > 普通插件开发者只需使用 `Option` 定义配置即可。
 
 ---
@@ -101,7 +101,19 @@ class PluginSpec:
     superseded_by: Optional[str] = None            # 替代插件名称
 ```
 
+## 插件属性
+
+插件核心属性决定契约与依赖关系，通常包括：
+
+- `provides`：插件输出的数据名（必须唯一）。
+- `depends_on`：上游依赖的数据名列表。
+- `version`：语义化版本号，变更行为时必须更新。
+- `output_schema` / `config_spec`：输出与配置的静态契约。
+
+这些属性会参与注册校验与 lineage hash，确保缓存一致性。
+
 ### 相关类
+
 
 #### InputRequirement
 
@@ -489,3 +501,5 @@ from waveform_analysis.core.plugins.core import (
 ---
 
 **快速链接**: [简单教程](../../features/plugin/SIMPLE_PLUGIN_GUIDE.md) | [完整指南](plugin_guide.md) | [返回目录](README.md)
+
+[^source]: 来源：`waveform_analysis/core/plugins/core/spec.py`。

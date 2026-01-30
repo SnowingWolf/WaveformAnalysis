@@ -56,20 +56,20 @@ from .waveform_width_integral import (
     WaveformWidthIntegralPlugin,
 )
 
-standard_plugins = [
-    RawFileNamesPlugin(),
-    WaveformsPlugin(),
-    HitFinderPlugin(),
-    BasicFeaturesPlugin(),
-    DataFramePlugin(),
-    GroupedEventsPlugin(),
-    PairedEventsPlugin(),
-]
+# Backward-compatible aliases
+RawFilesPlugin = RawFileNamesPlugin
+StWaveformsPlugin = WaveformsPlugin
+
+from waveform_analysis.core.plugins.profiles import cpu_default
+
+standard_plugins = cpu_default()
 
 __all__ = [
     # 标准插件
     "RawFileNamesPlugin",
+    "RawFilesPlugin",
     "WaveformsPlugin",
+    "StWaveformsPlugin",
     "WaveformStruct",
     "WaveformStructConfig",
     "create_channel_mapping",

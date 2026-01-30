@@ -32,16 +32,10 @@ from .basic_features import BASIC_FEATURES_DTYPE, BasicFeaturesPlugin
 from .dataframe import DataFramePlugin
 from .event_analysis import GroupedEventsPlugin, PairedEventsPlugin
 
+from waveform_analysis.core.plugins.profiles import cpu_default
+
 # 标准插件列表 - 按依赖顺序排列
-standard_plugins = [
-    RawFileNamesPlugin(),
-    WaveformsPlugin(),
-    HitFinderPlugin(),
-    BasicFeaturesPlugin(),
-    DataFramePlugin(),
-    GroupedEventsPlugin(),
-    PairedEventsPlugin(),
-]
+standard_plugins = cpu_default()
 
 __all__ = [
     "RawFileNamesPlugin",

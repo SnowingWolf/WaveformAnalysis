@@ -2,7 +2,7 @@
 
 ## 概述
 
-当前插件系统通过 `daq_adapter` 配置参数支持不同的 DAQ 设备。主要有两个内置适配器：
+当前插件系统通过 `daq_adapter` 配置参数支持不同的 DAQ 设备。主要有两个内置适配器：[^source]
 - **VX2730**: CSV 格式，每通道多文件
 - **V1725**: 二进制格式，单文件多通道
 
@@ -554,10 +554,12 @@ class V1725StWaveformsPlugin(Plugin):
         ...
 
 # 根据配置选择插件链
+from waveform_analysis.core.plugins import profiles
+
 if daq_adapter == "v1725":
     plugins = v1725_plugins
 else:
-    plugins = standard_plugins
+    plugins = profiles.cpu_default()
 ```
 
 ### 方案 3: 在适配器层统一接口
@@ -588,6 +590,7 @@ class V1725Adapter(DAQAdapter):
    - VX2730: 每通道多文件
    - V1725: 单文件多通道
 
+
 2. **数据格式**:
    - VX2730: CSV 文本
    - V1725: 二进制
@@ -609,3 +612,5 @@ class V1725Adapter(DAQAdapter):
 - 下游插件无需修改
 - 保持插件系统的一致性
 - 易于维护和扩展
+
+[^source]: 来源：`waveform_analysis/core/plugins/builtin/cpu/waveforms.py`、`waveform_analysis/utils/formats/base.py`。
