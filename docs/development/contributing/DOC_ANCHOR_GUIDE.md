@@ -186,6 +186,20 @@ python scripts/check_doc_anchors.py --verbose
 
 是的。所有文档路径都相对于项目根目录，应以 `docs/` 开头。
 
+### Q: 文档需要标注内容来源吗？
+
+建议对核心指南、用户指引和 API 说明添加**源码位置脚注**，用于提示文档内容的主要来源位置。
+统一使用脚注形式，放在文档末尾：
+
+```md
+[^source]: 来源：`path/to/source.py`、`path/to/dir/`
+```
+
+建议至少包含：
+- 主要逻辑所在源码文件
+- 相关模块目录（如 `core/plugins/`、`core/config/`）
+- 文档生成器（若是生成文档）
+
 ---
 
 ## 相关资源
