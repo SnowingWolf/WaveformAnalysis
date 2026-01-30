@@ -117,7 +117,11 @@ def cmd_info(args):
     from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
 
     analyzer = CacheAnalyzer(ctx)
-    analyzer.scan(verbose=args.verbose)
+
+    if args.verbose:
+        print("正在扫描缓存...")
+
+    analyzer.scan(verbose=args.verbose, parallel=True)
 
     if args.run:
         summary = analyzer.get_run_summary(args.run)
@@ -157,10 +161,17 @@ def cmd_diagnose(args):
     from waveform_analysis.core.storage.cache_diagnostics import CacheDiagnostics
 
     analyzer = CacheAnalyzer(ctx)
-    analyzer.scan(verbose=False)
+
+    if args.verbose:
+        print("正在扫描缓存...")
+
+    analyzer.scan(verbose=False, parallel=True)
+
+    if args.verbose:
+        print("正在诊断缓存问题...")
 
     diag = CacheDiagnostics(analyzer)
-    issues = diag.diagnose(run_id=args.run, verbose=args.verbose)
+    issues = diag.diagnose(run_id=args.run, verbose=args.verbose, parallel=True)
     diag.print_report(issues)
 
     if args.fix and issues:
@@ -234,9 +245,10 @@ def cmd_list(args):
     ctx = get_context(args.storage_dir)
 
     from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
+    from waveform_analysis.core.storage.cache_utils import format_age, format_size
 
     analyzer = CacheAnalyzer(ctx)
-    analyzer.scan(verbose=False)
+    analyzer.scan(verbose=False, parallel=True)
 
     entries = analyzer.get_entries(
         run_id=args.run, data_name=args.data_type, min_size=args.min_size, max_size=args.max_size
@@ -250,21 +262,23 @@ def cmd_list(args):
     if len(entries) > args.limit:
         print(f"（仅显示前 {args.limit} 个，使用 --limit 调整）")
 
-    print("\n" + "-" * 80)
-    print(f"{'Run ID':<20} {'Data Type':<20} {'Size':<12} {'Age':<10} {'Compressed'}")
-    print("-" * 80)
+    # 改进的表格格式
+    header = f"{'Run ID':<20} {'Data Type':<20} {'Size':>12} {'Age':>8} {'Comp'}"
+    separator = "─" * len(header)
+
+    print(f"\n{separator}")
+    print(header)
+    print(separator)
 
     for entry in entries[: args.limit]:
-        compressed = "Yes" if entry.compressed else "No"
-        age = f"{entry.age_days:.1f}d"
-        print(
-            f"{entry.run_id:<20} {entry.data_name:<20} {entry.size_human:<12} {age:<10} {compressed}"
-        )
+        comp = "✓" if entry.compressed else "✗"
+        age = format_age(entry.age_days)
+        print(f"{entry.run_id:<20} {entry.data_name:<20} {entry.size_human:>12} {age:>8} {comp:^4}")
 
-    print("-" * 80)
+    print(separator)
 
     total_size = sum(e.size_bytes for e in entries)
-    print(f"\n总大小: {analyzer._format_size(total_size)}")
+    print(f"\n总大小: {format_size(total_size)}")
 
 
 def main():
@@ -304,12 +318,22 @@ def main():
     except KeyboardInterrupt:
         print("\n操作已取消")
         return 130
+    except FileNotFoundError as e:
+        print(f"\n错误: 找不到文件或目录: {e.filename}", file=sys.stderr)
+        print("提示: 请检查 --storage-dir 参数是否正确")
+        return 1
+    except PermissionError as e:
+        print(f"\n错误: 权限不足: {e.filename}", file=sys.stderr)
+        print("提示: 请检查目录权限或使用 sudo")
+        return 1
     except Exception as e:
         print(f"\n错误: {e}", file=sys.stderr)
         if args.verbose:
             import traceback
 
             traceback.print_exc()
+        else:
+            print("提示: 使用 -v 选项查看详细错误信息")
         return 1
 
 
