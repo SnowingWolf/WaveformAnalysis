@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Minimal events usage example."""
 
 from waveform_analysis.core.context import Context

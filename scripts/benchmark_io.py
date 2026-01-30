@@ -6,10 +6,10 @@ Usage:
 """
 
 import argparse
+from pathlib import Path
 import shutil
 import tempfile
 import time
-from pathlib import Path
 
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin, WaveformsPlugin
@@ -21,7 +21,8 @@ def make_simple_csv(dirpath: Path, ch: int, idx: int, tag: int, n_samples: int =
     fname = dirpath / f"RUN_CH{ch}_{idx}.CSV"
     header = "HEADER;X;TIMETAG;" + ";".join(f"S{i}" for i in range(n_samples)) + "\n"
     body = "".join(
-        f"v;1;{tag + i};" + ";".join(str((tag + i + j) % 100) for j in range(n_samples)) + "\n" for i in range(2)
+        f"v;1;{tag + i};" + ";".join(str((tag + i + j) % 100) for j in range(n_samples)) + "\n"
+        for i in range(2)
     )
     fname.write_text(header + body, encoding="utf-8")
 
@@ -46,7 +47,7 @@ def bench(n_files: int, n_channels: int, n_samples: int, chunksize_list, n_jobs_
 
         for chunksize in chunksize_list:
             for n_jobs in n_jobs_list:
-                t0 = time.perf_counter()
+                time.perf_counter()
                 # run several reps
                 times = []
                 for _ in range(reps):
@@ -77,7 +78,9 @@ def bench(n_files: int, n_channels: int, n_samples: int, chunksize_list, n_jobs_
                     )
                 avg = sum(times) / len(times)
                 chk = "None" if chunksize is None else str(chunksize)
-                print(f"chunksize={chk:>4} n_jobs={n_jobs:2} -> avg extract time: {avg:.3f}s (reps={reps})")
+                print(
+                    f"chunksize={chk:>4} n_jobs={n_jobs:2} -> avg extract time: {avg:.3f}s (reps={reps})"
+                )
     finally:
         try:
             shutil.rmtree(tmpdir)

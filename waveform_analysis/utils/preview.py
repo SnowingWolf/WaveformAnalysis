@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 波形预览模块 - 轻量级波形快速预览工具
 
@@ -172,7 +171,9 @@ class WaveformPreviewer:
 
         # 3. 合并并结构化
         if not collected:
-            logger.warning(f"No events found in range [{start_event}, {end_event}) for channel {channel}")
+            logger.warning(
+                f"No events found in range [{start_event}, {end_event}) for channel {channel}"
+            )
             return np.zeros(0, dtype=ST_WAVEFORM_DTYPE)
 
         raw_data = np.vstack(collected)
@@ -217,7 +218,9 @@ class WaveformPreviewer:
         # 2. 流式扫描，筛选时间戳范围
         collected = []
 
-        logger.debug(f"Loading events with timestamp in [{start_ts}, {end_ts}) from channel {channel}")
+        logger.debug(
+            f"Loading events with timestamp in [{start_ts}, {end_ts}) from channel {channel}"
+        )
 
         for chunk in parse_files_generator(channel_files, chunksize=1000):
             # 提取时间戳列（CSV 第3列，索引为2）
@@ -240,7 +243,9 @@ class WaveformPreviewer:
 
         # 3. 合并并结构化
         if not collected:
-            logger.warning(f"No events found in timestamp range [{start_ts}, {end_ts}) for channel {channel}")
+            logger.warning(
+                f"No events found in timestamp range [{start_ts}, {end_ts}) for channel {channel}"
+            )
             return np.zeros(0, dtype=ST_WAVEFORM_DTYPE)
 
         raw_data = np.vstack(collected)
@@ -422,7 +427,7 @@ class WaveformPreviewer:
         for i, record in enumerate(waveforms):
             wave = record["wave"]
             baseline = record["baseline"]
-            timestamp = record["timestamp"]
+            record["timestamp"]
 
             # 时间轴（ns）
             x = np.arange(len(wave)) * sampling_interval_ns
@@ -577,7 +582,7 @@ class WaveformPreviewer:
                     transform=ax.transAxes,
                     verticalalignment="top",
                     fontsize=8,
-                    bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+                    bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.5},
                 )
 
             if kwargs.get("show_title", True):

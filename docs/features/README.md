@@ -29,8 +29,8 @@
 时间字段统一、绝对时间查询与 DAQ 时间基准。
 
 - [时间字段统一](core/TIME_FIELD_UNIFICATION.md)
-- [绝对时间查询](core/ABSOLUTE_TIME_GUIDE.md)
-- [DAQ 适配器](core/DAQ_ADAPTER_GUIDE.md)
+- [绝对时间查询](context/ABSOLUTE_TIME_GUIDE.md)
+- [DAQ 适配器](../plugins/DAQ_ADAPTER_GUIDE.md)
 
 ### [插件功能](plugin/README.md)
 
@@ -73,7 +73,7 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 | 预览执行计划 | [PREVIEW_EXECUTION.md](context/PREVIEW_EXECUTION.md) |
 | 管理配置 | [CONFIGURATION.md](context/CONFIGURATION.md) |
 | 理解时间字段 | [TIME_FIELD_UNIFICATION.md](core/TIME_FIELD_UNIFICATION.md) |
-| 绝对时间查询 | [ABSOLUTE_TIME_GUIDE.md](core/ABSOLUTE_TIME_GUIDE.md) |
+| 绝对时间查询 | [ABSOLUTE_TIME_GUIDE.md](context/ABSOLUTE_TIME_GUIDE.md) |
 | 筛选事件数据 | [EVENT_FILTERS_GUIDE.md](utils/EVENT_FILTERS_GUIDE.md) |
 | 预览波形 | [waveform_preview.md](utils/waveform_preview.md) |
 | 使用信号处理插件 | [SIGNAL_PROCESSING_PLUGINS.md](plugin/SIGNAL_PROCESSING_PLUGINS.md) |

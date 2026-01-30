@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Chunk Utilities - 时间区间与分块操作
 
@@ -74,7 +73,7 @@ def _resolve_length_field(data: np.ndarray, length_field: str) -> str:
         return EVENT_LENGTH_FIELD
     return length_field
 
- 
+
 @export
 class Chunk:
     """
@@ -136,7 +135,9 @@ class Chunk:
             time_values = data[resolved_time_field]
             data_start = int(np.min(time_values))
             if data_start < self.start:
-                raise ValueError(f"Chunk data starts at {data_start}, before chunk start {self.start}")
+                raise ValueError(
+                    f"Chunk data starts at {data_start}, before chunk start {self.start}"
+                )
 
             # 使用 get_endtime 获取最后一条记录的结束时间
             # 注意：这里假设 get_endtime 已经定义或在下面定义
@@ -163,7 +164,9 @@ class Chunk:
         return self.data.nbytes
 
     def __repr__(self):
-        return f"Chunk({self.run_id}.{self.data_type}: {self.start} - {self.end}, {len(self)} items)"
+        return (
+            f"Chunk({self.run_id}.{self.data_type}: {self.start} - {self.end}, {len(self)} items)"
+        )
 
     def split(self, t: int):
         """在时间 t 处切割 Chunk"""
@@ -228,9 +231,7 @@ class ChunkInfo:
         return self.start_time <= time < self.end_time
 
     def __repr__(self) -> str:
-        return (
-            f"ChunkInfo(start={self.start_time}, end={self.end_time}, n={self.n_records}, duration={self.duration}ns)"
-        )
+        return f"ChunkInfo(start={self.start_time}, end={self.end_time}, n={self.n_records}, duration={self.duration}ns)"
 
 
 @export
@@ -370,7 +371,9 @@ def validate_endtime(data: np.ndarray, tolerance_ns: int = 0) -> ValidationResul
     if n_mismatch > 0:
         result.is_valid = False
         max_diff = np.max(diff)
-        result.errors.append(f"Endtime mismatch: {n_mismatch}/{len(data)} records differ by up to {max_diff}ns")
+        result.errors.append(
+            f"Endtime mismatch: {n_mismatch}/{len(data)} records differ by up to {max_diff}ns"
+        )
 
     result.stats = {
         "n_records": len(data),
@@ -434,7 +437,9 @@ def get_endtime(
 
 
 @export
-def check_monotonic(data: np.ndarray, field: str = TIME_FIELD, strict: bool = False) -> ValidationResult:
+def check_monotonic(
+    data: np.ndarray, field: str = TIME_FIELD, strict: bool = False
+) -> ValidationResult:
     """
     检查字段是否单调递增
 
@@ -530,7 +535,9 @@ def check_no_overlap(data: np.ndarray) -> ValidationResult:
     result.stats = {
         "n_records": len(data),
         "n_overlaps": int(n_overlaps),
-        "max_overlap_ns": int(np.max(sorted_endtime[:-1] - sorted_time[1:])) if n_overlaps > 0 else 0,
+        "max_overlap_ns": (
+            int(np.max(sorted_endtime[:-1] - sorted_time[1:])) if n_overlaps > 0 else 0
+        ),
     }
 
     return result
@@ -1072,7 +1079,10 @@ def rechunk_to_boundaries(
         endtime = get_endtime(merged)
         max_endtime = np.max(endtime)
 
-        while current_boundary_idx < len(boundary_times) and max_endtime >= boundary_times[current_boundary_idx]:
+        while (
+            current_boundary_idx < len(boundary_times)
+            and max_endtime >= boundary_times[current_boundary_idx]
+        ):
             boundary = boundary_times[current_boundary_idx]
 
             # 分割出 boundary 之前的数据
@@ -1169,7 +1179,9 @@ def check_chunk_boundaries(
     if n_before > 0:
         result.is_valid = False
         min_time = np.min(time[before_start])
-        result.errors.append(f"{n_before} records start before chunk boundary (earliest: {min_time} < {chunk_start})")
+        result.errors.append(
+            f"{n_before} records start before chunk boundary (earliest: {min_time} < {chunk_start})"
+        )
 
     # 检查结束边界
     after_end = endtime > chunk_end
@@ -1177,7 +1189,9 @@ def check_chunk_boundaries(
     if n_after > 0:
         result.is_valid = False
         max_endtime = np.max(endtime[after_end])
-        result.errors.append(f"{n_after} records extend beyond chunk boundary (latest: {max_endtime} > {chunk_end})")
+        result.errors.append(
+            f"{n_after} records extend beyond chunk boundary (latest: {max_endtime} > {chunk_end})"
+        )
 
     result.stats = {
         "n_records": len(data),

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 压缩后端模块 - 为存储系统提供可插拔的压缩支持
 
@@ -30,6 +29,7 @@ export, __all__ = exporter()
 # ===========================
 # Compression Backend Protocol
 # ===========================
+
 
 class CompressionBackend(Protocol):
     """压缩后端的统一接口"""
@@ -66,6 +66,7 @@ class CompressionBackend(Protocol):
 # Blosc2 Compression (优先推荐)
 # ===========================
 
+
 @export
 class Blosc2Compression:
     """
@@ -82,10 +83,10 @@ class Blosc2Compression:
 
     def __init__(
         self,
-        cname: str = 'zstd',  # 内部codec: blosclz, lz4, lz4hc, zlib, zstd
-        clevel: int = 5,       # 压缩级别 0-9
-        shuffle: int = 2,      # 0=no shuffle, 1=byte shuffle, 2=bit shuffle
-        nthreads: int = 4,     # 压缩线程数
+        cname: str = "zstd",  # 内部codec: blosclz, lz4, lz4hc, zlib, zstd
+        clevel: int = 5,  # 压缩级别 0-9
+        shuffle: int = 2,  # 0=no shuffle, 1=byte shuffle, 2=bit shuffle
+        nthreads: int = 4,  # 压缩线程数
     ):
         """
         初始化 Blosc2 压缩算法
@@ -108,6 +109,7 @@ class Blosc2Compression:
         # 尝试导入blosc2
         try:
             import blosc2
+
             self._blosc2 = blosc2
             # 设置线程数
             blosc2.set_nthreads(nthreads)
@@ -135,7 +137,11 @@ class Blosc2Compression:
 
         return self._blosc2.compress(
             data,
-            codec=self._blosc2.Codec[self.cname.upper()] if hasattr(self._blosc2, 'Codec') else self.cname,
+            codec=(
+                self._blosc2.Codec[self.cname.upper()]
+                if hasattr(self._blosc2, "Codec")
+                else self.cname
+            ),
             clevel=self.clevel,
             shuffle=self.shuffle,
         )
@@ -163,7 +169,11 @@ class Blosc2Compression:
 
         return self._blosc2.compress(
             data,
-            codec=self._blosc2.Codec[self.cname.upper()] if hasattr(self._blosc2, 'Codec') else self.cname,
+            codec=(
+                self._blosc2.Codec[self.cname.upper()]
+                if hasattr(self._blosc2, "Codec")
+                else self.cname
+            ),
             clevel=self.clevel,
             shuffle=shuffle,
         )
@@ -172,6 +182,7 @@ class Blosc2Compression:
 # ===========================
 # LZ4 Compression (极速)
 # ===========================
+
 
 @export
 class LZ4Compression:
@@ -196,6 +207,7 @@ class LZ4Compression:
 
         try:
             import lz4.frame
+
             self._lz4 = lz4.frame
         except ImportError:
             logger.warning("lz4 not available. Install with: pip install lz4")
@@ -235,6 +247,7 @@ class LZ4Compression:
 # Zstd Compression (平衡)
 # ===========================
 
+
 @export
 class ZstdCompression:
     """
@@ -260,6 +273,7 @@ class ZstdCompression:
 
         try:
             import zstandard as zstd
+
             self._zstd = zstd
         except ImportError:
             logger.warning("zstandard not available. Install with: pip install zstandard")
@@ -301,6 +315,7 @@ class ZstdCompression:
 # Gzip Compression (标准库后备)
 # ===========================
 
+
 @export
 class GzipCompression:
     """
@@ -339,16 +354,19 @@ class GzipCompression:
 
     def compress(self, data: bytes) -> bytes:
         import gzip
+
         return gzip.compress(data, compresslevel=self.compresslevel)
 
     def decompress(self, data: bytes) -> bytes:
         import gzip
+
         return gzip.decompress(data)
 
 
 # ===========================
 # Compression Manager
 # ===========================
+
 
 @export
 class CompressionManager:
@@ -362,7 +380,7 @@ class CompressionManager:
     """
 
     # 按优先级排序(基于速度)
-    _BACKEND_PRIORITY = ['blosc2', 'lz4', 'zstd', 'gzip']
+    _BACKEND_PRIORITY = ["blosc2", "lz4", "zstd", "gzip"]
 
     def __init__(self):
         """
@@ -375,19 +393,14 @@ class CompressionManager:
         - 初始化实例缓存（避免重复创建）
         """
         self._backends: Dict[str, Type] = {
-            'blosc2': Blosc2Compression,
-            'lz4': LZ4Compression,
-            'zstd': ZstdCompression,
-            'gzip': GzipCompression,
+            "blosc2": Blosc2Compression,
+            "lz4": LZ4Compression,
+            "zstd": ZstdCompression,
+            "gzip": GzipCompression,
         }
         self._instances: Dict[str, Any] = {}
 
-    def get_backend(
-        self,
-        name: Optional[str] = None,
-        fallback: bool = True,
-        **kwargs
-    ) -> Any:
+    def get_backend(self, name: Optional[str] = None, fallback: bool = True, **kwargs) -> Any:
         """
         获取压缩后端实例
 
@@ -425,9 +438,7 @@ class CompressionManager:
         # 检查是否可用
         if not instance.is_available():
             if fallback:
-                warnings.warn(
-                    f"Compression backend '{name}' not available, trying fallback"
-                )
+                warnings.warn(f"Compression backend '{name}' not available, trying fallback")
                 name = self._get_first_available(exclude=[name])
                 backend_cls = self._backends[name]
                 instance = backend_cls(**kwargs)
@@ -461,18 +472,17 @@ class CompressionManager:
             backend_cls = self._backends[name]
             instance = backend_cls()
             if instance.is_available():
-                available.append({
-                    'name': name,
-                    'speed_priority': instance.speed_priority,
-                    'extension': instance.extension,
-                })
+                available.append(
+                    {
+                        "name": name,
+                        "speed_priority": instance.speed_priority,
+                        "extension": instance.extension,
+                    }
+                )
         return available
 
     def benchmark(
-        self,
-        data: bytes,
-        backends: Optional[list] = None,
-        repeats: int = 3
+        self, data: bytes, backends: Optional[list] = None, repeats: int = 3
     ) -> Dict[str, Dict[str, float]]:
         """
         对比不同压缩算法的性能
@@ -488,7 +498,7 @@ class CompressionManager:
         import time
 
         if backends is None:
-            backends = [b['name'] for b in self.list_available()]
+            backends = [b["name"] for b in self.list_available()]
 
         results = {}
 
@@ -514,10 +524,10 @@ class CompressionManager:
                 decompress_times.append(time.perf_counter() - start)
 
             results[name] = {
-                'compress_time_ms': np.mean(compress_times) * 1000,
-                'decompress_time_ms': np.mean(decompress_times) * 1000,
-                'compression_ratio': len(data) / len(compressed_data),
-                'compressed_size_mb': len(compressed_data) / (1024 * 1024),
+                "compress_time_ms": np.mean(compress_times) * 1000,
+                "decompress_time_ms": np.mean(decompress_times) * 1000,
+                "compression_ratio": len(data) / len(compressed_data),
+                "compressed_size_mb": len(compressed_data) / (1024 * 1024),
             }
 
         return results
@@ -525,6 +535,7 @@ class CompressionManager:
 
 # 全局单例
 _compression_manager = None
+
 
 @export
 def get_compression_manager() -> CompressionManager:

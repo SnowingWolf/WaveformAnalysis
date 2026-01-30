@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 CPU Waveform Width Integral Plugin - 事件级积分分位数宽度
 
@@ -18,18 +17,20 @@ import numpy as np
 
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
-WAVEFORM_WIDTH_INTEGRAL_DTYPE = np.dtype([
-    ("t_low", "f4"),  # 低分位积分点（ns，对应 q_low）
-    ("t_high", "f4"),  # 高分位积分点（ns，对应 q_high）
-    ("width", "f4"),  # t_high - t_low（ns）
-    ("t_low_samples", "f4"),  # 低分位积分点（采样点索引）
-    ("t_high_samples", "f4"),  # 高分位积分点（采样点索引）
-    ("width_samples", "f4"),  # 宽度（采样点数）
-    ("q_total", "f8"),  # 总电荷/总面积（基线校正后）
-    ("timestamp", "i8"),  # 事件时间戳（ADC）
-    ("channel", "i2"),  # 通道号
-    ("event_index", "i8"),  # 事件索引
-])
+WAVEFORM_WIDTH_INTEGRAL_DTYPE = np.dtype(
+    [
+        ("t_low", "f4"),  # 低分位积分点（ns，对应 q_low）
+        ("t_high", "f4"),  # 高分位积分点（ns，对应 q_high）
+        ("width", "f4"),  # t_high - t_low（ns）
+        ("t_low_samples", "f4"),  # 低分位积分点（采样点索引）
+        ("t_high_samples", "f4"),  # 高分位积分点（采样点索引）
+        ("width_samples", "f4"),  # 宽度（采样点数）
+        ("q_total", "f8"),  # 总电荷/总面积（基线校正后）
+        ("timestamp", "i8"),  # 事件时间戳（ADC）
+        ("channel", "i2"),  # 通道号
+        ("event_index", "i8"),  # 事件索引
+    ]
+)
 
 
 class WaveformWidthIntegralPlugin(Plugin):
@@ -109,7 +110,9 @@ class WaveformWidthIntegralPlugin(Plugin):
             try:
                 filtered_waveforms = context.get_data(run_id, "filtered_waveforms")
             except Exception:
-                raise ValueError("use_filtered=True 但无法获取 filtered_waveforms。请先注册 FilteredWaveformsPlugin。")
+                raise ValueError(
+                    "use_filtered=True 但无法获取 filtered_waveforms。请先注册 FilteredWaveformsPlugin。"
+                )
         else:
             filtered_waveforms = None
 
@@ -165,18 +168,20 @@ class WaveformWidthIntegralPlugin(Plugin):
                 timestamp = int(record["timestamp"])
                 channel = int(record["channel"]) if "channel" in record.dtype.names else int(ch_idx)
 
-                channel_widths.append((
-                    t_low,
-                    t_high,
-                    width,
-                    t_low_samples,
-                    t_high_samples,
-                    width_samples,
-                    q_total,
-                    timestamp,
-                    channel,
-                    int(event_idx),
-                ))
+                channel_widths.append(
+                    (
+                        t_low,
+                        t_high,
+                        width,
+                        t_low_samples,
+                        t_high_samples,
+                        width_samples,
+                        q_total,
+                        timestamp,
+                        channel,
+                        int(event_idx),
+                    )
+                )
 
             if channel_widths:
                 widths_array = np.array(channel_widths, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE)

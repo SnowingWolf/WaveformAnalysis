@@ -347,3 +347,4 @@ DOCS_*.md
 IMPLEMENTATION_COMPLETE.md
 UPDATE_SUMMARY.md
 CLAUDE.md
+.github/copilot-instructions.md

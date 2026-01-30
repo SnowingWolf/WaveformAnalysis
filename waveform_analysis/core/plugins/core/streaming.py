@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 流式处理框架 - 整合 Chunk、Plugin 和 ExecutorManager。
 
@@ -58,6 +57,8 @@ from waveform_analysis.core.processing.chunk import (
     select_time_range,
     split_by_breaks,
 )
+
+logger = logging.getLogger(__name__)
 
 from .base import Plugin
 
@@ -292,7 +293,11 @@ class StreamingPlugin(Plugin):
         provides = self.provides
         legacy: Dict[str, Any] = {}
         for key in _STREAMING_CONFIG_KEYS:
-            if provides in config and isinstance(config[provides], dict) and key in config[provides]:
+            if (
+                provides in config
+                and isinstance(config[provides], dict)
+                and key in config[provides]
+            ):
                 legacy[key] = config[provides][key]
                 continue
             dotted_key = f"{provides}.{key}"
@@ -439,11 +444,13 @@ class StreamingPlugin(Plugin):
             return None
 
         metadata = dict(result.metadata)
-        metadata.update({
-            "main_start": main_start,
-            "main_end": main_end,
-            "segment_id": input_chunk.metadata.get("segment_id"),
-        })
+        metadata.update(
+            {
+                "main_start": main_start,
+                "main_end": main_end,
+                "segment_id": input_chunk.metadata.get("segment_id"),
+            }
+        )
 
         return Chunk(
             data=clipped_data,
@@ -525,7 +532,9 @@ class StreamingPlugin(Plugin):
 
         try:
             # 并行处理配置
-            can_parallel = self.parallel and (effective_max_workers is None or effective_max_workers > 1)
+            can_parallel = self.parallel and (
+                effective_max_workers is None or effective_max_workers > 1
+            )
             if can_parallel:
                 # 并行处理
                 for chunk in self._compute_parallel(
@@ -560,7 +569,9 @@ class StreamingPlugin(Plugin):
             if tracker and bar_name:
                 tracker.close(bar_name)
 
-    def _normalize_executor_config(self, executor_config: Optional[Union[str, Dict[str, Any]]]) -> Dict[str, Any]:
+    def _normalize_executor_config(
+        self, executor_config: Optional[Union[str, Dict[str, Any]]]
+    ) -> Dict[str, Any]:
         if executor_config is None:
             return {}
         if isinstance(executor_config, str):
@@ -577,14 +588,20 @@ class StreamingPlugin(Plugin):
         如果是静态数据，转换为 chunk 流（按时间或固定长度切分）。
         当前实现只使用 depends_on 的第一个依赖。
         """
-        deps = self.resolve_depends_on(context, run_id=run_id) if hasattr(self, "resolve_depends_on") else self.depends_on
+        deps = (
+            self.resolve_depends_on(context, run_id=run_id)
+            if hasattr(self, "resolve_depends_on")
+            else self.depends_on
+        )
         if not deps:
             # 无依赖，返回空迭代器
             return iter([])
 
         # 获取第一个依赖（简化：只支持单个依赖）
         dep_name = deps[0]
-        dep_name = self.get_dependency_name(dep_name) if hasattr(self, "get_dependency_name") else dep_name
+        dep_name = (
+            self.get_dependency_name(dep_name) if hasattr(self, "get_dependency_name") else dep_name
+        )
         dep_data = context.get_data(run_id, dep_name)
 
         # 检查是否是 chunk 流
@@ -792,7 +809,11 @@ class StreamingPlugin(Plugin):
             max_workers = self._quantize_workers(suggested_workers, max_workers_cap)
 
         if executor_type == "process":
-            if not _is_pickleable(self) or not _is_pickleable(context) or not _is_pickleable(kwargs):
+            if (
+                not _is_pickleable(self)
+                or not _is_pickleable(context)
+                or not _is_pickleable(kwargs)
+            ):
                 logger.warning(
                     "Streaming plugin %s is not pickleable with process executor; "
                     "falling back to thread executor.",
@@ -832,7 +853,9 @@ class StreamingPlugin(Plugin):
 
                 # 提交批量任务
                 future_to_idx = {
-                    executor.submit(_process_chunk_worker, self, chunk, context, run_id, kwargs): idx
+                    executor.submit(
+                        _process_chunk_worker, self, chunk, context, run_id, kwargs
+                    ): idx
                     for idx, chunk in enumerate(batch)
                 }
 
@@ -844,12 +867,10 @@ class StreamingPlugin(Plugin):
                         result = future.result()
                         results[idx] = result
                     except Exception as e:
-                        import logging
-
                         success = False
                         shutdown_wait = False
-                        logger = logging.getLogger(__name__)
-                        logger.error(f"Error processing chunk {idx}: {e}")
+                        _logger = logging.getLogger(__name__)
+                        _logger.error(f"Error processing chunk {idx}: {e}")
                         for pending in future_to_idx:
                             if pending is future:
                                 continue
@@ -907,7 +928,9 @@ class StreamingPlugin(Plugin):
                 dt=chunk.dt,
             )
             if not validation.is_valid:
-                raise ValueError(f"Chunk boundary violation in {self.provides}: {validation.errors}")
+                raise ValueError(
+                    f"Chunk boundary violation in {self.provides}: {validation.errors}"
+                )
 
 
 class StreamingContext:
@@ -951,7 +974,9 @@ class StreamingContext:
         )
         self.chunk_size = self.streaming_config.get("chunk_size", chunk_size)
         self.parallel = self.streaming_config.get("parallel", parallel)
-        self.executor_config = self.streaming_config.get("executor_config", get_config("io_intensive"))
+        self.executor_config = self.streaming_config.get(
+            "executor_config", get_config("io_intensive")
+        )
 
     def _normalize_streaming_config(
         self,
@@ -972,7 +997,9 @@ class StreamingContext:
             normalized.update(streaming_config)
         return normalized
 
-    def get_stream(self, data_name: str, time_range: Optional[Tuple[int, int]] = None, **kwargs) -> Iterator[Chunk]:
+    def get_stream(
+        self, data_name: str, time_range: Optional[Tuple[int, int]] = None, **kwargs
+    ) -> Iterator[Chunk]:
         """
         获取数据流。
 
@@ -1126,7 +1153,9 @@ class StreamingContext:
             metadata=dict(chunk.metadata),
         )
 
-    def iter_chunks(self, data_name: str, time_range: Optional[Tuple[int, int]] = None, **kwargs) -> Iterator[Chunk]:
+    def iter_chunks(
+        self, data_name: str, time_range: Optional[Tuple[int, int]] = None, **kwargs
+    ) -> Iterator[Chunk]:
         """
         迭代数据流的便捷方法。
 

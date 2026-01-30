@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 示例：使用 list_plugin_configs() 查看插件配置
 
@@ -12,8 +11,8 @@
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
-    WaveformsPlugin,
     StWaveformsPlugin,
+    WaveformsPlugin,
 )
 
 
@@ -36,18 +35,20 @@ def main():
     print("\n" + "=" * 80)
     print("示例 2: 设置配置后查看变化")
     print("=" * 80)
-    ctx.set_config({
-        'n_channels': 4,
-        'data_root': 'custom_DAQ',
-    })
-    ctx.set_config({'channel_executor': 'process'}, plugin_name='waveforms')
+    ctx.set_config(
+        {
+            "n_channels": 4,
+            "data_root": "custom_DAQ",
+        }
+    )
+    ctx.set_config({"channel_executor": "process"}, plugin_name="waveforms")
     ctx.list_plugin_configs()
 
     # 示例 3: 只查看特定插件
     print("\n" + "=" * 80)
     print("示例 3: 只查看特定插件的配置")
     print("=" * 80)
-    ctx.list_plugin_configs(plugin_name='waveforms')
+    ctx.list_plugin_configs(plugin_name="waveforms")
 
     # 示例 4: 以编程方式获取配置信息
     print("\n" + "=" * 80)
@@ -60,9 +61,8 @@ def main():
         print(f"\n{plugin_name}:")
         print(f"  - 类: {info['class']}")
         print(f"  - 配置选项数: {len(info['options'])}")
-        if info['options']:
-            modified = sum(1 for opt in info['options'].values()
-                         if not opt.get('is_default', True))
+        if info["options"]:
+            modified = sum(1 for opt in info["options"].values() if not opt.get("is_default", True))
             print(f"  - 已修改: {modified}/{len(info['options'])}")
 
 

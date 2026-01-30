@@ -68,12 +68,14 @@ def check_cli():
     import subprocess
 
     try:
-        result = subprocess.run(["waveform-process", "--version"], capture_output=True, text=True, timeout=5)
+        result = subprocess.run(
+            ["waveform-process", "--version"], capture_output=True, text=True, timeout=5
+        )
         if result.returncode == 0:
             print(f"   ✅ CLI 工具可用: {result.stdout.strip()}")
             return True
         else:
-            print(f"   ⚠️  CLI 可能未正确安装")
+            print("   ⚠️  CLI 可能未正确安装")
             return False
     except FileNotFoundError:
         print("   ⚠️  CLI 命令未找到（可能需要重新激活环境）")

@@ -1,11 +1,10 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 简化版批量处理测试 - 不使用进度条和取消令牌
 """
 
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 
 def simple_batch_process(ctx, run_ids, data_name, max_workers=2):
@@ -59,7 +58,7 @@ def simple_batch_process(ctx, run_ids, data_name, max_workers=2):
                 future = executor.submit(ctx.get_data, run_id, data_name)
                 future_to_run[future] = run_id
 
-            print(f"  所有任务已提交，等待完成...")
+            print("  所有任务已提交，等待完成...")
             print()
 
             # 收集结果
@@ -76,7 +75,7 @@ def simple_batch_process(ctx, run_ids, data_name, max_workers=2):
                     print(f"✓ ({len(data):,} 条)")
                 except TimeoutError:
                     errors[run_id] = "Timeout after 120s"
-                    print(f"✗ 超时")
+                    print("✗ 超时")
                 except Exception as e:
                     errors[run_id] = e
                     print(f"✗ 错误: {e}")
@@ -93,23 +92,23 @@ def simple_batch_process(ctx, run_ids, data_name, max_workers=2):
     print(f"  平均每个: {total_elapsed / len(run_ids):.3f}s")
 
     if total_elapsed / len(run_ids) < 0.5:
-        print(f"  ✅ 性能正常（使用了缓存）")
+        print("  ✅ 性能正常（使用了缓存）")
     else:
-        print(f"  ⚠️  性能较慢（可能未使用缓存）")
+        print("  ⚠️  性能较慢（可能未使用缓存）")
 
     if results:
-        print(f"\n  成功的 run:")
+        print("\n  成功的 run:")
         for run_id, data in results.items():
             print(f"    ✓ {run_id}: {len(data):,} 条")
 
     if errors:
-        print(f"\n  失败的 run:")
+        print("\n  失败的 run:")
         for run_id, error in errors.items():
             print(f"    ✗ {run_id}: {error}")
 
     print("=" * 80)
 
-    return {'results': results, 'errors': errors}
+    return {"results": results, "errors": errors}
 
 
 if __name__ == "__main__":

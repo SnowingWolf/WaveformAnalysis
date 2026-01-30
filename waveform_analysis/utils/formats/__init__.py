@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 DAQ 数据格式适配器
 
@@ -76,6 +75,14 @@ from .registry import (
     register_format,
     unregister_format,
 )
+from .v1725 import (
+    V1725_ADAPTER,
+    V1725_LAYOUT,
+    V1725_SPEC,
+    V1725Adapter,
+    V1725Reader,
+    V1725Spec,
+)
 
 # VX2730 完整适配器（包含格式规范、目录布局、读取器）
 from .vx2730 import (
@@ -84,14 +91,6 @@ from .vx2730 import (
     VX2730_SPEC,
     VX2730Reader,
     VX2730Spec,
-)
-from .v1725 import (
-    V1725_ADAPTER,
-    V1725_LAYOUT,
-    V1725_SPEC,
-    V1725Adapter,
-    V1725Reader,
-    V1725Spec,
 )
 
 # 自动注册内置格式

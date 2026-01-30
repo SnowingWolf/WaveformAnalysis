@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from tests.utils import make_test_data, make_test_dtype
+from tests.utils import make_test_data
 from waveform_analysis.core.processing.chunk import (
     DT_FIELD,
     ENDTIME_FIELD,
@@ -41,7 +41,6 @@ from waveform_analysis.core.processing.chunk import (
     time_to_samples,
     validate_endtime,
 )
-
 
 # =============================================================================
 # ChunkInfo 测试

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 [JAX + Streaming] JAX 流式插件模块 - GPU 加速流式处理
 

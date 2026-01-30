@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 错误管理模块 - 提供统一的错误上下文收集和日志记录功能。
 
@@ -86,7 +85,7 @@ class ErrorManager:
             "plugin": plugin.provides,
             "plugin_class": plugin.__class__.__name__,
             "config": {k: get_config_fn(plugin, k) for k in plugin.config_keys},
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
         # 收集依赖数据信息
@@ -111,24 +110,22 @@ class ErrorManager:
                         dependencies_info[dep_name] = {
                             "shape": dep_data.shape,
                             "dtype": str(dep_data.dtype),
-                            "size_mb": dep_data.nbytes / (1024 * 1024)
+                            "size_mb": dep_data.nbytes / (1024 * 1024),
                         }
                     elif isinstance(dep_data, list):
                         dependencies_info[dep_name] = {
                             "length": len(dep_data),
-                            "type": type(dep_data[0]).__name__ if dep_data else "empty"
+                            "type": type(dep_data[0]).__name__ if dep_data else "empty",
                         }
                     elif isinstance(dep_data, pd.DataFrame):
                         dependencies_info[dep_name] = {
                             "shape": dep_data.shape,
                             "columns": list(dep_data.columns),
-                            "size_mb": dep_data.memory_usage(deep=True).sum() / (1024 * 1024)
+                            "size_mb": dep_data.memory_usage(deep=True).sum() / (1024 * 1024),
                         }
             except (AttributeError, TypeError, KeyError) as e:
                 # 某些数据类型可能缺少所需的属性
-                self.logger.debug(
-                    f"Could not collect dependency info for {dep_name}: {e}"
-                )
+                self.logger.debug(f"Could not collect dependency info for {dep_name}: {e}")
             except Exception as e:
                 # 其他未预期的错误（不应该阻止错误报告）
                 self.logger.warning(
@@ -140,6 +137,7 @@ class ErrorManager:
         # 内存使用情况（可选，需要 psutil）
         try:
             import psutil
+
             process = psutil.Process()
             context["memory_mb"] = process.memory_info().rss / (1024 * 1024)
         except ImportError:
@@ -154,7 +152,7 @@ class ErrorManager:
         run_id: str,
         plugin: Any,
         error_context: Dict[str, Any],
-        get_config_fn: Callable[[Any, str], Any]
+        get_config_fn: Callable[[Any, str], Any],
     ) -> None:
         """统一的错误日志记录
 
@@ -183,15 +181,15 @@ class ErrorManager:
                     "plugin_name": plugin_name,
                     "plugin_class": plugin.__class__.__name__,
                     "config": {k: get_config_fn(plugin, k) for k in plugin.config_keys},
-                    "error_context": error_context
-                }
+                    "error_context": error_context,
+                },
             )
         elif log_level <= logging.INFO:
             # INFO 级别：输出异常类型和消息
             self.logger.error(
                 f"Plugin '{plugin_name}' ({plugin.__class__.__name__}) failed: "
                 f"{type(exception).__name__}: {exception}",
-                extra={"run_id": run_id, "plugin_name": plugin_name}
+                extra={"run_id": run_id, "plugin_name": plugin_name},
             )
         else:
             # 其他级别：简短消息

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Plugins Builtin 子模块 - 内置标准插件
 
@@ -29,8 +28,8 @@ from .cpu import (
     ADVANCED_PEAK_DTYPE,
     WAVEFORM_WIDTH_DTYPE,
     WAVEFORM_WIDTH_INTEGRAL_DTYPE,
-    CacheAnalysisPlugin,
     BasicFeaturesPlugin,
+    CacheAnalysisPlugin,
     DataFramePlugin,
     EventFramePlugin,
     EventsGroupedPlugin,
@@ -39,16 +38,16 @@ from .cpu import (
     GroupedEventsPlugin,
     HitFinderPlugin,
     PairedEventsPlugin,
-    RecordsPlugin,
     RawFileNamesPlugin,
     RawFilesPlugin,
+    RecordsPlugin,
     SignalPeaksPlugin,
     StWaveformsPlugin,
     WaveformsPlugin,
     WaveformStruct,
     WaveformStructConfig,
-    WaveformWidthPlugin,
     WaveformWidthIntegralPlugin,
+    WaveformWidthPlugin,
     standard_plugins,
 )
 

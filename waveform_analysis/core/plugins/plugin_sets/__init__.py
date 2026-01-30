@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Composable plugin sets for building execution profiles.
 """
@@ -7,13 +6,13 @@ from waveform_analysis.core.foundation.utils import exporter
 
 export, __all__ = exporter()
 
-from .io import plugins_io
-from .waveform import plugins_waveform
 from .basic_features import plugins_basic_features
-from .tabular import plugins_tabular
-from .events import plugins_events
-from .signal_processing import plugins_signal_processing
 from .diagnostics_legacy import plugins_diagnostics_legacy
+from .events import plugins_events
+from .io import plugins_io
+from .signal_processing import plugins_signal_processing
+from .tabular import plugins_tabular
+from .waveform import plugins_waveform
 
 PLUGIN_SETS = export(
     {

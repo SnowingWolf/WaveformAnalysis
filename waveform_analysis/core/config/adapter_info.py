@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Adapter 推断信息
 
@@ -35,6 +34,7 @@ class AdapterInfo:
         >>> print(info.dt_ns)
         2
     """
+
     name: str
     sampling_rate_hz: float
     timestamp_unit: str

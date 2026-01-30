@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 插件契约规范（Plugin Specification）
 
@@ -14,7 +13,7 @@
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -308,9 +307,7 @@ class PluginSpec:
                 for dep in self.depends_on
             ],
             "output_schema": self.output_schema.to_dict() if self.output_schema else None,
-            "config_spec": {
-                key: cf.to_dict() for key, cf in self.config_spec.items()
-            },
+            "config_spec": {key: cf.to_dict() for key, cf in self.config_spec.items()},
             "capabilities": self.capabilities.to_dict(),
             "description": self.description,
             "deprecated": self.deprecated,

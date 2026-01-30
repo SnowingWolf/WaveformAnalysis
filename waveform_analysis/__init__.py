@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Waveform Analysis - 波形数据分析工具包
 
@@ -19,6 +18,7 @@ from .core.execution.manager import (
     parallel_map,
 )
 from .core.foundation.exceptions import ErrorContext, ErrorSeverity, PluginError
+from .core.plugins.builtin.cpu.waveforms import WaveformStruct, WaveformStructConfig
 from .core.plugins.core.base import Option, Plugin
 from .core.plugins.core.hot_reload import PluginHotReloader, enable_hot_reload
 from .core.plugins.core.streaming import (
@@ -27,7 +27,6 @@ from .core.plugins.core.streaming import (
     get_streaming_context,
 )
 from .core.processing.event_grouping import group_multi_channel_hits
-from .core.plugins.builtin.cpu.waveforms import WaveformStruct, WaveformStructConfig
 from .core.storage import (
     CacheManager,
     CompressionManager,

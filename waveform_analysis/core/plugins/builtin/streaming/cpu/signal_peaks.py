@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 CPU Streaming Signal Peaks Plugin.
 
@@ -42,7 +41,7 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
     version = "1.0.2"
     save_when = "never"  # 流式 chunk 不做缓存保存
     output_dtype = None
-    
+
     output_time_field = TIMESTAMP_FIELD
     output_endtime_field = "endtime"
     output_data_kind = "peaks"

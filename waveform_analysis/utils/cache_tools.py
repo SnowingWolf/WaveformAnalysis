@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Cache tools for inspecting stored data.
 """
@@ -36,8 +35,9 @@ def list_channel_cache_keys(ctx: Any, run_id: str, data_name: str) -> List[str]:
     prefix = f"{key}_ch"
     matches = [k for k in keys if k.startswith(prefix)]
     if matches:
+
         def _ch_index(k: str) -> float:
-            suffix = k[len(prefix):]
+            suffix = k[len(prefix) :]
             try:
                 return float(int(suffix))
             except ValueError:

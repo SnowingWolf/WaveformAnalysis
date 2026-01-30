@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Deprecated shim for signal_processing plugins.
 

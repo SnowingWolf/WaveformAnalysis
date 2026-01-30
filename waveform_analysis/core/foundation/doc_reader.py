@@ -16,26 +16,26 @@ export, __all__ = exporter()
 
 # Help 主题到文档文件的映射
 TOPIC_DOC_MAPPING: Dict[str, List[str]] = {
-    'quickstart': [
-        'user-guide/QUICKSTART_GUIDE.md',
+    "quickstart": [
+        "user-guide/QUICKSTART_GUIDE.md",
     ],
-    'config': [
-        'features/context/CONFIGURATION.md',
+    "config": [
+        "features/context/CONFIGURATION.md",
     ],
-    'plugins': [
-        'features/plugin/README.md',
-        'features/plugin/SIMPLE_PLUGIN_GUIDE.md',
-        'features/plugin/SIGNAL_PROCESSING_PLUGINS.md',
+    "plugins": [
+        "features/plugin/README.md",
+        "features/plugin/SIMPLE_PLUGIN_GUIDE.md",
+        "features/plugin/SIGNAL_PROCESSING_PLUGINS.md",
     ],
-    'performance': [
-        'features/advanced/EXECUTOR_MANAGER_GUIDE.md',
-        'features/advanced/CACHE.md',
-        'features/advanced/PROGRESS_TRACKING_GUIDE.md',
+    "performance": [
+        "features/advanced/EXECUTOR_MANAGER_GUIDE.md",
+        "features/advanced/CACHE.md",
+        "features/advanced/PROGRESS_TRACKING_GUIDE.md",
     ],
-    'examples': [
-        'user-guide/EXAMPLES_GUIDE.md',
-        'features/context/PREVIEW_EXECUTION.md',
-        'features/context/LINEAGE_VISUALIZATION_GUIDE.md',
+    "examples": [
+        "user-guide/EXAMPLES_GUIDE.md",
+        "features/context/PREVIEW_EXECUTION.md",
+        "features/context/LINEAGE_VISUALIZATION_GUIDE.md",
     ],
 }
 
@@ -54,16 +54,16 @@ def find_docs_root() -> Optional[Path]:
         docs 目录路径，未找到返回 None
     """
     # 方法 1: 当前工作目录
-    cwd_docs = Path.cwd() / 'docs'
-    if cwd_docs.is_dir() and (cwd_docs / 'README.md').exists():
+    cwd_docs = Path.cwd() / "docs"
+    if cwd_docs.is_dir() and (cwd_docs / "README.md").exists():
         return cwd_docs
 
     # 方法 2: 从当前模块向上查找
     current = Path(__file__).resolve()
     for _ in range(10):  # 最多向上 10 级
         current = current.parent
-        docs_path = current / 'docs'
-        if docs_path.is_dir() and (docs_path / 'README.md').exists():
+        docs_path = current / "docs"
+        if docs_path.is_dir() and (docs_path / "README.md").exists():
             return docs_path
         if current == current.parent:  # 到达根目录
             break
@@ -77,9 +77,9 @@ class MarkdownToTerminal:
 
     # 标题样式
     HEADER_STYLES = {
-        1: ('╔', '═', '╗', '║', '╚', '═', '╝'),  # 双线框
-        2: ('┌', '─', '┐', '│', '└', '─', '┘'),  # 单线框
-        3: ('', '─', '', '', '', '', ''),         # 下划线
+        1: ("╔", "═", "╗", "║", "╚", "═", "╝"),  # 双线框
+        2: ("┌", "─", "┐", "│", "└", "─", "┘"),  # 单线框
+        3: ("", "─", "", "", "", "", ""),  # 下划线
     }
 
     def __init__(self, width: int = 78):
@@ -96,7 +96,7 @@ class MarkdownToTerminal:
         Returns:
             终端格式化文本
         """
-        lines = markdown.split('\n')
+        lines = markdown.split("\n")
         output_lines: List[str] = []
         in_code_block = False
         code_block_lines: List[str] = []
@@ -104,16 +104,16 @@ class MarkdownToTerminal:
 
         for line in lines:
             # 跳过面包屑导航
-            if line.startswith('**导航**'):
+            if line.startswith("**导航**"):
                 continue
 
             # 处理代码块
-            if line.startswith('```'):
+            if line.startswith("```"):
                 if in_code_block:
                     # 结束代码块
-                    output_lines.append('─' * min(72, self.width))
+                    output_lines.append("─" * min(72, self.width))
                     output_lines.extend(code_block_lines)
-                    output_lines.append('─' * min(72, self.width))
+                    output_lines.append("─" * min(72, self.width))
                     code_block_lines = []
                 in_code_block = not in_code_block
                 continue
@@ -124,13 +124,13 @@ class MarkdownToTerminal:
 
             # 非详细模式下跳过某些内容
             if not verbose and skip_until_next_header:
-                if line.startswith('#'):
+                if line.startswith("#"):
                     skip_until_next_header = False
                 else:
                     continue
 
             # 处理标题
-            header_match = re.match(r'^(#{1,6})\s+(.+)$', line)
+            header_match = re.match(r"^(#{1,6})\s+(.+)$", line)
             if header_match:
                 level = len(header_match.group(1))
                 title = self._clean_title(header_match.group(2))
@@ -140,49 +140,49 @@ class MarkdownToTerminal:
                     skip_until_next_header = True
                     continue
 
-                output_lines.append('')
+                output_lines.append("")
                 output_lines.extend(self._format_header(title, level))
                 continue
 
             # 处理列表项
-            list_match = re.match(r'^(\s*)[-*]\s+(.+)$', line)
+            list_match = re.match(r"^(\s*)[-*]\s+(.+)$", line)
             if list_match:
                 indent = len(list_match.group(1))
                 content = self._process_inline(list_match.group(2))
-                prefix = '  ' * (indent // 2) + '• '
+                prefix = "  " * (indent // 2) + "• "
                 output_lines.append(prefix + content)
                 continue
 
             # 处理有序列表
-            ordered_match = re.match(r'^(\s*)(\d+)\.\s+(.+)$', line)
+            ordered_match = re.match(r"^(\s*)(\d+)\.\s+(.+)$", line)
             if ordered_match:
                 indent = len(ordered_match.group(1))
                 num = ordered_match.group(2)
                 content = self._process_inline(ordered_match.group(3))
-                prefix = '  ' * (indent // 2) + f'{num}. '
+                prefix = "  " * (indent // 2) + f"{num}. "
                 output_lines.append(prefix + content)
                 continue
 
             # 处理表格（简化处理）
-            if line.startswith('|'):
+            if line.startswith("|"):
                 output_lines.append(self._process_table_row(line))
                 continue
 
             # 处理分隔线
-            if re.match(r'^---+$', line.strip()):
-                output_lines.append('')
+            if re.match(r"^---+$", line.strip()):
+                output_lines.append("")
                 continue
 
             # 处理普通段落
             processed = self._process_inline(line)
             output_lines.append(processed)
 
-        return '\n'.join(output_lines)
+        return "\n".join(output_lines)
 
     def _clean_title(self, title: str) -> str:
         """清理标题中的 emoji 和链接"""
         # 移除链接语法但保留文本
-        title = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', title)
+        title = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", title)
         return title.strip()
 
     def _format_header(self, title: str, level: int) -> List[str]:
@@ -190,35 +190,35 @@ class MarkdownToTerminal:
         if level == 1:
             # 一级标题：双线框
             width = min(self.width, max(len(title) + 4, 60))
-            top = '╔' + '═' * (width - 2) + '╗'
-            mid = '║ ' + title.center(width - 4) + ' ║'
-            bot = '╚' + '═' * (width - 2) + '╝'
+            top = "╔" + "═" * (width - 2) + "╗"
+            mid = "║ " + title.center(width - 4) + " ║"
+            bot = "╚" + "═" * (width - 2) + "╝"
             return [top, mid, bot]
         elif level == 2:
             # 二级标题：单线框
             width = min(self.width, max(len(title) + 4, 50))
-            top = '┌' + '─' * (width - 2) + '┐'
-            mid = '│ ' + title.ljust(width - 4) + ' │'
-            bot = '└' + '─' * (width - 2) + '┘'
+            top = "┌" + "─" * (width - 2) + "┐"
+            mid = "│ " + title.ljust(width - 4) + " │"
+            bot = "└" + "─" * (width - 2) + "┘"
             return [top, mid, bot]
         elif level == 3:
             # 三级标题：加粗 + 下划线
-            return [title, '─' * len(title)]
+            return [title, "─" * len(title)]
         else:
             # 其他级别：缩进 + 符号
-            prefix = '  ' * (level - 3) + '► '
+            prefix = "  " * (level - 3) + "► "
             return [prefix + title]
 
     def _process_inline(self, text: str) -> str:
         """处理行内格式"""
         # 移除链接但保留文本
-        text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+        text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
         # 处理加粗
-        text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+        text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
         # 处理斜体
-        text = re.sub(r'\*([^*]+)\*', r'\1', text)
+        text = re.sub(r"\*([^*]+)\*", r"\1", text)
         # 处理行内代码
-        text = re.sub(r'`([^`]+)`', r'`\1`', text)
+        text = re.sub(r"`([^`]+)`", r"`\1`", text)
         return text
 
     def _process_table_row(self, line: str) -> str:
@@ -248,10 +248,7 @@ class DocReader:
         return self.docs_root is not None
 
     def read_topic(
-        self,
-        topic: str,
-        verbose: bool = False,
-        fallback: Optional[str] = None
+        self, topic: str, verbose: bool = False, fallback: Optional[str] = None
     ) -> Tuple[str, bool]:
         """
         读取指定主题的文档
@@ -283,7 +280,7 @@ class DocReader:
             doc_path = docs_root / doc_file
             if doc_path.exists():
                 try:
-                    markdown = doc_path.read_text(encoding='utf-8')
+                    markdown = doc_path.read_text(encoding="utf-8")
                     converted = self._converter.convert(markdown, verbose)
                     contents.append(converted)
                 except Exception as e:
@@ -292,15 +289,11 @@ class DocReader:
         if not contents:
             return fallback or f"未找到主题 '{topic}' 的文档文件", False
 
-        result = '\n\n'.join(contents)
+        result = "\n\n".join(contents)
         self._cache[cache_key] = result
         return result, True
 
-    def read_file(
-        self,
-        relative_path: str,
-        verbose: bool = False
-    ) -> Optional[str]:
+    def read_file(self, relative_path: str, verbose: bool = False) -> Optional[str]:
         """
         读取指定文档文件
 
@@ -321,7 +314,7 @@ class DocReader:
             return None
 
         try:
-            markdown = doc_path.read_text(encoding='utf-8')
+            markdown = doc_path.read_text(encoding="utf-8")
             return self._converter.convert(markdown, verbose)
         except Exception:
             return None

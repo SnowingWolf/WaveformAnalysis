@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 兼容层 - 集中管理旧名称映射和单位转换。
 
@@ -10,8 +9,8 @@
 5. 旧名称解析 (resolve_config_name, migrate_config)
 """
 
-import warnings
 from typing import Any, Dict, Optional, Tuple
+import warnings
 
 from waveform_analysis.core.foundation.utils import exporter
 
@@ -311,9 +310,7 @@ def migrate_config(config: Dict[str, Any], warn: bool = True) -> Dict[str, Any]:
 
 
 @export
-def add_legacy_config_mapping(
-    old_name: str, new_name: str, message: Optional[str] = None
-) -> None:
+def add_legacy_config_mapping(old_name: str, new_name: str, message: Optional[str] = None) -> None:
     """
     添加旧配置名映射。
 
@@ -338,9 +335,7 @@ def add_legacy_config_mapping(
 
 
 @export
-def add_legacy_field_mapping(
-    old_name: str, new_name: str, message: Optional[str] = None
-) -> None:
+def add_legacy_field_mapping(old_name: str, new_name: str, message: Optional[str] = None) -> None:
     """
     添加旧字段名映射。
 

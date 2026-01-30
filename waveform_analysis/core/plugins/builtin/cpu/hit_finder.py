@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Hit Finder Plugin - Hit 检测插件
 
@@ -25,7 +24,9 @@ class HitFinderPlugin(Plugin):
     depends_on = ["st_waveforms"]
     output_dtype = np.dtype(PEAK_DTYPE)
 
-    def compute(self, context: Any, run_id: str, threshold: float = 10.0, **kwargs) -> List[np.ndarray]:
+    def compute(
+        self, context: Any, run_id: str, threshold: float = 10.0, **kwargs
+    ) -> List[np.ndarray]:
         """
         从结构化波形中检测 Hit 事件
 

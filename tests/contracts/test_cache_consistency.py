@@ -8,12 +8,6 @@ Verifies cache behavior:
 4. Lineage hash correctly incorporates all relevant factors
 """
 
-import hashlib
-import json
-import tempfile
-from pathlib import Path
-from typing import Any, Dict
-
 import numpy as np
 import pytest
 

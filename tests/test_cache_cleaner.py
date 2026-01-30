@@ -1,12 +1,12 @@
-# -*- coding: utf-8 -*-
 """
 CacheCleaner 测试模块
 """
 
-import time
 import tempfile
-import pytest
+import time
+
 import numpy as np
+import pytest
 
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
@@ -32,22 +32,22 @@ def context_with_cache(temp_storage_dir):
 
     # 创建不同大小和时间的缓存数据
     test_data = [
-        ('run_001', 'peaks', 100, time.time() - 7 * 24 * 3600),    # 7 天前
-        ('run_001', 'waveforms', 1000, time.time() - 3 * 24 * 3600),  # 3 天前
-        ('run_002', 'peaks', 500, time.time() - 1 * 24 * 3600),    # 1 天前
-        ('run_002', 'waveforms', 2000, time.time()),               # 现在
+        ("run_001", "peaks", 100, time.time() - 7 * 24 * 3600),  # 7 天前
+        ("run_001", "waveforms", 1000, time.time() - 3 * 24 * 3600),  # 3 天前
+        ("run_002", "peaks", 500, time.time() - 1 * 24 * 3600),  # 1 天前
+        ("run_002", "waveforms", 2000, time.time()),  # 现在
     ]
 
     for run_id, data_name, size, timestamp in test_data:
         key = f"{run_id}-{data_name}-abc123"
-        data = np.zeros(size, dtype=[('time', '<f8'), ('value', '<f4')])
+        data = np.zeros(size, dtype=[("time", "<f8"), ("value", "<f4")])
         storage.save_memmap(key, data, run_id=run_id)
 
         # 更新时间戳
         meta = storage.get_metadata(key, run_id)
         if meta:
-            meta['timestamp'] = timestamp
-            meta['plugin_version'] = '1.0.0'
+            meta["timestamp"] = timestamp
+            meta["plugin_version"] = "1.0.0"
             storage.save_metadata(key, meta, run_id)
 
     return ctx
@@ -58,11 +58,11 @@ class TestCleanupStrategy:
 
     def test_strategy_values(self):
         """测试策略枚举值"""
-        assert CleanupStrategy.LRU.value == 'lru'
-        assert CleanupStrategy.OLDEST.value == 'oldest'
-        assert CleanupStrategy.LARGEST.value == 'largest'
-        assert CleanupStrategy.VERSION_MISMATCH.value == 'version'
-        assert CleanupStrategy.FAILED_INTEGRITY.value == 'integrity'
+        assert CleanupStrategy.LRU.value == "lru"
+        assert CleanupStrategy.OLDEST.value == "oldest"
+        assert CleanupStrategy.LARGEST.value == "largest"
+        assert CleanupStrategy.VERSION_MISMATCH.value == "version"
+        assert CleanupStrategy.FAILED_INTEGRITY.value == "integrity"
 
 
 class TestCleanupPlan:
@@ -74,14 +74,14 @@ class TestCleanupPlan:
             strategy=CleanupStrategy.LRU,
             entries_to_delete=[],
             total_size_to_free=1024 * 1024,
-            affected_runs=['run_001'],
-            reason='测试清理'
+            affected_runs=["run_001"],
+            reason="测试清理",
         )
 
         assert plan.strategy == CleanupStrategy.LRU
         assert plan.entry_count == 0
         assert plan.total_size_to_free == 1024 * 1024
-        assert 'MB' in plan.size_to_free_human or 'KB' in plan.size_to_free_human
+        assert "MB" in plan.size_to_free_human or "KB" in plan.size_to_free_human
 
 
 class TestCacheCleaner:
@@ -93,10 +93,7 @@ class TestCacheCleaner:
         analyzer.scan(verbose=False)
 
         cleaner = CacheCleaner(analyzer)
-        cleaner.plan_cleanup(
-            strategy=CleanupStrategy.LRU,
-            max_entries=2
-        )
+        cleaner.plan_cleanup(strategy=CleanupStrategy.LRU, max_entries=2)
         plan = cleaner.plan
 
         assert isinstance(plan, CleanupPlan)
@@ -109,10 +106,7 @@ class TestCacheCleaner:
         analyzer.scan(verbose=False)
 
         cleaner = CacheCleaner(analyzer)
-        cleaner.plan_cleanup(
-            strategy=CleanupStrategy.LARGEST,
-            max_entries=1
-        )
+        cleaner.plan_cleanup(strategy=CleanupStrategy.LARGEST, max_entries=1)
         plan = cleaner.plan
 
         assert isinstance(plan, CleanupPlan)
@@ -128,10 +122,7 @@ class TestCacheCleaner:
         analyzer.scan(verbose=False)
 
         cleaner = CacheCleaner(analyzer)
-        cleaner.plan_cleanup(
-            strategy=CleanupStrategy.LRU,
-            target_size_mb=0.001  # 很小的目标
-        )
+        cleaner.plan_cleanup(strategy=CleanupStrategy.LRU, target_size_mb=0.001)  # 很小的目标
         plan = cleaner.plan
 
         assert isinstance(plan, CleanupPlan)
@@ -142,10 +133,7 @@ class TestCacheCleaner:
         analyzer.scan(verbose=False)
 
         cleaner = CacheCleaner(analyzer)
-        cleaner.plan_cleanup(
-            strategy=CleanupStrategy.OLDEST,
-            keep_recent_days=5  # 保留最近 5 天
-        )
+        cleaner.plan_cleanup(strategy=CleanupStrategy.OLDEST, keep_recent_days=5)  # 保留最近 5 天
         plan = cleaner.plan
 
         # 应该不会删除最近 5 天内的数据
@@ -158,15 +146,12 @@ class TestCacheCleaner:
         analyzer.scan(verbose=False)
 
         cleaner = CacheCleaner(analyzer)
-        cleaner.plan_cleanup(
-            strategy=CleanupStrategy.BY_RUN,
-            run_id='run_001'
-        )
+        cleaner.plan_cleanup(strategy=CleanupStrategy.BY_RUN, run_id="run_001")
         plan = cleaner.plan
 
         # 所有条目应该属于 run_001
         for entry in plan.entries_to_delete:
-            assert entry.run_id == 'run_001'
+            assert entry.run_id == "run_001"
 
     def test_preview_plan(self, context_with_cache, capsys):
         """测试预览清理计划"""
@@ -174,14 +159,11 @@ class TestCacheCleaner:
         analyzer.scan(verbose=False)
 
         cleaner = CacheCleaner(analyzer)
-        cleaner.plan_cleanup(
-            strategy=CleanupStrategy.LRU,
-            max_entries=2
-        )
+        cleaner.plan_cleanup(strategy=CleanupStrategy.LRU, max_entries=2)
 
         cleaner.preview_plan(detailed=True)
         captured = capsys.readouterr()
-        assert '清理计划' in captured.out
+        assert "清理计划" in captured.out
 
     def test_execute_dry_run(self, context_with_cache):
         """测试 dry-run 执行"""
@@ -189,18 +171,15 @@ class TestCacheCleaner:
         analyzer.scan(verbose=False)
 
         cleaner = CacheCleaner(analyzer)
-        cleaner.plan_cleanup(
-            strategy=CleanupStrategy.LRU,
-            max_entries=1
-        )
+        cleaner.plan_cleanup(strategy=CleanupStrategy.LRU, max_entries=1)
 
         initial_count = len(analyzer.get_entries())
 
         result = cleaner.execute(dry_run=True)
 
-        assert result['dry_run'] is True
-        assert 'deleted' in result
-        assert 'freed_bytes' in result
+        assert result["dry_run"] is True
+        assert "deleted" in result
+        assert "freed_bytes" in result
 
         # Dry-run 不应该实际删除
         analyzer.scan(force_refresh=True, verbose=False)
@@ -218,18 +197,15 @@ class TestCacheCleaner:
         if not initial_entries:
             pytest.skip("没有缓存数据可清理")
 
-        cleaner.plan_cleanup(
-            strategy=CleanupStrategy.LRU,
-            max_entries=1
-        )
+        cleaner.plan_cleanup(strategy=CleanupStrategy.LRU, max_entries=1)
 
         if cleaner.plan.entry_count == 0:
             pytest.skip("没有条目需要清理")
 
         result = cleaner.execute(dry_run=False)
 
-        assert result['dry_run'] is False
-        assert result['deleted'] >= 0
+        assert result["dry_run"] is False
+        assert result["deleted"] >= 0
 
     def test_cleanup_by_age(self, context_with_cache):
         """测试按年龄清理"""
@@ -241,8 +217,8 @@ class TestCacheCleaner:
         # 清理超过 5 天的数据
         result = cleaner.cleanup_by_age(max_age_days=5, dry_run=True)
 
-        assert 'dry_run' in result
-        assert result['dry_run'] is True
+        assert "dry_run" in result
+        assert result["dry_run"] is True
 
     def test_cleanup_to_target_size(self, context_with_cache):
         """测试清理到目标大小"""
@@ -255,12 +231,9 @@ class TestCacheCleaner:
         current_size = analyzer.get_total_size()
         target_mb = (current_size / 2) / (1024 * 1024)
 
-        result = cleaner.cleanup_to_target_size(
-            target_total_mb=target_mb,
-            dry_run=True
-        )
+        result = cleaner.cleanup_to_target_size(target_total_mb=target_mb, dry_run=True)
 
-        assert 'strategy' in result
+        assert "strategy" in result
 
     def test_cleanup_run(self, context_with_cache):
         """测试清理指定运行"""
@@ -268,9 +241,9 @@ class TestCacheCleaner:
         analyzer.scan(verbose=False)
 
         cleaner = CacheCleaner(analyzer)
-        result = cleaner.cleanup_run('run_001', dry_run=True)
+        result = cleaner.cleanup_run("run_001", dry_run=True)
 
-        assert 'dry_run' in result
+        assert "dry_run" in result
 
     def test_cleanup_data_type(self, context_with_cache):
         """测试清理指定数据类型"""
@@ -278,9 +251,9 @@ class TestCacheCleaner:
         analyzer.scan(verbose=False)
 
         cleaner = CacheCleaner(analyzer)
-        result = cleaner.cleanup_data_type('peaks', dry_run=True)
+        result = cleaner.cleanup_data_type("peaks", dry_run=True)
 
-        assert 'dry_run' in result
+        assert "dry_run" in result
 
     def test_empty_plan(self, temp_storage_dir):
         """测试空清理计划"""

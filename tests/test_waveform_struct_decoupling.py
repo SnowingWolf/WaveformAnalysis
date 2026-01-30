@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 测试 WaveformStruct 与 VX2730 解耦功能
 
@@ -49,7 +48,9 @@ class TestWaveformStructConfig:
 
         # 优先级3: DEFAULT_WAVE_LENGTH（当 expected_samples 为 None）
         custom_spec = FormatSpec(
-            name="custom", columns=ColumnMapping(timestamp=2, samples_start=7), expected_samples=None
+            name="custom",
+            columns=ColumnMapping(timestamp=2, samples_start=7),
+            expected_samples=None,
         )
         config = WaveformStructConfig(format_spec=custom_spec, wave_length=None)
         assert config.get_wave_length() == DEFAULT_WAVE_LENGTH
@@ -204,7 +205,12 @@ class TestWaveformStructDecoupling:
         custom_spec = FormatSpec(
             name="custom_daq",
             columns=ColumnMapping(
-                board=0, channel=1, timestamp=3, samples_start=10, baseline_start=10, baseline_end=50
+                board=0,
+                channel=1,
+                timestamp=3,
+                samples_start=10,
+                baseline_start=10,
+                baseline_end=50,
             ),
             expected_samples=1000,
         )

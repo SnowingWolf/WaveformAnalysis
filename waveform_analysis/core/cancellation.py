@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 任务取消模块 (Phase 3 Enhancement)
 
@@ -24,6 +23,7 @@ export, __all__ = exporter()
 # 任务取消异常
 # ===========================
 
+
 @export
 class TaskCancelledException(Exception):
     """
@@ -31,12 +31,14 @@ class TaskCancelledException(Exception):
 
     当任务被取消时抛出此异常
     """
+
     pass
 
 
 # ===========================
 # 取消令牌
 # ===========================
+
 
 @export
 class CancellationToken:
@@ -142,6 +144,7 @@ class CancellationToken:
 # 全局取消管理器
 # ===========================
 
+
 @export
 class CancellationManager:
     """
@@ -162,7 +165,7 @@ class CancellationManager:
         manager.disable()
     """
 
-    _instance: Optional['CancellationManager'] = None
+    _instance: Optional["CancellationManager"] = None
     _lock = threading.Lock()
 
     def __init__(self):

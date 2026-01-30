@@ -3,20 +3,21 @@
 """
 
 import os
-import tempfile
 import shutil
-import pytest
-import numpy as np
+import tempfile
 
+import numpy as np
+import pytest
+
+from waveform_analysis.core.storage import MemmapStorage
 from waveform_analysis.core.storage.compression import (
     Blosc2Compression,
+    CompressionManager,
+    GzipCompression,
     LZ4Compression,
     ZstdCompression,
-    GzipCompression,
-    CompressionManager,
     get_compression_manager,
 )
-from waveform_analysis.core.storage import MemmapStorage
 
 
 class TestCompressionBackends:
@@ -42,7 +43,7 @@ class TestCompressionBackends:
 
     def test_blosc2_if_available(self):
         """测试Blosc2压缩(如果可用)"""
-        backend = Blosc2Compression(cname='zstd', clevel=5)
+        backend = Blosc2Compression(cname="zstd", clevel=5)
 
         if not backend.is_available():
             pytest.skip("blosc2 not available")
@@ -93,16 +94,16 @@ class TestCompressionManager:
         manager = CompressionManager()
 
         # Gzip应该总是可用
-        backend = manager.get_backend('gzip')
+        backend = manager.get_backend("gzip")
         assert backend.is_available()
-        assert backend.name.startswith('gzip')
+        assert backend.name.startswith("gzip")
 
     def test_get_backend_with_fallback(self):
         """测试fallback机制"""
         manager = CompressionManager()
 
         # 尝试获取可能不存在的backend,应该fallback到gzip
-        backend = manager.get_backend('nonexistent', fallback=True)
+        backend = manager.get_backend("nonexistent", fallback=True)
         assert backend.is_available()
 
     def test_list_available(self):
@@ -112,7 +113,7 @@ class TestCompressionManager:
 
         assert len(available) >= 1  # 至少有gzip
         assert all(isinstance(b, dict) for b in available)
-        assert all('name' in b and 'speed_priority' in b for b in available)
+        assert all("name" in b and "speed_priority" in b for b in available)
 
     def test_singleton(self):
         """测试全局单例"""
@@ -125,13 +126,13 @@ class TestCompressionManager:
         manager = CompressionManager()
         test_data = b"Test data" * 1000
 
-        results = manager.benchmark(test_data, backends=['gzip'], repeats=2)
+        results = manager.benchmark(test_data, backends=["gzip"], repeats=2)
 
-        assert 'gzip' in results
-        assert 'compress_time_ms' in results['gzip']
-        assert 'decompress_time_ms' in results['gzip']
-        assert 'compression_ratio' in results['gzip']
-        assert results['gzip']['compression_ratio'] > 1.0  # 应该有压缩效果
+        assert "gzip" in results
+        assert "compress_time_ms" in results["gzip"]
+        assert "decompress_time_ms" in results["gzip"]
+        assert "compression_ratio" in results["gzip"]
+        assert results["gzip"]["compression_ratio"] > 1.0  # 应该有压缩效果
 
 
 class TestMemmapStorageCompression:
@@ -156,16 +157,16 @@ class TestMemmapStorageCompression:
         data = np.array([1, 2, 3, 4, 5], dtype=np.int32)
 
         # Save
-        storage.save_memmap('test_key', data, run_id=self.test_run_id)
+        storage.save_memmap("test_key", data, run_id=self.test_run_id)
 
         # Check metadata
-        meta = storage.get_metadata('test_key', run_id=self.test_run_id)
+        meta = storage.get_metadata("test_key", run_id=self.test_run_id)
         assert meta is not None
-        assert meta.get('compressed', False) is False
-        assert 'compression' not in meta
+        assert meta.get("compressed", False) is False
+        assert "compression" not in meta
 
         # Load
-        loaded = storage.load_memmap('test_key', run_id=self.test_run_id)
+        loaded = storage.load_memmap("test_key", run_id=self.test_run_id)
         assert loaded is not None
         np.testing.assert_array_equal(loaded, data)
 
@@ -174,31 +175,31 @@ class TestMemmapStorageCompression:
 
     def test_storage_with_gzip_compression(self):
         """测试Gzip压缩存储"""
-        storage = MemmapStorage(self.temp_dir, compression='gzip')
+        storage = MemmapStorage(self.temp_dir, compression="gzip")
 
         # Create test data (highly compressible)
         data = np.zeros(1000, dtype=np.float64)
         data[:100] = 1.0
 
         # Save
-        storage.save_memmap('test_compressed', data, run_id=self.test_run_id)
+        storage.save_memmap("test_compressed", data, run_id=self.test_run_id)
 
         # Check metadata
-        meta = storage.get_metadata('test_compressed', run_id=self.test_run_id)
+        meta = storage.get_metadata("test_compressed", run_id=self.test_run_id)
         assert meta is not None
-        assert meta['compressed'] is True
-        assert meta['compression'] == 'gzip'
-        assert 'compression_ratio' in meta
-        assert meta['compression_ratio'] > 1.0  # 应该有压缩效果
+        assert meta["compressed"] is True
+        assert meta["compression"] == "gzip"
+        assert "compression_ratio" in meta
+        assert meta["compression_ratio"] > 1.0  # 应该有压缩效果
 
         # Check compressed file exists
-        bin_path = os.path.join(self.temp_dir, self.test_run_id, '_cache', 'test_compressed.bin')
-        compressed_path = bin_path + '.gz'
+        bin_path = os.path.join(self.temp_dir, self.test_run_id, "_cache", "test_compressed.bin")
+        compressed_path = bin_path + ".gz"
         assert os.path.exists(compressed_path)
         assert not os.path.exists(bin_path)  # 原始文件应该被删除
 
         # Load
-        loaded = storage.load_memmap('test_compressed', run_id=self.test_run_id)
+        loaded = storage.load_memmap("test_compressed", run_id=self.test_run_id)
         assert loaded is not None
         np.testing.assert_array_equal(loaded, data)
 
@@ -207,31 +208,33 @@ class TestMemmapStorageCompression:
 
     def test_storage_exists_with_compression(self):
         """测试exists()方法支持压缩文件"""
-        storage = MemmapStorage(self.temp_dir, compression='gzip')
+        storage = MemmapStorage(self.temp_dir, compression="gzip")
 
         data = np.array([1, 2, 3], dtype=np.int32)
-        storage.save_memmap('test_exists', data, run_id=self.test_run_id)
+        storage.save_memmap("test_exists", data, run_id=self.test_run_id)
 
-        assert storage.exists('test_exists', run_id=self.test_run_id)
+        assert storage.exists("test_exists", run_id=self.test_run_id)
 
     def test_storage_structured_array_compression(self):
         """测试structured array的压缩"""
-        storage = MemmapStorage(self.temp_dir, compression='gzip')
+        storage = MemmapStorage(self.temp_dir, compression="gzip")
 
         # Create structured array (like waveform records)
-        dtype = np.dtype([
-            ('timestamp', 'i8'),
-            ('channel', 'i2'),
-            ('value', 'f4'),
-        ])
+        dtype = np.dtype(
+            [
+                ("timestamp", "i8"),
+                ("channel", "i2"),
+                ("value", "f4"),
+            ]
+        )
         data = np.zeros(100, dtype=dtype)
-        data['timestamp'] = np.arange(100)
-        data['channel'] = np.random.randint(0, 4, 100)
-        data['value'] = np.random.randn(100)
+        data["timestamp"] = np.arange(100)
+        data["channel"] = np.random.randint(0, 4, 100)
+        data["value"] = np.random.randn(100)
 
         # Save and load
-        storage.save_memmap('structured_test', data, run_id=self.test_run_id)
-        loaded = storage.load_memmap('structured_test', run_id=self.test_run_id)
+        storage.save_memmap("structured_test", data, run_id=self.test_run_id)
+        loaded = storage.load_memmap("structured_test", run_id=self.test_run_id)
 
         assert loaded is not None
         assert loaded.dtype == data.dtype
@@ -242,11 +245,11 @@ class TestMemmapStorageCompression:
         # Create old version data (without compression)
         storage_old = MemmapStorage(self.temp_dir)
         data = np.array([1, 2, 3, 4, 5], dtype=np.int32)
-        storage_old.save_memmap('old_data', data, run_id=self.test_run_id)
+        storage_old.save_memmap("old_data", data, run_id=self.test_run_id)
 
         # Load with new storage (compression aware)
-        storage_new = MemmapStorage(self.temp_dir, compression='gzip')
-        loaded = storage_new.load_memmap('old_data', run_id=self.test_run_id)
+        storage_new = MemmapStorage(self.temp_dir, compression="gzip")
+        loaded = storage_new.load_memmap("old_data", run_id=self.test_run_id)
 
         assert loaded is not None
         np.testing.assert_array_equal(loaded, data)
@@ -254,13 +257,13 @@ class TestMemmapStorageCompression:
     def test_load_compressed_with_different_backend(self):
         """测试用不同的backend加载压缩数据"""
         # Save with gzip
-        storage_save = MemmapStorage(self.temp_dir, compression='gzip')
+        storage_save = MemmapStorage(self.temp_dir, compression="gzip")
         data = np.array([1, 2, 3, 4, 5], dtype=np.int32)
-        storage_save.save_memmap('test_key', data, run_id=self.test_run_id)
+        storage_save.save_memmap("test_key", data, run_id=self.test_run_id)
 
         # Load with no compression configured (should still work)
         storage_load = MemmapStorage(self.temp_dir)
-        loaded = storage_load.load_memmap('test_key', run_id=self.test_run_id)
+        loaded = storage_load.load_memmap("test_key", run_id=self.test_run_id)
 
         assert loaded is not None
         np.testing.assert_array_equal(loaded, data)
@@ -272,19 +275,24 @@ class TestCompressionPerformance:
     def setup_method(self):
         """Setup test data"""
         # Create realistic waveform data
-        self.waveform_data = np.zeros(10000, dtype=np.dtype([
-            ('baseline', 'f8'),
-            ('timestamp', 'i8'),
-            ('event_length', 'i8'),
-            ('channel', 'i2'),
-            ('wave', 'f4', (800,)),
-        ]))
+        self.waveform_data = np.zeros(
+            10000,
+            dtype=np.dtype(
+                [
+                    ("baseline", "f8"),
+                    ("timestamp", "i8"),
+                    ("event_length", "i8"),
+                    ("channel", "i2"),
+                    ("wave", "f4", (800,)),
+                ]
+            ),
+        )
 
-        self.waveform_data['timestamp'] = np.arange(10000)
-        self.waveform_data['baseline'] = 100.0
-        self.waveform_data['event_length'] = 800
-        self.waveform_data['channel'] = np.random.randint(0, 4, 10000)
-        self.waveform_data['wave'] = np.random.randn(10000, 800).astype(np.float32)
+        self.waveform_data["timestamp"] = np.arange(10000)
+        self.waveform_data["baseline"] = 100.0
+        self.waveform_data["event_length"] = 800
+        self.waveform_data["channel"] = np.random.randint(0, 4, 10000)
+        self.waveform_data["wave"] = np.random.randn(10000, 800).astype(np.float32)
 
     def test_compression_effectiveness(self):
         """测试压缩效果"""
@@ -292,7 +300,7 @@ class TestCompressionPerformance:
         data_bytes = self.waveform_data.tobytes()
 
         # Only test gzip (always available)
-        results = manager.benchmark(data_bytes, backends=['gzip'], repeats=2)
+        results = manager.benchmark(data_bytes, backends=["gzip"], repeats=2)
 
         print("\nCompression Results:")
         for name, stats in results.items():
@@ -302,8 +310,8 @@ class TestCompressionPerformance:
             print(f"  Compression ratio: {stats['compression_ratio']:.2f}x")
             print(f"  Compressed size: {stats['compressed_size_mb']:.2f}MB")
 
-        assert results['gzip']['compression_ratio'] > 1.0
+        assert results["gzip"]["compression_ratio"] > 1.0
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v', '-s'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "-s"])

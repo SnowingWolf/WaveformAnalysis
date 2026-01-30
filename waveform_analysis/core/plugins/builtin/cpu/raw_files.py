@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Raw Files Plugin - 原始文件扫描插件
 

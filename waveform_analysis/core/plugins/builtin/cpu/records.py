@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Records plugin with internal wave_pool bundle (CPU).
 """
@@ -8,6 +7,10 @@ from typing import Any, Optional
 
 import numpy as np
 
+from waveform_analysis.core.plugins.builtin.cpu.waveforms import (
+    WaveformStruct,
+    WaveformStructConfig,
+)
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.dtypes import RECORDS_DTYPE
 from waveform_analysis.core.processing.records_builder import (
@@ -15,7 +18,6 @@ from waveform_analysis.core.processing.records_builder import (
     build_records_from_st_waveforms_sharded,
     build_records_from_v1725_files,
 )
-from waveform_analysis.core.plugins.builtin.cpu.waveforms import WaveformStruct, WaveformStructConfig
 
 _BUNDLE_CACHE_NAME = "_records_bundle"
 

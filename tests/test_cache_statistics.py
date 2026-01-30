@@ -1,20 +1,20 @@
-# -*- coding: utf-8 -*-
 """
 CacheStatsCollector 测试模块
 """
 
-import os
-import time
-import tempfile
 import json
-import pytest
+import os
+import tempfile
+import time
+
 import numpy as np
+import pytest
 
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
 from waveform_analysis.core.storage.cache_statistics import (
-    CacheStatsCollector,
     CacheStatistics,
+    CacheStatsCollector,
 )
 
 
@@ -33,23 +33,23 @@ def context_with_cache(temp_storage_dir):
 
     # 创建测试缓存数据
     test_data = [
-        ('run_001', 'peaks', 100),
-        ('run_001', 'waveforms', 500),
-        ('run_002', 'peaks', 200),
-        ('run_002', 'waveforms', 1000),
-        ('run_003', 'hits', 300),
+        ("run_001", "peaks", 100),
+        ("run_001", "waveforms", 500),
+        ("run_002", "peaks", 200),
+        ("run_002", "waveforms", 1000),
+        ("run_003", "hits", 300),
     ]
 
     for run_id, data_name, size in test_data:
         key = f"{run_id}-{data_name}-abc123"
-        data = np.zeros(size, dtype=[('time', '<f8'), ('value', '<f4')])
+        data = np.zeros(size, dtype=[("time", "<f8"), ("value", "<f4")])
         storage.save_memmap(key, data, run_id=run_id)
 
         # 更新元数据
         meta = storage.get_metadata(key, run_id)
         if meta:
-            meta['plugin_version'] = '1.0.0'
-            meta['timestamp'] = time.time() - np.random.randint(0, 7 * 24 * 3600)
+            meta["plugin_version"] = "1.0.0"
+            meta["timestamp"] = time.time() - np.random.randint(0, 7 * 24 * 3600)
             storage.save_metadata(key, meta, run_id)
 
     return ctx
@@ -75,7 +75,7 @@ class TestCacheStatistics:
 
         assert stats.total_runs == 3
         assert stats.total_entries == 10
-        assert 'MB' in stats.total_size_human or 'KB' in stats.total_size_human
+        assert "MB" in stats.total_size_human or "KB" in stats.total_size_human
 
     def test_compression_ratio(self):
         """测试压缩率计算"""
@@ -107,10 +107,10 @@ class TestCacheStatistics:
 
         d = stats.to_dict()
 
-        assert 'total_runs' in d
-        assert 'total_entries' in d
-        assert 'total_size_human' in d
-        assert 'compression_ratio' in d
+        assert "total_runs" in d
+        assert "total_entries" in d
+        assert "total_size_human" in d
+        assert "compression_ratio" in d
 
 
 class TestCacheStatsCollector:
@@ -148,11 +148,11 @@ class TestCacheStatsCollector:
         analyzer.scan(verbose=False)
 
         collector = CacheStatsCollector(analyzer)
-        stats = collector.collect(run_id='run_001')
+        stats = collector.collect(run_id="run_001")
 
         # 只统计 run_001
         for run_id in stats.by_run:
-            assert run_id == 'run_001'
+            assert run_id == "run_001"
 
     def test_print_summary(self, context_with_cache, capsys):
         """测试打印摘要"""
@@ -164,7 +164,7 @@ class TestCacheStatsCollector:
 
         collector.print_summary(stats, detailed=False)
         captured = capsys.readouterr()
-        assert '缓存统计' in captured.out or len(captured.out) > 0
+        assert "缓存统计" in captured.out or len(captured.out) > 0
 
     def test_print_summary_detailed(self, context_with_cache, capsys):
         """测试打印详细摘要"""
@@ -186,9 +186,9 @@ class TestCacheStatsCollector:
         collector = CacheStatsCollector(analyzer)
         hit_stats = collector.get_hit_rate_stats()
 
-        assert 'available' in hit_stats
-        assert 'total_hits' in hit_stats
-        assert 'total_misses' in hit_stats
+        assert "available" in hit_stats
+        assert "total_hits" in hit_stats
+        assert "total_misses" in hit_stats
 
     def test_analyze_disk_usage(self, context_with_cache):
         """测试磁盘使用分析"""
@@ -198,8 +198,8 @@ class TestCacheStatsCollector:
         collector = CacheStatsCollector(analyzer)
         disk_stats = collector.analyze_disk_usage()
 
-        assert 'storage_dir' in disk_stats
-        assert 'cache_size' in disk_stats
+        assert "storage_dir" in disk_stats
+        assert "cache_size" in disk_stats
 
     def test_export_json(self, context_with_cache, temp_storage_dir):
         """测试导出 JSON"""
@@ -209,16 +209,16 @@ class TestCacheStatsCollector:
         collector = CacheStatsCollector(analyzer)
         stats = collector.collect()
 
-        output_path = os.path.join(temp_storage_dir, 'stats.json')
-        collector.export_stats(stats, output_path, format='json')
+        output_path = os.path.join(temp_storage_dir, "stats.json")
+        collector.export_stats(stats, output_path, format="json")
 
         assert os.path.exists(output_path)
 
         # 验证 JSON 格式
-        with open(output_path, 'r') as f:
+        with open(output_path) as f:
             data = json.load(f)
-            assert 'total_runs' in data
-            assert 'total_entries' in data
+            assert "total_runs" in data
+            assert "total_entries" in data
 
     def test_export_csv(self, context_with_cache, temp_storage_dir):
         """测试导出 CSV"""
@@ -228,15 +228,15 @@ class TestCacheStatsCollector:
         collector = CacheStatsCollector(analyzer)
         stats = collector.collect()
 
-        output_path = os.path.join(temp_storage_dir, 'stats.csv')
-        collector.export_stats(stats, output_path, format='csv')
+        output_path = os.path.join(temp_storage_dir, "stats.csv")
+        collector.export_stats(stats, output_path, format="csv")
 
         assert os.path.exists(output_path)
 
         # 验证 CSV 内容
-        with open(output_path, 'r') as f:
+        with open(output_path) as f:
             content = f.read()
-            assert '总体统计' in content or 'total' in content.lower()
+            assert "总体统计" in content or "total" in content.lower()
 
     def test_export_invalid_format(self, context_with_cache, temp_storage_dir):
         """测试无效导出格式"""
@@ -247,7 +247,7 @@ class TestCacheStatsCollector:
         stats = collector.collect()
 
         with pytest.raises(ValueError):
-            collector.export_stats(stats, 'output.xyz', format='xyz')
+            collector.export_stats(stats, "output.xyz", format="xyz")
 
     def test_by_run_statistics(self, context_with_cache):
         """测试按运行分组统计"""
@@ -258,10 +258,10 @@ class TestCacheStatsCollector:
         stats = collector.collect()
 
         # by_run 应该包含每个 run 的统计
-        for run_id, run_stats in stats.by_run.items():
-            assert 'entry_count' in run_stats
-            assert 'total_size_bytes' in run_stats
-            assert 'total_size_human' in run_stats
+        for _run_id, run_stats in stats.by_run.items():
+            assert "entry_count" in run_stats
+            assert "total_size_bytes" in run_stats
+            assert "total_size_human" in run_stats
 
     def test_by_data_type_statistics(self, context_with_cache):
         """测试按数据类型分组统计"""
@@ -272,7 +272,7 @@ class TestCacheStatsCollector:
         stats = collector.collect()
 
         # by_data_type 应该包含每种数据类型的统计
-        for data_name, type_stats in stats.by_data_type.items():
-            assert 'entry_count' in type_stats
-            assert 'total_size_bytes' in type_stats
-            assert 'run_count' in type_stats
+        for _data_name, type_stats in stats.by_data_type.items():
+            assert "entry_count" in type_stats
+            assert "total_size_bytes" in type_stats
+            assert "run_count" in type_stats

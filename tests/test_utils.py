@@ -61,7 +61,6 @@ class TestExporter:
         """测试手动扩展 __all__"""
         export, __all__ = exporter()
 
-        MY_CONSTANT = 42
         __all__.append("MY_CONSTANT")
 
         @export

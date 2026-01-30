@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 DAQ 运行数据管理 - 单个运行的数据结构和统计信息
 
@@ -30,6 +29,7 @@ Examples:
     >>> adapter = get_adapter("vx2730")
     >>> run = DAQRun('run_001', './DAQ/run_001', daq_adapter=adapter)
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -83,8 +83,8 @@ class DAQRun:
         self,
         run_name: str,
         run_path: str | Path,
-        daq_adapter: Optional[Union[str, "DAQAdapter"]] = None,
-        directory_layout: Optional["DirectoryLayout"] = None,
+        daq_adapter: Optional[Union[str, DAQAdapter]] = None,
+        directory_layout: Optional[DirectoryLayout] = None,
     ):
         """初始化 DAQRun
 
@@ -99,14 +99,15 @@ class DAQRun:
         self.run_path = str(run_path)
 
         # 初始化适配器和布局
-        self.daq_adapter: Optional["DAQAdapter"] = None
-        self.layout: Optional["DirectoryLayout"] = None
+        self.daq_adapter: Optional[DAQAdapter] = None
+        self.layout: Optional[DirectoryLayout] = None
 
         if directory_layout is not None:
             self.layout = directory_layout
         elif daq_adapter is not None:
             if isinstance(daq_adapter, str):
                 from waveform_analysis.utils.formats import get_adapter
+
                 self.daq_adapter = get_adapter(daq_adapter)
             else:
                 self.daq_adapter = daq_adapter
@@ -142,7 +143,7 @@ class DAQRun:
     def _load_description(self) -> str:
         info_file = os.path.join(self.run_path, f"{self.run_name}_info.txt")
         if os.path.exists(info_file):
-            with open(info_file, "r", encoding="utf-8") as f:
+            with open(info_file, encoding="utf-8") as f:
                 return f.readline().strip()
         return "无描述"
 
@@ -164,19 +165,21 @@ class DAQRun:
 
         for ch, files in groups.items():
             for file_info in files:
-                fpath = file_info['path']
+                fpath = file_info["path"]
                 size_bytes = fpath.stat().st_size
                 mtime = datetime.fromtimestamp(fpath.stat().st_mtime)
 
-                self.channel_files.setdefault(ch, []).append({
-                    "filename": file_info['filename'],
-                    "index": file_info['index'],
-                    "path": str(fpath),
-                    "size_bytes": size_bytes,
-                    "mtime": mtime,
-                    "timetag_min": None,
-                    "timetag_max": None,
-                })
+                self.channel_files.setdefault(ch, []).append(
+                    {
+                        "filename": file_info["filename"],
+                        "index": file_info["index"],
+                        "path": str(fpath),
+                        "size_bytes": size_bytes,
+                        "mtime": mtime,
+                        "timetag_min": None,
+                        "timetag_max": None,
+                    }
+                )
 
                 self.channels.add(ch)
                 self.total_bytes += size_bytes
@@ -198,15 +201,17 @@ class DAQRun:
             idx = int(idx_match.group(1)) if idx_match else 0
 
             if ch is not None:
-                self.channel_files.setdefault(ch, []).append({
-                    "filename": fname,
-                    "index": idx,
-                    "path": fpath,
-                    "size_bytes": size_bytes,
-                    "mtime": mtime,
-                    "timetag_min": None,
-                    "timetag_max": None,
-                })
+                self.channel_files.setdefault(ch, []).append(
+                    {
+                        "filename": fname,
+                        "index": idx,
+                        "path": fpath,
+                        "size_bytes": size_bytes,
+                        "mtime": mtime,
+                        "timetag_min": None,
+                        "timetag_max": None,
+                    }
+                )
 
                 self.channels.add(ch)
                 self.total_bytes += size_bytes
@@ -217,8 +222,8 @@ class DAQRun:
             start_tag = None
             end_tag = None
 
-            with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
-                header = f.readline()
+            with open(fpath, encoding="utf-8", errors="ignore") as f:
+                f.readline()
                 first_line = f.readline().strip()
                 if first_line:
                     first_parts = first_line.split(";")
@@ -317,7 +322,7 @@ class DAQRun:
             "total_size_mb": self.total_bytes / (1024**2) if self.total_bytes > 0 else 0,
             "total_bytes": self.total_bytes,
             "channel_count": len(self.channels),
-            "channels": sorted(list(self.channels)),
-            "channel_str": ", ".join(map(str, sorted(list(self.channels)))) if self.channels else "-",
+            "channels": sorted(self.channels),
+            "channel_str": (", ".join(map(str, sorted(self.channels))) if self.channels else "-"),
             "path": self.run_path,
         }

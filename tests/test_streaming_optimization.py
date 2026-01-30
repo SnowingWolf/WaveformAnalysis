@@ -5,10 +5,10 @@
 import numpy as np
 import pytest
 
-from waveform_analysis.core.plugins.core.streaming import StreamingPlugin, _pick_time_field
-from waveform_analysis.core.processing.chunk import Chunk, TIME_FIELD, TIMESTAMP_FIELD
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.execution.manager import ExecutorManager
+from waveform_analysis.core.plugins.core.streaming import StreamingPlugin, _pick_time_field
+from waveform_analysis.core.processing.chunk import TIME_FIELD, TIMESTAMP_FIELD, Chunk
 
 
 class TestStreamingOptimization:
@@ -41,22 +41,19 @@ class TestStreamingOptimization:
                     start=chunk.start,
                     end=chunk.end,
                     run_id=chunk.run_id,
-                    data_type=self.provides
+                    data_type=self.provides,
                 )
 
         # 创建一个生成器（模拟大数据流）
         def chunk_generator():
             for i in range(10):  # 生成10个chunk
-                data = np.array(
-                    [(i * 100 + j, 1, 1, float(j)) for j in range(100)],
-                    dtype=dtype
-                )
+                data = np.array([(i * 100 + j, 1, 1, float(j)) for j in range(100)], dtype=dtype)
                 yield Chunk(
                     data=data,
                     start=i * 100,
                     end=(i + 1) * 100,
                     run_id="test_run",
-                    data_type="input"
+                    data_type="input",
                 )
 
         plugin = SimpleStreamingPlugin()
@@ -71,7 +68,7 @@ class TestStreamingOptimization:
         assert len(results) == 10
 
         # 验证每个 chunk 的数据被正确处理（value * 2）
-        for i, chunk in enumerate(results):
+        for _i, chunk in enumerate(results):
             assert len(chunk.data) == 100
             assert chunk.data["value"][0] == 0.0  # 第一个 value 应该是 0 * 2 = 0
 
@@ -124,13 +121,7 @@ class TestStreamingOptimization:
             """生成器，用于检测是否被完全消费"""
             for i in range(100):  # 大量 chunk
                 data = np.array([(i, 1, 1, float(i))], dtype=dtype)
-                yield Chunk(
-                    data=data,
-                    start=i,
-                    end=i + 1,
-                    run_id="test",
-                    data_type="input"
-                )
+                yield Chunk(data=data, start=i, end=i + 1, run_id="test", data_type="input")
             # 如果所有 chunk 都被立即消费（物化），这个标记会被设置
             materialization_check["materialized"] = True
 
@@ -165,17 +156,13 @@ class TestStreamingOptimization:
                     start=chunk.start,
                     end=chunk.end,
                     run_id=chunk.run_id,
-                    data_type=self.provides
+                    data_type=self.provides,
                 )
 
         def chunk_generator():
             for i in range(5):
                 yield Chunk(
-                    data=np.array([i]),
-                    start=i,
-                    end=i + 1,
-                    run_id="test",
-                    data_type="input"
+                    data=np.array([i]), start=i, end=i + 1, run_id="test", data_type="input"
                 )
 
         plugin = SerialStreamingPlugin()
@@ -205,13 +192,7 @@ class TestStreamingOptimization:
         def chunk_generator():
             for i in range(5):
                 data = np.array([(i, 1, 1, float(i))], dtype=dtype)
-                yield Chunk(
-                    data=data,
-                    start=i,
-                    end=i + 1,
-                    run_id="test",
-                    data_type="input"
-                )
+                yield Chunk(data=data, start=i, end=i + 1, run_id="test", data_type="input")
 
         plugin = ErrorPronePlugin()
         ctx = Context()
@@ -249,13 +230,7 @@ class TestStreamingOptimization:
         def chunk_generator():
             for i in range(3):
                 data = np.array([(i, 1, 1, float(i))], dtype=dtype)
-                yield Chunk(
-                    data=data,
-                    start=i,
-                    end=i + 1,
-                    run_id="test",
-                    data_type="input"
-                )
+                yield Chunk(data=data, start=i, end=i + 1, run_id="test", data_type="input")
 
         plugin = ErrorReleasePlugin()
         ctx = Context()
@@ -279,19 +254,14 @@ class TestStreamingOptimization:
             def compute_chunk(self, chunk, context, run_id, **kwargs):
                 # 添加延迟模拟不同处理时间
                 import time
+
                 time.sleep(0.001 * (10 - chunk.data["time"][0]))  # 反向延迟
                 return chunk
 
         def chunk_generator():
             for i in range(10):
                 data = np.array([(i, 1, 1, float(i))], dtype=dtype)
-                yield Chunk(
-                    data=data,
-                    start=i,
-                    end=i + 1,
-                    run_id="test",
-                    data_type="input"
-                )
+                yield Chunk(data=data, start=i, end=i + 1, run_id="test", data_type="input")
 
         plugin = OrderTestPlugin()
         ctx = Context()

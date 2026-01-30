@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import numpy as np
 
 from waveform_analysis.core.data.records_view import RecordsView

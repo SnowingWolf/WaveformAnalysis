@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 插件热重载模块 (Phase 3.3)
 
@@ -29,6 +28,7 @@ export, __all__ = exporter()
 # 插件热重载
 # ===========================
 
+
 @export
 class PluginHotReloader:
     """
@@ -50,7 +50,9 @@ class PluginHotReloader:
             context: Context对象
         """
         self.context = context
-        self.watched_plugins: Dict[str, Dict[str, Any]] = {}  # {plugin_name: {path, mtime, hash, ...}}
+        self.watched_plugins: Dict[str, Dict[str, Any]] = (
+            {}
+        )  # {plugin_name: {path, mtime, hash, ...}}
         self.auto_reload_enabled = False
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -58,7 +60,7 @@ class PluginHotReloader:
         self,
         plugin_name: str,
         plugin_path: Optional[str] = None,
-        plugin_class: Optional[Type[Plugin]] = None
+        plugin_class: Optional[Type[Plugin]] = None,
     ):
         """
         添加插件到监控列表
@@ -85,10 +87,10 @@ class PluginHotReloader:
 
         if plugin_path and os.path.exists(plugin_path):
             self.watched_plugins[plugin_name] = {
-                'path': plugin_path,
-                'mtime': os.path.getmtime(plugin_path),
-                'hash': self._compute_file_hash(plugin_path),
-                'plugin_class': plugin_class or plugin.__class__,
+                "path": plugin_path,
+                "mtime": os.path.getmtime(plugin_path),
+                "hash": self._compute_file_hash(plugin_path),
+                "plugin_class": plugin_class or plugin.__class__,
             }
             self.logger.info(f"Watching plugin '{plugin_name}' at {plugin_path}")
         else:
@@ -104,7 +106,7 @@ class PluginHotReloader:
         updated_plugins = []
 
         for plugin_name, info in self.watched_plugins.items():
-            path = info['path']
+            path = info["path"]
 
             if not os.path.exists(path):
                 self.logger.warning(f"Plugin file not found: {path}")
@@ -113,7 +115,7 @@ class PluginHotReloader:
             current_mtime = os.path.getmtime(path)
             current_hash = self._compute_file_hash(path)
 
-            if current_mtime > info['mtime'] or current_hash != info['hash']:
+            if current_mtime > info["mtime"] or current_hash != info["hash"]:
                 updated_plugins.append(plugin_name)
                 self.logger.info(f"Plugin '{plugin_name}' has been modified")
 
@@ -131,7 +133,7 @@ class PluginHotReloader:
             raise ValueError(f"Plugin '{plugin_name}' is not being watched")
 
         info = self.watched_plugins[plugin_name]
-        path = info['path']
+        path = info["path"]
 
         try:
             # 重载模块
@@ -149,7 +151,7 @@ class PluginHotReloader:
                 self.logger.info(f"Loaded module: {module_name}")
 
             # 获取新的插件类
-            plugin_class = info.get('plugin_class')
+            plugin_class = info.get("plugin_class")
             if plugin_class is None:
                 # 尝试从模块中找到Plugin子类
                 for attr_name in dir(module):
@@ -172,11 +174,13 @@ class PluginHotReloader:
             if clear_cache:
                 # register_plugin 已经通过 _invalidate_caches_for 清除了相关缓存
                 # 如果需要清除数据缓存（_results），请使用 clear_cache_for(run_id, data_name)
-                self.logger.info(f"Cache invalidated for plugin '{plugin_name}' (via register_plugin)")
+                self.logger.info(
+                    f"Cache invalidated for plugin '{plugin_name}' (via register_plugin)"
+                )
 
             # 更新监控信息
-            info['mtime'] = os.path.getmtime(path)
-            info['hash'] = self._compute_file_hash(path)
+            info["mtime"] = os.path.getmtime(path)
+            info["hash"] = self._compute_file_hash(path)
 
             self.logger.info(f"Successfully reloaded plugin '{plugin_name}'")
 
@@ -232,7 +236,7 @@ class PluginHotReloader:
     def _compute_file_hash(self, path: str) -> str:
         """计算文件的hash值"""
         hasher = hashlib.md5()
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             hasher.update(f.read())
         return hasher.hexdigest()
 
@@ -247,7 +251,7 @@ def enable_hot_reload(
     context: Any,
     plugin_names: Optional[List[str]] = None,
     auto_reload: bool = True,
-    interval: float = 2.0
+    interval: float = 2.0,
 ) -> PluginHotReloader:
     """
     为Context启用插件热重载

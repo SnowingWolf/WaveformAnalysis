@@ -115,10 +115,12 @@ class VisualizationDefaults:
 
 
 # 导出所有常量类
-__all__.extend([
-    "FeatureDefaults",
-    "ProcessingDefaults",
-    "StorageDefaults",
-    "ValidationDefaults",
-    "VisualizationDefaults",
-])
+__all__.extend(
+    [
+        "FeatureDefaults",
+        "ProcessingDefaults",
+        "StorageDefaults",
+        "ValidationDefaults",
+        "VisualizationDefaults",
+    ]
+)

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Loader 模块 - 原始数据加载与文件索引。
 
@@ -82,7 +81,7 @@ class WaveformLoaderCSV:
         if daq_adapter is None:
             daq_adapter = "vx2730"
 
-        self._adapter: Optional["DAQAdapter"] = None
+        self._adapter: Optional[DAQAdapter] = None
         self._adapter_name = daq_adapter
 
         if daq_adapter is not None:
@@ -116,9 +115,7 @@ class WaveformLoaderCSV:
         return ch, file_idx
 
     def get_raw_files(
-        self,
-        daq_run: Optional[Any] = None,
-        daq_info: Optional[Dict] = None
+        self, daq_run: Optional[Any] = None, daq_info: Optional[Dict] = None
     ) -> List[List[str]]:
         """
         获取每个通道的文件列表。支持直接从 DAQRun 对象、DAQ 报告 dict 或适配器。
@@ -147,7 +144,9 @@ class WaveformLoaderCSV:
                 ch = int(ch_str)
                 files = chdata.get("files", [])
                 sorted_files = sorted(files, key=lambda x: x.get("index", 0))
-                raw_filess[ch] = [os.path.join(run_path, "RAW", f["filename"]) for f in sorted_files]
+                raw_filess[ch] = [
+                    os.path.join(run_path, "RAW", f["filename"]) for f in sorted_files
+                ]
 
             return raw_filess
 

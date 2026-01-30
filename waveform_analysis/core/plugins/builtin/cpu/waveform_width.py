@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 CPU Waveform Width Plugin - 计算波形宽度特征
 

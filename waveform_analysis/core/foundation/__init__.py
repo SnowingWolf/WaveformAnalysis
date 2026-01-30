@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Foundation 子模块 - 框架基础设施
 

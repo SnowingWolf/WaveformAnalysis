@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Storage 模块 - 负责数据的持久化与加载。
 
@@ -30,6 +29,7 @@ class BufferedStreamWriter:
     """
     Buffered writer for efficient stream writing to reduce system calls.
     """
+
     def __init__(self, file_handle, buffer_size=4 * 1024 * 1024):  # 4MB default buffer
         """
         初始化缓冲流写入器
@@ -62,13 +62,13 @@ class BufferedStreamWriter:
             self.flush()
 
         # Copy data to buffer
-        self.buffer[self.buffer_pos:self.buffer_pos + data_len] = data
+        self.buffer[self.buffer_pos : self.buffer_pos + data_len] = data
         self.buffer_pos += data_len
 
     def flush(self):
         """Flush buffer to file."""
         if self.buffer_pos > 0:
-            self.file.write(memoryview(self.buffer)[:self.buffer_pos])
+            self.file.write(memoryview(self.buffer)[: self.buffer_pos])
             self.buffer_pos = 0
 
 
@@ -86,7 +86,7 @@ class MemmapStorage:
         compression: Optional[Union[str, Any]] = None,
         compression_kwargs: Optional[Dict[str, Any]] = None,
         enable_checksum: bool = False,
-        checksum_algorithm: str = 'xxhash64',
+        checksum_algorithm: str = "xxhash64",
         verify_on_load: bool = False,
         data_subdir: str = "_cache",
         side_effects_subdir: str = "side_effects",
@@ -188,7 +188,7 @@ class MemmapStorage:
         # 从 key 提取 run_id（如果未显式传入）
         if run_id is None:
             # key 格式: "run_001-data_name-hash" -> run_id = "run_001"
-            parts = key.split('-')
+            parts = key.split("-")
             if len(parts) >= 1:
                 run_id = parts[0]
             else:
@@ -246,12 +246,12 @@ class MemmapStorage:
                         # Successfully acquired lock
                         return fd
 
-                    except (BlockingIOError, OSError, IOError):
+                    except (BlockingIOError, OSError):
                         # Lock is held by another process
                         os.close(fd)
 
                         # Exponential backoff: start at 1ms, max 100ms
-                        sleep_time = min(0.001 * (2 ** attempt), 0.1)
+                        sleep_time = min(0.001 * (2**attempt), 0.1)
                         time.sleep(sleep_time)
                         attempt += 1
 
@@ -259,15 +259,12 @@ class MemmapStorage:
                     # 文件权限问题或目录不存在
                     logger.error(
                         f"Permission or file access error acquiring lock {lock_path}: {e}",
-                        exc_info=True
+                        exc_info=True,
                     )
                     time.sleep(0.1)
                 except Exception as e:
                     # 其他未预期的错误
-                    logger.error(
-                        f"Unexpected error acquiring lock {lock_path}: {e}",
-                        exc_info=True
-                    )
+                    logger.error(f"Unexpected error acquiring lock {lock_path}: {e}", exc_info=True)
                     time.sleep(0.1)
 
             return None
@@ -277,7 +274,7 @@ class MemmapStorage:
         if fd is not None:
             try:
                 fcntl.flock(fd, fcntl.LOCK_UN)
-            except (OSError, IOError) as e:
+            except OSError as e:
                 # 锁可能已经被释放或文件已关闭
                 logger.warning(f"Failed to unlock {lock_path}: {e}")
             except Exception as e:
@@ -286,7 +283,7 @@ class MemmapStorage:
 
             try:
                 os.close(fd)
-            except (OSError, IOError) as e:
+            except OSError as e:
                 # 文件描述符可能已经关闭
                 logger.warning(f"Failed to close file descriptor for {lock_path}: {e}")
             except Exception as e:
@@ -342,7 +339,7 @@ class MemmapStorage:
                 try:
                     with self._timeit("storage.compress"):
                         # Read uncompressed data
-                        with open(bin_path, 'rb') as f:
+                        with open(bin_path, "rb") as f:
                             data = f.read()
 
                         # Compress
@@ -351,7 +348,7 @@ class MemmapStorage:
 
                         # Write compressed file (with different extension)
                         compressed_path = bin_path + self.compression_backend.extension
-                        with open(compressed_path, 'wb') as f:
+                        with open(compressed_path, "wb") as f:
                             f.write(compressed_data)
 
                         # Remove original uncompressed file
@@ -377,7 +374,7 @@ class MemmapStorage:
                         except Exception as cleanup_err:
                             logger.error(
                                 f"Unexpected error removing compressed file {compressed_path}: {cleanup_err}",
-                                exc_info=True
+                                exc_info=True,
                             )
 
             # Compute checksum if enabled
@@ -385,11 +382,9 @@ class MemmapStorage:
             if self.enable_checksum and os.path.exists(final_file_path):
                 try:
                     from waveform_analysis.core.storage.integrity import get_integrity_checker
+
                     checker = get_integrity_checker()
-                    checksum = checker.compute_checksum(
-                        final_file_path,
-                        self.checksum_algorithm
-                    )
+                    checksum = checker.compute_checksum(final_file_path, self.checksum_algorithm)
                 except Exception as e:
                     warnings.warn(f"Failed to compute checksum for {key}: {e}")
                     checksum = None
@@ -460,12 +455,16 @@ class MemmapStorage:
                             writer.write_array(arr)
                             total_count += len(arr)
                         except Exception as e:
-                            raise RuntimeError(f"Error writing chunk to {tmp_bin_path}: {str(e)}") from e
+                            raise RuntimeError(
+                                f"Error writing chunk to {tmp_bin_path}: {str(e)}"
+                            ) from e
 
                     # Flush remaining data
                     writer.flush()
 
-                self.finalize_save(key, total_count, dtype, extra_metadata, shape=shape, run_id=run_id)
+                self.finalize_save(
+                    key, total_count, dtype, extra_metadata, shape=shape, run_id=run_id
+                )
                 return total_count
             except Exception as e:
                 # Cleanup on failure
@@ -479,7 +478,7 @@ class MemmapStorage:
                     except Exception as cleanup_err:
                         logger.error(
                             f"Unexpected error removing temp file {tmp_bin_path}: {cleanup_err}",
-                            exc_info=True
+                            exc_info=True,
                         )
                 raise e
             finally:
@@ -495,7 +494,7 @@ class MemmapStorage:
                     except Exception as cleanup_err:
                         logger.error(
                             f"Unexpected error removing temp file {tmp_bin_path}: {cleanup_err}",
-                            exc_info=True
+                            exc_info=True,
                         )
 
     def save_memmap(
@@ -508,7 +507,9 @@ class MemmapStorage:
         """Save a single numpy array to storage."""
         if data is None or data.size == 0:
             return
-        self.save_stream(key, iter([data]), data.dtype, extra_metadata, shape=data.shape, run_id=run_id)
+        self.save_stream(
+            key, iter([data]), data.dtype, extra_metadata, shape=data.shape, run_id=run_id
+        )
 
     def get_metadata(self, key: str, run_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Retrieve metadata for a given key."""
@@ -517,9 +518,9 @@ class MemmapStorage:
             if not os.path.exists(meta_path):
                 return None
             try:
-                with open(meta_path, "r") as f:
+                with open(meta_path) as f:
                     return json.load(f)
-            except (json.JSONDecodeError, IOError) as e:
+            except (OSError, json.JSONDecodeError) as e:
                 warnings.warn(f"Failed to read metadata at {meta_path}: {str(e)}")
                 return None
 
@@ -595,12 +596,13 @@ class MemmapStorage:
 
                 try:
                     from waveform_analysis.core.storage.integrity import get_integrity_checker
+
                     checker = get_integrity_checker()
 
                     if not checker.verify_checksum(bin_path, expected_checksum, algorithm):
                         warnings.warn(
                             f"Checksum verification failed for {bin_path}. Data may be corrupted.",
-                            UserWarning
+                            UserWarning,
                         )
                         return None
                 except Exception as e:
@@ -630,6 +632,7 @@ class MemmapStorage:
         if self.compression_backend is None or self.compression != compression_name:
             try:
                 from waveform_analysis.core.storage.compression import get_compression_manager
+
                 manager = get_compression_manager()
                 backend = manager.get_backend(compression_name, fallback=False)
             except Exception as e:
@@ -651,12 +654,13 @@ class MemmapStorage:
 
             try:
                 from waveform_analysis.core.storage.integrity import get_integrity_checker
+
                 checker = get_integrity_checker()
 
                 if not checker.verify_checksum(compressed_path, expected_checksum, algorithm):
                     warnings.warn(
                         f"Checksum verification failed for {compressed_path}. Data may be corrupted.",
-                        UserWarning
+                        UserWarning,
                     )
                     return None
             except Exception as e:
@@ -665,7 +669,7 @@ class MemmapStorage:
         try:
             with self._timeit("storage.decompress"):
                 # Read compressed data
-                with open(compressed_path, 'rb') as f:
+                with open(compressed_path, "rb") as f:
                     compressed_data = f.read()
 
                 # Decompress
@@ -702,7 +706,7 @@ class MemmapStorage:
     def _list_channel_keys(self, key: str, run_id: Optional[str] = None) -> List[str]:
         """列出指定 key 的所有多通道缓存 key（key_ch*）。"""
         if run_id is None:
-            parts = key.split('-')
+            parts = key.split("-")
             if len(parts) >= 1:
                 run_id = parts[0]
             else:
@@ -726,7 +730,7 @@ class MemmapStorage:
         # 获取 parquet 路径
         effective_run_id = run_id
         if effective_run_id is None:
-            parts = key.split('-')
+            parts = key.split("-")
             if len(parts) >= 1:
                 effective_run_id = parts[0]
             else:
@@ -757,6 +761,7 @@ class MemmapStorage:
                         from waveform_analysis.core.storage.compression import (
                             get_compression_manager,
                         )
+
                         manager = get_compression_manager()
                         backend = manager.get_backend(compression_name, fallback=False)
                         compressed_path = bin_path + backend.extension
@@ -791,7 +796,7 @@ class MemmapStorage:
                 return False
 
             return True
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             # JSON 解析错误或 I/O 错误
             logger.debug(f"Failed to check existence of {key}: JSON or I/O error: {e}")
             return False
@@ -861,7 +866,7 @@ class MemmapStorage:
         # 提取 run_id（如果未显式传入）
         effective_run_id = run_id
         if effective_run_id is None:
-            parts = key.split('-')
+            parts = key.split("-")
             if len(parts) >= 1:
                 effective_run_id = parts[0]
             else:
@@ -877,7 +882,7 @@ class MemmapStorage:
         # 提取 run_id（如果未显式传入）
         effective_run_id = run_id
         if effective_run_id is None:
-            parts = key.split('-')
+            parts = key.split("-")
             if len(parts) >= 1:
                 effective_run_id = parts[0]
             else:
@@ -891,9 +896,7 @@ class MemmapStorage:
         return None
 
     def verify_integrity(
-        self,
-        run_id: Optional[str] = None,
-        verbose: bool = True
+        self, run_id: Optional[str] = None, verbose: bool = True
     ) -> Dict[str, Any]:
         """
         验证存储数据的完整性
@@ -915,12 +918,7 @@ class MemmapStorage:
                 'errors': List[Dict]
             }
         """
-        results = {
-            'total': 0,
-            'valid': 0,
-            'invalid': 0,
-            'errors': []
-        }
+        results = {"total": 0, "valid": 0, "invalid": 0, "errors": []}
 
         # 如果指定了 run_id，只验证该 run
         if run_id is not None:
@@ -931,14 +929,14 @@ class MemmapStorage:
             for rid in self.list_runs():
                 keys.extend(self.list_keys(rid))
 
-        results['total'] = len(keys)
+        results["total"] = len(keys)
 
         for key in keys:
             try:
                 # 从 key 提取 run_id
                 key_run_id = run_id
                 if key_run_id is None:
-                    parts = key.split('-')
+                    parts = key.split("-")
                     if len(parts) >= 1:
                         key_run_id = parts[0]
                     else:
@@ -946,126 +944,122 @@ class MemmapStorage:
 
                 meta = self.get_metadata(key, key_run_id)
                 if meta is None:
-                    results['invalid'] += 1
-                    results['errors'].append({
-                        'key': key,
-                        'error': 'Missing metadata'
-                    })
+                    results["invalid"] += 1
+                    results["errors"].append({"key": key, "error": "Missing metadata"})
                     continue
 
                 # Check if it's a DataFrame
-                if meta.get('type') == 'dataframe':
+                if meta.get("type") == "dataframe":
                     data_dir = os.path.join(self.work_dir, key_run_id, self.data_subdir)
                     parquet_path = os.path.join(data_dir, f"{key}.parquet")
                     if not os.path.exists(parquet_path):
-                        results['invalid'] += 1
-                        results['errors'].append({
-                            'key': key,
-                            'error': 'Parquet file missing'
-                        })
+                        results["invalid"] += 1
+                        results["errors"].append({"key": key, "error": "Parquet file missing"})
                     else:
-                        results['valid'] += 1
+                        results["valid"] += 1
                     continue
 
                 # Check binary files
                 bin_path, _, _ = self._get_paths(key, key_run_id)
-                is_compressed = meta.get('compressed', False)
+                is_compressed = meta.get("compressed", False)
 
                 if is_compressed:
                     # Get compression extension
-                    compression_name = meta.get('compression')
+                    compression_name = meta.get("compression")
                     if compression_name:
                         try:
                             from waveform_analysis.core.storage.compression import (
                                 get_compression_manager,
                             )
+
                             manager = get_compression_manager()
                             backend = manager.get_backend(compression_name, fallback=False)
                             file_path = bin_path + backend.extension
                         except Exception:
-                            results['invalid'] += 1
-                            results['errors'].append({
-                                'key': key,
-                                'error': f'Cannot find compression backend: {compression_name}'
-                            })
+                            results["invalid"] += 1
+                            results["errors"].append(
+                                {
+                                    "key": key,
+                                    "error": f"Cannot find compression backend: {compression_name}",
+                                }
+                            )
                             continue
                     else:
-                        results['invalid'] += 1
-                        results['errors'].append({
-                            'key': key,
-                            'error': 'Compressed flag set but no compression algorithm'
-                        })
+                        results["invalid"] += 1
+                        results["errors"].append(
+                            {
+                                "key": key,
+                                "error": "Compressed flag set but no compression algorithm",
+                            }
+                        )
                         continue
                 else:
                     file_path = bin_path
 
                 # Check file exists
                 if not os.path.exists(file_path):
-                    results['invalid'] += 1
-                    results['errors'].append({
-                        'key': key,
-                        'error': f'Data file missing: {file_path}'
-                    })
+                    results["invalid"] += 1
+                    results["errors"].append(
+                        {"key": key, "error": f"Data file missing: {file_path}"}
+                    )
                     continue
 
                 # Check file size (for uncompressed)
                 if not is_compressed:
-                    count = meta.get('count')
-                    itemsize = meta.get('itemsize')
-                    shape = meta.get('shape', (count,))
+                    count = meta.get("count")
+                    itemsize = meta.get("itemsize")
+                    shape = meta.get("shape", (count,))
                     if count is not None and itemsize is not None:
                         expected_size = int(np.prod(shape)) * int(itemsize)
                         actual_size = os.path.getsize(file_path)
                         if actual_size != expected_size:
-                            results['invalid'] += 1
-                            results['errors'].append({
-                                'key': key,
-                                'error': f'File size mismatch: expected {expected_size}, got {actual_size}'
-                            })
+                            results["invalid"] += 1
+                            results["errors"].append(
+                                {
+                                    "key": key,
+                                    "error": f"File size mismatch: expected {expected_size}, got {actual_size}",
+                                }
+                            )
                             continue
 
                 # Verify checksum if available
-                if 'checksum' in meta:
-                    expected_checksum = meta['checksum']
-                    algorithm = meta.get('checksum_algorithm', 'xxhash64')
+                if "checksum" in meta:
+                    expected_checksum = meta["checksum"]
+                    algorithm = meta.get("checksum_algorithm", "xxhash64")
 
                     try:
                         from waveform_analysis.core.storage.integrity import get_integrity_checker
+
                         checker = get_integrity_checker()
 
                         if not checker.verify_checksum(file_path, expected_checksum, algorithm):
-                            results['invalid'] += 1
-                            results['errors'].append({
-                                'key': key,
-                                'error': 'Checksum verification failed'
-                            })
+                            results["invalid"] += 1
+                            results["errors"].append(
+                                {"key": key, "error": "Checksum verification failed"}
+                            )
                             continue
                     except Exception as e:
-                        results['invalid'] += 1
-                        results['errors'].append({
-                            'key': key,
-                            'error': f'Checksum verification error: {e}'
-                        })
+                        results["invalid"] += 1
+                        results["errors"].append(
+                            {"key": key, "error": f"Checksum verification error: {e}"}
+                        )
                         continue
 
                 # All checks passed
-                results['valid'] += 1
+                results["valid"] += 1
 
             except Exception as e:
-                results['invalid'] += 1
-                results['errors'].append({
-                    'key': key,
-                    'error': f'Exception: {e}'
-                })
+                results["invalid"] += 1
+                results["errors"].append({"key": key, "error": f"Exception: {e}"})
 
         if verbose:
             print("\nIntegrity Check Results:")
             print(f"  Total files: {results['total']}")
             print(f"  Valid: {results['valid']}")
             print(f"  Invalid: {results['invalid']}")
-            if results['errors']:
+            if results["errors"]:
                 print("\nErrors:")
-                for err in results['errors']:
+                for err in results["errors"]:
                     print(f"  - {err['key']}: {err['error']}")
 
         return results

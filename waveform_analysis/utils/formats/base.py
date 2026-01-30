@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 DAQ 数据格式基础定义 - FormatSpec, ColumnMapping, TimestampUnit, FormatReader
 
@@ -45,11 +44,12 @@ class TimestampUnit(Enum):
         MILLISECONDS: 毫秒 (1e-3 秒)
         SECONDS: 秒
     """
-    PICOSECONDS = "ps"      # 1e-12 秒
-    NANOSECONDS = "ns"      # 1e-9 秒
-    MICROSECONDS = "us"     # 1e-6 秒
-    MILLISECONDS = "ms"     # 1e-3 秒
-    SECONDS = "s"           # 1 秒
+
+    PICOSECONDS = "ps"  # 1e-12 秒
+    NANOSECONDS = "ns"  # 1e-9 秒
+    MICROSECONDS = "us"  # 1e-6 秒
+    MILLISECONDS = "ms"  # 1e-3 秒
+    SECONDS = "s"  # 1 秒
 
 
 @export
@@ -73,13 +73,14 @@ class ColumnMapping:
         >>> cols = ColumnMapping(board=0, channel=1, timestamp=2, samples_start=7)
         >>> cols.samples_end  # None，表示到行末
     """
-    board: int = 0              # BOARD 列索引
-    channel: int = 1            # CHANNEL 列索引
-    timestamp: int = 2          # TIMETAG 列索引
-    samples_start: int = 7      # 波形采样起始列
+
+    board: int = 0  # BOARD 列索引
+    channel: int = 1  # CHANNEL 列索引
+    timestamp: int = 2  # TIMETAG 列索引
+    samples_start: int = 7  # 波形采样起始列
     samples_end: Optional[int] = None  # 波形采样结束列 (None = 到末尾)
-    baseline_start: int = 7     # 基线计算起始列
-    baseline_end: int = 47      # 基线计算结束列
+    baseline_start: int = 7  # 基线计算起始列
+    baseline_end: int = 47  # 基线计算结束列
 
 
 @export
@@ -113,14 +114,15 @@ class FormatSpec:
         >>> spec.get_timestamp_scale()  # 返回 ps -> ns 的转换因子
         0.001
     """
-    name: str                           # 格式名称
-    version: str = "1.0"                # 格式版本
+
+    name: str  # 格式名称
+    version: str = "1.0"  # 格式版本
     columns: ColumnMapping = field(default_factory=ColumnMapping)
     timestamp_unit: TimestampUnit = TimestampUnit.PICOSECONDS
-    file_pattern: str = "*CH*.CSV"      # 文件 glob 模式
-    header_rows_first_file: int = 2     # 首文件头部行数
-    header_rows_other_files: int = 0    # 其他文件头部行数
-    delimiter: str = ";"                # CSV 分隔符
+    file_pattern: str = "*CH*.CSV"  # 文件 glob 模式
+    header_rows_first_file: int = 2  # 首文件头部行数
+    header_rows_other_files: int = 0  # 其他文件头部行数
+    delimiter: str = ";"  # CSV 分隔符
     expected_samples: Optional[int] = None  # 预期采样点数
     sampling_rate_hz: Optional[float] = None  # 采样率（Hz）
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -132,11 +134,11 @@ class FormatSpec:
             转换因子，乘以原始时间戳后得到纳秒值
         """
         scales = {
-            TimestampUnit.PICOSECONDS: 1e-3,     # ps -> ns
-            TimestampUnit.NANOSECONDS: 1.0,      # ns -> ns
-            TimestampUnit.MICROSECONDS: 1e3,     # us -> ns
-            TimestampUnit.MILLISECONDS: 1e6,     # ms -> ns
-            TimestampUnit.SECONDS: 1e9,          # s -> ns
+            TimestampUnit.PICOSECONDS: 1e-3,  # ps -> ns
+            TimestampUnit.NANOSECONDS: 1.0,  # ns -> ns
+            TimestampUnit.MICROSECONDS: 1e3,  # us -> ns
+            TimestampUnit.MILLISECONDS: 1e6,  # ms -> ns
+            TimestampUnit.SECONDS: 1e9,  # s -> ns
         }
         return scales.get(self.timestamp_unit, 1.0)
 
@@ -149,11 +151,11 @@ class FormatSpec:
             转换因子，乘以原始时间戳后得到皮秒值
         """
         scales = {
-            TimestampUnit.PICOSECONDS: 1.0,      # ps -> ps
-            TimestampUnit.NANOSECONDS: 1e3,      # ns -> ps
-            TimestampUnit.MICROSECONDS: 1e6,     # us -> ps
-            TimestampUnit.MILLISECONDS: 1e9,     # ms -> ps
-            TimestampUnit.SECONDS: 1e12,         # s -> ps
+            TimestampUnit.PICOSECONDS: 1.0,  # ps -> ps
+            TimestampUnit.NANOSECONDS: 1e3,  # ns -> ps
+            TimestampUnit.MICROSECONDS: 1e6,  # us -> ps
+            TimestampUnit.MILLISECONDS: 1e9,  # ms -> ps
+            TimestampUnit.SECONDS: 1e12,  # s -> ps
         }
         return scales.get(self.timestamp_unit, 1.0)
 
@@ -187,11 +189,7 @@ class FormatReader(ABC):
         self.spec = spec
 
     @abstractmethod
-    def read_file(
-        self,
-        file_path: Union[str, Path],
-        is_first_file: bool = True
-    ) -> np.ndarray:
+    def read_file(self, file_path: Union[str, Path], is_first_file: bool = True) -> np.ndarray:
         """读取单个文件
 
         Args:
@@ -205,9 +203,7 @@ class FormatReader(ABC):
 
     @abstractmethod
     def read_files(
-        self,
-        file_paths: List[Union[str, Path]],
-        show_progress: bool = False
+        self, file_paths: List[Union[str, Path]], show_progress: bool = False
     ) -> np.ndarray:
         """读取并堆叠多个文件
 
@@ -222,9 +218,7 @@ class FormatReader(ABC):
 
     @abstractmethod
     def read_files_generator(
-        self,
-        file_paths: List[Union[str, Path]],
-        chunk_size: int = 10
+        self, file_paths: List[Union[str, Path]], chunk_size: int = 10
     ) -> Iterator[np.ndarray]:
         """生成器模式读取
 
@@ -255,11 +249,11 @@ class FormatReader(ABC):
         """
         if data.size == 0:
             return {
-                'board': np.array([], dtype=int),
-                'channel': np.array([], dtype=int),
-                'timestamp': np.array([], dtype=np.int64),
-                'samples': np.array([]).reshape(0, 0),
-                'baseline': np.array([], dtype=float),
+                "board": np.array([], dtype=int),
+                "channel": np.array([], dtype=int),
+                "timestamp": np.array([], dtype=np.int64),
+                "samples": np.array([]).reshape(0, 0),
+                "baseline": np.array([], dtype=float),
             }
 
         cols = self.spec.columns
@@ -271,18 +265,18 @@ class FormatReader(ABC):
 
         # 提取波形采样
         samples_end = cols.samples_end if cols.samples_end is not None else data.shape[1]
-        samples = data[:, cols.samples_start:samples_end].astype(float)
+        samples = data[:, cols.samples_start : samples_end].astype(float)
 
         # 计算基线（取均值）
-        baseline_data = data[:, cols.baseline_start:cols.baseline_end].astype(float)
+        baseline_data = data[:, cols.baseline_start : cols.baseline_end].astype(float)
         baseline = np.mean(baseline_data, axis=1)
 
         return {
-            'board': board,
-            'channel': channel,
-            'timestamp': timestamp,
-            'samples': samples,
-            'baseline': baseline,
+            "board": board,
+            "channel": channel,
+            "timestamp": timestamp,
+            "samples": samples,
+            "baseline": baseline,
         }
 
     def convert_timestamp_to_ns(self, timestamps: np.ndarray) -> np.ndarray:
@@ -331,17 +325,18 @@ class FormatReader(ABC):
             return True
 
         # 检查最小列数
-        min_cols = max(
-            self.spec.columns.board,
-            self.spec.columns.channel,
-            self.spec.columns.timestamp,
-            self.spec.columns.samples_start,
-        ) + 1
+        min_cols = (
+            max(
+                self.spec.columns.board,
+                self.spec.columns.channel,
+                self.spec.columns.timestamp,
+                self.spec.columns.samples_start,
+            )
+            + 1
+        )
 
         if data.shape[1] < min_cols:
-            raise ValueError(
-                f"数据列数不足: 期望至少 {min_cols} 列, 实际 {data.shape[1]} 列"
-            )
+            raise ValueError(f"数据列数不足: 期望至少 {min_cols} 列, 实际 {data.shape[1]} 列")
 
         # 检查采样点数
         if self.spec.expected_samples is not None:
@@ -350,6 +345,7 @@ class FormatReader(ABC):
             if actual_samples != self.spec.expected_samples:
                 # 只发出警告，不抛出异常（允许不同长度的波形）
                 import logging
+
                 logger = logging.getLogger(__name__)
                 logger.warning(
                     f"采样点数与预期不符: 期望 {self.spec.expected_samples}, "

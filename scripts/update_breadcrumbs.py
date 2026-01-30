@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 自动更新文档面包屑导航的脚本
 
@@ -12,10 +11,9 @@
     - 自动识别目录层级
 """
 
-import os
-import re
 import argparse
 from pathlib import Path
+import re
 
 # 目录名称到显示名称的映射
 DIR_NAMES = {
@@ -64,16 +62,16 @@ FILE_TITLES = {
 def get_title_from_file(filepath: Path) -> str:
     """从文件内容提取标题"""
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, encoding="utf-8") as f:
             for line in f:
                 # 跳过面包屑行
-                if line.startswith('**导航**'):
+                if line.startswith("**导航**"):
                     continue
                 # 跳过空行和分隔线
-                if line.strip() == '' or line.strip() == '---':
+                if line.strip() == "" or line.strip() == "---":
                     continue
                 # 找到第一个标题
-                match = re.match(r'^#\s+(.+)$', line.strip())
+                match = re.match(r"^#\s+(.+)$", line.strip())
                 if match:
                     return match.group(1)
     except Exception:
@@ -90,20 +88,20 @@ def generate_breadcrumb(filepath: Path, docs_root: Path) -> str:
     filename = parts.pop()
 
     # 如果是 README.md，不需要面包屑中的最后一级
-    is_readme = filename.lower() == 'readme.md'
+    is_readme = filename.lower() == "readme.md"
 
     # 构建面包屑路径
     breadcrumb_parts = []
     current_depth = len(parts)
 
     # 添加文档中心
-    relative_to_root = '../' * current_depth
-    breadcrumb_parts.append(f'[文档中心]({relative_to_root}README.md)')
+    relative_to_root = "../" * current_depth
+    breadcrumb_parts.append(f"[文档中心]({relative_to_root}README.md)")
 
     # 添加中间目录
     for i, part in enumerate(parts):
         dir_name = DIR_NAMES.get(part, part)
-        is_last_dir = (i == len(parts) - 1)
+        is_last_dir = i == len(parts) - 1
 
         # 如果是 README 且是最后一个目录，不加链接
         if is_readme and is_last_dir:
@@ -111,23 +109,23 @@ def generate_breadcrumb(filepath: Path, docs_root: Path) -> str:
         else:
             depth_from_here = current_depth - i - 1
             if depth_from_here > 0:
-                path = '../' * depth_from_here + 'README.md'
+                path = "../" * depth_from_here + "README.md"
             else:
-                path = 'README.md'
-            breadcrumb_parts.append(f'[{dir_name}]({path})')
+                path = "README.md"
+            breadcrumb_parts.append(f"[{dir_name}]({path})")
 
     # 如果不是 README，添加当前文件标题
     if not is_readme:
         title = FILE_TITLES.get(filename) or get_title_from_file(filepath)
         breadcrumb_parts.append(title)
 
-    return '**导航**: ' + ' > '.join(breadcrumb_parts)
+    return "**导航**: " + " > ".join(breadcrumb_parts)
 
 
 def update_file_breadcrumb(filepath: Path, docs_root: Path, dry_run: bool = False) -> bool:
     """更新单个文件的面包屑"""
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, encoding="utf-8") as f:
             content = f.read()
     except Exception as e:
         print(f"  ❌ 读取失败: {e}")
@@ -136,9 +134,9 @@ def update_file_breadcrumb(filepath: Path, docs_root: Path, dry_run: bool = Fals
     new_breadcrumb = generate_breadcrumb(filepath, docs_root)
 
     # 检查是否有现有面包屑
-    breadcrumb_pattern = r'^\*\*导航\*\*:.*$'
+    breadcrumb_pattern = r"^\*\*导航\*\*:.*$"
 
-    lines = content.split('\n')
+    lines = content.split("\n")
     updated = False
 
     for i, line in enumerate(lines):
@@ -157,20 +155,20 @@ def update_file_breadcrumb(filepath: Path, docs_root: Path, dry_run: bool = Fals
             print(f"  添加: {new_breadcrumb}")
         else:
             lines.insert(0, new_breadcrumb)
-            lines.insert(1, '')
+            lines.insert(1, "")
         updated = True
 
     if updated and not dry_run:
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(lines))
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
 
     return updated
 
 
 def main():
-    parser = argparse.ArgumentParser(description='自动更新文档面包屑导航')
-    parser.add_argument('--dry-run', action='store_true', help='预览模式，不实际修改文件')
-    parser.add_argument('--path', type=str, default='docs', help='文档根目录')
+    parser = argparse.ArgumentParser(description="自动更新文档面包屑导航")
+    parser.add_argument("--dry-run", action="store_true", help="预览模式，不实际修改文件")
+    parser.add_argument("--path", type=str, default="docs", help="文档根目录")
     args = parser.parse_args()
 
     # 找到项目根目录
@@ -190,15 +188,15 @@ def main():
     updated_count = 0
     skipped_count = 0
 
-    for md_file in docs_root.rglob('*.md'):
+    for md_file in docs_root.rglob("*.md"):
         rel_path = md_file.relative_to(docs_root)
 
         # 跳过根目录的 README
-        if str(rel_path) == 'README.md':
+        if str(rel_path) == "README.md":
             continue
 
         # 跳过 updates 目录（通常不需要面包屑）
-        if 'updates' in rel_path.parts:
+        if "updates" in rel_path.parts:
             skipped_count += 1
             continue
 
@@ -216,5 +214,5 @@ def main():
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     exit(main())

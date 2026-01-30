@@ -9,17 +9,14 @@ Verifies that all builtin plugins have valid specs and follow contracts:
 """
 
 import json
-from typing import Dict, List, Set, Type
+from typing import Dict, List, Set
 
-import numpy as np
 import pytest
 
 from waveform_analysis.core.plugins.core.base import Plugin
 from waveform_analysis.core.plugins.core.spec import (
     Capabilities,
     ConfigField,
-    InputRequirement,
-    OutputSchema,
     PluginSpec,
 )
 

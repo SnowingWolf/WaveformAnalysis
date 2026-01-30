@@ -4,8 +4,7 @@ import numpy as np
 import pytest
 
 from tests.utils import DummyContext, FakeContext, SimplePlugin
-from waveform_analysis.core.plugins.core.base import Option, Plugin
-
+from waveform_analysis.core.plugins.core.base import Plugin
 
 # =============================================================================
 # Plugin Test Fixtures

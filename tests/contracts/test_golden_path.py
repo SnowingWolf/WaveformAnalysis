@@ -7,9 +7,8 @@ raw_files → waveforms → st_waveforms → basic_features
 Uses minimal fake DAQ data fixtures to test the complete pipeline.
 """
 
-import tempfile
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import numpy as np
 import pytest
@@ -49,9 +48,7 @@ class TestGoldenPathMinimal:
                 # Return fake waveforms (2 channels)
                 n_events = 10
                 n_samples = 100
-                return [
-                    np.random.randn(n_events, n_samples).astype(np.float32) for _ in range(2)
-                ]
+                return [np.random.randn(n_events, n_samples).astype(np.float32) for _ in range(2)]
 
         class StWaveformsPlugin(Plugin):
             """Simulates structured waveform creation."""
@@ -108,7 +105,9 @@ class TestGoldenPathMinimal:
                     features["height"] = ch_data["height"]
                     features["area"] = ch_data["height"] * 10  # Fake area
                     all_data.append(features)
-                return np.concatenate(all_data) if all_data else np.array([], dtype=self.output_dtype)
+                return (
+                    np.concatenate(all_data) if all_data else np.array([], dtype=self.output_dtype)
+                )
 
         return [SourcePlugin, WaveformsPlugin, StWaveformsPlugin, FeaturesPlugin]
 

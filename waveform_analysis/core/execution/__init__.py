@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Execution 子模块 - 并行执行和超时管理
 

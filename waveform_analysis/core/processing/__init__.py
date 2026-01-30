@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Processing 子模块 - 数据处理流水线
 
@@ -18,6 +17,13 @@ Processing 子模块 - 数据处理流水线
 
 # 数据加载
 # 事件分析
+# WaveformStruct 从新位置导入（向后兼容）
+from waveform_analysis.core.plugins.builtin.cpu.waveforms import (
+    WaveformStruct,
+    WaveformStructConfig,
+    create_channel_mapping,
+)
+
 from .analyzer import EventAnalyzer
 
 # Chunk 工具
@@ -71,13 +77,6 @@ from .records_builder import (
     build_records_from_st_waveforms_sharded,
     build_records_from_v1725_files,
     merge_records_parts,
-)
-
-# WaveformStruct 从新位置导入（向后兼容）
-from waveform_analysis.core.plugins.builtin.cpu.waveforms import (
-    WaveformStruct,
-    WaveformStructConfig,
-    create_channel_mapping,
 )
 
 __all__ = [

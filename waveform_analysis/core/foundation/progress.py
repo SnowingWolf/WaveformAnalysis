@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 进度追踪模块 (Phase 3 Enhancement)
 
@@ -25,13 +24,14 @@ logger = logging.getLogger(__name__)
 export, __all__ = exporter()
 
 # 类型变量
-T = TypeVar('T')
-F = TypeVar('F', bound=Callable[..., Any])
+T = TypeVar("T")
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 # ===========================
 # 进度追踪系统
 # ===========================
+
 
 @export
 class ProgressTracker:
@@ -84,7 +84,7 @@ class ProgressTracker:
         unit: str = "it",
         nested: bool = False,
         parent: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         """
         创建进度条
@@ -109,10 +109,10 @@ class ProgressTracker:
             # 计算position（用于嵌套显示）
             position = 0
             if nested and parent and parent in self._bar_info:
-                parent_pos = self._bar_info[parent].get('position', 0)
-                parent_nested_count = self._bar_info[parent].get('nested_count', 0)
+                parent_pos = self._bar_info[parent].get("position", 0)
+                parent_nested_count = self._bar_info[parent].get("nested_count", 0)
                 position = parent_pos + parent_nested_count + 1
-                self._bar_info[parent]['nested_count'] = parent_nested_count + 1
+                self._bar_info[parent]["nested_count"] = parent_nested_count + 1
             elif nested:
                 position = self._position_counter
                 self._position_counter += 1
@@ -129,16 +129,16 @@ class ProgressTracker:
                 position=position,
                 leave=True,
                 disable=bar_disable,
-                **kwargs
+                **kwargs,
             )
 
             self._bars[name] = bar
             self._bar_info[name] = {
-                'parent': parent,
-                'nested': nested,
-                'position': position,
-                'nested_count': 0,  # 子进度条数量
-                'start_time': time.time()
+                "parent": parent,
+                "nested": nested,
+                "position": position,
+                "nested_count": 0,  # 子进度条数量
+                "start_time": time.time(),
             }
 
             return name
@@ -237,7 +237,7 @@ class ProgressTracker:
             if name not in self._bar_info:
                 return None
 
-            start_time = self._bar_info[name]['start_time']
+            start_time = self._bar_info[name]["start_time"]
             return time.time() - start_time
 
     def calculate_eta(self, name: str) -> Optional[float]:
@@ -369,7 +369,7 @@ _local = threading.local()
 
 def _get_global_tracker() -> ProgressTracker:
     """获取全局进度追踪器（线程安全）"""
-    if not hasattr(_local, 'tracker'):
+    if not hasattr(_local, "tracker"):
         _local.tracker = ProgressTracker()
     return _local.tracker
 
@@ -399,7 +399,7 @@ def reset_global_tracker():
     关闭所有进度条并创建新的追踪器实例。
     通常用于测试或需要清理状态的场景。
     """
-    if hasattr(_local, 'tracker'):
+    if hasattr(_local, "tracker"):
         _local.tracker.close_all()
         del _local.tracker
 
@@ -407,6 +407,7 @@ def reset_global_tracker():
 # ===========================
 # 进度追踪装饰器
 # ===========================
+
 
 @export
 def with_progress(
@@ -417,7 +418,7 @@ def with_progress(
     tracker: Optional[ProgressTracker] = None,
     bar_name: Optional[str] = None,
     show_result: bool = False,
-    **tqdm_kwargs
+    **tqdm_kwargs,
 ) -> Callable[[F], F]:
     """
     统一的进度追踪装饰器
@@ -454,6 +455,7 @@ def with_progress(
         ...
         >>> load_data(['a.csv', 'b.csv', 'c.csv'])  # 显示加载进度
     """
+
     def decorator(func: F) -> F:
         # 获取函数签名信息
         func_name = func.__name__
@@ -479,7 +481,7 @@ def with_progress(
                     total,
                     disable,
                     show_result,
-                    **tqdm_kwargs
+                    **tqdm_kwargs,
                 )
 
             # 普通函数：执行并可能包装返回值
@@ -488,9 +490,9 @@ def with_progress(
             elapsed = time.time() - start_time
 
             # 如果返回可迭代对象（非字符串），包装为进度迭代器
-            if hasattr(result, '__iter__') and not isinstance(result, (str, bytes)):
+            if hasattr(result, "__iter__") and not isinstance(result, (str, bytes)):
                 _total = total
-                if _total is None and hasattr(result, '__len__'):
+                if _total is None and hasattr(result, "__len__"):
                     try:
                         _total = len(result)
                     except (TypeError, AttributeError):
@@ -504,7 +506,7 @@ def with_progress(
                     disable=disable,
                     tracker=_tracker,
                     bar_name=_bar_name,
-                    **tqdm_kwargs
+                    **tqdm_kwargs,
                 )
 
             # 普通返回值：可选显示执行时间
@@ -527,7 +529,7 @@ def _wrap_generator(
     total: Optional[int],
     disable: bool,
     show_result: bool,
-    **tqdm_kwargs
+    **tqdm_kwargs,
 ) -> Iterator[T]:
     """
     包装生成器，添加进度追踪
@@ -548,13 +550,7 @@ def _wrap_generator(
     """
     # 创建进度条
     if not disable:
-        tracker.create_bar(
-            bar_name,
-            total=total or 0,
-            desc=desc,
-            unit=unit,
-            **tqdm_kwargs
-        )
+        tracker.create_bar(bar_name, total=total or 0, desc=desc, unit=unit, **tqdm_kwargs)
 
     count = 0
     start_time = time.time()
@@ -597,7 +593,7 @@ def progress_iter(
     disable: bool = False,
     tracker: Optional[ProgressTracker] = None,
     bar_name: Optional[str] = None,
-    **tqdm_kwargs
+    **tqdm_kwargs,
 ) -> Iterator[T]:
     """
     为可迭代对象添加进度条
@@ -626,7 +622,7 @@ def progress_iter(
 
     # 尝试获取长度
     _total = total
-    if _total is None and hasattr(iterable, '__len__'):
+    if _total is None and hasattr(iterable, "__len__"):
         try:
             _total = len(iterable)
         except (TypeError, AttributeError):
@@ -634,8 +630,7 @@ def progress_iter(
 
     # 使用生成器包装函数
     def _gen():
-        for item in iterable:
-            yield item
+        yield from iterable
 
     return _wrap_generator(
         _gen(),
@@ -646,7 +641,7 @@ def progress_iter(
         _total,
         disable,
         False,  # 不显示结果统计
-        **tqdm_kwargs
+        **tqdm_kwargs,
     )
 
 
@@ -658,7 +653,7 @@ def progress_map(
     desc: str = "Mapping",
     unit: str = "it",
     disable: bool = False,
-    **tqdm_kwargs
+    **tqdm_kwargs,
 ) -> list:
     """
     带进度条的 map 函数
@@ -681,6 +676,8 @@ def progress_map(
         >>> results = progress_map(lambda x: x**2, range(100), desc="Squaring")
     """
     results = []
-    for item in progress_iter(iterable, total=total, desc=desc, unit=unit, disable=disable, **tqdm_kwargs):
+    for item in progress_iter(
+        iterable, total=total, desc=desc, unit=unit, disable=disable, **tqdm_kwargs
+    ):
         results.append(func(item))
     return results

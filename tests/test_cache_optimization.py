@@ -43,7 +43,7 @@ class TestCacheOptimization:
         ctx.register_plugin_(PluginC())
 
         # 首次调用应该解析依赖
-        data1 = ctx.get_data("run_001", "data_c")
+        ctx.get_data("run_001", "data_c")
         assert "data_c" in ctx._execution_plan_cache
 
         # 缓存的执行计划
@@ -61,7 +61,9 @@ class TestCacheOptimization:
         executed = []
 
         class TrackingContext(Context):
-            def _execute_single_plugin(self, name, run_id, data_name, kwargs, tracker, bar_name, **extra):
+            def _execute_single_plugin(
+                self, name, run_id, data_name, kwargs, tracker, bar_name, **extra
+            ):
                 executed.append(name)
                 return super()._execute_single_plugin(
                     name, run_id, data_name, kwargs, tracker, bar_name, **extra
@@ -111,7 +113,9 @@ class TestCacheOptimization:
         executed = []
 
         class TrackingContext(Context):
-            def _execute_single_plugin(self, name, run_id, data_name, kwargs, tracker, bar_name, **extra):
+            def _execute_single_plugin(
+                self, name, run_id, data_name, kwargs, tracker, bar_name, **extra
+            ):
                 executed.append(name)
                 return super()._execute_single_plugin(
                     name, run_id, data_name, kwargs, tracker, bar_name, **extra
@@ -161,7 +165,9 @@ class TestCacheOptimization:
         executed = []
 
         class TrackingContext(Context):
-            def _execute_single_plugin(self, name, run_id, data_name, kwargs, tracker, bar_name, **extra):
+            def _execute_single_plugin(
+                self, name, run_id, data_name, kwargs, tracker, bar_name, **extra
+            ):
                 executed.append(name)
                 return super()._execute_single_plugin(
                     name, run_id, data_name, kwargs, tracker, bar_name, **extra
@@ -218,7 +224,9 @@ class TestCacheOptimization:
         executed = []
 
         class TrackingContext(Context):
-            def _execute_single_plugin(self, name, run_id, data_name, kwargs, tracker, bar_name, **extra):
+            def _execute_single_plugin(
+                self, name, run_id, data_name, kwargs, tracker, bar_name, **extra
+            ):
                 executed.append(name)
                 return super()._execute_single_plugin(
                     name, run_id, data_name, kwargs, tracker, bar_name, **extra
@@ -300,8 +308,8 @@ class TestCacheOptimization:
         ctx.register_plugin_(PluginV1())
 
         # 构建缓存
-        lineage1 = ctx.get_lineage("data")
-        key1 = ctx.key_for("run_001", "data")
+        ctx.get_lineage("data")
+        ctx.key_for("run_001", "data")
         assert "data" in ctx._lineage_cache
         assert ("run_001", "data") in ctx._key_cache
 
@@ -434,7 +442,7 @@ class TestCacheOptimization:
 
         # 依赖的 lineage 应该被递归缓存
         lineage2 = ctx.get_lineage("level2")
-        lineage1 = ctx.get_lineage("level1")
+        ctx.get_lineage("level1")
 
         assert "level2" in ctx._lineage_cache
         assert "level1" in ctx._lineage_cache

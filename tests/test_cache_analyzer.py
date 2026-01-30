@@ -1,14 +1,12 @@
-# -*- coding: utf-8 -*-
 """
 CacheAnalyzer 测试模块
 """
 
-import os
-import json
-import time
 import tempfile
-import pytest
+import time
+
 import numpy as np
+import pytest
 
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer, CacheEntry
@@ -30,10 +28,10 @@ def context_with_cache(temp_storage_dir):
     storage = ctx.storage
 
     # 创建测试数据
-    for run_id in ['run_001', 'run_002']:
-        for data_name in ['peaks', 'waveforms']:
+    for run_id in ["run_001", "run_002"]:
+        for data_name in ["peaks", "waveforms"]:
             key = f"{run_id}-{data_name}-abc123"
-            data = np.zeros(100, dtype=[('time', '<f8'), ('value', '<f4')])
+            data = np.zeros(100, dtype=[("time", "<f8"), ("value", "<f4")])
 
             # 直接保存数据
             storage.save_memmap(key, data, run_id=run_id)
@@ -41,8 +39,8 @@ def context_with_cache(temp_storage_dir):
             # 更新元数据添加 plugin_version
             meta = storage.get_metadata(key, run_id)
             if meta:
-                meta['plugin_version'] = '1.0.0'
-                meta['lineage'] = {'version': '1.0.0'}
+                meta["plugin_version"] = "1.0.0"
+                meta["lineage"] = {"version": "1.0.0"}
                 storage.save_metadata(key, meta, run_id)
 
     return ctx
@@ -54,55 +52,69 @@ class TestCacheEntry:
     def test_create_entry(self):
         """测试创建 CacheEntry"""
         entry = CacheEntry(
-            run_id='run_001',
-            data_name='peaks',
-            key='run_001-peaks-abc123',
+            run_id="run_001",
+            data_name="peaks",
+            key="run_001-peaks-abc123",
             size_bytes=1024 * 1024,  # 1 MB
             created_at=time.time() - 3600,  # 1 小时前
-            plugin_version='1.0.0',
-            dtype_str='<f8',
+            plugin_version="1.0.0",
+            dtype_str="<f8",
             count=1000,
             compressed=False,
             has_checksum=False,
-            file_path='/tmp/test.bin',
-            metadata={}
+            file_path="/tmp/test.bin",
+            metadata={},
         )
 
-        assert entry.run_id == 'run_001'
-        assert entry.data_name == 'peaks'
+        assert entry.run_id == "run_001"
+        assert entry.data_name == "peaks"
         assert entry.size_bytes == 1024 * 1024
 
     def test_size_human(self):
         """测试人类可读大小"""
         # 字节
         entry = CacheEntry(
-            run_id='run_001', data_name='test', key='test',
-            size_bytes=512, created_at=time.time(),
-            plugin_version='1.0', dtype_str='<f8', count=0,
-            compressed=False, has_checksum=False, file_path='',
+            run_id="run_001",
+            data_name="test",
+            key="test",
+            size_bytes=512,
+            created_at=time.time(),
+            plugin_version="1.0",
+            dtype_str="<f8",
+            count=0,
+            compressed=False,
+            has_checksum=False,
+            file_path="",
         )
-        assert entry.size_human == '512 B'
+        assert entry.size_human == "512 B"
 
         # KB
         entry.size_bytes = 1024 * 5
-        assert 'KB' in entry.size_human
+        assert "KB" in entry.size_human
 
         # MB
         entry.size_bytes = 1024 * 1024 * 10
-        assert 'MB' in entry.size_human
+        assert "MB" in entry.size_human
 
         # GB
         entry.size_bytes = 1024 * 1024 * 1024 * 2
-        assert 'GB' in entry.size_human
+        assert "GB" in entry.size_human
 
     def test_age_days(self):
         """测试缓存年龄计算"""
         one_day_ago = time.time() - 24 * 3600
         entry = CacheEntry(
-            run_id='run_001', data_name='test', key='test',
-            size_bytes=0, created_at=one_day_ago,
-            plugin_version='1.0', dtype_str='<f8', count=0,
-            compressed=False, has_checksum=False, file_path='',
+            run_id="run_001",
+            data_name="test",
+            key="test",
+            size_bytes=0,
+            created_at=one_day_ago,
+            plugin_version="1.0",
+            dtype_str="<f8",
+            count=0,
+            compressed=False,
+            has_checksum=False,
+            file_path="",
         )
 
         assert 0.9 < entry.age_days < 1.1  # 约 1 天
@@ -142,9 +154,9 @@ class TestCacheAnalyzer:
         analyzer = CacheAnalyzer(context_with_cache)
         analyzer.scan(verbose=False)
 
-        entries = analyzer.get_entries(run_id='run_001')
+        entries = analyzer.get_entries(run_id="run_001")
         for entry in entries:
-            assert entry.run_id == 'run_001'
+            assert entry.run_id == "run_001"
 
     def test_get_entries_filter_by_size(self, context_with_cache):
         """测试按大小过滤"""
@@ -157,9 +169,9 @@ class TestCacheAnalyzer:
             assert entry.size_bytes >= 1024
 
         # 最大 1MB
-        entries = analyzer.get_entries(max_size=1024*1024)
+        entries = analyzer.get_entries(max_size=1024 * 1024)
         for entry in entries:
-            assert entry.size_bytes <= 1024*1024
+            assert entry.size_bytes <= 1024 * 1024
 
     def test_get_total_size(self, context_with_cache):
         """测试获取总大小"""
@@ -175,12 +187,12 @@ class TestCacheAnalyzer:
         analyzer = CacheAnalyzer(context_with_cache)
         analyzer.scan(verbose=False)
 
-        summary = analyzer.get_run_summary('run_001')
+        summary = analyzer.get_run_summary("run_001")
 
-        assert 'run_id' in summary
-        assert 'total_entries' in summary
-        assert 'total_size_bytes' in summary
-        assert 'total_size_human' in summary
+        assert "run_id" in summary
+        assert "total_entries" in summary
+        assert "total_size_bytes" in summary
+        assert "total_size_human" in summary
 
     def test_get_all_runs(self, context_with_cache):
         """测试获取所有运行"""
@@ -228,7 +240,7 @@ class TestCacheAnalyzer:
         analyzer = CacheAnalyzer(context_with_cache)
 
         analyzer.scan(verbose=False)
-        scanned_runs_1 = analyzer._scanned_runs.copy()
+        analyzer._scanned_runs.copy()
 
         # 强制刷新
         analyzer.scan(verbose=False, force_refresh=True)

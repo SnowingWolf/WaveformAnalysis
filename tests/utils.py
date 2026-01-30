@@ -7,12 +7,11 @@ This module provides:
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import numpy as np
 
 from waveform_analysis.core.plugins.core.base import Option, Plugin
-
 
 # =============================================================================
 # CSV File Creation Helpers
@@ -262,7 +261,9 @@ class DummyContext:
         _results: Cache for computed results
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None, data: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self, config: Optional[Dict[str, Any]] = None, data: Optional[Dict[str, Any]] = None
+    ):
         self.config = config or {}
         self._data = data or {}
         self._results: Dict[tuple, Any] = {}

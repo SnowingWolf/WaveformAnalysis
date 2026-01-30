@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests for streaming processing framework.
 
 This module tests:
@@ -23,22 +22,25 @@ from waveform_analysis.core.plugins.core.streaming import (
 )
 from waveform_analysis.core.processing.chunk import Chunk
 
-
 # =============================================================================
 # Test Data Types
 # =============================================================================
 
-RECORD_DTYPE = np.dtype([
-    ("time", "<i8"),
-    ("dt", "<i4"),
-    ("length", "<i4"),
-    ("value", "<f8"),
-])
+RECORD_DTYPE = np.dtype(
+    [
+        ("time", "<i8"),
+        ("dt", "<i4"),
+        ("length", "<i4"),
+        ("value", "<f8"),
+    ]
+)
 
-SIMPLE_DTYPE = np.dtype([
-    ("timestamp", "<i8"),
-    ("value", "<f8"),
-])
+SIMPLE_DTYPE = np.dtype(
+    [
+        ("timestamp", "<i8"),
+        ("value", "<f8"),
+    ]
+)
 
 
 def make_test_records(n=10, start_time=0, dt=10, length=100, gap=0):
@@ -562,7 +564,7 @@ class TestStatefulPlugins:
         ctx.register(plugin)
 
         # Stateful plugins should force serial execution
-        stream_ctx = get_streaming_context(ctx, run_id="run1", chunk_size=5, parallel=True)
+        get_streaming_context(ctx, run_id="run1", chunk_size=5, parallel=True)
 
         # Get the plugin and check it's set to serial
         registered_plugin = ctx.get_plugin("stateful_stream")

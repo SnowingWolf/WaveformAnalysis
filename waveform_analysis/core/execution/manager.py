@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 全局执行器管理框架 - 统一管理线程池和进程池
 
@@ -95,7 +94,12 @@ class ExecutorManager:
             self._initialized = True
 
     def get_executor(
-        self, name: str, executor_type: str = "thread", max_workers: Optional[int] = None, reuse: bool = True, **kwargs
+        self,
+        name: str,
+        executor_type: str = "thread",
+        max_workers: Optional[int] = None,
+        reuse: bool = True,
+        **kwargs,
     ) -> Executor:
         """
         获取或创建执行器。
@@ -111,9 +115,7 @@ class ExecutorManager:
             Executor 实例
         """
         if executor_type not in ("thread", "process"):
-            raise ValueError(
-                f"executor_type must be 'thread' or 'process', got '{executor_type}'"
-            )
+            raise ValueError(f"executor_type must be 'thread' or 'process', got '{executor_type}'")
 
         if max_workers is None:
             max_workers = self._default_max_workers
@@ -141,12 +143,7 @@ class ExecutorManager:
 
             return executor
 
-    def _create_executor(
-        self,
-        executor_type: str,
-        max_workers: int,
-        **kwargs
-    ) -> Executor:
+    def _create_executor(self, executor_type: str, max_workers: int, **kwargs) -> Executor:
         """创建执行器实例"""
         if executor_type == "process":
             return ProcessPoolExecutor(max_workers=max_workers, **kwargs)
@@ -191,7 +188,11 @@ class ExecutorManager:
                 self._shutdown_executor(key, wait=wait)
 
     def shutdown_executor(
-        self, name: str, executor_type: str = "thread", max_workers: Optional[int] = None, wait: bool = True
+        self,
+        name: str,
+        executor_type: str = "thread",
+        max_workers: Optional[int] = None,
+        wait: bool = True,
     ):
         """关闭指定名称的执行器"""
         if max_workers is None:
@@ -393,7 +394,11 @@ def get_executor_manager() -> ExecutorManager:
 @export
 @contextmanager
 def get_executor(
-    name: str, executor_type: str = "thread", max_workers: Optional[int] = None, reuse: bool = True, **kwargs
+    name: str,
+    executor_type: str = "thread",
+    max_workers: Optional[int] = None,
+    reuse: bool = True,
+    **kwargs,
 ) -> Iterator[Executor]:
     """
     便捷函数：获取执行器（上下文管理器）。
@@ -501,14 +506,18 @@ def parallel_map(
             tracker = get_global_tracker()
             bar_name = f"parallel_map_{id(iterable)}"
 
-            tracker.create_bar(bar_name, total=len(iterable), desc=progress_config.desc, unit=progress_config.unit)
+            tracker.create_bar(
+                bar_name, total=len(iterable), desc=progress_config.desc, unit=progress_config.unit
+            )
 
             def update_progress(idx):
                 tracker.update(bar_name, n=1)
                 if (idx + 1) % 10 == 0:
                     throughput = tracker.calculate_throughput(bar_name)
                     if throughput:
-                        tracker.set_postfix(bar_name, speed=format_throughput(throughput, progress_config.unit))
+                        tracker.set_postfix(
+                            bar_name, speed=format_throughput(throughput, progress_config.unit)
+                        )
 
             progress_callback = update_progress
 
@@ -534,7 +543,9 @@ def parallel_map(
     successful_tasks = 0
 
     try:
-        with get_executor(executor_name, executor_type, max_workers, reuse_executor, **kwargs) as executor:
+        with get_executor(
+            executor_name, executor_type, max_workers, reuse_executor, **kwargs
+        ) as executor:
             # 提交所有任务
             futures = {executor.submit(func, item): idx for idx, item in enumerate(iterable)}
 
@@ -648,14 +659,18 @@ def parallel_apply(
             tracker = get_global_tracker()
             bar_name = f"parallel_apply_{id(args_list)}"
 
-            tracker.create_bar(bar_name, total=len(args_list), desc=progress_config.desc, unit=progress_config.unit)
+            tracker.create_bar(
+                bar_name, total=len(args_list), desc=progress_config.desc, unit=progress_config.unit
+            )
 
             def update_progress(idx):
                 tracker.update(bar_name, n=1)
                 if (idx + 1) % 10 == 0:
                     throughput = tracker.calculate_throughput(bar_name)
                     if throughput:
-                        tracker.set_postfix(bar_name, speed=format_throughput(throughput, progress_config.unit))
+                        tracker.set_postfix(
+                            bar_name, speed=format_throughput(throughput, progress_config.unit)
+                        )
 
             progress_callback = update_progress
 
@@ -681,7 +696,9 @@ def parallel_apply(
     successful_tasks = 0
 
     try:
-        with get_executor(executor_name, executor_type, max_workers, reuse_executor, **kwargs) as executor:
+        with get_executor(
+            executor_name, executor_type, max_workers, reuse_executor, **kwargs
+        ) as executor:
             # 提交所有任务
             futures = {executor.submit(func, *args): idx for idx, args in enumerate(args_list)}
 

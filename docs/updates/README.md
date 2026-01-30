@@ -8,7 +8,7 @@
 
 - 想了解最新功能：先看 [NEW_FEATURES.md](NEW_FEATURES.md)
 - 只关心变更摘要：直接看 [UPDATE_SUMMARY.md](UPDATE_SUMMARY.md)
-- 需要迁移指导：查看 [STORAGE_MIGRATION_GUIDE.md](../STORAGE_MIGRATION_GUIDE.md)
+- 需要迁移指导：查看 [STORAGE_MIGRATION_GUIDE.md](./STORAGE_MIGRATION_GUIDE.md)
 
 ## 文档列表
 
@@ -22,7 +22,7 @@
 | [文档同步检查](DOC_SYNC_CHECKLIST.md) | 文档同步检查清单 |
 | [文档组织计划](DOCS_ORGANIZATION_PLAN.md) | 文档组织计划 |
 | [项目总结](PROJECT_SUMMARY.md) | 项目总结 |
-| [存储迁移指南](../STORAGE_MIGRATION_GUIDE.md) | 存储结构迁移指南 |
+| [存储迁移指南](./STORAGE_MIGRATION_GUIDE.md) | 存储结构迁移指南 |
 
 ## 相关资源
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 缓存管理命令行接口
 
@@ -37,30 +36,16 @@ def create_parser() -> argparse.ArgumentParser:
 
     # 全局选项（在主解析器中定义，用于在子命令之前使用）
     parser.add_argument(
-        "--storage-dir",
-        type=str,
-        default="./strax_data",
-        help="缓存存储目录（默认: ./strax_data）"
+        "--storage-dir", type=str, default="./strax_data", help="缓存存储目录（默认: ./strax_data）"
     )
-    parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="显示详细信息"
-    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="显示详细信息")
 
     # 创建全局选项的 parent parser，用于在子命令之后使用
     global_parser = argparse.ArgumentParser(add_help=False)
     global_parser.add_argument(
-        "--storage-dir",
-        type=str,
-        default="./strax_data",
-        help="缓存存储目录（默认: ./strax_data）"
+        "--storage-dir", type=str, default="./strax_data", help="缓存存储目录（默认: ./strax_data）"
     )
-    global_parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="显示详细信息"
-    )
+    global_parser.add_argument("--verbose", "-v", action="store_true", help="显示详细信息")
 
     # 子命令
     subparsers = parser.add_subparsers(dest="command", help="可用命令")
@@ -80,10 +65,12 @@ def create_parser() -> argparse.ArgumentParser:
     diag_parser = subparsers.add_parser("diagnose", help="诊断缓存问题", parents=[global_parser])
     diag_parser.add_argument("--run", type=str, help="仅诊断指定运行")
     diag_parser.add_argument("--fix", action="store_true", help="自动修复可修复的问题")
-    diag_parser.add_argument("--dry-run", action="store_true", default=True,
-                             help="仅预演修复操作（默认）")
-    diag_parser.add_argument("--no-dry-run", action="store_false", dest="dry_run",
-                             help="实际执行修复操作")
+    diag_parser.add_argument(
+        "--dry-run", action="store_true", default=True, help="仅预演修复操作（默认）"
+    )
+    diag_parser.add_argument(
+        "--no-dry-run", action="store_false", dest="dry_run", help="实际执行修复操作"
+    )
 
     # clean 命令（添加 parents 以支持全局选项在子命令之后使用）
     clean_parser = subparsers.add_parser("clean", help="清理缓存", parents=[global_parser])
@@ -91,16 +78,18 @@ def create_parser() -> argparse.ArgumentParser:
         "--strategy",
         choices=["lru", "oldest", "largest", "version", "integrity"],
         default="lru",
-        help="清理策略（默认: lru）"
+        help="清理策略（默认: lru）",
     )
     clean_parser.add_argument("--size-mb", type=float, help="目标释放空间（MB）")
     clean_parser.add_argument("--days", type=float, help="保留最近 N 天的数据")
     clean_parser.add_argument("--run", type=str, help="仅清理指定运行")
     clean_parser.add_argument("--data-type", type=str, help="仅清理指定数据类型")
-    clean_parser.add_argument("--dry-run", action="store_true", default=True,
-                              help="仅预演清理操作（默认）")
-    clean_parser.add_argument("--no-dry-run", action="store_false", dest="dry_run",
-                              help="实际执行清理操作")
+    clean_parser.add_argument(
+        "--dry-run", action="store_true", default=True, help="仅预演清理操作（默认）"
+    )
+    clean_parser.add_argument(
+        "--no-dry-run", action="store_false", dest="dry_run", help="实际执行清理操作"
+    )
     clean_parser.add_argument("--max-entries", type=int, help="最多删除的条目数")
 
     # list 命令（添加 parents 以支持全局选项在子命令之后使用）
@@ -117,6 +106,7 @@ def create_parser() -> argparse.ArgumentParser:
 def get_context(storage_dir: str):
     """获取 Context 实例"""
     from waveform_analysis.core.context import Context
+
     return Context(storage_dir=storage_dir)
 
 
@@ -155,7 +145,7 @@ def cmd_stats(args):
     collector.print_summary(stats, detailed=args.detailed)
 
     if args.export:
-        fmt = 'csv' if args.export.endswith('.csv') else 'json'
+        fmt = "csv" if args.export.endswith(".csv") else "json"
         collector.export_stats(stats, args.export, format=fmt)
 
 
@@ -181,8 +171,10 @@ def cmd_diagnose(args):
             print("[执行模式] 正在修复问题:")
 
         result = diag.auto_fix(issues, dry_run=args.dry_run)
-        print(f"\n总计: {result['total']}, 可修复: {result['fixable']}, "
-              f"{'将修复' if args.dry_run else '已修复'}: {result['fixed']}")
+        print(
+            f"\n总计: {result['total']}, 可修复: {result['fixable']}, "
+            f"{'将修复' if args.dry_run else '已修复'}: {result['fixed']}"
+        )
 
         if args.dry_run:
             print("\n要实际执行修复，请添加 --no-dry-run 选项")
@@ -202,11 +194,11 @@ def cmd_clean(args):
 
     # 映射策略名称
     strategy_map = {
-        'lru': CleanupStrategy.LRU,
-        'oldest': CleanupStrategy.OLDEST,
-        'largest': CleanupStrategy.LARGEST,
-        'version': CleanupStrategy.VERSION_MISMATCH,
-        'integrity': CleanupStrategy.FAILED_INTEGRITY,
+        "lru": CleanupStrategy.LRU,
+        "oldest": CleanupStrategy.OLDEST,
+        "largest": CleanupStrategy.LARGEST,
+        "version": CleanupStrategy.VERSION_MISMATCH,
+        "integrity": CleanupStrategy.FAILED_INTEGRITY,
     }
     strategy = strategy_map[args.strategy]
 
@@ -234,8 +226,7 @@ def cmd_clean(args):
     else:
         print("\n正在执行清理...")
         result = cleaner.execute(dry_run=False)
-        print(f"\n清理完成: 删除 {result['deleted']} 条目, "
-              f"释放 {result['freed_human']}")
+        print(f"\n清理完成: 删除 {result['deleted']} 条目, " f"释放 {result['freed_human']}")
 
 
 def cmd_list(args):
@@ -248,10 +239,7 @@ def cmd_list(args):
     analyzer.scan(verbose=False)
 
     entries = analyzer.get_entries(
-        run_id=args.run,
-        data_name=args.data_type,
-        min_size=args.min_size,
-        max_size=args.max_size
+        run_id=args.run, data_name=args.data_type, min_size=args.min_size, max_size=args.max_size
     )
 
     if not entries:
@@ -266,10 +254,12 @@ def cmd_list(args):
     print(f"{'Run ID':<20} {'Data Type':<20} {'Size':<12} {'Age':<10} {'Compressed'}")
     print("-" * 80)
 
-    for entry in entries[:args.limit]:
+    for entry in entries[: args.limit]:
         compressed = "Yes" if entry.compressed else "No"
         age = f"{entry.age_days:.1f}d"
-        print(f"{entry.run_id:<20} {entry.data_name:<20} {entry.size_human:<12} {age:<10} {compressed}")
+        print(
+            f"{entry.run_id:<20} {entry.data_name:<20} {entry.size_human:<12} {age:<10} {compressed}"
+        )
 
     print("-" * 80)
 
@@ -318,6 +308,7 @@ def main():
         print(f"\n错误: {e}", file=sys.stderr)
         if args.verbose:
             import traceback
+
             traceback.print_exc()
         return 1
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Plugins Core 子模块 - 插件系统核心基础设施
 
@@ -35,16 +34,6 @@ from .base import (
     takes_config,
 )
 
-# 插件契约规范
-from .spec import (
-    Capabilities,
-    ConfigField,
-    FieldSpec,
-    InputRequirement,
-    OutputSchema,
-    PluginSpec,
-)
-
 # 插件热重载
 from .hot_reload import (
     PluginHotReloader,
@@ -56,6 +45,16 @@ from .loader import (
     PluginLoader,
     load_plugins_from_directory,
     load_plugins_from_entry_points,
+)
+
+# 插件契约规范
+from .spec import (
+    Capabilities,
+    ConfigField,
+    FieldSpec,
+    InputRequirement,
+    OutputSchema,
+    PluginSpec,
 )
 
 # 插件统计

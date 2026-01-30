@@ -3,8 +3,6 @@ Storage 模块测试
 """
 
 import json
-import os
-import time
 
 import numpy as np
 import pytest
@@ -35,7 +33,7 @@ class TestMemmapStorage:
         storage_path = tmp_path / "new_storage"
         assert not storage_path.exists()
 
-        storage = MemmapStorage(str(storage_path))
+        MemmapStorage(str(storage_path))
         assert storage_path.exists()
 
     def test_get_paths(self, storage, test_run_id):
@@ -56,7 +54,7 @@ class TestMemmapStorage:
         meta_path = tmp_path / test_run_id / "_cache" / "test_key.json"
         assert meta_path.exists()
 
-        with open(meta_path, "r") as f:
+        with open(meta_path) as f:
             loaded = json.load(f)
 
         assert loaded["count"] == 100
@@ -218,7 +216,7 @@ class TestMemmapStorage:
         storage.save_stream("corrupt_key", iter([data]), sample_dtype, run_id=test_run_id)
 
         meta_path = tmp_path / test_run_id / "_cache" / "corrupt_key.json"
-        with open(meta_path, "r") as f:
+        with open(meta_path) as f:
             meta = json.load(f)
 
         # 篡改元数据使 count 和 shape 不匹配

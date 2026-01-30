@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 血缘图可视化模块 - LabVIEW 风格插件依赖图。
 
@@ -140,6 +139,7 @@ plot_lineage_labview(
    - 节点数量 < 20：两种模式性能相当
    - 节点数量 > 20：Plotly 模式交互性更好
 """
+
 import textwrap
 from typing import Any, Dict, List, Optional
 
@@ -171,35 +171,35 @@ def _classify_node_type(node: NodeModel) -> str:
     node_key_lower = node.key.lower()
 
     # 1. 原始数据节点（文件读取、数据加载）
-    if any(keyword in plugin_class_lower for keyword in ['rawfiles', 'loader', 'reader']):
-        return 'raw_data'
+    if any(keyword in plugin_class_lower for keyword in ["rawfiles", "loader", "reader"]):
+        return "raw_data"
 
     # 2. DataFrame 节点
-    if 'dataframe' in plugin_class_lower or 'dataframe' in node_key_lower or node.key == 'df':
-        return 'dataframe'
+    if "dataframe" in plugin_class_lower or "dataframe" in node_key_lower or node.key == "df":
+        return "dataframe"
     for port in node.out_ports:
-        if 'dataframe' in port.dtype.lower():
-            return 'dataframe'
+        if "dataframe" in port.dtype.lower():
+            return "dataframe"
 
     # 3. 聚合/分组节点
-    if any(keyword in plugin_class_lower for keyword in ['group', 'pair', 'aggregate', 'merge']):
-        return 'grouped'
-    if any(keyword in node_key_lower for keyword in ['grouped', 'paired', 'merged']):
-        return 'grouped'
+    if any(keyword in plugin_class_lower for keyword in ["group", "pair", "aggregate", "merge"]):
+        return "grouped"
+    if any(keyword in node_key_lower for keyword in ["grouped", "paired", "merged"]):
+        return "grouped"
 
     # 4. 副作用节点（导出、保存）
-    if any(keyword in plugin_class_lower for keyword in ['export', 'save', 'write']):
-        return 'side_effect'
+    if any(keyword in plugin_class_lower for keyword in ["export", "save", "write"]):
+        return "side_effect"
 
     # 5. 结构化数组节点（有多个字段的 dtype）
     for port in node.out_ports:
         dtype_str = port.dtype.lower()
         # 检查是否包含多个字段
-        if ('[(' in dtype_str or ', ' in dtype_str) and 'list' not in dtype_str:
-            return 'structured_array'
+        if ("[(" in dtype_str or ", " in dtype_str) and "list" not in dtype_str:
+            return "structured_array"
 
     # 6. 默认为中间处理节点
-    return 'intermediate'
+    return "intermediate"
 
 
 def _get_node_colors(node_type: str) -> tuple:
@@ -209,14 +209,14 @@ def _get_node_colors(node_type: str) -> tuple:
     返回: (background_color, border_color, header_color)
     """
     color_scheme = {
-        'raw_data': ('#e3f2fd', '#1976d2', '#bbdefb'),        # 蓝色系 - 数据源
-        'structured_array': ('#e8f5e9', '#388e3c', '#c8e6c9'), # 绿色系 - 结构化数据
-        'dataframe': ('#fff3e0', '#f57c00', '#ffe0b2'),       # 橙色系 - 表格数据
-        'grouped': ('#f3e5f5', '#7b1fa2', '#e1bee7'),         # 紫色系 - 聚合数据
-        'side_effect': ('#fce4ec', '#c2185b', '#f8bbd0'),     # 粉红色系 - 输出操作
-        'intermediate': ('#fafafa', '#424242', '#e0e0e0'),    # 灰色系 - 中间处理
+        "raw_data": ("#e3f2fd", "#1976d2", "#bbdefb"),  # 蓝色系 - 数据源
+        "structured_array": ("#e8f5e9", "#388e3c", "#c8e6c9"),  # 绿色系 - 结构化数据
+        "dataframe": ("#fff3e0", "#f57c00", "#ffe0b2"),  # 橙色系 - 表格数据
+        "grouped": ("#f3e5f5", "#7b1fa2", "#e1bee7"),  # 紫色系 - 聚合数据
+        "side_effect": ("#fce4ec", "#c2185b", "#f8bbd0"),  # 粉红色系 - 输出操作
+        "intermediate": ("#fafafa", "#424242", "#e0e0e0"),  # 灰色系 - 中间处理
     }
-    return color_scheme.get(node_type, color_scheme['intermediate'])
+    return color_scheme.get(node_type, color_scheme["intermediate"])
 
 
 def _build_node_boxes(
@@ -251,19 +251,11 @@ def _segment_intersects_box(p1: tuple, p2: tuple, box: dict) -> bool:
     if abs(y1 - y2) < 1e-9:
         y = y1
         x_min, x_max = sorted([x1, x2])
-        return (
-            box["y_min"] <= y <= box["y_max"]
-            and x_min <= box["x_max"]
-            and x_max >= box["x_min"]
-        )
+        return box["y_min"] <= y <= box["y_max"] and x_min <= box["x_max"] and x_max >= box["x_min"]
     if abs(x1 - x2) < 1e-9:
         x = x1
         y_min, y_max = sorted([y1, y2])
-        return (
-            box["x_min"] <= x <= box["x_max"]
-            and y_min <= box["y_max"]
-            and y_max >= box["y_min"]
-        )
+        return box["x_min"] <= x <= box["x_max"] and y_min <= box["y_max"] and y_max >= box["y_min"]
     return False
 
 
@@ -281,7 +273,7 @@ def _path_intersects_boxes(path: List[tuple], boxes: List[dict], skip_ids: set) 
 
 def _layer_positions(nodes_by_depth: Dict[int, List[str]], y_gap: float) -> Dict[str, float]:
     node_y = {}
-    for depth, layer in nodes_by_depth.items():
+    for _depth, layer in nodes_by_depth.items():
         for idx, node_id in enumerate(layer):
             y = (idx - (len(layer) - 1) / 2.0) * y_gap
             node_y[node_id] = y
@@ -668,17 +660,17 @@ def plot_lineage_labview(
     critical_path_set = set()
     bottleneck_map = {}  # {plugin_name: severity}
     parallel_group_map = {}  # {plugin_name: group_index}
-    parallel_colors = ['#3498db', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c']
+    parallel_colors = ["#3498db", "#2ecc71", "#9b59b6", "#e67e22", "#1abc9c"]
 
     if analysis_result:
-        if highlight_critical_path and hasattr(analysis_result, 'critical_path'):
+        if highlight_critical_path and hasattr(analysis_result, "critical_path"):
             critical_path_set = set(analysis_result.critical_path)
 
-        if highlight_bottlenecks and hasattr(analysis_result, 'bottlenecks'):
+        if highlight_bottlenecks and hasattr(analysis_result, "bottlenecks"):
             for bottleneck in analysis_result.bottlenecks:
-                bottleneck_map[bottleneck['plugin_name']] = bottleneck['severity']
+                bottleneck_map[bottleneck["plugin_name"]] = bottleneck["severity"]
 
-        if highlight_parallel_groups and hasattr(analysis_result, 'parallel_groups'):
+        if highlight_parallel_groups and hasattr(analysis_result, "parallel_groups"):
             for i, group in enumerate(analysis_result.parallel_groups):
                 for plugin_name in group:
                     parallel_group_map[plugin_name] = i
@@ -740,7 +732,12 @@ def plot_lineage_labview(
             c = s.type_colors.get(port.dtype, s.type_colors["Unknown"])
             ax.add_patch(
                 Rectangle(
-                    (x - s.port_size / 2, y - s.port_size / 2), s.port_size, s.port_size, fc=c, ec=s.node_edge, zorder=6
+                    (x - s.port_size / 2, y - s.port_size / 2),
+                    s.port_size,
+                    s.port_size,
+                    fc=c,
+                    ec=s.node_edge,
+                    zorder=6,
                 )
             )
 
@@ -780,22 +777,22 @@ def plot_lineage_labview(
 
         # 高亮关键路径（优先级更高）
         if node_id in critical_path_set:
-            node_edge_color = '#e74c3c'  # 红色边框
+            node_edge_color = "#e74c3c"  # 红色边框
             node_edge_width = 4
 
         # 高亮瓶颈节点（优先级更高）
         if node_id in bottleneck_map:
             severity = bottleneck_map[node_id]
-            if severity == 'high':
-                node_bg = '#ffe5e5'  # 浅红色背景
-                node_edge_color = '#e74c3c'  # 红色边框
+            if severity == "high":
+                node_bg = "#ffe5e5"  # 浅红色背景
+                node_edge_color = "#e74c3c"  # 红色边框
                 node_edge_width = 3
-            elif severity == 'medium':
-                node_bg = '#fff4e5'  # 浅橙色背景
-                node_edge_color = '#f39c12'  # 橙色边框
+            elif severity == "medium":
+                node_bg = "#fff4e5"  # 浅橙色背景
+                node_edge_color = "#f39c12"  # 橙色边框
                 node_edge_width = 3
             else:  # low
-                node_bg = '#fffbe5'  # 浅黄色背景
+                node_bg = "#fffbe5"  # 浅黄色背景
 
         # 主体
         ax.add_patch(
@@ -886,7 +883,7 @@ def plot_lineage_labview(
                     (badge_x, badge_y),
                     0.12,
                     fc=badge_color,
-                    ec='white',
+                    ec="white",
                     lw=2,
                     zorder=10,
                 )
@@ -896,10 +893,10 @@ def plot_lineage_labview(
                 badge_y,
                 f"P{group_idx + 1}",
                 fontsize=8,
-                color='white',
-                ha='center',
-                va='center',
-                fontweight='bold',
+                color="white",
+                ha="center",
+                va="center",
+                fontweight="bold",
                 zorder=11,
             )
 
@@ -914,7 +911,7 @@ def plot_lineage_labview(
                 ha="center",
                 va="bottom",
                 zorder=5,
-                bbox=dict(boxstyle="round,pad=0.1", fc="white", ec="#dcdde1", alpha=0.5),
+                bbox={"boxstyle": "round,pad=0.1", "fc": "white", "ec": "#dcdde1", "alpha": 0.5},
             )
 
     # 绘制连线（在节点之后绘制，zorder更高，确保在节点之上）
@@ -933,7 +930,7 @@ def plot_lineage_labview(
                     fontsize=s.font_size_wire,
                     color=wire_style["color"],
                     ha="center",
-                    bbox=dict(fc="white", ec="none", alpha=0.7, boxstyle="round,pad=0.1"),
+                    bbox={"fc": "white", "ec": "none", "alpha": 0.7, "boxstyle": "round,pad=0.1"},
                     zorder=12,
                 )
 
@@ -967,8 +964,8 @@ def _add_interactive_features(fig, ax, model: LineageGraphModel, pos: dict, styl
         xy=(0, 0),
         xytext=(20, 20),
         textcoords="offset points",
-        bbox=dict(boxstyle="round,pad=0.8", fc="yellow", alpha=0.9, ec="black", lw=2),
-        arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0", lw=2),
+        bbox={"boxstyle": "round,pad=0.8", "fc": "yellow", "alpha": 0.9, "ec": "black", "lw": 2},
+        arrowprops={"arrowstyle": "->", "connectionstyle": "arc3,rad=0", "lw": 2},
         fontsize=10,
         visible=False,
         zorder=100,
@@ -1177,9 +1174,7 @@ def _add_interactive_features(fig, ax, model: LineageGraphModel, pos: dict, styl
                                     target_in = True
 
                     if source_in and target_in:
-                        highlighted_items["edges"].add(
-                            (edge.source_port_id, edge.target_port_id)
-                        )
+                        highlighted_items["edges"].add((edge.source_port_id, edge.target_port_id))
 
             # 重新绘制图形（需要重新调用 plot_lineage_labview 或更新现有对象）
             # 这里简单地打印信息，完整实现需要更新 patches 的样式
@@ -1237,10 +1232,11 @@ def plot_lineage_plotly(
     # Plotly 始终是交互式的，如果用户显式设置 interactive=False，发出警告
     if not interactive:
         import warnings
+
         warnings.warn(
             "Plotly visualization is always interactive. The 'interactive=False' parameter is ignored.",
             UserWarning,
-            stacklevel=2
+            stacklevel=2,
         )
 
     s = style or LineageStyle()
@@ -1361,16 +1357,18 @@ def plot_lineage_plotly(
 
             # 绘制端口矩形
             half_size = s.port_size / 2
-            shapes.append({
-                'type': 'rect',
-                'x0': x - half_size,
-                'y0': y - half_size,
-                'x1': x + half_size,
-                'y1': y + half_size,
-                'fillcolor': color,
-                'line': {'color': s.node_edge, 'width': 1},
-                'layer': 'above',
-            })
+            shapes.append(
+                {
+                    "type": "rect",
+                    "x0": x - half_size,
+                    "y0": y - half_size,
+                    "x1": x + half_size,
+                    "y1": y + half_size,
+                    "fillcolor": color,
+                    "line": {"color": s.node_edge, "width": 1},
+                    "layer": "above",
+                }
+            )
 
             # 添加一个不可见的点用于 hover 效果
             traces.append(
@@ -1388,25 +1386,29 @@ def plot_lineage_plotly(
 
             # 端口标签
             if port.kind == "in":
-                node_annotations.append({
-                    'x': x + 0.12,
-                    'y': y,
-                    'text': port.name,
-                    'showarrow': False,
-                    'font': {'size': s.font_size_port, 'color': s.text_color},
-                    'xanchor': 'left',
-                    'yanchor': 'middle',
-                })
+                node_annotations.append(
+                    {
+                        "x": x + 0.12,
+                        "y": y,
+                        "text": port.name,
+                        "showarrow": False,
+                        "font": {"size": s.font_size_port, "color": s.text_color},
+                        "xanchor": "left",
+                        "yanchor": "middle",
+                    }
+                )
             else:
-                node_annotations.append({
-                    'x': x - 0.12,
-                    'y': y,
-                    'text': port.name,
-                    'showarrow': False,
-                    'font': {'size': s.font_size_port, 'color': s.text_color},
-                    'xanchor': 'right',
-                    'yanchor': 'middle',
-                })
+                node_annotations.append(
+                    {
+                        "x": x - 0.12,
+                        "y": y,
+                        "text": port.name,
+                        "showarrow": False,
+                        "font": {"size": s.font_size_port, "color": s.text_color},
+                        "xanchor": "right",
+                        "yanchor": "middle",
+                    }
+                )
         else:
             # VI 节点
             node = model.nodes.get(node_id)
@@ -1419,12 +1421,12 @@ def plot_lineage_plotly(
 
             # 构建悬停信息（始终完整，添加类型信息）
             type_names = {
-                'raw_data': '原始数据',
-                'structured_array': '结构化数组',
-                'dataframe': 'DataFrame',
-                'grouped': '聚合数据',
-                'side_effect': '副作用',
-                'intermediate': '中间处理',
+                "raw_data": "原始数据",
+                "structured_array": "结构化数组",
+                "dataframe": "DataFrame",
+                "grouped": "聚合数据",
+                "side_effect": "副作用",
+                "intermediate": "中间处理",
             }
             hover_lines = [
                 f"<b>{node.title}</b>",
@@ -1449,28 +1451,32 @@ def plot_lineage_plotly(
             # 绘制节点主体矩形
             half_w = s.node_width / 2
             half_h = s.node_height / 2
-            shapes.append({
-                'type': 'rect',
-                'x0': x - half_w,
-                'y0': y - half_h,
-                'x1': x + half_w,
-                'y1': y + half_h,
-                'fillcolor': node_bg,
-                'line': {'color': node_edge_color, 'width': 2},
-                'layer': 'below',
-            })
+            shapes.append(
+                {
+                    "type": "rect",
+                    "x0": x - half_w,
+                    "y0": y - half_h,
+                    "x1": x + half_w,
+                    "y1": y + half_h,
+                    "fillcolor": node_bg,
+                    "line": {"color": node_edge_color, "width": 2},
+                    "layer": "below",
+                }
+            )
 
             # 绘制标题栏
-            shapes.append({
-                'type': 'rect',
-                'x0': x - half_w,
-                'y0': y + half_h - s.header_height,
-                'x1': x + half_w,
-                'y1': y + half_h,
-                'fillcolor': header_bg,
-                'line': {'color': node_edge_color, 'width': 1},
-                'layer': 'below',
-            })
+            shapes.append(
+                {
+                    "type": "rect",
+                    "x0": x - half_w,
+                    "y0": y + half_h - s.header_height,
+                    "x1": x + half_w,
+                    "y1": y + half_h,
+                    "fillcolor": header_bg,
+                    "line": {"color": node_edge_color, "width": 1},
+                    "layer": "below",
+                }
+            )
 
             # 添加一个不可见的点用于 hover 效果
             traces.append(
@@ -1487,15 +1493,17 @@ def plot_lineage_plotly(
             )
 
             # 标题文本
-            node_annotations.append({
-                'x': x,
-                'y': y + half_h - s.header_height / 2,
-                'text': f"<b>{node.key}</b>",
-                'showarrow': False,
-                'font': {'size': s.font_size_title, 'color': s.text_color},
-                'xanchor': 'center',
-                'yanchor': 'middle',
-            })
+            node_annotations.append(
+                {
+                    "x": x,
+                    "y": y + half_h - s.header_height / 2,
+                    "text": f"<b>{node.key}</b>",
+                    "showarrow": False,
+                    "font": {"size": s.font_size_title, "color": s.text_color},
+                    "xanchor": "center",
+                    "yanchor": "middle",
+                }
+            )
 
             # 根据 verbose 等级添加额外信息
             # 计算需要的信息行数，动态调整节点高度
@@ -1505,15 +1513,17 @@ def plot_lineage_plotly(
 
             current_y = content_top - 0.05
             if s.verbose >= 1:
-                node_annotations.append({
-                    'x': x,
-                    'y': current_y,
-                    'text': f"class: {node.plugin_class}",
-                    'showarrow': False,
-                    'font': {'size': s.font_size_key - 1, 'color': '#7f8c8d'},
-                    'xanchor': 'center',
-                    'yanchor': 'middle',
-                })
+                node_annotations.append(
+                    {
+                        "x": x,
+                        "y": current_y,
+                        "text": f"class: {node.plugin_class}",
+                        "showarrow": False,
+                        "font": {"size": s.font_size_key - 1, "color": "#7f8c8d"},
+                        "xanchor": "center",
+                        "yanchor": "middle",
+                    }
+                )
                 current_y -= line_height
 
             cfg = node.config
@@ -1528,29 +1538,33 @@ def plot_lineage_plotly(
                 desc_lines = _wrap_text_lines(node.description, max_width_chars, max_desc_lines)
                 if desc_lines:
                     wrapped_desc_html = "<br>".join(desc_lines)
-                    node_annotations.append({
-                        'x': x,
-                        'y': current_y,
-                        'text': wrapped_desc_html,
-                        'showarrow': False,
-                        'font': {'size': s.font_size_key - 1, 'color': '#34495e'},
-                        'xanchor': 'center',
-                        'yanchor': 'top',
-                    })
+                    node_annotations.append(
+                        {
+                            "x": x,
+                            "y": current_y,
+                            "text": wrapped_desc_html,
+                            "showarrow": False,
+                            "font": {"size": s.font_size_key - 1, "color": "#34495e"},
+                            "xanchor": "center",
+                            "yanchor": "top",
+                        }
+                    )
                     current_y -= line_height * len(desc_lines)
 
             if cfg and s.verbose >= 2 and cfg_lines > 0:
                 cfg_text = "<br>".join([f"{k}: {v}" for k, v in cfg_items[:cfg_lines]])
                 cfg_y = content_bottom
-                node_annotations.append({
-                    'x': x,
-                    'y': cfg_y,
-                    'text': cfg_text,
-                    'showarrow': False,
-                    'font': {'size': s.font_size_port - 1, 'color': s.text_color},
-                    'xanchor': 'center',
-                    'yanchor': 'bottom',
-                })
+                node_annotations.append(
+                    {
+                        "x": x,
+                        "y": cfg_y,
+                        "text": cfg_text,
+                        "showarrow": False,
+                        "font": {"size": s.font_size_port - 1, "color": s.text_color},
+                        "xanchor": "center",
+                        "yanchor": "bottom",
+                    }
+                )
 
     # 4. 创建图形
     fig = go.Figure(data=traces)

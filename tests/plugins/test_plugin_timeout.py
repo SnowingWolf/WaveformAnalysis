@@ -3,6 +3,7 @@
 """
 
 import time
+
 import pytest
 
 from waveform_analysis.core.execution.timeout import (
@@ -104,8 +105,8 @@ class TestTimeoutManager:
                 pass
 
         stats = manager.get_timeout_stats()
-        assert 'slow_func' in stats
-        assert stats['slow_func'] == 3
+        assert "slow_func" in stats
+        assert stats["slow_func"] == 3
 
     def test_timeout_with_exception(self):
         """测试函数内部抛出异常"""
@@ -125,9 +126,7 @@ class TestTimeoutManager:
             time.sleep(0.1)
             return a + b + c
 
-        result = manager.run_with_timeout(
-            func_with_args, 5.0, 1, 2, c=4
-        )
+        result = manager.run_with_timeout(func_with_args, 5.0, 1, 2, c=4)
         assert result == 7
 
 
@@ -136,6 +135,7 @@ class TestTimeoutDecorator:
 
     def test_decorator_no_timeout(self):
         """测试无超时的装饰器"""
+
         @with_timeout(timeout=5.0)
         def quick_func(x):
             return x * 2
@@ -145,6 +145,7 @@ class TestTimeoutDecorator:
 
     def test_decorator_with_timeout(self):
         """测试装饰器超时"""
+
         @with_timeout(timeout=1.0)
         def slow_func():
             time.sleep(3)
@@ -155,6 +156,7 @@ class TestTimeoutDecorator:
 
     def test_decorator_preserves_function_name(self):
         """测试装饰器保留函数名"""
+
         @with_timeout(timeout=5.0)
         def my_function():
             """My docstring"""
@@ -201,9 +203,10 @@ class TestCrossPlatform:
     def test_platform_detection(self):
         """测试平台检测"""
         import platform
+
         manager = TimeoutManager()
 
-        if platform.system() in ['Linux', 'Darwin']:
+        if platform.system() in ["Linux", "Darwin"]:
             assert manager.is_unix is True
         else:
             assert manager.is_unix is False
@@ -219,5 +222,5 @@ class TestCrossPlatform:
             manager.run_with_timeout(slow_func, timeout=0.5)
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v', '-s'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "-s"])

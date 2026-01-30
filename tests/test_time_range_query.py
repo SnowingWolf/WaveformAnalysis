@@ -6,18 +6,18 @@ import numpy as np
 import pytest
 
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.core.base import Plugin
 from waveform_analysis.core.data.query import (
     TimeIndex,
     TimeRangeQueryEngine,
 )
+from waveform_analysis.core.plugins.core.base import Plugin
 
 
 class DummyDataPlugin(Plugin):
     """生成测试数据的插件"""
 
     provides = "test_data"
-    depends_on = tuple()
+    depends_on = ()
     dtype = [("time", "i8"), ("dt", "i8"), ("length", "i8"), ("value", "f4")]
     version = "0.1.0"
 
@@ -43,9 +43,7 @@ def test_time_index_creation():
     data["value"] = np.random.randn(n)
 
     # 创建索引
-    index = TimeIndex(
-        times=data["time"].copy(), indices=np.arange(n, dtype=np.int64)
-    )
+    index = TimeIndex(times=data["time"].copy(), indices=np.arange(n, dtype=np.int64))
 
     assert index.n_records == n
     assert index.min_time == 0
@@ -60,9 +58,7 @@ def test_time_index_query_range():
     data["time"] = times
     data["value"] = np.arange(n, dtype=np.float32)
 
-    index = TimeIndex(
-        times=data["time"].copy(), indices=np.arange(n, dtype=np.int64)
-    )
+    index = TimeIndex(times=data["time"].copy(), indices=np.arange(n, dtype=np.int64))
 
     # 查询范围
     indices = index.query_range(100, 300)
@@ -85,9 +81,7 @@ def test_time_index_query_point():
     data = np.zeros(n, dtype=[("time", "i8"), ("value", "f4")])
     data["time"] = times
 
-    index = TimeIndex(
-        times=data["time"].copy(), indices=np.arange(n, dtype=np.int64)
-    )
+    index = TimeIndex(times=data["time"].copy(), indices=np.arange(n, dtype=np.int64))
 
     # 查询存在的时间点
     idx = index.query_point(50)
@@ -140,9 +134,7 @@ def test_context_time_range_query():
     assert len(data) == 1000
 
     # 时间范围查询
-    filtered_data = ctx.get_data_time_range(
-        "run_001", "test_data", start_time=1000, end_time=3000
-    )
+    filtered_data = ctx.get_data_time_range("run_001", "test_data", start_time=1000, end_time=3000)
     assert len(filtered_data) == 20  # 时间从1000到2900,步长100
 
     # 验证数据正确性
@@ -150,9 +142,7 @@ def test_context_time_range_query():
     assert filtered_data["time"][-1] == 2900
 
     # 查询所有数据之后的范围
-    filtered_data = ctx.get_data_time_range(
-        "run_001", "test_data", start_time=50000
-    )
+    filtered_data = ctx.get_data_time_range("run_001", "test_data", start_time=50000)
     assert len(filtered_data) > 0
 
     # 清理
@@ -172,9 +162,7 @@ def test_context_build_time_index():
     assert stats["total_indices"] == 1
 
     # 查询应该使用索引
-    filtered_data = ctx.get_data_time_range(
-        "run_001", "test_data", start_time=1000, end_time=3000
-    )
+    filtered_data = ctx.get_data_time_range("run_001", "test_data", start_time=1000, end_time=3000)
     assert len(filtered_data) == 20
 
     # 清理

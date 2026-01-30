@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 运行时缓存管理模块 - 提供统一的缓存检查和加载接口。
 
@@ -49,7 +48,7 @@ class RuntimeCacheManager:
         ...     print("缓存未命中，需要计算")
     """
 
-    def __init__(self, context: 'Context'):
+    def __init__(self, context: "Context"):
         """初始化 RuntimeCacheManager
 
         Args:
@@ -83,12 +82,7 @@ class RuntimeCacheManager:
         with self.ctx.profiler.timeit("context.load_cache"):
             return self.ctx._load_from_disk_with_check(run_id, name, key)
 
-    def check_cache(
-        self,
-        run_id: str,
-        name: str,
-        key: str
-    ) -> Tuple[Optional[Any], bool]:
+    def check_cache(self, run_id: str, name: str, key: str) -> Tuple[Optional[Any], bool]:
         """统一的缓存检查接口
 
         按顺序检查内存缓存和磁盘缓存，并记录统计信息。

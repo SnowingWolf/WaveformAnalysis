@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 WaveformWidthPlugin 使用示例
 
@@ -12,8 +11,8 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     FilteredWaveformsPlugin,
     SignalPeaksPlugin,
     StWaveformsPlugin,
-    WaveformWidthPlugin,
     WaveformsPlugin,
+    WaveformWidthPlugin,
 )
 
 
@@ -63,7 +62,7 @@ def example_basic_usage():
         run_id = "50V_OV_circulation_20thr"
         widths = ctx.get_data(run_id, "waveform_width")
 
-        print(f"\n成功计算波形宽度！")
+        print("\n成功计算波形宽度！")
         print(f"通道数: {len(widths)}")
 
         for ch_idx, ch_widths in enumerate(widths):
@@ -73,8 +72,12 @@ def example_basic_usage():
                 print(f"  平均上升时间: {np.mean(ch_widths['rise_time']):.2f} ns")
                 print(f"  平均下降时间: {np.mean(ch_widths['fall_time']):.2f} ns")
                 print(f"  平均总宽度: {np.mean(ch_widths['total_width']):.2f} ns")
-                print(f"  上升时间范围: [{np.min(ch_widths['rise_time']):.2f}, {np.max(ch_widths['rise_time']):.2f}] ns")
-                print(f"  下降时间范围: [{np.min(ch_widths['fall_time']):.2f}, {np.max(ch_widths['fall_time']):.2f}] ns")
+                print(
+                    f"  上升时间范围: [{np.min(ch_widths['rise_time']):.2f}, {np.max(ch_widths['rise_time']):.2f}] ns"
+                )
+                print(
+                    f"  下降时间范围: [{np.min(ch_widths['fall_time']):.2f}, {np.max(ch_widths['fall_time']):.2f}] ns"
+                )
 
     except FileNotFoundError:
         print("\n注意: 未找到数据文件，跳过实际数据处理")
@@ -124,7 +127,7 @@ def example_with_filtered_waveforms():
     try:
         run_id = "50V_OV_circulation_20thr"
         widths = ctx.get_data(run_id, "waveform_width")
-        print(f"\n成功使用滤波波形计算宽度！")
+        print("\n成功使用滤波波形计算宽度！")
         print(f"通道 0 峰值数: {len(widths[0])}")
 
     except FileNotFoundError:
@@ -199,7 +202,7 @@ def example_data_analysis():
 
             # 上升时间统计
             rise_times = ch_widths["rise_time"]
-            print(f"\n  上升时间 (10%-90%):")
+            print("\n  上升时间 (10%-90%):")
             print(f"    平均值: {np.mean(rise_times):.2f} ns")
             print(f"    中位数: {np.median(rise_times):.2f} ns")
             print(f"    标准差: {np.std(rise_times):.2f} ns")
@@ -207,7 +210,7 @@ def example_data_analysis():
 
             # 下降时间统计
             fall_times = ch_widths["fall_time"]
-            print(f"\n  下降时间 (90%-10%):")
+            print("\n  下降时间 (90%-10%):")
             print(f"    平均值: {np.mean(fall_times):.2f} ns")
             print(f"    中位数: {np.median(fall_times):.2f} ns")
             print(f"    标准差: {np.std(fall_times):.2f} ns")
@@ -215,14 +218,14 @@ def example_data_analysis():
 
             # 总宽度统计
             total_widths = ch_widths["total_width"]
-            print(f"\n  总宽度:")
+            print("\n  总宽度:")
             print(f"    平均值: {np.mean(total_widths):.2f} ns")
             print(f"    中位数: {np.median(total_widths):.2f} ns")
             print(f"    标准差: {np.std(total_widths):.2f} ns")
 
             # 峰值高度统计
             peak_heights = ch_widths["peak_height"]
-            print(f"\n  峰值高度:")
+            print("\n  峰值高度:")
             print(f"    平均值: {np.mean(peak_heights):.2f}")
             print(f"    范围: [{np.min(peak_heights):.2f}, {np.max(peak_heights):.2f}]")
 

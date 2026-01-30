@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Mixins 模块 - 框架基础功能混合类。
 
@@ -83,7 +82,7 @@ class CacheMixin:
         if not cache:
             return False
 
-        cache_data = {k: v for k, v in cache.items()}
+        cache_data = dict(cache.items())
 
         cfg = self._cache_config.get(step_name, {})
         watch_attrs = cfg.get("watch_attrs") or []
@@ -312,7 +311,9 @@ class PluginMixin:
                         import logging
 
                         logger = logging.getLogger(__name__)
-                        logger.warning(f"Version validation failed for {plugin.provides} -> {dep_name}: {e}")
+                        logger.warning(
+                            f"Version validation failed for {plugin.provides} -> {dep_name}: {e}"
+                        )
 
     def _validate_plugin_spec(self, plugin: Any, require_spec: bool = False) -> None:
         """Validate plugin spec if available.
@@ -331,9 +332,7 @@ class PluginMixin:
                 spec = plugin.spec()
             except Exception as e:
                 if require_spec:
-                    raise ValueError(
-                        f"Plugin '{plugin.provides}' spec() method failed: {e}"
-                    ) from e
+                    raise ValueError(f"Plugin '{plugin.provides}' spec() method failed: {e}") from e
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Plugin '{plugin.provides}' spec() failed: {e}")
                 return

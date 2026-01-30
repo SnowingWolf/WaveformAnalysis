@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 测试 DynamicLoadBalancer 集成到 ExecutorManager 和 StreamingPlugin
 """
 
 import time
+
 import numpy as np
 
 
@@ -15,21 +15,17 @@ def test_executor_manager_integration():
     print("=" * 60)
 
     from waveform_analysis.core.execution import (
-        enable_global_load_balancing,
         disable_global_load_balancing,
+        enable_global_load_balancing,
         get_load_balancer_stats,
-        parallel_map,
         parallel_apply,
+        parallel_map,
     )
 
     # 1. 启用负载均衡
     print("\n1. 启用全局负载均衡...")
     enable_global_load_balancing(
-        min_workers=2,
-        max_workers=8,
-        cpu_threshold=0.8,
-        memory_threshold=0.85,
-        check_interval=1.0
+        min_workers=2, max_workers=8, cpu_threshold=0.8, memory_threshold=0.85, check_interval=1.0
     )
     print("   ✓ 负载均衡已启用")
 
@@ -39,7 +35,7 @@ def test_executor_manager_integration():
     def process_item(x):
         """模拟处理任务"""
         time.sleep(0.01)
-        return x ** 2
+        return x**2
 
     data = list(range(50))
     results = parallel_map(
@@ -47,7 +43,7 @@ def test_executor_manager_integration():
         data,
         executor_type="thread",
         use_load_balancer=True,
-        estimated_task_size=1024  # 1KB per task
+        estimated_task_size=1024,  # 1KB per task
     )
 
     assert len(results) == len(data)
@@ -61,7 +57,7 @@ def test_executor_manager_integration():
         print(f"   - 总任务数: {stats['total_tasks']}")
         print(f"   - 成功任务数: {stats['successful_tasks']}")
         print(f"   - 当前 workers: {stats['current_workers']}")
-        if stats['total_tasks'] > 0:
+        if stats["total_tasks"] > 0:
             print(f"   - 平均耗时: {stats['avg_duration']:.3f}s")
     else:
         print("   ⚠ 未获取到统计信息")
@@ -80,7 +76,7 @@ def test_executor_manager_integration():
         args_list,
         executor_type="thread",
         use_load_balancer=True,
-        estimated_task_size=512  # 512B per task
+        estimated_task_size=512,  # 512B per task
     )
 
     assert len(results) == len(args_list)
@@ -94,7 +90,7 @@ def test_executor_manager_integration():
         print(f"   - 总任务数: {stats['total_tasks']}")
         print(f"   - 成功任务数: {stats['successful_tasks']}")
         print(f"   - 当前 workers: {stats['current_workers']}")
-        if stats['total_tasks'] > 0:
+        if stats["total_tasks"] > 0:
             print(f"   - 平均耗时: {stats['avg_duration']:.3f}s")
 
     # 6. 禁用负载均衡
@@ -124,17 +120,14 @@ def test_streaming_plugin_integration():
 
     class TestStreamingPlugin(StreamingPlugin):
         """测试用流式插件"""
+
         provides = "test_data"
-        depends_on = tuple()
-        dtype = np.dtype([('value', np.int32)])
+        depends_on = ()
+        dtype = np.dtype([("value", np.int32)])
 
         # 启用负载均衡
         use_load_balancer = True
-        load_balancer_config = {
-            'min_workers': 2,
-            'max_workers': 4,
-            'cpu_threshold': 0.75
-        }
+        load_balancer_config = {"min_workers": 2, "max_workers": 4, "cpu_threshold": 0.75}
 
         def compute_chunk(self, chunk, context, run_id, **kwargs):
             """处理单个 chunk"""
@@ -143,7 +136,7 @@ def test_streaming_plugin_integration():
             return chunk
 
     plugin = TestStreamingPlugin()
-    print(f"   ✓ 插件创建成功")
+    print("   ✓ 插件创建成功")
     print(f"   - use_load_balancer: {plugin.use_load_balancer}")
     print(f"   - load_balancer_config: {plugin.load_balancer_config}")
 
@@ -166,12 +159,9 @@ def test_streaming_plugin_integration():
     def create_test_chunks(n=20):
         """创建测试 chunks"""
         # 使用正确的 dtype，包含 time, dt, length 字段
-        dtype = np.dtype([
-            ('time', np.int64),
-            ('dt', np.int32),
-            ('length', np.int32),
-            ('value', np.int32)
-        ])
+        dtype = np.dtype(
+            [("time", np.int64), ("dt", np.int32), ("length", np.int32), ("value", np.int32)]
+        )
         for i in range(n):
             data = np.array([(i * 100, 1, 100, i)], dtype=dtype)
             yield Chunk(
@@ -179,16 +169,12 @@ def test_streaming_plugin_integration():
                 start=i * 100,
                 end=(i + 1) * 100,
                 run_id="test_run",
-                data_type="test_data"
+                data_type="test_data",
             )
 
     # 模拟并行处理
     input_chunks = create_test_chunks(20)
-    output_chunks = list(plugin._compute_parallel(
-        input_chunks,
-        context=None,
-        run_id="test_run"
-    ))
+    output_chunks = list(plugin._compute_parallel(input_chunks, context=None, run_id="test_run"))
 
     assert len(output_chunks) == 20
     print(f"   ✓ 处理了 {len(output_chunks)} 个 chunks")
@@ -200,7 +186,7 @@ def test_streaming_plugin_integration():
         print(f"   - 总任务数: {stats['total_tasks']}")
         print(f"   - 成功任务数: {stats['successful_tasks']}")
         print(f"   - 当前 workers: {stats['current_workers']}")
-        if stats['total_tasks'] > 0:
+        if stats["total_tasks"] > 0:
             print(f"   - 平均耗时: {stats['avg_duration']:.3f}s")
 
     print("\n✅ StreamingPlugin 集成测试通过")
@@ -212,7 +198,7 @@ def test_backward_compatibility():
     print("测试向后兼容性")
     print("=" * 60)
 
-    from waveform_analysis.core.execution import parallel_map, get_load_balancer_stats
+    from waveform_analysis.core.execution import get_load_balancer_stats, parallel_map
     from waveform_analysis.core.plugins.core.streaming import StreamingPlugin
 
     # 1. 默认情况下，负载均衡未启用
@@ -236,8 +222,8 @@ def test_backward_compatibility():
 
     class DefaultPlugin(StreamingPlugin):
         provides = "default_data"
-        depends_on = tuple()
-        dtype = np.dtype([('value', np.int32)])
+        depends_on = ()
+        dtype = np.dtype([("value", np.int32)])
 
     plugin = DefaultPlugin()
     assert plugin.use_load_balancer is False
@@ -267,5 +253,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ 测试失败: {e}")
         import traceback
+
         traceback.print_exc()
         exit(1)

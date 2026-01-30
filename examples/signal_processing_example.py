@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 信号处理插件使用示例
 
@@ -14,16 +13,15 @@
 5. 可视化滤波和峰值检测结果
 """
 
-import numpy as np
 import matplotlib.pyplot as plt
 
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin,
-    WaveformsPlugin,
-    StWaveformsPlugin,
     FilteredWaveformsPlugin,
+    RawFilesPlugin,
     SignalPeaksPlugin,
+    StWaveformsPlugin,
+    WaveformsPlugin,
 )
 
 
@@ -174,10 +172,7 @@ def example_visualize_results(ctx, run_id, event_idx=0, channel_idx=0):
     signal_peaks = ctx.get_data(run_id, "signal_peaks")
 
     # 检查数据是否存在
-    if (
-        len(st_waveforms) <= channel_idx
-        or len(st_waveforms[channel_idx]) <= event_idx
-    ):
+    if len(st_waveforms) <= channel_idx or len(st_waveforms[channel_idx]) <= event_idx:
         print(f"警告: 通道 {channel_idx} 或事件 {event_idx} 不存在")
         return
 
@@ -186,9 +181,7 @@ def example_visualize_results(ctx, run_id, event_idx=0, channel_idx=0):
     filtered_waveform = filtered_waveforms[channel_idx][event_idx]
 
     # 提取此事件的峰值（如果有）
-    event_peaks = signal_peaks[channel_idx][
-        signal_peaks[channel_idx]["event_index"] == event_idx
-    ]
+    event_peaks = signal_peaks[channel_idx][signal_peaks[channel_idx]["event_index"] == event_idx]
 
     print(f"\n可视化通道 {channel_idx}, 事件 {event_idx}")
     print(f"原始波形长度: {len(original_waveform)}")
@@ -236,12 +229,8 @@ def example_visualize_results(ctx, run_id, event_idx=0, channel_idx=0):
         for peak in event_peaks:
             edge_start = int(peak["edge_start"])
             edge_end = int(peak["edge_end"])
-            axes[2].axvline(
-                edge_start, color="orange", linestyle="--", alpha=0.5, linewidth=1
-            )
-            axes[2].axvline(
-                edge_end, color="orange", linestyle="--", alpha=0.5, linewidth=1
-            )
+            axes[2].axvline(edge_start, color="orange", linestyle="--", alpha=0.5, linewidth=1)
+            axes[2].axvline(edge_end, color="orange", linestyle="--", alpha=0.5, linewidth=1)
 
     axes[2].set_title("滤波波形 + 峰值检测")
     axes[2].set_xlabel("采样点")
@@ -272,9 +261,7 @@ def example_compare_filters():
     ctx_original.register_plugin_(RawFilesPlugin())
     ctx_original.register_plugin_(WaveformsPlugin())
     ctx_original.register_plugin_(StWaveformsPlugin())
-    ctx_original.set_config(
-        {"data_root": "DAQ", "n_channels": 2, "start_channel_slice": 6}
-    )
+    ctx_original.set_config({"data_root": "DAQ", "n_channels": 2, "start_channel_slice": 6})
     st_waveforms = ctx_original.get_data(run_id, "st_waveforms")
     original_waveform = st_waveforms[channel_idx][event_idx]["wave"]
 
@@ -284,9 +271,7 @@ def example_compare_filters():
     ctx_sg.register_plugin_(WaveformsPlugin())
     ctx_sg.register_plugin_(StWaveformsPlugin())
     ctx_sg.register_plugin_(FilteredWaveformsPlugin())
-    ctx_sg.set_config(
-        {"data_root": "DAQ", "n_channels": 2, "start_channel_slice": 6}
-    )
+    ctx_sg.set_config({"data_root": "DAQ", "n_channels": 2, "start_channel_slice": 6})
     ctx_sg.set_config(
         {"filter_type": "SG", "sg_window_size": 11, "sg_poly_order": 2},
         plugin_name="filtered_waveforms",
@@ -300,9 +285,7 @@ def example_compare_filters():
     ctx_bw.register_plugin_(WaveformsPlugin())
     ctx_bw.register_plugin_(StWaveformsPlugin())
     ctx_bw.register_plugin_(FilteredWaveformsPlugin())
-    ctx_bw.set_config(
-        {"data_root": "DAQ", "n_channels": 2, "start_channel_slice": 6}
-    )
+    ctx_bw.set_config({"data_root": "DAQ", "n_channels": 2, "start_channel_slice": 6})
     ctx_bw.set_config(
         {
             "filter_type": "BW",

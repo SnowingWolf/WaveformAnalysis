@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 DataFrame Plugin - DataFrame 构建插件
 
@@ -50,9 +49,13 @@ class DataFramePlugin(Plugin):
 
         n_channels = len(st_waveforms)
         if len(heights) != n_channels:
-            raise ValueError(f"heights list length ({len(heights)}) != st_waveforms length ({n_channels})")
+            raise ValueError(
+                f"heights list length ({len(heights)}) != st_waveforms length ({n_channels})"
+            )
         if len(areas) != n_channels:
-            raise ValueError(f"areas list length ({len(areas)}) != st_waveforms length ({n_channels})")
+            raise ValueError(
+                f"areas list length ({len(areas)}) != st_waveforms length ({n_channels})"
+            )
 
         all_timestamps = []
         all_areas = []
@@ -74,10 +77,12 @@ class DataFramePlugin(Plugin):
         all_heights = np.concatenate(all_heights)
         all_channels = np.concatenate(all_channels)
 
-        df = pd.DataFrame({
-            "timestamp": all_timestamps,
-            "area": all_areas,
-            "height": all_heights,
-            "channel": all_channels,
-        })
+        df = pd.DataFrame(
+            {
+                "timestamp": all_timestamps,
+                "area": all_areas,
+                "height": all_heights,
+                "channel": all_channels,
+            }
+        )
         return df.sort_values("timestamp")

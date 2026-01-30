@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # DOC: docs/features/context/CONFIGURATION.md#配置优先级
 """
 配置解析器
@@ -8,7 +7,7 @@ ConfigResolver 负责将配置从"入口 → 生效值"的过程统一实现。
 """
 
 import logging
-from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 from waveform_analysis.core.foundation.utils import exporter
 
@@ -17,6 +16,7 @@ from .types import ConfigSource, ConfigValue, ResolvedConfig
 
 if TYPE_CHECKING:
     from waveform_analysis.core.plugins.core.base import Plugin
+
     from .compat import CompatManager
 
 export, __all__ = exporter()
@@ -50,7 +50,9 @@ class ConfigResolver:
     ADAPTER_INFERRED_OPTIONS: Dict[str, Callable[[AdapterInfo], Any]] = {
         "sampling_rate_hz": lambda info: info.sampling_rate_hz,
         # sampling_rate / fs 默认按 GHz 约定
-        "sampling_rate": lambda info: (info.sampling_rate_hz / 1e9) if info.sampling_rate_hz else None,
+        "sampling_rate": lambda info: (
+            (info.sampling_rate_hz / 1e9) if info.sampling_rate_hz else None
+        ),
         "fs": lambda info: (info.sampling_rate_hz / 1e9) if info.sampling_rate_hz else None,
         # 采样间隔（ns/ps）
         "sampling_interval_ns": lambda info: info.dt_ns,
@@ -119,9 +121,7 @@ class ConfigResolver:
             )
 
             # 验证并转换值
-            validated_value = option.validate_value(
-                canonical_name, value, plugin_name=plugin_name
-            )
+            validated_value = option.validate_value(canonical_name, value, plugin_name=plugin_name)
 
             # 如果使用别名且已弃用，发出警告
             if (
@@ -306,4 +306,3 @@ class ConfigResolver:
             配置键名列表
         """
         return list(cls.ADAPTER_INFERRED_OPTIONS.keys())
-

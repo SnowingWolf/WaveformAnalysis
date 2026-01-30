@@ -1,14 +1,13 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 WaveformAnalysis 文档生成器演示
 
 展示如何使用 Python API 生成文档。
 """
 
-from waveform_analysis.utils.doc_generator import DocGenerator
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
+from waveform_analysis.utils.doc_generator import DocGenerator
 
 
 def demo_basic_usage():
@@ -20,7 +19,7 @@ def demo_basic_usage():
     gen = DocGenerator()
 
     # 生成 Markdown 格式
-    gen.generate_api_reference('test_output/api_basic.md')
+    gen.generate_api_reference("test_output/api_basic.md")
 
     print("\n✅ 完成！查看 test_output/api_basic.md\n")
 
@@ -40,9 +39,9 @@ def demo_with_context():
     gen = DocGenerator(ctx)
 
     # 生成所有文档
-    gen.generate_api_reference('test_output/api_full.md')
-    gen.generate_config_reference('test_output/config.md')
-    gen.generate_plugin_guide('test_output/plugin_guide.md')
+    gen.generate_api_reference("test_output/api_full.md")
+    gen.generate_config_reference("test_output/config.md")
+    gen.generate_plugin_guide("test_output/plugin_guide.md")
 
     print("\n✅ 完成！查看 test_output/ 目录\n")
 
@@ -56,7 +55,7 @@ def demo_html_output():
     gen = DocGenerator()
 
     # 生成 HTML
-    gen.generate_api_reference('test_output/api.html', format='html')
+    gen.generate_api_reference("test_output/api.html", format="html")
 
     print("\n✅ 完成！在浏览器中打开 test_output/api.html\n")
 
@@ -73,7 +72,7 @@ def demo_all_at_once():
 
     # 一键生成
     gen = DocGenerator(ctx)
-    gen.generate_all('test_output/complete_docs')
+    gen.generate_all("test_output/complete_docs")
 
     print("\n✅ 完成！查看 test_output/complete_docs/ 目录\n")
 
@@ -119,5 +118,5 @@ def main():
     print()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

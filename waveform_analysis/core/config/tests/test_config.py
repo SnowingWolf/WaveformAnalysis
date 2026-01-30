@@ -1,12 +1,12 @@
-# -*- coding: utf-8 -*-
 """
 配置系统单元测试
 
 测试 ConfigResolver, CompatManager, AdapterInfo 等核心组件。
 """
 
-import pytest
 import warnings
+
+import pytest
 
 from waveform_analysis.core.config import (
     AdapterInfo,
@@ -25,7 +25,6 @@ from waveform_analysis.core.config.compat import (
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
-
 # ============================================================================
 # Fixtures
 # ============================================================================
@@ -33,6 +32,7 @@ from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 class MockPlugin(Plugin):
     """测试用的模拟插件"""
+
     provides = "mock_plugin"
     depends_on = []
     options = {
@@ -166,8 +166,12 @@ class TestResolvedConfig:
 
     def test_to_dict(self):
         values = {
-            "a": ConfigValue(value=1, source=ConfigSource.EXPLICIT, original_key="a", canonical_key="a"),
-            "b": ConfigValue(value=2, source=ConfigSource.PLUGIN_DEFAULT, original_key="b", canonical_key="b"),
+            "a": ConfigValue(
+                value=1, source=ConfigSource.EXPLICIT, original_key="a", canonical_key="a"
+            ),
+            "b": ConfigValue(
+                value=2, source=ConfigSource.PLUGIN_DEFAULT, original_key="b", canonical_key="b"
+            ),
         }
         resolved = ResolvedConfig(plugin_name="test", values=values)
         d = resolved.to_dict()
@@ -176,10 +180,16 @@ class TestResolvedConfig:
     def test_get_explicit_values(self):
         values = {
             "explicit_val": ConfigValue(
-                value=1, source=ConfigSource.EXPLICIT, original_key="explicit_val", canonical_key="explicit_val"
+                value=1,
+                source=ConfigSource.EXPLICIT,
+                original_key="explicit_val",
+                canonical_key="explicit_val",
             ),
             "default_val": ConfigValue(
-                value=2, source=ConfigSource.PLUGIN_DEFAULT, original_key="default_val", canonical_key="default_val"
+                value=2,
+                source=ConfigSource.PLUGIN_DEFAULT,
+                original_key="default_val",
+                canonical_key="default_val",
             ),
         }
         resolved = ResolvedConfig(plugin_name="test", values=values)
@@ -196,7 +206,10 @@ class TestResolvedConfig:
                 inferred_from="vx2730.sampling_rate_hz",
             ),
             "default_val": ConfigValue(
-                value=2, source=ConfigSource.PLUGIN_DEFAULT, original_key="default_val", canonical_key="default_val"
+                value=2,
+                source=ConfigSource.PLUGIN_DEFAULT,
+                original_key="default_val",
+                canonical_key="default_val",
             ),
         }
         resolved = ResolvedConfig(plugin_name="test", values=values)
@@ -206,7 +219,10 @@ class TestResolvedConfig:
     def test_summary(self):
         values = {
             "threshold": ConfigValue(
-                value=100, source=ConfigSource.EXPLICIT, original_key="threshold", canonical_key="threshold"
+                value=100,
+                source=ConfigSource.EXPLICIT,
+                original_key="threshold",
+                canonical_key="threshold",
             ),
         }
         resolved = ResolvedConfig(plugin_name="test_plugin", values=values, adapter_name="vx2730")
@@ -574,12 +590,14 @@ class TestDeprecationExpiry:
     def test_warn_deprecation_within_window(self):
         """弃用窗口内应发出警告"""
         # 注册一个 removed_in 版本远大于当前版本的弃用项
-        CompatManager.register_deprecation(DeprecationInfo(
-            old_name="test_old_param",
-            new_name="test_new_param",
-            deprecated_in="0.1.0",
-            removed_in="99.0.0",  # 远未到期
-        ))
+        CompatManager.register_deprecation(
+            DeprecationInfo(
+                old_name="test_old_param",
+                new_name="test_new_param",
+                deprecated_in="0.1.0",
+                removed_in="99.0.0",  # 远未到期
+            )
+        )
 
         manager = CompatManager()
 
@@ -593,19 +611,20 @@ class TestDeprecationExpiry:
 
         # 清理
         CompatManager.DEPRECATIONS = [
-            d for d in CompatManager.DEPRECATIONS
-            if d.old_name != "test_old_param"
+            d for d in CompatManager.DEPRECATIONS if d.old_name != "test_old_param"
         ]
 
     def test_warn_deprecation_after_removal(self):
         """过期后应抛出错误"""
         # 注册一个 removed_in 版本小于当前版本的弃用项
-        CompatManager.register_deprecation(DeprecationInfo(
-            old_name="test_expired_param",
-            new_name="test_new_param",
-            deprecated_in="0.0.1",
-            removed_in="0.0.2",  # 已过期（当前版本 >= 0.1.0）
-        ))
+        CompatManager.register_deprecation(
+            DeprecationInfo(
+                old_name="test_expired_param",
+                new_name="test_new_param",
+                deprecated_in="0.0.1",
+                removed_in="0.0.2",  # 已过期（当前版本 >= 0.1.0）
+            )
+        )
 
         manager = CompatManager()
 
@@ -618,20 +637,21 @@ class TestDeprecationExpiry:
 
         # 清理
         CompatManager.DEPRECATIONS = [
-            d for d in CompatManager.DEPRECATIONS
-            if d.old_name != "test_expired_param"
+            d for d in CompatManager.DEPRECATIONS if d.old_name != "test_expired_param"
         ]
 
     def test_warn_deprecation_at_removal_version(self):
         """恰好在移除版本时应抛出错误"""
         current = get_current_version()
 
-        CompatManager.register_deprecation(DeprecationInfo(
-            old_name="test_exact_version_param",
-            new_name="test_new_param",
-            deprecated_in="0.0.1",
-            removed_in=current,  # 恰好是当前版本
-        ))
+        CompatManager.register_deprecation(
+            DeprecationInfo(
+                old_name="test_exact_version_param",
+                new_name="test_new_param",
+                deprecated_in="0.0.1",
+                removed_in=current,  # 恰好是当前版本
+            )
+        )
 
         manager = CompatManager()
 
@@ -642,8 +662,7 @@ class TestDeprecationExpiry:
 
         # 清理
         CompatManager.DEPRECATIONS = [
-            d for d in CompatManager.DEPRECATIONS
-            if d.old_name != "test_exact_version_param"
+            d for d in CompatManager.DEPRECATIONS if d.old_name != "test_exact_version_param"
         ]
 
     def test_warn_deprecation_unknown_name_no_error(self):

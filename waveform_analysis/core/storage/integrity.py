@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 数据完整性校验模块 - 提供高效的checksum计算和验证
 
@@ -19,12 +18,13 @@ logger = logging.getLogger(__name__)
 export, __all__ = exporter()
 
 # 算法类型
-ChecksumAlgorithm = Literal['xxhash64', 'sha256', 'md5']
+ChecksumAlgorithm = Literal["xxhash64", "sha256", "md5"]
 
 
 # ===========================
 # Integrity Checker
 # ===========================
+
 
 @export
 class IntegrityChecker:
@@ -40,7 +40,7 @@ class IntegrityChecker:
     """
 
     # 算法优先级(速度优先)
-    ALGORITHM_PRIORITY = ['xxhash64', 'xxhash32', 'sha256', 'md5']
+    ALGORITHM_PRIORITY = ["xxhash64", "xxhash32", "sha256", "md5"]
 
     def __init__(self):
         """
@@ -57,15 +57,16 @@ class IntegrityChecker:
         # Check xxhash
         try:
             import xxhash
-            available['xxhash64'] = True
-            available['xxhash32'] = True
+
+            available["xxhash64"] = True
+            available["xxhash32"] = True
         except ImportError:
-            available['xxhash64'] = False
-            available['xxhash32'] = False
+            available["xxhash64"] = False
+            available["xxhash32"] = False
 
         # sha256 and md5 are always available (hashlib)
-        available['sha256'] = True
-        available['md5'] = True
+        available["sha256"] = True
+        available["md5"] = True
 
         return available
 
@@ -74,17 +75,14 @@ class IntegrityChecker:
         for algo in self.ALGORITHM_PRIORITY:
             if self._available_algorithms.get(algo, False):
                 return algo
-        return 'sha256'  # Fallback
+        return "sha256"  # Fallback
 
     def is_algorithm_available(self, algorithm: str) -> bool:
         """检查指定算法是否可用"""
         return self._available_algorithms.get(algorithm, False)
 
     def compute_checksum(
-        self,
-        file_path: str,
-        algorithm: str = 'xxhash64',
-        chunk_size: int = 8192
+        self, file_path: str, algorithm: str = "xxhash64", chunk_size: int = 8192
     ) -> str:
         """
         计算文件的checksum
@@ -106,16 +104,14 @@ class IntegrityChecker:
 
         if not self.is_algorithm_available(algorithm):
             # Try fallback
-            warnings.warn(
-                f"Algorithm '{algorithm}' not available, using fallback"
-            )
+            warnings.warn(f"Algorithm '{algorithm}' not available, using fallback")
             algorithm = self.get_default_algorithm()
 
         # Create hash object
         hasher = self._create_hasher(algorithm)
 
         # Read and update hash
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             while True:
                 chunk = f.read(chunk_size)
                 if not chunk:
@@ -125,11 +121,7 @@ class IntegrityChecker:
         # Return hex digest
         return hasher.hexdigest()
 
-    def compute_checksum_bytes(
-        self,
-        data: bytes,
-        algorithm: str = 'xxhash64'
-    ) -> str:
+    def compute_checksum_bytes(self, data: bytes, algorithm: str = "xxhash64") -> str:
         """
         计算bytes数据的checksum
 
@@ -141,9 +133,7 @@ class IntegrityChecker:
             Hex编码的checksum字符串
         """
         if not self.is_algorithm_available(algorithm):
-            warnings.warn(
-                f"Algorithm '{algorithm}' not available, using fallback"
-            )
+            warnings.warn(f"Algorithm '{algorithm}' not available, using fallback")
             algorithm = self.get_default_algorithm()
 
         hasher = self._create_hasher(algorithm)
@@ -151,10 +141,7 @@ class IntegrityChecker:
         return hasher.hexdigest()
 
     def verify_checksum(
-        self,
-        file_path: str,
-        expected_checksum: str,
-        algorithm: str = 'xxhash64'
+        self, file_path: str, expected_checksum: str, algorithm: str = "xxhash64"
     ) -> bool:
         """
         验证文件的checksum
@@ -176,23 +163,22 @@ class IntegrityChecker:
 
     def _create_hasher(self, algorithm: str):
         """创建哈希对象"""
-        if algorithm in ['xxhash64', 'xxhash32']:
+        if algorithm in ["xxhash64", "xxhash32"]:
             import xxhash
-            if algorithm == 'xxhash64':
+
+            if algorithm == "xxhash64":
                 return xxhash.xxh64()
             else:
                 return xxhash.xxh32()
-        elif algorithm in ['sha256', 'md5']:
+        elif algorithm in ["sha256", "md5"]:
             import hashlib
+
             return hashlib.new(algorithm)
         else:
             raise ValueError(f"Unsupported algorithm: {algorithm}")
 
     def scan_directory(
-        self,
-        directory: str,
-        algorithm: str = 'xxhash64',
-        pattern: str = '*.bin'
+        self, directory: str, algorithm: str = "xxhash64", pattern: str = "*.bin"
     ) -> Dict[str, Dict[str, Any]]:
         """
         扫描目录中的所有文件并计算checksum
@@ -219,10 +205,10 @@ class IntegrityChecker:
                 size = os.path.getsize(file_path)
 
                 results[os.path.basename(file_path)] = {
-                    'checksum': checksum,
-                    'size': size,
-                    'algorithm': algorithm,
-                    'path': file_path,
+                    "checksum": checksum,
+                    "size": size,
+                    "algorithm": algorithm,
+                    "path": file_path,
                 }
             except Exception as e:
                 logger.warning(f"Failed to process {file_path}: {e}")
@@ -235,6 +221,7 @@ class IntegrityChecker:
 # ===========================
 
 _integrity_checker = None
+
 
 @export
 def get_integrity_checker() -> IntegrityChecker:
@@ -249,11 +236,9 @@ def get_integrity_checker() -> IntegrityChecker:
 # Convenience Functions
 # ===========================
 
+
 @export
-def compute_file_checksum(
-    file_path: str,
-    algorithm: str = 'xxhash64'
-) -> str:
+def compute_file_checksum(file_path: str, algorithm: str = "xxhash64") -> str:
     """
     便捷函数:计算文件checksum
 
@@ -270,9 +255,7 @@ def compute_file_checksum(
 
 @export
 def verify_file_checksum(
-    file_path: str,
-    expected_checksum: str,
-    algorithm: str = 'xxhash64'
+    file_path: str, expected_checksum: str, algorithm: str = "xxhash64"
 ) -> bool:
     """
     便捷函数:验证文件checksum

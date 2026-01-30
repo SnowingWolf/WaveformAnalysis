@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Exceptions 模块 - 异常处理基础类和工具。
 
@@ -12,6 +11,7 @@ from typing import Any, Dict, Optional
 
 class ErrorSeverity(Enum):
     """错误严重程度枚举"""
+
     FATAL = "fatal"  # 致命错误，必须停止
     RECOVERABLE = "recoverable"  # 可恢复错误，可以重试或降级
     WARNING = "warning"  # 警告，仅记录
@@ -20,6 +20,7 @@ class ErrorSeverity(Enum):
 @dataclass
 class ErrorContext:
     """错误上下文信息"""
+
     run_id: str
     plugin_name: str
     plugin_class: str
@@ -82,9 +83,5 @@ class PluginTimeoutError(PluginError):
             此异常被标记为 RECOVERABLE，可恢复的。
         """
         super().__init__(
-            message,
-            severity=ErrorSeverity.RECOVERABLE,
-            recoverable=True,
-            context=context
+            message, severity=ErrorSeverity.RECOVERABLE, recoverable=True, context=context
         )
-

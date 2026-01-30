@@ -32,6 +32,7 @@ Note:
     本模块需要 Plotly:
     pip install plotly
 """
+
 from typing import List, Optional, Union
 
 import numpy as np
@@ -93,7 +94,9 @@ def plot_waveforms(
         x = np.arange(len(y))
 
         # Plot waveform
-        fig.add_trace(go.Scatter(x=x, y=y, name=f"CH{ch_idx} Wave", line=dict(width=1)), row=i + 1, col=1)
+        fig.add_trace(
+            go.Scatter(x=x, y=y, name=f"CH{ch_idx} Wave", line={"width": 1}), row=i + 1, col=1
+        )
 
         # Plot baseline if available
         if baseline != 0:
@@ -102,7 +105,7 @@ def plot_waveforms(
                     x=[0, len(y)],
                     y=[baseline, baseline],
                     name=f"CH{ch_idx} Baseline",
-                    line=dict(dash="dash", color="gray"),
+                    line={"dash": "dash", "color": "gray"},
                 ),
                 row=i + 1,
                 col=1,
@@ -129,7 +132,7 @@ def plot_waveforms(
                         x=[hit["time"] + hit["width"] / 2],
                         y=[hit["height"] + baseline],
                         mode="markers",
-                        marker=dict(color="red", symbol="x"),
+                        marker={"color": "red", "symbol": "x"},
                         name=f"Hit @ {hit['time']}",
                         showlegend=False,
                     ),
@@ -137,7 +140,9 @@ def plot_waveforms(
                     col=1,
                 )
 
-    fig.update_layout(height=300 * len(channels), title_text=f"{title} - Event {event_index}", showlegend=True)
+    fig.update_layout(
+        height=300 * len(channels), title_text=f"{title} - Event {event_index}", showlegend=True
+    )
     fig.update_xaxes(title_text="Sample Index")
     fig.update_yaxes(title_text="ADC")
 

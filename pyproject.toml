@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Physics",
 ]
 
@@ -72,7 +73,7 @@ exclude = ["tests*", "docs*", "examples*"]
 
 [tool.black]
 line-length = 100
-target-version = ['py38', 'py39', 'py310', 'py311']
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
 include = '\.pyi?$'
 
 [tool.pytest.ini_options]
@@ -113,8 +114,17 @@ select = [
 ]
 ignore = [
     "E501",  # line too long (handled by black)
+    "E402",  # module level import not at top of file (sometimes needed for conditional imports)
+    "E722",  # bare except (will fix gradually)
     "B008",  # do not perform function calls in argument defaults
+    "B017",  # assert-raises-exception (common test pattern)
+    "B023",  # function-uses-loop-variable (often false positive in closures)
+    "B027",  # empty-method-without-abstract-decorator (design choice)
+    "B028",  # no-explicit-stacklevel (will fix gradually)
+    "B904",  # raise-without-from-inside-except (will fix gradually)
     "C901",  # too complex
+    "F401",  # unused-import (some are intentional re-exports for public API)
+    "F811",  # redefinition of unused name (sometimes intentional)
 ]
 
 [tool.ruff.lint.isort]

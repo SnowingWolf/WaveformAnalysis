@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 CPU Standard Plugins - 标准波形分析插件（统一导入入口）
 
@@ -25,14 +24,14 @@ CPU Standard Plugins - 标准波形分析插件（统一导入入口）
 """
 
 # 从独立文件导入所有插件
-from .raw_files import RawFileNamesPlugin
-from .waveforms import WaveformsPlugin, WaveformStruct, WaveformStructConfig
-from .hit_finder import HitFinderPlugin
+from waveform_analysis.core.plugins.profiles import cpu_default
+
 from .basic_features import BASIC_FEATURES_DTYPE, BasicFeaturesPlugin
 from .dataframe import DataFramePlugin
 from .event_analysis import GroupedEventsPlugin, PairedEventsPlugin
-
-from waveform_analysis.core.plugins.profiles import cpu_default
+from .hit_finder import HitFinderPlugin
+from .raw_files import RawFileNamesPlugin
+from .waveforms import WaveformsPlugin, WaveformStruct, WaveformStructConfig
 
 # 标准插件列表 - 按依赖顺序排列
 standard_plugins = cpu_default()

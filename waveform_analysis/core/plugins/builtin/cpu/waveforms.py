@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Waveforms Plugin - 波形提取与结构化插件
 
@@ -23,8 +22,8 @@ WaveformsPlugin 支持双层并行处理加速：
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
+import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -66,24 +65,26 @@ class WaveformStructConfig:
         >>> print(config.get_wave_length())  # 800
     """
 
-    format_spec: "FormatSpec"
+    format_spec: FormatSpec
     wave_length: Optional[int] = None
     epoch_ns: Optional[int] = None
 
     @classmethod
-    def default_vx2730(cls) -> "WaveformStructConfig":
+    def default_vx2730(cls) -> WaveformStructConfig:
         """返回 VX2730 默认配置（向后兼容）"""
         from waveform_analysis.utils.formats import VX2730_SPEC
 
         return cls(format_spec=VX2730_SPEC, wave_length=800)
 
     @classmethod
-    def from_adapter(cls, adapter_name: str = "vx2730") -> "WaveformStructConfig":
+    def from_adapter(cls, adapter_name: str = "vx2730") -> WaveformStructConfig:
         """从已注册的 DAQ 适配器创建配置"""
         from waveform_analysis.utils.formats import get_adapter
 
         adapter = get_adapter(adapter_name)
-        return cls(format_spec=adapter.format_spec, wave_length=adapter.format_spec.expected_samples)
+        return cls(
+            format_spec=adapter.format_spec, wave_length=adapter.format_spec.expected_samples
+        )
 
     def get_wave_length(self) -> int:
         """获取实际波形长度"""
@@ -99,7 +100,9 @@ class WaveformStructConfig:
 
 
 @export
-def create_channel_mapping(board_channel_pairs: List[Tuple[int, int]]) -> Dict[Tuple[int, int], int]:
+def create_channel_mapping(
+    board_channel_pairs: List[Tuple[int, int]],
+) -> Dict[Tuple[int, int], int]:
     """创建 (BOARD, CHANNEL) 到物理通道号的映射。"""
     unique_pairs = set(board_channel_pairs)
     return {(board, channel): channel for board, channel in unique_pairs}
@@ -142,7 +145,7 @@ class WaveformStruct:
         waveforms: List[np.ndarray],
         adapter_name: str = "vx2730",
         upstream_baselines: Optional[List[np.ndarray]] = None,
-    ) -> "WaveformStruct":
+    ) -> WaveformStruct:
         """从 DAQ 适配器创建 WaveformStruct（便捷方法）"""
         config = WaveformStructConfig.from_adapter(adapter_name)
         return cls(waveforms, config, upstream_baselines)
@@ -167,7 +170,7 @@ class WaveformStruct:
 
         samples_end = cols.samples_end if cols.samples_end is not None else waves.shape[1]
         if waves.shape[1] > cols.samples_start:
-            wave_data = waves[:, cols.samples_start:samples_end]
+            wave_data = waves[:, cols.samples_start : samples_end]
         else:
             wave_data = np.zeros((len(waves), 0))
         actual_wave_length = wave_data.shape[1] if wave_data.size > 0 else 0
@@ -195,23 +198,30 @@ class WaveformStruct:
             channel_vals = np.zeros(len(waves), dtype=int)
 
         if channel_mapping:
-            physical_channels = np.array([
-                channel_mapping.get((int(b), int(c)), -1) for b, c in zip(board_vals, channel_vals)
-            ])
+            physical_channels = np.array(
+                [
+                    channel_mapping.get((int(b), int(c)), -1)
+                    for b, c in zip(board_vals, channel_vals)
+                ]
+            )
             if np.any(physical_channels == -1):
-                unmapped = set(zip(board_vals[physical_channels == -1], channel_vals[physical_channels == -1]))
+                unmapped = set(
+                    zip(board_vals[physical_channels == -1], channel_vals[physical_channels == -1])
+                )
                 logger.warning(f"发现未映射的 (BOARD, CHANNEL) 组合: {unmapped}")
         else:
             logger.debug("未提供通道映射，使用 CHANNEL 字段作为物理通道号")
             physical_channels = channel_vals
 
         try:
-            baseline_vals = np.mean(waves[:, cols.baseline_start:cols.baseline_end].astype(float), axis=1)
+            baseline_vals = np.mean(
+                waves[:, cols.baseline_start : cols.baseline_end].astype(float), axis=1
+            )
         except Exception:
             baselines = []
             for row in waves:
                 try:
-                    vals = np.asarray(row[cols.samples_start:], dtype=float)
+                    vals = np.asarray(row[cols.samples_start :], dtype=float)
                     if vals.size > 0:
                         baselines.append(np.mean(vals))
                     else:
@@ -258,7 +268,9 @@ class WaveformStruct:
 
         return waveform_structured
 
-    def structure_waveforms(self, show_progress: bool = False, start_channel_slice: int = 0) -> List[np.ndarray]:
+    def structure_waveforms(
+        self, show_progress: bool = False, start_channel_slice: int = 0
+    ) -> List[np.ndarray]:
         """将所有通道的波形转换为结构化数组。"""
         cols = self.config.format_spec.columns
 
@@ -298,7 +310,10 @@ class WaveformStruct:
                 from tqdm import tqdm
 
                 pbar = tqdm(
-                    enumerate(self.waveforms), desc="Structuring waveforms", leave=False, total=len(self.waveforms)
+                    enumerate(self.waveforms),
+                    desc="Structuring waveforms",
+                    leave=False,
+                    total=len(self.waveforms),
                 )
             except ImportError:
                 pbar = enumerate(self.waveforms)
@@ -306,7 +321,8 @@ class WaveformStruct:
             pbar = enumerate(self.waveforms)
 
         self.waveform_structureds = [
-            self._structure_waveform(waves, channel_mapping=channel_mapping, channel_idx=idx) for idx, waves in pbar
+            self._structure_waveform(waves, channel_mapping=channel_mapping, channel_idx=idx)
+            for idx, waves in pbar
         ]
         return self.waveform_structureds
 
@@ -377,7 +393,9 @@ class WaveformsPlugin(Plugin):
     version = "0.1.0"
     provides = "st_waveforms"
     depends_on = ["raw_files"]
-    description = "Extract waveforms from raw CSV files and structure them into NumPy structured arrays."
+    description = (
+        "Extract waveforms from raw CSV files and structure them into NumPy structured arrays."
+    )
     save_when = "always"
     output_dtype = np.dtype(ST_WAVEFORM_DTYPE)
     options = {
@@ -581,7 +599,9 @@ class WaveformsPlugin(Plugin):
         config.epoch_ns = epoch_ns
         self.output_dtype = config.get_record_dtype()
 
-        waveform_struct = WaveformStruct(waveforms, config=config, upstream_baselines=upstream_baselines)
+        waveform_struct = WaveformStruct(
+            waveforms, config=config, upstream_baselines=upstream_baselines
+        )
         st_waveforms = waveform_struct.structure_waveforms(show_progress=show_progress)
 
         return st_waveforms

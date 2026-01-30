@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 插件性能统计和监控模块
 
@@ -25,17 +24,19 @@ logger = logging.getLogger(__name__)
 export, __all__ = exporter()
 
 # 监控模式
-MonitoringMode = Literal['off', 'basic', 'detailed']
+MonitoringMode = Literal["off", "basic", "detailed"]
 
 
 # ===========================
 # Data Structures
 # ===========================
 
+
 @export
 @dataclass
 class PluginExecutionRecord:
     """单次插件执行记录"""
+
     plugin_name: str
     run_id: str
     start_time: float
@@ -57,6 +58,7 @@ class PluginExecutionRecord:
 @dataclass
 class PluginStatistics:
     """插件统计信息汇总"""
+
     plugin_name: str
     total_calls: int = 0
     cache_hits: int = 0
@@ -67,7 +69,7 @@ class PluginStatistics:
 
     # 时间统计(秒)
     total_time: float = 0.0
-    min_time: float = float('inf')
+    min_time: float = float("inf")
     max_time: float = 0.0
     mean_time: float = 0.0
 
@@ -96,6 +98,7 @@ class PluginStatistics:
 # Plugin Stats Collector
 # ===========================
 
+
 @export
 class PluginStatsCollector:
     """
@@ -116,7 +119,7 @@ class PluginStatsCollector:
 
     def __init__(
         self,
-        mode: MonitoringMode = 'basic',
+        mode: MonitoringMode = "basic",
         enable_memory_tracking: bool = True,
         log_file: Optional[str] = None,
         max_recent_errors: int = 10,
@@ -134,7 +137,7 @@ class PluginStatsCollector:
             max_recent_errors: 保留的最近错误数量
         """
         self.mode = mode
-        self.enable_memory_tracking = enable_memory_tracking and mode == 'detailed'
+        self.enable_memory_tracking = enable_memory_tracking and mode == "detailed"
         self.log_file = log_file
         self.max_recent_errors = max_recent_errors
 
@@ -165,11 +168,9 @@ class PluginStatsCollector:
                 os.makedirs(log_dir, exist_ok=True)
 
             # 配置文件handler
-            handler = logging.FileHandler(self.log_file, mode='a')
+            handler = logging.FileHandler(self.log_file, mode="a")
             handler.setLevel(logging.INFO)
-            formatter = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-            )
+            formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             handler.setFormatter(formatter)
             logger.addHandler(handler)
 
@@ -178,14 +179,9 @@ class PluginStatsCollector:
 
     def is_enabled(self) -> bool:
         """检查是否启用统计"""
-        return self.mode != 'off'
+        return self.mode != "off"
 
-    def start_execution(
-        self,
-        plugin_name: str,
-        run_id: str,
-        input_size_mb: Optional[float] = None
-    ):
+    def start_execution(self, plugin_name: str, run_id: str, input_size_mb: Optional[float] = None):
         """
         开始记录插件执行
 
@@ -198,24 +194,24 @@ class PluginStatsCollector:
             return
 
         context = {
-            'plugin_name': plugin_name,
-            'run_id': run_id,
-            'start_time': time.time(),
-            'input_size_mb': input_size_mb,
+            "plugin_name": plugin_name,
+            "run_id": run_id,
+            "start_time": time.time(),
+            "input_size_mb": input_size_mb,
         }
 
         # 记录初始内存
         if self.enable_memory_tracking and self._memory_tracking_started:
             try:
                 current, peak = tracemalloc.get_traced_memory()
-                context['memory_before_mb'] = current / (1024 * 1024)
+                context["memory_before_mb"] = current / (1024 * 1024)
             except Exception:
                 pass
 
         self._current_executions[plugin_name] = context
 
         # 记录日志
-        if self.mode in ['basic', 'detailed']:
+        if self.mode in ["basic", "detailed"]:
             logger.info(f"Plugin '{plugin_name}' started for run '{run_id}'")
 
     def end_execution(
@@ -224,7 +220,7 @@ class PluginStatsCollector:
         success: bool = True,
         cache_hit: bool = False,
         output_size_mb: Optional[float] = None,
-        error: Optional[Exception] = None
+        error: Optional[Exception] = None,
     ):
         """
         结束记录插件执行
@@ -245,7 +241,7 @@ class PluginStatsCollector:
 
         context = self._current_executions.pop(plugin_name)
         end_time = time.time()
-        duration = end_time - context['start_time']
+        duration = end_time - context["start_time"]
 
         # 记录内存
         memory_after_mb = None
@@ -261,16 +257,16 @@ class PluginStatsCollector:
         # 创建执行记录
         record = PluginExecutionRecord(
             plugin_name=plugin_name,
-            run_id=context['run_id'],
-            start_time=context['start_time'],
+            run_id=context["run_id"],
+            start_time=context["start_time"],
             end_time=end_time,
             duration=duration,
             success=success,
             cache_hit=cache_hit,
-            memory_before_mb=context.get('memory_before_mb'),
+            memory_before_mb=context.get("memory_before_mb"),
             memory_after_mb=memory_after_mb,
             memory_peak_mb=memory_peak_mb,
-            input_size_mb=context.get('input_size_mb'),
+            input_size_mb=context.get("input_size_mb"),
             output_size_mb=output_size_mb,
             error=str(error) if error else None,
             error_type=type(error).__name__ if error else None,
@@ -312,16 +308,15 @@ class PluginStatsCollector:
         stats.mean_time = stats.total_time / stats.total_calls
 
         # 更新内存统计(仅detailed模式)
-        if self.mode == 'detailed' and record.memory_peak_mb is not None:
+        if self.mode == "detailed" and record.memory_peak_mb is not None:
             stats.peak_memory_mb = max(stats.peak_memory_mb, record.memory_peak_mb)
             # 计算平均内存
             if stats.avg_memory_mb == 0:
                 stats.avg_memory_mb = record.memory_peak_mb
             else:
                 stats.avg_memory_mb = (
-                    (stats.avg_memory_mb * (stats.total_calls - 1) + record.memory_peak_mb)
-                    / stats.total_calls
-                )
+                    stats.avg_memory_mb * (stats.total_calls - 1) + record.memory_peak_mb
+                ) / stats.total_calls
 
         # 更新数据大小统计
         if record.input_size_mb:
@@ -333,11 +328,11 @@ class PluginStatsCollector:
         if not record.success and record.error:
             stats.recent_errors.append(f"{record.timestamp}: {record.error}")
             if len(stats.recent_errors) > self.max_recent_errors:
-                stats.recent_errors = stats.recent_errors[-self.max_recent_errors:]
+                stats.recent_errors = stats.recent_errors[-self.max_recent_errors :]
 
     def _log_execution(self, record: PluginExecutionRecord):
         """记录执行日志"""
-        if self.mode == 'basic':
+        if self.mode == "basic":
             if record.success:
                 logger.info(
                     f"Plugin '{record.plugin_name}' completed in {record.duration:.3f}s "
@@ -349,7 +344,7 @@ class PluginStatsCollector:
                     f"{record.error_type}"
                 )
 
-        elif self.mode == 'detailed':
+        elif self.mode == "detailed":
             msg_parts = [
                 f"Plugin '{record.plugin_name}' ",
                 f"run='{record.run_id}' ",
@@ -367,7 +362,7 @@ class PluginStatsCollector:
             if not record.success:
                 msg_parts.append(f" error={record.error_type}")
 
-            logger.info(''.join(msg_parts))
+            logger.info("".join(msg_parts))
 
     def get_statistics(self, plugin_name: Optional[str] = None) -> Dict[str, PluginStatistics]:
         """
@@ -384,9 +379,7 @@ class PluginStatsCollector:
         return self._statistics.copy()
 
     def get_execution_history(
-        self,
-        plugin_name: Optional[str] = None,
-        limit: int = 100
+        self, plugin_name: Optional[str] = None, limit: int = 100
     ) -> List[PluginExecutionRecord]:
         """
         获取执行历史
@@ -405,7 +398,7 @@ class PluginStatsCollector:
 
         return history[-limit:]
 
-    def generate_report(self, format: Literal['text', 'dict'] = 'text') -> Any:
+    def generate_report(self, format: Literal["text", "dict"] = "text") -> Any:
         """
         生成统计报告
 
@@ -417,9 +410,9 @@ class PluginStatsCollector:
         Returns:
             报告内容
         """
-        if format == 'dict':
+        if format == "dict":
             return self._generate_dict_report()
-        elif format == 'text':
+        elif format == "text":
             return self._generate_text_report()
         else:
             raise ValueError(f"Unknown report format: {format}")
@@ -427,36 +420,36 @@ class PluginStatsCollector:
     def _generate_dict_report(self) -> Dict[str, Any]:
         """生成字典格式报告"""
         report = {
-            'summary': {
-                'total_plugins': len(self._statistics),
-                'total_executions': len(self._execution_history),
-                'monitoring_mode': self.mode,
-                'generated_at': datetime.now().isoformat(),
+            "summary": {
+                "total_plugins": len(self._statistics),
+                "total_executions": len(self._execution_history),
+                "monitoring_mode": self.mode,
+                "generated_at": datetime.now().isoformat(),
             },
-            'plugins': {}
+            "plugins": {},
         }
 
         for plugin_name, stats in self._statistics.items():
-            report['plugins'][plugin_name] = {
-                'total_calls': stats.total_calls,
-                'cache_hit_rate': f"{stats.cache_hit_rate():.1%}",
-                'success_rate': f"{stats.success_rate():.1%}",
-                'time_stats': {
-                    'total': f"{stats.total_time:.2f}s",
-                    'mean': f"{stats.mean_time:.3f}s",
-                    'min': f"{stats.min_time:.3f}s",
-                    'max': f"{stats.max_time:.3f}s",
+            report["plugins"][plugin_name] = {
+                "total_calls": stats.total_calls,
+                "cache_hit_rate": f"{stats.cache_hit_rate():.1%}",
+                "success_rate": f"{stats.success_rate():.1%}",
+                "time_stats": {
+                    "total": f"{stats.total_time:.2f}s",
+                    "mean": f"{stats.mean_time:.3f}s",
+                    "min": f"{stats.min_time:.3f}s",
+                    "max": f"{stats.max_time:.3f}s",
                 },
             }
 
-            if self.mode == 'detailed':
-                report['plugins'][plugin_name]['memory_stats'] = {
-                    'peak_mb': f"{stats.peak_memory_mb:.2f}",
-                    'avg_mb': f"{stats.avg_memory_mb:.2f}",
+            if self.mode == "detailed":
+                report["plugins"][plugin_name]["memory_stats"] = {
+                    "peak_mb": f"{stats.peak_memory_mb:.2f}",
+                    "avg_mb": f"{stats.avg_memory_mb:.2f}",
                 }
 
             if stats.recent_errors:
-                report['plugins'][plugin_name]['recent_errors'] = stats.recent_errors[-3:]
+                report["plugins"][plugin_name]["recent_errors"] = stats.recent_errors[-3:]
 
         return report
 
@@ -477,7 +470,9 @@ class PluginStatsCollector:
             lines.append(f"Plugin: {plugin_name}")
             lines.append("-" * 80)
             lines.append(f"  Total calls: {stats.total_calls}")
-            lines.append(f"  Cache hit rate: {stats.cache_hit_rate():.1%} ({stats.cache_hits}/{stats.total_calls})")
+            lines.append(
+                f"  Cache hit rate: {stats.cache_hit_rate():.1%} ({stats.cache_hits}/{stats.total_calls})"
+            )
             lines.append(f"  Success rate: {stats.success_rate():.1%}")
             lines.append(f"  Failed calls: {stats.failed_calls}")
             lines.append("")
@@ -487,7 +482,7 @@ class PluginStatsCollector:
             lines.append(f"    Min:   {stats.min_time:.3f}s")
             lines.append(f"    Max:   {stats.max_time:.3f}s")
 
-            if self.mode == 'detailed':
+            if self.mode == "detailed":
                 lines.append("")
                 lines.append("  Memory statistics:")
                 lines.append(f"    Peak: {stats.peak_memory_mb:.2f} MB")
@@ -525,11 +520,10 @@ class PluginStatsCollector:
 
 _stats_collector = None
 
+
 @export
 def get_stats_collector(
-    mode: MonitoringMode = 'basic',
-    log_file: Optional[str] = None,
-    reset: bool = False
+    mode: MonitoringMode = "basic", log_file: Optional[str] = None, reset: bool = False
 ) -> PluginStatsCollector:
     """
     获取全局统计收集器
