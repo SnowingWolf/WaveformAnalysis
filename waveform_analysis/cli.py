@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
+from waveform_analysis.core.plugins import profiles
 from waveform_analysis.utils.daq import DAQAnalyzer
 
 
@@ -48,6 +48,15 @@ def main():
     parser.add_argument("--output", type=str, help="输出文件路径（可选）")
 
     parser.add_argument("--verbose", action="store_true", help="显示详细信息")
+
+    # DOC: docs/cli/WAVEFORM_PROCESS.md#profile-选择
+    parser.add_argument(
+        "--profile",
+        type=str,
+        default="cpu",
+        choices=["cpu", "streaming", "jax"],
+        help="插件配置档案（profile），可选: cpu | streaming | jax",
+    )
 
     # DAQ 扫描选项
     parser.add_argument("--scan-daq", action="store_true", help="扫描 DAQ 目录并导出 JSON 报告（会忽略其它处理选项）")
@@ -104,7 +113,8 @@ def main():
                 "n_channels": args.n_channels,
                 "daq_adapter": args.daq_adapter,
             })
-            ctx.register(*standard_plugins)
+            profile_factory = profiles.get_profile(args.profile)
+            ctx.register(*profile_factory())
             ctx.set_config({
                 "start_channel_slice": args.start_channel,
                 "time_window_ns": args.time_window,
@@ -134,7 +144,8 @@ def main():
             "n_channels": args.n_channels,
             "daq_adapter": args.daq_adapter,
         })
-        ctx.register(*standard_plugins)
+        profile_factory = profiles.get_profile(args.profile)
+        ctx.register(*profile_factory())
         ctx.set_config({
             "start_channel_slice": args.start_channel,
             "time_window_ns": args.time_window,
@@ -171,6 +182,9 @@ def main():
 
         return 0
 
+    except NotImplementedError as e:
+        print(f"错误: {e}", file=sys.stderr)
+        return 2
     except FileNotFoundError as e:
         print(f"错误: 数据文件未找到 - {e}", file=sys.stderr)
         return 1

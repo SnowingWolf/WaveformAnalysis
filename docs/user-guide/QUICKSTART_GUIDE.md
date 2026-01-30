@@ -2,7 +2,7 @@
 
 **导航**: [文档中心](../README.md) > [用户指南](README.md) > 快速开始指南
 
-本文档帮助你快速上手 WaveformAnalysis。
+本文档帮助你快速上手 WaveformAnalysis。[^source]
 
 ---
 
@@ -81,13 +81,13 @@ DAQ/                          # data_root（可配置）
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
+from waveform_analysis.core.plugins import profiles
 
 # 1. 创建 Context
 ctx = Context(storage_dir='./cache')
 
 # 2. 注册标准插件
-ctx.register(*standard_plugins)
+ctx.register(*profiles.cpu_default())
 
 # 3. 最小配置（只需 3 项）
 ctx.set_config({
@@ -138,6 +138,7 @@ dtype = [
     ('height', 'f4'),  # 波形高度 (max - min)
     ('area', 'f4'),    # 波形面积 (积分)
 ]
+
 ```
 
 **字段说明**：
@@ -220,12 +221,12 @@ ctx.plot_lineage('basic_features', kind='labview')
 """基础波形分析"""
 
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
+from waveform_analysis.core.plugins import profiles
 
 def main():
     # 1. 初始化 Context
     ctx = Context(storage_dir='./strax_data')
-    ctx.register(*standard_plugins)
+    ctx.register(*profiles.cpu_default())
 
     # 2. 设置配置
     ctx.set_config({
@@ -277,11 +278,11 @@ if __name__ == '__main__':
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.data.export import BatchProcessor
-from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
+from waveform_analysis.core.plugins import profiles
 
 # 初始化
 ctx = Context(storage_dir='./strax_data')
-ctx.register(*standard_plugins)
+ctx.register(*profiles.cpu_default())
 ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 
 # 批量处理
@@ -310,11 +311,11 @@ if results['errors']:
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.core.streaming import get_streaming_context
-from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
+from waveform_analysis.core.plugins import profiles
 
 # 初始化
 ctx = Context(storage_dir='./strax_data')
-ctx.register(*standard_plugins)
+ctx.register(*profiles.cpu_default())
 ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 
 # 创建流式上下文
@@ -391,7 +392,7 @@ ctx.set_config({'daq_adapter': 'my_daq'})
 | 操作 | 代码 |
 |------|------|
 | 创建 Context | `ctx = Context(storage_dir='./data')` |
-| 注册插件 | `ctx.register(*standard_plugins)` |
+| 注册插件 | `ctx.register(*profiles.cpu_default())` |
 | 设置配置 | `ctx.set_config({'daq_adapter': 'vx2730'})` |
 | 获取数据 | `ctx.get_data('run_001', 'basic_features')` |
 | 查看帮助 | `ctx.help()` |
@@ -451,3 +452,5 @@ ctx.clear_cache('run_001')
 - [插件教程](../features/plugin/SIMPLE_PLUGIN_GUIDE.md) - 自定义插件开发
 - [血缘可视化](../features/context/LINEAGE_VISUALIZATION_GUIDE.md) - 可视化数据流
 - [示例代码](EXAMPLES_GUIDE.md) - 更多使用场景
+
+[^source]: 来源：`waveform_analysis/core/context.py`、`waveform_analysis/core/plugins/profiles.py`、`waveform_analysis/core/plugins/builtin/cpu/`。
