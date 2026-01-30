@@ -24,11 +24,10 @@
 - [批处理器](context/BATCH_PROCESSOR.md)
 - [插件管理](context/PLUGIN_MANAGEMENT.md)
 
-### [核心功能](core/README.md)
+### [核心功能](context/README.md)
 
-时间字段统一、绝对时间查询与 DAQ 时间基准。
+绝对时间查询与 DAQ 时间基准。
 
-- [时间字段统一](core/TIME_FIELD_UNIFICATION.md)
 - [绝对时间查询](context/ABSOLUTE_TIME_GUIDE.md)
 - [DAQ 适配器](../plugins/DAQ_ADAPTER_GUIDE.md)
 
@@ -72,7 +71,6 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 | 分析依赖关系 | [DEPENDENCY_ANALYSIS_GUIDE.md](context/DEPENDENCY_ANALYSIS_GUIDE.md) |
 | 预览执行计划 | [PREVIEW_EXECUTION.md](context/PREVIEW_EXECUTION.md) |
 | 管理配置 | [CONFIGURATION.md](context/CONFIGURATION.md) |
-| 理解时间字段 | [TIME_FIELD_UNIFICATION.md](core/TIME_FIELD_UNIFICATION.md) |
 | 绝对时间查询 | [ABSOLUTE_TIME_GUIDE.md](context/ABSOLUTE_TIME_GUIDE.md) |
 | 筛选事件数据 | [EVENT_FILTERS_GUIDE.md](utils/EVENT_FILTERS_GUIDE.md) |
 | 预览波形 | [waveform_preview.md](utils/waveform_preview.md) |

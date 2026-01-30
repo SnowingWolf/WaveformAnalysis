@@ -158,4 +158,3 @@ class MyPlugin(Plugin):
 - 输出 dtype 改动未 bump `version`
 - 在插件内缓存状态导致跨 run 污染
 - chunk 边界未验证导致时间范围错误
-

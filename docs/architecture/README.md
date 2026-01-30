@@ -9,6 +9,7 @@
 | 文档 | 说明 |
 |------|------|
 | [系统架构](ARCHITECTURE.md) | 系统总体架构和设计原则 |
+| [插件系统架构](PLUGIN_SYSTEM_ARCHITECTURE.md) | 插件系统完整架构分析 |
 | [项目结构](PROJECT_STRUCTURE.md) | 项目目录结构和模块说明 |
 | [Context 工作流](CONTEXT_PROCESSOR_WORKFLOW.md) | Context 和 Processor 工作流程 |
 | [Records + WavePool](RECORDS_WAVE_POOL.md) | 数据中间层设计 |
@@ -17,8 +18,9 @@
 
 1. [项目结构](PROJECT_STRUCTURE.md) - 了解项目结构
 2. [系统架构](ARCHITECTURE.md) - 理解整体架构
-3. [Context 工作流](CONTEXT_PROCESSOR_WORKFLOW.md) - 掌握核心流程
-4. [Records + WavePool](RECORDS_WAVE_POOL.md) - 数据中间层
+3. [插件系统架构](PLUGIN_SYSTEM_ARCHITECTURE.md) - 深入插件系统
+4. [Context 工作流](CONTEXT_PROCESSOR_WORKFLOW.md) - 掌握核心流程
+5. [Records + WavePool](RECORDS_WAVE_POOL.md) - 数据中间层
 
 ## 相关资源
 

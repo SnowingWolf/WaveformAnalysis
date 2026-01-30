@@ -79,5 +79,5 @@ def test_my_plugin(tmp_path):
 
 ## 🔗 相关文档
 
-- [最简单的插件教程](../../features/plugin/SIMPLE_PLUGIN_GUIDE.md)
+- [最简单的插件教程](../../plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md)
 - [插件开发完整指南](plugin_guide.md)

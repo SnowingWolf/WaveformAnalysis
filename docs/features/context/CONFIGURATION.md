@@ -310,6 +310,6 @@ with open('config_backup.json', 'r') as f:
 - [插件管理](PLUGIN_MANAGEMENT.md) - 注册和管理插件
 - [数据访问](DATA_ACCESS.md) - 获取数据
 - [执行预览](PREVIEW_EXECUTION.md) - 确认配置生效
-- [配置参考](../../api/config_reference.md) - 完整配置选项列表
+- [内置插件文档](../../plugins/builtin/auto/INDEX.md) - 插件配置选项列表
 
 [^source]: 来源：`waveform_analysis/core/context.py`、`waveform_analysis/core/config/`。

@@ -105,8 +105,7 @@ areas = [ch["area"] for ch in basic_features]
 ### 功能特性
 
 - [Context 功能](features/context/README.md) - 配置管理、执行预览、依赖分析、血缘可视化
-- [时间查询](features/core/README.md) - 时间字段统一、绝对时间查询、DAQ 时间基准
-- [插件功能](features/plugin/README.md) - 信号处理、流式处理、Strax 适配
+- [插件功能](plugins/README.md) - 信号处理、流式处理、Strax 适配
 - [高级功能](features/advanced/README.md) - 并行执行、进度追踪、CSV 处理
 - [工具函数](features/utils/README.md) - DAQ 适配器、事件筛选、波形预览
 
@@ -129,10 +128,10 @@ areas = [ch["area"] for ch in basic_features]
 |------|------|
 | 可视化插件依赖 | [血缘图预览](features/context/LINEAGE_VISUALIZATION_GUIDE.md) |
 | 预览执行计划 | [预览执行](features/context/PREVIEW_EXECUTION.md) |
-| 使用信号处理插件 | [信号处理插件](features/plugin/SIGNAL_PROCESSING_PLUGINS.md) |
+| 使用信号处理插件 | [信号处理插件](plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md) |
 | 查看 DAQ 运行概览 | [DAQ 运行分析器](features/utils/DAQ_ANALYZER_GUIDE.md) |
 | 并行处理数据 | [执行器管理](features/advanced/EXECUTOR_MANAGER_GUIDE.md) |
-| 开发自定义插件 | [插件开发教程](features/plugin/SIMPLE_PLUGIN_GUIDE.md) |
+| 开发自定义插件 | [插件开发教程](plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) |
 | 理解系统架构 | [系统架构](architecture/ARCHITECTURE.md) |
 
 ## 学习路径
@@ -152,7 +151,7 @@ areas = [ch["area"] for ch in basic_features]
 
 ### 开发者
 
-1. [插件开发教程](features/plugin/SIMPLE_PLUGIN_GUIDE.md)
+1. [插件开发教程](plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md)
 2. [系统架构](architecture/ARCHITECTURE.md)
 3. [API 参考](api/README.md)
 4. [开发规范](development/contributing/README.md)
@@ -169,7 +168,7 @@ areas = [ch["area"] for ch in basic_features]
 
 **Q: 如何开发插件？**
 
-从 [插件开发教程](features/plugin/SIMPLE_PLUGIN_GUIDE.md) 开始。
+从 [插件开发教程](plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) 开始。
 
 ## 获取帮助
 

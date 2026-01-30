@@ -140,6 +140,63 @@ def generate_plugins_auto(args):
         return 1
 
 
+def generate_docs(args):
+    """生成文档（原有功能）"""
+    try:
+        from waveform_analysis.utils.doc_generator import DocGenerator
+
+        # 初始化生成器
+        ctx = None
+        if args.with_context:
+            from waveform_analysis.core.context import Context
+            from waveform_analysis.core.plugins import profiles
+
+            ctx = Context()
+            ctx.register(*profiles.cpu_default())
+            print("✅ 已加载 Context 和标准插件")
+
+        generator = DocGenerator(ctx)
+
+        # 确定输出路径
+        output_path = args.output or "docs"
+
+        # 生成文档
+        if args.doc_type == "api":
+            if not args.output:
+                output_path = f"docs/api_reference.{args.format.replace('markdown', 'md')}"
+            generator.generate_api_reference(output_path, format=args.format)
+
+        elif args.doc_type == "config":
+            if not args.output:
+                output_path = "docs/config_reference.md"
+            generator.generate_config_reference(output_path)
+
+        elif args.doc_type == "plugins":
+            if not args.output:
+                output_path = "docs/plugin_guide.md"
+            generator.generate_plugin_guide(output_path)
+
+        elif args.doc_type == "all":
+            if not args.output:
+                output_path = "docs"
+            generator.generate_all(output_path)
+
+        print("\n✅ 文档生成成功")
+        return 0
+
+    except ImportError as e:
+        print(f"❌ 缺少依赖: {e}")
+        print("提示: 运行 'pip install jinja2' 安装依赖")
+        return 1
+
+    except Exception as e:
+        print(f"❌ 生成文档时出错: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return 1
+
+
 def cmd_check(args):
     """处理 check 命令"""
     if args.check_type == "coverage":

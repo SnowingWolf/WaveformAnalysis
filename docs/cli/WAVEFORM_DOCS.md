@@ -2,17 +2,15 @@
 
 **导航**: [文档中心](../README.md) > [命令行工具](README.md) > waveform-docs 命令参考
 
-`waveform-docs` 是 WaveformAnalysis 的文档生成工具，用于自动生成 API 参考、配置参考和插件指南。
+`waveform-docs` 是 WaveformAnalysis 的文档生成工具，用于自动生成插件文档和检查文档覆盖率。
 
 ---
 
 ## 命令概述
 
 `waveform-docs` 提供以下功能：
-- 自动生成 API 参考文档
-- 生成配置参考文档
-- 生成插件开发指南
-- 支持 Markdown 和 HTML 格式输出
+- 自动生成内置插件文档
+- 检查文档覆盖率
 
 ---
 
@@ -34,143 +32,92 @@ waveform-docs <命令> [选项]
 waveform-docs generate <文档类型> [选项]
 ```
 
+### check - 检查文档
+
+检查文档覆盖率。
+
+```bash
+waveform-docs check coverage [选项]
+```
+
 ---
 
 ## 文档类型
 
 | 类型 | 说明 | 默认输出 |
 |------|------|----------|
-| `api` | API 参考文档 | `docs/api_reference.md` |
-| `config` | 配置参考文档 | `docs/config_reference.md` |
-| `plugins` | 插件开发指南 | `docs/plugin_guide.md` |
-| `all` | 生成所有文档 | `docs/` 目录 |
+| `plugins-auto` | 自动生成内置插件文档 | `docs/plugins/builtin/auto/` |
 
 ---
 
 ## 选项
 
+### generate 选项
+
 | 参数 | 简写 | 类型 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `--output` | `-o` | str | - | 输出路径（文件或目录） |
-| `--format` | `-f` | str | "markdown" | 输出格式：`markdown` 或 `html` |
-| `--with-context` | - | flag | False | 使用完整 Context 上下文（注册所有标准插件） |
+| `--output` | `-o` | str | - | 输出路径（目录） |
+| `--plugin` | `-p` | str | - | 生成单个插件文档 |
+
+### check 选项
+
+| 参数 | 简写 | 类型 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `--docs-dir` | `-d` | str | - | 文档目录路径 |
+| `--strict` | - | flag | False | 严格模式（也检查 spec 质量） |
+| `--fail-on-warning` | - | flag | False | 有警告时也失败 |
 
 ---
 
 ## 使用示例
 
-### 1. 生成 API 参考文档
+### 1. 生成内置插件文档
 
 ```bash
-# 使用默认路径和格式
-waveform-docs generate api
+# 生成所有内置插件文档
+waveform-docs generate plugins-auto
 
-# 指定输出路径
-waveform-docs generate api --output docs/api/api_reference.md
+# 指定输出目录
+waveform-docs generate plugins-auto -o docs/plugins/builtin/auto/
 
-# 生成 HTML 格式
-waveform-docs generate api --format html --output docs/api/api_reference.html
-
-# 使用完整上下文（包含所有插件信息）
-waveform-docs generate api --with-context
+# 生成单个插件文档
+waveform-docs generate plugins-auto --plugin raw_files
 ```
 
-### 2. 生成配置参考文档
+### 2. 检查文档覆盖率
 
 ```bash
-# 基本生成
-waveform-docs generate config
+# 基本检查
+waveform-docs check coverage
 
-# 指定输出路径
-waveform-docs generate config --output docs/api/config_reference.md
-```
+# 严格模式（检查 spec 质量）
+waveform-docs check coverage --strict
 
-### 3. 生成插件指南
-
-```bash
-# 基本生成
-waveform-docs generate plugins
-
-# 指定输出路径
-waveform-docs generate plugins --output docs/api/plugin_guide.md
-```
-
-### 4. 生成所有文档
-
-```bash
-# 生成所有文档到默认目录
-waveform-docs generate all
-
-# 生成所有文档到指定目录
-waveform-docs generate all --output docs/generated/
-
-# 使用完整上下文生成
-waveform-docs generate all --with-context
-```
-
----
-
-## 输出格式
-
-### Markdown 格式（默认）
-
-生成标准的 Markdown 文档，适合在 GitHub、文档网站等平台显示。
-
-```bash
-waveform-docs generate api --format markdown --output docs/api.md
-```
-
-### HTML 格式
-
-生成 HTML 文档，适合在浏览器中查看。
-
-```bash
-waveform-docs generate api --format html --output docs/api.html
-```
-
----
-
-## --with-context 选项
-
-使用 `--with-context` 选项时，工具会：
-1. 创建完整的 `Context` 实例
-2. 注册所有标准插件
-3. 生成包含所有插件信息的完整文档
-
-这对于生成完整的 API 参考特别有用。
-
-**示例**:
-```bash
-# 生成包含所有插件信息的完整 API 文档
-waveform-docs generate api --with-context --output docs/api_reference.md
+# 有警告时失败
+waveform-docs check coverage --fail-on-warning
 ```
 
 ---
 
 ## 输出文件说明
 
-### API 参考文档
+### 插件文档
 
-包含：
-- 所有类的完整文档字符串
-- 方法签名和参数说明
+每个插件生成一个 Markdown 文件，包含：
+- 基本信息（类名、版本、provides、依赖）
+- 描述
+- 输出 schema（dtype 字段）
+- 配置选项表
 - 使用示例
-- 类型信息
 
-### 配置参考文档
-
-包含：
-- 所有插件的配置选项
-- 选项类型和默认值
-- 配置说明和验证规则
-
-### 插件指南
-
-包含：
-- 插件开发教程
-- 插件架构说明
-- 示例代码
-- 最佳实践
+生成的文件位于 `docs/plugins/builtin/auto/` 目录：
+- `raw_files.md`
+- `waveforms.md`
+- `st_waveforms.md`
+- `filtered_waveforms.md`
+- `signal_peaks.md`
+- `INDEX.md`（索引页）
+- ...
 
 ---
 
@@ -201,67 +148,43 @@ pip install -e ".[docgen]"
    ```
    解决: 安装 `jinja2` 包
 
-2. **输出路径错误**
+2. **插件不存在**
    ```
-   ❌ 生成文档时出错: ...
+   ❌ 错误: Plugin 'xxx' not found
    ```
-   解决: 检查输出路径是否可写，确保目录存在
+   解决: 检查插件名称是否正确
 
 ---
 
 ## 使用场景
 
-### 场景 1: 更新 API 文档
+### 场景 1: 更新插件文档
 
-在代码更新后，重新生成 API 文档：
+在插件代码更新后，重新生成文档：
 
 ```bash
-waveform-docs generate api --with-context --output docs/api/api_reference.md
+waveform-docs generate plugins-auto
 ```
 
-### 场景 2: 生成完整文档集
+### 场景 2: CI/CD 集成
 
-生成所有文档用于发布：
-
-```bash
-waveform-docs generate all --with-context --output docs/generated/
-```
-
-### 场景 3: 生成 HTML 文档
-
-生成 HTML 格式用于在线查看：
+在 CI 中检查文档覆盖率：
 
 ```bash
-waveform-docs generate api --format html --output docs/api_reference.html
+waveform-docs check coverage --strict --fail-on-warning
 ```
 
 ---
 
 ## 注意事项
 
-1. **文档准确性**: 生成的文档基于代码中的文档字符串，确保代码文档完整
-2. **上下文选项**: 使用 `--with-context` 会加载所有插件，可能需要一些时间
-3. **输出路径**: 如果输出路径是目录，确保目录存在
-4. **格式选择**: Markdown 格式更适合版本控制和编辑，HTML 格式更适合在线查看
+1. **文档准确性**: 生成的文档基于插件的 `SPEC` 和 `options`，确保插件定义完整
+2. **输出路径**: 默认输出到 `docs/plugins/builtin/auto/`，会覆盖已有文件
+3. **INDEX.md**: 自动生成索引页，包含所有插件的概览表
 
 ---
 
-## 与手动文档的关系
-
-自动生成的文档通常用于：
-- API 参考（保持与代码同步）
-- 配置参考（从代码自动提取）
-
-手动编写的文档通常用于：
-- 教程和指南
-- 架构说明
-- 最佳实践
-
-两者结合使用，提供完整的文档体系。
-
----
-
-**相关文档**: 
-[CLI 工具总览](README.md) | 
-[API 参考](../api/README.md) | 
-[插件开发指南](../features/plugin/README.md)
+**相关文档**:
+[CLI 工具总览](README.md) |
+[API 参考](../api/README.md) |
+[插件开发指南](../plugins/README.md)
