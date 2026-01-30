@@ -395,7 +395,7 @@ ctx.set_config({'daq_adapter': 'my_daq'})
 | 注册插件 | `ctx.register(*profiles.cpu_default())` |
 | 设置配置 | `ctx.set_config({'daq_adapter': 'vx2730'})` |
 | 获取数据 | `ctx.get_data('run_001', 'basic_features')` |
-| 查看帮助 | `ctx.help()` |
+| 查看文档指南 | `ctx.help()` 或查看 `docs/` 目录 |
 | 查看配置 | `ctx.show_config()` |
 | 血缘可视化 | `ctx.plot_lineage('basic_features')` |
 | 预览执行 | `ctx.preview_execution('run_001', 'basic_features')` |
