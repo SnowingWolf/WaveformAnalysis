@@ -12,8 +12,8 @@ WaveformAnalysis 文档生成工具 CLI
 """
 
 import argparse
-import sys
 from pathlib import Path
+import sys
 
 
 def main():
@@ -147,7 +147,7 @@ def generate_plugins_auto(args):
             print(f"   输出目录: {output_path}")
 
             # 列出生成的文件
-            for provides, path in sorted(results.items()):
+            for _provides, path in sorted(results.items()):
                 print(f"   - {path.name}")
 
         return 0

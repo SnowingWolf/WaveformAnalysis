@@ -6,8 +6,8 @@
 - DocCoverageChecker: 文档覆盖检查器
 """
 
-import tempfile
 from pathlib import Path
+import tempfile
 
 import numpy as np
 import pytest
@@ -75,9 +75,7 @@ class TestPluginDocGenerator:
         assert len(doc_info.config_options) == 2
 
         # 查找 threshold 选项
-        threshold_opt = next(
-            (o for o in doc_info.config_options if o.name == "threshold"), None
-        )
+        threshold_opt = next((o for o in doc_info.config_options if o.name == "threshold"), None)
         assert threshold_opt is not None
         assert threshold_opt.type == "float"
         assert threshold_opt.default == 10.0
@@ -106,15 +104,28 @@ class TestPluginDocGenerator:
         # 测试不同的 provides 名称
         assert generator._detect_category("raw_files", "RawFilesPlugin") == "data_loading"
         assert generator._detect_category("waveforms", "WaveformsPlugin") == "waveform_processing"
-        assert generator._detect_category("basic_features", "BasicFeaturesPlugin") == "feature_extraction"
-        assert generator._detect_category("grouped_events", "GroupedEventsPlugin") == "event_analysis"
+        assert (
+            generator._detect_category("basic_features", "BasicFeaturesPlugin")
+            == "feature_extraction"
+        )
+        assert (
+            generator._detect_category("grouped_events", "GroupedEventsPlugin") == "event_analysis"
+        )
         assert generator._detect_category("dataframe", "DataFramePlugin") == "data_export"
         # signal_peaks 匹配 "peak" 关键词，归类为 feature_extraction
-        assert generator._detect_category("signal_peaks", "SignalPeaksPlugin") == "feature_extraction"
+        assert (
+            generator._detect_category("signal_peaks", "SignalPeaksPlugin") == "feature_extraction"
+        )
         # filtered_waveforms 匹配 "waveform" 关键词，归类为 waveform_processing
-        assert generator._detect_category("filtered_waveforms", "FilteredWaveformsPlugin") == "waveform_processing"
+        assert (
+            generator._detect_category("filtered_waveforms", "FilteredWaveformsPlugin")
+            == "waveform_processing"
+        )
         # 纯 filter 名称归类为 signal_processing
-        assert generator._detect_category("lowpass_filter", "LowpassFilterPlugin") == "signal_processing"
+        assert (
+            generator._detect_category("lowpass_filter", "LowpassFilterPlugin")
+            == "signal_processing"
+        )
 
     def test_accelerator_detection(self):
         """测试加速器检测"""
