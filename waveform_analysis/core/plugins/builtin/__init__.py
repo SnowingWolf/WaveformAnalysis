@@ -41,32 +41,26 @@ from .cpu import (
     PairedEventsPlugin,
     RecordsPlugin,
     RawFileNamesPlugin,
+    RawFilesPlugin,
     SignalPeaksPlugin,
+    StWaveformsPlugin,
     WaveformsPlugin,
     WaveformStruct,
     WaveformStructConfig,
     WaveformWidthPlugin,
     WaveformWidthIntegralPlugin,
+    standard_plugins,
 )
 
 # 流式插件
 from .streaming import SignalPeaksStreamPlugin
 
-# 标准插件列表（方便批量注册）
-standard_plugins = [
-    RawFileNamesPlugin(),
-    WaveformsPlugin(),
-    HitFinderPlugin(),
-    BasicFeaturesPlugin(),
-    DataFramePlugin(),
-    GroupedEventsPlugin(),
-    PairedEventsPlugin(),
-]
-
 __all__ = [
     # 标准插件类
     "RawFileNamesPlugin",
+    "RawFilesPlugin",
     "WaveformsPlugin",
+    "StWaveformsPlugin",
     "WaveformStruct",
     "WaveformStructConfig",
     "HitFinderPlugin",

@@ -115,10 +115,10 @@ class HelpSystem:
 🚀 快速开始
 ────────────────────────────────────────────────────────────────────────────────
   from waveform_analysis.core.context import Context
-  from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
+  from waveform_analysis.core.plugins import profiles
 
   ctx = Context(storage_dir='./data')
-  ctx.register(standard_plugins)
+  ctx.register(*profiles.cpu_default())
   ctx.set_config({'n_channels': 2})
   data = ctx.get_data('run_001', 'basic_features')
 ────────────────────────────────────────────────────────────────────────────────
