@@ -9,10 +9,10 @@
 ## 命令概述
 
 `waveform-cache` 提供以下功能：
-- 查看缓存信息和统计
-- 诊断缓存问题
-- 清理缓存数据（支持多种策略）
-- 列出缓存条目
+- `info` 查看缓存信息和统计
+- `diagnose` 诊断缓存问题
+- `clean` 清理缓存数据（支持多种策略）
+- `list` 列出缓存条目
 
 ---
 
@@ -314,12 +314,12 @@ waveform-cache clean --run run_001 --strategy oldest --days 30 --no-dry-run
    waveform-cache: error: unrecognized arguments: --storage-dir ./outputs/_cache
    ```
    **原因**: `--storage-dir` 是全局选项，必须在子命令之前指定。
-   
+
    **解决**: 将 `--storage-dir` 移到子命令之前：
    ```bash
    # ❌ 错误
    waveform-cache stats --detailed --storage-dir ./outputs/_cache
-   
+
    # ✅ 正确
    waveform-cache --storage-dir ./outputs/_cache stats --detailed
    ```
@@ -349,7 +349,7 @@ waveform-cache clean --run run_001 --strategy oldest --days 30 --no-dry-run
 
 ---
 
-**相关文档**: 
-[CLI 工具总览](README.md) | 
-[缓存机制](../features/context/DATA_ACCESS.md#缓存机制) | 
+**相关文档**:
+[CLI 工具总览](README.md) |
+[缓存机制](../features/context/DATA_ACCESS.md#缓存机制) |
 [存储系统](../architecture/ARCHITECTURE.md)
