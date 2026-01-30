@@ -13,9 +13,9 @@ CI 用插件文档检查脚本
 """
 
 import argparse
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 
 
 def main():

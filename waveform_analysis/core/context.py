@@ -3793,11 +3793,11 @@ class Context(CacheMixin, PluginMixin):
         """
         # 主题到文档的映射
         topic_docs = {
-            'quickstart': 'docs/user-guide/QUICKSTART_GUIDE.md',
-            'config': 'docs/features/context/CONFIGURATION.md',
-            'plugins': 'docs/features/plugin/README.md',
-            'performance': 'docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md',
-            'examples': 'docs/user-guide/EXAMPLES_GUIDE.md',
+            "quickstart": "docs/user-guide/QUICKSTART_GUIDE.md",
+            "config": "docs/features/context/CONFIGURATION.md",
+            "plugins": "docs/features/plugin/README.md",
+            "performance": "docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md",
+            "examples": "docs/user-guide/EXAMPLES_GUIDE.md",
         }
 
         if topic is None:
@@ -3854,7 +3854,7 @@ class Context(CacheMixin, PluginMixin):
 返回主菜单: ctx.help()
 """
         else:
-            available = ', '.join(topic_docs.keys())
+            available = ", ".join(topic_docs.keys())
             result = f"""
 ❌ 未知主题: '{topic}'
 
