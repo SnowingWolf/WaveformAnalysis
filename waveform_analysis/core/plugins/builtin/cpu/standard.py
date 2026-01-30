@@ -33,6 +33,8 @@ from .hit_finder import HitFinderPlugin
 from .raw_files import RawFileNamesPlugin
 from .waveforms import WaveformsPlugin, WaveformStruct, WaveformStructConfig
 
+from waveform_analysis.core.plugins.profiles import cpu_default
+
 # 标准插件列表 - 按依赖顺序排列
 standard_plugins = cpu_default()
 
