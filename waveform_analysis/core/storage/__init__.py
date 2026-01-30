@@ -41,6 +41,7 @@ from .cache_cleaner import CacheCleaner, CleanupPlan, CleanupStrategy
 from .cache_diagnostics import CacheDiagnostics, DiagnosticIssue, DiagnosticIssueType
 from .cache_manager import RuntimeCacheManager
 from .cache_statistics import CacheStatistics, CacheStatsCollector
+from .cache_utils import CacheEntryFilter, format_age, format_size
 
 # 压缩管理
 from .compression import (
@@ -96,4 +97,7 @@ __all__ = [
     "CleanupStrategy",
     "CacheStatsCollector",
     "CacheStatistics",
+    "format_size",
+    "format_age",
+    "CacheEntryFilter",
 ]
