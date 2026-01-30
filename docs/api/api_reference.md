@@ -4,7 +4,7 @@
 
 > 自动生成于 2026-01-22 18:31:44
 
-本文档包含 WaveformAnalysis 的完整 API 参考。
+本文档包含 WaveformAnalysis 的完整 API 参考。[^source]
 
 ---
 
@@ -18,6 +18,7 @@
 
 The Context orchestrates plugins and manages data storage/caching.
 Inspired by strax, it is the main entry point for data analysis.
+
 
 ### 方法
 
@@ -786,9 +787,9 @@ Context 会自动管理插件之间的依赖关系，并在获取数据时按需
 ...     StWaveformsPlugin()
 ... )
 >>>
->>> # 方式4: 注册模块中的所有插件
->>> import waveform_analysis.core.plugins.builtin.cpu as standard_plugins
->>> ctx.register(standard_plugins)
+>>> # 方式4: 使用 Profile 注册标准链路
+>>> from waveform_analysis.core.plugins import profiles
+>>> ctx.register(*profiles.cpu_default())
 >>>
 >>> # 方式5: 允许覆盖已注册的插件
 >>> ctx.register(RawFilesPlugin(), allow_override=True)
@@ -907,3 +908,5 @@ Override run_plugin to add saving logic and config resolution.
 
 **生成时间**: 2026-01-22 18:31:44
 **工具**: WaveformAnalysis DocGenerator
+
+[^source]: 来源：`waveform_analysis/core/context.py` 与文档生成器 `waveform_analysis/utils/doc_generator/`。

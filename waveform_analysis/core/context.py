@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+# DOC: docs/features/context/DATA_ACCESS.md
+# DOC: docs/features/context/CONFIGURATION.md
+# DOC: docs/features/context/PLUGIN_MANAGEMENT.md
 """
 Context 模块 - 插件系统的核心调度器。
 
@@ -30,6 +33,15 @@ import pandas as pd
 from ..utils.visualization.lineage_visualizer import (
     plot_lineage_labview,
     plot_lineage_plotly,
+)
+from .config import (
+    AdapterInfo,
+    CompatManager,
+    ConfigResolver,
+    ConfigSource,
+    ConfigValue,
+    ResolvedConfig,
+    get_adapter_info,
 )
 from .execution.validation import ValidationManager
 from .foundation.error import ErrorManager
@@ -282,6 +294,10 @@ class Context(CacheMixin, PluginMixin):
         self.config.setdefault("epoch_extraction_strategy", "auto")  # "auto", "filename", "csv_header", "first_event"
         self.config.setdefault("epoch_filename_patterns", None)  # None = use defaults
 
+        # Initialize ConfigResolver and CompatManager for unified config handling
+        self._compat_manager = CompatManager()
+        self._config_resolver = ConfigResolver(compat_manager=self._compat_manager)
+
     def clone(self) -> "Context":
         """
         Create a new Context with the same config and plugin registrations.
@@ -396,7 +412,12 @@ class Context(CacheMixin, PluginMixin):
     # Registers & Config plugins in the  Context. and get data
     # ===========================
 
-    def register(self, *plugins: Union[Plugin, Type[Plugin], Any], allow_override: bool = False):
+    def register(
+        self,
+        *plugins: Union[Plugin, Type[Plugin], Any],
+        allow_override: bool = False,
+        require_spec: bool = False,
+    ):
         """
         注册一个或多个插件到 Context 中。
 
@@ -416,10 +437,13 @@ class Context(CacheMixin, PluginMixin):
                 - 插件序列：list/tuple/set，内部元素会被展开注册
             allow_override: 如果为 True，允许覆盖已注册的同名插件（基于 `provides` 属性）
                           如果为 False（默认），注册同名插件会抛出 RuntimeError
+            require_spec: 如果为 True，要求插件必须提供有效的 spec() 方法或 SPEC 属性
+                         如果为 False（默认），spec 校验仅产生警告
 
         Raises:
             RuntimeError: 当尝试注册已存在的插件且 `allow_override=False` 时
             ValueError: 当插件验证失败时（通过 `plugin.validate()` 方法）
+                       或当 `require_spec=True` 且插件缺少有效 spec 时
             TypeError: 当插件依赖版本不兼容时
 
         Examples:
@@ -444,11 +468,14 @@ class Context(CacheMixin, PluginMixin):
             ... )
             >>>
             >>> # 方式4: 注册模块中的所有插件
-            >>> import waveform_analysis.core.plugins.builtin.cpu as standard_plugins
-            >>> ctx.register(standard_plugins)
+            >>> from waveform_analysis.core.plugins import profiles
+            >>> ctx.register(*profiles.cpu_default())
             >>>
             >>> # 方式5: 允许覆盖已注册的插件
             >>> ctx.register(RawFileNamesPlugin(), allow_override=True)
+            >>>
+            >>> # 方式6: 要求插件必须有 spec（严格模式）
+            >>> ctx.register(MyPlugin(), require_spec=True)
             >>>
             >>> # 注册后可以通过数据名称访问
             >>> raw_files = ctx.get_data("run_001", "raw_files")
@@ -458,21 +485,22 @@ class Context(CacheMixin, PluginMixin):
             - 注册插件会清除相关的执行计划缓存，确保依赖关系正确
             - 如果插件类需要参数，请先实例化再传入，不要直接传入类
             - 模块注册会递归查找所有 Plugin 子类，但会跳过 Plugin 基类本身
+            - 当 require_spec=True 时，会校验 PluginSpec 的完整性和一致性
         """
         for p in plugins:
             if isinstance(p, (list, tuple, set)):
                 for item in p:
-                    self.register(item, allow_override=allow_override)
+                    self.register(item, allow_override=allow_override, require_spec=require_spec)
                 continue
             if isinstance(p, type) and issubclass(p, Plugin):
-                self.register_plugin_(p(), allow_override=allow_override)
+                self.register_plugin_(p(), allow_override=allow_override, require_spec=require_spec)
             elif isinstance(p, Plugin):
-                self.register_plugin_(p, allow_override=allow_override)
+                self.register_plugin_(p, allow_override=allow_override, require_spec=require_spec)
             elif hasattr(p, "__path__") or hasattr(p, "__file__"):  # It's a module
-                self._register_from_module(p, allow_override=allow_override)
+                self._register_from_module(p, allow_override=allow_override, require_spec=require_spec)
             else:
                 # Fallback for other types if needed
-                self.register_plugin_(p, allow_override=allow_override)
+                self.register_plugin_(p, allow_override=allow_override, require_spec=require_spec)
 
     def discover_and_register_plugins(self, allow_override: bool = False) -> int:
         """
@@ -598,9 +626,168 @@ class Context(CacheMixin, PluginMixin):
             >>> ctx.get_config(plugin, 'threshold')
             ValueError: threshold must satisfy validator
         """
-        raw_value = self._resolve_config_value(plugin, name)
-        option = plugin.options[name]
-        return option.validate_value(name, raw_value, plugin_name=plugin.provides)
+        return self.get_config_value(plugin, name).value
+
+    def get_config_value(
+        self,
+        plugin: Plugin,
+        name: str,
+        adapter_name: Optional[str] = None,
+    ) -> ConfigValue:
+        """获取插件配置值及其来源信息。
+
+        Args:
+            plugin: 目标插件实例
+            name: 配置选项名称
+            adapter_name: DAQ adapter 名称（可选）
+
+        Returns:
+            ConfigValue 实例
+        """
+        if adapter_name is None:
+            adapter_name = self._resolve_adapter_name_for_plugin(plugin)
+        return self._config_resolver.resolve_value(
+            plugin=plugin,
+            name=name,
+            config=self.config,
+            adapter_name=adapter_name,
+        )
+
+    def has_explicit_config(
+        self,
+        plugin: Plugin,
+        name: str,
+        adapter_name: Optional[str] = None,
+    ) -> bool:
+        """检查配置是否显式设置（包含别名输入）。"""
+        try:
+            cv = self.get_config_value(plugin, name, adapter_name=adapter_name)
+        except KeyError:
+            return False
+        return cv.source == ConfigSource.EXPLICIT
+
+    def _resolve_adapter_name_for_plugin(
+        self,
+        plugin: Plugin,
+        adapter_name: Optional[str] = None,
+    ) -> Optional[str]:
+        """Resolve adapter name with plugin-specific override."""
+        resolved_adapter = adapter_name if adapter_name is not None else self.config.get("daq_adapter")
+        if "daq_adapter" not in plugin.options:
+            return resolved_adapter
+        try:
+            cv = self._config_resolver.resolve_value(
+                plugin=plugin,
+                name="daq_adapter",
+                config=self.config,
+                adapter_name=None,
+            )
+        except KeyError:
+            return resolved_adapter
+        if cv.value is not None:
+            return cv.value
+        return resolved_adapter
+
+    def get_resolved_config(
+        self,
+        plugin: Union[Plugin, str],
+        adapter_name: Optional[str] = None,
+    ) -> ResolvedConfig:
+        """获取插件的完整解析配置（带来源追踪）
+
+        使用 ConfigResolver 解析插件的所有配置值，并追踪每个值的来源。
+        支持从 DAQ adapter 自动推断配置值（如采样率、时间间隔等）。
+
+        Args:
+            plugin: 插件实例或插件名称
+            adapter_name: DAQ adapter 名称（可选，用于推断配置值）
+                         如果未指定，会尝试从 config['daq_adapter'] 获取
+
+        Returns:
+            ResolvedConfig 实例，包含所有配置值及其来源信息
+
+        Examples:
+            >>> resolved = ctx.get_resolved_config("waveforms", adapter_name="vx2730")
+            >>> print(resolved.get("sampling_rate_hz"))
+            500000000.0
+
+            >>> # 查看配置来源
+            >>> print(resolved.summary(verbose=True))
+
+            >>> # 获取所有推断的值
+            >>> print(resolved.get_inferred_values())
+        """
+        # 获取插件实例
+        if isinstance(plugin, str):
+            if plugin not in self._plugins:
+                raise KeyError(f"Plugin '{plugin}' is not registered")
+            plugin = self._plugins[plugin]
+
+        # 确定 adapter 名称
+        if adapter_name is None:
+            adapter_name = self._resolve_adapter_name_for_plugin(plugin)
+
+        return self._config_resolver.resolve(
+            plugin=plugin,
+            config=self.config,
+            adapter_name=adapter_name,
+        )
+
+    def show_resolved_config(
+        self,
+        plugin: Union[Plugin, str, None] = None,
+        verbose: bool = True,
+        adapter_name: Optional[str] = None,
+    ) -> None:
+        """显示插件的解析配置（带来源信息）
+
+        以友好的格式显示插件配置的解析结果，包括每个配置值的来源。
+
+        Args:
+            plugin: 插件实例、插件名称或 None（显示所有插件）
+            verbose: 是否显示详细信息（包含来源）
+            adapter_name: DAQ adapter 名称（可选）
+
+        Examples:
+            >>> # 显示单个插件的配置
+            >>> ctx.show_resolved_config("waveforms", verbose=True)
+
+            >>> # 显示所有插件的配置
+            >>> ctx.show_resolved_config()
+        """
+        if adapter_name is None:
+            adapter_name = self.config.get("daq_adapter")
+
+        if plugin is None:
+            # 显示所有插件
+            plugins_to_show = list(self._plugins.values())
+        elif isinstance(plugin, str):
+            if plugin not in self._plugins:
+                print(f"Plugin '{plugin}' is not registered")
+                return
+            plugins_to_show = [self._plugins[plugin]]
+        else:
+            plugins_to_show = [plugin]
+
+        for p in plugins_to_show:
+            resolved = self.get_resolved_config(p, adapter_name=adapter_name)
+            print(resolved.summary(verbose=verbose))
+            print()
+
+    def get_adapter_info(self, adapter_name: Optional[str] = None) -> Optional[AdapterInfo]:
+        """获取 DAQ adapter 信息
+
+        Args:
+            adapter_name: adapter 名称（可选，默认从 config['daq_adapter'] 获取）
+
+        Returns:
+            AdapterInfo 实例或 None
+        """
+        if adapter_name is None:
+            adapter_name = self.config.get("daq_adapter")
+        if adapter_name is None:
+            return None
+        return get_adapter_info(adapter_name)
 
     def get_plugin(self, plugin_name: str) -> Plugin:
         """
@@ -681,13 +868,13 @@ class Context(CacheMixin, PluginMixin):
             # 显示全局配置
             self._show_global_config(show_usage, show_full_help=show_full_help, run_name=run_name)
 
-    def _register_from_module(self, module, allow_override: bool = False):
+    def _register_from_module(self, module, allow_override: bool = False, require_spec: bool = False):
         """Helper to register all Plugin classes found in a module."""
         import inspect
 
         for name, obj in inspect.getmembers(module):
             if inspect.isclass(obj) and issubclass(obj, Plugin) and obj != Plugin:
-                self.register_plugin_(obj(), allow_override=allow_override)
+                self.register_plugin_(obj(), allow_override=allow_override, require_spec=require_spec)
 
     # ===========================
     # Get Data
@@ -1032,13 +1219,7 @@ class Context(CacheMixin, PluginMixin):
         return keys
 
     def _resolve_config_value(self, plugin: Plugin, name: str) -> Any:
-        """计算插件配置选项的值（不进行验证）。
-
-        配置值的查找优先级（从高到低）：
-        1. 插件特定配置（嵌套字典）: config[plugin_name][option_name]
-        2. 插件特定配置（点分隔）: config['plugin_name.option_name']
-        3. 全局配置: config[option_name]
-        4. 插件选项默认值: plugin.options[name].default
+        """计算插件配置选项的值（统一走 ConfigResolver）。
 
         Args:
             plugin: 目标插件实例
@@ -1064,19 +1245,7 @@ class Context(CacheMixin, PluginMixin):
             >>> ctx._resolve_config_value(plugin, 'threshold')
             0.5  # 使用默认值
         """
-        if name not in plugin.options:
-            raise KeyError(f"Plugin '{plugin.provides}' does not have option '{name}'")
-
-        option = plugin.options[name]
-        provides = plugin.provides
-
-        if provides in self.config and isinstance(self.config[provides], dict):
-            if name in self.config[provides]:
-                return self.config[provides][name]
-            return self.config.get(f"{provides}.{name}", self.config.get(name, option.default))
-        if f"{provides}.{name}" in self.config:
-            return self.config[f"{provides}.{name}"]
-        return self.config.get(name, option.default)
+        return self.get_config(plugin, name)
 
     def _make_config_signature(self, raw_config: Dict[str, Any]) -> str:
         """Generate a stable signature for a plugin's raw config dict."""
@@ -1090,17 +1259,21 @@ class Context(CacheMixin, PluginMixin):
         payload = json.dumps(normalized, sort_keys=True, default=default)
         return hashlib.sha256(payload.encode()).hexdigest()
 
+    def _make_resolved_config_signature(self, resolved: ResolvedConfig) -> str:
+        """Generate a stable signature for a plugin's resolved config."""
+        payload = {"__adapter__": resolved.adapter_name}
+        payload.update(resolved.to_dict())
+        return self._make_config_signature(payload)
+
     def _ensure_plugin_config_validated(self, plugin: Plugin) -> Dict[str, Any]:
         """Validate and cache plugin configuration for reuse."""
-        raw_config = {name: self._resolve_config_value(plugin, name) for name in plugin.options}
-        signature = self._make_config_signature(raw_config)
+        resolved = self.get_resolved_config(plugin)
+        signature = self._make_resolved_config_signature(resolved)
         cache_key = (plugin.provides, signature)
         if cache_key in self._resolved_config_cache:
             return self._resolved_config_cache[cache_key]
 
-        validated = {}
-        for name, option in plugin.options.items():
-            validated[name] = option.validate_value(name, raw_config[name], plugin_name=plugin.provides)
+        validated = resolved.to_dict()
         self._resolved_config_cache[cache_key] = validated
         return validated
 
@@ -2069,10 +2242,13 @@ class Context(CacheMixin, PluginMixin):
 
         # Filter config to only include tracked options
         config = {}
+        resolved = self.get_resolved_config(plugin)
         for k in plugin.config_keys:
             opt = plugin.options.get(k)
             if opt and getattr(opt, "track", True):
-                config[k] = self.get_config(plugin, k)
+                cv = resolved.get_value(k)
+                if cv is not None:
+                    config[k] = cv.value
 
         dep_names = self._get_plugin_dependency_names(plugin)
         lineage = {
@@ -2082,6 +2258,16 @@ class Context(CacheMixin, PluginMixin):
             "config": config,
             "depends_on": {dep: self.get_lineage(dep, _visited=_visited.copy()) for dep in dep_names},
         }
+
+        # Add spec_hash if plugin has validated spec
+        if hasattr(plugin, "_validated_spec") and plugin._validated_spec is not None:
+            import hashlib
+            import json
+
+            spec_dict = plugin._validated_spec.to_dict()
+            spec_json = json.dumps(spec_dict, sort_keys=True, default=str)
+            lineage["spec_hash"] = hashlib.sha1(spec_json.encode()).hexdigest()[:8]
+
         if plugin.output_dtype is not None:
             # Standardize dtype to avoid version differences in str(dtype)
             try:
@@ -2089,6 +2275,14 @@ class Context(CacheMixin, PluginMixin):
             except (TypeError, ValueError):
                 # If dtype is not a valid numpy dtype (e.g., "List[str]"), store as string
                 lineage["dtype"] = str(plugin.output_dtype)
+
+        # Add adapter_info for top-level calls
+        if len(_visited) == 1:
+            adapter_name = self.config.get("daq_adapter")
+            if adapter_name:
+                adapter_info = get_adapter_info(adapter_name)
+                if adapter_info:
+                    lineage["adapter_info"] = adapter_info.to_dict()
 
         # Cache the lineage (only for top-level calls)
         if len(_visited) == 1:  # Top-level call

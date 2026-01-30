@@ -10,6 +10,7 @@
 |------|------|
 | [导入规范](IMPORT_STYLE_GUIDE.md) | Python 导入规范 |
 | [提交规范](COMMIT_CONVENTION.md) | Conventional Commits 规范 |
+| [文档同步规范](DOC_ANCHOR_GUIDE.md) | Doc Anchor 代码-文档同步 |
 
 ## 相关资源
 

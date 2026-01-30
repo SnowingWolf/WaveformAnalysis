@@ -107,9 +107,9 @@ class DocGenerator:
         """
         if self.ctx is None:
             from waveform_analysis.core.context import Context
-            from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
+            from waveform_analysis.core.plugins import profiles
             self.ctx = Context()
-            self.ctx.register(standard_plugins)
+            self.ctx.register(*profiles.cpu_default())
 
         from .extractors import MetadataExtractor
         extractor = MetadataExtractor()
@@ -330,9 +330,9 @@ class DocGenerator:
         """
         if self.ctx is None:
             from waveform_analysis.core.context import Context
-            from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
+            from waveform_analysis.core.plugins import profiles
             self.ctx = Context()
-            self.ctx.register(standard_plugins)
+            self.ctx.register(*profiles.cpu_default())
 
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
