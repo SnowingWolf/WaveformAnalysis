@@ -1,3 +1,4 @@
+# DOC: docs/features/context/CONFIGURATION.md#适配器推断
 """
 Adapter 推断信息
 

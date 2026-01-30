@@ -1,3 +1,4 @@
+# DOC: docs/features/context/DATA_ACCESS.md#缓存统计
 """
 缓存统计模块 - 统计收集与报告。
 
@@ -11,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ..foundation.utils import exporter
 from .cache_analyzer import CacheAnalyzer, CacheEntry
+from .cache_utils import format_size
 
 if TYPE_CHECKING:
     pass
@@ -52,12 +54,12 @@ class CacheStatistics:
     @property
     def total_size_human(self) -> str:
         """人类可读的总大小"""
-        return CacheStatsCollector._format_size(self.total_size_bytes)
+        return format_size(self.total_size_bytes)
 
     @property
     def avg_entry_size_human(self) -> str:
         """人类可读的平均条目大小"""
-        return CacheStatsCollector._format_size(int(self.avg_entry_size_bytes))
+        return format_size(int(self.avg_entry_size_bytes))
 
     @property
     def compression_ratio(self) -> float:
@@ -233,7 +235,7 @@ class CacheStatsCollector:
         # 转换 set 为 list 并添加人类可读大小
         for _run_id, stats in by_run.items():
             stats["data_types"] = sorted(stats["data_types"])
-            stats["total_size_human"] = self._format_size(stats["total_size_bytes"])
+            stats["total_size_human"] = format_size(stats["total_size_bytes"])
             # 处理无限值
             if stats["oldest_created_at"] == float("inf"):
                 stats["oldest_created_at"] = 0
@@ -268,10 +270,10 @@ class CacheStatsCollector:
             stats["runs"] = sorted(stats["runs"])
             stats["versions"] = sorted(stats["versions"])
             stats["run_count"] = len(stats["runs"])
-            stats["total_size_human"] = self._format_size(stats["total_size_bytes"])
+            stats["total_size_human"] = format_size(stats["total_size_bytes"])
             if stats["entry_count"] > 0:
                 stats["avg_entry_size"] = stats["total_size_bytes"] / stats["entry_count"]
-                stats["avg_entry_size_human"] = self._format_size(int(stats["avg_entry_size"]))
+                stats["avg_entry_size_human"] = format_size(int(stats["avg_entry_size"]))
 
         return by_type
 
@@ -431,16 +433,16 @@ class CacheStatsCollector:
             result["free_disk_space"] = stat.f_bavail * stat.f_frsize
             result["used_disk_space"] = result["total_disk_space"] - result["free_disk_space"]
 
-            result["total_disk_space_human"] = self._format_size(result["total_disk_space"])
-            result["free_disk_space_human"] = self._format_size(result["free_disk_space"])
-            result["used_disk_space_human"] = self._format_size(result["used_disk_space"])
+            result["total_disk_space_human"] = format_size(result["total_disk_space"])
+            result["free_disk_space_human"] = format_size(result["free_disk_space"])
+            result["used_disk_space_human"] = format_size(result["used_disk_space"])
 
         except Exception as e:
             result["disk_error"] = str(e)
 
         # 获取缓存大小
         result["cache_size"] = self.analyzer.get_total_size()
-        result["cache_size_human"] = self._format_size(result["cache_size"])
+        result["cache_size_human"] = format_size(result["cache_size"])
 
         if result["total_disk_space"] > 0:
             result["cache_percentage"] = (result["cache_size"] / result["total_disk_space"]) * 100
@@ -521,15 +523,3 @@ class CacheStatsCollector:
                             "; ".join(type_stats["versions"]),
                         ]
                     )
-
-    @staticmethod
-    def _format_size(size_bytes: int) -> str:
-        """格式化大小"""
-        if size_bytes < 1024:
-            return f"{size_bytes} B"
-        elif size_bytes < 1024 * 1024:
-            return f"{size_bytes / 1024:.1f} KB"
-        elif size_bytes < 1024 * 1024 * 1024:
-            return f"{size_bytes / (1024 * 1024):.1f} MB"
-        else:
-            return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"

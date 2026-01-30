@@ -1,3 +1,4 @@
+# DOC: docs/features/context/DATA_ACCESS.md#扫描与索引
 """
 缓存分析器模块 - 统一的缓存扫描与索引接口。
 
@@ -16,6 +17,7 @@ import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ..foundation.utils import exporter
+from .cache_utils import format_size
 
 if TYPE_CHECKING:
     from ..context import Context
@@ -136,7 +138,12 @@ class CacheAnalyzer:
         return self.ctx.storage
 
     def scan(
-        self, force_refresh: bool = False, run_ids: Optional[List[str]] = None, verbose: bool = True
+        self,
+        force_refresh: bool = False,
+        run_ids: Optional[List[str]] = None,
+        verbose: bool = True,
+        parallel: bool = True,
+        max_workers: Optional[int] = None,
     ) -> Dict[str, List[CacheEntry]]:
         """扫描缓存目录，构建索引
 
@@ -144,6 +151,8 @@ class CacheAnalyzer:
             force_refresh: 强制刷新，忽略已有索引
             run_ids: 仅扫描指定的 run_id 列表，None 则扫描所有
             verbose: 是否显示扫描进度
+            parallel: 是否使用并行扫描（默认 True）
+            max_workers: 最大并行工作线程数（默认为 min(8, run数量)）
 
         Returns:
             Dict[str, List[CacheEntry]]: run_id 到 CacheEntry 列表的映射
@@ -170,22 +179,42 @@ class CacheAnalyzer:
             if verbose and runs_to_scan:
                 print(f"[CacheAnalyzer] 扫描 {len(runs_to_scan)} 个运行的缓存...")
 
-            total_entries = 0
-            for run_id in runs_to_scan:
-                entries = self._scan_run(run_id)
-                self._cache_index[run_id] = entries
-                self._scanned_runs.add(run_id)
-                total_entries += len(entries)
+        # 并行扫描（在锁外执行）
+        if parallel and len(runs_to_scan) > 1:
+            from ..execution.manager import parallel_map
 
+            # 使用线程池并行扫描（IO 密集型）
+            results = parallel_map(
+                self._scan_run,
+                runs_to_scan,
+                executor_type="thread",
+                max_workers=max_workers or min(8, len(runs_to_scan)),
+            )
+
+            # 更新索引（需要锁保护）
+            with self._lock:
+                for run_id, entries in zip(runs_to_scan, results):
+                    self._cache_index[run_id] = entries
+                    self._scanned_runs.add(run_id)
+        else:
+            # 串行扫描
+            with self._lock:
+                for run_id in runs_to_scan:
+                    entries = self._scan_run(run_id)
+                    self._cache_index[run_id] = entries
+                    self._scanned_runs.add(run_id)
+
+        with self._lock:
             self._last_scan_time = time.time()
 
             if verbose and runs_to_scan:
+                total_entries = sum(len(entries) for entries in self._cache_index.values())
                 total_size = sum(
                     e.size_bytes for entries in self._cache_index.values() for e in entries
                 )
                 print(
                     f"[CacheAnalyzer] 扫描完成: {len(self._cache_index)} 个运行, "
-                    f"{total_entries} 个缓存条目, 总大小 {self._format_size(total_size)}"
+                    f"{total_entries} 个缓存条目, 总大小 {format_size(total_size)}"
                 )
 
             return self._cache_index.copy()
@@ -454,7 +483,7 @@ class CacheAnalyzer:
             "run_id": run_id,
             "total_entries": len(entries),
             "total_size_bytes": total_size,
-            "total_size_human": self._format_size(total_size),
+            "total_size_human": format_size(total_size),
             "data_types": sorted(data_types),
             "compressed_count": compressed_count,
             "oldest_entry": oldest,
@@ -493,23 +522,11 @@ class CacheAnalyzer:
         for data_name in summary:
             summary[data_name]["runs"] = sorted(summary[data_name]["runs"])
             summary[data_name]["versions"] = sorted(summary[data_name]["versions"])
-            summary[data_name]["total_size_human"] = self._format_size(
+            summary[data_name]["total_size_human"] = format_size(
                 summary[data_name]["total_size_bytes"]
             )
 
         return summary
-
-    @staticmethod
-    def _format_size(size_bytes: int) -> str:
-        """格式化大小为人类可读字符串"""
-        if size_bytes < 1024:
-            return f"{size_bytes} B"
-        elif size_bytes < 1024 * 1024:
-            return f"{size_bytes / 1024:.1f} KB"
-        elif size_bytes < 1024 * 1024 * 1024:
-            return f"{size_bytes / (1024 * 1024):.1f} MB"
-        else:
-            return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
 
     def print_summary(self, detailed: bool = False):
         """打印缓存摘要信息
@@ -532,7 +549,7 @@ class CacheAnalyzer:
         print("=" * 60)
         print(f"  运行数量: {len(runs)}")
         print(f"  缓存条目: {len(entries)}")
-        print(f"  总大小: {self._format_size(total_size)}")
+        print(f"  总大小: {format_size(total_size)}")
         print(f"  压缩条目: {compressed_count} ({100 * compressed_count / len(entries):.1f}%)")
 
         if detailed:

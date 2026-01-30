@@ -1,3 +1,4 @@
+# DOC: docs/updates/STORAGE_MIGRATION_GUIDE.md
 """
 Storage Backends 模块 - 可插拔存储后端抽象层
 
@@ -198,7 +199,8 @@ class SQLiteBackend:
         cursor = self.conn.cursor()
 
         # 数组表
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS arrays (
                 key TEXT PRIMARY KEY,
                 data BLOB NOT NULL,
@@ -207,16 +209,19 @@ class SQLiteBackend:
                 count INTEGER NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
 
         # 元数据表
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS metadata (
                 key TEXT PRIMARY KEY,
                 metadata TEXT NOT NULL,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
 
         # 创建索引
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_created_at ON arrays(created_at)")
