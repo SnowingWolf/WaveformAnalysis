@@ -294,7 +294,7 @@ class CacheStatsCollector:
         print(f"  缓存条目: {stats.total_entries}")
         print(f"  总大小: {stats.total_size_human}")
         print(f"  平均条目大小: {stats.avg_entry_size_human}")
-        print(f"  压缩条目: {stats.compressed_entries} ({stats.compression_ratio*100:.1f}%)")
+        print(f"  压缩条目: {stats.compressed_entries} ({stats.compression_ratio * 100:.1f}%)")
 
         # 关键条目
         if stats.largest_entry:
@@ -342,7 +342,7 @@ class CacheStatsCollector:
                     print(f"    版本: {', '.join(type_stats['versions'])}")
 
         print("\n" + "=" * 70)
-        print(f"统计耗时: {stats.scan_time*1000:.1f} ms")
+        print(f"统计耗时: {stats.scan_time * 1000:.1f} ms")
 
     def get_hit_rate_stats(self) -> Dict[str, Any]:
         """获取缓存命中率统计
@@ -489,7 +489,7 @@ class CacheStatsCollector:
             writer.writerow(["缓存条目", stats.total_entries])
             writer.writerow(["总大小", stats.total_size_human])
             writer.writerow(["压缩条目", stats.compressed_entries])
-            writer.writerow(["压缩率", f"{stats.compression_ratio*100:.1f}%"])
+            writer.writerow(["压缩率", f"{stats.compression_ratio * 100:.1f}%"])
             writer.writerow([])
 
             # 写入按运行统计
