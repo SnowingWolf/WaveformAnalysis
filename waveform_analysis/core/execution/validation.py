@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 验证管理模块 - 提供插件配置、输入输出验证功能。
 
@@ -52,7 +51,7 @@ class ValidationManager:
         ... )
     """
 
-    def __init__(self, context: 'Context'):
+    def __init__(self, context: "Context"):
         """初始化 ValidationManager
 
         Args:
@@ -61,7 +60,7 @@ class ValidationManager:
         self.ctx = context
         self.logger = context.logger
 
-    def validate_plugin_config(self, plugin: 'Plugin') -> None:
+    def validate_plugin_config(self, plugin: "Plugin") -> None:
         """验证插件配置（使用缓存）
 
         Args:
@@ -72,7 +71,7 @@ class ValidationManager:
         """
         self.ctx._ensure_plugin_config_validated(plugin)
 
-    def validate_input_dtypes(self, plugin: 'Plugin', run_id: str) -> None:
+    def validate_input_dtypes(self, plugin: "Plugin", run_id: str) -> None:
         """验证插件输入 dtype
 
         检查插件依赖数据的 dtype 是否与预期一致。
@@ -94,11 +93,7 @@ class ValidationManager:
                     f"Expected dtype {expected_dtype}, but got {actual_dtype}."
                 )
 
-    def validate_output_contract(
-        self,
-        plugin: 'Plugin',
-        result: Any
-    ) -> Tuple[Any, str]:
+    def validate_output_contract(self, plugin: "Plugin", result: Any) -> Tuple[Any, str]:
         """验证输出契约
 
         验证插件输出是否符合声明的 output_kind（static 或 stream）。
@@ -115,7 +110,9 @@ class ValidationManager:
         Raises:
             TypeError: 输出契约违反时
         """
-        is_generator = isinstance(result, (Iterator, OneTimeGenerator)) or hasattr(result, "__next__")
+        is_generator = isinstance(result, (Iterator, OneTimeGenerator)) or hasattr(
+            result, "__next__"
+        )
         effective_output_kind = plugin.output_kind
 
         # 自动调整：如果是 generator 但声明为 static，调整为 stream
@@ -141,7 +138,7 @@ class ValidationManager:
         result: Any,
         target_dtype: Optional[np.dtype],
         plugin_name: str,
-        is_generator: bool = False
+        is_generator: bool = False,
     ) -> Any:
         """将结果转换为目标 dtype
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests for BatchProcessor functionality.
 
 This module tests:
@@ -20,7 +19,6 @@ from waveform_analysis.core.cancellation import CancellationToken
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.data.batch_processor import BatchProcessor
 from waveform_analysis.core.plugins.core.base import Option, Plugin
-
 
 # =============================================================================
 # Test Plugins
@@ -85,7 +83,7 @@ class RetryablePlugin(Plugin):
         self._attempt_counts[run_id] += 1
 
         if self._attempt_counts[run_id] < 2:
-            raise IOError(f"Transient failure for {run_id}")
+            raise OSError(f"Transient failure for {run_id}")
         return np.array([(self._attempt_counts[run_id],)], dtype=self.output_dtype)
 
 
@@ -283,7 +281,7 @@ class TestBatchProcessorErrorHandling:
                 attempt_counts[run_id] = 0
             attempt_counts[run_id] += 1
             if attempt_counts[run_id] < 2:
-                raise IOError(f"Transient failure for {run_id}")
+                raise OSError(f"Transient failure for {run_id}")
             return context.get_data(run_id, "simple_data")
 
         result = processor.process_func(

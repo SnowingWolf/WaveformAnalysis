@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # DOC: docs/features/context/DATA_ACCESS.md
 # DOC: docs/features/context/CONFIGURATION.md
 # DOC: docs/features/context/PLUGIN_MANAGEMENT.md
@@ -112,38 +111,40 @@ class Context(CacheMixin, PluginMixin):
     """
 
     # 保留名称集合：这些名称不能用作数据名，因为它们是 Context 的方法或属性
-    _RESERVED_NAMES = frozenset({
-        "analyze_dependencies",
-        "build_time_index",
-        "clear_cache",
-        "clear_cache_for",
-        "clear_config_cache",
-        "clear_performance_caches",
-        "clear_time_index",
-        "config",
-        "get_data",
-        "get_config",
-        "get_data_time_range",
-        "get_lineage",
-        "get_performance_report",
-        "get_time_index_stats",
-        "help",
-        "key_for",
-        "list_plugin_configs",
-        "list_provided_data",
-        "logger",
-        "plot_lineage",
-        "preview_execution",
-        "profiling_summary",
-        "quickstart",
-        "register",
-        "resolve_dependencies",
-        "run_plugin",
-        "set_config",
-        "show_config",
-        "storage",
-        "storage_dir",
-    })
+    _RESERVED_NAMES = frozenset(
+        {
+            "analyze_dependencies",
+            "build_time_index",
+            "clear_cache",
+            "clear_cache_for",
+            "clear_config_cache",
+            "clear_performance_caches",
+            "clear_time_index",
+            "config",
+            "get_data",
+            "get_config",
+            "get_data_time_range",
+            "get_lineage",
+            "get_performance_report",
+            "get_time_index_stats",
+            "help",
+            "key_for",
+            "list_plugin_configs",
+            "list_provided_data",
+            "logger",
+            "plot_lineage",
+            "preview_execution",
+            "profiling_summary",
+            "quickstart",
+            "register",
+            "resolve_dependencies",
+            "run_plugin",
+            "set_config",
+            "show_config",
+            "storage",
+            "storage_dir",
+        }
+    )
 
     def __init__(
         self,
@@ -240,7 +241,9 @@ class Context(CacheMixin, PluginMixin):
                 for backend in self._plugin_backends.values():
                     self._validate_storage_backend(backend)
             else:
-                self.logger.warning("config['plugin_backends'] must be a dict of {plugin_name: backend}.")
+                self.logger.warning(
+                    "config['plugin_backends'] must be a dict of {plugin_name: backend}."
+                )
 
         # Initialize ErrorManager
         self._error_manager = ErrorManager(self.logger)
@@ -291,7 +294,9 @@ class Context(CacheMixin, PluginMixin):
 
         # Epoch configuration defaults
         self.config.setdefault("auto_extract_epoch", True)
-        self.config.setdefault("epoch_extraction_strategy", "auto")  # "auto", "filename", "csv_header", "first_event"
+        self.config.setdefault(
+            "epoch_extraction_strategy", "auto"
+        )  # "auto", "filename", "csv_header", "first_event"
         self.config.setdefault("epoch_filename_patterns", None)  # None = use defaults
 
         # Initialize ConfigResolver and CompatManager for unified config handling
@@ -331,7 +336,9 @@ class Context(CacheMixin, PluginMixin):
                 new_ctx.storage = self.storage
         else:
             if self.storage is not new_ctx.storage:
-                self.logger.warning("Context.clone is sharing a non-MemmapStorage backend across contexts.")
+                self.logger.warning(
+                    "Context.clone is sharing a non-MemmapStorage backend across contexts."
+                )
                 new_ctx.storage = self.storage
 
         if self._plugin_backends:
@@ -351,7 +358,9 @@ class Context(CacheMixin, PluginMixin):
                     try:
                         plugin_copy = plugin.__class__()
                     except Exception as exc:
-                        self.logger.warning("Failed to clone plugin %s: %s", plugin.__class__.__name__, exc)
+                        self.logger.warning(
+                            "Failed to clone plugin %s: %s", plugin.__class__.__name__, exc
+                        )
                         continue
             new_ctx.register(plugin_copy, allow_override=True)
 
@@ -370,7 +379,9 @@ class Context(CacheMixin, PluginMixin):
 
     def _build_context_factory_spec(self) -> Dict[str, Any]:
         if not isinstance(self.storage, MemmapStorage):
-            raise ValueError("Auto context factory requires MemmapStorage; provide context_factory instead.")
+            raise ValueError(
+                "Auto context factory requires MemmapStorage; provide context_factory instead."
+            )
 
         plugins = []
         for plugin in self._plugins.values():
@@ -497,7 +508,9 @@ class Context(CacheMixin, PluginMixin):
             elif isinstance(p, Plugin):
                 self.register_plugin_(p, allow_override=allow_override, require_spec=require_spec)
             elif hasattr(p, "__path__") or hasattr(p, "__file__"):  # It's a module
-                self._register_from_module(p, allow_override=allow_override, require_spec=require_spec)
+                self._register_from_module(
+                    p, allow_override=allow_override, require_spec=require_spec
+                )
             else:
                 # Fallback for other types if needed
                 self.register_plugin_(p, allow_override=allow_override, require_spec=require_spec)
@@ -672,7 +685,9 @@ class Context(CacheMixin, PluginMixin):
         adapter_name: Optional[str] = None,
     ) -> Optional[str]:
         """Resolve adapter name with plugin-specific override."""
-        resolved_adapter = adapter_name if adapter_name is not None else self.config.get("daq_adapter")
+        resolved_adapter = (
+            adapter_name if adapter_name is not None else self.config.get("daq_adapter")
+        )
         if "daq_adapter" not in plugin.options:
             return resolved_adapter
         try:
@@ -822,7 +837,9 @@ class Context(CacheMixin, PluginMixin):
         """
         if plugin_name not in self._plugins:
             available = ", ".join(self._plugins.keys())
-            raise KeyError(f"Plugin '{plugin_name}' is not registered. Available plugins: {available}")
+            raise KeyError(
+                f"Plugin '{plugin_name}' is not registered. Available plugins: {available}"
+            )
         return self._plugins[plugin_name]
 
     def show_config(
@@ -868,13 +885,17 @@ class Context(CacheMixin, PluginMixin):
             # 显示全局配置
             self._show_global_config(show_usage, show_full_help=show_full_help, run_name=run_name)
 
-    def _register_from_module(self, module, allow_override: bool = False, require_spec: bool = False):
+    def _register_from_module(
+        self, module, allow_override: bool = False, require_spec: bool = False
+    ):
         """Helper to register all Plugin classes found in a module."""
         import inspect
 
-        for name, obj in inspect.getmembers(module):
+        for _name, obj in inspect.getmembers(module):
             if inspect.isclass(obj) and issubclass(obj, Plugin) and obj != Plugin:
-                self.register_plugin_(obj(), allow_override=allow_override, require_spec=require_spec)
+                self.register_plugin_(
+                    obj(), allow_override=allow_override, require_spec=require_spec
+                )
 
     # ===========================
     # Get Data
@@ -883,7 +904,12 @@ class Context(CacheMixin, PluginMixin):
     # ===========================
 
     def get_data(
-        self, run_id: str, data_name: str, show_progress: bool = False, progress_desc: Optional[str] = None, **kwargs
+        self,
+        run_id: str,
+        data_name: str,
+        show_progress: bool = False,
+        progress_desc: Optional[str] = None,
+        **kwargs,
     ) -> Any:
         """
         Retrieve data by name for a specific run.
@@ -1139,13 +1165,19 @@ class Context(CacheMixin, PluginMixin):
     def _storage_exists(self, storage: Any, key: str, run_id: Optional[str]) -> bool:
         return bool(self._storage_call(storage, "exists", key, run_id))
 
-    def _storage_get_metadata(self, storage: Any, key: str, run_id: Optional[str]) -> Optional[Dict[str, Any]]:
+    def _storage_get_metadata(
+        self, storage: Any, key: str, run_id: Optional[str]
+    ) -> Optional[Dict[str, Any]]:
         return self._storage_call(storage, "get_metadata", key, run_id)
 
-    def _storage_load_memmap(self, storage: Any, key: str, run_id: Optional[str]) -> Optional[np.ndarray]:
+    def _storage_load_memmap(
+        self, storage: Any, key: str, run_id: Optional[str]
+    ) -> Optional[np.ndarray]:
         return self._storage_call(storage, "load_memmap", key, run_id)
 
-    def _storage_load_dataframe(self, storage: Any, key: str, run_id: Optional[str]) -> Optional[pd.DataFrame]:
+    def _storage_load_dataframe(
+        self, storage: Any, key: str, run_id: Optional[str]
+    ) -> Optional[pd.DataFrame]:
         return self._storage_call(storage, "load_dataframe", key, run_id)
 
     def _storage_save_memmap(
@@ -1501,7 +1533,9 @@ class Context(CacheMixin, PluginMixin):
                     needed_set = set(plan)
 
                 # 3. Initialize progress tracking
-                tracker, bar_name = self._init_progress_tracking(show_progress, plan, run_id, data_name, progress_desc)
+                tracker, bar_name = self._init_progress_tracking(
+                    show_progress, plan, run_id, data_name, progress_desc
+                )
 
                 # 4. Execute plan in order
                 for name in plan:
@@ -1574,7 +1608,12 @@ class Context(CacheMixin, PluginMixin):
             raise
 
     def _init_progress_tracking(
-        self, show_progress: bool, plan: List[str], run_id: str, data_name: str, progress_desc: Optional[str]
+        self,
+        show_progress: bool,
+        plan: List[str],
+        run_id: str,
+        data_name: str,
+        progress_desc: Optional[str],
     ) -> tuple:
         """初始化进度追踪
 
@@ -1621,7 +1660,9 @@ class Context(CacheMixin, PluginMixin):
                     if isinstance(dep_data, np.ndarray):
                         total_bytes += dep_data.nbytes
                     elif isinstance(dep_data, list):
-                        total_bytes += sum(arr.nbytes for arr in dep_data if isinstance(arr, np.ndarray))
+                        total_bytes += sum(
+                            arr.nbytes for arr in dep_data if isinstance(arr, np.ndarray)
+                        )
             return total_bytes / (1024 * 1024) if total_bytes > 0 else None
         except (AttributeError, TypeError) as e:
             # 某些数据类型可能没有 nbytes 属性
@@ -1629,7 +1670,9 @@ class Context(CacheMixin, PluginMixin):
             return None
         except Exception as e:
             # 其他未预期的错误
-            self.logger.warning(f"Unexpected error calculating input size for {plugin.provides}: {e}")
+            self.logger.warning(
+                f"Unexpected error calculating input size for {plugin.provides}: {e}"
+            )
             return None
 
     def _prepare_side_effect_isolation(self, plugin: Plugin, run_id: str, kwargs: dict) -> dict:
@@ -1647,10 +1690,14 @@ class Context(CacheMixin, PluginMixin):
             # 检查存储模式，使用适当的副作用目录
             if hasattr(self.storage, "get_run_side_effects_dir"):
                 # 新模式：使用 storage 的方法获取正确路径
-                side_effect_dir = os.path.join(self.storage.get_run_side_effects_dir(run_id), plugin.provides)
+                side_effect_dir = os.path.join(
+                    self.storage.get_run_side_effects_dir(run_id), plugin.provides
+                )
             else:
                 # 旧模式或自定义存储后端：使用 storage_dir
-                side_effect_dir = os.path.join(self.storage_dir, "_side_effects", run_id, plugin.provides)
+                side_effect_dir = os.path.join(
+                    self.storage_dir, "_side_effects", run_id, plugin.provides
+                )
             os.makedirs(side_effect_dir, exist_ok=True)
             kwargs = kwargs.copy()
             kwargs["output_dir"] = side_effect_dir
@@ -1743,7 +1790,9 @@ class Context(CacheMixin, PluginMixin):
             # 根据严重程度处理
             if severity == ErrorSeverity.FATAL:
                 # 致命错误：记录并抛出
-                self._error_manager.log_error(name, e, run_id, plugin, error_context, get_config_fn=self.get_config)
+                self._error_manager.log_error(
+                    name, e, run_id, plugin, error_context, get_config_fn=self.get_config
+                )
                 raise RuntimeError(f"Plugin '{name}' failed: {str(e)}") from e
             elif severity == ErrorSeverity.RECOVERABLE and recoverable:
                 # 可恢复错误：记录警告，尝试降级处理
@@ -1752,7 +1801,9 @@ class Context(CacheMixin, PluginMixin):
                 raise RuntimeError(f"Plugin '{name}' failed: {str(e)}") from e
             else:
                 # 默认处理
-                self._error_manager.log_error(name, e, run_id, plugin, error_context, get_config_fn=self.get_config)
+                self._error_manager.log_error(
+                    name, e, run_id, plugin, error_context, get_config_fn=self.get_config
+                )
                 raise RuntimeError(f"Plugin '{name}' failed: {str(e)}") from e
         finally:
             # Cleanup hook
@@ -1760,7 +1811,9 @@ class Context(CacheMixin, PluginMixin):
                 plugin.cleanup(self)
             except Exception as cleanup_error:
                 # 记录清理错误，但不掩盖原始错误
-                self.logger.warning(f"Plugin '{name}' cleanup failed: {cleanup_error}", exc_info=True)
+                self.logger.warning(
+                    f"Plugin '{name}' cleanup failed: {cleanup_error}", exc_info=True
+                )
 
     def _save_plugin_result(
         self,
@@ -1799,9 +1852,13 @@ class Context(CacheMixin, PluginMixin):
             # Save DataFrame as Parquet
             if hasattr(storage, "save_dataframe"):
                 self._storage_save_dataframe(storage, key, result, run_id)
-                self._storage_save_metadata(storage, key, {"lineage": lineage, "type": "dataframe"}, run_id)
+                self._storage_save_metadata(
+                    storage, key, {"lineage": lineage, "type": "dataframe"}, run_id
+                )
             else:
-                raise RuntimeError(f"Storage backend {storage.__class__.__name__} does not support DataFrame.")
+                raise RuntimeError(
+                    f"Storage backend {storage.__class__.__name__} does not support DataFrame."
+                )
             self._set_data(run_id, name, result)
         elif isinstance(result, list) and all(isinstance(x, np.ndarray) for x in result):
             # Save list of arrays (e.g. per-channel data)
@@ -1866,13 +1923,17 @@ class Context(CacheMixin, PluginMixin):
         lineage = self.get_lineage(name)
 
         # Validate output contract and convert dtype
-        result, effective_output_kind = self._validation_manager.validate_output_contract(plugin, result)
+        result, effective_output_kind = self._validation_manager.validate_output_contract(
+            plugin, result
+        )
         is_generator = effective_output_kind == "stream"
 
         # Convert to target dtype if needed
         target_dtype = plugin.output_dtype
         if not is_generator:
-            result = self._validation_manager.convert_to_dtype(result, target_dtype, name, is_generator=False)
+            result = self._validation_manager.convert_to_dtype(
+                result, target_dtype, name, is_generator=False
+            )
 
         # Handle saving
         if plugin.save_when == "always" or (plugin.save_when == "target" and name == data_name):
@@ -1888,7 +1949,9 @@ class Context(CacheMixin, PluginMixin):
 
         # Record successful execution in stats
         if self.stats_collector and self.stats_collector.is_enabled():
-            self.stats_collector.end_execution(name, success=True, cache_hit=False, output_size_mb=output_size_mb)
+            self.stats_collector.end_execution(
+                name, success=True, cache_hit=False, output_size_mb=output_size_mb
+            )
 
         # Update progress bar
         if tracker and bar_name:
@@ -1961,7 +2024,9 @@ class Context(CacheMixin, PluginMixin):
         result = self._execute_plugin_compute(plugin, name, run_id, input_size_mb, kwargs)
 
         # Postprocess result (validate, convert, save, stats, progress)
-        self._postprocess_plugin_result(plugin, name, run_id, result, key, data_name, tracker, bar_name)
+        self._postprocess_plugin_result(
+            plugin, name, run_id, result, key, data_name, tracker, bar_name
+        )
 
     def _wrap_generator_to_save(
         self,
@@ -2036,10 +2101,14 @@ class Context(CacheMixin, PluginMixin):
                     pbar.close()
 
                 # Use unified storage finalization
-                self.storage.finalize_save(key, total_count, dtype, extra_metadata={"lineage": lineage})
+                self.storage.finalize_save(
+                    key, total_count, dtype, extra_metadata={"lineage": lineage}
+                )
 
                 if total_count > 0:
-                    self.logger.info(f"Saved {total_count} items to cache for {data_name} ({run_id})")
+                    self.logger.info(
+                        f"Saved {total_count} items to cache for {data_name} ({run_id})"
+                    )
 
                 yield from []  # Just to ensure the generator finishes correctly if needed
             except Exception as e:
@@ -2054,7 +2123,8 @@ class Context(CacheMixin, PluginMixin):
                         )
                     except Exception as cleanup_err:
                         self.logger.error(
-                            f"Unexpected error removing temp file {tmp_bin_path}: {cleanup_err}", exc_info=True
+                            f"Unexpected error removing temp file {tmp_bin_path}: {cleanup_err}",
+                            exc_info=True,
                         )
                 raise e
             finally:
@@ -2063,9 +2133,13 @@ class Context(CacheMixin, PluginMixin):
                     try:
                         os.remove(tmp_bin_path)
                     except (PermissionError, OSError) as cleanup_err:
-                        self.logger.debug(f"Failed to remove lingering temp file {tmp_bin_path}: {cleanup_err}")
+                        self.logger.debug(
+                            f"Failed to remove lingering temp file {tmp_bin_path}: {cleanup_err}"
+                        )
                     except Exception as cleanup_err:
-                        self.logger.warning(f"Unexpected error removing temp file {tmp_bin_path}: {cleanup_err}")
+                        self.logger.warning(
+                            f"Unexpected error removing temp file {tmp_bin_path}: {cleanup_err}"
+                        )
 
         return wrapper()
 
@@ -2115,14 +2189,18 @@ class Context(CacheMixin, PluginMixin):
         elif kind == "plotly":
             return plot_lineage_plotly(model, data_name, context=self, **kwargs)
         else:
-            raise ValueError(f"Unsupported visualization kind: {kind}. Supported: 'labview', 'mermaid', 'plotly'")
+            raise ValueError(
+                f"Unsupported visualization kind: {kind}. Supported: 'labview', 'mermaid', 'plotly'"
+            )
 
     @property
     def profiling_summary(self) -> str:
         """Return a summary of the profiling data."""
         return self.profiler.summary()
 
-    def get_performance_report(self, plugin_name: Optional[str] = None, format: str = "text") -> Any:
+    def get_performance_report(
+        self, plugin_name: Optional[str] = None, format: str = "text"
+    ) -> Any:
         """
         获取插件性能统计报告
 
@@ -2141,7 +2219,9 @@ class Context(CacheMixin, PluginMixin):
             >>> stats = ctx.get_performance_report(plugin_name='my_plugin', format='dict')
         """
         if not self.stats_collector or not self.stats_collector.is_enabled():
-            return "Performance statistics are disabled. Enable with stats_mode='basic' or 'detailed'"
+            return (
+                "Performance statistics are disabled. Enable with stats_mode='basic' or 'detailed'"
+            )
 
         if plugin_name:
             stats = self.stats_collector.get_statistics(plugin_name)
@@ -2161,14 +2241,18 @@ class Context(CacheMixin, PluginMixin):
                     f"  Time: mean={s.mean_time:.3f}s, min={s.min_time:.3f}s, max={s.max_time:.3f}s",
                 ]
                 if self.stats_collector.mode == "detailed":
-                    lines.append(f"  Memory: peak={s.peak_memory_mb:.2f}MB, avg={s.avg_memory_mb:.2f}MB")
+                    lines.append(
+                        f"  Memory: peak={s.peak_memory_mb:.2f}MB, avg={s.avg_memory_mb:.2f}MB"
+                    )
                 if s.recent_errors:
                     lines.append(f"  Recent errors: {len(s.recent_errors)}")
                 return "\n".join(lines)
         else:
             return self.stats_collector.generate_report(format=format)
 
-    def analyze_dependencies(self, target_name: str, include_performance: bool = True, run_id: Optional[str] = None):
+    def analyze_dependencies(
+        self, target_name: str, include_performance: bool = True, run_id: Optional[str] = None
+    ):
         """
         分析插件依赖关系，识别关键路径、并行机会和性能瓶颈
 
@@ -2202,7 +2286,9 @@ class Context(CacheMixin, PluginMixin):
         from waveform_analysis.core.data.dependency_analysis import DependencyAnalyzer
 
         analyzer = DependencyAnalyzer(self)
-        return analyzer.analyze(target_name=target_name, include_performance=include_performance, run_id=run_id)
+        return analyzer.analyze(
+            target_name=target_name, include_performance=include_performance, run_id=run_id
+        )
 
     def get_lineage(self, data_name: str, _visited: Optional[set] = None) -> Dict[str, Any]:
         """
@@ -2256,7 +2342,9 @@ class Context(CacheMixin, PluginMixin):
             "plugin_version": getattr(plugin, "version", "0.0.0"),
             "description": getattr(plugin, "description", ""),
             "config": config,
-            "depends_on": {dep: self.get_lineage(dep, _visited=_visited.copy()) for dep in dep_names},
+            "depends_on": {
+                dep: self.get_lineage(dep, _visited=_visited.copy()) for dep in dep_names
+            },
         }
 
         # Add spec_hash if plugin has validated spec
@@ -2301,13 +2389,19 @@ class Context(CacheMixin, PluginMixin):
         def _highlight_modified(row):
             styles = [""] * len(row)
             if show_current_values and row.get("track") is False:
-                styles = ["background-color: var(--jp-error-color2, rgba(255, 120, 120, 0.2));"] * len(row)
+                styles = [
+                    "background-color: var(--jp-error-color2, rgba(255, 120, 120, 0.2));"
+                ] * len(row)
             elif show_current_values and row.get("status") == "已修改":
-                styles = ["background-color: var(--jp-warn-color2, rgba(255, 210, 90, 0.2));"] * len(row)
+                styles = [
+                    "background-color: var(--jp-warn-color2, rgba(255, 210, 90, 0.2));"
+                ] * len(row)
             if show_current_values and row.get("status") == "已修改":
                 if "current" in df_display.columns:
                     idx = df_display.columns.get_loc("current")
-                    styles[idx] = styles[idx] + " color: var(--jp-error-color1, #c00000); font-weight: 600;"
+                    styles[idx] = (
+                        styles[idx] + " color: var(--jp-error-color1, #c00000); font-weight: 600;"
+                    )
             return styles
 
         styler = df_display.style
@@ -2365,11 +2459,11 @@ class Context(CacheMixin, PluginMixin):
             for opt_name, option in plugin.options.items():
                 opt_info = {
                     "default": option.default,
-                    "type": option.type.__name__
-                    if hasattr(option.type, "__name__")
-                    else str(option.type)
-                    if option.type
-                    else "Any",
+                    "type": (
+                        option.type.__name__
+                        if hasattr(option.type, "__name__")
+                        else str(option.type) if option.type else "Any"
+                    ),
                     "help": option.help,
                     "track": option.track,
                 }
@@ -2407,18 +2501,22 @@ class Context(CacheMixin, PluginMixin):
                     for opt in info["options"].values():
                         if not opt.get("is_default", True):
                             modified_count += 1
-                plugin_rows.append({
-                    "plugin": pname,
-                    "class": info["class"],
-                    "version": info["version"],
-                    "description": info["description"],
-                    "options": options_count,
-                    "modified": modified_count if show_current_values else None,
-                })
+                plugin_rows.append(
+                    {
+                        "plugin": pname,
+                        "class": info["class"],
+                        "version": info["version"],
+                        "description": info["description"],
+                        "options": options_count,
+                        "modified": modified_count if show_current_values else None,
+                    }
+                )
 
             df_plugins = pd.DataFrame(plugin_rows)
             if show_current_values:
-                df_plugins = df_plugins.sort_values(by=["modified", "plugin"], ascending=[False, True])
+                df_plugins = df_plugins.sort_values(
+                    by=["modified", "plugin"], ascending=[False, True]
+                )
             else:
                 df_plugins = df_plugins.sort_values(by=["plugin"])
             df_plugins = df_plugins.set_index("plugin")
@@ -2431,21 +2529,29 @@ class Context(CacheMixin, PluginMixin):
                     current_raw = opt.get("current_value", None) if show_current_values else None
                     is_default = opt.get("is_default", True) if show_current_values else None
                     status = "默认" if is_default or is_default is None else "已修改"
-                    option_rows.append({
-                        "plugin": pname,
-                        "option": opt_name,
-                        "type": opt.get("type", "Any"),
-                        "default": self._format_display_value(default_raw, 60),
-                        "current": self._format_display_value(current_raw, 60) if show_current_values else None,
-                        "status": status if show_current_values else None,
-                        "help": opt.get("help", "")
-                        if show_full_help
-                        else self._format_display_value(opt.get("help", ""), 80),
-                        "track": opt.get("track", True),
-                        "_is_default": is_default,
-                        "_default_raw": default_raw,
-                        "_current_raw": current_raw,
-                    })
+                    option_rows.append(
+                        {
+                            "plugin": pname,
+                            "option": opt_name,
+                            "type": opt.get("type", "Any"),
+                            "default": self._format_display_value(default_raw, 60),
+                            "current": (
+                                self._format_display_value(current_raw, 60)
+                                if show_current_values
+                                else None
+                            ),
+                            "status": status if show_current_values else None,
+                            "help": (
+                                opt.get("help", "")
+                                if show_full_help
+                                else self._format_display_value(opt.get("help", ""), 80)
+                            ),
+                            "track": opt.get("track", True),
+                            "_is_default": is_default,
+                            "_default_raw": default_raw,
+                            "_current_raw": current_raw,
+                        }
+                    )
 
             df_options = pd.DataFrame(option_rows)
             if show_current_values:
@@ -2462,7 +2568,9 @@ class Context(CacheMixin, PluginMixin):
                 display(df_plugins)
 
                 print("\n⚙️ 配置选项明细")
-                df_display = df_options.drop(columns=["_is_default", "_default_raw", "_current_raw"])
+                df_display = df_options.drop(
+                    columns=["_is_default", "_default_raw", "_current_raw"]
+                )
 
                 styler = self._style_options_table(df_display, show_current_values)
                 display(styler)
@@ -2510,7 +2618,9 @@ class Context(CacheMixin, PluginMixin):
                         # 插件特定配置（嵌套字典）
                         if plugin_name not in plugin_specific_configs:
                             plugin_specific_configs[plugin_name] = {}
-                        plugin_specific_configs[plugin_name][option_name] = self.config[plugin_name][option_name]
+                        plugin_specific_configs[plugin_name][option_name] = self.config[
+                            plugin_name
+                        ][option_name]
                         continue
 
                 # 检查点分隔配置
@@ -2547,7 +2657,11 @@ class Context(CacheMixin, PluginMixin):
         data_subdir = getattr(self.storage, "data_subdir", "_cache")
         run_name_value = run_name
         if run_name_value is None:
-            run_name_value = getattr(self, "run_name", None) or self.config.get("run_name") or self.config.get("run_id")
+            run_name_value = (
+                getattr(self, "run_name", None)
+                or self.config.get("run_name")
+                or self.config.get("run_id")
+            )
         if run_name_value is None:
             run_name_value = getattr(self, "_last_run_id", None)
         run_name_display = str(run_name_value) if run_name_value is not None else "<run_id>"
@@ -2575,11 +2689,15 @@ class Context(CacheMixin, PluginMixin):
             for key in sorted(global_configs.keys()):
                 used_by = config_usage.get(key, [])
                 used_by_str = ", ".join(used_by) if show_usage else None
-                rows.append({
-                    "key": key,
-                    "value": self._format_display_value(global_configs[key], 80),
-                    "used_by": self._format_display_value(used_by_str, 80) if show_usage else None,
-                })
+                rows.append(
+                    {
+                        "key": key,
+                        "value": self._format_display_value(global_configs[key], 80),
+                        "used_by": (
+                            self._format_display_value(used_by_str, 80) if show_usage else None
+                        ),
+                    }
+                )
             df_global = pd.DataFrame(rows).set_index("key")
 
             print("\n📦 全局配置项")
@@ -2599,28 +2717,32 @@ class Context(CacheMixin, PluginMixin):
                     default_raw = option.default if option else None
                     is_default = value == default_raw if option else False
                     status = "默认" if is_default else "已修改"
-                    option_rows.append({
-                        "plugin": plugin_name,
-                        "option": key,
-                        "type": option.type.__name__
-                        if option and hasattr(option.type, "__name__")
-                        else str(option.type)
-                        if option and option.type
-                        else "Any",
-                        "default": self._format_display_value(default_raw, 60),
-                        "current": self._format_display_value(value, 60),
-                        "status": status,
-                        "help": option.help
-                        if (option and show_full_help)
-                        else self._format_display_value(option.help, 80)
-                        if option
-                        else "",
-                        "track": option.track if option else True,
-                        "_is_default": is_default,
-                    })
+                    option_rows.append(
+                        {
+                            "plugin": plugin_name,
+                            "option": key,
+                            "type": (
+                                option.type.__name__
+                                if option and hasattr(option.type, "__name__")
+                                else str(option.type) if option and option.type else "Any"
+                            ),
+                            "default": self._format_display_value(default_raw, 60),
+                            "current": self._format_display_value(value, 60),
+                            "status": status,
+                            "help": (
+                                option.help
+                                if (option and show_full_help)
+                                else self._format_display_value(option.help, 80) if option else ""
+                            ),
+                            "track": option.track if option else True,
+                            "_is_default": is_default,
+                        }
+                    )
 
             df_plugin = pd.DataFrame(option_rows)
-            df_plugin = df_plugin.sort_values(by=["_is_default", "plugin", "option"], ascending=[True, True, True])
+            df_plugin = df_plugin.sort_values(
+                by=["_is_default", "plugin", "option"], ascending=[True, True, True]
+            )
             df_plugin = df_plugin.set_index(["plugin", "option"])
             df_display = df_plugin.drop(columns=["_is_default"])
 
@@ -2634,11 +2756,13 @@ class Context(CacheMixin, PluginMixin):
         if unused_configs:
             rows = []
             for key in sorted(unused_configs.keys()):
-                rows.append({
-                    "key": key,
-                    "value": self._format_display_value(unused_configs[key], 80),
-                    "note": "未被任何已注册插件使用",
-                })
+                rows.append(
+                    {
+                        "key": key,
+                        "value": self._format_display_value(unused_configs[key], 80),
+                        "note": "未被任何已注册插件使用",
+                    }
+                )
             df_unused = pd.DataFrame(rows).set_index("key")
 
             print("\n⚠️ 未使用配置")
@@ -2655,7 +2779,9 @@ class Context(CacheMixin, PluginMixin):
             else:
                 print(df_unused.to_string())
 
-    def _delete_disk_cache(self, key: str, run_id: Optional[str] = None, data_name: Optional[str] = None) -> int:
+    def _delete_disk_cache(
+        self, key: str, run_id: Optional[str] = None, data_name: Optional[str] = None
+    ) -> int:
         """
         删除磁盘缓存（包括多通道数据和 DataFrame）。
 
@@ -2692,7 +2818,9 @@ class Context(CacheMixin, PluginMixin):
             # 对于 MemmapStorage，获取正确的 parquet 路径
             if hasattr(storage, "work_dir") and run_id:
                 # 分层模式：parquet 在 run 的 data 目录下
-                parquet_path = os.path.join(storage.work_dir, run_id, storage.data_subdir, f"{key}.parquet")
+                parquet_path = os.path.join(
+                    storage.work_dir, run_id, storage.data_subdir, f"{key}.parquet"
+                )
             elif hasattr(storage, "db_path"):
                 # 对于其他存储后端，如果 db_path 存在，可能在同目录下
                 base_dir = os.path.dirname(storage.db_path)
@@ -2868,10 +2996,20 @@ class Context(CacheMixin, PluginMixin):
             if len(data) == 0:
                 return np.array([], dtype=data.dtype)
             if data.dtype.names is None:
-                self.logger.warning(f"Data '{data_name}' is not a structured array, returning full data")
+                self.logger.warning(
+                    f"Data '{data_name}' is not a structured array, returning full data"
+                )
                 return data
             return self._query_single_array_time_range(
-                engine, run_id, data_name, data, start_time, end_time, time_field, endtime_field, auto_build_index
+                engine,
+                run_id,
+                data_name,
+                data,
+                start_time,
+                end_time,
+                time_field,
+                endtime_field,
+                auto_build_index,
             )
         else:
             self.logger.warning(f"Data '{data_name}' is not a supported type, returning as-is")
@@ -2928,7 +3066,9 @@ class Context(CacheMixin, PluginMixin):
         """查询单个结构化数组的时间范围"""
         # 如果没有时间字段,返回完整数据
         if time_field not in data.dtype.names:
-            self.logger.warning(f"Time field '{time_field}' not found in {data_name}, returning full data")
+            self.logger.warning(
+                f"Time field '{time_field}' not found in {data_name}, returning full data"
+            )
             return data
 
         # 构建索引(如果需要)
@@ -2989,7 +3129,10 @@ class Context(CacheMixin, PluginMixin):
         # 自动构建索引（如果需要）
         if auto_build_index:
             # 检查是否已有多通道索引元数据
-            has_indices = hasattr(self, "_multi_channel_indices") and (run_id, data_name) in self._multi_channel_indices
+            has_indices = (
+                hasattr(self, "_multi_channel_indices")
+                and (run_id, data_name) in self._multi_channel_indices
+            )
 
             if not has_indices:
                 self.build_time_index(run_id, data_name, time_field, endtime_field)
@@ -2997,7 +3140,9 @@ class Context(CacheMixin, PluginMixin):
         # 如果指定了通道，只查询该通道
         if channel is not None:
             if channel < 0 or channel >= n_channels:
-                self.logger.warning(f"Channel {channel} out of range [0, {n_channels}), returning empty array")
+                self.logger.warning(
+                    f"Channel {channel} out of range [0, {n_channels}), returning empty array"
+                )
                 return np.array([], dtype=data[0].dtype if n_channels > 0 else np.float64)
 
             return self._query_channel_time_range(
@@ -3112,12 +3257,16 @@ class Context(CacheMixin, PluginMixin):
 
             # 检查时间字段是否存在
             if time_field not in ch_data.dtype.names:
-                self.logger.warning(f"Time field '{time_field}' not found in channel {ch_idx}, skipping")
+                self.logger.warning(
+                    f"Time field '{time_field}' not found in channel {ch_idx}, skipping"
+                )
                 continue
 
             # 为每个通道构建索引，key 格式为 {data_name}_ch{i}
             index_name = f"{data_name}_ch{ch_idx}"
-            engine.build_index(run_id, index_name, ch_data, time_field, endtime_field, force_rebuild)
+            engine.build_index(
+                run_id, index_name, ch_data, time_field, endtime_field, force_rebuild
+            )
 
             index = engine.get_index(run_id, index_name)
             if index:
@@ -3416,7 +3565,9 @@ class Context(CacheMixin, PluginMixin):
         """
         # 检查数据名称是否存在
         if data_name not in self._plugins:
-            raise ValueError(f"数据类型 '{data_name}' 未注册。可用数据: {', '.join(self.list_provided_data())}")
+            raise ValueError(
+                f"数据类型 '{data_name}' 未注册。可用数据: {', '.join(self.list_provided_data())}"
+            )
 
         # 1. 解析执行计划
         try:
@@ -3480,7 +3631,9 @@ class Context(CacheMixin, PluginMixin):
                 plugin = self._plugins.get(plugin_name)
                 if plugin is None:
                     continue
-                resolved_depends_on[plugin_name] = self._get_plugin_dependency_names(plugin, run_id=run_id)
+                resolved_depends_on[plugin_name] = self._get_plugin_dependency_names(
+                    plugin, run_id=run_id
+                )
         result = {
             "target": data_name,
             "run_id": run_id,
@@ -3493,14 +3646,24 @@ class Context(CacheMixin, PluginMixin):
 
         # 6. 打印格式化输出
         self._print_preview(
-            result, show_tree=show_tree, show_config=show_config, show_cache=show_cache, verbose=verbose
+            result,
+            show_tree=show_tree,
+            show_config=show_config,
+            show_cache=show_cache,
+            verbose=verbose,
         )
 
         return result
 
-    def _print_preview(self, info: Dict[str, Any], show_tree: bool, show_config: bool, show_cache: bool, verbose: int):
+    def _print_preview(
+        self,
+        info: Dict[str, Any],
+        show_tree: bool,
+        show_config: bool,
+        show_cache: bool,
+        verbose: int,
+    ):
         """打印格式化的预览信息"""
-        import textwrap
 
         # 标题
         print("\n" + "=" * 70)
@@ -3609,13 +3772,17 @@ class Context(CacheMixin, PluginMixin):
         extension = "   " if is_last else "│  "
         for i, dep in enumerate(dependencies):
             is_last_dep = i == len(dependencies) - 1
-            self._print_dependency_tree(dep, prefix + extension, is_last_dep, visited.copy(), run_id=run_id)
+            self._print_dependency_tree(
+                dep, prefix + extension, is_last_dep, visited.copy(), run_id=run_id
+            )
 
     # ==========================
     # 帮助系统和快速开始模板
     # ==========================
 
-    def help(self, topic: Optional[str] = None, search: Optional[str] = None, verbose: bool = False) -> str:
+    def help(
+        self, topic: Optional[str] = None, search: Optional[str] = None, verbose: bool = False
+    ) -> str:
         """
         显示帮助信息
 
@@ -3718,7 +3885,11 @@ class Context(CacheMixin, PluginMixin):
         return analyzer
 
     def diagnose_cache(
-        self, run_id: Optional[str] = None, auto_fix: bool = False, dry_run: bool = True, verbose: bool = True
+        self,
+        run_id: Optional[str] = None,
+        auto_fix: bool = False,
+        dry_run: bool = True,
+        verbose: bool = True,
     ) -> List[DiagnosticIssue]:
         """诊断缓存问题
 
@@ -3750,7 +3921,6 @@ class Context(CacheMixin, PluginMixin):
         from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
         from waveform_analysis.core.storage.cache_diagnostics import (
             CacheDiagnostics,
-            DiagnosticIssue,
         )
 
         analyzer = CacheAnalyzer(self)
@@ -3776,7 +3946,10 @@ class Context(CacheMixin, PluginMixin):
         return issues
 
     def cache_stats(
-        self, run_id: Optional[str] = None, detailed: bool = False, export_path: Optional[str] = None
+        self,
+        run_id: Optional[str] = None,
+        detailed: bool = False,
+        export_path: Optional[str] = None,
     ) -> CacheStatistics:
         """获取缓存统计信息
 

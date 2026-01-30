@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Model 模块 (lineage 图) - 框架内部数据模型定义。
 

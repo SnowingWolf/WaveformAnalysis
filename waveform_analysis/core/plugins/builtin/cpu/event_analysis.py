@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Event Analysis Plugins - 事件分组与配对插件
 

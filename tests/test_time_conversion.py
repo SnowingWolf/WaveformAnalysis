@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 时间转换模块单元测试
 
@@ -9,17 +8,15 @@
 - TimeIndex 绝对时间查询
 """
 
-import pytest
+from datetime import datetime, timezone
+
 import numpy as np
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
-import tempfile
-import os
+import pytest
 
 from waveform_analysis.core.foundation.time_conversion import (
+    EpochExtractor,
     EpochInfo,
     TimeConverter,
-    EpochExtractor,
 )
 from waveform_analysis.utils.formats.base import TimestampUnit
 
@@ -122,12 +119,12 @@ class TestTimeConverter:
         result = converter.relative_to_absolute(relative_ns)
 
         assert isinstance(result, np.ndarray)
-        assert result.dtype == np.dtype('datetime64[ns]')
+        assert result.dtype == np.dtype("datetime64[ns]")
         assert len(result) == 3
 
     def test_absolute_to_relative_array(self, converter):
         """测试数组绝对时间转相对时间"""
-        dts = np.array(['2024-01-01T00:00:00', '2024-01-01T00:00:01'], dtype='datetime64[s]')
+        dts = np.array(["2024-01-01T00:00:00", "2024-01-01T00:00:01"], dtype="datetime64[s]")
         result = converter.absolute_to_relative(dts)
 
         assert isinstance(result, np.ndarray)
@@ -272,10 +269,7 @@ class TestEpochExtractorCSVHeader:
         """测试从 CSV 头部提取 ISO 格式时间戳"""
         csv_file = tmp_path / "test.csv"
         csv_file.write_text(
-            "# Epoch: 2024-01-15T14:30:45+00:00\n"
-            "# Other header\n"
-            "col1;col2;col3\n"
-            "1;2;3\n"
+            "# Epoch: 2024-01-15T14:30:45+00:00\n" "# Other header\n" "col1;col2;col3\n" "1;2;3\n"
         )
 
         extractor = EpochExtractor()
@@ -289,10 +283,7 @@ class TestEpochExtractorCSVHeader:
     def test_extract_from_csv_header_unix(self, tmp_path):
         """测试从 CSV 头部提取 Unix 时间戳"""
         csv_file = tmp_path / "test.csv"
-        csv_file.write_text(
-            "# timestamp: 1705327845\n"
-            "col1;col2;col3\n"
-        )
+        csv_file.write_text("# timestamp: 1705327845\n" "col1;col2;col3\n")
 
         extractor = EpochExtractor()
         result = extractor.extract_from_csv_header(str(csv_file))
@@ -302,10 +293,7 @@ class TestEpochExtractorCSVHeader:
     def test_extract_from_csv_header_not_found(self, tmp_path):
         """测试 CSV 头部无时间戳"""
         csv_file = tmp_path / "test.csv"
-        csv_file.write_text(
-            "# Some header\n"
-            "col1;col2;col3\n"
-        )
+        csv_file.write_text("# Some header\n" "col1;col2;col3\n")
 
         extractor = EpochExtractor()
         result = extractor.extract_from_csv_header(str(csv_file))

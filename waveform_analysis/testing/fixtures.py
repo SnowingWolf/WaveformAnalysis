@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Testing fixtures for plugin development."""
 
 from __future__ import annotations

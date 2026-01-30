@@ -1,12 +1,10 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 自动为 standard.py 的所有插件 compute 方法添加 docstring
 
 这个脚本会安全地为所有12个标准插件的 compute() 方法添加完整的 Google 风格 docstring。
 """
 
-from pathlib import Path
 import re
 
 # 定义所有插件的 docstring
@@ -230,7 +228,7 @@ DOCSTRINGS = {
 def add_docstrings(filepath="waveform_analysis/core/plugins/builtin/standard.py"):
     """为 compute 方法添加 docstring"""
 
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         content = f.read()
 
     # 为每个插件添加 docstring

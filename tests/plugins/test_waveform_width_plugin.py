@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 测试 WaveformWidthPlugin - 波形宽度计算插件
 
@@ -46,7 +45,7 @@ def synthetic_waveform():
     sigma = 10
 
     x = np.arange(wave_length)
-    gaussian = peak_height * np.exp(-((x - peak_pos) ** 2) / (2 * sigma ** 2))
+    gaussian = peak_height * np.exp(-((x - peak_pos) ** 2) / (2 * sigma**2))
     waveform += gaussian
 
     return waveform
@@ -111,9 +110,10 @@ def test_waveform_width_plugin_basic(mock_context, synthetic_waveform):
     assert width_data["total_width"] > 0
 
     # 验证总宽度 = 上升时间 + 下降时间（近似）
-    assert abs(
-        width_data["total_width"] - (width_data["rise_time"] + width_data["fall_time"])
-    ) < width_data["total_width"] * 0.3  # 允许 30% 误差
+    assert (
+        abs(width_data["total_width"] - (width_data["rise_time"] + width_data["fall_time"]))
+        < width_data["total_width"] * 0.3
+    )  # 允许 30% 误差
 
 
 def test_waveform_width_plugin_empty_channel(tmp_path):
@@ -212,13 +212,11 @@ def test_waveform_width_plugin_interpolation(tmp_path):
 
     # 测试无插值
     ctx.set_config({"interpolation": False}, plugin_name="waveform_width")
-    widths_no_interp = ctx.get_data(run_id, "waveform_width")
+    ctx.get_data(run_id, "waveform_width")
 
     # 插值应该提供更精确的结果（通常是非整数）
     # 无插值的结果应该更接近整数
-    assert widths_interp[0][0]["rise_time_samples"] != int(
-        widths_interp[0][0]["rise_time_samples"]
-    )
+    assert widths_interp[0][0]["rise_time_samples"] != int(widths_interp[0][0]["rise_time_samples"])
 
 
 def test_waveform_width_plugin_dependencies(tmp_path):

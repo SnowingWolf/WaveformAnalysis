@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 缓存清理模块 - 智能清理策略。
 
@@ -6,7 +5,7 @@
 
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 import time
 from typing import Any, Dict, List, Optional
@@ -187,7 +186,7 @@ class CacheCleaner:
             to_delete.append(entry)
             total_size += entry.size_bytes
 
-        affected_runs = sorted(set(e.run_id for e in to_delete))
+        affected_runs = sorted({e.run_id for e in to_delete})
 
         self._plan = CleanupPlan(
             strategy=strategy,
@@ -278,7 +277,9 @@ class CacheCleaner:
                 print(f"\n  {run_id} ({len(run_entries)} 条目, {self._format_size(run_size)})")
 
                 for entry in sorted(run_entries, key=lambda e: e.data_name):
-                    print(f"    • {entry.data_name}: {entry.size_human}, 创建于 {entry.created_at_str}")
+                    print(
+                        f"    • {entry.data_name}: {entry.size_human}, 创建于 {entry.created_at_str}"
+                    )
 
         print("\n" + "=" * 60)
 
@@ -331,7 +332,7 @@ class CacheCleaner:
         result["freed_human"] = self._format_size(result["freed_bytes"])
 
         if dry_run:
-            print(f"\n[Dry-Run] 完成。实际执行请设置 dry_run=False")
+            print("\n[Dry-Run] 完成。实际执行请设置 dry_run=False")
         else:
             print(
                 f"\n[CacheCleaner] 清理完成: "
@@ -341,7 +342,9 @@ class CacheCleaner:
 
         return result
 
-    def cleanup_by_age(self, max_age_days: float, run_id: Optional[str] = None, dry_run: bool = True) -> Dict[str, Any]:
+    def cleanup_by_age(
+        self, max_age_days: float, run_id: Optional[str] = None, dry_run: bool = True
+    ) -> Dict[str, Any]:
         """按年龄清理缓存
 
         删除超过指定天数的缓存。
@@ -354,7 +357,9 @@ class CacheCleaner:
         Returns:
             执行结果统计
         """
-        self.plan_cleanup(strategy=CleanupStrategy.OLDEST, keep_recent_days=max_age_days, run_id=run_id)
+        self.plan_cleanup(
+            strategy=CleanupStrategy.OLDEST, keep_recent_days=max_age_days, run_id=run_id
+        )
 
         # 实际上我们需要反转逻辑：删除早于 cutoff 的
         # plan_cleanup 已经在 keep_recent_days 中做了过滤
@@ -384,7 +389,9 @@ class CacheCleaner:
         target_bytes = target_total_mb * 1024 * 1024
 
         if current_size <= target_bytes:
-            print(f"[CacheCleaner] 当前大小 {self._format_size(current_size)} 已低于目标 {target_total_mb:.1f} MB")
+            print(
+                f"[CacheCleaner] 当前大小 {self._format_size(current_size)} 已低于目标 {target_total_mb:.1f} MB"
+            )
             return {
                 "dry_run": dry_run,
                 "strategy": strategy.value,
@@ -400,7 +407,9 @@ class CacheCleaner:
 
         return self.execute(dry_run=dry_run)
 
-    def cleanup_run(self, run_id: str, data_names: Optional[List[str]] = None, dry_run: bool = True) -> Dict[str, Any]:
+    def cleanup_run(
+        self, run_id: str, data_names: Optional[List[str]] = None, dry_run: bool = True
+    ) -> Dict[str, Any]:
         """清理指定运行的缓存
 
         Args:
@@ -448,7 +457,7 @@ class CacheCleaner:
         else:
             entries = self.analyzer.get_entries(data_name=data_name)
 
-        affected_runs = sorted(set(e.run_id for e in entries))
+        affected_runs = sorted({e.run_id for e in entries})
 
         plan = CleanupPlan(
             strategy=CleanupStrategy.BY_DATA_TYPE,

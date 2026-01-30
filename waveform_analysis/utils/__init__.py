@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Utils module - 工具函数
 """
@@ -6,6 +5,8 @@ Utils module - 工具函数
 try:
     from waveform_analysis.core.processing.loader import (
         WaveformLoaderCSV as _WaveformLoader,
+    )
+    from waveform_analysis.core.processing.loader import (
         get_raw_files,
         get_waveforms,
         get_waveforms_generator,
@@ -13,6 +14,8 @@ try:
 except ImportError:
     from waveform_analysis.core.processing.loader import (
         WaveformLoader as _WaveformLoader,
+    )
+    from waveform_analysis.core.processing.loader import (
         get_raw_files,
         get_waveforms,
         get_waveforms_generator,

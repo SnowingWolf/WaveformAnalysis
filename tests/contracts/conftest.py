@@ -2,8 +2,8 @@
 Shared fixtures for contract tests.
 """
 
-import tempfile
 from pathlib import Path
+import tempfile
 from typing import Any, Dict, List, Type
 
 import numpy as np

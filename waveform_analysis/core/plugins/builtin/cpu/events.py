@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Events plugins built on the records bundle.
 """
@@ -133,7 +132,7 @@ def _compute_event_features(
         if length <= 0:
             continue
         offset = int(records["wave_offset"][idx])
-        wave = wave_pool[offset:offset + length]
+        wave = wave_pool[offset : offset + length]
 
         start, end = _slice_bounds(length, p_start, p_end)
         if start < end:

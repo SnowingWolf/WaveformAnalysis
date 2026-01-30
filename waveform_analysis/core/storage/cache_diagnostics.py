@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 缓存诊断模块 - 问题诊断与修复工具。
 
@@ -14,7 +13,7 @@ from ..foundation.utils import exporter
 from .cache_analyzer import CacheAnalyzer, CacheEntry
 
 if TYPE_CHECKING:
-    from ..context import Context
+    pass
 
 export, __all__ = exporter()
 
@@ -22,15 +21,16 @@ export, __all__ = exporter()
 @export
 class DiagnosticIssueType(Enum):
     """诊断问题类型枚举"""
-    VERSION_MISMATCH = "version_mismatch"        # 插件版本不匹配
-    MISSING_METADATA = "missing_metadata"        # 元数据文件缺失
-    MISSING_DATA_FILE = "missing_data_file"      # 数据文件缺失
-    SIZE_MISMATCH = "size_mismatch"              # 文件大小不匹配
-    CHECKSUM_FAILED = "checksum_failed"          # 校验和验证失败
-    ORPHAN_FILE = "orphan_file"                  # 孤儿文件（无元数据）
-    STORAGE_VERSION_MISMATCH = "storage_version" # 存储版本不匹配
-    CORRUPTED_METADATA = "corrupted_metadata"    # 元数据损坏
-    DTYPE_MISMATCH = "dtype_mismatch"            # 数据类型不匹配
+
+    VERSION_MISMATCH = "version_mismatch"  # 插件版本不匹配
+    MISSING_METADATA = "missing_metadata"  # 元数据文件缺失
+    MISSING_DATA_FILE = "missing_data_file"  # 数据文件缺失
+    SIZE_MISMATCH = "size_mismatch"  # 文件大小不匹配
+    CHECKSUM_FAILED = "checksum_failed"  # 校验和验证失败
+    ORPHAN_FILE = "orphan_file"  # 孤儿文件（无元数据）
+    STORAGE_VERSION_MISMATCH = "storage_version"  # 存储版本不匹配
+    CORRUPTED_METADATA = "corrupted_metadata"  # 元数据损坏
+    DTYPE_MISMATCH = "dtype_mismatch"  # 数据类型不匹配
 
 
 @export
@@ -49,6 +49,7 @@ class DiagnosticIssue:
         fixable: 是否可自动修复
         fix_action: 修复动作描述
     """
+
     issue_type: DiagnosticIssueType
     severity: str  # 'error', 'warning', 'info'
     run_id: str
@@ -60,7 +61,7 @@ class DiagnosticIssue:
     fix_action: Optional[str] = None
 
     def __str__(self) -> str:
-        severity_icon = {'error': '❌', 'warning': '⚠️', 'info': 'ℹ️'}.get(self.severity, '?')
+        severity_icon = {"error": "❌", "warning": "⚠️", "info": "ℹ️"}.get(self.severity, "?")
         return f"{severity_icon} [{self.issue_type.value}] {self.description}"
 
 
@@ -109,7 +110,7 @@ class CacheDiagnostics:
         check_integrity: bool = True,
         check_orphans: bool = True,
         check_versions: bool = True,
-        verbose: bool = True
+        verbose: bool = True,
     ) -> List[DiagnosticIssue]:
         """执行完整诊断
 
@@ -158,11 +159,13 @@ class CacheDiagnostics:
             issues.extend(orphan_issues)
 
         if verbose:
-            error_count = sum(1 for i in issues if i.severity == 'error')
-            warning_count = sum(1 for i in issues if i.severity == 'warning')
-            info_count = sum(1 for i in issues if i.severity == 'info')
-            print(f"[CacheDiagnostics] 诊断完成: {error_count} 错误, "
-                  f"{warning_count} 警告, {info_count} 信息")
+            error_count = sum(1 for i in issues if i.severity == "error")
+            warning_count = sum(1 for i in issues if i.severity == "warning")
+            info_count = sum(1 for i in issues if i.severity == "info")
+            print(
+                f"[CacheDiagnostics] 诊断完成: {error_count} 错误, "
+                f"{warning_count} 警告, {info_count} 信息"
+            )
 
         return issues
 
@@ -176,26 +179,26 @@ class CacheDiagnostics:
             DiagnosticIssue 或 None
         """
         # 获取当前插件版本
-        if not hasattr(self.ctx, '_plugins') or entry.data_name not in self.ctx._plugins:
+        if not hasattr(self.ctx, "_plugins") or entry.data_name not in self.ctx._plugins:
             return None
 
         plugin = self.ctx._plugins[entry.data_name]
-        current_version = str(getattr(plugin, 'version', 'unknown'))
+        current_version = str(getattr(plugin, "version", "unknown"))
 
-        if entry.plugin_version != current_version and entry.plugin_version != 'unknown':
+        if entry.plugin_version != current_version and entry.plugin_version != "unknown":
             return DiagnosticIssue(
                 issue_type=DiagnosticIssueType.VERSION_MISMATCH,
-                severity='warning',
+                severity="warning",
                 run_id=entry.run_id,
                 data_name=entry.data_name,
                 key=entry.key,
                 description=f"插件版本不匹配: 缓存={entry.plugin_version}, 当前={current_version}",
                 details={
-                    'cached_version': entry.plugin_version,
-                    'current_version': current_version,
+                    "cached_version": entry.plugin_version,
+                    "current_version": current_version,
                 },
                 fixable=True,
-                fix_action="删除缓存，重新计算"
+                fix_action="删除缓存，重新计算",
             )
 
         return None
@@ -213,58 +216,64 @@ class CacheDiagnostics:
 
         # 检查数据文件是否存在
         if not os.path.exists(entry.file_path):
-            issues.append(DiagnosticIssue(
-                issue_type=DiagnosticIssueType.MISSING_DATA_FILE,
-                severity='error',
-                run_id=entry.run_id,
-                data_name=entry.data_name,
-                key=entry.key,
-                description=f"数据文件缺失: {entry.file_path}",
-                details={'file_path': entry.file_path},
-                fixable=True,
-                fix_action="删除孤立的元数据文件"
-            ))
-            return issues
-
-        # 检查存储版本
-        storage_version = entry.metadata.get('storage_version')
-        if storage_version and hasattr(self.storage, 'STORAGE_VERSION'):
-            valid_versions = [self.storage.STORAGE_VERSION, '1.0.0']
-            if storage_version not in valid_versions:
-                issues.append(DiagnosticIssue(
-                    issue_type=DiagnosticIssueType.STORAGE_VERSION_MISMATCH,
-                    severity='warning',
+            issues.append(
+                DiagnosticIssue(
+                    issue_type=DiagnosticIssueType.MISSING_DATA_FILE,
+                    severity="error",
                     run_id=entry.run_id,
                     data_name=entry.data_name,
                     key=entry.key,
-                    description=f"存储版本不匹配: {storage_version}",
-                    details={
-                        'cached_version': storage_version,
-                        'expected_versions': valid_versions,
-                    },
+                    description=f"数据文件缺失: {entry.file_path}",
+                    details={"file_path": entry.file_path},
                     fixable=True,
-                    fix_action="删除缓存，重新计算"
-                ))
+                    fix_action="删除孤立的元数据文件",
+                )
+            )
+            return issues
+
+        # 检查存储版本
+        storage_version = entry.metadata.get("storage_version")
+        if storage_version and hasattr(self.storage, "STORAGE_VERSION"):
+            valid_versions = [self.storage.STORAGE_VERSION, "1.0.0"]
+            if storage_version not in valid_versions:
+                issues.append(
+                    DiagnosticIssue(
+                        issue_type=DiagnosticIssueType.STORAGE_VERSION_MISMATCH,
+                        severity="warning",
+                        run_id=entry.run_id,
+                        data_name=entry.data_name,
+                        key=entry.key,
+                        description=f"存储版本不匹配: {storage_version}",
+                        details={
+                            "cached_version": storage_version,
+                            "expected_versions": valid_versions,
+                        },
+                        fixable=True,
+                        fix_action="删除缓存，重新计算",
+                    )
+                )
 
         # 检查文件大小（仅对非压缩数据）
         if not entry.compressed:
             actual_size = os.path.getsize(entry.file_path)
             expected_size = entry.size_bytes
             if expected_size > 0 and actual_size != expected_size:
-                issues.append(DiagnosticIssue(
-                    issue_type=DiagnosticIssueType.SIZE_MISMATCH,
-                    severity='error',
-                    run_id=entry.run_id,
-                    data_name=entry.data_name,
-                    key=entry.key,
-                    description=f"文件大小不匹配: 实际={actual_size}, 期望={expected_size}",
-                    details={
-                        'actual_size': actual_size,
-                        'expected_size': expected_size,
-                    },
-                    fixable=True,
-                    fix_action="删除损坏的缓存"
-                ))
+                issues.append(
+                    DiagnosticIssue(
+                        issue_type=DiagnosticIssueType.SIZE_MISMATCH,
+                        severity="error",
+                        run_id=entry.run_id,
+                        data_name=entry.data_name,
+                        key=entry.key,
+                        description=f"文件大小不匹配: 实际={actual_size}, 期望={expected_size}",
+                        details={
+                            "actual_size": actual_size,
+                            "expected_size": expected_size,
+                        },
+                        fixable=True,
+                        fix_action="删除损坏的缓存",
+                    )
+                )
 
         # 检查校验和（如果有）
         if entry.has_checksum and self.storage.verify_on_load:
@@ -283,42 +292,43 @@ class CacheDiagnostics:
         Returns:
             DiagnosticIssue 或 None
         """
-        expected_checksum = entry.metadata.get('checksum')
-        algorithm = entry.metadata.get('checksum_algorithm', 'xxhash64')
+        expected_checksum = entry.metadata.get("checksum")
+        algorithm = entry.metadata.get("checksum_algorithm", "xxhash64")
 
         if not expected_checksum:
             return None
 
         try:
             from .integrity import get_integrity_checker
+
             checker = get_integrity_checker()
 
             if not checker.verify_checksum(entry.file_path, expected_checksum, algorithm):
                 return DiagnosticIssue(
                     issue_type=DiagnosticIssueType.CHECKSUM_FAILED,
-                    severity='error',
+                    severity="error",
                     run_id=entry.run_id,
                     data_name=entry.data_name,
                     key=entry.key,
                     description="校验和验证失败，数据可能已损坏",
                     details={
-                        'expected_checksum': expected_checksum,
-                        'algorithm': algorithm,
+                        "expected_checksum": expected_checksum,
+                        "algorithm": algorithm,
                     },
                     fixable=True,
-                    fix_action="删除损坏的缓存"
+                    fix_action="删除损坏的缓存",
                 )
         except Exception as e:
             return DiagnosticIssue(
                 issue_type=DiagnosticIssueType.CHECKSUM_FAILED,
-                severity='warning',
+                severity="warning",
                 run_id=entry.run_id,
                 data_name=entry.data_name,
                 key=entry.key,
                 description=f"校验和验证出错: {e}",
-                details={'error': str(e)},
+                details={"error": str(e)},
                 fixable=False,
-                fix_action=None
+                fix_action=None,
             )
 
         return None
@@ -335,10 +345,10 @@ class CacheDiagnostics:
         issues = []
 
         # 获取数据目录
-        if hasattr(self.storage, 'get_run_data_dir'):
+        if hasattr(self.storage, "get_run_data_dir"):
             data_dir = self.storage.get_run_data_dir(run_id)
-        elif hasattr(self.storage, 'base_dir'):
-            if hasattr(self.storage, 'use_run_subdirs') and self.storage.use_run_subdirs:
+        elif hasattr(self.storage, "base_dir"):
+            if hasattr(self.storage, "use_run_subdirs") and self.storage.use_run_subdirs:
                 data_dir = os.path.join(self.storage.work_dir, run_id, self.storage.data_subdir)
             else:
                 data_dir = self.storage.base_dir
@@ -349,7 +359,7 @@ class CacheDiagnostics:
             return issues
 
         # 扫描数据文件
-        data_extensions = {'.bin', '.blosc2', '.lz4', '.zst', '.gz', '.parquet'}
+        data_extensions = {".bin", ".blosc2", ".lz4", ".zst", ".gz", ".parquet"}
 
         for filename in os.listdir(data_dir):
             # 检查是否是数据文件
@@ -358,7 +368,7 @@ class CacheDiagnostics:
                 continue
 
             # 处理压缩文件的双扩展名（如 .bin.blosc2）
-            if ext in {'.blosc2', '.lz4', '.zst', '.gz'}:
+            if ext in {".blosc2", ".lz4", ".zst", ".gz"}:
                 base_name, _ = os.path.splitext(name)
                 key = base_name
             else:
@@ -370,29 +380,28 @@ class CacheDiagnostics:
                 file_path = os.path.join(data_dir, filename)
                 file_size = os.path.getsize(file_path)
 
-                issues.append(DiagnosticIssue(
-                    issue_type=DiagnosticIssueType.ORPHAN_FILE,
-                    severity='warning',
-                    run_id=run_id,
-                    data_name=None,
-                    key=key,
-                    description=f"孤儿文件（无元数据）: {filename}",
-                    details={
-                        'file_path': file_path,
-                        'file_size': file_size,
-                        'file_size_human': self._format_size(file_size),
-                    },
-                    fixable=True,
-                    fix_action="删除孤儿文件"
-                ))
+                issues.append(
+                    DiagnosticIssue(
+                        issue_type=DiagnosticIssueType.ORPHAN_FILE,
+                        severity="warning",
+                        run_id=run_id,
+                        data_name=None,
+                        key=key,
+                        description=f"孤儿文件（无元数据）: {filename}",
+                        details={
+                            "file_path": file_path,
+                            "file_size": file_size,
+                            "file_size_human": self._format_size(file_size),
+                        },
+                        fixable=True,
+                        fix_action="删除孤儿文件",
+                    )
+                )
 
         return issues
 
     def print_report(
-        self,
-        issues: List[DiagnosticIssue],
-        group_by: str = 'severity',
-        show_fixable: bool = True
+        self, issues: List[DiagnosticIssue], group_by: str = "severity", show_fixable: bool = True
     ):
         """打印诊断报告
 
@@ -410,9 +419,9 @@ class CacheDiagnostics:
         print("=" * 70)
 
         # 统计
-        error_count = sum(1 for i in issues if i.severity == 'error')
-        warning_count = sum(1 for i in issues if i.severity == 'warning')
-        info_count = sum(1 for i in issues if i.severity == 'info')
+        error_count = sum(1 for i in issues if i.severity == "error")
+        warning_count = sum(1 for i in issues if i.severity == "warning")
+        info_count = sum(1 for i in issues if i.severity == "info")
         fixable_count = sum(1 for i in issues if i.fixable)
 
         print(f"\n总计: {len(issues)} 个问题")
@@ -425,25 +434,25 @@ class CacheDiagnostics:
         print("\n" + "-" * 70)
 
         # 分组显示
-        if group_by == 'severity':
-            for severity in ['error', 'warning', 'info']:
+        if group_by == "severity":
+            for severity in ["error", "warning", "info"]:
                 severity_issues = [i for i in issues if i.severity == severity]
                 if severity_issues:
-                    icon = {'error': '❌', 'warning': '⚠️', 'info': 'ℹ️'}[severity]
+                    icon = {"error": "❌", "warning": "⚠️", "info": "ℹ️"}[severity]
                     print(f"\n{icon} {severity.upper()} ({len(severity_issues)})")
                     for issue in severity_issues:
                         self._print_issue(issue, show_fixable)
 
-        elif group_by == 'type':
-            types = set(i.issue_type for i in issues)
+        elif group_by == "type":
+            types = {i.issue_type for i in issues}
             for issue_type in sorted(types, key=lambda t: t.value):
                 type_issues = [i for i in issues if i.issue_type == issue_type]
                 print(f"\n[{issue_type.value}] ({len(type_issues)})")
                 for issue in type_issues:
                     self._print_issue(issue, show_fixable)
 
-        elif group_by == 'run_id':
-            runs = set(i.run_id for i in issues)
+        elif group_by == "run_id":
+            runs = {i.run_id for i in issues}
             for run_id in sorted(runs):
                 run_issues = [i for i in issues if i.run_id == run_id]
                 print(f"\n{run_id} ({len(run_issues)})")
@@ -463,7 +472,7 @@ class CacheDiagnostics:
         self,
         issues: List[DiagnosticIssue],
         dry_run: bool = True,
-        fix_types: Optional[List[DiagnosticIssueType]] = None
+        fix_types: Optional[List[DiagnosticIssueType]] = None,
     ) -> Dict[str, Any]:
         """自动修复问题
 
@@ -476,13 +485,13 @@ class CacheDiagnostics:
             修复结果统计
         """
         result = {
-            'dry_run': dry_run,
-            'total': len(issues),
-            'fixable': 0,
-            'fixed': 0,
-            'skipped': 0,
-            'failed': 0,
-            'details': []
+            "dry_run": dry_run,
+            "total": len(issues),
+            "fixable": 0,
+            "fixed": 0,
+            "skipped": 0,
+            "failed": 0,
+            "details": [],
         }
 
         # 过滤可修复的问题
@@ -490,7 +499,7 @@ class CacheDiagnostics:
         if fix_types:
             fixable_issues = [i for i in fixable_issues if i.issue_type in fix_types]
 
-        result['fixable'] = len(fixable_issues)
+        result["fixable"] = len(fixable_issues)
 
         if dry_run:
             print(f"\n[Dry-Run] 将修复 {len(fixable_issues)} 个问题:")
@@ -498,26 +507,30 @@ class CacheDiagnostics:
         for issue in fixable_issues:
             success = self._fix_issue(issue, dry_run)
             if success:
-                result['fixed'] += 1
-                result['details'].append({
-                    'key': issue.key,
-                    'type': issue.issue_type.value,
-                    'action': issue.fix_action,
-                    'status': 'fixed' if not dry_run else 'would_fix'
-                })
+                result["fixed"] += 1
+                result["details"].append(
+                    {
+                        "key": issue.key,
+                        "type": issue.issue_type.value,
+                        "action": issue.fix_action,
+                        "status": "fixed" if not dry_run else "would_fix",
+                    }
+                )
             else:
-                result['failed'] += 1
-                result['details'].append({
-                    'key': issue.key,
-                    'type': issue.issue_type.value,
-                    'action': issue.fix_action,
-                    'status': 'failed'
-                })
+                result["failed"] += 1
+                result["details"].append(
+                    {
+                        "key": issue.key,
+                        "type": issue.issue_type.value,
+                        "action": issue.fix_action,
+                        "status": "failed",
+                    }
+                )
 
-        result['skipped'] = result['total'] - result['fixable']
+        result["skipped"] = result["total"] - result["fixable"]
 
         if dry_run:
-            print(f"\n[Dry-Run] 完成。实际执行请设置 dry_run=False")
+            print("\n[Dry-Run] 完成。实际执行请设置 dry_run=False")
         else:
             print(f"\n[修复完成] 已修复: {result['fixed']}, 失败: {result['failed']}")
 
@@ -551,7 +564,7 @@ class CacheDiagnostics:
 
             elif issue.issue_type == DiagnosticIssueType.ORPHAN_FILE:
                 # 删除孤儿文件
-                file_path = issue.details.get('file_path')
+                file_path = issue.details.get("file_path")
                 if file_path and os.path.exists(file_path):
                     if dry_run:
                         print(f"  [would delete] {file_path}")

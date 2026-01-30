@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 processing 模块测试
 """
@@ -7,9 +6,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from waveform_analysis.core.processing.event_grouping import group_multi_channel_hits
-from waveform_analysis.core.processing.dtypes import ST_WAVEFORM_DTYPE
 from waveform_analysis.core.plugins.builtin.cpu.waveforms import WaveformStruct
+from waveform_analysis.core.processing.dtypes import ST_WAVEFORM_DTYPE
+from waveform_analysis.core.processing.event_grouping import group_multi_channel_hits
 
 
 class TestWaveformStruct:
@@ -131,12 +130,14 @@ class TestGroupMultiChannelHits:
 
     def test_single_cluster(self):
         """测试单个事件簇"""
-        df = pd.DataFrame({
-            "timestamp": [1000000, 1000010, 1000020],  # 在 100ns 窗口内
-            "area": [100, 200, 300],
-            "height": [10, 20, 30],
-            "channel": [0, 1, 0],
-        })
+        df = pd.DataFrame(
+            {
+                "timestamp": [1000000, 1000010, 1000020],  # 在 100ns 窗口内
+                "area": [100, 200, 300],
+                "height": [10, 20, 30],
+                "channel": [0, 1, 0],
+            }
+        )
 
         result = group_multi_channel_hits(df, time_window_ns=100)
 
@@ -145,12 +146,14 @@ class TestGroupMultiChannelHits:
 
     def test_multiple_clusters(self):
         """测试多个事件簇"""
-        df = pd.DataFrame({
-            "timestamp": [1000000, 1000010, 2000000, 2000010],  # 两个簇
-            "area": [100, 200, 300, 400],
-            "height": [10, 20, 30, 40],
-            "channel": [0, 1, 0, 1],
-        })
+        df = pd.DataFrame(
+            {
+                "timestamp": [1000000, 1000010, 2000000, 2000010],  # 两个簇
+                "area": [100, 200, 300, 400],
+                "height": [10, 20, 30, 40],
+                "channel": [0, 1, 0, 1],
+            }
+        )
 
         result = group_multi_channel_hits(df, time_window_ns=100)
 

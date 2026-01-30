@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Records pipeline example with all related plugins."""
 
 from waveform_analysis.core.context import Context

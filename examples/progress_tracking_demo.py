@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 进度追踪系统使用示例
 
@@ -7,18 +6,19 @@
 """
 
 import time
+
 from waveform_analysis.core.foundation.progress import (
-    with_progress,
+    ProgressTracker,
+    get_global_tracker,
     progress_iter,
     progress_map,
-    get_global_tracker,
-    ProgressTracker,
+    with_progress,
 )
-
 
 # ===========================
 # 示例1: 装饰生成器函数
 # ===========================
+
 
 @with_progress(total=100, desc="Processing items", unit="item")
 def generate_items():
@@ -31,6 +31,7 @@ def generate_items():
 # ===========================
 # 示例2: 装饰返回列表的函数
 # ===========================
+
 
 @with_progress(desc="Loading files", unit="file")
 def load_files(file_list):
@@ -46,6 +47,7 @@ def load_files(file_list):
 # 示例3: 普通函数显示执行时间
 # ===========================
 
+
 @with_progress(desc="Computing", show_result=True)
 def expensive_computation(n):
     """普通函数显示执行时间"""
@@ -57,6 +59,7 @@ def expensive_computation(n):
 # 示例4: 使用 progress_iter
 # ===========================
 
+
 def process_with_progress_iter():
     """使用 progress_iter 包装可迭代对象"""
     data = range(50)
@@ -64,7 +67,7 @@ def process_with_progress_iter():
     results = []
     for item in progress_iter(data, desc="Processing data", unit="item"):
         time.sleep(0.02)
-        results.append(item ** 2)
+        results.append(item**2)
 
     return results
 
@@ -73,13 +76,14 @@ def process_with_progress_iter():
 # 示例5: 使用 progress_map
 # ===========================
 
+
 def process_with_progress_map():
     """使用 progress_map 应用函数"""
     data = range(50)
 
     def square(x):
         time.sleep(0.02)
-        return x ** 2
+        return x**2
 
     return progress_map(square, data, desc="Squaring numbers")
 
@@ -87,6 +91,7 @@ def process_with_progress_map():
 # ===========================
 # 示例6: 嵌套进度条
 # ===========================
+
 
 def process_batches():
     """演示嵌套进度条"""
@@ -99,16 +104,11 @@ def process_batches():
         # 创建嵌套进度条
         bar_name = f"batch_{batch_id}"
         tracker.create_bar(
-            bar_name,
-            total=20,
-            desc=f"Batch {batch_id}",
-            unit="item",
-            nested=True,
-            parent="batches"
+            bar_name, total=20, desc=f"Batch {batch_id}", unit="item", nested=True, parent="batches"
         )
 
         # 处理批次中的项目
-        for i in range(20):
+        for _i in range(20):
             time.sleep(0.01)
             tracker.update(bar_name, n=1)
 
@@ -126,6 +126,7 @@ def process_batches():
 # 示例7: 自定义进度追踪器
 # ===========================
 
+
 @with_progress(desc="Custom processing", unit="item")
 def process_with_custom_tracker(items, tracker=None):
     """使用自定义追踪器"""
@@ -137,6 +138,7 @@ def process_with_custom_tracker(items, tracker=None):
 # ===========================
 # 主函数
 # ===========================
+
 
 def main():
     """运行所有示例"""

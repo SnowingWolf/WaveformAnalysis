@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """DAQAnalyzer: aggregate runs and notebook/terminal display helpers."""
 
 from __future__ import annotations
@@ -14,7 +13,7 @@ import pandas as pd
 
 try:
     from IPython import get_ipython
-    from IPython.display import display as _display
+    from IPython.display import display as _ipydisplay
 
     def _in_notebook() -> bool:
         # Detect IPython kernel presence without hard failure.
@@ -25,7 +24,7 @@ try:
 
 except Exception:
 
-    def _display(x):
+    def _ipydisplay(x):
         print(x)
 
     def _in_notebook() -> bool:
@@ -47,8 +46,8 @@ class DAQAnalyzer:
     def __init__(
         self,
         daq_root: Union[str, Path] = "DAQ",
-        daq_adapter: Optional[Union[str, "DAQAdapter"]] = None,
-        directory_layout: Optional["DirectoryLayout"] = None,
+        daq_adapter: Optional[Union[str, DAQAdapter]] = None,
+        directory_layout: Optional[DirectoryLayout] = None,
     ) -> None:
         """
         初始化 DAQ 数据分析器
@@ -183,17 +182,19 @@ class DAQAnalyzer:
         for ch in sorted(stats.keys()):
             s = stats[ch]
             duration_s = s.get("duration_s")
-            rows.append({
-                "channel": f"CH{ch}",
-                "files": s.get("file_count"),
-                "total_size_bytes": s.get("total_size_bytes", 0),
-                "start_time": DAQRun.format_time_ps(s.get("start_time_ps")),
-                "end_time": DAQRun.format_time_ps(s.get("end_time_ps")),
-                "duration_s": duration_s if duration_s is not None else None,
-                "duration": f"{duration_s:.3f} s" if duration_s is not None else "N/A",
-                "earliest_file": s.get("earliest_mtime"),
-                "latest_file": s.get("latest_mtime"),
-            })
+            rows.append(
+                {
+                    "channel": f"CH{ch}",
+                    "files": s.get("file_count"),
+                    "total_size_bytes": s.get("total_size_bytes", 0),
+                    "start_time": DAQRun.format_time_ps(s.get("start_time_ps")),
+                    "end_time": DAQRun.format_time_ps(s.get("end_time_ps")),
+                    "duration_s": duration_s if duration_s is not None else None,
+                    "duration": f"{duration_s:.3f} s" if duration_s is not None else "N/A",
+                    "earliest_file": s.get("earliest_mtime"),
+                    "latest_file": s.get("latest_mtime"),
+                }
+            )
         return rows
 
     def _display_file_details_for_channel(self, run: DAQRun, ch: int) -> None:
@@ -205,17 +206,19 @@ class DAQAnalyzer:
         print(f"\n-- 文件明细 CH{ch} --")
         frows = []
         for fi in sorted(files, key=lambda x: x.get("index", 0)):
-            frows.append({
-                "filename": fi.get("filename"),
-                "index": fi.get("index"),
-                "size": self.format_size(fi.get("size_bytes", 0)),
-                "timetag_min": DAQRun.format_time_ps(fi.get("timetag_min")),
-                "timetag_max": DAQRun.format_time_ps(fi.get("timetag_max")),
-                "modified": fi.get("mtime"),
-            })
+            frows.append(
+                {
+                    "filename": fi.get("filename"),
+                    "index": fi.get("index"),
+                    "size": self.format_size(fi.get("size_bytes", 0)),
+                    "timetag_min": DAQRun.format_time_ps(fi.get("timetag_min")),
+                    "timetag_max": DAQRun.format_time_ps(fi.get("timetag_max")),
+                    "modified": fi.get("mtime"),
+                }
+            )
         try:
             fdf = pd.DataFrame(frows).set_index("index")
-            _display(fdf)
+            _ipydisplay(fdf)
         except Exception:
             for fr in frows:
                 print(fr)
@@ -227,9 +230,20 @@ class DAQAnalyzer:
 
         # Prepare columns for both notebook and terminal views.
         df = self.df_runs.copy()
-        df["size_mb"] = df["total_bytes"].apply(lambda v: float(int(v) if v is not None else 0) / (1024**2))
-        df["size_readable"] = df["total_bytes"].apply(lambda v: self.format_size(int(v) if v is not None else 0))
-        display_cols = ["run_name", "file_count", "channel_count", "size_mb", "size_readable", "path"]
+        df["size_mb"] = df["total_bytes"].apply(
+            lambda v: float(int(v) if v is not None else 0) / (1024**2)
+        )
+        df["size_readable"] = df["total_bytes"].apply(
+            lambda v: self.format_size(int(v) if v is not None else 0)
+        )
+        display_cols = [
+            "run_name",
+            "file_count",
+            "channel_count",
+            "size_mb",
+            "size_readable",
+            "path",
+        ]
 
         if _in_notebook():
             try:
@@ -237,7 +251,17 @@ class DAQAnalyzer:
 
                 # Rich notebook styling with gradients.
                 styled_df = (
-                    df[["run_name", "file_count", "size_mb", "size_readable", "channel_count", "channel_str", "path"]]
+                    df[
+                        [
+                            "run_name",
+                            "file_count",
+                            "size_mb",
+                            "size_readable",
+                            "channel_count",
+                            "channel_str",
+                            "path",
+                        ]
+                    ]
                     .rename(
                         columns={
                             "run_name": "运行名称",
@@ -253,23 +277,25 @@ class DAQAnalyzer:
                     .background_gradient(subset=["大小(MB)"], cmap="Reds")
                     .format({"大小(MB)": "{:.2f}", "大小": "{}"})
                     .set_properties(**{"text-align": "left"})
-                    .set_table_styles([
-                        {
-                            "selector": "th",
-                            "props": [
-                                ("background-color", "#4CAF50"),
-                                ("color", "white"),
-                                ("font-weight", "bold"),
-                                ("text-align", "center"),
-                            ],
-                        }
-                    ])
+                    .set_table_styles(
+                        [
+                            {
+                                "selector": "th",
+                                "props": [
+                                    ("background-color", "#4CAF50"),
+                                    ("color", "white"),
+                                    ("font-weight", "bold"),
+                                    ("text-align", "center"),
+                                ],
+                            }
+                        ]
+                    )
                     .hide(axis="index")
                 )
 
                 _ipydisplay(styled_df)
             except Exception:
-                _display(df[display_cols])
+                _ipydisplay(df[display_cols])
         else:
             # Compact terminal output with ANSI colors.
             rows = []
@@ -315,13 +341,19 @@ class DAQAnalyzer:
                 df_display = df.copy()
 
                 # Ensure numeric columns exist for styling.
-                df_display["total_size_bytes"] = df_display["total_size_bytes"].fillna(0).astype(float)
+                df_display["total_size_bytes"] = (
+                    df_display["total_size_bytes"].fillna(0).astype(float)
+                )
                 # Duration in seconds may be None; keep numeric for conditional formatting.
-                df_display["duration_s"] = df_display["duration_s"].where(df_display["duration_s"].notna(), None)
+                df_display["duration_s"] = df_display["duration_s"].where(
+                    df_display["duration_s"].notna(), None
+                )
 
                 try:
                     styled = (
-                        df_display[["files", "total_size_bytes", "duration_s", "start_time", "end_time"]]
+                        df_display[
+                            ["files", "total_size_bytes", "duration_s", "start_time", "end_time"]
+                        ]
                         .rename(
                             columns={
                                 "files": "文件数",
@@ -333,22 +365,28 @@ class DAQAnalyzer:
                         )
                         .style.background_gradient(subset=["文件数"], cmap="Blues")
                         .background_gradient(subset=["大小(字节)"], cmap="Reds")
-                        .format({
-                            "大小(字节)": lambda v: self.format_size(int(v) if v is not None else 0),
-                            "持续(s)": lambda v: f"{v:.3f} s" if (v is not None) else "N/A",
-                        })
-                        .set_properties(**{"text-align": "left"})
-                        .set_table_styles([
+                        .format(
                             {
-                                "selector": "th",
-                                "props": [
-                                    ("background-color", "#4CAF50"),
-                                    ("color", "white"),
-                                    ("font-weight", "bold"),
-                                    ("text-align", "center"),
-                                ],
+                                "大小(字节)": lambda v: self.format_size(
+                                    int(v) if v is not None else 0
+                                ),
+                                "持续(s)": lambda v: f"{v:.3f} s" if (v is not None) else "N/A",
                             }
-                        ])
+                        )
+                        .set_properties(**{"text-align": "left"})
+                        .set_table_styles(
+                            [
+                                {
+                                    "selector": "th",
+                                    "props": [
+                                        ("background-color", "#4CAF50"),
+                                        ("color", "white"),
+                                        ("font-weight", "bold"),
+                                        ("text-align", "center"),
+                                    ],
+                                }
+                            ]
+                        )
                         .hide(axis="index")
                     )
 
@@ -356,32 +394,40 @@ class DAQAnalyzer:
                 except Exception:
                     # Fallback to basic HTML table if styler fails.
                     df_display["size_html"] = [
-                        self._html_color_size(stats.get(int(i.replace("CH", "")), {}).get("total_size_bytes", 0))
+                        self._html_color_size(
+                            stats.get(int(i.replace("CH", "")), {}).get("total_size_bytes", 0)
+                        )
                         for i in df_display.index
                     ]
                     df_display["dur_html"] = [
-                        self._html_color_duration(stats.get(int(i.replace("CH", "")), {}).get("duration_s"))
+                        self._html_color_duration(
+                            stats.get(int(i.replace("CH", "")), {}).get("duration_s")
+                        )
                         for i in df_display.index
                     ]
                     html = df_display.to_html(
-                        escape=False, columns=["files", "size_html", "dur_html", "start_time", "end_time"]
+                        escape=False,
+                        columns=["files", "size_html", "dur_html", "start_time", "end_time"],
                     )
-                    _display(_HTML(html))
+                    _ipydisplay(_HTML(html))
             except Exception:
-                _display(df)
+                _ipydisplay(df)
         else:
             # Plain terminal table with colored size/duration fields.
             df_display = df.copy()
             df_display["total_size"] = df_display["total_size_bytes"].apply(
                 lambda v: self.format_size(int(v) if v is not None else 0)
             )
-            df_display["duration"] = df_display["duration_s"].apply(lambda v: f"{v:.3f} s" if v is not None else "N/A")
-            cols = ["files", "total_size", "duration", "start_time", "end_time"]
+            df_display["duration"] = df_display["duration_s"].apply(
+                lambda v: f"{v:.3f} s" if v is not None else "N/A"
+            )
 
             out_lines = []
             for idx, row in df_display.iterrows():
                 size_str = (
-                    self._color_size(stats.get(int(idx.replace("CH", "")), {}).get("total_size_bytes", 0))
+                    self._color_size(
+                        stats.get(int(idx.replace("CH", "")), {}).get("total_size_bytes", 0)
+                    )
                     if idx.startswith("CH")
                     else (self._color_size(0))
                 )
@@ -451,8 +497,12 @@ class DAQAnalyzer:
                     "start_time_ps": s["start_time_ps"],
                     "end_time_ps": s["end_time_ps"],
                     "duration_seconds": s["duration_s"],
-                    "earliest_file_time": s["earliest_mtime"].isoformat() if s["earliest_mtime"] else None,
-                    "latest_file_time": s["latest_mtime"].isoformat() if s["latest_mtime"] else None,
+                    "earliest_file_time": (
+                        s["earliest_mtime"].isoformat() if s["earliest_mtime"] else None
+                    ),
+                    "latest_file_time": (
+                        s["latest_mtime"].isoformat() if s["latest_mtime"] else None
+                    ),
                 }
 
                 if include_file_details:
@@ -469,8 +519,12 @@ class DAQAnalyzer:
                                 "modified_time": file_info["mtime"].isoformat(),
                                 "timetag_min_ps": file_info.get("timetag_min"),
                                 "timetag_max_ps": file_info.get("timetag_max"),
-                                "timetag_min_readable": DAQRun.format_time_ps(file_info.get("timetag_min")),
-                                "timetag_max_readable": DAQRun.format_time_ps(file_info.get("timetag_max")),
+                                "timetag_min_readable": DAQRun.format_time_ps(
+                                    file_info.get("timetag_min")
+                                ),
+                                "timetag_max_readable": DAQRun.format_time_ps(
+                                    file_info.get("timetag_max")
+                                ),
                             }
                             channel_data["files"].append(file_data)
 

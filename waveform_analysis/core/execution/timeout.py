@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 超时管理模块 - 为plugin执行提供超时控制
 
@@ -27,6 +26,7 @@ export, __all__ = exporter()
 # Timeout Implementation
 # ===========================
 
+
 @export
 class TimeoutManager:
     """
@@ -54,16 +54,10 @@ class TimeoutManager:
             is_unix: 是否为 Unix 系统（Linux/macOS）
             _timeout_stats: 超时统计字典，记录各函数的超时次数
         """
-        self.is_unix = platform.system() in ['Linux', 'Darwin']
+        self.is_unix = platform.system() in ["Linux", "Darwin"]
         self._timeout_stats: Dict[str, int] = {}
 
-    def run_with_timeout(
-        self,
-        func: Callable,
-        timeout: Optional[float],
-        *args,
-        **kwargs
-    ) -> Any:
+    def run_with_timeout(self, func: Callable, timeout: Optional[float], *args, **kwargs) -> Any:
         """
         执行函数with超时控制
 
@@ -88,13 +82,7 @@ class TimeoutManager:
         else:
             return self._run_with_threading(func, timeout, *args, **kwargs)
 
-    def _run_with_signal(
-        self,
-        func: Callable,
-        timeout: float,
-        *args,
-        **kwargs
-    ) -> Any:
+    def _run_with_signal(self, func: Callable, timeout: float, *args, **kwargs) -> Any:
         """Unix平台:使用signal.alarm实现超时(效率更高)"""
         import signal
 
@@ -111,7 +99,7 @@ class TimeoutManager:
             return result
         except PluginTimeoutError:
             # Record timeout
-            func_name = getattr(func, '__name__', 'unknown')
+            func_name = getattr(func, "__name__", "unknown")
             self._timeout_stats[func_name] = self._timeout_stats.get(func_name, 0) + 1
             logger.warning(f"Function '{func_name}' timed out after {timeout}s")
             raise
@@ -119,13 +107,7 @@ class TimeoutManager:
             signal.alarm(0)  # Ensure alarm is canceled
             signal.signal(signal.SIGALRM, old_handler)  # Restore handler
 
-    def _run_with_threading(
-        self,
-        func: Callable,
-        timeout: float,
-        *args,
-        **kwargs
-    ) -> Any:
+    def _run_with_threading(self, func: Callable, timeout: float, *args, **kwargs) -> Any:
         """跨平台:使用threading实现超时(兼容Windows)"""
         import threading
 
@@ -145,7 +127,7 @@ class TimeoutManager:
 
         if thread.is_alive():
             # Timeout occurred
-            func_name = getattr(func, '__name__', 'unknown')
+            func_name = getattr(func, "__name__", "unknown")
             self._timeout_stats[func_name] = self._timeout_stats.get(func_name, 0) + 1
             logger.warning(f"Function '{func_name}' timed out after {timeout}s")
 
@@ -154,7 +136,7 @@ class TimeoutManager:
             warnings.warn(
                 f"Function '{func_name}' timed out but thread cannot be forcibly stopped. "
                 f"It will continue running as daemon thread.",
-                RuntimeWarning
+                RuntimeWarning,
             )
             raise PluginTimeoutError(f"Function timed out after {timeout} seconds")
 
@@ -192,6 +174,7 @@ class TimeoutManager:
 
             if self.is_unix:
                 import signal
+
                 signal.alarm(0)
 
         except PluginTimeoutError:
@@ -202,6 +185,7 @@ class TimeoutManager:
         finally:
             if self.is_unix:
                 import signal
+
                 signal.alarm(0)
                 signal.signal(signal.SIGALRM, old_handler)
 
@@ -220,6 +204,7 @@ class TimeoutManager:
 
 _timeout_manager = None
 
+
 @export
 def get_timeout_manager() -> TimeoutManager:
     """获取全局TimeoutManager单例"""
@@ -232,6 +217,7 @@ def get_timeout_manager() -> TimeoutManager:
 # ===========================
 # Decorator for Easy Use
 # ===========================
+
 
 @export
 def with_timeout(timeout: Optional[float] = None):
@@ -248,11 +234,14 @@ def with_timeout(timeout: Optional[float] = None):
         except PluginTimeoutError:
             print("Function timed out!")
     """
+
     def decorator(func: Callable) -> Callable:
         def wrapper(*args, **kwargs):
             manager = get_timeout_manager()
             return manager.run_with_timeout(func, timeout, *args, **kwargs)
+
         wrapper.__name__ = func.__name__
         wrapper.__doc__ = func.__doc__
         return wrapper
+
     return decorator

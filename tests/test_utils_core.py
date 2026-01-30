@@ -1,6 +1,5 @@
 import time
 
-import numpy as np
 import pytest
 
 from waveform_analysis.core.foundation.utils import (
@@ -59,7 +58,7 @@ def test_one_time_generator():
 
     # Try to iterate again
     with pytest.raises(RuntimeError, match="already been consumed"):
-        for x in otg:
+        for _x in otg:
             pass
 
 

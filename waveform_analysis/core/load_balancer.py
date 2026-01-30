@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 动态负载均衡模块 (Phase 3 Enhancement)
 
@@ -28,6 +27,7 @@ export, __all__ = exporter()
 # ===========================
 # 动态负载均衡器
 # ===========================
+
 
 @export
 class DynamicLoadBalancer:
@@ -62,9 +62,9 @@ class DynamicLoadBalancer:
         self,
         min_workers: int = 1,
         max_workers: Optional[int] = None,
-        cpu_threshold: float = 0.8,      # CPU使用率阈值
+        cpu_threshold: float = 0.8,  # CPU使用率阈值
         memory_threshold: float = 0.85,  # 内存使用率阈值
-        check_interval: float = 5.0      # 检查间隔（秒）
+        check_interval: float = 5.0,  # 检查间隔（秒）
     ):
         """
         初始化负载均衡器
@@ -94,11 +94,7 @@ class DynamicLoadBalancer:
                 "Install with: pip install psutil"
             )
 
-    def get_optimal_workers(
-        self,
-        n_tasks: int,
-        estimated_task_size: Optional[int] = None
-    ) -> int:
+    def get_optimal_workers(self, n_tasks: int, estimated_task_size: Optional[int] = None) -> int:
         """
         获取当前最优worker数量
 
@@ -135,7 +131,10 @@ class DynamicLoadBalancer:
                 # 内存不足，减少worker
                 suggested_workers = max(self.min_workers, self._current_workers - 1)
                 self.logger.debug(f"High memory ({memory_percent*100:.1f}%), reducing workers")
-            elif cpu_percent < 0.5 * self.cpu_threshold * 100 and memory_percent < 0.7 * self.memory_threshold:
+            elif (
+                cpu_percent < 0.5 * self.cpu_threshold * 100
+                and memory_percent < 0.7 * self.memory_threshold
+            ):
                 # 资源充足，增加worker
                 suggested_workers = min(self.max_workers, self._current_workers + 1)
                 self.logger.debug("Resources available, increasing workers")
@@ -166,10 +165,7 @@ class DynamicLoadBalancer:
         return suggested_workers
 
     def record_task_completion(
-        self,
-        duration: float,
-        memory_used: Optional[int] = None,
-        success: bool = True
+        self, duration: float, memory_used: Optional[int] = None, success: bool = True
     ):
         """
         记录任务完成情况（用于未来优化）
@@ -179,13 +175,15 @@ class DynamicLoadBalancer:
             memory_used: 内存使用（字节）
             success: 是否成功
         """
-        self._task_history.append({
-            'duration': duration,
-            'memory_used': memory_used,
-            'success': success,
-            'workers': self._current_workers,
-            'timestamp': time.time()
-        })
+        self._task_history.append(
+            {
+                "duration": duration,
+                "memory_used": memory_used,
+                "success": success,
+                "workers": self._current_workers,
+                "timestamp": time.time(),
+            }
+        )
 
         # 保留最近1000条记录
         if len(self._task_history) > 1000:
@@ -199,31 +197,28 @@ class DynamicLoadBalancer:
             统计信息字典
         """
         if not self._task_history:
-            return {
-                'total_tasks': 0,
-                'current_workers': self._current_workers
-            }
+            return {"total_tasks": 0, "current_workers": self._current_workers}
 
-        durations = [t['duration'] for t in self._task_history]
-        successful_tasks = [t for t in self._task_history if t['success']]
+        durations = [t["duration"] for t in self._task_history]
+        successful_tasks = [t for t in self._task_history if t["success"]]
 
         stats = {
-            'total_tasks': len(self._task_history),
-            'successful_tasks': len(successful_tasks),
-            'failed_tasks': len(self._task_history) - len(successful_tasks),
-            'avg_duration': sum(durations) / len(durations),
-            'min_duration': min(durations),
-            'max_duration': max(durations),
-            'current_workers': self._current_workers,
-            'min_workers': self.min_workers,
-            'max_workers': self.max_workers
+            "total_tasks": len(self._task_history),
+            "successful_tasks": len(successful_tasks),
+            "failed_tasks": len(self._task_history) - len(successful_tasks),
+            "avg_duration": sum(durations) / len(durations),
+            "min_duration": min(durations),
+            "max_duration": max(durations),
+            "current_workers": self._current_workers,
+            "min_workers": self.min_workers,
+            "max_workers": self.max_workers,
         }
 
         # 如果有内存记录
-        memory_used_list = [t['memory_used'] for t in self._task_history if t.get('memory_used')]
+        memory_used_list = [t["memory_used"] for t in self._task_history if t.get("memory_used")]
         if memory_used_list:
-            stats['avg_memory_mb'] = sum(memory_used_list) / len(memory_used_list) / 1024 / 1024
-            stats['max_memory_mb'] = max(memory_used_list) / 1024 / 1024
+            stats["avg_memory_mb"] = sum(memory_used_list) / len(memory_used_list) / 1024 / 1024
+            stats["max_memory_mb"] = max(memory_used_list) / 1024 / 1024
 
         return stats
 
@@ -247,16 +242,13 @@ def get_system_info() -> Dict:
     Returns:
         系统信息字典
     """
-    info = {
-        'cpu_count': multiprocessing.cpu_count(),
-        'psutil_available': psutil is not None
-    }
+    info = {"cpu_count": multiprocessing.cpu_count(), "psutil_available": psutil is not None}
 
     if psutil is not None:
-        info['cpu_percent'] = psutil.cpu_percent(interval=0.1)
+        info["cpu_percent"] = psutil.cpu_percent(interval=0.1)
         memory = psutil.virtual_memory()
-        info['memory_total_gb'] = memory.total / 1024 / 1024 / 1024
-        info['memory_available_gb'] = memory.available / 1024 / 1024 / 1024
-        info['memory_percent'] = memory.percent
+        info["memory_total_gb"] = memory.total / 1024 / 1024 / 1024
+        info["memory_available_gb"] = memory.available / 1024 / 1024 / 1024
+        info["memory_percent"] = memory.percent
 
     return info

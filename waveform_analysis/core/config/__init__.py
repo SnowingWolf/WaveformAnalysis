@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 配置系统模块
 
@@ -28,12 +27,6 @@ Examples:
 """
 
 # 类型定义
-from .types import (
-    ConfigSource,
-    ConfigValue,
-    ResolvedConfig,
-)
-
 # Adapter 信息
 from .adapter_info import (
     AdapterInfo,
@@ -41,16 +34,21 @@ from .adapter_info import (
     get_adapter_info,
 )
 
-# 配置解析器
-from .resolver import (
-    ConfigResolver,
-)
-
 # 兼容层管理
 from .compat import (
     CompatManager,
     DeprecationInfo,
     get_default_compat_manager,
+)
+
+# 配置解析器
+from .resolver import (
+    ConfigResolver,
+)
+from .types import (
+    ConfigSource,
+    ConfigValue,
+    ResolvedConfig,
 )
 
 __all__ = [

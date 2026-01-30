@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 通用 CSV 格式读取器
 
@@ -17,14 +16,14 @@ Examples:
 
 import logging
 from pathlib import Path
-from typing import Iterator, List, Optional, Union
+from typing import Iterator, List, Union
 
 import numpy as np
 import pandas as pd
 
 from waveform_analysis.core.foundation.utils import exporter
 
-from .base import FormatReader, FormatSpec
+from .base import FormatReader
 
 export, __all__ = exporter()
 
@@ -53,11 +52,7 @@ class GenericCSVReader(FormatReader):
         >>> data = reader.read_file('data.csv')
     """
 
-    def read_file(
-        self,
-        file_path: Union[str, Path],
-        is_first_file: bool = True
-    ) -> np.ndarray:
+    def read_file(self, file_path: Union[str, Path], is_first_file: bool = True) -> np.ndarray:
         """读取单个 CSV 文件
 
         Args:
@@ -78,8 +73,7 @@ class GenericCSVReader(FormatReader):
             return np.array([]).reshape(0, 0)
 
         skiprows = (
-            self.spec.header_rows_first_file if is_first_file
-            else self.spec.header_rows_other_files
+            self.spec.header_rows_first_file if is_first_file else self.spec.header_rows_other_files
         )
 
         try:
@@ -102,9 +96,7 @@ class GenericCSVReader(FormatReader):
             return np.array([]).reshape(0, 0)
 
     def read_files(
-        self,
-        file_paths: List[Union[str, Path]],
-        show_progress: bool = False
+        self, file_paths: List[Union[str, Path]], show_progress: bool = False
     ) -> np.ndarray:
         """读取并堆叠多个文件
 
@@ -121,6 +113,7 @@ class GenericCSVReader(FormatReader):
         if show_progress:
             try:
                 from tqdm import tqdm
+
                 pbar = tqdm(file_paths, desc="读取文件", leave=False)
             except ImportError:
                 pbar = file_paths
@@ -144,14 +137,12 @@ class GenericCSVReader(FormatReader):
             for a in arrays:
                 if a.shape[1] < max_cols:
                     pad_width = ((0, 0), (0, max_cols - a.shape[1]))
-                    a = np.pad(a, pad_width, mode='constant', constant_values=np.nan)
+                    a = np.pad(a, pad_width, mode="constant", constant_values=np.nan)
                 padded.append(a)
             return np.vstack(padded)
 
     def read_files_generator(
-        self,
-        file_paths: List[Union[str, Path]],
-        chunk_size: int = 10
+        self, file_paths: List[Union[str, Path]], chunk_size: int = 10
     ) -> Iterator[np.ndarray]:
         """生成器模式读取
 
@@ -166,11 +157,11 @@ class GenericCSVReader(FormatReader):
             return
 
         for i in range(0, len(file_paths), chunk_size):
-            chunk_files = file_paths[i:i + chunk_size]
+            chunk_files = file_paths[i : i + chunk_size]
             arrays = []
 
             for j, fp in enumerate(chunk_files):
-                is_first = (i == 0 and j == 0)
+                is_first = i == 0 and j == 0
                 arr = self.read_file(fp, is_first_file=is_first)
                 if arr.size > 0:
                     arrays.append(arr)
@@ -184,8 +175,6 @@ class GenericCSVReader(FormatReader):
                     for a in arrays:
                         if a.shape[1] < max_cols:
                             pad_width = ((0, 0), (0, max_cols - a.shape[1]))
-                            a = np.pad(a, pad_width, mode='constant', constant_values=np.nan)
+                            a = np.pad(a, pad_width, mode="constant", constant_values=np.nan)
                         padded.append(a)
                     yield np.vstack(padded)
-
-

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Plugins 子模块 - 插件系统统一入口
 
@@ -34,17 +33,17 @@ from . import plugin_sets, profiles
 from .builtin.cpu import (
     BasicFeaturesPlugin,
     DataFramePlugin,
+    EventFramePlugin,
+    EventsGroupedPlugin,
+    EventsPlugin,
     # 信号处理插件
     FilteredWaveformsPlugin,
     GroupedEventsPlugin,
     HitFinderPlugin,
-    EventFramePlugin,
-    EventsGroupedPlugin,
-    EventsPlugin,
     PairedEventsPlugin,
-    RecordsPlugin,
     # 标准插件
     RawFileNamesPlugin,
+    RecordsPlugin,
     SignalPeaksPlugin,
     WaveformsPlugin,
     WaveformStruct,

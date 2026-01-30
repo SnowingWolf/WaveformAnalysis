@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # DOC: docs/features/context/CONFIGURATION.md#兼容层
 """
 兼容层管理器
@@ -7,9 +6,9 @@ CompatManager 负责集中管理参数别名和弃用信息，
 确保配置系统的向后兼容性。
 """
 
-import warnings
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
+import warnings
 
 from waveform_analysis.core.foundation.utils import exporter
 

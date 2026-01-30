@@ -3,7 +3,6 @@ cache_utils 模块测试
 """
 
 import os
-import tempfile
 
 import pytest
 

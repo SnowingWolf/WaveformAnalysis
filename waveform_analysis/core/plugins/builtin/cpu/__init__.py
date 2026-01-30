@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 CPU 插件模块 - 使用 NumPy/SciPy 实现
 
@@ -16,17 +15,10 @@ CPU 插件模块 - 使用 NumPy/SciPy 实现
 """
 
 # 数据加载与结构化插件
-from .waveforms import (
-    RawFileNamesPlugin,
-    WaveformsPlugin,
-    WaveformStruct,
-    WaveformStructConfig,
-    create_channel_mapping,
-)
-
-# 特征提取插件
-from .hit_finder import HitFinderPlugin
 from .basic_features import BASIC_FEATURES_DTYPE, BasicFeaturesPlugin
+
+# Cache analysis plugin
+from .cache_analysis import CacheAnalysisPlugin
 
 # 数据整合插件
 from .dataframe import DataFramePlugin
@@ -34,17 +26,17 @@ from .dataframe import DataFramePlugin
 # 事件分析插件
 from .event_analysis import GroupedEventsPlugin, PairedEventsPlugin
 
-# Cache analysis plugin
-from .cache_analysis import CacheAnalysisPlugin
+# Events 插件
+from .events import EventFramePlugin, EventsGroupedPlugin, EventsPlugin
 
 # CPU 滤波插件
 from .filtering import FilteredWaveformsPlugin
 
+# 特征提取插件
+from .hit_finder import HitFinderPlugin
+
 # CPU 寻峰插件
 from .peak_finding import ADVANCED_PEAK_DTYPE, SignalPeaksPlugin
-
-# Events 插件
-from .events import EventFramePlugin, EventsGroupedPlugin, EventsPlugin
 
 # Records 插件
 from .records import RecordsPlugin
@@ -54,6 +46,13 @@ from .waveform_width import WAVEFORM_WIDTH_DTYPE, WaveformWidthPlugin
 from .waveform_width_integral import (
     WAVEFORM_WIDTH_INTEGRAL_DTYPE,
     WaveformWidthIntegralPlugin,
+)
+from .waveforms import (
+    RawFileNamesPlugin,
+    WaveformsPlugin,
+    WaveformStruct,
+    WaveformStructConfig,
+    create_channel_mapping,
 )
 
 # Backward-compatible aliases

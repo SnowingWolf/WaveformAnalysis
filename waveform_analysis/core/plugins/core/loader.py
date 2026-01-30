@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Plugin Loader 模块 - 动态插件发现和加载系统
 
@@ -47,7 +46,7 @@ class PluginLoader:
         self._discovered_plugins: Dict[str, Type] = {}
         self._failed_plugins: Dict[str, str] = {}  # name -> error message
 
-    def discover_entry_point_plugins(self, group: str = 'waveform_analysis.plugins') -> int:
+    def discover_entry_point_plugins(self, group: str = "waveform_analysis.plugins") -> int:
         """
         从 entry points 发现插件
 
@@ -71,10 +70,10 @@ class PluginLoader:
         eps = entry_points()
 
         # 兼容不同版本的 importlib.metadata
-        if hasattr(eps, 'select'):
+        if hasattr(eps, "select"):
             # Python 3.10+
             group_eps = eps.select(group=group)
-        elif hasattr(eps, 'get'):
+        elif hasattr(eps, "get"):
             # Python 3.9
             group_eps = eps.get(group, [])
         else:
@@ -126,16 +125,16 @@ class PluginLoader:
             root_path = Path(root)
 
             # 跳过隐藏目录和 __pycache__
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__']
+            dirs[:] = [d for d in dirs if not d.startswith(".") and d != "__pycache__"]
 
             # 检查 plugin.py
-            if 'plugin.py' in files:
-                plugin_path = root_path / 'plugin.py'
+            if "plugin.py" in files:
+                plugin_path = root_path / "plugin.py"
                 count += self._load_module_plugins(str(plugin_path), root_path.name)
 
             # 检查 __init__.py（包插件）
-            elif '__init__.py' in files and root_path != path:
-                plugin_path = root_path / '__init__.py'
+            elif "__init__.py" in files and root_path != path:
+                plugin_path = root_path / "__init__.py"
                 count += self._load_module_plugins(str(plugin_path), root_path.name)
 
         return count
@@ -165,7 +164,7 @@ class PluginLoader:
             count = 0
 
             for attr_name in dir(module):
-                if attr_name.startswith('_'):
+                if attr_name.startswith("_"):
                     continue
 
                 attr = getattr(module, attr_name)
@@ -198,11 +197,11 @@ class PluginLoader:
             from waveform_analysis.core.plugins.core.base import Plugin
 
             return (
-                inspect.isclass(obj) and
-                issubclass(obj, Plugin) and
-                obj != Plugin and
-                hasattr(obj, 'provides') and
-                hasattr(obj, 'compute')
+                inspect.isclass(obj)
+                and issubclass(obj, Plugin)
+                and obj != Plugin
+                and hasattr(obj, "provides")
+                and hasattr(obj, "compute")
             )
         except Exception:
             return False
@@ -254,14 +253,16 @@ class PluginLoader:
         for plugin_dir in self.plugin_dirs:
             total += self.discover_directory_plugins(plugin_dir)
 
-        logger.info(f"Plugin discovery complete: {total} plugins found, "
-                   f"{len(self._failed_plugins)} failed")
+        logger.info(
+            f"Plugin discovery complete: {total} plugins found, "
+            f"{len(self._failed_plugins)} failed"
+        )
 
         return total
 
 
 @export
-def load_plugins_from_entry_points(group: str = 'waveform_analysis.plugins') -> List[Type]:
+def load_plugins_from_entry_points(group: str = "waveform_analysis.plugins") -> List[Type]:
     """
     便捷函数：从 entry points 加载插件
 

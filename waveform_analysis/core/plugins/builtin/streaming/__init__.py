@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 流式插件模块 - 支持流式处理的插件
 
@@ -18,6 +17,8 @@ from .cpu import SignalPeaksStreamPlugin
 
 export, __all__ = exporter()
 
-__all__.extend([
-    "SignalPeaksStreamPlugin",
-])
+__all__.extend(
+    [
+        "SignalPeaksStreamPlugin",
+    ]
+)

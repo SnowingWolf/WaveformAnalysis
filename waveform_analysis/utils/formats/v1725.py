@@ -1,14 +1,13 @@
-# -*- coding: utf-8 -*-
 """
 CAEN V1725 DAW_DEMO binary adapter.
 
 Parses multi-channel waveforms stored in a single .bin file.
 """
 
-import logging
 from dataclasses import dataclass
+import logging
 from pathlib import Path
-from typing import Iterator, List, Optional, Tuple, Union
+from typing import Iterator, List, Optional, Union
 
 import numpy as np
 
@@ -109,18 +108,14 @@ class V1725Reader(FormatReader):
         return self._waves_to_array(waves)
 
     def read_files(
-        self,
-        file_paths: List[Union[str, Path]],
-        show_progress: bool = False
+        self, file_paths: List[Union[str, Path]], show_progress: bool = False
     ) -> np.ndarray:
         _ = show_progress
         waves = list(self.iter_waves(file_paths))
         return self._waves_to_array(waves)
 
     def read_files_generator(
-        self,
-        file_paths: List[Union[str, Path]],
-        chunk_size: int = 10
+        self, file_paths: List[Union[str, Path]], chunk_size: int = 10
     ) -> Iterator[np.ndarray]:
         _ = chunk_size
         for file_path in file_paths:

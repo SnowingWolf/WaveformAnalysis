@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 验证信号处理插件的 Lineage（无需真实数据）
 
@@ -61,7 +60,7 @@ def verify_dependency_chain(ctx):
 
     target = "signal_peaks"
     print(f"\n目标数据: {target}")
-    print(f"\n依赖链分析:")
+    print("\n依赖链分析:")
 
     try:
         # 获取依赖关系（不实际执行）
@@ -129,10 +128,12 @@ def verify_lineage_tracking(ctx):
     print("=" * 70)
 
     # 设置一些配置以生成 lineage
-    ctx.set_config({
-        "data_root": "DAQ",
-        "n_channels": 2,
-    })
+    ctx.set_config(
+        {
+            "data_root": "DAQ",
+            "n_channels": 2,
+        }
+    )
 
     ctx.set_config(
         {
@@ -174,7 +175,7 @@ def verify_lineage_tracking(ctx):
                     effective_config[opt_name] = value
 
             if effective_config:
-                print(f"  - 有效配置:")
+                print("  - 有效配置:")
                 for k, v in effective_config.items():
                     print(f"      {k}: {v}")
 

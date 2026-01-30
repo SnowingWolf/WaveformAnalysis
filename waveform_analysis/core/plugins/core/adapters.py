@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Strax Plugin适配器 (Phase 2.3)
 
@@ -24,6 +23,7 @@ export, __all__ = exporter()
 # ===========================
 # Strax插件适配器
 # ===========================
+
 
 @export
 class StraxPluginAdapter(Plugin):
@@ -66,18 +66,18 @@ class StraxPluginAdapter(Plugin):
     def _extract_metadata(self):
         """从strax插件提取元数据"""
         # 基本属性
-        self.provides = getattr(self.strax_plugin, 'provides', 'unknown')
-        self.depends_on = getattr(self.strax_plugin, 'depends_on', tuple())
-        self.dtype = getattr(self.strax_plugin, 'dtype', None)
-        self.version = getattr(self.strax_plugin, '__version__', '0.1.0')
+        self.provides = getattr(self.strax_plugin, "provides", "unknown")
+        self.depends_on = getattr(self.strax_plugin, "depends_on", ())
+        self.dtype = getattr(self.strax_plugin, "dtype", None)
+        self.version = getattr(self.strax_plugin, "__version__", "0.1.0")
 
         # 配置选项 - strax使用不同的配置系统
         self._extract_config()
 
         # 其他strax特有属性
-        self.data_kind = getattr(self.strax_plugin, 'data_kind', 'unknown')
-        self.compressor = getattr(self.strax_plugin, 'compressor', 'blosc')
-        self.parallel = getattr(self.strax_plugin, 'parallel', False)
+        self.data_kind = getattr(self.strax_plugin, "data_kind", "unknown")
+        self.compressor = getattr(self.strax_plugin, "compressor", "blosc")
+        self.parallel = getattr(self.strax_plugin, "parallel", False)
 
         logger.info(
             f"Wrapped strax plugin '{self.provides}' "
@@ -91,7 +91,7 @@ class StraxPluginAdapter(Plugin):
         self.options = {}
 
         # strax使用takes_config属性
-        if hasattr(self.strax_plugin, 'takes_config'):
+        if hasattr(self.strax_plugin, "takes_config"):
             for config_item in self.strax_plugin.takes_config:
                 # config_item可能是字符串或(name, default)元组
                 if isinstance(config_item, str):
@@ -105,9 +105,7 @@ class StraxPluginAdapter(Plugin):
 
                 # 创建Option对象
                 self.options[config_name] = Option(
-                    default=config_default,
-                    help=f"Strax config option: {config_name}",
-                    track=True
+                    default=config_default, help=f"Strax config option: {config_name}", track=True
                 )
 
         # config_keys是property,从options派生,不需要手动设置
@@ -127,11 +125,12 @@ class StraxPluginAdapter(Plugin):
         try:
             # 检查compute方法签名
             import inspect
+
             sig = inspect.signature(self.strax_plugin.compute)
             params = list(sig.parameters.keys())
 
             # 移除self参数(如果是实例方法)
-            if params and params[0] == 'self':
+            if params and params[0] == "self":
                 params = params[1:]
 
             # 准备位置参数和关键字参数
@@ -187,7 +186,7 @@ class StraxPluginAdapter(Plugin):
             是否兼容
         """
         # 检查必需属性
-        required_attrs = ['provides', 'compute']
+        required_attrs = ["provides", "compute"]
         for attr in required_attrs:
             if not hasattr(self.strax_plugin, attr):
                 logger.warning(f"Strax plugin missing required attribute: {attr}")
@@ -199,6 +198,7 @@ class StraxPluginAdapter(Plugin):
 # ===========================
 # Strax数据类型转换
 # ===========================
+
 
 @export
 def strax_dtype_to_numpy(strax_dtype: Any) -> np.dtype:
@@ -246,6 +246,7 @@ def numpy_dtype_to_strax(numpy_dtype: np.dtype) -> List[Tuple]:
 # Strax Context适配器
 # ===========================
 
+
 @export
 class StraxContextAdapter:
     """
@@ -291,10 +292,7 @@ class StraxContextAdapter:
                 raise ValueError(f"Incompatible strax plugin: {plugin_class}")
 
     def get_array(
-        self,
-        run_id: str,
-        targets: Union[str, List[str]],
-        **kwargs
+        self, run_id: str, targets: Union[str, List[str]], **kwargs
     ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         """
         获取数据数组(strax风格API)
@@ -351,7 +349,7 @@ class StraxContextAdapter:
                     # 结构化数组
                     return _structured_to_df(arrays)
                 # 普通数组
-                return pd.DataFrame({'data': arrays})
+                return pd.DataFrame({"data": arrays})
             return arrays
         else:
             # 多个目标
@@ -361,7 +359,7 @@ class StraxContextAdapter:
                     if arr.dtype.names:
                         results[target] = _structured_to_df(arr)
                     else:
-                        results[target] = pd.DataFrame({'data': arr})
+                        results[target] = pd.DataFrame({"data": arr})
                 else:
                     results[target] = arr
             return results
@@ -390,6 +388,7 @@ class StraxContextAdapter:
 
         # 简单的模式匹配
         import re
+
         regex = re.compile(pattern, re.IGNORECASE)
         return [name for name in all_data if regex.search(name)]
 
@@ -397,6 +396,7 @@ class StraxContextAdapter:
 # ===========================
 # 辅助函数
 # ===========================
+
 
 @export
 def wrap_strax_plugin(strax_plugin_class: Type) -> Plugin:
@@ -418,10 +418,7 @@ def wrap_strax_plugin(strax_plugin_class: Type) -> Plugin:
 
 
 @export
-def create_strax_context(
-    storage_dir: str = './strax_data',
-    **kwargs
-) -> StraxContextAdapter:
+def create_strax_context(storage_dir: str = "./strax_data", **kwargs) -> StraxContextAdapter:
     """
     创建strax兼容的Context
 

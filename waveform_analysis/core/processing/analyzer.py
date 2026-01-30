@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Analyzer 模块 - 高层事件分析与配对逻辑。
 
@@ -50,7 +49,7 @@ class EventAnalyzer:
     ) -> pd.DataFrame:
         """
         按时间窗口聚类多通道事件。
-        
+
         参数:
             df: 包含 timestamp, channel, area, height 列的 DataFrame
             time_window_ns: 时间窗口（纳秒）
@@ -60,22 +59,26 @@ class EventAnalyzer:
         if time_window_ns is not None:
             self.time_window_ns = time_window_ns
 
-        return group_multi_channel_hits(df, self.time_window_ns, use_numba=use_numba, n_processes=n_processes)
+        return group_multi_channel_hits(
+            df, self.time_window_ns, use_numba=use_numba, n_processes=n_processes
+        )
 
-    def pair_events(self, df_events: pd.DataFrame, time_window_ns: Optional[float] = None) -> pd.DataFrame:
+    def pair_events(
+        self, df_events: pd.DataFrame, time_window_ns: Optional[float] = None
+    ) -> pd.DataFrame:
         """
         筛选成对的 N 通道事件。
-        
+
         配对条件：
         - 事件的时间跨度（dt/ns）在指定的时间窗口内（默认100ns）
         - 不严格要求所有通道都存在，只要时间窗口满足即可
-        
+
         参数:
             df_events: 分组后的事件DataFrame
             time_window_ns: 时间窗口（纳秒），默认使用self.time_window_ns
         """
         tw = time_window_ns if time_window_ns is not None else self.time_window_ns
-        
+
         # 筛选条件：事件时间跨度在时间窗口内
         # dt/ns列已经在group_events中计算好了
         df_paired = df_events[df_events["dt/ns"] <= tw].copy()
@@ -83,7 +86,9 @@ class EventAnalyzer:
         # 计算时间差（单位: ns）- 如果还没有计算
         if "delta_t" not in df_paired.columns:
             if not df_paired.empty:
-                df_paired["delta_t"] = df_paired["timestamps"].apply(lambda x: (x[-1] - x[0]) / 1000.0)
+                df_paired["delta_t"] = df_paired["timestamps"].apply(
+                    lambda x: (x[-1] - x[0]) / 1000.0
+                )
 
         # 提取各通道的 areas 和 heights（动态处理，根据实际通道数）
         if not df_paired.empty:
@@ -92,13 +97,13 @@ class EventAnalyzer:
             for i in range(self.n_channels):
                 ch_name = f"area_ch{self.start_channel_slice + i}"
                 pk_name = f"height_ch{self.start_channel_slice + i}"
-                
+
                 def get_ch_value(arr, idx):
                     """安全地获取数组索引值"""
                     if isinstance(arr, (list, np.ndarray)) and len(arr) > idx:
                         return arr[idx]
                     return np.nan
-                
+
                 df_paired[ch_name] = df_paired[areas_key].apply(lambda x: get_ch_value(x, i))
                 df_paired[pk_name] = df_paired[heights_key].apply(lambda x: get_ch_value(x, i))
 
@@ -126,8 +131,8 @@ class EventAnalyzer:
         if "heights" in df_paired.columns or "peaks" in df_paired.columns:
             heights_key = "heights" if "heights" in df_paired.columns else "peaks"
             for i in range(min(self.n_channels, 8)):
-                df_paired[f"height_ch{self.start_channel_slice + i}"] = df_paired[heights_key].apply(
-                    lambda x: x[i] if len(x) > i else np.nan
-                )
+                df_paired[f"height_ch{self.start_channel_slice + i}"] = df_paired[
+                    heights_key
+                ].apply(lambda x: x[i] if len(x) > i else np.nan)
 
         return df_paired

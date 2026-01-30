@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 格式和适配器注册表
 
@@ -27,9 +26,7 @@ _FORMAT_SPECS: Dict[str, FormatSpec] = {}
 
 @export
 def register_format(
-    name: str,
-    reader_class: Type[FormatReader],
-    spec: Optional[FormatSpec] = None
+    name: str, reader_class: Type[FormatReader], spec: Optional[FormatSpec] = None
 ) -> None:
     """注册一个格式读取器
 

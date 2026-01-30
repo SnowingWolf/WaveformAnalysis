@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 配置管理综合示例
 
@@ -12,8 +11,8 @@
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
-    WaveformsPlugin,
     StWaveformsPlugin,
+    WaveformsPlugin,
 )
 
 
@@ -55,11 +54,13 @@ def main():
     print("  - data_root: 'DAQ_v2'")
     print("  - start_channel_slice: 10")
 
-    ctx.set_config({
-        'n_channels': 4,
-        'data_root': 'DAQ_v2',
-        'start_channel_slice': 10,
-    })
+    ctx.set_config(
+        {
+            "n_channels": 4,
+            "data_root": "DAQ_v2",
+            "start_channel_slice": 10,
+        }
+    )
     print("\n✓ 全局配置已设置")
 
     # ====================================================================
@@ -80,10 +81,13 @@ def main():
     print("  - channel_executor: 'process'")
     print("  - channel_workers: 2")
 
-    ctx.set_config({
-        'channel_executor': 'process',
-        'channel_workers': 2,
-    }, plugin_name='waveforms')
+    ctx.set_config(
+        {
+            "channel_executor": "process",
+            "channel_workers": 2,
+        },
+        plugin_name="waveforms",
+    )
     print("\n✓ 插件特定配置已设置")
 
     # ====================================================================
@@ -102,7 +106,7 @@ def main():
     print("-" * 80)
     print("使用 show_config('waveforms') 查看单个插件的详细配置...")
     input("\n按 Enter 继续...")
-    ctx.show_config('waveforms')
+    ctx.show_config("waveforms")
 
     # ====================================================================
     # 8. 对比两种配置查看方法
@@ -130,7 +134,7 @@ def main():
     print("设置一个拼写错误的配置项（未被任何插件使用）:")
     print("  - n_chanels: 8  # 正确应该是 n_channels")
 
-    ctx.set_config({'n_chanels': 8})  # 故意拼写错误
+    ctx.set_config({"n_chanels": 8})  # 故意拼写错误
     print("\n✓ 配置已设置")
 
     print("\n使用 show_config() 可以发现这个错误...")

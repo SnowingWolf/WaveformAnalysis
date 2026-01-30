@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """DAQ 工具：包含 DAQRun 和 DAQAnalyzer
 
 This module exposes DAQRun and DAQAnalyzer from their dedicated modules so
@@ -24,6 +23,7 @@ export, __all__ = exporter()
 # 导出已有的类
 export(DAQAnalyzer)
 export(DAQRun)
+
 
 class _DAQRunAdapter:
     """Lightweight adapter exposing a stable minimal DAQRun protocol:
@@ -99,7 +99,7 @@ class _DAQRunAdapter:
 
 @export
 def adapt_daq_run(obj: Any):
-    """Return an adapter providing `get_channel_paths(n_channels)` for obj. 
+    """Return an adapter providing `get_channel_paths(n_channels)` for obj.
 
     Use this in loader/dataset to normalize inputs from different DAQ tooling.
     """

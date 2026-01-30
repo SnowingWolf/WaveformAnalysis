@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 数据 I/O 工具 - 高效的波形数据读取和解析
 
@@ -27,13 +26,17 @@ Note:
     推荐安装 pyarrow 以获得更快的解析速度:
     pip install pyarrow
 """
+
 import csv
 import logging
 from pathlib import Path
-from typing import Iterator, List, Optional
+from typing import TYPE_CHECKING, Iterator, List, Optional
 
 import numpy as np
 import pandas as pd
+
+if TYPE_CHECKING:
+    from waveform_analysis.utils.formats.base import FormatReader
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +83,7 @@ def parse_files_generator(
             if not chunksize:
                 try:
                     import pyarrow
+
                     engine = "pyarrow"
                 except ImportError:
                     pass
@@ -170,6 +174,7 @@ def parse_and_stack_files(
     if format_reader is not None or format_type is not None:
         if format_reader is None:
             from waveform_analysis.utils.formats import get_format_reader
+
             format_reader = get_format_reader(format_type)
         return format_reader.read_files(file_paths, show_progress=show_progress)
     if not file_paths:
@@ -201,6 +206,7 @@ def parse_and_stack_files(
             if not chunksize:
                 try:
                     import pyarrow
+
                     engine = "pyarrow"
                 except ImportError:
                     pass
@@ -228,7 +234,6 @@ def parse_and_stack_files(
                 ]
 
             if chunk_iter is not None:
-                first = True
                 for chunk in chunk_iter:
                     chunk.dropna(how="all", inplace=True)
                     if chunk.empty:
@@ -243,14 +248,18 @@ def parse_and_stack_files(
                         chunk = pd.concat([left, right], axis=1)
                         chunk.dropna(subset=[2], inplace=True)
                     except Exception as e:
-                        logger.warning("Failed to coerce numeric columns for chunk in %s: %s", fp, e)
+                        logger.warning(
+                            "Failed to coerce numeric columns for chunk in %s: %s", fp, e
+                        )
                     if chunk.empty:
                         continue
                     try:
                         file_arrs.append(chunk.to_numpy())
                     except Exception as e:
                         logger.warning(
-                            "to_numpy failed for chunk in %s: %s; falling back to per-row coercion", fp, e
+                            "to_numpy failed for chunk in %s: %s; falling back to per-row coercion",
+                            fp,
+                            e,
                         )
                         rows = [list(r) for r in chunk.values]
                         max_cols = max(len(r) for r in rows)
@@ -277,18 +286,30 @@ def parse_and_stack_files(
                     return np.vstack(padded)
             # no chunking: fall through to full-file parse
         except Exception:
-            logger.debug("chunked read failed for %s, falling back to full parse", fp, exc_info=True)
+            logger.debug(
+                "chunked read failed for %s, falling back to full parse", fp, exc_info=True
+            )
 
         # Primary attempt: pandas read_csv with the fast C engine
         df = None
         try:
-            df = pd.read_csv(fp, delimiter=delimiter, skiprows=file_skiprows, header=None, engine="c")
+            df = pd.read_csv(
+                fp, delimiter=delimiter, skiprows=file_skiprows, header=None, engine="c"
+            )
         except Exception:
-            logger.debug("pandas read_csv (C engine) failed for %s, trying python engine with on_bad_lines='skip'", fp)
+            logger.debug(
+                "pandas read_csv (C engine) failed for %s, trying python engine with on_bad_lines='skip'",
+                fp,
+            )
             try:
                 # on_bad_lines='skip' will drop malformed rows rather than failing
                 df = pd.read_csv(
-                    fp, delimiter=delimiter, skiprows=file_skiprows, header=None, engine="python", on_bad_lines="skip"
+                    fp,
+                    delimiter=delimiter,
+                    skiprows=file_skiprows,
+                    header=None,
+                    engine="python",
+                    on_bad_lines="skip",
                 )
             except Exception:
                 logger.debug(
@@ -302,9 +323,17 @@ def parse_and_stack_files(
                     sample = p.open("r", encoding="utf-8", errors="replace").read(4096)
                     sniffed = csv.Sniffer().sniff(sample)
                     sniff_delim = sniffed.delimiter
-                    logger.debug("Sniffed delimiter '%s' for %s; retrying pandas read_csv", sniff_delim, fp)
+                    logger.debug(
+                        "Sniffed delimiter '%s' for %s; retrying pandas read_csv", sniff_delim, fp
+                    )
                     try:
-                        df = pd.read_csv(fp, delimiter=sniff_delim, skiprows=file_skiprows, header=None, engine="c")
+                        df = pd.read_csv(
+                            fp,
+                            delimiter=sniff_delim,
+                            skiprows=file_skiprows,
+                            header=None,
+                            engine="c",
+                        )
                     except Exception:
                         try:
                             df = pd.read_csv(
@@ -347,7 +376,9 @@ def parse_and_stack_files(
                 logger.debug("No recoverable rows in fallback parse for %s", fp)
                 return None
             if bad_lines:
-                logger.info("File %s: skipped %d malformed lines during fallback parse", fp, len(bad_lines))
+                logger.info(
+                    "File %s: skipped %d malformed lines during fallback parse", fp, len(bad_lines)
+                )
             df = pd.DataFrame(rows)
 
         # drop rows that are entirely empty
@@ -384,7 +415,7 @@ def parse_and_stack_files(
             rows = []
             max_cols = 0
             for r in df.values:
-                rows.append([c for c in r])
+                rows.append(list(r))
                 if len(r) > max_cols:
                     max_cols = len(r)
             norm_rows = []
@@ -416,11 +447,11 @@ def parse_and_stack_files(
         # 使用全局执行器管理器
         executor_type = "process" if use_process_pool else "thread"
         executor_name = "file_parsing_process" if use_process_pool else "file_parsing_thread"
-        
+
         with get_executor(executor_name, executor_type, max_workers=n_jobs, reuse=True) as ex:
             # Only first file skips header rows, subsequent files don't
             futures = {
-                ex.submit(_parse_single, fp, skiprows if idx == 0 else 0): fp 
+                ex.submit(_parse_single, fp, skiprows if idx == 0 else 0): fp
                 for idx, fp in enumerate(fps)
             }
             results_map = {}
@@ -460,7 +491,9 @@ def parse_and_stack_files(
     try:
         return np.vstack(arrs)
     except Exception:
-        logger.debug("vstack failed for collected arrays, attempting safe concat with padding", exc_info=True)
+        logger.debug(
+            "vstack failed for collected arrays, attempting safe concat with padding", exc_info=True
+        )
         # Find max cols and pad
         max_cols = max(a.shape[1] for a in arrs)
         padded = []

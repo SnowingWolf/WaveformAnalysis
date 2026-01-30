@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # DOC: docs/features/plugin/PLUGIN_SET_PROFILE_GUIDE.md#plugin-sets
 """
 Plugin set: IO.

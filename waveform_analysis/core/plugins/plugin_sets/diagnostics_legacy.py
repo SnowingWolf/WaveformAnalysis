@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # DOC: docs/features/plugin/PLUGIN_SET_PROFILE_GUIDE.md#plugin-sets
 """
 Plugin set: Diagnostics and legacy plugin shims.
@@ -13,12 +12,12 @@ export, __all__ = exporter()
 def plugins_diagnostics_legacy():
     """Return diagnostics and legacy plugin instances."""
     from waveform_analysis.core.plugins.builtin.cpu.cache_analysis import CacheAnalysisPlugin
-    from waveform_analysis.core.plugins.builtin.cpu.records import RecordsPlugin
     from waveform_analysis.core.plugins.builtin.cpu.events import (
         EventFramePlugin,
         EventsGroupedPlugin,
         EventsPlugin,
     )
+    from waveform_analysis.core.plugins.builtin.cpu.records import RecordsPlugin
 
     return [
         CacheAnalysisPlugin(),

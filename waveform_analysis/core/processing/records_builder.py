@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Records + wave_pool utilities.
 
@@ -14,6 +13,8 @@ import numpy as np
 from waveform_analysis.core.foundation.utils import exporter
 from waveform_analysis.core.processing.dtypes import (
     EVENTS_DTYPE as _EVENTS_DTYPE,
+)
+from waveform_analysis.core.processing.dtypes import (
     RECORDS_DTYPE as _RECORDS_DTYPE,
 )
 
@@ -81,7 +82,7 @@ def _build_records_from_wave_list(
         wave = waves[int(source_idx[idx])][4]
         length = int(records["event_length"][idx])
         if length > 0:
-            wave_pool[wave_cursor:wave_cursor + length] = _clip_wave_to_uint16(wave[:length])
+            wave_pool[wave_cursor : wave_cursor + length] = _clip_wave_to_uint16(wave[:length])
         records["wave_offset"][idx] = wave_cursor
         wave_cursor += length
 
@@ -90,8 +91,7 @@ def _build_records_from_wave_list(
 
 
 def _build_records_from_channels(
-    channels: Sequence[Tuple[np.ndarray, int]],
-    default_dt_ns: int
+    channels: Sequence[Tuple[np.ndarray, int]], default_dt_ns: int
 ) -> RecordsBundle:
     if not channels:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
@@ -105,20 +105,20 @@ def _build_records_from_channels(
     source_row = np.zeros(total_records, dtype=np.int64)
 
     cursor = 0
-    for local_idx, (ch, channel_fallback) in enumerate(channels):
+    for local_idx, (ch, _channel_fallback) in enumerate(channels):
         count = len(ch)
         if count == 0:
             continue
 
         if "timestamp" in ch.dtype.names:
-            records["timestamp"][cursor:cursor + count] = ch["timestamp"]
+            records["timestamp"][cursor : cursor + count] = ch["timestamp"]
         else:
-            records["timestamp"][cursor:cursor + count] = 0
+            records["timestamp"][cursor : cursor + count] = 0
 
-        records["pid"][cursor:cursor + count] = 0
+        records["pid"][cursor : cursor + count] = 0
 
         if "channel" in ch.dtype.names:
-            records["channel"][cursor:cursor + count] = ch["channel"]
+            records["channel"][cursor : cursor + count] = ch["channel"]
         else:
             raise ValueError(
                 "st_waveforms missing required 'channel' field; "
@@ -126,52 +126,52 @@ def _build_records_from_channels(
             )
 
         if "baseline" in ch.dtype.names:
-            records["baseline"][cursor:cursor + count] = ch["baseline"]
+            records["baseline"][cursor : cursor + count] = ch["baseline"]
         else:
-            records["baseline"][cursor:cursor + count] = 0.0
+            records["baseline"][cursor : cursor + count] = 0.0
 
         if "baseline_upstream" in ch.dtype.names:
-            records["baseline_upstream"][cursor:cursor + count] = ch["baseline_upstream"]
+            records["baseline_upstream"][cursor : cursor + count] = ch["baseline_upstream"]
         else:
-            records["baseline_upstream"][cursor:cursor + count] = np.nan
+            records["baseline_upstream"][cursor : cursor + count] = np.nan
 
         if "event_length" in ch.dtype.names:
             lengths = ch["event_length"].astype(np.int64, copy=False)
             if lengths.size and lengths.max() > np.iinfo(np.int32).max:
                 raise ValueError("event_length exceeds int32 range")
-            records["event_length"][cursor:cursor + count] = lengths.astype(np.int32, copy=False)
+            records["event_length"][cursor : cursor + count] = lengths.astype(np.int32, copy=False)
         elif "wave" in ch.dtype.names:
             wave_len = ch["wave"].shape[1]
-            records["event_length"][cursor:cursor + count] = np.int32(wave_len)
+            records["event_length"][cursor : cursor + count] = np.int32(wave_len)
         else:
-            records["event_length"][cursor:cursor + count] = 0
+            records["event_length"][cursor : cursor + count] = 0
 
         if "dt" in ch.dtype.names:
-            records["dt"][cursor:cursor + count] = ch["dt"].astype(np.int32, copy=False)
+            records["dt"][cursor : cursor + count] = ch["dt"].astype(np.int32, copy=False)
         else:
-            records["dt"][cursor:cursor + count] = np.int32(default_dt_ns)
+            records["dt"][cursor : cursor + count] = np.int32(default_dt_ns)
 
         if "trigger_type" in ch.dtype.names:
-            records["trigger_type"][cursor:cursor + count] = ch["trigger_type"].astype(
+            records["trigger_type"][cursor : cursor + count] = ch["trigger_type"].astype(
                 np.int16, copy=False
             )
         else:
-            records["trigger_type"][cursor:cursor + count] = 0
+            records["trigger_type"][cursor : cursor + count] = 0
 
         if "flags" in ch.dtype.names:
-            records["flags"][cursor:cursor + count] = ch["flags"].astype(
-                np.uint32, copy=False
-            )
+            records["flags"][cursor : cursor + count] = ch["flags"].astype(np.uint32, copy=False)
         else:
-            records["flags"][cursor:cursor + count] = 0
+            records["flags"][cursor : cursor + count] = 0
 
         if "time" in ch.dtype.names:
-            records["time"][cursor:cursor + count] = ch["time"]
+            records["time"][cursor : cursor + count] = ch["time"]
         else:
-            records["time"][cursor:cursor + count] = records["timestamp"][cursor:cursor + count] // 1000
+            records["time"][cursor : cursor + count] = (
+                records["timestamp"][cursor : cursor + count] // 1000
+            )
 
-        source_channel[cursor:cursor + count] = local_idx
-        source_row[cursor:cursor + count] = np.arange(count, dtype=np.int64)
+        source_channel[cursor : cursor + count] = local_idx
+        source_row[cursor : cursor + count] = np.arange(count, dtype=np.int64)
         cursor += count
 
     seq = np.arange(total_records, dtype=np.int64)
@@ -206,7 +206,7 @@ def _build_records_from_channels(
         ch = channels[int(source_channel[idx])][0]
         wave = ch["wave"][int(source_row[idx])]
         if length > 0:
-            wave_pool[wave_cursor:wave_cursor + length] = _clip_wave_to_uint16(wave[:length])
+            wave_pool[wave_cursor : wave_cursor + length] = _clip_wave_to_uint16(wave[:length])
         records["wave_offset"][idx] = wave_cursor
         wave_cursor += length
 
@@ -303,8 +303,8 @@ def merge_records_parts(parts: Sequence[RecordsBundle]) -> RecordsBundle:
 
         if length > 0:
             offset = int(rec["wave_offset"])
-            wave_pool_out[wave_cursor:wave_cursor + length] = part.wave_pool[
-                offset:offset + length
+            wave_pool_out[wave_cursor : wave_cursor + length] = part.wave_pool[
+                offset : offset + length
             ]
 
         records_out[out_idx] = rec

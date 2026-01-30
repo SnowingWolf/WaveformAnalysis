@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 CPU Peak Finding Plugin - 使用 scipy 进行峰值检测
 
@@ -153,7 +152,9 @@ class SignalPeaksPlugin(Plugin):
                 timestamp = st_waveform["timestamp"]
                 channel = st_waveform["channel"]
                 # 获取 baseline（用于反转法检测负脉冲）
-                baseline = st_waveform["baseline"] if "baseline" in st_waveform.dtype.names else None
+                baseline = (
+                    st_waveform["baseline"] if "baseline" in st_waveform.dtype.names else None
+                )
 
                 # 检测峰值
                 event_peaks = self._find_peaks_in_waveform(
@@ -256,9 +257,7 @@ class SignalPeaksPlugin(Plugin):
             edge_end = properties["right_ips"][i]
 
             # 计算峰高
-            peak_height = self._calculate_peak_height(
-                waveform, edge_start, edge_end, height_method
-            )
+            peak_height = self._calculate_peak_height(waveform, edge_start, edge_end, height_method)
 
             # 计算峰积分（这里简单设置为 None，后续可扩展）
             peak_integral = None

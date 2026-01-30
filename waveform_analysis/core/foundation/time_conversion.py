@@ -322,9 +322,7 @@ class TimeConverter:
             # Python datetime 对象
             if absolute_time.tzinfo is None:
                 # 如果没有时区，假定为 epoch 的时区
-                absolute_time = absolute_time.replace(
-                    tzinfo=self.epoch_info.epoch_datetime.tzinfo
-                )
+                absolute_time = absolute_time.replace(tzinfo=self.epoch_info.epoch_datetime.tzinfo)
 
             absolute_timestamp = absolute_time.timestamp()
             relative_seconds = absolute_timestamp - self.epoch_info.epoch_timestamp
@@ -457,7 +455,7 @@ class EpochExtractor:
         """
         filename = Path(filepath).name
 
-        for pattern, format_str in self.filename_patterns:
+        for pattern, _format_str in self.filename_patterns:
             match = re.search(pattern, filename)
             if match:
                 try:
@@ -509,7 +507,7 @@ class EpochExtractor:
             >>> dt = extractor.extract_from_csv_header("data.csv")
         """
         try:
-            with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            with open(filepath, encoding="utf-8", errors="ignore") as f:
                 for i, line in enumerate(f):
                     if i >= max_header_lines:
                         break
@@ -544,7 +542,7 @@ class EpochExtractor:
                                 except ValueError:
                                     pass
 
-        except (IOError, OSError):
+        except OSError:
             pass
 
         return None
@@ -580,7 +578,7 @@ class EpochExtractor:
             >>> dt = extractor.extract_from_first_event("data.csv")
         """
         try:
-            with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            with open(filepath, encoding="utf-8", errors="ignore") as f:
                 # 跳过头部
                 for _ in range(header_rows):
                     next(f, None)
@@ -615,7 +613,7 @@ class EpochExtractor:
                 epoch_dt = file_dt - timedelta(seconds=offset_seconds)
                 return epoch_dt
 
-        except (IOError, OSError, ValueError, IndexError):
+        except (OSError, ValueError, IndexError):
             return None
 
     def auto_extract(
@@ -679,14 +677,10 @@ class EpochExtractor:
                 epoch_dt = self.extract_from_csv_header(primary_file, tz=tz)
 
             elif strat == "first_event":
-                epoch_dt = self.extract_from_first_event(
-                    primary_file, time_unit=time_unit, tz=tz
-                )
+                epoch_dt = self.extract_from_first_event(primary_file, time_unit=time_unit, tz=tz)
 
             if epoch_dt:
-                return EpochInfo.from_datetime(
-                    epoch_dt, source=strat, time_unit=time_unit
-                )
+                return EpochInfo.from_datetime(epoch_dt, source=strat, time_unit=time_unit)
 
         # 所有策略都失败
         raise ValueError(

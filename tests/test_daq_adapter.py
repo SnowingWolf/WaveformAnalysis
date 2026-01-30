@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 DAQ 适配器层测试
 
@@ -9,30 +8,24 @@ DAQ 适配器层测试
 - DAQAdapter
 """
 
-import os
-import tempfile
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 from waveform_analysis.utils.formats import (
-    ColumnMapping,
-    DAQAdapter,
-    DirectoryLayout,
     FLAT_LAYOUT,
+    VX2730_ADAPTER,
+    VX2730_LAYOUT,
+    VX2730_SPEC,
+    ColumnMapping,
     FormatSpec,
     GenericCSVReader,
     TimestampUnit,
     VX2730Reader,
-    VX2730_ADAPTER,
-    VX2730_LAYOUT,
-    VX2730_SPEC,
     get_adapter,
     get_format_reader,
     list_adapters,
     list_formats,
-    register_adapter,
     register_format,
 )
 
@@ -168,10 +161,10 @@ H2
 
         extracted = reader.extract_columns(data)
 
-        assert extracted['board'][0] == 0
-        assert extracted['channel'][0] == 1
-        assert extracted['timestamp'][0] == 1000
-        assert extracted['samples'].shape[1] > 0
+        assert extracted["board"][0] == 0
+        assert extracted["channel"][0] == 1
+        assert extracted["timestamp"][0] == 1000
+        assert extracted["samples"].shape[1] > 0
 
 
 class TestDAQAdapter:
@@ -268,9 +261,9 @@ HEADER 2
 
         # 提取并转换
         extracted = adapter.extract_and_convert(data)
-        assert 'timestamp' in extracted
-        assert 'channel' in extracted
-        assert extracted['channel'][0] == 0
+        assert "timestamp" in extracted
+        assert "channel" in extracted
+        assert extracted["channel"][0] == 0
 
 
 if __name__ == "__main__":

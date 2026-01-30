@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Standalone demo for custom StreamingPlugin implementations.
 
@@ -135,9 +134,7 @@ class StreamingFilterPlugin(StreamingPlugin):
             return None
 
         if "area" in chunk.data.dtype.names:
-            mask = (chunk.data["area"] >= self.min_area) & (
-                chunk.data["area"] <= self.max_area
-            )
+            mask = (chunk.data["area"] >= self.min_area) & (chunk.data["area"] <= self.max_area)
             filtered_data = chunk.data[mask]
         else:
             filtered_data = chunk.data

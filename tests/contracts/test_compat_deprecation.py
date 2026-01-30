@@ -9,9 +9,6 @@ Verifies:
 """
 
 import warnings
-from typing import List, Tuple
-
-import pytest
 
 from waveform_analysis.core.config.compat import CompatManager, DeprecationInfo
 

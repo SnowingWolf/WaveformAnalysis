@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 DAQ 完整适配器
 
@@ -61,6 +60,7 @@ class DAQAdapter:
         ...     directory_layout=VX2730_LAYOUT,
         ... )
     """
+
     name: str
     format_reader: FormatReader
     directory_layout: DirectoryLayout
@@ -125,13 +125,9 @@ class DAQAdapter:
         groups = self.directory_layout.group_files_by_channel(raw_path)
 
         # 转换为简单的 channel -> [paths] 格式
-        return {ch: [f['path'] for f in files] for ch, files in groups.items()}
+        return {ch: [f["path"] for f in files] for ch, files in groups.items()}
 
-    def scan_run_detailed(
-        self,
-        data_root: str,
-        run_name: str
-    ) -> Dict[int, List[Dict]]:
+    def scan_run_detailed(self, data_root: str, run_name: str) -> Dict[int, List[Dict]]:
         """扫描运行目录，返回详细的文件信息
 
         Args:
@@ -159,11 +155,7 @@ class DAQAdapter:
         return self.directory_layout.group_files_by_channel(raw_path)
 
     def load_channel(
-        self,
-        data_root: str,
-        run_name: str,
-        channel: int,
-        show_progress: bool = False
+        self, data_root: str, run_name: str, channel: int, show_progress: bool = False
     ) -> np.ndarray:
         """加载单个通道的数据
 
@@ -184,9 +176,7 @@ class DAQAdapter:
 
         if channel not in channel_files:
             available = sorted(channel_files.keys())
-            raise ValueError(
-                f"通道 {channel} 不存在。可用通道: {available}"
-            )
+            raise ValueError(f"通道 {channel} 不存在。可用通道: {available}")
 
         file_paths = channel_files[channel]
         return self.format_reader.read_files(file_paths, show_progress=show_progress)
@@ -196,7 +186,7 @@ class DAQAdapter:
         data_root: str,
         run_name: str,
         n_channels: Optional[int] = None,
-        show_progress: bool = False
+        show_progress: bool = False,
     ) -> List[np.ndarray]:
         """加载所有通道的数据
 
@@ -223,8 +213,7 @@ class DAQAdapter:
         for ch in range(max_channel + 1):
             if ch in channel_files:
                 data = self.format_reader.read_files(
-                    channel_files[ch],
-                    show_progress=(show_progress and ch == 0)
+                    channel_files[ch], show_progress=(show_progress and ch == 0)
                 )
                 result.append(data)
             else:
@@ -234,11 +223,7 @@ class DAQAdapter:
         return result
 
     def load_channel_generator(
-        self,
-        data_root: str,
-        run_name: str,
-        channel: int,
-        chunk_size: int = 10
+        self, data_root: str, run_name: str, channel: int, chunk_size: int = 10
     ) -> Iterator[np.ndarray]:
         """生成器模式加载通道数据
 
@@ -258,9 +243,7 @@ class DAQAdapter:
 
         if channel not in channel_files:
             available = sorted(channel_files.keys())
-            raise ValueError(
-                f"通道 {channel} 不存在。可用通道: {available}"
-            )
+            raise ValueError(f"通道 {channel} 不存在。可用通道: {available}")
 
         file_paths = channel_files[channel]
         yield from self.format_reader.read_files_generator(file_paths, chunk_size)
@@ -288,9 +271,7 @@ class DAQAdapter:
             包含各列的字典，时间戳已转换为皮秒
         """
         extracted = self.format_reader.extract_columns(data)
-        extracted['timestamp'] = self.format_reader.convert_timestamp_to_ps(
-            extracted['timestamp']
-        )
+        extracted["timestamp"] = self.format_reader.convert_timestamp_to_ps(extracted["timestamp"])
         return extracted
 
     def extract_and_convert_ns(self, data: np.ndarray) -> Dict[str, np.ndarray]:
@@ -303,9 +284,7 @@ class DAQAdapter:
             包含各列的字典，时间戳已转换为纳秒
         """
         extracted = self.format_reader.extract_columns(data)
-        extracted['timestamp'] = self.format_reader.convert_timestamp_to_ns(
-            extracted['timestamp']
-        )
+        extracted["timestamp"] = self.format_reader.convert_timestamp_to_ns(extracted["timestamp"])
         return extracted
 
     def validate_data(self, data: np.ndarray) -> bool:
@@ -335,7 +314,7 @@ class DAQAdapter:
         """
         stat = file_path.stat()
         # 优先使用 st_birthtime (macOS)，否则用 st_mtime
-        ctime = getattr(stat, 'st_birthtime', stat.st_mtime)
+        ctime = getattr(stat, "st_birthtime", stat.st_mtime)
         return int(ctime * 1e9)  # 秒 → 纳秒
 
 

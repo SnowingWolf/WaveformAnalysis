@@ -5,4 +5,4 @@
 from .extractors import MetadataExtractor
 from .generator import DocGenerator
 
-__all__ = ['DocGenerator', 'MetadataExtractor']
+__all__ = ["DocGenerator", "MetadataExtractor"]

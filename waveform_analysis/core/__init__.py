@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Core 模块 - WaveformAnalysis 框架的核心实现。
 
@@ -17,6 +16,7 @@ from .execution import (
     parallel_map,
 )
 from .foundation.exceptions import ErrorContext, ErrorSeverity, PluginError
+from .plugins.builtin.cpu.waveforms import WaveformStruct, WaveformStructConfig
 from .plugins.core.base import Option, Plugin
 from .processing.chunk import (
     CHANNEL_FIELD,
@@ -57,7 +57,6 @@ from .processing.chunk import (
     validate_endtime,
 )
 from .processing.event_grouping import group_multi_channel_hits
-from .plugins.builtin.cpu.waveforms import WaveformStruct, WaveformStructConfig
 
 # 向后兼容：导出 storage 子模块的主要类
 # 用户仍然可以使用 `from waveform_analysis.core import MemmapStorage`

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # DOC: docs/features/context/CONFIGURATION.md#配置类型
 """
 配置系统类型定义
@@ -25,6 +24,7 @@ class ConfigSource(Enum):
         ADAPTER_INFERRED: 从 DAQ adapter 推断的值
         GLOBAL_DEFAULT: 全局默认值
     """
+
     EXPLICIT = "explicit"
     PLUGIN_DEFAULT = "plugin_default"
     ADAPTER_INFERRED = "adapter_inferred"
@@ -55,6 +55,7 @@ class ConfigValue:
         >>> print(cv.summary())
         500000000.0 (inferred from vx2730.sampling_rate_hz)
     """
+
     value: Any
     source: ConfigSource
     original_key: str
@@ -105,6 +106,7 @@ class ResolvedConfig:
         500000000.0
         >>> print(resolved.summary(verbose=True))
     """
+
     plugin_name: str
     values: Dict[str, ConfigValue] = field(default_factory=dict)
     adapter_name: Optional[str] = None
@@ -137,7 +139,9 @@ class ResolvedConfig:
     def __getitem__(self, key: str) -> Any:
         """支持字典式访问"""
         if key not in self.values:
-            raise KeyError(f"Config key '{key}' not found in resolved config for '{self.plugin_name}'")
+            raise KeyError(
+                f"Config key '{key}' not found in resolved config for '{self.plugin_name}'"
+            )
         return self.values[key].value
 
     def __contains__(self, key: str) -> bool:
@@ -188,9 +192,7 @@ class ResolvedConfig:
             显式配置值字典
         """
         return {
-            key: cv.value
-            for key, cv in self.values.items()
-            if cv.source == ConfigSource.EXPLICIT
+            key: cv.value for key, cv in self.values.items() if cv.source == ConfigSource.EXPLICIT
         }
 
     def get_inferred_values(self) -> Dict[str, Any]:

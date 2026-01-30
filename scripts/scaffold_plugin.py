@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """Scaffold a new plugin with tests and docs."""
 
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 import re
 import textwrap
-from pathlib import Path
 from typing import List
 
-PLUGIN_TEMPLATE = textwrap.dedent(
-    '''\
+PLUGIN_TEMPLATE = textwrap.dedent('''\
     # -*- coding: utf-8 -*-
     """{class_name} plugin."""
 
@@ -46,11 +44,9 @@ PLUGIN_TEMPLATE = textwrap.dedent(
 
         def compute(self, context, run_id, **kwargs):
     {compute_block}
-    '''
-)
+    ''')
 
-TEST_TEMPLATE = textwrap.dedent(
-    '''\
+TEST_TEMPLATE = textwrap.dedent('''\
     # -*- coding: utf-8 -*-
     """Tests for {class_name}."""
 
@@ -93,11 +89,9 @@ TEST_TEMPLATE = textwrap.dedent(
         ctx.register({class_name}V2(), allow_override=True)
         key3 = ctx.key_for(run_id, "{provides}")
         assert key2 != key3
-    '''
-)
+    ''')
 
-DOC_TEMPLATE = textwrap.dedent(
-    '''\
+DOC_TEMPLATE = textwrap.dedent("""\
     # {class_name}
 
     ## 概览
@@ -138,8 +132,7 @@ DOC_TEMPLATE = textwrap.dedent(
 
     - `test_contract`: 校验 dtype / 字段 / 关键统计
     - `test_cache_invalidation`: 版本或配置变更时 cache key 应更新
-    '''
-)
+    """)
 
 
 def to_snake(name: str) -> str:
@@ -161,7 +154,7 @@ def ensure_init(package_dir: Path) -> None:
     init_path = package_dir / "__init__.py"
     if not init_path.exists():
         init_path.write_text(
-            "# -*- coding: utf-8 -*-\n\"\"\"Custom plugins package.\"\"\"\n",
+            '# -*- coding: utf-8 -*-\n"""Custom plugins package."""\n',
             encoding="utf-8",
         )
 
@@ -174,8 +167,7 @@ def render_plugin(
 ) -> str:
     if depends_on:
         primary = depends_on[0]
-        block = textwrap.dedent(
-            """\
+        block = textwrap.dedent("""\
             records = context.get_data(run_id, {primary!r})
             # TODO: replace the logic with your real computation
             out = np.zeros(len(records), dtype=self.output_dtype)
@@ -184,15 +176,12 @@ def render_plugin(
                 if len(ch_records):
                     out[\"value\"][idx] = float(np.max(ch_records[\"wave\"]))
             return out
-            """
-        ).format(primary=primary)
+            """).format(primary=primary)
     else:
-        block = textwrap.dedent(
-            """\
+        block = textwrap.dedent("""\
             # TODO: replace the logic with your real computation
             return np.zeros(1, dtype=self.output_dtype)
-            """
-        )
+            """)
 
     compute_block = textwrap.indent(block, " " * 8).rstrip()
 

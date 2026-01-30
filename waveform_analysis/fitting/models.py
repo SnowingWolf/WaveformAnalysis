@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 物理拟合模型 - 波形数据的高级拟合工具
 
@@ -25,6 +24,7 @@ Note:
     本模块需要安装 JAX 和 iminuit:
     pip install jax jaxlib iminuit
 """
+
 from iminuit import Minuit
 import jax
 import jax.numpy as jnp
@@ -74,7 +74,7 @@ def landau_gauss_jax(x, mpv, eta, sigma, n_steps=100):
     t_nodes = jnp.linspace(x_min, x_max, n_steps)
 
     # 初始化结果数组
-    result = jnp.zeros_like(x, dtype=jnp.float32)
+    jnp.zeros_like(x, dtype=jnp.float32)
 
     # 对每个 x 值和每个 t 节点计算被积函数
     # x[:, None] shape = (len(x), 1)
@@ -249,9 +249,7 @@ class LandauGaussFitter(BaseFitter):
         mpv, eta, sigma, const, mu2, sigma2, A2 = params
 
         # 计算模型值
-        model_jax = self.fit_func_jax(
-            self.x_jax, mpv, eta, sigma, const, mu2, sigma2, A2
-        )
+        model_jax = self.fit_func_jax(self.x_jax, mpv, eta, sigma, const, mu2, sigma2, A2)
 
         # 数值保护
         eps = 1e-14
@@ -305,9 +303,7 @@ class LandauGaussFitter2(BaseFitter):
         """
         xi = (x - mpv) / eta
         landau_part = np.exp(-0.5 * (xi + np.exp(-xi))) / eta
-        gauss_part = np.exp(-0.5 * ((x - mpv) / sigma) ** 2) / (
-            sigma * np.sqrt(2 * np.pi)
-        )
+        gauss_part = np.exp(-0.5 * ((x - mpv) / sigma) ** 2) / (sigma * np.sqrt(2 * np.pi))
         return const * landau_part * gauss_part
 
     def set_limits(self, minuit):

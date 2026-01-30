@@ -19,7 +19,7 @@ export, __all__ = exporter()
 class HelpSystem:
     """核心 help 系统（从 docs/ 读取文档）"""
 
-    def __init__(self, ctx: 'Context'):
+    def __init__(self, ctx: "Context"):
         """
         初始化 Help 系统
 
@@ -28,11 +28,11 @@ class HelpSystem:
         """
         self.ctx = ctx
         self._topics = {
-            'quickstart': QuickstartHelp(),
-            'config': ConfigHelp(),
-            'plugins': PluginHelp(),
-            'performance': PerformanceHelp(),
-            'examples': ExamplesHelp(),
+            "quickstart": QuickstartHelp(),
+            "config": ConfigHelp(),
+            "plugins": PluginHelp(),
+            "performance": PerformanceHelp(),
+            "examples": ExamplesHelp(),
         }
         self._cache: Dict[tuple, str] = {}
         self._doc_reader = None  # 懒加载
@@ -42,14 +42,12 @@ class HelpSystem:
         """懒加载文档读取器"""
         if self._doc_reader is None:
             from .doc_reader import get_doc_reader
+
             self._doc_reader = get_doc_reader()
         return self._doc_reader
 
     def show(
-        self,
-        topic: Optional[str] = None,
-        search: Optional[str] = None,
-        verbose: bool = False
+        self, topic: Optional[str] = None, search: Optional[str] = None, verbose: bool = False
     ) -> str:
         """
         显示帮助信息
@@ -83,9 +81,7 @@ class HelpSystem:
     def _get_topic_content(self, topic: str, verbose: bool) -> str:
         """获取主题内容（从 docs/ 读取）"""
         # 尝试从 docs/ 读取
-        content, from_docs = self.doc_reader.read_topic(
-            topic, verbose, fallback=None
-        )
+        content, from_docs = self.doc_reader.read_topic(topic, verbose, fallback=None)
 
         if from_docs and content:
             if verbose:
@@ -152,7 +148,7 @@ class HelpSystem:
 
     def _unknown_topic(self, topic: str) -> str:
         """未知主题提示"""
-        available = ', '.join(self._topics.keys())
+        available = ", ".join(self._topics.keys())
         return f"""
 ❌ 未知主题: '{topic}'
 

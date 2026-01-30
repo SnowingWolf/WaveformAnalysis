@@ -1,5 +1,3 @@
-import pytest
-
 from waveform_analysis.utils.daq import adapt_daq_run
 
 

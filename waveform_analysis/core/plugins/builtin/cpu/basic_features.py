@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Basic Features Plugin - 基础特征计算插件
 
@@ -13,17 +12,19 @@ Basic Features Plugin - 基础特征计算插件
 """
 
 from typing import Any, List, Optional
+import warnings
 
 import numpy as np
-import warnings
 
 from waveform_analysis.core.foundation.constants import FeatureDefaults
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
-BASIC_FEATURES_DTYPE = np.dtype([
-    ("height", "f4"),
-    ("area", "f4"),
-])
+BASIC_FEATURES_DTYPE = np.dtype(
+    [
+        ("height", "f4"),
+        ("area", "f4"),
+    ]
+)
 
 
 class BasicFeaturesPlugin(Plugin):
@@ -72,7 +73,9 @@ class BasicFeaturesPlugin(Plugin):
             try:
                 filtered_waveforms = context.get_data(run_id, "filtered_waveforms")
             except Exception:
-                raise ValueError("use_filtered=True 但无法获取 filtered_waveforms。请先注册 FilteredWaveformsPlugin。")
+                raise ValueError(
+                    "use_filtered=True 但无法获取 filtered_waveforms。请先注册 FilteredWaveformsPlugin。"
+                )
         else:
             filtered_waveforms = None
 

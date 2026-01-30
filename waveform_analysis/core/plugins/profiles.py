@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # DOC: docs/features/plugin/PLUGIN_SET_PROFILE_GUIDE.md#profiles
 """
 Execution profiles composed from plugin sets.
@@ -31,9 +30,7 @@ def cpu_default():
 @export
 def streaming_default():
     """Placeholder for a streaming profile."""
-    raise NotImplementedError(
-        "Streaming profile is not available yet. Use cpu_default() for now."
-    )
+    raise NotImplementedError("Streaming profile is not available yet. Use cpu_default() for now.")
 
 
 @export

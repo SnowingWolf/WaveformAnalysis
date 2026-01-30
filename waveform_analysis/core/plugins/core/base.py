@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # DOC: docs/features/plugin/SIMPLE_PLUGIN_GUIDE.md
 # DOC: docs/development/plugin-development/PLUGIN_SPEC_GUIDE.md
 """
@@ -12,8 +11,8 @@ Plugins 模块 - 定义插件和配置选项的基类。
 import abc
 import inspect
 import logging
-import warnings
 from typing import Any, Dict, List, Literal, Optional, Tuple, Type, Union
+import warnings
 
 import numpy as np
 
@@ -173,7 +172,9 @@ class Option:
         # 判断是时间单位还是频率单位
         if self.unit in StandardUnits.TIME_TO_PS and self.internal_unit in StandardUnits.TIME_TO_PS:
             return convert_time(value, self.unit, self.internal_unit)
-        elif self.unit in StandardUnits.FREQ_TO_HZ and self.internal_unit in StandardUnits.FREQ_TO_HZ:
+        elif (
+            self.unit in StandardUnits.FREQ_TO_HZ and self.internal_unit in StandardUnits.FREQ_TO_HZ
+        ):
             return convert_frequency(value, self.unit, self.internal_unit)
         else:
             # 不支持的单位组合，记录警告但不转换
@@ -267,7 +268,9 @@ class Option:
         # 6. Custom validation
         if self.validate is not None:
             if not self.validate(value):
-                raise ValueError(f"Plugin '{plugin_name}' option '{name}' failed validation for value: {value!r}")
+                raise ValueError(
+                    f"Plugin '{plugin_name}' option '{name}' failed validation for value: {value!r}"
+                )
 
         return value
 
@@ -320,6 +323,7 @@ class Plugin(abc.ABC):
     Base class for all processing plugins.
     Inspired by strax, each plugin defines what it provides and what it depends on.
     """
+
     # DOC: docs/development/plugin-development/PLUGIN_SPEC_GUIDE.md#插件属性
 
     provides: str = ""
@@ -346,7 +350,9 @@ class Plugin(abc.ABC):
         try:
             return Version(self.version)
         except (InvalidVersion, TypeError):
-            logger.warning(f"Plugin {self.__class__.__name__} has invalid version '{self.version}', using 0.0.0")
+            logger.warning(
+                f"Plugin {self.__class__.__name__} has invalid version '{self.version}', using 0.0.0"
+            )
             return Version("0.0.0")
 
     def get_dependency_name(self, dep: Union[str, Tuple[str, str]]) -> str:
@@ -397,7 +403,9 @@ class Plugin(abc.ABC):
             return dep[1]
         return None
 
-    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[Union[str, Tuple[str, str]]]:
+    def resolve_depends_on(
+        self, context: Any, run_id: Optional[str] = None
+    ) -> List[Union[str, Tuple[str, str]]]:
         """
         Resolve dependencies dynamically based on context/config.
 
@@ -486,7 +494,9 @@ class Plugin(abc.ABC):
         if type(self).resolve_depends_on is not Plugin.resolve_depends_on and self.depends_on:
             location = None
             try:
-                source_file = inspect.getsourcefile(self.__class__) or inspect.getfile(self.__class__)
+                source_file = inspect.getsourcefile(self.__class__) or inspect.getfile(
+                    self.__class__
+                )
                 source_line = inspect.getsourcelines(self.__class__)[1]
                 if source_file:
                     location = f"{source_file}:{source_line}"
@@ -512,9 +522,13 @@ class Plugin(abc.ABC):
                     )
                 dep_name, version_spec = dep
                 if not isinstance(dep_name, str):
-                    raise TypeError(f"Plugin {self.provides}: dependency name must be a string, got {type(dep_name)}")
+                    raise TypeError(
+                        f"Plugin {self.provides}: dependency name must be a string, got {type(dep_name)}"
+                    )
                 if not isinstance(version_spec, str):
-                    raise TypeError(f"Plugin {self.provides}: version spec must be a string, got {type(version_spec)}")
+                    raise TypeError(
+                        f"Plugin {self.provides}: version spec must be a string, got {type(version_spec)}"
+                    )
                 # Validate version spec syntax if packaging is available
                 if PACKAGING_AVAILABLE:
                     try:
@@ -522,7 +536,9 @@ class Plugin(abc.ABC):
 
                         SpecifierSet(version_spec)
                     except Exception as e:
-                        raise ValueError(f"Plugin {self.provides}: invalid version specifier '{version_spec}': {e}")
+                        raise ValueError(
+                            f"Plugin {self.provides}: invalid version specifier '{version_spec}': {e}"
+                        )
             else:
                 raise TypeError(
                     f"Plugin {self.provides}: dependency must be a string or tuple (name, version_spec), got {type(dep)}"
@@ -535,16 +551,22 @@ class Plugin(abc.ABC):
         # If config_keys is overridden, ensure all keys are in options
         for key in self.config_keys:
             if key not in self.options:
-                raise ValueError(f"Plugin {self.provides}: config_key '{key}' is not defined in 'options'")
+                raise ValueError(
+                    f"Plugin {self.provides}: config_key '{key}' is not defined in 'options'"
+                )
 
         # Validate each option
         for k, v in self.options.items():
             if not isinstance(v, Option):
-                raise TypeError(f"Plugin {self.provides}: option '{k}' must be an instance of Option")
+                raise TypeError(
+                    f"Plugin {self.provides}: option '{k}' must be an instance of Option"
+                )
 
         # cache settings, validate save_when
         if self.save_when not in ("never", "always", "target"):
-            raise ValueError(f"Plugin {self.provides}: 'save_when' must be one of ('never', 'always', 'target')")
+            raise ValueError(
+                f"Plugin {self.provides}: 'save_when' must be one of ('never', 'always', 'target')"
+            )
 
         # Validate output_kind
         if self.output_kind not in ("static", "stream"):
@@ -556,7 +578,7 @@ class Plugin(abc.ABC):
             pass
 
         # Validate input_dtype keys against depends_on
-        for dep, dt in self.input_dtype.items():
+        for dep, _dt in self.input_dtype.items():
             # Extract dependency name if it's a tuple
             dep_names = [self.get_dependency_name(d) for d in self.depends_on]
             if dep not in dep_names:

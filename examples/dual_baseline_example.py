@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 双 Baseline 功能使用示例
 
@@ -7,6 +6,7 @@
 """
 
 import numpy as np
+
 from waveform_analysis.core.processing.waveform_struct import WaveformStruct
 
 
@@ -41,11 +41,11 @@ def example_1_without_upstream():
     st_ch = st_waveforms[0]
 
     print(f"\n事件数: {len(st_ch)}")
-    print(f"\nbaseline (WaveformStruct 计算):")
+    print("\nbaseline (WaveformStruct 计算):")
     print(f"  前 5 个值: {st_ch['baseline'][:5]}")
     print(f"  平均值: {np.mean(st_ch['baseline']):.2f}")
 
-    print(f"\nbaseline_upstream (上游插件):")
+    print("\nbaseline_upstream (上游插件):")
     print(f"  前 5 个值: {st_ch['baseline_upstream'][:5]}")
     print(f"  是否全为 NaN: {np.all(np.isnan(st_ch['baseline_upstream']))}")
 
@@ -83,17 +83,17 @@ def example_2_with_upstream():
     st_ch = st_waveforms[0]
 
     print(f"\n事件数: {len(st_ch)}")
-    print(f"\nbaseline (平均值算法):")
+    print("\nbaseline (平均值算法):")
     print(f"  前 5 个值: {st_ch['baseline'][:5]}")
     print(f"  平均值: {np.mean(st_ch['baseline']):.2f}")
 
-    print(f"\nbaseline_upstream (中位数算法):")
+    print("\nbaseline_upstream (中位数算法):")
     print(f"  前 5 个值: {st_ch['baseline_upstream'][:5]}")
     print(f"  平均值: {np.mean(st_ch['baseline_upstream']):.2f}")
 
     # 对比两种算法
-    diff = st_ch['baseline'] - st_ch['baseline_upstream']
-    print(f"\n差异统计:")
+    diff = st_ch["baseline"] - st_ch["baseline_upstream"]
+    print("\n差异统计:")
     print(f"  平均差异: {np.mean(diff):.3f}")
     print(f"  最大差异: {np.max(np.abs(diff)):.3f}")
 

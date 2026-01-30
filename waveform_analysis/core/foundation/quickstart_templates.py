@@ -18,10 +18,11 @@ export, __all__ = exporter()
 @export
 class QuickstartTemplate:
     """模板基类"""
+
     name: str
     description: str
 
-    def generate(self, ctx: 'Context', **params) -> str:
+    def generate(self, ctx: "Context", **params) -> str:
         """
         生成 Python 代码字符串
 
@@ -38,12 +39,14 @@ class QuickstartTemplate:
 @export
 class BasicAnalysisTemplate(QuickstartTemplate):
     """基础分析流程模板"""
-    name = 'basic_analysis'
-    description = '基础分析流程'
 
-    def generate(self, ctx: 'Context', run_id: str = 'run_001',
-                 data_root: str = 'DAQ', n_channels: int = 2) -> str:
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    name = "basic_analysis"
+    description = "基础分析流程"
+
+    def generate(
+        self, ctx: "Context", run_id: str = "run_001", data_root: str = "DAQ", n_channels: int = 2
+    ) -> str:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         return f'''#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
@@ -84,6 +87,6 @@ if __name__ == '__main__':
 
 # 模板注册表
 TEMPLATES = {
-    'basic': BasicAnalysisTemplate(),
-    'basic_analysis': BasicAnalysisTemplate(),
+    "basic": BasicAnalysisTemplate(),
+    "basic_analysis": BasicAnalysisTemplate(),
 }

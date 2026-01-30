@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Storage Backends 模块 - 可插拔存储后端抽象层
 
@@ -48,7 +47,9 @@ class StorageBackend(Protocol):
         """
         ...
 
-    def save_memmap(self, key: str, data: np.ndarray, extra_metadata: Optional[Dict[str, Any]] = None) -> None:
+    def save_memmap(
+        self, key: str, data: np.ndarray, extra_metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
         """
         保存 numpy 数组
 
@@ -128,7 +129,7 @@ class StorageBackend(Protocol):
         key: str,
         stream: Iterator[np.ndarray],
         dtype: np.dtype,
-        extra_metadata: Optional[Dict[str, Any]] = None
+        extra_metadata: Optional[Dict[str, Any]] = None,
     ) -> int:
         """
         保存流式数据
@@ -145,11 +146,7 @@ class StorageBackend(Protocol):
         ...
 
     def finalize_save(
-        self,
-        key: str,
-        count: int,
-        dtype: np.dtype,
-        extra_metadata: Optional[Dict[str, Any]] = None
+        self, key: str, count: int, dtype: np.dtype, extra_metadata: Optional[Dict[str, Any]] = None
     ) -> None:
         """
         完成流式保存（原子化写入）
@@ -231,7 +228,9 @@ class SQLiteBackend:
         cursor.execute("SELECT 1 FROM arrays WHERE key = ?", (key,))
         return cursor.fetchone() is not None
 
-    def save_memmap(self, key: str, data: np.ndarray, extra_metadata: Optional[Dict[str, Any]] = None) -> None:
+    def save_memmap(
+        self, key: str, data: np.ndarray, extra_metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
         blob = data.tobytes()
         # 保存 dtype 描述符（支持结构化数组）
         # 使用 str(data.dtype) 并在加载时通过 np.dtype() 重建
@@ -240,10 +239,13 @@ class SQLiteBackend:
         count = len(data)
 
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO arrays (key, data, dtype, shape, count)
             VALUES (?, ?, ?, ?, ?)
-        """, (key, blob, dtype_str, shape_str, count))
+        """,
+            (key, blob, dtype_str, shape_str, count),
+        )
 
         # 保存元数据
         if extra_metadata:
@@ -251,12 +253,14 @@ class SQLiteBackend:
         else:
             metadata = {}
 
-        metadata.update({
-            "storage_version": self.STORAGE_VERSION,
-            "dtype": dtype_str,
-            "shape": data.shape,
-            "count": count
-        })
+        metadata.update(
+            {
+                "storage_version": self.STORAGE_VERSION,
+                "dtype": dtype_str,
+                "shape": data.shape,
+                "count": count,
+            }
+        )
 
         self.save_metadata(key, metadata)
         self.conn.commit()
@@ -276,7 +280,7 @@ class SQLiteBackend:
         # 结构化数组: "[('time', '<i8'), ('value', '<f8')]"
         # 简单数组: "int64" or "<i8"
         try:
-            dtype = np.dtype(eval(dtype_str) if dtype_str.startswith('[') else dtype_str)
+            dtype = np.dtype(eval(dtype_str) if dtype_str.startswith("[") else dtype_str)
         except:
             # 回退：尝试直接解析
             dtype = np.dtype(dtype_str)
@@ -292,10 +296,13 @@ class SQLiteBackend:
         metadata_json = json.dumps(metadata, default=str)
 
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO metadata (key, metadata)
             VALUES (?, ?)
-        """, (key, metadata_json))
+        """,
+            (key, metadata_json),
+        )
         self.conn.commit()
 
     def get_metadata(self, key: str) -> Optional[Dict[str, Any]]:
@@ -330,7 +337,7 @@ class SQLiteBackend:
         key: str,
         stream: Iterator[np.ndarray],
         dtype: np.dtype,
-        extra_metadata: Optional[Dict[str, Any]] = None
+        extra_metadata: Optional[Dict[str, Any]] = None,
     ) -> int:
         """累积流数据并保存"""
         chunks = []
@@ -348,11 +355,7 @@ class SQLiteBackend:
         return total_count
 
     def finalize_save(
-        self,
-        key: str,
-        count: int,
-        dtype: np.dtype,
-        extra_metadata: Optional[Dict[str, Any]] = None
+        self, key: str, count: int, dtype: np.dtype, extra_metadata: Optional[Dict[str, Any]] = None
     ) -> None:
         """SQLite 后端在 save_stream 中已完成保存，无需额外操作"""
         pass
@@ -389,6 +392,7 @@ def create_storage_backend(backend_type: str = "memmap", **kwargs) -> StorageBac
     """
     if backend_type == "memmap":
         from waveform_analysis.core.storage.memmap import MemmapStorage
+
         storage_dir = kwargs.get("storage_dir", "./strax_data")
         profiler = kwargs.get("profiler", None)
         return MemmapStorage(work_dir=storage_dir, profiler=profiler)

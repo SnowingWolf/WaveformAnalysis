@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 测试双 Baseline 功能
 

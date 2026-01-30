@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 缓存分析器模块 - 统一的缓存扫描与索引接口。
 
@@ -181,7 +180,9 @@ class CacheAnalyzer:
             self._last_scan_time = time.time()
 
             if verbose and runs_to_scan:
-                total_size = sum(e.size_bytes for entries in self._cache_index.values() for e in entries)
+                total_size = sum(
+                    e.size_bytes for entries in self._cache_index.values() for e in entries
+                )
                 print(
                     f"[CacheAnalyzer] 扫描完成: {len(self._cache_index)} 个运行, "
                     f"{total_entries} 个缓存条目, 总大小 {self._format_size(total_size)}"
@@ -444,7 +445,7 @@ class CacheAnalyzer:
 
         total_size = sum(e.size_bytes for e in entries)
         compressed_count = sum(1 for e in entries if e.compressed)
-        data_types = list(set(e.data_name for e in entries))
+        data_types = list({e.data_name for e in entries})
 
         oldest = min(entries, key=lambda e: e.created_at)
         newest = max(entries, key=lambda e: e.created_at)
@@ -492,7 +493,9 @@ class CacheAnalyzer:
         for data_name in summary:
             summary[data_name]["runs"] = sorted(summary[data_name]["runs"])
             summary[data_name]["versions"] = sorted(summary[data_name]["versions"])
-            summary[data_name]["total_size_human"] = self._format_size(summary[data_name]["total_size_bytes"])
+            summary[data_name]["total_size_human"] = self._format_size(
+                summary[data_name]["total_size_bytes"]
+            )
 
         return summary
 

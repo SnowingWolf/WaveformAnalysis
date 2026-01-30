@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Cache analysis plugin.
 
@@ -254,7 +253,9 @@ class CacheAnalysisPlugin(Plugin):
                 compressed_only=compressed_only,
             )
             if max_entries is not None and max_entries > 0:
-                raw_entries = sorted(raw_entries, key=lambda e: e.size_bytes, reverse=True)[:max_entries]
+                raw_entries = sorted(raw_entries, key=lambda e: e.size_bytes, reverse=True)[
+                    :max_entries
+                ]
             entries = [_entry_to_dict(entry, include_metadata) for entry in raw_entries]
             result["entries"] = entries
 

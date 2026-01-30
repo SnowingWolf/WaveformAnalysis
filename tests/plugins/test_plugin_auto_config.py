@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 
 from tests.utils import DummyContext
@@ -9,9 +8,9 @@ from waveform_analysis.core.plugins.builtin.cpu.standard import (
 )
 from waveform_analysis.core.processing.dtypes import PEAK_DTYPE, create_record_dtype
 from waveform_analysis.utils.formats import (
+    FLAT_LAYOUT,
     ColumnMapping,
     DAQAdapter,
-    FLAT_LAYOUT,
     FormatSpec,
     GenericCSVReader,
     TimestampUnit,
@@ -54,7 +53,9 @@ def test_waveforms_plugin_uses_raw_files_channels(monkeypatch):
         called["raw_filess_len"] = len(raw_filess)
         return [np.zeros((0, 0)) for _ in raw_filess]
 
-    monkeypatch.setattr("waveform_analysis.core.processing.loader.get_waveforms", fake_get_waveforms)
+    monkeypatch.setattr(
+        "waveform_analysis.core.processing.loader.get_waveforms", fake_get_waveforms
+    )
 
     plugin = WaveformsPlugin()
     config = {

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 CAEN VX2730 数字化仪完整适配器
 
@@ -53,6 +52,7 @@ logger = logging.getLogger(__name__)
 # VX2730 格式规范
 # ============================================================================
 
+
 @export
 class VX2730Spec:
     """VX2730 格式规范的工厂类"""
@@ -70,7 +70,7 @@ class VX2730Spec:
                 samples_start=7,
                 samples_end=None,  # 到行末
                 baseline_start=7,
-                baseline_end=47,   # 前 40 个采样点用于基线计算
+                baseline_end=47,  # 前 40 个采样点用于基线计算
             ),
             timestamp_unit=TimestampUnit.PICOSECONDS,
             file_pattern="*CH*.CSV",
@@ -118,6 +118,7 @@ VX2730_LAYOUT = export(
 # VX2730 格式读取器
 # ============================================================================
 
+
 @export
 class VX2730Reader(FormatReader):
     """VX2730 CSV 格式读取器
@@ -141,11 +142,7 @@ class VX2730Reader(FormatReader):
         """
         super().__init__(spec or VX2730_SPEC)
 
-    def read_file(
-        self,
-        file_path: Union[str, Path],
-        is_first_file: bool = True
-    ) -> np.ndarray:
+    def read_file(self, file_path: Union[str, Path], is_first_file: bool = True) -> np.ndarray:
         """读取单个 VX2730 CSV 文件
 
         Args:
@@ -168,8 +165,7 @@ class VX2730Reader(FormatReader):
 
         # 确定跳过的行数
         skiprows = (
-            self.spec.header_rows_first_file if is_first_file
-            else self.spec.header_rows_other_files
+            self.spec.header_rows_first_file if is_first_file else self.spec.header_rows_other_files
         )
 
         try:
@@ -193,10 +189,9 @@ class VX2730Reader(FormatReader):
                 df.iloc[:, self.spec.columns.timestamp] = pd.to_numeric(
                     df.iloc[:, self.spec.columns.timestamp], errors="coerce"
                 )
-                df.iloc[:, self.spec.columns.samples_start:] = (
-                    df.iloc[:, self.spec.columns.samples_start:]
-                    .apply(pd.to_numeric, errors="coerce")
-                )
+                df.iloc[:, self.spec.columns.samples_start :] = df.iloc[
+                    :, self.spec.columns.samples_start :
+                ].apply(pd.to_numeric, errors="coerce")
                 df.dropna(subset=[self.spec.columns.timestamp], inplace=True)
             except Exception as e:
                 logger.warning(f"数值转换失败 {file_path}: {e}")
@@ -221,9 +216,7 @@ class VX2730Reader(FormatReader):
                 return np.array([]).reshape(0, 0)
 
     def read_files(
-        self,
-        file_paths: List[Union[str, Path]],
-        show_progress: bool = False
+        self, file_paths: List[Union[str, Path]], show_progress: bool = False
     ) -> np.ndarray:
         """读取并堆叠多个文件
 
@@ -241,6 +234,7 @@ class VX2730Reader(FormatReader):
         if show_progress:
             try:
                 from tqdm import tqdm
+
                 pbar = tqdm(file_paths, desc="读取文件", leave=False)
             except ImportError:
                 pbar = file_paths
@@ -249,7 +243,7 @@ class VX2730Reader(FormatReader):
 
         arrays = []
         for idx, fp in enumerate(pbar):
-            is_first = (idx == 0)
+            is_first = idx == 0
             arr = self.read_file(fp, is_first_file=is_first)
             if arr.size > 0:
                 arrays.append(arr)
@@ -267,14 +261,12 @@ class VX2730Reader(FormatReader):
             for a in arrays:
                 if a.shape[1] < max_cols:
                     pad_width = ((0, 0), (0, max_cols - a.shape[1]))
-                    a = np.pad(a, pad_width, mode='constant', constant_values=np.nan)
+                    a = np.pad(a, pad_width, mode="constant", constant_values=np.nan)
                 padded.append(a)
             return np.vstack(padded)
 
     def read_files_generator(
-        self,
-        file_paths: List[Union[str, Path]],
-        chunk_size: int = 10
+        self, file_paths: List[Union[str, Path]], chunk_size: int = 10
     ) -> Iterator[np.ndarray]:
         """生成器模式读取
 
@@ -289,12 +281,12 @@ class VX2730Reader(FormatReader):
             return
 
         for i in range(0, len(file_paths), chunk_size):
-            chunk_files = file_paths[i:i + chunk_size]
+            chunk_files = file_paths[i : i + chunk_size]
             arrays = []
 
             for j, fp in enumerate(chunk_files):
                 # 只有第一个文件的第一个 chunk 才跳过头部
-                is_first = (i == 0 and j == 0)
+                is_first = i == 0 and j == 0
                 arr = self.read_file(fp, is_first_file=is_first)
                 if arr.size > 0:
                     arrays.append(arr)
@@ -309,7 +301,7 @@ class VX2730Reader(FormatReader):
                     for a in arrays:
                         if a.shape[1] < max_cols:
                             pad_width = ((0, 0), (0, max_cols - a.shape[1]))
-                            a = np.pad(a, pad_width, mode='constant', constant_values=np.nan)
+                            a = np.pad(a, pad_width, mode="constant", constant_values=np.nan)
                         padded.append(a)
                     yield np.vstack(padded)
 

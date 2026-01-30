@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 WaveformAnalysis Help 系统演示
 
@@ -23,7 +22,7 @@ def demo_all_topics():
     """演示所有帮助主题"""
     ctx = Context()
 
-    topics = ['quickstart', 'config', 'plugins', 'performance', 'examples']
+    topics = ["quickstart", "config", "plugins", "performance", "examples"]
 
     for topic in topics:
         print("\n" + "=" * 80)
@@ -39,7 +38,7 @@ def demo_verbose_mode():
     print("=" * 80)
 
     ctx = Context()
-    ctx.help('quickstart', verbose=True)
+    ctx.help("quickstart", verbose=True)
 
 
 def demo_search():
@@ -49,7 +48,7 @@ def demo_search():
     print("=" * 80)
 
     ctx = Context()
-    ctx.help(search='time_range')
+    ctx.help(search="time_range")
 
 
 def demo_quickstart_templates():
@@ -61,7 +60,7 @@ def demo_quickstart_templates():
     ctx = Context()
 
     print("\n--- Basic Analysis Template ---")
-    code = ctx.quickstart('basic', run_id='demo_run', n_channels=2)
+    ctx.quickstart("basic", run_id="demo_run", n_channels=2)
 
     # 保存到文件（示例）
     # with open('generated_analysis.py', 'w') as f:
@@ -84,12 +83,12 @@ def demo_performance():
 
     # 测试首次调用
     start = time.perf_counter()
-    ctx.help('quickstart')
+    ctx.help("quickstart")
     first_call = time.perf_counter() - start
 
     # 测试缓存命中
     start = time.perf_counter()
-    ctx.help('quickstart')
+    ctx.help("quickstart")
     cached_call = time.perf_counter() - start
 
     print(f"首次调用时间: {first_call*1000:.2f}ms")
@@ -141,5 +140,5 @@ def main():
     print()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

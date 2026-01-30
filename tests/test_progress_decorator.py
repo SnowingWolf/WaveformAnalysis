@@ -1,20 +1,21 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 进度追踪装饰器的单元测试
 """
 
 import time
+
 import pytest
+
 from waveform_analysis.core.foundation.progress import (
     ProgressTracker,
-    with_progress,
+    format_throughput,
+    format_time,
+    get_global_tracker,
     progress_iter,
     progress_map,
-    get_global_tracker,
     reset_global_tracker,
-    format_time,
-    format_throughput,
+    with_progress,
 )
 
 
@@ -93,10 +94,10 @@ class TestProgressDecorator:
 
     def test_generator_function(self):
         """测试装饰生成器函数"""
+
         @with_progress(total=10, desc="Test", disable=True)
         def generate_items():
-            for i in range(10):
-                yield i
+            yield from range(10)
 
         result = list(generate_items())
         assert len(result) == 10
@@ -104,6 +105,7 @@ class TestProgressDecorator:
 
     def test_function_returning_list(self):
         """测试返回列表的函数"""
+
         @with_progress(desc="Test", disable=True)
         def get_items():
             return [1, 2, 3, 4, 5]
@@ -114,6 +116,7 @@ class TestProgressDecorator:
 
     def test_regular_function(self):
         """测试普通函数"""
+
         @with_progress(desc="Test", disable=True, show_result=True)
         def compute():
             return 42
@@ -123,6 +126,7 @@ class TestProgressDecorator:
 
     def test_function_with_args(self):
         """测试带参数的函数"""
+
         @with_progress(total=5, desc="Test", disable=True)
         def process_items(items, multiplier=1):
             for item in items:
@@ -149,9 +153,9 @@ class TestProgressIter:
 
     def test_generator_input(self):
         """测试生成器输入"""
+
         def gen():
-            for i in range(10):
-                yield i
+            yield from range(10)
 
         result = list(progress_iter(gen(), total=10, desc="Test", disable=True))
         assert len(result) == 10
@@ -168,8 +172,9 @@ class TestProgressMap:
 
     def test_map_with_function(self):
         """测试使用函数"""
+
         def square(x):
-            return x ** 2
+            return x**2
 
         data = range(10)
         result = progress_map(square, data, desc="Test", disable=True)
@@ -222,6 +227,7 @@ class TestUtilityFunctions:
 # 集成测试
 # ===========================
 
+
 class TestIntegration:
     """集成测试"""
 
@@ -250,7 +256,7 @@ class TestIntegration:
             bar_name = f"sub_{i}"
             tracker.create_bar(bar_name, total=10, desc=f"Sub {i}", nested=True, parent="main")
 
-            for j in range(10):
+            for _j in range(10):
                 tracker.update(bar_name, n=1)
 
             tracker.close(bar_name)

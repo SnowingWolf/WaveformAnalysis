@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 目录结构配置
 
@@ -60,19 +59,20 @@ class DirectoryLayout:
         ... )
         >>> raw_path = layout.get_raw_path("DAQ", "run_001")
     """
-    name: str                                    # 布局名称
+
+    name: str  # 布局名称
 
     # 目录结构
-    raw_subdir: str = "RAW"                      # 原始数据子目录名（空表示无子目录）
+    raw_subdir: str = "RAW"  # 原始数据子目录名（空表示无子目录）
     run_path_template: str = "{data_root}/{run_name}/{raw_subdir}"  # 运行路径模板
 
     # 文件匹配
-    file_glob_pattern: str = "*CH*.CSV"          # 文件 glob 模式
-    file_extension: str = ".CSV"                 # 文件扩展名
+    file_glob_pattern: str = "*CH*.CSV"  # 文件 glob 模式
+    file_extension: str = ".CSV"  # 文件扩展名
 
     # 通道识别正则
-    channel_regex: str = r"CH(\d+)"              # 从文件名提取通道号
-    file_index_regex: str = r"_(\d+)\.CSV$"      # 从文件名提取文件索引
+    channel_regex: str = r"CH(\d+)"  # 从文件名提取通道号
+    file_index_regex: str = r"_(\d+)\.CSV$"  # 从文件名提取文件索引
 
     # 可选：运行信息文件
     run_info_pattern: Optional[str] = "{run_name}_info.txt"
@@ -107,8 +107,8 @@ class DirectoryLayout:
         )
 
         # 清理连续斜杠（当 raw_subdir 为空时可能出现 //）
-        path_str = re.sub(r'/+', '/', path_str)
-        path_str = path_str.rstrip('/')
+        path_str = re.sub(r"/+", "/", path_str)
+        path_str = path_str.rstrip("/")
 
         return Path(path_str)
 
@@ -211,15 +211,17 @@ class DirectoryLayout:
                     groups[ch] = []
 
                 idx = self.extract_file_index(f.name)
-                groups[ch].append({
-                    'path': f,
-                    'index': idx,
-                    'filename': f.name,
-                })
+                groups[ch].append(
+                    {
+                        "path": f,
+                        "index": idx,
+                        "filename": f.name,
+                    }
+                )
 
         # 按文件索引排序
         for ch in groups:
-            groups[ch].sort(key=lambda x: x['index'])
+            groups[ch].sort(key=lambda x: x["index"])
 
         return groups
 
@@ -229,11 +231,11 @@ class DirectoryLayout:
 FLAT_LAYOUT = export(
     DirectoryLayout(
         name="flat",
-        raw_subdir="",                              # 无子目录
+        raw_subdir="",  # 无子目录
         run_path_template="{data_root}/{run_name}",
         file_glob_pattern="*.csv",
         file_extension=".csv",
-        channel_regex=r"ch(\d+)",                   # 小写
+        channel_regex=r"ch(\d+)",  # 小写
         file_index_regex=r"_(\d+)\.csv$",
         run_info_pattern=None,
         metadata={

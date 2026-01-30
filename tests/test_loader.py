@@ -2,8 +2,9 @@
 数据加载测试
 """
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 from waveform_analysis.core.processing.loader import WaveformLoaderCSV, get_waveforms
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 CPU Filtering Plugin - 使用 scipy 进行波形滤波
 
@@ -97,9 +96,13 @@ class FilteredWaveformsPlugin(Plugin):
                 sg_window_size += 1
                 logger.warning("SG 窗口大小已调整为奇数: %s", sg_window_size)
             if sg_poly_order >= sg_window_size:
-                raise ValueError(f"SG 多项式阶数 ({sg_poly_order}) 必须小于窗口大小 ({sg_window_size})")
+                raise ValueError(
+                    f"SG 多项式阶数 ({sg_poly_order}) 必须小于窗口大小 ({sg_window_size})"
+                )
 
-            logger.debug("SG 滤波器参数: window_size=%s poly_order=%s", sg_window_size, sg_poly_order)
+            logger.debug(
+                "SG 滤波器参数: window_size=%s poly_order=%s", sg_window_size, sg_poly_order
+            )
 
         st_waveforms = context.get_data(run_id, "st_waveforms")
         filtered_waveforms_list: List[np.ndarray] = []

@@ -2,11 +2,11 @@
 测试插件版本支持功能
 """
 
-import pytest
 import numpy as np
+import pytest
 
-from waveform_analysis.core.plugins.core.base import Plugin
 from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.core.base import Plugin
 
 
 class TestPluginVersioning:
@@ -27,6 +27,7 @@ class TestPluginVersioning:
         # 检查semantic_version属性
         if plugin.semantic_version is not None:
             from packaging.version import Version
+
             assert plugin.semantic_version == Version("1.2.3")
 
     def test_plugin_invalid_version_fallback(self):
@@ -44,6 +45,7 @@ class TestPluginVersioning:
         # 如果packaging可用，应该回退到0.0.0
         if plugin.semantic_version is not None:
             from packaging.version import Version
+
             assert plugin.semantic_version == Version("0.0.0")
 
     def test_dependency_with_version_spec(self):
@@ -69,7 +71,10 @@ class TestPluginVersioning:
 
         # 检查依赖提取方法
         assert consumer.get_dependency_name(("input_data", ">=1.0.0")) == "input_data"
-        assert consumer.get_dependency_version_spec(("input_data", ">=1.0.0,<2.0.0")) == ">=1.0.0,<2.0.0"
+        assert (
+            consumer.get_dependency_version_spec(("input_data", ">=1.0.0,<2.0.0"))
+            == ">=1.0.0,<2.0.0"
+        )
         assert consumer.get_dependency_name("simple_dep") == "simple_dep"
         assert consumer.get_dependency_version_spec("simple_dep") is None
 
@@ -115,11 +120,7 @@ class TestPluginVersioning:
 
         class MixedPlugin(Plugin):
             provides = "mixed_output"
-            depends_on = [
-                "simple_dep",
-                ("versioned_dep", ">=1.0.0"),
-                "another_simple_dep"
-            ]
+            depends_on = ["simple_dep", ("versioned_dep", ">=1.0.0"), "another_simple_dep"]
 
             def compute(self, context, run_id):
                 return np.array([1])

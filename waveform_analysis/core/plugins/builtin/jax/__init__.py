@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 [JAX] JAX 加速插件模块 - GPU/CPU 加速实现
 
