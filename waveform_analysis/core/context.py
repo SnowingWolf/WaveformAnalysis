@@ -468,8 +468,8 @@ class Context(CacheMixin, PluginMixin):
             ... )
             >>>
             >>> # 方式4: 注册模块中的所有插件
-            >>> import waveform_analysis.core.plugins.builtin.cpu as standard_plugins
-            >>> ctx.register(standard_plugins)
+            >>> from waveform_analysis.core.plugins import profiles
+            >>> ctx.register(*profiles.cpu_default())
             >>>
             >>> # 方式5: 允许覆盖已注册的插件
             >>> ctx.register(RawFileNamesPlugin(), allow_override=True)

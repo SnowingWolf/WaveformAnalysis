@@ -2,7 +2,7 @@
 
 **导航**: [文档中心](../README.md) > [命令行工具](README.md) > waveform-process 命令参考
 
-`waveform-process` 是 WaveformAnalysis 的主要命令行工具，用于处理波形数据和扫描 DAQ 目录。
+`waveform-process` 是 WaveformAnalysis 的主要命令行工具，用于处理波形数据和扫描 DAQ 目录。[^source]
 
 ---
 
@@ -37,6 +37,7 @@ waveform-process [选项]
 | `--time-window` | - | float | 100 | 事件配对时间窗口（ns） |
 | `--output` | - | str | - | 输出文件路径（可选）。支持 `.csv` 和 `.parquet` 格式 |
 | `--verbose` | - | flag | False | 显示详细信息 |
+| `--profile` | - | str | "cpu" | 插件 Profile（`cpu` / `streaming` / `jax`） |
 
 ### DAQ 扫描参数
 
@@ -84,6 +85,19 @@ waveform-process \
   --time-window 200 \
   --verbose
 ```
+
+---
+
+## Profile 选择
+
+Profile 用于选择执行的插件组合：
+
+```bash
+# CPU 默认链路
+waveform-process --run-name run_001 --profile cpu
+```
+
+目前 `streaming` 与 `jax` 为占位 Profile，会提示未实现。
 
 ### 2. 扫描 DAQ 目录
 
@@ -183,10 +197,10 @@ CLI 与 `Context` 的执行路径一致，下面是对应的最简代码：
 
 ```python
 from waveform_analysis.core import Context
-from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
+from waveform_analysis.core.plugins import profiles
 
 ctx = Context()
-ctx.register(*standard_plugins)
+ctx.register(*profiles.cpu_default())
 ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 basic_features = ctx.get_data('run_001', 'basic_features')
 ```
@@ -199,3 +213,5 @@ basic_features = ctx.get_data('run_001', 'basic_features')
 [CLI 工具总览](README.md) | 
 [用户指南](../user-guide/README.md) | 
 [快速开始](../user-guide/QUICKSTART_GUIDE.md)
+
+[^source]: 来源：`waveform_analysis/cli.py`。
