@@ -200,7 +200,7 @@ class TestContextIntegration:
 
     def test_context_with_stats_disabled(self):
         """测试禁用统计的Context"""
-        ctx = Context(storage_dir=self.temp_dir, enable_stats=False)
+        ctx = Context(storage_dir=self.temp_dir, stats_mode='off')
         assert ctx.stats_collector is None
 
         ctx.register(SimplePlugin())
@@ -211,7 +211,6 @@ class TestContextIntegration:
         """测试启用basic模式统计的Context"""
         ctx = Context(
             storage_dir=self.temp_dir,
-            enable_stats=True,
             stats_mode='basic'
         )
         assert ctx.stats_collector is not None
@@ -230,7 +229,6 @@ class TestContextIntegration:
         """测试启用detailed模式统计的Context"""
         ctx = Context(
             storage_dir=self.temp_dir,
-            enable_stats=True,
             stats_mode='detailed'
         )
         assert ctx.stats_collector is not None
@@ -250,7 +248,6 @@ class TestContextIntegration:
         """测试缓存命中的统计"""
         ctx = Context(
             storage_dir=self.temp_dir,
-            enable_stats=True,
             stats_mode='basic'
         )
         ctx.register(SimplePlugin())
@@ -274,7 +271,6 @@ class TestContextIntegration:
         """测试插件失败统计"""
         ctx = Context(
             storage_dir=self.temp_dir,
-            enable_stats=True,
             stats_mode='basic'
         )
         ctx.register(FailingPlugin())
@@ -295,7 +291,6 @@ class TestContextIntegration:
         """测试获取性能报告"""
         ctx = Context(
             storage_dir=self.temp_dir,
-            enable_stats=True,
             stats_mode='basic'
         )
         ctx.register(SimplePlugin())
@@ -317,7 +312,7 @@ class TestContextIntegration:
 
     def test_get_performance_report_disabled(self):
         """测试禁用统计时获取报告"""
-        ctx = Context(storage_dir=self.temp_dir, enable_stats=False)
+        ctx = Context(storage_dir=self.temp_dir, stats_mode='off')
         report = ctx.get_performance_report()
         assert "disabled" in report.lower()
 
@@ -327,7 +322,6 @@ class TestContextIntegration:
 
         ctx = Context(
             storage_dir=self.temp_dir,
-            enable_stats=True,
             stats_mode='basic',
             stats_log_file=log_file
         )
