@@ -32,7 +32,7 @@
 
 ```python
 # -*- coding: utf-8 -*-
-# DOC: docs/features/plugin/SIMPLE_PLUGIN_GUIDE.md
+# DOC: docs/plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md
 # DOC: docs/development/plugin-development/PLUGIN_SPEC_GUIDE.md
 """
 Plugins 模块 - 定义插件和配置选项的基类。

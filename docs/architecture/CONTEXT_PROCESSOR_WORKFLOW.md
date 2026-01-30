@@ -216,15 +216,15 @@ class CustomFeaturePlugin(Plugin):
     def compute(self, context, run_id, **kwargs):
         # 获取依赖数据
         st_waveforms = context.get_data(run_id, "st_waveforms")
-        
+
         # 获取配置
         threshold = context.get_config(self, "threshold")
-        
+
         # 执行处理
         features = self._extract_features(st_waveforms, threshold)
-        
+
         return features
-    
+
     def _extract_features(self, waveforms, threshold):
         # 自定义特征提取逻辑
         return {"custom_value": len(waveforms)}
@@ -483,7 +483,7 @@ ctx.show_config("basic_features")  # 显示 basic_features 插件的当前配置
 # 手动查找配置项属于哪个插件
 config_key = "height_range"
 matching_plugins = [
-    name for name, plugin in ctx._plugins.items() 
+    name for name, plugin in ctx._plugins.items()
     if config_key in plugin.options
 ]
 print(f"配置项 '{config_key}' 属于: {matching_plugins}")
@@ -538,7 +538,7 @@ intermediate_data = ctx.get_data("run_001", "waveforms")
 # 1. 每个插件只做一件事
 class MyPlugin(Plugin):
     provides = "one_thing"  # ✅ 明确
-    
+
 # 2. 使用类型提示和文档字符串
 def compute(self, context, run_id: str, **kwargs) -> np.ndarray:
     """清晰的文档说明"""
@@ -548,7 +548,7 @@ def compute(self, context, run_id: str, **kwargs) -> np.ndarray:
 def validate(self):
     if not self.provides:
         raise ValueError("Plugin must specify 'provides'")
-    
+
 # 4. 使用 Option 定义配置
 @option('threshold', default=50.0, type=float, help='Detection threshold')
 class MyPlugin(Plugin):
@@ -576,7 +576,7 @@ ctx.set_config({"height_range": (40, 90)}, plugin_name="basic_features")  # 只�
 
 ### Q3: 如何加速数据处理？
 
-A: 
+A:
 1. 启用并行处理（`channel_workers`, `n_jobs`）
 2. 使用 Numba JIT（自动检测）
 3. 合理使用缓存
@@ -584,7 +584,7 @@ A:
 
 ### Q4: 缓存占用太多空间怎么办？
 
-A: 
+A:
 ```python
 # 清除不需要的缓存
 ctx.clear_cache_for("run_001", "waveforms")  # 清除特定数据
@@ -618,7 +618,7 @@ st_waveforms = ctx.get_data("run_001", "st_waveforms")  # 再测试下一步
 - [插件系统指南](../updates/NEW_FEATURES.md)
 - [快速开始指南](../user-guide/QUICKSTART_GUIDE.md)
 - [缓存机制说明](../features/context/DATA_ACCESS.md#缓存机制)
-- [流式处理指南](../features/plugin/STREAMING_PLUGINS_GUIDE.md)
+- [流式处理指南](../plugins/guides/STREAMING_PLUGINS_GUIDE.md)
 
 ---
 

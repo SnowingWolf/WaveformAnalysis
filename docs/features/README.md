@@ -31,14 +31,14 @@
 - [绝对时间查询](context/ABSOLUTE_TIME_GUIDE.md)
 - [DAQ 适配器](../plugins/DAQ_ADAPTER_GUIDE.md)
 
-### [插件功能](plugin/README.md)
+### [插件功能](../plugins/README.md)
 
 信号处理插件、流式处理插件、Strax 适配器、插件开发教程。
 
-- [插件功能概述](plugin/PLUGIN_FEATURE.md)
-- [信号处理插件](plugin/SIGNAL_PROCESSING_PLUGINS.md)
-- [流式处理插件](plugin/STREAMING_PLUGINS_GUIDE.md)
-- [插件开发教程](plugin/SIMPLE_PLUGIN_GUIDE.md)
+- [插件功能概述](../plugins/tutorials/PLUGIN_FEATURE.md)
+- [信号处理插件](../plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md)
+- [流式处理插件](../plugins/guides/STREAMING_PLUGINS_GUIDE.md)
+- [插件开发教程](../plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md)
 
 ### [高级功能](advanced/README.md)
 
@@ -74,8 +74,8 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 | 绝对时间查询 | [ABSOLUTE_TIME_GUIDE.md](context/ABSOLUTE_TIME_GUIDE.md) |
 | 筛选事件数据 | [EVENT_FILTERS_GUIDE.md](utils/EVENT_FILTERS_GUIDE.md) |
 | 预览波形 | [waveform_preview.md](utils/waveform_preview.md) |
-| 使用信号处理插件 | [SIGNAL_PROCESSING_PLUGINS.md](plugin/SIGNAL_PROCESSING_PLUGINS.md) |
-| 开发自定义插件 | [SIMPLE_PLUGIN_GUIDE.md](plugin/SIMPLE_PLUGIN_GUIDE.md) |
+| 使用信号处理插件 | [SIGNAL_PROCESSING_PLUGINS.md](../plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md) |
+| 开发自定义插件 | [SIMPLE_PLUGIN_GUIDE.md](../plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) |
 
 ## 学习路径
 

@@ -360,8 +360,8 @@ my_data = ctx.get_data("run_001", "my_custom_data")
 - [快速开始指南](../../user-guide/QUICKSTART_GUIDE.md)
 - [架构概览](../../architecture/ARCHITECTURE.md)
 - [配置管理](../../features/context/CONFIGURATION.md)
-- [流式处理指南](../../features/plugin/STREAMING_PLUGINS_GUIDE.md)
-- [信号处理插件](../../features/plugin/SIGNAL_PROCESSING_PLUGINS.md)
+- [流式处理指南](../../../guides/STREAMING_PLUGINS_GUIDE.md)
+- [信号处理插件](../../../tutorials/SIGNAL_PROCESSING_PLUGINS.md)
 - [PluginSpec 开发指南](../../development/plugin-development/PLUGIN_SPEC_GUIDE.md)
 
 ---

@@ -22,7 +22,7 @@
 
 ### 插件开发
 
-1. [插件开发教程](../features/plugin/SIMPLE_PLUGIN_GUIDE.md) - 写第一个插件
+1. [插件开发教程](../plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) - 写第一个插件
 2. [插件开发指南](../development/plugin-development/README.md) - 深入学习插件开发
 3. [配置管理](../features/context/CONFIGURATION.md) - 了解配置选项
 

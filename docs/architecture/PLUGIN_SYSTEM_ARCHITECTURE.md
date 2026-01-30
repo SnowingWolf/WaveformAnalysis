@@ -542,8 +542,8 @@ storage_dir/
 ## 相关文档
 
 - [系统架构](ARCHITECTURE.md) - 完整系统架构
-- [插件开发教程](../features/plugin/SIMPLE_PLUGIN_GUIDE.md) - 从零开始写插件
+- [插件开发教程](../plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) - 从零开始写插件
 - [插件开发完整指南](../development/plugin-development/plugin_guide.md) - 深入学习
 - [PluginSpec 指南](../development/plugin-development/PLUGIN_SPEC_GUIDE.md) - 高级契约系统
-- [流式插件指南](../features/plugin/STREAMING_PLUGINS_GUIDE.md) - 流式处理开发
-- [Plugin Set & Profile](../features/plugin/PLUGIN_SET_PROFILE_GUIDE.md) - 插件集合与配置
+- [流式插件指南](../plugins/guides/STREAMING_PLUGINS_GUIDE.md) - 流式处理开发
+- [Plugin Set & Profile](../plugins/guides/PLUGIN_SET_PROFILE_GUIDE.md) - 插件集合与配置
