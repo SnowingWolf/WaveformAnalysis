@@ -265,8 +265,8 @@ print(f"时间: {dt}")  # 应该是合理的日期时间
 
 ## 相关文档
 
-- [DAQ 适配器指南](DAQ_ADAPTER_GUIDE.md)
-- [绝对时间查询指南](ABSOLUTE_TIME_GUIDE.md)
+- [DAQ 适配器指南](../../plugins/DAQ_ADAPTER_GUIDE.md)
+- [绝对时间查询指南](../context/ABSOLUTE_TIME_GUIDE.md)
 - [架构设计文档](../../architecture/ARCHITECTURE.md)
 
 ---
