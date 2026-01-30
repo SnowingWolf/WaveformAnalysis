@@ -1,0 +1,93 @@
+# {{ plugin.name }}
+
+> {{ plugin.description or "No description available." }}
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Provides** | `{{ plugin.provides }}` |
+| **Version** | `{{ plugin.version }}` |
+| **Category** | {{ plugin.category_display }} |
+| **Accelerator** | {{ plugin.accelerator_display }} |
+| **Streaming** | {{ "Yes" if plugin.supports_streaming else "No" }} |
+| **Side Effect** | {{ "Yes" if plugin.is_side_effect else "No" }} |
+
+{% if plugin.depends_on %}
+## Dependencies
+
+This plugin depends on the following data:
+
+{% for dep in plugin.depends_on %}
+- [`{{ dep }}`]({{ dep }}.md)
+{% endfor %}
+{% else %}
+## Dependencies
+
+This plugin has no dependencies.
+{% endif %}
+
+{% if plugin.config_options %}
+## Configuration Options
+
+| Option | Type | Default | Units | Description |
+|--------|------|---------|-------|-------------|
+{% for opt in plugin.config_options %}
+| `{{ opt.name }}`{% if opt.deprecated %} ⚠️{% endif %} | `{{ opt.type }}` | `{{ opt.default }}` | {{ opt.units or "-" }} | {{ opt.doc or "-" }} |
+{% endfor %}
+
+{% if plugin.config_options|selectattr("deprecated")|list %}
+> ⚠️ Options marked with ⚠️ are deprecated and may be removed in future versions.
+{% endif %}
+{% else %}
+## Configuration Options
+
+This plugin has no configuration options.
+{% endif %}
+
+{% if plugin.output_fields %}
+## Output Schema
+
+**Output Type**: `{{ plugin.output_kind }}`
+
+| Field | Type | Units | Description |
+|-------|------|-------|-------------|
+{% for field in plugin.output_fields %}
+| `{{ field.name }}` | `{{ field.dtype }}` | {{ field.units or "-" }} | {{ field.doc or "-" }} |
+{% endfor %}
+{% elif plugin.output_kind != "unknown" %}
+## Output Schema
+
+**Output Type**: `{{ plugin.output_kind }}`
+{% endif %}
+
+## Usage Example
+
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import {{ plugin.name }}
+
+# Create context and register plugin
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register({{ plugin.name }}())
+
+{% if plugin.config_options %}
+# Configure plugin (optional)
+ctx.set_config({
+{% for opt in plugin.config_options[:3] %}
+    "{{ opt.name }}": {{ opt.default.__repr__() }},
+{% endfor %}
+}, plugin_name="{{ plugin.provides }}")
+
+{% endif %}
+# Get data
+data = ctx.get_data("run_001", "{{ plugin.provides }}")
+```
+
+## Module
+
+- **Module Path**: `{{ plugin.module_path }}`
+
+---
+
+*This documentation was auto-generated from plugin metadata.*

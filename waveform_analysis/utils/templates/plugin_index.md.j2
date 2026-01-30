@@ -1,0 +1,98 @@
+# Built-in Plugins Index
+
+> Auto-generated documentation for WaveformAnalysis built-in plugins.
+
+## Summary
+
+- **Total Plugins**: {{ plugins|length }}
+- **Categories**: {{ by_category|length }}
+
+## Quick Reference
+
+| Plugin | Provides | Version | Category | Dependencies |
+|--------|----------|---------|----------|--------------|
+{% for plugin in plugins|sort(attribute='provides') %}
+| [`{{ plugin.name }}`]({{ plugin.provides }}.md) | `{{ plugin.provides }}` | {{ plugin.version }} | {{ plugin.category_display }} | {% if plugin.depends_on %}{{ plugin.depends_on|join(", ") }}{% else %}-{% endif %} |
+{% endfor %}
+
+## Plugins by Category
+
+{% for category, category_plugins in by_category %}
+### {{ category_names.get(category, category) }}
+
+{% for plugin in category_plugins|sort(attribute='provides') %}
+#### [`{{ plugin.provides }}`]({{ plugin.provides }}.md)
+
+{{ plugin.description or "No description available." }}
+
+- **Plugin Class**: `{{ plugin.name }}`
+- **Version**: `{{ plugin.version }}`
+- **Accelerator**: {{ plugin.accelerator_display }}
+{% if plugin.depends_on %}- **Dependencies**: {{ plugin.depends_on|join(", ") }}{% endif %}
+
+{% endfor %}
+{% endfor %}
+
+## Data Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Data Loading                              │
+│  raw_files → waveforms                                          │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Waveform Processing                           │
+│  st_waveforms → filtered_waveforms                              │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ Feature Extract │ │ Signal Process  │ │  Hit Finding    │
+│ basic_features  │ │ signal_peaks    │ │ hits            │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+              │               │               │
+              └───────────────┼───────────────┘
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       Data Export                                │
+│  dataframe → grouped_events → paired_events                     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Configuration Guide
+
+### Global Configuration
+
+```python
+from waveform_analysis.core.context import Context
+
+ctx = Context(config={
+    "data_root": "DAQ",
+    "n_channels": 2,
+    "daq_adapter": "vx2730",
+})
+```
+
+### Plugin-Specific Configuration
+
+```python
+# Set configuration for a specific plugin
+ctx.set_config({
+    "height": 30.0,
+    "prominence": 0.7,
+}, plugin_name="signal_peaks")
+
+# Or use dot notation
+ctx.set_config({
+    "signal_peaks.height": 30.0,
+    "signal_peaks.prominence": 0.7,
+})
+```
+
+---
+
+*This index was auto-generated from plugin metadata.*
+*Last updated: {{ "now"|string }}*
