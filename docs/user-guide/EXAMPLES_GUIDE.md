@@ -279,7 +279,7 @@ ctx.show_config()
 
 - [快速开始](QUICKSTART_GUIDE.md) - 入门教程
 - [配置管理](../features/context/CONFIGURATION.md) - 详细配置说明
-- [插件教程](../features/plugin/SIMPLE_PLUGIN_GUIDE.md) - 自定义插件开发
+- [插件教程](../plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) - 自定义插件开发
 - [API 参考](../api/README.md) - API 文档
 
 [^source]: 来源：`waveform_analysis/core/context.py`、`waveform_analysis/core/plugins/profiles.py`、`waveform_analysis/core/plugins/builtin/cpu/`。

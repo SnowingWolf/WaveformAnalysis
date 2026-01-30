@@ -37,16 +37,16 @@ import numpy as np
 ```python
 class MyFirstPlugin(Plugin):
     """我的第一个插件"""
-    
+
     # 必需：定义插件提供的数据名称
     provides = "my_first_data"
-    
+
     # 必需：定义依赖（空列表表示无依赖）
     depends_on = []
-    
+
     # 可选：定义输出数据类型
     output_dtype = np.dtype([('value', np.int32)])
-    
+
     # 必需：实现 compute 方法
     def compute(self, context, run_id, **kwargs):
         """核心计算逻辑"""
@@ -82,15 +82,15 @@ print(data)
 ```python
 class MyDependentPlugin(Plugin):
     """依赖其他插件的示例"""
-    
+
     provides = "my_processed_data"
     depends_on = ["st_waveforms"]  # 依赖 st_waveforms 插件
-    
+
     def compute(self, context, run_id, **kwargs):
         """从 context 获取依赖的数据"""
         # 通过 context.get_data 获取依赖的数据
         st_waveforms = context.get_data(run_id, "st_waveforms")
-        
+
         # 处理数据
         result = []
         for ch_data in st_waveforms:
@@ -100,7 +100,7 @@ class MyDependentPlugin(Plugin):
                 result.append(lengths)
             else:
                 result.append([])
-        
+
         return result
 ```
 
@@ -145,10 +145,10 @@ from waveform_analysis.core.plugins.core.base import Plugin, Option
 
 class MyConfigurablePlugin(Plugin):
     """带配置选项的插件"""
-    
+
     provides = "my_configurable_data"
     depends_on = ["st_waveforms"]
-    
+
     # 定义配置选项
     options = {
         "threshold": Option(
@@ -162,16 +162,16 @@ class MyConfigurablePlugin(Plugin):
             help="乘数因子"
         ),
     }
-    
+
     def compute(self, context, run_id, **kwargs):
         """使用配置选项"""
         # 获取配置值
         threshold = context.get_config(self, "threshold")
         multiplier = context.get_config(self, "multiplier")
-        
+
         # 获取依赖数据
         st_waveforms = context.get_data(run_id, "st_waveforms")
-        
+
         # 使用配置处理数据
         result = []
         for ch_data in st_waveforms:
@@ -184,7 +184,7 @@ class MyConfigurablePlugin(Plugin):
                 result.append(processed)
             else:
                 result.append([])
-        
+
         return result
 ```
 
@@ -217,12 +217,12 @@ import numpy as np
 
 class SimpleCounterPlugin(Plugin):
     """简单的计数器插件 - 统计事件数量"""
-    
+
     provides = "event_count"
     depends_on = ["st_waveforms"]
     description = "统计每个通道的事件数量"
     version = "1.0.0"
-    
+
     options = {
         "min_events": Option(
             default=0,
@@ -230,15 +230,15 @@ class SimpleCounterPlugin(Plugin):
             help="最小事件数阈值（用于过滤）"
         ),
     }
-    
+
     def compute(self, context, run_id, **kwargs):
         """统计事件数量"""
         # 获取配置
         min_events = context.get_config(self, "min_events")
-        
+
         # 获取依赖数据
         st_waveforms = context.get_data(run_id, "st_waveforms")
-        
+
         # 统计每个通道的事件数
         counts = []
         for ch_data in st_waveforms:
@@ -247,14 +247,14 @@ class SimpleCounterPlugin(Plugin):
                 counts.append(count)
             else:
                 counts.append(0)
-        
+
         return counts
 
 # 使用示例
 if __name__ == "__main__":
     # 创建 Context
     ctx = Context(storage_dir="./cache")
-    
+
     # 注册标准插件（提供 st_waveforms）
     from waveform_analysis.core.plugins import (
         RawFilesPlugin,
@@ -266,19 +266,19 @@ if __name__ == "__main__":
         WaveformsPlugin(),
         StWaveformsPlugin(),
     )
-    
+
     # 注册自定义插件
     ctx.register(SimpleCounterPlugin())
-    
+
     # 设置配置
     ctx.set_config({
         "min_events": 5
     }, plugin_name="event_count")
-    
+
     # 运行处理
     run_name = "my_run"
     counts = ctx.get_data(run_name, "event_count")
-    
+
     print(f"各通道事件数: {counts}")
 ```
 
@@ -412,7 +412,7 @@ def compute(self, context: Any, run_id: str, **kwargs) -> Any:
         context: Context 实例，用于获取数据和配置
         run_id: 运行标识符（字符串）
         **kwargs: 其他参数（通常包含依赖数据）
-    
+
     Returns:
         任意类型的数据（通常是 numpy 数组、列表或生成器）
     """
@@ -425,10 +425,10 @@ def compute(self, context: Any, run_id: str, **kwargs) -> Any:
 def compute(self, context, run_id, **kwargs):
     # 方式 1: 通过 context.get_data（推荐）
     data = context.get_data(run_id, "dependency_name")
-    
+
     # 方式 2: 通过 kwargs（如果依赖数据自动传入）
     data = kwargs.get("dependency_name")
-    
+
     return processed_data
 ```
 
@@ -438,10 +438,10 @@ def compute(self, context, run_id, **kwargs):
 def compute(self, context, run_id, **kwargs):
     # 获取配置值
     threshold = context.get_config(self, "threshold")
-    
+
     # 或者使用默认值
     threshold = context.get_config(self, "threshold", default=10.0)
-    
+
     return processed_data
 ```
 
@@ -452,7 +452,7 @@ def compute(self, context, run_id, **kwargs):
 现在你已经学会了如何创建最简单的插件！接下来可以：
 
 1. **学习更多高级功能**:
-   - 查看 [插件开发完整指南](../../api/plugin_guide.md) 了解所有功能
+   - 查看 [插件开发完整指南](../../development/plugin-development/plugin_guide.md) 了解所有功能
    - 查看 [信号处理插件文档](SIGNAL_PROCESSING_PLUGINS.md) 学习复杂插件的实现
 
 2. **查看实际插件示例**:
@@ -497,6 +497,6 @@ A: 可以，通过 `context.get_data()` 获取任何已注册插件提供的数�
 ---
 
 **快速链接**:
-[插件开发完整指南](../../api/plugin_guide.md) |
+[插件开发完整指南](../../development/plugin-development/plugin_guide.md) |
 [信号处理插件文档](SIGNAL_PROCESSING_PLUGINS.md) |
 [API 参考](../../api/README.md)

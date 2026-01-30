@@ -8,23 +8,23 @@
 
 | 文档 | 说明 |
 |------|------|
-| [API 参考](api_reference.md) | 完整 API 参考文档（Context） |
-| [配置参考](config_reference.md) | 所有插件的配置选项参考 |
-| [插件开发指南](plugin_guide.md) | 插件开发完整指南 |
+| [配置管理](../features/context/CONFIGURATION.md) | 配置系统与插件选项 |
+| [插件开发指南](../development/plugin-development/README.md) | 插件开发完整指南 |
+| [内置插件文档](../plugins/builtin/auto/INDEX.md) | 自动生成的插件 API 文档 |
 
 ## 学习路径
 
 ### API 查找
 
-1. [API 参考](api_reference.md) - 查找需要的方法
-2. 阅读方法文档和示例
-3. 应用到自己的代码中
+1. 查看 [CLAUDE.md](../../CLAUDE.md) 中的 Common Patterns 部分
+2. 阅读代码中的 docstring（推荐使用 IDE 的代码补全）
+3. 查看 [内置插件文档](../plugins/builtin/auto/INDEX.md) 了解插件 API
 
 ### 插件开发
 
 1. [插件开发教程](../features/plugin/SIMPLE_PLUGIN_GUIDE.md) - 写第一个插件
-2. [插件开发指南](plugin_guide.md) - 深入学习插件开发
-3. [配置参考](config_reference.md) - 了解配置选项
+2. [插件开发指南](../development/plugin-development/README.md) - 深入学习插件开发
+3. [配置管理](../features/context/CONFIGURATION.md) - 了解配置选项
 
 ## 相关资源
 

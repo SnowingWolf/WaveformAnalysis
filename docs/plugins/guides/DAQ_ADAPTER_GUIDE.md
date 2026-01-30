@@ -1,6 +1,6 @@
 # DAQ 适配器使用指南
 
-**导航**: [文档中心](../README.md) > [功能特性](../features/README.md) > [core](../features/core/README.md) > DAQ 适配器使用指南
+**导航**: [文档中心](../README.md) > [功能特性](../../features/README.md) > DAQ 适配器使用指南
 
 
 本文档详细说明如何使用 DAQ 适配器系统处理不同格式的 DAQ 数据，以及如何自定义适配器支持新的 DAQ 系统。
@@ -622,7 +622,7 @@ for f in files:
 - [快速入门指南](../user-guide/QUICKSTART_GUIDE.md)
 - [架构设计文档](../architecture/ARCHITECTURE.md)
 - [插件开发指南](../development/plugin-development/plugin_guide.md)
-- [API 参考](../api/api_reference.md)
+- [API 参考](../api/README.md)
 
 ---
 
