@@ -17,13 +17,6 @@ Foundation 子模块 - 框架基础设施
 """
 
 # 异常处理
-# 文档读取器
-from .doc_reader import (
-    TOPIC_DOC_MAPPING,
-    DocReader,
-    find_docs_root,
-    get_doc_reader,
-)
 from .exceptions import (
     ErrorContext,
     ErrorSeverity,
@@ -91,9 +84,4 @@ __all__ = [
     "reset_global_tracker",
     "format_time",
     "format_throughput",
-    # 文档读取器
-    "DocReader",
-    "get_doc_reader",
-    "find_docs_root",
-    "TOPIC_DOC_MAPPING",
 ]

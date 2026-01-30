@@ -286,9 +286,6 @@ class Context(CacheMixin, PluginMixin):
         if not storage_backend and not os.path.exists(self.storage_dir):
             os.makedirs(self.storage_dir, exist_ok=True)
 
-        # Help system (lazy initialization)
-        self._help_system = None
-
         # Epoch management (per-run time reference)
         self._epoch_cache: Dict[str, Any] = {}  # run_id -> EpochInfo
 
@@ -3780,66 +3777,179 @@ class Context(CacheMixin, PluginMixin):
     # 帮助系统和快速开始模板
     # ==========================
 
-    def help(
-        self, topic: Optional[str] = None, search: Optional[str] = None, verbose: bool = False
-    ) -> str:
+    def help(self, topic: Optional[str] = None) -> str:
         """
-        显示帮助信息
+        显示文档位置和快速参考
 
         Args:
-            topic: 帮助主题 ('quickstart', 'config', 'plugins', 'performance', 'examples')
-            search: 搜索关键词（在方法名、插件名、配置项中搜索）
-            verbose: 显示详细信息（新手模式）
+            topic: 可选的主题名称（用于提示具体文档路径）
 
         Returns:
             帮助文本
 
         Examples:
-            >>> ctx.help()  # 显示快速参考
-            >>> ctx.help('quickstart')  # 快速开始指南
-            >>> ctx.help('config')  # 配置管理帮助
-            >>> ctx.help(search='time_range')  # 搜索相关方法
-            >>> ctx.help('quickstart', verbose=True)  # 详细模式
+            >>> ctx.help()  # 显示文档位置
+            >>> ctx.help('config')  # 提示配置相关文档
         """
-        # 延迟加载 help 系统
-        if self._help_system is None:
-            from .foundation.help import HelpSystem
+        # 主题到文档的映射
+        topic_docs = {
+            'quickstart': 'docs/user-guide/QUICKSTART_GUIDE.md',
+            'config': 'docs/features/context/CONFIGURATION.md',
+            'plugins': 'docs/features/plugin/README.md',
+            'performance': 'docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md',
+            'examples': 'docs/user-guide/EXAMPLES_GUIDE.md',
+        }
 
-            self._help_system = HelpSystem(self)
+        if topic is None:
+            # 快速参考
+            result = """
+╔══════════════════════════════════════════════════════════════════════════════╗
+║ WaveformAnalysis - 文档指南                                                 ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 
-        result = self._help_system.show(topic, search, verbose)
+📚 文档位置
+  • 项目说明: CLAUDE.md
+  • 详细文档: docs/ 目录
+  • 快速参考: QUICK_REFERENCE.md
+
+🚀 快速开始
+────────────────────────────────────────────────────────────────────────────────
+  from waveform_analysis.core.context import Context
+  from waveform_analysis.core.plugins import profiles
+
+  ctx = Context(storage_dir='./data')
+  ctx.register(*profiles.cpu_default())
+  ctx.set_config({'n_channels': 2})
+  data = ctx.get_data('run_001', 'basic_features')
+────────────────────────────────────────────────────────────────────────────────
+
+📖 主题文档
+  ctx.help('quickstart')   - 快速上手指南
+  ctx.help('config')       - 配置管理
+  ctx.help('plugins')      - 插件系统
+  ctx.help('performance')  - 性能优化
+  ctx.help('examples')     - 使用示例
+
+🔧 常用方法
+  ctx.list_plugin_configs()     - 查看所有配置选项
+  ctx.show_config()             - 查看当前配置
+  ctx.list_provided_data()      - 查看可用数据类型
+  ctx.plot_lineage('peaks')     - 可视化依赖关系
+  ctx.preview_execution(...)    - 预览执行计划
+
+💡 提示: 使用 IDE 或编辑器打开 docs/ 目录获得最佳阅读体验
+"""
+        elif topic in topic_docs:
+            doc_path = topic_docs[topic]
+            result = f"""
+📖 {topic.upper()} 主题文档
+
+文档位置: {doc_path}
+
+💡 查看方式:
+  • 命令行: cat {doc_path}
+  • 编辑器: code {doc_path}
+  • 带高亮: bat {doc_path}
+
+返回主菜单: ctx.help()
+"""
+        else:
+            available = ', '.join(topic_docs.keys())
+            result = f"""
+❌ 未知主题: '{topic}'
+
+可用主题: {available}
+
+💡 使用 ctx.help() 查看完整帮助
+"""
+
         print(result)
         return result
 
-    def quickstart(self, template: str = "basic", **params) -> str:
+    def quickstart(self, template: str = "basic") -> str:
         """
-        生成快速开始代码模板
+        显示快速开始代码示例
 
         Args:
-            template: 模板名称 ('basic', 'basic_analysis')
-            **params: 模板参数（如 run_id, n_channels）
+            template: 模板名称（目前仅支持 'basic'）
 
         Returns:
-            可执行的 Python 代码字符串
+            示例代码字符串
 
         Examples:
-            >>> code = ctx.quickstart('basic')
-            >>> print(code)  # 或保存到文件
-            >>>
-            >>> # 自定义参数
-            >>> code = ctx.quickstart('basic', run_id='run_002', n_channels=4)
-            >>>
-            >>> # 保存到文件
-            >>> with open('my_analysis.py', 'w') as f:
-            ...     f.write(ctx.quickstart('basic'))
+            >>> ctx.quickstart()
+            >>> ctx.quickstart('basic')
         """
-        from .foundation.quickstart_templates import TEMPLATES
+        if template != "basic":
+            result = f"""
+❌ 未知模板: '{template}'
 
-        if template not in TEMPLATES:
-            available = ", ".join(TEMPLATES.keys())
-            raise ValueError(f"未知模板 '{template}'。可用模板: {available}")
+目前仅支持 'basic' 模板。
 
-        code = TEMPLATES[template].generate(self, **params)
+💡 更多示例请查看:
+  • docs/user-guide/QUICKSTART_GUIDE.md
+  • docs/user-guide/EXAMPLES_GUIDE.md
+  • examples/ 目录
+"""
+            print(result)
+            return result
+
+        # 基础分析流程示例
+        code = '''"""
+WaveformAnalysis 基础分析流程
+
+这是一个完整的数据分析示例，展示从原始数据到事件配对的完整流程。
+"""
+
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins import profiles
+
+# 1. 创建 Context 并注册插件
+ctx = Context(config={
+    'data_root': 'DAQ',           # 数据根目录
+    'n_channels': 2,              # 通道数
+    'daq_adapter': 'vx2730',      # DAQ 适配器
+})
+
+# 注册标准 CPU 插件
+ctx.register(*profiles.cpu_default())
+
+# 2. 设置运行 ID
+run_id = 'run_001'
+
+# 3. 获取数据（自动解析依赖）
+peaks = ctx.get_data(run_id, 'peaks')
+print(f"找到 {len(peaks)} 个峰值")
+
+# 4. 查看配置和依赖
+ctx.show_config()                      # 显示当前配置
+ctx.plot_lineage('peaks')              # 可视化依赖关系
+ctx.preview_execution(run_id, 'peaks') # 预览执行计划
+
+# 5. 更多数据类型
+df = ctx.get_data(run_id, 'df')                    # DataFrame
+grouped = ctx.get_data(run_id, 'df_grouped')       # 分组事件
+paired = ctx.get_data(run_id, 'df_paired')         # 配对事件
+
+# 6. 时间范围查询
+peaks_subset = ctx.get_data_time_range(
+    run_id, 'peaks',
+    start_time=1000000,
+    end_time=2000000
+)
+
+# 7. 缓存管理
+ctx.cache_stats()                      # 查看缓存统计
+ctx.diagnose_cache(run_id)             # 诊断缓存问题
+
+print("✅ 分析完成！")
+
+# 💡 更多示例请查看:
+#   • docs/user-guide/QUICKSTART_GUIDE.md
+#   • docs/user-guide/EXAMPLES_GUIDE.md
+#   • examples/ 目录
+'''
+
         print(code)
         return code
 
