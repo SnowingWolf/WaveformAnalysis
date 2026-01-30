@@ -1,3 +1,4 @@
+# DOC: docs/features/context/DATA_ACCESS.md#清理缓存
 """
 缓存清理模块 - 智能清理策略。
 
@@ -12,6 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from ..foundation.utils import exporter
 from .cache_analyzer import CacheAnalyzer, CacheEntry
+from .cache_utils import format_size
 
 export, __all__ = exporter()
 
@@ -56,7 +58,7 @@ class CleanupPlan:
     @property
     def size_to_free_human(self) -> str:
         """人类可读的释放空间大小"""
-        return CacheCleaner._format_size(self.total_size_to_free)
+        return format_size(self.total_size_to_free)
 
 
 @export
@@ -274,7 +276,7 @@ class CacheCleaner:
             for run_id in sorted(by_run.keys()):
                 run_entries = by_run[run_id]
                 run_size = sum(e.size_bytes for e in run_entries)
-                print(f"\n  {run_id} ({len(run_entries)} 条目, {self._format_size(run_size)})")
+                print(f"\n  {run_id} ({len(run_entries)} 条目, {format_size(run_size)})")
 
                 for entry in sorted(run_entries, key=lambda e: e.data_name):
                     print(
@@ -329,7 +331,7 @@ class CacheCleaner:
                 result["errors"].append({"key": entry.key, "error": str(e)})
                 print(f"  [error] {entry.key}: {e}")
 
-        result["freed_human"] = self._format_size(result["freed_bytes"])
+        result["freed_human"] = format_size(result["freed_bytes"])
 
         if dry_run:
             print("\n[Dry-Run] 完成。实际执行请设置 dry_run=False")
@@ -390,7 +392,7 @@ class CacheCleaner:
 
         if current_size <= target_bytes:
             print(
-                f"[CacheCleaner] 当前大小 {self._format_size(current_size)} 已低于目标 {target_total_mb:.1f} MB"
+                f"[CacheCleaner] 当前大小 {format_size(current_size)} 已低于目标 {target_total_mb:.1f} MB"
             )
             return {
                 "dry_run": dry_run,
@@ -468,15 +470,3 @@ class CacheCleaner:
         )
 
         return self.execute(plan, dry_run=dry_run)
-
-    @staticmethod
-    def _format_size(size_bytes: int) -> str:
-        """格式化大小"""
-        if size_bytes < 1024:
-            return f"{size_bytes} B"
-        elif size_bytes < 1024 * 1024:
-            return f"{size_bytes / 1024:.1f} KB"
-        elif size_bytes < 1024 * 1024 * 1024:
-            return f"{size_bytes / (1024 * 1024):.1f} MB"
-        else:
-            return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"

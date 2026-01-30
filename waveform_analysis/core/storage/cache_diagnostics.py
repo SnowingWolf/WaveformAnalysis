@@ -1,3 +1,4 @@
+# DOC: docs/features/context/DATA_ACCESS.md#诊断问题
 """
 缓存诊断模块 - 问题诊断与修复工具。
 
@@ -111,6 +112,8 @@ class CacheDiagnostics:
         check_orphans: bool = True,
         check_versions: bool = True,
         verbose: bool = True,
+        parallel: bool = True,
+        max_workers: Optional[int] = None,
     ) -> List[DiagnosticIssue]:
         """执行完整诊断
 
@@ -120,6 +123,8 @@ class CacheDiagnostics:
             check_orphans: 是否检查孤儿文件
             check_versions: 是否检查版本不匹配
             verbose: 是否显示进度
+            parallel: 是否使用并行检查（默认 True）
+            max_workers: 最大并行工作线程数（默认 8）
 
         Returns:
             诊断问题列表
@@ -135,18 +140,44 @@ class CacheDiagnostics:
         if verbose:
             print(f"  检查 {len(entries)} 个缓存条目...")
 
-        # 检查每个条目
-        for entry in entries:
-            # 版本检查
-            if check_versions:
-                issue = self.check_version_mismatch(entry)
-                if issue:
-                    issues.append(issue)
+        # 并行检查条目
+        if parallel and len(entries) > 10:
+            from ..execution.manager import parallel_map
 
-            # 完整性检查
-            if check_integrity:
-                integrity_issues = self.check_integrity(entry)
-                issues.extend(integrity_issues)
+            def check_entry(entry: CacheEntry) -> List[DiagnosticIssue]:
+                entry_issues = []
+                # 版本检查
+                if check_versions:
+                    issue = self.check_version_mismatch(entry)
+                    if issue:
+                        entry_issues.append(issue)
+                # 完整性检查
+                if check_integrity:
+                    integrity_issues = self.check_integrity(entry)
+                    entry_issues.extend(integrity_issues)
+                return entry_issues
+
+            # 使用线程池并行检查（IO 密集型）
+            all_results = parallel_map(
+                check_entry,
+                entries,
+                executor_type="thread",
+                max_workers=max_workers or 8,
+            )
+            issues = [issue for result in all_results for issue in result]
+        else:
+            # 串行检查
+            for entry in entries:
+                # 版本检查
+                if check_versions:
+                    issue = self.check_version_mismatch(entry)
+                    if issue:
+                        issues.append(issue)
+
+                # 完整性检查
+                if check_integrity:
+                    integrity_issues = self.check_integrity(entry)
+                    issues.extend(integrity_issues)
 
         # 检查孤儿文件
         if check_orphans:

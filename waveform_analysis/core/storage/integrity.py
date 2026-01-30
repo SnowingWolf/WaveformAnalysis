@@ -1,3 +1,4 @@
+# DOC: docs/features/context/DATA_ACCESS.md#诊断问题
 """
 数据完整性校验模块 - 提供高效的checksum计算和验证
 
