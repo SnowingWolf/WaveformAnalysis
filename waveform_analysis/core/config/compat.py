@@ -73,6 +73,7 @@ def get_current_version() -> str:
         版本字符串
     """
     from waveform_analysis import __version__
+
     return __version__
 
 
@@ -88,6 +89,7 @@ class DeprecationInfo:
         removed_in: 计划移除版本
         message: 自定义弃用消息（可选）
     """
+
     old_name: str
     new_name: str
     deprecated_in: str
@@ -260,8 +262,7 @@ class CompatManager:
         if _compare_versions(current_version, info.removed_in) >= 0:
             ctx_prefix = f"[{context}] " if context else ""
             raise ValueError(
-                f"{ctx_prefix}'{old_name}' was removed in version {info.removed_in}. "
-                f"Use '{info.new_name}' instead."
+                f"{ctx_prefix}'{old_name}' was removed in version {info.removed_in}. Use '{info.new_name}' instead."
             )
 
         # 版本未过期，发出警告
