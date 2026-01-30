@@ -253,8 +253,6 @@ temp/
 # ================================
 # Git and Version Control
 # ================================
-# GitHub specific (if you want to track .github/ remove this line)
-.github/
 
 # ================================
 # Project Specific
@@ -270,6 +268,7 @@ test_*.py
 debug_*.py
 !tests/test_*.py
 !tests/**/test_*.py
+!**/tests/test_*.py
 
 # Old and backup files
 *.old

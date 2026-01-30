@@ -82,9 +82,9 @@ def generate_docs(args):
         ctx = None
         if args.with_context:
             from waveform_analysis.core.context import Context
-            from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
+            from waveform_analysis.core.plugins import profiles
             ctx = Context()
-            ctx.register(*standard_plugins)  # 使用解包操作符
+            ctx.register(*profiles.cpu_default())
             print("✅ 已加载 Context 和标准插件")
 
         generator = DocGenerator(ctx)

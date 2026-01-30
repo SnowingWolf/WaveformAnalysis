@@ -2,7 +2,7 @@
 
 **导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [Context 功能](README.md) > 数据访问
 
-本文档介绍如何使用 Context 获取插件产出的数据。
+本文档介绍如何使用 Context 获取插件产出的数据。[^source]
 
 ## 基本数据获取
 
@@ -40,6 +40,10 @@ paired = ctx.get_data("run_001", "paired_events")
 # 依赖的数据会被缓存，后续访问直接返回
 waveforms = ctx.get_data("run_001", "waveforms")  # 直接从缓存返回
 ```
+
+## 缓存管理
+
+缓存用于避免重复计算，详细机制见下节。
 
 ## 缓存机制
 
@@ -306,3 +310,5 @@ data = ctx.get_data("run_001", "waveforms")  # 重新计算
 - [配置管理](CONFIGURATION.md) - 设置插件配置
 - [缓存管理 CLI](../../cli/WAVEFORM_CACHE.md) - 缓存扫描、诊断与清理
 - [执行预览](PREVIEW_EXECUTION.md) - 执行前预览
+
+[^source]: 来源：`waveform_analysis/core/context.py`、`waveform_analysis/core/storage/`。

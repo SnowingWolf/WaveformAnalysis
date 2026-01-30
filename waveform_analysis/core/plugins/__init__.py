@@ -30,6 +30,7 @@ Plugins 子模块 - 插件系统统一入口
 
 # 从 core 子模块导出核心基础设施
 # 从 builtin 子模块导出内置插件
+from . import plugin_sets, profiles
 from .builtin.cpu import (
     BasicFeaturesPlugin,
     DataFramePlugin,
@@ -128,4 +129,7 @@ __all__ = [
     "SignalPeaksPlugin",
     "WaveformWidthPlugin",
     "SignalPeaksStreamPlugin",
+    # plugin sets / profiles
+    "plugin_sets",
+    "profiles",
 ]

@@ -19,3 +19,9 @@ git diff --name-status "${base}" -- \
 echo
 
 echo "Tip: compare code vs doc lists and update missing items."
+echo
+
+# 运行 Python 脚本进行详细检查
+echo "Running Doc Anchor validation..."
+echo
+python scripts/check_doc_anchors.py --check-sync --base "${base}"

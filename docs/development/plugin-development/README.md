@@ -10,11 +10,14 @@
 |------|------|
 | [插件开发教程](../../features/plugin/SIMPLE_PLUGIN_GUIDE.md) | 从零开始写第一个插件 |
 | [插件开发完整指南](plugin_guide.md) | 深入学习插件开发 |
+| [插件脚手架](PLUGIN_SCAFFOLD.md) | 插件脚手架与测试夹具 |
+| [PluginSpec 指南](PLUGIN_SPEC_GUIDE.md) | PluginSpec 与 ConfigField 高级指南 |
 
 ## 学习路径
 
 1. [插件开发教程](../../features/plugin/SIMPLE_PLUGIN_GUIDE.md) - 第一个插件
 2. [插件开发完整指南](plugin_guide.md) - 深入学习
+3. [PluginSpec 指南](PLUGIN_SPEC_GUIDE.md) - 高级功能（可选）
 
 ## 插件示例
 

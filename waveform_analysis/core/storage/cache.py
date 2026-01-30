@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# DOC: docs/features/context/DATA_ACCESS.md#缓存管理
 """
 Cache 模块 - 缓存管理与签名校验。
 

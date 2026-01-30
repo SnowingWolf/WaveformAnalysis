@@ -35,6 +35,16 @@ from .base import (
     takes_config,
 )
 
+# 插件契约规范
+from .spec import (
+    Capabilities,
+    ConfigField,
+    FieldSpec,
+    InputRequirement,
+    OutputSchema,
+    PluginSpec,
+)
+
 # 插件热重载
 from .hot_reload import (
     PluginHotReloader,
@@ -68,6 +78,13 @@ __all__ = [
     "Option",
     "option",
     "takes_config",
+    # 插件契约规范
+    "PluginSpec",
+    "OutputSchema",
+    "FieldSpec",
+    "InputRequirement",
+    "Capabilities",
+    "ConfigField",
     # 流式插件
     "StreamingPlugin",
     "StreamingContext",

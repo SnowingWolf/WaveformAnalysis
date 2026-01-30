@@ -2,7 +2,7 @@
 
 **导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [Context 功能](README.md) > 配置管理
 
-本文档介绍如何在 Context 中管理插件配置。
+本文档介绍如何在 Context 中管理插件配置。[^source]
 
 ## 配置概述
 
@@ -11,6 +11,16 @@ WaveformAnalysis 提供灵活的配置系统：
 - **全局配置** - 所有插件共享的配置
 - **插件特定配置** - 只对特定插件生效的配置
 - **配置优先级** - 插件特定配置 > 全局配置 > 默认值
+
+---
+
+## 配置类型
+
+配置主要分为三类：
+
+1. **全局配置**：在 `Context(config=...)` 或 `ctx.set_config({...})` 中设置，供所有插件共享。
+2. **插件特定配置**：通过 `plugin_name` 或嵌套字典指定，仅影响单一插件。
+3. **适配器推断配置**：由 DAQ 适配器推断得到的配置值（如采样率、时间间隔）。
 
 ---
 
@@ -151,6 +161,49 @@ ctx.set_config({
 # 其他插件获取到 10（全局）
 ```
 
+## 兼容层
+
+配置系统提供兼容层用于处理历史配置名称的迁移：
+
+- **别名映射**：旧配置名会被自动映射到新名称。
+- **弃用提示**：使用已弃用配置时会给出警告，过期后报错。
+
+若你在升级后遇到配置不生效，建议通过 `ctx.show_config()` 或
+`ctx.get_resolved_config()` 检查最终生效的配置来源。
+
+### compat.py 与 CompatManager 的区别
+
+- `waveform_analysis/core/compat.py`：旧式兼容工具，提供单位转换与旧名称映射的基础函数，
+  主要为历史逻辑保留；不参与新配置解析流程。
+- `waveform_analysis/core/config/compat.py`（CompatManager）：新配置兼容层，专门处理参数别名、
+  弃用策略与提示，并在 `ConfigResolver` 中生效。
+
+如果你的需求是**配置别名/弃用管理**，应优先使用 `CompatManager`。
+
+### CompatManager 快速上手
+
+`CompatManager` 用于管理配置别名与弃用信息，避免升级后配置名变化导致行为不一致。
+
+```python
+from waveform_analysis.core.config import CompatManager, DeprecationInfo
+
+# 注册参数别名
+CompatManager.register_alias("old_param", "new_param", plugin_name="peaks")
+
+# 注册弃用信息
+CompatManager.register_deprecation(DeprecationInfo(
+    old_name="break_threshold_ns",
+    new_name="break_threshold_ps",
+    deprecated_in="1.1.0",
+    removed_in="2.0.0",
+    message="Use break_threshold_ps instead."
+))
+```
+
+提示：
+- 兼容规则会在 `ConfigResolver` 中生效，`ctx.get_resolved_config()` 可查看解析后的来源。
+- 当当前版本 >= `removed_in` 时，使用旧参数会抛出 `ValueError`。
+
 ## 常用配置项
 
 ### 信号处理配置
@@ -258,3 +311,5 @@ with open('config_backup.json', 'r') as f:
 - [数据访问](DATA_ACCESS.md) - 获取数据
 - [执行预览](PREVIEW_EXECUTION.md) - 确认配置生效
 - [配置参考](../../api/config_reference.md) - 完整配置选项列表
+
+[^source]: 来源：`waveform_analysis/core/context.py`、`waveform_analysis/core/config/`。

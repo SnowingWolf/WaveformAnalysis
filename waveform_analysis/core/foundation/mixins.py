@@ -207,14 +207,27 @@ class PluginMixin:
             names.append(dep_name)
         return names
 
-    def register_plugin_(self, plugin: Any, allow_override: bool = False) -> None:
+    def register_plugin_(
+        self,
+        plugin: Any,
+        allow_override: bool = False,
+        require_spec: bool = False,
+    ) -> None:
         """(DONT USE THIS METHOD DIRECTLY, USE CONTEXT.REGISTER INSTEAD)
         Register a plugin instance with strict validation.
+
+        Args:
+            plugin: Plugin instance to register
+            allow_override: Allow replacing existing plugin
+            require_spec: Require plugin to have valid spec() or SPEC
         """
 
         # 1. Basic validation
         if hasattr(plugin, "validate"):
             plugin.validate()
+
+        # 1.5 Spec validation (if required or available)
+        self._validate_plugin_spec(plugin, require_spec=require_spec)
 
         provides = plugin.provides
 
@@ -300,6 +313,94 @@ class PluginMixin:
 
                         logger = logging.getLogger(__name__)
                         logger.warning(f"Version validation failed for {plugin.provides} -> {dep_name}: {e}")
+
+    def _validate_plugin_spec(self, plugin: Any, require_spec: bool = False) -> None:
+        """Validate plugin spec if available.
+
+        Args:
+            plugin: Plugin instance
+            require_spec: If True, raise error when spec is missing
+
+        Raises:
+            ValueError: If require_spec=True and spec is missing or invalid
+        """
+        # Check for spec() method or SPEC attribute
+        spec = None
+        if hasattr(plugin, "spec") and callable(plugin.spec):
+            try:
+                spec = plugin.spec()
+            except Exception as e:
+                if require_spec:
+                    raise ValueError(
+                        f"Plugin '{plugin.provides}' spec() method failed: {e}"
+                    ) from e
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Plugin '{plugin.provides}' spec() failed: {e}")
+                return
+        elif hasattr(plugin, "SPEC"):
+            spec = plugin.SPEC
+
+        if spec is None:
+            if require_spec:
+                raise ValueError(
+                    f"Plugin '{plugin.provides}' must provide spec() method or SPEC attribute"
+                )
+            return
+
+        # Validate spec structure
+        from waveform_analysis.core.plugins.core.spec import PluginSpec
+
+        if not isinstance(spec, PluginSpec):
+            if require_spec:
+                raise ValueError(
+                    f"Plugin '{plugin.provides}' spec must be PluginSpec, got {type(spec).__name__}"
+                )
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Plugin '{plugin.provides}' spec is not PluginSpec: {type(spec).__name__}"
+            )
+            return
+
+        # Validate spec content
+        errors = spec.validate()
+        if errors:
+            error_msg = f"Plugin '{plugin.provides}' spec validation failed: {'; '.join(errors)}"
+            if require_spec:
+                raise ValueError(error_msg)
+            logger = logging.getLogger(__name__)
+            logger.warning(error_msg)
+            return
+
+        # Validate consistency between spec and plugin attributes
+        if spec.provides != plugin.provides:
+            msg = (
+                f"Plugin '{plugin.provides}' spec.provides mismatch: "
+                f"spec says '{spec.provides}', plugin says '{plugin.provides}'"
+            )
+            if require_spec:
+                raise ValueError(msg)
+            logger = logging.getLogger(__name__)
+            logger.warning(msg)
+
+        # Validate config_spec keys match plugin.options
+        plugin_options = set(plugin.options.keys()) if hasattr(plugin, "options") else set()
+        spec_config_keys = set(spec.config_spec.keys())
+        if spec_config_keys != plugin_options:
+            missing_in_spec = plugin_options - spec_config_keys
+            extra_in_spec = spec_config_keys - plugin_options
+            parts = []
+            if missing_in_spec:
+                parts.append(f"missing in spec: {missing_in_spec}")
+            if extra_in_spec:
+                parts.append(f"extra in spec: {extra_in_spec}")
+            msg = f"Plugin '{plugin.provides}' config_spec mismatch: {'; '.join(parts)}"
+            if require_spec:
+                raise ValueError(msg)
+            logger = logging.getLogger(__name__)
+            logger.warning(msg)
+
+        # Store validated spec on plugin for later use
+        plugin._validated_spec = spec
 
     def resolve_dependencies(self, target: str, run_id: Optional[str] = None) -> List[str]:
         """

@@ -2,7 +2,7 @@
 
 **导航**: [文档中心](../README.md) > [用户指南](README.md) > 常见场景示例
 
-本文档汇集常见使用场景与代码示例，覆盖基础流程、配置管理、可视化与高级功能。
+本文档汇集常见使用场景与代码示例，覆盖基础流程、配置管理、可视化与高级功能。[^source]
 示例以 CPU 内置插件为主，运行前请按需替换 `run_001` 和数据路径。
 
 ## 基础操作示例
@@ -11,11 +11,11 @@
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
+from waveform_analysis.core.plugins import profiles
 
 # 初始化
 ctx = Context(storage_dir='./strax_data')
-ctx.register(standard_plugins)
+ctx.register(*profiles.cpu_default())
 ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 
 # 计算与读取
@@ -77,6 +77,7 @@ from waveform_analysis.core.foundation.utils import LineageStyle
 style = LineageStyle(node_width=4.0, node_height=2.0, verbose=2)
 ctx.plot_lineage('df_paired', kind='plotly', style=style)
 ```
+
 
 ## 高级场景示例
 
@@ -280,3 +281,5 @@ ctx.show_config()
 - [配置管理](../features/context/CONFIGURATION.md) - 详细配置说明
 - [插件教程](../features/plugin/SIMPLE_PLUGIN_GUIDE.md) - 自定义插件开发
 - [API 参考](../api/README.md) - API 文档
+
+[^source]: 来源：`waveform_analysis/core/context.py`、`waveform_analysis/core/plugins/profiles.py`、`waveform_analysis/core/plugins/builtin/cpu/`。
