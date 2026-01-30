@@ -223,6 +223,11 @@ class WaveformWidthPlugin(Plugin):
         return deps
 
     def _has_config(self, context: Any, name: str) -> bool:
+        if hasattr(context, "has_explicit_config"):
+            try:
+                return context.has_explicit_config(self, name)
+            except Exception:
+                pass
         config = getattr(context, "config", {})
         provides = self.provides
         if provides in config and isinstance(config[provides], dict):
