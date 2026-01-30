@@ -48,6 +48,20 @@ ruff check --fix waveform_analysis/
 ruff check --select I waveform_analysis/
 ```
 
+## 插件脚手架
+
+### `scaffold_plugin.py` - 生成插件 + 单测 + 文档
+
+```bash
+python scripts/scaffold_plugin.py MyPlugin
+```
+
+常用参数：
+
+```bash
+python scripts/scaffold_plugin.py MyPlugin --provides my_plugin --depends-on st_waveforms
+```
+
 ## 工作流程
 
 1. **开发时**：运行 `check_imports.py` 检查导入规范
@@ -57,5 +71,4 @@ ruff check --select I waveform_analysis/
 ## 相关文档
 
 - [导入风格指南](../docs/IMPORT_STYLE_GUIDE.md)
-
 
