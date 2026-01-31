@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 依赖分析模块 - 插件依赖关系图（DAG）分析。
 
@@ -28,13 +27,17 @@
     data = analysis.to_dict()  # 可保存为 JSON
 """
 
-import json
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
+import json
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from waveform_analysis.core.foundation.model import EdgeModel, LineageGraphModel, build_lineage_graph
+from waveform_analysis.core.foundation.model import (
+    EdgeModel,
+    LineageGraphModel,
+    build_lineage_graph,
+)
 from waveform_analysis.core.foundation.utils import exporter
 
 export, __all__ = exporter()
@@ -137,9 +140,7 @@ class DependencyAnalysisResult:
                 if self.performance_summary and plugin in self.performance_summary:
                     stats = self.performance_summary[plugin]
                     mean_time = stats.get("mean_time", 0)
-                    percentage = (
-                        stats.get("time_percentage", 0) if self.critical_path_time else 0
-                    )
+                    percentage = stats.get("time_percentage", 0) if self.critical_path_time else 0
                     time_info = f" ({mean_time:.2f}s, {percentage:.1f}%)"
                 lines.append(f"{i}. {plugin}{time_info}")
             lines.append("")
@@ -147,9 +148,7 @@ class DependencyAnalysisResult:
         # 并行机会
         if self.parallel_groups:
             lines.append("## ⚡ 并行机会\n")
-            lines.append(
-                f"**理论加速比**: {self.parallelization_potential:.2f}x\n"
-            )
+            lines.append(f"**理论加速比**: {self.parallelization_potential:.2f}x\n")
 
             for i, group in enumerate(self.parallel_groups, 1):
                 lines.append(f"### 并行组 #{i}")
@@ -165,24 +164,16 @@ class DependencyAnalysisResult:
                 severity = bottleneck["severity"].upper()
                 metrics = bottleneck["metrics"]
 
-                severity_icon = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}.get(
-                    severity, "⚪"
-                )
+                severity_icon = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}.get(severity, "⚪")
 
                 lines.append(f"### {severity_icon} 瓶颈 #{i}: {plugin} [{severity}]")
                 lines.append(f"- **平均执行时间**: {metrics.get('mean_time', 0):.2f}s")
-                lines.append(
-                    f"- **时间占比**: {metrics.get('time_percentage', 0):.1f}%"
-                )
-                lines.append(
-                    f"- **缓存命中率**: {metrics.get('cache_hit_rate', 0):.1%}"
-                )
+                lines.append(f"- **时间占比**: {metrics.get('time_percentage', 0):.1f}%")
+                lines.append(f"- **缓存命中率**: {metrics.get('cache_hit_rate', 0):.1%}")
                 lines.append(f"- **调用次数**: {metrics.get('call_count', 0)}")
 
                 if "peak_memory_mb" in metrics and metrics["peak_memory_mb"] > 0:
-                    lines.append(
-                        f"- **峰值内存**: {metrics['peak_memory_mb']:.2f}MB"
-                    )
+                    lines.append(f"- **峰值内存**: {metrics['peak_memory_mb']:.2f}MB")
 
                 issues = bottleneck.get("issues", [])
                 if issues:
@@ -219,9 +210,7 @@ class DependencyAnalysisResult:
         """生成简要文本摘要"""
         lines = []
         lines.append(f"=== 依赖分析摘要：{self.target_name} ===")
-        lines.append(
-            f"分析模式: {'动态（含性能数据）' if self.has_performance_data else '静态'}"
-        )
+        lines.append(f"分析模式: {'动态（含性能数据）' if self.has_performance_data else '静态'}")
         lines.append(f"总插件数: {self.total_plugins}")
         lines.append(f"DAG 深度: {self.max_depth}, 宽度: {self.max_width}")
 
@@ -387,9 +376,7 @@ class DependencyAnalyzer:
             "layers": dict(layers),
         }
 
-    def _get_performance_data(
-        self, execution_plan: List[str]
-    ) -> Optional[Dict[str, Any]]:
+    def _get_performance_data(self, execution_plan: List[str]) -> Optional[Dict[str, Any]]:
         """获取性能统计数据"""
         if not self.context.stats_collector:
             return None
@@ -422,9 +409,7 @@ class DependencyAnalyzer:
         """
         # 找到最深的节点（排除端口节点）
         plugin_nodes = {
-            nid: node
-            for nid, node in graph.nodes.items()
-            if not nid.startswith(("IN::", "OUT::"))
+            nid: node for nid, node in graph.nodes.items() if not nid.startswith(("IN::", "OUT::"))
         }
 
         if not plugin_nodes:
@@ -446,9 +431,7 @@ class DependencyAnalyzer:
 
         return list(reversed(path))
 
-    def _find_deepest_parent(
-        self, graph: LineageGraphModel, node_id: str
-    ) -> Optional[str]:
+    def _find_deepest_parent(self, graph: LineageGraphModel, node_id: str) -> Optional[str]:
         """找到节点的深度最大的父节点"""
         node = graph.nodes.get(node_id)
         if not node or not node.in_ports:
@@ -470,9 +453,7 @@ class DependencyAnalyzer:
 
         # 返回深度最大的父节点
         parents_with_depth = [
-            (pid, graph.nodes[pid].depth)
-            for pid in parent_nodes
-            if pid in graph.nodes
+            (pid, graph.nodes[pid].depth) for pid in parent_nodes if pid in graph.nodes
         ]
         if not parents_with_depth:
             return None
@@ -534,10 +515,7 @@ class DependencyAnalyzer:
             latest_finish[node_id] = lf
 
         # 4. 计算松弛时间（Slack = LS - ES）
-        slack = {
-            n: latest_start.get(n, 0) - earliest_start.get(n, 0)
-            for n in execution_plan
-        }
+        slack = {n: latest_start.get(n, 0) - earliest_start.get(n, 0) for n in execution_plan}
 
         # 5. 松弛时间接近0的节点即关键路径
         critical_nodes = [n for n, s in slack.items() if abs(s) < 0.001]
@@ -591,7 +569,7 @@ class DependencyAnalyzer:
 
         parallel_groups = []
 
-        for depth, plugins in layers.items():
+        for _depth, plugins in layers.items():
             if len(plugins) > 1:
                 # 该层有多个插件，检查它们是否真的独立
                 # 简化版本：假设同一层的插件都可以并行
@@ -618,9 +596,7 @@ class DependencyAnalyzer:
             return float(max_group_size)
 
         # 动态计算：基于实际时间
-        total_sequential = sum(
-            data.get("mean_time", 0) for data in performance_data.values()
-        )
+        total_sequential = sum(data.get("mean_time", 0) for data in performance_data.values())
 
         if total_sequential == 0:
             return 1.0
@@ -628,9 +604,7 @@ class DependencyAnalyzer:
         # 计算并行执行时间（每组取最大）
         total_parallel = total_sequential
         for group in parallel_groups:
-            group_times = [
-                performance_data.get(p, {}).get("mean_time", 0) for p in group
-            ]
+            group_times = [performance_data.get(p, {}).get("mean_time", 0) for p in group]
             if group_times:
                 saved_time = sum(group_times) - max(group_times)
                 total_parallel -= saved_time
@@ -751,9 +725,7 @@ class DependencyAnalyzer:
         # 建议1：关键路径优化
         if critical_path and has_performance:
             top_critical = critical_path[:3]
-            time_info = (
-                f"（总耗时 {critical_path_time:.2f}s）" if critical_path_time else ""
-            )
+            time_info = f"（总耗时 {critical_path_time:.2f}s）" if critical_path_time else ""
             recommendations.append(
                 f"🎯 关键路径优化：重点关注 {', '.join(top_critical)}{time_info}，"
                 f"它们决定了整体执行时间"
@@ -798,14 +770,12 @@ class DependencyAnalyzer:
 
         if max_depth > 10:
             recommendations.append(
-                f"📊 架构建议：依赖链深度达 {max_depth} 层，"
-                f"考虑合并部分插件以减少开销"
+                f"📊 架构建议：依赖链深度达 {max_depth} 层，" f"考虑合并部分插件以减少开销"
             )
 
         if max_width > 5:
             recommendations.append(
-                f"🌊 并行架构：最大宽度 {max_width}，"
-                f"确保使用足够的 workers 支持并行执行"
+                f"🌊 并行架构：最大宽度 {max_width}，" f"确保使用足够的 workers 支持并行执行"
             )
 
         # 如果没有性能数据，给出提示

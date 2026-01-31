@@ -45,7 +45,7 @@
 
 ### 2.3 存储层 (Storage Layer)
 - **`MemmapStorage`**: 负责将结构化数组持久化为二进制文件。
-- **原子性与并发安全**: 
+- **原子性与并发安全**:
     - **原子写入**: 所有数据和元数据均先写入 `.tmp` 文件，完成后通过 `rename` 替换，确保不会产生部分写入的损坏文件。
     - **文件锁**: 使用 `.lock` 文件实现简单的进程间互斥，防止多个进程同时写入同一个缓存键。
     - **完整性校验**: 加载时验证文件大小是否等于 `count * itemsize`，并检查 `STORAGE_VERSION`。
@@ -369,7 +369,7 @@ flowchart LR
 - **输出契约校验**: 自动验证插件返回的数据类型是否符合声明。
 - **原子性写入**: 使用 `.tmp` 临时文件确保数据写入的完整性，防止因崩溃产生损坏的缓存。
 - **并发保护**: 通过文件锁机制确保多进程环境下的缓存一致性。
-- **Generator 一次性消费语义**: 
+- **Generator 一次性消费语义**:
     - 插件返回的生成器被包装在 `OneTimeGenerator` 中。
     - 强制执行“一次消费”原则，防止因多次迭代导致的静默数据丢失。
     - 消费过程中自动触发磁盘持久化，后续访问将自动切换为高性能的 `memmap`。
@@ -380,12 +380,12 @@ flowchart LR
 
 ### 4.3 性能优化路径
 - **向量化**: 尽可能使用 Numpy 广播机制（如 `compute_stacked_waveforms`）。
-- **并行化**: 
+- **并行化**:
     - **全局执行器管理**: 通过 `ExecutorManager` 统一管理线程池和进程池，支持资源重用和自动清理。
     - **IO 密集型任务**: 使用 `ThreadPoolExecutor`（通过预定义配置 `io_intensive`）。
     - **CPU 密集型任务**: 使用 `ProcessPoolExecutor`（通过预定义配置 `cpu_intensive`）。
     - **自适应选择**: 根据任务类型和数据规模自动选择最优的并行策略。
-- **加速器**: 
+- **加速器**:
     - **Numba JIT**: 针对热点循环（如波形归一化、边界查找）提供可选的 `Numba` 加速路径。
     - **多进程加速**: 对于大规模数据集，支持多进程并行处理（如 `group_multi_channel_hits`）。
     - **混合优化**: 结合 Numba 和 multiprocessing，实现最佳性能。
@@ -452,7 +452,7 @@ graph TD
     D -->|HitFinderPlugin| K(hits: Hit 列表)
     E -->|SignalPeaksPlugin| L(signal_peaks: 高级峰值)
     J -->|Persistence| M[Parquet/CSV/Cache]
-    
+
     style E fill:#e1f5ff
     style I fill:#e8f5e9
 ```

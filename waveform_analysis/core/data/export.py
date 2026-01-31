@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 批量处理和数据导出模块
 
@@ -15,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from waveform_analysis.core.foundation.utils import exporter
+
 from .batch_processor import BatchProcessor
 
 logger = logging.getLogger(__name__)

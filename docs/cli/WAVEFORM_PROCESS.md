@@ -209,9 +209,9 @@ basic_features = ctx.get_data('run_001', 'basic_features')
 
 ---
 
-**相关文档**: 
-[CLI 工具总览](README.md) | 
-[用户指南](../user-guide/README.md) | 
+**相关文档**:
+[CLI 工具总览](README.md) |
+[用户指南](../user-guide/README.md) |
 [快速开始](../user-guide/QUICKSTART_GUIDE.md)
 
 [^source]: 来源：`waveform_analysis/cli.py`。

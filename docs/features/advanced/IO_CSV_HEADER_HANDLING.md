@@ -53,7 +53,7 @@ def parse_and_stack_files(
 ) -> np.ndarray:
     """
     解析 CSV 文件列表并返回堆叠的 numpy 数组。
-    
+
     注意：只有列表中的第一个文件会跳过表头行（skiprows）。
     后续文件不会跳过任何行（skiprows=0），因为它们不包含表头。
     """
@@ -71,7 +71,7 @@ def parse_files_generator(
 ) -> Iterator[np.ndarray]:
     """
     生成器函数，按块产生解析后的波形数据。
-    
+
     注意：只有列表中的第一个文件会跳过表头行（skiprows）。
     后续文件不会跳过任何行（skiprows=0），因为它们不包含表头。
     """

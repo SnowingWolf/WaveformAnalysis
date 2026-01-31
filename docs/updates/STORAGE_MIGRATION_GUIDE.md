@@ -141,7 +141,7 @@ from pathlib import Path
 def migrate_flat_to_hierarchical(old_dir, new_dir, run_id):
     """
     将扁平结构迁移到分层结构
-    
+
     Args:
         old_dir: 旧的扁平目录
         new_dir: 新的分层目录根
@@ -150,14 +150,14 @@ def migrate_flat_to_hierarchical(old_dir, new_dir, run_id):
     old_path = Path(old_dir)
     new_path = Path(new_dir) / run_id / "_cache"
     new_path.mkdir(parents=True, exist_ok=True)
-    
+
     # 迁移所有 .bin 和 .json 文件
     for ext in [".bin", ".json", ".lock"]:
         for file in old_path.glob(f"*{ext}"):
             dest = new_path / file.name
             shutil.copy2(file, dest)
             print(f"Migrated: {file.name}")
-    
+
     print(f"Migration complete: {old_dir} -> {new_path}")
 
 # 使用示例

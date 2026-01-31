@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Batch processing utilities for Context.
 """
@@ -19,7 +18,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from waveform_analysis.core.cancellation import CancellationToken
 from waveform_analysis.core.foundation.progress import ProgressTracker
-
 from waveform_analysis.core.foundation.utils import exporter, is_notebook_environment
 
 logger = logging.getLogger(__name__)
@@ -317,7 +315,9 @@ class BatchProcessor:
         bar_name = None
         if progress_tracker and not jupyter_mode:
             bar_name = f"batch_{data_name}"
-            progress_tracker.create_bar(bar_name, total=len(run_ids), desc=f"Processing {data_name}", unit="run")
+            progress_tracker.create_bar(
+                bar_name, total=len(run_ids), desc=f"Processing {data_name}", unit="run"
+            )
 
         # Jupyter 模式下的简单进度显示
         if use_simple_progress:
@@ -349,7 +349,8 @@ class BatchProcessor:
                 return
 
             should_update = force or (
-                pending_progress_count > 0 and (now - last_progress_update >= progress_update_interval)
+                pending_progress_count > 0
+                and (now - last_progress_update >= progress_update_interval)
             )
 
             if should_update and pending_progress_count > 0:
@@ -394,7 +395,9 @@ class BatchProcessor:
                 for i, run_id in enumerate(run_ids):
                     # 检查取消
                     if cancellation_token.is_cancelled():
-                        self.logger.info(f"Processing cancelled. Processed {i}/{len(run_ids)} runs.")
+                        self.logger.info(
+                            f"Processing cancelled. Processed {i}/{len(run_ids)} runs."
+                        )
                         _mark_skipped(run_ids[i:])
                         break
 
@@ -433,7 +436,9 @@ class BatchProcessor:
                             break
                         except Exception as exc:
                             retry_types = retry_on or ()
-                            should_retry = attempts <= retries and retry_types and isinstance(exc, retry_types)
+                            should_retry = (
+                                attempts <= retries and retry_types and isinstance(exc, retry_types)
+                            )
                             if should_retry:
                                 continue
 
@@ -459,7 +464,9 @@ class BatchProcessor:
                     if stop_processing:
                         break
             else:
-                executor_cls = ProcessPoolExecutor if executor_type == "process" else ThreadPoolExecutor
+                executor_cls = (
+                    ProcessPoolExecutor if executor_type == "process" else ThreadPoolExecutor
+                )
 
                 with executor_cls(max_workers=max_workers) as executor:
                     # 注册executor清理回调
@@ -501,7 +508,9 @@ class BatchProcessor:
                             # 检查取消
                             if cancellation_token.is_cancelled():
                                 _cancel_pending(pending)
-                                self.logger.info(f"Processing cancelled. Processed {completed}/{len(run_ids)} runs.")
+                                self.logger.info(
+                                    f"Processing cancelled. Processed {completed}/{len(run_ids)} runs."
+                                )
                                 _mark_skipped([future_to_run[f] for f in pending])
                                 break
 
@@ -551,8 +560,12 @@ class BatchProcessor:
                             # 检查取消
                             if cancellation_token.is_cancelled():
                                 _cancel_pending([f for f in future_to_run if not f.done()])
-                                self.logger.info(f"Processing cancelled. Processed {completed}/{len(run_ids)} runs.")
-                                _mark_skipped([future_to_run[f] for f in future_to_run if not f.done()])
+                                self.logger.info(
+                                    f"Processing cancelled. Processed {completed}/{len(run_ids)} runs."
+                                )
+                                _mark_skipped(
+                                    [future_to_run[f] for f in future_to_run if not f.done()]
+                                )
                                 break
 
                             run_id = future_to_run[future]
@@ -569,7 +582,9 @@ class BatchProcessor:
 
                             if error_info and on_error in ("stop", "raise"):
                                 _cancel_pending([f for f in future_to_run if not f.done()])
-                                _mark_skipped([future_to_run[f] for f in future_to_run if not f.done()])
+                                _mark_skipped(
+                                    [future_to_run[f] for f in future_to_run if not f.done()]
+                                )
                                 stop_processing = True
                                 if on_error == "raise":
                                     raise
@@ -704,7 +719,9 @@ class BatchProcessor:
         bar_name = None
         if progress_tracker and not jupyter_mode:
             bar_name = "batch_custom"
-            progress_tracker.create_bar(bar_name, total=len(run_ids), desc="Processing (custom)", unit="run")
+            progress_tracker.create_bar(
+                bar_name, total=len(run_ids), desc="Processing (custom)", unit="run"
+            )
 
         # Jupyter 模式下的简单进度显示
         if use_simple_progress:
@@ -736,7 +753,8 @@ class BatchProcessor:
                 return
 
             should_update = force or (
-                pending_progress_count > 0 and (now - last_progress_update >= progress_update_interval)
+                pending_progress_count > 0
+                and (now - last_progress_update >= progress_update_interval)
             )
 
             if should_update and pending_progress_count > 0:
@@ -795,7 +813,9 @@ class BatchProcessor:
                             break
                         except Exception as exc:
                             retry_types = retry_on or ()
-                            should_retry = attempts <= retries and retry_types and isinstance(exc, retry_types)
+                            should_retry = (
+                                attempts <= retries and retry_types and isinstance(exc, retry_types)
+                            )
                             if should_retry:
                                 continue
 
@@ -821,7 +841,9 @@ class BatchProcessor:
                     if stop_processing:
                         break
             else:
-                executor_cls = ProcessPoolExecutor if executor_type == "process" else ThreadPoolExecutor
+                executor_cls = (
+                    ProcessPoolExecutor if executor_type == "process" else ThreadPoolExecutor
+                )
                 with executor_cls(max_workers=max_workers) as executor:
                     future_to_run = {
                         executor.submit(
@@ -897,7 +919,9 @@ class BatchProcessor:
 
                             if error_info and on_error in ("stop", "raise"):
                                 _cancel_pending([f for f in future_to_run if not f.done()])
-                                _mark_skipped([future_to_run[f] for f in future_to_run if not f.done()])
+                                _mark_skipped(
+                                    [future_to_run[f] for f in future_to_run if not f.done()]
+                                )
                                 stop_processing = True
                                 if on_error == "raise":
                                     raise
@@ -985,7 +1009,9 @@ class BatchProcessor:
         if tmp_cache:
             storage_dir_strategy = "per_worker"
             if context_factory is None:
-                self.logger.warning("tmp_cache requires context_factory; using shared cache in serial mode.")
+                self.logger.warning(
+                    "tmp_cache requires context_factory; using shared cache in serial mode."
+                )
 
         for idx, config in enumerate(configs):
             if context_factory is None:
