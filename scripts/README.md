@@ -71,4 +71,3 @@ python scripts/scaffold_plugin.py MyPlugin --provides my_plugin --depends-on st_
 ## 相关文档
 
 - [导入风格指南](../docs/IMPORT_STYLE_GUIDE.md)
-

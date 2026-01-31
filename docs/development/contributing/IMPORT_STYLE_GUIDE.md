@@ -158,7 +158,7 @@ mypy waveform_analysis/ --show-error-codes
 
 ### Q: 如何确保导入路径正确？
 
-**A:** 
+**A:**
 1. 运行 `python scripts/check_imports.py` 检查
 2. 运行 `mypy waveform_analysis/` 检测类型错误
 3. 在 CI/CD 中集成检查

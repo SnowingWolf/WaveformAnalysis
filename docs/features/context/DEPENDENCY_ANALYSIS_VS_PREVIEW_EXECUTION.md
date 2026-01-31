@@ -392,7 +392,7 @@ preview1 = ctx.preview_execution('run_001', 'signal_peaks', show_config=True)
 
 # 2. 发现配置问题，修正
 print("\n=== 修正配置 ===")
-ctx.set_config({"filter_type": "BW", "lowcut": 0.1, "highcut": 0.5}, 
+ctx.set_config({"filter_type": "BW", "lowcut": 0.1, "highcut": 0.5},
                plugin_name="filtered_waveforms")
 
 # 3. 再次预览确认
@@ -432,12 +432,12 @@ print(f"缓存效果: {needs_compute_1 - needs_compute_2} 个插件已缓存")
 if needs_compute_2 > needs_compute_1 * 0.5:
     print("\n=== 缓存问题分析 ===")
     analysis = ctx.analyze_dependencies('df_paired', include_performance=True)
-    
+
     cache_issues = [
         b for b in analysis.bottlenecks
         if 'cache_miss' in b['issues']
     ]
-    
+
     if cache_issues:
         print("发现缓存问题:")
         for issue in cache_issues:
@@ -698,7 +698,7 @@ analysis = ctx.analyze_dependencies(target, include_performance=True)
 
 ### Q4: 执行顺序有影响吗？
 
-**A**: 
+**A**:
 
 - **预览**：必须在执行前使用（否则无法检查缓存状态）
 - **分析**：可以在执行前（静态）或执行后（动态）使用

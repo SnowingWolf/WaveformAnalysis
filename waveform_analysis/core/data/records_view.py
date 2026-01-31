@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 RecordsView provides read-only access to records with an internal wave_pool.
 """
@@ -36,7 +35,7 @@ class RecordsView:
         rec = self.records[index]
         offset = int(rec["wave_offset"])
         length = int(rec["event_length"])
-        wave = self.wave_pool[offset:offset + length]
+        wave = self.wave_pool[offset : offset + length]
 
         if baseline_correct:
             out_dtype = dtype or np.float32
@@ -84,7 +83,7 @@ class RecordsView:
             if length <= 0:
                 continue
             offset = int(rec["wave_offset"])
-            wave = self.wave_pool[offset:offset + length]
+            wave = self.wave_pool[offset : offset + length]
             if baseline_correct:
                 wave = wave.astype(out_dtype, copy=False)
                 baseline = np.asarray(rec["baseline"], dtype=out_dtype)

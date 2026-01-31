@@ -352,7 +352,7 @@ from concurrent.futures import as_completed
 with get_executor("task", "process", max_workers=4) as ex:
     futures = {ex.submit(process, item): item for item in items}
     results = {}
-    
+
     for future in as_completed(futures):
         item = futures[future]
         try:
@@ -402,7 +402,7 @@ with get_executor("task", "process", max_workers=4, reuse=True) as ex:
 with get_executor("task", "process", max_workers=4) as ex:
     # 批量提交所有任务
     futures = [ex.submit(process, item) for item in items]
-    
+
     # 批量收集结果
     results = [f.result() for f in futures]
 ```
@@ -414,7 +414,7 @@ with get_executor("task", "process", max_workers=4) as ex:
 ```python
 with get_executor("task", "process", max_workers=4) as ex:
     futures = {ex.submit(process, item): item for item in items}
-    
+
     # 处理完成的任务（不等待所有任务）
     for future in as_completed(futures):
         item = futures[future]
@@ -491,7 +491,7 @@ except Exception as e:
 
 **原因**: 执行器类型选择不当
 
-**解决**: 
+**解决**:
 - IO任务使用 thread
 - CPU任务使用 process
 - 调整 max_workers 参数

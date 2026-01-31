@@ -212,26 +212,26 @@ def process_runs_with_config_grid(
 
 ## 并行与缓存注意事项
 
-1. **执行器模型**  
+1. **执行器模型**
    `executor_type="thread"` 适合 I/O 密集型任务，`"process"` 适合 CPU 密集型任务。
 
-2. **Context 内存缓存增长**  
-   同一个 `Context` 批量跑多个 run，内存缓存可能持续增长。  
+2. **Context 内存缓存增长**
+   同一个 `Context` 批量跑多个 run，内存缓存可能持续增长。
    建议在批量运行后按需清理：
 
    ```python
    ctx.clear_cache_for("run_001")
    ```
 
-3. **并行安全建议**  
+3. **并行安全建议**
    `Context` 内部有多个可变缓存结构，建议：
    - `max_workers=1` 串行执行，或
    - 并行时提供 `context_factory`，为每个任务创建独立 Context
 
-4. **性能统计**  
+4. **性能统计**
    `stats_collector` 绑定在 `Context` 上。多个 run 的统计会累计在同一个收集器中。
 
-5. **ProcessPool 提示**  
+5. **ProcessPool 提示**
    使用 `executor_type="process"` 时，`context_factory` 必须可被 pickle。
 
 ---
@@ -268,5 +268,5 @@ BatchProcessor 只是把多次 `ctx.get_data` 组织成批量执行，并提供�
 
 ### Q: 为什么推荐 max_workers=1？
 
-Context 不是为多线程强一致场景设计的。  
+Context 不是为多线程强一致场景设计的。
 如果必须并行，建议每个线程使用独立 Context。

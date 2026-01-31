@@ -112,7 +112,8 @@ def simple_batch_process(ctx, run_ids, data_name, max_workers=2):
 
 
 if __name__ == "__main__":
-    print("""
+    print(
+        """
 使用方法：
 
 ```python
@@ -126,4 +127,5 @@ result = simple_batch_process(ctx, run_ids, "df_events_with_code", max_workers=1
 # 并行测试
 result = simple_batch_process(ctx, run_ids, "df_events_with_code", max_workers=2)
 ```
-""")
+"""
+    )

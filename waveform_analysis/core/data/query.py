@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 时间范围查询优化模块
 
@@ -9,10 +8,10 @@
 - 查询性能优化
 """
 
-import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from datetime import datetime
+import logging
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -29,6 +28,7 @@ export, __all__ = exporter()
 # 时间索引数据结构
 # ===========================
 
+
 @export
 @dataclass
 class TimeIndex:
@@ -43,6 +43,7 @@ class TimeIndex:
         endtimes: 结束时间(如果有)
         epoch_info: Epoch 元数据(用于绝对时间查询)
     """
+
     times: np.ndarray  # 时间戳数组(已排序)
     indices: np.ndarray  # 对应的原始索引
     endtimes: Optional[np.ndarray] = None  # 结束时间(如果有)
@@ -90,9 +91,9 @@ class TimeIndex:
 
         # 使用二分查找定位起始和结束位置
         # searchsorted找到第一个 >= start_time的位置
-        left_idx = np.searchsorted(self.times, start_time, side='left')
+        left_idx = np.searchsorted(self.times, start_time, side="left")
         # searchsorted找到第一个 >= end_time的位置
-        right_idx = np.searchsorted(self.times, end_time, side='left')
+        right_idx = np.searchsorted(self.times, end_time, side="left")
 
         if left_idx >= right_idx:
             return np.array([], dtype=np.int64)
@@ -100,7 +101,7 @@ class TimeIndex:
         # 如果有endtime,需要额外检查记录是否真正在范围内
         if self.endtimes is not None:
             # 记录的endtime必须 > start_time,且time必须 < end_time
-            mask = (self.endtimes[left_idx:right_idx] > start_time)
+            mask = self.endtimes[left_idx:right_idx] > start_time
             selected_indices = self.indices[left_idx:right_idx][mask]
         else:
             selected_indices = self.indices[left_idx:right_idx]
@@ -121,7 +122,7 @@ class TimeIndex:
             return None
 
         # 找到第一个 > time的位置,然后退一步
-        idx = np.searchsorted(self.times, time, side='right') - 1
+        idx = np.searchsorted(self.times, time, side="right") - 1
 
         if idx < 0 or idx >= self.n_records:
             return None
@@ -166,13 +167,12 @@ class TimeIndex:
             return None
 
         from waveform_analysis.core.foundation.time_conversion import TimeConverter
+
         self._converter = TimeConverter(self.epoch_info)
         return self._converter
 
     def query_range_absolute(
-        self,
-        start_dt: Optional[datetime] = None,
-        end_dt: Optional[datetime] = None
+        self, start_dt: Optional[datetime] = None, end_dt: Optional[datetime] = None
     ) -> np.ndarray:
         """
         使用 datetime 对象查询时间范围内的记录索引
@@ -267,7 +267,7 @@ class TimeRangeQueryEngine:
         run_id: str,
         data_name: str,
         data: np.ndarray,
-        time_field: str = 'time',
+        time_field: str = "time",
         endtime_field: Optional[str] = None,
         force_rebuild: bool = False,
         epoch_info: Optional["EpochInfo"] = None,
@@ -318,13 +318,17 @@ class TimeRangeQueryEngine:
         endtimes = None
         if endtime_field is not None:
             if endtime_field in data.dtype.names:
-                endtimes = data[endtime_field][indices] if indices is not None else data[endtime_field]
-            elif endtime_field == 'computed':
+                endtimes = (
+                    data[endtime_field][indices] if indices is not None else data[endtime_field]
+                )
+            elif endtime_field == "computed":
                 # 计算endtime: time + dt * length
-                if 'dt' in data.dtype.names and 'length' in data.dtype.names:
-                    endtimes = times + data['dt'][indices] * data['length'][indices]
+                if "dt" in data.dtype.names and "length" in data.dtype.names:
+                    endtimes = times + data["dt"][indices] * data["length"][indices]
                 else:
-                    self.logger.warning(f"Cannot compute endtime for {key}, dt or length field missing")
+                    self.logger.warning(
+                        f"Cannot compute endtime for {key}, dt or length field missing"
+                    )
 
         # 创建索引
         index = TimeIndex(
@@ -332,7 +336,7 @@ class TimeRangeQueryEngine:
             indices=indices,
             endtimes=endtimes,
             epoch_info=epoch_info,
-            build_time=time.time() - start_time
+            build_time=time.time() - start_time,
         )
 
         # 保存索引
@@ -352,7 +356,7 @@ class TimeRangeQueryEngine:
         data_name: str,
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
-        time_point: Optional[int] = None
+        time_point: Optional[int] = None,
     ) -> Optional[np.ndarray]:
         """
         查询时间范围
@@ -378,7 +382,9 @@ class TimeRangeQueryEngine:
         if time_point is not None:
             # 点查询
             idx = index.query_point(time_point)
-            return np.array([idx], dtype=np.int64) if idx is not None else np.array([], dtype=np.int64)
+            return (
+                np.array([idx], dtype=np.int64) if idx is not None else np.array([], dtype=np.int64)
+            )
         else:
             # 范围查询
             if start_time is None:
@@ -424,22 +430,23 @@ class TimeRangeQueryEngine:
     def get_stats(self) -> Dict[str, Any]:
         """获取统计信息"""
         return {
-            'total_indices': len(self._indices),
-            'indices': {
+            "total_indices": len(self._indices),
+            "indices": {
                 f"{k[0]}.{k[1]}": {
-                    'n_records': idx.n_records,
-                    'time_range': (idx.min_time, idx.max_time),
-                    'build_time': idx.build_time,
-                    'has_endtime': idx.endtimes is not None,
+                    "n_records": idx.n_records,
+                    "time_range": (idx.min_time, idx.max_time),
+                    "build_time": idx.build_time,
+                    "has_endtime": idx.endtimes is not None,
                 }
                 for k, idx in self._indices.items()
-            }
+            },
         }
 
 
 # ===========================
 # Context集成辅助函数
 # ===========================
+
 
 @export
 def query_data_time_range(
@@ -448,9 +455,9 @@ def query_data_time_range(
     data_name: str,
     start_time: Optional[int] = None,
     end_time: Optional[int] = None,
-    time_field: str = 'time',
+    time_field: str = "time",
     endtime_field: Optional[str] = None,
-    auto_build_index: bool = True
+    auto_build_index: bool = True,
 ) -> np.ndarray:
     """
     查询数据的时间范围
@@ -471,7 +478,7 @@ def query_data_time_range(
         符合条件的数据子集
     """
     # 获取查询引擎
-    if not hasattr(context, '_time_query_engine'):
+    if not hasattr(context, "_time_query_engine"):
         context._time_query_engine = TimeRangeQueryEngine()
 
     engine = context._time_query_engine
@@ -516,6 +523,7 @@ def query_data_time_range(
 # 性能优化工具
 # ===========================
 
+
 @export
 class TimeRangeCache:
     """
@@ -536,11 +544,7 @@ class TimeRangeCache:
         self._access_order: List[Tuple] = []
 
     def get(
-        self,
-        run_id: str,
-        data_name: str,
-        start_time: Optional[int],
-        end_time: Optional[int]
+        self, run_id: str, data_name: str, start_time: Optional[int], end_time: Optional[int]
     ) -> Optional[np.ndarray]:
         """获取缓存结果"""
         key = (run_id, data_name, start_time, end_time)
@@ -559,7 +563,7 @@ class TimeRangeCache:
         data_name: str,
         start_time: Optional[int],
         end_time: Optional[int],
-        result: np.ndarray
+        result: np.ndarray,
     ):
         """存储查询结果"""
         key = (run_id, data_name, start_time, end_time)
