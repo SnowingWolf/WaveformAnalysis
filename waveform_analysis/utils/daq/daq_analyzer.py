@@ -176,6 +176,48 @@ class DAQAnalyzer:
     def get_all_runs(self) -> List[DAQRun]:
         return list(self.runs.values())
 
+    def _get_run_acquisition_start(self, run_name: str) -> str:
+        """获取运行的采集开始时间（最早文件创建时间）"""
+        run = self.get_run(run_name)
+        if run is None:
+            return "N/A"
+
+        stats = run.get_channel_summary()
+        if not stats:
+            return "N/A"
+
+        earliest_mtime = None
+        for ch_stats in stats.values():
+            mtime = ch_stats.get("earliest_mtime")
+            if mtime is not None:
+                if earliest_mtime is None or mtime < earliest_mtime:
+                    earliest_mtime = mtime
+
+        if earliest_mtime is None:
+            return "N/A"
+        return earliest_mtime.strftime("%Y-%m-%d %H:%M:%S")
+
+    def _get_run_acquisition_end(self, run_name: str) -> str:
+        """获取运行的采集结束时间（最后文件修改时间）"""
+        run = self.get_run(run_name)
+        if run is None:
+            return "N/A"
+
+        stats = run.get_channel_summary()
+        if not stats:
+            return "N/A"
+
+        latest_mtime = None
+        for ch_stats in stats.values():
+            mtime = ch_stats.get("latest_mtime")
+            if mtime is not None:
+                if latest_mtime is None or mtime > latest_mtime:
+                    latest_mtime = mtime
+
+        if latest_mtime is None:
+            return "N/A"
+        return latest_mtime.strftime("%Y-%m-%d %H:%M:%S")
+
     def _build_channel_rows(self, stats: Dict[int, Dict]) -> List[Dict]:
         # Normalize channel stats iento row dicts for DataFrame display.
         rows = []
@@ -236,12 +278,19 @@ class DAQAnalyzer:
         df["size_readable"] = df["total_bytes"].apply(
             lambda v: self.format_size(int(v) if v is not None else 0)
         )
+
+        # Compute acquisition times for all runs
+        df["acquisition_start"] = df["run_name"].apply(self._get_run_acquisition_start)
+        df["acquisition_end"] = df["run_name"].apply(self._get_run_acquisition_end)
+
         display_cols = [
             "run_name",
             "file_count",
             "channel_count",
             "size_mb",
             "size_readable",
+            "acquisition_start",
+            "acquisition_end",
             "path",
         ]
 
@@ -259,6 +308,8 @@ class DAQAnalyzer:
                             "size_readable",
                             "channel_count",
                             "channel_str",
+                            "acquisition_start",
+                            "acquisition_end",
                             "path",
                         ]
                     ]
@@ -270,6 +321,8 @@ class DAQAnalyzer:
                             "size_readable": "大小",
                             "channel_count": "通道数",
                             "channel_str": "通道列表",
+                            "acquisition_start": "采集开始",
+                            "acquisition_end": "采集结束",
                             "path": "路径",
                         }
                     )
@@ -309,7 +362,9 @@ class DAQAnalyzer:
                 line = (
                     f"{r['run_name']:20}  files={int(r['file_count']):4d}  "
                     f"channels={int(r['channel_count']):2d}  "
-                    f"size={self._color_size(total_bytes)}  path={r['path']}"
+                    f"size={self._color_size(total_bytes)}  "
+                    f"start={r['acquisition_start']}  end={r['acquisition_end']}  "
+                    f"path={r['path']}"
                 )
                 rows.append(line)
             print("\n".join(rows))
