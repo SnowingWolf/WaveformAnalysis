@@ -11,14 +11,10 @@ export, __all__ = exporter()
 @export
 def plugins_signal_processing():
     """Return signal-processing plugin instances in dependency order."""
-    from waveform_analysis.core.plugins.builtin.cpu.peak_finding import SignalPeaksPlugin
     from waveform_analysis.core.plugins.builtin.cpu.waveform_width import WaveformWidthPlugin
-    from waveform_analysis.core.plugins.builtin.cpu.waveform_width_integral import (
-        WaveformWidthIntegralPlugin,
-    )
+    from waveform_analysis.core.plugins.builtin.cpu.s1_s2_classifier import S1S2ClassifierPlugin
 
     return [
-        SignalPeaksPlugin(),
         WaveformWidthPlugin(),
-        WaveformWidthIntegralPlugin(),
+        S1S2ClassifierPlugin(),
     ]

@@ -295,7 +295,12 @@ def plugins_waveform():
 
 # plugin_sets/basic_features.py
 def plugins_basic_features():
-    return [HitFinderPlugin(), BasicFeaturesPlugin()]
+    return [
+        HitFinderPlugin(),
+        BasicFeaturesPlugin(),
+        SignalPeaksPlugin(),
+        WaveformWidthIntegralPlugin(),
+    ]
 
 # plugin_sets/tabular.py
 def plugins_tabular():
