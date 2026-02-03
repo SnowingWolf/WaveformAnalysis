@@ -40,9 +40,13 @@ class TestGoldenPathMinimal:
             """Simulates waveform extraction."""
 
             provides = "waveforms"
-            depends_on = ("raw_files",)
+            depends_on = ()
             version = "1.0.0"
             output_dtype = "List[np.ndarray]"
+
+            def resolve_depends_on(self, context, run_id=None):
+                # Dynamically resolve raw_files dependency (mirrors builtin behavior).
+                return ["raw_files"]
 
             def compute(self, context, run_id: str, **kwargs):  # noqa: ARG002
                 # Return fake waveforms (2 channels)
@@ -56,14 +60,12 @@ class TestGoldenPathMinimal:
             provides = "st_waveforms"
             depends_on = ("waveforms",)
             version = "1.0.0"
-            output_dtype = np.dtype(
-                [
-                    ("time", "<i8"),
-                    ("channel", "<i4"),
-                    ("baseline", "<f4"),
-                    ("height", "<f4"),
-                ]
-            )
+            output_dtype = np.dtype([
+                ("time", "<i8"),
+                ("channel", "<i4"),
+                ("baseline", "<f4"),
+                ("height", "<f4"),
+            ])
 
             def compute(self, context, run_id: str, **kwargs):  # noqa: ARG002
                 # Return structured array per channel
@@ -85,14 +87,12 @@ class TestGoldenPathMinimal:
             provides = "basic_features"
             depends_on = ("st_waveforms",)
             version = "1.0.0"
-            output_dtype = np.dtype(
-                [
-                    ("time", "<i8"),
-                    ("channel", "<i4"),
-                    ("height", "<f4"),
-                    ("area", "<f4"),
-                ]
-            )
+            output_dtype = np.dtype([
+                ("time", "<i8"),
+                ("channel", "<i4"),
+                ("height", "<f4"),
+                ("area", "<f4"),
+            ])
 
             def compute(self, context, run_id: str, **kwargs):  # noqa: ARG002
                 # Combine channels into single array
@@ -105,9 +105,7 @@ class TestGoldenPathMinimal:
                     features["height"] = ch_data["height"]
                     features["area"] = ch_data["height"] * 10  # Fake area
                     all_data.append(features)
-                return (
-                    np.concatenate(all_data) if all_data else np.array([], dtype=self.output_dtype)
-                )
+                return np.concatenate(all_data) if all_data else np.array([], dtype=self.output_dtype)
 
         return [SourcePlugin, WaveformsPlugin, StWaveformsPlugin, FeaturesPlugin]
 
