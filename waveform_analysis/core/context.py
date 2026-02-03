@@ -265,6 +265,8 @@ class Context(CacheMixin, PluginMixin):
 
         # Dedicated storage for results to avoid namespace pollution
         self._results: Dict[tuple, Any] = {}
+        # Lineage hash for each cached result (for config change detection)
+        self._results_lineage: Dict[tuple, str] = {}  # (run_id, data_name) -> lineage_hash
         # Re-entrancy guard: track (run_id, data_name) currently being computed
         self._in_progress: Dict[tuple, Any] = {}
         self._in_progress_lock = threading.Lock()  # Protect concurrent access
@@ -1057,6 +1059,9 @@ class Context(CacheMixin, PluginMixin):
                 key = (run_id, name)
                 if key in self._results:
                     del self._results[key]
+                    # Also clean up lineage record
+                    if key in self._results_lineage:
+                        del self._results_lineage[key]
                     memory_count += 1
                     count += 1
                     if verbose:
@@ -1342,6 +1347,11 @@ class Context(CacheMixin, PluginMixin):
         """Internal helper to set data in _results and optionally as attribute."""
         self._results[(run_id, name)] = value
 
+        # Record lineage hash for config change detection
+        if name in self._plugins:
+            key = self.key_for(run_id, name)  # Contains lineage hash
+            self._results_lineage[(run_id, name)] = key
+
         is_generator = isinstance(value, (Iterator, OneTimeGenerator)) or hasattr(value, "__next__")
 
         # Safe attribute access: whitelist and conflict check
@@ -1366,6 +1376,22 @@ class Context(CacheMixin, PluginMixin):
     def _get_data_from_memory(self, run_id: str, name: str) -> Any:
         """Internal helper to get data from _results or attributes."""
         if (run_id, name) in self._results:
+            # Validate lineage hash (config consistency check)
+            if name in self._plugins:
+                cached_key = self._results_lineage.get((run_id, name))
+                current_key = self.key_for(run_id, name)
+                if cached_key != current_key:
+                    # Config has changed, invalidate cache
+                    self.logger.debug(
+                        f"Memory cache invalidated for ({run_id}, {name}): "
+                        f"config changed (cached_key={cached_key}, current_key={current_key})"
+                    )
+                    # Clean up stale cache entries
+                    del self._results[(run_id, name)]
+                    if (run_id, name) in self._results_lineage:
+                        del self._results_lineage[(run_id, name)]
+                    return None
+
             val = self._results[(run_id, name)]
             return val
 
