@@ -95,7 +95,6 @@ class DAQRun:
             directory_layout: 目录布局配置（可选，优先于 daq_adapter）
         """
         self.run_name = run_name
-        self.char = run_name
         self.run_path = str(run_path)
 
         # 初始化适配器和布局
