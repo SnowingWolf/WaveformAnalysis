@@ -7,6 +7,8 @@ CPU Filtering Plugin - 使用 scipy 进行波形滤波
 本插件提供两种滤波方法：
 - Butterworth 带通滤波器 (BW)
 - Savitzky-Golay 滤波器 (SG)
+
+输出格式与 st_waveforms 保持一致（结构化数组），只是 wave 字段为滤波后的数据。
 """
 
 import logging
@@ -16,6 +18,7 @@ import numpy as np
 from scipy.signal import butter, savgol_filter, sosfiltfilt
 
 from waveform_analysis.core.plugins.core.base import Option, Plugin
+from waveform_analysis.core.processing.dtypes import ST_WAVEFORM_DTYPE
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +27,10 @@ class FilteredWaveformsPlugin(Plugin):
     provides = "filtered_waveforms"
     depends_on = ["st_waveforms"]
     description = "Apply filtering to waveforms using Butterworth or Savitzky-Golay filters."
-    version = "1.0.2"
+    version = "2.1.0"  # 版本升级：wave 字段改为 int16
     save_when = "target"
 
-    output_dtype = np.dtype([("wave", "f4", (0,))])  # 动态长度数组
+    output_dtype = np.dtype(ST_WAVEFORM_DTYPE)  # 与 st_waveforms 保持一致
 
     options = {
         "filter_type": Option(default="SG", type=str, help="滤波器类型: 'BW' 或 'SG'"),
@@ -109,7 +112,7 @@ class FilteredWaveformsPlugin(Plugin):
 
         for st_ch in st_waveforms:
             if len(st_ch) == 0:
-                filtered_waveforms_list.append(np.array([], dtype=np.float32).reshape(0, 0))
+                filtered_waveforms_list.append(np.array([], dtype=st_ch.dtype))
                 continue
 
             # (n_events, n_samples)
@@ -117,7 +120,7 @@ class FilteredWaveformsPlugin(Plugin):
             waveforms = np.stack(st_ch["wave"]).astype(np.float64, copy=False)
 
             if waveforms.ndim != 2 or waveforms.shape[0] == 0 or waveforms.shape[1] == 0:
-                filtered_waveforms_list.append(np.array([], dtype=np.float32).reshape(0, 0))
+                filtered_waveforms_list.append(np.array([], dtype=st_ch.dtype))
                 continue
 
             n_events, n_samples = waveforms.shape
@@ -146,7 +149,7 @@ class FilteredWaveformsPlugin(Plugin):
                     )
                     filtered = waveforms
                 else:
-                    # mode='interp' 常用于避免边缘伪影（比默认更“保守”）
+                    # mode='interp' 常用于避免边缘伪影（比默认更"保守"）
                     filtered = savgol_filter(
                         waveforms,
                         window_length=window,
@@ -155,7 +158,10 @@ class FilteredWaveformsPlugin(Plugin):
                         mode="interp",
                     )
 
-            filtered_waveforms_list.append(filtered.astype(np.float32, copy=False))
+            # 创建与 st_waveforms 相同结构的输出数组
+            result = np.copy(st_ch)
+            result["wave"] = np.clip(filtered, -32768, 32767).astype(np.int16, copy=False)
+            filtered_waveforms_list.append(result)
 
         return filtered_waveforms_list
 
