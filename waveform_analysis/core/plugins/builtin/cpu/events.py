@@ -154,6 +154,7 @@ def get_events_bundle(context: Any, run_id: str) -> RecordsBundle:
     adapter_name = _resolve_adapter_name(context)
     dt_ns = _resolve_dt_ns(context, plugin, adapter_name=adapter_name)
     part_size = context.get_config(plugin, "events_part_size")
+    use_filtered = context.get_config(plugin, "use_filtered")
 
     cache_key = _bundle_cache_key(context, run_id, plugin.provides)
     cached = context._results.get((run_id, cache_key))
@@ -166,9 +167,13 @@ def get_events_bundle(context: Any, run_id: str) -> RecordsBundle:
         file_list = _flatten_raw_files(raw_files)
         bundle = build_records_from_v1725_files(file_list, dt_ns=dt_ns)
     else:
-        st_waveforms = context.get_data(run_id, "st_waveforms")
+        # 根据 use_filtered 选择数据源
+        if use_filtered:
+            waveform_data = context.get_data(run_id, "filtered_waveforms")
+        else:
+            waveform_data = context.get_data(run_id, "st_waveforms")
         bundle = build_records_from_st_waveforms_sharded(
-            st_waveforms,
+            waveform_data,
             part_size=part_size,
             default_dt_ns=dt_ns,
         )
@@ -183,7 +188,7 @@ class EventsPlugin(Plugin):
     """Provide event index data backed by the records bundle."""
 
     provides = "events"
-    depends_on = []
+    depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     save_when = "always"
     output_dtype = EVENTS_DTYPE
     options = {
@@ -197,13 +202,21 @@ class EventsPlugin(Plugin):
             type=int,
             help="Sample interval in ns (defaults to adapter rate or 1ns).",
         ),
+        "use_filtered": Option(
+            default=False,
+            type=bool,
+            help="是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin）",
+        ),
     }
-    version = "0.1.0"
+    version = "2.0.0"  # 版本升级：支持动态依赖切换
 
     def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
         adapter_name = _resolve_adapter_name(context)
         if adapter_name == "v1725":
             return ["raw_files"]
+        # 根据 use_filtered 动态选择依赖
+        if context.get_config(self, "use_filtered"):
+            return ["filtered_waveforms"]
         return ["st_waveforms"]
 
     def get_lineage(self, context: Any) -> dict:

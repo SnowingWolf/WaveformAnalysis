@@ -6,13 +6,15 @@ Hit Finder Plugin - Hit 检测插件
 
 本模块包含 Hit 检测插件，使用阈值法从波形中识别和定位 Hit。
 返回每个 Hit 的时间、面积、高度和宽度等特征。
+
+支持使用原始波形或滤波后的波形进行检测。
 """
 
-from typing import Any, List
+from typing import Any, List, Optional
 
 import numpy as np
 
-from waveform_analysis.core.plugins.core.base import Plugin
+from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.dtypes import PEAK_DTYPE
 from waveform_analysis.core.processing.event_grouping import find_hits
 
@@ -21,12 +23,26 @@ class HitFinderPlugin(Plugin):
     """Example implementation of the HitFinder as a plugin."""
 
     provides = "hits"
-    depends_on = ["st_waveforms"]
+    depends_on = []  # 动态依赖，由 resolve_depends_on 决定
+    version = "2.0.0"  # 版本升级：支持动态依赖切换
     output_dtype = np.dtype(PEAK_DTYPE)
 
-    def compute(
-        self, context: Any, run_id: str, threshold: float = 10.0, **kwargs
-    ) -> List[np.ndarray]:
+    options = {
+        "threshold": Option(default=10.0, type=float, help="Hit 检测阈值"),
+        "use_filtered": Option(
+            default=False,
+            type=bool,
+            help="是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin）",
+        ),
+    }
+
+    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
+        # 根据 use_filtered 动态选择依赖
+        if context.get_config(self, "use_filtered"):
+            return ["filtered_waveforms"]
+        return ["st_waveforms"]
+
+    def compute(self, context: Any, run_id: str, **_kwargs) -> List[np.ndarray]:
         """
         从结构化波形中检测 Hit 事件
 
@@ -36,8 +52,7 @@ class HitFinderPlugin(Plugin):
         Args:
             context: Context 实例
             run_id: 运行标识符
-            threshold: Hit 检测阈值（默认10.0）
-            **kwargs: 依赖数据，包含 st_waveforms
+            **_kwargs: 未使用
 
         Returns:
             List[np.ndarray]: 每个通道的 Hit 列表，dtype 为 PEAK_DTYPE
@@ -46,11 +61,17 @@ class HitFinderPlugin(Plugin):
             >>> hits = ctx.get_data('run_001', 'hits')
             >>> print(f"通道0的Hit数: {len(hits[0])}")
         """
-        st_waveforms = context.get_data(run_id, "st_waveforms")
+        threshold = context.get_config(self, "threshold")
+        use_filtered = context.get_config(self, "use_filtered")
+
+        # 根据 use_filtered 选择数据源
+        if use_filtered:
+            waveform_data = context.get_data(run_id, "filtered_waveforms")
+        else:
+            waveform_data = context.get_data(run_id, "st_waveforms")
 
         hits_list = []
-        for i in range(len(st_waveforms)):
-            st_ch = st_waveforms[i]
+        for st_ch in waveform_data:
             if len(st_ch) == 0:
                 hits_list.append(np.zeros(0, dtype=PEAK_DTYPE))
                 continue
