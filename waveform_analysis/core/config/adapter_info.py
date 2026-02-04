@@ -26,7 +26,6 @@ class AdapterInfo:
         timestamp_unit: 时间戳单位（如 "ps", "ns"）
         dt_ns: 采样间隔（纳秒）
         dt_ps: 采样间隔（皮秒）
-        expected_samples: 预期采样点数
 
     Examples:
         >>> info = AdapterInfo.from_adapter("vx2730")
@@ -41,7 +40,6 @@ class AdapterInfo:
     timestamp_unit: str
     dt_ns: int
     dt_ps: int
-    expected_samples: Optional[int] = None
 
     @classmethod
     def from_adapter(cls, adapter_name: str) -> Optional["AdapterInfo"]:
@@ -81,7 +79,6 @@ class AdapterInfo:
                 timestamp_unit=timestamp_unit,
                 dt_ns=dt_ns,
                 dt_ps=dt_ps,
-                expected_samples=spec.expected_samples,
             )
         except Exception:
             return None
@@ -113,7 +110,6 @@ class AdapterInfo:
                 timestamp_unit=timestamp_unit,
                 dt_ns=dt_ns,
                 dt_ps=dt_ps,
-                expected_samples=spec.expected_samples,
             )
         except Exception:
             return None
@@ -130,7 +126,6 @@ class AdapterInfo:
             "timestamp_unit": self.timestamp_unit,
             "dt_ns": self.dt_ns,
             "dt_ps": self.dt_ps,
-            "expected_samples": self.expected_samples,
         }
 
     def get_inferred_value(self, key: str) -> Optional[Any]:
@@ -148,7 +143,6 @@ class AdapterInfo:
             "dt_ns": self.dt_ns,
             "dt_ps": self.dt_ps,
             "timestamp_unit": self.timestamp_unit,
-            "expected_samples": self.expected_samples,
         }
         return mapping.get(key)
 

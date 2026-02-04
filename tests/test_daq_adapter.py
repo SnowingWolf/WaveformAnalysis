@@ -41,7 +41,7 @@ class TestFormatSpec:
         assert spec.timestamp_unit == TimestampUnit.PICOSECONDS
         assert spec.header_rows_first_file == 2
         assert spec.header_rows_other_files == 0
-        assert spec.expected_samples == 800
+        # expected_samples 已移除，波形长度现在由插件配置或自动检测
         assert spec.sampling_rate_hz == 500e6
 
     def test_timestamp_scale(self):
