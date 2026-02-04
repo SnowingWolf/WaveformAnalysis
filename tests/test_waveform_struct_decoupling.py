@@ -24,33 +24,35 @@ class TestWaveformStructConfig:
     """测试 WaveformStructConfig 配置类"""
 
     def test_default_vx2730(self):
-        """测试 VX2730 默认配置"""
+        """测试 VX2730 默认配置（不再硬编码 wave_length）"""
         config = WaveformStructConfig.default_vx2730()
         assert config.format_spec.name == "vx2730_csv"
-        assert config.wave_length == 800
-        assert config.get_wave_length() == 800
+        # wave_length 现在为 None，依赖自动检测
+        assert config.wave_length is None
+        # get_wave_length() 返回 DEFAULT_WAVE_LENGTH
+        assert config.get_wave_length() == DEFAULT_WAVE_LENGTH
 
     def test_from_adapter(self):
-        """测试从适配器创建配置"""
+        """测试从适配器创建配置（不再获取 expected_samples）"""
         config = WaveformStructConfig.from_adapter("vx2730")
         assert config.format_spec.name == "vx2730_csv"
-        assert config.format_spec.expected_samples == 800
+        # 适配器不再提供 expected_samples
+        assert config.wave_length is None
 
     def test_get_wave_length_priority(self):
-        """测试波形长度优先级: wave_length > format_spec.expected_samples > DEFAULT"""
-        # 优先级1: wave_length
+        """测试波形长度优先级: wave_length > DEFAULT_WAVE_LENGTH"""
+        # 优先级1: wave_length（用户显式配置）
         config = WaveformStructConfig(format_spec=VX2730_SPEC, wave_length=1000)
         assert config.get_wave_length() == 1000
 
-        # 优先级2: format_spec.expected_samples
+        # 优先级2: DEFAULT_WAVE_LENGTH（当 wave_length 为 None）
         config = WaveformStructConfig(format_spec=VX2730_SPEC, wave_length=None)
-        assert config.get_wave_length() == 800
+        assert config.get_wave_length() == DEFAULT_WAVE_LENGTH
 
-        # 优先级3: DEFAULT_WAVE_LENGTH（当 expected_samples 为 None）
+        # 自定义格式也遵循相同优先级
         custom_spec = FormatSpec(
             name="custom",
             columns=ColumnMapping(timestamp=2, samples_start=7),
-            expected_samples=None,
         )
         config = WaveformStructConfig(format_spec=custom_spec, wave_length=None)
         assert config.get_wave_length() == DEFAULT_WAVE_LENGTH
@@ -63,6 +65,7 @@ class TestWaveformStructConfig:
             "baseline",
             "baseline_upstream",
             "timestamp",
+            "dt",
             "event_length",
             "channel",
             "wave",
@@ -85,6 +88,7 @@ class TestDynamicRecordDtype:
             "baseline",
             "baseline_upstream",
             "timestamp",
+            "dt",
             "event_length",
             "channel",
             "wave",
@@ -106,7 +110,7 @@ class TestWaveformStructDecoupling:
         """创建模拟的 VX2730 格式波形数据"""
         # VX2730 格式: BOARD(0), CHANNEL(1), TIMETAG(2), ..., 波形数据从列7开始
         n_events = 10
-        n_samples = 800
+        n_samples = 5000
         waveforms = []
         for ch in range(2):
             data = np.zeros((n_events, 7 + n_samples))
@@ -137,7 +141,8 @@ class TestWaveformStructDecoupling:
         """测试向后兼容：无配置时使用 VX2730 默认配置"""
         struct = WaveformStruct(mock_waveforms_vx2730)
         assert struct.config.format_spec.name == "vx2730_csv"
-        assert struct.record_dtype == ST_WAVEFORM_DTYPE
+        # 默认配置现在使用 DEFAULT_WAVE_LENGTH
+        assert struct.record_dtype == create_record_dtype(DEFAULT_WAVE_LENGTH)
 
     def test_from_adapter_vx2730(self, mock_waveforms_vx2730):
         """测试从适配器创建 WaveformStruct"""
@@ -145,7 +150,8 @@ class TestWaveformStructDecoupling:
         assert struct.config.format_spec.name == "vx2730_csv"
         st_waveforms = struct.structure_waveforms()
         assert len(st_waveforms) == 2
-        assert st_waveforms[0].dtype == ST_WAVEFORM_DTYPE
+        # 实际波形长度从数据自动检测
+        assert st_waveforms[0]["wave"].shape[1] == 5000
 
     def test_custom_format_config(self, mock_waveforms_custom):
         """测试自定义格式配置"""
@@ -159,9 +165,9 @@ class TestWaveformStructDecoupling:
                 baseline_start=10,
                 baseline_end=50,
             ),
-            expected_samples=1000,
         )
-        config = WaveformStructConfig(format_spec=custom_spec)
+        # 显式设置 wave_length
+        config = WaveformStructConfig(format_spec=custom_spec, wave_length=1000)
         struct = WaveformStruct(mock_waveforms_custom, config=config)
 
         # 验证配置应用
@@ -185,9 +191,8 @@ class TestWaveformStructDecoupling:
                 baseline_start=10,
                 baseline_end=50,
             ),
-            expected_samples=1000,
         )
-        config = WaveformStructConfig(format_spec=custom_spec)
+        config = WaveformStructConfig(format_spec=custom_spec, wave_length=1000)
         struct = WaveformStruct(mock_waveforms_custom, config=config)
 
         # 结构化第一个通道
@@ -212,7 +217,6 @@ class TestWaveformStructDecoupling:
                 baseline_start=10,
                 baseline_end=50,
             ),
-            expected_samples=1000,
         )
         config = WaveformStructConfig(format_spec=custom_spec, wave_length=1000)
         struct = WaveformStruct(mock_waveforms_custom, config=config)
@@ -222,6 +226,28 @@ class TestWaveformStructDecoupling:
 
         # 结构化并验证
         st_waveforms = struct.structure_waveforms()
+        assert st_waveforms[0]["wave"].shape == (10, 1000)
+
+    def test_auto_detect_wave_length(self, mock_waveforms_custom):
+        """测试自动检测波形长度（不设置 wave_length）"""
+        custom_spec = FormatSpec(
+            name="custom_daq",
+            columns=ColumnMapping(
+                board=0,
+                channel=1,
+                timestamp=3,
+                samples_start=10,
+                baseline_start=10,
+                baseline_end=50,
+            ),
+        )
+        # 不设置 wave_length，依赖自动检测
+        config = WaveformStructConfig(format_spec=custom_spec, wave_length=None)
+        struct = WaveformStruct(mock_waveforms_custom, config=config)
+
+        # 结构化时应自动检测实际波形长度
+        st_waveforms = struct.structure_waveforms()
+        # 实际数据有 1000 个采样点
         assert st_waveforms[0]["wave"].shape == (10, 1000)
 
 
@@ -255,8 +281,8 @@ class TestWaveformStructEdgeCases:
         data[:, 7:] = np.random.randn(n_events, n_samples) * 10 + 100
         waveforms.append(data)
 
-        # 配置期望长度为800
-        config = WaveformStructConfig.default_vx2730()
+        # 配置期望长度为800（但实际数据只有500）
+        config = WaveformStructConfig(format_spec=VX2730_SPEC, wave_length=800)
         struct = WaveformStruct(waveforms, config=config)
 
         # 应该使用实际长度创建动态 dtype
