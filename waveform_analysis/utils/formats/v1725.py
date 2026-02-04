@@ -184,7 +184,6 @@ class V1725Spec:
             header_rows_first_file=0,
             header_rows_other_files=0,
             delimiter="",
-            expected_samples=None,
             sampling_rate_hz=250e6,
             metadata={
                 "manufacturer": "CAEN",

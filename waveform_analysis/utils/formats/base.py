@@ -99,7 +99,6 @@ class FormatSpec:
         header_rows_first_file: 首个文件跳过的头部行数
         header_rows_other_files: 其他文件跳过的头部行数
         delimiter: CSV 分隔符
-        expected_samples: 预期的波形采样点数（可选）
         sampling_rate_hz: 采样率（Hz，可选）
         metadata: 额外元数据字典
 
@@ -109,7 +108,6 @@ class FormatSpec:
         ...     columns=ColumnMapping(),
         ...     timestamp_unit=TimestampUnit.PICOSECONDS,
         ...     header_rows_first_file=2,
-        ...     expected_samples=800,
         ... )
         >>> spec.get_timestamp_scale()  # 返回 ps -> ns 的转换因子
         0.001
@@ -123,7 +121,6 @@ class FormatSpec:
     header_rows_first_file: int = 2  # 首文件头部行数
     header_rows_other_files: int = 0  # 其他文件头部行数
     delimiter: str = ";"  # CSV 分隔符
-    expected_samples: Optional[int] = None  # 预期采样点数
     sampling_rate_hz: Optional[float] = None  # 采样率（Hz）
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -310,7 +307,7 @@ class FormatReader(ABC):
     def validate_data(self, data: np.ndarray) -> bool:
         """验证数据是否符合格式规范
 
-        检查数据列数是否满足最低要求，以及采样点数是否符合预期。
+        检查数据列数是否满足最低要求。
 
         Args:
             data: 数据数组
@@ -337,19 +334,5 @@ class FormatReader(ABC):
 
         if data.shape[1] < min_cols:
             raise ValueError(f"数据列数不足: 期望至少 {min_cols} 列, 实际 {data.shape[1]} 列")
-
-        # 检查采样点数
-        if self.spec.expected_samples is not None:
-            samples_end = self.spec.columns.samples_end or data.shape[1]
-            actual_samples = samples_end - self.spec.columns.samples_start
-            if actual_samples != self.spec.expected_samples:
-                # 只发出警告，不抛出异常（允许不同长度的波形）
-                import logging
-
-                logger = logging.getLogger(__name__)
-                logger.warning(
-                    f"采样点数与预期不符: 期望 {self.spec.expected_samples}, "
-                    f"实际 {actual_samples}"
-                )
 
         return True

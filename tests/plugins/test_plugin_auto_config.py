@@ -19,12 +19,15 @@ from waveform_analysis.utils.formats import (
 )
 
 
-def _register_test_adapter(name, expected_samples, sampling_rate_hz=1e9):
+def _register_test_adapter(name, sampling_rate_hz=1e9):
+    """注册测试用的 DAQ 适配器
+
+    注意：expected_samples 已从 FormatSpec 移除，波形长度现在由插件配置或自动检测
+    """
     spec = FormatSpec(
         name=f"{name}_spec",
         columns=ColumnMapping(),
         timestamp_unit=TimestampUnit.NANOSECONDS,
-        expected_samples=expected_samples,
         sampling_rate_hz=sampling_rate_hz,
     )
     adapter = DAQAdapter(
@@ -71,11 +74,13 @@ def test_waveforms_plugin_uses_raw_files_channels(monkeypatch):
 
 
 def test_st_waveforms_lineage_uses_adapter_dtype():
+    """测试 st_waveforms lineage 使用 wave_length 配置"""
     adapter_name = "test_adapter_lineage"
-    _register_test_adapter(adapter_name, expected_samples=16)
+    _register_test_adapter(adapter_name)
     try:
         plugin = WaveformsPlugin()
-        config = {"st_waveforms": {"daq_adapter": adapter_name}}
+        # 通过 wave_length 配置指定波形长度
+        config = {"st_waveforms": {"daq_adapter": adapter_name, "wave_length": 16}}
         ctx = DummyContext(config)
         lineage = plugin.get_lineage(ctx)
         wave_field = next(item for item in lineage["dtype"] if item[0] == "wave")
@@ -85,8 +90,9 @@ def test_st_waveforms_lineage_uses_adapter_dtype():
 
 
 def test_filtered_waveforms_fs_auto_from_adapter():
+    """测试 filtered_waveforms 从 adapter 自动获取采样率"""
     adapter_name = "test_adapter_filter"
-    _register_test_adapter(adapter_name, expected_samples=64, sampling_rate_hz=1e9)
+    _register_test_adapter(adapter_name, sampling_rate_hz=1e9)
     try:
         dtype = create_record_dtype(64)
         st_waveforms = [np.zeros(1, dtype=dtype)]

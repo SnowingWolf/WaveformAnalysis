@@ -260,7 +260,6 @@ class TestAdapterInfo:
             timestamp_unit="ns",
             dt_ns=4,
             dt_ps=4000,
-            expected_samples=1000,
         )
         d = info.to_dict()
         assert d["name"] == "test"
@@ -268,7 +267,6 @@ class TestAdapterInfo:
         assert d["timestamp_unit"] == "ns"
         assert d["dt_ns"] == 4
         assert d["dt_ps"] == 4000
-        assert d["expected_samples"] == 1000
 
     def test_get_inferred_value(self):
         info = AdapterInfo(

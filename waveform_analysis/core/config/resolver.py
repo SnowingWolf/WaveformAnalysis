@@ -62,7 +62,6 @@ class ConfigResolver:
         "records_dt_ns": lambda info: info.dt_ns,
         "events_dt_ns": lambda info: info.dt_ns,
         "timestamp_unit": lambda info: info.timestamp_unit,
-        "expected_samples": lambda info: info.expected_samples,
     }
 
     def __init__(self, compat_manager: Optional["CompatManager"] = None):
