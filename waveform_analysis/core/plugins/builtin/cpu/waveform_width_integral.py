@@ -42,9 +42,9 @@ class WaveformWidthIntegralPlugin(Plugin):
     """
 
     provides = "waveform_width_integral"
-    depends_on = []
-    description = "Event-wise integral quantile width using st_waveforms baseline."
-    version = "1.1.0"
+    depends_on = []  # 动态依赖，由 resolve_depends_on 决定
+    description = "Event-wise integral quantile width using st_waveforms or filtered_waveforms."
+    version = "2.0.0"  # 版本升级：支持动态依赖切换
     save_when = "always"
 
     output_dtype = WAVEFORM_WIDTH_INTEGRAL_DTYPE
@@ -104,35 +104,25 @@ class WaveformWidthIntegralPlugin(Plugin):
         if polarity not in ("auto", "positive", "negative"):
             raise ValueError(f"不支持的 polarity: {polarity}")
 
-        st_waveforms = context.get_data(run_id, "st_waveforms")
-
+        # 根据 use_filtered 选择数据源
         if use_filtered:
-            try:
-                filtered_waveforms = context.get_data(run_id, "filtered_waveforms")
-            except Exception:
-                raise ValueError(
-                    "use_filtered=True 但无法获取 filtered_waveforms。请先注册 FilteredWaveformsPlugin。"
-                )
+            waveform_data = context.get_data(run_id, "filtered_waveforms")
         else:
-            filtered_waveforms = None
+            waveform_data = context.get_data(run_id, "st_waveforms")
 
         width_list: List[np.ndarray] = []
 
-        for ch_idx, st_ch in enumerate(st_waveforms):
+        for ch_idx, st_ch in enumerate(waveform_data):
             if len(st_ch) == 0:
                 width_list.append(np.zeros(0, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE))
                 continue
 
-            filtered_ch = filtered_waveforms[ch_idx] if use_filtered else None
             channel_widths = []
 
             for event_idx in range(len(st_ch)):
                 record = st_ch[event_idx]
                 wave = record["wave"]
                 baseline = float(record["baseline"])
-
-                if use_filtered and filtered_ch is not None and event_idx < len(filtered_ch):
-                    wave = filtered_ch[event_idx]
 
                 signal = wave - baseline
 
@@ -193,10 +183,10 @@ class WaveformWidthIntegralPlugin(Plugin):
         return width_list
 
     def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
-        deps = ["st_waveforms"]
+        # 根据 use_filtered 动态选择依赖
         if context.get_config(self, "use_filtered"):
-            deps.append("filtered_waveforms")
-        return deps
+            return ["filtered_waveforms"]
+        return ["st_waveforms"]
 
     def _has_config(self, context: Any, name: str) -> bool:
         if hasattr(context, "has_explicit_config"):

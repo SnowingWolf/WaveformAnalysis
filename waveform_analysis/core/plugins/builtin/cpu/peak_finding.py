@@ -2,13 +2,15 @@
 CPU Peak Finding Plugin - 使用 scipy 进行峰值检测
 
 **加速器**: CPU (scipy)
-**功能**: 基于滤波后的波形检测峰值并计算峰值特征
+**功能**: 基于波形检测峰值并计算峰值特征
 
 本插件使用 scipy.signal.find_peaks 进行峰值检测，支持多种峰值筛选条件。
 计算峰值的位置、高度、积分、边缘等特征。
+
+支持使用原始波形或滤波后的波形进行检测。
 """
 
-from typing import Any, List, Union
+from typing import Any, List, Optional, Union
 
 import numpy as np
 from scipy.signal import find_peaks
@@ -32,7 +34,7 @@ ADVANCED_PEAK_DTYPE = np.dtype(
 
 class SignalPeaksPlugin(Plugin):
     """
-    峰值检测插件 - 基于滤波后的波形检测峰值并计算峰值特征。
+    峰值检测插件 - 基于波形检测峰值并计算峰值特征。
 
     使用 scipy.signal.find_peaks 进行峰值检测，支持多种峰值筛选条件。
     计算峰值的位置、高度、积分、边缘等特征。
@@ -42,17 +44,23 @@ class SignalPeaksPlugin(Plugin):
     配置示例：
         >>> ctx.set_config({
         ...     'sampling_interval_ns': 2.0,
+        ...     'use_filtered': True,  # 使用滤波后的波形
         ... }, plugin_name='signal_peaks')
     """
 
     provides = "signal_peaks"
-    depends_on = ["filtered_waveforms", "st_waveforms"]
-    description = "Detect peaks in filtered waveforms and extract peak features."
-    version = "1.0.2"
+    depends_on = []  # 动态依赖，由 resolve_depends_on 决定
+    description = "Detect peaks in waveforms and extract peak features."
+    version = "2.0.0"  # 版本升级：支持动态依赖切换
     save_when = "always"  # 峰值数据较小，总是保存
     output_dtype = ADVANCED_PEAK_DTYPE
 
     options = {
+        "use_filtered": Option(
+            default=True,
+            type=bool,
+            help="是否使用 filtered_waveforms（默认 True，需要先注册 FilteredWaveformsPlugin）",
+        ),
         "use_derivative": Option(
             default=True,
             type=bool,
@@ -94,9 +102,15 @@ class SignalPeaksPlugin(Plugin):
         ),
     }
 
+    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
+        # 根据 use_filtered 动态选择依赖
+        if context.get_config(self, "use_filtered"):
+            return ["filtered_waveforms"]
+        return ["st_waveforms"]
+
     def compute(self, context: Any, run_id: str, **_kwargs) -> List[np.ndarray]:
         """
-        从滤波后的波形中检测峰值
+        从波形中检测峰值
 
         使用配置的参数检测每个事件中的峰值，计算峰值特征
         （位置、高度、积分、边缘等）。
@@ -116,6 +130,7 @@ class SignalPeaksPlugin(Plugin):
             >>> print(f"通道0的峰值数: {len(peaks[0])}")
         """
         # 获取配置参数
+        use_filtered = context.get_config(self, "use_filtered")
         use_derivative = context.get_config(self, "use_derivative")
         height = context.get_config(self, "height")
         distance = context.get_config(self, "distance")
@@ -134,21 +149,24 @@ class SignalPeaksPlugin(Plugin):
         # st_waveforms 的 timestamp 已统一为 ps
         timestamp_unit = "ps"
 
-        # 获取依赖数据
-        filtered_waveforms = context.get_data(run_id, "filtered_waveforms")
-        st_waveforms = context.get_data(run_id, "st_waveforms")
+        # 根据 use_filtered 选择数据源
+        if use_filtered:
+            waveform_data = context.get_data(run_id, "filtered_waveforms")
+        else:
+            waveform_data = context.get_data(run_id, "st_waveforms")
 
         peaks_list = []
 
-        for filtered_ch, st_ch in zip(filtered_waveforms, st_waveforms):
-            if len(filtered_ch) == 0 or len(st_ch) == 0:
+        for st_ch in waveform_data:
+            if len(st_ch) == 0:
                 # 空通道，添加空数组
                 peaks_list.append(np.zeros(0, dtype=ADVANCED_PEAK_DTYPE))
                 continue
 
             channel_peaks = []
 
-            for event_idx, (filtered_waveform, st_waveform) in enumerate(zip(filtered_ch, st_ch)):
+            for event_idx, st_waveform in enumerate(st_ch):
+                waveform = st_waveform["wave"]
                 timestamp = st_waveform["timestamp"]
                 channel = st_waveform["channel"]
                 # 获取 baseline（用于反转法检测负脉冲）
@@ -158,7 +176,7 @@ class SignalPeaksPlugin(Plugin):
 
                 # 检测峰值
                 event_peaks = self._find_peaks_in_waveform(
-                    filtered_waveform,
+                    waveform,
                     baseline,
                     timestamp,
                     channel,
@@ -171,7 +189,7 @@ class SignalPeaksPlugin(Plugin):
                     threshold,
                     height_method,
                     sampling_interval_ns,
-                    timestamp_unit,  # 新增参数
+                    timestamp_unit,
                 )
 
                 if len(event_peaks) > 0:

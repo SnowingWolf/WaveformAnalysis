@@ -49,9 +49,9 @@ class WaveformWidthPlugin(Plugin):
     """
 
     provides = "waveform_width"
-    depends_on = []
+    depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Calculate rise/fall time based on peak detection results."
-    version = "1.0.1"
+    version = "2.0.0"  # 版本升级：支持动态依赖切换
     save_when = "always"
     output_dtype = WAVEFORM_WIDTH_DTYPE
 
@@ -141,31 +141,21 @@ class WaveformWidthPlugin(Plugin):
 
         # 获取依赖数据
         signal_peaks = context.get_data(run_id, "signal_peaks")
-        st_waveforms = context.get_data(run_id, "st_waveforms")
 
-        # 如果使用滤波波形，尝试获取
+        # 根据 use_filtered 选择波形数据源
         if use_filtered:
-            try:
-                filtered_waveforms = context.get_data(run_id, "filtered_waveforms")
-            except Exception:
-                raise ValueError(
-                    "use_filtered=True 但无法获取 filtered_waveforms。"
-                    "请先注册 FilteredWaveformsPlugin。"
-                )
+            waveform_data = context.get_data(run_id, "filtered_waveforms")
         else:
-            filtered_waveforms = None
+            waveform_data = context.get_data(run_id, "st_waveforms")
 
         width_list = []
 
         # 遍历每个通道
-        for ch_idx, (peaks_ch, st_ch) in enumerate(zip(signal_peaks, st_waveforms)):
+        for ch_idx, (peaks_ch, st_ch) in enumerate(zip(signal_peaks, waveform_data)):
             if len(peaks_ch) == 0 or len(st_ch) == 0:
                 # 空通道，添加空数组
                 width_list.append(np.zeros(0, dtype=WAVEFORM_WIDTH_DTYPE))
                 continue
-
-            # 获取对应通道的滤波波形（如果使用）
-            filtered_ch = filtered_waveforms[ch_idx] if use_filtered else None
 
             channel_widths = []
 
@@ -180,12 +170,7 @@ class WaveformWidthPlugin(Plugin):
                 if event_idx >= len(st_ch):
                     continue
 
-                st_waveform = st_ch[event_idx]
-                waveform = st_waveform["wave"]
-
-                # 如果使用滤波波形，替换原始波形
-                if use_filtered and filtered_ch is not None and event_idx < len(filtered_ch):
-                    waveform = filtered_ch[event_idx]
+                waveform = st_ch[event_idx]["wave"]
 
                 # 计算宽度特征
                 width_features = self._calculate_width_from_peak(
@@ -216,10 +201,10 @@ class WaveformWidthPlugin(Plugin):
         return width_list
 
     def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
-        deps = ["signal_peaks", "st_waveforms"]
+        # signal_peaks 始终需要，波形数据根据 use_filtered 动态选择
         if context.get_config(self, "use_filtered"):
-            deps.append("filtered_waveforms")
-        return deps
+            return ["signal_peaks", "filtered_waveforms"]
+        return ["signal_peaks", "st_waveforms"]
 
     def _has_config(self, context: Any, name: str) -> bool:
         if hasattr(context, "has_explicit_config"):
