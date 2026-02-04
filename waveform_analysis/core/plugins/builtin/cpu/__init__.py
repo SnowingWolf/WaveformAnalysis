@@ -47,6 +47,13 @@ from .waveform_width_integral import (
     WAVEFORM_WIDTH_INTEGRAL_DTYPE,
     WaveformWidthIntegralPlugin,
 )
+from .s1_s2_classifier import (
+    LABEL_S1,
+    LABEL_S2,
+    LABEL_UNKNOWN,
+    S1_S2_CLASSIFIER_DTYPE,
+    S1S2ClassifierPlugin,
+)
 from .waveforms import (
     RawFileNamesPlugin,
     WaveformsPlugin,
@@ -88,6 +95,12 @@ __all__ = [
     "WAVEFORM_WIDTH_DTYPE",
     "WaveformWidthIntegralPlugin",
     "WAVEFORM_WIDTH_INTEGRAL_DTYPE",
+    # S1/S2 classifier
+    "S1S2ClassifierPlugin",
+    "S1_S2_CLASSIFIER_DTYPE",
+    "LABEL_S1",
+    "LABEL_S2",
+    "LABEL_UNKNOWN",
     # Cache analysis
     "CacheAnalysisPlugin",
     # Events
