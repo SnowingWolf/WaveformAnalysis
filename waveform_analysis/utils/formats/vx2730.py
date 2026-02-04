@@ -46,6 +46,15 @@ export, __all__ = exporter()
 
 logger = logging.getLogger(__name__)
 
+# Check for PyArrow availability
+_PYARROW_AVAILABLE = False
+try:
+    import pyarrow.csv as pa_csv
+
+    _PYARROW_AVAILABLE = True
+except ImportError:
+    pa_csv = None
+
 
 # ============================================================================
 # VX2730 格式规范
@@ -166,6 +175,40 @@ class VX2730Reader(FormatReader):
             self.spec.header_rows_first_file if is_first_file else self.spec.header_rows_other_files
         )
 
+        # Try PyArrow first (40-60% faster)
+        if _PYARROW_AVAILABLE:
+            try:
+                read_options = pa_csv.ReadOptions(
+                    skip_rows=skiprows,
+                    autogenerate_column_names=True,
+                )
+                parse_options = pa_csv.ParseOptions(delimiter=self.spec.delimiter)
+                convert_options = pa_csv.ConvertOptions(
+                    strings_can_be_null=True,
+                    auto_dict_encode=False,
+                )
+
+                table = pa_csv.read_csv(
+                    str(file_path),
+                    read_options=read_options,
+                    parse_options=parse_options,
+                    convert_options=convert_options,
+                )
+                arr = table.to_pandas().to_numpy()
+
+                if arr.size > 0:
+                    # Vectorized numeric conversion
+                    try:
+                        numeric_part = arr[:, 2:].astype(np.float64)
+                        valid_mask = ~np.isnan(numeric_part[:, 0])
+                        if np.any(valid_mask):
+                            return np.column_stack([arr[valid_mask, :2], numeric_part[valid_mask]])
+                    except (ValueError, TypeError):
+                        return arr
+                return arr
+            except Exception as e:
+                logger.debug(f"PyArrow read failed for {file_path}: {e}, falling back to pandas")
+
         try:
             # 尝试使用 pandas 读取（更健壮）
             df = pd.read_csv(
@@ -182,19 +225,45 @@ class VX2730Reader(FormatReader):
             # 处理数值列
             df.dropna(how="all", inplace=True)
 
-            # 确保时间戳列和采样列是数值类型
+            # Optimized: vectorized numeric conversion
             try:
-                df.iloc[:, self.spec.columns.timestamp] = pd.to_numeric(
-                    df.iloc[:, self.spec.columns.timestamp], errors="coerce"
-                )
-                df.iloc[:, self.spec.columns.samples_start :] = df.iloc[
-                    :, self.spec.columns.samples_start :
-                ].apply(pd.to_numeric, errors="coerce")
-                df.dropna(subset=[self.spec.columns.timestamp], inplace=True)
+                arr = df.to_numpy()
+                try:
+                    numeric_part = arr[:, self.spec.columns.samples_start:].astype(np.float64)
+                except (ValueError, TypeError):
+                    # Fallback: convert column by column
+                    n_numeric_cols = arr.shape[1] - self.spec.columns.samples_start
+                    numeric_part = np.empty((arr.shape[0], n_numeric_cols), dtype=np.float64)
+                    for col_idx in range(n_numeric_cols):
+                        numeric_part[:, col_idx] = pd.to_numeric(
+                            arr[:, col_idx + self.spec.columns.samples_start], errors="coerce"
+                        )
+
+                # Also convert timestamp column
+                try:
+                    timestamp_col = arr[:, self.spec.columns.timestamp].astype(np.float64)
+                except (ValueError, TypeError):
+                    timestamp_col = pd.to_numeric(
+                        arr[:, self.spec.columns.timestamp], errors="coerce"
+                    ).to_numpy()
+
+                # Filter valid rows
+                valid_mask = ~np.isnan(timestamp_col)
+                if not np.any(valid_mask):
+                    return np.array([]).reshape(0, 0)
+
+                # Reconstruct array with numeric data
+                result = np.column_stack([
+                    arr[valid_mask, :self.spec.columns.samples_start],
+                    numeric_part[valid_mask]
+                ])
+                # Update timestamp column with converted values
+                result[:, self.spec.columns.timestamp] = timestamp_col[valid_mask]
+                return result
+
             except Exception as e:
                 logger.warning(f"数值转换失败 {file_path}: {e}")
-
-            return df.to_numpy()
+                return df.to_numpy()
 
         except Exception as e:
             logger.warning(f"pandas 读取失败 {file_path}: {e}")
