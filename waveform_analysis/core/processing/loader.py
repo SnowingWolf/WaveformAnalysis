@@ -47,7 +47,6 @@ class WaveformLoaderCSV:
         run_name: str = "All_SelfTrigger",
         data_root: str = "DAQ",
         daq_adapter: Optional[str] = None,
-        **kwargs,
     ):
         """
         初始化波形加载器
@@ -59,22 +58,15 @@ class WaveformLoaderCSV:
             run_name: 运行名称（默认 "All_SelfTrigger"）
             data_root: 数据根目录（默认 "DAQ"）
             daq_adapter: DAQ 适配器名称（如 "vx2730"），默认使用 vx2730
-            **kwargs: 额外参数（如 char，用于向后兼容）
 
         初始化内容:
         - 数据目录路径: {data_root}/{run_name}/RAW
         - 文件匹配模式: *CH*.CSV
         - 通道数配置（可选）
-        - 保留 char 属性以向后兼容
         """
-        # 兼容旧的 char 参数
-        if "char" in kwargs:
-            run_name = kwargs.pop("char")
-
         self.n_channels = n_channels
         self.data_root = data_root
         self.run_name = run_name
-        self.char = run_name  # 保持 char 属性以兼容旧代码
         self.pattern = "*CH*.CSV"
 
         # 初始化适配器
@@ -361,7 +353,6 @@ def get_waveforms_generator(
     daq_run: Optional[Any] = None,
     n_channels: int = 6,
     chunksize: int = 1000,
-    show_progress: bool = False,
     data_root: str = "DAQ",
     run_name: str = "All_SelfTrigger",
     daq_adapter: Optional[str] = "vx2730",
@@ -369,7 +360,6 @@ def get_waveforms_generator(
     """
     返回一个生成器，按 chunk 产生同步的波形数据。
     """
-    _ = show_progress  # 保留以兼容，但未使用
     loader = WaveformLoaderCSV(n_channels, run_name, data_root, daq_adapter=daq_adapter)
     if raw_filess is None:
         raw_filess = loader.get_raw_files(daq_run)
