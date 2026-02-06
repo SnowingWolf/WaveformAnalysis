@@ -47,8 +47,8 @@ def test_s1_s2_classifier_basic(tmp_path):
     ctx.register(S1S2ClassifierPlugin())
 
     run_id = "run_001"
-    ctx._results[(run_id, "waveform_width")] = [_make_widths()]
-    ctx._results[(run_id, "basic_features")] = [_make_features()]
+    ctx._results[(run_id, "waveform_width")] = _make_widths()
+    ctx._results[(run_id, "basic_features")] = _make_features()
 
     ctx.set_config(
         {
@@ -63,7 +63,6 @@ def test_s1_s2_classifier_basic(tmp_path):
 
     labels = ctx.get_data(run_id, "s1_s2")
 
-    assert len(labels) == 1
-    assert len(labels[0]) == 2
-    assert labels[0][0]["label"] == LABEL_S1
-    assert labels[0][1]["label"] == LABEL_S2
+    assert len(labels) == 2
+    assert labels[0]["label"] == LABEL_S1
+    assert labels[1]["label"] == LABEL_S2

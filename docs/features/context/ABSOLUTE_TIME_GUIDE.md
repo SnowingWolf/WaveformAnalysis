@@ -149,14 +149,13 @@ ctx = Context(config={
 ### 多通道数据查询
 
 ```python
-# 查询所有通道
+# 查询所有通道（返回单个结构化数组）
 st_waveforms = ctx.get_data_time_range_absolute(
     'run_001',
     'st_waveforms',
     start_dt=start,
     end_dt=end
 )
-# 返回 List[np.ndarray]
 
 # 查询特定通道
 ch0_data = ctx.get_data_time_range_absolute(
@@ -166,7 +165,7 @@ ch0_data = ctx.get_data_time_range_absolute(
     end_dt=end,
     channel=0
 )
-# 返回 np.ndarray
+# 返回 np.ndarray（已按 channel 过滤）
 ```
 
 ### 向量化转换

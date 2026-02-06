@@ -38,10 +38,7 @@ waveforms = [
 
 ↓ StWaveformsPlugin (使用 VX2730 FormatSpec)
 
-st_waveforms = [
-    structured_array_ch0,  # RECORD_DTYPE
-    structured_array_ch1,
-]
+st_waveforms = structured_array_all  # RECORD_DTYPE (单个数组，channel 区分通道)
 ```
 
 ### V1725 数据流（特殊处理）
@@ -72,7 +69,7 @@ waveforms = structured_array (单个数组，包含所有通道)
 # dtype: [('channel', 'i2'), ('timestamp', 'i8'),
 #         ('baseline', 'i4'), ('trunc', 'b1'), ('wave', 'O')]
 
-↓ StWaveformsPlugin (需要按通道分割)
+↓ StWaveformsPlugin (需要按通道分割输入)
 
 # 问题: V1725 返回的是单个数组，不是按通道分组的列表
 # 需要特殊处理！
@@ -272,22 +269,18 @@ st_waveforms = waveform_struct.structure_waveforms()
 # 4. 填充 RECORD_DTYPE
 
 # 返回
-st_waveforms = [
-    np.array([
-        (100.15, nan, 1000000, 800, 0, [100.1, 100.2, ...]),
-        (100.18, nan, 2000000, 800, 0, [100.3, 100.4, ...]),
-    ], dtype=RECORD_DTYPE),  # 通道 0
-    np.array([
-        (99.85, nan, 1000000, 800, 1, [99.8, 99.9, ...]),
-        (100.02, nan, 2000000, 800, 1, [100.0, 100.1, ...]),
-    ], dtype=RECORD_DTYPE),  # 通道 1
-]
+st_waveforms = np.array([
+    (100.15, nan, 1000000, 800, 0, [100.1, 100.2, ...]),
+    (100.18, nan, 2000000, 800, 0, [100.3, 100.4, ...]),
+    (99.85, nan, 1000000, 800, 1, [99.8, 99.9, ...]),
+    (100.02, nan, 2000000, 800, 1, [100.0, 100.1, ...]),
+], dtype=RECORD_DTYPE)
 ```
 
 **关键点**:
-- 输入是列表，输出也是列表
-- 每个通道独立处理
-- 使用 VX2730_SPEC 的列映射
+- 输入是列表（原始波形按通道分组）
+- 输出是单个结构化数组
+- 通过 `channel` 字段区分通道
 
 #### V1725 行为（当前问题）
 ```python
@@ -321,6 +314,8 @@ waveforms_list = [
 
 # 然后才能传给 WaveformStruct
 waveform_struct = WaveformStruct(waveforms_list, config=config)
+st_waveforms = waveform_struct.structure_waveforms()
+# st_waveforms 为单个结构化数组，通过 channel 字段区分通道
 ```
 
 **关键点**:
@@ -338,7 +333,7 @@ waveform_struct = WaveformStruct(waveforms_list, config=config)
 |------|--------|-------|
 | **raw_files** | `List[List[str]]`<br>每通道独立文件列表 | `List[List[str]]`<br>所有通道指向同一文件 |
 | **waveforms** | `List[np.ndarray]`<br>每通道一个 2D 数组 | `np.ndarray`<br>单个结构化数组 |
-| **st_waveforms** | `List[np.ndarray]`<br>每通道一个结构化数组 | `List[np.ndarray]`<br>需要预处理分割 |
+| **st_waveforms** | `np.ndarray`<br>单个结构化数组（`channel` 区分通道） | `np.ndarray`<br>单个结构化数组（`channel` 区分通道） |
 
 ### 处理逻辑差异
 
@@ -351,7 +346,8 @@ raw_files = [['CH0_0.CSV', 'CH0_1.CSV'], ['CH1_0.CSV', 'CH1_1.CSV']]
 waveforms = [ch0_array, ch1_array]
 
 # 3. 结构化: 直接处理
-st_waveforms = [ch0_structured, ch1_structured]
+st_waveforms = np.concatenate([ch0_structured, ch1_structured])
+# st_waveforms 为单个结构化数组，channel 字段区分通道
 ```
 
 #### V1725（特殊处理）
@@ -369,7 +365,8 @@ if daq_adapter == "v1725":
 # 3. 结构化: 需要预处理
 # 按 channel 字段分割
 waveforms_list = split_by_channel(waveforms)
-st_waveforms = [ch0_structured, ch1_structured, ch2_structured]
+st_waveforms = np.concatenate([ch0_structured, ch1_structured, ch2_structured])
+# st_waveforms 为单个结构化数组，channel 字段区分通道
 ```
 
 ---
@@ -596,14 +593,16 @@ class V1725Adapter(DAQAdapter):
    - V1725: 二进制
 
 3. **输出结构**:
-   - VX2730: `List[np.ndarray]` (标准)
-   - V1725: `np.ndarray` (结构化数组)
+   - **waveforms**:
+     - VX2730: `List[np.ndarray]` (每通道 2D 数组)
+     - V1725: `np.ndarray` (单个结构化数组)
+   - **st_waveforms**: `np.ndarray` (单个结构化数组，`channel` 区分通道)
 
 ### 当前处理方式
 
 - **RawFilesPlugin**: 两者都使用适配器扫描，但 V1725 返回重复的文件路径
 - **WaveformsPlugin**: V1725 有特殊的 `if daq_adapter == "v1725"` 分支
-- **StWaveformsPlugin**: 当前可能缺少 V1725 的转换逻辑
+- **StWaveformsPlugin**: 若上游返回单个结构化数组，需先按通道分组再结构化
 
 ### 建议
 

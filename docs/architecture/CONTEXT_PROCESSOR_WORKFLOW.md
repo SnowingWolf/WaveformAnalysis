@@ -359,7 +359,7 @@ import numpy as np
 import pandas as pd
 
 # 假设已有结构化波形数据
-# st_waveforms 是 List[np.ndarray]，每个数组对应一个通道
+# st_waveforms 是单个结构化数组，通过 channel 字段区分通道
 
 # 提取特征（示例：手动计算 height/area）
 height_range = (40, 90)
@@ -367,29 +367,20 @@ area_range = (0, None)
 start_p, end_p = height_range
 start_c, end_c = area_range
 
-heights = []
-areas = []
-for st_ch in st_waveforms:
-    if len(st_ch) == 0:
-        heights.append(np.zeros(0))
-        areas.append(np.zeros(0))
-        continue
+waves = st_waveforms["wave"]
+baselines = st_waveforms["baseline"]
 
-    waves = st_ch["wave"]
-    baselines = st_ch["baseline"]
-    waves_p = waves[:, start_p:end_p]
-    height_vals = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
-    waves_c = waves[:, start_c:end_c]
-    area_vals = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
+waves_p = waves[:, start_p:end_p]
+height_vals = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
 
-    heights.append(height_vals)
-    areas.append(area_vals)
+waves_c = waves[:, start_c:end_c]
+area_vals = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
 
 # 构建 DataFrame（逻辑与 DataFramePlugin 一致）
-all_timestamps = np.concatenate([st["timestamp"] for st in st_waveforms])
-all_areas = np.concatenate(areas)
-all_heights = np.concatenate(heights)
-all_channels = np.concatenate([st["channel"] for st in st_waveforms])
+all_timestamps = st_waveforms["timestamp"]
+all_areas = area_vals
+all_heights = height_vals
+all_channels = st_waveforms["channel"]
 
 df = pd.DataFrame({
     "timestamp": all_timestamps,
@@ -441,6 +432,9 @@ data2 = ctx.get_data("run_001", "st_waveforms")  # 快速加载！
 
 # 清除特定数据的缓存
 ctx.clear_cache_for("run_001", "st_waveforms")
+
+# 清除特定数据及其下游缓存
+ctx.clear_cache_for("run_001", "st_waveforms", downstream=True)
 
 # 清除该 run 的所有缓存
 ctx.clear_cache_for("run_001")

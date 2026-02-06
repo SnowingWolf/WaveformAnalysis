@@ -77,6 +77,7 @@ from .records_builder import (
     build_records_from_st_waveforms_sharded,
     build_records_from_v1725_files,
     merge_records_parts,
+    split_by_channel,
 )
 
 __all__ = [
@@ -98,6 +99,7 @@ __all__ = [
     "build_records_from_st_waveforms_sharded",
     "build_records_from_v1725_files",
     "merge_records_parts",
+    "split_by_channel",
     # 事件分析
     "EventAnalyzer",
     # Chunk 常量

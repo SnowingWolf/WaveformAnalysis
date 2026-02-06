@@ -44,7 +44,7 @@ class WaveformWidthIntegralPlugin(Plugin):
     provides = "waveform_width_integral"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Event-wise integral quantile width using st_waveforms or filtered_waveforms."
-    version = "2.0.0"  # 版本升级：支持动态依赖切换
+    version = "2.1.0"  # 版本升级：输出改为单数组
     save_when = "always"
 
     output_dtype = WAVEFORM_WIDTH_INTEGRAL_DTYPE
@@ -79,7 +79,7 @@ class WaveformWidthIntegralPlugin(Plugin):
         ),
     }
 
-    def compute(self, context: Any, run_id: str, **_kwargs) -> List[np.ndarray]:
+    def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         q_low = float(context.get_config(self, "q_low"))
         q_high = float(context.get_config(self, "q_high"))
         polarity = context.get_config(self, "polarity")
@@ -110,77 +110,70 @@ class WaveformWidthIntegralPlugin(Plugin):
         else:
             waveform_data = context.get_data(run_id, "st_waveforms")
 
-        width_list: List[np.ndarray] = []
+        if not isinstance(waveform_data, np.ndarray):
+            raise ValueError("waveform_width_integral expects st_waveforms as a single array")
 
-        for ch_idx, st_ch in enumerate(waveform_data):
-            if len(st_ch) == 0:
-                width_list.append(np.zeros(0, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE))
-                continue
+        if len(waveform_data) == 0:
+            return np.zeros(0, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE)
 
-            channel_widths = []
+        widths: List[tuple] = []
 
-            for event_idx in range(len(st_ch)):
-                record = st_ch[event_idx]
-                wave = record["wave"]
-                baseline = float(record["baseline"])
+        for event_idx, record in enumerate(waveform_data):
+            wave = record["wave"]
+            baseline = float(record["baseline"])
 
-                signal = wave - baseline
+            signal = wave - baseline
 
-                if polarity == "positive":
-                    x = np.maximum(signal, 0.0)
-                elif polarity == "negative":
+            if polarity == "positive":
+                x = np.maximum(signal, 0.0)
+            elif polarity == "negative":
+                x = np.maximum(-signal, 0.0)
+            else:
+                pos_area = float(np.sum(np.maximum(signal, 0.0)))
+                neg_area = float(np.sum(np.maximum(-signal, 0.0)))
+                if neg_area > pos_area:
                     x = np.maximum(-signal, 0.0)
                 else:
-                    pos_area = float(np.sum(np.maximum(signal, 0.0)))
-                    neg_area = float(np.sum(np.maximum(-signal, 0.0)))
-                    if neg_area > pos_area:
-                        x = np.maximum(-signal, 0.0)
-                    else:
-                        x = np.maximum(signal, 0.0)
+                    x = np.maximum(signal, 0.0)
 
-                q_total = float(np.sum(x))
+            q_total = float(np.sum(x))
 
-                if q_total <= 0 or not np.isfinite(q_total):
-                    t_low_samples = 0.0
-                    t_high_samples = 0.0
-                    width_samples = 0.0
-                else:
-                    cumsum = np.cumsum(x)
-                    t_low_idx = int(np.searchsorted(cumsum, q_low * q_total, side="left"))
-                    t_high_idx = int(np.searchsorted(cumsum, q_high * q_total, side="left"))
-                    t_low_samples = float(t_low_idx)
-                    t_high_samples = float(t_high_idx)
-                    width_samples = float(max(t_high_idx - t_low_idx, 0))
-
-                t_low = float(t_low_samples * dt)
-                t_high = float(t_high_samples * dt)
-                width = float(width_samples * dt)
-                timestamp = int(record["timestamp"])
-                channel = int(record["channel"]) if "channel" in record.dtype.names else int(ch_idx)
-
-                channel_widths.append(
-                    (
-                        t_low,
-                        t_high,
-                        width,
-                        t_low_samples,
-                        t_high_samples,
-                        width_samples,
-                        q_total,
-                        timestamp,
-                        channel,
-                        int(event_idx),
-                    )
-                )
-
-            if channel_widths:
-                widths_array = np.array(channel_widths, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE)
+            if q_total <= 0 or not np.isfinite(q_total):
+                t_low_samples = 0.0
+                t_high_samples = 0.0
+                width_samples = 0.0
             else:
-                widths_array = np.zeros(0, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE)
+                cumsum = np.cumsum(x)
+                t_low_idx = int(np.searchsorted(cumsum, q_low * q_total, side="left"))
+                t_high_idx = int(np.searchsorted(cumsum, q_high * q_total, side="left"))
+                t_low_samples = float(t_low_idx)
+                t_high_samples = float(t_high_idx)
+                width_samples = float(max(t_high_idx - t_low_idx, 0))
 
-            width_list.append(widths_array)
+            t_low = float(t_low_samples * dt)
+            t_high = float(t_high_samples * dt)
+            width = float(width_samples * dt)
+            timestamp = int(record["timestamp"])
+            channel = int(record["channel"]) if "channel" in record.dtype.names else 0
 
-        return width_list
+            widths.append(
+                (
+                    t_low,
+                    t_high,
+                    width,
+                    t_low_samples,
+                    t_high_samples,
+                    width_samples,
+                    q_total,
+                    timestamp,
+                    channel,
+                    int(event_idx),
+                )
+            )
+
+        if widths:
+            return np.array(widths, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE)
+        return np.zeros(0, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE)
 
     def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
         # 根据 use_filtered 动态选择依赖

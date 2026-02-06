@@ -68,7 +68,7 @@ class TestGoldenPathMinimal:
             ])
 
             def compute(self, context, run_id: str, **kwargs):  # noqa: ARG002
-                # Return structured array per channel
+                # Return single structured array
                 waveforms = context.get_data(run_id, "waveforms")
                 results = []
                 for ch, wf in enumerate(waveforms or []):
@@ -79,7 +79,7 @@ class TestGoldenPathMinimal:
                     data["baseline"] = np.mean(wf[:, :10], axis=1)
                     data["height"] = np.max(wf, axis=1) - data["baseline"]
                     results.append(data)
-                return results
+                return np.concatenate(results) if results else np.array([], dtype=self.output_dtype)
 
         class FeaturesPlugin(Plugin):
             """Simulates feature extraction."""
@@ -95,17 +95,16 @@ class TestGoldenPathMinimal:
             ])
 
             def compute(self, context, run_id: str, **kwargs):  # noqa: ARG002
-                # Combine channels into single array
+                # Consume single structured array
                 st_waveforms = context.get_data(run_id, "st_waveforms")
-                all_data = []
-                for ch_data in st_waveforms or []:
-                    features = np.zeros(len(ch_data), dtype=self.output_dtype)
-                    features["time"] = ch_data["time"]
-                    features["channel"] = ch_data["channel"]
-                    features["height"] = ch_data["height"]
-                    features["area"] = ch_data["height"] * 10  # Fake area
-                    all_data.append(features)
-                return np.concatenate(all_data) if all_data else np.array([], dtype=self.output_dtype)
+                if st_waveforms is None or len(st_waveforms) == 0:
+                    return np.array([], dtype=self.output_dtype)
+                features = np.zeros(len(st_waveforms), dtype=self.output_dtype)
+                features["time"] = st_waveforms["time"]
+                features["channel"] = st_waveforms["channel"]
+                features["height"] = st_waveforms["height"]
+                features["area"] = st_waveforms["height"] * 10  # Fake area
+                return features
 
         return [SourcePlugin, WaveformsPlugin, StWaveformsPlugin, FeaturesPlugin]
 

@@ -83,17 +83,16 @@ def test_waveform_struct_without_upstream_baseline():
     st_waveforms = struct.structure_waveforms()
 
     # 验证结果
-    assert len(st_waveforms) == 1
-    st_ch = st_waveforms[0]
+    assert len(st_waveforms) == n_events
 
-    assert "baseline" in st_ch.dtype.names
-    assert "baseline_upstream" in st_ch.dtype.names
+    assert "baseline" in st_waveforms.dtype.names
+    assert "baseline_upstream" in st_waveforms.dtype.names
 
     # baseline 应该是计算的值（接近 100）
-    assert 99 < np.mean(st_ch["baseline"]) < 101
+    assert 99 < np.mean(st_waveforms["baseline"]) < 101
 
     # baseline_upstream 应该是 NaN
-    assert np.all(np.isnan(st_ch["baseline_upstream"]))
+    assert np.all(np.isnan(st_waveforms["baseline_upstream"]))
 
     print("✓ 无上游 baseline 测试通过")
 
@@ -130,13 +129,11 @@ def test_waveform_struct_with_upstream_baseline():
     st_waveforms = struct.structure_waveforms()
 
     # 验证结果
-    st_ch = st_waveforms[0]
-
     # baseline 应该是计算的值（接近 100）
-    assert 99 < np.mean(st_ch["baseline"]) < 101
+    assert 99 < np.mean(st_waveforms["baseline"]) < 101
 
     # baseline_upstream 应该是上游值（95）
-    assert np.allclose(st_ch["baseline_upstream"], 95)
+    assert np.allclose(st_waveforms["baseline_upstream"], 95)
 
     print("✓ 有上游 baseline 测试通过")
 
@@ -168,10 +165,8 @@ def test_waveform_struct_upstream_baseline_length_mismatch():
     struct = WaveformStruct(waveforms, upstream_baselines=upstream_baselines)
     st_waveforms = struct.structure_waveforms()
 
-    st_ch = st_waveforms[0]
-
     # baseline_upstream 应该是 NaN（因为长度不匹配）
-    assert np.all(np.isnan(st_ch["baseline_upstream"]))
+    assert np.all(np.isnan(st_waveforms["baseline_upstream"]))
 
     print("✓ 上游 baseline 长度不匹配测试通过")
 
@@ -210,7 +205,7 @@ def test_waveform_struct_multiple_channels():
 
     # 验证每个通道
     for ch in range(n_channels):
-        st_ch = st_waveforms[ch]
+        st_ch = st_waveforms[st_waveforms["channel"] == ch]
 
         # baseline 应该接近 100
         assert 99 < np.mean(st_ch["baseline"]) < 101

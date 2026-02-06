@@ -71,7 +71,8 @@ ctx.set_config({"daq_adapter": "vx2730"})
 
 - 字段命名使用业务术语：`time`, `dt`, `length`, `event_length`。
 - 时间字段单位需一致（ps/ns 等）并在 docstring 中明确。
-- 多通道输出必须为 `List[np.ndarray]`，通道顺序稳定。
+- 多通道结构化输出应返回单个 `np.ndarray`，通过 `channel` 字段区分通道。
+- 仅在没有 `channel` 字段且必须保持分通道输出时使用 `List[np.ndarray]`（旧格式）。
 - 如输出是 DataFrame，字段名稳定，避免动态拼接。
 
 ---

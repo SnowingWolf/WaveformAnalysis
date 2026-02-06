@@ -25,8 +25,8 @@
 Examples:
     >>> from waveform_analysis.utils.visualization.waveform_visualizer import plot_waveforms
     >>> import numpy as np
-    >>> waveforms = [np.random.randn(100, 500) for _ in range(2)]
-    >>> plot_waveforms(waveforms, event_index=5, channels=[0, 1])
+    >>> # 单结构化数组（含 channel 字段）
+    >>> plot_waveforms(st_waveforms, event_index=5, channels=[0, 1])
 
 Note:
     本模块需要 Plotly:
@@ -62,12 +62,19 @@ def plot_waveforms(
         print("Please install plotly: pip install plotly")
         return
 
-    if isinstance(waveforms, np.ndarray) and waveforms.ndim == 2:
-        # Single channel case
-        waveforms = [waveforms]
-
-    if channels is None:
-        channels = list(range(len(waveforms)))
+    if isinstance(waveforms, np.ndarray) and waveforms.dtype.names is not None:
+        if "channel" not in waveforms.dtype.names:
+            raise ValueError("waveforms missing 'channel' field")
+        if channels is None:
+            channels = sorted({int(ch) for ch in waveforms["channel"]})
+        waveform_lookup = {ch: waveforms[waveforms["channel"] == ch] for ch in channels}
+    else:
+        if isinstance(waveforms, np.ndarray) and waveforms.ndim == 2:
+            # Single channel case
+            waveforms = [waveforms]
+        if channels is None:
+            channels = list(range(len(waveforms)))
+        waveform_lookup = {ch: waveforms[ch] for ch in channels}
 
     fig = make_subplots(
         rows=len(channels),
@@ -78,7 +85,9 @@ def plot_waveforms(
     )
 
     for i, ch_idx in enumerate(channels):
-        ch_waves = waveforms[ch_idx]
+        ch_waves = waveform_lookup.get(ch_idx)
+        if ch_waves is None:
+            continue
         if event_index >= len(ch_waves):
             continue
 

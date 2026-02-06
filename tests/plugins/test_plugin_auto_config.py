@@ -40,25 +40,24 @@ def _register_test_adapter(name, sampling_rate_hz=1e9):
 
 def test_hitfinder_empty_dtype():
     dtype = create_record_dtype(5)
-    st_waveforms = [np.zeros(0, dtype=dtype)]
+    st_waveforms = np.zeros(0, dtype=dtype)
     ctx = DummyContext({}, {"st_waveforms": st_waveforms})
     plugin = HitFinderPlugin()
     hits = plugin.compute(ctx, "run_001", threshold=1.0)
-    assert len(hits) == 1
-    assert hits[0].dtype == np.dtype(PEAK_DTYPE)
+    assert len(hits) == 0
+    assert hits.dtype == np.dtype(PEAK_DTYPE)
 
 
 def test_waveforms_plugin_uses_raw_files_channels(monkeypatch):
     raw_files = [["f0"], ["f1"], ["f2"], ["f3"]]
     called = {}
 
-    def fake_get_waveforms(raw_filess, **_kwargs):
-        called["raw_filess_len"] = len(raw_filess)
-        return [np.zeros((0, 0)) for _ in raw_filess]
+    def fake_load_waveforms_flat(self, raw_files, n_channels, **_kwargs):  # noqa: ARG001
+        called["raw_files_len"] = len(raw_files)
+        called["n_channels"] = n_channels
+        return [np.zeros((0, 0)) for _ in range(n_channels)]
 
-    monkeypatch.setattr(
-        "waveform_analysis.core.processing.loader.get_waveforms", fake_get_waveforms
-    )
+    monkeypatch.setattr(WaveformsPlugin, "_load_waveforms_flat", fake_load_waveforms_flat)
 
     plugin = WaveformsPlugin()
     config = {
@@ -70,7 +69,8 @@ def test_waveforms_plugin_uses_raw_files_channels(monkeypatch):
 
     plugin.compute(ctx, "run_001")
 
-    assert called["raw_filess_len"] == 4
+    assert called["raw_files_len"] == 4
+    assert called["n_channels"] == 4
 
 
 def test_st_waveforms_lineage_uses_adapter_dtype():
@@ -95,8 +95,8 @@ def test_filtered_waveforms_fs_auto_from_adapter():
     _register_test_adapter(adapter_name, sampling_rate_hz=1e9)
     try:
         dtype = create_record_dtype(64)
-        st_waveforms = [np.zeros(1, dtype=dtype)]
-        st_waveforms[0]["wave"][0] = np.linspace(0, 1, 64)
+        st_waveforms = np.zeros(1, dtype=dtype)
+        st_waveforms["wave"][0] = np.linspace(0, 1, 64)
         config = {
             "filtered_waveforms": {
                 "filter_type": "BW",
@@ -110,7 +110,7 @@ def test_filtered_waveforms_fs_auto_from_adapter():
 
         result = plugin.compute(ctx, "run_001")
 
-        assert isinstance(result, list)
-        assert result[0].shape[0] == 1
+        assert isinstance(result, np.ndarray)
+        assert result.shape[0] == 1
     finally:
         unregister_adapter(adapter_name)

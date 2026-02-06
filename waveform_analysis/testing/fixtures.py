@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.processing.waveform_struct import create_record_dtype
+from waveform_analysis.core.processing.dtypes import create_record_dtype
 
 __all__ = [
     "make_fake_st_waveforms",
@@ -21,13 +21,13 @@ def make_fake_st_waveforms(
     n_events: int = 3,
     wave_len: int = 20,
     start_timestamp: int = 0,
-) -> List[np.ndarray]:
+) -> np.ndarray:
     """Create a minimal st_waveforms-like payload for tests.
 
-    Returns a list of structured arrays, one per channel.
+    Returns a single structured array with channel field populated.
     """
     dtype = create_record_dtype(wave_len)
-    st_waveforms: List[np.ndarray] = []
+    st_waveforms = []
 
     for ch in range(n_channels):
         records = np.zeros(n_events, dtype=dtype)
@@ -39,13 +39,15 @@ def make_fake_st_waveforms(
             records["wave"][idx] = np.arange(wave_len, dtype=np.float32) + ch
         st_waveforms.append(records)
 
-    return st_waveforms
+    if not st_waveforms:
+        return np.zeros(0, dtype=dtype)
+    return np.concatenate(st_waveforms)
 
 
 def make_tiny_context(
     storage_dir: Union[Path, str],
     run_id: str = "run_001",
-    st_waveforms: Optional[List[np.ndarray]] = None,
+    st_waveforms: Optional[np.ndarray] = None,
 ) -> Context:
     """Create a Context with a temp storage dir and injected st_waveforms."""
     ctx = Context(storage_dir=str(storage_dir))
