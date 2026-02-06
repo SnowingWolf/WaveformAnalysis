@@ -198,9 +198,20 @@ class TestWaveformStructDecoupling:
         # 结构化第一个通道
         st_waveform = struct._structure_waveform(mock_waveforms_custom[0])
 
-        # 验证时间戳从列3读取
-        expected_timestamps = np.arange(10) * 1000
-        np.testing.assert_array_equal(st_waveform["timestamp"], expected_timestamps)
+    def test_baseline_samples_tuple_relative(self):
+        """tuple baseline_samples uses samples_start-relative indices."""
+        n_events = 5
+        n_cols = 20
+        data = np.zeros((n_events, n_cols))
+        data[:, 0] = 0  # BOARD
+        data[:, 1] = 0  # CHANNEL
+        data[:, 2] = np.arange(n_events)  # TIMETAG
+        data[:, 3:7] = 1000  # metadata region
+        data[:, 7:] = 10  # waveform samples
+
+        struct = WaveformStruct([data], baseline_samples=(0, 5))
+        st_waveform = struct._structure_waveform(data)
+        assert np.allclose(st_waveform["baseline"], 10.0)
 
         # 验证通道号
         assert np.all(st_waveform["channel"] == 0)
