@@ -31,7 +31,7 @@ Examples:
 
 import logging
 from pathlib import Path
-from typing import Iterator, List, Optional, Union
+from typing import Callable, Iterator, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -46,13 +46,24 @@ export, __all__ = exporter()
 
 logger = logging.getLogger(__name__)
 
+# Check for Polars availability (fastest option)
+_POLARS_AVAILABLE = False
+try:
+    import polars as pl
+
+    _POLARS_AVAILABLE = True
+except ImportError:
+    pl = None
+
 # Check for PyArrow availability
 _PYARROW_AVAILABLE = False
 try:
+    import pyarrow as pa
     import pyarrow.csv as pa_csv
 
     _PYARROW_AVAILABLE = True
 except ImportError:
+    pa = None
     pa_csv = None
 
 
@@ -175,42 +186,146 @@ class VX2730Reader(FormatReader):
             self.spec.header_rows_first_file if is_first_file else self.spec.header_rows_other_files
         )
 
-        # Try PyArrow first (40-60% faster)
+        # Priority: Polars > PyArrow > Pandas
+        # Polars is fastest (Rust implementation, 2-3x faster than PyArrow)
+        if _POLARS_AVAILABLE:
+            try:
+                return self._read_file_polars(file_path, skiprows)
+            except Exception as e:
+                logger.debug(f"Polars read failed for {file_path}: {e}, falling back to PyArrow")
+
+        # PyArrow fallback (40-60% faster than pandas)
         if _PYARROW_AVAILABLE:
             try:
-                read_options = pa_csv.ReadOptions(
-                    skip_rows=skiprows,
-                    autogenerate_column_names=True,
-                )
-                parse_options = pa_csv.ParseOptions(delimiter=self.spec.delimiter)
-                convert_options = pa_csv.ConvertOptions(
-                    strings_can_be_null=True,
-                    auto_dict_encode=False,
-                )
-
-                table = pa_csv.read_csv(
-                    str(file_path),
-                    read_options=read_options,
-                    parse_options=parse_options,
-                    convert_options=convert_options,
-                )
-                arr = table.to_pandas().to_numpy()
-
-                if arr.size > 0:
-                    # Vectorized numeric conversion
-                    try:
-                        numeric_part = arr[:, 2:].astype(np.float64)
-                        valid_mask = ~np.isnan(numeric_part[:, 0])
-                        if np.any(valid_mask):
-                            return np.column_stack([arr[valid_mask, :2], numeric_part[valid_mask]])
-                    except (ValueError, TypeError):
-                        return arr
-                return arr
+                return self._read_file_pyarrow(file_path, skiprows)
             except Exception as e:
                 logger.debug(f"PyArrow read failed for {file_path}: {e}, falling back to pandas")
 
+        # Pandas fallback with explicit dtype
+        return self._read_file_pandas(file_path, skiprows)
+
+    def _read_file_polars(self, file_path: Path, skiprows: int) -> np.ndarray:
+        """使用 Polars 读取文件（Rust 实现，比 PyArrow 快 2-3x）
+
+        Polars 优势：
+        - Rust 实现，解析速度最快
+        - 内存效率高（列式存储）
+        - 自动并行解析
+
+        Args:
+            file_path: 文件路径
+            skiprows: 跳过的行数
+
+        Returns:
+            二维数组
+        """
+        samples_start = self.spec.columns.samples_start
+
+        # 先读取一行确定列数
+        with open(file_path, 'r') as f:
+            for _ in range(skiprows):
+                f.readline()
+            first_line = f.readline()
+            if not first_line.strip():
+                return np.array([]).reshape(0, 0)
+            n_cols = first_line.count(self.spec.delimiter) + 1
+
+        # 构建 schema：前 samples_start 列为 Int64，其余为 Int16
+        schema = {}
+        for i in range(n_cols):
+            col_name = f'column_{i}'
+            if i < samples_start:
+                schema[col_name] = pl.Int64
+            else:
+                schema[col_name] = pl.Int16
+
+        df = pl.read_csv(
+            file_path,
+            separator=self.spec.delimiter,
+            skip_rows=skiprows,
+            has_header=False,
+            schema=schema,
+            infer_schema_length=0,  # 禁用推断，使用显式 schema
+        )
+
+        if df.is_empty():
+            return np.array([]).reshape(0, 0)
+
+        # 转换为 numpy 数组
+        arr = df.to_numpy()
+
+        # 验证时间戳列有效性
         try:
-            # 尝试使用 pandas 读取（更健壮）
+            timestamp_col = arr[:, self.spec.columns.timestamp]
+            if np.issubdtype(timestamp_col.dtype, np.floating):
+                valid_mask = ~np.isnan(timestamp_col)
+            else:
+                valid_mask = np.ones(len(arr), dtype=bool)
+
+            if not np.all(valid_mask):
+                return arr[valid_mask]
+        except (IndexError, TypeError):
+            pass
+
+        return arr
+
+    def _read_file_pyarrow(self, file_path: Path, skiprows: int) -> np.ndarray:
+        """使用 PyArrow 读取文件（显式指定 dtype，避免 pd.to_numeric）"""
+        read_options = pa_csv.ReadOptions(
+            skip_rows=skiprows,
+            autogenerate_column_names=True,
+        )
+        parse_options = pa_csv.ParseOptions(delimiter=self.spec.delimiter)
+
+        # 显式指定列类型：前 samples_start 列为 int64，波形列为 int16
+        samples_start = self.spec.columns.samples_start
+        column_types = {}
+        for i in range(samples_start):
+            column_types[f'f{i}'] = pa.int64()
+
+        # 波形列指定为 int16（14-bit ADC 数据）
+        # 注意：PyArrow 会自动检测列数，这里预设一个较大的范围
+        for i in range(samples_start, samples_start + 2000):
+            column_types[f'f{i}'] = pa.int16()
+
+        convert_options = pa_csv.ConvertOptions(
+            column_types=column_types,
+            strings_can_be_null=False,
+            auto_dict_encode=False,
+        )
+
+        table = pa_csv.read_csv(
+            str(file_path),
+            read_options=read_options,
+            parse_options=parse_options,
+            convert_options=convert_options,
+        )
+
+        # 直接转换为 numpy，无需额外的类型转换
+        arr = table.to_pandas().to_numpy()
+
+        if arr.size == 0:
+            return arr
+
+        # 验证时间戳列有效性
+        try:
+            timestamp_col = arr[:, self.spec.columns.timestamp]
+            if np.issubdtype(timestamp_col.dtype, np.floating):
+                valid_mask = ~np.isnan(timestamp_col)
+            else:
+                valid_mask = np.ones(len(arr), dtype=bool)
+
+            if not np.all(valid_mask):
+                return arr[valid_mask]
+        except (IndexError, TypeError):
+            pass
+
+        return arr
+
+    def _read_file_pandas(self, file_path: Path, skiprows: int) -> np.ndarray:
+        """使用 Pandas 读取文件（自动推断 dtype，后转换类型）"""
+        try:
+            # 不指定 dtype，让 pandas 自动推断（更快）
             df = pd.read_csv(
                 file_path,
                 delimiter=self.spec.delimiter,
@@ -218,69 +333,31 @@ class VX2730Reader(FormatReader):
                 header=None,
                 on_bad_lines="warn",
             )
-
-            if df.empty:
-                return np.array([]).reshape(0, 0)
-
-            # 处理数值列
-            df.dropna(how="all", inplace=True)
-
-            # Optimized: vectorized numeric conversion
-            try:
-                arr = df.to_numpy()
-                try:
-                    numeric_part = arr[:, self.spec.columns.samples_start:].astype(np.float64)
-                except (ValueError, TypeError):
-                    # Fallback: convert column by column
-                    n_numeric_cols = arr.shape[1] - self.spec.columns.samples_start
-                    numeric_part = np.empty((arr.shape[0], n_numeric_cols), dtype=np.float64)
-                    for col_idx in range(n_numeric_cols):
-                        numeric_part[:, col_idx] = pd.to_numeric(
-                            arr[:, col_idx + self.spec.columns.samples_start], errors="coerce"
-                        )
-
-                # Also convert timestamp column
-                try:
-                    timestamp_col = arr[:, self.spec.columns.timestamp].astype(np.float64)
-                except (ValueError, TypeError):
-                    timestamp_col = pd.to_numeric(
-                        arr[:, self.spec.columns.timestamp], errors="coerce"
-                    ).to_numpy()
-
-                # Filter valid rows
-                valid_mask = ~np.isnan(timestamp_col)
-                if not np.any(valid_mask):
-                    return np.array([]).reshape(0, 0)
-
-                # Reconstruct array with numeric data
-                result = np.column_stack([
-                    arr[valid_mask, :self.spec.columns.samples_start],
-                    numeric_part[valid_mask]
-                ])
-                # Update timestamp column with converted values
-                result[:, self.spec.columns.timestamp] = timestamp_col[valid_mask]
-                return result
-
-            except Exception as e:
-                logger.warning(f"数值转换失败 {file_path}: {e}")
-                return df.to_numpy()
-
         except Exception as e:
-            logger.warning(f"pandas 读取失败 {file_path}: {e}")
+            logger.debug(f"pandas 读取失败 {file_path}: {e}")
+            return np.array([]).reshape(0, 0)
 
-            # 回退到 numpy 读取
-            try:
-                data = np.loadtxt(
-                    file_path,
-                    delimiter=self.spec.delimiter,
-                    skiprows=skiprows,
-                    dtype=float,
-                    ndmin=2,
-                )
-                return data
-            except Exception as e2:
-                logger.error(f"numpy 读取也失败 {file_path}: {e2}")
-                return np.array([]).reshape(0, 0)
+        if df.empty:
+            return np.array([]).reshape(0, 0)
+
+        df.dropna(how="all", inplace=True)
+
+        if df.empty:
+            return np.array([]).reshape(0, 0)
+
+        arr = df.to_numpy()
+
+        # 验证时间戳列有效性
+        try:
+            timestamp_col = arr[:, self.spec.columns.timestamp]
+            if np.issubdtype(timestamp_col.dtype, np.floating):
+                valid_mask = ~np.isnan(timestamp_col)
+                if not np.all(valid_mask):
+                    return arr[valid_mask]
+        except (IndexError, TypeError):
+            pass
+
+        return arr
 
     def read_files(
         self, file_paths: List[Union[str, Path]], show_progress: bool = False
@@ -371,6 +448,116 @@ class VX2730Reader(FormatReader):
                             a = np.pad(a, pad_width, mode="constant", constant_values=np.nan)
                         padded.append(a)
                     yield np.vstack(padded)
+
+    def count_total_rows(self, file_paths: List[Union[str, Path]]) -> int:
+        """快速统计总行数（不加载数据）
+
+        Args:
+            file_paths: 文件路径列表
+
+        Returns:
+            总行数（不含头部）
+        """
+        total = 0
+        for idx, fp in enumerate(file_paths):
+            fp = Path(fp)
+            if not fp.exists() or fp.stat().st_size == 0:
+                continue
+
+            if idx == 0:
+                skiprows = self.spec.header_rows_first_file
+            else:
+                skiprows = self.spec.header_rows_other_files
+
+            # 快速行计数（使用二进制模式）
+            with open(fp, 'rb') as f:
+                line_count = sum(1 for _ in f)
+            total += max(0, line_count - skiprows)
+
+        return total
+
+    def read_files_streaming(
+        self,
+        file_paths: List[Union[str, Path]],
+        output_dtype: np.dtype,
+        output_path: Path,
+        structurizer: Callable[[np.ndarray, np.memmap, int], int],
+        show_progress: bool = False,
+    ) -> np.memmap:
+        """流式读取并结构化，直接写入 memmap
+
+        边读边处理，避免全量 vstack 内存爆炸。
+
+        Args:
+            file_paths: 文件路径列表
+            output_dtype: 输出结构化数组的 dtype
+            output_path: memmap 输出文件路径
+            structurizer: 结构化函数，签名为 (raw_arr, output_memmap, offset) -> n_written
+                          将原始数组结构化并写入 memmap 的指定偏移位置，返回写入的行数
+            show_progress: 是否显示进度条
+
+        Returns:
+            np.memmap: 结构化后的 memmap 数组
+
+        Example:
+            >>> def my_structurizer(raw, output, offset):
+            ...     n = len(raw)
+            ...     output[offset:offset+n]['timestamp'] = raw[:, 2]
+            ...     output[offset:offset+n]['wave'] = raw[:, 7:]
+            ...     return n
+            >>> reader = VX2730Reader()
+            >>> result = reader.read_files_streaming(
+            ...     files, output_dtype, Path('output.dat'), my_structurizer
+            ... )
+        """
+        if not file_paths:
+            # 返回空 memmap
+            output = np.memmap(output_path, dtype=output_dtype, mode='w+', shape=(0,))
+            return output
+
+        # 第一遍：统计总行数
+        total_rows = self.count_total_rows(file_paths)
+
+        if total_rows == 0:
+            output = np.memmap(output_path, dtype=output_dtype, mode='w+', shape=(0,))
+            return output
+
+        # 预分配 memmap
+        output = np.memmap(output_path, dtype=output_dtype, mode='w+', shape=(total_rows,))
+
+        # 可选进度条
+        if show_progress:
+            try:
+                from tqdm import tqdm
+                pbar = tqdm(file_paths, desc="流式读取", leave=False)
+            except ImportError:
+                pbar = file_paths
+        else:
+            pbar = file_paths
+
+        # 第二遍：逐文件读取并结构化
+        offset = 0
+        for idx, fp in enumerate(pbar):
+            is_first = idx == 0
+            arr = self.read_file(fp, is_first_file=is_first)
+
+            if arr.size == 0:
+                continue
+
+            # 调用结构化函数，写入 memmap
+            n_written = structurizer(arr, output, offset)
+            offset += n_written
+
+        # 刷新到磁盘
+        output.flush()
+
+        # 如果实际写入行数少于预估，返回截断的视图
+        if offset < total_rows:
+            logger.debug(f"实际写入 {offset} 行，预估 {total_rows} 行")
+            # 创建新的 memmap 视图
+            return np.memmap(output_path, dtype=output_dtype, mode='r+', shape=(offset,))
+
+        return output
 
 
 # ============================================================================

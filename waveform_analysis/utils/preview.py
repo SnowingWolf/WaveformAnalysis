@@ -338,16 +338,61 @@ class WaveformPreviewer:
 
         baselines = waveforms["baseline"]
         waves = waveforms["wave"]
+        n_events = len(waveforms)
 
-        # 峰值和峰值位置
-        wave_seg_p = waves[:, peaks_range[0] : peaks_range[1]]
-        # 峰值 = baseline - wave 的最大值（假设负脉冲）
-        peaks = np.max(baselines[:, None] - wave_seg_p, axis=1)
-        peak_positions = peaks_range[0] + np.argmax(baselines[:, None] - wave_seg_p, axis=1)
+        if waves.ndim == 1:
+            try:
+                waves = np.stack(waves)
+            except ValueError:
+                logger.warning(
+                    "Waveforms 'wave' field has unexpected shape; skipping feature computation."
+                )
+                nan_vals = np.full(n_events, np.nan, dtype=float)
+                return {
+                    "peaks": nan_vals,
+                    "charges": nan_vals,
+                    "peak_positions": nan_vals,
+                    "baselines": baselines,
+                }
 
-        # 电荷积分
-        wave_seg_c = waves[:, charge_range[0] : charge_range[1]]
-        charges = np.sum(baselines[:, None] - wave_seg_c, axis=1)
+        wave_len = waves.shape[1] if waves.ndim == 2 else 0
+
+        def _range_valid(range_vals: Tuple[int, int], length: int) -> bool:
+            start, end = range_vals
+            return 0 <= start < end <= length
+
+        peak_valid = _range_valid(peaks_range, wave_len)
+        charge_valid = _range_valid(charge_range, wave_len)
+
+        if not peak_valid:
+            logger.warning(
+                "peaks_range %s is out of bounds for wave length %s; skipping peak features.",
+                peaks_range,
+                wave_len,
+            )
+
+        if not charge_valid:
+            logger.warning(
+                "charge_range %s is out of bounds for wave length %s; skipping charge features.",
+                charge_range,
+                wave_len,
+            )
+
+        peaks = np.full(n_events, np.nan, dtype=float)
+        peak_positions = np.full(n_events, np.nan, dtype=float)
+        charges = np.full(n_events, np.nan, dtype=float)
+
+        if peak_valid and wave_len > 0:
+            wave_seg_p = waves[:, peaks_range[0] : peaks_range[1]]
+            # 峰值 = baseline - wave 的最大值（假设负脉冲）
+            peaks = np.max(baselines[:, None] - wave_seg_p, axis=1)
+            peak_positions = (
+                peaks_range[0] + np.argmax(baselines[:, None] - wave_seg_p, axis=1)
+            ).astype(float)
+
+        if charge_valid and wave_len > 0:
+            wave_seg_c = waves[:, charge_range[0] : charge_range[1]]
+            charges = np.sum(baselines[:, None] - wave_seg_c, axis=1)
 
         return {
             "peaks": peaks,
@@ -449,14 +494,22 @@ class WaveformPreviewer:
             # 标注峰值位置（只标注前几个波形，避免过于拥挤）
             if annotate and i < min(5, len(waveforms)):
                 peak_pos = features["peak_positions"][i]
-                peak_val = wave[peak_pos]
-                ax.plot(
-                    peak_pos * sampling_interval_ns,
-                    peak_val,
-                    kwargs.get("peak_marker", "r*"),
-                    markersize=12,
-                    zorder=3,
-                )
+                try:
+                    valid_peak_pos = peak_pos is not None and np.isfinite(peak_pos)
+                except TypeError:
+                    valid_peak_pos = False
+
+                if valid_peak_pos:
+                    peak_idx = int(peak_pos)
+                    if 0 <= peak_idx < len(wave):
+                        peak_val = wave[peak_idx]
+                        ax.plot(
+                            peak_idx * sampling_interval_ns,
+                            peak_val,
+                            kwargs.get("peak_marker", "r*"),
+                            markersize=12,
+                            zorder=3,
+                        )
 
         ax.set_xlabel("Time [ns]", fontsize=12)
         ax.set_ylabel("ADC Value", fontsize=12)
@@ -556,13 +609,21 @@ class WaveformPreviewer:
 
                 # 峰值
                 peak_pos = features["peak_positions"][i]
-                peak_val = wave[peak_pos]
-                ax.plot(
-                    peak_pos * sampling_interval_ns,
-                    peak_val,
-                    "r*",
-                    markersize=10,
-                )
+                try:
+                    valid_peak_pos = peak_pos is not None and np.isfinite(peak_pos)
+                except TypeError:
+                    valid_peak_pos = False
+
+                if valid_peak_pos:
+                    peak_idx = int(peak_pos)
+                    if 0 <= peak_idx < len(wave):
+                        peak_val = wave[peak_idx]
+                        ax.plot(
+                            peak_idx * sampling_interval_ns,
+                            peak_val,
+                            "r*",
+                            markersize=10,
+                        )
 
                 # 积分区域
                 ax.axvspan(
@@ -575,15 +636,26 @@ class WaveformPreviewer:
                 # 标注数值
                 charge = features["charges"][i]
                 peak = features["peaks"][i]
-                ax.text(
-                    0.02,
-                    0.98,
-                    f"Peak: {peak:.1f}\nCharge: {charge:.1f}\nBaseline: {baseline:.2f}",
-                    transform=ax.transAxes,
-                    verticalalignment="top",
-                    fontsize=8,
-                    bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.5},
-                )
+                try:
+                    valid_charge = charge is not None and np.isfinite(charge)
+                except TypeError:
+                    valid_charge = False
+
+                try:
+                    valid_peak = peak is not None and np.isfinite(peak)
+                except TypeError:
+                    valid_peak = False
+
+                if valid_charge and valid_peak:
+                    ax.text(
+                        0.02,
+                        0.98,
+                        f"Peak: {peak:.1f}\nCharge: {charge:.1f}\nBaseline: {baseline:.2f}",
+                        transform=ax.transAxes,
+                        verticalalignment="top",
+                        fontsize=8,
+                        bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.5},
+                    )
 
             if kwargs.get("show_title", True):
                 ax.set_title(
