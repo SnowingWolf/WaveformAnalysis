@@ -149,9 +149,9 @@ class TestWaveformStructDecoupling:
         struct = WaveformStruct.from_adapter(mock_waveforms_vx2730, "vx2730")
         assert struct.config.format_spec.name == "vx2730_csv"
         st_waveforms = struct.structure_waveforms()
-        assert len(st_waveforms) == 2
+        assert len(st_waveforms) == 20
         # 实际波形长度从数据自动检测
-        assert st_waveforms[0]["wave"].shape[1] == 5000
+        assert st_waveforms["wave"].shape[1] == 5000
 
     def test_custom_format_config(self, mock_waveforms_custom):
         """测试自定义格式配置"""
@@ -176,8 +176,8 @@ class TestWaveformStructDecoupling:
 
         # 验证结构化
         st_waveforms = struct.structure_waveforms()
-        assert len(st_waveforms) == 2
-        assert st_waveforms[0]["wave"].shape[1] == 1000
+        assert len(st_waveforms) == 20
+        assert st_waveforms["wave"].shape[1] == 1000
 
     def test_column_mapping_applied(self, mock_waveforms_custom):
         """测试列映射正确应用"""
@@ -237,7 +237,7 @@ class TestWaveformStructDecoupling:
 
         # 结构化并验证
         st_waveforms = struct.structure_waveforms()
-        assert st_waveforms[0]["wave"].shape == (10, 1000)
+        assert st_waveforms["wave"].shape == (20, 1000)
 
     def test_auto_detect_wave_length(self, mock_waveforms_custom):
         """测试自动检测波形长度（不设置 wave_length）"""
@@ -259,7 +259,7 @@ class TestWaveformStructDecoupling:
         # 结构化时应自动检测实际波形长度
         st_waveforms = struct.structure_waveforms()
         # 实际数据有 1000 个采样点
-        assert st_waveforms[0]["wave"].shape == (10, 1000)
+        assert st_waveforms["wave"].shape == (20, 1000)
 
 
 class TestWaveformStructEdgeCases:
@@ -276,8 +276,7 @@ class TestWaveformStructEdgeCases:
         waveforms = [np.zeros((0, 807))]
         struct = WaveformStruct(waveforms)
         st_waveforms = struct.structure_waveforms()
-        assert len(st_waveforms) == 1
-        assert len(st_waveforms[0]) == 0
+        assert len(st_waveforms) == 0
 
     def test_mismatched_wave_length(self):
         """测试实际波形长度与配置不匹配时的处理"""
@@ -296,9 +295,9 @@ class TestWaveformStructEdgeCases:
         config = WaveformStructConfig(format_spec=VX2730_SPEC, wave_length=800)
         struct = WaveformStruct(waveforms, config=config)
 
-        # 应该使用实际长度创建动态 dtype
+        # 使用配置长度创建 dtype
         st_waveforms = struct.structure_waveforms()
-        assert st_waveforms[0]["wave"].shape == (n_events, n_samples)
+        assert st_waveforms["wave"].shape == (n_events, 800)
 
 
 if __name__ == "__main__":

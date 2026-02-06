@@ -565,28 +565,38 @@ def test_context_build_time_index_single_array(tmp_path):
     assert result["stats"]["time_data"]["n_records"] == 5
 
 
-def test_context_build_time_index_multi_channel(tmp_path):
-    """Test building time index for multi-channel data (List[np.ndarray])."""
-    dtype = np.dtype([("time", "<i8"), ("value", "<f8")])
+def test_context_build_time_index_channel_field(tmp_path):
+    """Test building time index for multi-channel data in a single array."""
+    dtype = np.dtype([("time", "<i8"), ("channel", "<i2"), ("value", "<f8")])
 
     class MultiChannelPlugin(Plugin):
         provides = "multi_channel_data"
-        output_dtype = "List[np.ndarray]"
+        output_dtype = dtype
 
         def compute(self, context, run_id, **kwargs):
-            ch0 = np.array([(100, 1.0), (200, 2.0), (300, 3.0)], dtype=dtype)
-            ch1 = np.array([(150, 1.5), (250, 2.5), (350, 3.5)], dtype=dtype)
-            return [ch0, ch1]
+            return np.array(
+                [
+                    (100, 0, 1.0),
+                    (200, 0, 2.0),
+                    (150, 1, 1.5),
+                    (250, 1, 2.5),
+                ],
+                dtype=dtype,
+            )
 
     ctx = Context(storage_dir=str(tmp_path))
     ctx.register(MultiChannelPlugin)
 
     result = ctx.build_time_index("run1", "multi_channel_data")
 
-    assert result["type"] == "multi_channel"
-    assert result["n_channels"] == 2
-    assert "multi_channel_data_ch0" in result["indices"]
-    assert "multi_channel_data_ch1" in result["indices"]
+    assert result["type"] == "single"
+    assert "multi_channel_data" in result["indices"]
+    assert result["stats"]["multi_channel_data"]["n_records"] == 4
+
+    # Channel filter should work on the flat array
+    ch1 = ctx.get_data_time_range("run1", "multi_channel_data", channel=1)
+    assert len(ch1) == 2
+    assert np.all(ch1["channel"] == 1)
 
 
 def test_context_get_data_time_range_single(tmp_path):

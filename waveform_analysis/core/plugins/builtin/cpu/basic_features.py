@@ -34,7 +34,7 @@ class BasicFeaturesPlugin(Plugin):
 
     provides = "basic_features"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
-    version = "3.0.0"  # 版本升级：添加 timestamp/channel/event_index 元数据字段
+    version = "3.1.0"  # 版本升级：输出改为单数组
     save_when = "always"
     output_dtype = BASIC_FEATURES_DTYPE
     options = {
@@ -57,7 +57,7 @@ class BasicFeaturesPlugin(Plugin):
             return ["filtered_waveforms"]
         return ["st_waveforms"]
 
-    def compute(self, context: Any, run_id: str, **kwargs) -> List[np.ndarray]:
+    def compute(self, context: Any, run_id: str, **kwargs) -> np.ndarray:
         """
         计算基础特征（height/area）
 
@@ -65,7 +65,7 @@ class BasicFeaturesPlugin(Plugin):
         area = sum(baseline - wave)
 
         Returns:
-            List[np.ndarray]: 每个通道一个结构化数组，包含 height/area 字段
+            np.ndarray: 结构化数组，包含 height/area 字段
         """
         use_filtered = context.get_config(self, "use_filtered")
 
@@ -86,38 +86,35 @@ class BasicFeaturesPlugin(Plugin):
         start_p, end_p = height_range
         start_c, end_c = area_range
 
-        features = []
+        if not isinstance(waveform_data, np.ndarray):
+            raise ValueError("basic_features expects st_waveforms as a single structured array")
+        if len(waveform_data) == 0:
+            return np.zeros(0, dtype=BASIC_FEATURES_DTYPE)
 
-        for ch_idx, st_ch in enumerate(waveform_data):
-            if len(st_ch) == 0:
-                features.append(np.zeros(0, dtype=BASIC_FEATURES_DTYPE))
-                continue
+        waves = waveform_data["wave"]
+        baselines = waveform_data["baseline"]
+        timestamps = waveform_data["timestamp"]
+        channels = (
+            waveform_data["channel"]
+            if "channel" in waveform_data.dtype.names
+            else np.zeros(len(waveform_data), dtype="i2")
+        )
+        n_events = len(waveform_data)
 
-            waves = st_ch["wave"]
-            baselines = st_ch["baseline"]
-            timestamps = st_ch["timestamp"]
-            # 优先使用数据中的 channel 字段，否则使用通道索引
-            if "channel" in st_ch.dtype.names:
-                channels = st_ch["channel"]
-            else:
-                channels = np.full(len(st_ch), ch_idx, dtype="i2")
-            n_events = len(st_ch)
+        # 计算 height
+        waves_p = waves[:, start_p:end_p]
+        height_vals = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
 
-            # 计算 height
-            waves_p = waves[:, start_p:end_p]
-            height_vals = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
+        # 计算 area
+        waves_c = waves[:, start_c:end_c]
+        area_vals = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
 
-            # 计算 area
-            waves_c = waves[:, start_c:end_c]
-            area_vals = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
-
-            # 构建输出（包含元数据）
-            ch_features = np.zeros(n_events, dtype=BASIC_FEATURES_DTYPE)
-            ch_features["height"] = height_vals
-            ch_features["area"] = area_vals
-            ch_features["timestamp"] = timestamps
-            ch_features["channel"] = channels
-            ch_features["event_index"] = np.arange(n_events)
-            features.append(ch_features)
+        # 构建输出（包含元数据）
+        features = np.zeros(n_events, dtype=BASIC_FEATURES_DTYPE)
+        features["height"] = height_vals
+        features["area"] = area_vals
+        features["timestamp"] = timestamps
+        features["channel"] = channels
+        features["event_index"] = np.arange(n_events)
 
         return features

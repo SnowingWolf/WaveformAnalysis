@@ -43,6 +43,34 @@ def _clip_wave_to_uint16(wave: np.ndarray) -> np.ndarray:
     return data.astype(np.uint16, copy=False)
 
 
+@export
+def split_by_channel(st_waveforms: np.ndarray) -> List[Tuple[int, np.ndarray]]:
+    """
+    Split a structured array into per-channel views, preserving per-channel order.
+
+    Returns a list of (channel, array) pairs sorted by channel.
+    """
+    if st_waveforms is None or len(st_waveforms) == 0:
+        return []
+    if not isinstance(st_waveforms, np.ndarray) or st_waveforms.dtype.names is None:
+        raise ValueError("st_waveforms must be a structured numpy array")
+    if "channel" not in st_waveforms.dtype.names:
+        raise ValueError("st_waveforms missing required 'channel' field")
+
+    channels = st_waveforms["channel"]
+    order = np.argsort(channels, kind="mergesort")
+    sorted_arr = st_waveforms[order]
+    sorted_channels = channels[order]
+    unique_channels, start_idx = np.unique(sorted_channels, return_index=True)
+
+    groups: List[Tuple[int, np.ndarray]] = []
+    for idx, ch in enumerate(unique_channels):
+        start = start_idx[idx]
+        end = start_idx[idx + 1] if idx + 1 < len(start_idx) else len(sorted_arr)
+        groups.append((int(ch), sorted_arr[start:end]))
+    return groups
+
+
 def _build_records_from_wave_list(
     waves: Sequence[Tuple[int, int, int, int, np.ndarray]],
     default_dt_ns: int,
@@ -215,7 +243,7 @@ def _build_records_from_channels(
 
 @export
 def build_records_from_st_waveforms(
-    st_waveforms: List[np.ndarray],
+    st_waveforms: np.ndarray,
     default_dt_ns: int = 1,
 ) -> RecordsBundle:
     """
@@ -223,7 +251,7 @@ def build_records_from_st_waveforms(
 
     Baseline implementation: single pass, sorted by (timestamp, pid, channel).
     """
-    channels = [(ch, idx) for idx, ch in enumerate(st_waveforms)]
+    channels = [(arr, ch) for ch, arr in split_by_channel(st_waveforms)]
     return _build_records_from_channels(channels, default_dt_ns=default_dt_ns)
 
 
@@ -330,7 +358,7 @@ def merge_records_parts(parts: Sequence[RecordsBundle]) -> RecordsBundle:
 
 @export
 def build_records_from_st_waveforms_sharded(
-    st_waveforms: List[np.ndarray],
+    st_waveforms: np.ndarray,
     part_size: int = 200_000,
     default_dt_ns: int = 1,
 ) -> RecordsBundle:
@@ -343,12 +371,12 @@ def build_records_from_st_waveforms_sharded(
     if part_size <= 0:
         return build_records_from_st_waveforms(st_waveforms, default_dt_ns=default_dt_ns)
 
-    total_records = sum(len(ch) for ch in st_waveforms)
+    total_records = len(st_waveforms)
     if total_records <= part_size:
         return build_records_from_st_waveforms(st_waveforms, default_dt_ns=default_dt_ns)
 
     parts: List[RecordsBundle] = []
-    for ch_idx, ch in enumerate(st_waveforms):
+    for ch_idx, ch in split_by_channel(st_waveforms):
         count = len(ch)
         if count == 0:
             continue

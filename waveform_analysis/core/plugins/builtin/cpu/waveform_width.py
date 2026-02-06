@@ -51,7 +51,7 @@ class WaveformWidthPlugin(Plugin):
     provides = "waveform_width"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Calculate rise/fall time based on peak detection results."
-    version = "2.0.0"  # 版本升级：支持动态依赖切换
+    version = "2.1.0"  # 版本升级：输出改为单数组
     save_when = "always"
     output_dtype = WAVEFORM_WIDTH_DTYPE
 
@@ -98,7 +98,7 @@ class WaveformWidthPlugin(Plugin):
         ),
     }
 
-    def compute(self, context: Any, run_id: str, **_kwargs) -> List[np.ndarray]:
+    def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         """
         计算波形宽度特征
 
@@ -110,7 +110,7 @@ class WaveformWidthPlugin(Plugin):
             **_kwargs: 依赖数据（未使用，通过 context.get_data 获取）
 
         Returns:
-            List[np.ndarray]: 每个通道的宽度特征列表，dtype 为 WAVEFORM_WIDTH_DTYPE
+            np.ndarray: 宽度特征数组，dtype 为 WAVEFORM_WIDTH_DTYPE
 
         Examples:
             >>> from waveform_analysis.core.plugins.builtin.cpu import (
@@ -120,7 +120,8 @@ class WaveformWidthPlugin(Plugin):
             >>> ctx.register(WaveformWidthPlugin())
             >>> ctx.set_config({'sampling_rate': 1.0}, plugin_name='waveform_width')
             >>> widths = ctx.get_data('run_001', 'waveform_width')
-            >>> print(f"通道0平均上升时间: {np.mean(widths[0]['rise_time']):.2f} ns")
+            >>> ch0 = widths[widths['channel'] == 0]
+            >>> print(f"通道0平均上升时间: {np.mean(ch0['rise_time']):.2f} ns")
         """
         # 获取配置参数
         use_filtered = context.get_config(self, "use_filtered")
@@ -148,57 +149,47 @@ class WaveformWidthPlugin(Plugin):
         else:
             waveform_data = context.get_data(run_id, "st_waveforms")
 
-        width_list = []
+        if not isinstance(signal_peaks, np.ndarray):
+            raise ValueError("waveform_width expects signal_peaks as a single structured array")
+        if not isinstance(waveform_data, np.ndarray):
+            raise ValueError("waveform_width expects st_waveforms as a single structured array")
 
-        # 遍历每个通道
-        for ch_idx, (peaks_ch, st_ch) in enumerate(zip(signal_peaks, waveform_data)):
-            if len(peaks_ch) == 0 or len(st_ch) == 0:
-                # 空通道，添加空数组
-                width_list.append(np.zeros(0, dtype=WAVEFORM_WIDTH_DTYPE))
+        if len(signal_peaks) == 0 or len(waveform_data) == 0:
+            return np.zeros(0, dtype=WAVEFORM_WIDTH_DTYPE)
+
+        widths = []
+
+        for peak in signal_peaks:
+            event_idx = int(peak["event_index"])
+            peak_position = peak["position"]
+            timestamp = peak["timestamp"]
+            channel = peak["channel"]
+
+            if event_idx < 0 or event_idx >= len(waveform_data):
                 continue
 
-            channel_widths = []
+            waveform = waveform_data[event_idx]["wave"]
 
-            # 遍历该通道的每个峰值
-            for peak in peaks_ch:
-                event_idx = peak["event_index"]
-                peak_position = peak["position"]
-                timestamp = peak["timestamp"]
-                channel = peak["channel"]
+            width_features = self._calculate_width_from_peak(
+                waveform,
+                peak_position,
+                timestamp,
+                channel,
+                event_idx,
+                rise_low,
+                rise_high,
+                fall_high,
+                fall_low,
+                sampling_rate,
+                interpolation,
+            )
 
-                # 获取对应的波形
-                if event_idx >= len(st_ch):
-                    continue
+            if width_features is not None:
+                widths.append(width_features)
 
-                waveform = st_ch[event_idx]["wave"]
-
-                # 计算宽度特征
-                width_features = self._calculate_width_from_peak(
-                    waveform,
-                    peak_position,
-                    timestamp,
-                    channel,
-                    event_idx,
-                    rise_low,
-                    rise_high,
-                    fall_high,
-                    fall_low,
-                    sampling_rate,
-                    interpolation,
-                )
-
-                if width_features is not None:
-                    channel_widths.append(width_features)
-
-            # 转换为结构化数组
-            if len(channel_widths) > 0:
-                widths_array = np.array(channel_widths, dtype=WAVEFORM_WIDTH_DTYPE)
-            else:
-                widths_array = np.zeros(0, dtype=WAVEFORM_WIDTH_DTYPE)
-
-            width_list.append(widths_array)
-
-        return width_list
+        if widths:
+            return np.array(widths, dtype=WAVEFORM_WIDTH_DTYPE)
+        return np.zeros(0, dtype=WAVEFORM_WIDTH_DTYPE)
 
     def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
         # signal_peaks 始终需要，波形数据根据 use_filtered 动态选择

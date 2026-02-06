@@ -51,7 +51,7 @@ class SignalPeaksPlugin(Plugin):
     provides = "signal_peaks"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Detect peaks in waveforms and extract peak features."
-    version = "2.0.0"  # 版本升级：支持动态依赖切换
+    version = "2.1.0"  # 版本升级：输出改为单数组
     save_when = "always"  # 峰值数据较小，总是保存
     output_dtype = ADVANCED_PEAK_DTYPE
 
@@ -108,7 +108,7 @@ class SignalPeaksPlugin(Plugin):
             return ["filtered_waveforms"]
         return ["st_waveforms"]
 
-    def compute(self, context: Any, run_id: str, **_kwargs) -> List[np.ndarray]:
+    def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         """
         从波形中检测峰值
 
@@ -121,13 +121,13 @@ class SignalPeaksPlugin(Plugin):
             **_kwargs: 依赖数据（未使用，通过 context.get_data 获取）
 
         Returns:
-            List[np.ndarray]: 每个通道的峰值列表，dtype 为 ADVANCED_PEAK_DTYPE
+            np.ndarray: 峰值结构化数组，dtype 为 ADVANCED_PEAK_DTYPE
 
         Examples:
             >>> ctx.register(SignalPeaksPlugin())
             >>> ctx.set_config({'height': 30, 'prominence': 0.7}, plugin_name='signal_peaks')
             >>> peaks = ctx.get_data('run_001', 'signal_peaks')
-            >>> print(f"通道0的峰值数: {len(peaks[0])}")
+            >>> print(f"峰值数: {len(peaks)}")
         """
         # 获取配置参数
         use_filtered = context.get_config(self, "use_filtered")
@@ -155,55 +155,45 @@ class SignalPeaksPlugin(Plugin):
         else:
             waveform_data = context.get_data(run_id, "st_waveforms")
 
-        peaks_list = []
+        if not isinstance(waveform_data, np.ndarray):
+            raise ValueError("signal_peaks expects st_waveforms as a single structured array")
 
-        for st_ch in waveform_data:
-            if len(st_ch) == 0:
-                # 空通道，添加空数组
-                peaks_list.append(np.zeros(0, dtype=ADVANCED_PEAK_DTYPE))
-                continue
+        if len(waveform_data) == 0:
+            return np.zeros(0, dtype=ADVANCED_PEAK_DTYPE)
 
-            channel_peaks = []
+        peaks: List[tuple] = []
 
-            for event_idx, st_waveform in enumerate(st_ch):
-                waveform = st_waveform["wave"]
-                timestamp = st_waveform["timestamp"]
-                channel = st_waveform["channel"]
-                # 获取 baseline（用于反转法检测负脉冲）
-                baseline = (
-                    st_waveform["baseline"] if "baseline" in st_waveform.dtype.names else None
-                )
+        for event_idx, st_waveform in enumerate(waveform_data):
+            waveform = st_waveform["wave"]
+            timestamp = st_waveform["timestamp"]
+            channel = st_waveform["channel"] if "channel" in st_waveform.dtype.names else 0
+            baseline = (
+                st_waveform["baseline"] if "baseline" in st_waveform.dtype.names else None
+            )
 
-                # 检测峰值
-                event_peaks = self._find_peaks_in_waveform(
-                    waveform,
-                    baseline,
-                    timestamp,
-                    channel,
-                    event_idx,
-                    use_derivative,
-                    height,
-                    distance,
-                    prominence,
-                    width,
-                    threshold,
-                    height_method,
-                    sampling_interval_ns,
-                    timestamp_unit,
-                )
+            event_peaks = self._find_peaks_in_waveform(
+                waveform,
+                baseline,
+                timestamp,
+                channel,
+                event_idx,
+                use_derivative,
+                height,
+                distance,
+                prominence,
+                width,
+                threshold,
+                height_method,
+                sampling_interval_ns,
+                timestamp_unit,
+            )
 
-                if len(event_peaks) > 0:
-                    channel_peaks.extend(event_peaks)
+            if event_peaks:
+                peaks.extend(event_peaks)
 
-            # 转换为结构化数组
-            if len(channel_peaks) > 0:
-                peaks_array = np.array(channel_peaks, dtype=ADVANCED_PEAK_DTYPE)
-            else:
-                peaks_array = np.zeros(0, dtype=ADVANCED_PEAK_DTYPE)
-
-            peaks_list.append(peaks_array)
-
-        return peaks_list
+        if peaks:
+            return np.array(peaks, dtype=ADVANCED_PEAK_DTYPE)
+        return np.zeros(0, dtype=ADVANCED_PEAK_DTYPE)
 
     def _find_peaks_in_waveform(
         self,
@@ -242,7 +232,7 @@ class SignalPeaksPlugin(Plugin):
             timestamp_unit: 时间戳单位（st_waveforms 中已统一为 'ps'）
 
         Returns:
-            峰值特征元组列表
+            峰值特征元组数组
         """
         # 根据配置选择检测波形或其导数
         if use_derivative:

@@ -20,6 +20,7 @@ class DataFramePlugin(Plugin):
 
     provides = "df"
     depends_on = ["st_waveforms", "basic_features"]
+    version = "1.1.0"
     save_when = "always"
 
     def compute(self, context: Any, run_id: str, **kwargs) -> Any:
@@ -44,45 +45,23 @@ class DataFramePlugin(Plugin):
 
         st_waveforms = context.get_data(run_id, "st_waveforms")
         basic_features = context.get_data(run_id, "basic_features")
-        heights = [ch_features["height"] for ch_features in basic_features]
-        areas = [ch_features["area"] for ch_features in basic_features]
 
-        n_channels = len(st_waveforms)
-        if len(heights) != n_channels:
+        if not isinstance(st_waveforms, np.ndarray):
+            raise ValueError("df expects st_waveforms as a single structured array")
+        if not isinstance(basic_features, np.ndarray):
+            raise ValueError("df expects basic_features as a single structured array")
+
+        if len(st_waveforms) != len(basic_features):
             raise ValueError(
-                f"heights list length ({len(heights)}) != st_waveforms length ({n_channels})"
+                f"basic_features length ({len(basic_features)}) != st_waveforms length ({len(st_waveforms)})"
             )
-        if len(areas) != n_channels:
-            raise ValueError(
-                f"areas list length ({len(areas)}) != st_waveforms length ({n_channels})"
-            )
-
-        all_timestamps = []
-        all_areas = []
-        all_heights = []
-        all_channels = []
-
-        for ch in range(n_channels):
-            ts = np.asarray(st_waveforms[ch]["timestamp"])
-            area_vals = np.asarray(areas[ch])
-            height_vals = np.asarray(heights[ch])
-
-            all_timestamps.append(ts)
-            all_areas.append(area_vals)
-            all_heights.append(height_vals)
-            all_channels.append(np.asarray(st_waveforms[ch]["channel"]))
-
-        all_timestamps = np.concatenate(all_timestamps)
-        all_areas = np.concatenate(all_areas)
-        all_heights = np.concatenate(all_heights)
-        all_channels = np.concatenate(all_channels)
 
         df = pd.DataFrame(
             {
-                "timestamp": all_timestamps,
-                "area": all_areas,
-                "height": all_heights,
-                "channel": all_channels,
+                "timestamp": np.asarray(st_waveforms["timestamp"]),
+                "area": np.asarray(basic_features["area"]),
+                "height": np.asarray(basic_features["height"]),
+                "channel": np.asarray(st_waveforms["channel"]),
             }
         )
         return df.sort_values("timestamp")

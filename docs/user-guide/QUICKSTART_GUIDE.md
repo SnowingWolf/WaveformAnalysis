@@ -127,16 +127,18 @@ for ch_idx, ch_data in enumerate(basic_features):
 
 ### basic_features 结构
 
-`basic_features` 是一个列表，每个元素对应一个通道的 NumPy 结构化数组：
+`basic_features` 是单个结构化数组，通过 `channel` 字段区分通道：
 
 ```python
 # 数据结构
-basic_features: List[np.ndarray]  # 长度 = 通道数
+basic_features: np.ndarray
 
 # 每个通道的 dtype
 dtype = [
-    ('height', 'f4'),  # 波形高度 (max - min)
-    ('area', 'f4'),    # 波形面积 (积分)
+    ('height', 'f4'),     # 波形高度 (max - min)
+    ('area', 'f4'),       # 波形面积 (积分)
+    ('timestamp', 'i8'),  # ADC 时间戳 (ps)
+    ('channel', 'i2'),    # 物理通道号
 ]
 
 ```
@@ -152,11 +154,12 @@ dtype = [
 
 ```python
 # 获取所有通道的 height
-all_heights = [ch['height'] for ch in basic_features]
+all_heights = basic_features['height']
 
 # 获取通道 0 的数据
-ch0_heights = basic_features[0]['height']
-ch0_areas = basic_features[0]['area']
+ch0 = basic_features[basic_features['channel'] == 0]
+ch0_heights = ch0['height']
+ch0_areas = ch0['area']
 
 # 统计
 print(f"通道 0 平均高度: {ch0_heights.mean():.2f}")

@@ -74,7 +74,7 @@ class S1S2ClassifierPlugin(Plugin):
     provides = "s1_s2"
     depends_on = ["waveform_width", "basic_features"]
     description = "Classify peaks into S1/S2 using width/area/height ranges."
-    version = "0.1.0"
+    version = "0.2.0"
     save_when = "always"
     output_dtype = S1_S2_CLASSIFIER_DTYPE
 
@@ -128,7 +128,7 @@ class S1S2ClassifierPlugin(Plugin):
         ),
     }
 
-    def compute(self, context: Any, run_id: str, **_kwargs) -> List[np.ndarray]:
+    def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         widths = context.get_data(run_id, "waveform_width")
         features = context.get_data(run_id, "basic_features")
 
@@ -149,54 +149,54 @@ class S1S2ClassifierPlugin(Plugin):
         if strict and not s1_enabled and not s2_enabled:
             raise ValueError("No S1/S2 criteria configured; set ranges or disable strict.")
 
-        results: List[np.ndarray] = []
+        if not isinstance(widths, np.ndarray):
+            raise ValueError("s1_s2 expects waveform_width as a single array")
+        if not isinstance(features, np.ndarray):
+            raise ValueError("s1_s2 expects basic_features as a single array")
 
-        for ch_idx, widths_ch in enumerate(widths):
-            if widths_ch is None or len(widths_ch) == 0:
-                results.append(np.zeros(0, dtype=S1_S2_CLASSIFIER_DTYPE))
-                continue
+        if len(widths) == 0:
+            return np.zeros(0, dtype=S1_S2_CLASSIFIER_DTYPE)
 
-            features_ch = features[ch_idx] if ch_idx < len(features) else None
+        rows = []
+        for peak in widths:
+            width_ns = float(peak["total_width"])
+            width_samples = float(peak["total_width_samples"])
+            event_index = int(peak["event_index"])
 
-            rows = []
-            for peak in widths_ch:
-                width_ns = float(peak["total_width"])
-                width_samples = float(peak["total_width_samples"])
-                event_index = int(peak["event_index"])
+            height = np.nan
+            area = np.nan
+            if 0 <= event_index < len(features):
+                height = float(features["height"][event_index])
+                area = float(features["area"][event_index])
 
-                height = np.nan
-                area = np.nan
-                if features_ch is not None and 0 <= event_index < len(features_ch):
-                    height = float(features_ch["height"][event_index])
-                    area = float(features_ch["area"][event_index])
+            width_value = width_samples if width_unit == "samples" else width_ns
 
-                width_value = width_samples if width_unit == "samples" else width_ns
+            s1_ok = s1_enabled and _value_in_range(width_value, s1_width_range)
+            if s1_ok:
+                s1_ok = s1_ok and _value_in_range(area, s1_area_range)
+                s1_ok = s1_ok and _value_in_range(height, s1_height_range)
 
-                s1_ok = s1_enabled and _value_in_range(width_value, s1_width_range)
-                if s1_ok:
-                    s1_ok = s1_ok and _value_in_range(area, s1_area_range)
-                    s1_ok = s1_ok and _value_in_range(height, s1_height_range)
+            s2_ok = s2_enabled and _value_in_range(width_value, s2_width_range)
+            if s2_ok:
+                s2_ok = s2_ok and _value_in_range(area, s2_area_range)
+                s2_ok = s2_ok and _value_in_range(height, s2_height_range)
 
-                s2_ok = s2_enabled and _value_in_range(width_value, s2_width_range)
-                if s2_ok:
-                    s2_ok = s2_ok and _value_in_range(area, s2_area_range)
-                    s2_ok = s2_ok and _value_in_range(height, s2_height_range)
-
-                if s1_ok and not s2_ok:
+            if s1_ok and not s2_ok:
+                label = LABEL_S1
+            elif s2_ok and not s1_ok:
+                label = LABEL_S2
+            elif s1_ok and s2_ok:
+                if conflict_policy == "prefer_s1":
                     label = LABEL_S1
-                elif s2_ok and not s1_ok:
+                elif conflict_policy == "prefer_s2":
                     label = LABEL_S2
-                elif s1_ok and s2_ok:
-                    if conflict_policy == "prefer_s1":
-                        label = LABEL_S1
-                    elif conflict_policy == "prefer_s2":
-                        label = LABEL_S2
-                    else:
-                        label = LABEL_UNKNOWN
                 else:
                     label = LABEL_UNKNOWN
+            else:
+                label = LABEL_UNKNOWN
 
-                rows.append((
+            rows.append(
+                (
                     int(label),
                     float(width_ns),
                     float(width_samples),
@@ -206,8 +206,9 @@ class S1S2ClassifierPlugin(Plugin):
                     int(peak["channel"]),
                     int(event_index),
                     int(peak["peak_position"]),
-                ))
+                )
+            )
 
-            results.append(np.array(rows, dtype=S1_S2_CLASSIFIER_DTYPE))
-
-        return results
+        if rows:
+            return np.array(rows, dtype=S1_S2_CLASSIFIER_DTYPE)
+        return np.zeros(0, dtype=S1_S2_CLASSIFIER_DTYPE)

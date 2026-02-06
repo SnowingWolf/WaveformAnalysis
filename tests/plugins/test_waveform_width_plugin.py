@@ -65,7 +65,7 @@ def test_waveform_width_plugin_basic(mock_context, synthetic_waveform):
     st_waveform[0]["event_length"] = wave_length
 
     # 模拟 st_waveforms 数据（单通道）
-    st_waveforms = [st_waveform]
+    st_waveforms = st_waveform
 
     # 创建模拟的 signal_peaks 数据
     from waveform_analysis.core.plugins.builtin.cpu.peak_finding import ADVANCED_PEAK_DTYPE
@@ -79,7 +79,7 @@ def test_waveform_width_plugin_basic(mock_context, synthetic_waveform):
     peak[0]["channel"] = 0
     peak[0]["event_index"] = 0
 
-    signal_peaks = [peak]
+    signal_peaks = peak
 
     # 手动设置依赖数据
     run_id = "test_run"
@@ -93,10 +93,8 @@ def test_waveform_width_plugin_basic(mock_context, synthetic_waveform):
     widths = mock_context.get_data(run_id, "waveform_width")
 
     # 验证结果
-    assert len(widths) == 1  # 单通道
-    assert len(widths[0]) == 1  # 单个峰值
-
-    width_data = widths[0][0]
+    assert len(widths) == 1  # 单个峰值
+    width_data = widths[0]
 
     # 验证基本字段
     assert width_data["peak_position"] == 100
@@ -124,13 +122,12 @@ def test_waveform_width_plugin_empty_channel(tmp_path):
     run_id = "test_empty"
 
     # 空的 st_waveforms 和 signal_peaks
-    ctx._results[(run_id, "st_waveforms")] = [np.array([])]
-    ctx._results[(run_id, "signal_peaks")] = [np.array([])]
+    ctx._results[(run_id, "st_waveforms")] = np.array([])
+    ctx._results[(run_id, "signal_peaks")] = np.array([])
 
     widths = ctx.get_data(run_id, "waveform_width")
 
-    assert len(widths) == 1
-    assert len(widths[0]) == 0  # 空数组
+    assert len(widths) == 0  # 空数组
 
 
 def test_waveform_width_plugin_sampling_rate(tmp_path):
@@ -159,10 +156,10 @@ def test_waveform_width_plugin_sampling_rate(tmp_path):
 
     run_id_1 = "test_sampling_1ghz"
     run_id_2 = "test_sampling_2ghz"
-    ctx._results[(run_id_1, "st_waveforms")] = [st_waveform]
-    ctx._results[(run_id_1, "signal_peaks")] = [peak]
-    ctx._results[(run_id_2, "st_waveforms")] = [st_waveform]
-    ctx._results[(run_id_2, "signal_peaks")] = [peak]
+    ctx._results[(run_id_1, "st_waveforms")] = st_waveform
+    ctx._results[(run_id_1, "signal_peaks")] = peak
+    ctx._results[(run_id_2, "st_waveforms")] = st_waveform
+    ctx._results[(run_id_2, "signal_peaks")] = peak
 
     # 测试不同采样率
     ctx.set_config({"sampling_rate": 1.0}, plugin_name="waveform_width")
@@ -172,7 +169,7 @@ def test_waveform_width_plugin_sampling_rate(tmp_path):
     widths_2ghz = ctx.get_data(run_id_2, "waveform_width")
 
     # 2 GHz 采样率应该产生一半的时间值
-    assert abs(widths_2ghz[0][0]["rise_time"] - widths_1ghz[0][0]["rise_time"] / 2) < 0.1
+    assert abs(widths_2ghz[0]["rise_time"] - widths_1ghz[0]["rise_time"] / 2) < 0.1
 
 
 def test_waveform_width_plugin_interpolation(tmp_path):
@@ -200,8 +197,8 @@ def test_waveform_width_plugin_interpolation(tmp_path):
     peak[0]["event_index"] = 0
 
     run_id = "test_interp"
-    ctx._results[(run_id, "st_waveforms")] = [st_waveform]
-    ctx._results[(run_id, "signal_peaks")] = [peak]
+    ctx._results[(run_id, "st_waveforms")] = st_waveform
+    ctx._results[(run_id, "signal_peaks")] = peak
 
     # 测试有插值
     ctx.set_config({"interpolation": True}, plugin_name="waveform_width")
@@ -216,7 +213,7 @@ def test_waveform_width_plugin_interpolation(tmp_path):
 
     # 插值应该提供更精确的结果（通常是非整数）
     # 无插值的结果应该更接近整数
-    assert widths_interp[0][0]["rise_time_samples"] != int(widths_interp[0][0]["rise_time_samples"])
+    assert widths_interp[0]["rise_time_samples"] != int(widths_interp[0]["rise_time_samples"])
 
 
 def test_waveform_width_plugin_dependencies(tmp_path):

@@ -24,7 +24,7 @@ class HitFinderPlugin(Plugin):
 
     provides = "hits"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
-    version = "2.0.0"  # 版本升级：支持动态依赖切换
+    version = "2.1.0"  # 版本升级：输出改为单数组
     output_dtype = np.dtype(PEAK_DTYPE)
 
     options = {
@@ -42,7 +42,7 @@ class HitFinderPlugin(Plugin):
             return ["filtered_waveforms"]
         return ["st_waveforms"]
 
-    def compute(self, context: Any, run_id: str, **_kwargs) -> List[np.ndarray]:
+    def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         """
         从结构化波形中检测 Hit 事件
 
@@ -55,11 +55,11 @@ class HitFinderPlugin(Plugin):
             **_kwargs: 未使用
 
         Returns:
-            List[np.ndarray]: 每个通道的 Hit 列表，dtype 为 PEAK_DTYPE
+            np.ndarray: Hit 结构化数组，dtype 为 PEAK_DTYPE
 
         Examples:
             >>> hits = ctx.get_data('run_001', 'hits')
-            >>> print(f"通道0的Hit数: {len(hits[0])}")
+            >>> print(f"Hit数: {len(hits)}")
         """
         threshold = context.get_config(self, "threshold")
         use_filtered = context.get_config(self, "use_filtered")
@@ -70,14 +70,30 @@ class HitFinderPlugin(Plugin):
         else:
             waveform_data = context.get_data(run_id, "st_waveforms")
 
-        hits_list = []
-        for st_ch in waveform_data:
-            if len(st_ch) == 0:
-                hits_list.append(np.zeros(0, dtype=PEAK_DTYPE))
-                continue
+        if not isinstance(waveform_data, np.ndarray):
+            raise ValueError("hits expects st_waveforms as a single structured array")
 
-            # 使用每个通道的全部事件数
+        if len(waveform_data) == 0:
+            return np.zeros(0, dtype=PEAK_DTYPE)
+
+        hits_all: List[np.ndarray] = []
+        channels = (
+            waveform_data["channel"]
+            if "channel" in waveform_data.dtype.names
+            else np.zeros(len(waveform_data), dtype="i2")
+        )
+
+        for ch in np.unique(channels):
+            mask = channels == ch
+            if not np.any(mask):
+                continue
+            st_ch = waveform_data[mask]
             waves_2d = np.stack(st_ch["wave"])
             hits = find_hits(waves_2d, st_ch["baseline"], threshold=threshold)
-            hits_list.append(hits)
-        return hits_list
+            if len(hits) > 0:
+                hits["channel"] = np.int16(ch)
+            hits_all.append(hits)
+
+        if not hits_all:
+            return np.zeros(0, dtype=PEAK_DTYPE)
+        return np.concatenate(hits_all)

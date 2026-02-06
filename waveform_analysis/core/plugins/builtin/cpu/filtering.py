@@ -27,7 +27,7 @@ class FilteredWaveformsPlugin(Plugin):
     provides = "filtered_waveforms"
     depends_on = ["st_waveforms"]
     description = "Apply filtering to waveforms using Butterworth or Savitzky-Golay filters."
-    version = "2.1.0"  # 版本升级：wave 字段改为 int16
+    version = "2.2.0"  # 版本升级：输出改为单数组
     save_when = "target"
 
     output_dtype = np.dtype(ST_WAVEFORM_DTYPE)  # 与 st_waveforms 保持一致
@@ -48,7 +48,7 @@ class FilteredWaveformsPlugin(Plugin):
         # 你也可以加：sg_mode / sg_cval 等（这里先不扩展 options）
     }
 
-    def compute(self, context: Any, run_id: str, **_kwargs) -> List[np.ndarray]:
+    def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         filter_type: str = context.get_config(self, "filter_type")
         if filter_type not in ("BW", "SG"):
             raise ValueError(f"不支持的滤波器类型: {filter_type}. 请使用 'BW' 或 'SG'.")
@@ -108,38 +108,36 @@ class FilteredWaveformsPlugin(Plugin):
             )
 
         st_waveforms = context.get_data(run_id, "st_waveforms")
-        filtered_waveforms_list: List[np.ndarray] = []
+        if not isinstance(st_waveforms, np.ndarray):
+            raise ValueError("filtered_waveforms expects st_waveforms as a single structured array")
 
-        for st_ch in st_waveforms:
-            if len(st_ch) == 0:
-                filtered_waveforms_list.append(np.array([], dtype=st_ch.dtype))
+        if len(st_waveforms) == 0:
+            return np.zeros(0, dtype=st_waveforms.dtype)
+
+        output = np.copy(st_waveforms)
+
+        if "channel" not in st_waveforms.dtype.names:
+            raise ValueError("st_waveforms missing required 'channel' field for filtering")
+
+        channels = st_waveforms["channel"]
+        for ch in np.unique(channels):
+            mask = channels == ch
+            if not np.any(mask):
                 continue
 
-            # (n_events, n_samples)
-            # 用 float64 做滤波更稳（最后再 cast 回 float32）
-            waveforms = np.stack(st_ch["wave"]).astype(np.float64, copy=False)
-
+            waveforms = st_waveforms["wave"][mask].astype(np.float64, copy=False)
             if waveforms.ndim != 2 or waveforms.shape[0] == 0 or waveforms.shape[1] == 0:
-                filtered_waveforms_list.append(np.array([], dtype=st_ch.dtype))
                 continue
 
             n_events, n_samples = waveforms.shape
-            logger.debug("处理通道: n_events=%s n_samples=%s", n_events, n_samples)
+            logger.debug("处理通道: channel=%s n_events=%s n_samples=%s", ch, n_events, n_samples)
 
             if filter_type == "BW":
-                # 一次性对整块数据滤波（沿最后一维）
                 filtered = sosfiltfilt(bw_sos, waveforms, axis=-1)
-
             else:
-                # SG: 根据 n_samples 自适应窗口
-                # 1) 不超过波形长度
                 window = min(sg_window_size, n_samples)
-
-                # 2) 必须为奇数
                 if window % 2 == 0:
-                    window -= 1  # 往下调，避免超过 n_samples
-
-                # 3) 必须满足 window > poly_order
+                    window -= 1
                 if window <= sg_poly_order:
                     logger.warning(
                         "波形长度 (%s) 太短/窗口 (%s) 太小，无法 SG 滤波（需要 window > poly_order=%s），返回原波形",
@@ -149,7 +147,6 @@ class FilteredWaveformsPlugin(Plugin):
                     )
                     filtered = waveforms
                 else:
-                    # mode='interp' 常用于避免边缘伪影（比默认更"保守"）
                     filtered = savgol_filter(
                         waveforms,
                         window_length=window,
@@ -158,12 +155,9 @@ class FilteredWaveformsPlugin(Plugin):
                         mode="interp",
                     )
 
-            # 创建与 st_waveforms 相同结构的输出数组
-            result = np.copy(st_ch)
-            result["wave"] = np.clip(filtered, -32768, 32767).astype(np.int16, copy=False)
-            filtered_waveforms_list.append(result)
+            output["wave"][mask] = np.clip(filtered, -32768, 32767).astype(np.int16, copy=False)
 
-        return filtered_waveforms_list
+        return output
 
     def _has_config(self, context: Any, name: str) -> bool:
         if hasattr(context, "has_explicit_config"):

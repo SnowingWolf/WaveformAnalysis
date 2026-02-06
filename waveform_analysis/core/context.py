@@ -11,6 +11,7 @@ Context 模块 - 插件系统的核心调度器。
 
 # 1. Standard library imports
 import copy
+from collections import deque
 from datetime import datetime
 import functools
 import hashlib
@@ -143,6 +144,21 @@ class Context(CacheMixin, PluginMixin):
             "show_config",
             "storage",
             "storage_dir",
+        }
+    )
+    # Multi-channel structured outputs now use a single array with a channel field.
+    # Legacy list-of-arrays caches for these data names should be treated as invalid.
+    _FLAT_CHANNEL_OUTPUTS = frozenset(
+        {
+            "st_waveforms",
+            "filtered_waveforms",
+            "basic_features",
+            "hits",
+            "signal_peaks",
+            "signal_peaks_stream",
+            "waveform_width",
+            "waveform_width_integral",
+            "s1_s2",
         }
     )
 
@@ -298,7 +314,8 @@ class Context(CacheMixin, PluginMixin):
         )  # "auto", "filename", "csv_header", "first_event"
         self.config.setdefault("epoch_filename_patterns", None)  # None = use defaults
 
-        # Initialize ConfigResolver and CompatManager for unified config handling
+        # ConfigResolver handles precedence + adapter inference; validated configs are cached
+        # in _resolved_config_cache to avoid repeated validation work.
         self._compat_manager = CompatManager()
         self._config_resolver = ConfigResolver(compat_manager=self._compat_manager)
 
@@ -552,6 +569,18 @@ class Context(CacheMixin, PluginMixin):
         self.logger.info(f"Plugin discovery: {registered}/{total_discovered} plugins registered")
         return registered
 
+    # ===========================
+    # Config Resolution
+    # ===========================
+
+    def _ensure_config_resolver(self) -> ConfigResolver:
+        """Ensure ConfigResolver is available (lazy re-init for safety)."""
+        if getattr(self, "_config_resolver", None) is None:
+            if getattr(self, "_compat_manager", None) is None:
+                self._compat_manager = CompatManager()
+            self._config_resolver = ConfigResolver(compat_manager=self._compat_manager)
+        return self._config_resolver
+
     def set_config(self, config: Dict[str, Any], plugin_name: Optional[str] = None):
         """
         更新上下文配置。
@@ -606,6 +635,32 @@ class Context(CacheMixin, PluginMixin):
         self.clear_config_cache()
         self.clear_performance_caches()  # 配置变了，必须让 lineage/hash/key 失效
 
+    def get_config_value(
+        self,
+        plugin: Plugin,
+        name: str,
+        adapter_name: Optional[str] = None,
+    ) -> ConfigValue:
+        """获取插件配置值及其来源信息。
+
+        Args:
+            plugin: 目标插件实例
+            name: 配置选项名称
+            adapter_name: DAQ adapter 名称（可选）
+
+        Returns:
+            ConfigValue 实例
+        """
+        if adapter_name is None:
+            adapter_name = self._resolve_adapter_name_for_plugin(plugin)
+        resolver = self._ensure_config_resolver()
+        return resolver.resolve_value(
+            plugin=plugin,
+            name=name,
+            config=self.config,
+            adapter_name=adapter_name,
+        )
+
     def get_config(self, plugin: Plugin, name: str) -> Any:
         """获取插件的配置值（带验证和类型转换）。
 
@@ -640,31 +695,6 @@ class Context(CacheMixin, PluginMixin):
         """
         return self.get_config_value(plugin, name).value
 
-    def get_config_value(
-        self,
-        plugin: Plugin,
-        name: str,
-        adapter_name: Optional[str] = None,
-    ) -> ConfigValue:
-        """获取插件配置值及其来源信息。
-
-        Args:
-            plugin: 目标插件实例
-            name: 配置选项名称
-            adapter_name: DAQ adapter 名称（可选）
-
-        Returns:
-            ConfigValue 实例
-        """
-        if adapter_name is None:
-            adapter_name = self._resolve_adapter_name_for_plugin(plugin)
-        return self._config_resolver.resolve_value(
-            plugin=plugin,
-            name=name,
-            config=self.config,
-            adapter_name=adapter_name,
-        )
-
     def has_explicit_config(
         self,
         plugin: Plugin,
@@ -690,7 +720,8 @@ class Context(CacheMixin, PluginMixin):
         if "daq_adapter" not in plugin.options:
             return resolved_adapter
         try:
-            cv = self._config_resolver.resolve_value(
+            resolver = self._ensure_config_resolver()
+            cv = resolver.resolve_value(
                 plugin=plugin,
                 name="daq_adapter",
                 config=self.config,
@@ -741,7 +772,8 @@ class Context(CacheMixin, PluginMixin):
         if adapter_name is None:
             adapter_name = self._resolve_adapter_name_for_plugin(plugin)
 
-        return self._config_resolver.resolve(
+        resolver = self._ensure_config_resolver()
+        return resolver.resolve(
             plugin=plugin,
             config=self.config,
             adapter_name=adapter_name,
@@ -1012,6 +1044,7 @@ class Context(CacheMixin, PluginMixin):
         self,
         run_id: str,
         data_name: Optional[str] = None,
+        downstream: bool = False,
         clear_memory: bool = True,
         clear_disk: bool = True,
         verbose: bool = True,
@@ -1022,6 +1055,7 @@ class Context(CacheMixin, PluginMixin):
         参数:
             run_id: 运行 ID
             data_name: 数据名称（步骤名称），如果为 None 则清理所有步骤
+            downstream: 是否同时清理下游依赖的数据缓存
             clear_memory: 是否清理内存缓存
             clear_disk: 是否清理磁盘缓存
             verbose: 是否显示详细的清理信息
@@ -1033,6 +1067,8 @@ class Context(CacheMixin, PluginMixin):
             >>> ctx = Context()
             >>> # 清理单个步骤的缓存
             >>> ctx.clear_cache_for("run_001", "st_waveforms")
+            >>> # 清理单个步骤及其下游缓存
+            >>> ctx.clear_cache_for("run_001", "st_waveforms", downstream=True)
             >>> # 清理所有步骤的缓存
             >>> ctx.clear_cache_for("run_001")
             >>> # 只清理内存缓存
@@ -1049,7 +1085,13 @@ class Context(CacheMixin, PluginMixin):
             if verbose:
                 print(f"[清理缓存] 运行: {run_id}, 清理所有数据类型的缓存 ({len(data_names)} 个)")
         else:
-            data_names = [data_name]
+            if downstream:
+                downstream_names = self._collect_downstream_data_names(
+                    data_name, run_id=run_id
+                )
+                data_names = [data_name] + sorted(downstream_names)
+            else:
+                data_names = [data_name]
             if verbose:
                 print(f"[清理缓存] 运行: {run_id}, 数据类型: {data_name}")
 
@@ -1097,6 +1139,25 @@ class Context(CacheMixin, PluginMixin):
                 print("  ✓ 缓存清理成功")
 
         return count
+
+    def _collect_downstream_data_names(self, data_name: str, run_id: Optional[str] = None) -> List[str]:
+        """Collect all downstream data names that depend on a given data_name."""
+        reverse_deps: Dict[str, List[str]] = {}
+        for name, plugin in self._plugins.items():
+            deps = self._get_plugin_dependency_names(plugin, run_id=run_id)
+            for dep in deps:
+                reverse_deps.setdefault(dep, []).append(name)
+
+        seen: set = set()
+        queue = deque(reverse_deps.get(data_name, []))
+        while queue:
+            node = queue.popleft()
+            if node in seen:
+                continue
+            seen.add(node)
+            queue.extend(reverse_deps.get(node, []))
+
+        return list(seen)
 
     def clear_config_cache(self):
         """Clear cached validated configurations."""
@@ -1251,6 +1312,10 @@ class Context(CacheMixin, PluginMixin):
             keys.append(f"{key}_ch{ch_idx}")
             ch_idx += 1
         return keys
+
+    def _expects_flat_channel_array(self, name: str) -> bool:
+        """Return True if data_name must be a single array with a channel field."""
+        return name in self._FLAT_CHANNEL_OUTPUTS
 
     def _resolve_config_value(self, plugin: Plugin, name: str) -> Any:
         """计算插件配置选项的值（统一走 ConfigResolver）。
@@ -1416,6 +1481,13 @@ class Context(CacheMixin, PluginMixin):
         has_base = self._storage_exists(storage, key, run_id)
         if not has_base and not channel_keys:
             return None
+        if channel_keys and self._expects_flat_channel_array(name):
+            self.logger.warning(
+                "Legacy multi-channel cache detected for '%s'. "
+                "This data now uses a single array with a channel field. Recomputing.",
+                name,
+            )
+            return None
 
         meta_key = channel_keys[0] if channel_keys else key
         meta = self._storage_get_metadata(storage, meta_key, run_id)
@@ -1436,8 +1508,54 @@ class Context(CacheMixin, PluginMixin):
         if meta.get("type") == "dataframe":
             data = self._storage_load_dataframe(storage, key, run_id)
         elif channel_keys:
-            # Load multi-channel data
-            data = [self._storage_load_memmap(storage, ch_key, run_id) for ch_key in channel_keys]
+            channel_count = meta.get("channel_count")
+
+            def _dtype_from_meta(meta: Dict[str, Any]) -> Optional[np.dtype]:
+                if not meta:
+                    return None
+                if "dtype_descr" in meta:
+                    descr = []
+                    for item in meta["dtype_descr"]:
+                        if isinstance(item, list):
+                            descr.append(tuple(item))
+                        else:
+                            descr.append(item)
+                    try:
+                        return np.dtype(descr)
+                    except Exception:
+                        return None
+                if "dtype" in meta:
+                    try:
+                        return np.dtype(meta["dtype"])
+                    except Exception:
+                        return None
+                return None
+
+            if isinstance(channel_count, int) and channel_count >= 0:
+                dtype = _dtype_from_meta(meta)
+                prefix = f"{key}_ch"
+                keyed: Dict[int, str] = {}
+                for ch_key in channel_keys:
+                    suffix = ch_key[len(prefix) :]
+                    try:
+                        idx = int(suffix)
+                    except ValueError:
+                        continue
+                    keyed[idx] = ch_key
+
+                data = []
+                for idx in range(channel_count):
+                    ch_key = keyed.get(idx)
+                    if ch_key is None:
+                        data.append(np.zeros(0, dtype=dtype) if dtype is not None else np.array([]))
+                        continue
+                    arr = self._storage_load_memmap(storage, ch_key, run_id)
+                    if arr is None:
+                        arr = np.zeros(0, dtype=dtype) if dtype is not None else np.array([])
+                    data.append(arr)
+            else:
+                # Load multi-channel data (no channel_count metadata available)
+                data = [self._storage_load_memmap(storage, ch_key, run_id) for ch_key in channel_keys]
         else:
             data = self._storage_load_memmap(storage, key, run_id)
 
@@ -1453,6 +1571,8 @@ class Context(CacheMixin, PluginMixin):
         channel_keys = self._list_channel_keys(storage, run_id, key)
         has_base = self._storage_exists(storage, key, run_id)
         if not has_base and not channel_keys:
+            return False
+        if channel_keys and self._expects_flat_channel_array(name):
             return False
         meta_key = channel_keys[0] if channel_keys else key
 
@@ -1885,9 +2005,21 @@ class Context(CacheMixin, PluginMixin):
             self._set_data(run_id, name, result)
         elif isinstance(result, list) and all(isinstance(x, np.ndarray) for x in result):
             # Save list of arrays (e.g. per-channel data)
+            if self._expects_flat_channel_array(name):
+                raise ValueError(
+                    f"Plugin '{name}' returned a list of arrays, but this data now "
+                    "uses a single structured array with a 'channel' field."
+                )
+            channel_count = len(result)
             for i, arr in enumerate(result):
                 ch_key = f"{key}_ch{i}"
-                self._storage_save_memmap(storage, ch_key, arr, {"lineage": lineage}, run_id)
+                self._storage_save_memmap(
+                    storage,
+                    ch_key,
+                    arr,
+                    {"lineage": lineage, "channel_count": channel_count},
+                    run_id,
+                )
             self._set_data(run_id, name, result)
         elif target_dtype is not None:
             if is_generator:
@@ -1900,6 +2032,10 @@ class Context(CacheMixin, PluginMixin):
                 self._set_data(run_id, name, result)
             else:
                 # It's a static array, save it directly
+                if isinstance(result, np.ndarray) and result.size == 0:
+                    # Avoid saving empty arrays (storage skips them); keep in memory.
+                    self._set_data(run_id, name, result)
+                    return result
                 self._storage_save_memmap(storage, key, result, {"lineage": lineage}, run_id)
                 data = self._storage_load_memmap(storage, key, run_id)
                 self._set_data(run_id, name, data)
@@ -2876,8 +3012,8 @@ class Context(CacheMixin, PluginMixin):
         为数据构建时间索引
 
         支持两种数据类型：
-        - 单个结构化数组: 构建单个索引
-        - List[np.ndarray]: 为每个通道分别构建索引
+        - 单个结构化数组: 构建单个索引（推荐，通道用 channel 字段区分）
+        - List[np.ndarray]: 旧格式，多通道列表（仅兼容）
 
         Args:
             run_id: 运行ID
@@ -2893,10 +3029,9 @@ class Context(CacheMixin, PluginMixin):
             - 'stats': 各索引的统计信息
 
         Examples:
-            >>> # 为 st_waveforms (List[np.ndarray]) 构建多通道索引
+            >>> # 为结构化数组构建索引
             >>> result = ctx.build_time_index('run_001', 'st_waveforms', endtime_field='computed')
-            >>> print(result['type'])  # 'multi_channel'
-            >>> print(result['indices'])  # ['st_waveforms_ch0', 'st_waveforms_ch1']
+            >>> print(result['type'])  # 'single'
             >>>
             >>> # 为单个结构化数组构建索引
             >>> ctx.build_time_index('run_001', 'peaks')
@@ -2918,6 +3053,12 @@ class Context(CacheMixin, PluginMixin):
 
         # 检测数据类型
         if isinstance(data, list) and len(data) > 0 and isinstance(data[0], np.ndarray):
+            if self._expects_flat_channel_array(data_name):
+                self.logger.warning(
+                    "Data '%s' is a legacy list-of-arrays. "
+                    "Recompute to use a single array with a channel field.",
+                    data_name,
+                )
             # List[np.ndarray] 类型 - 多通道数据
             return self._build_multi_channel_time_index(
                 engine, run_id, data_name, data, time_field, endtime_field, force_rebuild
@@ -2956,8 +3097,8 @@ class Context(CacheMixin, PluginMixin):
         查询数据的时间范围
 
         支持两种数据类型：
-        - 单个结构化数组: 返回过滤后的数组
-        - List[np.ndarray]: 返回过滤后的列表（或指定通道的数组）
+        - 单个结构化数组: 返回过滤后的数组（可选按 channel 过滤）
+        - List[np.ndarray]: 旧格式，多通道列表（仅兼容）
 
         Args:
             run_id: 运行ID
@@ -2972,14 +3113,12 @@ class Context(CacheMixin, PluginMixin):
         Returns:
             符合条件的数据子集：
             - 单个数组数据: 返回 np.ndarray
-            - 多通道数据: 返回 List[np.ndarray] 或指定通道的 np.ndarray
+            - 多通道数据（旧格式）: 返回 List[np.ndarray] 或指定通道的 np.ndarray
 
         Examples:
-            >>> # 查询特定时间范围的波形数据（多通道）
+            >>> # 查询特定时间范围的波形数据
             >>> data = ctx.get_data_time_range('run_001', 'st_waveforms',
             ...                                 start_time=1000000, end_time=2000000)
-            >>> len(data)  # 返回列表，长度为通道数
-            2
             >>>
             >>> # 只查询特定通道
             >>> ch0_data = ctx.get_data_time_range('run_001', 'st_waveforms',
@@ -3002,6 +3141,12 @@ class Context(CacheMixin, PluginMixin):
 
         # 检测数据类型
         if isinstance(data, list) and len(data) > 0 and isinstance(data[0], np.ndarray):
+            if self._expects_flat_channel_array(data_name):
+                self.logger.warning(
+                    "Data '%s' is a legacy list-of-arrays. "
+                    "Recompute to use a single array with a channel field.",
+                    data_name,
+                )
             # List[np.ndarray] 类型 - 多通道数据
             return self._query_multi_channel_time_range(
                 engine,
@@ -3033,6 +3178,7 @@ class Context(CacheMixin, PluginMixin):
                 time_field,
                 endtime_field,
                 auto_build_index,
+                channel,
             )
         else:
             self.logger.warning(f"Data '{data_name}' is not a supported type, returning as-is")
@@ -3085,6 +3231,7 @@ class Context(CacheMixin, PluginMixin):
         time_field: str,
         endtime_field: Optional[str],
         auto_build_index: bool,
+        channel: Optional[int] = None,
     ) -> np.ndarray:
         """查询单个结构化数组的时间范围"""
         # 如果没有时间字段,返回完整数据
@@ -3092,7 +3239,12 @@ class Context(CacheMixin, PluginMixin):
             self.logger.warning(
                 f"Time field '{time_field}' not found in {data_name}, returning full data"
             )
-            return data
+            if channel is None:
+                return data
+            if "channel" not in data.dtype.names:
+                self.logger.warning(f"Channel field not found in {data_name}, returning empty")
+                return np.zeros(0, dtype=data.dtype)
+            return data[data["channel"] == channel]
 
         # 构建索引(如果需要)
         if auto_build_index and not engine.has_index(run_id, data_name):
@@ -3102,9 +3254,9 @@ class Context(CacheMixin, PluginMixin):
         if engine.has_index(run_id, data_name):
             indices = engine.query(run_id, data_name, start_time, end_time)
             if indices is not None and len(indices) > 0:
-                return data[indices]
+                result = data[indices]
             else:
-                return np.array([], dtype=data.dtype)
+                result = np.array([], dtype=data.dtype)
         else:
             # 回退到直接过滤
             self.logger.warning(f"No index for {data_name}, using direct filtering")
@@ -3114,7 +3266,14 @@ class Context(CacheMixin, PluginMixin):
             filter_end = end_time if end_time is not None else int(times.max()) + 1
 
             mask = (times >= filter_start) & (times < filter_end)
-            return data[mask]
+            result = data[mask]
+
+        if channel is None:
+            return result
+        if "channel" not in result.dtype.names:
+            self.logger.warning(f"Channel field not found in {data_name}, returning empty")
+            return np.zeros(0, dtype=result.dtype)
+        return result[result["channel"] == channel]
 
     def _query_multi_channel_time_range(
         self,

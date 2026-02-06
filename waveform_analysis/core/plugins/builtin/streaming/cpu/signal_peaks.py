@@ -38,7 +38,7 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
     provides = "signal_peaks_stream"
     depends_on = ["filtered_waveforms", "st_waveforms"]
     description = "Stream peak detection from filtered waveforms."
-    version = "1.0.2"
+    version = "1.1.0"
     save_when = "never"  # 流式 chunk 不做缓存保存
     output_dtype = None
 
@@ -109,16 +109,24 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
         filtered_waveforms = context.get_data(run_id, "filtered_waveforms")
         st_waveforms = context.get_data(run_id, "st_waveforms")
 
-        if len(filtered_waveforms) != len(st_waveforms):
-            logger.warning(
-                "filtered_waveforms 与 st_waveforms 通道数不一致: %s vs %s",
-                len(filtered_waveforms),
-                len(st_waveforms),
-            )
+        if not isinstance(filtered_waveforms, np.ndarray) or not isinstance(
+            st_waveforms, np.ndarray
+        ):
+            raise ValueError("signal_peaks_stream expects st_waveforms as a single array")
+
+        if len(filtered_waveforms) == 0 or len(st_waveforms) == 0:
+            return iter(())
 
         self._set_chunk_dt(st_waveforms)
 
-        for ch_idx, (filtered_ch, st_ch) in enumerate(zip(filtered_waveforms, st_waveforms)):
+        channels = st_waveforms["channel"] if "channel" in st_waveforms.dtype.names else None
+        if channels is None:
+            raise ValueError("st_waveforms missing required 'channel' field for streaming peaks")
+
+        for ch_idx in np.unique(channels):
+            mask = channels == ch_idx
+            st_ch = st_waveforms[mask]
+            filtered_ch = filtered_waveforms[mask]
             if len(st_ch) == 0 or len(filtered_ch) == 0:
                 continue
 
@@ -396,12 +404,11 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
             return default_value
         return 1e9 / float(sampling_rate_hz)
 
-    def _set_chunk_dt(self, st_waveforms: List[np.ndarray]) -> None:
+    def _set_chunk_dt(self, st_waveforms: np.ndarray) -> None:
         sample_timestamp = None
-        for st_ch in st_waveforms:
-            if len(st_ch) > 0 and TIMESTAMP_FIELD in st_ch.dtype.names:
-                sample_timestamp = int(st_ch[TIMESTAMP_FIELD][0])
-                break
+        if st_waveforms is not None and len(st_waveforms) > 0:
+            if TIMESTAMP_FIELD in st_waveforms.dtype.names:
+                sample_timestamp = int(st_waveforms[TIMESTAMP_FIELD][0])
 
         if sample_timestamp is None:
             self.dt = None
