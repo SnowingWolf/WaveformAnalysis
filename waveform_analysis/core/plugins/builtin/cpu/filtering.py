@@ -12,7 +12,7 @@ CPU Filtering Plugin - 使用 scipy 进行波形滤波
 """
 
 import logging
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 import numpy as np
 from scipy.signal import butter, savgol_filter, sosfiltfilt
@@ -23,14 +23,46 @@ from waveform_analysis.core.processing.dtypes import ST_WAVEFORM_DTYPE
 logger = logging.getLogger(__name__)
 
 
+def _filter_channel(args):
+    """滤波单个通道的波形数据（线程安全）。
+
+    Parameters
+    ----------
+    args : tuple
+        (waveforms_f64, filter_type, bw_sos, sg_window_size, sg_poly_order)
+        waveforms_f64: shape (n_events, n_samples), float64
+    """
+    waveforms_f64, filter_type, bw_sos, sg_window_size, sg_poly_order = args
+    n_events, n_samples = waveforms_f64.shape
+
+    if filter_type == "BW":
+        filtered = sosfiltfilt(bw_sos, waveforms_f64, axis=-1)
+    else:  # SG
+        window = min(sg_window_size, n_samples)
+        if window % 2 == 0:
+            window -= 1
+        if window <= sg_poly_order:
+            filtered = waveforms_f64
+        else:
+            filtered = savgol_filter(
+                waveforms_f64,
+                window_length=window,
+                polyorder=sg_poly_order,
+                axis=-1,
+                mode="interp",
+            )
+
+    return np.clip(filtered, -32768, 32767).astype(np.int16, copy=False)
+
+
 class FilteredWaveformsPlugin(Plugin):
     provides = "filtered_waveforms"
     depends_on = ["st_waveforms"]
     description = "Apply filtering to waveforms using Butterworth or Savitzky-Golay filters."
-    version = "2.2.0"  # 版本升级：输出改为单数组
+    version = "2.3.0"  # 版本升级：通道级线程并行滤波
     save_when = "target"
 
-    output_dtype = np.dtype(ST_WAVEFORM_DTYPE)  # 与 st_waveforms 保持一致
+    output_dtype = np.dtype(ST_WAVEFORM_DTYPE)  # 默认值；compute() 中会动态更新
 
     options = {
         "filter_type": Option(default="SG", type=str, help="滤波器类型: 'BW' 或 'SG'"),
@@ -46,6 +78,16 @@ class FilteredWaveformsPlugin(Plugin):
             help="DAQ 适配器名称（用于自动推断采样率）",
         ),
         # 你也可以加：sg_mode / sg_cval 等（这里先不扩展 options）
+        "max_workers": Option(
+            default=None,
+            type=int,
+            help="并行工作线程数；None 使用 CPU 核心数，1 或 0 禁用并行",
+        ),
+        "batch_size": Option(
+            default=0,
+            type=int,
+            help="每批次事件数（0 表示不分批，整个通道一次处理）",
+        ),
     }
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
@@ -111,6 +153,10 @@ class FilteredWaveformsPlugin(Plugin):
         if not isinstance(st_waveforms, np.ndarray):
             raise ValueError("filtered_waveforms expects st_waveforms as a single structured array")
 
+        # 动态匹配 st_waveforms 的实际 dtype（wave 长度可能不是默认的 1500）
+        if st_waveforms.dtype != self.output_dtype:
+            self.output_dtype = st_waveforms.dtype
+
         if len(st_waveforms) == 0:
             return np.zeros(0, dtype=st_waveforms.dtype)
 
@@ -120,42 +166,54 @@ class FilteredWaveformsPlugin(Plugin):
             raise ValueError("st_waveforms missing required 'channel' field for filtering")
 
         channels = st_waveforms["channel"]
-        for ch in np.unique(channels):
-            mask = channels == ch
-            if not np.any(mask):
-                continue
+        unique_channels = np.unique(channels)
 
-            waveforms = st_waveforms["wave"][mask].astype(np.float64, copy=False)
-            if waveforms.ndim != 2 or waveforms.shape[0] == 0 or waveforms.shape[1] == 0:
-                continue
+        max_workers = context.get_config(self, "max_workers")
+        use_parallel = (
+            max_workers is None or (isinstance(max_workers, int) and max_workers > 1)
+        ) and len(unique_channels) > 1
 
-            n_events, n_samples = waveforms.shape
-            logger.debug("处理通道: channel=%s n_events=%s n_samples=%s", ch, n_events, n_samples)
+        if use_parallel:
+            from waveform_analysis.core.execution.manager import parallel_map
 
-            if filter_type == "BW":
-                filtered = sosfiltfilt(bw_sos, waveforms, axis=-1)
-            else:
-                window = min(sg_window_size, n_samples)
-                if window % 2 == 0:
-                    window -= 1
-                if window <= sg_poly_order:
-                    logger.warning(
-                        "波形长度 (%s) 太短/窗口 (%s) 太小，无法 SG 滤波（需要 window > poly_order=%s），返回原波形",
-                        n_samples,
-                        window,
-                        sg_poly_order,
-                    )
-                    filtered = waveforms
-                else:
-                    filtered = savgol_filter(
-                        waveforms,
-                        window_length=window,
-                        polyorder=sg_poly_order,
-                        axis=-1,
-                        mode="interp",
-                    )
+            tasks = []
+            task_meta = []  # 对应的 mask 列表
+            for ch in unique_channels:
+                mask = channels == ch
+                waveforms = st_waveforms["wave"][mask].astype(np.float64, copy=False)
+                if waveforms.ndim != 2 or waveforms.shape[0] == 0 or waveforms.shape[1] == 0:
+                    continue
+                tasks.append((waveforms, filter_type, bw_sos, sg_window_size, sg_poly_order))
+                task_meta.append(mask)
 
-            output["wave"][mask] = np.clip(filtered, -32768, 32767).astype(np.int16, copy=False)
+            if tasks:
+                logger.debug(
+                    "并行滤波: %s 个通道, max_workers=%s", len(tasks), max_workers
+                )
+                results = parallel_map(
+                    _filter_channel,
+                    tasks,
+                    executor_type="thread",
+                    max_workers=max_workers,
+                    executor_name="filtered_waveforms",
+                )
+                for mask, filtered_i16 in zip(task_meta, results):
+                    output["wave"][mask] = filtered_i16
+        else:
+            # 串行路径：单通道或显式禁用并行
+            for ch in unique_channels:
+                mask = channels == ch
+                waveforms = st_waveforms["wave"][mask].astype(np.float64, copy=False)
+                if waveforms.ndim != 2 or waveforms.shape[0] == 0 or waveforms.shape[1] == 0:
+                    continue
+
+                n_events, n_samples = waveforms.shape
+                logger.debug("处理通道: channel=%s n_events=%s n_samples=%s", ch, n_events, n_samples)
+
+                filtered_i16 = _filter_channel(
+                    (waveforms, filter_type, bw_sos, sg_window_size, sg_poly_order)
+                )
+                output["wave"][mask] = filtered_i16
 
         return output
 
