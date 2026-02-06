@@ -218,10 +218,13 @@ class WaveformLoaderCSV:
 
         if channel_workers is None or channel_workers <= 1:
             waveforms = []
+            workers_label = channel_workers if channel_workers else 1
             for i, files in enumerate(raw_filess):
+                progress_desc = f"Parsing files (jobs={n_jobs}, workers={workers_label}, ch={i})"
                 wf = parse_and_stack_files(
                     files,
-                    show_progress=(show_progress and i == 0),
+                    show_progress=(show_progress and i == 0),  # 仅第一通道显示进度条
+                    progress_desc=progress_desc,
                     chunksize=chunksize,
                     n_jobs=n_jobs,
                     use_process_pool=use_process_pool,
@@ -242,17 +245,22 @@ class WaveformLoaderCSV:
             max_workers=channel_workers,
             reuse=True,
         ) as ex:
-            futures = {
-                ex.submit(
-                    parse_and_stack_files,
-                    files,
-                    show_progress=(show_progress and idx == 0),
-                    chunksize=chunksize,
-                    n_jobs=n_jobs,
-                    use_process_pool=use_process_pool,
-                ): idx
-                for idx, files in enumerate(raw_filess)
-            }
+            futures = {}
+            for idx, files in enumerate(raw_filess):
+                progress_desc = (
+                    f"Parsing files (jobs={n_jobs}, workers={channel_workers}, ch={idx})"
+                )
+                futures[
+                    ex.submit(
+                        parse_and_stack_files,
+                        files,
+                        show_progress=False,  # 禁用并行时的进度条，避免冲突
+                        progress_desc=progress_desc,
+                        chunksize=chunksize,
+                        n_jobs=n_jobs,
+                        use_process_pool=use_process_pool,
+                    )
+                ] = idx
 
             for fut in as_completed(futures):
                 idx = futures[fut]

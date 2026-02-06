@@ -30,6 +30,7 @@ Note:
 import csv
 import logging
 from pathlib import Path
+import time
 from typing import TYPE_CHECKING, Iterator, List, Optional
 
 import numpy as np
@@ -40,20 +41,227 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Check for Polars availability (fastest option)
+_POLARS_AVAILABLE = False
+try:
+    import polars as pl
+
+    _POLARS_AVAILABLE = True
+except ImportError:
+    pl = None
+
 # Check for PyArrow availability
 _PYARROW_AVAILABLE = False
 try:
+    import pyarrow as pa
     import pyarrow.csv as pa_csv
 
     _PYARROW_AVAILABLE = True
 except ImportError:
+    pa = None
     pa_csv = None
+
+
+def _read_csv_polars(
+    file_path: str,
+    delimiter: str = ";",
+    skiprows: int = 0,
+    samples_start: int = 7,
+    n_cols: Optional[int] = None,
+) -> np.ndarray:
+    """Read CSV file using Polars for fastest parsing.
+
+    Args:
+        file_path: Path to CSV file
+        delimiter: CSV delimiter
+        skiprows: Number of rows to skip at the beginning
+        samples_start: Column index where waveform samples start (for dtype specification)
+        n_cols: Total number of columns (if known, for explicit schema)
+
+    Returns:
+        NumPy array of the data
+    """
+    if not _POLARS_AVAILABLE:
+        raise ImportError("Polars is not available")
+
+    # 如果不知道列数，先读取一行确定
+    if n_cols is None:
+        with open(file_path) as f:
+            for _ in range(skiprows):
+                f.readline()
+            first_line = f.readline()
+            if not first_line.strip():
+                return np.array([]).reshape(0, 0)
+            n_cols = first_line.count(delimiter) + 1
+
+    def _to_int(val: object) -> int:
+        if val is None:
+            return 0
+        s = str(val).strip()
+        if not s:
+            return 0
+        if s.startswith(("0x", "0X")):
+            try:
+                return int(s, 16)
+            except ValueError:
+                return 0
+        try:
+            return int(s)
+        except ValueError:
+            try:
+                return int(float(s))
+            except ValueError:
+                return 0
+
+    # 构建 schema：前 samples_start 列为 Int64，其余为 Int16
+    schema = {}
+    for i in range(n_cols):
+        col_name = f"column_{i}"
+        if i < samples_start:
+            schema[col_name] = pl.Int64
+        else:
+            schema[col_name] = pl.Int16
+
+    try:
+        df = pl.read_csv(
+            file_path,
+            separator=delimiter,
+            skip_rows=skiprows,
+            has_header=False,
+            schema=schema,
+            infer_schema_length=0,
+        )
+    except Exception:
+        # Fallback: allow hex in metadata columns by reading them as strings.
+        schema = {}
+        for i in range(n_cols):
+            col_name = f"column_{i}"
+            if i < samples_start:
+                schema[col_name] = pl.Utf8
+            else:
+                schema[col_name] = pl.Int16
+        df = pl.read_csv(
+            file_path,
+            separator=delimiter,
+            skip_rows=skiprows,
+            has_header=False,
+            schema=schema,
+            infer_schema_length=0,
+        )
+
+    if df.is_empty():
+        return np.array([]).reshape(0, 0)
+
+    if any(df.dtypes[i] == pl.Utf8 for i in range(min(samples_start, len(df.dtypes)))):
+        meta_cols = [f"column_{i}" for i in range(min(samples_start, n_cols))]
+        wave_cols = [f"column_{i}" for i in range(min(samples_start, n_cols), n_cols)]
+        meta_raw = df.select(meta_cols).to_numpy()
+        meta = np.empty(meta_raw.shape, dtype=np.int64)
+        for col_idx in range(meta_raw.shape[1]):
+            col_vals = meta_raw[:, col_idx]
+            meta[:, col_idx] = [_to_int(v) for v in col_vals]
+        if wave_cols:
+            wave = df.select(wave_cols).to_numpy()
+            return np.hstack([meta, wave])
+        return meta
+
+    return df.to_numpy()
+
+
+def _read_files_polars(
+    file_paths: List[str],
+    delimiter: str = ";",
+    skiprows_first: int = 2,
+    show_progress: bool = False,
+    progress_desc: Optional[str] = None,
+    samples_start: int = 7,
+) -> np.ndarray:
+    """Read multiple CSV files using Polars.
+
+    Args:
+        file_paths: List of file paths
+        delimiter: CSV delimiter
+        skiprows_first: Number of rows to skip in the first file
+        show_progress: Whether to show progress bar
+        progress_desc: Optional progress bar description
+        samples_start: Column index where waveform samples start
+
+    Returns:
+        Stacked NumPy array of all files
+    """
+    if not _POLARS_AVAILABLE:
+        raise ImportError("Polars is not available")
+
+    if not file_paths:
+        return np.array([]).reshape(0, 0)
+
+    # Optional progress bar
+    if show_progress:
+        try:
+            from tqdm import tqdm
+
+            desc = progress_desc or "Reading files (Polars)"
+            pbar = tqdm(file_paths, desc=desc, leave=False)
+        except ImportError:
+            pbar = file_paths
+    else:
+        pbar = file_paths
+
+    arrays = []
+    for idx, fp in enumerate(pbar):
+        p = Path(fp)
+        if not p.exists() or p.stat().st_size == 0:
+            continue
+
+        skiprows = skiprows_first if idx == 0 else 0
+        start = time.perf_counter()
+        try:
+            arr = _read_csv_polars(
+                fp, delimiter=delimiter, skiprows=skiprows, samples_start=samples_start
+            )
+            if arr.size > 0:
+                # 验证时间戳列有效性（假设时间戳在第 2 列）
+                try:
+                    timestamp_col = arr[:, 2]
+                    if np.issubdtype(timestamp_col.dtype, np.floating):
+                        valid_mask = ~np.isnan(timestamp_col)
+                        if not np.all(valid_mask):
+                            arr = arr[valid_mask]
+                except (IndexError, TypeError):
+                    pass
+                if arr.size > 0:
+                    arrays.append(arr)
+        except Exception as e:
+            logger.debug(f"Polars read failed for {fp}: {e}")
+            continue
+        finally:
+            if show_progress:
+                elapsed = time.perf_counter() - start
+                logger.info("Polars parsed %s in %.2fs", fp, elapsed)
+
+    if not arrays:
+        return np.array([]).reshape(0, 0)
+
+    try:
+        return np.vstack(arrays)
+    except ValueError:
+        # Handle column count mismatch
+        max_cols = max(a.shape[1] for a in arrays)
+        padded = []
+        for a in arrays:
+            if a.shape[1] < max_cols:
+                pad_width = ((0, 0), (0, max_cols - a.shape[1]))
+                a = np.pad(a, pad_width, mode="constant", constant_values=np.nan)
+            padded.append(a)
+        return np.vstack(padded)
 
 
 def _read_csv_pyarrow(
     file_path: str,
     delimiter: str = ";",
     skiprows: int = 0,
+    samples_start: int = 7,
+    n_cols: Optional[int] = None,
 ) -> np.ndarray:
     """Read CSV file using PyArrow for faster parsing.
 
@@ -61,6 +269,8 @@ def _read_csv_pyarrow(
         file_path: Path to CSV file
         delimiter: CSV delimiter
         skiprows: Number of rows to skip at the beginning
+        samples_start: Column index where waveform samples start (for dtype specification)
+        n_cols: Total number of columns (if known, for explicit dtype specification)
 
     Returns:
         NumPy array of the data
@@ -73,8 +283,20 @@ def _read_csv_pyarrow(
         autogenerate_column_names=True,
     )
     parse_options = pa_csv.ParseOptions(delimiter=delimiter)
+
+    # 显式指定列类型：前 samples_start 列为 int64，波形列为 int16
+    column_types = {}
+    for i in range(samples_start):
+        column_types[f"f{i}"] = pa.int64()
+
+    # 如果知道总列数，显式指定波形列为 int16
+    if n_cols is not None:
+        for i in range(samples_start, n_cols):
+            column_types[f"f{i}"] = pa.int16()
+
     convert_options = pa_csv.ConvertOptions(
-        strings_can_be_null=True,
+        column_types=column_types,
+        strings_can_be_null=False,
         auto_dict_encode=False,
     )
 
@@ -92,6 +314,8 @@ def _read_files_pyarrow(
     delimiter: str = ";",
     skiprows_first: int = 2,
     show_progress: bool = False,
+    progress_desc: Optional[str] = None,
+    samples_start: int = 7,
 ) -> np.ndarray:
     """Read multiple CSV files using PyArrow.
 
@@ -100,6 +324,8 @@ def _read_files_pyarrow(
         delimiter: CSV delimiter
         skiprows_first: Number of rows to skip in the first file
         show_progress: Whether to show progress bar
+        progress_desc: Optional progress bar description
+        samples_start: Column index where waveform samples start
 
     Returns:
         Stacked NumPy array of all files
@@ -115,7 +341,8 @@ def _read_files_pyarrow(
         try:
             from tqdm import tqdm
 
-            pbar = tqdm(file_paths, desc="Reading files (PyArrow)", leave=False)
+            desc = progress_desc or "Reading files (PyArrow)"
+            pbar = tqdm(file_paths, desc=desc, leave=False)
         except ImportError:
             pbar = file_paths
     else:
@@ -128,21 +355,30 @@ def _read_files_pyarrow(
             continue
 
         skiprows = skiprows_first if idx == 0 else 0
+        start = time.perf_counter()
         try:
-            arr = _read_csv_pyarrow(fp, delimiter=delimiter, skiprows=skiprows)
+            arr = _read_csv_pyarrow(
+                fp, delimiter=delimiter, skiprows=skiprows, samples_start=samples_start
+            )
             if arr.size > 0:
-                # Vectorized numeric conversion
+                # 验证时间戳列有效性（假设时间戳在第 2 列）
                 try:
-                    numeric_part = arr[:, 2:].astype(np.float64)
-                    valid_mask = ~np.isnan(numeric_part[:, 0])
-                    if np.any(valid_mask):
-                        result = np.column_stack([arr[valid_mask, :2], numeric_part[valid_mask]])
-                        arrays.append(result)
-                except (ValueError, TypeError):
+                    timestamp_col = arr[:, 2]
+                    if np.issubdtype(timestamp_col.dtype, np.floating):
+                        valid_mask = ~np.isnan(timestamp_col)
+                        if not np.all(valid_mask):
+                            arr = arr[valid_mask]
+                except (IndexError, TypeError):
+                    pass
+                if arr.size > 0:
                     arrays.append(arr)
         except Exception as e:
             logger.debug(f"PyArrow read failed for {fp}: {e}")
             continue
+        finally:
+            if show_progress:
+                elapsed = time.perf_counter() - start
+                logger.info("PyArrow parsed %s in %.2fs", fp, elapsed)
 
     if not arrays:
         return np.array([]).reshape(0, 0)
@@ -167,12 +403,21 @@ def parse_files_generator(
     delimiter: str = ";",
     chunksize: int = 1000,
     show_progress: bool = False,
+    samples_start: int = 7,
 ) -> Iterator[np.ndarray]:
     """
     Yields chunks of parsed waveform data from a list of files.
 
     Note: Only the first file in the list will skip header rows (skiprows).
     Subsequent files will not skip any rows (skiprows=0) as they don't contain headers.
+
+    Args:
+        file_paths: List of file paths
+        skiprows: Number of rows to skip in the first file
+        delimiter: CSV delimiter
+        chunksize: Number of rows per chunk
+        show_progress: Whether to show progress bar
+        samples_start: Column index where waveform samples start (unused, kept for API compatibility)
     """
     if not file_paths:
         return
@@ -197,69 +442,38 @@ def parse_files_generator(
         file_skiprows = skiprows if file_idx == 0 else 0
 
         try:
-            # Use pyarrow engine if available for faster parsing
-            # Note: pyarrow doesn't support chunksize, so use 'c' engine when chunking
-            engine = "c"
-            if not chunksize:
-                try:
-                    import pyarrow
-
-                    engine = "pyarrow"
-                except ImportError:
-                    pass
-
-            if chunksize:
-                chunk_iter = pd.read_csv(
-                    fp,
-                    delimiter=delimiter,
-                    skiprows=file_skiprows,
-                    header=None,
-                    engine=engine,
-                    chunksize=chunksize,
-                    on_bad_lines="warn",
-                )
-            else:
-                chunk_iter = [
-                    pd.read_csv(
-                        fp,
-                        delimiter=delimiter,
-                        skiprows=file_skiprows,
-                        header=None,
-                        engine=engine,
-                        on_bad_lines="warn",
-                    )
-                ]
+            # 不指定 dtype，让 pandas 自动推断（更快）
+            chunk_iter = pd.read_csv(
+                fp,
+                delimiter=delimiter,
+                skiprows=file_skiprows,
+                header=None,
+                engine="c",
+                chunksize=chunksize,
+                on_bad_lines="warn",
+            )
 
             for chunk in chunk_iter:
                 chunk.dropna(how="all", inplace=True)
                 if chunk.empty:
                     continue
 
-                # Numeric coercion logic - optimized to avoid repeated pd.to_numeric
-                try:
-                    arr = chunk.to_numpy()
-                    # Vectorized numeric conversion for columns 2+
-                    try:
-                        numeric_part = arr[:, 2:].astype(np.float64)
-                    except (ValueError, TypeError):
-                        # Fallback: convert column by column
-                        numeric_part = np.empty((arr.shape[0], arr.shape[1] - 2), dtype=np.float64)
-                        for col_idx in range(arr.shape[1] - 2):
-                            numeric_part[:, col_idx] = pd.to_numeric(
-                                arr[:, col_idx + 2], errors="coerce"
-                            )
-                    # Filter valid rows (where TIMETAG column is not NaN)
-                    valid_mask = ~np.isnan(numeric_part[:, 0])
-                    if not np.any(valid_mask):
-                        continue
-                    result = np.column_stack([arr[valid_mask, :2], numeric_part[valid_mask]])
-                except Exception:
-                    result = chunk.to_numpy()
+                arr = chunk.to_numpy()
 
-                if result.size == 0:
+                # 验证时间戳列有效性
+                try:
+                    timestamp_col = arr[:, 2]
+                    if np.issubdtype(timestamp_col.dtype, np.floating):
+                        valid_mask = ~np.isnan(timestamp_col)
+                        if not np.all(valid_mask):
+                            arr = arr[valid_mask]
+                except (IndexError, TypeError):
+                    pass
+
+                if arr.size == 0:
                     continue
 
-                yield result
+                yield arr
 
         except Exception as e:
             logger.debug(f"Streaming failed for {fp}: {e}")
@@ -270,11 +484,14 @@ def parse_and_stack_files(
     skiprows: int = 2,
     delimiter: str = ";",
     chunksize: Optional[int] = None,
+    engine: str = "auto",
     n_jobs: int = 1,
     use_process_pool: bool = False,
     show_progress: bool = False,
+    progress_desc: Optional[str] = None,
     format_type: Optional[str] = None,
     format_reader: Optional["FormatReader"] = None,
+    samples_start: int = 7,
 ) -> np.ndarray:
     """Parse a list of CSV files and return a single vstacked numpy array.
 
@@ -294,8 +511,11 @@ def parse_and_stack_files(
         n_jobs: 并行任务数
         use_process_pool: 是否使用进程池
         show_progress: 是否显示进度条
+        progress_desc: 进度条描述（可选）
         format_type: 格式类型名称（如 "vx2730_csv"），使用新的格式读取器
         format_reader: 格式读取器实例（可选），优先于 format_type
+        samples_start: Column index where waveform samples start (for dtype specification)
+        engine: "auto" | "polars" | "pyarrow" | "pandas"
 
     Returns:
         所有文件数据堆叠后的数组
@@ -310,140 +530,218 @@ def parse_and_stack_files(
     if not file_paths:
         return np.array([])
 
-    # Try PyArrow first for non-chunked reading (40-60% faster)
-    if chunksize is None and _PYARROW_AVAILABLE and n_jobs <= 1:
-        try:
-            result = _read_files_pyarrow(
-                file_paths,
-                delimiter=delimiter,
-                skiprows_first=skiprows,
-                show_progress=show_progress,
+    engine = (engine or "auto").lower()
+    if engine not in {"auto", "polars", "pyarrow", "pandas"}:
+        raise ValueError(f"Invalid engine: {engine}")
+    if chunksize is not None and engine in {"polars", "pyarrow"}:
+        logger.warning("engine=%s does not support chunksize; falling back to pandas", engine)
+        engine = "pandas"
+
+    # Detect engine for progress description
+    engine_name = "pandas"
+    if engine == "polars":
+        engine_name = "polars"
+    elif engine == "pyarrow":
+        engine_name = "pyarrow"
+    elif engine == "auto" and chunksize is None:
+        if _POLARS_AVAILABLE:
+            engine_name = "polars"
+        elif _PYARROW_AVAILABLE:
+            engine_name = "pyarrow"
+
+    # Add engine info to progress description
+    if progress_desc and engine_name != "pandas":
+        progress_desc = f"{progress_desc} [engine={engine_name}]"
+    elif not progress_desc:
+        progress_desc = f"Parsing files [engine={engine_name}]"
+
+    # Priority: Polars > PyArrow > Pandas (for non-chunked reading)
+    # Polars is fastest (Rust implementation, 2-3x faster than PyArrow)
+    # Polars 支持文件间并行（n_jobs > 1），内部自动控制线程数
+    if chunksize is None and engine != "pandas":
+        if engine == "polars" and not _POLARS_AVAILABLE:
+            logger.warning("engine=polars requested but polars unavailable; falling back to pandas")
+        elif (
+            engine in {"auto", "polars"}
+            and _POLARS_AVAILABLE
+            and (engine == "polars" or n_jobs <= 1)
+        ):
+            try:
+                result = _read_files_polars(
+                    file_paths,
+                    delimiter=delimiter,
+                    skiprows_first=skiprows,
+                    show_progress=show_progress,
+                    progress_desc=progress_desc,
+                    samples_start=samples_start,
+                )
+                if result.size > 0:
+                    return result
+            except Exception as e:
+                logger.warning(
+                    "Polars batch read failed, falling back to PyArrow: %s: %s",
+                    type(e).__name__,
+                    e,
+                )
+                # Update engine name for fallback
+                engine_name = "pyarrow" if _PYARROW_AVAILABLE else "pandas"
+                if progress_desc:
+                    progress_desc = progress_desc.replace(
+                        "[engine=polars]", f"[engine={engine_name}]"
+                    )
+
+        if engine == "polars":
+            engine = "pandas"
+
+    # PyArrow fallback (40-60% faster than pandas)
+    if chunksize is None and engine != "pandas":
+        if engine == "pyarrow" and not _PYARROW_AVAILABLE:
+            logger.warning(
+                "engine=pyarrow requested but pyarrow unavailable; falling back to pandas"
             )
-            if result.size > 0:
-                return result
-        except Exception as e:
-            logger.debug(f"PyArrow batch read failed, falling back to pandas: {e}")
+        elif (
+            engine in {"auto", "pyarrow"}
+            and _PYARROW_AVAILABLE
+            and (engine == "pyarrow" or n_jobs <= 1)
+        ):
+            try:
+                result = _read_files_pyarrow(
+                    file_paths,
+                    delimiter=delimiter,
+                    skiprows_first=skiprows,
+                    show_progress=show_progress,
+                    progress_desc=progress_desc,
+                    samples_start=samples_start,
+                )
+                if result.size > 0:
+                    return result
+            except Exception as e:
+                logger.debug(f"PyArrow batch read failed, falling back to pandas: {e}")
+                # Update engine name for fallback
+                if progress_desc:
+                    progress_desc = progress_desc.replace("[engine=pyarrow]", "[engine=pandas]")
 
-    # Optional progress bar
-    if show_progress:
-        try:
-            from tqdm import tqdm
+    if engine != "pandas":
+        engine = "pandas"
 
-            pbar = tqdm(file_paths, desc="Parsing files", leave=False)
-        except ImportError:
-            pbar = file_paths
-    else:
-        pbar = file_paths
+    # Progress bar will be set up later if needed
+    # (removed duplicate tqdm setup here)
 
     def _parse_single(fp: str, file_skiprows: int):
+        start = time.perf_counter()
+        try:
+            return _parse_single_impl(fp, file_skiprows)
+        finally:
+            if show_progress:
+                elapsed = time.perf_counter() - start
+                logger.info("Parsed %s in %.2fs", fp, elapsed)
+
+    def _parse_single_impl(fp: str, file_skiprows: int):
         p = Path(fp)
         if not p.exists() or p.stat().st_size == 0:
             logger.debug("Skipping empty or missing file %s", fp)
             return None
 
-        file_arrs = []
-        # attempt chunked reading per-file if chunksize provided
+        # 优先使用 Polars（文件间并行时，每个文件用 Polars 读取）
+        if chunksize is None and _POLARS_AVAILABLE:
+            try:
+                arr = _read_csv_polars(
+                    fp,
+                    delimiter=delimiter,
+                    skiprows=file_skiprows,  # 使用传入的 file_skiprows
+                    samples_start=samples_start,
+                )
+                if arr.size > 0:
+                    # 验证时间戳列有效性
+                    try:
+                        timestamp_col = arr[:, 2]
+                        if np.issubdtype(timestamp_col.dtype, np.floating):
+                            valid_mask = ~np.isnan(timestamp_col)
+                            if not np.all(valid_mask):
+                                arr = arr[valid_mask]
+                    except (IndexError, TypeError):
+                        pass
+                    return arr if arr.size > 0 else None
+            except Exception as e:
+                logger.warning(
+                    f"Polars read failed for {fp}: {type(e).__name__}: {e}, falling back to pandas"
+                )
+
+        # 不指定 dtype，让 pandas 自动推断（更快）
         try:
-            # Use pyarrow engine if available for faster parsing
-            # Note: pyarrow doesn't support chunksize, so use 'c' engine when chunking
-            engine = "c"
-            if not chunksize:
-                try:
-                    import pyarrow
-
-                    engine = "pyarrow"
-                except ImportError:
-                    pass
-
             if chunksize:
+                # 分块读取
                 chunk_iter = pd.read_csv(
                     fp,
                     delimiter=delimiter,
                     skiprows=file_skiprows,
                     header=None,
-                    engine=engine,
+                    engine="c",
                     chunksize=chunksize,
-                    on_bad_lines="warn",  # Strax-like: warn on bad lines instead of failing
+                    on_bad_lines="warn",
                 )
-            else:
-                chunk_iter = [
-                    pd.read_csv(
-                        fp,
-                        delimiter=delimiter,
-                        skiprows=file_skiprows,
-                        header=None,
-                        engine=engine,
-                        on_bad_lines="warn",
-                    )
-                ]
-
-            if chunk_iter is not None:
+                file_arrs = []
                 for chunk in chunk_iter:
                     chunk.dropna(how="all", inplace=True)
                     if chunk.empty:
                         continue
+                    arr = chunk.to_numpy()
+                    # 验证时间戳列有效性
                     try:
-                        # Optimized: vectorized numeric conversion
-                        arr = chunk.to_numpy()
-                        try:
-                            numeric_part = arr[:, 2:].astype(np.float64)
-                        except (ValueError, TypeError):
-                            # Fallback: convert column by column
-                            numeric_part = np.empty((arr.shape[0], arr.shape[1] - 2), dtype=np.float64)
-                            for col_idx in range(arr.shape[1] - 2):
-                                numeric_part[:, col_idx] = pd.to_numeric(
-                                    arr[:, col_idx + 2], errors="coerce"
-                                )
-                        # Filter valid rows (where TIMETAG column is not NaN)
-                        valid_mask = ~np.isnan(numeric_part[:, 0])
-                        if not np.any(valid_mask):
-                            continue
-                        result = np.column_stack([arr[valid_mask, :2], numeric_part[valid_mask]])
-                        file_arrs.append(result)
-                    except Exception as e:
-                        logger.warning(
-                            "Failed to coerce numeric columns for chunk in %s: %s", fp, e
-                        )
-                        try:
-                            file_arrs.append(chunk.to_numpy())
-                        except Exception as e2:
-                            logger.warning(
-                                "to_numpy failed for chunk in %s: %s; falling back to per-row coercion",
-                                fp,
-                                e2,
-                            )
-                            rows = [list(r) for r in chunk.values]
-                            max_cols = max(len(r) for r in rows)
-                            norm_rows = []
-                            for r in rows:
-                                if len(r) < max_cols:
-                                    r = list(r) + [np.nan] * (max_cols - len(r))
-                                norm_rows.append(np.asarray(r, dtype=object))
-                            file_arrs.append(np.vstack([np.asarray(r) for r in norm_rows]))
-                        file_arrs.append(np.vstack([np.asarray(r) for r in norm_rows]))
+                        timestamp_col = arr[:, 2]
+                        if np.issubdtype(timestamp_col.dtype, np.floating):
+                            valid_mask = ~np.isnan(timestamp_col)
+                            if not np.all(valid_mask):
+                                arr = arr[valid_mask]
+                    except (IndexError, TypeError):
+                        pass
+                    if arr.size > 0:
+                        file_arrs.append(arr)
+
                 if not file_arrs:
                     return None
                 try:
                     return np.vstack(file_arrs)
-                except Exception:
-                    # pad to max cols
+                except ValueError:
+                    # 处理列数不一致
                     max_cols = max(a.shape[1] for a in file_arrs)
                     padded = []
                     for a in file_arrs:
                         if a.shape[1] < max_cols:
-                            pad = np.full((a.shape[0], max_cols - a.shape[1]), np.nan, dtype=object)
-                            padded.append(np.hstack([a.astype(object), pad]))
-                        else:
-                            padded.append(a.astype(object))
+                            pad_width = ((0, 0), (0, max_cols - a.shape[1]))
+                            a = np.pad(a, pad_width, mode="constant", constant_values=np.nan)
+                        padded.append(a)
                     return np.vstack(padded)
-            # no chunking: fall through to full-file parse
-        except Exception:
-            logger.debug(
-                "chunked read failed for %s, falling back to full parse", fp, exc_info=True
-            )
+            else:
+                # 一次性读取
+                df = pd.read_csv(
+                    fp,
+                    delimiter=delimiter,
+                    skiprows=file_skiprows,
+                    header=None,
+                    on_bad_lines="warn",
+                )
+                df.dropna(how="all", inplace=True)
+                if df.empty:
+                    return None
 
-        # Primary attempt: pandas read_csv with the fast C engine
-        df = None
+                arr = df.to_numpy()
+                # 验证时间戳列有效性
+                try:
+                    timestamp_col = arr[:, 2]
+                    if np.issubdtype(timestamp_col.dtype, np.floating):
+                        valid_mask = ~np.isnan(timestamp_col)
+                        if not np.all(valid_mask):
+                            arr = arr[valid_mask]
+                except (IndexError, TypeError):
+                    pass
+
+                return arr if arr.size > 0 else None
+
+        except Exception as e:
+            logger.debug(f"pandas 读取失败 {fp}: {e}，使用回退逻辑")
+
+        # 回退到默认读取（无显式 dtype）
         try:
             df = pd.read_csv(
                 fp, delimiter=delimiter, skiprows=file_skiprows, header=None, engine="c"
@@ -454,7 +752,6 @@ def parse_and_stack_files(
                 fp,
             )
             try:
-                # on_bad_lines='skip' will drop malformed rows rather than failing
                 df = pd.read_csv(
                     fp,
                     delimiter=delimiter,
@@ -500,7 +797,7 @@ def parse_and_stack_files(
                             df = None
                 except Exception:
                     # sniffing failed; fall back to line-by-line below
-                    pass
+                    df = None
 
         # If pandas couldn't parse, fall back to line-by-line parsing
         if df is None:
@@ -544,44 +841,22 @@ def parse_and_stack_files(
             logger.debug("Parsed file has insufficient columns (%d) in %s", df.shape[1], fp)
             return None
 
-        # Coerce numeric columns for samples and TIMETAG column (index 2)
-        # Optimized: use vectorized numpy conversion instead of pandas apply
+        # 直接返回数组，不再进行 pd.to_numeric 转换
         try:
             arr = df.to_numpy()
+            # 验证时间戳列有效性
             try:
-                numeric_part = arr[:, 2:].astype(np.float64)
-            except (ValueError, TypeError):
-                # Fallback: convert column by column
-                numeric_part = np.empty((arr.shape[0], arr.shape[1] - 2), dtype=np.float64)
-                for col_idx in range(arr.shape[1] - 2):
-                    numeric_part[:, col_idx] = pd.to_numeric(
-                        arr[:, col_idx + 2], errors="coerce"
-                    )
-            # Filter valid rows (where TIMETAG column is not NaN)
-            valid_mask = ~np.isnan(numeric_part[:, 0])
-            if not np.any(valid_mask):
-                logger.debug("No numeric data left after coercion: %s", fp)
-                return None
-            return np.column_stack([arr[valid_mask, :2], numeric_part[valid_mask]])
+                timestamp_col = arr[:, 2]
+                if np.issubdtype(timestamp_col.dtype, np.floating):
+                    valid_mask = ~np.isnan(timestamp_col)
+                    if not np.all(valid_mask):
+                        arr = arr[valid_mask]
+            except (IndexError, TypeError):
+                pass
+            return arr if arr.size > 0 else None
         except Exception as e:
-            logger.warning("Failed to coerce numeric columns for %s: %s", fp, e)
-            # Fallback: try to return raw data
-            try:
-                return df.to_numpy()
-            except Exception:
-                logger.debug("to_numpy failed for %s, attempting per-row coercion", fp, exc_info=True)
-                rows = []
-                max_cols = 0
-                for r in df.values:
-                    rows.append(list(r))
-                    if len(r) > max_cols:
-                        max_cols = len(r)
-                norm_rows = []
-                for r in rows:
-                    if len(r) < max_cols:
-                        r = list(r) + [np.nan] * (max_cols - len(r))
-                    norm_rows.append(np.array(r, dtype=object))
-                return np.vstack([np.asarray(r) for r in norm_rows])
+            logger.warning("Failed to convert to numpy for %s: %s", fp, e)
+            return None
 
     arrs = []
     fps = sorted(file_paths)
@@ -591,7 +866,8 @@ def parse_and_stack_files(
         try:
             from tqdm import tqdm
 
-            pbar = tqdm(total=len(fps), desc="Parsing files", leave=False)
+            desc = progress_desc or "Parsing files"
+            pbar = tqdm(total=len(fps), desc=desc, leave=True)  # leave=True 保持进度条显示
         except ImportError:
             pbar = None
     else:
@@ -635,6 +911,10 @@ def parse_and_stack_files(
             if pbar:
                 pbar.update(1)
 
+    if pbar:
+        pbar.close()
+
+    # Close progress bar if it was created
     if pbar:
         pbar.close()
 
