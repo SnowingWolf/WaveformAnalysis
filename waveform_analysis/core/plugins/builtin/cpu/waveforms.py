@@ -132,6 +132,57 @@ def _sniff_csv_layout(
     return delimiter, skiprows
 
 
+def _validate_baseline_samples(
+    baseline_samples: Optional[Union[int, Tuple[int, int]]],
+) -> None:
+    if baseline_samples is None:
+        return
+    if isinstance(baseline_samples, tuple):
+        if len(baseline_samples) != 2:
+            raise ValueError(
+                "baseline_samples tuple must have 2 elements (start, end), "
+                f"got {len(baseline_samples)}"
+            )
+        start, end = baseline_samples
+        if not isinstance(start, int) or not isinstance(end, int):
+            raise TypeError(
+                "baseline_samples tuple elements must be int, "
+                f"got ({type(start).__name__}, {type(end).__name__})"
+            )
+        if start < 0 or end < 0:
+            raise ValueError(
+                f"baseline_samples indices must be non-negative, got ({start}, {end})"
+            )
+        if start >= end:
+            raise ValueError(
+                f"baseline_samples start must be less than end, got ({start}, {end})"
+            )
+        return
+    if isinstance(baseline_samples, int):
+        if baseline_samples <= 0:
+            raise ValueError(f"baseline_samples must be positive, got {baseline_samples}")
+        return
+    raise TypeError(
+        "baseline_samples must be int or tuple (start, end), "
+        f"got {type(baseline_samples).__name__}"
+    )
+
+
+def _resolve_baseline_window(
+    baseline_samples: Optional[Union[int, Tuple[int, int]]],
+    cols: "ColumnMapping",
+) -> Tuple[int, int]:
+    baseline_start = cols.baseline_start
+    baseline_end = cols.baseline_end
+    if baseline_samples is not None:
+        if isinstance(baseline_samples, tuple):
+            baseline_start = cols.samples_start + baseline_samples[0]
+            baseline_end = cols.samples_start + baseline_samples[1]
+        else:
+            baseline_end = baseline_start + int(baseline_samples)
+    return baseline_start, baseline_end
+
+
 @export
 @dataclass
 class WaveformStructConfig:
@@ -247,7 +298,7 @@ class WaveformStruct:
             config: 结构化配置。None 时使用 VX2730 默认配置（向后兼容）
             baseline_samples: 基线计算范围，支持两种格式：
                 - int: 采样点数，从 adapter 默认 start 开始计算
-                - tuple (start, end): 显式指定起止索引
+                - tuple (start, end): 相对 samples_start 的起止索引
                 - None: 使用 adapter 默认范围
             upstream_baselines: 上游插件提供的 baseline 列表（可选）
         """
@@ -260,38 +311,7 @@ class WaveformStruct:
         self.baseline_samples = baseline_samples
         self.upstream_baselines = upstream_baselines
         self._baseline_warned = False
-
-        if self.baseline_samples is not None:
-            if isinstance(self.baseline_samples, tuple):
-                if len(self.baseline_samples) != 2:
-                    raise ValueError(
-                        "baseline_samples tuple must have 2 elements (start, end), "
-                        f"got {len(self.baseline_samples)}"
-                    )
-                start, end = self.baseline_samples
-                if not isinstance(start, int) or not isinstance(end, int):
-                    raise TypeError(
-                        "baseline_samples tuple elements must be int, "
-                        f"got ({type(start).__name__}, {type(end).__name__})"
-                    )
-                if start < 0 or end < 0:
-                    raise ValueError(
-                        f"baseline_samples indices must be non-negative, got ({start}, {end})"
-                    )
-                if start >= end:
-                    raise ValueError(
-                        f"baseline_samples start must be less than end, got ({start}, {end})"
-                    )
-            elif isinstance(self.baseline_samples, int):
-                if self.baseline_samples <= 0:
-                    raise ValueError(
-                        f"baseline_samples must be positive, got {self.baseline_samples}"
-                    )
-            else:
-                raise TypeError(
-                    "baseline_samples must be int or tuple (start, end), "
-                    f"got {type(self.baseline_samples).__name__}"
-                )
+        _validate_baseline_samples(self.baseline_samples)
 
     @classmethod
     def from_adapter(
@@ -373,22 +393,16 @@ class WaveformStruct:
             logger.debug("未提供通道映射，使用 CHANNEL 字段作为物理通道号")
             physical_channels = channel_vals
 
-        baseline_start = cols.baseline_start
-        baseline_end = cols.baseline_end
-        if self.baseline_samples is not None:
-            if isinstance(self.baseline_samples, tuple):
-                baseline_start, baseline_end = self.baseline_samples
-            else:
-                baseline_end = baseline_start + int(self.baseline_samples)
-            if baseline_end > waves.shape[1]:
-                if not self._baseline_warned:
-                    logger.warning(
-                        "baseline_samples=%s exceeds available columns (%s); clamping.",
-                        self.baseline_samples,
-                        waves.shape[1],
-                    )
-                    self._baseline_warned = True
-                baseline_end = waves.shape[1]
+        baseline_start, baseline_end = _resolve_baseline_window(self.baseline_samples, cols)
+        if baseline_end > waves.shape[1]:
+            if not self._baseline_warned:
+                logger.warning(
+                    "baseline_samples=%s exceeds available columns (%s); clamping.",
+                    self.baseline_samples,
+                    waves.shape[1],
+                )
+                self._baseline_warned = True
+            baseline_end = waves.shape[1]
 
         if baseline_end <= baseline_start:
             baseline_vals = np.full(len(waves), np.nan, dtype=float)
@@ -649,7 +663,8 @@ class WaveformsPlugin(Plugin):
                 or isinstance(v, int)
                 or (isinstance(v, tuple) and len(v) == 2 and all(isinstance(x, int) for x in v))
             ),
-            help="Baseline range: int (sample count from adapter start) or tuple (start, end) indices. None=adapter default.",
+            help="Baseline range: int (sample count from adapter start) or tuple (start, end) "
+            "relative to samples_start. None=adapter default.",
         ),
         "streaming_mode": Option(
             default=False,
@@ -1045,14 +1060,8 @@ class WaveformsPlugin(Plugin):
         epoch_ns = config.epoch_ns
         timestamp_scale = config.format_spec.get_timestamp_scale_to_ps()
 
-        # 确定基线范围
-        baseline_start = cols.baseline_start
-        baseline_end = cols.baseline_end
-        if baseline_samples is not None:
-            if isinstance(baseline_samples, tuple):
-                baseline_start, baseline_end = baseline_samples
-            else:
-                baseline_end = baseline_start + int(baseline_samples)
+        _validate_baseline_samples(baseline_samples)
+        baseline_warned = False
 
         st_waveforms = []
 
@@ -1072,6 +1081,7 @@ class WaveformsPlugin(Plugin):
 
             def structurizer(raw_arr: np.ndarray, output: np.memmap, offset: int) -> int:
                 """将原始数组结构化并写入 memmap"""
+                nonlocal baseline_warned
                 n = len(raw_arr)
                 if n == 0:
                     return 0
@@ -1093,8 +1103,16 @@ class WaveformsPlugin(Plugin):
                         )
 
                 # 计算基线
-                bl_start = baseline_start
-                bl_end = min(baseline_end, raw_arr.shape[1])
+                bl_start, bl_end = _resolve_baseline_window(baseline_samples, cols)
+                if bl_end > raw_arr.shape[1]:
+                    if not baseline_warned:
+                        logger.warning(
+                            "baseline_samples=%s exceeds available columns (%s); clamping.",
+                            baseline_samples,
+                            raw_arr.shape[1],
+                        )
+                        baseline_warned = True
+                    bl_end = raw_arr.shape[1]
                 if bl_end > bl_start:
                     try:
                         baseline_vals = np.mean(raw_arr[:, bl_start:bl_end].astype(float), axis=1)
