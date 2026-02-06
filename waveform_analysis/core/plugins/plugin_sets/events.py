@@ -16,7 +16,10 @@ def plugins_events():
         PairedEventsPlugin,
     )
 
+    from waveform_analysis.core.plugins.builtin.cpu import DataFramePlugin
+
     return [
         GroupedEventsPlugin(),
         PairedEventsPlugin(),
+        DataFramePlugin(),
     ]
