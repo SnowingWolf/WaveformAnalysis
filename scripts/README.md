@@ -62,6 +62,17 @@ python scripts/scaffold_plugin.py MyPlugin
 python scripts/scaffold_plugin.py MyPlugin --provides my_plugin --depends-on st_waveforms
 ```
 
+## 缓存清理
+
+### `clear_downstream_cache.py` - 清理下游缓存
+
+根据插件依赖关系，清理指定数据的下游缓存（可选是否包含自身）。
+
+```bash
+python scripts/clear_downstream_cache.py run_001 st_waveforms --dry-run
+python scripts/clear_downstream_cache.py run_001 st_waveforms --verbose
+```
+
 ## 工作流程
 
 1. **开发时**：运行 `check_imports.py` 检查导入规范

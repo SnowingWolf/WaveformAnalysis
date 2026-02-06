@@ -34,6 +34,7 @@ waveform_analysis.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
+node_modules/
 
 # PyInstaller
 *.manifest
@@ -83,6 +84,7 @@ dmypy.json
 # ================================
 # Linting and Formatting
 # ================================
+.cache/
 .ruff_cache/
 .pylint.d/
 .black.cache/
@@ -97,6 +99,7 @@ dmypy.json
 !.vscode/extensions.json.template
 *.code-workspace
 .vscode/PythonImportHelper-v2-Completion.json
+.cursor/
 
 # PyCharm / IntelliJ
 .idea/
@@ -195,6 +198,9 @@ docs.backup*/
 # ================================
 # Claude AI Assistant
 # ================================
+.agent/
+.agents/
+.codex/
 .claude/
 claude_output/
 AGENTS.md
