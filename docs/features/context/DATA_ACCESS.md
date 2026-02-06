@@ -107,6 +107,9 @@ for plugin, status in result['cache_status'].items():
 # 清除指定 run + 数据的内存/磁盘缓存
 ctx.clear_cache_for("run_001", "waveforms")
 
+# 清除指定数据及其下游缓存
+ctx.clear_cache_for("run_001", "waveforms", downstream=True)
+
 # 仅清除内存缓存（保留磁盘）
 ctx.clear_cache_for("run_001", "waveforms", clear_disk=False)
 
