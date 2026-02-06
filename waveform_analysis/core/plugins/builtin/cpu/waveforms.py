@@ -22,9 +22,10 @@ WaveformsPlugin 支持双层并行处理加速：
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from dataclasses import dataclass
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -44,6 +45,91 @@ logger = logging.getLogger(__name__)
 
 # 初始化 exporter
 export, __all__ = exporter()
+
+
+def _parse_file_to_npy(
+    args: Tuple[int, int, str, int, Optional[int], str, str],
+) -> Tuple[int, int, Optional[str]]:
+    """Parse a single file and persist to .npy to avoid large IPC payloads."""
+    import tempfile
+
+    from waveform_analysis.utils.io import parse_and_stack_files
+
+    ch_idx, file_idx, fp, skiprows, chunksize, delimiter, engine = args
+    arr = parse_and_stack_files(
+        [fp],
+        skiprows=skiprows,
+        delimiter=delimiter,
+        chunksize=chunksize,
+        engine=engine,
+        n_jobs=1,
+        use_process_pool=False,
+        show_progress=False,
+    )
+    if arr is None or arr.size == 0:
+        return ch_idx, file_idx, None
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".npy") as tmp:
+        np.save(tmp, arr)
+        return ch_idx, file_idx, tmp.name
+
+
+def _sniff_csv_layout(
+    file_path: str,
+    default_delimiter: str = ";",
+    max_lines: int = 50,
+) -> Tuple[str, int]:
+    """Best-effort delimiter and header row detection."""
+    try:
+        with open(file_path, encoding="utf-8", errors="replace") as fh:
+            lines = []
+            for _ in range(max_lines):
+                line = fh.readline()
+                if not line:
+                    break
+                line = line.strip()
+                if line:
+                    lines.append(line)
+    except OSError:
+        return default_delimiter, 0
+
+    if not lines:
+        return default_delimiter, 0
+
+    candidates = [";", ",", "\t", "|"]
+    delimiter = default_delimiter
+    best_score = -1
+    for cand in candidates:
+        counts = [line.count(cand) + 1 for line in lines if cand in line]
+        if not counts:
+            continue
+        counts.sort()
+        median = counts[len(counts) // 2]
+        if median > best_score:
+            best_score = median
+            delimiter = cand
+
+    def _is_number(token: str) -> bool:
+        try:
+            float(token)
+        except ValueError:
+            return False
+        return True
+
+    skiprows = 0
+    for idx, line in enumerate(lines):
+        parts = [p for p in line.split(delimiter) if p != ""]
+        if len(parts) < 3:
+            continue
+        sample = parts[: min(8, len(parts))]
+        numeric = sum(1 for p in sample if _is_number(p))
+        if numeric / max(len(sample), 1) >= 0.6:
+            skiprows = idx
+            break
+    else:
+        skiprows = 0
+
+    return delimiter, skiprows
 
 
 @export
@@ -151,7 +237,7 @@ class WaveformStruct:
         self,
         waveforms: List[np.ndarray],
         config: Optional[WaveformStructConfig] = None,
-        baseline_samples: Optional[int] = None,
+        baseline_samples: Optional[Union[int, Tuple[int, int]]] = None,
         upstream_baselines: Optional[List[np.ndarray]] = None,
     ):
         """初始化 WaveformStruct。
@@ -159,7 +245,10 @@ class WaveformStruct:
         Args:
             waveforms: 原始波形数据列表，每个元素对应一个通道的数据
             config: 结构化配置。None 时使用 VX2730 默认配置（向后兼容）
-            baseline_samples: 基线计算使用的采样点数（None 时使用格式默认）
+            baseline_samples: 基线计算范围，支持两种格式：
+                - int: 采样点数，从 adapter 默认 start 开始计算
+                - tuple (start, end): 显式指定起止索引
+                - None: 使用 adapter 默认范围
             upstream_baselines: 上游插件提供的 baseline 列表（可选）
         """
         self.waveforms = waveforms
@@ -172,15 +261,44 @@ class WaveformStruct:
         self.upstream_baselines = upstream_baselines
         self._baseline_warned = False
 
-        if self.baseline_samples is not None and self.baseline_samples <= 0:
-            raise ValueError(f"baseline_samples must be positive, got {self.baseline_samples}")
+        if self.baseline_samples is not None:
+            if isinstance(self.baseline_samples, tuple):
+                if len(self.baseline_samples) != 2:
+                    raise ValueError(
+                        "baseline_samples tuple must have 2 elements (start, end), "
+                        f"got {len(self.baseline_samples)}"
+                    )
+                start, end = self.baseline_samples
+                if not isinstance(start, int) or not isinstance(end, int):
+                    raise TypeError(
+                        "baseline_samples tuple elements must be int, "
+                        f"got ({type(start).__name__}, {type(end).__name__})"
+                    )
+                if start < 0 or end < 0:
+                    raise ValueError(
+                        f"baseline_samples indices must be non-negative, got ({start}, {end})"
+                    )
+                if start >= end:
+                    raise ValueError(
+                        f"baseline_samples start must be less than end, got ({start}, {end})"
+                    )
+            elif isinstance(self.baseline_samples, int):
+                if self.baseline_samples <= 0:
+                    raise ValueError(
+                        f"baseline_samples must be positive, got {self.baseline_samples}"
+                    )
+            else:
+                raise TypeError(
+                    "baseline_samples must be int or tuple (start, end), "
+                    f"got {type(self.baseline_samples).__name__}"
+                )
 
     @classmethod
     def from_adapter(
         cls,
         waveforms: List[np.ndarray],
         adapter_name: str = "vx2730",
-        baseline_samples: Optional[int] = None,
+        baseline_samples: Optional[Union[int, Tuple[int, int]]] = None,
         upstream_baselines: Optional[List[np.ndarray]] = None,
     ) -> WaveformStruct:
         """从 DAQ 适配器创建 WaveformStruct（便捷方法）"""
@@ -247,7 +365,9 @@ class WaveformStruct:
             physical_channels = lookup[board_vals, channel_vals]
 
             if np.any(physical_channels == -1):
-                unmapped = set(zip(board_vals[physical_channels == -1], channel_vals[physical_channels == -1]))
+                unmapped = set(
+                    zip(board_vals[physical_channels == -1], channel_vals[physical_channels == -1])
+                )
                 logger.warning(f"发现未映射的 (BOARD, CHANNEL) 组合: {unmapped}")
         else:
             logger.debug("未提供通道映射，使用 CHANNEL 字段作为物理通道号")
@@ -256,7 +376,10 @@ class WaveformStruct:
         baseline_start = cols.baseline_start
         baseline_end = cols.baseline_end
         if self.baseline_samples is not None:
-            baseline_end = baseline_start + int(self.baseline_samples)
+            if isinstance(self.baseline_samples, tuple):
+                baseline_start, baseline_end = self.baseline_samples
+            else:
+                baseline_end = baseline_start + int(self.baseline_samples)
             if baseline_end > waves.shape[1]:
                 if not self._baseline_warned:
                     logger.warning(
@@ -282,13 +405,13 @@ class WaveformStruct:
 
                 # Try vectorized conversion first
                 try:
-                    sample_data = waves[:, cols.samples_start:].astype(np.float64)
+                    sample_data = waves[:, cols.samples_start :].astype(np.float64)
                     baseline_vals = np.nanmean(sample_data, axis=1)
                 except (ValueError, TypeError):
                     # Only fall back to per-row for rows that failed
                     for i in range(n_rows):
                         try:
-                            row_data = np.asarray(waves[i, cols.samples_start:], dtype=np.float64)
+                            row_data = np.asarray(waves[i, cols.samples_start :], dtype=np.float64)
                             if row_data.size > 0:
                                 baseline_vals[i] = np.nanmean(row_data)
                         except Exception:
@@ -338,11 +461,13 @@ class WaveformStruct:
                 np.copyto(dest, src)
             else:
                 # Convert to int16, clipping to valid range for 14-bit ADC
-                np.copyto(dest, src, casting='unsafe')
+                np.copyto(dest, src, casting="unsafe")
 
         return waveform_structured
 
-    def structure_waveforms(self, show_progress: bool = False, start_channel_slice: int = 0) -> List[np.ndarray]:
+    def structure_waveforms(
+        self, show_progress: bool = False, start_channel_slice: int = 0
+    ) -> List[np.ndarray]:
         """将所有通道的波形转换为结构化数组。"""
         cols = self.config.format_spec.columns
 
@@ -383,8 +508,8 @@ class WaveformStruct:
 
                 pbar = tqdm(
                     enumerate(self.waveforms),
-                    desc="Structuring waveforms",
-                    leave=False,
+                    desc=f"Structuring waveforms ({len(self.waveforms)} channels)",
+                    leave=True,
                     total=len(self.waveforms),
                 )
             except ImportError:
@@ -393,8 +518,14 @@ class WaveformStruct:
             pbar = enumerate(self.waveforms)
 
         self.waveform_structureds = [
-            self._structure_waveform(waves, channel_mapping=channel_mapping, channel_idx=idx) for idx, waves in pbar
+            self._structure_waveform(waves, channel_mapping=channel_mapping, channel_idx=idx)
+            for idx, waves in pbar
         ]
+
+        # 正确关闭进度条
+        if show_progress and hasattr(pbar, "close"):
+            pbar.close()
+
         return self.waveform_structureds
 
     def get_event_length(self) -> np.ndarray:
@@ -464,21 +595,12 @@ class WaveformsPlugin(Plugin):
     version = "0.3.0"
     provides = "st_waveforms"
     depends_on = []
-    description = "Extract waveforms from raw CSV files and structure them into NumPy structured arrays."
+    description = (
+        "Extract waveforms from raw CSV files and structure them into NumPy structured arrays."
+    )
     save_when = "always"
     output_dtype = np.dtype(ST_WAVEFORM_DTYPE)
     options = {
-        "channel_workers": Option(
-            default=None,
-            help="Number of parallel workers for channel-level processing (None=auto, uses min(len(raw_files), cpu_count))",
-            track=False,
-        ),
-        "channel_executor": Option(
-            default="thread",
-            type=str,
-            help="Executor type for channel-level parallelism: 'thread' or 'process'",
-            track=False,
-        ),
         "daq_adapter": Option(default="vx2730", type=str, help="DAQ adapter name (e.g., 'vx2730')"),
         "wave_length": Option(
             default=None,
@@ -493,7 +615,7 @@ class WaveformsPlugin(Plugin):
         "n_jobs": Option(
             default=None,
             type=int,
-            help="Number of parallel workers for file-level processing within each channel (None=auto, uses min(max_file_count, 50))",
+            help="Number of parallel workers for file-level processing (None=auto, uses min(total_files, 50))",
             track=False,
         ),
         "use_process_pool": Option(
@@ -508,6 +630,12 @@ class WaveformsPlugin(Plugin):
             help="Chunk size for CSV reading (None=read entire file, enables PyArrow; set value to enable chunked reading but disables PyArrow)",
             track=False,
         ),
+        "parse_engine": Option(
+            default="auto",
+            type=str,
+            help="CSV engine: auto | polars | pyarrow | pandas",
+            track=False,
+        ),
         "use_upstream_baseline": Option(
             default=False,
             type=bool,
@@ -515,8 +643,20 @@ class WaveformsPlugin(Plugin):
         ),
         "baseline_samples": Option(
             default=None,
-            type=int,
-            help="Number of samples used to compute baseline (None=adapter default).",
+            type=None,
+            validate=lambda v: (
+                v is None
+                or isinstance(v, int)
+                or (isinstance(v, tuple) and len(v) == 2 and all(isinstance(x, int) for x in v))
+            ),
+            help="Baseline range: int (sample count from adapter start) or tuple (start, end) indices. None=adapter default.",
+        ),
+        "streaming_mode": Option(
+            default=False,
+            type=bool,
+            help="Enable streaming mode: read files and structure waveforms incrementally to reduce memory usage. "
+            "When enabled, uses memmap for output to avoid full vstack memory overhead.",
+            track=False,
         ),
     }
 
@@ -527,7 +667,9 @@ class WaveformsPlugin(Plugin):
             deps.append("baseline")
         return deps
 
-    def _get_record_dtype(self, daq_adapter: Optional[str], wave_length: Optional[int] = None) -> np.dtype:
+    def _get_record_dtype(
+        self, daq_adapter: Optional[str], wave_length: Optional[int] = None
+    ) -> np.dtype:
         if daq_adapter:
             config = WaveformStructConfig.from_adapter(daq_adapter)
         else:
@@ -567,9 +709,9 @@ class WaveformsPlugin(Plugin):
         1. 读取并解析原始 CSV 文件，提取每个通道的波形数据
         2. 将波形数据结构化为包含时间戳、基线、通道号和波形数据的结构化数组
 
-        支持双层并行处理加速：
-        - 通道级并行：多个通道同时处理（通过 channel_workers 控制）
-        - 文件级并行：单个通道内的多个文件并行处理（通过 n_jobs 控制）
+        使用文件级扁平化并行处理：
+        - 所有文件统一进入并行池解析（通过 n_jobs 控制）
+        - 解析完成后按通道聚合
 
         Args:
             context: Context 实例
@@ -579,10 +721,8 @@ class WaveformsPlugin(Plugin):
         Returns:
             List[np.ndarray]: 每个通道的结构化波形数据列表
         """
-        import multiprocessing
         from pathlib import Path
 
-        from waveform_analysis.core.processing.loader import get_waveforms
         from waveform_analysis.utils.formats import get_adapter
 
         raw_files = context.get_data(run_id, "raw_files")
@@ -591,34 +731,25 @@ class WaveformsPlugin(Plugin):
             return []
 
         # ========== 获取配置 ==========
-        channel_workers = context.get_config(self, "channel_workers")
-        channel_executor = context.get_config(self, "channel_executor")
         n_jobs = context.get_config(self, "n_jobs")
         use_process_pool = context.get_config(self, "use_process_pool")
         chunksize = context.get_config(self, "chunksize")
+        parse_engine = context.get_config(self, "parse_engine")
         daq_adapter = context.get_config(self, "daq_adapter")
         wave_length = context.get_config(self, "wave_length")
         dt_ns = context.get_config(self, "dt_ns")
         use_upstream_baseline = context.get_config(self, "use_upstream_baseline")
         baseline_samples = context.get_config(self, "baseline_samples")
+        streaming_mode = context.get_config(self, "streaming_mode")
         show_progress = context.config.get("show_progress", True)
 
         if isinstance(daq_adapter, str):
             daq_adapter = daq_adapter.lower()
 
-        # ========== 通道级并行配置 ==========
-        if channel_workers is None:
-            channel_workers = min(n_channels, multiprocessing.cpu_count())
-
         # ========== 文件级并行配置 ==========
         if n_jobs is None:
-            selected_files = raw_files
-            if selected_files:
-                file_counts = [len(files) for files in selected_files if files]
-                max_file_count = max(file_counts) if file_counts else 0
-                n_jobs = min(max_file_count, 50) if max_file_count > 0 else 1
-            else:
-                n_jobs = 1
+            total_files = sum(len(files) for files in raw_files if files)
+            n_jobs = min(total_files, 50) if total_files > 0 else 1
 
         # ========== V1725 特殊处理 ==========
         if daq_adapter == "v1725":
@@ -646,19 +777,6 @@ class WaveformsPlugin(Plugin):
             # V1725 返回的是单个数组，需要特殊处理
             return [data]
 
-        # ========== 加载波形数据 ==========
-        waveforms = get_waveforms(
-            raw_filess=raw_files,
-            show_progress=show_progress,
-            channel_workers=channel_workers,
-            channel_executor=channel_executor,
-            daq_adapter=daq_adapter,
-            n_channels=n_channels,
-            n_jobs=n_jobs,
-            use_process_pool=use_process_pool,
-            chunksize=chunksize,
-        )
-
         # ========== 获取上游 baseline（如果启用）==========
         upstream_baselines = None
         if use_upstream_baseline:
@@ -668,18 +786,6 @@ class WaveformsPlugin(Plugin):
             except Exception as e:
                 context.logger.warning(f"无法获取上游 baseline: {e}，将使用 NaN 填充")
                 upstream_baselines = None
-
-        # ========== 获取 epoch ==========
-        epoch_ns = None
-        if daq_adapter:
-            adapter = get_adapter(daq_adapter)
-            if raw_files and raw_files[0]:
-                first_file = Path(raw_files[0][0])
-                try:
-                    epoch_ns = adapter.get_file_epoch(first_file)
-                except (FileNotFoundError, OSError):
-                    # 文件不存在时跳过 epoch 获取
-                    pass
 
         # ========== 结构化波形 ==========
         if daq_adapter:
@@ -693,8 +799,57 @@ class WaveformsPlugin(Plugin):
         if dt_ns is not None:
             config.dt_ns = dt_ns
 
+        # ========== 获取 epoch ==========
+        epoch_ns = None
+        if daq_adapter:
+            adapter = get_adapter(daq_adapter)
+            if raw_files and raw_files[0]:
+                first_file = Path(raw_files[0][0])
+                try:
+                    epoch_ns = adapter.get_file_epoch(first_file)
+                except (FileNotFoundError, OSError):
+                    # 文件不存在时跳过 epoch 获取
+                    pass
+
         config.epoch_ns = epoch_ns
         self.output_dtype = config.get_record_dtype()
+
+        profiler = getattr(context, "profiler", None)
+        timer = profiler.timeit if profiler else None
+
+        # ========== 流式模式 ==========
+        if streaming_mode:
+            with timer("st_waveforms.streaming") if timer else nullcontext():
+                return self._compute_streaming(
+                    context=context,
+                    run_id=run_id,
+                    raw_files=raw_files,
+                    config=config,
+                    baseline_samples=baseline_samples,
+                    upstream_baselines=upstream_baselines,
+                    show_progress=show_progress,
+                )
+
+        # ========== 批量模式（扁平化文件读取）==========
+        with timer("st_waveforms.read") if timer else nullcontext():
+            default_delimiter = ";"
+            if daq_adapter:
+                try:
+                    adapter = get_adapter(daq_adapter)
+                    default_delimiter = adapter.format_spec.delimiter
+                except Exception:
+                    default_delimiter = ";"
+
+            waveforms = self._load_waveforms_flat(
+                raw_files=raw_files,
+                n_channels=n_channels,
+                n_jobs=n_jobs,
+                use_process_pool=use_process_pool,
+                chunksize=chunksize,
+                show_progress=show_progress,
+                default_delimiter=default_delimiter,
+                parse_engine=parse_engine,
+            )
 
         waveform_struct = WaveformStruct(
             waveforms,
@@ -702,6 +857,304 @@ class WaveformsPlugin(Plugin):
             baseline_samples=baseline_samples,
             upstream_baselines=upstream_baselines,
         )
-        st_waveforms = waveform_struct.structure_waveforms(show_progress=show_progress)
+        with timer("st_waveforms.structure") if timer else nullcontext():
+            st_waveforms = waveform_struct.structure_waveforms(show_progress=show_progress)
 
+        return st_waveforms
+
+    def _load_waveforms_flat(
+        self,
+        raw_files: List[List[str]],
+        n_channels: int,
+        n_jobs: int,
+        use_process_pool: bool,
+        chunksize: Optional[int],
+        show_progress: bool,
+        default_delimiter: str,
+        parse_engine: Optional[str],
+    ) -> List[np.ndarray]:
+        """扁平化文件读取：全局文件池并行解析，之后按通道聚合。"""
+        from concurrent.futures import as_completed
+
+        from waveform_analysis.core.execution.manager import get_executor
+        from waveform_analysis.utils.io import parse_and_stack_files
+
+        engine = (parse_engine or "auto").lower()
+        tasks: List[Tuple[int, int, str, int, str, str]] = []
+        for ch_idx, files in enumerate(raw_files):
+            for file_idx, fp in enumerate(files):
+                delimiter, skiprows = _sniff_csv_layout(fp, default_delimiter=default_delimiter)
+                tasks.append((ch_idx, file_idx, fp, skiprows, delimiter, engine))
+
+        if not tasks:
+            return [np.array([]) for _ in range(n_channels)]
+
+        results: List[Dict[int, np.ndarray]] = [{} for _ in range(n_channels)]
+
+        pbar = None
+        if show_progress:
+            pool_label = "process" if use_process_pool else "thread"
+            desc = f"Parsing files [engine={engine}, workers={n_jobs}, pool={pool_label}]"
+            try:
+                from tqdm import tqdm
+
+                pbar = tqdm(total=len(tasks), desc=desc, leave=False)
+            except ImportError:
+                pbar = None
+
+        def _tick_progress() -> None:
+            if pbar:
+                pbar.update(1)
+
+        def _store(ch_idx: int, file_idx: int, arr: Optional[np.ndarray]) -> None:
+            if arr is None or arr.size == 0:
+                return
+            results[ch_idx][file_idx] = arr
+
+        if n_jobs <= 1:
+            for ch_idx, file_idx, fp, skiprows, delimiter, engine in tasks:
+                arr = parse_and_stack_files(
+                    [fp],
+                    skiprows=skiprows,
+                    delimiter=delimiter,
+                    chunksize=chunksize,
+                    engine=engine,
+                    n_jobs=1,
+                    use_process_pool=False,
+                    show_progress=False,
+                )
+                _store(ch_idx, file_idx, arr)
+                _tick_progress()
+        else:
+            executor_type = "process" if use_process_pool else "thread"
+            executor_name = "file_parsing_process" if use_process_pool else "file_parsing_thread"
+            max_workers = min(n_jobs, len(tasks))
+            with get_executor(
+                executor_name,
+                executor_type=executor_type,
+                max_workers=max_workers,
+                reuse=True,
+            ) as ex:
+                if use_process_pool:
+                    futures = {
+                        ex.submit(
+                            _parse_file_to_npy,
+                            (ch_idx, file_idx, fp, skiprows, chunksize, delimiter, engine),
+                        ): (ch_idx, file_idx, fp)
+                        for ch_idx, file_idx, fp, skiprows, delimiter, engine in tasks
+                    }
+                else:
+                    futures = {
+                        ex.submit(
+                            parse_and_stack_files,
+                            [fp],
+                            skiprows=skiprows,
+                            delimiter=delimiter,
+                            chunksize=chunksize,
+                            engine=engine,
+                            n_jobs=1,
+                            use_process_pool=False,
+                            show_progress=False,
+                        ): (ch_idx, file_idx, fp)
+                        for ch_idx, file_idx, fp, skiprows, delimiter, engine in tasks
+                    }
+                for future in as_completed(futures):
+                    ch_idx, file_idx, fp = futures[future]
+                    try:
+                        if use_process_pool:
+                            import os
+
+                            res_ch, res_idx, tmp_path = future.result()
+                            if tmp_path is None:
+                                arr = None
+                            else:
+                                try:
+                                    arr = np.load(tmp_path, allow_pickle=False)
+                                finally:
+                                    try:
+                                        os.unlink(tmp_path)
+                                    except OSError:
+                                        pass
+
+                            if res_ch != ch_idx or res_idx != file_idx:
+                                logger.debug(
+                                    "Mismatched result indices for %s: got (%s, %s)",
+                                    fp,
+                                    res_ch,
+                                    res_idx,
+                                )
+                        else:
+                            arr = future.result()
+                    except Exception as exc:
+                        logger.error("Error parsing %s: %s", fp, exc)
+                        arr = None
+                    _store(ch_idx, file_idx, arr)
+                    _tick_progress()
+
+        if pbar:
+            pbar.close()
+
+        waveforms: List[np.ndarray] = []
+        for ch_idx in range(n_channels):
+            file_map = results[ch_idx]
+            if not file_map:
+                waveforms.append(np.array([]))
+                continue
+            ordered = [file_map[i] for i in sorted(file_map)]
+            if not ordered:
+                waveforms.append(np.array([]))
+                continue
+            try:
+                waveforms.append(np.vstack(ordered))
+            except Exception:
+                max_cols = max(a.shape[1] for a in ordered)
+                padded = []
+                for a in ordered:
+                    if a.shape[1] < max_cols:
+                        pad = np.full((a.shape[0], max_cols - a.shape[1]), np.nan, dtype=object)
+                        padded.append(np.hstack([a.astype(object), pad]))
+                    else:
+                        padded.append(a.astype(object))
+                waveforms.append(np.vstack(padded))
+
+        return waveforms
+
+    def _compute_streaming(
+        self,
+        context: Any,
+        run_id: str,
+        raw_files: List[List[str]],
+        config: WaveformStructConfig,
+        baseline_samples: Optional[Union[int, Tuple[int, int]]],
+        upstream_baselines: Optional[List[np.ndarray]],
+        show_progress: bool,
+    ) -> List[np.ndarray]:
+        """流式模式计算：边读边结构化，减少内存峰值"""
+        from pathlib import Path
+        import tempfile
+
+        from waveform_analysis.utils.formats import get_adapter
+
+        daq_adapter = config.format_spec.name.replace("_csv", "")
+        adapter = get_adapter(daq_adapter)
+        reader = adapter.format_reader
+
+        output_dtype = config.get_record_dtype()
+        cols = config.format_spec.columns
+        dt_ns = config.get_dt_ns()
+        epoch_ns = config.epoch_ns
+        timestamp_scale = config.format_spec.get_timestamp_scale_to_ps()
+
+        # 确定基线范围
+        baseline_start = cols.baseline_start
+        baseline_end = cols.baseline_end
+        if baseline_samples is not None:
+            if isinstance(baseline_samples, tuple):
+                baseline_start, baseline_end = baseline_samples
+            else:
+                baseline_end = baseline_start + int(baseline_samples)
+
+        st_waveforms = []
+
+        for ch_idx, channel_files in enumerate(raw_files):
+            if not channel_files:
+                st_waveforms.append(np.zeros(0, dtype=output_dtype))
+                continue
+
+            # 获取上游 baseline（如果有）
+            ch_upstream_baseline = None
+            if upstream_baselines is not None and ch_idx < len(upstream_baselines):
+                ch_upstream_baseline = upstream_baselines[ch_idx]
+
+            # 创建临时 memmap 文件
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".dat") as tmp:
+                tmp_path = Path(tmp.name)
+
+            def structurizer(raw_arr: np.ndarray, output: np.memmap, offset: int) -> int:
+                """将原始数组结构化并写入 memmap"""
+                n = len(raw_arr)
+                if n == 0:
+                    return 0
+
+                # 提取时间戳
+                try:
+                    timestamps = raw_arr[:, cols.timestamp].astype(np.int64)
+                except Exception:
+                    timestamps = np.array(
+                        [int(row[cols.timestamp]) for row in raw_arr], dtype=np.int64
+                    )
+
+                if timestamp_scale != 1.0:
+                    if float(timestamp_scale).is_integer():
+                        timestamps = timestamps * int(timestamp_scale)
+                    else:
+                        timestamps = (timestamps.astype(np.float64) * timestamp_scale).astype(
+                            np.int64
+                        )
+
+                # 计算基线
+                bl_start = baseline_start
+                bl_end = min(baseline_end, raw_arr.shape[1])
+                if bl_end > bl_start:
+                    try:
+                        baseline_vals = np.mean(raw_arr[:, bl_start:bl_end].astype(float), axis=1)
+                    except Exception:
+                        baseline_vals = np.full(n, np.nan, dtype=np.float64)
+                else:
+                    baseline_vals = np.full(n, np.nan, dtype=np.float64)
+
+                # 提取通道号
+                try:
+                    channel_vals = raw_arr[:, cols.channel].astype(int)
+                except Exception:
+                    channel_vals = np.full(n, ch_idx, dtype=int)
+
+                # 提取波形数据
+                samples_end = cols.samples_end if cols.samples_end is not None else raw_arr.shape[1]
+                wave_data = raw_arr[:, cols.samples_start : samples_end]
+                wave_length = output.dtype["wave"].shape[0]
+                n_samples = min(wave_data.shape[1], wave_length)
+
+                # 写入 memmap
+                output[offset : offset + n]["timestamp"] = timestamps
+                output[offset : offset + n]["baseline"] = baseline_vals
+                output[offset : offset + n]["channel"] = channel_vals
+                output[offset : offset + n]["dt"] = np.int32(dt_ns)
+
+                if epoch_ns is not None:
+                    output[offset : offset + n]["time"] = epoch_ns + timestamps // 1000
+                else:
+                    output[offset : offset + n]["time"] = timestamps // 1000
+
+                # 写入波形数据
+                if n_samples > 0:
+                    dest = output[offset : offset + n]["wave"][:, :n_samples]
+                    src = wave_data[:, :n_samples]
+                    np.copyto(dest, src, casting="unsafe")
+
+                # 写入上游 baseline（如果有）
+                if ch_upstream_baseline is not None:
+                    output[offset : offset + n]["baseline_upstream"] = np.nan
+                else:
+                    output[offset : offset + n]["baseline_upstream"] = np.nan
+
+                return n
+
+            try:
+                result = reader.read_files_streaming(
+                    file_paths=channel_files,
+                    output_dtype=output_dtype,
+                    output_path=tmp_path,
+                    structurizer=structurizer,
+                    show_progress=show_progress,
+                )
+
+                st_waveforms.append(np.array(result))
+            finally:
+                try:
+                    tmp_path.unlink()
+                except Exception:
+                    pass
+
+        context.logger.info("流式模式完成，处理了 %d 个通道", len(st_waveforms))
         return st_waveforms
