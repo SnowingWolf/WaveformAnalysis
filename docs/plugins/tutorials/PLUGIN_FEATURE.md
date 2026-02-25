@@ -58,8 +58,8 @@ from waveform_analysis.core.context import Context
 
 ctx = Context()
 # 查询时间范围
-data = ctx.get_data_time_range('run_001', 'st_waveforms',
-                                start_time=1000, end_time=2000)
+data = ctx.time_range('run_001', 'st_waveforms',
+                      start_time=1000, end_time=2000)
 ```
 
 ### 2. Strax插件集成
@@ -120,7 +120,7 @@ reloader = enable_hot_reload(ctx, ['my_plugin'], auto_reload=True)
 ## 💡 使用建议
 
 ### 性能优化
-1. **时间查询**: 对频繁查询的数据预先构建索引
+1. **时间查询**: 首次 time_range 会自动构建索引，后续查询更快
 2. **批量处理**: 根据任务类型选择合适的worker数量
 3. **数据导出**: 优先使用Parquet格式
 
@@ -134,7 +134,7 @@ reloader = enable_hot_reload(ctx, ['my_plugin'], auto_reload=True)
 ## 🐛 常见问题
 
 ### Q: 时间查询比直接过滤慢？
-**A**: 首次查询需构建索引，之后会更快。使用`build_time_index()`预先构建。
+**A**: 首次查询会自动构建索引，之后会更快。直接使用 `time_range()` 即可。
 
 ### Q: Strax插件无法注册？
 **A**: 确保插件有`provides`和`compute`方法。使用`adapter.is_compatible()`检查。

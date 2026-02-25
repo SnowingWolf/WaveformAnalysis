@@ -213,16 +213,14 @@ ctx.set_config({'show_progress': True})
 
 ```python
 # 获取指定时间范围的数据
-data = ctx.get_data_time_range(
+data = ctx.time_range(
     run_id="run_001",
     data_name="st_waveforms",
     start_time=1000000,   # 起始时间（纳秒）
     end_time=2000000      # 结束时间（纳秒）
 )
 
-# 预先构建时间索引（提升性能）
-ctx.build_time_index("run_001", "st_waveforms")
-
+# 首次查询会自动构建时间索引（提升性能）
 # 查看索引统计
 stats = ctx.get_time_index_stats()
 ```

@@ -193,7 +193,7 @@ if results["errors"]:
 
 ```python
 # 查询特定时间范围内的数据
-time_range_data = ctx.get_data_time_range(
+time_range_data = ctx.time_range(
     run_id="run_001",
     data_name="st_waveforms",
     start_time=1000,  # ns

@@ -541,8 +541,8 @@ def test_context_get_plugin_modify_attributes(tmp_path):
 # =============================================================================
 
 
-def test_context_build_time_index_single_array(tmp_path):
-    """Test building time index for single structured array."""
+def test_context_time_range_builds_index_single_array(tmp_path):
+    """Test building time index via time_range for single structured array."""
     dtype = np.dtype([("time", "<i8"), ("value", "<f8")])
 
     class TimeDataPlugin(Plugin):
@@ -558,15 +558,17 @@ def test_context_build_time_index_single_array(tmp_path):
     ctx = Context(storage_dir=str(tmp_path))
     ctx.register(TimeDataPlugin)
 
-    result = ctx.build_time_index("run1", "time_data")
+    result = ctx.time_range("run1", "time_data", start_time=0, end_time=1000)
+    assert len(result) == 5
 
-    assert result["type"] == "single"
-    assert "time_data" in result["indices"]
-    assert result["stats"]["time_data"]["n_records"] == 5
+    stats = ctx.get_time_index_stats()
+    assert stats["total_indices"] == 1
+    assert "run1.time_data" in stats["indices"]
+    assert stats["indices"]["run1.time_data"]["n_records"] == 5
 
 
-def test_context_build_time_index_channel_field(tmp_path):
-    """Test building time index for multi-channel data in a single array."""
+def test_context_time_range_builds_index_channel_field(tmp_path):
+    """Test building time index via time_range for multi-channel data in a single array."""
     dtype = np.dtype([("time", "<i8"), ("channel", "<i2"), ("value", "<f8")])
 
     class MultiChannelPlugin(Plugin):
@@ -587,19 +589,21 @@ def test_context_build_time_index_channel_field(tmp_path):
     ctx = Context(storage_dir=str(tmp_path))
     ctx.register(MultiChannelPlugin)
 
-    result = ctx.build_time_index("run1", "multi_channel_data")
+    result = ctx.time_range("run1", "multi_channel_data", start_time=0, end_time=1000)
+    assert len(result) == 4
 
-    assert result["type"] == "single"
-    assert "multi_channel_data" in result["indices"]
-    assert result["stats"]["multi_channel_data"]["n_records"] == 4
+    stats = ctx.get_time_index_stats()
+    assert stats["total_indices"] == 1
+    assert "run1.multi_channel_data" in stats["indices"]
+    assert stats["indices"]["run1.multi_channel_data"]["n_records"] == 4
 
     # Channel filter should work on the flat array
-    ch1 = ctx.get_data_time_range("run1", "multi_channel_data", channel=1)
+    ch1 = ctx.time_range("run1", "multi_channel_data", channel=1)
     assert len(ch1) == 2
     assert np.all(ch1["channel"] == 1)
 
 
-def test_context_get_data_time_range_single(tmp_path):
+def test_context_time_range_single(tmp_path):
     """Test querying time range for single array."""
     dtype = np.dtype([("time", "<i8"), ("value", "<f8")])
 
@@ -617,14 +621,14 @@ def test_context_get_data_time_range_single(tmp_path):
     ctx.register(TimeDataPlugin)
 
     # Query subset
-    result = ctx.get_data_time_range("run1", "time_data", start_time=200, end_time=400)
+    result = ctx.time_range("run1", "time_data", start_time=200, end_time=400)
 
     assert len(result) == 2
     assert result[0]["time"] == 200
     assert result[1]["time"] == 300
 
 
-def test_context_get_data_time_range_boundaries(tmp_path):
+def test_context_time_range_boundaries(tmp_path):
     """Test time range query boundary conditions."""
     dtype = np.dtype([("time", "<i8"), ("value", "<f8")])
 
@@ -642,11 +646,11 @@ def test_context_get_data_time_range_boundaries(tmp_path):
     ctx.register(TimeDataPlugin)
 
     # Query with no results
-    result = ctx.get_data_time_range("run1", "time_data", start_time=400, end_time=500)
+    result = ctx.time_range("run1", "time_data", start_time=400, end_time=500)
     assert len(result) == 0
 
     # Query all data
-    result = ctx.get_data_time_range("run1", "time_data", start_time=0, end_time=1000)
+    result = ctx.time_range("run1", "time_data", start_time=0, end_time=1000)
     assert len(result) == 3
 
 

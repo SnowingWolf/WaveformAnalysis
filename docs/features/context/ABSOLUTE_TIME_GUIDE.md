@@ -191,8 +191,8 @@ relative_times = converter.absolute_to_relative(dts)
 时间索引也支持绝对时间查询：
 
 ```python
-# 构建索引（epoch 会自动传递）
-ctx.build_time_index('run_001', 'basic_features')
+# 触发索引构建（epoch 会自动传递）
+_ = ctx.time_range('run_001', 'basic_features', start_time=0, end_time=1)
 
 # 获取索引的绝对时间范围
 index = ctx._time_query_engine.get_index('run_001', 'basic_features')
@@ -238,7 +238,7 @@ ctx.set_epoch('run_001', datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc))
 
 ```python
 # 相对时间查询（纳秒）
-data = ctx.get_data_time_range(
+data = ctx.time_range(
     'run_001',
     'basic_features',
     start_time=10_000_000_000,  # 10秒

@@ -134,7 +134,7 @@ def test_context_time_range_query():
     assert len(data) == 1000
 
     # 时间范围查询
-    filtered_data = ctx.get_data_time_range("run_001", "test_data", start_time=1000, end_time=3000)
+    filtered_data = ctx.time_range("run_001", "test_data", start_time=1000, end_time=3000)
     assert len(filtered_data) == 20  # 时间从1000到2900,步长100
 
     # 验证数据正确性
@@ -142,27 +142,33 @@ def test_context_time_range_query():
     assert filtered_data["time"][-1] == 2900
 
     # 查询所有数据之后的范围
-    filtered_data = ctx.get_data_time_range("run_001", "test_data", start_time=50000)
+    filtered_data = ctx.time_range("run_001", "test_data", start_time=50000)
     assert len(filtered_data) > 0
 
     # 清理
     ctx.clear_time_index()
 
 
-def test_context_build_time_index():
-    """测试预先构建时间索引"""
+def test_context_time_range_builds_index():
+    """测试 time_range 自动构建时间索引"""
     ctx = Context(storage_dir="./test_time_query_cache")
     ctx.register_plugin_(DummyDataPlugin())
 
-    # 预先构建索引
-    ctx.build_time_index("run_001", "test_data", endtime_field="computed")
+    # 首次查询触发索引构建
+    _ = ctx.time_range(
+        "run_001",
+        "test_data",
+        start_time=0,
+        end_time=1,
+        endtime_field="computed",
+    )
 
     # 验证索引已创建
     stats = ctx.get_time_index_stats()
     assert stats["total_indices"] == 1
 
     # 查询应该使用索引
-    filtered_data = ctx.get_data_time_range("run_001", "test_data", start_time=1000, end_time=3000)
+    filtered_data = ctx.time_range("run_001", "test_data", start_time=1000, end_time=3000)
     assert len(filtered_data) == 20
 
     # 清理

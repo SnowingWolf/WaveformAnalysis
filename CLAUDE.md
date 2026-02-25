@@ -281,9 +281,9 @@ print(manager.summary())
 8. **Time Range Query** (`core/data/query.py`) [NEW - Phase 2.2]
    - `TimeIndex`: Efficient time indexing with O(log n) binary search queries
    - `TimeRangeQueryEngine`: Manages multiple data type indices
-   - Context integration: `get_data_time_range()`, `build_time_index()`, `clear_time_index()`
+   - Context integration: `time_range()`, `clear_time_index()`
    - Query result caching for repeated queries
-   - Example: `ctx.get_data_time_range('run_001', 'st_waveforms', start_time=1000, end_time=2000)`
+   - Example: `ctx.time_range('run_001', 'st_waveforms', start_time=1000, end_time=2000)`
 
 9. **Strax Plugin Adapter** (`core/plugins/core/adapters.py`) [NEW - Phase 2.3]
    - `StraxPluginAdapter`: Wraps strax plugins for seamless integration
@@ -667,7 +667,7 @@ ctx = Context()
 # ... register plugins and set config ...
 
 # Query specific time range (单个结构化数组)
-peaks_data = ctx.get_data_time_range(
+peaks_data = ctx.time_range(
     'run_001', 'peaks',
     start_time=1000000,
     end_time=2000000
@@ -675,7 +675,7 @@ peaks_data = ctx.get_data_time_range(
 
 # Query multi-channel data (List[np.ndarray])
 # 返回过滤后的列表，每个通道一个数组
-st_waveforms = ctx.get_data_time_range(
+st_waveforms = ctx.time_range(
     'run_001', 'st_waveforms',
     start_time=1000000,
     end_time=2000000
@@ -683,18 +683,15 @@ st_waveforms = ctx.get_data_time_range(
 print(len(st_waveforms))  # 2 (通道数)
 
 # 只查询特定通道
-ch0_data = ctx.get_data_time_range(
+ch0_data = ctx.time_range(
     'run_001', 'st_waveforms',
     start_time=1000000,
     end_time=2000000,
     channel=0  # 只返回通道0的数据
 )
 
-# Pre-build index for better performance
-result = ctx.build_time_index('run_001', 'st_waveforms', endtime_field='computed')
-print(result['type'])      # 'multi_channel'
-print(result['indices'])   # ['st_waveforms_ch0', 'st_waveforms_ch1']
-print(result['stats'])     # 各通道索引统计
+# First query triggers index build (for better performance on repeated queries)
+_ = ctx.time_range('run_001', 'st_waveforms', start_time=0, end_time=1, endtime_field='computed')
 
 # Get index statistics
 stats = ctx.get_time_index_stats()
@@ -702,9 +699,9 @@ print(f"Total indices: {stats['total_indices']}")
 ```
 
 **多通道数据支持**：
-- `build_time_index()` 自动检测 `List[np.ndarray]` 类型，为每个通道分别建立索引
+- `time_range()` 自动检测 `List[np.ndarray]` 类型，为每个通道分别建立索引
 - 索引 key 格式为 `{data_name}_ch{i}`（如 `st_waveforms_ch0`）
-- `get_data_time_range()` 支持 `channel` 参数，可查询单个通道或所有通道
+- `time_range()` 支持 `channel` 参数，可查询单个通道或所有通道
 
 #### Absolute Time Queries (绝对时间查询)
 

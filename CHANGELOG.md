@@ -169,8 +169,7 @@
   - `TimeRangeQueryEngine`: 管理多数据类型的时间索引
   - `TimeRangeCache`: 查询结果缓存
 - **Context集成**: 新增时间范围查询方法
-  - `get_data_time_range()`: 查询指定时间范围的数据
-  - `build_time_index()`: 预构建时间索引
+  - `time_range()`: 查询指定时间范围的数据（首次查询会自动构建索引）
   - `clear_time_index()`: 清除时间索引
   - `get_time_index_stats()`: 获取索引统计信息
 - **测试**: 完整的单元测试 (`tests/test_time_range_query.py`)

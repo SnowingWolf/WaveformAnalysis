@@ -85,7 +85,7 @@
 ### 2.7 数据管理与查询层 (Data & Query Layer)
 - **时间范围查询** (`core/data/query.py`):
     - `TimeRangeQueryEngine` + `TimeIndex` 支持按时间段检索数据。
-    - `get_data_time_range`/`build_time_index` 支持多通道数据与索引缓存。
+    - `time_range` 支持多通道数据与索引缓存（首次查询自动构建索引）。
     - `get_data_time_range_absolute` 支持 `datetime` 绝对时间查询（依赖 epoch）。
 - **批量处理与导出** (`core/data/batch_processor.py`, `core/data/export.py`):
     - `BatchProcessor` 并行处理多个 run。
@@ -492,7 +492,7 @@ graph TD
 
 ### 7.3 时间范围查询与索引 (Phase 2.2)
 - `TimeRangeQueryEngine` + `TimeIndex` 支持时间段检索与缓存索引。
-- `get_data_time_range`/`get_data_time_range_absolute` 支持相对/绝对时间查询。
+- `time_range`/`get_data_time_range_absolute` 支持相对/绝对时间查询。
 
 ### 7.4 Strax 适配与热重载 (Phase 2.3 / 3.3)
 - `StraxPluginAdapter`/`StraxContextAdapter` 提供 strax 兼容接口。

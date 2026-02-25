@@ -115,7 +115,6 @@ class Context(CacheMixin, PluginMixin):
     _RESERVED_NAMES = frozenset(
         {
             "analyze_dependencies",
-            "build_time_index",
             "clear_cache",
             "clear_cache_for",
             "clear_config_cache",
@@ -124,7 +123,6 @@ class Context(CacheMixin, PluginMixin):
             "config",
             "get_data",
             "get_config",
-            "get_data_time_range",
             "get_lineage",
             "get_performance_report",
             "get_time_index_stats",
@@ -144,6 +142,7 @@ class Context(CacheMixin, PluginMixin):
             "show_config",
             "storage",
             "storage_dir",
+            "time_range",
         }
     )
     # Multi-channel structured outputs now use a single array with a channel field.
@@ -3082,7 +3081,7 @@ class Context(CacheMixin, PluginMixin):
             self.logger.warning(f"Data '{data_name}' is not a supported type for time indexing")
             return {"type": "unsupported", "indices": [], "stats": {}}
 
-    def get_data_time_range(
+    def time_range(
         self,
         run_id: str,
         data_name: str,
@@ -3117,11 +3116,11 @@ class Context(CacheMixin, PluginMixin):
 
         Examples:
             >>> # 查询特定时间范围的波形数据
-            >>> data = ctx.get_data_time_range('run_001', 'st_waveforms',
+            >>> data = ctx.time_range('run_001', 'st_waveforms',
             ...                                 start_time=1000000, end_time=2000000)
             >>>
             >>> # 只查询特定通道
-            >>> ch0_data = ctx.get_data_time_range('run_001', 'st_waveforms',
+            >>> ch0_data = ctx.time_range('run_001', 'st_waveforms',
             ...                                     start_time=1000000, end_time=2000000,
             ...                                     channel=0)
         """
@@ -3563,7 +3562,7 @@ class Context(CacheMixin, PluginMixin):
     def auto_extract_epoch(
         self,
         run_id: str,
-        strategy: str = "auto",
+        strategy: Optional[str] = None,
         file_paths: Optional[List[str]] = None,
     ) -> Any:
         """
@@ -3572,6 +3571,7 @@ class Context(CacheMixin, PluginMixin):
         Args:
             run_id: 运行标识符
             strategy: 提取策略（"auto", "filename", "csv_header", "first_event"）
+                - 如果为 None，则使用 config 中的 epoch_extraction_strategy
             file_paths: 数据文件路径列表（如果为 None，从 raw_files 获取）
 
         Returns:
@@ -3607,6 +3607,9 @@ class Context(CacheMixin, PluginMixin):
                 f"无法提取 epoch：未找到数据文件。请确保 run '{run_id}' 有 raw_files 数据，或手动提供 file_paths 参数。"
             )
 
+        if strategy is None:
+            strategy = self.config.get("epoch_extraction_strategy", "auto")
+
         # 创建提取器并提取 epoch
         extractor = EpochExtractor(filename_patterns=self.config.get("epoch_filename_patterns"))
         epoch_info = extractor.auto_extract(
@@ -3635,7 +3638,7 @@ class Context(CacheMixin, PluginMixin):
         """
         使用绝对时间（datetime）查询数据
 
-        与 get_data_time_range() 功能相同，但使用 datetime 对象指定时间范围。
+        与 time_range() 功能相同，但使用 datetime 对象指定时间范围。
 
         Args:
             run_id: 运行标识符
@@ -3672,7 +3675,7 @@ class Context(CacheMixin, PluginMixin):
         if epoch_info is None:
             if auto_extract_epoch and self.config.get("auto_extract_epoch", True):
                 try:
-                    epoch_info = self.auto_extract_epoch(run_id)
+                    epoch_info = self.auto_extract_epoch(run_id, strategy=None)
                 except ValueError as e:
                     raise ValueError(
                         f"无法使用绝对时间查询：{e}\n请使用 ctx.set_epoch('{run_id}', epoch) 手动设置 epoch。"
@@ -3688,7 +3691,7 @@ class Context(CacheMixin, PluginMixin):
         start_rel, end_rel = converter.convert_time_range(start_dt, end_dt)
 
         # 调用原始的相对时间查询方法
-        return self.get_data_time_range(
+        return self.time_range(
             run_id=run_id,
             data_name=data_name,
             start_time=start_rel,
@@ -4117,7 +4120,7 @@ grouped = ctx.get_data(run_id, 'df_grouped')       # 分组事件
 paired = ctx.get_data(run_id, 'df_paired')         # 配对事件
 
 # 6. 时间范围查询
-peaks_subset = ctx.get_data_time_range(
+peaks_subset = ctx.time_range(
     run_id, 'peaks',
     start_time=1000000,
     end_time=2000000
