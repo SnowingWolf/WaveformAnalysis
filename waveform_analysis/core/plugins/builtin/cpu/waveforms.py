@@ -509,7 +509,10 @@ class WaveformStruct:
         return waveform_structured
 
     def structure_waveforms(
-        self, show_progress: bool = False, start_channel_slice: int = 0
+        self,
+        show_progress: bool = False,
+        start_channel_slice: int = 0,
+        n_jobs: Optional[int] = None,
     ) -> np.ndarray:
         """将所有通道的波形转换为结构化数组。"""
         cols = self.config.format_spec.columns
@@ -558,29 +561,80 @@ class WaveformStruct:
             )
             raise ValueError(message)
 
-        if show_progress:
-            try:
-                from tqdm import tqdm
-
-                pbar = tqdm(
-                    enumerate(self.waveforms),
-                    desc=f"Structuring waveforms ({len(self.waveforms)} channels)",
-                    leave=True,
-                    total=len(self.waveforms),
-                )
-            except ImportError:
-                pbar = enumerate(self.waveforms)
+        n_channels = len(self.waveforms)
+        if n_jobs is None:
+            n_jobs = 1
         else:
-            pbar = enumerate(self.waveforms)
+            try:
+                n_jobs = max(int(n_jobs), 1)
+            except (TypeError, ValueError):
+                n_jobs = 1
 
-        self.waveform_structureds = [
-            self._structure_waveform(waves, channel_mapping=channel_mapping, channel_idx=idx)
-            for idx, waves in pbar
-        ]
+        effective_jobs = min(n_jobs, n_channels)
+        if effective_jobs <= 1 or n_channels <= 1:
+            if show_progress:
+                try:
+                    from tqdm import tqdm
 
-        # 正确关闭进度条
-        if show_progress and hasattr(pbar, "close"):
-            pbar.close()
+                    pbar = tqdm(
+                        enumerate(self.waveforms),
+                        desc=f"Structuring waveforms ({n_channels} channels)",
+                        leave=True,
+                        total=n_channels,
+                    )
+                except ImportError:
+                    pbar = enumerate(self.waveforms)
+            else:
+                pbar = enumerate(self.waveforms)
+
+            self.waveform_structureds = [
+                self._structure_waveform(
+                    waves, channel_mapping=channel_mapping, channel_idx=idx
+                )
+                for idx, waves in pbar
+            ]
+
+            # 正确关闭进度条
+            if show_progress and hasattr(pbar, "close"):
+                pbar.close()
+        else:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            self.waveform_structureds = [None] * n_channels
+            pbar = None
+            if show_progress:
+                try:
+                    from tqdm import tqdm
+
+                    pbar = tqdm(
+                        total=n_channels,
+                        desc=(
+                            f"Structuring waveforms ({n_channels} channels, "
+                            f"workers={effective_jobs})"
+                        ),
+                        leave=True,
+                    )
+                except ImportError:
+                    pbar = None
+
+            def _do(idx: int, waves: np.ndarray) -> np.ndarray:
+                return self._structure_waveform(
+                    waves, channel_mapping=channel_mapping, channel_idx=idx
+                )
+
+            with ThreadPoolExecutor(max_workers=effective_jobs) as executor:
+                futures = {
+                    executor.submit(_do, idx, waves): idx
+                    for idx, waves in enumerate(self.waveforms)
+                }
+                for future in as_completed(futures):
+                    idx = futures[future]
+                    self.waveform_structureds[idx] = future.result()
+                    if pbar:
+                        pbar.update(1)
+
+            if pbar:
+                pbar.close()
 
         if not self.waveform_structureds:
             return np.zeros(0, dtype=self.record_dtype)
@@ -935,7 +989,10 @@ class WaveformsPlugin(Plugin):
             upstream_baselines=upstream_baselines,
         )
         with timer("st_waveforms.structure") if timer else nullcontext():
-            st_waveforms = waveform_struct.structure_waveforms(show_progress=show_progress)
+            st_waveforms = waveform_struct.structure_waveforms(
+                show_progress=show_progress,
+                n_jobs=n_jobs,
+            )
 
         return st_waveforms
 

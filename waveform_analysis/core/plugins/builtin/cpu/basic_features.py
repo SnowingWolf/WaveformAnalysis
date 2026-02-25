@@ -5,7 +5,8 @@ Basic Features Plugin - 基础特征计算插件
 **功能**: 计算波形的基础特征（height/area）
 
 本模块包含基础特征计算插件，从结构化波形中提取：
-- height: 波形高度（max - min）
+- height: 脉冲高度（baseline - min(wave)），信号偏离基线的幅度
+- amp: 峰峰值振幅（max - min）
 - area: 波形面积（积分）
 
 支持可选的滤波波形输入，可配置计算范围。
@@ -20,7 +21,8 @@ from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 BASIC_FEATURES_DTYPE = np.dtype(
     [
-        ("height", "f4"),
+        ("height", "f4"),  # baseline - min(wave)，信号偏离基线的幅度
+        ("amp", "f4"),  # max - min，峰峰值振幅
         ("area", "f4"),
         ("timestamp", "i8"),  # ADC 时间戳 (ps)
         ("channel", "i2"),  # 物理通道号
@@ -34,7 +36,7 @@ class BasicFeaturesPlugin(Plugin):
 
     provides = "basic_features"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
-    version = "3.1.0"  # 版本升级：输出改为单数组
+    version = "3.2.0"  # 版本升级：新增 amp 字段，height 语义改为 baseline-relative
     save_when = "always"
     output_dtype = BASIC_FEATURES_DTYPE
     options = {
@@ -59,9 +61,10 @@ class BasicFeaturesPlugin(Plugin):
 
     def compute(self, context: Any, run_id: str, **kwargs) -> np.ndarray:
         """
-        计算基础特征（height/area）
+        计算基础特征（height/amp/area）
 
-        height = max - min
+        height = baseline - min(wave)  (信号偏离基线的幅度)
+        amp = max - min  (峰峰值振幅)
         area = sum(baseline - wave)
 
         Returns:
@@ -101,9 +104,10 @@ class BasicFeaturesPlugin(Plugin):
         )
         n_events = len(waveform_data)
 
-        # 计算 height
+        # 计算 height (baseline - min) 和 amp (max - min)
         waves_p = waves[:, start_p:end_p]
-        height_vals = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
+        height_vals = baselines - np.min(waves_p, axis=1)
+        amp_vals = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
 
         # 计算 area
         waves_c = waves[:, start_c:end_c]
@@ -112,6 +116,7 @@ class BasicFeaturesPlugin(Plugin):
         # 构建输出（包含元数据）
         features = np.zeros(n_events, dtype=BASIC_FEATURES_DTYPE)
         features["height"] = height_vals
+        features["amp"] = amp_vals
         features["area"] = area_vals
         features["timestamp"] = timestamps
         features["channel"] = channels

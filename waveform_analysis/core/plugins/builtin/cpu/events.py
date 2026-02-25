@@ -119,9 +119,10 @@ def _compute_event_features(
     wave_pool: np.ndarray,
     peaks_range: Optional[Tuple[Optional[int], Optional[int]]],
     charge_range: Optional[Tuple[Optional[int], Optional[int]]],
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     n_records = len(records)
     heights = np.zeros(n_records, dtype=np.float64)
+    amps = np.zeros(n_records, dtype=np.float64)
     areas = np.zeros(n_records, dtype=np.float64)
 
     p_start, p_end = _coerce_range(peaks_range, FeatureDefaults.PEAK_RANGE)
@@ -133,19 +134,20 @@ def _compute_event_features(
             continue
         offset = int(records["wave_offset"][idx])
         wave = wave_pool[offset : offset + length]
+        baseline = float(records["baseline"][idx])
 
         start, end = _slice_bounds(length, p_start, p_end)
         if start < end:
             segment = wave[start:end]
-            heights[idx] = float(segment.max() - segment.min())
+            heights[idx] = baseline - float(segment.min())
+            amps[idx] = float(segment.max() - segment.min())
 
         start, end = _slice_bounds(length, c_start, c_end)
         if start < end:
-            baseline = float(records["baseline"][idx])
             segment = wave[start:end].astype(np.float64, copy=False)
             areas[idx] = float(np.sum(baseline - segment))
 
-    return heights, areas
+    return heights, amps, areas
 
 
 def get_events_bundle(context: Any, run_id: str) -> RecordsBundle:
@@ -268,7 +270,7 @@ class EventFramePlugin(Plugin):
             help="Include event_id column in events_df output.",
         ),
     }
-    version = "0.1.0"
+    version = "0.2.0"  # 版本升级：新增 amp 字段
 
     def compute(self, context: Any, run_id: str, **kwargs) -> Any:
         bundle = get_events_bundle(context, run_id)
@@ -276,7 +278,7 @@ class EventFramePlugin(Plugin):
 
         peaks_range = context.get_config(self, "peaks_range")
         charge_range = context.get_config(self, "charge_range")
-        heights, areas = _compute_event_features(
+        heights, amps, areas = _compute_event_features(
             records,
             bundle.wave_pool,
             peaks_range=peaks_range,
@@ -287,6 +289,7 @@ class EventFramePlugin(Plugin):
             "timestamp": records["timestamp"],
             "area": areas,
             "height": heights,
+            "amp": amps,
             "channel": records["channel"],
         }
         if context.get_config(self, "include_event_id"):

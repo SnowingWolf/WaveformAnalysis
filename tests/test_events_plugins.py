@@ -44,7 +44,8 @@ def test_event_frame_plugin_basic_features():
     assert list(df["channel"]) == [0, 1]
     assert list(df["event_id"]) == [0, 1]
 
-    assert np.allclose(df["height"].to_numpy(), np.array([2.0, 1.0]))
+    assert np.allclose(df["height"].to_numpy(), np.array([2.0, 4.0]))
+    assert np.allclose(df["amp"].to_numpy(), np.array([2.0, 1.0]))
     assert np.allclose(df["area"].to_numpy(), np.array([3.0, 7.0]))
 
 

@@ -61,6 +61,7 @@ class DataFramePlugin(Plugin):
                 "timestamp": np.asarray(st_waveforms["timestamp"]),
                 "area": np.asarray(basic_features["area"]),
                 "height": np.asarray(basic_features["height"]),
+                "amp": np.asarray(basic_features["amp"]),
                 "channel": np.asarray(st_waveforms["channel"]),
             }
         )
