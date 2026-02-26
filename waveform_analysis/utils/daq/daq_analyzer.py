@@ -265,7 +265,23 @@ class DAQAnalyzer:
             for fr in frows:
                 print(fr)
 
-    def display_overview(self) -> DAQAnalyzer:
+    def display_overview(
+        self,
+        sort_by: Optional[str] = None,
+        ascending: bool = True,
+    ) -> DAQAnalyzer:
+        """显示所有运行的概览表格。
+
+        Args:
+            sort_by: 排序字段，支持:
+                - "time" / "start": 按采集开始时间排序
+                - "end": 按采集结束时间排序
+                - "size": 按数据大小排序
+                - "files": 按文件数排序
+                - "name": 按运行名称排序
+                - None: 默认按运行名称字母序
+            ascending: 升序排列（默认 True），设为 False 降序
+        """
         if self.df_runs is None or self.df_runs.empty:
             print("No runs scanned. Call scan_all_runs() first.")
             return self
@@ -282,6 +298,28 @@ class DAQAnalyzer:
         # Compute acquisition times for all runs
         df["acquisition_start"] = df["run_name"].apply(self._get_run_acquisition_start)
         df["acquisition_end"] = df["run_name"].apply(self._get_run_acquisition_end)
+
+        # Apply sorting
+        if sort_by is not None:
+            sort_key = sort_by.lower().strip()
+            if sort_key in ("time", "start"):
+                # Parse to datetime for correct ordering; "N/A" becomes NaT
+                df["_sort_key"] = pd.to_datetime(df["acquisition_start"], errors="coerce")
+                df.sort_values("_sort_key", ascending=ascending, na_position="last", inplace=True)
+                df.drop(columns="_sort_key", inplace=True)
+            elif sort_key == "end":
+                df["_sort_key"] = pd.to_datetime(df["acquisition_end"], errors="coerce")
+                df.sort_values("_sort_key", ascending=ascending, na_position="last", inplace=True)
+                df.drop(columns="_sort_key", inplace=True)
+            elif sort_key == "size":
+                df.sort_values("total_bytes", ascending=ascending, inplace=True)
+            elif sort_key == "files":
+                df.sort_values("file_count", ascending=ascending, inplace=True)
+            elif sort_key == "name":
+                df.sort_values("run_name", ascending=ascending, inplace=True)
+            else:
+                logger.warning("未知排序字段 '%s'，忽略排序。支持: time/start, end, size, files, name", sort_by)
+        df.reset_index(drop=True, inplace=True)
 
         display_cols = [
             "run_name",
