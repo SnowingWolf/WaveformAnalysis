@@ -81,6 +81,11 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --cov=waveform_analysis --cov-report=html --cov-report=term"
+markers = [
+    "slow: 耗时较长的测试（真实文件 I/O 等）",
+    "integration: 集成测试（需要完整 Context 或多插件协作）",
+    "contract: 契约/兼容性测试",
+]
 
 [tool.mypy]
 python_version = "3.8"

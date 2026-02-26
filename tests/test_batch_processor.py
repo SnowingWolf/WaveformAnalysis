@@ -17,6 +17,8 @@ import pytest
 
 from waveform_analysis.core.cancellation import CancellationToken
 from waveform_analysis.core.context import Context
+
+pytestmark = pytest.mark.integration
 from waveform_analysis.core.data.batch_processor import BatchProcessor
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 

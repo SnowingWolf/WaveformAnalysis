@@ -10,7 +10,11 @@ Verifies:
 
 import warnings
 
+import pytest
+
 from waveform_analysis.core.config.compat import CompatManager, DeprecationInfo
+
+pytestmark = pytest.mark.contract
 
 
 class TestAliasResolution:

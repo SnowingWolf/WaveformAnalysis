@@ -119,6 +119,7 @@ def _compute_event_features(
     wave_pool: np.ndarray,
     peaks_range: Optional[Tuple[Optional[int], Optional[int]]],
     charge_range: Optional[Tuple[Optional[int], Optional[int]]],
+    fixed_baseline: Optional[dict] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     n_records = len(records)
     heights = np.zeros(n_records, dtype=np.float64)
@@ -134,7 +135,11 @@ def _compute_event_features(
             continue
         offset = int(records["wave_offset"][idx])
         wave = wave_pool[offset : offset + length]
-        baseline = float(records["baseline"][idx])
+        ch = int(records["channel"][idx])
+        if fixed_baseline and ch in fixed_baseline:
+            baseline = float(fixed_baseline[ch])
+        else:
+            baseline = float(records["baseline"][idx])
 
         start, end = _slice_bounds(length, p_start, p_end)
         if start < end:
@@ -269,8 +274,13 @@ class EventFramePlugin(Plugin):
             type=bool,
             help="Include event_id column in events_df output.",
         ),
+        "fixed_baseline": Option(
+            default=None,
+            type=dict,
+            help="按通道固定 baseline 值，如 {0: 8192, 1: 8200}。设置后覆盖动态 baseline 用于 height/area 计算。",
+        ),
     }
-    version = "0.2.0"  # 版本升级：新增 amp 字段
+    version = "0.3.0"  # 版本升级：新增 fixed_baseline 选项
 
     def compute(self, context: Any, run_id: str, **kwargs) -> Any:
         bundle = get_events_bundle(context, run_id)
@@ -278,11 +288,13 @@ class EventFramePlugin(Plugin):
 
         peaks_range = context.get_config(self, "peaks_range")
         charge_range = context.get_config(self, "charge_range")
+        fixed_baseline = context.get_config(self, "fixed_baseline")
         heights, amps, areas = _compute_event_features(
             records,
             bundle.wave_pool,
             peaks_range=peaks_range,
             charge_range=charge_range,
+            fixed_baseline=fixed_baseline,
         )
 
         payload = {

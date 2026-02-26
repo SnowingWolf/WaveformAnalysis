@@ -63,12 +63,16 @@ class TestChunkInfo:
         assert info1.overlaps(info2)
         assert not info1.overlaps(info3)  # 边界相接不算重叠
 
-    def test_contains(self):
+    @pytest.mark.parametrize("time_val,expected", [
+        (100, True),    # start boundary (inclusive)
+        (150, True),    # middle
+        (200, False),   # end boundary (exclusive)
+        (50, False),    # before range
+        (250, False),   # after range
+    ])
+    def test_contains_parametrized(self, time_val, expected):
         info = ChunkInfo(start_time=100, end_time=200, n_records=10)
-        assert info.contains(100)
-        assert info.contains(150)
-        assert not info.contains(200)  # end is exclusive
-        assert not info.contains(50)
+        assert info.contains(time_val) == expected
 
 
 class TestValidationResult:

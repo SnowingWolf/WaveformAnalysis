@@ -13,6 +13,8 @@ import warnings
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.core.base import Plugin
 from waveform_analysis.core.plugins.core.streaming import (

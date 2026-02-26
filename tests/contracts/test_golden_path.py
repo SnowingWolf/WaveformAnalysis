@@ -13,6 +13,8 @@ from typing import Any, Dict
 import numpy as np
 import pytest
 
+pytestmark = [pytest.mark.contract, pytest.mark.integration]
+
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.core.base import Plugin
 

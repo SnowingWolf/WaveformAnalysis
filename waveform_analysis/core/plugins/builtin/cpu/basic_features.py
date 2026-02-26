@@ -36,7 +36,7 @@ class BasicFeaturesPlugin(Plugin):
 
     provides = "basic_features"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
-    version = "3.2.0"  # 版本升级：新增 amp 字段，height 语义改为 baseline-relative
+    version = "3.3.0"  # 版本升级：新增 fixed_baseline 选项
     save_when = "always"
     output_dtype = BASIC_FEATURES_DTYPE
     options = {
@@ -50,6 +50,11 @@ class BasicFeaturesPlugin(Plugin):
             default=False,
             type=bool,
             help="是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin）",
+        ),
+        "fixed_baseline": Option(
+            default=None,
+            type=dict,
+            help="按通道固定 baseline 值，如 {0: 8192, 1: 8200}。设置后覆盖动态 baseline 用于 height/area 计算。",
         ),
     }
 
@@ -95,13 +100,20 @@ class BasicFeaturesPlugin(Plugin):
             return np.zeros(0, dtype=BASIC_FEATURES_DTYPE)
 
         waves = waveform_data["wave"]
-        baselines = waveform_data["baseline"]
+        baselines = waveform_data["baseline"].copy()
         timestamps = waveform_data["timestamp"]
         channels = (
             waveform_data["channel"]
             if "channel" in waveform_data.dtype.names
             else np.zeros(len(waveform_data), dtype="i2")
         )
+
+        # 固定 baseline 覆盖
+        fixed_baseline = context.get_config(self, "fixed_baseline")
+        if fixed_baseline:
+            for ch, val in fixed_baseline.items():
+                mask = channels == int(ch)
+                baselines[mask] = val
         n_events = len(waveform_data)
 
         # 计算 height (baseline - min) 和 amp (max - min)

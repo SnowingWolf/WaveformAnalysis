@@ -20,6 +20,8 @@ from waveform_analysis.core.plugins.core.spec import (
     PluginSpec,
 )
 
+pytestmark = pytest.mark.contract
+
 
 class TestPluginSpecExtraction:
     """Test that PluginSpec can be extracted from all builtin plugins."""

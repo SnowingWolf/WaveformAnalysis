@@ -13,6 +13,8 @@ import pytest
 
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.core.base import Option, Plugin
+
+pytestmark = pytest.mark.contract
 from waveform_analysis.core.storage.cache import CacheManager
 
 
