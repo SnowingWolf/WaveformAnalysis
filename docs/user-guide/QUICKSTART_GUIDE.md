@@ -101,9 +101,26 @@ run_id = 'run_001'
 basic_features = ctx.get_data(run_id, 'basic_features')
 
 # 5. 使用结果
-for ch_idx, ch_data in enumerate(basic_features):
-    print(f"通道 {ch_idx}: {len(ch_data)} 个事件")
+channels = sorted(set(basic_features['channel']))
+for ch in channels:
+    ch_data = basic_features[basic_features['channel'] == ch]
+    print(f"通道 {ch}: {len(ch_data)} 个事件")
     print(f"  height: {ch_data['height'][:3]}...")
+    print(f"  amp:    {ch_data['amp'][:3]}...")
+    print(f"  area:   {ch_data['area'][:3]}...")
+```
+
+**English**:
+
+```python
+basic_features = ctx.get_data(run_id, 'basic_features')
+
+channels = sorted(set(basic_features['channel']))
+for ch in channels:
+    ch_data = basic_features[basic_features['channel'] == ch]
+    print(f"Channel {ch}: {len(ch_data)} events")
+    print(f"  height: {ch_data['height'][:3]}...")
+    print(f"  amp:    {ch_data['amp'][:3]}...")
     print(f"  area:   {ch_data['area'][:3]}...")
 ```
 
@@ -135,7 +152,8 @@ basic_features: np.ndarray
 
 # 每个通道的 dtype
 dtype = [
-    ('height', 'f4'),     # 波形高度 (max - min)
+    ('height', 'f4'),     # 脉冲高度 (baseline - min)
+    ('amp', 'f4'),        # 峰峰值振幅 (max - min)
     ('area', 'f4'),       # 波形面积 (积分)
     ('timestamp', 'i8'),  # ADC 时间戳 (ps)
     ('channel', 'i2'),    # 物理通道号
@@ -147,7 +165,18 @@ dtype = [
 
 | 字段 | 类型 | 单位 | 计算方式 |
 |------|------|------|----------|
-| `height` | float32 | ADC counts | `max(wave) - min(wave)` |
+| `height` | float32 | ADC counts | `baseline - min(wave)` |
+| `amp` | float32 | ADC counts | `max(wave) - min(wave)` |
+| `area` | float32 | ADC counts × samples | `sum(baseline - wave)` |
+
+**English**:
+
+`basic_features` is a single structured array. Field definitions:
+
+| Field | Type | Unit | Formula |
+|------|------|------|---------|
+| `height` | float32 | ADC counts | `baseline - min(wave)` |
+| `amp` | float32 | ADC counts | `max(wave) - min(wave)` |
 | `area` | float32 | ADC counts × samples | `sum(baseline - wave)` |
 
 ### 访问示例
@@ -159,11 +188,28 @@ all_heights = basic_features['height']
 # 获取通道 0 的数据
 ch0 = basic_features[basic_features['channel'] == 0]
 ch0_heights = ch0['height']
+ch0_amps = ch0['amp']
 ch0_areas = ch0['area']
 
 # 统计
 print(f"通道 0 平均高度: {ch0_heights.mean():.2f}")
+print(f"通道 0 平均振幅: {ch0_amps.mean():.2f}")
 print(f"通道 0 平均面积: {ch0_areas.mean():.2f}")
+```
+
+**English**:
+
+```python
+all_heights = basic_features['height']
+
+ch0 = basic_features[basic_features['channel'] == 0]
+ch0_heights = ch0['height']
+ch0_amps = ch0['amp']
+ch0_areas = ch0['area']
+
+print(f"Channel 0 mean height: {ch0_heights.mean():.2f}")
+print(f"Channel 0 mean amplitude: {ch0_amps.mean():.2f}")
+print(f"Channel 0 mean area: {ch0_areas.mean():.2f}")
 ```
 
 ### 导出为 CSV
@@ -173,13 +219,31 @@ import pandas as pd
 
 # 转换为 DataFrame
 rows = []
-for ch_idx, ch_data in enumerate(basic_features):
-    for i in range(len(ch_data)):
-        rows.append({
-            'channel': ch_idx,
-            'height': ch_data['height'][i],
-            'area': ch_data['area'][i],
-        })
+for record in basic_features:
+    rows.append({
+        'channel': int(record['channel']),
+        'height': float(record['height']),
+        'amp': float(record['amp']),
+        'area': float(record['area']),
+    })
+
+df = pd.DataFrame(rows)
+df.to_csv('basic_features.csv', index=False)
+```
+
+**English**:
+
+```python
+import pandas as pd
+
+rows = []
+for record in basic_features:
+    rows.append({
+        'channel': int(record['channel']),
+        'height': float(record['height']),
+        'amp': float(record['amp']),
+        'area': float(record['area']),
+    })
 
 df = pd.DataFrame(rows)
 df.to_csv('basic_features.csv', index=False)
@@ -188,12 +252,24 @@ df.to_csv('basic_features.csv', index=False)
 **导出文件样例** (`basic_features.csv`)：
 
 ```csv
-channel,height,area
-0,125.3,4521.7
-0,98.7,3892.1
-0,142.5,5103.4
-1,87.2,3245.8
-1,156.8,5678.2
+channel,height,amp,area
+0,125.3,210.4,4521.7
+0,98.7,175.2,3892.1
+0,142.5,230.1,5103.4
+1,87.2,160.8,3245.8
+1,156.8,245.7,5678.2
+...
+```
+
+**English**:
+
+```csv
+channel,height,amp,area
+0,125.3,210.4,4521.7
+0,98.7,175.2,3892.1
+0,142.5,230.1,5103.4
+1,87.2,160.8,3245.8
+1,156.8,245.7,5678.2
 ...
 ```
 
@@ -202,11 +278,13 @@ channel,height,area
 ```
 raw_files → waveforms → st_waveforms → basic_features
     │           │            │              │
-    │           │            │              └─ height/area 特征
+    │           │            │              └─ height/amp/area 特征
     │           │            └─ 结构化数组 (timestamp, baseline, wave)
     │           └─ 原始波形数据 (2D numpy array)
     └─ 文件路径列表
 ```
+
+**English**: `basic_features` provides height/amp/area features on top of structured waveforms.
 
 **可视化血缘图**：
 
@@ -242,19 +320,23 @@ def main():
     run_id = 'run_001'
     print(f"Processing run: {run_id}")
     basic_features = ctx.get_data(run_id, 'basic_features')
-    heights = [ch['height'] for ch in basic_features]
-    areas = [ch['area'] for ch in basic_features]
-    print(f"Found {len(heights)} height arrays")
+    ch0 = basic_features[basic_features['channel'] == 0]
+    heights = ch0['height']
+    amps = ch0['amp']
+    areas = ch0['area']
+    print(f"Found {len(ch0)} events in channel 0")
 
     # 4. 可视化血缘图（可选）
     ctx.plot_lineage('basic_features', kind='labview')
 
-    return heights
+    return ch0
 
 if __name__ == '__main__':
     result = main()
-    print(f"Analysis complete. Channels: {len(result)}")
+    print(f"Analysis complete. Events: {len(result)}")
 ```
+
+**English**: `basic_features` is a single structured array. Filter by `channel` for per-channel analysis.
 
 数据流：`raw_files → waveforms → st_waveforms → basic_features`
 

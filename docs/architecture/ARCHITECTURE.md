@@ -115,9 +115,11 @@
     - **工厂方法**: `default_vx2730()`, `from_adapter(adapter_name)`。
     - **优先级**: wave_length > format_spec.expected_samples > DEFAULT_WAVE_LENGTH。
 - **特征计算与事件分析**:
-    - 基础特征由 `BasicFeaturesPlugin` 计算（height/area）。
+    - 基础特征由 `BasicFeaturesPlugin` 计算（height/amp/area）。
     - `DataFramePlugin` 拼接 DataFrame。
     - `EventAnalyzer` 负责多通道事件分组与配对（Numba/多进程可选）。
+
+**English**: `BasicFeaturesPlugin` computes height/amp/area features.
 - **Records + WavePool** (`core/processing/records_builder.py`):
     - 构建 `RecordsBundle(records, wave_pool)` 以支持变长波形的连续存储。
     - 适用于大规模数据的零拷贝访问与下游索引。
@@ -443,7 +445,7 @@ graph TD
     B -->|WaveformsPlugin| C(waveforms: 原始波形数组)
     C -->|StWaveformsPlugin| D(st_waveforms: 结构化波形)
     D -->|FilteredWaveformsPlugin| E(filtered_waveforms: 滤波波形)
-    D -->|BasicFeaturesPlugin| F(basic_features: height/area)
+    D -->|BasicFeaturesPlugin| F(basic_features: height/amp/area)
     E -.->|BasicFeaturesPlugin(use_filtered)| F
     D -->|DataFramePlugin| H(df: 单通道事件 DataFrame)
     F -->|DataFramePlugin| H
@@ -456,6 +458,8 @@ graph TD
     style E fill:#e1f5ff
     style I fill:#e8f5e9
 ```
+
+**English**: `basic_features` includes height/amp/area.
 
 ---
 

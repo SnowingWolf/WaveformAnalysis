@@ -86,8 +86,25 @@ ctx.register(BasicFeaturesPlugin())
 # 处理数据
 run_id = "run_001"
 basic_features = ctx.get_data(run_id, "basic_features")
-heights = [ch["height"] for ch in basic_features]
-areas = [ch["area"] for ch in basic_features]
+
+# 单数组输出，可按 channel 过滤
+ch0 = basic_features[basic_features["channel"] == 0]
+heights = ch0["height"]
+amps = ch0["amp"]
+areas = ch0["area"]
+```
+
+**English**:
+
+`basic_features` is a single structured array. Filter by `channel` to read per-channel results:
+
+```python
+basic_features = ctx.get_data(run_id, "basic_features")
+
+ch0 = basic_features[basic_features["channel"] == 0]
+heights = ch0["height"]
+amps = ch0["amp"]
+areas = ch0["area"]
 ```
 
 ## 文档导航

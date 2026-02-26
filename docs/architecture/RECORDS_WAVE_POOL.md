@@ -215,7 +215,9 @@ RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin → EventsPlugin → Ev
 
 输出：
 - `events`: 结构化事件索引表
-- `events_df`: 事件 DataFrame（timestamp/area/height/channel）
+- `events_df`: 事件 DataFrame（timestamp/area/height/amp/channel）
+
+**English**: `events_df` is an event DataFrame with `timestamp/area/height/amp/channel`.
 
 插件说明（records 管线）：
 - `RecordsPlugin` → `records`（依赖 `raw_files`）

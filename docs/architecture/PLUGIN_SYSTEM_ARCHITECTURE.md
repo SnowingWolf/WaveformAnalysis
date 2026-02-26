@@ -188,12 +188,14 @@ PairedEventsPlugin (paired_events)
 | FilteredWaveformsPlugin | `filtered_waveforms` | `waveforms` | Butterworth/Savitzky-Golay 滤波 |
 | SignalPeaksPlugin | `signal_peaks` | `waveforms` | scipy.signal 峰值检测 |
 | HitFinderPlugin | `hits` | `waveforms` | Hit 事件检测 |
-| BasicFeaturesPlugin | `basic_features` | `waveforms` | 计算幅度、上升时间等 |
+| BasicFeaturesPlugin | `basic_features` | `waveforms` | 计算 height/amp/area 特征 |
 | DataFramePlugin | `df` | `basic_features` | 转换为 pandas DataFrame |
 | GroupedEventsPlugin | `grouped_events` | `df` | 时间窗口分组（Numba 加速） |
 | PairedEventsPlugin | `paired_events` | `grouped_events` | 跨通道事件配对 |
 
 ---
+
+**English**: `BasicFeaturesPlugin` computes height/amp/area features.
 
 ## 5. 插件注册与依赖解析
 

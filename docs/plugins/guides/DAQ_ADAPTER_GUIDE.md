@@ -219,8 +219,12 @@ custom_spec = FormatSpec(
 # 创建配置并使用
 config = WaveformStructConfig(format_spec=custom_spec)
 struct = WaveformStruct(waveforms, config=config)
-st_waveforms = struct.structure_waveforms()
+st_waveforms = struct.structure_waveforms(n_jobs=4)
 ```
+
+可通过 `n_jobs` 并行加速多通道结构化处理。
+
+**English**: Use `n_jobs` to parallelize structuring across channels.
 
 ### 场景 2: 完整自定义适配器
 

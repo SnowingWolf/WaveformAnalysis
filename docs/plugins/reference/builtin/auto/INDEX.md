@@ -126,13 +126,13 @@ raw_files ──► records ──► events ──► events_df ──► event
 
 | 插件 | 提供数据 | 版本 | 类别 | 依赖 |
 |------|----------|------|------|------|
-| [`BasicFeaturesPlugin`](basic_features.md) | `basic_features` | 0.0.0 | 特征提取 | - |
+| [`BasicFeaturesPlugin`](basic_features.md) | `basic_features` | 3.2.0 | 特征提取 | - |
 | [`CacheAnalysisPlugin`](cache_analysis.md) | `cache_analysis` | 0.1.0 | 缓存分析 | - |
 | [`DataFramePlugin`](df.md) | `df` | 0.0.0 | 数据导出 | st_waveforms, basic_features |
 | [`GroupedEventsPlugin`](df_events.md) | `df_events` | 0.0.0 | 事件分析 | df |
 | [`PairedEventsPlugin`](df_paired.md) | `df_paired` | 0.0.0 | 事件分析 | df_events |
 | [`EventsPlugin`](events.md) | `events` | 0.1.0 | 事件分析 | - |
-| [`EventFramePlugin`](events_df.md) | `events_df` | 0.1.0 | 事件分析 | events |
+| [`EventFramePlugin`](events_df.md) | `events_df` | 0.2.0 | 事件分析 | events |
 | [`EventsGroupedPlugin`](events_grouped.md) | `events_grouped` | 0.1.0 | 事件分析 | events_df |
 | [`FilteredWaveformsPlugin`](filtered_waveforms.md) | `filtered_waveforms` | 1.0.2 | 波形处理 | st_waveforms |
 | [`HitFinderPlugin`](hits.md) | `hits` | 0.0.0 | 特征提取 | st_waveforms |
@@ -175,7 +175,7 @@ raw_files ──► records ──► events ──► events_df ──► event
 
 | 插件 | 说明 | 依赖 |
 |------|------|------|
-| [`basic_features`](basic_features.md) | Plugin to compute basic height/area features from structured... | - |
+| [`basic_features`](basic_features.md) | Plugin to compute basic height/amp/area features from structured... | - |
 | [`hits`](hits.md) | Example implementation of the HitFinder as a plugin. | st_waveforms |
 | [`signal_peaks`](signal_peaks.md) | Detect peaks in filtered waveforms and extract peak features... | filtered_waveforms, st_waveforms |
 

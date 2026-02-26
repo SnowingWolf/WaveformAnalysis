@@ -48,6 +48,10 @@ ctx.auto_extract_epoch('run_001', strategy='filename')  # 从文件名
 ctx.auto_extract_epoch('run_001', strategy='csv_header')  # 从 CSV 头部
 ```
 
+如果 `strategy=None`，会使用配置中的 `epoch_extraction_strategy`（默认 `"auto"`）。
+
+**English**: When `strategy=None`, `auto_extract_epoch()` uses `config['epoch_extraction_strategy']` (default `"auto"`).
+
 ### 2. 使用绝对时间查询
 
 ```python

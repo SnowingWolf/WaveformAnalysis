@@ -20,9 +20,22 @@ ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 
 # 计算与读取
 basic_features = ctx.get_data('run_001', 'basic_features')
-heights = [ch['height'] for ch in basic_features]
-areas = [ch['area'] for ch in basic_features]
-print(f"Found {len(heights)} height arrays")
+ch0 = basic_features[basic_features['channel'] == 0]
+heights = ch0['height']
+amps = ch0['amp']
+areas = ch0['area']
+print(f"Found {len(ch0)} events in channel 0")
+```
+
+**English**:
+
+```python
+basic_features = ctx.get_data('run_001', 'basic_features')
+ch0 = basic_features[basic_features['channel'] == 0]
+heights = ch0['height']
+amps = ch0['amp']
+areas = ch0['area']
+print(f"Found {len(ch0)} events in channel 0")
 ```
 
 ### 配置管理

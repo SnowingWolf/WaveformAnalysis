@@ -126,10 +126,14 @@ print(f"结构化波形数量: {len(st_waveforms)}")
 
 # 获取特征数据（会自动执行完整的插件链）
 basic_features = ctx.get_data("run_001", "basic_features")
-heights = [ch["height"] for ch in basic_features]
-areas = [ch["area"] for ch in basic_features]
-print(f"高度通道数: {len(heights)}，面积通道数: {len(areas)}")
+ch0 = basic_features[basic_features["channel"] == 0]
+heights = ch0["height"]
+amps = ch0["amp"]
+areas = ch0["area"]
+print(f"通道 0 事件数: {len(ch0)}")
 ```
+
+**English**: `basic_features` is a single structured array; filter by `channel` for per-channel values.
 
 ### 4. 使用 Processor 进行信号处理
 
@@ -138,16 +142,20 @@ from waveform_analysis.core.processing.waveform_struct import WaveformStruct
 
 # 方式1: 使用 WaveformStruct 直接处理
 waveform_struct = WaveformStruct(waveforms)
-structured = waveform_struct.structure_waveforms(show_progress=True)
+structured = waveform_struct.structure_waveforms(show_progress=True, n_jobs=4)
 
 # 方式2: 通过插件链获取特征
 basic_features = ctx.get_data("run_001", "basic_features")
-heights = [ch["height"] for ch in basic_features]
-areas = [ch["area"] for ch in basic_features]
+ch0 = basic_features[basic_features["channel"] == 0]
+heights = ch0["height"]
+amps = ch0["amp"]
+areas = ch0["area"]
 
-print(f"找到 {len(heights)} 个高度值")
-print(f"计算了 {len(areas)} 个面积值")
+print(f"找到 {len(ch0)} 个事件（通道 0）")
+print(f"高度/振幅/面积字段已计算")
 ```
+
+**English**: `basic_features` is a single structured array. Use `channel` to filter, and `n_jobs` to parallelize `structure_waveforms`.
 
 ---
 
@@ -184,10 +192,12 @@ results = batch_processor.process_runs(
 
 # 结果结构：{"results": ..., "errors": ..., "meta": ...}
 for run_id, data in results["results"].items():
-    print(f"{run_id}: {len(data['height'])} 个通道的高度")
+    print(f"{run_id}: {len(data)} 个事件")
 if results["errors"]:
     print(f"Errors: {results['errors']}")
 ```
+
+**English**: `len(data)` is the event count in the `basic_features` array.
 
 ### 3. 时间范围查询
 
@@ -265,13 +275,16 @@ exporter = DataExporter()
 
 # 导出为不同格式
 basic_features = ctx.get_data("run_001", "basic_features")
-exporter.export([ch["height"] for ch in basic_features], "./outputs/heights.parquet", format="parquet")
+exporter.export(basic_features["height"], "./outputs/heights.parquet", format="parquet")
+exporter.export(basic_features["amp"], "./outputs/amps.parquet", format="parquet")
 
 st_waveforms = ctx.get_data("run_001", "st_waveforms")
 exporter.export(st_waveforms, "./outputs/waveforms.h5", format="hdf5", key="waveforms")
 
-exporter.export([ch["area"] for ch in basic_features], "./outputs/areas.csv", format="csv")
+exporter.export(basic_features["area"], "./outputs/areas.csv", format="csv")
 ```
+
+**English**: Export fields directly from the `basic_features` structured array.
 
 ---
 
@@ -361,7 +374,7 @@ import pandas as pd
 # 假设已有结构化波形数据
 # st_waveforms 是单个结构化数组，通过 channel 字段区分通道
 
-# 提取特征（示例：手动计算 height/area）
+# 提取特征（示例：手动计算 height/amp/area）
 height_range = (40, 90)
 area_range = (0, None)
 start_p, end_p = height_range
@@ -371,7 +384,8 @@ waves = st_waveforms["wave"]
 baselines = st_waveforms["baseline"]
 
 waves_p = waves[:, start_p:end_p]
-height_vals = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
+height_vals = baselines - np.min(waves_p, axis=1)
+amp_vals = np.max(waves_p, axis=1) - np.min(waves_p, axis=1)
 
 waves_c = waves[:, start_c:end_c]
 area_vals = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
@@ -380,12 +394,14 @@ area_vals = np.sum(baselines[:, np.newaxis] - waves_c, axis=1)
 all_timestamps = st_waveforms["timestamp"]
 all_areas = area_vals
 all_heights = height_vals
+all_amps = amp_vals
 all_channels = st_waveforms["channel"]
 
 df = pd.DataFrame({
     "timestamp": all_timestamps,
     "area": all_areas,
     "height": all_heights,
+    "amp": all_amps,
     "channel": all_channels,
 }).sort_values("timestamp")
 
@@ -393,6 +409,8 @@ print(df.head())
 print(f"数据形状: {df.shape}")
 print(f"列名: {df.columns.tolist()}")
 ```
+
+**English**: `height = baseline - min(wave)`, `amp = max(wave) - min(wave)`, and both can be added to the DataFrame.
 
 ### 示例3: 流式处理（大数据场景）
 
