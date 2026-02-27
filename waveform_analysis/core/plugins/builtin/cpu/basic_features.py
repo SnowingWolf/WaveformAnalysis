@@ -40,7 +40,9 @@ class BasicFeaturesPlugin(Plugin):
     save_when = "always"
     output_dtype = BASIC_FEATURES_DTYPE
     options = {
-        "height_range": Option(default=None, type=tuple, help="高度计算范围 (start, end)"),
+        "height_range": Option(
+            default=FeatureDefaults.PEAK_RANGE, type=tuple, help="高度计算范围 (start, end)"
+        ),
         "area_range": Option(
             default=(0, None),
             type=tuple,
@@ -85,11 +87,6 @@ class BasicFeaturesPlugin(Plugin):
 
         height_range = context.get_config(self, "height_range")
         area_range = context.get_config(self, "area_range")
-
-        if height_range is None:
-            height_range = FeatureDefaults.PEAK_RANGE
-        if area_range is None:
-            area_range = FeatureDefaults.CHARGE_RANGE
 
         start_p, end_p = height_range
         start_c, end_c = area_range
