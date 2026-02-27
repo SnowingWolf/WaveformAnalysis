@@ -38,9 +38,7 @@ def _clip_wave_to_uint16(wave: np.ndarray) -> np.ndarray:
     wave = np.asarray(wave)
     if wave.dtype == np.uint16:
         return wave
-    data = np.rint(wave).astype(np.int64, copy=False)
-    data = np.clip(data, 0, np.iinfo(np.uint16).max)
-    return data.astype(np.uint16, copy=False)
+    return wave.astype(np.uint16, copy=False)
 
 
 @export

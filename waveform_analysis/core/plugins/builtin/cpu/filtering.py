@@ -59,7 +59,7 @@ class FilteredWaveformsPlugin(Plugin):
     provides = "filtered_waveforms"
     depends_on = ["st_waveforms"]
     description = "Apply filtering to waveforms using Butterworth or Savitzky-Golay filters."
-    version = "2.3.0"  # 版本升级：通道级线程并行滤波
+    version = "2.3.0"
     save_when = "target"
 
     output_dtype = np.dtype(ST_WAVEFORM_DTYPE)  # 默认值；compute() 中会动态更新
@@ -187,9 +187,7 @@ class FilteredWaveformsPlugin(Plugin):
                 task_meta.append(mask)
 
             if tasks:
-                logger.debug(
-                    "并行滤波: %s 个通道, max_workers=%s", len(tasks), max_workers
-                )
+                logger.debug("并行滤波: %s 个通道, max_workers=%s", len(tasks), max_workers)
                 results = parallel_map(
                     _filter_channel,
                     tasks,
@@ -208,7 +206,9 @@ class FilteredWaveformsPlugin(Plugin):
                     continue
 
                 n_events, n_samples = waveforms.shape
-                logger.debug("处理通道: channel=%s n_events=%s n_samples=%s", ch, n_events, n_samples)
+                logger.debug(
+                    "处理通道: channel=%s n_events=%s n_samples=%s", ch, n_events, n_samples
+                )
 
                 filtered_i16 = _filter_channel(
                     (waveforms, filter_type, bw_sos, sg_window_size, sg_poly_order)

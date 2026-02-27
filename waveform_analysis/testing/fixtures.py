@@ -36,7 +36,7 @@ def make_fake_st_waveforms(
         records["event_length"] = wave_len
         records["channel"] = ch
         for idx in range(n_events):
-            records["wave"][idx] = np.arange(wave_len, dtype=np.float32) + ch
+            records["wave"][idx] = np.arange(wave_len, dtype=np.int16) + ch
         st_waveforms.append(records)
 
     if not st_waveforms:

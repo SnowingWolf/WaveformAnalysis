@@ -165,11 +165,17 @@ class SignalPeaksPlugin(Plugin):
 
         for event_idx, st_waveform in enumerate(waveform_data):
             waveform = st_waveform["wave"]
+            # Truncate to valid samples (rest may be NaN-padded)
+            event_len = (
+                int(st_waveform["event_length"])
+                if "event_length" in st_waveform.dtype.names
+                else len(waveform)
+            )
+            if event_len > 0 and event_len < len(waveform):
+                waveform = waveform[:event_len]
             timestamp = st_waveform["timestamp"]
             channel = st_waveform["channel"] if "channel" in st_waveform.dtype.names else 0
-            baseline = (
-                st_waveform["baseline"] if "baseline" in st_waveform.dtype.names else None
-            )
+            baseline = st_waveform["baseline"] if "baseline" in st_waveform.dtype.names else None
 
             event_peaks = self._find_peaks_in_waveform(
                 waveform,

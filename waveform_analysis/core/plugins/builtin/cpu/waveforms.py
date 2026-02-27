@@ -38,7 +38,7 @@ from waveform_analysis.core.processing.dtypes import (
 )
 
 if TYPE_CHECKING:
-    from waveform_analysis.utils.formats.base import FormatSpec
+    from waveform_analysis.utils.formats.base import ColumnMapping, FormatSpec
 
 # Setup logger
 logger = logging.getLogger(__name__)
@@ -134,7 +134,7 @@ def _sniff_csv_layout(
 
 def _detect_wave_length_from_files(
     raw_files: List[List[str]],
-    cols: "ColumnMapping",
+    cols: ColumnMapping,
     default_delimiter: str = ";",
 ) -> Optional[int]:
     for group in raw_files:
@@ -177,13 +177,9 @@ def _validate_baseline_samples(
                 f"got ({type(start).__name__}, {type(end).__name__})"
             )
         if start < 0 or end < 0:
-            raise ValueError(
-                f"baseline_samples indices must be non-negative, got ({start}, {end})"
-            )
+            raise ValueError(f"baseline_samples indices must be non-negative, got ({start}, {end})")
         if start >= end:
-            raise ValueError(
-                f"baseline_samples start must be less than end, got ({start}, {end})"
-            )
+            raise ValueError(f"baseline_samples start must be less than end, got ({start}, {end})")
         return
     if isinstance(baseline_samples, int):
         if baseline_samples <= 0:
@@ -197,7 +193,7 @@ def _validate_baseline_samples(
 
 def _resolve_baseline_window(
     baseline_samples: Optional[Union[int, Tuple[int, int]]],
-    cols: "ColumnMapping",
+    cols: ColumnMapping,
 ) -> Tuple[int, int]:
     baseline_start = cols.baseline_start
     baseline_end = cols.baseline_end
@@ -495,13 +491,11 @@ class WaveformStruct:
 
         if wave_data.size > 0:
             n_samples = min(wave_data.shape[1], wave_length)
-            # Optimized: use np.copyto to avoid intermediate array allocation (40-60% memory reduction)
             dest = waveform_structured["wave"][:, :n_samples]
             src = wave_data[:, :n_samples]
             if src.dtype == np.int16:
                 np.copyto(dest, src)
             else:
-                # Convert to int16, clipping to valid range for 14-bit ADC
                 np.copyto(dest, src, casting="unsafe")
             if "event_length" in waveform_structured.dtype.names:
                 waveform_structured["event_length"] = np.int32(n_samples)
@@ -588,9 +582,7 @@ class WaveformStruct:
                 pbar = enumerate(self.waveforms)
 
             self.waveform_structureds = [
-                self._structure_waveform(
-                    waves, channel_mapping=channel_mapping, channel_idx=idx
-                )
+                self._structure_waveform(waves, channel_mapping=channel_mapping, channel_idx=idx)
                 for idx, waves in pbar
             ]
 
@@ -708,7 +700,7 @@ class WaveformsPlugin(Plugin):
     2. 将波形数据结构化为 NumPy 结构化数组（ST_WAVEFORM_DTYPE）
     """
 
-    version = "0.4.0"
+    version = "0.5.0"
     provides = "st_waveforms"
     depends_on = []
     description = (
@@ -916,7 +908,7 @@ class WaveformsPlugin(Plugin):
             context.logger.info("v1725 returns unsplit waveforms (single array)")
             return data
 
-        if wave_length is None and streaming_mode:
+        if wave_length is None:
             default_delimiter = ";"
             if daq_adapter:
                 try:
@@ -1267,7 +1259,10 @@ class WaveformsPlugin(Plugin):
                 if n_samples > 0:
                     dest = output[offset : offset + n]["wave"][:, :n_samples]
                     src = wave_data[:, :n_samples]
-                    np.copyto(dest, src, casting="unsafe")
+                    if src.dtype == np.int16:
+                        np.copyto(dest, src)
+                    else:
+                        np.copyto(dest, src, casting="unsafe")
 
                 # 写入上游 baseline（如果有）
                 if ch_upstream_baseline is not None:

@@ -290,7 +290,7 @@ class WaveformPreviewer:
         try:
             wave_data = raw_data[:, 7:]
             n_samples = min(wave_data.shape[1], DEFAULT_WAVE_LENGTH)
-            result["wave"][:, :n_samples] = wave_data[:, :n_samples].astype(np.float32)
+            result["wave"][:, :n_samples] = wave_data[:, :n_samples].astype(np.int16)
         except (IndexError, ValueError) as e:
             logger.debug(f"Failed to extract waveforms: {e}")
 
