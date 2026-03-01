@@ -10,7 +10,7 @@
 |------|------|
 | [配置管理](../features/context/CONFIGURATION.md) | 配置系统与插件选项 |
 | [插件开发指南](../development/plugin-development/README.md) | 插件开发完整指南 |
-| [内置插件文档](../plugins/builtin/auto/INDEX.md) | 自动生成的插件 API 文档 |
+| [内置插件文档](../plugins/reference/builtin/auto/INDEX.md) | 自动生成的插件 API 文档 |
 
 ## 学习路径
 
@@ -18,7 +18,7 @@
 
 1. 查看 [CLAUDE.md](../../CLAUDE.md) 中的 Common Patterns 部分
 2. 阅读代码中的 docstring（推荐使用 IDE 的代码补全）
-3. 查看 [内置插件文档](../plugins/builtin/auto/INDEX.md) 了解插件 API
+3. 查看 [内置插件文档](../plugins/reference/builtin/auto/INDEX.md) 了解插件 API
 
 ### 插件开发
 

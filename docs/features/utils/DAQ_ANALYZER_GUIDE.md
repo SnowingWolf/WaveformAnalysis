@@ -110,5 +110,5 @@ analyzer.save_to_json("outputs/daq_analysis.json", include_file_details=True)
 
 ## 🔗 相关资源
 
-- [DAQ 适配器指南](DAQ_ADAPTER_GUIDE.md) - 目录结构与格式适配
+- [DAQ 适配器指南](../../plugins/guides/DAQ_ADAPTER_GUIDE.md) - 目录结构与格式适配
 - [waveform-process CLI](../../cli/WAVEFORM_PROCESS.md) - `--show-daq` 查看 DAQ 概览

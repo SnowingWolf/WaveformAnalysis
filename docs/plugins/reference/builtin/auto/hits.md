@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `hits` |
-| **Version** | `0.0.0` |
+| **Version** | `2.1.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -15,13 +15,15 @@
 
 ## Dependencies
 
-This plugin depends on the following data:
-
-- [`st_waveforms`](st_waveforms.md)
+This plugin has no dependencies.
 
 ## Configuration Options
 
-This plugin has no configuration options.
+| Option | Type | Default | Units | Description |
+|--------|------|---------|-------|-------------|
+| `threshold` | `float` | `10.0` | - | Hit 检测阈值 |
+| `use_filtered` | `bool` | `False` | - | 是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin） |
+
 
 ## Output Schema
 
@@ -45,6 +47,12 @@ from waveform_analysis.core.plugins.builtin.cpu import HitFinderPlugin
 # Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(HitFinderPlugin())
+
+# Configure plugin (optional)
+ctx.set_config({
+    "threshold": 10.0,
+    "use_filtered": False,
+}, plugin_name="hits")
 
 # Get data
 data = ctx.get_data("run_001", "hits")

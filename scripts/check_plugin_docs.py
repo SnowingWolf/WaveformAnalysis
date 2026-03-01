@@ -28,7 +28,7 @@ def main():
     script_dir = Path(__file__).parent
     project_root = script_dir.parent
     docs_dir = project_root / "docs"
-    auto_docs_dir = docs_dir / "plugins" / "builtin" / "auto"
+    auto_docs_dir = docs_dir / "plugins" / "reference" / "builtin" / "auto"
 
     # 如果需要，先生成文档
     if args.generate:

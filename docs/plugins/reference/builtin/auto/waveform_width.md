@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `waveform_width` |
-| **Version** | `1.0.1` |
+| **Version** | `2.1.0` |
 | **Category** | 波形处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |

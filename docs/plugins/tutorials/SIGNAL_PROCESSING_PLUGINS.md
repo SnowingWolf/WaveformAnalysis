@@ -1,4 +1,4 @@
-**导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [插件功能](README.md) > 信号处理插件
+**导航**: [文档中心](../../README.md) > [插件系统](../README.md) > 信号处理插件
 
 ---
 
@@ -35,7 +35,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 
 ### 依赖关系
 
-- **依赖**: `st_waveforms` (由 `StWaveformsPlugin` 提供)
+- **依赖**: `st_waveforms` (由 `WaveformsPlugin` 提供)
 - **提供**: `filtered_waveforms` (滤波后的波形数组)
 
 ### 配置选项
@@ -97,13 +97,13 @@ ADVANCED_PEAK_DTYPE = np.dtype([
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin, WaveformsPlugin, StWaveformsPlugin,
+    RawFilesPlugin, WaveformsPlugin,
     FilteredWaveformsPlugin, SignalPeaksPlugin,
 )
 
 # 创建 Context 并注册所有插件
 ctx = Context(storage_dir="./strax_data")
-ctx.register(RawFilesPlugin(), WaveformsPlugin(), StWaveformsPlugin())
+ctx.register(RawFilesPlugin(), WaveformsPlugin())
 ctx.register(FilteredWaveformsPlugin(), SignalPeaksPlugin())
 
 # 全局配置
@@ -153,7 +153,7 @@ filtered_waveforms = ctx.get_data("run_001", "filtered_waveforms")
 ## 数据流示意图
 
 ```
-RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin → FilteredWaveformsPlugin → SignalPeaksPlugin
+RawFilesPlugin → WaveformsPlugin → FilteredWaveformsPlugin → SignalPeaksPlugin
                                                               ↓
                                                        filtered_waveforms
                                                               ↓
@@ -204,4 +204,4 @@ class CustomPeaksPlugin(SignalPeaksPlugin):
 
 - [架构文档](../../architecture/ARCHITECTURE.md)
 - [插件开发指南](../../development/plugin-development/README.md)
-- [流式处理插件](STREAMING_PLUGINS_GUIDE.md)
+- [流式处理插件](../guides/STREAMING_PLUGINS_GUIDE.md)

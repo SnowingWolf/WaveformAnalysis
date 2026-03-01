@@ -21,5 +21,5 @@
 ## 相关资源
 
 - [Context 功能](../context/README.md) - 依赖分析、血缘可视化
-- [插件功能](../plugin/README.md) - 信号处理、流式插件
+- [插件功能](../../plugins/README.md) - 信号处理、流式插件
 - [API 参考](../../api/README.md) - API 文档

@@ -106,7 +106,7 @@ class DocCoverageChecker:
 
         Args:
             docs_dir: 文档根目录，默认为项目 docs/ 目录
-            auto_docs_dir: 自动生成文档目录，默认为 docs/plugins/builtin/auto/
+            auto_docs_dir: 自动生成文档目录，默认为 docs/plugins/reference/builtin/auto/
         """
         if docs_dir is None:
             # 尝试找到项目根目录
@@ -122,7 +122,7 @@ class DocCoverageChecker:
         self.docs_dir = Path(docs_dir)
 
         if auto_docs_dir is None:
-            auto_docs_dir = self.docs_dir / "plugins" / "builtin" / "auto"
+            auto_docs_dir = self.docs_dir / "plugins" / "reference" / "builtin" / "auto"
         self.auto_docs_dir = Path(auto_docs_dir)
 
     def get_builtin_plugins(self) -> List[Tuple[str, str, Type]]:

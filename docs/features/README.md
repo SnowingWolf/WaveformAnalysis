@@ -29,7 +29,7 @@
 绝对时间查询与 DAQ 时间基准。
 
 - [绝对时间查询](context/ABSOLUTE_TIME_GUIDE.md)
-- [DAQ 适配器](../plugins/DAQ_ADAPTER_GUIDE.md)
+- [DAQ 适配器](../plugins/guides/DAQ_ADAPTER_GUIDE.md)
 
 ### [插件功能](../plugins/README.md)
 
@@ -52,7 +52,7 @@
 
 DAQ 适配器、事件筛选、波形预览等实用工具。
 
-- [DAQ 适配器](utils/DAQ_ADAPTER_GUIDE.md)
+- [DAQ 适配器](../plugins/guides/DAQ_ADAPTER_GUIDE.md)
 - [DAQ 分析器](utils/DAQ_ANALYZER_GUIDE.md)
 - [事件筛选](utils/EVENT_FILTERS_GUIDE.md)
 - [波形预览](utils/waveform_preview.md)
@@ -65,7 +65,7 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 | 了解缓存机制 | [DATA_ACCESS.md](context/DATA_ACCESS.md) |
 | 追踪进度 | [PROGRESS_TRACKING_GUIDE.md](advanced/PROGRESS_TRACKING_GUIDE.md) |
 | 处理 CSV 文件头 | [IO_CSV_HEADER_HANDLING.md](advanced/IO_CSV_HEADER_HANDLING.md) |
-| 配置 DAQ 数据格式 | [DAQ_ADAPTER_GUIDE.md](utils/DAQ_ADAPTER_GUIDE.md) |
+| 配置 DAQ 数据格式 | [DAQ_ADAPTER_GUIDE.md](../plugins/guides/DAQ_ADAPTER_GUIDE.md) |
 | 查看 DAQ 运行概览 | [DAQ_ANALYZER_GUIDE.md](utils/DAQ_ANALYZER_GUIDE.md) |
 | 可视化数据血缘 | [LINEAGE_VISUALIZATION_GUIDE.md](context/LINEAGE_VISUALIZATION_GUIDE.md) |
 | 分析依赖关系 | [DEPENDENCY_ANALYSIS_GUIDE.md](context/DEPENDENCY_ANALYSIS_GUIDE.md) |
@@ -82,14 +82,14 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 ### 基础功能
 
 1. [Context 功能](context/README.md)
-2. [核心功能](core/README.md)
+2. [核心功能](context/README.md)
 3. [工具函数](utils/README.md)
 
 ### 高级功能
 
 1. 基础功能
 2. [高级功能](advanced/README.md)
-3. [插件功能](plugin/README.md)
+3. [插件功能](../plugins/README.md)
 
 ## 相关资源
 

@@ -1,4 +1,4 @@
-**导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [插件功能](README.md) > 流式处理插件
+**导航**: [文档中心](../../README.md) > [插件系统](../README.md) > 流式处理插件
 
 ---
 
@@ -222,7 +222,7 @@ stream_ctx = get_streaming_context(
 
 ## 相关文档
 
-- [信号处理插件](SIGNAL_PROCESSING_PLUGINS.md)
+- [信号处理插件](../tutorials/SIGNAL_PROCESSING_PLUGINS.md)
 - [插件开发指南](../../development/plugin-development/README.md)
-- [ExecutorManager 指南](../advanced/EXECUTOR_MANAGER_GUIDE.md)
+- [ExecutorManager 指南](../../features/advanced/EXECUTOR_MANAGER_GUIDE.md)
 - [架构文档](../../architecture/ARCHITECTURE.md)

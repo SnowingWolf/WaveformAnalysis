@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `basic_features` |
-| **Version** | `0.0.0` |
+| **Version** | `3.3.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -21,9 +21,10 @@ This plugin has no dependencies.
 
 | Option | Type | Default | Units | Description |
 |--------|------|---------|-------|-------------|
-| `height_range` | `tuple` | `None` | - | 高度计算范围 (start, end) |
+| `height_range` | `tuple` | `(40, 90)` | - | 高度计算范围 (start, end) |
 | `area_range` | `tuple` | `(0, None)` | - | 面积计算范围 (start, end)，end=None 表示积分到波形末端 |
 | `use_filtered` | `bool` | `False` | - | 是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin） |
+| `fixed_baseline` | `dict` | `None` | - | 按通道固定 baseline 值，如 {0: 8192, 1: 8200}。设置后覆盖动态 baseline 用于 height/area 计算。 |
 
 
 ## Output Schema
@@ -33,7 +34,11 @@ This plugin has no dependencies.
 | Field | Type | Units | Description |
 |-------|------|-------|-------------|
 | `height` | `float32` | - | - |
+| `amp` | `float32` | - | - |
 | `area` | `float32` | - | - |
+| `timestamp` | `int64` | - | - |
+| `channel` | `int16` | - | - |
+| `event_index` | `int64` | - | - |
 
 ## Usage Example
 
@@ -47,7 +52,7 @@ ctx.register(BasicFeaturesPlugin())
 
 # Configure plugin (optional)
 ctx.set_config({
-    "height_range": None,
+    "height_range": (40, 90),
     "area_range": (0, None),
     "use_filtered": False,
 }, plugin_name="basic_features")

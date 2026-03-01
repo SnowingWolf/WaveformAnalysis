@@ -62,7 +62,6 @@ from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     WaveformsPlugin,
-    StWaveformsPlugin,
     PeaksPlugin,
     ChargesPlugin,
 )
@@ -79,7 +78,6 @@ ctx = Context(
 # 注册所需的插件
 ctx.register(RawFilesPlugin())
 ctx.register(WaveformsPlugin())
-ctx.register(StWaveformsPlugin())
 ctx.register(BasicFeaturesPlugin())
 ```
 
@@ -297,7 +295,6 @@ from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     WaveformsPlugin,
-    StWaveformsPlugin,
     BasicFeaturesPlugin,
     DataFramePlugin,
     GroupedEventsPlugin,
@@ -321,7 +318,6 @@ ctx = Context(
 plugins = [
     RawFilesPlugin(),
     WaveformsPlugin(),
-    StWaveformsPlugin(),
     BasicFeaturesPlugin(),
     DataFramePlugin(),
     GroupedEventsPlugin(),
@@ -627,7 +623,7 @@ st_waveforms = ctx.get_data("run_001", "st_waveforms")  # 再测试下一步
 ## 相关文档
 
 - [项目结构说明](PROJECT_STRUCTURE.md)
-- [插件系统指南](../updates/NEW_FEATURES.md)
+- [插件系统指南](PLUGIN_SYSTEM_ARCHITECTURE.md)
 - [快速开始指南](../user-guide/QUICKSTART_GUIDE.md)
 - [缓存机制说明](../features/context/DATA_ACCESS.md#缓存机制)
 - [流式处理指南](../plugins/guides/STREAMING_PLUGINS_GUIDE.md)

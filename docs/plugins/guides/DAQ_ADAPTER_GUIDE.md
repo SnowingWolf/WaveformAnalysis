@@ -64,14 +64,13 @@ WaveformStruct (波形结构化)
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin, WaveformsPlugin, StWaveformsPlugin
+    RawFilesPlugin, WaveformsPlugin
 )
 
 # 初始化（默认使用 VX2730 格式）
 ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 ctx.register(RawFilesPlugin())
 ctx.register(WaveformsPlugin())
-ctx.register(StWaveformsPlugin())
 
 # 获取数据（自动使用 VX2730 配置）
 st_waveforms = ctx.get_data('run_001', 'st_waveforms')
@@ -623,10 +622,10 @@ for f in files:
 
 ## 相关文档
 
-- [快速入门指南](../user-guide/QUICKSTART_GUIDE.md)
-- [架构设计文档](../architecture/ARCHITECTURE.md)
-- [插件开发指南](../development/plugin-development/plugin_guide.md)
-- [API 参考](../api/README.md)
+- [快速入门指南](../../user-guide/QUICKSTART_GUIDE.md)
+- [架构设计文档](../../architecture/ARCHITECTURE.md)
+- [插件开发指南](../../development/plugin-development/plugin_guide.md)
+- [API 参考](../../api/README.md)
 
 ---
 

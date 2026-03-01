@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `st_waveforms` |
-| **Version** | `0.1.0` |
+| **Version** | `0.5.0` |
 | **Category** | 波形处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -15,21 +15,22 @@
 
 ## Dependencies
 
-This plugin depends on the following data:
-
-- [`raw_files`](raw_files.md)
+This plugin has no dependencies.
 
 ## Configuration Options
 
 | Option | Type | Default | Units | Description |
 |--------|------|---------|-------|-------------|
-| `channel_workers` | `any` | `None` | - | Number of parallel workers for channel-level processing (None=auto, uses min(len(raw_files), cpu_count)) |
-| `channel_executor` | `str` | `thread` | - | Executor type for channel-level parallelism: 'thread' or 'process' |
 | `daq_adapter` | `str` | `vx2730` | - | DAQ adapter name (e.g., 'vx2730') |
-| `n_jobs` | `int` | `None` | - | Number of parallel workers for file-level processing within each channel (None=auto, uses min(max_file_count, 50)) |
+| `wave_length` | `int` | `None` | - | Waveform length (number of sampling points). Automatically detect from the data when None。 |
+| `dt_ns` | `int` | `None` | - | Sampling interval in ns for st_waveforms.dt (None=auto from adapter). |
+| `n_jobs` | `int` | `None` | - | Number of parallel workers for file-level processing (None=auto, uses min(total_files, 50)) |
 | `use_process_pool` | `bool` | `False` | - | Whether to use process pool for file-level parallelism (False=thread pool for I/O, True=process pool for CPU-intensive) |
 | `chunksize` | `int` | `None` | - | Chunk size for CSV reading (None=read entire file, enables PyArrow; set value to enable chunked reading but disables PyArrow) |
+| `parse_engine` | `str` | `auto` | - | CSV engine: auto | polars | pyarrow | pandas |
 | `use_upstream_baseline` | `bool` | `False` | - | Whether to use baseline from upstream plugin (requires 'baseline' data). |
+| `baseline_samples` | `any` | `None` | - | Baseline range: int (sample count from adapter start) or tuple (start, end) relative to samples_start. None=adapter default. |
+| `streaming_mode` | `bool` | `False` | - | Enable streaming mode: read files and structure waveforms incrementally to reduce memory usage. When enabled, uses memmap for output to avoid full vstack memory overhead. |
 
 
 ## Output Schema
@@ -41,9 +42,10 @@ This plugin depends on the following data:
 | `baseline` | `float64` | - | - |
 | `baseline_upstream` | `float64` | - | - |
 | `timestamp` | `int64` | - | - |
-| `event_length` | `int64` | - | - |
+| `dt` | `int32` | - | - |
+| `event_length` | `int32` | - | - |
 | `channel` | `int16` | - | - |
-| `wave` | `('<f4', (800,))` | - | - |
+| `wave` | `('<i2', (1500,))` | - | - |
 
 ## Usage Example
 
@@ -57,9 +59,9 @@ ctx.register(WaveformsPlugin())
 
 # Configure plugin (optional)
 ctx.set_config({
-    "channel_workers": None,
-    "channel_executor": 'thread',
     "daq_adapter": 'vx2730',
+    "wave_length": None,
+    "dt_ns": None,
 }, plugin_name="st_waveforms")
 
 # Get data

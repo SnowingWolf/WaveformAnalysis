@@ -1,13 +1,13 @@
 # WaveformWidthIntegralPlugin
 
-> Event-wise integral quantile width using st_waveforms baseline.
+> Event-wise integral quantile width using st_waveforms or filtered_waveforms.
 
 ## Overview
 
 | Property | Value |
 |----------|-------|
 | **Provides** | `waveform_width_integral` |
-| **Version** | `1.1.0` |
+| **Version** | `2.1.0` |
 | **Category** | 波形处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |

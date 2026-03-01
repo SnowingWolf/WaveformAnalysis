@@ -1,4 +1,4 @@
-**导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [插件功能](README.md) > 最简单的插件教程
+**导航**: [文档中心](../../README.md) > [插件系统](../README.md) > 最简单的插件教程
 
 ---
 
@@ -259,12 +259,10 @@ if __name__ == "__main__":
     from waveform_analysis.core.plugins import (
         RawFilesPlugin,
         WaveformsPlugin,
-        StWaveformsPlugin,
     )
     ctx.register(
         RawFilesPlugin(),
         WaveformsPlugin(),
-        StWaveformsPlugin(),
     )
 
     # 注册自定义插件

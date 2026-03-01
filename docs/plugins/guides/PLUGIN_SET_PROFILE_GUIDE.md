@@ -1,6 +1,6 @@
 # Plugin Set & Profile 指南
 
-**导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [插件功能](README.md) > Plugin Set & Profile
+**导航**: [文档中心](../../README.md) > [插件系统](../README.md) > Plugin Set & Profile
 
 本指南说明如何使用 **Plugin Set** 与 **Profile** 组合插件，形成可维护的处理链路。[^source]
 

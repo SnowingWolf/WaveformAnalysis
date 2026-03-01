@@ -1,4 +1,4 @@
-**导航**: [文档中心](../../README.md) > [插件详解](../README.md) > [builtin](README.md) > WaveformWidthPlugin 使用指南
+**导航**: [文档中心](../../../README.md) > [插件系统](../../README.md) > [builtin](auto/INDEX.md) > WaveformWidthPlugin 使用指南
 
 # WaveformWidthPlugin 使用指南
 
@@ -17,7 +17,7 @@
 ## 依赖关系
 
 ```
-WaveformsPlugin → StWaveformsPlugin → FilteredWaveformsPlugin (可选)
+WaveformsPlugin → FilteredWaveformsPlugin (可选)
                                     ↓
                               SignalPeaksPlugin → WaveformWidthPlugin
 ```
@@ -30,7 +30,6 @@ WaveformsPlugin → StWaveformsPlugin → FilteredWaveformsPlugin (可选)
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
     WaveformsPlugin,
-    StWaveformsPlugin,
     SignalPeaksPlugin,
     WaveformWidthPlugin,
 )
@@ -39,7 +38,6 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 
 ctx.register(WaveformsPlugin())
-ctx.register(StWaveformsPlugin())
 ctx.register(SignalPeaksPlugin())
 ctx.register(WaveformWidthPlugin())
 
@@ -175,4 +173,4 @@ for ch_idx, ch_widths in enumerate(widths):
 
 - `SignalPeaksPlugin`: 峰值检测插件（必需依赖）
 - `FilteredWaveformsPlugin`: 波形滤波插件（可选）
-- `StWaveformsPlugin`: 结构化波形插件（必需依赖）
+- `WaveformsPlugin`: 结构化波形插件（必需依赖）

@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `df` |
-| **Version** | `0.0.0` |
+| **Version** | `1.1.0` |
 | **Category** | 数据导出 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |

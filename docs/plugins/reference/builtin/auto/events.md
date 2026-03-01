@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `events` |
-| **Version** | `0.1.0` |
+| **Version** | `2.0.0` |
 | **Category** | 事件分析 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -23,6 +23,7 @@ This plugin has no dependencies.
 |--------|------|---------|-------|-------------|
 | `events_part_size` | `int` | `200000` | - | Max events per shard in the records bundle; <=0 disables sharding. |
 | `events_dt_ns` | `int` | `None` | - | Sample interval in ns (defaults to adapter rate or 1ns). |
+| `use_filtered` | `bool` | `False` | - | 是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin） |
 
 
 ## Output Schema
@@ -58,6 +59,7 @@ ctx.register(EventsPlugin())
 ctx.set_config({
     "events_part_size": 200000,
     "events_dt_ns": None,
+    "use_filtered": False,
 }, plugin_name="events")
 
 # Get data

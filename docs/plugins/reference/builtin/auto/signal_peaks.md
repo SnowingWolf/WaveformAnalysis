@@ -1,13 +1,13 @@
 # SignalPeaksPlugin
 
-> Detect peaks in filtered waveforms and extract peak features.
+> Detect peaks in waveforms and extract peak features.
 
 ## Overview
 
 | Property | Value |
 |----------|-------|
 | **Provides** | `signal_peaks` |
-| **Version** | `1.0.2` |
+| **Version** | `2.1.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -15,15 +15,13 @@
 
 ## Dependencies
 
-This plugin depends on the following data:
-
-- [`filtered_waveforms`](filtered_waveforms.md)
-- [`st_waveforms`](st_waveforms.md)
+This plugin has no dependencies.
 
 ## Configuration Options
 
 | Option | Type | Default | Units | Description |
 |--------|------|---------|-------|-------------|
+| `use_filtered` | `bool` | `True` | - | 是否使用 filtered_waveforms（默认 True，需要先注册 FilteredWaveformsPlugin） |
 | `use_derivative` | `bool` | `True` | - | 是否使用一阶导数进行峰值检测（True: 检测导数峰值, False: 检测波形峰值） |
 | `height` | `float` | `30.0` | - | 峰值的最小高度阈值 |
 | `distance` | `int` | `2` | - | 峰值之间的最小距离（采样点数） |
@@ -61,9 +59,9 @@ ctx.register(SignalPeaksPlugin())
 
 # Configure plugin (optional)
 ctx.set_config({
+    "use_filtered": True,
     "use_derivative": True,
     "height": 30.0,
-    "distance": 2,
 }, plugin_name="signal_peaks")
 
 # Get data

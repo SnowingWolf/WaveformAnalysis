@@ -46,7 +46,7 @@ waveform-docs check coverage [选项]
 
 | 类型 | 说明 | 默认输出 |
 |------|------|----------|
-| `plugins-auto` | 自动生成内置插件文档 | `docs/plugins/builtin/auto/` |
+| `plugins-auto` | 自动生成内置插件文档 | `docs/plugins/reference/builtin/auto/` |
 
 ---
 
@@ -78,7 +78,7 @@ waveform-docs check coverage [选项]
 waveform-docs generate plugins-auto
 
 # 指定输出目录
-waveform-docs generate plugins-auto -o docs/plugins/builtin/auto/
+waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/
 
 # 生成单个插件文档
 waveform-docs generate plugins-auto --plugin raw_files
@@ -110,7 +110,7 @@ waveform-docs check coverage --fail-on-warning
 - 配置选项表
 - 使用示例
 
-生成的文件位于 `docs/plugins/builtin/auto/` 目录：
+生成的文件位于 `docs/plugins/reference/builtin/auto/` 目录：
 - `raw_files.md`
 - `waveforms.md`
 - `st_waveforms.md`
@@ -179,7 +179,7 @@ waveform-docs check coverage --strict --fail-on-warning
 ## 注意事项
 
 1. **文档准确性**: 生成的文档基于插件的 `SPEC` 和 `options`，确保插件定义完整
-2. **输出路径**: 默认输出到 `docs/plugins/builtin/auto/`，会覆盖已有文件
+2. **输出路径**: 默认输出到 `docs/plugins/reference/builtin/auto/`，会覆盖已有文件
 3. **INDEX.md**: 自动生成索引页，包含所有插件的概览表
 
 ---

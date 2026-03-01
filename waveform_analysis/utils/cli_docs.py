@@ -19,7 +19,7 @@ def main():
         epilog="""
 示例:
   # 自动生成 builtin 插件文档
-  waveform-docs generate plugins-auto -o docs/plugins/builtin/auto/
+  waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/
 
   # 检查文档覆盖率
   waveform-docs check coverage --strict
@@ -95,7 +95,7 @@ def generate_plugins_auto(args):
         from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
 
         # 确定输出目录
-        output_dir = args.output or "docs/plugins/builtin/auto"
+        output_dir = args.output or "docs/plugins/reference/builtin/auto"
         output_path = Path(output_dir)
 
         # 初始化生成器
@@ -212,10 +212,10 @@ def check_coverage(args):
         # 确定文档目录
         docs_dir = Path(args.docs_dir) if args.docs_dir else None
 
-        # 如果指定了 docs_dir，auto_docs_dir 默认为 docs_dir/plugins/builtin/auto
+        # 如果指定了 docs_dir，auto_docs_dir 默认为 docs_dir/plugins/reference/builtin/auto
         auto_docs_dir = None
         if docs_dir:
-            auto_docs_dir = docs_dir / "plugins" / "builtin" / "auto"
+            auto_docs_dir = docs_dir / "plugins" / "reference" / "builtin" / "auto"
 
         # 初始化检查器
         checker = DocCoverageChecker(docs_dir=docs_dir, auto_docs_dir=auto_docs_dir)

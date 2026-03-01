@@ -29,5 +29,5 @@ Context 相关的功能文档，包括依赖分析、血缘可视化、执行预
 ## 相关资源
 
 - [高级功能](../advanced/README.md) - 执行器管理、进度追踪
-- [插件功能](../plugin/README.md) - 插件开发
+- [插件功能](../../plugins/README.md) - 插件开发
 - [API 参考](../../api/README.md) - API 文档

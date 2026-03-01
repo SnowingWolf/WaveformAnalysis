@@ -8,7 +8,7 @@
 用法:
     >>> from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
     >>> generator = PluginDocGenerator()
-    >>> generator.generate_all(Path("docs/plugins/builtin/auto"))
+    >>> generator.generate_all(Path("docs/plugins/reference/builtin/auto"))
 """
 
 from dataclasses import dataclass, field
@@ -122,7 +122,7 @@ class PluginDocGenerator:
     Examples:
         >>> generator = PluginDocGenerator()
         >>> generator.load_builtin_plugins()
-        >>> generator.generate_all(Path("docs/plugins/builtin/auto"))
+        >>> generator.generate_all(Path("docs/plugins/reference/builtin/auto"))
     """
 
     def __init__(self, template_dir: Optional[Path] = None):

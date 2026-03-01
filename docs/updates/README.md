@@ -6,7 +6,7 @@
 
 ## 如何使用
 
-- 想了解最新功能：先看 [NEW_FEATURES.md](NEW_FEATURES.md)
+- 想了解最新功能：先看 [UPDATE_SUMMARY.md](UPDATE_SUMMARY.md)
 - 只关心变更摘要：直接看 [UPDATE_SUMMARY.md](UPDATE_SUMMARY.md)
 - 需要迁移指导：查看 [STORAGE_MIGRATION_GUIDE.md](./STORAGE_MIGRATION_GUIDE.md)
 
@@ -14,8 +14,8 @@
 
 | 文档 | 说明 |
 |------|------|
-| [新功能](NEW_FEATURES.md) | 新功能说明和使用方法 |
-| [更新总结](UPDATE_SUMMARY.md) | 版本更新总结 |
+| [更新总结](UPDATE_SUMMARY.md) | 新功能说明和版本更新总结 |
+| [变更日志](../../CHANGELOG.md) | 按版本记录的详细变更历史 |
 | [存储迁移指南](./STORAGE_MIGRATION_GUIDE.md) | 存储结构迁移指南 |
 
 ## 相关资源
