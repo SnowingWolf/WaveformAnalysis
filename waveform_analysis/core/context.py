@@ -10,8 +10,8 @@ Context 模块 - 插件系统的核心调度器。
 """
 
 # 1. Standard library imports
-import copy
 from collections import deque
+import copy
 from datetime import datetime
 import functools
 import hashlib
@@ -475,7 +475,7 @@ class Context(CacheMixin, PluginMixin):
         Examples:
             >>> from waveform_analysis.core.context import Context
             >>> from waveform_analysis.core.plugins.builtin.cpu import (
-            ...     RawFileNamesPlugin, WaveformsPlugin, StWaveformsPlugin
+            ...     RawFileNamesPlugin, WaveformsPlugin
             ... )
             >>>
             >>> ctx = Context(storage_dir="./strax_data")
@@ -489,8 +489,7 @@ class Context(CacheMixin, PluginMixin):
             >>> # 方式3: 一次注册多个插件
             >>> ctx.register(
             ...     RawFileNamesPlugin(),
-            ...     WaveformsPlugin(),
-            ...     StWaveformsPlugin()
+            ...     WaveformsPlugin()
             ... )
             >>>
             >>> # 方式4: 注册模块中的所有插件
@@ -1085,9 +1084,7 @@ class Context(CacheMixin, PluginMixin):
                 print(f"[清理缓存] 运行: {run_id}, 清理所有数据类型的缓存 ({len(data_names)} 个)")
         else:
             if downstream:
-                downstream_names = self._collect_downstream_data_names(
-                    data_name, run_id=run_id
-                )
+                downstream_names = self._collect_downstream_data_names(data_name, run_id=run_id)
                 data_names = [data_name] + sorted(downstream_names)
             else:
                 data_names = [data_name]
@@ -1139,7 +1136,9 @@ class Context(CacheMixin, PluginMixin):
 
         return count
 
-    def _collect_downstream_data_names(self, data_name: str, run_id: Optional[str] = None) -> List[str]:
+    def _collect_downstream_data_names(
+        self, data_name: str, run_id: Optional[str] = None
+    ) -> List[str]:
         """Collect all downstream data names that depend on a given data_name."""
         reverse_deps: Dict[str, List[str]] = {}
         for name, plugin in self._plugins.items():
@@ -1554,7 +1553,9 @@ class Context(CacheMixin, PluginMixin):
                     data.append(arr)
             else:
                 # Load multi-channel data (no channel_count metadata available)
-                data = [self._storage_load_memmap(storage, ch_key, run_id) for ch_key in channel_keys]
+                data = [
+                    self._storage_load_memmap(storage, ch_key, run_id) for ch_key in channel_keys
+                ]
         else:
             data = self._storage_load_memmap(storage, key, run_id)
 
@@ -2970,28 +2971,35 @@ class Context(CacheMixin, PluginMixin):
             except Exception as e:
                 self.logger.warning(f"Failed to delete multi-channel cache {ch_key}: {e}")
 
-        # 删除 DataFrame 缓存（{key}.parquet）
+        # 删除 DataFrame 缓存（{key}.parquet / {key}.pkl）
         # 检查 storage 是否支持 DataFrame 存储（有 save_dataframe 方法）
         if hasattr(storage, "save_dataframe"):
-            # 对于 MemmapStorage，获取正确的 parquet 路径
+            # 对于 MemmapStorage，获取正确的 dataframe 缓存路径
             if hasattr(storage, "work_dir") and run_id:
-                # 分层模式：parquet 在 run 的 data 目录下
-                parquet_path = os.path.join(
-                    storage.work_dir, run_id, storage.data_subdir, f"{key}.parquet"
-                )
+                # 分层模式：缓存在 run 的 data 目录下
+                dataframe_paths = [
+                    os.path.join(storage.work_dir, run_id, storage.data_subdir, f"{key}.parquet"),
+                    os.path.join(storage.work_dir, run_id, storage.data_subdir, f"{key}.pkl"),
+                ]
             elif hasattr(storage, "db_path"):
                 # 对于其他存储后端，如果 db_path 存在，可能在同目录下
                 base_dir = os.path.dirname(storage.db_path)
-                parquet_path = os.path.join(base_dir, f"{key}.parquet")
+                dataframe_paths = [
+                    os.path.join(base_dir, f"{key}.parquet"),
+                    os.path.join(base_dir, f"{key}.pkl"),
+                ]
             else:
-                parquet_path = None
+                dataframe_paths = []
 
-            if parquet_path and os.path.exists(parquet_path):
-                try:
-                    os.remove(parquet_path)
-                    count += 1
-                except Exception as e:
-                    self.logger.warning(f"Failed to delete parquet file {parquet_path}: {e}")
+            for dataframe_path in dataframe_paths:
+                if os.path.exists(dataframe_path):
+                    try:
+                        os.remove(dataframe_path)
+                        count += 1
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Failed to delete dataframe cache file {dataframe_path}: {e}"
+                        )
 
         return count
 

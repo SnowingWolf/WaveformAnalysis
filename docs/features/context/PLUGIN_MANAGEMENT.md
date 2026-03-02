@@ -29,7 +29,6 @@ from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     WaveformsPlugin,
-    StWaveformsPlugin,
 )
 
 # 创建 Context
@@ -54,8 +53,7 @@ ctx.register(WaveformsPlugin)
 # 方式 3: 一次注册多个插件
 ctx.register(
     RawFilesPlugin(),
-    WaveformsPlugin(),
-    StWaveformsPlugin()
+    WaveformsPlugin()
 )
 
 # 方式 4: 注册模块中的所有插件
@@ -72,11 +70,11 @@ ctx.register(*plugins)
 ```python
 # 注册后，通过数据名称访问
 ctx.register(RawFilesPlugin())  # provides = "raw_files"
-ctx.register(WaveformsPlugin())  # provides = "waveforms"
+ctx.register(WaveformsPlugin())  # provides = "st_waveforms"
 
 # 获取数据时自动执行插件
 raw_files = ctx.get_data("run_001", "raw_files")
-waveforms = ctx.get_data("run_001", "waveforms")
+st_waveforms = ctx.get_data("run_001", "st_waveforms")
 ```
 
 ---
@@ -163,7 +161,6 @@ print(f"可并行组: {analysis.parallel_groups}")
 from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     WaveformsPlugin,
-    StWaveformsPlugin,
     BasicFeaturesPlugin,
     DataFramePlugin,
     GroupedEventsPlugin,
@@ -174,7 +171,6 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 ctx.register(
     RawFilesPlugin(),
     WaveformsPlugin(),
-    StWaveformsPlugin(),
     BasicFeaturesPlugin(),
     DataFramePlugin(),
     GroupedEventsPlugin(),

@@ -11,7 +11,6 @@
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
-    StWaveformsPlugin,
     WaveformsPlugin,
 )
 
@@ -31,9 +30,8 @@ def main():
     ctx.register(
         RawFilesPlugin(),
         WaveformsPlugin(),
-        StWaveformsPlugin(),
     )
-    print("✓ 已注册 3 个插件: raw_files, waveforms, st_waveforms")
+    print("✓ 已注册 2 个插件: raw_files, st_waveforms")
 
     # ====================================================================
     # 2. 查看所有插件的配置选项（了解有哪些配置可用）

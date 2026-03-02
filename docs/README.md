@@ -73,14 +73,12 @@ from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     WaveformsPlugin,
-    StWaveformsPlugin,
     BasicFeaturesPlugin,
 )
 
 ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 ctx.register(RawFilesPlugin())
 ctx.register(WaveformsPlugin())
-ctx.register(StWaveformsPlugin())
 ctx.register(BasicFeaturesPlugin())
 
 # 处理数据

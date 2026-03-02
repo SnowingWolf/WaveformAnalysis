@@ -420,7 +420,7 @@ for chunk in stream_ctx.get_stream('st_waveforms'):
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin, WaveformsPlugin, StWaveformsPlugin
+    RawFilesPlugin, WaveformsPlugin
 )
 
 # 初始化 Context
@@ -429,7 +429,6 @@ ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 # 注册插件
 ctx.register(RawFilesPlugin())
 ctx.register(WaveformsPlugin())
-ctx.register(StWaveformsPlugin())
 
 # 获取数据（自动使用配置的适配器）
 st_waveforms = ctx.get_data('run_001', 'st_waveforms')

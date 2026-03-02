@@ -100,7 +100,7 @@ from waveform_analysis.core.plugins.builtin.cpu import *
 
 # 创建 Context 并注册插件
 ctx = Context(storage_dir="./strax_data")
-ctx.register(RawFilesPlugin(), WaveformsPlugin(), StWaveformsPlugin())
+ctx.register(RawFilesPlugin(), WaveformsPlugin())
 ctx.register(FilteredWaveformsPlugin(), SignalPeaksPlugin())
 
 # 设置配置

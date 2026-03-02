@@ -312,7 +312,6 @@ ctx = Context(
 ctx.register(
     RawFilesPlugin(),
     WaveformsPlugin(),
-    StWaveformsPlugin(),
     BasicFeaturesPlugin(),
     DataFramePlugin(),
     GroupedEventsPlugin(),

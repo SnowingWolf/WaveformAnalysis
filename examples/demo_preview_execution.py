@@ -16,7 +16,6 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     FilteredWaveformsPlugin,
     RawFilesPlugin,
     SignalPeaksPlugin,
-    StWaveformsPlugin,
     WaveformsPlugin,
 )
 
@@ -33,7 +32,6 @@ def example_basic_preview():
     plugins = [
         RawFilesPlugin(),
         WaveformsPlugin(),
-        StWaveformsPlugin(),
         FilteredWaveformsPlugin(),
         SignalPeaksPlugin(),
     ]
@@ -92,7 +90,6 @@ def example_different_verbosity():
     for plugin in [
         RawFilesPlugin(),
         WaveformsPlugin(),
-        StWaveformsPlugin(),
         FilteredWaveformsPlugin(),
         SignalPeaksPlugin(),
     ]:
@@ -127,7 +124,6 @@ def example_selective_display():
     for plugin in [
         RawFilesPlugin(),
         WaveformsPlugin(),
-        StWaveformsPlugin(),
         FilteredWaveformsPlugin(),
         SignalPeaksPlugin(),
     ]:
@@ -159,7 +155,6 @@ def example_programmatic_use():
     for plugin in [
         RawFilesPlugin(),
         WaveformsPlugin(),
-        StWaveformsPlugin(),
         FilteredWaveformsPlugin(),
         SignalPeaksPlugin(),
     ]:
@@ -212,7 +207,6 @@ def example_workflow():
     for plugin in [
         RawFilesPlugin(),
         WaveformsPlugin(),
-        StWaveformsPlugin(),
         FilteredWaveformsPlugin(),
         SignalPeaksPlugin(),
     ]:
@@ -268,7 +262,6 @@ def example_compare_multiple_targets():
     for plugin in [
         RawFilesPlugin(),
         WaveformsPlugin(),
-        StWaveformsPlugin(),
         FilteredWaveformsPlugin(),
         SignalPeaksPlugin(),
     ]:

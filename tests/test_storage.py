@@ -5,6 +5,7 @@ Storage 模块测试
 import json
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from waveform_analysis.core.storage import MemmapStorage
@@ -209,6 +210,32 @@ class TestMemmapStorage:
         storage.save_stream("exists_key", iter([data]), sample_dtype, run_id=test_run_id)
 
         assert storage.exists("exists_key", test_run_id)
+
+    def test_dataframe_pickle_fallback_when_parquet_engine_missing(
+        self, storage, tmp_path, test_run_id, monkeypatch
+    ):
+        """缺少 parquet 引擎时，DataFrame 缓存应自动回退为 pickle。"""
+        key = "df_fallback_key"
+        df = pd.DataFrame({"timestamp": [1, 2], "value": [10.0, 20.0]})
+
+        def _raise_no_engine(*args, **kwargs):
+            raise ImportError("Unable to find a usable parquet engine")
+
+        monkeypatch.setattr(pd.DataFrame, "to_parquet", _raise_no_engine)
+
+        storage.save_dataframe(key, df, run_id=test_run_id)
+        storage.save_metadata(key, {"type": "dataframe"}, run_id=test_run_id)
+
+        data_dir = tmp_path / test_run_id / "_cache"
+        assert (data_dir / f"{key}.pkl").exists()
+        assert not (data_dir / f"{key}.parquet").exists()
+        assert storage.exists(key, test_run_id)
+
+        loaded = storage.load_dataframe(key, run_id=test_run_id)
+        pd.testing.assert_frame_equal(loaded, df)
+
+        integrity = storage.verify_integrity(run_id=test_run_id, verbose=False)
+        assert integrity["invalid"] == 0
 
     def test_exists_false_on_corruption(self, storage, sample_dtype, tmp_path, test_run_id):
         """当元数据损坏或与二进制不匹配时，exists 应返回 False"""

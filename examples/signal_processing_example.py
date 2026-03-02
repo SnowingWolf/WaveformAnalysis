@@ -20,7 +20,6 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     FilteredWaveformsPlugin,
     RawFilesPlugin,
     SignalPeaksPlugin,
-    StWaveformsPlugin,
     WaveformsPlugin,
 )
 
@@ -39,7 +38,6 @@ def example_basic_usage():
     # 注册标准插件
     ctx.register_plugin_(RawFilesPlugin())
     ctx.register_plugin_(WaveformsPlugin())
-    ctx.register_plugin_(StWaveformsPlugin())
 
     # 注册信号处理插件
     ctx.register_plugin_(FilteredWaveformsPlugin())
@@ -119,7 +117,6 @@ def example_butterworth_filter():
     # 注册插件
     ctx.register_plugin_(RawFilesPlugin())
     ctx.register_plugin_(WaveformsPlugin())
-    ctx.register_plugin_(StWaveformsPlugin())
     ctx.register_plugin_(FilteredWaveformsPlugin())
 
     # 全局配置
@@ -260,7 +257,6 @@ def example_compare_filters():
     ctx_original = Context(storage_dir="./strax_data")
     ctx_original.register_plugin_(RawFilesPlugin())
     ctx_original.register_plugin_(WaveformsPlugin())
-    ctx_original.register_plugin_(StWaveformsPlugin())
     ctx_original.set_config({"data_root": "DAQ", "n_channels": 2, "start_channel_slice": 6})
     st_waveforms = ctx_original.get_data(run_id, "st_waveforms")
     original_waveform = st_waveforms[channel_idx][event_idx]["wave"]
@@ -269,7 +265,6 @@ def example_compare_filters():
     ctx_sg = Context(storage_dir="./strax_data_sg")
     ctx_sg.register_plugin_(RawFilesPlugin())
     ctx_sg.register_plugin_(WaveformsPlugin())
-    ctx_sg.register_plugin_(StWaveformsPlugin())
     ctx_sg.register_plugin_(FilteredWaveformsPlugin())
     ctx_sg.set_config({"data_root": "DAQ", "n_channels": 2, "start_channel_slice": 6})
     ctx_sg.set_config(
@@ -283,7 +278,6 @@ def example_compare_filters():
     ctx_bw = Context(storage_dir="./strax_data_bw")
     ctx_bw.register_plugin_(RawFilesPlugin())
     ctx_bw.register_plugin_(WaveformsPlugin())
-    ctx_bw.register_plugin_(StWaveformsPlugin())
     ctx_bw.register_plugin_(FilteredWaveformsPlugin())
     ctx_bw.set_config({"data_root": "DAQ", "n_channels": 2, "start_channel_slice": 6})
     ctx_bw.set_config(

@@ -10,7 +10,6 @@ from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
     FilteredWaveformsPlugin,
     SignalPeaksPlugin,
-    StWaveformsPlugin,
     WaveformsPlugin,
     WaveformWidthPlugin,
 )
@@ -27,7 +26,6 @@ def example_basic_usage():
 
     # 注册必要的插件
     ctx.register(WaveformsPlugin())
-    ctx.register(StWaveformsPlugin())
     ctx.register(FilteredWaveformsPlugin())  # 可选，用于滤波
     ctx.register(SignalPeaksPlugin())  # 必需，提供峰值检测
     ctx.register(WaveformWidthPlugin())  # 波形宽度插件
@@ -54,7 +52,7 @@ def example_basic_usage():
     )
 
     print("\n配置完成，插件链:")
-    print("  WaveformsPlugin → StWaveformsPlugin → FilteredWaveformsPlugin")
+    print("  WaveformsPlugin → FilteredWaveformsPlugin")
     print("  → SignalPeaksPlugin → WaveformWidthPlugin")
 
     # 获取数据（假设有数据文件）
@@ -94,7 +92,6 @@ def example_with_filtered_waveforms():
 
     # 注册插件
     ctx.register(WaveformsPlugin())
-    ctx.register(StWaveformsPlugin())
     ctx.register(FilteredWaveformsPlugin())
     ctx.register(SignalPeaksPlugin())
     ctx.register(WaveformWidthPlugin())
@@ -143,7 +140,6 @@ def example_custom_thresholds():
     ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
 
     ctx.register(WaveformsPlugin())
-    ctx.register(StWaveformsPlugin())
     ctx.register(SignalPeaksPlugin())
     ctx.register(WaveformWidthPlugin())
 
@@ -181,7 +177,6 @@ def example_data_analysis():
     ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
 
     ctx.register(WaveformsPlugin())
-    ctx.register(StWaveformsPlugin())
     ctx.register(SignalPeaksPlugin())
     ctx.register(WaveformWidthPlugin())
 

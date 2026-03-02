@@ -16,7 +16,6 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     FilteredWaveformsPlugin,
     RawFilesPlugin,
     SignalPeaksPlugin,
-    StWaveformsPlugin,
     WaveformsPlugin,
 )
 
@@ -33,7 +32,6 @@ def verify_plugin_registration():
     plugins = [
         RawFilesPlugin(),
         WaveformsPlugin(),
-        StWaveformsPlugin(),
         FilteredWaveformsPlugin(),
         SignalPeaksPlugin(),
     ]

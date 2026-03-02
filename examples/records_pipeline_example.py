@@ -8,7 +8,6 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     EventsPlugin,
     RawFilesPlugin,
     RecordsPlugin,
-    StWaveformsPlugin,
     WaveformsPlugin,
 )
 
@@ -26,7 +25,6 @@ def main() -> None:
     )
     ctx.register(RawFilesPlugin())
     ctx.register(WaveformsPlugin())
-    ctx.register(StWaveformsPlugin())
     ctx.register(RecordsPlugin())
     ctx.register(EventsPlugin())
     ctx.register(EventFramePlugin())

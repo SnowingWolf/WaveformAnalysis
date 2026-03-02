@@ -11,7 +11,6 @@
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
-    StWaveformsPlugin,
     WaveformsPlugin,
 )
 
@@ -22,7 +21,6 @@ def main():
     ctx.register(
         RawFilesPlugin(),
         WaveformsPlugin(),
-        StWaveformsPlugin(),
     )
 
     # 示例 1: 列出所有插件的配置选项

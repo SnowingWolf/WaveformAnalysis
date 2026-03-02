@@ -728,7 +728,7 @@ class MemmapStorage:
         """内部辅助方法：检查单个 key 的数据完整性。"""
         bin_path, meta_path, _ = self._get_paths(key, run_id)
 
-        # 获取 parquet 路径
+        # 获取 DataFrame 缓存路径
         effective_run_id = run_id
         if effective_run_id is None:
             parts = key.split("-")
@@ -737,8 +737,9 @@ class MemmapStorage:
             else:
                 effective_run_id = "default"
 
-        parquet_root = os.path.join(self.work_dir, effective_run_id, self.data_subdir)
-        parquet_path = os.path.join(parquet_root, f"{key}.parquet")
+        df_root = os.path.join(self.work_dir, effective_run_id, self.data_subdir)
+        parquet_path = os.path.join(df_root, f"{key}.parquet")
+        pickle_path = os.path.join(df_root, f"{key}.pkl")
 
         # 所有格式都必须有元数据文件
         if not os.path.exists(meta_path):
@@ -749,9 +750,9 @@ class MemmapStorage:
             if meta is None:
                 return False
 
-            # 情况 1: DataFrame (Parquet)
+            # 情况 1: DataFrame (Parquet/Pickle)
             if meta.get("type") == "dataframe":
-                return os.path.exists(parquet_path)
+                return os.path.exists(parquet_path) or os.path.exists(pickle_path)
 
             # 情况 2: 压缩的二进制数据
             if meta.get("compressed", False):
@@ -863,7 +864,11 @@ class MemmapStorage:
         return 0
 
     def save_dataframe(self, key: str, df: pd.DataFrame, run_id: Optional[str] = None):
-        """Save a pandas DataFrame as Parquet."""
+        """Save a pandas DataFrame.
+
+        Preferred format is Parquet. If parquet engines are unavailable,
+        falls back to Pickle so dataframe cache remains usable.
+        """
         # 提取 run_id（如果未显式传入）
         effective_run_id = run_id
         if effective_run_id is None:
@@ -875,11 +880,23 @@ class MemmapStorage:
 
         data_dir = os.path.join(self.work_dir, effective_run_id, self.data_subdir)
         os.makedirs(data_dir, exist_ok=True)
-        path = os.path.join(data_dir, f"{key}.parquet")
-        df.to_parquet(path)
+        parquet_path = os.path.join(data_dir, f"{key}.parquet")
+        pickle_path = os.path.join(data_dir, f"{key}.pkl")
+        try:
+            df.to_parquet(parquet_path)
+            if os.path.exists(pickle_path):
+                os.remove(pickle_path)
+        except (ImportError, ModuleNotFoundError) as e:
+            warnings.warn(
+                f"Parquet engine unavailable for '{key}', falling back to Pickle cache: {e}",
+                RuntimeWarning,
+            )
+            if os.path.exists(parquet_path):
+                os.remove(parquet_path)
+            df.to_pickle(pickle_path)
 
     def load_dataframe(self, key: str, run_id: Optional[str] = None) -> Optional[pd.DataFrame]:
-        """Load a pandas DataFrame from Parquet."""
+        """Load a pandas DataFrame from Parquet or Pickle fallback."""
         # 提取 run_id（如果未显式传入）
         effective_run_id = run_id
         if effective_run_id is None:
@@ -890,10 +907,27 @@ class MemmapStorage:
                 effective_run_id = "default"
 
         data_dir = os.path.join(self.work_dir, effective_run_id, self.data_subdir)
-        path = os.path.join(data_dir, f"{key}.parquet")
+        parquet_path = os.path.join(data_dir, f"{key}.parquet")
+        pickle_path = os.path.join(data_dir, f"{key}.pkl")
 
-        if os.path.exists(path):
-            return pd.read_parquet(path)
+        if os.path.exists(parquet_path):
+            try:
+                return pd.read_parquet(parquet_path)
+            except (ImportError, ModuleNotFoundError) as e:
+                if os.path.exists(pickle_path):
+                    warnings.warn(
+                        f"Parquet engine unavailable for '{key}', loading Pickle cache: {e}",
+                        RuntimeWarning,
+                    )
+                    return pd.read_pickle(pickle_path)
+                warnings.warn(
+                    f"Parquet cache exists for '{key}' but no parquet engine is available: {e}",
+                    RuntimeWarning,
+                )
+                return None
+
+        if os.path.exists(pickle_path):
+            return pd.read_pickle(pickle_path)
         return None
 
     def verify_integrity(
@@ -953,9 +987,12 @@ class MemmapStorage:
                 if meta.get("type") == "dataframe":
                     data_dir = os.path.join(self.work_dir, key_run_id, self.data_subdir)
                     parquet_path = os.path.join(data_dir, f"{key}.parquet")
-                    if not os.path.exists(parquet_path):
+                    pickle_path = os.path.join(data_dir, f"{key}.pkl")
+                    if not os.path.exists(parquet_path) and not os.path.exists(pickle_path):
                         results["invalid"] += 1
-                        results["errors"].append({"key": key, "error": "Parquet file missing"})
+                        results["errors"].append(
+                            {"key": key, "error": "DataFrame cache file missing"}
+                        )
                     else:
                         results["valid"] += 1
                     continue

@@ -6,7 +6,6 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     EventFramePlugin,
     EventsPlugin,
     RawFilesPlugin,
-    StWaveformsPlugin,
     WaveformsPlugin,
 )
 
@@ -18,7 +17,6 @@ def main() -> None:
     ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
     ctx.register(RawFilesPlugin())
     ctx.register(WaveformsPlugin())
-    ctx.register(StWaveformsPlugin())
     ctx.register(EventsPlugin())
     ctx.register(EventFramePlugin())
 

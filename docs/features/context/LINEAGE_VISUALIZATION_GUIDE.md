@@ -213,14 +213,14 @@ ctx.plot_lineage("df_paired", kind="labview", style=style)
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins import (
-    RawFilesPlugin, WaveformsPlugin, StWaveformsPlugin,
+    RawFilesPlugin, WaveformsPlugin,
     BasicFeaturesPlugin, DataFramePlugin, PairedEventsPlugin,
 )
 
 # 创建 Context 并注册插件
 ctx = Context(storage_dir="./cache")
 ctx.register(
-    RawFilesPlugin(), WaveformsPlugin(), StWaveformsPlugin(),
+    RawFilesPlugin(), WaveformsPlugin(),
     BasicFeaturesPlugin(), DataFramePlugin(), PairedEventsPlugin(),
 )
 

@@ -390,7 +390,7 @@ class CacheDiagnostics:
             return issues
 
         # 扫描数据文件
-        data_extensions = {".bin", ".blosc2", ".lz4", ".zst", ".gz", ".parquet"}
+        data_extensions = {".bin", ".blosc2", ".lz4", ".zst", ".gz", ".parquet", ".pkl"}
 
         for filename in os.listdir(data_dir):
             # 检查是否是数据文件
