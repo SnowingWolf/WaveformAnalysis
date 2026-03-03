@@ -69,6 +69,11 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
             type=str,
             help="峰高计算方法: 'diff' (积分差分) 或 'minmax' (最大最小值差)",
         ),
+        "minmax_window_expand": Option(
+            default=2,
+            type=int,
+            help="height_method='minmax' 时峰窗口左右扩展点数",
+        ),
         "sampling_interval_ns": Option(
             default=2.0,
             type=float,
@@ -88,6 +93,7 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
         self.width = context.get_config(self, "width")
         self.threshold = context.get_config(self, "threshold")
         self.height_method = context.get_config(self, "height_method")
+        self.minmax_window_expand = context.get_config(self, "minmax_window_expand")
         self.sampling_interval_ns = context.get_config(self, "sampling_interval_ns")
         daq_adapter = self._get_global_daq_adapter(context)
         if not self._has_config(context, "sampling_interval_ns"):
@@ -97,6 +103,7 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
             )
         # st_waveforms 的 timestamp 已统一为 ps
         self._timestamp_unit = "ps"
+        self.minmax_window_expand = max(0, int(self.minmax_window_expand))
 
         self.time_field = TIMESTAMP_FIELD
         self.length_field = EVENT_LENGTH_FIELD
@@ -338,8 +345,10 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
                 start_idx = max(0, start_idx)
                 end_idx = min(len(waveform) - 1, end_idx)
 
-                window_start = max(0, start_idx - 2)
-                window_end = min(len(waveform), end_idx + 2)
+                # 使用最大最小值差方法（在峰值周围按配置扩展窗口）
+                expand = self.minmax_window_expand
+                window_start = max(0, start_idx - expand)
+                window_end = min(len(waveform), end_idx + expand)
                 window_slice = slice(window_start, window_end)
 
                 max_value = np.max(waveform[window_slice])
