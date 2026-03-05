@@ -160,6 +160,12 @@ class Context(CacheMixin, PluginMixin):
             "s1_s2",
         }
     )
+    _LEGACY_PLUGIN_ALIASES = {
+        "signal_peaks": "hit",
+    }
+    _LEGACY_DATA_ALIASES = {
+        "signal_peaks": "hit",
+    }
 
     def __init__(
         self,
@@ -612,6 +618,14 @@ class Context(CacheMixin, PluginMixin):
         config = migrate_config(config, warn=True)
 
         if plugin_name is not None:
+            if plugin_name in self._LEGACY_PLUGIN_ALIASES:
+                canonical_name = self._LEGACY_PLUGIN_ALIASES[plugin_name]
+                warnings.warn(
+                    f"Plugin name '{plugin_name}' is deprecated; use '{canonical_name}' instead.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                plugin_name = canonical_name
             # 按插件名称设置配置，自动使用命名空间
             if plugin_name not in self._plugins:
                 self.logger.warning(
@@ -953,6 +967,14 @@ class Context(CacheMixin, PluginMixin):
         """
         # Remember the most recent run_id for display purposes (e.g., show_config()).
         self._last_run_id = run_id
+        if data_name in self._LEGACY_DATA_ALIASES:
+            canonical_name = self._LEGACY_DATA_ALIASES[data_name]
+            warnings.warn(
+                f"Data name '{data_name}' is deprecated; use '{canonical_name}' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            data_name = canonical_name
 
         # 1. Check memory cache
         val = self._get_data_from_memory(run_id, data_name)

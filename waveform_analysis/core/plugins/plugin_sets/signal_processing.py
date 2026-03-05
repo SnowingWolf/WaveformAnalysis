@@ -3,6 +3,8 @@
 Plugin set: Optional signal-processing extensions.
 """
 
+import warnings
+
 from waveform_analysis.core.foundation.utils import exporter
 
 export, __all__ = exporter()
@@ -10,11 +12,13 @@ export, __all__ = exporter()
 
 @export
 def plugins_signal_processing():
-    """Return signal-processing plugin instances in dependency order."""
-    from waveform_analysis.core.plugins.builtin.cpu.s1_s2_classifier import S1S2ClassifierPlugin
-    from waveform_analysis.core.plugins.builtin.cpu.waveform_width import WaveformWidthPlugin
+    """Deprecated alias of plugins_peaks()."""
+    warnings.warn(
+        "plugins_signal_processing is deprecated; use plugins_peaks or "
+        "get_plugin_set('peaks') instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    from waveform_analysis.core.plugins.plugin_sets.peaks import plugins_peaks
 
-    return [
-        WaveformWidthPlugin(),
-        S1S2ClassifierPlugin(),
-    ]
+    return plugins_peaks()

@@ -2,18 +2,39 @@
 Hit Finder Plugins - 阈值 Hit 检测插件
 
 本模块包含：
+1. HitFinderPlugin: 旧导入路径兼容别名（推荐改为 peak_finding.HitFinderPlugin）
 1. ThresholdHitPlugin: 新的纯阈值 hit 插件（provides='hit_threshold'），输出 HIT_DTYPE
 2. ThresholdHitFinderPlugin: 旧版兼容插件（provides='hits'），输出 PEAK_DTYPE
 """
 
 from typing import Any, List, Optional, Tuple
+import warnings
 
 import numpy as np
 
-from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HIT_DTYPE
+from waveform_analysis.core.plugins.builtin.cpu.peak_finding import (
+    HIT_DTYPE,
+)
+from waveform_analysis.core.plugins.builtin.cpu.peak_finding import (
+    HitFinderPlugin as _CanonicalHitFinderPlugin,
+)
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.dtypes import PEAK_DTYPE
 from waveform_analysis.core.processing.event_grouping import find_hits
+
+
+class HitFinderPlugin(_CanonicalHitFinderPlugin):
+    """Deprecated import-path alias for peak_finding.HitFinderPlugin."""
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "Importing HitFinderPlugin from "
+            "waveform_analysis.core.plugins.builtin.cpu.hit_finder is deprecated; "
+            "use waveform_analysis.core.plugins.builtin.cpu (or .peak_finding) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args, **kwargs)
 
 
 class ThresholdHitPlugin(Plugin):
@@ -198,3 +219,10 @@ class ThresholdHitFinderPlugin(Plugin):
         if not hits_all:
             return np.zeros(0, dtype=PEAK_DTYPE)
         return np.concatenate(hits_all)
+
+
+__all__ = [
+    "HitFinderPlugin",
+    "ThresholdHitPlugin",
+    "ThresholdHitFinderPlugin",
+]

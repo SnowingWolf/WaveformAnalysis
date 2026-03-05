@@ -4,7 +4,8 @@ CPU 插件模块 - 使用 NumPy/SciPy 实现
 本模块包含所有 CPU 实现的插件：
 - raw_files.py: 原始文件扫描插件
 - waveforms.py: 波形提取与结构化插件（包含 WaveformStruct）
-- hit_finder.py: Hit 检测插件
+- peak_finding.py: Hit 检测插件（HitFinderPlugin / SignalPeaksPlugin）
+- hit_finder.py: 阈值 hit 兼容插件（ThresholdHitPlugin）
 - basic_features.py: 基础特征计算插件
 - dataframe.py: DataFrame 构建插件
 - event_analysis.py: 事件分组与配对插件
@@ -32,11 +33,8 @@ from .events import EventFramePlugin, EventsGroupedPlugin, EventsPlugin
 # CPU 滤波插件
 from .filtering import FilteredWaveformsPlugin
 
-# 特征提取插件
-from .hit_finder import HitFinderPlugin
-
 # CPU 寻峰插件
-from .peak_finding import ADVANCED_PEAK_DTYPE, SignalPeaksPlugin
+from .peak_finding import HIT_DTYPE, HitFinderPlugin, SignalPeaksPlugin
 
 # Records 插件
 from .records import RecordsPlugin
@@ -89,7 +87,7 @@ __all__ = [
     "FilteredWaveformsPlugin",
     # 寻峰插件
     "SignalPeaksPlugin",
-    "ADVANCED_PEAK_DTYPE",
+    "HIT_DTYPE",
     # 波形宽度插件
     "WaveformWidthPlugin",
     "WAVEFORM_WIDTH_DTYPE",

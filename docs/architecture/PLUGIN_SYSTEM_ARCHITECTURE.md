@@ -28,8 +28,8 @@ waveform_analysis/core/plugins/
 │   │   ├── raw_files.py          # RawFileNamesPlugin
 │   │   ├── waveforms.py          # WaveformsPlugin
 │   │   ├── filtering.py          # FilteredWaveformsPlugin
-│   │   ├── peak_finding.py       # SignalPeaksPlugin
-│   │   ├── hit_finder.py         # HitFinderPlugin
+│   │   ├── peak_finding.py       # HitFinderPlugin, SignalPeaksPlugin
+│   │   ├── hit_finder.py         # ThresholdHitPlugin（兼容/扩展）
 │   │   ├── basic_features.py     # BasicFeaturesPlugin
 │   │   ├── dataframe.py          # DataFramePlugin
 │   │   ├── event_analysis.py     # GroupedEventsPlugin, PairedEventsPlugin
@@ -47,7 +47,8 @@ waveform_analysis/core/plugins/
 │   ├── basic_features.py         # 特征提取插件集
 │   ├── tabular.py                # DataFrame 转换插件集
 │   ├── events.py                 # 事件分组/配对插件集
-│   └── signal_processing.py      # 信号处理插件集
+│   ├── peaks.py                  # 峰相关插件集
+│   └── signal_processing.py      # peaks 兼容别名（弃用）
 │
 ├── profiles.py                   # 执行配置文件
 └── __init__.py

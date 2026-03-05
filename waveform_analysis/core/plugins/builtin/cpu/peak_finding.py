@@ -34,6 +34,9 @@ HIT_DTYPE = np.dtype(
     ]
 )
 
+# Backward-compatible alias used by legacy imports and streaming plugins.
+ADVANCED_PEAK_DTYPE = HIT_DTYPE
+
 
 class HitFinderPlugin(Plugin):
     """
@@ -537,3 +540,10 @@ class SignalPeaksPlugin(HitFinderPlugin):
             stacklevel=2,
         )
         super().__init__(*args, **kwargs)
+
+
+__all__ = [
+    "HIT_DTYPE",
+    "HitFinderPlugin",
+    "SignalPeaksPlugin",
+]

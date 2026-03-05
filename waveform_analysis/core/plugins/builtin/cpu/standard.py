@@ -7,7 +7,7 @@ CPU Standard Plugins - 标准波形分析插件（统一导入入口）
 本模块作为标准插件的统一导入入口，所有插件已拆分到独立文件中：
 - RawFileNamesPlugin → waveforms.py
 - WaveformsPlugin → waveforms.py (合并了原 StWaveformsPlugin)
-- HitFinderPlugin → hit_finder.py
+- HitFinderPlugin → peak_finding.py
 - BasicFeaturesPlugin → basic_features.py
 - DataFramePlugin → dataframe.py
 - GroupedEventsPlugin → event_analysis.py
@@ -29,7 +29,7 @@ from waveform_analysis.core.plugins.profiles import cpu_default
 from .basic_features import BASIC_FEATURES_DTYPE, BasicFeaturesPlugin
 from .dataframe import DataFramePlugin
 from .event_analysis import GroupedEventsPlugin, PairedEventsPlugin
-from .hit_finder import HitFinderPlugin
+from .peak_finding import HitFinderPlugin
 from .raw_files import RawFileNamesPlugin
 from .waveforms import WaveformsPlugin, WaveformStruct, WaveformStructConfig
 
