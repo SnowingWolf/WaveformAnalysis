@@ -1,0 +1,101 @@
+version: 1
+source_of_truth: AGENTS.md
+default_language: zh-CN
+
+task_routes:
+  - task: modify_plugin
+    entry_doc: AGENTS.md
+    primary_doc: docs/agents/plugins.md
+    secondary_docs:
+      - docs/agents/conventions.md
+      - docs/plugins/reference/agent/INDEX.md
+    commands:
+      - pytest -v tests/test_doc_generator.py
+      - waveform-docs generate plugins-agent --plugin <provides>
+
+  - task: debug_cache
+    entry_doc: AGENTS.md
+    primary_doc: docs/agents/workflows.md
+    secondary_docs:
+      - docs/features/context/DATA_ACCESS.md
+      - docs/features/context/PREVIEW_EXECUTION.md
+    commands:
+      - waveform-cache diagnose --run <run_id> --dry-run
+      - python scripts/check_doc_anchors.py --check-sync --base HEAD
+
+  - task: generate_docs
+    entry_doc: AGENTS.md
+    primary_doc: docs/agents/references.md
+    secondary_docs:
+      - docs/cli/WAVEFORM_DOCS.md
+    commands:
+      - waveform-docs generate plugins-auto
+      - waveform-docs generate plugins-agent
+
+  - task: run_tests
+    entry_doc: AGENTS.md
+    primary_doc: AGENTS.md
+    secondary_docs:
+      - docs/agents/quickstart.md
+      - docs/agents/conventions.md
+    commands:
+      - ./scripts/run_tests.sh
+      - pytest -v
+
+  - task: release_check
+    entry_doc: AGENTS.md
+    primary_doc: docs/agents/workflows.md
+    secondary_docs:
+      - docs/agents/references.md
+    commands:
+      - scripts/check_doc_sync.sh
+      - python scripts/check_doc_anchors.py --check-sync --base HEAD
+
+doc_index:
+  - id: agents_index
+    title: Agent Docs Index (Compatibility)
+    path: docs/agents/INDEX.md
+    scope: compatibility-navigation
+    audience: agent
+
+  - id: quickstart
+    title: Agent Quickstart (Compatibility)
+    path: docs/agents/quickstart.md
+    scope: compatibility-onboarding
+    audience: agent
+
+  - id: architecture
+    title: Agent Architecture
+    path: docs/agents/architecture.md
+    scope: architecture
+    audience: agent
+
+  - id: plugins
+    title: Agent Plugins Guide
+    path: docs/agents/plugins.md
+    scope: plugins
+    audience: agent
+
+  - id: configuration
+    title: Agent Configuration Guide
+    path: docs/agents/configuration.md
+    scope: config
+    audience: agent
+
+  - id: workflows
+    title: Agent Workflows
+    path: docs/agents/workflows.md
+    scope: operations
+    audience: agent
+
+  - id: conventions
+    title: Agent Conventions
+    path: docs/agents/conventions.md
+    scope: rules
+    audience: agent
+
+  - id: references
+    title: Agent References
+    path: docs/agents/references.md
+    scope: links
+    audience: agent

@@ -16,7 +16,7 @@
 
 ### API 查找
 
-1. 查看 [CLAUDE.md](../../CLAUDE.md) 中的 Common Patterns 部分
+1. 先看 [AGENTS.md](../../AGENTS.md)，需要专题导航时再看 [Agent Docs Index](../agents/INDEX.md)
 2. 阅读代码中的 docstring（推荐使用 IDE 的代码补全）
 3. 查看 [内置插件文档](../plugins/reference/builtin/auto/INDEX.md) 了解插件 API
 

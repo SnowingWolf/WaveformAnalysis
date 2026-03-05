@@ -4026,8 +4026,9 @@ class Context(CacheMixin, PluginMixin):
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 📚 文档位置
-  • 项目说明: CLAUDE.md
+  • 主入口: AGENTS.md
   • 详细文档: docs/ 目录
+  • 专题导航(兼容): docs/agents/INDEX.md
   • 快速参考: QUICK_REFERENCE.md
 
 🚀 快速开始
