@@ -5,7 +5,8 @@
 
 ## Source Of Truth
 - 主入口（唯一真源）：`AGENTS.md`
-- 兼容入口：`CLAUDE.md`、`docs/agents/INDEX.md`、`docs/agents/quickstart.md`（仅跳转/速查）
+- 入口导航：`docs/agents/INDEX.md`
+- 旧链接兼容：`CLAUDE.md`（最小跳转）
 - Agent 深度文档：`docs/agents/`
 - Agent 插件参考：`docs/plugins/reference/agent/INDEX.md`
 - Auto 插件参考（保留不变）：`docs/plugins/reference/builtin/auto/INDEX.md`
@@ -105,7 +106,7 @@ waveform-process --show-daq --daq-root DAQ
 - 插件输出字段变更但未升级 `version` 会造成缓存问题。
 
 ## Deep Links
-- Agent 总导航（兼容）：`docs/agents/INDEX.md`
+- Agent 总导航：`docs/agents/INDEX.md`
 - 机器可读索引：`docs/agents/index.yaml`
 - 核心架构：`docs/architecture/ARCHITECTURE.md`
 - 配置：`docs/features/context/CONFIGURATION.md`
@@ -115,5 +116,5 @@ waveform-process --show-daq --daq-root DAQ
 - 执行器管理：`docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md`
 
 ## Compatibility Notes
-- `CLAUDE.md` 与 `docs/agents/*` 保留用于兼容旧入口。
+- `CLAUDE.md` 保留用于兼容旧链接。
 - 新增或更新入口规则时，仅维护本文件。

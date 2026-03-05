@@ -1,10 +1,9 @@
 # Agent Docs Index
 
-本页为兼容导航页。主入口与硬约束统一在 `AGENTS.md`。
+本页为 Agent 文档导航页。主入口与硬约束统一在 `AGENTS.md`。
 
 ## 快速入口
 - 主入口（推荐）：`../../AGENTS.md`
-- 快速上手（兼容）：`quickstart.md`
 - 架构总览：`architecture.md`
 - 插件体系：`plugins.md`
 - 配置与兼容：`configuration.md`

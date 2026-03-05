@@ -5,13 +5,15 @@ default_language: zh-CN
 task_routes:
   - task: modify_plugin
     entry_doc: AGENTS.md
-    primary_doc: docs/agents/plugins.md
+    primary_doc: docs/agents/workflows.md
     secondary_docs:
-      - docs/agents/conventions.md
+      - docs/agents/plugins.md
       - docs/plugins/reference/agent/INDEX.md
     commands:
-      - pytest -v tests/test_doc_generator.py
+      - ./scripts/run_tests.sh -v -k <plugin_or_feature_keyword>
       - waveform-docs generate plugins-agent --plugin <provides>
+      - scripts/check_doc_sync.sh
+      - python scripts/check_doc_anchors.py --check-sync --base HEAD
 
   - task: debug_cache
     entry_doc: AGENTS.md
@@ -36,7 +38,7 @@ task_routes:
     entry_doc: AGENTS.md
     primary_doc: AGENTS.md
     secondary_docs:
-      - docs/agents/quickstart.md
+      - docs/agents/workflows.md
       - docs/agents/conventions.md
     commands:
       - ./scripts/run_tests.sh
@@ -53,15 +55,9 @@ task_routes:
 
 doc_index:
   - id: agents_index
-    title: Agent Docs Index (Compatibility)
+    title: Agent Docs Index
     path: docs/agents/INDEX.md
-    scope: compatibility-navigation
-    audience: agent
-
-  - id: quickstart
-    title: Agent Quickstart (Compatibility)
-    path: docs/agents/quickstart.md
-    scope: compatibility-onboarding
+    scope: navigation
     audience: agent
 
   - id: architecture

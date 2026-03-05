@@ -4,7 +4,7 @@
 
 ## Canonical Guidance
 - 主入口（唯一真源）：`AGENTS.md`
-- 专题导航（兼容）：`docs/agents/INDEX.md`
+- 专题导航：`docs/agents/INDEX.md`
 - Agent 插件参考：`docs/plugins/reference/agent/INDEX.md`
 - Auto 插件参考：`docs/plugins/reference/builtin/auto/INDEX.md`
 
