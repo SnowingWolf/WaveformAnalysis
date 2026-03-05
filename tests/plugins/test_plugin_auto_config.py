@@ -2,11 +2,12 @@ import numpy as np
 
 from tests.utils import DummyContext
 from waveform_analysis.core.plugins.builtin.cpu.filtering import FilteredWaveformsPlugin
-from waveform_analysis.core.plugins.builtin.cpu.standard import (
+from waveform_analysis.core.plugins.builtin.cpu.peak_finding import (
+    HIT_DTYPE,
     HitFinderPlugin,
-    WaveformsPlugin,
 )
-from waveform_analysis.core.processing.dtypes import PEAK_DTYPE, create_record_dtype
+from waveform_analysis.core.plugins.builtin.cpu.standard import WaveformsPlugin
+from waveform_analysis.core.processing.dtypes import create_record_dtype
 from waveform_analysis.utils.formats import (
     FLAT_LAYOUT,
     ColumnMapping,
@@ -41,11 +42,111 @@ def _register_test_adapter(name, sampling_rate_hz=1e9):
 def test_hitfinder_empty_dtype():
     dtype = create_record_dtype(5)
     st_waveforms = np.zeros(0, dtype=dtype)
-    ctx = DummyContext({}, {"st_waveforms": st_waveforms})
+    ctx = DummyContext({"use_filtered": False}, {"st_waveforms": st_waveforms})
     plugin = HitFinderPlugin()
-    hits = plugin.compute(ctx, "run_001", threshold=1.0)
-    assert len(hits) == 0
-    assert hits.dtype == np.dtype(PEAK_DTYPE)
+    peaks = plugin.compute(ctx, "run_001")
+    assert len(peaks) == 0
+    assert peaks.dtype == HIT_DTYPE
+
+
+def test_hitfinder_parallel_consistency():
+    dtype = create_record_dtype(128)
+    n_events = 200
+    st_waveforms = np.zeros(n_events, dtype=dtype)
+
+    for i in range(n_events):
+        wave = np.ones(128, dtype=np.int16) * 100
+        pulse_start = 20 + (i % 40)
+        wave[pulse_start : pulse_start + 4] = 40
+        st_waveforms[i]["wave"] = wave
+        st_waveforms[i]["baseline"] = 100.0
+        st_waveforms[i]["timestamp"] = 100_000 + i * 1000
+        st_waveforms[i]["event_length"] = 128
+        st_waveforms[i]["channel"] = i % 2
+
+    base_config = {
+        "use_filtered": False,
+        "use_derivative": False,
+        "height": 5.0,
+        "distance": 1,
+        "prominence": 1.0,
+        "width": 1,
+        "threshold": None,
+    }
+
+    plugin = HitFinderPlugin()
+
+    ctx_serial = DummyContext(
+        {
+            **base_config,
+            "parallel": False,
+        },
+        {"st_waveforms": st_waveforms},
+    )
+    serial_result = plugin.compute(ctx_serial, "run_001")
+
+    ctx_parallel = DummyContext(
+        {
+            **base_config,
+            "parallel": True,
+            "n_workers": 4,
+            "chunk_size": 32,
+            "parallel_min_events": 1,
+        },
+        {"st_waveforms": st_waveforms},
+    )
+    parallel_result = plugin.compute(ctx_parallel, "run_001")
+
+    np.testing.assert_array_equal(parallel_result, serial_result)
+
+
+def test_hitfinder_height_window_extension_effect():
+    dtype = create_record_dtype(64)
+    st_waveforms = np.zeros(1, dtype=dtype)
+
+    wave = np.ones(64, dtype=np.int16) * 100
+    wave[30:34] = 60  # negative pulse
+    wave[38] = 130  # overshoot on the right side
+    st_waveforms[0]["wave"] = wave
+    st_waveforms[0]["baseline"] = 100.0
+    st_waveforms[0]["timestamp"] = 100_000
+    st_waveforms[0]["event_length"] = 64
+    st_waveforms[0]["channel"] = 0
+
+    plugin = HitFinderPlugin()
+    base_config = {
+        "use_filtered": False,
+        "use_derivative": False,
+        "height": 5.0,
+        "distance": 1,
+        "prominence": 1.0,
+        "width": 1,
+        "threshold": None,
+        "height_method": "minmax",
+        "parallel": False,
+    }
+
+    ctx_small = DummyContext(
+        {
+            **base_config,
+            "height_window_extension": 0,
+        },
+        {"st_waveforms": st_waveforms},
+    )
+    peaks_small = plugin.compute(ctx_small, "run_001")
+
+    ctx_large = DummyContext(
+        {
+            **base_config,
+            "height_window_extension": 8,
+        },
+        {"st_waveforms": st_waveforms},
+    )
+    peaks_large = plugin.compute(ctx_large, "run_001")
+
+    assert len(peaks_small) > 0
+    assert len(peaks_large) > 0
+    assert peaks_large["hit_height"][0] > peaks_small["hit_height"][0]
 
 
 def test_waveforms_plugin_uses_raw_files_channels(monkeypatch):

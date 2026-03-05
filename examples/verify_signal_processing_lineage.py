@@ -14,8 +14,8 @@ import sys
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
     FilteredWaveformsPlugin,
+    HitFinderPlugin,
     RawFilesPlugin,
-    SignalPeaksPlugin,
     WaveformsPlugin,
 )
 
@@ -33,7 +33,7 @@ def verify_plugin_registration():
         RawFilesPlugin(),
         WaveformsPlugin(),
         FilteredWaveformsPlugin(),
-        SignalPeaksPlugin(),
+        HitFinderPlugin(),
     ]
 
     for plugin in plugins:
@@ -56,7 +56,7 @@ def verify_dependency_chain(ctx):
     print("2. 验证依赖链")
     print("=" * 70)
 
-    target = "signal_peaks"
+    target = "hit"
     print(f"\n目标数据: {target}")
     print("\n依赖链分析:")
 
@@ -106,9 +106,9 @@ def verify_plugin_configs(ctx):
             print(f"      类型: {opt_obj.type}")
             print(f"      说明: {opt_obj.help}")
 
-    # 检查 SignalPeaksPlugin 配置
-    print("\nSignalPeaksPlugin 配置选项:")
-    plugin = ctx._plugins.get("signal_peaks")
+    # 检查 HitFinderPlugin 配置
+    print("\nHitFinderPlugin 配置选项:")
+    plugin = ctx._plugins.get("hit")
     if plugin:
         for opt_name, opt_obj in plugin.options.items():
             print(f"  - {opt_name}:")
@@ -146,17 +146,17 @@ def verify_lineage_tracking(ctx):
             "height": 30.0,
             "prominence": 0.7,
         },
-        plugin_name="signal_peaks",
+        plugin_name="hit",
     )
 
     print("\n配置已设置:")
     print("  全局配置: data_root=DAQ, n_channels=2")
     print("  filtered_waveforms: filter_type=SG, sg_window_size=11")
-    print("  signal_peaks: height=30.0, prominence=0.7")
+    print("  hit: height=30.0, prominence=0.7")
 
     # 检查插件 lineage 信息
     print("\n插件 Lineage 信息:")
-    for plugin_name in ["filtered_waveforms", "signal_peaks"]:
+    for plugin_name in ["filtered_waveforms", "hit"]:
         if plugin_name in ctx._plugins:
             plugin = ctx._plugins[plugin_name]
             print(f"\n{plugin_name}:")
@@ -188,7 +188,7 @@ def visualize_lineage(ctx):
 
     try:
         # 尝试生成 lineage 可视化
-        print("\n尝试生成 signal_peaks 的依赖图...")
+        print("\n尝试生成 hit 的依赖图...")
 
         if hasattr(ctx, "plot_lineage"):
             import matplotlib
@@ -196,14 +196,14 @@ def visualize_lineage(ctx):
             matplotlib.use("Agg")  # 非交互式后端
 
             # 生成可视化（LabVIEW 风格）
-            ctx.plot_lineage("signal_peaks", kind="labview", verbose=2)
+            ctx.plot_lineage("hit", kind="labview", verbose=2)
             print("✓ LabVIEW 风格依赖图已保存")
 
             # 如果安装了 plotly，也生成交互式版本
             try:
                 import plotly
 
-                ctx.plot_lineage("signal_peaks", kind="plotly", verbose=2)
+                ctx.plot_lineage("hit", kind="plotly", verbose=2)
                 print("✓ Plotly 交互式依赖图已保存")
             except ImportError:
                 print("! Plotly 未安装，跳过交互式可视化")
@@ -221,11 +221,11 @@ def verify_data_types():
     print("6. 验证数据类型")
     print("=" * 70)
 
-    from waveform_analysis.core.plugins.builtin.cpu import ADVANCED_PEAK_DTYPE
+    from waveform_analysis.core.plugins.builtin.cpu import HIT_DTYPE
 
-    print("\nADVANCED_PEAK_DTYPE 字段:")
-    for name in ADVANCED_PEAK_DTYPE.names:
-        field_type = ADVANCED_PEAK_DTYPE.fields[name][0]
+    print("\nHIT_DTYPE 字段:")
+    for name in HIT_DTYPE.names:
+        field_type = HIT_DTYPE.fields[name][0]
         print(f"  - {name}: {field_type}")
 
     print("\n✓ 数据类型验证完成")
@@ -300,10 +300,10 @@ def test_plugin_with_mock_data(ctx):
                 for ch_idx, filtered_ch in enumerate(filtered_result):
                     print(f"  通道 {ch_idx}: {filtered_ch.shape}")
 
-                # 测试 SignalPeaksPlugin
-                peaks_plugin = ctx._plugins.get("signal_peaks")
+                # 测试 HitFinderPlugin
+                peaks_plugin = ctx._plugins.get("hit")
                 if peaks_plugin:
-                    print("\n测试 SignalPeaksPlugin...")
+                    print("\n测试 HitFinderPlugin...")
 
                     class MockContextWithFiltered(MockContext):
                         def get_data(self, run_id, data_name):
@@ -326,12 +326,19 @@ def test_plugin_with_mock_data(ctx):
 
                     mock_ctx2 = MockContextWithFiltered()
                     peaks_result = peaks_plugin.compute(mock_ctx2, "test_run")
-                    print(f"✓ 峰值检测成功: {len(peaks_result)} 个通道")
-                    for ch_idx, peaks_ch in enumerate(peaks_result):
+                    print(f"✓ 峰值检测成功: 总峰值 {len(peaks_result)}")
+                    channels = (
+                        sorted({int(ch) for ch in peaks_result["channel"]})
+                        if len(peaks_result) > 0
+                        else []
+                    )
+                    for ch_idx in channels:
+                        peaks_ch = peaks_result[peaks_result["channel"] == ch_idx]
                         print(f"  通道 {ch_idx}: {len(peaks_ch)} 个峰值")
                         if len(peaks_ch) > 0:
                             print(
-                                f"    示例峰值: position={peaks_ch[0]['position']}, height={peaks_ch[0]['height']:.2f}"
+                                f"    示例峰值: hit_sample_idx={peaks_ch[0]['hit_sample_idx']}, "
+                                f"hit_height={peaks_ch[0]['hit_height']:.2f}"
                             )
 
             except Exception as e:

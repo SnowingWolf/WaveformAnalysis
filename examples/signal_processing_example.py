@@ -2,7 +2,7 @@
 """
 信号处理插件使用示例
 
-展示如何使用 FilteredWaveformsPlugin 和 SignalPeaksPlugin
+展示如何使用 FilteredWaveformsPlugin 和 HitFinderPlugin
 进行波形滤波和峰值检测。
 
 功能说明：
@@ -18,8 +18,8 @@ import matplotlib.pyplot as plt
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
     FilteredWaveformsPlugin,
+    HitFinderPlugin,
     RawFilesPlugin,
-    SignalPeaksPlugin,
     WaveformsPlugin,
 )
 
@@ -41,7 +41,7 @@ def example_basic_usage():
 
     # 注册信号处理插件
     ctx.register_plugin_(FilteredWaveformsPlugin())
-    ctx.register_plugin_(SignalPeaksPlugin())
+    ctx.register_plugin_(HitFinderPlugin())
 
     # 设置全局配置
     ctx.set_config(
@@ -73,7 +73,7 @@ def example_basic_usage():
             "width": 4,  # 最小宽度
             "height_method": "minmax",  # 峰高计算方法
         },
-        plugin_name="signal_peaks",
+        plugin_name="hit",
     )
 
     # 指定运行名称
@@ -91,9 +91,12 @@ def example_basic_usage():
 
     # 获取峰值检测结果
     print("\n步骤 2: 获取峰值检测结果...")
-    signal_peaks = ctx.get_data(run_id, "signal_peaks")
-    print(f"通道数: {len(signal_peaks)}")
-    for ch_idx, peaks_ch in enumerate(signal_peaks):
+    hit = ctx.get_data(run_id, "hit")
+    channels = sorted({int(ch) for ch in hit["channel"]}) if len(hit) > 0 else []
+    print(f"总峰值数: {len(hit)}")
+    print(f"通道数: {len(channels)}")
+    for ch_idx in channels:
+        peaks_ch = hit[hit["channel"] == ch_idx]
         print(f"通道 {ch_idx}: {len(peaks_ch)} 个峰值")
         if len(peaks_ch) > 0:
             print(f"  峰值字段: {peaks_ch.dtype.names}")
@@ -101,7 +104,7 @@ def example_basic_usage():
 
     print("\n✓ 基本使用示例完成")
 
-    return ctx, run_id, filtered_waveforms, signal_peaks
+    return ctx, run_id, filtered_waveforms, hit
 
 
 def example_butterworth_filter():
@@ -166,7 +169,7 @@ def example_visualize_results(ctx, run_id, event_idx=0, channel_idx=0):
     # 获取原始波形、滤波波形和峰值
     st_waveforms = ctx.get_data(run_id, "st_waveforms")
     filtered_waveforms = ctx.get_data(run_id, "filtered_waveforms")
-    signal_peaks = ctx.get_data(run_id, "signal_peaks")
+    hit = ctx.get_data(run_id, "hit")
 
     # 检查数据是否存在
     if len(st_waveforms) <= channel_idx or len(st_waveforms[channel_idx]) <= event_idx:
@@ -178,7 +181,7 @@ def example_visualize_results(ctx, run_id, event_idx=0, channel_idx=0):
     filtered_waveform = filtered_waveforms[channel_idx][event_idx]
 
     # 提取此事件的峰值（如果有）
-    event_peaks = signal_peaks[channel_idx][signal_peaks[channel_idx]["event_index"] == event_idx]
+    event_peaks = hit[(hit["channel"] == channel_idx) & (hit["record_index"] == event_idx)]
 
     print(f"\n可视化通道 {channel_idx}, 事件 {event_idx}")
     print(f"原始波形长度: {len(original_waveform)}")
@@ -209,7 +212,7 @@ def example_visualize_results(ctx, run_id, event_idx=0, channel_idx=0):
 
     # 标记峰值
     if len(event_peaks) > 0:
-        peak_positions = event_peaks["position"]
+        peak_positions = event_peaks["hit_sample_idx"]
         peak_heights = filtered_waveform[peak_positions]
 
         axes[2].scatter(
@@ -224,8 +227,8 @@ def example_visualize_results(ctx, run_id, event_idx=0, channel_idx=0):
 
         # 标记峰值边缘
         for peak in event_peaks:
-            edge_start = int(peak["edge_start"])
-            edge_end = int(peak["edge_end"])
+            edge_start = int(peak["hit_left_sample_idx"])
+            edge_end = int(peak["hit_right_sample_idx"])
             axes[2].axvline(edge_start, color="orange", linestyle="--", alpha=0.5, linewidth=1)
             axes[2].axvline(edge_end, color="orange", linestyle="--", alpha=0.5, linewidth=1)
 
@@ -337,7 +340,7 @@ def main():
 
     try:
         # 示例 1: 基本使用
-        ctx, run_id, filtered_waveforms, signal_peaks = example_basic_usage()
+        ctx, run_id, filtered_waveforms, hit = example_basic_usage()
 
         # 示例 2: Butterworth 滤波器
         example_butterworth_filter()

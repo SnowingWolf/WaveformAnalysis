@@ -39,11 +39,11 @@ def plot_waveforms(
     title: str = "Waveform Viewer",
 ):
     """
-    Creates an interactive Plotly figure for browsing waveforms and hits.
+    Creates an interactive Plotly figure for browsing waveforms and peak annotations.
 
     Args:
         waveforms: List of numpy arrays (one per channel) or a single 2D array.
-        hits: Optional structured array of hits (PEAK_DTYPE).
+        hits: Optional structured array of peaks (HIT_DTYPE).
         event_index: The index of the event to display.
         channels: List of channel indices to show.
         title: Plot title.
@@ -113,29 +113,46 @@ def plot_waveforms(
                 col=1,
             )
 
-        # Plot hits if available
+        # Plot peaks if available
         if hits is not None:
-            # Filter hits for this channel and event
-            ch_hits = hits[(hits["channel"] == ch_idx) & (hits["event_index"] == event_index)]
+            # Filter peaks for this channel and event
+            ch_hits = hits[(hits["channel"] == ch_idx) & (hits["record_index"] == event_index)]
             for hit in ch_hits:
-                # Highlight hit area
+                pos = int(hit["hit_sample_idx"]) if "hit_sample_idx" in hit.dtype.names else 0
+                start = (
+                    int(round(hit["hit_left_sample_idx"]))
+                    if "hit_left_sample_idx" in hit.dtype.names
+                    else pos
+                )
+                end = (
+                    int(round(hit["hit_right_sample_idx"]))
+                    if "hit_right_sample_idx" in hit.dtype.names
+                    else pos
+                )
+                if end < start:
+                    start, end = end, start
+                start = max(0, start)
+                end = min(len(y) - 1, end)
+                y_peak = y[pos] if 0 <= pos < len(y) else baseline
+
+                # Highlight peak region
                 fig.add_vrect(
-                    x0=hit["time"],
-                    x1=hit["time"] + hit["width"],
+                    x0=start,
+                    x1=end,
                     fillcolor="red",
                     opacity=0.2,
                     line_width=0,
                     row=i + 1,
                     col=1,
                 )
-                # Add marker for peak
+                # Add marker for peak position
                 fig.add_trace(
                     go.Scatter(
-                        x=[hit["time"] + hit["width"] / 2],
-                        y=[hit["height"] + baseline],
+                        x=[pos],
+                        y=[y_peak],
                         mode="markers",
                         marker={"color": "red", "symbol": "x"},
-                        name=f"Hit @ {hit['time']}",
+                        name=f"Peak @ {pos}",
                         showlegend=False,
                     ),
                     row=i + 1,
@@ -157,7 +174,7 @@ def create_interactive_browser(context, run_id: str):
     """
     # This is intended for use in a Jupyter Notebook
     waveforms = context.get_data(run_id, "st_waveforms")
-    hits = context.get_data(run_id, "hits")
+    hits = context.get_data(run_id, "hit")
 
     def browse(event_index=0):
         fig = plot_waveforms(waveforms, hits, event_index=event_index)
