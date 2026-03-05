@@ -161,6 +161,18 @@ ctx.set_config({
 # 其他插件获取到 10（全局）
 ```
 
+## 适配器推断
+
+当设置了 `daq_adapter` 时，系统会从适配器元数据推断部分配置，常见包括：
+- 采样率（`sampling_rate_hz`）
+- 采样间隔（`dt_ns` / `dt_ps`）
+- 时间戳单位（`timestamp_unit`）
+
+推断配置在解析优先级中低于显式配置，高于插件默认值。最终生效值可通过
+`ctx.get_resolved_config()` 或 `ctx.show_resolved_config()` 查看。
+
+如需适配器细节与扩展方法，参考 [DAQ 适配器使用指南](../../plugins/guides/DAQ_ADAPTER_GUIDE.md)。
+
 ## 兼容层
 
 配置系统提供兼容层用于处理历史配置名称的迁移：
@@ -311,5 +323,7 @@ with open('config_backup.json', 'r') as f:
 - [数据访问](DATA_ACCESS.md) - 获取数据
 - [执行预览](PREVIEW_EXECUTION.md) - 确认配置生效
 - [内置插件文档](../../plugins/reference/builtin/auto/INDEX.md) - 插件配置选项列表
+- [Agent 入口](../../../AGENTS.md) - 任务导航与约束
+- [Agent 文档索引](../../agents/INDEX.md) - agent 专题说明
 
 [^source]: 来源：`waveform_analysis/core/context.py`、`waveform_analysis/core/config/`。

@@ -8,6 +8,7 @@
 >
 > 本文档介绍 `PluginSpec` 和 `ConfigField`，这是面向框架内部和高级场景的功能。[^source]
 > 普通插件开发者只需使用 `Option` 定义配置即可。
+> 文档同步说明：本页对应 `waveform_analysis/core/plugins/core/base.py` 的 `# DOC` 引用。
 
 ---
 

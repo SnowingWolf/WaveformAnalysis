@@ -311,5 +311,7 @@ data = ctx.get_data("run_001", "waveforms")  # 重新计算
 - [配置管理](CONFIGURATION.md) - 设置插件配置
 - [缓存管理 CLI](../../cli/WAVEFORM_CACHE.md) - 缓存扫描、诊断与清理
 - [执行预览](PREVIEW_EXECUTION.md) - 执行前预览
+- [Agent 入口](../../../AGENTS.md) - 任务导航与约束
+- [Agent 文档索引](../../agents/INDEX.md) - agent 专题说明
 
 [^source]: 来源：`waveform_analysis/core/context.py`、`waveform_analysis/core/storage/`。

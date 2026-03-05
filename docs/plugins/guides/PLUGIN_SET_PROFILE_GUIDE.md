@@ -4,6 +4,9 @@
 
 本指南说明如何使用 **Plugin Set** 与 **Profile** 组合插件，形成可维护的处理链路。[^source]
 
+> 文档同步说明：本页对应 `waveform_analysis/core/plugins/plugin_sets/*` 与
+> `waveform_analysis/core/plugins/profiles.py` 中的 `# DOC` 引用。
+
 ---
 
 ## Plugin Sets
