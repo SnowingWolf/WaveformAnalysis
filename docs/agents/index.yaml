@@ -31,8 +31,8 @@ task_routes:
     secondary_docs:
       - docs/cli/WAVEFORM_DOCS.md
     commands:
-      - waveform-docs generate plugins-auto
-      - waveform-docs generate plugins-agent
+      - waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/
+      - waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
 
   - task: run_tests
     entry_doc: AGENTS.md
@@ -44,14 +44,47 @@ task_routes:
       - ./scripts/run_tests.sh
       - pytest -v
 
+  - task: assess_change_impact
+    entry_doc: AGENTS.md
+    primary_doc: docs/agents/workflows.md
+    secondary_docs:
+      - docs/agents/plugins.md
+      - docs/features/context/CONFIGURATION.md
+    commands:
+      - python scripts/assess_change_impact.py --base HEAD
+
+  - task: schema_compat_check
+    entry_doc: AGENTS.md
+    primary_doc: docs/agents/workflows.md
+    secondary_docs:
+      - docs/agents/plugins.md
+      - docs/features/context/DATA_ACCESS.md
+    commands:
+      - python scripts/schema_compat_check.py --base HEAD --run-smoke
+
+  - task: performance_regression_check
+    entry_doc: AGENTS.md
+    primary_doc: docs/agents/workflows.md
+    secondary_docs:
+      - docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md
+    commands:
+      - python scripts/performance_regression_check.py --base HEAD
+
+  - task: release_artifact_sync
+    entry_doc: AGENTS.md
+    primary_doc: docs/agents/workflows.md
+    secondary_docs:
+      - docs/agents/references.md
+    commands:
+      - python scripts/release_artifact_sync.py --base HEAD
+
   - task: release_check
     entry_doc: AGENTS.md
     primary_doc: docs/agents/workflows.md
     secondary_docs:
       - docs/agents/references.md
     commands:
-      - scripts/check_doc_sync.sh
-      - python scripts/check_doc_anchors.py --check-sync --base HEAD
+      - python scripts/release_artifact_sync.py --base HEAD
 
 doc_index:
   - id: agents_index

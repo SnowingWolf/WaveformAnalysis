@@ -17,6 +17,12 @@
 3. `configuration.md`
 4. `workflows.md`
 
+## 质量闸门入口（PR 前固定，按改动类型触发）
+- `waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/`
+- `waveform-docs generate plugins-agent -o docs/plugins/reference/agent/`
+- `python scripts/assess_change_impact.py --base HEAD`
+- `python scripts/schema_compat_check.py --base HEAD --run-smoke`
+
 ## 插件参考
 - Agent 插件文档：`../plugins/reference/agent/INDEX.md`
 - Auto 插件文档：`../plugins/reference/builtin/auto/INDEX.md`
