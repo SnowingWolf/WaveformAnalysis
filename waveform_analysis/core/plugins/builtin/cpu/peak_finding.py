@@ -10,7 +10,10 @@ CPU Peak Finding Plugin - 使用 scipy 进行峰值检测
 支持使用原始波形或滤波后的波形进行检测。
 """
 
+from concurrent.futures import ThreadPoolExecutor
+import os
 from typing import Any, List, Optional, Union
+import warnings
 
 import numpy as np
 from scipy.signal import find_peaks
@@ -18,7 +21,7 @@ from scipy.signal import find_peaks
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 # 定义峰值数据类型（扩展自原始 PEAK_DTYPE，增加边缘信息）
-ADVANCED_PEAK_DTYPE = np.dtype(
+HIT_DTYPE = np.dtype(
     [
         ("position", "i8"),  # 峰值位置（采样点索引）
         ("height", "f4"),  # 峰值高度
@@ -32,28 +35,28 @@ ADVANCED_PEAK_DTYPE = np.dtype(
 )
 
 
-class SignalPeaksPlugin(Plugin):
+class HitFinderPlugin(Plugin):
     """
     峰值检测插件 - 基于波形检测峰值并计算峰值特征。
 
     使用 scipy.signal.find_peaks 进行峰值检测，支持多种峰值筛选条件。
     计算峰值的位置、高度、积分、边缘等特征。
 
-    注意：此插件命名为 SignalPeaksPlugin 以区别于标准 PeaksPlugin。
+    注意：此插件是当前唯一官方 Hit 检测接口（provides="hit"）。
 
     配置示例：
         >>> ctx.set_config({
         ...     'sampling_interval_ns': 2.0,
         ...     'use_filtered': True,  # 使用滤波后的波形
-        ... }, plugin_name='signal_peaks')
+        ... }, plugin_name='hit')
     """
 
-    provides = "signal_peaks"
+    provides = "hit"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Detect peaks in waveforms and extract peak features."
-    version = "2.1.0"  # 版本升级：输出改为单数组
+    version = "2.2.0"  # 版本升级：支持并行计算
     save_when = "always"  # 峰值数据较小，总是保存
-    output_dtype = ADVANCED_PEAK_DTYPE
+    output_dtype = HIT_DTYPE
 
     options = {
         "use_filtered": Option(
@@ -91,14 +94,39 @@ class SignalPeaksPlugin(Plugin):
             help="峰值的阈值条件（可选）",
         ),
         "height_method": Option(
-            default="diff",
+            default="minmax",
             type=str,
             help="峰高计算方法: 'diff' (积分差分) 或 'minmax' (最大最小值差)",
+        ),
+        "height_window_extension": Option(
+            default=4,
+            type=int,
+            help="height_method='minmax' 时，峰值窗口左右两侧扩展的采样点数",
         ),
         "sampling_interval_ns": Option(
             default=2.0,
             type=float,
             help="采样间隔（纳秒），用于计算全局时间戳。默认 2.0 ns",
+        ),
+        "parallel": Option(
+            default=True,
+            type=bool,
+            help="是否启用并行峰值检测（按事件分块并行）",
+        ),
+        "n_workers": Option(
+            default=0,
+            type=int,
+            help="并行 worker 数；<=0 表示自动（基于 CPU 核心数）",
+        ),
+        "chunk_size": Option(
+            default=1024,
+            type=int,
+            help="并行分块大小（每个任务处理的事件数）",
+        ),
+        "parallel_min_events": Option(
+            default=20480,
+            type=int,
+            help="触发并行的最小事件数（小数据量时自动串行）",
         ),
     }
 
@@ -121,12 +149,12 @@ class SignalPeaksPlugin(Plugin):
             **_kwargs: 依赖数据（未使用，通过 context.get_data 获取）
 
         Returns:
-            np.ndarray: 峰值结构化数组，dtype 为 ADVANCED_PEAK_DTYPE
+            np.ndarray: 峰值结构化数组，dtype 为 HIT_DTYPE
 
         Examples:
-            >>> ctx.register(SignalPeaksPlugin())
-            >>> ctx.set_config({'height': 30, 'prominence': 0.7}, plugin_name='signal_peaks')
-            >>> peaks = ctx.get_data('run_001', 'signal_peaks')
+            >>> ctx.register(HitFinderPlugin())
+            >>> ctx.set_config({'height': 30, 'prominence': 0.7}, plugin_name='hit')
+            >>> peaks = ctx.get_data('run_001', 'hit')
             >>> print(f"峰值数: {len(peaks)}")
         """
         # 获取配置参数
@@ -138,7 +166,12 @@ class SignalPeaksPlugin(Plugin):
         width = context.get_config(self, "width")
         threshold = context.get_config(self, "threshold")
         height_method = context.get_config(self, "height_method")
+        height_window_extension = context.get_config(self, "height_window_extension")
         sampling_interval_ns = context.get_config(self, "sampling_interval_ns")
+        parallel = context.get_config(self, "parallel")
+        n_workers = context.get_config(self, "n_workers")
+        chunk_size = context.get_config(self, "chunk_size")
+        parallel_min_events = context.get_config(self, "parallel_min_events")
         daq_adapter = self._get_global_daq_adapter(context)
         if not self._has_config(context, "sampling_interval_ns"):
             sampling_interval_ns = self._get_sampling_interval_from_adapter(
@@ -156,14 +189,93 @@ class SignalPeaksPlugin(Plugin):
             waveform_data = context.get_data(run_id, "st_waveforms")
 
         if not isinstance(waveform_data, np.ndarray):
-            raise ValueError("signal_peaks expects st_waveforms as a single structured array")
+            raise ValueError("hit expects st_waveforms as a single structured array")
 
         if len(waveform_data) == 0:
-            return np.zeros(0, dtype=ADVANCED_PEAK_DTYPE)
+            return np.zeros(0, dtype=HIT_DTYPE)
 
+        n_events = len(waveform_data)
         peaks: List[tuple] = []
+        use_parallel = bool(parallel) and n_events >= max(1, int(parallel_min_events))
+        resolved_workers = self._resolve_parallel_workers(int(n_workers), n_events)
+        resolved_chunk_size = max(1, int(chunk_size))
 
-        for event_idx, st_waveform in enumerate(waveform_data):
+        if use_parallel and resolved_workers > 1:
+            ranges = [
+                (start, min(start + resolved_chunk_size, n_events))
+                for start in range(0, n_events, resolved_chunk_size)
+            ]
+            with ThreadPoolExecutor(max_workers=resolved_workers) as executor:
+                futures = [
+                    executor.submit(
+                        self._process_event_range,
+                        waveform_data,
+                        start,
+                        end,
+                        use_derivative,
+                        height,
+                        distance,
+                        prominence,
+                        width,
+                        threshold,
+                        height_method,
+                        height_window_extension,
+                        sampling_interval_ns,
+                        timestamp_unit,
+                    )
+                    for start, end in ranges
+                ]
+                for future in futures:
+                    chunk_peaks = future.result()
+                    if chunk_peaks:
+                        peaks.extend(chunk_peaks)
+        else:
+            peaks = self._process_event_range(
+                waveform_data,
+                0,
+                n_events,
+                use_derivative,
+                height,
+                distance,
+                prominence,
+                width,
+                threshold,
+                height_method,
+                height_window_extension,
+                sampling_interval_ns,
+                timestamp_unit,
+            )
+
+        if peaks:
+            return np.array(peaks, dtype=HIT_DTYPE)
+        return np.zeros(0, dtype=HIT_DTYPE)
+
+    def _resolve_parallel_workers(self, n_workers: int, n_events: int) -> int:
+        if n_workers > 0:
+            return min(n_workers, max(1, n_events))
+        cpu_count = os.cpu_count() or 1
+        auto_workers = min(32, cpu_count)
+        return min(auto_workers, max(1, n_events))
+
+    def _process_event_range(
+        self,
+        waveform_data: np.ndarray,
+        start: int,
+        end: int,
+        use_derivative: bool,
+        height: float,
+        distance: int,
+        prominence: float,
+        width: int,
+        threshold: Union[float, None],
+        height_method: str,
+        height_window_extension: int,
+        sampling_interval_ns: float,
+        timestamp_unit: Union[str, None],
+    ) -> List[tuple]:
+        peaks: List[tuple] = []
+        for event_idx in range(start, end):
+            st_waveform = waveform_data[event_idx]
             waveform = st_waveform["wave"]
             # Truncate to valid samples (rest may be NaN-padded)
             event_len = (
@@ -190,16 +302,13 @@ class SignalPeaksPlugin(Plugin):
                 width,
                 threshold,
                 height_method,
+                height_window_extension,
                 sampling_interval_ns,
                 timestamp_unit,
             )
-
             if event_peaks:
                 peaks.extend(event_peaks)
-
-        if peaks:
-            return np.array(peaks, dtype=ADVANCED_PEAK_DTYPE)
-        return np.zeros(0, dtype=ADVANCED_PEAK_DTYPE)
+        return peaks
 
     def _find_peaks_in_waveform(
         self,
@@ -215,6 +324,7 @@ class SignalPeaksPlugin(Plugin):
         width: int,
         threshold: Union[float, None],
         height_method: str,
+        height_window_extension: int,
         sampling_interval_ns: float,
         timestamp_unit: Union[str, None],  # 新增参数
     ) -> List[tuple]:
@@ -234,6 +344,7 @@ class SignalPeaksPlugin(Plugin):
             width: 最小宽度
             threshold: 阈值条件
             height_method: 峰高计算方法
+            height_window_extension: minmax 峰高计算时窗口扩展点数
             sampling_interval_ns: 采样间隔（纳秒），用于计算全局时间戳
             timestamp_unit: 时间戳单位（st_waveforms 中已统一为 'ps'）
 
@@ -271,7 +382,13 @@ class SignalPeaksPlugin(Plugin):
             edge_end = properties["right_ips"][i]
 
             # 计算峰高
-            peak_height = self._calculate_peak_height(waveform, edge_start, edge_end, height_method)
+            peak_height = self._calculate_peak_height(
+                waveform,
+                edge_start,
+                edge_end,
+                height_method,
+                height_window_extension,
+            )
 
             # 计算峰积分（这里简单设置为 None，后续可扩展）
             peak_integral = None
@@ -322,7 +439,12 @@ class SignalPeaksPlugin(Plugin):
         return peaks
 
     def _calculate_peak_height(
-        self, waveform: np.ndarray, edge_start: float, edge_end: float, method: str
+        self,
+        waveform: np.ndarray,
+        edge_start: float,
+        edge_end: float,
+        method: str,
+        window_extension: int = 2,
     ) -> float:
         """
         计算峰值高度
@@ -332,6 +454,7 @@ class SignalPeaksPlugin(Plugin):
             edge_start: 峰值起始边缘
             edge_end: 峰值结束边缘
             method: 计算方法 ('diff' 或 'minmax')
+            window_extension: minmax 计算时窗口扩展点数
 
         Returns:
             峰值高度
@@ -351,8 +474,9 @@ class SignalPeaksPlugin(Plugin):
                 peak_height = 0.0
         elif method == "minmax":
             # 使用最大最小值差方法（在峰值周围扩展窗口）
-            window_start = max(0, start_idx - 2)
-            window_end = min(len(waveform), end_idx + 2)
+            ext = max(0, int(window_extension))
+            window_start = max(0, start_idx - ext)
+            window_end = min(len(waveform), end_idx + ext)
             window_slice = slice(window_start, window_end)
 
             max_value = np.max(waveform[window_slice])
@@ -401,3 +525,15 @@ class SignalPeaksPlugin(Plugin):
         if not sampling_rate_hz:
             return default_value
         return 1e9 / float(sampling_rate_hz)
+
+
+class SignalPeaksPlugin(HitFinderPlugin):
+    """Deprecated alias for HitFinderPlugin."""
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "SignalPeaksPlugin is deprecated and will be removed in a future release. Use HitFinderPlugin instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args, **kwargs)
