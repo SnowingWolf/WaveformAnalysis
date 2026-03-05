@@ -73,6 +73,41 @@ python scripts/clear_downstream_cache.py run_001 st_waveforms --dry-run
 python scripts/clear_downstream_cache.py run_001 st_waveforms --verbose
 ```
 
+## Agent 质量闸门脚本
+
+### `assess_change_impact.py` - 改动影响面扫描
+
+```bash
+python scripts/assess_change_impact.py --base HEAD
+```
+
+扫描插件契约变更（`provides/depends_on/output_dtype/version`）、下游受影响插件与 lineage 风险。
+
+### `schema_compat_check.py` - 字段/dtype 兼容检查
+
+```bash
+python scripts/schema_compat_check.py --base HEAD --run-smoke
+```
+
+输出字段迁移清单，并固定执行链路冒烟：
+`raw_files -> st_waveforms -> hit -> df -> events`。
+
+### `performance_regression_check.py` - 性能回归对比
+
+```bash
+python scripts/performance_regression_check.py --base HEAD
+```
+
+对热点插件记录“改前/改后”耗时与峰值内存对比。
+
+### `release_artifact_sync.py` - 发布前统一校验
+
+```bash
+python scripts/release_artifact_sync.py --base HEAD
+```
+
+统一检查版本号、`CHANGELOG`、agent/auto 文档、doc anchors、关键测试与性能回归结果。
+
 ## 工作流程
 
 1. **开发时**：运行 `check_imports.py` 检查导入规范

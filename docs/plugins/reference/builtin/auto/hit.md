@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `hit` |
-| **Version** | `2.1.0` |
+| **Version** | `2.2.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -28,8 +28,13 @@ This plugin has no dependencies.
 | `prominence` | `float` | `0.7` | - | 峰值的最小显著性（prominence） |
 | `width` | `int` | `4` | - | 峰值的最小宽度（采样点数） |
 | `threshold` | `any` | `None` | - | 峰值的阈值条件（可选） |
-| `height_method` | `str` | `diff` | - | 峰高计算方法: 'diff' (积分差分) 或 'minmax' (最大最小值差) |
+| `height_method` | `str` | `minmax` | - | 峰高计算方法: 'diff' (积分差分) 或 'minmax' (最大最小值差) |
+| `height_window_extension` | `int` | `4` | - | height_method='minmax' 时，峰值窗口左右两侧扩展的采样点数 |
 | `sampling_interval_ns` | `float` | `2.0` | - | 采样间隔（纳秒），用于计算全局时间戳。默认 2.0 ns |
+| `parallel` | `bool` | `True` | - | 是否启用并行峰值检测（按事件分块并行） |
+| `n_workers` | `int` | `0` | - | 并行 worker 数；<=0 表示自动（基于 CPU 核心数） |
+| `chunk_size` | `int` | `1024` | - | 并行分块大小（每个任务处理的事件数） |
+| `parallel_min_events` | `int` | `20480` | - | 触发并行的最小事件数（小数据量时自动串行） |
 
 
 ## Output Schema

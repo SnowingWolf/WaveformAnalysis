@@ -5,7 +5,30 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [未发布]
+## [未发布 / Unreleased]
+
+### Agent 质量闸门 (2026-03)
+- 新增 `assess_change_impact`：扫描 `provides/depends_on/output_dtype/version` 变更并输出下游影响与 lineage 风险。
+- 新增 `schema_compat_check`：检查 dtype/字段兼容并固定执行链路冒烟
+  `raw_files -> st_waveforms -> hit -> df -> events`。
+- 新增 `performance_regression_check`：记录热点插件改前/改后耗时与峰值内存对比。
+- 新增 `release_artifact_sync`：统一校验版本、CHANGELOG、agent/auto 文档、doc anchors、关键测试与性能回归。
+- 清理 `utils` 中 `WaveformLoader` 兼容导出链，移除 `RawFileLoader` 导出。
+- 修复文档生成导入链中的循环依赖触发路径，恢复 `waveform-docs generate plugins-auto` 可执行。
+
+### 兼容层收敛 (2026-03)
+- **移除插件集兼容别名**: 删除 `signal_processing` 插件集入口，统一使用 `peaks`。
+- **移除旧模块垫片**: 删除 `core/plugins/builtin/signal_processing.py`。
+- **移除峰值插件兼容类**: 删除 `SignalPeaksPlugin`，统一使用 `HitFinderPlugin`。
+- **Context 去除旧名称映射**: 移除 `signal_peaks -> hit` 的 `set_config/get_data` 自动重定向。
+- **配置兼容默认项收敛**: `CompatManager` 不再内置 `break_threshold_ns` 与 `builtin.signal_processing` 的 alias/deprecation。
+- **Streaming 配置收敛**: 移除 legacy key 自动回填，仅接受显式 `streaming_config`。
+- **插件依赖命名统一**: `waveform_width` 依赖改为 `hit`（不再读取 `signal_peaks`）。
+- **Python 基线对齐**: 删除 `<3.10` 的 entry points 兼容分支，工具链目标更新为 `py310+`。
+- **测试同步**:
+  - 删除 `tests/plugins/test_hit_alias_compat.py`
+  - 更新兼容测试为“旧入口不可用，新入口可用”断言
+  - 定向测试通过：`82 passed`
 
 ### 变更
 
