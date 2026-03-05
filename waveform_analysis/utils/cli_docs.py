@@ -4,6 +4,7 @@ WaveformAnalysis 文档生成工具 CLI
 
 用法:
   waveform-docs generate plugins-auto     # 自动生成 builtin 插件文档
+  waveform-docs generate plugins-agent    # 生成 agent 导向插件文档
   waveform-docs check coverage            # 检查文档覆盖率
 """
 
@@ -21,6 +22,9 @@ def main():
   # 自动生成 builtin 插件文档
   waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/
 
+  # 生成 agent 导向插件文档
+  waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
+
   # 检查文档覆盖率
   waveform-docs check coverage --strict
 """,
@@ -33,7 +37,7 @@ def main():
     gen_parser = subparsers.add_parser("generate", help="生成文档")
     gen_parser.add_argument(
         "doc_type",
-        choices=["plugins-auto"],
+        choices=["plugins-auto", "plugins-agent"],
         help="文档类型",
     )
     gen_parser.add_argument("--output", "-o", type=str, help="输出路径（文件或目录）")
@@ -86,16 +90,28 @@ def main():
 
 def cmd_generate(args):
     """处理 generate 命令"""
-    return generate_plugins_auto(args)
+    if args.doc_type == "plugins-agent":
+        return generate_plugins_docs(
+            args=args,
+            profile="agent",
+            default_output="docs/plugins/reference/agent",
+            label="agent 插件文档",
+        )
+    return generate_plugins_docs(
+        args=args,
+        profile="auto",
+        default_output="docs/plugins/reference/builtin/auto",
+        label="builtin 插件文档",
+    )
 
 
-def generate_plugins_auto(args):
-    """自动生成 builtin 插件文档"""
+def generate_plugins_docs(args, profile, default_output, label):
+    """生成插件文档"""
     try:
         from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
 
         # 确定输出目录
-        output_dir = args.output or "docs/plugins/reference/builtin/auto"
+        output_dir = args.output or default_output
         output_path = Path(output_dir)
 
         # 初始化生成器
@@ -110,15 +126,15 @@ def generate_plugins_auto(args):
             # 生成单个插件
             file_path = output_path / f"{args.plugin}.md"
             try:
-                result = generator.generate_single(args.plugin, file_path)
+                result = generator.generate_single(args.plugin, file_path, profile=profile)
                 print(f"✅ 已生成: {result}")
             except ValueError as e:
                 print(f"❌ 错误: {e}")
                 return 1
         else:
             # 生成所有插件
-            results = generator.generate_all(output_path)
-            print(f"✅ 已生成 {len(results)} 个文档文件")
+            results = generator.generate_all(output_path, profile=profile)
+            print(f"✅ 已生成 {label}: {len(results)} 个文档文件")
             print(f"   输出目录: {output_path}")
 
             # 列出生成的文件

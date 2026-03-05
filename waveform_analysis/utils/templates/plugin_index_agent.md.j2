@@ -1,0 +1,37 @@
+# WaveformAnalysis Agent Plugin Reference
+
+> 面向 agent 的插件执行与改动参考。保持与 `builtin/auto` 分离维护。
+
+## Usage
+
+```bash
+# 生成全部 agent 插件文档
+waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
+
+# 仅生成单个插件文档
+waveform-docs generate plugins-agent --plugin raw_files
+```
+
+## Summary
+
+- 插件总数：{{ plugins|length }}
+- 类别数：{{ by_category|length }}
+
+## Plugin Table
+
+| Provides | Plugin | Depends On | Output Kind | Version |
+|----------|--------|------------|-------------|---------|
+{% for plugin in plugins|sort(attribute='provides') %}
+| [`{{ plugin.provides }}`]({{ plugin.provides }}.md) | `{{ plugin.name }}` | {% if plugin.depends_on %}`{{ plugin.depends_on|join("`, `") }}`{% else %}-{% endif %} | `{{ plugin.output_kind }}` | `{{ plugin.version }}` |
+{% endfor %}
+
+## By Category
+
+{% for category, category_plugins in by_category %}
+### {{ category_names.get(category, category) }}
+
+{% for plugin in category_plugins|sort(attribute='provides') %}
+- [`{{ plugin.provides }}`]({{ plugin.provides }}.md): {{ plugin.description or "No description." }}
+{% endfor %}
+
+{% endfor %}

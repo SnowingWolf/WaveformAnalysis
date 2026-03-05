@@ -166,6 +166,31 @@ class TestPluginDocGenerator:
         assert "MockPlugin" in content
         assert "mock_data" in content
 
+    def test_render_agent_plugin_page(self):
+        """测试渲染 agent 插件页面"""
+        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+
+        generator = PluginDocGenerator()
+        doc_info = generator.extract_doc_info(MockPlugin, MockPlugin())
+        content = generator.render_plugin_page(doc_info, profile="agent")
+
+        assert "Agent Contract" in content
+        assert "Change Playbook" in content
+        assert "mock_data" in content
+
+    def test_render_agent_index_page(self):
+        """测试渲染 agent 索引页面"""
+        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+
+        generator = PluginDocGenerator()
+        generator.register_plugin(MockPlugin)
+
+        doc_infos = generator.get_all_doc_info()
+        content = generator.render_index_page(doc_infos, profile="agent")
+
+        assert "Agent Plugin Reference" in content
+        assert "mock_data" in content
+
     def test_generate_all_creates_files(self):
         """测试生成所有文档创建文件"""
         from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
@@ -188,6 +213,25 @@ class TestPluginDocGenerator:
             # 检查文件内容
             content = (output_dir / "mock_data.md").read_text()
             assert "MockPlugin" in content
+
+    def test_generate_all_agent_creates_files(self):
+        """测试生成 agent 文档创建文件"""
+        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+
+        generator = PluginDocGenerator()
+        generator.register_plugin(MockPlugin)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir)
+            results = generator.generate_all(output_dir, profile="agent")
+
+            assert "mock_data" in results
+            assert "INDEX" in results
+            assert (output_dir / "mock_data.md").exists()
+            assert (output_dir / "INDEX.md").exists()
+
+            content = (output_dir / "mock_data.md").read_text()
+            assert "Agent Contract" in content
 
     def test_load_builtin_plugins(self):
         """测试加载内置插件"""

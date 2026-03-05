@@ -12,8 +12,9 @@ import numpy as np
 from scipy.signal import find_peaks
 
 from waveform_analysis.core.foundation.utils import exporter
-from waveform_analysis.core.plugins.builtin.cpu.peak_finding import ADVANCED_PEAK_DTYPE
-from waveform_analysis.core.plugins.core import Option, StreamingPlugin
+from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HIT_DTYPE
+from waveform_analysis.core.plugins.core.base import Option
+from waveform_analysis.core.plugins.core.streaming import StreamingPlugin
 from waveform_analysis.core.processing.chunk import (
     EVENT_LENGTH_FIELD,
     TIMESTAMP_FIELD,
@@ -240,7 +241,7 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
         if not peaks:
             return None
 
-        peaks_array = np.array(peaks, dtype=ADVANCED_PEAK_DTYPE)
+        peaks_array = np.array(peaks, dtype=HIT_DTYPE)
         start_time = int(np.min(peaks_array["timestamp"]))
         end_time = int(np.max(peaks_array["timestamp"]))
 

@@ -1,0 +1,75 @@
+# {{ plugin.provides }} ({{ plugin.name }})
+
+> Agent-first 插件契约文档。面向自动化执行与改动评估。
+
+## Agent Contract
+
+| Item | Value |
+|------|-------|
+| Provides | `{{ plugin.provides }}` |
+| Depends On | {% if plugin.depends_on %}`{{ plugin.depends_on|join("`, `") }}`{% else %}-{% endif %} |
+| Output Kind | `{{ plugin.output_kind }}` |
+| Version | `{{ plugin.version }}` |
+| Module | `{{ plugin.module_path }}` |
+| Accelerator | `{{ plugin.accelerator }}` |
+
+## Inputs
+
+{% if plugin.depends_on %}
+{% for dep in plugin.depends_on %}
+- `{{ dep }}`
+{% endfor %}
+{% else %}
+- 无依赖输入（source plugin）
+{% endif %}
+
+## Outputs
+
+{% if plugin.output_fields %}
+| Field | DType |
+|-------|-------|
+{% for field in plugin.output_fields %}
+| `{{ field.name }}` | `{{ field.dtype }}` |
+{% endfor %}
+{% else %}
+- 无结构化字段信息（`{{ plugin.output_kind }}`）
+{% endif %}
+
+## Config
+
+{% if plugin.config_options %}
+| Name | Type | Default | Note |
+|------|------|---------|------|
+{% for opt in plugin.config_options %}
+| `{{ opt.name }}` | `{{ opt.type }}` | `{{ opt.default }}` | {{ opt.doc or "-" }} |
+{% endfor %}
+{% else %}
+- 无可配置项
+{% endif %}
+
+## Execution Path
+
+`{{ plugin.provides }}` 依赖链入口：
+`{{ plugin.depends_on|join(" -> ") if plugin.depends_on else "SOURCE" }} -> {{ plugin.provides }}`
+
+## Failure Modes
+
+- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
+- 配置值类型/范围不合法，触发参数校验异常
+- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
+
+## Change Playbook
+
+1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
+2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
+3. 新增/删除输出字段时，同时更新消费方插件和回归测试
+
+## Validation
+
+```bash
+# 单插件文档再生成
+waveform-docs generate plugins-agent --plugin {{ plugin.provides }}
+
+# 覆盖率检查
+waveform-docs check coverage --strict
+```

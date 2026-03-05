@@ -17,13 +17,6 @@ Processing 子模块 - 数据处理流水线
 
 # 数据加载
 # 事件分析
-# WaveformStruct 从新位置导入（向后兼容）
-from waveform_analysis.core.plugins.builtin.cpu.waveforms import (
-    WaveformStruct,
-    WaveformStructConfig,
-    create_channel_mapping,
-)
-
 from .analyzer import EventAnalyzer
 
 # Chunk 工具
@@ -79,6 +72,31 @@ from .records_builder import (
     merge_records_parts,
     split_by_channel,
 )
+
+_WAVEFORM_COMPAT_EXPORTS = (
+    "WaveformStruct",
+    "WaveformStructConfig",
+    "create_channel_mapping",
+)
+
+
+def __getattr__(name):
+    """Lazy-load waveform compatibility exports to avoid import cycles."""
+    if name in _WAVEFORM_COMPAT_EXPORTS:
+        from waveform_analysis.core.plugins.builtin.cpu.waveforms import (
+            WaveformStruct,
+            WaveformStructConfig,
+            create_channel_mapping,
+        )
+
+        mapping = {
+            "WaveformStruct": WaveformStruct,
+            "WaveformStructConfig": WaveformStructConfig,
+            "create_channel_mapping": create_channel_mapping,
+        }
+        return mapping[name]
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
 
 __all__ = [
     # 数据加载

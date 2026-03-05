@@ -408,30 +408,40 @@ class PluginDocGenerator:
                 pass
         return doc_infos
 
-    def render_plugin_page(self, doc_info: PluginDocInfo) -> str:
+    def render_plugin_page(self, doc_info: PluginDocInfo, profile: str = "auto") -> str:
         """渲染单个插件页面
 
         Args:
             doc_info: 插件文档信息
+            profile: 文档画像（auto/agent）
 
         Returns:
             渲染后的 Markdown 内容
         """
         env = self._get_jinja_env()
-        template = env.get_template("plugin_page.md.j2")
+        if profile == "agent":
+            template_name = "plugin_page_agent.md.j2"
+        else:
+            template_name = "plugin_page.md.j2"
+        template = env.get_template(template_name)
         return template.render(plugin=doc_info)
 
-    def render_index_page(self, plugins: List[PluginDocInfo]) -> str:
+    def render_index_page(self, plugins: List[PluginDocInfo], profile: str = "auto") -> str:
         """渲染插件索引页面
 
         Args:
             plugins: 插件文档信息列表
+            profile: 文档画像（auto/agent）
 
         Returns:
             渲染后的 Markdown 内容
         """
         env = self._get_jinja_env()
-        template = env.get_template("plugin_index.md.j2")
+        if profile == "agent":
+            template_name = "plugin_index_agent.md.j2"
+        else:
+            template_name = "plugin_index.md.j2"
+        template = env.get_template(template_name)
 
         # 按类别分组
         by_category: Dict[str, List[PluginDocInfo]] = {}
@@ -468,11 +478,12 @@ class PluginDocGenerator:
             category_names=CATEGORY_DISPLAY_NAMES,
         )
 
-    def generate_all(self, output_dir: Path) -> Dict[str, Path]:
+    def generate_all(self, output_dir: Path, profile: str = "auto") -> Dict[str, Path]:
         """生成所有文档
 
         Args:
             output_dir: 输出目录
+            profile: 文档画像（auto/agent）
 
         Returns:
             生成的文件路径字典 {provides: path}
@@ -487,25 +498,26 @@ class PluginDocGenerator:
 
         # 生成各插件页面
         for doc_info in doc_infos:
-            content = self.render_plugin_page(doc_info)
+            content = self.render_plugin_page(doc_info, profile=profile)
             file_path = output_dir / f"{doc_info.provides}.md"
             file_path.write_text(content, encoding="utf-8")
             generated_files[doc_info.provides] = file_path
 
         # 生成索引页面
-        index_content = self.render_index_page(doc_infos)
+        index_content = self.render_index_page(doc_infos, profile=profile)
         index_path = output_dir / "INDEX.md"
         index_path.write_text(index_content, encoding="utf-8")
         generated_files["INDEX"] = index_path
 
         return generated_files
 
-    def generate_single(self, plugin_name: str, output_path: Path) -> Path:
+    def generate_single(self, plugin_name: str, output_path: Path, profile: str = "auto") -> Path:
         """生成单个插件文档
 
         Args:
             plugin_name: 插件类名或 provides 名称
             output_path: 输出文件路径
+            profile: 文档画像（auto/agent）
 
         Returns:
             生成的文件路径
@@ -520,7 +532,7 @@ class PluginDocGenerator:
                 or getattr(instance, "provides", None) == plugin_name
             ):
                 doc_info = self.extract_doc_info(plugin_class, instance)
-                content = self.render_plugin_page(doc_info)
+                content = self.render_plugin_page(doc_info, profile=profile)
                 output_path = Path(output_path)
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 output_path.write_text(content, encoding="utf-8")

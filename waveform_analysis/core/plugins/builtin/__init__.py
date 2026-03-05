@@ -6,7 +6,7 @@ Plugins Builtin 子模块 - 内置标准插件
 **CPU 插件** (`builtin/cpu/`):
 - 标准数据处理插件: RawFileNames, Waveforms (合并了 StWaveforms), Features, DataFrame, Events
 - 滤波插件: FilteredWaveformsPlugin (scipy)
-- 寻峰插件: SignalPeaksPlugin (scipy)
+- 寻峰插件: HitFinderPlugin (scipy)
 
 **JAX 插件** (`builtin/jax/`):
 - 待实现：JAX 加速版本的滤波和寻峰插件
@@ -25,7 +25,7 @@ Plugins Builtin 子模块 - 内置标准插件
 
 # CPU 标准插件
 from .cpu import (
-    ADVANCED_PEAK_DTYPE,
+    HIT_DTYPE,
     WAVEFORM_WIDTH_DTYPE,
     WAVEFORM_WIDTH_INTEGRAL_DTYPE,
     BasicFeaturesPlugin,
@@ -41,7 +41,6 @@ from .cpu import (
     RawFileNamesPlugin,
     RawFilesPlugin,
     RecordsPlugin,
-    SignalPeaksPlugin,
     StWaveformsPlugin,
     WaveformsPlugin,
     WaveformStruct,
@@ -73,8 +72,7 @@ __all__ = [
     "EventsGroupedPlugin",
     # 信号处理插件
     "FilteredWaveformsPlugin",
-    "SignalPeaksPlugin",
-    "ADVANCED_PEAK_DTYPE",
+    "HIT_DTYPE",
     "WaveformWidthPlugin",
     "WAVEFORM_WIDTH_DTYPE",
     "WaveformWidthIntegralPlugin",
