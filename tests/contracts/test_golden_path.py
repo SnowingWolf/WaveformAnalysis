@@ -62,12 +62,14 @@ class TestGoldenPathMinimal:
             provides = "st_waveforms"
             depends_on = ("waveforms",)
             version = "1.0.0"
-            output_dtype = np.dtype([
-                ("time", "<i8"),
-                ("channel", "<i4"),
-                ("baseline", "<f4"),
-                ("height", "<f4"),
-            ])
+            output_dtype = np.dtype(
+                [
+                    ("time", "<i8"),
+                    ("channel", "<i4"),
+                    ("baseline", "<f4"),
+                    ("height", "<f4"),
+                ]
+            )
 
             def compute(self, context, run_id: str, **kwargs):  # noqa: ARG002
                 # Return single structured array
@@ -89,12 +91,14 @@ class TestGoldenPathMinimal:
             provides = "basic_features"
             depends_on = ("st_waveforms",)
             version = "1.0.0"
-            output_dtype = np.dtype([
-                ("time", "<i8"),
-                ("channel", "<i4"),
-                ("height", "<f4"),
-                ("area", "<f4"),
-            ])
+            output_dtype = np.dtype(
+                [
+                    ("time", "<i8"),
+                    ("channel", "<i4"),
+                    ("height", "<f4"),
+                    ("area", "<f4"),
+                ]
+            )
 
             def compute(self, context, run_id: str, **kwargs):  # noqa: ARG002
                 # Consume single structured array

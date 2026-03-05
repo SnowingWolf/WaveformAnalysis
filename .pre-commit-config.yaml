@@ -9,6 +9,7 @@ repos:
     rev: 25.1.0
     hooks:
       - id: black
+        entry: python scripts/precommit/black_per_file.py
         args: [--line-length=100]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks

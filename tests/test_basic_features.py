@@ -9,19 +9,21 @@ from waveform_analysis.core.plugins.builtin.cpu.basic_features import (
     BasicFeaturesPlugin,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_st_waveforms(n=4, wave_length=100, n_channels=2):
     """Create a minimal structured waveform array for testing."""
-    dtype = np.dtype([
-        ("baseline", "f8"),
-        ("timestamp", "i8"),
-        ("channel", "i2"),
-        ("wave", "i2", (wave_length,)),
-    ])
+    dtype = np.dtype(
+        [
+            ("baseline", "f8"),
+            ("timestamp", "i8"),
+            ("channel", "i2"),
+            ("wave", "i2", (wave_length,)),
+        ]
+    )
     data = np.zeros(n, dtype=dtype)
     for i in range(n):
         data[i]["baseline"] = 100.0
@@ -30,7 +32,7 @@ def _make_st_waveforms(n=4, wave_length=100, n_channels=2):
         wave = np.full(wave_length, 90, dtype="i2")
         # Place dip/peak at relative positions that fit any wave_length
         mid = wave_length // 2
-        wave[mid] = 80       # dip -> height = 100 - 80 = 20
+        wave[mid] = 80  # dip -> height = 100 - 80 = 20
         if mid + 1 < wave_length:
             wave[mid + 1] = 95  # local max
         data[i]["wave"] = wave
@@ -81,8 +83,8 @@ class TestBasicFeaturesCompute:
         plugin = BasicFeaturesPlugin()
         result = plugin.compute(ctx, "run_001")
 
-        assert np.isclose(result["height"][0], 20.0)   # 100 - 80
-        assert np.isclose(result["amp"][0], 15.0)       # 95 - 80
+        assert np.isclose(result["height"][0], 20.0)  # 100 - 80
+        assert np.isclose(result["amp"][0], 15.0)  # 95 - 80
 
     def test_area_calculation(self):
         st = _make_st_waveforms(n=1, wave_length=5)
@@ -162,11 +164,14 @@ class TestFixedBaseline:
         st[1]["baseline"] = 100.0
         st[1]["channel"] = 1
 
-        ctx = _ctx_with_waveforms(st, config={
-            "height_range": (0, 5),
-            "area_range": (0, 5),
-            "fixed_baseline": {0: 200.0, 1: 150.0},
-        })
+        ctx = _ctx_with_waveforms(
+            st,
+            config={
+                "height_range": (0, 5),
+                "area_range": (0, 5),
+                "fixed_baseline": {0: 200.0, 1: 150.0},
+            },
+        )
         plugin = BasicFeaturesPlugin()
         result = plugin.compute(ctx, "run_001")
 
@@ -184,26 +189,32 @@ class TestFixedBaseline:
         st[1]["baseline"] = 100.0
         st[1]["channel"] = 1
 
-        ctx = _ctx_with_waveforms(st, config={
-            "height_range": (0, 5),
-            "area_range": (0, 5),
-            "fixed_baseline": {0: 200.0},  # only ch0
-        })
+        ctx = _ctx_with_waveforms(
+            st,
+            config={
+                "height_range": (0, 5),
+                "area_range": (0, 5),
+                "fixed_baseline": {0: 200.0},  # only ch0
+            },
+        )
         plugin = BasicFeaturesPlugin()
         result = plugin.compute(ctx, "run_001")
 
         assert np.isclose(result["height"][0], 110.0)  # overridden
-        assert np.isclose(result["height"][1], 15.0)    # original: 100 - 85
+        assert np.isclose(result["height"][1], 15.0)  # original: 100 - 85
 
     def test_no_fixed_baseline(self):
         st = _make_st_waveforms(n=1, wave_length=5)
         st[0]["wave"][:] = 90
         st[0]["baseline"] = 100.0
 
-        ctx = _ctx_with_waveforms(st, config={
-            "height_range": (0, 5),
-            "area_range": (0, 5),
-        })
+        ctx = _ctx_with_waveforms(
+            st,
+            config={
+                "height_range": (0, 5),
+                "area_range": (0, 5),
+            },
+        )
         plugin = BasicFeaturesPlugin()
         result = plugin.compute(ctx, "run_001")
 
@@ -223,10 +234,13 @@ class TestRangeConfig:
         st[0]["baseline"] = 100.0
 
         # height_range covers index 3
-        ctx = _ctx_with_waveforms(st, config={
-            "height_range": (2, 5),
-            "area_range": (0, 10),
-        })
+        ctx = _ctx_with_waveforms(
+            st,
+            config={
+                "height_range": (2, 5),
+                "area_range": (0, 10),
+            },
+        )
         plugin = BasicFeaturesPlugin()
         result = plugin.compute(ctx, "run_001")
         assert np.isclose(result["height"][0], 30.0)  # 100 - 70
@@ -238,10 +252,13 @@ class TestRangeConfig:
         st[0]["baseline"] = 100.0
 
         # height_range does NOT cover index 3
-        ctx = _ctx_with_waveforms(st, config={
-            "height_range": (5, 10),
-            "area_range": (0, 10),
-        })
+        ctx = _ctx_with_waveforms(
+            st,
+            config={
+                "height_range": (5, 10),
+                "area_range": (0, 10),
+            },
+        )
         plugin = BasicFeaturesPlugin()
         result = plugin.compute(ctx, "run_001")
         assert np.isclose(result["height"][0], 10.0)  # 100 - 90
@@ -251,10 +268,13 @@ class TestRangeConfig:
         st[0]["wave"][:] = 90
         st[0]["baseline"] = 100.0
 
-        ctx = _ctx_with_waveforms(st, config={
-            "height_range": (0, 10),
-            "area_range": (2, 5),  # only 3 samples
-        })
+        ctx = _ctx_with_waveforms(
+            st,
+            config={
+                "height_range": (0, 10),
+                "area_range": (2, 5),  # only 3 samples
+            },
+        )
         plugin = BasicFeaturesPlugin()
         result = plugin.compute(ctx, "run_001")
         # area = sum(100 - 90) for 3 samples = 30
@@ -269,11 +289,15 @@ class TestRangeConfig:
 class TestUseFiltered:
     def test_reads_from_filtered_waveforms(self):
         st = _make_st_waveforms(n=2, wave_length=5)
-        ctx = _ctx_with_waveforms(st, config={
-            "use_filtered": True,
-            "height_range": (0, 5),
-            "area_range": (0, 5),
-        }, use_filtered=True)
+        ctx = _ctx_with_waveforms(
+            st,
+            config={
+                "use_filtered": True,
+                "height_range": (0, 5),
+                "area_range": (0, 5),
+            },
+            use_filtered=True,
+        )
         plugin = BasicFeaturesPlugin()
         result = plugin.compute(ctx, "run_001")
         assert len(result) == 2
@@ -293,11 +317,13 @@ class TestErrorPaths:
 
     def test_no_channel_field_uses_zeros(self):
         """When dtype has no 'channel' field, channels default to 0."""
-        dtype = np.dtype([
-            ("baseline", "f8"),
-            ("timestamp", "i8"),
-            ("wave", "i2", (5,)),
-        ])
+        dtype = np.dtype(
+            [
+                ("baseline", "f8"),
+                ("timestamp", "i8"),
+                ("wave", "i2", (5,)),
+            ]
+        )
         data = np.zeros(2, dtype=dtype)
         data["baseline"] = 100.0
         data["wave"][:] = 90
@@ -318,11 +344,14 @@ class TestErrorPaths:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("fixed_baseline,expected_heights", [
-    (None, [10.0, 15.0]),                   # dynamic baseline
-    ({0: 200.0}, [110.0, 15.0]),            # partial override ch0
-    ({0: 200.0, 1: 150.0}, [110.0, 65.0]), # full override
-])
+@pytest.mark.parametrize(
+    "fixed_baseline,expected_heights",
+    [
+        (None, [10.0, 15.0]),  # dynamic baseline
+        ({0: 200.0}, [110.0, 15.0]),  # partial override ch0
+        ({0: 200.0, 1: 150.0}, [110.0, 65.0]),  # full override
+    ],
+)
 def test_fixed_baseline_parametrized(fixed_baseline, expected_heights):
     st = _make_st_waveforms(n=2, wave_length=5, n_channels=2)
     st[0]["wave"][:] = 90

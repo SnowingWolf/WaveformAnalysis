@@ -58,14 +58,17 @@ class TestOption:
             result = opt.validate_value("test", true_val, "TestPlugin")
             assert result is True
 
-    @pytest.mark.parametrize("input_val,expected_type,expected_val", [
-        ("42", int, 42),
-        ("3.14", float, 3.14),
-        (42, int, 42),
-        (3.14, float, 3.14),
-        ("0", int, 0),
-        ("-1", int, -1),
-    ])
+    @pytest.mark.parametrize(
+        "input_val,expected_type,expected_val",
+        [
+            ("42", int, 42),
+            ("3.14", float, 3.14),
+            (42, int, 42),
+            (3.14, float, 3.14),
+            ("0", int, 0),
+            ("-1", int, -1),
+        ],
+    )
     def test_validate_value_type_conversions(self, input_val, expected_type, expected_val):
         """测试多种类型转换场景"""
         opt = Option(type=expected_type)

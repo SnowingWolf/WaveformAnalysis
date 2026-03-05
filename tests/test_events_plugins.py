@@ -117,7 +117,8 @@ def test_compute_event_features_fixed_baseline_partial():
 
     # Only override channel 0
     heights, amps, areas = _compute_event_features(
-        records, wave_pool,
+        records,
+        wave_pool,
         peaks_range=(0, None),
         charge_range=(0, None),
         fixed_baseline={0: 20.0},
@@ -134,11 +135,14 @@ def test_compute_event_features_fixed_baseline_partial():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("fixed_baseline,expected_heights,expected_areas", [
-    (None, [2.0, 4.0], [3.0, 7.0]),
-    ({0: 20.0}, [12.0, 4.0], [33.0, 7.0]),
-    ({0: 20.0, 1: 10.0}, [12.0, 9.0], [33.0, 17.0]),
-])
+@pytest.mark.parametrize(
+    "fixed_baseline,expected_heights,expected_areas",
+    [
+        (None, [2.0, 4.0], [3.0, 7.0]),
+        ({0: 20.0}, [12.0, 4.0], [33.0, 7.0]),
+        ({0: 20.0, 1: 10.0}, [12.0, 9.0], [33.0, 17.0]),
+    ],
+)
 def test_compute_event_features_baselines_parametrized(
     fixed_baseline, expected_heights, expected_areas
 ):
@@ -150,7 +154,8 @@ def test_compute_event_features_baselines_parametrized(
     wave_pool = np.array([8, 9, 10, 1, 2], dtype=np.uint16)
 
     heights, amps, areas = _compute_event_features(
-        records, wave_pool,
+        records,
+        wave_pool,
         peaks_range=(0, None),
         charge_range=(0, None),
         fixed_baseline=fixed_baseline,
@@ -169,7 +174,10 @@ class TestComputeEventFeaturesEdgeCases:
         records = np.zeros(0, dtype=EVENTS_DTYPE)
         wave_pool = np.array([], dtype=np.uint16)
         heights, amps, areas = _compute_event_features(
-            records, wave_pool, peaks_range=(0, None), charge_range=(0, None),
+            records,
+            wave_pool,
+            peaks_range=(0, None),
+            charge_range=(0, None),
         )
         assert len(heights) == 0
         assert len(amps) == 0
@@ -182,7 +190,10 @@ class TestComputeEventFeaturesEdgeCases:
         wave_pool = np.array([50, 60], dtype=np.uint16)
 
         heights, amps, areas = _compute_event_features(
-            records, wave_pool, peaks_range=(0, None), charge_range=(0, None),
+            records,
+            wave_pool,
+            peaks_range=(0, None),
+            charge_range=(0, None),
         )
         assert heights[0] == 0.0
         assert amps[0] == 0.0
@@ -196,11 +207,14 @@ class TestComputeEventFeaturesEdgeCases:
         wave_pool = np.array([80], dtype=np.uint16)
 
         heights, amps, areas = _compute_event_features(
-            records, wave_pool, peaks_range=(0, None), charge_range=(0, None),
+            records,
+            wave_pool,
+            peaks_range=(0, None),
+            charge_range=(0, None),
         )
         assert np.isclose(heights[0], 20.0)  # 100 - 80
-        assert np.isclose(amps[0], 0.0)      # 80 - 80
-        assert np.isclose(areas[0], 20.0)    # 100 - 80
+        assert np.isclose(amps[0], 0.0)  # 80 - 80
+        assert np.isclose(areas[0], 20.0)  # 100 - 80
 
 
 # ---------------------------------------------------------------------------
@@ -475,13 +489,16 @@ class TestResolveDtNs:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("length,start,end,expected", [
-    (100, 10, 50, (10, 50)),
-    (100, 0, None, (0, 100)),
-    (50, 0, 100, (0, 50)),
-    (100, -5, 50, (0, 50)),
-    (10, 20, 30, (10, 10)),
-    (0, 0, None, (0, 0)),
-])
+@pytest.mark.parametrize(
+    "length,start,end,expected",
+    [
+        (100, 10, 50, (10, 50)),
+        (100, 0, None, (0, 100)),
+        (50, 0, 100, (0, 50)),
+        (100, -5, 50, (0, 50)),
+        (10, 20, 30, (10, 10)),
+        (0, 0, None, (0, 0)),
+    ],
+)
 def test_slice_bounds_parametrized(length, start, end, expected):
     assert _slice_bounds(length, start, end) == expected

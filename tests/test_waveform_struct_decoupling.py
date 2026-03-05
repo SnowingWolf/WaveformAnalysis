@@ -195,8 +195,8 @@ class TestWaveformStructDecoupling:
         config = WaveformStructConfig(format_spec=custom_spec, wave_length=1000)
         struct = WaveformStruct(mock_waveforms_custom, config=config)
 
-        # 结构化第一个通道
-        st_waveform = struct._structure_waveform(mock_waveforms_custom[0])
+        # 结构化第一个通道（不应抛异常）
+        struct._structure_waveform(mock_waveforms_custom[0])
 
     def test_baseline_samples_tuple_relative(self):
         """tuple baseline_samples uses samples_start-relative indices."""

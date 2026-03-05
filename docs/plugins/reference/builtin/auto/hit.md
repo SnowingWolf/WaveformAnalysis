@@ -1,4 +1,4 @@
-# SignalPeaksPlugin
+# HitFinderPlugin
 
 > Detect peaks in waveforms and extract peak features.
 
@@ -6,7 +6,7 @@
 
 | Property | Value |
 |----------|-------|
-| **Provides** | `signal_peaks` |
+| **Provides** | `hit` |
 | **Version** | `2.1.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
@@ -51,21 +51,21 @@ This plugin has no dependencies.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import SignalPeaksPlugin
+from waveform_analysis.core.plugins.builtin.cpu import HitFinderPlugin
 
 # Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
-ctx.register(SignalPeaksPlugin())
+ctx.register(HitFinderPlugin())
 
 # Configure plugin (optional)
 ctx.set_config({
     "use_filtered": True,
     "use_derivative": True,
     "height": 30.0,
-}, plugin_name="signal_peaks")
+}, plugin_name="hit")
 
 # Get data
-data = ctx.get_data("run_001", "signal_peaks")
+data = ctx.get_data("run_001", "hit")
 ```
 
 ## Module

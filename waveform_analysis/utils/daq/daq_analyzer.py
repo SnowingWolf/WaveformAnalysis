@@ -318,7 +318,9 @@ class DAQAnalyzer:
             elif sort_key == "name":
                 df.sort_values("run_name", ascending=ascending, inplace=True)
             else:
-                logger.warning("未知排序字段 '%s'，忽略排序。支持: time/start, end, size, files, name", sort_by)
+                logger.warning(
+                    "未知排序字段 '%s'，忽略排序。支持: time/start, end, size, files, name", sort_by
+                )
         df.reset_index(drop=True, inplace=True)
 
         display_cols = [

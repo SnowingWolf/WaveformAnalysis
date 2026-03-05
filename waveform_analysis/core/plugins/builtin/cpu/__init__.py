@@ -40,19 +40,19 @@ from .peak_finding import ADVANCED_PEAK_DTYPE, SignalPeaksPlugin
 
 # Records 插件
 from .records import RecordsPlugin
-
-# CPU 波形宽度插件
-from .waveform_width import WAVEFORM_WIDTH_DTYPE, WaveformWidthPlugin
-from .waveform_width_integral import (
-    WAVEFORM_WIDTH_INTEGRAL_DTYPE,
-    WaveformWidthIntegralPlugin,
-)
 from .s1_s2_classifier import (
     LABEL_S1,
     LABEL_S2,
     LABEL_UNKNOWN,
     S1_S2_CLASSIFIER_DTYPE,
     S1S2ClassifierPlugin,
+)
+
+# CPU 波形宽度插件
+from .waveform_width import WAVEFORM_WIDTH_DTYPE, WaveformWidthPlugin
+from .waveform_width_integral import (
+    WAVEFORM_WIDTH_INTEGRAL_DTYPE,
+    WaveformWidthIntegralPlugin,
 )
 from .waveforms import (
     RawFileNamesPlugin,

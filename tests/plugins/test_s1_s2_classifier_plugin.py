@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests for S1S2ClassifierPlugin."""
 
 from __future__ import annotations
@@ -10,8 +9,8 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     BASIC_FEATURES_DTYPE,
     LABEL_S1,
     LABEL_S2,
-    S1S2ClassifierPlugin,
     WAVEFORM_WIDTH_DTYPE,
+    S1S2ClassifierPlugin,
 )
 
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 S1/S2 classifier plugin based on waveform width and basic features.
 
@@ -27,17 +26,19 @@ LABEL_UNKNOWN = export(0, name="LABEL_UNKNOWN")
 LABEL_S1 = export(1, name="LABEL_S1")
 LABEL_S2 = export(2, name="LABEL_S2")
 
-S1_S2_CLASSIFIER_DTYPE = np.dtype([
-    ("label", "i1"),
-    ("width_ns", "f4"),
-    ("width_samples", "f4"),
-    ("height", "f4"),
-    ("area", "f4"),
-    ("timestamp", "i8"),
-    ("channel", "i2"),
-    ("event_index", "i8"),
-    ("peak_position", "i8"),
-])
+S1_S2_CLASSIFIER_DTYPE = np.dtype(
+    [
+        ("label", "i1"),
+        ("width_ns", "f4"),
+        ("width_samples", "f4"),
+        ("height", "f4"),
+        ("area", "f4"),
+        ("timestamp", "i8"),
+        ("channel", "i2"),
+        ("event_index", "i8"),
+        ("peak_position", "i8"),
+    ]
+)
 
 
 def _normalize_range(value: Optional[Tuple[Optional[float], Optional[float]]]):

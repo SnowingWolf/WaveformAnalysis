@@ -222,7 +222,7 @@ class VX2730Reader(FormatReader):
         samples_start = self.spec.columns.samples_start
 
         # 先读取一行确定列数
-        with open(file_path, 'r') as f:
+        with open(file_path) as f:
             for _ in range(skiprows):
                 f.readline()
             first_line = f.readline()
@@ -233,7 +233,7 @@ class VX2730Reader(FormatReader):
         # 构建 schema：前 samples_start 列为 Int64，其余为 Int16
         schema = {}
         for i in range(n_cols):
-            col_name = f'column_{i}'
+            col_name = f"column_{i}"
             if i < samples_start:
                 schema[col_name] = pl.Int64
             else:
@@ -281,12 +281,12 @@ class VX2730Reader(FormatReader):
         samples_start = self.spec.columns.samples_start
         column_types = {}
         for i in range(samples_start):
-            column_types[f'f{i}'] = pa.int64()
+            column_types[f"f{i}"] = pa.int64()
 
         # 波形列指定为 int16（14-bit ADC 数据）
         # 注意：PyArrow 会自动检测列数，这里预设一个较大的范围
         for i in range(samples_start, samples_start + 2000):
-            column_types[f'f{i}'] = pa.int16()
+            column_types[f"f{i}"] = pa.int16()
 
         convert_options = pa_csv.ConvertOptions(
             column_types=column_types,
@@ -470,7 +470,7 @@ class VX2730Reader(FormatReader):
                 skiprows = self.spec.header_rows_other_files
 
             # 快速行计数（使用二进制模式）
-            with open(fp, 'rb') as f:
+            with open(fp, "rb") as f:
                 line_count = sum(1 for _ in f)
             total += max(0, line_count - skiprows)
 
@@ -512,23 +512,24 @@ class VX2730Reader(FormatReader):
         """
         if not file_paths:
             # 返回空 memmap
-            output = np.memmap(output_path, dtype=output_dtype, mode='w+', shape=(0,))
+            output = np.memmap(output_path, dtype=output_dtype, mode="w+", shape=(0,))
             return output
 
         # 第一遍：统计总行数
         total_rows = self.count_total_rows(file_paths)
 
         if total_rows == 0:
-            output = np.memmap(output_path, dtype=output_dtype, mode='w+', shape=(0,))
+            output = np.memmap(output_path, dtype=output_dtype, mode="w+", shape=(0,))
             return output
 
         # 预分配 memmap
-        output = np.memmap(output_path, dtype=output_dtype, mode='w+', shape=(total_rows,))
+        output = np.memmap(output_path, dtype=output_dtype, mode="w+", shape=(total_rows,))
 
         # 可选进度条
         if show_progress:
             try:
                 from tqdm import tqdm
+
                 pbar = tqdm(file_paths, desc="流式读取", leave=False)
             except ImportError:
                 pbar = file_paths
@@ -555,7 +556,7 @@ class VX2730Reader(FormatReader):
         if offset < total_rows:
             logger.debug(f"实际写入 {offset} 行，预估 {total_rows} 行")
             # 创建新的 memmap 视图
-            return np.memmap(output_path, dtype=output_dtype, mode='r+', shape=(offset,))
+            return np.memmap(output_path, dtype=output_dtype, mode="r+", shape=(offset,))
 
         return output
 
