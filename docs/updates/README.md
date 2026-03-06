@@ -1,25 +1,40 @@
-# 更新记录
+# 计划与执行情况
 
-**导航**: [文档中心](../README.md) > 更新记录
+**导航**: [文档中心](../README.md) > 计划与执行情况
 
-版本更新和功能改进记录。
+本目录用于记录：
+- 计划类文档（准备执行/执行中）
+- 执行结果与总结（已完成）
+- 迁移与专项说明（按主题归档）
 
 ## 如何使用
 
-- 想了解最新功能：先看 [UPDATE_SUMMARY.md](UPDATE_SUMMARY.md)
-- 只关心变更摘要：直接看 [UPDATE_SUMMARY.md](UPDATE_SUMMARY.md)
-- 需要迁移指导：查看 [STORAGE_MIGRATION_GUIDE.md](./STORAGE_MIGRATION_GUIDE.md)
+- 先看“计划清单”，确认当前推进事项与状态；
+- 再看“执行记录”，了解已落地结果；
+- 涉及存储迁移时，额外查看专项指南。
 
-## 文档列表
+## 计划清单（Plan）
+
+| 文档 | 状态 | 说明 |
+|------|------|------|
+| [测试去过时化与文档自动生成系统联动改进计划](TEST_AND_DOC_AUTOGEN_IMPROVEMENT_PLAN.md) | 🟡 进行中 | 测试资产清理、文档自动生成、同步校验与发布门禁联动 |
+
+## 执行记录（Execution）
+
+| 文档 | 状态 | 说明 |
+|------|------|------|
+| [更新总结](UPDATE_SUMMARY.md) | ✅ 已完成 | 新功能说明和阶段性改动总结 |
+| [V1725 接入现有链路（st_waveforms 兼容）](V1725_EXISTING_CHAIN_INTEGRATION.md) | ✅ 已完成 | 将 v1725 输出标准化为现有 st_waveforms 契约，接入默认插件链 |
+| [变更日志](../../CHANGELOG.md) | ✅ 持续更新 | 按版本记录的详细变更历史 |
+
+## 专项指南（Guides）
 
 | 文档 | 说明 |
 |------|------|
-| [更新总结](UPDATE_SUMMARY.md) | 新功能说明和版本更新总结 |
-| [变更日志](../../CHANGELOG.md) | 按版本记录的详细变更历史 |
-| [存储迁移指南](./STORAGE_MIGRATION_GUIDE.md) | 存储结构迁移指南 |
+| [存储迁移指南](STORAGE_MIGRATION_GUIDE.md) | 存储结构迁移与兼容说明 |
 
 ## 相关资源
 
-- [快速开始](../user-guide/QUICKSTART_GUIDE.md) - 开始使用新功能
-- [功能特性](../features/README.md) - 详细功能说明
-- [API 参考](../api/README.md) - API 文档
+- [功能特性](../features/README.md) - 按模块查看能力说明
+- [CLI 文档](../cli/README.md) - 命令行工具与使用方式
+- [API 参考](../api/README.md) - 对外 API 文档
