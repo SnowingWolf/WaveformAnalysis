@@ -99,7 +99,7 @@ reloader = enable_hot_reload(ctx, ['my_plugin'], auto_reload=True)
 ## 📖 详细文档链接
 
 - **完整新功能文档**: `docs/NEW_FEATURES.md`
-- **开发指南**: `CLAUDE.md`
+- **开发指南**: `AGENTS.md` 与 `docs/agents/`
 - **变更日志**: `CHANGELOG.md`
 - **测试用例**: `tests/test_time_range_query.py`, `tests/test_strax_adapter.py`
 

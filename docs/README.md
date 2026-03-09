@@ -1,196 +1,69 @@
 # WaveformAnalysis 文档中心
 
-WaveformAnalysis 是一个用于处理和分析 DAQ 系统波形数据的 Python 包。
+WaveformAnalysis 是一个用于处理和分析 DAQ 波形数据的 Python 包。
 
-## 🎯 核心架构概览
+## 安装流程
 
-```mermaid
-flowchart LR
-    subgraph Context["🎛️ Context"]
-        REG["register()"]
-        GET["get_data()"]
-        PLOT["plot_lineage()"]
-    end
+首次使用建议按下面顺序执行：
 
-    subgraph Plugin["🔌 Plugin"]
-        PROVIDES["provides"]
-        DEPENDS["depends_on"]
-        COMPUTE["compute()"]
-    end
+```bash
+# 1) 安装项目依赖
+./install.sh
 
-    subgraph Lineage["🔗 Lineage"]
-        TREE["依赖树"]
-        VIS["可视化"]
-    end
+# 2) 以开发模式安装（包含开发依赖）
+pip install -e ".[dev]"
 
-    subgraph Cache["💾 Cache"]
-        SIG["签名验证"]
-        STORE["缓存存储"]
-    end
-
-    Plugin -->|注册| REG
-    GET -->|解析| DEPENDS
-    DEPENDS -->|构建| TREE
-    PLOT -->|渲染| VIS
-    TREE -->|哈希| SIG
-    SIG -->|验证| STORE
-    COMPUTE -->|缓存| STORE
-
-    style PLOT fill:#ffeb3b,stroke:#f57c00,stroke-width:2px
+# 3) 验证安装
+waveform-process --help
 ```
 
-**四大核心组件**：
+## 文档入口总览
 
-| 组件 | 职责 | 关键方法 |
-|------|------|----------|
-| **Context** | 中央调度器，管理插件和数据流 | `register()`, `get_data()`, `plot_lineage()` |
-| **Plugin** | 数据处理单元，声明输入输出 | `provides`, `depends_on`, `compute()` |
-| **Lineage** | 血缘追踪，可视化数据流 | 支持 LabVIEW / Plotly / Mermaid 三种模式 |
-| **Cache** | 智能缓存，基于血缘签名验证 | 内存缓存 + 磁盘持久化 |
+| 目标 | 入口 | 说明 |
+|---|---|---|
+| 快速完成首次流程 | [快速开始](user-guide/QUICKSTART_GUIDE.md) | 新用户建议从此处开始 |
+| 参考常见场景示例 | [示例集合](user-guide/EXAMPLES_GUIDE.md) | 提供可复用代码模板 |
+| 查阅核心能力（配置/缓存/执行链） | [功能特性](features/README.md) | Context、插件与高级能力说明 |
+| 查看内置插件能力 | [插件详解](plugins/README.md) | 按插件类型组织 |
+| 开发或修改插件 | [插件开发](development/plugin-development/README.md) | 插件开发规范与实践 |
+| 查阅 API 与配置说明 | [API 参考](api/README.md) | 代码接口与参数定义 |
+| 使用命令行工具 | [CLI 文档](cli/README.md) | `waveform-process` 等命令说明 |
+| 维护 Agent 入口文档 | [AGENTS.md](../AGENTS.md) | 仓库入口规则真源 |
 
-**亮点功能** - 一行代码可视化数据血缘：
+## 角色导航
 
-```python
-ctx.plot_lineage("df_paired", kind="plotly", interactive=True)
+按角色选择入口请看 [功能特性](features/README.md) 的“按角色选择入口”。
+
+## 按问题直达
+
+| 问题 | 文档 |
+|---|---|
+| 如何预览执行计划？ | [PREVIEW_EXECUTION.md](features/context/PREVIEW_EXECUTION.md) |
+| 如何可视化依赖关系/血缘？ | [LINEAGE_VISUALIZATION_GUIDE.md](features/context/LINEAGE_VISUALIZATION_GUIDE.md) |
+| 如何管理配置来源？ | [CONFIGURATION.md](features/context/CONFIGURATION.md) |
+| 缓存为什么失效或命中异常？ | [DATA_ACCESS.md](features/context/DATA_ACCESS.md) |
+| 如何使用信号处理插件？ | [SIGNAL_PROCESSING_PLUGINS.md](plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md) |
+| 如何开发自定义插件？ | [SIMPLE_PLUGIN_GUIDE.md](plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) |
+| 如何管理执行器与并行处理？ | [EXECUTOR_MANAGER_GUIDE.md](features/advanced/EXECUTOR_MANAGER_GUIDE.md) |
+
+## 常用命令
+
+```bash
+# 安装
+./install.sh
+pip install -e ".[dev]"
+
+# 测试
+./scripts/run_tests.sh
+
+# 常用 CLI
+waveform-process --run-name <run_name> --verbose
+waveform-process --scan-daq --daq-root DAQ
+waveform-process --show-daq --daq-root DAQ
 ```
 
-👉 详见 [血缘可视化指南](features/context/LINEAGE_VISUALIZATION_GUIDE.md)
+## 维护说明（面向文档维护者）
 
----
-
-## 🚀 快速开始
-
-> **新手推荐**：[快速开始指南](user-guide/QUICKSTART_GUIDE.md) - 5 分钟上手，只看一页就能跑起来
-
-> ✅ 推荐路径：新代码请使用 **Context**。
-
-推荐使用 **Context** API 进行数据处理：
-
-**快速示例**:
-
-```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin,
-    WaveformsPlugin,
-    BasicFeaturesPlugin,
-)
-
-ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
-ctx.register(RawFilesPlugin())
-ctx.register(WaveformsPlugin())
-ctx.register(BasicFeaturesPlugin())
-
-# 处理数据
-run_id = "run_001"
-basic_features = ctx.get_data(run_id, "basic_features")
-
-# 单数组输出，可按 channel 过滤
-ch0 = basic_features[basic_features["channel"] == 0]
-heights = ch0["height"]
-amps = ch0["amp"]
-areas = ch0["area"]
-```
-
-**English**:
-
-`basic_features` is a single structured array. Filter by `channel` to read per-channel results:
-
-```python
-basic_features = ctx.get_data(run_id, "basic_features")
-
-ch0 = basic_features[basic_features["channel"] == 0]
-heights = ch0["height"]
-amps = ch0["amp"]
-areas = ch0["area"]
-```
-
-## 文档导航
-
-根据你的需求选择入口：
-
-| 角色 | 入口 | 说明 |
-|------|------|------|
-| 新手 | [用户指南](user-guide/README.md) | 快速上手和常见示例 |
-| 使用者 | [功能特性](features/README.md) | Context/Plugin 功能与使用说明 |
-| 使用者 | [插件详解](plugins/README.md) | 内置插件的具体用法与实现细节 |
-| 开发者 | [开发者指南](development/README.md) | 系统架构、插件开发和代码规范 |
-| 运维 | [命令行工具](cli/README.md) | CLI 使用指南 |
-
-### 功能特性
-
-- [Context 功能](features/context/README.md) - 配置管理、执行预览、依赖分析、血缘可视化
-- [插件功能](plugins/README.md) - 信号处理、流式处理、Strax 适配
-- [高级功能](features/advanced/README.md) - 并行执行、进度追踪、CSV 处理
-- [工具函数](features/utils/README.md) - DAQ 适配器、事件筛选、波形预览
-
-### 开发者资源
-
-- [架构设计](architecture/README.md) - 系统架构、工作流程、项目结构
-- [插件开发](development/plugin-development/README.md) - 入门教程、完整指南
-- [API 参考](api/README.md) - API 文档、配置参考
-- [开发规范](development/contributing/README.md) - 导入风格、代码约定
-
-### 命令行工具
-
-- [waveform-process](cli/WAVEFORM_PROCESS.md) - 数据处理和 DAQ 扫描
-- [waveform-cache](cli/WAVEFORM_CACHE.md) - 缓存管理和诊断
-- [waveform-docs](cli/WAVEFORM_DOCS.md) - 文档自动生成
-
-## 按场景查找
-
-| 场景 | 文档 |
-|------|------|
-| 可视化插件依赖 | [血缘图预览](features/context/LINEAGE_VISUALIZATION_GUIDE.md) |
-| 预览执行计划 | [预览执行](features/context/PREVIEW_EXECUTION.md) |
-| 使用信号处理插件 | [信号处理插件](plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md) |
-| 查看 DAQ 运行概览 | [DAQ 运行分析器](features/utils/DAQ_ANALYZER_GUIDE.md) |
-| 并行处理数据 | [执行器管理](features/advanced/EXECUTOR_MANAGER_GUIDE.md) |
-| 开发自定义插件 | [插件开发教程](plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) |
-| 理解系统架构 | [系统架构](architecture/ARCHITECTURE.md) |
-
-## 学习路径
-
-### 新手
-
-1. [快速上手](user-guide/QUICKSTART_GUIDE.md)
-2. [常见示例](user-guide/EXAMPLES_GUIDE.md)
-3. [Context 使用](features/context/README.md)
-
-### 使用者
-
-1. [血缘图预览](features/context/LINEAGE_VISUALIZATION_GUIDE.md)
-2. [预览执行](features/context/PREVIEW_EXECUTION.md)
-3. [内置插件](plugins/README.md)
-4. [并行处理](features/advanced/EXECUTOR_MANAGER_GUIDE.md)
-
-### 开发者
-
-1. [插件开发教程](plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md)
-2. [系统架构](architecture/ARCHITECTURE.md)
-3. [API 参考](api/README.md)
-4. [开发规范](development/contributing/README.md)
-
-## 常见问题
-
-**Q: 从哪里开始？**
-
-使用者从 [功能特性](features/README.md) 开始，开发者从 [开发者指南](development/README.md) 开始。
-
-**Q: 如何可视化插件依赖？**
-
-查看 [血缘图预览](features/context/LINEAGE_VISUALIZATION_GUIDE.md)。
-
-**Q: 如何开发插件？**
-
-从 [插件开发教程](plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) 开始。
-
-## 获取帮助
-
-- 问题反馈: GitHub Issues
-- 功能请求: GitHub Discussions
-- 文档改进: 欢迎提交 Pull Request
-
-## 更多
-
-- [更新记录](updates/README.md) - 版本更新和功能改进记录
+- Agent 入口规则以 [AGENTS.md](../AGENTS.md) 为唯一真源。
+- `CLAUDE.md` 与 `docs/agents/*` 为兼容入口，新增入口规则优先更新 `AGENTS.md`。
+- 用户可见的功能变更，请同步更新对应子目录文档（`features/`、`plugins/`、`api/`）。

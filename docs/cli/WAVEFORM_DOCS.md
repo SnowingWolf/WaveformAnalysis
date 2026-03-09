@@ -47,6 +47,7 @@ waveform-docs check coverage [选项]
 | 类型 | 说明 | 默认输出 |
 |------|------|----------|
 | `plugins-auto` | 自动生成内置插件文档 | `docs/plugins/reference/builtin/auto/` |
+| `plugins-agent` | 生成 agent 导向插件文档 | `docs/plugins/reference/agent/` |
 
 ---
 
@@ -82,6 +83,15 @@ waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/
 
 # 生成单个插件文档
 waveform-docs generate plugins-auto --plugin raw_files
+
+# 生成所有 agent 插件文档
+waveform-docs generate plugins-agent
+
+# 指定输出目录
+waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
+
+# 生成单个插件文档
+waveform-docs generate plugins-agent --plugin raw_files
 ```
 
 ### 2. 检查文档覆盖率
@@ -118,6 +128,10 @@ waveform-docs check coverage --fail-on-warning
 - `signal_peaks.md`
 - `INDEX.md`（索引页）
 - ...
+
+Agent 导向文档默认位于 `docs/plugins/reference/agent/`：
+- `INDEX.md`（agent 索引页）
+- `<provides>.md`（每个插件一页）
 
 ---
 
@@ -164,6 +178,7 @@ pip install -e ".[docgen]"
 
 ```bash
 waveform-docs generate plugins-auto
+waveform-docs generate plugins-agent
 ```
 
 ### 场景 2: CI/CD 集成
@@ -179,7 +194,10 @@ waveform-docs check coverage --strict --fail-on-warning
 ## 注意事项
 
 1. **文档准确性**: 生成的文档基于插件的 `SPEC` 和 `options`，确保插件定义完整
-2. **输出路径**: 默认输出到 `docs/plugins/reference/builtin/auto/`，会覆盖已有文件
+2. **输出路径**:
+   - `plugins-auto` 默认输出到 `docs/plugins/reference/builtin/auto/`
+   - `plugins-agent` 默认输出到 `docs/plugins/reference/agent/`
+   均会覆盖已有文件
 3. **INDEX.md**: 自动生成索引页，包含所有插件的概览表
 
 ---

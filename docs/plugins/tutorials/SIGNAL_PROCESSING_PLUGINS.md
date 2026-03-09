@@ -66,7 +66,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 ### 数据类型
 
 ```python
-ADVANCED_PEAK_DTYPE = np.dtype([
+HIT_DTYPE = np.dtype([
     ("position", "i8"),      # 峰值位置（采样点索引）
     ("height", "f4"),        # 峰值高度
     ("integral", "f4"),      # 峰值积分（面积）

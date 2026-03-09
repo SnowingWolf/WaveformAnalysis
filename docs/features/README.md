@@ -10,6 +10,16 @@
 - 只关心某个功能：直接跳到"按场景查找"
 - 需要插件具体细节：查看 [插件详解](../plugins/README.md)
 
+## 按角色选择入口
+
+| 角色 | 入口 | 说明 |
+|---|---|---|
+| 新手 | [用户指南](../user-guide/README.md) | 快速上手和常见示例 |
+| 使用者 | [Context 功能](context/README.md) | 配置、缓存、执行链等核心能力 |
+| 使用者 | [插件详解](../plugins/README.md) | 内置插件的具体用法与实现细节 |
+| 开发者 | [开发者指南](../development/README.md) | 系统架构、插件开发和代码规范 |
+| 运维 | [命令行工具](../cli/README.md) | CLI 使用指南 |
+
 ## 功能分类
 
 ### [Context 功能](context/README.md)

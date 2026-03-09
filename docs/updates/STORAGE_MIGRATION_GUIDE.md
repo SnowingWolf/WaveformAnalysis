@@ -237,7 +237,7 @@ data = ctx.get_data("run_001", "basic_features")
 
 如果遇到迁移问题，请：
 1. 查看 [CHANGELOG.md](../../CHANGELOG.md) 了解详细变更
-2. 参考 [CLAUDE.md](../../CLAUDE.md) 了解新 API 用法
+2. 参考 [AGENTS.md](../../AGENTS.md) 和 [Agent 文档入口](../agents/INDEX.md) 了解新 API 用法
 3. 提交 Issue 到 GitHub 仓库
 
 ## 版本信息
