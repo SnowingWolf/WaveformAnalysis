@@ -17,6 +17,22 @@ from waveform_analysis.core.plugins.builtin.cpu.events import (
 from waveform_analysis.core.processing.records_builder import EVENTS_DTYPE, RecordsBundle
 
 
+class _RunConfigContext(FakeContext):
+    def __init__(self, *args, **kwargs):
+        self._run_config_payload = kwargs.pop("run_config_payload", {})
+        super().__init__(*args, **kwargs)
+
+    def get_run_config(self, run_id: str, refresh: bool = False):
+        return self._run_config_payload
+
+    def has_explicit_config(self, plugin, name: str):
+        provides = plugin.provides
+        nested = self.config.get(provides)
+        if isinstance(nested, dict) and name in nested:
+            return True
+        return f"{provides}.{name}" in self.config
+
+
 def _seed_events_bundle(ctx, run_id):
     records = np.zeros(2, dtype=EVENTS_DTYPE)
     records["timestamp"] = [100, 200]
@@ -103,6 +119,103 @@ def test_event_frame_plugin_fixed_baseline():
     assert np.allclose(df["height"].to_numpy(), np.array([12.0, 9.0]))
     assert np.allclose(df["amp"].to_numpy(), np.array([2.0, 1.0]))
     assert np.allclose(df["area"].to_numpy(), np.array([33.0, 17.0]))
+
+
+def test_event_frame_plugin_gain_adc_per_pe():
+    run_id = "run_gain"
+    ctx = FakeContext(
+        config={
+            "peaks_range": (0, None),
+            "charge_range": (0, None),
+            "events_df.gain_adc_per_pe": {0: 2.0, 1: 4.0},
+        },
+        plugins={"events": EventsPlugin()},
+    )
+    _seed_events_bundle(ctx, run_id)
+
+    plugin = EventFramePlugin()
+    df = plugin.compute(ctx, run_id)
+
+    np.testing.assert_allclose(df["height_pe"].to_numpy(), np.array([1.0, 1.0]))
+    np.testing.assert_allclose(df["area_pe"].to_numpy(), np.array([1.5, 1.75]))
+
+
+def test_event_frame_plugin_gain_missing_channel_is_nan():
+    run_id = "run_gain_partial"
+    ctx = FakeContext(
+        config={
+            "peaks_range": (0, None),
+            "charge_range": (0, None),
+            "gain_adc_per_pe": {0: 2.0},
+        },
+        plugins={"events": EventsPlugin()},
+    )
+    _seed_events_bundle(ctx, run_id)
+
+    plugin = EventFramePlugin()
+    df = plugin.compute(ctx, run_id)
+
+    np.testing.assert_allclose(df["height_pe"].to_numpy(), np.array([1.0, np.nan]), equal_nan=True)
+    np.testing.assert_allclose(df["area_pe"].to_numpy(), np.array([1.5, np.nan]), equal_nan=True)
+
+
+def test_event_frame_plugin_invalid_gain_warns_and_yields_nan(caplog):
+    run_id = "run_gain_invalid"
+    ctx = FakeContext(
+        config={
+            "peaks_range": (0, None),
+            "charge_range": (0, None),
+            "events_df.gain_adc_per_pe": {0: 0.0, 1: -1.0},
+        },
+        plugins={"events": EventsPlugin()},
+    )
+    _seed_events_bundle(ctx, run_id)
+
+    plugin = EventFramePlugin()
+    df = plugin.compute(ctx, run_id)
+
+    assert np.isnan(df["height_pe"]).all()
+    assert np.isnan(df["area_pe"]).all()
+    assert "non-positive" in caplog.text
+
+
+def test_event_frame_plugin_gain_from_run_config():
+    run_id = "run_gain_file"
+    ctx = _RunConfigContext(
+        config={
+            "peaks_range": (0, None),
+            "charge_range": (0, None),
+        },
+        plugins={"events": EventsPlugin()},
+        run_config_payload={"calibration": {"gain_adc_per_pe": {"0": 2.0, "1": 4.0}}},
+    )
+    _seed_events_bundle(ctx, run_id)
+
+    plugin = EventFramePlugin()
+    df = plugin.compute(ctx, run_id)
+
+    np.testing.assert_allclose(df["height_pe"].to_numpy(), np.array([1.0, 1.0]))
+    np.testing.assert_allclose(df["area_pe"].to_numpy(), np.array([1.5, 1.75]))
+
+
+def test_event_frame_plugin_explicit_gain_overrides_run_config():
+    run_id = "run_gain_override"
+    ctx = _RunConfigContext(
+        config={
+            "peaks_range": (0, None),
+            "charge_range": (0, None),
+            "events_df.gain_adc_per_pe": {0: 1.0, 1: 1.0},
+        },
+        plugins={"events": EventsPlugin()},
+        run_config_payload={"calibration": {"gain_adc_per_pe": {"0": 2.0, "1": 4.0}}},
+    )
+    _seed_events_bundle(ctx, run_id)
+
+    plugin = EventFramePlugin()
+    df = plugin.compute(ctx, run_id)
+
+    np.testing.assert_allclose(df["height_pe"].to_numpy(), np.array([2.0, 4.0]))
+    np.testing.assert_allclose(df["area_pe"].to_numpy(), np.array([3.0, 7.0]))
 
 
 def test_compute_event_features_fixed_baseline_partial():

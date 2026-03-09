@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `events_df` |
-| **Version** | `0.3.0` |
+| **Version** | `0.5.0` |
 | **Category** | 事件分析 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -27,6 +27,7 @@ This plugin depends on the following data:
 | `charge_range` | `tuple` | `(0, None)` | - | Charge range in samples (start, end); end=None uses full length. |
 | `include_event_id` | `bool` | `True` | - | Include event_id column in events_df output. |
 | `fixed_baseline` | `dict` | `None` | - | 按通道固定 baseline 值，如 {0: 8192, 1: 8200}。设置后覆盖动态 baseline 用于 height/area 计算。 |
+| `gain_adc_per_pe` | `dict` | `None` | - | 按通道配置 ADC/PE 增益，如 {0: 12.5, 1: 13.2}。显式设置优先；未显式设置时可从 `<run_path>/run_config.json` 的 `calibration.gain_adc_per_pe` 读取。 |
 
 
 

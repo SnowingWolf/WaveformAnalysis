@@ -21,6 +21,7 @@ WaveformAnalysis 提供灵活的配置系统：
 1. **全局配置**：在 `Context(config=...)` 或 `ctx.set_config({...})` 中设置，供所有插件共享。
 2. **插件特定配置**：通过 `plugin_name` 或嵌套字典指定，仅影响单一插件。
 3. **适配器推断配置**：由 DAQ 适配器推断得到的配置值（如采样率、时间间隔）。
+4. **Run 级配置文件**：每个 run 可放置 `run_config.json`，用于运行级别参数（如增益标定）。
 
 ---
 
@@ -75,6 +76,36 @@ ctx.set_config({
     'threshold': 50,
 })
 ```
+
+## Run 级配置文件（run_config.json）
+
+当通道很多时，推荐把 run 专属参数放进 run 目录下的 `run_config.json`：
+
+- 默认路径：`{data_root}/{run_id}/run_config.json`
+- 可选覆盖：
+  - `run_config_filename`（默认 `run_config.json`）
+  - `run_config_path_template`（支持 `{run_id}`, `{run_name}`, `{data_root}`, `{filename}`）
+
+示例：
+
+```json
+{
+  "meta": {
+    "operator": "alice",
+    "updated_at": "2026-03-09T10:20:00Z"
+  },
+  "calibration": {
+    "gain_adc_per_pe": {
+      "0": 12.5,
+      "1": 13.2
+    }
+  },
+  "plugins": {}
+}
+```
+
+当前 `df` / `events_df` 会读取 `calibration.gain_adc_per_pe`。
+若同时设置了显式配置 `gain_adc_per_pe`，显式配置优先。
 
 ### 插件特定配置（推荐）
 
@@ -302,6 +333,8 @@ ctx.clear_data("run_001", "your_plugin")
 ctx.set_config({'threshold': 100}, plugin_name='basic_features')
 data = ctx.get_data("run_001", "basic_features")  # 重新计算
 ```
+
+补充：`run_config.json` 内容变化会自动触发该 run 的相关缓存失效（`df`、`events_df` 及其下游）。
 
 ### Q3: 如何导出/保存配置？
 

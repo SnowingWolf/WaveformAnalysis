@@ -23,7 +23,7 @@ import logging
 import os
 import re
 import threading
-from typing import Any, Dict, List, Optional, Set, Type, Union, cast
+from typing import Any, Optional, Union, cast
 import warnings
 
 # 2. Third-party imports
@@ -126,6 +126,7 @@ class Context(CacheMixin, PluginMixin):
             "get_config",
             "get_lineage",
             "get_performance_report",
+            "get_run_config",
             "get_time_index_stats",
             "help",
             "key_for",
@@ -293,6 +294,10 @@ class Context(CacheMixin, PluginMixin):
         self._lineage_cache: dict[str, dict[str, Any]] = {}  # data_name -> lineage dict
         self._lineage_hash_cache: dict[str, str] = {}  # data_name -> lineage hash
         self._key_cache: dict[tuple, str] = {}  # (run_id, data_name) -> key
+        # Per-run config cache (loaded from run_config.json) and hash tracking.
+        self._run_config_cache: dict[str, dict[str, Any]] = {}
+        self._run_config_hash_cache: dict[str, str] = {}
+        self._run_config_hash_loaded: set[str] = set()
 
         # Plugin discovery
         self.plugin_dirs = external_plugin_dirs or []
@@ -513,7 +518,7 @@ class Context(CacheMixin, PluginMixin):
             - 当 require_spec=True 时，会校验 PluginSpec 的完整性和一致性
         """
         for p in plugins:
-            if isinstance(p, (list, tuple, set)):
+            if isinstance(p, list | tuple | set):
                 for item in p:
                     self.register(item, allow_override=allow_override, require_spec=require_spec)
                 continue
@@ -627,6 +632,9 @@ class Context(CacheMixin, PluginMixin):
         # 清除配置缓存，确保新配置生效
         self.clear_config_cache()
         self.clear_performance_caches()  # 配置变了，必须让 lineage/hash/key 失效
+        # Run config resolution may depend on path-related settings (e.g. data_root/daq_adapter).
+        self._run_config_cache.clear()
+        self._run_config_hash_loaded.clear()
 
     def get_config_value(
         self,
@@ -814,6 +822,219 @@ class Context(CacheMixin, PluginMixin):
         except Exception as exc:
             self.logger.warning("Failed to sync custom config JSON to %s: %s", path, exc)
 
+    def _get_run_config_filename(self) -> str:
+        """Return run config filename (default: run_config.json)."""
+        value = self.config.get("run_config_filename", "run_config.json")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        return "run_config.json"
+
+    def _resolve_run_config_path(self, run_id: str) -> str:
+        """Resolve run-level config file path for a specific run."""
+        path_template = self.config.get("run_config_path_template")
+        data_root = self.config.get("data_root", "DAQ")
+        filename = self._get_run_config_filename()
+
+        if isinstance(path_template, str) and path_template:
+            try:
+                return str(
+                    path_template.format(
+                        run_id=run_id,
+                        run_name=run_id,
+                        data_root=data_root,
+                        filename=filename,
+                    )
+                )
+            except Exception:
+                self.logger.warning(
+                    "Invalid run_config_path_template '%s'; falling back to default layout.",
+                    path_template,
+                )
+
+        adapter_name = self.config.get("daq_adapter")
+        if isinstance(adapter_name, str) and adapter_name:
+            try:
+                from waveform_analysis.utils.formats import get_adapter
+
+                adapter = get_adapter(adapter_name)
+                run_path = adapter.get_run_path(str(data_root), run_id)
+                return os.path.join(str(run_path), filename)
+            except Exception as exc:
+                self.logger.warning(
+                    "Failed to resolve run path via adapter '%s': %s; falling back to data_root/run_id.",
+                    adapter_name,
+                    exc,
+                )
+
+        return os.path.join(str(data_root), run_id, filename)
+
+    def _compute_run_config_hash(self, run_id: str) -> tuple[str | None, str]:
+        """
+        Compute run config hash.
+
+        Returns:
+            (hash_value, config_path). hash_value is:
+            - 'missing' if run config file does not exist
+            - 'sha1:<digest>' on success
+            - None if file exists but cannot be read/hashed
+        """
+        config_path = self._resolve_run_config_path(run_id)
+        if not os.path.exists(config_path):
+            return "missing", config_path
+
+        try:
+            hasher = hashlib.sha1()
+            with open(config_path, "rb") as fh:
+                for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                    hasher.update(chunk)
+            return "sha1:" + hasher.hexdigest(), config_path
+        except Exception as exc:
+            self.logger.warning("Failed to hash run config '%s': %s", config_path, exc)
+            return None, config_path
+
+    def _get_run_config_hash_state_path(self, run_id: str) -> str:
+        """Get persisted run config hash sidecar path."""
+        try:
+            if hasattr(self.storage, "get_run_data_dir"):
+                base_dir = self.storage.get_run_data_dir(run_id)
+            else:
+                base_dir = os.path.join(self.storage_dir, run_id, "_cache")
+        except Exception:
+            base_dir = os.path.join(self.storage_dir, run_id, "_cache")
+        return os.path.join(base_dir, "_run_config_state.json")
+
+    def _load_previous_run_config_hash(self, run_id: str) -> str | None:
+        """Load previous run config hash from memory/sidecar once per run."""
+        if run_id in self._run_config_hash_loaded:
+            return self._run_config_hash_cache.get(run_id)
+
+        state_path = self._get_run_config_hash_state_path(run_id)
+        previous_hash = None
+        if os.path.exists(state_path):
+            try:
+                with open(state_path, encoding="utf-8") as fh:
+                    payload = json.load(fh)
+                if isinstance(payload, dict):
+                    hash_value = payload.get("run_config_hash")
+                    if isinstance(hash_value, str):
+                        previous_hash = hash_value
+            except Exception as exc:
+                self.logger.warning(
+                    "Failed to read run config hash state '%s': %s", state_path, exc
+                )
+
+        self._run_config_hash_loaded.add(run_id)
+        if previous_hash is not None:
+            self._run_config_hash_cache[run_id] = previous_hash
+        return previous_hash
+
+    def _save_run_config_hash(self, run_id: str, config_path: str, config_hash: str) -> None:
+        """Persist current run config hash to sidecar file."""
+        state_path = self._get_run_config_hash_state_path(run_id)
+        payload = {
+            "run_id": run_id,
+            "run_config_path": config_path,
+            "run_config_hash": config_hash,
+            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        }
+        try:
+            os.makedirs(os.path.dirname(state_path), exist_ok=True)
+            temp_path = state_path + ".tmp"
+            with open(temp_path, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh, ensure_ascii=False, indent=2, sort_keys=True)
+                fh.write("\n")
+            os.replace(temp_path, state_path)
+        except Exception as exc:
+            self.logger.warning("Failed to persist run config hash to '%s': %s", state_path, exc)
+
+    def _invalidate_run_config_related_cache(self, run_id: str) -> None:
+        """Invalidate cache branches affected by run-level gain calibration config."""
+        targets = []
+        if "df" in self._plugins:
+            targets.append("df")
+        if "events_df" in self._plugins:
+            targets.append("events_df")
+
+        for target in targets:
+            try:
+                self.clear_cache_for(run_id, target, downstream=True, verbose=False)
+            except Exception as exc:
+                self.logger.warning(
+                    "Failed to clear run config related cache for (%s, %s): %s",
+                    run_id,
+                    target,
+                    exc,
+                )
+
+    def _maybe_invalidate_run_config_cache(self, run_id: str) -> None:
+        """
+        Invalidate affected caches when run_config hash changes.
+
+        This check runs before cache lookup in get_data(), so stale entries
+        are removed automatically when the run-level config file changes.
+        """
+        current_hash, config_path = self._compute_run_config_hash(run_id)
+        if current_hash is None:
+            return
+
+        previous_hash = self._load_previous_run_config_hash(run_id)
+
+        if previous_hash is None:
+            self._run_config_hash_cache[run_id] = current_hash
+            self._save_run_config_hash(run_id, config_path, current_hash)
+            return
+
+        if previous_hash == current_hash:
+            return
+
+        self.logger.info(
+            "Detected run_config change for run '%s' (%s -> %s); invalidating related caches.",
+            run_id,
+            previous_hash,
+            current_hash,
+        )
+        self._invalidate_run_config_related_cache(run_id)
+        self._run_config_cache.pop(run_id, None)
+        self._run_config_hash_cache[run_id] = current_hash
+        self._save_run_config_hash(run_id, config_path, current_hash)
+
+    def get_run_config(self, run_id: str, refresh: bool = False) -> dict[str, Any]:
+        """
+        Load run-level configuration from run_config.json.
+
+        Returns an empty dict when file is missing or invalid.
+        """
+        current_hash, config_path = self._compute_run_config_hash(run_id)
+        if current_hash is None:
+            return {}
+
+        cached = self._run_config_cache.get(run_id)
+        cached_hash = self._run_config_hash_cache.get(run_id)
+        if not refresh and cached is not None and cached_hash == current_hash:
+            return cached
+
+        if current_hash == "missing":
+            result = {}
+        else:
+            result = {}
+            try:
+                with open(config_path, encoding="utf-8") as fh:
+                    payload = json.load(fh)
+                if isinstance(payload, dict):
+                    result = payload
+                else:
+                    self.logger.warning(
+                        "Run config file '%s' must contain a JSON object; got %s.",
+                        config_path,
+                        type(payload).__name__,
+                    )
+            except Exception as exc:
+                self.logger.warning("Failed to read run config '%s': %s", config_path, exc)
+
+        self._run_config_cache[run_id] = result
+        self._run_config_hash_cache[run_id] = current_hash
+        return result
+
     def show_resolved_config(
         self,
         plugin: Plugin | str | None = None,
@@ -992,6 +1213,7 @@ class Context(CacheMixin, PluginMixin):
 
         # Remember the most recent run_id for display purposes (e.g., show_config()).
         self._last_run_id = run_id
+        self._maybe_invalidate_run_config_cache(run_id)
         # 1. Check memory cache
         val = self._get_data_from_memory(run_id, data_name)
         if val is not None:
@@ -1451,7 +1673,7 @@ class Context(CacheMixin, PluginMixin):
             key = self.key_for(run_id, name)  # Contains lineage hash
             self._results_lineage[(run_id, name)] = key
 
-        is_generator = isinstance(value, (Iterator, OneTimeGenerator)) or hasattr(value, "__next__")
+        is_generator = isinstance(value, Iterator | OneTimeGenerator) or hasattr(value, "__next__")
 
         # Safe attribute access: whitelist and conflict check
         # Whitelist: valid python identifier
@@ -3571,7 +3793,7 @@ class Context(CacheMixin, PluginMixin):
         # 解析 epoch
         if isinstance(epoch, datetime):
             epoch_info = EpochInfo.from_datetime(epoch, source="manual", time_unit=ts_unit)
-        elif isinstance(epoch, (int, float)):
+        elif isinstance(epoch, int | float):
             epoch_info = EpochInfo.from_timestamp(float(epoch), source="manual", time_unit=ts_unit)
         elif isinstance(epoch, str):
             # 解析 ISO 8601 字符串

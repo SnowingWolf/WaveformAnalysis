@@ -128,11 +128,11 @@ raw_files ──► records ──► events ──► events_df ──► event
 |------|----------|------|------|------|
 | [`BasicFeaturesPlugin`](basic_features.md) | `basic_features` | 3.3.0 | 特征提取 | - |
 | [`CacheAnalysisPlugin`](cache_analysis.md) | `cache_analysis` | 0.1.0 | 缓存分析 | - |
-| [`DataFramePlugin`](df.md) | `df` | 1.1.0 | 数据导出 | st_waveforms, basic_features |
+| [`DataFramePlugin`](df.md) | `df` | 1.3.0 | 数据导出 | st_waveforms, basic_features |
 | [`GroupedEventsPlugin`](df_events.md) | `df_events` | 0.0.0 | 事件分析 | df |
 | [`PairedEventsPlugin`](df_paired.md) | `df_paired` | 0.0.0 | 事件分析 | df_events |
 | [`EventsPlugin`](events.md) | `events` | 2.0.0 | 事件分析 | - |
-| [`EventFramePlugin`](events_df.md) | `events_df` | 0.3.0 | 事件分析 | events |
+| [`EventFramePlugin`](events_df.md) | `events_df` | 0.5.0 | 事件分析 | events |
 | [`EventsGroupedPlugin`](events_grouped.md) | `events_grouped` | 0.1.0 | 事件分析 | events_df |
 | [`FilteredWaveformsPlugin`](filtered_waveforms.md) | `filtered_waveforms` | 2.4.0 | 波形处理 | st_waveforms |
 | [`HitFinderPlugin`](hit.md) | `hit` | 2.2.0 | 特征提取 | - |

@@ -2,7 +2,8 @@
 Events plugins built on the records bundle.
 """
 
-from typing import Any, List, Optional, Tuple
+import logging
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -18,6 +19,7 @@ from waveform_analysis.core.processing.records_builder import (
 )
 
 export, __all__ = exporter()
+logger = logging.getLogger(__name__)
 
 _BUNDLE_CACHE_NAME = "_events_bundle"
 
@@ -27,14 +29,14 @@ def _bundle_cache_key(context: Any, run_id: str, plugin_name: str) -> str:
     return f"{_BUNDLE_CACHE_NAME}-{key}"
 
 
-def _resolve_adapter_name(context: Any) -> Optional[str]:
+def _resolve_adapter_name(context: Any) -> str | None:
     adapter = context.config.get("daq_adapter")
     if isinstance(adapter, str):
         return adapter.lower()
     return None
 
 
-def _resolve_dt_ns(context: Any, plugin: Plugin, adapter_name: Optional[str] = None) -> int:
+def _resolve_dt_ns(context: Any, plugin: Plugin, adapter_name: str | None = None) -> int:
     dt_ns = context.get_config(plugin, "events_dt_ns")
     if dt_ns is None:
         daq_adapter = adapter_name or context.config.get("daq_adapter")
@@ -91,9 +93,9 @@ def _flatten_raw_files(raw_files: Any) -> list:
 
 
 def _coerce_range(
-    value: Optional[Tuple[Optional[int], Optional[int]]],
-    default_value: Tuple[Optional[int], Optional[int]],
-) -> Tuple[int, Optional[int]]:
+    value: tuple[int | None, int | None] | None,
+    default_value: tuple[int | None, int | None],
+) -> tuple[int, int | None]:
     if value is None:
         value = default_value
     if len(value) != 2:
@@ -104,7 +106,7 @@ def _coerce_range(
     return start, end
 
 
-def _slice_bounds(length: int, start: int, end: Optional[int]) -> Tuple[int, int]:
+def _slice_bounds(length: int, start: int, end: int | None) -> tuple[int, int]:
     if start < 0:
         start = 0
     if end is None or end > length:
@@ -117,10 +119,10 @@ def _slice_bounds(length: int, start: int, end: Optional[int]) -> Tuple[int, int
 def _compute_event_features(
     records: np.ndarray,
     wave_pool: np.ndarray,
-    peaks_range: Optional[Tuple[Optional[int], Optional[int]]],
-    charge_range: Optional[Tuple[Optional[int], Optional[int]]],
-    fixed_baseline: Optional[dict] = None,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    peaks_range: tuple[int | None, int | None] | None,
+    charge_range: tuple[int | None, int | None] | None,
+    fixed_baseline: dict | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     n_records = len(records)
     heights = np.zeros(n_records, dtype=np.float64)
     amps = np.zeros(n_records, dtype=np.float64)
@@ -153,6 +155,97 @@ def _compute_event_features(
             areas[idx] = float(np.sum(baseline - segment))
 
     return heights, amps, areas
+
+
+def _normalize_gain_map(gain_adc_per_pe: Any, plugin_name: str) -> dict:
+    """Normalize gain map into {channel(int): gain(float)} with positive gains only."""
+    if not isinstance(gain_adc_per_pe, dict):
+        return {}
+
+    gain_map = {}
+    for channel, gain in gain_adc_per_pe.items():
+        try:
+            channel_int = int(channel)
+            gain_float = float(gain)
+        except (TypeError, ValueError):
+            logger.warning(
+                "%s.gain_adc_per_pe has invalid entry: channel=%r, gain=%r",
+                plugin_name,
+                channel,
+                gain,
+            )
+            continue
+        if gain_float <= 0:
+            logger.warning(
+                "%s.gain_adc_per_pe[%s]=%s is non-positive; calibrated columns will be NaN for this channel",
+                plugin_name,
+                channel_int,
+                gain_float,
+            )
+            continue
+        gain_map[channel_int] = gain_float
+    return gain_map
+
+
+def _extract_gain_from_run_config(run_config: Any) -> Any:
+    """Extract gain map from run-level config."""
+    if not isinstance(run_config, dict):
+        return None
+
+    calibration = run_config.get("calibration")
+    if isinstance(calibration, dict) and isinstance(calibration.get("gain_adc_per_pe"), dict):
+        return calibration.get("gain_adc_per_pe")
+
+    # Backward-compatible fallback.
+    if isinstance(run_config.get("gain_adc_per_pe"), dict):
+        return run_config.get("gain_adc_per_pe")
+
+    return None
+
+
+def _resolve_gain_map(context: Any, plugin: Plugin, run_id: str) -> tuple[dict, bool]:
+    """
+    Resolve gain map with precedence:
+    explicit config > run_config.json > none.
+
+    Returns:
+        (normalized_gain_map, enabled)
+        enabled=True means calibrated columns should be emitted.
+    """
+    gain_adc_per_pe = context.get_config(plugin, "gain_adc_per_pe")
+
+    explicit_config = False
+    has_explicit = getattr(context, "has_explicit_config", None)
+    if callable(has_explicit):
+        try:
+            explicit_config = bool(has_explicit(plugin, "gain_adc_per_pe"))
+        except Exception:
+            explicit_config = False
+
+    if explicit_config:
+        if isinstance(gain_adc_per_pe, dict):
+            return _normalize_gain_map(gain_adc_per_pe, plugin.provides), bool(gain_adc_per_pe)
+        return {}, False
+
+    if isinstance(gain_adc_per_pe, dict) and gain_adc_per_pe:
+        return _normalize_gain_map(gain_adc_per_pe, plugin.provides), True
+
+    run_config_getter = getattr(context, "get_run_config", None)
+    if callable(run_config_getter):
+        try:
+            run_config = run_config_getter(run_id)
+            run_gain = _extract_gain_from_run_config(run_config)
+            if isinstance(run_gain, dict):
+                return _normalize_gain_map(run_gain, plugin.provides), bool(run_gain)
+        except Exception as exc:
+            logger.warning(
+                "Failed to resolve gain from run config for run '%s' (%s): %s",
+                run_id,
+                plugin.provides,
+                exc,
+            )
+
+    return {}, False
 
 
 def get_events_bundle(context: Any, run_id: str) -> RecordsBundle:
@@ -217,7 +310,7 @@ class EventsPlugin(Plugin):
     }
     version = "2.0.0"  # 版本升级：支持动态依赖切换
 
-    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
+    def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         adapter_name = _resolve_adapter_name(context)
         if adapter_name == "v1725":
             return ["raw_files"]
@@ -279,8 +372,16 @@ class EventFramePlugin(Plugin):
             type=dict,
             help="按通道固定 baseline 值，如 {0: 8192, 1: 8200}。设置后覆盖动态 baseline 用于 height/area 计算。",
         ),
+        "gain_adc_per_pe": Option(
+            default=None,
+            type=dict,
+            help=(
+                "按通道配置 ADC/PE 增益，如 {0: 12.5, 1: 13.2}。"
+                "设置后会新增 area_pe/height_pe 列。"
+            ),
+        ),
     }
-    version = "0.3.0"  # 版本升级：新增 fixed_baseline 选项
+    version = "0.5.0"  # 版本升级：支持从 run_config 读取 gain_adc_per_pe
 
     def compute(self, context: Any, run_id: str, **kwargs) -> Any:
         bundle = get_events_bundle(context, run_id)
@@ -304,6 +405,16 @@ class EventFramePlugin(Plugin):
             "amp": amps,
             "channel": records["channel"],
         }
+
+        gain_map, enable_calibrated_columns = _resolve_gain_map(context, self, run_id)
+        if enable_calibrated_columns:
+            channels = np.asarray(records["channel"])
+            gains = np.full(len(records), np.nan, dtype=np.float64)
+            for channel, gain in gain_map.items():
+                gains[channels == channel] = gain
+            payload["area_pe"] = np.asarray(areas, dtype=np.float64) / gains
+            payload["height_pe"] = np.asarray(heights, dtype=np.float64) / gains
+
         if context.get_config(self, "include_event_id"):
             payload["event_id"] = records["event_id"]
 
