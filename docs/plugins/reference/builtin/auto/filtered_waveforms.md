@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `filtered_waveforms` |
-| **Version** | `2.3.0` |
+| **Version** | `2.4.0` |
 | **Category** | 波形处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |

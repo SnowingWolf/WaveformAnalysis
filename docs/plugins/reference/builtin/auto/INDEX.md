@@ -134,7 +134,7 @@ raw_files ──► records ──► events ──► events_df ──► event
 | [`EventsPlugin`](events.md) | `events` | 2.0.0 | 事件分析 | - |
 | [`EventFramePlugin`](events_df.md) | `events_df` | 0.3.0 | 事件分析 | events |
 | [`EventsGroupedPlugin`](events_grouped.md) | `events_grouped` | 0.1.0 | 事件分析 | events_df |
-| [`FilteredWaveformsPlugin`](filtered_waveforms.md) | `filtered_waveforms` | 2.3.0 | 波形处理 | st_waveforms |
+| [`FilteredWaveformsPlugin`](filtered_waveforms.md) | `filtered_waveforms` | 2.4.0 | 波形处理 | st_waveforms |
 | [`HitFinderPlugin`](hit.md) | `hit` | 2.2.0 | 特征提取 | - |
 | [`RawFileNamesPlugin`](raw_files.md) | `raw_files` | 0.0.2 | 数据加载 | - |
 | [`RecordsPlugin`](records.md) | `records` | 0.4.0 | 记录处理 | raw_files |

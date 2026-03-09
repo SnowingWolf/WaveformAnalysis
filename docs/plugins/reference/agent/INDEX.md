@@ -29,7 +29,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`events`](events.md) | `EventsPlugin` | - | `structured_array` | `2.0.0` |
 | [`events_df`](events_df.md) | `EventFramePlugin` | `events` | `unknown` | `0.3.0` |
 | [`events_grouped`](events_grouped.md) | `EventsGroupedPlugin` | `events_df` | `unknown` | `0.1.0` |
-| [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `structured_array` | `2.3.0` |
+| [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `structured_array` | `2.4.0` |
 | [`hit`](hit.md) | `HitFinderPlugin` | - | `structured_array` | `2.2.0` |
 | [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | `unknown` | `0.0.2` |
 | [`records`](records.md) | `RecordsPlugin` | `raw_files` | `structured_array` | `0.4.0` |

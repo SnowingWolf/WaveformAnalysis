@@ -12,7 +12,7 @@ CPU Filtering Plugin - 使用 scipy 进行波形滤波
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 from scipy.signal import butter, savgol_filter, sosfiltfilt
@@ -29,37 +29,34 @@ def _filter_channel(args):
     Parameters
     ----------
     args : tuple
-        (waveforms_f64, filter_type, bw_sos, sg_window_size, sg_poly_order)
-        waveforms_f64: shape (n_events, n_samples), float64
+        (waveforms_i16, indices, filter_type, bw_sos, sg_window_size, sg_poly_order)
+        waveforms_i16: shape (n_events, n_samples), int16
     """
-    waveforms_f64, filter_type, bw_sos, sg_window_size, sg_poly_order = args
-    n_events, n_samples = waveforms_f64.shape
-
+    waveforms_i16, indices, filter_type, bw_sos, sg_window_size, sg_poly_order = args
+    waveforms_f64 = waveforms_i16[indices].astype(np.float64, copy=False)
     if filter_type == "BW":
         filtered = sosfiltfilt(bw_sos, waveforms_f64, axis=-1)
     else:  # SG
-        window = min(sg_window_size, n_samples)
-        if window % 2 == 0:
-            window -= 1
-        if window <= sg_poly_order:
+        if sg_window_size <= sg_poly_order:
             filtered = waveforms_f64
         else:
             filtered = savgol_filter(
                 waveforms_f64,
-                window_length=window,
+                window_length=sg_window_size,
                 polyorder=sg_poly_order,
                 axis=-1,
                 mode="interp",
             )
 
-    return np.clip(filtered, -32768, 32767).astype(np.int16, copy=False)
+    np.clip(filtered, -32768, 32767, out=filtered)
+    return filtered.astype(np.int16, copy=False)
 
 
 class FilteredWaveformsPlugin(Plugin):
     provides = "filtered_waveforms"
     depends_on = ["st_waveforms"]
     description = "Apply filtering to waveforms using Butterworth or Savitzky-Golay filters."
-    version = "2.3.0"
+    version = "2.4.0"
     save_when = "target"
 
     output_dtype = np.dtype(ST_WAVEFORM_DTYPE)  # 默认值；compute() 中会动态更新
@@ -141,13 +138,9 @@ class FilteredWaveformsPlugin(Plugin):
                 sg_window_size += 1
                 logger.warning("SG 窗口大小已调整为奇数: %s", sg_window_size)
             if sg_poly_order >= sg_window_size:
-                raise ValueError(
-                    f"SG 多项式阶数 ({sg_poly_order}) 必须小于窗口大小 ({sg_window_size})"
-                )
+                raise ValueError(f"SG 多项式阶数 ({sg_poly_order}) 必须小于窗口大小 ({sg_window_size})")
 
-            logger.debug(
-                "SG 滤波器参数: window_size=%s poly_order=%s", sg_window_size, sg_poly_order
-            )
+            logger.debug("SG 滤波器参数: window_size=%s poly_order=%s", sg_window_size, sg_poly_order)
 
         st_waveforms = context.get_data(run_id, "st_waveforms")
         if not isinstance(st_waveforms, np.ndarray):
@@ -164,58 +157,100 @@ class FilteredWaveformsPlugin(Plugin):
 
         if "channel" not in st_waveforms.dtype.names:
             raise ValueError("st_waveforms missing required 'channel' field for filtering")
+        if "wave" not in st_waveforms.dtype.names:
+            raise ValueError("st_waveforms missing required 'wave' field for filtering")
 
         channels = st_waveforms["channel"]
-        unique_channels = np.unique(channels)
+        waveforms_i16 = st_waveforms["wave"]
+        if waveforms_i16.ndim != 2:
+            raise ValueError("st_waveforms['wave'] must be 2D (n_events, n_samples)")
+        n_samples = waveforms_i16.shape[1]
+
+        batch_size = int(context.get_config(self, "batch_size"))
+        if batch_size < 0:
+            raise ValueError(f"batch_size ({batch_size}) 必须大于等于 0")
+
+        if filter_type == "SG":
+            # 对全部事件共享同一个窗口长度，避免每个任务重复推导。
+            sg_window_size = min(sg_window_size, n_samples)
+            if sg_window_size % 2 == 0:
+                sg_window_size -= 1
+            if sg_window_size <= sg_poly_order:
+                logger.warning(
+                    "SG 窗口长度(%s)不大于多项式阶数(%s)，返回原始波形",
+                    sg_window_size,
+                    sg_poly_order,
+                )
+                return output
+
+        channel_batches = self._build_channel_batches(channels, batch_size)
+        if not channel_batches:
+            return output
 
         max_workers = context.get_config(self, "max_workers")
-        use_parallel = (
-            max_workers is None or (isinstance(max_workers, int) and max_workers > 1)
-        ) and len(unique_channels) > 1
+        allow_parallel = max_workers is None or (isinstance(max_workers, int) and max_workers > 1)
+        use_parallel = allow_parallel and len(channel_batches) > 1
 
         if use_parallel:
             from waveform_analysis.core.execution.manager import parallel_map
 
-            tasks = []
-            task_meta = []  # 对应的 mask 列表
-            for ch in unique_channels:
-                mask = channels == ch
-                waveforms = st_waveforms["wave"][mask].astype(np.float64, copy=False)
-                if waveforms.ndim != 2 or waveforms.shape[0] == 0 or waveforms.shape[1] == 0:
-                    continue
-                tasks.append((waveforms, filter_type, bw_sos, sg_window_size, sg_poly_order))
-                task_meta.append(mask)
-
-            if tasks:
-                logger.debug("并行滤波: %s 个通道, max_workers=%s", len(tasks), max_workers)
-                results = parallel_map(
-                    _filter_channel,
-                    tasks,
-                    executor_type="thread",
-                    max_workers=max_workers,
-                    executor_name="filtered_waveforms",
-                )
-                for mask, filtered_i16 in zip(task_meta, results):
-                    output["wave"][mask] = filtered_i16
+            tasks = [
+                (waveforms_i16, batch_indices, filter_type, bw_sos, sg_window_size, sg_poly_order)
+                for _channel, batch_indices in channel_batches
+            ]
+            logger.debug(
+                "并行滤波: tasks=%s max_workers=%s batch_size=%s",
+                len(tasks),
+                max_workers,
+                batch_size,
+            )
+            results = parallel_map(
+                _filter_channel,
+                tasks,
+                executor_type="thread",
+                max_workers=max_workers,
+                executor_name="filtered_waveforms",
+            )
+            for (_channel, batch_indices), filtered_i16 in zip(channel_batches, results):
+                output["wave"][batch_indices] = filtered_i16
         else:
-            # 串行路径：单通道或显式禁用并行
-            for ch in unique_channels:
-                mask = channels == ch
-                waveforms = st_waveforms["wave"][mask].astype(np.float64, copy=False)
-                if waveforms.ndim != 2 or waveforms.shape[0] == 0 or waveforms.shape[1] == 0:
-                    continue
-
-                n_events, n_samples = waveforms.shape
+            # 串行路径：单任务或显式禁用并行
+            for ch, batch_indices in channel_batches:
                 logger.debug(
-                    "处理通道: channel=%s n_events=%s n_samples=%s", ch, n_events, n_samples
+                    "处理通道批次: channel=%s n_events=%s n_samples=%s",
+                    ch,
+                    len(batch_indices),
+                    n_samples,
                 )
-
                 filtered_i16 = _filter_channel(
-                    (waveforms, filter_type, bw_sos, sg_window_size, sg_poly_order)
+                    (waveforms_i16, batch_indices, filter_type, bw_sos, sg_window_size, sg_poly_order)
                 )
-                output["wave"][mask] = filtered_i16
+                output["wave"][batch_indices] = filtered_i16
 
         return output
+
+    def _build_channel_batches(self, channels: np.ndarray, batch_size: int) -> List[Tuple[int, np.ndarray]]:
+        """将事件按 channel 分组，并按 batch_size 切分为批次索引。"""
+        if channels.size == 0:
+            return []
+
+        ordered_indices = np.argsort(channels, kind="stable")
+        sorted_channels = channels[ordered_indices]
+        group_starts = np.flatnonzero(np.r_[True, sorted_channels[1:] != sorted_channels[:-1]])
+        group_ends = np.r_[group_starts[1:], len(ordered_indices)]
+
+        batches: List[Tuple[int, np.ndarray]] = []
+        for start, end in zip(group_starts, group_ends):
+            channel_indices = ordered_indices[start:end]
+            if channel_indices.size == 0:
+                continue
+            channel = int(sorted_channels[start])
+            if batch_size <= 0 or channel_indices.size <= batch_size:
+                batches.append((channel, channel_indices))
+                continue
+            for offset in range(0, channel_indices.size, batch_size):
+                batches.append((channel, channel_indices[offset : offset + batch_size]))
+        return batches
 
     def _has_config(self, context: Any, name: str) -> bool:
         if hasattr(context, "has_explicit_config"):
