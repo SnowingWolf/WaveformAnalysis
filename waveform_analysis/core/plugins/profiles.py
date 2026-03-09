@@ -8,6 +8,7 @@ from waveform_analysis.core.plugins.plugin_sets import (
     plugins_basic_features,
     plugins_events,
     plugins_io,
+    plugins_peaks,
     plugins_tabular,
     plugins_waveform,
 )
@@ -21,6 +22,7 @@ def cpu_default():
     return (
         plugins_io()
         + plugins_waveform()
+        + plugins_peaks()
         + plugins_basic_features()
         + plugins_tabular()
         + plugins_events()

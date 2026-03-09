@@ -48,7 +48,7 @@ waveform_analysis/core/plugins/
 │   ├── tabular.py                # DataFrame 转换插件集
 │   ├── events.py                 # 事件分组/配对插件集
 │   ├── peaks.py                  # 峰相关插件集
-│   └── signal_processing.py      # peaks 兼容别名（弃用）
+│   └── diagnostics_legacy.py     # 诊断/兼容插件集
 │
 ├── profiles.py                   # 执行配置文件
 └── __init__.py

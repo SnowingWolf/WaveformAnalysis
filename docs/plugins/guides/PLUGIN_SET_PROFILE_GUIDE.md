@@ -17,11 +17,10 @@ Plugin Set 是最小可复用插件组，每个 set 只关注单一职责。
 | --- | --- | --- |
 | `io` | RawFileNamesPlugin | 扫描并分组原始文件 |
 | `waveform` | WaveformsPlugin, FilteredWaveformsPlugin | 波形提取与滤波 |
-| `basic_features` | HitFinderPlugin, BasicFeaturesPlugin, SignalPeaksPlugin, WaveformWidthIntegralPlugin | 基础特征计算 |
+| `basic_features` | BasicFeaturesPlugin, WaveformWidthIntegralPlugin | 基础特征计算 |
 | `tabular` | DataFramePlugin | 表格化输出 |
 | `events` | GroupedEventsPlugin, PairedEventsPlugin | 事件分组与配对 |
-| `peaks` | WaveformWidthPlugin, S1S2ClassifierPlugin | 可选峰特征扩展 |
-| `signal_processing` | WaveformWidthPlugin, S1S2ClassifierPlugin | `peaks` 的兼容别名（已弃用） |
+| `peaks` | HitFinderPlugin, WaveformWidthPlugin, S1S2ClassifierPlugin | 峰值检测与峰特征扩展 |
 | `diagnostics_legacy` | CacheAnalysisPlugin, RecordsPlugin, EventsPlugin, EventFramePlugin, EventsGroupedPlugin | 诊断/兼容插件 |
 
 示例：
@@ -52,7 +51,7 @@ ctx.register(*profiles.cpu_default())
 `cpu_default()` 等价于：
 
 ```
-io + waveform + basic_features + tabular + events
+io + waveform + peaks + basic_features + tabular + events
 ```
 
 ---
