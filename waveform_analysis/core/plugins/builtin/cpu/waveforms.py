@@ -48,8 +48,8 @@ export, __all__ = exporter()
 
 
 def _parse_file_to_npy(
-    args: Tuple[int, int, str, int, Optional[int], str, str],
-) -> Tuple[int, int, Optional[str]]:
+    args: tuple[int, int, str, int, int | None, str, str],
+) -> tuple[int, int, str | None]:
     """Parse a single file and persist to .npy to avoid large IPC payloads."""
     import tempfile
 
@@ -78,7 +78,7 @@ def _sniff_csv_layout(
     file_path: str,
     default_delimiter: str = ";",
     max_lines: int = 50,
-) -> Tuple[str, int]:
+) -> tuple[str, int]:
     """Best-effort delimiter and header row detection."""
     try:
         with open(file_path, encoding="utf-8", errors="replace") as fh:
@@ -133,10 +133,10 @@ def _sniff_csv_layout(
 
 
 def _detect_wave_length_from_files(
-    raw_files: List[List[str]],
+    raw_files: list[list[str]],
     cols: ColumnMapping,
     default_delimiter: str = ";",
-) -> Optional[int]:
+) -> int | None:
     for group in raw_files:
         for fp in group:
             delimiter, skiprows = _sniff_csv_layout(fp, default_delimiter=default_delimiter)
@@ -160,7 +160,7 @@ def _detect_wave_length_from_files(
 
 
 def _validate_baseline_samples(
-    baseline_samples: Optional[Union[int, Tuple[int, int]]],
+    baseline_samples: int | tuple[int, int] | None,
 ) -> None:
     if baseline_samples is None:
         return
@@ -192,9 +192,9 @@ def _validate_baseline_samples(
 
 
 def _resolve_baseline_window(
-    baseline_samples: Optional[Union[int, Tuple[int, int]]],
+    baseline_samples: int | tuple[int, int] | None,
     cols: ColumnMapping,
-) -> Tuple[int, int]:
+) -> tuple[int, int]:
     baseline_start = cols.baseline_start
     baseline_end = cols.baseline_end
     if baseline_samples is not None:
@@ -204,6 +204,66 @@ def _resolve_baseline_window(
         else:
             baseline_end = baseline_start + int(baseline_samples)
     return baseline_start, baseline_end
+
+
+def _safe_v1725_field(data: np.ndarray, name: str, default: Any) -> Any:
+    """Safely fetch a field from v1725 structured array."""
+    if data.dtype.names and name in data.dtype.names:
+        return data[name]
+    return default
+
+
+def _convert_v1725_to_st_waveforms(
+    data: np.ndarray,
+    config: WaveformStructConfig,
+) -> np.ndarray:
+    """Convert v1725 reader output to standard st_waveforms dtype."""
+    if data.size == 0:
+        return np.zeros(0, dtype=config.get_record_dtype())
+
+    raw_waves = _safe_v1725_field(data, "wave", np.array([], dtype=object))
+    wave_lengths = np.array([len(np.asarray(w)) for w in raw_waves], dtype=np.int32)
+
+    if config.wave_length is not None:
+        target_wave_length = int(config.wave_length)
+    elif wave_lengths.size > 0:
+        target_wave_length = int(np.max(wave_lengths))
+    else:
+        target_wave_length = int(config.get_wave_length())
+
+    record_dtype = create_record_dtype(target_wave_length)
+    st_waveforms = np.zeros(len(data), dtype=record_dtype)
+
+    baselines = _safe_v1725_field(data, "baseline", np.full(len(data), np.nan))
+    channels = _safe_v1725_field(data, "channel", np.zeros(len(data), dtype=np.int16))
+    timestamps_ticks = _safe_v1725_field(data, "timestamp", np.zeros(len(data), dtype=np.int64))
+
+    st_waveforms["baseline"] = np.asarray(baselines, dtype=np.float64)
+    st_waveforms["baseline_upstream"] = np.nan
+    st_waveforms["channel"] = np.asarray(channels, dtype=np.int16)
+
+    dt_ns = np.int32(config.get_dt_ns())
+    st_waveforms["dt"] = dt_ns
+
+    # v1725 timestamp is an ADC tick index; normalize to ps like other st_waveforms paths.
+    timestamp_ps = (
+        np.asarray(timestamps_ticks, dtype=np.int64) * np.int64(int(dt_ns)) * np.int64(1000)
+    )
+    st_waveforms["timestamp"] = timestamp_ps
+    if "time" in st_waveforms.dtype.names:
+        if config.epoch_ns is not None:
+            st_waveforms["time"] = np.int64(config.epoch_ns) + timestamp_ps // 1000
+        else:
+            st_waveforms["time"] = timestamp_ps // 1000
+
+    for idx, wave in enumerate(raw_waves):
+        arr = np.asarray(wave, dtype=np.int16).reshape(-1)
+        n_samples = min(len(arr), target_wave_length)
+        if n_samples > 0:
+            st_waveforms["wave"][idx, :n_samples] = arr[:n_samples]
+        st_waveforms["event_length"][idx] = np.int32(n_samples)
+
+    return st_waveforms
 
 
 @export
@@ -227,9 +287,9 @@ class WaveformStructConfig:
     """
 
     format_spec: FormatSpec
-    wave_length: Optional[int] = None
-    dt_ns: Optional[int] = None
-    epoch_ns: Optional[int] = None
+    wave_length: int | None = None
+    dt_ns: int | None = None
+    epoch_ns: int | None = None
 
     @classmethod
     def default_vx2730(cls) -> WaveformStructConfig:
@@ -289,8 +349,8 @@ class WaveformStructConfig:
 
 @export
 def create_channel_mapping(
-    board_channel_pairs: List[Tuple[int, int]],
-) -> Dict[Tuple[int, int], int]:
+    board_channel_pairs: list[tuple[int, int]],
+) -> dict[tuple[int, int], int]:
     """创建 (BOARD, CHANNEL) 到物理通道号的映射。"""
     unique_pairs = set(board_channel_pairs)
     return {(board, channel): channel for board, channel in unique_pairs}
@@ -309,10 +369,10 @@ class WaveformStruct:
 
     def __init__(
         self,
-        waveforms: List[np.ndarray],
-        config: Optional[WaveformStructConfig] = None,
-        baseline_samples: Optional[Union[int, Tuple[int, int]]] = None,
-        upstream_baselines: Optional[List[np.ndarray]] = None,
+        waveforms: list[np.ndarray],
+        config: WaveformStructConfig | None = None,
+        baseline_samples: int | tuple[int, int] | None = None,
+        upstream_baselines: list[np.ndarray] | None = None,
     ):
         """初始化 WaveformStruct。
 
@@ -341,10 +401,10 @@ class WaveformStruct:
     @classmethod
     def from_adapter(
         cls,
-        waveforms: List[np.ndarray],
+        waveforms: list[np.ndarray],
         adapter_name: str = "vx2730",
-        baseline_samples: Optional[Union[int, Tuple[int, int]]] = None,
-        upstream_baselines: Optional[List[np.ndarray]] = None,
+        baseline_samples: int | tuple[int, int] | None = None,
+        upstream_baselines: list[np.ndarray] | None = None,
     ) -> WaveformStruct:
         """从 DAQ 适配器创建 WaveformStruct（便捷方法）"""
         config = WaveformStructConfig.from_adapter(adapter_name)
@@ -352,8 +412,8 @@ class WaveformStruct:
 
     def _structure_waveform(
         self,
-        waves: Optional[np.ndarray] = None,
-        channel_mapping: Optional[Dict[Tuple[int, int], int]] = None,
+        waves: np.ndarray | None = None,
+        channel_mapping: dict[tuple[int, int], int] | None = None,
         channel_idx: int = 0,
     ) -> np.ndarray:
         """将波形数组转换为结构化数组。"""
@@ -409,7 +469,11 @@ class WaveformStruct:
 
             if np.any(physical_channels == -1):
                 unmapped = set(
-                    zip(board_vals[physical_channels == -1], channel_vals[physical_channels == -1])
+                    zip(
+                        board_vals[physical_channels == -1],
+                        channel_vals[physical_channels == -1],
+                        strict=False,
+                    )
                 )
                 logger.warning(f"发现未映射的 (BOARD, CHANNEL) 组合: {unmapped}")
         else:
@@ -506,21 +570,21 @@ class WaveformStruct:
         self,
         show_progress: bool = False,
         start_channel_slice: int = 0,
-        n_jobs: Optional[int] = None,
+        n_jobs: int | None = None,
     ) -> np.ndarray:
         """将所有通道的波形转换为结构化数组。"""
         cols = self.config.format_spec.columns
 
         all_board_channel_pairs = []
         has_data = False
-        lengths: List[int] = []
+        lengths: list[int] = []
         for waves in self.waveforms:
             if len(waves) > 0:
                 has_data = True
                 try:
                     boards = waves[:, cols.board].astype(int)
                     channels = waves[:, cols.channel].astype(int)
-                    all_board_channel_pairs.extend(zip(boards, channels))
+                    all_board_channel_pairs.extend(zip(boards, channels, strict=False))
                 except Exception:
                     logger.warning("无法从波形数据中提取 BOARD/CHANNEL，跳过该通道")
                     continue
@@ -654,7 +718,7 @@ class RawFileNamesPlugin(Plugin):
         "daq_adapter": Option(default="vx2730", type=str, help="DAQ adapter name (e.g., 'vx2730')"),
     }
 
-    def compute(self, context: Any, run_id: str, **kwargs) -> List[List[str]]:
+    def compute(self, context: Any, run_id: str, **kwargs) -> list[list[str]]:
         """
         扫描数据目录并按通道分组原始 CSV 文件
 
@@ -769,7 +833,7 @@ class WaveformsPlugin(Plugin):
         ),
     }
 
-    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
+    def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         """动态解析依赖关系"""
         deps = ["raw_files"]
         if context.get_config(self, "use_upstream_baseline"):
@@ -777,7 +841,7 @@ class WaveformsPlugin(Plugin):
         return deps
 
     def _get_record_dtype(
-        self, daq_adapter: Optional[str], wave_length: Optional[int] = None
+        self, daq_adapter: str | None, wave_length: int | None = None
     ) -> np.dtype:
         if daq_adapter:
             config = WaveformStructConfig.from_adapter(daq_adapter)
@@ -905,8 +969,17 @@ class WaveformsPlugin(Plugin):
             data = adapter.format_reader.read_files(file_list, show_progress=show_progress)
             if data.size == 0:
                 return np.zeros(0, dtype=config.get_record_dtype())
-            context.logger.info("v1725 returns unsplit waveforms (single array)")
-            return data
+            st_waveforms = _convert_v1725_to_st_waveforms(data, config)
+            context.logger.info(
+                "v1725 converted to standard st_waveforms (n_events=%d, wave_length=%d)",
+                len(st_waveforms),
+                (
+                    st_waveforms["wave"].shape[1]
+                    if len(st_waveforms) > 0
+                    else config.get_wave_length()
+                ),
+            )
+            return st_waveforms
 
         if wave_length is None:
             default_delimiter = ";"
@@ -990,15 +1063,15 @@ class WaveformsPlugin(Plugin):
 
     def _load_waveforms_flat(
         self,
-        raw_files: List[List[str]],
+        raw_files: list[list[str]],
         n_channels: int,
         n_jobs: int,
         use_process_pool: bool,
-        chunksize: Optional[int],
+        chunksize: int | None,
         show_progress: bool,
         default_delimiter: str,
-        parse_engine: Optional[str],
-    ) -> List[np.ndarray]:
+        parse_engine: str | None,
+    ) -> list[np.ndarray]:
         """扁平化文件读取：全局文件池并行解析，之后按通道聚合。"""
         from concurrent.futures import as_completed
 
@@ -1006,7 +1079,7 @@ class WaveformsPlugin(Plugin):
         from waveform_analysis.utils.io import parse_and_stack_files
 
         engine = (parse_engine or "auto").lower()
-        tasks: List[Tuple[int, int, str, int, str, str]] = []
+        tasks: list[tuple[int, int, str, int, str, str]] = []
         for ch_idx, files in enumerate(raw_files):
             for file_idx, fp in enumerate(files):
                 delimiter, skiprows = _sniff_csv_layout(fp, default_delimiter=default_delimiter)
@@ -1015,7 +1088,7 @@ class WaveformsPlugin(Plugin):
         if not tasks:
             return [np.array([]) for _ in range(n_channels)]
 
-        results: List[Dict[int, np.ndarray]] = [{} for _ in range(n_channels)]
+        results: list[dict[int, np.ndarray]] = [{} for _ in range(n_channels)]
 
         pbar = None
         if show_progress:
@@ -1032,7 +1105,7 @@ class WaveformsPlugin(Plugin):
             if pbar:
                 pbar.update(1)
 
-        def _store(ch_idx: int, file_idx: int, arr: Optional[np.ndarray]) -> None:
+        def _store(ch_idx: int, file_idx: int, arr: np.ndarray | None) -> None:
             if arr is None or arr.size == 0:
                 return
             results[ch_idx][file_idx] = arr
@@ -1120,7 +1193,7 @@ class WaveformsPlugin(Plugin):
         if pbar:
             pbar.close()
 
-        waveforms: List[np.ndarray] = []
+        waveforms: list[np.ndarray] = []
         for ch_idx in range(n_channels):
             file_map = results[ch_idx]
             if not file_map:
@@ -1149,10 +1222,10 @@ class WaveformsPlugin(Plugin):
         self,
         context: Any,
         run_id: str,
-        raw_files: List[List[str]],
+        raw_files: list[list[str]],
         config: WaveformStructConfig,
-        baseline_samples: Optional[Union[int, Tuple[int, int]]],
-        upstream_baselines: Optional[List[np.ndarray]],
+        baseline_samples: int | tuple[int, int] | None,
+        upstream_baselines: list[np.ndarray] | None,
         show_progress: bool,
     ) -> np.ndarray:
         """流式模式计算：边读边结构化，减少内存峰值"""
@@ -1174,7 +1247,7 @@ class WaveformsPlugin(Plugin):
         _validate_baseline_samples(baseline_samples)
         baseline_warned = False
 
-        st_waveforms: List[np.ndarray] = []
+        st_waveforms: list[np.ndarray] = []
 
         for ch_idx, channel_files in enumerate(raw_files):
             if not channel_files:

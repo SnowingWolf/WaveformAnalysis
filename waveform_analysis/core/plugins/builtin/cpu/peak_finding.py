@@ -13,7 +13,6 @@ CPU Peak Finding Plugin - 使用 scipy 进行峰值检测
 from concurrent.futures import ThreadPoolExecutor
 import os
 from typing import Any, List, Optional, Union
-import warnings
 
 import numpy as np
 from scipy.signal import find_peaks
@@ -133,7 +132,7 @@ class HitFinderPlugin(Plugin):
         ),
     }
 
-    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
+    def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         # 根据 use_filtered 动态选择依赖
         if context.get_config(self, "use_filtered"):
             return ["filtered_waveforms"]
@@ -198,7 +197,7 @@ class HitFinderPlugin(Plugin):
             return np.zeros(0, dtype=HIT_DTYPE)
 
         n_events = len(waveform_data)
-        peaks: List[tuple] = []
+        peaks: list[tuple] = []
         use_parallel = bool(parallel) and n_events >= max(1, int(parallel_min_events))
         resolved_workers = self._resolve_parallel_workers(int(n_workers), n_events)
         resolved_chunk_size = max(1, int(chunk_size))
@@ -270,13 +269,13 @@ class HitFinderPlugin(Plugin):
         distance: int,
         prominence: float,
         width: int,
-        threshold: Union[float, None],
+        threshold: float | None,
         height_method: str,
         height_window_extension: int,
         sampling_interval_ns: float,
-        timestamp_unit: Union[str, None],
-    ) -> List[tuple]:
-        peaks: List[tuple] = []
+        timestamp_unit: str | None,
+    ) -> list[tuple]:
+        peaks: list[tuple] = []
         for event_idx in range(start, end):
             st_waveform = waveform_data[event_idx]
             waveform = st_waveform["wave"]
@@ -316,7 +315,7 @@ class HitFinderPlugin(Plugin):
     def _find_peaks_in_waveform(
         self,
         waveform: np.ndarray,
-        baseline: Union[float, None],
+        baseline: float | None,
         timestamp: int,
         channel: int,
         event_index: int,
@@ -325,12 +324,12 @@ class HitFinderPlugin(Plugin):
         distance: int,
         prominence: float,
         width: int,
-        threshold: Union[float, None],
+        threshold: float | None,
         height_method: str,
         height_window_extension: int,
         sampling_interval_ns: float,
-        timestamp_unit: Union[str, None],  # 新增参数
-    ) -> List[tuple]:
+        timestamp_unit: str | None,  # 新增参数
+    ) -> list[tuple]:
         """
         在单个波形中检测峰值
 
@@ -490,7 +489,7 @@ class HitFinderPlugin(Plugin):
 
         return float(peak_height)
 
-    def _get_global_daq_adapter(self, context: Any) -> Union[str, None]:
+    def _get_global_daq_adapter(self, context: Any) -> str | None:
         config = getattr(context, "config", {})
         return config.get("daq_adapter")
 
@@ -511,7 +510,7 @@ class HitFinderPlugin(Plugin):
 
     def _get_sampling_interval_from_adapter(
         self,
-        daq_adapter: Union[str, None],
+        daq_adapter: str | None,
         default_value: float,
     ) -> float:
         if not daq_adapter:
@@ -530,20 +529,7 @@ class HitFinderPlugin(Plugin):
         return 1e9 / float(sampling_rate_hz)
 
 
-class SignalPeaksPlugin(HitFinderPlugin):
-    """Deprecated alias for HitFinderPlugin."""
-
-    def __init__(self, *args, **kwargs):
-        warnings.warn(
-            "SignalPeaksPlugin is deprecated and will be removed in a future release. Use HitFinderPlugin instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        super().__init__(*args, **kwargs)
-
-
 __all__ = [
     "HIT_DTYPE",
     "HitFinderPlugin",
-    "SignalPeaksPlugin",
 ]

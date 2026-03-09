@@ -31,20 +31,20 @@ class CacheMixin:
             这是一个 Mixin 类，需要与 legacy workflow 或类似类组合使用。
         """
         # _cache: { step_name: {attr_name: value, ...} }
-        self._cache: Dict[str, Dict[str, object]] = {}
+        self._cache: dict[str, dict[str, object]] = {}
         # _cache_config: { step_name: {enabled: bool, attrs: [str], persist_path: Optional[str]} }
-        self._cache_config: Dict[str, Dict[str, object]] = {}
-        self.cache_dir: Optional[str] = None
+        self._cache_config: dict[str, dict[str, object]] = {}
+        self.cache_dir: str | None = None
         # Optional Context for cache reporting; set by consumers that embed Context.
-        self.ctx: Optional[Any] = None
+        self.ctx: Any | None = None
 
     def set_step_cache(
         self,
         step_name: str,
         enabled: bool = True,
-        attrs: Optional[List[str]] = None,
-        persist_path: Optional[str] = None,
-        watch_attrs: Optional[List[str]] = None,
+        attrs: list[str] | None = None,
+        persist_path: str | None = None,
+        watch_attrs: list[str] | None = None,
         backend: str = "joblib",
     ) -> None:
         """配置指定步骤的缓存（将于下个主版本废弃）。"""
@@ -61,7 +61,7 @@ class CacheMixin:
             "backend": backend,
         }
 
-    def clear_cache(self, step_name: Optional[str] = None) -> None:
+    def clear_cache(self, step_name: str | None = None) -> None:
         """清除指定步骤或所有步骤的缓存。"""
         if step_name:
             self._cache.pop(step_name, None)
@@ -70,7 +70,7 @@ class CacheMixin:
             self._cache.clear()
             self._cache_config.clear()
 
-    def get_cached_result(self, step_name: str) -> Optional[Dict[str, object]]:
+    def get_cached_result(self, step_name: str) -> dict[str, object] | None:
         """返回指定步骤的内存缓存字典（若存在）。"""
         return self._cache.get(step_name)
 
@@ -95,7 +95,7 @@ class CacheMixin:
 
         return CacheManager.save_data(path, cache_data, backend)
 
-    def check_cache_status(self, load_sig: bool = False) -> Dict[str, Dict[str, Any]]:
+    def check_cache_status(self, load_sig: bool = False) -> dict[str, dict[str, Any]]:
         """检查所有步骤的缓存状态。
 
         Args:
@@ -177,13 +177,13 @@ class PluginMixin:
                 Note:
                     这是一个 Mixin 类，提供插件注册和访问功能。
         """
-        self._plugins: Dict[str, Any] = {}
+        self._plugins: dict[str, Any] = {}
 
     def _invalidate_caches_for(self, data_name: str) -> None:
         """Hook for subclasses to clear caches after plugin registration."""
         return None
 
-    def _get_plugin_depends_on(self, plugin: Any, run_id: Optional[str] = None) -> List[Any]:
+    def _get_plugin_depends_on(self, plugin: Any, run_id: str | None = None) -> list[Any]:
         """Return plugin dependency specs, resolving dynamically when supported."""
         if hasattr(plugin, "resolve_depends_on"):
             try:
@@ -194,7 +194,7 @@ class PluginMixin:
             deps = getattr(plugin, "depends_on", []) or []
         return list(deps or [])
 
-    def _get_plugin_dependency_names(self, plugin: Any, run_id: Optional[str] = None) -> List[str]:
+    def _get_plugin_dependency_names(self, plugin: Any, run_id: str | None = None) -> list[str]:
         """Return dependency names (no version specs)."""
         deps = self._get_plugin_depends_on(plugin, run_id=run_id)
         names = []
@@ -233,6 +233,17 @@ class PluginMixin:
         # 2. Uniqueness check
         if provides in self._plugins:
             existing = self._plugins[provides]
+            same_implementation = existing.__class__ is plugin.__class__ and getattr(
+                existing, "version", None
+            ) == getattr(plugin, "version", None)
+            if same_implementation and not allow_override:
+                logger = logging.getLogger(__name__)
+                logger.info(
+                    "Skipping duplicate registration for '%s' from %s",
+                    provides,
+                    existing.__class__.__name__,
+                )
+                return
             if not allow_override:
                 raise RuntimeError(
                     f"Plugin conflict: '{provides}' is already provided by {existing.__class__.__name__}. "
@@ -401,7 +412,7 @@ class PluginMixin:
         # Store validated spec on plugin for later use
         plugin._validated_spec = spec
 
-    def resolve_dependencies(self, target: str, run_id: Optional[str] = None) -> List[str]:
+    def resolve_dependencies(self, target: str, run_id: str | None = None) -> list[str]:
         """
         Resolve dependencies and return a list of data_names to compute in order.
         Uses topological sort to determine execution order and detect cycles.

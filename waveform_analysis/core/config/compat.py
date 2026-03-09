@@ -15,7 +15,7 @@ from waveform_analysis.core.foundation.utils import exporter
 export, __all__ = exporter()
 
 
-def _parse_version(version: str) -> Tuple[int, ...]:
+def _parse_version(version: str) -> tuple[int, ...]:
     """解析版本字符串为元组
 
     Args:
@@ -93,7 +93,7 @@ class DeprecationInfo:
     new_name: str
     deprecated_in: str
     removed_in: str
-    message: Optional[str] = None
+    message: str | None = None
 
     def get_warning_message(self) -> str:
         """生成弃用警告消息"""
@@ -118,35 +118,17 @@ class CompatManager:
 
     Examples:
         >>> manager = CompatManager()
-        >>> canonical, alias_used = manager.resolve_alias("peaks", "break_threshold_ns")
-        >>> if alias_used:
-        ...     manager.warn_deprecation("break_threshold_ns", "peaks")
+        >>> canonical, alias_used = manager.resolve_alias("peaks", "break_threshold_ps")
+        >>> canonical
+        'break_threshold_ps'
     """
 
     # 参数别名注册表
     # 格式: {plugin_name: {old_name: new_name}, "__global__": {old_name: new_name}}
-    PARAM_ALIASES: Dict[str, Dict[str, str]] = {
-        "__global__": {
-            "break_threshold_ns": "break_threshold_ps",
-        },
-    }
+    PARAM_ALIASES: dict[str, dict[str, str]] = {"__global__": {}}
 
     # 弃用信息列表
-    DEPRECATIONS: List[DeprecationInfo] = [
-        DeprecationInfo(
-            old_name="break_threshold_ns",
-            new_name="break_threshold_ps",
-            deprecated_in="1.1.0",
-            removed_in="2.0.0",
-        ),
-        DeprecationInfo(
-            old_name="builtin.signal_processing",
-            new_name="builtin.cpu",
-            deprecated_in="1.2.0",
-            removed_in="2.0.0",
-            message="Plugin module 'builtin.signal_processing' has been renamed to 'builtin.cpu'.",
-        ),
-    ]
+    DEPRECATIONS: list[DeprecationInfo] = []
 
     def __init__(self):
         """初始化兼容层管理器
@@ -157,7 +139,7 @@ class CompatManager:
         """
         pass
 
-    def _get_deprecation_index(self) -> Dict[str, DeprecationInfo]:
+    def _get_deprecation_index(self) -> dict[str, DeprecationInfo]:
         """获取弃用信息索引（动态构建）
 
         Returns:
@@ -169,7 +151,7 @@ class CompatManager:
         self,
         plugin_name: str,
         param_name: str,
-    ) -> Tuple[str, bool]:
+    ) -> tuple[str, bool]:
         """解析参数别名
 
         Args:
@@ -183,9 +165,9 @@ class CompatManager:
 
         Examples:
             >>> manager = CompatManager()
-            >>> name, used = manager.resolve_alias("peaks", "break_threshold_ns")
+            >>> name, used = manager.resolve_alias("peaks", "break_threshold_ps")
             >>> print(name, used)
-            break_threshold_ps True
+            break_threshold_ps False
         """
         # 1. 检查插件特定别名
         if plugin_name in self.PARAM_ALIASES:
@@ -201,7 +183,7 @@ class CompatManager:
         # 3. 无别名，返回原名
         return (param_name, False)
 
-    def get_aliases_for(self, plugin_name: str, canonical_name: str) -> List[str]:
+    def get_aliases_for(self, plugin_name: str, canonical_name: str) -> list[str]:
         """列出某个规范名对应的旧别名
 
         Args:
@@ -211,7 +193,7 @@ class CompatManager:
         Returns:
             旧参数名列表
         """
-        aliases: List[str] = []
+        aliases: list[str] = []
 
         # 插件级别别名
         plugin_aliases = self.PARAM_ALIASES.get(plugin_name, {})
@@ -230,7 +212,7 @@ class CompatManager:
     def warn_deprecation(
         self,
         old_name: str,
-        context: Optional[str] = None,
+        context: str | None = None,
         stacklevel: int = 2,
     ) -> None:
         """发出弃用警告或抛出错误
@@ -248,7 +230,7 @@ class CompatManager:
 
         Examples:
             >>> manager = CompatManager()
-            >>> manager.warn_deprecation("break_threshold_ns", "peaks")
+            >>> manager.warn_deprecation("old_name", "peaks")
         """
         deprecation_index = self._get_deprecation_index()
         if old_name not in deprecation_index:
@@ -283,7 +265,7 @@ class CompatManager:
         """
         return name in self._get_deprecation_index()
 
-    def get_deprecation_info(self, name: str) -> Optional[DeprecationInfo]:
+    def get_deprecation_info(self, name: str) -> DeprecationInfo | None:
         """获取弃用信息
 
         Args:
@@ -353,7 +335,7 @@ class CompatManager:
                 return True
         return False
 
-    def list_aliases(self, plugin_name: Optional[str] = None) -> Dict[str, str]:
+    def list_aliases(self, plugin_name: str | None = None) -> dict[str, str]:
         """列出别名
 
         Args:
@@ -366,7 +348,7 @@ class CompatManager:
             return dict(self.PARAM_ALIASES.get(plugin_name, {}))
         return dict(self.PARAM_ALIASES.get("__global__", {}))
 
-    def list_deprecations(self) -> List[DeprecationInfo]:
+    def list_deprecations(self) -> list[DeprecationInfo]:
         """列出所有弃用信息
 
         Returns:
@@ -402,7 +384,7 @@ class CompatManager:
 
 
 # 全局单例（可选使用）
-_default_compat_manager: Optional[CompatManager] = None
+_default_compat_manager: CompatManager | None = None
 
 
 @export

@@ -35,7 +35,7 @@ class PluginLoader:
     - 错误处理和日志
     """
 
-    def __init__(self, plugin_dirs: Optional[List[str]] = None):
+    def __init__(self, plugin_dirs: list[str] | None = None):
         """
         初始化插件加载器
 
@@ -43,8 +43,8 @@ class PluginLoader:
             plugin_dirs: 额外的插件目录列表
         """
         self.plugin_dirs = plugin_dirs or []
-        self._discovered_plugins: Dict[str, Type] = {}
-        self._failed_plugins: Dict[str, str] = {}  # name -> error message
+        self._discovered_plugins: dict[str, type] = {}
+        self._failed_plugins: dict[str, str] = {}  # name -> error message
 
     def discover_entry_point_plugins(self, group: str = "waveform_analysis.plugins") -> int:
         """
@@ -56,29 +56,10 @@ class PluginLoader:
         Returns:
             发现的插件数量
         """
-        try:
-            from importlib.metadata import entry_points
-        except ImportError:
-            # Python < 3.10
-            try:
-                from importlib_metadata import entry_points
-            except ImportError:
-                logger.warning("importlib.metadata not available, skipping entry point discovery")
-                return 0
+        from importlib.metadata import entry_points
 
         count = 0
-        eps = entry_points()
-
-        # 兼容不同版本的 importlib.metadata
-        if hasattr(eps, "select"):
-            # Python 3.10+
-            group_eps = eps.select(group=group)
-        elif hasattr(eps, "get"):
-            # Python 3.9
-            group_eps = eps.get(group, [])
-        else:
-            # Older versions - eps is a dict
-            group_eps = eps.get(group, [])
+        group_eps = entry_points().select(group=group)
 
         for ep in group_eps:
             try:
@@ -206,7 +187,7 @@ class PluginLoader:
         except Exception:
             return False
 
-    def get_plugins(self) -> List[Type]:
+    def get_plugins(self) -> list[type]:
         """
         获取所有发现的插件类
 
@@ -215,7 +196,7 @@ class PluginLoader:
         """
         return list(self._discovered_plugins.values())
 
-    def get_plugin_names(self) -> List[str]:
+    def get_plugin_names(self) -> list[str]:
         """
         获取所有发现的插件名称
 
@@ -224,7 +205,7 @@ class PluginLoader:
         """
         return list(self._discovered_plugins.keys())
 
-    def get_failed_plugins(self) -> Dict[str, str]:
+    def get_failed_plugins(self) -> dict[str, str]:
         """
         获取加载失败的插件及其错误信息
 
@@ -262,7 +243,7 @@ class PluginLoader:
 
 
 @export
-def load_plugins_from_entry_points(group: str = "waveform_analysis.plugins") -> List[Type]:
+def load_plugins_from_entry_points(group: str = "waveform_analysis.plugins") -> list[type]:
     """
     便捷函数：从 entry points 加载插件
 
@@ -278,7 +259,7 @@ def load_plugins_from_entry_points(group: str = "waveform_analysis.plugins") -> 
 
 
 @export
-def load_plugins_from_directory(directory: str) -> List[Type]:
+def load_plugins_from_directory(directory: str) -> list[type]:
     """
     便捷函数：从目录加载插件
 

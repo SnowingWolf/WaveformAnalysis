@@ -74,7 +74,6 @@ __all__ = [
     "EventsGroupedPlugin",
     # 信号处理插件
     "FilteredWaveformsPlugin",
-    "SignalPeaksPlugin",
     "WaveformWidthPlugin",
     "SignalPeaksStreamPlugin",
     # plugin sets / profiles
@@ -83,7 +82,7 @@ __all__ = [
 ]
 
 
-_LAZY_ATTRS: Dict[str, Tuple[str, Optional[str]]] = {
+_LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "plugin_sets": (".plugin_sets", None),
     "profiles": (".profiles", None),
     "BasicFeaturesPlugin": (".builtin.cpu", "BasicFeaturesPlugin"),
@@ -97,7 +96,6 @@ _LAZY_ATTRS: Dict[str, Tuple[str, Optional[str]]] = {
     "PairedEventsPlugin": (".builtin.cpu", "PairedEventsPlugin"),
     "RawFileNamesPlugin": (".builtin.cpu", "RawFileNamesPlugin"),
     "RecordsPlugin": (".builtin.cpu", "RecordsPlugin"),
-    "SignalPeaksPlugin": (".builtin.cpu", "SignalPeaksPlugin"),
     "WaveformsPlugin": (".builtin.cpu", "WaveformsPlugin"),
     "WaveformStruct": (".builtin.cpu", "WaveformStruct"),
     "WaveformStructConfig": (".builtin.cpu", "WaveformStructConfig"),

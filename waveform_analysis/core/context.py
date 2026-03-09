@@ -11,8 +11,9 @@ Context 模块 - 插件系统的核心调度器。
 
 # 1. Standard library imports
 from collections import deque
+from collections.abc import Callable, Iterator
 import copy
-from datetime import datetime
+from datetime import datetime, timezone
 import functools
 import hashlib
 import importlib
@@ -22,7 +23,7 @@ import logging
 import os
 import re
 import threading
-from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Type, Union, cast
+from typing import Any, Dict, List, Optional, Set, Type, Union, cast
 import warnings
 
 # 2. Third-party imports
@@ -53,14 +54,14 @@ from .storage.cache_manager import RuntimeCacheManager
 from .storage.memmap import MemmapStorage
 
 
-def _safe_copy_config(config: Dict[str, Any]) -> Dict[str, Any]:
+def _safe_copy_config(config: dict[str, Any]) -> dict[str, Any]:
     try:
         return copy.deepcopy(config)
     except Exception:
         return config.copy()
 
 
-def _apply_memmap_settings(storage: MemmapStorage, spec: Dict[str, Any]) -> None:
+def _apply_memmap_settings(storage: MemmapStorage, spec: dict[str, Any]) -> None:
     storage.enable_checksum = spec.get("enable_checksum", storage.enable_checksum)
     storage.checksum_algorithm = spec.get("checksum_algorithm", storage.checksum_algorithm)
     storage.verify_on_load = spec.get("verify_on_load", storage.verify_on_load)
@@ -76,7 +77,7 @@ def _import_plugin_class(module_name: str, class_name: str) -> Any:
     return getattr(module, class_name)
 
 
-def _create_context_from_spec(spec: Dict[str, Any]) -> "Context":
+def _create_context_from_spec(spec: dict[str, Any]) -> "Context":
     config = _safe_copy_config(spec.get("config", {}))
     ctx = Context(
         config=config,
@@ -153,29 +154,22 @@ class Context(CacheMixin, PluginMixin):
             "filtered_waveforms",
             "basic_features",
             "hits",
-            "signal_peaks",
             "signal_peaks_stream",
             "waveform_width",
             "waveform_width_integral",
             "s1_s2",
         }
     )
-    _LEGACY_PLUGIN_ALIASES = {
-        "signal_peaks": "hit",
-    }
-    _LEGACY_DATA_ALIASES = {
-        "signal_peaks": "hit",
-    }
 
     def __init__(
         self,
-        config: Optional[Dict[str, Any]] = None,
-        storage_backend: Optional[Any] = None,
-        storage_dir: Optional[str] = None,
-        external_plugin_dirs: Optional[List[str]] = None,
+        config: dict[str, Any] | None = None,
+        storage_backend: Any | None = None,
+        storage_dir: str | None = None,
+        external_plugin_dirs: list[str] | None = None,
         auto_discover_plugins: bool = False,
         stats_mode: str = "off",
-        stats_log_file: Optional[str] = None,
+        stats_log_file: str | None = None,
     ) -> None:
         """
         Initialize Context.
@@ -254,7 +248,7 @@ class Context(CacheMixin, PluginMixin):
         self.logger.setLevel(logging.INFO)
 
         # Optional per-plugin storage backends (fallback to self.storage)
-        self._plugin_backends: Dict[str, Any] = {}
+        self._plugin_backends: dict[str, Any] = {}
         plugin_backends = self.config.get("plugin_backends")
         if plugin_backends:
             if isinstance(plugin_backends, dict):
@@ -285,20 +279,20 @@ class Context(CacheMixin, PluginMixin):
             self.stats_collector = PluginStatsCollector(mode=stats_mode, log_file=stats_log_file)
 
         # Dedicated storage for results to avoid namespace pollution
-        self._results: Dict[tuple, Any] = {}
+        self._results: dict[tuple, Any] = {}
         # Lineage hash for each cached result (for config change detection)
-        self._results_lineage: Dict[tuple, str] = {}  # (run_id, data_name) -> lineage_hash
+        self._results_lineage: dict[tuple, str] = {}  # (run_id, data_name) -> lineage_hash
         # Re-entrancy guard: track (run_id, data_name) currently being computed
-        self._in_progress: Dict[tuple, Any] = {}
+        self._in_progress: dict[tuple, Any] = {}
         self._in_progress_lock = threading.Lock()  # Protect concurrent access
         # Cache of validated configs per plugin signature
-        self._resolved_config_cache: Dict[tuple, Dict[str, Any]] = {}
+        self._resolved_config_cache: dict[tuple, dict[str, Any]] = {}
 
         # Performance optimization caches
-        self._execution_plan_cache: Dict[str, List[str]] = {}  # data_name -> execution plan
-        self._lineage_cache: Dict[str, Dict[str, Any]] = {}  # data_name -> lineage dict
-        self._lineage_hash_cache: Dict[str, str] = {}  # data_name -> lineage hash
-        self._key_cache: Dict[tuple, str] = {}  # (run_id, data_name) -> key
+        self._execution_plan_cache: dict[str, list[str]] = {}  # data_name -> execution plan
+        self._lineage_cache: dict[str, dict[str, Any]] = {}  # data_name -> lineage dict
+        self._lineage_hash_cache: dict[str, str] = {}  # data_name -> lineage hash
+        self._key_cache: dict[tuple, str] = {}  # (run_id, data_name) -> key
 
         # Plugin discovery
         self.plugin_dirs = external_plugin_dirs or []
@@ -310,7 +304,7 @@ class Context(CacheMixin, PluginMixin):
             os.makedirs(self.storage_dir, exist_ok=True)
 
         # Epoch management (per-run time reference)
-        self._epoch_cache: Dict[str, Any] = {}  # run_id -> EpochInfo
+        self._epoch_cache: dict[str, Any] = {}  # run_id -> EpochInfo
 
         # Epoch configuration defaults
         self.config.setdefault("auto_extract_epoch", True)
@@ -387,7 +381,7 @@ class Context(CacheMixin, PluginMixin):
 
         return new_ctx
 
-    def _build_memmap_storage_spec(self) -> Dict[str, Any]:
+    def _build_memmap_storage_spec(self) -> dict[str, Any]:
         return {
             "type": "memmap",
             "compression": getattr(self.storage, "compression", None),
@@ -398,7 +392,7 @@ class Context(CacheMixin, PluginMixin):
             "side_effects_subdir": getattr(self.storage, "side_effects_subdir", "side_effects"),
         }
 
-    def _build_context_factory_spec(self) -> Dict[str, Any]:
+    def _build_context_factory_spec(self) -> dict[str, Any]:
         if not isinstance(self.storage, MemmapStorage):
             raise ValueError(
                 "Auto context factory requires MemmapStorage; provide context_factory instead."
@@ -446,7 +440,7 @@ class Context(CacheMixin, PluginMixin):
 
     def register(
         self,
-        *plugins: Union[Plugin, Type[Plugin], Any],
+        *plugins: Plugin | type[Plugin] | Any,
         allow_override: bool = False,
         require_spec: bool = False,
     ):
@@ -585,7 +579,7 @@ class Context(CacheMixin, PluginMixin):
             self._config_resolver = ConfigResolver(compat_manager=self._compat_manager)
         return self._config_resolver
 
-    def set_config(self, config: Dict[str, Any], plugin_name: Optional[str] = None):
+    def set_config(self, config: dict[str, Any], plugin_name: str | None = None):
         """
         更新上下文配置。
 
@@ -612,20 +606,7 @@ class Context(CacheMixin, PluginMixin):
             >>> # 查看配置归属
             >>> ctx.list_plugin_configs()  # 列出所有插件的配置选项
         """
-        # 迁移旧配置名（自动发出弃用警告）
-        from waveform_analysis.core.compat import migrate_config
-
-        config = migrate_config(config, warn=True)
-
         if plugin_name is not None:
-            if plugin_name in self._LEGACY_PLUGIN_ALIASES:
-                canonical_name = self._LEGACY_PLUGIN_ALIASES[plugin_name]
-                warnings.warn(
-                    f"Plugin name '{plugin_name}' is deprecated; use '{canonical_name}' instead.",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-                plugin_name = canonical_name
             # 按插件名称设置配置，自动使用命名空间
             if plugin_name not in self._plugins:
                 self.logger.warning(
@@ -651,7 +632,7 @@ class Context(CacheMixin, PluginMixin):
         self,
         plugin: Plugin,
         name: str,
-        adapter_name: Optional[str] = None,
+        adapter_name: str | None = None,
     ) -> ConfigValue:
         """获取插件配置值及其来源信息。
 
@@ -711,7 +692,7 @@ class Context(CacheMixin, PluginMixin):
         self,
         plugin: Plugin,
         name: str,
-        adapter_name: Optional[str] = None,
+        adapter_name: str | None = None,
     ) -> bool:
         """检查配置是否显式设置（包含别名输入）。"""
         try:
@@ -723,8 +704,8 @@ class Context(CacheMixin, PluginMixin):
     def _resolve_adapter_name_for_plugin(
         self,
         plugin: Plugin,
-        adapter_name: Optional[str] = None,
-    ) -> Optional[str]:
+        adapter_name: str | None = None,
+    ) -> str | None:
         """Resolve adapter name with plugin-specific override."""
         resolved_adapter = (
             adapter_name if adapter_name is not None else self.config.get("daq_adapter")
@@ -747,8 +728,8 @@ class Context(CacheMixin, PluginMixin):
 
     def get_resolved_config(
         self,
-        plugin: Union[Plugin, str],
-        adapter_name: Optional[str] = None,
+        plugin: Plugin | str,
+        adapter_name: str | None = None,
     ) -> ResolvedConfig:
         """获取插件的完整解析配置（带来源追踪）
 
@@ -791,11 +772,53 @@ class Context(CacheMixin, PluginMixin):
             adapter_name=adapter_name,
         )
 
+    def _get_custom_config_sync_path(self, run_id: str) -> str:
+        """Get runtime custom-config snapshot path for a run."""
+        configured_path = self.config.get("custom_config_json_path")
+        if configured_path:
+            try:
+                return str(configured_path).format(run_id=run_id)
+            except Exception:
+                return str(configured_path)
+        return ""
+
+    def _sync_custom_config_json(self, run_id: str, data_name: str) -> None:
+        """
+        Sync current context config to a JSON file during runtime.
+
+        Enabled only when config['custom_config_json_path'] is set.
+        """
+        path = self._get_custom_config_sync_path(run_id)
+        if not path:
+            return
+
+        payload = {
+            "run_id": run_id,
+            "requested_data_name": data_name,
+            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "custom_config": _safe_copy_config(self.config),
+        }
+        # Avoid recursive persistence controls appearing as "analysis custom config".
+        if isinstance(payload["custom_config"], dict):
+            payload["custom_config"].pop("custom_config_json_path", None)
+
+        try:
+            dir_path = os.path.dirname(path)
+            if dir_path:
+                os.makedirs(dir_path, exist_ok=True)
+            temp_path = path + ".tmp"
+            with open(temp_path, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh, ensure_ascii=False, indent=2, sort_keys=True, default=str)
+                fh.write("\n")
+            os.replace(temp_path, path)
+        except Exception as exc:
+            self.logger.warning("Failed to sync custom config JSON to %s: %s", path, exc)
+
     def show_resolved_config(
         self,
-        plugin: Union[Plugin, str, None] = None,
+        plugin: Plugin | str | None = None,
         verbose: bool = True,
-        adapter_name: Optional[str] = None,
+        adapter_name: str | None = None,
     ) -> None:
         """显示插件的解析配置（带来源信息）
 
@@ -832,7 +855,7 @@ class Context(CacheMixin, PluginMixin):
             print(resolved.summary(verbose=verbose))
             print()
 
-    def get_adapter_info(self, adapter_name: Optional[str] = None) -> Optional[AdapterInfo]:
+    def get_adapter_info(self, adapter_name: str | None = None) -> AdapterInfo | None:
         """获取 DAQ adapter 信息
 
         Args:
@@ -887,10 +910,10 @@ class Context(CacheMixin, PluginMixin):
 
     def show_config(
         self,
-        data_name: Optional[str] = None,
+        data_name: str | None = None,
         show_usage: bool = True,
         show_full_help: bool = False,
-        run_name: Optional[str] = None,
+        run_name: str | None = None,
     ):
         """
         显示当前配置，并标识每个配置项对应的插件
@@ -951,7 +974,7 @@ class Context(CacheMixin, PluginMixin):
         run_id: str,
         data_name: str,
         show_progress: bool = False,
-        progress_desc: Optional[str] = None,
+        progress_desc: str | None = None,
         **kwargs,
     ) -> Any:
         """
@@ -965,17 +988,10 @@ class Context(CacheMixin, PluginMixin):
             progress_desc: Custom description for progress bar (default: auto-generated)
             **kwargs: Additional arguments passed to plugins
         """
+        self._sync_custom_config_json(run_id, data_name)
+
         # Remember the most recent run_id for display purposes (e.g., show_config()).
         self._last_run_id = run_id
-        if data_name in self._LEGACY_DATA_ALIASES:
-            canonical_name = self._LEGACY_DATA_ALIASES[data_name]
-            warnings.warn(
-                f"Data name '{data_name}' is deprecated; use '{canonical_name}' instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            data_name = canonical_name
-
         # 1. Check memory cache
         val = self._get_data_from_memory(run_id, data_name)
         if val is not None:
@@ -1014,7 +1030,7 @@ class Context(CacheMixin, PluginMixin):
             **kwargs,
         )
 
-    def list_provided_data(self) -> List[str]:
+    def list_provided_data(self) -> list[str]:
         """List all data types provided by registered plugins."""
         return list(self._plugins.keys())
 
@@ -1063,7 +1079,7 @@ class Context(CacheMixin, PluginMixin):
     def clear_cache_for(
         self,
         run_id: str,
-        data_name: Optional[str] = None,
+        data_name: str | None = None,
         downstream: bool = False,
         clear_memory: bool = True,
         clear_disk: bool = True,
@@ -1159,10 +1175,10 @@ class Context(CacheMixin, PluginMixin):
         return count
 
     def _collect_downstream_data_names(
-        self, data_name: str, run_id: Optional[str] = None
-    ) -> List[str]:
+        self, data_name: str, run_id: str | None = None
+    ) -> list[str]:
         """Collect all downstream data names that depend on a given data_name."""
-        reverse_deps: Dict[str, List[str]] = {}
+        reverse_deps: dict[str, list[str]] = {}
         for name, plugin in self._plugins.items():
             deps = self._get_plugin_dependency_names(plugin, run_id=run_id)
             for dep in deps:
@@ -1235,7 +1251,7 @@ class Context(CacheMixin, PluginMixin):
         storage: Any,
         method_name: str,
         key: str,
-        run_id: Optional[str] = None,
+        run_id: str | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> Any:
@@ -1245,22 +1261,20 @@ class Context(CacheMixin, PluginMixin):
             return method(key, *args, run_id=run_id, **kwargs)
         return method(key, *args, **kwargs)
 
-    def _storage_exists(self, storage: Any, key: str, run_id: Optional[str]) -> bool:
+    def _storage_exists(self, storage: Any, key: str, run_id: str | None) -> bool:
         return bool(self._storage_call(storage, "exists", key, run_id))
 
     def _storage_get_metadata(
-        self, storage: Any, key: str, run_id: Optional[str]
-    ) -> Optional[Dict[str, Any]]:
+        self, storage: Any, key: str, run_id: str | None
+    ) -> dict[str, Any] | None:
         return self._storage_call(storage, "get_metadata", key, run_id)
 
-    def _storage_load_memmap(
-        self, storage: Any, key: str, run_id: Optional[str]
-    ) -> Optional[np.ndarray]:
+    def _storage_load_memmap(self, storage: Any, key: str, run_id: str | None) -> np.ndarray | None:
         return self._storage_call(storage, "load_memmap", key, run_id)
 
     def _storage_load_dataframe(
-        self, storage: Any, key: str, run_id: Optional[str]
-    ) -> Optional[pd.DataFrame]:
+        self, storage: Any, key: str, run_id: str | None
+    ) -> pd.DataFrame | None:
         return self._storage_call(storage, "load_dataframe", key, run_id)
 
     def _storage_save_memmap(
@@ -1268,8 +1282,8 @@ class Context(CacheMixin, PluginMixin):
         storage: Any,
         key: str,
         data: np.ndarray,
-        extra_metadata: Optional[Dict[str, Any]],
-        run_id: Optional[str],
+        extra_metadata: dict[str, Any] | None,
+        run_id: str | None,
     ) -> None:
         self._storage_call(storage, "save_memmap", key, run_id, data, extra_metadata=extra_metadata)
 
@@ -1277,8 +1291,8 @@ class Context(CacheMixin, PluginMixin):
         self,
         storage: Any,
         key: str,
-        metadata: Dict[str, Any],
-        run_id: Optional[str],
+        metadata: dict[str, Any],
+        run_id: str | None,
     ) -> None:
         self._storage_call(storage, "save_metadata", key, run_id, metadata)
 
@@ -1287,14 +1301,14 @@ class Context(CacheMixin, PluginMixin):
         storage: Any,
         key: str,
         data: pd.DataFrame,
-        run_id: Optional[str],
+        run_id: str | None,
     ) -> None:
         self._storage_call(storage, "save_dataframe", key, run_id, data)
 
-    def _storage_delete(self, storage: Any, key: str, run_id: Optional[str]) -> None:
+    def _storage_delete(self, storage: Any, key: str, run_id: str | None) -> None:
         self._storage_call(storage, "delete", key, run_id)
 
-    def _storage_list_keys(self, storage: Any, run_id: Optional[str]) -> List[str]:
+    def _storage_list_keys(self, storage: Any, run_id: str | None) -> list[str]:
         """List keys from storage, filtering by run_id when needed."""
         method = getattr(storage, "list_keys", None)
         if method is None:
@@ -1310,7 +1324,7 @@ class Context(CacheMixin, PluginMixin):
         prefix = f"{run_id}-"
         return [k for k in keys if k.startswith(prefix)]
 
-    def _list_channel_keys(self, storage: Any, run_id: Optional[str], key: str) -> List[str]:
+    def _list_channel_keys(self, storage: Any, run_id: str | None, key: str) -> list[str]:
         """List multi-channel cache keys (key_ch*) for a base key."""
         prefix = f"{key}_ch"
         keys = [k for k in self._storage_list_keys(storage, run_id) if k.startswith(prefix)]
@@ -1366,7 +1380,7 @@ class Context(CacheMixin, PluginMixin):
         """
         return self.get_config(plugin, name)
 
-    def _make_config_signature(self, raw_config: Dict[str, Any]) -> str:
+    def _make_config_signature(self, raw_config: dict[str, Any]) -> str:
         """Generate a stable signature for a plugin's raw config dict."""
 
         def default(o: Any) -> str:
@@ -1384,7 +1398,7 @@ class Context(CacheMixin, PluginMixin):
         payload.update(resolved.to_dict())
         return self._make_config_signature(payload)
 
-    def _ensure_plugin_config_validated(self, plugin: Plugin) -> Dict[str, Any]:
+    def _ensure_plugin_config_validated(self, plugin: Plugin) -> dict[str, Any]:
         """Validate and cache plugin configuration for reuse."""
         resolved = self.get_resolved_config(plugin)
         signature = self._make_resolved_config_signature(resolved)
@@ -1494,7 +1508,7 @@ class Context(CacheMixin, PluginMixin):
             return getattr(self, name)
         return None
 
-    def _load_from_disk_with_check(self, run_id: str, name: str, key: str) -> Optional[Any]:
+    def _load_from_disk_with_check(self, run_id: str, name: str, key: str) -> Any | None:
         """Internal helper to load data from disk with lineage verification."""
         storage = self._get_storage_for_data_name(name)
         channel_keys = self._list_channel_keys(storage, run_id, key)
@@ -1530,7 +1544,7 @@ class Context(CacheMixin, PluginMixin):
         elif channel_keys:
             channel_count = meta.get("channel_count")
 
-            def _dtype_from_meta(meta: Dict[str, Any]) -> Optional[np.dtype]:
+            def _dtype_from_meta(meta: dict[str, Any]) -> np.dtype | None:
                 if not meta:
                     return None
                 if "dtype_descr" in meta:
@@ -1554,7 +1568,7 @@ class Context(CacheMixin, PluginMixin):
             if isinstance(channel_count, int) and channel_count >= 0:
                 dtype = _dtype_from_meta(meta)
                 prefix = f"{key}_ch"
-                keyed: Dict[int, str] = {}
+                keyed: dict[int, str] = {}
                 for ch_key in channel_keys:
                     suffix = ch_key[len(prefix) :]
                     try:
@@ -1627,10 +1641,10 @@ class Context(CacheMixin, PluginMixin):
 
         return self._is_disk_cache_valid(run_id, name, key)
 
-    def _compute_needed_set(self, run_id: str, data_name: str, plan: List[str]) -> Set[str]:
+    def _compute_needed_set(self, run_id: str, data_name: str, plan: list[str]) -> set[str]:
         """Compute the set of steps that actually need execution for this run."""
-        needed: Set[str] = set()
-        visited: Set[str] = set()
+        needed: set[str] = set()
+        visited: set[str] = set()
 
         def dfs(name: str) -> None:
             if name in visited:
@@ -1658,9 +1672,9 @@ class Context(CacheMixin, PluginMixin):
         run_id: str,
         data_name: str,
         show_progress: bool = False,
-        progress_desc: Optional[str] = None,
-        plan: Optional[List[str]] = None,
-        needed_set: Optional[Set[str]] = None,
+        progress_desc: str | None = None,
+        plan: list[str] | None = None,
+        needed_set: set[str] | None = None,
         **kwargs,
     ) -> Any:
         """
@@ -1743,7 +1757,7 @@ class Context(CacheMixin, PluginMixin):
                 )
             self._in_progress[(run_id, data_name)] = True
 
-    def _resolve_execution_plan(self, run_id: str, data_name: str) -> List[str]:
+    def _resolve_execution_plan(self, run_id: str, data_name: str) -> list[str]:
         """解析执行计划（带缓存）
 
         Args:
@@ -1775,10 +1789,10 @@ class Context(CacheMixin, PluginMixin):
     def _init_progress_tracking(
         self,
         show_progress: bool,
-        plan: List[str],
+        plan: list[str],
         run_id: str,
         data_name: str,
-        progress_desc: Optional[str],
+        progress_desc: str | None,
     ) -> tuple:
         """初始化进度追踪
 
@@ -1802,7 +1816,7 @@ class Context(CacheMixin, PluginMixin):
             return tracker, bar_name
         return None, None
 
-    def _calculate_input_size(self, plugin: Plugin, run_id: str) -> Optional[float]:
+    def _calculate_input_size(self, plugin: Plugin, run_id: str) -> float | None:
         """计算插件输入数据大小（MB）
 
         Args:
@@ -1868,7 +1882,7 @@ class Context(CacheMixin, PluginMixin):
             kwargs["output_dir"] = side_effect_dir
         return kwargs
 
-    def _calculate_output_size(self, result: Any) -> Optional[float]:
+    def _calculate_output_size(self, result: Any) -> float | None:
         """计算输出数据大小（MB）
 
         Args:
@@ -1899,7 +1913,7 @@ class Context(CacheMixin, PluginMixin):
             return None
 
     def _execute_plugin_compute(
-        self, plugin: Plugin, name: str, run_id: str, input_size_mb: Optional[float], kwargs: dict
+        self, plugin: Plugin, name: str, run_id: str, input_size_mb: float | None, kwargs: dict
     ) -> Any:
         """执行插件计算核心逻辑
 
@@ -1987,9 +2001,9 @@ class Context(CacheMixin, PluginMixin):
         run_id: str,
         result: Any,
         key: str,
-        lineage: Dict[str, Any],
+        lineage: dict[str, Any],
         is_generator: bool,
-        target_dtype: Optional[np.dtype],
+        target_dtype: np.dtype | None,
     ) -> Any:
         """保存插件结果到存储
 
@@ -2076,8 +2090,8 @@ class Context(CacheMixin, PluginMixin):
         result: Any,
         key: str,
         data_name: str,
-        tracker: Optional[Any],
-        bar_name: Optional[str],
+        tracker: Any | None,
+        bar_name: str | None,
     ) -> None:
         """后处理插件结果
 
@@ -2144,8 +2158,8 @@ class Context(CacheMixin, PluginMixin):
         run_id: str,
         data_name: str,
         kwargs: dict,
-        tracker: Optional[Any],
-        bar_name: Optional[str],
+        tracker: Any | None,
+        bar_name: str | None,
         skip_cache_check: bool = False,
     ) -> None:
         """执行单个插件的完整流程
@@ -2215,7 +2229,7 @@ class Context(CacheMixin, PluginMixin):
         data_name: str,
         generator: Iterator,
         dtype: np.dtype,
-        lineage: Optional[Dict[str, Any]] = None,
+        lineage: dict[str, Any] | None = None,
     ) -> Iterator:
         """
         Wraps a generator to save its output to disk while yielding.
@@ -2379,9 +2393,7 @@ class Context(CacheMixin, PluginMixin):
         """Return a summary of the profiling data."""
         return self.profiler.summary()
 
-    def get_performance_report(
-        self, plugin_name: Optional[str] = None, format: str = "text"
-    ) -> Any:
+    def get_performance_report(self, plugin_name: str | None = None, format: str = "text") -> Any:
         """
         获取插件性能统计报告
 
@@ -2432,7 +2444,7 @@ class Context(CacheMixin, PluginMixin):
             return self.stats_collector.generate_report(format=format)
 
     def analyze_dependencies(
-        self, target_name: str, include_performance: bool = True, run_id: Optional[str] = None
+        self, target_name: str, include_performance: bool = True, run_id: str | None = None
     ):
         """
         分析插件依赖关系，识别关键路径、并行机会和性能瓶颈
@@ -2471,7 +2483,7 @@ class Context(CacheMixin, PluginMixin):
             target_name=target_name, include_performance=include_performance, run_id=run_id
         )
 
-    def get_lineage(self, data_name: str, _visited: Optional[set] = None) -> Dict[str, Any]:
+    def get_lineage(self, data_name: str, _visited: set | None = None) -> dict[str, Any]:
         """
         Get the lineage (recipe) for a data type. Uses caching for performance optimization.
 
@@ -2592,7 +2604,7 @@ class Context(CacheMixin, PluginMixin):
 
     def list_plugin_configs(
         self,
-        plugin_name: Optional[str] = None,
+        plugin_name: str | None = None,
         show_current_values: bool = True,
         verbose: bool = True,
         as_dataframe: bool = True,  # 新增：是否用 DataFrame 展示
@@ -2612,7 +2624,7 @@ class Context(CacheMixin, PluginMixin):
             如果你想拿到 DataFrame 对象，可以把最后两行的 return 改成 return result, df_plugins, df_options
         """
 
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
 
         # 确定要显示的插件列表
         if plugin_name is not None:
@@ -2782,7 +2794,7 @@ class Context(CacheMixin, PluginMixin):
         self,
         show_usage: bool = True,
         show_full_help: bool = False,
-        run_name: Optional[str] = None,
+        run_name: str | None = None,
     ):
         """显示全局配置（表格版）"""
         # 分析配置项使用情况
@@ -2961,7 +2973,7 @@ class Context(CacheMixin, PluginMixin):
                 print(df_unused.to_string())
 
     def _delete_disk_cache(
-        self, key: str, run_id: Optional[str] = None, data_name: Optional[str] = None
+        self, key: str, run_id: str | None = None, data_name: str | None = None
     ) -> int:
         """
         删除磁盘缓存（包括多通道数据和 DataFrame）。
@@ -3034,9 +3046,9 @@ class Context(CacheMixin, PluginMixin):
         run_id: str,
         data_name: str,
         time_field: str = "time",
-        endtime_field: Optional[str] = None,
+        endtime_field: str | None = None,
         force_rebuild: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         为数据构建时间索引
 
@@ -3115,13 +3127,13 @@ class Context(CacheMixin, PluginMixin):
         self,
         run_id: str,
         data_name: str,
-        start_time: Optional[int] = None,
-        end_time: Optional[int] = None,
+        start_time: int | None = None,
+        end_time: int | None = None,
         time_field: str = "time",
-        endtime_field: Optional[str] = None,
+        endtime_field: str | None = None,
         auto_build_index: bool = True,
-        channel: Optional[int] = None,
-    ) -> Union[np.ndarray, List[np.ndarray]]:
+        channel: int | None = None,
+    ) -> np.ndarray | list[np.ndarray]:
         """
         查询数据的时间范围
 
@@ -3213,7 +3225,7 @@ class Context(CacheMixin, PluginMixin):
             self.logger.warning(f"Data '{data_name}' is not a supported type, returning as-is")
             return data
 
-    def clear_time_index(self, run_id: Optional[str] = None, data_name: Optional[str] = None):
+    def clear_time_index(self, run_id: str | None = None, data_name: str | None = None):
         """
         清除时间索引
 
@@ -3234,7 +3246,7 @@ class Context(CacheMixin, PluginMixin):
         if hasattr(self, "_time_query_engine"):
             self._time_query_engine.clear_index(run_id, data_name)
 
-    def get_time_index_stats(self) -> Dict[str, Any]:
+    def get_time_index_stats(self) -> dict[str, Any]:
         """
         获取时间索引统计信息
 
@@ -3255,12 +3267,12 @@ class Context(CacheMixin, PluginMixin):
         run_id: str,
         data_name: str,
         data: np.ndarray,
-        start_time: Optional[int],
-        end_time: Optional[int],
+        start_time: int | None,
+        end_time: int | None,
         time_field: str,
-        endtime_field: Optional[str],
+        endtime_field: str | None,
         auto_build_index: bool,
-        channel: Optional[int] = None,
+        channel: int | None = None,
     ) -> np.ndarray:
         """查询单个结构化数组的时间范围"""
         # 如果没有时间字段,返回完整数据
@@ -3309,14 +3321,14 @@ class Context(CacheMixin, PluginMixin):
         engine: Any,
         run_id: str,
         data_name: str,
-        data: List[np.ndarray],
-        start_time: Optional[int],
-        end_time: Optional[int],
+        data: list[np.ndarray],
+        start_time: int | None,
+        end_time: int | None,
         time_field: str,
-        endtime_field: Optional[str],
+        endtime_field: str | None,
         auto_build_index: bool,
-        channel: Optional[int],
-    ) -> Union[np.ndarray, List[np.ndarray]]:
+        channel: int | None,
+    ) -> np.ndarray | list[np.ndarray]:
         """
         查询多通道数据的时间范围
 
@@ -3377,8 +3389,8 @@ class Context(CacheMixin, PluginMixin):
         data_name: str,
         ch_data: np.ndarray,
         ch_idx: int,
-        start_time: Optional[int],
-        end_time: Optional[int],
+        start_time: int | None,
+        end_time: int | None,
         time_field: str,
     ) -> np.ndarray:
         """
@@ -3430,11 +3442,11 @@ class Context(CacheMixin, PluginMixin):
         engine: Any,
         run_id: str,
         data_name: str,
-        data: List[np.ndarray],
+        data: list[np.ndarray],
         time_field: str,
-        endtime_field: Optional[str],
+        endtime_field: str | None,
         force_rebuild: bool,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         为多通道数据构建时间索引
 
@@ -3516,7 +3528,7 @@ class Context(CacheMixin, PluginMixin):
     def set_epoch(
         self,
         run_id: str,
-        epoch: Union[datetime, float, str],
+        epoch: datetime | float | str,
         time_unit: str = "ns",
     ) -> None:
         """
@@ -3571,7 +3583,7 @@ class Context(CacheMixin, PluginMixin):
         self._epoch_cache[run_id] = epoch_info
         self.logger.info(f"Set epoch for {run_id}: {epoch_info}")
 
-    def get_epoch(self, run_id: str) -> Optional[Any]:
+    def get_epoch(self, run_id: str) -> Any | None:
         """
         获取 run 的 epoch 元数据
 
@@ -3592,8 +3604,8 @@ class Context(CacheMixin, PluginMixin):
     def auto_extract_epoch(
         self,
         run_id: str,
-        strategy: Optional[str] = None,
-        file_paths: Optional[List[str]] = None,
+        strategy: str | None = None,
+        file_paths: list[str] | None = None,
     ) -> Any:
         """
         自动从数据文件提取 epoch
@@ -3657,14 +3669,14 @@ class Context(CacheMixin, PluginMixin):
         self,
         run_id: str,
         data_name: str,
-        start_dt: Optional[datetime] = None,
-        end_dt: Optional[datetime] = None,
+        start_dt: datetime | None = None,
+        end_dt: datetime | None = None,
         time_field: str = "time",
-        endtime_field: Optional[str] = None,
+        endtime_field: str | None = None,
         auto_build_index: bool = True,
-        channel: Optional[int] = None,
+        channel: int | None = None,
         auto_extract_epoch: bool = True,
-    ) -> Union[np.ndarray, List[np.ndarray]]:
+    ) -> np.ndarray | list[np.ndarray]:
         """
         使用绝对时间（datetime）查询数据
 
@@ -3740,7 +3752,7 @@ class Context(CacheMixin, PluginMixin):
         show_config: bool = True,
         show_cache: bool = True,
         verbose: int = 1,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         预览数据获取的执行计划（不实际执行计算）
 
@@ -3872,7 +3884,7 @@ class Context(CacheMixin, PluginMixin):
 
     def _print_preview(
         self,
-        info: Dict[str, Any],
+        info: dict[str, Any],
         show_tree: bool,
         show_config: bool,
         show_cache: bool,
@@ -3956,8 +3968,8 @@ class Context(CacheMixin, PluginMixin):
         data_name: str,
         prefix: str = "",
         is_last: bool = True,
-        visited: Optional[set] = None,
-        run_id: Optional[str] = None,
+        visited: set | None = None,
+        run_id: str | None = None,
     ):
         """递归打印依赖关系树"""
         if visited is None:
@@ -3995,7 +4007,7 @@ class Context(CacheMixin, PluginMixin):
     # 帮助系统和快速开始模板
     # ==========================
 
-    def help(self, topic: Optional[str] = None) -> str:
+    def help(self, topic: str | None = None) -> str:
         """
         显示文档位置和快速参考
 
@@ -4179,7 +4191,7 @@ print("✅ 分析完成！")
     from waveform_analysis.core.storage.cache_diagnostics import CacheDiagnostics, DiagnosticIssue
     from waveform_analysis.core.storage.cache_statistics import CacheStatistics
 
-    def analyze_cache(self, run_id: Optional[str] = None, verbose: bool = True) -> CacheAnalyzer:
+    def analyze_cache(self, run_id: str | None = None, verbose: bool = True) -> CacheAnalyzer:
         """获取缓存分析器实例并执行扫描
 
         创建一个 CacheAnalyzer 实例来分析缓存状态，支持按 run_id 过滤。
@@ -4215,11 +4227,11 @@ print("✅ 分析完成！")
 
     def diagnose_cache(
         self,
-        run_id: Optional[str] = None,
+        run_id: str | None = None,
         auto_fix: bool = False,
         dry_run: bool = True,
         verbose: bool = True,
-    ) -> List[DiagnosticIssue]:
+    ) -> list[DiagnosticIssue]:
         """诊断缓存问题
 
         检查缓存的完整性、版本一致性、孤儿文件等问题。
@@ -4276,9 +4288,9 @@ print("✅ 分析完成！")
 
     def cache_stats(
         self,
-        run_id: Optional[str] = None,
+        run_id: str | None = None,
         detailed: bool = False,
-        export_path: Optional[str] = None,
+        export_path: str | None = None,
     ) -> CacheStatistics:
         """获取缓存统计信息
 

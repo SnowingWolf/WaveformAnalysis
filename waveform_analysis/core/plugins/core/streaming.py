@@ -34,10 +34,11 @@ Examples:
         handle_chunk(chunk)
 """
 
+from collections.abc import Generator, Iterator
 import logging
 import pickle
 import time
-from typing import Any, Dict, Generator, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 import warnings
 
 import numpy as np
@@ -93,8 +94,8 @@ def _process_chunk_worker(
     chunk: Chunk,
     context: Any,
     run_id: str,
-    kwargs: Dict[str, Any],
-) -> Optional[Chunk]:
+    kwargs: dict[str, Any],
+) -> Chunk | None:
     result = plugin.compute_chunk(chunk, context, run_id, **kwargs)
     result = plugin._postprocess_result(result, chunk)
     if result is not None:
@@ -102,7 +103,7 @@ def _process_chunk_worker(
     return result
 
 
-def _pick_time_field(data: np.ndarray, preferred: str) -> Optional[str]:
+def _pick_time_field(data: np.ndarray, preferred: str) -> str | None:
     """选择可用的时间字段名（优先使用 preferred）。"""
     if not hasattr(data, "dtype") or data.dtype.names is None:
         return None
@@ -151,14 +152,14 @@ class StreamingPlugin(Plugin):
     # 流式处理相关配置
     chunk_size: int = 50000  # 默认 chunk 大小
     parallel: bool = True  # 是否并行处理
-    parallel_batch_size: Optional[int] = None  # 并行处理批量大小（None=自动）
+    parallel_batch_size: int | None = None  # 并行处理批量大小（None=自动）
     executor_type: str = "thread"  # 执行器类型
-    max_workers: Optional[int] = None  # 最大工作线程/进程数
+    max_workers: int | None = None  # 最大工作线程/进程数
     time_field: str = TIMESTAMP_FIELD  # 时间字段名（默认 timestamp）
     dt_field: str = DT_FIELD  # 采样间隔字段名
     length_field: str = LENGTH_FIELD  # 长度字段名
     endtime_field: str = ENDTIME_FIELD  # 结束时间字段名
-    dt: Optional[float] = None  # 可选的固定采样间隔（覆盖 dt_field）
+    dt: float | None = None  # 可选的固定采样间隔（覆盖 dt_field）
     output_time_field: str = TIMESTAMP_FIELD  # 输出时间字段名
     output_endtime_field: str = ENDTIME_FIELD  # 输出结束时间字段名
     output_data_kind: str = "stream"  # 输出数据类型标签
@@ -172,14 +173,13 @@ class StreamingPlugin(Plugin):
 
     # 负载均衡配置
     use_load_balancer: bool = False  # 是否使用独立的负载均衡器
-    load_balancer_config: Optional[Dict[str, Any]] = None  # 负载均衡器配置
+    load_balancer_config: dict[str, Any] | None = None  # 负载均衡器配置
 
     def __init__(self):
         """初始化流式插件，自动设置 output_kind 为 stream"""
         super().__init__()
         self.output_kind = "stream"  # 流式插件总是输出流
-        self._load_balancer: Optional[Any] = None  # DynamicLoadBalancer实例
-        self._warned_legacy_streaming_config = False
+        self._load_balancer: Any | None = None  # DynamicLoadBalancer实例
 
         # 如果启用负载均衡,创建实例
         if self.use_load_balancer:
@@ -198,7 +198,7 @@ class StreamingPlugin(Plugin):
             check_interval=config.get("check_interval", 5.0),
         )
 
-    def get_load_balancer_stats(self) -> Optional[Dict]:
+    def get_load_balancer_stats(self) -> dict | None:
         """
         获取插件的负载均衡统计信息
 
@@ -209,9 +209,9 @@ class StreamingPlugin(Plugin):
             return self._load_balancer.get_statistics()
         return None
 
-    def _resolve_worker_buckets(self, max_workers: Optional[int]) -> List[int]:
+    def _resolve_worker_buckets(self, max_workers: int | None) -> list[int]:
         config = self.load_balancer_config or {}
-        buckets: List[int] = []
+        buckets: list[int] = []
         raw_buckets = config.get("worker_buckets")
 
         if raw_buckets:
@@ -248,7 +248,7 @@ class StreamingPlugin(Plugin):
             return [max(1, int(max_workers or 1))]
         return buckets
 
-    def _quantize_workers(self, suggested: int, max_workers: Optional[int]) -> int:
+    def _quantize_workers(self, suggested: int, max_workers: int | None) -> int:
         if suggested < 1:
             suggested = 1
         buckets = self._resolve_worker_buckets(max_workers)
@@ -261,9 +261,9 @@ class StreamingPlugin(Plugin):
         """Reset internal state for stateful plugins."""
         return None
 
-    def _filter_streaming_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        filtered: Dict[str, Any] = {}
-        unknown: List[str] = []
+    def _filter_streaming_config(self, config: dict[str, Any]) -> dict[str, Any]:
+        filtered: dict[str, Any] = {}
+        unknown: list[str] = []
         for key, value in config.items():
             if key in _STREAMING_CONFIG_KEYS:
                 filtered[key] = value
@@ -277,68 +277,34 @@ class StreamingPlugin(Plugin):
             )
         return filtered
 
-    def _get_default_streaming_config(self) -> Dict[str, Any]:
-        defaults: Dict[str, Any] = {"executor_config": None}
+    def _get_default_streaming_config(self) -> dict[str, Any]:
+        defaults: dict[str, Any] = {"executor_config": None}
         for key in _STREAMING_CONFIG_KEYS:
             if key == "executor_config":
                 continue
             defaults[key] = getattr(type(self), key, getattr(self, key, None))
         return defaults
 
-    def _get_legacy_streaming_config(self, context: Any) -> Dict[str, Any]:
-        config = getattr(context, "config", {})
-        if not isinstance(config, dict):
-            return {}
-
-        provides = self.provides
-        legacy: Dict[str, Any] = {}
-        for key in _STREAMING_CONFIG_KEYS:
-            if (
-                provides in config
-                and isinstance(config[provides], dict)
-                and key in config[provides]
-            ):
-                legacy[key] = config[provides][key]
-                continue
-            dotted_key = f"{provides}.{key}"
-            if dotted_key in config:
-                legacy[key] = config[dotted_key]
-                continue
-            if key in config:
-                legacy[key] = config[key]
-        return legacy
-
     def _collect_streaming_config(
         self,
         context: Any,
-        streaming_config: Optional[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        streaming_config: dict[str, Any] | None,
+    ) -> dict[str, Any]:
         merged = self._get_default_streaming_config()
-        legacy = self._get_legacy_streaming_config(context)
-        if legacy:
-            if not self._warned_legacy_streaming_config:
-                warnings.warn(
-                    "Streaming config should be passed via streaming_config; "
-                    f"legacy keys detected for {self.provides}: {sorted(legacy)}",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-                self._warned_legacy_streaming_config = True
-            merged.update(legacy)
         if streaming_config:
             if not isinstance(streaming_config, dict):
                 raise TypeError("streaming_config must be a dict")
             merged.update(self._filter_streaming_config(streaming_config))
         return merged
 
-    def _apply_streaming_config(self, config: Dict[str, Any]) -> None:
+    def _apply_streaming_config(self, config: dict[str, Any]) -> None:
         for key in _STREAMING_CONFIG_KEYS:
             if key == "executor_config":
                 continue
             if key in config:
                 setattr(self, key, config[key])
 
-    def _get_required_halo(self) -> Tuple[int, int]:
+    def _get_required_halo(self) -> tuple[int, int]:
         left = self.required_halo_left_ns or 0
         right = self.required_halo_right_ns or 0
         if self.required_halo_ns:
@@ -350,7 +316,7 @@ class StreamingPlugin(Plugin):
         self,
         data: np.ndarray,
         time_field: str,
-    ) -> Iterator[Tuple[np.ndarray, int, int, int]]:
+    ) -> Iterator[tuple[np.ndarray, int, int, int]]:
         if self.break_threshold_ps and self.break_threshold_ps > 0:
             segment_id = 0
             for segment_data, info in split_by_breaks(
@@ -400,7 +366,7 @@ class StreamingPlugin(Plugin):
         # 默认实现：直接返回（子类应重写）
         return chunk
 
-    def _postprocess_result(self, result: Any, input_chunk: Chunk) -> Optional[Chunk]:
+    def _postprocess_result(self, result: Any, input_chunk: Chunk) -> Chunk | None:
         if result is None:
             return None
         if not isinstance(result, Chunk):
@@ -472,9 +438,9 @@ class StreamingPlugin(Plugin):
         context: Any,
         run_id: str,
         show_progress: bool = False,
-        progress_desc: Optional[str] = None,
+        progress_desc: str | None = None,
         **kwargs,
-    ) -> Union[Generator[Chunk, None, None], Iterator[Chunk]]:
+    ) -> Generator[Chunk, None, None] | Iterator[Chunk]:
         """
         流式处理入口：接收 chunk 迭代器，返回 chunk 迭代器。
 
@@ -570,8 +536,8 @@ class StreamingPlugin(Plugin):
                 tracker.close(bar_name)
 
     def _normalize_executor_config(
-        self, executor_config: Optional[Union[str, Dict[str, Any]]]
-    ) -> Dict[str, Any]:
+        self, executor_config: str | dict[str, Any] | None
+    ) -> dict[str, Any]:
         if executor_config is None:
             return {}
         if isinstance(executor_config, str):
@@ -765,7 +731,7 @@ class StreamingPlugin(Plugin):
         input_chunks: Iterator[Chunk],
         context: Any,
         run_id: str,
-        executor_config: Optional[Dict[str, Any]] = None,
+        executor_config: dict[str, Any] | None = None,
         **kwargs,
     ) -> Generator[Chunk, None, None]:
         """
@@ -950,8 +916,8 @@ class StreamingContext:
         run_id: str,
         chunk_size: int = 50000,
         parallel: bool = True,
-        executor_config: Optional[Dict[str, Any]] = None,
-        streaming_config: Optional[Dict[str, Any]] = None,
+        executor_config: dict[str, Any] | None = None,
+        streaming_config: dict[str, Any] | None = None,
     ):
         """
         初始化流式处理上下文。
@@ -982,9 +948,9 @@ class StreamingContext:
         self,
         chunk_size: int,
         parallel: bool,
-        executor_config: Optional[Dict[str, Any]],
-        streaming_config: Optional[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        executor_config: dict[str, Any] | None,
+        streaming_config: dict[str, Any] | None,
+    ) -> dict[str, Any]:
         normalized = {
             "chunk_size": chunk_size,
             "parallel": parallel,
@@ -998,7 +964,7 @@ class StreamingContext:
         return normalized
 
     def get_stream(
-        self, data_name: str, time_range: Optional[Tuple[int, int]] = None, **kwargs
+        self, data_name: str, time_range: tuple[int, int] | None = None, **kwargs
     ) -> Iterator[Chunk]:
         """
         获取数据流。
@@ -1154,7 +1120,7 @@ class StreamingContext:
         )
 
     def iter_chunks(
-        self, data_name: str, time_range: Optional[Tuple[int, int]] = None, **kwargs
+        self, data_name: str, time_range: tuple[int, int] | None = None, **kwargs
     ) -> Iterator[Chunk]:
         """
         迭代数据流的便捷方法。
@@ -1169,7 +1135,7 @@ class StreamingContext:
         """
         yield from self.get_stream(data_name, time_range, **kwargs)
 
-    def merge_stream(self, streams: List[Iterator[Chunk]], sort: bool = True) -> Iterator[Chunk]:
+    def merge_stream(self, streams: list[Iterator[Chunk]], sort: bool = True) -> Iterator[Chunk]:
         """
         合并多个数据流。
 
@@ -1225,8 +1191,8 @@ def get_streaming_context(
     run_id: str,
     chunk_size: int = 50000,
     parallel: bool = True,
-    executor_config: Optional[Dict[str, Any]] = None,
-    streaming_config: Optional[Dict[str, Any]] = None,
+    executor_config: dict[str, Any] | None = None,
+    streaming_config: dict[str, Any] | None = None,
 ) -> StreamingContext:
     """
     创建流式处理上下文。

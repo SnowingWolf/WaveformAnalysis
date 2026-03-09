@@ -370,9 +370,23 @@ class TestConfigResolver:
             def compute(self, context, run_id, **kwargs):
                 return None
 
+        CompatManager.register_alias(
+            "test_break_threshold_ns",
+            "break_threshold_ps",
+            plugin_name="alias_plugin",
+        )
+        CompatManager.register_deprecation(
+            DeprecationInfo(
+                old_name="test_break_threshold_ns",
+                new_name="break_threshold_ps",
+                deprecated_in="1.0.0",
+                removed_in="99.0.0",
+            )
+        )
+
         resolver = ConfigResolver(compat_manager=CompatManager())
         plugin = AliasPlugin()
-        config = {"break_threshold_ns": 1500}
+        config = {"test_break_threshold_ns": 1500}
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
@@ -381,9 +395,14 @@ class TestConfigResolver:
             assert resolved.get("break_threshold_ps") == 1500
             cv = resolved.get_value("break_threshold_ps")
             assert cv is not None
-            assert cv.original_key == "break_threshold_ns"
+            assert cv.original_key == "test_break_threshold_ns"
             assert cv.canonical_key == "break_threshold_ps"
             assert any(issubclass(item.category, DeprecationWarning) for item in w)
+
+        CompatManager.unregister_alias("test_break_threshold_ns", plugin_name="alias_plugin")
+        CompatManager.DEPRECATIONS = [
+            d for d in CompatManager.DEPRECATIONS if d.old_name != "test_break_threshold_ns"
+        ]
 
 
 # ============================================================================
@@ -395,9 +414,11 @@ class TestCompatManager:
     """CompatManager 测试"""
 
     def test_resolve_global_alias(self, compat_manager):
-        canonical, used = compat_manager.resolve_alias("any_plugin", "break_threshold_ns")
-        assert canonical == "break_threshold_ps"
+        CompatManager.register_alias("legacy_global", "canonical_global")
+        canonical, used = compat_manager.resolve_alias("any_plugin", "legacy_global")
+        assert canonical == "canonical_global"
         assert used is True
+        CompatManager.unregister_alias("legacy_global")
 
     def test_resolve_no_alias(self, compat_manager):
         canonical, used = compat_manager.resolve_alias("any_plugin", "threshold")
@@ -405,28 +426,63 @@ class TestCompatManager:
         assert used is False
 
     def test_get_aliases_for(self, compat_manager):
-        aliases = compat_manager.get_aliases_for("any_plugin", "break_threshold_ps")
-        assert "break_threshold_ns" in aliases
+        CompatManager.register_alias("legacy_alias", "canonical_alias")
+        aliases = compat_manager.get_aliases_for("any_plugin", "canonical_alias")
+        assert "legacy_alias" in aliases
+        CompatManager.unregister_alias("legacy_alias")
 
     def test_warn_deprecation(self, compat_manager):
+        CompatManager.register_deprecation(
+            DeprecationInfo(
+                old_name="legacy_name",
+                new_name="canonical_name",
+                deprecated_in="1.0.0",
+                removed_in="99.0.0",
+            )
+        )
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            compat_manager.warn_deprecation("break_threshold_ns", "test_context")
+            compat_manager.warn_deprecation("legacy_name", "test_context")
 
             assert len(w) == 1
             assert issubclass(w[0].category, DeprecationWarning)
-            assert "break_threshold_ns" in str(w[0].message)
-            assert "break_threshold_ps" in str(w[0].message)
+            assert "legacy_name" in str(w[0].message)
+            assert "canonical_name" in str(w[0].message)
+        CompatManager.DEPRECATIONS = [
+            d for d in CompatManager.DEPRECATIONS if d.old_name != "legacy_name"
+        ]
 
     def test_is_deprecated(self, compat_manager):
-        assert compat_manager.is_deprecated("break_threshold_ns")
+        CompatManager.register_deprecation(
+            DeprecationInfo(
+                old_name="legacy_deprecated",
+                new_name="canonical_deprecated",
+                deprecated_in="1.0.0",
+                removed_in="99.0.0",
+            )
+        )
+        assert compat_manager.is_deprecated("legacy_deprecated")
         assert not compat_manager.is_deprecated("threshold")
+        CompatManager.DEPRECATIONS = [
+            d for d in CompatManager.DEPRECATIONS if d.old_name != "legacy_deprecated"
+        ]
 
     def test_get_deprecation_info(self, compat_manager):
-        info = compat_manager.get_deprecation_info("break_threshold_ns")
+        CompatManager.register_deprecation(
+            DeprecationInfo(
+                old_name="legacy_info",
+                new_name="canonical_info",
+                deprecated_in="1.0.0",
+                removed_in="99.0.0",
+            )
+        )
+        info = compat_manager.get_deprecation_info("legacy_info")
         assert info is not None
-        assert info.old_name == "break_threshold_ns"
-        assert info.new_name == "break_threshold_ps"
+        assert info.old_name == "legacy_info"
+        assert info.new_name == "canonical_info"
+        CompatManager.DEPRECATIONS = [
+            d for d in CompatManager.DEPRECATIONS if d.old_name != "legacy_info"
+        ]
 
     def test_register_alias(self):
         CompatManager.register_alias("old_param", "new_param", "test_plugin")
@@ -439,14 +495,27 @@ class TestCompatManager:
         CompatManager.unregister_alias("old_param", "test_plugin")
 
     def test_list_aliases(self, compat_manager):
+        CompatManager.register_alias("legacy_list", "canonical_list")
         aliases = compat_manager.list_aliases()
-        assert "break_threshold_ns" in aliases
+        assert "legacy_list" in aliases
+        CompatManager.unregister_alias("legacy_list")
 
     def test_list_deprecations(self, compat_manager):
+        CompatManager.register_deprecation(
+            DeprecationInfo(
+                old_name="legacy_list_dep",
+                new_name="canonical_list_dep",
+                deprecated_in="1.0.0",
+                removed_in="99.0.0",
+            )
+        )
         deprecations = compat_manager.list_deprecations()
         assert len(deprecations) > 0
         names = [d.old_name for d in deprecations]
-        assert "break_threshold_ns" in names
+        assert "legacy_list_dep" in names
+        CompatManager.DEPRECATIONS = [
+            d for d in CompatManager.DEPRECATIONS if d.old_name != "legacy_list_dep"
+        ]
 
 
 class TestDeprecationInfo:
@@ -493,8 +562,8 @@ class TestIntegration:
         ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
         ctx.register(*standard_plugins)
 
-        resolved = ctx.get_resolved_config("waveforms")
-        assert resolved.plugin_name == "waveforms"
+        resolved = ctx.get_resolved_config("st_waveforms")
+        assert resolved.plugin_name == "st_waveforms"
         assert resolved.adapter_name == "vx2730"
 
     def test_context_get_lineage_with_adapter_info(self):
@@ -505,10 +574,10 @@ class TestIntegration:
         ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
         ctx.register(*standard_plugins)
 
-        lineage = ctx.get_lineage("waveforms")
-        assert "adapter_info" in lineage
-        assert lineage["adapter_info"]["name"] == "vx2730"
-        assert lineage["adapter_info"]["sampling_rate_hz"] == 500e6
+        lineage = ctx.get_lineage("st_waveforms")
+        assert "config" in lineage
+        assert lineage["config"]["daq_adapter"] == "vx2730"
+        assert lineage["config"]["dt_ns"] == 2
 
     def test_context_get_adapter_info(self):
         """测试 Context.get_adapter_info()"""

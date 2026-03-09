@@ -4,7 +4,7 @@ CPU Waveform Width Plugin - 计算波形宽度特征
 **加速器**: CPU (NumPy)
 **功能**: 基于峰值检测结果计算波形的上升/下降时间
 
-本插件依赖 SignalPeaksPlugin 的峰值检测结果，计算每个峰值的：
+本插件依赖 HitFinderPlugin 的峰值检测结果，计算每个峰值的：
 1. 上升时间 (Rise Time): 从 10% 到 90% 峰值高度的时间
 2. 下降时间 (Fall Time): 从 90% 到 10% 峰值高度的时间
 3. 总宽度: 从上升起点到下降终点的时间
@@ -40,7 +40,7 @@ class WaveformWidthPlugin(Plugin):
     """
     波形宽度计算插件 - 基于峰值检测结果计算上升/下降时间。
 
-    依赖 SignalPeaksPlugin 提供的峰值位置和边缘信息，计算：
+    依赖 HitFinderPlugin 提供的峰值位置和边缘信息，计算：
     - 上升时间: 从 10% 峰高到 90% 峰高的时间
     - 下降时间: 从 90% 峰高到 10% 峰高的时间
     - 总宽度: 从上升起点到下降终点的总时间
@@ -102,7 +102,7 @@ class WaveformWidthPlugin(Plugin):
         """
         计算波形宽度特征
 
-        基于 SignalPeaksPlugin 的峰值检测结果，计算每个峰值的上升/下降时间。
+        基于 HitFinderPlugin 的峰值检测结果，计算每个峰值的上升/下降时间。
 
         Args:
             context: Context 实例
@@ -114,9 +114,9 @@ class WaveformWidthPlugin(Plugin):
 
         Examples:
             >>> from waveform_analysis.core.plugins.builtin.cpu import (
-            ...     SignalPeaksPlugin, WaveformWidthPlugin
+            ...     HitFinderPlugin, WaveformWidthPlugin
             ... )
-            >>> ctx.register(SignalPeaksPlugin())
+            >>> ctx.register(HitFinderPlugin())
             >>> ctx.register(WaveformWidthPlugin())
             >>> ctx.set_config({'sampling_rate': 1.0}, plugin_name='waveform_width')
             >>> widths = ctx.get_data('run_001', 'waveform_width')
@@ -141,7 +141,7 @@ class WaveformWidthPlugin(Plugin):
         interpolation = context.get_config(self, "interpolation")
 
         # 获取依赖数据
-        signal_peaks = context.get_data(run_id, "signal_peaks")
+        hits = context.get_data(run_id, "hit")
 
         # 根据 use_filtered 选择波形数据源
         if use_filtered:
@@ -149,17 +149,17 @@ class WaveformWidthPlugin(Plugin):
         else:
             waveform_data = context.get_data(run_id, "st_waveforms")
 
-        if not isinstance(signal_peaks, np.ndarray):
-            raise ValueError("waveform_width expects signal_peaks as a single structured array")
+        if not isinstance(hits, np.ndarray):
+            raise ValueError("waveform_width expects hit as a single structured array")
         if not isinstance(waveform_data, np.ndarray):
             raise ValueError("waveform_width expects st_waveforms as a single structured array")
 
-        if len(signal_peaks) == 0 or len(waveform_data) == 0:
+        if len(hits) == 0 or len(waveform_data) == 0:
             return np.zeros(0, dtype=WAVEFORM_WIDTH_DTYPE)
 
         widths = []
 
-        for peak in signal_peaks:
+        for peak in hits:
             event_idx = int(peak["event_index"])
             peak_position = peak["position"]
             timestamp = peak["timestamp"]
@@ -191,11 +191,11 @@ class WaveformWidthPlugin(Plugin):
             return np.array(widths, dtype=WAVEFORM_WIDTH_DTYPE)
         return np.zeros(0, dtype=WAVEFORM_WIDTH_DTYPE)
 
-    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
-        # signal_peaks 始终需要，波形数据根据 use_filtered 动态选择
+    def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
+        # hit 始终需要，波形数据根据 use_filtered 动态选择
         if context.get_config(self, "use_filtered"):
-            return ["signal_peaks", "filtered_waveforms"]
-        return ["signal_peaks", "st_waveforms"]
+            return ["hit", "filtered_waveforms"]
+        return ["hit", "st_waveforms"]
 
     def _has_config(self, context: Any, name: str) -> bool:
         if hasattr(context, "has_explicit_config"):
@@ -214,7 +214,7 @@ class WaveformWidthPlugin(Plugin):
 
     def _get_sampling_rate_from_adapter(
         self,
-        daq_adapter: Optional[str],
+        daq_adapter: str | None,
         default_value: float,
     ) -> float:
         if not daq_adapter:
@@ -245,7 +245,7 @@ class WaveformWidthPlugin(Plugin):
         fall_low: float,
         sampling_rate: float,
         interpolation: bool,
-    ) -> Optional[tuple]:
+    ) -> tuple | None:
         """
         基于峰值位置计算宽度特征
 
@@ -358,7 +358,7 @@ class WaveformWidthPlugin(Plugin):
         threshold: float,
         direction: str,
         interpolation: bool,
-    ) -> Optional[float]:
+    ) -> float | None:
         """
         找到波形与阈值的交叉点
 

@@ -11,7 +11,6 @@ export, __all__ = exporter()
 @export
 def plugins_events():
     """Return event-level plugin instances in dependency order."""
-    from waveform_analysis.core.plugins.builtin.cpu import DataFramePlugin
     from waveform_analysis.core.plugins.builtin.cpu.event_analysis import (
         GroupedEventsPlugin,
         PairedEventsPlugin,
@@ -20,5 +19,4 @@ def plugins_events():
     return [
         GroupedEventsPlugin(),
         PairedEventsPlugin(),
-        DataFramePlugin(),
     ]
