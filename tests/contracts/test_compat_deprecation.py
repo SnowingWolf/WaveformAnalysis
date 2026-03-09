@@ -30,11 +30,13 @@ class TestAliasResolution:
 
     def test_resolve_alias_to_canonical(self):
         """Aliases should resolve to canonical names."""
+        CompatManager.register_alias("legacy_threshold_ns", "break_threshold_ps")
         manager = CompatManager()
-        canonical, alias_used = manager.resolve_alias("__global__", "break_threshold_ns")
+        canonical, alias_used = manager.resolve_alias("__global__", "legacy_threshold_ns")
 
         assert canonical == "break_threshold_ps"
         assert alias_used is True
+        CompatManager.unregister_alias("legacy_threshold_ns")
 
     def test_resolve_unknown_name(self):
         """Unknown names should resolve to themselves."""
@@ -60,10 +62,12 @@ class TestAliasResolution:
 
     def test_get_aliases_for_canonical(self):
         """Should list all aliases for a canonical name."""
+        CompatManager.register_alias("legacy_threshold_ns", "break_threshold_ps")
         manager = CompatManager()
         aliases = manager.get_aliases_for("__global__", "break_threshold_ps")
 
-        assert "break_threshold_ns" in aliases
+        assert "legacy_threshold_ns" in aliases
+        CompatManager.unregister_alias("legacy_threshold_ns")
 
 
 class TestDeprecationWarnings:
@@ -71,16 +75,27 @@ class TestDeprecationWarnings:
 
     def test_deprecated_name_issues_warning(self):
         """Using deprecated name should issue DeprecationWarning."""
+        CompatManager.register_deprecation(
+            DeprecationInfo(
+                old_name="legacy_deprecated_param",
+                new_name="canonical_param",
+                deprecated_in="1.0.0",
+                removed_in="99.0.0",
+            )
+        )
         manager = CompatManager()
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            manager.warn_deprecation("break_threshold_ns")
+            manager.warn_deprecation("legacy_deprecated_param")
 
             # Should have issued a warning
             assert len(w) >= 1
             assert issubclass(w[-1].category, DeprecationWarning)
-            assert "break_threshold_ns" in str(w[-1].message)
+            assert "legacy_deprecated_param" in str(w[-1].message)
+        CompatManager.DEPRECATIONS = [
+            d for d in CompatManager.DEPRECATIONS if d.old_name != "legacy_deprecated_param"
+        ]
 
     def test_non_deprecated_name_no_warning(self):
         """Non-deprecated names should not issue warnings."""
@@ -96,17 +111,28 @@ class TestDeprecationWarnings:
 
     def test_warning_includes_migration_info(self):
         """Warning message should include migration information."""
+        CompatManager.register_deprecation(
+            DeprecationInfo(
+                old_name="legacy_deprecated_param",
+                new_name="canonical_param",
+                deprecated_in="1.1.0",
+                removed_in="99.0.0",
+            )
+        )
         manager = CompatManager()
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            manager.warn_deprecation("break_threshold_ns")
+            manager.warn_deprecation("legacy_deprecated_param")
 
             message = str(w[-1].message)
             # Should mention the new name
-            assert "break_threshold_ps" in message
+            assert "canonical_param" in message
             # Should mention version info
             assert "1.1.0" in message or "deprecated" in message.lower()
+        CompatManager.DEPRECATIONS = [
+            d for d in CompatManager.DEPRECATIONS if d.old_name != "legacy_deprecated_param"
+        ]
 
 
 class TestDeprecationExpiry:
@@ -165,32 +191,56 @@ class TestCompatManagerAPI:
 
     def test_is_deprecated(self):
         """is_deprecated() should correctly identify deprecated names."""
+        CompatManager.register_deprecation(
+            DeprecationInfo(
+                old_name="legacy_api_param",
+                new_name="canonical_api_param",
+                deprecated_in="1.0.0",
+                removed_in="99.0.0",
+            )
+        )
         manager = CompatManager()
 
-        assert manager.is_deprecated("break_threshold_ns") is True
+        assert manager.is_deprecated("legacy_api_param") is True
         assert manager.is_deprecated("unknown_param") is False
+        CompatManager.DEPRECATIONS = [
+            d for d in CompatManager.DEPRECATIONS if d.old_name != "legacy_api_param"
+        ]
 
     def test_get_deprecation_info(self):
         """get_deprecation_info() should return correct info."""
+        CompatManager.register_deprecation(
+            DeprecationInfo(
+                old_name="legacy_api_param",
+                new_name="canonical_api_param",
+                deprecated_in="1.1.0",
+                removed_in="2.0.0",
+            )
+        )
         manager = CompatManager()
 
-        info = manager.get_deprecation_info("break_threshold_ns")
+        info = manager.get_deprecation_info("legacy_api_param")
         assert info is not None
-        assert info.old_name == "break_threshold_ns"
-        assert info.new_name == "break_threshold_ps"
+        assert info.old_name == "legacy_api_param"
+        assert info.new_name == "canonical_api_param"
         assert info.deprecated_in == "1.1.0"
         assert info.removed_in == "2.0.0"
 
         # Unknown name returns None
         assert manager.get_deprecation_info("unknown") is None
+        CompatManager.DEPRECATIONS = [
+            d for d in CompatManager.DEPRECATIONS if d.old_name != "legacy_api_param"
+        ]
 
     def test_list_aliases(self):
         """list_aliases() should return all aliases for a plugin."""
+        CompatManager.register_alias("legacy_list_alias", "canonical_list_alias")
         manager = CompatManager()
 
         aliases = manager.list_aliases("__global__")
         assert isinstance(aliases, dict)
-        assert "break_threshold_ns" in aliases
+        assert "legacy_list_alias" in aliases
+        CompatManager.unregister_alias("legacy_list_alias")
 
     def test_list_deprecations(self):
         """list_deprecations() should return all deprecations."""
@@ -203,11 +253,13 @@ class TestCompatManagerAPI:
 
     def test_summary(self):
         """summary() should return formatted string."""
+        CompatManager.register_alias("legacy_summary_alias", "canonical_summary_alias")
         manager = CompatManager()
 
         summary = manager.summary()
         assert isinstance(summary, str)
-        assert "break_threshold_ns" in summary or "alias" in summary.lower()
+        assert "legacy_summary_alias" in summary or "alias" in summary.lower()
+        CompatManager.unregister_alias("legacy_summary_alias")
 
 
 class TestRegisterUnregister:

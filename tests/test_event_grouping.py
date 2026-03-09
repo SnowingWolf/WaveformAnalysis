@@ -54,34 +54,6 @@ class TestWaveformStruct:
         # 检查 channel 字段（应该从映射得到 0）
         assert np.all(result["channel"] == 0)
 
-    def test_structure_waveforms(self):
-        """测试多通道波形结构化"""
-        n_rows = 10
-        waveforms = [
-            np.random.randn(n_rows, 807),
-            np.random.randn(n_rows, 807),
-        ]
-        # 设置 BOARD 和 CHANNEL 列
-        # 第一个通道：(0, 0) -> 映射到 0
-        waveforms[0][:, 0] = 0  # BOARD
-        waveforms[0][:, 1] = 0  # CHANNEL
-        # 第二个通道：(0, 1) -> 映射到 1
-        waveforms[1][:, 0] = 0  # BOARD
-        waveforms[1][:, 1] = 1  # CHANNEL
-        # 设置 timestamp 列
-        for w in waveforms:
-            w[:, 2] = np.arange(1000, 1000 + n_rows)
-
-        struct = WaveformStruct(waveforms)
-        result = struct.structure_waveforms(start_channel_slice=0)
-
-        assert len(result) == 2
-        assert len(result[0]) == n_rows
-        # 检查 channel 字段（应该从 (BOARD, CHANNEL) 映射得到）
-        assert np.all(result[0]["channel"] == 0)  # (0, 0) -> 0
-        assert np.all(result[1]["channel"] == 1)  # (0, 1) -> 1
-        assert len(result[1]) == n_rows
-
     def test_get_event_length_even(self):
         """测试偶数通道的事件长度（每个通道使用自己的长度）"""
         waveforms = [

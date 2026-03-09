@@ -71,13 +71,13 @@ def test_waveform_width_plugin_basic(mock_context, synthetic_waveform):
     from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HIT_DTYPE
 
     peak = np.zeros(1, dtype=HIT_DTYPE)
-    peak[0]["hit_sample_idx"] = 100  # 峰值位置
-    peak[0]["hit_height"] = 90.0
-    peak[0]["hit_left_sample_idx"] = 80.0
-    peak[0]["hit_right_sample_idx"] = 120.0
-    peak[0]["hit_timestamp_ps"] = 1000
+    peak[0]["position"] = 100  # 峰值位置
+    peak[0]["height"] = 90.0
+    peak[0]["edge_start"] = 80.0
+    peak[0]["edge_end"] = 120.0
+    peak[0]["timestamp"] = 1000
     peak[0]["channel"] = 0
-    peak[0]["record_index"] = 0
+    peak[0]["event_index"] = 0
 
     hit = peak
 
@@ -148,11 +148,11 @@ def test_waveform_width_plugin_sampling_rate(tmp_path):
     from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HIT_DTYPE
 
     peak = np.zeros(1, dtype=HIT_DTYPE)
-    peak[0]["hit_sample_idx"] = 59
-    peak[0]["hit_height"] = 100.0
-    peak[0]["hit_timestamp_ps"] = 1000
+    peak[0]["position"] = 59
+    peak[0]["height"] = 100.0
+    peak[0]["timestamp"] = 1000
     peak[0]["channel"] = 0
-    peak[0]["record_index"] = 0
+    peak[0]["event_index"] = 0
 
     run_id_1 = "test_sampling_1ghz"
     run_id_2 = "test_sampling_2ghz"
@@ -190,11 +190,11 @@ def test_waveform_width_plugin_interpolation(tmp_path):
     from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HIT_DTYPE
 
     peak = np.zeros(1, dtype=HIT_DTYPE)
-    peak[0]["hit_sample_idx"] = 59
-    peak[0]["hit_height"] = 100.0
-    peak[0]["hit_timestamp_ps"] = 1000
+    peak[0]["position"] = 59
+    peak[0]["height"] = 100.0
+    peak[0]["timestamp"] = 1000
     peak[0]["channel"] = 0
-    peak[0]["record_index"] = 0
+    peak[0]["event_index"] = 0
 
     run_id = "test_interp"
     ctx._results[(run_id, "st_waveforms")] = st_waveform
@@ -227,8 +227,8 @@ def test_waveform_width_plugin_dependencies(tmp_path):
     assert "st_waveforms" in deps
 
 
-def test_waveform_width_plugin_compat_signal_peaks_cache(tmp_path):
-    """测试兼容读取旧缓存键 signal_peaks"""
+def test_waveform_width_plugin_reads_hit_cache(tmp_path):
+    """测试从 hit 缓存键读取依赖数据"""
     ctx = Context(storage_dir=str(tmp_path))
     ctx.register(WaveformWidthPlugin())
 
@@ -244,19 +244,18 @@ def test_waveform_width_plugin_compat_signal_peaks_cache(tmp_path):
     from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HIT_DTYPE
 
     peak = np.zeros(1, dtype=HIT_DTYPE)
-    peak[0]["hit_sample_idx"] = 59
-    peak[0]["hit_height"] = 80.0
-    peak[0]["hit_timestamp_ps"] = 2000
+    peak[0]["position"] = 59
+    peak[0]["height"] = 80.0
+    peak[0]["timestamp"] = 2000
     peak[0]["channel"] = 0
-    peak[0]["record_index"] = 0
+    peak[0]["event_index"] = 0
 
-    run_id = "test_compat_signal_peaks"
+    run_id = "test_hit_cache"
     ctx._results[(run_id, "st_waveforms")] = st_waveform
-    ctx._results[(run_id, "signal_peaks")] = peak
+    ctx._results[(run_id, "hit")] = peak
     ctx.set_config({"sampling_rate": 1.0}, plugin_name="waveform_width")
 
-    with pytest.warns(DeprecationWarning, match="signal_peaks"):
-        widths = ctx.get_data(run_id, "waveform_width")
+    widths = ctx.get_data(run_id, "waveform_width")
 
     assert len(widths) == 1
 

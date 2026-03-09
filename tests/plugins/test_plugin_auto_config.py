@@ -15,6 +15,7 @@ from waveform_analysis.utils.formats import (
     FormatSpec,
     GenericCSVReader,
     TimestampUnit,
+    get_adapter,
     register_adapter,
     unregister_adapter,
 )
@@ -215,3 +216,64 @@ def test_filtered_waveforms_fs_auto_from_adapter():
         assert result.shape[0] == 1
     finally:
         unregister_adapter(adapter_name)
+
+
+def test_waveforms_plugin_v1725_outputs_standard_st_waveforms(monkeypatch):
+    raw_dtype = np.dtype(
+        [
+            ("channel", "i2"),
+            ("timestamp", "i8"),
+            ("baseline", "f8"),
+            ("trunc", "b1"),
+            ("wave", "O"),
+        ]
+    )
+    raw_data = np.zeros(2, dtype=raw_dtype)
+    raw_data["channel"] = np.array([0, 1], dtype=np.int16)
+    raw_data["timestamp"] = np.array([10, 20], dtype=np.int64)
+    raw_data["baseline"] = np.array([100.0, 200.0], dtype=np.float64)
+    raw_data["trunc"] = np.array([False, True], dtype=np.bool_)
+    raw_data["wave"][0] = np.array([11, 12, 13, 14], dtype=np.int16)
+    raw_data["wave"][1] = np.array([21, 22], dtype=np.int16)
+
+    adapter = get_adapter("v1725")
+
+    def fake_read_files(file_paths, show_progress=False):  # noqa: ARG001
+        assert file_paths == ["dup.bin"]
+        return raw_data
+
+    monkeypatch.setattr(adapter.format_reader, "read_files", fake_read_files)
+
+    class _Logger:
+        def info(self, *_args, **_kwargs):
+            return None
+
+        def warning(self, *_args, **_kwargs):
+            return None
+
+    plugin = WaveformsPlugin()
+    ctx = DummyContext(
+        config={"daq_adapter": "v1725", "show_progress": False},
+        data={"raw_files": [["dup.bin"], ["dup.bin"]]},
+    )
+    ctx.logger = _Logger()
+
+    st = plugin.compute(ctx, "run_001")
+
+    assert isinstance(st, np.ndarray)
+    assert st.dtype.names == (
+        "baseline",
+        "baseline_upstream",
+        "timestamp",
+        "dt",
+        "event_length",
+        "channel",
+        "wave",
+    )
+    assert st["wave"].shape == (2, 4)
+    np.testing.assert_array_equal(st["event_length"], np.array([4, 2], dtype=np.int32))
+    np.testing.assert_array_equal(st["channel"], np.array([0, 1], dtype=np.int16))
+    np.testing.assert_array_equal(st["timestamp"], np.array([40000, 80000], dtype=np.int64))
+    np.testing.assert_array_equal(st["dt"], np.array([4, 4], dtype=np.int32))
+    assert np.all(np.isnan(st["baseline_upstream"]))
+    assert int(st["wave"][1, 2]) == 0

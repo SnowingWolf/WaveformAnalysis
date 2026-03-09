@@ -1,3 +1,4 @@
+import json
 import threading
 import time
 
@@ -186,6 +187,62 @@ def test_context_namespaced_config(tmp_path):
     assert ctx.get_data("run2", "plugin_a")[0] == 100
 
 
+def test_context_sync_custom_config_json(tmp_path):
+    """Enable runtime config sync and ensure snapshot is persisted."""
+
+    class ConfigPlugin(Plugin):
+        provides = "cfg_snapshot_data"
+        options = {"threshold": Option(default=1, type=int)}
+        output_dtype = np.dtype([("val", "i4")])
+
+        def compute(self, context, run_id):
+            v = context.get_config(self, "threshold")
+            return np.array([(v,)], dtype=self.output_dtype)
+
+    ctx = Context(
+        storage_dir=str(tmp_path),
+        config={
+            "custom_config_json_path": str(
+                tmp_path / "run_cfg" / "side_effects" / "runtime_config.json"
+            ),
+            "threshold": 9,
+        },
+    )
+    ctx.register(ConfigPlugin)
+    data = ctx.get_data("run_cfg", "cfg_snapshot_data")
+    assert data[0]["val"] == 9
+
+    output_path = tmp_path / "run_cfg" / "side_effects" / "runtime_config.json"
+    assert output_path.exists()
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["run_id"] == "run_cfg"
+    assert payload["requested_data_name"] == "cfg_snapshot_data"
+    assert payload["custom_config"]["threshold"] == 9
+    assert "custom_config_json_path" not in payload["custom_config"]
+
+
+def test_context_sync_custom_config_json_disabled_by_default(tmp_path):
+    """Without custom_config_json_path configured, no snapshot file is generated."""
+
+    class ConfigPlugin(Plugin):
+        provides = "cfg_snapshot_data_disabled"
+        options = {"threshold": Option(default=1, type=int)}
+        output_dtype = np.dtype([("val", "i4")])
+
+        def compute(self, context, run_id):
+            v = context.get_config(self, "threshold")
+            return np.array([(v,)], dtype=self.output_dtype)
+
+    ctx = Context(storage_dir=str(tmp_path), config={"threshold": 5})
+    ctx.register(ConfigPlugin)
+    data = ctx.get_data("run_cfg_disabled", "cfg_snapshot_data_disabled")
+    assert data[0]["val"] == 5
+
+    output_path = tmp_path / "run_cfg_disabled" / "side_effects" / "runtime_config.json"
+    assert not output_path.exists()
+
+
 def test_context_registration_variants(tmp_path):
     """Test different ways to register plugins."""
     ctx = Context(storage_dir=str(tmp_path))
@@ -197,6 +254,54 @@ def test_context_registration_variants(tmp_path):
     # Register by instance
     ctx.register(DependentPlugin())
     assert "dependent_data" in ctx._plugins
+
+
+def test_context_register_same_plugin_is_idempotent(tmp_path):
+    """Registering the same plugin twice should be a no-op by default."""
+
+    class DuplicatePlugin(Plugin):
+        provides = "duplicate_data"
+        version = "1.0.0"
+        output_dtype = np.dtype([("value", "i4")])
+
+        def compute(self, context, run_id, **kwargs):
+            return np.array([(1,)], dtype=self.output_dtype)
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(DuplicatePlugin)
+    first_id = id(ctx._plugins["duplicate_data"])
+
+    # Same implementation/version: skip duplicate instead of raising conflict.
+    ctx.register(DuplicatePlugin())
+    second_id = id(ctx._plugins["duplicate_data"])
+
+    assert first_id == second_id
+
+
+def test_context_register_conflict_still_raises_for_different_plugins(tmp_path):
+    """Different plugin implementations with same provides should still conflict."""
+
+    class PluginA(Plugin):
+        provides = "conflict_data"
+        version = "1.0.0"
+        output_dtype = np.dtype([("value", "i4")])
+
+        def compute(self, context, run_id, **kwargs):
+            return np.array([(1,)], dtype=self.output_dtype)
+
+    class PluginB(Plugin):
+        provides = "conflict_data"
+        version = "1.0.0"
+        output_dtype = np.dtype([("value", "i4")])
+
+        def compute(self, context, run_id, **kwargs):
+            return np.array([(2,)], dtype=self.output_dtype)
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(PluginA)
+
+    with pytest.raises(RuntimeError, match="Plugin conflict"):
+        ctx.register(PluginB)
 
 
 def test_context_key_for(context):
