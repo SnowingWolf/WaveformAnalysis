@@ -104,7 +104,7 @@ ctx.set_config({
 }
 ```
 
-当前 `df` / `events_df` 会读取 `calibration.gain_adc_per_pe`。
+当前 `df` 会读取 `calibration.gain_adc_per_pe`。
 若同时设置了显式配置 `gain_adc_per_pe`，显式配置优先。
 
 ### 插件特定配置（推荐）
@@ -334,7 +334,7 @@ ctx.set_config({'threshold': 100}, plugin_name='basic_features')
 data = ctx.get_data("run_001", "basic_features")  # 重新计算
 ```
 
-补充：`run_config.json` 内容变化会自动触发该 run 的相关缓存失效（`df`、`events_df` 及其下游）。
+补充：`run_config.json` 内容变化会自动触发该 run 的相关缓存失效（`df` 及其下游）。
 
 ### Q3: 如何导出/保存配置？
 

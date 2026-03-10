@@ -28,7 +28,6 @@ Plugins 子模块 - 插件系统统一入口
 """
 
 from importlib import import_module
-from typing import Dict, Optional, Tuple
 
 __all__ = [
     # 插件基类
@@ -70,8 +69,6 @@ __all__ = [
     "PairedEventsPlugin",
     "RecordsPlugin",
     "EventsPlugin",
-    "EventFramePlugin",
-    "EventsGroupedPlugin",
     # 信号处理插件
     "FilteredWaveformsPlugin",
     "WaveformWidthPlugin",
@@ -87,8 +84,6 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "profiles": (".profiles", None),
     "BasicFeaturesPlugin": (".builtin.cpu", "BasicFeaturesPlugin"),
     "DataFramePlugin": (".builtin.cpu", "DataFramePlugin"),
-    "EventFramePlugin": (".builtin.cpu", "EventFramePlugin"),
-    "EventsGroupedPlugin": (".builtin.cpu", "EventsGroupedPlugin"),
     "EventsPlugin": (".builtin.cpu", "EventsPlugin"),
     "FilteredWaveformsPlugin": (".builtin.cpu", "FilteredWaveformsPlugin"),
     "GroupedEventsPlugin": (".builtin.cpu", "GroupedEventsPlugin"),

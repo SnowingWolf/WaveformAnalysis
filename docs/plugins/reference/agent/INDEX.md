@@ -27,8 +27,6 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `unknown` | `0.0.0` |
 | [`df_paired`](df_paired.md) | `PairedEventsPlugin` | `df_events` | `unknown` | `0.0.0` |
 | [`events`](events.md) | `EventsPlugin` | - | `structured_array` | `2.0.0` |
-| [`events_df`](events_df.md) | `EventFramePlugin` | `events` | `unknown` | `0.5.0` |
-| [`events_grouped`](events_grouped.md) | `EventsGroupedPlugin` | `events_df` | `unknown` | `0.1.0` |
 | [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `structured_array` | `2.4.0` |
 | [`hit`](hit.md) | `HitFinderPlugin` | - | `structured_array` | `2.2.0` |
 | [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | `unknown` | `0.0.2` |
@@ -61,8 +59,6 @@ waveform-docs generate plugins-agent --plugin raw_files
 - [`df_events`](df_events.md): Plugin to group events by time window.
 - [`df_paired`](df_paired.md): Plugin to pair events across channels.
 - [`events`](events.md): Provide event index data backed by the records bundle.
-- [`events_df`](events_df.md): Build an events DataFrame from the events bundle.
-- [`events_grouped`](events_grouped.md): Group events_df into multi-channel events by time window.
 
 ### 数据导出
 

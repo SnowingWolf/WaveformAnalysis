@@ -161,6 +161,22 @@ class Context(CacheMixin, PluginMixin):
             "s1_s2",
         }
     )
+    _REMOVED_DATA_NAME_ALIASES = {
+        "events_df": "df",
+        "events_grouped": "df_events",
+    }
+    _LEGACY_CONFIG_KEY_RENAMES = (
+        ("events_df", "gain_adc_per_pe", "df", "gain_adc_per_pe"),
+        ("events_grouped", "time_window_ns", "df_events", "time_window_ns"),
+        ("events_grouped", "use_numba", None, "use_numba"),
+        ("events_grouped", "n_processes", None, "n_processes"),
+    )
+    _LEGACY_CONFIG_KEY_REMOVED = (
+        ("events_df", "fixed_baseline"),
+        ("events_df", "peaks_range"),
+        ("events_df", "charge_range"),
+        ("events_df", "include_event_id"),
+    )
 
     def __init__(
         self,
@@ -298,6 +314,7 @@ class Context(CacheMixin, PluginMixin):
         self._run_config_cache: dict[str, dict[str, Any]] = {}
         self._run_config_hash_cache: dict[str, str] = {}
         self._run_config_hash_loaded: set[str] = set()
+        self._legacy_config_notices: set[str] = set()
 
         # Plugin discovery
         self.plugin_dirs = external_plugin_dirs or []
@@ -636,6 +653,111 @@ class Context(CacheMixin, PluginMixin):
         self._run_config_cache.clear()
         self._run_config_hash_loaded.clear()
 
+    def _warn_legacy_config_once(self, notice_key: str, message: str) -> None:
+        """Emit one-time warning for legacy config migration/removal."""
+        if notice_key in self._legacy_config_notices:
+            return
+        self._legacy_config_notices.add(notice_key)
+        self.logger.warning(message)
+
+    def _find_plugin_scoped_config(self, plugin_name: str, option_name: str) -> tuple[bool, Any]:
+        nested = self.config.get(plugin_name)
+        if isinstance(nested, dict) and option_name in nested:
+            return True, nested[option_name]
+        dotted_key = f"{plugin_name}.{option_name}"
+        if dotted_key in self.config:
+            return True, self.config[dotted_key]
+        return False, None
+
+    def _pop_plugin_scoped_config(self, plugin_name: str, option_name: str) -> tuple[bool, Any]:
+        nested = self.config.get(plugin_name)
+        if isinstance(nested, dict) and option_name in nested:
+            value = nested.pop(option_name)
+            if not nested:
+                self.config.pop(plugin_name, None)
+            return True, value
+
+        dotted_key = f"{plugin_name}.{option_name}"
+        if dotted_key in self.config:
+            return True, self.config.pop(dotted_key)
+
+        return False, None
+
+    def _has_destination_config(self, plugin_name: str | None, option_name: str) -> bool:
+        if plugin_name is None:
+            return option_name in self.config
+
+        nested = self.config.get(plugin_name)
+        if isinstance(nested, dict) and option_name in nested:
+            return True
+        dotted_key = f"{plugin_name}.{option_name}"
+        if dotted_key in self.config:
+            return True
+        return option_name in self.config
+
+    def _set_destination_config(
+        self, plugin_name: str | None, option_name: str, value: Any
+    ) -> None:
+        if plugin_name is None:
+            self.config[option_name] = value
+            return
+        self.config[f"{plugin_name}.{option_name}"] = value
+
+    def _migrate_legacy_events_config(self) -> None:
+        """
+        Handle removed legacy keys from the old events_df/events_grouped chain.
+
+        Supported keys are migrated automatically; unsupported keys fail fast to
+        avoid silent behavior drift.
+        """
+        unsupported = []
+        for plugin_name, option_name in self._LEGACY_CONFIG_KEY_REMOVED:
+            found, _value = self._find_plugin_scoped_config(plugin_name, option_name)
+            if found:
+                unsupported.append(f"{plugin_name}.{option_name}")
+
+        if unsupported:
+            unsupported_text = ", ".join(sorted(unsupported))
+            raise ValueError(
+                "Legacy config keys are no longer supported after removing events_df/events_grouped: "
+                f"{unsupported_text}. Please migrate to the df/df_events pipeline."
+            )
+
+        config_changed = False
+        for old_plugin, old_option, new_plugin, new_option in self._LEGACY_CONFIG_KEY_RENAMES:
+            found, value = self._pop_plugin_scoped_config(old_plugin, old_option)
+            if not found:
+                continue
+
+            old_key = f"{old_plugin}.{old_option}"
+            new_key = new_option if new_plugin is None else f"{new_plugin}.{new_option}"
+            config_changed = True
+
+            if self._has_destination_config(new_plugin, new_option):
+                self._warn_legacy_config_once(
+                    "legacy_config_ignore:" + old_key,
+                    f"Ignoring legacy config '{old_key}' because '{new_key}' is already configured.",
+                )
+                continue
+
+            self._set_destination_config(new_plugin, new_option, value)
+            self._warn_legacy_config_once(
+                "legacy_config_migrate:" + old_key,
+                f"Migrated legacy config '{old_key}' to '{new_key}'.",
+            )
+
+        if config_changed:
+            self.clear_config_cache()
+            self.clear_performance_caches()
+
+    def _raise_if_removed_data_name(self, data_name: str) -> None:
+        replacement = self._REMOVED_DATA_NAME_ALIASES.get(data_name)
+        if replacement is None:
+            return
+        raise ValueError(
+            f"Data name '{data_name}' has been removed. Please use '{replacement}' instead."
+        )
+
     def get_config_value(
         self,
         plugin: Plugin,
@@ -952,8 +1074,6 @@ class Context(CacheMixin, PluginMixin):
         targets = []
         if "df" in self._plugins:
             targets.append("df")
-        if "events_df" in self._plugins:
-            targets.append("events_df")
 
         for target in targets:
             try:
@@ -1209,6 +1329,8 @@ class Context(CacheMixin, PluginMixin):
             progress_desc: Custom description for progress bar (default: auto-generated)
             **kwargs: Additional arguments passed to plugins
         """
+        self._raise_if_removed_data_name(data_name)
+        self._migrate_legacy_events_config()
         self._sync_custom_config_json(run_id, data_name)
 
         # Remember the most recent run_id for display purposes (e.g., show_config()).
@@ -4012,6 +4134,8 @@ class Context(CacheMixin, PluginMixin):
             >>> # 确认后再执行
             >>> data = ctx.get_data('run_001', 'signal_peaks')
         """
+        self._raise_if_removed_data_name(data_name)
+        self._migrate_legacy_events_config()
         # 检查数据名称是否存在
         if data_name not in self._plugins:
             raise ValueError(

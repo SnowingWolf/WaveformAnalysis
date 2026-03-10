@@ -30,22 +30,11 @@ class _DFPairedPlugin(_ConstPlugin):
     depends_on = ["df_events"]
 
 
-class _EventsDFPlugin(_ConstPlugin):
-    provides = "events_df"
-
-
-class _EventsGroupedPlugin(_ConstPlugin):
-    provides = "events_grouped"
-    depends_on = ["events_df"]
-
-
 def _register_test_plugins(ctx: Context):
     ctx.register(
         _DFPlugin(),
         _DFEventsPlugin(),
         _DFPairedPlugin(),
-        _EventsDFPlugin(),
-        _EventsGroupedPlugin(),
     )
 
 
@@ -107,9 +96,8 @@ def test_run_config_hash_change_triggers_related_cache_clear(tmp_path):
     ctx2._maybe_invalidate_run_config_cache(run_id)
     assert clear_calls == []
 
-    # Changed hash: should invalidate df/events_df branches.
+    # Changed hash: should invalidate df branch and its downstream.
     _write_run_config(config_path, gain_value=11.0)
     ctx2._maybe_invalidate_run_config_cache(run_id)
 
     assert (run_id, "df", True) in clear_calls
-    assert (run_id, "events_df", True) in clear_calls

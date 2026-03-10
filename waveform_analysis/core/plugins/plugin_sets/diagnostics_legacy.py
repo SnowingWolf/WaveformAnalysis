@@ -12,17 +12,11 @@ export, __all__ = exporter()
 def plugins_diagnostics_legacy():
     """Return diagnostics and legacy plugin instances."""
     from waveform_analysis.core.plugins.builtin.cpu.cache_analysis import CacheAnalysisPlugin
-    from waveform_analysis.core.plugins.builtin.cpu.events import (
-        EventFramePlugin,
-        EventsGroupedPlugin,
-        EventsPlugin,
-    )
+    from waveform_analysis.core.plugins.builtin.cpu.events import EventsPlugin
     from waveform_analysis.core.plugins.builtin.cpu.records import RecordsPlugin
 
     return [
         CacheAnalysisPlugin(),
         RecordsPlugin(),
         EventsPlugin(),
-        EventFramePlugin(),
-        EventsGroupedPlugin(),
     ]

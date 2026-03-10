@@ -210,14 +210,14 @@ API 约定：
 推荐用于变长波形/大规模数据流。插件链：
 
 ```
-RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin → EventsPlugin → EventFramePlugin
+RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin → EventsPlugin
 ```
 
 输出：
 - `events`: 结构化事件索引表
-- `events_df`: 事件 DataFrame（timestamp/area/height/amp/channel）
+- `df`: 事件 DataFrame（timestamp/area/height/amp/channel）
 
-**English**: `events_df` is an event DataFrame with `timestamp/area/height/amp/channel`.
+**English**: `df` is the event DataFrame with `timestamp/area/height/amp/channel`.
 
 插件说明（records 管线）：
 - `RecordsPlugin` → `records`（依赖 `raw_files`）
@@ -225,10 +225,10 @@ RawFilesPlugin → WaveformsPlugin → StWaveformsPlugin → EventsPlugin → Ev
   - 继承波形加载参数：`channel_workers`, `channel_executor`, `n_jobs`, `use_process_pool`, `chunksize`
 - `EventsPlugin` → `events`（依赖 `raw_files`；内部 bundle + wave_pool）
   - 关键配置：`events_part_size`, `events_dt_ns`
-- `EventFramePlugin` → `events_df`（依赖 `events`）
-  - 关键配置：`height_range`, `area_range`, `include_event_id`
-- `EventsGroupedPlugin` → `events_grouped`（依赖 `events_df`）
-  - 关键配置：`time_window_ns`, `use_numba`, `n_processes`
+- `DataFramePlugin` → `df`（依赖 `st_waveforms`, `basic_features`）
+  - 关键配置：`gain_adc_per_pe`
+- `GroupedEventsPlugin` → `df_events`（依赖 `df`）
+  - 关键配置：`time_window_ns`
 
 ### 2. st_waveforms 管线（现有）
 
@@ -281,7 +281,7 @@ Lineage 细节（适配器分支）：
 ## 阶段规划
 
 1. **Phase 1**: 数据模型与存储实现
-   - 新增 `EventsPlugin` / `EventFramePlugin`（内部 wave_pool bundle）
+   - 新增 `EventsPlugin`（内部 wave_pool bundle）
    - 基础 memmap 存储与 lineage 记录
 
 2. **Phase 2**: RecordsView 与查询

@@ -117,7 +117,7 @@ ctx.preview_execution("run_001", "signal_peaks")
 ### 新版事件流水线
 
 ```
-raw_files ──► records ──► events ──► events_df ──► events_grouped
+raw_files ──► records ──► events
 ```
 
 ---
@@ -132,8 +132,6 @@ raw_files ──► records ──► events ──► events_df ──► event
 | [`GroupedEventsPlugin`](df_events.md) | `df_events` | 0.0.0 | 事件分析 | df |
 | [`PairedEventsPlugin`](df_paired.md) | `df_paired` | 0.0.0 | 事件分析 | df_events |
 | [`EventsPlugin`](events.md) | `events` | 2.0.0 | 事件分析 | - |
-| [`EventFramePlugin`](events_df.md) | `events_df` | 0.5.0 | 事件分析 | events |
-| [`EventsGroupedPlugin`](events_grouped.md) | `events_grouped` | 0.1.0 | 事件分析 | events_df |
 | [`FilteredWaveformsPlugin`](filtered_waveforms.md) | `filtered_waveforms` | 2.4.0 | 波形处理 | st_waveforms |
 | [`HitFinderPlugin`](hit.md) | `hit` | 2.2.0 | 特征提取 | - |
 | [`RawFileNamesPlugin`](raw_files.md) | `raw_files` | 0.0.2 | 数据加载 | - |
@@ -188,8 +186,6 @@ raw_files ──► records ──► events ──► events_df ──► event
 | [`df_events`](df_events.md) | Plugin to group events by time window. | df |
 | [`df_paired`](df_paired.md) | Plugin to pair events across channels. | df_events |
 | [`events`](events.md) | Provide event index data backed by the records bundle. | - |
-| [`events_df`](events_df.md) | Build an events DataFrame from the events bundle. | events |
-| [`events_grouped`](events_grouped.md) | Group events_df into multi-channel events by time window. | events_df |
 
 ### 数据导出
 
