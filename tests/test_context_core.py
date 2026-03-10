@@ -70,6 +70,79 @@ def test_context_config(tmp_path):
     assert data[0]["val"] == 10
 
 
+def test_context_from_config_json_loads_file(tmp_path):
+    config_path = tmp_path / "context_config.json"
+    config_path.write_text(
+        json.dumps({"data_root": "DAQ", "threshold": 7}),
+        encoding="utf-8",
+    )
+
+    ctx = Context(storage_dir=str(tmp_path / "cache"))
+    ctx.from_config_json(str(config_path))
+
+    assert ctx.config["data_root"] == "DAQ"
+    assert ctx.config["threshold"] == 7
+
+
+def test_context_from_config_json_updates_existing_context_like_set_config(tmp_path):
+    config_path = tmp_path / "context_config.json"
+    config_path.write_text(
+        json.dumps({"data_root": "DAQ", "threshold": 7}),
+        encoding="utf-8",
+    )
+
+    ctx = Context(storage_dir=str(tmp_path / "cache"), config={"threshold": 9})
+    ctx.from_config_json(str(config_path))
+
+    assert ctx.config["data_root"] == "DAQ"
+    assert ctx.config["threshold"] == 7
+
+
+def test_context_from_config_json_requires_object(tmp_path):
+    config_path = tmp_path / "context_config.json"
+    config_path.write_text(json.dumps([1, 2, 3]), encoding="utf-8")
+
+    ctx = Context(storage_dir=str(tmp_path / "cache"))
+
+    with pytest.raises(ValueError, match="JSON object"):
+        ctx.from_config_json(str(config_path))
+
+
+def test_context_from_config_json_supports_plugin_namespace(tmp_path):
+    config_path = tmp_path / "plugin_config.json"
+    config_path.write_text(json.dumps({"threshold": 11}), encoding="utf-8")
+
+    ctx = Context(storage_dir=str(tmp_path / "cache"))
+    ctx.from_config_json(str(config_path), plugin_name="mock_plugin")
+
+    assert ctx.config["mock_plugin"]["threshold"] == 11
+
+
+def test_context_from_config_json_accepts_custom_config_snapshot(tmp_path):
+    config_path = tmp_path / "runtime_config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "run_id": "run_001",
+                "requested_data_name": "df",
+                "updated_at": "2026-03-10T00:00:00Z",
+                "custom_config": {
+                    "data_root": "DAQ",
+                    "basic_features": {"area_range": [1800, 3000]},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    ctx = Context(storage_dir=str(tmp_path / "cache"))
+    ctx.from_config_json(str(config_path))
+
+    assert ctx.config["data_root"] == "DAQ"
+    assert ctx.config["basic_features"]["area_range"] == [1800, 3000]
+    assert "run_id" not in ctx.config
+
+
 def test_context_circular_dependency(tmp_path):
     """Test detection of circular dependencies."""
 
@@ -241,6 +314,66 @@ def test_context_sync_custom_config_json_disabled_by_default(tmp_path):
 
     output_path = tmp_path / "run_cfg_disabled" / "side_effects" / "runtime_config.json"
     assert not output_path.exists()
+
+
+def test_show_config_displays_context_config_section(tmp_path, capsys):
+    """Context-owned config keys should be shown separately from unused config."""
+
+    class ConfigPlugin(Plugin):
+        provides = "cfg_show_config"
+        options = {"threshold": Option(default=1, type=int)}
+        output_dtype = np.dtype([("val", "i4")])
+
+        def compute(self, context, run_id):
+            return np.array([(context.get_config(self, "threshold"),)], dtype=self.output_dtype)
+
+    ctx = Context(
+        storage_dir=str(tmp_path),
+        config={
+            "custom_config_json_path": str(tmp_path / "runtime_config.json"),
+            "threshold": 7,
+        },
+    )
+    ctx.register(ConfigPlugin)
+
+    ctx.show_config()
+    captured = capsys.readouterr().out
+
+    assert "Context 配置项" in captured
+    assert "custom_config_json_path" in captured
+    assert "分析配置快照 JSON 输出路径" in captured
+    assert "storage_dir" in captured
+    assert "缓存与处理产物存储目录" in captured
+    assert "run_config_path" in captured
+
+
+def test_show_config_displays_context_defaults_when_unset(tmp_path, capsys):
+    """Unset context config keys should still be shown with their default semantics."""
+
+    class ConfigPlugin(Plugin):
+        provides = "cfg_show_config_defaults"
+        options = {"threshold": Option(default=1, type=int)}
+        output_dtype = np.dtype([("val", "i4")])
+
+        def compute(self, context, run_id):
+            return np.array([(context.get_config(self, "threshold"),)], dtype=self.output_dtype)
+
+    ctx = Context(
+        storage_dir=str(tmp_path),
+        config={
+            "data_root": str(tmp_path / "daq"),
+            "threshold": 7,
+        },
+    )
+    ctx.register(ConfigPlugin)
+
+    ctx.show_config()
+    captured = capsys.readouterr().out
+
+    assert "custom_config_json_path" in captured
+    assert "run_config_path" in captured
+    assert "分析配置快照 JSON 输出路径（默认值）" in captured
+    assert "run 级配置文件路径模板（默认值）" in captured
 
 
 def test_context_registration_variants(tmp_path):

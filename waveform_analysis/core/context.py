@@ -61,6 +61,25 @@ def _safe_copy_config(config: dict[str, Any]) -> dict[str, Any]:
         return config.copy()
 
 
+def _load_json_object(path: str) -> dict[str, Any]:
+    """Load a JSON object from disk and validate its top-level type."""
+    with open(path, encoding="utf-8") as fh:
+        payload = json.load(fh)
+    if not isinstance(payload, dict):
+        raise ValueError(
+            f"Config JSON file must contain a JSON object, got {type(payload).__name__}."
+        )
+    return payload
+
+
+def _extract_config_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Support both raw config JSON and exported custom-config snapshot JSON."""
+    nested = payload.get("custom_config")
+    if isinstance(nested, dict):
+        return nested
+    return payload
+
+
 def _apply_memmap_settings(storage: MemmapStorage, spec: dict[str, Any]) -> None:
     storage.enable_checksum = spec.get("enable_checksum", storage.enable_checksum)
     storage.checksum_algorithm = spec.get("checksum_algorithm", storage.checksum_algorithm)
@@ -165,6 +184,44 @@ class Context(CacheMixin, PluginMixin):
         "events_df": "df",
         "events_grouped": "df_events",
     }
+    _CONTEXT_CONFIG_KEYS = frozenset(
+        {
+            "data_root",
+            "plugin_backends",
+            "compression",
+            "compression_kwargs",
+            "enable_checksum",
+            "verify_on_load",
+            "checksum_algorithm",
+            "custom_config_json_path",
+            "run_config_path",
+            "run_config_filename",
+            "run_config_path_template",
+        }
+    )
+    _CONTEXT_RUNTIME_KEYS = frozenset(
+        {
+            "storage_dir",
+        }
+    )
+    _CONTEXT_DISPLAY_DEFAULTS = {
+        "custom_config_json_path": None,
+        "run_config_path": None,
+    }
+    _CONTEXT_CONFIG_NOTES = {
+        "custom_config_json_path": "分析配置快照 JSON 输出路径",
+        "data_root": "原始 DAQ 数据根目录",
+        "plugin_backends": "按数据名覆盖存储后端",
+        "compression": "缓存压缩算法",
+        "compression_kwargs": "缓存压缩参数",
+        "enable_checksum": "是否写入缓存校验和",
+        "verify_on_load": "读取缓存时是否校验完整性",
+        "checksum_algorithm": "缓存校验算法",
+        "run_config_path": "run 级配置文件路径模板",
+        "run_config_filename": "兼容旧配置的 run 配置文件名",
+        "run_config_path_template": "兼容旧配置的 run 配置路径模板",
+        "storage_dir": "缓存与处理产物存储目录",
+    }
     _LEGACY_CONFIG_KEY_RENAMES = (
         ("events_df", "gain_adc_per_pe", "df", "gain_adc_per_pe"),
         ("events_grouped", "time_window_ns", "df_events", "time_window_ns"),
@@ -177,6 +234,21 @@ class Context(CacheMixin, PluginMixin):
         ("events_df", "charge_range"),
         ("events_df", "include_event_id"),
     )
+
+    def from_config_json(
+        self,
+        config_json_path: str,
+        plugin_name: str | None = None,
+    ) -> None:
+        """
+        Load config from a JSON file and apply it to the current Context.
+
+        Args:
+            config_json_path: JSON file path. Relative paths are resolved from the current cwd.
+            plugin_name: Optional plugin namespace passed through to ``set_config``.
+        """
+        file_config = _extract_config_payload(_load_json_object(str(config_json_path)))
+        self.set_config(file_config, plugin_name=plugin_name)
 
     def __init__(
         self,
@@ -951,44 +1023,53 @@ class Context(CacheMixin, PluginMixin):
             return value.strip()
         return "run_config.json"
 
+    def _get_default_run_config_path_template(self) -> str:
+        """Return the default run_config path template next to the raw DAQ root."""
+        data_root = os.path.normpath(str(self.config.get("data_root", "DAQ")))
+        data_root_parent = os.path.dirname(data_root)
+        return os.path.join(data_root_parent, "{run_id}", self._get_run_config_filename())
+
+    def _format_run_config_path(self, path_template: str, run_id: str) -> str:
+        """Format a run_config path template with Context-aware placeholders."""
+        data_root = str(self.config.get("data_root", "DAQ"))
+        data_root_norm = os.path.normpath(data_root)
+        data_root_parent = os.path.dirname(data_root_norm)
+        filename = self._get_run_config_filename()
+        return str(
+            path_template.format(
+                run_id=run_id,
+                run_name=run_id,
+                data_root=data_root,
+                data_root_parent=data_root_parent,
+                filename=filename,
+            )
+        )
+
     def _resolve_run_config_path(self, run_id: str) -> str:
         """Resolve run-level config file path for a specific run."""
-        path_template = self.config.get("run_config_path_template")
-        data_root = self.config.get("data_root", "DAQ")
-        filename = self._get_run_config_filename()
-
-        if isinstance(path_template, str) and path_template:
+        path_template = self.config.get("run_config_path")
+        if isinstance(path_template, str) and path_template.strip():
+            path_template = path_template.strip()
             try:
-                return str(
-                    path_template.format(
-                        run_id=run_id,
-                        run_name=run_id,
-                        data_root=data_root,
-                        filename=filename,
-                    )
+                return self._format_run_config_path(path_template, run_id)
+            except Exception:
+                self.logger.warning(
+                    "Invalid run_config_path '%s'; falling back to legacy/default layout.",
+                    path_template,
                 )
+
+        path_template = self.config.get("run_config_path_template")
+        if isinstance(path_template, str) and path_template.strip():
+            path_template = path_template.strip()
+            try:
+                return self._format_run_config_path(path_template, run_id)
             except Exception:
                 self.logger.warning(
                     "Invalid run_config_path_template '%s'; falling back to default layout.",
                     path_template,
                 )
 
-        adapter_name = self.config.get("daq_adapter")
-        if isinstance(adapter_name, str) and adapter_name:
-            try:
-                from waveform_analysis.utils.formats import get_adapter
-
-                adapter = get_adapter(adapter_name)
-                run_path = adapter.get_run_path(str(data_root), run_id)
-                return os.path.join(str(run_path), filename)
-            except Exception as exc:
-                self.logger.warning(
-                    "Failed to resolve run path via adapter '%s': %s; falling back to data_root/run_id.",
-                    adapter_name,
-                    exc,
-                )
-
-        return os.path.join(str(data_root), run_id, filename)
+        return self._format_run_config_path(self._get_default_run_config_path_template(), run_id)
 
     def _compute_run_config_hash(self, run_id: str) -> tuple[str | None, str]:
         """
@@ -2922,6 +3003,15 @@ class Context(CacheMixin, PluginMixin):
             return value_str[: max(0, width - 3)] + "..."
         return value_str
 
+    def _get_context_config_note(self, key: str) -> str:
+        """Return a human-readable note for Context-owned config entries."""
+        base_note = self._CONTEXT_CONFIG_NOTES.get(key, "Context 自身消费的配置项")
+        if key in self._CONTEXT_RUNTIME_KEYS:
+            return base_note
+        if key in self._CONTEXT_DISPLAY_DEFAULTS and key not in self.config:
+            return base_note + "（默认值）"
+        return base_note
+
     def _style_options_table(self, df_display, show_current_values: bool):
         def _highlight_modified(row):
             styles = [""] * len(row)
@@ -3145,6 +3235,7 @@ class Context(CacheMixin, PluginMixin):
         config_usage = {}  # config_key -> [plugin_names]
         plugin_specific_configs = {}  # plugin_name -> {config_key: value}
         global_configs = {}  # 纯全局配置
+        context_configs = {}  # Context 自身消费的配置
 
         # 遍历所有插件，收集配置使用情况
         for plugin_name, plugin in self._plugins.items():
@@ -3185,9 +3276,30 @@ class Context(CacheMixin, PluginMixin):
             # 跳过点分隔配置
             if "." in key:
                 continue
+            if key in self._CONTEXT_CONFIG_KEYS:
+                context_configs[key] = value
+                continue
             # 如果不在 config_usage 中，说明未被使用
             if key not in config_usage:
                 unused_configs[key] = value
+
+        context_runtime_configs = {
+            "storage_dir": self.storage_dir,
+        }
+        for key in self._CONTEXT_RUNTIME_KEYS:
+            if key in context_configs:
+                continue
+            value = context_runtime_configs.get(key)
+            if value is not None:
+                context_configs[key] = value
+
+        for key, value in self._CONTEXT_DISPLAY_DEFAULTS.items():
+            if key in context_configs:
+                continue
+            if key == "run_config_path":
+                context_configs[key] = self._get_default_run_config_path_template()
+            else:
+                context_configs[key] = value
 
         # 统计信息
         cache_root = os.path.abspath(self.storage_dir)
@@ -3210,7 +3322,7 @@ class Context(CacheMixin, PluginMixin):
             print(f"缓存目录: {cache_dir}")
         print(
             f"全局配置项: {len(global_configs)}  插件特定配置: {len(plugin_specific_configs)}  "
-            f"未使用配置: {len(unused_configs)}"
+            f"Context 配置项: {len(context_configs)}  未使用配置: {len(unused_configs)}"
         )
 
         import pandas as pd
@@ -3289,7 +3401,26 @@ class Context(CacheMixin, PluginMixin):
             else:
                 print(df_display.to_string())
 
-        # 3. 未使用配置表
+        # 3. Context 配置表
+        if context_configs:
+            rows = []
+            for key in sorted(context_configs.keys()):
+                rows.append(
+                    {
+                        "key": key,
+                        "value": self._format_display_value(context_configs[key], 80),
+                        "note": self._get_context_config_note(key),
+                    }
+                )
+            df_context = pd.DataFrame(rows).set_index("key")
+
+            print("\n🧭 Context 配置项")
+            if display is not None:
+                display(df_context)
+            else:
+                print(df_context.to_string())
+
+        # 4. 未使用配置表
         if unused_configs:
             rows = []
             for key in sorted(unused_configs.keys()):

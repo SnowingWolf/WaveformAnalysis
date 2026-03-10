@@ -25,7 +25,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 from dataclasses import dataclass
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
 
@@ -159,9 +159,19 @@ def _detect_wave_length_from_files(
     return None
 
 
+def _normalize_baseline_samples(
+    baseline_samples: int | tuple[int, int] | list[int] | None,
+) -> int | tuple[int, int] | None:
+    """Normalize JSON-friendly list inputs into the tuple form expected internally."""
+    if isinstance(baseline_samples, list):
+        return tuple(baseline_samples)
+    return baseline_samples
+
+
 def _validate_baseline_samples(
-    baseline_samples: int | tuple[int, int] | None,
+    baseline_samples: int | tuple[int, int] | list[int] | None,
 ) -> None:
+    baseline_samples = _normalize_baseline_samples(baseline_samples)
     if baseline_samples is None:
         return
     if isinstance(baseline_samples, tuple):
@@ -192,9 +202,10 @@ def _validate_baseline_samples(
 
 
 def _resolve_baseline_window(
-    baseline_samples: int | tuple[int, int] | None,
+    baseline_samples: int | tuple[int, int] | list[int] | None,
     cols: ColumnMapping,
 ) -> tuple[int, int]:
+    baseline_samples = _normalize_baseline_samples(baseline_samples)
     baseline_start = cols.baseline_start
     baseline_end = cols.baseline_end
     if baseline_samples is not None:
@@ -819,10 +830,15 @@ class WaveformsPlugin(Plugin):
             validate=lambda v: (
                 v is None
                 or isinstance(v, int)
-                or (isinstance(v, tuple) and len(v) == 2 and all(isinstance(x, int) for x in v))
+                or (
+                    (isinstance(v, tuple) or isinstance(v, list))
+                    and len(v) == 2
+                    and all(isinstance(x, int) for x in v)
+                )
             ),
             help="Baseline range: int (sample count from adapter start) or tuple (start, end) "
-            "relative to samples_start. None=adapter default.",
+            "relative to samples_start. JSON lists like [0, 800] are also accepted. "
+            "None=adapter default.",
         ),
         "streaming_mode": Option(
             default=False,

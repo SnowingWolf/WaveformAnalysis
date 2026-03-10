@@ -103,7 +103,7 @@ ctx.set_config({"area_range": (0, None)}, plugin_name="basic_features")
 ctx.set_config({"daq_adapter": "vx2730"}, plugin_name="raw_files")
 
 # 查看当前配置
-ctx.show_config()  # 显示全局配置
+ctx.show_config()  # 显示全局配置与 Context 自身消费的路径类配置说明
 ctx.show_config("basic_features")  # 显示特定插件的配置
 ```
 

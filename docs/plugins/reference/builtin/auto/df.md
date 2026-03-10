@@ -24,7 +24,7 @@ This plugin depends on the following data:
 
 | Option | Type | Default | Units | Description |
 |--------|------|---------|-------|-------------|
-| `gain_adc_per_pe` | `dict` | `None` | - | 按通道配置 ADC/PE 增益，如 {0: 12.5, 1: 13.2}。显式设置优先；未显式设置时可从 `<run_path>/run_config.json` 的 `calibration.gain_adc_per_pe` 读取。 |
+| `gain_adc_per_pe` | `dict` | `None` | - | 按通道配置 ADC/PE 增益，如 {0: 12.5, 1: 13.2}。显式设置优先；未显式设置时可从 `<run_config_path>` 的 `calibration.gain_adc_per_pe` 读取。 |
 
 
 ## Usage Example

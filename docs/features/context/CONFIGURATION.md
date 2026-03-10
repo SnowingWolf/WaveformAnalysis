@@ -77,14 +77,36 @@ ctx.set_config({
 })
 ```
 
+也可以把 JSON 文件中的配置加载到当前 `Context`，效果等同于一次 `ctx.set_config(...)`：
+
+```python
+from waveform_analysis.core.context import Context
+
+ctx = Context(storage_dir="./cache")
+ctx.from_config_json("configs/context.json")
+```
+
+- `config_json_path` 支持相对路径，相对于当前工作目录解析。
+- JSON 顶层必须是对象（`dict`）。
+- 加载结果会直接并入当前 `ctx.config`，并触发与 `set_config()` 相同的缓存清理逻辑。
+- 可选传入 `plugin_name`，把 JSON 内容作为某个插件的命名空间配置导入。
+- 同时兼容两种 JSON 格式：
+  - 纯配置文件：顶层直接是配置对象
+  - 运行时快照文件：若顶层包含 `custom_config`，会自动提取该字段作为配置导入
+- 对于原本在 Python 中常写成 tuple 的配置项，JSON 中可使用数组表示；
+  例如 `st_waveforms.baseline_samples` 可写成 `[0, 800]`。
+
 ## Run 级配置文件（run_config.json）
 
-当通道很多时，推荐把 run 专属参数放进 run 目录下的 `run_config.json`：
+当通道很多时，推荐把 run 专属参数放进 `run_config.json`：
 
-- 默认路径：`{data_root}/{run_id}/run_config.json`
-- 可选覆盖：
-  - `run_config_filename`（默认 `run_config.json`）
-  - `run_config_path_template`（支持 `{run_id}`, `{run_name}`, `{data_root}`, `{filename}`）
+- 默认路径：`{data_root}` 的同级目录下，即 `{data_root_parent}/{run_id}/run_config.json`
+  - 例如原始数据在 `/data/DAQ/<run_id>/RAW`，则默认读取 `/data/<run_id>/run_config.json`
+- 推荐统一使用：
+  - `run_config_path`（支持 `{run_id}`, `{run_name}`, `{data_root}`, `{data_root_parent}`, `{filename}`）
+- 兼容旧配置：
+  - `run_config_filename`（默认 `run_config.json`，主要用于兼容旧配置）
+  - `run_config_path_template`（旧字段，仍兼容，但建议迁移到 `run_config_path`）
 
 示例：
 
@@ -157,6 +179,20 @@ ctx.show_config('filtered_waveforms')
 # 简洁模式
 ctx.show_config(show_usage=False)
 ```
+
+`ctx.show_config()` 中的 `Context 配置项` 表会把 Context 自身消费的路径类配置单独列出，
+并在 `note` 列中直接说明用途，而不是仅标注“由 Context 自身消费”。
+
+常见条目说明：
+
+| key | note 含义 |
+| --- | --- |
+| `custom_config_json_path` | 分析配置快照 JSON 输出路径 |
+| `data_root` | 原始 DAQ 数据根目录 |
+| `run_config_path` | run 级配置文件路径模板 |
+| `storage_dir` | 缓存与处理产物存储目录 |
+
+若某项当前未显式设置、但 Context 会使用默认值，`note` 会追加 `（默认值）`。
 
 ## 查询配置选项
 

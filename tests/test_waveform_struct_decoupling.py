@@ -216,6 +216,21 @@ class TestWaveformStructDecoupling:
         # 验证通道号
         assert np.all(st_waveform["channel"] == 0)
 
+    def test_baseline_samples_list_relative(self):
+        """JSON-loaded list baseline_samples should behave like tuple input."""
+        n_events = 3
+        n_cols = 20
+        data = np.zeros((n_events, n_cols))
+        data[:, 0] = 0
+        data[:, 1] = 0
+        data[:, 2] = np.arange(n_events)
+        data[:, 3:7] = 1000
+        data[:, 7:] = 12
+
+        struct = WaveformStruct([data], baseline_samples=[0, 5])
+        st_waveform = struct._structure_waveform(data)
+        assert np.allclose(st_waveform["baseline"], 12.0)
+
     def test_dynamic_wave_length(self, mock_waveforms_custom):
         """测试动态波形长度"""
         custom_spec = FormatSpec(
