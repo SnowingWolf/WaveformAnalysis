@@ -102,11 +102,21 @@ ctx.from_config_json("configs/context.json")
 
 - 默认路径：`{data_root}` 的同级目录下，即 `{data_root_parent}/{run_id}/run_config.json`
   - 例如原始数据在 `/data/DAQ/<run_id>/RAW`，则默认读取 `/data/<run_id>/run_config.json`
+  - 若目录结构是 `/data/<run_id>/DAQ/RAW`，默认路径不一定符合预期，建议显式设置 `run_config_path`
 - 推荐统一使用：
   - `run_config_path`（支持 `{run_id}`, `{run_name}`, `{data_root}`, `{data_root_parent}`, `{filename}`）
 - 兼容旧配置：
   - `run_config_filename`（默认 `run_config.json`，主要用于兼容旧配置）
   - `run_config_path_template`（旧字段，仍兼容，但建议迁移到 `run_config_path`）
+
+当目录结构为 `run_id/DAQ` 时，可这样显式配置：
+
+```python
+ctx.set_config({
+    "data_root": "/data",
+    "run_config_path": "{data_root}/{run_id}/run_config.json",
+})
+```
 
 示例：
 

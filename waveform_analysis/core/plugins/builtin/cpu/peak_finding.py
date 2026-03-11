@@ -12,7 +12,7 @@ CPU Peak Finding Plugin - 使用 scipy 进行峰值检测
 
 from concurrent.futures import ThreadPoolExecutor
 import os
-from typing import Any, List, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 from scipy.signal import find_peaks
