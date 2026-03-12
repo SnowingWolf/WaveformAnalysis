@@ -3,12 +3,21 @@
 """
 
 import argparse
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as package_version
 from pathlib import Path
 import sys
 
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins import profiles
 from waveform_analysis.utils.daq import DAQAnalyzer
+
+
+def _pkg_version() -> str:
+    try:
+        return package_version("waveform-analysis")
+    except PackageNotFoundError:
+        return "0.0.0+unknown"
 
 
 def main():
@@ -76,7 +85,7 @@ def main():
         "--show-daq-files", action="store_true", help="在显示中包含每个通道的文件明细"
     )
 
-    parser.add_argument("--version", action="version", version="%(prog)s 0.1.0")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {_pkg_version()}")
 
     # 配置显示选项
     parser.add_argument(

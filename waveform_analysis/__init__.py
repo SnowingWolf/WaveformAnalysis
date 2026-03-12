@@ -6,9 +6,20 @@ Waveform Analysis - 波形数据分析工具包
 """
 
 from importlib import import_module
-from typing import Dict, Optional, Tuple
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as package_version
 
-__version__ = "0.1.0"
+
+def _resolve_package_version() -> str:
+    """从包元数据读取版本（单一事实来源：pyproject.toml）。"""
+    try:
+        return package_version("waveform-analysis")
+    except PackageNotFoundError:
+        # 未安装分发包时（如直接源码运行）提供可解析回退版本。
+        return "0.0.0+unknown"
+
+
+__version__ = _resolve_package_version()
 __author__ = "Your Name"
 
 __all__ = [
@@ -51,7 +62,7 @@ __all__ = [
 ]
 
 
-_LAZY_ATTRS: Dict[str, Tuple[str, Optional[str]]] = {
+_LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "Context": (".core.context", "Context"),
     "get_timeout_manager": (".core.execution", "get_timeout_manager"),
     "EXECUTOR_CONFIGS": (".core.execution.config", "EXECUTOR_CONFIGS"),
