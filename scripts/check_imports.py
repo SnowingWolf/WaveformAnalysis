@@ -4,8 +4,7 @@
 
 检查代码库中的导入是否符合规范：
 1. 禁止使用超过两级的相对导入（...）
-2. 禁止使用 Python 3.10+ 的联合类型语法（str | Path）
-3. 检查导入路径是否正确
+2. 检查导入路径是否正确
 
 使用方法:
     python scripts/check_imports.py
@@ -13,7 +12,6 @@
 
 from pathlib import Path
 import re
-from typing import List, Tuple
 
 # 禁止的模式
 FORBIDDEN_PATTERNS = [
@@ -25,11 +23,6 @@ FORBIDDEN_PATTERNS = [
     (
         r"from \.\.\..*chunk_utils",
         "chunk_utils 已移动到 processing.chunk。应使用: from waveform_analysis.core.processing.chunk",
-        "error",
-    ),
-    (
-        r"str \| Path|int \| |float \| |bool \| ",
-        "禁止使用 Python 3.10+ 的联合类型语法。应使用: Union[str, Path]",
         "error",
     ),
     (
@@ -51,7 +44,7 @@ EXPECTED_IMPORTS = {
 }
 
 
-def check_file(file_path: Path) -> List[Tuple[int, str, str, str]]:
+def check_file(file_path: Path) -> list[tuple[int, str, str, str]]:
     """
     检查文件中的导入问题
 

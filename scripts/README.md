@@ -12,7 +12,6 @@ python scripts/check_imports.py
 
 检查内容：
 - 禁止使用超过两级的相对导入（`...`）
-- 禁止使用 Python 3.10+ 的联合类型语法（`str | Path`）
 - 检查导入路径是否正确
 
 ### `fix_imports.py` - 自动修复导入
@@ -32,8 +31,6 @@ python scripts/fix_imports.py --check
 
 修复内容：
 - 相对导入 → 绝对导入
-- Python 3.10+ 类型语法 → Python 3.8 兼容语法
-- 自动添加缺失的 `Optional` 导入
 
 ## 使用 ruff 自动修复
 

@@ -1,7 +1,7 @@
 # Agent Conventions
 
 ## 代码与接口约定
-- Python 3.8 兼容
+- Python 3.10+ 基线
 - 命名规范：PascalCase / snake_case / UPPER_SNAKE_CASE
 - `run_id` 必填
 - `run_name` 优先，`char` 视为 legacy

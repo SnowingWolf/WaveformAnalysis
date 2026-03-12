@@ -39,7 +39,7 @@
 4. `python scripts/release_artifact_sync.py --base HEAD`
 
 ## Hard Rules
-- Python 3.8 兼容：不要使用 `str | Path` 等 3.10+ 语法。
+- Python 3.10+ 基线：允许使用 `str | Path` 等 3.10+ 语法。
 - Context 无状态：所有数据访问都要显式 `run_id`。
 - 插件职责单一：每个插件做一件事。
 - 插件变更要升级 `version`：行为、输出 dtype、配置语义变更都要升级。

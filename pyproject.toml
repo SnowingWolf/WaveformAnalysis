@@ -115,7 +115,7 @@ select = [
     "I",   # isort (import sorting)
     "B",   # flake8-bugbear
     "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade (自动升级语法，但会保持 Python 3.8 兼容)
+    "UP",  # pyupgrade (自动升级语法，目标 Python 3.10+)
 ]
 ignore = [
     "E501",  # line too long (handled by black)

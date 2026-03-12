@@ -52,19 +52,13 @@ from .base import Plugin                  # 一级相对导入
 from ..foundation.utils import exporter  # 二级相对导入
 ```
 
-### 4. 类型注解兼容 Python 3.8
+### 4. 类型注解使用 Python 3.10+ 语法
 
 **推荐：**
 ```python
-from typing import Union, Optional, Path
+from pathlib import Path
 
-def process(path: Union[str, Path]) -> Optional[int]:
-    pass
-```
-
-**禁止：**
-```python
-def process(path: str | Path) -> int | None:  # Python 3.10+ 语法
+def process(path: str | Path) -> int | None:
     pass
 ```
 
@@ -212,7 +206,7 @@ from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin
 # 三级相对导入
 from ...foundation.utils import exporter
 
-# Python 3.10+ 语法（不兼容 Python 3.8）
+# Python 3.10+ 语法（项目基线）
 def process(path: str | Path) -> int | None:
     pass
 
@@ -232,7 +226,7 @@ from waveform_analysis.core.chunk_utils import Chunk
 ### mypy 配置
 
 已在 `pyproject.toml` 中配置：
-- Python 3.8 兼容性检查
+- Python 3.10+ 类型检查
 - 导入错误检测
 
 ## 更新日志

@@ -11,10 +11,9 @@
 import argparse
 from pathlib import Path
 import re
-from typing import List, Tuple
 
 # 导入路径映射表（旧路径 -> 新路径）
-IMPORT_REPLACEMENTS: List[Tuple[str, str, str]] = [
+IMPORT_REPLACEMENTS: list[tuple[str, str, str]] = [
     # (模式, 替换, 描述)
     # 相对导入 -> 绝对导入
     (
@@ -37,23 +36,10 @@ IMPORT_REPLACEMENTS: List[Tuple[str, str, str]] = [
         "from waveform_analysis.core.foundation import",
         "相对导入 foundation -> 绝对导入",
     ),
-    # 类型注解（Python 3.8 兼容）
-    (r"str \| Path", "Union[str, Path]", "str | Path -> Union[str, Path] (Python 3.8 兼容)"),
-    (r"int \| float", "Union[int, float]", "int | float -> Union[int, float]"),
-    (r"str \| None", "Optional[str]", "str | None -> Optional[str]"),
-    (r"int \| None", "Optional[int]", "int | None -> Optional[int]"),
-    (r"float \| None", "Optional[float]", "float | None -> Optional[float]"),
-    (r"bool \| None", "Optional[bool]", "bool | None -> Optional[bool]"),
-]
-
-# 需要添加 Union 导入的文件模式
-FILES_NEEDING_UNION = [
-    "**/daq*.py",
-    "**/cache.py",
 ]
 
 
-def check_file(file_path: Path) -> List[Tuple[int, str, str]]:
+def check_file(file_path: Path) -> list[tuple[int, str, str]]:
     """
     检查文件中的导入问题
 
@@ -88,13 +74,6 @@ def fix_file(file_path: Path, dry_run: bool = False) -> bool:
         # 应用所有替换
         for pattern, replacement, _description in IMPORT_REPLACEMENTS:
             content = re.sub(pattern, replacement, content)
-
-        # 如果需要 Union，检查是否已导入
-        if any(file_path.match(pattern) for pattern in FILES_NEEDING_UNION):
-            if "Union[" in content and "from typing import" in content:
-                if "Union" not in re.search(r"from typing import ([^)]+)", content).group(1):
-                    # 添加 Union 到导入
-                    content = re.sub(r"(from typing import [^)]+)", r"\1, Union", content, count=1)
 
         if content != original:
             if not dry_run:
