@@ -892,6 +892,69 @@ def test_context_time_range_boundaries(tmp_path):
     assert len(result) == 3
 
 
+def test_context_time_range_system_domain_derives_from_timestamp(tmp_path):
+    """Default system_ns domain should derive ns axis from timestamp when needed."""
+    dtype = np.dtype([("timestamp", "<i8"), ("value", "<f8")])
+
+    class TimestampOnlyPlugin(Plugin):
+        provides = "timestamp_only"
+        output_dtype = dtype
+
+        def compute(self, context, run_id, **kwargs):
+            # Raw timestamp in ps: 1000, 2000, 3000 -> 1, 2, 3 ns
+            return np.array([(1000, 1.0), (2000, 2.0), (3000, 3.0)], dtype=self.output_dtype)
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(TimestampOnlyPlugin)
+
+    result = ctx.time_range("run1", "timestamp_only", start_time=2, end_time=4)
+    assert len(result) == 2
+    np.testing.assert_array_equal(result["timestamp"], np.array([2000, 3000], dtype=np.int64))
+
+
+def test_context_time_range_raw_domain_uses_timestamp_directly(tmp_path):
+    """raw_ps domain should query directly on timestamp axis."""
+    dtype = np.dtype([("timestamp", "<i8"), ("value", "<f8")])
+
+    class TimestampOnlyPlugin(Plugin):
+        provides = "timestamp_only_raw"
+        output_dtype = dtype
+
+        def compute(self, context, run_id, **kwargs):
+            return np.array([(1000, 1.0), (2000, 2.0), (3000, 3.0)], dtype=self.output_dtype)
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(TimestampOnlyPlugin)
+
+    result = ctx.time_range(
+        "run1",
+        "timestamp_only_raw",
+        start_time=1500,
+        end_time=2600,
+        time_domain="raw_ps",
+    )
+    assert len(result) == 1
+    assert int(result[0]["timestamp"]) == 2000
+
+
+def test_context_time_range_invalid_time_domain(tmp_path):
+    """time_range should reject unsupported time_domain values."""
+    dtype = np.dtype([("time", "<i8"), ("value", "<f8")])
+
+    class TimeDataPlugin(Plugin):
+        provides = "time_data_bad_domain"
+        output_dtype = dtype
+
+        def compute(self, context, run_id, **kwargs):
+            return np.array([(1, 1.0)], dtype=self.output_dtype)
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(TimeDataPlugin)
+
+    with pytest.raises(ValueError, match="Unsupported time_domain"):
+        ctx.time_range("run1", "time_data_bad_domain", time_domain="ns")
+
+
 # =============================================================================
 # Epoch Tests
 # =============================================================================

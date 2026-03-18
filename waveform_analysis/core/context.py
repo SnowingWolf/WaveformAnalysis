@@ -234,6 +234,9 @@ class Context(CacheMixin, PluginMixin):
         ("events_df", "charge_range"),
         ("events_df", "include_event_id"),
     )
+    _TIME_DOMAIN_SYSTEM_NS = "system_ns"
+    _TIME_DOMAIN_RAW_PS = "raw_ps"
+    _TIME_DOMAIN_CHOICES = frozenset({_TIME_DOMAIN_SYSTEM_NS, _TIME_DOMAIN_RAW_PS})
 
     def from_config_json(
         self,
@@ -3516,13 +3519,80 @@ class Context(CacheMixin, PluginMixin):
     # 时间范围查询
     # ===========================
 
+    def _normalize_time_domain(self, time_domain: str) -> str:
+        """Validate and normalize time-domain selector."""
+        normalized = str(time_domain).strip().lower()
+        if normalized not in self._TIME_DOMAIN_CHOICES:
+            allowed = ", ".join(sorted(self._TIME_DOMAIN_CHOICES))
+            raise ValueError(
+                f"Unsupported time_domain '{time_domain}'. Expected one of: {allowed}."
+            )
+        return normalized
+
+    def _resolve_time_axis(
+        self,
+        data: np.ndarray,
+        data_name: str,
+        time_domain: str,
+        time_field: str | None = None,
+    ) -> tuple[str, np.ndarray | None]:
+        """
+        Resolve the effective time axis for a structured array.
+
+        Returns:
+            (resolved_field, derived_time_values)
+            - resolved_field: field name used for display/logging
+            - derived_time_values: optional precomputed values (int64) used when no field exists
+        """
+        if not isinstance(data, np.ndarray) or data.dtype.names is None:
+            raise ValueError(
+                f"Data '{data_name}' is not a structured array; cannot resolve time axis."
+            )
+
+        domain = self._normalize_time_domain(time_domain)
+        names = data.dtype.names or ()
+
+        # Explicit field override keeps backward compatibility for advanced callers.
+        if time_field:
+            if time_field not in names:
+                raise ValueError(
+                    f"Time field '{time_field}' not found in {data_name}. Available fields: {list(names)}"
+                )
+            return time_field, None
+
+        if domain == self._TIME_DOMAIN_RAW_PS:
+            for candidate in ("timestamp_ps", "timestamp"):
+                if candidate in names:
+                    return candidate, None
+            raise ValueError(
+                f"Cannot resolve raw_ps time axis for {data_name}. "
+                "Expected one of ['timestamp_ps', 'timestamp']."
+            )
+
+        # system_ns domain
+        for candidate in ("time_ns", "time"):
+            if candidate in names:
+                return candidate, None
+
+        # Fallback: derive ns axis from raw ps timestamp when system field is absent.
+        for candidate in ("timestamp_ps", "timestamp"):
+            if candidate in names:
+                derived = np.asarray(data[candidate], dtype=np.int64) // 1000
+                return "time_ns", derived
+
+        raise ValueError(
+            f"Cannot resolve system_ns time axis for {data_name}. "
+            "Expected one of ['time_ns', 'time', 'timestamp_ps', 'timestamp']."
+        )
+
     def build_time_index(
         self,
         run_id: str,
         data_name: str,
-        time_field: str = "time",
+        time_field: str | None = None,
         endtime_field: str | None = None,
         force_rebuild: bool = False,
+        time_domain: str = _TIME_DOMAIN_SYSTEM_NS,
     ) -> dict[str, Any]:
         """
         为数据构建时间索引
@@ -3534,9 +3604,10 @@ class Context(CacheMixin, PluginMixin):
         Args:
             run_id: 运行ID
             data_name: 数据名称
-            time_field: 时间字段名
+            time_field: 时间字段名（可选，优先于 time_domain）
             endtime_field: 结束时间字段名('computed'表示计算endtime)
             force_rebuild: 强制重建索引
+            time_domain: 时间域，"system_ns"（默认）或 "raw_ps"
 
         Returns:
             索引构建结果字典，包含：
@@ -3577,11 +3648,29 @@ class Context(CacheMixin, PluginMixin):
                 )
             # List[np.ndarray] 类型 - 多通道数据
             return self._build_multi_channel_time_index(
-                engine, run_id, data_name, data, time_field, endtime_field, force_rebuild
+                engine,
+                run_id,
+                data_name,
+                data,
+                time_field,
+                endtime_field,
+                force_rebuild,
+                time_domain,
             )
         elif isinstance(data, np.ndarray) and data.dtype.names is not None:
             # 单个结构化数组
-            engine.build_index(run_id, data_name, data, time_field, endtime_field, force_rebuild)
+            resolved_time_field, derived_time_values = self._resolve_time_axis(
+                data, data_name, time_domain, time_field=time_field
+            )
+            engine.build_index(
+                run_id,
+                data_name,
+                data,
+                resolved_time_field,
+                endtime_field,
+                force_rebuild,
+                time_values=derived_time_values,
+            )
             index = engine.get_index(run_id, data_name)
             return {
                 "type": "single",
@@ -3604,10 +3693,11 @@ class Context(CacheMixin, PluginMixin):
         data_name: str,
         start_time: int | None = None,
         end_time: int | None = None,
-        time_field: str = "time",
+        time_field: str | None = None,
         endtime_field: str | None = None,
         auto_build_index: bool = True,
         channel: int | None = None,
+        time_domain: str = _TIME_DOMAIN_SYSTEM_NS,
     ) -> np.ndarray | list[np.ndarray]:
         """
         查询数据的时间范围
@@ -3621,10 +3711,11 @@ class Context(CacheMixin, PluginMixin):
             data_name: 数据名称
             start_time: 起始时间(包含)
             end_time: 结束时间(不包含)
-            time_field: 时间字段名
+            time_field: 时间字段名（可选，优先于 time_domain）
             endtime_field: 结束时间字段名('computed'表示计算endtime)
             auto_build_index: 自动构建时间索引
             channel: 指定通道号（仅用于多通道数据），None 表示返回所有通道
+            time_domain: 时间域，"system_ns"（默认）或 "raw_ps"
 
         Returns:
             符合条件的数据子集：
@@ -3675,6 +3766,7 @@ class Context(CacheMixin, PluginMixin):
                 endtime_field,
                 auto_build_index,
                 channel,
+                time_domain,
             )
         elif isinstance(data, np.ndarray):
             if len(data) == 0:
@@ -3695,6 +3787,7 @@ class Context(CacheMixin, PluginMixin):
                 endtime_field,
                 auto_build_index,
                 channel,
+                time_domain,
             )
         else:
             self.logger.warning(f"Data '{data_name}' is not a supported type, returning as-is")
@@ -3744,27 +3837,27 @@ class Context(CacheMixin, PluginMixin):
         data: np.ndarray,
         start_time: int | None,
         end_time: int | None,
-        time_field: str,
+        time_field: str | None,
         endtime_field: str | None,
         auto_build_index: bool,
         channel: int | None = None,
+        time_domain: str = _TIME_DOMAIN_SYSTEM_NS,
     ) -> np.ndarray:
         """查询单个结构化数组的时间范围"""
-        # 如果没有时间字段,返回完整数据
-        if time_field not in data.dtype.names:
-            self.logger.warning(
-                f"Time field '{time_field}' not found in {data_name}, returning full data"
-            )
-            if channel is None:
-                return data
-            if "channel" not in data.dtype.names:
-                self.logger.warning(f"Channel field not found in {data_name}, returning empty")
-                return np.zeros(0, dtype=data.dtype)
-            return data[data["channel"] == channel]
+        resolved_time_field, derived_time_values = self._resolve_time_axis(
+            data, data_name, time_domain, time_field=time_field
+        )
 
         # 构建索引(如果需要)
         if auto_build_index and not engine.has_index(run_id, data_name):
-            engine.build_index(run_id, data_name, data, time_field, endtime_field)
+            engine.build_index(
+                run_id,
+                data_name,
+                data,
+                resolved_time_field,
+                endtime_field,
+                time_values=derived_time_values,
+            )
 
         # 查询
         if engine.has_index(run_id, data_name):
@@ -3776,7 +3869,10 @@ class Context(CacheMixin, PluginMixin):
         else:
             # 回退到直接过滤
             self.logger.warning(f"No index for {data_name}, using direct filtering")
-            times = data[time_field]
+            if derived_time_values is not None:
+                times = derived_time_values
+            else:
+                times = np.asarray(data[resolved_time_field], dtype=np.int64)
 
             filter_start = start_time if start_time is not None else int(times.min())
             filter_end = end_time if end_time is not None else int(times.max()) + 1
@@ -3799,10 +3895,11 @@ class Context(CacheMixin, PluginMixin):
         data: list[np.ndarray],
         start_time: int | None,
         end_time: int | None,
-        time_field: str,
+        time_field: str | None,
         endtime_field: str | None,
         auto_build_index: bool,
         channel: int | None,
+        time_domain: str,
     ) -> np.ndarray | list[np.ndarray]:
         """
         查询多通道数据的时间范围
@@ -3833,7 +3930,13 @@ class Context(CacheMixin, PluginMixin):
             )
 
             if not has_indices:
-                self.build_time_index(run_id, data_name, time_field, endtime_field)
+                self.build_time_index(
+                    run_id,
+                    data_name,
+                    time_field=time_field,
+                    endtime_field=endtime_field,
+                    time_domain=time_domain,
+                )
 
         # 如果指定了通道，只查询该通道
         if channel is not None:
@@ -3844,14 +3947,30 @@ class Context(CacheMixin, PluginMixin):
                 return np.array([], dtype=data[0].dtype if n_channels > 0 else np.float64)
 
             return self._query_channel_time_range(
-                engine, run_id, data_name, data[channel], channel, start_time, end_time, time_field
+                engine,
+                run_id,
+                data_name,
+                data[channel],
+                channel,
+                start_time,
+                end_time,
+                time_field,
+                time_domain,
             )
 
         # 查询所有通道
         results = []
         for ch_idx, ch_data in enumerate(data):
             result = self._query_channel_time_range(
-                engine, run_id, data_name, ch_data, ch_idx, start_time, end_time, time_field
+                engine,
+                run_id,
+                data_name,
+                ch_data,
+                ch_idx,
+                start_time,
+                end_time,
+                time_field,
+                time_domain,
             )
             results.append(result)
 
@@ -3866,7 +3985,8 @@ class Context(CacheMixin, PluginMixin):
         ch_idx: int,
         start_time: int | None,
         end_time: int | None,
-        time_field: str,
+        time_field: str | None,
+        time_domain: str,
     ) -> np.ndarray:
         """
         查询单个通道的时间范围
@@ -3897,12 +4017,18 @@ class Context(CacheMixin, PluginMixin):
             else:
                 return np.array([], dtype=ch_data.dtype)
         else:
-            # 回退到直接过滤, 通过
-            if time_field not in ch_data.dtype.names:
-                self.logger.warning(f"Time field '{time_field}' not found in channel {ch_idx}")
-                return ch_data
+            # 回退到直接过滤
+            resolved_time_field, derived_time_values = self._resolve_time_axis(
+                ch_data,
+                f"{data_name}_ch{ch_idx}",
+                time_domain,
+                time_field=time_field,
+            )
 
-            times = ch_data[time_field]
+            if derived_time_values is not None:
+                times = derived_time_values
+            else:
+                times = np.asarray(ch_data[resolved_time_field], dtype=np.int64)
             if len(times) == 0:
                 return np.array([], dtype=ch_data.dtype)
 
@@ -3918,9 +4044,10 @@ class Context(CacheMixin, PluginMixin):
         run_id: str,
         data_name: str,
         data: list[np.ndarray],
-        time_field: str,
+        time_field: str | None,
         endtime_field: str | None,
         force_rebuild: bool,
+        time_domain: str,
     ) -> dict[str, Any]:
         """
         为多通道数据构建时间索引
@@ -3953,17 +4080,23 @@ class Context(CacheMixin, PluginMixin):
                 self.logger.warning(f"Channel {ch_idx} is not a structured array, skipping")
                 continue
 
-            # 检查时间字段是否存在
-            if time_field not in ch_data.dtype.names:
-                self.logger.warning(
-                    f"Time field '{time_field}' not found in channel {ch_idx}, skipping"
-                )
-                continue
+            resolved_time_field, derived_time_values = self._resolve_time_axis(
+                ch_data,
+                f"{data_name}_ch{ch_idx}",
+                time_domain,
+                time_field=time_field,
+            )
 
             # 为每个通道构建索引，key 格式为 {data_name}_ch{i}
             index_name = f"{data_name}_ch{ch_idx}"
             engine.build_index(
-                run_id, index_name, ch_data, time_field, endtime_field, force_rebuild
+                run_id,
+                index_name,
+                ch_data,
+                resolved_time_field,
+                endtime_field,
+                force_rebuild,
+                time_values=derived_time_values,
             )
 
             index = engine.get_index(run_id, index_name)
@@ -4146,11 +4279,12 @@ class Context(CacheMixin, PluginMixin):
         data_name: str,
         start_dt: datetime | None = None,
         end_dt: datetime | None = None,
-        time_field: str = "time",
+        time_field: str | None = None,
         endtime_field: str | None = None,
         auto_build_index: bool = True,
         channel: int | None = None,
         auto_extract_epoch: bool = True,
+        time_domain: str = _TIME_DOMAIN_SYSTEM_NS,
     ) -> np.ndarray | list[np.ndarray]:
         """
         使用绝对时间（datetime）查询数据
@@ -4162,11 +4296,12 @@ class Context(CacheMixin, PluginMixin):
             data_name: 数据名称
             start_dt: 起始时间（datetime，包含）
             end_dt: 结束时间（datetime，不包含）
-            time_field: 时间字段名
+            time_field: 时间字段名（可选，优先于 time_domain）
             endtime_field: 结束时间字段名
             auto_build_index: 自动构建时间索引
             channel: 指定通道号（仅用于多通道数据）
             auto_extract_epoch: 如果未设置 epoch，是否自动提取
+            time_domain: 时间域，"system_ns"（默认）或 "raw_ps"
 
         Returns:
             符合条件的数据子集
@@ -4206,6 +4341,18 @@ class Context(CacheMixin, PluginMixin):
         # 转换时间范围
         converter = TimeConverter(epoch_info)
         start_rel, end_rel = converter.convert_time_range(start_dt, end_dt)
+        domain = self._normalize_time_domain(time_domain)
+
+        # 将转换结果规范到目标时间域单位
+        source_unit = getattr(getattr(epoch_info, "time_unit", None), "value", "ns")
+        target_unit = "ns" if domain == self._TIME_DOMAIN_SYSTEM_NS else "ps"
+        if source_unit != target_unit:
+            from waveform_analysis.core.compat import convert_time
+
+            if start_rel is not None:
+                start_rel = int(round(convert_time(float(start_rel), source_unit, target_unit)))
+            if end_rel is not None:
+                end_rel = int(round(convert_time(float(end_rel), source_unit, target_unit)))
 
         # 调用原始的相对时间查询方法
         return self.time_range(
@@ -4217,6 +4364,7 @@ class Context(CacheMixin, PluginMixin):
             endtime_field=endtime_field,
             auto_build_index=auto_build_index,
             channel=channel,
+            time_domain=domain,
         )
 
     def preview_execution(

@@ -11,7 +11,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
@@ -46,7 +46,7 @@ class TimeIndex:
 
     times: np.ndarray  # 时间戳数组(已排序)
     indices: np.ndarray  # 对应的原始索引
-    endtimes: Optional[np.ndarray] = None  # 结束时间(如果有)
+    endtimes: np.ndarray | None = None  # 结束时间(如果有)
 
     # Epoch 元数据(用于绝对时间查询)
     epoch_info: Optional["EpochInfo"] = None
@@ -108,7 +108,7 @@ class TimeIndex:
 
         return selected_indices
 
-    def query_point(self, time: int) -> Optional[int]:
+    def query_point(self, time: int) -> int | None:
         """
         查询包含特定时间点的记录
 
@@ -172,7 +172,7 @@ class TimeIndex:
         return self._converter
 
     def query_range_absolute(
-        self, start_dt: Optional[datetime] = None, end_dt: Optional[datetime] = None
+        self, start_dt: datetime | None = None, end_dt: datetime | None = None
     ) -> np.ndarray:
         """
         使用 datetime 对象查询时间范围内的记录索引
@@ -210,7 +210,7 @@ class TimeIndex:
 
         return self.query_range(start_rel, end_rel)
 
-    def query_point_absolute(self, dt: datetime) -> Optional[int]:
+    def query_point_absolute(self, dt: datetime) -> int | None:
         """
         使用 datetime 对象查询包含特定时间点的记录
 
@@ -233,7 +233,7 @@ class TimeIndex:
         time_rel = converter.absolute_to_relative(dt)
         return self.query_point(int(time_rel))
 
-    def get_time_range_absolute(self) -> Optional[Tuple[datetime, datetime]]:
+    def get_time_range_absolute(self) -> tuple[datetime, datetime] | None:
         """
         获取索引覆盖的绝对时间范围
 
@@ -259,7 +259,7 @@ class TimeRangeQueryEngine:
 
     def __init__(self):
         """初始化查询引擎"""
-        self._indices: Dict[Tuple[str, str], TimeIndex] = {}  # (run_id, data_name) -> TimeIndex
+        self._indices: dict[tuple[str, str], TimeIndex] = {}  # (run_id, data_name) -> TimeIndex
         self.logger = logging.getLogger(self.__class__.__name__)
 
     def build_index(
@@ -268,9 +268,10 @@ class TimeRangeQueryEngine:
         data_name: str,
         data: np.ndarray,
         time_field: str = "time",
-        endtime_field: Optional[str] = None,
+        endtime_field: str | None = None,
         force_rebuild: bool = False,
         epoch_info: Optional["EpochInfo"] = None,
+        time_values: np.ndarray | None = None,
     ) -> TimeIndex:
         """
         为数据构建时间索引
@@ -283,6 +284,7 @@ class TimeRangeQueryEngine:
             endtime_field: 结束时间字段名(可选)
             force_rebuild: 强制重建索引
             epoch_info: Epoch 元数据(用于绝对时间查询)
+            time_values: 可选的预计算时间轴；提供时优先于 time_field 读取
 
         Returns:
             构建的时间索引
@@ -298,11 +300,17 @@ class TimeRangeQueryEngine:
 
         start_time = time.time()
 
-        # 提取时间字段
-        if time_field not in data.dtype.names:
-            raise ValueError(f"Field '{time_field}' not found in data dtype")
-
-        times = data[time_field].copy()
+        # 提取时间字段（或使用预计算时间轴）
+        if time_values is not None:
+            times = np.asarray(time_values, dtype=np.int64).copy()
+            if len(times) != len(data):
+                raise ValueError(
+                    f"time_values length ({len(times)}) != data length ({len(data)}) for {key}"
+                )
+        else:
+            if time_field not in data.dtype.names:
+                raise ValueError(f"Field '{time_field}' not found in data dtype")
+            times = data[time_field].copy()
 
         # 检查是否已排序
         if not np.all(times[:-1] <= times[1:]):
@@ -354,10 +362,10 @@ class TimeRangeQueryEngine:
         self,
         run_id: str,
         data_name: str,
-        start_time: Optional[int] = None,
-        end_time: Optional[int] = None,
-        time_point: Optional[int] = None,
-    ) -> Optional[np.ndarray]:
+        start_time: int | None = None,
+        end_time: int | None = None,
+        time_point: int | None = None,
+    ) -> np.ndarray | None:
         """
         查询时间范围
 
@@ -398,11 +406,11 @@ class TimeRangeQueryEngine:
         """检查是否存在索引"""
         return (run_id, data_name) in self._indices
 
-    def get_index(self, run_id: str, data_name: str) -> Optional[TimeIndex]:
+    def get_index(self, run_id: str, data_name: str) -> TimeIndex | None:
         """获取时间索引"""
         return self._indices.get((run_id, data_name))
 
-    def clear_index(self, run_id: Optional[str] = None, data_name: Optional[str] = None):
+    def clear_index(self, run_id: str | None = None, data_name: str | None = None):
         """
         清除索引
 
@@ -427,7 +435,7 @@ class TimeRangeQueryEngine:
                 del self._indices[key]
                 self.logger.info(f"Cleared index for {key}")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """获取统计信息"""
         return {
             "total_indices": len(self._indices),
@@ -453,10 +461,10 @@ def query_data_time_range(
     context: Any,
     run_id: str,
     data_name: str,
-    start_time: Optional[int] = None,
-    end_time: Optional[int] = None,
+    start_time: int | None = None,
+    end_time: int | None = None,
     time_field: str = "time",
-    endtime_field: Optional[str] = None,
+    endtime_field: str | None = None,
     auto_build_index: bool = True,
 ) -> np.ndarray:
     """
@@ -540,12 +548,12 @@ class TimeRangeCache:
             max_size: 最大缓存条目数
         """
         self.max_size = max_size
-        self._cache: Dict[Tuple, Any] = {}
-        self._access_order: List[Tuple] = []
+        self._cache: dict[tuple, Any] = {}
+        self._access_order: list[tuple] = []
 
     def get(
-        self, run_id: str, data_name: str, start_time: Optional[int], end_time: Optional[int]
-    ) -> Optional[np.ndarray]:
+        self, run_id: str, data_name: str, start_time: int | None, end_time: int | None
+    ) -> np.ndarray | None:
         """获取缓存结果"""
         key = (run_id, data_name, start_time, end_time)
 
@@ -561,8 +569,8 @@ class TimeRangeCache:
         self,
         run_id: str,
         data_name: str,
-        start_time: Optional[int],
-        end_time: Optional[int],
+        start_time: int | None,
+        end_time: int | None,
         result: np.ndarray,
     ):
         """存储查询结果"""
