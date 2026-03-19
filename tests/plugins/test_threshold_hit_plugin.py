@@ -1,10 +1,14 @@
+from unittest.mock import patch
+
 import numpy as np
 import pytest
 
 from tests.utils import DummyContext
+from waveform_analysis.core.data.records_view import RecordsView
 from waveform_analysis.core.plugins.builtin.cpu.hit_finder import ThresholdHitPlugin
 from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HIT_DTYPE
 from waveform_analysis.core.processing.dtypes import create_record_dtype
+from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
 
 
 def _make_st_waveforms(n_events=1, wave_len=64):
@@ -16,6 +20,17 @@ def _make_st_waveforms(n_events=1, wave_len=64):
     data["event_length"] = wave_len
     data["wave"] = 100
     return data
+
+
+def _make_records_view():
+    records = np.zeros(1, dtype=RECORDS_DTYPE)
+    records["baseline"] = 100.0
+    records["timestamp"] = 123_456
+    records["channel"] = 2
+    records["event_length"] = 8
+    records["wave_offset"] = 0
+    wave_pool = np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.uint16)
+    return RecordsView(records, wave_pool)
 
 
 def test_threshold_hit_dtype_matches_advanced_peak_dtype():
@@ -49,7 +64,7 @@ def test_threshold_hit_single_waveform_multiple_hits():
     result = plugin.compute(ctx, "run_001")
 
     assert len(result) == 2
-    assert np.all(result["record_index"] == 0)
+    assert np.all(result["event_index"] == 0)
     assert np.all(result["channel"] == 0)
 
 
@@ -72,7 +87,7 @@ def test_threshold_hit_no_event_length_truncation():
     result = plugin.compute(ctx, "run_001")
 
     assert len(result) == 1
-    assert int(result[0]["hit_sample_idx"]) >= 20
+    assert int(result[0]["position"]) >= 20
 
 
 def test_threshold_hit_empty_input():
@@ -123,8 +138,8 @@ def test_threshold_hit_extension_applied():
     result = plugin.compute(ctx, "run_001")
 
     assert len(result) == 1
-    assert float(result[0]["hit_left_sample_idx"]) == 8.0
-    assert float(result[0]["hit_right_sample_idx"]) == 15.0
+    assert float(result[0]["edge_start"]) == 8.0
+    assert float(result[0]["edge_end"]) == 15.0
 
 
 def test_threshold_hit_use_filtered_branch():
@@ -148,7 +163,56 @@ def test_threshold_hit_use_filtered_branch():
     result = plugin.compute(ctx, "run_001")
 
     assert len(result) == 1
-    assert int(result[0]["hit_sample_idx"]) >= 12
+    assert int(result[0]["position"]) >= 12
+
+
+def test_threshold_hit_wave_source_records_depends_on_records():
+    plugin = ThresholdHitPlugin()
+    ctx = DummyContext({"wave_source": "records", "use_filtered": True}, {})
+    assert plugin.resolve_depends_on(ctx) == ["records"]
+
+
+def test_threshold_hit_reads_records_view_when_wave_source_records():
+    plugin = ThresholdHitPlugin()
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "threshold": 10.0,
+            "polarity": "negative",
+            "left_extension": 0,
+            "right_extension": 0,
+            "sampling_interval_ns": 2.0,
+        },
+        {},
+    )
+    rv = _make_records_view()
+
+    with patch("waveform_analysis.core.records_view", return_value=rv) as mocked:
+        result = plugin.compute(ctx, "run_001")
+
+    assert mocked.call_count == 1
+    assert len(result) == 1
+    assert int(result[0]["channel"]) == 2
+    assert int(result[0]["event_index"]) == 0
+
+
+def test_threshold_hit_records_empty_returns_empty():
+    plugin = ThresholdHitPlugin()
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "threshold": 10.0,
+        },
+        {},
+    )
+    empty_records = np.zeros(0, dtype=RECORDS_DTYPE)
+    rv = RecordsView(empty_records, np.zeros(0, dtype=np.uint16))
+
+    with patch("waveform_analysis.core.records_view", return_value=rv):
+        result = plugin.compute(ctx, "run_001")
+
+    assert len(result) == 0
+    assert result.dtype == HIT_DTYPE
 
 
 def test_threshold_hit_channel_metadata_overrides_polarity():
