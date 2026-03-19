@@ -23,7 +23,7 @@ class DataFramePlugin(Plugin):
 
     provides = "df"
     depends_on = ["st_waveforms", "basic_features"]
-    version = "1.3.0"
+    version = "1.4.0"
     save_when = "always"
     options = {
         "gain_adc_per_pe": Option(
@@ -163,6 +163,11 @@ class DataFramePlugin(Plugin):
                 "area": np.asarray(basic_features["area"]),
                 "height": np.asarray(basic_features["height"]),
                 "amp": np.asarray(basic_features["amp"]),
+                "board": (
+                    np.asarray(st_waveforms["board"])
+                    if "board" in st_waveforms.dtype.names
+                    else np.zeros(len(st_waveforms), dtype=np.int16)
+                ),
                 "channel": np.asarray(st_waveforms["channel"]),
             }
         )

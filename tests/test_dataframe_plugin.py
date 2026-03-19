@@ -20,15 +20,16 @@ class _RunConfigContext(FakeContext):
         return f"{provides}.{name}" in self.config
 
 
-def _make_st_waveforms():
-    dtype = np.dtype(
-        [
-            ("timestamp", "i8"),
-            ("channel", "i2"),
-        ]
-    )
+def _make_st_waveforms(include_board: bool = True):
+    fields = [("timestamp", "i8")]
+    if include_board:
+        fields.append(("board", "i2"))
+    fields.append(("channel", "i2"))
+    dtype = np.dtype(fields)
     data = np.zeros(3, dtype=dtype)
     data["timestamp"] = [300, 100, 200]
+    if include_board:
+        data["board"] = [2, 1, 2]
     data["channel"] = [0, 1, 0]
     return data
 
@@ -60,6 +61,7 @@ def test_dataframe_plugin_no_gain_columns_by_default():
 
     assert "area_pe" not in df.columns
     assert "height_pe" not in df.columns
+    assert list(df["board"]) == [1, 2, 2]
     assert list(df["timestamp"]) == [100, 200, 300]
 
 
@@ -129,3 +131,16 @@ def test_dataframe_plugin_explicit_gain_overrides_run_config():
 
     np.testing.assert_allclose(df["area_pe"].to_numpy(), [np.nan, 4.0, 6.0], equal_nan=True)
     np.testing.assert_allclose(df["height_pe"].to_numpy(), [np.nan, 2.0, 3.0], equal_nan=True)
+
+
+def test_dataframe_plugin_fallback_board_when_field_missing():
+    ctx = FakeContext(
+        data={
+            "st_waveforms": _make_st_waveforms(include_board=False),
+            "basic_features": _make_basic_features(),
+        }
+    )
+    plugin = DataFramePlugin()
+    df = plugin.compute(ctx, "run_001")
+
+    np.testing.assert_array_equal(df["board"].to_numpy(), np.zeros(3, dtype=np.int16))

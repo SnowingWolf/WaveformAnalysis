@@ -27,7 +27,7 @@ def _bundle_cache_key(context: Any, run_id: str) -> str:
     return f"{_BUNDLE_CACHE_NAME}-{records_key}"
 
 
-def _resolve_dt_ns(context: Any, plugin: Plugin, adapter_name: Optional[str] = None) -> int:
+def _resolve_dt_ns(context: Any, plugin: Plugin, adapter_name: str | None = None) -> int:
     dt_ns = context.get_config(plugin, "records_dt_ns")
     if dt_ns is None:
         daq_adapter = adapter_name or context.config.get("daq_adapter")
@@ -50,7 +50,7 @@ def _resolve_dt_ns(context: Any, plugin: Plugin, adapter_name: Optional[str] = N
     return int(dt_ns)
 
 
-def _resolve_adapter_name(context: Any, plugin: Optional[Plugin]) -> Optional[str]:
+def _resolve_adapter_name(context: Any, plugin: Plugin | None) -> str | None:
     adapter = None
     if plugin is not None and "daq_adapter" in plugin.options:
         adapter = context.get_config(plugin, "daq_adapter")
@@ -78,7 +78,7 @@ def _cleanup_stale_bundles(context: Any, run_id: str, keep_key: str) -> None:
         del context._results[key]
 
 
-def _resolve_epoch_ns(adapter_name: Optional[str], raw_files: list) -> Optional[int]:
+def _resolve_epoch_ns(adapter_name: str | None, raw_files: list) -> int | None:
     if not adapter_name or not raw_files or not raw_files[0]:
         return None
 
@@ -96,7 +96,7 @@ def _load_waveforms_for_records(
     context: Any,
     raw_files: list,
     plugin: Plugin,
-    adapter_name: Optional[str],
+    adapter_name: str | None,
 ) -> list:
     if not raw_files:
         return []
@@ -120,7 +120,7 @@ def _build_records_bundle(
     context: Any,
     run_id: str,
     plugin: Plugin,
-    adapter_name: Optional[str],
+    adapter_name: str | None,
     part_size: int,
     dt_ns: int,
 ) -> RecordsBundle:
@@ -226,7 +226,7 @@ class RecordsPlugin(Plugin):
             help="Sample interval in ns (defaults to adapter rate or 1ns).",
         ),
     }
-    version = "0.4.0"
+    version = "0.5.0"
 
     def get_lineage(self, context: Any) -> dict:
         adapter_name = _resolve_adapter_name(context, self)

@@ -246,11 +246,13 @@ def _convert_v1725_to_st_waveforms(
     st_waveforms = np.zeros(len(data), dtype=record_dtype)
 
     baselines = _safe_v1725_field(data, "baseline", np.full(len(data), np.nan))
+    boards = _safe_v1725_field(data, "board", np.zeros(len(data), dtype=np.int16))
     channels = _safe_v1725_field(data, "channel", np.zeros(len(data), dtype=np.int16))
     timestamps_ticks = _safe_v1725_field(data, "timestamp", np.zeros(len(data), dtype=np.int64))
 
     st_waveforms["baseline"] = np.asarray(baselines, dtype=np.float64)
     st_waveforms["baseline_upstream"] = np.nan
+    st_waveforms["board"] = np.asarray(boards, dtype=np.int16)
     st_waveforms["channel"] = np.asarray(channels, dtype=np.int16)
 
     dt_ns = np.int32(config.get_dt_ns())
@@ -553,6 +555,7 @@ class WaveformStruct:
             waveform_structured["baseline_upstream"] = np.nan
 
         waveform_structured["timestamp"] = timestamps
+        waveform_structured["board"] = board_vals.astype(np.int16, copy=False)
         waveform_structured["channel"] = physical_channels
 
         if "dt" in waveform_structured.dtype.names:
@@ -775,7 +778,7 @@ class WaveformsPlugin(Plugin):
     2. 将波形数据结构化为 NumPy 结构化数组（ST_WAVEFORM_DTYPE）
     """
 
-    version = "0.5.0"
+    version = "0.6.0"
     provides = "st_waveforms"
     depends_on = []
     description = (
@@ -1327,6 +1330,12 @@ class WaveformsPlugin(Plugin):
                 except Exception:
                     channel_vals = np.full(n, ch_idx, dtype=int)
 
+                try:
+                    board_vals = raw_arr[:, cols.board].astype(int)
+                except Exception:
+                    logger.warning("无法从波形数据中提取 BOARD，回退为 0")
+                    board_vals = np.zeros(n, dtype=int)
+
                 # 提取波形数据
                 samples_end = cols.samples_end if cols.samples_end is not None else raw_arr.shape[1]
                 wave_data = raw_arr[:, cols.samples_start : samples_end]
@@ -1336,6 +1345,7 @@ class WaveformsPlugin(Plugin):
                 # 写入 memmap
                 output[offset : offset + n]["timestamp"] = timestamps
                 output[offset : offset + n]["baseline"] = baseline_vals
+                output[offset : offset + n]["board"] = board_vals.astype(np.int16, copy=False)
                 output[offset : offset + n]["channel"] = channel_vals
                 output[offset : offset + n]["dt"] = np.int32(dt_ns)
 

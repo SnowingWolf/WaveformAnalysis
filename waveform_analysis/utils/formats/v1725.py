@@ -4,10 +4,10 @@ CAEN V1725 DAW_DEMO binary adapter.
 Parses multi-channel waveforms stored in a single .bin file.
 """
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 import logging
 from pathlib import Path
-from typing import Iterator, List, Optional, Union
 
 import numpy as np
 
@@ -22,14 +22,14 @@ export, __all__ = exporter()
 logger = logging.getLogger(__name__)
 
 
-def _bytes_to_int(data: bytes, bit: Optional[int] = None, start: int = 0) -> int:
+def _bytes_to_int(data: bytes, bit: int | None = None, start: int = 0) -> int:
     full_num = int.from_bytes(bytes=data, byteorder="little") >> start
     if bit is None:
         return full_num
     return full_num & ((1 << bit) - 1)
 
 
-def _one_loc(num: int) -> List[int]:
+def _one_loc(num: int) -> list[int]:
     index_list = []
     bit = 0
     while num != 0:
@@ -54,10 +54,10 @@ class V1725Wave:
 class V1725Reader(FormatReader):
     """V1725 binary reader."""
 
-    def __init__(self, spec: Optional[FormatSpec] = None):
+    def __init__(self, spec: FormatSpec | None = None):
         super().__init__(spec or V1725_SPEC)
 
-    def iter_waves(self, file_paths: List[Union[str, Path]]) -> Iterator[V1725Wave]:
+    def iter_waves(self, file_paths: list[str | Path]) -> Iterator[V1725Wave]:
         for file_path in file_paths:
             path = Path(file_path)
             if not path.exists():
@@ -102,20 +102,18 @@ class V1725Reader(FormatReader):
                             waveform=sig,
                         )
 
-    def read_file(self, file_path: Union[str, Path], is_first_file: bool = True) -> np.ndarray:
+    def read_file(self, file_path: str | Path, is_first_file: bool = True) -> np.ndarray:
         _ = is_first_file
         waves = list(self.iter_waves([file_path]))
         return self._waves_to_array(waves)
 
-    def read_files(
-        self, file_paths: List[Union[str, Path]], show_progress: bool = False
-    ) -> np.ndarray:
+    def read_files(self, file_paths: list[str | Path], show_progress: bool = False) -> np.ndarray:
         _ = show_progress
         waves = list(self.iter_waves(file_paths))
         return self._waves_to_array(waves)
 
     def read_files_generator(
-        self, file_paths: List[Union[str, Path]], chunk_size: int = 10
+        self, file_paths: list[str | Path], chunk_size: int = 10
     ) -> Iterator[np.ndarray]:
         _ = chunk_size
         for file_path in file_paths:
@@ -146,7 +144,7 @@ class V1725Reader(FormatReader):
         _ = data
         return True
 
-    def _waves_to_array(self, waves: List[V1725Wave]) -> np.ndarray:
+    def _waves_to_array(self, waves: list[V1725Wave]) -> np.ndarray:
         if not waves:
             return np.array([]).reshape(0, 0)
 
@@ -202,8 +200,11 @@ V1725_LAYOUT = export(
         run_path_template="{data_root}/{run_name}/{raw_subdir}",
         file_glob_pattern="*.bin",
         file_extension=".bin",
-        channel_regex=r"CH(\\d+)",
-        file_index_regex=r"_(\\d+)\\.bin$",
+        # Support both legacy CH naming and DAW_DEMO bX/segX naming:
+        # - CH0_0.bin
+        # - test_raw_b0_seg0.bin
+        channel_regex=r"(?:CH|_b)(\d+)",
+        file_index_regex=r"(?:_seg|_)(\d+)\.bin$",
         run_info_pattern="{run_name}_info.txt",
         metadata={
             "manufacturer": "CAEN",

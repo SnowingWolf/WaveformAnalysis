@@ -67,6 +67,7 @@ class TestWaveformStructConfig:
             "timestamp",
             "dt",
             "event_length",
+            "board",
             "channel",
             "wave",
         )
@@ -90,6 +91,7 @@ class TestDynamicRecordDtype:
             "timestamp",
             "dt",
             "event_length",
+            "board",
             "channel",
             "wave",
         )

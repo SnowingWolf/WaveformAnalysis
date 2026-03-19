@@ -5,8 +5,8 @@ This module provides a lightweight event index (records) paired with a
 contiguous wave_pool for variable-length waveforms.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import List, Sequence, Tuple
 
 import numpy as np
 
@@ -42,7 +42,7 @@ def _clip_wave_to_uint16(wave: np.ndarray) -> np.ndarray:
 
 
 @export
-def split_by_channel(st_waveforms: np.ndarray) -> List[Tuple[int, np.ndarray]]:
+def split_by_channel(st_waveforms: np.ndarray) -> list[tuple[int, np.ndarray]]:
     """
     Split a structured array into per-channel views, preserving per-channel order.
 
@@ -61,7 +61,7 @@ def split_by_channel(st_waveforms: np.ndarray) -> List[Tuple[int, np.ndarray]]:
     sorted_channels = channels[order]
     unique_channels, start_idx = np.unique(sorted_channels, return_index=True)
 
-    groups: List[Tuple[int, np.ndarray]] = []
+    groups: list[tuple[int, np.ndarray]] = []
     for idx, ch in enumerate(unique_channels):
         start = start_idx[idx]
         end = start_idx[idx + 1] if idx + 1 < len(start_idx) else len(sorted_arr)
@@ -70,7 +70,7 @@ def split_by_channel(st_waveforms: np.ndarray) -> List[Tuple[int, np.ndarray]]:
 
 
 def _build_records_from_wave_list(
-    waves: Sequence[Tuple[int, int, int, int, np.ndarray]],
+    waves: Sequence[tuple[int, int, int, int, np.ndarray]],
     default_dt_ns: int,
 ) -> RecordsBundle:
     if not waves:
@@ -112,12 +112,12 @@ def _build_records_from_wave_list(
         records["wave_offset"][idx] = wave_cursor
         wave_cursor += length
 
-    records["event_id"] = np.arange(total_records, dtype=np.int64)
+    records["record_id"] = np.arange(total_records, dtype=np.int64)
     return RecordsBundle(records=records, wave_pool=wave_pool)
 
 
 def _build_records_from_channels(
-    channels: Sequence[Tuple[np.ndarray, int]], default_dt_ns: int
+    channels: Sequence[tuple[np.ndarray, int]], default_dt_ns: int
 ) -> RecordsBundle:
     if not channels:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
@@ -203,7 +203,7 @@ def _build_records_from_channels(
     seq = np.arange(total_records, dtype=np.int64)
     order = np.lexsort((seq, records["channel"], records["pid"], records["timestamp"]))
     records = records[order]
-    records["event_id"] = np.arange(total_records, dtype=np.int64)
+    records["record_id"] = np.arange(total_records, dtype=np.int64)
     source_channel = source_channel[order]
     source_row = source_row[order]
 
@@ -255,7 +255,7 @@ def build_records_from_st_waveforms(
 
 @export
 def build_records_from_v1725_files(
-    file_paths: List[str],
+    file_paths: list[str],
     dt_ns: int,
 ) -> RecordsBundle:
     if not file_paths:
@@ -350,7 +350,7 @@ def merge_records_parts(parts: Sequence[RecordsBundle]) -> RecordsBundle:
             )
             heapq.heappush(heap, key)
 
-    records_out["event_id"] = np.arange(total_records, dtype=np.int64)
+    records_out["record_id"] = np.arange(total_records, dtype=np.int64)
     return RecordsBundle(records=records_out, wave_pool=wave_pool_out)
 
 
@@ -373,7 +373,7 @@ def build_records_from_st_waveforms_sharded(
     if total_records <= part_size:
         return build_records_from_st_waveforms(st_waveforms, default_dt_ns=default_dt_ns)
 
-    parts: List[RecordsBundle] = []
+    parts: list[RecordsBundle] = []
     for ch_idx, ch in split_by_channel(st_waveforms):
         count = len(ch)
         if count == 0:
@@ -394,5 +394,5 @@ def build_records_from_st_waveforms_sharded(
     if len(parts) == 1:
         return parts[0]
     merged = merge_records_parts(parts)
-    merged.records["event_id"] = np.arange(len(merged.records), dtype=np.int64)
+    merged.records["record_id"] = np.arange(len(merged.records), dtype=np.int64)
     return merged

@@ -22,6 +22,7 @@ ST_WAVEFORM_DTYPE = export(
         ("timestamp", "i8"),  # int64 for ps-level timestamps (ADC raw)
         ("dt", "i4"),  # sample interval (ns, aligned to time)
         ("event_length", "i4"),  # int32, consistent with RECORDS_DTYPE
+        ("board", "i2"),  # int16 for board index
         ("channel", "i2"),  # int16 for channel index (physical channel number)
         ("wave", "i2", (DEFAULT_WAVE_LENGTH,)),  # int16 for ADC data
     ],
@@ -52,6 +53,7 @@ def create_record_dtype(wave_length: int) -> np.dtype:
             ("timestamp", "i8"),  # int64 for ps-level timestamps (ADC raw)
             ("dt", "i4"),  # sample interval (ns, aligned to time)
             ("event_length", "i4"),  # int32, consistent with RECORDS_DTYPE
+            ("board", "i2"),  # int16 for board index
             ("channel", "i2"),  # int16 for channel index (physical channel number)
             ("wave", "i2", (wave_length,)),  # int16 for ADC data
         ]
@@ -79,7 +81,7 @@ RECORDS_DTYPE = export(
             ("channel", "i2"),  # physical channel
             ("baseline", "f8"),  # baseline (computed by WaveformStruct)
             ("baseline_upstream", "f8"),  # baseline from upstream plugin (optional)
-            ("event_id", "i8"),  # sequential id after sorting
+            ("record_id", "i8"),  # sequential record id after sorting
             ("dt", "i4"),  # sample interval (ns, aligned to time)
             ("trigger_type", "i2"),  # trigger type code
             ("flags", "u4"),  # bit flags
