@@ -16,12 +16,12 @@ Plugin Set 是最小可复用插件组，每个 set 只关注单一职责。
 | Set | 插件 | 说明 |
 | --- | --- | --- |
 | `io` | RawFileNamesPlugin | 扫描并分组原始文件 |
-| `waveform` | WaveformsPlugin, FilteredWaveformsPlugin | 波形提取与滤波 |
+| `waveform` | WaveformsPlugin, FilteredWaveformsPlugin, RecordsPlugin | 波形提取、滤波与 records 构建 |
 | `basic_features` | BasicFeaturesPlugin, WaveformWidthIntegralPlugin | 基础特征计算 |
 | `tabular` | DataFramePlugin | 表格化输出 |
 | `events` | GroupedEventsPlugin, PairedEventsPlugin | 事件分组与配对 |
 | `peaks` | HitFinderPlugin, WaveformWidthPlugin, S1S2ClassifierPlugin | 峰值检测与峰特征扩展 |
-| `diagnostics_legacy` | CacheAnalysisPlugin, RecordsPlugin, EventsPlugin | 诊断/兼容插件 |
+| `diagnostics_legacy` | CacheAnalysisPlugin, EventsPlugin | 诊断/兼容插件 |
 
 示例：
 
@@ -30,6 +30,16 @@ from waveform_analysis.core.plugins.plugin_sets import plugins_io, plugins_wavef
 
 io_plugins = plugins_io()
 waveform_plugins = plugins_waveform()
+```
+
+`plugins_waveform()` 已包含 `RecordsPlugin`，注册后可直接使用 `records_view`：
+
+```python
+from waveform_analysis.core.data import records_view
+from waveform_analysis.core.plugins.plugin_sets import plugins_io, plugins_waveform
+
+ctx.register(*plugins_io(), *plugins_waveform())
+rv = records_view(ctx, run_id)
 ```
 
 ---

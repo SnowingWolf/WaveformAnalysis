@@ -2,7 +2,7 @@
 """
 Plugin set: Waveform processing.
 
-Contains waveform extraction and optional filtering plugins.
+Contains waveform extraction, optional filtering, and records building plugins.
 """
 
 from waveform_analysis.core.foundation.utils import exporter
@@ -12,11 +12,13 @@ export, __all__ = exporter()
 
 @export
 def plugins_waveform():
-    """Return waveform processing plugin instances in dependency order."""
+    """Return waveform+records plugin instances in dependency order."""
     from waveform_analysis.core.plugins.builtin.cpu.filtering import FilteredWaveformsPlugin
+    from waveform_analysis.core.plugins.builtin.cpu.records import RecordsPlugin
     from waveform_analysis.core.plugins.builtin.cpu.waveforms import WaveformsPlugin
 
     return [
         WaveformsPlugin(),
         FilteredWaveformsPlugin(),
+        RecordsPlugin(),
     ]

@@ -1,7 +1,11 @@
+from unittest.mock import patch
+
 import numpy as np
 
+from waveform_analysis.core.context import Context
 from waveform_analysis.core.data.records_view import RecordsView
-from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
+from waveform_analysis.core.plugins import profiles
+from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE, RecordsBundle
 
 
 def _make_sample_view():
@@ -49,3 +53,32 @@ def test_records_view_query_time_window():
     subset = rv.query_time_window(t_min=15, t_max=25)
     assert subset.shape == (1,)
     assert subset["timestamp"][0] == 20
+
+
+def test_records_view_uses_records_branch_with_cpu_default():
+    ctx = Context()
+    ctx.register(*profiles.cpu_default())
+
+    records = np.zeros(1, dtype=RECORDS_DTYPE)
+    records["timestamp"] = [10]
+    records["pid"] = 0
+    records["channel"] = [0]
+    records["baseline"] = [1.0]
+    records["wave_offset"] = [0]
+    records["event_length"] = [1]
+    records["time"] = [0]
+    wave_pool = np.array([7], dtype=np.uint16)
+    fake_bundle = RecordsBundle(records=records, wave_pool=wave_pool)
+
+    with patch(
+        "waveform_analysis.core.plugins.builtin.cpu.records.get_records_bundle",
+        return_value=fake_bundle,
+    ) as mocked:
+        from waveform_analysis.core.data import records_view
+
+        rv = records_view(ctx, "run_001")
+
+    assert isinstance(rv, RecordsView)
+    assert mocked.call_count == 1
+    assert len(rv) == 1
+    assert int(rv.wave(0)[0]) == 7
