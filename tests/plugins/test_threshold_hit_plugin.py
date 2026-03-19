@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from tests.utils import DummyContext
 from waveform_analysis.core.plugins.builtin.cpu.hit_finder import ThresholdHitPlugin
@@ -148,3 +149,58 @@ def test_threshold_hit_use_filtered_branch():
 
     assert len(result) == 1
     assert int(result[0]["hit_sample_idx"]) >= 12
+
+
+def test_threshold_hit_channel_metadata_overrides_polarity():
+    plugin = ThresholdHitPlugin()
+    st = _make_st_waveforms(n_events=1, wave_len=32)
+    st[0]["channel"] = 1
+    st[0]["baseline"] = 0.0
+    st[0]["wave"][10:13] = 20
+
+    ctx = DummyContext(
+        {
+            "threshold": 10.0,
+            "polarity": "negative",
+            "channel_metadata": {
+                "run_001": {
+                    "1": {
+                        "polarity": "positive",
+                        "geometry": "detector_a",
+                        "adc_bits": 14,
+                    }
+                }
+            },
+        },
+        {"st_waveforms": st},
+    )
+
+    result = plugin.compute(ctx, "run_001")
+    assert len(result) == 1
+    assert int(result[0]["channel"]) == 1
+
+
+def test_threshold_hit_missing_channel_metadata_warns_and_continues():
+    plugin = ThresholdHitPlugin()
+    st = _make_st_waveforms(n_events=2, wave_len=32)
+    st[0]["channel"] = 0
+    st[1]["channel"] = 1
+    st[0]["wave"][5:8] = 80
+    st[1]["wave"][6:9] = 80
+
+    ctx = DummyContext(
+        {
+            "threshold": 10.0,
+            "polarity": "negative",
+            "channel_metadata": {
+                "run_001": {
+                    "0": {"polarity": "negative"},
+                }
+            },
+        },
+        {"st_waveforms": st},
+    )
+
+    with pytest.warns(UserWarning, match="missing/invalid channel_metadata"):
+        result = plugin.compute(ctx, "run_001")
+    assert len(result) == 2

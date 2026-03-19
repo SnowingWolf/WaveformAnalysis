@@ -7,11 +7,21 @@ Hit Finder Plugins - 阈值 Hit 检测插件
 2. ThresholdHitFinderPlugin: 旧版兼容插件（provides='hits'），输出 PEAK_DTYPE
 """
 
-from typing import Any, List, Optional, Tuple
+from typing import Any
 import warnings
 
 import numpy as np
 
+from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
+    WAVE_SOURCE_AUTO,
+    WAVE_SOURCE_FILTERED,
+    WAVE_SOURCE_RECORDS,
+    resolve_wave_source,
+)
+from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
+    resolve_depends_on as resolve_wave_depends_on,
+)
+from waveform_analysis.core.plugins.builtin.cpu.channel_metadata import resolve_channel_metadata
 from waveform_analysis.core.plugins.builtin.cpu.peak_finding import (
     HIT_DTYPE,
 )
@@ -42,7 +52,7 @@ class ThresholdHitPlugin(Plugin):
 
     provides = "hit_threshold"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
-    version = "0.1.0"
+    version = "0.3.0"
     output_dtype = HIT_DTYPE
     save_when = "always"
 
@@ -52,6 +62,11 @@ class ThresholdHitPlugin(Plugin):
             default=False,
             type=bool,
             help="是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin）",
+        ),
+        "wave_source": Option(
+            default=WAVE_SOURCE_AUTO,
+            type=str,
+            help="波形数据源: auto|records|st_waveforms|filtered_waveforms",
         ),
         "polarity": Option(
             default="negative",
@@ -66,12 +81,16 @@ class ThresholdHitPlugin(Plugin):
             type=float,
             help="采样间隔（ns），用于计算 timestamp（内部换算到 ps）",
         ),
+        "channel_metadata": Option(
+            default=None,
+            type=dict,
+            help="每通道元数据映射（支持 run_id 分层），用于按通道覆盖 polarity",
+        ),
     }
 
-    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
-        if context.get_config(self, "use_filtered"):
-            return ["filtered_waveforms"]
-        return ["st_waveforms"]
+    def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
+        source = resolve_wave_source(context, self)
+        return resolve_wave_depends_on(source, bool(context.get_config(self, "use_filtered")))
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         threshold = float(context.get_config(self, "threshold"))
@@ -80,6 +99,7 @@ class ThresholdHitPlugin(Plugin):
         left_extension = max(0, int(context.get_config(self, "left_extension")))
         right_extension = max(0, int(context.get_config(self, "right_extension")))
         sampling_interval_ns = float(context.get_config(self, "sampling_interval_ns"))
+        channel_metadata_cfg = context.get_config(self, "channel_metadata")
 
         waveform_data = (
             context.get_data(run_id, "filtered_waveforms")
@@ -93,8 +113,20 @@ class ThresholdHitPlugin(Plugin):
         if len(waveform_data) == 0:
             return np.zeros(0, dtype=HIT_DTYPE)
 
+        channels = (
+            waveform_data["channel"]
+            if "channel" in waveform_data.dtype.names
+            else np.zeros(len(waveform_data), dtype=np.int16)
+        )
+        channel_meta = resolve_channel_metadata(
+            channel_metadata=channel_metadata_cfg,
+            run_id=run_id,
+            channels=np.unique(channels).tolist(),
+            plugin_name=self.provides,
+        )
+
         sampling_interval_ps = sampling_interval_ns * 1e3
-        hits: List[tuple] = []
+        hits: list[tuple] = []
 
         for event_idx, record in enumerate(waveform_data):
             wave = np.asarray(record["wave"])
@@ -109,7 +141,12 @@ class ThresholdHitPlugin(Plugin):
             timestamp = int(record["timestamp"]) if "timestamp" in record.dtype.names else 0
             channel = int(record["channel"]) if "channel" in record.dtype.names else 0
 
-            if polarity == "positive":
+            ch_polarity = channel_meta.get(channel, {}).get("polarity", "unknown")
+            effective_polarity = (
+                ch_polarity if ch_polarity in ("positive", "negative") else polarity
+            )
+
+            if effective_polarity == "positive":
                 signal = wave.astype(np.float64) - baseline
             else:
                 signal = baseline - wave.astype(np.float64)
@@ -148,7 +185,7 @@ class ThresholdHitPlugin(Plugin):
             return np.array(hits, dtype=HIT_DTYPE)
         return np.zeros(0, dtype=HIT_DTYPE)
 
-    def _find_regions(self, signal: np.ndarray, threshold: float) -> List[Tuple[int, int]]:
+    def _find_regions(self, signal: np.ndarray, threshold: float) -> list[tuple[int, int]]:
         mask = signal >= threshold
         if not np.any(mask):
             return []
@@ -157,7 +194,7 @@ class ThresholdHitPlugin(Plugin):
         diff = np.diff(padded.astype(np.int8))
         starts = np.where(diff == 1)[0]
         ends = np.where(diff == -1)[0]
-        return list(zip(starts.tolist(), ends.tolist()))
+        return list(zip(starts.tolist(), ends.tolist(), strict=False))
 
 
 class ThresholdHitFinderPlugin(Plugin):
@@ -177,7 +214,7 @@ class ThresholdHitFinderPlugin(Plugin):
         ),
     }
 
-    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
+    def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         if context.get_config(self, "use_filtered"):
             return ["filtered_waveforms"]
         return ["st_waveforms"]
@@ -198,7 +235,7 @@ class ThresholdHitFinderPlugin(Plugin):
         if len(waveform_data) == 0:
             return np.zeros(0, dtype=PEAK_DTYPE)
 
-        hits_all: List[np.ndarray] = []
+        hits_all: list[np.ndarray] = []
         channels = (
             waveform_data["channel"]
             if "channel" in waveform_data.dtype.names
