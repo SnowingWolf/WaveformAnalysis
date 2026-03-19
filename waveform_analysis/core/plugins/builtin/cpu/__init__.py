@@ -27,9 +27,6 @@ from .dataframe import DataFramePlugin
 # 事件分析插件
 from .event_analysis import GroupedEventsPlugin, PairedEventsPlugin
 
-# Events 插件
-from .events import EventsPlugin
-
 # CPU 滤波插件
 from .filtering import FilteredWaveformsPlugin
 
@@ -100,8 +97,6 @@ __all__ = [
     "LABEL_UNKNOWN",
     # Cache analysis
     "CacheAnalysisPlugin",
-    # Events
-    "EventsPlugin",
     # Records
     "RecordsPlugin",
     "standard_plugins",

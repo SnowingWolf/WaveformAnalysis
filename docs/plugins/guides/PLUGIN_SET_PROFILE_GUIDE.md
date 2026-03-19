@@ -21,7 +21,7 @@ Plugin Set 是最小可复用插件组，每个 set 只关注单一职责。
 | `tabular` | DataFramePlugin | 表格化输出 |
 | `events` | GroupedEventsPlugin, PairedEventsPlugin | 事件分组与配对 |
 | `peaks` | HitFinderPlugin, WaveformWidthPlugin, S1S2ClassifierPlugin | 峰值检测与峰特征扩展 |
-| `diagnostics_legacy` | CacheAnalysisPlugin, EventsPlugin | 诊断/兼容插件 |
+| `diagnostics_legacy` | CacheAnalysisPlugin | 诊断/兼容插件 |
 
 示例：
 

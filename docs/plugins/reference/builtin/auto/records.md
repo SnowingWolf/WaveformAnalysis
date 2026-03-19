@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `records` |
-| **Version** | `0.4.0` |
+| **Version** | `0.5.0` |
 | **Category** | 记录处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -44,7 +44,7 @@ This plugin depends on the following data:
 | `channel` | `int16` | - | - |
 | `baseline` | `float64` | - | - |
 | `baseline_upstream` | `float64` | - | - |
-| `event_id` | `int64` | - | - |
+| `record_id` | `int64` | - | - |
 | `dt` | `int32` | - | - |
 | `trigger_type` | `int16` | - | - |
 | `flags` | `uint32` | - | - |

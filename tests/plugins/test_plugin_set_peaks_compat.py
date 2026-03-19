@@ -37,7 +37,7 @@ def test_plugins_diagnostics_legacy_excludes_records():
     plugins = factory()
     provides = _provides_names(plugins)
     assert "records" not in provides
-    assert provides == ["cache_analysis", "events"]
+    assert provides == ["cache_analysis"]
 
 
 def test_cpu_default_includes_records():

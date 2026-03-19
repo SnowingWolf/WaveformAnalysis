@@ -183,12 +183,10 @@ ctx.register(
 ```python
 from waveform_analysis.core.plugins.builtin.cpu import (
     RecordsPlugin,
-    EventsPlugin,
 )
 
 ctx.register(
     RecordsPlugin(),
-    EventsPlugin(),
 )
 ```
 

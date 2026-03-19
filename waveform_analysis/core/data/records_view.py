@@ -2,7 +2,8 @@
 RecordsView provides read-only access to records with an internal wave_pool.
 """
 
-from typing import Any, Iterable, Optional, Tuple, Union
+from collections.abc import Iterable
+from typing import Any
 
 import numpy as np
 
@@ -26,11 +27,11 @@ class RecordsView:
     def __len__(self) -> int:
         return len(self.records)
 
-    def wave(
+    def _wave_one(
         self,
         index: int,
         baseline_correct: bool = False,
-        dtype: Optional[np.dtype] = None,
+        dtype: np.dtype | None = None,
     ) -> np.ndarray:
         rec = self.records[index]
         offset = int(rec["wave_offset"])
@@ -47,14 +48,14 @@ class RecordsView:
             return wave.astype(dtype, copy=False)
         return wave
 
-    def waves(
+    def _waves_many(
         self,
-        indices: Union[Iterable[int], np.ndarray],
-        pad_to: Optional[int] = None,
+        indices: Iterable[int] | np.ndarray,
+        pad_to: int | None = None,
         mask: bool = False,
         baseline_correct: bool = False,
-        dtype: Optional[np.dtype] = None,
-    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+        dtype: np.dtype | None = None,
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
         idx = np.asarray(list(indices), dtype=np.int64)
         if idx.size == 0:
             empty = np.zeros((0, 0), dtype=dtype or np.float32)
@@ -98,10 +99,51 @@ class RecordsView:
             return waves_out, mask_out
         return waves_out
 
+    def wave(
+        self,
+        indices: int | Iterable[int] | np.ndarray,
+        pad_to: int | None = None,
+        mask: bool = False,
+        baseline_correct: bool = False,
+        dtype: np.dtype | None = None,
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+        """
+        Unified waveform access interface.
+
+        - scalar index -> return 1D waveform
+        - iterable indices -> return 2D padded waveforms (optionally with mask)
+        """
+        if np.isscalar(indices):
+            return self._wave_one(int(indices), baseline_correct=baseline_correct, dtype=dtype)
+        return self._waves_many(
+            indices,
+            pad_to=pad_to,
+            mask=mask,
+            baseline_correct=baseline_correct,
+            dtype=dtype,
+        )
+
+    def waves(
+        self,
+        indices: Iterable[int] | np.ndarray,
+        pad_to: int | None = None,
+        mask: bool = False,
+        baseline_correct: bool = False,
+        dtype: np.dtype | None = None,
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+        """Backward-compatible alias of the unified ``wave`` interface."""
+        return self.wave(
+            indices,
+            pad_to=pad_to,
+            mask=mask,
+            baseline_correct=baseline_correct,
+            dtype=dtype,
+        )
+
     def query_time_window(
         self,
-        t_min: Optional[int] = None,
-        t_max: Optional[int] = None,
+        t_min: int | None = None,
+        t_max: int | None = None,
     ) -> np.ndarray:
         timestamps = self.records["timestamp"]
         if t_min is None:
@@ -122,19 +164,7 @@ def records_view(source: Any, run_id: str) -> RecordsView:
     """
     Factory function to create a RecordsView from a Context-like source.
     """
-    provided = []
-    if hasattr(source, "list_provided_data"):
-        try:
-            provided = source.list_provided_data()
-        except Exception:
-            provided = []
+    from waveform_analysis.core.plugins.builtin.cpu.records import get_records_bundle
 
-    if "events" in provided:
-        from waveform_analysis.core.plugins.builtin.cpu.events import get_events_bundle
-
-        bundle = get_events_bundle(source, run_id)
-    else:
-        from waveform_analysis.core.plugins.builtin.cpu.records import get_records_bundle
-
-        bundle = get_records_bundle(source, run_id)
+    bundle = get_records_bundle(source, run_id)
     return RecordsView(bundle.records, bundle.wave_pool)

@@ -48,6 +48,16 @@ def test_records_view_waves_pad_mask():
     assert np.array_equal(mask[1], np.array([True, False, False, False]))
 
 
+def test_records_view_wave_unified_batch_access():
+    rv = _make_sample_view()
+
+    waves, mask = rv.wave([0, 2], pad_to=4, mask=True, dtype=np.float32)
+    assert waves.shape == (2, 4)
+    assert mask.shape == (2, 4)
+    assert np.allclose(waves[0], np.array([1.0, 2.0, 3.0, 0.0], dtype=np.float32))
+    assert np.array_equal(mask[1], np.array([True, False, False, False]))
+
+
 def test_records_view_query_time_window():
     rv = _make_sample_view()
     subset = rv.query_time_window(t_min=15, t_max=25)

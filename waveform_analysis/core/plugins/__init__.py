@@ -68,7 +68,6 @@ __all__ = [
     "GroupedEventsPlugin",
     "PairedEventsPlugin",
     "RecordsPlugin",
-    "EventsPlugin",
     # 信号处理插件
     "FilteredWaveformsPlugin",
     "WaveformWidthPlugin",
@@ -84,7 +83,6 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "profiles": (".profiles", None),
     "BasicFeaturesPlugin": (".builtin.cpu", "BasicFeaturesPlugin"),
     "DataFramePlugin": (".builtin.cpu", "DataFramePlugin"),
-    "EventsPlugin": (".builtin.cpu", "EventsPlugin"),
     "FilteredWaveformsPlugin": (".builtin.cpu", "FilteredWaveformsPlugin"),
     "GroupedEventsPlugin": (".builtin.cpu", "GroupedEventsPlugin"),
     "HitFinderPlugin": (".builtin.cpu", "HitFinderPlugin"),

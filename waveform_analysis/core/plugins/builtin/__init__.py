@@ -31,7 +31,6 @@ from .cpu import (
     BasicFeaturesPlugin,
     CacheAnalysisPlugin,
     DataFramePlugin,
-    EventsPlugin,
     FilteredWaveformsPlugin,
     GroupedEventsPlugin,
     HitFinderPlugin,
@@ -65,7 +64,6 @@ __all__ = [
     "GroupedEventsPlugin",
     "PairedEventsPlugin",
     "RecordsPlugin",
-    "EventsPlugin",
     # 信号处理插件
     "FilteredWaveformsPlugin",
     "HIT_DTYPE",
