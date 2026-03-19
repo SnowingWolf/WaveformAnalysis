@@ -7,6 +7,7 @@ Core 模块 - WaveformAnalysis 框架的核心实现。
 """
 
 from .context import Context
+from .data import RecordsView, records_view
 
 # 向后兼容：导出 execution 子模块的主要函数
 from .execution import (
@@ -71,6 +72,8 @@ from .storage import (
 __all__ = [
     # 核心类
     "Context",
+    "RecordsView",
+    "records_view",
     "Plugin",
     "Option",
     # 异常处理
