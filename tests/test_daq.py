@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import warnings
 
 import pytest
 
@@ -45,3 +46,45 @@ def test_scan_single_run(tmp_path: Path, make_csv_fn):
     assert "runs" in data
     assert len(data["runs"]) == 1
     assert data["runs"][0]["run_name"] == "test_run"
+
+
+def test_scan_v1725_bseg_naming_with_adapter(tmp_path: Path):
+    daq_root = tmp_path / "DAQ"
+    run_dir = daq_root / "test_run_v1725"
+    raw_dir = run_dir / "RAW"
+    raw_dir.mkdir(parents=True)
+
+    # DAW_DEMO 风格命名：test_raw_b0_segX.bin
+    (raw_dir / "test_raw_b0_seg0.bin").write_bytes(b"\x01\x02\x03")
+    (raw_dir / "test_raw_b0_seg1.bin").write_bytes(b"\x04\x05")
+
+    analyzer = DAQAnalyzer(daq_root, daq_adapter="v1725")
+    analyzer.scan_all_runs()
+
+    run = analyzer.get_run("test_run_v1725")
+    assert run is not None
+    assert run.file_count == 2
+    assert run.total_bytes == 5
+    assert run.channels == {0}
+
+
+def test_display_overview_time_sort_no_infer_warning(tmp_path: Path, make_csv_fn):
+    daq_root = tmp_path / "DAQ"
+
+    # 非空 run（有可解析时间）
+    run_dir1 = daq_root / "run_with_data" / "RAW"
+    run_dir1.mkdir(parents=True)
+    make_csv_fn(run_dir1, 1, 0, 1000, 2000)
+
+    # 空 run（会产生 N/A）
+    run_dir2 = daq_root / "run_empty" / "RAW"
+    run_dir2.mkdir(parents=True)
+
+    analyzer = DAQAnalyzer(daq_root)
+    analyzer.scan_all_runs()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        analyzer.display_overview(sort_by="time")
+
+    assert not any("Could not infer format" in str(w.message) for w in caught)

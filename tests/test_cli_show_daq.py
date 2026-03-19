@@ -24,3 +24,70 @@ def test_cli_show_daq_returns_zero(tmp_path: Path, monkeypatch):
     )
     code = cli.main()
     assert code == 0
+
+
+def test_cli_show_daq_passes_daq_adapter(monkeypatch):
+    captured = {}
+
+    class _FakeAnalyzer:
+        def __init__(self, daq_root, daq_adapter=None):
+            captured["daq_root"] = daq_root
+            captured["daq_adapter"] = daq_adapter
+
+        def scan_all_runs(self):
+            return self
+
+        def display_run_channel_details(self, *_args, **_kwargs):
+            return self
+
+    monkeypatch.setattr(cli, "DAQAnalyzer", _FakeAnalyzer)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "waveform-process",
+            "--show-daq",
+            "cli_run",
+            "--daq-root",
+            "/tmp/daq",
+            "--daq-adapter",
+            "v1725",
+        ],
+    )
+    code = cli.main()
+    assert code == 0
+    assert captured["daq_adapter"] == "v1725"
+
+
+def test_cli_scan_daq_passes_daq_adapter(monkeypatch, tmp_path: Path):
+    captured = {}
+
+    class _FakeAnalyzer:
+        def __init__(self, daq_root, daq_adapter=None):
+            captured["daq_root"] = daq_root
+            captured["daq_adapter"] = daq_adapter
+
+        def scan_all_runs(self):
+            return self
+
+        def save_to_json(self, out):
+            return str(out)
+
+    monkeypatch.setattr(cli, "DAQAnalyzer", _FakeAnalyzer)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "waveform-process",
+            "--scan-daq",
+            "--daq-root",
+            "/tmp/daq",
+            "--daq-out",
+            str(tmp_path / "out.json"),
+            "--daq-adapter",
+            "v1725",
+        ],
+    )
+    code = cli.main()
+    assert code == 0
+    assert captured["daq_adapter"] == "v1725"

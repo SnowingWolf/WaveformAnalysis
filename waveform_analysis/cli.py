@@ -114,7 +114,7 @@ def main():
 
         # DAQ 扫描分支
         if args.scan_daq:
-            analyzer = DAQAnalyzer(args.daq_root)
+            analyzer = DAQAnalyzer(args.daq_root, daq_adapter=args.daq_adapter)
             analyzer.scan_all_runs()
             out = analyzer.save_to_json(args.daq_out)
             if out is None:
@@ -126,7 +126,7 @@ def main():
 
         # CLI 显示单个运行的 DAQ 信息
         if args.show_daq:
-            analyzer = DAQAnalyzer(args.daq_root)
+            analyzer = DAQAnalyzer(args.daq_root, daq_adapter=args.daq_adapter)
             analyzer.scan_all_runs()
             analyzer.display_run_channel_details(args.show_daq, show_files=args.show_daq_files)
             return 0

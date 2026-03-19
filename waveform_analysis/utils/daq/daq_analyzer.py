@@ -7,7 +7,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
@@ -43,11 +43,17 @@ if TYPE_CHECKING:
 class DAQAnalyzer:
     """DAQ 数据分析器：管理所有运行的统一分析（显示/保存等）。"""
 
+    @staticmethod
+    def _parse_overview_time(series: pd.Series) -> pd.Series:
+        """Parse overview time strings with a stable format and graceful NA handling."""
+        cleaned = series.replace("N/A", pd.NA)
+        return pd.to_datetime(cleaned, format="%Y-%m-%d %H:%M:%S", errors="coerce")
+
     def __init__(
         self,
-        daq_root: Union[str, Path] = "DAQ",
-        daq_adapter: Optional[Union[str, DAQAdapter]] = None,
-        directory_layout: Optional[DirectoryLayout] = None,
+        daq_root: str | Path = "DAQ",
+        daq_adapter: str | DAQAdapter | None = None,
+        directory_layout: DirectoryLayout | None = None,
     ) -> None:
         """
         初始化 DAQ 数据分析器
@@ -64,8 +70,8 @@ class DAQAnalyzer:
         self.daq_root = str(daq_root)
         self.daq_adapter = daq_adapter
         self.directory_layout = directory_layout
-        self.runs: Dict[str, DAQRun] = {}
-        self.df_runs: Optional[pd.DataFrame] = None
+        self.runs: dict[str, DAQRun] = {}
+        self.df_runs: pd.DataFrame | None = None
         self.total_bytes = 0
 
     @staticmethod
@@ -102,7 +108,7 @@ class DAQAnalyzer:
             return self._ansi_wrap(self.format_size(size_bytes), "yellow")
         return self._ansi_wrap(self.format_size(size_bytes), "green")
 
-    def _color_duration(self, duration_s: Optional[float]) -> str:
+    def _color_duration(self, duration_s: float | None) -> str:
         if duration_s is None:
             return "N/A"
         if duration_s > 1.0:
@@ -127,7 +133,7 @@ class DAQAnalyzer:
             return self._html_wrap(self.format_size(size_bytes), "#c67f00")
         return self._html_wrap(self.format_size(size_bytes), "#1b7a1b")
 
-    def _html_color_duration(self, duration_s: Optional[float]) -> str:
+    def _html_color_duration(self, duration_s: float | None) -> str:
         if duration_s is None:
             return "N/A"
         if duration_s > 1.0:
@@ -170,10 +176,10 @@ class DAQAnalyzer:
         run_dicts = [run.to_dict() for run in self.runs.values()]
         self.df_runs = pd.DataFrame(run_dicts)
 
-    def get_run(self, run_name: str) -> Optional[DAQRun]:
+    def get_run(self, run_name: str) -> DAQRun | None:
         return self.runs.get(run_name)
 
-    def get_all_runs(self) -> List[DAQRun]:
+    def get_all_runs(self) -> list[DAQRun]:
         return list(self.runs.values())
 
     def _get_run_acquisition_start(self, run_name: str) -> str:
@@ -218,7 +224,7 @@ class DAQAnalyzer:
             return "N/A"
         return latest_mtime.strftime("%Y-%m-%d %H:%M:%S")
 
-    def _build_channel_rows(self, stats: Dict[int, Dict]) -> List[Dict]:
+    def _build_channel_rows(self, stats: dict[int, dict]) -> list[dict]:
         # Normalize channel stats iento row dicts for DataFrame display.
         rows = []
         for ch in sorted(stats.keys()):
@@ -267,7 +273,7 @@ class DAQAnalyzer:
 
     def display_overview(
         self,
-        sort_by: Optional[str] = None,
+        sort_by: str | None = None,
         ascending: bool = True,
     ) -> DAQAnalyzer:
         """显示所有运行的概览表格。
@@ -304,11 +310,11 @@ class DAQAnalyzer:
             sort_key = sort_by.lower().strip()
             if sort_key in ("time", "start"):
                 # Parse to datetime for correct ordering; "N/A" becomes NaT
-                df["_sort_key"] = pd.to_datetime(df["acquisition_start"], errors="coerce")
+                df["_sort_key"] = self._parse_overview_time(df["acquisition_start"])
                 df.sort_values("_sort_key", ascending=ascending, na_position="last", inplace=True)
                 df.drop(columns="_sort_key", inplace=True)
             elif sort_key == "end":
-                df["_sort_key"] = pd.to_datetime(df["acquisition_end"], errors="coerce")
+                df["_sort_key"] = self._parse_overview_time(df["acquisition_end"])
                 df.sort_values("_sort_key", ascending=ascending, na_position="last", inplace=True)
                 df.drop(columns="_sort_key", inplace=True)
             elif sort_key == "size":
@@ -543,8 +549,8 @@ class DAQAnalyzer:
         return self
 
     def save_to_json(
-        self, output_path: Union[str, Path] = "daq_analysis.json", include_file_details: bool = True
-    ) -> Optional[str]:
+        self, output_path: str | Path = "daq_analysis.json", include_file_details: bool = True
+    ) -> str | None:
         if self.df_runs is None or self.df_runs.empty:
             logger.error("尚未扫描运行数据，请先调用 scan_all_runs()")
             return None
