@@ -95,29 +95,82 @@ class ThresholdHitPlugin(Plugin):
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         threshold = float(context.get_config(self, "threshold"))
         use_filtered = bool(context.get_config(self, "use_filtered"))
+        source = resolve_wave_source(context, self)
         polarity = context.get_config(self, "polarity")
         left_extension = max(0, int(context.get_config(self, "left_extension")))
         right_extension = max(0, int(context.get_config(self, "right_extension")))
         sampling_interval_ns = float(context.get_config(self, "sampling_interval_ns"))
         channel_metadata_cfg = context.get_config(self, "channel_metadata")
 
-        waveform_data = (
-            context.get_data(run_id, "filtered_waveforms")
-            if use_filtered
-            else context.get_data(run_id, "st_waveforms")
-        )
+        if source == WAVE_SOURCE_RECORDS:
+            from waveform_analysis.core import records_view
 
-        if not isinstance(waveform_data, np.ndarray):
-            raise ValueError("hit_threshold expects st_waveforms as a single structured array")
+            rv = records_view(context, run_id)
+            records = rv.records
 
-        if len(waveform_data) == 0:
-            return np.zeros(0, dtype=HIT_DTYPE)
+            if len(records) == 0:
+                return np.zeros(0, dtype=HIT_DTYPE)
 
-        channels = (
-            waveform_data["channel"]
-            if "channel" in waveform_data.dtype.names
-            else np.zeros(len(waveform_data), dtype=np.int16)
-        )
+            channels = (
+                records["channel"]
+                if "channel" in records.dtype.names
+                else np.zeros(len(records), dtype=np.int16)
+            )
+            records_len = len(records)
+
+            def get_wave(i: int) -> np.ndarray:
+                return rv.wave(i)
+
+            def get_baseline(i: int) -> float:
+                return float(records[i]["baseline"])
+
+            def get_timestamp(i: int) -> int:
+                return int(records[i]["timestamp"])
+
+            def get_channel(i: int) -> int:
+                if "channel" in records.dtype.names:
+                    return int(records[i]["channel"])
+                return 0
+
+        else:
+            waveform_data = (
+                context.get_data(run_id, "filtered_waveforms")
+                if source == WAVE_SOURCE_FILTERED or (source == WAVE_SOURCE_AUTO and use_filtered)
+                else context.get_data(run_id, "st_waveforms")
+            )
+
+            if not isinstance(waveform_data, np.ndarray):
+                raise ValueError("hit_threshold expects st_waveforms as a single structured array")
+
+            if len(waveform_data) == 0:
+                return np.zeros(0, dtype=HIT_DTYPE)
+
+            channels = (
+                waveform_data["channel"]
+                if "channel" in waveform_data.dtype.names
+                else np.zeros(len(waveform_data), dtype=np.int16)
+            )
+            records_len = len(waveform_data)
+
+            def get_wave(i: int) -> np.ndarray:
+                return np.asarray(waveform_data[i]["wave"])
+
+            def get_baseline(i: int) -> float:
+                if "baseline" in waveform_data.dtype.names:
+                    return float(waveform_data[i]["baseline"])
+                wave = get_wave(i)
+                return float(np.mean(wave))
+
+            def get_timestamp(i: int) -> int:
+                if "timestamp" in waveform_data.dtype.names:
+                    return int(waveform_data[i]["timestamp"])
+                return 0
+
+            def get_channel(i: int) -> int:
+                if "channel" in waveform_data.dtype.names:
+                    return int(waveform_data[i]["channel"])
+                return 0
+
         channel_meta = resolve_channel_metadata(
             channel_metadata=channel_metadata_cfg,
             run_id=run_id,
@@ -128,18 +181,14 @@ class ThresholdHitPlugin(Plugin):
         sampling_interval_ps = sampling_interval_ns * 1e3
         hits: list[tuple] = []
 
-        for event_idx, record in enumerate(waveform_data):
-            wave = np.asarray(record["wave"])
+        for event_idx in range(records_len):
+            wave = get_wave(event_idx)
             if wave.size == 0:
                 continue
 
-            baseline = (
-                float(record["baseline"])
-                if "baseline" in record.dtype.names
-                else float(np.mean(wave))
-            )
-            timestamp = int(record["timestamp"]) if "timestamp" in record.dtype.names else 0
-            channel = int(record["channel"]) if "channel" in record.dtype.names else 0
+            baseline = get_baseline(event_idx)
+            timestamp = get_timestamp(event_idx)
+            channel = get_channel(event_idx)
 
             ch_polarity = channel_meta.get(channel, {}).get("polarity", "unknown")
             effective_polarity = (
