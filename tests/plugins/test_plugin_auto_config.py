@@ -147,7 +147,7 @@ def test_hitfinder_height_window_extension_effect():
 
     assert len(peaks_small) > 0
     assert len(peaks_large) > 0
-    assert peaks_large["hit_height"][0] > peaks_small["hit_height"][0]
+    assert peaks_large["height"][0] > peaks_small["height"][0]
 
 
 def test_waveforms_plugin_uses_raw_files_channels(monkeypatch):
@@ -267,11 +267,13 @@ def test_waveforms_plugin_v1725_outputs_standard_st_waveforms(monkeypatch):
         "timestamp",
         "dt",
         "event_length",
+        "board",
         "channel",
         "wave",
     )
     assert st["wave"].shape == (2, 4)
     np.testing.assert_array_equal(st["event_length"], np.array([4, 2], dtype=np.int32))
+    np.testing.assert_array_equal(st["board"], np.array([0, 0], dtype=np.int16))
     np.testing.assert_array_equal(st["channel"], np.array([0, 1], dtype=np.int16))
     np.testing.assert_array_equal(st["timestamp"], np.array([40000, 80000], dtype=np.int64))
     np.testing.assert_array_equal(st["dt"], np.array([4, 4], dtype=np.int32))

@@ -11,10 +11,20 @@ CPU Waveform Width Integral Plugin - 事件级积分分位数宽度
 4) t_low/t_high 是波形内部的相对位置；timestamp 保持 ADC 事件时间语义
 """
 
-from typing import Any, List, Optional
+from typing import Any
 
 import numpy as np
 
+from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
+    WAVE_SOURCE_AUTO,
+    WAVE_SOURCE_FILTERED,
+    WAVE_SOURCE_RECORDS,
+    resolve_wave_source,
+)
+from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
+    resolve_depends_on as resolve_wave_depends_on,
+)
+from waveform_analysis.core.plugins.builtin.cpu.channel_metadata import resolve_channel_metadata
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 WAVEFORM_WIDTH_INTEGRAL_DTYPE = np.dtype(
@@ -44,7 +54,7 @@ class WaveformWidthIntegralPlugin(Plugin):
     provides = "waveform_width_integral"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Event-wise integral quantile width using st_waveforms or filtered_waveforms."
-    version = "2.1.0"  # 版本升级：输出改为单数组
+    version = "2.2.0"  # 版本升级：增加 channel_metadata 配置语义
     save_when = "always"
 
     output_dtype = WAVEFORM_WIDTH_INTEGRAL_DTYPE
@@ -62,6 +72,11 @@ class WaveformWidthIntegralPlugin(Plugin):
             type=bool,
             help="是否使用 filtered_waveforms（若启用，baseline 仍来自 st_waveforms）",
         ),
+        "wave_source": Option(
+            default=WAVE_SOURCE_AUTO,
+            type=str,
+            help="波形数据源: auto|records|st_waveforms|filtered_waveforms",
+        ),
         "sampling_rate": Option(
             default=0.5,
             type=float,
@@ -77,16 +92,23 @@ class WaveformWidthIntegralPlugin(Plugin):
             type=str,
             help="DAQ 适配器名称（用于自动推断采样率）",
         ),
+        "channel_metadata": Option(
+            default=None,
+            type=dict,
+            help="每通道元数据映射（支持 run_id 分层），用于按通道选择 polarity",
+        ),
     }
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         q_low = float(context.get_config(self, "q_low"))
         q_high = float(context.get_config(self, "q_high"))
         polarity = context.get_config(self, "polarity")
-        use_filtered = context.get_config(self, "use_filtered")
+        use_filtered = bool(context.get_config(self, "use_filtered"))
+        source = resolve_wave_source(context, self)
         dt = context.get_config(self, "dt")
         sampling_rate = context.get_config(self, "sampling_rate")
         daq_adapter = context.get_config(self, "daq_adapter")
+        channel_metadata_cfg = context.get_config(self, "channel_metadata")
 
         if dt is None:
             if not self._has_config(context, "sampling_rate"):
@@ -104,29 +126,91 @@ class WaveformWidthIntegralPlugin(Plugin):
         if polarity not in ("auto", "positive", "negative"):
             raise ValueError(f"不支持的 polarity: {polarity}")
 
-        # 根据 use_filtered 选择数据源
-        if use_filtered:
-            waveform_data = context.get_data(run_id, "filtered_waveforms")
+        if source == WAVE_SOURCE_RECORDS:
+            from waveform_analysis.core import records_view
+
+            rv = records_view(context, run_id)
+            records = rv.records
+            if len(records) == 0:
+                return np.zeros(0, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE)
+            channels = (
+                records["channel"]
+                if "channel" in records.dtype.names
+                else np.zeros(len(records), dtype=np.int16)
+            )
+            records_len = len(records)
+
+            def get_wave(i: int) -> np.ndarray:
+                return rv.wave(i)
+
+            def get_baseline(i: int) -> float:
+                return float(records[i]["baseline"])
+
+            def get_timestamp(i: int) -> int:
+                return int(records[i]["timestamp"])
+
+            def get_channel(i: int) -> int:
+                if "channel" in records.dtype.names:
+                    return int(records[i]["channel"])
+                return 0
+
         else:
-            waveform_data = context.get_data(run_id, "st_waveforms")
+            # 根据 wave_source/use_filtered 选择数据源
+            if source == WAVE_SOURCE_FILTERED or (source == WAVE_SOURCE_AUTO and use_filtered):
+                waveform_data = context.get_data(run_id, "filtered_waveforms")
+            else:
+                waveform_data = context.get_data(run_id, "st_waveforms")
 
-        if not isinstance(waveform_data, np.ndarray):
-            raise ValueError("waveform_width_integral expects st_waveforms as a single array")
+            if not isinstance(waveform_data, np.ndarray):
+                raise ValueError("waveform_width_integral expects st_waveforms as a single array")
 
-        if len(waveform_data) == 0:
-            return np.zeros(0, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE)
+            if len(waveform_data) == 0:
+                return np.zeros(0, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE)
 
-        widths: List[tuple] = []
+            channels = (
+                waveform_data["channel"]
+                if "channel" in waveform_data.dtype.names
+                else np.zeros(len(waveform_data), dtype=np.int16)
+            )
+            records_len = len(waveform_data)
 
-        for event_idx, record in enumerate(waveform_data):
-            wave = record["wave"]
-            baseline = float(record["baseline"])
+            def get_wave(i: int) -> np.ndarray:
+                return waveform_data[i]["wave"]
+
+            def get_baseline(i: int) -> float:
+                return float(waveform_data[i]["baseline"])
+
+            def get_timestamp(i: int) -> int:
+                return int(waveform_data[i]["timestamp"])
+
+            def get_channel(i: int) -> int:
+                if "channel" in waveform_data.dtype.names:
+                    return int(waveform_data[i]["channel"])
+                return 0
+
+        channel_meta = resolve_channel_metadata(
+            channel_metadata=channel_metadata_cfg,
+            run_id=run_id,
+            channels=np.unique(channels).tolist(),
+            plugin_name=self.provides,
+        )
+
+        widths: list[tuple] = []
+
+        for event_idx in range(records_len):
+            wave = get_wave(event_idx)
+            baseline = get_baseline(event_idx)
+            channel = get_channel(event_idx)
 
             signal = wave - baseline
+            channel_polarity = channel_meta.get(channel, {}).get("polarity", "unknown")
+            effective_polarity = polarity
+            if effective_polarity == "auto" and channel_polarity in ("positive", "negative"):
+                effective_polarity = channel_polarity
 
-            if polarity == "positive":
+            if effective_polarity == "positive":
                 x = np.maximum(signal, 0.0)
-            elif polarity == "negative":
+            elif effective_polarity == "negative":
                 x = np.maximum(-signal, 0.0)
             else:
                 pos_area = float(np.sum(np.maximum(signal, 0.0)))
@@ -153,8 +237,7 @@ class WaveformWidthIntegralPlugin(Plugin):
             t_low = float(t_low_samples * dt)
             t_high = float(t_high_samples * dt)
             width = float(width_samples * dt)
-            timestamp = int(record["timestamp"])
-            channel = int(record["channel"]) if "channel" in record.dtype.names else 0
+            timestamp = get_timestamp(event_idx)
 
             widths.append(
                 (
@@ -175,11 +258,9 @@ class WaveformWidthIntegralPlugin(Plugin):
             return np.array(widths, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE)
         return np.zeros(0, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE)
 
-    def resolve_depends_on(self, context: Any, run_id: Optional[str] = None) -> List[str]:
-        # 根据 use_filtered 动态选择依赖
-        if context.get_config(self, "use_filtered"):
-            return ["filtered_waveforms"]
-        return ["st_waveforms"]
+    def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
+        source = resolve_wave_source(context, self)
+        return resolve_wave_depends_on(source, bool(context.get_config(self, "use_filtered")))
 
     def _has_config(self, context: Any, name: str) -> bool:
         if hasattr(context, "has_explicit_config"):
@@ -198,7 +279,7 @@ class WaveformWidthIntegralPlugin(Plugin):
 
     def _get_sampling_rate_from_adapter(
         self,
-        daq_adapter: Optional[str],
+        daq_adapter: str | None,
         default_value: float,
     ) -> float:
         if not daq_adapter:

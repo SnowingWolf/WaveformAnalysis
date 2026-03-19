@@ -34,6 +34,7 @@ WaveformAnalysis 提供灵活的配置系统：
 | --- | --- | --- |
 | `data_root` | `"DAQ"` | DAQ 根目录，同时作为默认缓存目录 `storage_dir` |
 | `daq_adapter` | `None` | 默认 DAQ 适配器名称（RawFiles/Waveforms/StWaveforms/Records/Events 可用） |
+| `wave_source` | `"auto"` | 波形源选择：`auto`/`records`/`st_waveforms`/`filtered_waveforms`（支持被插件同名配置覆盖） |
 | `n_channels` | `None` | 通道数；为空时尽量通过扫描自动推断 |
 | `show_progress` | `True` | 是否显示加载/处理进度条 |
 | `start_channel_slice` | `0` | 兼容旧流程的通道偏移（新流程不再使用） |
@@ -73,6 +74,7 @@ ctx.set_config({'threshold': 50}, plugin_name='basic_features')
 ctx.set_config({
     'data_root': 'DAQ',
     'daq_adapter': 'vx2730',
+    'wave_source': 'records',
     'threshold': 50,
 })
 ```

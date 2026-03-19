@@ -1,13 +1,17 @@
 """Tests for BasicFeaturesPlugin (cpu/basic_features.py)."""
 
+from unittest.mock import patch
+
 import numpy as np
 import pytest
 
 from tests.utils import FakeContext
+from waveform_analysis.core.data.records_view import RecordsView
 from waveform_analysis.core.plugins.builtin.cpu.basic_features import (
     BASIC_FEATURES_DTYPE,
     BasicFeaturesPlugin,
 )
+from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -51,6 +55,19 @@ def _ctx_with_waveforms(waveform_data, config=None, use_filtered=False):
     data_key = "filtered_waveforms" if use_filtered else "st_waveforms"
     ctx = FakeContext(config=cfg, data={data_key: waveform_data})
     return ctx
+
+
+def _make_records_view():
+    records = np.zeros(2, dtype=RECORDS_DTYPE)
+    records["timestamp"] = [10, 20]
+    records["pid"] = 0
+    records["channel"] = [0, 1]
+    records["baseline"] = [100.0, 100.0]
+    records["wave_offset"] = [0, 4]
+    records["event_length"] = [4, 4]
+    records["time"] = [0, 0]
+    wave_pool = np.array([90, 80, 95, 90, 90, 85, 90, 90], dtype=np.uint16)
+    return RecordsView(records, wave_pool)
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +162,21 @@ class TestResolveDependsOn:
 
     def test_use_filtered_false_explicit(self):
         ctx = FakeContext(config={"use_filtered": False})
+        plugin = BasicFeaturesPlugin()
+        assert plugin.resolve_depends_on(ctx) == ["st_waveforms"]
+
+    def test_wave_source_records_depends_on_records(self):
+        ctx = FakeContext(config={"wave_source": "records", "use_filtered": True})
+        plugin = BasicFeaturesPlugin()
+        assert plugin.resolve_depends_on(ctx) == ["records"]
+
+    def test_wave_source_filtered_depends_on_filtered(self):
+        ctx = FakeContext(config={"wave_source": "filtered_waveforms"})
+        plugin = BasicFeaturesPlugin()
+        assert plugin.resolve_depends_on(ctx) == ["filtered_waveforms"]
+
+    def test_wave_source_st_depends_on_st(self):
+        ctx = FakeContext(config={"wave_source": "st_waveforms", "use_filtered": True})
         plugin = BasicFeaturesPlugin()
         assert plugin.resolve_depends_on(ctx) == ["st_waveforms"]
 
@@ -301,6 +333,25 @@ class TestUseFiltered:
         plugin = BasicFeaturesPlugin()
         result = plugin.compute(ctx, "run_001")
         assert len(result) == 2
+
+    def test_reads_from_records_view_when_wave_source_records(self):
+        ctx = FakeContext(
+            config={
+                "wave_source": "records",
+                "height_range": (0, 4),
+                "area_range": (0, 4),
+            }
+        )
+        plugin = BasicFeaturesPlugin()
+        rv = _make_records_view()
+
+        with patch("waveform_analysis.core.records_view", return_value=rv) as mocked:
+            result = plugin.compute(ctx, "run_001")
+
+        assert mocked.call_count == 1
+        assert len(result) == 2
+        assert np.isclose(result["height"][0], 20.0)  # 100 - 80
+        assert np.isclose(result["amp"][0], 15.0)  # 95 - 80
 
 
 # ---------------------------------------------------------------------------
