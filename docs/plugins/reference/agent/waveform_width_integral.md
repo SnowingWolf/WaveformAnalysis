@@ -9,7 +9,7 @@
 | Provides | `waveform_width_integral` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `2.1.0` |
+| Version | `2.2.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.waveform_width_integral` |
 | Accelerator | `cpu` |
 
@@ -40,9 +40,11 @@
 | `q_high` | `float` | `0.9` | 高分位点（默认 0.90） |
 | `polarity` | `str` | `auto` | 信号极性: auto | positive | negative |
 | `use_filtered` | `bool` | `False` | 是否使用 filtered_waveforms（若启用，baseline 仍来自 st_waveforms） |
+| `wave_source` | `str` | `auto` | 波形数据源: auto|records|st_waveforms|filtered_waveforms |
 | `sampling_rate` | `float` | `0.5` | 采样率（GHz），用于换算时间（ns） |
 | `dt` | `float` | `None` | 采样间隔（ns），优先级高于 sampling_rate |
 | `daq_adapter` | `str` | `None` | DAQ 适配器名称（用于自动推断采样率） |
+| `channel_metadata` | `dict` | `None` | 每通道元数据映射（支持 run_id 分层），用于按通道选择 polarity |
 
 ## Execution Path
 

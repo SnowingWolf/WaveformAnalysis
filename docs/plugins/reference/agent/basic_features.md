@@ -35,6 +35,7 @@
 | `height_range` | `tuple` | `(40, 90)` | 高度计算范围 (start, end) |
 | `area_range` | `tuple` | `(0, None)` | 面积计算范围 (start, end)，end=None 表示积分到波形末端 |
 | `use_filtered` | `bool` | `False` | 是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin） |
+| `wave_source` | `str` | `auto` | 波形数据源: auto|records|st_waveforms|filtered_waveforms |
 | `fixed_baseline` | `dict` | `None` | 按通道固定 baseline 值，如 {0: 8192, 1: 8200}。设置后覆盖动态 baseline 用于 height/area 计算。 |
 
 ## Execution Path

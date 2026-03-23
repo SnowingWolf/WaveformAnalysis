@@ -14,7 +14,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 
 ## Summary
 
-- 插件总数：15
+- 插件总数：13
 - 类别数：8
 
 ## Plugin Table
@@ -23,7 +23,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 |----------|--------|------------|-------------|---------|
 | [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | - | `structured_array` | `3.3.0` |
 | [`cache_analysis`](cache_analysis.md) | `CacheAnalysisPlugin` | - | `unknown` | `0.1.0` |
-| [`df`](df.md) | `DataFramePlugin` | `st_waveforms`, `basic_features` | `unknown` | `1.3.0` |
+| [`df`](df.md) | `DataFramePlugin` | - | `unknown` | `1.5.0` |
 | [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `unknown` | `0.0.0` |
 | [`df_paired`](df_paired.md) | `PairedEventsPlugin` | `df_events` | `unknown` | `0.0.0` |
 | [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `structured_array` | `2.4.0` |
@@ -31,9 +31,9 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | `unknown` | `0.0.2` |
 | [`records`](records.md) | `RecordsPlugin` | `raw_files` | `structured_array` | `0.5.0` |
 | [`s1_s2`](s1_s2.md) | `S1S2ClassifierPlugin` | `waveform_width`, `basic_features` | `structured_array` | `0.2.0` |
-| [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | - | `structured_array` | `0.5.0` |
+| [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | - | `structured_array` | `0.6.0` |
 | [`waveform_width`](waveform_width.md) | `WaveformWidthPlugin` | - | `structured_array` | `2.1.0` |
-| [`waveform_width_integral`](waveform_width_integral.md) | `WaveformWidthIntegralPlugin` | - | `structured_array` | `2.1.0` |
+| [`waveform_width_integral`](waveform_width_integral.md) | `WaveformWidthIntegralPlugin` | - | `structured_array` | `2.2.0` |
 
 ## By Category
 

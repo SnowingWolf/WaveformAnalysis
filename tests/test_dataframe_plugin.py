@@ -1,7 +1,11 @@
+from unittest.mock import patch
+
 import numpy as np
 
 from tests.utils import FakeContext
+from waveform_analysis.core.data.records_view import RecordsView
 from waveform_analysis.core.plugins.builtin.cpu.dataframe import DataFramePlugin
+from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
 
 
 class _RunConfigContext(FakeContext):
@@ -47,6 +51,19 @@ def _make_basic_features():
     data["height"] = [15.0, 5.0, 10.0]
     data["amp"] = [4.0, 2.0, 3.0]
     return data
+
+
+def _make_records_view():
+    records = np.zeros(3, dtype=RECORDS_DTYPE)
+    records["timestamp"] = [300, 100, 200]
+    records["pid"] = [0, 0, 0]
+    records["channel"] = [0, 1, 0]
+    records["baseline"] = [100.0, 100.0, 100.0]
+    records["wave_offset"] = [0, 2, 4]
+    records["event_length"] = [2, 2, 2]
+    records["time"] = [0, 0, 0]
+    wave_pool = np.array([100, 99, 100, 98, 100, 97], dtype=np.uint16)
+    return RecordsView(records, wave_pool)
 
 
 def test_dataframe_plugin_no_gain_columns_by_default():
@@ -144,3 +161,69 @@ def test_dataframe_plugin_fallback_board_when_field_missing():
     df = plugin.compute(ctx, "run_001")
 
     np.testing.assert_array_equal(df["board"].to_numpy(), np.zeros(3, dtype=np.int16))
+
+
+def test_dataframe_plugin_wave_source_records_depends_on_records_and_basic_features():
+    ctx = FakeContext(config={"wave_source": "records", "use_filtered": True})
+    plugin = DataFramePlugin()
+
+    assert plugin.resolve_depends_on(ctx) == ["records", "basic_features"]
+
+
+def test_dataframe_plugin_reads_records_view_when_wave_source_records():
+    ctx = FakeContext(
+        config={
+            "df.wave_source": "records",
+            "basic_features.wave_source": "records",
+        },
+        data={"basic_features": _make_basic_features()},
+    )
+    plugin = DataFramePlugin()
+    rv = _make_records_view()
+
+    with patch("waveform_analysis.core.records_view", return_value=rv) as mocked:
+        df = plugin.compute(ctx, "run_001")
+
+    mocked.assert_called_once_with(ctx, "run_001")
+    assert list(df["timestamp"]) == [100, 200, 300]
+    assert list(df["channel"]) == [1, 0, 0]
+    assert list(df["area"]) == [10.0, 20.0, 30.0]
+    np.testing.assert_array_equal(df["board"].to_numpy(), np.zeros(3, dtype=np.int16))
+
+
+def test_dataframe_plugin_records_requires_basic_features_records_source():
+    ctx = FakeContext(
+        config={
+            "df.wave_source": "records",
+            "basic_features.wave_source": "st_waveforms",
+        },
+        data={"basic_features": _make_basic_features()},
+    )
+    plugin = DataFramePlugin()
+
+    try:
+        plugin.compute(ctx, "run_001")
+    except ValueError as exc:
+        assert "basic_features.wave_source=records" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError for mismatched basic_features source")
+
+
+def test_dataframe_plugin_records_empty_returns_empty_df():
+    empty_features = np.zeros(0, dtype=_make_basic_features().dtype)
+    empty_records = np.zeros(0, dtype=RECORDS_DTYPE)
+    rv = RecordsView(empty_records, np.zeros(0, dtype=np.uint16))
+    ctx = FakeContext(
+        config={
+            "df.wave_source": "records",
+            "basic_features.wave_source": "records",
+        },
+        data={"basic_features": empty_features},
+    )
+    plugin = DataFramePlugin()
+
+    with patch("waveform_analysis.core.records_view", return_value=rv):
+        df = plugin.compute(ctx, "run_001")
+
+    assert list(df.columns) == ["timestamp", "area", "height", "amp", "board", "channel"]
+    assert df.empty

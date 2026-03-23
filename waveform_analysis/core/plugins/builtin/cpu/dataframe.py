@@ -13,6 +13,15 @@ from typing import Any
 
 import numpy as np
 
+from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
+    WAVE_SOURCE_AUTO,
+    WAVE_SOURCE_FILTERED,
+    WAVE_SOURCE_RECORDS,
+    resolve_wave_source,
+)
+from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
+    resolve_depends_on as resolve_wave_depends_on,
+)
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 logger = logging.getLogger(__name__)
@@ -22,10 +31,20 @@ class DataFramePlugin(Plugin):
     """Plugin to build the initial single-channel events DataFrame."""
 
     provides = "df"
-    depends_on = ["st_waveforms", "basic_features"]
-    version = "1.4.0"
+    depends_on = []  # dynamic, resolved by resolve_depends_on
+    version = "1.5.0"
     save_when = "always"
     options = {
+        "use_filtered": Option(
+            default=False,
+            type=bool,
+            help="是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin）",
+        ),
+        "wave_source": Option(
+            default=WAVE_SOURCE_AUTO,
+            type=str,
+            help="波形数据源: auto|records|st_waveforms|filtered_waveforms",
+        ),
         "gain_adc_per_pe": Option(
             default=None,
             type=dict,
@@ -33,8 +52,22 @@ class DataFramePlugin(Plugin):
                 "按通道配置 ADC/PE 增益，如 {0: 12.5, 1: 13.2}。"
                 "设置后会新增 area_pe/height_pe 列。"
             ),
-        )
+        ),
     }
+
+    def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
+        source = resolve_wave_source(context, self)
+        use_filtered = bool(context.get_config(self, "use_filtered"))
+        deps = resolve_wave_depends_on(source, use_filtered)
+        deps.append("basic_features")
+        return deps
+
+    @staticmethod
+    def _resolve_basic_features_source(context: Any) -> str:
+        # Keep df and basic_features source selection aligned in records mode.
+        from waveform_analysis.core.plugins.builtin.cpu.basic_features import BasicFeaturesPlugin
+
+        return resolve_wave_source(context, BasicFeaturesPlugin())
 
     @staticmethod
     def _normalize_gain_map(gain_adc_per_pe: Any) -> dict:
@@ -144,33 +177,76 @@ class DataFramePlugin(Plugin):
         """
         import pandas as pd
 
-        st_waveforms = context.get_data(run_id, "st_waveforms")
+        source = resolve_wave_source(context, self)
+        use_filtered = bool(context.get_config(self, "use_filtered"))
         basic_features = context.get_data(run_id, "basic_features")
 
-        if not isinstance(st_waveforms, np.ndarray):
-            raise ValueError("df expects st_waveforms as a single structured array")
         if not isinstance(basic_features, np.ndarray):
             raise ValueError("df expects basic_features as a single structured array")
 
-        if len(st_waveforms) != len(basic_features):
-            raise ValueError(
-                f"basic_features length ({len(basic_features)}) != st_waveforms length ({len(st_waveforms)})"
-            )
+        if source == WAVE_SOURCE_RECORDS:
+            basic_source = self._resolve_basic_features_source(context)
+            if basic_source != WAVE_SOURCE_RECORDS:
+                raise ValueError(
+                    "df.wave_source=records requires basic_features.wave_source=records "
+                    f"(resolved as {basic_source!r})."
+                )
 
-        df = pd.DataFrame(
-            {
-                "timestamp": np.asarray(st_waveforms["timestamp"]),
-                "area": np.asarray(basic_features["area"]),
-                "height": np.asarray(basic_features["height"]),
-                "amp": np.asarray(basic_features["amp"]),
-                "board": (
-                    np.asarray(st_waveforms["board"])
-                    if "board" in st_waveforms.dtype.names
-                    else np.zeros(len(st_waveforms), dtype=np.int16)
-                ),
-                "channel": np.asarray(st_waveforms["channel"]),
-            }
-        )
+            from waveform_analysis.core import records_view
+
+            rv = records_view(context, run_id)
+            records = rv.records
+
+            if len(records) != len(basic_features):
+                raise ValueError(
+                    f"basic_features length ({len(basic_features)}) != records length ({len(records)})"
+                )
+
+            df = pd.DataFrame(
+                {
+                    "timestamp": np.asarray(records["timestamp"]),
+                    "area": np.asarray(basic_features["area"]),
+                    "height": np.asarray(basic_features["height"]),
+                    "amp": np.asarray(basic_features["amp"]),
+                    "board": np.zeros(len(records), dtype=np.int16),
+                    "channel": (
+                        np.asarray(records["channel"])
+                        if "channel" in records.dtype.names
+                        else np.zeros(len(records), dtype=np.int16)
+                    ),
+                }
+            )
+        else:
+            if source == WAVE_SOURCE_FILTERED or (source == WAVE_SOURCE_AUTO and use_filtered):
+                waveform_data = context.get_data(run_id, "filtered_waveforms")
+                expected_name = "filtered_waveforms"
+            else:
+                waveform_data = context.get_data(run_id, "st_waveforms")
+                expected_name = "st_waveforms"
+
+            if not isinstance(waveform_data, np.ndarray):
+                raise ValueError(f"df expects {expected_name} as a single structured array")
+
+            if len(waveform_data) != len(basic_features):
+                raise ValueError(
+                    f"basic_features length ({len(basic_features)}) != "
+                    f"{expected_name} length ({len(waveform_data)})"
+                )
+
+            df = pd.DataFrame(
+                {
+                    "timestamp": np.asarray(waveform_data["timestamp"]),
+                    "area": np.asarray(basic_features["area"]),
+                    "height": np.asarray(basic_features["height"]),
+                    "amp": np.asarray(basic_features["amp"]),
+                    "board": (
+                        np.asarray(waveform_data["board"])
+                        if "board" in waveform_data.dtype.names
+                        else np.zeros(len(waveform_data), dtype=np.int16)
+                    ),
+                    "channel": np.asarray(waveform_data["channel"]),
+                }
+            )
 
         gain_map, enable_calibrated_columns = self._resolve_gain_map(context, run_id)
         if enable_calibrated_columns:

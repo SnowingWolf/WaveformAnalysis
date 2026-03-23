@@ -7,16 +7,15 @@
 | Item | Value |
 |------|-------|
 | Provides | `df` |
-| Depends On | `st_waveforms`, `basic_features` |
+| Depends On | - |
 | Output Kind | `unknown` |
-| Version | `1.3.0` |
+| Version | `1.5.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.dataframe` |
 | Accelerator | `cpu` |
 
 ## Inputs
 
-- `st_waveforms`
-- `basic_features`
+- 无依赖输入（source plugin）
 
 ## Outputs
 
@@ -26,12 +25,14 @@
 
 | Name | Type | Default | Note |
 |------|------|---------|------|
-| `gain_adc_per_pe` | `dict` | `None` | 按通道配置 ADC/PE 增益，如 {0: 12.5, 1: 13.2}。显式设置优先；未显式设置时可从 `<run_config_path>` 的 `calibration.gain_adc_per_pe` 读取。 |
+| `use_filtered` | `bool` | `False` | 是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin） |
+| `wave_source` | `str` | `auto` | 波形数据源: auto|records|st_waveforms|filtered_waveforms |
+| `gain_adc_per_pe` | `dict` | `None` | 按通道配置 ADC/PE 增益，如 {0: 12.5, 1: 13.2}。设置后会新增 area_pe/height_pe 列。 |
 
 ## Execution Path
 
 `df` 依赖链入口：
-`st_waveforms -> basic_features -> df`
+`SOURCE -> df`
 
 ## Failure Modes
 
