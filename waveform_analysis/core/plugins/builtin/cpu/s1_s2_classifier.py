@@ -13,7 +13,7 @@ Classification uses configurable ranges on width/area/height derived from:
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -34,6 +34,7 @@ S1_S2_CLASSIFIER_DTYPE = np.dtype(
         ("height", "f4"),
         ("area", "f4"),
         ("timestamp", "i8"),
+        ("board", "i2"),
         ("channel", "i2"),
         ("event_index", "i8"),
         ("peak_position", "i8"),
@@ -41,7 +42,7 @@ S1_S2_CLASSIFIER_DTYPE = np.dtype(
 )
 
 
-def _normalize_range(value: Optional[Tuple[Optional[float], Optional[float]]]):
+def _normalize_range(value: tuple[float | None, float | None] | None):
     if value is None:
         return None
     if not isinstance(value, tuple) or len(value) != 2:
@@ -54,7 +55,7 @@ def _normalize_range(value: Optional[Tuple[Optional[float], Optional[float]]]):
 
 def _value_in_range(
     value: float,
-    bounds: Optional[Tuple[Optional[float], Optional[float]]],
+    bounds: tuple[float | None, float | None] | None,
 ) -> bool:
     if bounds is None:
         return True
@@ -75,7 +76,7 @@ class S1S2ClassifierPlugin(Plugin):
     provides = "s1_s2"
     depends_on = ["waveform_width", "basic_features"]
     description = "Classify peaks into S1/S2 using width/area/height ranges."
-    version = "0.2.0"
+    version = "0.3.0"
     save_when = "always"
     output_dtype = S1_S2_CLASSIFIER_DTYPE
 
@@ -204,6 +205,7 @@ class S1S2ClassifierPlugin(Plugin):
                     float(height),
                     float(area),
                     int(peak["timestamp"]),
+                    int(peak["board"]) if "board" in peak.dtype.names else 0,
                     int(peak["channel"]),
                     int(event_index),
                     int(peak["peak_position"]),

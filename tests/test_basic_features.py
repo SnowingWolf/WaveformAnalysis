@@ -61,6 +61,7 @@ def _make_records_view():
     records = np.zeros(2, dtype=RECORDS_DTYPE)
     records["timestamp"] = [10, 20]
     records["pid"] = 0
+    records["board"] = [3, 4]
     records["channel"] = [0, 1]
     records["baseline"] = [100.0, 100.0]
     records["wave_offset"] = [0, 4]
@@ -421,6 +422,22 @@ class TestUseFiltered:
         assert np.isclose(result["area"][0], 30.0)
         assert np.isclose(result["height"][1], 15.0)
         assert np.isclose(result["area"][1], 35.0)
+
+    def test_records_view_propagates_board_field(self):
+        ctx = FakeContext(
+            config={
+                "wave_source": "records",
+                "height_range": (0, 4),
+                "area_range": (0, 4),
+            }
+        )
+        plugin = BasicFeaturesPlugin()
+        rv = _make_records_view()
+
+        with patch("waveform_analysis.core.records_view", return_value=rv):
+            result = plugin.compute(ctx, "run_001")
+
+        np.testing.assert_array_equal(result["board"], np.array([3, 4], dtype=np.int16))
 
 
 # ---------------------------------------------------------------------------

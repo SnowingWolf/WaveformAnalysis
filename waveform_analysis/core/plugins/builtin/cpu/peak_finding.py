@@ -28,6 +28,7 @@ HIT_DTYPE = np.dtype(
         ("edge_start", "f4"),  # 峰值起始边缘（左边界）
         ("edge_end", "f4"),  # 峰值结束边缘（右边界）
         ("timestamp", "i8"),  # 全局时间戳（事件时间戳 + 峰值位置 * 采样间隔）
+        ("board", "i2"),  # 板卡编号
         ("channel", "i2"),  # 通道号
         ("event_index", "i8"),  # 事件索引
     ]
@@ -56,7 +57,7 @@ class HitFinderPlugin(Plugin):
     provides = "hit"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Detect peaks in waveforms and extract peak features."
-    version = "2.2.0"  # 版本升级：支持并行计算
+    version = "2.3.0"  # 版本升级：输出增加 board 字段
     save_when = "always"  # 峰值数据较小，总是保存
     output_dtype = HIT_DTYPE
 
@@ -288,6 +289,7 @@ class HitFinderPlugin(Plugin):
             if event_len > 0 and event_len < len(waveform):
                 waveform = waveform[:event_len]
             timestamp = st_waveform["timestamp"]
+            board = st_waveform["board"] if "board" in st_waveform.dtype.names else 0
             channel = st_waveform["channel"] if "channel" in st_waveform.dtype.names else 0
             baseline = st_waveform["baseline"] if "baseline" in st_waveform.dtype.names else None
 
@@ -295,6 +297,7 @@ class HitFinderPlugin(Plugin):
                 waveform,
                 baseline,
                 timestamp,
+                board,
                 channel,
                 event_idx,
                 use_derivative,
@@ -317,6 +320,7 @@ class HitFinderPlugin(Plugin):
         waveform: np.ndarray,
         baseline: float | None,
         timestamp: int,
+        board: int,
         channel: int,
         event_index: int,
         use_derivative: bool,
@@ -433,6 +437,7 @@ class HitFinderPlugin(Plugin):
                 float(edge_start),  # edge_start
                 float(edge_end),  # edge_end
                 int(global_timestamp),  # timestamp: 全局时间戳
+                int(board),  # board
                 int(channel),  # channel
                 int(event_index),  # event_index
             )

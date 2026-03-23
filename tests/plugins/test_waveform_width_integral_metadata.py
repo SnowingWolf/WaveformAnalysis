@@ -26,6 +26,7 @@ def _make_records_view():
     records = np.zeros(1, dtype=RECORDS_DTYPE)
     records["baseline"] = 100.0
     records["timestamp"] = 123456
+    records["board"] = 7
     records["channel"] = 1
     records["event_length"] = 8
     records["wave_offset"] = 0
@@ -84,4 +85,5 @@ def test_waveform_width_integral_reads_records_view_when_wave_source_records():
 
     assert mocked.call_count == 1
     assert len(out) == 1
+    assert int(out[0]["board"]) == 7
     assert float(out[0]["q_total"]) > 0.0

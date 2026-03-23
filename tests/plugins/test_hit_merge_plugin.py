@@ -16,14 +16,14 @@ def _make_hit(
     event_index,
 ):
     arr = np.zeros(1, dtype=HIT_DTYPE)
-    arr[0]["hit_sample_idx"] = position
-    arr[0]["hit_height"] = height
-    arr[0]["hit_area"] = integral
-    arr[0]["hit_left_sample_idx"] = edge_start
-    arr[0]["hit_right_sample_idx"] = edge_end
-    arr[0]["hit_timestamp_ps"] = timestamp
+    arr[0]["position"] = position
+    arr[0]["height"] = height
+    arr[0]["integral"] = integral
+    arr[0]["edge_start"] = edge_start
+    arr[0]["edge_end"] = edge_end
+    arr[0]["timestamp"] = timestamp
     arr[0]["channel"] = channel
-    arr[0]["record_index"] = event_index
+    arr[0]["event_index"] = event_index
     return arr[0]
 
 
@@ -58,12 +58,13 @@ def test_hit_merge_same_channel_across_records():
     out = plugin.compute(ctx, "run_001")
 
     assert len(out) == 1
+    assert out[0]["board"] == 0
     assert out[0]["channel"] == 0
     # highest peak semantic: should anchor to h2
-    assert int(out[0]["record_index"]) == 1
-    assert int(out[0]["hit_sample_idx"]) == 14
-    assert float(out[0]["hit_height"]) == 25.0
-    assert abs(float(out[0]["hit_area"]) - 70.0) < 1e-6
+    assert int(out[0]["event_index"]) == 1
+    assert int(out[0]["position"]) == 14
+    assert float(out[0]["height"]) == 25.0
+    assert abs(float(out[0]["integral"]) - 70.0) < 1e-6
 
 
 def test_hit_merge_not_across_channels():

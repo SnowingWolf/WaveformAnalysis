@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `waveform_width` |
-| **Version** | `2.1.0` |
+| **Version** | `2.2.0` |
 | **Category** | 波形处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -46,6 +46,7 @@ This plugin has no dependencies.
 | `peak_position` | `int64` | - | - |
 | `peak_height` | `float32` | - | - |
 | `timestamp` | `int64` | - | - |
+| `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |
 | `event_index` | `int64` | - | - |
 

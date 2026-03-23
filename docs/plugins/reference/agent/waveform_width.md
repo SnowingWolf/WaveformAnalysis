@@ -9,7 +9,7 @@
 | Provides | `waveform_width` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `2.1.0` |
+| Version | `2.2.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.waveform_width` |
 | Accelerator | `cpu` |
 
@@ -30,6 +30,7 @@
 | `peak_position` | `int64` |
 | `peak_height` | `float32` |
 | `timestamp` | `int64` |
+| `board` | `int16` |
 | `channel` | `int16` |
 | `event_index` | `int64` |
 

@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `hit` |
-| **Version** | `2.2.0` |
+| **Version** | `2.3.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -49,6 +49,7 @@ This plugin has no dependencies.
 | `edge_start` | `float32` | - | - |
 | `edge_end` | `float32` | - | - |
 | `timestamp` | `int64` | - | - |
+| `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |
 | `event_index` | `int64` | - | - |
 

@@ -12,7 +12,7 @@ CPU Waveform Width Plugin - 计算波形宽度特征
 支持使用原始波形或滤波后的波形进行计算。
 """
 
-from typing import Any, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -30,6 +30,7 @@ WAVEFORM_WIDTH_DTYPE = np.dtype(
         ("peak_position", "i8"),  # 峰值位置（采样点索引）
         ("peak_height", "f4"),  # 峰值高度
         ("timestamp", "i8"),  # 事件时间戳
+        ("board", "i2"),  # 板卡编号
         ("channel", "i2"),  # 通道号
         ("event_index", "i8"),  # 事件索引
     ]
@@ -51,7 +52,7 @@ class WaveformWidthPlugin(Plugin):
     provides = "waveform_width"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Calculate rise/fall time based on peak detection results."
-    version = "2.1.0"  # 版本升级：输出改为单数组
+    version = "2.2.0"  # 版本升级：输出增加 board 字段
     save_when = "always"
     output_dtype = WAVEFORM_WIDTH_DTYPE
 
@@ -163,6 +164,7 @@ class WaveformWidthPlugin(Plugin):
             event_idx = int(peak["event_index"])
             peak_position = peak["position"]
             timestamp = peak["timestamp"]
+            board = peak["board"] if "board" in peak.dtype.names else 0
             channel = peak["channel"]
 
             if event_idx < 0 or event_idx >= len(waveform_data):
@@ -174,6 +176,7 @@ class WaveformWidthPlugin(Plugin):
                 waveform,
                 peak_position,
                 timestamp,
+                board,
                 channel,
                 event_idx,
                 rise_low,
@@ -237,6 +240,7 @@ class WaveformWidthPlugin(Plugin):
         waveform: np.ndarray,
         peak_position: int,
         timestamp: int,
+        board: int,
         channel: int,
         event_index: int,
         rise_low: float,
@@ -348,6 +352,7 @@ class WaveformWidthPlugin(Plugin):
             int(peak_position),  # peak_position
             float(peak_value),  # peak_height
             int(timestamp),  # timestamp
+            int(board),  # board
             int(channel),  # channel
             int(event_index),  # event_index
         )

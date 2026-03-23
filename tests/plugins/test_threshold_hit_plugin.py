@@ -26,6 +26,7 @@ def _make_records_view():
     records = np.zeros(1, dtype=RECORDS_DTYPE)
     records["baseline"] = 100.0
     records["timestamp"] = 123_456
+    records["board"] = 5
     records["channel"] = 2
     records["event_length"] = 8
     records["wave_offset"] = 0
@@ -192,6 +193,7 @@ def test_threshold_hit_reads_records_view_when_wave_source_records():
 
     assert mocked.call_count == 1
     assert len(result) == 1
+    assert int(result[0]["board"]) == 5
     assert int(result[0]["channel"]) == 2
     assert int(result[0]["event_index"]) == 0
 

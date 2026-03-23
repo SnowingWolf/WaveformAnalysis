@@ -19,6 +19,7 @@ def _make_widths(channel: int = 0) -> np.ndarray:
     widths[0]["total_width"] = 30.0
     widths[0]["total_width_samples"] = 15.0
     widths[0]["timestamp"] = 1000
+    widths[0]["board"] = 2
     widths[0]["channel"] = channel
     widths[0]["event_index"] = 0
     widths[0]["peak_position"] = 50
@@ -26,6 +27,7 @@ def _make_widths(channel: int = 0) -> np.ndarray:
     widths[1]["total_width"] = 400.0
     widths[1]["total_width_samples"] = 200.0
     widths[1]["timestamp"] = 2000
+    widths[1]["board"] = 2
     widths[1]["channel"] = channel
     widths[1]["event_index"] = 1
     widths[1]["peak_position"] = 60
@@ -63,5 +65,6 @@ def test_s1_s2_classifier_basic(tmp_path):
     labels = ctx.get_data(run_id, "s1_s2")
 
     assert len(labels) == 2
+    assert np.all(labels["board"] == 2)
     assert labels[0]["label"] == LABEL_S1
     assert labels[1]["label"] == LABEL_S2

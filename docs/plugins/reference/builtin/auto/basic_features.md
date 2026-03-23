@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `basic_features` |
-| **Version** | `3.4.0` |
+| **Version** | `3.5.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -40,6 +40,7 @@ This plugin has no dependencies.
 | `amp` | `float32` | - | - |
 | `area` | `float32` | - | - |
 | `timestamp` | `int64` | - | - |
+| `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |
 | `event_index` | `int64` | - | - |
 

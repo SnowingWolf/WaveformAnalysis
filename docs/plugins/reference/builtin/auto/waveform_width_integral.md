@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `waveform_width_integral` |
-| **Version** | `2.2.0` |
+| **Version** | `2.3.0` |
 | **Category** | 波形处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -46,6 +46,7 @@ This plugin has no dependencies.
 | `width_samples` | `float32` | - | - |
 | `q_total` | `float64` | - | - |
 | `timestamp` | `int64` | - | - |
+| `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |
 | `event_index` | `int64` | - | - |
 

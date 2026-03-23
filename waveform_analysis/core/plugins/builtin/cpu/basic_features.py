@@ -35,6 +35,7 @@ BASIC_FEATURES_DTYPE = np.dtype(
         ("amp", "f4"),  # max - min，峰峰值振幅
         ("area", "f4"),
         ("timestamp", "i8"),  # ADC 时间戳 (ps)
+        ("board", "i2"),  # 板卡编号
         ("channel", "i2"),  # 物理通道号
         ("event_index", "i8"),  # 事件索引
     ]
@@ -46,7 +47,7 @@ class BasicFeaturesPlugin(Plugin):
 
     provides = "basic_features"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
-    version = "3.4.0"  # 版本升级：增加 polarity/channel_metadata 配置语义
+    version = "3.5.0"  # 版本升级：输出增加 board 字段
     save_when = "always"
     output_dtype = BASIC_FEATURES_DTYPE
     options = {
@@ -146,6 +147,11 @@ class BasicFeaturesPlugin(Plugin):
                 if "channel" in records.dtype.names
                 else np.zeros(len(records), dtype=np.int16)
             )
+            boards = (
+                records["board"]
+                if "board" in records.dtype.names
+                else np.zeros(len(records), dtype=np.int16)
+            )
             if channel_metadata_cfg is not None:
                 channel_meta = resolve_channel_metadata(
                     channel_metadata=channel_metadata_cfg,
@@ -183,6 +189,7 @@ class BasicFeaturesPlugin(Plugin):
                         features["area"][idx] = float(np.sum(baseline64 - wave_c64))
 
                 features["timestamp"][idx] = int(rec["timestamp"])
+                features["board"][idx] = int(boards[idx])
                 features["channel"][idx] = ch
                 features["event_index"][idx] = idx
             return features
@@ -201,6 +208,11 @@ class BasicFeaturesPlugin(Plugin):
         waves = waveform_data["wave"]
         baselines = waveform_data["baseline"].copy()
         timestamps = waveform_data["timestamp"]
+        boards = (
+            waveform_data["board"]
+            if "board" in waveform_data.dtype.names
+            else np.zeros(len(waveform_data), dtype=np.int16)
+        )
         channels = (
             waveform_data["channel"]
             if "channel" in waveform_data.dtype.names
@@ -259,6 +271,7 @@ class BasicFeaturesPlugin(Plugin):
         features["amp"] = amp_vals
         features["area"] = area_vals
         features["timestamp"] = timestamps
+        features["board"] = boards
         features["channel"] = channels
         features["event_index"] = np.arange(n_events)
 

@@ -37,6 +37,7 @@ WAVEFORM_WIDTH_INTEGRAL_DTYPE = np.dtype(
         ("width_samples", "f4"),  # 宽度（采样点数）
         ("q_total", "f8"),  # 总电荷/总面积（基线校正后）
         ("timestamp", "i8"),  # 事件时间戳（ADC）
+        ("board", "i2"),  # 板卡编号
         ("channel", "i2"),  # 通道号
         ("event_index", "i8"),  # 事件索引
     ]
@@ -54,7 +55,7 @@ class WaveformWidthIntegralPlugin(Plugin):
     provides = "waveform_width_integral"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Event-wise integral quantile width using st_waveforms or filtered_waveforms."
-    version = "2.2.0"  # 版本升级：增加 channel_metadata 配置语义
+    version = "2.3.0"  # 版本升级：输出增加 board 字段
     save_when = "always"
 
     output_dtype = WAVEFORM_WIDTH_INTEGRAL_DTYPE
@@ -154,6 +155,11 @@ class WaveformWidthIntegralPlugin(Plugin):
                     return int(records[i]["channel"])
                 return 0
 
+            def get_board(i: int) -> int:
+                if "board" in records.dtype.names:
+                    return int(records[i]["board"])
+                return 0
+
         else:
             # 根据 wave_source/use_filtered 选择数据源
             if source == WAVE_SOURCE_FILTERED or (source == WAVE_SOURCE_AUTO and use_filtered):
@@ -186,6 +192,11 @@ class WaveformWidthIntegralPlugin(Plugin):
             def get_channel(i: int) -> int:
                 if "channel" in waveform_data.dtype.names:
                     return int(waveform_data[i]["channel"])
+                return 0
+
+            def get_board(i: int) -> int:
+                if "board" in waveform_data.dtype.names:
+                    return int(waveform_data[i]["board"])
                 return 0
 
         channel_meta = resolve_channel_metadata(
@@ -238,6 +249,7 @@ class WaveformWidthIntegralPlugin(Plugin):
             t_high = float(t_high_samples * dt)
             width = float(width_samples * dt)
             timestamp = get_timestamp(event_idx)
+            board = get_board(event_idx)
 
             widths.append(
                 (
@@ -249,6 +261,7 @@ class WaveformWidthIntegralPlugin(Plugin):
                     width_samples,
                     q_total,
                     timestamp,
+                    board,
                     channel,
                     int(event_idx),
                 )

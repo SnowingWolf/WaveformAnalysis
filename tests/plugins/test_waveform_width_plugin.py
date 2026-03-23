@@ -76,6 +76,7 @@ def test_waveform_width_plugin_basic(mock_context, synthetic_waveform):
     peak[0]["edge_start"] = 80.0
     peak[0]["edge_end"] = 120.0
     peak[0]["timestamp"] = 1000
+    peak[0]["board"] = 9
     peak[0]["channel"] = 0
     peak[0]["event_index"] = 0
 
@@ -99,6 +100,7 @@ def test_waveform_width_plugin_basic(mock_context, synthetic_waveform):
     # 验证基本字段
     assert width_data["peak_position"] == 100
     assert width_data["timestamp"] == 1000
+    assert width_data["board"] == 9
     assert width_data["channel"] == 0
     assert width_data["event_index"] == 0
 

@@ -9,7 +9,7 @@
 | Provides | `basic_features` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `3.4.0` |
+| Version | `3.5.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.basic_features` |
 | Accelerator | `cpu` |
 
@@ -25,6 +25,7 @@
 | `amp` | `float32` |
 | `area` | `float32` |
 | `timestamp` | `int64` |
+| `board` | `int16` |
 | `channel` | `int16` |
 | `event_index` | `int64` |
 

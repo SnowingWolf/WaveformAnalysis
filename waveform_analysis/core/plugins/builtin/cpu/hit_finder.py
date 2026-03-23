@@ -52,7 +52,7 @@ class ThresholdHitPlugin(Plugin):
 
     provides = "hit_threshold"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
-    version = "0.3.0"
+    version = "0.4.0"
     output_dtype = HIT_DTYPE
     save_when = "always"
 
@@ -132,6 +132,11 @@ class ThresholdHitPlugin(Plugin):
                     return int(records[i]["channel"])
                 return 0
 
+            def get_board(i: int) -> int:
+                if "board" in records.dtype.names:
+                    return int(records[i]["board"])
+                return 0
+
         else:
             waveform_data = (
                 context.get_data(run_id, "filtered_waveforms")
@@ -171,6 +176,11 @@ class ThresholdHitPlugin(Plugin):
                     return int(waveform_data[i]["channel"])
                 return 0
 
+            def get_board(i: int) -> int:
+                if "board" in waveform_data.dtype.names:
+                    return int(waveform_data[i]["board"])
+                return 0
+
         channel_meta = resolve_channel_metadata(
             channel_metadata=channel_metadata_cfg,
             run_id=run_id,
@@ -188,6 +198,7 @@ class ThresholdHitPlugin(Plugin):
 
             baseline = get_baseline(event_idx)
             timestamp = get_timestamp(event_idx)
+            board = get_board(event_idx)
             channel = get_channel(event_idx)
 
             ch_polarity = channel_meta.get(channel, {}).get("polarity", "unknown")
@@ -225,6 +236,7 @@ class ThresholdHitPlugin(Plugin):
                         float(seg_start),
                         float(seg_end),
                         int(global_timestamp),
+                        int(board),
                         int(channel),
                         int(event_idx),
                     )

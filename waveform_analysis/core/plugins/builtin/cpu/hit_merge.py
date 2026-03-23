@@ -2,7 +2,7 @@
 Hit Merge Plugin - 合并临近 hit（同通道，允许跨波形/跨文件）
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 
@@ -16,7 +16,7 @@ class HitMergePlugin(Plugin):
     provides = "hit_merged"
     depends_on = ["hit_threshold"]
     description = "Merge nearby threshold hits per channel with time-gap and max-width constraints."
-    version = "0.1.0"
+    version = "0.2.0"
     save_when = "always"
     output_dtype = HIT_DTYPE
 
@@ -59,7 +59,7 @@ class HitMergePlugin(Plugin):
         merge_gap_ps = merge_gap_ns * 1e3
         max_total_width_ps = max_total_width_ns * 1e3
 
-        merged_rows: List[tuple] = []
+        merged_rows: list[tuple] = []
         channels = np.unique(hits["channel"]) if len(hits) > 0 else np.array([], dtype=np.int16)
 
         for ch in channels:
@@ -74,7 +74,7 @@ class HitMergePlugin(Plugin):
             )
             enriched = [enriched[i] for i in order]
 
-            cluster: List[Dict[str, Any]] = [enriched[0]]
+            cluster: list[dict[str, Any]] = [enriched[0]]
             cluster_start = enriched[0]["abs_start_ps"]
             cluster_end = enriched[0]["abs_end_ps"]
 
@@ -100,13 +100,19 @@ class HitMergePlugin(Plugin):
             return np.array(merged_rows, dtype=HIT_DTYPE)
         return np.zeros(0, dtype=HIT_DTYPE)
 
-    def _build_enriched(self, hits: np.ndarray, dt_ps: float) -> List[Dict[str, Any]]:
-        enriched: List[Dict[str, Any]] = []
+    def _build_enriched(self, hits: np.ndarray, dt_ps: float) -> list[dict[str, Any]]:
+        def _pick(hit: np.void, *candidates: str) -> Any:
+            for name in candidates:
+                if name in hit.dtype.names:
+                    return hit[name]
+            raise KeyError(f"Missing fields {candidates} in HIT_DTYPE")
+
+        enriched: list[dict[str, Any]] = []
         for hit in hits:
-            timestamp = float(hit["hit_timestamp_ps"])
-            position = float(hit["hit_sample_idx"])
-            edge_start = float(hit["hit_left_sample_idx"])
-            edge_end = float(hit["hit_right_sample_idx"])
+            timestamp = float(_pick(hit, "timestamp", "hit_timestamp_ps"))
+            position = float(_pick(hit, "position", "hit_sample_idx"))
+            edge_start = float(_pick(hit, "edge_start", "hit_left_sample_idx"))
+            edge_end = float(_pick(hit, "edge_end", "hit_right_sample_idx"))
             abs_start_ps = timestamp + (edge_start - position) * dt_ps
             abs_end_ps = timestamp + (edge_end - position) * dt_ps
             enriched.append(
@@ -120,7 +126,7 @@ class HitMergePlugin(Plugin):
 
     def _emit_cluster(
         self,
-        cluster: List[Dict[str, Any]],
+        cluster: list[dict[str, Any]],
         cluster_start_ps: float,
         cluster_end_ps: float,
         dt_ps: float,
@@ -128,42 +134,44 @@ class HitMergePlugin(Plugin):
         if len(cluster) == 1:
             h = cluster[0]["hit"]
             return (
-                int(h["hit_sample_idx"]),
-                float(h["hit_height"]),
-                float(h["hit_area"]),
-                float(h["hit_left_sample_idx"]),
-                float(h["hit_right_sample_idx"]),
-                int(h["hit_timestamp_ps"]),
+                int(h["position"]),
+                float(h["height"]),
+                float(h["integral"]),
+                float(h["edge_start"]),
+                float(h["edge_end"]),
+                int(h["timestamp"]),
+                int(h["board"]) if "board" in h.dtype.names else 0,
                 int(h["channel"]),
-                int(h["record_index"]),
+                int(h["event_index"]),
             )
 
-        heights = np.array([float(x["hit"]["hit_height"]) for x in cluster], dtype=np.float64)
+        heights = np.array([float(x["hit"]["height"]) for x in cluster], dtype=np.float64)
         max_h = float(np.max(heights))
-        candidates = [i for i, x in enumerate(cluster) if float(x["hit"]["hit_height"]) == max_h]
+        candidates = [i for i, x in enumerate(cluster) if float(x["hit"]["height"]) == max_h]
         if len(candidates) == 1:
             anchor_idx = candidates[0]
         else:
             anchor_idx = min(
                 candidates,
-                key=lambda i: int(cluster[i]["hit"]["hit_timestamp_ps"]),
+                key=lambda i: int(cluster[i]["hit"]["timestamp"]),
             )
 
         anchor = cluster[anchor_idx]["hit"]
-        anchor_pos = float(anchor["hit_sample_idx"])
-        anchor_ts = float(anchor["hit_timestamp_ps"])
+        anchor_pos = float(anchor["position"])
+        anchor_ts = float(anchor["timestamp"])
 
         merged_edge_start = anchor_pos + (cluster_start_ps - anchor_ts) / dt_ps
         merged_edge_end = anchor_pos + (cluster_end_ps - anchor_ts) / dt_ps
-        merged_integral = float(np.sum([float(x["hit"]["hit_area"]) for x in cluster]))
+        merged_integral = float(np.sum([float(x["hit"]["integral"]) for x in cluster]))
 
         return (
-            int(anchor["hit_sample_idx"]),
+            int(anchor["position"]),
             max_h,
             merged_integral,
             float(merged_edge_start),
             float(merged_edge_end),
-            int(anchor["hit_timestamp_ps"]),
+            int(anchor["timestamp"]),
+            int(anchor["board"]) if "board" in anchor.dtype.names else 0,
             int(anchor["channel"]),
-            int(anchor["record_index"]),
+            int(anchor["event_index"]),
         )
