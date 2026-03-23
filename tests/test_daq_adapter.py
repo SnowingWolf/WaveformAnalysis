@@ -10,8 +10,10 @@ DAQ 适配器层测试
 
 from pathlib import Path
 
+import numpy as np
 import pytest
 
+from waveform_analysis.core.processing.records_builder import build_records_from_v1725_files
 from waveform_analysis.utils.formats import (
     FLAT_LAYOUT,
     VX2730_ADAPTER,
@@ -21,6 +23,7 @@ from waveform_analysis.utils.formats import (
     FormatSpec,
     GenericCSVReader,
     TimestampUnit,
+    V1725Reader,
     VX2730Reader,
     get_adapter,
     get_format_reader,
@@ -165,6 +168,73 @@ H2
         assert extracted["channel"][0] == 1
         assert extracted["timestamp"][0] == 1000
         assert extracted["samples"].shape[1] > 0
+
+
+def _make_v1725_single_wave_blob(
+    *,
+    channel: int = 0,
+    timestamp: int = 1234,
+    baseline: int = 321,
+    trunc: bool = False,
+    samples: np.ndarray | None = None,
+) -> bytes:
+    if samples is None:
+        samples = np.array([11, 12], dtype=np.int16)
+    samples = np.asarray(samples, dtype=np.int16)
+    payload = samples.tobytes()
+
+    event_header = bytearray(16)
+    channel_mask = 1 << int(channel)
+    event_header[4] = channel_mask & 0xFF
+    event_header[11] = (channel_mask >> 8) & 0xFF
+
+    ch_header = bytearray(12)
+    ch_size = 3 + (len(payload) // 4)
+    ch_header[0] = ch_size & 0xFF
+    ch_header[1] = (ch_size >> 8) & 0xFF
+    ch_header[2] = (ch_size >> 16) & 0x3F
+    if trunc:
+        ch_header[3] |= 0x40
+    ch_header[4:10] = int(timestamp).to_bytes(6, byteorder="little", signed=False)
+    ch_header[10:12] = int(baseline).to_bytes(2, byteorder="little", signed=False)
+    return bytes(event_header + ch_header + payload)
+
+
+class TestV1725Reader:
+    def test_iter_waves_extracts_board_from_bseg_filename(self, tmp_path: Path):
+        raw = tmp_path / "test_raw_b7_seg0.bin"
+        raw.write_bytes(_make_v1725_single_wave_blob(channel=1, timestamp=77, baseline=555))
+
+        reader = V1725Reader()
+        waves = list(reader.iter_waves([raw]))
+
+        assert len(waves) == 1
+        assert waves[0].board == 7
+        assert waves[0].channel == 1
+        assert waves[0].timestamp == 77
+        assert waves[0].baseline == 555
+
+    def test_iter_waves_legacy_name_defaults_board_zero(self, tmp_path: Path):
+        raw = tmp_path / "CH1_0.bin"
+        raw.write_bytes(_make_v1725_single_wave_blob(channel=1, timestamp=88, baseline=444))
+
+        reader = V1725Reader()
+        waves = list(reader.iter_waves([raw]))
+
+        assert len(waves) == 1
+        assert waves[0].board == 0
+
+    def test_build_records_from_v1725_files_keeps_board_from_filename(self, tmp_path: Path):
+        raw0 = tmp_path / "test_raw_b3_seg0.bin"
+        raw1 = tmp_path / "test_raw_b4_seg1.bin"
+        raw0.write_bytes(_make_v1725_single_wave_blob(channel=0, timestamp=10, baseline=100))
+        raw1.write_bytes(_make_v1725_single_wave_blob(channel=1, timestamp=20, baseline=200))
+
+        bundle = build_records_from_v1725_files([str(raw0), str(raw1)], dt_ns=4)
+
+        assert len(bundle.records) == 2
+        np.testing.assert_array_equal(bundle.records["board"], np.array([3, 4], dtype=np.int16))
+        np.testing.assert_array_equal(bundle.records["channel"], np.array([0, 1], dtype=np.int16))
 
 
 class TestDAQAdapter:

@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `basic_features` |
-| **Version** | `3.3.0` |
+| **Version** | `3.4.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -24,6 +24,9 @@ This plugin has no dependencies.
 | `height_range` | `tuple` | `(40, 90)` | - | 高度计算范围 (start, end) |
 | `area_range` | `tuple` | `(0, None)` | - | 面积计算范围 (start, end)，end=None 表示积分到波形末端 |
 | `use_filtered` | `bool` | `False` | - | 是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin） |
+| `wave_source` | `str` | `auto` | - | 波形数据源: auto|records|st_waveforms|filtered_waveforms |
+| `polarity` | `str` | `auto` | - | 信号极性: auto | positive | negative |
+| `channel_metadata` | `dict` | `None` | - | 每通道元数据映射（支持 run_id 分层），用于按通道选择 polarity |
 | `fixed_baseline` | `dict` | `None` | - | 按通道固定 baseline 值，如 {0: 8192, 1: 8200}。设置后覆盖动态 baseline 用于 height/area 计算。 |
 
 

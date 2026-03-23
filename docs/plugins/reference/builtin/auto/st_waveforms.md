@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `st_waveforms` |
-| **Version** | `0.5.0` |
+| **Version** | `0.6.0` |
 | **Category** | 波形处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -29,7 +29,7 @@ This plugin has no dependencies.
 | `chunksize` | `int` | `None` | - | Chunk size for CSV reading (None=read entire file, enables PyArrow; set value to enable chunked reading but disables PyArrow) |
 | `parse_engine` | `str` | `auto` | - | CSV engine: auto | polars | pyarrow | pandas |
 | `use_upstream_baseline` | `bool` | `False` | - | Whether to use baseline from upstream plugin (requires 'baseline' data). |
-| `baseline_samples` | `any` | `None` | - | Baseline range: int (sample count from adapter start) or tuple (start, end) relative to samples_start. None=adapter default. |
+| `baseline_samples` | `any` | `None` | - | Baseline range: int (sample count from adapter start) or tuple (start, end) relative to samples_start. JSON lists like [0, 800] are also accepted. None=adapter default. |
 | `streaming_mode` | `bool` | `False` | - | Enable streaming mode: read files and structure waveforms incrementally to reduce memory usage. When enabled, uses memmap for output to avoid full vstack memory overhead. |
 
 
@@ -44,6 +44,7 @@ This plugin has no dependencies.
 | `timestamp` | `int64` | - | - |
 | `dt` | `int32` | - | - |
 | `event_length` | `int32` | - | - |
+| `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |
 | `wave` | `('<i2', (1500,))` | - | - |
 

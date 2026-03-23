@@ -46,6 +46,7 @@ This plugin depends on the following data:
 | `timestamp` | `int64` | - | - |
 | `dt` | `int32` | - | - |
 | `event_length` | `int32` | - | - |
+| `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |
 | `wave` | `('<i2', (1500,))` | - | - |
 

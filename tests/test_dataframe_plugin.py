@@ -57,6 +57,7 @@ def _make_records_view():
     records = np.zeros(3, dtype=RECORDS_DTYPE)
     records["timestamp"] = [300, 100, 200]
     records["pid"] = [0, 0, 0]
+    records["board"] = [2, 1, 2]
     records["channel"] = [0, 1, 0]
     records["baseline"] = [100.0, 100.0, 100.0]
     records["wave_offset"] = [0, 2, 4]
@@ -188,7 +189,7 @@ def test_dataframe_plugin_reads_records_view_when_wave_source_records():
     assert list(df["timestamp"]) == [100, 200, 300]
     assert list(df["channel"]) == [1, 0, 0]
     assert list(df["area"]) == [10.0, 20.0, 30.0]
-    np.testing.assert_array_equal(df["board"].to_numpy(), np.zeros(3, dtype=np.int16))
+    np.testing.assert_array_equal(df["board"].to_numpy(), np.array([1, 2, 2], dtype=np.int16))
 
 
 def test_dataframe_plugin_records_requires_basic_features_records_source():

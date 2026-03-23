@@ -9,7 +9,7 @@
 | Provides | `records` |
 | Depends On | `raw_files` |
 | Output Kind | `structured_array` |
-| Version | `0.5.0` |
+| Version | `0.6.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.records` |
 | Accelerator | `cpu` |
 
@@ -23,6 +23,7 @@
 |-------|-------|
 | `timestamp` | `int64` |
 | `pid` | `int32` |
+| `board` | `int16` |
 | `channel` | `int16` |
 | `baseline` | `float64` |
 | `baseline_upstream` | `float64` |

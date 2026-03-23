@@ -8,6 +8,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 import logging
 from pathlib import Path
+import re
 
 import numpy as np
 
@@ -43,6 +44,7 @@ def _one_loc(num: int) -> list[int]:
 @export
 @dataclass
 class V1725Wave:
+    board: int
     channel: int
     timestamp: int
     trunc: bool
@@ -57,12 +59,20 @@ class V1725Reader(FormatReader):
     def __init__(self, spec: FormatSpec | None = None):
         super().__init__(spec or V1725_SPEC)
 
+    @staticmethod
+    def _extract_board_from_path(path: Path) -> int:
+        match = re.search(r"_b(\d+)", path.name, flags=re.IGNORECASE)
+        if not match:
+            return 0
+        return int(match.group(1))
+
     def iter_waves(self, file_paths: list[str | Path]) -> Iterator[V1725Wave]:
         for file_path in file_paths:
             path = Path(file_path)
             if not path.exists():
                 logger.warning("File not found: %s", path)
                 continue
+            board_id = self._extract_board_from_path(path)
 
             with path.open(mode="rb") as f:
                 while True:
@@ -95,6 +105,7 @@ class V1725Reader(FormatReader):
 
                         sig = np.frombuffer(raw_sig, dtype=np.int16)
                         yield V1725Wave(
+                            board=board_id,
                             channel=ch,
                             timestamp=time_stamp,
                             trunc=trunc,
@@ -132,7 +143,11 @@ class V1725Reader(FormatReader):
         if data.dtype.names:
             samples = np.array(data["wave"], dtype=object)
             return {
-                "board": np.zeros(len(data), dtype=int),
+                "board": (
+                    data["board"].astype(int, copy=False)
+                    if "board" in data.dtype.names
+                    else np.zeros(len(data), dtype=int)
+                ),
                 "channel": data["channel"].astype(int, copy=False),
                 "timestamp": data["timestamp"].astype(np.int64, copy=False),
                 "samples": samples,
@@ -150,6 +165,7 @@ class V1725Reader(FormatReader):
 
         dtype = np.dtype(
             [
+                ("board", "i2"),
                 ("channel", "i2"),
                 ("timestamp", "i8"),
                 ("baseline", "f8"),  # 使用 float64 以匹配 RECORD_DTYPE
@@ -159,6 +175,7 @@ class V1725Reader(FormatReader):
         )
         arr = np.empty(len(waves), dtype=dtype)
         for i, wave in enumerate(waves):
+            arr[i]["board"] = wave.board
             arr[i]["channel"] = wave.channel
             arr[i]["timestamp"] = wave.timestamp
             arr[i]["baseline"] = float(wave.baseline)  # 转换为 float64

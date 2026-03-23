@@ -70,7 +70,7 @@ def split_by_channel(st_waveforms: np.ndarray) -> list[tuple[int, np.ndarray]]:
 
 
 def _build_records_from_wave_list(
-    waves: Sequence[tuple[int, int, int, int, np.ndarray]],
+    waves: Sequence[tuple[int, int, int, int, int, np.ndarray]],
     default_dt_ns: int,
 ) -> RecordsBundle:
     if not waves:
@@ -80,9 +80,10 @@ def _build_records_from_wave_list(
     records = np.zeros(total_records, dtype=RECORDS_DTYPE)
     source_idx = np.arange(total_records, dtype=np.int64)
 
-    for i, (channel, timestamp_ps, baseline, flags, waveform) in enumerate(waves):
+    for i, (board, channel, timestamp_ps, baseline, flags, waveform) in enumerate(waves):
         records["timestamp"][i] = timestamp_ps
         records["pid"][i] = 0
+        records["board"][i] = board
         records["channel"][i] = channel
         records["baseline"][i] = baseline
         records["baseline_upstream"][i] = np.nan
@@ -105,7 +106,7 @@ def _build_records_from_wave_list(
 
     wave_cursor = 0
     for idx in range(total_records):
-        wave = waves[int(source_idx[idx])][4]
+        wave = waves[int(source_idx[idx])][5]
         length = int(records["event_length"][idx])
         if length > 0:
             wave_pool[wave_cursor : wave_cursor + length] = _clip_wave_to_uint16(wave[:length])
@@ -150,6 +151,10 @@ def _build_records_from_channels(
                 "st_waveforms missing required 'channel' field; "
                 "cannot derive channel mapping from list indices."
             )
+        if "board" in ch.dtype.names:
+            records["board"][cursor : cursor + count] = ch["board"].astype(np.int16, copy=False)
+        else:
+            records["board"][cursor : cursor + count] = 0
 
         if "baseline" in ch.dtype.names:
             records["baseline"][cursor : cursor + count] = ch["baseline"]
@@ -274,7 +279,9 @@ def build_records_from_v1725_files(
         for wave in reader.iter_waves([file_path]):
             timestamp_ps = int(wave.timestamp) * int(dt_ns) * 1000
             flags = 1 if wave.trunc else 0
-            waves.append((wave.channel, timestamp_ps, wave.baseline, flags, wave.waveform))
+            waves.append(
+                (int(wave.board), wave.channel, timestamp_ps, wave.baseline, flags, wave.waveform)
+            )
         if waves:
             parts.append(_build_records_from_wave_list(waves, default_dt_ns=dt_ns))
 

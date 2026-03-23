@@ -226,7 +226,7 @@ class RecordsPlugin(Plugin):
             help="Sample interval in ns (defaults to adapter rate or 1ns).",
         ),
     }
-    version = "0.5.0"
+    version = "0.6.0"
 
     def get_lineage(self, context: Any) -> dict:
         adapter_name = _resolve_adapter_name(context, self)

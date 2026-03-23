@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `records` |
-| **Version** | `0.5.0` |
+| **Version** | `0.6.0` |
 | **Category** | 记录处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -41,6 +41,7 @@ This plugin depends on the following data:
 |-------|------|-------|-------------|
 | `timestamp` | `int64` | - | - |
 | `pid` | `int32` | - | - |
+| `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |
 | `baseline` | `float64` | - | - |
 | `baseline_upstream` | `float64` | - | - |

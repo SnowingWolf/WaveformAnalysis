@@ -78,6 +78,7 @@ RECORDS_DTYPE = export(
         [
             ("timestamp", "i8"),  # ADC timestamp (ps)
             ("pid", "i4"),  # partition id (tie-breaker)
+            ("board", "i2"),  # board index
             ("channel", "i2"),  # physical channel
             ("baseline", "f8"),  # baseline (computed by WaveformStruct)
             ("baseline_upstream", "f8"),  # baseline from upstream plugin (optional)

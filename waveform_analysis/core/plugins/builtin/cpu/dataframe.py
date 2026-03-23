@@ -208,7 +208,11 @@ class DataFramePlugin(Plugin):
                     "area": np.asarray(basic_features["area"]),
                     "height": np.asarray(basic_features["height"]),
                     "amp": np.asarray(basic_features["amp"]),
-                    "board": np.zeros(len(records), dtype=np.int16),
+                    "board": (
+                        np.asarray(records["board"])
+                        if "board" in records.dtype.names
+                        else np.zeros(len(records), dtype=np.int16)
+                    ),
                     "channel": (
                         np.asarray(records["channel"])
                         if "channel" in records.dtype.names

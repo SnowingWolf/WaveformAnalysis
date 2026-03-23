@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `df` |
-| **Version** | `1.3.0` |
+| **Version** | `1.5.0` |
 | **Category** | 数据导出 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -15,16 +15,16 @@
 
 ## Dependencies
 
-This plugin depends on the following data:
-
-- [`st_waveforms`](st_waveforms.md)
-- [`basic_features`](basic_features.md)
+This plugin has no dependencies.
 
 ## Configuration Options
 
 | Option | Type | Default | Units | Description |
 |--------|------|---------|-------|-------------|
-| `gain_adc_per_pe` | `dict` | `None` | - | 按通道配置 ADC/PE 增益，如 {0: 12.5, 1: 13.2}。显式设置优先；未显式设置时可从 `<run_config_path>` 的 `calibration.gain_adc_per_pe` 读取。 |
+| `use_filtered` | `bool` | `False` | - | 是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin） |
+| `wave_source` | `str` | `auto` | - | 波形数据源: auto|records|st_waveforms|filtered_waveforms |
+| `gain_adc_per_pe` | `dict` | `None` | - | 按通道配置 ADC/PE 增益，如 {0: 12.5, 1: 13.2}。设置后会新增 area_pe/height_pe 列。 |
+
 
 
 ## Usage Example
@@ -36,6 +36,13 @@ from waveform_analysis.core.plugins.builtin.cpu import DataFramePlugin
 # Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(DataFramePlugin())
+
+# Configure plugin (optional)
+ctx.set_config({
+    "use_filtered": False,
+    "wave_source": 'auto',
+    "gain_adc_per_pe": None,
+}, plugin_name="df")
 
 # Get data
 data = ctx.get_data("run_001", "df")

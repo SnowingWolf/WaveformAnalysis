@@ -29,7 +29,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `structured_array` | `2.4.0` |
 | [`hit`](hit.md) | `HitFinderPlugin` | - | `structured_array` | `2.2.0` |
 | [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | `unknown` | `0.0.2` |
-| [`records`](records.md) | `RecordsPlugin` | `raw_files` | `structured_array` | `0.5.0` |
+| [`records`](records.md) | `RecordsPlugin` | `raw_files` | `structured_array` | `0.6.0` |
 | [`s1_s2`](s1_s2.md) | `S1S2ClassifierPlugin` | `waveform_width`, `basic_features` | `structured_array` | `0.2.0` |
 | [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | - | `structured_array` | `0.6.0` |
 | [`waveform_width`](waveform_width.md) | `WaveformWidthPlugin` | - | `structured_array` | `2.1.0` |
