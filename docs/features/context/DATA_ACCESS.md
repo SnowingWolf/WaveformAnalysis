@@ -225,6 +225,27 @@ data = ctx.time_range(
 stats = ctx.get_time_index_stats()
 ```
 
+按通道筛选时有两种模式：
+
+- **legacy list-of-arrays 数据**：`channel` 仍然是整数索引
+- **flat structured array 数据**：必须显式给出硬件通道，例如 `"0:3"`、`(0, 3)` 或 `HardwareChannel(0, 3)`
+
+```python
+# 对 flat array（如 st_waveforms/basic_features/hit）按硬件通道筛选
+ch03 = ctx.time_range(
+    run_id="run_001",
+    data_name="st_waveforms",
+    start_time=1_000_000,
+    end_time=2_000_000,
+    channel="0:3",
+)
+```
+
+注意：
+
+- `channel` 字段现在只表示板内通道号，不再保证全局唯一
+- 多板卡数据上如果只传裸 `channel=3`，`time_range()` 会拒绝执行，避免把不同 `board` 的同号通道混在一起
+
 ## 批量获取
 
 ### 多个数据名称

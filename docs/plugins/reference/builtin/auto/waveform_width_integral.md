@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `waveform_width_integral` |
-| **Version** | `2.3.0` |
+| **Version** | `2.4.0` |
 | **Category** | 波形处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -29,7 +29,8 @@ This plugin has no dependencies.
 | `sampling_rate` | `float` | `0.5` | - | 采样率（GHz），用于换算时间（ns） |
 | `dt` | `float` | `None` | - | 采样间隔（ns），优先级高于 sampling_rate |
 | `daq_adapter` | `str` | `None` | - | DAQ 适配器名称（用于自动推断采样率） |
-| `channel_metadata` | `dict` | `None` | - | 每通道元数据映射（支持 run_id 分层），用于按通道选择 polarity |
+| `channel_metadata` | `dict` | `None` | - | 已废弃；行为配置请改用 channel_config。 |
+| `channel_config` | `dict` | `None` | - | 按 (board, channel) 的插件通道覆盖配置，可覆盖 polarity。 |
 
 
 ## Output Schema

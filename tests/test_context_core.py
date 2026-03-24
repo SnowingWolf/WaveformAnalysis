@@ -807,7 +807,7 @@ def test_context_time_range_builds_index_single_array(tmp_path):
 
 def test_context_time_range_builds_index_channel_field(tmp_path):
     """Test building time index via time_range for multi-channel data in a single array."""
-    dtype = np.dtype([("time", "<i8"), ("channel", "<i2"), ("value", "<f8")])
+    dtype = np.dtype([("time", "<i8"), ("board", "<i2"), ("channel", "<i2"), ("value", "<f8")])
 
     class MultiChannelPlugin(Plugin):
         provides = "multi_channel_data"
@@ -816,10 +816,10 @@ def test_context_time_range_builds_index_channel_field(tmp_path):
         def compute(self, context, run_id, **kwargs):
             return np.array(
                 [
-                    (100, 0, 1.0),
-                    (200, 0, 2.0),
-                    (150, 1, 1.5),
-                    (250, 1, 2.5),
+                    (100, 0, 0, 1.0),
+                    (200, 0, 0, 2.0),
+                    (150, 0, 1, 1.5),
+                    (250, 0, 1, 2.5),
                 ],
                 dtype=dtype,
             )
@@ -836,8 +836,9 @@ def test_context_time_range_builds_index_channel_field(tmp_path):
     assert stats["indices"]["run1.multi_channel_data"]["n_records"] == 4
 
     # Channel filter should work on the flat array
-    ch1 = ctx.time_range("run1", "multi_channel_data", channel=1)
+    ch1 = ctx.time_range("run1", "multi_channel_data", channel="0:1")
     assert len(ch1) == 2
+    assert np.all(ch1["board"] == 0)
     assert np.all(ch1["channel"] == 1)
 
 

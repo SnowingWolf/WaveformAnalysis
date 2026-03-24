@@ -11,6 +11,10 @@ from dataclasses import dataclass
 import numpy as np
 
 from waveform_analysis.core.foundation.utils import exporter
+from waveform_analysis.core.hardware.channel import (
+    HardwareChannel,
+    group_indices_by_hardware_channel,
+)
 from waveform_analysis.core.processing.dtypes import (
     EVENTS_DTYPE as _EVENTS_DTYPE,
 )
@@ -42,31 +46,29 @@ def _clip_wave_to_uint16(wave: np.ndarray) -> np.ndarray:
 
 
 @export
-def split_by_channel(st_waveforms: np.ndarray) -> list[tuple[int, np.ndarray]]:
-    """
-    Split a structured array into per-channel views, preserving per-channel order.
-
-    Returns a list of (channel, array) pairs sorted by channel.
-    """
+def split_by_hardware_channel(st_waveforms: np.ndarray) -> list[tuple[HardwareChannel, np.ndarray]]:
+    """Split a structured array into per-hardware-channel views."""
     if st_waveforms is None or len(st_waveforms) == 0:
         return []
     if not isinstance(st_waveforms, np.ndarray) or st_waveforms.dtype.names is None:
         raise ValueError("st_waveforms must be a structured numpy array")
-    if "channel" not in st_waveforms.dtype.names:
-        raise ValueError("st_waveforms missing required 'channel' field")
+    if "board" not in st_waveforms.dtype.names or "channel" not in st_waveforms.dtype.names:
+        raise ValueError("st_waveforms missing required 'board'/'channel' fields")
 
-    channels = st_waveforms["channel"]
-    order = np.argsort(channels, kind="mergesort")
-    sorted_arr = st_waveforms[order]
-    sorted_channels = channels[order]
-    unique_channels, start_idx = np.unique(sorted_channels, return_index=True)
+    groups = group_indices_by_hardware_channel(st_waveforms["board"], st_waveforms["channel"])
+    return [(hw_channel, st_waveforms[indices]) for hw_channel, indices in groups.items()]
 
-    groups: list[tuple[int, np.ndarray]] = []
-    for idx, ch in enumerate(unique_channels):
-        start = start_idx[idx]
-        end = start_idx[idx + 1] if idx + 1 < len(start_idx) else len(sorted_arr)
-        groups.append((int(ch), sorted_arr[start:end]))
-    return groups
+
+@export
+def split_by_channel(st_waveforms: np.ndarray) -> list[tuple[int, np.ndarray]]:
+    """Backward-compatible helper for single-board inputs only."""
+    groups = split_by_hardware_channel(st_waveforms)
+    if any(hw_channel.board != 0 for hw_channel, _ in groups):
+        raise ValueError(
+            "split_by_channel no longer supports multi-board data; use "
+            "split_by_hardware_channel instead."
+        )
+    return [(hw_channel.channel, group) for hw_channel, group in groups]
 
 
 def _build_records_from_wave_list(
@@ -97,7 +99,9 @@ def _build_records_from_wave_list(
         records["time"][i] = int(timestamp_ps // 1000)
 
     seq = np.arange(total_records, dtype=np.int64)
-    order = np.lexsort((seq, records["channel"], records["pid"], records["timestamp"]))
+    order = np.lexsort(
+        (seq, records["channel"], records["board"], records["pid"], records["timestamp"])
+    )
     records = records[order]
     source_idx = source_idx[order]
 
@@ -118,7 +122,7 @@ def _build_records_from_wave_list(
 
 
 def _build_records_from_channels(
-    channels: Sequence[tuple[np.ndarray, int]], default_dt_ns: int
+    channels: Sequence[tuple[np.ndarray, HardwareChannel]], default_dt_ns: int
 ) -> RecordsBundle:
     if not channels:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
@@ -132,7 +136,7 @@ def _build_records_from_channels(
     source_row = np.zeros(total_records, dtype=np.int64)
 
     cursor = 0
-    for local_idx, (ch, _channel_fallback) in enumerate(channels):
+    for local_idx, (ch, hw_channel) in enumerate(channels):
         count = len(ch)
         if count == 0:
             continue
@@ -147,14 +151,11 @@ def _build_records_from_channels(
         if "channel" in ch.dtype.names:
             records["channel"][cursor : cursor + count] = ch["channel"]
         else:
-            raise ValueError(
-                "st_waveforms missing required 'channel' field; "
-                "cannot derive channel mapping from list indices."
-            )
+            records["channel"][cursor : cursor + count] = hw_channel.channel
         if "board" in ch.dtype.names:
             records["board"][cursor : cursor + count] = ch["board"].astype(np.int16, copy=False)
         else:
-            records["board"][cursor : cursor + count] = 0
+            records["board"][cursor : cursor + count] = hw_channel.board
 
         if "baseline" in ch.dtype.names:
             records["baseline"][cursor : cursor + count] = ch["baseline"]
@@ -206,7 +207,9 @@ def _build_records_from_channels(
         cursor += count
 
     seq = np.arange(total_records, dtype=np.int64)
-    order = np.lexsort((seq, records["channel"], records["pid"], records["timestamp"]))
+    order = np.lexsort(
+        (seq, records["channel"], records["board"], records["pid"], records["timestamp"])
+    )
     records = records[order]
     records["record_id"] = np.arange(total_records, dtype=np.int64)
     source_channel = source_channel[order]
@@ -252,9 +255,9 @@ def build_records_from_st_waveforms(
     """
     Build records + wave_pool from st_waveforms.
 
-    Baseline implementation: single pass, sorted by (timestamp, pid, channel).
+    Baseline implementation: single pass, sorted by (timestamp, pid, board, channel).
     """
-    channels = [(arr, ch) for ch, arr in split_by_channel(st_waveforms)]
+    channels = [(arr, hw_channel) for hw_channel, arr in split_by_hardware_channel(st_waveforms)]
     return _build_records_from_channels(channels, default_dt_ns=default_dt_ns)
 
 
@@ -297,7 +300,7 @@ def merge_records_parts(parts: Sequence[RecordsBundle]) -> RecordsBundle:
     """
     Merge sorted records parts and build a global wave_pool.
 
-    Each part must have records sorted by (timestamp, pid, channel).
+    Each part must have records sorted by (timestamp, pid, board, channel).
     """
     if not parts:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
@@ -321,13 +324,20 @@ def merge_records_parts(parts: Sequence[RecordsBundle]) -> RecordsBundle:
         if len(part.records) == 0:
             continue
         rec = part.records[0]
-        key = (int(rec["timestamp"]), int(rec["pid"]), int(rec["channel"]), part_idx, 0)
+        key = (
+            int(rec["timestamp"]),
+            int(rec["pid"]),
+            int(rec["board"]),
+            int(rec["channel"]),
+            part_idx,
+            0,
+        )
         heapq.heappush(heap, key)
 
     out_idx = 0
     wave_cursor = 0
     while heap:
-        _, _, _, part_idx, row_idx = heapq.heappop(heap)
+        _, _, _, _, part_idx, row_idx = heapq.heappop(heap)
         part = parts[part_idx]
         rec = part.records[row_idx]
         length = int(rec["event_length"])
@@ -351,6 +361,7 @@ def merge_records_parts(parts: Sequence[RecordsBundle]) -> RecordsBundle:
             key = (
                 int(next_rec["timestamp"]),
                 int(next_rec["pid"]),
+                int(next_rec["board"]),
                 int(next_rec["channel"]),
                 part_idx,
                 next_row,
@@ -381,7 +392,7 @@ def build_records_from_st_waveforms_sharded(
         return build_records_from_st_waveforms(st_waveforms, default_dt_ns=default_dt_ns)
 
     parts: list[RecordsBundle] = []
-    for ch_idx, ch in split_by_channel(st_waveforms):
+    for hw_channel, ch in split_by_hardware_channel(st_waveforms):
         count = len(ch)
         if count == 0:
             continue
@@ -389,7 +400,7 @@ def build_records_from_st_waveforms_sharded(
         while start < count:
             stop = min(count, start + part_size)
             part = _build_records_from_channels(
-                [(ch[start:stop], ch_idx)],
+                [(ch[start:stop], hw_channel)],
                 default_dt_ns=default_dt_ns,
             )
             if len(part.records) > 0:

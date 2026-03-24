@@ -87,24 +87,24 @@ st_waveforms = ctx.get_data("run_001", "st_waveforms")
 # 获取所有已注册插件提供的数据名称
 data_names = ctx.list_provided_data()
 print(data_names)
-# ['raw_files', 'waveforms', 'st_waveforms', 'features', ...]
+# ['raw_files', 'st_waveforms', 'basic_features', 'df', ...]
 ```
 
 ### 检查插件是否已注册
 
 ```python
 # 检查特定数据是否可用
-if "waveforms" in ctx.list_provided_data():
-    data = ctx.get_data("run_001", "waveforms")
+if "st_waveforms" in ctx.list_provided_data():
+    data = ctx.get_data("run_001", "st_waveforms")
 else:
-    print("waveforms 插件未注册")
+    print("st_waveforms 插件未注册")
 ```
 
 ### 获取插件实例
 
 ```python
 # 通过数据名称获取插件实例
-plugin = ctx._plugins.get("waveforms")
+plugin = ctx._plugins.get("st_waveforms")
 if plugin:
     print(f"插件类: {plugin.__class__.__name__}")
     print(f"版本: {plugin.version}")
@@ -121,7 +121,7 @@ if plugin:
 # 获取执行计划（按依赖顺序）
 plan = ctx.resolve_dependencies("paired_events")
 print(plan)
-# ['raw_files', 'waveforms', 'st_waveforms', 'features', 'dataframe', 'paired_events']
+# ['raw_files', 'st_waveforms', 'basic_features', 'df', 'df_events', 'df_paired']
 
 # 可视化依赖关系
 ctx.plot_lineage("paired_events")

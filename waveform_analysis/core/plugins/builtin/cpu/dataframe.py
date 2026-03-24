@@ -13,6 +13,11 @@ from typing import Any
 
 import numpy as np
 
+from waveform_analysis.core.hardware.channel import (
+    get_gain_adc_per_pe,
+    resolve_channel_value_map,
+    unique_hardware_channels,
+)
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     WAVE_SOURCE_AUTO,
     WAVE_SOURCE_FILTERED,
@@ -32,8 +37,9 @@ class DataFramePlugin(Plugin):
 
     provides = "df"
     depends_on = []  # dynamic, resolved by resolve_depends_on
-    version = "1.5.0"
+    version = "1.6.0"
     save_when = "always"
+    uses_run_config = True
     options = {
         "use_filtered": Option(
             default=False,
@@ -49,7 +55,8 @@ class DataFramePlugin(Plugin):
             default=None,
             type=dict,
             help=(
-                "按通道配置 ADC/PE 增益，如 {0: 12.5, 1: 13.2}。"
+                '按硬件通道配置 ADC/PE 增益，键请使用 "board:channel"，'
+                '例如 {"0:0": 12.5, "0:1": 13.2}。'
                 "设置后会新增 area_pe/height_pe 列。"
             ),
         ),
@@ -72,18 +79,15 @@ class DataFramePlugin(Plugin):
     @staticmethod
     def _normalize_gain_map(gain_adc_per_pe: Any) -> dict:
         """
-        标准化并校验增益映射。
+        标准化增益映射原始结构。
 
         Returns:
-            dict: {channel(int): gain(float)}，仅包含有效的正增益。
+            dict: dict-like gain config.
         """
         if not isinstance(gain_adc_per_pe, dict):
             return {}
-
-        gain_map = {}
         for channel, gain in gain_adc_per_pe.items():
             try:
-                channel_int = int(channel)
                 gain_float = float(gain)
             except (TypeError, ValueError):
                 logger.warning(
@@ -93,12 +97,10 @@ class DataFramePlugin(Plugin):
             if gain_float <= 0:
                 logger.warning(
                     "df.gain_adc_per_pe[%s]=%s is non-positive; calibrated columns will be NaN for this channel",
-                    channel_int,
+                    channel,
                     gain_float,
                 )
-                continue
-            gain_map[channel_int] = gain_float
-        return gain_map
+        return dict(gain_adc_per_pe)
 
     @staticmethod
     def _extract_gain_from_run_config(run_config: Any) -> Any:
@@ -116,7 +118,12 @@ class DataFramePlugin(Plugin):
 
         return None
 
-    def _resolve_gain_map(self, context: Any, run_id: str) -> tuple[dict, bool]:
+    def _resolve_gain_map(
+        self,
+        context: Any,
+        run_id: str,
+        hardware_channels: list,
+    ) -> tuple[dict, bool]:
         """
         Resolve gain map with precedence:
         explicit config > run_config.json > none.
@@ -137,11 +144,29 @@ class DataFramePlugin(Plugin):
 
         if explicit_config:
             if isinstance(gain_adc_per_pe, dict):
-                return self._normalize_gain_map(gain_adc_per_pe), bool(gain_adc_per_pe)
+                return (
+                    resolve_channel_value_map(
+                        channel_config=self._normalize_gain_map(gain_adc_per_pe),
+                        run_id=run_id,
+                        channels=hardware_channels,
+                        plugin_name=self.provides,
+                        value_name="gain_adc_per_pe",
+                    ),
+                    bool(gain_adc_per_pe),
+                )
             return {}, False
 
         if isinstance(gain_adc_per_pe, dict) and gain_adc_per_pe:
-            return self._normalize_gain_map(gain_adc_per_pe), True
+            return (
+                resolve_channel_value_map(
+                    channel_config=self._normalize_gain_map(gain_adc_per_pe),
+                    run_id=run_id,
+                    channels=hardware_channels,
+                    plugin_name=self.provides,
+                    value_name="gain_adc_per_pe",
+                ),
+                True,
+            )
 
         run_config_getter = getattr(context, "get_run_config", None)
         if callable(run_config_getter):
@@ -149,7 +174,16 @@ class DataFramePlugin(Plugin):
                 run_config = run_config_getter(run_id)
                 run_gain = self._extract_gain_from_run_config(run_config)
                 if isinstance(run_gain, dict):
-                    return self._normalize_gain_map(run_gain), bool(run_gain)
+                    return (
+                        resolve_channel_value_map(
+                            channel_config=self._normalize_gain_map(run_gain),
+                            run_id=run_id,
+                            channels=hardware_channels,
+                            plugin_name=self.provides,
+                            value_name="gain_adc_per_pe",
+                        ),
+                        bool(run_gain),
+                    )
             except Exception as exc:
                 logger.warning(
                     "Failed to resolve gain from run config for run '%s': %s", run_id, exc
@@ -252,12 +286,23 @@ class DataFramePlugin(Plugin):
                 }
             )
 
-        gain_map, enable_calibrated_columns = self._resolve_gain_map(context, run_id)
+        hardware_channels = unique_hardware_channels(
+            df["board"].to_numpy(),
+            df["channel"].to_numpy(),
+        )
+        gain_map, enable_calibrated_columns = self._resolve_gain_map(
+            context,
+            run_id,
+            hardware_channels,
+        )
         if enable_calibrated_columns:
             channels = df["channel"].to_numpy()
+            boards = df["board"].to_numpy()
             gains = np.full(len(df), np.nan, dtype=np.float64)
-            for channel, gain in gain_map.items():
-                gains[channels == channel] = gain
+            for idx in range(len(df)):
+                gain = get_gain_adc_per_pe(gain_map, int(boards[idx]), int(channels[idx]))
+                if gain is not None:
+                    gains[idx] = gain
             df["area_pe"] = np.asarray(df["area"], dtype=np.float64) / gains
             df["height_pe"] = np.asarray(df["height"], dtype=np.float64) / gains
 

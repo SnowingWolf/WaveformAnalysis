@@ -9,7 +9,7 @@
 | Provides | `st_waveforms` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `0.6.0` |
+| Version | `0.7.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.waveforms` |
 | Accelerator | `cpu` |
 

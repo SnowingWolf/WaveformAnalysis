@@ -34,20 +34,21 @@ def _make_records_view():
     return RecordsView(records, wave_pool)
 
 
-def test_waveform_width_integral_channel_metadata_overrides_auto_polarity():
+def test_waveform_width_integral_channel_config_overrides_auto_polarity():
     plugin = WaveformWidthIntegralPlugin()
     st = _make_waveforms()
+    st[0]["board"] = 0
     st[0]["wave"][10:14] = 80
 
     ctx = DummyContext(
         {
             "polarity": "auto",
-            "channel_metadata": {
+            "channel_config": {
                 "run_001": {
-                    "1": {
-                        "polarity": "positive",
-                        "geometry": "detector_a",
-                        "adc_bits": 14,
+                    "channels": {
+                        "0:1": {
+                            "polarity": "positive",
+                        }
                     }
                 }
             },

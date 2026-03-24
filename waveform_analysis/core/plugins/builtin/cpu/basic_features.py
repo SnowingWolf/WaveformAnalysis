@@ -17,6 +17,10 @@ from typing import Any
 import numpy as np
 
 from waveform_analysis.core.foundation.constants import FeatureDefaults
+from waveform_analysis.core.hardware.channel import (
+    HardwareChannel,
+    resolve_effective_channel_config,
+)
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     WAVE_SOURCE_AUTO,
     WAVE_SOURCE_FILTERED,
@@ -26,7 +30,6 @@ from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     resolve_depends_on as resolve_wave_depends_on,
 )
-from waveform_analysis.core.plugins.builtin.cpu.channel_metadata import resolve_channel_metadata
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 BASIC_FEATURES_DTYPE = np.dtype(
@@ -47,7 +50,7 @@ class BasicFeaturesPlugin(Plugin):
 
     provides = "basic_features"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
-    version = "3.5.0"  # 版本升级：输出增加 board 字段
+    version = "3.6.0"  # 版本升级：按 channel_config 严格解析硬件通道配置
     save_when = "always"
     output_dtype = BASIC_FEATURES_DTYPE
     options = {
@@ -77,12 +80,17 @@ class BasicFeaturesPlugin(Plugin):
         "channel_metadata": Option(
             default=None,
             type=dict,
-            help="每通道元数据映射（支持 run_id 分层），用于按通道选择 polarity",
+            help="已废弃；行为配置请改用 channel_config。",
         ),
         "fixed_baseline": Option(
             default=None,
             type=dict,
-            help="按通道固定 baseline 值，如 {0: 8192, 1: 8200}。设置后覆盖动态 baseline 用于 height/area 计算。",
+            help="已废弃；按硬件通道固定 baseline 请改用 channel_config。",
+        ),
+        "channel_config": Option(
+            default=None,
+            type=dict,
+            help="按 (board, channel) 的插件通道覆盖配置，可覆盖 polarity/fixed_baseline。",
         ),
     }
 
@@ -104,27 +112,23 @@ class BasicFeaturesPlugin(Plugin):
         use_filtered = bool(context.get_config(self, "use_filtered"))
         source = resolve_wave_source(context, self)
         polarity = context.get_config(self, "polarity")
-        channel_metadata_cfg = context.get_config(self, "channel_metadata")
+        channel_config_cfg = context.get_config(self, "channel_config")
 
         height_range = context.get_config(self, "height_range")
         area_range = context.get_config(self, "area_range")
 
         start_p, end_p = height_range
         start_c, end_c = area_range
-        fixed_baseline = context.get_config(self, "fixed_baseline")
-        fixed_by_channel = {}
-        if fixed_baseline:
-            fixed_by_channel = {int(ch): float(val) for ch, val in fixed_baseline.items()}
         if polarity not in ("auto", "positive", "negative"):
             raise ValueError(f"不支持的 polarity: {polarity}")
 
         def resolve_effective_polarity(
-            channel: int,
+            hw_channel: HardwareChannel,
             wave: np.ndarray,
             baseline: float,
-            channel_meta: dict[int, dict[str, Any]],
+            effective_rule: dict[str, Any],
         ) -> str:
-            channel_polarity = channel_meta.get(channel, {}).get("polarity", "unknown")
+            channel_polarity = effective_rule.get("polarity", "unknown")
             if channel_polarity in ("positive", "negative"):
                 return channel_polarity
             if polarity in ("positive", "negative"):
@@ -152,24 +156,30 @@ class BasicFeaturesPlugin(Plugin):
                 if "board" in records.dtype.names
                 else np.zeros(len(records), dtype=np.int16)
             )
-            if channel_metadata_cfg is not None:
-                channel_meta = resolve_channel_metadata(
-                    channel_metadata=channel_metadata_cfg,
-                    run_id=run_id,
-                    channels=np.unique(channels).tolist(),
-                    plugin_name=self.provides,
-                )
-            else:
-                channel_meta = {}
-
             features = np.zeros(len(records), dtype=BASIC_FEATURES_DTYPE)
             for idx, rec in enumerate(records):
+                board = int(boards[idx])
                 ch = int(rec["channel"]) if "channel" in records.dtype.names else 0
-                baseline = fixed_by_channel.get(ch, float(rec["baseline"]))
+                hw_channel = HardwareChannel(board=board, channel=ch)
+                effective_rule = resolve_effective_channel_config(
+                    context=context,
+                    plugin=self,
+                    run_id=run_id,
+                    board=board,
+                    channel=ch,
+                    base_values={"polarity": polarity, "fixed_baseline": None},
+                    channel_config=channel_config_cfg,
+                ).values
+                fixed_baseline = effective_rule.get("fixed_baseline")
+                baseline = (
+                    float(rec["baseline"]) if fixed_baseline is None else float(fixed_baseline)
+                )
                 wave = rv.wave(idx)
                 wave_p = wave[start_p:end_p]
                 wave_c = wave[start_c:end_c]
-                effective_polarity = resolve_effective_polarity(ch, wave, baseline, channel_meta)
+                effective_polarity = resolve_effective_polarity(
+                    hw_channel, wave, baseline, effective_rule
+                )
 
                 if wave_p.size > 0:
                     w_min = float(np.min(wave_p))
@@ -189,7 +199,7 @@ class BasicFeaturesPlugin(Plugin):
                         features["area"][idx] = float(np.sum(baseline64 - wave_c64))
 
                 features["timestamp"][idx] = int(rec["timestamp"])
-                features["board"][idx] = int(boards[idx])
+                features["board"][idx] = board
                 features["channel"][idx] = ch
                 features["event_index"][idx] = idx
             return features
@@ -218,21 +228,6 @@ class BasicFeaturesPlugin(Plugin):
             if "channel" in waveform_data.dtype.names
             else np.zeros(len(waveform_data), dtype="i2")
         )
-        if channel_metadata_cfg is not None:
-            channel_meta = resolve_channel_metadata(
-                channel_metadata=channel_metadata_cfg,
-                run_id=run_id,
-                channels=np.unique(channels).tolist(),
-                plugin_name=self.provides,
-            )
-        else:
-            channel_meta = {}
-
-        # 固定 baseline 覆盖
-        if fixed_by_channel:
-            for ch, val in fixed_by_channel.items():
-                mask = channels == int(ch)
-                baselines[mask] = val
         n_events = len(waveform_data)
 
         # 计算 height/amp/area；极性可由 metadata 按通道覆盖。
@@ -245,8 +240,24 @@ class BasicFeaturesPlugin(Plugin):
         for idx in range(n_events):
             wave = waves[idx]
             baseline = float(baselines[idx])
+            board = int(boards[idx])
             ch = int(channels[idx])
-            effective_polarity = resolve_effective_polarity(ch, wave, baseline, channel_meta)
+            hw_channel = HardwareChannel(board=board, channel=ch)
+            effective_rule = resolve_effective_channel_config(
+                context=context,
+                plugin=self,
+                run_id=run_id,
+                board=board,
+                channel=ch,
+                base_values={"polarity": polarity, "fixed_baseline": None},
+                channel_config=channel_config_cfg,
+            ).values
+            fixed_baseline = effective_rule.get("fixed_baseline")
+            if fixed_baseline is not None:
+                baseline = float(fixed_baseline)
+            effective_polarity = resolve_effective_polarity(
+                hw_channel, wave, baseline, effective_rule
+            )
 
             wave_p = waves_p[idx]
             if wave_p.size > 0:

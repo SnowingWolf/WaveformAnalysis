@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 
+from waveform_analysis.core.hardware.channel import iter_hardware_channel_groups
 from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HIT_DTYPE
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
@@ -16,7 +17,7 @@ class HitMergePlugin(Plugin):
     provides = "hit_merged"
     depends_on = ["hit_threshold"]
     description = "Merge nearby threshold hits per channel with time-gap and max-width constraints."
-    version = "0.2.0"
+    version = "0.3.0"
     save_when = "always"
     output_dtype = HIT_DTYPE
 
@@ -60,10 +61,7 @@ class HitMergePlugin(Plugin):
         max_total_width_ps = max_total_width_ns * 1e3
 
         merged_rows: list[tuple] = []
-        channels = np.unique(hits["channel"]) if len(hits) > 0 else np.array([], dtype=np.int16)
-
-        for ch in channels:
-            ch_hits = hits[hits["channel"] == ch]
+        for _hw_channel, ch_hits in iter_hardware_channel_groups(hits):
             if len(ch_hits) == 0:
                 continue
 

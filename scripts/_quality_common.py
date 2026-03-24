@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Shared helpers for agent quality checks."""
 
+from collections.abc import Iterable
 from pathlib import Path
 import tempfile
 import time
 import tracemalloc
-from typing import Dict, Iterable, List, Tuple
 
 
 def create_synthetic_vx2730_run(
@@ -46,7 +46,7 @@ def _build_context(storage_dir: Path, data_root: Path):
     from waveform_analysis.core.plugins.builtin.cpu import (
         BasicFeaturesPlugin,
         DataFramePlugin,
-        EventsPlugin,
+        GroupedEventsPlugin,
         HitFinderPlugin,
         RawFilesPlugin,
         WaveformsPlugin,
@@ -60,7 +60,6 @@ def _build_context(storage_dir: Path, data_root: Path):
             "n_channels": 2,
             "hit.use_filtered": False,
             "basic_features.use_filtered": False,
-            "events.use_filtered": False,
             "show_progress": False,
         },
         stats_mode="detailed",
@@ -70,12 +69,12 @@ def _build_context(storage_dir: Path, data_root: Path):
     ctx.register(HitFinderPlugin())
     ctx.register(BasicFeaturesPlugin())
     ctx.register(DataFramePlugin())
-    ctx.register(EventsPlugin())
+    ctx.register(GroupedEventsPlugin())
     return ctx
 
 
-def run_smoke_chain() -> Dict[str, object]:
-    """Run fixed smoke chain: raw_files -> st_waveforms -> hit -> df -> events."""
+def run_smoke_chain() -> dict[str, object]:
+    """Run fixed smoke chain: raw_files -> st_waveforms -> hit -> df -> df_events."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         data_root = tmp_path / "DAQ"
@@ -88,7 +87,9 @@ def run_smoke_chain() -> Dict[str, object]:
         st_waveforms = ctx.get_data(run_id, "st_waveforms")
         hit = ctx.get_data(run_id, "hit")
         df = ctx.get_data(run_id, "df")
-        events = ctx.get_data(run_id, "events")
+        events = ctx.get_data(run_id, "df_events")
+
+        events_columns = getattr(events, "columns", None)
 
         return {
             "run_id": run_id,
@@ -98,14 +99,14 @@ def run_smoke_chain() -> Dict[str, object]:
             "df_rows": len(df) if df is not None else 0,
             "events_count": len(events) if events is not None else 0,
             "st_waveforms_fields": list(getattr(st_waveforms.dtype, "names", ()) or ()),
-            "events_fields": list(getattr(events.dtype, "names", ()) or ()),
+            "events_fields": list(events_columns) if events_columns is not None else [],
         }
 
 
-def benchmark_hot_targets(targets: Iterable[str], repeats: int = 3) -> Dict[str, Dict[str, float]]:
+def benchmark_hot_targets(targets: Iterable[str], repeats: int = 3) -> dict[str, dict[str, float]]:
     """Benchmark target plugins on deterministic small dataset."""
     targets = list(targets)
-    samples: Dict[str, List[Tuple[float, float]]] = {name: [] for name in targets}
+    samples: dict[str, list[tuple[float, float]]] = {name: [] for name in targets}
 
     for _ in range(repeats):
         for target in targets:
@@ -125,7 +126,7 @@ def benchmark_hot_targets(targets: Iterable[str], repeats: int = 3) -> Dict[str,
 
                 samples[target].append((elapsed, peak / (1024.0 * 1024.0)))
 
-    out: Dict[str, Dict[str, float]] = {}
+    out: dict[str, dict[str, float]] = {}
     for target, vals in samples.items():
         if not vals:
             out[target] = {

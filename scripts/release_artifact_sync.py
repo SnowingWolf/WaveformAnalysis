@@ -8,27 +8,26 @@ import re
 import subprocess
 import sys
 import tempfile
-from typing import Dict, List, Tuple
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 AUTO_DOCS_DIR = PROJECT_ROOT / "docs" / "plugins" / "reference" / "builtin" / "auto"
 AGENT_DOCS_DIR = PROJECT_ROOT / "docs" / "plugins" / "reference" / "agent"
 
 
-def _run(cmd: List[str], cwd: Path = PROJECT_ROOT) -> Tuple[int, str, str]:
+def _run(cmd: list[str], cwd: Path = PROJECT_ROOT) -> tuple[int, str, str]:
     proc = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True)
     return proc.returncode, proc.stdout, proc.stderr
 
 
-def _git_changed_files(base: str, pathspec: str) -> List[str]:
+def _git_changed_files(base: str, pathspec: str) -> list[str]:
     rc, out, err = _run(["git", "diff", "--name-only", base, "--", pathspec])
     if rc != 0:
         raise RuntimeError(f"git diff failed: {err.strip()}")
     return [line.strip() for line in out.splitlines() if line.strip()]
 
 
-def _check_version_and_changelog(base: str) -> Tuple[bool, List[str], Dict[str, object]]:
-    issues: List[str] = []
+def _check_version_and_changelog(base: str) -> tuple[bool, list[str], dict[str, object]]:
+    issues: list[str] = []
 
     pyproject = (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     match = re.search(r'^version\s*=\s*"([^"]+)"', pyproject, flags=re.MULTILINE)
@@ -66,16 +65,16 @@ def _check_version_and_changelog(base: str) -> Tuple[bool, List[str], Dict[str, 
     )
 
 
-def _collect_markdown_files(root: Path) -> Dict[str, str]:
-    files: Dict[str, str] = {}
+def _collect_markdown_files(root: Path) -> dict[str, str]:
+    files: dict[str, str] = {}
     for path in root.rglob("*.md"):
         rel = str(path.relative_to(root))
         files[rel] = path.read_text(encoding="utf-8")
     return files
 
 
-def _compare_docs(expected_dir: Path, actual_dir: Path) -> List[str]:
-    mismatches: List[str] = []
+def _compare_docs(expected_dir: Path, actual_dir: Path) -> list[str]:
+    mismatches: list[str] = []
     if not actual_dir.exists():
         return [f"目录不存在: {actual_dir}"]
 
@@ -97,8 +96,8 @@ def _compare_docs(expected_dir: Path, actual_dir: Path) -> List[str]:
     return mismatches
 
 
-def _check_generated_docs_sync() -> Tuple[bool, Dict[str, object]]:
-    detail: Dict[str, object] = {
+def _check_generated_docs_sync() -> tuple[bool, dict[str, object]]:
+    detail: dict[str, object] = {
         "auto_generation_ok": False,
         "agent_generation_ok": False,
         "auto_mismatches": [],
@@ -150,8 +149,8 @@ def _check_generated_docs_sync() -> Tuple[bool, Dict[str, object]]:
     return ok, detail
 
 
-def _check_doc_sync_and_anchors(base: str) -> Tuple[bool, Dict[str, object]]:
-    detail: Dict[str, object] = {}
+def _check_doc_sync_and_anchors(base: str) -> tuple[bool, dict[str, object]]:
+    detail: dict[str, object] = {}
 
     rc, out, err = _run(["bash", "scripts/check_doc_sync.sh", base])
     detail["doc_sync_rc"] = rc
@@ -172,8 +171,8 @@ def _check_doc_sync_and_anchors(base: str) -> Tuple[bool, Dict[str, object]]:
     return True, detail
 
 
-def _run_key_tests(base: str) -> Tuple[bool, Dict[str, object]]:
-    detail: Dict[str, object] = {}
+def _run_key_tests(base: str) -> tuple[bool, dict[str, object]]:
+    detail: dict[str, object] = {}
 
     schema_cmd = [
         sys.executable,
@@ -194,8 +193,8 @@ def _run_key_tests(base: str) -> Tuple[bool, Dict[str, object]]:
         "-m",
         "pytest",
         "-q",
-        "tests/test_events_plugins.py::test_events_grouped_plugin_chain",
-        "tests/plugins/test_hit_alias_compat.py::test_hit_plugin_supports_signal_peaks_compat_name",
+        "tests/test_events_df_convergence.py::test_legacy_events_grouped_config_migrates_to_df_events_and_globals",
+        "tests/plugins/test_channel_config_resolver.py::test_resolve_channel_configs_rejects_boardless_keys",
     ]
     rc, out, err = _run(pytest_cmd)
     detail["pytest_rc"] = rc
@@ -209,7 +208,7 @@ def _run_key_tests(base: str) -> Tuple[bool, Dict[str, object]]:
 
 def _run_perf_regression(
     base: str, repeats: int, time_thr: float, mem_thr: float
-) -> Tuple[bool, Dict[str, object]]:
+) -> tuple[bool, dict[str, object]]:
     cmd = [
         sys.executable,
         "scripts/performance_regression_check.py",
@@ -237,8 +236,8 @@ def run_release_sync(
     mem_thr: float,
     skip_perf: bool,
     skip_tests: bool,
-) -> Dict[str, object]:
-    checks: List[Dict[str, object]] = []
+) -> dict[str, object]:
+    checks: list[dict[str, object]] = []
 
     ok, issues, detail = _check_version_and_changelog(base)
     checks.append({"name": "version_changelog", "ok": ok, "issues": issues, "detail": detail})
@@ -290,7 +289,7 @@ def run_release_sync(
     }
 
 
-def _print_report(report: Dict[str, object]) -> None:
+def _print_report(report: dict[str, object]) -> None:
     print("=== release_artifact_sync ===")
     print("base: {}".format(report["base"]))
     print()

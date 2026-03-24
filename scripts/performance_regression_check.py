@@ -9,7 +9,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Dict, List, Tuple
 
 from _quality_common import benchmark_hot_targets
 
@@ -49,7 +48,7 @@ def build_context(storage_dir, data_root):
     from waveform_analysis.core.plugins.builtin.cpu import (
         BasicFeaturesPlugin,
         DataFramePlugin,
-        EventsPlugin,
+        GroupedEventsPlugin,
         HitFinderPlugin,
         RawFilesPlugin,
         WaveformsPlugin,
@@ -63,7 +62,6 @@ def build_context(storage_dir, data_root):
             "n_channels": 2,
             "hit.use_filtered": False,
             "basic_features.use_filtered": False,
-            "events.use_filtered": False,
             "show_progress": False,
         },
         stats_mode="off",
@@ -73,7 +71,7 @@ def build_context(storage_dir, data_root):
     ctx.register(HitFinderPlugin())
     ctx.register(BasicFeaturesPlugin())
     ctx.register(DataFramePlugin())
-    ctx.register(EventsPlugin())
+    ctx.register(GroupedEventsPlugin())
     return ctx
 
 
@@ -130,7 +128,7 @@ if __name__ == "__main__":
 """
 
 
-def _run_subprocess_json(cmd: List[str], cwd: Path, env: Dict[str, str]) -> Dict[str, object]:
+def _run_subprocess_json(cmd: list[str], cwd: Path, env: dict[str, str]) -> dict[str, object]:
     proc = subprocess.run(
         cmd,
         cwd=str(cwd),
@@ -148,13 +146,13 @@ def _run_subprocess_json(cmd: List[str], cwd: Path, env: Dict[str, str]) -> Dict
     return json.loads(line)
 
 
-def _run_current(targets: List[str], repeats: int) -> Dict[str, Dict[str, float]]:
+def _run_current(targets: list[str], repeats: int) -> dict[str, dict[str, float]]:
     return benchmark_hot_targets(targets=targets, repeats=repeats)
 
 
 def _run_base(
-    base: str, targets: List[str], repeats: int
-) -> Tuple[Dict[str, Dict[str, float]], str]:
+    base: str, targets: list[str], repeats: int
+) -> tuple[dict[str, dict[str, float]], str]:
     tmpdir = tempfile.mkdtemp(prefix="wa-perf-base-")
     worktree_path = Path(tmpdir) / "worktree"
     fallback_note = ""
@@ -199,11 +197,11 @@ def _pct(before: float, after: float) -> float:
 
 
 def compare(
-    base_report: Dict[str, Dict[str, float]],
-    current_report: Dict[str, Dict[str, float]],
+    base_report: dict[str, dict[str, float]],
+    current_report: dict[str, dict[str, float]],
     time_threshold_pct: float,
     mem_threshold_pct: float,
-) -> Dict[str, object]:
+) -> dict[str, object]:
     targets = sorted(set(base_report.keys()) | set(current_report.keys()))
     rows = []
     regressions = []
@@ -251,7 +249,7 @@ def compare(
     }
 
 
-def _print_report(report: Dict[str, object], base: str) -> None:
+def _print_report(report: dict[str, object], base: str) -> None:
     print("=== performance_regression_check ===")
     print(f"base: {base}")
     print(
@@ -302,8 +300,8 @@ def main() -> int:
     parser.add_argument("--base", default="HEAD", help="Git base ref (default: HEAD)")
     parser.add_argument(
         "--targets",
-        default="st_waveforms,hit,df,events",
-        help="Comma-separated targets (default: st_waveforms,hit,df,events)",
+        default="st_waveforms,hit,df,df_events",
+        help="Comma-separated targets (default: st_waveforms,hit,df,df_events)",
     )
     parser.add_argument("--repeats", type=int, default=2, help="Benchmark repeats per target")
     parser.add_argument("--time-threshold-pct", type=float, default=10.0)

@@ -12,11 +12,12 @@ CPU Filtering Plugin - 使用 scipy 进行波形滤波
 """
 
 import logging
-from typing import Any, List, Optional, Tuple
+from typing import Any, Optional
 
 import numpy as np
 from scipy.signal import butter, savgol_filter, sosfiltfilt
 
+from waveform_analysis.core.hardware.channel import group_indices_by_hardware_channel
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.dtypes import ST_WAVEFORM_DTYPE
 
@@ -56,7 +57,7 @@ class FilteredWaveformsPlugin(Plugin):
     provides = "filtered_waveforms"
     depends_on = ["st_waveforms"]
     description = "Apply filtering to waveforms using Butterworth or Savitzky-Golay filters."
-    version = "2.4.0"
+    version = "2.5.0"
     save_when = "target"
 
     output_dtype = np.dtype(ST_WAVEFORM_DTYPE)  # 默认值；compute() 中会动态更新
@@ -92,9 +93,9 @@ class FilteredWaveformsPlugin(Plugin):
         if filter_type not in ("BW", "SG"):
             raise ValueError(f"不支持的滤波器类型: {filter_type}. 请使用 'BW' 或 'SG'.")
 
-        bw_sos: Optional[np.ndarray] = None
-        sg_window_size: Optional[int] = None
-        sg_poly_order: Optional[int] = None
+        bw_sos: np.ndarray | None = None
+        sg_window_size: int | None = None
+        sg_poly_order: int | None = None
 
         if filter_type == "BW":
             lowcut = float(context.get_config(self, "lowcut"))
@@ -138,9 +139,13 @@ class FilteredWaveformsPlugin(Plugin):
                 sg_window_size += 1
                 logger.warning("SG 窗口大小已调整为奇数: %s", sg_window_size)
             if sg_poly_order >= sg_window_size:
-                raise ValueError(f"SG 多项式阶数 ({sg_poly_order}) 必须小于窗口大小 ({sg_window_size})")
+                raise ValueError(
+                    f"SG 多项式阶数 ({sg_poly_order}) 必须小于窗口大小 ({sg_window_size})"
+                )
 
-            logger.debug("SG 滤波器参数: window_size=%s poly_order=%s", sg_window_size, sg_poly_order)
+            logger.debug(
+                "SG 滤波器参数: window_size=%s poly_order=%s", sg_window_size, sg_poly_order
+            )
 
         st_waveforms = context.get_data(run_id, "st_waveforms")
         if not isinstance(st_waveforms, np.ndarray):
@@ -161,6 +166,11 @@ class FilteredWaveformsPlugin(Plugin):
             raise ValueError("st_waveforms missing required 'wave' field for filtering")
 
         channels = st_waveforms["channel"]
+        boards = (
+            st_waveforms["board"]
+            if "board" in st_waveforms.dtype.names
+            else np.zeros(len(st_waveforms), dtype=np.int16)
+        )
         waveforms_i16 = st_waveforms["wave"]
         if waveforms_i16.ndim != 2:
             raise ValueError("st_waveforms['wave'] must be 2D (n_events, n_samples)")
@@ -183,7 +193,7 @@ class FilteredWaveformsPlugin(Plugin):
                 )
                 return output
 
-        channel_batches = self._build_channel_batches(channels, batch_size)
+        channel_batches = self._build_channel_batches(boards, channels, batch_size)
         if not channel_batches:
             return output
 
@@ -211,7 +221,9 @@ class FilteredWaveformsPlugin(Plugin):
                 max_workers=max_workers,
                 executor_name="filtered_waveforms",
             )
-            for (_channel, batch_indices), filtered_i16 in zip(channel_batches, results):
+            for (_channel, batch_indices), filtered_i16 in zip(
+                channel_batches, results, strict=False
+            ):
                 output["wave"][batch_indices] = filtered_i16
         else:
             # 串行路径：单任务或显式禁用并行
@@ -223,33 +235,39 @@ class FilteredWaveformsPlugin(Plugin):
                     n_samples,
                 )
                 filtered_i16 = _filter_channel(
-                    (waveforms_i16, batch_indices, filter_type, bw_sos, sg_window_size, sg_poly_order)
+                    (
+                        waveforms_i16,
+                        batch_indices,
+                        filter_type,
+                        bw_sos,
+                        sg_window_size,
+                        sg_poly_order,
+                    )
                 )
                 output["wave"][batch_indices] = filtered_i16
 
         return output
 
-    def _build_channel_batches(self, channels: np.ndarray, batch_size: int) -> List[Tuple[int, np.ndarray]]:
-        """将事件按 channel 分组，并按 batch_size 切分为批次索引。"""
+    def _build_channel_batches(
+        self,
+        boards: np.ndarray,
+        channels: np.ndarray,
+        batch_size: int,
+    ) -> list[tuple[tuple[int, int], np.ndarray]]:
+        """将事件按 (board, channel) 分组，并按 batch_size 切分为批次索引。"""
         if channels.size == 0:
             return []
-
-        ordered_indices = np.argsort(channels, kind="stable")
-        sorted_channels = channels[ordered_indices]
-        group_starts = np.flatnonzero(np.r_[True, sorted_channels[1:] != sorted_channels[:-1]])
-        group_ends = np.r_[group_starts[1:], len(ordered_indices)]
-
-        batches: List[Tuple[int, np.ndarray]] = []
-        for start, end in zip(group_starts, group_ends):
-            channel_indices = ordered_indices[start:end]
+        groups = group_indices_by_hardware_channel(boards, channels)
+        batches: list[tuple[tuple[int, int], np.ndarray]] = []
+        for hw_channel, channel_indices in groups.items():
             if channel_indices.size == 0:
                 continue
-            channel = int(sorted_channels[start])
+            channel_key = (int(hw_channel.board), int(hw_channel.channel))
             if batch_size <= 0 or channel_indices.size <= batch_size:
-                batches.append((channel, channel_indices))
+                batches.append((channel_key, channel_indices))
                 continue
             for offset in range(0, channel_indices.size, batch_size):
-                batches.append((channel, channel_indices[offset : offset + batch_size]))
+                batches.append((channel_key, channel_indices[offset : offset + batch_size]))
         return batches
 
     def _has_config(self, context: Any, name: str) -> bool:
@@ -267,7 +285,7 @@ class FilteredWaveformsPlugin(Plugin):
             return True
         return name in config
 
-    def _get_fs_from_adapter(self, daq_adapter: Optional[str], default_value: float) -> float:
+    def _get_fs_from_adapter(self, daq_adapter: str | None, default_value: float) -> float:
         if not daq_adapter:
             return default_value
         try:

@@ -15,6 +15,9 @@ from typing import Any
 
 import numpy as np
 
+from waveform_analysis.core.hardware.channel import (
+    resolve_effective_channel_config,
+)
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     WAVE_SOURCE_AUTO,
     WAVE_SOURCE_FILTERED,
@@ -24,7 +27,6 @@ from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     resolve_depends_on as resolve_wave_depends_on,
 )
-from waveform_analysis.core.plugins.builtin.cpu.channel_metadata import resolve_channel_metadata
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 WAVEFORM_WIDTH_INTEGRAL_DTYPE = np.dtype(
@@ -55,7 +57,7 @@ class WaveformWidthIntegralPlugin(Plugin):
     provides = "waveform_width_integral"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Event-wise integral quantile width using st_waveforms or filtered_waveforms."
-    version = "2.3.0"  # 版本升级：输出增加 board 字段
+    version = "2.4.0"  # 版本升级：按 channel_config 严格解析硬件通道配置
     save_when = "always"
 
     output_dtype = WAVEFORM_WIDTH_INTEGRAL_DTYPE
@@ -96,7 +98,12 @@ class WaveformWidthIntegralPlugin(Plugin):
         "channel_metadata": Option(
             default=None,
             type=dict,
-            help="每通道元数据映射（支持 run_id 分层），用于按通道选择 polarity",
+            help="已废弃；行为配置请改用 channel_config。",
+        ),
+        "channel_config": Option(
+            default=None,
+            type=dict,
+            help="按 (board, channel) 的插件通道覆盖配置，可覆盖 polarity。",
         ),
     }
 
@@ -109,7 +116,7 @@ class WaveformWidthIntegralPlugin(Plugin):
         dt = context.get_config(self, "dt")
         sampling_rate = context.get_config(self, "sampling_rate")
         daq_adapter = context.get_config(self, "daq_adapter")
-        channel_metadata_cfg = context.get_config(self, "channel_metadata")
+        channel_config_cfg = context.get_config(self, "channel_config")
 
         if dt is None:
             if not self._has_config(context, "sampling_rate"):
@@ -134,11 +141,6 @@ class WaveformWidthIntegralPlugin(Plugin):
             records = rv.records
             if len(records) == 0:
                 return np.zeros(0, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE)
-            channels = (
-                records["channel"]
-                if "channel" in records.dtype.names
-                else np.zeros(len(records), dtype=np.int16)
-            )
             records_len = len(records)
 
             def get_wave(i: int) -> np.ndarray:
@@ -173,11 +175,6 @@ class WaveformWidthIntegralPlugin(Plugin):
             if len(waveform_data) == 0:
                 return np.zeros(0, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE)
 
-            channels = (
-                waveform_data["channel"]
-                if "channel" in waveform_data.dtype.names
-                else np.zeros(len(waveform_data), dtype=np.int16)
-            )
             records_len = len(waveform_data)
 
             def get_wave(i: int) -> np.ndarray:
@@ -199,25 +196,25 @@ class WaveformWidthIntegralPlugin(Plugin):
                     return int(waveform_data[i]["board"])
                 return 0
 
-        channel_meta = resolve_channel_metadata(
-            channel_metadata=channel_metadata_cfg,
-            run_id=run_id,
-            channels=np.unique(channels).tolist(),
-            plugin_name=self.provides,
-        )
-
         widths: list[tuple] = []
 
         for event_idx in range(records_len):
             wave = get_wave(event_idx)
             baseline = get_baseline(event_idx)
             channel = get_channel(event_idx)
+            board = get_board(event_idx)
+            effective_rule = resolve_effective_channel_config(
+                context=context,
+                plugin=self,
+                run_id=run_id,
+                board=board,
+                channel=channel,
+                base_values={"polarity": polarity},
+                channel_config=channel_config_cfg,
+            ).values
 
             signal = wave - baseline
-            channel_polarity = channel_meta.get(channel, {}).get("polarity", "unknown")
-            effective_polarity = polarity
-            if effective_polarity == "auto" and channel_polarity in ("positive", "negative"):
-                effective_polarity = channel_polarity
+            effective_polarity = effective_rule.get("polarity", polarity)
 
             if effective_polarity == "positive":
                 x = np.maximum(signal, 0.0)
@@ -249,7 +246,6 @@ class WaveformWidthIntegralPlugin(Plugin):
             t_high = float(t_high_samples * dt)
             width = float(width_samples * dt)
             timestamp = get_timestamp(event_idx)
-            board = get_board(event_idx)
 
             widths.append(
                 (

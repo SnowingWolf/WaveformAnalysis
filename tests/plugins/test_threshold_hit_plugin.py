@@ -217,9 +217,10 @@ def test_threshold_hit_records_empty_returns_empty():
     assert result.dtype == HIT_DTYPE
 
 
-def test_threshold_hit_channel_metadata_overrides_polarity():
+def test_threshold_hit_channel_config_overrides_polarity():
     plugin = ThresholdHitPlugin()
     st = _make_st_waveforms(n_events=1, wave_len=32)
+    st[0]["board"] = 0
     st[0]["channel"] = 1
     st[0]["baseline"] = 0.0
     st[0]["wave"][10:13] = 20
@@ -228,12 +229,12 @@ def test_threshold_hit_channel_metadata_overrides_polarity():
         {
             "threshold": 10.0,
             "polarity": "negative",
-            "channel_metadata": {
+            "channel_config": {
                 "run_001": {
-                    "1": {
-                        "polarity": "positive",
-                        "geometry": "detector_a",
-                        "adc_bits": 14,
+                    "channels": {
+                        "0:1": {
+                            "polarity": "positive",
+                        }
                     }
                 }
             },
@@ -246,27 +247,81 @@ def test_threshold_hit_channel_metadata_overrides_polarity():
     assert int(result[0]["channel"]) == 1
 
 
-def test_threshold_hit_missing_channel_metadata_warns_and_continues():
+def test_threshold_hit_rejects_boardless_channel_config_keys():
     plugin = ThresholdHitPlugin()
-    st = _make_st_waveforms(n_events=2, wave_len=32)
-    st[0]["channel"] = 0
-    st[1]["channel"] = 1
-    st[0]["wave"][5:8] = 80
-    st[1]["wave"][6:9] = 80
+    st = _make_st_waveforms(n_events=1, wave_len=32)
+    st[0]["board"] = 0
+    st[0]["channel"] = 1
+    st[0]["wave"][6:9] = 80
 
     ctx = DummyContext(
         {
             "threshold": 10.0,
             "polarity": "negative",
-            "channel_metadata": {
+            "channel_config": {
                 "run_001": {
-                    "0": {"polarity": "negative"},
+                    "1": {"threshold": 5.0},
                 }
             },
         },
         {"st_waveforms": st},
     )
 
-    with pytest.warns(UserWarning, match="missing/invalid channel_metadata"):
-        result = plugin.compute(ctx, "run_001")
+    with pytest.raises(ValueError, match="Invalid channel key"):
+        plugin.compute(ctx, "run_001")
+
+
+def test_threshold_hit_channel_config_overrides_threshold_per_channel():
+    plugin = ThresholdHitPlugin()
+    st = _make_st_waveforms(n_events=2, wave_len=32)
+    st[0]["board"] = 0
+    st[0]["channel"] = 0
+    st[1]["board"] = 0
+    st[1]["channel"] = 1
+    st[0]["wave"][5:8] = 88
+    st[1]["wave"][6:9] = 88
+
+    ctx = DummyContext(
+        {
+            "threshold": 10.0,
+            "polarity": "negative",
+            "channel_config": {
+                "run_001": {
+                    "0:0": {"threshold": 25.0},
+                    "0:1": {"threshold": 5.0},
+                }
+            },
+        },
+        {"st_waveforms": st},
+    )
+
+    result = plugin.compute(ctx, "run_001")
+
+    assert len(result) == 1
+    assert set(result["channel"].tolist()) == {1}
+
+
+def test_threshold_hit_does_not_merge_same_channel_across_boards():
+    plugin = ThresholdHitPlugin()
+    st = _make_st_waveforms(n_events=2, wave_len=32)
+    st[0]["board"] = 0
+    st[0]["channel"] = 1
+    st[1]["board"] = 1
+    st[1]["channel"] = 1
+    st[0]["wave"][5:8] = 80
+    st[1]["wave"][15:18] = 80
+
+    ctx = DummyContext(
+        {
+            "threshold": 10.0,
+            "polarity": "negative",
+            "left_extension": 0,
+            "right_extension": 0,
+        },
+        {"st_waveforms": st},
+    )
+
+    result = plugin.compute(ctx, "run_001")
+
     assert len(result) == 2
+    assert {(int(row["board"]), int(row["channel"])) for row in result} == {(0, 1), (1, 1)}

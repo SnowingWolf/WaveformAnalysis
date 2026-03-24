@@ -71,6 +71,7 @@ from .records_builder import (
     build_records_from_v1725_files,
     merge_records_parts,
     split_by_channel,
+    split_by_hardware_channel,
 )
 
 _WAVEFORM_COMPAT_EXPORTS = (
@@ -118,6 +119,7 @@ __all__ = [
     "build_records_from_v1725_files",
     "merge_records_parts",
     "split_by_channel",
+    "split_by_hardware_channel",
     # 事件分析
     "EventAnalyzer",
     # Chunk 常量

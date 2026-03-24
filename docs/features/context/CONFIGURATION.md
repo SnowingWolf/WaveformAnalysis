@@ -25,6 +25,55 @@ WaveformAnalysis 提供灵活的配置系统：
 
 ---
 
+## Channel Config 分层模型
+
+当插件需要按硬件通道覆盖 `polarity`、`threshold`、`fixed_baseline`、
+`gain_adc_per_pe` 等行为参数时，统一使用该插件自己的 `channel_config`。
+
+核心规则：
+
+- **唯一键**：硬件通道以 `(board, channel)` 表示
+- **推荐写法**：配置键使用 `"board:channel"`，例如 `"0:3"`
+- **分层顺序**：`defaults` < `groups` < `channels`
+- **行为来源**：插件行为只应由插件标量默认值 + `channel_config` 决定
+- **非法旧写法**：不再接受 boardless key，例如 `1`、`"1"`、`{1: 12.5}`
+
+典型结构：
+
+```python
+ctx.set_config(
+    {
+        "defaults": {
+            "polarity": "negative",
+            "threshold": 20.0,
+        },
+        "groups": [
+            {
+                "name": "outer_ring",
+                "channels": ["0:0", "0:1", "1:0", "1:1"],
+                "config": {"threshold": 28.0},
+            }
+        ],
+        "channels": {
+            "0:7": {"threshold": 16.0},
+            "1:3": {"polarity": "positive", "threshold": 40.0},
+        },
+    },
+    plugin_name="hit",
+)
+```
+
+适用建议：
+
+- `basic_features.channel_config`：按硬件通道覆盖 `polarity`、`fixed_baseline`
+- `hit.channel_config`：按硬件通道覆盖 `polarity`、`threshold`
+- `waveform_width_integral.channel_config`：按硬件通道覆盖 `polarity`
+- `df.gain_adc_per_pe` 或 run 级 `calibration.gain_adc_per_pe`：按硬件通道配置增益，键同样必须是 `"board:channel"`
+
+`channel_metadata` 现在只保留描述性/兼容语义，不再作为行为配置来源。
+
+---
+
 ## Context 初始化配置参考
 
 `Context(config=...)` 中的全局配置会被 Context 或核心模块直接读取。插件级配置请使用
@@ -130,16 +179,35 @@ ctx.set_config({
   },
   "calibration": {
     "gain_adc_per_pe": {
-      "0": 12.5,
-      "1": 13.2
+      "0:0": 12.5,
+      "0:1": 13.2,
+      "1:0": 12.7
     }
   },
-  "plugins": {}
+  "plugins": {
+    "basic_features": {
+      "channel_config": {
+        "defaults": {"polarity": "negative"},
+        "channels": {
+          "0:1": {"fixed_baseline": 8192.0}
+        }
+      }
+    },
+    "hit": {
+      "channel_config": {
+        "defaults": {"threshold": 22.0, "polarity": "negative"},
+        "channels": {
+          "1:0": {"polarity": "positive", "threshold": 35.0}
+        }
+      }
+    }
+  }
 }
 ```
 
 当前 `df` 会读取 `calibration.gain_adc_per_pe`。
 若同时设置了显式配置 `gain_adc_per_pe`，显式配置优先。
+注意这里的 key 必须是 `"board:channel"`；裸通道号已不再支持。
 
 ### 插件特定配置（推荐）
 
@@ -159,6 +227,32 @@ ctx.set_config({
     'peaks.threshold': 50,
     'filtered_waveforms.filter_type': 'SG'
 })
+```
+
+对于按硬件通道差异化的插件，推荐直接把 `channel_config` 放在对应插件命名空间内：
+
+```python
+ctx.set_config(
+    {
+        "hit": {
+            "threshold": 24.0,
+            "channel_config": {
+                "defaults": {"polarity": "negative"},
+                "channels": {
+                    "0:0": {"threshold": 18.0},
+                    "1:0": {"polarity": "positive", "threshold": 36.0},
+                },
+            },
+        },
+        "basic_features": {
+            "channel_config": {
+                "channels": {
+                    "0:0": {"fixed_baseline": 8192.0},
+                }
+            }
+        },
+    }
+)
 ```
 
 ### 批量设置
@@ -326,6 +420,37 @@ ctx.set_config({
     'use_derivative': True
 }, plugin_name='signal_peaks')
 ```
+
+### 多板卡通道配置
+
+```python
+ctx.set_config(
+    {
+        "polarity": "negative",
+        "channel_config": {
+            "defaults": {"threshold": 20.0},
+            "groups": [
+                {
+                    "name": "board1",
+                    "channels": ["1:0", "1:1", "1:2", "1:3"],
+                    "config": {"threshold": 32.0},
+                }
+            ],
+            "channels": {
+                "0:5": {"threshold": 14.0},
+                "1:7": {"polarity": "positive", "threshold": 45.0},
+            },
+        },
+    },
+    plugin_name="hit",
+)
+```
+
+要点：
+
+- `channel` 字段现在只表示板内通道号，不再代表全局唯一通道
+- 多板卡数据筛选/配置时请始终显式提供 `board`
+- 若旧配置仍写成 `{0: 12.5, 1: 13.2}` 这类 boardless map，需要先迁移成 `"board:channel"` 键
 
 ## 最佳实践
 

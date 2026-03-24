@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 
 from tests.utils import FakeContext
 from waveform_analysis.core.data.records_view import RecordsView
@@ -85,7 +86,7 @@ def test_dataframe_plugin_no_gain_columns_by_default():
 
 def test_dataframe_plugin_gain_columns_with_partial_map():
     ctx = FakeContext(
-        config={"df.gain_adc_per_pe": {0: 10.0}},
+        config={"df.gain_adc_per_pe": {"2:0": 10.0}},
         data={
             "st_waveforms": _make_st_waveforms(),
             "basic_features": _make_basic_features(),
@@ -100,21 +101,17 @@ def test_dataframe_plugin_gain_columns_with_partial_map():
     np.testing.assert_allclose(df["height_pe"].to_numpy(), [np.nan, 1.0, 1.5], equal_nan=True)
 
 
-def test_dataframe_plugin_invalid_gain_warns_and_yields_nan(caplog):
+def test_dataframe_plugin_invalid_gain_key_raises(caplog):
     ctx = FakeContext(
-        config={"gain_adc_per_pe": {0: 0.0, 1: -1.0, "bad": "x"}},
+        config={"gain_adc_per_pe": {"2:0": 0.0, "1:1": -1.0, "bad": "x"}},
         data={
             "st_waveforms": _make_st_waveforms(),
             "basic_features": _make_basic_features(),
         },
     )
     plugin = DataFramePlugin()
-    df = plugin.compute(ctx, "run_001")
-
-    assert "area_pe" in df.columns
-    assert "height_pe" in df.columns
-    assert np.isnan(df["area_pe"]).all()
-    assert np.isnan(df["height_pe"]).all()
+    with pytest.raises(ValueError, match="Invalid channel key 'bad'"):
+        plugin.compute(ctx, "run_001")
     assert "non-positive" in caplog.text
 
 
@@ -124,7 +121,7 @@ def test_dataframe_plugin_gain_from_run_config():
             "st_waveforms": _make_st_waveforms(),
             "basic_features": _make_basic_features(),
         },
-        run_config_payload={"calibration": {"gain_adc_per_pe": {"0": 10.0}}},
+        run_config_payload={"calibration": {"gain_adc_per_pe": {"2:0": 10.0}}},
     )
     plugin = DataFramePlugin()
     df = plugin.compute(ctx, "run_001")
@@ -137,12 +134,12 @@ def test_dataframe_plugin_gain_from_run_config():
 
 def test_dataframe_plugin_explicit_gain_overrides_run_config():
     ctx = _RunConfigContext(
-        config={"df.gain_adc_per_pe": {0: 5.0}},
+        config={"df.gain_adc_per_pe": {"2:0": 5.0}},
         data={
             "st_waveforms": _make_st_waveforms(),
             "basic_features": _make_basic_features(),
         },
-        run_config_payload={"calibration": {"gain_adc_per_pe": {"0": 10.0}}},
+        run_config_payload={"calibration": {"gain_adc_per_pe": {"2:0": 10.0}}},
     )
     plugin = DataFramePlugin()
     df = plugin.compute(ctx, "run_001")

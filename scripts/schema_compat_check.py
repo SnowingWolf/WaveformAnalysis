@@ -7,14 +7,13 @@ import json
 from pathlib import Path
 import subprocess
 import sys
-from typing import Dict, List, Optional, Set
 
 from _quality_common import run_smoke_chain
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
-def _run_git(args: List[str], check: bool = True) -> str:
+def _run_git(args: list[str], check: bool = True) -> str:
     result = subprocess.run(
         ["git"] + args,
         cwd=str(PROJECT_ROOT),
@@ -26,7 +25,7 @@ def _run_git(args: List[str], check: bool = True) -> str:
     return result.stdout
 
 
-def _read_base_file(base: str, rel_path: str) -> Optional[str]:
+def _read_base_file(base: str, rel_path: str) -> str | None:
     result = subprocess.run(
         ["git", "show", f"{base}:{rel_path}"],
         cwd=str(PROJECT_ROOT),
@@ -45,7 +44,7 @@ def _extract_type_text(source: str, node: ast.AST) -> str:
     return "<unknown>"
 
 
-def _extract_dtype_fields(source: str, node: ast.AST) -> Optional[Dict[str, str]]:
+def _extract_dtype_fields(source: str, node: ast.AST) -> dict[str, str] | None:
     """Extract fields from np.dtype([...]) call."""
     if not isinstance(node, ast.Call):
         return None
@@ -61,10 +60,10 @@ def _extract_dtype_fields(source: str, node: ast.AST) -> Optional[Dict[str, str]
         return None
 
     first = node.args[0]
-    if not isinstance(first, (ast.List, ast.Tuple)):
+    if not isinstance(first, ast.List | ast.Tuple):
         return None
 
-    fields: Dict[str, str] = {}
+    fields: dict[str, str] = {}
     for elt in first.elts:
         if not isinstance(elt, ast.Tuple) or len(elt.elts) < 2:
             continue
@@ -76,9 +75,9 @@ def _extract_dtype_fields(source: str, node: ast.AST) -> Optional[Dict[str, str]
     return fields or None
 
 
-def _parse_dtype_defs(source: str) -> Dict[str, Dict[str, str]]:
+def _parse_dtype_defs(source: str) -> dict[str, dict[str, str]]:
     tree = ast.parse(source)
-    result: Dict[str, Dict[str, str]] = {}
+    result: dict[str, dict[str, str]] = {}
 
     for stmt in tree.body:
         if not isinstance(stmt, ast.Assign) or len(stmt.targets) != 1:
@@ -94,7 +93,7 @@ def _parse_dtype_defs(source: str) -> Dict[str, Dict[str, str]]:
     return result
 
 
-def _changed_python_files(base: str) -> List[str]:
+def _changed_python_files(base: str) -> list[str]:
     raw = _run_git(["diff", "--name-only", base, "--", "waveform_analysis", "scripts", "tests"])
     files = []
     for line in raw.splitlines():
@@ -104,7 +103,7 @@ def _changed_python_files(base: str) -> List[str]:
     return sorted(set(files))
 
 
-def _build_dtype_change_report(base: str, rel_path: str) -> List[Dict[str, object]]:
+def _build_dtype_change_report(base: str, rel_path: str) -> list[dict[str, object]]:
     old_src = _read_base_file(base, rel_path)
     new_path = PROJECT_ROOT / rel_path
     if not new_path.exists():
@@ -114,7 +113,7 @@ def _build_dtype_change_report(base: str, rel_path: str) -> List[Dict[str, objec
     old_defs = _parse_dtype_defs(old_src) if old_src else {}
     new_defs = _parse_dtype_defs(new_src)
 
-    out: List[Dict[str, object]] = []
+    out: list[dict[str, object]] = []
 
     for dtype_name in sorted(set(old_defs.keys()) | set(new_defs.keys())):
         old_fields = old_defs.get(dtype_name, {})
@@ -140,7 +139,7 @@ def _build_dtype_change_report(base: str, rel_path: str) -> List[Dict[str, objec
                 )
 
         rename_candidates = []
-        used_added: Set[str] = set()
+        used_added: set[str] = set()
         for old_name in removed:
             old_type = old_fields[old_name]
             for new_name in added:
@@ -171,8 +170,8 @@ def _build_dtype_change_report(base: str, rel_path: str) -> List[Dict[str, objec
     return out
 
 
-def _build_migration_items(changes: List[Dict[str, object]]) -> List[str]:
-    items: List[str] = []
+def _build_migration_items(changes: list[dict[str, object]]) -> list[str]:
+    items: list[str] = []
     for change in changes:
         dtype_name = change["dtype"]
         file_name = change["file"]
@@ -203,11 +202,11 @@ def _build_migration_items(changes: List[Dict[str, object]]) -> List[str]:
     return items
 
 
-def _check_runtime_contracts() -> List[str]:
+def _check_runtime_contracts() -> list[str]:
     """Check key runtime schema contracts for df/events chain."""
-    issues: List[str] = []
+    issues: list[str] = []
 
-    from waveform_analysis.core.plugins.builtin.cpu import EventsPlugin, WaveformsPlugin
+    from waveform_analysis.core.plugins.builtin.cpu import WaveformsPlugin
 
     st_fields = set(WaveformsPlugin().output_dtype.names or ())
     required_for_df = {"timestamp", "channel"}
@@ -223,22 +222,15 @@ def _check_runtime_contracts() -> List[str]:
     if missing_hit:
         issues.append("st_waveforms 缺少 hit 所需字段: {}".format(", ".join(missing_hit)))
     if missing_events:
-        issues.append("st_waveforms 缺少 events 所需字段: {}".format(", ".join(missing_events)))
-
-    # Basic contract: events output dtype should expose core fields for downstream dataframe plugins.
-    events_fields = set(EventsPlugin().output_dtype.names or ())
-    required_events = {"timestamp", "channel", "event_length", "baseline", "wave_offset"}
-    missing_events_out = sorted(required_events - events_fields)
-    if missing_events_out:
-        issues.append("events 输出缺少关键字段: {}".format(", ".join(missing_events_out)))
+        issues.append("st_waveforms 缺少 df_events 所需字段: {}".format(", ".join(missing_events)))
 
     return issues
 
 
-def check_schema(base: str, run_smoke: bool) -> Dict[str, object]:
+def check_schema(base: str, run_smoke: bool) -> dict[str, object]:
     files = _changed_python_files(base)
 
-    dtype_changes: List[Dict[str, object]] = []
+    dtype_changes: list[dict[str, object]] = []
     for rel_path in files:
         dtype_changes.extend(_build_dtype_change_report(base, rel_path))
 
@@ -250,6 +242,13 @@ def check_schema(base: str, run_smoke: bool) -> Dict[str, object]:
     if run_smoke:
         try:
             smoke = run_smoke_chain()
+            required_events = {"event_id", "t_min", "t_max", "dt/ns", "channels", "timestamps"}
+            smoke_fields = set(smoke.get("events_fields", []))
+            missing_events_out = sorted(required_events - smoke_fields)
+            if missing_events_out:
+                contract_issues.append(
+                    "df_events 输出缺少关键字段: {}".format(", ".join(missing_events_out))
+                )
         except Exception as exc:
             smoke_error = str(exc)
 
@@ -264,7 +263,7 @@ def check_schema(base: str, run_smoke: bool) -> Dict[str, object]:
     }
 
 
-def _print_report(report: Dict[str, object]) -> None:
+def _print_report(report: dict[str, object]) -> None:
     print("=== schema_compat_check ===")
     print("base: {}".format(report["base"]))
     print("checked files: {}".format(len(report["checked_files"])))

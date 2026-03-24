@@ -44,11 +44,15 @@ from .config import (
     ResolvedConfig,
     get_adapter_info,
 )
+from .context_config import ContextConfigDomain
+from .context_execution import ContextExecutionDomain
+from .context_time import ContextTimeDomain
 from .execution.validation import ValidationManager
 from .foundation.error import ErrorManager
 from .foundation.exceptions import ErrorSeverity
 from .foundation.mixins import CacheMixin, PluginMixin
 from .foundation.utils import OneTimeGenerator, Profiler
+from .hardware.channel import HardwareChannel
 from .plugins.core.base import Plugin
 from .storage.cache_manager import RuntimeCacheManager
 from .storage.memmap import MemmapStorage
@@ -415,6 +419,10 @@ class Context(CacheMixin, PluginMixin):
         self._compat_manager = CompatManager()
         self._config_resolver = ConfigResolver(compat_manager=self._compat_manager)
 
+        self._config_domain = ContextConfigDomain(self)
+        self._execution_domain = ContextExecutionDomain(self)
+        self._time_domain = ContextTimeDomain(self)
+
     def clone(self) -> "Context":
         """
         Create a new Context with the same config and plugin registrations.
@@ -668,170 +676,8 @@ class Context(CacheMixin, PluginMixin):
     # Config Resolution
     # ===========================
 
-    def _ensure_config_resolver(self) -> ConfigResolver:
-        """Ensure ConfigResolver is available (lazy re-init for safety)."""
-        if getattr(self, "_config_resolver", None) is None:
-            if getattr(self, "_compat_manager", None) is None:
-                self._compat_manager = CompatManager()
-            self._config_resolver = ConfigResolver(compat_manager=self._compat_manager)
-        return self._config_resolver
-
     def set_config(self, config: dict[str, Any], plugin_name: str | None = None):
-        """
-        更新上下文配置。
-
-        支持三种配置方式：
-        1. 全局配置：set_config({'threshold': 50})
-        2. 插件特定配置（命名空间）：set_config({'threshold': 50}, plugin_name='my_plugin')
-        3. 嵌套字典格式：set_config({'my_plugin': {'threshold': 50}})
-
-        自动迁移旧配置名：如果配置中包含已弃用的配置名，会自动替换为新名称并发出警告。
-
-        Args:
-            config: 配置字典
-            plugin_name: 可选，如果提供，则所有配置项都会作为该插件的命名空间配置
-
-        Examples:
-            >>> # 全局配置
-            >>> ctx.set_config({'n_channels': 2, 'threshold': 50})
-
-            >>> # 插件特定配置（推荐，避免冲突）
-            >>> ctx.set_config({'threshold': 50}, plugin_name='peaks')
-            >>> # 等价于: ctx.set_config({'peaks': {'threshold': 50}})
-            >>> # 或: ctx.set_config({'peaks.threshold': 50})
-
-            >>> # 查看配置归属
-            >>> ctx.list_plugin_configs()  # 列出所有插件的配置选项
-        """
-        if plugin_name is not None:
-            # 按插件名称设置配置，自动使用命名空间
-            if plugin_name not in self._plugins:
-                self.logger.warning(
-                    f"Plugin '{plugin_name}' is not registered. Config will be set but may not be used by any plugin."
-                )
-            # 使用嵌套字典格式（优先级最高）
-            if plugin_name not in self.config:
-                self.config[plugin_name] = {}
-            if isinstance(self.config[plugin_name], dict):
-                self.config[plugin_name].update(config)
-            else:
-                # 如果已存在但不是字典，转换为字典
-                self.config[plugin_name] = {**config}
-        else:
-            # 直接更新全局配置
-            self.config.update(config)
-
-        # 清除配置缓存，确保新配置生效
-        self.clear_config_cache()
-        self.clear_performance_caches()  # 配置变了，必须让 lineage/hash/key 失效
-        # Run config resolution may depend on path-related settings (e.g. data_root/daq_adapter).
-        self._run_config_cache.clear()
-        self._run_config_hash_loaded.clear()
-
-    def _warn_legacy_config_once(self, notice_key: str, message: str) -> None:
-        """Emit one-time warning for legacy config migration/removal."""
-        if notice_key in self._legacy_config_notices:
-            return
-        self._legacy_config_notices.add(notice_key)
-        self.logger.warning(message)
-
-    def _find_plugin_scoped_config(self, plugin_name: str, option_name: str) -> tuple[bool, Any]:
-        nested = self.config.get(plugin_name)
-        if isinstance(nested, dict) and option_name in nested:
-            return True, nested[option_name]
-        dotted_key = f"{plugin_name}.{option_name}"
-        if dotted_key in self.config:
-            return True, self.config[dotted_key]
-        return False, None
-
-    def _pop_plugin_scoped_config(self, plugin_name: str, option_name: str) -> tuple[bool, Any]:
-        nested = self.config.get(plugin_name)
-        if isinstance(nested, dict) and option_name in nested:
-            value = nested.pop(option_name)
-            if not nested:
-                self.config.pop(plugin_name, None)
-            return True, value
-
-        dotted_key = f"{plugin_name}.{option_name}"
-        if dotted_key in self.config:
-            return True, self.config.pop(dotted_key)
-
-        return False, None
-
-    def _has_destination_config(self, plugin_name: str | None, option_name: str) -> bool:
-        if plugin_name is None:
-            return option_name in self.config
-
-        nested = self.config.get(plugin_name)
-        if isinstance(nested, dict) and option_name in nested:
-            return True
-        dotted_key = f"{plugin_name}.{option_name}"
-        if dotted_key in self.config:
-            return True
-        return option_name in self.config
-
-    def _set_destination_config(
-        self, plugin_name: str | None, option_name: str, value: Any
-    ) -> None:
-        if plugin_name is None:
-            self.config[option_name] = value
-            return
-        self.config[f"{plugin_name}.{option_name}"] = value
-
-    def _migrate_legacy_events_config(self) -> None:
-        """
-        Handle removed legacy keys from the old events_df/events_grouped chain.
-
-        Supported keys are migrated automatically; unsupported keys fail fast to
-        avoid silent behavior drift.
-        """
-        unsupported = []
-        for plugin_name, option_name in self._LEGACY_CONFIG_KEY_REMOVED:
-            found, _value = self._find_plugin_scoped_config(plugin_name, option_name)
-            if found:
-                unsupported.append(f"{plugin_name}.{option_name}")
-
-        if unsupported:
-            unsupported_text = ", ".join(sorted(unsupported))
-            raise ValueError(
-                "Legacy config keys are no longer supported after removing events_df/events_grouped: "
-                f"{unsupported_text}. Please migrate to the df/df_events pipeline."
-            )
-
-        config_changed = False
-        for old_plugin, old_option, new_plugin, new_option in self._LEGACY_CONFIG_KEY_RENAMES:
-            found, value = self._pop_plugin_scoped_config(old_plugin, old_option)
-            if not found:
-                continue
-
-            old_key = f"{old_plugin}.{old_option}"
-            new_key = new_option if new_plugin is None else f"{new_plugin}.{new_option}"
-            config_changed = True
-
-            if self._has_destination_config(new_plugin, new_option):
-                self._warn_legacy_config_once(
-                    "legacy_config_ignore:" + old_key,
-                    f"Ignoring legacy config '{old_key}' because '{new_key}' is already configured.",
-                )
-                continue
-
-            self._set_destination_config(new_plugin, new_option, value)
-            self._warn_legacy_config_once(
-                "legacy_config_migrate:" + old_key,
-                f"Migrated legacy config '{old_key}' to '{new_key}'.",
-            )
-
-        if config_changed:
-            self.clear_config_cache()
-            self.clear_performance_caches()
-
-    def _raise_if_removed_data_name(self, data_name: str) -> None:
-        replacement = self._REMOVED_DATA_NAME_ALIASES.get(data_name)
-        if replacement is None:
-            return
-        raise ValueError(
-            f"Data name '{data_name}' has been removed. Please use '{replacement}' instead."
-        )
+        self._config_domain.set_config(config, plugin_name=plugin_name)
 
     def get_config_value(
         self,
@@ -839,59 +685,10 @@ class Context(CacheMixin, PluginMixin):
         name: str,
         adapter_name: str | None = None,
     ) -> ConfigValue:
-        """获取插件配置值及其来源信息。
-
-        Args:
-            plugin: 目标插件实例
-            name: 配置选项名称
-            adapter_name: DAQ adapter 名称（可选）
-
-        Returns:
-            ConfigValue 实例
-        """
-        if adapter_name is None:
-            adapter_name = self._resolve_adapter_name_for_plugin(plugin)
-        resolver = self._ensure_config_resolver()
-        return resolver.resolve_value(
-            plugin=plugin,
-            name=name,
-            config=self.config,
-            adapter_name=adapter_name,
-        )
+        return self._config_domain.get_config_value(plugin, name, adapter_name=adapter_name)
 
     def get_config(self, plugin: Plugin, name: str) -> Any:
-        """获取插件的配置值（带验证和类型转换）。
-
-        这是获取插件配置的推荐方法。相比 _resolve_config_value，此方法会：
-        1. 应用插件选项的类型验证
-        2. 执行值的范围检查（如果定义）
-        3. 调用自定义验证器（如果存在）
-
-        配置支持命名空间，查找顺序同 _resolve_config_value。
-
-        Args:
-            plugin: 目标插件实例
-            name: 配置选项名称
-
-        Returns:
-            验证并可能转换后的配置值
-
-        Raises:
-            KeyError: 当插件没有该配置选项时
-            ValueError: 当配置值不符合验证规则时
-            TypeError: 当配置值类型不匹配时
-
-        Examples:
-            >>> # 假设选项定义为 Option(type=int, validator=lambda x: 0 < x < 100)
-            >>> ctx.config = {'my_plugin': {'threshold': '50'}}  # 字符串形式
-            >>> ctx.get_config(plugin, 'threshold')
-            50  # 自动转换为 int
-
-            >>> ctx.config = {'threshold': 150}  # 超出范围
-            >>> ctx.get_config(plugin, 'threshold')
-            ValueError: threshold must satisfy validator
-        """
-        return self.get_config_value(plugin, name).value
+        return self._config_domain.get_config(plugin, name)
 
     def has_explicit_config(
         self,
@@ -899,345 +696,35 @@ class Context(CacheMixin, PluginMixin):
         name: str,
         adapter_name: str | None = None,
     ) -> bool:
-        """检查配置是否显式设置（包含别名输入）。"""
-        try:
-            cv = self.get_config_value(plugin, name, adapter_name=adapter_name)
-        except KeyError:
-            return False
-        return cv.source == ConfigSource.EXPLICIT
+        return self._config_domain.has_explicit_config(plugin, name, adapter_name=adapter_name)
 
     def _resolve_adapter_name_for_plugin(
         self,
         plugin: Plugin,
         adapter_name: str | None = None,
     ) -> str | None:
-        """Resolve adapter name with plugin-specific override."""
-        resolved_adapter = (
-            adapter_name if adapter_name is not None else self.config.get("daq_adapter")
+        return self._config_domain.resolve_adapter_name_for_plugin(
+            plugin, adapter_name=adapter_name
         )
-        if "daq_adapter" not in plugin.options:
-            return resolved_adapter
-        try:
-            resolver = self._ensure_config_resolver()
-            cv = resolver.resolve_value(
-                plugin=plugin,
-                name="daq_adapter",
-                config=self.config,
-                adapter_name=None,
-            )
-        except KeyError:
-            return resolved_adapter
-        if cv.value is not None:
-            return cv.value
-        return resolved_adapter
 
     def get_resolved_config(
         self,
         plugin: Plugin | str,
         adapter_name: str | None = None,
     ) -> ResolvedConfig:
-        """获取插件的完整解析配置（带来源追踪）
-
-        使用 ConfigResolver 解析插件的所有配置值，并追踪每个值的来源。
-        支持从 DAQ adapter 自动推断配置值（如采样率、时间间隔等）。
-
-        Args:
-            plugin: 插件实例或插件名称
-            adapter_name: DAQ adapter 名称（可选，用于推断配置值）
-                         如果未指定，会尝试从 config['daq_adapter'] 获取
-
-        Returns:
-            ResolvedConfig 实例，包含所有配置值及其来源信息
-
-        Examples:
-            >>> resolved = ctx.get_resolved_config("waveforms", adapter_name="vx2730")
-            >>> print(resolved.get("sampling_rate_hz"))
-            500000000.0
-
-            >>> # 查看配置来源
-            >>> print(resolved.summary(verbose=True))
-
-            >>> # 获取所有推断的值
-            >>> print(resolved.get_inferred_values())
-        """
-        # 获取插件实例
-        if isinstance(plugin, str):
-            if plugin not in self._plugins:
-                raise KeyError(f"Plugin '{plugin}' is not registered")
-            plugin = self._plugins[plugin]
-
-        # 确定 adapter 名称
-        if adapter_name is None:
-            adapter_name = self._resolve_adapter_name_for_plugin(plugin)
-
-        resolver = self._ensure_config_resolver()
-        return resolver.resolve(
-            plugin=plugin,
-            config=self.config,
-            adapter_name=adapter_name,
-        )
-
-    def _get_custom_config_sync_path(self, run_id: str) -> str:
-        """Get runtime custom-config snapshot path for a run."""
-        configured_path = self.config.get("custom_config_json_path")
-        if configured_path:
-            try:
-                return str(configured_path).format(run_id=run_id)
-            except Exception:
-                return str(configured_path)
-        return ""
-
-    def _sync_custom_config_json(self, run_id: str, data_name: str) -> None:
-        """
-        Sync current context config to a JSON file during runtime.
-
-        Enabled only when config['custom_config_json_path'] is set.
-        """
-        path = self._get_custom_config_sync_path(run_id)
-        if not path:
-            return
-
-        payload = {
-            "run_id": run_id,
-            "requested_data_name": data_name,
-            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            "custom_config": _safe_copy_config(self.config),
-        }
-        # Avoid recursive persistence controls appearing as "analysis custom config".
-        if isinstance(payload["custom_config"], dict):
-            payload["custom_config"].pop("custom_config_json_path", None)
-
-        try:
-            dir_path = os.path.dirname(path)
-            if dir_path:
-                os.makedirs(dir_path, exist_ok=True)
-            temp_path = path + ".tmp"
-            with open(temp_path, "w", encoding="utf-8") as fh:
-                json.dump(payload, fh, ensure_ascii=False, indent=2, sort_keys=True, default=str)
-                fh.write("\n")
-            os.replace(temp_path, path)
-        except Exception as exc:
-            self.logger.warning("Failed to sync custom config JSON to %s: %s", path, exc)
-
-    def _get_run_config_filename(self) -> str:
-        """Return run config filename (default: run_config.json)."""
-        value = self.config.get("run_config_filename", "run_config.json")
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-        return "run_config.json"
-
-    def _get_default_run_config_path_template(self) -> str:
-        """Return the default run_config path template next to the raw DAQ root."""
-        data_root = os.path.normpath(str(self.config.get("data_root", "DAQ")))
-        data_root_parent = os.path.dirname(data_root)
-        return os.path.join(data_root_parent, "{run_id}", self._get_run_config_filename())
-
-    def _format_run_config_path(self, path_template: str, run_id: str) -> str:
-        """Format a run_config path template with Context-aware placeholders."""
-        data_root = str(self.config.get("data_root", "DAQ"))
-        data_root_norm = os.path.normpath(data_root)
-        data_root_parent = os.path.dirname(data_root_norm)
-        filename = self._get_run_config_filename()
-        return str(
-            path_template.format(
-                run_id=run_id,
-                run_name=run_id,
-                data_root=data_root,
-                data_root_parent=data_root_parent,
-                filename=filename,
-            )
-        )
-
-    def _resolve_run_config_path(self, run_id: str) -> str:
-        """Resolve run-level config file path for a specific run."""
-        path_template = self.config.get("run_config_path")
-        if isinstance(path_template, str) and path_template.strip():
-            path_template = path_template.strip()
-            try:
-                return self._format_run_config_path(path_template, run_id)
-            except Exception:
-                self.logger.warning(
-                    "Invalid run_config_path '%s'; falling back to legacy/default layout.",
-                    path_template,
-                )
-
-        path_template = self.config.get("run_config_path_template")
-        if isinstance(path_template, str) and path_template.strip():
-            path_template = path_template.strip()
-            try:
-                return self._format_run_config_path(path_template, run_id)
-            except Exception:
-                self.logger.warning(
-                    "Invalid run_config_path_template '%s'; falling back to default layout.",
-                    path_template,
-                )
-
-        return self._format_run_config_path(self._get_default_run_config_path_template(), run_id)
-
-    def _compute_run_config_hash(self, run_id: str) -> tuple[str | None, str]:
-        """
-        Compute run config hash.
-
-        Returns:
-            (hash_value, config_path). hash_value is:
-            - 'missing' if run config file does not exist
-            - 'sha1:<digest>' on success
-            - None if file exists but cannot be read/hashed
-        """
-        config_path = self._resolve_run_config_path(run_id)
-        if not os.path.exists(config_path):
-            return "missing", config_path
-
-        try:
-            hasher = hashlib.sha1()
-            with open(config_path, "rb") as fh:
-                for chunk in iter(lambda: fh.read(1024 * 1024), b""):
-                    hasher.update(chunk)
-            return "sha1:" + hasher.hexdigest(), config_path
-        except Exception as exc:
-            self.logger.warning("Failed to hash run config '%s': %s", config_path, exc)
-            return None, config_path
+        return self._config_domain.get_resolved_config(plugin, adapter_name=adapter_name)
 
     def _get_run_config_hash_state_path(self, run_id: str) -> str:
-        """Get persisted run config hash sidecar path."""
-        try:
-            if hasattr(self.storage, "get_run_data_dir"):
-                base_dir = self.storage.get_run_data_dir(run_id)
-            else:
-                base_dir = os.path.join(self.storage_dir, run_id, "_cache")
-        except Exception:
-            base_dir = os.path.join(self.storage_dir, run_id, "_cache")
-        return os.path.join(base_dir, "_run_config_state.json")
-
-    def _load_previous_run_config_hash(self, run_id: str) -> str | None:
-        """Load previous run config hash from memory/sidecar once per run."""
-        if run_id in self._run_config_hash_loaded:
-            return self._run_config_hash_cache.get(run_id)
-
-        state_path = self._get_run_config_hash_state_path(run_id)
-        previous_hash = None
-        if os.path.exists(state_path):
-            try:
-                with open(state_path, encoding="utf-8") as fh:
-                    payload = json.load(fh)
-                if isinstance(payload, dict):
-                    hash_value = payload.get("run_config_hash")
-                    if isinstance(hash_value, str):
-                        previous_hash = hash_value
-            except Exception as exc:
-                self.logger.warning(
-                    "Failed to read run config hash state '%s': %s", state_path, exc
-                )
-
-        self._run_config_hash_loaded.add(run_id)
-        if previous_hash is not None:
-            self._run_config_hash_cache[run_id] = previous_hash
-        return previous_hash
-
-    def _save_run_config_hash(self, run_id: str, config_path: str, config_hash: str) -> None:
-        """Persist current run config hash to sidecar file."""
-        state_path = self._get_run_config_hash_state_path(run_id)
-        payload = {
-            "run_id": run_id,
-            "run_config_path": config_path,
-            "run_config_hash": config_hash,
-            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        }
-        try:
-            os.makedirs(os.path.dirname(state_path), exist_ok=True)
-            temp_path = state_path + ".tmp"
-            with open(temp_path, "w", encoding="utf-8") as fh:
-                json.dump(payload, fh, ensure_ascii=False, indent=2, sort_keys=True)
-                fh.write("\n")
-            os.replace(temp_path, state_path)
-        except Exception as exc:
-            self.logger.warning("Failed to persist run config hash to '%s': %s", state_path, exc)
-
-    def _invalidate_run_config_related_cache(self, run_id: str) -> None:
-        """Invalidate cache branches affected by run-level gain calibration config."""
-        targets = []
-        if "df" in self._plugins:
-            targets.append("df")
-
-        for target in targets:
-            try:
-                self.clear_cache_for(run_id, target, downstream=True, verbose=False)
-            except Exception as exc:
-                self.logger.warning(
-                    "Failed to clear run config related cache for (%s, %s): %s",
-                    run_id,
-                    target,
-                    exc,
-                )
+        return self._config_domain.get_run_config_hash_state_path(run_id)
 
     def _maybe_invalidate_run_config_cache(self, run_id: str) -> None:
-        """
-        Invalidate affected caches when run_config hash changes.
-
-        This check runs before cache lookup in get_data(), so stale entries
-        are removed automatically when the run-level config file changes.
-        """
-        current_hash, config_path = self._compute_run_config_hash(run_id)
-        if current_hash is None:
-            return
-
-        previous_hash = self._load_previous_run_config_hash(run_id)
-
-        if previous_hash is None:
-            self._run_config_hash_cache[run_id] = current_hash
-            self._save_run_config_hash(run_id, config_path, current_hash)
-            return
-
-        if previous_hash == current_hash:
-            return
-
-        self.logger.info(
-            "Detected run_config change for run '%s' (%s -> %s); invalidating related caches.",
-            run_id,
-            previous_hash,
-            current_hash,
-        )
-        self._invalidate_run_config_related_cache(run_id)
-        self._run_config_cache.pop(run_id, None)
-        self._run_config_hash_cache[run_id] = current_hash
-        self._save_run_config_hash(run_id, config_path, current_hash)
+        self._config_domain.maybe_invalidate_run_config_cache(run_id)
 
     def get_run_config(self, run_id: str, refresh: bool = False) -> dict[str, Any]:
-        """
-        Load run-level configuration from run_config.json.
+        return self._config_domain.get_run_config(run_id, refresh=refresh)
 
-        Returns an empty dict when file is missing or invalid.
-        """
-        current_hash, config_path = self._compute_run_config_hash(run_id)
-        if current_hash is None:
-            return {}
-
-        cached = self._run_config_cache.get(run_id)
-        cached_hash = self._run_config_hash_cache.get(run_id)
-        if not refresh and cached is not None and cached_hash == current_hash:
-            return cached
-
-        if current_hash == "missing":
-            result = {}
-        else:
-            result = {}
-            try:
-                with open(config_path, encoding="utf-8") as fh:
-                    payload = json.load(fh)
-                if isinstance(payload, dict):
-                    result = payload
-                else:
-                    self.logger.warning(
-                        "Run config file '%s' must contain a JSON object; got %s.",
-                        config_path,
-                        type(payload).__name__,
-                    )
-            except Exception as exc:
-                self.logger.warning("Failed to read run config '%s': %s", config_path, exc)
-
-        self._run_config_cache[run_id] = result
-        self._run_config_hash_cache[run_id] = current_hash
-        return result
+    def get_plugin_run_config(self, plugin: Plugin | str, run_id: str) -> dict[str, Any]:
+        return self._config_domain.get_plugin_run_config(plugin, run_id)
 
     def show_resolved_config(
         self,
@@ -1245,40 +732,11 @@ class Context(CacheMixin, PluginMixin):
         verbose: bool = True,
         adapter_name: str | None = None,
     ) -> None:
-        """显示插件的解析配置（带来源信息）
-
-        以友好的格式显示插件配置的解析结果，包括每个配置值的来源。
-
-        Args:
-            plugin: 插件实例、插件名称或 None（显示所有插件）
-            verbose: 是否显示详细信息（包含来源）
-            adapter_name: DAQ adapter 名称（可选）
-
-        Examples:
-            >>> # 显示单个插件的配置
-            >>> ctx.show_resolved_config("waveforms", verbose=True)
-
-            >>> # 显示所有插件的配置
-            >>> ctx.show_resolved_config()
-        """
-        if adapter_name is None:
-            adapter_name = self.config.get("daq_adapter")
-
-        if plugin is None:
-            # 显示所有插件
-            plugins_to_show = list(self._plugins.values())
-        elif isinstance(plugin, str):
-            if plugin not in self._plugins:
-                print(f"Plugin '{plugin}' is not registered")
-                return
-            plugins_to_show = [self._plugins[plugin]]
-        else:
-            plugins_to_show = [plugin]
-
-        for p in plugins_to_show:
-            resolved = self.get_resolved_config(p, adapter_name=adapter_name)
-            print(resolved.summary(verbose=verbose))
-            print()
+        self._config_domain.show_resolved_config(
+            plugin=plugin,
+            verbose=verbose,
+            adapter_name=adapter_name,
+        )
 
     def get_adapter_info(self, adapter_name: str | None = None) -> AdapterInfo | None:
         """获取 DAQ adapter 信息
@@ -1413,13 +871,7 @@ class Context(CacheMixin, PluginMixin):
             progress_desc: Custom description for progress bar (default: auto-generated)
             **kwargs: Additional arguments passed to plugins
         """
-        self._raise_if_removed_data_name(data_name)
-        self._migrate_legacy_events_config()
-        self._sync_custom_config_json(run_id, data_name)
-
-        # Remember the most recent run_id for display purposes (e.g., show_config()).
-        self._last_run_id = run_id
-        self._maybe_invalidate_run_config_cache(run_id)
+        self._config_domain.prepare_request(run_id, data_name)
         # 1. Check memory cache
         val = self._get_data_from_memory(run_id, data_name)
         if val is not None:
@@ -1442,13 +894,13 @@ class Context(CacheMixin, PluginMixin):
                 return data
 
         # 3. Resolve plan and compute needed steps (cache-aware)
-        plan = self._resolve_execution_plan(run_id, data_name)
+        plan = self._execution_domain.resolve_execution_plan(run_id, data_name)
         if not plan:
             return self._get_data_from_memory(run_id, data_name)
-        needed_set = self._compute_needed_set(run_id, data_name, plan)
+        needed_set = self._execution_domain.compute_needed_set(run_id, data_name, plan)
 
         # 4. Execute plan
-        return self._run_plugin(
+        return self._execution_domain.run_plugin(
             run_id,
             data_name,
             show_progress=show_progress,
@@ -1705,34 +1157,6 @@ class Context(CacheMixin, PluginMixin):
     ) -> pd.DataFrame | None:
         return self._storage_call(storage, "load_dataframe", key, run_id)
 
-    def _storage_save_memmap(
-        self,
-        storage: Any,
-        key: str,
-        data: np.ndarray,
-        extra_metadata: dict[str, Any] | None,
-        run_id: str | None,
-    ) -> None:
-        self._storage_call(storage, "save_memmap", key, run_id, data, extra_metadata=extra_metadata)
-
-    def _storage_save_metadata(
-        self,
-        storage: Any,
-        key: str,
-        metadata: dict[str, Any],
-        run_id: str | None,
-    ) -> None:
-        self._storage_call(storage, "save_metadata", key, run_id, metadata)
-
-    def _storage_save_dataframe(
-        self,
-        storage: Any,
-        key: str,
-        data: pd.DataFrame,
-        run_id: str | None,
-    ) -> None:
-        self._storage_call(storage, "save_dataframe", key, run_id, data)
-
     def _storage_delete(self, storage: Any, key: str, run_id: str | None) -> None:
         self._storage_call(storage, "delete", key, run_id)
 
@@ -1779,64 +1203,8 @@ class Context(CacheMixin, PluginMixin):
         """Return True if data_name must be a single array with a channel field."""
         return name in self._FLAT_CHANNEL_OUTPUTS
 
-    def _resolve_config_value(self, plugin: Plugin, name: str) -> Any:
-        """计算插件配置选项的值（统一走 ConfigResolver）。
-
-        Args:
-            plugin: 目标插件实例
-            name: 配置选项名称
-
-        Returns:
-            解析后的配置值（任意类型）
-
-        Raises:
-            KeyError: 当插件没有该配置选项时
-
-        Examples:
-            >>> # 假设 plugin.options = {'threshold': Option(default=0.5)}
-            >>> ctx.config = {'my_plugin': {'threshold': 0.8}}
-            >>> ctx._resolve_config_value(plugin, 'threshold')
-            0.8  # 使用插件特定配置
-
-            >>> ctx.config = {'threshold': 0.6}
-            >>> ctx._resolve_config_value(plugin, 'threshold')
-            0.6  # 使用全局配置
-
-            >>> ctx.config = {}
-            >>> ctx._resolve_config_value(plugin, 'threshold')
-            0.5  # 使用默认值
-        """
-        return self.get_config(plugin, name)
-
-    def _make_config_signature(self, raw_config: dict[str, Any]) -> str:
-        """Generate a stable signature for a plugin's raw config dict."""
-
-        def default(o: Any) -> str:
-            if isinstance(o, np.ndarray):
-                return o.tobytes().hex()
-            return repr(o)
-
-        normalized = {name: raw_config[name] for name in sorted(raw_config)}
-        payload = json.dumps(normalized, sort_keys=True, default=default)
-        return hashlib.sha256(payload.encode()).hexdigest()
-
-    def _make_resolved_config_signature(self, resolved: ResolvedConfig) -> str:
-        """Generate a stable signature for a plugin's resolved config."""
-        payload = {"__adapter__": resolved.adapter_name}
-        payload.update(resolved.to_dict())
-        return self._make_config_signature(payload)
-
     def _ensure_plugin_config_validated(self, plugin: Plugin) -> dict[str, Any]:
-        """Validate and cache plugin configuration for reuse."""
-        resolved = self.get_resolved_config(plugin)
-        signature = self._make_resolved_config_signature(resolved)
-        cache_key = (plugin.provides, signature)
-        if cache_key in self._resolved_config_cache:
-            return self._resolved_config_cache[cache_key]
-
-        validated = resolved.to_dict()
-        self._resolved_config_cache[cache_key] = validated
-        return validated
+        return self._config_domain.ensure_plugin_config_validated(plugin)
 
     def _invalidate_caches_for(self, data_name: str):
         """
@@ -2069,32 +1437,6 @@ class Context(CacheMixin, PluginMixin):
 
         return self._is_disk_cache_valid(run_id, name, key)
 
-    def _compute_needed_set(self, run_id: str, data_name: str, plan: list[str]) -> set[str]:
-        """Compute the set of steps that actually need execution for this run."""
-        needed: set[str] = set()
-        visited: set[str] = set()
-
-        def dfs(name: str) -> None:
-            if name in visited:
-                return
-            visited.add(name)
-
-            if self._is_cache_hit(run_id, name, load=False):
-                return
-
-            if name not in self._plugins:
-                return
-
-            plugin = self._plugins[name]
-            for dep_name in self._get_plugin_dependency_names(plugin, run_id=run_id):
-                dfs(dep_name)
-            needed.add(name)
-
-        dfs(data_name)
-
-        # Keep order consistent with the execution plan
-        return {name for name in plan if name in needed}
-
     def _run_plugin(
         self,
         run_id: str,
@@ -2119,100 +1461,15 @@ class Context(CacheMixin, PluginMixin):
             needed_set: 可选，需要执行的插件集合（由外部计算）
             **kwargs: Additional arguments passed to plugins
         """
-        with self.profiler.timeit("context.run_plugin"):
-            # 1. Check re-entrancy and mark as in-progress
-            self._check_reentrancy(run_id, data_name)
-
-            # Initialize variables for finally block
-            tracker = None
-            bar_name = None
-
-            try:
-                # 2. Resolve execution plan
-                if plan is None:
-                    plan = self._resolve_execution_plan(run_id, data_name)
-
-                # Early return if data already in memory
-                if not plan:
-                    return self._get_data_from_memory(run_id, data_name)
-
-                if needed_set is None:
-                    needed_set = set(plan)
-
-                # 3. Initialize progress tracking
-                tracker, bar_name = self._init_progress_tracking(
-                    show_progress, plan, run_id, data_name, progress_desc
-                )
-
-                # 4. Execute plan in order
-                for name in plan:
-                    if name not in needed_set:
-                        key = self.key_for(run_id, name)
-                        _data, cache_hit = self._cache_manager.check_cache(run_id, name, key)
-                        if tracker and bar_name:
-                            tracker.update(bar_name, n=1)
-                        continue
-
-                    self._execute_single_plugin(
-                        name, run_id, data_name, kwargs, tracker, bar_name, skip_cache_check=True
-                    )
-
-                return self._get_data_from_memory(run_id, data_name)
-            finally:
-                # 5. Cleanup execution state
-                if tracker and bar_name:
-                    tracker.close(bar_name)
-                with self._in_progress_lock:
-                    self._in_progress.pop((run_id, data_name), None)
-
-    def _check_reentrancy(self, run_id: str, data_name: str) -> None:
-        """检查并记录重入状态
-
-        Args:
-            run_id: 运行标识符
-            data_name: 数据名称
-
-        Raises:
-            RuntimeError: 当检测到重入调用时
-
-
-        """
-        with self._in_progress_lock:
-            if (run_id, data_name) in self._in_progress:
-                raise RuntimeError(
-                    f"Re-entrant call for ({run_id}, {data_name}) detected. "
-                    "This usually indicates a circular dependency at runtime."
-                )
-            self._in_progress[(run_id, data_name)] = True
-
-    def _resolve_execution_plan(self, run_id: str, data_name: str) -> list[str]:
-        """解析执行计划（带缓存）
-
-        Args:
-            run_id: 运行标识符
-            data_name: 目标数据名称
-
-        Returns:
-            执行计划（插件名称列表）
-
-        Raises:
-            ValueError: 当依赖解析失败时
-        """
-        try:
-            with self.profiler.timeit("context.resolve_dependencies"):
-                # Check cache first
-                if data_name in self._execution_plan_cache:
-                    plan = self._execution_plan_cache[data_name]
-                else:
-                    plan = self.resolve_dependencies(data_name, run_id=run_id)
-                    self._execution_plan_cache[data_name] = plan
-            return plan
-        except ValueError:
-            # Fallback: check if data already in memory
-            val = self._get_data_from_memory(run_id, data_name)
-            if val is not None:
-                return []  # Empty plan, data already available
-            raise
+        return self._execution_domain.run_plugin(
+            run_id,
+            data_name,
+            show_progress=show_progress,
+            progress_desc=progress_desc,
+            plan=plan,
+            needed_set=needed_set,
+            **kwargs,
+        )
 
     def _init_progress_tracking(
         self,
@@ -2222,205 +1479,24 @@ class Context(CacheMixin, PluginMixin):
         data_name: str,
         progress_desc: str | None,
     ) -> tuple:
-        """初始化进度追踪
-
-        Args:
-            show_progress: 是否显示进度条
-            plan: 执行计划
-            run_id: 运行标识符
-            data_name: 目标数据名称
-            progress_desc: 自定义进度描述
-
-        Returns:
-            (tracker, bar_name) 元组
-        """
-        if show_progress and len(plan) > 0:
-            from waveform_analysis.core.foundation.progress import get_global_tracker
-
-            tracker = get_global_tracker()
-            bar_name = f"load_{run_id}_{data_name}"
-            desc = progress_desc or f"Loading {data_name}"
-            tracker.create_bar(bar_name, total=len(plan), desc=desc, unit="plugin")
-            return tracker, bar_name
-        return None, None
-
-    def _calculate_input_size(self, plugin: Plugin, run_id: str) -> float | None:
-        """计算插件输入数据大小（MB）
-
-        Args:
-            plugin: 插件实例
-            run_id: 运行标识符
-
-        Returns:
-            输入数据大小（MB），如果无法计算则返回 None
-
-
-        """
-        if not (self.stats_collector and self.stats_collector.mode == "detailed"):
-            return None
-
-        try:
-            total_bytes = 0
-            for dep_name in self._get_plugin_dependency_names(plugin, run_id=run_id):
-                dep_data = self._get_data_from_memory(run_id, dep_name)
-                if dep_data is not None:
-                    if isinstance(dep_data, np.ndarray):
-                        total_bytes += dep_data.nbytes
-                    elif isinstance(dep_data, list):
-                        total_bytes += sum(
-                            arr.nbytes for arr in dep_data if isinstance(arr, np.ndarray)
-                        )
-            return total_bytes / (1024 * 1024) if total_bytes > 0 else None
-        except (AttributeError, TypeError) as e:
-            # 某些数据类型可能没有 nbytes 属性
-            self.logger.debug(f"Could not calculate input size for {plugin.provides}: {e}")
-            return None
-        except Exception as e:
-            # 其他未预期的错误
-            self.logger.warning(
-                f"Unexpected error calculating input size for {plugin.provides}: {e}"
-            )
-            return None
-
-    def _prepare_side_effect_isolation(self, plugin: Plugin, run_id: str, kwargs: dict) -> dict:
-        """准备侧作用隔离
-
-        Args:
-            plugin: 插件实例
-            run_id: 运行标识符
-            kwargs: 插件参数字典
-
-        Returns:
-            更新后的 kwargs 字典
-        """
-        if getattr(plugin, "is_side_effect", False):
-            # 检查存储模式，使用适当的副作用目录
-            if hasattr(self.storage, "get_run_side_effects_dir"):
-                # 新模式：使用 storage 的方法获取正确路径
-                side_effect_dir = os.path.join(
-                    self.storage.get_run_side_effects_dir(run_id), plugin.provides
-                )
-            else:
-                # 旧模式或自定义存储后端：使用 storage_dir
-                side_effect_dir = os.path.join(
-                    self.storage_dir, "_side_effects", run_id, plugin.provides
-                )
-            os.makedirs(side_effect_dir, exist_ok=True)
-            kwargs = kwargs.copy()
-            kwargs["output_dir"] = side_effect_dir
-        return kwargs
-
-    def _calculate_output_size(self, result: Any) -> float | None:
-        """计算输出数据大小（MB）
-
-        Args:
-            result: 插件输出结果
-
-        Returns:
-            输出数据大小（MB），如果无法计算则返回 None
-        """
-        if not (self.stats_collector and self.stats_collector.mode == "detailed"):
-            return None
-
-        try:
-            if isinstance(result, np.ndarray):
-                return result.nbytes / (1024 * 1024)
-            elif isinstance(result, list) and all(isinstance(x, np.ndarray) for x in result):
-                total_bytes = sum(arr.nbytes for arr in result)
-                return total_bytes / (1024 * 1024)
-            elif isinstance(result, pd.DataFrame):
-                return result.memory_usage(deep=True).sum() / (1024 * 1024)
-            return None
-        except (AttributeError, TypeError) as e:
-            # 某些数据类型可能没有所需的属性或方法
-            self.logger.debug(f"Could not calculate output size: {e}")
-            return None
-        except Exception as e:
-            # 其他未预期的错误
-            self.logger.warning(f"Unexpected error calculating output size: {e}")
-            return None
+        return self._execution_domain.init_progress_tracking(
+            show_progress,
+            plan,
+            run_id,
+            data_name,
+            progress_desc,
+        )
 
     def _execute_plugin_compute(
         self, plugin: Plugin, name: str, run_id: str, input_size_mb: float | None, kwargs: dict
     ) -> Any:
-        """执行插件计算核心逻辑
-
-        统一处理：
-        - 统计收集开始
-        - 插件计算调用（带 profiler）
-        - 错误处理（错误钩子、严重程度判断、上下文收集）
-        - 清理钩子
-
-        Args:
-            plugin: 插件实例
-            name: 插件名称（provides）
-            run_id: 运行标识符
-            input_size_mb: 输入数据大小（MB）
-            kwargs: 传递给插件的参数
-
-        Returns:
-            插件计算结果
-
-        Raises:
-            RuntimeError: 当插件执行失败时
-        """
-        # Start stats collection
-        if self.stats_collector and self.stats_collector.is_enabled():
-            self.stats_collector.start_execution(name, run_id, input_size_mb=input_size_mb)
-
-        try:
-            # Call plugin compute with explicit run_id
-            with self.profiler.timeit(f"plugin.{name}.compute"):
-                result = plugin.compute(self, run_id, **kwargs)
-            return result
-        except Exception as e:
-            # Record error in stats
-            if self.stats_collector and self.stats_collector.is_enabled():
-                self.stats_collector.end_execution(name, success=False, cache_hit=False, error=e)
-
-            # Error handling hook
-            plugin.on_error(self, e)
-
-            # 检查错误严重程度
-            severity = getattr(e, "severity", ErrorSeverity.FATAL)
-            recoverable = getattr(e, "recoverable", False)
-
-            # 收集错误上下文
-            error_context = self._error_manager.collect_context(
-                plugin,
-                run_id,
-                context=self,
-                get_config_fn=self.get_config,
-                get_data_fn=self._get_data_from_memory,
-            )
-
-            # 根据严重程度处理
-            if severity == ErrorSeverity.FATAL:
-                # 致命错误：记录并抛出
-                self._error_manager.log_error(
-                    name, e, run_id, plugin, error_context, get_config_fn=self.get_config
-                )
-                raise RuntimeError(f"Plugin '{name}' failed: {str(e)}") from e
-            elif severity == ErrorSeverity.RECOVERABLE and recoverable:
-                # 可恢复错误：记录警告，尝试降级处理
-                self.logger.warning(f"Plugin '{name}' failed but recoverable: {e}")
-                # 可以在这里添加降级逻辑
-                raise RuntimeError(f"Plugin '{name}' failed: {str(e)}") from e
-            else:
-                # 默认处理
-                self._error_manager.log_error(
-                    name, e, run_id, plugin, error_context, get_config_fn=self.get_config
-                )
-                raise RuntimeError(f"Plugin '{name}' failed: {str(e)}") from e
-        finally:
-            # Cleanup hook
-            try:
-                plugin.cleanup(self)
-            except Exception as cleanup_error:
-                # 记录清理错误，但不掩盖原始错误
-                self.logger.warning(
-                    f"Plugin '{name}' cleanup failed: {cleanup_error}", exc_info=True
-                )
+        return self._execution_domain.execute_plugin_compute(
+            plugin,
+            name,
+            run_id,
+            input_size_mb,
+            kwargs,
+        )
 
     def _save_plugin_result(
         self,
@@ -2433,82 +1509,16 @@ class Context(CacheMixin, PluginMixin):
         is_generator: bool,
         target_dtype: np.dtype | None,
     ) -> Any:
-        """保存插件结果到存储
-
-        根据结果类型和插件配置决定保存策略：
-        - DataFrame: 保存为 Parquet
-        - List[ndarray]: 多通道数据，保存为 {key}_ch{i}
-        - Generator: 包装为保存流
-        - ndarray: 保存为 memmap
-
-        Args:
-            plugin: 插件实例
-            name: 插件名称
-            run_id: 运行标识符
-            result: 插件计算结果
-            key: 存储键
-            lineage: 血缘信息
-            is_generator: 是否为生成器
-            target_dtype: 目标 dtype
-
-        Returns:
-            可能包装后的结果
-        """
-        storage = self._get_storage_for_data_name(name)
-        if isinstance(result, pd.DataFrame):
-            # Save DataFrame as Parquet
-            if hasattr(storage, "save_dataframe"):
-                self._storage_save_dataframe(storage, key, result, run_id)
-                self._storage_save_metadata(
-                    storage, key, {"lineage": lineage, "type": "dataframe"}, run_id
-                )
-            else:
-                raise RuntimeError(
-                    f"Storage backend {storage.__class__.__name__} does not support DataFrame."
-                )
-            self._set_data(run_id, name, result)
-        elif isinstance(result, list) and all(isinstance(x, np.ndarray) for x in result):
-            # Save list of arrays (e.g. per-channel data)
-            if self._expects_flat_channel_array(name):
-                raise ValueError(
-                    f"Plugin '{name}' returned a list of arrays, but this data now "
-                    "uses a single structured array with a 'channel' field."
-                )
-            channel_count = len(result)
-            for i, arr in enumerate(result):
-                ch_key = f"{key}_ch{i}"
-                self._storage_save_memmap(
-                    storage,
-                    ch_key,
-                    arr,
-                    {"lineage": lineage, "channel_count": channel_count},
-                    run_id,
-                )
-            self._set_data(run_id, name, result)
-        elif target_dtype is not None:
-            if is_generator:
-                # It's a generator, wrap it to save while yielding
-                result = self._wrap_generator_to_save(
-                    run_id, name, cast(Iterator, result), target_dtype, lineage=lineage
-                )
-                # Wrap with OneTimeGenerator to prevent multiple consumption issues
-                result = OneTimeGenerator(result, name=f"Data '{name}' for run '{run_id}'")
-                self._set_data(run_id, name, result)
-            else:
-                # It's a static array, save it directly
-                if isinstance(result, np.ndarray) and result.size == 0:
-                    # Avoid saving empty arrays (storage skips them); keep in memory.
-                    self._set_data(run_id, name, result)
-                    return result
-                self._storage_save_memmap(storage, key, result, {"lineage": lineage}, run_id)
-                data = self._storage_load_memmap(storage, key, run_id)
-                self._set_data(run_id, name, data)
-                result = data  # Return loaded data
-        else:
-            # Fallback: just set in memory
-            self._set_data(run_id, name, result)
-
-        return result
+        return self._execution_domain.save_plugin_result(
+            plugin,
+            name,
+            run_id,
+            result,
+            key,
+            lineage,
+            is_generator,
+            target_dtype,
+        )
 
     def _postprocess_plugin_result(
         self,
@@ -2521,64 +1531,16 @@ class Context(CacheMixin, PluginMixin):
         tracker: Any | None,
         bar_name: str | None,
     ) -> None:
-        """后处理插件结果
-
-        完整的结果后处理流程：
-        1. 获取血缘信息
-        2. 验证输出契约
-        3. 转换 dtype
-        4. 保存结果（根据 save_when 策略）
-        5. 计算输出大小
-        6. 记录统计
-        7. 更新进度条
-
-        Args:
-            plugin: 插件实例
-            name: 插件名称
-            run_id: 运行标识符
-            result: 插件计算结果
-            key: 存储键
-            data_name: 目标数据名称
-            tracker: 进度追踪器
-            bar_name: 进度条名称
-        """
-        # Get lineage
-        lineage = self.get_lineage(name)
-
-        # Validate output contract and convert dtype
-        result, effective_output_kind = self._validation_manager.validate_output_contract(
-            plugin, result
+        self._execution_domain.postprocess_plugin_result(
+            plugin,
+            name,
+            run_id,
+            result,
+            key,
+            data_name,
+            tracker,
+            bar_name,
         )
-        is_generator = effective_output_kind == "stream"
-
-        # Convert to target dtype if needed
-        target_dtype = plugin.output_dtype
-        if not is_generator:
-            result = self._validation_manager.convert_to_dtype(
-                result, target_dtype, name, is_generator=False
-            )
-
-        # Handle saving
-        if plugin.save_when == "always" or (plugin.save_when == "target" and name == data_name):
-            with self.profiler.timeit("context.save_cache"):
-                result = self._save_plugin_result(
-                    plugin, name, run_id, result, key, lineage, is_generator, target_dtype
-                )
-        else:
-            self._set_data(run_id, name, result)
-
-        # Calculate output size for stats (detailed mode)
-        output_size_mb = self._calculate_output_size(result)
-
-        # Record successful execution in stats
-        if self.stats_collector and self.stats_collector.is_enabled():
-            self.stats_collector.end_execution(
-                name, success=True, cache_hit=False, output_size_mb=output_size_mb
-            )
-
-        # Update progress bar
-        if tracker and bar_name:
-            tracker.update(bar_name, n=1)
 
     def _execute_single_plugin(
         self,
@@ -2590,65 +1552,14 @@ class Context(CacheMixin, PluginMixin):
         bar_name: str | None,
         skip_cache_check: bool = False,
     ) -> None:
-        """执行单个插件的完整流程
-
-        协调单个插件的完整执行，包括：
-        1. 可选缓存检查
-        2. 获取插件
-        3. 打印进度
-        4. 验证（配置和输入 dtype）
-        5. 计算输入大小
-        6. 侧作用隔离
-        7. 执行插件计算
-        8. 后处理结果
-
-        Args:
-            name: 插件名称（provides）
-            run_id: 运行标识符
-            data_name: 目标数据名称
-            kwargs: 传递给插件的参数
-            tracker: 进度追踪器
-            bar_name: 进度条名称
-            skip_cache_check: 是否跳过缓存检查并强制执行
-
-        Raises:
-            RuntimeError: 当插件不存在或执行失败时
-        """
-        key = self.key_for(run_id, name)
-        if not skip_cache_check:
-            # Check cache (memory + disk)
-            _data, cache_hit = self._cache_manager.check_cache(run_id, name, key)
-            if cache_hit:
-                # Update progress bar (cache hit)
-                if tracker and bar_name:
-                    tracker.update(bar_name, n=1)
-                return
-
-        if name not in self._plugins:
-            raise RuntimeError(f"Dependency '{name}' is missing and no plugin provides it.")
-
-        plugin = self._plugins[name]
-
-        # Print current running plugin
-        if self.config.get("show_progress", True):
-            print(f"[+] Running plugin: {name} (run_id: {run_id})")
-
-        # Validate plugin config and input dtypes
-        self._validation_manager.validate_plugin_config(plugin)
-        self._validation_manager.validate_input_dtypes(plugin, run_id)
-
-        # Calculate input size for stats (detailed mode)
-        input_size_mb = self._calculate_input_size(plugin, run_id)
-
-        # Side-effect isolation
-        kwargs = self._prepare_side_effect_isolation(plugin, run_id, kwargs)
-
-        # Execute plugin compute (with error handling and cleanup)
-        result = self._execute_plugin_compute(plugin, name, run_id, input_size_mb, kwargs)
-
-        # Postprocess result (validate, convert, save, stats, progress)
-        self._postprocess_plugin_result(
-            plugin, name, run_id, result, key, data_name, tracker, bar_name
+        self._execution_domain.execute_single_plugin(
+            name,
+            run_id,
+            data_name,
+            kwargs,
+            tracker,
+            bar_name,
+            skip_cache_check=skip_cache_check,
         )
 
     def _wrap_generator_to_save(
@@ -3101,7 +2012,7 @@ class Context(CacheMixin, PluginMixin):
                 # 获取当前配置值
                 if show_current_values:
                     try:
-                        current_value = self._resolve_config_value(plugin, opt_name)
+                        current_value = self._config_domain.resolve_config_value(plugin, opt_name)
                         opt_info["current_value"] = current_value
                         opt_info["is_default"] = current_value == option.default
                     except KeyError:
@@ -3300,7 +2211,7 @@ class Context(CacheMixin, PluginMixin):
             if key in context_configs:
                 continue
             if key == "run_config_path":
-                context_configs[key] = self._get_default_run_config_path_template()
+                context_configs[key] = self._config_domain.get_default_run_config_path_template()
             else:
                 context_configs[key] = value
 
@@ -3519,72 +2430,6 @@ class Context(CacheMixin, PluginMixin):
     # 时间范围查询
     # ===========================
 
-    def _normalize_time_domain(self, time_domain: str) -> str:
-        """Validate and normalize time-domain selector."""
-        normalized = str(time_domain).strip().lower()
-        if normalized not in self._TIME_DOMAIN_CHOICES:
-            allowed = ", ".join(sorted(self._TIME_DOMAIN_CHOICES))
-            raise ValueError(
-                f"Unsupported time_domain '{time_domain}'. Expected one of: {allowed}."
-            )
-        return normalized
-
-    def _resolve_time_axis(
-        self,
-        data: np.ndarray,
-        data_name: str,
-        time_domain: str,
-        time_field: str | None = None,
-    ) -> tuple[str, np.ndarray | None]:
-        """
-        Resolve the effective time axis for a structured array.
-
-        Returns:
-            (resolved_field, derived_time_values)
-            - resolved_field: field name used for display/logging
-            - derived_time_values: optional precomputed values (int64) used when no field exists
-        """
-        if not isinstance(data, np.ndarray) or data.dtype.names is None:
-            raise ValueError(
-                f"Data '{data_name}' is not a structured array; cannot resolve time axis."
-            )
-
-        domain = self._normalize_time_domain(time_domain)
-        names = data.dtype.names or ()
-
-        # Explicit field override keeps backward compatibility for advanced callers.
-        if time_field:
-            if time_field not in names:
-                raise ValueError(
-                    f"Time field '{time_field}' not found in {data_name}. Available fields: {list(names)}"
-                )
-            return time_field, None
-
-        if domain == self._TIME_DOMAIN_RAW_PS:
-            for candidate in ("timestamp_ps", "timestamp"):
-                if candidate in names:
-                    return candidate, None
-            raise ValueError(
-                f"Cannot resolve raw_ps time axis for {data_name}. "
-                "Expected one of ['timestamp_ps', 'timestamp']."
-            )
-
-        # system_ns domain
-        for candidate in ("time_ns", "time"):
-            if candidate in names:
-                return candidate, None
-
-        # Fallback: derive ns axis from raw ps timestamp when system field is absent.
-        for candidate in ("timestamp_ps", "timestamp"):
-            if candidate in names:
-                derived = np.asarray(data[candidate], dtype=np.int64) // 1000
-                return "time_ns", derived
-
-        raise ValueError(
-            f"Cannot resolve system_ns time axis for {data_name}. "
-            "Expected one of ['time_ns', 'time', 'timestamp_ps', 'timestamp']."
-        )
-
     def build_time_index(
         self,
         run_id: str,
@@ -3594,98 +2439,14 @@ class Context(CacheMixin, PluginMixin):
         force_rebuild: bool = False,
         time_domain: str = _TIME_DOMAIN_SYSTEM_NS,
     ) -> dict[str, Any]:
-        """
-        为数据构建时间索引
-
-        支持两种数据类型：
-        - 单个结构化数组: 构建单个索引（推荐，通道用 channel 字段区分）
-        - List[np.ndarray]: 旧格式，多通道列表（仅兼容）
-
-        Args:
-            run_id: 运行ID
-            data_name: 数据名称
-            time_field: 时间字段名（可选，优先于 time_domain）
-            endtime_field: 结束时间字段名('computed'表示计算endtime)
-            force_rebuild: 强制重建索引
-            time_domain: 时间域，"system_ns"（默认）或 "raw_ps"
-
-        Returns:
-            索引构建结果字典，包含：
-            - 'type': 'single' 或 'multi_channel'
-            - 'indices': 索引名称列表
-            - 'stats': 各索引的统计信息
-
-        Examples:
-            >>> # 为结构化数组构建索引
-            >>> result = ctx.build_time_index('run_001', 'st_waveforms', endtime_field='computed')
-            >>> print(result['type'])  # 'single'
-            >>>
-            >>> # 为单个结构化数组构建索引
-            >>> ctx.build_time_index('run_001', 'peaks')
-        """
-        from waveform_analysis.core.data.query import TimeRangeQueryEngine
-
-        # 懒加载查询引擎
-        if not hasattr(self, "_time_query_engine"):
-            self._time_query_engine = TimeRangeQueryEngine()
-
-        engine = self._time_query_engine
-
-        # 获取数据
-        data = self.get_data(run_id, data_name)
-
-        if data is None or (hasattr(data, "__len__") and len(data) == 0):
-            self.logger.warning(f"No data found for {data_name}, cannot build index")
-            return {"type": "empty", "indices": [], "stats": {}}
-
-        # 检测数据类型
-        if isinstance(data, list) and len(data) > 0 and isinstance(data[0], np.ndarray):
-            if self._expects_flat_channel_array(data_name):
-                self.logger.warning(
-                    "Data '%s' is a legacy list-of-arrays. "
-                    "Recompute to use a single array with a channel field.",
-                    data_name,
-                )
-            # List[np.ndarray] 类型 - 多通道数据
-            return self._build_multi_channel_time_index(
-                engine,
-                run_id,
-                data_name,
-                data,
-                time_field,
-                endtime_field,
-                force_rebuild,
-                time_domain,
-            )
-        elif isinstance(data, np.ndarray) and data.dtype.names is not None:
-            # 单个结构化数组
-            resolved_time_field, derived_time_values = self._resolve_time_axis(
-                data, data_name, time_domain, time_field=time_field
-            )
-            engine.build_index(
-                run_id,
-                data_name,
-                data,
-                resolved_time_field,
-                endtime_field,
-                force_rebuild,
-                time_values=derived_time_values,
-            )
-            index = engine.get_index(run_id, data_name)
-            return {
-                "type": "single",
-                "indices": [data_name],
-                "stats": {
-                    data_name: {
-                        "n_records": index.n_records if index else 0,
-                        "time_range": (index.min_time, index.max_time) if index else (0, 0),
-                        "build_time": index.build_time if index else 0.0,
-                    }
-                },
-            }
-        else:
-            self.logger.warning(f"Data '{data_name}' is not a supported type for time indexing")
-            return {"type": "unsupported", "indices": [], "stats": {}}
+        return self._time_domain.build_time_index(
+            run_id,
+            data_name,
+            time_field=time_field,
+            endtime_field=endtime_field,
+            force_rebuild=force_rebuild,
+            time_domain=time_domain,
+        )
 
     def time_range(
         self,
@@ -3696,442 +2457,26 @@ class Context(CacheMixin, PluginMixin):
         time_field: str | None = None,
         endtime_field: str | None = None,
         auto_build_index: bool = True,
-        channel: int | None = None,
+        channel: int | HardwareChannel | tuple[int, int] | str | None = None,
         time_domain: str = _TIME_DOMAIN_SYSTEM_NS,
     ) -> np.ndarray | list[np.ndarray]:
-        """
-        查询数据的时间范围
-
-        支持两种数据类型：
-        - 单个结构化数组: 返回过滤后的数组（可选按 channel 过滤）
-        - List[np.ndarray]: 旧格式，多通道列表（仅兼容）
-
-        Args:
-            run_id: 运行ID
-            data_name: 数据名称
-            start_time: 起始时间(包含)
-            end_time: 结束时间(不包含)
-            time_field: 时间字段名（可选，优先于 time_domain）
-            endtime_field: 结束时间字段名('computed'表示计算endtime)
-            auto_build_index: 自动构建时间索引
-            channel: 指定通道号（仅用于多通道数据），None 表示返回所有通道
-            time_domain: 时间域，"system_ns"（默认）或 "raw_ps"
-
-        Returns:
-            符合条件的数据子集：
-            - 单个数组数据: 返回 np.ndarray
-            - 多通道数据（旧格式）: 返回 List[np.ndarray] 或指定通道的 np.ndarray
-
-        Examples:
-            >>> # 查询特定时间范围的波形数据
-            >>> data = ctx.time_range('run_001', 'st_waveforms',
-            ...                                 start_time=1000000, end_time=2000000)
-            >>>
-            >>> # 只查询特定通道
-            >>> ch0_data = ctx.time_range('run_001', 'st_waveforms',
-            ...                                     start_time=1000000, end_time=2000000,
-            ...                                     channel=0)
-        """
-        from waveform_analysis.core.data.query import TimeRangeQueryEngine
-
-        # 懒加载查询引擎
-        if not hasattr(self, "_time_query_engine"):
-            self._time_query_engine = TimeRangeQueryEngine()
-
-        engine = self._time_query_engine
-
-        # 获取完整数据
-        data = self.get_data(run_id, data_name)
-
-        if data is None:
-            return np.array([], dtype=np.float64)
-
-        # 检测数据类型
-        if isinstance(data, list) and len(data) > 0 and isinstance(data[0], np.ndarray):
-            if self._expects_flat_channel_array(data_name):
-                self.logger.warning(
-                    "Data '%s' is a legacy list-of-arrays. "
-                    "Recompute to use a single array with a channel field.",
-                    data_name,
-                )
-            # List[np.ndarray] 类型 - 多通道数据
-            return self._query_multi_channel_time_range(
-                engine,
-                run_id,
-                data_name,
-                data,
-                start_time,
-                end_time,
-                time_field,
-                endtime_field,
-                auto_build_index,
-                channel,
-                time_domain,
-            )
-        elif isinstance(data, np.ndarray):
-            if len(data) == 0:
-                return np.array([], dtype=data.dtype)
-            if data.dtype.names is None:
-                self.logger.warning(
-                    f"Data '{data_name}' is not a structured array, returning full data"
-                )
-                return data
-            return self._query_single_array_time_range(
-                engine,
-                run_id,
-                data_name,
-                data,
-                start_time,
-                end_time,
-                time_field,
-                endtime_field,
-                auto_build_index,
-                channel,
-                time_domain,
-            )
-        else:
-            self.logger.warning(f"Data '{data_name}' is not a supported type, returning as-is")
-            return data
+        return self._time_domain.time_range(
+            run_id,
+            data_name,
+            start_time=start_time,
+            end_time=end_time,
+            time_field=time_field,
+            endtime_field=endtime_field,
+            auto_build_index=auto_build_index,
+            channel=channel,
+            time_domain=time_domain,
+        )
 
     def clear_time_index(self, run_id: str | None = None, data_name: str | None = None):
-        """
-        清除时间索引
-
-        Args:
-            run_id: 运行ID,None则清除所有
-            data_name: 数据名称,None则清除指定run_id的所有索引
-
-        Examples:
-            >>> # 清除特定数据的索引
-            >>> ctx.clear_time_index('run_001', 'st_waveforms')
-            >>>
-            >>> # 清除特定run的所有索引
-            >>> ctx.clear_time_index('run_001')
-            >>>
-            >>> # 清除所有索引
-            >>> ctx.clear_time_index()
-        """
-        if hasattr(self, "_time_query_engine"):
-            self._time_query_engine.clear_index(run_id, data_name)
+        self._time_domain.clear_time_index(run_id, data_name)
 
     def get_time_index_stats(self) -> dict[str, Any]:
-        """
-        获取时间索引统计信息
-
-        Returns:
-            统计信息字典
-
-        Examples:
-            >>> stats = ctx.get_time_index_stats()
-            >>> print(f"Total indices: {stats['total_indices']}")
-        """
-        if hasattr(self, "_time_query_engine"):
-            return self._time_query_engine.get_stats()
-        return {"total_indices": 0, "indices": {}}
-
-    def _query_single_array_time_range(
-        self,
-        engine: Any,
-        run_id: str,
-        data_name: str,
-        data: np.ndarray,
-        start_time: int | None,
-        end_time: int | None,
-        time_field: str | None,
-        endtime_field: str | None,
-        auto_build_index: bool,
-        channel: int | None = None,
-        time_domain: str = _TIME_DOMAIN_SYSTEM_NS,
-    ) -> np.ndarray:
-        """查询单个结构化数组的时间范围"""
-        resolved_time_field, derived_time_values = self._resolve_time_axis(
-            data, data_name, time_domain, time_field=time_field
-        )
-
-        # 构建索引(如果需要)
-        if auto_build_index and not engine.has_index(run_id, data_name):
-            engine.build_index(
-                run_id,
-                data_name,
-                data,
-                resolved_time_field,
-                endtime_field,
-                time_values=derived_time_values,
-            )
-
-        # 查询
-        if engine.has_index(run_id, data_name):
-            indices = engine.query(run_id, data_name, start_time, end_time)
-            if indices is not None and len(indices) > 0:
-                result = data[indices]
-            else:
-                result = np.array([], dtype=data.dtype)
-        else:
-            # 回退到直接过滤
-            self.logger.warning(f"No index for {data_name}, using direct filtering")
-            if derived_time_values is not None:
-                times = derived_time_values
-            else:
-                times = np.asarray(data[resolved_time_field], dtype=np.int64)
-
-            filter_start = start_time if start_time is not None else int(times.min())
-            filter_end = end_time if end_time is not None else int(times.max()) + 1
-
-            mask = (times >= filter_start) & (times < filter_end)
-            result = data[mask]
-
-        if channel is None:
-            return result
-        if "channel" not in result.dtype.names:
-            self.logger.warning(f"Channel field not found in {data_name}, returning empty")
-            return np.zeros(0, dtype=result.dtype)
-        return result[result["channel"] == channel]
-
-    def _query_multi_channel_time_range(
-        self,
-        engine: Any,
-        run_id: str,
-        data_name: str,
-        data: list[np.ndarray],
-        start_time: int | None,
-        end_time: int | None,
-        time_field: str | None,
-        endtime_field: str | None,
-        auto_build_index: bool,
-        channel: int | None,
-        time_domain: str,
-    ) -> np.ndarray | list[np.ndarray]:
-        """
-        查询多通道数据的时间范围
-
-        Args:
-            engine: TimeRangeQueryEngine 实例
-            run_id: 运行ID
-            data_name: 数据名称
-            data: 多通道数据列表
-            start_time: 起始时间
-            end_time: 结束时间
-            time_field: 时间字段名
-            endtime_field: 结束时间字段名
-            auto_build_index: 自动构建索引
-            channel: 指定通道，None 表示所有通道
-
-        Returns:
-            过滤后的数据（列表或单个数组）
-        """
-        n_channels = len(data)
-
-        # 自动构建索引（如果需要）
-        if auto_build_index:
-            # 检查是否已有多通道索引元数据
-            has_indices = (
-                hasattr(self, "_multi_channel_indices")
-                and (run_id, data_name) in self._multi_channel_indices
-            )
-
-            if not has_indices:
-                self.build_time_index(
-                    run_id,
-                    data_name,
-                    time_field=time_field,
-                    endtime_field=endtime_field,
-                    time_domain=time_domain,
-                )
-
-        # 如果指定了通道，只查询该通道
-        if channel is not None:
-            if channel < 0 or channel >= n_channels:
-                self.logger.warning(
-                    f"Channel {channel} out of range [0, {n_channels}), returning empty array"
-                )
-                return np.array([], dtype=data[0].dtype if n_channels > 0 else np.float64)
-
-            return self._query_channel_time_range(
-                engine,
-                run_id,
-                data_name,
-                data[channel],
-                channel,
-                start_time,
-                end_time,
-                time_field,
-                time_domain,
-            )
-
-        # 查询所有通道
-        results = []
-        for ch_idx, ch_data in enumerate(data):
-            result = self._query_channel_time_range(
-                engine,
-                run_id,
-                data_name,
-                ch_data,
-                ch_idx,
-                start_time,
-                end_time,
-                time_field,
-                time_domain,
-            )
-            results.append(result)
-
-        return results
-
-    def _query_channel_time_range(
-        self,
-        engine: Any,
-        run_id: str,
-        data_name: str,
-        ch_data: np.ndarray,
-        ch_idx: int,
-        start_time: int | None,
-        end_time: int | None,
-        time_field: str | None,
-        time_domain: str,
-    ) -> np.ndarray:
-        """
-        查询单个通道的时间范围
-
-        Args:
-            engine: TimeRangeQueryEngine 实例
-            run_id: 运行ID
-            data_name: 数据名称
-            ch_data: 通道数据
-            ch_idx: 通道索引
-            start_time: 起始时间
-            end_time: 结束时间
-            time_field: 时间字段名
-
-        Returns:
-            过滤后的数据
-        """
-        if ch_data is None or len(ch_data) == 0:
-            return np.array([], dtype=ch_data.dtype if ch_data is not None else np.float64)
-
-        index_name = f"{data_name}_ch{ch_idx}"
-
-        # 尝试使用索引
-        if engine.has_index(run_id, index_name):
-            indices = engine.query(run_id, index_name, start_time, end_time)
-            if indices is not None and len(indices) > 0:
-                return ch_data[indices]
-            else:
-                return np.array([], dtype=ch_data.dtype)
-        else:
-            # 回退到直接过滤
-            resolved_time_field, derived_time_values = self._resolve_time_axis(
-                ch_data,
-                f"{data_name}_ch{ch_idx}",
-                time_domain,
-                time_field=time_field,
-            )
-
-            if derived_time_values is not None:
-                times = derived_time_values
-            else:
-                times = np.asarray(ch_data[resolved_time_field], dtype=np.int64)
-            if len(times) == 0:
-                return np.array([], dtype=ch_data.dtype)
-
-            filter_start = start_time if start_time is not None else int(times.min())
-            filter_end = end_time if end_time is not None else int(times.max()) + 1
-
-            mask = (times >= filter_start) & (times < filter_end)
-            return ch_data[mask]
-
-    def _build_multi_channel_time_index(
-        self,
-        engine: Any,
-        run_id: str,
-        data_name: str,
-        data: list[np.ndarray],
-        time_field: str | None,
-        endtime_field: str | None,
-        force_rebuild: bool,
-        time_domain: str,
-    ) -> dict[str, Any]:
-        """
-        为多通道数据构建时间索引
-
-        Args:
-            engine: TimeRangeQueryEngine 实例
-            run_id: 运行ID
-            data_name: 数据名称
-            data: 多通道数据列表
-            time_field: 时间字段名
-            endtime_field: 结束时间字段名
-            force_rebuild: 强制重建索引
-
-        Returns:
-            索引构建结果字典
-        """
-        indices = []
-        stats = {}
-        n_channels = len(data)
-
-        self.logger.info(f"Building time index for {data_name} with {n_channels} channels")
-
-        for ch_idx, ch_data in enumerate(data):
-            if ch_data is None or len(ch_data) == 0:
-                self.logger.warning(f"Channel {ch_idx} is empty, skipping")
-                continue
-
-            # 检查是否为结构化数组
-            if not isinstance(ch_data, np.ndarray) or ch_data.dtype.names is None:
-                self.logger.warning(f"Channel {ch_idx} is not a structured array, skipping")
-                continue
-
-            resolved_time_field, derived_time_values = self._resolve_time_axis(
-                ch_data,
-                f"{data_name}_ch{ch_idx}",
-                time_domain,
-                time_field=time_field,
-            )
-
-            # 为每个通道构建索引，key 格式为 {data_name}_ch{i}
-            index_name = f"{data_name}_ch{ch_idx}"
-            engine.build_index(
-                run_id,
-                index_name,
-                ch_data,
-                resolved_time_field,
-                endtime_field,
-                force_rebuild,
-                time_values=derived_time_values,
-            )
-
-            index = engine.get_index(run_id, index_name)
-            if index:
-                indices.append(index_name)
-                stats[index_name] = {
-                    "channel": ch_idx,
-                    "n_records": index.n_records,
-                    "time_range": (index.min_time, index.max_time),
-                    "build_time": index.build_time,
-                }
-
-        # 同时记录一个元数据索引，标记这是多通道数据
-        if not hasattr(self, "_multi_channel_indices"):
-            self._multi_channel_indices = {}
-        self._multi_channel_indices[(run_id, data_name)] = {
-            "n_channels": n_channels,
-            "channel_indices": indices,
-        }
-
-        self.logger.info(
-            f"Built {len(indices)} channel indices for {data_name}, "
-            f"total records: {sum(s['n_records'] for s in stats.values())}"
-        )
-
-        return {
-            "type": "multi_channel",
-            "n_channels": n_channels,
-            "indices": indices,
-            "stats": stats,
-        }
-
-    # ===========================
-    # Epoch 管理 API（绝对时间支持）
-    # ===========================
+        return self._time_domain.get_time_index_stats()
 
     def set_epoch(
         self,
@@ -4139,75 +2484,10 @@ class Context(CacheMixin, PluginMixin):
         epoch: datetime | float | str,
         time_unit: str = "ns",
     ) -> None:
-        """
-        手动设置 run 的 epoch（时间基准）
-
-        Args:
-            run_id: 运行标识符
-            epoch: Epoch 值，支持多种格式：
-                - datetime: Python datetime 对象
-                - float: Unix 时间戳（秒）
-                - str: ISO 8601 格式字符串（如 "2024-01-01T12:00:00Z"）
-            time_unit: 相对时间单位（"ps", "ns", "us", "ms", "s"）
-
-        Examples:
-            >>> from datetime import datetime, timezone
-            >>>
-            >>> # 使用 datetime 对象
-            >>> epoch = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-            >>> ctx.set_epoch('run_001', epoch)
-            >>>
-            >>> # 使用 Unix 时间戳
-            >>> ctx.set_epoch('run_001', 1704110400.0)
-            >>>
-            >>> # 使用 ISO 字符串
-            >>> ctx.set_epoch('run_001', "2024-01-01T12:00:00Z")
-        """
-        from waveform_analysis.core.foundation.time_conversion import EpochInfo
-        from waveform_analysis.utils.formats.base import TimestampUnit
-
-        # 转换时间单位
-        unit_map = {
-            "ps": TimestampUnit.PICOSECONDS,
-            "ns": TimestampUnit.NANOSECONDS,
-            "us": TimestampUnit.MICROSECONDS,
-            "ms": TimestampUnit.MILLISECONDS,
-            "s": TimestampUnit.SECONDS,
-        }
-        ts_unit = unit_map.get(time_unit.lower(), TimestampUnit.NANOSECONDS)
-
-        # 解析 epoch
-        if isinstance(epoch, datetime):
-            epoch_info = EpochInfo.from_datetime(epoch, source="manual", time_unit=ts_unit)
-        elif isinstance(epoch, int | float):
-            epoch_info = EpochInfo.from_timestamp(float(epoch), source="manual", time_unit=ts_unit)
-        elif isinstance(epoch, str):
-            # 解析 ISO 8601 字符串
-            dt = datetime.fromisoformat(epoch.replace("Z", "+00:00"))
-            epoch_info = EpochInfo.from_datetime(dt, source="manual", time_unit=ts_unit)
-        else:
-            raise TypeError(f"不支持的 epoch 类型: {type(epoch)}")
-
-        self._epoch_cache[run_id] = epoch_info
-        self.logger.info(f"Set epoch for {run_id}: {epoch_info}")
+        self._time_domain.set_epoch(run_id, epoch, time_unit=time_unit)
 
     def get_epoch(self, run_id: str) -> Any | None:
-        """
-        获取 run 的 epoch 元数据
-
-        Args:
-            run_id: 运行标识符
-
-        Returns:
-            EpochInfo 实例，如果未设置则返回 None
-
-        Examples:
-            >>> epoch_info = ctx.get_epoch('run_001')
-            >>> if epoch_info:
-            ...     print(f"Epoch: {epoch_info.epoch_datetime}")
-            ...     print(f"Source: {epoch_info.epoch_source}")
-        """
-        return self._epoch_cache.get(run_id)
+        return self._time_domain.get_epoch(run_id)
 
     def auto_extract_epoch(
         self,
@@ -4215,63 +2495,9 @@ class Context(CacheMixin, PluginMixin):
         strategy: str | None = None,
         file_paths: list[str] | None = None,
     ) -> Any:
-        """
-        自动从数据文件提取 epoch
-
-        Args:
-            run_id: 运行标识符
-            strategy: 提取策略（"auto", "filename", "csv_header", "first_event"）
-                - 如果为 None，则使用 config 中的 epoch_extraction_strategy
-            file_paths: 数据文件路径列表（如果为 None，从 raw_files 获取）
-
-        Returns:
-            提取的 EpochInfo 实例
-
-        Raises:
-            ValueError: 如果无法提取 epoch
-
-        Examples:
-            >>> # 自动提取（优先从文件名）
-            >>> epoch_info = ctx.auto_extract_epoch('run_001')
-            >>>
-            >>> # 指定策略
-            >>> epoch_info = ctx.auto_extract_epoch('run_001', strategy='filename')
-        """
-        from waveform_analysis.core.foundation.time_conversion import EpochExtractor
-
-        # 如果没有提供文件路径，尝试从 raw_files 获取
-        if file_paths is None:
-            try:
-                raw_files = self.get_data(run_id, "raw_files")
-                if raw_files is not None and len(raw_files) > 0:
-                    # raw_files 可能是 List[List[str]]（按通道分组）
-                    if isinstance(raw_files[0], list):
-                        file_paths = [f for ch_files in raw_files for f in ch_files]
-                    else:
-                        file_paths = list(raw_files)
-            except Exception as e:
-                self.logger.warning(f"无法获取 raw_files: {e}")
-
-        if not file_paths:
-            raise ValueError(
-                f"无法提取 epoch：未找到数据文件。请确保 run '{run_id}' 有 raw_files 数据，或手动提供 file_paths 参数。"
-            )
-
-        if strategy is None:
-            strategy = self.config.get("epoch_extraction_strategy", "auto")
-
-        # 创建提取器并提取 epoch
-        extractor = EpochExtractor(filename_patterns=self.config.get("epoch_filename_patterns"))
-        epoch_info = extractor.auto_extract(
-            file_paths=file_paths,
-            strategy=strategy,
+        return self._time_domain.auto_extract_epoch(
+            run_id, strategy=strategy, file_paths=file_paths
         )
-
-        # 缓存 epoch
-        self._epoch_cache[run_id] = epoch_info
-        self.logger.info(f"Auto-extracted epoch for {run_id}: {epoch_info}")
-
-        return epoch_info
 
     def get_data_time_range_absolute(
         self,
@@ -4282,89 +2508,21 @@ class Context(CacheMixin, PluginMixin):
         time_field: str | None = None,
         endtime_field: str | None = None,
         auto_build_index: bool = True,
-        channel: int | None = None,
+        channel: int | HardwareChannel | tuple[int, int] | str | None = None,
         auto_extract_epoch: bool = True,
         time_domain: str = _TIME_DOMAIN_SYSTEM_NS,
     ) -> np.ndarray | list[np.ndarray]:
-        """
-        使用绝对时间（datetime）查询数据
-
-        与 time_range() 功能相同，但使用 datetime 对象指定时间范围。
-
-        Args:
-            run_id: 运行标识符
-            data_name: 数据名称
-            start_dt: 起始时间（datetime，包含）
-            end_dt: 结束时间（datetime，不包含）
-            time_field: 时间字段名（可选，优先于 time_domain）
-            endtime_field: 结束时间字段名
-            auto_build_index: 自动构建时间索引
-            channel: 指定通道号（仅用于多通道数据）
-            auto_extract_epoch: 如果未设置 epoch，是否自动提取
-            time_domain: 时间域，"system_ns"（默认）或 "raw_ps"
-
-        Returns:
-            符合条件的数据子集
-
-        Raises:
-            ValueError: 如果未设置 epoch 且无法自动提取
-
-        Examples:
-            >>> from datetime import datetime, timezone
-            >>>
-            >>> start = datetime(2024, 1, 1, 12, 0, 10, tzinfo=timezone.utc)
-            >>> end = datetime(2024, 1, 1, 12, 0, 20, tzinfo=timezone.utc)
-            >>>
-            >>> data = ctx.get_data_time_range_absolute(
-            ...     'run_001', 'peaks',
-            ...     start_dt=start, end_dt=end
-            ... )
-        """
-        from waveform_analysis.core.foundation.time_conversion import TimeConverter
-
-        # 获取或提取 epoch
-        epoch_info = self.get_epoch(run_id)
-        if epoch_info is None:
-            if auto_extract_epoch and self.config.get("auto_extract_epoch", True):
-                try:
-                    epoch_info = self.auto_extract_epoch(run_id, strategy=None)
-                except ValueError as e:
-                    raise ValueError(
-                        f"无法使用绝对时间查询：{e}\n请使用 ctx.set_epoch('{run_id}', epoch) 手动设置 epoch。"
-                    ) from e
-            else:
-                raise ValueError(
-                    f"无法使用绝对时间查询：run '{run_id}' 未设置 epoch。\n"
-                    f"请使用 ctx.set_epoch() 或 ctx.auto_extract_epoch() 设置 epoch。"
-                )
-
-        # 转换时间范围
-        converter = TimeConverter(epoch_info)
-        start_rel, end_rel = converter.convert_time_range(start_dt, end_dt)
-        domain = self._normalize_time_domain(time_domain)
-
-        # 将转换结果规范到目标时间域单位
-        source_unit = getattr(getattr(epoch_info, "time_unit", None), "value", "ns")
-        target_unit = "ns" if domain == self._TIME_DOMAIN_SYSTEM_NS else "ps"
-        if source_unit != target_unit:
-            from waveform_analysis.core.compat import convert_time
-
-            if start_rel is not None:
-                start_rel = int(round(convert_time(float(start_rel), source_unit, target_unit)))
-            if end_rel is not None:
-                end_rel = int(round(convert_time(float(end_rel), source_unit, target_unit)))
-
-        # 调用原始的相对时间查询方法
-        return self.time_range(
-            run_id=run_id,
-            data_name=data_name,
-            start_time=start_rel,
-            end_time=end_rel,
+        return self._time_domain.get_data_time_range_absolute(
+            run_id,
+            data_name,
+            start_dt=start_dt,
+            end_dt=end_dt,
             time_field=time_field,
             endtime_field=endtime_field,
             auto_build_index=auto_build_index,
             channel=channel,
-            time_domain=domain,
+            auto_extract_epoch=auto_extract_epoch,
+            time_domain=time_domain,
         )
 
     def preview_execution(
@@ -4413,8 +2571,7 @@ class Context(CacheMixin, PluginMixin):
             >>> # 确认后再执行
             >>> data = ctx.get_data('run_001', 'signal_peaks')
         """
-        self._raise_if_removed_data_name(data_name)
-        self._migrate_legacy_events_config()
+        self._config_domain.prepare_request(run_id, data_name)
         # 检查数据名称是否存在
         if data_name not in self._plugins:
             raise ValueError(
@@ -4423,13 +2580,13 @@ class Context(CacheMixin, PluginMixin):
 
         # 1. 解析执行计划
         try:
-            execution_plan = self._resolve_execution_plan(run_id, data_name)
+            execution_plan = self._execution_domain.resolve_execution_plan(run_id, data_name)
         except Exception as e:
             print(f"✗ 无法解析依赖关系: {e}")
             return {"error": str(e)}
 
         # 2. 计算本次实际需要执行的步骤（cache-aware）
-        needed_set = self._compute_needed_set(run_id, data_name, execution_plan)
+        needed_set = self._execution_domain.compute_needed_set(run_id, data_name, execution_plan)
 
         # 3. 检查缓存状态
         cache_status = {}
@@ -4658,6 +2815,7 @@ class Context(CacheMixin, PluginMixin):
         if topic is None:
             # 快速参考
             result = """
+
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║ WaveformAnalysis - 文档指南                                                 ║
 ╚══════════════════════════════════════════════════════════════════════════════╝

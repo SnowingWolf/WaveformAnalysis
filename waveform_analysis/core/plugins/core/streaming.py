@@ -38,7 +38,7 @@ from collections.abc import Generator, Iterator
 import logging
 import pickle
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 import warnings
 
 import numpy as np
@@ -291,6 +291,17 @@ class StreamingPlugin(Plugin):
         streaming_config: dict[str, Any] | None,
     ) -> dict[str, Any]:
         merged = self._get_default_streaming_config()
+        if context is not None and hasattr(context, "config") and isinstance(context.config, dict):
+            legacy_keys = [key for key in _STREAMING_CONFIG_KEYS if key in context.config]
+            if legacy_keys:
+                warnings.warn(
+                    "Top-level streaming config keys are deprecated; "
+                    f"pass them via streaming_config instead: {sorted(legacy_keys)}",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                for key in legacy_keys:
+                    merged[key] = context.config[key]
         if streaming_config:
             if not isinstance(streaming_config, dict):
                 raise TypeError("streaming_config must be a dict")
@@ -571,7 +582,7 @@ class StreamingPlugin(Plugin):
         dep_data = context.get_data(run_id, dep_name)
 
         # 检查是否是 chunk 流
-        if isinstance(dep_data, (Generator, Iterator)):
+        if isinstance(dep_data, Generator | Iterator):
             # 已经是流，直接返回
             return dep_data
 

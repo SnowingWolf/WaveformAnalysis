@@ -364,7 +364,7 @@ class WaveformStructConfig:
 def create_channel_mapping(
     board_channel_pairs: list[tuple[int, int]],
 ) -> dict[tuple[int, int], int]:
-    """创建 (BOARD, CHANNEL) 到物理通道号的映射。"""
+    """Legacy helper kept for compatibility with older call sites/tests."""
     unique_pairs = set(board_channel_pairs)
     return {(board, channel): channel for board, channel in unique_pairs}
 
@@ -490,7 +490,7 @@ class WaveformStruct:
                 )
                 logger.warning(f"发现未映射的 (BOARD, CHANNEL) 组合: {unmapped}")
         else:
-            logger.debug("未提供通道映射，使用 CHANNEL 字段作为物理通道号")
+            logger.debug("未提供通道映射，保留原始板内 CHANNEL 字段")
             physical_channels = channel_vals
 
         baseline_start, baseline_end = _resolve_baseline_window(self.baseline_samples, cols)
@@ -589,19 +589,11 @@ class WaveformStruct:
         """将所有通道的波形转换为结构化数组。"""
         cols = self.config.format_spec.columns
 
-        all_board_channel_pairs = []
         has_data = False
         lengths: list[int] = []
         for waves in self.waveforms:
             if len(waves) > 0:
                 has_data = True
-                try:
-                    boards = waves[:, cols.board].astype(int)
-                    channels = waves[:, cols.channel].astype(int)
-                    all_board_channel_pairs.extend(zip(boards, channels, strict=False))
-                except Exception:
-                    logger.warning("无法从波形数据中提取 BOARD/CHANNEL，跳过该通道")
-                    continue
 
                 if waves.shape[1] > cols.samples_start:
                     samples_end = (
@@ -620,18 +612,6 @@ class WaveformStruct:
 
         if not has_data:
             return np.zeros(0, dtype=self.record_dtype)
-
-        if all_board_channel_pairs:
-            channel_mapping = create_channel_mapping(all_board_channel_pairs)
-            logger.debug(f"创建通道映射: {channel_mapping}")
-        else:
-            message = (
-                "未找到 BOARD/CHANNEL 数据，无法建立通道映射。"
-                "请检查 daq_adapter/ColumnMapping 与 CSV 列布局是否匹配。"
-                f"当前列映射: board={cols.board}, channel={cols.channel}, "
-                f"timestamp={cols.timestamp}, samples_start={cols.samples_start}."
-            )
-            raise ValueError(message)
 
         n_channels = len(self.waveforms)
         if n_jobs is None:
@@ -660,8 +640,7 @@ class WaveformStruct:
                 pbar = enumerate(self.waveforms)
 
             self.waveform_structureds = [
-                self._structure_waveform(waves, channel_mapping=channel_mapping, channel_idx=idx)
-                for idx, waves in pbar
+                self._structure_waveform(waves, channel_idx=idx) for idx, waves in pbar
             ]
 
             # 正确关闭进度条
@@ -688,9 +667,7 @@ class WaveformStruct:
                     pbar = None
 
             def _do(idx: int, waves: np.ndarray) -> np.ndarray:
-                return self._structure_waveform(
-                    waves, channel_mapping=channel_mapping, channel_idx=idx
-                )
+                return self._structure_waveform(waves, channel_idx=idx)
 
             with ThreadPoolExecutor(max_workers=effective_jobs) as executor:
                 futures = {
@@ -778,7 +755,7 @@ class WaveformsPlugin(Plugin):
     2. 将波形数据结构化为 NumPy 结构化数组（ST_WAVEFORM_DTYPE）
     """
 
-    version = "0.6.0"
+    version = "0.7.0"
     provides = "st_waveforms"
     depends_on = []
     description = (

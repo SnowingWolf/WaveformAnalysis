@@ -126,19 +126,19 @@ raw_files ──► records ──► events_df ──► events_grouped
 
 | 插件 | 提供数据 | 版本 | 类别 | 依赖 |
 |------|----------|------|------|------|
-| [`BasicFeaturesPlugin`](basic_features.md) | `basic_features` | 3.5.0 | 特征提取 | - |
+| [`BasicFeaturesPlugin`](basic_features.md) | `basic_features` | 3.6.0 | 特征提取 | - |
 | [`CacheAnalysisPlugin`](cache_analysis.md) | `cache_analysis` | 0.1.0 | 缓存分析 | - |
-| [`DataFramePlugin`](df.md) | `df` | 1.5.0 | 数据导出 | - |
+| [`DataFramePlugin`](df.md) | `df` | 1.6.0 | 数据导出 | - |
 | [`GroupedEventsPlugin`](df_events.md) | `df_events` | 0.0.0 | 事件分析 | df |
 | [`PairedEventsPlugin`](df_paired.md) | `df_paired` | 0.0.0 | 事件分析 | df_events |
-| [`FilteredWaveformsPlugin`](filtered_waveforms.md) | `filtered_waveforms` | 2.4.0 | 波形处理 | st_waveforms |
+| [`FilteredWaveformsPlugin`](filtered_waveforms.md) | `filtered_waveforms` | 2.5.0 | 波形处理 | st_waveforms |
 | [`HitFinderPlugin`](hit.md) | `hit` | 2.3.0 | 特征提取 | - |
 | [`RawFileNamesPlugin`](raw_files.md) | `raw_files` | 0.0.2 | 数据加载 | - |
 | [`RecordsPlugin`](records.md) | `records` | 0.6.0 | 记录处理 | raw_files |
 | [`S1S2ClassifierPlugin`](s1_s2.md) | `s1_s2` | 0.3.0 | 其他 | waveform_width, basic_features |
-| [`WaveformsPlugin`](st_waveforms.md) | `st_waveforms` | 0.6.0 | 波形处理 | - |
+| [`WaveformsPlugin`](st_waveforms.md) | `st_waveforms` | 0.7.0 | 波形处理 | - |
 | [`WaveformWidthPlugin`](waveform_width.md) | `waveform_width` | 2.2.0 | 波形处理 | - |
-| [`WaveformWidthIntegralPlugin`](waveform_width_integral.md) | `waveform_width_integral` | 2.3.0 | 波形处理 | - |
+| [`WaveformWidthIntegralPlugin`](waveform_width_integral.md) | `waveform_width_integral` | 2.4.0 | 波形处理 | - |
 
 ---
 

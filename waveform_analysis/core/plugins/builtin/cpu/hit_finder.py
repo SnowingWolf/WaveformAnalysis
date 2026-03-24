@@ -12,6 +12,10 @@ import warnings
 
 import numpy as np
 
+from waveform_analysis.core.hardware.channel import (
+    iter_hardware_channel_groups,
+    resolve_effective_channel_config,
+)
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     WAVE_SOURCE_AUTO,
     WAVE_SOURCE_FILTERED,
@@ -21,7 +25,6 @@ from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     resolve_depends_on as resolve_wave_depends_on,
 )
-from waveform_analysis.core.plugins.builtin.cpu.channel_metadata import resolve_channel_metadata
 from waveform_analysis.core.plugins.builtin.cpu.peak_finding import (
     HIT_DTYPE,
 )
@@ -52,7 +55,7 @@ class ThresholdHitPlugin(Plugin):
 
     provides = "hit_threshold"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
-    version = "0.4.0"
+    version = "0.5.0"
     output_dtype = HIT_DTYPE
     save_when = "always"
 
@@ -81,10 +84,10 @@ class ThresholdHitPlugin(Plugin):
             type=float,
             help="采样间隔（ns），用于计算 timestamp（内部换算到 ps）",
         ),
-        "channel_metadata": Option(
+        "channel_config": Option(
             default=None,
             type=dict,
-            help="每通道元数据映射（支持 run_id 分层），用于按通道覆盖 polarity",
+            help="按 (board, channel) 的插件通道覆盖配置，可覆盖 polarity/threshold。",
         ),
     }
 
@@ -100,7 +103,7 @@ class ThresholdHitPlugin(Plugin):
         left_extension = max(0, int(context.get_config(self, "left_extension")))
         right_extension = max(0, int(context.get_config(self, "right_extension")))
         sampling_interval_ns = float(context.get_config(self, "sampling_interval_ns"))
-        channel_metadata_cfg = context.get_config(self, "channel_metadata")
+        channel_config_cfg = context.get_config(self, "channel_config")
 
         if source == WAVE_SOURCE_RECORDS:
             from waveform_analysis.core import records_view
@@ -111,11 +114,6 @@ class ThresholdHitPlugin(Plugin):
             if len(records) == 0:
                 return np.zeros(0, dtype=HIT_DTYPE)
 
-            channels = (
-                records["channel"]
-                if "channel" in records.dtype.names
-                else np.zeros(len(records), dtype=np.int16)
-            )
             records_len = len(records)
 
             def get_wave(i: int) -> np.ndarray:
@@ -150,11 +148,6 @@ class ThresholdHitPlugin(Plugin):
             if len(waveform_data) == 0:
                 return np.zeros(0, dtype=HIT_DTYPE)
 
-            channels = (
-                waveform_data["channel"]
-                if "channel" in waveform_data.dtype.names
-                else np.zeros(len(waveform_data), dtype=np.int16)
-            )
             records_len = len(waveform_data)
 
             def get_wave(i: int) -> np.ndarray:
@@ -181,13 +174,6 @@ class ThresholdHitPlugin(Plugin):
                     return int(waveform_data[i]["board"])
                 return 0
 
-        channel_meta = resolve_channel_metadata(
-            channel_metadata=channel_metadata_cfg,
-            run_id=run_id,
-            channels=np.unique(channels).tolist(),
-            plugin_name=self.provides,
-        )
-
         sampling_interval_ps = sampling_interval_ns * 1e3
         hits: list[tuple] = []
 
@@ -201,17 +187,28 @@ class ThresholdHitPlugin(Plugin):
             board = get_board(event_idx)
             channel = get_channel(event_idx)
 
-            ch_polarity = channel_meta.get(channel, {}).get("polarity", "unknown")
-            effective_polarity = (
-                ch_polarity if ch_polarity in ("positive", "negative") else polarity
+            effective_rule = resolve_effective_channel_config(
+                context=context,
+                plugin=self,
+                run_id=run_id,
+                board=board,
+                channel=channel,
+                base_values={
+                    "polarity": polarity,
+                    "threshold": threshold,
+                },
+                channel_config=channel_config_cfg,
             )
+
+            effective_polarity = effective_rule.get("polarity", polarity)
+            effective_threshold = float(effective_rule.get("threshold", threshold))
 
             if effective_polarity == "positive":
                 signal = wave.astype(np.float64) - baseline
             else:
                 signal = baseline - wave.astype(np.float64)
 
-            regions = self._find_regions(signal, threshold)
+            regions = self._find_regions(signal, effective_threshold)
             for start, end in regions:
                 seg_start = max(0, start - left_extension)
                 seg_end = min(len(signal), end + right_extension)
@@ -263,7 +260,7 @@ class ThresholdHitFinderPlugin(Plugin):
 
     provides = "hits"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
-    version = "2.1.0"  # 版本升级：输出改为单数组
+    version = "2.2.0"  # 版本升级：按 (board, channel) 分组
     output_dtype = np.dtype(PEAK_DTYPE)
 
     options = {
@@ -297,21 +294,12 @@ class ThresholdHitFinderPlugin(Plugin):
             return np.zeros(0, dtype=PEAK_DTYPE)
 
         hits_all: list[np.ndarray] = []
-        channels = (
-            waveform_data["channel"]
-            if "channel" in waveform_data.dtype.names
-            else np.zeros(len(waveform_data), dtype="i2")
-        )
-
-        for ch in np.unique(channels):
-            mask = channels == ch
-            if not np.any(mask):
-                continue
-            st_ch = waveform_data[mask]
+        for hw_channel, st_ch in iter_hardware_channel_groups(waveform_data):
             waves_2d = np.stack(st_ch["wave"])
             hits = find_hits(waves_2d, st_ch["baseline"], threshold=threshold)
             if len(hits) > 0:
-                hits["channel"] = np.int16(ch)
+                hits["board"] = np.int16(hw_channel.board)
+                hits["channel"] = np.int16(hw_channel.channel)
             hits_all.append(hits)
 
         if not hits_all:

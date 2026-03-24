@@ -132,7 +132,7 @@ class TestBasicFeaturesCompute:
         assert np.isclose(result["amp"][0], 20.0)
         assert np.isclose(result["area"][0], 35.0)
 
-    def test_channel_metadata_overrides_plugin_polarity(self):
+    def test_channel_config_overrides_plugin_polarity(self):
         st = _make_st_waveforms(n=2, wave_length=5, n_channels=2)
         st[0]["channel"] = 0
         st[0]["wave"][:] = [100, 110, 120, 105, 100]
@@ -145,9 +145,11 @@ class TestBasicFeaturesCompute:
                 "height_range": (0, 5),
                 "area_range": (0, 5),
                 "polarity": "negative",
-                "channel_metadata": {
-                    "0": {"polarity": "positive", "geometry": "A0"},
-                    "1": {"polarity": "negative", "geometry": "A1"},
+                "channel_config": {
+                    "channels": {
+                        "0:0": {"polarity": "positive"},
+                        "0:1": {"polarity": "negative"},
+                    }
                 },
             },
         )
@@ -245,7 +247,12 @@ class TestFixedBaseline:
             config={
                 "height_range": (0, 5),
                 "area_range": (0, 5),
-                "fixed_baseline": {0: 200.0, 1: 150.0},
+                "channel_config": {
+                    "channels": {
+                        "0:0": {"fixed_baseline": 200.0},
+                        "0:1": {"fixed_baseline": 150.0},
+                    }
+                },
             },
         )
         plugin = BasicFeaturesPlugin()
@@ -270,7 +277,11 @@ class TestFixedBaseline:
             config={
                 "height_range": (0, 5),
                 "area_range": (0, 5),
-                "fixed_baseline": {0: 200.0},  # only ch0
+                "channel_config": {
+                    "channels": {
+                        "0:0": {"fixed_baseline": 200.0},
+                    }
+                },  # only ch0
             },
         )
         plugin = BasicFeaturesPlugin()
@@ -397,16 +408,18 @@ class TestUseFiltered:
         assert np.isclose(result["height"][0], 20.0)  # 100 - 80
         assert np.isclose(result["amp"][0], 15.0)  # 95 - 80
 
-    def test_records_view_uses_channel_metadata_polarity(self):
+    def test_records_view_uses_channel_config_polarity(self):
         ctx = FakeContext(
             config={
                 "wave_source": "records",
                 "height_range": (0, 4),
                 "area_range": (0, 4),
                 "polarity": "negative",
-                "channel_metadata": {
-                    "0": {"polarity": "positive", "geometry": "A0"},
-                    "1": {"polarity": "negative", "geometry": "A1"},
+                "channel_config": {
+                    "channels": {
+                        "3:0": {"polarity": "positive"},
+                        "4:1": {"polarity": "negative"},
+                    }
                 },
             }
         )
@@ -489,14 +502,22 @@ class TestErrorPaths:
 
 
 @pytest.mark.parametrize(
-    "fixed_baseline,expected_heights",
+    "channel_config,expected_heights",
     [
         (None, [10.0, 15.0]),  # dynamic baseline
-        ({0: 200.0}, [110.0, 15.0]),  # partial override ch0
-        ({0: 200.0, 1: 150.0}, [110.0, 65.0]),  # full override
+        ({"channels": {"0:0": {"fixed_baseline": 200.0}}}, [110.0, 15.0]),  # partial override ch0
+        (
+            {
+                "channels": {
+                    "0:0": {"fixed_baseline": 200.0},
+                    "0:1": {"fixed_baseline": 150.0},
+                }
+            },
+            [110.0, 65.0],
+        ),  # full override
     ],
 )
-def test_fixed_baseline_parametrized(fixed_baseline, expected_heights):
+def test_fixed_baseline_parametrized(channel_config, expected_heights):
     st = _make_st_waveforms(n=2, wave_length=5, n_channels=2)
     st[0]["wave"][:] = 90
     st[0]["baseline"] = 100.0
@@ -506,8 +527,8 @@ def test_fixed_baseline_parametrized(fixed_baseline, expected_heights):
     st[1]["channel"] = 1
 
     cfg = {"height_range": (0, 5), "area_range": (0, 5)}
-    if fixed_baseline is not None:
-        cfg["fixed_baseline"] = fixed_baseline
+    if channel_config is not None:
+        cfg["channel_config"] = channel_config
 
     ctx = _ctx_with_waveforms(st, config=cfg)
     plugin = BasicFeaturesPlugin()
