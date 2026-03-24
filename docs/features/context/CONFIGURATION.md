@@ -72,6 +72,210 @@ ctx.set_config(
 
 `channel_metadata` 现在只保留描述性/兼容语义，不再作为行为配置来源。
 
+### 配置分层职责
+
+- `Context.config`：分析会话级默认策略，适合放全局插件默认值和常用 `channel_config`
+- `run_config.json`：run 级覆盖，适合放当次采集特有的插件行为覆盖和标定
+- `plugins.<plugin>`：插件行为配置命名空间
+- `plugins.<plugin>.channel_config`：按硬件通道覆盖行为参数
+- `calibration`：标定参数命名空间，例如 `gain_adc_per_pe`
+- `meta`：run 描述信息，不参与插件行为决策
+
+### 完整优先级关系
+
+插件行为参数建议按下面的顺序理解：
+
+```text
+plugin option default
+  < Context.config[plugin]
+  < Context.config[plugin].channel_config.defaults
+  < Context.config[plugin].channel_config.groups
+  < Context.config[plugin].channel_config.channels
+  < run_config.json.plugins[plugin]
+  < run_config.json.plugins[plugin].channel_config.defaults
+  < run_config.json.plugins[plugin].channel_config.groups
+  < run_config.json.plugins[plugin].channel_config.channels
+```
+
+其中：
+
+- `channel_config` 内部始终按 `defaults < groups < channels` 合并
+- `meta` 不参与上面的行为优先级链
+- `calibration` 走独立标定链，不和 `threshold`/`polarity` 等行为参数混用
+
+### 字段归属建议
+
+| 字段类别 | 推荐位置 |
+| --- | --- |
+| `threshold` / `polarity` / `fixed_baseline` | `plugins.<plugin>.channel_config` |
+| 通道硬件事实 truth（`polarity` / `geometry` / `adc_bits`） | 顶层 `channel_metadata` |
+| `gain_adc_per_pe` | `calibration.gain_adc_per_pe` |
+| `operator` / `sample` / `comment` / `firmware_version` | `meta.*` |
+
+### `channel_metadata` 分层模型
+
+顶层 `channel_metadata` 用于表达通道硬件事实 truth，不直接驱动插件行为。推荐结构为：
+
+```json
+{
+  "channel_metadata": {
+    "defaults": {
+      "adc_bits": 14
+    },
+    "groups": [
+      {
+        "name": "board0_negative",
+        "channels": ["0:0", "0:1", "0:2", "0:3"],
+        "metadata": {
+          "polarity": "negative",
+          "geometry": "bottom"
+        }
+      }
+    ],
+    "channels": {
+      "1:2": {
+        "geometry": "special_probe"
+      }
+    }
+  }
+}
+```
+
+对应规则：
+
+- `defaults`：所有通道共享的 hardware truth 默认值
+- `groups`：一组通道共享的 truth
+- `channels`：单通道最终 truth
+- merge 顺序：`defaults < groups < channels`
+- `channel_metadata.polarity` 是 hardware truth
+- `plugins.<plugin>.channel_config.polarity` 是插件运行时行为配置
+
+### `groups` 是否支持
+
+支持。`channel_config` 的标准结构就是：
+
+```json
+{
+  "defaults": {...},
+  "groups": [...],
+  "channels": {...}
+}
+```
+
+其中：
+
+- `defaults`：所有通道共享的默认值
+- `groups`：一批硬件通道共享的覆盖
+- `channels`：单通道最终覆盖
+
+合并顺序固定为：
+
+```text
+defaults < groups < channels
+```
+
+因此 `groups` 很适合：
+
+- 一整板卡共享同一组参数
+- 一组正极性通道共享相同 `threshold`
+- 一片几何区域共享 `fixed_baseline`
+
+### `groups` 示例
+
+```json
+{
+  "plugins": {
+    "basic_features": {
+      "channel_config": {
+        "defaults": {
+          "polarity": "negative"
+        },
+        "groups": [
+          {
+            "name": "board0_baseline",
+            "channels": ["0:0", "0:1", "0:2", "0:3"],
+            "config": {
+              "fixed_baseline": 8192.0
+            }
+          }
+        ],
+        "channels": {
+          "0:1": {
+            "fixed_baseline": 8200.0
+          }
+        }
+      }
+    },
+    "hit": {
+      "channel_config": {
+        "defaults": {
+          "threshold": 22.0,
+          "polarity": "negative"
+        },
+        "groups": [
+          {
+            "name": "positive_board1",
+            "channels": ["1:0", "1:1", "1:2"],
+            "config": {
+              "polarity": "positive",
+              "threshold": 35.0
+            }
+          }
+        ],
+        "channels": {
+          "1:0": {
+            "threshold": 40.0
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+对应结果：
+
+- `hit(1:1)`：来自 `positive_board1`，结果为 `polarity=positive, threshold=35.0`
+- `hit(1:0)`：先命中 `positive_board1`，再被 `channels["1:0"]` 覆盖，结果为 `polarity=positive, threshold=40.0`
+- `basic_features(0:1)`：先命中 `board0_baseline`，再被单通道覆盖，结果为 `fixed_baseline=8200.0`
+
+### Context.config 示例
+
+```python
+ctx = Context(
+    config={
+        "data_root": "/data/DAQ",
+        "run_config_path": "{data_root}/{run_id}/run_config.json",
+        "daq_adapter": "vx2730",
+        "hit": {
+            "threshold": 20.0,
+            "channel_config": {
+                "defaults": {"polarity": "negative"},
+                "groups": [
+                    {
+                        "name": "outer_ring",
+                        "channels": ["0:0", "0:1", "0:2", "0:3"],
+                        "config": {"threshold": 24.0},
+                    }
+                ],
+                "channels": {
+                    "1:7": {"polarity": "positive", "threshold": 36.0},
+                },
+            },
+        },
+        "basic_features": {
+            "channel_config": {
+                "defaults": {"polarity": "negative"},
+                "channels": {
+                    "0:3": {"fixed_baseline": 8192.0},
+                    "1:7": {"polarity": "positive"},
+                },
+            },
+        },
+    }
+)
+```
+
 ---
 
 ## Context 初始化配置参考
@@ -208,6 +412,34 @@ ctx.set_config({
 当前 `df` 会读取 `calibration.gain_adc_per_pe`。
 若同时设置了显式配置 `gain_adc_per_pe`，显式配置优先。
 注意这里的 key 必须是 `"board:channel"`；裸通道号已不再支持。
+
+### 逐步 merge 示例
+
+以上面的 `Context.config` 和本节 `run_config.json` 为例：
+
+- `hit(1:7)`：
+  - 插件默认值
+  - 被 `Context.config["hit"]["threshold"] = 20.0` 覆盖
+  - 再被 `Context.config["hit"]["channel_config"]["channels"]["1:7"]` 覆盖为
+    `polarity=positive, threshold=36.0`
+  - 再被 `run_config.json["plugins"]["hit"]["threshold"] = 22.0` 覆盖 threshold
+  - 最后被 `run_config.json["plugins"]["hit"]["channel_config"]["channels"]["1:7"]`
+    覆盖为 `threshold=42.0`
+  - 最终结果：`polarity=positive, threshold=42.0`
+
+- `basic_features(0:3)`：
+  - `Context.config["basic_features"]["channel_config"]["defaults"]` 给出
+    `polarity=negative`
+  - `Context.config["basic_features"]["channel_config"]["channels"]["0:3"]` 给出
+    `fixed_baseline=8192.0`
+  - `run_config.json["plugins"]["basic_features"]["channel_config"]["channels"]["0:3"]`
+    覆盖 `fixed_baseline=8300.0`
+  - 最终结果：`polarity=negative, fixed_baseline=8300.0`
+
+- `df.gain_adc_per_pe`：
+  - 若显式配置 `df.gain_adc_per_pe`，则优先使用显式配置
+  - 否则读取 `run_config.json["calibration"]["gain_adc_per_pe"]`
+  - 因此在本例中，若未显式配置，则 `df(1:7)` 使用 `9.5`
 
 ### 插件特定配置（推荐）
 

@@ -1,11 +1,15 @@
-"""Backward-compatible wrapper around hardware channel config helpers."""
+"""Backward-compatible wrapper around hardware channel metadata helpers."""
 
 from __future__ import annotations
 
 from collections.abc import Iterable
 from typing import Any
 
-from waveform_analysis.core.hardware.channel import HardwareChannel, resolve_channel_configs
+from waveform_analysis.core.hardware.channel import (
+    HardwareChannel,
+    get_channel_metadata_config,
+    resolve_channel_metadata_map,
+)
 
 
 def resolve_channel_metadata(
@@ -27,11 +31,9 @@ def resolve_channel_metadata(
                 "(board, channel)."
             )
 
-    configs = resolve_channel_configs(
-        channel_config=channel_metadata,
-        run_id=run_id,
+    configs = resolve_channel_metadata_map(
+        channel_metadata=channel_metadata,
         channels=normalized_channels,
-        plugin_name=plugin_name,
     )
 
     result: dict[Any, dict[str, Any]] = {}
@@ -43,3 +45,17 @@ def resolve_channel_metadata(
             "adc_bits": config.adc_bits,
         }
     return result
+
+
+def resolve_context_channel_metadata(
+    context: Any,
+    run_id: str,
+    channels: Iterable[tuple[int, int] | HardwareChannel],
+) -> dict[Any, dict[str, Any]]:
+    """Resolve merged top-level channel_metadata for a run."""
+    return resolve_channel_metadata(
+        channel_metadata=get_channel_metadata_config(context, run_id),
+        run_id=run_id,
+        channels=channels,
+        plugin_name="channel_metadata",
+    )

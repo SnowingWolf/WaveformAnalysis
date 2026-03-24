@@ -33,6 +33,15 @@ class ChannelConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class ChannelMetadata:
+    """Normalized per-hardware-channel metadata truth entry."""
+
+    polarity: str = "unknown"
+    geometry: str = "unknown"
+    adc_bits: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class PluginChannelRule:
     """Resolved plugin config for a single hardware channel."""
 
@@ -180,6 +189,27 @@ def normalize_channel_config_entry(raw: Any) -> ChannelConfig:
     )
 
 
+def normalize_channel_metadata_entry(raw: Any) -> ChannelMetadata:
+    if not isinstance(raw, Mapping):
+        return ChannelMetadata()
+
+    polarity = raw.get("polarity", "unknown")
+    if not isinstance(polarity, str) or polarity not in VALID_POLARITIES:
+        polarity = "unknown"
+
+    geometry = raw.get("geometry", "unknown")
+    if not isinstance(geometry, str) or not geometry.strip():
+        geometry = "unknown"
+
+    adc_bits = _normalize_adc_bits(raw.get("adc_bits"))
+
+    return ChannelMetadata(
+        polarity=polarity,
+        geometry=geometry,
+        adc_bits=adc_bits,
+    )
+
+
 def _parse_channel_ref(key: Any) -> HardwareChannel | None:
     if isinstance(key, HardwareChannel):
         return key
@@ -217,6 +247,100 @@ def _select_run_block(config: Any, run_id: str) -> Mapping[Any, Any]:
 
 def _as_mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
+
+
+def _as_group_sequence(groups: Any) -> list[Mapping[str, Any]]:
+    if isinstance(groups, Mapping):
+        result: list[Mapping[str, Any]] = []
+        for name, group in groups.items():
+            if not isinstance(group, Mapping):
+                continue
+            if "name" in group:
+                result.append(group)
+            else:
+                result.append({"name": str(name), **group})
+        return result
+    if isinstance(groups, Sequence) and not isinstance(groups, str | bytes):
+        return [item for item in groups if isinstance(item, Mapping)]
+    return []
+
+
+def _resolve_layered_channel_overrides(
+    config_block: Mapping[str, Any],
+    channel: HardwareChannel,
+    *,
+    group_value_key: str,
+) -> dict[str, Any]:
+    resolved: dict[str, Any] = {}
+
+    defaults = config_block.get("defaults")
+    if isinstance(defaults, Mapping):
+        resolved.update(defaults)
+
+    for group in _as_group_sequence(config_block.get("groups")):
+        if not _channel_in_selector(channel, group.get("channels")):
+            continue
+        values = group.get(group_value_key)
+        if values is None and group_value_key != "config":
+            values = group.get("config")
+        if isinstance(values, Mapping):
+            resolved.update(values)
+
+    channels_block = config_block.get("channels")
+    if not isinstance(channels_block, Mapping):
+        channels_block = config_block
+    if isinstance(channels_block, Mapping):
+        direct = channels_block.get(channel)
+        if isinstance(direct, Mapping):
+            resolved.update(direct)
+        else:
+            for key, values in channels_block.items():
+                if key in {"defaults", "groups", "channels"}:
+                    continue
+                parsed = _parse_channel_ref(key)
+                if parsed is None:
+                    raise _channel_ref_error(key)
+                if parsed != channel:
+                    continue
+                if not isinstance(values, Mapping):
+                    raise ValueError(
+                        f"Invalid channel config for {key!r}; expected a mapping, got "
+                        f"{type(values).__name__}."
+                    )
+                resolved.update(values)
+                break
+
+    return resolved
+
+
+def _iter_metadata_layers(channel_metadata: Any) -> list[Mapping[str, Any]]:
+    if isinstance(channel_metadata, Mapping):
+        return [channel_metadata]
+    if isinstance(channel_metadata, Sequence) and not isinstance(channel_metadata, str | bytes):
+        return [item for item in channel_metadata if isinstance(item, Mapping)]
+    return []
+
+
+def get_channel_metadata_config(context: Any, run_id: str) -> list[Mapping[str, Any]]:
+    """Return top-level channel_metadata layers for a run in precedence order."""
+    context_config = _as_mapping(getattr(context, "config", {}))
+    base = context_config.get("channel_metadata")
+
+    run_config: Mapping[str, Any] = {}
+    run_config_getter = getattr(context, "get_run_config", None)
+    if callable(run_config_getter):
+        try:
+            run_config = _as_mapping(run_config_getter(run_id))
+        except Exception:
+            run_config = {}
+    override = run_config.get("channel_metadata")
+
+    layers: list[Mapping[str, Any]] = []
+    if isinstance(base, Mapping):
+        layers.append(base)
+    if isinstance(override, Mapping):
+        layers.append(override)
+    return layers
 
 
 def get_plugin_run_config(
@@ -278,47 +402,11 @@ def resolve_plugin_channel_overrides(
     channel: HardwareChannel,
 ) -> dict[str, Any]:
     """Resolve run/group/channel override layers for a specific channel."""
-    resolved: dict[str, Any] = {}
-
-    defaults = plugin_run_config.get("defaults")
-    if isinstance(defaults, Mapping):
-        resolved.update(defaults)
-
-    groups = plugin_run_config.get("groups")
-    if isinstance(groups, Mapping):
-        for group_name in sorted(groups):
-            group = groups[group_name]
-            if not isinstance(group, Mapping):
-                continue
-            if _channel_in_selector(channel, group.get("channels")):
-                config = group.get("config")
-                if isinstance(config, Mapping):
-                    resolved.update(config)
-
-    channels_block = plugin_run_config.get("channels")
-    if not isinstance(channels_block, Mapping):
-        channels_block = plugin_run_config
-    if isinstance(channels_block, Mapping):
-        direct = channels_block.get(channel)
-        if isinstance(direct, Mapping):
-            resolved.update(direct)
-        else:
-            for key, config in channels_block.items():
-                if key in {"defaults", "groups", "channels"}:
-                    continue
-                parsed = _parse_channel_ref(key)
-                if parsed is None:
-                    raise _channel_ref_error(key)
-                if parsed == channel:
-                    if not isinstance(config, Mapping):
-                        raise ValueError(
-                            f"Invalid channel config for {key!r}; expected a mapping, got "
-                            f"{type(config).__name__}."
-                        )
-                    resolved.update(config)
-                    break
-
-    return resolved
+    return _resolve_layered_channel_overrides(
+        plugin_run_config,
+        channel,
+        group_value_key="config",
+    )
 
 
 def resolve_effective_channel_config(
@@ -445,6 +533,41 @@ def resolve_channel_configs(
     return resolved
 
 
+def resolve_effective_channel_metadata(
+    channel_metadata: Any,
+    *,
+    board: int,
+    channel: int,
+) -> ChannelMetadata:
+    hw_channel = HardwareChannel(board=int(board), channel=int(channel))
+    resolved: dict[str, Any] = {}
+    for selected in _iter_metadata_layers(channel_metadata):
+        resolved.update(
+            _resolve_layered_channel_overrides(
+                selected,
+                hw_channel,
+                group_value_key="metadata",
+            )
+        )
+    return normalize_channel_metadata_entry(resolved)
+
+
+def resolve_channel_metadata_map(
+    channel_metadata: Any,
+    *,
+    channels: Iterable[HardwareChannel],
+) -> dict[HardwareChannel, ChannelMetadata]:
+    channel_list = sorted(set(channels))
+    return {
+        hw_channel: resolve_effective_channel_metadata(
+            channel_metadata,
+            board=hw_channel.board,
+            channel=hw_channel.channel,
+        )
+        for hw_channel in channel_list
+    }
+
+
 def resolve_channel_value_map(
     channel_config: Any,
     run_id: str,
@@ -502,6 +625,14 @@ def get_channel_config(
     channel: int,
 ) -> ChannelConfig:
     return configs.get(HardwareChannel(int(board), int(channel)), ChannelConfig())
+
+
+def get_channel_metadata(
+    configs: Mapping[HardwareChannel, ChannelMetadata],
+    board: int,
+    channel: int,
+) -> ChannelMetadata:
+    return configs.get(HardwareChannel(int(board), int(channel)), ChannelMetadata())
 
 
 def get_channel_config_for_record(
