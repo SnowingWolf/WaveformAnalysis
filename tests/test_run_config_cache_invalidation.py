@@ -18,6 +18,12 @@ class _ConstPlugin(Plugin):
 
 class _DFPlugin(_ConstPlugin):
     provides = "df"
+    uses_run_config = True
+
+
+class _RunConfigDrivenPlugin(_ConstPlugin):
+    provides = "run_cfg_root"
+    uses_run_config = True
 
 
 class _DFEventsPlugin(_ConstPlugin):
@@ -33,6 +39,7 @@ class _DFPairedPlugin(_ConstPlugin):
 def _register_test_plugins(ctx: Context):
     ctx.register(
         _DFPlugin(),
+        _RunConfigDrivenPlugin(),
         _DFEventsPlugin(),
         _DFPairedPlugin(),
     )
@@ -74,8 +81,8 @@ def test_run_config_hash_change_triggers_related_cache_clear(tmp_path):
     # First context: baseline hash write
     ctx = Context(config={"data_root": str(data_root)})
     _register_test_plugins(ctx)
-    ctx._maybe_invalidate_run_config_cache(run_id)
-    state_path = Path(ctx._get_run_config_hash_state_path(run_id))
+    ctx._config_domain.maybe_invalidate_run_config_cache(run_id)
+    state_path = Path(ctx._config_domain.get_run_config_hash_state_path(run_id))
     assert state_path.exists()
 
     # New context simulates a new session reading persisted hash state.
@@ -97,14 +104,15 @@ def test_run_config_hash_change_triggers_related_cache_clear(tmp_path):
     ctx2.clear_cache_for = _fake_clear_cache_for
 
     # Same hash: should not invalidate.
-    ctx2._maybe_invalidate_run_config_cache(run_id)
+    ctx2._config_domain.maybe_invalidate_run_config_cache(run_id)
     assert clear_calls == []
 
     # Changed hash: should invalidate df branch and its downstream.
     _write_run_config(config_path, gain_value=11.0)
-    ctx2._maybe_invalidate_run_config_cache(run_id)
+    ctx2._config_domain.maybe_invalidate_run_config_cache(run_id)
 
     assert (run_id, "df", True) in clear_calls
+    assert (run_id, "run_cfg_root", True) in clear_calls
 
 
 def test_get_run_config_path_supports_explicit_template(tmp_path):

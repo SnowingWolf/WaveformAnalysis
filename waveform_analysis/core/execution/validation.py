@@ -6,7 +6,8 @@
 """
 
 # 1. Standard library imports
-from typing import TYPE_CHECKING, Any, Iterator, Optional, Tuple
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Any
 
 # 2. Third-party imports
 import numpy as np
@@ -69,7 +70,7 @@ class ValidationManager:
         Raises:
             ValueError: 配置验证失败时
         """
-        self.ctx._ensure_plugin_config_validated(plugin)
+        self.ctx._config_domain.ensure_plugin_config_validated(plugin)
 
     def validate_input_dtypes(self, plugin: "Plugin", run_id: str) -> None:
         """验证插件输入 dtype
@@ -93,7 +94,7 @@ class ValidationManager:
                     f"Expected dtype {expected_dtype}, but got {actual_dtype}."
                 )
 
-    def validate_output_contract(self, plugin: "Plugin", result: Any) -> Tuple[Any, str]:
+    def validate_output_contract(self, plugin: "Plugin", result: Any) -> tuple[Any, str]:
         """验证输出契约
 
         验证插件输出是否符合声明的 output_kind（static 或 stream）。
@@ -110,7 +111,7 @@ class ValidationManager:
         Raises:
             TypeError: 输出契约违反时
         """
-        is_generator = isinstance(result, (Iterator, OneTimeGenerator)) or hasattr(
+        is_generator = isinstance(result, Iterator | OneTimeGenerator) or hasattr(
             result, "__next__"
         )
         effective_output_kind = plugin.output_kind
@@ -136,7 +137,7 @@ class ValidationManager:
     def convert_to_dtype(
         self,
         result: Any,
-        target_dtype: Optional[np.dtype],
+        target_dtype: np.dtype | None,
         plugin_name: str,
         is_generator: bool = False,
     ) -> Any:
@@ -190,7 +191,7 @@ class ValidationManager:
 
         return result
 
-    def _extract_dtype(self, data: Any) -> Optional[np.dtype]:
+    def _extract_dtype(self, data: Any) -> np.dtype | None:
         """从数据中提取 dtype
 
         Args:

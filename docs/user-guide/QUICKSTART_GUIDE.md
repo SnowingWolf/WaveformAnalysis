@@ -524,9 +524,9 @@ print(f"通道 0 的字段: {st_waveforms[0].dtype.names}")
 ### Q: 如何清除缓存重新计算？
 
 ```python
-ctx.clear_cache('run_001', 'basic_features')
+ctx.clear_cache_for('run_001', 'basic_features')
 # 或清除所有缓存
-ctx.clear_cache('run_001')
+ctx.clear_cache_for('run_001')
 ```
 
 ---

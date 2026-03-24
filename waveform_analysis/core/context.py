@@ -44,13 +44,14 @@ from .config import (
     ResolvedConfig,
     get_adapter_info,
 )
+from .context_cache import ContextCacheDomain
 from .context_config import ContextConfigDomain
 from .context_execution import ContextExecutionDomain
 from .context_time import ContextTimeDomain
 from .execution.validation import ValidationManager
 from .foundation.error import ErrorManager
 from .foundation.exceptions import ErrorSeverity
-from .foundation.mixins import CacheMixin, PluginMixin
+from .foundation.mixins import PluginMixin
 from .foundation.utils import OneTimeGenerator, Profiler
 from .hardware.channel import HardwareChannel
 from .plugins.core.base import Plugin
@@ -129,7 +130,7 @@ def _create_context_from_spec(spec: dict[str, Any]) -> "Context":
     return ctx
 
 
-class Context(CacheMixin, PluginMixin):
+class Context(PluginMixin):
     """
     The Context orchestrates plugins and manages data storage/caching.
     Inspired by strax, it is the main entry point for data analysis.
@@ -300,7 +301,6 @@ class Context(CacheMixin, PluginMixin):
             >>> # 启用详细统计和日志
             >>> ctx = Context(stats_mode='detailed', stats_log_file='./logs/plugins.log')
         """
-        CacheMixin.__init__(self)
         PluginMixin.__init__(self)
 
         self.profiler = Profiler()
@@ -420,6 +420,7 @@ class Context(CacheMixin, PluginMixin):
         self._config_resolver = ConfigResolver(compat_manager=self._compat_manager)
 
         self._config_domain = ContextConfigDomain(self)
+        self._cache_domain = ContextCacheDomain(self)
         self._execution_domain = ContextExecutionDomain(self)
         self._time_domain = ContextTimeDomain(self)
 
@@ -698,27 +699,12 @@ class Context(CacheMixin, PluginMixin):
     ) -> bool:
         return self._config_domain.has_explicit_config(plugin, name, adapter_name=adapter_name)
 
-    def _resolve_adapter_name_for_plugin(
-        self,
-        plugin: Plugin,
-        adapter_name: str | None = None,
-    ) -> str | None:
-        return self._config_domain.resolve_adapter_name_for_plugin(
-            plugin, adapter_name=adapter_name
-        )
-
     def get_resolved_config(
         self,
         plugin: Plugin | str,
         adapter_name: str | None = None,
     ) -> ResolvedConfig:
         return self._config_domain.get_resolved_config(plugin, adapter_name=adapter_name)
-
-    def _get_run_config_hash_state_path(self, run_id: str) -> str:
-        return self._config_domain.get_run_config_hash_state_path(run_id)
-
-    def _maybe_invalidate_run_config_cache(self, run_id: str) -> None:
-        self._config_domain.maybe_invalidate_run_config_cache(run_id)
 
     def get_run_config(self, run_id: str, refresh: bool = False) -> dict[str, Any]:
         return self._config_domain.get_run_config(run_id, refresh=refresh)
@@ -829,7 +815,13 @@ class Context(CacheMixin, PluginMixin):
         """
         if data_name and data_name in self._plugins:
             # 显示特定插件的配置
-            self._show_plugin_config(data_name, show_full_help=show_full_help)
+            self.list_plugin_configs(
+                plugin_name=data_name,
+                show_current_values=True,
+                verbose=True,
+                as_dataframe=True,
+                show_full_help=show_full_help,
+            )
         else:
             # 显示全局配置
             self._show_global_config(show_usage, show_full_help=show_full_help, run_name=run_name)
@@ -921,11 +913,7 @@ class Context(CacheMixin, PluginMixin):
         Should be called when plugins are registered/unregistered or
         when plugin configurations change.
         """
-        self._execution_plan_cache.clear()
-        self._lineage_cache.clear()
-        self._lineage_hash_cache.clear()
-        self._key_cache.clear()
-        self.logger.debug("Performance caches cleared")
+        self._cache_domain.clear_performance_caches()
 
     def key_for(self, run_id: str, data_name: str) -> str:
         """
@@ -933,28 +921,7 @@ class Context(CacheMixin, PluginMixin):
 
         Uses caching for performance optimization.
         """
-        # Check cache first
-        cache_key = (run_id, data_name)
-        if cache_key in self._key_cache:
-            return self._key_cache[cache_key]
-
-        import hashlib
-        import json
-
-        # Check if we have cached lineage hash
-        if data_name in self._lineage_hash_cache:
-            lineage_hash = self._lineage_hash_cache[data_name]
-        else:
-            lineage = self.get_lineage(data_name)
-            # Use default=str to handle any non-serializable objects gracefully,
-            # though we try to standardize them in get_lineage.
-            lineage_json = json.dumps(lineage, sort_keys=True, default=str)
-            lineage_hash = hashlib.sha1(lineage_json.encode()).hexdigest()[:8]
-            self._lineage_hash_cache[data_name] = lineage_hash
-
-        key = f"{run_id}-{data_name}-{lineage_hash}"
-        self._key_cache[cache_key] = key
-        return key
+        return self._cache_domain.key_for(run_id, data_name)
 
     def clear_cache_for(
         self,
@@ -990,69 +957,39 @@ class Context(CacheMixin, PluginMixin):
             >>> # 只清理内存缓存
             >>> ctx.clear_cache_for("run_001", "df", clear_disk=False)
         """
-        count = 0
-        memory_count = 0
-        disk_count = 0
+        return self._cache_domain.clear_cache_for(
+            run_id,
+            data_name=data_name,
+            downstream=downstream,
+            clear_memory=clear_memory,
+            clear_disk=clear_disk,
+            verbose=verbose,
+        )
 
-        # 确定要清理的数据名称列表
-        if data_name is None:
-            # 清理所有已注册插件提供的数据
-            data_names = list(self._plugins.keys())
-            if verbose:
-                print(f"[清理缓存] 运行: {run_id}, 清理所有数据类型的缓存 ({len(data_names)} 个)")
-        else:
-            if downstream:
-                downstream_names = self._collect_downstream_data_names(data_name, run_id=run_id)
-                data_names = [data_name] + sorted(downstream_names)
-            else:
-                data_names = [data_name]
-            if verbose:
-                print(f"[清理缓存] 运行: {run_id}, 数据类型: {data_name}")
-
-        for name in data_names:
-            # 清理内存缓存
-            if clear_memory:
-                key = (run_id, name)
-                if key in self._results:
-                    del self._results[key]
-                    # Also clean up lineage record
-                    if key in self._results_lineage:
-                        del self._results_lineage[key]
-                    memory_count += 1
-                    count += 1
-                    if verbose:
-                        print(f"  ✓ 已清理内存缓存: ({run_id}, {name})")
-                    self.logger.debug(f"Cleared memory cache for ({run_id}, {name})")
-                elif verbose:
-                    print(f"  - 内存缓存不存在: ({run_id}, {name})")
-
-            # 清理磁盘缓存
-            if clear_disk:
-                try:
-                    cache_key = self.key_for(run_id, name)
-                    deleted = self._delete_disk_cache(cache_key, run_id, data_name=name)
-                    disk_count += deleted
-                    count += deleted
-                    if deleted > 0:
-                        if verbose:
-                            print(f"  ✓ 已清理磁盘缓存: {cache_key} ({deleted} 个文件)")
-                        self.logger.debug(f"Cleared disk cache for ({run_id}, {name})")
-                    elif verbose:
-                        print(f"  - 磁盘缓存不存在: {cache_key}")
-                except Exception as e:
-                    if verbose:
-                        print(f"  ✗ 清理磁盘缓存失败: ({run_id}, {name}) - {e}")
-                    self.logger.warning(f"Failed to clear disk cache for ({run_id}, {name}): {e}")
-
-        # 总结信息
-        if verbose:
-            print(f"[清理完成] 总计: {count} 个缓存项 (内存: {memory_count}, 磁盘: {disk_count})")
-            if count == 0:
-                print("  ⚠️  没有找到需要清理的缓存")
-            else:
-                print("  ✓ 缓存清理成功")
-
-        return count
+    def clear_cache(
+        self,
+        run_id: str,
+        data_name: str | None = None,
+        *,
+        downstream: bool = False,
+        clear_memory: bool = True,
+        clear_disk: bool = True,
+        verbose: bool = True,
+    ) -> int:
+        """Deprecated compatibility wrapper for ``clear_cache_for``."""
+        warnings.warn(
+            "Context.clear_cache() is deprecated; use Context.clear_cache_for() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.clear_cache_for(
+            run_id,
+            data_name,
+            downstream=downstream,
+            clear_memory=clear_memory,
+            clear_disk=clear_disk,
+            verbose=verbose,
+        )
 
     def _collect_downstream_data_names(
         self, data_name: str, run_id: str | None = None
@@ -1144,22 +1081,6 @@ class Context(CacheMixin, PluginMixin):
     def _storage_exists(self, storage: Any, key: str, run_id: str | None) -> bool:
         return bool(self._storage_call(storage, "exists", key, run_id))
 
-    def _storage_get_metadata(
-        self, storage: Any, key: str, run_id: str | None
-    ) -> dict[str, Any] | None:
-        return self._storage_call(storage, "get_metadata", key, run_id)
-
-    def _storage_load_memmap(self, storage: Any, key: str, run_id: str | None) -> np.ndarray | None:
-        return self._storage_call(storage, "load_memmap", key, run_id)
-
-    def _storage_load_dataframe(
-        self, storage: Any, key: str, run_id: str | None
-    ) -> pd.DataFrame | None:
-        return self._storage_call(storage, "load_dataframe", key, run_id)
-
-    def _storage_delete(self, storage: Any, key: str, run_id: str | None) -> None:
-        self._storage_call(storage, "delete", key, run_id)
-
     def _storage_list_keys(self, storage: Any, run_id: str | None) -> list[str]:
         """List keys from storage, filtering by run_id when needed."""
         method = getattr(storage, "list_keys", None)
@@ -1203,40 +1124,8 @@ class Context(CacheMixin, PluginMixin):
         """Return True if data_name must be a single array with a channel field."""
         return name in self._FLAT_CHANNEL_OUTPUTS
 
-    def _ensure_plugin_config_validated(self, plugin: Plugin) -> dict[str, Any]:
-        return self._config_domain.ensure_plugin_config_validated(plugin)
-
     def _invalidate_caches_for(self, data_name: str):
-        """
-        Invalidate caches that depend on a specific data type.
-
-        Called when a plugin providing data_name is registered or changed.
-        """
-        # Clear execution plan cache for data_name and anything that depends on it
-        if data_name in self._execution_plan_cache:
-            del self._execution_plan_cache[data_name]
-
-        # Find and clear plans that include this data_name
-        to_remove = []
-        for cached_name, plan in self._execution_plan_cache.items():
-            if data_name in plan:
-                to_remove.append(cached_name)
-
-        for name in to_remove:
-            del self._execution_plan_cache[name]
-
-        # Clear lineage caches
-        if data_name in self._lineage_cache:
-            del self._lineage_cache[data_name]
-        if data_name in self._lineage_hash_cache:
-            del self._lineage_hash_cache[data_name]
-
-        # Clear key cache entries for this data_name
-        keys_to_remove = [k for k in self._key_cache if k[1] == data_name]
-        for k in keys_to_remove:
-            del self._key_cache[k]
-
-        self.logger.debug(f"Caches invalidated for '{data_name}'")
+        self._cache_domain.invalidate_caches_for(data_name)
 
     def _set_data(self, run_id: str, name: str, value: Any):
         """Internal helper to set data in _results and optionally as attribute."""
@@ -1305,242 +1194,13 @@ class Context(CacheMixin, PluginMixin):
         return None
 
     def _load_from_disk_with_check(self, run_id: str, name: str, key: str) -> Any | None:
-        """Internal helper to load data from disk with lineage verification."""
-        storage = self._get_storage_for_data_name(name)
-        channel_keys = self._list_channel_keys(storage, run_id, key)
-        has_base = self._storage_exists(storage, key, run_id)
-        if not has_base and not channel_keys:
-            return None
-        if channel_keys and self._expects_flat_channel_array(name):
-            self.logger.warning(
-                "Legacy multi-channel cache detected for '%s'. "
-                "This data now uses a single array with a channel field. Recomputing.",
-                name,
-            )
-            return None
-
-        meta_key = channel_keys[0] if channel_keys else key
-        meta = self._storage_get_metadata(storage, meta_key, run_id)
-        if meta is None and has_base and meta_key != key:
-            meta = self._storage_get_metadata(storage, key, run_id)
-        if meta and "lineage" in meta:
-            current_lineage = self.get_lineage(name)
-            import json
-
-            s1 = json.dumps(meta["lineage"], sort_keys=True, default=str)
-            s2 = json.dumps(current_lineage, sort_keys=True, default=str)
-            if s1 != s2:
-                warnings.warn(f"Lineage mismatch for '{name}' in cache. Recomputing.", UserWarning)
-                return None
-
-        # Determine how to load
-        meta = meta or {}
-        if meta.get("type") == "dataframe":
-            data = self._storage_load_dataframe(storage, key, run_id)
-        elif channel_keys:
-            channel_count = meta.get("channel_count")
-
-            def _dtype_from_meta(meta: dict[str, Any]) -> np.dtype | None:
-                if not meta:
-                    return None
-                if "dtype_descr" in meta:
-                    descr = []
-                    for item in meta["dtype_descr"]:
-                        if isinstance(item, list):
-                            descr.append(tuple(item))
-                        else:
-                            descr.append(item)
-                    try:
-                        return np.dtype(descr)
-                    except Exception:
-                        return None
-                if "dtype" in meta:
-                    try:
-                        return np.dtype(meta["dtype"])
-                    except Exception:
-                        return None
-                return None
-
-            if isinstance(channel_count, int) and channel_count >= 0:
-                dtype = _dtype_from_meta(meta)
-                prefix = f"{key}_ch"
-                keyed: dict[int, str] = {}
-                for ch_key in channel_keys:
-                    suffix = ch_key[len(prefix) :]
-                    try:
-                        idx = int(suffix)
-                    except ValueError:
-                        continue
-                    keyed[idx] = ch_key
-
-                data = []
-                for idx in range(channel_count):
-                    ch_key = keyed.get(idx)
-                    if ch_key is None:
-                        data.append(np.zeros(0, dtype=dtype) if dtype is not None else np.array([]))
-                        continue
-                    arr = self._storage_load_memmap(storage, ch_key, run_id)
-                    if arr is None:
-                        arr = np.zeros(0, dtype=dtype) if dtype is not None else np.array([])
-                    data.append(arr)
-            else:
-                # Load multi-channel data (no channel_count metadata available)
-                data = [
-                    self._storage_load_memmap(storage, ch_key, run_id) for ch_key in channel_keys
-                ]
-        else:
-            data = self._storage_load_memmap(storage, key, run_id)
-
-        if data is not None:
-            if self.config.get("show_progress", True):
-                print(f"[cache] Loaded '{name}' from disk (run_id: {run_id})")
-            self._set_data(run_id, name, data)
-        return data
+        return self._cache_domain.load_from_disk_with_check(run_id, name, key)
 
     def _is_disk_cache_valid(self, run_id: str, name: str, key: str) -> bool:
-        """Check whether disk cache exists and lineage matches without loading data."""
-        storage = self._get_storage_for_data_name(name)
-        channel_keys = self._list_channel_keys(storage, run_id, key)
-        has_base = self._storage_exists(storage, key, run_id)
-        if not has_base and not channel_keys:
-            return False
-        if channel_keys and self._expects_flat_channel_array(name):
-            return False
-        meta_key = channel_keys[0] if channel_keys else key
-
-        try:
-            meta = self._storage_get_metadata(storage, meta_key, run_id)
-        except Exception:
-            return False
-
-        if meta and "lineage" in meta:
-            current_lineage = self.get_lineage(name)
-            s1 = json.dumps(meta["lineage"], sort_keys=True, default=str)
-            s2 = json.dumps(current_lineage, sort_keys=True, default=str)
-            return s1 == s2
-
-        # No lineage metadata: treat as valid (consistent with _load_from_disk_with_check)
-        return True
+        return self._cache_domain.is_disk_cache_valid(run_id, name, key)
 
     def _is_cache_hit(self, run_id: str, name: str, load: bool = False) -> bool:
-        """Check memory/disk cache status. Optionally loads disk cache into memory."""
-        if self._get_data_from_memory(run_id, name) is not None:
-            return True
-
-        if name not in self._plugins:
-            return False
-
-        key = self.key_for(run_id, name)
-        if load:
-            _data, cache_hit = self._cache_manager.check_cache(run_id, name, key)
-            return cache_hit
-
-        return self._is_disk_cache_valid(run_id, name, key)
-
-    def _run_plugin(
-        self,
-        run_id: str,
-        data_name: str,
-        show_progress: bool = False,
-        progress_desc: str | None = None,
-        plan: list[str] | None = None,
-        needed_set: set[str] | None = None,
-        **kwargs,
-    ) -> Any:
-        """
-        Override run_plugin to add saving logic and config resolution.
-        运行插件, 包括依赖解析和进度追踪,
-        注意：run_plugin 假定需要执行并跳过缓存判断，直接触发计算。
-
-        参数:
-            run_id: Run identifier
-            data_name: Name of the data to produce
-            show_progress: Whether to show progress bar during plugin execution
-            progress_desc: Custom description for progress bar (default: auto-generated)
-            plan: 可选，预先解析好的执行计划
-            needed_set: 可选，需要执行的插件集合（由外部计算）
-            **kwargs: Additional arguments passed to plugins
-        """
-        return self._execution_domain.run_plugin(
-            run_id,
-            data_name,
-            show_progress=show_progress,
-            progress_desc=progress_desc,
-            plan=plan,
-            needed_set=needed_set,
-            **kwargs,
-        )
-
-    def _init_progress_tracking(
-        self,
-        show_progress: bool,
-        plan: list[str],
-        run_id: str,
-        data_name: str,
-        progress_desc: str | None,
-    ) -> tuple:
-        return self._execution_domain.init_progress_tracking(
-            show_progress,
-            plan,
-            run_id,
-            data_name,
-            progress_desc,
-        )
-
-    def _execute_plugin_compute(
-        self, plugin: Plugin, name: str, run_id: str, input_size_mb: float | None, kwargs: dict
-    ) -> Any:
-        return self._execution_domain.execute_plugin_compute(
-            plugin,
-            name,
-            run_id,
-            input_size_mb,
-            kwargs,
-        )
-
-    def _save_plugin_result(
-        self,
-        plugin: Plugin,
-        name: str,
-        run_id: str,
-        result: Any,
-        key: str,
-        lineage: dict[str, Any],
-        is_generator: bool,
-        target_dtype: np.dtype | None,
-    ) -> Any:
-        return self._execution_domain.save_plugin_result(
-            plugin,
-            name,
-            run_id,
-            result,
-            key,
-            lineage,
-            is_generator,
-            target_dtype,
-        )
-
-    def _postprocess_plugin_result(
-        self,
-        plugin: Plugin,
-        name: str,
-        run_id: str,
-        result: Any,
-        key: str,
-        data_name: str,
-        tracker: Any | None,
-        bar_name: str | None,
-    ) -> None:
-        self._execution_domain.postprocess_plugin_result(
-            plugin,
-            name,
-            run_id,
-            result,
-            key,
-            data_name,
-            tracker,
-            bar_name,
-        )
+        return self._cache_domain.is_cache_hit(run_id, name, load=load)
 
     def _execute_single_plugin(
         self,
@@ -1561,121 +1221,6 @@ class Context(CacheMixin, PluginMixin):
             bar_name,
             skip_cache_check=skip_cache_check,
         )
-
-    def _wrap_generator_to_save(
-        self,
-        run_id: str,
-        data_name: str,
-        generator: Iterator,
-        dtype: np.dtype,
-        lineage: dict[str, Any] | None = None,
-    ) -> Iterator:
-        """
-        Wraps a generator to save its output to disk while yielding.
-        Uses file locking and atomic writes for integrity.
-
-        Notes:
-            - Writes to a temporary file and atomically renames on completion.
-            - Uses storage locks to avoid concurrent writes.
-            - If lock acquisition fails, the generator is yielded without caching.
-        """
-        key = self.key_for(run_id, data_name)
-        bin_path, _meta_path, lock_path = self.storage._get_paths(key)
-        tmp_bin_path = bin_path + ".tmp"
-
-        def wrapper():
-            # Acquire lock before starting the stream
-            lock_fd = self.storage._acquire_lock(lock_path)
-            if lock_fd is None:
-                self.logger.warning(f"Could not acquire lock for {key}, skipping cache write.")
-                yield from generator
-                return
-
-            total_count = 0
-            pbar = None
-            if self.config.get("show_progress", True):
-                try:
-                    from tqdm import tqdm
-
-                    pbar = tqdm(desc=f"Saving {data_name}", unit=" chunks", leave=False)
-                except ImportError:
-                    pass
-
-            try:
-                buffer = bytearray()
-                buffered_bytes = 0
-                flush_threshold = max(1, self.config.get("cache_buffer_bytes", 1 << 20))
-                with open(tmp_bin_path, "wb") as f:
-                    for chunk in generator:
-                        if len(chunk) > 0:
-                            try:
-                                arr = np.asarray(chunk, dtype=dtype)
-                            except (ValueError, TypeError) as e:
-                                raise TypeError(
-                                    f"Generator for '{data_name}' produced an invalid chunk: "
-                                    f"Cannot convert to expected dtype {dtype}. Error: {str(e)}"
-                                ) from e
-
-                            chunk_bytes = arr.tobytes()
-                            buffer.extend(chunk_bytes)
-                            buffered_bytes += len(chunk_bytes)
-                            total_count += len(arr)
-
-                            if buffered_bytes >= flush_threshold:
-                                f.write(buffer)
-                                buffer.clear()
-                                buffered_bytes = 0
-                        if pbar is not None:
-                            pbar.update(1)
-                        yield chunk
-                    if buffered_bytes > 0:
-                        f.write(buffer)
-
-                if pbar is not None:
-                    pbar.close()
-
-                # Use unified storage finalization
-                self.storage.finalize_save(
-                    key, total_count, dtype, extra_metadata={"lineage": lineage}
-                )
-
-                if total_count > 0:
-                    self.logger.info(
-                        f"Saved {total_count} items to cache for {data_name} ({run_id})"
-                    )
-
-                yield from []  # Just to ensure the generator finishes correctly if needed
-            except Exception as e:
-                self.logger.error(f"Error saving {data_name} to cache: {str(e)}")
-                # Cleanup partial files
-                if os.path.exists(tmp_bin_path):
-                    try:
-                        os.remove(tmp_bin_path)
-                    except (PermissionError, OSError) as cleanup_err:
-                        self.logger.warning(
-                            f"Failed to remove temporary file {tmp_bin_path} after error: {cleanup_err}"
-                        )
-                    except Exception as cleanup_err:
-                        self.logger.error(
-                            f"Unexpected error removing temp file {tmp_bin_path}: {cleanup_err}",
-                            exc_info=True,
-                        )
-                raise e
-            finally:
-                self.storage._release_lock(lock_fd, lock_path)
-                if os.path.exists(tmp_bin_path):
-                    try:
-                        os.remove(tmp_bin_path)
-                    except (PermissionError, OSError) as cleanup_err:
-                        self.logger.debug(
-                            f"Failed to remove lingering temp file {tmp_bin_path}: {cleanup_err}"
-                        )
-                    except Exception as cleanup_err:
-                        self.logger.warning(
-                            f"Unexpected error removing temp file {tmp_bin_path}: {cleanup_err}"
-                        )
-
-        return wrapper()
 
     # ===========================
     # Lineage and dependence analysis
@@ -2128,16 +1673,6 @@ class Context(CacheMixin, PluginMixin):
 
         return result
 
-    def _show_plugin_config(self, plugin_name: str, show_full_help: bool = False):
-        """显示特定插件的配置（表格版）"""
-        self.list_plugin_configs(
-            plugin_name=plugin_name,
-            show_current_values=True,
-            verbose=True,
-            as_dataframe=True,
-            show_full_help=show_full_help,
-        )
-
     def _show_global_config(
         self,
         show_usage: bool = True,
@@ -2364,67 +1899,7 @@ class Context(CacheMixin, PluginMixin):
     def _delete_disk_cache(
         self, key: str, run_id: str | None = None, data_name: str | None = None
     ) -> int:
-        """
-        删除磁盘缓存（包括多通道数据和 DataFrame）。
-
-        参数:
-            key: 缓存键
-            run_id: 运行标识符（用于分层存储模式）
-            data_name: 数据名称（用于选择插件存储后端）
-
-        返回:
-            删除的缓存项数量
-        """
-        count = 0
-        storage = self._get_storage_for_data_name(data_name) if data_name else self.storage
-
-        # 删除主缓存文件
-        if self._storage_exists(storage, key, run_id):
-            try:
-                self._storage_delete(storage, key, run_id)
-                count += 1
-            except Exception as e:
-                self.logger.warning(f"Failed to delete cache key {key}: {e}")
-
-        # 删除多通道数据（{key}_ch*）
-        for ch_key in self._list_channel_keys(storage, run_id, key):
-            try:
-                self._storage_delete(storage, ch_key, run_id)
-                count += 1
-            except Exception as e:
-                self.logger.warning(f"Failed to delete multi-channel cache {ch_key}: {e}")
-
-        # 删除 DataFrame 缓存（{key}.parquet / {key}.pkl）
-        # 检查 storage 是否支持 DataFrame 存储（有 save_dataframe 方法）
-        if hasattr(storage, "save_dataframe"):
-            # 对于 MemmapStorage，获取正确的 dataframe 缓存路径
-            if hasattr(storage, "work_dir") and run_id:
-                # 分层模式：缓存在 run 的 data 目录下
-                dataframe_paths = [
-                    os.path.join(storage.work_dir, run_id, storage.data_subdir, f"{key}.parquet"),
-                    os.path.join(storage.work_dir, run_id, storage.data_subdir, f"{key}.pkl"),
-                ]
-            elif hasattr(storage, "db_path"):
-                # 对于其他存储后端，如果 db_path 存在，可能在同目录下
-                base_dir = os.path.dirname(storage.db_path)
-                dataframe_paths = [
-                    os.path.join(base_dir, f"{key}.parquet"),
-                    os.path.join(base_dir, f"{key}.pkl"),
-                ]
-            else:
-                dataframe_paths = []
-
-            for dataframe_path in dataframe_paths:
-                if os.path.exists(dataframe_path):
-                    try:
-                        os.remove(dataframe_path)
-                        count += 1
-                    except Exception as e:
-                        self.logger.warning(
-                            f"Failed to delete dataframe cache file {dataframe_path}: {e}"
-                        )
-
-        return count
+        return self._cache_domain.delete_disk_cache(key, run_id=run_id, data_name=data_name)
 
     # ===========================
     # 时间范围查询

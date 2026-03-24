@@ -24,11 +24,6 @@ from .exceptions import (
     PluginTimeoutError,
 )
 
-# Mixin
-from .mixins import (
-    CacheMixin,
-)
-
 # 模型
 from .model import (
     EdgeModel,
@@ -63,8 +58,6 @@ __all__ = [
     "PluginError",
     "ErrorContext",
     "PluginTimeoutError",
-    # Mixin
-    "CacheMixin",
     # 模型
     "PortModel",
     "NodeModel",

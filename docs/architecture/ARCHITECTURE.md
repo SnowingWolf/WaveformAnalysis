@@ -378,7 +378,7 @@ flowchart LR
 - **血缘校验**: 加载缓存时验证元数据中的血缘信息，若逻辑发生变更（如版本升级）则自动失效并重算。
 - **签名校验 (`WATCH_SIG_KEY`)**: 基于输入文件的修改时间 (mtime) 和大小 (size) 计算 SHA1 签名，确保缓存数据与原始文件的一致性。
 
-**缓存检查工具**: 提供 `ds.print_cache_report()` 方法，允许用户在执行流水线前预览各步骤的缓存状态（内存/磁盘/有效性）。
+**缓存检查工具**: 推荐使用 `ctx.preview_execution(..., show_cache=True)`、`ctx.analyze_cache()` 与 `ctx.diagnose_cache()` 来查看当前插件缓存状态、磁盘占用和完整性问题。
 
 ### 4.3 性能优化路径
 - **向量化**: 尽可能使用 Numpy 广播机制（如 `compute_stacked_waveforms`）。

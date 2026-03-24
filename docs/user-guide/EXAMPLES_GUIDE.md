@@ -250,7 +250,7 @@ ctx.list_provided_data()
 
 ```python
 # 清除特定数据的缓存
-ctx.clear_cache('run_001', 'basic_features')
+ctx.clear_cache_for('run_001', 'basic_features')
 
 # 清除所有缓存（注意：会删除已缓存结果）
 import shutil
