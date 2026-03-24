@@ -109,6 +109,7 @@ class PluginSpec:
 - `provides`：插件输出的数据名（必须唯一）。
 - `depends_on`：上游依赖的数据名列表。
 - `version`：语义化版本号，变更行为时必须更新。
+- `uses_run_config`：声明插件是否读取 `run_config`，影响配置来源说明与运行期行为理解。
 - `output_schema` / `config_spec`：输出与配置的静态契约。
 
 这些属性会参与注册校验与 lineage hash，确保缓存一致性。

@@ -77,6 +77,7 @@ waveform_analysis/core/plugins/
 | `output_dtype` | `Optional[np.dtype]` | 输出数据类型 |
 | `version` | `str` | 语义版本号，参与血缘追踪 |
 | `is_side_effect` | `bool` | 是否为副作用插件（输出隔离） |
+| `uses_run_config` | `bool` | 是否读取 `run_config` 中的运行级配置 |
 | `output_kind` | `Literal["static", "stream"]` | 输出类型 |
 
 **Plugin 核心方法**：

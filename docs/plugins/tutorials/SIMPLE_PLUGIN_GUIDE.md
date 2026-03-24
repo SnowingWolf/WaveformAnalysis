@@ -352,6 +352,7 @@ ctx.analyze_dependencies("plugin_provides_name")
 | `version` | `str` | 插件版本号（参与 lineage hash） |
 | `save_when` | `str` | 缓存策略：`"never"`, `"target"`, `"always"` |
 | `is_side_effect` | `bool` | 标记副作用插件（输出会隔离到 `_side_effects`） |
+| `uses_run_config` | `bool` | 标记插件会读取 `run_config` 中的运行级配置 |
 | `timeout` | `float` | 单次执行超时时间（秒，None 表示不限制） |
 
 ### 字段补充说明
@@ -361,6 +362,7 @@ ctx.analyze_dependencies("plugin_provides_name")
 - `output_dtype`: 用于输出 dtype 校验、memmap 存储和 lineage。
 - `input_dtype`: 仅在声明的依赖上生效，用于运行前 dtype 兼容检查。
 - `is_side_effect`: 常用于绘图、导出、写文件等非数据产出场景。
+- `uses_run_config`: 插件在 `compute()` 或配置解析阶段需要读取 `run_config` 时应显式设为 `True`。
 
 ### Option 字段说明
 
