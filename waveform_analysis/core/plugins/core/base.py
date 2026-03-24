@@ -336,6 +336,7 @@ class Plugin(abc.ABC):
     description: str = ""
     version: str = "0.0.0"
     is_side_effect: bool = False
+    uses_run_config: bool = False
     timeout: Optional[float] = None  # Plugin execution timeout in seconds (None = no timeout)
 
     # Metadata for tracking
