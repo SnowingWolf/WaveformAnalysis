@@ -479,7 +479,6 @@ graph TD
     - `daq/`: DAQ 数据分析工具
     - `io.py`: 文件 I/O 工具
     - `preview.py`: 波形预览工具
-- `waveform_analysis/fitting/`: 物理拟合模型。
 - `tests/`: 单元测试与集成测试。
 - `docs/`: 架构、缓存、执行器与功能专题文档。
 
