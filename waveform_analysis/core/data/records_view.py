@@ -27,6 +27,30 @@ class RecordsView:
     def __len__(self) -> int:
         return len(self.records)
 
+    def _resolve_signal_baseline(
+        self,
+        rec: np.void,
+        dtype: np.dtype,
+        baseline: float | None = None,
+    ) -> np.ndarray:
+        value = rec["baseline"] if baseline is None else baseline
+        return np.asarray(value, dtype=dtype)
+
+    def _normalize_polarity_wave(
+        self,
+        rec: np.void,
+        wave: np.ndarray,
+        dtype: np.dtype,
+        baseline: float | None = None,
+    ) -> np.ndarray:
+        signal = wave.astype(dtype, copy=False) - self._resolve_signal_baseline(
+            rec, dtype, baseline=baseline
+        )
+        polarity = str(rec["polarity"]) if "polarity" in rec.dtype.names else "unknown"
+        if polarity == "positive":
+            signal = -signal
+        return signal
+
     def _wave_one(
         self,
         index: int,
@@ -99,6 +123,46 @@ class RecordsView:
             return waves_out, mask_out
         return waves_out
 
+    def _signals_many(
+        self,
+        indices: Iterable[int] | np.ndarray,
+        pad_to: int | None = None,
+        mask: bool = False,
+        dtype: np.dtype | None = None,
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+        idx = np.asarray(list(indices), dtype=np.int64)
+        if idx.size == 0:
+            empty = np.zeros((0, 0), dtype=dtype or np.float32)
+            return (empty, empty.astype(bool)) if mask else empty
+
+        lengths = self.records["event_length"][idx].astype(np.int64, copy=False)
+        max_len = int(lengths.max()) if lengths.size else 0
+        if pad_to is None:
+            pad_len = max_len
+        else:
+            if pad_to < max_len:
+                raise ValueError(f"pad_to ({pad_to}) < max length ({max_len})")
+            pad_len = pad_to
+
+        out_dtype = dtype or np.float32
+        signals_out = np.zeros((len(idx), pad_len), dtype=out_dtype)
+        mask_out = np.zeros((len(idx), pad_len), dtype=bool) if mask else None
+
+        for i, rec_idx in enumerate(idx):
+            rec = self.records[rec_idx]
+            length = int(rec["event_length"])
+            if length <= 0:
+                continue
+            offset = int(rec["wave_offset"])
+            wave = self.wave_pool[offset : offset + length]
+            signals_out[i, :length] = self._normalize_polarity_wave(rec, wave, out_dtype)
+            if mask_out is not None:
+                mask_out[i, :length] = True
+
+        if mask_out is not None:
+            return signals_out, mask_out
+        return signals_out
+
     def wave(
         self,
         indices: int | Iterable[int] | np.ndarray,
@@ -139,6 +203,46 @@ class RecordsView:
             baseline_correct=baseline_correct,
             dtype=dtype,
         )
+
+    def signal(
+        self,
+        indices: int | Iterable[int] | np.ndarray,
+        pad_to: int | None = None,
+        mask: bool = False,
+        dtype: np.dtype | None = None,
+        baseline: float | None = None,
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+        """
+        Return baseline-corrected signals normalized to negative-going pulses.
+
+        - positive polarity: baseline - wave
+        - negative polarity: wave - baseline
+        - unknown polarity: wave - baseline
+        """
+        if np.isscalar(indices):
+            rec = self.records[int(indices)]
+            offset = int(rec["wave_offset"])
+            length = int(rec["event_length"])
+            wave = self.wave_pool[offset : offset + length]
+            return self._normalize_polarity_wave(
+                rec,
+                wave,
+                dtype or np.float32,
+                baseline=baseline,
+            )
+        if baseline is not None:
+            raise ValueError("baseline override is only supported for scalar signal access")
+        return self._signals_many(indices, pad_to=pad_to, mask=mask, dtype=dtype)
+
+    def signals(
+        self,
+        indices: Iterable[int] | np.ndarray,
+        pad_to: int | None = None,
+        mask: bool = False,
+        dtype: np.dtype | None = None,
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+        """Backward-compatible batch alias for negative-going signals."""
+        return self.signal(indices, pad_to=pad_to, mask=mask, dtype=dtype)
 
     def query_time_window(
         self,

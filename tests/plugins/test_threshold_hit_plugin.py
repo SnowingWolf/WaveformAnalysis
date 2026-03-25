@@ -121,6 +121,18 @@ def test_threshold_hit_polarity_positive_negative():
     assert len(result_pos) == 1
 
 
+def test_threshold_hit_uses_st_waveforms_polarity_field():
+    plugin = ThresholdHitPlugin()
+    st = _make_st_waveforms(n_events=1, wave_len=32)
+    st[0]["polarity"] = "positive"
+    st[0]["wave"][10:13] = 120
+
+    ctx = DummyContext({"threshold": 10.0, "polarity": "negative"}, {"st_waveforms": st})
+    result = plugin.compute(ctx, "run_001")
+
+    assert len(result) == 1
+
+
 def test_threshold_hit_extension_applied():
     plugin = ThresholdHitPlugin()
     st = _make_st_waveforms(n_events=1, wave_len=32)
@@ -196,6 +208,73 @@ def test_threshold_hit_reads_records_view_when_wave_source_records():
     assert int(result[0]["board"]) == 5
     assert int(result[0]["channel"]) == 2
     assert int(result[0]["event_index"]) == 0
+
+
+def test_threshold_hit_records_polarity_field_overrides_config():
+    plugin = ThresholdHitPlugin()
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "threshold": 10.0,
+            "polarity": "negative",
+            "left_extension": 0,
+            "right_extension": 0,
+            "sampling_interval_ns": 2.0,
+        },
+        {},
+    )
+    rv = _make_records_view()
+    rv.records["polarity"] = ["positive"]
+    rv.wave_pool = np.array([100, 100, 120, 120, 120, 120, 100, 100], dtype=np.uint16)
+
+    with patch("waveform_analysis.core.records_view", return_value=rv):
+        result = plugin.compute(ctx, "run_001")
+
+    assert len(result) == 1
+
+
+def test_threshold_hit_records_negative_polarity_uses_normalized_signal():
+    plugin = ThresholdHitPlugin()
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "threshold": 10.0,
+            "polarity": "positive",
+            "left_extension": 0,
+            "right_extension": 0,
+            "sampling_interval_ns": 2.0,
+        },
+        {},
+    )
+    rv = _make_records_view()
+    rv.records["polarity"] = ["negative"]
+
+    with patch("waveform_analysis.core.records_view", return_value=rv):
+        result = plugin.compute(ctx, "run_001")
+
+    assert len(result) == 1
+
+
+def test_threshold_hit_records_unknown_polarity_falls_back_to_config():
+    plugin = ThresholdHitPlugin()
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "threshold": 10.0,
+            "polarity": "negative",
+            "left_extension": 0,
+            "right_extension": 0,
+            "sampling_interval_ns": 2.0,
+        },
+        {},
+    )
+    rv = _make_records_view()
+    rv.records["polarity"] = ["unknown"]
+
+    with patch("waveform_analysis.core.records_view", return_value=rv):
+        result = plugin.compute(ctx, "run_001")
+
+    assert len(result) == 1
 
 
 def test_threshold_hit_records_empty_returns_empty():

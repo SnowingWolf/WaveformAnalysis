@@ -50,7 +50,7 @@ class BasicFeaturesPlugin(Plugin):
 
     provides = "basic_features"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
-    version = "3.6.0"  # 版本升级：按 channel_config 严格解析硬件通道配置
+    version = "3.7.0"  # 版本升级：records 分支支持统一极性信号接口
     save_when = "always"
     output_dtype = BASIC_FEATURES_DTYPE
     options = {
@@ -127,7 +127,10 @@ class BasicFeaturesPlugin(Plugin):
             wave: np.ndarray,
             baseline: float,
             effective_rule: dict[str, Any],
+            data_polarity: str | None = None,
         ) -> str:
+            if data_polarity in ("positive", "negative"):
+                return data_polarity
             channel_polarity = effective_rule.get("polarity", "unknown")
             if channel_polarity in ("positive", "negative"):
                 return channel_polarity
@@ -175,13 +178,23 @@ class BasicFeaturesPlugin(Plugin):
                     float(rec["baseline"]) if fixed_baseline is None else float(fixed_baseline)
                 )
                 wave = rv.wave(idx)
+                data_polarity = str(rec["polarity"]) if "polarity" in records.dtype.names else None
+                use_normalized_signal = data_polarity in ("positive", "negative")
+                signal = -rv.signal(idx, baseline=baseline) if use_normalized_signal else None
                 wave_p = wave[start_p:end_p]
                 wave_c = wave[start_c:end_c]
+                signal_p = signal[start_p:end_p] if signal is not None else None
+                signal_c = signal[start_c:end_c] if signal is not None else None
                 effective_polarity = resolve_effective_polarity(
-                    hw_channel, wave, baseline, effective_rule
+                    hw_channel, wave, baseline, effective_rule, data_polarity=data_polarity
                 )
 
-                if wave_p.size > 0:
+                if use_normalized_signal and signal_p is not None and signal_p.size > 0:
+                    s_min = float(np.min(signal_p))
+                    s_max = float(np.max(signal_p))
+                    features["height"][idx] = s_max
+                    features["amp"][idx] = s_max - s_min
+                elif wave_p.size > 0:
                     w_min = float(np.min(wave_p))
                     w_max = float(np.max(wave_p))
                     if effective_polarity == "positive":
@@ -190,7 +203,9 @@ class BasicFeaturesPlugin(Plugin):
                         features["height"][idx] = baseline - w_min
                     features["amp"][idx] = w_max - w_min
 
-                if wave_c.size > 0:
+                if use_normalized_signal and signal_c is not None and signal_c.size > 0:
+                    features["area"][idx] = float(np.sum(signal_c.astype(np.float64, copy=False)))
+                elif wave_c.size > 0:
                     wave_c64 = wave_c.astype(np.float64)
                     baseline64 = np.asarray(baseline, dtype=np.float64)
                     if effective_polarity == "positive":
@@ -256,7 +271,15 @@ class BasicFeaturesPlugin(Plugin):
             if fixed_baseline is not None:
                 baseline = float(fixed_baseline)
             effective_polarity = resolve_effective_polarity(
-                hw_channel, wave, baseline, effective_rule
+                hw_channel,
+                wave,
+                baseline,
+                effective_rule,
+                data_polarity=(
+                    str(waveform_data["polarity"][idx])
+                    if "polarity" in waveform_data.dtype.names
+                    else None
+                ),
             )
 
             wave_p = waves_p[idx]

@@ -9,7 +9,7 @@
 | Provides | `st_waveforms` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `0.7.0` |
+| Version | `0.8.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.waveforms` |
 | Accelerator | `cpu` |
 
@@ -23,6 +23,7 @@
 |-------|-------|
 | `baseline` | `float64` |
 | `baseline_upstream` | `float64` |
+| `polarity` | `str_` |
 | `timestamp` | `int64` |
 | `dt` | `int32` |
 | `event_length` | `int32` |

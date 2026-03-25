@@ -64,6 +64,7 @@ class TestWaveformStructConfig:
         assert dtype.names == (
             "baseline",
             "baseline_upstream",
+            "polarity",
             "timestamp",
             "dt",
             "event_length",
@@ -88,6 +89,7 @@ class TestDynamicRecordDtype:
         assert dtype.names == (
             "baseline",
             "baseline_upstream",
+            "polarity",
             "timestamp",
             "dt",
             "event_length",

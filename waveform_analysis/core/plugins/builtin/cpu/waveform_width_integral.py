@@ -57,7 +57,7 @@ class WaveformWidthIntegralPlugin(Plugin):
     provides = "waveform_width_integral"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Event-wise integral quantile width using st_waveforms or filtered_waveforms."
-    version = "2.4.0"  # 版本升级：按 channel_config 严格解析硬件通道配置
+    version = "2.5.0"  # 版本升级：records 分支支持统一极性信号接口
     save_when = "always"
 
     output_dtype = WAVEFORM_WIDTH_INTEGRAL_DTYPE
@@ -146,6 +146,9 @@ class WaveformWidthIntegralPlugin(Plugin):
             def get_wave(i: int) -> np.ndarray:
                 return rv.wave(i)
 
+            def get_signal(i: int) -> np.ndarray:
+                return rv.signal(i)
+
             def get_baseline(i: int) -> float:
                 return float(records[i]["baseline"])
 
@@ -213,20 +216,33 @@ class WaveformWidthIntegralPlugin(Plugin):
                 channel_config=channel_config_cfg,
             ).values
 
-            signal = wave - baseline
-            effective_polarity = effective_rule.get("polarity", polarity)
+            data_polarity = None
+            if source == WAVE_SOURCE_RECORDS and "polarity" in records.dtype.names:
+                data_polarity = str(records[event_idx]["polarity"])
+            elif source != WAVE_SOURCE_RECORDS and "polarity" in waveform_data.dtype.names:
+                data_polarity = str(waveform_data[event_idx]["polarity"])
 
-            if effective_polarity == "positive":
-                x = np.maximum(signal, 0.0)
-            elif effective_polarity == "negative":
-                x = np.maximum(-signal, 0.0)
+            effective_polarity = (
+                data_polarity
+                if data_polarity in ("positive", "negative")
+                else effective_rule.get("polarity", polarity)
+            )
+
+            if source == WAVE_SOURCE_RECORDS and data_polarity in ("positive", "negative"):
+                x = np.maximum(-get_signal(event_idx).astype(np.float64, copy=False), 0.0)
             else:
-                pos_area = float(np.sum(np.maximum(signal, 0.0)))
-                neg_area = float(np.sum(np.maximum(-signal, 0.0)))
-                if neg_area > pos_area:
+                signal = wave - baseline
+                if effective_polarity == "positive":
+                    x = np.maximum(signal, 0.0)
+                elif effective_polarity == "negative":
                     x = np.maximum(-signal, 0.0)
                 else:
-                    x = np.maximum(signal, 0.0)
+                    pos_area = float(np.sum(np.maximum(signal, 0.0)))
+                    neg_area = float(np.sum(np.maximum(-signal, 0.0)))
+                    if neg_area > pos_area:
+                        x = np.maximum(-signal, 0.0)
+                    else:
+                        x = np.maximum(signal, 0.0)
 
             q_total = float(np.sum(x))
 

@@ -89,6 +89,7 @@ def _build_records_from_wave_list(
         records["channel"][i] = channel
         records["baseline"][i] = baseline
         records["baseline_upstream"][i] = np.nan
+        records["polarity"][i] = "unknown"
         records["dt"][i] = np.int32(default_dt_ns)
         records["trigger_type"][i] = 0
         records["flags"][i] = np.uint32(flags)
@@ -166,6 +167,11 @@ def _build_records_from_channels(
             records["baseline_upstream"][cursor : cursor + count] = ch["baseline_upstream"]
         else:
             records["baseline_upstream"][cursor : cursor + count] = np.nan
+
+        if "polarity" in ch.dtype.names:
+            records["polarity"][cursor : cursor + count] = ch["polarity"]
+        else:
+            records["polarity"][cursor : cursor + count] = "unknown"
 
         if "event_length" in ch.dtype.names:
             lengths = ch["event_length"].astype(np.int64, copy=False)

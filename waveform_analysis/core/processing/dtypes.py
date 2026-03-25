@@ -19,6 +19,7 @@ ST_WAVEFORM_DTYPE = export(
     [
         ("baseline", "f8"),  # float64 for baseline (computed by WaveformStruct)
         ("baseline_upstream", "f8"),  # float64 for upstream baseline (optional)
+        ("polarity", "U8"),  # hardware truth polarity: positive | negative | unknown
         ("timestamp", "i8"),  # int64 for ps-level timestamps (ADC raw)
         ("dt", "i4"),  # sample interval (ns, aligned to time)
         ("event_length", "i4"),  # int32, consistent with RECORDS_DTYPE
@@ -50,6 +51,7 @@ def create_record_dtype(wave_length: int) -> np.dtype:
         [
             ("baseline", "f8"),  # float64 for baseline (computed)
             ("baseline_upstream", "f8"),  # float64 for upstream baseline (optional)
+            ("polarity", "U8"),  # hardware truth polarity
             ("timestamp", "i8"),  # int64 for ps-level timestamps (ADC raw)
             ("dt", "i4"),  # sample interval (ns, aligned to time)
             ("event_length", "i4"),  # int32, consistent with RECORDS_DTYPE
@@ -82,6 +84,7 @@ RECORDS_DTYPE = export(
             ("channel", "i2"),  # physical channel
             ("baseline", "f8"),  # baseline (computed by WaveformStruct)
             ("baseline_upstream", "f8"),  # baseline from upstream plugin (optional)
+            ("polarity", "U8"),  # hardware truth polarity
             ("record_id", "i8"),  # sequential record id after sorting
             ("dt", "i4"),  # sample interval (ns, aligned to time)
             ("trigger_type", "i2"),  # trigger type code

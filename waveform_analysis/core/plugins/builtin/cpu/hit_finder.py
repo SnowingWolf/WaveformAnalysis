@@ -55,7 +55,7 @@ class ThresholdHitPlugin(Plugin):
 
     provides = "hit_threshold"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
-    version = "0.5.0"
+    version = "0.6.0"
     output_dtype = HIT_DTYPE
     save_when = "always"
 
@@ -118,6 +118,9 @@ class ThresholdHitPlugin(Plugin):
 
             def get_wave(i: int) -> np.ndarray:
                 return rv.wave(i)
+
+            def get_signal(i: int) -> np.ndarray:
+                return rv.signal(i)
 
             def get_baseline(i: int) -> float:
                 return float(records[i]["baseline"])
@@ -200,10 +203,22 @@ class ThresholdHitPlugin(Plugin):
                 channel_config=channel_config_cfg,
             )
 
-            effective_polarity = effective_rule.get("polarity", polarity)
+            data_polarity = None
+            if source == WAVE_SOURCE_RECORDS and "polarity" in records.dtype.names:
+                data_polarity = str(records[event_idx]["polarity"])
+            elif source != WAVE_SOURCE_RECORDS and "polarity" in waveform_data.dtype.names:
+                data_polarity = str(waveform_data[event_idx]["polarity"])
+
+            effective_polarity = (
+                data_polarity
+                if data_polarity in ("positive", "negative")
+                else effective_rule.get("polarity", polarity)
+            )
             effective_threshold = float(effective_rule.get("threshold", threshold))
 
-            if effective_polarity == "positive":
+            if source == WAVE_SOURCE_RECORDS and data_polarity in ("positive", "negative"):
+                signal = -get_signal(event_idx).astype(np.float64, copy=False)
+            elif effective_polarity == "positive":
                 signal = wave.astype(np.float64) - baseline
             else:
                 signal = baseline - wave.astype(np.float64)

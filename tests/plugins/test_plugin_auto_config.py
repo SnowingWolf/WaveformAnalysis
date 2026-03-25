@@ -264,6 +264,7 @@ def test_waveforms_plugin_v1725_outputs_standard_st_waveforms(monkeypatch):
     assert st.dtype.names == (
         "baseline",
         "baseline_upstream",
+        "polarity",
         "timestamp",
         "dt",
         "event_length",
@@ -278,4 +279,40 @@ def test_waveforms_plugin_v1725_outputs_standard_st_waveforms(monkeypatch):
     np.testing.assert_array_equal(st["timestamp"], np.array([40000, 80000], dtype=np.int64))
     np.testing.assert_array_equal(st["dt"], np.array([4, 4], dtype=np.int32))
     assert np.all(np.isnan(st["baseline_upstream"]))
+    np.testing.assert_array_equal(st["polarity"], np.array(["unknown", "unknown"]))
     assert int(st["wave"][1, 2]) == 0
+
+
+def test_waveforms_plugin_applies_channel_metadata_polarity(monkeypatch):
+    raw_files = [["f0"], ["f1"]]
+
+    def fake_load_waveforms_flat(self, raw_files, n_channels, **_kwargs):  # noqa: ARG001
+        out = []
+        for ch in range(n_channels):
+            arr = np.zeros((1, 12))
+            arr[:, 0] = 0
+            arr[:, 1] = ch
+            arr[:, 2] = 100 + ch
+            arr[:, 7:] = 50
+            out.append(arr)
+        return out
+
+    monkeypatch.setattr(WaveformsPlugin, "_load_waveforms_flat", fake_load_waveforms_flat)
+
+    plugin = WaveformsPlugin()
+    ctx = DummyContext(
+        config={
+            "show_progress": False,
+            "channel_metadata": {
+                "channels": {
+                    "0:0": {"polarity": "negative"},
+                    "0:1": {"polarity": "positive"},
+                }
+            },
+        },
+        data={"raw_files": raw_files},
+    )
+
+    st = plugin.compute(ctx, "run_001")
+
+    np.testing.assert_array_equal(st["polarity"], np.array(["negative", "positive"]))

@@ -14,6 +14,7 @@ def _make_sample_view():
     records["pid"] = 0
     records["channel"] = [0, 0, 1]
     records["baseline"] = [1.0, 2.0, 0.0]
+    records["polarity"] = ["positive", "negative", "unknown"]
     records["wave_offset"] = [0, 3, 5]
     records["event_length"] = [3, 2, 1]
     records["time"] = [0, 0, 0]
@@ -63,6 +64,53 @@ def test_records_view_query_time_window():
     subset = rv.query_time_window(t_min=15, t_max=25)
     assert subset.shape == (1,)
     assert subset["timestamp"][0] == 20
+
+
+def test_records_view_signal_normalizes_to_negative_pulses():
+    rv = _make_sample_view()
+
+    signal0 = rv.signal(0)
+    signal1 = rv.signal(1)
+    signal2 = rv.signal(2)
+
+    assert np.allclose(signal0, np.array([0.0, -1.0, -2.0], dtype=np.float32))
+    assert np.allclose(signal1, np.array([8.0, 9.0], dtype=np.float32))
+    assert np.allclose(signal2, np.array([99.0], dtype=np.float32))
+
+
+def test_records_view_signal_supports_baseline_override():
+    rv = _make_sample_view()
+
+    signal = rv.signal(0, baseline=2.0)
+
+    assert np.allclose(signal, np.array([1.0, 0.0, -1.0], dtype=np.float32))
+
+
+def test_records_view_signals_pad_mask():
+    rv = _make_sample_view()
+
+    signals, mask = rv.signals([0, 1], pad_to=4, mask=True)
+
+    assert signals.shape == (2, 4)
+    assert np.allclose(
+        signals,
+        np.array(
+            [
+                [0.0, -1.0, -2.0, 0.0],
+                [8.0, 9.0, 0.0, 0.0],
+            ],
+            dtype=np.float32,
+        ),
+    )
+    assert np.array_equal(
+        mask,
+        np.array(
+            [
+                [True, True, True, False],
+                [True, True, False, False],
+            ]
+        ),
+    )
 
 
 def test_records_view_uses_records_branch_with_cpu_default():

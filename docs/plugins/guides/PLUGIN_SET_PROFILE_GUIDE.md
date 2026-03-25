@@ -42,6 +42,9 @@ ctx.register(*plugins_io(), *plugins_waveform())
 rv = records_view(ctx, run_id)
 ```
 
+其中 `rv.wave(...)` 返回原始波形，`rv.signal(...)` 返回做过 baseline 校正且按 `records.polarity`
+统一为反向脉冲的信号。
+
 ---
 
 ## Profiles

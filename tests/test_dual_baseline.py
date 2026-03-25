@@ -28,10 +28,12 @@ def test_record_dtype_has_both_baselines():
 
     assert "baseline" in field_names, "ST_WAVEFORM_DTYPE 应包含 baseline 字段"
     assert "baseline_upstream" in field_names, "ST_WAVEFORM_DTYPE 应包含 baseline_upstream 字段"
+    assert "polarity" in field_names, "ST_WAVEFORM_DTYPE 应包含 polarity 字段"
 
     # 验证字段类型
     assert dtype.fields["baseline"][0] == np.float64, "baseline 应为 float64"
     assert dtype.fields["baseline_upstream"][0] == np.float64, "baseline_upstream 应为 float64"
+    assert dtype.fields["polarity"][0].kind == "U", "polarity 应为 unicode 字段"
 
     print("✓ ST_WAVEFORM_DTYPE 包含两个 baseline 字段")
 
@@ -45,10 +47,12 @@ def test_create_record_dtype_has_both_baselines():
 
     assert "baseline" in field_names
     assert "baseline_upstream" in field_names
+    assert "polarity" in field_names
 
     # 验证字段类型
     assert dtype.fields["baseline"][0] == np.float64
     assert dtype.fields["baseline_upstream"][0] == np.float64
+    assert dtype.fields["polarity"][0].kind == "U"
 
     print("✓ create_record_dtype() 包含两个 baseline 字段")
 
@@ -87,12 +91,14 @@ def test_waveform_struct_without_upstream_baseline():
 
     assert "baseline" in st_waveforms.dtype.names
     assert "baseline_upstream" in st_waveforms.dtype.names
+    assert "polarity" in st_waveforms.dtype.names
 
     # baseline 应该是计算的值（接近 100）
     assert 99 < np.mean(st_waveforms["baseline"]) < 101
 
     # baseline_upstream 应该是 NaN
     assert np.all(np.isnan(st_waveforms["baseline_upstream"]))
+    assert np.all(st_waveforms["polarity"] == "unknown")
 
     print("✓ 无上游 baseline 测试通过")
 

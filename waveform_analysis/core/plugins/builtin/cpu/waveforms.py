@@ -30,6 +30,11 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 import numpy as np
 
 from waveform_analysis.core.foundation.utils import exporter
+from waveform_analysis.core.hardware.channel import (
+    HardwareChannel,
+    get_channel_metadata_config,
+    resolve_channel_metadata_map,
+)
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.dtypes import (
     DEFAULT_WAVE_LENGTH,
@@ -252,6 +257,8 @@ def _convert_v1725_to_st_waveforms(
 
     st_waveforms["baseline"] = np.asarray(baselines, dtype=np.float64)
     st_waveforms["baseline_upstream"] = np.nan
+    if "polarity" in st_waveforms.dtype.names:
+        st_waveforms["polarity"] = "unknown"
     st_waveforms["board"] = np.asarray(boards, dtype=np.int16)
     st_waveforms["channel"] = np.asarray(channels, dtype=np.int16)
 
@@ -275,6 +282,65 @@ def _convert_v1725_to_st_waveforms(
         if n_samples > 0:
             st_waveforms["wave"][idx, :n_samples] = arr[:n_samples]
         st_waveforms["event_length"][idx] = np.int32(n_samples)
+
+    return st_waveforms
+
+
+def _build_polarity_lookup(
+    context: Any,
+    run_id: str,
+    boards: np.ndarray,
+    channels: np.ndarray,
+) -> dict[HardwareChannel, str]:
+    if boards.size == 0 or channels.size == 0:
+        return {}
+
+    metadata_layers = get_channel_metadata_config(context, run_id)
+    if not metadata_layers:
+        return {}
+
+    hardware_channels = [
+        HardwareChannel(int(board), int(channel))
+        for board, channel in zip(boards, channels, strict=False)
+    ]
+    resolved = resolve_channel_metadata_map(
+        channel_metadata=metadata_layers,
+        channels=hardware_channels,
+    )
+    return {hw_channel: metadata.polarity for hw_channel, metadata in resolved.items()}
+
+
+def _apply_polarity_metadata(
+    st_waveforms: np.ndarray,
+    context: Any,
+    run_id: str,
+) -> np.ndarray:
+    if (
+        st_waveforms.dtype.names is None
+        or "polarity" not in st_waveforms.dtype.names
+        or len(st_waveforms) == 0
+    ):
+        return st_waveforms
+
+    st_waveforms["polarity"] = "unknown"
+    if "board" not in st_waveforms.dtype.names or "channel" not in st_waveforms.dtype.names:
+        return st_waveforms
+
+    polarity_map = _build_polarity_lookup(
+        context,
+        run_id,
+        st_waveforms["board"],
+        st_waveforms["channel"],
+    )
+    if not polarity_map:
+        return st_waveforms
+
+    for idx in range(len(st_waveforms)):
+        hw_channel = HardwareChannel(
+            int(st_waveforms["board"][idx]),
+            int(st_waveforms["channel"][idx]),
+        )
+        st_waveforms["polarity"][idx] = polarity_map.get(hw_channel, "unknown")
 
     return st_waveforms
 
@@ -553,6 +619,8 @@ class WaveformStruct:
                 waveform_structured["baseline_upstream"] = np.nan
         else:
             waveform_structured["baseline_upstream"] = np.nan
+        if "polarity" in waveform_structured.dtype.names:
+            waveform_structured["polarity"] = "unknown"
 
         waveform_structured["timestamp"] = timestamps
         waveform_structured["board"] = board_vals.astype(np.int16, copy=False)
@@ -755,7 +823,7 @@ class WaveformsPlugin(Plugin):
     2. 将波形数据结构化为 NumPy 结构化数组（ST_WAVEFORM_DTYPE）
     """
 
-    version = "0.7.0"
+    version = "0.8.0"
     provides = "st_waveforms"
     depends_on = []
     description = (
@@ -966,6 +1034,7 @@ class WaveformsPlugin(Plugin):
             if data.size == 0:
                 return np.zeros(0, dtype=config.get_record_dtype())
             st_waveforms = _convert_v1725_to_st_waveforms(data, config)
+            st_waveforms = _apply_polarity_metadata(st_waveforms, context, run_id)
             context.logger.info(
                 "v1725 converted to standard st_waveforms (n_events=%d, wave_length=%d)",
                 len(st_waveforms),
@@ -1055,6 +1124,7 @@ class WaveformsPlugin(Plugin):
                 n_jobs=n_jobs,
             )
 
+        st_waveforms = _apply_polarity_metadata(st_waveforms, context, run_id)
         return st_waveforms
 
     def _load_waveforms_flat(

@@ -10,6 +10,7 @@ import numpy as np
 from waveform_analysis.core.plugins.builtin.cpu.waveforms import (
     WaveformStruct,
     WaveformStructConfig,
+    _build_polarity_lookup,
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.dtypes import RECORDS_DTYPE
@@ -20,6 +21,32 @@ from waveform_analysis.core.processing.records_builder import (
 )
 
 _BUNDLE_CACHE_NAME = "_records_bundle"
+
+
+def _apply_records_polarity(context: Any, run_id: str, bundle: RecordsBundle) -> RecordsBundle:
+    records = bundle.records
+    if (
+        records.dtype.names is None
+        or "polarity" not in records.dtype.names
+        or "board" not in records.dtype.names
+        or "channel" not in records.dtype.names
+    ):
+        return bundle
+
+    if len(records) == 0:
+        return bundle
+
+    records["polarity"] = "unknown"
+    polarity_map = _build_polarity_lookup(context, run_id, records["board"], records["channel"])
+    if not polarity_map:
+        return bundle
+
+    from waveform_analysis.core.hardware.channel import HardwareChannel
+
+    for idx in range(len(records)):
+        hw_channel = HardwareChannel(int(records["board"][idx]), int(records["channel"][idx]))
+        records["polarity"][idx] = polarity_map.get(hw_channel, "unknown")
+    return bundle
 
 
 def _bundle_cache_key(context: Any, run_id: str) -> str:
@@ -147,6 +174,7 @@ def _build_records_bundle(
             deduped.append(path)
 
         bundle = build_records_from_v1725_files(deduped, dt_ns=dt_ns)
+        bundle = _apply_records_polarity(context, run_id, bundle)
         context._set_data(run_id, cache_key, bundle)
         _cleanup_stale_bundles(context, run_id, cache_key)
         return bundle
@@ -168,6 +196,7 @@ def _build_records_bundle(
         part_size=part_size,
         default_dt_ns=dt_ns,
     )
+    bundle = _apply_records_polarity(context, run_id, bundle)
     context._set_data(run_id, cache_key, bundle)
     _cleanup_stale_bundles(context, run_id, cache_key)
     return bundle
@@ -226,7 +255,7 @@ class RecordsPlugin(Plugin):
             help="Sample interval in ns (defaults to adapter rate or 1ns).",
         ),
     }
-    version = "0.6.0"
+    version = "0.7.0"
 
     def get_lineage(self, context: Any) -> dict:
         adapter_name = _resolve_adapter_name(context, self)
