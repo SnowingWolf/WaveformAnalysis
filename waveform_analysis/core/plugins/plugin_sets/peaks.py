@@ -11,12 +11,14 @@ export, __all__ = exporter()
 @export
 def plugins_peaks():
     """Return peaks-related plugin instances in dependency order."""
+    from waveform_analysis.core.plugins.builtin.cpu.hit_finder import ThresholdHitPlugin
     from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HitFinderPlugin
     from waveform_analysis.core.plugins.builtin.cpu.s1_s2_classifier import S1S2ClassifierPlugin
     from waveform_analysis.core.plugins.builtin.cpu.waveform_width import WaveformWidthPlugin
 
     return [
         HitFinderPlugin(),
+        ThresholdHitPlugin(),
         WaveformWidthPlugin(),
         S1S2ClassifierPlugin(),
     ]

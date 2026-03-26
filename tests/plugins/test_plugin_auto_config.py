@@ -1,6 +1,9 @@
+from unittest.mock import patch
+
 import numpy as np
 
 from tests.utils import DummyContext
+from waveform_analysis.core.data.records_view import RecordsView
 from waveform_analysis.core.plugins.builtin.cpu.filtering import FilteredWaveformsPlugin
 from waveform_analysis.core.plugins.builtin.cpu.peak_finding import (
     HIT_DTYPE,
@@ -8,6 +11,7 @@ from waveform_analysis.core.plugins.builtin.cpu.peak_finding import (
 )
 from waveform_analysis.core.plugins.builtin.cpu.standard import WaveformsPlugin
 from waveform_analysis.core.processing.dtypes import create_record_dtype
+from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
 from waveform_analysis.utils.formats import (
     FLAT_LAYOUT,
     ColumnMapping,
@@ -148,6 +152,51 @@ def test_hitfinder_height_window_extension_effect():
     assert len(peaks_small) > 0
     assert len(peaks_large) > 0
     assert peaks_large["height"][0] > peaks_small["height"][0]
+
+
+def test_hitfinder_wave_source_records_depends_on_records():
+    plugin = HitFinderPlugin()
+    ctx = DummyContext({"wave_source": "records", "use_filtered": True}, {})
+
+    assert plugin.resolve_depends_on(ctx) == ["records"]
+
+
+def test_hitfinder_reads_records_view_when_wave_source_records():
+    plugin = HitFinderPlugin()
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "use_derivative": False,
+            "height": 5.0,
+            "distance": 1,
+            "prominence": 1.0,
+            "width": 1,
+            "threshold": None,
+            "parallel": False,
+            "sampling_interval_ns": 2.0,
+        },
+        {},
+    )
+
+    records = np.zeros(1, dtype=RECORDS_DTYPE)
+    records["baseline"] = 100.0
+    records["timestamp"] = 123_456
+    records["board"] = 5
+    records["channel"] = 2
+    records["event_length"] = 8
+    records["wave_offset"] = 0
+    records["polarity"] = ["negative"]
+    wave_pool = np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.uint16)
+    rv = RecordsView(records, wave_pool)
+
+    with patch("waveform_analysis.core.records_view", return_value=rv) as mocked:
+        result = plugin.compute(ctx, "run_001")
+
+    assert mocked.call_count == 1
+    assert len(result) == 1
+    assert int(result[0]["board"]) == 5
+    assert int(result[0]["channel"]) == 2
+    assert int(result[0]["event_index"]) == 0
 
 
 def test_waveforms_plugin_uses_raw_files_channels(monkeypatch):

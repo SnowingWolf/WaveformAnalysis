@@ -17,6 +17,15 @@ from typing import Any, Optional, Union
 import numpy as np
 from scipy.signal import find_peaks
 
+from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
+    WAVE_SOURCE_AUTO,
+    WAVE_SOURCE_FILTERED,
+    WAVE_SOURCE_RECORDS,
+    resolve_wave_source,
+)
+from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
+    resolve_depends_on as resolve_wave_depends_on,
+)
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 # 定义峰值数据类型（扩展自原始 PEAK_DTYPE，增加边缘信息）
@@ -57,7 +66,7 @@ class HitFinderPlugin(Plugin):
     provides = "hit"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Detect peaks in waveforms and extract peak features."
-    version = "2.3.0"  # 版本升级：输出增加 board 字段
+    version = "2.4.0"  # 版本升级：支持 records 作为统一波形数据源
     save_when = "always"  # 峰值数据较小，总是保存
     output_dtype = HIT_DTYPE
 
@@ -66,6 +75,11 @@ class HitFinderPlugin(Plugin):
             default=True,
             type=bool,
             help="是否使用 filtered_waveforms（默认 True，需要先注册 FilteredWaveformsPlugin）",
+        ),
+        "wave_source": Option(
+            default=WAVE_SOURCE_AUTO,
+            type=str,
+            help="波形数据源: auto|records|st_waveforms|filtered_waveforms",
         ),
         "use_derivative": Option(
             default=True,
@@ -134,10 +148,8 @@ class HitFinderPlugin(Plugin):
     }
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
-        # 根据 use_filtered 动态选择依赖
-        if context.get_config(self, "use_filtered"):
-            return ["filtered_waveforms"]
-        return ["st_waveforms"]
+        source = resolve_wave_source(context, self)
+        return resolve_wave_depends_on(source, bool(context.get_config(self, "use_filtered")))
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         """
@@ -163,6 +175,7 @@ class HitFinderPlugin(Plugin):
         # 获取配置参数
         use_filtered = context.get_config(self, "use_filtered")
         use_derivative = context.get_config(self, "use_derivative")
+        source = resolve_wave_source(context, self)
         height = context.get_config(self, "height")
         distance = context.get_config(self, "distance")
         prominence = context.get_config(self, "prominence")
@@ -185,19 +198,80 @@ class HitFinderPlugin(Plugin):
         # st_waveforms 的 timestamp 已统一为 ps
         timestamp_unit = "ps"
 
-        # 根据 use_filtered 选择数据源
-        if use_filtered:
-            waveform_data = context.get_data(run_id, "filtered_waveforms")
+        peaks = self._compute_peaks(
+            context=context,
+            run_id=run_id,
+            source=source,
+            use_filtered=bool(use_filtered),
+            use_derivative=bool(use_derivative),
+            height=float(height),
+            distance=int(distance),
+            prominence=float(prominence),
+            width=int(width),
+            threshold=threshold,
+            height_method=str(height_method),
+            height_window_extension=int(height_window_extension),
+            sampling_interval_ns=float(sampling_interval_ns),
+            timestamp_unit=timestamp_unit,
+            parallel=bool(parallel),
+            n_workers=int(n_workers),
+            chunk_size=int(chunk_size),
+            parallel_min_events=int(parallel_min_events),
+        )
+
+        if peaks:
+            return np.array(peaks, dtype=HIT_DTYPE)
+        return np.zeros(0, dtype=HIT_DTYPE)
+
+    def _compute_peaks(
+        self,
+        context: Any,
+        run_id: str,
+        source: str,
+        use_filtered: bool,
+        use_derivative: bool,
+        height: float,
+        distance: int,
+        prominence: float,
+        width: int,
+        threshold: float | None,
+        height_method: str,
+        height_window_extension: int,
+        sampling_interval_ns: float,
+        timestamp_unit: str | None,
+        parallel: bool,
+        n_workers: int,
+        chunk_size: int,
+        parallel_min_events: int,
+    ) -> list[tuple]:
+        if source == WAVE_SOURCE_RECORDS:
+            from waveform_analysis.core import records_view
+
+            rv = records_view(context, run_id)
+            records = rv.records
+            n_events = len(records)
+            if n_events == 0:
+                return []
+
+            process_fn = self._process_records_range
+            process_args = (rv,)
         else:
-            waveform_data = context.get_data(run_id, "st_waveforms")
+            waveform_data = (
+                context.get_data(run_id, "filtered_waveforms")
+                if source == WAVE_SOURCE_FILTERED or (source == WAVE_SOURCE_AUTO and use_filtered)
+                else context.get_data(run_id, "st_waveforms")
+            )
 
-        if not isinstance(waveform_data, np.ndarray):
-            raise ValueError("hit expects st_waveforms as a single structured array")
+            if not isinstance(waveform_data, np.ndarray):
+                raise ValueError("hit expects st_waveforms as a single structured array")
 
-        if len(waveform_data) == 0:
-            return np.zeros(0, dtype=HIT_DTYPE)
+            n_events = len(waveform_data)
+            if n_events == 0:
+                return []
 
-        n_events = len(waveform_data)
+            process_fn = self._process_event_range
+            process_args = (waveform_data,)
+
         peaks: list[tuple] = []
         use_parallel = bool(parallel) and n_events >= max(1, int(parallel_min_events))
         resolved_workers = self._resolve_parallel_workers(int(n_workers), n_events)
@@ -211,8 +285,8 @@ class HitFinderPlugin(Plugin):
             with ThreadPoolExecutor(max_workers=resolved_workers) as executor:
                 futures = [
                     executor.submit(
-                        self._process_event_range,
-                        waveform_data,
+                        process_fn,
+                        *process_args,
                         start,
                         end,
                         use_derivative,
@@ -232,26 +306,23 @@ class HitFinderPlugin(Plugin):
                     chunk_peaks = future.result()
                     if chunk_peaks:
                         peaks.extend(chunk_peaks)
-        else:
-            peaks = self._process_event_range(
-                waveform_data,
-                0,
-                n_events,
-                use_derivative,
-                height,
-                distance,
-                prominence,
-                width,
-                threshold,
-                height_method,
-                height_window_extension,
-                sampling_interval_ns,
-                timestamp_unit,
-            )
+            return peaks
 
-        if peaks:
-            return np.array(peaks, dtype=HIT_DTYPE)
-        return np.zeros(0, dtype=HIT_DTYPE)
+        return process_fn(
+            *process_args,
+            0,
+            n_events,
+            use_derivative,
+            height,
+            distance,
+            prominence,
+            width,
+            threshold,
+            height_method,
+            height_window_extension,
+            sampling_interval_ns,
+            timestamp_unit,
+        )
 
     def _resolve_parallel_workers(self, n_workers: int, n_events: int) -> int:
         if n_workers > 0:
@@ -315,6 +386,57 @@ class HitFinderPlugin(Plugin):
                 peaks.extend(event_peaks)
         return peaks
 
+    def _process_records_range(
+        self,
+        rv: Any,
+        start: int,
+        end: int,
+        use_derivative: bool,
+        height: float,
+        distance: int,
+        prominence: float,
+        width: int,
+        threshold: float | None,
+        height_method: str,
+        height_window_extension: int,
+        sampling_interval_ns: float,
+        timestamp_unit: str | None,
+    ) -> list[tuple]:
+        peaks: list[tuple] = []
+        records = rv.records
+        for event_idx in range(start, end):
+            signal = -rv.signal(event_idx).astype(np.float64, copy=False)
+            if signal.size == 0:
+                continue
+
+            record = records[event_idx]
+            timestamp = int(record["timestamp"])
+            board = int(record["board"]) if "board" in records.dtype.names else 0
+            channel = int(record["channel"]) if "channel" in records.dtype.names else 0
+
+            event_peaks = self._find_peaks_in_waveform(
+                signal,
+                0.0,
+                timestamp,
+                board,
+                channel,
+                event_idx,
+                use_derivative,
+                height,
+                distance,
+                prominence,
+                width,
+                threshold,
+                height_method,
+                height_window_extension,
+                sampling_interval_ns,
+                timestamp_unit,
+                pulse_polarity="positive",
+            )
+            if event_peaks:
+                peaks.extend(event_peaks)
+        return peaks
+
     def _find_peaks_in_waveform(
         self,
         waveform: np.ndarray,
@@ -333,6 +455,7 @@ class HitFinderPlugin(Plugin):
         height_window_extension: int,
         sampling_interval_ns: float,
         timestamp_unit: str | None,  # 新增参数
+        pulse_polarity: str = "negative",
     ) -> list[tuple]:
         """
         在单个波形中检测峰值
@@ -359,17 +482,26 @@ class HitFinderPlugin(Plugin):
         """
         # 根据配置选择检测波形或其导数
         if use_derivative:
-            # 使用一阶导数的负值（下降沿代表原波形的峰值）
-            detection_signal = -np.diff(waveform)
-        else:
-            # 反转法：使用 baseline - waveform 来检测负脉冲的谷值
-            # 对于负脉冲：波形谷值 -> (baseline - waveform) 后变成峰值
-            if baseline is not None:
-                detection_signal = baseline - waveform
+            # 负脉冲用 -diff，正脉冲用 +diff，将上升沿统一成正峰值。
+            if pulse_polarity == "positive":
+                detection_signal = np.diff(waveform)
             else:
-                # 如果没有 baseline，使用波形均值作为基线
-                baseline_approx = np.mean(waveform)
-                detection_signal = baseline_approx - waveform
+                detection_signal = -np.diff(waveform)
+        else:
+            if pulse_polarity == "positive":
+                if baseline is not None:
+                    detection_signal = waveform - baseline
+                else:
+                    detection_signal = waveform
+            else:
+                # 反转法：使用 baseline - waveform 来检测负脉冲的谷值
+                # 对于负脉冲：波形谷值 -> (baseline - waveform) 后变成峰值
+                if baseline is not None:
+                    detection_signal = baseline - waveform
+                else:
+                    # 如果没有 baseline，使用波形均值作为基线
+                    baseline_approx = np.mean(waveform)
+                    detection_signal = baseline_approx - waveform
 
         # 检测峰值
         peak_positions, properties = find_peaks(
