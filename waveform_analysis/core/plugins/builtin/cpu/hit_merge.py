@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 
 from waveform_analysis.core.hardware.channel import iter_hardware_channel_groups
-from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HIT_DTYPE
+from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 
@@ -17,9 +17,9 @@ class HitMergePlugin(Plugin):
     provides = "hit_merged"
     depends_on = ["hit_threshold"]
     description = "Merge nearby threshold hits per channel with time-gap and max-width constraints."
-    version = "0.3.0"
+    version = "0.4.0"
     save_when = "always"
-    output_dtype = HIT_DTYPE
+    output_dtype = THRESHOLD_HIT_DTYPE
 
     options = {
         "merge_gap_ns": Option(
@@ -44,7 +44,7 @@ class HitMergePlugin(Plugin):
         if not isinstance(hits, np.ndarray):
             raise ValueError("hit_merged expects hit_threshold as a single structured array")
         if len(hits) == 0:
-            return np.zeros(0, dtype=HIT_DTYPE)
+            return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
 
         merge_gap_ns = float(context.get_config(self, "merge_gap_ns"))
         max_total_width_ns = float(context.get_config(self, "max_total_width_ns"))
@@ -55,7 +55,7 @@ class HitMergePlugin(Plugin):
             raise ValueError("sampling_interval_ns must be > 0")
 
         if merge_gap_ns <= 0:
-            return np.array(hits, dtype=HIT_DTYPE)
+            return np.array(hits, dtype=THRESHOLD_HIT_DTYPE)
 
         merge_gap_ps = merge_gap_ns * 1e3
         max_total_width_ps = max_total_width_ns * 1e3
@@ -95,8 +95,8 @@ class HitMergePlugin(Plugin):
             merged_rows.append(self._emit_cluster(cluster, cluster_start, cluster_end, dt_ps))
 
         if merged_rows:
-            return np.array(merged_rows, dtype=HIT_DTYPE)
-        return np.zeros(0, dtype=HIT_DTYPE)
+            return np.array(merged_rows, dtype=THRESHOLD_HIT_DTYPE)
+        return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
 
     def _build_enriched(self, hits: np.ndarray, dt_ps: float) -> list[dict[str, Any]]:
         def _pick(hit: np.void, *candidates: str) -> Any:
@@ -137,10 +137,11 @@ class HitMergePlugin(Plugin):
                 float(h["integral"]),
                 float(h["edge_start"]),
                 float(h["edge_end"]),
+                float(h["width"]),
                 int(h["timestamp"]),
                 int(h["board"]) if "board" in h.dtype.names else 0,
                 int(h["channel"]),
-                int(h["event_index"]),
+                int(h["record_id"]),
             )
 
         heights = np.array([float(x["hit"]["height"]) for x in cluster], dtype=np.float64)
@@ -160,6 +161,7 @@ class HitMergePlugin(Plugin):
 
         merged_edge_start = anchor_pos + (cluster_start_ps - anchor_ts) / dt_ps
         merged_edge_end = anchor_pos + (cluster_end_ps - anchor_ts) / dt_ps
+        merged_width = float(max(merged_edge_end - merged_edge_start, 0.0))
         merged_integral = float(np.sum([float(x["hit"]["integral"]) for x in cluster]))
 
         return (
@@ -168,8 +170,9 @@ class HitMergePlugin(Plugin):
             merged_integral,
             float(merged_edge_start),
             float(merged_edge_end),
+            merged_width,
             int(anchor["timestamp"]),
             int(anchor["board"]) if "board" in anchor.dtype.names else 0,
             int(anchor["channel"]),
-            int(anchor["event_index"]),
+            int(anchor["record_id"]),
         )

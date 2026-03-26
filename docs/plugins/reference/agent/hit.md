@@ -9,7 +9,7 @@
 | Provides | `hit` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `2.3.0` |
+| Version | `2.4.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.peak_finding` |
 | Accelerator | `cpu` |
 
@@ -36,6 +36,7 @@
 | Name | Type | Default | Note |
 |------|------|---------|------|
 | `use_filtered` | `bool` | `True` | 是否使用 filtered_waveforms（默认 True，需要先注册 FilteredWaveformsPlugin） |
+| `wave_source` | `str` | `auto` | 波形数据源: auto|records|st_waveforms|filtered_waveforms |
 | `use_derivative` | `bool` | `True` | 是否使用一阶导数进行峰值检测（True: 检测导数峰值, False: 检测波形峰值） |
 | `height` | `float` | `30.0` | 峰值的最小高度阈值 |
 | `distance` | `int` | `2` | 峰值之间的最小距离（采样点数） |

@@ -27,7 +27,7 @@
 | `channel` | `int16` |
 | `baseline` | `float64` |
 | `baseline_upstream` | `float64` |
-| `polarity` | `str_` |
+| `polarity` | `<U8` |
 | `record_id` | `int64` |
 | `dt` | `int32` |
 | `trigger_type` | `int16` |

@@ -5,8 +5,10 @@ import pytest
 
 from tests.utils import DummyContext
 from waveform_analysis.core.data.records_view import RecordsView
-from waveform_analysis.core.plugins.builtin.cpu.hit_finder import ThresholdHitPlugin
-from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HIT_DTYPE
+from waveform_analysis.core.plugins.builtin.cpu.hit_finder import (
+    THRESHOLD_HIT_DTYPE,
+    ThresholdHitPlugin,
+)
 from waveform_analysis.core.processing.dtypes import create_record_dtype
 from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
 
@@ -16,6 +18,7 @@ def _make_st_waveforms(n_events=1, wave_len=64):
     data = np.zeros(n_events, dtype=dtype)
     data["baseline"] = 100.0
     data["timestamp"] = 1_000_000
+    data["record_id"] = np.arange(n_events, dtype=np.int64)
     data["channel"] = 0
     data["event_length"] = wave_len
     data["wave"] = 100
@@ -41,7 +44,7 @@ def test_threshold_hit_dtype_matches_advanced_peak_dtype():
 
     result = plugin.compute(ctx, "run_001")
 
-    assert result.dtype == HIT_DTYPE
+    assert result.dtype == THRESHOLD_HIT_DTYPE
     assert len(result) == 0
 
 
@@ -65,8 +68,9 @@ def test_threshold_hit_single_waveform_multiple_hits():
     result = plugin.compute(ctx, "run_001")
 
     assert len(result) == 2
-    assert np.all(result["event_index"] == 0)
+    assert np.all(result["record_id"] == 0)
     assert np.all(result["channel"] == 0)
+    assert np.all(result["width"] == 3.0)
 
 
 def test_threshold_hit_no_event_length_truncation():
@@ -99,7 +103,7 @@ def test_threshold_hit_empty_input():
     result = plugin.compute(ctx, "run_001")
 
     assert len(result) == 0
-    assert result.dtype == HIT_DTYPE
+    assert result.dtype == THRESHOLD_HIT_DTYPE
 
 
 def test_threshold_hit_polarity_positive_negative():
@@ -153,6 +157,7 @@ def test_threshold_hit_extension_applied():
     assert len(result) == 1
     assert float(result[0]["edge_start"]) == 8.0
     assert float(result[0]["edge_end"]) == 15.0
+    assert float(result[0]["width"]) == 7.0
 
 
 def test_threshold_hit_use_filtered_branch():
@@ -207,7 +212,7 @@ def test_threshold_hit_reads_records_view_when_wave_source_records():
     assert len(result) == 1
     assert int(result[0]["board"]) == 5
     assert int(result[0]["channel"]) == 2
-    assert int(result[0]["event_index"]) == 0
+    assert int(result[0]["record_id"]) == 0
 
 
 def test_threshold_hit_records_polarity_field_overrides_config():
@@ -293,7 +298,7 @@ def test_threshold_hit_records_empty_returns_empty():
         result = plugin.compute(ctx, "run_001")
 
     assert len(result) == 0
-    assert result.dtype == HIT_DTYPE
+    assert result.dtype == THRESHOLD_HIT_DTYPE
 
 
 def test_threshold_hit_channel_config_overrides_polarity():

@@ -1,8 +1,8 @@
 import numpy as np
 
 from tests.utils import DummyContext
+from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.builtin.cpu.hit_merge import HitMergePlugin
-from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HIT_DTYPE
 
 
 def _make_hit(
@@ -13,27 +13,31 @@ def _make_hit(
     edge_end,
     timestamp,
     channel,
-    event_index,
+    record_id,
 ):
-    arr = np.zeros(1, dtype=HIT_DTYPE)
+    arr = np.zeros(1, dtype=THRESHOLD_HIT_DTYPE)
     arr[0]["position"] = position
     arr[0]["height"] = height
     arr[0]["integral"] = integral
     arr[0]["edge_start"] = edge_start
     arr[0]["edge_end"] = edge_end
+    arr[0]["width"] = edge_end - edge_start
     arr[0]["timestamp"] = timestamp
     arr[0]["channel"] = channel
-    arr[0]["event_index"] = event_index
+    arr[0]["record_id"] = record_id
     return arr[0]
 
 
 def test_hit_merge_dtype_and_empty():
     plugin = HitMergePlugin()
-    ctx = DummyContext({"merge_gap_ns": 50.0}, {"hit_threshold": np.zeros(0, dtype=HIT_DTYPE)})
+    ctx = DummyContext(
+        {"merge_gap_ns": 50.0},
+        {"hit_threshold": np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)},
+    )
 
     out = plugin.compute(ctx, "run_001")
 
-    assert out.dtype == HIT_DTYPE
+    assert out.dtype == THRESHOLD_HIT_DTYPE
     assert len(out) == 0
 
 
@@ -44,7 +48,7 @@ def test_hit_merge_same_channel_across_records():
     h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
     # abs_start = 108000 + (13-14)*2000 = 106000ps; previous abs_end = 104000ps => gap=2ns
     h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 1)
-    hits = np.array([h1, h2], dtype=HIT_DTYPE)
+    hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
 
     ctx = DummyContext(
         {
@@ -61,10 +65,11 @@ def test_hit_merge_same_channel_across_records():
     assert out[0]["board"] == 0
     assert out[0]["channel"] == 0
     # highest peak semantic: should anchor to h2
-    assert int(out[0]["event_index"]) == 1
+    assert int(out[0]["record_id"]) == 1
     assert int(out[0]["position"]) == 14
     assert float(out[0]["height"]) == 25.0
     assert abs(float(out[0]["integral"]) - 70.0) < 1e-6
+    assert float(out[0]["width"]) == 8.0
 
 
 def test_hit_merge_not_across_channels():
@@ -72,7 +77,7 @@ def test_hit_merge_not_across_channels():
 
     h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
     h2 = _make_hit(11, 22.0, 31.0, 9.0, 13.0, 101_000, 1, 1)
-    hits = np.array([h1, h2], dtype=HIT_DTYPE)
+    hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
 
     ctx = DummyContext(
         {
@@ -94,7 +99,7 @@ def test_hit_merge_gap_exceeds_threshold():
     h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
     # very far in time
     h2 = _make_hit(10, 22.0, 31.0, 8.0, 12.0, 200_000, 0, 1)
-    hits = np.array([h1, h2], dtype=HIT_DTYPE)
+    hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
 
     ctx = DummyContext(
         {
@@ -117,7 +122,7 @@ def test_hit_merge_respects_max_total_width():
     h1 = _make_hit(10, 10.0, 5.0, 9.0, 11.0, 100_000, 0, 0)
     h2 = _make_hit(14, 12.0, 6.0, 13.0, 15.0, 106_000, 0, 1)
     h3 = _make_hit(18, 14.0, 7.0, 17.0, 19.0, 112_000, 0, 2)
-    hits = np.array([h1, h2, h3], dtype=HIT_DTYPE)
+    hits = np.array([h1, h2, h3], dtype=THRESHOLD_HIT_DTYPE)
 
     ctx = DummyContext(
         {
@@ -138,7 +143,7 @@ def test_hit_merge_disabled_when_gap_non_positive():
 
     h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
     h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 110_000, 0, 1)
-    hits = np.array([h1, h2], dtype=HIT_DTYPE)
+    hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
 
     ctx = DummyContext(
         {

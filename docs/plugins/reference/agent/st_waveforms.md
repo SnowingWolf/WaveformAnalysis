@@ -23,8 +23,9 @@
 |-------|-------|
 | `baseline` | `float64` |
 | `baseline_upstream` | `float64` |
-| `polarity` | `str_` |
+| `polarity` | `<U8` |
 | `timestamp` | `int64` |
+| `record_id` | `int64` |
 | `dt` | `int32` |
 | `event_length` | `int32` |
 | `board` | `int16` |

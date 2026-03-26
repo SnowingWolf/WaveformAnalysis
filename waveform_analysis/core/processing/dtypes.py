@@ -21,6 +21,7 @@ ST_WAVEFORM_DTYPE = export(
         ("baseline_upstream", "f8"),  # float64 for upstream baseline (optional)
         ("polarity", "U8"),  # hardware truth polarity: positive | negative | unknown
         ("timestamp", "i8"),  # int64 for ps-level timestamps (ADC raw)
+        ("record_id", "i8"),  # sequential record id within the structured waveform array
         ("dt", "i4"),  # sample interval (ns, aligned to time)
         ("event_length", "i4"),  # int32, consistent with RECORDS_DTYPE
         ("board", "i2"),  # int16 for board index
@@ -53,6 +54,7 @@ def create_record_dtype(wave_length: int) -> np.dtype:
             ("baseline_upstream", "f8"),  # float64 for upstream baseline (optional)
             ("polarity", "U8"),  # hardware truth polarity
             ("timestamp", "i8"),  # int64 for ps-level timestamps (ADC raw)
+            ("record_id", "i8"),  # sequential record id within the structured waveform array
             ("dt", "i4"),  # sample interval (ns, aligned to time)
             ("event_length", "i4"),  # int32, consistent with RECORDS_DTYPE
             ("board", "i2"),  # int16 for board index

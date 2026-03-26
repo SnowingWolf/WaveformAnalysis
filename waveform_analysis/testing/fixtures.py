@@ -33,6 +33,7 @@ def make_fake_st_waveforms(
         records = np.zeros(n_events, dtype=dtype)
         records["baseline"] = 0.0
         records["timestamp"] = start_timestamp + np.arange(n_events) * 100
+        records["record_id"] = ch * n_events + np.arange(n_events, dtype=np.int64)
         records["event_length"] = wave_len
         records["channel"] = ch
         for idx in range(n_events):
@@ -45,9 +46,9 @@ def make_fake_st_waveforms(
 
 
 def make_tiny_context(
-    storage_dir: Union[Path, str],
+    storage_dir: Path | str,
     run_id: str = "run_001",
-    st_waveforms: Optional[np.ndarray] = None,
+    st_waveforms: np.ndarray | None = None,
 ) -> Context:
     """Create a Context with a temp storage dir and injected st_waveforms."""
     ctx = Context(storage_dir=str(storage_dir))

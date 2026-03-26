@@ -9,7 +9,7 @@
 | Provides | `waveform_width_integral` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `2.4.0` |
+| Version | `2.5.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.waveform_width_integral` |
 | Accelerator | `cpu` |
 

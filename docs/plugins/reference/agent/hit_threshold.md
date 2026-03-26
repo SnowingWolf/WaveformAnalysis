@@ -1,4 +1,4 @@
-# basic_features (BasicFeaturesPlugin)
+# hit_threshold (ThresholdHitPlugin)
 
 > Agent-first 插件契约文档。面向自动化执行与改动评估。
 
@@ -6,11 +6,11 @@
 
 | Item | Value |
 |------|-------|
-| Provides | `basic_features` |
+| Provides | `hit_threshold` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `3.7.0` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.basic_features` |
+| Version | `0.7.0` |
+| Module | `waveform_analysis.core.plugins.builtin.cpu.hit_finder` |
 | Accelerator | `cpu` |
 
 ## Inputs
@@ -21,31 +21,34 @@
 
 | Field | DType |
 |-------|-------|
+| `position` | `int64` |
 | `height` | `float32` |
-| `amp` | `float32` |
-| `area` | `float32` |
+| `integral` | `float32` |
+| `edge_start` | `float32` |
+| `edge_end` | `float32` |
+| `width` | `float32` |
 | `timestamp` | `int64` |
 | `board` | `int16` |
 | `channel` | `int16` |
-| `event_index` | `int64` |
+| `record_id` | `int64` |
 
 ## Config
 
 | Name | Type | Default | Note |
 |------|------|---------|------|
-| `height_range` | `tuple` | `(40, 90)` | 高度计算范围 (start, end) |
-| `area_range` | `tuple` | `(0, None)` | 面积计算范围 (start, end)，end=None 表示积分到波形末端 |
+| `threshold` | `float` | `10.0` | Hit 检测阈值 |
 | `use_filtered` | `bool` | `False` | 是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin） |
 | `wave_source` | `str` | `auto` | 波形数据源: auto|records|st_waveforms|filtered_waveforms |
-| `polarity` | `str` | `auto` | 信号极性: auto | positive | negative |
-| `channel_metadata` | `dict` | `None` | 已废弃；行为配置请改用 channel_config。 |
-| `fixed_baseline` | `dict` | `None` | 已废弃；按硬件通道固定 baseline 请改用 channel_config。 |
-| `channel_config` | `dict` | `None` | 按 (board, channel) 的插件通道覆盖配置，可覆盖 polarity/fixed_baseline。 |
+| `polarity` | `str` | `negative` | 信号极性：negative 表示 baseline-wave；positive 表示 wave-baseline |
+| `left_extension` | `int` | `2` | Hit 左侧扩展点数 |
+| `right_extension` | `int` | `2` | Hit 右侧扩展点数 |
+| `sampling_interval_ns` | `float` | `2.0` | 采样间隔（ns），用于计算 timestamp（内部换算到 ps） |
+| `channel_config` | `dict` | `None` | 按 (board, channel) 的插件通道覆盖配置，可覆盖 polarity/threshold。 |
 
 ## Execution Path
 
-`basic_features` 依赖链入口：
-`SOURCE -> basic_features`
+`hit_threshold` 依赖链入口：
+`SOURCE -> hit_threshold`
 
 ## Failure Modes
 
@@ -63,7 +66,7 @@
 
 ```bash
 # 单插件文档再生成
-waveform-docs generate plugins-agent --plugin basic_features
+waveform-docs generate plugins-agent --plugin hit_threshold
 
 # 覆盖率检查
 waveform-docs check coverage --strict

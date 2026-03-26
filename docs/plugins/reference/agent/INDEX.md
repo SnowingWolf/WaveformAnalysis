@@ -14,26 +14,28 @@ waveform-docs generate plugins-agent --plugin raw_files
 
 ## Summary
 
-- 插件总数：13
+- 插件总数：15
 - 类别数：8
 
 ## Plugin Table
 
 | Provides | Plugin | Depends On | Output Kind | Version |
 |----------|--------|------------|-------------|---------|
-| [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | - | `structured_array` | `3.6.0` |
+| [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | - | `structured_array` | `3.7.0` |
 | [`cache_analysis`](cache_analysis.md) | `CacheAnalysisPlugin` | - | `unknown` | `0.1.0` |
 | [`df`](df.md) | `DataFramePlugin` | - | `unknown` | `1.6.0` |
 | [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `unknown` | `0.0.0` |
 | [`df_paired`](df_paired.md) | `PairedEventsPlugin` | `df_events` | `unknown` | `0.0.0` |
 | [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `structured_array` | `2.5.0` |
-| [`hit`](hit.md) | `HitFinderPlugin` | - | `structured_array` | `2.3.0` |
+| [`hit`](hit.md) | `HitFinderPlugin` | - | `structured_array` | `2.4.0` |
+| [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold` | `structured_array` | `0.4.0` |
+| [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | - | `structured_array` | `0.7.0` |
 | [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | `unknown` | `0.0.2` |
-| [`records`](records.md) | `RecordsPlugin` | `raw_files` | `structured_array` | `0.6.0` |
+| [`records`](records.md) | `RecordsPlugin` | `raw_files` | `structured_array` | `0.7.0` |
 | [`s1_s2`](s1_s2.md) | `S1S2ClassifierPlugin` | `waveform_width`, `basic_features` | `structured_array` | `0.3.0` |
-| [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | - | `structured_array` | `0.7.0` |
+| [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | - | `structured_array` | `0.8.0` |
 | [`waveform_width`](waveform_width.md) | `WaveformWidthPlugin` | - | `structured_array` | `2.2.0` |
-| [`waveform_width_integral`](waveform_width_integral.md) | `WaveformWidthIntegralPlugin` | - | `structured_array` | `2.4.0` |
+| [`waveform_width_integral`](waveform_width_integral.md) | `WaveformWidthIntegralPlugin` | - | `structured_array` | `2.5.0` |
 
 ## By Category
 
@@ -52,6 +54,8 @@ waveform-docs generate plugins-agent --plugin raw_files
 
 - [`basic_features`](basic_features.md): Plugin to compute basic height/area features from structured waveforms.
 - [`hit`](hit.md): Detect peaks in waveforms and extract peak features.
+- [`hit_merged`](hit_merged.md): Merge nearby threshold hits per channel with time-gap and max-width constraints.
+- [`hit_threshold`](hit_threshold.md): Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
 
 ### 事件分析
 

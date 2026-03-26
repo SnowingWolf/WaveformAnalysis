@@ -66,6 +66,7 @@ class TestWaveformStructConfig:
             "baseline_upstream",
             "polarity",
             "timestamp",
+            "record_id",
             "dt",
             "event_length",
             "board",
@@ -91,6 +92,7 @@ class TestDynamicRecordDtype:
             "baseline_upstream",
             "polarity",
             "timestamp",
+            "record_id",
             "dt",
             "event_length",
             "board",
@@ -156,6 +158,7 @@ class TestWaveformStructDecoupling:
         assert len(st_waveforms) == 20
         # 实际波形长度从数据自动检测
         assert st_waveforms["wave"].shape[1] == 5000
+        np.testing.assert_array_equal(st_waveforms["record_id"], np.arange(len(st_waveforms)))
 
     def test_custom_format_config(self, mock_waveforms_custom):
         """测试自定义格式配置"""
@@ -182,6 +185,7 @@ class TestWaveformStructDecoupling:
         st_waveforms = struct.structure_waveforms()
         assert len(st_waveforms) == 20
         assert st_waveforms["wave"].shape[1] == 1000
+        np.testing.assert_array_equal(st_waveforms["record_id"], np.arange(len(st_waveforms)))
 
     def test_column_mapping_applied(self, mock_waveforms_custom):
         """测试列映射正确应用"""

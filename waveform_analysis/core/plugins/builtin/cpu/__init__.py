@@ -29,6 +29,8 @@ from .event_analysis import GroupedEventsPlugin, PairedEventsPlugin
 
 # CPU 滤波插件
 from .filtering import FilteredWaveformsPlugin
+from .hit_finder import THRESHOLD_HIT_DTYPE, ThresholdHitPlugin
+from .hit_merge import HitMergePlugin
 
 # CPU 寻峰插件
 from .peak_finding import HIT_DTYPE, HitFinderPlugin
@@ -82,6 +84,9 @@ __all__ = [
     "PairedEventsPlugin",
     # 滤波插件
     "FilteredWaveformsPlugin",
+    "ThresholdHitPlugin",
+    "THRESHOLD_HIT_DTYPE",
+    "HitMergePlugin",
     # 寻峰插件
     "HIT_DTYPE",
     # 波形宽度插件

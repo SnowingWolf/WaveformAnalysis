@@ -261,6 +261,8 @@ def _convert_v1725_to_st_waveforms(
         st_waveforms["polarity"] = "unknown"
     st_waveforms["board"] = np.asarray(boards, dtype=np.int16)
     st_waveforms["channel"] = np.asarray(channels, dtype=np.int16)
+    if "record_id" in st_waveforms.dtype.names:
+        st_waveforms["record_id"] = np.arange(len(st_waveforms), dtype=np.int64)
 
     dt_ns = np.int32(config.get_dt_ns())
     st_waveforms["dt"] = dt_ns
@@ -757,7 +759,10 @@ class WaveformStruct:
         non_empty = [ch for ch in self.waveform_structureds if len(ch) > 0]
         if not non_empty:
             return np.zeros(0, dtype=self.record_dtype)
-        return np.concatenate(non_empty)
+        structured = np.concatenate(non_empty)
+        if "record_id" in structured.dtype.names:
+            structured["record_id"] = np.arange(len(structured), dtype=np.int64)
+        return structured
 
     def get_event_length(self) -> np.ndarray:
         """Compute per-channel event lengths."""
@@ -1394,6 +1399,10 @@ class WaveformsPlugin(Plugin):
                 output[offset : offset + n]["baseline"] = baseline_vals
                 output[offset : offset + n]["board"] = board_vals.astype(np.int16, copy=False)
                 output[offset : offset + n]["channel"] = channel_vals
+                if "record_id" in output.dtype.names:
+                    output[offset : offset + n]["record_id"] = np.arange(
+                        offset, offset + n, dtype=np.int64
+                    )
                 output[offset : offset + n]["dt"] = np.int32(dt_ns)
 
                 if epoch_ns is not None:
@@ -1438,4 +1447,7 @@ class WaveformsPlugin(Plugin):
         non_empty = [ch for ch in st_waveforms if len(ch) > 0]
         if not non_empty:
             return np.zeros(0, dtype=output_dtype)
-        return np.concatenate(non_empty)
+        structured = np.concatenate(non_empty)
+        if "record_id" in structured.dtype.names:
+            structured["record_id"] = np.arange(len(structured), dtype=np.int64)
+        return structured

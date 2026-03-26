@@ -3,7 +3,7 @@ Hit Finder Plugins - 阈值 Hit 检测插件
 
 本模块包含：
 1. HitFinderPlugin: 旧导入路径兼容别名（推荐改为 peak_finding.HitFinderPlugin）
-1. ThresholdHitPlugin: 新的纯阈值 hit 插件（provides='hit_threshold'），输出 HIT_DTYPE
+1. ThresholdHitPlugin: 新的纯阈值 hit 插件（provides='hit_threshold'），输出 THRESHOLD_HIT_DTYPE
 2. ThresholdHitFinderPlugin: 旧版兼容插件（provides='hits'），输出 PEAK_DTYPE
 """
 
@@ -35,6 +35,21 @@ from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.dtypes import PEAK_DTYPE
 from waveform_analysis.core.processing.event_grouping import find_hits
 
+THRESHOLD_HIT_DTYPE = np.dtype(
+    [
+        ("position", "i8"),  # hit 峰值位置（采样点索引）
+        ("height", "f4"),  # hit 高度
+        ("integral", "f4"),  # hit 积分
+        ("edge_start", "f4"),  # 命中窗口起始边界（采样点）
+        ("edge_end", "f4"),  # 命中窗口结束边界（采样点）
+        ("width", "f4"),  # 命中窗口宽度（采样点）
+        ("timestamp", "i8"),  # 全局时间戳（ps）
+        ("board", "i2"),  # 板卡编号
+        ("channel", "i2"),  # 通道号
+        ("record_id", "i8"),  # 来源波形/记录的唯一编号
+    ]
+)
+
 
 class HitFinderPlugin(_CanonicalHitFinderPlugin):
     """Deprecated import-path alias for peak_finding.HitFinderPlugin."""
@@ -51,12 +66,12 @@ class HitFinderPlugin(_CanonicalHitFinderPlugin):
 
 
 class ThresholdHitPlugin(Plugin):
-    """Threshold-only hit detector with HIT_DTYPE output."""
+    """Threshold-only hit detector with THRESHOLD_HIT_DTYPE output."""
 
     provides = "hit_threshold"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
-    version = "0.6.0"
-    output_dtype = HIT_DTYPE
+    version = "0.7.0"
+    output_dtype = THRESHOLD_HIT_DTYPE
     save_when = "always"
 
     options = {
@@ -112,7 +127,7 @@ class ThresholdHitPlugin(Plugin):
             records = rv.records
 
             if len(records) == 0:
-                return np.zeros(0, dtype=HIT_DTYPE)
+                return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
 
             records_len = len(records)
 
@@ -138,6 +153,11 @@ class ThresholdHitPlugin(Plugin):
                     return int(records[i]["board"])
                 return 0
 
+            def get_record_id(i: int) -> int:
+                if "record_id" in records.dtype.names:
+                    return int(records[i]["record_id"])
+                return i
+
         else:
             waveform_data = (
                 context.get_data(run_id, "filtered_waveforms")
@@ -149,7 +169,7 @@ class ThresholdHitPlugin(Plugin):
                 raise ValueError("hit_threshold expects st_waveforms as a single structured array")
 
             if len(waveform_data) == 0:
-                return np.zeros(0, dtype=HIT_DTYPE)
+                return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
 
             records_len = len(waveform_data)
 
@@ -177,6 +197,11 @@ class ThresholdHitPlugin(Plugin):
                     return int(waveform_data[i]["board"])
                 return 0
 
+            def get_record_id(i: int) -> int:
+                if "record_id" in waveform_data.dtype.names:
+                    return int(waveform_data[i]["record_id"])
+                return i
+
         sampling_interval_ps = sampling_interval_ns * 1e3
         hits: list[tuple] = []
 
@@ -189,6 +214,7 @@ class ThresholdHitPlugin(Plugin):
             timestamp = get_timestamp(event_idx)
             board = get_board(event_idx)
             channel = get_channel(event_idx)
+            record_id = get_record_id(event_idx)
 
             effective_rule = resolve_effective_channel_config(
                 context=context,
@@ -238,6 +264,7 @@ class ThresholdHitPlugin(Plugin):
                 pos = seg_start + rel_pos
                 height = float(segment[rel_pos])
                 integral = float(np.sum(np.maximum(segment, 0.0)))
+                width = float(seg_end - seg_start)
                 global_timestamp = int(timestamp + pos * sampling_interval_ps)
 
                 hits.append(
@@ -247,16 +274,17 @@ class ThresholdHitPlugin(Plugin):
                         float(integral),
                         float(seg_start),
                         float(seg_end),
+                        float(width),
                         int(global_timestamp),
                         int(board),
                         int(channel),
-                        int(event_idx),
+                        int(record_id),
                     )
                 )
 
         if hits:
-            return np.array(hits, dtype=HIT_DTYPE)
-        return np.zeros(0, dtype=HIT_DTYPE)
+            return np.array(hits, dtype=THRESHOLD_HIT_DTYPE)
+        return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
 
     def _find_regions(self, signal: np.ndarray, threshold: float) -> list[tuple[int, int]]:
         mask = signal >= threshold
@@ -326,4 +354,5 @@ __all__ = [
     "HitFinderPlugin",
     "ThresholdHitPlugin",
     "ThresholdHitFinderPlugin",
+    "THRESHOLD_HIT_DTYPE",
 ]
