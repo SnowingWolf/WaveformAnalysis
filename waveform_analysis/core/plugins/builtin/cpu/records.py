@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 import numpy as np
 
+from waveform_analysis.core.plugins.builtin.cpu._dt_compat import resolve_dt_config
 from waveform_analysis.core.plugins.builtin.cpu.waveforms import (
     WaveformStruct,
     WaveformStructConfig,
@@ -55,7 +56,9 @@ def _bundle_cache_key(context: Any, run_id: str) -> str:
 
 
 def _resolve_dt_ns(context: Any, plugin: Plugin, adapter_name: str | None = None) -> int:
-    dt_ns = context.get_config(plugin, "records_dt_ns")
+    dt_ns = resolve_dt_config(
+        context, plugin, deprecated_keys=("records_dt_ns", "dt_ns", "sampling_interval_ns")
+    )
     if dt_ns is None:
         daq_adapter = adapter_name or context.config.get("daq_adapter")
         if daq_adapter:
@@ -207,6 +210,8 @@ class RecordsPlugin(Plugin):
 
     provides = "records"
     depends_on = ["raw_files"]
+    uses_run_config = True
+    description = "Build records (event index table) from raw_files."
     save_when = "always"
     output_dtype = RECORDS_DTYPE
     options = {
@@ -249,13 +254,13 @@ class RecordsPlugin(Plugin):
             type=int,
             help="Max events per records shard; <=0 disables sharding.",
         ),
-        "records_dt_ns": Option(
+        "dt": Option(
             default=None,
             type=int,
-            help="Sample interval in ns (defaults to adapter rate or 1ns).",
+            help="Sample interval in ns for records.dt (defaults to adapter rate or 1ns).",
         ),
     }
-    version = "0.7.0"
+    version = "0.8.0"
 
     def get_lineage(self, context: Any) -> dict:
         adapter_name = _resolve_adapter_name(context, self)

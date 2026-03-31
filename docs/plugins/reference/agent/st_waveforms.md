@@ -9,7 +9,7 @@
 | Provides | `st_waveforms` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `0.8.0` |
+| Version | `0.9.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.waveforms` |
 | Accelerator | `cpu` |
 
@@ -38,7 +38,7 @@
 |------|------|---------|------|
 | `daq_adapter` | `str` | `vx2730` | DAQ adapter name (e.g., 'vx2730') |
 | `wave_length` | `int` | `None` | Waveform length (number of sampling points). Automatically detect from the data when None。 |
-| `dt_ns` | `int` | `None` | Sampling interval in ns for st_waveforms.dt (None=auto from adapter). |
+| `dt` | `int` | `None` | Sampling interval in ns for st_waveforms.dt (None=auto from adapter). |
 | `n_jobs` | `int` | `None` | Number of parallel workers for file-level processing (None=auto, uses min(total_files, 50)) |
 | `use_process_pool` | `bool` | `False` | Whether to use process pool for file-level parallelism (False=thread pool for I/O, True=process pool for CPU-intensive) |
 | `chunksize` | `int` | `None` | Chunk size for CSV reading (None=read entire file, enables PyArrow; set value to enable chunked reading but disables PyArrow) |

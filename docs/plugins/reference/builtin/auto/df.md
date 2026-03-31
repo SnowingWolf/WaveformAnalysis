@@ -1,6 +1,6 @@
 # DataFramePlugin
 
-> Plugin to build the initial single-channel events DataFrame.
+> Build the initial single-channel events DataFrame.
 
 ## Overview
 

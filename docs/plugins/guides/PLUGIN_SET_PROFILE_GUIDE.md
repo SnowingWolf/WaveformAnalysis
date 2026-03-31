@@ -42,8 +42,9 @@ ctx.register(*plugins_io(), *plugins_waveform())
 rv = records_view(ctx, run_id)
 ```
 
-其中 `rv.wave(...)` 返回原始波形，`rv.signal(...)` 返回做过 baseline 校正且按 `records.polarity`
-统一为反向脉冲的信号。
+其中 `rv.waves(record_id, ...)` 返回指定 `record_id` 的原始波形，`rv.signals(record_id, ...)`
+返回做过 baseline 校正且按 `records.polarity` 统一为负极性的信号。批量访问同样使用
+`rv.waves([record_id, ...], pad_to=..., mask=True)` / `rv.signals([record_id, ...], ...)`。
 
 ---
 

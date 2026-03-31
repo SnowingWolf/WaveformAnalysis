@@ -25,12 +25,17 @@ from .cache_analysis import CacheAnalysisPlugin
 from .dataframe import DataFramePlugin
 
 # 事件分析插件
-from .event_analysis import GroupedEventsPlugin, PairedEventsPlugin
+from .event_analysis import GroupedEventsPlugin, HitGroupedPlugin, PairedEventsPlugin
 
 # CPU 滤波插件
 from .filtering import FilteredWaveformsPlugin
 from .hit_finder import THRESHOLD_HIT_DTYPE, ThresholdHitPlugin
-from .hit_merge import HitMergePlugin
+from .hit_merge import (
+    HIT_MERGED_COMPONENTS_DTYPE,
+    HIT_MERGED_DTYPE,
+    HitMergedComponentsPlugin,
+    HitMergePlugin,
+)
 
 # CPU 寻峰插件
 from .peak_finding import HIT_DTYPE, HitFinderPlugin
@@ -81,12 +86,16 @@ __all__ = [
     "BASIC_FEATURES_DTYPE",
     "DataFramePlugin",
     "GroupedEventsPlugin",
+    "HitGroupedPlugin",
     "PairedEventsPlugin",
     # 滤波插件
     "FilteredWaveformsPlugin",
     "ThresholdHitPlugin",
     "THRESHOLD_HIT_DTYPE",
     "HitMergePlugin",
+    "HitMergedComponentsPlugin",
+    "HIT_MERGED_DTYPE",
+    "HIT_MERGED_COMPONENTS_DTYPE",
     # 寻峰插件
     "HIT_DTYPE",
     # 波形宽度插件

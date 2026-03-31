@@ -18,7 +18,8 @@
 """
 
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
+import warnings
 
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
@@ -33,6 +34,18 @@ from waveform_analysis.utils.io import parse_files_generator
 # 初始化 logger 和 exporter
 logger = logging.getLogger(__name__)
 export, __all__ = exporter()
+
+
+def _resolve_plot_dt(dt: float, kwargs: dict[str, object]) -> float:
+    legacy_dt = kwargs.pop("sampling_interval_ns", None)
+    if legacy_dt is not None:
+        warnings.warn(
+            "`sampling_interval_ns` is deprecated; use `dt` instead.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return float(legacy_dt)
+    return float(dt)
 
 
 @export
@@ -64,7 +77,7 @@ class WaveformPreviewer:
         run_name: str,
         data_root: str = "DAQ",
         n_channels: int = 6,
-        daq_adapter: Optional[str] = None,
+        daq_adapter: str | None = None,
     ):
         """
         初始化波形预览器。
@@ -96,7 +109,7 @@ class WaveformPreviewer:
             f"n_channels={n_channels}, data_root={data_root}, daq_adapter={daq_adapter}"
         )
 
-    def _get_raw_files(self) -> List[List[str]]:
+    def _get_raw_files(self) -> list[list[str]]:
         """
         获取原始文件列表（带缓存）。
 
@@ -306,9 +319,9 @@ class WaveformPreviewer:
     def compute_features(
         self,
         waveforms: np.ndarray,
-        peaks_range: Tuple[int, int] = FeatureDefaults.PEAK_RANGE,
-        charge_range: Tuple[int, int] = FeatureDefaults.CHARGE_RANGE,
-    ) -> Dict[str, np.ndarray]:
+        peaks_range: tuple[int, int] = FeatureDefaults.PEAK_RANGE,
+        charge_range: tuple[int, int] = FeatureDefaults.CHARGE_RANGE,
+    ) -> dict[str, np.ndarray]:
         """
         计算波形特征。
 
@@ -357,7 +370,7 @@ class WaveformPreviewer:
 
         wave_len = waves.shape[1] if waves.ndim == 2 else 0
 
-        def _range_valid(range_vals: Tuple[int, int], length: int) -> bool:
+        def _range_valid(range_vals: tuple[int, int], length: int) -> bool:
             start, end = range_vals
             return 0 <= start < end <= length
 
@@ -405,10 +418,10 @@ class WaveformPreviewer:
         self,
         waveforms: np.ndarray,
         annotate: bool = True,
-        peaks_range: Tuple[int, int] = FeatureDefaults.PEAK_RANGE,
-        charge_range: Tuple[int, int] = FeatureDefaults.CHARGE_RANGE,
-        figsize: Tuple[int, int] = (12, 6),
-        sampling_interval_ns: float = 2.0,
+        peaks_range: tuple[int, int] = FeatureDefaults.PEAK_RANGE,
+        charge_range: tuple[int, int] = FeatureDefaults.CHARGE_RANGE,
+        figsize: tuple[int, int] = (12, 6),
+        dt: float = 2.0,
         **kwargs,
     ) -> Figure:
         """
@@ -422,7 +435,7 @@ class WaveformPreviewer:
             peaks_range: 峰值检测区间，默认 (40, 90)
             charge_range: 电荷积分区间，默认 (60, 400)
             figsize: 图像大小，默认 (12, 6)
-            sampling_interval_ns: 采样间隔（ns），默认 2.0
+            dt: 采样间隔（ns），默认 2.0
             **kwargs: 额外参数
                 - baseline_color: 基线颜色，默认 'gray'
                 - peak_marker: 峰值标记，默认 'r*'
@@ -438,6 +451,8 @@ class WaveformPreviewer:
             >>> fig = previewer.plot_overlay(waveforms[:10], annotate=True)
             >>> plt.show()
         """
+        dt = _resolve_plot_dt(dt, kwargs)
+
         if len(waveforms) == 0:
             logger.warning("No waveforms to plot")
             fig, ax = plt.subplots(figsize=figsize)
@@ -460,8 +475,8 @@ class WaveformPreviewer:
         # 标注积分区域（在所有波形之前绘制，避免遮挡）
         if annotate:
             ax.axvspan(
-                charge_range[0] * sampling_interval_ns,
-                charge_range[1] * sampling_interval_ns,
+                charge_range[0] * dt,
+                charge_range[1] * dt,
                 alpha=kwargs.get("integration_alpha", 0.15),
                 color=kwargs.get("integration_color", "yellow"),
                 label="Integration Window",
@@ -475,7 +490,7 @@ class WaveformPreviewer:
             record["timestamp"]
 
             # 时间轴（ns）
-            x = np.arange(len(wave)) * sampling_interval_ns
+            x = np.arange(len(wave)) * dt
 
             # 绘制波形
             ax.plot(x, wave, alpha=0.6, linewidth=1.5, label=f"Event {i}", zorder=2)
@@ -504,7 +519,7 @@ class WaveformPreviewer:
                     if 0 <= peak_idx < len(wave):
                         peak_val = wave[peak_idx]
                         ax.plot(
-                            peak_idx * sampling_interval_ns,
+                            peak_idx * dt,
                             peak_val,
                             kwargs.get("peak_marker", "r*"),
                             markersize=12,
@@ -532,11 +547,11 @@ class WaveformPreviewer:
         self,
         waveforms: np.ndarray,
         annotate: bool = True,
-        peaks_range: Tuple[int, int] = FeatureDefaults.PEAK_RANGE,
-        charge_range: Tuple[int, int] = FeatureDefaults.CHARGE_RANGE,
+        peaks_range: tuple[int, int] = FeatureDefaults.PEAK_RANGE,
+        charge_range: tuple[int, int] = FeatureDefaults.CHARGE_RANGE,
         ncols: int = 2,
-        figsize_per_plot: Tuple[int, int] = (6, 4),
-        sampling_interval_ns: float = 2.0,
+        figsize_per_plot: tuple[int, int] = (6, 4),
+        dt: float = 2.0,
         **kwargs,
     ) -> Figure:
         """
@@ -549,7 +564,7 @@ class WaveformPreviewer:
             charge_range: 电荷积分区间，默认 (60, 400)
             ncols: 列数，默认 2
             figsize_per_plot: 每个子图大小，默认 (6, 4)
-            sampling_interval_ns: 采样间隔（ns），默认 2.0
+            dt: 采样间隔（ns），默认 2.0
             **kwargs: 额外参数
                 - share_y: 共享 Y 轴，默认 False
                 - show_title: 是否显示子图标题，默认 True
@@ -562,6 +577,8 @@ class WaveformPreviewer:
             >>> fig = previewer.plot_grid(waveforms[:6], annotate=True, ncols=3)
             >>> plt.savefig('waveform_grid.png')
         """
+        dt = _resolve_plot_dt(dt, kwargs)
+
         if len(waveforms) == 0:
             logger.warning("No waveforms to plot")
             fig, ax = plt.subplots(figsize=figsize_per_plot)
@@ -592,13 +609,13 @@ class WaveformPreviewer:
         if annotate:
             features = self.compute_features(waveforms, peaks_range, charge_range)
 
-        for i, (record, ax) in enumerate(zip(waveforms, axes)):
+        for i, (record, ax) in enumerate(zip(waveforms, axes, strict=False)):
             wave = record["wave"]
             baseline = record["baseline"]
             timestamp = record["timestamp"]
 
             # 时间轴（ns）
-            x = np.arange(len(wave)) * sampling_interval_ns
+            x = np.arange(len(wave)) * dt
 
             # 绘制波形
             ax.plot(x, wave, linewidth=1.5, color="blue")
@@ -619,7 +636,7 @@ class WaveformPreviewer:
                     if 0 <= peak_idx < len(wave):
                         peak_val = wave[peak_idx]
                         ax.plot(
-                            peak_idx * sampling_interval_ns,
+                            peak_idx * dt,
                             peak_val,
                             "r*",
                             markersize=10,
@@ -627,8 +644,8 @@ class WaveformPreviewer:
 
                 # 积分区域
                 ax.axvspan(
-                    charge_range[0] * sampling_interval_ns,
-                    charge_range[1] * sampling_interval_ns,
+                    charge_range[0] * dt,
+                    charge_range[1] * dt,
                     alpha=0.15,
                     color="yellow",
                 )
@@ -680,11 +697,11 @@ class WaveformPreviewer:
 def preview_waveforms(
     run_name: str,
     channel: int,
-    event_range: Optional[Tuple[int, int]] = None,
-    timestamp_range: Optional[Tuple[int, int]] = None,
+    event_range: tuple[int, int] | None = None,
+    timestamp_range: tuple[int, int] | None = None,
     plot_mode: str = "overlay",
     annotate: bool = True,
-    save_path: Optional[str] = None,
+    save_path: str | None = None,
     data_root: str = "DAQ",
     n_channels: int = 6,
     **kwargs,

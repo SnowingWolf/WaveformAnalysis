@@ -15,7 +15,7 @@ import numpy as np
 from waveform_analysis.core.foundation.utils import exporter
 
 from .adapter import DAQAdapter, register_adapter
-from .base import ColumnMapping, FormatReader, FormatSpec, TimestampUnit
+from .base import ColumnMapping, FormatReader, FormatSpec, RawTimestampMode, TimestampUnit
 from .directory import DirectoryLayout
 
 export, __all__ = exporter()
@@ -195,6 +195,7 @@ class V1725Spec:
             version="0.1",
             columns=ColumnMapping(),
             timestamp_unit=TimestampUnit.NANOSECONDS,
+            raw_timestamp_mode=RawTimestampMode.SAMPLE_INDEX,
             file_pattern="*.bin",
             header_rows_first_file=0,
             header_rows_other_files=0,

@@ -570,8 +570,9 @@ ctx.set_config({
 
 当设置了 `daq_adapter` 时，系统会从适配器元数据推断部分配置，常见包括：
 - 采样率（`sampling_rate_hz`）
-- 采样间隔（`dt_ns` / `dt_ps`）
-- 时间戳单位（`timestamp_unit`）
+- 采样间隔（`dt` / `dt_ps`，兼容层仍可从历史 `dt_ns` 推断）
+- 时间戳单位（`timestamp_unit`，仅描述原生物理单位）
+- 原生时间戳语义（`raw_timestamp_mode`，如 `unit` / `sample_index`）
 
 推断配置在解析优先级中低于显式配置，高于插件默认值。最终生效值可通过
 `ctx.get_resolved_config()` 或 `ctx.show_resolved_config()` 查看。

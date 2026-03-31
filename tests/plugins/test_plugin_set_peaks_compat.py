@@ -12,8 +12,16 @@ def test_get_plugin_set_peaks_available():
     factory = get_plugin_set("peaks")
     plugins = factory()
 
-    assert len(plugins) >= 3
-    assert _provides_names(plugins)[:3] == ["hit", "waveform_width", "s1_s2"]
+    provides = _provides_names(plugins)
+    assert len(plugins) >= 6
+    assert provides == [
+        "hit",
+        "hit_threshold",
+        "hit_merged",
+        "hit_merged_components",
+        "waveform_width",
+        "s1_s2",
+    ]
 
 
 def test_plugin_set_registry_contains_peaks_key():

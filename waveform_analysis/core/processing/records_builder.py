@@ -45,6 +45,14 @@ def _clip_wave_to_uint16(wave: np.ndarray) -> np.ndarray:
     return wave.astype(np.uint16, copy=False)
 
 
+def _records_sort_order(records: np.ndarray) -> np.ndarray:
+    """Return a stable global sort order for final records output."""
+    seq = np.arange(len(records), dtype=np.int64)
+    return np.lexsort(
+        (seq, records["channel"], records["board"], records["pid"], records["timestamp"])
+    )
+
+
 @export
 def split_by_hardware_channel(st_waveforms: np.ndarray) -> list[tuple[HardwareChannel, np.ndarray]]:
     """Split a structured array into per-hardware-channel views."""
@@ -99,10 +107,7 @@ def _build_records_from_wave_list(
         records["event_length"][i] = np.int32(length)
         records["time"][i] = int(timestamp_ps // 1000)
 
-    seq = np.arange(total_records, dtype=np.int64)
-    order = np.lexsort(
-        (seq, records["channel"], records["board"], records["pid"], records["timestamp"])
-    )
+    order = _records_sort_order(records)
     records = records[order]
     source_idx = source_idx[order]
 
@@ -135,6 +140,7 @@ def _build_records_from_channels(
     records = np.zeros(total_records, dtype=RECORDS_DTYPE)
     source_channel = np.zeros(total_records, dtype=np.int32)
     source_row = np.zeros(total_records, dtype=np.int64)
+    source_record_id = np.full(total_records, -1, dtype=np.int64)
 
     cursor = 0
     for local_idx, (ch, hw_channel) in enumerate(channels):
@@ -207,19 +213,22 @@ def _build_records_from_channels(
             records["time"][cursor : cursor + count] = (
                 records["timestamp"][cursor : cursor + count] // 1000
             )
+        if "record_id" in ch.dtype.names:
+            source_record_id[cursor : cursor + count] = ch["record_id"].astype(np.int64, copy=False)
 
         source_channel[cursor : cursor + count] = local_idx
         source_row[cursor : cursor + count] = np.arange(count, dtype=np.int64)
         cursor += count
 
-    seq = np.arange(total_records, dtype=np.int64)
-    order = np.lexsort(
-        (seq, records["channel"], records["board"], records["pid"], records["timestamp"])
-    )
+    order = _records_sort_order(records)
     records = records[order]
-    records["record_id"] = np.arange(total_records, dtype=np.int64)
     source_channel = source_channel[order]
     source_row = source_row[order]
+    source_record_id = source_record_id[order]
+    if np.all(source_record_id >= 0):
+        records["record_id"] = source_record_id
+    else:
+        records["record_id"] = np.arange(total_records, dtype=np.int64)
 
     adjusted_lengths = np.zeros(total_records, dtype=np.int64)
     total_samples = 0
@@ -286,7 +295,9 @@ def build_records_from_v1725_files(
     for file_path in file_paths:
         waves = []
         for wave in reader.iter_waves([file_path]):
-            timestamp_ps = int(wave.timestamp) * int(dt_ns) * 1000
+            timestamp_ps = int(
+                adapter.normalize_timestamp_to_ps(np.array([wave.timestamp]), dt_ns=dt_ns)[0]
+            )
             flags = 1 if wave.trunc else 0
             waves.append(
                 (int(wave.board), wave.channel, timestamp_ps, wave.baseline, flags, wave.waveform)
@@ -374,7 +385,9 @@ def merge_records_parts(parts: Sequence[RecordsBundle]) -> RecordsBundle:
             )
             heapq.heappush(heap, key)
 
-    records_out["record_id"] = np.arange(total_records, dtype=np.int64)
+    record_ids = records_out["record_id"].astype(np.int64, copy=False)
+    if len(np.unique(record_ids)) != len(record_ids):
+        records_out["record_id"] = np.arange(total_records, dtype=np.int64)
     return RecordsBundle(records=records_out, wave_pool=wave_pool_out)
 
 
@@ -417,6 +430,4 @@ def build_records_from_st_waveforms_sharded(
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
     if len(parts) == 1:
         return parts[0]
-    merged = merge_records_parts(parts)
-    merged.records["record_id"] = np.arange(len(merged.records), dtype=np.int64)
-    return merged
+    return merge_records_parts(parts)

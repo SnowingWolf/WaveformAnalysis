@@ -5,13 +5,18 @@ CPU Streaming Signal Peaks Plugin.
 时间字段使用事件的 timestamp（统一为 ps）。
 """
 
+from collections.abc import Iterator
 import logging
-from typing import Any, Iterator, List, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 from scipy.signal import find_peaks
 
 from waveform_analysis.core.foundation.utils import exporter
+from waveform_analysis.core.plugins.builtin.cpu._dt_compat import (
+    require_dt_array,
+    resolve_dt_config,
+)
 from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HIT_DTYPE
 from waveform_analysis.core.plugins.core.base import Option
 from waveform_analysis.core.plugins.core.streaming import StreamingPlugin
@@ -39,7 +44,7 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
     provides = "signal_peaks_stream"
     depends_on = ["filtered_waveforms", "st_waveforms"]
     description = "Stream peak detection from filtered waveforms."
-    version = "1.1.0"
+    version = "1.2.0"
     save_when = "never"  # 流式 chunk 不做缓存保存
     output_dtype = None
 
@@ -75,10 +80,10 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
             type=int,
             help="height_method='minmax' 时峰窗口左右扩展点数",
         ),
-        "sampling_interval_ns": Option(
-            default=2.0,
-            type=float,
-            help="采样间隔（纳秒），用于计算全局时间戳。默认 2.0 ns",
+        "dt": Option(
+            default=None,
+            type=int,
+            help="采样间隔（ns）。仅在输入数据缺少 dt 字段时作为兼容补充。",
         ),
     }
 
@@ -94,24 +99,16 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
         self.width = context.get_config(self, "width")
         self.threshold = context.get_config(self, "threshold")
         self.height_method = context.get_config(self, "height_method")
-        self.minmax_window_expand = context.get_config(self, "minmax_window_expand")
-        self.sampling_interval_ns = context.get_config(self, "sampling_interval_ns")
-        daq_adapter = self._get_global_daq_adapter(context)
-        if not self._has_config(context, "sampling_interval_ns"):
-            self.sampling_interval_ns = self._get_sampling_interval_from_adapter(
-                daq_adapter,
-                self.sampling_interval_ns,
-            )
-        # st_waveforms 的 timestamp 已统一为 ps
-        self._timestamp_unit = "ps"
-        self.minmax_window_expand = max(0, int(self.minmax_window_expand))
-
+        self.minmax_window_expand = max(0, int(context.get_config(self, "minmax_window_expand")))
+        self.explicit_dt = resolve_dt_config(
+            context,
+            self,
+            deprecated_keys=("sampling_interval_ns", "dt_ns"),
+        )
         self.time_field = TIMESTAMP_FIELD
         self.length_field = EVENT_LENGTH_FIELD
         self.dt_field = "dt"
         self.endtime_field = "endtime"
-
-        self.dt = None
 
     def _get_input_chunks(self, context: Any, run_id: str, **kwargs) -> Iterator[Chunk]:
         filtered_waveforms = context.get_data(run_id, "filtered_waveforms")
@@ -125,7 +122,12 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
         if len(filtered_waveforms) == 0 or len(st_waveforms) == 0:
             return iter(())
 
-        self._set_chunk_dt(st_waveforms)
+        dt_values = require_dt_array(
+            st_waveforms,
+            explicit_dt=self.explicit_dt,
+            plugin_name=self.provides,
+            data_name="st_waveforms",
+        )
 
         channels = st_waveforms["channel"] if "channel" in st_waveforms.dtype.names else None
         if channels is None:
@@ -135,6 +137,7 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
             mask = channels == ch_idx
             st_ch = st_waveforms[mask]
             filtered_ch = filtered_waveforms[mask]
+            dt_ch = dt_values[mask]
             if len(st_ch) == 0 or len(filtered_ch) == 0:
                 continue
 
@@ -145,85 +148,115 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
             if n_events == 0:
                 continue
 
+            st_ch = st_ch[:n_events]
+            filtered_ch = filtered_ch[:n_events]
+            dt_ch = dt_ch[:n_events]
             times = st_ch[TIMESTAMP_FIELD]
-            if self.break_threshold_ps and self.break_threshold_ps > 0 and n_events > 1:
-                endtime_all = get_endtime(
-                    st_ch,
-                    time_field=TIMESTAMP_FIELD,
-                    length_field=EVENT_LENGTH_FIELD,
-                    dt=self.dt,
-                )
-                gaps = times[1:].astype(np.int64) - endtime_all[:-1].astype(np.int64)
-                break_indices = np.where(gaps > self.break_threshold_ps)[0] + 1
-                boundaries = np.concatenate([[0], break_indices, [n_events]])
-            else:
-                boundaries = np.array([0, n_events], dtype=np.int64)
+            dt_change_indices = np.where(dt_ch[1:] != dt_ch[:-1])[0] + 1
+            dt_boundaries = np.concatenate([[0], dt_change_indices, [n_events]])
 
             segment_id = 0
-            for seg_start, seg_end in zip(boundaries[:-1], boundaries[1:]):
-                if seg_end <= seg_start:
+            for dt_seg_start, dt_seg_end in zip(
+                dt_boundaries[:-1], dt_boundaries[1:], strict=False
+            ):
+                if dt_seg_end <= dt_seg_start:
                     segment_id += 1
                     continue
 
-                for start in range(seg_start, seg_end, self.chunk_size):
-                    end = min(seg_end, start + self.chunk_size)
-                    st_chunk = st_ch[start:end]
-                    if len(st_chunk) == 0:
+                st_dt_chunk = st_ch[dt_seg_start:dt_seg_end]
+                filtered_dt_chunk = filtered_ch[dt_seg_start:dt_seg_end]
+                dt_times = times[dt_seg_start:dt_seg_end]
+                chunk_dt_ps = float(int(dt_ch[dt_seg_start]) * 1e3)
+
+                if self.break_threshold_ps and self.break_threshold_ps > 0 and len(st_dt_chunk) > 1:
+                    endtime_all = get_endtime(
+                        st_dt_chunk,
+                        time_field=TIMESTAMP_FIELD,
+                        length_field=EVENT_LENGTH_FIELD,
+                        dt=chunk_dt_ps,
+                    )
+                    gaps = dt_times[1:].astype(np.int64) - endtime_all[:-1].astype(np.int64)
+                    break_indices = np.where(gaps > self.break_threshold_ps)[0] + 1
+                    boundaries = np.concatenate([[0], break_indices, [len(st_dt_chunk)]])
+                else:
+                    boundaries = np.array([0, len(st_dt_chunk)], dtype=np.int64)
+
+                for seg_start, seg_end in zip(boundaries[:-1], boundaries[1:], strict=False):
+                    if seg_end <= seg_start:
+                        segment_id += 1
                         continue
 
-                    filtered_chunk = filtered_ch[start:end]
-                    time_values = st_chunk[TIMESTAMP_FIELD]
-                    main_start = int(np.min(time_values))
-                    if self.dt is not None:
+                    for start in range(seg_start, seg_end, self.chunk_size):
+                        end = min(seg_end, start + self.chunk_size)
+                        st_chunk = st_dt_chunk[start:end]
+                        if len(st_chunk) == 0:
+                            continue
+
+                        filtered_chunk = filtered_dt_chunk[start:end]
+                        time_values = st_chunk[TIMESTAMP_FIELD]
+                        main_start = int(np.min(time_values))
                         endtime = get_endtime(
                             st_chunk,
                             time_field=TIMESTAMP_FIELD,
                             length_field=EVENT_LENGTH_FIELD,
-                            dt=self.dt,
+                            dt=chunk_dt_ps,
                         )
                         main_end = int(np.max(endtime))
-                    else:
-                        main_end = int(np.max(time_values))
 
-                    yield Chunk(
-                        data=st_chunk,
-                        start=main_start,
-                        end=main_end,
-                        run_id=run_id,
-                        data_type=self.provides,
-                        time_field=TIMESTAMP_FIELD,
-                        length_field=EVENT_LENGTH_FIELD,
-                        dt=self.dt,
-                        metadata={
-                            "filtered_waveforms": filtered_chunk,
-                            "event_offset": start,
-                            "channel_index": ch_idx,
-                            "main_start": main_start,
-                            "main_end": main_end,
-                            "segment_id": segment_id,
-                        },
-                    )
-                segment_id += 1
+                        yield Chunk(
+                            data=st_chunk,
+                            start=main_start,
+                            end=main_end,
+                            run_id=run_id,
+                            data_type=self.provides,
+                            time_field=TIMESTAMP_FIELD,
+                            length_field=EVENT_LENGTH_FIELD,
+                            dt=chunk_dt_ps,
+                            metadata={
+                                "filtered_waveforms": filtered_chunk,
+                                "event_offset": dt_seg_start + start,
+                                "channel_index": ch_idx,
+                                "main_start": main_start,
+                                "main_end": main_end,
+                                "segment_id": segment_id,
+                            },
+                        )
+                    segment_id += 1
 
-    def compute_chunk(self, chunk: Chunk, context: Any, run_id: str, **kwargs) -> Optional[Chunk]:
+    def compute_chunk(self, chunk: Chunk, context: Any, run_id: str, **kwargs) -> Chunk | None:
         st_chunk = chunk.data
         filtered_chunk = chunk.metadata.get("filtered_waveforms")
         if filtered_chunk is None or len(st_chunk) == 0:
             return None
 
-        peaks: List[tuple] = []
+        peaks: list[tuple] = []
         event_offset = int(chunk.metadata.get("event_offset", 0))
 
-        for local_idx, (filtered_waveform, st_waveform) in enumerate(zip(filtered_chunk, st_chunk)):
+        for local_idx, (filtered_waveform, st_waveform) in enumerate(
+            zip(filtered_chunk, st_chunk, strict=False)
+        ):
             timestamp = int(st_waveform[TIMESTAMP_FIELD])
             channel = int(st_waveform["channel"])
+            board = int(st_waveform["board"]) if "board" in st_waveform.dtype.names else 0
             baseline = st_waveform["baseline"] if "baseline" in st_waveform.dtype.names else None
+            dt_ns = (
+                int(st_waveform["dt"]) if "dt" in st_waveform.dtype.names else int(self.explicit_dt)
+            )
             event_index = event_offset + local_idx
+            waveform = (
+                np.asarray(filtered_waveform["wave"], dtype=np.float64)
+                if getattr(filtered_waveform, "dtype", None) is not None
+                and filtered_waveform.dtype.names
+                and "wave" in filtered_waveform.dtype.names
+                else np.asarray(filtered_waveform, dtype=np.float64)
+            )
 
             event_peaks = self._find_peaks_in_waveform(
-                filtered_waveform,
+                waveform,
                 baseline,
                 timestamp,
+                dt_ns,
+                board,
                 channel,
                 event_index,
                 self.use_derivative,
@@ -258,8 +291,10 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
     def _find_peaks_in_waveform(
         self,
         waveform: np.ndarray,
-        baseline: Union[float, None],
+        baseline: float | None,
         timestamp: int,
+        dt_ns: int,
+        board: int,
         channel: int,
         event_index: int,
         use_derivative: bool,
@@ -267,9 +302,9 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
         distance: int,
         prominence: float,
         width: int,
-        threshold: Union[float, None],
+        threshold: float | None,
         height_method: str,
-    ) -> List[tuple]:
+    ) -> list[tuple]:
         if use_derivative:
             detection_signal = -np.diff(waveform)
         else:
@@ -296,11 +331,11 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
 
         peak_heights = self._calculate_peak_heights(waveform, edges_start, edges_end, height_method)
 
-        sampling_interval = self._get_sampling_interval(timestamp)
+        sampling_interval = self._get_sampling_interval(dt_ns)
 
         peaks = []
         for pos, edge_start, edge_end, peak_height in zip(
-            peak_positions, edges_start, edges_end, peak_heights
+            peak_positions, edges_start, edges_end, peak_heights, strict=False
         ):
             global_timestamp = int(timestamp + pos * sampling_interval)
 
@@ -311,7 +346,9 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
                     0.0,
                     float(edge_start),
                     float(edge_end),
+                    int(dt_ns),
                     int(global_timestamp),
+                    int(board),
                     int(channel),
                     int(event_index),
                 )
@@ -340,7 +377,7 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
 
         if method == "minmax":
             heights = np.zeros(len(edges_start), dtype=np.float32)
-            for i, (edge_start, edge_end) in enumerate(zip(edges_start, edges_end)):
+            for i, (edge_start, edge_end) in enumerate(zip(edges_start, edges_end, strict=False)):
                 start_idx = int(np.round(edge_start))
                 end_idx = int(np.round(edge_end))
                 start_idx = max(0, start_idx)
@@ -359,73 +396,7 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
 
         raise ValueError(f"不支持的峰高计算方法: {method}")
 
-    def _get_sampling_interval(self, timestamp: int) -> float:
-        unit = self._timestamp_unit
-        if unit is None:
-            if timestamp > 1e12:
-                return self.sampling_interval_ns * 1e3
-            return self.sampling_interval_ns
-
-        if unit == "ps":
-            return self.sampling_interval_ns * 1e3
-        if unit == "ns":
-            return self.sampling_interval_ns
-        if unit == "us":
-            return self.sampling_interval_ns * 1e-3
-        if unit == "ms":
-            return self.sampling_interval_ns * 1e-6
-        if unit == "s":
-            return self.sampling_interval_ns * 1e-9
-
-        return self.sampling_interval_ns
-
-    def _has_config(self, context: Any, name: str) -> bool:
-        if hasattr(context, "has_explicit_config"):
-            try:
-                return context.has_explicit_config(self, name)
-            except Exception:
-                pass
-        config = getattr(context, "config", {})
-        provides = self.provides
-        if provides in config and isinstance(config[provides], dict):
-            if name in config[provides]:
-                return True
-        if f"{provides}.{name}" in config:
-            return True
-        return name in config
-
-    def _get_sampling_interval_from_adapter(
-        self,
-        daq_adapter: Union[str, None],
-        default_value: float,
-    ) -> float:
-        if not daq_adapter:
-            return default_value
-        try:
-            from waveform_analysis.utils.formats import get_adapter
-        except Exception:
-            return default_value
-        try:
-            adapter = get_adapter(daq_adapter)
-        except ValueError:
-            return default_value
-        sampling_rate_hz = adapter.sampling_rate_hz
-        if not sampling_rate_hz:
-            return default_value
-        return 1e9 / float(sampling_rate_hz)
-
-    def _set_chunk_dt(self, st_waveforms: np.ndarray) -> None:
-        sample_timestamp = None
-        if st_waveforms is not None and len(st_waveforms) > 0:
-            if TIMESTAMP_FIELD in st_waveforms.dtype.names:
-                sample_timestamp = int(st_waveforms[TIMESTAMP_FIELD][0])
-
-        if sample_timestamp is None:
-            self.dt = None
-            return
-
-        self.dt = float(self._get_sampling_interval(sample_timestamp))
-
-    def _get_global_daq_adapter(self, context: Any) -> Union[str, None]:
-        config = getattr(context, "config", {})
-        return config.get("daq_adapter")
+    def _get_sampling_interval(self, dt_ns: int) -> float:
+        if dt_ns <= 0:
+            raise ValueError("[signal_peaks_stream] dt must be > 0")
+        return float(dt_ns) * 1e3

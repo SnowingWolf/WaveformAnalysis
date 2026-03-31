@@ -17,10 +17,7 @@ from typing import Any
 import numpy as np
 
 from waveform_analysis.core.foundation.constants import FeatureDefaults
-from waveform_analysis.core.hardware.channel import (
-    HardwareChannel,
-    resolve_effective_channel_config,
-)
+from waveform_analysis.core.hardware.channel import resolve_effective_channel_config
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     WAVE_SOURCE_AUTO,
     WAVE_SOURCE_FILTERED,
@@ -50,7 +47,8 @@ class BasicFeaturesPlugin(Plugin):
 
     provides = "basic_features"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
-    version = "3.7.0"  # 版本升级：records 分支支持统一极性信号接口
+    description = "Compute basic height, amplitude, and area features from waveform data."
+    version = "3.9.0"  # 版本升级：polarity 仅来自数据字段，不再来自插件配置
     save_when = "always"
     output_dtype = BASIC_FEATURES_DTYPE
     options = {
@@ -72,16 +70,6 @@ class BasicFeaturesPlugin(Plugin):
             type=str,
             help="波形数据源: auto|records|st_waveforms|filtered_waveforms",
         ),
-        "polarity": Option(
-            default="auto",
-            type=str,
-            help="信号极性: auto | positive | negative",
-        ),
-        "channel_metadata": Option(
-            default=None,
-            type=dict,
-            help="已废弃；行为配置请改用 channel_config。",
-        ),
         "fixed_baseline": Option(
             default=None,
             type=dict,
@@ -90,7 +78,7 @@ class BasicFeaturesPlugin(Plugin):
         "channel_config": Option(
             default=None,
             type=dict,
-            help="按 (board, channel) 的插件通道覆盖配置，可覆盖 polarity/fixed_baseline。",
+            help="按 (board, channel) 的插件通道覆盖配置，可覆盖 fixed_baseline。",
         ),
     }
 
@@ -111,7 +99,6 @@ class BasicFeaturesPlugin(Plugin):
         """
         use_filtered = bool(context.get_config(self, "use_filtered"))
         source = resolve_wave_source(context, self)
-        polarity = context.get_config(self, "polarity")
         channel_config_cfg = context.get_config(self, "channel_config")
 
         height_range = context.get_config(self, "height_range")
@@ -119,29 +106,6 @@ class BasicFeaturesPlugin(Plugin):
 
         start_p, end_p = height_range
         start_c, end_c = area_range
-        if polarity not in ("auto", "positive", "negative"):
-            raise ValueError(f"不支持的 polarity: {polarity}")
-
-        def resolve_effective_polarity(
-            hw_channel: HardwareChannel,
-            wave: np.ndarray,
-            baseline: float,
-            effective_rule: dict[str, Any],
-            data_polarity: str | None = None,
-        ) -> str:
-            if data_polarity in ("positive", "negative"):
-                return data_polarity
-            channel_polarity = effective_rule.get("polarity", "unknown")
-            if channel_polarity in ("positive", "negative"):
-                return channel_polarity
-            if polarity in ("positive", "negative"):
-                return polarity
-
-            signal = wave.astype(np.float64) - float(baseline)
-            pos_area = float(np.sum(np.maximum(signal, 0.0)))
-            neg_area = float(np.sum(np.maximum(-signal, 0.0)))
-            return "negative" if neg_area > pos_area else "positive"
-
         if source == WAVE_SOURCE_RECORDS:
             from waveform_analysis.core import records_view
 
@@ -159,34 +123,42 @@ class BasicFeaturesPlugin(Plugin):
                 if "board" in records.dtype.names
                 else np.zeros(len(records), dtype=np.int16)
             )
+            record_ids = (
+                records["record_id"].astype(np.int64, copy=False)
+                if "record_id" in records.dtype.names
+                else np.arange(len(records), dtype=np.int64)
+            )
             features = np.zeros(len(records), dtype=BASIC_FEATURES_DTYPE)
             for idx, rec in enumerate(records):
                 board = int(boards[idx])
                 ch = int(rec["channel"]) if "channel" in records.dtype.names else 0
-                hw_channel = HardwareChannel(board=board, channel=ch)
                 effective_rule = resolve_effective_channel_config(
                     context=context,
                     plugin=self,
                     run_id=run_id,
                     board=board,
                     channel=ch,
-                    base_values={"polarity": polarity, "fixed_baseline": None},
+                    base_values={"fixed_baseline": None},
                     channel_config=channel_config_cfg,
                 ).values
                 fixed_baseline = effective_rule.get("fixed_baseline")
                 baseline = (
                     float(rec["baseline"]) if fixed_baseline is None else float(fixed_baseline)
                 )
-                wave = rv.wave(idx)
+                wave = rv.waves(int(record_ids[idx]))
                 data_polarity = str(rec["polarity"]) if "polarity" in records.dtype.names else None
                 use_normalized_signal = data_polarity in ("positive", "negative")
-                signal = -rv.signal(idx, baseline=baseline) if use_normalized_signal else None
+                signal = (
+                    -rv.signals(int(record_ids[idx]), baseline=baseline)
+                    if use_normalized_signal
+                    else None
+                )
                 wave_p = wave[start_p:end_p]
                 wave_c = wave[start_c:end_c]
                 signal_p = signal[start_p:end_p] if signal is not None else None
                 signal_c = signal[start_c:end_c] if signal is not None else None
-                effective_polarity = resolve_effective_polarity(
-                    hw_channel, wave, baseline, effective_rule, data_polarity=data_polarity
+                effective_polarity = (
+                    data_polarity if data_polarity in ("positive", "negative") else "negative"
                 )
 
                 if use_normalized_signal and signal_p is not None and signal_p.size > 0:
@@ -246,8 +218,6 @@ class BasicFeaturesPlugin(Plugin):
         n_events = len(waveform_data)
 
         # 计算 height/amp/area；极性可由 metadata 按通道覆盖。
-        waves_p = waves[:, start_p:end_p]
-        waves_c = waves[:, start_c:end_c]
         height_vals = np.zeros(n_events, dtype=np.float32)
         amp_vals = np.zeros(n_events, dtype=np.float32)
         area_vals = np.zeros(n_events, dtype=np.float32)
@@ -257,32 +227,25 @@ class BasicFeaturesPlugin(Plugin):
             baseline = float(baselines[idx])
             board = int(boards[idx])
             ch = int(channels[idx])
-            hw_channel = HardwareChannel(board=board, channel=ch)
             effective_rule = resolve_effective_channel_config(
                 context=context,
                 plugin=self,
                 run_id=run_id,
                 board=board,
                 channel=ch,
-                base_values={"polarity": polarity, "fixed_baseline": None},
+                base_values={"fixed_baseline": None},
                 channel_config=channel_config_cfg,
             ).values
             fixed_baseline = effective_rule.get("fixed_baseline")
             if fixed_baseline is not None:
                 baseline = float(fixed_baseline)
-            effective_polarity = resolve_effective_polarity(
-                hw_channel,
-                wave,
-                baseline,
-                effective_rule,
-                data_polarity=(
-                    str(waveform_data["polarity"][idx])
-                    if "polarity" in waveform_data.dtype.names
-                    else None
-                ),
+            effective_polarity = (
+                str(waveform_data["polarity"][idx])
+                if "polarity" in waveform_data.dtype.names
+                else "negative"
             )
 
-            wave_p = waves_p[idx]
+            wave_p = wave[start_p:end_p]
             if wave_p.size > 0:
                 w_min = float(np.min(wave_p))
                 w_max = float(np.max(wave_p))
@@ -292,7 +255,7 @@ class BasicFeaturesPlugin(Plugin):
                     height_vals[idx] = baseline - w_min
                 amp_vals[idx] = w_max - w_min
 
-            wave_c = waves_c[idx].astype(np.float64, copy=False)
+            wave_c = wave[start_c:end_c].astype(np.float64, copy=False)
             if wave_c.size > 0:
                 if effective_polarity == "positive":
                     area_vals[idx] = float(np.sum(wave_c - baseline))

@@ -1,6 +1,6 @@
 # PairedEventsPlugin
 
-> Plugin to pair events across channels.
+> Pair grouped events across channels for coincidence analysis.
 
 ## Overview
 

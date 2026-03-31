@@ -272,7 +272,7 @@ print(f"  建议阈值（均值 - 2σ）: {suggested_threshold:.2f} ADC")
 - `peaks_range` (tuple): 峰值检测区间
 - `charge_range` (tuple): 电荷积分区间
 - `figsize` (tuple): 图像大小
-- `sampling_interval_ns` (float): 采样间隔（ns）
+- `dt` (float): 采样间隔（ns）
 
 **返回**：Matplotlib Figure 对象
 
@@ -337,12 +337,12 @@ fig = previewer.plot_overlay(
 
 ### Q3: 采样间隔如何设置？
 
-默认采样间隔为 2 ns，可通过 `sampling_interval_ns` 参数修改：
+默认采样间隔为 2 ns，可通过 `dt` 参数修改（旧参数 `sampling_interval_ns` 仍兼容但会告警）：
 
 ```python
 fig = previewer.plot_overlay(
     waveforms,
-    sampling_interval_ns=1.0    # 1 ns 采样间隔
+    dt=1.0    # 1 ns 采样间隔
 )
 ```
 

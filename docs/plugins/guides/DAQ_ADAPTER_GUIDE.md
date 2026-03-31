@@ -118,7 +118,8 @@ spec = FormatSpec(
 )
 ```
 
-`st_waveforms` 内的 `timestamp` 会按 `FormatSpec.timestamp_unit` 统一转换为 ps。
+`st_waveforms` 内的 `timestamp` 会在适配器入口统一为 ps。
+若原生时间戳是物理单位，使用 `FormatSpec.timestamp_unit` 转换；若原生时间戳是 sample index，则通过 `raw_timestamp_mode="sample_index"` 和采样间隔换算为 ps。
 
 ### 2. DirectoryLayout (目录布局)
 

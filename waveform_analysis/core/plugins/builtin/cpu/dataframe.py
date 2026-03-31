@@ -37,6 +37,7 @@ class DataFramePlugin(Plugin):
 
     provides = "df"
     depends_on = []  # dynamic, resolved by resolve_depends_on
+    description = "Build the initial single-channel events DataFrame."
     version = "1.6.0"
     save_when = "always"
     uses_run_config = True

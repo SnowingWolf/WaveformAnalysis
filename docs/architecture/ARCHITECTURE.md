@@ -91,7 +91,7 @@
     - `BatchProcessor` 并行处理多个 run。
     - `DataExporter`/`batch_export` 统一导出 Parquet/HDF5/CSV/JSON/NumPy。
 - **依赖分析** (`core/data/dependency_analysis.py`): DAG 结构与性能瓶颈分析，支持报告输出。
-- **Records 视图** (`core/data/records_view.py`): `RecordsView` 提供 records + wave_pool 的零拷贝访问接口。
+- **Records 视图** (`core/data/records_view.py`): `RecordsView` 提供 records + wave_pool 的零拷贝访问接口，并统一通过 `waves(...)` / `signals(...)` 按稳定 `record_id` 回切波形。
 - **`IO Module`** (`utils/io.py`): `parse_and_stack_files`/`parse_files_generator` 支持流式解析与并行加载。
 - **`DAQ Adapters`** (`utils/formats/`): 统一不同硬件厂商的数据组织格式。
     - **格式规范 (`FormatSpec`)**: 定义 CSV 列映射、时间戳单位、分隔符等。

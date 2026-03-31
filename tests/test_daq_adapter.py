@@ -22,6 +22,7 @@ from waveform_analysis.utils.formats import (
     ColumnMapping,
     FormatSpec,
     GenericCSVReader,
+    RawTimestampMode,
     TimestampUnit,
     V1725Reader,
     VX2730Reader,
@@ -42,6 +43,7 @@ class TestFormatSpec:
         assert spec.name == "vx2730_csv"
         assert spec.delimiter == ";"
         assert spec.timestamp_unit == TimestampUnit.PICOSECONDS
+        assert spec.raw_timestamp_mode == RawTimestampMode.UNIT
         assert spec.header_rows_first_file == 2
         assert spec.header_rows_other_files == 0
         # expected_samples 已移除，波形长度现在由插件配置或自动检测
@@ -57,6 +59,33 @@ class TestFormatSpec:
 
         spec = FormatSpec(name="test", timestamp_unit=TimestampUnit.MICROSECONDS)
         assert spec.get_timestamp_scale() == 1e3  # us -> ns
+
+    def test_normalize_timestamp_to_ps_for_physical_units(self):
+        spec = FormatSpec(name="test", timestamp_unit=TimestampUnit.NANOSECONDS)
+        timestamps = np.array([10, 20], dtype=np.int64)
+
+        np.testing.assert_array_equal(
+            spec.normalize_timestamp_to_ps(timestamps),
+            np.array([10_000, 20_000], dtype=np.int64),
+        )
+
+    def test_normalize_timestamp_to_ps_for_sample_index(self):
+        spec = FormatSpec(
+            name="test",
+            timestamp_unit=TimestampUnit.NANOSECONDS,
+            raw_timestamp_mode=RawTimestampMode.SAMPLE_INDEX,
+            sampling_rate_hz=250e6,
+        )
+        timestamps = np.array([10, 20], dtype=np.int64)
+
+        np.testing.assert_array_equal(
+            spec.normalize_timestamp_to_ps(timestamps),
+            np.array([40_000, 80_000], dtype=np.int64),
+        )
+        np.testing.assert_array_equal(
+            spec.normalize_timestamp_to_ps(timestamps, dt_ns=8),
+            np.array([80_000, 160_000], dtype=np.int64),
+        )
 
     def test_column_mapping(self):
         """测试列映射"""
@@ -201,6 +230,10 @@ def _make_v1725_single_wave_blob(
 
 
 class TestV1725Reader:
+    def test_v1725_spec_marks_sample_index_timestamps(self):
+        adapter = get_adapter("v1725")
+        assert adapter.format_spec.raw_timestamp_mode == RawTimestampMode.SAMPLE_INDEX
+
     def test_iter_waves_extracts_board_from_bseg_filename(self, tmp_path: Path):
         raw = tmp_path / "test_raw_b7_seg0.bin"
         raw.write_bytes(_make_v1725_single_wave_blob(channel=1, timestamp=77, baseline=555))
@@ -334,6 +367,10 @@ HEADER 2
         assert "timestamp" in extracted
         assert "channel" in extracted
         assert extracted["channel"][0] == 0
+        assert extracted["timestamp"][0] == 1000
+
+        extracted_ns = adapter.extract_and_convert_ns(data)
+        assert extracted_ns["timestamp"][0] == 1
 
 
 if __name__ == "__main__":

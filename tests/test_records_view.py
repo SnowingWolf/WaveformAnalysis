@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.data.records_view import RecordsView
@@ -13,6 +14,7 @@ def _make_sample_view():
     records["timestamp"] = [10, 20, 30]
     records["pid"] = 0
     records["channel"] = [0, 0, 1]
+    records["record_id"] = [10, 11, 12]
     records["baseline"] = [1.0, 2.0, 0.0]
     records["polarity"] = ["positive", "negative", "unknown"]
     records["wave_offset"] = [0, 3, 5]
@@ -26,11 +28,11 @@ def _make_sample_view():
 def test_records_view_wave_slicing():
     rv = _make_sample_view()
 
-    wave0 = rv.wave(0)
+    wave0 = rv.waves(10)
     assert wave0.dtype == np.uint16
     assert np.array_equal(wave0, np.array([1, 2, 3], dtype=np.uint16))
 
-    wave1 = rv.wave(1, baseline_correct=True)
+    wave1 = rv.waves(11, baseline_correct=True)
     assert wave1.dtype == np.float32
     assert np.allclose(wave1, np.array([8.0, 9.0], dtype=np.float32))
 
@@ -38,7 +40,7 @@ def test_records_view_wave_slicing():
 def test_records_view_waves_pad_mask():
     rv = _make_sample_view()
 
-    waves, mask = rv.waves([0, 2], pad_to=4, mask=True, dtype=np.float32)
+    waves, mask = rv.waves([10, 12], pad_to=4, mask=True, dtype=np.float32)
     assert waves.shape == (2, 4)
     assert mask.shape == (2, 4)
 
@@ -52,7 +54,7 @@ def test_records_view_waves_pad_mask():
 def test_records_view_wave_unified_batch_access():
     rv = _make_sample_view()
 
-    waves, mask = rv.wave([0, 2], pad_to=4, mask=True, dtype=np.float32)
+    waves, mask = rv.waves([10, 12], pad_to=4, mask=True, dtype=np.float32)
     assert waves.shape == (2, 4)
     assert mask.shape == (2, 4)
     assert np.allclose(waves[0], np.array([1.0, 2.0, 3.0, 0.0], dtype=np.float32))
@@ -66,12 +68,21 @@ def test_records_view_query_time_window():
     assert subset["timestamp"][0] == 20
 
 
+def test_records_view_record_windows():
+    rv = _make_sample_view()
+    wave = rv.waves(10, sample_start=1, sample_end=3)
+    signal = rv.signals(11, sample_start=0, sample_end=2)
+
+    assert np.array_equal(wave, np.array([2, 3], dtype=np.uint16))
+    assert np.allclose(signal, np.array([8.0, 9.0], dtype=np.float32))
+
+
 def test_records_view_signal_normalizes_to_negative_pulses():
     rv = _make_sample_view()
 
-    signal0 = rv.signal(0)
-    signal1 = rv.signal(1)
-    signal2 = rv.signal(2)
+    signal0 = rv.signals(10)
+    signal1 = rv.signals(11)
+    signal2 = rv.signals(12)
 
     assert np.allclose(signal0, np.array([0.0, -1.0, -2.0], dtype=np.float32))
     assert np.allclose(signal1, np.array([8.0, 9.0], dtype=np.float32))
@@ -81,7 +92,7 @@ def test_records_view_signal_normalizes_to_negative_pulses():
 def test_records_view_signal_supports_baseline_override():
     rv = _make_sample_view()
 
-    signal = rv.signal(0, baseline=2.0)
+    signal = rv.signals(10, baseline=2.0)
 
     assert np.allclose(signal, np.array([1.0, 0.0, -1.0], dtype=np.float32))
 
@@ -89,7 +100,7 @@ def test_records_view_signal_supports_baseline_override():
 def test_records_view_signals_pad_mask():
     rv = _make_sample_view()
 
-    signals, mask = rv.signals([0, 1], pad_to=4, mask=True)
+    signals, mask = rv.signals([10, 11], pad_to=4, mask=True)
 
     assert signals.shape == (2, 4)
     assert np.allclose(
@@ -121,6 +132,7 @@ def test_records_view_uses_records_branch_with_cpu_default():
     records["timestamp"] = [10]
     records["pid"] = 0
     records["channel"] = [0]
+    records["record_id"] = [100]
     records["baseline"] = [1.0]
     records["wave_offset"] = [0]
     records["event_length"] = [1]
@@ -139,4 +151,54 @@ def test_records_view_uses_records_branch_with_cpu_default():
     assert isinstance(rv, RecordsView)
     assert mocked.call_count == 1
     assert len(rv) == 1
-    assert int(rv.wave(0)[0]) == 7
+    assert int(rv.waves(100)[0]) == 7
+
+
+def test_records_view_batch_window_uses_record_ids():
+    rv = _make_sample_view()
+
+    waves, mask = rv.waves([10, 11], sample_start=1, sample_end=3, pad_to=3, mask=True)
+
+    assert np.array_equal(
+        waves,
+        np.array(
+            [
+                [2, 3, 0],
+                [11, 0, 0],
+            ],
+            dtype=np.uint16,
+        ),
+    )
+    assert np.array_equal(
+        mask,
+        np.array(
+            [
+                [True, True, False],
+                [True, False, False],
+            ]
+        ),
+    )
+
+
+def test_records_view_rejects_duplicate_record_ids():
+    records = np.zeros(2, dtype=RECORDS_DTYPE)
+    records["record_id"] = [10, 10]
+    records["timestamp"] = [0, 1]
+    records["wave_offset"] = [0, 1]
+    records["event_length"] = [1, 1]
+    records["baseline"] = [0.0, 0.0]
+
+    with pytest.raises(ValueError, match="record_id"):
+        RecordsView(records, np.array([1, 2], dtype=np.uint16))
+
+
+def test_records_view_rejects_out_of_bounds_wave_reference():
+    records = np.zeros(1, dtype=RECORDS_DTYPE)
+    records["record_id"] = [10]
+    records["timestamp"] = [0]
+    records["wave_offset"] = [1]
+    records["event_length"] = [2]
+    records["baseline"] = [0.0]
+
+    with pytest.raises(ValueError, match="wave_pool"):
+        RecordsView(records, np.array([1, 2], dtype=np.uint16))

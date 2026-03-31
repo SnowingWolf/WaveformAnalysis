@@ -15,9 +15,6 @@ from typing import Any
 
 import numpy as np
 
-from waveform_analysis.core.hardware.channel import (
-    resolve_effective_channel_config,
-)
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     WAVE_SOURCE_AUTO,
     WAVE_SOURCE_FILTERED,
@@ -57,7 +54,7 @@ class WaveformWidthIntegralPlugin(Plugin):
     provides = "waveform_width_integral"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Event-wise integral quantile width using st_waveforms or filtered_waveforms."
-    version = "2.5.0"  # 版本升级：records 分支支持统一极性信号接口
+    version = "2.7.0"  # 版本升级：polarity 仅来自数据字段，不再来自插件配置
     save_when = "always"
 
     output_dtype = WAVEFORM_WIDTH_INTEGRAL_DTYPE
@@ -65,11 +62,6 @@ class WaveformWidthIntegralPlugin(Plugin):
     options = {
         "q_low": Option(default=0.10, type=float, help="低分位点（默认 0.10）"),
         "q_high": Option(default=0.90, type=float, help="高分位点（默认 0.90）"),
-        "polarity": Option(
-            default="auto",
-            type=str,
-            help="信号极性: auto | positive | negative",
-        ),
         "use_filtered": Option(
             default=False,
             type=bool,
@@ -95,28 +87,16 @@ class WaveformWidthIntegralPlugin(Plugin):
             type=str,
             help="DAQ 适配器名称（用于自动推断采样率）",
         ),
-        "channel_metadata": Option(
-            default=None,
-            type=dict,
-            help="已废弃；行为配置请改用 channel_config。",
-        ),
-        "channel_config": Option(
-            default=None,
-            type=dict,
-            help="按 (board, channel) 的插件通道覆盖配置，可覆盖 polarity。",
-        ),
     }
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         q_low = float(context.get_config(self, "q_low"))
         q_high = float(context.get_config(self, "q_high"))
-        polarity = context.get_config(self, "polarity")
         use_filtered = bool(context.get_config(self, "use_filtered"))
         source = resolve_wave_source(context, self)
         dt = context.get_config(self, "dt")
         sampling_rate = context.get_config(self, "sampling_rate")
         daq_adapter = context.get_config(self, "daq_adapter")
-        channel_config_cfg = context.get_config(self, "channel_config")
 
         if dt is None:
             if not self._has_config(context, "sampling_rate"):
@@ -131,9 +111,6 @@ class WaveformWidthIntegralPlugin(Plugin):
         if q_low <= 0 or q_high >= 1 or q_low >= q_high:
             raise ValueError(f"q_low/q_high 无效: q_low={q_low}, q_high={q_high}")
 
-        if polarity not in ("auto", "positive", "negative"):
-            raise ValueError(f"不支持的 polarity: {polarity}")
-
         if source == WAVE_SOURCE_RECORDS:
             from waveform_analysis.core import records_view
 
@@ -142,12 +119,17 @@ class WaveformWidthIntegralPlugin(Plugin):
             if len(records) == 0:
                 return np.zeros(0, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE)
             records_len = len(records)
+            record_ids = (
+                records["record_id"].astype(np.int64, copy=False)
+                if "record_id" in records.dtype.names
+                else np.arange(len(records), dtype=np.int64)
+            )
 
             def get_wave(i: int) -> np.ndarray:
-                return rv.wave(i)
+                return rv.waves(int(record_ids[i]))
 
             def get_signal(i: int) -> np.ndarray:
-                return rv.signal(i)
+                return rv.signals(int(record_ids[i]))
 
             def get_baseline(i: int) -> float:
                 return float(records[i]["baseline"])
@@ -206,43 +188,22 @@ class WaveformWidthIntegralPlugin(Plugin):
             baseline = get_baseline(event_idx)
             channel = get_channel(event_idx)
             board = get_board(event_idx)
-            effective_rule = resolve_effective_channel_config(
-                context=context,
-                plugin=self,
-                run_id=run_id,
-                board=board,
-                channel=channel,
-                base_values={"polarity": polarity},
-                channel_config=channel_config_cfg,
-            ).values
 
-            data_polarity = None
+            data_polarity = "unknown"
             if source == WAVE_SOURCE_RECORDS and "polarity" in records.dtype.names:
                 data_polarity = str(records[event_idx]["polarity"])
             elif source != WAVE_SOURCE_RECORDS and "polarity" in waveform_data.dtype.names:
                 data_polarity = str(waveform_data[event_idx]["polarity"])
 
-            effective_polarity = (
-                data_polarity
-                if data_polarity in ("positive", "negative")
-                else effective_rule.get("polarity", polarity)
-            )
-
             if source == WAVE_SOURCE_RECORDS and data_polarity in ("positive", "negative"):
-                x = np.maximum(-get_signal(event_idx).astype(np.float64, copy=False), 0.0)
+                signal = -get_signal(event_idx).astype(np.float64, copy=False)
             else:
-                signal = wave - baseline
-                if effective_polarity == "positive":
-                    x = np.maximum(signal, 0.0)
-                elif effective_polarity == "negative":
-                    x = np.maximum(-signal, 0.0)
+                raw_signal = wave.astype(np.float64, copy=False) - baseline
+                if data_polarity == "positive":
+                    signal = raw_signal
                 else:
-                    pos_area = float(np.sum(np.maximum(signal, 0.0)))
-                    neg_area = float(np.sum(np.maximum(-signal, 0.0)))
-                    if neg_area > pos_area:
-                        x = np.maximum(-signal, 0.0)
-                    else:
-                        x = np.maximum(signal, 0.0)
+                    signal = -raw_signal
+            x = np.maximum(signal, 0.0)
 
             q_total = float(np.sum(x))
 

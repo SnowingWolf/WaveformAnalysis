@@ -54,6 +54,7 @@ from .base import (
     ColumnMapping,
     FormatReader,
     FormatSpec,
+    RawTimestampMode,
     TimestampUnit,
 )
 
@@ -102,6 +103,7 @@ __all__ = [
     "ColumnMapping",
     "FormatReader",
     "FormatSpec",
+    "RawTimestampMode",
     "TimestampUnit",
     # 通用读取器
     "GenericCSVReader",

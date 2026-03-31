@@ -3,6 +3,7 @@ DAQ 数据格式基础定义 - FormatSpec, ColumnMapping, TimestampUnit, FormatR
 
 本模块定义了 DAQ 数据格式适配器的核心抽象，包括：
 - TimestampUnit: 时间戳单位枚举
+- RawTimestampMode: 原生时间戳语义枚举
 - ColumnMapping: CSV 列映射配置
 - FormatSpec: 格式规范数据类
 - FormatReader: 格式读取器抽象基类
@@ -18,10 +19,11 @@ Examples:
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 
@@ -35,7 +37,7 @@ class TimestampUnit(Enum):
     """时间戳单位枚举
 
     定义 DAQ 系统中常见的时间戳单位，用于在读取数据时进行单位转换。
-    所有时间戳最终会被转换为纳秒 (ns) 作为内部统一单位。
+    标准链路中的 `timestamp` 最终统一为皮秒 (ps)。
 
     Attributes:
         PICOSECONDS: 皮秒 (1e-12 秒)
@@ -50,6 +52,14 @@ class TimestampUnit(Enum):
     MICROSECONDS = "us"  # 1e-6 秒
     MILLISECONDS = "ms"  # 1e-3 秒
     SECONDS = "s"  # 1 秒
+
+
+@export
+class RawTimestampMode(Enum):
+    """原生时间戳语义枚举。"""
+
+    UNIT = "unit"
+    SAMPLE_INDEX = "sample_index"
 
 
 @export
@@ -78,7 +88,7 @@ class ColumnMapping:
     channel: int = 1  # CHANNEL 列索引
     timestamp: int = 2  # TIMETAG 列索引
     samples_start: int = 7  # 波形采样起始列
-    samples_end: Optional[int] = None  # 波形采样结束列 (None = 到末尾)
+    samples_end: int | None = None  # 波形采样结束列 (None = 到末尾)
     baseline_start: int = 7  # 基线计算起始列
     baseline_end: int = 47  # 基线计算结束列
 
@@ -88,13 +98,14 @@ class ColumnMapping:
 class FormatSpec:
     """DAQ 数据格式规范
 
-    完整描述一种 DAQ 数据格式，包括列映射、时间戳单位、文件模式、头部处理等。
+    完整描述一种 DAQ 数据格式，包括列映射、原生时间戳语义、文件模式、头部处理等。
 
     Attributes:
         name: 格式名称（唯一标识符）
         version: 格式版本号
         columns: 列映射配置
-        timestamp_unit: 时间戳单位
+        timestamp_unit: 原生时间戳使用物理单位时的单位描述
+        raw_timestamp_mode: 原生时间戳语义（物理单位或 sample index）
         file_pattern: 文件 glob 模式
         header_rows_first_file: 首个文件跳过的头部行数
         header_rows_other_files: 其他文件跳过的头部行数
@@ -117,12 +128,13 @@ class FormatSpec:
     version: str = "1.0"  # 格式版本
     columns: ColumnMapping = field(default_factory=ColumnMapping)
     timestamp_unit: TimestampUnit = TimestampUnit.PICOSECONDS
+    raw_timestamp_mode: RawTimestampMode = RawTimestampMode.UNIT
     file_pattern: str = "*CH*.CSV"  # 文件 glob 模式
     header_rows_first_file: int = 2  # 首文件头部行数
     header_rows_other_files: int = 0  # 其他文件头部行数
     delimiter: str = ";"  # CSV 分隔符
-    sampling_rate_hz: Optional[float] = None  # 采样率（Hz）
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    sampling_rate_hz: float | None = None  # 采样率（Hz）
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def get_timestamp_scale(self) -> float:
         """获取时间戳到纳秒的转换因子
@@ -138,6 +150,12 @@ class FormatSpec:
             TimestampUnit.SECONDS: 1e9,  # s -> ns
         }
         return scales.get(self.timestamp_unit, 1.0)
+
+    def get_default_dt_ps(self) -> int:
+        """获取默认采样间隔（ps）。"""
+        if not self.sampling_rate_hz:
+            raise ValueError("sampling_rate_hz is required for sample-index timestamps")
+        return int(round(1e12 / float(self.sampling_rate_hz)))
 
     def get_timestamp_scale_to_ps(self) -> float:
         """获取时间戳到皮秒的转换因子
@@ -155,6 +173,24 @@ class FormatSpec:
             TimestampUnit.SECONDS: 1e12,  # s -> ps
         }
         return scales.get(self.timestamp_unit, 1.0)
+
+    def normalize_timestamp_to_ps(
+        self,
+        timestamps: np.ndarray,
+        dt_ns: int | None = None,
+    ) -> np.ndarray:
+        """将原生时间戳标准化为 ps。"""
+        timestamps = np.asarray(timestamps, dtype=np.int64)
+        if self.raw_timestamp_mode == RawTimestampMode.SAMPLE_INDEX:
+            dt_ps = int(dt_ns) * 1000 if dt_ns is not None else self.get_default_dt_ps()
+            return timestamps * np.int64(dt_ps)
+
+        scale = self.get_timestamp_scale_to_ps()
+        if scale == 1.0:
+            return timestamps.astype(np.int64, copy=False)
+        if float(scale).is_integer():
+            return timestamps * int(scale)
+        return (timestamps.astype(np.float64) * scale).astype(np.int64)
 
 
 @export
@@ -186,7 +222,7 @@ class FormatReader(ABC):
         self.spec = spec
 
     @abstractmethod
-    def read_file(self, file_path: Union[str, Path], is_first_file: bool = True) -> np.ndarray:
+    def read_file(self, file_path: str | Path, is_first_file: bool = True) -> np.ndarray:
         """读取单个文件
 
         Args:
@@ -199,9 +235,7 @@ class FormatReader(ABC):
         pass
 
     @abstractmethod
-    def read_files(
-        self, file_paths: List[Union[str, Path]], show_progress: bool = False
-    ) -> np.ndarray:
+    def read_files(self, file_paths: list[str | Path], show_progress: bool = False) -> np.ndarray:
         """读取并堆叠多个文件
 
         Args:
@@ -215,7 +249,7 @@ class FormatReader(ABC):
 
     @abstractmethod
     def read_files_generator(
-        self, file_paths: List[Union[str, Path]], chunk_size: int = 10
+        self, file_paths: list[str | Path], chunk_size: int = 10
     ) -> Iterator[np.ndarray]:
         """生成器模式读取
 
@@ -228,7 +262,7 @@ class FormatReader(ABC):
         """
         pass
 
-    def extract_columns(self, data: np.ndarray) -> Dict[str, np.ndarray]:
+    def extract_columns(self, data: np.ndarray) -> dict[str, np.ndarray]:
         """从原始数据提取各列
 
         根据列映射配置，从原始数据中提取 board、channel、timestamp、samples、baseline 等列。

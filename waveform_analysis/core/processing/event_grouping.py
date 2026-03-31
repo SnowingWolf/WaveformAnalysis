@@ -9,7 +9,7 @@ Event grouping utilities for hit finding and clustering.
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -100,7 +100,7 @@ def group_multi_channel_hits(
     df: pd.DataFrame,
     time_window_ns: float,
     use_numba: bool = True,
-    n_processes: Optional[int] = None,
+    n_processes: int | None = None,
 ) -> pd.DataFrame:
     """
     在 df 中按 timestamp 聚类，找"同一事件的多通道触发"，并在簇内部
@@ -283,6 +283,134 @@ def group_multi_channel_hits(
         )
 
 
+@export
+def group_hit_windows(
+    hits: np.ndarray,
+    time_window_ns: float,
+    dt_values: np.ndarray | None = None,
+) -> pd.DataFrame:
+    """Group ``hit_merged`` rows into multi-channel events using absolute hit windows."""
+    columns = [
+        "event_id",
+        "t_min",
+        "t_max",
+        "dt/ns",
+        "n_hits",
+        "dt",
+        "boards",
+        "channels",
+        "heights",
+        "integrals",
+        "timestamps",
+        "record_ids",
+        "edge_starts",
+        "edge_ends",
+    ]
+
+    if not isinstance(hits, np.ndarray):
+        raise ValueError("hits must be a single structured array")
+    if len(hits) == 0:
+        return pd.DataFrame(columns=columns)
+
+    if time_window_ns < 0:
+        raise ValueError("time_window_ns must be >= 0")
+
+    required = {
+        "timestamp",
+        "position",
+        "edge_start",
+        "edge_end",
+        "board",
+        "channel",
+        "height",
+        "integral",
+        "record_id",
+    }
+    names = set(hits.dtype.names or ())
+    missing = sorted(required - names)
+    if missing:
+        raise KeyError(f"hits missing required fields: {missing}")
+
+    timestamps = np.asarray(hits["timestamp"], dtype=np.int64)
+    positions = np.asarray(hits["position"], dtype=np.float64)
+    if dt_values is None:
+        if "dt" not in names:
+            raise KeyError("hits missing required field: dt")
+        dt_values = np.asarray(hits["dt"], dtype=np.int32)
+    else:
+        dt_values = np.asarray(dt_values, dtype=np.int32)
+    if len(dt_values) != len(hits):
+        raise ValueError("dt_values length must match hits")
+    if np.any(dt_values <= 0):
+        raise ValueError("hit dt must be positive for every row")
+    edge_starts_rel = np.asarray(hits["edge_start"], dtype=np.float64)
+    edge_ends_rel = np.asarray(hits["edge_end"], dtype=np.float64)
+    boards = np.asarray(hits["board"], dtype=np.int16)
+    channels = np.asarray(hits["channel"], dtype=np.int16)
+    heights = np.asarray(hits["height"], dtype=np.float32)
+    integrals = np.asarray(hits["integral"], dtype=np.float32)
+    record_ids = np.asarray(hits["record_id"], dtype=np.int64)
+
+    dt_ps = dt_values.astype(np.float64) * 1e3
+    abs_starts = timestamps.astype(np.float64) + (edge_starts_rel - positions) * dt_ps
+    abs_ends = timestamps.astype(np.float64) + (edge_ends_rel - positions) * dt_ps
+
+    order = np.lexsort((record_ids, timestamps, dt_values, abs_starts))
+    gap_ps = time_window_ns * 1e3
+
+    def build_event(event_id: int, idxs: list[int]) -> dict[str, object]:
+        subset = np.asarray(idxs, dtype=np.int64)
+        sort_idx = np.lexsort(
+            (
+                record_ids[subset],
+                timestamps[subset],
+                abs_starts[subset],
+                dt_values[subset],
+                channels[subset],
+                boards[subset],
+            )
+        )
+        subset = subset[sort_idx]
+        t_min = int(np.min(abs_starts[subset]))
+        t_max = int(np.max(abs_ends[subset]))
+        return {
+            "event_id": event_id,
+            "t_min": t_min,
+            "t_max": t_max,
+            "dt/ns": (t_max - t_min) / 1e3,
+            "n_hits": int(len(subset)),
+            "dt": dt_values[subset].astype(np.int32, copy=True),
+            "boards": boards[subset].copy(),
+            "channels": channels[subset].copy(),
+            "heights": heights[subset].copy(),
+            "integrals": integrals[subset].copy(),
+            "timestamps": timestamps[subset].copy(),
+            "record_ids": record_ids[subset].copy(),
+            "edge_starts": abs_starts[subset].astype(np.int64),
+            "edge_ends": abs_ends[subset].astype(np.int64),
+        }
+
+    records: list[dict[str, object]] = []
+    current_indices = [int(order[0])]
+    cluster_end = float(abs_ends[order[0]])
+
+    for idx in order[1:]:
+        idx = int(idx)
+        # ``hit_grouped`` works on absolute hit windows in ps. Once upstream has
+        # normalized timestamps, different per-hit ``dt`` values remain comparable
+        # and should not block coincidence grouping.
+        if abs_starts[idx] <= cluster_end + gap_ps:
+            current_indices.append(idx)
+            cluster_end = max(cluster_end, float(abs_ends[idx]))
+        else:
+            records.append(build_event(len(records), current_indices))
+            current_indices = [idx]
+            cluster_end = float(abs_ends[idx])
+
+    records.append(build_event(len(records), current_indices))
+    return pd.DataFrame(records, columns=columns)
+
+
 # Numba加速的边界查找函数（模块级别定义，numba要求）
 if NUMBA_AVAILABLE:
 
@@ -337,7 +465,7 @@ else:
         return np.array(boundaries)
 
 
-def _process_event_chunk(args: Tuple) -> List[Dict]:
+def _process_event_chunk(args: tuple) -> list[dict]:
     """
     处理事件块（用于多进程）。
 

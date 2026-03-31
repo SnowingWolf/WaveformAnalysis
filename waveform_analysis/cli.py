@@ -158,7 +158,9 @@ def main():
             if adapter_info:
                 print(f"\nDAQ Adapter: {adapter_info.name}")
                 print(f"  采样率: {adapter_info.sampling_rate_hz / 1e6:.1f} MHz")
-                print(f"  时间戳单位: {adapter_info.timestamp_unit}")
+                print(f"  原生时间戳语义: {adapter_info.raw_timestamp_mode}")
+                print(f"  原生时间戳单位: {adapter_info.timestamp_unit}")
+                print("  标准链路时间戳单位: ps")
                 print(f"  采样间隔: {adapter_info.dt_ns} ns ({adapter_info.dt_ps} ps)")
 
             # 显示关键插件的配置

@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `st_waveforms` |
-| **Version** | `0.7.0` |
+| **Version** | `0.9.0` |
 | **Category** | 波形处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -23,7 +23,7 @@ This plugin has no dependencies.
 |--------|------|---------|-------|-------------|
 | `daq_adapter` | `str` | `vx2730` | - | DAQ adapter name (e.g., 'vx2730') |
 | `wave_length` | `int` | `None` | - | Waveform length (number of sampling points). Automatically detect from the data when None。 |
-| `dt_ns` | `int` | `None` | - | Sampling interval in ns for st_waveforms.dt (None=auto from adapter). |
+| `dt` | `int` | `None` | - | Sampling interval in ns for st_waveforms.dt (None=auto from adapter). |
 | `n_jobs` | `int` | `None` | - | Number of parallel workers for file-level processing (None=auto, uses min(total_files, 50)) |
 | `use_process_pool` | `bool` | `False` | - | Whether to use process pool for file-level parallelism (False=thread pool for I/O, True=process pool for CPU-intensive) |
 | `chunksize` | `int` | `None` | - | Chunk size for CSV reading (None=read entire file, enables PyArrow; set value to enable chunked reading but disables PyArrow) |
@@ -41,7 +41,9 @@ This plugin has no dependencies.
 |-------|------|-------|-------------|
 | `baseline` | `float64` | - | - |
 | `baseline_upstream` | `float64` | - | - |
+| `polarity` | `<U8` | - | - |
 | `timestamp` | `int64` | - | - |
+| `record_id` | `int64` | - | - |
 | `dt` | `int32` | - | - |
 | `event_length` | `int32` | - | - |
 | `board` | `int16` | - | - |
@@ -62,7 +64,7 @@ ctx.register(WaveformsPlugin())
 ctx.set_config({
     "daq_adapter": 'vx2730',
     "wave_length": None,
-    "dt_ns": None,
+    "dt": None,
 }, plugin_name="st_waveforms")
 
 # Get data

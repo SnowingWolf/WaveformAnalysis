@@ -6,8 +6,9 @@ ConfigResolver 负责将配置从"入口 → 生效值"的过程统一实现。
 支持多级配置来源：显式配置 > adapter 推断 > 插件默认。
 """
 
+from collections.abc import Callable
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from waveform_analysis.core.foundation.utils import exporter
 
@@ -47,7 +48,7 @@ class ConfigResolver:
 
     # 可从 adapter 推断的配置项
     # 格式: {config_key: lambda adapter_info: value}
-    ADAPTER_INFERRED_OPTIONS: Dict[str, Callable[[AdapterInfo], Any]] = {
+    ADAPTER_INFERRED_OPTIONS: dict[str, Callable[[AdapterInfo], Any]] = {
         "sampling_rate_hz": lambda info: info.sampling_rate_hz,
         # sampling_rate / fs 默认按 GHz 约定
         "sampling_rate": lambda info: (
@@ -62,6 +63,7 @@ class ConfigResolver:
         "records_dt_ns": lambda info: info.dt_ns,
         "events_dt_ns": lambda info: info.dt_ns,
         "timestamp_unit": lambda info: info.timestamp_unit,
+        "raw_timestamp_mode": lambda info: info.raw_timestamp_mode,
     }
 
     def __init__(self, compat_manager: Optional["CompatManager"] = None):
@@ -75,9 +77,9 @@ class ConfigResolver:
     def resolve(
         self,
         plugin: "Plugin",
-        config: Dict[str, Any],
-        adapter_name: Optional[str] = None,
-        adapter_info: Optional[AdapterInfo] = None,
+        config: dict[str, Any],
+        adapter_name: str | None = None,
+        adapter_info: AdapterInfo | None = None,
     ) -> ResolvedConfig:
         """解析插件配置
 
@@ -95,7 +97,7 @@ class ConfigResolver:
             >>> print(resolved.summary(verbose=True))
         """
         plugin_name = plugin.provides
-        values: Dict[str, ConfigValue] = {}
+        values: dict[str, ConfigValue] = {}
 
         # 获取 adapter 信息
         if adapter_info is None and adapter_name:
@@ -149,8 +151,8 @@ class ConfigResolver:
         plugin_name: str,
         opt_name: str,
         option: Any,
-        config: Dict[str, Any],
-        adapter_info: Optional[AdapterInfo],
+        config: dict[str, Any],
+        adapter_info: AdapterInfo | None,
     ) -> tuple:
         """解析单个配置值
 
@@ -210,8 +212,8 @@ class ConfigResolver:
         self,
         plugin: "Plugin",
         name: str,
-        config: Dict[str, Any],
-        adapter_name: Optional[str] = None,
+        config: dict[str, Any],
+        adapter_name: str | None = None,
     ) -> ConfigValue:
         """解析单个配置值（便捷方法）
 

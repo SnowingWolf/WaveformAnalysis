@@ -1,13 +1,13 @@
 # BasicFeaturesPlugin
 
-> Plugin to compute basic height/area features from structured waveforms.
+> Compute basic height, amplitude, and area features from waveform data.
 
 ## Overview
 
 | Property | Value |
 |----------|-------|
 | **Provides** | `basic_features` |
-| **Version** | `3.6.0` |
+| **Version** | `3.7.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |

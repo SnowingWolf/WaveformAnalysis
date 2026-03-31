@@ -35,6 +35,7 @@ from waveform_analysis.core.hardware.channel import (
     get_channel_metadata_config,
     resolve_channel_metadata_map,
 )
+from waveform_analysis.core.plugins.builtin.cpu._dt_compat import resolve_dt_config
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.dtypes import (
     DEFAULT_WAVE_LENGTH,
@@ -267,9 +268,10 @@ def _convert_v1725_to_st_waveforms(
     dt_ns = np.int32(config.get_dt_ns())
     st_waveforms["dt"] = dt_ns
 
-    # v1725 timestamp is an ADC tick index; normalize to ps like other st_waveforms paths.
-    timestamp_ps = (
-        np.asarray(timestamps_ticks, dtype=np.int64) * np.int64(int(dt_ns)) * np.int64(1000)
+    # 标准链路统一消费 ps 时间戳，v1725 的 sample index 在入口处换算。
+    timestamp_ps = config.format_spec.normalize_timestamp_to_ps(
+        np.asarray(timestamps_ticks, dtype=np.int64),
+        dt_ns=int(dt_ns),
     )
     st_waveforms["timestamp"] = timestamp_ps
     if "time" in st_waveforms.dtype.names:
@@ -604,12 +606,10 @@ class WaveformStruct:
         except Exception:
             timestamps = np.array([int(row[cols.timestamp]) for row in waves], dtype=np.int64)
 
-        timestamp_scale = self.config.format_spec.get_timestamp_scale_to_ps()
-        if timestamp_scale != 1.0:
-            if float(timestamp_scale).is_integer():
-                timestamps = timestamps * int(timestamp_scale)
-            else:
-                timestamps = (timestamps.astype(np.float64) * timestamp_scale).astype(np.int64)
+        timestamps = self.config.format_spec.normalize_timestamp_to_ps(
+            timestamps,
+            dt_ns=int(self.dt_ns),
+        )
 
         waveform_structured["baseline"] = baseline_vals
 
@@ -828,9 +828,10 @@ class WaveformsPlugin(Plugin):
     2. 将波形数据结构化为 NumPy 结构化数组（ST_WAVEFORM_DTYPE）
     """
 
-    version = "0.8.0"
+    version = "0.10.0"
     provides = "st_waveforms"
     depends_on = []
+    uses_run_config = True
     description = (
         "Extract waveforms from raw CSV files and structure them into NumPy structured arrays."
     )
@@ -843,7 +844,7 @@ class WaveformsPlugin(Plugin):
             type=int,
             help="Waveform length (number of sampling points). Automatically detect from the data when None。",
         ),
-        "dt_ns": Option(
+        "dt": Option(
             default=None,
             type=int,
             help="Sampling interval in ns for st_waveforms.dt (None=auto from adapter).",
@@ -977,7 +978,7 @@ class WaveformsPlugin(Plugin):
         parse_engine = context.get_config(self, "parse_engine")
         daq_adapter = context.get_config(self, "daq_adapter")
         wave_length = context.get_config(self, "wave_length")
-        dt_ns = context.get_config(self, "dt_ns")
+        dt_ns = resolve_dt_config(context, self, deprecated_keys=("dt_ns", "sampling_interval_ns"))
         use_upstream_baseline = context.get_config(self, "use_upstream_baseline")
         baseline_samples = context.get_config(self, "baseline_samples")
         streaming_mode = context.get_config(self, "streaming_mode")
@@ -1313,8 +1314,6 @@ class WaveformsPlugin(Plugin):
         cols = config.format_spec.columns
         dt_ns = config.get_dt_ns()
         epoch_ns = config.epoch_ns
-        timestamp_scale = config.format_spec.get_timestamp_scale_to_ps()
-
         _validate_baseline_samples(baseline_samples)
         baseline_warned = False
 
@@ -1349,13 +1348,10 @@ class WaveformsPlugin(Plugin):
                         [int(row[cols.timestamp]) for row in raw_arr], dtype=np.int64
                     )
 
-                if timestamp_scale != 1.0:
-                    if float(timestamp_scale).is_integer():
-                        timestamps = timestamps * int(timestamp_scale)
-                    else:
-                        timestamps = (timestamps.astype(np.float64) * timestamp_scale).astype(
-                            np.int64
-                        )
+                timestamps = config.format_spec.normalize_timestamp_to_ps(
+                    timestamps,
+                    dt_ns=int(dt_ns),
+                )
 
                 # 计算基线
                 bl_start, bl_end = _resolve_baseline_window(baseline_samples, cols)

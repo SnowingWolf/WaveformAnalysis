@@ -33,9 +33,9 @@ def main() -> None:
     # Required: set DAQ adapter (or pass daq_run/daq_info to get_raw_files)
     ctx.set_config({"daq_adapter": daq_adapter})
 
-    # Optional: set dt (ns) if not provided by the adapter
-    # ctx.set_config({"records_dt_ns": 2}, plugin_name="records")
-    # ctx.set_config({"events_dt_ns": 2}, plugin_name="events")
+    # Optional: set dt (ns) explicitly for records if not provided by the adapter
+    # ctx.set_config({"dt": 2}, plugin_name="records")
+    # Downstream event-level plugins read propagated dt from upstream data.
 
     records = ctx.get_data(run_id, "records")
     print(f"records={len(records)}")
@@ -50,8 +50,14 @@ def main() -> None:
     print(f"events_grouped={len(events_grouped)}")
 
     rv = records_view(ctx, run_id)
-    wave0 = rv.wave(0, baseline_correct=True)
+    first_record_id = int(records[0]["record_id"])
+
+    wave0 = rv.waves(first_record_id, baseline_correct=True)
+    signal0 = rv.signals(first_record_id, sample_start=0, sample_end=10)
+
+    print("record_id=", first_record_id)
     print("wave0 head:", wave0[:10])
+    print("signal0 head:", signal0[:10])
 
     subset = rv.query_time_window(t_min=0, t_max=1_000_000)
     print(f"subset={len(subset)}")

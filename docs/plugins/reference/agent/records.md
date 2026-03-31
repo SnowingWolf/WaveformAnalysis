@@ -9,7 +9,7 @@
 | Provides | `records` |
 | Depends On | `raw_files` |
 | Output Kind | `structured_array` |
-| Version | `0.7.0` |
+| Version | `0.8.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.records` |
 | Accelerator | `cpu` |
 
@@ -47,7 +47,7 @@
 | `use_process_pool` | `bool` | `False` | Use a process pool for file-level parsing (False=thread pool). |
 | `chunksize` | `int` | `None` | CSV read chunk size; None reads full file (PyArrow if available). |
 | `records_part_size` | `int` | `200000` | Max events per records shard; <=0 disables sharding. |
-| `records_dt_ns` | `int` | `None` | Sample interval in ns (defaults to adapter rate or 1ns). |
+| `dt` | `int` | `None` | Sample interval in ns for records.dt (defaults to adapter rate or 1ns). |
 
 ## Execution Path
 

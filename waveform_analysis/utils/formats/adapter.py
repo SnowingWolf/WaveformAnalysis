@@ -24,9 +24,10 @@ Examples:
     >>> print(f"时间戳范围: {extracted['timestamp'].min()} - {extracted['timestamp'].max()}")
 """
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional
+from typing import Optional
 
 import numpy as np
 
@@ -76,7 +77,7 @@ class DAQAdapter:
         return self.directory_layout
 
     @property
-    def sampling_rate_hz(self) -> Optional[float]:
+    def sampling_rate_hz(self) -> float | None:
         """获取采样率（Hz）"""
         return self.format_spec.sampling_rate_hz
 
@@ -104,7 +105,7 @@ class DAQAdapter:
         """
         return self.directory_layout.get_run_path(data_root, run_name)
 
-    def scan_run(self, data_root: str, run_name: str) -> Dict[int, List[Path]]:
+    def scan_run(self, data_root: str, run_name: str) -> dict[int, list[Path]]:
         """扫描运行目录，返回按通道分组的文件
 
         Args:
@@ -127,7 +128,7 @@ class DAQAdapter:
         # 转换为简单的 channel -> [paths] 格式
         return {ch: [f["path"] for f in files] for ch, files in groups.items()}
 
-    def scan_run_detailed(self, data_root: str, run_name: str) -> Dict[int, List[Dict]]:
+    def scan_run_detailed(self, data_root: str, run_name: str) -> dict[int, list[dict]]:
         """扫描运行目录，返回详细的文件信息
 
         Args:
@@ -185,9 +186,9 @@ class DAQAdapter:
         self,
         data_root: str,
         run_name: str,
-        n_channels: Optional[int] = None,
+        n_channels: int | None = None,
         show_progress: bool = False,
-    ) -> List[np.ndarray]:
+    ) -> list[np.ndarray]:
         """加载所有通道的数据
 
         Args:
@@ -248,7 +249,7 @@ class DAQAdapter:
         file_paths = channel_files[channel]
         yield from self.format_reader.read_files_generator(file_paths, chunk_size)
 
-    def extract_columns(self, data: np.ndarray) -> Dict[str, np.ndarray]:
+    def extract_columns(self, data: np.ndarray) -> dict[str, np.ndarray]:
         """从数据中提取各列
 
         Args:
@@ -259,7 +260,15 @@ class DAQAdapter:
         """
         return self.format_reader.extract_columns(data)
 
-    def extract_and_convert(self, data: np.ndarray) -> Dict[str, np.ndarray]:
+    def normalize_timestamp_to_ps(
+        self,
+        timestamps: np.ndarray,
+        dt_ns: int | None = None,
+    ) -> np.ndarray:
+        """将原生时间戳统一转换为标准 ps。"""
+        return self.format_spec.normalize_timestamp_to_ps(timestamps, dt_ns=dt_ns)
+
+    def extract_and_convert(self, data: np.ndarray) -> dict[str, np.ndarray]:
         """提取列并转换时间戳为皮秒
 
         为了向后兼容，时间戳转换为皮秒（而不是纳秒）。
@@ -271,10 +280,10 @@ class DAQAdapter:
             包含各列的字典，时间戳已转换为皮秒
         """
         extracted = self.format_reader.extract_columns(data)
-        extracted["timestamp"] = self.format_reader.convert_timestamp_to_ps(extracted["timestamp"])
+        extracted["timestamp"] = self.normalize_timestamp_to_ps(extracted["timestamp"])
         return extracted
 
-    def extract_and_convert_ns(self, data: np.ndarray) -> Dict[str, np.ndarray]:
+    def extract_and_convert_ns(self, data: np.ndarray) -> dict[str, np.ndarray]:
         """提取列并转换时间戳为纳秒
 
         Args:
@@ -284,7 +293,9 @@ class DAQAdapter:
             包含各列的字典，时间戳已转换为纳秒
         """
         extracted = self.format_reader.extract_columns(data)
-        extracted["timestamp"] = self.format_reader.convert_timestamp_to_ns(extracted["timestamp"])
+        extracted["timestamp"] = self.normalize_timestamp_to_ps(extracted["timestamp"]) // np.int64(
+            1000
+        )
         return extracted
 
     def validate_data(self, data: np.ndarray) -> bool:
@@ -319,7 +330,7 @@ class DAQAdapter:
 
 
 # 适配器注册表
-_ADAPTER_REGISTRY: Dict[str, DAQAdapter] = {}
+_ADAPTER_REGISTRY: dict[str, DAQAdapter] = {}
 
 
 @export
@@ -360,7 +371,7 @@ def get_adapter(name: str) -> DAQAdapter:
 
 
 @export
-def list_adapters() -> List[str]:
+def list_adapters() -> list[str]:
     """列出所有已注册的适配器
 
     Returns:

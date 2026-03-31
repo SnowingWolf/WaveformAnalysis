@@ -60,6 +60,7 @@ def _make_records_view():
     records["pid"] = [0, 0, 0]
     records["board"] = [2, 1, 2]
     records["channel"] = [0, 1, 0]
+    records["record_id"] = [30, 10, 20]
     records["baseline"] = [100.0, 100.0, 100.0]
     records["wave_offset"] = [0, 2, 4]
     records["event_length"] = [2, 2, 2]

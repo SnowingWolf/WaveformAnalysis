@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `hit` |
-| **Version** | `2.3.0` |
+| **Version** | `2.5.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -22,6 +22,7 @@ This plugin has no dependencies.
 | Option | Type | Default | Units | Description |
 |--------|------|---------|-------|-------------|
 | `use_filtered` | `bool` | `True` | - | 是否使用 filtered_waveforms（默认 True，需要先注册 FilteredWaveformsPlugin） |
+| `wave_source` | `str` | `auto` | - | 波形数据源: auto|records|st_waveforms|filtered_waveforms |
 | `use_derivative` | `bool` | `True` | - | 是否使用一阶导数进行峰值检测（True: 检测导数峰值, False: 检测波形峰值） |
 | `height` | `float` | `30.0` | - | 峰值的最小高度阈值 |
 | `distance` | `int` | `2` | - | 峰值之间的最小距离（采样点数） |
@@ -30,7 +31,7 @@ This plugin has no dependencies.
 | `threshold` | `any` | `None` | - | 峰值的阈值条件（可选） |
 | `height_method` | `str` | `minmax` | - | 峰高计算方法: 'diff' (积分差分) 或 'minmax' (最大最小值差) |
 | `height_window_extension` | `int` | `4` | - | height_method='minmax' 时，峰值窗口左右两侧扩展的采样点数 |
-| `sampling_interval_ns` | `float` | `2.0` | - | 采样间隔（纳秒），用于计算全局时间戳。默认 2.0 ns |
+| `dt` | `int` | `None` | - | 采样间隔（ns）。仅在输入数据缺少 dt 字段时作为兼容补充。 |
 | `parallel` | `bool` | `True` | - | 是否启用并行峰值检测（按事件分块并行） |
 | `n_workers` | `int` | `0` | - | 并行 worker 数；<=0 表示自动（基于 CPU 核心数） |
 | `chunk_size` | `int` | `1024` | - | 并行分块大小（每个任务处理的事件数） |
@@ -48,6 +49,7 @@ This plugin has no dependencies.
 | `integral` | `float32` | - | - |
 | `edge_start` | `float32` | - | - |
 | `edge_end` | `float32` | - | - |
+| `dt` | `int32` | - | - |
 | `timestamp` | `int64` | - | - |
 | `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |
@@ -66,8 +68,8 @@ ctx.register(HitFinderPlugin())
 # Configure plugin (optional)
 ctx.set_config({
     "use_filtered": True,
+    "wave_source": 'auto',
     "use_derivative": True,
-    "height": 30.0,
 }, plugin_name="hit")
 
 # Get data

@@ -32,7 +32,6 @@ def _make_st_waveforms(n=4, wave_length=100, n_channels=2):
     data = np.zeros(n, dtype=dtype)
     for i in range(n):
         data[i]["baseline"] = 100.0
-        data[i]["polarity"] = "unknown"
         data[i]["timestamp"] = i * 1000
         data[i]["channel"] = i % n_channels
         wave = np.full(wave_length, 90, dtype="i2")
@@ -65,8 +64,8 @@ def _make_records_view():
     records["pid"] = 0
     records["board"] = [3, 4]
     records["channel"] = [0, 1]
+    records["record_id"] = [10, 11]
     records["baseline"] = [100.0, 100.0]
-    records["polarity"] = ["unknown", "unknown"]
     records["wave_offset"] = [0, 4]
     records["event_length"] = [4, 4]
     records["time"] = [0, 0]
@@ -118,68 +117,6 @@ class TestBasicFeaturesCompute:
 
         # area = sum(100 - 90) * 5 = 50
         assert np.isclose(result["area"][0], 50.0)
-
-    def test_positive_polarity_uses_peak_above_baseline(self):
-        st = _make_st_waveforms(n=1, wave_length=5)
-        st[0]["polarity"] = "positive"
-        st[0]["wave"][:] = [100, 110, 120, 105, 100]
-        st[0]["baseline"] = 100.0
-
-        ctx = _ctx_with_waveforms(
-            st,
-            config={"height_range": (0, 5), "area_range": (0, 5), "polarity": "positive"},
-        )
-        plugin = BasicFeaturesPlugin()
-        result = plugin.compute(ctx, "run_001")
-
-        assert np.isclose(result["height"][0], 20.0)
-        assert np.isclose(result["amp"][0], 20.0)
-        assert np.isclose(result["area"][0], 35.0)
-
-    def test_st_waveforms_polarity_field_overrides_plugin_config(self):
-        st = _make_st_waveforms(n=1, wave_length=5)
-        st[0]["polarity"] = "positive"
-        st[0]["wave"][:] = [100, 110, 120, 105, 100]
-        st[0]["baseline"] = 100.0
-
-        ctx = _ctx_with_waveforms(
-            st,
-            config={"height_range": (0, 5), "area_range": (0, 5), "polarity": "negative"},
-        )
-        plugin = BasicFeaturesPlugin()
-        result = plugin.compute(ctx, "run_001")
-
-        assert np.isclose(result["height"][0], 20.0)
-        assert np.isclose(result["area"][0], 35.0)
-
-    def test_channel_config_overrides_plugin_polarity(self):
-        st = _make_st_waveforms(n=2, wave_length=5, n_channels=2)
-        st[0]["channel"] = 0
-        st[0]["wave"][:] = [100, 110, 120, 105, 100]
-        st[1]["channel"] = 1
-        st[1]["wave"][:] = [95, 85, 80, 90, 95]
-
-        ctx = _ctx_with_waveforms(
-            st,
-            config={
-                "height_range": (0, 5),
-                "area_range": (0, 5),
-                "polarity": "negative",
-                "channel_config": {
-                    "channels": {
-                        "0:0": {"polarity": "positive"},
-                        "0:1": {"polarity": "negative"},
-                    }
-                },
-            },
-        )
-        plugin = BasicFeaturesPlugin()
-        result = plugin.compute(ctx, "run_001")
-
-        assert np.isclose(result["height"][0], 20.0)
-        assert np.isclose(result["area"][0], 35.0)
-        assert np.isclose(result["height"][1], 20.0)
-        assert np.isclose(result["area"][1], 55.0)
 
     def test_metadata_fields(self):
         st = _make_st_waveforms(n=3, n_channels=2)
@@ -428,56 +365,6 @@ class TestUseFiltered:
         assert np.isclose(result["height"][0], 20.0)  # 100 - 80
         assert np.isclose(result["amp"][0], 15.0)  # 95 - 80
 
-    def test_records_view_uses_channel_config_polarity(self):
-        ctx = FakeContext(
-            config={
-                "wave_source": "records",
-                "height_range": (0, 4),
-                "area_range": (0, 4),
-                "polarity": "negative",
-                "channel_config": {
-                    "channels": {
-                        "3:0": {"polarity": "positive"},
-                        "4:1": {"polarity": "negative"},
-                    }
-                },
-            }
-        )
-        plugin = BasicFeaturesPlugin()
-        rv = _make_records_view()
-        rv.records["baseline"] = [100.0, 100.0]
-        rv.wave_pool = np.array([100, 110, 120, 100, 95, 85, 90, 95], dtype=np.uint16)
-
-        with patch("waveform_analysis.core.records_view", return_value=rv):
-            result = plugin.compute(ctx, "run_001")
-
-        assert np.isclose(result["height"][0], 20.0)
-        assert np.isclose(result["area"][0], 30.0)
-        assert np.isclose(result["height"][1], 15.0)
-        assert np.isclose(result["area"][1], 35.0)
-
-    def test_records_view_prefers_records_polarity_field(self):
-        ctx = FakeContext(
-            config={
-                "wave_source": "records",
-                "height_range": (0, 4),
-                "area_range": (0, 4),
-                "polarity": "negative",
-            }
-        )
-        plugin = BasicFeaturesPlugin()
-        rv = _make_records_view()
-        rv.records["polarity"] = ["positive", "negative"]
-        rv.wave_pool = np.array([100, 110, 105, 100, 90, 85, 90, 90], dtype=np.uint16)
-
-        with patch("waveform_analysis.core.records_view", return_value=rv):
-            result = plugin.compute(ctx, "run_001")
-
-        assert np.isclose(result["height"][0], 10.0)
-        assert np.isclose(result["area"][0], 15.0)
-        assert np.isclose(result["height"][1], 15.0)
-        assert np.isclose(result["area"][1], 45.0)
-
     def test_records_view_fixed_baseline_uses_normalized_signal(self):
         ctx = FakeContext(
             config={
@@ -493,33 +380,13 @@ class TestUseFiltered:
         )
         plugin = BasicFeaturesPlugin()
         rv = _make_records_view()
-        rv.records["polarity"] = ["positive", "unknown"]
         rv.wave_pool = np.array([95, 100, 115, 95, 90, 85, 90, 90], dtype=np.uint16)
 
         with patch("waveform_analysis.core.records_view", return_value=rv):
             result = plugin.compute(ctx, "run_001")
 
-        assert np.isclose(result["height"][0], 20.0)
-        assert np.isclose(result["area"][0], 25.0)
-
-    def test_records_view_unknown_polarity_falls_back_to_config(self):
-        ctx = FakeContext(
-            config={
-                "wave_source": "records",
-                "height_range": (0, 4),
-                "area_range": (0, 4),
-                "polarity": "negative",
-            }
-        )
-        plugin = BasicFeaturesPlugin()
-        rv = _make_records_view()
-        rv.records["polarity"] = ["unknown", "unknown"]
-
-        with patch("waveform_analysis.core.records_view", return_value=rv):
-            result = plugin.compute(ctx, "run_001")
-
-        assert np.isclose(result["height"][0], 20.0)
-        assert np.isclose(result["area"][0], 45.0)
+        assert np.isclose(result["height"][0], 0.0)
+        assert np.isclose(result["area"][0], -25.0)
 
     def test_records_view_propagates_board_field(self):
         ctx = FakeContext(
@@ -548,13 +415,6 @@ class TestErrorPaths:
         ctx = FakeContext(config={}, data={"st_waveforms": [[1, 2], [3, 4]]})
         plugin = BasicFeaturesPlugin()
         with pytest.raises(ValueError, match="expects st_waveforms as a single structured array"):
-            plugin.compute(ctx, "run_001")
-
-    def test_invalid_polarity_raises(self):
-        st = _make_st_waveforms(n=1, wave_length=5)
-        ctx = _ctx_with_waveforms(st, config={"polarity": "bad"})
-        plugin = BasicFeaturesPlugin()
-        with pytest.raises(ValueError, match="不支持的 polarity"):
             plugin.compute(ctx, "run_001")
 
     def test_no_channel_field_uses_zeros(self):

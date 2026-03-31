@@ -29,9 +29,10 @@ Examples:
     >>> extracted = adapter.extract_and_convert(data)
 """
 
+from collections.abc import Callable, Iterator
 import logging
 from pathlib import Path
-from typing import Callable, Iterator, List, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -39,7 +40,7 @@ import pandas as pd
 from waveform_analysis.core.foundation.utils import exporter
 
 from .adapter import DAQAdapter, register_adapter
-from .base import ColumnMapping, FormatReader, FormatSpec, TimestampUnit
+from .base import ColumnMapping, FormatReader, FormatSpec, RawTimestampMode, TimestampUnit
 from .directory import DirectoryLayout
 
 export, __all__ = exporter()
@@ -92,6 +93,7 @@ class VX2730Spec:
                 baseline_end=47,  # 前 40 个采样点用于基线计算
             ),
             timestamp_unit=TimestampUnit.PICOSECONDS,
+            raw_timestamp_mode=RawTimestampMode.UNIT,
             file_pattern="*CH*.CSV",
             header_rows_first_file=2,
             header_rows_other_files=0,
@@ -152,7 +154,7 @@ class VX2730Reader(FormatReader):
         >>> print(f"读取了 {len(data)} 条记录")
     """
 
-    def __init__(self, spec: Optional[FormatSpec] = None):
+    def __init__(self, spec: FormatSpec | None = None):
         """初始化 VX2730 读取器
 
         Args:
@@ -160,7 +162,7 @@ class VX2730Reader(FormatReader):
         """
         super().__init__(spec or VX2730_SPEC)
 
-    def read_file(self, file_path: Union[str, Path], is_first_file: bool = True) -> np.ndarray:
+    def read_file(self, file_path: str | Path, is_first_file: bool = True) -> np.ndarray:
         """读取单个 VX2730 CSV 文件
 
         Args:
@@ -359,9 +361,7 @@ class VX2730Reader(FormatReader):
 
         return arr
 
-    def read_files(
-        self, file_paths: List[Union[str, Path]], show_progress: bool = False
-    ) -> np.ndarray:
+    def read_files(self, file_paths: list[str | Path], show_progress: bool = False) -> np.ndarray:
         """读取并堆叠多个文件
 
         Args:
@@ -410,7 +410,7 @@ class VX2730Reader(FormatReader):
             return np.vstack(padded)
 
     def read_files_generator(
-        self, file_paths: List[Union[str, Path]], chunk_size: int = 10
+        self, file_paths: list[str | Path], chunk_size: int = 10
     ) -> Iterator[np.ndarray]:
         """生成器模式读取
 
@@ -449,7 +449,7 @@ class VX2730Reader(FormatReader):
                         padded.append(a)
                     yield np.vstack(padded)
 
-    def count_total_rows(self, file_paths: List[Union[str, Path]]) -> int:
+    def count_total_rows(self, file_paths: list[str | Path]) -> int:
         """快速统计总行数（不加载数据）
 
         Args:
@@ -478,7 +478,7 @@ class VX2730Reader(FormatReader):
 
     def read_files_streaming(
         self,
-        file_paths: List[Union[str, Path]],
+        file_paths: list[str | Path],
         output_dtype: np.dtype,
         output_path: Path,
         structurizer: Callable[[np.ndarray, np.memmap, int], int],

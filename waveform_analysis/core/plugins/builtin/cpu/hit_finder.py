@@ -16,6 +16,10 @@ from waveform_analysis.core.hardware.channel import (
     iter_hardware_channel_groups,
     resolve_effective_channel_config,
 )
+from waveform_analysis.core.plugins.builtin.cpu._dt_compat import (
+    require_dt_array,
+    resolve_dt_config,
+)
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     WAVE_SOURCE_AUTO,
     WAVE_SOURCE_FILTERED,
@@ -43,12 +47,35 @@ THRESHOLD_HIT_DTYPE = np.dtype(
         ("edge_start", "f4"),  # 命中窗口起始边界（采样点）
         ("edge_end", "f4"),  # 命中窗口结束边界（采样点）
         ("width", "f4"),  # 命中窗口宽度（采样点）
+        ("dt", "i4"),  # 采样间隔（ns）
+        ("rise_time", "f4"),  # 从过阈起点到峰值的时间（ns）
+        ("fall_time", "f4"),  # 从峰值到过阈终点的时间（ns）
         ("timestamp", "i8"),  # 全局时间戳（ps）
         ("board", "i2"),  # 板卡编号
         ("channel", "i2"),  # 通道号
         ("record_id", "i8"),  # 来源波形/记录的唯一编号
+        ("record_sample_start", "i4"),  # 命中窗口在记录内的半开样本起点
+        ("record_sample_end", "i4"),  # 命中窗口在记录内的半开样本终点
+        ("wave_pool_start", "i8"),  # 命中窗口在 wave_pool 中的半开样本起点
+        ("wave_pool_end", "i8"),  # 命中窗口在 wave_pool 中的半开样本终点
     ]
 )
+
+
+def _build_record_lookup(records: np.ndarray) -> dict[int, tuple[int, int]]:
+    return {
+        int(rec["record_id"]): (int(rec["wave_offset"]), int(rec["event_length"]))
+        for rec in records
+    }
+
+
+def _resolve_source_event_lengths(waveform_data: np.ndarray) -> np.ndarray:
+    names = waveform_data.dtype.names or ()
+    if "event_length" in names:
+        return waveform_data["event_length"].astype(np.int64, copy=False)
+    if "wave" in names:
+        return np.full(len(waveform_data), waveform_data["wave"].shape[1], dtype=np.int64)
+    raise ValueError("waveform source is missing both 'event_length' and 'wave' fields")
 
 
 class HitFinderPlugin(_CanonicalHitFinderPlugin):
@@ -70,7 +97,8 @@ class ThresholdHitPlugin(Plugin):
 
     provides = "hit_threshold"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
-    version = "0.7.0"
+    description = "Threshold-only hit detector with THRESHOLD_HIT_DTYPE output."
+    version = "0.10.0"
     output_dtype = THRESHOLD_HIT_DTYPE
     save_when = "always"
 
@@ -86,23 +114,17 @@ class ThresholdHitPlugin(Plugin):
             type=str,
             help="波形数据源: auto|records|st_waveforms|filtered_waveforms",
         ),
-        "polarity": Option(
-            default="negative",
-            type=str,
-            choices=["negative", "positive"],
-            help="信号极性：negative 表示 baseline-wave；positive 表示 wave-baseline",
-        ),
         "left_extension": Option(default=2, type=int, help="Hit 左侧扩展点数"),
         "right_extension": Option(default=2, type=int, help="Hit 右侧扩展点数"),
-        "sampling_interval_ns": Option(
-            default=2.0,
-            type=float,
-            help="采样间隔（ns），用于计算 timestamp（内部换算到 ps）",
+        "dt": Option(
+            default=None,
+            type=int,
+            help="采样间隔（ns）。仅在输入数据缺少 dt 字段时作为兼容补充。",
         ),
         "channel_config": Option(
             default=None,
             type=dict,
-            help="按 (board, channel) 的插件通道覆盖配置，可覆盖 polarity/threshold。",
+            help="按 (board, channel) 的插件通道覆盖配置，可覆盖 threshold。",
         ),
     }
 
@@ -114,10 +136,11 @@ class ThresholdHitPlugin(Plugin):
         threshold = float(context.get_config(self, "threshold"))
         use_filtered = bool(context.get_config(self, "use_filtered"))
         source = resolve_wave_source(context, self)
-        polarity = context.get_config(self, "polarity")
         left_extension = max(0, int(context.get_config(self, "left_extension")))
         right_extension = max(0, int(context.get_config(self, "right_extension")))
-        sampling_interval_ns = float(context.get_config(self, "sampling_interval_ns"))
+        explicit_dt = resolve_dt_config(
+            context, self, deprecated_keys=("sampling_interval_ns", "dt_ns")
+        )
         channel_config_cfg = context.get_config(self, "channel_config")
 
         if source == WAVE_SOURCE_RECORDS:
@@ -125,39 +148,48 @@ class ThresholdHitPlugin(Plugin):
 
             rv = records_view(context, run_id)
             records = rv.records
-
             if len(records) == 0:
                 return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
 
-            records_len = len(records)
+            record_names = records.dtype.names or ()
+            record_ids_for_view = (
+                records["record_id"].astype(np.int64, copy=False)
+                if "record_id" in record_names
+                else np.arange(len(records), dtype=np.int64)
+            )
+            waves, valid_mask = rv.waves(record_ids_for_view, mask=True, dtype=np.float64)
+            record_names = records.dtype.names or ()
 
-            def get_wave(i: int) -> np.ndarray:
-                return rv.wave(i)
-
-            def get_signal(i: int) -> np.ndarray:
-                return rv.signal(i)
-
-            def get_baseline(i: int) -> float:
-                return float(records[i]["baseline"])
-
-            def get_timestamp(i: int) -> int:
-                return int(records[i]["timestamp"])
-
-            def get_channel(i: int) -> int:
-                if "channel" in records.dtype.names:
-                    return int(records[i]["channel"])
-                return 0
-
-            def get_board(i: int) -> int:
-                if "board" in records.dtype.names:
-                    return int(records[i]["board"])
-                return 0
-
-            def get_record_id(i: int) -> int:
-                if "record_id" in records.dtype.names:
-                    return int(records[i]["record_id"])
-                return i
-
+            baselines = records["baseline"].astype(np.float64, copy=False)
+            timestamps = records["timestamp"].astype(np.int64, copy=False)
+            boards = (
+                records["board"].astype(np.int16, copy=False)
+                if "board" in record_names
+                else np.zeros(len(records), dtype=np.int16)
+            )
+            channels = (
+                records["channel"].astype(np.int16, copy=False)
+                if "channel" in record_names
+                else np.zeros(len(records), dtype=np.int16)
+            )
+            record_ids = (
+                records["record_id"].astype(np.int64, copy=False)
+                if "record_id" in record_names
+                else np.arange(len(records), dtype=np.int64)
+            )
+            data_polarities = (
+                np.asarray(records["polarity"]).astype("U16", copy=False)
+                if "polarity" in record_names
+                else None
+            )
+            dt_values = require_dt_array(
+                records,
+                explicit_dt=explicit_dt,
+                plugin_name=self.provides,
+                data_name="records",
+            )
+            wave_offsets = records["wave_offset"].astype(np.int64, copy=False)
+            record_lengths = records["event_length"].astype(np.int64, copy=False)
         else:
             waveform_data = (
                 context.get_data(run_id, "filtered_waveforms")
@@ -167,135 +199,247 @@ class ThresholdHitPlugin(Plugin):
 
             if not isinstance(waveform_data, np.ndarray):
                 raise ValueError("hit_threshold expects st_waveforms as a single structured array")
-
             if len(waveform_data) == 0:
                 return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
 
-            records_len = len(waveform_data)
+            waveform_names = waveform_data.dtype.names or ()
+            waves = np.asarray(waveform_data["wave"]).astype(np.float64, copy=False)
+            valid_mask = None
+            baselines = (
+                waveform_data["baseline"].astype(np.float64, copy=False)
+                if "baseline" in waveform_names
+                else waves.mean(axis=1, dtype=np.float64)
+            )
+            timestamps = (
+                waveform_data["timestamp"].astype(np.int64, copy=False)
+                if "timestamp" in waveform_names
+                else np.zeros(len(waveform_data), dtype=np.int64)
+            )
+            boards = (
+                waveform_data["board"].astype(np.int16, copy=False)
+                if "board" in waveform_names
+                else np.zeros(len(waveform_data), dtype=np.int16)
+            )
+            channels = (
+                waveform_data["channel"].astype(np.int16, copy=False)
+                if "channel" in waveform_names
+                else np.zeros(len(waveform_data), dtype=np.int16)
+            )
+            record_ids = (
+                waveform_data["record_id"].astype(np.int64, copy=False)
+                if "record_id" in waveform_names
+                else np.arange(len(waveform_data), dtype=np.int64)
+            )
+            data_polarities = (
+                np.asarray(waveform_data["polarity"]).astype("U16", copy=False)
+                if "polarity" in waveform_names
+                else None
+            )
+            dt_values = require_dt_array(
+                waveform_data,
+                explicit_dt=explicit_dt,
+                plugin_name=self.provides,
+                data_name="st_waveforms",
+            )
+            wave_offsets, record_lengths = self._resolve_wave_pool_metadata(
+                context,
+                run_id,
+                record_ids=record_ids,
+                source_event_lengths=_resolve_source_event_lengths(waveform_data),
+            )
 
-            def get_wave(i: int) -> np.ndarray:
-                return np.asarray(waveform_data[i]["wave"])
+        thresholds, positive_mask = self._resolve_thresholds(
+            context=context,
+            run_id=run_id,
+            boards=boards,
+            channels=channels,
+            threshold=threshold,
+            channel_config_cfg=channel_config_cfg,
+            data_polarities=data_polarities,
+        )
+        baseline_2d = baselines[:, np.newaxis]
+        signal = np.where(positive_mask[:, np.newaxis], waves - baseline_2d, baseline_2d - waves)
 
-            def get_baseline(i: int) -> float:
-                if "baseline" in waveform_data.dtype.names:
-                    return float(waveform_data[i]["baseline"])
-                wave = get_wave(i)
-                return float(np.mean(wave))
+        return self._build_hits_from_signal_matrix(
+            signal=signal,
+            thresholds=thresholds,
+            timestamps=timestamps,
+            boards=boards,
+            channels=channels,
+            record_ids=record_ids,
+            left_extension=left_extension,
+            right_extension=right_extension,
+            dt_values=dt_values,
+            valid_mask=valid_mask,
+            wave_offsets=wave_offsets,
+            record_lengths=record_lengths,
+        )
 
-            def get_timestamp(i: int) -> int:
-                if "timestamp" in waveform_data.dtype.names:
-                    return int(waveform_data[i]["timestamp"])
-                return 0
+    def _resolve_wave_pool_metadata(
+        self,
+        context: Any,
+        run_id: str,
+        record_ids: np.ndarray,
+        source_event_lengths: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        from waveform_analysis.core.plugins.builtin.cpu.records import get_records_bundle
 
-            def get_channel(i: int) -> int:
-                if "channel" in waveform_data.dtype.names:
-                    return int(waveform_data[i]["channel"])
-                return 0
+        bundle = get_records_bundle(context, run_id)
+        records = bundle.records
+        lookup = _build_record_lookup(records)
+        wave_offsets = np.zeros(len(record_ids), dtype=np.int64)
+        record_lengths = np.zeros(len(record_ids), dtype=np.int64)
 
-            def get_board(i: int) -> int:
-                if "board" in waveform_data.dtype.names:
-                    return int(waveform_data[i]["board"])
-                return 0
+        for idx, record_id in enumerate(record_ids.tolist()):
+            if int(record_id) not in lookup:
+                raise ValueError(
+                    f"hit_threshold could not resolve record_id={int(record_id)} into records/wave_pool"
+                )
+            wave_offset, record_length = lookup[int(record_id)]
+            source_length = int(source_event_lengths[idx])
+            if source_length != int(record_length):
+                raise ValueError(
+                    "hit_threshold waveform source length does not match records/wave_pool length for "
+                    f"record_id={int(record_id)}: source={source_length}, records={int(record_length)}"
+                )
+            wave_offsets[idx] = wave_offset
+            record_lengths[idx] = record_length
+        return wave_offsets, record_lengths
 
-            def get_record_id(i: int) -> int:
-                if "record_id" in waveform_data.dtype.names:
-                    return int(waveform_data[i]["record_id"])
-                return i
+    def _resolve_thresholds(
+        self,
+        context: Any,
+        run_id: str,
+        boards: np.ndarray,
+        channels: np.ndarray,
+        threshold: float,
+        channel_config_cfg: Any,
+        data_polarities: np.ndarray | None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        n_events = len(boards)
+        thresholds = np.full(n_events, threshold, dtype=np.float64)
+        positive_mask = np.zeros(n_events, dtype=bool)
+        channel_rule_cache: dict[tuple[int, int], Any] = {}
+        base_values = {"threshold": threshold}
 
-        sampling_interval_ps = sampling_interval_ns * 1e3
-        hits: list[tuple] = []
-
-        for event_idx in range(records_len):
-            wave = get_wave(event_idx)
-            if wave.size == 0:
+        for board, channel in zip(boards.tolist(), channels.tolist(), strict=False):
+            channel_key = (int(board), int(channel))
+            if channel_key in channel_rule_cache:
                 continue
-
-            baseline = get_baseline(event_idx)
-            timestamp = get_timestamp(event_idx)
-            board = get_board(event_idx)
-            channel = get_channel(event_idx)
-            record_id = get_record_id(event_idx)
-
-            effective_rule = resolve_effective_channel_config(
+            rule = resolve_effective_channel_config(
                 context=context,
                 plugin=self,
                 run_id=run_id,
-                board=board,
-                channel=channel,
-                base_values={
-                    "polarity": polarity,
-                    "threshold": threshold,
-                },
+                board=channel_key[0],
+                channel=channel_key[1],
+                base_values=base_values,
                 channel_config=channel_config_cfg,
             )
+            channel_rule_cache[channel_key] = rule
 
-            data_polarity = None
-            if source == WAVE_SOURCE_RECORDS and "polarity" in records.dtype.names:
-                data_polarity = str(records[event_idx]["polarity"])
-            elif source != WAVE_SOURCE_RECORDS and "polarity" in waveform_data.dtype.names:
-                data_polarity = str(waveform_data[event_idx]["polarity"])
+        for channel_key, rule in channel_rule_cache.items():
+            selector = (boards == channel_key[0]) & (channels == channel_key[1])
+            thresholds[selector] = float(rule.get("threshold", threshold))
 
-            effective_polarity = (
-                data_polarity
-                if data_polarity in ("positive", "negative")
-                else effective_rule.get("polarity", polarity)
-            )
-            effective_threshold = float(effective_rule.get("threshold", threshold))
+        if data_polarities is not None:
+            valid_override = np.isin(data_polarities, ("positive", "negative"))
+            positive_mask = np.where(valid_override, data_polarities == "positive", positive_mask)
 
-            if source == WAVE_SOURCE_RECORDS and data_polarity in ("positive", "negative"):
-                signal = -get_signal(event_idx).astype(np.float64, copy=False)
-            elif effective_polarity == "positive":
-                signal = wave.astype(np.float64) - baseline
-            else:
-                signal = baseline - wave.astype(np.float64)
+        return thresholds, positive_mask
 
-            regions = self._find_regions(signal, effective_threshold)
-            for start, end in regions:
-                seg_start = max(0, start - left_extension)
-                seg_end = min(len(signal), end + right_extension)
-                if seg_end <= seg_start:
-                    continue
+    def _build_hits_from_signal_matrix(
+        self,
+        signal: np.ndarray,
+        thresholds: np.ndarray,
+        timestamps: np.ndarray,
+        boards: np.ndarray,
+        channels: np.ndarray,
+        record_ids: np.ndarray,
+        left_extension: int,
+        right_extension: int,
+        dt_values: np.ndarray,
+        valid_mask: np.ndarray | None,
+        wave_offsets: np.ndarray,
+        record_lengths: np.ndarray,
+    ) -> np.ndarray:
+        if signal.size == 0:
+            return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
 
-                segment = signal[seg_start:seg_end]
-                if segment.size == 0:
-                    continue
+        mask = signal >= thresholds[:, np.newaxis]
+        if valid_mask is not None:
+            mask &= valid_mask
+        if not np.any(mask):
+            return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
 
-                rel_pos = int(np.argmax(segment))
-                pos = seg_start + rel_pos
-                height = float(segment[rel_pos])
-                integral = float(np.sum(np.maximum(segment, 0.0)))
-                width = float(seg_end - seg_start)
-                global_timestamp = int(timestamp + pos * sampling_interval_ps)
+        mask_padded = np.pad(mask, ((0, 0), (1, 1)), mode="constant", constant_values=False)
+        diff = np.diff(mask_padded.astype(np.int8), axis=1)
+        start_rows, starts = np.where(diff == 1)
+        end_rows, ends = np.where(diff == -1)
 
-                hits.append(
-                    (
-                        int(pos),
-                        float(height),
-                        float(integral),
-                        float(seg_start),
-                        float(seg_end),
-                        float(width),
-                        int(global_timestamp),
-                        int(board),
-                        int(channel),
-                        int(record_id),
-                    )
+        if len(start_rows) == 0:
+            return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
+
+        if not np.array_equal(start_rows, end_rows):
+            raise RuntimeError("hit_threshold region alignment failed")
+
+        hits: list[tuple] = []
+        n_samples = signal.shape[1]
+
+        for hit_idx, event_idx in enumerate(start_rows.tolist()):
+            start = int(starts[hit_idx])
+            end = int(ends[hit_idx])
+            seg_start = max(0, start - left_extension)
+            seg_end = min(n_samples, end + right_extension)
+            if seg_end <= seg_start:
+                continue
+
+            segment = signal[event_idx, seg_start:seg_end]
+            if segment.size == 0:
+                continue
+
+            rel_pos = int(np.argmax(segment))
+            pos = seg_start + rel_pos
+            height = float(segment[rel_pos])
+            integral = float(np.sum(np.maximum(segment, 0.0)))
+            width = float(seg_end - seg_start)
+            dt_ns = int(dt_values[event_idx])
+            sampling_interval_ps = float(dt_ns) * 1e3
+            rise_time = float(max(pos - start, 0) * dt_ns)
+            fall_time = float(max((end - 1) - pos, 0) * dt_ns)
+            global_timestamp = int(timestamps[event_idx] + pos * sampling_interval_ps)
+
+            record_length = max(int(record_lengths[event_idx]), 0)
+            record_sample_start = min(max(seg_start, 0), record_length)
+            record_sample_end = min(max(seg_end, 0), record_length)
+            record_sample_end = max(record_sample_end, record_sample_start)
+            wave_pool_start = int(wave_offsets[event_idx]) + record_sample_start
+            wave_pool_end = int(wave_offsets[event_idx]) + record_sample_end
+
+            hits.append(
+                (
+                    int(pos),
+                    height,
+                    integral,
+                    float(seg_start),
+                    float(seg_end),
+                    width,
+                    dt_ns,
+                    rise_time,
+                    fall_time,
+                    global_timestamp,
+                    int(boards[event_idx]),
+                    int(channels[event_idx]),
+                    int(record_ids[event_idx]),
+                    record_sample_start,
+                    record_sample_end,
+                    wave_pool_start,
+                    wave_pool_end,
                 )
+            )
 
         if hits:
             return np.array(hits, dtype=THRESHOLD_HIT_DTYPE)
         return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
-
-    def _find_regions(self, signal: np.ndarray, threshold: float) -> list[tuple[int, int]]:
-        mask = signal >= threshold
-        if not np.any(mask):
-            return []
-
-        padded = np.pad(mask, (1, 1), mode="constant", constant_values=False)
-        diff = np.diff(padded.astype(np.int8))
-        starts = np.where(diff == 1)[0]
-        ends = np.where(diff == -1)[0]
-        return list(zip(starts.tolist(), ends.tolist(), strict=False))
 
 
 class ThresholdHitFinderPlugin(Plugin):
@@ -303,6 +447,7 @@ class ThresholdHitFinderPlugin(Plugin):
 
     provides = "hits"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
+    description = "Legacy peak-style hit detector compatible with PEAK_DTYPE output."
     version = "2.2.0"  # 版本升级：按 (board, channel) 分组
     output_dtype = np.dtype(PEAK_DTYPE)
 

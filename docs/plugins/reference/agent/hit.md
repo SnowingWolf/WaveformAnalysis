@@ -9,7 +9,7 @@
 | Provides | `hit` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `2.4.0` |
+| Version | `2.5.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.peak_finding` |
 | Accelerator | `cpu` |
 
@@ -26,6 +26,7 @@
 | `integral` | `float32` |
 | `edge_start` | `float32` |
 | `edge_end` | `float32` |
+| `dt` | `int32` |
 | `timestamp` | `int64` |
 | `board` | `int16` |
 | `channel` | `int16` |
@@ -45,7 +46,7 @@
 | `threshold` | `any` | `None` | 峰值的阈值条件（可选） |
 | `height_method` | `str` | `minmax` | 峰高计算方法: 'diff' (积分差分) 或 'minmax' (最大最小值差) |
 | `height_window_extension` | `int` | `4` | height_method='minmax' 时，峰值窗口左右两侧扩展的采样点数 |
-| `sampling_interval_ns` | `float` | `2.0` | 采样间隔（纳秒），用于计算全局时间戳。默认 2.0 ns |
+| `dt` | `int` | `None` | 采样间隔（ns）。仅在输入数据缺少 dt 字段时作为兼容补充。 |
 | `parallel` | `bool` | `True` | 是否启用并行峰值检测（按事件分块并行） |
 | `n_workers` | `int` | `0` | 并行 worker 数；<=0 表示自动（基于 CPU 核心数） |
 | `chunk_size` | `int` | `1024` | 并行分块大小（每个任务处理的事件数） |

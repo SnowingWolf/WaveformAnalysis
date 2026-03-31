@@ -17,7 +17,7 @@
 
 1. 将 `V1725Reader` 输出转换为标准 `st_waveforms` dtype（包含 `baseline/baseline_upstream/timestamp/dt/event_length/channel/wave`）。
 2. `wave` 字段由 object 波形列表统一为固定长度 `int16` 二维数组（按最大长度或 `wave_length` 配置对齐）。
-3. `timestamp` 统一转为 ps 标尺（按 `timestamp_ticks * dt_ns * 1000`）。
+3. `timestamp` 统一转为 ps 标尺（按 `timestamp_ticks * dt * 1000`，其中 `dt` 以 ns 表示）。
 4. `event_length` 保留每条记录真实采样长度（不足处零填充）。
 5. `baseline_upstream` 统一填充 `NaN`（与现有链路语义一致）。
 

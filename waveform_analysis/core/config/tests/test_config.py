@@ -248,16 +248,23 @@ class TestAdapterInfo:
         assert info.dt_ns == 2
         assert info.dt_ps == 2000
         assert info.timestamp_unit == "ps"
+        assert info.raw_timestamp_mode == "unit"
 
     def test_from_adapter_nonexistent(self):
         info = AdapterInfo.from_adapter("nonexistent_adapter")
         assert info is None
+
+    def test_from_adapter_v1725_exposes_sample_index_mode(self):
+        info = AdapterInfo.from_adapter("v1725")
+        assert info is not None
+        assert info.raw_timestamp_mode == "sample_index"
 
     def test_to_dict(self):
         info = AdapterInfo(
             name="test",
             sampling_rate_hz=250e6,
             timestamp_unit="ns",
+            raw_timestamp_mode="sample_index",
             dt_ns=4,
             dt_ps=4000,
         )
@@ -265,6 +272,7 @@ class TestAdapterInfo:
         assert d["name"] == "test"
         assert d["sampling_rate_hz"] == 250e6
         assert d["timestamp_unit"] == "ns"
+        assert d["raw_timestamp_mode"] == "sample_index"
         assert d["dt_ns"] == 4
         assert d["dt_ps"] == 4000
 
@@ -273,6 +281,7 @@ class TestAdapterInfo:
             name="test",
             sampling_rate_hz=500e6,
             timestamp_unit="ps",
+            raw_timestamp_mode="unit",
             dt_ns=2,
             dt_ps=2000,
         )
@@ -577,7 +586,7 @@ class TestIntegration:
         lineage = ctx.get_lineage("st_waveforms")
         assert "config" in lineage
         assert lineage["config"]["daq_adapter"] == "vx2730"
-        assert lineage["config"]["dt_ns"] == 2
+        assert lineage["config"]["dt"] == 2
 
     def test_context_get_adapter_info(self):
         """测试 Context.get_adapter_info()"""
@@ -601,8 +610,8 @@ class TestIntegration:
         ctx.register(RecordsPlugin())
 
         lineage = ctx.get_lineage("records")
-        assert "records_dt_ns" in lineage.get("config", {})
-        assert lineage["config"]["records_dt_ns"] == 2
+        assert "dt" in lineage.get("config", {})
+        assert lineage["config"]["dt"] == 2
 
 
 # ============================================================================

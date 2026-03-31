@@ -13,10 +13,12 @@ def plugins_events():
     """Return event-level plugin instances in dependency order."""
     from waveform_analysis.core.plugins.builtin.cpu.event_analysis import (
         GroupedEventsPlugin,
+        HitGroupedPlugin,
         PairedEventsPlugin,
     )
 
     return [
         GroupedEventsPlugin(),
+        HitGroupedPlugin(),
         PairedEventsPlugin(),
     ]

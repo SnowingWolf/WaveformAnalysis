@@ -41,6 +41,29 @@ paired = ctx.get_data("run_001", "paired_events")
 waveforms = ctx.get_data("run_001", "waveforms")  # 直接从缓存返回
 ```
 
+## RecordsView 波形访问
+
+当上游已经产出 `records + wave_pool` 时，可通过 `records_view(ctx, run_id)` 获取
+`RecordsView`，用于按稳定 `record_id` 回切波形。
+
+```python
+from waveform_analysis.core.data import records_view
+
+rv = records_view(ctx, "run_001")
+first_record_id = int(rv.records[0]["record_id"])
+
+wave = rv.waves(first_record_id)
+signal = rv.signals(first_record_id, sample_start=40, sample_end=120)
+
+waves, mask = rv.waves([first_record_id], pad_to=256, mask=True)
+```
+
+约定如下：
+- `rv.waves(...)` 返回原始波形；`baseline_correct=True` 时返回 baseline 校正后的波形。
+- `rv.signals(...)` 返回按 `records.polarity` 统一为负极性的信号。
+- 公开接口只使用 `record_id`，不再按 records 行号索引。
+- 窗口切片统一使用 `sample_start` / `sample_end`。
+
 ## 缓存管理
 
 缓存用于避免重复计算，详细机制见下节。

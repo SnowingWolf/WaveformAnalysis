@@ -17,6 +17,7 @@ from typing import Any, Optional, Union
 import numpy as np
 from scipy.signal import find_peaks
 
+from waveform_analysis.core.plugins.builtin.cpu._dt_compat import resolve_dt_config
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     WAVE_SOURCE_AUTO,
     WAVE_SOURCE_FILTERED,
@@ -36,6 +37,7 @@ HIT_DTYPE = np.dtype(
         ("integral", "f4"),  # 峰值积分（面积）
         ("edge_start", "f4"),  # 峰值起始边缘（左边界）
         ("edge_end", "f4"),  # 峰值结束边缘（右边界）
+        ("dt", "i4"),  # 采样间隔（ns）
         ("timestamp", "i8"),  # 全局时间戳（事件时间戳 + 峰值位置 * 采样间隔）
         ("board", "i2"),  # 板卡编号
         ("channel", "i2"),  # 通道号
@@ -58,7 +60,7 @@ class HitFinderPlugin(Plugin):
 
     配置示例：
         >>> ctx.set_config({
-        ...     'sampling_interval_ns': 2.0,
+        ...     'dt': 2,
         ...     'use_filtered': True,  # 使用滤波后的波形
         ... }, plugin_name='hit')
     """
@@ -66,7 +68,7 @@ class HitFinderPlugin(Plugin):
     provides = "hit"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Detect peaks in waveforms and extract peak features."
-    version = "2.4.0"  # 版本升级：支持 records 作为统一波形数据源
+    version = "2.5.0"  # 版本升级：hit 输出新增 dt，时间换算优先读取输入 dt
     save_when = "always"  # 峰值数据较小，总是保存
     output_dtype = HIT_DTYPE
 
@@ -120,10 +122,10 @@ class HitFinderPlugin(Plugin):
             type=int,
             help="height_method='minmax' 时，峰值窗口左右两侧扩展的采样点数",
         ),
-        "sampling_interval_ns": Option(
-            default=2.0,
-            type=float,
-            help="采样间隔（纳秒），用于计算全局时间戳。默认 2.0 ns",
+        "dt": Option(
+            default=None,
+            type=int,
+            help="采样间隔（ns）。仅在输入数据缺少 dt 字段时作为兼容补充。",
         ),
         "parallel": Option(
             default=True,
@@ -183,18 +185,13 @@ class HitFinderPlugin(Plugin):
         threshold = context.get_config(self, "threshold")
         height_method = context.get_config(self, "height_method")
         height_window_extension = context.get_config(self, "height_window_extension")
-        sampling_interval_ns = context.get_config(self, "sampling_interval_ns")
+        explicit_dt = resolve_dt_config(
+            context, self, deprecated_keys=("sampling_interval_ns", "dt_ns")
+        )
         parallel = context.get_config(self, "parallel")
         n_workers = context.get_config(self, "n_workers")
         chunk_size = context.get_config(self, "chunk_size")
         parallel_min_events = context.get_config(self, "parallel_min_events")
-        daq_adapter = self._get_global_daq_adapter(context)
-        if not self._has_config(context, "sampling_interval_ns"):
-            sampling_interval_ns = self._get_sampling_interval_from_adapter(
-                daq_adapter,
-                sampling_interval_ns,
-            )
-
         # st_waveforms 的 timestamp 已统一为 ps
         timestamp_unit = "ps"
 
@@ -211,7 +208,7 @@ class HitFinderPlugin(Plugin):
             threshold=threshold,
             height_method=str(height_method),
             height_window_extension=int(height_window_extension),
-            sampling_interval_ns=float(sampling_interval_ns),
+            explicit_dt=explicit_dt,
             timestamp_unit=timestamp_unit,
             parallel=bool(parallel),
             n_workers=int(n_workers),
@@ -237,7 +234,7 @@ class HitFinderPlugin(Plugin):
         threshold: float | None,
         height_method: str,
         height_window_extension: int,
-        sampling_interval_ns: float,
+        explicit_dt: int | None,
         timestamp_unit: str | None,
         parallel: bool,
         n_workers: int,
@@ -297,7 +294,7 @@ class HitFinderPlugin(Plugin):
                         threshold,
                         height_method,
                         height_window_extension,
-                        sampling_interval_ns,
+                        explicit_dt,
                         timestamp_unit,
                     )
                     for start, end in ranges
@@ -320,7 +317,7 @@ class HitFinderPlugin(Plugin):
             threshold,
             height_method,
             height_window_extension,
-            sampling_interval_ns,
+            explicit_dt,
             timestamp_unit,
         )
 
@@ -344,7 +341,7 @@ class HitFinderPlugin(Plugin):
         threshold: float | None,
         height_method: str,
         height_window_extension: int,
-        sampling_interval_ns: float,
+        explicit_dt: int | None,
         timestamp_unit: str | None,
     ) -> list[tuple]:
         peaks: list[tuple] = []
@@ -363,6 +360,14 @@ class HitFinderPlugin(Plugin):
             board = st_waveform["board"] if "board" in st_waveform.dtype.names else 0
             channel = st_waveform["channel"] if "channel" in st_waveform.dtype.names else 0
             baseline = st_waveform["baseline"] if "baseline" in st_waveform.dtype.names else None
+            if "dt" in st_waveform.dtype.names:
+                dt_ns = int(st_waveform["dt"])
+            elif explicit_dt is not None:
+                dt_ns = int(explicit_dt)
+            else:
+                raise ValueError(
+                    "[hit] st_waveforms is missing required field 'dt'; provide explicit config 'dt'."
+                )
 
             event_peaks = self._find_peaks_in_waveform(
                 waveform,
@@ -379,7 +384,7 @@ class HitFinderPlugin(Plugin):
                 threshold,
                 height_method,
                 height_window_extension,
-                sampling_interval_ns,
+                dt_ns,
                 timestamp_unit,
             )
             if event_peaks:
@@ -399,20 +404,31 @@ class HitFinderPlugin(Plugin):
         threshold: float | None,
         height_method: str,
         height_window_extension: int,
-        sampling_interval_ns: float,
+        explicit_dt: int | None,
         timestamp_unit: str | None,
     ) -> list[tuple]:
         peaks: list[tuple] = []
         records = rv.records
         for event_idx in range(start, end):
-            signal = -rv.signal(event_idx).astype(np.float64, copy=False)
+            record = records[event_idx]
+            record_id = (
+                int(record["record_id"]) if "record_id" in records.dtype.names else event_idx
+            )
+            signal = -rv.signals(record_id).astype(np.float64, copy=False)
             if signal.size == 0:
                 continue
 
-            record = records[event_idx]
             timestamp = int(record["timestamp"])
             board = int(record["board"]) if "board" in records.dtype.names else 0
             channel = int(record["channel"]) if "channel" in records.dtype.names else 0
+            if "dt" in records.dtype.names:
+                dt_ns = int(record["dt"])
+            elif explicit_dt is not None:
+                dt_ns = int(explicit_dt)
+            else:
+                raise ValueError(
+                    "[hit] records is missing required field 'dt'; provide explicit config 'dt'."
+                )
 
             event_peaks = self._find_peaks_in_waveform(
                 signal,
@@ -429,7 +445,7 @@ class HitFinderPlugin(Plugin):
                 threshold,
                 height_method,
                 height_window_extension,
-                sampling_interval_ns,
+                dt_ns,
                 timestamp_unit,
                 pulse_polarity="positive",
             )
@@ -453,7 +469,7 @@ class HitFinderPlugin(Plugin):
         threshold: float | None,
         height_method: str,
         height_window_extension: int,
-        sampling_interval_ns: float,
+        dt_ns: int,
         timestamp_unit: str | None,  # 新增参数
         pulse_polarity: str = "negative",
     ) -> list[tuple]:
@@ -474,7 +490,7 @@ class HitFinderPlugin(Plugin):
             threshold: 阈值条件
             height_method: 峰高计算方法
             height_window_extension: minmax 峰高计算时窗口扩展点数
-            sampling_interval_ns: 采样间隔（纳秒），用于计算全局时间戳
+            dt_ns: 采样间隔（纳秒），用于计算全局时间戳
             timestamp_unit: 时间戳单位（st_waveforms 中已统一为 'ps'）
 
         Returns:
@@ -531,36 +547,16 @@ class HitFinderPlugin(Plugin):
             # 计算峰积分（这里简单设置为 None，后续可扩展）
             peak_integral = None
 
-            # 计算全局时间戳：事件时间戳 + 峰值位置 * 采样间隔
-            # 根据时间戳单位调整采样间隔
-            if timestamp_unit is None:
-                # 向后兼容：使用旧的数值判断逻辑
-                if timestamp > 1e12:
-                    sampling_interval = sampling_interval_ns * 1e3  # ns -> ps
-                else:
-                    sampling_interval = sampling_interval_ns
-            else:
-                # 使用适配器提供的时间戳单位
-                if timestamp_unit == "ps":
-                    # 时间戳是皮秒，采样间隔也转换为皮秒
-                    sampling_interval = sampling_interval_ns * 1e3  # ns -> ps
-                elif timestamp_unit == "ns":
-                    # 时间戳是纳秒，采样间隔保持纳秒
-                    sampling_interval = sampling_interval_ns
-                elif timestamp_unit == "us":
-                    # 时间戳是微秒，采样间隔转换为微秒
-                    sampling_interval = sampling_interval_ns * 1e-3  # ns -> us
-                elif timestamp_unit == "ms":
-                    # 时间戳是毫秒，采样间隔转换为毫秒
-                    sampling_interval = sampling_interval_ns * 1e-6  # ns -> ms
-                elif timestamp_unit == "s":
-                    # 时间戳是秒，采样间隔转换为秒
-                    sampling_interval = sampling_interval_ns * 1e-9  # ns -> s
-                else:
-                    # 未知单位，使用纳秒
-                    sampling_interval = sampling_interval_ns
+            # 标准链路中的 timestamp 固定为 ps，采样间隔固定使用 dt(ns)->ps。
+            if dt_ns <= 0:
+                raise ValueError("[hit] dt must be > 0")
+            if timestamp_unit not in (None, "ps"):
+                raise ValueError(
+                    f"[hit] unsupported timestamp_unit in standardized pipeline: {timestamp_unit}"
+                )
 
-            global_timestamp = int(timestamp + pos * sampling_interval)
+            sampling_interval_ps = dt_ns * 1e3
+            global_timestamp = int(timestamp + pos * sampling_interval_ps)
 
             peak_tuple = (
                 int(pos),  # position
@@ -568,6 +564,7 @@ class HitFinderPlugin(Plugin):
                 float(peak_integral) if peak_integral is not None else 0.0,  # integral
                 float(edge_start),  # edge_start
                 float(edge_end),  # edge_end
+                int(dt_ns),  # dt
                 int(global_timestamp),  # timestamp: 全局时间戳
                 int(board),  # board
                 int(channel),  # channel

@@ -66,6 +66,7 @@ def test_hitfinder_parallel_consistency():
         st_waveforms[i]["wave"] = wave
         st_waveforms[i]["baseline"] = 100.0
         st_waveforms[i]["timestamp"] = 100_000 + i * 1000
+        st_waveforms[i]["dt"] = 2
         st_waveforms[i]["event_length"] = 128
         st_waveforms[i]["channel"] = i % 2
 
@@ -115,6 +116,7 @@ def test_hitfinder_height_window_extension_effect():
     st_waveforms[0]["wave"] = wave
     st_waveforms[0]["baseline"] = 100.0
     st_waveforms[0]["timestamp"] = 100_000
+    st_waveforms[0]["dt"] = 2
     st_waveforms[0]["event_length"] = 64
     st_waveforms[0]["channel"] = 0
 
@@ -173,7 +175,7 @@ def test_hitfinder_reads_records_view_when_wave_source_records():
             "width": 1,
             "threshold": None,
             "parallel": False,
-            "sampling_interval_ns": 2.0,
+            "dt": 2,
         },
         {},
     )
@@ -183,6 +185,7 @@ def test_hitfinder_reads_records_view_when_wave_source_records():
     records["timestamp"] = 123_456
     records["board"] = 5
     records["channel"] = 2
+    records["dt"] = 2
     records["event_length"] = 8
     records["wave_offset"] = 0
     records["polarity"] = ["negative"]
@@ -197,6 +200,7 @@ def test_hitfinder_reads_records_view_when_wave_source_records():
     assert int(result[0]["board"]) == 5
     assert int(result[0]["channel"]) == 2
     assert int(result[0]["event_index"]) == 0
+    assert int(result[0]["dt"]) == 2
 
 
 def test_waveforms_plugin_uses_raw_files_channels(monkeypatch):
@@ -315,6 +319,7 @@ def test_waveforms_plugin_v1725_outputs_standard_st_waveforms(monkeypatch):
         "baseline_upstream",
         "polarity",
         "timestamp",
+        "record_id",
         "dt",
         "event_length",
         "board",

@@ -6,7 +6,7 @@ Adapter 推断信息
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from waveform_analysis.core.foundation.utils import exporter
 
@@ -23,7 +23,8 @@ class AdapterInfo:
     Attributes:
         name: adapter 名称（如 "vx2730"）
         sampling_rate_hz: 采样率（Hz）
-        timestamp_unit: 时间戳单位（如 "ps", "ns"）
+        timestamp_unit: 原生时间戳使用物理单位时的单位（如 "ps", "ns"）
+        raw_timestamp_mode: 原生时间戳语义（"unit" 或 "sample_index"）
         dt_ns: 采样间隔（纳秒）
         dt_ps: 采样间隔（皮秒）
 
@@ -38,6 +39,7 @@ class AdapterInfo:
     name: str
     sampling_rate_hz: float
     timestamp_unit: str
+    raw_timestamp_mode: str
     dt_ns: int
     dt_ps: int
 
@@ -70,13 +72,17 @@ class AdapterInfo:
             dt_ns = int(1e9 / sampling_rate)  # 纳秒
             dt_ps = int(1e12 / sampling_rate)  # 皮秒
 
-            # 获取时间戳单位
+            # 获取原生时间戳元数据
             timestamp_unit = spec.timestamp_unit.value if spec.timestamp_unit else "ps"
+            raw_timestamp_mode = (
+                spec.raw_timestamp_mode.value if spec.raw_timestamp_mode else "unit"
+            )
 
             return cls(
                 name=adapter_name,
                 sampling_rate_hz=sampling_rate,
                 timestamp_unit=timestamp_unit,
+                raw_timestamp_mode=raw_timestamp_mode,
                 dt_ns=dt_ns,
                 dt_ps=dt_ps,
             )
@@ -101,20 +107,24 @@ class AdapterInfo:
             dt_ns = int(1e9 / sampling_rate)
             dt_ps = int(1e12 / sampling_rate)
 
-            # 获取时间戳单位
+            # 获取原生时间戳元数据
             timestamp_unit = spec.timestamp_unit.value if spec.timestamp_unit else "ps"
+            raw_timestamp_mode = (
+                spec.raw_timestamp_mode.value if spec.raw_timestamp_mode else "unit"
+            )
 
             return cls(
                 name=adapter.name,
                 sampling_rate_hz=sampling_rate,
                 timestamp_unit=timestamp_unit,
+                raw_timestamp_mode=raw_timestamp_mode,
                 dt_ns=dt_ns,
                 dt_ps=dt_ps,
             )
         except Exception:
             return None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典
 
         Returns:
@@ -124,11 +134,12 @@ class AdapterInfo:
             "name": self.name,
             "sampling_rate_hz": self.sampling_rate_hz,
             "timestamp_unit": self.timestamp_unit,
+            "raw_timestamp_mode": self.raw_timestamp_mode,
             "dt_ns": self.dt_ns,
             "dt_ps": self.dt_ps,
         }
 
-    def get_inferred_value(self, key: str) -> Optional[Any]:
+    def get_inferred_value(self, key: str) -> Any | None:
         """获取可推断的配置值
 
         Args:
@@ -143,6 +154,7 @@ class AdapterInfo:
             "dt_ns": self.dt_ns,
             "dt_ps": self.dt_ps,
             "timestamp_unit": self.timestamp_unit,
+            "raw_timestamp_mode": self.raw_timestamp_mode,
         }
         return mapping.get(key)
 
@@ -150,16 +162,17 @@ class AdapterInfo:
         return (
             f"AdapterInfo(name='{self.name}', "
             f"sampling_rate_hz={self.sampling_rate_hz}, "
-            f"timestamp_unit='{self.timestamp_unit}')"
+            f"timestamp_unit='{self.timestamp_unit}', "
+            f"raw_timestamp_mode='{self.raw_timestamp_mode}')"
         )
 
 
 # 预定义的 adapter 信息（用于快速查找，避免重复解析）
-_ADAPTER_INFO_CACHE: Dict[str, AdapterInfo] = {}
+_ADAPTER_INFO_CACHE: dict[str, AdapterInfo] = {}
 
 
 @export
-def get_adapter_info(adapter_name: str, use_cache: bool = True) -> Optional[AdapterInfo]:
+def get_adapter_info(adapter_name: str, use_cache: bool = True) -> AdapterInfo | None:
     """获取 adapter 信息（带缓存）
 
     Args:
