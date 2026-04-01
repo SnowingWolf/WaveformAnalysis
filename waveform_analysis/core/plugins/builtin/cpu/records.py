@@ -12,6 +12,7 @@ from waveform_analysis.core.plugins.builtin.cpu.waveforms import (
     WaveformStruct,
     WaveformStructConfig,
     _build_polarity_lookup,
+    _structure_waveforms_streaming,
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.dtypes import RECORDS_DTYPE
@@ -182,23 +183,35 @@ def _build_records_bundle(
         _cleanup_stale_bundles(context, run_id, cache_key)
         return bundle
 
-    waveforms = _load_waveforms_for_records(context, raw_files, plugin, adapter_name)
     if adapter_name:
         config = WaveformStructConfig.from_adapter(adapter_name)
     else:
         config = WaveformStructConfig.default_vx2730()
+    config.dt_ns = dt_ns
     config.epoch_ns = _resolve_epoch_ns(adapter_name, raw_files)
 
-    waveform_struct = WaveformStruct(waveforms, config=config)
-    st_waveforms = waveform_struct.structure_waveforms(
-        show_progress=context.config.get("show_progress", True),
-    )
+    show_progress = context.config.get("show_progress", True)
+    try:
+        st_waveforms = _structure_waveforms_streaming(
+            context=context,
+            run_id=run_id,
+            raw_files=raw_files,
+            config=config,
+            baseline_samples=None,
+            upstream_baselines=None,
+            show_progress=show_progress,
+        )
+    except Exception:
+        waveforms = _load_waveforms_for_records(context, raw_files, plugin, adapter_name)
+        waveform_struct = WaveformStruct(waveforms, config=config)
+        st_waveforms = waveform_struct.structure_waveforms(show_progress=show_progress)
 
     bundle = build_records_from_st_waveforms_sharded(
         st_waveforms,
         part_size=part_size,
         default_dt_ns=dt_ns,
     )
+    del st_waveforms
     bundle = _apply_records_polarity(context, run_id, bundle)
     context._set_data(run_id, cache_key, bundle)
     _cleanup_stale_bundles(context, run_id, cache_key)
@@ -260,7 +273,7 @@ class RecordsPlugin(Plugin):
             help="Sample interval in ns for records.dt (defaults to adapter rate or 1ns).",
         ),
     }
-    version = "0.8.0"
+    version = "0.8.1"
 
     def get_lineage(self, context: Any) -> dict:
         adapter_name = _resolve_adapter_name(context, self)

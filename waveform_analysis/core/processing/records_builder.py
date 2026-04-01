@@ -67,6 +67,21 @@ def split_by_hardware_channel(st_waveforms: np.ndarray) -> list[tuple[HardwareCh
     return [(hw_channel, st_waveforms[indices]) for hw_channel, indices in groups.items()]
 
 
+def _hardware_channel_index_groups(
+    st_waveforms: np.ndarray,
+) -> list[tuple[HardwareChannel, np.ndarray]]:
+    """Return per-channel row indices without copying the full structured array."""
+    if st_waveforms is None or len(st_waveforms) == 0:
+        return []
+    if not isinstance(st_waveforms, np.ndarray) or st_waveforms.dtype.names is None:
+        raise ValueError("st_waveforms must be a structured numpy array")
+    if "board" not in st_waveforms.dtype.names or "channel" not in st_waveforms.dtype.names:
+        raise ValueError("st_waveforms missing required 'board'/'channel' fields")
+
+    groups = group_indices_by_hardware_channel(st_waveforms["board"], st_waveforms["channel"])
+    return [(hw_channel, indices) for hw_channel, indices in groups.items()]
+
+
 @export
 def split_by_channel(st_waveforms: np.ndarray) -> list[tuple[int, np.ndarray]]:
     """Backward-compatible helper for single-board inputs only."""
@@ -272,7 +287,10 @@ def build_records_from_st_waveforms(
 
     Baseline implementation: single pass, sorted by (timestamp, pid, board, channel).
     """
-    channels = [(arr, hw_channel) for hw_channel, arr in split_by_hardware_channel(st_waveforms)]
+    channels = [
+        (st_waveforms[indices], hw_channel)
+        for hw_channel, indices in _hardware_channel_index_groups(st_waveforms)
+    ]
     return _build_records_from_channels(channels, default_dt_ns=default_dt_ns)
 
 
@@ -411,15 +429,16 @@ def build_records_from_st_waveforms_sharded(
         return build_records_from_st_waveforms(st_waveforms, default_dt_ns=default_dt_ns)
 
     parts: list[RecordsBundle] = []
-    for hw_channel, ch in split_by_hardware_channel(st_waveforms):
-        count = len(ch)
+    for hw_channel, indices in _hardware_channel_index_groups(st_waveforms):
+        count = len(indices)
         if count == 0:
             continue
         start = 0
         while start < count:
             stop = min(count, start + part_size)
+            shard_indices = indices[start:stop]
             part = _build_records_from_channels(
-                [(ch[start:stop], hw_channel)],
+                [(st_waveforms[shard_indices], hw_channel)],
                 default_dt_ns=default_dt_ns,
             )
             if len(part.records) > 0:

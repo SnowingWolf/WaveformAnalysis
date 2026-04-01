@@ -2,13 +2,14 @@ from unittest.mock import patch
 
 import numpy as np
 
-from tests.utils import DummyContext
+from tests.utils import DummyContext, FakeContext
 from waveform_analysis.core.data.records_view import RecordsView
 from waveform_analysis.core.plugins.builtin.cpu.filtering import FilteredWaveformsPlugin
 from waveform_analysis.core.plugins.builtin.cpu.peak_finding import (
     HIT_DTYPE,
     HitFinderPlugin,
 )
+from waveform_analysis.core.plugins.builtin.cpu.records import RecordsPlugin
 from waveform_analysis.core.plugins.builtin.cpu.standard import WaveformsPlugin
 from waveform_analysis.core.processing.dtypes import create_record_dtype
 from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
@@ -370,3 +371,106 @@ def test_waveforms_plugin_applies_channel_metadata_polarity(monkeypatch):
     st = plugin.compute(ctx, "run_001")
 
     np.testing.assert_array_equal(st["polarity"], np.array(["negative", "positive"]))
+
+
+def test_records_plugin_prefers_streaming_structuring(monkeypatch):
+    plugin = RecordsPlugin()
+    ctx = FakeContext(
+        config={"show_progress": False, "daq_adapter": "vx2730"},
+        data={"raw_files": [["f0"], ["f1"]]},
+        plugins={"records": plugin},
+    )
+
+    class _Logger:
+        def info(self, *_args, **_kwargs):
+            return None
+
+        def warning(self, *_args, **_kwargs):
+            return None
+
+    ctx.logger = _Logger()
+
+    st_dtype = create_record_dtype(4)
+    st = np.zeros(2, dtype=st_dtype)
+    st["board"] = [0, 0]
+    st["channel"] = [0, 1]
+    st["timestamp"] = [100, 200]
+    st["baseline"] = [10.0, 20.0]
+    st["event_length"] = [4, 4]
+    st["dt"] = [2, 2]
+    st["wave"][0] = np.array([1, 2, 3, 4], dtype=np.int16)
+    st["wave"][1] = np.array([5, 6, 7, 8], dtype=np.int16)
+
+    monkeypatch.setattr(
+        "waveform_analysis.core.plugins.builtin.cpu.records._structure_waveforms_streaming",
+        lambda **_kwargs: st.copy(),
+    )
+
+    def _unexpected_fallback(*_args, **_kwargs):
+        raise AssertionError("should not fall back to eager waveform loading")
+
+    monkeypatch.setattr(
+        "waveform_analysis.core.plugins.builtin.cpu.records._load_waveforms_for_records",
+        _unexpected_fallback,
+    )
+
+    records = plugin.compute(ctx, "run_001")
+
+    assert len(records) == 2
+    np.testing.assert_array_equal(records["timestamp"], np.array([100, 200], dtype=np.int64))
+    np.testing.assert_array_equal(records["channel"], np.array([0, 1], dtype=np.int16))
+    np.testing.assert_array_equal(records["dt"], np.array([2, 2], dtype=np.int32))
+
+
+def test_records_plugin_falls_back_when_streaming_structuring_fails(monkeypatch):
+    plugin = RecordsPlugin()
+    ctx = FakeContext(
+        config={"show_progress": False, "daq_adapter": "vx2730"},
+        data={"raw_files": [["f0"]]},
+        plugins={"records": plugin},
+    )
+
+    class _Logger:
+        def info(self, *_args, **_kwargs):
+            return None
+
+        def warning(self, *_args, **_kwargs):
+            return None
+
+    ctx.logger = _Logger()
+
+    st_dtype = create_record_dtype(4)
+    st = np.zeros(1, dtype=st_dtype)
+    st["board"] = [0]
+    st["channel"] = [0]
+    st["timestamp"] = [100]
+    st["baseline"] = [10.0]
+    st["event_length"] = [4]
+    st["dt"] = [2]
+    st["wave"][0] = np.array([1, 2, 3, 4], dtype=np.int16)
+
+    monkeypatch.setattr(
+        "waveform_analysis.core.plugins.builtin.cpu.records._structure_waveforms_streaming",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+
+    fallback_called = {"value": False}
+
+    def _fake_load(_context, _raw_files, _plugin, _adapter_name):
+        fallback_called["value"] = True
+        return []
+
+    monkeypatch.setattr(
+        "waveform_analysis.core.plugins.builtin.cpu.records._load_waveforms_for_records",
+        _fake_load,
+    )
+    monkeypatch.setattr(
+        "waveform_analysis.core.plugins.builtin.cpu.records.WaveformStruct.structure_waveforms",
+        lambda self, **_kwargs: st.copy(),
+    )
+
+    records = plugin.compute(ctx, "run_001")
+
+    assert fallback_called["value"] is True
+    assert len(records) == 1
+    assert int(records["timestamp"][0]) == 100
