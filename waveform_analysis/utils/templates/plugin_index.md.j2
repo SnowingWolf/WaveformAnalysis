@@ -97,7 +97,7 @@ ctx.preview_execution("run_001", "signal_peaks")
 ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
 │  特征提取    │ │  峰值检测    │ │  Hit检测     │
 │              │ │              │ │              │
-│basic_features│ │ signal_peaks │ │    hits      │
+│basic_features│ │ signal_peaks │ │     hit      │
 └──────┬───────┘ └──────────────┘ └──────────────┘
        │
        ▼

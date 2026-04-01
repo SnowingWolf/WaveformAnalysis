@@ -112,7 +112,7 @@ ctx.register(adapter)
 strax_ctx = create_strax_context('./data')
 strax_ctx.register(MyStraxPlugin)
 data = strax_ctx.get_array('run_001', 'peaks')
-df = strax_ctx.get_df('run_001', ['peaks', 'hits'])
+df = strax_ctx.get_df('run_001', ['peaks', 'hit'])
 
 # 搜索字段
 strax_ctx.search_field('time')

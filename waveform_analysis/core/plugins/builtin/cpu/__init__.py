@@ -61,7 +61,6 @@ from .waveforms import (
     WaveformsPlugin,
     WaveformStruct,
     WaveformStructConfig,
-    create_channel_mapping,
 )
 
 # Backward-compatible aliases
@@ -80,7 +79,6 @@ __all__ = [
     "StWaveformsPlugin",
     "WaveformStruct",
     "WaveformStructConfig",
-    "create_channel_mapping",
     "HitFinderPlugin",
     "BasicFeaturesPlugin",
     "BASIC_FEATURES_DTYPE",

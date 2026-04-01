@@ -15,9 +15,6 @@ Plugins Builtin 子模块 - 内置标准插件
 - CPU 流式插件: SignalPeaksStreamPlugin
 - JAX 流式插件待实现
 
-**遗留插件** (`builtin/legacy/`):
-- 向后兼容保留，将在下一个主版本中移除
-
 向后兼容：
 所有插件可以通过以下方式导入：
     from waveform_analysis.core.plugins.builtin.cpu import RawFileNamesPlugin

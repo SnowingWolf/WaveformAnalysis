@@ -40,12 +40,9 @@ def test_plugins_waveform_includes_records():
     assert provides == ["st_waveforms", "filtered_waveforms", "records"]
 
 
-def test_plugins_diagnostics_legacy_excludes_records():
-    factory = get_plugin_set("diagnostics_legacy")
-    plugins = factory()
-    provides = _provides_names(plugins)
-    assert "records" not in provides
-    assert provides == ["cache_analysis"]
+def test_plugins_diagnostics_legacy_removed():
+    with pytest.raises(KeyError, match="diagnostics_legacy"):
+        get_plugin_set("diagnostics_legacy")
 
 
 def test_cpu_default_includes_records():

@@ -349,6 +349,151 @@ def _apply_polarity_metadata(
     return st_waveforms
 
 
+def _structure_waveforms_streaming(
+    context: Any,
+    run_id: str,
+    raw_files: list[list[str]],
+    config: WaveformStructConfig,
+    baseline_samples: int | tuple[int, int] | list[int] | None,
+    upstream_baselines: list[np.ndarray] | None,
+    show_progress: bool,
+) -> np.ndarray:
+    """Structure raw files incrementally into a temporary memmap-backed array."""
+    from pathlib import Path
+    import tempfile
+
+    from waveform_analysis.utils.formats import get_adapter
+
+    daq_adapter = config.format_spec.name.replace("_csv", "")
+    adapter = get_adapter(daq_adapter)
+    reader = adapter.format_reader
+
+    output_dtype = config.get_record_dtype()
+    cols = config.format_spec.columns
+    dt_ns = config.get_dt_ns()
+    epoch_ns = config.epoch_ns
+    _validate_baseline_samples(baseline_samples)
+    baseline_warned = False
+
+    st_waveforms: list[np.ndarray] = []
+
+    for ch_idx, channel_files in enumerate(raw_files):
+        if not channel_files:
+            st_waveforms.append(np.zeros(0, dtype=output_dtype))
+            continue
+
+        ch_upstream_baseline = None
+        if upstream_baselines is not None and ch_idx < len(upstream_baselines):
+            ch_upstream_baseline = upstream_baselines[ch_idx]
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".dat") as tmp:
+            tmp_path = Path(tmp.name)
+
+        def structurizer(raw_arr: np.ndarray, output: np.memmap, offset: int) -> int:
+            nonlocal baseline_warned
+            n = len(raw_arr)
+            if n == 0:
+                return 0
+
+            try:
+                timestamps = raw_arr[:, cols.timestamp].astype(np.int64)
+            except Exception:
+                timestamps = np.array([int(row[cols.timestamp]) for row in raw_arr], dtype=np.int64)
+
+            timestamps = config.format_spec.normalize_timestamp_to_ps(
+                timestamps,
+                dt_ns=int(dt_ns),
+            )
+
+            bl_start, bl_end = _resolve_baseline_window(baseline_samples, cols)
+            if bl_end > raw_arr.shape[1]:
+                if not baseline_warned:
+                    logger.warning(
+                        "baseline_samples=%s exceeds available columns (%s); clamping.",
+                        baseline_samples,
+                        raw_arr.shape[1],
+                    )
+                    baseline_warned = True
+                bl_end = raw_arr.shape[1]
+            if bl_end > bl_start:
+                try:
+                    baseline_vals = np.mean(raw_arr[:, bl_start:bl_end].astype(float), axis=1)
+                except Exception:
+                    baseline_vals = np.full(n, np.nan, dtype=np.float64)
+            else:
+                baseline_vals = np.full(n, np.nan, dtype=np.float64)
+
+            try:
+                channel_vals = raw_arr[:, cols.channel].astype(int)
+            except Exception:
+                channel_vals = np.full(n, ch_idx, dtype=int)
+
+            try:
+                board_vals = raw_arr[:, cols.board].astype(int)
+            except Exception:
+                logger.warning("无法从波形数据中提取 BOARD，回退为 0")
+                board_vals = np.zeros(n, dtype=int)
+
+            samples_end = cols.samples_end if cols.samples_end is not None else raw_arr.shape[1]
+            wave_data = raw_arr[:, cols.samples_start : samples_end]
+            wave_length = output.dtype["wave"].shape[0]
+            n_samples = min(wave_data.shape[1], wave_length)
+
+            output[offset : offset + n]["timestamp"] = timestamps
+            output[offset : offset + n]["baseline"] = baseline_vals
+            output[offset : offset + n]["board"] = board_vals.astype(np.int16, copy=False)
+            output[offset : offset + n]["channel"] = channel_vals
+            if "record_id" in output.dtype.names:
+                output[offset : offset + n]["record_id"] = np.arange(
+                    offset, offset + n, dtype=np.int64
+                )
+            output[offset : offset + n]["dt"] = np.int32(dt_ns)
+
+            if epoch_ns is not None:
+                output[offset : offset + n]["time"] = epoch_ns + timestamps // 1000
+            else:
+                output[offset : offset + n]["time"] = timestamps // 1000
+
+            if n_samples > 0:
+                dest = output[offset : offset + n]["wave"][:, :n_samples]
+                src = wave_data[:, :n_samples]
+                if src.dtype == np.int16:
+                    np.copyto(dest, src)
+                else:
+                    np.copyto(dest, src, casting="unsafe")
+
+            if ch_upstream_baseline is not None:
+                output[offset : offset + n]["baseline_upstream"] = np.nan
+            else:
+                output[offset : offset + n]["baseline_upstream"] = np.nan
+
+            return n
+
+        try:
+            result = reader.read_files_streaming(
+                file_paths=channel_files,
+                output_dtype=output_dtype,
+                output_path=tmp_path,
+                structurizer=structurizer,
+                show_progress=show_progress,
+            )
+            st_waveforms.append(np.array(result))
+        finally:
+            try:
+                tmp_path.unlink()
+            except Exception:
+                pass
+
+    context.logger.info("流式模式完成，处理了 %d 个通道", len(st_waveforms))
+    non_empty = [ch for ch in st_waveforms if len(ch) > 0]
+    if not non_empty:
+        return np.zeros(0, dtype=output_dtype)
+    structured = np.concatenate(non_empty)
+    if "record_id" in structured.dtype.names:
+        structured["record_id"] = np.arange(len(structured), dtype=np.int64)
+    return structured
+
+
 @export
 @dataclass
 class WaveformStructConfig:
@@ -1301,149 +1446,12 @@ class WaveformsPlugin(Plugin):
         show_progress: bool,
     ) -> np.ndarray:
         """流式模式计算：边读边结构化，减少内存峰值"""
-        from pathlib import Path
-        import tempfile
-
-        from waveform_analysis.utils.formats import get_adapter
-
-        daq_adapter = config.format_spec.name.replace("_csv", "")
-        adapter = get_adapter(daq_adapter)
-        reader = adapter.format_reader
-
-        output_dtype = config.get_record_dtype()
-        cols = config.format_spec.columns
-        dt_ns = config.get_dt_ns()
-        epoch_ns = config.epoch_ns
-        _validate_baseline_samples(baseline_samples)
-        baseline_warned = False
-
-        st_waveforms: list[np.ndarray] = []
-
-        for ch_idx, channel_files in enumerate(raw_files):
-            if not channel_files:
-                st_waveforms.append(np.zeros(0, dtype=output_dtype))
-                continue
-
-            # 获取上游 baseline（如果有）
-            ch_upstream_baseline = None
-            if upstream_baselines is not None and ch_idx < len(upstream_baselines):
-                ch_upstream_baseline = upstream_baselines[ch_idx]
-
-            # 创建临时 memmap 文件
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".dat") as tmp:
-                tmp_path = Path(tmp.name)
-
-            def structurizer(raw_arr: np.ndarray, output: np.memmap, offset: int) -> int:
-                """将原始数组结构化并写入 memmap"""
-                nonlocal baseline_warned
-                n = len(raw_arr)
-                if n == 0:
-                    return 0
-
-                # 提取时间戳
-                try:
-                    timestamps = raw_arr[:, cols.timestamp].astype(np.int64)
-                except Exception:
-                    timestamps = np.array(
-                        [int(row[cols.timestamp]) for row in raw_arr], dtype=np.int64
-                    )
-
-                timestamps = config.format_spec.normalize_timestamp_to_ps(
-                    timestamps,
-                    dt_ns=int(dt_ns),
-                )
-
-                # 计算基线
-                bl_start, bl_end = _resolve_baseline_window(baseline_samples, cols)
-                if bl_end > raw_arr.shape[1]:
-                    if not baseline_warned:
-                        logger.warning(
-                            "baseline_samples=%s exceeds available columns (%s); clamping.",
-                            baseline_samples,
-                            raw_arr.shape[1],
-                        )
-                        baseline_warned = True
-                    bl_end = raw_arr.shape[1]
-                if bl_end > bl_start:
-                    try:
-                        baseline_vals = np.mean(raw_arr[:, bl_start:bl_end].astype(float), axis=1)
-                    except Exception:
-                        baseline_vals = np.full(n, np.nan, dtype=np.float64)
-                else:
-                    baseline_vals = np.full(n, np.nan, dtype=np.float64)
-
-                # 提取通道号
-                try:
-                    channel_vals = raw_arr[:, cols.channel].astype(int)
-                except Exception:
-                    channel_vals = np.full(n, ch_idx, dtype=int)
-
-                try:
-                    board_vals = raw_arr[:, cols.board].astype(int)
-                except Exception:
-                    logger.warning("无法从波形数据中提取 BOARD，回退为 0")
-                    board_vals = np.zeros(n, dtype=int)
-
-                # 提取波形数据
-                samples_end = cols.samples_end if cols.samples_end is not None else raw_arr.shape[1]
-                wave_data = raw_arr[:, cols.samples_start : samples_end]
-                wave_length = output.dtype["wave"].shape[0]
-                n_samples = min(wave_data.shape[1], wave_length)
-
-                # 写入 memmap
-                output[offset : offset + n]["timestamp"] = timestamps
-                output[offset : offset + n]["baseline"] = baseline_vals
-                output[offset : offset + n]["board"] = board_vals.astype(np.int16, copy=False)
-                output[offset : offset + n]["channel"] = channel_vals
-                if "record_id" in output.dtype.names:
-                    output[offset : offset + n]["record_id"] = np.arange(
-                        offset, offset + n, dtype=np.int64
-                    )
-                output[offset : offset + n]["dt"] = np.int32(dt_ns)
-
-                if epoch_ns is not None:
-                    output[offset : offset + n]["time"] = epoch_ns + timestamps // 1000
-                else:
-                    output[offset : offset + n]["time"] = timestamps // 1000
-
-                # 写入波形数据
-                if n_samples > 0:
-                    dest = output[offset : offset + n]["wave"][:, :n_samples]
-                    src = wave_data[:, :n_samples]
-                    if src.dtype == np.int16:
-                        np.copyto(dest, src)
-                    else:
-                        np.copyto(dest, src, casting="unsafe")
-
-                # 写入上游 baseline（如果有）
-                if ch_upstream_baseline is not None:
-                    output[offset : offset + n]["baseline_upstream"] = np.nan
-                else:
-                    output[offset : offset + n]["baseline_upstream"] = np.nan
-
-                return n
-
-            try:
-                result = reader.read_files_streaming(
-                    file_paths=channel_files,
-                    output_dtype=output_dtype,
-                    output_path=tmp_path,
-                    structurizer=structurizer,
-                    show_progress=show_progress,
-                )
-
-                st_waveforms.append(np.array(result))
-            finally:
-                try:
-                    tmp_path.unlink()
-                except Exception:
-                    pass
-
-        context.logger.info("流式模式完成，处理了 %d 个通道", len(st_waveforms))
-        non_empty = [ch for ch in st_waveforms if len(ch) > 0]
-        if not non_empty:
-            return np.zeros(0, dtype=output_dtype)
-        structured = np.concatenate(non_empty)
-        if "record_id" in structured.dtype.names:
-            structured["record_id"] = np.arange(len(structured), dtype=np.int64)
-        return structured
+        return _structure_waveforms_streaming(
+            context=context,
+            run_id=run_id,
+            raw_files=raw_files,
+            config=config,
+            baseline_samples=baseline_samples,
+            upstream_baselines=upstream_baselines,
+            show_progress=show_progress,
+        )

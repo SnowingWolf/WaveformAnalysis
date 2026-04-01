@@ -100,8 +100,8 @@ Context 使用三级缓存加速数据访问：
 
 ```text
 strax_data/
-├── run_001-hits-abc12345.bin      # 二进制数据 (memmap)
-├── run_001-hits-abc12345.json     # 元数据 (dtype, lineage, count)
+├── run_001-hit-abc12345.bin       # 二进制数据 (memmap)
+├── run_001-hit-abc12345.json      # 元数据 (dtype, lineage, count)
 └── _side_effects/                 # 侧效应插件输出
     └── run_001/
         └── my_plot_plugin/

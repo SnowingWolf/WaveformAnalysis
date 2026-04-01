@@ -7,7 +7,6 @@ from waveform_analysis.core.foundation.utils import exporter
 export, __all__ = exporter()
 
 from .basic_features import plugins_basic_features
-from .diagnostics_legacy import plugins_diagnostics_legacy
 from .events import plugins_events
 from .io import plugins_io
 from .peaks import plugins_peaks
@@ -22,7 +21,6 @@ PLUGIN_SETS = export(
         "tabular": plugins_tabular,
         "events": plugins_events,
         "peaks": plugins_peaks,
-        "diagnostics_legacy": plugins_diagnostics_legacy,
     },
     name="PLUGIN_SETS",
 )

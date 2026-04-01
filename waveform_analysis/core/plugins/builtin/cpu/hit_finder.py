@@ -3,8 +3,7 @@ Hit Finder Plugins - 阈值 Hit 检测插件
 
 本模块包含：
 1. HitFinderPlugin: 旧导入路径兼容别名（推荐改为 peak_finding.HitFinderPlugin）
-1. ThresholdHitPlugin: 新的纯阈值 hit 插件（provides='hit_threshold'），输出 THRESHOLD_HIT_DTYPE
-2. ThresholdHitFinderPlugin: 旧版兼容插件（provides='hits'），输出 PEAK_DTYPE
+2. ThresholdHitPlugin: 新的纯阈值 hit 插件（provides='hit_threshold'），输出 THRESHOLD_HIT_DTYPE
 """
 
 from typing import Any
@@ -12,10 +11,7 @@ import warnings
 
 import numpy as np
 
-from waveform_analysis.core.hardware.channel import (
-    iter_hardware_channel_groups,
-    resolve_effective_channel_config,
-)
+from waveform_analysis.core.hardware.channel import resolve_effective_channel_config
 from waveform_analysis.core.plugins.builtin.cpu._dt_compat import (
     require_dt_array,
     resolve_dt_config,
@@ -36,7 +32,6 @@ from waveform_analysis.core.plugins.builtin.cpu.peak_finding import (
     HitFinderPlugin as _CanonicalHitFinderPlugin,
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
-from waveform_analysis.core.processing.dtypes import PEAK_DTYPE
 from waveform_analysis.core.processing.event_grouping import find_hits
 
 THRESHOLD_HIT_DTYPE = np.dtype(
@@ -442,62 +437,8 @@ class ThresholdHitPlugin(Plugin):
         return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
 
 
-class ThresholdHitFinderPlugin(Plugin):
-    """Example implementation of the legacy HitFinder as a plugin."""
-
-    provides = "hits"
-    depends_on = []  # 动态依赖，由 resolve_depends_on 决定
-    description = "Legacy peak-style hit detector compatible with PEAK_DTYPE output."
-    version = "2.2.0"  # 版本升级：按 (board, channel) 分组
-    output_dtype = np.dtype(PEAK_DTYPE)
-
-    options = {
-        "threshold": Option(default=10.0, type=float, help="Hit 检测阈值"),
-        "use_filtered": Option(
-            default=False,
-            type=bool,
-            help="是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin）",
-        ),
-    }
-
-    def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
-        if context.get_config(self, "use_filtered"):
-            return ["filtered_waveforms"]
-        return ["st_waveforms"]
-
-    def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
-        threshold = context.get_config(self, "threshold")
-        use_filtered = context.get_config(self, "use_filtered")
-
-        waveform_data = (
-            context.get_data(run_id, "filtered_waveforms")
-            if use_filtered
-            else context.get_data(run_id, "st_waveforms")
-        )
-
-        if not isinstance(waveform_data, np.ndarray):
-            raise ValueError("hits expects st_waveforms as a single structured array")
-
-        if len(waveform_data) == 0:
-            return np.zeros(0, dtype=PEAK_DTYPE)
-
-        hits_all: list[np.ndarray] = []
-        for hw_channel, st_ch in iter_hardware_channel_groups(waveform_data):
-            waves_2d = np.stack(st_ch["wave"])
-            hits = find_hits(waves_2d, st_ch["baseline"], threshold=threshold)
-            if len(hits) > 0:
-                hits["board"] = np.int16(hw_channel.board)
-                hits["channel"] = np.int16(hw_channel.channel)
-            hits_all.append(hits)
-
-        if not hits_all:
-            return np.zeros(0, dtype=PEAK_DTYPE)
-        return np.concatenate(hits_all)
-
-
 __all__ = [
     "HitFinderPlugin",
     "ThresholdHitPlugin",
-    "ThresholdHitFinderPlugin",
     "THRESHOLD_HIT_DTYPE",
 ]

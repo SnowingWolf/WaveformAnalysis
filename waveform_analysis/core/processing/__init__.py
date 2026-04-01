@@ -77,7 +77,6 @@ from .records_builder import (
 _WAVEFORM_COMPAT_EXPORTS = (
     "WaveformStruct",
     "WaveformStructConfig",
-    "create_channel_mapping",
 )
 
 
@@ -87,13 +86,11 @@ def __getattr__(name):
         from waveform_analysis.core.plugins.builtin.cpu.waveforms import (
             WaveformStruct,
             WaveformStructConfig,
-            create_channel_mapping,
         )
 
         mapping = {
             "WaveformStruct": WaveformStruct,
             "WaveformStructConfig": WaveformStructConfig,
-            "create_channel_mapping": create_channel_mapping,
         }
         return mapping[name]
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
@@ -105,7 +102,6 @@ __all__ = [
     # 信号处理
     "WaveformStruct",
     "WaveformStructConfig",
-    "create_channel_mapping",
     "group_multi_channel_hits",
     "find_hits",
     "ST_WAVEFORM_DTYPE",

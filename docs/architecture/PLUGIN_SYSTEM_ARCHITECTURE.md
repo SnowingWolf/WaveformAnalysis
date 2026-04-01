@@ -39,7 +39,6 @@ waveform_analysis/core/plugins/
 │   ├── streaming/                # 流式处理插件
 │   │   ├── cpu/                  # CPU 流式插件
 │   │   └── jax/                  # JAX 流式插件（占位）
-│   └── legacy/                   # 向后兼容层（弃用警告）
 │
 ├── plugin_sets/                  # 可组合的插件集合
 │   ├── io.py                     # I/O 插件集
@@ -48,7 +47,7 @@ waveform_analysis/core/plugins/
 │   ├── tabular.py                # DataFrame 转换插件集
 │   ├── events.py                 # 事件分组/配对插件集
 │   ├── peaks.py                  # 峰相关插件集
-│   └── diagnostics_legacy.py     # 诊断/兼容插件集
+│   └── ...
 │
 ├── profiles.py                   # 执行配置文件
 └── __init__.py
@@ -170,7 +169,7 @@ WaveformsPlugin (waveforms)
     ↓
 FilteredWaveformsPlugin (filtered_waveforms) [可选]
     ↓
-HitFinderPlugin (hits)
+HitFinderPlugin (hit)
     ↓
 BasicFeaturesPlugin (basic_features)
     ↓
@@ -189,7 +188,7 @@ PairedEventsPlugin (paired_events)
 | WaveformsPlugin | `waveforms` | `raw_files` | 从 CSV 提取波形数据 |
 | FilteredWaveformsPlugin | `filtered_waveforms` | `waveforms` | Butterworth/Savitzky-Golay 滤波 |
 | SignalPeaksPlugin | `signal_peaks` | `waveforms` | scipy.signal 峰值检测 |
-| HitFinderPlugin | `hits` | `waveforms` | Hit 事件检测 |
+| HitFinderPlugin | `hit` | `waveforms` | Hit 事件检测 |
 | BasicFeaturesPlugin | `basic_features` | `waveforms` | 计算 height/amp/area 特征 |
 | DataFramePlugin | `df` | `basic_features` | 转换为 pandas DataFrame |
 | GroupedEventsPlugin | `grouped_events` | `df` | 时间窗口分组（Numba 加速） |

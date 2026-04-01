@@ -38,7 +38,7 @@
     - `on_error` / `cleanup`: 生命周期钩子，确保异常处理和资源释放。
 - **插件分层**:
     - `plugins/core/`: 核心基础设施（`base`, `streaming`, `loader`, `stats`, `hot_reload`, `adapters`）。
-    - `plugins/builtin/`: 内置插件，按加速器划分（`cpu/`, `jax/`, `streaming/`, `legacy/`）。
+    - `plugins/builtin/`: 内置插件，按加速器划分（`cpu/`, `jax/`, `streaming/`）。
 - **兼容与扩展**:
     - `StreamingPlugin` 支持 Chunk 流式计算。
     - `StraxPluginAdapter`/`StraxContextAdapter` 提供 strax 插件与 API 兼容。
@@ -434,7 +434,7 @@ flowchart LR
    - `depends_on`: `["df_events"]`
 
 **可选扩展插件**：
-- **`HitFinderPlugin`**: `hits`（依赖 `st_waveforms`）
+- **`HitFinderPlugin`**: `hit`（依赖 `st_waveforms`）
 - **`SignalPeaksPlugin`**: `signal_peaks`（依赖 `filtered_waveforms` + `st_waveforms`）
 
 ### 5.2 数据流向图
@@ -451,7 +451,7 @@ graph TD
     F -->|DataFramePlugin| H
     H -->|GroupedEventsPlugin<br/>Numba + Multiprocessing| I(df_events: 聚类事件 DataFrame)
     I -->|PairedEventsPlugin| J(df_paired: 配对事件 DataFrame)
-    D -->|HitFinderPlugin| K(hits: Hit 列表)
+    D -->|HitFinderPlugin| K(hit: Hit 列表)
     E -->|SignalPeaksPlugin| L(signal_peaks: 高级峰值)
     J -->|Persistence| M[Parquet/CSV/Cache]
 
@@ -486,7 +486,7 @@ graph TD
 
 ### 7.1 模块化核心与插件分层 (2026-01)
 - `core/` 拆分为 storage/execution/plugins/processing/data/foundation，Context 保持在根目录。
-- 内置插件按加速器分层：`builtin/cpu/`, `builtin/jax/`, `builtin/streaming/`, `builtin/legacy/`。
+- 内置插件按加速器分层：`builtin/cpu/`, `builtin/jax/`, `builtin/streaming/`。
 
 ### 7.2 DAQ 适配器与 WaveformStruct 解耦 (2026-01)
 - **新增模块**: `waveform_analysis/utils/formats/`

@@ -178,7 +178,6 @@ class Context(PluginMixin):
             "st_waveforms",
             "filtered_waveforms",
             "basic_features",
-            "hits",
             "signal_peaks_stream",
             "waveform_width",
             "waveform_width_integral",
@@ -960,31 +959,6 @@ class Context(PluginMixin):
         return self._cache_domain.clear_cache_for(
             run_id,
             data_name=data_name,
-            downstream=downstream,
-            clear_memory=clear_memory,
-            clear_disk=clear_disk,
-            verbose=verbose,
-        )
-
-    def clear_cache(
-        self,
-        run_id: str,
-        data_name: str | None = None,
-        *,
-        downstream: bool = False,
-        clear_memory: bool = True,
-        clear_disk: bool = True,
-        verbose: bool = True,
-    ) -> int:
-        """Deprecated compatibility wrapper for ``clear_cache_for``."""
-        warnings.warn(
-            "Context.clear_cache() is deprecated; use Context.clear_cache_for() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.clear_cache_for(
-            run_id,
-            data_name,
             downstream=downstream,
             clear_memory=clear_memory,
             clear_disk=clear_disk,
