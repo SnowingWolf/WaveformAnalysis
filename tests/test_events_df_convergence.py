@@ -42,18 +42,17 @@ def test_removed_events_grouped_data_name_raises_migration_error():
         ctx.get_data("run_001", "events_grouped")
 
 
-def test_legacy_events_df_gain_config_migrates_to_df():
+def test_legacy_events_df_gain_config_no_longer_migrates():
     ctx = Context(config={"events_df.gain_adc_per_pe": {"0": 12.5}})
     ctx.register(_DFGainEchoPlugin())
 
     result = ctx.get_data("run_001", "df")
 
-    assert result == {"0": 12.5}
-    assert "events_df.gain_adc_per_pe" not in ctx.config
-    assert ctx.config["df.gain_adc_per_pe"] == {"0": 12.5}
+    assert result is None
+    assert ctx.config["events_df.gain_adc_per_pe"] == {"0": 12.5}
 
 
-def test_legacy_events_df_gain_is_ignored_when_df_config_exists():
+def test_legacy_events_df_gain_is_ignored_even_when_df_config_exists():
     ctx = Context(
         config={
             "df.gain_adc_per_pe": {"0": 3.0},
@@ -65,18 +64,18 @@ def test_legacy_events_df_gain_is_ignored_when_df_config_exists():
     result = ctx.get_data("run_001", "df")
 
     assert result == {"0": 3.0}
-    assert "events_df.gain_adc_per_pe" not in ctx.config
+    assert ctx.config["events_df.gain_adc_per_pe"] == {"0": 12.5}
 
 
-def test_removed_events_df_config_keys_fail_fast():
+def test_legacy_removed_events_df_config_keys_are_ignored():
     ctx = Context(config={"events_df.include_event_id": False})
     ctx.register(_DFGainEchoPlugin())
 
-    with pytest.raises(ValueError, match="events_df.include_event_id"):
-        ctx.get_data("run_001", "df")
+    result = ctx.get_data("run_001", "df")
+    assert result is None
 
 
-def test_legacy_events_grouped_config_migrates_to_df_events_and_globals():
+def test_legacy_events_grouped_config_no_longer_migrates():
     ctx = Context(
         config={
             "events_grouped.time_window_ns": 3.5,
@@ -88,12 +87,9 @@ def test_legacy_events_grouped_config_migrates_to_df_events_and_globals():
 
     result = ctx.get_data("run_001", "df_events")
 
-    assert result["time_window_ns"] == 3.5
-    assert result["use_numba"] is False
-    assert result["n_processes"] == 4
-    assert "events_grouped.time_window_ns" not in ctx.config
-    assert "events_grouped.use_numba" not in ctx.config
-    assert "events_grouped.n_processes" not in ctx.config
-    assert ctx.config["df_events.time_window_ns"] == 3.5
-    assert ctx.config["use_numba"] is False
-    assert ctx.config["n_processes"] == 4
+    assert result["time_window_ns"] == 100.0
+    assert result["use_numba"] is None
+    assert result["n_processes"] is None
+    assert ctx.config["events_grouped.time_window_ns"] == 3.5
+    assert ctx.config["events_grouped.use_numba"] is False
+    assert ctx.config["events_grouped.n_processes"] == 4

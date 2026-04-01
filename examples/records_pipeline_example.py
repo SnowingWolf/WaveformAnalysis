@@ -43,11 +43,11 @@ def main() -> None:
     events = ctx.get_data(run_id, "events")
     print(f"events={len(events)}")
 
-    events_df = ctx.get_data(run_id, "events_df")
-    print(f"events_df={len(events_df)}")
+    df = ctx.get_data(run_id, "df")
+    print(f"df={len(df)}")
 
-    events_grouped = ctx.get_data(run_id, "events_grouped")
-    print(f"events_grouped={len(events_grouped)}")
+    df_events = ctx.get_data(run_id, "df_events")
+    print(f"df_events={len(df_events)}")
 
     rv = records_view(ctx, run_id)
     first_record_id = int(records[0]["record_id"])

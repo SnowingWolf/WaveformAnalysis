@@ -226,18 +226,6 @@ class Context(PluginMixin):
         "run_config_path_template": "兼容旧配置的 run 配置路径模板",
         "storage_dir": "缓存与处理产物存储目录",
     }
-    _LEGACY_CONFIG_KEY_RENAMES = (
-        ("events_df", "gain_adc_per_pe", "df", "gain_adc_per_pe"),
-        ("events_grouped", "time_window_ns", "df_events", "time_window_ns"),
-        ("events_grouped", "use_numba", None, "use_numba"),
-        ("events_grouped", "n_processes", None, "n_processes"),
-    )
-    _LEGACY_CONFIG_KEY_REMOVED = (
-        ("events_df", "fixed_baseline"),
-        ("events_df", "peaks_range"),
-        ("events_df", "charge_range"),
-        ("events_df", "include_event_id"),
-    )
     _TIME_DOMAIN_SYSTEM_NS = "system_ns"
     _TIME_DOMAIN_RAW_PS = "raw_ps"
     _TIME_DOMAIN_CHOICES = frozenset({_TIME_DOMAIN_SYSTEM_NS, _TIME_DOMAIN_RAW_PS})
@@ -392,8 +380,6 @@ class Context(PluginMixin):
         self._run_config_cache: dict[str, dict[str, Any]] = {}
         self._run_config_hash_cache: dict[str, str] = {}
         self._run_config_hash_loaded: set[str] = set()
-        self._legacy_config_notices: set[str] = set()
-
         # Plugin discovery
         self.plugin_dirs = external_plugin_dirs or []
         if auto_discover_plugins:

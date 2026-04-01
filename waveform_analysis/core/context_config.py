@@ -46,93 +46,6 @@ class ContextConfigDomain:
         self.ctx._run_config_cache.clear()
         self.ctx._run_config_hash_loaded.clear()
 
-    def warn_legacy_config_once(self, notice_key: str, message: str) -> None:
-        if notice_key in self.ctx._legacy_config_notices:
-            return
-        self.ctx._legacy_config_notices.add(notice_key)
-        self.ctx.logger.warning(message)
-
-    def find_plugin_scoped_config(self, plugin_name: str, option_name: str) -> tuple[bool, Any]:
-        nested = self.ctx.config.get(plugin_name)
-        if isinstance(nested, dict) and option_name in nested:
-            return True, nested[option_name]
-        dotted_key = f"{plugin_name}.{option_name}"
-        if dotted_key in self.ctx.config:
-            return True, self.ctx.config[dotted_key]
-        return False, None
-
-    def pop_plugin_scoped_config(self, plugin_name: str, option_name: str) -> tuple[bool, Any]:
-        nested = self.ctx.config.get(plugin_name)
-        if isinstance(nested, dict) and option_name in nested:
-            value = nested.pop(option_name)
-            if not nested:
-                self.ctx.config.pop(plugin_name, None)
-            return True, value
-
-        dotted_key = f"{plugin_name}.{option_name}"
-        if dotted_key in self.ctx.config:
-            return True, self.ctx.config.pop(dotted_key)
-        return False, None
-
-    def has_destination_config(self, plugin_name: str | None, option_name: str) -> bool:
-        if plugin_name is None:
-            return option_name in self.ctx.config
-
-        nested = self.ctx.config.get(plugin_name)
-        if isinstance(nested, dict) and option_name in nested:
-            return True
-        dotted_key = f"{plugin_name}.{option_name}"
-        if dotted_key in self.ctx.config:
-            return True
-        return option_name in self.ctx.config
-
-    def set_destination_config(self, plugin_name: str | None, option_name: str, value: Any) -> None:
-        if plugin_name is None:
-            self.ctx.config[option_name] = value
-            return
-        self.ctx.config[f"{plugin_name}.{option_name}"] = value
-
-    def migrate_legacy_events_config(self) -> None:
-        unsupported = []
-        for plugin_name, option_name in self.ctx._LEGACY_CONFIG_KEY_REMOVED:
-            found, _value = self.find_plugin_scoped_config(plugin_name, option_name)
-            if found:
-                unsupported.append(f"{plugin_name}.{option_name}")
-
-        if unsupported:
-            unsupported_text = ", ".join(sorted(unsupported))
-            raise ValueError(
-                "Legacy config keys are no longer supported after removing events_df/events_grouped: "
-                f"{unsupported_text}. Please migrate to the df/df_events pipeline."
-            )
-
-        config_changed = False
-        for old_plugin, old_option, new_plugin, new_option in self.ctx._LEGACY_CONFIG_KEY_RENAMES:
-            found, value = self.pop_plugin_scoped_config(old_plugin, old_option)
-            if not found:
-                continue
-
-            old_key = f"{old_plugin}.{old_option}"
-            new_key = new_option if new_plugin is None else f"{new_plugin}.{new_option}"
-            config_changed = True
-
-            if self.has_destination_config(new_plugin, new_option):
-                self.warn_legacy_config_once(
-                    "legacy_config_ignore:" + old_key,
-                    f"Ignoring legacy config '{old_key}' because '{new_key}' is already configured.",
-                )
-                continue
-
-            self.set_destination_config(new_plugin, new_option, value)
-            self.warn_legacy_config_once(
-                "legacy_config_migrate:" + old_key,
-                f"Migrated legacy config '{old_key}' to '{new_key}'.",
-            )
-
-        if config_changed:
-            self.ctx.clear_config_cache()
-            self.ctx.clear_performance_caches()
-
     def raise_if_removed_data_name(self, data_name: str) -> None:
         replacement = self.ctx._REMOVED_DATA_NAME_ALIASES.get(data_name)
         if replacement is None:
@@ -516,7 +429,6 @@ class ContextConfigDomain:
 
     def prepare_request(self, run_id: str, data_name: str) -> None:
         self.raise_if_removed_data_name(data_name)
-        self.migrate_legacy_events_config()
         self.sync_custom_config_json(run_id, data_name)
         self.ctx._last_run_id = run_id
         self.maybe_invalidate_run_config_cache(run_id)
