@@ -449,10 +449,11 @@ def _structure_waveforms_streaming(
                 )
             output[offset : offset + n]["dt"] = np.int32(dt_ns)
 
-            if epoch_ns is not None:
-                output[offset : offset + n]["time"] = epoch_ns + timestamps // 1000
-            else:
-                output[offset : offset + n]["time"] = timestamps // 1000
+            if "time" in output.dtype.names:
+                if epoch_ns is not None:
+                    output[offset : offset + n]["time"] = epoch_ns + timestamps // 1000
+                else:
+                    output[offset : offset + n]["time"] = timestamps // 1000
 
             if n_samples > 0:
                 dest = output[offset : offset + n]["wave"][:, :n_samples]
@@ -461,6 +462,8 @@ def _structure_waveforms_streaming(
                     np.copyto(dest, src)
                 else:
                     np.copyto(dest, src, casting="unsafe")
+            if "event_length" in output.dtype.names:
+                output[offset : offset + n]["event_length"] = np.int32(n_samples)
 
             if ch_upstream_baseline is not None:
                 output[offset : offset + n]["baseline_upstream"] = np.nan
@@ -1049,7 +1052,19 @@ class WaveformsPlugin(Plugin):
     }
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
-        """动态解析依赖关系"""
+        """动态解析依赖关系。
+
+        WaveformsPlugin itself always starts from raw_files. However, users
+        often read it together with RecordsPlugin, and their effective
+        relationship is adapter-dependent:
+
+        - Non-V1725 adapters, including VX2730: st_waveforms -> records
+        - V1725 adapter: records keeps a dedicated raw-file path; st_waveforms
+          is built independently when requested
+
+        Keep both plugins in the same plugin set to make this relationship
+        visible and avoid circular-dependency misunderstandings.
+        """
         deps = ["raw_files"]
         if context.get_config(self, "use_upstream_baseline"):
             deps.append("baseline")

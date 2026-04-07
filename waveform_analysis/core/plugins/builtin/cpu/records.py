@@ -2,17 +2,13 @@
 Records plugin with internal wave_pool bundle (CPU).
 """
 
-from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
 
 from waveform_analysis.core.plugins.builtin.cpu._dt_compat import resolve_dt_config
 from waveform_analysis.core.plugins.builtin.cpu.waveforms import (
-    WaveformStruct,
-    WaveformStructConfig,
     _build_polarity_lookup,
-    _structure_waveforms_streaming,
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.dtypes import RECORDS_DTYPE
@@ -109,44 +105,6 @@ def _cleanup_stale_bundles(context: Any, run_id: str, keep_key: str) -> None:
         del context._results[key]
 
 
-def _resolve_epoch_ns(adapter_name: str | None, raw_files: list) -> int | None:
-    if not adapter_name or not raw_files or not raw_files[0]:
-        return None
-
-    try:
-        from waveform_analysis.utils.formats import get_adapter
-
-        adapter = get_adapter(adapter_name)
-        first_file = Path(raw_files[0][0])
-        return adapter.get_file_epoch(first_file)
-    except Exception:
-        return None
-
-
-def _load_waveforms_for_records(
-    context: Any,
-    raw_files: list,
-    plugin: Plugin,
-    adapter_name: str | None,
-) -> list:
-    if not raw_files:
-        return []
-
-    from waveform_analysis.core.processing.loader import get_waveforms
-
-    return get_waveforms(
-        raw_filess=raw_files,
-        n_channels=len(raw_files),
-        show_progress=context.config.get("show_progress", True),
-        channel_workers=context.get_config(plugin, "channel_workers"),
-        channel_executor=context.get_config(plugin, "channel_executor"),
-        n_jobs=context.get_config(plugin, "n_jobs"),
-        use_process_pool=context.get_config(plugin, "use_process_pool"),
-        chunksize=context.get_config(plugin, "chunksize"),
-        daq_adapter=adapter_name,
-    )
-
-
 def _build_records_bundle(
     context: Any,
     run_id: str,
@@ -183,28 +141,9 @@ def _build_records_bundle(
         _cleanup_stale_bundles(context, run_id, cache_key)
         return bundle
 
-    if adapter_name:
-        config = WaveformStructConfig.from_adapter(adapter_name)
-    else:
-        config = WaveformStructConfig.default_vx2730()
-    config.dt_ns = dt_ns
-    config.epoch_ns = _resolve_epoch_ns(adapter_name, raw_files)
-
-    show_progress = context.config.get("show_progress", True)
-    try:
-        st_waveforms = _structure_waveforms_streaming(
-            context=context,
-            run_id=run_id,
-            raw_files=raw_files,
-            config=config,
-            baseline_samples=None,
-            upstream_baselines=None,
-            show_progress=show_progress,
-        )
-    except Exception:
-        waveforms = _load_waveforms_for_records(context, raw_files, plugin, adapter_name)
-        waveform_struct = WaveformStruct(waveforms, config=config)
-        st_waveforms = waveform_struct.structure_waveforms(show_progress=show_progress)
+    st_waveforms = context.get_data(run_id, "st_waveforms")
+    if not isinstance(st_waveforms, np.ndarray):
+        raise ValueError("records expects st_waveforms as a single structured array")
 
     bundle = build_records_from_st_waveforms_sharded(
         st_waveforms,
@@ -222,7 +161,7 @@ class RecordsPlugin(Plugin):
     """Build records (event index table) from raw_files."""
 
     provides = "records"
-    depends_on = ["raw_files"]
+    depends_on = []
     uses_run_config = True
     description = "Build records (event index table) from raw_files."
     save_when = "always"
@@ -275,6 +214,23 @@ class RecordsPlugin(Plugin):
     }
     version = "0.8.1"
 
+    def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
+        """Resolve adapter-specific upstream data for records.
+
+        Upstream data differs by adapter:
+
+        - Non-V1725 adapters, including VX2730: st_waveforms -> records
+        - V1725 adapter: raw_files -> records
+
+        This is why RecordsPlugin and WaveformsPlugin should be registered in
+        the same plugin set: users may switch adapters, but the valid upstream
+        for records changes with the adapter.
+        """
+        adapter_name = _resolve_adapter_name(context, self)
+        if adapter_name == "v1725":
+            return ["raw_files"]
+        return ["st_waveforms"]
+
     def get_lineage(self, context: Any) -> dict:
         adapter_name = _resolve_adapter_name(context, self)
         config = {}
@@ -301,11 +257,18 @@ class RecordsPlugin(Plugin):
 
 
 def get_records_bundle(context: Any, run_id: str) -> RecordsBundle:
-    """Get records + wave_pool bundle for a run (internal cache)."""
+    """Get records + wave_pool bundle for a run (internal cache).
+
+    For non-V1725 adapters, records reuse the already-resolved st_waveforms
+    result instead of reparsing raw files. V1725 keeps its dedicated raw-file
+    path for compatibility and performance.
+    """
     plugin = context.get_plugin("records")
     adapter_name = _resolve_adapter_name(context, plugin)
     dt_ns = _resolve_dt_ns(context, plugin, adapter_name=adapter_name)
     part_size = context.get_config(plugin, "records_part_size")
+    if part_size is None:
+        part_size = plugin.options["records_part_size"].default
     return _build_records_bundle(
         context,
         run_id,
