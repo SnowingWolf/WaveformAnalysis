@@ -17,7 +17,7 @@
 
 This plugin depends on the following data:
 
-- [`hit_threshold`](hit_threshold.md)
+- `hit_merge_clusters` (internal)
 - [`hit_merged`](hit_merged.md)
 
 ## Configuration Options

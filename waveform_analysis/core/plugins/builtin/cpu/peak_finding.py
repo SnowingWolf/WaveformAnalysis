@@ -151,6 +151,8 @@ class HitFinderPlugin(Plugin):
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         source = resolve_wave_source(context, self)
+        # Dynamic dependency: hit selects its waveform upstream from
+        # records/st_waveforms/filtered_waveforms via wave_source/use_filtered.
         return resolve_wave_depends_on(source, bool(context.get_config(self, "use_filtered")))
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:

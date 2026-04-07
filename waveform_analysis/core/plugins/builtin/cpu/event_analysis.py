@@ -70,9 +70,9 @@ class HitGroupedPlugin(Plugin):
     """Plugin to group merged hits across channels using absolute hit windows."""
 
     provides = "hit_grouped"
-    depends_on = ["hit_merged"]
+    depends_on = ["hit_merged", "hit_merged_components", "hit_threshold"]
     description = "Group merged hits across channels into event-level coincidence windows."
-    version = "0.3.0"
+    version = "0.5.0"
     save_when = "always"
     options = {
         "time_window_ns": Option(default=100.0, type=float),
@@ -85,6 +85,8 @@ class HitGroupedPlugin(Plugin):
 
     def compute(self, context: Any, run_id: str, **kwargs) -> Any:
         hits = context.get_data(run_id, "hit_merged")
+        component_rows = context.get_data(run_id, "hit_merged_components")
+        component_hits = context.get_data(run_id, "hit_threshold")
         time_window_ns = float(context.get_config(self, "time_window_ns"))
         explicit_dt = resolve_dt_config(
             context, self, deprecated_keys=("sampling_interval_ns", "dt_ns")
@@ -99,6 +101,8 @@ class HitGroupedPlugin(Plugin):
             hits,
             time_window_ns=time_window_ns,
             dt_values=dt_values,
+            component_rows=component_rows,
+            component_hits=component_hits,
         )
 
 

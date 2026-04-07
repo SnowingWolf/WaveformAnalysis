@@ -9,7 +9,7 @@
 | Provides | `hit_merged` |
 | Depends On | `hit_threshold` |
 | Output Kind | `structured_array` |
-| Version | `0.6.0` |
+| Version | `0.8.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merge` |
 | Accelerator | `cpu` |
 
@@ -24,8 +24,8 @@
 | `position` | `int64` |
 | `height` | `float32` |
 | `integral` | `float32` |
-| `edge_start` | `float32` |
-| `edge_end` | `float32` |
+| `sample_start` | `int32` |
+| `sample_end` | `int32` |
 | `width` | `float32` |
 | `dt` | `int32` |
 | `rise_time` | `float32` |
@@ -34,15 +34,13 @@
 | `board` | `int16` |
 | `channel` | `int16` |
 | `record_id` | `int64` |
-| `record_sample_start` | `int32` |
-| `record_sample_end` | `int32` |
-| `wave_pool_start` | `int64` |
-| `wave_pool_end` | `int64` |
 | `component_offset` | `int64` |
 | `component_count` | `int32` |
 
 说明：
-跨 `record_id` 合并时，`record_sample_*` 与 `wave_pool_*` 统一填 `-1`，需要通过 `hit_merged_components` 追溯到组件 hit。
+单 `record_id` 合并时，`sample_start` / `sample_end` 为安全半开样本窗口 `[start, end)`。
+跨 `record_id` 合并时，`sample_start = sample_end = -1`、`width = -1`，消费方需要通过
+`hit_merged_components` 回查到组件 `hit_threshold` 行，再恢复真实波形窗口。
 
 ## Config
 

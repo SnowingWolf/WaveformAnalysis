@@ -13,6 +13,7 @@ def plugins_peaks():
     """Return peaks-related plugin instances in dependency order."""
     from waveform_analysis.core.plugins.builtin.cpu.hit_finder import ThresholdHitPlugin
     from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
+        HitMergeClustersPlugin,
         HitMergedComponentsPlugin,
         HitMergePlugin,
     )
@@ -23,6 +24,7 @@ def plugins_peaks():
     return [
         HitFinderPlugin(),
         ThresholdHitPlugin(),
+        HitMergeClustersPlugin(),
         HitMergePlugin(),
         HitMergedComponentsPlugin(),
         WaveformWidthPlugin(),

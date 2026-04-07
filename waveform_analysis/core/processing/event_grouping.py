@@ -288,6 +288,8 @@ def group_hit_windows(
     hits: np.ndarray,
     time_window_ns: float,
     dt_values: np.ndarray | None = None,
+    component_rows: np.ndarray | None = None,
+    component_hits: np.ndarray | None = None,
 ) -> pd.DataFrame:
     """Group ``hit_merged`` rows into multi-channel events using absolute hit windows."""
     columns = [
@@ -303,8 +305,8 @@ def group_hit_windows(
         "integrals",
         "timestamps",
         "record_ids",
-        "edge_starts",
-        "edge_ends",
+        "sample_starts",
+        "sample_ends",
     ]
 
     if not isinstance(hits, np.ndarray):
@@ -318,8 +320,6 @@ def group_hit_windows(
     required = {
         "timestamp",
         "position",
-        "edge_start",
-        "edge_end",
         "board",
         "channel",
         "height",
@@ -327,9 +327,20 @@ def group_hit_windows(
         "record_id",
     }
     names = set(hits.dtype.names or ())
+    if {"sample_start", "sample_end"}.issubset(names):
+        start_name = "sample_start"
+        end_name = "sample_end"
+    elif {"edge_start", "edge_end"}.issubset(names):
+        start_name = "edge_start"
+        end_name = "edge_end"
+    else:
+        start_name = "sample_start"
+        end_name = "sample_end"
     missing = sorted(required - names)
     if missing:
         raise KeyError(f"hits missing required fields: {missing}")
+    if start_name not in names or end_name not in names:
+        raise KeyError(f"hits missing required fields: {[start_name, end_name]}")
 
     timestamps = np.asarray(hits["timestamp"], dtype=np.int64)
     positions = np.asarray(hits["position"], dtype=np.float64)
@@ -343,8 +354,8 @@ def group_hit_windows(
         raise ValueError("dt_values length must match hits")
     if np.any(dt_values <= 0):
         raise ValueError("hit dt must be positive for every row")
-    edge_starts_rel = np.asarray(hits["edge_start"], dtype=np.float64)
-    edge_ends_rel = np.asarray(hits["edge_end"], dtype=np.float64)
+    sample_starts_rel = np.asarray(hits[start_name], dtype=np.int32)
+    sample_ends_rel = np.asarray(hits[end_name], dtype=np.int32)
     boards = np.asarray(hits["board"], dtype=np.int16)
     channels = np.asarray(hits["channel"], dtype=np.int16)
     heights = np.asarray(hits["height"], dtype=np.float32)
@@ -352,8 +363,57 @@ def group_hit_windows(
     record_ids = np.asarray(hits["record_id"], dtype=np.int64)
 
     dt_ps = dt_values.astype(np.float64) * 1e3
-    abs_starts = timestamps.astype(np.float64) + (edge_starts_rel - positions) * dt_ps
-    abs_ends = timestamps.astype(np.float64) + (edge_ends_rel - positions) * dt_ps
+    abs_starts = timestamps.astype(np.float64) + (sample_starts_rel - positions) * dt_ps
+    abs_ends = timestamps.astype(np.float64) + (sample_ends_rel - positions) * dt_ps
+
+    invalid_window_mask = (sample_starts_rel < 0) | (sample_ends_rel < 0)
+    if np.any(invalid_window_mask):
+        if component_rows is None or component_hits is None:
+            raise ValueError(
+                "component_rows and component_hits are required when hit windows contain invalid edges"
+            )
+        hit_indices = np.asarray(component_rows["hit_index"], dtype=np.int64)
+        component_timestamps = np.asarray(component_hits["timestamp"], dtype=np.int64)
+        component_positions = np.asarray(component_hits["position"], dtype=np.float64)
+        component_dt = np.asarray(component_hits["dt"], dtype=np.int32)
+        component_edge_starts = np.asarray(component_hits["edge_start"], dtype=np.int32)
+        component_edge_ends = np.asarray(component_hits["edge_end"], dtype=np.int32)
+        component_dt_ps = component_dt.astype(np.float64) * 1e3
+        component_abs_starts = (
+            component_timestamps.astype(np.float64)
+            + (component_edge_starts - component_positions) * component_dt_ps
+        )
+        component_abs_ends = (
+            component_timestamps.astype(np.float64)
+            + (component_edge_ends - component_positions) * component_dt_ps
+        )
+
+        component_offsets = None
+        component_counts = None
+        if "component_offset" in names and "component_count" in names:
+            component_offsets = np.asarray(hits["component_offset"], dtype=np.int64)
+            component_counts = np.asarray(hits["component_count"], dtype=np.int32)
+        else:
+            merged_indices = np.asarray(component_rows["merged_index"], dtype=np.int64)
+
+        for merged_idx in np.flatnonzero(invalid_window_mask):
+            if component_offsets is not None and component_counts is not None:
+                offset = int(component_offsets[merged_idx])
+                count = int(component_counts[merged_idx])
+                if count <= 0:
+                    raise ValueError(
+                        f"missing hit_merged_components rows for hit_merged index {int(merged_idx)}"
+                    )
+                subset = hit_indices[offset : offset + count]
+            else:
+                component_mask = merged_indices == int(merged_idx)
+                if not np.any(component_mask):
+                    raise ValueError(
+                        f"missing hit_merged_components rows for hit_merged index {int(merged_idx)}"
+                    )
+                subset = hit_indices[component_mask]
+            abs_starts[merged_idx] = float(np.min(component_abs_starts[subset]))
+            abs_ends[merged_idx] = float(np.max(component_abs_ends[subset]))
 
     order = np.lexsort((record_ids, timestamps, dt_values, abs_starts))
     gap_ps = time_window_ns * 1e3
@@ -386,8 +446,8 @@ def group_hit_windows(
             "integrals": integrals[subset].copy(),
             "timestamps": timestamps[subset].copy(),
             "record_ids": record_ids[subset].copy(),
-            "edge_starts": abs_starts[subset].astype(np.int64),
-            "edge_ends": abs_ends[subset].astype(np.int64),
+            "sample_starts": sample_starts_rel[subset].astype(np.int32, copy=True),
+            "sample_ends": sample_ends_rel[subset].astype(np.int32, copy=True),
         }
 
     records: list[dict[str, object]] = []

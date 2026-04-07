@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `hit_merged` |
-| **Version** | `0.6.0` |
+| **Version** | `0.8.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -37,8 +37,8 @@ This plugin depends on the following data:
 | `position` | `int64` | - | - |
 | `height` | `float32` | - | - |
 | `integral` | `float32` | - | - |
-| `edge_start` | `float32` | - | - |
-| `edge_end` | `float32` | - | - |
+| `sample_start` | `int32` | - | 单 record 时为安全半开样本起点；跨 record 时为 `-1` |
+| `sample_end` | `int32` | - | 单 record 时为安全半开样本终点；跨 record 时为 `-1` |
 | `width` | `float32` | - | - |
 | `dt` | `int32` | - | - |
 | `rise_time` | `float32` | - | - |
@@ -47,10 +47,6 @@ This plugin depends on the following data:
 | `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |
 | `record_id` | `int64` | - | - |
-| `record_sample_start` | `int32` | - | - |
-| `record_sample_end` | `int32` | - | - |
-| `wave_pool_start` | `int64` | - | - |
-| `wave_pool_end` | `int64` | - | - |
 | `component_offset` | `int64` | - | - |
 | `component_count` | `int32` | - | - |
 

@@ -31,8 +31,10 @@ from .event_analysis import GroupedEventsPlugin, HitGroupedPlugin, PairedEventsP
 from .filtering import FilteredWaveformsPlugin
 from .hit_finder import THRESHOLD_HIT_DTYPE, ThresholdHitPlugin
 from .hit_merge import (
+    HIT_MERGE_CLUSTERS_DTYPE,
     HIT_MERGED_COMPONENTS_DTYPE,
     HIT_MERGED_DTYPE,
+    HitMergeClustersPlugin,
     HitMergedComponentsPlugin,
     HitMergePlugin,
 )
@@ -90,8 +92,10 @@ __all__ = [
     "FilteredWaveformsPlugin",
     "ThresholdHitPlugin",
     "THRESHOLD_HIT_DTYPE",
+    "HitMergeClustersPlugin",
     "HitMergePlugin",
     "HitMergedComponentsPlugin",
+    "HIT_MERGE_CLUSTERS_DTYPE",
     "HIT_MERGED_DTYPE",
     "HIT_MERGED_COMPONENTS_DTYPE",
     # 寻峰插件

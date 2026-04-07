@@ -48,6 +48,10 @@ def resolve_wave_source(
 
 
 def resolve_depends_on(source: str, use_filtered: bool) -> list[str]:
+    # Dynamic dependency mapping for waveform-consuming plugins:
+    # - explicit wave_source wins
+    # - otherwise auto mode falls back to filtered_waveforms when use_filtered
+    #   is true, or st_waveforms when it is false
     if source == WAVE_SOURCE_RECORDS:
         return [WAVE_SOURCE_RECORDS]
     if source == WAVE_SOURCE_ST:

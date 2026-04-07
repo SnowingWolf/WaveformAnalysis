@@ -119,10 +119,8 @@ def test_threshold_hit_single_waveform_multiple_hits():
     assert np.all(result["channel"] == 0)
     assert np.all(result["width"] == 3.0)
     assert np.all(result["dt"] == 2)
-    np.testing.assert_array_equal(result["record_sample_start"], np.array([5, 15], dtype=np.int32))
-    np.testing.assert_array_equal(result["record_sample_end"], np.array([8, 18], dtype=np.int32))
-    np.testing.assert_array_equal(result["wave_pool_start"], np.array([5, 15], dtype=np.int64))
-    np.testing.assert_array_equal(result["wave_pool_end"], np.array([8, 18], dtype=np.int64))
+    np.testing.assert_array_equal(result["edge_start"], np.array([5, 15], dtype=np.int32))
+    np.testing.assert_array_equal(result["edge_end"], np.array([8, 18], dtype=np.int32))
 
 
 def test_threshold_hit_no_event_length_truncation():
@@ -174,8 +172,8 @@ def test_threshold_hit_extension_applied():
     result = _compute_threshold_hits(plugin, ctx)
 
     assert len(result) == 1
-    assert float(result[0]["edge_start"]) == 8.0
-    assert float(result[0]["edge_end"]) == 15.0
+    assert int(result[0]["edge_start"]) == 8
+    assert int(result[0]["edge_end"]) == 15
     assert float(result[0]["width"]) == 7.0
 
 
@@ -230,10 +228,8 @@ def test_threshold_hit_reads_records_view_when_wave_source_records():
     assert int(result[0]["board"]) == 5
     assert int(result[0]["channel"]) == 2
     assert int(result[0]["record_id"]) == 0
-    assert int(result[0]["record_sample_start"]) == 2
-    assert int(result[0]["record_sample_end"]) == 6
-    assert int(result[0]["wave_pool_start"]) == 2
-    assert int(result[0]["wave_pool_end"]) == 6
+    assert int(result[0]["edge_start"]) == 2
+    assert int(result[0]["edge_end"]) == 6
 
 
 def test_threshold_hit_records_empty_returns_empty():
@@ -372,8 +368,8 @@ def test_threshold_hit_rise_fall_time_use_threshold_region_not_extensions():
     result = _compute_threshold_hits(plugin, ctx)
 
     assert len(result) == 1
-    assert float(result[0]["edge_start"]) == 2.0
-    assert float(result[0]["edge_end"]) == 12.0
+    assert int(result[0]["edge_start"]) == 2
+    assert int(result[0]["edge_end"]) == 12
     assert float(result[0]["rise_time"]) == 4.0
     assert float(result[0]["fall_time"]) == 4.0
 

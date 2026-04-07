@@ -66,6 +66,8 @@ class DataFramePlugin(Plugin):
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         source = resolve_wave_source(context, self)
         use_filtered = bool(context.get_config(self, "use_filtered"))
+        # Dynamic dependency: df follows the selected waveform source, and
+        # always adds basic_features as an extra upstream table dependency.
         deps = resolve_wave_depends_on(source, use_filtered)
         deps.append("basic_features")
         return deps

@@ -9,7 +9,7 @@
 | Provides | `hit_threshold` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `0.10.0` |
+| Version | `0.11.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_finder` |
 | Accelerator | `cpu` |
 
@@ -24,8 +24,8 @@
 | `position` | `int64` |
 | `height` | `float32` |
 | `integral` | `float32` |
-| `edge_start` | `float32` |
-| `edge_end` | `float32` |
+| `edge_start` | `int32` |
+| `edge_end` | `int32` |
 | `width` | `float32` |
 | `dt` | `int32` |
 | `rise_time` | `float32` |
@@ -34,10 +34,11 @@
 | `board` | `int16` |
 | `channel` | `int16` |
 | `record_id` | `int64` |
-| `record_sample_start` | `int32` |
-| `record_sample_end` | `int32` |
-| `wave_pool_start` | `int64` |
-| `wave_pool_end` | `int64` |
+
+说明：
+`edge_start` / `edge_end` 为相对当前 `record` 的安全半开样本窗口 `[start, end)`，
+保证满足 `0 <= edge_start <= edge_end <= record_length`，可直接配合
+`records_view(...).signals(record_id, sample_start=edge_start, sample_end=edge_end)` 使用。
 
 ## Config
 
@@ -60,7 +61,6 @@
 ## Failure Modes
 
 - 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- `record_id` 无法回连到 `records/wave_pool`，导致 wave_pool 范围解析失败
 - `filtered_waveforms` / `st_waveforms` 与 `records` 的长度或编号不一致，触发一致性校验异常
 - 输出 dtype 变更但版本未升级，可能导致缓存命中异常
 

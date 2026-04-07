@@ -135,7 +135,7 @@ raw_files ──► records ──► df ──► df_events
 | [`HitFinderPlugin`](hit.md) | `hit` | 2.5.0 | 特征提取 | - |
 | [`HitGroupedPlugin`](hit_grouped.md) | `hit_grouped` | 0.3.0 | 特征提取 | hit_merged |
 | [`HitMergePlugin`](hit_merged.md) | `hit_merged` | 0.6.0 | 特征提取 | hit_threshold |
-| [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 0.1.0 | 特征提取 | hit_threshold, hit_merged |
+| [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 0.1.0 | 特征提取 | hit_merge_clusters, hit_merged |
 | [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 0.10.0 | 特征提取 | - |
 | [`RawFileNamesPlugin`](raw_files.md) | `raw_files` | 0.0.2 | 数据加载 | - |
 | [`RecordsPlugin`](records.md) | `records` | 0.8.0 | 记录处理 | raw_files |

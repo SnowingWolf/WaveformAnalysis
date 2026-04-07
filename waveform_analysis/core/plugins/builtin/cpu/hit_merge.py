@@ -15,8 +15,20 @@ from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 HIT_MERGED_DTYPE = np.dtype(
-    THRESHOLD_HIT_DTYPE.descr
-    + [
+    [
+        ("position", "i8"),
+        ("height", "f4"),
+        ("integral", "f4"),
+        ("sample_start", "i4"),
+        ("sample_end", "i4"),
+        ("width", "f4"),
+        ("dt", "i4"),
+        ("rise_time", "f4"),
+        ("fall_time", "f4"),
+        ("timestamp", "i8"),
+        ("board", "i2"),
+        ("channel", "i2"),
+        ("record_id", "i8"),
         ("component_offset", "i8"),
         ("component_count", "i4"),
     ]
@@ -25,6 +37,13 @@ HIT_MERGED_DTYPE = np.dtype(
 HIT_MERGED_COMPONENTS_DTYPE = np.dtype(
     [
         ("merged_index", "i8"),
+        ("hit_index", "i8"),
+    ]
+)
+
+HIT_MERGE_CLUSTERS_DTYPE = np.dtype(
+    [
+        ("cluster_index", "i8"),
         ("hit_index", "i8"),
     ]
 )
@@ -55,8 +74,8 @@ def _build_enriched_hits(
     for hit, dt_ns, source_index in zip(hits, dt_values, source_indices, strict=False):
         timestamp = float(_pick(hit, "timestamp", "hit_timestamp_ps"))
         position = float(_pick(hit, "position", "hit_sample_idx"))
-        edge_start = float(_pick(hit, "edge_start", "hit_left_sample_idx"))
-        edge_end = float(_pick(hit, "edge_end", "hit_right_sample_idx"))
+        edge_start = float(_pick(hit, "edge_start", "sample_start", "hit_left_sample_idx"))
+        edge_end = float(_pick(hit, "edge_end", "sample_end", "hit_right_sample_idx"))
         dt_ps = float(int(dt_ns)) * 1e3
         abs_start_ps = timestamp + (edge_start - position) * dt_ps
         abs_end_ps = timestamp + (edge_end - position) * dt_ps
@@ -71,6 +90,26 @@ def _build_enriched_hits(
             }
         )
     return enriched
+
+
+def _resolve_cluster_sample_window(cluster: list[dict[str, Any]]) -> tuple[int, int]:
+    record_ids = {int(item["hit"]["record_id"]) for item in cluster}
+    if len(record_ids) != 1:
+        return -1, -1
+
+    names = set(cluster[0]["hit"].dtype.names or ())
+    if {"sample_start", "sample_end"}.issubset(names):
+        start_name = "sample_start"
+        end_name = "sample_end"
+    elif {"edge_start", "edge_end"}.issubset(names):
+        start_name = "edge_start"
+        end_name = "edge_end"
+    else:
+        return -1, -1
+
+    sample_start = min(int(item["hit"][start_name]) for item in cluster)
+    sample_end = max(int(item["hit"][end_name]) for item in cluster)
+    return sample_start, sample_end
 
 
 def _build_merged_clusters(
@@ -142,25 +181,76 @@ def _build_merged_clusters(
     return clusters_out
 
 
-def _resolve_cluster_sample_window(cluster: list[dict[str, Any]]) -> tuple[int, int, int, int]:
-    record_ids = {int(item["hit"]["record_id"]) for item in cluster}
-    if len(record_ids) != 1:
-        return -1, -1, -1, -1
+def _build_cluster_rows(clusters: list[list[dict[str, Any]]]) -> np.ndarray:
+    cluster_rows: list[tuple[int, int]] = []
+    for cluster_index, cluster in enumerate(clusters):
+        for item in cluster:
+            cluster_rows.append((cluster_index, int(item["source_index"])))
+    if cluster_rows:
+        return np.array(cluster_rows, dtype=HIT_MERGE_CLUSTERS_DTYPE)
+    return np.zeros(0, dtype=HIT_MERGE_CLUSTERS_DTYPE)
 
-    required_fields = {
-        "record_sample_start",
-        "record_sample_end",
-        "wave_pool_start",
-        "wave_pool_end",
-    }
-    if not required_fields.issubset(set(cluster[0]["hit"].dtype.names or ())):
-        return -1, -1, -1, -1
 
-    record_sample_start = min(int(item["hit"]["record_sample_start"]) for item in cluster)
-    record_sample_end = max(int(item["hit"]["record_sample_end"]) for item in cluster)
-    wave_pool_start = min(int(item["hit"]["wave_pool_start"]) for item in cluster)
-    wave_pool_end = max(int(item["hit"]["wave_pool_end"]) for item in cluster)
-    return record_sample_start, record_sample_end, wave_pool_start, wave_pool_end
+def _build_enriched_lookup(
+    hits: np.ndarray,
+    explicit_dt: int | None,
+    plugin_name: str,
+) -> dict[int, dict[str, Any]]:
+    if len(hits) == 0:
+        return {}
+
+    if "board" in hits.dtype.names:
+        boards = hits["board"]
+    else:
+        boards = np.zeros(len(hits), dtype=np.int16)
+    channels = hits["channel"]
+
+    enriched_lookup: dict[int, dict[str, Any]] = {}
+    for _hw_channel, indices in group_indices_by_hardware_channel(boards, channels).items():
+        ch_hits = hits[indices]
+        if len(ch_hits) == 0:
+            continue
+        channel_dt = require_dt_array(
+            ch_hits,
+            explicit_dt=explicit_dt,
+            plugin_name=plugin_name,
+            data_name="hit_threshold[channel]",
+        )
+        enriched = _build_enriched_hits(ch_hits, channel_dt, indices.astype(np.int64, copy=False))
+        for item in enriched:
+            enriched_lookup[int(item["source_index"])] = item
+    return enriched_lookup
+
+
+def _cluster_bounds(cluster_rows: np.ndarray) -> list[tuple[int, int, int]]:
+    if len(cluster_rows) == 0:
+        return []
+
+    cluster_indices = np.asarray(cluster_rows["cluster_index"], dtype=np.int64)
+    boundaries = np.flatnonzero(np.diff(cluster_indices) != 0) + 1
+    starts = np.concatenate(([0], boundaries))
+    ends = np.concatenate((boundaries, [len(cluster_rows)]))
+    return [
+        (int(cluster_indices[start]), int(start), int(end))
+        for start, end in zip(starts, ends, strict=False)
+    ]
+
+
+def _compute_cluster_rows(
+    hits: np.ndarray,
+    merge_gap_ns: float,
+    max_total_width_ns: float,
+    explicit_dt: int | None,
+    plugin_name: str,
+) -> np.ndarray:
+    clusters = _build_merged_clusters(
+        hits,
+        merge_gap_ns=merge_gap_ns,
+        max_total_width_ns=max_total_width_ns,
+        explicit_dt=explicit_dt,
+        plugin_name=plugin_name,
+    )
+    return _build_cluster_rows(clusters)
 
 
 def _emit_cluster(
@@ -171,9 +261,7 @@ def _emit_cluster(
     component_offset: int,
 ) -> tuple:
     component_count = len(cluster)
-    record_sample_start, record_sample_end, wave_pool_start, wave_pool_end = (
-        _resolve_cluster_sample_window(cluster)
-    )
+    sample_start_window, sample_end_window = _resolve_cluster_sample_window(cluster)
 
     if len(cluster) == 1:
         h = cluster[0]["hit"]
@@ -181,8 +269,8 @@ def _emit_cluster(
             int(h["position"]),
             float(h["height"]),
             float(h["integral"]),
-            float(h["edge_start"]),
-            float(h["edge_end"]),
+            int(_pick(h, "sample_start", "edge_start")),
+            int(_pick(h, "sample_end", "edge_end")),
             float(h["width"]),
             int(h["dt"]) if "dt" in h.dtype.names else int(cluster[0]["dt_ns"]),
             float(h["rise_time"]) if "rise_time" in h.dtype.names else 0.0,
@@ -191,18 +279,6 @@ def _emit_cluster(
             int(h["board"]) if "board" in h.dtype.names else 0,
             int(h["channel"]),
             int(h["record_id"]),
-            (
-                int(h["record_sample_start"])
-                if "record_sample_start" in h.dtype.names
-                else record_sample_start
-            ),
-            (
-                int(h["record_sample_end"])
-                if "record_sample_end" in h.dtype.names
-                else record_sample_end
-            ),
-            int(h["wave_pool_start"]) if "wave_pool_start" in h.dtype.names else wave_pool_start,
-            int(h["wave_pool_end"]) if "wave_pool_end" in h.dtype.names else wave_pool_end,
             component_offset,
             component_count,
         )
@@ -219,20 +295,20 @@ def _emit_cluster(
         )
 
     anchor = cluster[anchor_idx]["hit"]
-    anchor_pos = float(anchor["position"])
-    anchor_ts = float(anchor["timestamp"])
 
-    merged_edge_start = anchor_pos + (cluster_start_ps - anchor_ts) / dt_ps
-    merged_edge_end = anchor_pos + (cluster_end_ps - anchor_ts) / dt_ps
-    merged_width = float(max(merged_edge_end - merged_edge_start, 0.0))
+    merged_sample_start = sample_start_window
+    merged_sample_end = sample_end_window
+    merged_width = float(max(merged_sample_end - merged_sample_start, 0.0))
+    if merged_sample_start < 0 or merged_sample_end < 0:
+        merged_width = -1.0
     merged_integral = float(np.sum([float(x["hit"]["integral"]) for x in cluster]))
 
     return (
         int(anchor["position"]),
         max_h,
         merged_integral,
-        float(merged_edge_start),
-        float(merged_edge_end),
+        int(merged_sample_start),
+        int(merged_sample_end),
         merged_width,
         int(anchor["dt"]) if "dt" in anchor.dtype.names else int(cluster[anchor_idx]["dt_ns"]),
         float(anchor["rise_time"]) if "rise_time" in anchor.dtype.names else 0.0,
@@ -241,10 +317,6 @@ def _emit_cluster(
         int(anchor["board"]) if "board" in anchor.dtype.names else 0,
         int(anchor["channel"]),
         int(anchor["record_id"]),
-        record_sample_start,
-        record_sample_end,
-        wave_pool_start,
-        wave_pool_end,
         component_offset,
         component_count,
     )
@@ -254,9 +326,9 @@ class HitMergePlugin(Plugin):
     """Merge nearby hits from hit_threshold within the same channel."""
 
     provides = "hit_merged"
-    depends_on = ["hit_threshold"]
+    depends_on = ["hit_threshold", "hit_merge_clusters"]
     description = "Merge nearby threshold hits per channel with time-gap and max-width constraints."
-    version = "0.6.0"
+    version = "0.8.0"
     save_when = "always"
     output_dtype = HIT_MERGED_DTYPE
 
@@ -286,17 +358,37 @@ class HitMergePlugin(Plugin):
             return np.zeros(0, dtype=HIT_MERGED_DTYPE)
 
         merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(context, self)
-        clusters = _build_merged_clusters(
-            hits,
-            merge_gap_ns=merge_gap_ns,
-            max_total_width_ns=max_total_width_ns,
-            explicit_dt=explicit_dt,
-            plugin_name=self.provides,
+        try:
+            cluster_rows = context.get_data(run_id, "hit_merge_clusters")
+        except Exception:
+            cluster_rows = _compute_cluster_rows(
+                hits,
+                merge_gap_ns=merge_gap_ns,
+                max_total_width_ns=max_total_width_ns,
+                explicit_dt=explicit_dt,
+                plugin_name="hit_merge_clusters",
+            )
+        if cluster_rows is None:
+            cluster_rows = _compute_cluster_rows(
+                hits,
+                merge_gap_ns=merge_gap_ns,
+                max_total_width_ns=max_total_width_ns,
+                explicit_dt=explicit_dt,
+                plugin_name="hit_merge_clusters",
+            )
+        if not isinstance(cluster_rows, np.ndarray):
+            raise ValueError("hit_merged expects hit_merge_clusters as a structured array")
+
+        enriched_lookup = _build_enriched_lookup(
+            hits, explicit_dt=explicit_dt, plugin_name=self.provides
         )
 
         merged_rows: list[tuple] = []
-        component_offset = 0
-        for cluster in clusters:
+        for cluster_index, start, end in _cluster_bounds(cluster_rows):
+            hit_indices = np.asarray(cluster_rows["hit_index"][start:end], dtype=np.int64)
+            cluster = [enriched_lookup[int(hit_idx)] for hit_idx in hit_indices]
+            if len(cluster) == 0:
+                continue
             cluster_start = cluster[0]["abs_start_ps"]
             cluster_end = max(item["abs_end_ps"] for item in cluster)
             merged_rows.append(
@@ -305,72 +397,137 @@ class HitMergePlugin(Plugin):
                     cluster_start_ps=cluster_start,
                     cluster_end_ps=cluster_end,
                     dt_ps=cluster[0]["dt_ps"],
-                    component_offset=component_offset,
+                    component_offset=start,
                 )
             )
-            component_offset += len(cluster)
+            if cluster_index != len(merged_rows) - 1:
+                raise ValueError(
+                    "hit_merge_clusters rows are not ordered by cluster_index without gaps"
+                )
 
         if merged_rows:
             return np.array(merged_rows, dtype=HIT_MERGED_DTYPE)
         return np.zeros(0, dtype=HIT_MERGED_DTYPE)
 
 
+class HitMergeClustersPlugin(Plugin):
+    """Internal flat cluster membership for hit merge outputs."""
+
+    provides = "hit_merge_clusters"
+    depends_on = ["hit_threshold"]
+    description = "Internal cluster membership rows shared by hit_merged outputs."
+    version = "0.1.0"
+    save_when = "always"
+    output_dtype = HIT_MERGE_CLUSTERS_DTYPE
+
+    options = HitMergePlugin.options
+
+    def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
+        hits = context.get_data(run_id, "hit_threshold")
+        if not isinstance(hits, np.ndarray):
+            raise ValueError(
+                "hit_merge_clusters expects hit_threshold as a single structured array"
+            )
+        if len(hits) == 0:
+            return np.zeros(0, dtype=HIT_MERGE_CLUSTERS_DTYPE)
+
+        merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(context, self)
+        clusters = _build_merged_clusters(
+            hits,
+            merge_gap_ns=merge_gap_ns,
+            max_total_width_ns=max_total_width_ns,
+            explicit_dt=explicit_dt,
+            plugin_name=self.provides,
+        )
+        return _build_cluster_rows(clusters)
+
+
 class HitMergedComponentsPlugin(Plugin):
     """Return flat component hit indices for each hit_merged cluster."""
 
     provides = "hit_merged_components"
-    depends_on = ["hit_threshold", "hit_merged"]
+    depends_on = ["hit_merge_clusters", "hit_merged"]
     description = "Return per-cluster component hit indices for hit_merged rows."
     version = "0.1.0"
     save_when = "always"
     output_dtype = HIT_MERGED_COMPONENTS_DTYPE
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
-        hits = context.get_data(run_id, "hit_threshold")
         merged = context.get_data(run_id, "hit_merged")
-        if not isinstance(hits, np.ndarray) or not isinstance(merged, np.ndarray):
+        if not isinstance(merged, np.ndarray):
             raise ValueError(
-                "hit_merged_components expects hit_threshold and hit_merged structured arrays"
+                "hit_merged_components expects hit_merge_clusters and hit_merged structured arrays"
             )
-        if len(hits) == 0 or len(merged) == 0:
+        if len(merged) == 0:
             return np.zeros(0, dtype=HIT_MERGED_COMPONENTS_DTYPE)
 
-        merge_plugin = context.get_plugin("hit_merged")
-        merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(context, merge_plugin)
-        clusters = _build_merged_clusters(
-            hits,
-            merge_gap_ns=merge_gap_ns,
-            max_total_width_ns=max_total_width_ns,
-            explicit_dt=explicit_dt,
-            plugin_name="hit_merged",
-        )
-        if len(clusters) != len(merged):
+        try:
+            cluster_rows = context.get_data(run_id, "hit_merge_clusters")
+        except Exception:
+            hits = context.get_data(run_id, "hit_threshold")
+            merge_plugin = context.get_plugin("hit_merged")
+            merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(
+                context, merge_plugin
+            )
+            cluster_rows = _compute_cluster_rows(
+                hits,
+                merge_gap_ns=merge_gap_ns,
+                max_total_width_ns=max_total_width_ns,
+                explicit_dt=explicit_dt,
+                plugin_name="hit_merge_clusters",
+            )
+        if cluster_rows is None:
+            hits = context.get_data(run_id, "hit_threshold")
+            merge_plugin = context.get_plugin("hit_merged")
+            merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(
+                context, merge_plugin
+            )
+            cluster_rows = _compute_cluster_rows(
+                hits,
+                merge_gap_ns=merge_gap_ns,
+                max_total_width_ns=max_total_width_ns,
+                explicit_dt=explicit_dt,
+                plugin_name="hit_merge_clusters",
+            )
+        if not isinstance(cluster_rows, np.ndarray):
+            raise ValueError(
+                "hit_merged_components expects hit_merge_clusters and hit_merged structured arrays"
+            )
+        if len(cluster_rows) == 0:
+            return np.zeros(0, dtype=HIT_MERGED_COMPONENTS_DTYPE)
+
+        cluster_bounds = _cluster_bounds(cluster_rows)
+        if len(cluster_bounds) != len(merged):
             raise ValueError(
                 "hit_merged_components cluster count does not match hit_merged rows: "
-                f"clusters={len(clusters)}, hit_merged={len(merged)}"
+                f"clusters={len(cluster_bounds)}, hit_merged={len(merged)}"
             )
 
         component_rows: list[tuple[int, int]] = []
-        expected_offset = 0
-        for merged_idx, cluster in enumerate(clusters):
+        for merged_idx, (cluster_index, start, end) in enumerate(cluster_bounds):
+            count = end - start
             if (
                 "component_offset" in merged.dtype.names
-                and int(merged[merged_idx]["component_offset"]) != expected_offset
+                and int(merged[merged_idx]["component_offset"]) != start
             ):
                 raise ValueError(
                     f"hit_merged[{merged_idx}] component_offset mismatch: "
-                    f"expected {expected_offset}, got {int(merged[merged_idx]['component_offset'])}"
+                    f"expected {start}, got {int(merged[merged_idx]['component_offset'])}"
                 )
-            if "component_count" in merged.dtype.names and int(
-                merged[merged_idx]["component_count"]
-            ) != len(cluster):
+            if (
+                "component_count" in merged.dtype.names
+                and int(merged[merged_idx]["component_count"]) != count
+            ):
                 raise ValueError(
                     f"hit_merged[{merged_idx}] component_count mismatch: "
-                    f"expected {len(cluster)}, got {int(merged[merged_idx]['component_count'])}"
+                    f"expected {count}, got {int(merged[merged_idx]['component_count'])}"
                 )
-            for item in cluster:
-                component_rows.append((merged_idx, int(item["source_index"])))
-            expected_offset += len(cluster)
+            if cluster_index != merged_idx:
+                raise ValueError(
+                    "hit_merge_clusters rows are not ordered by cluster_index without gaps"
+                )
+            for hit_index in np.asarray(cluster_rows["hit_index"][start:end], dtype=np.int64):
+                component_rows.append((merged_idx, int(hit_index)))
 
         if component_rows:
             return np.array(component_rows, dtype=HIT_MERGED_COMPONENTS_DTYPE)
@@ -378,8 +535,10 @@ class HitMergedComponentsPlugin(Plugin):
 
 
 __all__ = [
+    "HIT_MERGE_CLUSTERS_DTYPE",
     "HIT_MERGED_COMPONENTS_DTYPE",
     "HIT_MERGED_DTYPE",
+    "HitMergeClustersPlugin",
     "HitMergePlugin",
     "HitMergedComponentsPlugin",
 ]

@@ -1065,8 +1065,12 @@ class WaveformsPlugin(Plugin):
         Keep both plugins in the same plugin set to make this relationship
         visible and avoid circular-dependency misunderstandings.
         """
+        # Dynamic dependency here only covers optional upstream baseline input.
+        # WaveformsPlugin itself always starts from raw_files, but downstream
+        # RecordsPlugin may or may not depend on st_waveforms depending on adapter.
         deps = ["raw_files"]
         if context.get_config(self, "use_upstream_baseline"):
+            # When enabled, baseline becomes an additional dynamic upstream.
             deps.append("baseline")
         return deps
 

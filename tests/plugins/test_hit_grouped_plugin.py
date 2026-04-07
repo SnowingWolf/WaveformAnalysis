@@ -1,9 +1,13 @@
 import numpy as np
 import pandas as pd
 
-from tests.utils import DummyContext
+from tests.utils import DummyContext, FakeContext
 from waveform_analysis.core.plugins.builtin.cpu.event_analysis import HitGroupedPlugin
 from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
+from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
+    HitMergedComponentsPlugin,
+    HitMergePlugin,
+)
 
 
 def _make_hit(
@@ -38,7 +42,13 @@ def test_hit_grouped_empty():
     plugin = HitGroupedPlugin()
     ctx = DummyContext(
         {"time_window_ns": 0.0, "dt": 2},
-        {"hit_merged": np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)},
+        {
+            "hit_merged": np.zeros(0, dtype=THRESHOLD_HIT_DTYPE),
+            "hit_merged_components": np.zeros(
+                0, dtype=[("merged_index", "i8"), ("hit_index", "i8")]
+            ),
+            "hit_threshold": np.zeros(0, dtype=THRESHOLD_HIT_DTYPE),
+        },
     )
 
     out = plugin.compute(ctx, "run_001")
@@ -58,8 +68,8 @@ def test_hit_grouped_empty():
         "integrals",
         "timestamps",
         "record_ids",
-        "edge_starts",
-        "edge_ends",
+        "sample_starts",
+        "sample_ends",
     ]
 
 
@@ -90,7 +100,13 @@ def test_hit_grouped_merges_overlapping_windows_across_channels():
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
     ctx = DummyContext(
         {"time_window_ns": 0.0, "dt": 2},
-        {"hit_merged": hits},
+        {
+            "hit_merged": hits,
+            "hit_merged_components": np.array(
+                [(0, 0), (1, 1)], dtype=[("merged_index", "i8"), ("hit_index", "i8")]
+            ),
+            "hit_threshold": hits,
+        },
     )
 
     out = plugin.compute(ctx, "run_001")
@@ -101,6 +117,8 @@ def test_hit_grouped_merges_overlapping_windows_across_channels():
     np.testing.assert_array_equal(row["boards"], np.array([0, 0], dtype=np.int16))
     np.testing.assert_array_equal(row["channels"], np.array([0, 1], dtype=np.int16))
     np.testing.assert_array_equal(row["record_ids"], np.array([0, 1], dtype=np.int64))
+    np.testing.assert_array_equal(row["sample_starts"], np.array([8, 13], dtype=np.int32))
+    np.testing.assert_array_equal(row["sample_ends"], np.array([12, 16], dtype=np.int32))
     np.testing.assert_array_equal(row["dt"], np.array([2, 2], dtype=np.int32))
     assert row["t_min"] == 96_000
     assert row["t_max"] == 110_000
@@ -134,7 +152,13 @@ def test_hit_grouped_merges_non_overlapping_windows_with_gap_threshold():
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
     ctx = DummyContext(
         {"time_window_ns": 7.0, "dt": 2},
-        {"hit_merged": hits},
+        {
+            "hit_merged": hits,
+            "hit_merged_components": np.array(
+                [(0, 0), (1, 1)], dtype=[("merged_index", "i8"), ("hit_index", "i8")]
+            ),
+            "hit_threshold": hits,
+        },
     )
 
     out = plugin.compute(ctx, "run_001")
@@ -171,7 +195,13 @@ def test_hit_grouped_splits_clusters_when_gap_is_too_large():
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
     ctx = DummyContext(
         {"time_window_ns": 1.0, "dt": 2},
-        {"hit_merged": hits},
+        {
+            "hit_merged": hits,
+            "hit_merged_components": np.array(
+                [(0, 0), (1, 1)], dtype=[("merged_index", "i8"), ("hit_index", "i8")]
+            ),
+            "hit_threshold": hits,
+        },
     )
 
     out = plugin.compute(ctx, "run_001")
@@ -218,7 +248,13 @@ def test_hit_grouped_keeps_all_hits_and_sorts_by_board_then_channel():
     hits = np.array([h1, h2, h3], dtype=THRESHOLD_HIT_DTYPE)
     ctx = DummyContext(
         {"time_window_ns": 5.0, "dt": 2},
-        {"hit_merged": hits},
+        {
+            "hit_merged": hits,
+            "hit_merged_components": np.array(
+                [(0, 0), (1, 1), (2, 2)], dtype=[("merged_index", "i8"), ("hit_index", "i8")]
+            ),
+            "hit_threshold": hits,
+        },
     )
 
     out = plugin.compute(ctx, "run_001")
@@ -269,7 +305,13 @@ def test_hit_grouped_supports_chain_expansion():
     hits = np.array([h1, h2, h3], dtype=THRESHOLD_HIT_DTYPE)
     ctx = DummyContext(
         {"time_window_ns": 4.0, "dt": 2},
-        {"hit_merged": hits},
+        {
+            "hit_merged": hits,
+            "hit_merged_components": np.array(
+                [(0, 0), (1, 1), (2, 2)], dtype=[("merged_index", "i8"), ("hit_index", "i8")]
+            ),
+            "hit_threshold": hits,
+        },
     )
 
     out = plugin.compute(ctx, "run_001")
@@ -306,7 +348,16 @@ def test_hit_grouped_merges_different_dt_values_when_absolute_windows_overlap():
     )
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
 
-    ctx = DummyContext({"time_window_ns": 10.0}, {"hit_merged": hits})
+    ctx = DummyContext(
+        {"time_window_ns": 10.0},
+        {
+            "hit_merged": hits,
+            "hit_merged_components": np.array(
+                [(0, 0), (1, 1)], dtype=[("merged_index", "i8"), ("hit_index", "i8")]
+            ),
+            "hit_threshold": hits,
+        },
+    )
     out = plugin.compute(ctx, "run_001")
 
     assert len(out) == 1
@@ -314,3 +365,79 @@ def test_hit_grouped_merges_different_dt_values_when_absolute_windows_overlap():
     assert row["t_min"] == 92_000
     assert row["t_max"] == 108_000
     np.testing.assert_array_equal(row["dt"], np.array([2, 4], dtype=np.int32))
+
+
+def test_hit_grouped_uses_components_for_cross_record_merged_windows():
+    merge_plugin = HitMergePlugin()
+    components_plugin = HitMergedComponentsPlugin()
+    grouped_plugin = HitGroupedPlugin()
+
+    h1 = _make_hit(
+        position=10,
+        height=20.0,
+        integral=30.0,
+        edge_start=8,
+        edge_end=12,
+        timestamp=100_000,
+        board=0,
+        channel=0,
+        record_id=0,
+        dt=2,
+    )
+    h2 = _make_hit(
+        position=14,
+        height=25.0,
+        integral=40.0,
+        edge_start=13,
+        edge_end=16,
+        timestamp=108_000,
+        board=0,
+        channel=0,
+        record_id=1,
+        dt=2,
+    )
+    h3 = _make_hit(
+        position=10,
+        height=18.0,
+        integral=22.0,
+        edge_start=8,
+        edge_end=12,
+        timestamp=107_000,
+        board=0,
+        channel=1,
+        record_id=2,
+        dt=2,
+    )
+    threshold_hits = np.array([h1, h2, h3], dtype=THRESHOLD_HIT_DTYPE)
+
+    base_ctx = DummyContext(
+        {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0, "dt": 2},
+        {"hit_threshold": threshold_hits},
+    )
+    merged = merge_plugin.compute(base_ctx, "run_001")
+
+    ctx = FakeContext(
+        {
+            "merge_gap_ns": 3.0,
+            "max_total_width_ns": 10000.0,
+            "time_window_ns": 0.0,
+            "dt": 2,
+        },
+        {
+            "hit_threshold": threshold_hits,
+            "hit_merged": merged,
+        },
+        plugins={"hit_merged": merge_plugin},
+    )
+    components = components_plugin.compute(ctx, "run_001")
+    ctx._data["hit_merged_components"] = components
+
+    out = grouped_plugin.compute(ctx, "run_001")
+
+    assert len(out) == 1
+    row = out.iloc[0]
+    assert row["n_hits"] == 2
+    assert row["t_min"] == 96_000
+    assert row["t_max"] == 112_000
+    np.testing.assert_array_equal(row["sample_starts"], np.array([-1, 8], dtype=np.int32))
+    np.testing.assert_array_equal(row["sample_ends"], np.array([-1, 12], dtype=np.int32))

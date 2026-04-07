@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `hit_threshold` |
-| **Version** | `0.10.0` |
+| **Version** | `0.11.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -40,8 +40,8 @@ This plugin has no dependencies.
 | `position` | `int64` | - | - |
 | `height` | `float32` | - | - |
 | `integral` | `float32` | - | - |
-| `edge_start` | `float32` | - | - |
-| `edge_end` | `float32` | - | - |
+| `edge_start` | `int32` | - | record 内安全半开样本起点 |
+| `edge_end` | `int32` | - | record 内安全半开样本终点 |
 | `width` | `float32` | - | - |
 | `dt` | `int32` | - | - |
 | `rise_time` | `float32` | - | - |
@@ -50,10 +50,6 @@ This plugin has no dependencies.
 | `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |
 | `record_id` | `int64` | - | - |
-| `record_sample_start` | `int32` | - | - |
-| `record_sample_end` | `int32` | - | - |
-| `wave_pool_start` | `int64` | - | - |
-| `wave_pool_end` | `int64` | - | - |
 
 ## Usage Example
 

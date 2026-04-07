@@ -39,8 +39,8 @@ THRESHOLD_HIT_DTYPE = np.dtype(
         ("position", "i8"),  # hit 峰值位置（采样点索引）
         ("height", "f4"),  # hit 高度
         ("integral", "f4"),  # hit 积分
-        ("edge_start", "f4"),  # 命中窗口起始边界（采样点）
-        ("edge_end", "f4"),  # 命中窗口结束边界（采样点）
+        ("edge_start", "i4"),  # 命中窗口起始边界（record 内安全半开样本起点）
+        ("edge_end", "i4"),  # 命中窗口结束边界（record 内安全半开样本终点）
         ("width", "f4"),  # 命中窗口宽度（采样点）
         ("dt", "i4"),  # 采样间隔（ns）
         ("rise_time", "f4"),  # 从过阈起点到峰值的时间（ns）
@@ -49,10 +49,6 @@ THRESHOLD_HIT_DTYPE = np.dtype(
         ("board", "i2"),  # 板卡编号
         ("channel", "i2"),  # 通道号
         ("record_id", "i8"),  # 来源波形/记录的唯一编号
-        ("record_sample_start", "i4"),  # 命中窗口在记录内的半开样本起点
-        ("record_sample_end", "i4"),  # 命中窗口在记录内的半开样本终点
-        ("wave_pool_start", "i8"),  # 命中窗口在 wave_pool 中的半开样本起点
-        ("wave_pool_end", "i8"),  # 命中窗口在 wave_pool 中的半开样本终点
     ]
 )
 
@@ -93,7 +89,7 @@ class ThresholdHitPlugin(Plugin):
     provides = "hit_threshold"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Threshold-only hit detector with THRESHOLD_HIT_DTYPE output."
-    version = "0.10.0"
+    version = "0.11.0"
     output_dtype = THRESHOLD_HIT_DTYPE
     save_when = "always"
 
@@ -125,6 +121,8 @@ class ThresholdHitPlugin(Plugin):
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         source = resolve_wave_source(context, self)
+        # Dynamic dependency: hit_threshold reads from records, st_waveforms,
+        # or filtered_waveforms depending on wave_source/use_filtered.
         return resolve_wave_depends_on(source, bool(context.get_config(self, "use_filtered")))
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
@@ -183,7 +181,6 @@ class ThresholdHitPlugin(Plugin):
                 plugin_name=self.provides,
                 data_name="records",
             )
-            wave_offsets = records["wave_offset"].astype(np.int64, copy=False)
             record_lengths = records["event_length"].astype(np.int64, copy=False)
         else:
             waveform_data = (
@@ -236,7 +233,7 @@ class ThresholdHitPlugin(Plugin):
                 plugin_name=self.provides,
                 data_name="st_waveforms",
             )
-            wave_offsets, record_lengths = self._resolve_wave_pool_metadata(
+            _wave_offsets, record_lengths = self._resolve_wave_pool_metadata(
                 context,
                 run_id,
                 record_ids=record_ids,
@@ -266,7 +263,6 @@ class ThresholdHitPlugin(Plugin):
             right_extension=right_extension,
             dt_values=dt_values,
             valid_mask=valid_mask,
-            wave_offsets=wave_offsets,
             record_lengths=record_lengths,
         )
 
@@ -354,7 +350,6 @@ class ThresholdHitPlugin(Plugin):
         right_extension: int,
         dt_values: np.ndarray,
         valid_mask: np.ndarray | None,
-        wave_offsets: np.ndarray,
         record_lengths: np.ndarray,
     ) -> np.ndarray:
         if signal.size == 0:
@@ -396,7 +391,6 @@ class ThresholdHitPlugin(Plugin):
             pos = seg_start + rel_pos
             height = float(segment[rel_pos])
             integral = float(np.sum(np.maximum(segment, 0.0)))
-            width = float(seg_end - seg_start)
             dt_ns = int(dt_values[event_idx])
             sampling_interval_ps = float(dt_ns) * 1e3
             rise_time = float(max(pos - start, 0) * dt_ns)
@@ -404,20 +398,18 @@ class ThresholdHitPlugin(Plugin):
             global_timestamp = int(timestamps[event_idx] + pos * sampling_interval_ps)
 
             record_length = max(int(record_lengths[event_idx]), 0)
-            record_sample_start = min(max(seg_start, 0), record_length)
-            record_sample_end = min(max(seg_end, 0), record_length)
-            record_sample_end = max(record_sample_end, record_sample_start)
-            wave_pool_start = int(wave_offsets[event_idx]) + record_sample_start
-            wave_pool_end = int(wave_offsets[event_idx]) + record_sample_end
+            edge_start = min(max(seg_start, 0), record_length)
+            edge_end = min(max(seg_end, 0), record_length)
+            edge_end = max(edge_end, edge_start)
 
             hits.append(
                 (
                     int(pos),
                     height,
                     integral,
-                    float(seg_start),
-                    float(seg_end),
-                    width,
+                    edge_start,
+                    edge_end,
+                    float(edge_end - edge_start),
                     dt_ns,
                     rise_time,
                     fall_time,
@@ -425,10 +417,6 @@ class ThresholdHitPlugin(Plugin):
                     int(boards[event_idx]),
                     int(channels[event_idx]),
                     int(record_ids[event_idx]),
-                    record_sample_start,
-                    record_sample_end,
-                    wave_pool_start,
-                    wave_pool_end,
                 )
             )
 

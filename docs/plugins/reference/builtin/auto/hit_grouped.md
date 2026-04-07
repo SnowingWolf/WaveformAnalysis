@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `hit_grouped` |
-| **Version** | `0.3.0` |
+| **Version** | `0.5.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -18,6 +18,8 @@
 This plugin depends on the following data:
 
 - [`hit_merged`](hit_merged.md)
+- [`hit_merged_components`](hit_merged_components.md)
+- [`hit_threshold`](hit_threshold.md)
 
 ## Configuration Options
 

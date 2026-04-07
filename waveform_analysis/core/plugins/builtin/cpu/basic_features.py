@@ -84,6 +84,8 @@ class BasicFeaturesPlugin(Plugin):
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         source = resolve_wave_source(context, self)
+        # Dynamic dependency: pick records/st_waveforms/filtered_waveforms
+        # according to wave_source and use_filtered.
         return resolve_wave_depends_on(source, bool(context.get_config(self, "use_filtered")))
 
     def compute(self, context: Any, run_id: str, **kwargs) -> np.ndarray:

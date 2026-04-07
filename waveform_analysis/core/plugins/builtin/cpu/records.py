@@ -227,6 +227,9 @@ class RecordsPlugin(Plugin):
         for records changes with the adapter.
         """
         adapter_name = _resolve_adapter_name(context, self)
+        # Dynamic dependency:
+        # - v1725 keeps its dedicated raw-file path for records construction
+        # - other adapters reuse the resolved st_waveforms result
         if adapter_name == "v1725":
             return ["raw_files"]
         return ["st_waveforms"]

@@ -421,7 +421,7 @@ def build_records_from_st_waveforms_sharded(
     part_size controls the max number of events per part. If part_size <= 0 or
     total records <= part_size, this falls back to the baseline builder.
     """
-    if part_size <= 0:
+    if part_size is None or part_size <= 0:
         return build_records_from_st_waveforms(st_waveforms, default_dt_ns=default_dt_ns)
 
     total_records = len(st_waveforms)

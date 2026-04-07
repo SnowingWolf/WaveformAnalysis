@@ -195,7 +195,10 @@ class WaveformWidthPlugin(Plugin):
         return np.zeros(0, dtype=WAVEFORM_WIDTH_DTYPE)
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
-        # hit 始终需要，波形数据根据 use_filtered 动态选择
+        # Dynamic dependency:
+        # - hit is always required
+        # - waveform input switches between st_waveforms and filtered_waveforms
+        #   according to use_filtered
         if context.get_config(self, "use_filtered"):
             return ["hit", "filtered_waveforms"]
         return ["hit", "st_waveforms"]
