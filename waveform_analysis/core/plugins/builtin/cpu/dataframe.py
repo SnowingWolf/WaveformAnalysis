@@ -38,7 +38,7 @@ class DataFramePlugin(Plugin):
     provides = "df"
     depends_on = []  # dynamic, resolved by resolve_depends_on
     description = "Build the initial single-channel events DataFrame."
-    version = "1.6.0"
+    version = "1.7.0"
     save_when = "always"
     uses_run_config = True
     options = {
@@ -242,6 +242,11 @@ class DataFramePlugin(Plugin):
             df = pd.DataFrame(
                 {
                     "timestamp": np.asarray(records["timestamp"]),
+                    "record_id": (
+                        np.asarray(records["record_id"], dtype=np.int64)
+                        if "record_id" in records.dtype.names
+                        else np.arange(len(records), dtype=np.int64)
+                    ),
                     "area": np.asarray(basic_features["area"]),
                     "height": np.asarray(basic_features["height"]),
                     "amp": np.asarray(basic_features["amp"]),
@@ -277,6 +282,11 @@ class DataFramePlugin(Plugin):
             df = pd.DataFrame(
                 {
                     "timestamp": np.asarray(waveform_data["timestamp"]),
+                    "record_id": (
+                        np.asarray(waveform_data["record_id"], dtype=np.int64)
+                        if "record_id" in waveform_data.dtype.names
+                        else np.arange(len(waveform_data), dtype=np.int64)
+                    ),
                     "area": np.asarray(basic_features["area"]),
                     "height": np.asarray(basic_features["height"]),
                     "amp": np.asarray(basic_features["amp"]),

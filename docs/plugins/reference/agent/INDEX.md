@@ -23,7 +23,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 |----------|--------|------------|-------------|---------|
 | [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | - | `structured_array` | `3.7.0` |
 | [`cache_analysis`](cache_analysis.md) | `CacheAnalysisPlugin` | - | `unknown` | `0.1.0` |
-| [`df`](df.md) | `DataFramePlugin` | - | `unknown` | `1.6.0` |
+| [`df`](df.md) | `DataFramePlugin` | - | `unknown` | `1.7.0` |
 | [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `unknown` | `0.0.0` |
 | [`df_paired`](df_paired.md) | `PairedEventsPlugin` | `df_events` | `unknown` | `0.0.0` |
 | [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `structured_array` | `2.5.0` |

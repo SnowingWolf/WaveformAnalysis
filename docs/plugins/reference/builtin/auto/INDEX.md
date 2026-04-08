@@ -128,7 +128,7 @@ raw_files ──► records ──► df ──► df_events
 |------|----------|------|------|------|
 | [`BasicFeaturesPlugin`](basic_features.md) | `basic_features` | 3.7.0 | 特征提取 | - |
 | [`CacheAnalysisPlugin`](cache_analysis.md) | `cache_analysis` | 0.1.0 | 缓存分析 | - |
-| [`DataFramePlugin`](df.md) | `df` | 1.6.0 | 数据导出 | - |
+| [`DataFramePlugin`](df.md) | `df` | 1.7.0 | 数据导出 | - |
 | [`GroupedEventsPlugin`](df_events.md) | `df_events` | 0.0.0 | 事件分析 | df |
 | [`PairedEventsPlugin`](df_paired.md) | `df_paired` | 0.0.0 | 事件分析 | df_events |
 | [`FilteredWaveformsPlugin`](filtered_waveforms.md) | `filtered_waveforms` | 2.5.0 | 波形处理 | st_waveforms |

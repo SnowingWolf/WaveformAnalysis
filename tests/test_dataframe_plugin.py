@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import numpy as np
+from numpy.lib import recfunctions as rfn
 import pytest
 
 from tests.utils import FakeContext
@@ -26,13 +27,14 @@ class _RunConfigContext(FakeContext):
 
 
 def _make_st_waveforms(include_board: bool = True):
-    fields = [("timestamp", "i8")]
+    fields = [("timestamp", "i8"), ("record_id", "i8")]
     if include_board:
         fields.append(("board", "i2"))
     fields.append(("channel", "i2"))
     dtype = np.dtype(fields)
     data = np.zeros(3, dtype=dtype)
     data["timestamp"] = [300, 100, 200]
+    data["record_id"] = [30, 10, 20]
     if include_board:
         data["board"] = [2, 1, 2]
     data["channel"] = [0, 1, 0]
@@ -82,6 +84,7 @@ def test_dataframe_plugin_no_gain_columns_by_default():
     assert "area_pe" not in df.columns
     assert "height_pe" not in df.columns
     assert list(df["board"]) == [1, 2, 2]
+    assert list(df["record_id"]) == [10, 20, 30]
     assert list(df["timestamp"]) == [100, 200, 300]
 
 
@@ -162,6 +165,21 @@ def test_dataframe_plugin_fallback_board_when_field_missing():
     np.testing.assert_array_equal(df["board"].to_numpy(), np.zeros(3, dtype=np.int16))
 
 
+def test_dataframe_plugin_fallback_record_id_when_field_missing():
+    waveform_data = _make_st_waveforms()
+    waveform_data = rfn.drop_fields(waveform_data, ["record_id"], usemask=False)
+    ctx = FakeContext(
+        data={
+            "st_waveforms": waveform_data,
+            "basic_features": _make_basic_features(),
+        }
+    )
+    plugin = DataFramePlugin()
+    df = plugin.compute(ctx, "run_001")
+
+    np.testing.assert_array_equal(df["record_id"].to_numpy(), np.array([1, 2, 0], dtype=np.int64))
+
+
 def test_dataframe_plugin_wave_source_records_depends_on_records_and_basic_features():
     ctx = FakeContext(config={"wave_source": "records", "use_filtered": True})
     plugin = DataFramePlugin()
@@ -185,6 +203,7 @@ def test_dataframe_plugin_reads_records_view_when_wave_source_records():
 
     mocked.assert_called_once_with(ctx, "run_001")
     assert list(df["timestamp"]) == [100, 200, 300]
+    assert list(df["record_id"]) == [10, 20, 30]
     assert list(df["channel"]) == [1, 0, 0]
     assert list(df["area"]) == [10.0, 20.0, 30.0]
     np.testing.assert_array_equal(df["board"].to_numpy(), np.array([1, 2, 2], dtype=np.int16))
@@ -224,5 +243,13 @@ def test_dataframe_plugin_records_empty_returns_empty_df():
     with patch("waveform_analysis.core.records_view", return_value=rv):
         df = plugin.compute(ctx, "run_001")
 
-    assert list(df.columns) == ["timestamp", "area", "height", "amp", "board", "channel"]
+    assert list(df.columns) == [
+        "timestamp",
+        "record_id",
+        "area",
+        "height",
+        "amp",
+        "board",
+        "channel",
+    ]
     assert df.empty

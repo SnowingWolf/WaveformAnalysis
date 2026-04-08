@@ -9,7 +9,7 @@
 | Provides | `df` |
 | Depends On | - |
 | Output Kind | `unknown` |
-| Version | `1.6.0` |
+| Version | `1.7.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.dataframe` |
 | Accelerator | `cpu` |
 
@@ -44,7 +44,7 @@
 
 1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
 2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
+3. 新增/删除输出字段时，同时更新消费方插件和回归测试；当前 DataFrame 默认包含 `record_id`
 
 ## Validation
 
