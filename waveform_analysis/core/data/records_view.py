@@ -384,16 +384,12 @@ def records_view(source: Any, run_id: str) -> RecordsView:
     """
     Factory function to create a RecordsView from a Context-like source.
     """
-    from waveform_analysis.core.plugins.builtin.cpu.records import get_records_bundle
-
     records = source.get_data(run_id, "records")
     wave_pool = source.get_data(run_id, "wave_pool")
 
-    if not isinstance(records, np.ndarray) or not isinstance(wave_pool, np.ndarray):
-        bundle = get_records_bundle(source, run_id)
-        if not isinstance(records, np.ndarray):
-            records = bundle.records
-        if not isinstance(wave_pool, np.ndarray):
-            wave_pool = bundle.wave_pool
+    if not isinstance(records, np.ndarray):
+        raise ValueError("records_view requires formal 'records' plugin output")
+    if not isinstance(wave_pool, np.ndarray):
+        raise ValueError("records_view requires formal 'wave_pool' plugin output")
 
     return RecordsView(records, wave_pool)

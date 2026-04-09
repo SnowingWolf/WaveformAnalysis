@@ -6,7 +6,7 @@ import pytest
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.data.records_view import RecordsView
 from waveform_analysis.core.plugins import profiles
-from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE, RecordsBundle
+from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
 
 
 def _make_sample_view():
@@ -149,7 +149,7 @@ def test_records_view_uses_records_branch_with_cpu_default():
     assert int(rv.waves(100)[0]) == 7
 
 
-def test_records_view_falls_back_to_internal_bundle_when_wave_pool_missing():
+def test_records_view_requires_formal_wave_pool_output():
     from waveform_analysis.core.data import records_view
 
     records = np.zeros(1, dtype=RECORDS_DTYPE)
@@ -161,20 +161,13 @@ def test_records_view_falls_back_to_internal_bundle_when_wave_pool_missing():
     records["wave_offset"] = [0]
     records["event_length"] = [1]
     records["time"] = [0]
-    wave_pool = np.array([7], dtype=np.uint16)
-    fake_bundle = RecordsBundle(records=records, wave_pool=wave_pool)
     ctx = Context()
 
     with patch.object(ctx, "get_data", side_effect=[records, None]) as get_data_mock:
-        with patch(
-            "waveform_analysis.core.plugins.builtin.cpu.records.get_records_bundle",
-            return_value=fake_bundle,
-        ) as bundle_mock:
-            rv = records_view(ctx, "run_001")
+        with pytest.raises(ValueError, match="wave_pool"):
+            records_view(ctx, "run_001")
 
     assert get_data_mock.call_count == 2
-    assert bundle_mock.call_count == 1
-    assert int(rv.waves(100)[0]) == 7
 
 
 def test_records_view_batch_window_uses_record_ids():
