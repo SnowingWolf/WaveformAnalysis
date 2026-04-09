@@ -630,45 +630,6 @@ class HitFinderPlugin(Plugin):
 
         return float(peak_height)
 
-    def _get_global_daq_adapter(self, context: Any) -> str | None:
-        config = getattr(context, "config", {})
-        return config.get("daq_adapter")
-
-    def _has_config(self, context: Any, name: str) -> bool:
-        if hasattr(context, "has_explicit_config"):
-            try:
-                return context.has_explicit_config(self, name)
-            except Exception:
-                pass
-        config = getattr(context, "config", {})
-        provides = self.provides
-        if provides in config and isinstance(config[provides], dict):
-            if name in config[provides]:
-                return True
-        if f"{provides}.{name}" in config:
-            return True
-        return name in config
-
-    def _get_sampling_interval_from_adapter(
-        self,
-        daq_adapter: str | None,
-        default_value: float,
-    ) -> float:
-        if not daq_adapter:
-            return default_value
-        try:
-            from waveform_analysis.utils.formats import get_adapter
-        except Exception:
-            return default_value
-        try:
-            adapter = get_adapter(daq_adapter)
-        except ValueError:
-            return default_value
-        sampling_rate_hz = adapter.sampling_rate_hz
-        if not sampling_rate_hz:
-            return default_value
-        return 1e9 / float(sampling_rate_hz)
-
 
 __all__ = [
     "HIT_DTYPE",

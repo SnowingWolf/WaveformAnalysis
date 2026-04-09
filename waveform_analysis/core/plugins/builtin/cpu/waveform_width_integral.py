@@ -82,11 +82,6 @@ class WaveformWidthIntegralPlugin(Plugin):
             type=float,
             help="采样间隔（ns），优先级高于 sampling_rate",
         ),
-        "daq_adapter": Option(
-            default=None,
-            type=str,
-            help="DAQ 适配器名称（用于自动推断采样率）",
-        ),
     }
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
@@ -96,14 +91,8 @@ class WaveformWidthIntegralPlugin(Plugin):
         source = resolve_wave_source(context, self)
         dt = context.get_config(self, "dt")
         sampling_rate = context.get_config(self, "sampling_rate")
-        daq_adapter = context.get_config(self, "daq_adapter")
 
         if dt is None:
-            if not self._has_config(context, "sampling_rate"):
-                sampling_rate = self._get_sampling_rate_from_adapter(
-                    daq_adapter,
-                    sampling_rate,
-                )
             if sampling_rate <= 0:
                 raise ValueError(f"sampling_rate ({sampling_rate}) 必须大于 0")
             dt = 1.0 / float(sampling_rate)
@@ -249,38 +238,3 @@ class WaveformWidthIntegralPlugin(Plugin):
         # Dynamic dependency: waveform source is selected from
         # records/st_waveforms/filtered_waveforms via wave_source/use_filtered.
         return resolve_wave_depends_on(source, bool(context.get_config(self, "use_filtered")))
-
-    def _has_config(self, context: Any, name: str) -> bool:
-        if hasattr(context, "has_explicit_config"):
-            try:
-                return context.has_explicit_config(self, name)
-            except Exception:
-                pass
-        config = getattr(context, "config", {})
-        provides = self.provides
-        if provides in config and isinstance(config[provides], dict):
-            if name in config[provides]:
-                return True
-        if f"{provides}.{name}" in config:
-            return True
-        return name in config
-
-    def _get_sampling_rate_from_adapter(
-        self,
-        daq_adapter: str | None,
-        default_value: float,
-    ) -> float:
-        if not daq_adapter:
-            return default_value
-        try:
-            from waveform_analysis.utils.formats import get_adapter
-        except Exception:
-            return default_value
-        try:
-            adapter = get_adapter(daq_adapter)
-        except ValueError:
-            return default_value
-        sampling_rate_hz = adapter.sampling_rate_hz
-        if not sampling_rate_hz:
-            return default_value
-        return float(sampling_rate_hz) / 1e9

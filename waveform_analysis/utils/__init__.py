@@ -15,6 +15,7 @@ from .event_filters import (
     filter_events_by_function,
 )
 from .io import parse_files_generator
+from .preview import plot_records_waveforms
 
 __all__ = [
     "DAQRun",
@@ -25,4 +26,5 @@ __all__ = [
     "filter_events_by_function",
     "filter_coincidence_events",
     "extract_channel_attributes",
+    "plot_records_waveforms",
 ]

@@ -65,12 +65,7 @@ class WaveformWidthPlugin(Plugin):
         "sampling_rate": Option(
             default=None,
             type=float,
-            help="采样率（GHz），未显式设置时优先从 DAQ 适配器推断",
-        ),
-        "daq_adapter": Option(
-            default=None,
-            type=str,
-            help="DAQ 适配器名称（用于自动推断采样率）",
+            help="采样率（GHz）；未设置时默认使用 0.5 GHz",
         ),
         "rise_low": Option(
             default=0.1,
@@ -127,12 +122,6 @@ class WaveformWidthPlugin(Plugin):
         # 获取配置参数
         use_filtered = context.get_config(self, "use_filtered")
         sampling_rate = context.get_config(self, "sampling_rate")
-        daq_adapter = context.get_config(self, "daq_adapter")
-        if not self._has_config(context, "sampling_rate"):
-            sampling_rate = self._get_sampling_rate_from_adapter(
-                daq_adapter,
-                sampling_rate,
-            )
         if sampling_rate is None:
             sampling_rate = 0.5
         rise_low = context.get_config(self, "rise_low")
@@ -212,41 +201,6 @@ class WaveformWidthPlugin(Plugin):
         if context.get_config(self, "use_filtered"):
             return ["hit", "filtered_waveforms"]
         return ["hit", "st_waveforms"]
-
-    def _has_config(self, context: Any, name: str) -> bool:
-        if hasattr(context, "has_explicit_config"):
-            try:
-                return context.has_explicit_config(self, name)
-            except Exception:
-                pass
-        config = getattr(context, "config", {})
-        provides = self.provides
-        if provides in config and isinstance(config[provides], dict):
-            if name in config[provides]:
-                return True
-        if f"{provides}.{name}" in config:
-            return True
-        return name in config
-
-    def _get_sampling_rate_from_adapter(
-        self,
-        daq_adapter: str | None,
-        default_value: float,
-    ) -> float:
-        if not daq_adapter:
-            return default_value
-        try:
-            from waveform_analysis.utils.formats import get_adapter
-        except Exception:
-            return default_value
-        try:
-            adapter = get_adapter(daq_adapter)
-        except ValueError:
-            return default_value
-        sampling_rate_hz = adapter.sampling_rate_hz
-        if not sampling_rate_hz:
-            return default_value
-        return float(sampling_rate_hz) / 1e9
 
     def _calculate_width_from_peak(
         self,

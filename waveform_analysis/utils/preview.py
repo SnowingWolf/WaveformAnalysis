@@ -17,8 +17,9 @@
 - 选择感兴趣的事件进行详细分析
 """
 
+from collections.abc import Iterable
 import logging
-from typing import Optional
+from typing import Any
 import warnings
 
 from matplotlib.figure import Figure
@@ -46,6 +47,122 @@ def _resolve_plot_dt(dt: float, kwargs: dict[str, object]) -> float:
         )
         return float(legacy_dt)
     return float(dt)
+
+
+def _coerce_record_ids(record_ids: int | Iterable[int] | None) -> list[int] | None:
+    if record_ids is None:
+        return None
+    if np.isscalar(record_ids):
+        return [int(record_ids)]
+    return [int(record_id) for record_id in record_ids]
+
+
+def _resolve_records_view(
+    source: Any,
+    run_id: str | None = None,
+):
+    from waveform_analysis.core.data import RecordsView, records_view
+
+    if isinstance(source, RecordsView):
+        return source
+    if run_id is None:
+        raise ValueError("run_id is required when source is not a RecordsView")
+    return records_view(source, run_id)
+
+
+def _compute_record_metrics(
+    rv,
+    record_id: int,
+    sample_start: int = 0,
+    sample_end: int | None = None,
+) -> dict[str, float | int]:
+    raw_wave = rv.waves(record_id, sample_start=sample_start, sample_end=sample_end)
+    corrected_wave = rv.waves(
+        record_id,
+        sample_start=sample_start,
+        sample_end=sample_end,
+        baseline_correct=True,
+        dtype=np.float64,
+    )
+
+    if len(raw_wave) == 0:
+        return {
+            "height": 0.0,
+            "area": 0.0,
+            "peak_index": -1,
+            "peak_value": np.nan,
+        }
+
+    peak_index = int(np.argmin(corrected_wave))
+    return {
+        "height": float(-np.min(corrected_wave)),
+        "area": float(-np.sum(corrected_wave)),
+        "peak_index": peak_index,
+        "peak_value": float(raw_wave[peak_index]),
+    }
+
+
+def _filter_records(
+    rv,
+    record_ids: list[int] | None = None,
+    board: int | None = None,
+    channel: int | None = None,
+    timestamp_range: tuple[int, int] | None = None,
+    height_range: tuple[float, float] | None = None,
+    area_range: tuple[float, float] | None = None,
+    limit: int | None = None,
+    sample_start: int = 0,
+    sample_end: int | None = None,
+) -> tuple[np.ndarray, dict[int, dict[str, float | int]]]:
+    records = rv.records
+
+    if record_ids is not None:
+        selected = records[[rv._resolve_record_index(record_id) for record_id in record_ids]]
+    else:
+        mask = np.ones(len(records), dtype=bool)
+        if board is not None:
+            if "board" not in records.dtype.names:
+                raise ValueError("records do not contain board field")
+            mask &= records["board"] == int(board)
+        if channel is not None:
+            if "channel" not in records.dtype.names:
+                raise ValueError("records do not contain channel field")
+            mask &= records["channel"] == int(channel)
+        if timestamp_range is not None:
+            t_min, t_max = timestamp_range
+            mask &= records["timestamp"] >= int(t_min)
+            mask &= records["timestamp"] <= int(t_max)
+        selected = records[mask]
+
+    metrics_by_id: dict[int, dict[str, float | int]] = {}
+    filtered_rows = []
+    for rec in selected:
+        record_id = int(rec["record_id"])
+        metrics = _compute_record_metrics(
+            rv,
+            record_id,
+            sample_start=sample_start,
+            sample_end=sample_end,
+        )
+
+        if height_range is not None:
+            h_min, h_max = height_range
+            if not (float(h_min) <= float(metrics["height"]) <= float(h_max)):
+                continue
+        if area_range is not None:
+            a_min, a_max = area_range
+            if not (float(a_min) <= float(metrics["area"]) <= float(a_max)):
+                continue
+
+        metrics_by_id[record_id] = metrics
+        filtered_rows.append(rec)
+        if limit is not None and len(filtered_rows) >= int(limit):
+            break
+
+    if not filtered_rows:
+        return selected[:0], metrics_by_id
+
+    return np.array(filtered_rows, dtype=records.dtype), metrics_by_id
 
 
 @export
@@ -761,6 +878,163 @@ def preview_waveforms(
         raise ValueError(f"Invalid plot_mode: {plot_mode}. Must be 'overlay' or 'grid'")
 
     # 保存
+    if save_path is not None:
+        fig.savefig(save_path, dpi=300, bbox_inches="tight")
+        logger.info(f"Figure saved to {save_path}")
+
+    return fig
+
+
+@export
+def plot_records_waveforms(
+    source: Any,
+    run_id: str | None = None,
+    record_ids: int | Iterable[int] | None = None,
+    board: int | None = None,
+    channel: int | None = None,
+    timestamp_range: tuple[int, int] | None = None,
+    height_range: tuple[float, float] | None = None,
+    area_range: tuple[float, float] | None = None,
+    sample_start: int = 0,
+    sample_end: int | None = None,
+    limit: int | None = 9,
+    ncols: int = 2,
+    figsize_per_plot: tuple[int, int] = (6, 4),
+    dt: float | None = None,
+    title: str | None = None,
+    show_baseline: bool = True,
+    show_peak: bool = True,
+    save_path: str | None = None,
+) -> Figure:
+    """
+    按 `record_id` 或条件检索 records，并以 Matplotlib 图像展示波形与特征。
+
+    参数:
+        source: `RecordsView` 或 Context-like 对象
+        run_id: 当 source 不是 `RecordsView` 时必填
+        record_ids: 单个或多个 `record_id`
+        board: 按板卡筛选
+        channel: 按通道筛选
+        timestamp_range: 时间戳筛选区间 `(t_min, t_max)`，闭区间
+        height_range: 波形高度筛选区间 `(min_height, max_height)`
+        area_range: 波形面积筛选区间 `(min_area, max_area)`
+        sample_start: 绘图/特征计算窗口起点
+        sample_end: 绘图/特征计算窗口终点（半开区间）
+        limit: 最多显示多少条记录；显式传入 `record_ids` 时保留传入顺序
+        ncols: 子图列数
+        figsize_per_plot: 每个子图大小
+        dt: 采样间隔；若为 None 则优先从 records.dt 读取，否则默认 1.0
+        title: 自定义总标题
+        show_baseline: 是否显示 baseline 虚线
+        show_peak: 是否显示峰值标记
+        save_path: 可选保存路径
+
+    返回:
+        Matplotlib Figure 对象
+
+    示例:
+        >>> fig = plot_records_waveforms(ctx, run_id="run_001", record_ids=[10, 25, 42])
+        >>> fig = plot_records_waveforms(
+        ...     ctx,
+        ...     run_id="run_001",
+        ...     channel=2,
+        ...     height_range=(50, 200),
+        ...     limit=6,
+        ... )
+    """
+    rv = _resolve_records_view(source, run_id=run_id)
+    selected_record_ids = _coerce_record_ids(record_ids)
+    records, metrics_by_id = _filter_records(
+        rv,
+        record_ids=selected_record_ids,
+        board=board,
+        channel=channel,
+        timestamp_range=timestamp_range,
+        height_range=height_range,
+        area_range=area_range,
+        limit=limit,
+        sample_start=sample_start,
+        sample_end=sample_end,
+    )
+
+    if len(records) == 0:
+        fig, ax = plt.subplots(figsize=figsize_per_plot)
+        ax.text(
+            0.5,
+            0.5,
+            "No records matched the query",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+        )
+        ax.set_axis_off()
+        return fig
+
+    if dt is None:
+        if "dt" in records.dtype.names and len(records) > 0:
+            dt = float(records[0]["dt"])
+        else:
+            dt = 1.0
+
+    n_records = len(records)
+    nrows = (n_records + ncols - 1) // ncols
+    figsize = (figsize_per_plot[0] * ncols, figsize_per_plot[1] * nrows)
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize, sharex=False, sharey=False)
+    axes = np.atleast_1d(axes).flatten()
+
+    for ax, record in zip(axes, records, strict=False):
+        record_id = int(record["record_id"])
+        raw_wave = rv.waves(record_id, sample_start=sample_start, sample_end=sample_end)
+        x = np.arange(len(raw_wave)) * float(dt)
+        baseline = float(record["baseline"])
+        metrics = metrics_by_id[record_id]
+
+        ax.plot(x, raw_wave, linewidth=1.4, color="tab:blue")
+        if show_baseline:
+            ax.axhline(baseline, color="gray", linestyle="--", alpha=0.7)
+
+        peak_index = int(metrics["peak_index"])
+        if show_peak and peak_index >= 0:
+            ax.plot(
+                peak_index * float(dt),
+                float(metrics["peak_value"]),
+                "r*",
+                markersize=10,
+            )
+
+        info_lines = [
+            f"record_id={record_id}",
+            f"baseline={baseline:.2f}",
+            f"height={float(metrics['height']):.2f}",
+            f"area={float(metrics['area']):.2f}",
+        ]
+        if "timestamp" in record.dtype.names:
+            info_lines.insert(1, f"timestamp={int(record['timestamp'])}")
+        if "board" in record.dtype.names and "channel" in record.dtype.names:
+            info_lines.insert(1, f"ch={int(record['board'])}:{int(record['channel'])}")
+
+        ax.text(
+            0.02,
+            0.98,
+            "\n".join(info_lines),
+            transform=ax.transAxes,
+            va="top",
+            fontsize=8,
+            bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.85},
+        )
+        ax.set_title(f"Record {record_id}", fontsize=10)
+        ax.set_xlabel("Time [ns]")
+        ax.set_ylabel("ADC Value")
+        ax.grid(True, alpha=0.25)
+
+    for ax in axes[n_records:]:
+        ax.set_axis_off()
+
+    if title is None:
+        title = f"Records waveform preview ({n_records} record{'s' if n_records != 1 else ''})"
+    fig.suptitle(title, fontsize=14)
+    plt.tight_layout(rect=[0, 0, 1, 0.97])
+
     if save_path is not None:
         fig.savefig(save_path, dpi=300, bbox_inches="tight")
         logger.info(f"Figure saved to {save_path}")

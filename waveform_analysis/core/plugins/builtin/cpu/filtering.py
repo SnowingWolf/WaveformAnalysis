@@ -70,11 +70,6 @@ class FilteredWaveformsPlugin(Plugin):
         "filter_order": Option(default=4, type=int, help="BW 阶数"),
         "sg_window_size": Option(default=11, type=int, help="SG 窗口大小（奇数）"),
         "sg_poly_order": Option(default=2, type=int, help="SG 多项式阶数"),
-        "daq_adapter": Option(
-            default=None,
-            type=str,
-            help="DAQ 适配器名称（用于自动推断采样率）",
-        ),
         # 你也可以加：sg_mode / sg_cval 等（这里先不扩展 options）
         "max_workers": Option(
             default=None,
@@ -101,9 +96,6 @@ class FilteredWaveformsPlugin(Plugin):
             lowcut = float(context.get_config(self, "lowcut"))
             highcut = float(context.get_config(self, "highcut"))
             fs = float(context.get_config(self, "fs"))
-            daq_adapter = context.get_config(self, "daq_adapter")
-            if not self._has_config(context, "fs"):
-                fs = self._get_fs_from_adapter(daq_adapter, fs)
             order = int(context.get_config(self, "filter_order"))
 
             if fs <= 0:
@@ -269,34 +261,3 @@ class FilteredWaveformsPlugin(Plugin):
             for offset in range(0, channel_indices.size, batch_size):
                 batches.append((channel_key, channel_indices[offset : offset + batch_size]))
         return batches
-
-    def _has_config(self, context: Any, name: str) -> bool:
-        if hasattr(context, "has_explicit_config"):
-            try:
-                return context.has_explicit_config(self, name)
-            except Exception:
-                pass
-        config = getattr(context, "config", {})
-        provides = self.provides
-        if provides in config and isinstance(config[provides], dict):
-            if name in config[provides]:
-                return True
-        if f"{provides}.{name}" in config:
-            return True
-        return name in config
-
-    def _get_fs_from_adapter(self, daq_adapter: str | None, default_value: float) -> float:
-        if not daq_adapter:
-            return default_value
-        try:
-            from waveform_analysis.utils.formats import get_adapter
-        except Exception:
-            return default_value
-        try:
-            adapter = get_adapter(daq_adapter)
-        except ValueError:
-            return default_value
-        sampling_rate_hz = adapter.sampling_rate_hz
-        if not sampling_rate_hz:
-            return default_value
-        return float(sampling_rate_hz) / 1e9

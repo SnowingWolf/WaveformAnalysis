@@ -245,31 +245,26 @@ def test_st_waveforms_lineage_uses_adapter_dtype():
         unregister_adapter(adapter_name)
 
 
-def test_filtered_waveforms_fs_auto_from_adapter():
-    """测试 filtered_waveforms 从 adapter 自动获取采样率"""
-    adapter_name = "test_adapter_filter"
-    _register_test_adapter(adapter_name, sampling_rate_hz=1e9)
-    try:
-        dtype = create_record_dtype(64)
-        st_waveforms = np.zeros(1, dtype=dtype)
-        st_waveforms["wave"][0] = np.linspace(0, 1, 64)
-        config = {
-            "filtered_waveforms": {
-                "filter_type": "BW",
-                "lowcut": 0.1,
-                "highcut": 0.4,
-                "daq_adapter": adapter_name,
-            }
+def test_filtered_waveforms_uses_explicit_fs():
+    """测试 filtered_waveforms 使用显式 fs 配置"""
+    dtype = create_record_dtype(64)
+    st_waveforms = np.zeros(1, dtype=dtype)
+    st_waveforms["wave"][0] = np.linspace(0, 1, 64)
+    config = {
+        "filtered_waveforms": {
+            "filter_type": "BW",
+            "lowcut": 0.1,
+            "highcut": 0.4,
+            "fs": 1.0,
         }
-        ctx = DummyContext(config, {"st_waveforms": st_waveforms})
-        plugin = FilteredWaveformsPlugin()
+    }
+    ctx = DummyContext(config, {"st_waveforms": st_waveforms})
+    plugin = FilteredWaveformsPlugin()
 
-        result = plugin.compute(ctx, "run_001")
+    result = plugin.compute(ctx, "run_001")
 
-        assert isinstance(result, np.ndarray)
-        assert result.shape[0] == 1
-    finally:
-        unregister_adapter(adapter_name)
+    assert isinstance(result, np.ndarray)
+    assert result.shape[0] == 1
 
 
 def test_waveforms_plugin_v1725_outputs_standard_st_waveforms(monkeypatch):

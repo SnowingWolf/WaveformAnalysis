@@ -50,6 +50,7 @@ __all__ = [
     # 波形预览
     "WaveformPreviewer",
     "preview_waveforms",
+    "plot_records_waveforms",
     # 插件热重载
     "PluginHotReloader",
     "enable_hot_reload",
@@ -94,6 +95,7 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "DAQRun": (".utils.daq", "DAQRun"),
     "WaveformPreviewer": (".utils.preview", "WaveformPreviewer"),
     "preview_waveforms": (".utils.preview", "preview_waveforms"),
+    "plot_records_waveforms": (".utils.preview", "plot_records_waveforms"),
 }
 
 
