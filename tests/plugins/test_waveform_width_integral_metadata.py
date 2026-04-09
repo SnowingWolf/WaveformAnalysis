@@ -34,10 +34,10 @@ def _make_records_view():
     return RecordsView(records, wave_pool)
 
 
-def test_waveform_width_integral_wave_source_records_depends_on_records():
+def test_waveform_width_integral_wave_source_records_depends_on_records_and_wave_pool():
     plugin = WaveformWidthIntegralPlugin()
     ctx = DummyContext({"wave_source": "records", "use_filtered": True}, {})
-    assert plugin.resolve_depends_on(ctx) == ["records"]
+    assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool"]
 
 
 def test_waveform_width_integral_reads_records_view_when_wave_source_records():

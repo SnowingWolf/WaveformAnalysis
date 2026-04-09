@@ -121,7 +121,8 @@
 
 **English**: `BasicFeaturesPlugin` computes height/amp/area features.
 - **Records + WavePool** (`core/processing/records_builder.py`):
-    - 构建 `RecordsBundle(records, wave_pool)` 以支持变长波形的连续存储。
+    - 构建 `RecordsBundle(records, wave_pool)` 作为内部共享构建结果。
+    - `records` 与 `wave_pool` 现在分别作为正式插件产物暴露，下游通过 `records_view(...)` 组装访问。
     - 适用于大规模数据的零拷贝访问与下游索引。
 - **插件集成**: `StWaveformsPlugin` 支持 `daq_adapter` 配置选项。
     - 与 `RawFilesPlugin` 和 `WaveformsPlugin` 的 `daq_adapter` 选项保持一致。

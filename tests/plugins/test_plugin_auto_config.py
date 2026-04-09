@@ -157,11 +157,11 @@ def test_hitfinder_height_window_extension_effect():
     assert peaks_large["height"][0] > peaks_small["height"][0]
 
 
-def test_hitfinder_wave_source_records_depends_on_records():
+def test_hitfinder_wave_source_records_depends_on_records_and_wave_pool():
     plugin = HitFinderPlugin()
     ctx = DummyContext({"wave_source": "records", "use_filtered": True}, {})
 
-    assert plugin.resolve_depends_on(ctx) == ["records"]
+    assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool"]
 
 
 def test_hitfinder_reads_records_view_when_wave_source_records():

@@ -1,5 +1,5 @@
 """
-Records plugin with internal wave_pool bundle (CPU).
+Records/wave_pool plugins backed by an internal shared RecordsBundle cache.
 """
 
 from typing import Any, Optional
@@ -19,6 +19,16 @@ from waveform_analysis.core.processing.records_builder import (
 )
 
 _BUNDLE_CACHE_NAME = "_records_bundle"
+
+
+def get_records_bundle_cache_key(context: Any, run_id: str) -> str:
+    """Return the internal memory-cache key used for the shared bundle."""
+    data_name = "records"
+    plugins = getattr(context, "_plugins", {})
+    if data_name not in plugins and "wave_pool" in plugins:
+        data_name = "wave_pool"
+    bundle_key = context.key_for(run_id, data_name)
+    return f"{_BUNDLE_CACHE_NAME}-{bundle_key}"
 
 
 def _apply_records_polarity(context: Any, run_id: str, bundle: RecordsBundle) -> RecordsBundle:
@@ -45,11 +55,6 @@ def _apply_records_polarity(context: Any, run_id: str, bundle: RecordsBundle) ->
         hw_channel = HardwareChannel(int(records["board"][idx]), int(records["channel"][idx]))
         records["polarity"][idx] = polarity_map.get(hw_channel, "unknown")
     return bundle
-
-
-def _bundle_cache_key(context: Any, run_id: str) -> str:
-    records_key = context.key_for(run_id, "records")
-    return f"{_BUNDLE_CACHE_NAME}-{records_key}"
 
 
 def _resolve_dt_ns(context: Any, plugin: Plugin, adapter_name: str | None = None) -> int:
@@ -113,15 +118,14 @@ def _build_records_bundle(
     part_size: int,
     dt_ns: int,
 ) -> RecordsBundle:
-    cache_key = _bundle_cache_key(context, run_id)
+    cache_key = get_records_bundle_cache_key(context, run_id)
     cached = context._results.get((run_id, cache_key))
     if isinstance(cached, RecordsBundle):
         _cleanup_stale_bundles(context, run_id, cache_key)
         return cached
 
-    raw_files = context.get_data(run_id, "raw_files")
-
     if adapter_name == "v1725":
+        raw_files = context.get_data(run_id, "raw_files")
         file_list = []
         for group in raw_files:
             if group:
@@ -157,15 +161,19 @@ def _build_records_bundle(
     return bundle
 
 
-class RecordsPlugin(Plugin):
-    """Build records (event index table) from raw_files."""
+def _resolve_records_upstream_depends(context: Any, plugin: Plugin) -> list[str]:
+    """Resolve the shared upstream inputs for records-backed derived products."""
+    adapter_name = _resolve_adapter_name(context, plugin)
+    if adapter_name == "v1725":
+        return ["raw_files"]
+    return ["st_waveforms"]
 
-    provides = "records"
-    depends_on = []
+
+class _RecordsBundlePluginBase(Plugin):
+    """Shared configuration and lineage for records-backed bundle outputs."""
+
     uses_run_config = True
-    description = "Build records (event index table) from raw_files."
     save_when = "always"
-    output_dtype = RECORDS_DTYPE
     options = {
         "daq_adapter": Option(
             default="vx2730",
@@ -212,27 +220,17 @@ class RecordsPlugin(Plugin):
             help="Sample interval in ns for records.dt (defaults to adapter rate or 1ns).",
         ),
     }
-    version = "0.8.1"
+    version = "0.9.0"
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
-        """Resolve adapter-specific upstream data for records.
+        """Resolve adapter-specific upstream data for shared records bundle outputs.
 
         Upstream data differs by adapter:
 
-        - Non-V1725 adapters, including VX2730: st_waveforms -> records
-        - V1725 adapter: raw_files -> records
-
-        This is why RecordsPlugin and WaveformsPlugin should be registered in
-        the same plugin set: users may switch adapters, but the valid upstream
-        for records changes with the adapter.
+        - Non-V1725 adapters, including VX2730: st_waveforms -> records/wave_pool
+        - V1725 adapter: raw_files -> records/wave_pool
         """
-        adapter_name = _resolve_adapter_name(context, self)
-        # Dynamic dependency:
-        # - v1725 keeps its dedicated raw-file path for records construction
-        # - other adapters reuse the resolved st_waveforms result
-        if adapter_name == "v1725":
-            return ["raw_files"]
-        return ["st_waveforms"]
+        return _resolve_records_upstream_depends(context, self)
 
     def get_lineage(self, context: Any) -> dict:
         adapter_name = _resolve_adapter_name(context, self)
@@ -244,7 +242,7 @@ class RecordsPlugin(Plugin):
         if adapter_name:
             config["daq_adapter"] = adapter_name
 
-        lineage = {
+        return {
             "plugin_class": self.__class__.__name__,
             "plugin_version": getattr(self, "version", "0.0.0"),
             "description": getattr(self, "description", ""),
@@ -252,11 +250,32 @@ class RecordsPlugin(Plugin):
             "depends_on": self._build_depends_lineage(context),
             "dtype": np.dtype(self.output_dtype).descr,
         }
-        return lineage
+
+
+class RecordsPlugin(_RecordsBundlePluginBase):
+    """Build records (event index table) from the shared internal bundle."""
+
+    provides = "records"
+    depends_on = []
+    description = "Build records (event index table) from the shared internal records bundle."
+    output_dtype = RECORDS_DTYPE
 
     def compute(self, context: Any, run_id: str, **kwargs) -> np.ndarray:
         bundle = get_records_bundle(context, run_id)
         return bundle.records
+
+
+class WavePoolPlugin(_RecordsBundlePluginBase):
+    """Expose wave_pool as a formal plugin output backed by RecordsBundle."""
+
+    provides = "wave_pool"
+    depends_on = []
+    description = "Build wave_pool from the shared internal records bundle."
+    output_dtype = np.dtype(np.uint16)
+
+    def compute(self, context: Any, run_id: str, **kwargs) -> np.ndarray:
+        bundle = get_records_bundle(context, run_id)
+        return bundle.wave_pool
 
 
 def get_records_bundle(context: Any, run_id: str) -> RecordsBundle:
@@ -266,7 +285,10 @@ def get_records_bundle(context: Any, run_id: str) -> RecordsBundle:
     result instead of reparsing raw files. V1725 keeps its dedicated raw-file
     path for compatibility and performance.
     """
-    plugin = context.get_plugin("records")
+    try:
+        plugin = context.get_plugin("records")
+    except Exception:
+        plugin = context.get_plugin("wave_pool")
     adapter_name = _resolve_adapter_name(context, plugin)
     dt_ns = _resolve_dt_ns(context, plugin, adapter_name=adapter_name)
     part_size = context.get_config(plugin, "records_part_size")

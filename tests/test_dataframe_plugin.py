@@ -180,11 +180,11 @@ def test_dataframe_plugin_fallback_record_id_when_field_missing():
     np.testing.assert_array_equal(df["record_id"].to_numpy(), np.array([1, 2, 0], dtype=np.int64))
 
 
-def test_dataframe_plugin_wave_source_records_depends_on_records_and_basic_features():
+def test_dataframe_plugin_wave_source_records_depends_on_records_wave_pool_and_basic_features():
     ctx = FakeContext(config={"wave_source": "records", "use_filtered": True})
     plugin = DataFramePlugin()
 
-    assert plugin.resolve_depends_on(ctx) == ["records", "basic_features"]
+    assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool", "basic_features"]
 
 
 def test_dataframe_plugin_reads_records_view_when_wave_source_records():

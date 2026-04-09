@@ -138,19 +138,42 @@ def test_records_view_uses_records_branch_with_cpu_default():
     records["event_length"] = [1]
     records["time"] = [0]
     wave_pool = np.array([7], dtype=np.uint16)
-    fake_bundle = RecordsBundle(records=records, wave_pool=wave_pool)
-
-    with patch(
-        "waveform_analysis.core.plugins.builtin.cpu.records.get_records_bundle",
-        return_value=fake_bundle,
-    ) as mocked:
+    with patch.object(ctx, "get_data", side_effect=[records, wave_pool]) as mocked:
         from waveform_analysis.core.data import records_view
 
         rv = records_view(ctx, "run_001")
 
     assert isinstance(rv, RecordsView)
-    assert mocked.call_count == 1
+    assert mocked.call_count == 2
     assert len(rv) == 1
+    assert int(rv.waves(100)[0]) == 7
+
+
+def test_records_view_falls_back_to_internal_bundle_when_wave_pool_missing():
+    from waveform_analysis.core.data import records_view
+
+    records = np.zeros(1, dtype=RECORDS_DTYPE)
+    records["timestamp"] = [10]
+    records["pid"] = 0
+    records["channel"] = [0]
+    records["record_id"] = [100]
+    records["baseline"] = [1.0]
+    records["wave_offset"] = [0]
+    records["event_length"] = [1]
+    records["time"] = [0]
+    wave_pool = np.array([7], dtype=np.uint16)
+    fake_bundle = RecordsBundle(records=records, wave_pool=wave_pool)
+    ctx = Context()
+
+    with patch.object(ctx, "get_data", side_effect=[records, None]) as get_data_mock:
+        with patch(
+            "waveform_analysis.core.plugins.builtin.cpu.records.get_records_bundle",
+            return_value=fake_bundle,
+        ) as bundle_mock:
+            rv = records_view(ctx, "run_001")
+
+    assert get_data_mock.call_count == 2
+    assert bundle_mock.call_count == 1
     assert int(rv.waves(100)[0]) == 7
 
 

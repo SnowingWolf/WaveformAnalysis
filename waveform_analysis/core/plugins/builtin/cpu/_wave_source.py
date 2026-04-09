@@ -53,7 +53,7 @@ def resolve_depends_on(source: str, use_filtered: bool) -> list[str]:
     # - otherwise auto mode falls back to filtered_waveforms when use_filtered
     #   is true, or st_waveforms when it is false
     if source == WAVE_SOURCE_RECORDS:
-        return [WAVE_SOURCE_RECORDS]
+        return [WAVE_SOURCE_RECORDS, "wave_pool"]
     if source == WAVE_SOURCE_ST:
         return [WAVE_SOURCE_ST]
     if source == WAVE_SOURCE_FILTERED:

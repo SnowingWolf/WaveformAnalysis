@@ -200,10 +200,10 @@ def test_threshold_hit_use_filtered_branch():
     assert int(result[0]["position"]) >= 12
 
 
-def test_threshold_hit_wave_source_records_depends_on_records():
+def test_threshold_hit_wave_source_records_depends_on_records_and_wave_pool():
     plugin = ThresholdHitPlugin()
     ctx = DummyContext({"wave_source": "records", "use_filtered": True}, {})
-    assert plugin.resolve_depends_on(ctx) == ["records"]
+    assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool"]
 
 
 def test_threshold_hit_reads_records_view_when_wave_source_records():

@@ -43,7 +43,7 @@ from .hit_merge import (
 from .peak_finding import HIT_DTYPE, HitFinderPlugin
 
 # Records 插件
-from .records import RecordsPlugin
+from .records import RecordsPlugin, WavePoolPlugin
 from .s1_s2_classifier import (
     LABEL_S1,
     LABEL_S2,
@@ -115,5 +115,6 @@ __all__ = [
     "CacheAnalysisPlugin",
     # Records
     "RecordsPlugin",
+    "WavePoolPlugin",
     "standard_plugins",
 ]

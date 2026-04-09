@@ -168,10 +168,10 @@ class TestResolveDependsOn:
         plugin = BasicFeaturesPlugin()
         assert plugin.resolve_depends_on(ctx) == ["st_waveforms"]
 
-    def test_wave_source_records_depends_on_records(self):
+    def test_wave_source_records_depends_on_records_and_wave_pool(self):
         ctx = FakeContext(config={"wave_source": "records", "use_filtered": True})
         plugin = BasicFeaturesPlugin()
-        assert plugin.resolve_depends_on(ctx) == ["records"]
+        assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool"]
 
     def test_wave_source_filtered_depends_on_filtered(self):
         ctx = FakeContext(config={"wave_source": "filtered_waveforms"})

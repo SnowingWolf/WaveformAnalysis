@@ -43,8 +43,10 @@ waveforms = ctx.get_data("run_001", "waveforms")  # 直接从缓存返回
 
 ## RecordsView 波形访问
 
-当上游已经产出 `records + wave_pool` 时，可通过 `records_view(ctx, run_id)` 获取
-`RecordsView`，用于按稳定 `record_id` 回切波形。
+当上游已经产出正式插件结果 `records + wave_pool` 时，可通过
+`records_view(ctx, run_id)` 获取 `RecordsView`，用于按稳定 `record_id`
+回切波形。内部仍保留 `RecordsBundle(records, wave_pool)` 作为共享构建缓存，
+但不再建议下游直接依赖这个内部对象。
 
 ```python
 from waveform_analysis.core.data import records_view

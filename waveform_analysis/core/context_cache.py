@@ -96,6 +96,11 @@ class ContextCacheDomain:
                 elif verbose:
                     print(f"  - 内存缓存不存在: ({run_id}, {name})")
 
+                if name in {"records", "wave_pool"}:
+                    removed = self._clear_internal_records_bundle_cache(run_id, verbose=verbose)
+                    memory_count += removed
+                    count += removed
+
             if clear_disk:
                 try:
                     cache_key = self.key_for(run_id, name)
@@ -123,6 +128,31 @@ class ContextCacheDomain:
                 print("  ✓ 缓存清理成功")
 
         return count
+
+    def _clear_internal_records_bundle_cache(self, run_id: str, verbose: bool = True) -> int:
+        """Clear in-memory shared RecordsBundle cache entries for a run."""
+        removed = 0
+        bundle_prefix = "_records_bundle-"
+        keys_to_remove = []
+
+        for key in list(self.ctx._results):
+            cached_run_id, name = key
+            if cached_run_id != run_id:
+                continue
+            if not isinstance(name, str) or not name.startswith(bundle_prefix):
+                continue
+            keys_to_remove.append(key)
+
+        for key in keys_to_remove:
+            del self.ctx._results[key]
+            if key in self.ctx._results_lineage:
+                del self.ctx._results_lineage[key]
+            removed += 1
+            if verbose:
+                print(f"  ✓ 已清理内部 bundle 缓存: {key}")
+            self.ctx.logger.debug("Cleared internal records bundle cache for %s", key)
+
+        return removed
 
     def load_from_disk_with_check(self, run_id: str, name: str, key: str) -> Any | None:
         """Load cached data from disk after validating storage layout and lineage."""
