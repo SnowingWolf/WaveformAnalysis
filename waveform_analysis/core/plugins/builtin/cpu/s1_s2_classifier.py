@@ -36,7 +36,7 @@ S1_S2_CLASSIFIER_DTYPE = np.dtype(
         ("timestamp", "i8"),
         ("board", "i2"),
         ("channel", "i2"),
-        ("event_index", "i8"),
+        ("record_id", "i8"),
         ("peak_position", "i8"),
     ]
 )
@@ -76,7 +76,7 @@ class S1S2ClassifierPlugin(Plugin):
     provides = "s1_s2"
     depends_on = ["waveform_width", "basic_features"]
     description = "Classify peaks into S1/S2 using width/area/height ranges."
-    version = "0.3.0"
+    version = "0.4.0"
     save_when = "always"
     output_dtype = S1_S2_CLASSIFIER_DTYPE
 
@@ -160,16 +160,27 @@ class S1S2ClassifierPlugin(Plugin):
             return np.zeros(0, dtype=S1_S2_CLASSIFIER_DTYPE)
 
         rows = []
+        feature_names = features.dtype.names or ()
         for peak in widths:
             width_ns = float(peak["total_width"])
             width_samples = float(peak["total_width_samples"])
-            event_index = int(peak["event_index"])
+            record_id = (
+                int(peak["record_id"])
+                if "record_id" in peak.dtype.names
+                else int(peak["event_index"])
+            )
 
             height = np.nan
             area = np.nan
-            if 0 <= event_index < len(features):
-                height = float(features["height"][event_index])
-                area = float(features["area"][event_index])
+            if "record_id" in feature_names:
+                matches = np.flatnonzero(features["record_id"] == record_id)
+                if len(matches) > 0:
+                    feature_idx = int(matches[0])
+                    height = float(features["height"][feature_idx])
+                    area = float(features["area"][feature_idx])
+            elif 0 <= record_id < len(features):
+                height = float(features["height"][record_id])
+                area = float(features["area"][record_id])
 
             width_value = width_samples if width_unit == "samples" else width_ns
 
@@ -207,7 +218,7 @@ class S1S2ClassifierPlugin(Plugin):
                     int(peak["timestamp"]),
                     int(peak["board"]) if "board" in peak.dtype.names else 0,
                     int(peak["channel"]),
-                    int(event_index),
+                    int(record_id),
                     int(peak["peak_position"]),
                 )
             )

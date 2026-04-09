@@ -242,7 +242,11 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
             dt_ns = (
                 int(st_waveform["dt"]) if "dt" in st_waveform.dtype.names else int(self.explicit_dt)
             )
-            event_index = event_offset + local_idx
+            record_id = (
+                int(st_waveform["record_id"])
+                if "record_id" in st_waveform.dtype.names
+                else event_offset + local_idx
+            )
             waveform = (
                 np.asarray(filtered_waveform["wave"], dtype=np.float64)
                 if getattr(filtered_waveform, "dtype", None) is not None
@@ -258,7 +262,7 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
                 dt_ns,
                 board,
                 channel,
-                event_index,
+                record_id,
                 self.use_derivative,
                 self.height,
                 self.distance,
@@ -296,7 +300,7 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
         dt_ns: int,
         board: int,
         channel: int,
-        event_index: int,
+        record_id: int,
         use_derivative: bool,
         height: float,
         distance: int,
@@ -350,7 +354,7 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
                     int(global_timestamp),
                     int(board),
                     int(channel),
-                    int(event_index),
+                    int(record_id),
                 )
             )
 

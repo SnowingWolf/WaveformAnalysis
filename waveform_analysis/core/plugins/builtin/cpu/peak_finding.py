@@ -41,7 +41,7 @@ HIT_DTYPE = np.dtype(
         ("timestamp", "i8"),  # 全局时间戳（事件时间戳 + 峰值位置 * 采样间隔）
         ("board", "i2"),  # 板卡编号
         ("channel", "i2"),  # 通道号
-        ("event_index", "i8"),  # 事件索引
+        ("record_id", "i8"),  # 来源波形/记录的唯一编号
     ]
 )
 
@@ -68,7 +68,7 @@ class HitFinderPlugin(Plugin):
     provides = "hit"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Detect peaks in waveforms and extract peak features."
-    version = "2.5.0"  # 版本升级：hit 输出新增 dt，时间换算优先读取输入 dt
+    version = "3.0.0"  # 版本升级：hit 输出使用 record_id 替代 event_index
     save_when = "always"  # 峰值数据较小，总是保存
     output_dtype = HIT_DTYPE
 
@@ -361,6 +361,11 @@ class HitFinderPlugin(Plugin):
             timestamp = st_waveform["timestamp"]
             board = st_waveform["board"] if "board" in st_waveform.dtype.names else 0
             channel = st_waveform["channel"] if "channel" in st_waveform.dtype.names else 0
+            record_id = (
+                int(st_waveform["record_id"])
+                if "record_id" in st_waveform.dtype.names
+                else int(event_idx)
+            )
             baseline = st_waveform["baseline"] if "baseline" in st_waveform.dtype.names else None
             if "dt" in st_waveform.dtype.names:
                 dt_ns = int(st_waveform["dt"])
@@ -377,7 +382,7 @@ class HitFinderPlugin(Plugin):
                 timestamp,
                 board,
                 channel,
-                event_idx,
+                record_id,
                 use_derivative,
                 height,
                 distance,
@@ -438,7 +443,7 @@ class HitFinderPlugin(Plugin):
                 timestamp,
                 board,
                 channel,
-                event_idx,
+                record_id,
                 use_derivative,
                 height,
                 distance,
@@ -462,7 +467,7 @@ class HitFinderPlugin(Plugin):
         timestamp: int,
         board: int,
         channel: int,
-        event_index: int,
+        record_id: int,
         use_derivative: bool,
         height: float,
         distance: int,
@@ -483,7 +488,7 @@ class HitFinderPlugin(Plugin):
             baseline: 基线值（用于反转法检测负脉冲）
             timestamp: 事件时间戳（事件开始时间）
             channel: 通道号
-            event_index: 事件索引
+            record_id: 来源波形/记录 ID
             use_derivative: 是否使用导数检测峰值
             height: 最小峰高
             distance: 最小峰间距
@@ -570,7 +575,7 @@ class HitFinderPlugin(Plugin):
                 int(global_timestamp),  # timestamp: 全局时间戳
                 int(board),  # board
                 int(channel),  # channel
-                int(event_index),  # event_index
+                int(record_id),  # record_id
             )
             peaks.append(peak_tuple)
 

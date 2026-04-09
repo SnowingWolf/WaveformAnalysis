@@ -78,7 +78,7 @@ def test_waveform_width_plugin_basic(mock_context, synthetic_waveform):
     peak[0]["timestamp"] = 1000
     peak[0]["board"] = 9
     peak[0]["channel"] = 0
-    peak[0]["event_index"] = 0
+    peak[0]["record_id"] = 0
 
     hit = peak
 
@@ -102,7 +102,7 @@ def test_waveform_width_plugin_basic(mock_context, synthetic_waveform):
     assert width_data["timestamp"] == 1000
     assert width_data["board"] == 9
     assert width_data["channel"] == 0
-    assert width_data["event_index"] == 0
+    assert width_data["record_id"] == 0
 
     # 验证上升/下降时间为正值
     assert width_data["rise_time"] > 0
@@ -154,7 +154,7 @@ def test_waveform_width_plugin_sampling_rate(tmp_path):
     peak[0]["height"] = 100.0
     peak[0]["timestamp"] = 1000
     peak[0]["channel"] = 0
-    peak[0]["event_index"] = 0
+    peak[0]["record_id"] = 0
 
     run_id_1 = "test_sampling_1ghz"
     run_id_2 = "test_sampling_2ghz"
@@ -196,7 +196,7 @@ def test_waveform_width_plugin_interpolation(tmp_path):
     peak[0]["height"] = 100.0
     peak[0]["timestamp"] = 1000
     peak[0]["channel"] = 0
-    peak[0]["event_index"] = 0
+    peak[0]["record_id"] = 0
 
     run_id = "test_interp"
     ctx._results[(run_id, "st_waveforms")] = st_waveform
@@ -250,7 +250,7 @@ def test_waveform_width_plugin_reads_hit_cache(tmp_path):
     peak[0]["height"] = 80.0
     peak[0]["timestamp"] = 2000
     peak[0]["channel"] = 0
-    peak[0]["event_index"] = 0
+    peak[0]["record_id"] = 0
 
     run_id = "test_hit_cache"
     ctx._results[(run_id, "st_waveforms")] = st_waveform

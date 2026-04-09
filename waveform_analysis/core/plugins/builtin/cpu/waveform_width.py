@@ -32,7 +32,7 @@ WAVEFORM_WIDTH_DTYPE = np.dtype(
         ("timestamp", "i8"),  # 事件时间戳
         ("board", "i2"),  # 板卡编号
         ("channel", "i2"),  # 通道号
-        ("event_index", "i8"),  # 事件索引
+        ("record_id", "i8"),  # 来源波形/记录的唯一编号
     ]
 )
 
@@ -52,7 +52,7 @@ class WaveformWidthPlugin(Plugin):
     provides = "waveform_width"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Calculate rise/fall time based on peak detection results."
-    version = "2.2.0"  # 版本升级：输出增加 board 字段
+    version = "3.0.0"  # 版本升级：输出使用 record_id 替代 event_index
     save_when = "always"
     output_dtype = WAVEFORM_WIDTH_DTYPE
 
@@ -159,18 +159,28 @@ class WaveformWidthPlugin(Plugin):
             return np.zeros(0, dtype=WAVEFORM_WIDTH_DTYPE)
 
         widths = []
+        waveform_names = waveform_data.dtype.names or ()
 
         for peak in hits:
-            event_idx = int(peak["event_index"])
+            record_id = (
+                int(peak["record_id"])
+                if "record_id" in peak.dtype.names
+                else int(peak["event_index"])
+            )
             peak_position = peak["position"]
             timestamp = peak["timestamp"]
             board = peak["board"] if "board" in peak.dtype.names else 0
             channel = peak["channel"]
 
-            if event_idx < 0 or event_idx >= len(waveform_data):
-                continue
-
-            waveform = waveform_data[event_idx]["wave"]
+            if "record_id" in waveform_names:
+                matches = np.flatnonzero(waveform_data["record_id"] == record_id)
+                if len(matches) == 0:
+                    continue
+                waveform = waveform_data[int(matches[0])]["wave"]
+            else:
+                if record_id < 0 or record_id >= len(waveform_data):
+                    continue
+                waveform = waveform_data[record_id]["wave"]
 
             width_features = self._calculate_width_from_peak(
                 waveform,
@@ -178,7 +188,7 @@ class WaveformWidthPlugin(Plugin):
                 timestamp,
                 board,
                 channel,
-                event_idx,
+                record_id,
                 rise_low,
                 rise_high,
                 fall_high,
@@ -245,7 +255,7 @@ class WaveformWidthPlugin(Plugin):
         timestamp: int,
         board: int,
         channel: int,
-        event_index: int,
+        record_id: int,
         rise_low: float,
         rise_high: float,
         fall_high: float,
@@ -261,7 +271,7 @@ class WaveformWidthPlugin(Plugin):
             peak_position: 峰值位置（采样点索引）
             timestamp: 事件时间戳
             channel: 通道号
-            event_index: 事件索引
+            record_id: 来源波形/记录 ID
             rise_low: 上升低阈值比例
             rise_high: 上升高阈值比例
             fall_high: 下降高阈值比例
@@ -357,7 +367,7 @@ class WaveformWidthPlugin(Plugin):
             int(timestamp),  # timestamp
             int(board),  # board
             int(channel),  # channel
-            int(event_index),  # event_index
+            int(record_id),  # record_id
         )
 
     def _find_threshold_crossing(

@@ -200,7 +200,7 @@ def test_hitfinder_reads_records_view_when_wave_source_records():
     assert len(result) == 1
     assert int(result[0]["board"]) == 5
     assert int(result[0]["channel"]) == 2
-    assert int(result[0]["event_index"]) == 0
+    assert int(result[0]["record_id"]) == 0
     assert int(result[0]["dt"]) == 2
 
 

@@ -21,7 +21,7 @@ def _make_widths(channel: int = 0) -> np.ndarray:
     widths[0]["timestamp"] = 1000
     widths[0]["board"] = 2
     widths[0]["channel"] = channel
-    widths[0]["event_index"] = 0
+    widths[0]["record_id"] = 0
     widths[0]["peak_position"] = 50
 
     widths[1]["total_width"] = 400.0
@@ -29,7 +29,7 @@ def _make_widths(channel: int = 0) -> np.ndarray:
     widths[1]["timestamp"] = 2000
     widths[1]["board"] = 2
     widths[1]["channel"] = channel
-    widths[1]["event_index"] = 1
+    widths[1]["record_id"] = 1
     widths[1]["peak_position"] = 60
     return widths
 

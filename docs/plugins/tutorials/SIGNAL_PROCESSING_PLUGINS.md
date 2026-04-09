@@ -74,7 +74,7 @@ HIT_DTYPE = np.dtype([
     ("edge_end", "f4"),      # 峰值结束边缘
     ("timestamp", "i8"),     # 事件时间戳（ps）
     ("channel", "i2"),       # 通道号
-    ("event_index", "i8"),   # 事件索引
+    ("record_id", "i8"),     # 来源波形/记录 ID
 ])
 ```
 
@@ -184,7 +184,7 @@ class CustomFilterPlugin(FilteredWaveformsPlugin):
 class CustomPeaksPlugin(SignalPeaksPlugin):
     provides = "custom_peaks"
 
-    def _find_peaks_in_waveform(self, waveform, timestamp, channel, event_index, **kwargs):
+    def _find_peaks_in_waveform(self, waveform, timestamp, channel, record_id, **kwargs):
         return your_custom_peak_detection(waveform)
 ```
 
