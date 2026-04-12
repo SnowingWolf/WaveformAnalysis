@@ -415,84 +415,60 @@ class TestDocCoverageChecker:
 class TestCLI:
     """测试 CLI 命令"""
 
-    def test_cli_help(self):
+    def test_cli_help(self, monkeypatch, capsys):
         """测试 CLI 帮助"""
-        import subprocess
+        from waveform_analysis.utils import cli_docs
 
-        result = subprocess.run(
-            ["python", "-m", "waveform_analysis.utils.cli_docs", "--help"],
-            capture_output=True,
-            text=True,
-        )
+        monkeypatch.setattr("sys.argv", ["waveform-docs", "--help"])
 
-        assert result.returncode == 0
-        assert "generate" in result.stdout
-        assert "check" in result.stdout
+        with pytest.raises(SystemExit) as exc_info:
+            cli_docs.main()
+
+        captured = capsys.readouterr()
+        assert exc_info.value.code == 0
+        assert "generate" in captured.out
+        assert "check" in captured.out
 
     @pytest.mark.slow
-    def test_cli_generate_plugins_auto(self):
+    def test_cli_generate_plugins_auto(self, monkeypatch, capsys):
         """测试 CLI 生成插件文档"""
-        import subprocess
+        from waveform_analysis.utils import cli_docs
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            result = subprocess.run(
-                [
-                    "python",
-                    "-m",
-                    "waveform_analysis.utils.cli_docs",
-                    "generate",
-                    "plugins-auto",
-                    "-o",
-                    tmpdir,
-                ],
-                capture_output=True,
-                text=True,
+            monkeypatch.setattr(
+                "sys.argv",
+                ["waveform-docs", "generate", "plugins-auto", "-o", tmpdir],
             )
+            result = cli_docs.main()
+            captured = capsys.readouterr()
 
-            # 检查是否成功
-            assert result.returncode == 0
-            assert "已加载" in result.stdout
-            assert "已生成" in result.stdout
+            assert result == 0
+            assert "已加载" in captured.out
+            assert "已生成" in captured.out
 
-            # 检查文件是否生成
             output_dir = Path(tmpdir)
             assert (output_dir / "INDEX.md").exists()
 
     @pytest.mark.slow
-    def test_cli_check_coverage(self):
+    def test_cli_check_coverage(self, monkeypatch, capsys):
         """测试 CLI 检查覆盖率"""
-        import subprocess
+        from waveform_analysis.utils import cli_docs
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            # 先生成文档
-            subprocess.run(
-                [
-                    "python",
-                    "-m",
-                    "waveform_analysis.utils.cli_docs",
-                    "generate",
-                    "plugins-auto",
-                    "-o",
-                    str(Path(tmpdir) / "plugins" / "builtin" / "auto"),
-                ],
-                capture_output=True,
-                text=True,
+            output_dir = Path(tmpdir) / "plugins" / "builtin" / "auto"
+            monkeypatch.setattr(
+                "sys.argv",
+                ["waveform-docs", "generate", "plugins-auto", "-o", str(output_dir)],
             )
+            assert cli_docs.main() == 0
+            _ = capsys.readouterr()
 
-            # 然后检查覆盖率
-            result = subprocess.run(
-                [
-                    "python",
-                    "-m",
-                    "waveform_analysis.utils.cli_docs",
-                    "check",
-                    "coverage",
-                    "-d",
-                    tmpdir,
-                ],
-                capture_output=True,
-                text=True,
+            monkeypatch.setattr(
+                "sys.argv",
+                ["waveform-docs", "check", "coverage", "-d", tmpdir],
             )
+            result = cli_docs.main()
+            captured = capsys.readouterr()
 
-            # 检查输出
-            assert "Coverage" in result.stdout
+            assert result in (0, 1)
+            assert "Coverage" in captured.out

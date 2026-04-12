@@ -7,11 +7,13 @@ This module provides:
 """
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
 from waveform_analysis.core.plugins.core.base import Option, Plugin
+from waveform_analysis.core.processing.dtypes import create_record_dtype
+from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
 
 # =============================================================================
 # CSV File Creation Helpers
@@ -192,6 +194,75 @@ def make_test_data(
     return data
 
 
+def make_st_waveforms(
+    n_events: int = 1,
+    n_samples: int = 128,
+    n_channels: int = 1,
+    *,
+    baseline: float = 0.0,
+    dt: int = 1,
+    timestamp_start: int = 0,
+) -> np.ndarray:
+    """Create a structured st_waveforms array with standard metadata filled."""
+    dtype = create_record_dtype(n_samples)
+    st_waveforms = np.zeros(n_events, dtype=dtype)
+    st_waveforms["channel"] = np.arange(n_events, dtype=np.int16) % np.int16(max(n_channels, 1))
+    st_waveforms["timestamp"] = np.arange(n_events, dtype=np.int64) + np.int64(timestamp_start)
+    st_waveforms["baseline"] = baseline
+    st_waveforms["event_length"] = n_samples
+    st_waveforms["dt"] = dt
+    return st_waveforms
+
+
+def make_records(
+    n_records: int = 1,
+    *,
+    event_length: int = 8,
+    baseline: float = 100.0,
+    dt: int = 1,
+    timestamp_start: int = 0,
+    board: int = 0,
+    channel_start: int = 0,
+) -> np.ndarray:
+    """Create a records array with contiguous wave offsets."""
+    records = np.zeros(n_records, dtype=RECORDS_DTYPE)
+    records["record_id"] = np.arange(n_records, dtype=np.int64)
+    records["timestamp"] = np.arange(n_records, dtype=np.int64) + np.int64(timestamp_start)
+    records["board"] = np.int16(board)
+    records["channel"] = np.arange(channel_start, channel_start + n_records, dtype=np.int16)
+    records["baseline"] = baseline
+    records["wave_offset"] = np.arange(0, n_records * event_length, event_length, dtype=np.int64)
+    records["event_length"] = np.int32(event_length)
+    records["dt"] = np.int32(dt)
+    return records
+
+
+def register_test_adapter(name: str, sampling_rate_hz: float = 1e9) -> None:
+    """Register a simple generic DAQ adapter for tests."""
+    from waveform_analysis.utils.formats import (
+        FLAT_LAYOUT,
+        ColumnMapping,
+        DAQAdapter,
+        FormatSpec,
+        GenericCSVReader,
+        TimestampUnit,
+        register_adapter,
+    )
+
+    spec = FormatSpec(
+        name=f"{name}_spec",
+        columns=ColumnMapping(),
+        timestamp_unit=TimestampUnit.NANOSECONDS,
+        sampling_rate_hz=sampling_rate_hz,
+    )
+    adapter = DAQAdapter(
+        name=name,
+        format_reader=GenericCSVReader(spec),
+        directory_layout=FLAT_LAYOUT,
+    )
+    register_adapter(adapter)
+
+
 # =============================================================================
 # Mock Plugin Classes
 # =============================================================================
@@ -261,12 +332,10 @@ class DummyContext:
         _results: Cache for computed results
     """
 
-    def __init__(
-        self, config: Optional[Dict[str, Any]] = None, data: Optional[Dict[str, Any]] = None
-    ):
+    def __init__(self, config: dict[str, Any] | None = None, data: dict[str, Any] | None = None):
         self.config = config or {}
         self._data = data or {}
-        self._results: Dict[tuple, Any] = {}
+        self._results: dict[tuple, Any] = {}
 
     def get_config(self, plugin, name: str):
         """Resolve configuration value for a plugin option.
@@ -311,7 +380,7 @@ class DummyContext:
         """Store data in results cache."""
         self._results[(run_id, name)] = data
 
-    def get_lineage(self, name: str) -> Dict:
+    def get_lineage(self, name: str) -> dict:
         """Return empty lineage for testing."""
         return {}
 
@@ -328,9 +397,9 @@ class FakeContext(DummyContext):
 
     def __init__(
         self,
-        config: Optional[Dict[str, Any]] = None,
-        data: Optional[Dict[str, Any]] = None,
-        plugins: Optional[Dict[str, Plugin]] = None,
+        config: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        plugins: dict[str, Plugin] | None = None,
     ):
         super().__init__(config, data)
         self._plugins = plugins or {}
