@@ -131,7 +131,7 @@ raw_files ──► records ──► df ──► df_events
 | [`DataFramePlugin`](df.md) | `df` | 1.7.0 | 数据导出 | - |
 | [`GroupedEventsPlugin`](df_events.md) | `df_events` | 0.0.0 | 事件分析 | df |
 | [`PairedEventsPlugin`](df_paired.md) | `df_paired` | 0.0.0 | 事件分析 | df_events |
-| [`FilteredWaveformsPlugin`](filtered_waveforms.md) | `filtered_waveforms` | 2.6.0 | 波形处理 | st_waveforms |
+| [`FilteredWaveformsPlugin`](filtered_waveforms.md) | `filtered_waveforms` | 3.0.0 | 波形处理 | st_waveforms |
 | [`HitFinderPlugin`](hit.md) | `hit` | 3.0.0 | 特征提取 | - |
 | [`HitGroupedPlugin`](hit_grouped.md) | `hit_grouped` | 0.5.0 | 特征提取 | hit_merged, hit_merged_components, hit_threshold |
 | [`HitMergeClustersPlugin`](hit_merge_clusters.md) | `hit_merge_clusters` | 0.1.0 | 特征提取 | hit_threshold |
@@ -143,7 +143,7 @@ raw_files ──► records ──► df ──► df_events
 | [`S1S2ClassifierPlugin`](s1_s2.md) | `s1_s2` | 0.4.0 | 其他 | waveform_width, basic_features |
 | [`WaveformsPlugin`](st_waveforms.md) | `st_waveforms` | 0.10.0 | 波形处理 | - |
 | [`WavePoolPlugin`](wave_pool.md) | `wave_pool` | 0.9.0 | 波形处理 | - |
-| [`WavePoolFilteredPlugin`](wave_pool_filtered.md) | `wave_pool_filtered` | 0.2.0 | 波形处理 | records, wave_pool |
+| [`WavePoolFilteredPlugin`](wave_pool_filtered.md) | `wave_pool_filtered` | 3.0.0 | 波形处理 | records, wave_pool |
 | [`WaveformWidthPlugin`](waveform_width.md) | `waveform_width` | 3.0.0 | 波形处理 | - |
 | [`WaveformWidthIntegralPlugin`](waveform_width_integral.md) | `waveform_width_integral` | 2.7.0 | 波形处理 | - |
 

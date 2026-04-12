@@ -31,7 +31,13 @@ def test_plugins_waveform_includes_records():
     factory = get_plugin_set("waveform")
     plugins = factory()
     provides = _provides_names(plugins)
-    assert provides == ["st_waveforms", "filtered_waveforms", "records", "wave_pool"]
+    assert provides == [
+        "st_waveforms",
+        "filtered_waveforms",
+        "records",
+        "wave_pool",
+        "wave_pool_filtered",
+    ]
 
 
 def test_cpu_default_includes_records():

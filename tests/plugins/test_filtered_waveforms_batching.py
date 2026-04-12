@@ -22,7 +22,32 @@ def _make_st_waveforms(n_events=96, n_samples=128, n_channels=4, seed=42):
 
 
 def _legacy_filtered_waveforms_reference(st_waveforms: np.ndarray, config: dict) -> np.ndarray:
-    output = np.array(st_waveforms, copy=True)
+    output = np.zeros(
+        len(st_waveforms),
+        dtype=[
+            (
+                (
+                    name,
+                    np.float32,
+                    st_waveforms.dtype.fields[name][0].subdtype[1],
+                )
+                if name == "wave"
+                else (
+                    (
+                        name,
+                        st_waveforms.dtype.fields[name][0].subdtype[0],
+                        st_waveforms.dtype.fields[name][0].subdtype[1],
+                    )
+                    if st_waveforms.dtype.fields[name][0].subdtype is not None
+                    else (name, st_waveforms.dtype.fields[name][0])
+                )
+            )
+            for name in st_waveforms.dtype.names
+        ],
+    )
+    for field in st_waveforms.dtype.names:
+        if field != "wave":
+            output[field] = st_waveforms[field]
     waves_f64 = st_waveforms["wave"].astype(np.float64)
 
     if config["filter_type"] == "SG":
@@ -51,8 +76,7 @@ def _legacy_filtered_waveforms_reference(st_waveforms: np.ndarray, config: dict)
         except ValueError:
             return output
 
-    np.clip(filtered, -32768, 32767, out=filtered)
-    output["wave"] = filtered.astype(np.int16, copy=False)
+    output["wave"] = filtered.astype(np.float32, copy=False)
     return output
 
 
@@ -140,7 +164,8 @@ def test_float32_path_matches_legacy_reference_with_tolerance(config):
         if field == "wave":
             continue
         np.testing.assert_array_equal(result[field], reference[field])
-    np.testing.assert_allclose(result["wave"], reference["wave"], atol=1)
+    assert result["wave"].dtype == np.float32
+    np.testing.assert_allclose(result["wave"], reference["wave"], atol=1e-4, rtol=1e-4)
 
 
 def test_contiguous_channel_batches_prefer_slice_selectors():
@@ -182,4 +207,59 @@ def test_sg_short_wave_returns_original_wave_and_preserves_metadata():
 
     result = FilteredWaveformsPlugin().compute(ctx, "run_001")
 
-    np.testing.assert_array_equal(result, st_waveforms)
+    np.testing.assert_array_equal(result["wave"], st_waveforms["wave"].astype(np.float32))
+    for field in st_waveforms.dtype.names:
+        if field == "wave":
+            continue
+        np.testing.assert_array_equal(result[field], st_waveforms[field])
+
+
+def test_output_wave_dtype_is_float32_and_metadata_preserved():
+    st_waveforms = _make_st_waveforms(n_events=4, n_samples=16, n_channels=2)
+    ctx = DummyContext(
+        {"filter_type": "SG", "sg_window_size": 5, "sg_poly_order": 2},
+        {"st_waveforms": st_waveforms},
+    )
+
+    result = FilteredWaveformsPlugin().compute(ctx, "run_001")
+
+    assert result["wave"].dtype == np.float32
+    assert result.dtype != st_waveforms.dtype
+    for field in st_waveforms.dtype.names:
+        if field == "wave":
+            continue
+        np.testing.assert_array_equal(result[field], st_waveforms[field])
+
+
+def test_channel_config_overrides_filter_per_hardware_channel():
+    st_waveforms = _make_st_waveforms(n_events=4, n_samples=9, n_channels=2)
+    st_waveforms["board"] = np.array([0, 0, 0, 0], dtype=np.int16)
+    st_waveforms["channel"] = np.array([0, 0, 1, 1], dtype=np.int16)
+    st_waveforms["wave"][0] = np.array([100, 100, 60, 40, 20, 40, 60, 100, 100], dtype=np.int16)
+    st_waveforms["wave"][1] = st_waveforms["wave"][0]
+    st_waveforms["wave"][2] = st_waveforms["wave"][0]
+    st_waveforms["wave"][3] = st_waveforms["wave"][0]
+
+    ctx = DummyContext(
+        {
+            "filter_type": "SG",
+            "sg_window_size": 5,
+            "sg_poly_order": 2,
+            "channel_config": {
+                "channels": {
+                    "0:1": {
+                        "filter_type": "SG",
+                        "sg_window_size": 7,
+                        "sg_poly_order": 3,
+                    }
+                }
+            },
+        },
+        {"st_waveforms": st_waveforms},
+    )
+
+    result = FilteredWaveformsPlugin().compute(ctx, "run_001")
+
+    np.testing.assert_allclose(result["wave"][0], result["wave"][1])
+    np.testing.assert_allclose(result["wave"][2], result["wave"][3])
+    assert not np.allclose(result["wave"][0], result["wave"][2])

@@ -49,6 +49,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 | `filter_order` | `4` | BW 滤波器阶数 |
 | `sg_window_size` | `11` | SG 滤波器窗口大小（必须为奇数） |
 | `sg_poly_order` | `2` | SG 滤波器多项式阶数 |
+| `channel_config` | `None` | 按 `(board, channel)` 覆盖滤波参数 |
 
 ## SignalPeaksPlugin
 
@@ -164,17 +165,11 @@ RawFilesPlugin → WaveformsPlugin → FilteredWaveformsPlugin → SignalPeaksPl
 
 ### 自定义滤波方法
 
-继承 `FilteredWaveformsPlugin` 并重写 `_apply_filter` 方法：
+当前实现已经收敛为共享滤波执行层，`FilteredWaveformsPlugin` 与
+`WavePoolFilteredPlugin` 共用同一套参数解析、按通道分组和执行逻辑。
 
-```python
-class CustomFilterPlugin(FilteredWaveformsPlugin):
-    provides = "custom_filtered_waveforms"
-
-    def _apply_filter(self, waveform, filter_type, context):
-        if filter_type == "CUSTOM":
-            return your_custom_filter(waveform)
-        return super()._apply_filter(waveform, filter_type, context)
-```
+如需扩展新滤波器类型，推荐新增共享滤波策略，而不是继承后重写旧版
+`_apply_filter` 接口。
 
 ### 自定义峰值检测
 

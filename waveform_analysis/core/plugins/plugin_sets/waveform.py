@@ -28,12 +28,16 @@ def plugins_waveform():
     Notes:
     - Non-V1725 path, including VX2730: WaveformsPlugin produces
       ``st_waveforms`` and records bundle plugins reuse it to build
-      ``records`` + ``wave_pool``.
+      ``records`` + ``wave_pool`` + ``wave_pool_filtered``.
     - V1725 path: records bundle plugins keep their dedicated raw-file path, while
       WaveformsPlugin can still build ``st_waveforms`` independently.
     """
     from waveform_analysis.core.plugins.builtin.cpu.filtering import FilteredWaveformsPlugin
-    from waveform_analysis.core.plugins.builtin.cpu.records import RecordsPlugin, WavePoolPlugin
+    from waveform_analysis.core.plugins.builtin.cpu.records import (
+        RecordsPlugin,
+        WavePoolFilteredPlugin,
+        WavePoolPlugin,
+    )
     from waveform_analysis.core.plugins.builtin.cpu.waveforms import WaveformsPlugin
 
     return [
@@ -41,4 +45,5 @@ def plugins_waveform():
         FilteredWaveformsPlugin(),
         RecordsPlugin(),
         WavePoolPlugin(),
+        WavePoolFilteredPlugin(),
     ]

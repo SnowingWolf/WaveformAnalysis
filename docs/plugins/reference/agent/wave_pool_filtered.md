@@ -9,7 +9,7 @@
 | Provides | `wave_pool_filtered` |
 | Depends On | `records`, `wave_pool` |
 | Output Kind | `array` |
-| Version | `0.2.0` |
+| Version | `3.0.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.records` |
 | Accelerator | `cpu` |
 
@@ -35,6 +35,9 @@
 | `filter_order` | `int` | `4` | BW 阶数 |
 | `sg_window_size` | `int` | `11` | SG 窗口大小（奇数） |
 | `sg_poly_order` | `int` | `2` | SG 多项式阶数 |
+| `max_workers` | `int` | `None` | 并行工作线程数；None 使用 CPU 核心数，1 或 0 禁用并行 |
+| `batch_size` | `int` | `0` | 每批次记录数（0 表示不分批，整个通道一次处理） |
+| `channel_config` | `dict` | `None` | 按 (board, channel) 的插件通道覆盖配置，可覆盖滤波参数 |
 
 ## Execution Path
 

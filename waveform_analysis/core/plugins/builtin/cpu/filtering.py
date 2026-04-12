@@ -4,30 +4,76 @@ CPU Filtering Plugin - 使用 scipy 进行波形滤波
 **加速器**: CPU (scipy)
 **功能**: 波形滤波（Butterworth 带通滤波、Savitzky-Golay 滤波）
 
-本插件提供两种滤波方法：
-- Butterworth 带通滤波器 (BW)
-- Savitzky-Golay 滤波器 (SG)
-
-输出格式与 st_waveforms 保持一致（结构化数组），只是 wave 字段为滤波后的数据。
+本模块提供共享的滤波执行层，同时服务：
+- `filtered_waveforms`：结构化数组输出，`wave` 字段为 float32
+- `wave_pool_filtered`：records-backed float32 波形池
 """
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 import logging
 from typing import Any
 
 import numpy as np
 from scipy.signal import butter, savgol_filter, sosfiltfilt
 
-from waveform_analysis.core.hardware.channel import group_indices_by_hardware_channel
+from waveform_analysis.core.hardware.channel import (
+    group_indices_by_hardware_channel,
+    resolve_effective_channel_config,
+)
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.dtypes import ST_WAVEFORM_DTYPE
 
 logger = logging.getLogger(__name__)
 BatchSelector = slice | np.ndarray
+FILTER_ENGINE_VERSION = "3.0.0"
+FILTER_OPTION_NAMES = (
+    "filter_type",
+    "lowcut",
+    "highcut",
+    "fs",
+    "filter_order",
+    "sg_window_size",
+    "sg_poly_order",
+)
 
 
-def resolve_filter_config(context: Any, plugin: Plugin) -> dict[str, Any]:
+def get_filter_base_values(context: Any, plugin: Plugin) -> dict[str, Any]:
+    """Return plugin-level filter config before channel overrides are applied."""
+    return {name: context.get_config(plugin, name) for name in FILTER_OPTION_NAMES}
+
+
+def resolve_filter_config(
+    context: Any,
+    plugin: Plugin,
+    *,
+    run_id: str | None = None,
+    board: int | None = None,
+    channel: int | None = None,
+    base_values: Mapping[str, Any] | None = None,
+    channel_config: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     """Resolve and validate shared filter configuration for waveform filters."""
-    filter_type = str(context.get_config(plugin, "filter_type"))
+    resolved_values = dict(base_values or get_filter_base_values(context, plugin))
+    if channel_config is None and "channel_config" in getattr(plugin, "options", {}):
+        candidate = context.get_config(plugin, "channel_config")
+        if isinstance(candidate, Mapping):
+            channel_config = candidate
+
+    if run_id is not None and board is not None and channel is not None:
+        rule = resolve_effective_channel_config(
+            context=context,
+            plugin=plugin,
+            run_id=run_id,
+            board=board,
+            channel=channel,
+            base_values=resolved_values,
+            channel_config=channel_config,
+        )
+        resolved_values = dict(rule.values)
+
+    filter_type = str(resolved_values["filter_type"])
     if filter_type not in ("BW", "SG"):
         raise ValueError(f"不支持的滤波器类型: {filter_type}. 请使用 'BW' 或 'SG'.")
 
@@ -36,10 +82,10 @@ def resolve_filter_config(context: Any, plugin: Plugin) -> dict[str, Any]:
     sg_poly_order: int | None = None
 
     if filter_type == "BW":
-        lowcut = float(context.get_config(plugin, "lowcut"))
-        highcut = float(context.get_config(plugin, "highcut"))
-        fs = float(context.get_config(plugin, "fs"))
-        order = int(context.get_config(plugin, "filter_order"))
+        lowcut = float(resolved_values["lowcut"])
+        highcut = float(resolved_values["highcut"])
+        fs = float(resolved_values["fs"])
+        order = int(resolved_values["filter_order"])
 
         if fs <= 0:
             raise ValueError(f"fs ({fs}) 必须大于 0")
@@ -61,8 +107,8 @@ def resolve_filter_config(context: Any, plugin: Plugin) -> dict[str, Any]:
             fs,
         )
     else:
-        sg_window_size = int(context.get_config(plugin, "sg_window_size"))
-        sg_poly_order = int(context.get_config(plugin, "sg_poly_order"))
+        sg_window_size = int(resolved_values["sg_window_size"])
+        sg_poly_order = int(resolved_values["sg_poly_order"])
 
         if sg_window_size <= 0:
             raise ValueError(f"SG 窗口大小 ({sg_window_size}) 必须大于 0")
@@ -82,6 +128,34 @@ def resolve_filter_config(context: Any, plugin: Plugin) -> dict[str, Any]:
         "sg_window_size": sg_window_size,
         "sg_poly_order": sg_poly_order,
     }
+
+
+def create_filtered_waveform_dtype(source_dtype: np.dtype) -> np.dtype:
+    """Return a dtype compatible with source_dtype but with float32 wave samples."""
+    names = source_dtype.names or ()
+    if "wave" not in names:
+        raise ValueError("source dtype missing required 'wave' field")
+
+    fields: list[tuple[Any, ...]] = []
+    for name in names:
+        field_dtype = source_dtype.fields[name][0]
+        if name == "wave":
+            subdtype = field_dtype.subdtype
+            if subdtype is None:
+                fields.append((name, np.float32))
+            else:
+                _base_dtype, shape = subdtype
+                fields.append((name, np.float32, shape))
+            continue
+
+        subdtype = field_dtype.subdtype
+        if subdtype is None:
+            fields.append((name, field_dtype))
+            continue
+        base_dtype, shape = subdtype
+        fields.append((name, base_dtype, shape))
+
+    return np.dtype(fields)
 
 
 def apply_filter_to_record_wave(
@@ -167,26 +241,17 @@ def _apply_filter_core(
     return np.asarray(filtered, dtype=np.float32)
 
 
-def _filter_channel(args):
-    """滤波单个通道的波形数据（线程安全）。
-
-    Parameters
-    ----------
-    args : tuple
-        (waveforms_i16, selector, filter_type, bw_sos, sg_window_size, sg_poly_order)
-        waveforms_i16: shape (n_events, n_samples), int16
-    """
-    waveforms_i16, selector, filter_type, bw_sos, sg_window_size, sg_poly_order = args
-    waveforms_f32 = np.asarray(waveforms_i16[selector], dtype=np.float32)
-    filtered = _apply_filter_core(
+def _filter_channel(args) -> np.ndarray:
+    """Apply a single channel-scoped filter config to a waveform batch."""
+    waveforms, selector, filter_type, bw_sos, sg_window_size, sg_poly_order = args
+    waveforms_f32 = np.asarray(waveforms[selector], dtype=np.float32)
+    return _apply_filter_core(
         waveforms_f32,
         filter_type,
         bw_sos=bw_sos,
         sg_window_size=sg_window_size,
         sg_poly_order=sg_poly_order,
     )
-    np.clip(filtered, -32768, 32767, out=filtered)
-    return filtered.astype(np.int16, copy=False)
 
 
 def _copy_non_wave_fields(source: np.ndarray, target: np.ndarray) -> None:
@@ -219,14 +284,137 @@ def _split_contiguous_runs(indices: np.ndarray) -> list[np.ndarray]:
     return [indices[start:stop] for start, stop in zip(starts, stops, strict=False)]
 
 
+def _selector_to_indices(selector: BatchSelector) -> np.ndarray:
+    if isinstance(selector, slice):
+        return np.arange(int(selector.start), int(selector.stop), dtype=np.int64)
+    return np.asarray(selector, dtype=np.int64)
+
+
+def build_channel_selectors(
+    channel_indices: np.ndarray,
+    batch_size: int,
+) -> list[BatchSelector]:
+    if channel_indices.size == 0:
+        return []
+    if batch_size <= 0:
+        return [_make_selector(channel_indices)]
+
+    selectors: list[BatchSelector] = []
+    for run_indices in _split_contiguous_runs(channel_indices):
+        if run_indices.size <= batch_size:
+            selectors.append(_make_selector(run_indices))
+            continue
+        for offset in range(0, run_indices.size, batch_size):
+            selectors.append(_make_selector(run_indices[offset : offset + batch_size]))
+    return selectors
+
+
+def build_channel_batches(
+    boards: np.ndarray,
+    channels: np.ndarray,
+    batch_size: int,
+) -> list[tuple[tuple[int, int], BatchSelector]]:
+    """Group event indices by hardware channel and split them into selectors."""
+    if channels.size == 0:
+        return []
+    groups = group_indices_by_hardware_channel(boards, channels)
+    batches: list[tuple[tuple[int, int], BatchSelector]] = []
+    for hw_channel, channel_indices in groups.items():
+        if channel_indices.size == 0:
+            continue
+        channel_key = (int(hw_channel.board), int(hw_channel.channel))
+        batches.extend(
+            (channel_key, selector)
+            for selector in build_channel_selectors(channel_indices, batch_size)
+        )
+    return batches
+
+
+def selector_length(selector: BatchSelector) -> int:
+    if isinstance(selector, slice):
+        return int(selector.stop - selector.start)
+    return int(selector.size)
+
+
+def build_filter_batches(
+    context: Any,
+    plugin: Plugin,
+    run_id: str,
+    boards: np.ndarray,
+    channels: np.ndarray,
+    batch_size: int,
+) -> list[tuple[tuple[int, int], BatchSelector, dict[str, Any]]]:
+    """Return channel-aware filter tasks with resolved per-channel configs."""
+    channel_batches = build_channel_batches(boards, channels, batch_size)
+    if not channel_batches:
+        return []
+
+    base_values = get_filter_base_values(context, plugin)
+    channel_config = (
+        context.get_config(plugin, "channel_config")
+        if "channel_config" in getattr(plugin, "options", {})
+        else None
+    )
+    resolved_by_channel: dict[tuple[int, int], dict[str, Any]] = {}
+    planned: list[tuple[tuple[int, int], BatchSelector, dict[str, Any]]] = []
+    for channel_key, selector in channel_batches:
+        filter_config = resolved_by_channel.get(channel_key)
+        if filter_config is None:
+            filter_config = resolve_filter_config(
+                context,
+                plugin,
+                run_id=run_id,
+                board=channel_key[0],
+                channel=channel_key[1],
+                base_values=base_values,
+                channel_config=channel_config,
+            )
+            resolved_by_channel[channel_key] = filter_config
+        planned.append((channel_key, selector, filter_config))
+    return planned
+
+
+def filter_wave_pool_batch(args) -> list[tuple[int, np.ndarray]]:
+    """Apply one channel-scoped filter config to a batch of records-backed waves."""
+    records, wave_pool, selector, filter_type, bw_sos, sg_window_size, sg_poly_order = args
+    filtered_segments: list[tuple[int, np.ndarray]] = []
+    for idx in _selector_to_indices(selector):
+        rec = records[int(idx)]
+        length = int(rec["event_length"])
+        if length <= 0:
+            continue
+        offset = int(rec["wave_offset"])
+        end = offset + length
+        if offset < 0 or end > len(wave_pool):
+            raise ValueError(
+                "wave_pool_filtered found out-of-bounds wave slice "
+                f"(offset={offset}, length={length}, wave_pool_size={len(wave_pool)})"
+            )
+        raw_wave = wave_pool[offset:end]
+        filtered_wave = apply_filter_to_record_wave(
+            raw_wave,
+            filter_type,
+            bw_sos=bw_sos,
+            sg_window_size=sg_window_size,
+            sg_poly_order=sg_poly_order,
+        )
+        if filtered_wave.shape[0] != length:
+            raise ValueError(
+                "wave_pool_filtered produced mismatched waveform length "
+                f"for offset={offset}: expected {length}, got {filtered_wave.shape[0]}"
+            )
+        filtered_segments.append((offset, filtered_wave.astype(np.float32, copy=False)))
+    return filtered_segments
+
+
 class FilteredWaveformsPlugin(Plugin):
     provides = "filtered_waveforms"
     depends_on = ["st_waveforms"]
     description = "Apply filtering to waveforms using Butterworth or Savitzky-Golay filters."
-    version = "2.6.0"
+    version = FILTER_ENGINE_VERSION
     save_when = "target"
 
-    output_dtype = np.dtype(ST_WAVEFORM_DTYPE)  # 默认值；compute() 中会动态更新
+    output_dtype = create_filtered_waveform_dtype(np.dtype(ST_WAVEFORM_DTYPE))
 
     options = {
         "filter_type": Option(default="SG", type=str, help="滤波器类型: 'BW' 或 'SG'"),
@@ -236,7 +424,6 @@ class FilteredWaveformsPlugin(Plugin):
         "filter_order": Option(default=4, type=int, help="BW 阶数"),
         "sg_window_size": Option(default=11, type=int, help="SG 窗口大小（奇数）"),
         "sg_poly_order": Option(default=2, type=int, help="SG 多项式阶数"),
-        # 你也可以加：sg_mode / sg_cval 等（这里先不扩展 options）
         "max_workers": Option(
             default=None,
             type=int,
@@ -247,32 +434,31 @@ class FilteredWaveformsPlugin(Plugin):
             type=int,
             help="每批次事件数（0 表示不分批，整个通道一次处理）",
         ),
+        "channel_config": Option(
+            default=None,
+            type=dict,
+            help="按 (board, channel) 的插件通道覆盖配置，可覆盖滤波参数。",
+        ),
     }
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
-        filter_config = resolve_filter_config(context, self)
-        filter_type = filter_config["filter_type"]
-        bw_sos = filter_config["bw_sos"]
-        sg_window_size = filter_config["sg_window_size"]
-        sg_poly_order = filter_config["sg_poly_order"]
-
         st_waveforms = context.get_data(run_id, "st_waveforms")
         if not isinstance(st_waveforms, np.ndarray):
             raise ValueError("filtered_waveforms expects st_waveforms as a single structured array")
 
-        # 动态匹配 st_waveforms 的实际 dtype（wave 长度可能不是默认的 1500）
-        if st_waveforms.dtype != self.output_dtype:
-            self.output_dtype = st_waveforms.dtype
+        resolved_output_dtype = create_filtered_waveform_dtype(st_waveforms.dtype)
+        if resolved_output_dtype != self.output_dtype:
+            self.output_dtype = resolved_output_dtype
 
         if len(st_waveforms) == 0:
-            return np.zeros(0, dtype=st_waveforms.dtype)
+            return np.zeros(0, dtype=self.output_dtype)
 
         if "channel" not in st_waveforms.dtype.names:
             raise ValueError("st_waveforms missing required 'channel' field for filtering")
         if "wave" not in st_waveforms.dtype.names:
             raise ValueError("st_waveforms missing required 'wave' field for filtering")
 
-        output = np.empty_like(st_waveforms)
+        output = np.empty(len(st_waveforms), dtype=self.output_dtype)
         _copy_non_wave_fields(st_waveforms, output)
 
         channels = st_waveforms["channel"]
@@ -281,40 +467,35 @@ class FilteredWaveformsPlugin(Plugin):
             if "board" in st_waveforms.dtype.names
             else np.zeros(len(st_waveforms), dtype=np.int16)
         )
-        waveforms_i16 = st_waveforms["wave"]
-        if waveforms_i16.ndim != 2:
+        waves = st_waveforms["wave"]
+        if waves.ndim != 2:
             raise ValueError("st_waveforms['wave'] must be 2D (n_events, n_samples)")
-        n_samples = waveforms_i16.shape[1]
 
         batch_size = int(context.get_config(self, "batch_size"))
         if batch_size < 0:
             raise ValueError(f"batch_size ({batch_size}) 必须大于等于 0")
 
-        if filter_type == "SG":
-            # 对全部事件共享同一个窗口长度，避免每个任务重复推导。
-            sg_window_size = _resolve_sg_window_length(n_samples, sg_window_size, sg_poly_order)
-            if sg_window_size is None:
-                logger.warning(
-                    "SG 有效窗口长度不足以支持多项式阶数(%s)，返回原始波形",
-                    sg_poly_order,
-                )
-                output["wave"] = waveforms_i16
-                return output
-
-        channel_batches = self._build_channel_batches(boards, channels, batch_size)
-        if not channel_batches:
+        filter_batches = build_filter_batches(context, self, run_id, boards, channels, batch_size)
+        if not filter_batches:
             return output
 
         max_workers = context.get_config(self, "max_workers")
         allow_parallel = max_workers is None or (isinstance(max_workers, int) and max_workers > 1)
-        use_parallel = allow_parallel and len(channel_batches) > 1
+        use_parallel = allow_parallel and len(filter_batches) > 1
 
         if use_parallel:
             from waveform_analysis.core.execution.manager import parallel_map
 
             tasks = [
-                (waveforms_i16, batch_selector, filter_type, bw_sos, sg_window_size, sg_poly_order)
-                for _channel, batch_selector in channel_batches
+                (
+                    waves,
+                    batch_selector,
+                    filter_config["filter_type"],
+                    filter_config["bw_sos"],
+                    filter_config["sg_window_size"],
+                    filter_config["sg_poly_order"],
+                )
+                for _channel, batch_selector, filter_config in filter_batches
             ]
             logger.debug(
                 "并行滤波: tasks=%s max_workers=%s batch_size=%s",
@@ -329,30 +510,28 @@ class FilteredWaveformsPlugin(Plugin):
                 max_workers=max_workers,
                 executor_name="filtered_waveforms",
             )
-            for (_channel, batch_selector), filtered_i16 in zip(
-                channel_batches, results, strict=False
+            for (_channel, batch_selector, _filter_config), filtered_f32 in zip(
+                filter_batches, results, strict=False
             ):
-                output["wave"][batch_selector] = filtered_i16
+                output["wave"][batch_selector] = filtered_f32
         else:
-            # 串行路径：单任务或显式禁用并行
-            for ch, batch_selector in channel_batches:
+            for channel_key, batch_selector, filter_config in filter_batches:
                 logger.debug(
                     "处理通道批次: channel=%s n_events=%s n_samples=%s",
-                    ch,
-                    self._selector_length(batch_selector),
-                    n_samples,
+                    channel_key,
+                    selector_length(batch_selector),
+                    waves.shape[1],
                 )
-                filtered_i16 = _filter_channel(
+                output["wave"][batch_selector] = _filter_channel(
                     (
-                        waveforms_i16,
+                        waves,
                         batch_selector,
-                        filter_type,
-                        bw_sos,
-                        sg_window_size,
-                        sg_poly_order,
+                        filter_config["filter_type"],
+                        filter_config["bw_sos"],
+                        filter_config["sg_window_size"],
+                        filter_config["sg_poly_order"],
                     )
                 )
-                output["wave"][batch_selector] = filtered_i16
 
         return output
 
@@ -362,42 +541,15 @@ class FilteredWaveformsPlugin(Plugin):
         channels: np.ndarray,
         batch_size: int,
     ) -> list[tuple[tuple[int, int], BatchSelector]]:
-        """将事件按 (board, channel) 分组，并按 batch_size 切分为批次索引。"""
-        if channels.size == 0:
-            return []
-        groups = group_indices_by_hardware_channel(boards, channels)
-        batches: list[tuple[tuple[int, int], BatchSelector]] = []
-        for hw_channel, channel_indices in groups.items():
-            if channel_indices.size == 0:
-                continue
-            channel_key = (int(hw_channel.board), int(hw_channel.channel))
-            batches.extend(
-                (channel_key, selector)
-                for selector in self._build_channel_selectors(channel_indices, batch_size)
-            )
-        return batches
+        return build_channel_batches(boards, channels, batch_size)
 
     def _build_channel_selectors(
         self,
         channel_indices: np.ndarray,
         batch_size: int,
     ) -> list[BatchSelector]:
-        if channel_indices.size == 0:
-            return []
-        if batch_size <= 0:
-            return [_make_selector(channel_indices)]
-
-        selectors: list[BatchSelector] = []
-        for run_indices in _split_contiguous_runs(channel_indices):
-            if run_indices.size <= batch_size:
-                selectors.append(_make_selector(run_indices))
-                continue
-            for offset in range(0, run_indices.size, batch_size):
-                selectors.append(_make_selector(run_indices[offset : offset + batch_size]))
-        return selectors
+        return build_channel_selectors(channel_indices, batch_size)
 
     @staticmethod
     def _selector_length(selector: BatchSelector) -> int:
-        if isinstance(selector, slice):
-            return int(selector.stop - selector.start)
-        return int(selector.size)
+        return selector_length(selector)

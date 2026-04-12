@@ -67,6 +67,7 @@ ctx.set_config(
 
 - `basic_features.channel_config`：按硬件通道覆盖 `polarity`、`fixed_baseline`
 - `hit.channel_config`：按硬件通道覆盖 `polarity`、`threshold`
+- `filtered_waveforms.channel_config` / `wave_pool_filtered.channel_config`：按硬件通道覆盖 `filter_type`、截止频率、SG 参数
 - `waveform_width_integral.channel_config`：按硬件通道覆盖 `polarity`
 - `df.gain_adc_per_pe` 或 run 级 `calibration.gain_adc_per_pe`：按硬件通道配置增益，键同样必须是 `"board:channel"`
 
@@ -499,6 +500,14 @@ ctx.set_config(
                     "0:0": {"fixed_baseline": 8192.0},
                 }
             }
+        },
+        "filtered_waveforms": {
+            "filter_type": "SG",
+            "channel_config": {
+                "channels": {
+                    "1:3": {"filter_type": "BW", "lowcut": 0.08, "highcut": 0.18, "fs": 1.0},
+                }
+            },
         },
     }
 )

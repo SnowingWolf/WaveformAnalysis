@@ -104,3 +104,77 @@ def test_wave_pool_filtered_plugin_handles_empty_wave_pool():
 
     assert filtered.dtype == np.float32
     assert filtered.size == 0
+
+
+def test_wave_pool_filtered_parallel_matches_serial_with_batching():
+    records = np.zeros(4, dtype=RECORDS_DTYPE)
+    records["record_id"] = np.arange(4, dtype=np.int64)
+    records["timestamp"] = np.arange(4, dtype=np.int64)
+    records["board"] = 0
+    records["channel"] = np.array([0, 0, 1, 1], dtype=np.int16)
+    records["baseline"] = 100.0
+    records["wave_offset"] = np.array([0, 9, 18, 27], dtype=np.int64)
+    records["event_length"] = 9
+    wave_pool = np.tile(np.array([100, 100, 80, 60, 40, 60, 80, 100, 100], dtype=np.uint16), 4)
+
+    serial_ctx = FakeContext(
+        config={
+            "filter_type": "SG",
+            "sg_window_size": 5,
+            "sg_poly_order": 2,
+            "batch_size": 1,
+            "max_workers": 1,
+        },
+        data={"records": records, "wave_pool": wave_pool},
+    )
+    parallel_ctx = FakeContext(
+        config={
+            "filter_type": "SG",
+            "sg_window_size": 5,
+            "sg_poly_order": 2,
+            "batch_size": 1,
+            "max_workers": 2,
+        },
+        data={"records": records, "wave_pool": wave_pool},
+    )
+
+    plugin = WavePoolFilteredPlugin()
+    serial = plugin.compute(serial_ctx, "run_001")
+    parallel = plugin.compute(parallel_ctx, "run_001")
+
+    np.testing.assert_allclose(parallel, serial)
+
+
+def test_wave_pool_filtered_channel_config_overrides_filter():
+    records = np.zeros(2, dtype=RECORDS_DTYPE)
+    records["record_id"] = np.arange(2, dtype=np.int64)
+    records["timestamp"] = np.arange(2, dtype=np.int64)
+    records["board"] = 0
+    records["channel"] = np.array([0, 1], dtype=np.int16)
+    records["baseline"] = 100.0
+    records["wave_offset"] = np.array([0, 9], dtype=np.int64)
+    records["event_length"] = 9
+    wave_pool = np.tile(np.array([100, 100, 80, 60, 40, 60, 80, 100, 100], dtype=np.uint16), 2)
+
+    ctx = FakeContext(
+        config={
+            "filter_type": "SG",
+            "sg_window_size": 5,
+            "sg_poly_order": 2,
+            "channel_config": {
+                "channels": {
+                    "0:1": {
+                        "filter_type": "SG",
+                        "sg_window_size": 7,
+                        "sg_poly_order": 3,
+                    }
+                }
+            },
+        },
+        data={"records": records, "wave_pool": wave_pool},
+    )
+
+    filtered = WavePoolFilteredPlugin().compute(ctx, "run_001")
+
+    assert filtered.dtype == np.float32
+    assert not np.allclose(filtered[:9], filtered[9:])

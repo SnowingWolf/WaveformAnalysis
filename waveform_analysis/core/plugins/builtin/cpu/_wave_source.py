@@ -44,6 +44,25 @@ class LoadedWaveInput:
     records_view: Any | None = None
 
 
+def _ensure_registered_plugin(
+    context: Any,
+    data_name: str,
+    consumer_name: str,
+    *,
+    plugin_hint: str | None = None,
+) -> None:
+    plugins = getattr(context, "_plugins", None)
+    if not isinstance(plugins, dict) or not plugins:
+        return
+    if data_name in plugins:
+        return
+
+    message = f"{consumer_name} requires '{data_name}' but it is not registered."
+    if plugin_hint:
+        message += f" Register {plugin_hint} to provide '{data_name}'."
+    raise KeyError(message)
+
+
 def normalize_wave_source(value: Any) -> str:
     if value is None:
         return WAVE_SOURCE_AUTO
@@ -162,11 +181,33 @@ def load_wave_input(
     )
     if spec.is_records:
         if needs_wave_samples:
+            _ensure_registered_plugin(
+                context,
+                WAVE_SOURCE_RECORDS,
+                plugin.provides,
+                plugin_hint="RecordsPlugin",
+            )
+            _ensure_registered_plugin(
+                context,
+                spec.wave_pool_name or "wave_pool",
+                plugin.provides,
+                plugin_hint=(
+                    "WavePoolFilteredPlugin"
+                    if spec.wave_pool_name == "wave_pool_filtered"
+                    else "WavePoolPlugin"
+                ),
+            )
             from waveform_analysis.core import records_view
 
             rv = records_view(context, run_id, wave_pool_name=spec.wave_pool_name or "wave_pool")
             return LoadedWaveInput(spec=spec, records=rv.records, records_view=rv)
 
+        _ensure_registered_plugin(
+            context,
+            WAVE_SOURCE_RECORDS,
+            plugin.provides,
+            plugin_hint="RecordsPlugin",
+        )
         records = context.get_data(run_id, WAVE_SOURCE_RECORDS)
         if not isinstance(records, np.ndarray):
             raise ValueError(
@@ -174,6 +215,12 @@ def load_wave_input(
             )
         return LoadedWaveInput(spec=spec, records=records)
 
+    _ensure_registered_plugin(
+        context,
+        spec.data_name,
+        plugin.provides,
+        plugin_hint="FilteredWaveformsPlugin" if spec.data_name == WAVE_SOURCE_FILTERED else None,
+    )
     waveform_data = context.get_data(run_id, spec.data_name)
     if not isinstance(waveform_data, np.ndarray):
         raise ValueError(
