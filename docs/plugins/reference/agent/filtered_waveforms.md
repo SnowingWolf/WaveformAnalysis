@@ -9,7 +9,7 @@
 | Provides | `filtered_waveforms` |
 | Depends On | `st_waveforms` |
 | Output Kind | `structured_array` |
-| Version | `2.5.0` |
+| Version | `2.6.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.filtering` |
 | Accelerator | `cpu` |
 
@@ -55,6 +55,7 @@
 
 - 依赖数据缺失或字段不匹配，导致 compute 阶段报错
 - 配置值类型/范围不合法，触发参数校验异常
+- SG/BW 在超短波形上可能回退原始波形，以避免无效窗口或 `padlen` 异常
 - 输出 dtype 变更但版本未升级，可能导致缓存命中异常
 
 ## Change Playbook
