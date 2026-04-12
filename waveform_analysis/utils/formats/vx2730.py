@@ -162,6 +162,37 @@ class VX2730Reader(FormatReader):
         """
         super().__init__(spec or VX2730_SPEC)
 
+    def _looks_like_vx2730_header(self, line: str) -> bool:
+        if not line:
+            return False
+        fields = [field.strip().upper() for field in line.strip().split(self.spec.delimiter)]
+        if len(fields) < 3:
+            return False
+        return tuple(fields[:3]) == ("BOARD", "CHANNEL", "TIMETAG")
+
+    def _resolve_skiprows(self, file_path: Path, is_first_file: bool) -> int:
+        """Resolve header rows from actual file contents when possible.
+
+        Prefer content-based detection so mixed datasets with a single header row
+        in the first segment still work, while preserving the legacy two-line
+        first-file fallback used by older tests/datasets.
+        """
+        try:
+            with open(file_path, encoding="utf-8", errors="ignore") as handle:
+                first_line = handle.readline()
+                if self._looks_like_vx2730_header(first_line):
+                    return 1
+
+                second_line = handle.readline()
+                if second_line and self._looks_like_vx2730_header(second_line):
+                    return 2
+        except OSError:
+            pass
+
+        return (
+            self.spec.header_rows_first_file if is_first_file else self.spec.header_rows_other_files
+        )
+
     def read_file(self, file_path: str | Path, is_first_file: bool = True) -> np.ndarray:
         """读取单个 VX2730 CSV 文件
 
@@ -183,10 +214,8 @@ class VX2730Reader(FormatReader):
             logger.debug(f"跳过空文件: {file_path}")
             return np.array([]).reshape(0, 0)
 
-        # 确定跳过的行数
-        skiprows = (
-            self.spec.header_rows_first_file if is_first_file else self.spec.header_rows_other_files
-        )
+        # 优先按文件内容自动检测头部，兼容 1 行表头或旧的 2 行头部格式。
+        skiprows = self._resolve_skiprows(file_path, is_first_file=is_first_file)
 
         # Priority: Polars > PyArrow > Pandas
         # Polars is fastest (Rust implementation, 2-3x faster than PyArrow)
@@ -361,7 +390,16 @@ class VX2730Reader(FormatReader):
 
         return arr
 
-    def read_files(self, file_paths: list[str | Path], show_progress: bool = False) -> np.ndarray:
+    def read_files(
+        self,
+        file_paths: list[str | Path],
+        show_progress: bool = False,
+        *,
+        chunksize: int | None = None,
+        n_jobs: int | None = None,
+        use_process_pool: bool = False,
+        parse_engine: str | None = "auto",
+    ) -> np.ndarray:
         """读取并堆叠多个文件
 
         Args:
@@ -371,46 +409,33 @@ class VX2730Reader(FormatReader):
         Returns:
             所有文件数据垂直堆叠后的数组
         """
+        from waveform_analysis.utils.io import parse_and_stack_files
+
         if not file_paths:
             return np.array([]).reshape(0, 0)
-
-        # 可选进度条
-        if show_progress:
-            try:
-                from tqdm import tqdm
-
-                pbar = tqdm(file_paths, desc="读取文件", leave=False)
-            except ImportError:
-                pbar = file_paths
-        else:
-            pbar = file_paths
-
-        arrays = []
-        for idx, fp in enumerate(pbar):
-            is_first = idx == 0
-            arr = self.read_file(fp, is_first_file=is_first)
-            if arr.size > 0:
-                arrays.append(arr)
-
-        if not arrays:
-            return np.array([]).reshape(0, 0)
-
-        # 处理列数不一致的情况
-        try:
-            return np.vstack(arrays)
-        except ValueError:
-            # 列数不一致，进行填充
-            max_cols = max(a.shape[1] for a in arrays)
-            padded = []
-            for a in arrays:
-                if a.shape[1] < max_cols:
-                    pad_width = ((0, 0), (0, max_cols - a.shape[1]))
-                    a = np.pad(a, pad_width, mode="constant", constant_values=np.nan)
-                padded.append(a)
-            return np.vstack(padded)
+        first_file = Path(file_paths[0])
+        skiprows = self._resolve_skiprows(first_file, is_first_file=True)
+        return parse_and_stack_files(
+            list(file_paths),
+            skiprows=skiprows,
+            delimiter=self.spec.delimiter,
+            chunksize=chunksize,
+            engine=parse_engine or "auto",
+            n_jobs=1 if n_jobs is None else max(int(n_jobs), 1),
+            use_process_pool=use_process_pool,
+            show_progress=show_progress,
+        )
 
     def read_files_generator(
-        self, file_paths: list[str | Path], chunk_size: int = 10
+        self,
+        file_paths: list[str | Path],
+        chunk_size: int = 10,
+        *,
+        chunksize: int | None = None,
+        n_jobs: int | None = None,
+        use_process_pool: bool = False,
+        parse_engine: str | None = "auto",
+        show_progress: bool = False,
     ) -> Iterator[np.ndarray]:
         """生成器模式读取
 
@@ -421,33 +446,29 @@ class VX2730Reader(FormatReader):
         Yields:
             每个 chunk 的数据数组
         """
+        from waveform_analysis.utils.io import parse_and_stack_files
+
         if not file_paths:
             return
 
         for i in range(0, len(file_paths), chunk_size):
             chunk_files = file_paths[i : i + chunk_size]
-            arrays = []
-
-            for j, fp in enumerate(chunk_files):
-                # 只有第一个文件的第一个 chunk 才跳过头部
-                is_first = i == 0 and j == 0
-                arr = self.read_file(fp, is_first_file=is_first)
-                if arr.size > 0:
-                    arrays.append(arr)
-
-            if arrays:
-                try:
-                    yield np.vstack(arrays)
-                except ValueError:
-                    # 处理列数不一致
-                    max_cols = max(a.shape[1] for a in arrays)
-                    padded = []
-                    for a in arrays:
-                        if a.shape[1] < max_cols:
-                            pad_width = ((0, 0), (0, max_cols - a.shape[1]))
-                            a = np.pad(a, pad_width, mode="constant", constant_values=np.nan)
-                        padded.append(a)
-                    yield np.vstack(padded)
+            if not chunk_files:
+                continue
+            first_file = Path(chunk_files[0])
+            skiprows = self._resolve_skiprows(first_file, is_first_file=(i == 0))
+            arr = parse_and_stack_files(
+                list(chunk_files),
+                skiprows=skiprows,
+                delimiter=self.spec.delimiter,
+                chunksize=chunksize,
+                engine=parse_engine or "auto",
+                n_jobs=1 if n_jobs is None else max(int(n_jobs), 1),
+                use_process_pool=use_process_pool,
+                show_progress=show_progress and i == 0,
+            )
+            if arr.size > 0:
+                yield arr
 
     def count_total_rows(self, file_paths: list[str | Path]) -> int:
         """快速统计总行数（不加载数据）
@@ -464,10 +485,7 @@ class VX2730Reader(FormatReader):
             if not fp.exists() or fp.stat().st_size == 0:
                 continue
 
-            if idx == 0:
-                skiprows = self.spec.header_rows_first_file
-            else:
-                skiprows = self.spec.header_rows_other_files
+            skiprows = self._resolve_skiprows(fp, is_first_file=(idx == 0))
 
             # 快速行计数（使用二进制模式）
             with open(fp, "rb") as f:
@@ -483,6 +501,11 @@ class VX2730Reader(FormatReader):
         output_path: Path,
         structurizer: Callable[[np.ndarray, np.memmap, int], int],
         show_progress: bool = False,
+        *,
+        chunksize: int | None = None,
+        n_jobs: int | None = None,
+        use_process_pool: bool = False,
+        parse_engine: str | None = "auto",
     ) -> np.memmap:
         """流式读取并结构化，直接写入 memmap
 
@@ -540,7 +563,26 @@ class VX2730Reader(FormatReader):
         offset = 0
         for idx, fp in enumerate(pbar):
             is_first = idx == 0
-            arr = self.read_file(fp, is_first_file=is_first)
+            if (
+                chunksize is None
+                and (parse_engine or "auto").lower() == "auto"
+                and not use_process_pool
+            ):
+                arr = self.read_file(fp, is_first_file=is_first)
+            else:
+                from waveform_analysis.utils.io import parse_and_stack_files
+
+                skiprows = self._resolve_skiprows(Path(fp), is_first_file=is_first)
+                arr = parse_and_stack_files(
+                    [str(fp)],
+                    skiprows=skiprows,
+                    delimiter=self.spec.delimiter,
+                    chunksize=chunksize,
+                    engine=parse_engine or "auto",
+                    n_jobs=1 if n_jobs is None else max(int(n_jobs), 1),
+                    use_process_pool=use_process_pool,
+                    show_progress=False,
+                )
 
             if arr.size == 0:
                 continue

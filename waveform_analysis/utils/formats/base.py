@@ -235,7 +235,16 @@ class FormatReader(ABC):
         pass
 
     @abstractmethod
-    def read_files(self, file_paths: list[str | Path], show_progress: bool = False) -> np.ndarray:
+    def read_files(
+        self,
+        file_paths: list[str | Path],
+        show_progress: bool = False,
+        *,
+        chunksize: int | None = None,
+        n_jobs: int | None = None,
+        use_process_pool: bool = False,
+        parse_engine: str | None = "auto",
+    ) -> np.ndarray:
         """读取并堆叠多个文件
 
         Args:
@@ -249,7 +258,15 @@ class FormatReader(ABC):
 
     @abstractmethod
     def read_files_generator(
-        self, file_paths: list[str | Path], chunk_size: int = 10
+        self,
+        file_paths: list[str | Path],
+        chunk_size: int = 10,
+        *,
+        chunksize: int | None = None,
+        n_jobs: int | None = None,
+        use_process_pool: bool = False,
+        parse_engine: str | None = "auto",
+        show_progress: bool = False,
     ) -> Iterator[np.ndarray]:
         """生成器模式读取
 
@@ -261,6 +278,64 @@ class FormatReader(ABC):
             每个 chunk 的数据数组
         """
         pass
+
+    def count_total_rows(self, file_paths: list[str | Path]) -> int:
+        """Count total rows using the reader's configured header policy."""
+        total = 0
+        for idx, fp in enumerate(file_paths):
+            fp = Path(fp)
+            if not fp.exists() or fp.stat().st_size == 0:
+                continue
+
+            skiprows = (
+                self.spec.header_rows_first_file if idx == 0 else self.spec.header_rows_other_files
+            )
+            with open(fp, "rb") as handle:
+                line_count = sum(1 for _ in handle)
+            total += max(0, line_count - skiprows)
+        return total
+
+    def read_files_streaming(
+        self,
+        file_paths: list[str | Path],
+        output_dtype: np.dtype,
+        output_path: Path,
+        structurizer,
+        show_progress: bool = False,
+        *,
+        chunksize: int | None = None,
+        n_jobs: int | None = None,
+        use_process_pool: bool = False,
+        parse_engine: str | None = "auto",
+    ) -> np.memmap:
+        """Fallback streaming implementation using read_file/read_files_generator."""
+        if not file_paths:
+            return np.memmap(output_path, dtype=output_dtype, mode="w+", shape=(0,))
+
+        total_rows = self.count_total_rows(file_paths)
+        output = np.memmap(output_path, dtype=output_dtype, mode="w+", shape=(total_rows,))
+
+        if show_progress:
+            try:
+                from tqdm import tqdm
+
+                iterator = tqdm(file_paths, desc="流式读取", leave=False)
+            except ImportError:
+                iterator = file_paths
+        else:
+            iterator = file_paths
+
+        offset = 0
+        for idx, fp in enumerate(iterator):
+            arr = self.read_file(fp, is_first_file=(idx == 0))
+            if arr.size == 0:
+                continue
+            offset += int(structurizer(arr, output, offset))
+
+        output.flush()
+        if offset < total_rows:
+            return np.memmap(output_path, dtype=output_dtype, mode="r+", shape=(offset,))
+        return output
 
     def extract_columns(self, data: np.ndarray) -> dict[str, np.ndarray]:
         """从原始数据提取各列

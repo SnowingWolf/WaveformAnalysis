@@ -7,14 +7,19 @@ from typing import Any, Optional
 import numpy as np
 
 from waveform_analysis.core.plugins.builtin.cpu._dt_compat import resolve_dt_config
+from waveform_analysis.core.plugins.builtin.cpu.filtering import (
+    apply_filter_to_record_wave,
+    resolve_filter_config,
+)
 from waveform_analysis.core.plugins.builtin.cpu.waveforms import (
     _build_polarity_lookup,
+    _validate_baseline_samples,
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.dtypes import RECORDS_DTYPE
 from waveform_analysis.core.processing.records_builder import (
     RecordsBundle,
-    build_records_from_st_waveforms_sharded,
+    build_records_from_raw_files,
     build_records_from_v1725_files,
 )
 
@@ -145,16 +150,50 @@ def _build_records_bundle(
         _cleanup_stale_bundles(context, run_id, cache_key)
         return bundle
 
-    st_waveforms = context.get_data(run_id, "st_waveforms")
-    if not isinstance(st_waveforms, np.ndarray):
-        raise ValueError("records expects st_waveforms as a single structured array")
+    raw_files = context.get_data(run_id, "raw_files")
+    if not isinstance(raw_files, list):
+        raise ValueError("records expects raw_files as a list of per-channel file groups")
 
-    bundle = build_records_from_st_waveforms_sharded(
-        st_waveforms,
-        part_size=part_size,
+    baseline_samples = context.get_config(plugin, "baseline_samples")
+    _validate_baseline_samples(baseline_samples)
+    parse_engine = context.get_config(plugin, "parse_engine")
+    n_jobs = context.get_config(plugin, "n_jobs")
+    chunksize = context.get_config(plugin, "chunksize")
+    use_process_pool = context.get_config(plugin, "use_process_pool")
+    channel_workers = context.get_config(plugin, "channel_workers")
+    channel_executor = context.get_config(plugin, "channel_executor")
+    profiler = getattr(context, "profiler", None)
+
+    epoch_ns = None
+    if adapter_name:
+        from pathlib import Path
+
+        from waveform_analysis.utils.formats import get_adapter
+
+        adapter = get_adapter(adapter_name)
+        first_file = next((group[0] for group in raw_files if group), None)
+        if first_file is not None:
+            try:
+                epoch_ns = adapter.get_file_epoch(Path(first_file))
+            except (FileNotFoundError, OSError):
+                epoch_ns = None
+
+    bundle = build_records_from_raw_files(
+        raw_files,
+        adapter_name=adapter_name or "vx2730",
         default_dt_ns=dt_ns,
+        part_size=part_size,
+        baseline_samples=baseline_samples,
+        epoch_ns=epoch_ns,
+        show_progress=bool(context.config.get("show_progress", True)),
+        parse_engine=parse_engine,
+        n_jobs=n_jobs,
+        chunksize=chunksize,
+        use_process_pool=use_process_pool,
+        channel_workers=channel_workers,
+        channel_executor=channel_executor,
+        profiler=profiler,
     )
-    del st_waveforms
     bundle = _apply_records_polarity(context, run_id, bundle)
     context._set_data(run_id, cache_key, bundle)
     _cleanup_stale_bundles(context, run_id, cache_key)
@@ -163,10 +202,7 @@ def _build_records_bundle(
 
 def _resolve_records_upstream_depends(context: Any, plugin: Plugin) -> list[str]:
     """Resolve the shared upstream inputs for records-backed derived products."""
-    adapter_name = _resolve_adapter_name(context, plugin)
-    if adapter_name == "v1725":
-        return ["raw_files"]
-    return ["st_waveforms"]
+    return ["raw_files"]
 
 
 class _RecordsBundlePluginBase(Plugin):
@@ -209,8 +245,14 @@ class _RecordsBundlePluginBase(Plugin):
             help="CSV read chunk size; None reads full file (PyArrow if available).",
             track=False,
         ),
+        "parse_engine": Option(
+            default="auto",
+            type=str,
+            help="CSV engine: auto | polars | pyarrow | pandas",
+            track=False,
+        ),
         "records_part_size": Option(
-            default=200_000,
+            default=250_000,
             type=int,
             help="Max events per records shard; <=0 disables sharding.",
         ),
@@ -219,17 +261,27 @@ class _RecordsBundlePluginBase(Plugin):
             type=int,
             help="Sample interval in ns for records.dt (defaults to adapter rate or 1ns).",
         ),
+        "baseline_samples": Option(
+            default=None,
+            type=None,
+            validate=lambda v: (
+                v is None
+                or isinstance(v, int)
+                or (
+                    (isinstance(v, tuple) or isinstance(v, list))
+                    and len(v) == 2
+                    and all(isinstance(x, int) for x in v)
+                )
+            ),
+            help="Baseline range: int (sample count from adapter start) or tuple (start, end) "
+            "relative to samples_start. JSON lists like [0, 800] are also accepted. "
+            "None=adapter default.",
+        ),
     }
-    version = "0.9.0"
+    version = "0.10.0"
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
-        """Resolve adapter-specific upstream data for shared records bundle outputs.
-
-        Upstream data differs by adapter:
-
-        - Non-V1725 adapters, including VX2730: st_waveforms -> records/wave_pool
-        - V1725 adapter: raw_files -> records/wave_pool
-        """
+        """Resolve raw-file upstream data for shared records bundle outputs."""
         return _resolve_records_upstream_depends(context, self)
 
     def get_lineage(self, context: Any) -> dict:
@@ -278,11 +330,76 @@ class WavePoolPlugin(_RecordsBundlePluginBase):
         return bundle.wave_pool
 
 
+class WavePoolFilteredPlugin(Plugin):
+    """Build a filtered wave_pool aligned to the existing records layout."""
+
+    provides = "wave_pool_filtered"
+    depends_on = ["records", "wave_pool"]
+    description = "Build filtered wave_pool from records-backed raw waveforms."
+    version = "0.2.0"
+    save_when = "always"
+    output_dtype = np.dtype(np.float32)
+    options = {
+        "filter_type": Option(default="SG", type=str, help="滤波器类型: 'BW' 或 'SG'"),
+        "lowcut": Option(default=0.1, type=float, help="BW 低频截止"),
+        "highcut": Option(default=0.5, type=float, help="BW 高频截止"),
+        "fs": Option(default=0.5, type=float, help="BW 采样率（GHz）"),
+        "filter_order": Option(default=4, type=int, help="BW 阶数"),
+        "sg_window_size": Option(default=11, type=int, help="SG 窗口大小（奇数）"),
+        "sg_poly_order": Option(default=2, type=int, help="SG 多项式阶数"),
+    }
+
+    def compute(self, context: Any, run_id: str, **kwargs) -> np.ndarray:
+        records = context.get_data(run_id, "records")
+        wave_pool = context.get_data(run_id, "wave_pool")
+        if not isinstance(records, np.ndarray):
+            raise ValueError("wave_pool_filtered expects records as a structured array")
+        if not isinstance(wave_pool, np.ndarray):
+            raise ValueError("wave_pool_filtered expects wave_pool as a numpy array")
+        if records.dtype.names is None:
+            raise ValueError("wave_pool_filtered expects structured records input")
+        required = ("wave_offset", "event_length")
+        missing = [name for name in required if name not in records.dtype.names]
+        if missing:
+            raise ValueError(f"wave_pool_filtered records missing required fields: {missing}")
+
+        filter_config = resolve_filter_config(context, self)
+        filtered_pool = np.zeros(len(wave_pool), dtype=np.float32)
+
+        for rec in records:
+            length = int(rec["event_length"])
+            if length <= 0:
+                continue
+            offset = int(rec["wave_offset"])
+            end = offset + length
+            if offset < 0 or end > len(wave_pool):
+                raise ValueError(
+                    "wave_pool_filtered found out-of-bounds wave slice "
+                    f"(offset={offset}, length={length}, wave_pool_size={len(wave_pool)})"
+                )
+            raw_wave = wave_pool[offset:end]
+            filtered_wave = apply_filter_to_record_wave(
+                raw_wave,
+                filter_config["filter_type"],
+                bw_sos=filter_config["bw_sos"],
+                sg_window_size=filter_config["sg_window_size"],
+                sg_poly_order=filter_config["sg_poly_order"],
+            )
+            if filtered_wave.shape[0] != length:
+                raise ValueError(
+                    "wave_pool_filtered produced mismatched waveform length "
+                    f"for offset={offset}: expected {length}, got {filtered_wave.shape[0]}"
+                )
+            filtered_pool[offset:end] = filtered_wave.astype(np.float32, copy=False)
+
+        return filtered_pool
+
+
 def get_records_bundle(context: Any, run_id: str) -> RecordsBundle:
     """Get records + wave_pool bundle for a run (internal cache).
 
-    For non-V1725 adapters, records reuse the already-resolved st_waveforms
-    result instead of reparsing raw files. V1725 keeps its dedicated raw-file
+    Records now build from raw_files for all adapters. Non-V1725 adapters use
+    the generic incremental builder, while V1725 keeps its dedicated iter_waves
     path for compatibility and performance.
     """
     try:

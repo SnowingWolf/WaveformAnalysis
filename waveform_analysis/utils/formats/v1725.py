@@ -118,15 +118,32 @@ class V1725Reader(FormatReader):
         waves = list(self.iter_waves([file_path]))
         return self._waves_to_array(waves)
 
-    def read_files(self, file_paths: list[str | Path], show_progress: bool = False) -> np.ndarray:
-        _ = show_progress
+    def read_files(
+        self,
+        file_paths: list[str | Path],
+        show_progress: bool = False,
+        *,
+        chunksize: int | None = None,
+        n_jobs: int | None = None,
+        use_process_pool: bool = False,
+        parse_engine: str | None = "auto",
+    ) -> np.ndarray:
+        _ = (show_progress, chunksize, n_jobs, use_process_pool, parse_engine)
         waves = list(self.iter_waves(file_paths))
         return self._waves_to_array(waves)
 
     def read_files_generator(
-        self, file_paths: list[str | Path], chunk_size: int = 10
+        self,
+        file_paths: list[str | Path],
+        chunk_size: int = 10,
+        *,
+        chunksize: int | None = None,
+        n_jobs: int | None = None,
+        use_process_pool: bool = False,
+        parse_engine: str | None = "auto",
+        show_progress: bool = False,
     ) -> Iterator[np.ndarray]:
-        _ = chunk_size
+        _ = (chunk_size, chunksize, n_jobs, use_process_pool, parse_engine, show_progress)
         for file_path in file_paths:
             yield self.read_file(file_path)
 

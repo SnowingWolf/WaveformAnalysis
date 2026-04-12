@@ -14,9 +14,9 @@ Examples:
     >>> data = reader.read_file('data.csv')
 """
 
+from collections.abc import Iterator
 import logging
 from pathlib import Path
-from typing import Iterator, List, Union
 
 import numpy as np
 import pandas as pd
@@ -52,7 +52,7 @@ class GenericCSVReader(FormatReader):
         >>> data = reader.read_file('data.csv')
     """
 
-    def read_file(self, file_path: Union[str, Path], is_first_file: bool = True) -> np.ndarray:
+    def read_file(self, file_path: str | Path, is_first_file: bool = True) -> np.ndarray:
         """读取单个 CSV 文件
 
         Args:
@@ -96,7 +96,14 @@ class GenericCSVReader(FormatReader):
             return np.array([]).reshape(0, 0)
 
     def read_files(
-        self, file_paths: List[Union[str, Path]], show_progress: bool = False
+        self,
+        file_paths: list[str | Path],
+        show_progress: bool = False,
+        *,
+        chunksize: int | None = None,
+        n_jobs: int | None = None,
+        use_process_pool: bool = False,
+        parse_engine: str | None = "auto",
     ) -> np.ndarray:
         """读取并堆叠多个文件
 
@@ -107,6 +114,7 @@ class GenericCSVReader(FormatReader):
         Returns:
             所有文件数据垂直堆叠后的数组
         """
+        _ = (chunksize, n_jobs, use_process_pool, parse_engine)
         if not file_paths:
             return np.array([]).reshape(0, 0)
 
@@ -142,7 +150,15 @@ class GenericCSVReader(FormatReader):
             return np.vstack(padded)
 
     def read_files_generator(
-        self, file_paths: List[Union[str, Path]], chunk_size: int = 10
+        self,
+        file_paths: list[str | Path],
+        chunk_size: int = 10,
+        *,
+        chunksize: int | None = None,
+        n_jobs: int | None = None,
+        use_process_pool: bool = False,
+        parse_engine: str | None = "auto",
+        show_progress: bool = False,
     ) -> Iterator[np.ndarray]:
         """生成器模式读取
 
@@ -153,6 +169,7 @@ class GenericCSVReader(FormatReader):
         Yields:
             每个 chunk 的数据数组
         """
+        _ = (chunksize, n_jobs, use_process_pool, parse_engine, show_progress)
         if not file_paths:
             return
 
