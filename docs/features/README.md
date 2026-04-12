@@ -60,12 +60,11 @@
 
 ### [工具函数](utils/README.md)
 
-DAQ 适配器、事件筛选、波形预览等实用工具。
+DAQ 适配器、DAQ 运行分析与事件筛选等实用工具。
 
 - [DAQ 适配器](../plugins/guides/DAQ_ADAPTER_GUIDE.md)
 - [DAQ 分析器](utils/DAQ_ANALYZER_GUIDE.md)
 - [事件筛选](utils/EVENT_FILTERS_GUIDE.md)
-- [波形预览](utils/waveform_preview.md)
 
 ## 按场景查找
 
@@ -83,7 +82,6 @@ DAQ 适配器、事件筛选、波形预览等实用工具。
 | 管理配置 | [CONFIGURATION.md](context/CONFIGURATION.md) |
 | 绝对时间查询 | [ABSOLUTE_TIME_GUIDE.md](context/ABSOLUTE_TIME_GUIDE.md) |
 | 筛选事件数据 | [EVENT_FILTERS_GUIDE.md](utils/EVENT_FILTERS_GUIDE.md) |
-| 预览波形 | [waveform_preview.md](utils/waveform_preview.md) |
 | 使用信号处理插件 | [SIGNAL_PROCESSING_PLUGINS.md](../plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md) |
 | 开发自定义插件 | [SIMPLE_PLUGIN_GUIDE.md](../plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) |
 

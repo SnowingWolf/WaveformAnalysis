@@ -37,6 +37,18 @@ logger = logging.getLogger(__name__)
 export, __all__ = exporter()
 
 
+def _warn_preview_deprecated(api_name: str, stacklevel: int = 2) -> None:
+    warnings.warn(
+        (
+            f"Preview API '{api_name}' is deprecated since version 0.2.0 and "
+            "will be removed in version 1.0.0. There is no direct replacement. "
+            "Use lower-level data access interfaces plus custom Matplotlib plotting instead."
+        ),
+        DeprecationWarning,
+        stacklevel=stacklevel,
+    )
+
+
 def _resolve_plot_dt(dt: float, kwargs: dict[str, object]) -> float:
     legacy_dt = kwargs.pop("sampling_interval_ns", None)
     if legacy_dt is not None:
@@ -195,6 +207,8 @@ class WaveformPreviewer:
         data_root: str = "DAQ",
         n_channels: int = 6,
         daq_adapter: str | None = None,
+        *,
+        _warn_deprecated: bool = True,
     ):
         """
         初始化波形预览器。
@@ -209,6 +223,8 @@ class WaveformPreviewer:
         self.data_root = data_root
         self.n_channels = n_channels
         self.daq_adapter = daq_adapter
+        if _warn_deprecated:
+            _warn_preview_deprecated("WaveformPreviewer", stacklevel=2)
 
         # 初始化加载器
         self._loader = WaveformLoaderCSV(
@@ -851,6 +867,8 @@ def preview_waveforms(
         ...     save_path='preview.png'
         ... )
     """
+    _warn_preview_deprecated("preview_waveforms", stacklevel=2)
+
     # 检查参数
     if event_range is None and timestamp_range is None:
         raise ValueError("Must specify either event_range or timestamp_range")
@@ -859,7 +877,12 @@ def preview_waveforms(
         raise ValueError("Cannot specify both event_range and timestamp_range")
 
     # 初始化预览器
-    previewer = WaveformPreviewer(run_name=run_name, data_root=data_root, n_channels=n_channels)
+    previewer = WaveformPreviewer(
+        run_name=run_name,
+        data_root=data_root,
+        n_channels=n_channels,
+        _warn_deprecated=False,
+    )
 
     # 加载波形
     if event_range is not None:
@@ -942,6 +965,8 @@ def plot_records_waveforms(
         ...     limit=6,
         ... )
     """
+    _warn_preview_deprecated("plot_records_waveforms", stacklevel=2)
+
     rv = _resolve_records_view(source, run_id=run_id)
     selected_record_ids = _coerce_record_ids(record_ids)
     records, metrics_by_id = _filter_records(

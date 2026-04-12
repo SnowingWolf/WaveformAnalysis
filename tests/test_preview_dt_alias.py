@@ -29,14 +29,16 @@ def _make_waveforms():
 
 
 def test_plot_overlay_accepts_dt():
-    previewer = WaveformPreviewer("run_001")
+    with pytest.warns(DeprecationWarning, match="WaveformPreviewer"):
+        previewer = WaveformPreviewer("run_001")
     fig = previewer.plot_overlay(_make_waveforms(), annotate=False, dt=1.5)
     ax = fig.axes[0]
     assert ax.lines[0].get_xdata()[1] == pytest.approx(1.5)
 
 
 def test_plot_grid_accepts_deprecated_sampling_interval_ns_with_warning():
-    previewer = WaveformPreviewer("run_001")
+    with pytest.warns(DeprecationWarning, match="WaveformPreviewer"):
+        previewer = WaveformPreviewer("run_001")
     with pytest.warns(DeprecationWarning, match="sampling_interval_ns"):
         fig = previewer.plot_grid(
             _make_waveforms(),

@@ -3,6 +3,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import numpy as np
+import pytest
 
 from waveform_analysis.core.data import RecordsView
 from waveform_analysis.core.processing.dtypes import RECORDS_DTYPE
@@ -56,7 +57,8 @@ def _make_records_view() -> RecordsView:
 def test_plot_records_waveforms_accepts_explicit_record_ids():
     rv = _make_records_view()
 
-    fig = plot_records_waveforms(rv, record_ids=[102, 101], ncols=1)
+    with pytest.warns(DeprecationWarning, match="plot_records_waveforms"):
+        fig = plot_records_waveforms(rv, record_ids=[102, 101], ncols=1)
 
     assert fig is not None
     assert fig.axes[0].get_title() == "Record 102"
@@ -68,13 +70,14 @@ def test_plot_records_waveforms_accepts_explicit_record_ids():
 def test_plot_records_waveforms_supports_feature_filters():
     rv = _make_records_view()
 
-    fig = plot_records_waveforms(
-        rv,
-        channel=1,
-        height_range=(20.0, 40.0),
-        area_range=(30.0, 80.0),
-        ncols=1,
-    )
+    with pytest.warns(DeprecationWarning, match="plot_records_waveforms"):
+        fig = plot_records_waveforms(
+            rv,
+            channel=1,
+            height_range=(20.0, 40.0),
+            area_range=(30.0, 80.0),
+            ncols=1,
+        )
 
     visible_axes = [ax for ax in fig.axes if ax.axison]
     assert len(visible_axes) == 1
@@ -84,7 +87,8 @@ def test_plot_records_waveforms_supports_feature_filters():
 def test_plot_records_waveforms_handles_empty_query():
     rv = _make_records_view()
 
-    fig = plot_records_waveforms(rv, channel=9)
+    with pytest.warns(DeprecationWarning, match="plot_records_waveforms"):
+        fig = plot_records_waveforms(rv, channel=9)
 
     assert fig is not None
     assert fig.axes[0].texts[0].get_text() == "No records matched the query"

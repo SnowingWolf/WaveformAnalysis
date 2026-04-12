@@ -7,22 +7,24 @@ public entrypoint.
 
 from __future__ import annotations
 
+from importlib import import_module
 import logging
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from waveform_analysis.core.foundation.utils import exporter
 
-from .daq_analyzer import DAQAnalyzer
-from .daq_run import DAQRun
-
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from .daq_analyzer import DAQAnalyzer
+    from .daq_run import DAQRun
 
 
 export, __all__ = exporter()
-
-# 导出已有的类
-export(DAQAnalyzer)
-export(DAQRun)
+_LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
+    "DAQAnalyzer": (".daq_analyzer", "DAQAnalyzer"),
+    "DAQRun": (".daq_run", "DAQRun"),
+}
 
 
 class _DAQRunAdapter:
@@ -49,7 +51,7 @@ class _DAQRunAdapter:
         """
         self._src = src
 
-    def _infer_channel_count(self) -> Optional[int]:
+    def _infer_channel_count(self) -> int | None:
         cf = getattr(self._src, "channel_files", None)
         if isinstance(cf, dict) and cf:
             return max(int(k) for k in cf.keys()) + 1
@@ -57,7 +59,7 @@ class _DAQRunAdapter:
             return max(int(k) for k in self._src.keys()) + 1
         return None
 
-    def get_channel_paths(self, n_channels: Optional[int]):
+    def get_channel_paths(self, n_channels: int | None):
         if n_channels is None:
             inferred = self._infer_channel_count()
             if inferred is None:
@@ -106,4 +108,18 @@ def adapt_daq_run(obj: Any):
     return _DAQRunAdapter(obj)
 
 
-__all__ = ["DAQRun", "DAQAnalyzer"]
+def __getattr__(name: str):
+    if name in _LAZY_ATTRS:
+        module_name, attr_name = _LAZY_ATTRS[name]
+        module = import_module(module_name, __package__)
+        value = getattr(module, attr_name) if attr_name else module
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+
+def __dir__():
+    return sorted(set(globals()) | set(__all__) | set(_LAZY_ATTRS))
+
+
+__all__ = ["DAQAnalyzer", "DAQRun", "adapt_daq_run"]

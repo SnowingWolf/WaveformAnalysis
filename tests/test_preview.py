@@ -2,6 +2,7 @@ import logging
 
 import matplotlib
 import numpy as np
+import pytest
 
 matplotlib.use("Agg")
 
@@ -19,7 +20,8 @@ def _make_waveforms(n_events: int = 3) -> np.ndarray:
 
 
 def test_compute_features_handles_out_of_bounds_ranges(caplog):
-    previewer = WaveformPreviewer(run_name="dummy", data_root="DAQ", n_channels=1)
+    with pytest.warns(DeprecationWarning, match="WaveformPreviewer"):
+        previewer = WaveformPreviewer(run_name="dummy", data_root="DAQ", n_channels=1)
     waveforms = _make_waveforms()
 
     with caplog.at_level(logging.WARNING):
@@ -35,7 +37,8 @@ def test_compute_features_handles_out_of_bounds_ranges(caplog):
 
 
 def test_plot_grid_skips_missing_peaks():
-    previewer = WaveformPreviewer(run_name="dummy", data_root="DAQ", n_channels=1)
+    with pytest.warns(DeprecationWarning, match="WaveformPreviewer"):
+        previewer = WaveformPreviewer(run_name="dummy", data_root="DAQ", n_channels=1)
     waveforms = _make_waveforms()
     fig = previewer.plot_grid(
         waveforms, annotate=True, peaks_range=(2000, 2100), charge_range=(2000, 2100)
@@ -44,7 +47,8 @@ def test_plot_grid_skips_missing_peaks():
 
 
 def test_plot_overlay_skips_missing_peaks():
-    previewer = WaveformPreviewer(run_name="dummy", data_root="DAQ", n_channels=1)
+    with pytest.warns(DeprecationWarning, match="WaveformPreviewer"):
+        previewer = WaveformPreviewer(run_name="dummy", data_root="DAQ", n_channels=1)
     waveforms = _make_waveforms()
     fig = previewer.plot_overlay(
         waveforms, annotate=True, peaks_range=(2000, 2100), charge_range=(2000, 2100)

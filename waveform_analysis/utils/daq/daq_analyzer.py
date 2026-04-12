@@ -3,32 +3,30 @@
 from __future__ import annotations
 
 from datetime import datetime
+from importlib import import_module
 import json
 import logging
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import pandas as pd
 
-try:
-    from IPython import get_ipython
-    from IPython.display import display as _ipydisplay
+def _ipydisplay(x):
+    try:
+        from IPython.display import display as display_fn
 
-    def _in_notebook() -> bool:
-        # Detect IPython kernel presence without hard failure.
-        try:
-            return get_ipython() is not None
-        except Exception:
-            return False
-
-except Exception:
-
-    def _ipydisplay(x):
+        display_fn(x)
+    except Exception:
         print(x)
 
-    def _in_notebook() -> bool:
-        # Fallback when IPython is unavailable.
+
+def _in_notebook() -> bool:
+    # Detect IPython kernel presence without hard failure.
+    try:
+        from IPython import get_ipython
+
+        return get_ipython() is not None
+    except Exception:
         return False
 
 
@@ -37,6 +35,8 @@ logger = logging.getLogger(__name__)
 from .daq_run import DAQRun
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from waveform_analysis.utils.formats import DAQAdapter, DirectoryLayout
 
 
@@ -44,8 +44,13 @@ class DAQAnalyzer:
     """DAQ 数据分析器：管理所有运行的统一分析（显示/保存等）。"""
 
     @staticmethod
-    def _parse_overview_time(series: pd.Series) -> pd.Series:
+    def _pd():
+        return import_module("pandas")
+
+    @staticmethod
+    def _parse_overview_time(series):
         """Parse overview time strings with a stable format and graceful NA handling."""
+        pd = DAQAnalyzer._pd()
         cleaned = series.replace("N/A", pd.NA)
         return pd.to_datetime(cleaned, format="%Y-%m-%d %H:%M:%S", errors="coerce")
 
@@ -173,6 +178,7 @@ class DAQAnalyzer:
 
     def _build_dataframe(self) -> None:
         # Build the overview DataFrame from per-run dicts.
+        pd = self._pd()
         run_dicts = [run.to_dict() for run in self.runs.values()]
         self.df_runs = pd.DataFrame(run_dicts)
 
@@ -265,6 +271,7 @@ class DAQAnalyzer:
                 }
             )
         try:
+            pd = self._pd()
             fdf = pd.DataFrame(frows).set_index("index")
             _ipydisplay(fdf)
         except Exception:
@@ -432,6 +439,7 @@ class DAQAnalyzer:
         print(f"{'=' * 80}")
 
         rows = self._build_channel_rows(stats)
+        pd = self._pd()
         df = pd.DataFrame(rows).set_index("channel")
 
         if _in_notebook():
