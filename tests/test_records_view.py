@@ -3,8 +3,9 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
+from tests.utils import FakeContext
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.data.records_view import RecordsView
+from waveform_analysis.core.data.records_view import RecordsView, records_view
 from waveform_analysis.core.plugins import profiles
 from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
 
@@ -23,6 +24,20 @@ def _make_sample_view():
 
     wave_pool = np.array([1, 2, 3, 10, 11, 99], dtype=np.uint16)
     return RecordsView(records, wave_pool)
+
+
+def _make_records() -> np.ndarray:
+    records = np.zeros(2, dtype=RECORDS_DTYPE)
+    records["record_id"] = np.array([11, 12], dtype=np.int64)
+    records["timestamp"] = np.array([100, 200], dtype=np.int64)
+    records["board"] = 0
+    records["channel"] = np.array([1, 2], dtype=np.int16)
+    records["baseline"] = 100.0
+    records["polarity"] = "negative"
+    records["dt"] = 2
+    records["wave_offset"] = np.array([0, 4], dtype=np.int64)
+    records["event_length"] = 4
+    return records
 
 
 def test_records_view_wave_slicing():
@@ -139,8 +154,6 @@ def test_records_view_uses_records_branch_with_cpu_default():
     records["time"] = [0]
     wave_pool = np.array([7], dtype=np.uint16)
     with patch.object(ctx, "get_data", side_effect=[records, wave_pool]) as mocked:
-        from waveform_analysis.core.data import records_view
-
         rv = records_view(ctx, "run_001")
 
     assert isinstance(rv, RecordsView)
@@ -150,8 +163,6 @@ def test_records_view_uses_records_branch_with_cpu_default():
 
 
 def test_records_view_requires_formal_wave_pool_output():
-    from waveform_analysis.core.data import records_view
-
     records = np.zeros(1, dtype=RECORDS_DTYPE)
     records["timestamp"] = [10]
     records["pid"] = 0
@@ -168,6 +179,31 @@ def test_records_view_requires_formal_wave_pool_output():
             records_view(ctx, "run_001")
 
     assert get_data_mock.call_count == 2
+
+
+def test_records_view_supports_custom_wave_pool_name():
+    records = _make_records()
+    ctx = FakeContext(
+        data={
+            "records": records,
+            "wave_pool": np.array([100, 90, 95, 100, 100, 95, 90, 100], dtype=np.uint16),
+            "wave_pool_filtered": np.array(
+                [99.0, 98.0, 97.0, 96.0, 95.0, 94.0, 93.0, 92.0], dtype=np.float32
+            ),
+        }
+    )
+
+    rv = records_view(ctx, "run_001", wave_pool_name="wave_pool_filtered")
+
+    np.testing.assert_allclose(rv.waves(11), [99.0, 98.0, 97.0, 96.0])
+
+
+def test_records_view_missing_custom_wave_pool_raises():
+    records = _make_records()
+    ctx = FakeContext(data={"records": records})
+
+    with pytest.raises(ValueError, match="wave_pool_filtered"):
+        records_view(ctx, "run_001", wave_pool_name="wave_pool_filtered")
 
 
 def test_records_view_batch_window_uses_record_ids():

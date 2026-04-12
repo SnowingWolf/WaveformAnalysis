@@ -20,7 +20,6 @@ from .basic_features import BASIC_FEATURES_DTYPE, BasicFeaturesPlugin
 
 # Cache analysis plugin
 from .cache_analysis import CacheAnalysisPlugin
-from .channel_metadata import resolve_channel_metadata, resolve_context_channel_metadata
 
 # 数据整合插件
 from .dataframe import DataFramePlugin
@@ -114,8 +113,6 @@ __all__ = [
     "LABEL_UNKNOWN",
     # Cache analysis
     "CacheAnalysisPlugin",
-    "resolve_channel_metadata",
-    "resolve_context_channel_metadata",
     # Records
     "RecordsPlugin",
     "WavePoolPlugin",

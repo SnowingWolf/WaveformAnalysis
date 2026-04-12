@@ -20,12 +20,8 @@ from waveform_analysis.core.hardware.channel import (
 )
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     WAVE_SOURCE_AUTO,
-    WAVE_SOURCE_FILTERED,
-    WAVE_SOURCE_RECORDS,
-    resolve_wave_source,
-)
-from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
-    resolve_depends_on as resolve_wave_depends_on,
+    load_wave_input,
+    resolve_wave_input_spec,
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
@@ -64,20 +60,19 @@ class DataFramePlugin(Plugin):
     }
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
-        source = resolve_wave_source(context, self)
-        use_filtered = bool(context.get_config(self, "use_filtered"))
         # Dynamic dependency: df follows the selected waveform source, and
         # always adds basic_features as an extra upstream table dependency.
-        deps = resolve_wave_depends_on(source, use_filtered)
+        spec = resolve_wave_input_spec(context, self, needs_wave_samples=False)
+        deps = list(spec.depends_on)
         deps.append("basic_features")
         return deps
 
     @staticmethod
-    def _resolve_basic_features_source(context: Any) -> str:
+    def _resolve_basic_features_spec(context: Any):
         # Keep df and basic_features source selection aligned in records mode.
         from waveform_analysis.core.plugins.builtin.cpu.basic_features import BasicFeaturesPlugin
 
-        return resolve_wave_source(context, BasicFeaturesPlugin())
+        return resolve_wave_input_spec(context, BasicFeaturesPlugin(), needs_wave_samples=True)
 
     @staticmethod
     def _normalize_gain_map(gain_adc_per_pe: Any) -> dict:
@@ -214,25 +209,22 @@ class DataFramePlugin(Plugin):
         """
         import pandas as pd
 
-        source = resolve_wave_source(context, self)
-        use_filtered = bool(context.get_config(self, "use_filtered"))
         basic_features = context.get_data(run_id, "basic_features")
+        wave_input = load_wave_input(context, self, run_id, needs_wave_samples=False)
 
         if not isinstance(basic_features, np.ndarray):
             raise ValueError("df expects basic_features as a single structured array")
 
-        if source == WAVE_SOURCE_RECORDS:
-            basic_source = self._resolve_basic_features_source(context)
-            if basic_source != WAVE_SOURCE_RECORDS:
+        if wave_input.spec.is_records:
+            basic_spec = self._resolve_basic_features_spec(context)
+            if not basic_spec.is_records:
                 raise ValueError(
                     "df.wave_source=records requires basic_features.wave_source=records "
-                    f"(resolved as {basic_source!r})."
+                    f"(resolved as {basic_spec.source!r})."
                 )
-
-            from waveform_analysis.core import records_view
-
-            rv = records_view(context, run_id)
-            records = rv.records
+            records = wave_input.records
+            if records is None:
+                raise ValueError("df failed to load records input")
 
             if len(records) != len(basic_features):
                 raise ValueError(
@@ -263,15 +255,10 @@ class DataFramePlugin(Plugin):
                 }
             )
         else:
-            if source == WAVE_SOURCE_FILTERED or (source == WAVE_SOURCE_AUTO and use_filtered):
-                waveform_data = context.get_data(run_id, "filtered_waveforms")
-                expected_name = "filtered_waveforms"
-            else:
-                waveform_data = context.get_data(run_id, "st_waveforms")
-                expected_name = "st_waveforms"
-
-            if not isinstance(waveform_data, np.ndarray):
-                raise ValueError(f"df expects {expected_name} as a single structured array")
+            waveform_data = wave_input.waveform_data
+            expected_name = wave_input.spec.expected_name
+            if waveform_data is None:
+                raise ValueError(f"df failed to load {expected_name}")
 
             if len(waveform_data) != len(basic_features):
                 raise ValueError(

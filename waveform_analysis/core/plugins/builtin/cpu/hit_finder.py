@@ -18,12 +18,8 @@ from waveform_analysis.core.plugins.builtin.cpu._dt_compat import (
 )
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     WAVE_SOURCE_AUTO,
-    WAVE_SOURCE_FILTERED,
-    WAVE_SOURCE_RECORDS,
-    resolve_wave_source,
-)
-from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
-    resolve_depends_on as resolve_wave_depends_on,
+    load_wave_input,
+    resolve_wave_input_spec,
 )
 from waveform_analysis.core.plugins.builtin.cpu.peak_finding import (
     HIT_DTYPE,
@@ -120,27 +116,24 @@ class ThresholdHitPlugin(Plugin):
     }
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
-        source = resolve_wave_source(context, self)
-        # Dynamic dependency: hit_threshold reads from records, st_waveforms,
-        # or filtered_waveforms depending on wave_source/use_filtered.
-        return resolve_wave_depends_on(source, bool(context.get_config(self, "use_filtered")))
+        spec = resolve_wave_input_spec(context, self)
+        return list(spec.depends_on)
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         threshold = float(context.get_config(self, "threshold"))
-        use_filtered = bool(context.get_config(self, "use_filtered"))
-        source = resolve_wave_source(context, self)
         left_extension = max(0, int(context.get_config(self, "left_extension")))
         right_extension = max(0, int(context.get_config(self, "right_extension")))
         explicit_dt = resolve_dt_config(
             context, self, deprecated_keys=("sampling_interval_ns", "dt_ns")
         )
         channel_config_cfg = context.get_config(self, "channel_config")
+        wave_input = load_wave_input(context, self, run_id, needs_wave_samples=True)
 
-        if source == WAVE_SOURCE_RECORDS:
-            from waveform_analysis.core import records_view
-
-            rv = records_view(context, run_id)
-            records = rv.records
+        if wave_input.spec.is_records:
+            records = wave_input.records
+            rv = wave_input.records_view
+            if records is None or rv is None:
+                raise ValueError("hit_threshold failed to load records_view for records source")
             if len(records) == 0:
                 return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
 
@@ -183,14 +176,9 @@ class ThresholdHitPlugin(Plugin):
             )
             record_lengths = records["event_length"].astype(np.int64, copy=False)
         else:
-            waveform_data = (
-                context.get_data(run_id, "filtered_waveforms")
-                if source == WAVE_SOURCE_FILTERED or (source == WAVE_SOURCE_AUTO and use_filtered)
-                else context.get_data(run_id, "st_waveforms")
-            )
-
-            if not isinstance(waveform_data, np.ndarray):
-                raise ValueError("hit_threshold expects st_waveforms as a single structured array")
+            waveform_data = wave_input.waveform_data
+            if waveform_data is None:
+                raise ValueError(f"hit_threshold failed to load {wave_input.spec.expected_name}")
             if len(waveform_data) == 0:
                 return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
 
@@ -231,7 +219,7 @@ class ThresholdHitPlugin(Plugin):
                 waveform_data,
                 explicit_dt=explicit_dt,
                 plugin_name=self.provides,
-                data_name="st_waveforms",
+                data_name=wave_input.spec.expected_name,
             )
             _wave_offsets, record_lengths = self._resolve_wave_pool_metadata(
                 context,

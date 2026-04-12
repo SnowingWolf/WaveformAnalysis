@@ -203,7 +203,7 @@ def test_threshold_hit_use_filtered_branch():
 def test_threshold_hit_wave_source_records_depends_on_records_and_wave_pool():
     plugin = ThresholdHitPlugin()
     ctx = DummyContext({"wave_source": "records", "use_filtered": True}, {})
-    assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool"]
+    assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool_filtered"]
 
 
 def test_threshold_hit_reads_records_view_when_wave_source_records():
@@ -230,6 +230,27 @@ def test_threshold_hit_reads_records_view_when_wave_source_records():
     assert int(result[0]["record_id"]) == 0
     assert int(result[0]["edge_start"]) == 2
     assert int(result[0]["edge_end"]) == 6
+
+
+def test_threshold_hit_records_use_filtered_reads_filtered_pool():
+    plugin = ThresholdHitPlugin()
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "use_filtered": True,
+            "threshold": 10.0,
+            "left_extension": 0,
+            "right_extension": 0,
+            "dt": 2,
+        },
+        {},
+    )
+    rv = _make_records_view()
+
+    with patch("waveform_analysis.core.records_view", return_value=rv) as mocked:
+        _compute_threshold_hits(plugin, ctx)
+
+    assert mocked.call_args.kwargs["wave_pool_name"] == "wave_pool_filtered"
 
 
 def test_threshold_hit_records_empty_returns_empty():

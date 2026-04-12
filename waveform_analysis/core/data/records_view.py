@@ -380,16 +380,21 @@ class RecordsView:
 
 
 @export
-def records_view(source: Any, run_id: str) -> RecordsView:
+def records_view(
+    source: Any,
+    run_id: str,
+    records_name: str = "records",
+    wave_pool_name: str = "wave_pool",
+) -> RecordsView:
     """
     Factory function to create a RecordsView from a Context-like source.
     """
-    records = source.get_data(run_id, "records")
-    wave_pool = source.get_data(run_id, "wave_pool")
+    records = source.get_data(run_id, records_name)
+    wave_pool = source.get_data(run_id, wave_pool_name)
 
     if not isinstance(records, np.ndarray):
-        raise ValueError("records_view requires formal 'records' plugin output")
+        raise ValueError(f"records_view requires formal '{records_name}' plugin output")
     if not isinstance(wave_pool, np.ndarray):
-        raise ValueError("records_view requires formal 'wave_pool' plugin output")
+        raise ValueError(f"records_view requires formal '{wave_pool_name}' plugin output")
 
     return RecordsView(records, wave_pool)

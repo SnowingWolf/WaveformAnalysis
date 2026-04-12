@@ -73,6 +73,22 @@ def _make_records_view():
     return RecordsView(records, wave_pool)
 
 
+def _make_records_and_pools():
+    records = np.zeros(2, dtype=RECORDS_DTYPE)
+    records["timestamp"] = [10, 20]
+    records["pid"] = 0
+    records["board"] = [3, 4]
+    records["channel"] = [0, 1]
+    records["record_id"] = [10, 11]
+    records["baseline"] = [100.0, 100.0]
+    records["wave_offset"] = [0, 4]
+    records["event_length"] = [4, 4]
+    records["time"] = [0, 0]
+    wave_pool = np.array([90, 80, 95, 90, 90, 85, 90, 90], dtype=np.uint16)
+    wave_pool_filtered = np.array([95, 95, 95, 95, 95, 95, 95, 95], dtype=np.float32)
+    return records, wave_pool, wave_pool_filtered
+
+
 # ---------------------------------------------------------------------------
 # BasicFeaturesPlugin.compute – happy path
 # ---------------------------------------------------------------------------
@@ -169,9 +185,14 @@ class TestResolveDependsOn:
         assert plugin.resolve_depends_on(ctx) == ["st_waveforms"]
 
     def test_wave_source_records_depends_on_records_and_wave_pool(self):
-        ctx = FakeContext(config={"wave_source": "records", "use_filtered": True})
+        ctx = FakeContext(config={"wave_source": "records", "use_filtered": False})
         plugin = BasicFeaturesPlugin()
         assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool"]
+
+    def test_wave_source_records_and_use_filtered_depends_on_records_and_filtered_pool(self):
+        ctx = FakeContext(config={"wave_source": "records", "use_filtered": True})
+        plugin = BasicFeaturesPlugin()
+        assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool_filtered"]
 
     def test_wave_source_filtered_depends_on_filtered(self):
         ctx = FakeContext(config={"wave_source": "filtered_waveforms"})
@@ -403,6 +424,29 @@ class TestUseFiltered:
             result = plugin.compute(ctx, "run_001")
 
         np.testing.assert_array_equal(result["board"], np.array([3, 4], dtype=np.int16))
+
+    def test_records_source_can_select_filtered_wave_pool(self):
+        records, wave_pool, wave_pool_filtered = _make_records_and_pools()
+        ctx = FakeContext(
+            config={
+                "wave_source": "records",
+                "use_filtered": True,
+                "height_range": (0, 4),
+                "area_range": (0, 4),
+            },
+            data={
+                "records": records,
+                "wave_pool": wave_pool,
+                "wave_pool_filtered": wave_pool_filtered,
+            },
+        )
+        plugin = BasicFeaturesPlugin()
+
+        result = plugin.compute(ctx, "run_001")
+
+        np.testing.assert_allclose(result["height"], [5.0, 5.0])
+        np.testing.assert_allclose(result["amp"], [0.0, 0.0])
+        np.testing.assert_allclose(result["area"], [20.0, 20.0])
 
 
 # ---------------------------------------------------------------------------

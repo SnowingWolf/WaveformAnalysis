@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
@@ -157,11 +158,11 @@ def test_hitfinder_height_window_extension_effect():
     assert peaks_large["height"][0] > peaks_small["height"][0]
 
 
-def test_hitfinder_wave_source_records_depends_on_records_and_wave_pool():
+def test_hitfinder_wave_source_records_and_use_filtered_depends_on_filtered_pool():
     plugin = HitFinderPlugin()
     ctx = DummyContext({"wave_source": "records", "use_filtered": True}, {})
 
-    assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool"]
+    assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool_filtered"]
 
 
 def test_hitfinder_reads_records_view_when_wave_source_records():
@@ -202,6 +203,42 @@ def test_hitfinder_reads_records_view_when_wave_source_records():
     assert int(result[0]["channel"]) == 2
     assert int(result[0]["record_id"]) == 0
     assert int(result[0]["dt"]) == 2
+
+
+def test_hitfinder_records_use_filtered_reads_filtered_pool():
+    plugin = HitFinderPlugin()
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "use_filtered": True,
+            "use_derivative": False,
+            "height": 5.0,
+            "distance": 1,
+            "prominence": 1.0,
+            "width": 1,
+            "threshold": None,
+            "parallel": False,
+            "dt": 2,
+        },
+        {},
+    )
+
+    records = np.zeros(1, dtype=RECORDS_DTYPE)
+    records["baseline"] = 100.0
+    records["timestamp"] = 123_456
+    records["board"] = 5
+    records["channel"] = 2
+    records["dt"] = 2
+    records["event_length"] = 8
+    records["wave_offset"] = 0
+    records["polarity"] = ["negative"]
+    wave_pool_filtered = np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.float32)
+    rv = RecordsView(records, wave_pool_filtered)
+
+    with patch("waveform_analysis.core.records_view", return_value=rv) as mocked:
+        plugin.compute(ctx, "run_001")
+
+    assert mocked.call_args.kwargs["wave_pool_name"] == "wave_pool_filtered"
 
 
 def test_waveforms_plugin_uses_raw_files_channels(monkeypatch):
@@ -368,56 +405,55 @@ def test_waveforms_plugin_applies_channel_metadata_polarity(monkeypatch):
     np.testing.assert_array_equal(st["polarity"], np.array(["negative", "positive"]))
 
 
-def test_records_plugin_prefers_streaming_structuring(monkeypatch):
+def test_records_plugin_builds_directly_from_raw_files(monkeypatch):
     plugin = RecordsPlugin()
     ctx = FakeContext(
-        config={"show_progress": False, "daq_adapter": "vx2730"},
+        config={
+            "show_progress": False,
+            "daq_adapter": "vx2730",
+            "baseline_samples": [0, 2],
+            "records_part_size": 64,
+        },
         data={"raw_files": [["f0"], ["f1"]]},
         plugins={"records": plugin},
     )
 
-    class _Logger:
-        def info(self, *_args, **_kwargs):
-            return None
+    fake_records = np.zeros(1, dtype=plugin.output_dtype)
+    fake_records["timestamp"] = [100]
+    fake_bundle = SimpleNamespace(
+        records=fake_records,
+        wave_pool=np.array([1, 2, 3, 4], dtype=np.uint16),
+    )
+    captured = {}
 
-        def warning(self, *_args, **_kwargs):
-            return None
-
-    ctx.logger = _Logger()
-
-    st_dtype = create_record_dtype(4)
-    st = np.zeros(2, dtype=st_dtype)
-    st["board"] = [0, 0]
-    st["channel"] = [0, 1]
-    st["timestamp"] = [100, 200]
-    st["baseline"] = [10.0, 20.0]
-    st["event_length"] = [4, 4]
-    st["dt"] = [2, 2]
-    st["wave"][0] = np.array([1, 2, 3, 4], dtype=np.int16)
-    st["wave"][1] = np.array([5, 6, 7, 8], dtype=np.int16)
+    def _fake_build(raw_files, **kwargs):
+        captured["raw_files"] = raw_files
+        captured["kwargs"] = kwargs
+        return fake_bundle
 
     monkeypatch.setattr(
-        "waveform_analysis.core.plugins.builtin.cpu.records._structure_waveforms_streaming",
-        lambda **_kwargs: st.copy(),
+        "waveform_analysis.core.plugins.builtin.cpu.records.build_records_from_raw_files",
+        _fake_build,
     )
 
-    def _unexpected_fallback(*_args, **_kwargs):
-        raise AssertionError("should not fall back to eager waveform loading")
+    class _Adapter:
+        def get_file_epoch(self, _path):
+            return 1234
 
-    monkeypatch.setattr(
-        "waveform_analysis.core.plugins.builtin.cpu.records._load_waveforms_for_records",
-        _unexpected_fallback,
-    )
+    monkeypatch.setattr("waveform_analysis.utils.formats.get_adapter", lambda _name: _Adapter())
 
     records = plugin.compute(ctx, "run_001")
 
-    assert len(records) == 2
-    np.testing.assert_array_equal(records["timestamp"], np.array([100, 200], dtype=np.int64))
-    np.testing.assert_array_equal(records["channel"], np.array([0, 1], dtype=np.int16))
-    np.testing.assert_array_equal(records["dt"], np.array([2, 2], dtype=np.int32))
+    assert captured["raw_files"] == [["f0"], ["f1"]]
+    assert captured["kwargs"]["adapter_name"] == "vx2730"
+    assert captured["kwargs"]["part_size"] == 64
+    assert captured["kwargs"]["baseline_samples"] == [0, 2]
+    assert captured["kwargs"]["epoch_ns"] == 1234
+    assert captured["kwargs"]["show_progress"] is False
+    np.testing.assert_array_equal(records["timestamp"], np.array([100], dtype=np.int64))
 
 
-def test_records_plugin_falls_back_when_streaming_structuring_fails(monkeypatch):
+def test_records_plugin_uses_none_epoch_when_file_epoch_lookup_fails(monkeypatch):
     plugin = RecordsPlugin()
     ctx = FakeContext(
         config={"show_progress": False, "daq_adapter": "vx2730"},
@@ -425,47 +461,30 @@ def test_records_plugin_falls_back_when_streaming_structuring_fails(monkeypatch)
         plugins={"records": plugin},
     )
 
-    class _Logger:
-        def info(self, *_args, **_kwargs):
-            return None
+    fake_records = np.zeros(1, dtype=plugin.output_dtype)
+    fake_bundle = SimpleNamespace(
+        records=fake_records,
+        wave_pool=np.array([1, 2], dtype=np.uint16),
+    )
+    captured = {}
 
-        def warning(self, *_args, **_kwargs):
-            return None
-
-    ctx.logger = _Logger()
-
-    st_dtype = create_record_dtype(4)
-    st = np.zeros(1, dtype=st_dtype)
-    st["board"] = [0]
-    st["channel"] = [0]
-    st["timestamp"] = [100]
-    st["baseline"] = [10.0]
-    st["event_length"] = [4]
-    st["dt"] = [2]
-    st["wave"][0] = np.array([1, 2, 3, 4], dtype=np.int16)
+    def _fake_build(raw_files, **kwargs):
+        captured["raw_files"] = raw_files
+        captured["kwargs"] = kwargs
+        return fake_bundle
 
     monkeypatch.setattr(
-        "waveform_analysis.core.plugins.builtin.cpu.records._structure_waveforms_streaming",
-        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
+        "waveform_analysis.core.plugins.builtin.cpu.records.build_records_from_raw_files",
+        _fake_build,
     )
 
-    fallback_called = {"value": False}
+    class _Adapter:
+        def get_file_epoch(self, _path):
+            raise FileNotFoundError("missing")
 
-    def _fake_load(_context, _raw_files, _plugin, _adapter_name):
-        fallback_called["value"] = True
-        return []
+    monkeypatch.setattr("waveform_analysis.utils.formats.get_adapter", lambda _name: _Adapter())
 
-    monkeypatch.setattr(
-        "waveform_analysis.core.plugins.builtin.cpu.records._load_waveforms_for_records",
-        _fake_load,
-    )
-    monkeypatch.setattr(
-        "waveform_analysis.core.plugins.builtin.cpu.records.WaveformStruct.structure_waveforms",
-        lambda self, **_kwargs: st.copy(),
-    )
+    plugin.compute(ctx, "run_001")
 
-    records = plugin.compute(ctx, "run_001")
-
-    assert fallback_called["value"] is True
-    assert len(records) == 1
-    assert int(records["timestamp"][0]) == 100
+    assert captured["raw_files"] == [["f0"]]
+    assert captured["kwargs"]["epoch_ns"] is None

@@ -37,7 +37,7 @@ def _make_records_view():
 def test_waveform_width_integral_wave_source_records_depends_on_records_and_wave_pool():
     plugin = WaveformWidthIntegralPlugin()
     ctx = DummyContext({"wave_source": "records", "use_filtered": True}, {})
-    assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool"]
+    assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool_filtered"]
 
 
 def test_waveform_width_integral_reads_records_view_when_wave_source_records():
@@ -60,3 +60,23 @@ def test_waveform_width_integral_reads_records_view_when_wave_source_records():
     assert len(out) == 1
     assert int(out[0]["board"]) == 7
     assert float(out[0]["q_total"]) > 0.0
+
+
+def test_waveform_width_integral_reads_filtered_pool_when_records_use_filtered():
+    plugin = WaveformWidthIntegralPlugin()
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "use_filtered": True,
+            "q_low": 0.1,
+            "q_high": 0.9,
+            "sampling_rate": 0.5,
+        },
+        {},
+    )
+    rv = _make_records_view()
+
+    with patch("waveform_analysis.core.records_view", return_value=rv) as mocked:
+        plugin.compute(ctx, "run_001")
+
+    assert mocked.call_args.kwargs["wave_pool_name"] == "wave_pool_filtered"

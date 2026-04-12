@@ -17,12 +17,8 @@ import numpy as np
 
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     WAVE_SOURCE_AUTO,
-    WAVE_SOURCE_FILTERED,
-    WAVE_SOURCE_RECORDS,
-    resolve_wave_source,
-)
-from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
-    resolve_depends_on as resolve_wave_depends_on,
+    load_wave_input,
+    resolve_wave_input_spec,
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
@@ -87,10 +83,9 @@ class WaveformWidthIntegralPlugin(Plugin):
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         q_low = float(context.get_config(self, "q_low"))
         q_high = float(context.get_config(self, "q_high"))
-        use_filtered = bool(context.get_config(self, "use_filtered"))
-        source = resolve_wave_source(context, self)
         dt = context.get_config(self, "dt")
         sampling_rate = context.get_config(self, "sampling_rate")
+        wave_input = load_wave_input(context, self, run_id, needs_wave_samples=True)
 
         if dt is None:
             if sampling_rate <= 0:
@@ -100,11 +95,14 @@ class WaveformWidthIntegralPlugin(Plugin):
         if q_low <= 0 or q_high >= 1 or q_low >= q_high:
             raise ValueError(f"q_low/q_high 无效: q_low={q_low}, q_high={q_high}")
 
-        if source == WAVE_SOURCE_RECORDS:
-            from waveform_analysis.core import records_view
-
-            rv = records_view(context, run_id)
-            records = rv.records
+        records = wave_input.records
+        waveform_data = wave_input.waveform_data
+        if wave_input.spec.is_records:
+            rv = wave_input.records_view
+            if records is None or rv is None:
+                raise ValueError(
+                    "waveform_width_integral failed to load records_view for records source"
+                )
             if len(records) == 0:
                 return np.zeros(0, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE)
             records_len = len(records)
@@ -137,15 +135,10 @@ class WaveformWidthIntegralPlugin(Plugin):
                 return 0
 
         else:
-            # 根据 wave_source/use_filtered 选择数据源
-            if source == WAVE_SOURCE_FILTERED or (source == WAVE_SOURCE_AUTO and use_filtered):
-                waveform_data = context.get_data(run_id, "filtered_waveforms")
-            else:
-                waveform_data = context.get_data(run_id, "st_waveforms")
-
-            if not isinstance(waveform_data, np.ndarray):
-                raise ValueError("waveform_width_integral expects st_waveforms as a single array")
-
+            if waveform_data is None:
+                raise ValueError(
+                    f"waveform_width_integral failed to load {wave_input.spec.expected_name}"
+                )
             if len(waveform_data) == 0:
                 return np.zeros(0, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE)
 
@@ -179,12 +172,16 @@ class WaveformWidthIntegralPlugin(Plugin):
             board = get_board(event_idx)
 
             data_polarity = "unknown"
-            if source == WAVE_SOURCE_RECORDS and "polarity" in records.dtype.names:
+            if (
+                wave_input.spec.is_records
+                and records is not None
+                and "polarity" in records.dtype.names
+            ):
                 data_polarity = str(records[event_idx]["polarity"])
-            elif source != WAVE_SOURCE_RECORDS and "polarity" in waveform_data.dtype.names:
+            elif waveform_data is not None and "polarity" in waveform_data.dtype.names:
                 data_polarity = str(waveform_data[event_idx]["polarity"])
 
-            if source == WAVE_SOURCE_RECORDS and data_polarity in ("positive", "negative"):
+            if wave_input.spec.is_records and data_polarity in ("positive", "negative"):
                 signal = -get_signal(event_idx).astype(np.float64, copy=False)
             else:
                 raw_signal = wave.astype(np.float64, copy=False) - baseline
@@ -234,7 +231,5 @@ class WaveformWidthIntegralPlugin(Plugin):
         return np.zeros(0, dtype=WAVEFORM_WIDTH_INTEGRAL_DTYPE)
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
-        source = resolve_wave_source(context, self)
-        # Dynamic dependency: waveform source is selected from
-        # records/st_waveforms/filtered_waveforms via wave_source/use_filtered.
-        return resolve_wave_depends_on(source, bool(context.get_config(self, "use_filtered")))
+        spec = resolve_wave_input_spec(context, self)
+        return list(spec.depends_on)

@@ -5,7 +5,6 @@ from numpy.lib import recfunctions as rfn
 import pytest
 
 from tests.utils import FakeContext
-from waveform_analysis.core.data.records_view import RecordsView
 from waveform_analysis.core.plugins.builtin.cpu.dataframe import DataFramePlugin
 from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
 
@@ -56,7 +55,7 @@ def _make_basic_features():
     return data
 
 
-def _make_records_view():
+def _make_records():
     records = np.zeros(3, dtype=RECORDS_DTYPE)
     records["timestamp"] = [300, 100, 200]
     records["pid"] = [0, 0, 0]
@@ -67,8 +66,7 @@ def _make_records_view():
     records["wave_offset"] = [0, 2, 4]
     records["event_length"] = [2, 2, 2]
     records["time"] = [0, 0, 0]
-    wave_pool = np.array([100, 99, 100, 98, 100, 97], dtype=np.uint16)
-    return RecordsView(records, wave_pool)
+    return records
 
 
 def test_dataframe_plugin_no_gain_columns_by_default():
@@ -180,28 +178,30 @@ def test_dataframe_plugin_fallback_record_id_when_field_missing():
     np.testing.assert_array_equal(df["record_id"].to_numpy(), np.array([1, 2, 0], dtype=np.int64))
 
 
-def test_dataframe_plugin_wave_source_records_depends_on_records_wave_pool_and_basic_features():
+def test_dataframe_plugin_wave_source_records_depends_on_records_and_basic_features():
     ctx = FakeContext(config={"wave_source": "records", "use_filtered": True})
     plugin = DataFramePlugin()
 
-    assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool", "basic_features"]
+    assert plugin.resolve_depends_on(ctx) == ["records", "basic_features"]
 
 
-def test_dataframe_plugin_reads_records_view_when_wave_source_records():
+def test_dataframe_plugin_reads_records_directly_when_wave_source_records():
     ctx = FakeContext(
         config={
             "df.wave_source": "records",
             "basic_features.wave_source": "records",
         },
-        data={"basic_features": _make_basic_features()},
+        data={
+            "records": _make_records(),
+            "basic_features": _make_basic_features(),
+        },
     )
     plugin = DataFramePlugin()
-    rv = _make_records_view()
 
-    with patch("waveform_analysis.core.records_view", return_value=rv) as mocked:
+    with patch("waveform_analysis.core.records_view") as mocked:
         df = plugin.compute(ctx, "run_001")
 
-    mocked.assert_called_once_with(ctx, "run_001")
+    mocked.assert_not_called()
     assert list(df["timestamp"]) == [100, 200, 300]
     assert list(df["record_id"]) == [10, 20, 30]
     assert list(df["channel"]) == [1, 0, 0]
@@ -215,7 +215,10 @@ def test_dataframe_plugin_records_requires_basic_features_records_source():
             "df.wave_source": "records",
             "basic_features.wave_source": "st_waveforms",
         },
-        data={"basic_features": _make_basic_features()},
+        data={
+            "records": _make_records(),
+            "basic_features": _make_basic_features(),
+        },
     )
     plugin = DataFramePlugin()
 
@@ -230,19 +233,19 @@ def test_dataframe_plugin_records_requires_basic_features_records_source():
 def test_dataframe_plugin_records_empty_returns_empty_df():
     empty_features = np.zeros(0, dtype=_make_basic_features().dtype)
     empty_records = np.zeros(0, dtype=RECORDS_DTYPE)
-    rv = RecordsView(empty_records, np.zeros(0, dtype=np.uint16))
     ctx = FakeContext(
         config={
             "df.wave_source": "records",
             "basic_features.wave_source": "records",
         },
-        data={"basic_features": empty_features},
+        data={"records": empty_records, "basic_features": empty_features},
     )
     plugin = DataFramePlugin()
 
-    with patch("waveform_analysis.core.records_view", return_value=rv):
+    with patch("waveform_analysis.core.records_view") as mocked:
         df = plugin.compute(ctx, "run_001")
 
+    mocked.assert_not_called()
     assert list(df.columns) == [
         "timestamp",
         "record_id",

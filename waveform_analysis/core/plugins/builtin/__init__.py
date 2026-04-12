@@ -41,6 +41,7 @@ from .cpu import (
     WaveformStructConfig,
     WaveformWidthIntegralPlugin,
     WaveformWidthPlugin,
+    WavePoolFilteredPlugin,
     WavePoolPlugin,
     standard_plugins,
 )
@@ -63,6 +64,7 @@ __all__ = [
     "PairedEventsPlugin",
     "RecordsPlugin",
     "WavePoolPlugin",
+    "WavePoolFilteredPlugin",
     # 信号处理插件
     "FilteredWaveformsPlugin",
     "HIT_DTYPE",

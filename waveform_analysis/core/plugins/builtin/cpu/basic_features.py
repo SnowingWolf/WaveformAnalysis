@@ -20,12 +20,8 @@ from waveform_analysis.core.foundation.constants import FeatureDefaults
 from waveform_analysis.core.hardware.channel import resolve_effective_channel_config
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     WAVE_SOURCE_AUTO,
-    WAVE_SOURCE_FILTERED,
-    WAVE_SOURCE_RECORDS,
-    resolve_wave_source,
-)
-from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
-    resolve_depends_on as resolve_wave_depends_on,
+    load_wave_input,
+    resolve_wave_input_spec,
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
@@ -83,10 +79,8 @@ class BasicFeaturesPlugin(Plugin):
     }
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
-        source = resolve_wave_source(context, self)
-        # Dynamic dependency: pick records/st_waveforms/filtered_waveforms
-        # according to wave_source and use_filtered.
-        return resolve_wave_depends_on(source, bool(context.get_config(self, "use_filtered")))
+        spec = resolve_wave_input_spec(context, self)
+        return list(spec.depends_on)
 
     def compute(self, context: Any, run_id: str, **kwargs) -> np.ndarray:
         """
@@ -99,20 +93,18 @@ class BasicFeaturesPlugin(Plugin):
         Returns:
             np.ndarray: 结构化数组，包含 height/area 字段
         """
-        use_filtered = bool(context.get_config(self, "use_filtered"))
-        source = resolve_wave_source(context, self)
         channel_config_cfg = context.get_config(self, "channel_config")
-
         height_range = context.get_config(self, "height_range")
         area_range = context.get_config(self, "area_range")
+        wave_input = load_wave_input(context, self, run_id, needs_wave_samples=True)
 
         start_p, end_p = height_range
         start_c, end_c = area_range
-        if source == WAVE_SOURCE_RECORDS:
-            from waveform_analysis.core import records_view
-
-            rv = records_view(context, run_id)
-            records = rv.records
+        if wave_input.spec.is_records:
+            records = wave_input.records
+            rv = wave_input.records_view
+            if records is None or rv is None:
+                raise ValueError("basic_features failed to load records_view for records source")
             if len(records) == 0:
                 return np.zeros(0, dtype=BASIC_FEATURES_DTYPE)
             channels = (
@@ -193,14 +185,9 @@ class BasicFeaturesPlugin(Plugin):
                 features["event_index"][idx] = idx
             return features
 
-        # 根据 wave_source/use_filtered 选择结构化波形数据源
-        if source == WAVE_SOURCE_FILTERED or (source == WAVE_SOURCE_AUTO and use_filtered):
-            waveform_data = context.get_data(run_id, "filtered_waveforms")
-        else:
-            waveform_data = context.get_data(run_id, "st_waveforms")
-
-        if not isinstance(waveform_data, np.ndarray):
-            raise ValueError("basic_features expects st_waveforms as a single structured array")
+        waveform_data = wave_input.waveform_data
+        if waveform_data is None:
+            raise ValueError(f"basic_features failed to load {wave_input.spec.expected_name}")
         if len(waveform_data) == 0:
             return np.zeros(0, dtype=BASIC_FEATURES_DTYPE)
 

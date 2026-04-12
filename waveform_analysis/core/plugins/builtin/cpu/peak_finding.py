@@ -20,12 +20,9 @@ from scipy.signal import find_peaks
 from waveform_analysis.core.plugins.builtin.cpu._dt_compat import resolve_dt_config
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     WAVE_SOURCE_AUTO,
-    WAVE_SOURCE_FILTERED,
-    WAVE_SOURCE_RECORDS,
-    resolve_wave_source,
-)
-from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
-    resolve_depends_on as resolve_wave_depends_on,
+    LoadedWaveInput,
+    load_wave_input,
+    resolve_wave_input_spec,
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
@@ -150,10 +147,8 @@ class HitFinderPlugin(Plugin):
     }
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
-        source = resolve_wave_source(context, self)
-        # Dynamic dependency: hit selects its waveform upstream from
-        # records/st_waveforms/filtered_waveforms via wave_source/use_filtered.
-        return resolve_wave_depends_on(source, bool(context.get_config(self, "use_filtered")))
+        spec = resolve_wave_input_spec(context, self)
+        return list(spec.depends_on)
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         """
@@ -177,9 +172,7 @@ class HitFinderPlugin(Plugin):
             >>> print(f"峰值数: {len(peaks)}")
         """
         # 获取配置参数
-        use_filtered = context.get_config(self, "use_filtered")
         use_derivative = context.get_config(self, "use_derivative")
-        source = resolve_wave_source(context, self)
         height = context.get_config(self, "height")
         distance = context.get_config(self, "distance")
         prominence = context.get_config(self, "prominence")
@@ -196,12 +189,10 @@ class HitFinderPlugin(Plugin):
         parallel_min_events = context.get_config(self, "parallel_min_events")
         # st_waveforms 的 timestamp 已统一为 ps
         timestamp_unit = "ps"
+        wave_input = load_wave_input(context, self, run_id, needs_wave_samples=True)
 
         peaks = self._compute_peaks(
-            context=context,
-            run_id=run_id,
-            source=source,
-            use_filtered=bool(use_filtered),
+            wave_input=wave_input,
             use_derivative=bool(use_derivative),
             height=float(height),
             distance=int(distance),
@@ -224,10 +215,7 @@ class HitFinderPlugin(Plugin):
 
     def _compute_peaks(
         self,
-        context: Any,
-        run_id: str,
-        source: str,
-        use_filtered: bool,
+        wave_input: LoadedWaveInput,
         use_derivative: bool,
         height: float,
         distance: int,
@@ -243,11 +231,11 @@ class HitFinderPlugin(Plugin):
         chunk_size: int,
         parallel_min_events: int,
     ) -> list[tuple]:
-        if source == WAVE_SOURCE_RECORDS:
-            from waveform_analysis.core import records_view
-
-            rv = records_view(context, run_id)
-            records = rv.records
+        if wave_input.spec.is_records:
+            rv = wave_input.records_view
+            records = wave_input.records
+            if rv is None or records is None:
+                raise ValueError("hit failed to load records_view for records source")
             n_events = len(records)
             if n_events == 0:
                 return []
@@ -255,14 +243,9 @@ class HitFinderPlugin(Plugin):
             process_fn = self._process_records_range
             process_args = (rv,)
         else:
-            waveform_data = (
-                context.get_data(run_id, "filtered_waveforms")
-                if source == WAVE_SOURCE_FILTERED or (source == WAVE_SOURCE_AUTO and use_filtered)
-                else context.get_data(run_id, "st_waveforms")
-            )
-
-            if not isinstance(waveform_data, np.ndarray):
-                raise ValueError("hit expects st_waveforms as a single structured array")
+            waveform_data = wave_input.waveform_data
+            if waveform_data is None:
+                raise ValueError("hit failed to load waveform input")
 
             n_events = len(waveform_data)
             if n_events == 0:
