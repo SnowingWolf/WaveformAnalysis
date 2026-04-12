@@ -9,7 +9,7 @@
 | Provides | `hit` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `2.5.0` |
+| Version | `3.0.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.peak_finding` |
 | Accelerator | `cpu` |
 
@@ -30,7 +30,7 @@
 | `timestamp` | `int64` |
 | `board` | `int16` |
 | `channel` | `int16` |
-| `event_index` | `int64` |
+| `record_id` | `int64` |
 
 ## Config
 

@@ -1,13 +1,13 @@
-# HitMergePlugin
+# HitMergeClustersPlugin
 
-> Merge nearby threshold hits per channel with time-gap and max-width constraints.
+> Internal cluster membership rows shared by hit_merged outputs.
 
 ## Overview
 
 | Property | Value |
 |----------|-------|
-| **Provides** | `hit_merged` |
-| **Version** | `0.8.0` |
+| **Provides** | `hit_merge_clusters` |
+| **Version** | `0.1.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -18,7 +18,6 @@
 This plugin depends on the following data:
 
 - [`hit_threshold`](hit_threshold.md)
-- [`hit_merge_clusters`](hit_merge_clusters.md)
 
 ## Configuration Options
 
@@ -35,41 +34,28 @@ This plugin depends on the following data:
 
 | Field | Type | Units | Description |
 |-------|------|-------|-------------|
-| `position` | `int64` | - | - |
-| `height` | `float32` | - | - |
-| `integral` | `float32` | - | - |
-| `sample_start` | `int32` | - | - |
-| `sample_end` | `int32` | - | - |
-| `width` | `float32` | - | - |
-| `dt` | `int32` | - | - |
-| `rise_time` | `float32` | - | - |
-| `fall_time` | `float32` | - | - |
-| `timestamp` | `int64` | - | - |
-| `board` | `int16` | - | - |
-| `channel` | `int16` | - | - |
-| `record_id` | `int64` | - | - |
-| `component_offset` | `int64` | - | - |
-| `component_count` | `int32` | - | - |
+| `cluster_index` | `int64` | - | - |
+| `hit_index` | `int64` | - | - |
 
 ## Usage Example
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import HitMergePlugin
+from waveform_analysis.core.plugins.builtin.cpu import HitMergeClustersPlugin
 
 # Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
-ctx.register(HitMergePlugin())
+ctx.register(HitMergeClustersPlugin())
 
 # Configure plugin (optional)
 ctx.set_config({
     "merge_gap_ns": 0.0,
     "max_total_width_ns": 10000.0,
     "dt": None,
-}, plugin_name="hit_merged")
+}, plugin_name="hit_merge_clusters")
 
 # Get data
-data = ctx.get_data("run_001", "hit_merged")
+data = ctx.get_data("run_001", "hit_merge_clusters")
 ```
 
 ## Module

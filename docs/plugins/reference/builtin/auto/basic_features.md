@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `basic_features` |
-| **Version** | `3.7.0` |
+| **Version** | `3.9.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -25,10 +25,8 @@ This plugin has no dependencies.
 | `area_range` | `tuple` | `(0, None)` | - | 面积计算范围 (start, end)，end=None 表示积分到波形末端 |
 | `use_filtered` | `bool` | `False` | - | 是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin） |
 | `wave_source` | `str` | `auto` | - | 波形数据源: auto|records|st_waveforms|filtered_waveforms |
-| `polarity` | `str` | `auto` | - | 信号极性: auto | positive | negative |
-| `channel_metadata` | `dict` | `None` | - | 已废弃；行为配置请改用 channel_config。 |
 | `fixed_baseline` | `dict` | `None` | - | 已废弃；按硬件通道固定 baseline 请改用 channel_config。 |
-| `channel_config` | `dict` | `None` | - | 按 (board, channel) 的插件通道覆盖配置，可覆盖 polarity/fixed_baseline。 |
+| `channel_config` | `dict` | `None` | - | 按 (board, channel) 的插件通道覆盖配置，可覆盖 fixed_baseline。 |
 
 
 ## Output Schema

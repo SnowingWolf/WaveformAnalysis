@@ -1,6 +1,6 @@
 # Agent Docs Index
 
-本页为 Agent 文档导航页。主入口与硬约束统一在 `AGENTS.md`。
+本页为 Agent 文档导航页。人类入口与硬约束统一在 `AGENTS.md`，执行流程与完成标准统一在 `workflows.md`。
 
 ## 快速入口
 - 主入口（推荐）：`../../AGENTS.md`
@@ -17,11 +17,9 @@
 3. `configuration.md`
 4. `workflows.md`
 
-## 质量闸门入口（PR 前固定，按改动类型触发）
-- `waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/`
-- `waveform-docs generate plugins-agent -o docs/plugins/reference/agent/`
-- `python scripts/assess_change_impact.py --base HEAD`
-- `python scripts/schema_compat_check.py --base HEAD --run-smoke`
+## 质量闸门
+- PR 固定闸门：见 `workflows.md` 中“PR 前固定质量闸门（3 类，4 条命令）”
+- 扩展检查 / 发布前检查：见 `workflows.md` 中 `performance_regression_check` 与 `release_artifact_sync`
 
 ## 插件参考
 - Agent 插件文档：`../plugins/reference/agent/INDEX.md`

@@ -7,7 +7,7 @@
 | Item | Value |
 |------|-------|
 | Provides | `hit_merged` |
-| Depends On | `hit_threshold` |
+| Depends On | `hit_threshold`, `hit_merge_clusters` |
 | Output Kind | `structured_array` |
 | Version | `0.8.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merge` |
@@ -16,6 +16,7 @@
 ## Inputs
 
 - `hit_threshold`
+- `hit_merge_clusters`
 
 ## Outputs
 
@@ -37,11 +38,6 @@
 | `component_offset` | `int64` |
 | `component_count` | `int32` |
 
-说明：
-单 `record_id` 合并时，`sample_start` / `sample_end` 为安全半开样本窗口 `[start, end)`。
-跨 `record_id` 合并时，`sample_start = sample_end = -1`、`width = -1`，消费方需要通过
-`hit_merged_components` 回查到组件 `hit_threshold` 行，再恢复真实波形窗口。
-
 ## Config
 
 | Name | Type | Default | Note |
@@ -53,12 +49,12 @@
 ## Execution Path
 
 `hit_merged` 依赖链入口：
-`hit_threshold -> hit_merged`
+`hit_threshold -> hit_merge_clusters -> hit_merged`
 
 ## Failure Modes
 
 - 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 跨记录合并被误当作单记录连续窗口消费，导致波形演示逻辑错误
+- 配置值类型/范围不合法，触发参数校验异常
 - 输出 dtype 变更但版本未升级，可能导致缓存命中异常
 
 ## Change Playbook

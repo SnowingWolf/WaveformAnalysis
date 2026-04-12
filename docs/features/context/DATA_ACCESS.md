@@ -45,8 +45,10 @@ waveforms = ctx.get_data("run_001", "waveforms")  # 直接从缓存返回
 
 当上游已经产出正式插件结果 `records + wave_pool` 时，可通过
 `records_view(ctx, run_id)` 获取 `RecordsView`，用于按稳定 `record_id`
-回切波形。内部仍保留 `RecordsBundle(records, wave_pool)` 作为共享构建缓存，
-但不再建议下游直接依赖这个内部对象。
+回切波形。`records_view(...)` 不再 fallback 到内部 bundle；缺少正式
+`records` 或 `wave_pool` 产物时会直接报错。内部仍保留
+`RecordsBundle(records, wave_pool)` 作为共享构建缓存，但不再建议下游直接依赖
+这个内部对象。
 
 ```python
 from waveform_analysis.core.data import records_view
@@ -65,6 +67,25 @@ waves, mask = rv.waves([first_record_id], pad_to=256, mask=True)
 - `rv.signals(...)` 返回按 `records.polarity` 统一为负极性的信号。
 - 公开接口只使用 `record_id`，不再按 records 行号索引。
 - 窗口切片统一使用 `sample_start` / `sample_end`。
+
+### 访问滤波后的 records-backed 波形
+
+当上游已经产出 `wave_pool_filtered` 时，可显式切换到滤波后的波形池：
+
+```python
+from waveform_analysis.core.data import records_view
+
+rv = records_view(ctx, "run_001", wave_pool_name="wave_pool_filtered")
+wave = rv.waves(int(rv.records[0]["record_id"]))
+```
+
+语义约定：
+- `records` 始终保持不变，滤波只替换波形池，不修改 `record_id` / `timestamp` /
+  `board` / `channel` / `event_length` 等 records 元数据。
+- `wave_pool_filtered` 由 `records + wave_pool` 构建，特别适合 `v1725` 这类直接从
+  records 路径开始的适配器。
+- 对于支持 records 路径的计算插件，若配置 `wave_source="records"` 且
+  `use_filtered=True`，应自动选择 `wave_pool_filtered`。
 
 ## 缓存管理
 

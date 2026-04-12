@@ -4,8 +4,10 @@
 - 默认使用中文回复用户，除非用户明确要求其他语言。
 
 ## Source Of Truth
-- 主入口（唯一真源）：`AGENTS.md`
+- 主入口（人类入口 + 硬约束真源）：`AGENTS.md`
 - 入口导航：`docs/agents/INDEX.md`
+- 执行流程与完成标准：`docs/agents/workflows.md`
+- 机器可读路由：`docs/agents/index.yaml`
 - 旧链接兼容：`CLAUDE.md`（最小跳转）
 - Agent 深度文档：`docs/agents/`
 - Agent 插件参考：`docs/plugins/reference/agent/INDEX.md`
@@ -14,9 +16,10 @@
 ## 30 秒入口（按场景）
 
 ### 场景 1: 改插件（新增/修改算法）
-1. `docs/agents/plugins.md`
-2. `docs/agents/conventions.md`
-3. `docs/plugins/reference/agent/INDEX.md`
+1. `docs/agents/workflows.md`
+2. `docs/agents/plugins.md`
+3. `docs/agents/conventions.md`
+4. `docs/plugins/reference/agent/INDEX.md`
 
 ### 场景 2: 改配置/兼容参数
 1. `docs/agents/configuration.md`
@@ -32,7 +35,12 @@
 2. `scripts/check_doc_sync.sh`
 3. `python scripts/check_doc_anchors.py --check-sync --base HEAD`
 
-### 场景 5: 插件契约/性能/发布闸门
+### 场景 5: PR 固定质量闸门
+1. `docs/agents/workflows.md`
+2. `python scripts/assess_change_impact.py --base HEAD`
+3. `python scripts/schema_compat_check.py --base HEAD --run-smoke`
+
+### 场景 6: 扩展检查 / 发布前检查
 1. `python scripts/assess_change_impact.py --base HEAD`
 2. `python scripts/schema_compat_check.py --base HEAD --run-smoke`
 3. `python scripts/performance_regression_check.py --base HEAD`
@@ -69,10 +77,16 @@ waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
 waveform-docs generate plugins-agent --plugin <provides>
 ```
 
-### Quality Gates
+### PR Fixed Gates
 ```bash
+waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/
+waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
 python scripts/assess_change_impact.py --base HEAD
 python scripts/schema_compat_check.py --base HEAD --run-smoke
+```
+
+### Extended Checks / Release Gates
+```bash
 python scripts/performance_regression_check.py --base HEAD
 python scripts/release_artifact_sync.py --base HEAD
 ```
@@ -88,6 +102,8 @@ waveform-process --show-daq --daq-root DAQ
 - 插件系统是 DAG：通过 `provides/depends_on` 自动解析依赖。
 - 缓存采用 lineage：插件代码、版本、配置、dtype 变化会触发失效。
 - 处理模式支持静态与流式。
+
+## Recommended Practices
 - 推荐导入路径：`waveform_analysis.core.plugins.builtin.cpu`。
 
 ## Plugin Contract Checklist
@@ -109,17 +125,23 @@ waveform-process --show-daq --daq-root DAQ
 - 优先补充与改动相关的定向测试。
 - 配置/输出结构改动至少覆盖：正常路径、空输入/边界输入、dtype/字段兼容性。
 
-## PR 前固定闸门（三项）
+## PR 前固定闸门（3 类，4 条命令）
 - 固定命令（保持独立命令，不新增统一总入口）：
+  - `generate_docs`
   - `waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/`
   - `waveform-docs generate plugins-agent -o docs/plugins/reference/agent/`
+  - `assess_change_impact`
   - `python scripts/assess_change_impact.py --base HEAD`
+  - `schema_compat_check`
   - `python scripts/schema_compat_check.py --base HEAD --run-smoke`
 - 触发策略（按改动类型）：
-  - 若触及插件实现或插件契约相关改动（如 `waveform_analysis/`），三项全部执行。
-  - 若仅文档改动（`docs/**`、`AGENTS.md`、`CLAUDE.md`），不强制三项全跑，继续执行现有文档同步检查。
+  - 若触及插件实现或插件契约相关改动（如 `waveform_analysis/`），三类闸门全部执行。
+  - 若仅文档改动（`docs/**`、`AGENTS.md`、`CLAUDE.md`），不强制执行三类闸门，继续执行现有文档同步检查。
+- 扩展检查（默认不纳入 PR 固定闸门）：
+  - `python scripts/performance_regression_check.py --base HEAD`
+  - `python scripts/release_artifact_sync.py --base HEAD`
 - PR 记录要求：
-  - 在 PR 描述中附三项命令执行摘要（命令 + PASS/FAIL）。
+  - 在 PR 描述中附三类闸门执行摘要（命令 + PASS/FAIL）。
 
 ## Commit & PR
 - Commit 前缀：`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`。
@@ -143,4 +165,5 @@ waveform-process --show-daq --daq-root DAQ
 
 ## Compatibility Notes
 - `CLAUDE.md` 保留用于兼容旧链接。
-- 新增或更新入口规则时，仅维护本文件。
+- 新增或更新入口导航与硬约束时，仅维护本文件。
+- 流程、命令集合与 Definition of Done 以 `docs/agents/workflows.md` 为准。

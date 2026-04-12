@@ -1,5 +1,7 @@
 version: 1
 source_of_truth: AGENTS.md
+workflow_source_of_truth: docs/agents/workflows.md
+machine_route_source_of_truth: docs/agents/index.yaml
 default_language: zh-CN
 
 task_routes:

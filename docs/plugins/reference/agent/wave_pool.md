@@ -1,4 +1,4 @@
-# records (RecordsPlugin)
+# wave_pool (WavePoolPlugin)
 
 > Agent-first 插件契约文档。面向自动化执行与改动评估。
 
@@ -6,9 +6,9 @@
 
 | Item | Value |
 |------|-------|
-| Provides | `records` |
+| Provides | `wave_pool` |
 | Depends On | - |
-| Output Kind | `structured_array` |
+| Output Kind | `array` |
 | Version | `0.9.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.records` |
 | Accelerator | `cpu` |
@@ -21,20 +21,7 @@
 
 | Field | DType |
 |-------|-------|
-| `timestamp` | `int64` |
-| `pid` | `int32` |
-| `board` | `int16` |
-| `channel` | `int16` |
-| `baseline` | `float64` |
-| `baseline_upstream` | `float64` |
-| `polarity` | `<U8` |
-| `record_id` | `int64` |
-| `dt` | `int32` |
-| `trigger_type` | `int16` |
-| `flags` | `uint32` |
-| `wave_offset` | `int64` |
-| `event_length` | `int32` |
-| `time` | `int64` |
+| `value` | `uint16` |
 
 ## Config
 
@@ -52,8 +39,8 @@
 
 ## Execution Path
 
-`records` 依赖链入口：
-`SOURCE -> records`
+`wave_pool` 依赖链入口：
+`SOURCE -> wave_pool`
 
 ## Failure Modes
 
@@ -71,7 +58,7 @@
 
 ```bash
 # 单插件文档再生成
-waveform-docs generate plugins-agent --plugin records
+waveform-docs generate plugins-agent --plugin wave_pool
 
 # 覆盖率检查
 waveform-docs check coverage --strict

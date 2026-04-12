@@ -1,14 +1,14 @@
-# RecordsPlugin
+# WavePoolPlugin
 
-> Build records (event index table) from the shared internal records bundle.
+> Build wave_pool from the shared internal records bundle.
 
 ## Overview
 
 | Property | Value |
 |----------|-------|
-| **Provides** | `records` |
+| **Provides** | `wave_pool` |
 | **Version** | `0.9.0` |
-| **Category** | 记录处理 |
+| **Category** | 波形处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
 | **Side Effect** | No |
@@ -34,44 +34,31 @@ This plugin has no dependencies.
 
 ## Output Schema
 
-**Output Type**: `structured_array`
+**Output Type**: `array`
 
 | Field | Type | Units | Description |
 |-------|------|-------|-------------|
-| `timestamp` | `int64` | - | - |
-| `pid` | `int32` | - | - |
-| `board` | `int16` | - | - |
-| `channel` | `int16` | - | - |
-| `baseline` | `float64` | - | - |
-| `baseline_upstream` | `float64` | - | - |
-| `polarity` | `<U8` | - | - |
-| `record_id` | `int64` | - | - |
-| `dt` | `int32` | - | - |
-| `trigger_type` | `int16` | - | - |
-| `flags` | `uint32` | - | - |
-| `wave_offset` | `int64` | - | - |
-| `event_length` | `int32` | - | - |
-| `time` | `int64` | - | - |
+| `value` | `uint16` | - | - |
 
 ## Usage Example
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import RecordsPlugin
+from waveform_analysis.core.plugins.builtin.cpu import WavePoolPlugin
 
 # Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
-ctx.register(RecordsPlugin())
+ctx.register(WavePoolPlugin())
 
 # Configure plugin (optional)
 ctx.set_config({
     "daq_adapter": 'vx2730',
     "channel_workers": None,
     "channel_executor": 'thread',
-}, plugin_name="records")
+}, plugin_name="wave_pool")
 
 # Get data
-data = ctx.get_data("run_001", "records")
+data = ctx.get_data("run_001", "wave_pool")
 ```
 
 ## Module

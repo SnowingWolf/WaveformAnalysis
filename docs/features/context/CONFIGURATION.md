@@ -332,6 +332,23 @@ ctx.set_config({
 })
 ```
 
+### `wave_source` 与 `use_filtered` 的 records 语义
+
+当插件支持 `wave_source` 与 `use_filtered` 时，推荐按下列规则理解：
+
+| `wave_source` | `use_filtered` | 实际波形来源 |
+| --- | --- | --- |
+| `st_waveforms` | `False` | `st_waveforms` |
+| `filtered_waveforms` | `False/True` | `filtered_waveforms` |
+| `records` | `False` | `records + wave_pool` |
+| `records` | `True` | `records + wave_pool_filtered` |
+
+补充说明：
+- 在 `wave_source="records"` 路径下，`use_filtered=True` 的含义不是改读
+  `filtered_waveforms`，而是改用 `wave_pool_filtered`。
+- 这种设计可统一支持直接走 records 路径的适配器（例如 `v1725`）。
+- `records` 元数据保持不变，变化的只有用于计算的波形池。
+
 也可以把 JSON 文件中的配置加载到当前 `Context`，效果等同于一次 `ctx.set_config(...)`：
 
 ```python

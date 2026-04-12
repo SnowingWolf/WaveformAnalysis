@@ -24,11 +24,10 @@ This plugin has no dependencies.
 | `threshold` | `float` | `10.0` | - | Hit 检测阈值 |
 | `use_filtered` | `bool` | `False` | - | 是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin） |
 | `wave_source` | `str` | `auto` | - | 波形数据源: auto|records|st_waveforms|filtered_waveforms |
-| `polarity` | `str` | `negative` | - | 信号极性：negative 表示 baseline-wave；positive 表示 wave-baseline |
 | `left_extension` | `int` | `2` | - | Hit 左侧扩展点数 |
 | `right_extension` | `int` | `2` | - | Hit 右侧扩展点数 |
 | `dt` | `int` | `None` | - | 采样间隔（ns）。仅在输入数据缺少 dt 字段时作为兼容补充。 |
-| `channel_config` | `dict` | `None` | - | 按 (board, channel) 的插件通道覆盖配置，可覆盖 polarity/threshold。 |
+| `channel_config` | `dict` | `None` | - | 按 (board, channel) 的插件通道覆盖配置，可覆盖 threshold。 |
 
 
 ## Output Schema
@@ -40,8 +39,8 @@ This plugin has no dependencies.
 | `position` | `int64` | - | - |
 | `height` | `float32` | - | - |
 | `integral` | `float32` | - | - |
-| `edge_start` | `int32` | - | record 内安全半开样本起点 |
-| `edge_end` | `int32` | - | record 内安全半开样本终点 |
+| `edge_start` | `int32` | - | - |
+| `edge_end` | `int32` | - | - |
 | `width` | `float32` | - | - |
 | `dt` | `int32` | - | - |
 | `rise_time` | `float32` | - | - |

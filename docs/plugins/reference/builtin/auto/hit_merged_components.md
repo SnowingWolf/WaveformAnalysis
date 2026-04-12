@@ -17,7 +17,7 @@
 
 This plugin depends on the following data:
 
-- `hit_merge_clusters` (internal)
+- [`hit_merge_clusters`](hit_merge_clusters.md)
 - [`hit_merged`](hit_merged.md)
 
 ## Configuration Options

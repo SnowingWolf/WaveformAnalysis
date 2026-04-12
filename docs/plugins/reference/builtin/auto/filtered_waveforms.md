@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `filtered_waveforms` |
-| **Version** | `2.5.0` |
+| **Version** | `2.6.0` |
 | **Category** | 波形处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -30,7 +30,6 @@ This plugin depends on the following data:
 | `filter_order` | `int` | `4` | - | BW 阶数 |
 | `sg_window_size` | `int` | `11` | - | SG 窗口大小（奇数） |
 | `sg_poly_order` | `int` | `2` | - | SG 多项式阶数 |
-| `daq_adapter` | `str` | `None` | - | DAQ 适配器名称（用于自动推断采样率） |
 | `max_workers` | `int` | `None` | - | 并行工作线程数；None 使用 CPU 核心数，1 或 0 禁用并行 |
 | `batch_size` | `int` | `0` | - | 每批次事件数（0 表示不分批，整个通道一次处理） |
 
@@ -51,6 +50,8 @@ This plugin depends on the following data:
 | `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |
 | `wave` | `('<i2', (1500,))` | - | - |
+
+超短波形会在 SG/BW 路径下安全回退到原始波形，以避免无效窗口或 `padlen` 异常。
 
 ## Usage Example
 

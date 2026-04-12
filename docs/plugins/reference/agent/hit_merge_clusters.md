@@ -1,4 +1,4 @@
-# df (DataFramePlugin)
+# hit_merge_clusters (HitMergeClustersPlugin)
 
 > Agent-first 插件契约文档。面向自动化执行与改动评估。
 
@@ -6,33 +6,36 @@
 
 | Item | Value |
 |------|-------|
-| Provides | `df` |
-| Depends On | - |
-| Output Kind | `unknown` |
-| Version | `1.7.0` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.dataframe` |
+| Provides | `hit_merge_clusters` |
+| Depends On | `hit_threshold` |
+| Output Kind | `structured_array` |
+| Version | `0.1.0` |
+| Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merge` |
 | Accelerator | `cpu` |
 
 ## Inputs
 
-- 无依赖输入（source plugin）
+- `hit_threshold`
 
 ## Outputs
 
-- 无结构化字段信息（`unknown`）
+| Field | DType |
+|-------|-------|
+| `cluster_index` | `int64` |
+| `hit_index` | `int64` |
 
 ## Config
 
 | Name | Type | Default | Note |
 |------|------|---------|------|
-| `use_filtered` | `bool` | `False` | 是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin） |
-| `wave_source` | `str` | `auto` | 波形数据源: auto|records|st_waveforms|filtered_waveforms |
-| `gain_adc_per_pe` | `dict` | `None` | 按硬件通道配置 ADC/PE 增益，键请使用 "board:channel"，例如 {"0:0": 12.5, "0:1": 13.2}。设置后会新增 area_pe/height_pe 列。 |
+| `merge_gap_ns` | `float` | `0.0` | 最大边界间距（ns），<=0 表示不合并 |
+| `max_total_width_ns` | `float` | `10000.0` | 链式合并后的最大总宽度（ns） |
+| `dt` | `int` | `None` | 采样间隔（ns）。仅在输入 hit_threshold 缺少 dt 字段时作为兼容补充。 |
 
 ## Execution Path
 
-`df` 依赖链入口：
-`SOURCE -> df`
+`hit_merge_clusters` 依赖链入口：
+`hit_threshold -> hit_merge_clusters`
 
 ## Failure Modes
 
@@ -50,7 +53,7 @@
 
 ```bash
 # 单插件文档再生成
-waveform-docs generate plugins-agent --plugin df
+waveform-docs generate plugins-agent --plugin hit_merge_clusters
 
 # 覆盖率检查
 waveform-docs check coverage --strict

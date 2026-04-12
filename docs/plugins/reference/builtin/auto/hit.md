@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `hit` |
-| **Version** | `2.5.0` |
+| **Version** | `3.0.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -53,7 +53,7 @@ This plugin has no dependencies.
 | `timestamp` | `int64` | - | - |
 | `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |
-| `event_index` | `int64` | - | - |
+| `record_id` | `int64` | - | - |
 
 ## Usage Example
 

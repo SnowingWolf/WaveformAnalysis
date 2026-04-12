@@ -91,7 +91,7 @@
     - `BatchProcessor` 并行处理多个 run。
     - `DataExporter`/`batch_export` 统一导出 Parquet/HDF5/CSV/JSON/NumPy。
 - **依赖分析** (`core/data/dependency_analysis.py`): DAG 结构与性能瓶颈分析，支持报告输出。
-- **Records 视图** (`core/data/records_view.py`): `RecordsView` 提供 records + wave_pool 的零拷贝访问接口，并统一通过 `waves(...)` / `signals(...)` 按稳定 `record_id` 回切波形。
+- **Records 视图** (`core/data/records_view.py`): `RecordsView` 提供 records + wave_pool 的零拷贝访问接口；`records_view(...)` 必须依赖正式插件产物 `records` 与 `wave_pool`，并统一通过 `waves(...)` / `signals(...)` 按稳定 `record_id` 回切波形。若指定 `wave_pool_name="wave_pool_filtered"`，则可在保持同一份 `records` 元数据的前提下访问滤波后的 records-backed 波形。
 - **`IO Module`** (`utils/io.py`): `parse_and_stack_files`/`parse_files_generator` 支持流式解析与并行加载。
 - **`DAQ Adapters`** (`utils/formats/`): 统一不同硬件厂商的数据组织格式。
     - **格式规范 (`FormatSpec`)**: 定义 CSV 列映射、时间戳单位、分隔符等。
@@ -122,7 +122,10 @@
 **English**: `BasicFeaturesPlugin` computes height/amp/area features.
 - **Records + WavePool** (`core/processing/records_builder.py`):
     - 构建 `RecordsBundle(records, wave_pool)` 作为内部共享构建结果。
-    - `records` 与 `wave_pool` 现在分别作为正式插件产物暴露，下游通过 `records_view(...)` 组装访问。
+    - `records` 与 `wave_pool` 分别作为正式插件产物暴露，下游通过 `records_view(...)` 组装访问。
+    - 非 `v1725` 适配器同样支持从 `raw_files` 直接增量构建 `records + wave_pool`，避免先完整物化 `st_waveforms`。
+    - `wave_pool_filtered` 可基于 `records + wave_pool` 构建，供 `wave_source=records` 且 `use_filtered=True` 的插件复用。
+    - `records_view(...)` 不再从内部 `RecordsBundle` fallback 取数。
     - 适用于大规模数据的零拷贝访问与下游索引。
 - **插件集成**: `StWaveformsPlugin` 支持 `daq_adapter` 配置选项。
     - 与 `RawFilesPlugin` 和 `WaveformsPlugin` 的 `daq_adapter` 选项保持一致。

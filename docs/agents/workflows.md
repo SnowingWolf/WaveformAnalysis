@@ -78,22 +78,27 @@ scripts/check_doc_sync.sh
 python scripts/check_doc_anchors.py --check-sync --base HEAD
 ```
 
-## Workflow: 三项固定质量闸门（PR 前）
+## Workflow: PR 前固定质量闸门（3 类，4 条命令）
 
 ### 目标
 将 `generate_docs`、`assess_change_impact`、`schema_compat_check` 固定为可重复、可审计的 PR 前闸门。
 
-### 固定命令（独立入口）
+### 固定闸门与命令（独立入口）
 ```bash
+# generate_docs
 waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/
 waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
+
+# assess_change_impact
 python scripts/assess_change_impact.py --base HEAD
+
+# schema_compat_check
 python scripts/schema_compat_check.py --base HEAD --run-smoke
 ```
 
 ### 触发策略（按改动类型）
-1. 若改动触及插件实现或契约相关代码（如 `waveform_analysis/`），执行全部三项。
-2. 若仅文档改动（`docs/**`、`AGENTS.md`、`CLAUDE.md`），不强制执行全部三项，按现有文档同步流程执行。
+1. 若改动触及插件实现或契约相关代码（如 `waveform_analysis/`），执行全部三类闸门。
+2. 若仅文档改动（`docs/**`、`AGENTS.md`、`CLAUDE.md`），不强制执行全部三类闸门，按现有文档同步流程执行。
 
 ### 执行顺序
 1. `generate_docs`
@@ -101,9 +106,14 @@ python scripts/schema_compat_check.py --base HEAD --run-smoke
 3. `schema_compat_check`
 
 ### Definition of Done
-1. 命中触发条件时，三项命令全部执行并通过。
+1. 命中触发条件时，三类闸门对应的四条命令全部执行并通过。
 2. PR 描述包含执行命令与 PASS/FAIL 摘要。
 3. `docs/agents/index.yaml` 对应 route 命令与本节一致。
+
+### 非固定闸门
+以下检查默认不纳入 PR 固定闸门，按需或在发布前执行：
+- `performance_regression_check`
+- `release_artifact_sync`
 
 ## Workflow: assess_change_impact
 

@@ -21,9 +21,7 @@
 
 ## Outputs
 
-- `pandas.DataFrame`
-- 关键列包括：`event_id`, `t_min`, `t_max`, `record_ids`, `sample_starts`, `sample_ends`
-- 其中 `record_ids/sample_starts/sample_ends` 一一对应，可直接作为逐 record 波形切片参数使用；跨 `record_id` merged hit 会保留 `sample_* = -1` 哨兵
+- 无结构化字段信息（`unknown`）
 
 ## Config
 
@@ -35,12 +33,11 @@
 ## Execution Path
 
 `hit_grouped` 依赖链入口：
-`hit_threshold -> hit_merged -> hit_merged_components -> hit_grouped`
+`hit_merged -> hit_merged_components -> hit_threshold -> hit_grouped`
 
 ## Failure Modes
 
 - 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 跨 `record_id` merged hit 缺少 `hit_merged_components` 回查信息，导致绝对窗口恢复与 `sample_*` 哨兵判定失败
 - 配置值类型/范围不合法，触发参数校验异常
 - 输出 dtype 变更但版本未升级，可能导致缓存命中异常
 

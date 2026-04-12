@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `st_waveforms` |
-| **Version** | `0.9.0` |
+| **Version** | `0.10.0` |
 | **Category** | 波形处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
