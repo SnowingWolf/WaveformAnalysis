@@ -3,6 +3,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -32,6 +34,7 @@ def test_assess_change_impact_cli_writes_json(tmp_path):
     assert "risk_counts" in payload
 
 
+@pytest.mark.slow
 def test_schema_compat_check_cli_with_smoke(tmp_path):
     out_json = tmp_path / "schema.json"
     result = _run(
@@ -55,6 +58,7 @@ def test_schema_compat_check_cli_with_smoke(tmp_path):
     assert "smoke_result" in payload
 
 
+@pytest.mark.slow
 def test_performance_regression_check_cli_runs(tmp_path):
     out_json = tmp_path / "perf.json"
     result = _run(

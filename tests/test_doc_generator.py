@@ -429,6 +429,7 @@ class TestCLI:
         assert "generate" in result.stdout
         assert "check" in result.stdout
 
+    @pytest.mark.slow
     def test_cli_generate_plugins_auto(self):
         """测试 CLI 生成插件文档"""
         import subprocess
@@ -457,6 +458,7 @@ class TestCLI:
             output_dir = Path(tmpdir)
             assert (output_dir / "INDEX.md").exists()
 
+    @pytest.mark.slow
     def test_cli_check_coverage(self):
         """测试 CLI 检查覆盖率"""
         import subprocess

@@ -38,6 +38,7 @@ class TestTimeoutManager:
         result = manager.run_with_timeout(quick_func, 5.0, 10, 20)
         assert result == 30
 
+    @pytest.mark.slow
     def test_function_timeout(self):
         """测试函数超时"""
         manager = TimeoutManager()
@@ -81,6 +82,7 @@ class TestTimeoutManager:
 
         assert x == 2
 
+    @pytest.mark.slow
     def test_timeout_context_manager_timeout(self):
         """测试context manager超时"""
         manager = TimeoutManager()
@@ -89,6 +91,7 @@ class TestTimeoutManager:
             with manager.timeout_context(1.0, "slow_operation"):
                 time.sleep(3)
 
+    @pytest.mark.slow
     def test_timeout_stats(self):
         """测试超时统计"""
         manager = TimeoutManager()
@@ -143,6 +146,7 @@ class TestTimeoutDecorator:
         result = quick_func(10)
         assert result == 20
 
+    @pytest.mark.slow
     def test_decorator_with_timeout(self):
         """测试装饰器超时"""
 
@@ -211,6 +215,7 @@ class TestCrossPlatform:
         else:
             assert manager.is_unix is False
 
+    @pytest.mark.slow
     def test_timeout_works_on_current_platform(self):
         """测试超时在当前平台上工作"""
         manager = TimeoutManager()
