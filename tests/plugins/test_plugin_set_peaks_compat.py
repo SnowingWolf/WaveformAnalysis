@@ -17,6 +17,7 @@ def test_get_plugin_set_peaks_available():
     assert provides == [
         "hit",
         "hit_threshold",
+        "hit_merge_clusters",
         "hit_merged",
         "hit_merged_components",
         "waveform_width",
@@ -37,7 +38,7 @@ def test_plugins_waveform_includes_records():
     factory = get_plugin_set("waveform")
     plugins = factory()
     provides = _provides_names(plugins)
-    assert provides == ["st_waveforms", "filtered_waveforms", "records"]
+    assert provides == ["st_waveforms", "filtered_waveforms", "records", "wave_pool"]
 
 
 def test_plugins_diagnostics_legacy_removed():

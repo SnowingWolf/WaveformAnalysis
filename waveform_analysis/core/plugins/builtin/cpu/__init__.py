@@ -20,6 +20,7 @@ from .basic_features import BASIC_FEATURES_DTYPE, BasicFeaturesPlugin
 
 # Cache analysis plugin
 from .cache_analysis import CacheAnalysisPlugin
+from .channel_metadata import resolve_channel_metadata, resolve_context_channel_metadata
 
 # 数据整合插件
 from .dataframe import DataFramePlugin
@@ -43,7 +44,7 @@ from .hit_merge import (
 from .peak_finding import HIT_DTYPE, HitFinderPlugin
 
 # Records 插件
-from .records import RecordsPlugin, WavePoolPlugin
+from .records import RecordsPlugin, WavePoolFilteredPlugin, WavePoolPlugin
 from .s1_s2_classifier import (
     LABEL_S1,
     LABEL_S2,
@@ -113,8 +114,11 @@ __all__ = [
     "LABEL_UNKNOWN",
     # Cache analysis
     "CacheAnalysisPlugin",
+    "resolve_channel_metadata",
+    "resolve_context_channel_metadata",
     # Records
     "RecordsPlugin",
     "WavePoolPlugin",
+    "WavePoolFilteredPlugin",
     "standard_plugins",
 ]

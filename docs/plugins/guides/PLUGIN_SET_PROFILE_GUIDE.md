@@ -20,7 +20,7 @@ Plugin Set 是最小可复用插件组，每个 set 只关注单一职责。
 | `basic_features` | BasicFeaturesPlugin, WaveformWidthIntegralPlugin | 基础特征计算 |
 | `tabular` | DataFramePlugin | 表格化输出 |
 | `events` | GroupedEventsPlugin, PairedEventsPlugin | 事件分组与配对 |
-| `peaks` | HitFinderPlugin, ThresholdHitPlugin, WaveformWidthPlugin, S1S2ClassifierPlugin | 峰值检测与峰特征扩展 |
+| `peaks` | HitFinderPlugin, ThresholdHitPlugin, HitMergeClustersPlugin, HitMergePlugin, HitMergedComponentsPlugin, WaveformWidthPlugin, S1S2ClassifierPlugin | 峰值检测与峰特征扩展 |
 
 示例：
 
@@ -31,7 +31,8 @@ io_plugins = plugins_io()
 waveform_plugins = plugins_waveform()
 ```
 
-`plugins_waveform()` 已包含 `RecordsPlugin`，注册后可直接使用 `records_view`：
+`plugins_waveform()` 已包含 `RecordsPlugin` 与 `WavePoolPlugin`，注册后可直接使用
+`records_view`：
 
 ```python
 from waveform_analysis.core.data import records_view
@@ -40,6 +41,9 @@ from waveform_analysis.core.plugins.plugin_sets import plugins_io, plugins_wavef
 ctx.register(*plugins_io(), *plugins_waveform())
 rv = records_view(ctx, run_id)
 ```
+
+注意：`records_view(...)` 现在要求正式 `records + wave_pool` 产物同时可用，不会再
+fallback 到内部 `RecordsBundle`。
 
 其中 `rv.waves(record_id, ...)` 返回指定 `record_id` 的原始波形，`rv.signals(record_id, ...)`
 返回做过 baseline 校正且按 `records.polarity` 统一为负极性的信号。批量访问同样使用
