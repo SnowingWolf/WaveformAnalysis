@@ -32,12 +32,12 @@ Examples:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import os
 from pathlib import Path
 import re
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from waveform_analysis.utils.formats import DAQAdapter, DirectoryLayout
@@ -64,7 +64,14 @@ class DAQRun:
     IDX_PATTERN = re.compile(r"_(\d+)\.CSV$", re.IGNORECASE)
 
     @staticmethod
-    def format_time_ps(ps_val: Optional[int]) -> str:
+    def _get_file_created_time(file_path: str | Path) -> datetime:
+        """获取文件创建时间；若文件系统不支持则回退到 mtime。"""
+        stat = Path(file_path).stat()
+        created_ts = getattr(stat, "st_birthtime", stat.st_mtime)
+        return datetime.fromtimestamp(created_ts)
+
+    @staticmethod
+    def format_time_ps(ps_val: int | None) -> str:
         if ps_val is None:
             return "N/A"
 
@@ -83,8 +90,8 @@ class DAQRun:
         self,
         run_name: str,
         run_path: str | Path,
-        daq_adapter: Optional[Union[str, DAQAdapter]] = None,
-        directory_layout: Optional[DirectoryLayout] = None,
+        daq_adapter: str | DAQAdapter | None = None,
+        directory_layout: DirectoryLayout | None = None,
     ):
         """初始化 DAQRun
 
@@ -98,8 +105,8 @@ class DAQRun:
         self.run_path = str(run_path)
 
         # 初始化适配器和布局
-        self.daq_adapter: Optional[DAQAdapter] = None
-        self.layout: Optional[DirectoryLayout] = None
+        self.daq_adapter: DAQAdapter | None = None
+        self.layout: DirectoryLayout | None = None
 
         if directory_layout is not None:
             self.layout = directory_layout
@@ -129,8 +136,8 @@ class DAQRun:
         self.file_count = 0
         self.channels = set()
 
-        self.channel_files: Dict[int, List[Dict]] = {}
-        self.channel_stats: Dict[int, Dict] = {}
+        self.channel_files: dict[int, list[dict]] = {}
+        self.channel_stats: dict[int, dict] = {}
 
         # 时间单位常量
         self.ps_per_ns = 1000
@@ -165,8 +172,10 @@ class DAQRun:
         for ch, files in groups.items():
             for file_info in files:
                 fpath = file_info["path"]
-                size_bytes = fpath.stat().st_size
-                mtime = datetime.fromtimestamp(fpath.stat().st_mtime)
+                stat = fpath.stat()
+                size_bytes = stat.st_size
+                mtime = datetime.fromtimestamp(stat.st_mtime)
+                created_time = self._get_file_created_time(fpath)
 
                 self.channel_files.setdefault(ch, []).append(
                     {
@@ -174,6 +183,7 @@ class DAQRun:
                         "index": file_info["index"],
                         "path": str(fpath),
                         "size_bytes": size_bytes,
+                        "created_time": created_time,
                         "mtime": mtime,
                         "timetag_min": None,
                         "timetag_max": None,
@@ -193,6 +203,7 @@ class DAQRun:
             fpath = os.path.join(self.raw_dir, fname)
             size_bytes = os.path.getsize(fpath)
             mtime = datetime.fromtimestamp(os.path.getmtime(fpath))
+            created_time = self._get_file_created_time(fpath)
 
             ch_match = self.CH_PATTERN.search(fname)
             ch = int(ch_match.group(1)) if ch_match else None
@@ -206,6 +217,7 @@ class DAQRun:
                         "index": idx,
                         "path": fpath,
                         "size_bytes": size_bytes,
+                        "created_time": created_time,
                         "mtime": mtime,
                         "timetag_min": None,
                         "timetag_max": None,
@@ -216,18 +228,24 @@ class DAQRun:
                 self.total_bytes += size_bytes
                 self.file_count += 1
 
-    def _parse_csv_file(self, fpath: str) -> Tuple[Optional[int], Optional[int]]:
+    def _parse_csv_file(self, fpath: str) -> tuple[int | None, int | None]:
         try:
             start_tag = None
             end_tag = None
 
             with open(fpath, encoding="utf-8", errors="ignore") as f:
-                f.readline()
-                first_line = f.readline().strip()
-                if first_line:
+                for line in f:
+                    first_line = line.strip()
+                    if not first_line:
+                        continue
                     first_parts = first_line.split(";")
-                    if len(first_parts) >= 3:
+                    if len(first_parts) < 3:
+                        continue
+                    try:
                         start_tag = int(first_parts[2])
+                        break
+                    except ValueError:
+                        continue
 
                 f.seek(0, 2)
                 file_size = f.tell()
@@ -242,8 +260,11 @@ class DAQRun:
                     if last_line:
                         last_parts = last_line.split(";")
                         if len(last_parts) >= 3:
-                            end_tag = int(last_parts[2])
-                        break
+                            try:
+                                end_tag = int(last_parts[2])
+                                break
+                            except ValueError:
+                                continue
 
             if start_tag is not None and end_tag is not None:
                 return start_tag, end_tag
@@ -254,7 +275,7 @@ class DAQRun:
 
         return None, None
 
-    def compute_acquisition_times(self, force_reparse: bool = False) -> Dict[int, Dict]:
+    def compute_acquisition_times(self, force_reparse: bool = False) -> dict[int, dict]:
         if self.channel_stats and not force_reparse:
             return self.channel_stats
 
@@ -263,6 +284,7 @@ class DAQRun:
 
             min_tag_ps = None
             max_tag_ps = None
+            earliest_created_time = None
             earliest_mtime = None
             latest_mtime = None
 
@@ -277,6 +299,11 @@ class DAQRun:
                     if max_tag_ps is None or max_t > max_tag_ps:
                         max_tag_ps = max_t
 
+                created_time = file_info.get("created_time")
+                if created_time is not None:
+                    if earliest_created_time is None or created_time < earliest_created_time:
+                        earliest_created_time = created_time
+
                 mtime = file_info["mtime"]
                 if earliest_mtime is None or mtime < earliest_mtime:
                     earliest_mtime = mtime
@@ -290,6 +317,11 @@ class DAQRun:
                 if (min_tag_ps is not None and max_tag_ps is not None)
                 else None
             )
+            latest_end_time = None
+            if earliest_created_time is not None and max_tag_ps is not None:
+                latest_end_time = earliest_created_time + timedelta(
+                    seconds=max_tag_ps / self.ps_per_s
+                )
 
             self.channel_stats[ch] = {
                 "file_count": len(files),
@@ -299,21 +331,54 @@ class DAQRun:
                 "start_time_us": start_us,
                 "end_time_us": end_us,
                 "duration_s": duration_s,
+                "earliest_created_time": earliest_created_time,
+                "latest_end_time": latest_end_time,
                 "earliest_mtime": earliest_mtime,
                 "latest_mtime": latest_mtime,
             }
 
         return self.channel_stats
 
-    def get_channel_summary(self) -> Dict[int, Dict]:
+    def get_channel_summary(self) -> dict[int, dict]:
         if not self.channel_stats:
             self.compute_acquisition_times()
         return self.channel_stats
 
-    def get_channel_file_details(self, channel: int) -> Optional[List[Dict]]:
+    def get_run_acquisition_window(self) -> tuple[datetime | None, datetime | None]:
+        """返回整个 run 的采集开始/结束时间。
+
+        开始时间取所有文件中最早的创建时间；
+        结束时间取“最早创建时间 + 所有文件中最大的结束 timetag”。
+        """
+        self.compute_acquisition_times()
+
+        earliest_created_time = None
+        latest_end_tag_ps = None
+
+        for files in self.channel_files.values():
+            for file_info in files:
+                created_time = file_info.get("created_time")
+                if created_time is not None:
+                    if earliest_created_time is None or created_time < earliest_created_time:
+                        earliest_created_time = created_time
+
+                end_tag_ps = file_info.get("timetag_max")
+                if end_tag_ps is not None:
+                    if latest_end_tag_ps is None or end_tag_ps > latest_end_tag_ps:
+                        latest_end_tag_ps = end_tag_ps
+
+        acquisition_end = None
+        if earliest_created_time is not None and latest_end_tag_ps is not None:
+            acquisition_end = earliest_created_time + timedelta(
+                seconds=latest_end_tag_ps / self.ps_per_s
+            )
+
+        return earliest_created_time, acquisition_end
+
+    def get_channel_file_details(self, channel: int) -> list[dict] | None:
         return sorted(self.channel_files.get(channel, []), key=lambda x: x["index"])
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "run_name": self.run_name,
             "description": self.description,

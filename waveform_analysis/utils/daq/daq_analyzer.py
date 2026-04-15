@@ -189,46 +189,26 @@ class DAQAnalyzer:
         return list(self.runs.values())
 
     def _get_run_acquisition_start(self, run_name: str) -> str:
-        """获取运行的采集开始时间（最早文件创建时间）"""
+        """获取运行的采集开始时间（第一个文件创建时间）"""
         run = self.get_run(run_name)
         if run is None:
             return "N/A"
+        earliest_created_time, _ = run.get_run_acquisition_window()
 
-        stats = run.get_channel_summary()
-        if not stats:
+        if earliest_created_time is None:
             return "N/A"
-
-        earliest_mtime = None
-        for ch_stats in stats.values():
-            mtime = ch_stats.get("earliest_mtime")
-            if mtime is not None:
-                if earliest_mtime is None or mtime < earliest_mtime:
-                    earliest_mtime = mtime
-
-        if earliest_mtime is None:
-            return "N/A"
-        return earliest_mtime.strftime("%Y-%m-%d %H:%M:%S")
+        return earliest_created_time.strftime("%Y-%m-%d %H:%M:%S")
 
     def _get_run_acquisition_end(self, run_name: str) -> str:
-        """获取运行的采集结束时间（最后文件修改时间）"""
+        """获取运行的采集结束时间（最后一个文件的结束时间）"""
         run = self.get_run(run_name)
         if run is None:
             return "N/A"
+        _, latest_end_time = run.get_run_acquisition_window()
 
-        stats = run.get_channel_summary()
-        if not stats:
+        if latest_end_time is None:
             return "N/A"
-
-        latest_mtime = None
-        for ch_stats in stats.values():
-            mtime = ch_stats.get("latest_mtime")
-            if mtime is not None:
-                if latest_mtime is None or mtime > latest_mtime:
-                    latest_mtime = mtime
-
-        if latest_mtime is None:
-            return "N/A"
-        return latest_mtime.strftime("%Y-%m-%d %H:%M:%S")
+        return latest_end_time.strftime("%Y-%m-%d %H:%M:%S")
 
     def _build_channel_rows(self, stats: dict[int, dict]) -> list[dict]:
         # Normalize channel stats iento row dicts for DataFrame display.
@@ -245,6 +225,8 @@ class DAQAnalyzer:
                     "end_time": DAQRun.format_time_ps(s.get("end_time_ps")),
                     "duration_s": duration_s if duration_s is not None else None,
                     "duration": f"{duration_s:.3f} s" if duration_s is not None else "N/A",
+                    "first_file_created": s.get("earliest_created_time"),
+                    "last_file_end": s.get("latest_end_time"),
                     "earliest_file": s.get("earliest_mtime"),
                     "latest_file": s.get("latest_mtime"),
                 }
@@ -267,6 +249,7 @@ class DAQAnalyzer:
                     "size": self.format_size(fi.get("size_bytes", 0)),
                     "timetag_min": DAQRun.format_time_ps(fi.get("timetag_min")),
                     "timetag_max": DAQRun.format_time_ps(fi.get("timetag_max")),
+                    "created": fi.get("created_time"),
                     "modified": fi.get("mtime"),
                 }
             )
@@ -606,6 +589,14 @@ class DAQAnalyzer:
                     "start_time_ps": s["start_time_ps"],
                     "end_time_ps": s["end_time_ps"],
                     "duration_seconds": s["duration_s"],
+                    "first_file_created_time": (
+                        s["earliest_created_time"].isoformat()
+                        if s["earliest_created_time"]
+                        else None
+                    ),
+                    "last_file_end_time": (
+                        s["latest_end_time"].isoformat() if s["latest_end_time"] else None
+                    ),
                     "earliest_file_time": (
                         s["earliest_mtime"].isoformat() if s["earliest_mtime"] else None
                     ),
@@ -625,6 +616,7 @@ class DAQAnalyzer:
                                 "index": file_info["index"],
                                 "size_bytes": file_info["size_bytes"],
                                 "size_readable": self.format_size(file_info["size_bytes"]),
+                                "created_time": file_info["created_time"].isoformat(),
                                 "modified_time": file_info["mtime"].isoformat(),
                                 "timetag_min_ps": file_info.get("timetag_min"),
                                 "timetag_max_ps": file_info.get("timetag_max"),

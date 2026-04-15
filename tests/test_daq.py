@@ -1,4 +1,6 @@
+from datetime import datetime
 import json
+import os
 from pathlib import Path
 import warnings
 
@@ -88,3 +90,31 @@ def test_display_overview_time_sort_no_infer_warning(tmp_path: Path, make_csv_fn
         analyzer.display_overview(sort_by="time")
 
     assert not any("Could not infer format" in str(w.message) for w in caught)
+
+
+def test_run_acquisition_window_uses_first_file_time_and_last_file_end(tmp_path: Path, make_csv_fn):
+    daq_root = tmp_path / "DAQ"
+    raw_dir = daq_root / "test_run" / "RAW"
+    raw_dir.mkdir(parents=True)
+
+    make_csv_fn(raw_dir, 1, 0, 0, 2_000_000_000_000)
+    make_csv_fn(raw_dir, 1, 1, 1_000_000_000_000, 5_000_000_000_000)
+    first_file = raw_dir / "RUN_CH1_0.CSV"
+    last_file = raw_dir / "RUN_CH1_1.CSV"
+
+    first_ts = datetime(2024, 1, 1, 12, 0, 0).timestamp()
+    last_mtime_ts = datetime(2024, 1, 1, 12, 0, 1).timestamp()
+    os.utime(first_file, (first_ts, first_ts))
+    os.utime(last_file, (last_mtime_ts, last_mtime_ts))
+
+    analyzer = DAQAnalyzer(daq_root)
+    analyzer.scan_all_runs()
+
+    assert analyzer._get_run_acquisition_start("test_run") == "2024-01-01 12:00:00"
+    assert analyzer._get_run_acquisition_end("test_run") == "2024-01-01 12:00:05"
+
+    run = analyzer.get_run("test_run")
+    assert run is not None
+    start_time, end_time = run.get_run_acquisition_window()
+    assert start_time == datetime.fromtimestamp(first_ts)
+    assert end_time == datetime.fromtimestamp(first_ts + 5)
