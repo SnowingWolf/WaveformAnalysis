@@ -21,6 +21,11 @@ echo
 echo "Tip: compare code vs doc lists and update missing items."
 echo
 
+echo "Running Agent Doc manifest validation..."
+echo
+python scripts/render_agent_docs.py --check
+echo
+
 # 运行 Python 脚本进行详细检查
 echo "Running Doc Anchor validation..."
 echo

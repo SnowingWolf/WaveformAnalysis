@@ -1,98 +1,799 @@
-version: 1
+version: 2
 source_of_truth: AGENTS.md
 workflow_source_of_truth: docs/agents/workflows.md
 machine_route_source_of_truth: docs/agents/index.yaml
+lifecycle_source_of_truth: docs/agents/lifecycle.md
+protocol_scaffold_root: docs/agents/protocol
 default_language: zh-CN
+
+agent_reading_contract:
+  preferred_machine_entry: docs/agents/index.yaml
+  preferred_markdown_entry: AGENTS.md
+  default_read_order:
+    - AGENTS.md
+    - docs/agents/lifecycle.md
+    - docs/agents/workflows.md
+    - docs/agents/plugins.md
+    - docs/agents/configuration.md
+  route_resolution_rule:
+    - Resolve alias routes to their canonical task before selecting profile docs.
+    - Read route.read_order first; if absent, fall back to primary_doc then profile_doc.
+
+agent_roles:
+  - id: planner
+    purpose: 拆解任务、识别风险、选择 route 与必需闸门
+    mutation_policy: read_only
+    owns_states:
+      - planning
+      - awaiting_user_input
+      - awaiting_approval
+      - ready_for_execution
+    required_artifact: plan_brief
+
+  - id: executor.plugin
+    purpose: 插件与契约相关实现
+    mutation_policy: write_scoped
+    owns_states:
+      - executing
+      - blocked
+      - failed
+    required_artifact: execution_report
+
+  - id: executor.config
+    purpose: 配置、兼容与上下文参数实现
+    mutation_policy: write_scoped
+    owns_states:
+      - executing
+      - blocked
+      - failed
+    required_artifact: execution_report
+
+  - id: executor.docs
+    purpose: 文档与引用同步
+    mutation_policy: write_scoped
+    owns_states:
+      - executing
+      - blocked
+      - failed
+    required_artifact: execution_report
+
+  - id: executor.qa
+    purpose: 影响分析、兼容检查、发布前检查
+    mutation_policy: write_scoped
+    owns_states:
+      - executing
+      - blocked
+      - failed
+    required_artifact: execution_report
+
+  - id: reviewer
+    purpose: 统一审查契约、门禁、残余风险与放行条件
+    mutation_policy: read_only
+    review_authority: blocking
+    owns_states:
+      - reviewing
+      - rework_required
+      - completed
+      - blocked
+      - failed
+      - cancelled
+    required_artifact: review_report
+
+lifecycle:
+  version: 1
+  primary_states:
+    - created
+    - planning
+    - awaiting_user_input
+    - awaiting_approval
+    - ready_for_execution
+    - executing
+    - reviewing
+    - rework_required
+    - blocked
+    - completed
+    - failed
+    - cancelled
+  human_gate_states:
+    - awaiting_user_input
+    - awaiting_approval
+  transitions:
+    - from: created
+      to: planning
+      condition: task_initialized
+    - from: planning
+      to: awaiting_user_input
+      condition: missing_user_decision
+    - from: planning
+      to: awaiting_approval
+      condition: approval_required
+    - from: planning
+      to: ready_for_execution
+      condition: plan_brief_ready
+    - from: planning
+      to: blocked
+      condition: external_dependency_missing
+    - from: planning
+      to: cancelled
+      condition: task_cancelled
+    - from: awaiting_user_input
+      to: planning
+      condition: user_input_received
+    - from: awaiting_approval
+      to: ready_for_execution
+      condition: approval_granted
+    - from: awaiting_approval
+      to: blocked
+      condition: approval_denied
+    - from: awaiting_approval
+      to: cancelled
+      condition: task_cancelled
+    - from: ready_for_execution
+      to: executing
+      condition: executor_assigned
+    - from: executing
+      to: reviewing
+      condition: execution_report_ready
+    - from: executing
+      to: blocked
+      condition: environment_or_permission_blocker
+    - from: executing
+      to: failed
+      condition: unrecoverable_execution_failure
+    - from: executing
+      to: cancelled
+      condition: task_cancelled
+    - from: reviewing
+      to: completed
+      condition: all_blocking_gates_pass
+    - from: reviewing
+      to: rework_required
+      condition: fixable_gate_failure
+    - from: reviewing
+      to: blocked
+      condition: review_blocked_by_external_dependency
+    - from: reviewing
+      to: failed
+      condition: unrecoverable_review_failure
+    - from: reviewing
+      to: cancelled
+      condition: task_cancelled
+    - from: rework_required
+      to: executing
+      condition: scope_unchanged
+    - from: rework_required
+      to: planning
+      condition: scope_changed
+    - from: blocked
+      to: planning
+      condition: planning_blocker_removed
+    - from: blocked
+      to: executing
+      condition: execution_blocker_removed
+    - from: blocked
+      to: cancelled
+      condition: task_cancelled
+  recovery_rules:
+    rework_owner_default: executor
+    approval_denied_maps_to: blocked
+    scope_changed_reentry: planning
+  artifact_contracts:
+    - artifact: plan_brief
+      required_before_transition: planning -> ready_for_execution
+    - artifact: compat_inventory
+      required_before_transition: planning -> ready_for_execution
+      route: retire_compat
+    - artifact: execution_report
+      required_before_transition: executing -> reviewing
+    - artifact: review_report
+      required_before_transition: reviewing -> completed
 
 task_routes:
   - task: modify_plugin
+    summary: 插件与契约改动
+    workflow_mode: plan_execute_review
+    lifecycle_profile: reviewed_change
+    entry_state: created
+    completion_state: completed
+    rework_owner_default: executor.plugin
     entry_doc: AGENTS.md
     primary_doc: docs/agents/workflows.md
+    profile_doc: docs/agents/protocol/route-profiles/modify_plugin.md
+    aliases: []
     secondary_docs:
+      - docs/agents/lifecycle.md
       - docs/agents/plugins.md
       - docs/plugins/reference/agent/INDEX.md
+    read_order:
+      - AGENTS.md
+      - docs/agents/lifecycle.md
+      - docs/agents/workflows.md
+      - docs/agents/protocol/route-profiles/modify_plugin.md
+      - docs/agents/plugins.md
+    required_inputs:
+      - target plugin or feature keyword
+      - affected files or provides
+      - change intent and expected contract impact
+    handoff_sequence:
+      - planner
+      - executor.plugin
+      - reviewer
+    required_artifacts:
+      - plan_brief
+      - execution_report
+      - review_report
+    substates:
+      - impact_assessed
+      - version_checked
+      - tests_selected
+      - docs_sync_required
+    allowed_tools:
+      planner:
+        - repo_read
+        - git_diff
+        - static_analysis
+      executor:
+        - repo_read
+        - apply_patch
+        - targeted_tests
+        - doc_generation
+      reviewer:
+        - repo_read
+        - gate_execution
+        - diff_review
     commands:
-      - ./scripts/run_tests.sh -v -k <plugin_or_feature_keyword>
       - waveform-docs generate plugins-agent --plugin <provides>
+      - python scripts/assess_change_impact.py --base HEAD
+      - python scripts/schema_compat_check.py --base HEAD --run-smoke
+      - ./scripts/run_tests.sh -v -k <plugin_or_feature_keyword>
       - scripts/check_doc_sync.sh
       - python scripts/check_doc_anchors.py --check-sync --base HEAD
+    blocking_gates:
+      - assess_change_impact
+      - schema_compat_check
+      - doc_sync
+      - doc_anchors
+    completion_contract:
+      - version strategy matches L0/L1/L2/L3 change level
+      - required tests and blocking gates pass
+      - plugin docs are regenerated when contract changes
+      - review_report records residual risks
+    escalation_rules:
+      - version_unchanged_after_contract_change -> rework_required
+      - missing_approval_for_destructive_or_network_action -> awaiting_approval
 
-  - task: debug_cache
+  - task: retire_compat
+    summary: 兼容冗余识别、分级与删除
+    workflow_mode: plan_execute_review
+    lifecycle_profile: compat_retirement_review
+    entry_state: created
+    completion_state: completed
+    rework_owner_default: executor.config
     entry_doc: AGENTS.md
     primary_doc: docs/agents/workflows.md
+    profile_doc: docs/agents/protocol/route-profiles/retire_compat.md
+    aliases: []
     secondary_docs:
+      - docs/agents/lifecycle.md
+      - docs/agents/configuration.md
+      - docs/features/context/CONFIGURATION.md
+    read_order:
+      - AGENTS.md
+      - docs/agents/lifecycle.md
+      - docs/agents/workflows.md
+      - docs/agents/protocol/artifacts/compat_inventory.md
+      - docs/agents/protocol/route-profiles/retire_compat.md
+      - docs/agents/configuration.md
+    required_inputs:
+      - compatibility cleanup scope
+      - canonical form and legacy form
+      - runtime surface and expected migration impact
+    handoff_sequence:
+      - planner
+      - executor.config
+      - reviewer
+    required_artifacts:
+      - compat_inventory
+      - plan_brief
+      - execution_report
+      - review_report
+    substates:
+      - inventory_built
+      - risk_banded
+      - deletion_scope_confirmed
+      - gates_selected
+    allowed_tools:
+      planner:
+        - repo_read
+        - git_diff
+        - static_analysis
+      executor:
+        - repo_read
+        - apply_patch
+        - targeted_tests
+        - doc_generation
+      reviewer:
+        - repo_read
+        - gate_execution
+        - diff_review
+    commands:
+      - scripts/check_doc_sync.sh
+      - python scripts/check_doc_anchors.py --check-sync --base HEAD
+      - python scripts/assess_change_impact.py --base HEAD
+      - python scripts/schema_compat_check.py --base HEAD --run-smoke
+      - waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
+    blocking_gates:
+      - compat_inventory_ready
+      - deletion_scope_confirmed
+      - doc_sync
+      - doc_anchors
+      - impact_assessed_if_needed
+      - schema_checked_if_needed
+    completion_contract:
+      - compat_inventory classifies every removal candidate with canonical_form and legacy_form
+      - medium/high public-surface deletions require explicit confirmation before execution
+      - high-risk contract removals are redirected to modify_plugin or a migration task
+      - required doc and contract gates pass for the touched surface
+      - review_report records removed, deferred, and blocked compat items
+    escalation_rules:
+      - medium_or_high_public_surface_delete_without_confirmation -> awaiting_user_input
+      - plugin_contract_or_dtype_delete -> rework_required
+
+  - task: debug_cache
+    summary: 缓存、lineage 与执行链排障
+    workflow_mode: plan_execute_review
+    lifecycle_profile: diagnostic_review
+    entry_state: created
+    completion_state: completed
+    rework_owner_default: executor.config
+    entry_doc: AGENTS.md
+    primary_doc: docs/agents/workflows.md
+    profile_doc: docs/agents/protocol/route-profiles/debug_cache.md
+    aliases: []
+    secondary_docs:
+      - docs/agents/lifecycle.md
       - docs/features/context/DATA_ACCESS.md
       - docs/features/context/PREVIEW_EXECUTION.md
+    read_order:
+      - AGENTS.md
+      - docs/agents/lifecycle.md
+      - docs/agents/workflows.md
+      - docs/agents/protocol/route-profiles/debug_cache.md
+      - docs/features/context/PREVIEW_EXECUTION.md
+      - docs/features/context/DATA_ACCESS.md
+    required_inputs:
+      - run_id
+      - target plugin or target data product
+    handoff_sequence:
+      - planner
+      - executor.config
+      - reviewer
+    required_artifacts:
+      - plan_brief
+      - execution_report
+      - review_report
+    substates:
+      - preview_ready
+      - lineage_checked
+    allowed_tools:
+      planner:
+        - repo_read
+        - static_analysis
+      executor:
+        - repo_read
+        - cache_diagnostics
+      reviewer:
+        - repo_read
+        - diff_review
     commands:
       - waveform-cache diagnose --run <run_id> --dry-run
       - python scripts/check_doc_anchors.py --check-sync --base HEAD
+    blocking_gates:
+      - diagnosis_reproduced
+    completion_contract:
+      - cache blocker and probable root cause are documented
+      - next corrective action is explicit
+    escalation_rules:
+      - missing_run_id -> awaiting_user_input
 
   - task: generate_docs
+    summary: 文档生成、引用同步与锚点检查
+    workflow_mode: plan_execute_review
+    lifecycle_profile: doc_only_reviewed
+    entry_state: created
+    completion_state: completed
+    rework_owner_default: executor.docs
     entry_doc: AGENTS.md
     primary_doc: docs/agents/references.md
+    profile_doc: docs/agents/protocol/route-profiles/generate_docs.md
+    aliases: []
     secondary_docs:
+      - docs/agents/lifecycle.md
       - docs/cli/WAVEFORM_DOCS.md
+    read_order:
+      - AGENTS.md
+      - docs/agents/lifecycle.md
+      - docs/agents/references.md
+      - docs/agents/protocol/route-profiles/generate_docs.md
+      - docs/cli/WAVEFORM_DOCS.md
+    required_inputs:
+      - doc target scope
+      - source change summary
+    handoff_sequence:
+      - planner
+      - executor.docs
+      - reviewer
+    required_artifacts:
+      - plan_brief
+      - execution_report
+      - review_report
+    substates:
+      - doc_targets_resolved
+      - sync_checks_pending
+    allowed_tools:
+      planner:
+        - repo_read
+        - doc_mapping
+      executor:
+        - repo_read
+        - apply_patch
+        - doc_generation
+      reviewer:
+        - repo_read
+        - gate_execution
     commands:
       - waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/
       - waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
+      - scripts/check_doc_sync.sh
+      - python scripts/check_doc_anchors.py --check-sync --base HEAD
+    blocking_gates:
+      - doc_sync
+      - doc_anchors
+    completion_contract:
+      - target docs are updated or regenerated
+      - doc sync and anchors pass
+    escalation_rules:
+      - missing_source_change_context -> awaiting_user_input
 
   - task: run_tests
+    summary: 定向或全量测试执行
+    workflow_mode: plan_execute_review
+    lifecycle_profile: qa_review
+    entry_state: created
+    completion_state: completed
+    rework_owner_default: executor.qa
     entry_doc: AGENTS.md
     primary_doc: AGENTS.md
+    profile_doc: docs/agents/protocol/route-profiles/run_tests.md
+    aliases: []
     secondary_docs:
+      - docs/agents/lifecycle.md
       - docs/agents/workflows.md
       - docs/agents/conventions.md
+    read_order:
+      - AGENTS.md
+      - docs/agents/lifecycle.md
+      - docs/agents/workflows.md
+      - docs/agents/protocol/route-profiles/run_tests.md
+      - docs/agents/conventions.md
+    required_inputs:
+      - test target or keyword
+    handoff_sequence:
+      - planner
+      - executor.qa
+      - reviewer
+    required_artifacts:
+      - plan_brief
+      - execution_report
+      - review_report
+    substates:
+      - test_scope_selected
+    allowed_tools:
+      planner:
+        - repo_read
+        - static_analysis
+      executor:
+        - test_execution
+      reviewer:
+        - repo_read
+        - test_report_review
     commands:
       - ./scripts/run_tests.sh
       - pytest -v
+    blocking_gates:
+      - requested_tests_complete
+    completion_contract:
+      - selected tests ran or explicit blocker is recorded
+    escalation_rules:
+      - missing_test_scope -> awaiting_user_input
 
   - task: assess_change_impact
+    summary: 改动影响面扫描与 version 风险检查
+    workflow_mode: plan_execute_review
+    lifecycle_profile: qa_review
+    entry_state: created
+    completion_state: completed
+    rework_owner_default: executor.qa
     entry_doc: AGENTS.md
     primary_doc: docs/agents/workflows.md
+    profile_doc: docs/agents/protocol/route-profiles/assess_change_impact.md
+    aliases: []
     secondary_docs:
+      - docs/agents/lifecycle.md
       - docs/agents/plugins.md
       - docs/features/context/CONFIGURATION.md
+    read_order:
+      - AGENTS.md
+      - docs/agents/lifecycle.md
+      - docs/agents/workflows.md
+      - docs/agents/protocol/route-profiles/assess_change_impact.md
+      - docs/agents/plugins.md
+    required_inputs:
+      - change scope
+    handoff_sequence:
+      - planner
+      - executor.qa
+      - reviewer
+    required_artifacts:
+      - plan_brief
+      - execution_report
+      - review_report
+    substates:
+      - impact_diff_collected
+    allowed_tools:
+      planner:
+        - repo_read
+        - git_diff
+      executor:
+        - static_analysis
+      reviewer:
+        - repo_read
+        - diff_review
     commands:
       - python scripts/assess_change_impact.py --base HEAD
+    blocking_gates:
+      - impact_report_generated
+    completion_contract:
+      - downstream impact and version risk are explicit
+    escalation_rules:
+      - no_base_reference -> awaiting_user_input
 
   - task: schema_compat_check
+    summary: dtype、字段兼容与关键链路冒烟
+    workflow_mode: plan_execute_review
+    lifecycle_profile: qa_review
+    entry_state: created
+    completion_state: completed
+    rework_owner_default: executor.qa
     entry_doc: AGENTS.md
     primary_doc: docs/agents/workflows.md
+    profile_doc: docs/agents/protocol/route-profiles/schema_compat_check.md
+    aliases: []
     secondary_docs:
+      - docs/agents/lifecycle.md
       - docs/agents/plugins.md
       - docs/features/context/DATA_ACCESS.md
+    read_order:
+      - AGENTS.md
+      - docs/agents/lifecycle.md
+      - docs/agents/workflows.md
+      - docs/agents/protocol/route-profiles/schema_compat_check.md
+      - docs/agents/plugins.md
+    required_inputs:
+      - change scope
+    handoff_sequence:
+      - planner
+      - executor.qa
+      - reviewer
+    required_artifacts:
+      - plan_brief
+      - execution_report
+      - review_report
+    substates:
+      - schema_diff_detected
+      - smoke_required
+    allowed_tools:
+      planner:
+        - repo_read
+        - git_diff
+      executor:
+        - schema_check
+        - smoke_tests
+      reviewer:
+        - repo_read
+        - test_report_review
     commands:
       - python scripts/schema_compat_check.py --base HEAD --run-smoke
+    blocking_gates:
+      - schema_report_generated
+      - smoke_chain_passed
+    completion_contract:
+      - schema diff and migration notes are explicit
+      - smoke chain result is recorded
+    escalation_rules:
+      - no_base_reference -> awaiting_user_input
 
   - task: performance_regression_check
+    summary: 热点插件性能回归检查
+    workflow_mode: plan_execute_review
+    lifecycle_profile: qa_review
+    entry_state: created
+    completion_state: completed
+    rework_owner_default: executor.qa
     entry_doc: AGENTS.md
     primary_doc: docs/agents/workflows.md
+    profile_doc: docs/agents/protocol/route-profiles/performance_regression_check.md
+    aliases: []
     secondary_docs:
+      - docs/agents/lifecycle.md
       - docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md
+    read_order:
+      - AGENTS.md
+      - docs/agents/lifecycle.md
+      - docs/agents/workflows.md
+      - docs/agents/protocol/route-profiles/performance_regression_check.md
+      - docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md
+    required_inputs:
+      - baseline reference
+    handoff_sequence:
+      - planner
+      - executor.qa
+      - reviewer
+    required_artifacts:
+      - plan_brief
+      - execution_report
+      - review_report
+    substates:
+      - benchmark_scope_selected
+    allowed_tools:
+      planner:
+        - repo_read
+      executor:
+        - performance_checks
+      reviewer:
+        - repo_read
+        - metric_review
     commands:
       - python scripts/performance_regression_check.py --base HEAD
+    blocking_gates:
+      - performance_report_generated
+    completion_contract:
+      - regression threshold decision is explicit
+    escalation_rules:
+      - no_baseline_reference -> awaiting_user_input
 
   - task: release_artifact_sync
+    summary: 发布前版本、文档与检查结果统一校验
+    workflow_mode: plan_execute_review
+    lifecycle_profile: release_review
+    entry_state: created
+    completion_state: completed
+    rework_owner_default: executor.qa
     entry_doc: AGENTS.md
     primary_doc: docs/agents/workflows.md
+    profile_doc: docs/agents/protocol/route-profiles/release_artifact_sync.md
+    aliases:
+      - release_check
     secondary_docs:
+      - docs/agents/lifecycle.md
       - docs/agents/references.md
+    read_order:
+      - AGENTS.md
+      - docs/agents/lifecycle.md
+      - docs/agents/workflows.md
+      - docs/agents/protocol/route-profiles/release_artifact_sync.md
+      - docs/agents/references.md
+    required_inputs:
+      - release target or base reference
+    handoff_sequence:
+      - planner
+      - executor.qa
+      - reviewer
+    required_artifacts:
+      - plan_brief
+      - execution_report
+      - review_report
+    substates:
+      - release_inputs_resolved
+    allowed_tools:
+      planner:
+        - repo_read
+      executor:
+        - release_checks
+      reviewer:
+        - repo_read
+        - gate_execution
     commands:
       - python scripts/release_artifact_sync.py --base HEAD
+    blocking_gates:
+      - release_artifacts_consistent
+    completion_contract:
+      - release artifacts and docs are consistent
+      - mandatory checks are recorded in review_report
+    escalation_rules:
+      - no_release_target -> awaiting_user_input
 
   - task: release_check
-    entry_doc: AGENTS.md
-    primary_doc: docs/agents/workflows.md
-    secondary_docs:
-      - docs/agents/references.md
-    commands:
-      - python scripts/release_artifact_sync.py --base HEAD
+    alias_of: release_artifact_sync
+    aliases: []
 
 doc_index:
   - id: agents_index
     title: Agent Docs Index
     path: docs/agents/INDEX.md
     scope: navigation
+    audience: agent
+
+  - id: lifecycle
+    title: Agent Task Lifecycle
+    path: docs/agents/lifecycle.md
+    scope: lifecycle
+    audience: agent
+
+  - id: protocol_scaffold
+    title: Agent Protocol Scaffold
+    path: docs/agents/protocol/README.md
+    scope: protocol
+    audience: agent
+
+  - id: compat_inventory_artifact
+    title: compat_inventory Artifact Template
+    path: docs/agents/protocol/artifacts/compat_inventory.md
+    scope: protocol
+    audience: agent
+
+  - id: modify_plugin_profile
+    title: modify_plugin Route Profile
+    path: docs/agents/protocol/route-profiles/modify_plugin.md
+    scope: protocol
+    audience: agent
+
+  - id: retire_compat_profile
+    title: retire_compat Route Profile
+    path: docs/agents/protocol/route-profiles/retire_compat.md
+    scope: protocol
+    audience: agent
+
+  - id: generate_docs_profile
+    title: generate_docs Route Profile
+    path: docs/agents/protocol/route-profiles/generate_docs.md
+    scope: protocol
+    audience: agent
+
+  - id: debug_cache_profile
+    title: debug_cache Route Profile
+    path: docs/agents/protocol/route-profiles/debug_cache.md
+    scope: protocol
+    audience: agent
+
+  - id: run_tests_profile
+    title: run_tests Route Profile
+    path: docs/agents/protocol/route-profiles/run_tests.md
+    scope: protocol
+    audience: agent
+
+  - id: schema_compat_check_profile
+    title: schema_compat_check Route Profile
+    path: docs/agents/protocol/route-profiles/schema_compat_check.md
+    scope: protocol
+    audience: agent
+
+  - id: assess_change_impact_profile
+    title: assess_change_impact Route Profile
+    path: docs/agents/protocol/route-profiles/assess_change_impact.md
+    scope: protocol
+    audience: agent
+
+  - id: release_artifact_sync_profile
+    title: release_artifact_sync Route Profile
+    path: docs/agents/protocol/route-profiles/release_artifact_sync.md
+    scope: protocol
+    audience: agent
+
+  - id: performance_regression_check_profile
+    title: performance_regression_check Route Profile
+    path: docs/agents/protocol/route-profiles/performance_regression_check.md
+    scope: protocol
     audience: agent
 
   - id: architecture
@@ -129,4 +830,16 @@ doc_index:
     title: Agent References
     path: docs/agents/references.md
     scope: links
+    audience: agent
+
+  - id: skills_adapter
+    title: Skills Adapter Notes
+    path: docs/agents/adapters/skills.md
+    scope: adapter
+    audience: agent
+
+  - id: mcp_adapter
+    title: MCP Adapter Notes
+    path: docs/agents/adapters/mcp.md
+    scope: adapter
     audience: agent
