@@ -158,19 +158,21 @@ class DAQAnalyzer:
         self.runs = {}
         self.total_bytes = 0
 
-        for run_name in sorted(os.listdir(self.daq_root)):
-            run_path = os.path.join(self.daq_root, run_name)
-            if not os.path.isdir(run_path):
-                continue
+        with os.scandir(self.daq_root) as entries:
+            run_entries = sorted(
+                (entry for entry in entries if entry.is_dir()),
+                key=lambda entry: entry.name,
+            )
 
+        for entry in run_entries:
             # Aggregate per-run metadata for overview stats.
             run = DAQRun(
-                run_name,
-                run_path,
+                entry.name,
+                entry.path,
                 daq_adapter=self.daq_adapter,
                 directory_layout=self.directory_layout,
             )
-            self.runs[run_name] = run
+            self.runs[entry.name] = run
             self.total_bytes += run.total_bytes
 
         self._build_dataframe()

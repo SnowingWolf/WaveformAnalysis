@@ -64,10 +64,9 @@ class DAQRun:
     IDX_PATTERN = re.compile(r"_(\d+)\.CSV$", re.IGNORECASE)
 
     @staticmethod
-    def _get_file_created_time(file_path: str | Path) -> datetime:
-        """获取文件创建时间；若文件系统不支持则回退到 mtime。"""
-        stat = Path(file_path).stat()
-        created_ts = getattr(stat, "st_birthtime", stat.st_mtime)
+    def _get_file_created_time(stat_result: os.stat_result) -> datetime:
+        """从现有 stat 结果提取创建时间；若文件系统不支持则回退到 mtime。"""
+        created_ts = getattr(stat_result, "st_birthtime", stat_result.st_mtime)
         return datetime.fromtimestamp(created_ts)
 
     @staticmethod
@@ -175,7 +174,7 @@ class DAQRun:
                 stat = fpath.stat()
                 size_bytes = stat.st_size
                 mtime = datetime.fromtimestamp(stat.st_mtime)
-                created_time = self._get_file_created_time(fpath)
+                created_time = self._get_file_created_time(stat)
 
                 self.channel_files.setdefault(ch, []).append(
                     {
@@ -196,26 +195,33 @@ class DAQRun:
 
     def _scan_default(self) -> None:
         """使用默认配置扫描文件（向后兼容）"""
-        for fname in sorted(os.listdir(self.raw_dir)):
-            if not fname.endswith(self.ALLOWED_EXTS):
-                continue
+        with os.scandir(self.raw_dir) as entries:
+            file_entries = sorted(
+                (
+                    entry
+                    for entry in entries
+                    if entry.is_file() and entry.name.endswith(self.ALLOWED_EXTS)
+                ),
+                key=lambda entry: entry.name,
+            )
 
-            fpath = os.path.join(self.raw_dir, fname)
-            size_bytes = os.path.getsize(fpath)
-            mtime = datetime.fromtimestamp(os.path.getmtime(fpath))
-            created_time = self._get_file_created_time(fpath)
+        for entry in file_entries:
+            stat = entry.stat()
+            size_bytes = stat.st_size
+            mtime = datetime.fromtimestamp(stat.st_mtime)
+            created_time = self._get_file_created_time(stat)
 
-            ch_match = self.CH_PATTERN.search(fname)
+            ch_match = self.CH_PATTERN.search(entry.name)
             ch = int(ch_match.group(1)) if ch_match else None
-            idx_match = self.IDX_PATTERN.search(fname)
+            idx_match = self.IDX_PATTERN.search(entry.name)
             idx = int(idx_match.group(1)) if idx_match else 0
 
             if ch is not None:
                 self.channel_files.setdefault(ch, []).append(
                     {
-                        "filename": fname,
+                        "filename": entry.name,
                         "index": idx,
-                        "path": fpath,
+                        "path": entry.path,
                         "size_bytes": size_bytes,
                         "created_time": created_time,
                         "mtime": mtime,
