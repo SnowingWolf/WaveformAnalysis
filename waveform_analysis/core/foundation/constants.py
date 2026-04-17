@@ -47,6 +47,12 @@ class ProcessingDefaults:
     # 分块处理的默认块大小 (事件数)
     CHUNK_SIZE = 50000
 
+    # CSV 文件读取的默认块大小 (行数)
+    CSV_CHUNKSIZE = 1000
+
+    # 流式峰值检测的默认块大小 (事件数)
+    PEAK_DETECTION_CHUNK_SIZE = 4096
+
     # I/O 缓冲区大小 (字节)
     BUFFER_SIZE = 4 * 1024 * 1024  # 4MB
 

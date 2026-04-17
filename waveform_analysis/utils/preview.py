@@ -26,7 +26,7 @@ from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import numpy as np
 
-from waveform_analysis.core.foundation.constants import FeatureDefaults
+from waveform_analysis.core.foundation.constants import FeatureDefaults, ProcessingDefaults
 from waveform_analysis.core.foundation.utils import exporter
 from waveform_analysis.core.processing.dtypes import DEFAULT_WAVE_LENGTH, ST_WAVEFORM_DTYPE
 from waveform_analysis.core.processing.loader import WaveformLoaderCSV
@@ -291,7 +291,9 @@ class WaveformPreviewer:
 
         logger.debug(f"Loading events {start_event} to {end_event} from channel {channel}")
 
-        for chunk in parse_files_generator(channel_files, chunksize=1000):
+        for chunk in parse_files_generator(
+            channel_files, chunksize=ProcessingDefaults.CSV_CHUNKSIZE
+        ):
             chunk_size = len(chunk)
             chunk_end = event_counter + chunk_size
 
@@ -368,7 +370,9 @@ class WaveformPreviewer:
             f"Loading events with timestamp in [{start_ts}, {end_ts}) from channel {channel}"
         )
 
-        for chunk in parse_files_generator(channel_files, chunksize=1000):
+        for chunk in parse_files_generator(
+            channel_files, chunksize=ProcessingDefaults.CSV_CHUNKSIZE
+        ):
             # 提取时间戳列（CSV 第3列，索引为2）
             try:
                 timestamps = chunk[:, 2].astype(np.int64)

@@ -12,6 +12,7 @@ from typing import Any, Optional, Union
 import numpy as np
 from scipy.signal import find_peaks
 
+from waveform_analysis.core.foundation.constants import ProcessingDefaults
 from waveform_analysis.core.foundation.utils import exporter
 from waveform_analysis.core.plugins.builtin.cpu._dt_compat import (
     require_dt_array,
@@ -54,7 +55,7 @@ class SignalPeaksStreamPlugin(StreamingPlugin):
     required_halo_ns = 0
     clip_strict = False
     is_stateful = False
-    chunk_size = 4096
+    chunk_size = ProcessingDefaults.PEAK_DETECTION_CHUNK_SIZE
     parallel = True
     executor_type = "process"
     max_workers = None

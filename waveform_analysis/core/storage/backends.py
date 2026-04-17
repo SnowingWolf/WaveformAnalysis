@@ -13,9 +13,11 @@ Storage Backends 模块 - 可插拔存储后端抽象层
 3. 向后兼容现有 MemmapStorage
 """
 
+from collections.abc import Iterator
 import json
 import logging
-from typing import Any, Dict, Iterator, List, Optional, Protocol, runtime_checkable
+import sqlite3
+from typing import Any, Optional, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -49,7 +51,7 @@ class StorageBackend(Protocol):
         ...
 
     def save_memmap(
-        self, key: str, data: np.ndarray, extra_metadata: Optional[Dict[str, Any]] = None
+        self, key: str, data: np.ndarray, extra_metadata: dict[str, Any] | None = None
     ) -> None:
         """
         保存 numpy 数组
@@ -61,7 +63,7 @@ class StorageBackend(Protocol):
         """
         ...
 
-    def load_memmap(self, key: str) -> Optional[np.ndarray]:
+    def load_memmap(self, key: str) -> np.ndarray | None:
         """
         加载 numpy 数组
 
@@ -73,7 +75,7 @@ class StorageBackend(Protocol):
         """
         ...
 
-    def save_metadata(self, key: str, metadata: Dict[str, Any]) -> None:
+    def save_metadata(self, key: str, metadata: dict[str, Any]) -> None:
         """
         保存元数据
 
@@ -83,7 +85,7 @@ class StorageBackend(Protocol):
         """
         ...
 
-    def get_metadata(self, key: str) -> Optional[Dict[str, Any]]:
+    def get_metadata(self, key: str) -> dict[str, Any] | None:
         """
         获取元数据
 
@@ -104,7 +106,7 @@ class StorageBackend(Protocol):
         """
         ...
 
-    def list_keys(self) -> List[str]:
+    def list_keys(self) -> list[str]:
         """
         列出所有存储的键
 
@@ -130,7 +132,7 @@ class StorageBackend(Protocol):
         key: str,
         stream: Iterator[np.ndarray],
         dtype: np.dtype,
-        extra_metadata: Optional[Dict[str, Any]] = None,
+        extra_metadata: dict[str, Any] | None = None,
     ) -> int:
         """
         保存流式数据
@@ -147,7 +149,7 @@ class StorageBackend(Protocol):
         ...
 
     def finalize_save(
-        self, key: str, count: int, dtype: np.dtype, extra_metadata: Optional[Dict[str, Any]] = None
+        self, key: str, count: int, dtype: np.dtype, extra_metadata: dict[str, Any] | None = None
     ) -> None:
         """
         完成流式保存（原子化写入）
@@ -234,7 +236,7 @@ class SQLiteBackend:
         return cursor.fetchone() is not None
 
     def save_memmap(
-        self, key: str, data: np.ndarray, extra_metadata: Optional[Dict[str, Any]] = None
+        self, key: str, data: np.ndarray, extra_metadata: dict[str, Any] | None = None
     ) -> None:
         blob = data.tobytes()
         # 保存 dtype 描述符（支持结构化数组）
@@ -270,7 +272,7 @@ class SQLiteBackend:
         self.save_metadata(key, metadata)
         self.conn.commit()
 
-    def load_memmap(self, key: str) -> Optional[np.ndarray]:
+    def load_memmap(self, key: str) -> np.ndarray | None:
         cursor = self.conn.cursor()
         cursor.execute("SELECT data, dtype, shape FROM arrays WHERE key = ?", (key,))
         row = cursor.fetchone()
@@ -286,8 +288,8 @@ class SQLiteBackend:
         # 简单数组: "int64" or "<i8"
         try:
             dtype = np.dtype(eval(dtype_str) if dtype_str.startswith("[") else dtype_str)
-        except:
-            # 回退：尝试直接解析
+        except (TypeError, ValueError, SyntaxError) as e:
+            logger.warning(f"Failed to parse dtype with eval: {e}, falling back to direct parsing")
             dtype = np.dtype(dtype_str)
 
         # 从 blob 重建数组
@@ -297,7 +299,7 @@ class SQLiteBackend:
 
         return arr
 
-    def save_metadata(self, key: str, metadata: Dict[str, Any]) -> None:
+    def save_metadata(self, key: str, metadata: dict[str, Any]) -> None:
         metadata_json = json.dumps(metadata, default=str)
 
         cursor = self.conn.cursor()
@@ -310,7 +312,7 @@ class SQLiteBackend:
         )
         self.conn.commit()
 
-    def get_metadata(self, key: str) -> Optional[Dict[str, Any]]:
+    def get_metadata(self, key: str) -> dict[str, Any] | None:
         cursor = self.conn.cursor()
         cursor.execute("SELECT metadata FROM metadata WHERE key = ?", (key,))
         row = cursor.fetchone()
@@ -326,7 +328,7 @@ class SQLiteBackend:
         cursor.execute("DELETE FROM metadata WHERE key = ?", (key,))
         self.conn.commit()
 
-    def list_keys(self) -> List[str]:
+    def list_keys(self) -> list[str]:
         cursor = self.conn.cursor()
         cursor.execute("SELECT key FROM arrays ORDER BY created_at DESC")
         return [row[0] for row in cursor.fetchall()]
@@ -342,7 +344,7 @@ class SQLiteBackend:
         key: str,
         stream: Iterator[np.ndarray],
         dtype: np.dtype,
-        extra_metadata: Optional[Dict[str, Any]] = None,
+        extra_metadata: dict[str, Any] | None = None,
     ) -> int:
         """累积流数据并保存"""
         chunks = []
@@ -360,7 +362,7 @@ class SQLiteBackend:
         return total_count
 
     def finalize_save(
-        self, key: str, count: int, dtype: np.dtype, extra_metadata: Optional[Dict[str, Any]] = None
+        self, key: str, count: int, dtype: np.dtype, extra_metadata: dict[str, Any] | None = None
     ) -> None:
         """SQLite 后端在 save_stream 中已完成保存，无需额外操作"""
         pass
@@ -372,8 +374,8 @@ class SQLiteBackend:
     def __del__(self):
         try:
             self.conn.close()
-        except:
-            pass
+        except (AttributeError, sqlite3.Error) as e:
+            logger.debug(f"Error closing SQLite connection in __del__: {e}")
 
 
 @export

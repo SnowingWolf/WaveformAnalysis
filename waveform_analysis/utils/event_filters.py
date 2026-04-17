@@ -4,10 +4,14 @@
 提供用于筛选和提取事件数据的通用函数，支持numba加速。
 """
 
-from typing import Callable, Dict, List, Optional
+from collections.abc import Callable
+import logging
+from typing import Optional
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 # 尝试导入 numba 用于加速
 try:
@@ -71,7 +75,7 @@ def _find_channel_index_numba(channels_arr, target_channel):
 def filter_events_by_function(
     df_events: pd.DataFrame,
     filter_func: Callable,
-    column: Optional[str] = None,
+    column: str | None = None,
     use_vectorized: bool = True,
 ) -> pd.DataFrame:
     """
@@ -94,7 +98,10 @@ def filter_events_by_function(
             # 如果filter_func可以向量化，直接应用到列
             mask = filter_func(df_events[column])
             return df_events[mask]
-        except:
+        except (TypeError, ValueError, KeyError) as e:
+            logger.debug(
+                f"Vectorization failed for column '{column}': {e}, falling back to apply()"
+            )
             # 如果向量化失败，回退到apply
             pass
 
@@ -109,9 +116,9 @@ def filter_events_by_function(
 
 def filter_coincidence_events(
     df_events: pd.DataFrame,
-    channels: List[int],
+    channels: list[int],
     use_vectorized: bool = True,
-    use_numba: Optional[bool] = None,
+    use_numba: bool | None = None,
 ) -> pd.DataFrame:
     """
     筛选同时包含所有指定通道的事件（Coincidence筛选）
@@ -168,10 +175,10 @@ def filter_coincidence_events(
 
 def extract_channel_attributes(
     df_filtered: pd.DataFrame,
-    channels: List[int],
+    channels: list[int],
     attribute: str = "charges",
-    use_numba: Optional[bool] = None,
-) -> Dict[int, List]:
+    use_numba: bool | None = None,
+) -> dict[int, list]:
     """
     从筛选后的事件中提取指定通道的指定属性值
     支持numba加速
