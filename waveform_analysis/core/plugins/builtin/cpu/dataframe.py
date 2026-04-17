@@ -242,6 +242,7 @@ class DataFramePlugin(Plugin):
                     "area": np.asarray(basic_features["area"]),
                     "height": np.asarray(basic_features["height"]),
                     "amp": np.asarray(basic_features["amp"]),
+                    "max_abs_diff": np.asarray(basic_features["max_abs_diff"]),
                     "board": (
                         np.asarray(records["board"])
                         if "board" in records.dtype.names
@@ -277,6 +278,7 @@ class DataFramePlugin(Plugin):
                     "area": np.asarray(basic_features["area"]),
                     "height": np.asarray(basic_features["height"]),
                     "amp": np.asarray(basic_features["amp"]),
+                    "max_abs_diff": np.asarray(basic_features["max_abs_diff"]),
                     "board": (
                         np.asarray(waveform_data["board"])
                         if "board" in waveform_data.dtype.names

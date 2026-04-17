@@ -8,6 +8,7 @@ Basic Features Plugin - 基础特征计算插件
 - height: 脉冲高度（baseline - min(wave)），信号偏离基线的幅度
 - amp: 峰峰值振幅（max - min）
 - area: 波形面积（积分）
+- max_abs_diff: 波形相邻采样点差分绝对值最大值
 
 支持可选的滤波波形输入，可配置计算范围。
 """
@@ -30,6 +31,7 @@ BASIC_FEATURES_DTYPE = np.dtype(
         ("height", "f4"),  # baseline - min(wave)，信号偏离基线的幅度
         ("amp", "f4"),  # max - min，峰峰值振幅
         ("area", "f4"),
+        ("max_abs_diff", "f4"),  # max(abs(diff(wave)))
         ("timestamp", "i8"),  # ADC 时间戳 (ps)
         ("board", "i2"),  # 板卡编号
         ("channel", "i2"),  # 物理通道号
@@ -43,8 +45,10 @@ class BasicFeaturesPlugin(Plugin):
 
     provides = "basic_features"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
-    description = "Compute basic height, amplitude, and area features from waveform data."
-    version = "3.9.0"  # 版本升级：polarity 仅来自数据字段，不再来自插件配置
+    description = (
+        "Compute basic height, amplitude, area, and max-abs-diff features from waveform data."
+    )
+    version = "4.0.0"  # 输出字段变更，需要升级版本以避免缓存误用
     save_when = "always"
     output_dtype = BASIC_FEATURES_DTYPE
     options = {
@@ -84,11 +88,12 @@ class BasicFeaturesPlugin(Plugin):
 
     def compute(self, context: Any, run_id: str, **kwargs) -> np.ndarray:
         """
-        计算基础特征（height/amp/area）
+        计算基础特征（height/amp/area/max_abs_diff）
 
         height = baseline - min(wave)  (信号偏离基线的幅度)
         amp = max - min  (峰峰值振幅)
         area = sum(baseline - wave)
+        max_abs_diff = max(abs(diff(wave)))
 
         Returns:
             np.ndarray: 结构化数组，包含 height/area 字段
@@ -179,6 +184,10 @@ class BasicFeaturesPlugin(Plugin):
                     else:
                         features["area"][idx] = float(np.sum(baseline64 - wave_c64))
 
+                if wave.size > 1:
+                    diff = np.diff(wave.astype(np.float64, copy=False))
+                    features["max_abs_diff"][idx] = float(np.max(np.abs(diff)))
+
                 features["timestamp"][idx] = int(rec["timestamp"])
                 features["board"][idx] = board
                 features["channel"][idx] = ch
@@ -210,6 +219,7 @@ class BasicFeaturesPlugin(Plugin):
         height_vals = np.zeros(n_events, dtype=np.float32)
         amp_vals = np.zeros(n_events, dtype=np.float32)
         area_vals = np.zeros(n_events, dtype=np.float32)
+        max_abs_diff_vals = np.zeros(n_events, dtype=np.float32)
 
         for idx in range(n_events):
             wave = waves[idx]
@@ -250,12 +260,16 @@ class BasicFeaturesPlugin(Plugin):
                     area_vals[idx] = float(np.sum(wave_c - baseline))
                 else:
                     area_vals[idx] = float(np.sum(baseline - wave_c))
+            if wave.size > 1:
+                diff = np.diff(wave.astype(np.float64, copy=False))
+                max_abs_diff_vals[idx] = float(np.max(np.abs(diff)))
 
         # 构建输出（包含元数据）
         features = np.zeros(n_events, dtype=BASIC_FEATURES_DTYPE)
         features["height"] = height_vals
         features["amp"] = amp_vals
         features["area"] = area_vals
+        features["max_abs_diff"] = max_abs_diff_vals
         features["timestamp"] = timestamps
         features["board"] = boards
         features["channel"] = channels

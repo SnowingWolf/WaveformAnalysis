@@ -38,6 +38,7 @@ class TestWaveSources:
         assert len(result) == 2
         assert np.isclose(result["height"][0], 20.0)
         assert np.isclose(result["amp"][0], 15.0)
+        assert np.isclose(result["max_abs_diff"][0], 15.0)
 
     def test_records_view_fixed_baseline_uses_normalized_signal(self):
         ctx = FakeContext(
@@ -86,3 +87,4 @@ class TestWaveSources:
         np.testing.assert_allclose(result["height"], [5.0, 5.0])
         np.testing.assert_allclose(result["amp"], [0.0, 0.0])
         np.testing.assert_allclose(result["area"], [20.0, 20.0])
+        np.testing.assert_allclose(result["max_abs_diff"], [0.0, 0.0])

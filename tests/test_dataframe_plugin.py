@@ -46,12 +46,14 @@ def _make_basic_features():
             ("area", "f4"),
             ("height", "f4"),
             ("amp", "f4"),
+            ("max_abs_diff", "f4"),
         ]
     )
     data = np.zeros(3, dtype=dtype)
     data["area"] = [30.0, 10.0, 20.0]
     data["height"] = [15.0, 5.0, 10.0]
     data["amp"] = [4.0, 2.0, 3.0]
+    data["max_abs_diff"] = [9.0, 5.0, 7.0]
     return data
 
 
@@ -81,9 +83,11 @@ def test_dataframe_plugin_no_gain_columns_by_default():
 
     assert "area_pe" not in df.columns
     assert "height_pe" not in df.columns
+    assert "max_abs_diff" in df.columns
     assert list(df["board"]) == [1, 2, 2]
     assert list(df["record_id"]) == [10, 20, 30]
     assert list(df["timestamp"]) == [100, 200, 300]
+    assert list(df["max_abs_diff"]) == [5.0, 7.0, 9.0]
 
 
 def test_dataframe_plugin_gain_columns_with_partial_map():
@@ -206,6 +210,7 @@ def test_dataframe_plugin_reads_records_directly_when_wave_source_records():
     assert list(df["record_id"]) == [10, 20, 30]
     assert list(df["channel"]) == [1, 0, 0]
     assert list(df["area"]) == [10.0, 20.0, 30.0]
+    assert list(df["max_abs_diff"]) == [5.0, 7.0, 9.0]
     np.testing.assert_array_equal(df["board"].to_numpy(), np.array([1, 2, 2], dtype=np.int16))
 
 
@@ -252,6 +257,7 @@ def test_dataframe_plugin_records_empty_returns_empty_df():
         "area",
         "height",
         "amp",
+        "max_abs_diff",
         "board",
         "channel",
     ]

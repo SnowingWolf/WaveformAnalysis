@@ -51,6 +51,19 @@ class TestBasicFeaturesCompute:
 
         assert np.isclose(result["area"][0], 50.0)
 
+    def test_max_abs_diff_calculation(self):
+        st = make_basic_feature_waveforms(n=1, wave_length=6)
+        st[0]["wave"][:] = [100, 96, 82, 95, 94, 110]
+        st[0]["baseline"] = 100.0
+
+        ctx = make_basic_feature_context(
+            st,
+            config={"height_range": (0, 6), "area_range": (0, 6)},
+        )
+        result = BasicFeaturesPlugin().compute(ctx, "run_001")
+
+        assert np.isclose(result["max_abs_diff"][0], 16.0)
+
     def test_metadata_fields(self):
         st = make_basic_feature_waveforms(n=3, n_channels=2)
         ctx = make_basic_feature_context(st)
@@ -75,6 +88,14 @@ class TestBasicFeaturesCompute:
 
         assert len(result) == 1
         assert result["event_index"][0] == 0
+
+    def test_single_sample_wave_has_zero_max_abs_diff(self):
+        st = make_basic_feature_waveforms(n=1, wave_length=1)
+        st[0]["wave"][:] = [90]
+        ctx = make_basic_feature_context(st)
+        result = BasicFeaturesPlugin().compute(ctx, "run_001")
+
+        assert np.isclose(result["max_abs_diff"][0], 0.0)
 
 
 class TestRangeConfig:
