@@ -2,6 +2,7 @@ from datetime import datetime
 import json
 import os
 from pathlib import Path
+from types import MethodType
 import warnings
 
 import pytest
@@ -118,3 +119,73 @@ def test_run_acquisition_window_uses_first_file_time_and_last_file_end(tmp_path:
     start_time, end_time = run.get_run_acquisition_window()
     assert start_time == datetime.fromtimestamp(first_ts)
     assert end_time == datetime.fromtimestamp(first_ts + 5)
+
+
+def test_run_acquisition_window_reuses_cached_parse_results(
+    tmp_path: Path, make_csv_fn, monkeypatch
+):
+    daq_root = tmp_path / "DAQ"
+    raw_dir = daq_root / "test_run" / "RAW"
+    raw_dir.mkdir(parents=True)
+
+    make_csv_fn(raw_dir, 1, 0, 0, 1000)
+    make_csv_fn(raw_dir, 1, 1, 1000, 2000)
+
+    analyzer = DAQAnalyzer(daq_root)
+    analyzer.scan_all_runs()
+    run = analyzer.get_run("test_run")
+    assert run is not None
+
+    parse_calls = 0
+    original_parse_csv_file = run._parse_csv_file
+
+    def counting_parse_csv_file(path: str):
+        nonlocal parse_calls
+        parse_calls += 1
+        return original_parse_csv_file(path)
+
+    monkeypatch.setattr(run, "_parse_csv_file", counting_parse_csv_file)
+
+    first_window = run.get_run_acquisition_window()
+    second_window = run.get_run_acquisition_window()
+
+    assert first_window == second_window
+    assert parse_calls == 2
+
+    run.compute_acquisition_times(force_reparse=True)
+    assert parse_calls == 4
+
+
+def test_display_overview_warms_each_run_once(tmp_path: Path, make_csv_fn, monkeypatch):
+    daq_root = tmp_path / "DAQ"
+
+    raw_dir1 = daq_root / "run_one" / "RAW"
+    raw_dir1.mkdir(parents=True)
+    make_csv_fn(raw_dir1, 1, 0, 0, 1000)
+
+    raw_dir2 = daq_root / "run_two" / "RAW"
+    raw_dir2.mkdir(parents=True)
+    make_csv_fn(raw_dir2, 1, 0, 500, 1500)
+
+    analyzer = DAQAnalyzer(daq_root)
+    analyzer.scan_all_runs()
+
+    call_counts: dict[str, int] = {}
+    for run in analyzer.runs.values():
+        original_get_run_acquisition_window = run.get_run_acquisition_window
+
+        def counting_get_run_acquisition_window(
+            self, _original=original_get_run_acquisition_window
+        ):
+            call_counts[self.run_name] = call_counts.get(self.run_name, 0) + 1
+            return _original()
+
+        monkeypatch.setattr(
+            run,
+            "get_run_acquisition_window",
+            MethodType(counting_get_run_acquisition_window, run),
+        )
+
+    analyzer.display_overview()
+
+    assert call_counts == {"run_one": 1, "run_two": 1}

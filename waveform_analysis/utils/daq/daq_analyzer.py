@@ -190,16 +190,29 @@ class DAQAnalyzer:
     def get_all_runs(self) -> list[DAQRun]:
         return list(self.runs.values())
 
+    @staticmethod
+    def _format_acquisition_time(dt: datetime | None) -> str:
+        if dt is None:
+            return "N/A"
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    def _warm_acquisition_windows(self) -> dict[str, tuple[str, str]]:
+        windows: dict[str, tuple[str, str]] = {}
+        for run_name, run in self.runs.items():
+            start_time, end_time = run.get_run_acquisition_window()
+            windows[run_name] = (
+                self._format_acquisition_time(start_time),
+                self._format_acquisition_time(end_time),
+            )
+        return windows
+
     def _get_run_acquisition_start(self, run_name: str) -> str:
         """获取运行的采集开始时间（第一个文件创建时间）"""
         run = self.get_run(run_name)
         if run is None:
             return "N/A"
         earliest_created_time, _ = run.get_run_acquisition_window()
-
-        if earliest_created_time is None:
-            return "N/A"
-        return earliest_created_time.strftime("%Y-%m-%d %H:%M:%S")
+        return self._format_acquisition_time(earliest_created_time)
 
     def _get_run_acquisition_end(self, run_name: str) -> str:
         """获取运行的采集结束时间（最后一个文件的结束时间）"""
@@ -207,10 +220,7 @@ class DAQAnalyzer:
         if run is None:
             return "N/A"
         _, latest_end_time = run.get_run_acquisition_window()
-
-        if latest_end_time is None:
-            return "N/A"
-        return latest_end_time.strftime("%Y-%m-%d %H:%M:%S")
+        return self._format_acquisition_time(latest_end_time)
 
     def _build_channel_rows(self, stats: dict[int, dict]) -> list[dict]:
         # Normalize channel stats iento row dicts for DataFrame display.
@@ -293,9 +303,14 @@ class DAQAnalyzer:
             lambda v: self.format_size(int(v) if v is not None else 0)
         )
 
-        # Compute acquisition times for all runs
-        df["acquisition_start"] = df["run_name"].apply(self._get_run_acquisition_start)
-        df["acquisition_end"] = df["run_name"].apply(self._get_run_acquisition_end)
+        # Warm acquisition windows once so overview columns reuse cached results.
+        acquisition_windows = self._warm_acquisition_windows()
+        df["acquisition_start"] = df["run_name"].map(
+            lambda run_name: acquisition_windows.get(run_name, ("N/A", "N/A"))[0]
+        )
+        df["acquisition_end"] = df["run_name"].map(
+            lambda run_name: acquisition_windows.get(run_name, ("N/A", "N/A"))[1]
+        )
 
         # Apply sorting
         if sort_by is not None:

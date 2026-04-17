@@ -32,6 +32,7 @@ Examples:
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 import logging
 import os
@@ -137,6 +138,7 @@ class DAQRun:
 
         self.channel_files: dict[int, list[dict]] = {}
         self.channel_stats: dict[int, dict] = {}
+        self._run_acquisition_window: tuple[datetime | None, datetime | None] | None = None
 
         # 时间单位常量
         self.ps_per_ns = 1000
@@ -281,25 +283,66 @@ class DAQRun:
 
         return None, None
 
+    def _iter_file_infos(self):
+        for files in self.channel_files.values():
+            yield from files
+
+    def _reset_acquisition_cache(self) -> None:
+        self.channel_stats = {}
+        self._run_acquisition_window = None
+        for file_info in self._iter_file_infos():
+            file_info["timetag_min"] = None
+            file_info["timetag_max"] = None
+
+    def _populate_file_timetags(self) -> None:
+        file_infos = list(self._iter_file_infos())
+        if not file_infos:
+            return
+
+        max_workers = min(8, os.cpu_count() or 1, len(file_infos))
+        if max_workers <= 1:
+            for file_info in file_infos:
+                min_t, max_t = self._parse_csv_file(file_info["path"])
+                file_info["timetag_min"] = min_t
+                file_info["timetag_max"] = max_t
+            return
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_file_info = {
+                executor.submit(self._parse_csv_file, file_info["path"]): file_info
+                for file_info in file_infos
+            }
+            for future in as_completed(future_to_file_info):
+                file_info = future_to_file_info[future]
+                min_t, max_t = future.result()
+                file_info["timetag_min"] = min_t
+                file_info["timetag_max"] = max_t
+
     def compute_acquisition_times(self, force_reparse: bool = False) -> dict[int, dict]:
         if self.channel_stats and not force_reparse:
             return self.channel_stats
 
+        self._reset_acquisition_cache()
+        self._populate_file_timetags()
+
+        run_earliest_created_time = None
+        run_latest_end_tag_ps = None
+
         for ch in sorted(self.channel_files.keys()):
-            files = sorted(self.channel_files[ch], key=lambda x: x["index"])
+            files = self.channel_files[ch]
 
             min_tag_ps = None
             max_tag_ps = None
             earliest_created_time = None
             earliest_mtime = None
             latest_mtime = None
+            total_size_bytes = 0
 
             for file_info in files:
-                min_t, max_t = self._parse_csv_file(file_info["path"])
+                min_t = file_info.get("timetag_min")
+                max_t = file_info.get("timetag_max")
+                total_size_bytes += file_info["size_bytes"]
                 if min_t is not None:
-                    file_info["timetag_min"] = min_t
-                    file_info["timetag_max"] = max_t
-
                     if min_tag_ps is None or min_t < min_tag_ps:
                         min_tag_ps = min_t
                     if max_tag_ps is None or max_t > max_tag_ps:
@@ -331,7 +374,7 @@ class DAQRun:
 
             self.channel_stats[ch] = {
                 "file_count": len(files),
-                "total_size_bytes": sum(f["size_bytes"] for f in files),
+                "total_size_bytes": total_size_bytes,
                 "start_time_ps": min_tag_ps,
                 "end_time_ps": max_tag_ps,
                 "start_time_us": start_us,
@@ -342,6 +385,23 @@ class DAQRun:
                 "earliest_mtime": earliest_mtime,
                 "latest_mtime": latest_mtime,
             }
+
+            if earliest_created_time is not None and (
+                run_earliest_created_time is None
+                or earliest_created_time < run_earliest_created_time
+            ):
+                run_earliest_created_time = earliest_created_time
+            if max_tag_ps is not None and (
+                run_latest_end_tag_ps is None or max_tag_ps > run_latest_end_tag_ps
+            ):
+                run_latest_end_tag_ps = max_tag_ps
+
+        acquisition_end = None
+        if run_earliest_created_time is not None and run_latest_end_tag_ps is not None:
+            acquisition_end = run_earliest_created_time + timedelta(
+                seconds=run_latest_end_tag_ps / self.ps_per_s
+            )
+        self._run_acquisition_window = (run_earliest_created_time, acquisition_end)
 
         return self.channel_stats
 
@@ -357,29 +417,9 @@ class DAQRun:
         结束时间取“最早创建时间 + 所有文件中最大的结束 timetag”。
         """
         self.compute_acquisition_times()
-
-        earliest_created_time = None
-        latest_end_tag_ps = None
-
-        for files in self.channel_files.values():
-            for file_info in files:
-                created_time = file_info.get("created_time")
-                if created_time is not None:
-                    if earliest_created_time is None or created_time < earliest_created_time:
-                        earliest_created_time = created_time
-
-                end_tag_ps = file_info.get("timetag_max")
-                if end_tag_ps is not None:
-                    if latest_end_tag_ps is None or end_tag_ps > latest_end_tag_ps:
-                        latest_end_tag_ps = end_tag_ps
-
-        acquisition_end = None
-        if earliest_created_time is not None and latest_end_tag_ps is not None:
-            acquisition_end = earliest_created_time + timedelta(
-                seconds=latest_end_tag_ps / self.ps_per_s
-            )
-
-        return earliest_created_time, acquisition_end
+        if self._run_acquisition_window is None:
+            return None, None
+        return self._run_acquisition_window
 
     def get_channel_file_details(self, channel: int) -> list[dict] | None:
         return sorted(self.channel_files.get(channel, []), key=lambda x: x["index"])
