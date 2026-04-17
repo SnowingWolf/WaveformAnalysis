@@ -37,7 +37,7 @@
 | `sg_poly_order` | `int` | `2` | SG 多项式阶数 |
 | `max_workers` | `int` | `None` | 并行工作线程数；None 使用 CPU 核心数，1 或 0 禁用并行 |
 | `batch_size` | `int` | `0` | 每批次记录数（0 表示不分批，整个通道一次处理） |
-| `channel_config` | `dict` | `None` | 按 (board, channel) 的插件通道覆盖配置，可覆盖滤波参数 |
+| `channel_config` | `dict` | `None` | 按 (board, channel) 的插件通道覆盖配置，可覆盖滤波参数。 |
 
 ## Execution Path
 
@@ -48,7 +48,6 @@
 
 - 依赖数据缺失或字段不匹配，导致 compute 阶段报错
 - 配置值类型/范围不合法，触发参数校验异常
-- SG/BW 在超短波形上可能回退原始波形，以避免无效窗口或 `padlen` 异常
 - 输出 dtype 变更但版本未升级，可能导致缓存命中异常
 
 ## Change Playbook

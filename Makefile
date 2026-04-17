@@ -16,7 +16,7 @@ fmt:
 	ruff check . --fix
 
 clean:
-	rm -rf build dist *.egg-info htmlcov .coverage .pytest_cache .mypy_cache .ruff_cache \
+	rm -rf build dist *.egg-info htmlcov .coverage .coverage.* .pytest_cache .mypy_cache .ruff_cache \
 		__pycache__ .venv node_modules outputs test_output
 
 test-core:

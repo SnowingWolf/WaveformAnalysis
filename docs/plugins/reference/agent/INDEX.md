@@ -21,7 +21,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 
 | Provides | Plugin | Depends On | Output Kind | Version |
 |----------|--------|------------|-------------|---------|
-| [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | - | `structured_array` | `3.9.0` |
+| [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | - | `structured_array` | `4.0.0` |
 | [`cache_analysis`](cache_analysis.md) | `CacheAnalysisPlugin` | - | `unknown` | `0.1.0` |
 | [`df`](df.md) | `DataFramePlugin` | - | `unknown` | `1.7.0` |
 | [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `unknown` | `0.0.0` |
@@ -34,10 +34,10 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | `hit_merge_clusters`, `hit_merged` | `structured_array` | `0.1.0` |
 | [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | - | `structured_array` | `0.11.0` |
 | [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | `unknown` | `0.0.2` |
-| [`records`](records.md) | `RecordsPlugin` | - | `structured_array` | `0.9.0` |
+| [`records`](records.md) | `RecordsPlugin` | - | `structured_array` | `0.10.0` |
 | [`s1_s2`](s1_s2.md) | `S1S2ClassifierPlugin` | `waveform_width`, `basic_features` | `structured_array` | `0.4.0` |
 | [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | - | `structured_array` | `0.10.0` |
-| [`wave_pool`](wave_pool.md) | `WavePoolPlugin` | - | `array` | `0.9.0` |
+| [`wave_pool`](wave_pool.md) | `WavePoolPlugin` | - | `array` | `0.10.0` |
 | [`wave_pool_filtered`](wave_pool_filtered.md) | `WavePoolFilteredPlugin` | `records`, `wave_pool` | `array` | `3.0.0` |
 | [`waveform_width`](waveform_width.md) | `WaveformWidthPlugin` | - | `structured_array` | `3.0.0` |
 | [`waveform_width_integral`](waveform_width_integral.md) | `WaveformWidthIntegralPlugin` | - | `structured_array` | `2.7.0` |
@@ -59,7 +59,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 
 ### 特征提取
 
-- [`basic_features`](basic_features.md): Compute basic height, amplitude, and area features from waveform data.
+- [`basic_features`](basic_features.md): Compute basic height, amplitude, area, and max-abs-diff features from waveform data.
 - [`hit`](hit.md): Detect peaks in waveforms and extract peak features.
 - [`hit_grouped`](hit_grouped.md): Group merged hits across channels into event-level coincidence windows.
 - [`hit_merge_clusters`](hit_merge_clusters.md): Internal cluster membership rows shared by hit_merged outputs.

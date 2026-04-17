@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `wave_pool` |
-| **Version** | `0.9.0` |
+| **Version** | `0.10.0` |
 | **Category** | 波形处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -27,7 +27,8 @@ This plugin has no dependencies.
 | `n_jobs` | `int` | `None` | - | Workers per channel for file-level parsing (None=auto). |
 | `use_process_pool` | `bool` | `False` | - | Use a process pool for file-level parsing (False=thread pool). |
 | `chunksize` | `int` | `None` | - | CSV read chunk size; None reads full file (PyArrow if available). |
-| `records_part_size` | `int` | `200000` | - | Max events per records shard; <=0 disables sharding. |
+| `parse_engine` | `str` | `auto` | - | CSV engine: auto | polars | pyarrow | pandas |
+| `records_part_size` | `int` | `250000` | - | Max events per records shard; <=0 disables sharding. |
 | `dt` | `int` | `None` | - | Sample interval in ns for records.dt (defaults to adapter rate or 1ns). |
 | `baseline_samples` | `any` | `None` | - | Baseline range: int (sample count from adapter start) or tuple (start, end) relative to samples_start. JSON lists like [0, 800] are also accepted. None=adapter default. |
 

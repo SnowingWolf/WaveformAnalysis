@@ -126,7 +126,7 @@ raw_files ──► records ──► df ──► df_events
 
 | 插件 | 提供数据 | 版本 | 类别 | 依赖 |
 |------|----------|------|------|------|
-| [`BasicFeaturesPlugin`](basic_features.md) | `basic_features` | 3.9.0 | 特征提取 | - |
+| [`BasicFeaturesPlugin`](basic_features.md) | `basic_features` | 4.0.0 | 特征提取 | - |
 | [`CacheAnalysisPlugin`](cache_analysis.md) | `cache_analysis` | 0.1.0 | 缓存分析 | - |
 | [`DataFramePlugin`](df.md) | `df` | 1.7.0 | 数据导出 | - |
 | [`GroupedEventsPlugin`](df_events.md) | `df_events` | 0.0.0 | 事件分析 | df |
@@ -139,10 +139,10 @@ raw_files ──► records ──► df ──► df_events
 | [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 0.1.0 | 特征提取 | hit_merge_clusters, hit_merged |
 | [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 0.11.0 | 特征提取 | - |
 | [`RawFileNamesPlugin`](raw_files.md) | `raw_files` | 0.0.2 | 数据加载 | - |
-| [`RecordsPlugin`](records.md) | `records` | 0.9.0 | 记录处理 | - |
+| [`RecordsPlugin`](records.md) | `records` | 0.10.0 | 记录处理 | - |
 | [`S1S2ClassifierPlugin`](s1_s2.md) | `s1_s2` | 0.4.0 | 其他 | waveform_width, basic_features |
 | [`WaveformsPlugin`](st_waveforms.md) | `st_waveforms` | 0.10.0 | 波形处理 | - |
-| [`WavePoolPlugin`](wave_pool.md) | `wave_pool` | 0.9.0 | 波形处理 | - |
+| [`WavePoolPlugin`](wave_pool.md) | `wave_pool` | 0.10.0 | 波形处理 | - |
 | [`WavePoolFilteredPlugin`](wave_pool_filtered.md) | `wave_pool_filtered` | 3.0.0 | 波形处理 | records, wave_pool |
 | [`WaveformWidthPlugin`](waveform_width.md) | `waveform_width` | 3.0.0 | 波形处理 | - |
 | [`WaveformWidthIntegralPlugin`](waveform_width_integral.md) | `waveform_width_integral` | 2.7.0 | 波形处理 | - |
@@ -181,7 +181,7 @@ raw_files ──► records ──► df ──► df_events
 
 | 插件 | 说明 | 依赖 |
 |------|------|------|
-| [`basic_features`](basic_features.md) | Compute basic height, amplitude, and area features from wave... | - |
+| [`basic_features`](basic_features.md) | Compute basic height, amplitude, area, and max-abs-diff feat... | - |
 | [`hit`](hit.md) | Detect peaks in waveforms and extract peak features. | - |
 | [`hit_grouped`](hit_grouped.md) | Group merged hits across channels into event-level coinciden... | hit_merged, hit_merged_components, hit_threshold |
 | [`hit_merge_clusters`](hit_merge_clusters.md) | Internal cluster membership rows shared by hit_merged output... | hit_threshold |

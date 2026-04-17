@@ -1,13 +1,13 @@
 # BasicFeaturesPlugin
 
-> Compute basic height, amplitude, and area features from waveform data.
+> Compute basic height, amplitude, area, and max-abs-diff features from waveform data.
 
 ## Overview
 
 | Property | Value |
 |----------|-------|
 | **Provides** | `basic_features` |
-| **Version** | `3.9.0` |
+| **Version** | `4.0.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -38,6 +38,7 @@ This plugin has no dependencies.
 | `height` | `float32` | - | - |
 | `amp` | `float32` | - | - |
 | `area` | `float32` | - | - |
+| `max_abs_diff` | `float32` | - | - |
 | `timestamp` | `int64` | - | - |
 | `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |
