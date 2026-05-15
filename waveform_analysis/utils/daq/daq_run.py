@@ -135,6 +135,7 @@ class DAQRun:
         self.total_bytes = 0
         self.file_count = 0
         self.channels = set()
+        self.boards = set()  # 添加板卡集合
 
         self.channel_files: dict[int, list[dict]] = {}
         self.channel_stats: dict[int, dict] = {}
@@ -194,6 +195,52 @@ class DAQRun:
                 self.channels.add(ch)
                 self.total_bytes += size_bytes
                 self.file_count += 1
+
+        # 对于 V1725 等单文件多通道格式，需要读取文件内部的实际通道和板卡信息
+        self._scan_internal_channels_and_boards()
+
+    def _scan_internal_channels_and_boards(self) -> None:
+        """扫描文件内部的实际通道和板卡信息（用于 V1725 等格式）"""
+        # 只对 V1725 适配器执行此操作
+        if self.daq_adapter is None or self.daq_adapter.name != "v1725":
+            return
+
+        # 获取所有文件路径
+        all_files = []
+        for files in self.channel_files.values():
+            for file_info in files:
+                all_files.append(Path(file_info["path"]))
+
+        if not all_files:
+            return
+
+        # 读取多个文件来确定实际的通道和板卡
+        # 对于有多个板卡的情况，需要读取多个文件
+        try:
+            from waveform_analysis.utils.formats.v1725 import V1725Reader
+
+            reader = V1725Reader()
+            boards_found = set()
+            channels_found = set()
+
+            # 读取前几个文件（最多 3 个），每个文件读取前 50 个波形
+            files_to_scan = all_files[: min(3, len(all_files))]
+
+            for file_path in files_to_scan:
+                for i, wave in enumerate(reader.iter_waves([file_path])):
+                    boards_found.add(wave.board)
+                    channels_found.add(wave.channel)
+                    if i >= 50:  # 每个文件限制读取数量
+                        break
+
+            # 更新板卡和通道信息
+            if boards_found:
+                self.boards = boards_found
+            if channels_found:
+                self.channels = channels_found
+
+        except Exception as e:
+            logger.debug(f"无法扫描文件内部通道/板卡信息: {e}")
 
     def _scan_default(self) -> None:
         """使用默认配置扫描文件（向后兼容）"""
@@ -431,6 +478,9 @@ class DAQRun:
             "file_count": self.file_count,
             "total_size_mb": self.total_bytes / (1024**2) if self.total_bytes > 0 else 0,
             "total_bytes": self.total_bytes,
+            "board_count": len(self.boards),
+            "boards": sorted(self.boards),
+            "board_str": (", ".join(map(str, sorted(self.boards))) if self.boards else "-"),
             "channel_count": len(self.channels),
             "channels": sorted(self.channels),
             "channel_str": (", ".join(map(str, sorted(self.channels))) if self.channels else "-"),

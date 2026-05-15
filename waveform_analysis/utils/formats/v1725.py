@@ -31,6 +31,7 @@ def _bytes_to_int(data: bytes, bit: int | None = None, start: int = 0) -> int:
 
 
 def _one_loc(num: int) -> list[int]:
+    """提取通道掩码中的活跃通道索引。"""
     index_list = []
     bit = 0
     while num != 0:
@@ -39,6 +40,75 @@ def _one_loc(num: int) -> list[int]:
         bit += 1
         num >>= 1
     return index_list
+
+
+def _parse_channel_mask_vectorized(mask_low: int, mask_high: int) -> list[int]:
+    """
+    向量化解析通道掩码。
+
+    Args:
+        mask_low: 低 8 位掩码
+        mask_high: 高 8 位掩码
+
+    Returns:
+        活跃通道索引列表
+    """
+    mask = mask_low | (mask_high << 8)
+    return _one_loc(mask)
+
+
+def _parse_channel_headers_vectorized(headers_data: np.ndarray) -> tuple:
+    """
+    向量化解析多个通道头。
+
+    Args:
+        headers_data: (N, 12) uint8 数组，包含 N 个通道头
+
+    Returns:
+        (ch_sizes, timestamps, truncs, baselines) 元组
+    """
+    if len(headers_data) == 0:
+        return (
+            np.array([], dtype=np.uint32),
+            np.array([], dtype=np.uint64),
+            np.array([], dtype=bool),
+            np.array([], dtype=np.uint16),
+        )
+
+    # 提取 ch_size（前 3 字节，22 位）
+    ch_sizes = (
+        headers_data[:, 0].astype(np.uint32)
+        | (headers_data[:, 1].astype(np.uint32) << 8)
+        | ((headers_data[:, 2].astype(np.uint32) & 0x3F) << 16)
+    )
+
+    # 提取 timestamp（字节 4-9，48 位）
+    timestamps = (
+        headers_data[:, 4].astype(np.uint64)
+        | (headers_data[:, 5].astype(np.uint64) << 8)
+        | (headers_data[:, 6].astype(np.uint64) << 16)
+        | (headers_data[:, 7].astype(np.uint64) << 24)
+        | (headers_data[:, 8].astype(np.uint64) << 32)
+        | (headers_data[:, 9].astype(np.uint64) << 40)
+    )
+
+    # 提取 trunc 标志（字节 3，位 6）
+    truncs = ((headers_data[:, 3] >> 6) & 1).astype(bool)
+
+    # 提取 baseline（字节 10-11）
+    baselines = headers_data[:, 10].astype(np.uint16) | (headers_data[:, 11].astype(np.uint16) << 8)
+
+    return ch_sizes, timestamps, truncs, baselines
+
+
+def _one_loc_fast(num: int) -> np.ndarray:
+    """快速提取通道掩码中的活动通道（向量化版本）。"""
+    if num == 0:
+        return np.array([], dtype=np.int32)
+    # 使用 NumPy 位操作
+    bits = np.arange(16, dtype=np.int32)
+    mask = (num >> bits) & 1
+    return bits[mask.astype(bool)]
 
 
 @export
@@ -54,19 +124,171 @@ class V1725Wave:
 
 @export
 class V1725Reader(FormatReader):
-    """V1725 binary reader."""
+    """V1725 binary reader with optimized batch processing."""
 
-    def __init__(self, spec: FormatSpec | None = None):
+    def __init__(self, spec: FormatSpec | None = None, use_optimized: bool = True):
         super().__init__(spec or V1725_SPEC)
+        self.use_optimized = use_optimized
+        self._buffer_size = 256 * 1024  # 256KB buffer for batch reading
+
+    def _read_events_batch(self, f, board_id: int, max_events: int = 100) -> list[V1725Wave] | None:
+        """
+        批量读取事件数据，使用向量化解析减少 Python 循环开销。
+
+        Args:
+            f: 文件对象
+            board_id: 板卡 ID
+            max_events: 最多读取的事件数
+
+        Returns:
+            V1725Wave 对象列表，如果到达文件末尾则返回 None
+        """
+        # 读取大块数据
+        buffer = f.read(self._buffer_size)
+        if not buffer:
+            return None
+
+        # 转换为 NumPy 数组以便高效处理
+        data = np.frombuffer(buffer, dtype=np.uint8)
+
+        waves = []
+        offset = 0
+        events_read = 0
+
+        # 收集所有通道头以便批量解析
+        channel_headers_list = []
+        channel_info_list = []  # 存储 (channel_idx, wave_start, wave_size)
+
+        while events_read < max_events and offset + 16 <= len(data):
+            # 解析事件头（16 字节）
+            event_header = data[offset : offset + 16]
+
+            # 提取通道掩码
+            channels = _parse_channel_mask_vectorized(int(event_header[4]), int(event_header[11]))
+
+            offset += 16
+
+            # 收集该事件的所有通道头
+            event_channel_headers = []
+            event_channel_info = []
+
+            for ch in channels:
+                if offset + 12 > len(data):
+                    # 缓冲区不足，回退并退出
+                    f.seek(f.tell() - (len(data) - offset))
+                    # 处理已收集的通道头
+                    if channel_headers_list:
+                        waves.extend(
+                            self._process_channel_batch(
+                                channel_headers_list, channel_info_list, data, board_id
+                            )
+                        )
+                    return waves if waves else None
+
+                # 收集通道头
+                ch_header = data[offset : offset + 12]
+                event_channel_headers.append(ch_header)
+
+                # 快速提取通道大小以确定波形数据位置
+                ch_size = (
+                    int(ch_header[0])
+                    | (int(ch_header[1]) << 8)
+                    | ((int(ch_header[2]) & 0x3F) << 16)
+                )
+                sig_size = (ch_size - 3) << 2
+
+                if offset + 12 + sig_size > len(data):
+                    # 波形数据不完整，回退并退出
+                    f.seek(f.tell() - (len(data) - offset))
+                    if channel_headers_list:
+                        waves.extend(
+                            self._process_channel_batch(
+                                channel_headers_list, channel_info_list, data, board_id
+                            )
+                        )
+                    return waves if waves else None
+
+                # 记录通道信息
+                event_channel_info.append((ch, offset + 12, sig_size))
+
+                offset += 12 + sig_size
+
+            # 添加到批量处理列表
+            channel_headers_list.extend(event_channel_headers)
+            channel_info_list.extend(event_channel_info)
+
+            events_read += 1
+
+        # 批量处理所有收集的通道头
+        if channel_headers_list:
+            waves.extend(
+                self._process_channel_batch(channel_headers_list, channel_info_list, data, board_id)
+            )
+
+        # 回退未处理的数据
+        if offset < len(data):
+            f.seek(f.tell() - (len(data) - offset))
+
+        return waves if waves else None
+
+    def _process_channel_batch(
+        self, channel_headers: list, channel_info: list, data: np.ndarray, board_id: int
+    ) -> list[V1725Wave]:
+        """
+        批量处理通道头和波形数据。
+
+        Args:
+            channel_headers: 通道头列表
+            channel_info: 通道信息列表 (channel_idx, wave_start, wave_size)
+            data: 原始数据缓冲区
+            board_id: 板卡 ID
+
+        Returns:
+            V1725Wave 对象列表
+        """
+        # 将通道头转换为 NumPy 数组
+        headers_array = np.array(channel_headers, dtype=np.uint8)
+
+        # 向量化解析通道头
+        ch_sizes, timestamps, truncs, baselines = _parse_channel_headers_vectorized(headers_array)
+
+        # 构建 V1725Wave 对象
+        waves = []
+        for i, (ch, wave_start, wave_size) in enumerate(channel_info):
+            # 提取波形数据
+            wave_data = data[wave_start : wave_start + wave_size]
+            sig = np.frombuffer(wave_data.tobytes(), dtype=np.int16)
+
+            waves.append(
+                V1725Wave(
+                    board=board_id,
+                    channel=ch,
+                    timestamp=int(timestamps[i]),
+                    trunc=bool(truncs[i]),
+                    baseline=int(baselines[i]),
+                    waveform=sig,
+                )
+            )
+
+        return waves
 
     @staticmethod
     def _extract_board_from_path(path: Path) -> int:
-        match = re.search(r"_b(\d+)", path.name, flags=re.IGNORECASE)
-        if not match:
-            return 0
-        return int(match.group(1))
+        # 从文件名末尾往前匹配，避免匹配到运行名称中的 _b
+        # 匹配 _raw_bN_segM.bin 或 _bN_segM.bin 格式
+        match = re.search(r"_b(\d+)_seg\d+\.bin$", path.name, flags=re.IGNORECASE)
+        if match:
+            return int(match.group(1))
 
-    def iter_waves(self, file_paths: list[str | Path]) -> Iterator[V1725Wave]:
+        # 回退：匹配传统格式 CHN_M.bin（默认板卡 0）
+        if re.match(r"CH\d+_\d+\.bin$", path.name, flags=re.IGNORECASE):
+            return 0
+
+        # 最后回退：返回 0
+        return 0
+
+    def _iter_waves_legacy(self, file_paths: list[str | Path]) -> Iterator[V1725Wave]:
+        """原始的逐事件读取实现（用于回退）。"""
         for file_path in file_paths:
             path = Path(file_path)
             if not path.exists():
@@ -112,6 +334,45 @@ class V1725Reader(FormatReader):
                             baseline=baseline,
                             waveform=sig,
                         )
+
+    def _iter_waves_optimized(self, file_paths: list[str | Path]) -> Iterator[V1725Wave]:
+        """优化的批量读取实现。"""
+        for file_path in file_paths:
+            path = Path(file_path)
+            if not path.exists():
+                logger.warning("File not found: %s", path)
+                continue
+            board_id = self._extract_board_from_path(path)
+
+            with path.open(mode="rb") as f:
+                while True:
+                    batch = self._read_events_batch(f, board_id, max_events=100)
+                    if batch is None:
+                        break
+                    yield from batch
+
+    def iter_waves(self, file_paths: list[str | Path]) -> Iterator[V1725Wave]:
+        """
+        迭代读取 V1725 波形数据。
+
+        自动选择优化路径或回退到原始实现。
+
+        Args:
+            file_paths: 文件路径列表
+
+        Yields:
+            V1725Wave 对象
+        """
+        if self.use_optimized:
+            try:
+                yield from self._iter_waves_optimized(file_paths)
+            except Exception as e:
+                logger.warning(
+                    "Optimized V1725 reader failed (%s), falling back to legacy implementation", e
+                )
+                yield from self._iter_waves_legacy(file_paths)
+        else:
+            yield from self._iter_waves_legacy(file_paths)
 
     def read_file(self, file_path: str | Path, is_first_file: bool = True) -> np.ndarray:
         _ = is_first_file

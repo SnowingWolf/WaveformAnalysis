@@ -339,9 +339,12 @@ class DAQAnalyzer:
         display_cols = [
             "run_name",
             "file_count",
-            "channel_count",
             "size_mb",
             "size_readable",
+            "board_count",
+            "board_str",
+            "channel_count",
+            "channel_str",
             "acquisition_start",
             "acquisition_end",
             "path",
@@ -359,6 +362,8 @@ class DAQAnalyzer:
                             "file_count",
                             "size_mb",
                             "size_readable",
+                            "board_count",
+                            "board_str",
                             "channel_count",
                             "channel_str",
                             "acquisition_start",
@@ -372,6 +377,8 @@ class DAQAnalyzer:
                             "file_count": "文件数",
                             "size_mb": "大小(MB)",
                             "size_readable": "大小",
+                            "board_count": "板卡数",
+                            "board_str": "板卡列表",
                             "channel_count": "通道数",
                             "channel_str": "通道列表",
                             "acquisition_start": "采集开始",
@@ -379,7 +386,7 @@ class DAQAnalyzer:
                             "path": "路径",
                         }
                     )
-                    .style.background_gradient(subset=["文件数", "通道数"], cmap="Blues")
+                    .style.background_gradient(subset=["文件数", "板卡数", "通道数"], cmap="Blues")
                     .background_gradient(subset=["大小(MB)"], cmap="Reds")
                     .format({"大小(MB)": "{:.2f}", "大小": "{}"})
                     .set_properties(**{"text-align": "left"})
@@ -414,6 +421,7 @@ class DAQAnalyzer:
 
                 line = (
                     f"{r['run_name']:20}  files={int(r['file_count']):4d}  "
+                    f"boards={int(r['board_count']):2d}  "
                     f"channels={int(r['channel_count']):2d}  "
                     f"size={self._color_size(total_bytes)}  "
                     f"start={r['acquisition_start']}  end={r['acquisition_end']}  "
