@@ -368,7 +368,8 @@ def _merge_records_part_refs_batched(
 
     # 确定输出目录
     if output_dir is None:
-        output_dir = parts[0].records_path.parent.parent / "merged"
+        # 使用第一个分片的父目录（而不是 parent.parent，避免逃逸到 /tmp/merged）
+        output_dir = parts[0].records_path.parent / "merged"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     merged_parts = []
@@ -493,6 +494,7 @@ def _merge_records_part_refs(
     parts: Sequence[_RecordsPartRef],
     memory_budget_gb: float = 50.0,
     batch_size: int = 50,
+    output_dir: Path | None = None,
 ) -> RecordsBundle:
     """
     智能合并分片：根据数据量自动选择策略。
@@ -501,9 +503,13 @@ def _merge_records_part_refs(
         parts: 分片列表
         memory_budget_gb: 内存预算（GB）
         batch_size: 分批合并时每批的分片数量
+        output_dir: 分批合并的输出目录（None 则自动推导）
 
     Returns:
         合并后的 RecordsBundle
+
+    Raises:
+        MemoryError: 当估算输出大小超过内存预算时
     """
     if not parts:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
@@ -517,14 +523,25 @@ def _merge_records_part_refs(
     wave_pool_size_gb = (total_samples * 2) / (1024**3)  # uint16 = 2 bytes
     total_size_gb = records_size_gb + wave_pool_size_gb
 
+    # 检查内存预算（关键修复：在分批前检查最终输出大小）
+    if total_size_gb > memory_budget_gb:
+        raise MemoryError(
+            f"Estimated output size ({total_size_gb:.1f} GB) exceeds memory budget "
+            f"({memory_budget_gb:.1f} GB). "
+            f"Total records: {total_records:,}, total samples: {total_samples:,}. "
+            f"Consider using a disk-backed merge or increasing memory_budget_gb."
+        )
+
     # 策略选择
-    if total_size_gb < memory_budget_gb and len(parts) <= batch_size:
-        # 小数据：直接合并到内存
+    if len(parts) <= batch_size:
+        # 分片少：直接合并到内存
         return _merge_records_part_refs_to_memory(parts)
     else:
-        # 大数据：分批合并
+        # 分片多：分批合并
         # 第一级：分批合并成中等分片
-        merged_parts = _merge_records_part_refs_batched(parts, batch_size=batch_size)
+        merged_parts = _merge_records_part_refs_batched(
+            parts, batch_size=batch_size, output_dir=output_dir
+        )
 
         # 第二级：合并中等分片到最终输出
         if len(merged_parts) == 1:
@@ -748,7 +765,9 @@ def build_records_from_raw_files_streaming(
             part_refs.extend(channel_results.get(channel_idx, []))
 
         with timer("records.merge") if timer else nullcontext():
-            return _merge_records_part_refs(part_refs)
+            return _merge_records_part_refs(
+                part_refs, output_dir=part_dir / "merged"  # 显式指定输出目录
+            )
 
 
 def _build_records_from_channels(
@@ -1037,7 +1056,10 @@ def build_records_from_v1725_files(
             return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
         return _merge_records_part_refs(
-            part_refs, memory_budget_gb=memory_budget_gb, batch_size=batch_size
+            part_refs,
+            memory_budget_gb=memory_budget_gb,
+            batch_size=batch_size,
+            output_dir=part_dir / "merged",  # 显式指定输出目录，避免逃逸到 /tmp/merged
         )
 
 
