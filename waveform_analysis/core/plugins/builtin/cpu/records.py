@@ -145,7 +145,16 @@ def _build_records_bundle(
             seen.add(path)
             deduped.append(path)
 
-        bundle = build_records_from_v1725_files(deduped, dt_ns=dt_ns)
+        # 获取并行配置
+        n_jobs = context.get_config(plugin, "n_jobs")
+        channel_executor = context.get_config(plugin, "channel_executor")
+
+        bundle = build_records_from_v1725_files(
+            deduped,
+            dt_ns=dt_ns,
+            n_jobs=n_jobs,
+            executor_type=channel_executor,
+        )
         bundle = _apply_records_polarity(context, run_id, bundle)
         context._set_data(run_id, cache_key, bundle)
         _cleanup_stale_bundles(context, run_id, cache_key)

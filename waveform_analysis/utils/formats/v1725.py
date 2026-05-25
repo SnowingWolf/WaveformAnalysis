@@ -126,12 +126,21 @@ class V1725Wave:
 class V1725Reader(FormatReader):
     """V1725 binary reader with optimized batch processing."""
 
-    def __init__(self, spec: FormatSpec | None = None, use_optimized: bool = True):
+    def __init__(
+        self,
+        spec: FormatSpec | None = None,
+        use_optimized: bool = True,
+        buffer_size: int | None = None,
+    ):
         super().__init__(spec or V1725_SPEC)
         self.use_optimized = use_optimized
-        self._buffer_size = 256 * 1024  # 256KB buffer for batch reading
+        self._buffer_size = (
+            buffer_size if buffer_size is not None else (16 * 1024 * 1024)
+        )  # 16MB buffer (was 256KB)
 
-    def _read_events_batch(self, f, board_id: int, max_events: int = 100) -> list[V1725Wave] | None:
+    def _read_events_batch(
+        self, f, board_id: int, max_events: int = 1000
+    ) -> list[V1725Wave] | None:
         """
         批量读取事件数据，使用向量化解析减少 Python 循环开销。
 

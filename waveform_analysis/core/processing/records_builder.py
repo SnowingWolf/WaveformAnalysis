@@ -794,11 +794,75 @@ def build_records_from_st_waveforms(
     return _build_records_from_channels(channels, default_dt_ns=default_dt_ns)
 
 
+def _process_v1725_file_to_disk(
+    file_path: str,
+    reader,
+    adapter,
+    dt_ns: int,
+    part_dir: Path,
+    part_idx: int,
+) -> _RecordsPartRef | None:
+    """
+    处理单个 V1725 文件并写入磁盘。
+
+    Args:
+        file_path: 文件路径
+        reader: V1725Reader 实例
+        adapter: V1725Adapter 实例
+        dt_ns: 采样间隔（纳秒）
+        part_dir: 分片输出目录
+        part_idx: 分片索引
+
+    Returns:
+        _RecordsPartRef 或 None（如果文件为空）
+    """
+    waves = []
+    for wave in reader.iter_waves([file_path]):
+        timestamp_ps = int(
+            adapter.normalize_timestamp_to_ps(np.array([wave.timestamp]), dt_ns=dt_ns)[0]
+        )
+        flags = 1 if wave.trunc else 0
+        waves.append(
+            (int(wave.board), wave.channel, timestamp_ps, wave.baseline, flags, wave.waveform)
+        )
+
+    if not waves:
+        return None
+
+    # 构建 RecordsBundle
+    bundle = _build_records_from_wave_list(waves, default_dt_ns=dt_ns)
+
+    # 写入 memmap
+    part_ref = _write_records_part(bundle, part_dir, part_idx)
+
+    # 释放内存
+    del waves
+    del bundle
+
+    return part_ref
+
+
 @export
 def build_records_from_v1725_files(
     file_paths: list[str],
     dt_ns: int,
+    n_jobs: int | None = None,
+    executor_type: str = "thread",
 ) -> RecordsBundle:
+    """
+    从 V1725 文件构建 records + wave_pool。
+
+    使用临时文件和 memmap 减少内存占用，支持文件级并行处理。
+
+    Args:
+        file_paths: V1725 文件路径列表
+        dt_ns: 采样间隔（纳秒）
+        n_jobs: 并行 worker 数量（None=auto，1=串行）
+        executor_type: 执行器类型（"thread" 或 "process"）
+
+    Returns:
+        RecordsBundle
+    """
     if not file_paths:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
@@ -809,25 +873,57 @@ def build_records_from_v1725_files(
     if not hasattr(reader, "iter_waves"):
         raise RuntimeError("V1725 adapter does not provide iter_waves")
 
-    parts = []
-    for file_path in file_paths:
-        waves = []
-        for wave in reader.iter_waves([file_path]):
-            timestamp_ps = int(
-                adapter.normalize_timestamp_to_ps(np.array([wave.timestamp]), dt_ns=dt_ns)[0]
-            )
-            flags = 1 if wave.trunc else 0
-            waves.append(
-                (int(wave.board), wave.channel, timestamp_ps, wave.baseline, flags, wave.waveform)
-            )
-        if waves:
-            parts.append(_build_records_from_wave_list(waves, default_dt_ns=dt_ns))
+    with tempfile.TemporaryDirectory(prefix="v1725_parts_") as tmp_dir:
+        part_dir = Path(tmp_dir)
+        part_refs = []
 
-    if not parts:
-        return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
-    if len(parts) == 1:
-        return parts[0]
-    return merge_records_parts(parts)
+        # 确定并行度
+        effective_workers = 1 if n_jobs is None else max(int(n_jobs), 1)
+
+        if effective_workers <= 1 or len(file_paths) <= 1:
+            # 串行处理
+            for part_idx, file_path in enumerate(file_paths):
+                part_ref = _process_v1725_file_to_disk(
+                    file_path, reader, adapter, dt_ns, part_dir, part_idx
+                )
+                if part_ref:
+                    part_refs.append(part_ref)
+        else:
+            # 并行处理
+            from concurrent.futures import as_completed
+
+            from waveform_analysis.core.execution.manager import get_executor
+
+            max_workers = min(effective_workers, len(file_paths))
+            with get_executor(
+                "v1725_file_build",
+                executor_type=executor_type,
+                max_workers=max_workers,
+                reuse=True,
+            ) as executor:
+                futures = {
+                    executor.submit(
+                        _process_v1725_file_to_disk,
+                        file_path,
+                        reader,
+                        adapter,
+                        dt_ns,
+                        part_dir,
+                        idx,
+                    ): idx
+                    for idx, file_path in enumerate(file_paths)
+                }
+
+                for future in as_completed(futures):
+                    part_ref = future.result()
+                    if part_ref:
+                        part_refs.append(part_ref)
+
+        # 合并分片
+        if not part_refs:
+            return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
+
+        return _merge_records_part_refs(part_refs)
 
 
 @export
