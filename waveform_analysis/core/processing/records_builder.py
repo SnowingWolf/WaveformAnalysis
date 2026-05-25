@@ -338,7 +338,70 @@ def _write_records_part(
     )
 
 
-def _merge_records_part_refs(parts: Sequence[_RecordsPartRef]) -> RecordsBundle:
+def _merge_records_part_refs_batched(
+    parts: Sequence[_RecordsPartRef],
+    batch_size: int = 50,
+    output_dir: Path | None = None,
+) -> list[_RecordsPartRef]:
+    """
+    分批合并分片，减少内存占用。
+
+    策略：
+    1. 将 N 个小分片分成多批（每批 batch_size 个）
+    2. 每批合并到一个临时分片
+    3. 返回合并后的中等分片列表
+
+    Args:
+        parts: 输入分片列表
+        batch_size: 每批合并的分片数量
+        output_dir: 输出目录（None 则使用第一个分片的目录）
+
+    Returns:
+        合并后的分片列表
+    """
+    if not parts:
+        return []
+
+    if len(parts) <= batch_size:
+        # 分片数量少，直接返回
+        return list(parts)
+
+    # 确定输出目录
+    if output_dir is None:
+        output_dir = parts[0].records_path.parent.parent / "merged"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    merged_parts = []
+
+    # 分批处理
+    for batch_idx in range(0, len(parts), batch_size):
+        batch = parts[batch_idx : batch_idx + batch_size]
+
+        # 合并当前批次
+        merged_bundle = _merge_records_part_refs_to_memory(batch)
+
+        # 写入新的分片
+        merged_part_ref = _write_records_part(merged_bundle, output_dir, len(merged_parts))
+
+        if merged_part_ref:
+            merged_parts.append(merged_part_ref)
+
+        # 释放内存
+        del merged_bundle
+
+    return merged_parts
+
+
+def _merge_records_part_refs_to_memory(parts: Sequence[_RecordsPartRef]) -> RecordsBundle:
+    """
+    将分片合并到内存（原 _merge_records_part_refs 的实现）。
+
+    Args:
+        parts: 分片列表
+
+    Returns:
+        合并后的 RecordsBundle
+    """
     if not parts:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
@@ -424,6 +487,52 @@ def _merge_records_part_refs(parts: Sequence[_RecordsPartRef]) -> RecordsBundle:
 
     records_out["record_id"] = np.arange(total_records, dtype=np.int64)
     return RecordsBundle(records=records_out, wave_pool=wave_pool_out)
+
+
+def _merge_records_part_refs(
+    parts: Sequence[_RecordsPartRef],
+    memory_budget_gb: float = 50.0,
+    batch_size: int = 50,
+) -> RecordsBundle:
+    """
+    智能合并分片：根据数据量自动选择策略。
+
+    Args:
+        parts: 分片列表
+        memory_budget_gb: 内存预算（GB）
+        batch_size: 分批合并时每批的分片数量
+
+    Returns:
+        合并后的 RecordsBundle
+    """
+    if not parts:
+        return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
+
+    # 估算总大小
+    total_records = sum(part.n_records for part in parts)
+    total_samples = sum(part.n_samples for part in parts)
+
+    # 估算内存占用（records + wave_pool）
+    records_size_gb = (total_records * RECORDS_DTYPE.itemsize) / (1024**3)
+    wave_pool_size_gb = (total_samples * 2) / (1024**3)  # uint16 = 2 bytes
+    total_size_gb = records_size_gb + wave_pool_size_gb
+
+    # 策略选择
+    if total_size_gb < memory_budget_gb and len(parts) <= batch_size:
+        # 小数据：直接合并到内存
+        return _merge_records_part_refs_to_memory(parts)
+    else:
+        # 大数据：分批合并
+        # 第一级：分批合并成中等分片
+        merged_parts = _merge_records_part_refs_batched(parts, batch_size=batch_size)
+
+        # 第二级：合并中等分片到最终输出
+        if len(merged_parts) == 1:
+            # 只有一个中等分片，直接加载
+            return _merge_records_part_refs_to_memory(merged_parts)
+        else:
+            # 多个中等分片，再次合并
+            return _merge_records_part_refs_to_memory(merged_parts)
 
 
 def _build_records_part_refs_for_channel(
@@ -848,17 +957,21 @@ def build_records_from_v1725_files(
     dt_ns: int,
     n_jobs: int | None = None,
     executor_type: str = "thread",
+    memory_budget_gb: float = 50.0,
+    batch_size: int = 50,
 ) -> RecordsBundle:
     """
     从 V1725 文件构建 records + wave_pool。
 
-    使用临时文件和 memmap 减少内存占用，支持文件级并行处理。
+    使用临时文件和 memmap 减少内存占用，支持文件级并行处理和分批合并。
 
     Args:
         file_paths: V1725 文件路径列表
         dt_ns: 采样间隔（纳秒）
         n_jobs: 并行 worker 数量（None=auto，1=串行）
         executor_type: 执行器类型（"thread" 或 "process"）
+        memory_budget_gb: 内存预算（GB），用于智能选择合并策略
+        batch_size: 分批合并时每批的分片数量
 
     Returns:
         RecordsBundle
@@ -919,11 +1032,13 @@ def build_records_from_v1725_files(
                     if part_ref:
                         part_refs.append(part_ref)
 
-        # 合并分片
+        # 智能合并分片
         if not part_refs:
             return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
-        return _merge_records_part_refs(part_refs)
+        return _merge_records_part_refs(
+            part_refs, memory_budget_gb=memory_budget_gb, batch_size=batch_size
+        )
 
 
 @export
