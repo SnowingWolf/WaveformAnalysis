@@ -48,6 +48,213 @@ class _RecordsPartRef:
     wave_pool_path: Path
     n_records: int
     n_samples: int
+    time_range: tuple[int, int] | None = None  # (start_time, end_time) for filtering
+
+
+@export
+@dataclass
+class RecordsBundleRef:
+    """
+    磁盘引用式 RecordsBundle，支持流式处理。
+
+    用于处理超大数据集（>50GB），避免将所有数据加载到内存。
+    数据保存在磁盘上，通过 memmap 按需加载。
+
+    Attributes:
+        part_refs: 分片引用列表
+        total_records: 总记录数
+        total_samples: 总样本数
+        temp_dir: 临时目录路径（用于清理）
+
+    Examples:
+        >>> # 分块迭代
+        >>> for chunk in bundle_ref.iter_chunks(chunk_size=100_000):
+        ...     process(chunk.records, chunk.wave_pool)
+
+        >>> # 时间范围查询
+        >>> for chunk in bundle_ref.iter_chunks(time_range=(start, end)):
+        ...     process(chunk)
+
+        >>> # 只读取元数据
+        >>> records_view = bundle_ref.get_records_view()
+        >>> print(f"Total: {len(records_view)}")
+    """
+
+    part_refs: list[_RecordsPartRef]
+    total_records: int
+    total_samples: int
+    temp_dir: Path | None = None
+
+    def __post_init__(self):
+        """按时间排序分片（如果有时间范围信息）"""
+        if self.part_refs and any(p.time_range for p in self.part_refs):
+            self.part_refs.sort(key=lambda p: p.time_range[0] if p.time_range else 0)
+
+    @property
+    def dtype(self):
+        """兼容性：返回 RECORDS_DTYPE"""
+        return RECORDS_DTYPE
+
+    def __len__(self):
+        """兼容性：返回总记录数"""
+        return self.total_records
+
+    def iter_chunks(
+        self,
+        chunk_size: int = 100_000,
+        time_range: tuple[int, int] | None = None,
+    ):
+        """
+        流式迭代分块数据。
+
+        Args:
+            chunk_size: 每块的记录数
+            time_range: 可选的时间范围过滤 (start_time, end_time)
+
+        Yields:
+            RecordsBundle 分块
+
+        Memory:
+            单个 chunk 约 200MB (100k events × 1k samples × 2 bytes)
+        """
+        from collections.abc import Iterator
+
+        for part_ref in self.part_refs:
+            # 时间范围过滤（粗粒度）
+            if time_range and part_ref.time_range:
+                start_time, end_time = time_range
+                part_start, part_end = part_ref.time_range
+                if part_end < start_time or part_start > end_time:
+                    continue  # 跳过不相交的分片
+
+            # 加载分片（memmap，不占用内存）
+            part_records = np.memmap(
+                part_ref.records_path, dtype=RECORDS_DTYPE, mode="r", shape=(part_ref.n_records,)
+            )
+            part_waves = np.memmap(
+                part_ref.wave_pool_path, dtype=np.uint16, mode="r", shape=(part_ref.n_samples,)
+            )
+
+            # 分块迭代
+            for start_idx in range(0, part_ref.n_records, chunk_size):
+                end_idx = min(start_idx + chunk_size, part_ref.n_records)
+                chunk_records = part_records[start_idx:end_idx]
+
+                # 时间过滤（细粒度）
+                if time_range:
+                    start_time, end_time = time_range
+                    mask = (chunk_records["time"] >= start_time) & (
+                        chunk_records["time"] <= end_time
+                    )
+                    chunk_records = chunk_records[mask]
+
+                if len(chunk_records) == 0:
+                    continue
+
+                # 提取对应的 wave_pool 片段
+                wave_start = int(chunk_records[0]["wave_offset"])
+                last_rec = chunk_records[-1]
+                wave_end = int(last_rec["wave_offset"] + last_rec["event_length"])
+                chunk_waves = np.array(part_waves[wave_start:wave_end], copy=True)
+
+                # 调整 wave_offset 为相对偏移
+                chunk_records = np.array(chunk_records, copy=True)
+                chunk_records["wave_offset"] -= wave_start
+
+                yield RecordsBundle(chunk_records, chunk_waves)
+
+    def load_full(self) -> RecordsBundle:
+        """
+        完整加载到内存。
+
+        ⚠️ 警告：大数据集会 OOM
+
+        Returns:
+            RecordsBundle
+
+        Memory:
+            全部数据加载到内存
+        """
+        if self.total_records == 0:
+            return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
+
+        # 分配输出数组
+        records = np.zeros(self.total_records, dtype=RECORDS_DTYPE)
+        wave_pool = np.zeros(self.total_samples, dtype=np.uint16)
+
+        rec_cursor = 0
+        wave_cursor = 0
+
+        # 逐个分片加载
+        for part_ref in self.part_refs:
+            part_records = np.memmap(
+                part_ref.records_path, dtype=RECORDS_DTYPE, mode="r", shape=(part_ref.n_records,)
+            )
+            part_waves = np.memmap(
+                part_ref.wave_pool_path, dtype=np.uint16, mode="r", shape=(part_ref.n_samples,)
+            )
+
+            # 复制到输出数组
+            records[rec_cursor : rec_cursor + part_ref.n_records] = part_records[:]
+            wave_pool[wave_cursor : wave_cursor + part_ref.n_samples] = part_waves[:]
+
+            # 更新 wave_offset
+            records[rec_cursor : rec_cursor + part_ref.n_records]["wave_offset"] += wave_cursor
+
+            rec_cursor += part_ref.n_records
+            wave_cursor += part_ref.n_samples
+
+        # 重新分配 record_id
+        records["record_id"] = np.arange(self.total_records, dtype=np.int64)
+
+        return RecordsBundle(records, wave_pool)
+
+    def get_records_view(self) -> np.ndarray:
+        """
+        返回 records 的视图（不加载 wave_pool）。
+
+        适用于只需要 records 元数据的场景：
+        - 统计分析（事件数、时间范围、通道分布）
+        - 时间戳查询
+        - 通道过滤
+
+        Returns:
+            np.ndarray (memmap 或合并后的数组)
+
+        Memory:
+            单分片：0（memmap）
+            多分片：仅 records 大小（无 wave_pool）
+        """
+        if len(self.part_refs) == 1:
+            # 单分片：直接返回 memmap
+            part = self.part_refs[0]
+            return np.memmap(
+                part.records_path, dtype=RECORDS_DTYPE, mode="r", shape=(part.n_records,)
+            )
+        else:
+            # 多分片：需要合并（但只合并 records，不合并 wave_pool）
+            records = np.zeros(self.total_records, dtype=RECORDS_DTYPE)
+            cursor = 0
+
+            for part_ref in self.part_refs:
+                part_records = np.memmap(
+                    part_ref.records_path,
+                    dtype=RECORDS_DTYPE,
+                    mode="r",
+                    shape=(part_ref.n_records,),
+                )
+                records[cursor : cursor + part_ref.n_records] = part_records[:]
+                cursor += part_ref.n_records
+
+            return records
+
+    def cleanup(self):
+        """清理临时文件"""
+        if self.temp_dir and self.temp_dir.exists():
+            import shutil
+
+            shutil.rmtree(self.temp_dir)
+            self.temp_dir = None
 
 
 def _normalize_baseline_samples(
@@ -494,8 +701,8 @@ def _merge_records_part_refs(
     parts: Sequence[_RecordsPartRef],
     memory_budget_gb: float = 50.0,
     batch_size: int = 50,
-    output_dir: Path | None = None,
-) -> RecordsBundle:
+    keep_on_disk: bool | None = None,
+) -> RecordsBundle | RecordsBundleRef:
     """
     智能合并分片：根据数据量自动选择策略。
 
@@ -503,13 +710,10 @@ def _merge_records_part_refs(
         parts: 分片列表
         memory_budget_gb: 内存预算（GB）
         batch_size: 分批合并时每批的分片数量
-        output_dir: 分批合并的输出目录（None 则自动推导）
+        keep_on_disk: 强制选择策略（None=自动，True=磁盘引用，False=加载内存）
 
     Returns:
-        合并后的 RecordsBundle
-
-    Raises:
-        MemoryError: 当估算输出大小超过内存预算时
+        RecordsBundle 或 RecordsBundleRef
     """
     if not parts:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
@@ -518,38 +722,61 @@ def _merge_records_part_refs(
     total_records = sum(part.n_records for part in parts)
     total_samples = sum(part.n_samples for part in parts)
 
-    # 估算内存占用（records + wave_pool）
     records_size_gb = (total_records * RECORDS_DTYPE.itemsize) / (1024**3)
     wave_pool_size_gb = (total_samples * 2) / (1024**3)  # uint16 = 2 bytes
     total_size_gb = records_size_gb + wave_pool_size_gb
 
-    # 检查内存预算（关键修复：在分批前检查最终输出大小）
-    if total_size_gb > memory_budget_gb:
-        raise MemoryError(
-            f"Estimated output size ({total_size_gb:.1f} GB) exceeds memory budget "
-            f"({memory_budget_gb:.1f} GB). "
-            f"Total records: {total_records:,}, total samples: {total_samples:,}. "
-            f"Consider using a disk-backed merge or increasing memory_budget_gb."
-        )
-
     # 策略选择
-    if len(parts) <= batch_size:
-        # 分片少：直接合并到内存
-        return _merge_records_part_refs_to_memory(parts)
+    if keep_on_disk is None:
+        # 自动选择
+        use_disk_ref = total_size_gb >= memory_budget_gb
     else:
-        # 分片多：分批合并
-        # 第一级：分批合并成中等分片
-        merged_parts = _merge_records_part_refs_batched(
-            parts, batch_size=batch_size, output_dir=output_dir
-        )
+        # 强制选择
+        use_disk_ref = keep_on_disk
 
-        # 第二级：合并中等分片到最终输出
-        if len(merged_parts) == 1:
-            # 只有一个中等分片，直接加载
-            return _merge_records_part_refs_to_memory(merged_parts)
+    if not use_disk_ref:
+        # 小数据：加载到内存
+        if len(parts) <= batch_size:
+            return _merge_records_part_refs_to_memory(parts)
         else:
-            # 多个中等分片，再次合并
+            # 分批合并后加载到内存
+            merged_parts = _merge_records_part_refs_batched(parts, batch_size=batch_size)
             return _merge_records_part_refs_to_memory(merged_parts)
+    else:
+        # 大数据：返回磁盘引用
+        if len(parts) > batch_size:
+            # 先分批合并，减少分片数量
+            merged_parts = _merge_records_part_refs_batched(parts, batch_size=batch_size)
+        else:
+            merged_parts = list(parts)
+
+        # 添加时间范围信息
+        parts_with_time = []
+        for part in merged_parts:
+            if part.time_range is None:
+                # 计算时间范围
+                records = np.memmap(
+                    part.records_path, dtype=RECORDS_DTYPE, mode="r", shape=(part.n_records,)
+                )
+                if len(records) > 0:
+                    time_range = (int(records["time"].min()), int(records["time"].max()))
+                else:
+                    time_range = (0, 0)
+
+                part = _RecordsPartRef(
+                    records_path=part.records_path,
+                    wave_pool_path=part.wave_pool_path,
+                    n_records=part.n_records,
+                    n_samples=part.n_samples,
+                    time_range=time_range,
+                )
+            parts_with_time.append(part)
+
+        return RecordsBundleRef(
+            part_refs=parts_with_time,
+            total_records=total_records,
+            total_samples=total_samples,
+        )
 
 
 def _build_records_part_refs_for_channel(
@@ -978,7 +1205,8 @@ def build_records_from_v1725_files(
     executor_type: str = "thread",
     memory_budget_gb: float = 50.0,
     batch_size: int = 50,
-) -> RecordsBundle:
+    keep_on_disk: bool | None = None,
+) -> RecordsBundle | RecordsBundleRef:
     """
     从 V1725 文件构建 records + wave_pool。
 
@@ -991,9 +1219,10 @@ def build_records_from_v1725_files(
         executor_type: 执行器类型（"thread" 或 "process"）
         memory_budget_gb: 内存预算（GB），用于智能选择合并策略
         batch_size: 分批合并时每批的分片数量
+        keep_on_disk: 强制选择策略（None=自动，True=磁盘引用，False=加载内存）
 
     Returns:
-        RecordsBundle
+        RecordsBundle 或 RecordsBundleRef
     """
     if not file_paths:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
@@ -1059,7 +1288,7 @@ def build_records_from_v1725_files(
             part_refs,
             memory_budget_gb=memory_budget_gb,
             batch_size=batch_size,
-            output_dir=part_dir / "merged",  # 显式指定输出目录，避免逃逸到 /tmp/merged
+            keep_on_disk=keep_on_disk,
         )
 
 
