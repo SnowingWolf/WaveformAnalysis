@@ -45,6 +45,14 @@ from .compat import (
 from .resolver import (
     ConfigResolver,
 )
+from .run_config import (
+    RUN_NUMBER_PATTERN,
+    VALID_DAQ_STATUSES,
+    VALID_POLARITIES,
+    RunConfigValidationError,
+    resolve_run_hardware_channels,
+    validate_run_config,
+)
 from .types import (
     ConfigSource,
     ConfigValue,
@@ -62,6 +70,12 @@ __all__ = [
     "clear_adapter_info_cache",
     # 解析器
     "ConfigResolver",
+    "RUN_NUMBER_PATTERN",
+    "VALID_DAQ_STATUSES",
+    "VALID_POLARITIES",
+    "RunConfigValidationError",
+    "resolve_run_hardware_channels",
+    "validate_run_config",
     # 兼容层
     "CompatManager",
     "DeprecationInfo",

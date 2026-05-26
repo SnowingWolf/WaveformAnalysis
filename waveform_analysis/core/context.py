@@ -151,6 +151,7 @@ class Context(PluginMixin):
             "get_lineage",
             "get_performance_report",
             "get_run_config",
+            "get_run_hardware_channels",
             "get_time_index_stats",
             "help",
             "key_for",
@@ -169,6 +170,7 @@ class Context(PluginMixin):
             "storage",
             "storage_dir",
             "time_range",
+            "validate_run_config",
         }
     )
     # Multi-channel structured outputs now use a single array with a channel field.
@@ -693,6 +695,17 @@ class Context(PluginMixin):
 
     def get_run_config(self, run_id: str, refresh: bool = False) -> dict[str, Any]:
         return self._config_domain.get_run_config(run_id, refresh=refresh)
+
+    def validate_run_config(self, run_id: str, require_identity: bool = False) -> None:
+        self._config_domain.validate_run_config(run_id, require_identity=require_identity)
+
+    def get_run_hardware_channels(
+        self,
+        run_id: str,
+        *,
+        validate: bool = True,
+    ) -> dict[str, dict[str, Any]]:
+        return self._config_domain.get_run_hardware_channels(run_id, validate=validate)
 
     def get_plugin_run_config(self, plugin: Plugin | str, run_id: str) -> dict[str, Any]:
         return self._config_domain.get_plugin_run_config(plugin, run_id)

@@ -382,6 +382,17 @@ ctx.from_config_json("configs/context.json")
   - `run_config_filename`（默认 `run_config.json`，主要用于兼容旧配置）
   - `run_config_path_template`（旧字段，仍兼容，但建议迁移到 `run_config_path`）
 
+`run_config.json` 也可以承载 run 身份、DAQ 状态和硬件事实。推荐最小规则：
+
+- `run_number`：人工填写的 6 位数字字符串，只用于排序和展示，不参与缓存 key。
+- `run_id`：保持现有含义，继续作为 `ctx.get_run_config(run_id)` 和
+  `ctx.get_data(run_id, data_name)` 的输入。
+- `daq`：采集状态、开始时间和 DAQ 设置；`daq.start_time` 是后续绝对时间的基准。
+- `hardware.electrodes`：电极或高压节点，例如 `anode`、`dynode`、`gate`。
+- `hardware.channel_groups` / `hardware.channels`：通道硬件事实，通道键统一使用
+  `"board:channel"`；合并顺序为 groups 按列表顺序应用，再由 channels 单通道覆盖。
+- `polarity` 只写在 `hardware` 中作为硬件事实，不在插件配置中重复写。
+
 当目录结构为 `run_id/DAQ` 时，可这样显式配置：
 
 ```python
@@ -395,6 +406,56 @@ ctx.set_config({
 
 ```json
 {
+  "schema_version": "1.0",
+  "run_number": "001000",
+  "run_id": "50V_OV_circulation_20thr",
+  "run_name": "50V_OV_circulation_20thr",
+  "daq": {
+    "status": "acquired",
+    "start_time": "2026-05-26T10:30:00.000000Z",
+    "end_time": null,
+    "daq_adapter": "vx2730",
+    "trigger_mode": "external",
+    "threshold_lsb": 20,
+    "sampling_rate_hz": 500000000
+  },
+  "hardware": {
+    "electrodes": {
+      "anode": {"enabled": true, "voltage_v": 1200.0},
+      "dynode": {"enabled": true, "voltage_v": 800.0},
+      "gate": {"enabled": true, "voltage_v": -50.0}
+    },
+    "channel_groups": [
+      {
+        "name": "tpc_top_sipm",
+        "channels": ["0:0", "0:1", "0:2", "0:3"],
+        "config": {
+          "enabled": true,
+          "detector": "TPC",
+          "role": "top_sipm",
+          "sensor_type": "SiPM",
+          "polarity": "negative",
+          "bias_voltage_v": 48.5
+        }
+      },
+      {
+        "name": "external_trigger_pmt",
+        "channels": ["1:0"],
+        "config": {
+          "enabled": true,
+          "detector": "PMT_trigger",
+          "role": "external_trigger",
+          "sensor_type": "PMT",
+          "polarity": "positive",
+          "bias_voltage_v": 52.0
+        }
+      }
+    ],
+    "channels": {
+      "0:1": {"sensor_id": "S13370-0001", "bias_voltage_v": 49.0},
+      "1:0": {"sensor_id": "R7725-XXX"}
+    }
+  },
   "meta": {
     "operator": "alice",
     "updated_at": "2026-03-09T10:20:00Z"
@@ -417,9 +478,9 @@ ctx.set_config({
     },
     "hit": {
       "channel_config": {
-        "defaults": {"threshold": 22.0, "polarity": "negative"},
+        "defaults": {"threshold": 22.0},
         "channels": {
-          "1:0": {"polarity": "positive", "threshold": 35.0}
+          "1:0": {"threshold": 35.0}
         }
       }
     }
