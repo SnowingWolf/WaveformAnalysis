@@ -3,10 +3,12 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 
 from waveform_analysis.core.foundation.utils import Profiler
 from waveform_analysis.core.processing.dtypes import create_record_dtype
 from waveform_analysis.core.processing.records_builder import (
+    RecordsBundleRef,
     build_records_from_raw_files,
     build_records_from_st_waveforms,
     build_records_from_st_waveforms_sharded,
@@ -100,6 +102,61 @@ def test_build_records_from_v1725_files_sorts_approximately_ordered_input(tmp_pa
     np.testing.assert_array_equal(bundle.records["board"], np.array([4, 3], dtype=np.int16))
     np.testing.assert_array_equal(bundle.records["channel"], np.array([0, 1], dtype=np.int16))
     np.testing.assert_array_equal(bundle.records["record_id"], np.arange(2, dtype=np.int64))
+
+
+def test_build_records_from_v1725_files_keeps_disk_refs_after_tempdir_cleanup(tmp_path: Path):
+    raws = []
+    for idx, timestamp in enumerate([30, 10, 20]):
+        raw = tmp_path / f"test_raw_b{idx}_seg0.bin"
+        raw.write_bytes(
+            _make_v1725_single_wave_blob(
+                channel=idx,
+                timestamp=timestamp,
+                baseline=100 + idx,
+                samples=np.array([idx, idx + 1, idx + 2, idx + 3], dtype=np.int16),
+            )
+        )
+        raws.append(str(raw))
+
+    bundle_ref = build_records_from_v1725_files(
+        raws,
+        dt_ns=4,
+        batch_size=1,
+        keep_on_disk=True,
+    )
+
+    assert isinstance(bundle_ref, RecordsBundleRef)
+    assert bundle_ref.temp_dir is not None
+    assert bundle_ref.temp_dir.exists()
+    assert all(part.records_path.exists() for part in bundle_ref.part_refs)
+    assert all(part.wave_pool_path.exists() for part in bundle_ref.part_refs)
+    assert all(part.records_path.parent != Path("/tmp/merged") for part in bundle_ref.part_refs)
+
+    loaded = bundle_ref.load_full()
+    np.testing.assert_array_equal(
+        loaded.records["timestamp"], np.array([40_000, 80_000, 120_000], dtype=np.int64)
+    )
+    np.testing.assert_array_equal(loaded.records["record_id"], np.arange(3, dtype=np.int64))
+    np.testing.assert_array_equal(
+        loaded.wave_pool,
+        np.array([1, 2, 3, 4, 2, 3, 4, 5, 0, 1, 2, 3], dtype=np.uint16),
+    )
+
+    ref_dir = bundle_ref.temp_dir
+    bundle_ref.cleanup()
+    assert not ref_dir.exists()
+
+
+def test_build_records_from_v1725_files_rejects_implicit_over_budget_disk_ref(tmp_path: Path):
+    raw = tmp_path / "test_raw_b0_seg0.bin"
+    raw.write_bytes(_make_v1725_single_wave_blob(channel=0, timestamp=10, baseline=100))
+
+    with pytest.raises(MemoryError, match="keep_on_disk=True"):
+        build_records_from_v1725_files(
+            [str(raw)],
+            dt_ns=4,
+            memory_budget_gb=0.0,
+        )
 
 
 def test_build_records_from_raw_files_sorts_globally_without_materializing_st_waveforms():

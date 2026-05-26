@@ -353,7 +353,7 @@ def _hardware_channel_index_groups(
         raise ValueError("st_waveforms missing required 'board'/'channel' fields")
 
     groups = group_indices_by_hardware_channel(st_waveforms["board"], st_waveforms["channel"])
-    return [(hw_channel, indices) for hw_channel, indices in groups.items()]
+    return list(groups.items())
 
 
 @export
@@ -537,11 +537,17 @@ def _write_records_part(
         wave_pool_mm[:] = bundle.wave_pool
     wave_pool_mm.flush()
 
+    if len(bundle.records) > 0:
+        time_range = (int(bundle.records["time"].min()), int(bundle.records["time"].max()))
+    else:
+        time_range = None
+
     return _RecordsPartRef(
         records_path=records_path,
         wave_pool_path=wave_pool_path,
         n_records=len(bundle.records),
         n_samples=len(bundle.wave_pool),
+        time_range=time_range,
     )
 
 
@@ -697,11 +703,116 @@ def _merge_records_part_refs_to_memory(parts: Sequence[_RecordsPartRef]) -> Reco
     return RecordsBundle(records=records_out, wave_pool=wave_pool_out)
 
 
+def _merge_records_part_refs_to_disk(
+    parts: Sequence[_RecordsPartRef], output_dir: Path, part_idx: int = 0
+) -> _RecordsPartRef | None:
+    """Merge sorted part refs into a single disk-backed part."""
+    if not parts:
+        return None
+
+    total_records = sum(part.n_records for part in parts)
+    if total_records == 0:
+        return None
+
+    total_samples = sum(part.n_samples for part in parts)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    records_path = output_dir / f"records_merged_{part_idx}.dat"
+    wave_pool_path = output_dir / f"wave_pool_merged_{part_idx}.dat"
+
+    records_out = np.memmap(
+        records_path,
+        dtype=RECORDS_DTYPE,
+        mode="w+",
+        shape=(total_records,),
+    )
+    wave_pool_out = np.memmap(
+        wave_pool_path,
+        dtype=np.uint16,
+        mode="w+",
+        shape=(total_samples,),
+    )
+
+    import heapq
+
+    records_parts = [
+        np.memmap(part.records_path, dtype=RECORDS_DTYPE, mode="r", shape=(part.n_records,))
+        for part in parts
+    ]
+    wave_pool_parts = [
+        np.memmap(part.wave_pool_path, dtype=np.uint16, mode="r", shape=(part.n_samples,))
+        for part in parts
+    ]
+
+    heap = []
+    for source_idx, records in enumerate(records_parts):
+        if len(records) == 0:
+            continue
+        rec = records[0]
+        key = (
+            int(rec["timestamp"]),
+            int(rec["pid"]),
+            int(rec["board"]),
+            int(rec["channel"]),
+            source_idx,
+            0,
+        )
+        heapq.heappush(heap, key)
+
+    out_idx = 0
+    wave_cursor = 0
+    while heap:
+        _, _, _, _, source_idx, row_idx = heapq.heappop(heap)
+        records = records_parts[source_idx]
+        rec = records[row_idx]
+        length = max(int(rec["event_length"]), 0)
+
+        if length > 0:
+            offset = int(rec["wave_offset"])
+            wave_pool_out[wave_cursor : wave_cursor + length] = wave_pool_parts[source_idx][
+                offset : offset + length
+            ]
+
+        records_out[out_idx] = rec
+        records_out[out_idx]["wave_offset"] = wave_cursor
+        out_idx += 1
+        wave_cursor += length
+
+        next_row = row_idx + 1
+        if next_row < len(records):
+            next_rec = records[next_row]
+            key = (
+                int(next_rec["timestamp"]),
+                int(next_rec["pid"]),
+                int(next_rec["board"]),
+                int(next_rec["channel"]),
+                source_idx,
+                next_row,
+            )
+            heapq.heappush(heap, key)
+
+    records_out["record_id"] = np.arange(total_records, dtype=np.int64)
+    time_range = (int(records_out["time"].min()), int(records_out["time"].max()))
+    records_out.flush()
+    wave_pool_out.flush()
+    del records_out
+    del wave_pool_out
+
+    return _RecordsPartRef(
+        records_path=records_path,
+        wave_pool_path=wave_pool_path,
+        n_records=total_records,
+        n_samples=total_samples,
+        time_range=time_range,
+    )
+
+
 def _merge_records_part_refs(
     parts: Sequence[_RecordsPartRef],
     memory_budget_gb: float = 50.0,
     batch_size: int = 50,
     keep_on_disk: bool | None = None,
+    output_dir: Path | None = None,
+    transfer_temp_dir_ownership: bool = False,
 ) -> RecordsBundle | RecordsBundleRef:
     """
     智能合并分片：根据数据量自动选择策略。
@@ -711,6 +822,8 @@ def _merge_records_part_refs(
         memory_budget_gb: 内存预算（GB）
         batch_size: 分批合并时每批的分片数量
         keep_on_disk: 强制选择策略（None=自动，True=磁盘引用，False=加载内存）
+        output_dir: 分批合并临时目录
+        transfer_temp_dir_ownership: 如果为 True，将 output_dir 的所有权转移给 RecordsBundleRef
 
     Returns:
         RecordsBundle 或 RecordsBundleRef
@@ -726,10 +839,17 @@ def _merge_records_part_refs(
     wave_pool_size_gb = (total_samples * 2) / (1024**3)  # uint16 = 2 bytes
     total_size_gb = records_size_gb + wave_pool_size_gb
 
-    # 策略选择
     if keep_on_disk is None:
-        # 自动选择
-        use_disk_ref = total_size_gb >= memory_budget_gb
+        if total_size_gb >= memory_budget_gb:
+            raise MemoryError(
+                "Estimated records output size "
+                f"({total_size_gb:.2f} GB) exceeds memory budget "
+                f"memory_budget_gb="
+                f"{memory_budget_gb:.2f}. Use keep_on_disk=True to return a "
+                "disk-backed RecordsBundleRef, or increase memory_budget_gb "
+                "if a full in-memory RecordsBundle is required."
+            )
+        use_disk_ref = False
     else:
         # 强制选择
         use_disk_ref = keep_on_disk
@@ -740,42 +860,53 @@ def _merge_records_part_refs(
             return _merge_records_part_refs_to_memory(parts)
         else:
             # 分批合并后加载到内存
-            merged_parts = _merge_records_part_refs_batched(parts, batch_size=batch_size)
+            merged_parts = _merge_records_part_refs_batched(
+                parts, batch_size=batch_size, output_dir=output_dir
+            )
             return _merge_records_part_refs_to_memory(merged_parts)
     else:
         # 大数据：返回磁盘引用
         if len(parts) > batch_size:
             # 先分批合并，减少分片数量
-            merged_parts = _merge_records_part_refs_batched(parts, batch_size=batch_size)
+            merged_parts = _merge_records_part_refs_batched(
+                parts, batch_size=batch_size, output_dir=output_dir
+            )
         else:
             merged_parts = list(parts)
 
-        # 添加时间范围信息
-        parts_with_time = []
-        for part in merged_parts:
-            if part.time_range is None:
-                # 计算时间范围
-                records = np.memmap(
-                    part.records_path, dtype=RECORDS_DTYPE, mode="r", shape=(part.n_records,)
-                )
-                if len(records) > 0:
-                    time_range = (int(records["time"].min()), int(records["time"].max()))
-                else:
-                    time_range = (0, 0)
+        import shutil
 
-                part = _RecordsPartRef(
-                    records_path=part.records_path,
-                    wave_pool_path=part.wave_pool_path,
-                    n_records=part.n_records,
-                    n_samples=part.n_samples,
-                    time_range=time_range,
-                )
-            parts_with_time.append(part)
+        # 确定输出目录
+        if output_dir is not None:
+            # 在 output_dir 下创建 merged 子目录
+            ref_dir = output_dir / "merged"
+            ref_dir.mkdir(parents=True, exist_ok=True)
+            cleanup_on_error = False  # 调用者管理生命周期
+            # 如果调用者要求转移所有权，则由 RecordsBundleRef 管理整个 output_dir
+            managed_temp_dir = output_dir if transfer_temp_dir_ownership else None
+        else:
+            ref_dir = Path(tempfile.mkdtemp(prefix="records_bundle_ref_"))
+            cleanup_on_error = True  # 我们创建的，出错时清理
+            managed_temp_dir = ref_dir
+
+        try:
+            # 始终执行全局堆合并
+            final_part = _merge_records_part_refs_to_disk(merged_parts, ref_dir)
+        except Exception:
+            if cleanup_on_error:
+                shutil.rmtree(ref_dir, ignore_errors=True)
+            raise
+
+        if final_part is None:
+            if cleanup_on_error:
+                shutil.rmtree(ref_dir, ignore_errors=True)
+            return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
         return RecordsBundleRef(
-            part_refs=parts_with_time,
+            part_refs=[final_part],
             total_records=total_records,
             total_samples=total_samples,
+            temp_dir=managed_temp_dir,
         )
 
 
@@ -894,9 +1025,7 @@ def build_records_from_raw_files_streaming(
 
     timer = profiler.timeit if profiler else None
 
-    channel_entries = [
-        (channel_idx, channel_files) for channel_idx, channel_files in enumerate(raw_files)
-    ]
+    channel_entries = list(enumerate(raw_files))
     if not channel_entries:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
@@ -992,9 +1121,7 @@ def build_records_from_raw_files_streaming(
             part_refs.extend(channel_results.get(channel_idx, []))
 
         with timer("records.merge") if timer else nullcontext():
-            return _merge_records_part_refs(
-                part_refs, output_dir=part_dir / "merged"  # 显式指定输出目录
-            )
+            return _merge_records_part_refs(part_refs, output_dir=part_dir)
 
 
 def _build_records_from_channels(
@@ -1234,8 +1361,10 @@ def build_records_from_v1725_files(
     if not hasattr(reader, "iter_waves"):
         raise RuntimeError("V1725 adapter does not provide iter_waves")
 
-    with tempfile.TemporaryDirectory(prefix="v1725_parts_") as tmp_dir:
-        part_dir = Path(tmp_dir)
+    import shutil
+
+    part_dir = Path(tempfile.mkdtemp(prefix="v1725_parts_"))
+    try:
         part_refs = []
 
         # 确定并行度
@@ -1282,14 +1411,27 @@ def build_records_from_v1725_files(
 
         # 智能合并分片
         if not part_refs:
+            shutil.rmtree(part_dir, ignore_errors=True)
             return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
-        return _merge_records_part_refs(
+        result = _merge_records_part_refs(
             part_refs,
             memory_budget_gb=memory_budget_gb,
             batch_size=batch_size,
             keep_on_disk=keep_on_disk,
+            output_dir=part_dir,
+            transfer_temp_dir_ownership=True,
         )
+
+        # 如果返回 RecordsBundle（内存模式），清理临时目录
+        if isinstance(result, RecordsBundle):
+            shutil.rmtree(part_dir, ignore_errors=True)
+        # 如果返回 RecordsBundleRef（磁盘模式），保留目录
+
+        return result
+    except Exception:
+        shutil.rmtree(part_dir, ignore_errors=True)
+        raise
 
 
 @export
