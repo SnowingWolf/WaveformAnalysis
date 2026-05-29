@@ -524,19 +524,35 @@ V1725_LAYOUT = export(
 @export
 class V1725Adapter(DAQAdapter):
     def scan_run(self, data_root: str, run_name: str):
-        try:
-            groups = super().scan_run(data_root, run_name)
-        except FileNotFoundError:
+        """扫描 V1725 运行目录，按板卡分组文件
+
+        V1725 文件格式: {run_name}_raw_b{board}_seg{segment}.bin
+        返回格式: {board_id: [file_paths]}
+
+        注意：这里的分组键是板卡号，不是通道号。
+        每个板卡的通道信息在文件内容中（通过通道掩码）。
+        """
+        raw_path = self.get_raw_path(data_root, run_name)
+        if not raw_path.exists():
             return {}
 
-        if groups:
-            return groups
-
-        raw_path = self.get_raw_path(data_root, run_name)
         files = self.directory_layout.list_files(raw_path)
         if not files:
             return {}
-        return {0: files}
+
+        # 按板卡分组文件（复用 V1725Reader 的板卡提取逻辑）
+        board_groups = {}
+        for file_path in files:
+            board_id = V1725Reader._extract_board_from_path(file_path)
+            if board_id not in board_groups:
+                board_groups[board_id] = []
+            board_groups[board_id].append(file_path)
+
+        # 按文件名排序（确保 seg0, seg1, seg2... 顺序）
+        for board_id in board_groups:
+            board_groups[board_id].sort()
+
+        return board_groups
 
 
 V1725_ADAPTER = export(
