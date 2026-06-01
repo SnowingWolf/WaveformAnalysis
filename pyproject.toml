@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "waveform-analysis"
-version = "0.2.0"
+version = "1.0.0"
 description = "波形数据分析工具包 - 用于处理DAQ系统采集的波形数据"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,7 +14,7 @@ authors = [
 ]
 keywords = ["waveform", "data-analysis", "daq", "physics", "signal-processing"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -54,6 +54,14 @@ docs = [
 ]
 docgen = [
     "jinja2>=3.0.0",
+]
+scientific = [
+    "iminuit>=2.0.0",
+    "jax>=0.4.0",
+    "jaxlib>=0.4.0",
+]
+monitoring = [
+    "psutil>=5.9.0",
 ]
 
 [project.urls]
