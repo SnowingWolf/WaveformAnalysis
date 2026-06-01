@@ -32,7 +32,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`hit_merge_clusters`](hit_merge_clusters.md) | `HitMergeClustersPlugin` | `hit_threshold` | `structured_array` | `0.1.0` |
 | [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold`, `hit_merge_clusters` | `structured_array` | `0.8.0` |
 | [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | `hit_merge_clusters`, `hit_merged` | `structured_array` | `0.1.0` |
-| [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | - | `structured_array` | `0.11.0` |
+| [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | - | `structured_array` | `0.12.0` |
 | [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | `unknown` | `0.0.2` |
 | [`records`](records.md) | `RecordsPlugin` | - | `structured_array` | `0.10.0` |
 | [`s1_s2`](s1_s2.md) | `S1S2ClassifierPlugin` | `waveform_width`, `basic_features` | `structured_array` | `0.4.0` |

@@ -38,7 +38,7 @@ def load_wave_input(context, plugin, run_id, ...) -> LoadedWaveInput:
 ```python
 def load_wave_input_chunked(
     context, plugin, run_id,
-    chunk_size: int = 100_000
+    chunk_size: int = 10_000
 ) -> Iterator[LoadedWaveInput]:
     """流式加载波形数据"""
     spec = resolve_wave_input_spec(context, plugin)
@@ -219,7 +219,7 @@ class ThresholdHitPlugin(Plugin):
     def _compute_streaming(self, context, run_id, bundle_ref: RecordsBundleRef) -> np.ndarray:
         """流式处理 RecordsBundleRef"""
         all_hits = []
-        chunk_size = 100_000  # 可配置
+        chunk_size = 10_000  # 可配置
 
         for chunk_bundle in bundle_ref.iter_chunks(chunk_size=chunk_size):
             # 处理单个 chunk（复用现有逻辑）
@@ -246,7 +246,7 @@ class ThresholdHitPlugin(Plugin):
 - ✅ **实施成本低**: 只需修改 `hit_threshold` 插件内部逻辑
 - ✅ **测试成本低**: 只需测试 `hit_threshold` 插件
 - ✅ **性能优秀**: `RecordsBundleRef` 使用 memmap，I/O 高效
-- ✅ **内存可控**: chunk_size 可配置，默认 100k events ≈ 200MB
+- ✅ **内存可控**: chunk_size 可配置，默认 10k events ≈ 40MB
 
 ### 缺点
 - ⚠️ **仅支持 records 数据源**: st_waveforms/filtered_waveforms 仍需批量加载
@@ -269,7 +269,7 @@ class ThresholdHitPlugin(Plugin):
 #### 内存占用
 ```
 批量模式: 2TB records + wave_pool ≈ 2TB RAM (OOM)
-流式模式: 100k events × 1k samples × 2 bytes ≈ 200MB RAM (可控)
+流式模式: 10k events × 1k samples × 2 bytes ≈ 40MB RAM (可控)
 降低: 99.99%
 ```
 
@@ -338,7 +338,7 @@ result = build_records_from_v1725_files(
 
 if isinstance(result, RecordsBundleRef):
     # 大数据集，流式处理
-    for chunk in result.iter_chunks(chunk_size=100_000):
+    for chunk in result.iter_chunks(chunk_size=10_000):
         hits = process_chunk(chunk.records, chunk.wave_pool)
     result.cleanup()
 else:
@@ -348,7 +348,7 @@ else:
 
 ### 性能数据
 根据文档说明：
-- **chunk_size=100k**: 约 200MB 内存占用
+- **chunk_size=10k**: 约 40MB 内存占用
 - **chunk_size=50k**: 约 100MB 内存占用
 - **临时文件**: 约等于数据大小（/tmp 或 SSD）
 - **处理速度**: 比批量模式慢 10-20%（可接受）
@@ -468,7 +468,7 @@ class ThresholdHitPlugin(Plugin):
     options = {
         # ... 现有 options
         "streaming_chunk_size": Option(
-            default=100_000,
+            default=10_000,
             type=int,
             help="流式处理时的 chunk 大小（仅对 RecordsBundleRef 生效）",
         ),
@@ -545,7 +545,7 @@ class ThresholdHitPlugin(Plugin):
 
         records = chunk_bundle.records
         record_ids = records["record_id"].astype(np.int64, copy=False)
-        waves, valid_mask = rv.waves(record_ids, mask=True, dtype=np.float64)
+        waves, valid_mask = rv.waves(record_ids, mask=True, dtype=np.float32)
 
         # 复用现有处理逻辑
         # ... (与 _compute_batch 相同的处理流程)

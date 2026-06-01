@@ -84,7 +84,7 @@ class ThresholdHitPlugin(Plugin):
     provides = "hit_threshold"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Threshold-only hit detector with THRESHOLD_HIT_DTYPE output."
-    version = "0.11.0"
+    version = "0.12.0"
     output_dtype = THRESHOLD_HIT_DTYPE
     save_when = "always"
 
@@ -113,7 +113,7 @@ class ThresholdHitPlugin(Plugin):
             help="按 (board, channel) 的插件通道覆盖配置，可覆盖 threshold。",
         ),
         "streaming_chunk_size": Option(
-            default=100_000,
+            default=10_000,
             type=int,
             help="流式处理时的 chunk 大小（仅对 RecordsBundleRef 生效）",
         ),
@@ -196,10 +196,10 @@ class ThresholdHitPlugin(Plugin):
                     chunk_size,
                 )
 
-            waves, valid_mask = rv.waves(record_ids_for_view, mask=True, dtype=np.float64)
+            waves, valid_mask = rv.waves(record_ids_for_view, mask=True, dtype=np.float32)
             record_names = records.dtype.names or ()
 
-            baselines = records["baseline"].astype(np.float64, copy=False)
+            baselines = records["baseline"].astype(np.float32, copy=False)
             timestamps = records["timestamp"].astype(np.int64, copy=False)
             boards = (
                 records["board"].astype(np.int16, copy=False)
@@ -236,12 +236,12 @@ class ThresholdHitPlugin(Plugin):
                 return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
 
             waveform_names = waveform_data.dtype.names or ()
-            waves = np.asarray(waveform_data["wave"]).astype(np.float64, copy=False)
+            waves = np.asarray(waveform_data["wave"]).astype(np.float32, copy=False)
             valid_mask = None
             baselines = (
-                waveform_data["baseline"].astype(np.float64, copy=False)
+                waveform_data["baseline"].astype(np.float32, copy=False)
                 if "baseline" in waveform_names
-                else waves.mean(axis=1, dtype=np.float64)
+                else waves.mean(axis=1, dtype=np.float32)
             )
             timestamps = (
                 waveform_data["timestamp"].astype(np.int64, copy=False)
@@ -432,7 +432,7 @@ class ThresholdHitPlugin(Plugin):
         data_polarities: np.ndarray | None,
     ) -> tuple[np.ndarray, np.ndarray]:
         n_events = len(boards)
-        thresholds = np.full(n_events, threshold, dtype=np.float64)
+        thresholds = np.full(n_events, threshold, dtype=np.float32)
         positive_mask = np.zeros(n_events, dtype=bool)
         channel_rule_cache: dict[tuple[int, int], Any] = {}
         base_values = {"threshold": threshold}
@@ -571,9 +571,9 @@ class ThresholdHitPlugin(Plugin):
             (waves, valid_mask, baselines, timestamps, boards, channels, record_ids, data_polarities, dt_values, record_lengths)
         """
         if len(records) == 0:
-            empty = np.zeros(0, dtype=np.float64)
+            empty = np.zeros(0, dtype=np.float32)
             return (
-                np.zeros((0, 0), dtype=np.float64),  # waves
+                np.zeros((0, 0), dtype=np.float32),  # waves
                 np.zeros((0, 0), dtype=bool),  # valid_mask
                 empty,
                 empty,  # baselines, timestamps
@@ -593,10 +593,10 @@ class ThresholdHitPlugin(Plugin):
         )
 
         # 加载波形
-        waves, valid_mask = rv.waves(record_ids_for_view, mask=True, dtype=np.float64)
+        waves, valid_mask = rv.waves(record_ids_for_view, mask=True, dtype=np.float32)
 
         # 提取字段
-        baselines = records["baseline"].astype(np.float64, copy=False)
+        baselines = records["baseline"].astype(np.float32, copy=False)
         timestamps = records["timestamp"].astype(np.int64, copy=False)
         boards = (
             records["board"].astype(np.int16, copy=False)

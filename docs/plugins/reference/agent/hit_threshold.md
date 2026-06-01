@@ -9,7 +9,7 @@
 | Provides | `hit_threshold` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `0.11.0` |
+| Version | `0.12.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_finder` |
 | Accelerator | `cpu` |
 
@@ -46,7 +46,7 @@
 | `right_extension` | `int` | `2` | Hit 右侧扩展点数 |
 | `dt` | `int` | `None` | 采样间隔（ns）。仅在输入数据缺少 dt 字段时作为兼容补充。 |
 | `channel_config` | `dict` | `None` | 按 (board, channel) 的插件通道覆盖配置，可覆盖 threshold。 |
-| `streaming_chunk_size` | `int` | `100000` | 流式处理时的 chunk 大小（仅对 RecordsBundleRef 生效） |
+| `streaming_chunk_size` | `int` | `10000` | 流式处理时的 chunk 大小（仅对 RecordsBundleRef 生效） |
 
 ## Execution Path
 
@@ -83,9 +83,9 @@ waveform-docs check coverage --strict
 
 | 模式 | 触发条件 | 内存占用 | 处理速度 | 适用场景 |
 |------|---------|---------|---------|---------|
-| **直接模式** | RecordsBundle 且记录数 ≤ `streaming_chunk_size` | 全部数据 | 最快（基准） | 小数据集（< 100k records） |
-| **批处理模式** | RecordsBundle 且记录数 > `streaming_chunk_size` | ~200MB (chunk_size=100k) | -2~5% | 中等数据集（100k-1M records） |
-| **流式模式** | RecordsBundleRef（磁盘分片） | ~200MB (chunk_size=100k) | -5~10% | 大数据集（2TB+, 1M+ records） |
+| **直接模式** | RecordsBundle 且记录数 ≤ `streaming_chunk_size` | 全部数据 | 最快（基准） | 小数据集（< 10k records） |
+| **批处理模式** | RecordsBundle 且记录数 > `streaming_chunk_size` | ~40MB (chunk_size=10k) | -2~5% | 中等数据集（10k-1M records） |
+| **流式模式** | RecordsBundleRef（磁盘分片） | ~40MB (chunk_size=10k) | -5~10% | 大数据集（2TB+, 1M+ records） |
 
 ### 自动模式切换示例
 
@@ -94,7 +94,7 @@ from waveform_analysis.core.processing import build_records_from_v1725_files
 
 # 小数据集：自动使用直接模式
 small_bundle = build_records_from_v1725_files(
-    file_paths=small_file_list,  # < 100k records
+    file_paths=small_file_list,  # < 10k records
     dt_ns=2,
     keep_on_disk=False,  # 返回 RecordsBundle
 )
@@ -102,7 +102,7 @@ small_bundle = build_records_from_v1725_files(
 
 # 中等数据集：自动使用批处理模式
 medium_bundle = build_records_from_v1725_files(
-    file_paths=medium_file_list,  # 100k-1M records
+    file_paths=medium_file_list,  # 10k-1M records
     dt_ns=2,
     keep_on_disk=False,  # 返回 RecordsBundle
 )
@@ -114,7 +114,7 @@ large_bundle_ref = build_records_from_v1725_files(
     dt_ns=2,
     keep_on_disk=True,  # 返回 RecordsBundleRef（磁盘分片）
 )
-# → 流式模式：逐分片处理，内存占用 < 200MB
+# → 流式模式：逐分片处理，内存占用 < 40MB
 
 # hit_threshold 自动检测并选择最优模式
 ctx.register_plugin(ThresholdHitPlugin())
@@ -126,21 +126,21 @@ hits = ctx.get_data(run_id, "hit_threshold")
 ```python
 ctx.config["hit_threshold"] = {
     "threshold": 10.0,
-    "streaming_chunk_size": 50_000,  # 降低内存占用（默认 100k）
+    "streaming_chunk_size": 5_000,  # 降低内存占用（默认 10k）
 }
 ```
 
 **注意**：
 - `streaming_chunk_size` 同时控制批处理模式和流式模式的 chunk 大小
 - 降低 chunk_size 可减少内存占用，但会略微降低处理速度
-- 推荐值：50k-200k（根据可用内存调整）
+- 推荐值：5k-50k（根据可用内存调整）
 
 ### 适用场景
 
 | 场景 | 推荐模式 | 配置建议 |
 |------|---------|---------|
-| 小规模实验（< 100k records） | 直接模式 | 默认配置即可 |
-| 中等规模分析（100k-1M records） | 批处理模式 | 默认配置或调整 chunk_size |
+| 小规模实验（< 10k records） | 直接模式 | 默认配置即可 |
+| 中等规模分析（10k-1M records） | 批处理模式 | 默认配置或调整 chunk_size |
 | 大规模生产（2TB+, 1M+ records） | 流式模式 | `keep_on_disk=True` + 调整 chunk_size |
-| 内存受限环境（< 64GB RAM） | 批处理/流式模式 | 降低 chunk_size 到 50k |
+| 内存受限环境（< 64GB RAM） | 批处理/流式模式 | 降低 chunk_size 到 5k |
 | st_waveforms 数据源 | 直接模式 | 不支持流式处理 |

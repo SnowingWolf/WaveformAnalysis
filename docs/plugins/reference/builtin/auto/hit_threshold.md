@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `hit_threshold` |
-| **Version** | `0.11.0` |
+| **Version** | `0.12.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -28,6 +28,7 @@ This plugin has no dependencies.
 | `right_extension` | `int` | `2` | - | Hit 右侧扩展点数 |
 | `dt` | `int` | `None` | - | 采样间隔（ns）。仅在输入数据缺少 dt 字段时作为兼容补充。 |
 | `channel_config` | `dict` | `None` | - | 按 (board, channel) 的插件通道覆盖配置，可覆盖 threshold。 |
+| `streaming_chunk_size` | `int` | `10000` | - | 流式处理时的 chunk 大小（仅对 RecordsBundleRef 生效） |
 
 
 ## Output Schema
