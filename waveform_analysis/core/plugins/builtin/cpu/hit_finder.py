@@ -6,6 +6,7 @@ Hit Finder Plugins - 阈值 Hit 检测插件
 2. ThresholdHitPlugin: 新的纯阈值 hit 插件（provides='hit_threshold'），输出 THRESHOLD_HIT_DTYPE
 """
 
+import logging
 from typing import Any
 import warnings
 
@@ -29,6 +30,8 @@ from waveform_analysis.core.plugins.builtin.cpu.peak_finding import (
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.event_grouping import find_hits
+
+logger = logging.getLogger(__name__)
 
 THRESHOLD_HIT_DTYPE = np.dtype(
     [
@@ -113,6 +116,11 @@ class ThresholdHitPlugin(Plugin):
             type=dict,
             help="按 (board, channel) 的插件通道覆盖配置，可覆盖 threshold。",
         ),
+        "streaming_chunk_size": Option(
+            default=100_000,
+            type=int,
+            help="流式处理时的 chunk 大小（仅对 RecordsBundleRef 生效）",
+        ),
     }
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
@@ -127,7 +135,34 @@ class ThresholdHitPlugin(Plugin):
             context, self, deprecated_keys=("sampling_interval_ns", "dt_ns")
         )
         channel_config_cfg = context.get_config(self, "channel_config")
-        wave_input = load_wave_input(context, self, run_id, needs_wave_samples=True)
+        wave_input = load_wave_input(
+            context,
+            self,
+            run_id,
+            needs_wave_samples=True,
+            allow_records_bundle_ref=True,
+        )
+
+        # RecordsBundleRef cannot be loaded through the formal records_view API.
+        if wave_input.spec.is_records:
+            from waveform_analysis.core.processing.records_builder import RecordsBundleRef
+
+            bundle = wave_input.records
+            if isinstance(bundle, RecordsBundleRef):
+                logger.info(
+                    f"hit_threshold: detected RecordsBundleRef with {bundle.total_records} records, "
+                    f"using streaming mode"
+                )
+                return self._compute_streaming(
+                    context,
+                    run_id,
+                    bundle,
+                    threshold,
+                    left_extension,
+                    right_extension,
+                    explicit_dt,
+                    channel_config_cfg,
+                )
 
         if wave_input.spec.is_records:
             records = wave_input.records
@@ -143,6 +178,29 @@ class ThresholdHitPlugin(Plugin):
                 if "record_id" in record_names
                 else np.arange(len(records), dtype=np.int64)
             )
+
+            # 使用批处理避免内存溢出
+            chunk_size = int(context.get_config(self, "streaming_chunk_size"))
+            n_records = len(record_ids_for_view)
+
+            if n_records > chunk_size:
+                logger.info(
+                    f"hit_threshold: processing {n_records} records in batches of {chunk_size}"
+                )
+                return self._compute_records_batched(
+                    context,
+                    run_id,
+                    records,
+                    rv,
+                    record_ids_for_view,
+                    threshold,
+                    left_extension,
+                    right_extension,
+                    explicit_dt,
+                    channel_config_cfg,
+                    chunk_size,
+                )
+
             waves, valid_mask = rv.waves(record_ids_for_view, mask=True, dtype=np.float64)
             record_names = records.dtype.names or ()
 
@@ -253,6 +311,90 @@ class ThresholdHitPlugin(Plugin):
             valid_mask=valid_mask,
             record_lengths=record_lengths,
         )
+
+    def _compute_records_batched(
+        self,
+        context: Any,
+        run_id: str,
+        records: np.ndarray,
+        rv: Any,
+        record_ids_for_view: np.ndarray,
+        threshold: float,
+        left_extension: int,
+        right_extension: int,
+        explicit_dt: int | None,
+        channel_config_cfg: Any,
+        chunk_size: int,
+    ) -> np.ndarray:
+        """批处理版本的 records 处理，避免一次性加载所有波形到内存
+
+        当 RecordsBundle 的记录数超过 streaming_chunk_size 时使用此方法，
+        分批加载波形数据以降低内存峰值。
+        """
+        n_records = len(records)
+        all_hits = []
+
+        for start_idx in range(0, n_records, chunk_size):
+            end_idx = min(start_idx + chunk_size, n_records)
+            chunk_records = records[start_idx:end_idx]
+
+            # 使用公共方法提取元数据（避免代码重复）
+            (
+                waves,
+                valid_mask,
+                baselines,
+                timestamps,
+                boards,
+                channels,
+                record_ids,
+                data_polarities,
+                dt_values,
+                record_lengths,
+            ) = self._extract_records_metadata(chunk_records, rv, explicit_dt)
+
+            # 计算阈值和极性
+            thresholds, positive_mask = self._resolve_thresholds(
+                context=context,
+                run_id=run_id,
+                boards=boards,
+                channels=channels,
+                threshold=threshold,
+                channel_config_cfg=channel_config_cfg,
+                data_polarities=data_polarities,
+            )
+
+            # 计算信号
+            baseline_2d = baselines[:, np.newaxis]
+            signal = np.where(
+                positive_mask[:, np.newaxis], waves - baseline_2d, baseline_2d - waves
+            )
+
+            # 构建 hits
+            chunk_hits = self._build_hits_from_signal_matrix(
+                signal=signal,
+                thresholds=thresholds,
+                timestamps=timestamps,
+                boards=boards,
+                channels=channels,
+                record_ids=record_ids,
+                left_extension=left_extension,
+                right_extension=right_extension,
+                dt_values=dt_values,
+                valid_mask=valid_mask,
+                record_lengths=record_lengths,
+            )
+
+            if len(chunk_hits) > 0:
+                all_hits.append(chunk_hits)
+
+            logger.debug(
+                f"hit_threshold: processed batch {start_idx}-{end_idx}, found {len(chunk_hits)} hits"
+            )
+
+        if not all_hits:
+            return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
+
+        return np.concatenate(all_hits)
 
     def _resolve_wave_pool_metadata(
         self,
@@ -411,6 +553,208 @@ class ThresholdHitPlugin(Plugin):
         if hits:
             return np.array(hits, dtype=THRESHOLD_HIT_DTYPE)
         return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
+
+    def _extract_records_metadata(
+        self,
+        records: np.ndarray,
+        rv: Any,  # RecordsView
+        explicit_dt: int | None,
+    ) -> tuple[
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray | None,
+        np.ndarray,
+        np.ndarray,
+    ]:
+        """从 records 提取元数据（公共逻辑）
+
+        Returns:
+            (waves, valid_mask, baselines, timestamps, boards, channels, record_ids, data_polarities, dt_values, record_lengths)
+        """
+        if len(records) == 0:
+            empty = np.zeros(0, dtype=np.float64)
+            return (
+                np.zeros((0, 0), dtype=np.float64),  # waves
+                np.zeros((0, 0), dtype=bool),  # valid_mask
+                empty,
+                empty,  # baselines, timestamps
+                np.zeros(0, dtype=np.int16),
+                np.zeros(0, dtype=np.int16),  # boards, channels
+                np.zeros(0, dtype=np.int64),  # record_ids
+                None,  # data_polarities
+                np.zeros(0, dtype=np.int64),  # dt_values
+                np.zeros(0, dtype=np.int64),  # record_lengths
+            )
+
+        record_names = records.dtype.names or ()
+        record_ids_for_view = (
+            records["record_id"].astype(np.int64, copy=False)
+            if "record_id" in record_names
+            else np.arange(len(records), dtype=np.int64)
+        )
+
+        # 加载波形
+        waves, valid_mask = rv.waves(record_ids_for_view, mask=True, dtype=np.float64)
+
+        # 提取字段
+        baselines = records["baseline"].astype(np.float64, copy=False)
+        timestamps = records["timestamp"].astype(np.int64, copy=False)
+        boards = (
+            records["board"].astype(np.int16, copy=False)
+            if "board" in record_names
+            else np.zeros(len(records), dtype=np.int16)
+        )
+        channels = (
+            records["channel"].astype(np.int16, copy=False)
+            if "channel" in record_names
+            else np.zeros(len(records), dtype=np.int16)
+        )
+        record_ids = (
+            records["record_id"].astype(np.int64, copy=False)
+            if "record_id" in record_names
+            else np.arange(len(records), dtype=np.int64)
+        )
+        data_polarities = (
+            np.asarray(records["polarity"]).astype("U16", copy=False)
+            if "polarity" in record_names
+            else None
+        )
+        dt_values = require_dt_array(
+            records,
+            explicit_dt=explicit_dt,
+            plugin_name=self.provides,
+            data_name="records",
+        )
+        record_lengths = records["event_length"].astype(np.int64, copy=False)
+
+        return (
+            waves,
+            valid_mask,
+            baselines,
+            timestamps,
+            boards,
+            channels,
+            record_ids,
+            data_polarities,
+            dt_values,
+            record_lengths,
+        )
+
+    def _compute_streaming(
+        self,
+        context: Any,
+        run_id: str,
+        bundle_ref: Any,  # RecordsBundleRef
+        threshold: float,
+        left_extension: int,
+        right_extension: int,
+        explicit_dt: int | None,
+        channel_config_cfg: Any,
+    ) -> np.ndarray:
+        """流式处理 RecordsBundleRef"""
+        chunk_size = int(context.get_config(self, "streaming_chunk_size"))
+        all_hits = []
+        total_processed = 0
+        log_interval = chunk_size * 10
+
+        for chunk_bundle in bundle_ref.iter_chunks(chunk_size=chunk_size):
+            chunk_hits = self._process_chunk(
+                context,
+                run_id,
+                chunk_bundle,
+                threshold,
+                left_extension,
+                right_extension,
+                explicit_dt,
+                channel_config_cfg,
+            )
+            all_hits.append(chunk_hits)
+            total_processed += len(chunk_bundle.records)
+
+            # 每处理 10 个 chunk 记录一次进度
+            if total_processed % log_interval == 0:
+                total_hits = sum(len(h) for h in all_hits)
+                logger.info(
+                    f"hit_threshold: processed {total_processed}/{bundle_ref.total_records} records, "
+                    f"found {total_hits} hits"
+                )
+
+        # 合并所有 hits
+        if all_hits:
+            result = np.concatenate(all_hits)
+            logger.info(f"hit_threshold: streaming mode completed, total hits: {len(result)}")
+            return result
+        return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
+
+    def _process_chunk(
+        self,
+        context: Any,
+        run_id: str,
+        chunk_bundle: Any,  # RecordsBundle
+        threshold: float,
+        left_extension: int,
+        right_extension: int,
+        explicit_dt: int | None,
+        channel_config_cfg: Any,
+    ) -> np.ndarray:
+        """处理单个 chunk（复用现有逻辑）"""
+        from waveform_analysis.core.data.records_view import RecordsView
+
+        records = chunk_bundle.records
+        if len(records) == 0:
+            return np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
+
+        # 从 chunk_bundle 构建 RecordsView
+        # 注意：chunk_bundle.records 的 wave_offset 已经是相对偏移（由 iter_chunks 自动调整）
+        rv = RecordsView(records, chunk_bundle.wave_pool)
+
+        # 提取元数据（复用公共逻辑）
+        (
+            waves,
+            valid_mask,
+            baselines,
+            timestamps,
+            boards,
+            channels,
+            record_ids,
+            data_polarities,
+            dt_values,
+            record_lengths,
+        ) = self._extract_records_metadata(records, rv, explicit_dt)
+
+        # 解析阈值
+        thresholds, positive_mask = self._resolve_thresholds(
+            context=context,
+            run_id=run_id,
+            boards=boards,
+            channels=channels,
+            threshold=threshold,
+            channel_config_cfg=channel_config_cfg,
+            data_polarities=data_polarities,
+        )
+
+        # 构建信号矩阵
+        baseline_2d = baselines[:, np.newaxis]
+        signal = np.where(positive_mask[:, np.newaxis], waves - baseline_2d, baseline_2d - waves)
+
+        # 构建 hits
+        return self._build_hits_from_signal_matrix(
+            signal=signal,
+            thresholds=thresholds,
+            timestamps=timestamps,
+            boards=boards,
+            channels=channels,
+            record_ids=record_ids,
+            left_extension=left_extension,
+            right_extension=right_extension,
+            dt_values=dt_values,
+            valid_mask=valid_mask,
+            record_lengths=record_lengths,
+        )
 
 
 __all__ = [

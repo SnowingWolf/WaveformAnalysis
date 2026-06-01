@@ -355,7 +355,7 @@ class V1725Reader(FormatReader):
 
             with path.open(mode="rb") as f:
                 while True:
-                    batch = self._read_events_batch(f, board_id, max_events=100)
+                    batch = self._read_events_batch(f, board_id, max_events=1000)
                     if batch is None:
                         break
                     yield from batch

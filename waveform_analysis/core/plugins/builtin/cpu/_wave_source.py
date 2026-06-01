@@ -39,7 +39,7 @@ class WaveInputSpec:
 @dataclass
 class LoadedWaveInput:
     spec: WaveInputSpec
-    records: np.ndarray | None = None
+    records: Any | None = None
     waveform_data: np.ndarray | None = None
     records_view: Any | None = None
 
@@ -172,6 +172,7 @@ def load_wave_input(
     *,
     use_filtered_option: str = "use_filtered",
     needs_wave_samples: bool = True,
+    allow_records_bundle_ref: bool = False,
 ) -> LoadedWaveInput:
     spec = resolve_wave_input_spec(
         context,
@@ -197,10 +198,29 @@ def load_wave_input(
                     else "WavePoolPlugin"
                 ),
             )
-            from waveform_analysis.core import records_view
+            records = context.get_data(run_id, WAVE_SOURCE_RECORDS)
+            if allow_records_bundle_ref and not isinstance(records, np.ndarray):
+                from waveform_analysis.core.processing.records_builder import RecordsBundleRef
 
-            rv = records_view(context, run_id, wave_pool_name=spec.wave_pool_name or "wave_pool")
-            return LoadedWaveInput(spec=spec, records=rv.records, records_view=rv)
+                if isinstance(records, RecordsBundleRef):
+                    return LoadedWaveInput(spec=spec, records=records)
+
+            wave_pool_name = spec.wave_pool_name or "wave_pool"
+            wave_pool = context.get_data(run_id, wave_pool_name)
+            if not isinstance(records, np.ndarray):
+                raise ValueError(
+                    f"records_view requires formal '{WAVE_SOURCE_RECORDS}' plugin output"
+                )
+            if not isinstance(wave_pool, np.ndarray):
+                raise ValueError(f"records_view requires formal '{wave_pool_name}' plugin output")
+
+            from waveform_analysis.core.data.records_view import RecordsView
+
+            return LoadedWaveInput(
+                spec=spec,
+                records=records,
+                records_view=RecordsView(records, wave_pool),
+            )
 
         _ensure_registered_plugin(
             context,

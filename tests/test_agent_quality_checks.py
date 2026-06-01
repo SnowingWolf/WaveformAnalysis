@@ -68,7 +68,7 @@ def test_performance_regression_check_cli_runs(tmp_path):
             "--base",
             "HEAD",
             "--targets",
-            "st_waveforms,hit",
+            "st_waveforms,hit,hit_threshold",
             "--repeats",
             "1",
             "--time-threshold-pct",
@@ -87,3 +87,5 @@ def test_performance_regression_check_cli_runs(tmp_path):
     assert "before" in payload
     assert "after" in payload
     assert "comparison" in payload
+    assert "hit_threshold" in payload["before"]
+    assert "hit_threshold" in payload["after"]

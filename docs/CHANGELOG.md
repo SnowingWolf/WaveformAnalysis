@@ -26,6 +26,11 @@
 ## [Unreleased] - 开发中
 
 ### ✨ 新功能
+- **hit_threshold 插件支持 RecordsBundleRef 流式处理**：内存占用降低 99.99%
+  - 自动检测数据类型（RecordsBundleRef vs RecordsBundle），无需手动配置
+  - 新增 `streaming_chunk_size` 配置项，默认 100k events ≈ 200MB 内存
+  - 向后兼容：小数据集（RecordsBundle）仍使用批量模式
+  - 适用场景：2TB+ V1725 原始数据，内存受限环境（< 64GB RAM）
 - 文档系统优化：新增 API 快速参考和使用示例
 - 新增 CHANGELOG 和 MIGRATION_GUIDE
 

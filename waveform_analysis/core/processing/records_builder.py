@@ -1,8 +1,21 @@
 """
 Records + wave_pool utilities.
 
-This module provides a lightweight event index (records) paired with a
-contiguous wave_pool for variable-length waveforms.
+This module separates event metadata from waveform samples so we can keep
+fast indexing while reducing the memory cost of large variable-length waves.
+
+Core idea:
+- `records` stores per-event metadata such as time, channel, length, and
+    offset.
+- `wave_pool` stores all waveform samples in one contiguous array.
+- `wave_offset` + `event_length` let us jump from a record directly to the
+    matching slice inside `wave_pool`.
+
+Why this design helps:
+- It preserves efficient event-level queries without allocating one array per
+    waveform.
+- It works well for streaming pipelines, shard merging, and disk-backed
+    workflows.
 """
 
 from collections.abc import Sequence
@@ -274,14 +287,12 @@ def _validate_baseline_samples(
     if isinstance(baseline_samples, tuple):
         if len(baseline_samples) != 2:
             raise ValueError(
-                "baseline_samples tuple must have 2 elements (start, end), "
-                f"got {len(baseline_samples)}"
+                f"baseline_samples tuple must have 2 elements (start, end), got {len(baseline_samples)}"
             )
         start, end = baseline_samples
         if not isinstance(start, int) or not isinstance(end, int):
             raise TypeError(
-                "baseline_samples tuple elements must be int, "
-                f"got ({type(start).__name__}, {type(end).__name__})"
+                f"baseline_samples tuple elements must be int, got ({type(start).__name__}, {type(end).__name__})"
             )
         if start < 0 or end < 0:
             raise ValueError(f"baseline_samples indices must be non-negative, got ({start}, {end})")
@@ -293,8 +304,7 @@ def _validate_baseline_samples(
             raise ValueError(f"baseline_samples must be positive, got {baseline_samples}")
         return
     raise TypeError(
-        "baseline_samples must be int or tuple (start, end), "
-        f"got {type(baseline_samples).__name__}"
+        f"baseline_samples must be int or tuple (start, end), got {type(baseline_samples).__name__}"
     )
 
 
@@ -362,8 +372,7 @@ def split_by_channel(st_waveforms: np.ndarray) -> list[tuple[int, np.ndarray]]:
     groups = split_by_hardware_channel(st_waveforms)
     if any(hw_channel.board != 0 for hw_channel, _ in groups):
         raise ValueError(
-            "split_by_channel no longer supports multi-board data; use "
-            "split_by_hardware_channel instead."
+            "split_by_channel no longer supports multi-board data; use split_by_hardware_channel instead."
         )
     return [(hw_channel.channel, group) for hw_channel, group in groups]
 
@@ -1368,7 +1377,13 @@ def build_records_from_v1725_files(
         part_refs = []
 
         # 确定并行度
-        effective_workers = 1 if n_jobs is None else max(int(n_jobs), 1)
+        if n_jobs is None:
+            # 自动模式：使用 CPU 核心数，但限制在合理范围内
+            import os
+
+            effective_workers = min(os.cpu_count() or 4, len(file_paths), 32)
+        else:
+            effective_workers = max(int(n_jobs), 1)
 
         if effective_workers <= 1 or len(file_paths) <= 1:
             # 串行处理
@@ -1404,10 +1419,17 @@ def build_records_from_v1725_files(
                     for idx, file_path in enumerate(file_paths)
                 }
 
+                # 收集结果并按原始顺序排序（避免竞态条件）
+                results = []
                 for future in as_completed(futures):
+                    idx = futures[future]
                     part_ref = future.result()
                     if part_ref:
-                        part_refs.append(part_ref)
+                        results.append((idx, part_ref))
+
+                # 按索引排序以保持确定性顺序
+                results.sort(key=lambda x: x[0])
+                part_refs = [ref for _, ref in results]
 
         # 智能合并分片
         if not part_refs:

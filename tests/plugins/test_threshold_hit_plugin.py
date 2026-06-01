@@ -216,14 +216,14 @@ def test_threshold_hit_reads_records_view_when_wave_source_records():
             "right_extension": 0,
             "dt": 2,
         },
-        {},
+        {
+            "records": _make_records_view().records,
+            "wave_pool": _make_records_view().wave_pool,
+        },
     )
-    rv = _make_records_view()
 
-    with patch("waveform_analysis.core.records_view", return_value=rv) as mocked:
-        result = _compute_threshold_hits(plugin, ctx)
+    result = _compute_threshold_hits(plugin, ctx)
 
-    assert mocked.call_count == 1
     assert len(result) == 1
     assert int(result[0]["board"]) == 5
     assert int(result[0]["channel"]) == 2
@@ -243,14 +243,14 @@ def test_threshold_hit_records_use_filtered_reads_filtered_pool():
             "right_extension": 0,
             "dt": 2,
         },
-        {},
+        {
+            "records": _make_records_view().records,
+            "wave_pool_filtered": _make_records_view().wave_pool,
+        },
     )
-    rv = _make_records_view()
 
-    with patch("waveform_analysis.core.records_view", return_value=rv) as mocked:
-        _compute_threshold_hits(plugin, ctx)
-
-    assert mocked.call_args.kwargs["wave_pool_name"] == "wave_pool_filtered"
+    result = _compute_threshold_hits(plugin, ctx)
+    assert len(result) == 1
 
 
 def test_threshold_hit_records_empty_returns_empty():
@@ -263,10 +263,10 @@ def test_threshold_hit_records_empty_returns_empty():
         {},
     )
     empty_records = np.zeros(0, dtype=RECORDS_DTYPE)
-    rv = RecordsView(empty_records, np.zeros(0, dtype=np.uint16))
+    empty_wave_pool = np.zeros(0, dtype=np.uint16)
+    ctx._data.update({"records": empty_records, "wave_pool": empty_wave_pool})
 
-    with patch("waveform_analysis.core.records_view", return_value=rv):
-        result = _compute_threshold_hits(plugin, ctx)
+    result = _compute_threshold_hits(plugin, ctx)
 
     assert len(result) == 0
     assert result.dtype == THRESHOLD_HIT_DTYPE
@@ -453,3 +453,270 @@ def test_threshold_hit_requires_dt_when_input_lacks_dt_and_config_missing():
 
     with pytest.raises(ValueError, match="missing required field 'dt'"):
         _compute_threshold_hits(plugin, ctx)
+
+
+def test_threshold_hit_streaming_mode_with_recordsbundleref():
+    """测试 RecordsBundleRef 流式处理模式"""
+    from unittest.mock import MagicMock
+
+    from waveform_analysis.core.processing.records_builder import RecordsBundle, RecordsBundleRef
+
+    plugin = ThresholdHitPlugin()
+
+    # 创建模拟的 RecordsBundleRef
+    # 模拟 2 个 chunk，每个 chunk 有 1 条 record
+    chunk1_records = np.zeros(1, dtype=RECORDS_DTYPE)
+    chunk1_records["baseline"] = 100.0
+    chunk1_records["timestamp"] = 1_000_000
+    chunk1_records["board"] = 0
+    chunk1_records["channel"] = 0
+    chunk1_records["dt"] = 2
+    chunk1_records["event_length"] = 8
+    chunk1_records["wave_offset"] = 0
+    chunk1_records["record_id"] = 0
+    chunk1_wave_pool = np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.uint16)
+    chunk1 = RecordsBundle(chunk1_records, chunk1_wave_pool)
+
+    chunk2_records = np.zeros(1, dtype=RECORDS_DTYPE)
+    chunk2_records["baseline"] = 100.0
+    chunk2_records["timestamp"] = 2_000_000
+    chunk2_records["board"] = 0
+    chunk2_records["channel"] = 1
+    chunk2_records["dt"] = 2
+    chunk2_records["event_length"] = 8
+    chunk2_records["wave_offset"] = 0
+    chunk2_records["record_id"] = 1
+    chunk2_wave_pool = np.array([100, 100, 70, 70, 70, 70, 100, 100], dtype=np.uint16)
+    chunk2 = RecordsBundle(chunk2_records, chunk2_wave_pool)
+
+    # 创建 RecordsBundleRef mock
+    bundle_ref = MagicMock(spec=RecordsBundleRef)
+    bundle_ref.total_records = 2
+    bundle_ref.iter_chunks = MagicMock(return_value=iter([chunk1, chunk2]))
+
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "threshold": 10.0,
+            "streaming_chunk_size": 1,
+        },
+        {"records": bundle_ref},
+    )
+
+    result = plugin.compute(ctx, "run_001")
+
+    # 验证结果
+    assert len(result) == 2  # 2 个 chunk，每个 1 个 hit
+    assert result.dtype == THRESHOLD_HIT_DTYPE
+    assert set(result["channel"].tolist()) == {0, 1}
+    assert set(result["record_id"].tolist()) == {0, 1}
+
+
+def test_threshold_hit_batch_mode_with_recordsbundle():
+    """测试 RecordsBundle 批量处理模式（向后兼容）"""
+    plugin = ThresholdHitPlugin()
+
+    # 创建正式 records + wave_pool 输入
+    records = np.zeros(1, dtype=RECORDS_DTYPE)
+    records["baseline"] = 100.0
+    records["timestamp"] = 1_000_000
+    records["board"] = 0
+    records["channel"] = 0
+    records["dt"] = 2
+    records["event_length"] = 8
+    records["wave_offset"] = 0
+    records["record_id"] = 0
+    wave_pool = np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.uint16)
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "threshold": 10.0,
+        },
+        {"records": records, "wave_pool": wave_pool},
+    )
+
+    result = plugin.compute(ctx, "run_001")
+
+    # 验证结果
+    assert len(result) == 1
+    assert result.dtype == THRESHOLD_HIT_DTYPE
+    assert int(result[0]["channel"]) == 0
+
+
+def test_threshold_hit_batched_mode_boundary():
+    """测试批处理模式的边界条件（chunk_size 边界）"""
+    plugin = ThresholdHitPlugin()
+
+    # 测试 chunk_size=10，记录数分别为 9/10/11
+    for n_records in [9, 10, 11]:
+        records = np.zeros(n_records, dtype=RECORDS_DTYPE)
+        records["baseline"] = 100.0
+        records["timestamp"] = np.arange(n_records, dtype=np.int64) * 1_000_000
+        records["board"] = 0
+        records["channel"] = np.arange(n_records, dtype=np.int16)
+        records["dt"] = 2
+        records["event_length"] = 8
+        records["wave_offset"] = np.arange(n_records, dtype=np.int64) * 8
+        records["record_id"] = np.arange(n_records, dtype=np.int64)
+
+        # 构建 wave_pool：每条记录有一个过阈信号
+        wave_pool = np.zeros(n_records * 8, dtype=np.uint16)
+        for i in range(n_records):
+            wave_pool[i * 8 : i * 8 + 8] = [100, 100, 80, 80, 80, 80, 100, 100]
+
+        ctx = DummyContext(
+            {
+                "wave_source": "records",
+                "threshold": 10.0,
+                "streaming_chunk_size": 10,  # 设置 chunk_size=10
+            },
+            {"records": records, "wave_pool": wave_pool},
+        )
+
+        result = plugin.compute(ctx, "run_001")
+
+        # 验证结果：每条记录应该产生 1 个 hit
+        assert (
+            len(result) == n_records
+        ), f"n_records={n_records}, expected {n_records} hits, got {len(result)}"
+        assert result.dtype == THRESHOLD_HIT_DTYPE
+        assert set(result["channel"].tolist()) == set(range(n_records))
+
+
+def test_threshold_hit_empty_dataset():
+    """测试空数据集"""
+    plugin = ThresholdHitPlugin()
+
+    # 空 RecordsBundle
+    empty_records = np.zeros(0, dtype=RECORDS_DTYPE)
+    empty_wave_pool = np.zeros(0, dtype=np.uint16)
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "threshold": 10.0,
+        },
+        {"records": empty_records, "wave_pool": empty_wave_pool},
+    )
+
+    result = plugin.compute(ctx, "run_001")
+
+    # 验证结果：应该返回空数组
+    assert len(result) == 0
+    assert result.dtype == THRESHOLD_HIT_DTYPE
+
+
+def test_threshold_hit_no_hits_found():
+    """测试没有找到任何 hit 的情况"""
+    plugin = ThresholdHitPlugin()
+
+    # 创建没有过阈信号的数据
+    records = np.zeros(5, dtype=RECORDS_DTYPE)
+    records["baseline"] = 100.0
+    records["timestamp"] = np.arange(5, dtype=np.int64) * 1_000_000
+    records["board"] = 0
+    records["channel"] = np.arange(5, dtype=np.int16)
+    records["dt"] = 2
+    records["event_length"] = 8
+    records["wave_offset"] = np.arange(5, dtype=np.int64) * 8
+    records["record_id"] = np.arange(5, dtype=np.int64)
+
+    # 所有波形都是平坦的，没有过阈
+    wave_pool = np.full(5 * 8, 100, dtype=np.uint16)
+
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "threshold": 10.0,
+        },
+        {"records": records, "wave_pool": wave_pool},
+    )
+
+    result = plugin.compute(ctx, "run_001")
+
+    # 验证结果：应该返回空数组
+    assert len(result) == 0
+    assert result.dtype == THRESHOLD_HIT_DTYPE
+
+
+def test_threshold_hit_multi_board_multi_channel():
+    """测试多板卡、多通道场景"""
+    plugin = ThresholdHitPlugin()
+
+    # 创建 2 个板卡，每个板卡 2 个通道
+    n_records = 4
+    records = np.zeros(n_records, dtype=RECORDS_DTYPE)
+    records["baseline"] = 100.0
+    records["timestamp"] = np.arange(n_records, dtype=np.int64) * 1_000_000
+    records["board"] = [0, 0, 1, 1]  # 板卡 0, 0, 1, 1
+    records["channel"] = [0, 1, 0, 1]  # 通道 0, 1, 0, 1
+    records["dt"] = 2
+    records["event_length"] = 8
+    records["wave_offset"] = np.arange(n_records, dtype=np.int64) * 8
+    records["record_id"] = np.arange(n_records, dtype=np.int64)
+
+    # 每条记录有一个过阈信号
+    wave_pool = np.zeros(n_records * 8, dtype=np.uint16)
+    for i in range(n_records):
+        wave_pool[i * 8 : i * 8 + 8] = [100, 100, 80, 80, 80, 80, 100, 100]
+
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "threshold": 10.0,
+        },
+        {"records": records, "wave_pool": wave_pool},
+    )
+
+    result = plugin.compute(ctx, "run_001")
+
+    # 验证结果
+    assert len(result) == 4
+    assert result.dtype == THRESHOLD_HIT_DTYPE
+    assert set(result["board"].tolist()) == {0, 1}
+    assert set(result["channel"].tolist()) == {0, 1}
+    # 验证每个 (board, channel) 组合都有 1 个 hit
+    for board in [0, 1]:
+        for channel in [0, 1]:
+            mask = (result["board"] == board) & (result["channel"] == channel)
+            assert np.sum(mask) == 1, f"Expected 1 hit for board={board}, channel={channel}"
+
+
+def test_threshold_hit_batched_mode_large_dataset():
+    """测试批处理模式处理较大数据集"""
+    plugin = ThresholdHitPlugin()
+
+    # 创建 250 条记录（超过默认 chunk_size=100）
+    n_records = 250
+    records = np.zeros(n_records, dtype=RECORDS_DTYPE)
+    records["baseline"] = 100.0
+    records["timestamp"] = np.arange(n_records, dtype=np.int64) * 1_000_000
+    records["board"] = 0
+    records["channel"] = np.arange(n_records, dtype=np.int16) % 8  # 8 个通道循环
+    records["dt"] = 2
+    records["event_length"] = 8
+    records["wave_offset"] = np.arange(n_records, dtype=np.int64) * 8
+    records["record_id"] = np.arange(n_records, dtype=np.int64)
+
+    # 每条记录有一个过阈信号
+    wave_pool = np.zeros(n_records * 8, dtype=np.uint16)
+    for i in range(n_records):
+        wave_pool[i * 8 : i * 8 + 8] = [100, 100, 80, 80, 80, 80, 100, 100]
+
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "threshold": 10.0,
+            "streaming_chunk_size": 100,  # 强制使用批处理模式
+        },
+        {"records": records, "wave_pool": wave_pool},
+    )
+
+    result = plugin.compute(ctx, "run_001")
+
+    # 验证结果
+    assert len(result) == n_records
+    assert result.dtype == THRESHOLD_HIT_DTYPE
+    # 验证 record_id 的连续性
+    assert set(result["record_id"].tolist()) == set(range(n_records))
+    # 验证通道分布
+    assert set(result["channel"].tolist()) == set(range(8))

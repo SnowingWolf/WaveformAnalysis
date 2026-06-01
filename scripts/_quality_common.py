@@ -49,7 +49,10 @@ def _build_context(storage_dir: Path, data_root: Path):
         GroupedEventsPlugin,
         HitFinderPlugin,
         RawFilesPlugin,
+        RecordsPlugin,
+        ThresholdHitPlugin,
         WaveformsPlugin,
+        WavePoolPlugin,
     )
 
     ctx = Context(
@@ -59,6 +62,7 @@ def _build_context(storage_dir: Path, data_root: Path):
             "daq_adapter": "vx2730",
             "n_channels": 2,
             "hit.use_filtered": False,
+            "hit_threshold.wave_source": "records",
             "basic_features.use_filtered": False,
             "show_progress": False,
         },
@@ -66,7 +70,10 @@ def _build_context(storage_dir: Path, data_root: Path):
     )
     ctx.register(RawFilesPlugin())
     ctx.register(WaveformsPlugin())
+    ctx.register(RecordsPlugin())
+    ctx.register(WavePoolPlugin())
     ctx.register(HitFinderPlugin())
+    ctx.register(ThresholdHitPlugin())
     ctx.register(BasicFeaturesPlugin())
     ctx.register(DataFramePlugin())
     ctx.register(GroupedEventsPlugin())
