@@ -23,13 +23,9 @@ from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     resolve_wave_input_spec,
 )
 from waveform_analysis.core.plugins.builtin.cpu.peak_finding import (
-    HIT_DTYPE,
-)
-from waveform_analysis.core.plugins.builtin.cpu.peak_finding import (
     HitFinderPlugin as _CanonicalHitFinderPlugin,
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
-from waveform_analysis.core.processing.event_grouping import find_hits
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +188,6 @@ class ThresholdHitPlugin(Plugin):
                     run_id,
                     records,
                     rv,
-                    record_ids_for_view,
                     threshold,
                     left_extension,
                     right_extension,
@@ -318,7 +313,6 @@ class ThresholdHitPlugin(Plugin):
         run_id: str,
         records: np.ndarray,
         rv: Any,
-        record_ids_for_view: np.ndarray,
         threshold: float,
         left_extension: int,
         right_extension: int,
@@ -560,6 +554,7 @@ class ThresholdHitPlugin(Plugin):
         rv: Any,  # RecordsView
         explicit_dt: int | None,
     ) -> tuple[
+        np.ndarray,
         np.ndarray,
         np.ndarray,
         np.ndarray,
