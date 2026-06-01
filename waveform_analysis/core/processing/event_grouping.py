@@ -88,10 +88,10 @@ def find_hits(
     n_hits = len(event_indices)
     hits = np.zeros(n_hits, dtype=PEAK_DTYPE)
 
-    hits["event_index"] = event_indices
+    hits["record_id"] = event_indices
     hits["time"] = s_starts  # Relative to start of waveform
     # Note: area, height, width calculation would go here or in a separate step
-    # For now we just return the hits with time and event_index
+    # For now we just return the hits with time and record_id
     return hits
 
 

@@ -35,7 +35,7 @@ BASIC_FEATURES_DTYPE = np.dtype(
         ("timestamp", "i8"),  # ADC 时间戳 (ps)
         ("board", "i2"),  # 板卡编号
         ("channel", "i2"),  # 物理通道号
-        ("event_index", "i8"),  # 事件索引
+        ("record_id", "i8"),  # 记录 ID
     ]
 )
 
@@ -191,7 +191,7 @@ class BasicFeaturesPlugin(Plugin):
                 features["timestamp"][idx] = int(rec["timestamp"])
                 features["board"][idx] = board
                 features["channel"][idx] = ch
-                features["event_index"][idx] = idx
+                features["record_id"][idx] = idx
             return features
 
         waveform_data = wave_input.waveform_data
@@ -273,6 +273,6 @@ class BasicFeaturesPlugin(Plugin):
         features["timestamp"] = timestamps
         features["board"] = boards
         features["channel"] = channels
-        features["event_index"] = np.arange(n_events)
+        features["record_id"] = np.arange(n_events)
 
         return features
