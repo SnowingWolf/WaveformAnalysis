@@ -21,7 +21,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 
 | Provides | Plugin | Depends On | Output Kind | Version |
 |----------|--------|------------|-------------|---------|
-| [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | - | `structured_array` | `4.0.0` |
+| [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | - | `structured_array` | `4.1.0` |
 | [`cache_analysis`](cache_analysis.md) | `CacheAnalysisPlugin` | - | `unknown` | `0.1.0` |
 | [`df`](df.md) | `DataFramePlugin` | - | `unknown` | `1.7.0` |
 | [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `unknown` | `0.0.0` |

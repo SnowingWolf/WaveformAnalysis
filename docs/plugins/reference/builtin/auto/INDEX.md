@@ -126,7 +126,7 @@ raw_files ──► records ──► df ──► df_events
 
 | 插件 | 提供数据 | 版本 | 类别 | 依赖 |
 |------|----------|------|------|------|
-| [`BasicFeaturesPlugin`](basic_features.md) | `basic_features` | 4.0.0 | 特征提取 | - |
+| [`BasicFeaturesPlugin`](basic_features.md) | `basic_features` | 4.1.0 | 特征提取 | - |
 | [`CacheAnalysisPlugin`](cache_analysis.md) | `cache_analysis` | 0.1.0 | 缓存分析 | - |
 | [`DataFramePlugin`](df.md) | `df` | 1.7.0 | 数据导出 | - |
 | [`GroupedEventsPlugin`](df_events.md) | `df_events` | 0.0.0 | 事件分析 | df |

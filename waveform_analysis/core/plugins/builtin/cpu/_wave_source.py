@@ -42,6 +42,9 @@ class LoadedWaveInput:
     records: Any | None = None
     waveform_data: np.ndarray | None = None
     records_view: Any | None = None
+    wave_pool: np.ndarray | None = None
+    wave_offsets: np.ndarray | None = None
+    wave_lengths: np.ndarray | None = None
 
 
 def _ensure_registered_plugin(
@@ -216,10 +219,15 @@ def load_wave_input(
 
             from waveform_analysis.core.data.records_view import RecordsView
 
+            rv = RecordsView(records, wave_pool)
+            wave_pool_view, wave_offsets, wave_lengths = rv.get_wave_pool_view()
             return LoadedWaveInput(
                 spec=spec,
                 records=records,
-                records_view=RecordsView(records, wave_pool),
+                records_view=rv,
+                wave_pool=wave_pool_view,
+                wave_offsets=wave_offsets,
+                wave_lengths=wave_lengths,
             )
 
         _ensure_registered_plugin(

@@ -9,7 +9,7 @@
 | Provides | `basic_features` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `4.0.0` |
+| Version | `4.1.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.basic_features` |
 | Accelerator | `cpu` |
 
@@ -28,7 +28,7 @@
 | `timestamp` | `int64` |
 | `board` | `int16` |
 | `channel` | `int16` |
-| `event_index` | `int64` |
+| `record_id` | `int64` |
 
 ## Config
 
@@ -40,6 +40,8 @@
 | `wave_source` | `str` | `auto` | 波形数据源: auto|records|st_waveforms|filtered_waveforms |
 | `fixed_baseline` | `dict` | `None` | 已废弃；按硬件通道固定 baseline 请改用 channel_config。 |
 | `channel_config` | `dict` | `None` | 按 (board, channel) 的插件通道覆盖配置，可覆盖 fixed_baseline。 |
+| `compute_max_abs_diff` | `bool` | `True` | 是否计算 max_abs_diff（关闭可减少一次全波形扫描，提升性能） |
+| `batch_size` | `int` | `10000` | 批处理大小：当 records 数量超过此值时，分批处理以降低内存峰值 |
 
 ## Execution Path
 
