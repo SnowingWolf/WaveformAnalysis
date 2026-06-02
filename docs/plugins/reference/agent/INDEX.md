@@ -29,9 +29,9 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `structured_array` | `3.0.0` |
 | [`hit`](hit.md) | `HitFinderPlugin` | - | `structured_array` | `3.0.0` |
 | [`hit_grouped`](hit_grouped.md) | `HitGroupedPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold` | `unknown` | `0.5.0` |
-| [`hit_merge_clusters`](hit_merge_clusters.md) | `HitMergeClustersPlugin` | `hit_threshold` | `structured_array` | `1.0.0` |
-| [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold`, `hit_merge_clusters` | `structured_array` | `1.0.0` |
-| [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | `hit_merge_clusters`, `hit_merged` | `structured_array` | `1.0.0` |
+| [`hit_merge_clusters`](hit_merge_clusters.md) | `HitMergeClustersPlugin` | `hit_threshold` | `structured_array` | `1.0.1` |
+| [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold`, `hit_merge_clusters` | `structured_array` | `1.0.1` |
+| [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | `hit_merge_clusters`, `hit_merged` | `structured_array` | `1.0.1` |
 | [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | - | `structured_array` | `1.0.0` |
 | [`peaklet_components`](peaklet_components.md) | `PeakletComponentsPlugin` | `peaklets`, `hit_merged` | `structured_array` | `0.1.0` |
 | [`peaklets`](peaklets.md) | `PeakletPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `structured_array` | `0.1.0` |

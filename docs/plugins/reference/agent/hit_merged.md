@@ -9,7 +9,7 @@
 | Provides | `hit_merged` |
 | Depends On | `hit_threshold`, `hit_merge_clusters` |
 | Output Kind | `structured_array` |
-| Version | `1.0.0` |
+| Version | `1.0.1` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merge` |
 | Accelerator | `cpu` |
 

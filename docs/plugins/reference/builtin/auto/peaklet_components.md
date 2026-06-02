@@ -10,7 +10,7 @@
 | **Version** | `0.1.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | Yes |
+| **Streaming** | No |
 | **Side Effect** | No |
 
 ## Dependencies

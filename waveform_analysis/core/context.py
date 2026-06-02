@@ -937,7 +937,7 @@ class Context(PluginMixin):
 
         arrays: list[np.ndarray] = []
         for item in result:
-            data = item.data if hasattr(item, "data") else item
+            data = item if isinstance(item, np.ndarray) else getattr(item, "data", item)
             if not isinstance(data, np.ndarray):
                 raise TypeError(
                     f"Cannot convert get_data stream for '{data_name}' to array: "

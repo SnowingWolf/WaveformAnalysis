@@ -77,6 +77,10 @@ raw_files = ctx.get_data("run_001", "raw_files")
 st_waveforms = ctx.get_data("run_001", "st_waveforms")
 ```
 
+当下游插件需要固定数组形态时，可使用 `ctx.get_data(..., output="array")` 将
+chunk stream 或 generator 结果物化为完整数组；完整参数说明见
+[数据获取](DATA_ACCESS.md)。
+
 ---
 
 ## 查询已注册插件

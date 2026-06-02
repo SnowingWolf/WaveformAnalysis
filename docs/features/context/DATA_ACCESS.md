@@ -26,9 +26,14 @@ def get_data(
     data_name: str,        # 数据名称（必需）
     show_progress: bool = False,  # 是否显示进度条
     progress_desc: str = None,    # 自定义进度描述
+    output: str = "native",       # 返回形态: native/chunk_stream/array
     **kwargs               # 传递给插件的额外参数
 ) -> Any
 ```
+
+`output="native"` 保持插件原始返回形态；`output="chunk_stream"` 保留流式/chunk
+结果；`output="array"` 会将 chunk stream、generator 中的 `Chunk.data` 或直接产出的
+`np.ndarray` item 拼接为完整数组，并把物化结果写回内存缓存。
 
 ### 自动依赖解析
 

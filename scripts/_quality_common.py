@@ -66,7 +66,7 @@ def _build_context(storage_dir: Path, data_root: Path):
             "basic_features.use_filtered": False,
             "show_progress": False,
         },
-        stats_mode="detailed",
+        stats_mode="off",
     )
     ctx.register(RawFilesPlugin())
     ctx.register(WaveformsPlugin())
