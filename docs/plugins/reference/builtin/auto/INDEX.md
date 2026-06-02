@@ -134,9 +134,9 @@ raw_files ──► records ──► df ──► df_events
 | [`FilteredWaveformsPlugin`](filtered_waveforms.md) | `filtered_waveforms` | 3.0.0 | 波形处理 | st_waveforms |
 | [`HitFinderPlugin`](hit.md) | `hit` | 3.0.0 | 特征提取 | - |
 | [`HitGroupedPlugin`](hit_grouped.md) | `hit_grouped` | 0.5.0 | 特征提取 | hit_merged, hit_merged_components, hit_threshold |
-| [`HitMergeClustersPlugin`](hit_merge_clusters.md) | `hit_merge_clusters` | 1.0.1 | 特征提取 | hit_threshold |
-| [`HitMergePlugin`](hit_merged.md) | `hit_merged` | 1.0.1 | 特征提取 | hit_threshold, hit_merge_clusters |
-| [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 1.0.1 | 特征提取 | hit_merge_clusters, hit_merged |
+| [`HitMergeClustersPlugin`](hit_merge_clusters.md) | `hit_merge_clusters` | 1.0.0 | 特征提取 | hit_threshold |
+| [`HitMergePlugin`](hit_merged.md) | `hit_merged` | 1.1.0 | 特征提取 | hit_threshold, hit_merge_clusters |
+| [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 1.0.0 | 特征提取 | hit_merge_clusters, hit_merged |
 | [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.0.2 | 特征提取 | - |
 | [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 0.1.0 | 特征提取 | peaklets, hit_merged |
 | [`PeakletPlugin`](peaklets.md) | `peaklets` | 0.1.0 | 特征提取 | hit_merged, hit_merged_components, hit_threshold, records, wave_pool |

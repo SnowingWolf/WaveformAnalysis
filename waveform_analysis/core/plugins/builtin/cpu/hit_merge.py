@@ -1,8 +1,6 @@
-"""
-Hit Merge Plugin - 合并临近 hit（同通道，允许跨波形/跨文件）
-Optimized version with vectorization and Numba JIT
-"""
+"""Hit Merge Plugin - 合并临近 hit（同通道，允许跨波形/跨文件）"""
 
+from collections.abc import Iterator
 from typing import Any
 
 import numpy as np
@@ -22,6 +20,7 @@ from waveform_analysis.core.plugins.builtin.cpu._dt_compat import (
 )
 from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.core.base import Option, Plugin
+from waveform_analysis.core.plugins.core.batch_processing import BatchProcessingPlugin
 
 HIT_MERGED_DTYPE = np.dtype(
     [
@@ -65,10 +64,30 @@ def _get_field_safe(arr: np.ndarray, *candidates: str) -> np.ndarray:
     raise ValueError(f"None of {candidates} found in array with fields {arr.dtype.names}")
 
 
+def _materialize_array(data: Any, data_name: str, output_dtype: np.dtype) -> np.ndarray:
+    if isinstance(data, np.ndarray):
+        return data
+
+    if not isinstance(data, Iterator) and not hasattr(data, "__next__"):
+        raise ValueError(f"{data_name} expects a structured array or chunk stream")
+
+    arrays: list[np.ndarray] = []
+    for item in data:
+        chunk_data = item if isinstance(item, np.ndarray) else getattr(item, "data", item)
+        if not isinstance(chunk_data, np.ndarray):
+            raise ValueError(f"{data_name} stream items must provide ndarray data")
+        if len(chunk_data) > 0:
+            arrays.append(chunk_data)
+
+    if arrays:
+        return np.concatenate(arrays)
+    return np.zeros(0, dtype=output_dtype)
+
+
 # Numba-accelerated cluster merging
 if _NUMBA_AVAILABLE:
 
-    @njit(cache=True, nogil=True)
+    @njit(cache=True, nogil=True)  # type: ignore[misc]
     def _merge_clusters_numba(
         abs_starts: np.ndarray,
         abs_ends: np.ndarray,
@@ -127,10 +146,23 @@ if _NUMBA_AVAILABLE:
 
         return (starts[:n_clusters].copy(), ends[:n_clusters].copy())
 
+else:
+    # Fallback when Numba is not available
+    def _merge_clusters_numba(
+        abs_starts: np.ndarray,
+        abs_ends: np.ndarray,
+        dt_ps: np.ndarray,
+        merge_gap_ps: float,
+        max_total_width_ps: float,
+    ) -> tuple:
+        """Python fallback when Numba unavailable."""
+        raise RuntimeError("Numba not available")
+
 
 def _pick(hit: np.void, *candidates: str) -> Any:
+    """Legacy compatibility function - prefer _get_field_safe for arrays."""
     for name in candidates:
-        if name in hit.dtype.names:
+        if hit.dtype.names and name in hit.dtype.names:
             return hit[name]
     raise KeyError(f"Missing fields {candidates} in HIT_DTYPE")
 
@@ -250,7 +282,8 @@ def _build_merged_clusters(
         enriched = [enriched[i] for i in order]
 
         # Try Numba-accelerated clustering if available
-        if _NUMBA_AVAILABLE and len(enriched) > 50:
+        # Threshold increased from 50 to 200 to reduce JIT overhead on small datasets
+        if _NUMBA_AVAILABLE and len(enriched) > 200:
             # Extract arrays for Numba
             abs_starts = np.array([x["abs_start_ps"] for x in enriched], dtype=np.float32)
             abs_ends = np.array([x["abs_end_ps"] for x in enriched], dtype=np.float32)
@@ -373,15 +406,23 @@ def _emit_cluster(
     dt_ps: float,
     component_offset: int,
 ) -> tuple:
+    """Emit a merged hit row from a cluster.
+
+    Optimized: reduced _pick calls by using direct field access where possible.
+    """
     component_count = len(cluster)
     sample_start_window, sample_end_window = _resolve_cluster_sample_window(cluster)
 
     if len(cluster) == 1:
         h = cluster[0]["hit"]
+        # Use direct field access where safe, fallback to _pick
+        sample_start = int(_get_field_safe(np.array([h]), "sample_start", "edge_start")[0])
+        sample_end = int(_get_field_safe(np.array([h]), "sample_end", "edge_end")[0])
+
         return (
             int(h["position"]),
-            int(_pick(h, "sample_start", "edge_start")),
-            int(_pick(h, "sample_end", "edge_end")),
+            sample_start,
+            sample_end,
             float(h["width"]),
             int(h["dt"]) if "dt" in h.dtype.names else int(cluster[0]["dt_ns"]),
             int(h["timestamp"]),
@@ -392,14 +433,12 @@ def _emit_cluster(
             component_count,
         )
 
-    cluster_mid_ps = (cluster_start_ps + cluster_end_ps) / 2.0
-    anchor_idx = min(
-        range(len(cluster)),
-        key=lambda i: abs(
-            (float(cluster[i]["abs_start_ps"]) + float(cluster[i]["abs_end_ps"])) / 2.0
-            - cluster_mid_ps
-        ),
-    )
+    # Vectorized anchor finding
+    cluster_mid_ps = (cluster_start_ps + cluster_end_ps) * 0.5
+    abs_starts = np.array([c["abs_start_ps"] for c in cluster], dtype=np.float32)
+    abs_ends = np.array([c["abs_end_ps"] for c in cluster], dtype=np.float32)
+    mids = (abs_starts + abs_ends) * 0.5
+    anchor_idx = int(np.argmin(np.abs(mids - cluster_mid_ps)))
     anchor = cluster[anchor_idx]["hit"]
 
     merged_sample_start = sample_start_window
@@ -423,13 +462,13 @@ def _emit_cluster(
     )
 
 
-class HitMergePlugin(Plugin):
+class HitMergePlugin(BatchProcessingPlugin):
     """Merge nearby hits from hit_threshold within the same channel."""
 
     provides = "hit_merged"
     depends_on = ["hit_threshold", "hit_merge_clusters"]
     description = "Merge nearby threshold hits per channel with time-gap and max-width constraints."
-    version = "1.0.0"
+    version = "1.1.0"
     save_when = "always"
     output_dtype = HIT_MERGED_DTYPE
 
@@ -452,15 +491,23 @@ class HitMergePlugin(Plugin):
     }
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
-        hits = context.get_data(run_id, "hit_threshold")
-        if not isinstance(hits, np.ndarray):
-            raise ValueError("hit_merged expects hit_threshold as a single structured array")
+        hits = _materialize_array(
+            context.get_data(run_id, "hit_threshold"),
+            "hit_merged hit_threshold input",
+            THRESHOLD_HIT_DTYPE,
+        )
         if len(hits) == 0:
             return np.zeros(0, dtype=HIT_MERGED_DTYPE)
 
         merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(context, self)
         try:
             cluster_rows = context.get_data(run_id, "hit_merge_clusters")
+            if cluster_rows is not None:
+                cluster_rows = _materialize_array(
+                    cluster_rows,
+                    "hit_merged hit_merge_clusters input",
+                    HIT_MERGE_CLUSTERS_DTYPE,
+                )
         except Exception:
             cluster_rows = _compute_cluster_rows(
                 hits,
@@ -524,11 +571,11 @@ class HitMergeClustersPlugin(Plugin):
     options = HitMergePlugin.options
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
-        hits = context.get_data(run_id, "hit_threshold")
-        if not isinstance(hits, np.ndarray):
-            raise ValueError(
-                "hit_merge_clusters expects hit_threshold as a single structured array"
-            )
+        hits = _materialize_array(
+            context.get_data(run_id, "hit_threshold"),
+            "hit_merge_clusters hit_threshold input",
+            THRESHOLD_HIT_DTYPE,
+        )
         if len(hits) == 0:
             return np.zeros(0, dtype=HIT_MERGE_CLUSTERS_DTYPE)
 
@@ -554,18 +601,28 @@ class HitMergedComponentsPlugin(Plugin):
     output_dtype = HIT_MERGED_COMPONENTS_DTYPE
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
-        merged = context.get_data(run_id, "hit_merged")
-        if not isinstance(merged, np.ndarray):
-            raise ValueError(
-                "hit_merged_components expects hit_merge_clusters and hit_merged structured arrays"
-            )
+        merged = _materialize_array(
+            context.get_data(run_id, "hit_merged"),
+            "hit_merged_components hit_merged input",
+            HIT_MERGED_DTYPE,
+        )
         if len(merged) == 0:
             return np.zeros(0, dtype=HIT_MERGED_COMPONENTS_DTYPE)
 
         try:
             cluster_rows = context.get_data(run_id, "hit_merge_clusters")
+            if cluster_rows is not None:
+                cluster_rows = _materialize_array(
+                    cluster_rows,
+                    "hit_merged_components hit_merge_clusters input",
+                    HIT_MERGE_CLUSTERS_DTYPE,
+                )
         except Exception:
-            hits = context.get_data(run_id, "hit_threshold")
+            hits = _materialize_array(
+                context.get_data(run_id, "hit_threshold"),
+                "hit_merged_components hit_threshold input",
+                THRESHOLD_HIT_DTYPE,
+            )
             merge_plugin = context.get_plugin("hit_merged")
             merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(
                 context, merge_plugin
@@ -578,7 +635,11 @@ class HitMergedComponentsPlugin(Plugin):
                 plugin_name="hit_merge_clusters",
             )
         if cluster_rows is None:
-            hits = context.get_data(run_id, "hit_threshold")
+            hits = _materialize_array(
+                context.get_data(run_id, "hit_threshold"),
+                "hit_merged_components hit_threshold input",
+                THRESHOLD_HIT_DTYPE,
+            )
             merge_plugin = context.get_plugin("hit_merged")
             merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(
                 context, merge_plugin
