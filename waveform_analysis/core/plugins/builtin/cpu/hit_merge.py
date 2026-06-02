@@ -17,14 +17,10 @@ from waveform_analysis.core.plugins.core.base import Option, Plugin
 HIT_MERGED_DTYPE = np.dtype(
     [
         ("position", "i8"),
-        ("height", "f4"),
-        ("integral", "f4"),
         ("sample_start", "i4"),
         ("sample_end", "i4"),
         ("width", "f4"),
         ("dt", "i4"),
-        ("rise_time", "f4"),
-        ("fall_time", "f4"),
         ("timestamp", "i8"),
         ("board", "i2"),
         ("channel", "i2"),
@@ -267,14 +263,10 @@ def _emit_cluster(
         h = cluster[0]["hit"]
         return (
             int(h["position"]),
-            float(h["height"]),
-            float(h["integral"]),
             int(_pick(h, "sample_start", "edge_start")),
             int(_pick(h, "sample_end", "edge_end")),
             float(h["width"]),
             int(h["dt"]) if "dt" in h.dtype.names else int(cluster[0]["dt_ns"]),
-            float(h["rise_time"]) if "rise_time" in h.dtype.names else 0.0,
-            float(h["fall_time"]) if "fall_time" in h.dtype.names else 0.0,
             int(h["timestamp"]),
             int(h["board"]) if "board" in h.dtype.names else 0,
             int(h["channel"]),
@@ -283,17 +275,14 @@ def _emit_cluster(
             component_count,
         )
 
-    heights = np.array([float(x["hit"]["height"]) for x in cluster], dtype=np.float64)
-    max_h = float(np.max(heights))
-    candidates = [i for i, x in enumerate(cluster) if float(x["hit"]["height"]) == max_h]
-    if len(candidates) == 1:
-        anchor_idx = candidates[0]
-    else:
-        anchor_idx = min(
-            candidates,
-            key=lambda i: int(cluster[i]["hit"]["timestamp"]),
-        )
-
+    cluster_mid_ps = (cluster_start_ps + cluster_end_ps) / 2.0
+    anchor_idx = min(
+        range(len(cluster)),
+        key=lambda i: abs(
+            (float(cluster[i]["abs_start_ps"]) + float(cluster[i]["abs_end_ps"])) / 2.0
+            - cluster_mid_ps
+        ),
+    )
     anchor = cluster[anchor_idx]["hit"]
 
     merged_sample_start = sample_start_window
@@ -301,18 +290,13 @@ def _emit_cluster(
     merged_width = float(max(merged_sample_end - merged_sample_start, 0.0))
     if merged_sample_start < 0 or merged_sample_end < 0:
         merged_width = -1.0
-    merged_integral = float(np.sum([float(x["hit"]["integral"]) for x in cluster]))
 
     return (
         int(anchor["position"]),
-        max_h,
-        merged_integral,
         int(merged_sample_start),
         int(merged_sample_end),
         merged_width,
         int(anchor["dt"]) if "dt" in anchor.dtype.names else int(cluster[anchor_idx]["dt_ns"]),
-        float(anchor["rise_time"]) if "rise_time" in anchor.dtype.names else 0.0,
-        float(anchor["fall_time"]) if "fall_time" in anchor.dtype.names else 0.0,
         int(anchor["timestamp"]),
         int(anchor["board"]) if "board" in anchor.dtype.names else 0,
         int(anchor["channel"]),
@@ -328,7 +312,7 @@ class HitMergePlugin(Plugin):
     provides = "hit_merged"
     depends_on = ["hit_threshold", "hit_merge_clusters"]
     description = "Merge nearby threshold hits per channel with time-gap and max-width constraints."
-    version = "0.8.0"
+    version = "1.0.0"
     save_when = "always"
     output_dtype = HIT_MERGED_DTYPE
 
@@ -416,7 +400,7 @@ class HitMergeClustersPlugin(Plugin):
     provides = "hit_merge_clusters"
     depends_on = ["hit_threshold"]
     description = "Internal cluster membership rows shared by hit_merged outputs."
-    version = "0.1.0"
+    version = "1.0.0"
     save_when = "always"
     output_dtype = HIT_MERGE_CLUSTERS_DTYPE
 
@@ -448,7 +432,7 @@ class HitMergedComponentsPlugin(Plugin):
     provides = "hit_merged_components"
     depends_on = ["hit_merge_clusters", "hit_merged"]
     description = "Return per-cluster component hit indices for hit_merged rows."
-    version = "0.1.0"
+    version = "1.0.0"
     save_when = "always"
     output_dtype = HIT_MERGED_COMPONENTS_DTYPE
 

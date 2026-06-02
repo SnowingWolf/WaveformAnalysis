@@ -6,6 +6,7 @@ Plugins Core 子模块 - 插件系统核心基础设施
 主要组件：
 - Plugin/Option: 插件基类和配置选项
 - StreamingPlugin: 流式插件基类
+- BatchProcessingPlugin: 批量流处理插件基类
 - PluginLoader: 插件动态加载器
 - PluginStatsCollector: 插件性能统计
 - PluginHotReloader: 插件热重载
@@ -32,6 +33,11 @@ from .base import (
     Plugin,
     option,
     takes_config,
+)
+
+# 批量流处理插件
+from .batch_processing import (
+    BatchProcessingPlugin,
 )
 
 # 插件热重载
@@ -87,6 +93,8 @@ __all__ = [
     # 流式插件
     "StreamingPlugin",
     "StreamingContext",
+    # 批量流处理插件
+    "BatchProcessingPlugin",
     # 插件加载器
     "PluginLoader",
     "load_plugins_from_entry_points",

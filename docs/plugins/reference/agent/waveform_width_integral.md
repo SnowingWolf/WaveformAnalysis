@@ -31,7 +31,7 @@
 | `timestamp` | `int64` |
 | `board` | `int16` |
 | `channel` | `int16` |
-| `event_index` | `int64` |
+| `record_id` | `int64` |
 
 ## Config
 

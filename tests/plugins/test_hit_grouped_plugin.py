@@ -25,8 +25,6 @@ def _make_hit(
 ):
     arr = np.zeros(1, dtype=THRESHOLD_HIT_DTYPE)
     arr[0]["position"] = position
-    arr[0]["height"] = height
-    arr[0]["integral"] = integral
     arr[0]["edge_start"] = edge_start
     arr[0]["edge_end"] = edge_end
     arr[0]["width"] = edge_end - edge_start

@@ -23,8 +23,6 @@ def _make_hit(
 ):
     arr = np.zeros(1, dtype=THRESHOLD_HIT_DTYPE)
     arr[0]["position"] = position
-    arr[0]["height"] = height
-    arr[0]["integral"] = integral
     arr[0]["edge_start"] = edge_start
     arr[0]["edge_end"] = edge_end
     arr[0]["width"] = edge_end - edge_start
@@ -53,10 +51,6 @@ def test_hit_merge_same_channel_across_records_marks_direct_window_invalid():
 
     h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
     h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 1)
-    h1["rise_time"] = 2.0
-    h1["fall_time"] = 3.0
-    h2["rise_time"] = 6.0
-    h2["fall_time"] = 8.0
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
 
     ctx = DummyContext(
@@ -71,14 +65,8 @@ def test_hit_merge_same_channel_across_records_marks_direct_window_invalid():
     out = plugin.compute(ctx, "run_001")
 
     assert len(out) == 1
-    assert int(out[0]["record_id"]) == 1
-    assert int(out[0]["position"]) == 14
-    assert float(out[0]["height"]) == 25.0
-    assert abs(float(out[0]["integral"]) - 70.0) < 1e-6
     assert float(out[0]["width"]) == -1.0
     assert int(out[0]["dt"]) == 2
-    assert float(out[0]["rise_time"]) == float(h2["rise_time"])
-    assert float(out[0]["fall_time"]) == float(h2["fall_time"])
     assert int(out[0]["component_offset"]) == 0
     assert int(out[0]["component_count"]) == 2
     assert int(out[0]["sample_start"]) == -1

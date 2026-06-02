@@ -12,6 +12,7 @@ from waveform_analysis.core.plugins.builtin.cpu.hit_finder import (
 from waveform_analysis.core.processing.dtypes import create_record_dtype
 from waveform_analysis.core.processing.records_builder import (
     RECORDS_DTYPE,
+    RecordsBundle,
     build_records_from_st_waveforms,
 )
 
@@ -46,7 +47,7 @@ def _compute_threshold_hits(plugin, ctx, run_id="run_001"):
     source = ctx.get_config(plugin, "wave_source")
     use_filtered = bool(ctx.get_config(plugin, "use_filtered"))
     if source == "records":
-        return plugin.compute(ctx, run_id)
+        return plugin.compute_array(ctx, run_id)
 
     waveform_data = (
         ctx.get_data(run_id, "filtered_waveforms")
@@ -54,14 +55,14 @@ def _compute_threshold_hits(plugin, ctx, run_id="run_001"):
         else ctx.get_data(run_id, "st_waveforms")
     )
     if waveform_data is None:
-        return plugin.compute(ctx, run_id)
+        return plugin.compute_array(ctx, run_id)
 
     if (
         "dt" not in (waveform_data.dtype.names or ())
         and ctx.get_config(plugin, "dt") is None
         and ctx.config.get("sampling_interval_ns") is None
     ):
-        return plugin.compute(ctx, run_id)
+        return plugin.compute_array(ctx, run_id)
 
     bundle_input = waveform_data
     names = bundle_input.dtype.names or ()
@@ -82,7 +83,7 @@ def _compute_threshold_hits(plugin, ctx, run_id="run_001"):
     with patch(
         "waveform_analysis.core.plugins.builtin.cpu.records.get_records_bundle", return_value=bundle
     ):
-        return plugin.compute(ctx, run_id)
+        return plugin.compute_array(ctx, run_id)
 
 
 def test_threshold_hit_dtype_matches_advanced_peak_dtype():
@@ -93,6 +94,17 @@ def test_threshold_hit_dtype_matches_advanced_peak_dtype():
     result = _compute_threshold_hits(plugin, ctx)
 
     assert result.dtype == THRESHOLD_HIT_DTYPE
+    assert set(result.dtype.names) == {
+        "position",
+        "edge_start",
+        "edge_end",
+        "width",
+        "dt",
+        "timestamp",
+        "board",
+        "channel",
+        "record_id",
+    }
     assert len(result) == 0
 
 
@@ -349,7 +361,7 @@ def test_threshold_hit_does_not_merge_same_channel_across_boards():
     assert {(int(row["board"]), int(row["channel"])) for row in result} == {(0, 1), (1, 1)}
 
 
-def test_threshold_hit_computes_rise_time_and_fall_time_from_threshold_window():
+def test_threshold_hit_keeps_only_interval_fields():
     plugin = ThresholdHitPlugin()
     st = _make_st_waveforms(n_events=1, wave_len=16)
     st[0]["wave"][4:9] = [80, 70, 60, 70, 80]
@@ -367,11 +379,15 @@ def test_threshold_hit_computes_rise_time_and_fall_time_from_threshold_window():
     result = _compute_threshold_hits(plugin, ctx)
 
     assert len(result) == 1
-    assert float(result[0]["rise_time"]) == 4.0
-    assert float(result[0]["fall_time"]) == 4.0
+    assert "height" not in result.dtype.names
+    assert "integral" not in result.dtype.names
+    assert "rise_time" not in result.dtype.names
+    assert "fall_time" not in result.dtype.names
+    assert int(result[0]["edge_start"]) == 4
+    assert int(result[0]["edge_end"]) == 9
 
 
-def test_threshold_hit_rise_fall_time_use_threshold_region_not_extensions():
+def test_threshold_hit_interval_extensions_do_not_compute_features():
     plugin = ThresholdHitPlugin()
     st = _make_st_waveforms(n_events=1, wave_len=16)
     st[0]["wave"][4:9] = [80, 70, 60, 70, 80]
@@ -391,8 +407,8 @@ def test_threshold_hit_rise_fall_time_use_threshold_region_not_extensions():
     assert len(result) == 1
     assert int(result[0]["edge_start"]) == 2
     assert int(result[0]["edge_end"]) == 12
-    assert float(result[0]["rise_time"]) == 4.0
-    assert float(result[0]["fall_time"]) == 4.0
+    assert "rise_time" not in result.dtype.names
+    assert "fall_time" not in result.dtype.names
 
 
 def test_threshold_hit_accepts_deprecated_sampling_interval_ns_with_warning():
@@ -503,7 +519,7 @@ def test_threshold_hit_streaming_mode_with_recordsbundleref():
         {"records": bundle_ref},
     )
 
-    result = plugin.compute(ctx, "run_001")
+    result = plugin.compute_array(ctx, "run_001")
 
     # 验证结果
     assert len(result) == 2  # 2 个 chunk，每个 1 个 hit
@@ -535,7 +551,7 @@ def test_threshold_hit_batch_mode_with_recordsbundle():
         {"records": records, "wave_pool": wave_pool},
     )
 
-    result = plugin.compute(ctx, "run_001")
+    result = plugin.compute_array(ctx, "run_001")
 
     # 验证结果
     assert len(result) == 1
@@ -573,7 +589,7 @@ def test_threshold_hit_batched_mode_boundary():
             {"records": records, "wave_pool": wave_pool},
         )
 
-        result = plugin.compute(ctx, "run_001")
+        result = plugin.compute_array(ctx, "run_001")
 
         # 验证结果：每条记录应该产生 1 个 hit
         assert (
@@ -598,7 +614,7 @@ def test_threshold_hit_empty_dataset():
         {"records": empty_records, "wave_pool": empty_wave_pool},
     )
 
-    result = plugin.compute(ctx, "run_001")
+    result = plugin.compute_array(ctx, "run_001")
 
     # 验证结果：应该返回空数组
     assert len(result) == 0
@@ -631,7 +647,7 @@ def test_threshold_hit_no_hits_found():
         {"records": records, "wave_pool": wave_pool},
     )
 
-    result = plugin.compute(ctx, "run_001")
+    result = plugin.compute_array(ctx, "run_001")
 
     # 验证结果：应该返回空数组
     assert len(result) == 0
@@ -667,7 +683,7 @@ def test_threshold_hit_multi_board_multi_channel():
         {"records": records, "wave_pool": wave_pool},
     )
 
-    result = plugin.compute(ctx, "run_001")
+    result = plugin.compute_array(ctx, "run_001")
 
     # 验证结果
     assert len(result) == 4
@@ -711,7 +727,7 @@ def test_threshold_hit_batched_mode_large_dataset():
         {"records": records, "wave_pool": wave_pool},
     )
 
-    result = plugin.compute(ctx, "run_001")
+    result = plugin.compute_array(ctx, "run_001")
 
     # 验证结果
     assert len(result) == n_records

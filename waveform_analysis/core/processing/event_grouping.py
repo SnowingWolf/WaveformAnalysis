@@ -322,8 +322,6 @@ def group_hit_windows(
         "position",
         "board",
         "channel",
-        "height",
-        "integral",
         "record_id",
     }
     names = set(hits.dtype.names or ())
@@ -358,8 +356,16 @@ def group_hit_windows(
     sample_ends_rel = np.asarray(hits[end_name], dtype=np.int32)
     boards = np.asarray(hits["board"], dtype=np.int16)
     channels = np.asarray(hits["channel"], dtype=np.int16)
-    heights = np.asarray(hits["height"], dtype=np.float32)
-    integrals = np.asarray(hits["integral"], dtype=np.float32)
+    heights = (
+        np.asarray(hits["height"], dtype=np.float32)
+        if "height" in names
+        else np.zeros(len(hits), dtype=np.float32)
+    )
+    integrals = (
+        np.asarray(hits["integral"], dtype=np.float32)
+        if "integral" in names
+        else np.zeros(len(hits), dtype=np.float32)
+    )
     record_ids = np.asarray(hits["record_id"], dtype=np.int64)
 
     dt_ps = dt_values.astype(np.float64) * 1e3

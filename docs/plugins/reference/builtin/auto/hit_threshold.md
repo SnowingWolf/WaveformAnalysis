@@ -7,10 +7,10 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `hit_threshold` |
-| **Version** | `0.12.0` |
+| **Version** | `1.0.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
+| **Streaming** | Yes |
 | **Side Effect** | No |
 
 ## Dependencies
@@ -28,6 +28,7 @@ This plugin has no dependencies.
 | `right_extension` | `int` | `2` | - | Hit 右侧扩展点数 |
 | `dt` | `int` | `None` | - | 采样间隔（ns）。仅在输入数据缺少 dt 字段时作为兼容补充。 |
 | `channel_config` | `dict` | `None` | - | 按 (board, channel) 的插件通道覆盖配置，可覆盖 threshold。 |
+| `backend` | `str` | `auto` | - | Hit finding backend: auto|numpy|ragged|numba。auto 对 records 默认使用 ragged。 |
 | `streaming_chunk_size` | `int` | `10000` | - | 流式处理时的 chunk 大小（仅对 RecordsBundleRef 生效） |
 
 
@@ -38,14 +39,10 @@ This plugin has no dependencies.
 | Field | Type | Units | Description |
 |-------|------|-------|-------------|
 | `position` | `int64` | - | - |
-| `height` | `float32` | - | - |
-| `integral` | `float32` | - | - |
 | `edge_start` | `int32` | - | - |
 | `edge_end` | `int32` | - | - |
 | `width` | `float32` | - | - |
 | `dt` | `int32` | - | - |
-| `rise_time` | `float32` | - | - |
-| `fall_time` | `float32` | - | - |
 | `timestamp` | `int64` | - | - |
 | `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |

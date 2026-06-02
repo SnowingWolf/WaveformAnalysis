@@ -1,4 +1,4 @@
-# hit_merge_clusters (HitMergeClustersPlugin)
+# peaklet_components (PeakletComponentsPlugin)
 
 > Agent-first 插件契约文档。面向自动化执行与改动评估。
 
@@ -6,36 +6,38 @@
 
 | Item | Value |
 |------|-------|
-| Provides | `hit_merge_clusters` |
-| Depends On | `hit_threshold` |
+| Provides | `peaklet_components` |
+| Depends On | `peaklets`, `hit_merged` |
 | Output Kind | `structured_array` |
-| Version | `1.0.0` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merge` |
+| Version | `0.1.0` |
+| Module | `waveform_analysis.core.plugins.builtin.cpu.peaklets` |
 | Accelerator | `cpu` |
 
 ## Inputs
 
-- `hit_threshold`
+- `peaklets`
+- `hit_merged`
 
 ## Outputs
 
 | Field | DType |
 |-------|-------|
-| `cluster_index` | `int64` |
-| `hit_index` | `int64` |
+| `peaklet_index` | `int64` |
+| `merged_index` | `int64` |
 
 ## Config
 
 | Name | Type | Default | Note |
 |------|------|---------|------|
-| `merge_gap_ns` | `float` | `0.0` | 最大边界间距（ns），<=0 表示不合并 |
-| `max_total_width_ns` | `float` | `10000.0` | 链式合并后的最大总宽度（ns） |
-| `dt` | `int` | `None` | 采样间隔（ns）。仅在输入 hit_threshold 缺少 dt 字段时作为兼容补充。 |
+| `time_window_ns` | `float` | `100.0` | 跨通道 peaklet 合并时间窗口 |
+| `max_total_width_ns` | `float` | `10000.0` | peaklet 最大总宽度 |
+| `use_filtered` | `bool` | `False` | 是否使用 wave_pool_filtered 计算特征 |
+| `dt` | `int` | `None` | 保留兼容配置；特征优先使用 records/hits 的 dt |
 
 ## Execution Path
 
-`hit_merge_clusters` 依赖链入口：
-`hit_threshold -> hit_merge_clusters`
+`peaklet_components` 依赖链入口：
+`peaklets -> hit_merged -> peaklet_components`
 
 ## Failure Modes
 
@@ -53,7 +55,7 @@
 
 ```bash
 # 单插件文档再生成
-waveform-docs generate plugins-agent --plugin hit_merge_clusters
+waveform-docs generate plugins-agent --plugin peaklet_components
 
 # 覆盖率检查
 waveform-docs check coverage --strict
