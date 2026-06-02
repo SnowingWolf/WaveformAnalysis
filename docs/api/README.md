@@ -12,8 +12,8 @@
 
 | 文档 | 说明 |
 |------|------|
-| [API 快速参考](QUICK_REFERENCE.md) | 核心 API 速查表，包含常用类、方法和数据类型 |
-| [API 使用示例](EXAMPLES.md) | 完整代码示例，涵盖常见使用场景 |
+| [配置管理](../features/context/CONFIGURATION.md) | Context 配置、来源解析与推荐写法 |
+| [数据访问](../features/context/DATA_ACCESS.md) | records、wave_pool 与缓存数据访问 |
 
 ### 核心组件
 
@@ -39,14 +39,14 @@
 ### 新手入门
 
 1. **快速开始**: [快速开始指南](../user-guide/QUICKSTART_GUIDE.md) - 5 分钟上手
-2. **API 速查**: [API 快速参考](QUICK_REFERENCE.md) - 核心 API 一览
-3. **代码示例**: [API 使用示例](EXAMPLES.md) - 完整示例代码
+2. **配置管理**: [配置管理](../features/context/CONFIGURATION.md) - 配置来源与覆盖规则
+3. **数据访问**: [数据访问](../features/context/DATA_ACCESS.md) - records 与波形访问模式
 
 ### API 查找
 
-1. **速查表**: [API 快速参考](QUICK_REFERENCE.md) - 快速查找常用 API
-2. **代码补全**: 使用 IDE 查看 docstring（推荐）
-3. **插件文档**: [内置插件索引](../plugins/reference/builtin/auto/INDEX.md) - 查看插件 API
+1. **代码补全**: 使用 IDE 查看 docstring（推荐）
+2. **插件文档**: [内置插件索引](../plugins/reference/builtin/auto/INDEX.md) - 查看插件 API
+3. **专题文档**: [功能特性](../features/README.md) - 按功能查找指南
 
 ### 插件开发
 
@@ -162,7 +162,7 @@ ctx.set_config({
 })
 ```
 
-更多示例见 [API 使用示例](EXAMPLES.md)
+更多上下文用法见 [配置管理](../features/context/CONFIGURATION.md) 与 [数据访问](../features/context/DATA_ACCESS.md)。
 
 ---
 
@@ -187,6 +187,3 @@ ctx.set_config({
 - [测试指南](../development/CONTRACT_TESTS.md) - 契约测试
 
 ### 版本管理
-
-- [变更日志](../CHANGELOG.md) - 版本历史
-- [迁移指南](../MIGRATION_GUIDE.md) - 版本升级

@@ -92,8 +92,6 @@ raw_files
 的默认公开输出契约；现有插件链路仍按内存中的 `RecordsBundle` 暴露 `records` 与
 `wave_pool`。
 
-详细使用说明请参考 [大数据集处理指南](LARGE_DATASET_PROCESSING.md)。
-
 ## RecordsView 波形访问
 
 当上游已经产出正式插件结果 `records + wave_pool` 时，可通过
@@ -427,7 +425,6 @@ data = ctx.get_data("run_001", "waveforms")  # 重新计算
 
 ## 相关文档
 
-- [大数据集处理指南](LARGE_DATASET_PROCESSING.md) - 使用 RecordsBundleRef 处理 2TB+ 数据集
 - [插件管理](PLUGIN_MANAGEMENT.md) - 注册和管理插件
 - [配置管理](CONFIGURATION.md) - 设置插件配置
 - [缓存管理 CLI](../../cli/WAVEFORM_CACHE.md) - 缓存扫描、诊断与清理
