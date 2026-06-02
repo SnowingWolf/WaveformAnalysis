@@ -42,6 +42,16 @@ def test_waveform_width_integral_wave_source_records_depends_on_records_and_wave
 
 def test_waveform_width_integral_reads_records_view_when_wave_source_records():
     plugin = WaveformWidthIntegralPlugin()
+
+    records = np.zeros(1, dtype=RECORDS_DTYPE)
+    records["baseline"] = 100.0
+    records["timestamp"] = 123456
+    records["board"] = 7
+    records["channel"] = 1
+    records["event_length"] = 8
+    records["wave_offset"] = 0
+    wave_pool = np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.uint16)
+
     ctx = DummyContext(
         {
             "wave_source": "records",
@@ -49,11 +59,11 @@ def test_waveform_width_integral_reads_records_view_when_wave_source_records():
             "q_high": 0.9,
             "sampling_rate": 0.5,
         },
-        {},
+        {"records": records, "wave_pool": wave_pool},
     )
-    rv = _make_records_view()
+    rv = RecordsView(records, wave_pool)
 
-    with patch("waveform_analysis.core.records_view", return_value=rv) as mocked:
+    with patch("waveform_analysis.core.data.records_view.records_view", return_value=rv) as mocked:
         out = plugin.compute(ctx, "run_001")
 
     assert mocked.call_count == 1
@@ -64,6 +74,16 @@ def test_waveform_width_integral_reads_records_view_when_wave_source_records():
 
 def test_waveform_width_integral_reads_filtered_pool_when_records_use_filtered():
     plugin = WaveformWidthIntegralPlugin()
+
+    records = np.zeros(1, dtype=RECORDS_DTYPE)
+    records["baseline"] = 100.0
+    records["timestamp"] = 123456
+    records["board"] = 7
+    records["channel"] = 1
+    records["event_length"] = 8
+    records["wave_offset"] = 0
+    wave_pool_filtered = np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.float32)
+
     ctx = DummyContext(
         {
             "wave_source": "records",
@@ -72,11 +92,11 @@ def test_waveform_width_integral_reads_filtered_pool_when_records_use_filtered()
             "q_high": 0.9,
             "sampling_rate": 0.5,
         },
-        {},
+        {"records": records, "wave_pool_filtered": wave_pool_filtered},
     )
-    rv = _make_records_view()
+    rv = RecordsView(records, wave_pool_filtered)
 
-    with patch("waveform_analysis.core.records_view", return_value=rv) as mocked:
+    with patch("waveform_analysis.core.data.records_view.records_view", return_value=rv) as mocked:
         plugin.compute(ctx, "run_001")
 
     assert mocked.call_args.kwargs["wave_pool_name"] == "wave_pool_filtered"

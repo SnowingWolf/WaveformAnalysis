@@ -106,6 +106,15 @@ def test_hitfinder_wave_source_records_and_use_filtered_depends_on_filtered_pool
 
 def test_hitfinder_reads_records_view_when_wave_source_records():
     plugin = HitFinderPlugin()
+
+    records = make_records(
+        n_records=1, event_length=8, baseline=100.0, dt=2, timestamp_start=123_456
+    )
+    records["board"] = 5
+    records["channel"] = 2
+    records["polarity"] = ["negative"]
+    wave_pool = np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.uint16)
+
     ctx = DummyContext(
         {
             "wave_source": "records",
@@ -118,19 +127,12 @@ def test_hitfinder_reads_records_view_when_wave_source_records():
             "parallel": False,
             "dt": 2,
         },
-        {},
+        {"records": records, "wave_pool": wave_pool},
     )
 
-    records = make_records(
-        n_records=1, event_length=8, baseline=100.0, dt=2, timestamp_start=123_456
-    )
-    records["board"] = 5
-    records["channel"] = 2
-    records["polarity"] = ["negative"]
-    wave_pool = np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.uint16)
     rv = RecordsView(records, wave_pool)
 
-    with patch("waveform_analysis.core.records_view", return_value=rv) as mocked:
+    with patch("waveform_analysis.core.data.records_view.records_view", return_value=rv) as mocked:
         result = plugin.compute(ctx, "run_001")
 
     assert mocked.call_count == 1
@@ -143,6 +145,15 @@ def test_hitfinder_reads_records_view_when_wave_source_records():
 
 def test_hitfinder_records_use_filtered_reads_filtered_pool():
     plugin = HitFinderPlugin()
+
+    records = make_records(
+        n_records=1, event_length=8, baseline=100.0, dt=2, timestamp_start=123_456
+    )
+    records["board"] = 5
+    records["channel"] = 2
+    records["polarity"] = ["negative"]
+    wave_pool_filtered = np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.float32)
+
     ctx = DummyContext(
         {
             "wave_source": "records",
@@ -156,19 +167,12 @@ def test_hitfinder_records_use_filtered_reads_filtered_pool():
             "parallel": False,
             "dt": 2,
         },
-        {},
+        {"records": records, "wave_pool_filtered": wave_pool_filtered},
     )
 
-    records = make_records(
-        n_records=1, event_length=8, baseline=100.0, dt=2, timestamp_start=123_456
-    )
-    records["board"] = 5
-    records["channel"] = 2
-    records["polarity"] = ["negative"]
-    wave_pool_filtered = np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.float32)
     rv = RecordsView(records, wave_pool_filtered)
 
-    with patch("waveform_analysis.core.records_view", return_value=rv) as mocked:
+    with patch("waveform_analysis.core.data.records_view.records_view", return_value=rv) as mocked:
         plugin.compute(ctx, "run_001")
 
     assert mocked.call_args.kwargs["wave_pool_name"] == "wave_pool_filtered"
