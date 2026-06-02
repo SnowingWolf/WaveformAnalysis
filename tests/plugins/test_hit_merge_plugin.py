@@ -3,6 +3,7 @@ import numpy as np
 from tests.utils import DummyContext, FakeContext
 from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
+    HIT_MERGE_CLUSTERS_DTYPE,
     HIT_MERGED_COMPONENTS_DTYPE,
     HIT_MERGED_DTYPE,
     HitMergeClustersPlugin,
@@ -198,7 +199,140 @@ def test_hit_merge_disabled_when_gap_non_positive():
     np.testing.assert_array_equal(out["position"], hits["position"])
     np.testing.assert_array_equal(out["sample_start"], hits["edge_start"])
     np.testing.assert_array_equal(out["sample_end"], hits["edge_end"])
+    np.testing.assert_array_equal(out["component_offset"], np.arange(2, dtype=np.int64))
     np.testing.assert_array_equal(out["component_count"], np.ones(2, dtype=np.int32))
+
+
+def test_hit_merge_clusters_disabled_when_gap_non_positive_maps_hits_one_to_one():
+    plugin = HitMergeClustersPlugin()
+
+    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
+    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 110_000, 0, 1)
+    hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
+
+    ctx = DummyContext(
+        {"merge_gap_ns": 0.0, "max_total_width_ns": 10000.0, "dt": 2},
+        {"hit_threshold": hits},
+    )
+
+    out = plugin.compute(ctx, "run_001")
+
+    assert out.dtype == HIT_MERGE_CLUSTERS_DTYPE
+    np.testing.assert_array_equal(out["cluster_index"], np.array([0, 1], dtype=np.int64))
+    np.testing.assert_array_equal(out["hit_index"], np.array([0, 1], dtype=np.int64))
+
+
+def test_hit_merge_uses_int64_ps_for_large_timestamps_and_small_gaps():
+    plugin = HitMergePlugin()
+
+    base_timestamp = 10_000_000_000_000_000
+    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, base_timestamp, 0, 0, dt=1)
+    h2 = _make_hit(10, 25.0, 40.0, 8.0, 12.0, base_timestamp + 20_000, 0, 1, dt=1)
+    hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
+
+    ctx = DummyContext(
+        {"merge_gap_ns": 5.0, "max_total_width_ns": 10000.0},
+        {"hit_threshold": hits},
+    )
+
+    out = plugin.compute(ctx, "run_001")
+
+    assert len(out) == 2
+    np.testing.assert_array_equal(out["timestamp"], hits["timestamp"])
+
+
+def test_hit_merge_clusters_numba_path_returns_contiguous_cluster_rows():
+    plugin = HitMergeClustersPlugin()
+    hits = np.array(
+        [
+            _make_hit(
+                10,
+                20.0,
+                30.0,
+                8.0,
+                12.0,
+                100_000 + idx * 20_000,
+                0,
+                idx,
+                dt=1,
+            )
+            for idx in range(205)
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+
+    out = plugin.compute(
+        DummyContext(
+            {"merge_gap_ns": 5.0, "max_total_width_ns": 10000.0},
+            {"hit_threshold": hits},
+        ),
+        "run_001",
+    )
+
+    assert len(out) == len(hits)
+    np.testing.assert_array_equal(out["cluster_index"], np.arange(len(hits), dtype=np.int64))
+    np.testing.assert_array_equal(out["hit_index"], np.arange(len(hits), dtype=np.int64))
+
+
+def test_hit_merge_clusters_keeps_contiguous_cluster_offsets_across_channels():
+    plugin = HitMergeClustersPlugin()
+    hits = np.array(
+        [
+            _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0),
+            _make_hit(10, 22.0, 31.0, 8.0, 12.0, 200_000, 1, 1),
+            _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 2),
+            _make_hit(14, 26.0, 41.0, 13.0, 16.0, 208_000, 1, 3),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+
+    out = plugin.compute(
+        DummyContext(
+            {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0, "dt": 2},
+            {"hit_threshold": hits},
+        ),
+        "run_001",
+    )
+
+    np.testing.assert_array_equal(out["cluster_index"], np.array([0, 0, 1, 1], dtype=np.int64))
+    np.testing.assert_array_equal(out["hit_index"], np.array([0, 2, 1, 3], dtype=np.int64))
+
+
+def test_hit_merge_single_hit_cluster_uses_sample_fields_without_temp_array():
+    dtype = np.dtype(
+        [
+            ("position", "i8"),
+            ("sample_start", "i4"),
+            ("sample_end", "i4"),
+            ("width", "f4"),
+            ("dt", "i4"),
+            ("timestamp", "i8"),
+            ("board", "i2"),
+            ("channel", "i2"),
+            ("record_id", "i8"),
+        ]
+    )
+    hits = np.zeros(1, dtype=dtype)
+    hits[0]["position"] = 10
+    hits[0]["sample_start"] = 7
+    hits[0]["sample_end"] = 13
+    hits[0]["width"] = 6
+    hits[0]["dt"] = 2
+    hits[0]["timestamp"] = 100_000
+    hits[0]["channel"] = 0
+    hits[0]["record_id"] = 3
+
+    out = HitMergePlugin().compute(
+        DummyContext(
+            {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0},
+            {"hit_threshold": hits},
+        ),
+        "run_001",
+    )
+
+    assert len(out) == 1
+    assert int(out[0]["sample_start"]) == 7
+    assert int(out[0]["sample_end"]) == 13
 
 
 def test_hit_merge_does_not_merge_different_dt_values():
@@ -239,6 +373,33 @@ def test_hit_merged_components_returns_flat_component_rows():
     assert out.dtype == HIT_MERGED_COMPONENTS_DTYPE
     np.testing.assert_array_equal(out["merged_index"], np.array([0, 0, 1], dtype=np.int64))
     np.testing.assert_array_equal(out["hit_index"], np.array([0, 1, 2], dtype=np.int64))
+
+
+def test_hit_merged_components_validate_components_checks_consistency():
+    components_plugin = HitMergedComponentsPlugin()
+    merged = np.zeros(1, dtype=HIT_MERGED_DTYPE)
+    merged[0]["component_offset"] = 99
+    merged[0]["component_count"] = 1
+    cluster_rows = np.array([(0, 0)], dtype=HIT_MERGE_CLUSTERS_DTYPE)
+
+    default_ctx = DummyContext(
+        {},
+        {"hit_merged": merged, "hit_merge_clusters": cluster_rows},
+    )
+    out = components_plugin.compute(default_ctx, "run_001")
+    np.testing.assert_array_equal(out["merged_index"], np.array([0], dtype=np.int64))
+    np.testing.assert_array_equal(out["hit_index"], np.array([0], dtype=np.int64))
+
+    validate_ctx = DummyContext(
+        {"validate_components": True},
+        {"hit_merged": merged, "hit_merge_clusters": cluster_rows},
+    )
+    try:
+        components_plugin.compute(validate_ctx, "run_001")
+    except ValueError as exc:
+        assert "component_offset mismatch" in str(exc)
+    else:
+        raise AssertionError("validate_components=True should check merged component metadata")
 
 
 def test_hit_merge_clusters_materializes_hit_threshold_chunk_stream():

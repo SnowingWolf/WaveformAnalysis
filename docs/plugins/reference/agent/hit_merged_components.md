@@ -9,7 +9,7 @@
 | Provides | `hit_merged_components` |
 | Depends On | `hit_merge_clusters`, `hit_merged` |
 | Output Kind | `structured_array` |
-| Version | `1.0.0` |
+| Version | `1.0.1` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merge` |
 | Accelerator | `cpu` |
 
@@ -27,7 +27,9 @@
 
 ## Config
 
-- 无可配置项
+| Name | Type | Default | Note |
+|------|------|---------|------|
+| `validate_components` | `bool` | `False` | 校验 hit_merged 的 component_offset/component_count 与 cluster rows 是否一致。 |
 
 ## Execution Path
 

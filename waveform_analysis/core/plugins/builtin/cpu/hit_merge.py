@@ -1,7 +1,7 @@
 """Hit Merge Plugin - 合并临近 hit（同通道，允许跨波形/跨文件）"""
 
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, NamedTuple
 
 import numpy as np
 
@@ -64,6 +64,15 @@ def _get_field_safe(arr: np.ndarray, *candidates: str) -> np.ndarray:
     raise ValueError(f"None of {candidates} found in array with fields {arr.dtype.names}")
 
 
+def _resolve_sample_fields(dtype: np.dtype) -> tuple[str, str] | tuple[None, None]:
+    names = set(dtype.names or ())
+    if {"sample_start", "sample_end"}.issubset(names):
+        return "sample_start", "sample_end"
+    if {"edge_start", "edge_end"}.issubset(names):
+        return "edge_start", "edge_end"
+    return None, None
+
+
 def _materialize_array(data: Any, data_name: str, output_dtype: np.dtype) -> np.ndarray:
     if isinstance(data, np.ndarray):
         return data
@@ -92,8 +101,8 @@ if _NUMBA_AVAILABLE:
         abs_starts: np.ndarray,
         abs_ends: np.ndarray,
         dt_ps: np.ndarray,
-        merge_gap_ps: float,
-        max_total_width_ps: float,
+        merge_gap_ps: int,
+        max_total_width_ps: int,
     ) -> tuple:
         """Numba JIT-compiled cluster merging.
 
@@ -110,15 +119,15 @@ if _NUMBA_AVAILABLE:
         n_clusters = 0
 
         cluster_start_idx = 0
-        cluster_start_ps = float(abs_starts[0])
-        cluster_end_ps = float(abs_ends[0])
-        cluster_dt = float(dt_ps[0])
+        cluster_start_ps = abs_starts[0]
+        cluster_end_ps = abs_ends[0]
+        cluster_dt = dt_ps[0]
 
         for i in range(1, n):
-            gap = float(abs_starts[i]) - cluster_end_ps
-            next_end = max(cluster_end_ps, float(abs_ends[i]))
+            gap = abs_starts[i] - cluster_end_ps
+            next_end = max(cluster_end_ps, abs_ends[i])
             total_width = next_end - cluster_start_ps
-            same_dt = abs(float(dt_ps[i]) - cluster_dt) < 1e-3
+            same_dt = dt_ps[i] == cluster_dt
 
             if (
                 merge_gap_ps > 0
@@ -135,9 +144,9 @@ if _NUMBA_AVAILABLE:
                 n_clusters += 1
                 # Start new cluster
                 cluster_start_idx = i
-                cluster_start_ps = float(abs_starts[i])
-                cluster_end_ps = float(abs_ends[i])
-                cluster_dt = float(dt_ps[i])
+                cluster_start_ps = abs_starts[i]
+                cluster_end_ps = abs_ends[i]
+                cluster_dt = dt_ps[i]
 
         # Save last cluster
         starts[n_clusters] = cluster_start_idx
@@ -152,8 +161,8 @@ else:
         abs_starts: np.ndarray,
         abs_ends: np.ndarray,
         dt_ps: np.ndarray,
-        merge_gap_ps: float,
-        max_total_width_ps: float,
+        merge_gap_ps: int,
+        max_total_width_ps: int,
     ) -> tuple:
         """Python fallback when Numba unavailable."""
         raise RuntimeError("Numba not available")
@@ -176,80 +185,139 @@ def _resolve_merge_config(context: Any, plugin: Plugin) -> tuple[float, float, i
     return merge_gap_ns, max_total_width_ns, explicit_dt
 
 
-def _build_enriched_hits(
+class _EnrichedArrays(NamedTuple):
+    source_indices: np.ndarray
+    abs_start_ps: np.ndarray
+    abs_end_ps: np.ndarray
+    dt_ns: np.ndarray
+    dt_ps: np.ndarray
+
+
+def _build_enriched_arrays(
     hits: np.ndarray,
     dt_values: np.ndarray,
     source_indices: np.ndarray,
-) -> list[dict[str, Any]]:
-    """Build enriched hits with absolute time coordinates.
-
-    Optimized version: vectorized field extraction replaces hot _pick calls.
-    """
+) -> _EnrichedArrays:
     n = len(hits)
     if n == 0:
-        return []
+        return _EnrichedArrays(
+            source_indices=np.zeros(0, dtype=np.int64),
+            abs_start_ps=np.zeros(0, dtype=np.int64),
+            abs_end_ps=np.zeros(0, dtype=np.int64),
+            dt_ns=np.zeros(0, dtype=np.int64),
+            dt_ps=np.zeros(0, dtype=np.int64),
+        )
 
-    # Vectorized field extraction (replaces 4*n calls to _pick)
-    # This alone saves ~0.4 seconds for 10k hits
-    timestamps = _get_field_safe(hits, "timestamp", "hit_timestamp_ps").astype(np.float64)
-    positions = _get_field_safe(hits, "position", "hit_sample_idx").astype(np.float64)
+    timestamps = _get_field_safe(hits, "timestamp", "hit_timestamp_ps").astype(np.int64)
+    positions = _get_field_safe(hits, "position", "hit_sample_idx").astype(np.int64)
     edge_starts = _get_field_safe(hits, "edge_start", "sample_start", "hit_left_sample_idx").astype(
-        np.float64
+        np.int64
     )
     edge_ends = _get_field_safe(hits, "edge_end", "sample_end", "hit_right_sample_idx").astype(
-        np.float64
+        np.int64
     )
 
-    # Vectorized computation
-    dt_ps = dt_values.astype(np.float64) * 1e3
+    dt_ns = dt_values.astype(np.int64)
+    dt_ps = dt_values.astype(np.int64) * np.int64(1000)
     abs_start_ps = timestamps + (edge_starts - positions) * dt_ps
     abs_end_ps = timestamps + (edge_ends - positions) * dt_ps
 
-    # Build dict list (kept for compatibility, but much faster now)
-    enriched: list[dict[str, Any]] = []
-    for i in range(n):
-        enriched.append(
-            {
-                "hit": hits[i],
-                "source_index": int(source_indices[i]),
-                "abs_start_ps": float(abs_start_ps[i]),
-                "abs_end_ps": float(abs_end_ps[i]),
-                "dt_ns": int(dt_values[i]),
-                "dt_ps": float(dt_ps[i]),
-            }
-        )
-    return enriched
+    return _EnrichedArrays(
+        source_indices=source_indices.astype(np.int64, copy=False),
+        abs_start_ps=abs_start_ps,
+        abs_end_ps=abs_end_ps,
+        dt_ns=dt_ns,
+        dt_ps=dt_ps,
+    )
 
 
-def _resolve_cluster_sample_window(cluster: list[dict[str, Any]]) -> tuple[int, int]:
-    record_ids = {int(item["hit"]["record_id"]) for item in cluster}
-    if len(record_ids) != 1:
+def _resolve_cluster_sample_window(hits: np.ndarray) -> tuple[int, int]:
+    if len(np.unique(hits["record_id"])) != 1:
         return -1, -1
 
-    names = set(cluster[0]["hit"].dtype.names or ())
-    if {"sample_start", "sample_end"}.issubset(names):
-        start_name = "sample_start"
-        end_name = "sample_end"
-    elif {"edge_start", "edge_end"}.issubset(names):
-        start_name = "edge_start"
-        end_name = "edge_end"
-    else:
+    start_name, end_name = _resolve_sample_fields(hits.dtype)
+    if start_name is None or end_name is None:
         return -1, -1
 
-    sample_start = min(int(item["hit"][start_name]) for item in cluster)
-    sample_end = max(int(item["hit"][end_name]) for item in cluster)
+    sample_start = int(np.min(hits[start_name]))
+    sample_end = int(np.max(hits[end_name]))
     return sample_start, sample_end
 
 
-def _build_merged_clusters(
+def _cluster_bounds_python(
+    abs_starts: np.ndarray,
+    abs_ends: np.ndarray,
+    dt_ps: np.ndarray,
+    merge_gap_ps: int,
+    max_total_width_ps: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    starts: list[int] = []
+    ends: list[int] = []
+
+    cluster_start_idx = 0
+    cluster_start_ps = int(abs_starts[0])
+    cluster_end_ps = int(abs_ends[0])
+    cluster_dt = int(dt_ps[0])
+
+    for idx in range(1, len(abs_starts)):
+        gap_ps = int(abs_starts[idx]) - cluster_end_ps
+        next_end = max(cluster_end_ps, int(abs_ends[idx]))
+        total_width_ps = next_end - cluster_start_ps
+        same_dt = int(dt_ps[idx]) == cluster_dt
+
+        if (
+            merge_gap_ps > 0
+            and same_dt
+            and gap_ps <= merge_gap_ps
+            and total_width_ps <= max_total_width_ps
+        ):
+            cluster_end_ps = next_end
+        else:
+            starts.append(cluster_start_idx)
+            ends.append(idx)
+            cluster_start_idx = idx
+            cluster_start_ps = int(abs_starts[idx])
+            cluster_end_ps = int(abs_ends[idx])
+            cluster_dt = int(dt_ps[idx])
+
+    starts.append(cluster_start_idx)
+    ends.append(len(abs_starts))
+    return np.asarray(starts, dtype=np.int32), np.asarray(ends, dtype=np.int32)
+
+
+def _build_cluster_rows_from_bounds(
+    sorted_source_indices: np.ndarray,
+    cluster_starts: np.ndarray,
+    cluster_ends: np.ndarray,
+    cluster_offset: int,
+) -> np.ndarray:
+    if len(cluster_starts) == 0:
+        return np.zeros(0, dtype=HIT_MERGE_CLUSTERS_DTYPE)
+
+    counts = (cluster_ends - cluster_starts).astype(np.int64)
+    rows = np.zeros(int(np.sum(counts)), dtype=HIT_MERGE_CLUSTERS_DTYPE)
+    rows["cluster_index"] = np.repeat(
+        np.arange(cluster_offset, cluster_offset + len(cluster_starts), dtype=np.int64),
+        counts,
+    )
+
+    cursor = 0
+    for start, end in zip(cluster_starts, cluster_ends, strict=False):
+        count = int(end - start)
+        rows["hit_index"][cursor : cursor + count] = sorted_source_indices[int(start) : int(end)]
+        cursor += count
+    return rows
+
+
+def _compute_cluster_rows(
     hits: np.ndarray,
     merge_gap_ns: float,
     max_total_width_ns: float,
     explicit_dt: int | None,
     plugin_name: str,
-) -> list[list[dict[str, Any]]]:
+) -> np.ndarray:
     if len(hits) == 0:
-        return []
+        return np.zeros(0, dtype=HIT_MERGE_CLUSTERS_DTYPE)
 
     if "board" in hits.dtype.names:
         boards = hits["board"]
@@ -259,9 +327,10 @@ def _build_merged_clusters(
         raise ValueError(f"{plugin_name} requires hit data with a 'channel' field")
     channels = hits["channel"]
 
-    clusters_out: list[list[dict[str, Any]]] = []
-    merge_gap_ps = merge_gap_ns * 1e3
-    max_total_width_ps = max_total_width_ns * 1e3
+    cluster_rows: list[np.ndarray] = []
+    cluster_offset = 0
+    merge_gap_ps = int(round(merge_gap_ns * 1e3))
+    max_total_width_ps = int(round(max_total_width_ns * 1e3))
 
     for _hw_channel, indices in group_indices_by_hardware_channel(boards, channels).items():
         ch_hits = hits[indices]
@@ -274,98 +343,49 @@ def _build_merged_clusters(
             plugin_name=plugin_name,
             data_name="hit_threshold[channel]",
         )
-        enriched = _build_enriched_hits(ch_hits, channel_dt, indices.astype(np.int64, copy=False))
-        order = np.argsort(
-            np.array([x["abs_start_ps"] for x in enriched], dtype=np.float64),
-            kind="mergesort",
-        )
-        enriched = [enriched[i] for i in order]
+        enriched = _build_enriched_arrays(ch_hits, channel_dt, indices.astype(np.int64, copy=False))
+        order = np.argsort(enriched.abs_start_ps, kind="mergesort")
+        abs_starts = enriched.abs_start_ps[order]
+        abs_ends = enriched.abs_end_ps[order]
+        dts = enriched.dt_ps[order]
+        sorted_source_indices = enriched.source_indices[order]
 
-        # Try Numba-accelerated clustering if available
-        # Threshold increased from 50 to 200 to reduce JIT overhead on small datasets
-        if _NUMBA_AVAILABLE and len(enriched) > 200:
-            # Extract arrays for Numba
-            abs_starts = np.array([x["abs_start_ps"] for x in enriched], dtype=np.float32)
-            abs_ends = np.array([x["abs_end_ps"] for x in enriched], dtype=np.float32)
-            dts = np.array([x["dt_ps"] for x in enriched], dtype=np.float32)
-
+        if _NUMBA_AVAILABLE and len(abs_starts) > 200:
             cluster_starts, cluster_ends = _merge_clusters_numba(
                 abs_starts, abs_ends, dts, merge_gap_ps, max_total_width_ps
             )
-
-            # Build cluster list from indices
-            for start, end in zip(cluster_starts, cluster_ends, strict=False):
-                clusters_out.append(enriched[int(start) : int(end)])
         else:
-            # Fallback: Python loop (for small datasets or when Numba unavailable)
-            cluster: list[dict[str, Any]] = [enriched[0]]
-            cluster_start = enriched[0]["abs_start_ps"]
-            cluster_end = enriched[0]["abs_end_ps"]
+            cluster_starts, cluster_ends = _cluster_bounds_python(
+                abs_starts, abs_ends, dts, merge_gap_ps, max_total_width_ps
+            )
 
-            for item in enriched[1:]:
-                gap_ps = item["abs_start_ps"] - cluster_end
-                next_end = max(cluster_end, item["abs_end_ps"])
-                total_width_ps = next_end - cluster_start
-                same_dt = item["dt_ps"] == cluster[-1]["dt_ps"]
+        rows = _build_cluster_rows_from_bounds(
+            sorted_source_indices,
+            cluster_starts,
+            cluster_ends,
+            cluster_offset,
+        )
+        if len(rows) > 0:
+            cluster_rows.append(rows)
+            cluster_offset += len(cluster_starts)
 
-                if (
-                    merge_gap_ns > 0
-                    and same_dt
-                    and gap_ps <= merge_gap_ps
-                    and total_width_ps <= max_total_width_ps
-                ):
-                    cluster.append(item)
-                    cluster_end = next_end
-                else:
-                    clusters_out.append(cluster)
-                    cluster = [item]
-                    cluster_start = item["abs_start_ps"]
-                    cluster_end = item["abs_end_ps"]
-
-            clusters_out.append(cluster)
-
-    return clusters_out
-
-
-def _build_cluster_rows(clusters: list[list[dict[str, Any]]]) -> np.ndarray:
-    cluster_rows: list[tuple[int, int]] = []
-    for cluster_index, cluster in enumerate(clusters):
-        for item in cluster:
-            cluster_rows.append((cluster_index, int(item["source_index"])))
     if cluster_rows:
-        return np.array(cluster_rows, dtype=HIT_MERGE_CLUSTERS_DTYPE)
+        return np.concatenate(cluster_rows)
     return np.zeros(0, dtype=HIT_MERGE_CLUSTERS_DTYPE)
 
 
-def _build_enriched_lookup(
+def _build_enriched_for_hits(
     hits: np.ndarray,
     explicit_dt: int | None,
     plugin_name: str,
-) -> dict[int, dict[str, Any]]:
-    if len(hits) == 0:
-        return {}
-
-    if "board" in hits.dtype.names:
-        boards = hits["board"]
-    else:
-        boards = np.zeros(len(hits), dtype=np.int16)
-    channels = hits["channel"]
-
-    enriched_lookup: dict[int, dict[str, Any]] = {}
-    for _hw_channel, indices in group_indices_by_hardware_channel(boards, channels).items():
-        ch_hits = hits[indices]
-        if len(ch_hits) == 0:
-            continue
-        channel_dt = require_dt_array(
-            ch_hits,
-            explicit_dt=explicit_dt,
-            plugin_name=plugin_name,
-            data_name="hit_threshold[channel]",
-        )
-        enriched = _build_enriched_hits(ch_hits, channel_dt, indices.astype(np.int64, copy=False))
-        for item in enriched:
-            enriched_lookup[int(item["source_index"])] = item
-    return enriched_lookup
+) -> _EnrichedArrays:
+    dt_values = require_dt_array(
+        hits,
+        explicit_dt=explicit_dt,
+        plugin_name=plugin_name,
+        data_name="hit_threshold",
+    )
+    return _build_enriched_arrays(hits, dt_values, np.arange(len(hits), dtype=np.int64))
 
 
 def _cluster_bounds(cluster_rows: np.ndarray) -> list[tuple[int, int, int]]:
@@ -382,49 +402,72 @@ def _cluster_bounds(cluster_rows: np.ndarray) -> list[tuple[int, int, int]]:
     ]
 
 
-def _compute_cluster_rows(
-    hits: np.ndarray,
-    merge_gap_ns: float,
-    max_total_width_ns: float,
-    explicit_dt: int | None,
-    plugin_name: str,
-) -> np.ndarray:
-    clusters = _build_merged_clusters(
+def _hits_to_merged_fast(hits: np.ndarray, explicit_dt: int | None, plugin_name: str) -> np.ndarray:
+    dt_values = require_dt_array(
         hits,
-        merge_gap_ns=merge_gap_ns,
-        max_total_width_ns=max_total_width_ns,
         explicit_dt=explicit_dt,
         plugin_name=plugin_name,
+        data_name="hit_threshold",
     )
-    return _build_cluster_rows(clusters)
+    start_name, end_name = _resolve_sample_fields(hits.dtype)
+    if start_name is None or end_name is None:
+        raise ValueError(f"{plugin_name} requires hit data with sample start/end fields")
+
+    out = np.zeros(len(hits), dtype=HIT_MERGED_DTYPE)
+    out["position"] = _get_field_safe(hits, "position", "hit_sample_idx")
+    out["sample_start"] = hits[start_name]
+    out["sample_end"] = hits[end_name]
+    out["width"] = _get_field_safe(hits, "width")
+    out["dt"] = dt_values
+    out["timestamp"] = _get_field_safe(hits, "timestamp", "hit_timestamp_ps")
+    out["board"] = hits["board"] if "board" in hits.dtype.names else 0
+    out["channel"] = hits["channel"]
+    out["record_id"] = hits["record_id"]
+    out["component_offset"] = np.arange(len(hits), dtype=np.int64)
+    out["component_count"] = 1
+    return out
+
+
+def _hits_to_cluster_rows_fast(hits: np.ndarray) -> np.ndarray:
+    rows = np.zeros(len(hits), dtype=HIT_MERGE_CLUSTERS_DTYPE)
+    rows["cluster_index"] = np.arange(len(hits), dtype=np.int64)
+    rows["hit_index"] = np.arange(len(hits), dtype=np.int64)
+    return rows
+
+
+def _cluster_rows_to_components(cluster_rows: np.ndarray) -> np.ndarray:
+    out = np.zeros(len(cluster_rows), dtype=HIT_MERGED_COMPONENTS_DTYPE)
+    out["merged_index"] = cluster_rows["cluster_index"]
+    out["hit_index"] = cluster_rows["hit_index"]
+    return out
 
 
 def _emit_cluster(
-    cluster: list[dict[str, Any]],
-    cluster_start_ps: float,
-    cluster_end_ps: float,
-    dt_ps: float,
+    cluster_hits: np.ndarray,
+    abs_starts: np.ndarray,
+    abs_ends: np.ndarray,
+    dt_ns: np.ndarray,
     component_offset: int,
 ) -> tuple:
-    """Emit a merged hit row from a cluster.
+    component_count = len(cluster_hits)
+    sample_start_window, sample_end_window = _resolve_cluster_sample_window(cluster_hits)
 
-    Optimized: reduced _pick calls by using direct field access where possible.
-    """
-    component_count = len(cluster)
-    sample_start_window, sample_end_window = _resolve_cluster_sample_window(cluster)
-
-    if len(cluster) == 1:
-        h = cluster[0]["hit"]
-        # Use direct field access where safe, fallback to _pick
-        sample_start = int(_get_field_safe(np.array([h]), "sample_start", "edge_start")[0])
-        sample_end = int(_get_field_safe(np.array([h]), "sample_end", "edge_end")[0])
+    if len(cluster_hits) == 1:
+        h = cluster_hits[0]
+        start_name, end_name = _resolve_sample_fields(h.dtype)
+        if start_name is None or end_name is None:
+            sample_start = -1
+            sample_end = -1
+        else:
+            sample_start = int(h[start_name])
+            sample_end = int(h[end_name])
 
         return (
             int(h["position"]),
             sample_start,
             sample_end,
             float(h["width"]),
-            int(h["dt"]) if "dt" in h.dtype.names else int(cluster[0]["dt_ns"]),
+            int(h["dt"]) if "dt" in h.dtype.names else int(dt_ns[0]),
             int(h["timestamp"]),
             int(h["board"]) if "board" in h.dtype.names else 0,
             int(h["channel"]),
@@ -433,13 +476,12 @@ def _emit_cluster(
             component_count,
         )
 
-    # Vectorized anchor finding
+    cluster_start_ps = int(np.min(abs_starts))
+    cluster_end_ps = int(np.max(abs_ends))
     cluster_mid_ps = (cluster_start_ps + cluster_end_ps) * 0.5
-    abs_starts = np.array([c["abs_start_ps"] for c in cluster], dtype=np.float32)
-    abs_ends = np.array([c["abs_end_ps"] for c in cluster], dtype=np.float32)
     mids = (abs_starts + abs_ends) * 0.5
     anchor_idx = int(np.argmin(np.abs(mids - cluster_mid_ps)))
-    anchor = cluster[anchor_idx]["hit"]
+    anchor = cluster_hits[anchor_idx]
 
     merged_sample_start = sample_start_window
     merged_sample_end = sample_end_window
@@ -452,7 +494,7 @@ def _emit_cluster(
         int(merged_sample_start),
         int(merged_sample_end),
         merged_width,
-        int(anchor["dt"]) if "dt" in anchor.dtype.names else int(cluster[anchor_idx]["dt_ns"]),
+        int(anchor["dt"]) if "dt" in anchor.dtype.names else int(dt_ns[anchor_idx]),
         int(anchor["timestamp"]),
         int(anchor["board"]) if "board" in anchor.dtype.names else 0,
         int(anchor["channel"]),
@@ -468,7 +510,7 @@ class HitMergePlugin(BatchProcessingPlugin):
     provides = "hit_merged"
     depends_on = ["hit_threshold", "hit_merge_clusters"]
     description = "Merge nearby threshold hits per channel with time-gap and max-width constraints."
-    version = "1.1.0"
+    version = "1.1.1"
     save_when = "always"
     output_dtype = HIT_MERGED_DTYPE
 
@@ -500,6 +542,9 @@ class HitMergePlugin(BatchProcessingPlugin):
             return np.zeros(0, dtype=HIT_MERGED_DTYPE)
 
         merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(context, self)
+        if merge_gap_ns <= 0:
+            return _hits_to_merged_fast(hits, explicit_dt=explicit_dt, plugin_name=self.provides)
+
         try:
             cluster_rows = context.get_data(run_id, "hit_merge_clusters")
             if cluster_rows is not None:
@@ -508,7 +553,7 @@ class HitMergePlugin(BatchProcessingPlugin):
                     "hit_merged hit_merge_clusters input",
                     HIT_MERGE_CLUSTERS_DTYPE,
                 )
-        except Exception:
+        except (KeyError, FileNotFoundError):
             cluster_rows = _compute_cluster_rows(
                 hits,
                 merge_gap_ns=merge_gap_ns,
@@ -527,24 +572,21 @@ class HitMergePlugin(BatchProcessingPlugin):
         if not isinstance(cluster_rows, np.ndarray):
             raise ValueError("hit_merged expects hit_merge_clusters as a structured array")
 
-        enriched_lookup = _build_enriched_lookup(
+        enriched = _build_enriched_for_hits(
             hits, explicit_dt=explicit_dt, plugin_name=self.provides
         )
 
         merged_rows: list[tuple] = []
         for cluster_index, start, end in _cluster_bounds(cluster_rows):
             hit_indices = np.asarray(cluster_rows["hit_index"][start:end], dtype=np.int64)
-            cluster = [enriched_lookup[int(hit_idx)] for hit_idx in hit_indices]
-            if len(cluster) == 0:
+            if len(hit_indices) == 0:
                 continue
-            cluster_start = cluster[0]["abs_start_ps"]
-            cluster_end = max(item["abs_end_ps"] for item in cluster)
             merged_rows.append(
                 _emit_cluster(
-                    cluster,
-                    cluster_start_ps=cluster_start,
-                    cluster_end_ps=cluster_end,
-                    dt_ps=cluster[0]["dt_ps"],
+                    hits[hit_indices],
+                    abs_starts=enriched.abs_start_ps[hit_indices],
+                    abs_ends=enriched.abs_end_ps[hit_indices],
+                    dt_ns=enriched.dt_ns[hit_indices],
                     component_offset=start,
                 )
             )
@@ -564,7 +606,7 @@ class HitMergeClustersPlugin(Plugin):
     provides = "hit_merge_clusters"
     depends_on = ["hit_threshold"]
     description = "Internal cluster membership rows shared by hit_merged outputs."
-    version = "1.0.0"
+    version = "1.0.1"
     save_when = "always"
     output_dtype = HIT_MERGE_CLUSTERS_DTYPE
 
@@ -580,14 +622,16 @@ class HitMergeClustersPlugin(Plugin):
             return np.zeros(0, dtype=HIT_MERGE_CLUSTERS_DTYPE)
 
         merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(context, self)
-        clusters = _build_merged_clusters(
+        if merge_gap_ns <= 0:
+            return _hits_to_cluster_rows_fast(hits)
+
+        return _compute_cluster_rows(
             hits,
             merge_gap_ns=merge_gap_ns,
             max_total_width_ns=max_total_width_ns,
             explicit_dt=explicit_dt,
             plugin_name=self.provides,
         )
-        return _build_cluster_rows(clusters)
 
 
 class HitMergedComponentsPlugin(Plugin):
@@ -596,9 +640,16 @@ class HitMergedComponentsPlugin(Plugin):
     provides = "hit_merged_components"
     depends_on = ["hit_merge_clusters", "hit_merged"]
     description = "Return per-cluster component hit indices for hit_merged rows."
-    version = "1.0.0"
+    version = "1.0.1"
     save_when = "always"
     output_dtype = HIT_MERGED_COMPONENTS_DTYPE
+    options = {
+        "validate_components": Option(
+            default=False,
+            type=bool,
+            help="校验 hit_merged 的 component_offset/component_count 与 cluster rows 是否一致。",
+        ),
+    }
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         merged = _materialize_array(
@@ -617,7 +668,7 @@ class HitMergedComponentsPlugin(Plugin):
                     "hit_merged_components hit_merge_clusters input",
                     HIT_MERGE_CLUSTERS_DTYPE,
                 )
-        except Exception:
+        except (KeyError, FileNotFoundError):
             hits = _materialize_array(
                 context.get_data(run_id, "hit_threshold"),
                 "hit_merged_components hit_threshold input",
@@ -657,6 +708,10 @@ class HitMergedComponentsPlugin(Plugin):
             )
         if len(cluster_rows) == 0:
             return np.zeros(0, dtype=HIT_MERGED_COMPONENTS_DTYPE)
+
+        validate_components = bool(context.get_config(self, "validate_components"))
+        if not validate_components:
+            return _cluster_rows_to_components(cluster_rows)
 
         cluster_bounds = _cluster_bounds(cluster_rows)
         if len(cluster_bounds) != len(merged):
