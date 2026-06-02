@@ -138,8 +138,6 @@ raw_files ──► records ──► df ──► df_events
 | [`HitMergePlugin`](hit_merged.md) | `hit_merged` | 1.1.0 | 特征提取 | hit_threshold, hit_merge_clusters |
 | [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 1.0.0 | 特征提取 | hit_merge_clusters, hit_merged |
 | [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.0.2 | 特征提取 | - |
-| [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 0.1.0 | 特征提取 | peaklets, hit_merged |
-| [`PeakletPlugin`](peaklets.md) | `peaklets` | 0.1.0 | 特征提取 | hit_merged, hit_merged_components, hit_threshold, records, wave_pool |
 | [`RawFileNamesPlugin`](raw_files.md) | `raw_files` | 0.0.2 | 数据加载 | - |
 | [`RecordsPlugin`](records.md) | `records` | 0.10.0 | 记录处理 | - |
 | [`S1S2ClassifierPlugin`](s1_s2.md) | `s1_s2` | 0.4.0 | 其他 | waveform_width, basic_features |
@@ -190,8 +188,6 @@ raw_files ──► records ──► df ──► df_events
 | [`hit_merged`](hit_merged.md) | Merge nearby threshold hits per channel with time-gap and ma... | hit_threshold, hit_merge_clusters |
 | [`hit_merged_components`](hit_merged_components.md) | Return per-cluster component hit indices for hit_merged rows... | hit_merge_clusters, hit_merged |
 | [`hit_threshold`](hit_threshold.md) | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. | - |
-| [`peaklet_components`](peaklet_components.md) | Return per-peaklet component hit_merged indices. | peaklets, hit_merged |
-| [`peaklets`](peaklets.md) | Build cross-channel peaklets and compute pulse-level feature... | hit_merged, hit_merged_components, hit_threshold, records, wave_pool |
 
 ### 事件分析
 
