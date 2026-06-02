@@ -16,7 +16,10 @@ Hit Finder Plugins - 阈值 Hit 检测插件
 4. waveform matrix 输入路径仍然保留，用于 st_waveforms / filtered_waveforms 等固定窗口数据。
 """
 
+from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
 import logging
+import os
 from typing import Any
 import warnings
 
@@ -40,6 +43,10 @@ from waveform_analysis.core.plugins.core.batch_processing import BatchProcessing
 from waveform_analysis.core.processing.chunk import Chunk
 
 logger = logging.getLogger(__name__)
+_NUMBA_AVAILABLE: bool | None = None
+_NUMBA_IMPORT_ERROR: Exception | None = None
+_numba_count_ragged_hits = None
+_numba_fill_ragged_hits = None
 
 THRESHOLD_HIT_DTYPE = np.dtype(
     [
@@ -76,6 +83,21 @@ def _resolve_source_event_lengths(waveform_data: np.ndarray) -> np.ndarray:
     raise ValueError("waveform source is missing both 'event_length' and 'wave' fields")
 
 
+def _contiguous_regions_from_indices(indices: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Return half-open contiguous regions represented by sorted sample indices."""
+    if indices.size == 0:
+        return indices, indices
+
+    split_points = np.flatnonzero(np.diff(indices) > 1) + 1
+    starts = np.empty(split_points.size + 1, dtype=np.int64)
+    ends = np.empty(split_points.size + 1, dtype=np.int64)
+    starts[0] = indices[0]
+    starts[1:] = indices[split_points]
+    ends[:-1] = indices[split_points - 1] + 1
+    ends[-1] = indices[-1] + 1
+    return starts, ends
+
+
 def _get_wave_pool_from_object(obj: Any) -> np.ndarray | None:
     """Best-effort extraction of wave_pool from RecordsView / RecordsBundle-like objects."""
     if obj is None:
@@ -85,6 +107,32 @@ def _get_wave_pool_from_object(obj: Any) -> np.ndarray | None:
     if hasattr(obj, "_wave_pool"):
         return np.asarray(obj._wave_pool)
     return None
+
+
+def _ensure_numba_kernels() -> None:
+    global _NUMBA_AVAILABLE
+    global _NUMBA_IMPORT_ERROR
+    global _numba_count_ragged_hits
+    global _numba_fill_ragged_hits
+
+    if _NUMBA_AVAILABLE is False:
+        raise RuntimeError("numba is not available") from _NUMBA_IMPORT_ERROR
+    if _numba_count_ragged_hits is not None and _numba_fill_ragged_hits is not None:
+        return
+
+    try:
+        from waveform_analysis.core.plugins.builtin.cpu.hit_threshold_numba import (
+            count_ragged_hits,
+            fill_ragged_hits,
+        )
+    except Exception as exc:  # pragma: no cover - depends on environment import state
+        _NUMBA_AVAILABLE = False
+        _NUMBA_IMPORT_ERROR = exc
+        raise RuntimeError("numba is not available") from exc
+
+    _numba_count_ragged_hits = count_ragged_hits
+    _numba_fill_ragged_hits = fill_ragged_hits
+    _NUMBA_AVAILABLE = True
 
 
 class HitFinderPlugin(_CanonicalHitFinderPlugin):
@@ -110,7 +158,7 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
     provides = "hit_threshold"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Threshold-only hit detector with THRESHOLD_HIT_DTYPE output."
-    version = "1.0.0"
+    version = "1.0.2"
     output_dtype = THRESHOLD_HIT_DTYPE
 
     # 为了不改变原始缓存语义，这里仍保持 always。
@@ -150,7 +198,30 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
         "backend": Option(
             default="auto",
             type=str,
-            help="Hit finding backend: auto|numpy|ragged|numba。auto 对 records 默认使用 ragged。",
+            help=(
+                "Hit finding backend: auto|numba|ragged。auto 对 records 在达到 "
+                "parallel_min_records 后尝试 numba，否则使用 ragged。"
+            ),
+        ),
+        "chunk_parallel": Option(
+            default=True,
+            type=bool,
+            help="是否对 records ragged numba 后端启用 chunk 级线程并行。",
+        ),
+        "n_workers": Option(
+            default=0,
+            type=int,
+            help="records ragged chunk 并行 worker 数；<=0 表示自动。",
+        ),
+        "parallel_chunk_size": Option(
+            default=50_000,
+            type=int,
+            help="records ragged chunk 并行大小（每个任务处理的 record 数）。",
+        ),
+        "parallel_min_records": Option(
+            default=50_000,
+            type=int,
+            help="触发 records ragged chunk 并行的最小 record 数。",
         ),
         "streaming_chunk_size": Option(
             default=10_000,
@@ -652,6 +723,49 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
             data_polarities=data_polarities,
         )
 
+        backend = str(context.get_config(self, "backend") or "auto").lower()
+        if backend == "numpy":
+            logger.warning("hit_threshold backend='numpy' is deprecated; using backend='ragged'")
+            backend = "ragged"
+        if backend not in {"auto", "numba", "ragged"}:
+            raise ValueError(
+                "hit_threshold backend must be one of 'auto', 'numba', or 'ragged', "
+                f"got {backend!r}"
+            )
+
+        parallel_min_records = int(context.get_config(self, "parallel_min_records"))
+        if backend == "auto" and len(records) < max(1, parallel_min_records):
+            backend = "ragged"
+
+        if backend in {"auto", "numba"}:
+            try:
+                return self._build_hits_from_ragged_records_numba(
+                    wave_pool=wave_pool,
+                    wave_offsets=wave_offsets,
+                    record_lengths=record_lengths,
+                    baselines=baselines,
+                    thresholds=thresholds,
+                    positive_mask=positive_mask,
+                    timestamps=timestamps,
+                    boards=boards,
+                    channels=channels,
+                    record_ids=record_ids,
+                    left_extension=left_extension,
+                    right_extension=right_extension,
+                    dt_values=dt_values,
+                    chunk_parallel=bool(context.get_config(self, "chunk_parallel")),
+                    n_workers=int(context.get_config(self, "n_workers")),
+                    parallel_chunk_size=int(context.get_config(self, "parallel_chunk_size")),
+                    parallel_min_records=parallel_min_records,
+                )
+            except Exception as exc:
+                if backend == "numba":
+                    raise RuntimeError("hit_threshold backend='numba' failed") from exc
+                logger.warning(
+                    "hit_threshold backend='auto' failed to use numba; falling back to ragged: %s",
+                    exc,
+                )
+
         return self._build_hits_from_ragged_records(
             wave_pool=wave_pool,
             wave_offsets=wave_offsets,
@@ -667,6 +781,231 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
             right_extension=right_extension,
             dt_values=dt_values,
         )
+
+    def _build_hits_from_ragged_records_numba(
+        self,
+        wave_pool: np.ndarray,
+        wave_offsets: np.ndarray,
+        record_lengths: np.ndarray,
+        baselines: np.ndarray,
+        thresholds: np.ndarray,
+        positive_mask: np.ndarray,
+        timestamps: np.ndarray,
+        boards: np.ndarray,
+        channels: np.ndarray,
+        record_ids: np.ndarray,
+        left_extension: int,
+        right_extension: int,
+        dt_values: np.ndarray,
+        chunk_parallel: bool,
+        n_workers: int,
+        parallel_chunk_size: int,
+        parallel_min_records: int,
+    ) -> np.ndarray:
+        if _NUMBA_AVAILABLE is False:
+            raise RuntimeError("numba is not available")
+        _ensure_numba_kernels()
+        if len(record_lengths) == 0:
+            return _empty_hits()
+
+        wave_pool = np.asarray(wave_pool)
+        self._validate_ragged_wave_slices(wave_pool, wave_offsets, record_lengths, record_ids)
+
+        n_records = len(record_lengths)
+        chunk_size = max(1, int(parallel_chunk_size))
+        ranges = [
+            (start, min(start + chunk_size, n_records)) for start in range(0, n_records, chunk_size)
+        ]
+        use_parallel = (
+            bool(chunk_parallel)
+            and n_records >= max(1, int(parallel_min_records))
+            and len(ranges) > 1
+        )
+        workers = self._resolve_chunk_workers(n_workers, len(ranges))
+
+        if use_parallel and workers > 1:
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                parts = list(
+                    executor.map(
+                        lambda bounds: self._build_hits_from_ragged_records_numba_range(
+                            wave_pool=wave_pool,
+                            wave_offsets=wave_offsets,
+                            record_lengths=record_lengths,
+                            baselines=baselines,
+                            thresholds=thresholds,
+                            positive_mask=positive_mask,
+                            timestamps=timestamps,
+                            boards=boards,
+                            channels=channels,
+                            record_ids=record_ids,
+                            left_extension=left_extension,
+                            right_extension=right_extension,
+                            dt_values=dt_values,
+                            start_idx=bounds[0],
+                            end_idx=bounds[1],
+                        ),
+                        ranges,
+                    )
+                )
+            non_empty = [part for part in parts if len(part) > 0]
+            if not non_empty:
+                return _empty_hits()
+            return np.concatenate(non_empty)
+
+        return self._build_hits_from_ragged_records_numba_range(
+            wave_pool=wave_pool,
+            wave_offsets=wave_offsets,
+            record_lengths=record_lengths,
+            baselines=baselines,
+            thresholds=thresholds,
+            positive_mask=positive_mask,
+            timestamps=timestamps,
+            boards=boards,
+            channels=channels,
+            record_ids=record_ids,
+            left_extension=left_extension,
+            right_extension=right_extension,
+            dt_values=dt_values,
+            start_idx=0,
+            end_idx=n_records,
+        )
+
+    def _build_hits_from_ragged_records_numba_range(
+        self,
+        wave_pool: np.ndarray,
+        wave_offsets: np.ndarray,
+        record_lengths: np.ndarray,
+        baselines: np.ndarray,
+        thresholds: np.ndarray,
+        positive_mask: np.ndarray,
+        timestamps: np.ndarray,
+        boards: np.ndarray,
+        channels: np.ndarray,
+        record_ids: np.ndarray,
+        left_extension: int,
+        right_extension: int,
+        dt_values: np.ndarray,
+        start_idx: int,
+        end_idx: int,
+    ) -> np.ndarray:
+        counts = _numba_count_ragged_hits(
+            wave_pool,
+            wave_offsets,
+            record_lengths,
+            baselines,
+            thresholds,
+            positive_mask,
+            int(start_idx),
+            int(end_idx),
+        )
+        chunk_offsets = np.empty(len(counts) + 1, dtype=np.int64)
+        chunk_offsets[0] = 0
+        np.cumsum(counts, out=chunk_offsets[1:])
+        n_hits = int(chunk_offsets[-1])
+        if n_hits == 0:
+            return _empty_hits()
+
+        positions = np.empty(n_hits, dtype=np.int64)
+        edge_starts = np.empty(n_hits, dtype=np.int32)
+        edge_ends = np.empty(n_hits, dtype=np.int32)
+        widths = np.empty(n_hits, dtype=np.float32)
+        dts = np.empty(n_hits, dtype=np.int32)
+        hit_timestamps = np.empty(n_hits, dtype=np.int64)
+        hit_boards = np.empty(n_hits, dtype=np.int16)
+        hit_channels = np.empty(n_hits, dtype=np.int16)
+        hit_record_ids = np.empty(n_hits, dtype=np.int64)
+
+        _numba_fill_ragged_hits(
+            wave_pool,
+            wave_offsets,
+            record_lengths,
+            baselines,
+            thresholds,
+            positive_mask,
+            timestamps,
+            boards,
+            channels,
+            record_ids,
+            dt_values,
+            int(left_extension),
+            int(right_extension),
+            int(start_idx),
+            int(end_idx),
+            chunk_offsets,
+            positions,
+            edge_starts,
+            edge_ends,
+            widths,
+            dts,
+            hit_timestamps,
+            hit_boards,
+            hit_channels,
+            hit_record_ids,
+        )
+        return self._build_threshold_hit_array(
+            positions=positions,
+            edge_starts=edge_starts,
+            edge_ends=edge_ends,
+            widths=widths,
+            dts=dts,
+            timestamps=hit_timestamps,
+            boards=hit_boards,
+            channels=hit_channels,
+            record_ids=hit_record_ids,
+        )
+
+    def _build_threshold_hit_array(
+        self,
+        positions: np.ndarray,
+        edge_starts: np.ndarray,
+        edge_ends: np.ndarray,
+        widths: np.ndarray,
+        dts: np.ndarray,
+        timestamps: np.ndarray,
+        boards: np.ndarray,
+        channels: np.ndarray,
+        record_ids: np.ndarray,
+    ) -> np.ndarray:
+        hits = np.empty(len(positions), dtype=THRESHOLD_HIT_DTYPE)
+        hits["position"] = positions
+        hits["edge_start"] = edge_starts
+        hits["edge_end"] = edge_ends
+        hits["width"] = widths
+        hits["dt"] = dts
+        hits["timestamp"] = timestamps
+        hits["board"] = boards
+        hits["channel"] = channels
+        hits["record_id"] = record_ids
+        return hits
+
+    def _validate_ragged_wave_slices(
+        self,
+        wave_pool: np.ndarray,
+        wave_offsets: np.ndarray,
+        record_lengths: np.ndarray,
+        record_ids: np.ndarray,
+    ) -> None:
+        active = record_lengths > 0
+        if not np.any(active):
+            return
+        offsets = wave_offsets[active]
+        lengths = record_lengths[active]
+        end_offsets = offsets + lengths
+        invalid = (offsets < 0) | (end_offsets > len(wave_pool))
+        if np.any(invalid):
+            bad_active_idx = int(np.flatnonzero(active)[np.flatnonzero(invalid)[0]])
+            raise ValueError(
+                "hit_threshold invalid wave slice: "
+                f"record_index={bad_active_idx}, record_id={int(record_ids[bad_active_idx])}, "
+                f"offset={int(wave_offsets[bad_active_idx])}, "
+                f"length={int(record_lengths[bad_active_idx])}, "
+                f"wave_pool_length={len(wave_pool)}"
+            )
+
+    def _resolve_chunk_workers(self, n_workers: int, n_chunks: int) -> int:
+        if n_workers > 0:
+            return min(max(1, int(n_workers)), max(1, n_chunks))
+        return min(max(1, os.cpu_count() or 1), max(1, n_chunks))
 
     def _process_waveform_matrix_input(
         self,
@@ -784,6 +1123,15 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
         n_events = len(boards)
         thresholds = np.full(n_events, threshold, dtype=np.float32)
         positive_mask = np.zeros(n_events, dtype=bool)
+
+        if data_polarities is not None:
+            data_polarities = np.asarray(data_polarities).astype("U16", copy=False)
+            valid_override = np.isin(data_polarities, ("positive", "negative"))
+            positive_mask = np.where(valid_override, data_polarities == "positive", positive_mask)
+
+        if not isinstance(channel_config_cfg, Mapping):
+            return thresholds, positive_mask
+
         channel_rule_cache: dict[tuple[int, int], Any] = {}
         base_values = {"threshold": threshold}
 
@@ -805,11 +1153,6 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
         for channel_key, rule in channel_rule_cache.items():
             selector = (boards == channel_key[0]) & (channels == channel_key[1])
             thresholds[selector] = float(rule.get("threshold", threshold))
-
-        if data_polarities is not None:
-            data_polarities = np.asarray(data_polarities).astype("U16", copy=False)
-            valid_override = np.isin(data_polarities, ("positive", "negative"))
-            positive_mask = np.where(valid_override, data_polarities == "positive", positive_mask)
 
         return thresholds, positive_mask
 
@@ -872,32 +1215,14 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
                 threshold_level = baseline + threshold
                 if float(np.max(wave)) < threshold_level:
                     continue
-                above = wave >= threshold_level
+                hit_indices = np.flatnonzero(wave >= threshold_level)
             else:
                 threshold_level = baseline - threshold
                 if float(np.min(wave)) > threshold_level:
                     continue
-                above = wave <= threshold_level
+                hit_indices = np.flatnonzero(wave <= threshold_level)
 
-            if not np.any(above):
-                continue
-
-            # 找过阈连续区间：[start, end)，end 是半开边界。
-            padded = np.empty(length + 2, dtype=bool)
-            padded[0] = False
-            padded[1:-1] = above
-            padded[-1] = False
-
-            diff = np.diff(padded.astype(np.int8, copy=False))
-            starts = np.flatnonzero(diff == 1)
-            ends = np.flatnonzero(diff == -1)
-
-            if len(starts) != len(ends):
-                raise RuntimeError(
-                    "hit_threshold ragged region alignment failed: "
-                    f"record_index={i}, record_id={int(record_ids[i])}, "
-                    f"n_starts={len(starts)}, n_ends={len(ends)}"
-                )
+            starts, ends = _contiguous_regions_from_indices(hit_indices)
 
             for start_raw, end_raw in zip(starts, ends, strict=False):
                 start = int(start_raw)

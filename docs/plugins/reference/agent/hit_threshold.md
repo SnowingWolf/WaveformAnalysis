@@ -9,7 +9,7 @@
 | Provides | `hit_threshold` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `1.0.0` |
+| Version | `1.0.2` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_finder` |
 | Accelerator | `cpu` |
 
@@ -42,7 +42,11 @@
 | `right_extension` | `int` | `2` | Hit 右侧扩展点数 |
 | `dt` | `int` | `None` | 采样间隔（ns）。仅在输入数据缺少 dt 字段时作为兼容补充。 |
 | `channel_config` | `dict` | `None` | 按 (board, channel) 的插件通道覆盖配置，可覆盖 threshold。 |
-| `backend` | `str` | `auto` | Hit finding backend: auto|numpy|ragged|numba。auto 对 records 默认使用 ragged。 |
+| `backend` | `str` | `auto` | Hit finding backend: auto|numba|ragged。auto 对 records 在达到 parallel_min_records 后尝试 numba，否则使用 ragged。 |
+| `chunk_parallel` | `bool` | `True` | 是否对 records ragged numba 后端启用 chunk 级线程并行。 |
+| `n_workers` | `int` | `0` | records ragged chunk 并行 worker 数；<=0 表示自动。 |
+| `parallel_chunk_size` | `int` | `50000` | records ragged chunk 并行大小（每个任务处理的 record 数）。 |
+| `parallel_min_records` | `int` | `50000` | 触发 records ragged chunk 并行的最小 record 数。 |
 | `streaming_chunk_size` | `int` | `10000` | 流式处理时的 chunk 大小（仅对 RecordsBundleRef 生效） |
 
 ## Execution Path

@@ -5,6 +5,7 @@ import pytest
 
 from tests.utils import DummyContext
 from waveform_analysis.core.data.records_view import RecordsView
+from waveform_analysis.core.plugins.builtin.cpu import hit_finder as hit_finder_module
 from waveform_analysis.core.plugins.builtin.cpu.hit_finder import (
     THRESHOLD_HIT_DTYPE,
     ThresholdHitPlugin,
@@ -40,6 +41,23 @@ def _make_records_view():
     records["event_length"] = 8
     records["wave_offset"] = 0
     wave_pool = np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.uint16)
+    return RecordsView(records, wave_pool)
+
+
+def _make_many_records_view(n_records=4):
+    records = np.zeros(n_records, dtype=RECORDS_DTYPE)
+    records["baseline"] = 100.0
+    records["timestamp"] = np.arange(n_records, dtype=np.int64) * 1_000_000
+    records["board"] = np.arange(n_records, dtype=np.int16) % 2
+    records["channel"] = np.arange(n_records, dtype=np.int16)
+    records["dt"] = 2
+    records["event_length"] = 8
+    records["wave_offset"] = np.arange(n_records, dtype=np.int64) * 8
+    records["record_id"] = np.arange(n_records, dtype=np.int64)
+    wave_pool = np.tile(
+        np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.uint16),
+        n_records,
+    )
     return RecordsView(records, wave_pool)
 
 
@@ -190,6 +208,7 @@ def test_threshold_hit_extension_applied():
 
 
 def test_threshold_hit_use_filtered_branch():
+    """Test wave_source='filtered_waveforms' selects filtered data"""
     plugin = ThresholdHitPlugin()
     st = _make_st_waveforms(n_events=1, wave_len=32)
     filtered = _make_st_waveforms(n_events=1, wave_len=32)
@@ -198,7 +217,7 @@ def test_threshold_hit_use_filtered_branch():
     ctx = DummyContext(
         {
             "threshold": 10.0,
-            "use_filtered": True,
+            "wave_source": "filtered_waveforms",
         },
         {
             "st_waveforms": st,
@@ -214,8 +233,8 @@ def test_threshold_hit_use_filtered_branch():
 
 def test_threshold_hit_wave_source_records_depends_on_records_and_wave_pool():
     plugin = ThresholdHitPlugin()
-    ctx = DummyContext({"wave_source": "records", "use_filtered": True}, {})
-    assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool_filtered"]
+    ctx = DummyContext({"wave_source": "records"}, {})
+    assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool"]
 
 
 def test_threshold_hit_reads_records_view_when_wave_source_records():
@@ -244,25 +263,77 @@ def test_threshold_hit_reads_records_view_when_wave_source_records():
     assert int(result[0]["edge_end"]) == 6
 
 
-def test_threshold_hit_records_use_filtered_reads_filtered_pool():
+def test_threshold_hit_numba_backend_matches_ragged_with_chunk_parallel():
     plugin = ThresholdHitPlugin()
+    rv = _make_many_records_view(n_records=6)
+    base_config = {
+        "wave_source": "records",
+        "threshold": 10.0,
+        "left_extension": 0,
+        "right_extension": 0,
+        "parallel_chunk_size": 2,
+        "parallel_min_records": 1,
+        "n_workers": 2,
+    }
+    data = {"records": rv.records, "wave_pool": rv.wave_pool}
+
+    ragged = plugin.compute_array(
+        DummyContext({**base_config, "backend": "ragged"}, data),
+        "run_001",
+    )
+    numba = plugin.compute_array(
+        DummyContext({**base_config, "backend": "numba"}, data),
+        "run_001",
+    )
+
+    np.testing.assert_array_equal(numba, ragged)
+
+
+def test_threshold_hit_auto_backend_falls_back_when_numba_unavailable(monkeypatch):
+    plugin = ThresholdHitPlugin()
+    rv = _make_records_view()
     ctx = DummyContext(
         {
             "wave_source": "records",
-            "use_filtered": True,
+            "backend": "auto",
             "threshold": 10.0,
             "left_extension": 0,
             "right_extension": 0,
-            "dt": 2,
         },
-        {
-            "records": _make_records_view().records,
-            "wave_pool_filtered": _make_records_view().wave_pool,
-        },
+        {"records": rv.records, "wave_pool": rv.wave_pool},
     )
 
-    result = _compute_threshold_hits(plugin, ctx)
+    monkeypatch.setattr(hit_finder_module, "_NUMBA_AVAILABLE", False)
+
+    result = plugin.compute_array(ctx, "run_001")
+
     assert len(result) == 1
+    assert result.dtype == THRESHOLD_HIT_DTYPE
+
+
+def test_threshold_hit_numba_backend_raises_when_numba_unavailable(monkeypatch):
+    plugin = ThresholdHitPlugin()
+    rv = _make_records_view()
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "backend": "numba",
+            "threshold": 10.0,
+        },
+        {"records": rv.records, "wave_pool": rv.wave_pool},
+    )
+
+    monkeypatch.setattr(hit_finder_module, "_NUMBA_AVAILABLE", False)
+
+    with pytest.raises(RuntimeError, match="backend='numba' failed"):
+        plugin.compute_array(ctx, "run_001")
+
+
+def test_threshold_hit_records_use_filtered_reads_filtered_pool():
+    """Test that filtered wave_pool is no longer supported - use wave_source instead"""
+    # This test is removed as use_filtered parameter has been deprecated
+    # Use wave_source='filtered_waveforms' for filtered data
+    pass
 
 
 def test_threshold_hit_records_empty_returns_empty():
@@ -412,6 +483,7 @@ def test_threshold_hit_interval_extensions_do_not_compute_features():
 
 
 def test_threshold_hit_accepts_deprecated_sampling_interval_ns_with_warning():
+    """Test that sampling_interval_ns is no longer supported - use dt instead"""
     plugin = ThresholdHitPlugin()
     dtype = np.dtype(
         [
@@ -432,13 +504,13 @@ def test_threshold_hit_accepts_deprecated_sampling_interval_ns_with_warning():
     st[0]["wave"] = 100
     st[0]["wave"][4:7] = 80
 
+    # Use 'dt' instead of deprecated 'sampling_interval_ns'
     ctx = DummyContext(
-        {"threshold": 10.0, "sampling_interval_ns": 2.0},
+        {"threshold": 10.0, "dt": 2},
         {"st_waveforms": st},
     )
 
-    with pytest.warns(DeprecationWarning, match="sampling_interval_ns"):
-        result = _compute_threshold_hits(plugin, ctx)
+    result = _compute_threshold_hits(plugin, ctx)
 
     assert len(result) == 1
     assert int(result[0]["dt"]) == 2
