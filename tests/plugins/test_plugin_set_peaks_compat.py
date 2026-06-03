@@ -18,8 +18,10 @@ def test_get_plugin_set_peaks_available():
         "hit_merge_clusters",
         "hit_merged",
         "hit_merged_components",
+        "hit_merged_features",
         "peaklets",
         "peaklet_components",
+        "peaklet_channels",
         "waveform_width",
         "s1_s2",
     ]

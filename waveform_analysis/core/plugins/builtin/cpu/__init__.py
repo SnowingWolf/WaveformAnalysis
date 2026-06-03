@@ -38,9 +38,11 @@ from .hit_merge import (
     HitMergedComponentsPlugin,
     HitMergePlugin,
 )
+from .hit_merged_features import HIT_MERGED_FEATURES_DTYPE, HitMergedFeaturesPlugin
 
 # CPU 寻峰插件
 from .peak_finding import HIT_DTYPE, HitFinderPlugin
+from .peaklet_channels import PEAKLET_CHANNELS_DTYPE, PeakletChannelsPlugin
 from .peaklets import (
     PEAKLET_COMPONENTS_DTYPE,
     PEAKLET_DTYPE,
@@ -104,10 +106,14 @@ __all__ = [
     "HIT_MERGE_CLUSTERS_DTYPE",
     "HIT_MERGED_DTYPE",
     "HIT_MERGED_COMPONENTS_DTYPE",
+    "HitMergedFeaturesPlugin",
+    "HIT_MERGED_FEATURES_DTYPE",
     "PeakletPlugin",
     "PeakletComponentsPlugin",
+    "PeakletChannelsPlugin",
     "PEAKLET_DTYPE",
     "PEAKLET_COMPONENTS_DTYPE",
+    "PEAKLET_CHANNELS_DTYPE",
     # 寻峰插件
     "HIT_DTYPE",
     # 波形宽度插件

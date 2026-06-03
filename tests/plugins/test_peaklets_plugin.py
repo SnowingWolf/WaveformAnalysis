@@ -6,6 +6,7 @@ from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
     HitMergedComponentsPlugin,
     HitMergePlugin,
 )
+from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import HitMergedFeaturesPlugin
 from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PEAKLET_COMPONENTS_DTYPE,
     PEAKLET_DTYPE,
@@ -49,6 +50,23 @@ def _make_peaklet_context(hits, wave_pool, *, time_window_ns=4.0):
     records["board"] = hits["board"]
     records["channel"] = hits["channel"]
     records["timestamp"] = 0
+    records["polarity"] = "negative"
+
+    feature_ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "use_filtered": False,
+            "dt": 2,
+        },
+        {
+            "hit_threshold": hits,
+            "hit_merged": merged,
+            "hit_merged_components": components,
+            "records": records,
+            "wave_pool": wave_pool,
+        },
+    )
+    features = HitMergedFeaturesPlugin().compute(feature_ctx, "run_001")
 
     return DummyContext(
         {
@@ -60,6 +78,7 @@ def _make_peaklet_context(hits, wave_pool, *, time_window_ns=4.0):
             "hit_threshold": hits,
             "hit_merged": merged,
             "hit_merged_components": components,
+            "hit_merged_features": features,
             "records": records,
             "wave_pool": wave_pool,
         },
@@ -116,6 +135,29 @@ def test_peaklets_merge_cross_channel_hits_and_compute_features():
     assert float(row["fall_time"]) == 4.0
     assert int(row["n_hits"]) == 2
     assert int(row["n_channels"]) == 2
+
+
+def test_peaklets_aggregate_area_hits_and_channels_from_hit_merged_features():
+    hits = np.array(
+        [
+            _make_hit(record_id=0, board=0, channel=0, edge_start=3, edge_end=5),
+            _make_hit(record_id=1, board=0, channel=1, edge_start=4, edge_end=6),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    wave_pool = np.full(20, 100, dtype=np.uint16)
+    ctx = _make_peaklet_context(hits, wave_pool)
+    features = ctx._data["hit_merged_features"].copy()
+    features["area"] = np.array([123.0, 7.0], dtype=np.float32)
+    features["n_hits"] = np.array([3, 4], dtype=np.int32)
+    ctx._data["hit_merged_features"] = features
+
+    out = PeakletPlugin().compute_array(ctx, "run_001")
+
+    assert len(out) == 1
+    assert float(out[0]["area"]) == 130.0
+    assert int(out[0]["n_hits"]) == 7
+    assert int(out[0]["n_channels"]) == 2
 
 
 def test_peaklets_split_when_cross_channel_gap_exceeds_window():

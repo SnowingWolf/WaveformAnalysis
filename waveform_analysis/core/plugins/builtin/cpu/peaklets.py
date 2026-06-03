@@ -7,11 +7,6 @@ from typing import Any
 import numpy as np
 
 from waveform_analysis.core.plugins.builtin.cpu._dt_compat import resolve_dt_config
-from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
-from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
-    HIT_MERGED_COMPONENTS_DTYPE,
-    HIT_MERGED_DTYPE,
-)
 from waveform_analysis.core.plugins.core.base import Option
 from waveform_analysis.core.plugins.core.batch_processing import BatchProcessingPlugin
 from waveform_analysis.core.processing.chunk import Chunk
@@ -129,29 +124,6 @@ def _cluster_merged_hits(
     return clusters
 
 
-def _component_hit_indices(
-    merged_indices: list[int],
-    merged: np.ndarray,
-    component_rows: np.ndarray | None,
-) -> np.ndarray:
-    names = merged.dtype.names or ()
-    if component_rows is None or len(component_rows) == 0:
-        return np.asarray(merged_indices, dtype=np.int64)
-
-    hit_indices = np.asarray(component_rows["hit_index"], dtype=np.int64)
-    if {"component_offset", "component_count"}.issubset(names):
-        out: list[int] = []
-        for merged_idx in merged_indices:
-            offset = int(merged[merged_idx]["component_offset"])
-            count = int(merged[merged_idx]["component_count"])
-            out.extend(hit_indices[offset : offset + count].tolist())
-        return np.asarray(out, dtype=np.int64)
-
-    merged_row_indices = np.asarray(component_rows["merged_index"], dtype=np.int64)
-    mask = np.isin(merged_row_indices, np.asarray(merged_indices, dtype=np.int64))
-    return hit_indices[mask].astype(np.int64, copy=False)
-
-
 def _record_polarity(record: np.void) -> str:
     names = record.dtype.names or ()
     if "polarity" not in names:
@@ -161,21 +133,24 @@ def _record_polarity(record: np.void) -> str:
 
 
 def _compute_cluster_features(
-    component_hits: np.ndarray,
+    merged_hits: np.ndarray,
+    feature_rows: np.ndarray,
     records_by_id: dict[int, np.void],
     wave_pool: np.ndarray,
 ) -> tuple[int, int, int, int, float, float, float, float, float, int, int]:
-    abs_starts, abs_ends = _abs_window(component_hits)
-    time_start = int(np.min(abs_starts))
-    time_end = int(np.max(abs_ends))
+    time_start = int(np.min(feature_rows["time_start"]))
+    time_end = int(np.max(feature_rows["time_end"]))
     center_time = int((time_start + time_end) // 2)
     width_ns = float((time_end - time_start) / 1e3)
 
     waveform_by_time: dict[int, float] = {}
-    channel_keys: set[tuple[int, int]] = set()
-    area = 0.0
+    channel_keys = {
+        (int(row["board"]), int(row["channel"])) for row in feature_rows if int(row["valid"]) != 0
+    }
+    area = float(np.sum(feature_rows["area"], dtype=np.float64))
+    n_hits = int(np.sum(feature_rows["n_hits"], dtype=np.int64))
 
-    for hit in component_hits:
+    for hit in merged_hits:
         record_id = int(hit["record_id"])
         if record_id not in records_by_id:
             raise ValueError(f"peaklets could not resolve record_id={record_id}")
@@ -186,8 +161,8 @@ def _compute_cluster_features(
         baseline = float(record["baseline"]) if "baseline" in names else 0.0
         dt_ns = int(record["dt"]) if "dt" in names else int(hit["dt"])
         timestamp = int(record["timestamp"]) if "timestamp" in names else 0
-        edge_start = max(0, int(hit["edge_start"]))
-        edge_end = min(length, int(hit["edge_end"]))
+        edge_start = max(0, int(hit["sample_start"]))
+        edge_end = min(length, int(hit["sample_end"]))
         if edge_end <= edge_start:
             continue
 
@@ -198,14 +173,10 @@ def _compute_cluster_features(
             signal = np.float32(baseline) - raw
         signal = np.maximum(signal, 0.0)
 
-        board = int(hit["board"]) if "board" in hit.dtype.names else 0
-        channel = int(hit["channel"])
-        channel_keys.add((board, channel))
         for rel_idx, value in enumerate(signal.tolist()):
             sample = edge_start + rel_idx
             sample_time = int(timestamp + sample * dt_ns * 1000)
             waveform_by_time[sample_time] = waveform_by_time.get(sample_time, 0.0) + float(value)
-            area += float(value)
 
     if waveform_by_time:
         times = np.fromiter(waveform_by_time.keys(), dtype=np.int64)
@@ -214,8 +185,9 @@ def _compute_cluster_features(
         max_time = int(times[max_idx])
         height = float(values[max_idx])
     else:
-        max_time = center_time
-        height = 0.0
+        max_idx = int(np.argmax(feature_rows["height"]))
+        max_time = int(feature_rows[max_idx]["max_time"])
+        height = float(feature_rows[max_idx]["height"])
 
     rise_time = float((max_time - time_start) / 1e3)
     fall_time = float((time_end - max_time) / 1e3)
@@ -229,7 +201,7 @@ def _compute_cluster_features(
         width_ns,
         rise_time,
         fall_time,
-        int(len(component_hits)),
+        n_hits,
         int(len(channel_keys)),
     )
 
@@ -238,9 +210,15 @@ class PeakletPlugin(BatchProcessingPlugin):
     """Build cross-channel local pulse candidates from merged hit intervals."""
 
     provides = "peaklets"
-    depends_on = ["hit_merged", "hit_merged_components", "hit_threshold", "records", "wave_pool"]
+    depends_on = [
+        "hit_merged",
+        "hit_merged_components",
+        "hit_merged_features",
+        "records",
+        "wave_pool",
+    ]
     description = "Build cross-channel peaklets and compute pulse-level features."
-    version = "0.1.0"
+    version = "0.2.0"
     output_dtype = PEAKLET_DTYPE
     save_when = "always"
     parallel = False
@@ -255,7 +233,7 @@ class PeakletPlugin(BatchProcessingPlugin):
     }
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
-        deps = ["hit_merged", "hit_merged_components", "hit_threshold", "records"]
+        deps = ["hit_merged", "hit_merged_components", "hit_merged_features", "records"]
         if bool(context.get_config(self, "use_filtered")):
             deps.append("wave_pool_filtered")
         else:
@@ -276,9 +254,9 @@ class PeakletPlugin(BatchProcessingPlugin):
         if component_rows is not None and not isinstance(component_rows, np.ndarray):
             raise ValueError("peaklets expects hit_merged_components as a structured array")
 
-        hits = context.get_data(run_id, "hit_threshold")
-        if not isinstance(hits, np.ndarray):
-            raise ValueError("peaklets expects hit_threshold as a structured array")
+        feature_rows = context.get_data(run_id, "hit_merged_features")
+        if not isinstance(feature_rows, np.ndarray):
+            raise ValueError("peaklets expects hit_merged_features as a structured array")
 
         records = _record_array(context.get_data(run_id, "records"))
         wave_pool_name = (
@@ -289,7 +267,7 @@ class PeakletPlugin(BatchProcessingPlugin):
         return self._compute_peaklets(
             merged=merged,
             component_rows=component_rows,
-            hits=hits,
+            feature_rows=feature_rows,
             records=records,
             wave_pool=wave_pool,
             context=context,
@@ -321,7 +299,7 @@ class PeakletPlugin(BatchProcessingPlugin):
         *,
         merged: np.ndarray,
         component_rows: np.ndarray | None,
-        hits: np.ndarray,
+        feature_rows: np.ndarray,
         records: np.ndarray,
         wave_pool: np.ndarray,
         context: Any,
@@ -341,9 +319,19 @@ class PeakletPlugin(BatchProcessingPlugin):
         rows: list[tuple] = []
         component_offset = 0
         for cluster in clusters:
-            hit_indices = _component_hit_indices(cluster, merged, component_rows)
-            component_hits = hits[hit_indices]
-            features = _compute_cluster_features(component_hits, records_by_id, wave_pool)
+            cluster_indices = np.asarray(cluster, dtype=np.int64)
+            cluster_features = feature_rows[np.isin(feature_rows["merged_index"], cluster_indices)]
+            if len(cluster_features) == 0:
+                raise ValueError(
+                    "peaklets could not resolve hit_merged_features for cluster containing "
+                    f"merged indices {cluster}"
+                )
+            features = _compute_cluster_features(
+                merged[cluster_indices],
+                cluster_features,
+                records_by_id,
+                wave_pool,
+            )
             rows.append((*features, component_offset, len(cluster)))
             component_offset += len(cluster)
 
