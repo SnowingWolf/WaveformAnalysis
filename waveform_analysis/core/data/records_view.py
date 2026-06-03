@@ -35,6 +35,10 @@ class RecordsView:
     def __len__(self) -> int:
         return len(self.records)
 
+    def get_wave_pool_view(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Return aligned wave_pool, wave_offset, and event_length array views."""
+        return self.wave_pool, self._wave_offsets, self._event_lengths
+
     def _build_record_id_lookup(self) -> dict[int, int]:
         lookup: dict[int, int] = {}
         for idx, record_id in enumerate(self._record_ids.tolist()):

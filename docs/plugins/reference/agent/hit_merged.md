@@ -9,7 +9,7 @@
 | Provides | `hit_merged` |
 | Depends On | `hit_threshold`, `hit_merge_clusters` |
 | Output Kind | `structured_array` |
-| Version | `0.8.0` |
+| Version | `1.1.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merge` |
 | Accelerator | `cpu` |
 
@@ -23,14 +23,10 @@
 | Field | DType |
 |-------|-------|
 | `position` | `int64` |
-| `height` | `float32` |
-| `integral` | `float32` |
 | `sample_start` | `int32` |
 | `sample_end` | `int32` |
 | `width` | `float32` |
 | `dt` | `int32` |
-| `rise_time` | `float32` |
-| `fall_time` | `float32` |
 | `timestamp` | `int64` |
 | `board` | `int16` |
 | `channel` | `int16` |

@@ -66,6 +66,7 @@ from .loader import WaveformLoaderCSV
 from .records_builder import (
     EventsBundle,
     RecordsBundle,
+    RecordsBundleRef,
     build_records_from_st_waveforms,
     build_records_from_st_waveforms_sharded,
     build_records_from_v1725_files,
@@ -109,6 +110,7 @@ __all__ = [
     "RECORDS_DTYPE",
     "EVENTS_DTYPE",
     "RecordsBundle",
+    "RecordsBundleRef",
     "EventsBundle",
     "build_records_from_st_waveforms",
     "build_records_from_st_waveforms_sharded",

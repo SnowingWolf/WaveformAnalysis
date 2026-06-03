@@ -38,8 +38,10 @@ def _make_features() -> np.ndarray:
     feats = np.zeros(2, dtype=BASIC_FEATURES_DTYPE)
     feats[0]["height"] = 10.0
     feats[0]["area"] = 50.0
+    feats[0]["record_id"] = 0
     feats[1]["height"] = 25.0
     feats[1]["area"] = 500.0
+    feats[1]["record_id"] = 1
     return feats
 
 

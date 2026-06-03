@@ -6,6 +6,7 @@ This module provides:
 - Mock/Dummy classes for testing
 """
 
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -368,13 +369,57 @@ class DummyContext:
 
         return None
 
-    def get_data(self, run_id: str, name: str):
+    def get_data(self, run_id: str, name: str, *, output: str = "native", **_kwargs):
         """Get pre-seeded data by name."""
+        if output not in {"native", "chunk_stream", "array"}:
+            raise ValueError(
+                "get_data output must be one of 'native', 'chunk_stream', or 'array'; "
+                f"got {output!r}."
+            )
         # Check results cache first
         if (run_id, name) in self._results:
-            return self._results[(run_id, name)]
+            data = self._results[(run_id, name)]
         # Then check pre-seeded data
-        return self._data.get(name)
+        else:
+            data = self._data.get(name)
+
+        if output in {"native", "chunk_stream"}:
+            return data
+        array = self._materialize_get_data_array(name, data)
+        if array is not data:
+            self._set_data(run_id, name, array)
+        return array
+
+    def _materialize_get_data_array(self, name: str, data):
+        """Materialize generator/chunk outputs like Context.get_data(output='array')."""
+        if isinstance(data, np.ndarray):
+            return data
+
+        if not isinstance(data, Iterator) and not hasattr(data, "__next__"):
+            raise TypeError(
+                f"Cannot convert get_data result for '{name}' to array: "
+                f"unsupported result type {type(data).__name__}."
+            )
+
+        arrays = []
+        for item in data:
+            chunk_data = item if isinstance(item, np.ndarray) else getattr(item, "data", item)
+            if not isinstance(chunk_data, np.ndarray):
+                raise TypeError(
+                    f"Cannot convert get_data stream for '{name}' to array: "
+                    f"stream item {type(item).__name__} does not provide ndarray data."
+                )
+            if len(chunk_data) > 0:
+                arrays.append(chunk_data)
+
+        if arrays:
+            return np.concatenate(arrays)
+
+        plugin = getattr(self, "_plugins", {}).get(name)
+        output_dtype = getattr(plugin, "output_dtype", None) if plugin is not None else None
+        if output_dtype is not None:
+            return np.zeros(0, dtype=output_dtype)
+        return np.array([])
 
     def _set_data(self, run_id: str, name: str, data):
         """Store data in results cache."""

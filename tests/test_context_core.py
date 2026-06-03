@@ -10,7 +10,9 @@ from waveform_analysis.core.cancellation import CancellationToken
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.data.batch_processor import BatchProcessor
 from waveform_analysis.core.execution.timeout import get_timeout_manager, with_timeout
+from waveform_analysis.core.foundation.utils import OneTimeGenerator
 from waveform_analysis.core.plugins.core.base import Option, Plugin
+from waveform_analysis.core.processing.chunk import Chunk
 
 
 @pytest.fixture
@@ -214,6 +216,195 @@ def test_context_streaming_plugin(tmp_path):
     # In our case, save_stream saves it as a contiguous file.
     assert len(data_cached) == 5
     assert data_cached[0]["val"] == 0
+
+
+def test_get_data_output_array_returns_cached_ndarray_unchanged(tmp_path):
+    dtype = np.dtype([("val", "i4")])
+
+    class ArrayPlugin(Plugin):
+        provides = "array_data"
+        output_dtype = dtype
+
+        def compute(self, context, run_id):
+            return np.array([(1,), (2,)], dtype=self.output_dtype)
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(ArrayPlugin)
+
+    native = ctx.get_data("run1", "array_data")
+    as_array = ctx.get_data("run1", "array_data", output="array")
+
+    assert as_array is native
+    assert as_array.tolist() == [(1,), (2,)]
+
+
+def test_coerce_get_data_output_array_returns_ndarray_unchanged(tmp_path):
+    ctx = Context(storage_dir=str(tmp_path))
+    data = np.array([(1,), (2,)], dtype=np.dtype([("val", "i4")]))
+
+    coerced = ctx._coerce_get_data_output("run1", "manual_data", data, "array")
+
+    assert coerced is data
+
+
+def test_get_data_output_array_concatenates_chunk_stream(tmp_path):
+    dtype = np.dtype([("time", "i8"), ("length", "i4"), ("dt", "i4"), ("val", "i4")])
+
+    class ChunkStreamPlugin(Plugin):
+        provides = "chunk_stream_data"
+        output_kind = "stream"
+        output_dtype = dtype
+        save_when = "never"
+
+        def compute(self, context, run_id):
+            first = np.array([(0, 1, 1, 10), (1, 1, 1, 11)], dtype=self.output_dtype)
+            empty = np.zeros(0, dtype=self.output_dtype)
+            second = np.array([(2, 1, 1, 12)], dtype=self.output_dtype)
+            yield Chunk(first, start=0, end=2, run_id=run_id, data_type=self.provides)
+            yield Chunk(empty, start=2, end=2, run_id=run_id, data_type=self.provides)
+            yield Chunk(second, start=2, end=3, run_id=run_id, data_type=self.provides)
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(ChunkStreamPlugin)
+
+    data = ctx.get_data("run1", "chunk_stream_data", output="array")
+
+    assert isinstance(data, np.ndarray)
+    assert data.dtype == dtype
+    assert data["val"].tolist() == [10, 11, 12]
+    assert ctx.get_data("run1", "chunk_stream_data") is data
+
+
+def test_coerce_get_data_output_array_concatenates_one_time_chunk_stream(tmp_path):
+    dtype = np.dtype([("time", "i8"), ("length", "i4"), ("dt", "i4"), ("val", "i4")])
+
+    class ChunkStreamPlugin(Plugin):
+        provides = "coerce_chunk_stream_data"
+        output_dtype = dtype
+
+        def compute(self, context, run_id):
+            raise NotImplementedError
+
+    def stream():
+        first = np.array([(0, 1, 1, 20)], dtype=dtype)
+        second = np.array([(1, 1, 1, 21)], dtype=dtype)
+        yield Chunk(first, start=0, end=1, run_id="run1", data_type="coerce_chunk_stream_data")
+        yield Chunk(second, start=1, end=2, run_id="run1", data_type="coerce_chunk_stream_data")
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(ChunkStreamPlugin)
+
+    data = ctx._coerce_get_data_output(
+        "run1",
+        "coerce_chunk_stream_data",
+        OneTimeGenerator(stream(), name="test stream"),
+        "array",
+    )
+
+    assert data.dtype == dtype
+    assert data["val"].tolist() == [20, 21]
+    assert ctx.get_data("run1", "coerce_chunk_stream_data") is data
+
+
+def test_get_data_output_array_empty_chunk_stream_uses_plugin_dtype(tmp_path):
+    dtype = np.dtype([("time", "i8"), ("length", "i4"), ("dt", "i4"), ("val", "i4")])
+
+    class EmptyChunkStreamPlugin(Plugin):
+        provides = "empty_chunk_stream_data"
+        output_kind = "stream"
+        output_dtype = dtype
+        save_when = "never"
+
+        def compute(self, context, run_id):
+            if False:
+                yield
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(EmptyChunkStreamPlugin)
+
+    data = ctx.get_data("run1", "empty_chunk_stream_data", output="array")
+
+    assert isinstance(data, np.ndarray)
+    assert len(data) == 0
+    assert data.dtype == dtype
+
+
+def test_coerce_get_data_output_array_empty_stream_uses_plugin_dtype(tmp_path):
+    dtype = np.dtype([("val", "i4")])
+
+    class EmptyStreamPlugin(Plugin):
+        provides = "coerce_empty_stream_data"
+        output_dtype = dtype
+
+        def compute(self, context, run_id):
+            raise NotImplementedError
+
+    def stream():
+        if False:
+            yield
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(EmptyStreamPlugin)
+
+    data = ctx._coerce_get_data_output(
+        "run1",
+        "coerce_empty_stream_data",
+        OneTimeGenerator(stream(), name="empty stream"),
+        "array",
+    )
+
+    assert len(data) == 0
+    assert data.dtype == dtype
+
+
+def test_get_data_output_invalid_value_raises(tmp_path):
+    ctx = Context(storage_dir=str(tmp_path))
+
+    with pytest.raises(ValueError, match="output must be one of"):
+        ctx.get_data("run1", "anything", output="list")
+
+
+def test_coerce_get_data_output_invalid_value_raises(tmp_path):
+    ctx = Context(storage_dir=str(tmp_path))
+
+    with pytest.raises(ValueError, match="output must be one of"):
+        ctx._coerce_get_data_output("run1", "anything", np.array([]), "list")
+
+
+def test_get_data_output_array_unconvertible_result_raises(tmp_path):
+    class ObjectPlugin(Plugin):
+        provides = "object_data"
+        output_dtype = None
+
+        def compute(self, context, run_id):
+            return {"value": 1}
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(ObjectPlugin)
+
+    with pytest.raises(TypeError, match="Cannot convert get_data result"):
+        ctx.get_data("run1", "object_data", output="array")
+
+
+def test_get_data_default_output_preserves_native_stream_behavior(tmp_path):
+    dtype = np.dtype([("val", "i4")])
+
+    class NativeStreamPlugin(Plugin):
+        provides = "native_stream_data"
+        output_kind = "stream"
+        output_dtype = dtype
+        save_when = "never"
+
+        def compute(self, context, run_id):
+            yield np.array([(1,)], dtype=self.output_dtype)
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(NativeStreamPlugin)
+
+    native = ctx.get_data("run1", "native_stream_data")
+
+    assert not isinstance(native, np.ndarray)
+    assert list(native)[0]["val"].tolist() == [1]
 
 
 def test_context_namespaced_config(tmp_path):

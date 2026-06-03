@@ -26,9 +26,14 @@ def get_data(
     data_name: str,        # 数据名称（必需）
     show_progress: bool = False,  # 是否显示进度条
     progress_desc: str = None,    # 自定义进度描述
+    output: str = "native",       # 返回形态: native/chunk_stream/array
     **kwargs               # 传递给插件的额外参数
 ) -> Any
 ```
+
+`output="native"` 保持插件原始返回形态；`output="chunk_stream"` 保留流式/chunk
+结果；`output="array"` 会将 chunk stream、generator 中的 `Chunk.data` 或直接产出的
+`np.ndarray` item 拼接为完整数组，并把物化结果写回内存缓存。
 
 ### 自动依赖解析
 
@@ -40,6 +45,54 @@ paired = ctx.get_data("run_001", "paired_events")
 # 依赖的数据会被缓存，后续访问直接返回
 waveforms = ctx.get_data("run_001", "waveforms")  # 直接从缓存返回
 ```
+
+## records 流式构建路径
+
+`records` 与 `wave_pool` 两个正式插件产物共用内部
+`RecordsBundle(records, wave_pool)` 构建缓存。这里的“流式”主要指读取和中间构建
+阶段分块处理；默认公开插件产物仍是完整的 `records` 结构化数组和连续
+`wave_pool` 数组。
+
+普通适配器从 `raw_files` 增量构建：
+
+```text
+raw_files
+  -> build_records_from_raw_files_streaming()
+  -> per-channel / per-chunk memmap parts
+  -> heap merge
+  -> RecordsBundle(records, wave_pool)
+```
+
+构建过程中，每个通道通过适配器的 `read_files_generator(...)` 分批读取原始文件，
+再按 `records_part_size` 切成更小的 records 分片。每个分片先转换为局部
+`RecordsBundle`，随后写入临时 memmap 文件，主流程只保留分片路径、记录数、样本数
+等 `_RecordsPartRef` 元数据。
+
+`v1725` 使用专用读取路径，但合并语义一致：
+
+```text
+raw_files
+  -> build_records_from_v1725_files()
+  -> iter_waves()
+  -> per-file memmap parts
+  -> heap merge
+  -> RecordsBundle(records, wave_pool)
+```
+
+最终合并会保持全局 records 顺序，并重写波形引用字段：
+
+- 全局排序键为 `(timestamp, pid, board, channel)`。
+- `wave_offset` 会按最终 `wave_pool` 重新计算，保证每条 record 指向正确波形片段。
+- `record_id` 在最终输出中重置为连续全局编号。
+- `channel_workers` 控制通道级并行，`n_jobs` 控制文件读取/解析并行，
+  `records_part_size` 控制中间分片大小。
+
+底层还提供 `RecordsBundleRef` 形式的磁盘引用能力，用于显式的超大数据路径。
+它可以按 chunk 读取 records 和 wave_pool，但这不是 `RecordsPlugin` / `WavePoolPlugin`
+的默认公开输出契约；现有插件链路仍按内存中的 `RecordsBundle` 暴露 `records` 与
+`wave_pool`。
+
+详细使用说明请参考 [大数据集处理指南](LARGE_DATASET_PROCESSING.md)。
 
 ## RecordsView 波形访问
 
@@ -374,6 +427,7 @@ data = ctx.get_data("run_001", "waveforms")  # 重新计算
 
 ## 相关文档
 
+- [大数据集处理指南](LARGE_DATASET_PROCESSING.md) - 使用 RecordsBundleRef 处理 2TB+ 数据集
 - [插件管理](PLUGIN_MANAGEMENT.md) - 注册和管理插件
 - [配置管理](CONFIGURATION.md) - 设置插件配置
 - [缓存管理 CLI](../../cli/WAVEFORM_CACHE.md) - 缓存扫描、诊断与清理

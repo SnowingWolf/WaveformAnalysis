@@ -14,14 +14,14 @@ waveform-docs generate plugins-agent --plugin raw_files
 
 ## Summary
 
-- 插件总数：20
+- 插件总数：22
 - 类别数：8
 
 ## Plugin Table
 
 | Provides | Plugin | Depends On | Output Kind | Version |
 |----------|--------|------------|-------------|---------|
-| [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | - | `structured_array` | `4.0.0` |
+| [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | - | `structured_array` | `4.1.0` |
 | [`cache_analysis`](cache_analysis.md) | `CacheAnalysisPlugin` | - | `unknown` | `0.1.0` |
 | [`df`](df.md) | `DataFramePlugin` | - | `unknown` | `1.7.0` |
 | [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `unknown` | `0.0.0` |
@@ -29,10 +29,12 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `structured_array` | `3.0.0` |
 | [`hit`](hit.md) | `HitFinderPlugin` | - | `structured_array` | `3.0.0` |
 | [`hit_grouped`](hit_grouped.md) | `HitGroupedPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold` | `unknown` | `0.5.0` |
-| [`hit_merge_clusters`](hit_merge_clusters.md) | `HitMergeClustersPlugin` | `hit_threshold` | `structured_array` | `0.1.0` |
-| [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold`, `hit_merge_clusters` | `structured_array` | `0.8.0` |
-| [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | `hit_merge_clusters`, `hit_merged` | `structured_array` | `0.1.0` |
-| [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | - | `structured_array` | `0.11.0` |
+| [`hit_merge_clusters`](hit_merge_clusters.md) | `HitMergeClustersPlugin` | `hit_threshold` | `structured_array` | `1.0.0` |
+| [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold`, `hit_merge_clusters` | `structured_array` | `1.1.0` |
+| [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | `hit_merge_clusters`, `hit_merged` | `structured_array` | `1.0.0` |
+| [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | - | `structured_array` | `1.0.2` |
+| [`peaklet_components`](peaklet_components.md) | `PeakletComponentsPlugin` | `peaklets`, `hit_merged` | `structured_array` | `0.1.0` |
+| [`peaklets`](peaklets.md) | `PeakletPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `structured_array` | `0.1.0` |
 | [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | `unknown` | `0.0.2` |
 | [`records`](records.md) | `RecordsPlugin` | - | `structured_array` | `0.10.0` |
 | [`s1_s2`](s1_s2.md) | `S1S2ClassifierPlugin` | `waveform_width`, `basic_features` | `structured_array` | `0.4.0` |
@@ -66,6 +68,8 @@ waveform-docs generate plugins-agent --plugin raw_files
 - [`hit_merged`](hit_merged.md): Merge nearby threshold hits per channel with time-gap and max-width constraints.
 - [`hit_merged_components`](hit_merged_components.md): Return per-cluster component hit indices for hit_merged rows.
 - [`hit_threshold`](hit_threshold.md): Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
+- [`peaklet_components`](peaklet_components.md): Return per-peaklet component hit_merged indices.
+- [`peaklets`](peaklets.md): Build cross-channel peaklets and compute pulse-level features.
 
 ### 事件分析
 

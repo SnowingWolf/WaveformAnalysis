@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 
 from .config import CompatManager, ConfigResolver, ConfigSource, ConfigValue, ResolvedConfig
+from .config.run_config import resolve_run_hardware_channels, validate_run_config
 from .plugins.core.base import Plugin
 
 
@@ -384,6 +385,19 @@ class ContextConfigDomain:
         self.ctx._run_config_cache[run_id] = result
         self.ctx._run_config_hash_cache[run_id] = current_hash
         return result
+
+    def validate_run_config(self, run_id: str, require_identity: bool = False) -> None:
+        run_config = self.get_run_config(run_id)
+        validate_run_config(run_config, require_identity=require_identity)
+
+    def get_run_hardware_channels(
+        self,
+        run_id: str,
+        *,
+        validate: bool = True,
+    ) -> dict[str, dict[str, Any]]:
+        run_config = self.get_run_config(run_id)
+        return resolve_run_hardware_channels(run_config, validate=validate)
 
     def get_plugin_run_config(self, plugin: Plugin | str, run_id: str) -> dict[str, Any]:
         plugin_name = plugin if isinstance(plugin, str) else plugin.provides

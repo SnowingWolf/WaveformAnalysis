@@ -20,7 +20,7 @@ Plugin Set 是最小可复用插件组，每个 set 只关注单一职责。
 | `basic_features` | BasicFeaturesPlugin, WaveformWidthIntegralPlugin | 基础特征计算 |
 | `tabular` | DataFramePlugin | 表格化输出 |
 | `events` | GroupedEventsPlugin, PairedEventsPlugin | 事件分组与配对 |
-| `peaks` | HitFinderPlugin, ThresholdHitPlugin, HitMergeClustersPlugin, HitMergePlugin, HitMergedComponentsPlugin, WaveformWidthPlugin, S1S2ClassifierPlugin | 峰值检测与峰特征扩展 |
+| `peaks` | HitFinderPlugin, ThresholdHitPlugin, HitMergeClustersPlugin, HitMergePlugin, HitMergedComponentsPlugin, PeakletPlugin, PeakletComponentsPlugin, WaveformWidthPlugin, S1S2ClassifierPlugin | 峰值检测、peaklet 构建与峰特征扩展 |
 
 示例：
 

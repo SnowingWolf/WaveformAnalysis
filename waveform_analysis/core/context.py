@@ -151,6 +151,7 @@ class Context(PluginMixin):
             "get_lineage",
             "get_performance_report",
             "get_run_config",
+            "get_run_hardware_channels",
             "get_time_index_stats",
             "help",
             "key_for",
@@ -169,6 +170,7 @@ class Context(PluginMixin):
             "storage",
             "storage_dir",
             "time_range",
+            "validate_run_config",
         }
     )
     # Multi-channel structured outputs now use a single array with a channel field.
@@ -694,6 +696,17 @@ class Context(PluginMixin):
     def get_run_config(self, run_id: str, refresh: bool = False) -> dict[str, Any]:
         return self._config_domain.get_run_config(run_id, refresh=refresh)
 
+    def validate_run_config(self, run_id: str, require_identity: bool = False) -> None:
+        self._config_domain.validate_run_config(run_id, require_identity=require_identity)
+
+    def get_run_hardware_channels(
+        self,
+        run_id: str,
+        *,
+        validate: bool = True,
+    ) -> dict[str, dict[str, Any]]:
+        return self._config_domain.get_run_hardware_channels(run_id, validate=validate)
+
     def get_plugin_run_config(self, plugin: Plugin | str, run_id: str) -> dict[str, Any]:
         return self._config_domain.get_plugin_run_config(plugin, run_id)
 
@@ -835,6 +848,8 @@ class Context(PluginMixin):
         data_name: str,
         show_progress: bool = False,
         progress_desc: str | None = None,
+        *,
+        output: str = "native",
         **kwargs,
     ) -> Any:
         """
@@ -846,8 +861,12 @@ class Context(PluginMixin):
             data_name: Name of the data to retrieve
             show_progress: Whether to show progress bar during plugin execution
             progress_desc: Custom description for progress bar (default: auto-generated)
+            output: Return shape. "native" preserves current behavior, "chunk_stream"
+                preserves stream/chunk stream results, and "array" materializes streams
+                into a NumPy array.
             **kwargs: Additional arguments passed to plugins
         """
+        self._validate_get_data_output(output)
         self._config_domain.prepare_request(run_id, data_name)
         # 1. Check memory cache
         val = self._get_data_from_memory(run_id, data_name)
@@ -856,7 +875,7 @@ class Context(PluginMixin):
             if self.stats_collector and self.stats_collector.is_enabled():
                 self.stats_collector.start_execution(data_name, run_id)
                 self.stats_collector.end_execution(data_name, success=True, cache_hit=True)
-            return val
+            return self._coerce_get_data_output(run_id, data_name, val, output)
 
         # 2. Check disk cache (memmap)
         # Only check if it's a plugin-provided data
@@ -868,16 +887,17 @@ class Context(PluginMixin):
                 if self.stats_collector and self.stats_collector.is_enabled():
                     self.stats_collector.start_execution(data_name, run_id)
                     self.stats_collector.end_execution(data_name, success=True, cache_hit=True)
-                return data
+                return self._coerce_get_data_output(run_id, data_name, data, output)
 
         # 3. Resolve plan and compute needed steps (cache-aware)
         plan = self._execution_domain.resolve_execution_plan(run_id, data_name)
         if not plan:
-            return self._get_data_from_memory(run_id, data_name)
+            val = self._get_data_from_memory(run_id, data_name)
+            return self._coerce_get_data_output(run_id, data_name, val, output)
         needed_set = self._execution_domain.compute_needed_set(run_id, data_name, plan)
 
         # 4. Execute plan
-        return self._execution_domain.run_plugin(
+        result = self._execution_domain.run_plugin(
             run_id,
             data_name,
             show_progress=show_progress,
@@ -886,6 +906,54 @@ class Context(PluginMixin):
             needed_set=needed_set,
             **kwargs,
         )
+        return self._coerce_get_data_output(run_id, data_name, result, output)
+
+    def _validate_get_data_output(self, output: str) -> None:
+        if output not in {"native", "chunk_stream", "array"}:
+            raise ValueError(
+                "get_data output must be one of 'native', 'chunk_stream', or 'array'; "
+                f"got {output!r}."
+            )
+
+    def _coerce_get_data_output(self, run_id: str, data_name: str, result: Any, output: str) -> Any:
+        self._validate_get_data_output(output)
+        if output in {"native", "chunk_stream"}:
+            return result
+        array = self._materialize_get_data_array(data_name, result)
+        if array is not result:
+            self._set_data(run_id, data_name, array)
+        return array
+
+    def _materialize_get_data_array(self, data_name: str, result: Any) -> np.ndarray:
+        if isinstance(result, np.ndarray):
+            return result
+
+        is_stream = isinstance(result, Iterator | OneTimeGenerator) or hasattr(result, "__next__")
+        if not is_stream:
+            raise TypeError(
+                f"Cannot convert get_data result for '{data_name}' to array: "
+                f"unsupported result type {type(result).__name__}."
+            )
+
+        arrays: list[np.ndarray] = []
+        for item in result:
+            data = item if isinstance(item, np.ndarray) else getattr(item, "data", item)
+            if not isinstance(data, np.ndarray):
+                raise TypeError(
+                    f"Cannot convert get_data stream for '{data_name}' to array: "
+                    f"stream item {type(item).__name__} does not provide ndarray data."
+                )
+            if len(data) > 0:
+                arrays.append(data)
+
+        if arrays:
+            return np.concatenate(arrays)
+
+        plugin = self._plugins.get(data_name)
+        output_dtype = getattr(plugin, "output_dtype", None) if plugin is not None else None
+        if output_dtype is not None:
+            return np.zeros(0, dtype=output_dtype)
+        return np.array([])
 
     def list_provided_data(self) -> list[str]:
         """List all data types provided by registered plugins."""

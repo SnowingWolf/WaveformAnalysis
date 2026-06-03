@@ -95,7 +95,8 @@ python scripts/schema_compat_check.py --base HEAD --run-smoke
 python scripts/performance_regression_check.py --base HEAD
 ```
 
-对热点插件记录“改前/改后”耗时与峰值内存对比。
+对热点插件记录“改前/改后”耗时与峰值内存对比。默认目标包含
+`st_waveforms`、`hit`、`hit_threshold`、`df` 和 `df_events`。
 
 ### `release_artifact_sync.py` - 发布前统一校验
 

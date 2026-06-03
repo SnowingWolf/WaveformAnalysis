@@ -51,6 +51,9 @@ def build_context(storage_dir, data_root):
         GroupedEventsPlugin,
         HitFinderPlugin,
         RawFilesPlugin,
+        RecordsPlugin,
+        ThresholdHitPlugin,
+        WavePoolPlugin,
         WaveformsPlugin,
     )
 
@@ -61,6 +64,7 @@ def build_context(storage_dir, data_root):
             "daq_adapter": "vx2730",
             "n_channels": 2,
             "hit.use_filtered": False,
+            "hit_threshold.wave_source": "records",
             "basic_features.use_filtered": False,
             "show_progress": False,
         },
@@ -68,7 +72,10 @@ def build_context(storage_dir, data_root):
     )
     ctx.register(RawFilesPlugin())
     ctx.register(WaveformsPlugin())
+    ctx.register(RecordsPlugin())
+    ctx.register(WavePoolPlugin())
     ctx.register(HitFinderPlugin())
+    ctx.register(ThresholdHitPlugin())
     ctx.register(BasicFeaturesPlugin())
     ctx.register(DataFramePlugin())
     ctx.register(GroupedEventsPlugin())
@@ -300,8 +307,8 @@ def main() -> int:
     parser.add_argument("--base", default="HEAD", help="Git base ref (default: HEAD)")
     parser.add_argument(
         "--targets",
-        default="st_waveforms,hit,df,df_events",
-        help="Comma-separated targets (default: st_waveforms,hit,df,df_events)",
+        default="st_waveforms,hit,hit_threshold,df,df_events",
+        help="Comma-separated targets (default: st_waveforms,hit,hit_threshold,df,df_events)",
     )
     parser.add_argument("--repeats", type=int, default=2, help="Benchmark repeats per target")
     parser.add_argument("--time-threshold-pct", type=float, default=10.0)

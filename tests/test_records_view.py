@@ -52,6 +52,16 @@ def test_records_view_wave_slicing():
     assert np.allclose(wave1, np.array([8.0, 9.0], dtype=np.float32))
 
 
+def test_records_view_exposes_wave_pool_metadata_view():
+    rv = _make_sample_view()
+
+    wave_pool, wave_offsets, wave_lengths = rv.get_wave_pool_view()
+
+    assert wave_pool is rv.wave_pool
+    np.testing.assert_array_equal(wave_offsets, rv.records["wave_offset"])
+    np.testing.assert_array_equal(wave_lengths, rv.records["event_length"])
+
+
 def test_records_view_waves_pad_mask():
     rv = _make_sample_view()
 

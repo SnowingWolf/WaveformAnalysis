@@ -126,12 +126,21 @@ class V1725Wave:
 class V1725Reader(FormatReader):
     """V1725 binary reader with optimized batch processing."""
 
-    def __init__(self, spec: FormatSpec | None = None, use_optimized: bool = True):
+    def __init__(
+        self,
+        spec: FormatSpec | None = None,
+        use_optimized: bool = True,
+        buffer_size: int | None = None,
+    ):
         super().__init__(spec or V1725_SPEC)
         self.use_optimized = use_optimized
-        self._buffer_size = 256 * 1024  # 256KB buffer for batch reading
+        self._buffer_size = (
+            buffer_size if buffer_size is not None else (16 * 1024 * 1024)
+        )  # 16MB buffer (was 256KB)
 
-    def _read_events_batch(self, f, board_id: int, max_events: int = 100) -> list[V1725Wave] | None:
+    def _read_events_batch(
+        self, f, board_id: int, max_events: int = 1000
+    ) -> list[V1725Wave] | None:
         """
         批量读取事件数据，使用向量化解析减少 Python 循环开销。
 
@@ -346,7 +355,7 @@ class V1725Reader(FormatReader):
 
             with path.open(mode="rb") as f:
                 while True:
-                    batch = self._read_events_batch(f, board_id, max_events=100)
+                    batch = self._read_events_batch(f, board_id, max_events=1000)
                     if batch is None:
                         break
                     yield from batch
@@ -515,19 +524,35 @@ V1725_LAYOUT = export(
 @export
 class V1725Adapter(DAQAdapter):
     def scan_run(self, data_root: str, run_name: str):
-        try:
-            groups = super().scan_run(data_root, run_name)
-        except FileNotFoundError:
+        """扫描 V1725 运行目录，按板卡分组文件
+
+        V1725 文件格式: {run_name}_raw_b{board}_seg{segment}.bin
+        返回格式: {board_id: [file_paths]}
+
+        注意：这里的分组键是板卡号，不是通道号。
+        每个板卡的通道信息在文件内容中（通过通道掩码）。
+        """
+        raw_path = self.get_raw_path(data_root, run_name)
+        if not raw_path.exists():
             return {}
 
-        if groups:
-            return groups
-
-        raw_path = self.get_raw_path(data_root, run_name)
         files = self.directory_layout.list_files(raw_path)
         if not files:
             return {}
-        return {0: files}
+
+        # 按板卡分组文件（复用 V1725Reader 的板卡提取逻辑）
+        board_groups = {}
+        for file_path in files:
+            board_id = V1725Reader._extract_board_from_path(file_path)
+            if board_id not in board_groups:
+                board_groups[board_id] = []
+            board_groups[board_id].append(file_path)
+
+        # 按文件名排序（确保 seg0, seg1, seg2... 顺序）
+        for board_id in board_groups:
+            board_groups[board_id].sort()
+
+        return board_groups
 
 
 V1725_ADAPTER = export(

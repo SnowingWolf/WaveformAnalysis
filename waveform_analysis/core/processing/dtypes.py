@@ -72,7 +72,7 @@ PEAK_DTYPE = export(
         ("height", "f4"),  # height of the peak
         ("width", "f4"),  # width of the peak
         ("channel", "i2"),  # channel index
-        ("event_index", "i8"),  # index of the event in the dataset
+        ("record_id", "i8"),  # sequential record id within the dataset
     ],
     name="PEAK_DTYPE",
 )

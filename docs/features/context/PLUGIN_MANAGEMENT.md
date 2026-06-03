@@ -77,6 +77,10 @@ raw_files = ctx.get_data("run_001", "raw_files")
 st_waveforms = ctx.get_data("run_001", "st_waveforms")
 ```
 
+当下游插件需要固定数组形态时，可使用 `ctx.get_data(..., output="array")` 将
+chunk stream 或 generator 结果物化为完整数组；完整参数说明见
+[数据获取](DATA_ACCESS.md)。
+
 ---
 
 ## 查询已注册插件
@@ -302,6 +306,11 @@ Context 在执行插件时会识别以下可选钩子/属性，用于覆盖默�
 - `output_dtype`: 用于 dtype 校验/转换，并参与 lineage hash。
 - `save_when`/`is_side_effect`: 控制缓存写入时机与副作用输出目录（`_side_effects/{run_id}/{plugin}`）。
 - `uses_run_config`: 标记插件会读取 `run_config` 的运行级配置，便于排查配置来源和运行链行为。
+
+当插件需要 run 级硬件事实时，优先通过 `ctx.get_run_config(run_id)` 读取
+`run_config.json`，并用 `ctx.get_run_hardware_channels(run_id)` 获取合并后的
+`hardware.channel_groups` 与 `hardware.channels`。`polarity` 等硬件事实只应来自
+`hardware`，不要在插件 `channel_config` 中重复维护。
 
 ---
 

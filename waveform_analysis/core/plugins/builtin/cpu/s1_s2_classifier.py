@@ -164,11 +164,7 @@ class S1S2ClassifierPlugin(Plugin):
         for peak in widths:
             width_ns = float(peak["total_width"])
             width_samples = float(peak["total_width_samples"])
-            record_id = (
-                int(peak["record_id"])
-                if "record_id" in peak.dtype.names
-                else int(peak["event_index"])
-            )
+            record_id = int(peak["record_id"])
 
             height = np.nan
             area = np.nan

@@ -205,17 +205,18 @@ class DAQRun:
         if self.daq_adapter is None or self.daq_adapter.name != "v1725":
             return
 
-        # 获取所有文件路径
-        all_files = []
+        # 对于 V1725，channel_files 的键实际上是板卡号
+        # 从每个板卡选择第一个文件进行扫描
+        files_to_scan = []
         for files in self.channel_files.values():
-            for file_info in files:
-                all_files.append(Path(file_info["path"]))
+            if files:
+                # 每个板卡取第一个文件
+                files_to_scan.append(Path(files[0]["path"]))
 
-        if not all_files:
+        if not files_to_scan:
             return
 
-        # 读取多个文件来确定实际的通道和板卡
-        # 对于有多个板卡的情况，需要读取多个文件
+        # 读取选定的文件来确定实际的通道和板卡
         try:
             from waveform_analysis.utils.formats.v1725 import V1725Reader
 
@@ -223,10 +224,8 @@ class DAQRun:
             boards_found = set()
             channels_found = set()
 
-            # 读取前几个文件（最多 3 个），每个文件读取前 50 个波形
-            files_to_scan = all_files[: min(3, len(all_files))]
-
             for file_path in files_to_scan:
+                # 每个文件读取前 50 个波形
                 for i, wave in enumerate(reader.iter_waves([file_path])):
                     boards_found.add(wave.board)
                     channels_found.add(wave.channel)

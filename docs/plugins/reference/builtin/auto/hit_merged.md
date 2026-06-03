@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `hit_merged` |
-| **Version** | `0.8.0` |
+| **Version** | `1.1.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -36,14 +36,10 @@ This plugin depends on the following data:
 | Field | Type | Units | Description |
 |-------|------|-------|-------------|
 | `position` | `int64` | - | - |
-| `height` | `float32` | - | - |
-| `integral` | `float32` | - | - |
 | `sample_start` | `int32` | - | - |
 | `sample_end` | `int32` | - | - |
 | `width` | `float32` | - | - |
 | `dt` | `int32` | - | - |
-| `rise_time` | `float32` | - | - |
-| `fall_time` | `float32` | - | - |
 | `timestamp` | `int64` | - | - |
 | `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |

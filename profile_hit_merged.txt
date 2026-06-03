@@ -1,0 +1,36 @@
+         2817251 function calls in 1.929 seconds
+
+   Ordered by: cumulative time
+   List reduced from 71 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       10    0.173    0.017    1.929    0.193 hit_merge.py:548(compute)
+      320    0.363    0.001    0.739    0.002 hit_merge.py:133(_build_enriched_hits)
+    69200    0.294    0.000    0.640    0.000 hit_merge.py:437(_emit_cluster)
+       10    0.002    0.000    0.567    0.057 hit_merge.py:414(_compute_cluster_rows)
+       10    0.053    0.005    0.525    0.053 hit_merge.py:180(_build_merged_clusters)
+       10    0.020    0.002    0.424    0.042 hit_merge.py:369(_build_enriched_lookup)
+   895300    0.413    0.000    0.413    0.000 hit_merge.py:117(_pick)
+    69200    0.125    0.000    0.242    0.000 hit_merge.py:160(_resolve_cluster_sample_window)
+       20    0.002    0.000    0.107    0.005 channel.py:108(group_indices_by_hardware_channel)
+   238240    0.061    0.000    0.104    0.000 {built-in method builtins.max}
+      210    0.000    0.000    0.104    0.000 fromnumeric.py:51(_wrapfunc)
+      180    0.000    0.000    0.104    0.001 fromnumeric.py:1130(argsort)
+      180    0.103    0.001    0.103    0.001 {method 'argsort' of 'numpy.ndarray' objects}
+    69200    0.034    0.000    0.088    0.000 {built-in method builtins.min}
+   469410    0.042    0.000    0.042    0.000 {method 'append' of 'list' objects}
+       10    0.023    0.002    0.040    0.004 hit_merge.py:359(_build_cluster_rows)
+      300    0.035    0.000    0.035    0.000 {built-in method numpy.array}
+    95300    0.033    0.000    0.033    0.000 hit_merge.py:175(<genexpr>)
+    95300    0.029    0.000    0.029    0.000 hit_merge.py:176(<genexpr>)
+   368750    0.029    0.000    0.029    0.000 {built-in method builtins.len}
+       10    0.028    0.003    0.029    0.003 hit_merge.py:400(_cluster_bounds)
+    52350    0.017    0.000    0.021    0.000 hit_merge.py:466(<lambda>)
+   169200    0.015    0.000    0.015    0.000 hit_merge.py:604(<genexpr>)
+    69610    0.012    0.000    0.012    0.000 {built-in method numpy.asarray}
+    95300    0.011    0.000    0.011    0.000 {method 'issubset' of 'set' objects}
+      320    0.003    0.000    0.007    0.000 _dt_compat.py:51(require_dt_array)
+    52350    0.004    0.000    0.004    0.000 {built-in method builtins.abs}
+      640    0.000    0.000    0.002    0.000 fromnumeric.py:2477(any)
+      640    0.001    0.000    0.002    0.000 fromnumeric.py:89(_wrapreduction_any_all)
+      640    0.001    0.000    0.001    0.000 {method 'reduce' of 'numpy.ufunc' objects}

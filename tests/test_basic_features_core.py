@@ -71,7 +71,7 @@ class TestBasicFeaturesCompute:
 
         np.testing.assert_array_equal(result["timestamp"], [0, 1000, 2000])
         np.testing.assert_array_equal(result["channel"], [0, 1, 0])
-        np.testing.assert_array_equal(result["event_index"], [0, 1, 2])
+        np.testing.assert_array_equal(result["record_id"], [0, 1, 2])
 
     def test_empty_input_returns_empty(self):
         st = make_basic_feature_waveforms(n=0)
@@ -87,7 +87,7 @@ class TestBasicFeaturesCompute:
         result = BasicFeaturesPlugin().compute(ctx, "run_001")
 
         assert len(result) == 1
-        assert result["event_index"][0] == 0
+        assert result["record_id"][0] == 0
 
     def test_single_sample_wave_has_zero_max_abs_diff(self):
         st = make_basic_feature_waveforms(n=1, wave_length=1)

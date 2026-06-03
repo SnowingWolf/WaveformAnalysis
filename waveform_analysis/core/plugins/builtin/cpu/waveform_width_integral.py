@@ -5,7 +5,7 @@ CPU Waveform Width Integral Plugin - 事件级积分分位数宽度
 **功能**: 对每条事件波形计算积分分位数宽度 (t_low/t_high)。
 
 核心口径：
-1) 输出是“按事件”的，不按峰；一条记录 = 一个 event_index
+1) 输出是"按事件"的，不按峰；一条记录 = 一个 record_id
 2) baseline 仅来自 st_waveforms.baseline（插件不再估计 baseline）
 3) 若 use_filtered=True，波形使用 filtered_waveforms，但 baseline 仍来自 st_waveforms
 4) t_low/t_high 是波形内部的相对位置；timestamp 保持 ADC 事件时间语义
@@ -34,7 +34,7 @@ WAVEFORM_WIDTH_INTEGRAL_DTYPE = np.dtype(
         ("timestamp", "i8"),  # 事件时间戳（ADC）
         ("board", "i2"),  # 板卡编号
         ("channel", "i2"),  # 通道号
-        ("event_index", "i8"),  # 事件索引
+        ("record_id", "i8"),  # 记录 ID
     ]
 )
 

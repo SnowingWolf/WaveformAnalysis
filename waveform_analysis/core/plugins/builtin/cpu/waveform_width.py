@@ -151,11 +151,7 @@ class WaveformWidthPlugin(Plugin):
         waveform_names = waveform_data.dtype.names or ()
 
         for peak in hits:
-            record_id = (
-                int(peak["record_id"])
-                if "record_id" in peak.dtype.names
-                else int(peak["event_index"])
-            )
+            record_id = int(peak["record_id"])
             peak_position = peak["position"]
             timestamp = peak["timestamp"]
             board = peak["board"] if "board" in peak.dtype.names else 0
