@@ -2,6 +2,8 @@
 Records/wave_pool plugins backed by an internal shared RecordsBundle cache.
 """
 
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
@@ -99,6 +101,51 @@ def _resolve_adapter_name(context: Any, plugin: Plugin | None) -> str | None:
     return None
 
 
+def _parse_utc_epoch_ns(value: Any) -> int | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        return None
+    dt_utc = dt.astimezone(timezone.utc)
+    return int(round(dt_utc.timestamp() * 1_000_000_000))
+
+
+def _resolve_run_start_epoch_ns(context: Any, run_id: str) -> int | None:
+    get_run_config = getattr(context, "get_run_config", None)
+    if not callable(get_run_config):
+        return None
+    try:
+        run_config = get_run_config(run_id)
+    except Exception:
+        return None
+    if not isinstance(run_config, dict):
+        return None
+    daq = run_config.get("daq")
+    if not isinstance(daq, dict):
+        return None
+    return _parse_utc_epoch_ns(daq.get("start_time"))
+
+
+def _resolve_file_epoch_ns(adapter_name: str | None, raw_files: list) -> int | None:
+    if not adapter_name:
+        return None
+
+    from waveform_analysis.utils.formats import get_adapter
+
+    adapter = get_adapter(adapter_name)
+    first_file = next((group[0] for group in raw_files if group), None)
+    if first_file is None:
+        return None
+    try:
+        return adapter.get_file_epoch(Path(first_file))
+    except (FileNotFoundError, OSError):
+        return None
+
+
 def _cleanup_stale_bundles(context: Any, run_id: str, keep_key: str) -> None:
     to_remove = []
     for (rid, name), value in context._results.items():
@@ -174,19 +221,9 @@ def _build_records_bundle(
     channel_executor = context.get_config(plugin, "channel_executor")
     profiler = getattr(context, "profiler", None)
 
-    epoch_ns = None
-    if adapter_name:
-        from pathlib import Path
-
-        from waveform_analysis.utils.formats import get_adapter
-
-        adapter = get_adapter(adapter_name)
-        first_file = next((group[0] for group in raw_files if group), None)
-        if first_file is not None:
-            try:
-                epoch_ns = adapter.get_file_epoch(Path(first_file))
-            except (FileNotFoundError, OSError):
-                epoch_ns = None
+    epoch_ns = _resolve_run_start_epoch_ns(context, run_id)
+    if epoch_ns is None:
+        epoch_ns = _resolve_file_epoch_ns(adapter_name, raw_files)
 
     bundle = build_records_from_raw_files(
         raw_files,
