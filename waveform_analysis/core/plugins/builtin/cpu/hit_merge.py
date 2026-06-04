@@ -88,9 +88,18 @@ def _materialize_array(data: Any, data_name: str, output_dtype: np.dtype) -> np.
         if len(chunk_data) > 0:
             arrays.append(chunk_data)
 
-    if arrays:
-        return np.concatenate(arrays)
-    return np.zeros(0, dtype=output_dtype)
+    if not arrays:
+        return np.zeros(0, dtype=output_dtype)
+
+    # Optimized: batch concatenate to reduce memory copies for large chunk counts
+    if len(arrays) > 100:
+        batch_size = 100
+        merged_batches = []
+        for i in range(0, len(arrays), batch_size):
+            batch = arrays[i : i + batch_size]
+            merged_batches.append(np.concatenate(batch))
+        return np.concatenate(merged_batches)
+    return np.concatenate(arrays)
 
 
 # Numba-accelerated cluster merging
@@ -197,6 +206,7 @@ def _build_enriched_arrays(
     hits: np.ndarray,
     dt_values: np.ndarray,
     source_indices: np.ndarray,
+    pre_trigger_ps: int = 0,
 ) -> _EnrichedArrays:
     n = len(hits)
     if n == 0:
@@ -219,8 +229,11 @@ def _build_enriched_arrays(
 
     dt_ns = dt_values.astype(np.int64)
     dt_ps = dt_values.astype(np.int64) * np.int64(1000)
-    abs_start_ps = timestamps + (edge_starts - positions) * dt_ps
-    abs_end_ps = timestamps + (edge_ends - positions) * dt_ps
+
+    # 修正 timestamp：如果配置了 pre_trigger，则从触发点时间修正到 sample 0 时间
+    corrected_timestamps = timestamps - np.int64(pre_trigger_ps)
+    abs_start_ps = corrected_timestamps + (edge_starts - positions) * dt_ps
+    abs_end_ps = corrected_timestamps + (edge_ends - positions) * dt_ps
 
     return _EnrichedArrays(
         source_indices=source_indices.astype(np.int64, copy=False),
@@ -315,6 +328,7 @@ def _compute_cluster_rows(
     max_total_width_ns: float,
     explicit_dt: int | None,
     plugin_name: str,
+    pre_trigger_ps: int = 0,
 ) -> np.ndarray:
     if len(hits) == 0:
         return np.zeros(0, dtype=HIT_MERGE_CLUSTERS_DTYPE)
@@ -343,7 +357,9 @@ def _compute_cluster_rows(
             plugin_name=plugin_name,
             data_name="hit_threshold[channel]",
         )
-        enriched = _build_enriched_arrays(ch_hits, channel_dt, indices.astype(np.int64, copy=False))
+        enriched = _build_enriched_arrays(
+            ch_hits, channel_dt, indices.astype(np.int64, copy=False), pre_trigger_ps=pre_trigger_ps
+        )
         order = np.argsort(enriched.abs_start_ps, kind="mergesort")
         abs_starts = enriched.abs_start_ps[order]
         abs_ends = enriched.abs_end_ps[order]
@@ -378,6 +394,7 @@ def _build_enriched_for_hits(
     hits: np.ndarray,
     explicit_dt: int | None,
     plugin_name: str,
+    pre_trigger_ps: int = 0,
 ) -> _EnrichedArrays:
     dt_values = require_dt_array(
         hits,
@@ -385,7 +402,9 @@ def _build_enriched_for_hits(
         plugin_name=plugin_name,
         data_name="hit_threshold",
     )
-    return _build_enriched_arrays(hits, dt_values, np.arange(len(hits), dtype=np.int64))
+    return _build_enriched_arrays(
+        hits, dt_values, np.arange(len(hits), dtype=np.int64), pre_trigger_ps=pre_trigger_ps
+    )
 
 
 def _cluster_bounds(cluster_rows: np.ndarray) -> list[tuple[int, int, int]]:
@@ -533,6 +552,8 @@ class HitMergePlugin(BatchProcessingPlugin):
     }
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
+        from waveform_analysis.core.processing.time_utils import get_pre_trigger_offset_ps
+
         hits = _materialize_array(
             context.get_data(run_id, "hit_threshold"),
             "hit_merged hit_threshold input",
@@ -542,6 +563,8 @@ class HitMergePlugin(BatchProcessingPlugin):
             return np.zeros(0, dtype=HIT_MERGED_DTYPE)
 
         merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(context, self)
+        pre_trigger_ps = get_pre_trigger_offset_ps(context)
+
         if merge_gap_ns <= 0:
             return _hits_to_merged_fast(hits, explicit_dt=explicit_dt, plugin_name=self.provides)
 
@@ -560,6 +583,7 @@ class HitMergePlugin(BatchProcessingPlugin):
                 max_total_width_ns=max_total_width_ns,
                 explicit_dt=explicit_dt,
                 plugin_name="hit_merge_clusters",
+                pre_trigger_ps=pre_trigger_ps,
             )
         if cluster_rows is None:
             cluster_rows = _compute_cluster_rows(
@@ -568,12 +592,13 @@ class HitMergePlugin(BatchProcessingPlugin):
                 max_total_width_ns=max_total_width_ns,
                 explicit_dt=explicit_dt,
                 plugin_name="hit_merge_clusters",
+                pre_trigger_ps=pre_trigger_ps,
             )
         if not isinstance(cluster_rows, np.ndarray):
             raise ValueError("hit_merged expects hit_merge_clusters as a structured array")
 
         enriched = _build_enriched_for_hits(
-            hits, explicit_dt=explicit_dt, plugin_name=self.provides
+            hits, explicit_dt=explicit_dt, plugin_name=self.provides, pre_trigger_ps=pre_trigger_ps
         )
 
         merged_rows: list[tuple] = []
@@ -613,6 +638,8 @@ class HitMergeClustersPlugin(Plugin):
     options = HitMergePlugin.options
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
+        from waveform_analysis.core.processing.time_utils import get_pre_trigger_offset_ps
+
         hits = _materialize_array(
             context.get_data(run_id, "hit_threshold"),
             "hit_merge_clusters hit_threshold input",
@@ -622,6 +649,8 @@ class HitMergeClustersPlugin(Plugin):
             return np.zeros(0, dtype=HIT_MERGE_CLUSTERS_DTYPE)
 
         merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(context, self)
+        pre_trigger_ps = get_pre_trigger_offset_ps(context)
+
         if merge_gap_ns <= 0:
             return _hits_to_cluster_rows_fast(hits)
 
@@ -631,6 +660,7 @@ class HitMergeClustersPlugin(Plugin):
             max_total_width_ns=max_total_width_ns,
             explicit_dt=explicit_dt,
             plugin_name=self.provides,
+            pre_trigger_ps=pre_trigger_ps,
         )
 
 
@@ -652,6 +682,8 @@ class HitMergedComponentsPlugin(Plugin):
     }
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
+        from waveform_analysis.core.processing.time_utils import get_pre_trigger_offset_ps
+
         merged = _materialize_array(
             context.get_data(run_id, "hit_merged"),
             "hit_merged_components hit_merged input",
@@ -659,6 +691,8 @@ class HitMergedComponentsPlugin(Plugin):
         )
         if len(merged) == 0:
             return np.zeros(0, dtype=HIT_MERGED_COMPONENTS_DTYPE)
+
+        pre_trigger_ps = get_pre_trigger_offset_ps(context)
 
         try:
             cluster_rows = context.get_data(run_id, "hit_merge_clusters")
@@ -684,6 +718,7 @@ class HitMergedComponentsPlugin(Plugin):
                 max_total_width_ns=max_total_width_ns,
                 explicit_dt=explicit_dt,
                 plugin_name="hit_merge_clusters",
+                pre_trigger_ps=pre_trigger_ps,
             )
         if cluster_rows is None:
             hits = _materialize_array(
@@ -701,6 +736,7 @@ class HitMergedComponentsPlugin(Plugin):
                 max_total_width_ns=max_total_width_ns,
                 explicit_dt=explicit_dt,
                 plugin_name="hit_merge_clusters",
+                pre_trigger_ps=pre_trigger_ps,
             )
         if not isinstance(cluster_rows, np.ndarray):
             raise ValueError(
