@@ -6,11 +6,16 @@
 
 ## Route
 - `task`: `performance_regression_check`
+- `workflow_cost`: `standard`
 - `primary_doc`: `docs/agents/workflows.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/performance_regression_check.md`
 
 ## Blocking Gates
 - `performance_report_generated`
+
+## Gate Trigger Policy
+- targeted benchmark requests use standard workflow with explicit baseline
+- release-blocking performance validation escalates to strict release_artifact_sync
 
 ## Canonical Commands
 - `python scripts/performance_regression_check.py --base HEAD`

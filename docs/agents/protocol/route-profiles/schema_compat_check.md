@@ -6,12 +6,17 @@
 
 ## Route
 - `task`: `schema_compat_check`
+- `workflow_cost`: `standard`
 - `primary_doc`: `docs/agents/workflows.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/schema_compat_check.md`
 
 ## Blocking Gates
 - `schema_report_generated`
 - `smoke_chain_passed`
+
+## Gate Trigger Policy
+- schema and smoke checks are standard for ordinary compatibility review
+- release, dtype removal, or plugin contract migration uses strict workflow
 
 ## Canonical Commands
 - `python scripts/schema_compat_check.py --base HEAD --run-smoke`

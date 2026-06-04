@@ -6,6 +6,7 @@
 
 ## Route
 - `task`: `retire_compat`
+- `workflow_cost`: `strict`
 - `primary_doc`: `docs/agents/workflows.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/retire_compat.md`
 
@@ -16,6 +17,11 @@
 - `doc_anchors`
 - `impact_assessed_if_needed`
 - `schema_checked_if_needed`
+
+## Gate Trigger Policy
+- low-risk internal cleanup may run doc gates plus affected targeted tests
+- medium/high public-surface cleanup requires user confirmation before execution
+- plugin contract, dtype, or public CLI removal stays strict and must run impact/schema gates
 
 ## Canonical Commands
 - `scripts/check_doc_sync.sh`

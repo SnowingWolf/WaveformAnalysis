@@ -99,6 +99,21 @@ def evaluate_handoff(
     )
 
 
+def evaluate_final_note(note: str) -> tuple[int, str]:
+    """Check that a final handoff note records required status checks."""
+    missing: list[str] = []
+    if "git status --short" not in note:
+        missing.append("git status --short")
+    if "git diff --stat" not in note:
+        missing.append("git diff --stat")
+    if "已提交：" not in note and "未提交：" not in note:
+        missing.append("已提交/未提交状态")
+
+    if missing:
+        return 1, "FAIL: final note missing " + ", ".join(missing)
+    return 0, "PASS: final note records required handoff checks and commit state."
+
+
 def _print_summary(lines: list[str]) -> None:
     summary = summarize_status(lines)
     print("=== agent handoff status ===")
@@ -142,6 +157,14 @@ def main() -> int:
         action="store_true",
         help="Ignore untracked files when evaluating pending changes",
     )
+    parser.add_argument(
+        "--final-note",
+        default=None,
+        help=(
+            "Optional final handoff text to validate for git status/diff checks "
+            "and explicit commit state"
+        ),
+    )
     args = parser.parse_args()
 
     try:
@@ -158,7 +181,12 @@ def main() -> int:
     _print_summary(lines)
     print()
     print(message)
-    return code
+    if args.final_note is None:
+        return code
+
+    note_code, note_message = evaluate_final_note(args.final_note)
+    print(note_message)
+    return code or note_code
 
 
 if __name__ == "__main__":

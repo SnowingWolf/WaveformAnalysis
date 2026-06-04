@@ -59,6 +59,18 @@
 3. `python scripts/performance_regression_check.py --base HEAD`
 4. `python scripts/release_artifact_sync.py --base HEAD`
 
+## Workflow Cost 快速决策
+
+| workflow_cost | 适用范围 | Artifact 口径 | Gate 口径 |
+| --- | --- | --- | --- |
+| `light` | 只读解释、定向测试、文档小修、缓存诊断 | 三段式仍保留，但可填写压缩版字段 | 只跑命中目标的最小 gate |
+| `standard` | 普通代码、插件内部算法、QA 扫描 | 使用完整 `plan_brief` / `execution_report` / `review_report` | 跑 route 默认 gate 与定向测试 |
+| `strict` | 插件契约、dtype/字段、compat 删除、发布前检查 | 完整 artifact，不得压缩 | 固定 gate 必须全部记录 PASS/FAIL |
+
+- route 默认成本见 `docs/agents/index.yaml` 的 `workflow_cost`。
+- 实际任务可在 `plan_brief.workflow_cost` 中上调；涉及 public surface、缓存 lineage、契约或发布时必须上调到 `strict`。
+- 仅文档改动默认走 `light`，但若文档反映代码契约变化，继承源 route 的成本等级。
+
 ## Hard Rules
 - Python 3.10+ 基线：允许使用 `str | Path` 等 3.10+ 语法。
 - Context 无状态：所有数据访问都要显式 `run_id`。

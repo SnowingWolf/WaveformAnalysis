@@ -29,12 +29,14 @@ END_RE = "<!-- END GENERATED: {name} -->"
 class Route:
     task: str
     summary: str
+    workflow_cost: str | None
     primary_doc: str
     profile_doc: str | None
     secondary_docs: list[str]
     commands: list[str]
     blocking_gates: list[str]
     completion_contract: list[str]
+    gate_trigger_policy: list[str]
     aliases: list[str]
     read_order: list[str]
     alias_of: str | None
@@ -42,6 +44,10 @@ class Route:
     @property
     def is_alias(self) -> bool:
         return self.alias_of is not None
+
+
+VALID_WORKFLOW_COSTS = {"light", "standard", "strict"}
+STRICT_REQUIRED_ARTIFACTS = {"plan_brief", "execution_report", "review_report"}
 
 
 def _load_manifest(path: Path) -> dict[str, Any]:
@@ -71,12 +77,14 @@ def _normalize_routes(data: dict[str, Any]) -> list[Route]:
             Route(
                 task=task,
                 summary=_as_str(raw, "summary", required=not bool(raw.get("alias_of"))),
+                workflow_cost=_as_optional_str(raw, "workflow_cost"),
                 primary_doc=_as_str(raw, "primary_doc", required=not bool(raw.get("alias_of"))),
                 profile_doc=_as_optional_str(raw, "profile_doc"),
                 secondary_docs=_as_str_list(raw, "secondary_docs"),
                 commands=_as_str_list(raw, "commands"),
                 blocking_gates=_as_str_list(raw, "blocking_gates"),
                 completion_contract=_as_str_list(raw, "completion_contract"),
+                gate_trigger_policy=_as_str_list(raw, "gate_trigger_policy"),
                 aliases=_as_str_list(raw, "aliases"),
                 read_order=_as_str_list(raw, "read_order"),
                 alias_of=_as_optional_str(raw, "alias_of"),
@@ -133,12 +141,25 @@ def validate_manifest(data: dict[str, Any], project_root: Path = PROJECT_ROOT) -
                 issues.append(
                     f"Alias route `{route.task}` points to unknown route `{route.alias_of}`"
                 )
-            if route.summary or route.primary_doc or route.profile_doc or route.read_order:
+            if (
+                route.summary
+                or route.workflow_cost
+                or route.primary_doc
+                or route.profile_doc
+                or route.read_order
+                or route.gate_trigger_policy
+            ):
                 issues.append(
-                    f"Alias route `{route.task}` must not redefine summary/primary_doc/profile_doc/read_order"
+                    f"Alias route `{route.task}` must not redefine summary/workflow_cost/"
+                    "primary_doc/profile_doc/read_order/gate_trigger_policy"
                 )
             continue
 
+        if route.workflow_cost not in VALID_WORKFLOW_COSTS:
+            issues.append(
+                f"Route `{route.task}` has invalid workflow_cost `{route.workflow_cost}`; "
+                "expected light, standard, or strict"
+            )
         if not route.summary:
             issues.append(f"Route `{route.task}` missing summary")
         if not route.primary_doc:
@@ -147,6 +168,17 @@ def validate_manifest(data: dict[str, Any], project_root: Path = PROJECT_ROOT) -
             issues.append(f"Route `{route.task}` missing profile_doc")
         if not route.read_order:
             issues.append(f"Route `{route.task}` missing read_order")
+        if not route.gate_trigger_policy:
+            issues.append(f"Route `{route.task}` missing gate_trigger_policy")
+
+        required_artifacts = set(
+            _as_str_list(route_raw_by_task(data, route.task), "required_artifacts")
+        )
+        if route.workflow_cost == "strict" and not STRICT_REQUIRED_ARTIFACTS.issubset(
+            required_artifacts
+        ):
+            missing = ", ".join(sorted(STRICT_REQUIRED_ARTIFACTS - required_artifacts))
+            issues.append(f"Strict route `{route.task}` missing required_artifacts: {missing}")
 
         for doc_path in [
             route.primary_doc,
@@ -179,6 +211,16 @@ def validate_manifest(data: dict[str, Any], project_root: Path = PROJECT_ROOT) -
                 issues.append(f"doc_index references missing path `{path}`")
 
     return issues
+
+
+def route_raw_by_task(data: dict[str, Any], task: str) -> dict[str, Any]:
+    routes_raw = data.get("task_routes", [])
+    if not isinstance(routes_raw, list):
+        return {}
+    for raw in routes_raw:
+        if isinstance(raw, dict) and raw.get("task") == task:
+            return raw
+    return {}
 
 
 def build_generated_sections(data: dict[str, Any]) -> dict[str, str]:
@@ -340,6 +382,7 @@ def _render_profile_summary(route: Route) -> str:
         "",
         "## Route",
         f"- `task`: `{route.task}`",
+        f"- `workflow_cost`: `{route.workflow_cost}`",
         f"- `primary_doc`: `{route.primary_doc}`",
     ]
     if route.profile_doc:
@@ -349,6 +392,8 @@ def _render_profile_summary(route: Route) -> str:
         lines.append(f"- `aliases`: {alias_text}")
     lines.extend(["", "## Blocking Gates"])
     lines.extend(f"- `{gate}`" for gate in route.blocking_gates)
+    lines.extend(["", "## Gate Trigger Policy"])
+    lines.extend(f"- {policy}" for policy in route.gate_trigger_policy)
     lines.extend(["", "## Canonical Commands"])
     lines.extend(f"- `{cmd}`" for cmd in route.commands)
     return "\n".join(lines)

@@ -6,11 +6,16 @@
 
 ## Route
 - `task`: `assess_change_impact`
+- `workflow_cost`: `standard`
 - `primary_doc`: `docs/agents/workflows.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/assess_change_impact.md`
 
 ## Blocking Gates
 - `impact_report_generated`
+
+## Gate Trigger Policy
+- impact scans are standard unless tied to release or strict contract cleanup
+- missing baseline keeps the task in awaiting_user_input
 
 ## Canonical Commands
 - `python scripts/assess_change_impact.py --base HEAD`

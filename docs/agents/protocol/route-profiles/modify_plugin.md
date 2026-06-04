@@ -6,6 +6,7 @@
 
 ## Route
 - `task`: `modify_plugin`
+- `workflow_cost`: `standard`
 - `primary_doc`: `docs/agents/workflows.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/modify_plugin.md`
 
@@ -14,6 +15,11 @@
 - `schema_compat_check`
 - `doc_sync`
 - `doc_anchors`
+
+## Gate Trigger Policy
+- L0 docs/comment-only changes may use light workflow with doc gates only
+- L1 internal algorithm changes use standard workflow with targeted tests and impact assessment
+- L2/L3 contract, dtype, dependency, or cache-lineage changes escalate to strict workflow
 
 ## Canonical Commands
 - `waveform-docs generate plugins-agent --plugin <provides>`

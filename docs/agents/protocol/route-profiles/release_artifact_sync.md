@@ -6,12 +6,17 @@
 
 ## Route
 - `task`: `release_artifact_sync`
+- `workflow_cost`: `strict`
 - `primary_doc`: `docs/agents/workflows.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/release_artifact_sync.md`
 - `aliases`: `release_check`
 
 ## Blocking Gates
 - `release_artifacts_consistent`
+
+## Gate Trigger Policy
+- release validation is always strict
+- unresolved release target or missing baseline blocks before execution
 
 ## Canonical Commands
 - `python scripts/release_artifact_sync.py --base HEAD`

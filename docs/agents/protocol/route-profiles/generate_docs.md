@@ -6,12 +6,18 @@
 
 ## Route
 - `task`: `generate_docs`
+- `workflow_cost`: `light`
 - `primary_doc`: `docs/agents/references.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/generate_docs.md`
 
 ## Blocking Gates
 - `doc_sync`
 - `doc_anchors`
+
+## Gate Trigger Policy
+- docs-only edits use light workflow with doc sync and anchor checks
+- generated plugin reference changes add the matching waveform-docs generation command
+- docs coupled to code contract changes inherit the source route workflow_cost
 
 ## Canonical Commands
 - `waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/`

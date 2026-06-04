@@ -8,6 +8,22 @@
 - 可选状态：`awaiting_user_input`、`awaiting_approval`、`rework_required`、`blocked`、`failed`、`cancelled`
 - 阻断式审查：`Reviewer` 未放行前，不得进入 `completed`
 
+## Workflow Cost 分级
+
+`workflow_cost` 用来控制一次任务的流程重量。它不替代主状态机，只决定 artifact 填写粒度和 gate 数量。
+
+| workflow_cost | 适用范围 | Artifact 口径 | Gate 口径 |
+| --- | --- | --- | --- |
+| `light` | 只读解释、定向测试、文档小修、缓存诊断 | 三段式仍保留，但允许压缩填写 | 只跑当前目标必需的最小 gate |
+| `standard` | 普通代码、插件内部算法、QA 扫描 | 完整填写通用 artifact | 跑 route 默认 gate 与定向测试 |
+| `strict` | 插件契约、dtype/字段、compat 删除、发布前检查 | 完整 artifact，不得压缩 | 固定 gate 必须全部记录 PASS/FAIL |
+
+### 升级规则
+1. route 默认成本见 `docs/agents/index.yaml` 的 `workflow_cost`。
+2. `Planner` 必须在 `plan_brief.workflow_cost` 写明实际成本；实际成本可以高于 route 默认值。
+3. 触及 public surface、缓存 lineage、插件契约、dtype/字段、compat 删除或发布检查时，必须使用 `strict`。
+4. 仅文档改动默认使用 `light`；若文档同步的是代码契约变化，继承源 route 成本。
+
 ## 通用交接产物
 - `plan_brief`
   - 由 `Planner` 生成
@@ -21,6 +37,10 @@
 - `review_report`
   - 由 `Reviewer` 生成
   - `reviewing -> completed` 前必须存在
+- `light` 模式最低字段：
+  - `plan_brief`: `task_id`、`route`、`workflow_cost`、`scope_in`、`required_gates`、`executor_role`
+  - `execution_report`: `task_id`、`workflow_cost`、`actions_taken`、`commands_run`、`open_risks`
+  - `review_report`: `task_id`、`workflow_cost`、`gate_results`、`decision`、`blocking_findings`
 
 ## 通用 Commit Handoff
 - `Executor` 在离开 `executing` 前必须检查工作树：`git status --short`、`git diff --stat`
@@ -32,6 +52,7 @@
 - 可执行：
   - `python scripts/check_agent_handoff.py`
   - `python scripts/check_agent_handoff.py --allow-uncommitted --reason "<原因>"`
+  - `python scripts/check_agent_handoff.py --final-note "<最终交付文本>"`
 - `Reviewer` 发现提交状态未说明时，必须打回，不能直接 `completed`
 
 ## 通用返工规则
