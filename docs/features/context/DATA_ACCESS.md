@@ -356,7 +356,7 @@ for data_name in ["waveforms", "st_waveforms", "features"]:
 ### 使用 BatchProcessor
 
 ```python
-from waveform_analysis.core.data.export import BatchProcessor
+from waveform_analysis.core.data import BatchProcessor
 
 processor = BatchProcessor(ctx)
 results = processor.process_runs(
@@ -369,6 +369,10 @@ results = processor.process_runs(
 for run_id, data in results['results'].items():
     print(f"{run_id}: {len(data)} events")
 ```
+
+`BatchProcessor` 适合把同一个插件产物批量应用到多个 run，并集中收集 `results`、`errors` 和
+`meta`。并行执行、错误策略、取消和配置网格扫描见
+[BatchProcessor - 多运行批量处理](BATCH_PROCESSOR.md)。
 
 ## 数据类型
 
