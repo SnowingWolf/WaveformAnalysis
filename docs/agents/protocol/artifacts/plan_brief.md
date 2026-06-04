@@ -7,6 +7,7 @@
 ## Required Fields
 - `task_id`
 - `route`
+- `workflow_cost`
 - `lifecycle_profile`
 - `risk_level`
 - `scope_in`
@@ -16,8 +17,12 @@
 - `blocking_assumptions`
 
 ## Field Rules
+- `workflow_cost`
+  仅允许：`light | standard | strict`
 - `risk_level`
   仅允许：`low | medium | high`
+- `light` 模式
+  可省略 `scope_out`、`lifecycle_profile`、`blocking_assumptions` 中不适用的细节，但必须说明最小 `required_gates`
 - `required_gates`
   使用平铺列表，不写嵌套结构
 - `blocking_assumptions`
@@ -29,6 +34,7 @@
 
 - `task_id`:
 - `route`:
+- `workflow_cost`: `light|standard|strict`
 - `lifecycle_profile`:
 - `risk_level`: `low|medium|high`
 - `scope_in`:
@@ -51,6 +57,7 @@
 
 ## Completion Checklist
 - `route` 与 route profile 一致
+- `workflow_cost` 已明确，且不低于任务实际风险
 - `required_gates` 已明确
 - `executor_role` 已明确
 - 没有缺失会阻止执行的前提
