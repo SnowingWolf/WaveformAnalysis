@@ -27,7 +27,8 @@
 - 若当前任务留下仓库改动，必须二选一：
   - 已完成提交，并在最终回复或交接中记录 `commit hash`
   - 明确记录 `未提交` 原因
-- 默认不强制自动提交；是否提交遵循用户要求，但提交状态不能缺失
+- 修改任务默认在验证通过后提交本轮相关改动；提交必须 scoped，不得混入无关 dirty 文件
+- 若不能提交（例如验证失败、范围不清、需要用户确认），必须明确记录 `未提交` 原因
 - 可执行：
   - `python scripts/check_agent_handoff.py`
   - `python scripts/check_agent_handoff.py --allow-uncommitted --reason "<原因>"`

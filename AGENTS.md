@@ -71,7 +71,8 @@
 - 不提交大体积缓存/依赖目录：`node_modules/`, `.cache/`, `.mypy_cache/`, `htmlcov/`。
 - 在最终回复前必须检查提交状态：至少执行 `git status --short` 与 `git diff --stat`。
 - 若本轮修改了仓库文件，最终回复必须显式写明其一：`已提交：<commit hash>` 或 `未提交：<原因>`。
-- 用户未明确要求时，不默认自动提交；但不能省略提交状态说明。
+- 修改任务默认在验证通过后提交本轮相关改动；提交必须 scoped，不得混入无关 dirty 文件。
+- 若不能提交（例如验证失败、范围不清、需要用户确认），必须明确记录 `未提交` 原因。
 
 ## Agent Collaboration Model
 - 默认协作拓扑固定为 `Planner -> Executor -> Reviewer`。
@@ -224,7 +225,8 @@ waveform-process --show-daq --daq-root DAQ
 
 ## Commit & PR
 - Commit 前缀：`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`。
-- 收尾时必须显式交代 commit 状态；若未提交，必须说明原因。
+- 修改任务完成后默认提交本轮相关改动；收尾时必须显式交代 commit 状态。
+- 若未提交，必须说明原因；若工作区存在无关改动，提交时只 stage 本轮相关文件。
 - 可使用 `python scripts/check_agent_handoff.py --allow-uncommitted --reason "<原因>"` 记录“未提交但已说明”的交付状态。
 - PR 至少包含：变更摘要、测试结果、文档变更说明（若用户可见）。
 
