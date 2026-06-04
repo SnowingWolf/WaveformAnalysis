@@ -741,6 +741,7 @@ task_routes:
         - gate_execution
     commands:
       - python scripts/release_artifact_sync.py --base HEAD
+      - python -m pytest tests/
     blocking_gates:
       - release_artifacts_consistent
     gate_trigger_policy:

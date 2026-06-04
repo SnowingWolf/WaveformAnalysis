@@ -345,7 +345,8 @@ python scripts/release_artifact_sync.py --base HEAD
 1. 版本与 `CHANGELOG` 状态一致
 2. `plugins-auto` 与 `plugins-agent` 生成结果与仓库文档一致
 3. `doc_sync` 与 `doc_anchors` 检查通过
-4. 关键链路测试与性能检查状态明确
+4. `schema_compat_check --run-smoke` 与 `python -m pytest tests/` 全测试目录通过
+5. 性能检查状态明确
 
 ## Workflow: release_check
 
