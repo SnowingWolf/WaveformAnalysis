@@ -32,6 +32,7 @@ from waveform_analysis.core.plugins.builtin.cpu._dt_compat import (
 )
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     WAVE_SOURCE_AUTO,
+    WAVE_SOURCE_RECORDS,
     load_wave_input,
     resolve_wave_input_spec,
 )
@@ -158,7 +159,7 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
     provides = "hit_threshold"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Threshold-only hit detector with THRESHOLD_HIT_DTYPE output."
-    version = "1.0.2"
+    version = "1.1.0"
     output_dtype = THRESHOLD_HIT_DTYPE
 
     # 为了不改变原始缓存语义，这里仍保持 always。
@@ -228,11 +229,23 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
             type=int,
             help="流式处理时的 chunk 大小（仅对 RecordsBundleRef 生效）",
         ),
+        "asymmetry_cut_enabled": Option(
+            default=False,
+            type=bool,
+            help="是否在 records 路径的 hit 查找前应用 records_asymmetry_mask。",
+        ),
     }
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         spec = resolve_wave_input_spec(context, self)
-        return list(spec.depends_on)
+        deps = list(spec.depends_on)
+        if (
+            spec.source == WAVE_SOURCE_RECORDS
+            and bool(context.get_config(self, "asymmetry_cut_enabled"))
+            and "records_asymmetry_mask" not in deps
+        ):
+            deps.append("records_asymmetry_mask")
+        return deps
 
     def compute_chunk(self, chunk: Chunk, context: Any, run_id: str, **kwargs) -> Chunk:
         """处理单个 chunk - 由 StreamingPlugin 框架自动调用。"""
@@ -320,8 +333,22 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
                 raise ValueError(
                     "hit_threshold failed to load records and wave_pool for records source"
                 )
+            records = wave_input.records
+            if bool(context.get_config(self, "asymmetry_cut_enabled")):
+                mask = np.asarray(
+                    context.get_data(run_id, "records_asymmetry_mask"),
+                    dtype=np.bool_,
+                )
+                if len(mask) != len(records):
+                    raise ValueError(
+                        "records_asymmetry_mask length mismatch: "
+                        f"mask has {len(mask)} entries, records has {len(records)}"
+                    )
+                records = records[mask]
+                if len(records) == 0:
+                    return _empty_hits()
             return self._process_records_ragged_input(
-                records=wave_input.records,
+                records=records,
                 wave_pool=wave_input.wave_pool,
                 context=context,
                 run_id=run_id,

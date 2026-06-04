@@ -18,7 +18,7 @@ WaveformAnalysis 采用**插件化架构**处理 DAQ（数据采集系统）波�
 
 ### 插件统计
 
-- **总插件数**: 24
+- **总插件数**: 25
 - **类别数**: 8
 - **加速器**: CPU (NumPy/SciPy)
 
@@ -138,12 +138,13 @@ raw_files ──► records ──► df ──► df_events
 | [`HitMergePlugin`](hit_merged.md) | `hit_merged` | 1.1.0 | 特征提取 | hit_threshold, hit_merge_clusters |
 | [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 1.0.0 | 特征提取 | hit_merge_clusters, hit_merged |
 | [`HitMergedFeaturesPlugin`](hit_merged_features.md) | `hit_merged_features` | 0.1.0 | 特征提取 | hit_merged, hit_merged_components, hit_threshold, records, wave_pool |
-| [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.0.2 | 特征提取 | - |
+| [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.1.0 | 特征提取 | - |
 | [`PeakletChannelsPlugin`](peaklet_channels.md) | `peaklet_channels` | 0.1.0 | 特征提取 | peaklets, peaklet_components, hit_merged_features |
 | [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 0.1.0 | 特征提取 | peaklets, hit_merged |
 | [`PeakletPlugin`](peaklets.md) | `peaklets` | 0.2.0 | 特征提取 | hit_merged, hit_merged_components, hit_merged_features, records, wave_pool |
 | [`RawFileNamesPlugin`](raw_files.md) | `raw_files` | 0.0.2 | 数据加载 | - |
 | [`RecordsPlugin`](records.md) | `records` | 0.10.0 | 记录处理 | - |
+| [`RecordsAsymmetryMaskPlugin`](records_asymmetry_mask.md) | `records_asymmetry_mask` | 0.1.0 | 记录处理 | records, wave_pool |
 | [`S1S2ClassifierPlugin`](s1_s2.md) | `s1_s2` | 0.4.0 | 其他 | waveform_width, basic_features |
 | [`WaveformsPlugin`](st_waveforms.md) | `st_waveforms` | 0.10.0 | 波形处理 | - |
 | [`WavePoolPlugin`](wave_pool.md) | `wave_pool` | 0.10.0 | 波形处理 | - |
@@ -233,6 +234,7 @@ raw_files ──► records ──► df ──► df_events
 | 插件 | 说明 | 依赖 |
 |------|------|------|
 | [`records`](records.md) | Build records (event index table) from the shared internal r... | - |
+| [`records_asymmetry_mask`](records_asymmetry_mask.md) | Bool mask for waveform asymmetry selection. | records, wave_pool |
 
 ### 其他
 

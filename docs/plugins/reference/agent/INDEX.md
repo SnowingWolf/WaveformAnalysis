@@ -14,7 +14,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 
 ## Summary
 
-- 插件总数：24
+- 插件总数：25
 - 类别数：8
 
 ## Plugin Table
@@ -33,12 +33,13 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold`, `hit_merge_clusters` | `structured_array` | `1.1.0` |
 | [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | `hit_merge_clusters`, `hit_merged` | `structured_array` | `1.0.0` |
 | [`hit_merged_features`](hit_merged_features.md) | `HitMergedFeaturesPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `structured_array` | `0.1.0` |
-| [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | - | `structured_array` | `1.0.2` |
+| [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | - | `structured_array` | `1.1.0` |
 | [`peaklet_channels`](peaklet_channels.md) | `PeakletChannelsPlugin` | `peaklets`, `peaklet_components`, `hit_merged_features` | `structured_array` | `0.1.0` |
 | [`peaklet_components`](peaklet_components.md) | `PeakletComponentsPlugin` | `peaklets`, `hit_merged` | `structured_array` | `0.1.0` |
 | [`peaklets`](peaklets.md) | `PeakletPlugin` | `hit_merged`, `hit_merged_components`, `hit_merged_features`, `records`, `wave_pool` | `structured_array` | `0.2.0` |
 | [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | `unknown` | `0.0.2` |
 | [`records`](records.md) | `RecordsPlugin` | - | `structured_array` | `0.10.0` |
+| [`records_asymmetry_mask`](records_asymmetry_mask.md) | `RecordsAsymmetryMaskPlugin` | `records`, `wave_pool` | `array` | `0.1.0` |
 | [`s1_s2`](s1_s2.md) | `S1S2ClassifierPlugin` | `waveform_width`, `basic_features` | `structured_array` | `0.4.0` |
 | [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | - | `structured_array` | `0.10.0` |
 | [`wave_pool`](wave_pool.md) | `WavePoolPlugin` | - | `array` | `0.10.0` |
@@ -91,6 +92,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 ### 记录处理
 
 - [`records`](records.md): Build records (event index table) from the shared internal records bundle.
+- [`records_asymmetry_mask`](records_asymmetry_mask.md): Bool mask for waveform asymmetry selection.
 
 ### 其他
 

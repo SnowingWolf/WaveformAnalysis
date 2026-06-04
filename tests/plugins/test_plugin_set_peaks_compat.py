@@ -14,6 +14,7 @@ def test_get_plugin_set_peaks_available():
     assert len(plugins) >= 6
     assert provides == [
         "hit",
+        "records_asymmetry_mask",
         "hit_threshold",
         "hit_merge_clusters",
         "hit_merged",

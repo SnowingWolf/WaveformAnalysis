@@ -26,11 +26,15 @@ def plugins_peaks():
         PeakletComponentsPlugin,
         PeakletPlugin,
     )
+    from waveform_analysis.core.plugins.builtin.cpu.records_asymmetry import (
+        RecordsAsymmetryMaskPlugin,
+    )
     from waveform_analysis.core.plugins.builtin.cpu.s1_s2_classifier import S1S2ClassifierPlugin
     from waveform_analysis.core.plugins.builtin.cpu.waveform_width import WaveformWidthPlugin
 
     return [
         HitFinderPlugin(),
+        RecordsAsymmetryMaskPlugin(),
         ThresholdHitPlugin(),
         HitMergeClustersPlugin(),
         HitMergePlugin(),

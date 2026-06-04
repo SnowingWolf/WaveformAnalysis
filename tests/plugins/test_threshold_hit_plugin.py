@@ -10,6 +10,9 @@ from waveform_analysis.core.plugins.builtin.cpu.hit_finder import (
     THRESHOLD_HIT_DTYPE,
     ThresholdHitPlugin,
 )
+from waveform_analysis.core.plugins.builtin.cpu.records_asymmetry import (
+    RecordsAsymmetryMaskPlugin,
+)
 from waveform_analysis.core.processing.dtypes import create_record_dtype
 from waveform_analysis.core.processing.records_builder import (
     RECORDS_DTYPE,
@@ -57,6 +60,40 @@ def _make_many_records_view(n_records=4):
     wave_pool = np.tile(
         np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.uint16),
         n_records,
+    )
+    return RecordsView(records, wave_pool)
+
+
+def _make_asymmetry_records_view():
+    records = np.zeros(2, dtype=RECORDS_DTYPE)
+    records["baseline"] = 100.0
+    records["timestamp"] = np.array([123_456, 223_456], dtype=np.int64)
+    records["board"] = 5
+    records["channel"] = np.array([2, 3], dtype=np.int16)
+    records["dt"] = 2
+    records["event_length"] = 8
+    records["wave_offset"] = np.array([0, 8], dtype=np.int64)
+    records["record_id"] = np.array([0, 1], dtype=np.int64)
+    wave_pool = np.array(
+        [
+            100,
+            100,
+            80,
+            80,
+            100,
+            100,
+            100,
+            100,
+            100,
+            130,
+            80,
+            80,
+            100,
+            100,
+            100,
+            100,
+        ],
+        dtype=np.uint16,
     )
     return RecordsView(records, wave_pool)
 
@@ -237,6 +274,23 @@ def test_threshold_hit_wave_source_records_depends_on_records_and_wave_pool():
     assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool"]
 
 
+def test_threshold_hit_asymmetry_cut_depends_on_mask_for_records_source():
+    plugin = ThresholdHitPlugin()
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "asymmetry_cut_enabled": True,
+        },
+        {},
+    )
+
+    assert plugin.resolve_depends_on(ctx) == [
+        "records",
+        "wave_pool",
+        "records_asymmetry_mask",
+    ]
+
+
 def test_threshold_hit_reads_records_view_when_wave_source_records():
     plugin = ThresholdHitPlugin()
     ctx = DummyContext(
@@ -261,6 +315,122 @@ def test_threshold_hit_reads_records_view_when_wave_source_records():
     assert int(result[0]["record_id"]) == 0
     assert int(result[0]["edge_start"]) == 2
     assert int(result[0]["edge_end"]) == 6
+
+
+def test_records_asymmetry_mask_plugin_serial_and_parallel_match():
+    plugin = RecordsAsymmetryMaskPlugin()
+    rv = _make_asymmetry_records_view()
+    data = {"records": rv.records, "wave_pool": rv.wave_pool}
+
+    serial = plugin.compute(
+        DummyContext(
+            {
+                "records_asymmetry_mask.asymmetry_cut_min": 0.7,
+                "records_asymmetry_mask.asymmetry_parallel": False,
+            },
+            data,
+        ),
+        "run_001",
+    )
+    parallel = plugin.compute(
+        DummyContext(
+            {
+                "records_asymmetry_mask.asymmetry_cut_min": 0.7,
+                "records_asymmetry_mask.asymmetry_parallel": True,
+                "records_asymmetry_mask.asymmetry_num_threads": 2,
+            },
+            data,
+        ),
+        "run_001",
+    )
+
+    assert serial.dtype == np.dtype(np.bool_)
+    assert len(serial) == len(rv.records)
+    np.testing.assert_array_equal(serial, np.array([True, False]))
+    np.testing.assert_array_equal(parallel, serial)
+
+
+def test_records_asymmetry_mask_cut_min_above_one_returns_all_false():
+    plugin = RecordsAsymmetryMaskPlugin()
+    rv = _make_asymmetry_records_view()
+
+    mask = plugin.compute(
+        DummyContext(
+            {
+                "records_asymmetry_mask.asymmetry_cut_min": 1.1,
+            },
+            {"records": rv.records, "wave_pool": rv.wave_pool},
+        ),
+        "run_001",
+    )
+
+    np.testing.assert_array_equal(mask, np.zeros(len(rv.records), dtype=np.bool_))
+
+
+def test_threshold_hit_applies_records_asymmetry_mask_before_hit_finding():
+    plugin = ThresholdHitPlugin()
+    rv = _make_asymmetry_records_view()
+    mask = np.array([True, False], dtype=np.bool_)
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "asymmetry_cut_enabled": True,
+            "threshold": 10.0,
+            "left_extension": 0,
+            "right_extension": 0,
+            "dt": 2,
+        },
+        {
+            "records": rv.records,
+            "wave_pool": rv.wave_pool,
+            "records_asymmetry_mask": mask,
+        },
+    )
+
+    result = _compute_threshold_hits(plugin, ctx)
+
+    assert len(result) == 1
+    assert set(result["record_id"].tolist()) == {0}
+
+
+def test_threshold_hit_asymmetry_mask_length_mismatch_raises():
+    plugin = ThresholdHitPlugin()
+    rv = _make_asymmetry_records_view()
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "asymmetry_cut_enabled": True,
+        },
+        {
+            "records": rv.records,
+            "wave_pool": rv.wave_pool,
+            "records_asymmetry_mask": np.array([True], dtype=np.bool_),
+        },
+    )
+
+    with pytest.raises(ValueError, match="records_asymmetry_mask length mismatch"):
+        _compute_threshold_hits(plugin, ctx)
+
+
+def test_threshold_hit_asymmetry_mask_all_false_returns_empty_hits():
+    plugin = ThresholdHitPlugin()
+    rv = _make_asymmetry_records_view()
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "asymmetry_cut_enabled": True,
+        },
+        {
+            "records": rv.records,
+            "wave_pool": rv.wave_pool,
+            "records_asymmetry_mask": np.zeros(len(rv.records), dtype=np.bool_),
+        },
+    )
+
+    result = _compute_threshold_hits(plugin, ctx)
+
+    assert len(result) == 0
+    assert result.dtype == THRESHOLD_HIT_DTYPE
 
 
 def test_threshold_hit_numba_backend_matches_ragged_with_chunk_parallel():

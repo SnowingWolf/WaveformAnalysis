@@ -52,6 +52,7 @@ from .peaklets import (
 
 # Records 插件
 from .records import RecordsPlugin, WavePoolFilteredPlugin, WavePoolPlugin
+from .records_asymmetry import RecordsAsymmetryMaskPlugin
 from .s1_s2_classifier import (
     LABEL_S1,
     LABEL_S2,
@@ -111,6 +112,7 @@ __all__ = [
     "PeakletPlugin",
     "PeakletComponentsPlugin",
     "PeakletChannelsPlugin",
+    "RecordsAsymmetryMaskPlugin",
     "PEAKLET_DTYPE",
     "PEAKLET_COMPONENTS_DTYPE",
     "PEAKLET_CHANNELS_DTYPE",
