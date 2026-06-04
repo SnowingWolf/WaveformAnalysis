@@ -6,6 +6,7 @@
 
 ## Required Fields
 - `task_id`
+- `workflow_cost`
 - `reviewer`
 - `gate_results`
 - `decision`
@@ -20,6 +21,8 @@
 - `failed`
 
 ## Field Rules
+- `workflow_cost`
+  仅允许：`light | standard | strict`，必须与最终执行口径一致
 - `decision`
   仅允许：`completed | rework_required | blocked | failed`
 - `gate_results`
@@ -34,6 +37,7 @@
 # review_report
 
 - `task_id`:
+- `workflow_cost`: `light|standard|strict`
 - `reviewer`:
 - `gate_results`:
   -
@@ -60,6 +64,7 @@
 ```
 
 ## Completion Checklist
+- `workflow_cost` 已明确，且与 gate 结果口径一致
 - `decision` 合法
 - 若为 `rework_required`，已写明 `scope_changed`
 - 若为 `completed`，阻断 gate 已全部通过

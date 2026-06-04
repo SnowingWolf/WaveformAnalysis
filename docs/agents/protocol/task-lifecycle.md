@@ -18,6 +18,7 @@
 - `retire_compat` 在 `planning` 阶段还必须先有 `compat_inventory`
 - `executing -> reviewing` 前必须有 `execution_report`
 - `reviewing -> completed` 前必须有 `review_report`
+- `plan_brief`、`execution_report`、`review_report` 都必须记录 `workflow_cost`
 
 阻断式审查：
 - `Reviewer` 未明确放行前，任务不能进入 `completed`
@@ -34,6 +35,10 @@
   必须存在 `review_report`
 
 ## 决策值
+- `workflow_cost`
+  - `light`
+  - `standard`
+  - `strict`
 - `risk_level`
   - `low`
   - `medium`

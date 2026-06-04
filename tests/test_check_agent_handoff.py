@@ -37,3 +37,19 @@ def test_evaluate_handoff_allows_explicit_uncommitted_reason():
     )
     assert code == 0
     assert "未提交：用户未要求提交" in message
+
+
+def test_evaluate_final_note_passes_with_required_handoff_text():
+    code, message = check_agent_handoff.evaluate_final_note(
+        "已运行 git status --short 与 git diff --stat。已提交：abc1234"
+    )
+    assert code == 0
+    assert "PASS" in message
+
+
+def test_evaluate_final_note_fails_when_commit_state_missing():
+    code, message = check_agent_handoff.evaluate_final_note(
+        "已运行 git status --short 与 git diff --stat。"
+    )
+    assert code == 1
+    assert "已提交/未提交状态" in message
