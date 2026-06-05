@@ -60,6 +60,11 @@
 - `version_review`:
 - `contract_review`:
 - `docs_review`:
+- `performance_style_review`:
+  - `single_parallel_layer`: `pass|fail|not_applicable`
+  - `numba_parallel_evidence`: `pass|fail|not_applicable`
+  - `worker_option_review`: `pass|fail|not_applicable`
+  - `fallback_review`: `pass|fail|not_applicable`
 - `completion_allowed`: `true|false`
 ```
 
@@ -68,4 +73,5 @@
 - `decision` 合法
 - 若为 `rework_required`，已写明 `scope_changed`
 - 若为 `completed`，阻断 gate 已全部通过
+- 插件算法改动已审查执行后端与并发层级
 - 残余风险与后续动作已明确

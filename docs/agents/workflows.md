@@ -80,20 +80,29 @@
 2. 确认目标插件、上下游依赖、消费方与契约风险
 3. 生成 `plan_brief`，明确：
    - 是否影响 `provides`、`depends_on`、`options`、`output_dtype`、`version`
+   - 执行后端选择：`python|numpy|numba_serial|numba_parallel|thread_pool|process_pool`
+   - 并发范围、worker 配置名、fallback 与是否需要 benchmark
    - 必跑 gate
    - 返工是否可能回到 `planning`
 
 ### Executor
 1. 实现改动：先最小可运行，再做必要重构
-2. 执行定向测试与文档更新
-3. 产出 `execution_report`
+2. 核对实际实现是否符合 `plan_brief` 的执行后端决策
+3. 执行定向测试与文档更新
+4. 产出 `execution_report`
 
 ### Reviewer
 1. 审查 `version` 策略是否符合变更等级
 2. 核对 gate 结果、契约一致性与文档同步
-3. 核对 commit handoff 是否明确
-4. 产出 `review_report`
-5. 决策：
+3. 审查执行后端风格：
+   - 是否存在同一执行路径多层并发
+   - 是否将 `numba_parallel` 与线程池/进程池叠加
+   - memory-bound 任务使用 `parallel=True` 是否有证据
+   - 新 worker 配置是否优先使用 `max_workers` / `numba_threads`
+   - fallback 与 benchmark 口径是否明确
+4. 核对 commit handoff 是否明确
+5. 产出 `review_report`
+6. 决策：
    - 全部通过：`completed`
    - 可修复问题：`rework_required`
    - 外部阻断：`blocked`
@@ -122,16 +131,19 @@ python scripts/check_doc_anchors.py --check-sync --base HEAD
 1. 插件契约变化但未升级 `version`
 2. 字段或 dtype 变化但未执行兼容检查
 3. 用户可见行为变化但 `plugins-agent` 或 `docs/agents` 未同步
-4. `review_report` 未记录 gate 结果
-5. 提交状态未说明，或存在未提交改动但未给出原因
+4. 插件算法改动缺少执行后端决策或 `performance_style_review`
+5. 同一执行路径叠加多个并发层且缺少明确证据
+6. `review_report` 未记录 gate 结果
+7. 提交状态未说明，或存在未提交改动但未给出原因
 
 ### Definition of Done
 1. `plan_brief`、`execution_report`、`review_report` 齐全
 2. 版本策略符合改动等级
-3. 固定 gate 通过
-4. 需要时已更新 `plugins-agent` 文档
-5. commit handoff 已明确：记录 `已提交` 或 `未提交`
-6. 提交不包含无关变更
+3. 插件算法改动已记录并审查执行后端风格
+4. 固定 gate 通过
+5. 需要时已更新 `plugins-agent` 文档
+6. commit handoff 已明确：记录 `已提交` 或 `未提交`
+7. 提交不包含无关变更
 
 ## Workflow: 删除兼容冗余
 

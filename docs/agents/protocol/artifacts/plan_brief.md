@@ -47,6 +47,13 @@
 
 ## Optional Notes
 - `change_level`:
+- `execution_backend_decision`:
+  - `backend`: `python|numpy|numba_serial|numba_parallel|thread_pool|process_pool`
+  - `backend_reason`: `CPU-bound|memory-bound|IO-bound|GIL-released|startup-cost-sensitive`
+  - `parallel_scope`: `none|file|channel|chunk|record`
+  - `worker_option`:
+  - `fallback_path`:
+  - `benchmark_required`: `true|false`
 - `must_run_commands`:
   -
 - `needs_user_input`:
