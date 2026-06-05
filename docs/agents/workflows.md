@@ -258,11 +258,18 @@ waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
 2. 已记录下一步修复动作或需要补充的信息
 
 ## Workflow: 文档同步检查
+用于 agent 文档、生成区块、引用与锚点一致性检查。仅文档改动默认走本流程；若文档同步的是代码契约变化，继承源 route 的 `workflow_cost` 和 gate。
+
 ```bash
 python scripts/render_agent_docs.py --check
 scripts/check_doc_sync.sh
 python scripts/check_doc_anchors.py --check-sync --base HEAD
 ```
+
+### 触发策略
+1. 修改 `AGENTS.md`、`CLAUDE.md`、`docs/agents/**` 时，至少执行本流程。
+2. 修改生成区块来源 `docs/agents/index.yaml` 时，必须执行 `python scripts/render_agent_docs.py --check`。
+3. 触及插件参考生成结果时，同时执行对应 `waveform-docs generate ...` 命令。
 
 ## Workflow: PR 前固定质量闸门（3 类，4 条命令）
 
@@ -278,7 +285,6 @@ python scripts/check_doc_anchors.py --check-sync --base HEAD
 # generate_docs
 waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/
 waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
-python scripts/render_agent_docs.py --check
 
 # assess_change_impact
 python scripts/assess_change_impact.py --base HEAD
@@ -286,6 +292,8 @@ python scripts/assess_change_impact.py --base HEAD
 # schema_compat_check
 python scripts/schema_compat_check.py --base HEAD --run-smoke
 ```
+
+Agent 文档同步检查（`python scripts/render_agent_docs.py --check`、`scripts/check_doc_sync.sh`、`python scripts/check_doc_anchors.py --check-sync --base HEAD`）属于文档同步流程，不计入本节“四条命令”。若 PR 同时改了 agent 文档，也必须另行记录这些检查结果。
 
 ### Lifecycle 绑定
 - `Planner` 决定哪些 gate 必须进入 `plan_brief`

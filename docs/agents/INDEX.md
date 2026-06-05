@@ -2,6 +2,11 @@
 
 本页为 Agent 文档导航页。人类入口与硬约束统一在 `AGENTS.md`，生命周期真源统一在 `lifecycle.md`，执行流程与完成标准统一在 `workflows.md`。
 
+## 入口定位
+- 不确定任务类型时，先读 `AGENTS.md` 的“30 秒入口”和“Route 选择速查”。
+- 已确定 route 时，按 `docs/agents/index.yaml` 中该 route 的 `read_order` 读取。
+- 执行侧需要复制交接格式时，使用 `protocol/artifacts/` 与 `protocol/route-profiles/`，不要在本页维护第二份流程正文。
+
 ## 快速入口
 <!-- BEGIN GENERATED: quick_links -->
 - 主入口（推荐）：`../../AGENTS.md`

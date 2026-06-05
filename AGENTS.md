@@ -71,6 +71,13 @@
 - 实际任务可在 `plan_brief.workflow_cost` 中上调；涉及 public surface、缓存 lineage、契约或发布时必须上调到 `strict`。
 - 仅文档改动默认走 `light`，但若文档反映代码契约变化，继承源 route 的成本等级。
 
+## Route 选择速查
+- 改插件行为、输出、依赖或配置语义：选 `modify_plugin`；若涉及 dtype/字段或缓存 lineage，将 `workflow_cost` 上调到 `strict`。
+- 删除 legacy/compat 路径：选 `retire_compat`；先写 `compat_inventory`，再定删除范围。
+- 只做文档生成、引用同步或锚点检查：选 `generate_docs`；代码契约变化带来的文档同步继承源 route 成本。
+- 只跑测试、影响分析、schema 检查、性能检查或发布检查：选对应 QA route（`run_tests` / `assess_change_impact` / `schema_compat_check` / `performance_regression_check` / `release_artifact_sync`）。
+- 排查缓存、执行预览或 lineage 问题：选 `debug_cache`，并优先准备明确的 `run_id`。
+
 ## Hard Rules
 - Python 3.10+ 基线：允许使用 `str | Path` 等 3.10+ 语法。
 - Context 无状态：所有数据访问都要显式 `run_id`。
@@ -218,17 +225,18 @@ waveform-process --show-daq --daq-root DAQ
 - 配置/输出结构改动至少覆盖：正常路径、空输入/边界输入、dtype/字段兼容性。
 
 ## PR 前固定闸门（3 类，4 条命令）
-- 固定命令（保持独立命令，不新增统一总入口）：
-  - `generate_docs`
+- 固定命令保持独立执行，不新增统一总入口。
+- `generate_docs`：
   - `waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/`
   - `waveform-docs generate plugins-agent -o docs/plugins/reference/agent/`
-  - `assess_change_impact`
+- `assess_change_impact`：
   - `python scripts/assess_change_impact.py --base HEAD`
-  - `schema_compat_check`
+- `schema_compat_check`：
   - `python scripts/schema_compat_check.py --base HEAD --run-smoke`
 - 触发策略（按改动类型）：
   - 若触及插件实现或插件契约相关改动（如 `waveform_analysis/`），三类闸门全部执行。
   - 若仅文档改动（`docs/**`、`AGENTS.md`、`CLAUDE.md`），不强制执行三类闸门，继续执行现有文档同步检查。
+- Agent 文档同步检查仍按 `Doc Sync` 小节执行，不计入 PR 固定闸门的 4 条命令。
 - 扩展检查（默认不纳入 PR 固定闸门）：
   - `python scripts/performance_regression_check.py --base HEAD`
   - `python scripts/release_artifact_sync.py --base HEAD`
