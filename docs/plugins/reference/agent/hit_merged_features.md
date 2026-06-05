@@ -9,7 +9,7 @@
 | Provides | `hit_merged_features` |
 | Depends On | `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` |
 | Output Kind | `structured_array` |
-| Version | `0.1.0` |
+| Version | `0.2.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merged_features` |
 | Accelerator | `cpu` |
 
@@ -23,23 +23,23 @@
 
 ## Outputs
 
-| Field | DType |
-|-------|-------|
-| `merged_index` | `int64` |
-| `board` | `int16` |
-| `channel` | `int16` |
-| `record_id` | `int64` |
-| `time_start` | `int64` |
-| `time_end` | `int64` |
-| `center_time` | `int64` |
-| `max_time` | `int64` |
-| `area` | `float32` |
-| `height` | `float32` |
-| `width` | `float32` |
-| `rise_time` | `float32` |
-| `fall_time` | `float32` |
-| `n_hits` | `int32` |
-| `valid` | `int8` |
+| Field | DType | Meaning |
+|-------|-------|---------|
+| `merged_index` | `int64` | - |
+| `board` | `int16` | - |
+| `channel` | `int16` | - |
+| `record_id` | `int64` | - |
+| `time_start` | `int64` | - |
+| `time_end` | `int64` | - |
+| `center_time` | `int64` | - |
+| `max_time` | `int64` | - |
+| `area` | `float32` | - |
+| `height` | `float32` | - |
+| `width` | `float32` | - |
+| `rise_time` | `float32` | - |
+| `fall_time` | `float32` | - |
+| `n_hits` | `int32` | - |
+| `valid` | `int8` | - |
 
 ## Config
 

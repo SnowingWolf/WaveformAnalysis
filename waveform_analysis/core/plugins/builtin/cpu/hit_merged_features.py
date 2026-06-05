@@ -119,7 +119,7 @@ class HitMergedFeaturesPlugin(Plugin):
     provides = "hit_merged_features"
     depends_on = ["hit_merged", "hit_merged_components", "hit_threshold", "records", "wave_pool"]
     description = "Compute per-hit_merged local waveform features from records-backed samples."
-    version = "0.1.0"
+    version = "0.2.0"
     save_when = "always"
     output_dtype = HIT_MERGED_FEATURES_DTYPE
 
@@ -182,11 +182,19 @@ class HitMergedFeaturesPlugin(Plugin):
         records_by_id: dict[int, np.void],
         wave_pool: np.ndarray,
     ) -> np.ndarray:
-        rows: list[tuple] = []
+        n_merged = len(merged)
+        if n_merged == 0:
+            return _empty_features()
+
+        # 预分配输出数组
+        out = np.zeros(n_merged, dtype=HIT_MERGED_FEATURES_DTYPE)
+
+        # 预先构建 component 索引映射（避免每次循环全扫描）
         component_merged = np.asarray(component_rows["merged_index"], dtype=np.int64)
         component_hits = np.asarray(component_rows["hit_index"], dtype=np.int64)
 
-        for merged_index, row in enumerate(merged):
+        for merged_index in range(n_merged):
+            row = merged[merged_index]
             record_id = int(row["record_id"])
             sample_start = int(row["sample_start"])
             sample_end = int(row["sample_end"])
@@ -205,7 +213,9 @@ class HitMergedFeaturesPlugin(Plugin):
                     data_name=self.provides,
                 )
             else:
-                hit_indices = component_hits[component_merged == merged_index]
+                # fallback 路径：使用布尔掩码索引，比 component_hits[component_merged == merged_index] 更快
+                mask = component_merged == merged_index
+                hit_indices = component_hits[mask]
                 if len(hit_indices) == 0:
                     raise ValueError(
                         f"hit_merged_features could not resolve components for merged_index="
@@ -222,27 +232,25 @@ class HitMergedFeaturesPlugin(Plugin):
             width = float((time_end - time_start) / 1e3)
             rise_time = float((max_time - time_start) / 1e3)
             fall_time = float((time_end - max_time) / 1e3)
-            rows.append(
-                (
-                    merged_index,
-                    int(row["board"]) if "board" in row.dtype.names else 0,
-                    int(row["channel"]),
-                    record_id,
-                    time_start,
-                    time_end,
-                    center_time,
-                    max_time,
-                    area,
-                    height,
-                    width,
-                    rise_time,
-                    fall_time,
-                    n_hits,
-                    1,
-                )
-            )
 
-        return np.array(rows, dtype=HIT_MERGED_FEATURES_DTYPE) if rows else _empty_features()
+            # 直接填充预分配数组
+            out[merged_index]["merged_index"] = merged_index
+            out[merged_index]["board"] = int(row["board"]) if "board" in row.dtype.names else 0
+            out[merged_index]["channel"] = int(row["channel"])
+            out[merged_index]["record_id"] = record_id
+            out[merged_index]["time_start"] = time_start
+            out[merged_index]["time_end"] = time_end
+            out[merged_index]["center_time"] = center_time
+            out[merged_index]["max_time"] = max_time
+            out[merged_index]["area"] = area
+            out[merged_index]["height"] = height
+            out[merged_index]["width"] = width
+            out[merged_index]["rise_time"] = rise_time
+            out[merged_index]["fall_time"] = fall_time
+            out[merged_index]["n_hits"] = n_hits
+            out[merged_index]["valid"] = 1
+
+        return out
 
     def _fallback_values(
         self,
