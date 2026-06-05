@@ -203,6 +203,29 @@ def test_hit_merge_disabled_when_gap_non_positive():
     np.testing.assert_array_equal(out["component_count"], np.ones(2, dtype=np.int32))
 
 
+def test_hit_merge_disabled_does_not_read_cluster_rows():
+    class NoClusterContext(DummyContext):
+        def get_data(self, run_id, name, **kwargs):
+            if name == "hit_merge_clusters":
+                raise AssertionError(
+                    "hit_merge_clusters should not be read when merging is disabled"
+                )
+            return super().get_data(run_id, name, **kwargs)
+
+    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
+    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 110_000, 0, 1)
+    hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
+    ctx = NoClusterContext(
+        {"merge_gap_ns": 0.0, "max_total_width_ns": 10000.0, "dt": 2},
+        {"hit_threshold": hits},
+    )
+
+    out = HitMergePlugin().compute(ctx, "run_001")
+
+    assert len(out) == 2
+    np.testing.assert_array_equal(out["component_count"], np.ones(2, dtype=np.int32))
+
+
 def test_hit_merge_clusters_disabled_when_gap_non_positive_maps_hits_one_to_one():
     plugin = HitMergeClustersPlugin()
 
@@ -417,6 +440,35 @@ def test_hit_merge_clusters_materializes_hit_threshold_chunk_stream():
 
     np.testing.assert_array_equal(out["cluster_index"], np.array([0, 0, 1], dtype=np.int64))
     np.testing.assert_array_equal(out["hit_index"], np.array([0, 1, 2], dtype=np.int64))
+
+
+def test_hit_merge_clusters_materializes_many_hit_threshold_chunks():
+    plugin = HitMergeClustersPlugin()
+    hits = np.array(
+        [
+            _make_hit(
+                10,
+                20.0,
+                30.0,
+                8.0,
+                12.0,
+                100_000 + idx * 20_000,
+                0,
+                idx,
+            )
+            for idx in range(105)
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    ctx = DummyContext(
+        {"merge_gap_ns": 0.0, "max_total_width_ns": 10000.0, "dt": 2},
+        {"hit_threshold": _chunk_stream(*[hits[idx : idx + 1] for idx in range(len(hits))])},
+    )
+
+    out = plugin.compute(ctx, "run_001")
+
+    assert len(out) == len(hits)
+    np.testing.assert_array_equal(out["hit_index"], np.arange(len(hits), dtype=np.int64))
 
 
 def test_hit_merge_materializes_upstream_array_outputs():

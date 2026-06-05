@@ -7,57 +7,86 @@
 | Item | Value |
 |------|-------|
 | Provides | `hit_merged` |
-| Depends On | `hit_threshold`, `hit_merge_clusters` |
+| Depends On | `hit_threshold` |
 | Output Kind | `structured_array` |
-| Version | `1.1.1` |
+| Version | `1.1.3` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merge` |
 | Accelerator | `cpu` |
 
 ## Inputs
 
 - `hit_threshold`
-- `hit_merge_clusters`
 
 ## Outputs
 
-| Field | DType |
-|-------|-------|
-| `position` | `int64` |
-| `sample_start` | `int32` |
-| `sample_end` | `int32` |
-| `width` | `float32` |
-| `dt` | `int32` |
-| `timestamp` | `int64` |
-| `board` | `int16` |
-| `channel` | `int16` |
-| `record_id` | `int64` |
-| `component_offset` | `int64` |
-| `component_count` | `int32` |
+| Field | DType | Meaning |
+|-------|-------|---------|
+| `position` | `int64` | Anchor hit position; for multi-hit clusters this is the hit closest to the merged window midpoint. |
+| `sample_start` | `int32` | Merged sample window start when all components belong to one record; `-1` when the direct sample window cannot be represented. |
+| `sample_end` | `int32` | Merged sample window end when all components belong to one record; `-1` when the direct sample window cannot be represented. |
+| `width` | `float32` | Merged sample-window width; `-1.0` when the cluster spans records or otherwise cannot resolve a direct sample window. |
+| `dt` | `int32` | Resolved sampling interval from the anchor hit or compatible `dt` configuration fallback. |
+| `timestamp` | `int64` | Anchor hit timestamp; for multi-hit clusters this follows the same anchor rule as `position`. |
+| `board` | `int16` | Hardware board from the anchor hit; boardless inputs use compatibility value `0`. |
+| `channel` | `int16` | Hardware channel from the anchor hit; merging never crosses channel boundaries. |
+| `record_id` | `int64` | Anchor hit record id, not necessarily a shared record id for every component. |
+| `component_offset` | `int64` | Start row in `hit_merge_clusters` for this cluster's contiguous membership rows. |
+| `component_count` | `int32` | Number of contiguous `hit_merge_clusters` membership rows for this cluster. |
 
 ## Config
 
 | Name | Type | Default | Note |
 |------|------|---------|------|
-| `merge_gap_ns` | `float` | `0.0` | 最大边界间距（ns），<=0 表示不合并 |
-| `max_total_width_ns` | `float` | `10000.0` | 链式合并后的最大总宽度（ns） |
-| `dt` | `int` | `None` | 采样间隔（ns）。仅在输入 hit_threshold 缺少 dt 字段时作为兼容补充。 |
+| `merge_gap_ns` | `float` | `0.0` | Maximum boundary gap in ns; values `<= 0` disable merging. |
+| `max_total_width_ns` | `float` | `10000.0` | Maximum total absolute cluster width in ns for chained merges. |
+| `dt` | `int` | `None` | Compatibility fallback sampling interval in ns, used only when `hit_threshold` lacks a `dt` field. |
+
+## Behavior Notes
+
+- Only hits with the same `(board, channel)` are eligible for merging; boardless inputs use board `0` as the compatibility value.
+- `merge_gap_ns <= 0` disables merging and maps each `hit_threshold` row to one `hit_merged` row.
+- The merge decision uses absolute hit windows derived from `timestamp`, sample window fields, `dt`, and the configured pre-trigger offset.
+- Hits with different resolved `dt` values are not merged into the same cluster.
+- `max_total_width_ns` limits the total absolute width of chained merges, so a locally adjacent hit can still start a new cluster when the accumulated window would exceed the limit.
+
+## Cluster Contract
+
+- `hit_merge_clusters` is the source of truth for cluster membership when available; otherwise `hit_merged` computes the same membership rows on demand.
+- Rows consumed by one `hit_merged` row must be contiguous in `hit_merge_clusters`.
+- `cluster_index` values must be sorted, contiguous, and gap-free from `0` to `len(hit_merged) - 1`.
+- `component_offset` and `component_count` point back into the exact membership slice in `hit_merge_clusters`.
+
+## Downstream Impact
+
+Consumers:
+- `hit_merged_components`
+- `hit_merged_features`
+- `hit_grouped`
+- `peaklets`
+- `peaklet_components`
+
+- Field semantics and row ordering changes propagate to component expansion, waveform feature extraction, cross-channel grouping, and peaklet membership.
+- Changing `component_offset`/`component_count` requires matching updates to `hit_merge_clusters` ordering and all component consumer tests.
+- Changing anchor-field semantics affects downstream `position`, `timestamp`, `record_id`, and channel aggregation behavior.
 
 ## Execution Path
 
 `hit_merged` 依赖链入口：
-`hit_threshold -> hit_merge_clusters -> hit_merged`
+`hit_threshold -> hit_merged`
 
 ## Failure Modes
 
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
+- `hit_threshold` is missing required `channel` data, so same-channel grouping cannot be resolved.
+- `hit_threshold` lacks `dt` and no compatible `dt` config fallback is available.
+- `hit_merge_clusters` is present but is not a structured NumPy array.
+- `hit_merge_clusters` rows are not ordered by contiguous, gap-free `cluster_index` values.
+- Cluster rows reference hit indices that are outside the materialized `hit_threshold` array.
 
 ## Change Playbook
 
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
+1. Changing merge behavior, output field semantics, or dtype requires a `version` bump because cache lineage depends on the plugin contract.
+2. Keep `hit_merge_clusters` and `hit_merged` in sync; membership ordering is part of the downstream contract.
+3. After contract changes, regenerate agent docs and run targeted tests for `hit_merge`, `hit_merged_components`, `hit_merged_features`, `hit_grouped`, and `peaklets` consumers as appropriate.
 
 ## Validation
 

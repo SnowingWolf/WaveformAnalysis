@@ -81,25 +81,25 @@ def _materialize_array(data: Any, data_name: str, output_dtype: np.dtype) -> np.
         raise ValueError(f"{data_name} expects a structured array or chunk stream")
 
     arrays: list[np.ndarray] = []
+    total = 0
     for item in data:
         chunk_data = item if isinstance(item, np.ndarray) else getattr(item, "data", item)
         if not isinstance(chunk_data, np.ndarray):
             raise ValueError(f"{data_name} stream items must provide ndarray data")
         if len(chunk_data) > 0:
             arrays.append(chunk_data)
+            total += len(chunk_data)
 
     if not arrays:
         return np.zeros(0, dtype=output_dtype)
 
-    # Optimized: batch concatenate to reduce memory copies for large chunk counts
-    if len(arrays) > 100:
-        batch_size = 100
-        merged_batches = []
-        for i in range(0, len(arrays), batch_size):
-            batch = arrays[i : i + batch_size]
-            merged_batches.append(np.concatenate(batch))
-        return np.concatenate(merged_batches)
-    return np.concatenate(arrays)
+    out = np.empty(total, dtype=arrays[0].dtype)
+    cursor = 0
+    for arr in arrays:
+        n = len(arr)
+        out[cursor : cursor + n] = arr
+        cursor += n
+    return out
 
 
 # Numba-accelerated cluster merging
@@ -244,16 +244,22 @@ def _build_enriched_arrays(
     )
 
 
-def _resolve_cluster_sample_window(hits: np.ndarray) -> tuple[int, int]:
-    if len(np.unique(hits["record_id"])) != 1:
+def _same_record_window(
+    hits: np.ndarray,
+    hit_indices: np.ndarray,
+    start_name: str,
+    end_name: str,
+) -> tuple[int, int]:
+    record_ids = hits["record_id"][hit_indices]
+    if len(record_ids) == 0:
         return -1, -1
 
-    start_name, end_name = _resolve_sample_fields(hits.dtype)
-    if start_name is None or end_name is None:
+    first_record_id = record_ids[0]
+    if not np.all(record_ids == first_record_id):
         return -1, -1
 
-    sample_start = int(np.min(hits[start_name]))
-    sample_end = int(np.max(hits[end_name]))
+    sample_start = int(np.min(hits[start_name][hit_indices]))
+    sample_end = int(np.max(hits[end_name][hit_indices]))
     return sample_start, sample_end
 
 
@@ -304,21 +310,17 @@ def _build_cluster_rows_from_bounds(
     cluster_ends: np.ndarray,
     cluster_offset: int,
 ) -> np.ndarray:
-    if len(cluster_starts) == 0:
+    n_clusters = len(cluster_starts)
+    if n_clusters == 0:
         return np.zeros(0, dtype=HIT_MERGE_CLUSTERS_DTYPE)
 
-    counts = (cluster_ends - cluster_starts).astype(np.int64)
-    rows = np.zeros(int(np.sum(counts)), dtype=HIT_MERGE_CLUSTERS_DTYPE)
+    counts = (cluster_ends - cluster_starts).astype(np.int64, copy=False)
+    rows = np.empty(len(sorted_source_indices), dtype=HIT_MERGE_CLUSTERS_DTYPE)
     rows["cluster_index"] = np.repeat(
-        np.arange(cluster_offset, cluster_offset + len(cluster_starts), dtype=np.int64),
+        np.arange(cluster_offset, cluster_offset + n_clusters, dtype=np.int64),
         counts,
     )
-
-    cursor = 0
-    for start, end in zip(cluster_starts, cluster_ends, strict=False):
-        count = int(end - start)
-        rows["hit_index"][cursor : cursor + count] = sorted_source_indices[int(start) : int(end)]
-        cursor += count
+    rows["hit_index"] = sorted_source_indices
     return rows
 
 
@@ -421,6 +423,22 @@ def _cluster_bounds(cluster_rows: np.ndarray) -> list[tuple[int, int, int]]:
     ]
 
 
+def _cluster_bounds_arrays(cluster_rows: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    cluster_index = cluster_rows["cluster_index"]
+    boundaries = np.flatnonzero(np.diff(cluster_index) != 0) + 1
+
+    starts = np.empty(len(boundaries) + 1, dtype=np.int64)
+    starts[0] = 0
+    starts[1:] = boundaries
+
+    ends = np.empty_like(starts)
+    ends[:-1] = boundaries
+    ends[-1] = len(cluster_rows)
+
+    counts = ends - starts
+    return starts, ends, counts
+
+
 def _hits_to_merged_fast(hits: np.ndarray, explicit_dt: int | None, plugin_name: str) -> np.ndarray:
     dt_values = require_dt_array(
         hits,
@@ -461,77 +479,157 @@ def _cluster_rows_to_components(cluster_rows: np.ndarray) -> np.ndarray:
     return out
 
 
-def _emit_cluster(
-    cluster_hits: np.ndarray,
-    abs_starts: np.ndarray,
-    abs_ends: np.ndarray,
-    dt_ns: np.ndarray,
-    component_offset: int,
-) -> tuple:
-    component_count = len(cluster_hits)
-    sample_start_window, sample_end_window = _resolve_cluster_sample_window(cluster_hits)
+def _build_merged_from_cluster_rows(
+    hits: np.ndarray,
+    cluster_rows: np.ndarray,
+    enriched: _EnrichedArrays,
+) -> np.ndarray:
+    """Build hit_merged output from cluster_rows and enriched arrays.
 
-    if len(cluster_hits) == 1:
-        h = cluster_hits[0]
-        start_name, end_name = _resolve_sample_fields(h.dtype)
-        if start_name is None or end_name is None:
-            sample_start = -1
-            sample_end = -1
+    Pre-allocates output array and fills in-place, avoiding list append + np.array conversion.
+    """
+    if len(cluster_rows) == 0:
+        return np.zeros(0, dtype=HIT_MERGED_DTYPE)
+
+    start_name, end_name = _resolve_sample_fields(hits.dtype)
+    if start_name is None or end_name is None:
+        raise ValueError("hit_merged requires sample start/end fields")
+
+    starts, ends, counts = _cluster_bounds_arrays(cluster_rows)
+    n_clusters = len(starts)
+    if not np.array_equal(cluster_rows["cluster_index"][starts], np.arange(n_clusters)):
+        raise ValueError("hit_merge_clusters rows are not ordered by cluster_index without gaps")
+
+    merged = np.empty(n_clusters, dtype=HIT_MERGED_DTYPE)
+    hit_index_all = cluster_rows["hit_index"]
+
+    single_out = np.flatnonzero(counts == 1)
+    if len(single_out) > 0:
+        single_hit_idx = hit_index_all[starts[single_out]]
+
+        merged["position"][single_out] = hits["position"][single_hit_idx]
+        merged["sample_start"][single_out] = hits[start_name][single_hit_idx]
+        merged["sample_end"][single_out] = hits[end_name][single_hit_idx]
+        merged["width"][single_out] = hits["width"][single_hit_idx]
+        merged["timestamp"][single_out] = hits["timestamp"][single_hit_idx]
+        merged["channel"][single_out] = hits["channel"][single_hit_idx]
+        merged["record_id"][single_out] = hits["record_id"][single_hit_idx]
+        merged["component_offset"][single_out] = starts[single_out]
+        merged["component_count"][single_out] = 1
+        if "dt" in hits.dtype.names:
+            merged["dt"][single_out] = hits["dt"][single_hit_idx]
         else:
-            sample_start = int(h[start_name])
-            sample_end = int(h[end_name])
+            merged["dt"][single_out] = enriched.dt_ns[single_hit_idx]
+        if "board" in hits.dtype.names:
+            merged["board"][single_out] = hits["board"][single_hit_idx]
+        else:
+            merged["board"][single_out] = 0
 
-        return (
-            int(h["position"]),
-            sample_start,
-            sample_end,
-            float(h["width"]),
-            int(h["dt"]) if "dt" in h.dtype.names else int(dt_ns[0]),
-            int(h["timestamp"]),
-            int(h["board"]) if "board" in h.dtype.names else 0,
-            int(h["channel"]),
-            int(h["record_id"]),
-            component_offset,
-            component_count,
-        )
+    for out_idx in np.flatnonzero(counts != 1):
+        start = int(starts[out_idx])
+        end = int(ends[out_idx])
+        hit_indices = hit_index_all[start:end]
+        abs_starts = enriched.abs_start_ps[hit_indices]
+        abs_ends = enriched.abs_end_ps[hit_indices]
+        sample_start, sample_end = _same_record_window(hits, hit_indices, start_name, end_name)
 
-    cluster_start_ps = int(np.min(abs_starts))
-    cluster_end_ps = int(np.max(abs_ends))
-    cluster_mid_ps = (cluster_start_ps + cluster_end_ps) * 0.5
-    mids = (abs_starts + abs_ends) * 0.5
-    anchor_idx = int(np.argmin(np.abs(mids - cluster_mid_ps)))
-    anchor = cluster_hits[anchor_idx]
+        cluster_start_ps = int(np.min(abs_starts))
+        cluster_end_ps = int(np.max(abs_ends))
+        mid2 = cluster_start_ps + cluster_end_ps
+        mids2 = abs_starts + abs_ends
+        anchor_local = int(np.argmin(np.abs(mids2 - mid2)))
+        anchor_idx = int(hit_indices[anchor_local])
 
-    merged_sample_start = sample_start_window
-    merged_sample_end = sample_end_window
-    merged_width = float(max(merged_sample_end - merged_sample_start, 0.0))
-    if merged_sample_start < 0 or merged_sample_end < 0:
-        merged_width = -1.0
+        merged["position"][out_idx] = hits["position"][anchor_idx]
+        merged["sample_start"][out_idx] = sample_start
+        merged["sample_end"][out_idx] = sample_end
+        if sample_start < 0 or sample_end < 0:
+            merged["width"][out_idx] = -1.0
+        else:
+            merged["width"][out_idx] = float(sample_end - sample_start)
+        if "dt" in hits.dtype.names:
+            merged["dt"][out_idx] = hits["dt"][anchor_idx]
+        else:
+            merged["dt"][out_idx] = enriched.dt_ns[anchor_idx]
+        merged["timestamp"][out_idx] = hits["timestamp"][anchor_idx]
+        merged["channel"][out_idx] = hits["channel"][anchor_idx]
+        merged["record_id"][out_idx] = hits["record_id"][anchor_idx]
+        merged["component_offset"][out_idx] = start
+        merged["component_count"][out_idx] = end - start
+        if "board" in hits.dtype.names:
+            merged["board"][out_idx] = hits["board"][anchor_idx]
+        else:
+            merged["board"][out_idx] = 0
 
-    return (
-        int(anchor["position"]),
-        int(merged_sample_start),
-        int(merged_sample_end),
-        merged_width,
-        int(anchor["dt"]) if "dt" in anchor.dtype.names else int(dt_ns[anchor_idx]),
-        int(anchor["timestamp"]),
-        int(anchor["board"]) if "board" in anchor.dtype.names else 0,
-        int(anchor["channel"]),
-        int(anchor["record_id"]),
-        component_offset,
-        component_count,
-    )
+    return merged
 
 
 class HitMergePlugin(BatchProcessingPlugin):
     """Merge nearby hits from hit_threshold within the same channel."""
 
     provides = "hit_merged"
-    depends_on = ["hit_threshold", "hit_merge_clusters"]
+    depends_on = ["hit_threshold"]
     description = "Merge nearby threshold hits per channel with time-gap and max-width constraints."
-    version = "1.1.1"
+    version = "1.1.3"
     save_when = "always"
     output_dtype = HIT_MERGED_DTYPE
+    agent_doc = {
+        "behavior_notes": [
+            "Only hits with the same `(board, channel)` are eligible for merging; boardless inputs use board `0` as the compatibility value.",
+            "`merge_gap_ns <= 0` disables merging and maps each `hit_threshold` row to one `hit_merged` row.",
+            "The merge decision uses absolute hit windows derived from `timestamp`, sample window fields, `dt`, and the configured pre-trigger offset.",
+            "Hits with different resolved `dt` values are not merged into the same cluster.",
+            "`max_total_width_ns` limits the total absolute width of chained merges, so a locally adjacent hit can still start a new cluster when the accumulated window would exceed the limit.",
+        ],
+        "field_notes": {
+            "position": "Anchor hit position; for multi-hit clusters this is the hit closest to the merged window midpoint.",
+            "sample_start": "Merged sample window start when all components belong to one record; `-1` when the direct sample window cannot be represented.",
+            "sample_end": "Merged sample window end when all components belong to one record; `-1` when the direct sample window cannot be represented.",
+            "width": "Merged sample-window width; `-1.0` when the cluster spans records or otherwise cannot resolve a direct sample window.",
+            "dt": "Resolved sampling interval from the anchor hit or compatible `dt` configuration fallback.",
+            "timestamp": "Anchor hit timestamp; for multi-hit clusters this follows the same anchor rule as `position`.",
+            "board": "Hardware board from the anchor hit; boardless inputs use compatibility value `0`.",
+            "channel": "Hardware channel from the anchor hit; merging never crosses channel boundaries.",
+            "record_id": "Anchor hit record id, not necessarily a shared record id for every component.",
+            "component_offset": "Start row in `hit_merge_clusters` for this cluster's contiguous membership rows.",
+            "component_count": "Number of contiguous `hit_merge_clusters` membership rows for this cluster.",
+        },
+        "config_notes": {
+            "merge_gap_ns": "Maximum boundary gap in ns; values `<= 0` disable merging.",
+            "max_total_width_ns": "Maximum total absolute cluster width in ns for chained merges.",
+            "dt": "Compatibility fallback sampling interval in ns, used only when `hit_threshold` lacks a `dt` field.",
+        },
+        "cluster_contract": [
+            "`hit_merge_clusters` is the source of truth for cluster membership when available; otherwise `hit_merged` computes the same membership rows on demand.",
+            "Rows consumed by one `hit_merged` row must be contiguous in `hit_merge_clusters`.",
+            "`cluster_index` values must be sorted, contiguous, and gap-free from `0` to `len(hit_merged) - 1`.",
+            "`component_offset` and `component_count` point back into the exact membership slice in `hit_merge_clusters`.",
+        ],
+        "failure_modes": [
+            "`hit_threshold` is missing required `channel` data, so same-channel grouping cannot be resolved.",
+            "`hit_threshold` lacks `dt` and no compatible `dt` config fallback is available.",
+            "`hit_merge_clusters` is present but is not a structured NumPy array.",
+            "`hit_merge_clusters` rows are not ordered by contiguous, gap-free `cluster_index` values.",
+            "Cluster rows reference hit indices that are outside the materialized `hit_threshold` array.",
+        ],
+        "downstream_consumers": [
+            "hit_merged_components",
+            "hit_merged_features",
+            "hit_grouped",
+            "peaklets",
+            "peaklet_components",
+        ],
+        "downstream_notes": [
+            "Field semantics and row ordering changes propagate to component expansion, waveform feature extraction, cross-channel grouping, and peaklet membership.",
+            "Changing `component_offset`/`component_count` requires matching updates to `hit_merge_clusters` ordering and all component consumer tests.",
+            "Changing anchor-field semantics affects downstream `position`, `timestamp`, `record_id`, and channel aggregation behavior.",
+        ],
+        "agent_change_notes": [
+            "Changing merge behavior, output field semantics, or dtype requires a `version` bump because cache lineage depends on the plugin contract.",
+            "Keep `hit_merge_clusters` and `hit_merged` in sync; membership ordering is part of the downstream contract.",
+            "After contract changes, regenerate agent docs and run targeted tests for `hit_merge`, `hit_merged_components`, `hit_merged_features`, `hit_grouped`, and `peaklets` consumers as appropriate.",
+        ],
+    }
 
     options = {
         "merge_gap_ns": Option(
@@ -601,28 +699,7 @@ class HitMergePlugin(BatchProcessingPlugin):
             hits, explicit_dt=explicit_dt, plugin_name=self.provides, pre_trigger_ps=pre_trigger_ps
         )
 
-        merged_rows: list[tuple] = []
-        for cluster_index, start, end in _cluster_bounds(cluster_rows):
-            hit_indices = np.asarray(cluster_rows["hit_index"][start:end], dtype=np.int64)
-            if len(hit_indices) == 0:
-                continue
-            merged_rows.append(
-                _emit_cluster(
-                    hits[hit_indices],
-                    abs_starts=enriched.abs_start_ps[hit_indices],
-                    abs_ends=enriched.abs_end_ps[hit_indices],
-                    dt_ns=enriched.dt_ns[hit_indices],
-                    component_offset=start,
-                )
-            )
-            if cluster_index != len(merged_rows) - 1:
-                raise ValueError(
-                    "hit_merge_clusters rows are not ordered by cluster_index without gaps"
-                )
-
-        if merged_rows:
-            return np.array(merged_rows, dtype=HIT_MERGED_DTYPE)
-        return np.zeros(0, dtype=HIT_MERGED_DTYPE)
+        return _build_merged_from_cluster_rows(hits, cluster_rows, enriched)
 
 
 class HitMergeClustersPlugin(Plugin):

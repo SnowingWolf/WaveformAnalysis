@@ -29,9 +29,9 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `structured_array` | `3.0.0` |
 | [`hit`](hit.md) | `HitFinderPlugin` | - | `structured_array` | `3.0.0` |
 | [`hit_grouped`](hit_grouped.md) | `HitGroupedPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold` | `unknown` | `0.5.0` |
-| [`hit_merge_clusters`](hit_merge_clusters.md) | `HitMergeClustersPlugin` | `hit_threshold` | `structured_array` | `1.0.0` |
-| [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold`, `hit_merge_clusters` | `structured_array` | `1.1.0` |
-| [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | `hit_merge_clusters`, `hit_merged` | `structured_array` | `1.0.0` |
+| [`hit_merge_clusters`](hit_merge_clusters.md) | `HitMergeClustersPlugin` | `hit_threshold` | `structured_array` | `1.0.1` |
+| [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold` | `structured_array` | `1.1.3` |
+| [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | `hit_merge_clusters`, `hit_merged` | `structured_array` | `1.0.1` |
 | [`hit_merged_features`](hit_merged_features.md) | `HitMergedFeaturesPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `structured_array` | `0.1.0` |
 | [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | - | `structured_array` | `1.1.0` |
 | [`peaklet_channels`](peaklet_channels.md) | `PeakletChannelsPlugin` | `peaklets`, `peaklet_components`, `hit_merged_features` | `structured_array` | `0.1.0` |
@@ -52,7 +52,6 @@ waveform-docs generate plugins-agent --plugin raw_files
 ### 数据加载
 
 - [`raw_files`](raw_files.md): Scan the data directory and group raw CSV files by channel number.
-
 ### 波形处理
 
 - [`filtered_waveforms`](filtered_waveforms.md): Apply filtering to waveforms using Butterworth or Savitzky-Golay filters.
@@ -61,7 +60,6 @@ waveform-docs generate plugins-agent --plugin raw_files
 - [`wave_pool_filtered`](wave_pool_filtered.md): Build filtered wave_pool from records-backed raw waveforms.
 - [`waveform_width`](waveform_width.md): Calculate rise/fall time based on peak detection results.
 - [`waveform_width_integral`](waveform_width_integral.md): Event-wise integral quantile width using st_waveforms or filtered_waveforms.
-
 ### 特征提取
 
 - [`basic_features`](basic_features.md): Compute basic height, amplitude, area, and max-abs-diff features from waveform data.
@@ -75,25 +73,20 @@ waveform-docs generate plugins-agent --plugin raw_files
 - [`peaklet_channels`](peaklet_channels.md): Aggregate hit_merged_features into per-peaklet channel contribution rows.
 - [`peaklet_components`](peaklet_components.md): Return per-peaklet component hit_merged indices.
 - [`peaklets`](peaklets.md): Build cross-channel peaklets and compute pulse-level features.
-
 ### 事件分析
 
 - [`df_events`](df_events.md): Group events across channels within a configurable time window.
 - [`df_paired`](df_paired.md): Pair grouped events across channels for coincidence analysis.
-
 ### 数据导出
 
 - [`df`](df.md): Build the initial single-channel events DataFrame.
-
 ### 缓存分析
 
 - [`cache_analysis`](cache_analysis.md): Analyze cache usage and return summary, entries, and diagnostics.
-
 ### 记录处理
 
 - [`records`](records.md): Build records (event index table) from the shared internal records bundle.
 - [`records_asymmetry_mask`](records_asymmetry_mask.md): Bool mask for waveform asymmetry selection.
-
 ### 其他
 
 - [`s1_s2`](s1_s2.md): Classify peaks into S1/S2 using width/area/height ranges.
