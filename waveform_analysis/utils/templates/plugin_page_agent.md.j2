@@ -26,10 +26,10 @@
 ## Outputs
 
 {% if plugin.output_fields %}
-| Field | DType |
-|-------|-------|
+| Field | DType | Meaning |
+|-------|-------|---------|
 {% for field in plugin.output_fields %}
-| `{{ field.name }}` | `{{ field.dtype }}` |
+| `{{ field.name }}` | `{{ field.dtype }}` | {{ plugin.field_notes.get(field.name, "-") }} |
 {% endfor %}
 {% else %}
 - 无结构化字段信息（`{{ plugin.output_kind }}`）
@@ -41,10 +41,41 @@
 | Name | Type | Default | Note |
 |------|------|---------|------|
 {% for opt in plugin.config_options %}
-| `{{ opt.name }}` | `{{ opt.type }}` | `{{ opt.default }}` | {{ opt.doc or "-" }} |
+| `{{ opt.name }}` | `{{ opt.type }}` | `{{ opt.default }}` | {{ plugin.config_notes.get(opt.name, opt.doc or "-") }} |
 {% endfor %}
 {% else %}
 - 无可配置项
+{% endif %}
+{% if plugin.behavior_notes %}
+
+## Behavior Notes
+
+{% for note in plugin.behavior_notes %}
+- {{ note }}
+{% endfor %}
+{% endif %}
+{% if plugin.cluster_contract %}
+
+## Cluster Contract
+
+{% for note in plugin.cluster_contract %}
+- {{ note }}
+{% endfor %}
+{% endif %}
+{% if plugin.downstream_consumers or plugin.downstream_notes %}
+
+## Downstream Impact
+
+{% if plugin.downstream_consumers %}
+Consumers:
+{% for consumer in plugin.downstream_consumers %}
+- `{{ consumer }}`
+{% endfor %}
+
+{% endif %}
+{% for note in plugin.downstream_notes %}
+- {{ note }}
+{% endfor %}
 {% endif %}
 
 ## Execution Path
@@ -54,15 +85,27 @@
 
 ## Failure Modes
 
+{% if plugin.failure_modes %}
+{% for mode in plugin.failure_modes %}
+- {{ mode }}
+{% endfor %}
+{% else %}
 - 依赖数据缺失或字段不匹配，导致 compute 阶段报错
 - 配置值类型/范围不合法，触发参数校验异常
 - 输出 dtype 变更但版本未升级，可能导致缓存命中异常
+{% endif %}
 
 ## Change Playbook
 
+{% if plugin.agent_change_notes %}
+{% for note in plugin.agent_change_notes %}
+{{ loop.index }}. {{ note }}
+{% endfor %}
+{% else %}
 1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
 2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
 3. 新增/删除输出字段时，同时更新消费方插件和回归测试
+{% endif %}
 
 ## Validation
 

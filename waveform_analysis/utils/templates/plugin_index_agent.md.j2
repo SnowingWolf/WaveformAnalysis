@@ -33,5 +33,4 @@ waveform-docs generate plugins-agent --plugin raw_files
 {% for plugin in category_plugins|sort(attribute='provides') %}
 - [`{{ plugin.provides }}`]({{ plugin.provides }}.md): {{ plugin.description or "No description." }}
 {% endfor %}
-
 {% endfor %}
