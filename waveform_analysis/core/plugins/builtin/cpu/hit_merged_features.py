@@ -2,6 +2,7 @@
 
 from typing import Any
 
+import numba as nb
 import numpy as np
 
 from waveform_analysis.core.plugins.builtin.cpu._dt_compat import resolve_dt_config
@@ -37,7 +38,207 @@ def _empty_features() -> np.ndarray:
     return np.zeros(0, dtype=HIT_MERGED_FEATURES_DTYPE)
 
 
+def _field_or_default(arr: np.ndarray, name: str, default, dtype):
+    """从 structured array 安全提取字段，不存在时返回默认值数组"""
+    names = arr.dtype.names or ()
+    if name in names:
+        return np.asarray(arr[name], dtype=dtype)
+    return np.full(len(arr), default, dtype=dtype)
+
+
+def _resolve_record_indices(records: np.ndarray, record_ids: np.ndarray) -> np.ndarray:
+    """
+    把 record_id 转成 records 的行号。
+    优先处理 record_id == row index 的快路径。
+    """
+    record_ids = np.asarray(record_ids, dtype=np.int64)
+    names = records.dtype.names or ()
+
+    if "record_id" not in names:
+        # records 没有 record_id 字段，假设 record_id == index
+        bad_mask = (record_ids < 0) | (record_ids >= len(records))
+        if np.any(bad_mask):
+            bad_id = record_ids[bad_mask][0]
+            raise ValueError(f"hit_merged_features could not resolve record_id={bad_id}")
+        return record_ids
+
+    rec_ids = np.asarray(records["record_id"], dtype=np.int64)
+
+    # 快路径：record_id == array index
+    if len(rec_ids) == len(records) and np.array_equal(
+        rec_ids, np.arange(len(records), dtype=np.int64)
+    ):
+        bad_mask = (record_ids < 0) | (record_ids >= len(records))
+        if np.any(bad_mask):
+            bad_id = record_ids[bad_mask][0]
+            raise ValueError(f"hit_merged_features could not resolve record_id={bad_id}")
+        return record_ids
+
+    # 通用路径：排序 + searchsorted
+    order = np.argsort(rec_ids, kind="mergesort")
+    rec_ids_sorted = rec_ids[order]
+
+    pos = np.searchsorted(rec_ids_sorted, record_ids)
+    bad = (pos >= len(rec_ids_sorted)) | (rec_ids_sorted[pos] != record_ids)
+    if np.any(bad):
+        bad_id = record_ids[bad][0]
+        raise ValueError(f"hit_merged_features could not resolve record_id={bad_id}")
+
+    return order[pos]
+
+
+def _polarity_sign_array(records: np.ndarray) -> np.ndarray:
+    """
+    返回 polarity sign 数组：
+    - positive: +1.0 (signal = raw - baseline)
+    - negative: -1.0 (signal = baseline - raw)
+    """
+    names = records.dtype.names or ()
+    sign = np.full(len(records), -1.0, dtype=np.float32)  # 默认 negative
+
+    if "polarity" not in names:
+        return sign
+
+    # polarity 字段可能是字节串或字符串
+    for i, p in enumerate(records["polarity"]):
+        p_str = p.decode("utf-8") if isinstance(p, bytes) else str(p)
+        if p_str == "positive":
+            sign[i] = 1.0
+
+    return sign
+
+
+def _build_component_slices(component_rows: np.ndarray, n_merged: int):
+    """
+    一次性构建 component 索引映射，避免每次 fallback 都全扫描。
+    返回 (component_hits_sorted, comp_starts, comp_ends)
+    """
+    component_merged = np.asarray(component_rows["merged_index"], dtype=np.int64)
+    component_hits = np.asarray(component_rows["hit_index"], dtype=np.int64)
+
+    order = np.argsort(component_merged, kind="mergesort")
+    merged_sorted = component_merged[order]
+    hits_sorted = component_hits[order]
+
+    keys = np.arange(n_merged, dtype=np.int64)
+    starts = np.searchsorted(merged_sorted, keys, side="left")
+    ends = np.searchsorted(merged_sorted, keys, side="right")
+
+    return hits_sorted, starts, ends
+
+
+@nb.njit(cache=True)
+def _features_fast_kernel(
+    wave_pool,
+    rec_indices,
+    rec_wave_offset,
+    rec_event_length,
+    rec_baseline,
+    rec_polarity_sign,
+    merged_sample_start,
+    merged_sample_end,
+    merged_timestamp,
+    merged_dt,
+    merged_position,
+):
+    """
+    Numba 核心：批量计算主路径（有合法 sample_start/sample_end 的 merged hits）。
+
+    对每个窗口做单 pass：遍历一次波形，同时累加 area 和找 max。
+    """
+    n = len(rec_indices)
+
+    time_start = np.zeros(n, dtype=np.int64)
+    time_end = np.zeros(n, dtype=np.int64)
+    center_time = np.zeros(n, dtype=np.int64)
+    max_time = np.zeros(n, dtype=np.int64)
+
+    area = np.zeros(n, dtype=np.float32)
+    height = np.zeros(n, dtype=np.float32)
+    width = np.zeros(n, dtype=np.float32)
+    rise_time = np.zeros(n, dtype=np.float32)
+    fall_time = np.zeros(n, dtype=np.float32)
+    valid = np.zeros(n, dtype=np.int8)
+
+    for i in range(n):
+        rec_i = rec_indices[i]
+
+        start = merged_sample_start[i]
+        end = merged_sample_end[i]
+
+        # 跳过无效窗口（留给 fallback）
+        if start < 0 or end <= start:
+            continue
+
+        length = rec_event_length[rec_i]
+
+        # clip 到 event_length
+        if start < 0:
+            start = 0
+        if end > length:
+            end = length
+
+        if end <= start:
+            continue
+
+        offset = rec_wave_offset[rec_i]
+        baseline = rec_baseline[rec_i]
+        sign = rec_polarity_sign[rec_i]
+
+        # 计算时间窗口
+        dt_ps = merged_dt[i] * 1000
+        t0 = merged_timestamp[i] + (start - merged_position[i]) * dt_ps
+        t1 = merged_timestamp[i] + (end - merged_position[i]) * dt_ps
+
+        # 单 pass 计算：area + max
+        s = 0.0
+        h = 0.0
+        max_j = 0
+
+        base = offset + start
+        n_sample = end - start
+
+        for j in range(n_sample):
+            v = sign * (float(wave_pool[base + j]) - baseline)
+            if v < 0.0:
+                v = 0.0
+
+            s += v
+
+            if v > h:
+                h = v
+                max_j = j
+
+        mt = t0 + max_j * dt_ps
+
+        time_start[i] = t0
+        time_end[i] = t1
+        center_time[i] = (t0 + t1) // 2
+        max_time[i] = mt
+
+        area[i] = s
+        height[i] = h
+        width[i] = (t1 - t0) / 1000.0
+        rise_time[i] = (mt - t0) / 1000.0
+        fall_time[i] = (t1 - mt) / 1000.0
+        valid[i] = 1
+
+    return (
+        time_start,
+        time_end,
+        center_time,
+        max_time,
+        area,
+        height,
+        width,
+        rise_time,
+        fall_time,
+        valid,
+    )
+
+
 def _record_lookup(records: np.ndarray) -> dict[int, np.void]:
+    """为 fallback 路径构建 record_id -> record 映射（仅在需要时调用）"""
     names = records.dtype.names or ()
     if "record_id" in names:
         return {int(rec["record_id"]): rec for rec in records}
@@ -45,15 +246,19 @@ def _record_lookup(records: np.ndarray) -> dict[int, np.void]:
 
 
 def _record_polarity(record: np.void) -> str:
+    """从单个 record 获取 polarity（fallback 路径使用）"""
     names = record.dtype.names or ()
     if "polarity" not in names:
         return "negative"
-    value = str(record["polarity"])
-    return value if value in {"positive", "negative"} else "negative"
+    value = record["polarity"]
+    value_str = value.decode("utf-8") if isinstance(value, bytes) else str(value)
+    return value_str if value_str in {"positive", "negative"} else "negative"
 
 
 def _sample_times(row: np.void, start: int, end: int) -> tuple[int, int, int]:
-    dt_ns = int(row["dt"]) if "dt" in row.dtype.names else 1
+    """计算窗口的时间边界（fallback 路径使用）"""
+    names = row.dtype.names or ()
+    dt_ns = int(row["dt"]) if "dt" in names else 1
     timestamp = int(row["timestamp"])
     position = int(row["position"])
     dt_ps = dt_ns * 1000
@@ -70,6 +275,7 @@ def _window_signal(
     end: int,
     data_name: str,
 ) -> np.ndarray:
+    """生成 signal 数组（fallback 路径使用）"""
     names = record.dtype.names or ()
     offset = int(record["wave_offset"])
     length = int(record["event_length"])
@@ -100,6 +306,7 @@ def _window_feature_values(
     end: int,
     data_name: str,
 ) -> tuple[int, int, float, float, int]:
+    """计算单个窗口的特征（fallback 路径使用）"""
     signal = _window_signal(
         record=record,
         wave_pool=wave_pool,
@@ -119,7 +326,7 @@ class HitMergedFeaturesPlugin(Plugin):
     provides = "hit_merged_features"
     depends_on = ["hit_merged", "hit_merged_components", "hit_threshold", "records", "wave_pool"]
     description = "Compute per-hit_merged local waveform features from records-backed samples."
-    version = "0.2.0"
+    version = "0.3.0"
     save_when = "always"
     output_dtype = HIT_MERGED_FEATURES_DTYPE
 
@@ -164,12 +371,12 @@ class HitMergedFeaturesPlugin(Plugin):
             raise ValueError("hit_merged_features currently supports wave_source='records' only")
 
         resolve_dt_config(context, self, deprecated_keys=("sampling_interval_ns", "dt_ns"))
-        records_by_id = _record_lookup(loaded.records)
+
         return self._compute_features(
             merged=merged,
             component_rows=component_rows,
             hits=hits,
-            records_by_id=records_by_id,
+            records=loaded.records,
             wave_pool=loaded.wave_pool,
         )
 
@@ -179,7 +386,7 @@ class HitMergedFeaturesPlugin(Plugin):
         merged: np.ndarray,
         component_rows: np.ndarray,
         hits: np.ndarray,
-        records_by_id: dict[int, np.void],
+        records: np.ndarray,
         wave_pool: np.ndarray,
     ) -> np.ndarray:
         n_merged = len(merged)
@@ -189,66 +396,113 @@ class HitMergedFeaturesPlugin(Plugin):
         # 预分配输出数组
         out = np.zeros(n_merged, dtype=HIT_MERGED_FEATURES_DTYPE)
 
-        # 预先构建 component 索引映射（避免每次循环全扫描）
-        component_merged = np.asarray(component_rows["merged_index"], dtype=np.int64)
-        component_hits = np.asarray(component_rows["hit_index"], dtype=np.int64)
+        # 解析 record_id -> records 行号
+        rec_indices = _resolve_record_indices(records, merged["record_id"])
 
-        for merged_index in range(n_merged):
-            row = merged[merged_index]
-            record_id = int(row["record_id"])
-            sample_start = int(row["sample_start"])
-            sample_end = int(row["sample_end"])
-            n_hits = int(row["component_count"]) if "component_count" in row.dtype.names else 1
+        # 提取 records 字段为普通数组（Numba 可以高效访问）
+        rec_wave_offset = np.asarray(records["wave_offset"], dtype=np.int64)
+        rec_event_length = np.asarray(records["event_length"], dtype=np.int64)
+        rec_baseline = _field_or_default(records, "baseline", 0.0, np.float32)
+        rec_polarity_sign = _polarity_sign_array(records)
 
-            if sample_start >= 0 and sample_end > sample_start:
-                if record_id not in records_by_id:
-                    raise ValueError(f"hit_merged_features could not resolve record_id={record_id}")
-                record = records_by_id[record_id]
-                time_start, time_end, area, height, max_time = _window_feature_values(
-                    source_row=row,
-                    record=record,
-                    wave_pool=wave_pool,
-                    start=sample_start,
-                    end=sample_end,
-                    data_name=self.provides,
-                )
-            else:
-                # fallback 路径：使用布尔掩码索引，比 component_hits[component_merged == merged_index] 更快
-                mask = component_merged == merged_index
-                hit_indices = component_hits[mask]
+        # 提取 merged 字段
+        merged_sample_start = np.asarray(merged["sample_start"], dtype=np.int64)
+        merged_sample_end = np.asarray(merged["sample_end"], dtype=np.int64)
+        merged_timestamp = _field_or_default(merged, "timestamp", 0, np.int64)
+        merged_dt = _field_or_default(merged, "dt", 1, np.int64)
+        merged_position = _field_or_default(merged, "position", 0, np.int64)
+
+        # Numba 批量计算主路径
+        (
+            time_start,
+            time_end,
+            center_time,
+            max_time,
+            area,
+            height,
+            width,
+            rise_time,
+            fall_time,
+            valid,
+        ) = _features_fast_kernel(
+            wave_pool,
+            rec_indices,
+            rec_wave_offset,
+            rec_event_length,
+            rec_baseline,
+            rec_polarity_sign,
+            merged_sample_start,
+            merged_sample_end,
+            merged_timestamp,
+            merged_dt,
+            merged_position,
+        )
+
+        # 批量填充输出数组
+        out["merged_index"] = np.arange(n_merged, dtype=np.int64)
+        out["board"] = _field_or_default(merged, "board", 0, np.int16)
+        out["channel"] = np.asarray(merged["channel"], dtype=np.int16)
+        out["record_id"] = np.asarray(merged["record_id"], dtype=np.int64)
+
+        out["time_start"] = time_start
+        out["time_end"] = time_end
+        out["center_time"] = center_time
+        out["max_time"] = max_time
+
+        out["area"] = area
+        out["height"] = height
+        out["width"] = width
+        out["rise_time"] = rise_time
+        out["fall_time"] = fall_time
+
+        if "component_count" in (merged.dtype.names or ()):
+            out["n_hits"] = np.asarray(merged["component_count"], dtype=np.int32)
+        else:
+            out["n_hits"] = 1
+
+        out["valid"] = valid
+
+        # fallback：只处理 Numba 主路径没处理成功的行
+        bad = np.flatnonzero(valid == 0)
+
+        if len(bad):
+            # 为 fallback 构建快速索引
+            component_hits_sorted, comp_starts, comp_ends = _build_component_slices(
+                component_rows,
+                n_merged=n_merged,
+            )
+
+            # fallback 路径仍然需要 dict（因为跨 record）
+            records_by_id = _record_lookup(records)
+
+            for merged_index in bad:
+                hit_indices = component_hits_sorted[
+                    comp_starts[merged_index] : comp_ends[merged_index]
+                ]
+
                 if len(hit_indices) == 0:
                     raise ValueError(
                         f"hit_merged_features could not resolve components for merged_index="
                         f"{merged_index}"
                     )
-                time_start, time_end, area, height, max_time = self._fallback_values(
-                    merged_index=merged_index,
+
+                ts, te, a, h, mt = self._fallback_values(
+                    merged_index=int(merged_index),
                     hits=hits[hit_indices],
                     records_by_id=records_by_id,
                     wave_pool=wave_pool,
                 )
 
-            center_time = int((time_start + time_end) // 2)
-            width = float((time_end - time_start) / 1e3)
-            rise_time = float((max_time - time_start) / 1e3)
-            fall_time = float((time_end - max_time) / 1e3)
-
-            # 直接填充预分配数组
-            out[merged_index]["merged_index"] = merged_index
-            out[merged_index]["board"] = int(row["board"]) if "board" in row.dtype.names else 0
-            out[merged_index]["channel"] = int(row["channel"])
-            out[merged_index]["record_id"] = record_id
-            out[merged_index]["time_start"] = time_start
-            out[merged_index]["time_end"] = time_end
-            out[merged_index]["center_time"] = center_time
-            out[merged_index]["max_time"] = max_time
-            out[merged_index]["area"] = area
-            out[merged_index]["height"] = height
-            out[merged_index]["width"] = width
-            out[merged_index]["rise_time"] = rise_time
-            out[merged_index]["fall_time"] = fall_time
-            out[merged_index]["n_hits"] = n_hits
-            out[merged_index]["valid"] = 1
+                out[merged_index]["time_start"] = ts
+                out[merged_index]["time_end"] = te
+                out[merged_index]["center_time"] = int((ts + te) // 2)
+                out[merged_index]["max_time"] = mt
+                out[merged_index]["area"] = a
+                out[merged_index]["height"] = h
+                out[merged_index]["width"] = float((te - ts) / 1e3)
+                out[merged_index]["rise_time"] = float((mt - ts) / 1e3)
+                out[merged_index]["fall_time"] = float((te - mt) / 1e3)
+                out[merged_index]["valid"] = 1
 
         return out
 
@@ -260,6 +514,7 @@ class HitMergedFeaturesPlugin(Plugin):
         records_by_id: dict[int, np.void],
         wave_pool: np.ndarray,
     ) -> tuple[int, int, float, float, int]:
+        """处理跨 record 或无合法 sample window 的 merged hits"""
         time_start: int | None = None
         time_end: int | None = None
         area = 0.0
