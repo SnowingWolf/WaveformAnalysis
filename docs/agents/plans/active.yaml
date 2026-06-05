@@ -1,0 +1,27 @@
+version: 1
+last_update: 2026-06-05
+
+active_plans:
+  - task_id: get-data-output-unification
+    status: doing
+    route: modify_context
+    owner_role: executor
+    plan_file: docs/agents/plans/current/get-data-output-unification.md
+    next_action: "Unify ctx.get_data(..., output=...) behavior across direct, cache, and stream paths."
+    updated_at: 2026-06-05
+
+  - task_id: hit-threshold-ragged-optimization
+    status: todo
+    route: modify_plugin
+    owner_role: executor
+    plan_file: docs/agents/plans/current/hit-threshold-ragged-optimization.md
+    next_action: "Optimize records ragged waveform access after get_data output behavior is stable."
+    updated_at: 2026-06-05
+
+  - task_id: hit-merged-peaklet-responsibility
+    status: todo
+    route: refactor
+    owner_role: planner
+    plan_file: docs/agents/plans/current/hit-merged-peaklet-responsibility.md
+    next_action: "Clarify responsibility boundaries before implementation."
+    updated_at: 2026-06-05
