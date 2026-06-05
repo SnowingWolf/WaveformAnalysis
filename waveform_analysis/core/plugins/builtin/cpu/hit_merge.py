@@ -472,6 +472,29 @@ def _hits_to_cluster_rows_fast(hits: np.ndarray) -> np.ndarray:
     return rows
 
 
+def _compute_canonical_cluster_rows(
+    hits: np.ndarray,
+    context: Any,
+    merge_plugin: Plugin,
+    pre_trigger_ps: int,
+) -> tuple[np.ndarray, int | None, bool]:
+    merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(context, merge_plugin)
+    if merge_gap_ns <= 0:
+        return _hits_to_cluster_rows_fast(hits), explicit_dt, True
+    return (
+        _compute_cluster_rows(
+            hits,
+            merge_gap_ns=merge_gap_ns,
+            max_total_width_ns=max_total_width_ns,
+            explicit_dt=explicit_dt,
+            plugin_name=merge_plugin.provides,
+            pre_trigger_ps=pre_trigger_ps,
+        ),
+        explicit_dt,
+        False,
+    )
+
+
 def _cluster_rows_to_components(cluster_rows: np.ndarray) -> np.ndarray:
     out = np.zeros(len(cluster_rows), dtype=HIT_MERGED_COMPONENTS_DTYPE)
     out["merged_index"] = cluster_rows["cluster_index"]
@@ -570,7 +593,7 @@ class HitMergePlugin(BatchProcessingPlugin):
     provides = "hit_merged"
     depends_on = ["hit_threshold"]
     description = "Merge nearby threshold hits per channel with time-gap and max-width constraints."
-    version = "1.1.3"
+    version = "1.2.0"
     save_when = "always"
     output_dtype = HIT_MERGED_DTYPE
     agent_doc = {
@@ -600,16 +623,15 @@ class HitMergePlugin(BatchProcessingPlugin):
             "dt": "Compatibility fallback sampling interval in ns, used only when `hit_threshold` lacks a `dt` field.",
         },
         "cluster_contract": [
-            "`hit_merge_clusters` is the source of truth for cluster membership when available; otherwise `hit_merged` computes the same membership rows on demand.",
-            "Rows consumed by one `hit_merged` row must be contiguous in `hit_merge_clusters`.",
+            "`hit_merged` computes canonical cluster membership from its own config; `hit_merge_clusters` is an independent diagnostic/export product.",
+            "Rows consumed by one `hit_merged` row must be contiguous in the canonical membership order.",
             "`cluster_index` values must be sorted, contiguous, and gap-free from `0` to `len(hit_merged) - 1`.",
-            "`component_offset` and `component_count` point back into the exact membership slice in `hit_merge_clusters`.",
+            "`component_offset` and `component_count` point back into the exact membership slice used by `hit_merged_components`.",
         ],
         "failure_modes": [
             "`hit_threshold` is missing required `channel` data, so same-channel grouping cannot be resolved.",
             "`hit_threshold` lacks `dt` and no compatible `dt` config fallback is available.",
-            "`hit_merge_clusters` is present but is not a structured NumPy array.",
-            "`hit_merge_clusters` rows are not ordered by contiguous, gap-free `cluster_index` values.",
+            "Canonical cluster rows are not ordered by contiguous, gap-free `cluster_index` values.",
             "Cluster rows reference hit indices that are outside the materialized `hit_threshold` array.",
         ],
         "downstream_consumers": [
@@ -626,7 +648,7 @@ class HitMergePlugin(BatchProcessingPlugin):
         ],
         "agent_change_notes": [
             "Changing merge behavior, output field semantics, or dtype requires a `version` bump because cache lineage depends on the plugin contract.",
-            "Keep `hit_merge_clusters` and `hit_merged` in sync; membership ordering is part of the downstream contract.",
+            "Keep `hit_merged` and `hit_merged_components` in sync; membership ordering is part of the downstream contract.",
             "After contract changes, regenerate agent docs and run targeted tests for `hit_merge`, `hit_merged_components`, `hit_merged_features`, `hit_grouped`, and `peaklets` consumers as appropriate.",
         ],
     }
@@ -660,40 +682,13 @@ class HitMergePlugin(BatchProcessingPlugin):
         if len(hits) == 0:
             return np.zeros(0, dtype=HIT_MERGED_DTYPE)
 
-        merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(context, self)
         pre_trigger_ps = get_pre_trigger_offset_ps(context)
+        cluster_rows, explicit_dt, merge_disabled = _compute_canonical_cluster_rows(
+            hits, context, self, pre_trigger_ps
+        )
 
-        if merge_gap_ns <= 0:
+        if merge_disabled:
             return _hits_to_merged_fast(hits, explicit_dt=explicit_dt, plugin_name=self.provides)
-
-        try:
-            cluster_rows = context.get_data(run_id, "hit_merge_clusters")
-            if cluster_rows is not None:
-                cluster_rows = _materialize_array(
-                    cluster_rows,
-                    "hit_merged hit_merge_clusters input",
-                    HIT_MERGE_CLUSTERS_DTYPE,
-                )
-        except (KeyError, FileNotFoundError):
-            cluster_rows = _compute_cluster_rows(
-                hits,
-                merge_gap_ns=merge_gap_ns,
-                max_total_width_ns=max_total_width_ns,
-                explicit_dt=explicit_dt,
-                plugin_name="hit_merge_clusters",
-                pre_trigger_ps=pre_trigger_ps,
-            )
-        if cluster_rows is None:
-            cluster_rows = _compute_cluster_rows(
-                hits,
-                merge_gap_ns=merge_gap_ns,
-                max_total_width_ns=max_total_width_ns,
-                explicit_dt=explicit_dt,
-                plugin_name="hit_merge_clusters",
-                pre_trigger_ps=pre_trigger_ps,
-            )
-        if not isinstance(cluster_rows, np.ndarray):
-            raise ValueError("hit_merged expects hit_merge_clusters as a structured array")
 
         enriched = _build_enriched_for_hits(
             hits, explicit_dt=explicit_dt, plugin_name=self.provides, pre_trigger_ps=pre_trigger_ps
@@ -707,7 +702,7 @@ class HitMergeClustersPlugin(Plugin):
 
     provides = "hit_merge_clusters"
     depends_on = ["hit_threshold"]
-    description = "Internal cluster membership rows shared by hit_merged outputs."
+    description = "Export hit-threshold cluster membership rows for diagnostics and inspection."
     version = "1.0.1"
     save_when = "always"
     output_dtype = HIT_MERGE_CLUSTERS_DTYPE
@@ -745,9 +740,9 @@ class HitMergedComponentsPlugin(Plugin):
     """Return flat component hit indices for each hit_merged cluster."""
 
     provides = "hit_merged_components"
-    depends_on = ["hit_merge_clusters", "hit_merged"]
+    depends_on = ["hit_merged", "hit_threshold"]
     description = "Return per-cluster component hit indices for hit_merged rows."
-    version = "1.0.1"
+    version = "1.1.0"
     save_when = "always"
     output_dtype = HIT_MERGED_COMPONENTS_DTYPE
     options = {
@@ -770,55 +765,15 @@ class HitMergedComponentsPlugin(Plugin):
             return np.zeros(0, dtype=HIT_MERGED_COMPONENTS_DTYPE)
 
         pre_trigger_ps = get_pre_trigger_offset_ps(context)
-
-        try:
-            cluster_rows = context.get_data(run_id, "hit_merge_clusters")
-            if cluster_rows is not None:
-                cluster_rows = _materialize_array(
-                    cluster_rows,
-                    "hit_merged_components hit_merge_clusters input",
-                    HIT_MERGE_CLUSTERS_DTYPE,
-                )
-        except (KeyError, FileNotFoundError):
-            hits = _materialize_array(
-                context.get_data(run_id, "hit_threshold"),
-                "hit_merged_components hit_threshold input",
-                THRESHOLD_HIT_DTYPE,
-            )
-            merge_plugin = context.get_plugin("hit_merged")
-            merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(
-                context, merge_plugin
-            )
-            cluster_rows = _compute_cluster_rows(
-                hits,
-                merge_gap_ns=merge_gap_ns,
-                max_total_width_ns=max_total_width_ns,
-                explicit_dt=explicit_dt,
-                plugin_name="hit_merge_clusters",
-                pre_trigger_ps=pre_trigger_ps,
-            )
-        if cluster_rows is None:
-            hits = _materialize_array(
-                context.get_data(run_id, "hit_threshold"),
-                "hit_merged_components hit_threshold input",
-                THRESHOLD_HIT_DTYPE,
-            )
-            merge_plugin = context.get_plugin("hit_merged")
-            merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(
-                context, merge_plugin
-            )
-            cluster_rows = _compute_cluster_rows(
-                hits,
-                merge_gap_ns=merge_gap_ns,
-                max_total_width_ns=max_total_width_ns,
-                explicit_dt=explicit_dt,
-                plugin_name="hit_merge_clusters",
-                pre_trigger_ps=pre_trigger_ps,
-            )
-        if not isinstance(cluster_rows, np.ndarray):
-            raise ValueError(
-                "hit_merged_components expects hit_merge_clusters and hit_merged structured arrays"
-            )
+        hits = _materialize_array(
+            context.get_data(run_id, "hit_threshold"),
+            "hit_merged_components hit_threshold input",
+            THRESHOLD_HIT_DTYPE,
+        )
+        merge_plugin = context.get_plugin("hit_merged")
+        cluster_rows, _explicit_dt, _merge_disabled = _compute_canonical_cluster_rows(
+            hits, context, merge_plugin, pre_trigger_ps
+        )
         if len(cluster_rows) == 0:
             return np.zeros(0, dtype=HIT_MERGED_COMPONENTS_DTYPE)
 

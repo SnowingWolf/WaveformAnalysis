@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `hit_merged_components` |
-| **Version** | `1.0.0` |
+| **Version** | `1.1.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -17,12 +17,15 @@
 
 This plugin depends on the following data:
 
-- [`hit_merge_clusters`](hit_merge_clusters.md)
 - [`hit_merged`](hit_merged.md)
+- [`hit_threshold`](hit_threshold.md)
 
 ## Configuration Options
 
-This plugin has no configuration options.
+| Option | Type | Default | Units | Description |
+|--------|------|---------|-------|-------------|
+| `validate_components` | `bool` | `False` | - | 校验 hit_merged 的 component_offset/component_count 与 cluster rows 是否一致。 |
+
 
 ## Output Schema
 
@@ -42,6 +45,11 @@ from waveform_analysis.core.plugins.builtin.cpu import HitMergedComponentsPlugin
 # Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(HitMergedComponentsPlugin())
+
+# Configure plugin (optional)
+ctx.set_config({
+    "validate_components": False,
+}, plugin_name="hit_merged_components")
 
 # Get data
 data = ctx.get_data("run_001", "hit_merged_components")

@@ -226,6 +226,28 @@ def test_hit_merge_disabled_does_not_read_cluster_rows():
     np.testing.assert_array_equal(out["component_count"], np.ones(2, dtype=np.int32))
 
 
+def test_hit_merge_ignores_stale_cluster_rows_and_uses_own_config():
+    class StaleClusterContext(DummyContext):
+        def get_data(self, run_id, name, **kwargs):
+            if name == "hit_merge_clusters":
+                raise AssertionError("hit_merged should not read hit_merge_clusters")
+            return super().get_data(run_id, name, **kwargs)
+
+    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
+    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 1)
+    hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
+    stale_cluster_rows = np.array([(0, 0), (1, 1)], dtype=HIT_MERGE_CLUSTERS_DTYPE)
+    ctx = StaleClusterContext(
+        {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0, "dt": 2},
+        {"hit_threshold": hits, "hit_merge_clusters": stale_cluster_rows},
+    )
+
+    out = HitMergePlugin().compute(ctx, "run_001")
+
+    assert len(out) == 1
+    assert int(out[0]["component_count"]) == 2
+
+
 def test_hit_merge_clusters_disabled_when_gap_non_positive_maps_hits_one_to_one():
     plugin = HitMergeClustersPlugin()
 
@@ -398,24 +420,59 @@ def test_hit_merged_components_returns_flat_component_rows():
     np.testing.assert_array_equal(out["hit_index"], np.array([0, 1, 2], dtype=np.int64))
 
 
+def test_hit_merged_components_ignores_stale_cluster_rows_and_matches_hit_merged():
+    class StaleClusterContext(FakeContext):
+        def get_data(self, run_id, name, **kwargs):
+            if name == "hit_merge_clusters":
+                raise AssertionError("hit_merged_components should not read hit_merge_clusters")
+            return super().get_data(run_id, name, **kwargs)
+
+    merge_plugin = HitMergePlugin()
+    components_plugin = HitMergedComponentsPlugin()
+    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
+    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 1)
+    hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
+    config = {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0, "dt": 2}
+    merged = merge_plugin.compute(DummyContext(config, {"hit_threshold": hits}), "run_001")
+    stale_cluster_rows = np.array([(0, 0), (1, 1)], dtype=HIT_MERGE_CLUSTERS_DTYPE)
+    ctx = StaleClusterContext(
+        config,
+        {
+            "hit_threshold": hits,
+            "hit_merged": merged,
+            "hit_merge_clusters": stale_cluster_rows,
+        },
+        plugins={"hit_merged": merge_plugin},
+    )
+
+    out = components_plugin.compute(ctx, "run_001")
+
+    np.testing.assert_array_equal(out["merged_index"], np.array([0, 0], dtype=np.int64))
+    np.testing.assert_array_equal(out["hit_index"], np.array([0, 1], dtype=np.int64))
+
+
 def test_hit_merged_components_validate_components_checks_consistency():
     components_plugin = HitMergedComponentsPlugin()
+    merge_plugin = HitMergePlugin()
+    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
+    hits = np.array([h1], dtype=THRESHOLD_HIT_DTYPE)
     merged = np.zeros(1, dtype=HIT_MERGED_DTYPE)
     merged[0]["component_offset"] = 99
     merged[0]["component_count"] = 1
-    cluster_rows = np.array([(0, 0)], dtype=HIT_MERGE_CLUSTERS_DTYPE)
 
-    default_ctx = DummyContext(
+    default_ctx = FakeContext(
         {},
-        {"hit_merged": merged, "hit_merge_clusters": cluster_rows},
+        {"hit_threshold": hits, "hit_merged": merged},
+        plugins={"hit_merged": merge_plugin},
     )
     out = components_plugin.compute(default_ctx, "run_001")
     np.testing.assert_array_equal(out["merged_index"], np.array([0], dtype=np.int64))
     np.testing.assert_array_equal(out["hit_index"], np.array([0], dtype=np.int64))
 
-    validate_ctx = DummyContext(
+    validate_ctx = FakeContext(
         {"validate_components": True},
-        {"hit_merged": merged, "hit_merge_clusters": cluster_rows},
+        {"hit_threshold": hits, "hit_merged": merged},
+        plugins={"hit_merged": merge_plugin},
     )
     try:
         components_plugin.compute(validate_ctx, "run_001")
@@ -509,12 +566,14 @@ def test_hit_merged_components_materializes_upstream_array_outputs():
         DummyContext(config, {"hit_threshold": hits, "hit_merge_clusters": cluster_rows}),
         "run_001",
     )
-    ctx = DummyContext(
+    ctx = FakeContext(
         config,
         {
+            "hit_threshold": _chunk_stream(hits[:1], hits[1:]),
             "hit_merged": _chunk_stream(merged[:1], merged[1:]),
             "hit_merge_clusters": _chunk_stream(cluster_rows[:2], cluster_rows[2:]),
         },
+        plugins={"hit_merged": merge_plugin},
     )
 
     out = components_plugin.compute(ctx, "run_001")

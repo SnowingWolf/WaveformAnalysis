@@ -135,8 +135,8 @@ raw_files ──► records ──► df ──► df_events
 | [`HitFinderPlugin`](hit.md) | `hit` | 3.0.0 | 特征提取 | - |
 | [`HitGroupedPlugin`](hit_grouped.md) | `hit_grouped` | 0.5.0 | 特征提取 | hit_merged, hit_merged_components, hit_threshold |
 | [`HitMergeClustersPlugin`](hit_merge_clusters.md) | `hit_merge_clusters` | 1.0.1 | 特征提取 | hit_threshold |
-| [`HitMergePlugin`](hit_merged.md) | `hit_merged` | 1.1.3 | 特征提取 | hit_threshold |
-| [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 1.0.1 | 特征提取 | hit_merge_clusters, hit_merged |
+| [`HitMergePlugin`](hit_merged.md) | `hit_merged` | 1.2.0 | 特征提取 | hit_threshold |
+| [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 1.1.0 | 特征提取 | hit_merged, hit_threshold |
 | [`HitMergedFeaturesPlugin`](hit_merged_features.md) | `hit_merged_features` | 0.1.0 | 特征提取 | hit_merged, hit_merged_components, hit_threshold, records, wave_pool |
 | [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.1.0 | 特征提取 | - |
 | [`PeakletChannelsPlugin`](peaklet_channels.md) | `peaklet_channels` | 0.1.0 | 特征提取 | peaklets, peaklet_components, hit_merged_features |
@@ -189,9 +189,9 @@ raw_files ──► records ──► df ──► df_events
 | [`basic_features`](basic_features.md) | Compute basic height, amplitude, area, and max-abs-diff feat... | - |
 | [`hit`](hit.md) | Detect peaks in waveforms and extract peak features. | - |
 | [`hit_grouped`](hit_grouped.md) | Group merged hits across channels into event-level coinciden... | hit_merged, hit_merged_components, hit_threshold |
-| [`hit_merge_clusters`](hit_merge_clusters.md) | Internal cluster membership rows shared by hit_merged output... | hit_threshold |
+| [`hit_merge_clusters`](hit_merge_clusters.md) | Export hit-threshold cluster membership rows for diagnostics... | hit_threshold |
 | [`hit_merged`](hit_merged.md) | Merge nearby threshold hits per channel with time-gap and ma... | hit_threshold |
-| [`hit_merged_components`](hit_merged_components.md) | Return per-cluster component hit indices for hit_merged rows... | hit_merge_clusters, hit_merged |
+| [`hit_merged_components`](hit_merged_components.md) | Return per-cluster component hit indices for hit_merged rows... | hit_merged, hit_threshold |
 | [`hit_merged_features`](hit_merged_features.md) | Compute per-hit_merged local waveform features from records-... | hit_merged, hit_merged_components, hit_threshold, records, wave_pool |
 | [`hit_threshold`](hit_threshold.md) | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. | - |
 | [`peaklet_channels`](peaklet_channels.md) | Aggregate hit_merged_features into per-peaklet channel contr... | peaklets, peaklet_components, hit_merged_features |

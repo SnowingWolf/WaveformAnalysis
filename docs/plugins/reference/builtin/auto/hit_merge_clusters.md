@@ -1,6 +1,6 @@
 # HitMergeClustersPlugin
 
-> Internal cluster membership rows shared by hit_merged outputs.
+> Export hit-threshold cluster membership rows for diagnostics and inspection.
 
 ## Overview
 

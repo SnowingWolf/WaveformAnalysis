@@ -7,16 +7,16 @@
 | Item | Value |
 |------|-------|
 | Provides | `hit_merged_components` |
-| Depends On | `hit_merge_clusters`, `hit_merged` |
+| Depends On | `hit_merged`, `hit_threshold` |
 | Output Kind | `structured_array` |
-| Version | `1.0.1` |
+| Version | `1.1.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merge` |
 | Accelerator | `cpu` |
 
 ## Inputs
 
-- `hit_merge_clusters`
 - `hit_merged`
+- `hit_threshold`
 
 ## Outputs
 
@@ -34,7 +34,7 @@
 ## Execution Path
 
 `hit_merged_components` 依赖链入口：
-`hit_merge_clusters -> hit_merged -> hit_merged_components`
+`hit_merged -> hit_threshold -> hit_merged_components`
 
 ## Failure Modes
 

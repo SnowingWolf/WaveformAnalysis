@@ -9,7 +9,7 @@
 | Provides | `hit_merged` |
 | Depends On | `hit_threshold` |
 | Output Kind | `structured_array` |
-| Version | `1.1.3` |
+| Version | `1.2.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merge` |
 | Accelerator | `cpu` |
 
@@ -51,10 +51,10 @@
 
 ## Cluster Contract
 
-- `hit_merge_clusters` is the source of truth for cluster membership when available; otherwise `hit_merged` computes the same membership rows on demand.
-- Rows consumed by one `hit_merged` row must be contiguous in `hit_merge_clusters`.
+- `hit_merged` computes canonical cluster membership from its own config; `hit_merge_clusters` is an independent diagnostic/export product.
+- Rows consumed by one `hit_merged` row must be contiguous in the canonical membership order.
 - `cluster_index` values must be sorted, contiguous, and gap-free from `0` to `len(hit_merged) - 1`.
-- `component_offset` and `component_count` point back into the exact membership slice in `hit_merge_clusters`.
+- `component_offset` and `component_count` point back into the exact membership slice used by `hit_merged_components`.
 
 ## Downstream Impact
 
@@ -78,14 +78,13 @@ Consumers:
 
 - `hit_threshold` is missing required `channel` data, so same-channel grouping cannot be resolved.
 - `hit_threshold` lacks `dt` and no compatible `dt` config fallback is available.
-- `hit_merge_clusters` is present but is not a structured NumPy array.
-- `hit_merge_clusters` rows are not ordered by contiguous, gap-free `cluster_index` values.
+- Canonical cluster rows are not ordered by contiguous, gap-free `cluster_index` values.
 - Cluster rows reference hit indices that are outside the materialized `hit_threshold` array.
 
 ## Change Playbook
 
 1. Changing merge behavior, output field semantics, or dtype requires a `version` bump because cache lineage depends on the plugin contract.
-2. Keep `hit_merge_clusters` and `hit_merged` in sync; membership ordering is part of the downstream contract.
+2. Keep `hit_merged` and `hit_merged_components` in sync; membership ordering is part of the downstream contract.
 3. After contract changes, regenerate agent docs and run targeted tests for `hit_merge`, `hit_merged_components`, `hit_merged_features`, `hit_grouped`, and `peaklets` consumers as appropriate.
 
 ## Validation
