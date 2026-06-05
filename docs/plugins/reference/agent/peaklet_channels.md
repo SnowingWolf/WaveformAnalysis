@@ -7,9 +7,9 @@
 | Item | Value |
 |------|-------|
 | Provides | `peaklet_channels` |
-| Depends On | `peaklets`, `peaklet_components`, `hit_merged_features` |
+| Depends On | `peaklets`, `peaklet_components`, `hit_merged_features`, `peaklet_features` |
 | Output Kind | `structured_array` |
-| Version | `0.1.0` |
+| Version | `1.0.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.peaklet_channels` |
 | Accelerator | `cpu` |
 
@@ -18,18 +18,19 @@
 - `peaklets`
 - `peaklet_components`
 - `hit_merged_features`
+- `peaklet_features`
 
 ## Outputs
 
-| Field | DType |
-|-------|-------|
-| `peaklet_index` | `int64` |
-| `board` | `int16` |
-| `channel` | `int16` |
-| `area` | `float32` |
-| `height` | `float32` |
-| `n_hits` | `int32` |
-| `area_fraction` | `float32` |
+| Field | DType | Meaning |
+|-------|-------|---------|
+| `peaklet_index` | `int64` | - |
+| `board` | `int16` | - |
+| `channel` | `int16` | - |
+| `area` | `float32` | - |
+| `height` | `float32` | - |
+| `n_hits` | `int32` | - |
+| `area_fraction` | `float32` | - |
 
 ## Config
 
@@ -38,7 +39,7 @@
 ## Execution Path
 
 `peaklet_channels` 依赖链入口：
-`peaklets -> peaklet_components -> hit_merged_features -> peaklet_channels`
+`peaklets -> peaklet_components -> hit_merged_features -> peaklet_features -> peaklet_channels`
 
 ## Failure Modes
 

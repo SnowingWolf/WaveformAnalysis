@@ -27,9 +27,9 @@ class PeakletChannelsPlugin(Plugin):
     """Expand peaklets into per-board/channel contribution rows."""
 
     provides = "peaklet_channels"
-    depends_on = ["peaklets", "peaklet_components", "hit_merged_features"]
+    depends_on = ["peaklets", "peaklet_components", "hit_merged_features", "peaklet_features"]
     description = "Aggregate hit_merged_features into per-peaklet channel contribution rows."
-    version = "0.1.0"
+    version = "1.0.0"
     output_dtype = PEAKLET_CHANNELS_DTYPE
     save_when = "always"
 
@@ -47,11 +47,15 @@ class PeakletChannelsPlugin(Plugin):
         features = context.get_data(run_id, "hit_merged_features")
         if not isinstance(features, np.ndarray):
             raise ValueError("peaklet_channels expects hit_merged_features as a structured array")
+        peaklet_features = context.get_data(run_id, "peaklet_features")
+        if not isinstance(peaklet_features, np.ndarray):
+            raise ValueError("peaklet_channels expects peaklet_features as a structured array")
 
         return self._compute_channels(
             peaklets=peaklets,
             components=components,
             features=features,
+            peaklet_features=peaklet_features,
         )
 
     def _compute_channels(
@@ -60,12 +64,16 @@ class PeakletChannelsPlugin(Plugin):
         peaklets: np.ndarray,
         components: np.ndarray,
         features: np.ndarray,
+        peaklet_features: np.ndarray,
     ) -> np.ndarray:
         if len(components) == 0 or len(features) == 0:
             return _empty_channels()
 
         features_by_merged = {
             int(row["merged_index"]): row for row in features if int(row["valid"]) != 0
+        }
+        area_by_peaklet = {
+            int(row["peaklet_index"]): float(row["area"]) for row in peaklet_features
         }
         grouped: dict[tuple[int, int, int], dict[str, float | int]] = {}
 
@@ -94,7 +102,7 @@ class PeakletChannelsPlugin(Plugin):
             peaklet_index, board, channel = key
             values = grouped[key]
             channel_area = float(values["area"])
-            peaklet_area = float(peaklets[peaklet_index]["area"])
+            peaklet_area = area_by_peaklet.get(peaklet_index, 0.0)
             area_fraction = channel_area / peaklet_area if peaklet_area != 0.0 else 0.0
             rows.append(
                 (

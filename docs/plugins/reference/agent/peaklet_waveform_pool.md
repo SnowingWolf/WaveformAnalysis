@@ -1,4 +1,4 @@
-# peaklets (PeakletPlugin)
+# peaklet_waveform_pool (PeakletWaveformPoolPlugin)
 
 > Agent-first 插件契约文档。面向自动化执行与改动评估。
 
@@ -6,41 +6,37 @@
 
 | Item | Value |
 |------|-------|
-| Provides | `peaklets` |
-| Depends On | `hit_merged` |
-| Output Kind | `structured_array` |
+| Provides | `peaklet_waveform_pool` |
+| Depends On | `peaklets`, `peaklet_components`, `hit_merged`, `records`, `wave_pool` |
+| Output Kind | `array` |
 | Version | `1.0.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.peaklets` |
 | Accelerator | `cpu` |
 
 ## Inputs
 
+- `peaklets`
+- `peaklet_components`
 - `hit_merged`
+- `records`
+- `wave_pool`
 
 ## Outputs
 
 | Field | DType | Meaning |
 |-------|-------|---------|
-| `time_start` | `int64` | - |
-| `time_end` | `int64` | - |
-| `center_time` | `int64` | - |
-| `n_hits` | `int32` | - |
-| `n_channels` | `int32` | - |
-| `component_offset` | `int64` | - |
-| `component_count` | `int32` | - |
+| `value` | `float32` | - |
 
 ## Config
 
 | Name | Type | Default | Note |
 |------|------|---------|------|
-| `time_window_ns` | `float` | `100.0` | 跨通道 peaklet 合并时间窗口 |
-| `max_total_width_ns` | `float` | `10000.0` | peaklet 最大总宽度 |
-| `dt` | `int` | `None` | 保留兼容配置；优先使用输入 hit_merged 的 dt |
+| `use_filtered` | `bool` | `False` | 是否使用 wave_pool_filtered 构建 peaklet 波形 |
 
 ## Execution Path
 
-`peaklets` 依赖链入口：
-`hit_merged -> peaklets`
+`peaklet_waveform_pool` 依赖链入口：
+`peaklets -> peaklet_components -> hit_merged -> records -> wave_pool -> peaklet_waveform_pool`
 
 ## Failure Modes
 
@@ -58,7 +54,7 @@
 
 ```bash
 # 单插件文档再生成
-waveform-docs generate plugins-agent --plugin peaklets
+waveform-docs generate plugins-agent --plugin peaklet_waveform_pool
 
 # 覆盖率检查
 waveform-docs check coverage --strict

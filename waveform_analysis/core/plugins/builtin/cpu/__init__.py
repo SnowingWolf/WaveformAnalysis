@@ -46,8 +46,15 @@ from .peaklet_channels import PEAKLET_CHANNELS_DTYPE, PeakletChannelsPlugin
 from .peaklets import (
     PEAKLET_COMPONENTS_DTYPE,
     PEAKLET_DTYPE,
+    PEAKLET_FEATURES_DTYPE,
+    PEAKLET_WAVEFORMS_DTYPE,
+    PEAKS_DTYPE,
     PeakletComponentsPlugin,
+    PeakletFeaturesPlugin,
     PeakletPlugin,
+    PeakletWaveformPlugin,
+    PeakletWaveformPoolPlugin,
+    PeaksPlugin,
 )
 
 # Records 插件
@@ -111,11 +118,18 @@ __all__ = [
     "HIT_MERGED_FEATURES_DTYPE",
     "PeakletPlugin",
     "PeakletComponentsPlugin",
+    "PeakletWaveformPlugin",
+    "PeakletWaveformPoolPlugin",
+    "PeakletFeaturesPlugin",
     "PeakletChannelsPlugin",
+    "PeaksPlugin",
     "RecordsAsymmetryMaskPlugin",
     "PEAKLET_DTYPE",
     "PEAKLET_COMPONENTS_DTYPE",
+    "PEAKLET_WAVEFORMS_DTYPE",
+    "PEAKLET_FEATURES_DTYPE",
     "PEAKLET_CHANNELS_DTYPE",
+    "PEAKS_DTYPE",
     # 寻峰插件
     "HIT_DTYPE",
     # 波形宽度插件

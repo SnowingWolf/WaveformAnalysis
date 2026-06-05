@@ -9,7 +9,7 @@
 | Provides | `peaklet_components` |
 | Depends On | `peaklets`, `hit_merged` |
 | Output Kind | `structured_array` |
-| Version | `0.1.0` |
+| Version | `1.0.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.peaklets` |
 | Accelerator | `cpu` |
 
@@ -20,10 +20,10 @@
 
 ## Outputs
 
-| Field | DType |
-|-------|-------|
-| `peaklet_index` | `int64` |
-| `merged_index` | `int64` |
+| Field | DType | Meaning |
+|-------|-------|---------|
+| `peaklet_index` | `int64` | - |
+| `merged_index` | `int64` | - |
 
 ## Config
 
@@ -31,8 +31,7 @@
 |------|------|---------|------|
 | `time_window_ns` | `float` | `100.0` | 跨通道 peaklet 合并时间窗口 |
 | `max_total_width_ns` | `float` | `10000.0` | peaklet 最大总宽度 |
-| `use_filtered` | `bool` | `False` | 是否使用 wave_pool_filtered 计算特征 |
-| `dt` | `int` | `None` | 保留兼容配置；特征优先使用 records/hits 的 dt |
+| `dt` | `int` | `None` | 保留兼容配置；优先使用输入 hit_merged 的 dt |
 
 ## Execution Path
 

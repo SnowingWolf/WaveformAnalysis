@@ -14,7 +14,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 
 ## Summary
 
-- 插件总数：25
+- 插件总数：29
 - 类别数：8
 
 ## Plugin Table
@@ -32,11 +32,15 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`hit_merge_clusters`](hit_merge_clusters.md) | `HitMergeClustersPlugin` | `hit_merged`, `hit_threshold` | `structured_array` | `1.1.0` |
 | [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold` | `structured_array` | `1.2.0` |
 | [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | `hit_merged`, `hit_threshold` | `structured_array` | `1.1.0` |
-| [`hit_merged_features`](hit_merged_features.md) | `HitMergedFeaturesPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `structured_array` | `0.1.0` |
+| [`hit_merged_features`](hit_merged_features.md) | `HitMergedFeaturesPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `structured_array` | `0.3.0` |
 | [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | - | `structured_array` | `1.1.0` |
-| [`peaklet_channels`](peaklet_channels.md) | `PeakletChannelsPlugin` | `peaklets`, `peaklet_components`, `hit_merged_features` | `structured_array` | `0.1.0` |
-| [`peaklet_components`](peaklet_components.md) | `PeakletComponentsPlugin` | `peaklets`, `hit_merged` | `structured_array` | `0.1.0` |
-| [`peaklets`](peaklets.md) | `PeakletPlugin` | `hit_merged`, `hit_merged_components`, `hit_merged_features`, `records`, `wave_pool` | `structured_array` | `0.2.0` |
+| [`peaklet_channels`](peaklet_channels.md) | `PeakletChannelsPlugin` | `peaklets`, `peaklet_components`, `hit_merged_features`, `peaklet_features` | `structured_array` | `1.0.0` |
+| [`peaklet_components`](peaklet_components.md) | `PeakletComponentsPlugin` | `peaklets`, `hit_merged` | `structured_array` | `1.0.0` |
+| [`peaklet_features`](peaklet_features.md) | `PeakletFeaturesPlugin` | `peaklet_waveforms`, `peaklet_waveform_pool`, `peaklets` | `structured_array` | `1.0.0` |
+| [`peaklet_waveform_pool`](peaklet_waveform_pool.md) | `PeakletWaveformPoolPlugin` | `peaklets`, `peaklet_components`, `hit_merged`, `records`, `wave_pool` | `array` | `1.0.0` |
+| [`peaklet_waveforms`](peaklet_waveforms.md) | `PeakletWaveformPlugin` | `peaklets`, `peaklet_components`, `hit_merged`, `records`, `wave_pool` | `structured_array` | `1.0.0` |
+| [`peaklets`](peaklets.md) | `PeakletPlugin` | `hit_merged` | `structured_array` | `1.0.0` |
+| [`peaks`](peaks.md) | `PeaksPlugin` | `peaklets`, `peaklet_features`, `peaklet_channels` | `structured_array` | `1.0.0` |
 | [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | `unknown` | `0.0.2` |
 | [`records`](records.md) | `RecordsPlugin` | - | `structured_array` | `0.10.0` |
 | [`records_asymmetry_mask`](records_asymmetry_mask.md) | `RecordsAsymmetryMaskPlugin` | `records`, `wave_pool` | `array` | `0.1.0` |
@@ -55,6 +59,8 @@ waveform-docs generate plugins-agent --plugin raw_files
 ### 波形处理
 
 - [`filtered_waveforms`](filtered_waveforms.md): Apply filtering to waveforms using Butterworth or Savitzky-Golay filters.
+- [`peaklet_waveform_pool`](peaklet_waveform_pool.md): Return flattened float32 peaklet waveform signal pool.
+- [`peaklet_waveforms`](peaklet_waveforms.md): Build peaklet waveform index rows from records-backed hit_merged samples.
 - [`st_waveforms`](st_waveforms.md): Extract waveforms from raw CSV files and structure them into NumPy structured arrays.
 - [`wave_pool`](wave_pool.md): Build wave_pool from the shared internal records bundle.
 - [`wave_pool_filtered`](wave_pool_filtered.md): Build filtered wave_pool from records-backed raw waveforms.
@@ -65,14 +71,16 @@ waveform-docs generate plugins-agent --plugin raw_files
 - [`basic_features`](basic_features.md): Compute basic height, amplitude, area, and max-abs-diff features from waveform data.
 - [`hit`](hit.md): Detect peaks in waveforms and extract peak features.
 - [`hit_grouped`](hit_grouped.md): Group merged hits across channels into event-level coincidence windows.
-- [`hit_merge_clusters`](hit_merge_clusters.md): Export hit-threshold cluster membership rows for diagnostics and inspection.
+- [`hit_merge_clusters`](hit_merge_clusters.md): Export cluster membership rows using the authoritative hit_merged configuration.
 - [`hit_merged`](hit_merged.md): Merge nearby threshold hits per channel with time-gap and max-width constraints.
 - [`hit_merged_components`](hit_merged_components.md): Return per-cluster component hit indices for hit_merged rows.
 - [`hit_merged_features`](hit_merged_features.md): Compute per-hit_merged local waveform features from records-backed samples.
 - [`hit_threshold`](hit_threshold.md): Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
 - [`peaklet_channels`](peaklet_channels.md): Aggregate hit_merged_features into per-peaklet channel contribution rows.
 - [`peaklet_components`](peaklet_components.md): Return per-peaklet component hit_merged indices.
-- [`peaklets`](peaklets.md): Build cross-channel peaklets and compute pulse-level features.
+- [`peaklet_features`](peaklet_features.md): Compute peaklet waveform features from ragged signal pools.
+- [`peaklets`](peaklets.md): Build lightweight cross-channel peaklets from hit_merged intervals.
+- [`peaks`](peaks.md): Build final peaks table from peaklets and waveform-derived features.
 ### 事件分析
 
 - [`df_events`](df_events.md): Group events across channels within a configurable time window.

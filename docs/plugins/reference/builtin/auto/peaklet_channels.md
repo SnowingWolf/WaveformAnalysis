@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `peaklet_channels` |
-| **Version** | `0.1.0` |
+| **Version** | `1.0.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -20,6 +20,7 @@ This plugin depends on the following data:
 - [`peaklets`](peaklets.md)
 - [`peaklet_components`](peaklet_components.md)
 - [`hit_merged_features`](hit_merged_features.md)
+- [`peaklet_features`](peaklet_features.md)
 
 ## Configuration Options
 

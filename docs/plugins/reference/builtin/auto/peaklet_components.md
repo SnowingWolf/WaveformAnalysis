@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `peaklet_components` |
-| **Version** | `0.1.0` |
+| **Version** | `1.0.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -26,8 +26,7 @@ This plugin depends on the following data:
 |--------|------|---------|-------|-------------|
 | `time_window_ns` | `float` | `100.0` | - | 跨通道 peaklet 合并时间窗口 |
 | `max_total_width_ns` | `float` | `10000.0` | - | peaklet 最大总宽度 |
-| `use_filtered` | `bool` | `False` | - | 是否使用 wave_pool_filtered 计算特征 |
-| `dt` | `int` | `None` | - | 保留兼容配置；特征优先使用 records/hits 的 dt |
+| `dt` | `int` | `None` | - | 保留兼容配置；优先使用输入 hit_merged 的 dt |
 
 
 ## Output Schema
@@ -53,7 +52,7 @@ ctx.register(PeakletComponentsPlugin())
 ctx.set_config({
     "time_window_ns": 100.0,
     "max_total_width_ns": 10000.0,
-    "use_filtered": False,
+    "dt": None,
 }, plugin_name="peaklet_components")
 
 # Get data

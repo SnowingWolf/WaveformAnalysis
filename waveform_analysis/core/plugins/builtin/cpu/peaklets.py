@@ -1,13 +1,12 @@
-"""
-Peaklet Plugin - 跨通道局部脉冲候选构建与特征计算。
-"""
+"""Peaklet clustering, ragged waveforms, features, and final peaks."""
 
 from typing import Any
 
 import numpy as np
 
 from waveform_analysis.core.plugins.builtin.cpu._dt_compat import resolve_dt_config
-from waveform_analysis.core.plugins.core.base import Option
+from waveform_analysis.core.plugins.builtin.cpu._record_utils import RecordLookup
+from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.plugins.core.batch_processing import BatchProcessingPlugin
 from waveform_analysis.core.processing.chunk import Chunk
 
@@ -16,12 +15,6 @@ PEAKLET_DTYPE = np.dtype(
         ("time_start", "i8"),
         ("time_end", "i8"),
         ("center_time", "i8"),
-        ("max_time", "i8"),
-        ("area", "f4"),
-        ("height", "f4"),
-        ("width", "f4"),
-        ("rise_time", "f4"),
-        ("fall_time", "f4"),
         ("n_hits", "i4"),
         ("n_channels", "i4"),
         ("component_offset", "i8"),
@@ -36,6 +29,45 @@ PEAKLET_COMPONENTS_DTYPE = np.dtype(
     ]
 )
 
+PEAKLET_WAVEFORMS_DTYPE = np.dtype(
+    [
+        ("peaklet_index", "i8"),
+        ("time_start", "i8"),
+        ("time_end", "i8"),
+        ("dt", "i4"),
+        ("wave_offset", "i8"),
+        ("wave_length", "i4"),
+    ]
+)
+
+PEAKLET_FEATURES_DTYPE = np.dtype(
+    [
+        ("peaklet_index", "i8"),
+        ("max_time", "i8"),
+        ("area", "f4"),
+        ("height", "f4"),
+        ("width", "f4"),
+        ("rise_time", "f4"),
+        ("fall_time", "f4"),
+    ]
+)
+
+PEAKS_DTYPE = np.dtype(
+    [
+        ("time_start", "i8"),
+        ("time_end", "i8"),
+        ("center_time", "i8"),
+        ("max_time", "i8"),
+        ("area", "f4"),
+        ("height", "f4"),
+        ("width", "f4"),
+        ("rise_time", "f4"),
+        ("fall_time", "f4"),
+        ("n_hits", "i4"),
+        ("n_channels", "i4"),
+    ]
+)
+
 
 def _empty_peaklets() -> np.ndarray:
     return np.zeros(0, dtype=PEAKLET_DTYPE)
@@ -45,44 +77,80 @@ def _empty_components() -> np.ndarray:
     return np.zeros(0, dtype=PEAKLET_COMPONENTS_DTYPE)
 
 
+def _empty_waveforms() -> np.ndarray:
+    return np.zeros(0, dtype=PEAKLET_WAVEFORMS_DTYPE)
+
+
+def _empty_waveform_pool() -> np.ndarray:
+    return np.zeros(0, dtype=np.float32)
+
+
+def _empty_features() -> np.ndarray:
+    return np.zeros(0, dtype=PEAKLET_FEATURES_DTYPE)
+
+
+def _empty_peaks() -> np.ndarray:
+    return np.zeros(0, dtype=PEAKS_DTYPE)
+
+
 def _record_array(obj: Any) -> np.ndarray:
     if isinstance(obj, np.ndarray):
         return obj
     if hasattr(obj, "records"):
         return np.asarray(obj.records)
-    raise ValueError("peaklets expects records as a structured array or RecordsView-like object")
+    raise ValueError("peaklet waveform plugins expect records as a structured array")
 
 
 def _wave_pool_array(obj: Any) -> np.ndarray:
     if obj is None:
-        raise ValueError("peaklets requires wave_pool or wave_pool_filtered")
+        raise ValueError("peaklet waveform plugins require wave_pool or wave_pool_filtered")
     return np.asarray(obj)
 
 
-def _record_lookup(records: np.ndarray) -> dict[int, np.void]:
-    names = records.dtype.names or ()
-    if "record_id" in names:
-        return {int(rec["record_id"]): rec for rec in records}
-    return dict(enumerate(records))
+def _field_or_default(row: np.void, name: str, default: int) -> int:
+    return int(row[name]) if name in (row.dtype.names or ()) else int(default)
+
+
+def _record_polarity(record: np.void) -> str:
+    names = record.dtype.names or ()
+    if "polarity" not in names:
+        return "negative"
+    value = record["polarity"]
+    if isinstance(value, bytes):
+        value = value.decode(errors="ignore")
+    else:
+        value = str(value)
+    return value if value in {"positive", "negative"} else "negative"
+
+
+def _hit_sample_window(row: np.void) -> tuple[int, int]:
+    names = row.dtype.names or ()
+    if {"sample_start", "sample_end"}.issubset(names):
+        return int(row["sample_start"]), int(row["sample_end"])
+    if {"edge_start", "edge_end"}.issubset(names):
+        return int(row["edge_start"]), int(row["edge_end"])
+    raise KeyError("peaklet inputs require sample_start/sample_end or edge_start/edge_end")
+
+
+def _hit_abs_window(row: np.void) -> tuple[int, int]:
+    sample_start, sample_end = _hit_sample_window(row)
+    dt_ps = int(row["dt"]) * 1000
+    timestamp = _field_or_default(row, "timestamp", 0)
+    position = _field_or_default(row, "position", 0)
+    return (
+        timestamp + (sample_start - position) * dt_ps,
+        timestamp + (sample_end - position) * dt_ps,
+    )
 
 
 def _abs_window(rows: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    names = rows.dtype.names or ()
-    if {"sample_start", "sample_end"}.issubset(names):
-        start_name = "sample_start"
-        end_name = "sample_end"
-    elif {"edge_start", "edge_end"}.issubset(names):
-        start_name = "edge_start"
-        end_name = "edge_end"
-    else:
-        raise KeyError("peaklets input rows require sample_start/sample_end or edge_start/edge_end")
-
-    dt_ps = np.asarray(rows["dt"], dtype=np.float64) * 1e3
-    timestamps = np.asarray(rows["timestamp"], dtype=np.float64)
-    positions = np.asarray(rows["position"], dtype=np.float64)
-    starts = np.asarray(rows[start_name], dtype=np.float64)
-    ends = np.asarray(rows[end_name], dtype=np.float64)
-    return timestamps + (starts - positions) * dt_ps, timestamps + (ends - positions) * dt_ps
+    starts = np.zeros(len(rows), dtype=np.float64)
+    ends = np.zeros(len(rows), dtype=np.float64)
+    for i, row in enumerate(rows):
+        start, end = _hit_abs_window(row)
+        starts[i] = start
+        ends[i] = end
+    return starts, ends
 
 
 def _cluster_merged_hits(
@@ -99,8 +167,8 @@ def _cluster_merged_hits(
 
     abs_starts, abs_ends = _abs_window(merged)
     order = np.argsort(abs_starts, kind="mergesort")
-    gap_ps = time_window_ns * 1e3
-    max_width_ps = max_total_width_ns * 1e3
+    gap_ps = time_window_ns * 1000.0
+    max_width_ps = max_total_width_ns * 1000.0
 
     clusters: list[list[int]] = []
     current = [int(order[0])]
@@ -124,101 +192,61 @@ def _cluster_merged_hits(
     return clusters
 
 
-def _record_polarity(record: np.void) -> str:
-    names = record.dtype.names or ()
-    if "polarity" not in names:
-        return "negative"
-    value = str(record["polarity"])
-    return value if value in {"positive", "negative"} else "negative"
+def _components_by_peaklet(components: np.ndarray, n_peaklets: int) -> list[np.ndarray]:
+    out: list[list[int]] = [[] for _ in range(n_peaklets)]
+    for row in components:
+        peaklet_index = int(row["peaklet_index"])
+        if 0 <= peaklet_index < n_peaklets:
+            out[peaklet_index].append(int(row["merged_index"]))
+    return [np.asarray(rows, dtype=np.int64) for rows in out]
 
 
-def _compute_cluster_features(
-    merged_hits: np.ndarray,
-    feature_rows: np.ndarray,
-    records_by_id: dict[int, np.void],
+def _merged_wave_piece(
+    *,
+    hit: np.void,
+    records: np.ndarray,
+    record_lookup: RecordLookup,
     wave_pool: np.ndarray,
-) -> tuple[int, int, int, int, float, float, float, float, float, int, int]:
-    time_start = int(np.min(feature_rows["time_start"]))
-    time_end = int(np.max(feature_rows["time_end"]))
-    center_time = int((time_start + time_end) // 2)
-    width_ns = float((time_end - time_start) / 1e3)
+) -> tuple[int, int, int, np.ndarray]:
+    record = record_lookup.get(int(hit["record_id"]))
+    names = record.dtype.names or ()
+    start, end = _hit_sample_window(hit)
+    length = int(record["event_length"])
+    start = max(0, start)
+    end = min(length, end)
+    if end <= start:
+        return (
+            0,
+            0,
+            int(record["dt"]) if "dt" in names else int(hit["dt"]),
+            np.zeros(0, dtype=np.float32),
+        )
 
-    waveform_by_time: dict[int, float] = {}
-    channel_keys = {
-        (int(row["board"]), int(row["channel"])) for row in feature_rows if int(row["valid"]) != 0
-    }
-    area = float(np.sum(feature_rows["area"], dtype=np.float64))
-    n_hits = int(np.sum(feature_rows["n_hits"], dtype=np.int64))
-
-    for hit in merged_hits:
-        record_id = int(hit["record_id"])
-        if record_id not in records_by_id:
-            raise ValueError(f"peaklets could not resolve record_id={record_id}")
-        record = records_by_id[record_id]
-        names = record.dtype.names or ()
-        offset = int(record["wave_offset"])
-        length = int(record["event_length"])
-        baseline = float(record["baseline"]) if "baseline" in names else 0.0
-        dt_ns = int(record["dt"]) if "dt" in names else int(hit["dt"])
-        timestamp = int(record["timestamp"]) if "timestamp" in names else 0
-        edge_start = max(0, int(hit["sample_start"]))
-        edge_end = min(length, int(hit["sample_end"]))
-        if edge_end <= edge_start:
-            continue
-
-        raw = wave_pool[offset + edge_start : offset + edge_end].astype(np.float32, copy=False)
-        if _record_polarity(record) == "positive":
-            signal = raw - np.float32(baseline)
-        else:
-            signal = np.float32(baseline) - raw
-        signal = np.maximum(signal, 0.0)
-
-        for rel_idx, value in enumerate(signal.tolist()):
-            sample = edge_start + rel_idx
-            sample_time = int(timestamp + sample * dt_ns * 1000)
-            waveform_by_time[sample_time] = waveform_by_time.get(sample_time, 0.0) + float(value)
-
-    if waveform_by_time:
-        times = np.fromiter(waveform_by_time.keys(), dtype=np.int64)
-        values = np.fromiter(waveform_by_time.values(), dtype=np.float32)
-        max_idx = int(np.argmax(values))
-        max_time = int(times[max_idx])
-        height = float(values[max_idx])
-    else:
-        max_idx = int(np.argmax(feature_rows["height"]))
-        max_time = int(feature_rows[max_idx]["max_time"])
-        height = float(feature_rows[max_idx]["height"])
-
-    rise_time = float((max_time - time_start) / 1e3)
-    fall_time = float((time_end - max_time) / 1e3)
-    return (
-        time_start,
-        time_end,
-        center_time,
-        max_time,
-        float(area),
-        height,
-        width_ns,
-        rise_time,
-        fall_time,
-        n_hits,
-        int(len(channel_keys)),
+    dt_ns = int(record["dt"]) if "dt" in names else int(hit["dt"])
+    dt_ps = dt_ns * 1000
+    timestamp = (
+        int(record["timestamp"]) if "timestamp" in names else _field_or_default(hit, "timestamp", 0)
     )
+    time_start = timestamp + start * dt_ps
+    time_end = timestamp + end * dt_ps
+
+    offset = int(record["wave_offset"])
+    baseline = float(record["baseline"]) if "baseline" in names else 0.0
+    raw = wave_pool[offset + start : offset + end].astype(np.float32, copy=False)
+    if _record_polarity(record) == "positive":
+        signal = raw - np.float32(baseline)
+    else:
+        signal = np.float32(baseline) - raw
+    return time_start, time_end, dt_ns, np.maximum(signal, 0.0).astype(np.float32, copy=False)
 
 
 class PeakletPlugin(BatchProcessingPlugin):
-    """Build cross-channel local pulse candidates from merged hit intervals."""
+    """Build lightweight cross-channel peaklet candidates from hit_merged rows."""
 
     provides = "peaklets"
-    depends_on = [
-        "hit_merged",
-        "hit_merged_components",
-        "hit_merged_features",
-        "records",
-        "wave_pool",
-    ]
-    description = "Build cross-channel peaklets and compute pulse-level features."
-    version = "0.2.0"
+    depends_on = ["hit_merged"]
+    description = "Build lightweight cross-channel peaklets from hit_merged intervals."
+    version = "1.0.0"
     output_dtype = PEAKLET_DTYPE
     save_when = "always"
     parallel = False
@@ -226,19 +254,8 @@ class PeakletPlugin(BatchProcessingPlugin):
     options = {
         "time_window_ns": Option(default=100.0, type=float, help="跨通道 peaklet 合并时间窗口"),
         "max_total_width_ns": Option(default=10000.0, type=float, help="peaklet 最大总宽度"),
-        "use_filtered": Option(
-            default=False, type=bool, help="是否使用 wave_pool_filtered 计算特征"
-        ),
-        "dt": Option(default=None, type=int, help="保留兼容配置；特征优先使用 records/hits 的 dt"),
+        "dt": Option(default=None, type=int, help="保留兼容配置；优先使用输入 hit_merged 的 dt"),
     }
-
-    def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
-        deps = ["hit_merged", "hit_merged_components", "hit_merged_features", "records"]
-        if bool(context.get_config(self, "use_filtered")):
-            deps.append("wave_pool_filtered")
-        else:
-            deps.append("wave_pool")
-        return deps
 
     def compute(self, context: Any, run_id: str, **kwargs) -> np.ndarray:
         return self.compute_array(context, run_id, **kwargs)
@@ -250,94 +267,62 @@ class PeakletPlugin(BatchProcessingPlugin):
         if len(merged) == 0:
             return _empty_peaklets()
 
-        component_rows = context.get_data(run_id, "hit_merged_components")
-        if component_rows is not None and not isinstance(component_rows, np.ndarray):
-            raise ValueError("peaklets expects hit_merged_components as a structured array")
-
-        feature_rows = context.get_data(run_id, "hit_merged_features")
-        if not isinstance(feature_rows, np.ndarray):
-            raise ValueError("peaklets expects hit_merged_features as a structured array")
-
-        records = _record_array(context.get_data(run_id, "records"))
-        wave_pool_name = (
-            "wave_pool_filtered" if bool(context.get_config(self, "use_filtered")) else "wave_pool"
-        )
-        wave_pool = _wave_pool_array(context.get_data(run_id, wave_pool_name))
-
-        return self._compute_peaklets(
-            merged=merged,
-            component_rows=component_rows,
-            feature_rows=feature_rows,
-            records=records,
-            wave_pool=wave_pool,
-            context=context,
-            run_id=run_id,
-        )
+        return self._compute_peaklets(merged=merged, context=context)
 
     def compute_chunk(self, chunk: Chunk, context: Any, run_id: str, **kwargs) -> Chunk:
-        data = chunk.data
-        context_data = getattr(context, "_data", {})
-        local_context = context
-        if isinstance(context_data, dict):
-            old = context_data.get("hit_merged")
-            context_data["hit_merged"] = data
-            try:
-                peaklets = self.compute_array(local_context, run_id, **kwargs)
-            finally:
-                if old is None:
-                    context_data.pop("hit_merged", None)
-                else:
-                    context_data["hit_merged"] = old
-        else:
-            peaklets = _empty_peaklets()
+        peaklets = self._compute_peaklets(merged=chunk.data, context=context)
         return Chunk(
-            data=peaklets, start=chunk.start, end=chunk.end, run_id=run_id, data_type=self.provides
+            data=peaklets,
+            start=chunk.start,
+            end=chunk.end,
+            run_id=run_id,
+            data_type=self.provides,
         )
 
-    def _compute_peaklets(
-        self,
-        *,
-        merged: np.ndarray,
-        component_rows: np.ndarray | None,
-        feature_rows: np.ndarray,
-        records: np.ndarray,
-        wave_pool: np.ndarray,
-        context: Any,
-        run_id: str,
-    ) -> np.ndarray:
+    def _compute_peaklets(self, *, merged: np.ndarray, context: Any) -> np.ndarray:
         time_window_ns = float(context.get_config(self, "time_window_ns"))
         max_total_width_ns = float(context.get_config(self, "max_total_width_ns"))
         resolve_dt_config(context, self, deprecated_keys=("sampling_interval_ns", "dt_ns"))
-
         clusters = _cluster_merged_hits(
             merged,
             time_window_ns=time_window_ns,
             max_total_width_ns=max_total_width_ns,
         )
-        records_by_id = _record_lookup(records)
 
-        rows: list[tuple] = []
+        rows: list[tuple[int, int, int, int, int, int, int]] = []
         component_offset = 0
         for cluster in clusters:
             cluster_indices = np.asarray(cluster, dtype=np.int64)
-            cluster_features = feature_rows[np.isin(feature_rows["merged_index"], cluster_indices)]
-            if len(cluster_features) == 0:
-                raise ValueError(
-                    "peaklets could not resolve hit_merged_features for cluster containing "
-                    f"merged indices {cluster}"
+            cluster_rows = merged[cluster_indices]
+            starts, ends = _abs_window(cluster_rows)
+            time_start = int(np.min(starts))
+            time_end = int(np.max(ends))
+            channels = {
+                (
+                    int(row["board"]) if "board" in (row.dtype.names or ()) else 0,
+                    int(row["channel"]),
                 )
-            features = _compute_cluster_features(
-                merged[cluster_indices],
-                cluster_features,
-                records_by_id,
-                wave_pool,
+                for row in cluster_rows
+            }
+            n_hits = (
+                int(np.sum(cluster_rows["component_count"], dtype=np.int64))
+                if "component_count" in (merged.dtype.names or ())
+                else len(cluster)
             )
-            rows.append((*features, component_offset, len(cluster)))
+            rows.append(
+                (
+                    time_start,
+                    time_end,
+                    int((time_start + time_end) // 2),
+                    n_hits,
+                    len(channels),
+                    component_offset,
+                    len(cluster),
+                )
+            )
             component_offset += len(cluster)
 
-        if rows:
-            return np.array(rows, dtype=PEAKLET_DTYPE)
-        return _empty_peaklets()
+        return np.array(rows, dtype=PEAKLET_DTYPE) if rows else _empty_peaklets()
 
 
 class PeakletComponentsPlugin(BatchProcessingPlugin):
@@ -346,7 +331,7 @@ class PeakletComponentsPlugin(BatchProcessingPlugin):
     provides = "peaklet_components"
     depends_on = ["peaklets", "hit_merged"]
     description = "Return per-peaklet component hit_merged indices."
-    version = "0.1.0"
+    version = "1.0.0"
     output_dtype = PEAKLET_COMPONENTS_DTYPE
     save_when = "always"
     parallel = False
@@ -373,9 +358,7 @@ class PeakletComponentsPlugin(BatchProcessingPlugin):
         rows: list[tuple[int, int]] = []
         for peaklet_index, cluster in enumerate(clusters):
             rows.extend((peaklet_index, merged_index) for merged_index in cluster)
-        if rows:
-            return np.array(rows, dtype=PEAKLET_COMPONENTS_DTYPE)
-        return _empty_components()
+        return np.array(rows, dtype=PEAKLET_COMPONENTS_DTYPE) if rows else _empty_components()
 
     def compute_chunk(self, chunk: Chunk, context: Any, run_id: str, **kwargs) -> Chunk:
         components = self.compute_array(context, run_id, **kwargs)
@@ -388,9 +371,276 @@ class PeakletComponentsPlugin(BatchProcessingPlugin):
         )
 
 
+class PeakletWaveformPlugin(Plugin):
+    """Build ragged waveform index rows for peaklets and cache the signal pool."""
+
+    provides = "peaklet_waveforms"
+    depends_on = ["peaklets", "peaklet_components", "hit_merged", "records", "wave_pool"]
+    description = "Build peaklet waveform index rows from records-backed hit_merged samples."
+    version = "1.0.0"
+    output_dtype = PEAKLET_WAVEFORMS_DTYPE
+    save_when = "always"
+
+    options = {
+        "use_filtered": Option(
+            default=False, type=bool, help="是否使用 wave_pool_filtered 构建 peaklet 波形"
+        ),
+    }
+
+    def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
+        deps = ["peaklets", "peaklet_components", "hit_merged", "records"]
+        deps.append(
+            "wave_pool_filtered" if bool(context.get_config(self, "use_filtered")) else "wave_pool"
+        )
+        return deps
+
+    def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
+        waveforms, pool = self._compute_waveforms_and_pool(context, run_id)
+        self._store_pool(context, run_id, pool)
+        return waveforms
+
+    def _store_pool(self, context: Any, run_id: str, pool: np.ndarray) -> None:
+        data = getattr(context, "_data", None)
+        if isinstance(data, dict):
+            data["peaklet_waveform_pool"] = pool
+
+    def _compute_waveforms_and_pool(
+        self, context: Any, run_id: str
+    ) -> tuple[np.ndarray, np.ndarray]:
+        peaklets = context.get_data(run_id, "peaklets")
+        if not isinstance(peaklets, np.ndarray):
+            raise ValueError("peaklet_waveforms expects peaklets as a structured array")
+        if len(peaklets) == 0:
+            return _empty_waveforms(), _empty_waveform_pool()
+
+        components = context.get_data(run_id, "peaklet_components")
+        if not isinstance(components, np.ndarray):
+            raise ValueError("peaklet_waveforms expects peaklet_components as a structured array")
+        merged = context.get_data(run_id, "hit_merged")
+        if not isinstance(merged, np.ndarray):
+            raise ValueError("peaklet_waveforms expects hit_merged as a structured array")
+        records = _record_array(context.get_data(run_id, "records"))
+        wave_pool_name = (
+            "wave_pool_filtered" if bool(context.get_config(self, "use_filtered")) else "wave_pool"
+        )
+        wave_pool = _wave_pool_array(context.get_data(run_id, wave_pool_name))
+
+        return self._build(
+            peaklets=peaklets,
+            components=components,
+            merged=merged,
+            records=records,
+            wave_pool=wave_pool,
+        )
+
+    def _build(
+        self,
+        *,
+        peaklets: np.ndarray,
+        components: np.ndarray,
+        merged: np.ndarray,
+        records: np.ndarray,
+        wave_pool: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        record_lookup = RecordLookup(records)
+        component_groups = _components_by_peaklet(components, len(peaklets))
+        rows: list[tuple[int, int, int, int, int, int]] = []
+        pools: list[np.ndarray] = []
+        wave_offset = 0
+
+        for peaklet_index, merged_indices in enumerate(component_groups):
+            if len(merged_indices) == 0:
+                rows.append((peaklet_index, 0, 0, 0, wave_offset, 0))
+                continue
+
+            pieces: list[tuple[int, int, np.ndarray]] = []
+            dt_ns: int | None = None
+            time_start: int | None = None
+            time_end: int | None = None
+
+            for merged_index in merged_indices:
+                hit = merged[int(merged_index)]
+                start, end, piece_dt_ns, signal = _merged_wave_piece(
+                    hit=hit,
+                    records=records,
+                    record_lookup=record_lookup,
+                    wave_pool=wave_pool,
+                )
+                if len(signal) == 0:
+                    continue
+                if dt_ns is None:
+                    dt_ns = piece_dt_ns
+                elif piece_dt_ns != dt_ns:
+                    raise ValueError(
+                        f"peaklet_waveforms does not support mixed dt in peaklet_index={peaklet_index}"
+                    )
+                pieces.append((start, end, signal))
+                time_start = start if time_start is None else min(time_start, start)
+                time_end = end if time_end is None else max(time_end, end)
+
+            if not pieces or dt_ns is None or time_start is None or time_end is None:
+                rows.append((peaklet_index, 0, 0, 0, wave_offset, 0))
+                continue
+
+            dt_ps = dt_ns * 1000
+            wave_length = int((time_end - time_start) // dt_ps)
+            summed = np.zeros(wave_length, dtype=np.float32)
+            for start, _end, signal in pieces:
+                i0 = int((start - time_start) // dt_ps)
+                summed[i0 : i0 + len(signal)] += signal
+
+            rows.append((peaklet_index, time_start, time_end, dt_ns, wave_offset, wave_length))
+            pools.append(summed)
+            wave_offset += wave_length
+
+        pool = (
+            np.concatenate(pools).astype(np.float32, copy=False)
+            if pools
+            else _empty_waveform_pool()
+        )
+        return np.array(rows, dtype=PEAKLET_WAVEFORMS_DTYPE) if rows else _empty_waveforms(), pool
+
+
+class PeakletWaveformPoolPlugin(Plugin):
+    """Return the flattened peaklet waveform signal pool."""
+
+    provides = "peaklet_waveform_pool"
+    depends_on = ["peaklets", "peaklet_components", "hit_merged", "records", "wave_pool"]
+    description = "Return flattened float32 peaklet waveform signal pool."
+    version = "1.0.0"
+    output_dtype = np.dtype("f4")
+    save_when = "always"
+
+    options = PeakletWaveformPlugin.options
+
+    def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
+        return PeakletWaveformPlugin().resolve_depends_on(context, run_id)
+
+    def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
+        data = getattr(context, "_data", None)
+        if isinstance(data, dict) and "peaklet_waveform_pool" in data:
+            return np.asarray(data["peaklet_waveform_pool"], dtype=np.float32)
+        waveforms, pool = PeakletWaveformPlugin()._compute_waveforms_and_pool(context, run_id)
+        if isinstance(data, dict):
+            data["peaklet_waveforms"] = waveforms
+            data["peaklet_waveform_pool"] = pool
+        return pool
+
+
+class PeakletFeaturesPlugin(Plugin):
+    """Compute waveform-derived features from ragged peaklet waveforms."""
+
+    provides = "peaklet_features"
+    depends_on = ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
+    description = "Compute peaklet waveform features from ragged signal pools."
+    version = "1.0.0"
+    output_dtype = PEAKLET_FEATURES_DTYPE
+    save_when = "always"
+
+    def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
+        waveforms = context.get_data(run_id, "peaklet_waveforms")
+        if not isinstance(waveforms, np.ndarray):
+            raise ValueError("peaklet_features expects peaklet_waveforms as a structured array")
+        if len(waveforms) == 0:
+            return _empty_features()
+        pool = context.get_data(run_id, "peaklet_waveform_pool")
+        if not isinstance(pool, np.ndarray):
+            raise ValueError("peaklet_features expects peaklet_waveform_pool as a numpy array")
+        peaklets = context.get_data(run_id, "peaklets")
+        if not isinstance(peaklets, np.ndarray):
+            raise ValueError("peaklet_features expects peaklets as a structured array")
+
+        rows: list[tuple[int, int, float, float, float, float, float]] = []
+        for row in waveforms:
+            peaklet_index = int(row["peaklet_index"])
+            offset = int(row["wave_offset"])
+            length = int(row["wave_length"])
+            time_start = int(row["time_start"])
+            time_end = int(row["time_end"])
+            dt_ns = int(row["dt"])
+            if length <= 0:
+                rows.append((peaklet_index, time_start, 0.0, 0.0, 0.0, 0.0, 0.0))
+                continue
+            wave = pool[offset : offset + length].astype(np.float32, copy=False)
+            if len(wave) != length:
+                raise ValueError("peaklet_features found out-of-bounds waveform slice")
+            max_idx = int(np.argmax(wave))
+            max_time = int(time_start + max_idx * dt_ns * 1000)
+            area = float(np.sum(wave, dtype=np.float64))
+            height = float(wave[max_idx])
+            width = float((time_end - time_start) / 1000.0)
+            rows.append(
+                (
+                    peaklet_index,
+                    max_time,
+                    area,
+                    height,
+                    width,
+                    float((max_time - time_start) / 1000.0),
+                    float((time_end - max_time) / 1000.0),
+                )
+            )
+
+        return np.array(rows, dtype=PEAKLET_FEATURES_DTYPE) if rows else _empty_features()
+
+
+class PeaksPlugin(Plugin):
+    """Build the final user-facing peaks table from peaklet metadata and features."""
+
+    provides = "peaks"
+    depends_on = ["peaklets", "peaklet_features", "peaklet_channels"]
+    description = "Build final peaks table from peaklets and waveform-derived features."
+    version = "1.0.0"
+    output_dtype = PEAKS_DTYPE
+    save_when = "always"
+
+    def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
+        peaklets = context.get_data(run_id, "peaklets")
+        if not isinstance(peaklets, np.ndarray):
+            raise ValueError("peaks expects peaklets as a structured array")
+        if len(peaklets) == 0:
+            return _empty_peaks()
+        features = context.get_data(run_id, "peaklet_features")
+        if not isinstance(features, np.ndarray):
+            raise ValueError("peaks expects peaklet_features as a structured array")
+
+        features_by_peaklet = {int(row["peaklet_index"]): row for row in features}
+        rows: list[tuple] = []
+        for peaklet_index, peaklet in enumerate(peaklets):
+            feature = features_by_peaklet.get(peaklet_index)
+            if feature is None:
+                raise ValueError(
+                    f"peaks could not resolve peaklet_features for peaklet_index={peaklet_index}"
+                )
+            rows.append(
+                (
+                    int(peaklet["time_start"]),
+                    int(peaklet["time_end"]),
+                    int(peaklet["center_time"]),
+                    int(feature["max_time"]),
+                    float(feature["area"]),
+                    float(feature["height"]),
+                    float(feature["width"]),
+                    float(feature["rise_time"]),
+                    float(feature["fall_time"]),
+                    int(peaklet["n_hits"]),
+                    int(peaklet["n_channels"]),
+                )
+            )
+
+        return np.array(rows, dtype=PEAKS_DTYPE) if rows else _empty_peaks()
+
+
 __all__ = [
     "PEAKLET_COMPONENTS_DTYPE",
     "PEAKLET_DTYPE",
+    "PEAKLET_FEATURES_DTYPE",
+    "PEAKLET_WAVEFORMS_DTYPE",
+    "PEAKS_DTYPE",
     "PeakletComponentsPlugin",
+    "PeakletFeaturesPlugin",
     "PeakletPlugin",
+    "PeakletWaveformPlugin",
+    "PeakletWaveformPoolPlugin",
+    "PeaksPlugin",
 ]

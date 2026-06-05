@@ -11,11 +11,17 @@ from waveform_analysis.core.plugins.builtin.cpu.peaklet_channels import (
 from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PEAKLET_COMPONENTS_DTYPE,
     PEAKLET_DTYPE,
+    PEAKLET_FEATURES_DTYPE,
 )
 
 
 def _peaklets(areas):
-    out = np.zeros(len(areas), dtype=PEAKLET_DTYPE)
+    return np.zeros(len(areas), dtype=PEAKLET_DTYPE)
+
+
+def _peaklet_features(areas):
+    out = np.zeros(len(areas), dtype=PEAKLET_FEATURES_DTYPE)
+    out["peaklet_index"] = np.arange(len(areas), dtype=np.int64)
     out["area"] = np.asarray(areas, dtype=np.float32)
     return out
 
@@ -41,13 +47,14 @@ def _features(rows):
     return out
 
 
-def _ctx(peaklets, components, features):
+def _ctx(peaklets, components, features, peaklet_features):
     return DummyContext(
         {},
         {
             "peaklets": peaklets,
             "peaklet_components": components,
             "hit_merged_features": features,
+            "peaklet_features": peaklet_features,
         },
     )
 
@@ -62,6 +69,7 @@ def test_peaklet_channels_single_peaklet_multiple_channels():
                 {"merged_index": 1, "channel": 1, "area": 40.0, "height": 25.0, "n_hits": 1},
             ]
         ),
+        _peaklet_features([100.0]),
     )
 
     out = PeakletChannelsPlugin().compute(ctx, "run_001")
@@ -85,6 +93,7 @@ def test_peaklet_channels_aggregates_multiple_rows_for_same_channel():
                 {"merged_index": 1, "channel": 3, "area": 30.0, "height": 11.0, "n_hits": 2},
             ]
         ),
+        _peaklet_features([50.0]),
     )
 
     out = PeakletChannelsPlugin().compute(ctx, "run_001")
@@ -106,6 +115,7 @@ def test_peaklet_channels_zero_peaklet_area_writes_zero_fraction():
                 {"merged_index": 0, "channel": 0, "area": 5.0, "height": 2.0, "n_hits": 1},
             ]
         ),
+        _peaklet_features([0.0]),
     )
 
     out = PeakletChannelsPlugin().compute(ctx, "run_001")

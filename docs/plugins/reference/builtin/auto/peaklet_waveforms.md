@@ -1,14 +1,14 @@
-# PeakletPlugin
+# PeakletWaveformPlugin
 
-> Build lightweight cross-channel peaklets from hit_merged intervals.
+> Build peaklet waveform index rows from records-backed hit_merged samples.
 
 ## Overview
 
 | Property | Value |
 |----------|-------|
-| **Provides** | `peaklets` |
+| **Provides** | `peaklet_waveforms` |
 | **Version** | `1.0.0` |
-| **Category** | 特征提取 |
+| **Category** | 波形处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
 | **Side Effect** | No |
@@ -17,15 +17,17 @@
 
 This plugin depends on the following data:
 
+- [`peaklets`](peaklets.md)
+- [`peaklet_components`](peaklet_components.md)
 - [`hit_merged`](hit_merged.md)
+- [`records`](records.md)
+- [`wave_pool`](wave_pool.md)
 
 ## Configuration Options
 
 | Option | Type | Default | Units | Description |
 |--------|------|---------|-------|-------------|
-| `time_window_ns` | `float` | `100.0` | - | 跨通道 peaklet 合并时间窗口 |
-| `max_total_width_ns` | `float` | `10000.0` | - | peaklet 最大总宽度 |
-| `dt` | `int` | `None` | - | 保留兼容配置；优先使用输入 hit_merged 的 dt |
+| `use_filtered` | `bool` | `False` | - | 是否使用 wave_pool_filtered 构建 peaklet 波形 |
 
 
 ## Output Schema
@@ -34,33 +36,30 @@ This plugin depends on the following data:
 
 | Field | Type | Units | Description |
 |-------|------|-------|-------------|
+| `peaklet_index` | `int64` | - | - |
 | `time_start` | `int64` | - | - |
 | `time_end` | `int64` | - | - |
-| `center_time` | `int64` | - | - |
-| `n_hits` | `int32` | - | - |
-| `n_channels` | `int32` | - | - |
-| `component_offset` | `int64` | - | - |
-| `component_count` | `int32` | - | - |
+| `dt` | `int32` | - | - |
+| `wave_offset` | `int64` | - | - |
+| `wave_length` | `int32` | - | - |
 
 ## Usage Example
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import PeakletPlugin
+from waveform_analysis.core.plugins.builtin.cpu import PeakletWaveformPlugin
 
 # Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
-ctx.register(PeakletPlugin())
+ctx.register(PeakletWaveformPlugin())
 
 # Configure plugin (optional)
 ctx.set_config({
-    "time_window_ns": 100.0,
-    "max_total_width_ns": 10000.0,
-    "dt": None,
-}, plugin_name="peaklets")
+    "use_filtered": False,
+}, plugin_name="peaklet_waveforms")
 
 # Get data
-data = ctx.get_data("run_001", "peaklets")
+data = ctx.get_data("run_001", "peaklet_waveforms")
 ```
 
 ## Module

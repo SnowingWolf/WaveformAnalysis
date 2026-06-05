@@ -1,4 +1,4 @@
-# peaklets (PeakletPlugin)
+# peaklet_features (PeakletFeaturesPlugin)
 
 > Agent-first 插件契约文档。面向自动化执行与改动评估。
 
@@ -6,8 +6,8 @@
 
 | Item | Value |
 |------|-------|
-| Provides | `peaklets` |
-| Depends On | `hit_merged` |
+| Provides | `peaklet_features` |
+| Depends On | `peaklet_waveforms`, `peaklet_waveform_pool`, `peaklets` |
 | Output Kind | `structured_array` |
 | Version | `1.0.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.peaklets` |
@@ -15,32 +15,30 @@
 
 ## Inputs
 
-- `hit_merged`
+- `peaklet_waveforms`
+- `peaklet_waveform_pool`
+- `peaklets`
 
 ## Outputs
 
 | Field | DType | Meaning |
 |-------|-------|---------|
-| `time_start` | `int64` | - |
-| `time_end` | `int64` | - |
-| `center_time` | `int64` | - |
-| `n_hits` | `int32` | - |
-| `n_channels` | `int32` | - |
-| `component_offset` | `int64` | - |
-| `component_count` | `int32` | - |
+| `peaklet_index` | `int64` | - |
+| `max_time` | `int64` | - |
+| `area` | `float32` | - |
+| `height` | `float32` | - |
+| `width` | `float32` | - |
+| `rise_time` | `float32` | - |
+| `fall_time` | `float32` | - |
 
 ## Config
 
-| Name | Type | Default | Note |
-|------|------|---------|------|
-| `time_window_ns` | `float` | `100.0` | 跨通道 peaklet 合并时间窗口 |
-| `max_total_width_ns` | `float` | `10000.0` | peaklet 最大总宽度 |
-| `dt` | `int` | `None` | 保留兼容配置；优先使用输入 hit_merged 的 dt |
+- 无可配置项
 
 ## Execution Path
 
-`peaklets` 依赖链入口：
-`hit_merged -> peaklets`
+`peaklet_features` 依赖链入口：
+`peaklet_waveforms -> peaklet_waveform_pool -> peaklets -> peaklet_features`
 
 ## Failure Modes
 
@@ -58,7 +56,7 @@
 
 ```bash
 # 单插件文档再生成
-waveform-docs generate plugins-agent --plugin peaklets
+waveform-docs generate plugins-agent --plugin peaklet_features
 
 # 覆盖率检查
 waveform-docs check coverage --strict
