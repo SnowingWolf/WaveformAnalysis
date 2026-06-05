@@ -623,7 +623,7 @@ class HitMergePlugin(BatchProcessingPlugin):
             "dt": "Compatibility fallback sampling interval in ns, used only when `hit_threshold` lacks a `dt` field.",
         },
         "cluster_contract": [
-            "`hit_merged` computes canonical cluster membership from its own config; `hit_merge_clusters` is an independent diagnostic/export product.",
+            "`hit_merged` computes canonical cluster membership from its own config; `hit_merge_clusters` exports the same membership rows for diagnostics and inspection.",
             "Rows consumed by one `hit_merged` row must be contiguous in the canonical membership order.",
             "`cluster_index` values must be sorted, contiguous, and gap-free from `0` to `len(hit_merged) - 1`.",
             "`component_offset` and `component_count` point back into the exact membership slice used by `hit_merged_components`.",
@@ -701,13 +701,11 @@ class HitMergeClustersPlugin(Plugin):
     """Internal flat cluster membership for hit merge outputs."""
 
     provides = "hit_merge_clusters"
-    depends_on = ["hit_threshold"]
-    description = "Export hit-threshold cluster membership rows for diagnostics and inspection."
-    version = "1.0.1"
+    depends_on = ["hit_merged", "hit_threshold"]
+    description = "Export cluster membership rows using the authoritative hit_merged configuration."
+    version = "1.1.0"
     save_when = "always"
     output_dtype = HIT_MERGE_CLUSTERS_DTYPE
-
-    options = HitMergePlugin.options
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         from waveform_analysis.core.processing.time_utils import get_pre_trigger_offset_ps
@@ -720,20 +718,12 @@ class HitMergeClustersPlugin(Plugin):
         if len(hits) == 0:
             return np.zeros(0, dtype=HIT_MERGE_CLUSTERS_DTYPE)
 
-        merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(context, self)
         pre_trigger_ps = get_pre_trigger_offset_ps(context)
-
-        if merge_gap_ns <= 0:
-            return _hits_to_cluster_rows_fast(hits)
-
-        return _compute_cluster_rows(
-            hits,
-            merge_gap_ns=merge_gap_ns,
-            max_total_width_ns=max_total_width_ns,
-            explicit_dt=explicit_dt,
-            plugin_name=self.provides,
-            pre_trigger_ps=pre_trigger_ps,
+        merge_plugin = context.get_plugin("hit_merged")
+        cluster_rows, _explicit_dt, _merge_disabled = _compute_canonical_cluster_rows(
+            hits, context, merge_plugin, pre_trigger_ps
         )
+        return cluster_rows
 
 
 class HitMergedComponentsPlugin(Plugin):

@@ -51,7 +51,7 @@
 
 ## Cluster Contract
 
-- `hit_merged` computes canonical cluster membership from its own config; `hit_merge_clusters` is an independent diagnostic/export product.
+- `hit_merged` computes canonical cluster membership from its own config; `hit_merge_clusters` exports the same membership rows for diagnostics and inspection.
 - Rows consumed by one `hit_merged` row must be contiguous in the canonical membership order.
 - `cluster_index` values must be sorted, contiguous, and gap-free from `0` to `len(hit_merged) - 1`.
 - `component_offset` and `component_count` point back into the exact membership slice used by `hit_merged_components`.

@@ -250,20 +250,48 @@ def test_hit_merge_ignores_stale_cluster_rows_and_uses_own_config():
 
 def test_hit_merge_clusters_disabled_when_gap_non_positive_maps_hits_one_to_one():
     plugin = HitMergeClustersPlugin()
+    merge_plugin = HitMergePlugin()
 
     h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
     h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 110_000, 0, 1)
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
 
-    ctx = DummyContext(
-        {"merge_gap_ns": 0.0, "max_total_width_ns": 10000.0, "dt": 2},
+    ctx = FakeContext(
+        {"hit_merged": {"merge_gap_ns": 0.0, "max_total_width_ns": 10000.0, "dt": 2}},
         {"hit_threshold": hits},
+        plugins={"hit_merged": merge_plugin},
     )
 
     out = plugin.compute(ctx, "run_001")
 
     assert out.dtype == HIT_MERGE_CLUSTERS_DTYPE
     np.testing.assert_array_equal(out["cluster_index"], np.array([0, 1], dtype=np.int64))
+    np.testing.assert_array_equal(out["hit_index"], np.array([0, 1], dtype=np.int64))
+
+
+def test_hit_merge_clusters_uses_hit_merged_config_namespace():
+    plugin = HitMergeClustersPlugin()
+    merge_plugin = HitMergePlugin()
+
+    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
+    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 1)
+    hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
+    ctx = FakeContext(
+        {
+            "hit_merged": {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0, "dt": 2},
+            "hit_merge_clusters": {
+                "merge_gap_ns": 0.0,
+                "max_total_width_ns": 10000.0,
+                "dt": 2,
+            },
+        },
+        {"hit_threshold": hits},
+        plugins={"hit_merged": merge_plugin},
+    )
+
+    out = plugin.compute(ctx, "run_001")
+
+    np.testing.assert_array_equal(out["cluster_index"], np.array([0, 0], dtype=np.int64))
     np.testing.assert_array_equal(out["hit_index"], np.array([0, 1], dtype=np.int64))
 
 
@@ -288,6 +316,7 @@ def test_hit_merge_uses_int64_ps_for_large_timestamps_and_small_gaps():
 
 def test_hit_merge_clusters_numba_path_returns_contiguous_cluster_rows():
     plugin = HitMergeClustersPlugin()
+    merge_plugin = HitMergePlugin()
     hits = np.array(
         [
             _make_hit(
@@ -307,9 +336,10 @@ def test_hit_merge_clusters_numba_path_returns_contiguous_cluster_rows():
     )
 
     out = plugin.compute(
-        DummyContext(
-            {"merge_gap_ns": 5.0, "max_total_width_ns": 10000.0},
+        FakeContext(
+            {"hit_merged": {"merge_gap_ns": 5.0, "max_total_width_ns": 10000.0}},
             {"hit_threshold": hits},
+            plugins={"hit_merged": merge_plugin},
         ),
         "run_001",
     )
@@ -321,6 +351,7 @@ def test_hit_merge_clusters_numba_path_returns_contiguous_cluster_rows():
 
 def test_hit_merge_clusters_keeps_contiguous_cluster_offsets_across_channels():
     plugin = HitMergeClustersPlugin()
+    merge_plugin = HitMergePlugin()
     hits = np.array(
         [
             _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0),
@@ -332,9 +363,10 @@ def test_hit_merge_clusters_keeps_contiguous_cluster_offsets_across_channels():
     )
 
     out = plugin.compute(
-        DummyContext(
-            {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0, "dt": 2},
+        FakeContext(
+            {"hit_merged": {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0, "dt": 2}},
             {"hit_threshold": hits},
+            plugins={"hit_merged": merge_plugin},
         ),
         "run_001",
     )
@@ -484,13 +516,15 @@ def test_hit_merged_components_validate_components_checks_consistency():
 
 def test_hit_merge_clusters_materializes_hit_threshold_chunk_stream():
     plugin = HitMergeClustersPlugin()
+    merge_plugin = HitMergePlugin()
     h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
     h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 1)
     h3 = _make_hit(10, 22.0, 31.0, 8.0, 12.0, 200_000, 0, 2)
     hits = np.array([h1, h2, h3], dtype=THRESHOLD_HIT_DTYPE)
-    ctx = DummyContext(
-        {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0, "dt": 2},
+    ctx = FakeContext(
+        {"hit_merged": {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0, "dt": 2}},
         {"hit_threshold": _chunk_stream(hits[:2], hits[2:])},
+        plugins={"hit_merged": merge_plugin},
     )
 
     out = plugin.compute(ctx, "run_001")
@@ -501,6 +535,7 @@ def test_hit_merge_clusters_materializes_hit_threshold_chunk_stream():
 
 def test_hit_merge_clusters_materializes_many_hit_threshold_chunks():
     plugin = HitMergeClustersPlugin()
+    merge_plugin = HitMergePlugin()
     hits = np.array(
         [
             _make_hit(
@@ -517,9 +552,10 @@ def test_hit_merge_clusters_materializes_many_hit_threshold_chunks():
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
-    ctx = DummyContext(
-        {"merge_gap_ns": 0.0, "max_total_width_ns": 10000.0, "dt": 2},
+    ctx = FakeContext(
+        {"hit_merged": {"merge_gap_ns": 0.0, "max_total_width_ns": 10000.0, "dt": 2}},
         {"hit_threshold": _chunk_stream(*[hits[idx : idx + 1] for idx in range(len(hits))])},
+        plugins={"hit_merged": merge_plugin},
     )
 
     out = plugin.compute(ctx, "run_001")
@@ -536,7 +572,14 @@ def test_hit_merge_materializes_upstream_array_outputs():
     h3 = _make_hit(10, 22.0, 31.0, 8.0, 12.0, 200_000, 0, 2)
     hits = np.array([h1, h2, h3], dtype=THRESHOLD_HIT_DTYPE)
     config = {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0, "dt": 2}
-    cluster_rows = cluster_plugin.compute(DummyContext(config, {"hit_threshold": hits}), "run_001")
+    cluster_rows = cluster_plugin.compute(
+        FakeContext(
+            {"hit_merged": config},
+            {"hit_threshold": hits},
+            plugins={"hit_merged": merge_plugin},
+        ),
+        "run_001",
+    )
     ctx = DummyContext(
         config,
         {
@@ -561,7 +604,14 @@ def test_hit_merged_components_materializes_upstream_array_outputs():
     h3 = _make_hit(10, 22.0, 31.0, 8.0, 12.0, 200_000, 0, 2)
     hits = np.array([h1, h2, h3], dtype=THRESHOLD_HIT_DTYPE)
     config = {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0, "dt": 2}
-    cluster_rows = cluster_plugin.compute(DummyContext(config, {"hit_threshold": hits}), "run_001")
+    cluster_rows = cluster_plugin.compute(
+        FakeContext(
+            {"hit_merged": config},
+            {"hit_threshold": hits},
+            plugins={"hit_merged": merge_plugin},
+        ),
+        "run_001",
+    )
     merged = merge_plugin.compute(
         DummyContext(config, {"hit_threshold": hits, "hit_merge_clusters": cluster_rows}),
         "run_001",
