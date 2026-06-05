@@ -10,6 +10,7 @@ from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
 from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import (
     HIT_MERGED_FEATURES_DTYPE,
     HitMergedFeaturesPlugin,
+    _polarity_sign_array,
 )
 
 
@@ -144,6 +145,45 @@ def test_hit_merged_features_direct_merged_window_covers_full_window_for_multipl
     assert float(out[0]["area"]) == 60.0
     assert float(out[0]["height"]) == 20.0
     assert int(out[0]["n_hits"]) == 2
+
+
+def test_hit_merged_features_positive_polarity_direct_window():
+    hit = _make_hit(record_id=0, edge_start=2, edge_end=5)
+    merged = np.array(
+        [_make_merged(record_id=0, sample_start=2, sample_end=5)], dtype=HIT_MERGED_DTYPE
+    )
+    wave_pool = np.array([100, 100, 110, 130, 120, 100, 100, 100, 100, 100], dtype=np.uint16)
+    ctx = _context(
+        merged, _components([(0, 0)]), np.array([hit], dtype=THRESHOLD_HIT_DTYPE), wave_pool
+    )
+    ctx._data["records"]["polarity"] = "positive"
+
+    out = HitMergedFeaturesPlugin().compute(ctx, "run_001")
+
+    assert float(out[0]["area"]) == 60.0
+    assert float(out[0]["height"]) == 30.0
+    assert int(out[0]["max_time"]) == 6000
+
+
+def test_hit_merged_features_polarity_sign_array_vectorized_string_dtypes():
+    unicode_records = make_records(n_records=3)
+    unicode_records["polarity"] = ["negative", "positive", "unknown"]
+
+    byte_records = unicode_records.astype(
+        [
+            (name, "S8" if name == "polarity" else unicode_records.dtype[name])
+            for name in unicode_records.dtype.names
+        ]
+    )
+
+    np.testing.assert_array_equal(
+        _polarity_sign_array(unicode_records),
+        np.array([-1.0, 1.0, -1.0], dtype=np.float32),
+    )
+    np.testing.assert_array_equal(
+        _polarity_sign_array(byte_records),
+        np.array([-1.0, 1.0, -1.0], dtype=np.float32),
+    )
 
 
 def test_hit_merged_features_fallback_for_invalid_cross_record_window():

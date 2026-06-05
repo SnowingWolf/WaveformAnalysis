@@ -6,6 +6,12 @@ import numba as nb
 import numpy as np
 
 from waveform_analysis.core.plugins.builtin.cpu._dt_compat import resolve_dt_config
+from waveform_analysis.core.plugins.builtin.cpu._record_utils import (
+    field_or_default as _field_or_default_util,
+)
+from waveform_analysis.core.plugins.builtin.cpu._record_utils import (
+    resolve_record_indices as _resolve_record_indices_util,
+)
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     WAVE_SOURCE_RECORDS,
     load_wave_input,
@@ -39,52 +45,19 @@ def _empty_features() -> np.ndarray:
 
 
 def _field_or_default(arr: np.ndarray, name: str, default, dtype):
-    """从 structured array 安全提取字段，不存在时返回默认值数组"""
-    names = arr.dtype.names or ()
-    if name in names:
-        return np.asarray(arr[name], dtype=dtype)
-    return np.full(len(arr), default, dtype=dtype)
+    """已弃用：使用 _record_utils.field_or_default 替代。
+
+    保留此函数用于向后兼容。
+    """
+    return _field_or_default_util(arr, name, default, dtype)
 
 
 def _resolve_record_indices(records: np.ndarray, record_ids: np.ndarray) -> np.ndarray:
+    """已弃用：使用 _record_utils.resolve_record_indices 替代。
+
+    保留此函数用于向后兼容。
     """
-    把 record_id 转成 records 的行号。
-    优先处理 record_id == row index 的快路径。
-    """
-    record_ids = np.asarray(record_ids, dtype=np.int64)
-    names = records.dtype.names or ()
-
-    if "record_id" not in names:
-        # records 没有 record_id 字段，假设 record_id == index
-        bad_mask = (record_ids < 0) | (record_ids >= len(records))
-        if np.any(bad_mask):
-            bad_id = record_ids[bad_mask][0]
-            raise ValueError(f"hit_merged_features could not resolve record_id={bad_id}")
-        return record_ids
-
-    rec_ids = np.asarray(records["record_id"], dtype=np.int64)
-
-    # 快路径：record_id == array index
-    if len(rec_ids) == len(records) and np.array_equal(
-        rec_ids, np.arange(len(records), dtype=np.int64)
-    ):
-        bad_mask = (record_ids < 0) | (record_ids >= len(records))
-        if np.any(bad_mask):
-            bad_id = record_ids[bad_mask][0]
-            raise ValueError(f"hit_merged_features could not resolve record_id={bad_id}")
-        return record_ids
-
-    # 通用路径：排序 + searchsorted
-    order = np.argsort(rec_ids, kind="mergesort")
-    rec_ids_sorted = rec_ids[order]
-
-    pos = np.searchsorted(rec_ids_sorted, record_ids)
-    bad = (pos >= len(rec_ids_sorted)) | (rec_ids_sorted[pos] != record_ids)
-    if np.any(bad):
-        bad_id = record_ids[bad][0]
-        raise ValueError(f"hit_merged_features could not resolve record_id={bad_id}")
-
-    return order[pos]
+    return _resolve_record_indices_util(records, record_ids)
 
 
 def _polarity_sign_array(records: np.ndarray) -> np.ndarray:
@@ -92,6 +65,8 @@ def _polarity_sign_array(records: np.ndarray) -> np.ndarray:
     返回 polarity sign 数组：
     - positive: +1.0 (signal = raw - baseline)
     - negative: -1.0 (signal = baseline - raw)
+
+    Phase 4 优化：向量化比较，消除 Python 循环
     """
     names = records.dtype.names or ()
     sign = np.full(len(records), -1.0, dtype=np.float32)  # 默认 negative
@@ -99,11 +74,19 @@ def _polarity_sign_array(records: np.ndarray) -> np.ndarray:
     if "polarity" not in names:
         return sign
 
-    # polarity 字段可能是字节串或字符串
-    for i, p in enumerate(records["polarity"]):
-        p_str = p.decode("utf-8") if isinstance(p, bytes) else str(p)
-        if p_str == "positive":
-            sign[i] = 1.0
+    pol = records["polarity"]
+
+    # 向量化路径：直接比较字节串/字符串
+    if pol.dtype.kind == "S":  # 字节串 (bytes)
+        sign[pol == b"positive"] = 1.0
+    elif pol.dtype.kind == "U":  # Unicode 字符串
+        sign[pol == "positive"] = 1.0
+    else:
+        # Fallback：对象数组或其他类型，使用循环
+        for i, p in enumerate(pol):
+            p_str = p.decode("utf-8") if isinstance(p, bytes) else str(p)
+            if p_str == "positive":
+                sign[i] = 1.0
 
     return sign
 
@@ -127,7 +110,7 @@ def _build_component_slices(component_rows: np.ndarray, n_merged: int):
     return hits_sorted, starts, ends
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=True, fastmath=True)
 def _features_fast_kernel(
     wave_pool,
     rec_indices,
@@ -145,6 +128,10 @@ def _features_fast_kernel(
     Numba 核心：批量计算主路径（有合法 sample_start/sample_end 的 merged hits）。
 
     对每个窗口做单 pass：遍历一次波形，同时累加 area 和找 max。
+
+    Phase 3.5 优化（Phase 4 回退）：
+    - fastmath=True: 激进浮点优化（~3% 提升）
+    - 不使用 parallel=True: memory-bound 任务并行化收益低，甚至退化
     """
     n = len(rec_indices)
 
@@ -160,7 +147,7 @@ def _features_fast_kernel(
     fall_time = np.zeros(n, dtype=np.float32)
     valid = np.zeros(n, dtype=np.int8)
 
-    for i in range(n):
+    for i in range(n):  # Phase 3.5: 回退 prange，单线程更适合 memory-bound 任务
         rec_i = rec_indices[i]
 
         start = merged_sample_start[i]
