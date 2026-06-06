@@ -211,6 +211,8 @@ waveform-process --show-daq --daq-root DAQ
 2. `depends_on` 与 `resolve_depends_on()` 一致。
 3. `options` 的默认值、类型、help 明确。
 4. `version` 在行为变更时升级。
+   - 算法逻辑变更（包括内部实现路径）属于 MINOR 升级
+   - 详见 [插件 Version 升级策略](docs/plugins/PLUGIN_VERSION_POLICY.md)
 5. `output_dtype`（或 `output_kind`）与实际输出匹配。
 6. `docs/plugins/reference/agent/` 已同步对应插件页。
 
