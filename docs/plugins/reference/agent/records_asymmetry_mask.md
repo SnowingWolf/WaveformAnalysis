@@ -20,9 +20,9 @@
 
 ## Outputs
 
-| Field | DType |
-|-------|-------|
-| `value` | `bool` |
+| Field | DType | Meaning |
+|-------|-------|---------|
+| `value` | `bool` | - |
 
 ## Config
 

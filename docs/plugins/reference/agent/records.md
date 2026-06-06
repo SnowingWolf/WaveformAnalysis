@@ -19,22 +19,22 @@
 
 ## Outputs
 
-| Field | DType |
-|-------|-------|
-| `timestamp` | `int64` |
-| `pid` | `int32` |
-| `board` | `int16` |
-| `channel` | `int16` |
-| `baseline` | `float64` |
-| `baseline_upstream` | `float64` |
-| `polarity` | `<U8` |
-| `record_id` | `int64` |
-| `dt` | `int32` |
-| `trigger_type` | `int16` |
-| `flags` | `uint32` |
-| `wave_offset` | `int64` |
-| `event_length` | `int32` |
-| `time` | `int64` |
+| Field | DType | Meaning |
+|-------|-------|---------|
+| `timestamp` | `int64` | - |
+| `pid` | `int32` | - |
+| `board` | `int16` | - |
+| `channel` | `int16` | - |
+| `baseline` | `float64` | - |
+| `baseline_upstream` | `float64` | - |
+| `polarity` | `<U8` | - |
+| `record_id` | `int64` | - |
+| `dt` | `int32` | - |
+| `trigger_type` | `int16` | - |
+| `flags` | `uint32` | - |
+| `wave_offset` | `int64` | - |
+| `event_length` | `int32` | - |
+| `time` | `int64` | - |
 
 ## Config
 

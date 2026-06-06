@@ -19,9 +19,9 @@
 
 ## Outputs
 
-| Field | DType |
-|-------|-------|
-| `value` | `uint16` |
+| Field | DType | Meaning |
+|-------|-------|---------|
+| `value` | `uint16` | - |
 
 ## Config
 

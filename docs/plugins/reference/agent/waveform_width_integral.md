@@ -19,19 +19,19 @@
 
 ## Outputs
 
-| Field | DType |
-|-------|-------|
-| `t_low` | `float32` |
-| `t_high` | `float32` |
-| `width` | `float32` |
-| `t_low_samples` | `float32` |
-| `t_high_samples` | `float32` |
-| `width_samples` | `float32` |
-| `q_total` | `float64` |
-| `timestamp` | `int64` |
-| `board` | `int16` |
-| `channel` | `int16` |
-| `record_id` | `int64` |
+| Field | DType | Meaning |
+|-------|-------|---------|
+| `t_low` | `float32` | - |
+| `t_high` | `float32` | - |
+| `width` | `float32` | - |
+| `t_low_samples` | `float32` | - |
+| `t_high_samples` | `float32` | - |
+| `width_samples` | `float32` | - |
+| `q_total` | `float64` | - |
+| `timestamp` | `int64` | - |
+| `board` | `int16` | - |
+| `channel` | `int16` | - |
+| `record_id` | `int64` | - |
 
 ## Config
 

@@ -19,16 +19,16 @@
 
 ## Outputs
 
-| Field | DType |
-|-------|-------|
-| `height` | `float32` |
-| `amp` | `float32` |
-| `area` | `float32` |
-| `max_abs_diff` | `float32` |
-| `timestamp` | `int64` |
-| `board` | `int16` |
-| `channel` | `int16` |
-| `record_id` | `int64` |
+| Field | DType | Meaning |
+|-------|-------|---------|
+| `height` | `float32` | - |
+| `amp` | `float32` | - |
+| `area` | `float32` | - |
+| `max_abs_diff` | `float32` | - |
+| `timestamp` | `int64` | - |
+| `board` | `int16` | - |
+| `channel` | `int16` | - |
+| `record_id` | `int64` | - |
 
 ## Config
 

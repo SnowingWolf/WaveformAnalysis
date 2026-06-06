@@ -19,17 +19,17 @@
 
 ## Outputs
 
-| Field | DType |
-|-------|-------|
-| `position` | `int64` |
-| `edge_start` | `int32` |
-| `edge_end` | `int32` |
-| `width` | `float32` |
-| `dt` | `int32` |
-| `timestamp` | `int64` |
-| `board` | `int16` |
-| `channel` | `int16` |
-| `record_id` | `int64` |
+| Field | DType | Meaning |
+|-------|-------|---------|
+| `position` | `int64` | - |
+| `edge_start` | `int32` | - |
+| `edge_end` | `int32` | - |
+| `width` | `float32` | - |
+| `dt` | `int32` | - |
+| `timestamp` | `int64` | - |
+| `board` | `int16` | - |
+| `channel` | `int16` | - |
+| `record_id` | `int64` | - |
 
 ## Config
 

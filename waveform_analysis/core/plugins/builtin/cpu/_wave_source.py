@@ -217,9 +217,14 @@ def load_wave_input(
             if not isinstance(wave_pool, np.ndarray):
                 raise ValueError(f"records_view requires formal '{wave_pool_name}' plugin output")
 
-            from waveform_analysis.core.data.records_view import RecordsView
+            from waveform_analysis.core.data.records_view import records_view
 
-            rv = RecordsView(records, wave_pool)
+            rv = records_view(
+                source=context,
+                run_id=run_id,
+                records_name=WAVE_SOURCE_RECORDS,
+                wave_pool_name=wave_pool_name,
+            )
             wave_pool_view, wave_offsets, wave_lengths = rv.get_wave_pool_view()
             return LoadedWaveInput(
                 spec=spec,

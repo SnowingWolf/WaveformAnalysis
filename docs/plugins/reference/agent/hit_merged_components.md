@@ -20,10 +20,10 @@
 
 ## Outputs
 
-| Field | DType |
-|-------|-------|
-| `merged_index` | `int64` |
-| `hit_index` | `int64` |
+| Field | DType | Meaning |
+|-------|-------|---------|
+| `merged_index` | `int64` | - |
+| `hit_index` | `int64` | - |
 
 ## Config
 

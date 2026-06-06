@@ -20,9 +20,9 @@
 
 ## Outputs
 
-| Field | DType |
-|-------|-------|
-| `value` | `float32` |
+| Field | DType | Meaning |
+|-------|-------|---------|
+| `value` | `float32` | - |
 
 ## Config
 
