@@ -217,8 +217,8 @@ hit_threshold (v1.0.0) -> hit_merged (v1.2.0) -> hit_merged_features (v1.1.0)
 
 **案例参考**：
 
-- `hit_merged` Phase 3 优化（升级到 v1.1.2）：从 tuple 构建改为预分配数组
-- 详见 `docs/updates/HIT_MERGED_PHASE3_OPTIMIZATION.md`
+- `hit_merged` Phase 3 优化（升级到 v1.1.2）：从 tuple 构建改为预分配数组，详见 `docs/updates/HIT_MERGED_PHASE3_OPTIMIZATION.md`
+- `hit_merged_features` Phase 3/4 优化（升级到 v0.3.0）：从 Python 循环改为 Numba 单 pass，详见 `docs/updates/HIT_MERGED_FEATURES_PHASE4_OPTIMIZATION.md`
 
 ### 文档-only 变更
 
@@ -251,7 +251,8 @@ hit_threshold (v1.0.0) -> hit_merged (v1.2.0) -> hit_merged_features (v1.1.0)
 
 - [AGENTS.md](../../AGENTS.md) - 插件契约 checklist（第 208-215 行）
 - [插件开发完整指南](guides/PLUGIN_AUTHORING_GUIDE.md) - 插件开发最佳实践
-- [HIT_MERGED_PHASE3_OPTIMIZATION.md](../updates/HIT_MERGED_PHASE3_OPTIMIZATION.md) - MINOR 升级案例
+- [HIT_MERGED_PHASE3_OPTIMIZATION.md](../updates/HIT_MERGED_PHASE3_OPTIMIZATION.md) - hit_merged MINOR 升级案例
+- [HIT_MERGED_FEATURES_PHASE4_OPTIMIZATION.md](../updates/HIT_MERGED_FEATURES_PHASE4_OPTIMIZATION.md) - hit_merged_features MINOR 升级案例
 - [schema_compat_check.py](../../scripts/schema_compat_check.py) - 兼容性检查工具
 - [assess_change_impact.py](../../scripts/assess_change_impact.py) - 影响评估工具
 
