@@ -24,6 +24,9 @@
 | 文档 | 状态 | 说明 |
 |------|------|------|
 | [更新总结](UPDATE_SUMMARY.md) | ✅ 已完成 | 新功能说明和阶段性改动总结 |
+| [hit_merged Phase 3 优化说明](HIT_MERGED_PHASE3_OPTIMIZATION.md) | ✅ 已完成 | 记录 hit_merged 输出构建路径的预分配优化与 benchmark 对比 |
+| [插件优化 Phase 1](PLUGIN_OPTIMIZATION_PHASE1.md) | ✅ 已完成 | Hit Finder Numba 并行优化与 Record Utils 统一，预期性能提升 2-3x |
+| [hit_merged_features Phase 4 优化说明](HIT_MERGED_FEATURES_PHASE4_OPTIMIZATION.md) | ✅ 已完成 | 按 Phase 4 benchmark 结论保留 fastmath 与 polarity 向量化，回退 parallel 候选路径 |
 | [V1725 接入现有链路（st_waveforms 兼容）](V1725_EXISTING_CHAIN_INTEGRATION.md) | ✅ 已完成 | 将 v1725 输出标准化为现有 st_waveforms 契约，接入默认插件链 |
 | [变更日志](../../CHANGELOG.md) | ✅ 持续更新 | 按版本记录的详细变更历史 |
 
