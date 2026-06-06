@@ -1,0 +1,38 @@
+hit_merged_features Performance Benchmark Results
+======================================================================
+
+Small dataset:
+  Input: 1,000 merged hits
+  Components: 2,500 original hits
+  Output: 1,000 feature rows
+  Time: 186.38 +/- 351.59 ms
+  Throughput: 5,365 merged/s
+
+Medium dataset:
+  Input: 10,000 merged hits
+  Components: 25,000 original hits
+  Output: 10,000 feature rows
+  Time: 105.80 +/- 0.33 ms
+  Throughput: 94,518 merged/s
+
+Large dataset:
+  Input: 100,000 merged hits
+  Components: 250,000 original hits
+  Output: 100,000 feature rows
+  Time: 1061.36 +/- 1.52 ms
+  Throughput: 94,219 merged/s
+
+High component count:
+  Input: 10,000 merged hits
+  Components: 40,000 original hits
+  Output: 10,000 feature rows
+  Time: 151.99 +/- 0.33 ms
+  Throughput: 65,792 merged/s
+
+Low component count:
+  Input: 10,000 merged hits
+  Components: 15,000 original hits
+  Output: 10,000 feature rows
+  Time: 74.18 +/- 0.41 ms
+  Throughput: 134,802 merged/s
+

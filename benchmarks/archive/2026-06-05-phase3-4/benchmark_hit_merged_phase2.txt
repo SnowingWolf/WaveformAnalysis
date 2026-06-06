@@ -1,0 +1,54 @@
+======================================================================
+hit_merged Performance Benchmark
+======================================================================
+
+Small dataset:
+  Generating: 1,000 hits, 4 channels, merge rate 30%
+  Running benchmark...
+  - Input: 1,000 hits
+  - Output: 686 merged hits
+  - Compression: 1.46x
+  - Time: 31.18 +/- 0.44 ms
+  - Throughput: 32,070 hits/s
+
+Medium dataset:
+  Generating: 10,000 hits, 16 channels, merge rate 30%
+  Running benchmark...
+  - Input: 10,000 hits
+  - Output: 7,002 merged hits
+  - Compression: 1.43x
+  - Time: 313.64 +/- 0.82 ms
+  - Throughput: 31,884 hits/s
+
+Large dataset:
+  Generating: 100,000 hits, 32 channels, merge rate 30%
+  Running benchmark...
+  - Input: 100,000 hits
+  - Output: 70,165 merged hits
+  - Compression: 1.43x
+  - Time: 3194.12 +/- 8.77 ms
+  - Throughput: 31,308 hits/s
+
+High merge rate:
+  Generating: 10,000 hits, 16 channels, merge rate 60%
+  Running benchmark...
+  - Input: 10,000 hits
+  - Output: 3,904 merged hits
+  - Compression: 2.56x
+  - Time: 249.92 +/- 0.52 ms
+  - Throughput: 40,013 hits/s
+
+Low merge rate:
+  Generating: 10,000 hits, 16 channels, merge rate 10%
+  Running benchmark...
+  - Input: 10,000 hits
+  - Output: 9,047 merged hits
+  - Compression: 1.11x
+  - Time: 357.02 +/- 0.48 ms
+  - Throughput: 28,010 hits/s
+
+======================================================================
+Benchmark Complete
+======================================================================
+
+Results saved to: benchmark_hit_merged_baseline.txt
