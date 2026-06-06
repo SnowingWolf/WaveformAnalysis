@@ -210,9 +210,11 @@ waveform-process --show-daq --daq-root DAQ
 1. `provides` 唯一、语义稳定。
 2. `depends_on` 与 `resolve_depends_on()` 一致。
 3. `options` 的默认值、类型、help 明确。
-4. `version` 在行为变更时升级。
-   - 算法逻辑变更（包括内部实现路径）属于 MINOR 升级
-   - 详见 [插件 Version 升级策略](docs/plugins/PLUGIN_VERSION_POLICY.md)
+4. `version` 在行为变更时升级（详见 [插件 Version 升级策略](docs/plugins/PLUGIN_VERSION_POLICY.md)）。
+   - **行为变更**包括：算法逻辑变更、内部实现路径变更（如从 Python 循环改为 Numba）、新增字段/配置、修改默认参数。
+   - 契约破坏性变更（删除字段、改变字段类型/语义）必须升级 MAJOR。
+   - 算法路径变更或新增功能应升级 MINOR。
+   - 仅 bug 修复或性能优化（不改变算法逻辑）可升级 PATCH。
 5. `output_dtype`（或 `output_kind`）与实际输出匹配。
 6. `docs/plugins/reference/agent/` 已同步对应插件页。
 

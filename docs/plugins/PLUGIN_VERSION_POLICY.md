@@ -217,7 +217,7 @@ hit_threshold (v1.0.0) -> hit_merged (v1.2.0) -> hit_merged_features (v1.1.0)
 
 **案例参考**：
 
-- `hit_merged` Phase 3 优化（v1.1.0 -> v1.2.0）：从 tuple 构建改为预分配数组
+- `hit_merged` Phase 3 优化（升级到 v1.1.2）：从 tuple 构建改为预分配数组
 - 详见 `docs/updates/HIT_MERGED_PHASE3_OPTIMIZATION.md`
 
 ### 文档-only 变更

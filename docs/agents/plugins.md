@@ -51,3 +51,23 @@
 - 流程入口：`docs/agents/workflows.md`
 - 机器参考：`docs/plugins/reference/agent/INDEX.md`
 - 生成命令：`waveform-docs generate plugins-agent`
+
+## Version 升级策略
+插件 `version` 是缓存 lineage 的关键组成部分，必须在行为变更时正确升级。
+
+### 升级规则概览
+- **MAJOR**：契约破坏性变更（删除字段、改变字段类型/语义、删除配置项）。
+- **MINOR**：算法路径变更、新增字段/配置、修改默认参数。
+- **PATCH**：bug 修复、性能优化（不改变算法逻辑）。
+
+### 关键判断
+- **算法路径变更**：即使输出 dtype 和字段名不变，只要内部实现路径变化（如从 Python 循环改为 Numba JIT、从逐条处理改为批量预分配），就应升级 MINOR 版本。
+- **保守原则**：不确定时，优先升级 MINOR 而非 PATCH。
+
+### 详细规则
+完整的升级场景、示例和决策流程，详见：
+- [插件 Version 升级策略](../plugins/PLUGIN_VERSION_POLICY.md)
+
+### 实际案例
+- `hit_merged` v1.1.1 → v1.1.2：预分配路径优化，算法路径变更 → MINOR 升级。
+- `hit_merged_features` v0.2.0 → v0.3.0：从 Python 改为 Numba 单 pass → MINOR 升级。
