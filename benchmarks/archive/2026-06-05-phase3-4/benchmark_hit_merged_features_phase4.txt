@@ -1,0 +1,54 @@
+======================================================================
+hit_merged_features Performance Benchmark
+======================================================================
+
+Small dataset:
+  Generating: 1,000 merged hits, 16 channels, avg 2.5 components/merged
+  Running benchmark...
+  - Input: 1,000 merged hits
+  - Components: 2,500 original hits
+  - Output: 1,000 feature rows
+  - Time: 313.71 +/- 606.50 ms
+  - Throughput: 3,188 merged/s
+
+Medium dataset:
+  Generating: 10,000 merged hits, 16 channels, avg 2.5 components/merged
+  Running benchmark...
+  - Input: 10,000 merged hits
+  - Components: 25,000 original hits
+  - Output: 10,000 feature rows
+  - Time: 116.01 +/- 4.16 ms
+  - Throughput: 86,202 merged/s
+
+Large dataset:
+  Generating: 100,000 merged hits, 32 channels, avg 2.5 components/merged
+  Running benchmark...
+  - Input: 100,000 merged hits
+  - Components: 250,000 original hits
+  - Output: 100,000 feature rows
+  - Time: 1043.52 +/- 7.53 ms
+  - Throughput: 95,829 merged/s
+
+High component count:
+  Generating: 10,000 merged hits, 16 channels, avg 4.0 components/merged
+  Running benchmark...
+  - Input: 10,000 merged hits
+  - Components: 40,000 original hits
+  - Output: 10,000 feature rows
+  - Time: 151.35 +/- 0.15 ms
+  - Throughput: 66,073 merged/s
+
+Low component count:
+  Generating: 10,000 merged hits, 16 channels, avg 1.5 components/merged
+  Running benchmark...
+  - Input: 10,000 merged hits
+  - Components: 15,001 original hits
+  - Output: 10,000 feature rows
+  - Time: 72.78 +/- 0.33 ms
+  - Throughput: 137,410 merged/s
+
+======================================================================
+Benchmark Complete
+======================================================================
+
+Results saved to: benchmark_hit_merged_features_baseline.txt
