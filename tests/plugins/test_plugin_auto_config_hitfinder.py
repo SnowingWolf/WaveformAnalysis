@@ -118,6 +118,7 @@ def test_hitfinder_reads_records_view_when_wave_source_records():
     ctx = DummyContext(
         {
             "wave_source": "records",
+            "use_filtered": False,
             "use_derivative": False,
             "height": 5.0,
             "distance": 1,
