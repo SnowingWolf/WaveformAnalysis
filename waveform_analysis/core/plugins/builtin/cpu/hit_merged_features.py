@@ -311,7 +311,7 @@ class HitMergedFeaturesPlugin(Plugin):
     """Compute local single-channel waveform features for every hit_merged row."""
 
     provides = "hit_merged_features"
-    depends_on = ["hit_merged", "hit_merged_components", "hit_threshold", "records", "wave_pool"]
+    depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Compute per-hit_merged local waveform features from records-backed samples."
     version = "0.3.0"
     save_when = "always"

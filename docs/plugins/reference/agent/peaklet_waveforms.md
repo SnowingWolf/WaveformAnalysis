@@ -7,7 +7,7 @@
 | Item | Value |
 |------|-------|
 | Provides | `peaklet_waveforms` |
-| Depends On | `peaklets`, `peaklet_components`, `hit_merged`, `records`, `wave_pool` |
+| Depends On | - |
 | Output Kind | `structured_array` |
 | Version | `1.0.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.peaklets` |
@@ -15,11 +15,7 @@
 
 ## Inputs
 
-- `peaklets`
-- `peaklet_components`
-- `hit_merged`
-- `records`
-- `wave_pool`
+- 无依赖输入（source plugin）
 
 ## Outputs
 
@@ -41,7 +37,7 @@
 ## Execution Path
 
 `peaklet_waveforms` 依赖链入口：
-`peaklets -> peaklet_components -> hit_merged -> records -> wave_pool -> peaklet_waveforms`
+`SOURCE -> peaklet_waveforms`
 
 ## Failure Modes
 

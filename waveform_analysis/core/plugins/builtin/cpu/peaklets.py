@@ -375,7 +375,7 @@ class PeakletWaveformPlugin(Plugin):
     """Build ragged waveform index rows for peaklets and cache the signal pool."""
 
     provides = "peaklet_waveforms"
-    depends_on = ["peaklets", "peaklet_components", "hit_merged", "records", "wave_pool"]
+    depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Build peaklet waveform index rows from records-backed hit_merged samples."
     version = "1.0.0"
     output_dtype = PEAKLET_WAVEFORMS_DTYPE
@@ -505,7 +505,7 @@ class PeakletWaveformPoolPlugin(Plugin):
     """Return the flattened peaklet waveform signal pool."""
 
     provides = "peaklet_waveform_pool"
-    depends_on = ["peaklets", "peaklet_components", "hit_merged", "records", "wave_pool"]
+    depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Return flattened float32 peaklet waveform signal pool."
     version = "1.0.0"
     output_dtype = np.dtype("f4")

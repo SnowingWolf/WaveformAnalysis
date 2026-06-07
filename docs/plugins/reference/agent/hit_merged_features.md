@@ -7,7 +7,7 @@
 | Item | Value |
 |------|-------|
 | Provides | `hit_merged_features` |
-| Depends On | `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` |
+| Depends On | - |
 | Output Kind | `structured_array` |
 | Version | `0.3.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merged_features` |
@@ -15,11 +15,7 @@
 
 ## Inputs
 
-- `hit_merged`
-- `hit_merged_components`
-- `hit_threshold`
-- `records`
-- `wave_pool`
+- 无依赖输入（source plugin）
 
 ## Outputs
 
@@ -52,7 +48,7 @@
 ## Execution Path
 
 `hit_merged_features` 依赖链入口：
-`hit_merged -> hit_merged_components -> hit_threshold -> records -> wave_pool -> hit_merged_features`
+`SOURCE -> hit_merged_features`
 
 ## Failure Modes
 
