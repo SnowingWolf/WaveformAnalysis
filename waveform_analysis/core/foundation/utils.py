@@ -214,8 +214,8 @@ class LineageStyle:
     header_height: float = 0.35
     port_size: float = 0.12
 
-    x_gap: float = 4.5
-    y_gap: float = 2.8
+    x_gap: float = 5.8
+    y_gap: float = 3.4
 
     node_bg: str = "#f5f6fa"
     node_edge: str = "#2f3640"
@@ -236,7 +236,7 @@ class LineageStyle:
     font_size_key: int = 8
     font_size_port: int = 7
     font_size_wire: int = 7
-    wire_linewidth: float = 2.5
+    wire_linewidth: float = 1.8
     wire_capstyle: str = "round"
     wire_joinstyle: str = "round"
     bundle_enabled: bool = True
@@ -247,33 +247,31 @@ class LineageStyle:
     wire_style_by_category: Dict[str, Dict[str, Any]] = field(
         default_factory=lambda: {
             "dataframe": {
-                "color": "#ef6c00",
-                "width": 1.6,
-                "alpha": 0.55,
-                "dash": "dot",
+                "color": "#546a7b",
+                "width": 1.8,
+                "alpha": 0.95,
             },
             "structured": {
-                "color": "#2e7d32",
-                "width": 2.8,
-                "alpha": 0.85,
+                "color": "#546a7b",
+                "width": 1.8,
+                "alpha": 0.95,
             },
             "list_array": {
-                "color": "#f1c40f",
-                "width": 2.2,
-                "alpha": 0.7,
-                "dash": "dash",
+                "color": "#546a7b",
+                "width": 1.8,
+                "alpha": 0.95,
             },
             "array": {
-                "color": "#7f8c8d",
-                "width": 2.0,
-                "alpha": 0.7,
+                "color": "#546a7b",
+                "width": 1.8,
+                "alpha": 0.95,
             },
         }
     )
     wire_style_overrides: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     port_groups: Dict[str, Dict[str, List[List[str]]]] = field(default_factory=dict)
     arrow_mutation_scale: float = 12
-    wire_alpha: float = 0.8
+    wire_alpha: float = 0.95
     verbose: int = 1
 
 
