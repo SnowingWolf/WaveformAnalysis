@@ -546,6 +546,27 @@ def test_show_config_displays_context_defaults_when_unset(tmp_path, capsys):
     assert "run 级配置文件路径模板（默认值）" in captured
 
 
+def test_show_config_handles_plugin_without_options(tmp_path, capsys):
+    """Plugins without options should still render their config summary."""
+
+    class NoOptionsPlugin(Plugin):
+        provides = "cfg_no_options"
+        output_dtype = np.dtype([("val", "i4")])
+
+        def compute(self, context, run_id):
+            return np.array([(1,)], dtype=self.output_dtype)
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(NoOptionsPlugin)
+
+    ctx.show_config("cfg_no_options")
+    captured = capsys.readouterr().out
+
+    assert "插件概览" in captured
+    assert "配置选项明细" in captured
+    assert "该插件没有配置选项。" in captured
+
+
 def test_context_registration_variants(tmp_path):
     """Test different ways to register plugins."""
     ctx = Context(storage_dir=str(tmp_path))
