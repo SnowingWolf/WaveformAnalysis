@@ -32,15 +32,15 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`hit_merge_clusters`](hit_merge_clusters.md) | `HitMergeClustersPlugin` | `hit_merged`, `hit_threshold` | `structured_array` | `1.1.0` |
 | [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold` | `structured_array` | `1.2.0` |
 | [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | `hit_merged`, `hit_threshold` | `structured_array` | `1.1.0` |
-| [`hit_merged_features`](hit_merged_features.md) | `HitMergedFeaturesPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `structured_array` | `0.3.0` |
+| [`hit_merged_features`](hit_merged_features.md) | `HitMergedFeaturesPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `structured_array` | `0.4.0` |
 | [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | - | `structured_array` | `1.1.0` |
 | [`peaklet_channels`](peaklet_channels.md) | `PeakletChannelsPlugin` | `peaklets`, `peaklet_components`, `hit_merged_features`, `peaklet_features` | `structured_array` | `1.0.0` |
 | [`peaklet_components`](peaklet_components.md) | `PeakletComponentsPlugin` | `peaklets`, `hit_merged` | `structured_array` | `1.0.0` |
-| [`peaklet_features`](peaklet_features.md) | `PeakletFeaturesPlugin` | `peaklet_waveforms`, `peaklet_waveform_pool`, `peaklets` | `structured_array` | `1.0.0` |
+| [`peaklet_features`](peaklet_features.md) | `PeakletFeaturesPlugin` | `peaklet_waveforms`, `peaklet_waveform_pool`, `peaklets` | `structured_array` | `2.0.0` |
 | [`peaklet_waveform_pool`](peaklet_waveform_pool.md) | `PeakletWaveformPoolPlugin` | `peaklets`, `peaklet_components`, `hit_merged`, `records`, `wave_pool` | `array` | `1.0.0` |
 | [`peaklet_waveforms`](peaklet_waveforms.md) | `PeakletWaveformPlugin` | `peaklets`, `peaklet_components`, `hit_merged`, `records`, `wave_pool` | `structured_array` | `1.0.0` |
 | [`peaklets`](peaklets.md) | `PeakletPlugin` | `hit_merged` | `structured_array` | `1.0.0` |
-| [`peaks`](peaks.md) | `PeaksPlugin` | `peaklets`, `peaklet_features`, `peaklet_channels` | `structured_array` | `1.0.0` |
+| [`peaks`](peaks.md) | `PeaksPlugin` | `peaklets`, `peaklet_features`, `peaklet_channels` | `structured_array` | `2.0.0` |
 | [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | `unknown` | `0.0.2` |
 | [`records`](records.md) | `RecordsPlugin` | - | `structured_array` | `0.10.0` |
 | [`records_asymmetry_mask`](records_asymmetry_mask.md) | `RecordsAsymmetryMaskPlugin` | `records`, `wave_pool` | `array` | `0.1.0` |

@@ -43,26 +43,33 @@ PEAKLET_WAVEFORMS_DTYPE = np.dtype(
 PEAKLET_FEATURES_DTYPE = np.dtype(
     [
         ("peaklet_index", "i8"),
-        ("max_time", "i8"),
+        ("time_left", "i8"),
+        ("time_right", "i8"),
+        ("time_peak", "i8"),
+        ("center_time", "i8"),
+        ("rise_time", "f4"),
+        ("fall_time", "f4"),
+        ("range_50p_area", "f4"),
+        ("range_90p_area", "f4"),
         ("area", "f4"),
         ("height", "f4"),
         ("width", "f4"),
-        ("rise_time", "f4"),
-        ("fall_time", "f4"),
     ]
 )
 
 PEAKS_DTYPE = np.dtype(
     [
-        ("time_start", "i8"),
-        ("time_end", "i8"),
+        ("time_left", "i8"),
+        ("time_right", "i8"),
+        ("time_peak", "i8"),
         ("center_time", "i8"),
-        ("max_time", "i8"),
+        ("rise_time", "f4"),
+        ("fall_time", "f4"),
+        ("range_50p_area", "f4"),
+        ("range_90p_area", "f4"),
         ("area", "f4"),
         ("height", "f4"),
         ("width", "f4"),
-        ("rise_time", "f4"),
-        ("fall_time", "f4"),
         ("n_hits", "i4"),
         ("n_channels", "i4"),
     ]
@@ -91,6 +98,49 @@ def _empty_features() -> np.ndarray:
 
 def _empty_peaks() -> np.ndarray:
     return np.zeros(0, dtype=PEAKS_DTYPE)
+
+
+def _compute_area_quantiles(
+    wave: np.ndarray,
+    time_start: int,
+    dt_ns: int,
+    quantiles: tuple[float, ...] = (0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95),
+) -> dict[float, int]:
+    """Return cumulative-area quantile times in ps for a baseline-corrected waveform."""
+    if len(wave) == 0:
+        return {q: time_start for q in quantiles}
+
+    total_area = float(np.sum(wave, dtype=np.float64))
+    if total_area <= 0:
+        return {q: time_start for q in quantiles}
+
+    cumsum = np.cumsum(wave, dtype=np.float64) / total_area
+    dt_ps = int(dt_ns) * 1000
+
+    result = {}
+    for q in quantiles:
+        idx = int(np.searchsorted(cumsum, q, side="left"))
+
+        if idx >= len(cumsum):
+            result[q] = int(time_start + (len(wave) - 1) * dt_ps)
+            continue
+
+        if idx == 0:
+            i_interp = 0.0
+        elif cumsum[idx] == q:
+            i_interp = float(idx)
+        else:
+            c0 = cumsum[idx - 1] if idx > 0 else 0.0
+            c1 = cumsum[idx]
+            if c1 > c0:
+                fraction = (q - c0) / (c1 - c0)
+                i_interp = (idx - 1 if idx > 0 else 0) + fraction
+            else:
+                i_interp = float(idx)
+
+        result[q] = int(time_start + i_interp * dt_ps)
+
+    return result
 
 
 def _record_array(obj: Any) -> np.ndarray:
@@ -533,7 +583,7 @@ class PeakletFeaturesPlugin(Plugin):
     provides = "peaklet_features"
     depends_on = ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
     description = "Compute peaklet waveform features from ragged signal pools."
-    version = "1.0.0"
+    version = "2.0.0"
     output_dtype = PEAKLET_FEATURES_DTYPE
     save_when = "always"
 
@@ -550,34 +600,74 @@ class PeakletFeaturesPlugin(Plugin):
         if not isinstance(peaklets, np.ndarray):
             raise ValueError("peaklet_features expects peaklets as a structured array")
 
-        rows: list[tuple[int, int, float, float, float, float, float]] = []
+        rows: list[
+            tuple[int, int, int, int, int, float, float, float, float, float, float, float]
+        ] = []
         for row in waveforms:
             peaklet_index = int(row["peaklet_index"])
             offset = int(row["wave_offset"])
             length = int(row["wave_length"])
-            time_start = int(row["time_start"])
-            time_end = int(row["time_end"])
+            time_left = int(row["time_start"])
+            time_right = int(row["time_end"])
             dt_ns = int(row["dt"])
+
             if length <= 0:
-                rows.append((peaklet_index, time_start, 0.0, 0.0, 0.0, 0.0, 0.0))
+                rows.append(
+                    (
+                        peaklet_index,
+                        time_left,
+                        time_right,
+                        time_left,
+                        time_left,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                    )
+                )
                 continue
+
             wave = pool[offset : offset + length].astype(np.float32, copy=False)
             if len(wave) != length:
                 raise ValueError("peaklet_features found out-of-bounds waveform slice")
+
+            quantiles = _compute_area_quantiles(wave, time_left, dt_ns)
+            t05 = quantiles[0.05]
+            t10 = quantiles[0.10]
+            t25 = quantiles[0.25]
+            t50 = quantiles[0.50]
+            t75 = quantiles[0.75]
+            t90 = quantiles[0.90]
+            t95 = quantiles[0.95]
+
+            rise_time = float((t50 - t10) / 1000.0)
+            fall_time = float((t90 - t50) / 1000.0)
+            range_50p_area = float((t75 - t25) / 1000.0)
+            range_90p_area = float((t95 - t05) / 1000.0)
+
             max_idx = int(np.argmax(wave))
-            max_time = int(time_start + max_idx * dt_ns * 1000)
+            time_peak = int(time_left + max_idx * dt_ns * 1000)
             area = float(np.sum(wave, dtype=np.float64))
             height = float(wave[max_idx])
-            width = float((time_end - time_start) / 1000.0)
+            width = float((time_right - time_left) / 1000.0)
+
             rows.append(
                 (
                     peaklet_index,
-                    max_time,
+                    time_left,
+                    time_right,
+                    time_peak,
+                    t50,
+                    rise_time,
+                    fall_time,
+                    range_50p_area,
+                    range_90p_area,
                     area,
                     height,
                     width,
-                    float((max_time - time_start) / 1000.0),
-                    float((time_end - max_time) / 1000.0),
                 )
             )
 
@@ -590,7 +680,7 @@ class PeaksPlugin(Plugin):
     provides = "peaks"
     depends_on = ["peaklets", "peaklet_features", "peaklet_channels"]
     description = "Build final peaks table from peaklets and waveform-derived features."
-    version = "1.0.0"
+    version = "2.0.0"
     output_dtype = PEAKS_DTYPE
     save_when = "always"
 
@@ -614,15 +704,17 @@ class PeaksPlugin(Plugin):
                 )
             rows.append(
                 (
-                    int(peaklet["time_start"]),
-                    int(peaklet["time_end"]),
-                    int(peaklet["center_time"]),
-                    int(feature["max_time"]),
+                    int(feature["time_left"]),
+                    int(feature["time_right"]),
+                    int(feature["time_peak"]),
+                    int(feature["center_time"]),
+                    float(feature["rise_time"]),
+                    float(feature["fall_time"]),
+                    float(feature["range_50p_area"]),
+                    float(feature["range_90p_area"]),
                     float(feature["area"]),
                     float(feature["height"]),
                     float(feature["width"]),
-                    float(feature["rise_time"]),
-                    float(feature["fall_time"]),
                     int(peaklet["n_hits"]),
                     int(peaklet["n_channels"]),
                 )

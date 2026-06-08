@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `peaklet_features` |
-| **Version** | `1.0.0` |
+| **Version** | `2.0.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -32,12 +32,17 @@ This plugin has no configuration options.
 | Field | Type | Units | Description |
 |-------|------|-------|-------------|
 | `peaklet_index` | `int64` | - | - |
-| `max_time` | `int64` | - | - |
+| `time_left` | `int64` | - | - |
+| `time_right` | `int64` | - | - |
+| `time_peak` | `int64` | - | - |
+| `center_time` | `int64` | - | - |
+| `rise_time` | `float32` | - | - |
+| `fall_time` | `float32` | - | - |
+| `range_50p_area` | `float32` | - | - |
+| `range_90p_area` | `float32` | - | - |
 | `area` | `float32` | - | - |
 | `height` | `float32` | - | - |
 | `width` | `float32` | - | - |
-| `rise_time` | `float32` | - | - |
-| `fall_time` | `float32` | - | - |
 
 ## Usage Example
 

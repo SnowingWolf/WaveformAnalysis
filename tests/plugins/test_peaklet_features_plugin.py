@@ -52,12 +52,26 @@ def test_peaklet_features_derive_waveform_fields_from_ragged_pool():
     assert out.dtype == PEAKLET_FEATURES_DTYPE
     assert len(out) == 1
     assert int(out[0]["peaklet_index"]) == 0
-    assert int(out[0]["max_time"]) == 8000
+
+    # Derived time fields.
+    assert int(out[0]["time_left"]) == 6000
+    assert int(out[0]["time_right"]) == 12000
+    assert int(out[0]["time_peak"]) == 8000
+
+    # Basic waveform features.
     assert float(out[0]["area"]) == 80.0
     assert float(out[0]["height"]) == 40.0
     assert float(out[0]["width"]) == 6.0
-    assert float(out[0]["rise_time"]) == 2.0
-    assert float(out[0]["fall_time"]) == 4.0
+
+    # Cumulative-area quantile features for wave [20, 40, 20].
+    center_time = int(out[0]["center_time"])
+    assert 6000 < center_time < 10000
+
+    # Rise/fall and ranges are derived from cumulative-area quantiles.
+    assert float(out[0]["rise_time"]) > 0.0
+    assert float(out[0]["fall_time"]) > 0.0
+    assert float(out[0]["range_50p_area"]) > 0.0
+    assert float(out[0]["range_90p_area"]) > 0.0
 
 
 def test_peaklet_features_empty_waveforms_return_empty_features():

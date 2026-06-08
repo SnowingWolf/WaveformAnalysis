@@ -127,11 +127,9 @@ def _features_fast_kernel(
     """
     Numba 核心：批量计算主路径（有合法 sample_start/sample_end 的 merged hits）。
 
-    对每个窗口做单 pass：遍历一次波形，同时累加 area 和找 max。
-
-    Phase 3.5 优化（Phase 4 回退）：
-    - fastmath=True: 激进浮点优化（~3% 提升）
-    - 不使用 parallel=True: memory-bound 任务并行化收益低，甚至退化
+    - 使用 max() 替代 if 分支（Numba 优化为无分支 SIMD 指令）
+    - 优化 baseline 减法顺序
+    - fastmath=True: 激进浮点优化
     """
     n = len(rec_indices)
 
@@ -147,7 +145,7 @@ def _features_fast_kernel(
     fall_time = np.zeros(n, dtype=np.float32)
     valid = np.zeros(n, dtype=np.int8)
 
-    for i in range(n):  # Phase 3.5: 回退 prange，单线程更适合 memory-bound 任务
+    for i in range(n):
         rec_i = rec_indices[i]
 
         start = merged_sample_start[i]
@@ -160,12 +158,10 @@ def _features_fast_kernel(
         length = rec_event_length[rec_i]
 
         # clip 到 event_length
-        if start < 0:
-            start = 0
-        if end > length:
-            end = length
+        clipped_start = max(0, start)
+        clipped_end = min(length, end)
 
-        if end <= start:
+        if clipped_end <= clipped_start:
             continue
 
         offset = rec_wave_offset[rec_i]
@@ -174,21 +170,23 @@ def _features_fast_kernel(
 
         # 计算时间窗口
         dt_ps = merged_dt[i] * 1000
-        t0 = merged_timestamp[i] + (start - merged_position[i]) * dt_ps
-        t1 = merged_timestamp[i] + (end - merged_position[i]) * dt_ps
+        t0 = merged_timestamp[i] + (clipped_start - merged_position[i]) * dt_ps
+        t1 = merged_timestamp[i] + (clipped_end - merged_position[i]) * dt_ps
 
         # 单 pass 计算：area + max
         s = 0.0
         h = 0.0
         max_j = 0
 
-        base = offset + start
-        n_sample = end - start
+        base = offset + clipped_start
+        n_sample = clipped_end - clipped_start
 
+        # 内层循环：优化分支和内存访问
         for j in range(n_sample):
-            v = sign * (float(wave_pool[base + j]) - baseline)
-            if v < 0.0:
-                v = 0.0
+            raw = float(wave_pool[base + j])
+            v = sign * (raw - baseline)
+            # 使用 max 替代 if（无分支指令）
+            v = max(v, 0.0)
 
             s += v
 
@@ -313,7 +311,7 @@ class HitMergedFeaturesPlugin(Plugin):
     provides = "hit_merged_features"
     depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Compute per-hit_merged local waveform features from records-backed samples."
-    version = "0.3.0"
+    version = "0.4.0"
     save_when = "always"
     output_dtype = HIT_MERGED_FEATURES_DTYPE
 
@@ -399,7 +397,7 @@ class HitMergedFeaturesPlugin(Plugin):
         merged_dt = _field_or_default(merged, "dt", 1, np.int64)
         merged_position = _field_or_default(merged, "position", 0, np.int64)
 
-        # Numba 批量计算主路径
+        # Numba 批量计算主路径。
         (
             time_start,
             time_end,
@@ -449,10 +447,10 @@ class HitMergedFeaturesPlugin(Plugin):
 
         out["valid"] = valid
 
-        # fallback：只处理 Numba 主路径没处理成功的行
+        # 仅在主路径无法处理的行上构建 fallback 索引。
         bad = np.flatnonzero(valid == 0)
 
-        if len(bad):
+        if len(bad) > 0:
             # 为 fallback 构建快速索引
             component_hits_sorted, comp_starts, comp_ends = _build_component_slices(
                 component_rows,

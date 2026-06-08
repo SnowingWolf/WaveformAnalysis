@@ -9,7 +9,7 @@
 | Provides | `peaklet_features` |
 | Depends On | `peaklet_waveforms`, `peaklet_waveform_pool`, `peaklets` |
 | Output Kind | `structured_array` |
-| Version | `1.0.0` |
+| Version | `2.0.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.peaklets` |
 | Accelerator | `cpu` |
 
@@ -24,12 +24,17 @@
 | Field | DType | Meaning |
 |-------|-------|---------|
 | `peaklet_index` | `int64` | - |
-| `max_time` | `int64` | - |
+| `time_left` | `int64` | - |
+| `time_right` | `int64` | - |
+| `time_peak` | `int64` | - |
+| `center_time` | `int64` | - |
+| `rise_time` | `float32` | - |
+| `fall_time` | `float32` | - |
+| `range_50p_area` | `float32` | - |
+| `range_90p_area` | `float32` | - |
 | `area` | `float32` | - |
 | `height` | `float32` | - |
 | `width` | `float32` | - |
-| `rise_time` | `float32` | - |
-| `fall_time` | `float32` | - |
 
 ## Config
 
