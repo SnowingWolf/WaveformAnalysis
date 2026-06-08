@@ -280,6 +280,38 @@ def _layer_positions(nodes_by_depth: Dict[int, List[str]], y_gap: float) -> Dict
     return node_y
 
 
+def _layout_nodes_source_to_target(
+    model: LineageGraphModel,
+    style: LineageStyle,
+) -> dict:
+    """Place lineage sources on the left and downstream targets on the right."""
+    pos = {}
+    nodes_by_depth: Dict[int, List[str]] = {}
+    for node_id, node in model.nodes.items():
+        nodes_by_depth.setdefault(node.depth, []).append(node_id)
+
+    for depth in nodes_by_depth:
+        nodes_by_depth[depth] = sorted(nodes_by_depth[depth])
+
+    if getattr(style, "layout_reorder", True):
+        nodes_by_depth = _reorder_layers(
+            nodes_by_depth,
+            model.edges,
+            style.y_gap,
+            getattr(style, "layout_iterations", 3),
+        )
+
+    for d in sorted(nodes_by_depth.keys()):
+        layer = nodes_by_depth[d]
+        x = d * style.x_gap
+        for i, node_id in enumerate(layer):
+            y = (i - (len(layer) - 1) / 2.0) * style.y_gap
+            pos[node_id] = (x, y)
+
+    _set_port_positions(model, pos, style)
+    return pos
+
+
 def _build_adjacency(edges: List[Any]) -> tuple:
     upstream_map: Dict[str, List[str]] = {}
     downstream_map: Dict[str, List[str]] = {}
@@ -630,31 +662,8 @@ def plot_lineage_labview(
     _auto_adjust_layout(model, s)
 
     # 2. 布局计算 (基于模型)
-    pos = {}
-    nodes_by_depth: Dict[int, List[str]] = {}
-    for node_id, node in model.nodes.items():
-        nodes_by_depth.setdefault(node.depth, []).append(node_id)
-
-    for depth in nodes_by_depth:
-        nodes_by_depth[depth] = sorted(nodes_by_depth[depth])
-
-    if getattr(s, "layout_reorder", True):
-        nodes_by_depth = _reorder_layers(
-            nodes_by_depth,
-            model.edges,
-            s.y_gap,
-            getattr(s, "layout_iterations", 3),
-        )
-
-    max_d = max(nodes_by_depth.keys()) if nodes_by_depth else 0
-    for d in sorted(nodes_by_depth.keys()):
-        layer = nodes_by_depth[d]
-        x = (max_d - d) * s.x_gap
-        for i, node_id in enumerate(layer):
-            y = (i - (len(layer) - 1) / 2.0) * s.y_gap
-            pos[node_id] = (x, y)
-
-    _set_port_positions(model, pos, s)
+    pos = _layout_nodes_source_to_target(model, s)
+    max_d = max((node.depth for node in model.nodes.values()), default=0)
 
     # 3. 准备分析数据（用于高亮）
     critical_path_set = set()
@@ -1265,31 +1274,7 @@ def plot_lineage_plotly(
     _auto_adjust_layout(model, s)
 
     # 2. 布局计算
-    pos = {}
-    nodes_by_depth: Dict[int, List[str]] = {}
-    for node_id, node in model.nodes.items():
-        nodes_by_depth.setdefault(node.depth, []).append(node_id)
-
-    for depth in nodes_by_depth:
-        nodes_by_depth[depth] = sorted(nodes_by_depth[depth])
-
-    if getattr(s, "layout_reorder", True):
-        nodes_by_depth = _reorder_layers(
-            nodes_by_depth,
-            model.edges,
-            s.y_gap,
-            getattr(s, "layout_iterations", 3),
-        )
-
-    max_d = max(nodes_by_depth.keys()) if nodes_by_depth else 0
-    for d in sorted(nodes_by_depth.keys()):
-        layer = nodes_by_depth[d]
-        x = (max_d - d) * s.x_gap
-        for i, node_id in enumerate(layer):
-            y = (i - (len(layer) - 1) / 2.0) * s.y_gap
-            pos[node_id] = (x, y)
-
-    _set_port_positions(model, pos, s)
+    pos = _layout_nodes_source_to_target(model, s)
 
     # 3. 创建 plotly traces 和 shapes
     traces = []
