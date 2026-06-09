@@ -9,7 +9,7 @@
 | Provides | `records` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `0.10.1` |
+| Version | `0.10.2` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.records` |
 | Accelerator | `cpu` |
 
@@ -48,6 +48,7 @@
 | `chunksize` | `int` | `None` | CSV read chunk size; None reads full file (PyArrow if available). |
 | `parse_engine` | `str` | `auto` | CSV engine: auto | polars | pyarrow | pandas |
 | `records_part_size` | `int` | `250000` | Max events per records shard; <=0 disables sharding. |
+| `v1725_part_size` | `int` | `100000` | Max V1725 waves per per-file records shard; <=0 uses one shard per file. |
 | `dt` | `int` | `None` | Sample interval in ns for records.dt (defaults to adapter rate or 1ns). |
 | `baseline_samples` | `any` | `None` | Baseline range: int (sample count from adapter start) or tuple (start, end) relative to samples_start. JSON lists like [0, 800] are also accepted. None=adapter default. |
 

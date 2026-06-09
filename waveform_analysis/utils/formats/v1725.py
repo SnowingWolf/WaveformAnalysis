@@ -13,6 +13,7 @@ import re
 import numpy as np
 
 from waveform_analysis.core.foundation.utils import exporter
+from waveform_analysis.utils.formats.v1725_numba import parse_channel_headers_numba
 
 from .adapter import DAQAdapter, register_adapter
 from .base import ColumnMapping, FormatReader, FormatSpec, RawTimestampMode, TimestampUnit
@@ -75,30 +76,7 @@ def _parse_channel_headers_vectorized(headers_data: np.ndarray) -> tuple:
             np.array([], dtype=np.uint16),
         )
 
-    # 提取 ch_size（前 3 字节，22 位）
-    ch_sizes = (
-        headers_data[:, 0].astype(np.uint32)
-        | (headers_data[:, 1].astype(np.uint32) << 8)
-        | ((headers_data[:, 2].astype(np.uint32) & 0x3F) << 16)
-    )
-
-    # 提取 timestamp（字节 4-9，48 位）
-    timestamps = (
-        headers_data[:, 4].astype(np.uint64)
-        | (headers_data[:, 5].astype(np.uint64) << 8)
-        | (headers_data[:, 6].astype(np.uint64) << 16)
-        | (headers_data[:, 7].astype(np.uint64) << 24)
-        | (headers_data[:, 8].astype(np.uint64) << 32)
-        | (headers_data[:, 9].astype(np.uint64) << 40)
-    )
-
-    # 提取 trunc 标志（字节 3，位 6）
-    truncs = ((headers_data[:, 3] >> 6) & 1).astype(bool)
-
-    # 提取 baseline（字节 10-11）
-    baselines = headers_data[:, 10].astype(np.uint16) | (headers_data[:, 11].astype(np.uint16) << 8)
-
-    return ch_sizes, timestamps, truncs, baselines
+    return parse_channel_headers_numba(headers_data)
 
 
 def _one_loc_fast(num: int) -> np.ndarray:
@@ -266,7 +244,7 @@ class V1725Reader(FormatReader):
         for i, (ch, wave_start, wave_size) in enumerate(channel_info):
             # 提取波形数据
             wave_data = data[wave_start : wave_start + wave_size]
-            sig = np.frombuffer(wave_data.tobytes(), dtype=np.int16)
+            sig = np.frombuffer(wave_data, dtype=np.int16)
 
             waves.append(
                 V1725Wave(
@@ -364,7 +342,7 @@ class V1725Reader(FormatReader):
         """
         迭代读取 V1725 波形数据。
 
-        自动选择优化路径或回退到原始实现。
+        默认使用优化路径。legacy 路径仅用于测试对照。
 
         Args:
             file_paths: 文件路径列表
@@ -373,13 +351,7 @@ class V1725Reader(FormatReader):
             V1725Wave 对象
         """
         if self.use_optimized:
-            try:
-                yield from self._iter_waves_optimized(file_paths)
-            except Exception as e:
-                logger.warning(
-                    "Optimized V1725 reader failed (%s), falling back to legacy implementation", e
-                )
-                yield from self._iter_waves_legacy(file_paths)
+            yield from self._iter_waves_optimized(file_paths)
         else:
             yield from self._iter_waves_legacy(file_paths)
 

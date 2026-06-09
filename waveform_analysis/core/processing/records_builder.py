@@ -1288,49 +1288,139 @@ def build_records_from_st_waveforms(
 def _process_v1725_file_to_disk(
     file_path: str,
     reader,
-    adapter,
     dt_ns: int,
     part_dir: Path,
     part_idx: int,
-) -> _RecordsPartRef | None:
+    part_size: int | None = 100_000,
+    use_parallel_metadata: bool = False,
+) -> list[_RecordsPartRef]:
     """
     处理单个 V1725 文件并写入磁盘。
 
     Args:
         file_path: 文件路径
         reader: V1725Reader 实例
-        adapter: V1725Adapter 实例
         dt_ns: 采样间隔（纳秒）
         part_dir: 分片输出目录
         part_idx: 分片索引
+        part_size: 每个中间分片的 wave 数；<=0 表示单文件一个分片
 
     Returns:
-        _RecordsPartRef 或 None（如果文件为空）
+        _RecordsPartRef 列表
     """
-    waves = []
+    file_part_dir = part_dir / f"file_{part_idx}"
+    file_part_dir.mkdir(parents=True, exist_ok=True)
+    effective_part_size = None if part_size is None or part_size <= 0 else int(part_size)
+
+    part_refs: list[_RecordsPartRef] = []
+    wave_batch = []
+    local_part_idx = 0
+
+    def flush_batch() -> None:
+        nonlocal local_part_idx
+        if not wave_batch:
+            return
+        bundle = _build_v1725_records_part_from_waves(
+            wave_batch,
+            default_dt_ns=dt_ns,
+            use_parallel_metadata=use_parallel_metadata,
+        )
+        part_ref = _write_records_part(bundle, file_part_dir, local_part_idx)
+        local_part_idx += 1
+        if part_ref is not None:
+            part_refs.append(part_ref)
+        wave_batch.clear()
+
     for wave in reader.iter_waves([file_path]):
-        timestamp_ps = int(
-            adapter.normalize_timestamp_to_ps(np.array([wave.timestamp]), dt_ns=dt_ns)[0]
-        )
-        flags = 1 if wave.trunc else 0
-        waves.append(
-            (int(wave.board), wave.channel, timestamp_ps, wave.baseline, flags, wave.waveform)
-        )
+        wave_batch.append(wave)
+        if effective_part_size is not None and len(wave_batch) >= effective_part_size:
+            flush_batch()
 
+    flush_batch()
+    return part_refs
+
+
+def _build_v1725_records_part_from_waves(
+    waves: Sequence[object],
+    default_dt_ns: int,
+    use_parallel_metadata: bool = False,
+) -> RecordsBundle:
     if not waves:
-        return None
+        return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
-    # 构建 RecordsBundle
-    bundle = _build_records_from_wave_list(waves, default_dt_ns=dt_ns)
+    from waveform_analysis.utils.formats.v1725_numba import (
+        fill_v1725_records_metadata_parallel,
+        fill_v1725_records_metadata_serial,
+    )
 
-    # 写入 memmap
-    part_ref = _write_records_part(bundle, part_dir, part_idx)
+    n_records = len(waves)
+    boards = np.empty(n_records, dtype=np.int16)
+    channels = np.empty(n_records, dtype=np.int16)
+    timestamp_ticks = np.empty(n_records, dtype=np.int64)
+    baselines = np.empty(n_records, dtype=np.uint16)
+    truncs = np.empty(n_records, dtype=np.bool_)
+    event_lengths = np.empty(n_records, dtype=np.int32)
+    wave_refs = []
 
-    # 释放内存
-    del waves
-    del bundle
+    for idx, wave in enumerate(waves):
+        waveform = np.asarray(wave.waveform)
+        length = int(len(waveform))
+        if length > np.iinfo(np.int32).max:
+            raise ValueError("event_length exceeds int32 range")
+        boards[idx] = np.int16(wave.board)
+        channels[idx] = np.int16(wave.channel)
+        timestamp_ticks[idx] = np.int64(wave.timestamp)
+        baselines[idx] = np.uint16(wave.baseline)
+        truncs[idx] = bool(wave.trunc)
+        event_lengths[idx] = np.int32(length)
+        wave_refs.append(waveform)
 
-    return part_ref
+    records = np.zeros(n_records, dtype=RECORDS_DTYPE)
+    fill_metadata = (
+        fill_v1725_records_metadata_parallel
+        if use_parallel_metadata and n_records >= 4096
+        else fill_v1725_records_metadata_serial
+    )
+    fill_metadata(
+        timestamp_ticks,
+        boards,
+        channels,
+        baselines,
+        truncs,
+        event_lengths,
+        int(default_dt_ns),
+        records["timestamp"],
+        records["pid"],
+        records["board"],
+        records["channel"],
+        records["baseline"],
+        records["baseline_upstream"],
+        records["dt"],
+        records["trigger_type"],
+        records["flags"],
+        records["event_length"],
+        records["time"],
+    )
+    records["polarity"] = "unknown"
+
+    source_idx = np.arange(n_records, dtype=np.int64)
+    order = _records_sort_order(records)
+    records = records[order]
+    source_idx = source_idx[order]
+
+    total_samples = int(records["event_length"].astype(np.int64, copy=False).sum())
+    wave_pool = np.zeros(total_samples, dtype=np.uint16)
+    wave_cursor = 0
+    for idx in range(n_records):
+        length = int(records["event_length"][idx])
+        if length > 0:
+            wave = wave_refs[int(source_idx[idx])]
+            wave_pool[wave_cursor : wave_cursor + length] = _clip_wave_to_uint16(wave[:length])
+        records["wave_offset"][idx] = wave_cursor
+        wave_cursor += length
+
+    records["record_id"] = np.arange(n_records, dtype=np.int64)
+    return RecordsBundle(records=records, wave_pool=wave_pool)
 
 
 @export
@@ -1342,6 +1432,7 @@ def build_records_from_v1725_files(
     memory_budget_gb: float = 50.0,
     batch_size: int = 50,
     keep_on_disk: bool | None = None,
+    v1725_part_size: int | None = 100_000,
 ) -> RecordsBundle | RecordsBundleRef:
     """
     从 V1725 文件构建 records + wave_pool。
@@ -1356,6 +1447,7 @@ def build_records_from_v1725_files(
         memory_budget_gb: 内存预算（GB），用于智能选择合并策略
         batch_size: 分批合并时每批的分片数量
         keep_on_disk: 强制选择策略（None=自动，True=磁盘引用，False=加载内存）
+        v1725_part_size: 单个 V1725 文件内每个中间分片的 wave 数；<=0 表示单文件一个分片
 
     Returns:
         RecordsBundle 或 RecordsBundleRef
@@ -1374,7 +1466,7 @@ def build_records_from_v1725_files(
 
     part_dir = Path(tempfile.mkdtemp(prefix="v1725_parts_"))
     try:
-        part_refs = []
+        part_refs: list[_RecordsPartRef] = []
 
         # 确定并行度
         if n_jobs is None:
@@ -1388,11 +1480,15 @@ def build_records_from_v1725_files(
         if effective_workers <= 1 or len(file_paths) <= 1:
             # 串行处理
             for part_idx, file_path in enumerate(file_paths):
-                part_ref = _process_v1725_file_to_disk(
-                    file_path, reader, adapter, dt_ns, part_dir, part_idx
+                file_part_refs = _process_v1725_file_to_disk(
+                    file_path,
+                    reader,
+                    dt_ns,
+                    part_dir,
+                    part_idx,
+                    part_size=v1725_part_size,
                 )
-                if part_ref:
-                    part_refs.append(part_ref)
+                part_refs.extend(file_part_refs)
         else:
             # 并行处理
             from concurrent.futures import as_completed
@@ -1411,10 +1507,10 @@ def build_records_from_v1725_files(
                         _process_v1725_file_to_disk,
                         file_path,
                         reader,
-                        adapter,
                         dt_ns,
                         part_dir,
                         idx,
+                        v1725_part_size,
                     ): idx
                     for idx, file_path in enumerate(file_paths)
                 }
@@ -1423,13 +1519,13 @@ def build_records_from_v1725_files(
                 results = []
                 for future in as_completed(futures):
                     idx = futures[future]
-                    part_ref = future.result()
-                    if part_ref:
-                        results.append((idx, part_ref))
+                    file_part_refs = future.result()
+                    if file_part_refs:
+                        results.append((idx, file_part_refs))
 
                 # 按索引排序以保持确定性顺序
                 results.sort(key=lambda x: x[0])
-                part_refs = [ref for _, ref in results]
+                part_refs = [ref for _, refs in results for ref in refs]
 
         # 智能合并分片
         if not part_refs:

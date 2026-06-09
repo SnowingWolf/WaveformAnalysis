@@ -73,19 +73,26 @@ raw_files
 ```text
 raw_files
   -> build_records_from_v1725_files()
-  -> iter_waves()
-  -> per-file memmap parts
+  -> iter_waves() + Numba channel-header/records-metadata kernels
+  -> per-file streaming memmap parts
   -> heap merge
   -> RecordsBundle(records, wave_pool)
 ```
+
+V1725 单个 `.bin` 文件内部仍按事件边界串行读取；`n_jobs` 只控制文件级并行，
+不对单文件做 I/O 切分。每个文件读取过程中会按 `v1725_part_size`（默认
+`100000` 条 wave）批量填充 records metadata 并写入 `_RecordsPartRef`，避免大文件
+构建时把完整 `waves` 列表保留在内存中。V1725 channel header 解析与 records 数值
+metadata 填充依赖 Numba；若 Numba import 或 JIT 编译失败，会直接暴露环境依赖错误。
 
 最终合并会保持全局 records 顺序，并重写波形引用字段：
 
 - 全局排序键为 `(timestamp, pid, board, channel)`。
 - `wave_offset` 会按最终 `wave_pool` 重新计算，保证每条 record 指向正确波形片段。
 - `record_id` 在最终输出中重置为连续全局编号。
-- `channel_workers` 控制通道级并行，`n_jobs` 控制文件读取/解析并行，
-  `records_part_size` 控制中间分片大小。
+- 普通适配器中 `channel_workers` 控制通道级并行，`n_jobs` 控制文件读取/解析并行，
+  `records_part_size` 控制中间分片大小；V1725 中 `n_jobs` 控制文件级并行，
+  `v1725_part_size` 控制单文件内 streaming part 大小。
 
 底层还提供 `RecordsBundleRef` 形式的磁盘引用能力，用于显式的超大数据路径。
 它可以按 chunk 读取 records 和 wave_pool，但这不是 `RecordsPlugin` / `WavePoolPlugin`

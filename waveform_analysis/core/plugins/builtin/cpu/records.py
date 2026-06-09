@@ -203,12 +203,14 @@ def _build_records_bundle(
         # 获取并行配置
         n_jobs = context.get_config(plugin, "n_jobs")
         channel_executor = context.get_config(plugin, "channel_executor")
+        v1725_part_size = context.get_config(plugin, "v1725_part_size")
 
         bundle = build_records_from_v1725_files(
             deduped,
             dt_ns=dt_ns,
             n_jobs=n_jobs,
             executor_type=channel_executor,
+            v1725_part_size=v1725_part_size,
         )
         bundle = _apply_records_polarity(context, run_id, bundle)
         context._set_data(run_id, cache_key, bundle)
@@ -311,6 +313,11 @@ class _RecordsBundlePluginBase(Plugin):
             type=int,
             help="Max events per records shard; <=0 disables sharding.",
         ),
+        "v1725_part_size": Option(
+            default=100_000,
+            type=int,
+            help="Max V1725 waves per per-file records shard; <=0 uses one shard per file.",
+        ),
         "dt": Option(
             default=None,
             type=int,
@@ -333,7 +340,7 @@ class _RecordsBundlePluginBase(Plugin):
             "None=adapter default.",
         ),
     }
-    version = "0.10.1"
+    version = "0.10.2"
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         """Resolve raw-file upstream data for shared records bundle outputs."""
