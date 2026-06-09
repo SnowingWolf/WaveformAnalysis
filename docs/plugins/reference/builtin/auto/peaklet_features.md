@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `peaklet_features` |
-| **Version** | `2.0.0` |
+| **Version** | `3.0.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -38,6 +38,7 @@ This plugin has no configuration options.
 | `center_time` | `int64` | - | - |
 | `rise_time` | `float32` | - | - |
 | `fall_time` | `float32` | - | - |
+| `width_25_75` | `float32` | - | - |
 | `range_50p_area` | `float32` | - | - |
 | `range_90p_area` | `float32` | - | - |
 | `area` | `float32` | - | - |

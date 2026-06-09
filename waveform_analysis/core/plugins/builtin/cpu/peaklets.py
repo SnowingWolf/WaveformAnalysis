@@ -49,6 +49,7 @@ PEAKLET_FEATURES_DTYPE = np.dtype(
         ("center_time", "i8"),
         ("rise_time", "f4"),
         ("fall_time", "f4"),
+        ("width_25_75", "f4"),
         ("range_50p_area", "f4"),
         ("range_90p_area", "f4"),
         ("area", "f4"),
@@ -65,6 +66,7 @@ PEAKS_DTYPE = np.dtype(
         ("center_time", "i8"),
         ("rise_time", "f4"),
         ("fall_time", "f4"),
+        ("width_25_75", "f4"),
         ("range_50p_area", "f4"),
         ("range_90p_area", "f4"),
         ("area", "f4"),
@@ -583,7 +585,7 @@ class PeakletFeaturesPlugin(Plugin):
     provides = "peaklet_features"
     depends_on = ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
     description = "Compute peaklet waveform features from ragged signal pools."
-    version = "2.0.0"
+    version = "3.0.0"
     output_dtype = PEAKLET_FEATURES_DTYPE
     save_when = "always"
 
@@ -601,7 +603,7 @@ class PeakletFeaturesPlugin(Plugin):
             raise ValueError("peaklet_features expects peaklets as a structured array")
 
         rows: list[
-            tuple[int, int, int, int, int, float, float, float, float, float, float, float]
+            tuple[int, int, int, int, int, float, float, float, float, float, float, float, float]
         ] = []
         for row in waveforms:
             peaklet_index = int(row["peaklet_index"])
@@ -619,13 +621,14 @@ class PeakletFeaturesPlugin(Plugin):
                         time_right,
                         time_left,
                         time_left,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
+                        0.0,  # rise_time
+                        0.0,  # fall_time
+                        0.0,  # width_25_75
+                        0.0,  # range_50p_area
+                        0.0,  # range_90p_area
+                        0.0,  # area
+                        0.0,  # height
+                        0.0,  # width
                     )
                 )
                 continue
@@ -643,13 +646,15 @@ class PeakletFeaturesPlugin(Plugin):
             t90 = quantiles[0.90]
             t95 = quantiles[0.95]
 
-            rise_time = float((t50 - t10) / 1000.0)
-            fall_time = float((t90 - t50) / 1000.0)
+            max_idx = int(np.argmax(wave))
+            time_peak = int(time_left + max_idx * dt_ns * 1000)
+
+            rise_time = float((time_peak - t10) / 1000.0)
+            fall_time = float((t90 - time_peak) / 1000.0)
+            width_25_75 = float((t75 - t25) / 1000.0)
             range_50p_area = float((t75 - t25) / 1000.0)
             range_90p_area = float((t95 - t05) / 1000.0)
 
-            max_idx = int(np.argmax(wave))
-            time_peak = int(time_left + max_idx * dt_ns * 1000)
             area = float(np.sum(wave, dtype=np.float64))
             height = float(wave[max_idx])
             width = float((time_right - time_left) / 1000.0)
@@ -663,6 +668,7 @@ class PeakletFeaturesPlugin(Plugin):
                     t50,
                     rise_time,
                     fall_time,
+                    width_25_75,
                     range_50p_area,
                     range_90p_area,
                     area,
@@ -680,7 +686,7 @@ class PeaksPlugin(Plugin):
     provides = "peaks"
     depends_on = ["peaklets", "peaklet_features", "peaklet_channels"]
     description = "Build final peaks table from peaklets and waveform-derived features."
-    version = "2.0.0"
+    version = "3.0.0"
     output_dtype = PEAKS_DTYPE
     save_when = "always"
 
@@ -710,6 +716,7 @@ class PeaksPlugin(Plugin):
                     int(feature["center_time"]),
                     float(feature["rise_time"]),
                     float(feature["fall_time"]),
+                    float(feature["width_25_75"]),
                     float(feature["range_50p_area"]),
                     float(feature["range_90p_area"]),
                     float(feature["area"]),

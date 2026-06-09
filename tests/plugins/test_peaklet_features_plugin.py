@@ -70,8 +70,44 @@ def test_peaklet_features_derive_waveform_fields_from_ragged_pool():
     # Rise/fall and ranges are derived from cumulative-area quantiles.
     assert float(out[0]["rise_time"]) > 0.0
     assert float(out[0]["fall_time"]) > 0.0
+    assert float(out[0]["width_25_75"]) > 0.0
     assert float(out[0]["range_50p_area"]) > 0.0
     assert float(out[0]["range_90p_area"]) > 0.0
+
+
+def test_peaklet_features_rise_fall_are_peak_based_and_width_25_75_is_area_based():
+    waveforms = _waveforms(
+        [
+            {
+                "peaklet_index": 0,
+                "time_start": 0,
+                "time_end": 11000,
+                "dt": 1,
+                "wave_offset": 0,
+                "wave_length": 11,
+            }
+        ]
+    )
+    ctx = DummyContext(
+        {},
+        {
+            "peaklets": _peaklets(1),
+            "peaklet_waveforms": waveforms,
+            "peaklet_waveform_pool": np.array(
+                [0, 10, 20, 30, 40, 50, 40, 30, 20, 10, 0],
+                dtype=np.float32,
+            ),
+        },
+    )
+
+    out = PeakletFeaturesPlugin().compute(ctx, "run_001")
+
+    assert int(out[0]["time_peak"]) == 5000
+    assert int(out[0]["center_time"]) == 4500
+    assert float(out[0]["rise_time"]) == 3.25
+    assert float(out[0]["fall_time"]) == 2.25
+    assert float(out[0]["width_25_75"]) == 2.875
+    assert float(out[0]["range_50p_area"]) == 2.875
 
 
 def test_peaklet_features_empty_waveforms_return_empty_features():
