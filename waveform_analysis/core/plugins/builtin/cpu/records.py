@@ -211,6 +211,7 @@ def _build_records_bundle(
             n_jobs=n_jobs,
             executor_type=channel_executor,
             v1725_part_size=v1725_part_size,
+            show_progress=bool(context.config.get("show_progress", True)),
         )
         bundle = _apply_records_polarity(context, run_id, bundle)
         context._set_data(run_id, cache_key, bundle)

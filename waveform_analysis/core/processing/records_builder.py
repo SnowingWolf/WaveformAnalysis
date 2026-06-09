@@ -1152,60 +1152,27 @@ def build_records_from_raw_files_streaming(
     if not nonempty_channels:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
+    pbar = None
     if show_progress:
         try:
             from tqdm import tqdm
 
-            iterator = tqdm(channel_entries, desc="Building records", leave=False)
+            pbar = tqdm(total=len(nonempty_channels), desc="Building records", leave=False)
         except ImportError:
-            iterator = channel_entries
-    else:
-        iterator = channel_entries
+            pbar = None
 
     with tempfile.TemporaryDirectory(prefix="records_parts_") as tmp_dir:
         part_dir = Path(tmp_dir)
         part_refs: list[_RecordsPartRef] = []
         channel_results: dict[int, list[_RecordsPartRef]] = {}
 
-        effective_channel_workers = 1 if channel_workers is None else max(int(channel_workers), 1)
-        if effective_channel_workers <= 1 or len(nonempty_channels) <= 1:
-            for channel_idx, channel_files in iterator:
-                if not channel_files:
-                    continue
-                result_idx, result_parts, profile = _build_records_part_refs_for_channel(
-                    channel_idx=channel_idx,
-                    channel_files=channel_files,
-                    part_root=part_dir,
-                    adapter_name=adapter_name,
-                    default_dt_ns=default_dt_ns,
-                    part_size=part_size,
-                    baseline_samples=baseline_samples,
-                    epoch_ns=epoch_ns,
-                    parse_engine=parse_engine,
-                    n_jobs=n_jobs,
-                    chunksize=chunksize,
-                    use_process_pool=use_process_pool,
-                )
-                channel_results[result_idx] = result_parts
-                if profiler:
-                    for key, (duration, count) in profile.items():
-                        profiler.durations[key] += duration
-                        profiler.counts[key] += count
-        else:
-            from concurrent.futures import as_completed
-
-            from waveform_analysis.core.execution.manager import get_executor
-
-            max_workers = min(effective_channel_workers, len(nonempty_channels))
-            with get_executor(
-                "records_channel_build",
-                executor_type=channel_executor,
-                max_workers=max_workers,
-                reuse=True,
-            ) as executor:
-                futures = {
-                    executor.submit(
-                        _build_records_part_refs_for_channel,
+        try:
+            effective_channel_workers = (
+                1 if channel_workers is None else max(int(channel_workers), 1)
+            )
+            if effective_channel_workers <= 1 or len(nonempty_channels) <= 1:
+                for channel_idx, channel_files in nonempty_channels:
+                    result_idx, result_parts, profile = _build_records_part_refs_for_channel(
                         channel_idx=channel_idx,
                         channel_files=channel_files,
                         part_root=part_dir,
@@ -1218,12 +1185,7 @@ def build_records_from_raw_files_streaming(
                         n_jobs=n_jobs,
                         chunksize=chunksize,
                         use_process_pool=use_process_pool,
-                    ): channel_idx
-                    for channel_idx, channel_files in nonempty_channels
-                }
-                pbar = iterator if hasattr(iterator, "update") else None
-                for future in as_completed(futures):
-                    result_idx, result_parts, profile = future.result()
+                    )
                     channel_results[result_idx] = result_parts
                     if profiler:
                         for key, (duration, count) in profile.items():
@@ -1231,6 +1193,48 @@ def build_records_from_raw_files_streaming(
                             profiler.counts[key] += count
                     if pbar is not None:
                         pbar.update(1)
+            else:
+                from concurrent.futures import as_completed
+
+                from waveform_analysis.core.execution.manager import get_executor
+
+                max_workers = min(effective_channel_workers, len(nonempty_channels))
+                with get_executor(
+                    "records_channel_build",
+                    executor_type=channel_executor,
+                    max_workers=max_workers,
+                    reuse=True,
+                ) as executor:
+                    futures = {
+                        executor.submit(
+                            _build_records_part_refs_for_channel,
+                            channel_idx=channel_idx,
+                            channel_files=channel_files,
+                            part_root=part_dir,
+                            adapter_name=adapter_name,
+                            default_dt_ns=default_dt_ns,
+                            part_size=part_size,
+                            baseline_samples=baseline_samples,
+                            epoch_ns=epoch_ns,
+                            parse_engine=parse_engine,
+                            n_jobs=n_jobs,
+                            chunksize=chunksize,
+                            use_process_pool=use_process_pool,
+                        ): channel_idx
+                        for channel_idx, channel_files in nonempty_channels
+                    }
+                    for future in as_completed(futures):
+                        result_idx, result_parts, profile = future.result()
+                        channel_results[result_idx] = result_parts
+                        if profiler:
+                            for key, (duration, count) in profile.items():
+                                profiler.durations[key] += duration
+                                profiler.counts[key] += count
+                        if pbar is not None:
+                            pbar.update(1)
+        finally:
+            if pbar is not None:
+                pbar.close()
 
         for channel_idx, _ in channel_entries:
             part_refs.extend(channel_results.get(channel_idx, []))
@@ -1539,6 +1543,7 @@ def build_records_from_v1725_files(
     batch_size: int = 50,
     keep_on_disk: bool | None = None,
     v1725_part_size: int | None = 100_000,
+    show_progress: bool = False,
 ) -> RecordsBundle | RecordsBundleRef:
     """
     从 V1725 文件构建 records + wave_pool。
@@ -1554,6 +1559,7 @@ def build_records_from_v1725_files(
         batch_size: 分批合并时每批的分片数量
         keep_on_disk: 强制选择策略（None=自动，True=磁盘引用，False=加载内存）
         v1725_part_size: 单个 V1725 文件内每个中间分片的 wave 数；<=0 表示单文件一个分片
+        show_progress: 是否显示文件级 records 构建进度
 
     Returns:
         RecordsBundle 或 RecordsBundleRef
@@ -1571,6 +1577,14 @@ def build_records_from_v1725_files(
     import shutil
 
     part_dir = Path(tempfile.mkdtemp(prefix="v1725_parts_"))
+    pbar = None
+    if show_progress:
+        try:
+            from tqdm import tqdm
+
+            pbar = tqdm(total=len(file_paths), desc="Building V1725 records", leave=False)
+        except ImportError:
+            pbar = None
     try:
         part_refs: list[_RecordsPartRef] = []
 
@@ -1595,6 +1609,8 @@ def build_records_from_v1725_files(
                     part_size=v1725_part_size,
                 )
                 part_refs.extend(file_part_refs)
+                if pbar is not None:
+                    pbar.update(1)
         else:
             # 并行处理
             from concurrent.futures import as_completed
@@ -1628,6 +1644,8 @@ def build_records_from_v1725_files(
                     file_part_refs = future.result()
                     if file_part_refs:
                         results.append((idx, file_part_refs))
+                    if pbar is not None:
+                        pbar.update(1)
 
                 # 按索引排序以保持确定性顺序
                 results.sort(key=lambda x: x[0])
@@ -1656,6 +1674,9 @@ def build_records_from_v1725_files(
     except Exception:
         shutil.rmtree(part_dir, ignore_errors=True)
         raise
+    finally:
+        if pbar is not None:
+            pbar.close()
 
 
 @export
