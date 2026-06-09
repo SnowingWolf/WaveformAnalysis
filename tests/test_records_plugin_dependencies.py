@@ -7,6 +7,7 @@ from waveform_analysis.core import Context
 from waveform_analysis.core.plugins.builtin.cpu.records import (
     RecordsPlugin,
     WavePoolPlugin,
+    _apply_records_polarity,
     get_records_bundle,
     get_records_bundle_cache_key,
 )
@@ -75,6 +76,63 @@ def test_get_records_bundle_reuses_raw_files_for_non_v1725():
     assert mocked.call_args.kwargs["channel_workers"] == 2
     assert mocked.call_args.kwargs["channel_executor"] == "process"
     np.testing.assert_array_equal(bundle.wave_pool, fake_bundle.wave_pool)
+
+
+def test_apply_records_polarity_assigns_by_unique_hardware_channel(monkeypatch):
+    records = np.zeros(6, dtype=RecordsPlugin().output_dtype)
+    records["board"] = [0, 0, 0, 1, 1, 2]
+    records["channel"] = [0, 0, 1, 0, 0, 0]
+    bundle = RecordsBundle(records=records, wave_pool=np.zeros(0, dtype=np.uint16))
+
+    from waveform_analysis.core.hardware.channel import HardwareChannel
+
+    captured = {}
+
+    def fake_lookup(_context, _run_id, boards, channels):
+        captured["n_lookup_rows"] = len(boards)
+        return {
+            HardwareChannel(0, 0): "negative",
+            HardwareChannel(1, 0): "positive",
+        }
+
+    monkeypatch.setattr(
+        "waveform_analysis.core.plugins.builtin.cpu.records._build_polarity_lookup",
+        fake_lookup,
+    )
+
+    result = _apply_records_polarity(object(), "run_001", bundle)
+
+    assert result is bundle
+    assert captured["n_lookup_rows"] == len(records)
+    np.testing.assert_array_equal(
+        records["polarity"],
+        np.array(["negative", "negative", "unknown", "positive", "positive", "unknown"]),
+    )
+
+
+def test_get_records_bundle_cache_hit_skips_stale_bundle_cleanup(monkeypatch):
+    plugin = RecordsPlugin()
+    ctx = FakeContext(config={"daq_adapter": "vx2730"}, plugins={"records": plugin})
+    cached_bundle = RecordsBundle(
+        records=np.zeros(1, dtype=plugin.output_dtype),
+        wave_pool=np.array([1, 2], dtype=np.uint16),
+    )
+    cache_key = get_records_bundle_cache_key(ctx, "run_001")
+    ctx._set_data("run_001", cache_key, cached_bundle)
+
+    cleanup_calls = []
+
+    def fail_cleanup(*_args):
+        cleanup_calls.append(True)
+        raise AssertionError("cleanup should not run on cache hit")
+
+    monkeypatch.setattr(
+        "waveform_analysis.core.plugins.builtin.cpu.records._cleanup_stale_bundles",
+        fail_cleanup,
+    )
+
+    assert get_records_bundle(ctx, "run_001") is cached_bundle
+    assert cleanup_calls == []
 
 
 def test_wave_pool_plugin_reuses_shared_bundle_builder(tmp_path):

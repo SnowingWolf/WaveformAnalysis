@@ -42,11 +42,11 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`peaklets`](peaklets.md) | `PeakletPlugin` | `hit_merged` | `structured_array` | `1.0.0` |
 | [`peaks`](peaks.md) | `PeaksPlugin` | `peaklets`, `peaklet_features`, `peaklet_channels` | `structured_array` | `3.0.0` |
 | [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | `unknown` | `0.0.2` |
-| [`records`](records.md) | `RecordsPlugin` | - | `structured_array` | `0.10.0` |
+| [`records`](records.md) | `RecordsPlugin` | - | `structured_array` | `0.10.1` |
 | [`records_asymmetry_mask`](records_asymmetry_mask.md) | `RecordsAsymmetryMaskPlugin` | `records`, `wave_pool` | `array` | `0.1.0` |
 | [`s1_s2`](s1_s2.md) | `S1S2ClassifierPlugin` | `waveform_width`, `basic_features` | `structured_array` | `0.4.0` |
 | [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | - | `structured_array` | `0.10.0` |
-| [`wave_pool`](wave_pool.md) | `WavePoolPlugin` | - | `array` | `0.10.0` |
+| [`wave_pool`](wave_pool.md) | `WavePoolPlugin` | - | `array` | `0.10.1` |
 | [`wave_pool_filtered`](wave_pool_filtered.md) | `WavePoolFilteredPlugin` | `records`, `wave_pool` | `array` | `3.0.0` |
 | [`waveform_width`](waveform_width.md) | `WaveformWidthPlugin` | - | `structured_array` | `3.0.0` |
 | [`waveform_width_integral`](waveform_width_integral.md) | `WaveformWidthIntegralPlugin` | - | `structured_array` | `2.7.0` |

@@ -41,12 +41,8 @@ def get_records_bundle_cache_key(context: Any, run_id: str) -> str:
 
 def _apply_records_polarity(context: Any, run_id: str, bundle: RecordsBundle) -> RecordsBundle:
     records = bundle.records
-    if (
-        records.dtype.names is None
-        or "polarity" not in records.dtype.names
-        or "board" not in records.dtype.names
-        or "channel" not in records.dtype.names
-    ):
+    names = records.dtype.names
+    if names is None or "polarity" not in names or "board" not in names or "channel" not in names:
         return bundle
 
     if len(records) == 0:
@@ -59,9 +55,22 @@ def _apply_records_polarity(context: Any, run_id: str, bundle: RecordsBundle) ->
 
     from waveform_analysis.core.hardware.channel import HardwareChannel
 
-    for idx in range(len(records)):
-        hw_channel = HardwareChannel(int(records["board"][idx]), int(records["channel"][idx]))
-        records["polarity"][idx] = polarity_map.get(hw_channel, "unknown")
+    boards = records["board"]
+    channels = records["channel"]
+    pairs = np.empty(
+        len(records),
+        dtype=[("board", boards.dtype), ("channel", channels.dtype)],
+    )
+    pairs["board"] = boards
+    pairs["channel"] = channels
+
+    for pair in np.unique(pairs):
+        board = int(pair["board"])
+        channel = int(pair["channel"])
+        polarity = polarity_map.get(HardwareChannel(board, channel), "unknown")
+        if polarity == "unknown":
+            continue
+        records["polarity"][(boards == board) & (channels == channel)] = polarity
     return bundle
 
 
@@ -174,7 +183,6 @@ def _build_records_bundle(
     cache_key = get_records_bundle_cache_key(context, run_id)
     cached = context._results.get((run_id, cache_key))
     if isinstance(cached, RecordsBundle):
-        _cleanup_stale_bundles(context, run_id, cache_key)
         return cached
 
     if adapter_name == "v1725":
@@ -325,7 +333,7 @@ class _RecordsBundlePluginBase(Plugin):
             "None=adapter default.",
         ),
     }
-    version = "0.10.0"
+    version = "0.10.1"
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         """Resolve raw-file upstream data for shared records bundle outputs."""
