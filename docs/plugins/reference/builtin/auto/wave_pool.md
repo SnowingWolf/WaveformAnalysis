@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `wave_pool` |
-| **Version** | `0.10.2` |
+| **Version** | `0.10.3` |
 | **Category** | 波形处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |

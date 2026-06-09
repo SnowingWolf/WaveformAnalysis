@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `records` |
-| **Version** | `0.10.2` |
+| **Version** | `0.10.3` |
 | **Category** | 记录处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |

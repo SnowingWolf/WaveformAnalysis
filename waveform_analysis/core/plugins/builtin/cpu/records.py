@@ -340,7 +340,7 @@ class _RecordsBundlePluginBase(Plugin):
             "None=adapter default.",
         ),
     }
-    version = "0.10.2"
+    version = "0.10.3"
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         """Resolve raw-file upstream data for shared records bundle outputs."""

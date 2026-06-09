@@ -9,7 +9,7 @@
 | Provides | `wave_pool` |
 | Depends On | - |
 | Output Kind | `array` |
-| Version | `0.10.2` |
+| Version | `0.10.3` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.records` |
 | Accelerator | `cpu` |
 

@@ -560,6 +560,84 @@ def _write_records_part(
     )
 
 
+def _merge_key(
+    records: np.ndarray,
+    source_idx: int,
+    row_idx: int,
+) -> tuple[int, int, int, int, int, int]:
+    rec = records[row_idx]
+    return (
+        int(rec["timestamp"]),
+        int(rec["pid"]),
+        int(rec["board"]),
+        int(rec["channel"]),
+        int(source_idx),
+        int(row_idx),
+    )
+
+
+def _find_run_stop_by_next_heap_key(
+    records: np.ndarray,
+    source_idx: int,
+    row_idx: int,
+    boundary_key: tuple[int, int, int, int, int, int] | None,
+) -> int:
+    """Find the largest consecutive run from one sorted part that can be emitted."""
+    n_records = len(records)
+    if row_idx >= n_records:
+        return row_idx
+    if boundary_key is None:
+        return n_records
+
+    boundary_ts = boundary_key[0]
+    stop = int(np.searchsorted(records["timestamp"], boundary_ts, side="left"))
+    if stop <= row_idx:
+        stop = row_idx + 1
+
+    while stop < n_records:
+        if _merge_key(records, source_idx, stop) <= boundary_key:
+            stop += 1
+        else:
+            break
+    return stop
+
+
+def _copy_records_run_with_waves(
+    *,
+    records_src: np.ndarray,
+    wave_pool_src: np.ndarray,
+    row_start: int,
+    row_stop: int,
+    records_out: np.ndarray,
+    wave_pool_out: np.ndarray,
+    out_idx: int,
+    wave_cursor: int,
+) -> tuple[int, int]:
+    """Copy a sorted records run and rebase its contiguous wave_pool segment."""
+    if row_stop <= row_start:
+        return out_idx, wave_cursor
+
+    run_records = records_src[row_start:row_stop]
+    run_n = len(run_records)
+    records_out[out_idx : out_idx + run_n] = run_records
+
+    first_offset = int(run_records[0]["wave_offset"])
+    last = run_records[-1]
+    last_length = max(int(last["event_length"]), 0)
+    last_end = int(last["wave_offset"]) + last_length
+    run_samples = max(last_end - first_offset, 0)
+
+    if run_samples > 0:
+        wave_pool_out[wave_cursor : wave_cursor + run_samples] = wave_pool_src[
+            first_offset:last_end
+        ]
+
+    records_out[out_idx : out_idx + run_n]["wave_offset"] = (
+        run_records["wave_offset"].astype(np.int64, copy=False) - first_offset + wave_cursor
+    )
+    return out_idx + run_n, wave_cursor + run_samples
+
+
 def _merge_records_part_refs_batched(
     parts: Sequence[_RecordsPartRef],
     batch_size: int = 50,
@@ -615,6 +693,30 @@ def _merge_records_part_refs_batched(
     return merged_parts
 
 
+def _merge_records_part_refs_batched_to_disk(
+    parts: Sequence[_RecordsPartRef],
+    batch_size: int,
+    output_dir: Path,
+) -> list[_RecordsPartRef]:
+    if not parts:
+        return []
+    if len(parts) <= batch_size:
+        return list(parts)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    merged_parts: list[_RecordsPartRef] = []
+    for batch_idx, start in enumerate(range(0, len(parts), batch_size)):
+        batch = parts[start : start + batch_size]
+        merged = _merge_records_part_refs_to_disk(
+            batch,
+            output_dir=output_dir,
+            part_idx=batch_idx,
+        )
+        if merged is not None:
+            merged_parts.append(merged)
+    return merged_parts
+
+
 def _merge_records_part_refs_to_memory(parts: Sequence[_RecordsPartRef]) -> RecordsBundle:
     """
     将分片合并到内存（原 _merge_records_part_refs 的实现）。
@@ -647,8 +749,8 @@ def _merge_records_part_refs_to_memory(parts: Sequence[_RecordsPartRef]) -> Reco
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
     total_samples = sum(part.n_samples for part in parts)
-    records_out = np.zeros(total_records, dtype=RECORDS_DTYPE)
-    wave_pool_out = np.zeros(total_samples, dtype=np.uint16)
+    records_out = np.empty(total_records, dtype=RECORDS_DTYPE)
+    wave_pool_out = np.empty(total_samples, dtype=np.uint16)
 
     import heapq
 
@@ -661,54 +763,48 @@ def _merge_records_part_refs_to_memory(parts: Sequence[_RecordsPartRef]) -> Reco
         for part in parts
     ]
 
-    heap = []
-    for part_idx, records in enumerate(records_parts):
+    heap: list[tuple[int, int, int, int, int, int]] = []
+    for source_idx, records in enumerate(records_parts):
         if len(records) == 0:
             continue
-        rec = records[0]
-        key = (
-            int(rec["timestamp"]),
-            int(rec["pid"]),
-            int(rec["board"]),
-            int(rec["channel"]),
-            part_idx,
-            0,
-        )
-        heapq.heappush(heap, key)
+        heapq.heappush(heap, _merge_key(records, source_idx, 0))
 
     out_idx = 0
     wave_cursor = 0
     while heap:
-        _, _, _, _, part_idx, row_idx = heapq.heappop(heap)
-        records = records_parts[part_idx]
-        rec = records[row_idx]
-        length = max(int(rec["event_length"]), 0)
+        key = heapq.heappop(heap)
+        source_idx = key[4]
+        row_idx = key[5]
+        records_src = records_parts[source_idx]
+        wave_pool_src = wave_pool_parts[source_idx]
+        boundary_key = heap[0] if heap else None
 
-        if length > 0:
-            offset = int(rec["wave_offset"])
-            wave_pool_out[wave_cursor : wave_cursor + length] = wave_pool_parts[part_idx][
-                offset : offset + length
-            ]
+        row_stop = _find_run_stop_by_next_heap_key(
+            records=records_src,
+            source_idx=source_idx,
+            row_idx=row_idx,
+            boundary_key=boundary_key,
+        )
+        out_idx, wave_cursor = _copy_records_run_with_waves(
+            records_src=records_src,
+            wave_pool_src=wave_pool_src,
+            row_start=row_idx,
+            row_stop=row_stop,
+            records_out=records_out,
+            wave_pool_out=wave_pool_out,
+            out_idx=out_idx,
+            wave_cursor=wave_cursor,
+        )
 
-        records_out[out_idx] = rec
-        records_out[out_idx]["wave_offset"] = wave_cursor
-        out_idx += 1
-        wave_cursor += length
+        if row_stop < len(records_src):
+            heapq.heappush(heap, _merge_key(records_src, source_idx, row_stop))
 
-        next_row = row_idx + 1
-        if next_row < len(records):
-            next_rec = records[next_row]
-            key = (
-                int(next_rec["timestamp"]),
-                int(next_rec["pid"]),
-                int(next_rec["board"]),
-                int(next_rec["channel"]),
-                part_idx,
-                next_row,
-            )
-            heapq.heappush(heap, key)
+    if out_idx != total_records:
+        records_out = records_out[:out_idx]
+    if wave_cursor != total_samples:
+        wave_pool_out = wave_pool_out[:wave_cursor]
 
-    records_out["record_id"] = np.arange(total_records, dtype=np.int64)
+    records_out["record_id"] = np.arange(len(records_out), dtype=np.int64)
     return RecordsBundle(records=records_out, wave_pool=wave_pool_out)
 
 
@@ -752,52 +848,46 @@ def _merge_records_part_refs_to_disk(
         for part in parts
     ]
 
-    heap = []
+    heap: list[tuple[int, int, int, int, int, int]] = []
     for source_idx, records in enumerate(records_parts):
         if len(records) == 0:
             continue
-        rec = records[0]
-        key = (
-            int(rec["timestamp"]),
-            int(rec["pid"]),
-            int(rec["board"]),
-            int(rec["channel"]),
-            source_idx,
-            0,
-        )
-        heapq.heappush(heap, key)
+        heapq.heappush(heap, _merge_key(records, source_idx, 0))
 
     out_idx = 0
     wave_cursor = 0
     while heap:
-        _, _, _, _, source_idx, row_idx = heapq.heappop(heap)
-        records = records_parts[source_idx]
-        rec = records[row_idx]
-        length = max(int(rec["event_length"]), 0)
+        key = heapq.heappop(heap)
+        source_idx = key[4]
+        row_idx = key[5]
+        records_src = records_parts[source_idx]
+        wave_pool_src = wave_pool_parts[source_idx]
+        boundary_key = heap[0] if heap else None
 
-        if length > 0:
-            offset = int(rec["wave_offset"])
-            wave_pool_out[wave_cursor : wave_cursor + length] = wave_pool_parts[source_idx][
-                offset : offset + length
-            ]
+        row_stop = _find_run_stop_by_next_heap_key(
+            records=records_src,
+            source_idx=source_idx,
+            row_idx=row_idx,
+            boundary_key=boundary_key,
+        )
+        out_idx, wave_cursor = _copy_records_run_with_waves(
+            records_src=records_src,
+            wave_pool_src=wave_pool_src,
+            row_start=row_idx,
+            row_stop=row_stop,
+            records_out=records_out,
+            wave_pool_out=wave_pool_out,
+            out_idx=out_idx,
+            wave_cursor=wave_cursor,
+        )
 
-        records_out[out_idx] = rec
-        records_out[out_idx]["wave_offset"] = wave_cursor
-        out_idx += 1
-        wave_cursor += length
+        if row_stop < len(records_src):
+            heapq.heappush(heap, _merge_key(records_src, source_idx, row_stop))
 
-        next_row = row_idx + 1
-        if next_row < len(records):
-            next_rec = records[next_row]
-            key = (
-                int(next_rec["timestamp"]),
-                int(next_rec["pid"]),
-                int(next_rec["board"]),
-                int(next_rec["channel"]),
-                source_idx,
-                next_row,
-            )
-            heapq.heappush(heap, key)
+    if out_idx != total_records:
+        raise RuntimeError(f"merged records count mismatch: {out_idx} != {total_records}")
+    if wave_cursor != total_samples:
+        raise RuntimeError(f"merged wave_pool size mismatch: {wave_cursor} != {total_samples}")
 
     records_out["record_id"] = np.arange(total_records, dtype=np.int64)
     time_range = (int(records_out["time"].min()), int(records_out["time"].max()))
@@ -875,16 +965,27 @@ def _merge_records_part_refs(
             return _merge_records_part_refs_to_memory(merged_parts)
     else:
         # 大数据：返回磁盘引用
+        batch_root_dir: Path | None = None
         if len(parts) > batch_size:
             # 先分批合并，减少分片数量
-            merged_parts = _merge_records_part_refs_batched(
-                parts, batch_size=batch_size, output_dir=output_dir
+            batch_output_dir = (
+                output_dir / "batched_disk_merge"
+                if output_dir is not None
+                else Path(tempfile.mkdtemp(prefix="records_batched_disk_merge_"))
+            )
+            if output_dir is None:
+                batch_root_dir = batch_output_dir
+            merged_parts = _merge_records_part_refs_batched_to_disk(
+                parts,
+                batch_size=batch_size,
+                output_dir=batch_output_dir,
             )
         else:
             merged_parts = list(parts)
 
         import shutil
 
+        cleanup_dir: Path | None = None
         # 确定输出目录
         if output_dir is not None:
             # 在 output_dir 下创建 merged 子目录
@@ -894,21 +995,26 @@ def _merge_records_part_refs(
             # 如果调用者要求转移所有权，则由 RecordsBundleRef 管理整个 output_dir
             managed_temp_dir = output_dir if transfer_temp_dir_ownership else None
         else:
-            ref_dir = Path(tempfile.mkdtemp(prefix="records_bundle_ref_"))
+            ref_dir = (
+                batch_root_dir / "merged"
+                if batch_root_dir
+                else Path(tempfile.mkdtemp(prefix="records_bundle_ref_"))
+            )
             cleanup_on_error = True  # 我们创建的，出错时清理
-            managed_temp_dir = ref_dir
+            cleanup_dir = batch_root_dir if batch_root_dir else ref_dir
+            managed_temp_dir = cleanup_dir
 
         try:
             # 始终执行全局堆合并
             final_part = _merge_records_part_refs_to_disk(merged_parts, ref_dir)
         except Exception:
             if cleanup_on_error:
-                shutil.rmtree(ref_dir, ignore_errors=True)
+                shutil.rmtree(cleanup_dir or ref_dir, ignore_errors=True)
             raise
 
         if final_part is None:
             if cleanup_on_error:
-                shutil.rmtree(ref_dir, ignore_errors=True)
+                shutil.rmtree(cleanup_dir or ref_dir, ignore_errors=True)
             return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
         return RecordsBundleRef(

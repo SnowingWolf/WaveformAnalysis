@@ -147,6 +147,90 @@ def test_build_records_from_v1725_files_keeps_disk_refs_after_tempdir_cleanup(tm
     assert not ref_dir.exists()
 
 
+def test_build_records_from_v1725_files_run_merge_keeps_variable_wave_offsets(tmp_path: Path):
+    raws = []
+    expected_waves_by_timestamp = []
+    for board, timestamps in enumerate(([10, 20, 30], [25, 35])):
+        raw = tmp_path / f"test_raw_b{board}_seg0.bin"
+        blobs = []
+        for idx, timestamp in enumerate(timestamps):
+            samples = np.arange(
+                board * 100 + idx * 10,
+                board * 100 + idx * 10 + (idx + 1) * 2,
+                dtype=np.int16,
+            )
+            blobs.append(
+                _make_v1725_single_wave_blob(
+                    channel=board,
+                    timestamp=timestamp,
+                    baseline=100 + board,
+                    samples=samples,
+                )
+            )
+            expected_waves_by_timestamp.append((timestamp * 4_000, samples.astype(np.uint16)))
+        raw.write_bytes(b"".join(blobs))
+        raws.append(str(raw))
+
+    bundle = build_records_from_v1725_files(raws, dt_ns=4, v1725_part_size=3)
+
+    expected_waves_by_timestamp.sort(key=lambda item: item[0])
+    expected_timestamps = np.array(
+        [item[0] for item in expected_waves_by_timestamp], dtype=np.int64
+    )
+    expected_lengths = np.array(
+        [len(item[1]) for item in expected_waves_by_timestamp], dtype=np.int32
+    )
+    expected_offsets = np.concatenate(([0], np.cumsum(expected_lengths[:-1]))).astype(np.int64)
+    expected_pool = np.concatenate([item[1] for item in expected_waves_by_timestamp])
+
+    np.testing.assert_array_equal(bundle.records["timestamp"], expected_timestamps)
+    np.testing.assert_array_equal(bundle.records["event_length"], expected_lengths)
+    np.testing.assert_array_equal(bundle.records["wave_offset"], expected_offsets)
+    np.testing.assert_array_equal(bundle.records["record_id"], np.arange(5, dtype=np.int64))
+    np.testing.assert_array_equal(bundle.wave_pool, expected_pool)
+
+
+def test_build_records_from_v1725_files_disk_batch_merge_uses_disk_parts(tmp_path: Path):
+    raws = []
+    for board, timestamp in enumerate([10, 20, 30, 40]):
+        raw = tmp_path / f"test_raw_b{board}_seg0.bin"
+        raw.write_bytes(
+            _make_v1725_single_wave_blob(
+                channel=board,
+                timestamp=timestamp,
+                baseline=board,
+                samples=np.array([board, board + 10, board + 20, board + 30], dtype=np.int16),
+            )
+        )
+        raws.append(str(raw))
+
+    bundle_ref = build_records_from_v1725_files(
+        raws,
+        dt_ns=4,
+        batch_size=2,
+        keep_on_disk=True,
+    )
+
+    assert isinstance(bundle_ref, RecordsBundleRef)
+    assert bundle_ref.temp_dir is not None
+    assert bundle_ref.part_refs[0].records_path.parent.name == "merged"
+    assert (bundle_ref.temp_dir / "batched_disk_merge").exists()
+
+    loaded = bundle_ref.load_full()
+    np.testing.assert_array_equal(
+        loaded.records["timestamp"], np.array([40_000, 80_000, 120_000, 160_000])
+    )
+    np.testing.assert_array_equal(loaded.records["wave_offset"], np.array([0, 4, 8, 12]))
+    np.testing.assert_array_equal(
+        loaded.wave_pool,
+        np.array(
+            [0, 10, 20, 30, 1, 11, 21, 31, 2, 12, 22, 32, 3, 13, 23, 33],
+            dtype=np.uint16,
+        ),
+    )
+    bundle_ref.cleanup()
+
+
 def test_build_records_from_v1725_files_rejects_implicit_over_budget_disk_ref(tmp_path: Path):
     raw = tmp_path / "test_raw_b0_seg0.bin"
     raw.write_bytes(_make_v1725_single_wave_blob(channel=0, timestamp=10, baseline=100))
