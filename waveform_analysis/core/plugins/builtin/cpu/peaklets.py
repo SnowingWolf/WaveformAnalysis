@@ -77,6 +77,8 @@ PEAKS_DTYPE = np.dtype(
     ]
 )
 
+_AREA_QUANTILES = np.asarray((0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95), dtype=np.float64)
+
 
 def _empty_peaklets() -> np.ndarray:
     return np.zeros(0, dtype=PEAKLET_DTYPE)
@@ -102,47 +104,54 @@ def _empty_peaks() -> np.ndarray:
     return np.zeros(0, dtype=PEAKS_DTYPE)
 
 
-def _compute_area_quantiles(
+def _compute_area_quantile_times(
     wave: np.ndarray,
     time_start: int,
     dt_ns: int,
-    quantiles: tuple[float, ...] = (0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95),
-) -> dict[float, int]:
+    quantiles: np.ndarray = _AREA_QUANTILES,
+) -> np.ndarray:
     """Return cumulative-area quantile times in ps for a baseline-corrected waveform."""
-    if len(wave) == 0:
-        return {q: time_start for q in quantiles}
+    n = len(wave)
+    if n == 0:
+        return np.full(len(quantiles), int(time_start), dtype=np.int64)
 
     total_area = float(np.sum(wave, dtype=np.float64))
     if total_area <= 0:
-        return {q: time_start for q in quantiles}
+        return np.full(len(quantiles), int(time_start), dtype=np.int64)
 
-    cumsum = np.cumsum(wave, dtype=np.float64) / total_area
+    cumsum = np.cumsum(wave, dtype=np.float64)
+    targets = quantiles * total_area
     dt_ps = int(dt_ns) * 1000
 
-    result = {}
-    for q in quantiles:
-        idx = int(np.searchsorted(cumsum, q, side="left"))
+    idx = np.searchsorted(cumsum, targets, side="left")
+    sample_pos = np.empty(len(quantiles), dtype=np.float64)
 
-        if idx >= len(cumsum):
-            result[q] = int(time_start + (len(wave) - 1) * dt_ps)
-            continue
+    mask_hi = idx >= n
+    mask_0 = idx == 0
+    mask_mid = (~mask_hi) & (~mask_0)
 
-        if idx == 0:
-            i_interp = 0.0
-        elif cumsum[idx] == q:
-            i_interp = float(idx)
-        else:
-            c0 = cumsum[idx - 1] if idx > 0 else 0.0
-            c1 = cumsum[idx]
-            if c1 > c0:
-                fraction = (q - c0) / (c1 - c0)
-                i_interp = (idx - 1 if idx > 0 else 0) + fraction
-            else:
-                i_interp = float(idx)
+    sample_pos[mask_hi] = float(n - 1)
+    sample_pos[mask_0] = 0.0
 
-        result[q] = int(time_start + i_interp * dt_ps)
+    if np.any(mask_mid):
+        idx_mid = idx[mask_mid]
+        targets_mid = targets[mask_mid]
+        c0 = cumsum[idx_mid - 1]
+        c1 = cumsum[idx_mid]
 
-    return result
+        exact = c1 == targets_mid
+        valid = (~exact) & (c1 > c0)
+        values = np.empty_like(targets_mid, dtype=np.float64)
+
+        values[exact] = idx_mid[exact].astype(np.float64)
+        values[valid] = (idx_mid[valid] - 1).astype(np.float64) + (
+            targets_mid[valid] - c0[valid]
+        ) / (c1[valid] - c0[valid])
+        values[(~exact) & (~valid)] = idx_mid[(~exact) & (~valid)].astype(np.float64)
+
+        sample_pos[mask_mid] = values
+
+    return (int(time_start) + sample_pos * dt_ps).astype(np.int64)
 
 
 def _record_array(obj: Any) -> np.ndarray:
@@ -585,7 +594,7 @@ class PeakletFeaturesPlugin(Plugin):
     provides = "peaklet_features"
     depends_on = ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
     description = "Compute peaklet waveform features from ragged signal pools."
-    version = "3.0.0"
+    version = "3.0.1"
     output_dtype = PEAKLET_FEATURES_DTYPE
     save_when = "always"
 
@@ -637,14 +646,7 @@ class PeakletFeaturesPlugin(Plugin):
             if len(wave) != length:
                 raise ValueError("peaklet_features found out-of-bounds waveform slice")
 
-            quantiles = _compute_area_quantiles(wave, time_left, dt_ns)
-            t05 = quantiles[0.05]
-            t10 = quantiles[0.10]
-            t25 = quantiles[0.25]
-            t50 = quantiles[0.50]
-            t75 = quantiles[0.75]
-            t90 = quantiles[0.90]
-            t95 = quantiles[0.95]
+            t05, t10, t25, t50, t75, t90, t95 = _compute_area_quantile_times(wave, time_left, dt_ns)
 
             max_idx = int(np.argmax(wave))
             time_peak = int(time_left + max_idx * dt_ns * 1000)

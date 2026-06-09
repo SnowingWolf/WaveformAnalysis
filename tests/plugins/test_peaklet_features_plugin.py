@@ -7,6 +7,7 @@ from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PEAKLET_FEATURES_DTYPE,
     PEAKLET_WAVEFORMS_DTYPE,
     PeakletFeaturesPlugin,
+    _compute_area_quantile_times,
 )
 
 
@@ -23,6 +24,32 @@ def _waveforms(rows):
         for name, value in row.items():
             out[i][name] = value
     return out
+
+
+def test_compute_area_quantile_times_returns_fixed_order_array():
+    wave = np.array([0, 10, 20, 30, 40, 50, 40, 30, 20, 10, 0], dtype=np.float32)
+
+    times = _compute_area_quantile_times(wave, time_start=0, dt_ns=1)
+
+    assert times.dtype == np.int64
+    assert times.tolist() == [1125, 1750, 3062, 4500, 5937, 7250, 7875]
+
+
+def test_compute_area_quantile_times_handles_empty_and_non_positive_area():
+    assert (
+        _compute_area_quantile_times(np.array([], dtype=np.float32), 1234, 2).tolist() == [1234] * 7
+    )
+    assert (
+        _compute_area_quantile_times(np.zeros(3, dtype=np.float32), 1234, 2).tolist() == [1234] * 7
+    )
+
+
+def test_compute_area_quantile_times_handles_zero_area_plateaus():
+    wave = np.array([0, 0, 10, 0, 10, 0], dtype=np.float32)
+
+    times = _compute_area_quantile_times(wave, time_start=1000, dt_ns=2)
+
+    assert times.tolist() == [3200, 3400, 4000, 5000, 8000, 8600, 8800]
 
 
 def test_peaklet_features_derive_waveform_fields_from_ragged_pool():

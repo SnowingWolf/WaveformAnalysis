@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `peaklet_features` |
-| **Version** | `3.0.0` |
+| **Version** | `3.0.1` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
