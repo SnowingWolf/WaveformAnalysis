@@ -216,21 +216,19 @@ class DAQRun:
         if not files_to_scan:
             return
 
-        # 读取选定的文件来确定实际的通道和板卡
+        # 读取选定的文件头来确定实际的通道和板卡，避免扫描阶段物化波形数据。
         try:
             from waveform_analysis.utils.formats.v1725 import V1725Reader
 
-            reader = V1725Reader()
             boards_found = set()
             channels_found = set()
 
             for file_path in files_to_scan:
-                # 每个文件读取前 50 个波形
-                for i, wave in enumerate(reader.iter_waves([file_path])):
-                    boards_found.add(wave.board)
-                    channels_found.add(wave.channel)
-                    if i >= 50:  # 每个文件限制读取数量
-                        break
+                board = V1725Reader._extract_board_from_path(file_path)
+                channels = self._peek_v1725_channels(file_path, max_waves=50)
+                if channels:
+                    boards_found.add(board)
+                    channels_found.update(channels)
 
             # 更新板卡和通道信息
             if boards_found:
@@ -240,6 +238,41 @@ class DAQRun:
 
         except Exception as e:
             logger.debug(f"无法扫描文件内部通道/板卡信息: {e}")
+
+    @staticmethod
+    def _peek_v1725_channels(file_path: Path, max_waves: int = 50) -> set[int]:
+        channels_found: set[int] = set()
+        waves_seen = 0
+
+        with file_path.open("rb") as f:
+            while waves_seen < max_waves:
+                event_header = f.read(16)
+                if not event_header:
+                    break
+                if len(event_header) < 16:
+                    break
+
+                channel_mask = event_header[4] | (event_header[11] << 8)
+                channel = 0
+                while channel_mask and waves_seen < max_waves:
+                    if channel_mask & 1:
+                        ch_header = f.read(12)
+                        if len(ch_header) < 12:
+                            return channels_found
+
+                        ch_size = int.from_bytes(ch_header[:3], "little") & ((1 << 22) - 1)
+                        sig_size = (ch_size - 3) << 2
+                        if sig_size < 0:
+                            return channels_found
+
+                        channels_found.add(channel)
+                        waves_seen += 1
+                        f.seek(sig_size, os.SEEK_CUR)
+
+                    channel += 1
+                    channel_mask >>= 1
+
+        return channels_found
 
     def _scan_default(self) -> None:
         """使用默认配置扫描文件（向后兼容）"""
@@ -329,6 +362,55 @@ class DAQRun:
 
         return None, None
 
+    def _parse_v1725_file(self, fpath: str) -> tuple[int | None, int | None]:
+        sampling_rate_hz = (
+            self.daq_adapter.sampling_rate_hz if self.daq_adapter is not None else None
+        )
+        tick_ps = int(round(self.ps_per_s / sampling_rate_hz)) if sampling_rate_hz else 1
+
+        min_tick = None
+        max_tick = None
+
+        try:
+            with open(fpath, "rb") as f:
+                while True:
+                    event_header = f.read(16)
+                    if not event_header:
+                        break
+                    if len(event_header) < 16:
+                        break
+
+                    channel_mask = event_header[4] | (event_header[11] << 8)
+                    while channel_mask:
+                        ch_header = f.read(12)
+                        if len(ch_header) < 12:
+                            return self._scale_v1725_ticks(min_tick, max_tick, tick_ps)
+
+                        ch_size = int.from_bytes(ch_header[:3], "little") & ((1 << 22) - 1)
+                        sig_size = (ch_size - 3) << 2
+                        if sig_size < 0:
+                            return self._scale_v1725_ticks(min_tick, max_tick, tick_ps)
+
+                        timestamp = int.from_bytes(ch_header[4:10], "little")
+                        min_tick = timestamp if min_tick is None else min(min_tick, timestamp)
+                        max_tick = timestamp if max_tick is None else max(max_tick, timestamp)
+
+                        f.seek(sig_size, os.SEEK_CUR)
+                        channel_mask &= channel_mask - 1
+
+        except Exception:
+            logger.debug("解析 V1725 文件失败: %s", fpath, exc_info=True)
+
+        return self._scale_v1725_ticks(min_tick, max_tick, tick_ps)
+
+    @staticmethod
+    def _scale_v1725_ticks(
+        min_tick: int | None, max_tick: int | None, tick_ps: int
+    ) -> tuple[int | None, int | None]:
+        if min_tick is None or max_tick is None:
+            return None, None
+        return min_tick * tick_ps, max_tick * tick_ps
+
     def _iter_file_infos(self):
         for files in self.channel_files.values():
             yield from files
@@ -345,17 +427,23 @@ class DAQRun:
         if not file_infos:
             return
 
+        parse_file = (
+            self._parse_v1725_file
+            if self.daq_adapter is not None and self.daq_adapter.name == "v1725"
+            else self._parse_csv_file
+        )
+
         max_workers = min(8, os.cpu_count() or 1, len(file_infos))
         if max_workers <= 1:
             for file_info in file_infos:
-                min_t, max_t = self._parse_csv_file(file_info["path"])
+                min_t, max_t = parse_file(file_info["path"])
                 file_info["timetag_min"] = min_t
                 file_info["timetag_max"] = max_t
             return
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_file_info = {
-                executor.submit(self._parse_csv_file, file_info["path"]): file_info
+                executor.submit(parse_file, file_info["path"]): file_info
                 for file_info in file_infos
             }
             for future in as_completed(future_to_file_info):
@@ -466,6 +554,25 @@ class DAQRun:
         if self._run_acquisition_window is None:
             return None, None
         return self._run_acquisition_window
+
+    def get_file_time_window(self) -> tuple[datetime | None, datetime | None]:
+        """返回基于文件系统时间的轻量 run 时间窗口。"""
+        file_infos = list(self._iter_file_infos())
+        if not file_infos:
+            return None, None
+
+        start_time = None
+        end_time = None
+        for file_info in file_infos:
+            created_time = file_info.get("created_time")
+            if created_time is not None and (start_time is None or created_time < start_time):
+                start_time = created_time
+
+            mtime = file_info.get("mtime")
+            if mtime is not None and (end_time is None or mtime > end_time):
+                end_time = mtime
+
+        return start_time, end_time
 
     def get_channel_file_details(self, channel: int) -> list[dict] | None:
         return sorted(self.channel_files.get(channel, []), key=lambda x: x["index"])
