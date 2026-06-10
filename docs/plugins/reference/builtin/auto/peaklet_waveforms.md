@@ -15,13 +15,7 @@
 
 ## Dependencies
 
-This plugin depends on the following data:
-
-- [`peaklets`](peaklets.md)
-- [`peaklet_components`](peaklet_components.md)
-- [`hit_merged`](hit_merged.md)
-- [`records`](records.md)
-- [`wave_pool`](wave_pool.md)
+This plugin has no dependencies.
 
 ## Configuration Options
 
