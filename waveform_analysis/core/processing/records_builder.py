@@ -713,7 +713,9 @@ def _merge_records_part_refs_batched_to_disk(
     if n_workers is None:
         import os
 
-        n_workers = min(max(1, os.cpu_count() or 1), len(starts))
+        # 保守的默认值：最多 4 个 worker，避免文件描述符耗尽
+        # 每个 worker 在 batch_size=50 时可能打开 100+ 文件描述符
+        n_workers = min(4, max(1, os.cpu_count() or 1), len(starts))
     else:
         n_workers = max(1, int(n_workers))
 
