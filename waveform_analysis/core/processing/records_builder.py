@@ -699,6 +699,7 @@ def _merge_records_part_refs_batched_to_disk(
     batch_size: int,
     output_dir: Path,
     show_progress: bool = False,
+    n_workers: int | None = None,
 ) -> list[_RecordsPartRef]:
     if not parts:
         return []
@@ -706,8 +707,18 @@ def _merge_records_part_refs_batched_to_disk(
         return list(parts)
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    merged_parts: list[_RecordsPartRef] = []
     starts = list(range(0, len(parts), batch_size))
+
+    # 确定并行度
+    if n_workers is None:
+        import os
+
+        n_workers = min(max(1, os.cpu_count() or 1), len(starts))
+    else:
+        n_workers = max(1, int(n_workers))
+
+    use_parallel = n_workers > 1 and len(starts) > 1
+
     pbar = None
     if show_progress:
         try:
@@ -716,21 +727,60 @@ def _merge_records_part_refs_batched_to_disk(
             pbar = tqdm(total=len(starts), desc="Merging parts (disk)", leave=False)
         except ImportError:
             pbar = None
+
     try:
-        for batch_idx, start in enumerate(starts):
-            batch = parts[start : start + batch_size]
-            merged = _merge_records_part_refs_to_disk(
-                batch,
-                output_dir=output_dir,
-                part_idx=batch_idx,
-            )
-            if merged is not None:
-                merged_parts.append(merged)
-            if pbar is not None:
-                pbar.update(1)
+        if not use_parallel:
+            # 串行模式（单核）
+            merged_parts: list[_RecordsPartRef] = []
+            for batch_idx, start in enumerate(starts):
+                batch = parts[start : start + batch_size]
+                merged = _merge_records_part_refs_to_disk(
+                    batch,
+                    output_dir=output_dir,
+                    part_idx=batch_idx,
+                )
+                if merged is not None:
+                    merged_parts.append(merged)
+                if pbar is not None:
+                    pbar.update(1)
+        else:
+            # 并行模式（多核）
+            from concurrent.futures import as_completed
+
+            from waveform_analysis.core.execution.manager import get_executor
+
+            with get_executor(
+                "records_batch_merge",
+                executor_type="thread",
+                max_workers=n_workers,
+                reuse=True,
+            ) as executor:
+                futures = {
+                    executor.submit(
+                        _merge_records_part_refs_to_disk,
+                        parts[start : start + batch_size],
+                        output_dir,
+                        batch_idx,
+                    ): batch_idx
+                    for batch_idx, start in enumerate(starts)
+                }
+
+                results = []
+                for future in as_completed(futures):
+                    batch_idx = futures[future]
+                    merged = future.result()
+                    if merged is not None:
+                        results.append((batch_idx, merged))
+                    if pbar is not None:
+                        pbar.update(1)
+
+                # 按批次索引排序，保持确定性顺序
+                results.sort(key=lambda x: x[0])
+                merged_parts = [merged for _, merged in results]
     finally:
         if pbar is not None:
             pbar.close()
+
     return merged_parts
 
 
@@ -1000,6 +1050,7 @@ def _merge_records_part_refs(
     output_dir: Path | None = None,
     transfer_temp_dir_ownership: bool = False,
     show_progress: bool = False,
+    n_workers: int | None = None,
     profiler=None,
 ) -> RecordsBundle | RecordsBundleRef:
     """
@@ -1013,6 +1064,7 @@ def _merge_records_part_refs(
         output_dir: 分批合并临时目录
         transfer_temp_dir_ownership: 如果为 True，将 output_dir 的所有权转移给 RecordsBundleRef
         show_progress: 是否显示磁盘分批合并进度
+        n_workers: 合并阶段并行 worker 数量（None=自动检测 CPU 核心数）
         profiler: Optional profiler for merge sub-stage timings
 
     Returns:
@@ -1071,6 +1123,7 @@ def _merge_records_part_refs(
                 batch_size=batch_size,
                 output_dir=batch_output_dir,
                 show_progress=show_progress,
+                n_workers=n_workers,
             )
         else:
             merged_parts = list(parts)
@@ -1337,7 +1390,9 @@ def build_records_from_raw_files_streaming(
             part_refs.extend(channel_results.get(channel_idx, []))
 
         with timer("records.merge") if timer else nullcontext():
-            return _merge_records_part_refs(part_refs, output_dir=part_dir)
+            return _merge_records_part_refs(
+                part_refs, output_dir=part_dir, n_workers=channel_workers
+            )
 
 
 def _build_records_from_channels(
@@ -1772,6 +1827,7 @@ def build_records_from_v1725_files(
                 output_dir=part_dir,
                 transfer_temp_dir_ownership=True,
                 show_progress=show_progress,
+                n_workers=n_jobs,
                 profiler=profiler,
             )
 
