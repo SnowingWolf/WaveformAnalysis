@@ -719,6 +719,13 @@ def _merge_records_part_refs_batched_to_disk(
 
     use_parallel = n_workers > 1 and len(starts) > 1
 
+    # 调试信息
+    if show_progress:
+        mode = "并行" if use_parallel else "串行"
+        print(
+            f"[Records 合并] 模式={mode}, workers={n_workers}, 批次数={len(starts)}, 分片数={len(parts)}"
+        )
+
     pbar = None
     if show_progress:
         try:
