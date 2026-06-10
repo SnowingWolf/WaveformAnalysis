@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 import numpy as np
 
+from tests.daq_adapter_helpers import make_v1725_single_wave_blob
 from tests.utils import FakeContext
 from waveform_analysis.core import Context
 from waveform_analysis.core.plugins.builtin.cpu.records import (
@@ -11,7 +12,7 @@ from waveform_analysis.core.plugins.builtin.cpu.records import (
     get_records_bundle,
     get_records_bundle_cache_key,
 )
-from waveform_analysis.core.processing.records_builder import RecordsBundle
+from waveform_analysis.core.processing.records_builder import RecordsBundle, RecordsBundleRef
 
 
 def _make_raw_files():
@@ -156,6 +157,31 @@ def test_wave_pool_plugin_reuses_shared_bundle_builder(tmp_path):
     assert mocked.call_count == 1
     np.testing.assert_array_equal(records, fake_bundle.records)
     np.testing.assert_array_equal(wave_pool, fake_bundle.wave_pool)
+
+
+def test_v1725_records_plugins_default_to_disk_backed_memmaps(tmp_path):
+    run_id = "run_001"
+    raw = tmp_path / "test_raw_b0_seg0.bin"
+    raw.write_bytes(make_v1725_single_wave_blob(channel=0, timestamp=10, baseline=100))
+
+    ctx = Context(
+        storage_dir=str(tmp_path / "storage"),
+        config={"daq_adapter": "v1725", "show_progress": False},
+    )
+    ctx.register(RecordsPlugin(), WavePoolPlugin())
+    ctx._set_data(run_id, "raw_files", [[str(raw)]])
+
+    records = ctx.get_data(run_id, "records")
+    wave_pool = ctx.get_data(run_id, "wave_pool")
+
+    assert isinstance(records, np.memmap)
+    assert isinstance(wave_pool, np.memmap)
+    bundle_key = get_records_bundle_cache_key(ctx, run_id)
+    assert isinstance(ctx._results[(run_id, bundle_key)], RecordsBundleRef)
+    np.testing.assert_array_equal(records["timestamp"], np.array([40_000]))
+    np.testing.assert_array_equal(wave_pool, np.array([11, 12], dtype=np.uint16))
+
+    ctx.clear_cache_for(run_id, "records", clear_disk=False, verbose=False)
 
 
 def test_clear_records_or_wave_pool_also_clears_internal_bundle_cache(tmp_path):

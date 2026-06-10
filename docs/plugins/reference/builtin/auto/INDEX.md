@@ -147,11 +147,11 @@ raw_files ──► records ──► df ──► df_events
 | [`PeakletPlugin`](peaklets.md) | `peaklets` | 1.0.0 | 特征提取 | hit_merged |
 | [`PeaksPlugin`](peaks.md) | `peaks` | 3.0.0 | 特征提取 | peaklets, peaklet_features, peaklet_channels |
 | [`RawFileNamesPlugin`](raw_files.md) | `raw_files` | 0.0.2 | 数据加载 | - |
-| [`RecordsPlugin`](records.md) | `records` | 0.10.3 | 记录处理 | - |
+| [`RecordsPlugin`](records.md) | `records` | 0.13.0 | 记录处理 | - |
 | [`RecordsAsymmetryMaskPlugin`](records_asymmetry_mask.md) | `records_asymmetry_mask` | 0.1.0 | 记录处理 | records, wave_pool |
 | [`S1S2ClassifierPlugin`](s1_s2.md) | `s1_s2` | 0.4.0 | 其他 | waveform_width, basic_features |
 | [`WaveformsPlugin`](st_waveforms.md) | `st_waveforms` | 0.10.0 | 波形处理 | - |
-| [`WavePoolPlugin`](wave_pool.md) | `wave_pool` | 0.10.3 | 波形处理 | - |
+| [`WavePoolPlugin`](wave_pool.md) | `wave_pool` | 0.13.0 | 波形处理 | - |
 | [`WavePoolFilteredPlugin`](wave_pool_filtered.md) | `wave_pool_filtered` | 3.0.0 | 波形处理 | records, wave_pool |
 | [`WaveformWidthPlugin`](waveform_width.md) | `waveform_width` | 3.0.0 | 波形处理 | - |
 | [`WaveformWidthIntegralPlugin`](waveform_width_integral.md) | `waveform_width_integral` | 2.7.0 | 波形处理 | - |

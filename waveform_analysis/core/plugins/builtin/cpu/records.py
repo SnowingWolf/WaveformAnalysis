@@ -22,9 +22,11 @@ from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.dtypes import RECORDS_DTYPE
 from waveform_analysis.core.processing.records_builder import (
     RecordsBundle,
+    RecordsBundleRef,
     build_records_from_raw_files,
     build_records_from_v1725_files,
 )
+import waveform_analysis.utils.formats
 
 _BUNDLE_CACHE_NAME = "_records_bundle"
 
@@ -39,8 +41,35 @@ def get_records_bundle_cache_key(context: Any, run_id: str) -> str:
     return f"{_BUNDLE_CACHE_NAME}-{bundle_key}"
 
 
-def _apply_records_polarity(context: Any, run_id: str, bundle: RecordsBundle) -> RecordsBundle:
-    records = bundle.records
+def _records_from_bundle(bundle: RecordsBundle | RecordsBundleRef) -> np.ndarray:
+    if isinstance(bundle, RecordsBundleRef):
+        if len(bundle.part_refs) != 1:
+            return bundle.get_records_view()
+        part = bundle.part_refs[0]
+        return np.memmap(part.records_path, dtype=RECORDS_DTYPE, mode="r+", shape=(part.n_records,))
+    return bundle.records
+
+
+def _wave_pool_from_bundle(bundle: RecordsBundle | RecordsBundleRef) -> np.ndarray:
+    if isinstance(bundle, RecordsBundleRef):
+        if len(bundle.part_refs) != 1:
+            raise ValueError("wave_pool requires a merged single-part RecordsBundleRef")
+        part = bundle.part_refs[0]
+        return np.memmap(
+            part.wave_pool_path,
+            dtype=np.uint16,
+            mode="r",
+            shape=(part.n_samples,),
+        )
+    return bundle.wave_pool
+
+
+def _apply_records_polarity(
+    context: Any,
+    run_id: str,
+    bundle: RecordsBundle | RecordsBundleRef,
+) -> RecordsBundle | RecordsBundleRef:
+    records = _records_from_bundle(bundle)
     names = records.dtype.names
     if names is None or "polarity" not in names or "board" not in names or "channel" not in names:
         return bundle
@@ -57,6 +86,8 @@ def _apply_records_polarity(context: Any, run_id: str, bundle: RecordsBundle) ->
 
     boards = records["board"]
     channels = records["channel"]
+
+    # 向量化实现：使用 np.unique 的 return_inverse 参数一次性分组和赋值
     pairs = np.empty(
         len(records),
         dtype=[("board", boards.dtype), ("channel", channels.dtype)],
@@ -64,13 +95,22 @@ def _apply_records_polarity(context: Any, run_id: str, bundle: RecordsBundle) ->
     pairs["board"] = boards
     pairs["channel"] = channels
 
-    for pair in np.unique(pairs):
-        board = int(pair["board"])
-        channel = int(pair["channel"])
-        polarity = polarity_map.get(HardwareChannel(board, channel), "unknown")
-        if polarity == "unknown":
-            continue
-        records["polarity"][(boards == board) & (channels == channel)] = polarity
+    # 获取唯一对及其逆索引映射（inverse_indices[i] 表示 records[i] 对应 unique_pairs 的索引）
+    unique_pairs, inverse_indices = np.unique(pairs, return_inverse=True)
+
+    # 为每个唯一的 (board, channel) 构建极性查找数组
+    polarity_lookup = np.full(len(unique_pairs), "unknown", dtype=records["polarity"].dtype)
+    for idx, pair in enumerate(unique_pairs):
+        hw_ch = HardwareChannel(int(pair["board"]), int(pair["channel"]))
+        polarity = polarity_map.get(hw_ch, "unknown")
+        polarity_lookup[idx] = polarity
+
+    # 向量化赋值：通过 inverse_indices 一次性映射所有记录的极性
+    records["polarity"] = polarity_lookup[inverse_indices]
+    flush = getattr(records, "flush", None)
+    if callable(flush):
+        flush()
+
     return bundle
 
 
@@ -162,14 +202,17 @@ def _cleanup_stale_bundles(context: Any, run_id: str, keep_key: str) -> None:
             continue
         if name == keep_key:
             continue
-        if not isinstance(value, RecordsBundle):
+        if not isinstance(value, RecordsBundle | RecordsBundleRef):
             continue
         if not name.startswith(_BUNDLE_CACHE_NAME):
             continue
         to_remove.append((rid, name))
 
     for key in to_remove:
-        del context._results[key]
+        value = context._results.pop(key)
+        cleanup = getattr(value, "cleanup", None)
+        if callable(cleanup):
+            cleanup()
 
 
 def _build_records_bundle(
@@ -179,12 +222,13 @@ def _build_records_bundle(
     adapter_name: str | None,
     part_size: int,
     dt_ns: int,
-) -> RecordsBundle:
+) -> RecordsBundle | RecordsBundleRef:
     cache_key = get_records_bundle_cache_key(context, run_id)
     cached = context._results.get((run_id, cache_key))
-    if isinstance(cached, RecordsBundle):
+    if isinstance(cached, RecordsBundle | RecordsBundleRef):
         return cached
 
+    # V1725 采集卡路径
     if adapter_name == "v1725":
         raw_files = context.get_data(run_id, "raw_files")
         file_list = []
@@ -204,6 +248,9 @@ def _build_records_bundle(
         n_jobs = context.get_config(plugin, "n_jobs")
         channel_executor = context.get_config(plugin, "channel_executor")
         v1725_part_size = context.get_config(plugin, "v1725_part_size")
+        keep_on_disk = context.get_config(plugin, "keep_on_disk")
+        memory_budget_gb = context.get_config(plugin, "memory_budget_gb")
+        profiler = getattr(context, "profiler", None)
 
         bundle = build_records_from_v1725_files(
             deduped,
@@ -211,13 +258,17 @@ def _build_records_bundle(
             n_jobs=n_jobs,
             executor_type=channel_executor,
             v1725_part_size=v1725_part_size,
+            keep_on_disk=True if keep_on_disk is None else bool(keep_on_disk),
+            memory_budget_gb=memory_budget_gb,
             show_progress=bool(context.config.get("show_progress", True)),
+            profiler=profiler,
         )
         bundle = _apply_records_polarity(context, run_id, bundle)
         context._set_data(run_id, cache_key, bundle)
         _cleanup_stale_bundles(context, run_id, cache_key)
         return bundle
 
+    # 通用适配器路径：从 raw_files 构建 RecordsBundle，适用于非 V1725 适配器
     raw_files = context.get_data(run_id, "raw_files")
     if not isinstance(raw_files, list):
         raise ValueError("records expects raw_files as a list of per-channel file groups")
@@ -282,13 +333,13 @@ class _RecordsBundlePluginBase(Plugin):
         "channel_executor": Option(
             default="thread",
             type=str,
-            help="Channel-level executor type: 'thread' or 'process'.",
+            help="Executor type for channel-level loading and records merge: 'thread' or 'process'.",
             track=False,
         ),
         "n_jobs": Option(
             default=None,
             type=int,
-            help="Workers per channel for file-level parsing (None=auto).",
+            help="Workers per channel for file-level parsing; V1725 None=auto caps file readers at 4.",
             track=False,
         ),
         "use_process_pool": Option(
@@ -319,6 +370,17 @@ class _RecordsBundlePluginBase(Plugin):
             type=int,
             help="Max V1725 waves per per-file records shard; <=0 uses one shard per file.",
         ),
+        "keep_on_disk": Option(
+            default=None,
+            type=None,
+            validate=lambda v: v is None or isinstance(v, bool),
+            help="Keep merged records bundle disk-backed. None defaults to True for V1725 and False otherwise.",
+        ),
+        "memory_budget_gb": Option(
+            default=50.0,
+            type=float,
+            help="Memory budget in GB for in-memory records bundle materialization.",
+        ),
         "dt": Option(
             default=None,
             type=int,
@@ -341,12 +403,13 @@ class _RecordsBundlePluginBase(Plugin):
             "None=adapter default.",
         ),
     }
-    version = "0.10.3"
+    version = "0.13.0"
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         """Resolve raw-file upstream data for shared records bundle outputs."""
         return _resolve_records_upstream_depends(context, self)
 
+    #
     def get_lineage(self, context: Any) -> dict:
         adapter_name = _resolve_adapter_name(context, self)
         config = {}
@@ -377,7 +440,7 @@ class RecordsPlugin(_RecordsBundlePluginBase):
 
     def compute(self, context: Any, run_id: str, **kwargs) -> np.ndarray:
         bundle = get_records_bundle(context, run_id)
-        return bundle.records
+        return _records_from_bundle(bundle)
 
 
 class WavePoolPlugin(_RecordsBundlePluginBase):
@@ -390,7 +453,7 @@ class WavePoolPlugin(_RecordsBundlePluginBase):
 
     def compute(self, context: Any, run_id: str, **kwargs) -> np.ndarray:
         bundle = get_records_bundle(context, run_id)
-        return bundle.wave_pool
+        return _wave_pool_from_bundle(bundle)
 
 
 class WavePoolFilteredPlugin(Plugin):

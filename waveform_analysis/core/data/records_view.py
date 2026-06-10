@@ -78,7 +78,26 @@ class RecordsView:
             raise ValueError("records contain negative event_length values")
         wave_pool_size = len(self.wave_pool)
         if np.any(self._wave_ends > wave_pool_size):
-            raise ValueError("records reference samples outside wave_pool bounds")
+            invalid_mask = self._wave_ends > wave_pool_size
+            n_invalid = np.sum(invalid_mask)
+            max_end = self._wave_ends.max()
+            missing = max_end - wave_pool_size
+            invalid_idx = np.where(invalid_mask)[0][:5]  # 前5个越界
+            details = ", ".join(
+                f"record[{i}]: offset={self._wave_offsets[i]}, "
+                f"length={self._event_lengths[i]}, end={self._wave_ends[i]}"
+                for i in invalid_idx
+            )
+            raise ValueError(
+                f"records reference samples outside wave_pool bounds:\n"
+                f"  - wave_pool size: {wave_pool_size}\n"
+                f"  - max wave_end: {max_end}\n"
+                f"  - missing samples: {missing}\n"
+                f"  - invalid records: {n_invalid}/{len(self.records)}\n"
+                f"  - examples: {details}\n"
+                f"This usually means wave_pool was truncated during merge. "
+                f"Clear cache and retry."
+            )
 
     def _resolve_record_index(self, record_id: int) -> int:
         key = int(record_id)
