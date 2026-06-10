@@ -43,6 +43,7 @@ export, __all__ = exporter()
 
 RECORDS_DTYPE = export(_RECORDS_DTYPE, name="RECORDS_DTYPE")
 EVENTS_DTYPE = export(_EVENTS_DTYPE, name="EVENTS_DTYPE")
+_MAX_V1725_IN_MEMORY_WAVES = 10_000
 
 
 @export
@@ -1516,7 +1517,11 @@ def _process_v1725_file_to_disk(
     """
     file_part_dir = part_dir / f"file_{part_idx}"
     file_part_dir.mkdir(parents=True, exist_ok=True)
-    effective_part_size = None if part_size is None or part_size <= 0 else int(part_size)
+    effective_part_size = (
+        None
+        if part_size is None or part_size <= 0
+        else min(int(part_size), _MAX_V1725_IN_MEMORY_WAVES)
+    )
 
     part_refs: list[_RecordsPartRef] = []
     wave_batch = []
@@ -1637,6 +1642,12 @@ def _resolve_v1725_file_workers(file_count: int, n_jobs: int | None) -> int:
     return max(int(n_jobs), 1)
 
 
+def _resolve_v1725_executor_type(executor_type: str | None) -> str:
+    if executor_type == "process":
+        return "thread"
+    return executor_type or "thread"
+
+
 @export
 def build_records_from_v1725_files(
     file_paths: list[str],
@@ -1697,6 +1708,7 @@ def build_records_from_v1725_files(
 
         # 确定并行度
         effective_workers = _resolve_v1725_file_workers(len(file_paths), n_jobs)
+        effective_executor_type = _resolve_v1725_executor_type(executor_type)
 
         with timer("records.v1725.build") if timer else nullcontext():
             if effective_workers <= 1 or len(file_paths) <= 1:
@@ -1722,7 +1734,7 @@ def build_records_from_v1725_files(
                 max_workers = min(effective_workers, len(file_paths))
                 with get_executor(
                     "v1725_file_build",
-                    executor_type=executor_type,
+                    executor_type=effective_executor_type,
                     max_workers=max_workers,
                     reuse=True,
                 ) as executor:
