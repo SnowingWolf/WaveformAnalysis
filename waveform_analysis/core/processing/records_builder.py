@@ -697,6 +697,7 @@ def _merge_records_part_refs_batched_to_disk(
     parts: Sequence[_RecordsPartRef],
     batch_size: int,
     output_dir: Path,
+    show_progress: bool = False,
 ) -> list[_RecordsPartRef]:
     if not parts:
         return []
@@ -705,15 +706,30 @@ def _merge_records_part_refs_batched_to_disk(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     merged_parts: list[_RecordsPartRef] = []
-    for batch_idx, start in enumerate(range(0, len(parts), batch_size)):
-        batch = parts[start : start + batch_size]
-        merged = _merge_records_part_refs_to_disk(
-            batch,
-            output_dir=output_dir,
-            part_idx=batch_idx,
-        )
-        if merged is not None:
-            merged_parts.append(merged)
+    starts = list(range(0, len(parts), batch_size))
+    pbar = None
+    if show_progress:
+        try:
+            from tqdm import tqdm
+
+            pbar = tqdm(total=len(starts), desc="Merging parts (disk)", leave=False)
+        except ImportError:
+            pbar = None
+    try:
+        for batch_idx, start in enumerate(starts):
+            batch = parts[start : start + batch_size]
+            merged = _merge_records_part_refs_to_disk(
+                batch,
+                output_dir=output_dir,
+                part_idx=batch_idx,
+            )
+            if merged is not None:
+                merged_parts.append(merged)
+            if pbar is not None:
+                pbar.update(1)
+    finally:
+        if pbar is not None:
+            pbar.close()
     return merged_parts
 
 
@@ -905,6 +921,76 @@ def _merge_records_part_refs_to_disk(
     )
 
 
+def _can_concat_records_part_refs(parts: Sequence[_RecordsPartRef]) -> bool:
+    if not parts:
+        return False
+    previous_stop: int | None = None
+    for part in parts:
+        if part.time_range is None:
+            return False
+        start, stop = part.time_range
+        if previous_stop is not None and start < previous_stop:
+            return False
+        previous_stop = stop
+    return True
+
+
+def _concat_records_part_refs_to_disk(
+    parts: Sequence[_RecordsPartRef], output_dir: Path, part_idx: int = 0
+) -> _RecordsPartRef | None:
+    if not parts:
+        return None
+
+    total_records = sum(part.n_records for part in parts)
+    if total_records == 0:
+        return None
+
+    total_samples = sum(part.n_samples for part in parts)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    records_path = output_dir / f"records_merged_{part_idx}.dat"
+    wave_pool_path = output_dir / f"wave_pool_merged_{part_idx}.dat"
+
+    records_out = np.memmap(records_path, dtype=RECORDS_DTYPE, mode="w+", shape=(total_records,))
+    wave_pool_out = np.memmap(wave_pool_path, dtype=np.uint16, mode="w+", shape=(total_samples,))
+
+    record_cursor = 0
+    wave_cursor = 0
+    for part in parts:
+        records_src = np.memmap(
+            part.records_path,
+            dtype=RECORDS_DTYPE,
+            mode="r",
+            shape=(part.n_records,),
+        )
+        wave_pool_src = np.memmap(
+            part.wave_pool_path,
+            dtype=np.uint16,
+            mode="r",
+            shape=(part.n_samples,),
+        )
+        records_out[record_cursor : record_cursor + part.n_records] = records_src
+        if part.n_samples > 0:
+            wave_pool_out[wave_cursor : wave_cursor + part.n_samples] = wave_pool_src
+        records_out[record_cursor : record_cursor + part.n_records]["wave_offset"] += wave_cursor
+        record_cursor += part.n_records
+        wave_cursor += part.n_samples
+
+    records_out["record_id"] = np.arange(total_records, dtype=np.int64)
+    time_range = (int(records_out["time"].min()), int(records_out["time"].max()))
+    records_out.flush()
+    wave_pool_out.flush()
+    del records_out
+    del wave_pool_out
+
+    return _RecordsPartRef(
+        records_path=records_path,
+        wave_pool_path=wave_pool_path,
+        n_records=total_records,
+        n_samples=total_samples,
+        time_range=time_range,
+    )
+
+
 def _merge_records_part_refs(
     parts: Sequence[_RecordsPartRef],
     memory_budget_gb: float = 50.0,
@@ -912,6 +998,8 @@ def _merge_records_part_refs(
     keep_on_disk: bool | None = None,
     output_dir: Path | None = None,
     transfer_temp_dir_ownership: bool = False,
+    show_progress: bool = False,
+    profiler=None,
 ) -> RecordsBundle | RecordsBundleRef:
     """
     智能合并分片：根据数据量自动选择策略。
@@ -923,6 +1011,8 @@ def _merge_records_part_refs(
         keep_on_disk: 强制选择策略（None=自动，True=磁盘引用，False=加载内存）
         output_dir: 分批合并临时目录
         transfer_temp_dir_ownership: 如果为 True，将 output_dir 的所有权转移给 RecordsBundleRef
+        show_progress: 是否显示磁盘分批合并进度
+        profiler: Optional profiler for merge sub-stage timings
 
     Returns:
         RecordsBundle 或 RecordsBundleRef
@@ -979,6 +1069,7 @@ def _merge_records_part_refs(
                 parts,
                 batch_size=batch_size,
                 output_dir=batch_output_dir,
+                show_progress=show_progress,
             )
         else:
             merged_parts = list(parts)
@@ -1006,7 +1097,12 @@ def _merge_records_part_refs(
 
         try:
             # 始终执行全局堆合并
-            final_part = _merge_records_part_refs_to_disk(merged_parts, ref_dir)
+            timer = profiler.timeit if profiler else None
+            if _can_concat_records_part_refs(merged_parts):
+                with timer("records.merge.concat.disk") if timer else nullcontext():
+                    final_part = _concat_records_part_refs_to_disk(merged_parts, ref_dir)
+            else:
+                final_part = _merge_records_part_refs_to_disk(merged_parts, ref_dir)
         except Exception:
             if cleanup_on_error:
                 shutil.rmtree(cleanup_dir or ref_dir, ignore_errors=True)
@@ -1533,6 +1629,14 @@ def _build_v1725_records_part_from_waves(
     return RecordsBundle(records=records, wave_pool=wave_pool)
 
 
+def _resolve_v1725_file_workers(file_count: int, n_jobs: int | None) -> int:
+    if file_count <= 0:
+        return 1
+    if n_jobs is None:
+        return min(file_count, 4)
+    return max(int(n_jobs), 1)
+
+
 @export
 def build_records_from_v1725_files(
     file_paths: list[str],
@@ -1544,6 +1648,7 @@ def build_records_from_v1725_files(
     keep_on_disk: bool | None = None,
     v1725_part_size: int | None = 100_000,
     show_progress: bool = False,
+    profiler=None,
 ) -> RecordsBundle | RecordsBundleRef:
     """
     从 V1725 文件构建 records + wave_pool。
@@ -1560,6 +1665,7 @@ def build_records_from_v1725_files(
         keep_on_disk: 强制选择策略（None=自动，True=磁盘引用，False=加载内存）
         v1725_part_size: 单个 V1725 文件内每个中间分片的 wave 数；<=0 表示单文件一个分片
         show_progress: 是否显示文件级 records 构建进度
+        profiler: Optional profiler for timing V1725 records build stages
 
     Returns:
         RecordsBundle 或 RecordsBundleRef
@@ -1587,83 +1693,82 @@ def build_records_from_v1725_files(
             pbar = None
     try:
         part_refs: list[_RecordsPartRef] = []
+        timer = profiler.timeit if profiler else None
 
         # 确定并行度
-        if n_jobs is None:
-            # 自动模式：使用 CPU 核心数，但限制在合理范围内
-            import os
+        effective_workers = _resolve_v1725_file_workers(len(file_paths), n_jobs)
 
-            effective_workers = min(os.cpu_count() or 4, len(file_paths), 32)
-        else:
-            effective_workers = max(int(n_jobs), 1)
-
-        if effective_workers <= 1 or len(file_paths) <= 1:
-            # 串行处理
-            for part_idx, file_path in enumerate(file_paths):
-                file_part_refs = _process_v1725_file_to_disk(
-                    file_path,
-                    reader,
-                    dt_ns,
-                    part_dir,
-                    part_idx,
-                    part_size=v1725_part_size,
-                )
-                part_refs.extend(file_part_refs)
-                if pbar is not None:
-                    pbar.update(1)
-        else:
-            # 并行处理
-            from concurrent.futures import as_completed
-
-            from waveform_analysis.core.execution.manager import get_executor
-
-            max_workers = min(effective_workers, len(file_paths))
-            with get_executor(
-                "v1725_file_build",
-                executor_type=executor_type,
-                max_workers=max_workers,
-                reuse=True,
-            ) as executor:
-                futures = {
-                    executor.submit(
-                        _process_v1725_file_to_disk,
+        with timer("records.v1725.build") if timer else nullcontext():
+            if effective_workers <= 1 or len(file_paths) <= 1:
+                # 串行处理
+                for part_idx, file_path in enumerate(file_paths):
+                    file_part_refs = _process_v1725_file_to_disk(
                         file_path,
                         reader,
                         dt_ns,
                         part_dir,
-                        idx,
-                        v1725_part_size,
-                    ): idx
-                    for idx, file_path in enumerate(file_paths)
-                }
-
-                # 收集结果并按原始顺序排序（避免竞态条件）
-                results = []
-                for future in as_completed(futures):
-                    idx = futures[future]
-                    file_part_refs = future.result()
-                    if file_part_refs:
-                        results.append((idx, file_part_refs))
+                        part_idx,
+                        part_size=v1725_part_size,
+                    )
+                    part_refs.extend(file_part_refs)
                     if pbar is not None:
                         pbar.update(1)
+            else:
+                # 并行处理
+                from concurrent.futures import as_completed
 
-                # 按索引排序以保持确定性顺序
-                results.sort(key=lambda x: x[0])
-                part_refs = [ref for _, refs in results for ref in refs]
+                from waveform_analysis.core.execution.manager import get_executor
+
+                max_workers = min(effective_workers, len(file_paths))
+                with get_executor(
+                    "v1725_file_build",
+                    executor_type=executor_type,
+                    max_workers=max_workers,
+                    reuse=True,
+                ) as executor:
+                    futures = {
+                        executor.submit(
+                            _process_v1725_file_to_disk,
+                            file_path,
+                            reader,
+                            dt_ns,
+                            part_dir,
+                            idx,
+                            v1725_part_size,
+                        ): idx
+                        for idx, file_path in enumerate(file_paths)
+                    }
+
+                    # 收集结果并按原始顺序排序（避免竞态条件）
+                    results = []
+                    for future in as_completed(futures):
+                        idx = futures[future]
+                        file_part_refs = future.result()
+                        if file_part_refs:
+                            results.append((idx, file_part_refs))
+                        if pbar is not None:
+                            pbar.update(1)
+
+                    # 按索引排序以保持确定性顺序
+                    results.sort(key=lambda x: x[0])
+                    part_refs = [ref for _, refs in results for ref in refs]
 
         # 智能合并分片
         if not part_refs:
             shutil.rmtree(part_dir, ignore_errors=True)
             return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
-        result = _merge_records_part_refs(
-            part_refs,
-            memory_budget_gb=memory_budget_gb,
-            batch_size=batch_size,
-            keep_on_disk=keep_on_disk,
-            output_dir=part_dir,
-            transfer_temp_dir_ownership=True,
-        )
+        with timer("records.merge") if timer else nullcontext():
+            result = _merge_records_part_refs(
+                part_refs,
+                memory_budget_gb=memory_budget_gb,
+                batch_size=batch_size,
+                keep_on_disk=keep_on_disk,
+                output_dir=part_dir,
+                transfer_temp_dir_ownership=True,
+                show_progress=show_progress,
+                profiler=profiler,
+            )
 
         # 如果返回 RecordsBundle（内存模式），清理临时目录
         if isinstance(result, RecordsBundle):
