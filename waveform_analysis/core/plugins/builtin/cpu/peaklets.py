@@ -60,6 +60,7 @@ PEAKLET_FEATURES_DTYPE = np.dtype(
 
 PEAKS_DTYPE = np.dtype(
     [
+        ("peak_id", "i8"),
         ("time_left", "i8"),
         ("time_right", "i8"),
         ("time_peak", "i8"),
@@ -712,6 +713,7 @@ class PeaksPlugin(Plugin):
                 )
             rows.append(
                 (
+                    peaklet_index,
                     int(feature["time_left"]),
                     int(feature["time_right"]),
                     int(feature["time_peak"]),

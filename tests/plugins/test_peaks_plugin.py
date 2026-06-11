@@ -44,6 +44,7 @@ def test_peaks_merge_peaklet_metadata_and_waveform_features():
 
     assert out.dtype == PEAKS_DTYPE
     assert len(out) == 1
+    assert int(out[0]["peak_id"]) == 0
     assert int(out[0]["time_left"]) == 6000
     assert int(out[0]["time_right"]) == 12000
     assert int(out[0]["time_peak"]) == 8000
