@@ -193,7 +193,7 @@ class CacheAnalyzer:
 
             # 更新索引（需要锁保护）
             with self._lock:
-                for run_id, entries in zip(runs_to_scan, results):
+                for run_id, entries in zip(runs_to_scan, results, strict=False):
                     self._cache_index[run_id] = entries
                     self._scanned_runs.add(run_id)
         else:

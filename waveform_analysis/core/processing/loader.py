@@ -279,7 +279,7 @@ class WaveformLoaderCSV:
         from waveform_analysis.utils.io import parse_files_generator
 
         gens = [parse_files_generator(files, chunksize=chunksize) for files in raw_filess]
-        return zip(*gens)
+        return zip(*gens, strict=False)
 
 
 @export

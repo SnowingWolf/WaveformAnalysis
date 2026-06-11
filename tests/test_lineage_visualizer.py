@@ -1,4 +1,9 @@
-from waveform_analysis.core.foundation.model import EdgeModel, LineageGraphModel, NodeModel, PortModel
+from waveform_analysis.core.foundation.model import (
+    EdgeModel,
+    LineageGraphModel,
+    NodeModel,
+    PortModel,
+)
 from waveform_analysis.core.foundation.utils import LineageStyle
 from waveform_analysis.utils.visualization.lineage_visualizer import (
     _layout_nodes_source_to_target,

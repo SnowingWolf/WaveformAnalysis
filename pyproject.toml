@@ -142,6 +142,10 @@ ignore = [
     "C901",  # too complex
     "F401",  # unused-import (some are intentional re-exports for public API)
     "F811",  # redefinition of unused name (sometimes intentional)
+    "UP006",  # use builtin collection annotations (legacy code cleanup deferred)
+    "UP007",  # use X | Y annotations (legacy code cleanup deferred)
+    "UP035",  # import collections.abc / builtin aliases (legacy code cleanup deferred)
+    "UP038",  # use X | Y in isinstance (legacy code cleanup deferred)
 ]
 
 [tool.ruff.lint.isort]
