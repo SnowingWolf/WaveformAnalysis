@@ -220,6 +220,9 @@ install.log
 *.prof
 *.lprof
 *.pstats
+benchmark_*.py
+profile_*.py
+profile_*.txt
 
 # ================================
 # OS Specific
@@ -266,6 +269,7 @@ temp/
 # Benchmark results
 benchmark_results/
 benchmarks/results/
+benchmarks/archive/
 
 # Temporary scripts
 scratch/
