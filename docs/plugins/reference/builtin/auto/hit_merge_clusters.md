@@ -1,13 +1,13 @@
 # HitMergeClustersPlugin
 
-> Internal cluster membership rows shared by hit_merged outputs.
+> Export cluster membership rows using the authoritative hit_merged configuration.
 
 ## Overview
 
 | Property | Value |
 |----------|-------|
 | **Provides** | `hit_merge_clusters` |
-| **Version** | `1.0.0` |
+| **Version** | `1.1.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -17,16 +17,12 @@
 
 This plugin depends on the following data:
 
+- [`hit_merged`](hit_merged.md)
 - [`hit_threshold`](hit_threshold.md)
 
 ## Configuration Options
 
-| Option | Type | Default | Units | Description |
-|--------|------|---------|-------|-------------|
-| `merge_gap_ns` | `float` | `0.0` | - | 最大边界间距（ns），<=0 表示不合并 |
-| `max_total_width_ns` | `float` | `10000.0` | - | 链式合并后的最大总宽度（ns） |
-| `dt` | `int` | `None` | - | 采样间隔（ns）。仅在输入 hit_threshold 缺少 dt 字段时作为兼容补充。 |
-
+This plugin has no configuration options.
 
 ## Output Schema
 
@@ -46,13 +42,6 @@ from waveform_analysis.core.plugins.builtin.cpu import HitMergeClustersPlugin
 # Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(HitMergeClustersPlugin())
-
-# Configure plugin (optional)
-ctx.set_config({
-    "merge_gap_ns": 0.0,
-    "max_total_width_ns": 10000.0,
-    "dt": None,
-}, plugin_name="hit_merge_clusters")
 
 # Get data
 data = ctx.get_data("run_001", "hit_merge_clusters")

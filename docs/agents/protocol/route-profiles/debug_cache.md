@@ -6,11 +6,16 @@
 
 ## Route
 - `task`: `debug_cache`
+- `workflow_cost`: `light`
 - `primary_doc`: `docs/agents/workflows.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/debug_cache.md`
 
 ## Blocking Gates
 - `diagnosis_reproduced`
+
+## Gate Trigger Policy
+- read-only diagnostics stay light and record reproduced/not-reproduced status
+- any proposed code/config fix must switch to modify_plugin or retire_compat before mutation
 
 ## Canonical Commands
 - `waveform-cache diagnose --run <run_id> --dry-run`

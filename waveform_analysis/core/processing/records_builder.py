@@ -43,6 +43,7 @@ export, __all__ = exporter()
 
 RECORDS_DTYPE = export(_RECORDS_DTYPE, name="RECORDS_DTYPE")
 EVENTS_DTYPE = export(_EVENTS_DTYPE, name="EVENTS_DTYPE")
+_MAX_V1725_IN_MEMORY_WAVES = 10_000
 
 
 @export
@@ -560,6 +561,106 @@ def _write_records_part(
     )
 
 
+def _merge_key(
+    records: np.ndarray,
+    source_idx: int,
+    row_idx: int,
+) -> tuple[int, int, int, int, int, int]:
+    rec = records[row_idx]
+    return (
+        int(rec["timestamp"]),
+        int(rec["pid"]),
+        int(rec["board"]),
+        int(rec["channel"]),
+        int(source_idx),
+        int(row_idx),
+    )
+
+
+def _find_run_stop_by_next_heap_key(
+    records: np.ndarray,
+    source_idx: int,
+    row_idx: int,
+    boundary_key: tuple[int, int, int, int, int, int] | None,
+) -> int:
+    """Find the largest consecutive run from one sorted part that can be emitted."""
+    n_records = len(records)
+    if row_idx >= n_records:
+        return row_idx
+    if boundary_key is None:
+        return n_records
+
+    boundary_ts = boundary_key[0]
+    stop = int(np.searchsorted(records["timestamp"], boundary_ts, side="left"))
+    if stop <= row_idx:
+        stop = row_idx + 1
+
+    while stop < n_records:
+        if _merge_key(records, source_idx, stop) <= boundary_key:
+            stop += 1
+        else:
+            break
+    return stop
+
+
+def _copy_records_run_with_waves(
+    *,
+    records_src: np.ndarray,
+    wave_pool_src: np.ndarray,
+    row_start: int,
+    row_stop: int,
+    records_out: np.ndarray,
+    wave_pool_out: np.ndarray,
+    out_idx: int,
+    wave_cursor: int,
+) -> tuple[int, int]:
+    """Copy a sorted records run and rebase its contiguous wave_pool segment."""
+    if row_stop <= row_start:
+        return out_idx, wave_cursor
+
+    run_records = records_src[row_start:row_stop]
+    run_n = len(run_records)
+    records_out[out_idx : out_idx + run_n] = run_records
+
+    first_offset = int(run_records[0]["wave_offset"])
+    last = run_records[-1]
+    last_length = max(int(last["event_length"]), 0)
+    last_end = int(last["wave_offset"]) + last_length
+    run_samples = max(last_end - first_offset, 0)
+
+    if run_samples > 0:
+        wave_pool_out[wave_cursor : wave_cursor + run_samples] = wave_pool_src[
+            first_offset:last_end
+        ]
+
+    records_out[out_idx : out_idx + run_n]["wave_offset"] = (
+        run_records["wave_offset"].astype(np.int64, copy=False) - first_offset + wave_cursor
+    )
+    return out_idx + run_n, wave_cursor + run_samples
+
+
+def _copy_records_run_with_wave_base(
+    *,
+    records_src: np.ndarray,
+    row_start: int,
+    row_stop: int,
+    records_out: np.ndarray,
+    out_idx: int,
+    wave_base: int,
+) -> int:
+    """Copy a sorted records run and rebase offsets into the final wave_pool."""
+    if row_stop <= row_start:
+        return out_idx
+
+    run_records = records_src[row_start:row_stop]
+    run_n = len(run_records)
+    records_out[out_idx : out_idx + run_n] = run_records
+    records_out[out_idx : out_idx + run_n]["wave_offset"] = run_records["wave_offset"].astype(
+        np.int64, copy=False
+    ) + int(wave_base)
+    return out_idx + run_n
+
+
 def _merge_records_part_refs_batched(
     parts: Sequence[_RecordsPartRef],
     batch_size: int = 50,
@@ -615,6 +716,113 @@ def _merge_records_part_refs_batched(
     return merged_parts
 
 
+def _merge_records_part_refs_batched_to_disk(
+    parts: Sequence[_RecordsPartRef],
+    batch_size: int,
+    output_dir: Path,
+    show_progress: bool = False,
+    n_workers: int | None = None,
+    executor_type: str = "thread",
+) -> list[_RecordsPartRef]:
+    if not parts:
+        return []
+    if len(parts) <= batch_size:
+        return list(parts)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    starts = list(range(0, len(parts), batch_size))
+
+    # 确定并行度
+    if n_workers is None:
+        import os
+
+        # 保守的默认值：最多 4 个 worker，避免文件描述符耗尽
+        # 每个 worker 在 batch_size=50 时可能打开 100+ 文件描述符
+        n_workers = min(4, max(1, os.cpu_count() or 1), len(starts))
+    else:
+        n_workers = max(1, int(n_workers))
+
+    executor_type = str(executor_type or "thread").lower()
+    if executor_type not in {"thread", "process"}:
+        raise ValueError(
+            f"records merge executor_type must be 'thread' or 'process', got {executor_type!r}"
+        )
+
+    use_parallel = n_workers > 1 and len(starts) > 1
+
+    # 调试信息
+    if show_progress:
+        mode = "并行" if use_parallel else "串行"
+        print(
+            f"[Records 合并] 模式={mode}, executor={executor_type}, "
+            f"workers={n_workers}, 批次数={len(starts)}, 分片数={len(parts)}"
+        )
+
+    pbar = None
+    if show_progress:
+        try:
+            from tqdm import tqdm
+
+            pbar = tqdm(total=len(starts), desc="Merging parts (disk)", leave=False)
+        except ImportError:
+            pbar = None
+
+    try:
+        if not use_parallel:
+            # 串行模式（单核）
+            merged_parts: list[_RecordsPartRef] = []
+            for batch_idx, start in enumerate(starts):
+                batch = parts[start : start + batch_size]
+                merged = _merge_records_part_refs_to_disk(
+                    batch,
+                    output_dir=output_dir,
+                    part_idx=batch_idx,
+                )
+                if merged is not None:
+                    merged_parts.append(merged)
+                if pbar is not None:
+                    pbar.update(1)
+        else:
+            # 并行模式（多核）
+            from concurrent.futures import as_completed
+
+            from waveform_analysis.core.execution.manager import get_executor
+
+            with get_executor(
+                "records_batch_merge",
+                executor_type=executor_type,
+                max_workers=n_workers,
+                reuse=True,
+            ) as executor:
+                futures = {
+                    executor.submit(
+                        _merge_records_part_refs_to_disk,
+                        parts[start : start + batch_size],
+                        output_dir,
+                        batch_idx,
+                    ): batch_idx
+                    for batch_idx, start in enumerate(starts)
+                }
+
+                results = []
+                for future in as_completed(futures):
+                    batch_idx = futures[future]
+                    merged = future.result()
+                    if merged is not None:
+                        results.append((batch_idx, merged))
+                    if pbar is not None:
+                        pbar.update(1)
+
+                # 按批次索引排序，保持确定性顺序
+                results.sort(key=lambda x: x[0])
+                merged_parts = [merged for _, merged in results]
+    finally:
+        if pbar is not None:
+            pbar.close()
+
+    return merged_parts
+
+
 def _merge_records_part_refs_to_memory(parts: Sequence[_RecordsPartRef]) -> RecordsBundle:
     """
     将分片合并到内存（原 _merge_records_part_refs 的实现）。
@@ -647,8 +855,8 @@ def _merge_records_part_refs_to_memory(parts: Sequence[_RecordsPartRef]) -> Reco
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
     total_samples = sum(part.n_samples for part in parts)
-    records_out = np.zeros(total_records, dtype=RECORDS_DTYPE)
-    wave_pool_out = np.zeros(total_samples, dtype=np.uint16)
+    records_out = np.empty(total_records, dtype=RECORDS_DTYPE)
+    wave_pool_out = np.empty(total_samples, dtype=np.uint16)
 
     import heapq
 
@@ -661,54 +869,48 @@ def _merge_records_part_refs_to_memory(parts: Sequence[_RecordsPartRef]) -> Reco
         for part in parts
     ]
 
-    heap = []
-    for part_idx, records in enumerate(records_parts):
+    heap: list[tuple[int, int, int, int, int, int]] = []
+    for source_idx, records in enumerate(records_parts):
         if len(records) == 0:
             continue
-        rec = records[0]
-        key = (
-            int(rec["timestamp"]),
-            int(rec["pid"]),
-            int(rec["board"]),
-            int(rec["channel"]),
-            part_idx,
-            0,
-        )
-        heapq.heappush(heap, key)
+        heapq.heappush(heap, _merge_key(records, source_idx, 0))
 
     out_idx = 0
     wave_cursor = 0
     while heap:
-        _, _, _, _, part_idx, row_idx = heapq.heappop(heap)
-        records = records_parts[part_idx]
-        rec = records[row_idx]
-        length = max(int(rec["event_length"]), 0)
+        key = heapq.heappop(heap)
+        source_idx = key[4]
+        row_idx = key[5]
+        records_src = records_parts[source_idx]
+        wave_pool_src = wave_pool_parts[source_idx]
+        boundary_key = heap[0] if heap else None
 
-        if length > 0:
-            offset = int(rec["wave_offset"])
-            wave_pool_out[wave_cursor : wave_cursor + length] = wave_pool_parts[part_idx][
-                offset : offset + length
-            ]
+        row_stop = _find_run_stop_by_next_heap_key(
+            records=records_src,
+            source_idx=source_idx,
+            row_idx=row_idx,
+            boundary_key=boundary_key,
+        )
+        out_idx, wave_cursor = _copy_records_run_with_waves(
+            records_src=records_src,
+            wave_pool_src=wave_pool_src,
+            row_start=row_idx,
+            row_stop=row_stop,
+            records_out=records_out,
+            wave_pool_out=wave_pool_out,
+            out_idx=out_idx,
+            wave_cursor=wave_cursor,
+        )
 
-        records_out[out_idx] = rec
-        records_out[out_idx]["wave_offset"] = wave_cursor
-        out_idx += 1
-        wave_cursor += length
+        if row_stop < len(records_src):
+            heapq.heappush(heap, _merge_key(records_src, source_idx, row_stop))
 
-        next_row = row_idx + 1
-        if next_row < len(records):
-            next_rec = records[next_row]
-            key = (
-                int(next_rec["timestamp"]),
-                int(next_rec["pid"]),
-                int(next_rec["board"]),
-                int(next_rec["channel"]),
-                part_idx,
-                next_row,
-            )
-            heapq.heappush(heap, key)
+    if out_idx != total_records:
+        records_out = records_out[:out_idx]
+    if wave_cursor != total_samples:
+        wave_pool_out = wave_pool_out[:wave_cursor]
 
-    records_out["record_id"] = np.arange(total_records, dtype=np.int64)
+    records_out["record_id"] = np.arange(len(records_out), dtype=np.int64)
     return RecordsBundle(records=records_out, wave_pool=wave_pool_out)
 
 
@@ -752,52 +954,496 @@ def _merge_records_part_refs_to_disk(
         for part in parts
     ]
 
-    heap = []
+    heap: list[tuple[int, int, int, int, int, int]] = []
     for source_idx, records in enumerate(records_parts):
         if len(records) == 0:
             continue
-        rec = records[0]
-        key = (
-            int(rec["timestamp"]),
-            int(rec["pid"]),
-            int(rec["board"]),
-            int(rec["channel"]),
-            source_idx,
-            0,
-        )
-        heapq.heappush(heap, key)
+        heapq.heappush(heap, _merge_key(records, source_idx, 0))
 
     out_idx = 0
     wave_cursor = 0
     while heap:
-        _, _, _, _, source_idx, row_idx = heapq.heappop(heap)
-        records = records_parts[source_idx]
-        rec = records[row_idx]
-        length = max(int(rec["event_length"]), 0)
+        key = heapq.heappop(heap)
+        source_idx = key[4]
+        row_idx = key[5]
+        records_src = records_parts[source_idx]
+        wave_pool_src = wave_pool_parts[source_idx]
+        boundary_key = heap[0] if heap else None
 
-        if length > 0:
-            offset = int(rec["wave_offset"])
-            wave_pool_out[wave_cursor : wave_cursor + length] = wave_pool_parts[source_idx][
-                offset : offset + length
-            ]
+        row_stop = _find_run_stop_by_next_heap_key(
+            records=records_src,
+            source_idx=source_idx,
+            row_idx=row_idx,
+            boundary_key=boundary_key,
+        )
+        out_idx, wave_cursor = _copy_records_run_with_waves(
+            records_src=records_src,
+            wave_pool_src=wave_pool_src,
+            row_start=row_idx,
+            row_stop=row_stop,
+            records_out=records_out,
+            wave_pool_out=wave_pool_out,
+            out_idx=out_idx,
+            wave_cursor=wave_cursor,
+        )
 
-        records_out[out_idx] = rec
-        records_out[out_idx]["wave_offset"] = wave_cursor
-        out_idx += 1
-        wave_cursor += length
+        if row_stop < len(records_src):
+            heapq.heappush(heap, _merge_key(records_src, source_idx, row_stop))
 
-        next_row = row_idx + 1
-        if next_row < len(records):
-            next_rec = records[next_row]
-            key = (
-                int(next_rec["timestamp"]),
-                int(next_rec["pid"]),
-                int(next_rec["board"]),
-                int(next_rec["channel"]),
-                source_idx,
-                next_row,
+    if out_idx != total_records:
+        raise RuntimeError(f"merged records count mismatch: {out_idx} != {total_records}")
+    if wave_cursor != total_samples:
+        raise RuntimeError(f"merged wave_pool size mismatch: {wave_cursor} != {total_samples}")
+
+    records_out["record_id"] = np.arange(total_records, dtype=np.int64)
+    time_range = (int(records_out["time"].min()), int(records_out["time"].max()))
+    records_out.flush()
+    wave_pool_out.flush()
+    del records_out
+    del wave_pool_out
+
+    return _RecordsPartRef(
+        records_path=records_path,
+        wave_pool_path=wave_pool_path,
+        n_records=total_records,
+        n_samples=total_samples,
+        time_range=time_range,
+    )
+
+
+def _write_records_only_part(
+    records_path: Path,
+    n_records: int,
+) -> _RecordsPartRef | None:
+    if n_records == 0:
+        return None
+    records = np.memmap(records_path, dtype=RECORDS_DTYPE, mode="r", shape=(n_records,))
+    time_range = (int(records["time"].min()), int(records["time"].max()))
+    del records
+    return _RecordsPartRef(
+        records_path=records_path,
+        wave_pool_path=records_path,
+        n_records=n_records,
+        n_samples=0,
+        time_range=time_range,
+    )
+
+
+def _merge_records_part_refs_records_only_to_disk(
+    parts: Sequence[_RecordsPartRef],
+    wave_bases: Sequence[int],
+    output_dir: Path,
+    part_idx: int = 0,
+    assign_record_ids: bool = True,
+) -> _RecordsPartRef | None:
+    """Merge records globally while rebasing offsets into a final concatenated wave_pool."""
+    if not parts:
+        return None
+    if len(parts) != len(wave_bases):
+        raise ValueError("parts and wave_bases length mismatch")
+
+    total_records = sum(part.n_records for part in parts)
+    if total_records == 0:
+        return None
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    records_path = output_dir / f"records_merged_{part_idx}.dat"
+    records_out = np.memmap(
+        records_path,
+        dtype=RECORDS_DTYPE,
+        mode="w+",
+        shape=(total_records,),
+    )
+
+    import heapq
+
+    records_parts = [
+        np.memmap(part.records_path, dtype=RECORDS_DTYPE, mode="r", shape=(part.n_records,))
+        for part in parts
+    ]
+
+    heap: list[tuple[int, int, int, int, int, int]] = []
+    for source_idx, records in enumerate(records_parts):
+        if len(records) == 0:
+            continue
+        heapq.heappush(heap, _merge_key(records, source_idx, 0))
+
+    out_idx = 0
+    while heap:
+        key = heapq.heappop(heap)
+        source_idx = key[4]
+        row_idx = key[5]
+        records_src = records_parts[source_idx]
+        boundary_key = heap[0] if heap else None
+
+        row_stop = _find_run_stop_by_next_heap_key(
+            records=records_src,
+            source_idx=source_idx,
+            row_idx=row_idx,
+            boundary_key=boundary_key,
+        )
+        out_idx = _copy_records_run_with_wave_base(
+            records_src=records_src,
+            row_start=row_idx,
+            row_stop=row_stop,
+            records_out=records_out,
+            out_idx=out_idx,
+            wave_base=int(wave_bases[source_idx]),
+        )
+
+        if row_stop < len(records_src):
+            heapq.heappush(heap, _merge_key(records_src, source_idx, row_stop))
+
+    if out_idx != total_records:
+        raise RuntimeError(f"merged records count mismatch: {out_idx} != {total_records}")
+
+    if assign_record_ids:
+        records_out["record_id"] = np.arange(total_records, dtype=np.int64)
+    records_out.flush()
+    del records_out
+
+    return _write_records_only_part(records_path, total_records)
+
+
+def _merge_records_only_part_refs_to_disk(
+    parts: Sequence[_RecordsPartRef],
+    output_dir: Path,
+    part_idx: int = 0,
+    assign_record_ids: bool = True,
+) -> _RecordsPartRef | None:
+    """Merge records-only intermediate refs; wave offsets are already final."""
+    if not parts:
+        return None
+
+    total_records = sum(part.n_records for part in parts)
+    if total_records == 0:
+        return None
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    records_path = output_dir / f"records_merged_{part_idx}.dat"
+    unsorted_path = output_dir / f"records_unsorted_{part_idx}.dat"
+
+    records_unsorted = np.memmap(
+        unsorted_path,
+        dtype=RECORDS_DTYPE,
+        mode="w+",
+        shape=(total_records,),
+    )
+
+    cursor = 0
+    try:
+        for part in parts:
+            records_src = np.memmap(
+                part.records_path,
+                dtype=RECORDS_DTYPE,
+                mode="r",
+                shape=(part.n_records,),
             )
-            heapq.heappush(heap, key)
+            records_unsorted[cursor : cursor + part.n_records] = records_src
+            cursor += part.n_records
+
+        if cursor != total_records:
+            raise RuntimeError(f"merged records count mismatch: {cursor} != {total_records}")
+
+        order = _records_sort_order(records_unsorted)
+        records_out = np.memmap(
+            records_path,
+            dtype=RECORDS_DTYPE,
+            mode="w+",
+            shape=(total_records,),
+        )
+
+        copy_chunk_size = 250_000
+        for start in range(0, total_records, copy_chunk_size):
+            stop = min(start + copy_chunk_size, total_records)
+            records_out[start:stop] = records_unsorted[order[start:stop]]
+
+        if assign_record_ids:
+            records_out["record_id"] = np.arange(total_records, dtype=np.int64)
+        records_out.flush()
+        del records_out
+        del order
+    finally:
+        del records_unsorted
+        try:
+            unsorted_path.unlink()
+        except FileNotFoundError:
+            pass
+
+    return _write_records_only_part(records_path, total_records)
+
+
+def _concat_wave_pool_part_refs_to_disk(
+    parts: Sequence[_RecordsPartRef], output_dir: Path, part_idx: int = 0
+) -> Path | None:
+    total_samples = sum(part.n_samples for part in parts)
+    if total_samples == 0:
+        return None
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    wave_pool_path = output_dir / f"wave_pool_merged_{part_idx}.dat"
+    wave_pool_out = np.memmap(
+        wave_pool_path,
+        dtype=np.uint16,
+        mode="w+",
+        shape=(total_samples,),
+    )
+
+    cursor = 0
+    for part_idx_local, part in enumerate(parts):
+        if part.n_samples <= 0:
+            continue
+
+        # 验证文件实际大小
+        actual_size = part.wave_pool_path.stat().st_size
+        expected_size = part.n_samples * 2  # uint16 = 2 bytes
+        if actual_size < expected_size:
+            raise RuntimeError(
+                f"wave_pool part {part_idx_local} truncated: "
+                f"expected {expected_size} bytes ({part.n_samples} samples), "
+                f"got {actual_size} bytes. Path: {part.wave_pool_path}"
+            )
+
+        wave_pool_src = np.memmap(
+            part.wave_pool_path,
+            dtype=np.uint16,
+            mode="r",
+            shape=(part.n_samples,),
+        )
+        wave_pool_out[cursor : cursor + part.n_samples] = wave_pool_src
+        cursor += part.n_samples
+
+    if cursor != total_samples:
+        raise RuntimeError(f"merged wave_pool size mismatch: {cursor} != {total_samples}")
+
+    wave_pool_out.flush()
+    del wave_pool_out
+    return wave_pool_path
+
+
+def _merge_records_part_refs_indexed_to_disk(
+    parts: Sequence[_RecordsPartRef],
+    output_dir: Path,
+    batch_size: int,
+    part_idx: int = 0,
+    show_progress: bool = False,
+    n_workers: int | None = None,
+    executor_type: str = "thread",
+    profiler=None,
+) -> _RecordsPartRef | None:
+    """
+    Build one formal disk part without sorting wave samples by record order.
+
+    The output wave_pool is a single memmap created by concatenating input part
+    wave_pools once. Records are globally sorted and their wave_offset fields
+    point into that concatenated physical layout.
+    """
+    if not parts:
+        return None
+
+    total_records = sum(part.n_records for part in parts)
+    if total_records == 0:
+        return None
+
+    batch_size = max(1, int(batch_size))
+    total_samples = sum(part.n_samples for part in parts)
+    sample_bases: list[int] = []
+    sample_cursor = 0
+    for part in parts:
+        sample_bases.append(sample_cursor)
+        sample_cursor += part.n_samples
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    timer = profiler.timeit if profiler else None
+
+    records_only: _RecordsPartRef | None
+    if len(parts) > batch_size:
+        batch_output_dir = output_dir / "records_only_batches"
+        starts = list(range(0, len(parts), batch_size))
+
+        if n_workers is None:
+            import os
+
+            n_workers = min(4, max(1, os.cpu_count() or 1), len(starts))
+        else:
+            n_workers = max(1, int(n_workers))
+
+        executor_type = str(executor_type or "thread").lower()
+        if executor_type not in {"thread", "process"}:
+            raise ValueError(
+                f"records merge executor_type must be 'thread' or 'process', got {executor_type!r}"
+            )
+
+        use_parallel = n_workers > 1 and len(starts) > 1
+
+        if show_progress:
+            mode = "并行" if use_parallel else "串行"
+            print(
+                f"[Records 合并] records-only batch merge, 模式={mode}, "
+                f"executor={executor_type}, workers={n_workers}, "
+                f"批次数={len(starts)}, 分片数={len(parts)}"
+            )
+
+        pbar = None
+        if show_progress:
+            try:
+                from tqdm import tqdm
+
+                pbar = tqdm(total=len(starts), desc="Merging records (disk)", leave=False)
+            except ImportError:
+                pbar = None
+
+        batched_records: list[_RecordsPartRef] = []
+        try:
+            with timer("records.merge.records_only_batches.disk") if timer else nullcontext():
+                if not use_parallel:
+                    for batch_idx, start in enumerate(starts):
+                        batch_parts = parts[start : start + batch_size]
+                        batch_bases = sample_bases[start : start + batch_size]
+                        batch_records = _merge_records_part_refs_records_only_to_disk(
+                            batch_parts,
+                            batch_bases,
+                            output_dir=batch_output_dir,
+                            part_idx=batch_idx,
+                            assign_record_ids=False,
+                        )
+                        if batch_records is not None:
+                            batched_records.append(batch_records)
+                        if pbar is not None:
+                            pbar.update(1)
+                else:
+                    from concurrent.futures import as_completed
+
+                    from waveform_analysis.core.execution.manager import get_executor
+
+                    with get_executor(
+                        "records_only_batch_merge",
+                        executor_type=executor_type,
+                        max_workers=n_workers,
+                        reuse=True,
+                    ) as executor:
+                        futures = {
+                            executor.submit(
+                                _merge_records_part_refs_records_only_to_disk,
+                                parts[start : start + batch_size],
+                                sample_bases[start : start + batch_size],
+                                batch_output_dir,
+                                batch_idx,
+                                False,
+                            ): batch_idx
+                            for batch_idx, start in enumerate(starts)
+                        }
+
+                        results: list[tuple[int, _RecordsPartRef]] = []
+                        for future in as_completed(futures):
+                            batch_idx = futures[future]
+                            batch_records = future.result()
+                            if batch_records is not None:
+                                results.append((batch_idx, batch_records))
+                            if pbar is not None:
+                                pbar.update(1)
+
+                        results.sort(key=lambda item: item[0])
+                        batched_records = [batch_records for _, batch_records in results]
+        finally:
+            if pbar is not None:
+                pbar.close()
+
+        if show_progress:
+            print(
+                f"[Records 合并] records-only final sort merge, " f"分片数={len(batched_records)}"
+            )
+        with timer("records.merge.records_only_final.disk") if timer else nullcontext():
+            records_only = _merge_records_only_part_refs_to_disk(
+                batched_records,
+                output_dir=output_dir,
+                part_idx=part_idx,
+                assign_record_ids=True,
+            )
+    else:
+        with timer("records.merge.records_only.disk") if timer else nullcontext():
+            records_only = _merge_records_part_refs_records_only_to_disk(
+                parts,
+                sample_bases,
+                output_dir=output_dir,
+                part_idx=part_idx,
+                assign_record_ids=True,
+            )
+
+    if records_only is None:
+        return None
+
+    if show_progress:
+        print(f"[Records 合并] wave_pool concat, 分片数={len(parts)}, samples={total_samples}")
+    with timer("records.merge.wave_pool_concat.disk") if timer else nullcontext():
+        wave_pool_path = _concat_wave_pool_part_refs_to_disk(parts, output_dir, part_idx=part_idx)
+
+    if wave_pool_path is None:
+        wave_pool_path = output_dir / f"wave_pool_merged_{part_idx}.dat"
+        wave_pool_path.touch()
+
+    return _RecordsPartRef(
+        records_path=records_only.records_path,
+        wave_pool_path=wave_pool_path,
+        n_records=total_records,
+        n_samples=total_samples,
+        time_range=records_only.time_range,
+    )
+
+
+def _can_concat_records_part_refs(parts: Sequence[_RecordsPartRef]) -> bool:
+    if not parts:
+        return False
+    previous_stop: int | None = None
+    for part in parts:
+        if part.time_range is None:
+            return False
+        start, stop = part.time_range
+        if previous_stop is not None and start < previous_stop:
+            return False
+        previous_stop = stop
+    return True
+
+
+def _concat_records_part_refs_to_disk(
+    parts: Sequence[_RecordsPartRef], output_dir: Path, part_idx: int = 0
+) -> _RecordsPartRef | None:
+    if not parts:
+        return None
+
+    total_records = sum(part.n_records for part in parts)
+    if total_records == 0:
+        return None
+
+    total_samples = sum(part.n_samples for part in parts)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    records_path = output_dir / f"records_merged_{part_idx}.dat"
+    wave_pool_path = output_dir / f"wave_pool_merged_{part_idx}.dat"
+
+    records_out = np.memmap(records_path, dtype=RECORDS_DTYPE, mode="w+", shape=(total_records,))
+    wave_pool_out = np.memmap(wave_pool_path, dtype=np.uint16, mode="w+", shape=(total_samples,))
+
+    record_cursor = 0
+    wave_cursor = 0
+    for part in parts:
+        records_src = np.memmap(
+            part.records_path,
+            dtype=RECORDS_DTYPE,
+            mode="r",
+            shape=(part.n_records,),
+        )
+        wave_pool_src = np.memmap(
+            part.wave_pool_path,
+            dtype=np.uint16,
+            mode="r",
+            shape=(part.n_samples,),
+        )
+        records_out[record_cursor : record_cursor + part.n_records] = records_src
+        if part.n_samples > 0:
+            wave_pool_out[wave_cursor : wave_cursor + part.n_samples] = wave_pool_src
+        records_out[record_cursor : record_cursor + part.n_records]["wave_offset"] += wave_cursor
+        record_cursor += part.n_records
+        wave_cursor += part.n_samples
 
     records_out["record_id"] = np.arange(total_records, dtype=np.int64)
     time_range = (int(records_out["time"].min()), int(records_out["time"].max()))
@@ -822,6 +1468,10 @@ def _merge_records_part_refs(
     keep_on_disk: bool | None = None,
     output_dir: Path | None = None,
     transfer_temp_dir_ownership: bool = False,
+    show_progress: bool = False,
+    n_workers: int | None = None,
+    executor_type: str = "thread",
+    profiler=None,
 ) -> RecordsBundle | RecordsBundleRef:
     """
     智能合并分片：根据数据量自动选择策略。
@@ -833,12 +1483,23 @@ def _merge_records_part_refs(
         keep_on_disk: 强制选择策略（None=自动，True=磁盘引用，False=加载内存）
         output_dir: 分批合并临时目录
         transfer_temp_dir_ownership: 如果为 True，将 output_dir 的所有权转移给 RecordsBundleRef
+        show_progress: 是否显示磁盘分批合并进度
+        n_workers: 合并阶段并行 worker 数量（None=自动检测 CPU 核心数）
+        executor_type: 合并阶段执行器类型（"thread" 或 "process"）
+        profiler: Optional profiler for merge sub-stage timings
 
     Returns:
         RecordsBundle 或 RecordsBundleRef
     """
     if not parts:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
+
+    # 诊断信息
+    if show_progress:
+        print(
+            f"[Records 合并入口] 分片数={len(parts)}, batch_size={batch_size}, "
+            f"n_workers={n_workers}, executor={executor_type}"
+        )
 
     # 估算总大小
     total_records = sum(part.n_records for part in parts)
@@ -866,25 +1527,22 @@ def _merge_records_part_refs(
     if not use_disk_ref:
         # 小数据：加载到内存
         if len(parts) <= batch_size:
+            if show_progress:
+                print(f"[Records 合并] 分片数 <= {batch_size}，直接合并到内存（无需并行）")
             return _merge_records_part_refs_to_memory(parts)
         else:
             # 分批合并后加载到内存
+            if show_progress:
+                print("[Records 合并] 内存模式分批合并（不支持并行）")
             merged_parts = _merge_records_part_refs_batched(
                 parts, batch_size=batch_size, output_dir=output_dir
             )
             return _merge_records_part_refs_to_memory(merged_parts)
     else:
         # 大数据：返回磁盘引用
-        if len(parts) > batch_size:
-            # 先分批合并，减少分片数量
-            merged_parts = _merge_records_part_refs_batched(
-                parts, batch_size=batch_size, output_dir=output_dir
-            )
-        else:
-            merged_parts = list(parts)
-
         import shutil
 
+        cleanup_dir: Path | None = None
         # 确定输出目录
         if output_dir is not None:
             # 在 output_dir 下创建 merged 子目录
@@ -896,19 +1554,27 @@ def _merge_records_part_refs(
         else:
             ref_dir = Path(tempfile.mkdtemp(prefix="records_bundle_ref_"))
             cleanup_on_error = True  # 我们创建的，出错时清理
-            managed_temp_dir = ref_dir
+            cleanup_dir = ref_dir
+            managed_temp_dir = cleanup_dir
 
         try:
-            # 始终执行全局堆合并
-            final_part = _merge_records_part_refs_to_disk(merged_parts, ref_dir)
+            final_part = _merge_records_part_refs_indexed_to_disk(
+                parts,
+                output_dir=ref_dir,
+                batch_size=batch_size,
+                show_progress=show_progress,
+                n_workers=n_workers,
+                executor_type=executor_type,
+                profiler=profiler,
+            )
         except Exception:
             if cleanup_on_error:
-                shutil.rmtree(ref_dir, ignore_errors=True)
+                shutil.rmtree(cleanup_dir or ref_dir, ignore_errors=True)
             raise
 
         if final_part is None:
             if cleanup_on_error:
-                shutil.rmtree(ref_dir, ignore_errors=True)
+                shutil.rmtree(cleanup_dir or ref_dir, ignore_errors=True)
             return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
         return RecordsBundleRef(
@@ -1046,60 +1712,27 @@ def build_records_from_raw_files_streaming(
     if not nonempty_channels:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
+    pbar = None
     if show_progress:
         try:
             from tqdm import tqdm
 
-            iterator = tqdm(channel_entries, desc="Building records", leave=False)
+            pbar = tqdm(total=len(nonempty_channels), desc="Building records", leave=False)
         except ImportError:
-            iterator = channel_entries
-    else:
-        iterator = channel_entries
+            pbar = None
 
     with tempfile.TemporaryDirectory(prefix="records_parts_") as tmp_dir:
         part_dir = Path(tmp_dir)
         part_refs: list[_RecordsPartRef] = []
         channel_results: dict[int, list[_RecordsPartRef]] = {}
 
-        effective_channel_workers = 1 if channel_workers is None else max(int(channel_workers), 1)
-        if effective_channel_workers <= 1 or len(nonempty_channels) <= 1:
-            for channel_idx, channel_files in iterator:
-                if not channel_files:
-                    continue
-                result_idx, result_parts, profile = _build_records_part_refs_for_channel(
-                    channel_idx=channel_idx,
-                    channel_files=channel_files,
-                    part_root=part_dir,
-                    adapter_name=adapter_name,
-                    default_dt_ns=default_dt_ns,
-                    part_size=part_size,
-                    baseline_samples=baseline_samples,
-                    epoch_ns=epoch_ns,
-                    parse_engine=parse_engine,
-                    n_jobs=n_jobs,
-                    chunksize=chunksize,
-                    use_process_pool=use_process_pool,
-                )
-                channel_results[result_idx] = result_parts
-                if profiler:
-                    for key, (duration, count) in profile.items():
-                        profiler.durations[key] += duration
-                        profiler.counts[key] += count
-        else:
-            from concurrent.futures import as_completed
-
-            from waveform_analysis.core.execution.manager import get_executor
-
-            max_workers = min(effective_channel_workers, len(nonempty_channels))
-            with get_executor(
-                "records_channel_build",
-                executor_type=channel_executor,
-                max_workers=max_workers,
-                reuse=True,
-            ) as executor:
-                futures = {
-                    executor.submit(
-                        _build_records_part_refs_for_channel,
+        try:
+            effective_channel_workers = (
+                1 if channel_workers is None else max(int(channel_workers), 1)
+            )
+            if effective_channel_workers <= 1 or len(nonempty_channels) <= 1:
+                for channel_idx, channel_files in nonempty_channels:
+                    result_idx, result_parts, profile = _build_records_part_refs_for_channel(
                         channel_idx=channel_idx,
                         channel_files=channel_files,
                         part_root=part_dir,
@@ -1112,12 +1745,7 @@ def build_records_from_raw_files_streaming(
                         n_jobs=n_jobs,
                         chunksize=chunksize,
                         use_process_pool=use_process_pool,
-                    ): channel_idx
-                    for channel_idx, channel_files in nonempty_channels
-                }
-                pbar = iterator if hasattr(iterator, "update") else None
-                for future in as_completed(futures):
-                    result_idx, result_parts, profile = future.result()
+                    )
                     channel_results[result_idx] = result_parts
                     if profiler:
                         for key, (duration, count) in profile.items():
@@ -1125,12 +1753,59 @@ def build_records_from_raw_files_streaming(
                             profiler.counts[key] += count
                     if pbar is not None:
                         pbar.update(1)
+            else:
+                from concurrent.futures import as_completed
+
+                from waveform_analysis.core.execution.manager import get_executor
+
+                max_workers = min(effective_channel_workers, len(nonempty_channels))
+                with get_executor(
+                    "records_channel_build",
+                    executor_type=channel_executor,
+                    max_workers=max_workers,
+                    reuse=True,
+                ) as executor:
+                    futures = {
+                        executor.submit(
+                            _build_records_part_refs_for_channel,
+                            channel_idx=channel_idx,
+                            channel_files=channel_files,
+                            part_root=part_dir,
+                            adapter_name=adapter_name,
+                            default_dt_ns=default_dt_ns,
+                            part_size=part_size,
+                            baseline_samples=baseline_samples,
+                            epoch_ns=epoch_ns,
+                            parse_engine=parse_engine,
+                            n_jobs=n_jobs,
+                            chunksize=chunksize,
+                            use_process_pool=use_process_pool,
+                        ): channel_idx
+                        for channel_idx, channel_files in nonempty_channels
+                    }
+                    for future in as_completed(futures):
+                        result_idx, result_parts, profile = future.result()
+                        channel_results[result_idx] = result_parts
+                        if profiler:
+                            for key, (duration, count) in profile.items():
+                                profiler.durations[key] += duration
+                                profiler.counts[key] += count
+                        if pbar is not None:
+                            pbar.update(1)
+        finally:
+            if pbar is not None:
+                pbar.close()
 
         for channel_idx, _ in channel_entries:
             part_refs.extend(channel_results.get(channel_idx, []))
 
         with timer("records.merge") if timer else nullcontext():
-            return _merge_records_part_refs(part_refs, output_dir=part_dir)
+            return _merge_records_part_refs(
+                part_refs,
+                output_dir=part_dir,
+                n_workers=channel_workers,
+                executor_type=channel_executor,
+            )
 
 
 def _build_records_from_channels(
@@ -1288,49 +1963,151 @@ def build_records_from_st_waveforms(
 def _process_v1725_file_to_disk(
     file_path: str,
     reader,
-    adapter,
     dt_ns: int,
     part_dir: Path,
     part_idx: int,
-) -> _RecordsPartRef | None:
+    part_size: int | None = 100_000,
+    use_parallel_metadata: bool = False,
+) -> list[_RecordsPartRef]:
     """
     处理单个 V1725 文件并写入磁盘。
 
     Args:
         file_path: 文件路径
         reader: V1725Reader 实例
-        adapter: V1725Adapter 实例
         dt_ns: 采样间隔（纳秒）
         part_dir: 分片输出目录
         part_idx: 分片索引
+        part_size: 每个中间分片的 wave 数；<=0 表示单文件一个分片
 
     Returns:
-        _RecordsPartRef 或 None（如果文件为空）
+        _RecordsPartRef 列表
     """
-    waves = []
+    file_part_dir = part_dir / f"file_{part_idx}"
+    file_part_dir.mkdir(parents=True, exist_ok=True)
+    effective_part_size = (
+        None
+        if part_size is None or part_size <= 0
+        else min(int(part_size), _MAX_V1725_IN_MEMORY_WAVES)
+    )
+
+    part_refs: list[_RecordsPartRef] = []
+    wave_batch = []
+    local_part_idx = 0
+
+    def flush_batch() -> None:
+        nonlocal local_part_idx
+        if not wave_batch:
+            return
+        bundle = _build_v1725_records_part_from_waves(
+            wave_batch,
+            default_dt_ns=dt_ns,
+            use_parallel_metadata=use_parallel_metadata,
+        )
+        part_ref = _write_records_part(bundle, file_part_dir, local_part_idx)
+        local_part_idx += 1
+        if part_ref is not None:
+            part_refs.append(part_ref)
+        wave_batch.clear()
+
     for wave in reader.iter_waves([file_path]):
-        timestamp_ps = int(
-            adapter.normalize_timestamp_to_ps(np.array([wave.timestamp]), dt_ns=dt_ns)[0]
-        )
-        flags = 1 if wave.trunc else 0
-        waves.append(
-            (int(wave.board), wave.channel, timestamp_ps, wave.baseline, flags, wave.waveform)
-        )
+        wave_batch.append(wave)
+        if effective_part_size is not None and len(wave_batch) >= effective_part_size:
+            flush_batch()
 
+    flush_batch()
+    return part_refs
+
+
+def _build_v1725_records_part_from_waves(
+    waves: Sequence[object],
+    default_dt_ns: int,
+    use_parallel_metadata: bool = False,
+) -> RecordsBundle:
     if not waves:
-        return None
+        return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
-    # 构建 RecordsBundle
-    bundle = _build_records_from_wave_list(waves, default_dt_ns=dt_ns)
+    from waveform_analysis.utils.formats.v1725_numba import (
+        fill_v1725_records_metadata_parallel,
+        fill_v1725_records_metadata_serial,
+    )
 
-    # 写入 memmap
-    part_ref = _write_records_part(bundle, part_dir, part_idx)
+    n_records = len(waves)
+    boards = np.empty(n_records, dtype=np.int16)
+    channels = np.empty(n_records, dtype=np.int16)
+    timestamp_ticks = np.empty(n_records, dtype=np.int64)
+    baselines = np.empty(n_records, dtype=np.uint16)
+    truncs = np.empty(n_records, dtype=np.bool_)
+    event_lengths = np.empty(n_records, dtype=np.int32)
+    wave_refs = []
 
-    # 释放内存
-    del waves
-    del bundle
+    for idx, wave in enumerate(waves):
+        waveform = np.asarray(wave.waveform)
+        length = int(len(waveform))
+        if length > np.iinfo(np.int32).max:
+            raise ValueError("event_length exceeds int32 range")
+        boards[idx] = np.int16(wave.board)
+        channels[idx] = np.int16(wave.channel)
+        timestamp_ticks[idx] = np.int64(wave.timestamp)
+        baselines[idx] = np.uint16(wave.baseline)
+        truncs[idx] = bool(wave.trunc)
+        event_lengths[idx] = np.int32(length)
+        wave_refs.append(waveform)
 
-    return part_ref
+    records = np.zeros(n_records, dtype=RECORDS_DTYPE)
+    fill_metadata = (
+        fill_v1725_records_metadata_parallel
+        if use_parallel_metadata and n_records >= 4096
+        else fill_v1725_records_metadata_serial
+    )
+    fill_metadata(
+        timestamp_ticks,
+        boards,
+        channels,
+        baselines,
+        truncs,
+        event_lengths,
+        int(default_dt_ns),
+        records["timestamp"],
+        records["pid"],
+        records["board"],
+        records["channel"],
+        records["baseline"],
+        records["baseline_upstream"],
+        records["dt"],
+        records["trigger_type"],
+        records["flags"],
+        records["event_length"],
+        records["time"],
+    )
+    records["polarity"] = "unknown"
+
+    source_idx = np.arange(n_records, dtype=np.int64)
+    order = _records_sort_order(records)
+    records = records[order]
+    source_idx = source_idx[order]
+
+    total_samples = int(records["event_length"].astype(np.int64, copy=False).sum())
+    wave_pool = np.zeros(total_samples, dtype=np.uint16)
+    wave_cursor = 0
+    for idx in range(n_records):
+        length = int(records["event_length"][idx])
+        if length > 0:
+            wave = wave_refs[int(source_idx[idx])]
+            wave_pool[wave_cursor : wave_cursor + length] = _clip_wave_to_uint16(wave[:length])
+        records["wave_offset"][idx] = wave_cursor
+        wave_cursor += length
+
+    records["record_id"] = np.arange(n_records, dtype=np.int64)
+    return RecordsBundle(records=records, wave_pool=wave_pool)
+
+
+def _resolve_v1725_file_workers(file_count: int, n_jobs: int | None) -> int:
+    if file_count <= 0:
+        return 1
+    if n_jobs is None:
+        return min(file_count, 4)
+    return max(int(n_jobs), 1)
 
 
 @export
@@ -1342,6 +2119,9 @@ def build_records_from_v1725_files(
     memory_budget_gb: float = 50.0,
     batch_size: int = 50,
     keep_on_disk: bool | None = None,
+    v1725_part_size: int | None = 100_000,
+    show_progress: bool = False,
+    profiler=None,
 ) -> RecordsBundle | RecordsBundleRef:
     """
     从 V1725 文件构建 records + wave_pool。
@@ -1356,6 +2136,9 @@ def build_records_from_v1725_files(
         memory_budget_gb: 内存预算（GB），用于智能选择合并策略
         batch_size: 分批合并时每批的分片数量
         keep_on_disk: 强制选择策略（None=自动，True=磁盘引用，False=加载内存）
+        v1725_part_size: 单个 V1725 文件内每个中间分片的 wave 数；<=0 表示单文件一个分片
+        show_progress: 是否显示文件级 records 构建进度
+        profiler: Optional profiler for timing V1725 records build stages
 
     Returns:
         RecordsBundle 或 RecordsBundleRef
@@ -1373,77 +2156,94 @@ def build_records_from_v1725_files(
     import shutil
 
     part_dir = Path(tempfile.mkdtemp(prefix="v1725_parts_"))
+    pbar = None
+    if show_progress:
+        try:
+            from tqdm import tqdm
+
+            pbar = tqdm(total=len(file_paths), desc="Building V1725 records", leave=False)
+        except ImportError:
+            pbar = None
     try:
-        part_refs = []
+        part_refs: list[_RecordsPartRef] = []
+        timer = profiler.timeit if profiler else None
 
         # 确定并行度
-        if n_jobs is None:
-            # 自动模式：使用 CPU 核心数，但限制在合理范围内
-            import os
+        effective_workers = _resolve_v1725_file_workers(len(file_paths), n_jobs)
 
-            effective_workers = min(os.cpu_count() or 4, len(file_paths), 32)
-        else:
-            effective_workers = max(int(n_jobs), 1)
-
-        if effective_workers <= 1 or len(file_paths) <= 1:
-            # 串行处理
-            for part_idx, file_path in enumerate(file_paths):
-                part_ref = _process_v1725_file_to_disk(
-                    file_path, reader, adapter, dt_ns, part_dir, part_idx
-                )
-                if part_ref:
-                    part_refs.append(part_ref)
-        else:
-            # 并行处理
-            from concurrent.futures import as_completed
-
-            from waveform_analysis.core.execution.manager import get_executor
-
-            max_workers = min(effective_workers, len(file_paths))
-            with get_executor(
-                "v1725_file_build",
-                executor_type=executor_type,
-                max_workers=max_workers,
-                reuse=True,
-            ) as executor:
-                futures = {
-                    executor.submit(
-                        _process_v1725_file_to_disk,
+        with timer("records.v1725.build") if timer else nullcontext():
+            if effective_workers <= 1 or len(file_paths) <= 1:
+                # 串行处理
+                for part_idx, file_path in enumerate(file_paths):
+                    file_part_refs = _process_v1725_file_to_disk(
                         file_path,
                         reader,
-                        adapter,
                         dt_ns,
                         part_dir,
-                        idx,
-                    ): idx
-                    for idx, file_path in enumerate(file_paths)
-                }
+                        part_idx,
+                        part_size=v1725_part_size,
+                    )
+                    part_refs.extend(file_part_refs)
+                    if pbar is not None:
+                        pbar.update(1)
+            else:
+                # 并行处理
+                from concurrent.futures import as_completed
 
-                # 收集结果并按原始顺序排序（避免竞态条件）
-                results = []
-                for future in as_completed(futures):
-                    idx = futures[future]
-                    part_ref = future.result()
-                    if part_ref:
-                        results.append((idx, part_ref))
+                from waveform_analysis.core.execution.manager import get_executor
 
-                # 按索引排序以保持确定性顺序
-                results.sort(key=lambda x: x[0])
-                part_refs = [ref for _, ref in results]
+                max_workers = min(effective_workers, len(file_paths))
+                with get_executor(
+                    "v1725_file_build",
+                    executor_type=executor_type,
+                    max_workers=max_workers,
+                    reuse=True,
+                ) as executor:
+                    futures = {
+                        executor.submit(
+                            _process_v1725_file_to_disk,
+                            file_path,
+                            reader,
+                            dt_ns,
+                            part_dir,
+                            idx,
+                            v1725_part_size,
+                        ): idx
+                        for idx, file_path in enumerate(file_paths)
+                    }
+
+                    # 收集结果并按原始顺序排序（避免竞态条件）
+                    results = []
+                    for future in as_completed(futures):
+                        idx = futures[future]
+                        file_part_refs = future.result()
+                        if file_part_refs:
+                            results.append((idx, file_part_refs))
+                        if pbar is not None:
+                            pbar.update(1)
+
+                    # 按索引排序以保持确定性顺序
+                    results.sort(key=lambda x: x[0])
+                    part_refs = [ref for _, refs in results for ref in refs]
 
         # 智能合并分片
         if not part_refs:
             shutil.rmtree(part_dir, ignore_errors=True)
             return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
-        result = _merge_records_part_refs(
-            part_refs,
-            memory_budget_gb=memory_budget_gb,
-            batch_size=batch_size,
-            keep_on_disk=keep_on_disk,
-            output_dir=part_dir,
-            transfer_temp_dir_ownership=True,
-        )
+        with timer("records.merge") if timer else nullcontext():
+            result = _merge_records_part_refs(
+                part_refs,
+                memory_budget_gb=memory_budget_gb,
+                batch_size=batch_size,
+                keep_on_disk=keep_on_disk,
+                output_dir=part_dir,
+                transfer_temp_dir_ownership=True,
+                show_progress=show_progress,
+                n_workers=n_jobs,
+                executor_type=executor_type,
+                profiler=profiler,
+            )
 
         # 如果返回 RecordsBundle（内存模式），清理临时目录
         if isinstance(result, RecordsBundle):
@@ -1454,6 +2254,9 @@ def build_records_from_v1725_files(
     except Exception:
         shutil.rmtree(part_dir, ignore_errors=True)
         raise
+    finally:
+        if pbar is not None:
+            pbar.close()
 
 
 @export

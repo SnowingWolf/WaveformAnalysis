@@ -6,6 +6,7 @@
 
 ## Route
 - `task`: `release_artifact_sync`
+- `workflow_cost`: `strict`
 - `primary_doc`: `docs/agents/workflows.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/release_artifact_sync.md`
 - `aliases`: `release_check`
@@ -13,8 +14,13 @@
 ## Blocking Gates
 - `release_artifacts_consistent`
 
+## Gate Trigger Policy
+- release validation is always strict
+- unresolved release target or missing baseline blocks before execution
+
 ## Canonical Commands
 - `python scripts/release_artifact_sync.py --base HEAD`
+- `python -m pytest tests/`
 <!-- END GENERATED: profile_summary_release_artifact_sync -->
 
 ## Recommended Substates
@@ -50,12 +56,13 @@
   - `version/changelog`
   - `generated docs sync`
   - `doc sync + anchors`
-  - `key tests`
+  - `schema smoke + full pytest tests/`
   - `perf regression`
 - `skip_tests`: `true|false`
 - `skip_perf`: `true|false`
 - `must_run_commands`:
   - `python scripts/release_artifact_sync.py --base HEAD`
+  - `python -m pytest tests/`
 - `review_focus`:
   -
 ```
@@ -72,6 +79,7 @@
   -
 - `commands_run`:
   - `python scripts/release_artifact_sync.py --base HEAD`
+  - `python -m pytest tests/`
 - `open_risks`:
   -
 - `requested_review_focus`:
@@ -82,6 +90,7 @@
 - `generated_docs_sync_status`: `pass|fail|skipped`
 - `doc_sync_anchors_status`: `pass|fail|skipped`
 - `key_tests_status`: `pass|fail|skipped`
+- `full_pytest_status`: `pass|fail|skipped`
 - `perf_regression_status`: `pass|fail|skipped`
 - `skipped_checks_and_why`:
   -

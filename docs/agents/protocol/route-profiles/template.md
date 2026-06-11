@@ -2,6 +2,7 @@
 
 ## Route
 - `task`
+- `workflow_cost`
 - `lifecycle_profile`
 - `handoff_sequence`
 
@@ -23,6 +24,7 @@
 # plan_brief
 - `task_id`:
 - `route`:
+- `workflow_cost`:
 - `lifecycle_profile`:
 - `risk_level`:
 - `scope_in`:
@@ -38,6 +40,7 @@
 ```md
 # execution_report
 - `task_id`:
+- `workflow_cost`:
 - `executor_role`:
 - `changed_paths`:
   -
@@ -55,6 +58,7 @@
 ```md
 # review_report
 - `task_id`:
+- `workflow_cost`:
 - `reviewer`:
 - `gate_results`:
   -

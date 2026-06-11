@@ -192,6 +192,7 @@ task_routes:
   - task: modify_plugin
     summary: 插件与契约改动
     workflow_mode: plan_execute_review
+    workflow_cost: standard
     lifecycle_profile: reviewed_change
     entry_state: created
     completion_state: completed
@@ -253,6 +254,10 @@ task_routes:
       - schema_compat_check
       - doc_sync
       - doc_anchors
+    gate_trigger_policy:
+      - L0 docs/comment-only changes may use light workflow with doc gates only
+      - L1 internal algorithm changes use standard workflow with targeted tests and impact assessment
+      - L2/L3 contract, dtype, dependency, or cache-lineage changes escalate to strict workflow
     completion_contract:
       - version strategy matches L0/L1/L2/L3 change level
       - required tests and blocking gates pass
@@ -265,6 +270,7 @@ task_routes:
   - task: retire_compat
     summary: 兼容冗余识别、分级与删除
     workflow_mode: plan_execute_review
+    workflow_cost: strict
     lifecycle_profile: compat_retirement_review
     entry_state: created
     completion_state: completed
@@ -329,6 +335,10 @@ task_routes:
       - doc_anchors
       - impact_assessed_if_needed
       - schema_checked_if_needed
+    gate_trigger_policy:
+      - low-risk internal cleanup may run doc gates plus affected targeted tests
+      - medium/high public-surface cleanup requires user confirmation before execution
+      - plugin contract, dtype, or public CLI removal stays strict and must run impact/schema gates
     completion_contract:
       - compat_inventory classifies every removal candidate with canonical_form and legacy_form
       - medium/high public-surface deletions require explicit confirmation before execution
@@ -342,6 +352,7 @@ task_routes:
   - task: debug_cache
     summary: 缓存、lineage 与执行链排障
     workflow_mode: plan_execute_review
+    workflow_cost: light
     lifecycle_profile: diagnostic_review
     entry_state: created
     completion_state: completed
@@ -390,6 +401,9 @@ task_routes:
       - python scripts/check_doc_anchors.py --check-sync --base HEAD
     blocking_gates:
       - diagnosis_reproduced
+    gate_trigger_policy:
+      - read-only diagnostics stay light and record reproduced/not-reproduced status
+      - any proposed code/config fix must switch to modify_plugin or retire_compat before mutation
     completion_contract:
       - cache blocker and probable root cause are documented
       - next corrective action is explicit
@@ -399,6 +413,7 @@ task_routes:
   - task: generate_docs
     summary: 文档生成、引用同步与锚点检查
     workflow_mode: plan_execute_review
+    workflow_cost: light
     lifecycle_profile: doc_only_reviewed
     entry_state: created
     completion_state: completed
@@ -449,6 +464,10 @@ task_routes:
     blocking_gates:
       - doc_sync
       - doc_anchors
+    gate_trigger_policy:
+      - docs-only edits use light workflow with doc sync and anchor checks
+      - generated plugin reference changes add the matching waveform-docs generation command
+      - docs coupled to code contract changes inherit the source route workflow_cost
     completion_contract:
       - target docs are updated or regenerated
       - doc sync and anchors pass
@@ -458,6 +477,7 @@ task_routes:
   - task: run_tests
     summary: 定向或全量测试执行
     workflow_mode: plan_execute_review
+    workflow_cost: light
     lifecycle_profile: qa_review
     entry_state: created
     completion_state: completed
@@ -502,6 +522,9 @@ task_routes:
       - pytest -v
     blocking_gates:
       - requested_tests_complete
+    gate_trigger_policy:
+      - requested targeted tests stay light and report command results
+      - broad regression or release validation escalates to standard or release_artifact_sync
     completion_contract:
       - selected tests ran or explicit blocker is recorded
     escalation_rules:
@@ -510,6 +533,7 @@ task_routes:
   - task: assess_change_impact
     summary: 改动影响面扫描与 version 风险检查
     workflow_mode: plan_execute_review
+    workflow_cost: standard
     lifecycle_profile: qa_review
     entry_state: created
     completion_state: completed
@@ -553,6 +577,9 @@ task_routes:
       - python scripts/assess_change_impact.py --base HEAD
     blocking_gates:
       - impact_report_generated
+    gate_trigger_policy:
+      - impact scans are standard unless tied to release or strict contract cleanup
+      - missing baseline keeps the task in awaiting_user_input
     completion_contract:
       - downstream impact and version risk are explicit
     escalation_rules:
@@ -561,6 +588,7 @@ task_routes:
   - task: schema_compat_check
     summary: dtype、字段兼容与关键链路冒烟
     workflow_mode: plan_execute_review
+    workflow_cost: standard
     lifecycle_profile: qa_review
     entry_state: created
     completion_state: completed
@@ -607,6 +635,9 @@ task_routes:
     blocking_gates:
       - schema_report_generated
       - smoke_chain_passed
+    gate_trigger_policy:
+      - schema and smoke checks are standard for ordinary compatibility review
+      - release, dtype removal, or plugin contract migration uses strict workflow
     completion_contract:
       - schema diff and migration notes are explicit
       - smoke chain result is recorded
@@ -616,6 +647,7 @@ task_routes:
   - task: performance_regression_check
     summary: 热点插件性能回归检查
     workflow_mode: plan_execute_review
+    workflow_cost: standard
     lifecycle_profile: qa_review
     entry_state: created
     completion_state: completed
@@ -657,6 +689,9 @@ task_routes:
       - python scripts/performance_regression_check.py --base HEAD
     blocking_gates:
       - performance_report_generated
+    gate_trigger_policy:
+      - targeted benchmark requests use standard workflow with explicit baseline
+      - release-blocking performance validation escalates to strict release_artifact_sync
     completion_contract:
       - regression threshold decision is explicit
     escalation_rules:
@@ -665,6 +700,7 @@ task_routes:
   - task: release_artifact_sync
     summary: 发布前版本、文档与检查结果统一校验
     workflow_mode: plan_execute_review
+    workflow_cost: strict
     lifecycle_profile: release_review
     entry_state: created
     completion_state: completed
@@ -705,8 +741,12 @@ task_routes:
         - gate_execution
     commands:
       - python scripts/release_artifact_sync.py --base HEAD
+      - python -m pytest tests/
     blocking_gates:
       - release_artifacts_consistent
+    gate_trigger_policy:
+      - release validation is always strict
+      - unresolved release target or missing baseline blocks before execution
     completion_contract:
       - release artifacts and docs are consistent
       - mandatory checks are recorded in review_report

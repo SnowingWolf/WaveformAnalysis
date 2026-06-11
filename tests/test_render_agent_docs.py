@@ -23,6 +23,32 @@ def test_validate_manifest_rejects_alias_with_redefined_fields():
     assert any("must not redefine" in issue for issue in issues)
 
 
+def test_validate_manifest_rejects_invalid_workflow_cost():
+    manifest = _load_manifest()
+    route = next(route for route in manifest["task_routes"] if route["task"] == "run_tests")
+    route["workflow_cost"] = "tiny"
+    issues = render_agent_docs.validate_manifest(manifest)
+    assert any("invalid workflow_cost" in issue for issue in issues)
+
+
+def test_validate_manifest_requires_gate_trigger_policy():
+    manifest = _load_manifest()
+    route = next(route for route in manifest["task_routes"] if route["task"] == "run_tests")
+    route["gate_trigger_policy"] = []
+    issues = render_agent_docs.validate_manifest(manifest)
+    assert any("missing gate_trigger_policy" in issue for issue in issues)
+
+
+def test_validate_manifest_requires_strict_route_artifacts():
+    manifest = _load_manifest()
+    route = next(route for route in manifest["task_routes"] if route["task"] == "retire_compat")
+    route["required_artifacts"] = ["plan_brief", "execution_report"]
+    issues = render_agent_docs.validate_manifest(manifest)
+    assert any(
+        "Strict route `retire_compat` missing required_artifacts" in issue for issue in issues
+    )
+
+
 def test_render_file_replaces_generated_section():
     path = Path(__file__).parent / "_tmp_render_agent_docs.md"
     path.write_text(
@@ -61,6 +87,8 @@ def test_build_generated_sections_include_retire_compat():
     sections = render_agent_docs.build_generated_sections(_load_manifest())
     assert "profile_summary_retire_compat" in sections
     assert "`retire_compat`" in sections["supported_routes"]
+    assert "`workflow_cost`: `strict`" in sections["profile_summary_retire_compat"]
+    assert "## Gate Trigger Policy" in sections["profile_summary_retire_compat"]
 
 
 def test_collect_targets_include_retire_compat_profile():

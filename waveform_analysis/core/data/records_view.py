@@ -29,7 +29,28 @@ class RecordsView:
         self._event_lengths = records["event_length"].astype(np.int64, copy=False)
         self._wave_ends = self._wave_offsets + self._event_lengths
         self._timestamps = records["timestamp"]
+
+        # 缓存 baseline 和 polarity sign，避免在每条 waveform 上重复处理
+        self._baselines_f32 = records["baseline"].astype(np.float32, copy=False)
+
+        if "polarity" in records.dtype.names:
+            pol = records["polarity"].astype(str)
+            self._signal_sign_f32 = np.where(pol == "positive", -1.0, 1.0).astype(np.float32)
+        else:
+            self._signal_sign_f32 = np.ones(len(records), dtype=np.float32)
+
         self._record_id_lookup = self._build_record_id_lookup()
+
+        # 预计算 fast path 标志
+        self._record_id_is_index = np.array_equal(
+            self._record_ids,
+            np.arange(len(self._record_ids), dtype=np.int64),
+        )
+
+        self._record_ids_sorted = len(self._record_ids) < 2 or bool(
+            np.all(self._record_ids[:-1] < self._record_ids[1:])
+        )
+
         self._validate_wave_bounds()
 
     def __len__(self) -> int:
@@ -57,7 +78,26 @@ class RecordsView:
             raise ValueError("records contain negative event_length values")
         wave_pool_size = len(self.wave_pool)
         if np.any(self._wave_ends > wave_pool_size):
-            raise ValueError("records reference samples outside wave_pool bounds")
+            invalid_mask = self._wave_ends > wave_pool_size
+            n_invalid = np.sum(invalid_mask)
+            max_end = self._wave_ends.max()
+            missing = max_end - wave_pool_size
+            invalid_idx = np.where(invalid_mask)[0][:5]  # 前5个越界
+            details = ", ".join(
+                f"record[{i}]: offset={self._wave_offsets[i]}, "
+                f"length={self._event_lengths[i]}, end={self._wave_ends[i]}"
+                for i in invalid_idx
+            )
+            raise ValueError(
+                f"records reference samples outside wave_pool bounds:\n"
+                f"  - wave_pool size: {wave_pool_size}\n"
+                f"  - max wave_end: {max_end}\n"
+                f"  - missing samples: {missing}\n"
+                f"  - invalid records: {n_invalid}/{len(self.records)}\n"
+                f"  - examples: {details}\n"
+                f"This usually means wave_pool was truncated during merge. "
+                f"Clear cache and retry."
+            )
 
     def _resolve_record_index(self, record_id: int) -> int:
         key = int(record_id)
@@ -66,9 +106,31 @@ class RecordsView:
         return self._record_id_lookup[key]
 
     def _resolve_record_indices(self, record_ids: Iterable[int] | np.ndarray) -> np.ndarray:
-        ids = np.asarray(list(record_ids), dtype=np.int64)
+        ids = np.asarray(record_ids, dtype=np.int64)
+
+        if ids.ndim == 0:
+            ids = ids.reshape(1)
+
         if ids.size == 0:
             return np.zeros(0, dtype=np.int64)
+
+        # Fast path 1: record_id 恰好等于数组 index，例如 record_id = 0,1,2,...
+        if self._record_id_is_index:
+            if np.any(ids < 0) or np.any(ids >= len(self.records)):
+                bad = int(ids[(ids < 0) | (ids >= len(self.records))][0])
+                raise KeyError(f"Unknown record_id: {bad}")
+            return ids.astype(np.int64, copy=False)
+
+        # Fast path 2: record_id 有序且唯一，用 searchsorted 批量查找
+        if self._record_ids_sorted:
+            pos = np.searchsorted(self._record_ids, ids)
+            valid = (pos < len(self._record_ids)) & (self._record_ids[pos] == ids)
+            if not np.all(valid):
+                missing = int(ids[~valid][0])
+                raise KeyError(f"Unknown record_id: {missing}")
+            return pos.astype(np.int64, copy=False)
+
+        # Fallback: 非连续、非有序 record_id 才用 dict
         try:
             return np.fromiter(
                 (self._record_id_lookup[int(record_id)] for record_id in ids),
@@ -270,16 +332,24 @@ class RecordsView:
         sample_end: int | None = None,
     ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
         indices = self._resolve_record_indices(record_ids)
+
         if indices.size == 0:
             empty = np.zeros((0, 0), dtype=dtype or np.float32)
             return (empty, empty.astype(bool)) if mask else empty
 
-        lengths = self._window_lengths(
-            indices,
-            sample_start=sample_start,
-            sample_end=sample_end,
-        )
+        lengths0 = self._event_lengths[indices]
+
+        starts = np.clip(int(sample_start), 0, lengths0)
+        if sample_end is None:
+            ends = lengths0
+        else:
+            ends = np.clip(int(sample_end), 0, lengths0)
+
+        starts = np.minimum(starts, ends)
+        lengths = (ends - starts).astype(np.int64, copy=False)
+
         out_dtype = np.dtype(dtype or np.float32)
+
         signals_out, mask_out = self._allocate_batch_output(
             len(indices),
             lengths,
@@ -288,24 +358,27 @@ class RecordsView:
             mask=mask,
         )
 
-        for out_idx, rec_idx in enumerate(indices):
-            rec = self.records[int(rec_idx)]
-            start, end = self._resolve_window_bounds(
-                int(self._event_lengths[rec_idx]),
-                sample_start=sample_start,
-                sample_end=sample_end,
-            )
-            if start == end:
-                continue
-            wave = self._record_wave(int(rec_idx))[start:end]
-            signal = self._normalize_polarity_wave(rec, wave, out_dtype)
-            signals_out[out_idx, : len(signal)] = signal
-            if mask_out is not None:
-                mask_out[out_idx, : len(signal)] = True
+        wave_pool = self.wave_pool
+        offsets = self._wave_offsets
+        baselines = self._baselines_f32
+        signs = self._signal_sign_f32
 
-        if mask_out is not None:
-            return signals_out, mask_out
-        return signals_out
+        for out_idx, rec_idx in enumerate(indices):
+            n = int(lengths[out_idx])
+            if n <= 0:
+                continue
+
+            s = int(offsets[rec_idx] + starts[out_idx])
+            e = s + n
+
+            signals_out[out_idx, :n] = signs[rec_idx] * (
+                wave_pool[s:e].astype(out_dtype, copy=False) - baselines[rec_idx]
+            )
+
+            if mask_out is not None:
+                mask_out[out_idx, :n] = True
+
+        return (signals_out, mask_out) if mask else signals_out
 
     def waves(
         self,

@@ -6,11 +6,16 @@
 
 ## Route
 - `task`: `run_tests`
+- `workflow_cost`: `light`
 - `primary_doc`: `AGENTS.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/run_tests.md`
 
 ## Blocking Gates
 - `requested_tests_complete`
+
+## Gate Trigger Policy
+- requested targeted tests stay light and report command results
+- broad regression or release validation escalates to standard or release_artifact_sync
 
 ## Canonical Commands
 - `./scripts/run_tests.sh`

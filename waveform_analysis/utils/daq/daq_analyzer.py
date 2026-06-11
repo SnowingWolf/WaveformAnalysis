@@ -199,7 +199,10 @@ class DAQAnalyzer:
     def _warm_acquisition_windows(self) -> dict[str, tuple[str, str]]:
         windows: dict[str, tuple[str, str]] = {}
         for run_name, run in self.runs.items():
-            start_time, end_time = run.get_run_acquisition_window()
+            if run.daq_adapter is not None and run.daq_adapter.name == "v1725":
+                start_time, end_time = run.get_file_time_window()
+            else:
+                start_time, end_time = run.get_run_acquisition_window()
             windows[run_name] = (
                 self._format_acquisition_time(start_time),
                 self._format_acquisition_time(end_time),

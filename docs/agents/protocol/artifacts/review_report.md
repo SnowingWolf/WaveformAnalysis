@@ -6,6 +6,7 @@
 
 ## Required Fields
 - `task_id`
+- `workflow_cost`
 - `reviewer`
 - `gate_results`
 - `decision`
@@ -20,6 +21,8 @@
 - `failed`
 
 ## Field Rules
+- `workflow_cost`
+  仅允许：`light | standard | strict`，必须与最终执行口径一致
 - `decision`
   仅允许：`completed | rework_required | blocked | failed`
 - `gate_results`
@@ -34,6 +37,7 @@
 # review_report
 
 - `task_id`:
+- `workflow_cost`: `light|standard|strict`
 - `reviewer`:
 - `gate_results`:
   -
@@ -56,11 +60,18 @@
 - `version_review`:
 - `contract_review`:
 - `docs_review`:
+- `performance_style_review`:
+  - `single_parallel_layer`: `pass|fail|not_applicable`
+  - `numba_parallel_evidence`: `pass|fail|not_applicable`
+  - `worker_option_review`: `pass|fail|not_applicable`
+  - `fallback_review`: `pass|fail|not_applicable`
 - `completion_allowed`: `true|false`
 ```
 
 ## Completion Checklist
+- `workflow_cost` 已明确，且与 gate 结果口径一致
 - `decision` 合法
 - 若为 `rework_required`，已写明 `scope_changed`
 - 若为 `completed`，阻断 gate 已全部通过
+- 插件算法改动已审查执行后端与并发层级
 - 残余风险与后续动作已明确

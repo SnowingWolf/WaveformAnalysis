@@ -19,20 +19,20 @@
 
 ## Outputs
 
-| Field | DType |
-|-------|-------|
-| `rise_time` | `float32` |
-| `fall_time` | `float32` |
-| `total_width` | `float32` |
-| `rise_time_samples` | `float32` |
-| `fall_time_samples` | `float32` |
-| `total_width_samples` | `float32` |
-| `peak_position` | `int64` |
-| `peak_height` | `float32` |
-| `timestamp` | `int64` |
-| `board` | `int16` |
-| `channel` | `int16` |
-| `record_id` | `int64` |
+| Field | DType | Meaning |
+|-------|-------|---------|
+| `rise_time` | `float32` | - |
+| `fall_time` | `float32` | - |
+| `total_width` | `float32` | - |
+| `rise_time_samples` | `float32` | - |
+| `fall_time_samples` | `float32` | - |
+| `total_width_samples` | `float32` | - |
+| `peak_position` | `int64` | - |
+| `peak_height` | `float32` | - |
+| `timestamp` | `int64` | - |
+| `board` | `int16` | - |
+| `channel` | `int16` | - |
+| `record_id` | `int64` | - |
 
 ## Config
 

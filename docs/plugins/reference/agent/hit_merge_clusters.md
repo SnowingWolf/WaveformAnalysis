@@ -7,35 +7,32 @@
 | Item | Value |
 |------|-------|
 | Provides | `hit_merge_clusters` |
-| Depends On | `hit_threshold` |
+| Depends On | `hit_merged`, `hit_threshold` |
 | Output Kind | `structured_array` |
-| Version | `1.0.0` |
+| Version | `1.1.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merge` |
 | Accelerator | `cpu` |
 
 ## Inputs
 
+- `hit_merged`
 - `hit_threshold`
 
 ## Outputs
 
-| Field | DType |
-|-------|-------|
-| `cluster_index` | `int64` |
-| `hit_index` | `int64` |
+| Field | DType | Meaning |
+|-------|-------|---------|
+| `cluster_index` | `int64` | - |
+| `hit_index` | `int64` | - |
 
 ## Config
 
-| Name | Type | Default | Note |
-|------|------|---------|------|
-| `merge_gap_ns` | `float` | `0.0` | 最大边界间距（ns），<=0 表示不合并 |
-| `max_total_width_ns` | `float` | `10000.0` | 链式合并后的最大总宽度（ns） |
-| `dt` | `int` | `None` | 采样间隔（ns）。仅在输入 hit_threshold 缺少 dt 字段时作为兼容补充。 |
+- 无可配置项
 
 ## Execution Path
 
 `hit_merge_clusters` 依赖链入口：
-`hit_threshold -> hit_merge_clusters`
+`hit_merged -> hit_threshold -> hit_merge_clusters`
 
 ## Failure Modes
 

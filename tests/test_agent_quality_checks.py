@@ -89,3 +89,36 @@ def test_performance_regression_check_cli_runs(tmp_path):
     assert "comparison" in payload
     assert "hit_threshold" in payload["before"]
     assert "hit_threshold" in payload["after"]
+
+
+def test_release_artifact_sync_key_tests_run_full_pytest(monkeypatch):
+    from scripts import release_artifact_sync
+
+    commands = []
+
+    def fake_run(cmd, cwd=release_artifact_sync.PROJECT_ROOT):
+        commands.append(cmd)
+        return 0, "", ""
+
+    monkeypatch.setattr(release_artifact_sync, "_run", fake_run)
+
+    ok, detail = release_artifact_sync._run_key_tests("HEAD")
+
+    assert ok
+    assert detail["schema_smoke_rc"] == 0
+    assert detail["full_pytest_rc"] == 0
+    assert commands == [
+        [
+            sys.executable,
+            "scripts/schema_compat_check.py",
+            "--base",
+            "HEAD",
+            "--run-smoke",
+        ],
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/",
+        ],
+    ]

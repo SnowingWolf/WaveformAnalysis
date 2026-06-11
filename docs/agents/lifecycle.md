@@ -69,12 +69,16 @@ blocked -> planning | executing | cancelled
 
 ## 交接产物
 
+所有交接产物都必须记录 `workflow_cost`，取值为 `light | standard | strict`。
+`light` 只降低填写粒度，不跳过主状态或 Reviewer 放行；`strict` 不允许压缩 artifact。
+
 ### `plan_brief`
 - 由 `Planner` 生成。
 - 离开 `planning` 进入 `ready_for_execution` 前必须存在。
 - 最少包含：
   - `task_id`
   - `route`
+  - `workflow_cost`
   - `risk_level`
   - `scope_in`
   - `scope_out`
@@ -95,6 +99,8 @@ blocked -> planning | executing | cancelled
 - 由 `Executor` 生成。
 - 离开 `executing` 进入 `reviewing` 前必须存在。
 - 最少包含：
+  - `task_id`
+  - `workflow_cost`
   - `changed_paths`
   - `actions_taken`
   - `commands_run`
@@ -105,6 +111,8 @@ blocked -> planning | executing | cancelled
 - 由 `Reviewer` 生成。
 - 离开 `reviewing` 进入 `completed` 前必须存在。
 - 最少包含：
+  - `task_id`
+  - `workflow_cost`
   - `gate_results`
   - `decision`
   - `blocking_findings`
@@ -112,6 +120,9 @@ blocked -> planning | executing | cancelled
   - `follow_up_actions`
 
 ## 与质量闸门的绑定
+- `workflow_cost=light` 时只运行当前任务命中的最小 gate，并在 `review_report.gate_results` 记录未执行项不适用的原因。
+- `workflow_cost=standard` 时运行 route 默认 gate 与定向测试。
+- `workflow_cost=strict` 时阻断 gate 必须全部记录 PASS/FAIL；未执行必须映射为 `blocked` 或 `rework_required`。
 - 所有 route 都必须经过 `reviewing`，即使是文档-only 任务。
 - `Reviewer` 负责把 gate 结果映射到状态：
   - 全部阻断 gate 通过：`completed`

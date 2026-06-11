@@ -6,6 +6,7 @@
 
 ## Required Fields
 - `task_id`
+- `workflow_cost`
 - `executor_role`
 - `changed_paths`
 - `actions_taken`
@@ -14,6 +15,8 @@
 - `requested_review_focus`
 
 ## Field Rules
+- `workflow_cost`
+  仅允许：`light | standard | strict`
 - `changed_paths`
   使用仓库相对路径的平铺列表
 - `commands_run`
@@ -26,6 +29,7 @@
 # execution_report
 
 - `task_id`:
+- `workflow_cost`: `light|standard|strict`
 - `executor_role`:
 - `changed_paths`:
   -
@@ -52,6 +56,7 @@
 ```
 
 ## Completion Checklist
+- `workflow_cost` 已明确，且不低于任务实际风险
 - 变更路径已列出
 - 实际运行命令已列出
 - reviewer 需要重点看的点已列出

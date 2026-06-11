@@ -14,12 +14,19 @@ def test_get_plugin_set_peaks_available():
     assert len(plugins) >= 6
     assert provides == [
         "hit",
+        "records_asymmetry_mask",
         "hit_threshold",
         "hit_merge_clusters",
         "hit_merged",
         "hit_merged_components",
+        "hit_merged_features",
         "peaklets",
         "peaklet_components",
+        "peaklet_waveforms",
+        "peaklet_waveform_pool",
+        "peaklet_features",
+        "peaklet_channels",
+        "peaks",
         "waveform_width",
         "s1_s2",
     ]

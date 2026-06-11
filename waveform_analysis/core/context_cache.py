@@ -144,7 +144,10 @@ class ContextCacheDomain:
             keys_to_remove.append(key)
 
         for key in keys_to_remove:
-            del self.ctx._results[key]
+            value = self.ctx._results.pop(key)
+            cleanup = getattr(value, "cleanup", None)
+            if callable(cleanup):
+                cleanup()
             if key in self.ctx._results_lineage:
                 del self.ctx._results_lineage[key]
             removed += 1

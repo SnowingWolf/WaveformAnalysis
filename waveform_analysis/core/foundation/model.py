@@ -6,7 +6,7 @@ Model 模块 (lineage 图) - 框架内部数据模型定义。
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 
 @dataclass
@@ -26,9 +26,9 @@ class NodeModel:
     title: str
     plugin_class: str
     description: str = ""
-    config: Dict[str, Any] = field(default_factory=dict)
-    in_ports: List[PortModel] = field(default_factory=list)
-    out_ports: List[PortModel] = field(default_factory=list)
+    config: dict[str, Any] = field(default_factory=dict)
+    in_ports: list[PortModel] = field(default_factory=list)
+    out_ports: list[PortModel] = field(default_factory=list)
     depth: int = 0
 
 
@@ -43,9 +43,9 @@ class EdgeModel:
 
 @dataclass
 class LineageGraphModel:
-    nodes: Dict[str, NodeModel] = field(default_factory=dict)
-    edges: List[EdgeModel] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    nodes: dict[str, NodeModel] = field(default_factory=dict)
+    edges: list[EdgeModel] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_mermaid(self) -> str:
         """
@@ -73,9 +73,9 @@ class LineageGraphModel:
 
 
 def build_lineage_graph(
-    lineage: Dict[str, Any],
+    lineage: dict[str, Any],
     target_name: str,
-    plugins: Optional[Dict[str, Any]] = None,
+    plugins: dict[str, Any] | None = None,
 ) -> LineageGraphModel:
     """
     将血缘字典转换为纯数据结构的 LineageGraphModel。
@@ -105,40 +105,38 @@ def build_lineage_graph(
 
     traverse(target_name, lineage)
 
-    # 第二阶段：计算正确的 depth（从目标到源的最长路径）
-    # depth 表示从该节点到目标节点的最长路径长度
-    plugin_depth: Dict[str, int] = {target_name: 0}
+    # 第二阶段：计算拓扑层级 depth（从源节点开始的正向层级）
+    # depth 表示从源节点到该节点的最长路径长度
+    plugin_depth: dict[str, int] = {}
 
-    # 构建反向依赖图：谁依赖这个节点
-    dependents = {name: [] for name in plugin_info}  # {node: [依赖它的节点列表]}
-    for node, deps in dependencies.items():
-        for dep in deps:
-            if dep in dependents:
-                dependents[dep].append(node)
+    # 1. 找到所有源节点（没有依赖的节点）
+    sources = [name for name, deps in dependencies.items() if not deps]
+    for src in sources:
+        plugin_depth[src] = 0
 
-    # 使用迭代算法计算 depth，直到收敛
+    # 2. 使用迭代算法计算每个节点的 depth
+    # depth(node) = max(depth(dep) for dep in node的直接依赖) + 1
     changed = True
-    while changed:
-        changed = False
-        for node in plugin_info:
-            if node == target_name:
-                continue
-            # depth = max(所有依赖它的节点的 depth) + 1
-            max_dep_depth = -1
-            for dependent in dependents[node]:
-                if dependent in plugin_depth:
-                    max_dep_depth = max(max_dep_depth, plugin_depth[dependent])
-            if max_dep_depth >= 0:
-                new_depth = max_dep_depth + 1
-                if node not in plugin_depth or plugin_depth[node] != new_depth:
-                    plugin_depth[node] = new_depth
-                    changed = True
+    max_iterations = 1000  # 防止循环依赖导致死循环
+    iteration = 0
 
-    # 对于没有被任何节点依赖的源节点，设置默认 depth
-    max_depth = max(plugin_depth.values()) if plugin_depth else 0
+    while changed and iteration < max_iterations:
+        iteration += 1
+        changed = False
+        for node, deps in dependencies.items():
+            if node in plugin_depth:
+                continue
+            # 只有当所有依赖都已计算出 depth 时，才计算该节点
+            if deps and all(dep in plugin_depth for dep in deps):
+                new_depth = max(plugin_depth[dep] for dep in deps) + 1
+                plugin_depth[node] = new_depth
+                changed = True
+
+    # 3. 处理未计算 depth 的节点（孤立节点或循环依赖）
     for node in plugin_info:
         if node not in plugin_depth:
-            plugin_depth[node] = max_depth + 1
+            # 孤立节点设为 0，与源节点相同
+            plugin_depth[node] = 0
 
     # 1. 创建节点和端口
     for p, info in plugin_info.items():

@@ -8,6 +8,22 @@
 - 可选状态：`awaiting_user_input`、`awaiting_approval`、`rework_required`、`blocked`、`failed`、`cancelled`
 - 阻断式审查：`Reviewer` 未放行前，不得进入 `completed`
 
+## Workflow Cost 分级
+
+`workflow_cost` 用来控制一次任务的流程重量。它不替代主状态机，只决定 artifact 填写粒度和 gate 数量。
+
+| workflow_cost | 适用范围 | Artifact 口径 | Gate 口径 |
+| --- | --- | --- | --- |
+| `light` | 只读解释、定向测试、文档小修、缓存诊断 | 三段式仍保留，但允许压缩填写 | 只跑当前目标必需的最小 gate |
+| `standard` | 普通代码、插件内部算法、QA 扫描 | 完整填写通用 artifact | 跑 route 默认 gate 与定向测试 |
+| `strict` | 插件契约、dtype/字段、compat 删除、发布前检查 | 完整 artifact，不得压缩 | 固定 gate 必须全部记录 PASS/FAIL |
+
+### 升级规则
+1. route 默认成本见 `docs/agents/index.yaml` 的 `workflow_cost`。
+2. `Planner` 必须在 `plan_brief.workflow_cost` 写明实际成本；实际成本可以高于 route 默认值。
+3. 触及 public surface、缓存 lineage、插件契约、dtype/字段、compat 删除或发布检查时，必须使用 `strict`。
+4. 仅文档改动默认使用 `light`；若文档同步的是代码契约变化，继承源 route 成本。
+
 ## 通用交接产物
 - `plan_brief`
   - 由 `Planner` 生成
@@ -21,16 +37,22 @@
 - `review_report`
   - 由 `Reviewer` 生成
   - `reviewing -> completed` 前必须存在
+- `light` 模式最低字段：
+  - `plan_brief`: `task_id`、`route`、`workflow_cost`、`scope_in`、`required_gates`、`executor_role`
+  - `execution_report`: `task_id`、`workflow_cost`、`actions_taken`、`commands_run`、`open_risks`
+  - `review_report`: `task_id`、`workflow_cost`、`gate_results`、`decision`、`blocking_findings`
 
 ## 通用 Commit Handoff
 - `Executor` 在离开 `executing` 前必须检查工作树：`git status --short`、`git diff --stat`
 - 若当前任务留下仓库改动，必须二选一：
   - 已完成提交，并在最终回复或交接中记录 `commit hash`
   - 明确记录 `未提交` 原因
-- 默认不强制自动提交；是否提交遵循用户要求，但提交状态不能缺失
+- 修改任务默认在验证通过后提交本轮相关改动；提交必须 scoped，不得混入无关 dirty 文件
+- 若不能提交（例如验证失败、范围不清、需要用户确认），必须明确记录 `未提交` 原因
 - 可执行：
   - `python scripts/check_agent_handoff.py`
   - `python scripts/check_agent_handoff.py --allow-uncommitted --reason "<原因>"`
+  - `python scripts/check_agent_handoff.py --final-note "<最终交付文本>"`
 - `Reviewer` 发现提交状态未说明时，必须打回，不能直接 `completed`
 
 ## 通用返工规则
@@ -58,20 +80,29 @@
 2. 确认目标插件、上下游依赖、消费方与契约风险
 3. 生成 `plan_brief`，明确：
    - 是否影响 `provides`、`depends_on`、`options`、`output_dtype`、`version`
+   - 执行后端选择：`python|numpy|numba_serial|numba_parallel|thread_pool|process_pool`
+   - 并发范围、worker 配置名、fallback 与是否需要 benchmark
    - 必跑 gate
    - 返工是否可能回到 `planning`
 
 ### Executor
 1. 实现改动：先最小可运行，再做必要重构
-2. 执行定向测试与文档更新
-3. 产出 `execution_report`
+2. 核对实际实现是否符合 `plan_brief` 的执行后端决策
+3. 执行定向测试与文档更新
+4. 产出 `execution_report`
 
 ### Reviewer
 1. 审查 `version` 策略是否符合变更等级
 2. 核对 gate 结果、契约一致性与文档同步
-3. 核对 commit handoff 是否明确
-4. 产出 `review_report`
-5. 决策：
+3. 审查执行后端风格：
+   - 是否存在同一执行路径多层并发
+   - 是否将 `numba_parallel` 与线程池/进程池叠加
+   - memory-bound 任务使用 `parallel=True` 是否有证据
+   - 新 worker 配置是否优先使用 `max_workers` / `numba_threads`
+   - fallback 与 benchmark 口径是否明确
+4. 核对 commit handoff 是否明确
+5. 产出 `review_report`
+6. 决策：
    - 全部通过：`completed`
    - 可修复问题：`rework_required`
    - 外部阻断：`blocked`
@@ -100,16 +131,19 @@ python scripts/check_doc_anchors.py --check-sync --base HEAD
 1. 插件契约变化但未升级 `version`
 2. 字段或 dtype 变化但未执行兼容检查
 3. 用户可见行为变化但 `plugins-agent` 或 `docs/agents` 未同步
-4. `review_report` 未记录 gate 结果
-5. 提交状态未说明，或存在未提交改动但未给出原因
+4. 插件算法改动缺少执行后端决策或 `performance_style_review`
+5. 同一执行路径叠加多个并发层且缺少明确证据
+6. `review_report` 未记录 gate 结果
+7. 提交状态未说明，或存在未提交改动但未给出原因
 
 ### Definition of Done
 1. `plan_brief`、`execution_report`、`review_report` 齐全
 2. 版本策略符合改动等级
-3. 固定 gate 通过
-4. 需要时已更新 `plugins-agent` 文档
-5. commit handoff 已明确：记录 `已提交` 或 `未提交`
-6. 提交不包含无关变更
+3. 插件算法改动已记录并审查执行后端风格
+4. 固定 gate 通过
+5. 需要时已更新 `plugins-agent` 文档
+6. commit handoff 已明确：记录 `已提交` 或 `未提交`
+7. 提交不包含无关变更
 
 ## Workflow: 删除兼容冗余
 
@@ -224,11 +258,18 @@ waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
 2. 已记录下一步修复动作或需要补充的信息
 
 ## Workflow: 文档同步检查
+用于 agent 文档、生成区块、引用与锚点一致性检查。仅文档改动默认走本流程；若文档同步的是代码契约变化，继承源 route 的 `workflow_cost` 和 gate。
+
 ```bash
 python scripts/render_agent_docs.py --check
 scripts/check_doc_sync.sh
 python scripts/check_doc_anchors.py --check-sync --base HEAD
 ```
+
+### 触发策略
+1. 修改 `AGENTS.md`、`CLAUDE.md`、`docs/agents/**` 时，至少执行本流程。
+2. 修改生成区块来源 `docs/agents/index.yaml` 时，必须执行 `python scripts/render_agent_docs.py --check`。
+3. 触及插件参考生成结果时，同时执行对应 `waveform-docs generate ...` 命令。
 
 ## Workflow: PR 前固定质量闸门（3 类，4 条命令）
 
@@ -244,7 +285,6 @@ python scripts/check_doc_anchors.py --check-sync --base HEAD
 # generate_docs
 waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/
 waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
-python scripts/render_agent_docs.py --check
 
 # assess_change_impact
 python scripts/assess_change_impact.py --base HEAD
@@ -252,6 +292,8 @@ python scripts/assess_change_impact.py --base HEAD
 # schema_compat_check
 python scripts/schema_compat_check.py --base HEAD --run-smoke
 ```
+
+Agent 文档同步检查（`python scripts/render_agent_docs.py --check`、`scripts/check_doc_sync.sh`、`python scripts/check_doc_anchors.py --check-sync --base HEAD`）属于文档同步流程，不计入本节“四条命令”。若 PR 同时改了 agent 文档，也必须另行记录这些检查结果。
 
 ### Lifecycle 绑定
 - `Planner` 决定哪些 gate 必须进入 `plan_brief`
@@ -323,7 +365,8 @@ python scripts/release_artifact_sync.py --base HEAD
 1. 版本与 `CHANGELOG` 状态一致
 2. `plugins-auto` 与 `plugins-agent` 生成结果与仓库文档一致
 3. `doc_sync` 与 `doc_anchors` 检查通过
-4. 关键链路测试与性能检查状态明确
+4. `schema_compat_check --run-smoke` 与 `python -m pytest tests/` 全测试目录通过
+5. 性能检查状态明确
 
 ## Workflow: release_check
 

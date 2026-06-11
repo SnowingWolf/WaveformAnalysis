@@ -32,6 +32,7 @@ from waveform_analysis.core.plugins.builtin.cpu._dt_compat import (
 )
 from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     WAVE_SOURCE_AUTO,
+    WAVE_SOURCE_RECORDS,
     load_wave_input,
     resolve_wave_input_spec,
 )
@@ -47,6 +48,8 @@ _NUMBA_AVAILABLE: bool | None = None
 _NUMBA_IMPORT_ERROR: Exception | None = None
 _numba_count_ragged_hits = None
 _numba_fill_ragged_hits = None
+_numba_batch_prefilter = None
+_numba_contiguous_regions = None
 
 THRESHOLD_HIT_DTYPE = np.dtype(
     [
@@ -84,10 +87,22 @@ def _resolve_source_event_lengths(waveform_data: np.ndarray) -> np.ndarray:
 
 
 def _contiguous_regions_from_indices(indices: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Return half-open contiguous regions represented by sorted sample indices."""
+    """Return half-open contiguous regions represented by sorted sample indices.
+
+    优先使用 Numba 加速版本，fallback 到 NumPy 实现。
+    """
     if indices.size == 0:
         return indices, indices
 
+    # 尝试使用 Numba 加速版本
+    if _numba_contiguous_regions is not None:
+        try:
+            return _numba_contiguous_regions(indices)
+        except Exception:
+            # Fallback 到 NumPy 实现
+            pass
+
+    # NumPy fallback 实现
     split_points = np.flatnonzero(np.diff(indices) > 1) + 1
     starts = np.empty(split_points.size + 1, dtype=np.int64)
     ends = np.empty(split_points.size + 1, dtype=np.int64)
@@ -114,14 +129,23 @@ def _ensure_numba_kernels() -> None:
     global _NUMBA_IMPORT_ERROR
     global _numba_count_ragged_hits
     global _numba_fill_ragged_hits
+    global _numba_batch_prefilter
+    global _numba_contiguous_regions
 
     if _NUMBA_AVAILABLE is False:
         raise RuntimeError("numba is not available") from _NUMBA_IMPORT_ERROR
-    if _numba_count_ragged_hits is not None and _numba_fill_ragged_hits is not None:
+    if (
+        _numba_count_ragged_hits is not None
+        and _numba_fill_ragged_hits is not None
+        and _numba_batch_prefilter is not None
+        and _numba_contiguous_regions is not None
+    ):
         return
 
     try:
         from waveform_analysis.core.plugins.builtin.cpu.hit_threshold_numba import (
+            batch_prefilter_records,
+            contiguous_regions_numba,
             count_ragged_hits,
             fill_ragged_hits,
         )
@@ -132,6 +156,8 @@ def _ensure_numba_kernels() -> None:
 
     _numba_count_ragged_hits = count_ragged_hits
     _numba_fill_ragged_hits = fill_ragged_hits
+    _numba_batch_prefilter = batch_prefilter_records
+    _numba_contiguous_regions = contiguous_regions_numba
     _NUMBA_AVAILABLE = True
 
 
@@ -158,7 +184,7 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
     provides = "hit_threshold"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Threshold-only hit detector with THRESHOLD_HIT_DTYPE output."
-    version = "1.0.2"
+    version = "1.1.0"
     output_dtype = THRESHOLD_HIT_DTYPE
 
     # 为了不改变原始缓存语义，这里仍保持 always。
@@ -228,11 +254,23 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
             type=int,
             help="流式处理时的 chunk 大小（仅对 RecordsBundleRef 生效）",
         ),
+        "asymmetry_cut_enabled": Option(
+            default=False,
+            type=bool,
+            help="是否在 records 路径的 hit 查找前应用 records_asymmetry_mask。",
+        ),
     }
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         spec = resolve_wave_input_spec(context, self)
-        return list(spec.depends_on)
+        deps = list(spec.depends_on)
+        if (
+            spec.source == WAVE_SOURCE_RECORDS
+            and bool(context.get_config(self, "asymmetry_cut_enabled"))
+            and "records_asymmetry_mask" not in deps
+        ):
+            deps.append("records_asymmetry_mask")
+        return deps
 
     def compute_chunk(self, chunk: Chunk, context: Any, run_id: str, **kwargs) -> Chunk:
         """处理单个 chunk - 由 StreamingPlugin 框架自动调用。"""
@@ -320,8 +358,22 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
                 raise ValueError(
                     "hit_threshold failed to load records and wave_pool for records source"
                 )
+            records = wave_input.records
+            if bool(context.get_config(self, "asymmetry_cut_enabled")):
+                mask = np.asarray(
+                    context.get_data(run_id, "records_asymmetry_mask"),
+                    dtype=np.bool_,
+                )
+                if len(mask) != len(records):
+                    raise ValueError(
+                        "records_asymmetry_mask length mismatch: "
+                        f"mask has {len(mask)} entries, records has {len(records)}"
+                    )
+                records = records[mask]
+                if len(records) == 0:
+                    return _empty_hits()
             return self._process_records_ragged_input(
-                records=wave_input.records,
+                records=records,
                 wave_pool=wave_input.wave_pool,
                 context=context,
                 run_id=run_id,
@@ -1179,17 +1231,41 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
         """基于 wave_pool + offsets + lengths 的 ragged hit finder。
 
         关键优化：
-        每条 record 先做 min/max prefilter。未过阈的 record 直接 continue，
-        不构造二维矩阵，也不构造完整 signal。
+        1. 使用 Numba 批量预筛选，快速识别可能包含 hit 的 records
+        2. 只对通过预筛选的 records 进行详细的 hit 查找
+        3. 使用 Numba 加速的连续区域查找
         """
         if len(record_lengths) == 0:
             return _empty_hits()
 
         wave_pool = np.asarray(wave_pool)
         n_pool = len(wave_pool)
+
+        # 批量预筛选：使用 Numba 快速识别可能包含 hit 的 records
+        if _numba_batch_prefilter is not None:
+            try:
+                pass_mask = _numba_batch_prefilter(
+                    wave_pool,
+                    wave_offsets,
+                    record_lengths,
+                    baselines,
+                    thresholds,
+                    positive_mask,
+                )
+                # 只处理通过预筛选的 records
+                pass_indices = np.flatnonzero(pass_mask)
+                if len(pass_indices) == 0:
+                    return _empty_hits()
+            except Exception:
+                # Fallback：处理所有 records
+                pass_indices = np.arange(len(record_lengths), dtype=np.int64)
+        else:
+            # 没有 Numba：处理所有 records
+            pass_indices = np.arange(len(record_lengths), dtype=np.int64)
+
         hits: list[tuple] = []
 
-        for i in range(len(record_lengths)):
+        for i in pass_indices:
             offset = int(wave_offsets[i])
             length = int(record_lengths[i])
             if length <= 0:
@@ -1209,19 +1285,19 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
             positive = bool(positive_mask[i])
 
             # -------------------------
-            # record-level prefilter
+            # 找到过阈样本
             # -------------------------
             if positive:
                 threshold_level = baseline + threshold
-                if float(np.max(wave)) < threshold_level:
-                    continue
                 hit_indices = np.flatnonzero(wave >= threshold_level)
             else:
                 threshold_level = baseline - threshold
-                if float(np.min(wave)) > threshold_level:
-                    continue
                 hit_indices = np.flatnonzero(wave <= threshold_level)
 
+            if len(hit_indices) == 0:
+                continue
+
+            # 使用优化的连续区域查找
             starts, ends = _contiguous_regions_from_indices(hit_indices)
 
             for start_raw, end_raw in zip(starts, ends, strict=False):
@@ -1257,6 +1333,10 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
         if not hits:
             return _empty_hits()
         return np.array(hits, dtype=THRESHOLD_HIT_DTYPE)
+
+    # -------------------------------------------------------------------------
+    # Matrix compatibility backend
+    # -------------------------------------------------------------------------
 
     # -------------------------------------------------------------------------
     # Matrix compatibility backend

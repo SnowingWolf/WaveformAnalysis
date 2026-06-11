@@ -3,9 +3,11 @@ import numpy as np
 from tests.utils import DummyContext, make_records
 from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
+    HIT_MERGED_DTYPE,
     HitMergedComponentsPlugin,
     HitMergePlugin,
 )
+from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import HitMergedFeaturesPlugin
 from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PEAKLET_COMPONENTS_DTYPE,
     PEAKLET_DTYPE,
@@ -29,7 +31,7 @@ def _make_hit(*, record_id, board, channel, edge_start, edge_end, dt=2, timestam
     return arr[0]
 
 
-def _make_peaklet_context(hits, wave_pool, *, time_window_ns=4.0):
+def make_peaklet_context(hits, wave_pool, *, time_window_ns=4.0, use_filtered=False):
     merge_plugin = HitMergePlugin()
     components_plugin = HitMergedComponentsPlugin()
     merge_ctx = DummyContext(
@@ -49,24 +51,41 @@ def _make_peaklet_context(hits, wave_pool, *, time_window_ns=4.0):
     records["board"] = hits["board"]
     records["channel"] = hits["channel"]
     records["timestamp"] = 0
+    records["polarity"] = "negative"
+
+    data = {
+        "hit_threshold": hits,
+        "hit_merged": merged,
+        "hit_merged_components": components,
+        "records": records,
+        "wave_pool": wave_pool,
+    }
+    if use_filtered:
+        data["wave_pool_filtered"] = wave_pool + 1
+
+    feature_ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "use_filtered": False,
+            "dt": 2,
+        },
+        data,
+    )
+    features = HitMergedFeaturesPlugin().compute(feature_ctx, "run_001")
+    data["hit_merged_features"] = features
 
     return DummyContext(
         {
             "time_window_ns": time_window_ns,
             "max_total_width_ns": 10000.0,
             "dt": 2,
+            "use_filtered": use_filtered,
         },
-        {
-            "hit_threshold": hits,
-            "hit_merged": merged,
-            "hit_merged_components": components,
-            "records": records,
-            "wave_pool": wave_pool,
-        },
+        data,
     )
 
 
-def test_peaklets_merge_cross_channel_hits_and_compute_features():
+def test_peaklets_cluster_cross_channel_hits_without_waveform_features():
     hits = np.array(
         [
             _make_hit(record_id=0, board=0, channel=0, edge_start=3, edge_end=5),
@@ -74,48 +93,39 @@ def test_peaklets_merge_cross_channel_hits_and_compute_features():
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
-    wave_pool = np.array(
-        [
-            100,
-            100,
-            100,
-            80,
-            70,
-            100,
-            100,
-            100,
-            100,
-            100,
-            100,
-            100,
-            100,
-            100,
-            90,
-            80,
-            100,
-            100,
-            100,
-            100,
-        ],
-        dtype=np.uint16,
-    )
-    ctx = _make_peaklet_context(hits, wave_pool)
+    ctx = make_peaklet_context(hits, np.full(20, 100, dtype=np.uint16))
 
     out = PeakletPlugin().compute_array(ctx, "run_001")
 
     assert out.dtype == PEAKLET_DTYPE
+    assert out.dtype.names == (
+        "time_start",
+        "time_end",
+        "center_time",
+        "n_hits",
+        "n_channels",
+        "component_offset",
+        "component_count",
+    )
     assert len(out) == 1
-    row = out[0]
-    assert int(row["time_start"]) == 6000
-    assert int(row["time_end"]) == 12000
-    assert int(row["max_time"]) == 8000
-    assert float(row["area"]) == 80.0
-    assert float(row["height"]) == 40.0
-    assert float(row["width"]) == 6.0
-    assert float(row["rise_time"]) == 2.0
-    assert float(row["fall_time"]) == 4.0
-    assert int(row["n_hits"]) == 2
-    assert int(row["n_channels"]) == 2
+    assert int(out[0]["time_start"]) == 6000
+    assert int(out[0]["time_end"]) == 12000
+    assert int(out[0]["center_time"]) == 9000
+    assert int(out[0]["n_hits"]) == 2
+    assert int(out[0]["n_channels"]) == 2
+    assert int(out[0]["component_offset"]) == 0
+    assert int(out[0]["component_count"]) == 2
+    for removed in ("area", "height", "max_time", "width", "rise_time", "fall_time"):
+        assert removed not in out.dtype.names
+
+
+def test_peaklets_empty_input_returns_empty_lightweight_dtype():
+    ctx = DummyContext({}, {"hit_merged": np.zeros(0, dtype=HIT_MERGED_DTYPE)})
+
+    out = PeakletPlugin().compute_array(ctx, "run_001")
+
+    assert out.dtype == PEAKLET_DTYPE
+    assert len(out) == 0
 
 
 def test_peaklets_split_when_cross_channel_gap_exceeds_window():
@@ -126,10 +136,7 @@ def test_peaklets_split_when_cross_channel_gap_exceeds_window():
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
-    wave_pool = np.full(20, 100, dtype=np.uint16)
-    wave_pool[1] = 80
-    wave_pool[18] = 80
-    ctx = _make_peaklet_context(hits, wave_pool, time_window_ns=1.0)
+    ctx = make_peaklet_context(hits, np.full(20, 100, dtype=np.uint16), time_window_ns=1.0)
 
     out = PeakletPlugin().compute_array(ctx, "run_001")
     components = PeakletComponentsPlugin().compute_array(ctx, "run_001")
@@ -138,3 +145,19 @@ def test_peaklets_split_when_cross_channel_gap_exceeds_window():
     assert components.dtype == PEAKLET_COMPONENTS_DTYPE
     np.testing.assert_array_equal(components["peaklet_index"], np.array([0, 1], dtype=np.int64))
     np.testing.assert_array_equal(components["merged_index"], np.array([0, 1], dtype=np.int64))
+
+
+def test_peaklets_respect_max_total_width_window():
+    hits = np.array(
+        [
+            _make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=4),
+            _make_hit(record_id=1, board=0, channel=1, edge_start=3, edge_end=8),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    ctx = make_peaklet_context(hits, np.full(20, 100, dtype=np.uint16), time_window_ns=10.0)
+    ctx.config["max_total_width_ns"] = 8.0
+
+    out = PeakletPlugin().compute_array(ctx, "run_001")
+
+    assert len(out) == 2

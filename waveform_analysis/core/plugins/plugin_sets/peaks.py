@@ -17,22 +17,40 @@ def plugins_peaks():
         HitMergedComponentsPlugin,
         HitMergePlugin,
     )
+    from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import (
+        HitMergedFeaturesPlugin,
+    )
     from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HitFinderPlugin
+    from waveform_analysis.core.plugins.builtin.cpu.peaklet_channels import PeakletChannelsPlugin
     from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
         PeakletComponentsPlugin,
+        PeakletFeaturesPlugin,
         PeakletPlugin,
+        PeakletWaveformPlugin,
+        PeakletWaveformPoolPlugin,
+        PeaksPlugin,
+    )
+    from waveform_analysis.core.plugins.builtin.cpu.records_asymmetry import (
+        RecordsAsymmetryMaskPlugin,
     )
     from waveform_analysis.core.plugins.builtin.cpu.s1_s2_classifier import S1S2ClassifierPlugin
     from waveform_analysis.core.plugins.builtin.cpu.waveform_width import WaveformWidthPlugin
 
     return [
         HitFinderPlugin(),
+        RecordsAsymmetryMaskPlugin(),
         ThresholdHitPlugin(),
         HitMergeClustersPlugin(),
         HitMergePlugin(),
         HitMergedComponentsPlugin(),
+        HitMergedFeaturesPlugin(),
         PeakletPlugin(),
         PeakletComponentsPlugin(),
+        PeakletWaveformPlugin(),
+        PeakletWaveformPoolPlugin(),
+        PeakletFeaturesPlugin(),
+        PeakletChannelsPlugin(),
+        PeaksPlugin(),
         WaveformWidthPlugin(),
         S1S2ClassifierPlugin(),
     ]

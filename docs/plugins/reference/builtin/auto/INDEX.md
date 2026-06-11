@@ -18,7 +18,7 @@ WaveformAnalysis 采用**插件化架构**处理 DAQ（数据采集系统）波�
 
 ### 插件统计
 
-- **总插件数**: 22
+- **总插件数**: 29
 - **类别数**: 8
 - **加速器**: CPU (NumPy/SciPy)
 
@@ -134,17 +134,24 @@ raw_files ──► records ──► df ──► df_events
 | [`FilteredWaveformsPlugin`](filtered_waveforms.md) | `filtered_waveforms` | 3.0.0 | 波形处理 | st_waveforms |
 | [`HitFinderPlugin`](hit.md) | `hit` | 3.0.0 | 特征提取 | - |
 | [`HitGroupedPlugin`](hit_grouped.md) | `hit_grouped` | 0.5.0 | 特征提取 | hit_merged, hit_merged_components, hit_threshold |
-| [`HitMergeClustersPlugin`](hit_merge_clusters.md) | `hit_merge_clusters` | 1.0.0 | 特征提取 | hit_threshold |
-| [`HitMergePlugin`](hit_merged.md) | `hit_merged` | 1.1.0 | 特征提取 | hit_threshold, hit_merge_clusters |
-| [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 1.0.0 | 特征提取 | hit_merge_clusters, hit_merged |
-| [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.0.2 | 特征提取 | - |
-| [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 0.1.0 | 特征提取 | peaklets, hit_merged |
-| [`PeakletPlugin`](peaklets.md) | `peaklets` | 0.1.0 | 特征提取 | hit_merged, hit_merged_components, hit_threshold, records, wave_pool |
+| [`HitMergeClustersPlugin`](hit_merge_clusters.md) | `hit_merge_clusters` | 1.1.0 | 特征提取 | hit_merged, hit_threshold |
+| [`HitMergePlugin`](hit_merged.md) | `hit_merged` | 1.2.0 | 特征提取 | hit_threshold |
+| [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 1.1.0 | 特征提取 | hit_merged, hit_threshold |
+| [`HitMergedFeaturesPlugin`](hit_merged_features.md) | `hit_merged_features` | 0.4.0 | 特征提取 | - |
+| [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.1.0 | 特征提取 | - |
+| [`PeakletChannelsPlugin`](peaklet_channels.md) | `peaklet_channels` | 1.0.0 | 特征提取 | peaklets, peaklet_components, hit_merged_features, peaklet_features |
+| [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 1.0.0 | 特征提取 | peaklets, hit_merged |
+| [`PeakletFeaturesPlugin`](peaklet_features.md) | `peaklet_features` | 3.0.1 | 特征提取 | peaklet_waveforms, peaklet_waveform_pool, peaklets |
+| [`PeakletWaveformPoolPlugin`](peaklet_waveform_pool.md) | `peaklet_waveform_pool` | 1.0.0 | 波形处理 | - |
+| [`PeakletWaveformPlugin`](peaklet_waveforms.md) | `peaklet_waveforms` | 1.0.0 | 波形处理 | - |
+| [`PeakletPlugin`](peaklets.md) | `peaklets` | 1.0.0 | 特征提取 | hit_merged |
+| [`PeaksPlugin`](peaks.md) | `peaks` | 3.0.0 | 特征提取 | peaklets, peaklet_features, peaklet_channels |
 | [`RawFileNamesPlugin`](raw_files.md) | `raw_files` | 0.0.2 | 数据加载 | - |
-| [`RecordsPlugin`](records.md) | `records` | 0.10.0 | 记录处理 | - |
+| [`RecordsPlugin`](records.md) | `records` | 0.13.0 | 记录处理 | - |
+| [`RecordsAsymmetryMaskPlugin`](records_asymmetry_mask.md) | `records_asymmetry_mask` | 0.1.0 | 记录处理 | records, wave_pool |
 | [`S1S2ClassifierPlugin`](s1_s2.md) | `s1_s2` | 0.4.0 | 其他 | waveform_width, basic_features |
 | [`WaveformsPlugin`](st_waveforms.md) | `st_waveforms` | 0.10.0 | 波形处理 | - |
-| [`WavePoolPlugin`](wave_pool.md) | `wave_pool` | 0.10.0 | 波形处理 | - |
+| [`WavePoolPlugin`](wave_pool.md) | `wave_pool` | 0.13.0 | 波形处理 | - |
 | [`WavePoolFilteredPlugin`](wave_pool_filtered.md) | `wave_pool_filtered` | 3.0.0 | 波形处理 | records, wave_pool |
 | [`WaveformWidthPlugin`](waveform_width.md) | `waveform_width` | 3.0.0 | 波形处理 | - |
 | [`WaveformWidthIntegralPlugin`](waveform_width_integral.md) | `waveform_width_integral` | 2.7.0 | 波形处理 | - |
@@ -170,6 +177,8 @@ raw_files ──► records ──► df ──► df_events
 | 插件 | 说明 | 依赖 |
 |------|------|------|
 | [`filtered_waveforms`](filtered_waveforms.md) | Apply filtering to waveforms using Butterworth or Savitzky-G... | st_waveforms |
+| [`peaklet_waveform_pool`](peaklet_waveform_pool.md) | Return flattened float32 peaklet waveform signal pool. | - |
+| [`peaklet_waveforms`](peaklet_waveforms.md) | Build peaklet waveform index rows from records-backed hit_me... | - |
 | [`st_waveforms`](st_waveforms.md) | Extract waveforms from raw CSV files and structure them into... | - |
 | [`wave_pool`](wave_pool.md) | Build wave_pool from the shared internal records bundle. | - |
 | [`wave_pool_filtered`](wave_pool_filtered.md) | Build filtered wave_pool from records-backed raw waveforms. | records, wave_pool |
@@ -186,12 +195,16 @@ raw_files ──► records ──► df ──► df_events
 | [`basic_features`](basic_features.md) | Compute basic height, amplitude, area, and max-abs-diff feat... | - |
 | [`hit`](hit.md) | Detect peaks in waveforms and extract peak features. | - |
 | [`hit_grouped`](hit_grouped.md) | Group merged hits across channels into event-level coinciden... | hit_merged, hit_merged_components, hit_threshold |
-| [`hit_merge_clusters`](hit_merge_clusters.md) | Internal cluster membership rows shared by hit_merged output... | hit_threshold |
-| [`hit_merged`](hit_merged.md) | Merge nearby threshold hits per channel with time-gap and ma... | hit_threshold, hit_merge_clusters |
-| [`hit_merged_components`](hit_merged_components.md) | Return per-cluster component hit indices for hit_merged rows... | hit_merge_clusters, hit_merged |
+| [`hit_merge_clusters`](hit_merge_clusters.md) | Export cluster membership rows using the authoritative hit_m... | hit_merged, hit_threshold |
+| [`hit_merged`](hit_merged.md) | Merge nearby threshold hits per channel with time-gap and ma... | hit_threshold |
+| [`hit_merged_components`](hit_merged_components.md) | Return per-cluster component hit indices for hit_merged rows... | hit_merged, hit_threshold |
+| [`hit_merged_features`](hit_merged_features.md) | Compute per-hit_merged local waveform features from records-... | - |
 | [`hit_threshold`](hit_threshold.md) | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. | - |
+| [`peaklet_channels`](peaklet_channels.md) | Aggregate hit_merged_features into per-peaklet channel contr... | peaklets, peaklet_components, hit_merged_features, peaklet_features |
 | [`peaklet_components`](peaklet_components.md) | Return per-peaklet component hit_merged indices. | peaklets, hit_merged |
-| [`peaklets`](peaklets.md) | Build cross-channel peaklets and compute pulse-level feature... | hit_merged, hit_merged_components, hit_threshold, records, wave_pool |
+| [`peaklet_features`](peaklet_features.md) | Compute peaklet waveform features from ragged signal pools. | peaklet_waveforms, peaklet_waveform_pool, peaklets |
+| [`peaklets`](peaklets.md) | Build lightweight cross-channel peaklets from hit_merged int... | hit_merged |
+| [`peaks`](peaks.md) | Build final peaks table from peaklets and waveform-derived f... | peaklets, peaklet_features, peaklet_channels |
 
 ### 事件分析
 
@@ -229,6 +242,7 @@ raw_files ──► records ──► df ──► df_events
 | 插件 | 说明 | 依赖 |
 |------|------|------|
 | [`records`](records.md) | Build records (event index table) from the shared internal r... | - |
+| [`records_asymmetry_mask`](records_asymmetry_mask.md) | Bool mask for waveform asymmetry selection. | records, wave_pool |
 
 ### 其他
 

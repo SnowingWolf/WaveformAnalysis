@@ -7,32 +7,34 @@
 | Item | Value |
 |------|-------|
 | Provides | `hit_merged_components` |
-| Depends On | `hit_merge_clusters`, `hit_merged` |
+| Depends On | `hit_merged`, `hit_threshold` |
 | Output Kind | `structured_array` |
-| Version | `1.0.0` |
+| Version | `1.1.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merge` |
 | Accelerator | `cpu` |
 
 ## Inputs
 
-- `hit_merge_clusters`
 - `hit_merged`
+- `hit_threshold`
 
 ## Outputs
 
-| Field | DType |
-|-------|-------|
-| `merged_index` | `int64` |
-| `hit_index` | `int64` |
+| Field | DType | Meaning |
+|-------|-------|---------|
+| `merged_index` | `int64` | - |
+| `hit_index` | `int64` | - |
 
 ## Config
 
-- 无可配置项
+| Name | Type | Default | Note |
+|------|------|---------|------|
+| `validate_components` | `bool` | `False` | 校验 hit_merged 的 component_offset/component_count 与 cluster rows 是否一致。 |
 
 ## Execution Path
 
 `hit_merged_components` 依赖链入口：
-`hit_merge_clusters -> hit_merged -> hit_merged_components`
+`hit_merged -> hit_threshold -> hit_merged_components`
 
 ## Failure Modes
 

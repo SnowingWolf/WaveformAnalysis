@@ -188,18 +188,16 @@ def _run_key_tests(base: str) -> tuple[bool, dict[str, object]]:
     if rc != 0:
         return False, detail
 
-    pytest_cmd = [
+    full_pytest_cmd = [
         sys.executable,
         "-m",
         "pytest",
-        "-q",
-        "tests/test_events_df_convergence.py::test_legacy_events_grouped_config_migrates_to_df_events_and_globals",
-        "tests/plugins/test_channel_config_resolver.py::test_resolve_channel_configs_rejects_boardless_keys",
+        "tests/",
     ]
-    rc, out, err = _run(pytest_cmd)
-    detail["pytest_rc"] = rc
-    detail["pytest_out"] = out[-4000:]
-    detail["pytest_err"] = err[-4000:]
+    rc, out, err = _run(full_pytest_cmd)
+    detail["full_pytest_rc"] = rc
+    detail["full_pytest_out"] = out[-4000:]
+    detail["full_pytest_err"] = err[-4000:]
     if rc != 0:
         return False, detail
 

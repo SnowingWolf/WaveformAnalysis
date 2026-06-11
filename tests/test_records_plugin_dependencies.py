@@ -2,15 +2,17 @@ from unittest.mock import patch
 
 import numpy as np
 
+from tests.daq_adapter_helpers import make_v1725_single_wave_blob
 from tests.utils import FakeContext
 from waveform_analysis.core import Context
 from waveform_analysis.core.plugins.builtin.cpu.records import (
     RecordsPlugin,
     WavePoolPlugin,
+    _apply_records_polarity,
     get_records_bundle,
     get_records_bundle_cache_key,
 )
-from waveform_analysis.core.processing.records_builder import RecordsBundle
+from waveform_analysis.core.processing.records_builder import RecordsBundle, RecordsBundleRef
 
 
 def _make_raw_files():
@@ -77,6 +79,63 @@ def test_get_records_bundle_reuses_raw_files_for_non_v1725():
     np.testing.assert_array_equal(bundle.wave_pool, fake_bundle.wave_pool)
 
 
+def test_apply_records_polarity_assigns_by_unique_hardware_channel(monkeypatch):
+    records = np.zeros(6, dtype=RecordsPlugin().output_dtype)
+    records["board"] = [0, 0, 0, 1, 1, 2]
+    records["channel"] = [0, 0, 1, 0, 0, 0]
+    bundle = RecordsBundle(records=records, wave_pool=np.zeros(0, dtype=np.uint16))
+
+    from waveform_analysis.core.hardware.channel import HardwareChannel
+
+    captured = {}
+
+    def fake_lookup(_context, _run_id, boards, channels):
+        captured["n_lookup_rows"] = len(boards)
+        return {
+            HardwareChannel(0, 0): "negative",
+            HardwareChannel(1, 0): "positive",
+        }
+
+    monkeypatch.setattr(
+        "waveform_analysis.core.plugins.builtin.cpu.records._build_polarity_lookup",
+        fake_lookup,
+    )
+
+    result = _apply_records_polarity(object(), "run_001", bundle)
+
+    assert result is bundle
+    assert captured["n_lookup_rows"] == len(records)
+    np.testing.assert_array_equal(
+        records["polarity"],
+        np.array(["negative", "negative", "unknown", "positive", "positive", "unknown"]),
+    )
+
+
+def test_get_records_bundle_cache_hit_skips_stale_bundle_cleanup(monkeypatch):
+    plugin = RecordsPlugin()
+    ctx = FakeContext(config={"daq_adapter": "vx2730"}, plugins={"records": plugin})
+    cached_bundle = RecordsBundle(
+        records=np.zeros(1, dtype=plugin.output_dtype),
+        wave_pool=np.array([1, 2], dtype=np.uint16),
+    )
+    cache_key = get_records_bundle_cache_key(ctx, "run_001")
+    ctx._set_data("run_001", cache_key, cached_bundle)
+
+    cleanup_calls = []
+
+    def fail_cleanup(*_args):
+        cleanup_calls.append(True)
+        raise AssertionError("cleanup should not run on cache hit")
+
+    monkeypatch.setattr(
+        "waveform_analysis.core.plugins.builtin.cpu.records._cleanup_stale_bundles",
+        fail_cleanup,
+    )
+
+    assert get_records_bundle(ctx, "run_001") is cached_bundle
+    assert cleanup_calls == []
+
+
 def test_wave_pool_plugin_reuses_shared_bundle_builder(tmp_path):
     run_id = "run_001"
     ctx = Context(storage_dir=str(tmp_path / "shared_bundle"), config={"daq_adapter": "vx2730"})
@@ -98,6 +157,31 @@ def test_wave_pool_plugin_reuses_shared_bundle_builder(tmp_path):
     assert mocked.call_count == 1
     np.testing.assert_array_equal(records, fake_bundle.records)
     np.testing.assert_array_equal(wave_pool, fake_bundle.wave_pool)
+
+
+def test_v1725_records_plugins_default_to_disk_backed_memmaps(tmp_path):
+    run_id = "run_001"
+    raw = tmp_path / "test_raw_b0_seg0.bin"
+    raw.write_bytes(make_v1725_single_wave_blob(channel=0, timestamp=10, baseline=100))
+
+    ctx = Context(
+        storage_dir=str(tmp_path / "storage"),
+        config={"daq_adapter": "v1725", "show_progress": False},
+    )
+    ctx.register(RecordsPlugin(), WavePoolPlugin())
+    ctx._set_data(run_id, "raw_files", [[str(raw)]])
+
+    records = ctx.get_data(run_id, "records")
+    wave_pool = ctx.get_data(run_id, "wave_pool")
+
+    assert isinstance(records, np.memmap)
+    assert isinstance(wave_pool, np.memmap)
+    bundle_key = get_records_bundle_cache_key(ctx, run_id)
+    assert isinstance(ctx._results[(run_id, bundle_key)], RecordsBundleRef)
+    np.testing.assert_array_equal(records["timestamp"], np.array([40_000]))
+    np.testing.assert_array_equal(wave_pool, np.array([11, 12], dtype=np.uint16))
+
+    ctx.clear_cache_for(run_id, "records", clear_disk=False, verbose=False)
 
 
 def test_clear_records_or_wave_pool_also_clears_internal_bundle_cache(tmp_path):

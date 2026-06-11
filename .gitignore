@@ -358,3 +358,6 @@ CLAUDE.md
 # Planning documents
 core_todo.md
 docs_todo.md
+
+# Root benchmark files (use benchmarks/ for organized results)
+/benchmark_*.txt

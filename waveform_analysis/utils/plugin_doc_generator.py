@@ -13,7 +13,7 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Optional
 
 import numpy as np
 
@@ -56,7 +56,7 @@ class ConfigOptionInfo:
     name: str
     type: str
     default: Any
-    units: Optional[str] = None
+    units: str | None = None
     doc: str = ""
     deprecated: bool = False
 
@@ -68,7 +68,7 @@ class OutputFieldInfo:
 
     name: str
     dtype: str
-    units: Optional[str] = None
+    units: str | None = None
     doc: str = ""
 
 
@@ -83,15 +83,23 @@ class PluginDocInfo:
     description: str  # 描述
     category: str  # 类别 (data_loading, features, events...)
     accelerator: str  # 加速器 (cpu, jax, streaming)
-    depends_on: List[str] = field(default_factory=list)  # 依赖列表
-    config_options: List[ConfigOptionInfo] = field(default_factory=list)  # 配置选项
-    output_fields: List[OutputFieldInfo] = field(default_factory=list)  # 输出字段
+    depends_on: list[str] = field(default_factory=list)  # 依赖列表
+    config_options: list[ConfigOptionInfo] = field(default_factory=list)  # 配置选项
+    output_fields: list[OutputFieldInfo] = field(default_factory=list)  # 输出字段
     output_kind: str = "structured_array"  # 输出类型
     supports_streaming: bool = False
     supports_parallel: bool = True
     supports_gpu: bool = False
     is_side_effect: bool = False
     module_path: str = ""  # 模块路径
+    behavior_notes: list[str] = field(default_factory=list)
+    field_notes: dict[str, str] = field(default_factory=dict)
+    config_notes: dict[str, str] = field(default_factory=dict)
+    cluster_contract: list[str] = field(default_factory=list)
+    failure_modes: list[str] = field(default_factory=list)
+    downstream_consumers: list[str] = field(default_factory=list)
+    downstream_notes: list[str] = field(default_factory=list)
+    agent_change_notes: list[str] = field(default_factory=list)
 
     @property
     def category_display(self) -> str:
@@ -125,7 +133,7 @@ class PluginDocGenerator:
         >>> generator.generate_all(Path("docs/plugins/reference/builtin/auto"))
     """
 
-    def __init__(self, template_dir: Optional[Path] = None):
+    def __init__(self, template_dir: Path | None = None):
         """初始化文档生成器
 
         Args:
@@ -134,7 +142,7 @@ class PluginDocGenerator:
         if template_dir is None:
             template_dir = Path(__file__).parent / "templates"
         self.template_dir = template_dir
-        self._plugins: List[Tuple[Type, Any]] = []  # (plugin_class, instance)
+        self._plugins: list[tuple[type, Any]] = []  # (plugin_class, instance)
         self._jinja_env = None
 
     def _get_jinja_env(self):
@@ -152,6 +160,7 @@ class PluginDocGenerator:
                 loader=FileSystemLoader(str(self.template_dir)),
                 trim_blocks=True,
                 lstrip_blocks=True,
+                keep_trailing_newline=True,
             )
         return self._jinja_env
 
@@ -190,7 +199,7 @@ class PluginDocGenerator:
 
         return len(self._plugins)
 
-    def register_plugin(self, plugin_class: Type, instance: Optional[Any] = None):
+    def register_plugin(self, plugin_class: type, instance: Any | None = None):
         """注册单个插件
 
         Args:
@@ -201,7 +210,7 @@ class PluginDocGenerator:
             instance = plugin_class()
         self._plugins.append((plugin_class, instance))
 
-    def extract_doc_info(self, plugin_class: Type, plugin: Any) -> PluginDocInfo:
+    def extract_doc_info(self, plugin_class: type, plugin: Any) -> PluginDocInfo:
         """从插件提取文档信息
 
         Args:
@@ -245,6 +254,9 @@ class PluginDocGenerator:
         # 模块路径
         module_path = plugin_class.__module__
 
+        # Agent-only documentation extensions.
+        agent_doc = self._extract_agent_doc(plugin)
+
         return PluginDocInfo(
             name=name,
             provides=provides,
@@ -259,7 +271,48 @@ class PluginDocGenerator:
             supports_streaming=supports_streaming,
             is_side_effect=is_side_effect,
             module_path=module_path,
+            behavior_notes=agent_doc["behavior_notes"],
+            field_notes=agent_doc["field_notes"],
+            config_notes=agent_doc["config_notes"],
+            cluster_contract=agent_doc["cluster_contract"],
+            failure_modes=agent_doc["failure_modes"],
+            downstream_consumers=agent_doc["downstream_consumers"],
+            downstream_notes=agent_doc["downstream_notes"],
+            agent_change_notes=agent_doc["agent_change_notes"],
         )
+
+    def _extract_agent_doc(self, plugin: Any) -> dict[str, Any]:
+        """Extract optional agent-only documentation metadata."""
+        raw_doc = getattr(plugin, "agent_doc", {}) or {}
+        if not isinstance(raw_doc, dict):
+            raw_doc = {}
+
+        def list_value(key: str) -> list[str]:
+            value = raw_doc.get(key, [])
+            if value is None:
+                return []
+            if isinstance(value, str):
+                return [value]
+            if isinstance(value, list | tuple):
+                return [str(item) for item in value]
+            return [str(value)]
+
+        def dict_value(key: str) -> dict[str, str]:
+            value = raw_doc.get(key, {})
+            if not isinstance(value, dict):
+                return {}
+            return {str(k): str(v) for k, v in value.items()}
+
+        return {
+            "behavior_notes": list_value("behavior_notes"),
+            "field_notes": dict_value("field_notes"),
+            "config_notes": dict_value("config_notes"),
+            "cluster_contract": list_value("cluster_contract"),
+            "failure_modes": list_value("failure_modes"),
+            "downstream_consumers": list_value("downstream_consumers"),
+            "downstream_notes": list_value("downstream_notes"),
+            "agent_change_notes": list_value("agent_change_notes"),
+        }
 
     def _detect_category(self, provides: str, class_name: str) -> str:
         """检测插件类别
@@ -280,7 +333,7 @@ class PluginDocGenerator:
 
         return "other"
 
-    def _detect_accelerator(self, plugin_class: Type) -> str:
+    def _detect_accelerator(self, plugin_class: type) -> str:
         """检测插件加速器类型
 
         Args:
@@ -298,7 +351,7 @@ class PluginDocGenerator:
         else:
             return "cpu"
 
-    def _extract_config_options(self, plugin: Any) -> List[ConfigOptionInfo]:
+    def _extract_config_options(self, plugin: Any) -> list[ConfigOptionInfo]:
         """提取配置选项信息
 
         Args:
@@ -343,7 +396,7 @@ class PluginDocGenerator:
 
         return config_options
 
-    def _extract_output_fields(self, plugin: Any) -> Tuple[List[OutputFieldInfo], str]:
+    def _extract_output_fields(self, plugin: Any) -> tuple[list[OutputFieldInfo], str]:
         """提取输出字段信息
 
         Args:
@@ -392,7 +445,7 @@ class PluginDocGenerator:
 
         return output_fields, output_kind
 
-    def get_all_doc_info(self) -> List[PluginDocInfo]:
+    def get_all_doc_info(self) -> list[PluginDocInfo]:
         """获取所有插件的文档信息
 
         Returns:
@@ -426,7 +479,7 @@ class PluginDocGenerator:
         template = env.get_template(template_name)
         return template.render(plugin=doc_info)
 
-    def render_index_page(self, plugins: List[PluginDocInfo], profile: str = "auto") -> str:
+    def render_index_page(self, plugins: list[PluginDocInfo], profile: str = "auto") -> str:
         """渲染插件索引页面
 
         Args:
@@ -444,7 +497,7 @@ class PluginDocGenerator:
         template = env.get_template(template_name)
 
         # 按类别分组
-        by_category: Dict[str, List[PluginDocInfo]] = {}
+        by_category: dict[str, list[PluginDocInfo]] = {}
         for plugin in plugins:
             category = plugin.category
             if category not in by_category:
@@ -478,7 +531,7 @@ class PluginDocGenerator:
             category_names=CATEGORY_DISPLAY_NAMES,
         )
 
-    def generate_all(self, output_dir: Path, profile: str = "auto") -> Dict[str, Path]:
+    def generate_all(self, output_dir: Path, profile: str = "auto") -> dict[str, Path]:
         """生成所有文档
 
         Args:

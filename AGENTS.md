@@ -59,6 +59,25 @@
 3. `python scripts/performance_regression_check.py --base HEAD`
 4. `python scripts/release_artifact_sync.py --base HEAD`
 
+## Workflow Cost 快速决策
+
+| workflow_cost | 适用范围 | Artifact 口径 | Gate 口径 |
+| --- | --- | --- | --- |
+| `light` | 只读解释、定向测试、文档小修、缓存诊断 | 三段式仍保留，但可填写压缩版字段 | 只跑命中目标的最小 gate |
+| `standard` | 普通代码、插件内部算法、QA 扫描 | 使用完整 `plan_brief` / `execution_report` / `review_report` | 跑 route 默认 gate 与定向测试 |
+| `strict` | 插件契约、dtype/字段、compat 删除、发布前检查 | 完整 artifact，不得压缩 | 固定 gate 必须全部记录 PASS/FAIL |
+
+- route 默认成本见 `docs/agents/index.yaml` 的 `workflow_cost`。
+- 实际任务可在 `plan_brief.workflow_cost` 中上调；涉及 public surface、缓存 lineage、契约或发布时必须上调到 `strict`。
+- 仅文档改动默认走 `light`，但若文档反映代码契约变化，继承源 route 的成本等级。
+
+## Route 选择速查
+- 改插件行为、输出、依赖或配置语义：选 `modify_plugin`；若涉及 dtype/字段或缓存 lineage，将 `workflow_cost` 上调到 `strict`。
+- 删除 legacy/compat 路径：选 `retire_compat`；先写 `compat_inventory`，再定删除范围。
+- 只做文档生成、引用同步或锚点检查：选 `generate_docs`；代码契约变化带来的文档同步继承源 route 成本。
+- 只跑测试、影响分析、schema 检查、性能检查或发布检查：选对应 QA route（`run_tests` / `assess_change_impact` / `schema_compat_check` / `performance_regression_check` / `release_artifact_sync`）。
+- 排查缓存、执行预览或 lineage 问题：选 `debug_cache`，并优先准备明确的 `run_id`。
+
 ## Hard Rules
 - Python 3.10+ 基线：允许使用 `str | Path` 等 3.10+ 语法。
 - Context 无状态：所有数据访问都要显式 `run_id`。
@@ -71,7 +90,8 @@
 - 不提交大体积缓存/依赖目录：`node_modules/`, `.cache/`, `.mypy_cache/`, `htmlcov/`。
 - 在最终回复前必须检查提交状态：至少执行 `git status --short` 与 `git diff --stat`。
 - 若本轮修改了仓库文件，最终回复必须显式写明其一：`已提交：<commit hash>` 或 `未提交：<原因>`。
-- 用户未明确要求时，不默认自动提交；但不能省略提交状态说明。
+- 修改任务默认在验证通过后提交本轮相关改动；提交必须 scoped，不得混入无关 dirty 文件。
+- 若不能提交（例如验证失败、范围不清、需要用户确认），必须明确记录 `未提交` 原因。
 
 ## Agent Collaboration Model
 - 默认协作拓扑固定为 `Planner -> Executor -> Reviewer`。
@@ -190,7 +210,11 @@ waveform-process --show-daq --daq-root DAQ
 1. `provides` 唯一、语义稳定。
 2. `depends_on` 与 `resolve_depends_on()` 一致。
 3. `options` 的默认值、类型、help 明确。
-4. `version` 在行为变更时升级。
+4. `version` 在行为变更时升级（详见 [插件 Version 升级策略](docs/plugins/PLUGIN_VERSION_POLICY.md)）。
+   - **行为变更**包括：算法逻辑变更、内部实现路径变更（如从 Python 循环改为 Numba）、新增字段/配置、修改默认参数。
+   - 契约破坏性变更（删除字段、改变字段类型/语义）必须升级 MAJOR。
+   - 算法路径变更或新增功能应升级 MINOR。
+   - 仅 bug 修复或性能优化（不改变算法逻辑）可升级 PATCH。
 5. `output_dtype`（或 `output_kind`）与实际输出匹配。
 6. `docs/plugins/reference/agent/` 已同步对应插件页。
 
@@ -205,17 +229,18 @@ waveform-process --show-daq --daq-root DAQ
 - 配置/输出结构改动至少覆盖：正常路径、空输入/边界输入、dtype/字段兼容性。
 
 ## PR 前固定闸门（3 类，4 条命令）
-- 固定命令（保持独立命令，不新增统一总入口）：
-  - `generate_docs`
+- 固定命令保持独立执行，不新增统一总入口。
+- `generate_docs`：
   - `waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/`
   - `waveform-docs generate plugins-agent -o docs/plugins/reference/agent/`
-  - `assess_change_impact`
+- `assess_change_impact`：
   - `python scripts/assess_change_impact.py --base HEAD`
-  - `schema_compat_check`
+- `schema_compat_check`：
   - `python scripts/schema_compat_check.py --base HEAD --run-smoke`
 - 触发策略（按改动类型）：
   - 若触及插件实现或插件契约相关改动（如 `waveform_analysis/`），三类闸门全部执行。
   - 若仅文档改动（`docs/**`、`AGENTS.md`、`CLAUDE.md`），不强制执行三类闸门，继续执行现有文档同步检查。
+- Agent 文档同步检查仍按 `Doc Sync` 小节执行，不计入 PR 固定闸门的 4 条命令。
 - 扩展检查（默认不纳入 PR 固定闸门）：
   - `python scripts/performance_regression_check.py --base HEAD`
   - `python scripts/release_artifact_sync.py --base HEAD`
@@ -224,7 +249,8 @@ waveform-process --show-daq --daq-root DAQ
 
 ## Commit & PR
 - Commit 前缀：`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`。
-- 收尾时必须显式交代 commit 状态；若未提交，必须说明原因。
+- 修改任务完成后默认提交本轮相关改动；收尾时必须显式交代 commit 状态。
+- 若未提交，必须说明原因；若工作区存在无关改动，提交时只 stage 本轮相关文件。
 - 可使用 `python scripts/check_agent_handoff.py --allow-uncommitted --reason "<原因>"` 记录“未提交但已说明”的交付状态。
 - PR 至少包含：变更摘要、测试结果、文档变更说明（若用户可见）。
 

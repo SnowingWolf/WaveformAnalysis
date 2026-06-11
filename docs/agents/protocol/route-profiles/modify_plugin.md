@@ -6,6 +6,7 @@
 
 ## Route
 - `task`: `modify_plugin`
+- `workflow_cost`: `standard`
 - `primary_doc`: `docs/agents/workflows.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/modify_plugin.md`
 
@@ -14,6 +15,11 @@
 - `schema_compat_check`
 - `doc_sync`
 - `doc_anchors`
+
+## Gate Trigger Policy
+- L0 docs/comment-only changes may use light workflow with doc gates only
+- L1 internal algorithm changes use standard workflow with targeted tests and impact assessment
+- L2/L3 contract, dtype, dependency, or cache-lineage changes escalate to strict workflow
 
 ## Canonical Commands
 - `waveform-docs generate plugins-agent --plugin <provides>`
@@ -63,6 +69,13 @@
 - `output_contract_impact`:
 - `version_action`:
 - `docs_sync_required`: `true|false`
+- `execution_backend_decision`:
+  - `backend`: `python|numpy|numba_serial|numba_parallel|thread_pool|process_pool`
+  - `backend_reason`: `CPU-bound|memory-bound|IO-bound|GIL-released|startup-cost-sensitive`
+  - `parallel_scope`: `none|file|channel|chunk|record`
+  - `worker_option`:
+  - `fallback_path`:
+  - `benchmark_required`: `true|false`
 - `must_run_commands`:
   - `python scripts/assess_change_impact.py --base HEAD`
   -
@@ -94,6 +107,9 @@
   -
 - `version_changed`: `true|false`
 - `contract_changed`: `true|false`
+- `backend_implemented_as_planned`: `true|false`
+- `backend_deviations`:
+  -
 - `not_executed_and_why`:
   -
 ```
@@ -125,6 +141,11 @@
 - `version_review`:
 - `contract_review`:
 - `docs_review`:
+- `performance_style_review`:
+  - `single_parallel_layer`: `pass|fail|not_applicable`
+  - `numba_parallel_evidence`: `pass|fail|not_applicable`
+  - `worker_option_review`: `pass|fail|not_applicable`
+  - `fallback_review`: `pass|fail|not_applicable`
 - `completion_allowed`: `true|false`
 ```
 
@@ -132,6 +153,8 @@
 - 契约变化但 `version` 未升级
 - 字段或 dtype 变化但未执行 `schema_compat_check`
 - 修改了用户可见行为但未同步 `plugins-agent` 或 `docs/agents`
+- 插件算法改动缺少 `execution_backend_decision`
+- 同一执行路径叠加多个并发层且缺少明确 benchmark 证据
 - `execution_report` 缺少测试或 gate 结果
 
 ## Quick Fill Examples
@@ -141,6 +164,8 @@
 - `risk_level`: `medium`
 - `output_contract_impact`: `none`
 - `version_action`: `patch recommended`
+- `execution_backend_decision.backend`: `numba_serial`
+- `performance_style_review.single_parallel_layer`: `pass`
 
 ### L2: 配置或字段变化
 - `change_level`: `L2`

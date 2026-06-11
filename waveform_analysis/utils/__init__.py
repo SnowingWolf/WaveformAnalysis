@@ -14,6 +14,10 @@ __all__ = [
     "filter_coincidence_events",
     "extract_channel_attributes",
     "plot_records_waveforms",
+    "plot_lineage_labview",
+    "plot_lineage_plotly",
+    "plot_waveforms",
+    "corner_hist",
 ]
 
 _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
@@ -30,6 +34,10 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "extract_channel_attributes": (".event_filters", "extract_channel_attributes"),
     "parse_files_generator": (".io", "parse_files_generator"),
     "plot_records_waveforms": (".preview", "plot_records_waveforms"),
+    "plot_lineage_labview": (".visualization", "plot_lineage_labview"),
+    "plot_lineage_plotly": (".visualization", "plot_lineage_plotly"),
+    "plot_waveforms": (".visualization", "plot_waveforms"),
+    "corner_hist": (".visualization.statistical_plots", "corner_hist"),
 }
 
 

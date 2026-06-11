@@ -7,6 +7,7 @@ import warnings
 
 import pytest
 
+from tests.daq_adapter_helpers import make_v1725_single_wave_blob
 from waveform_analysis.utils.daq import DAQAnalyzer
 
 
@@ -69,6 +70,54 @@ def test_scan_v1725_bseg_naming_with_adapter(tmp_path: Path):
     assert run.file_count == 2
     assert run.total_bytes == 5
     assert run.channels == {0}
+
+
+def test_v1725_acquisition_times_parse_binary_headers(tmp_path: Path):
+    daq_root = tmp_path / "DAQ"
+    raw_dir = daq_root / "test_run_v1725" / "RAW"
+    raw_dir.mkdir(parents=True)
+
+    raw = raw_dir / "test_raw_b0_seg0.bin"
+    raw.write_bytes(
+        b"".join(
+            [
+                make_v1725_single_wave_blob(channel=12, timestamp=10, baseline=100),
+                make_v1725_single_wave_blob(channel=13, timestamp=25, baseline=101),
+            ]
+        )
+    )
+
+    analyzer = DAQAnalyzer(daq_root, daq_adapter="v1725")
+    analyzer.scan_all_runs()
+    run = analyzer.get_run("test_run_v1725")
+
+    assert run is not None
+    stats = run.compute_acquisition_times()
+    assert stats[0]["start_time_ps"] == 40_000
+    assert stats[0]["end_time_ps"] == 100_000
+
+
+def test_v1725_overview_time_sort_uses_binary_parser(tmp_path: Path, monkeypatch):
+    daq_root = tmp_path / "DAQ"
+    raw_dir = daq_root / "test_run_v1725" / "RAW"
+    raw_dir.mkdir(parents=True)
+    (raw_dir / "test_raw_b0_seg0.bin").write_bytes(
+        make_v1725_single_wave_blob(channel=12, timestamp=10, baseline=100)
+    )
+
+    analyzer = DAQAnalyzer(daq_root, daq_adapter="v1725")
+    analyzer.scan_all_runs()
+    run = analyzer.get_run("test_run_v1725")
+    assert run is not None
+
+    def fail_csv_parse(path: str):
+        raise AssertionError(f"CSV parser should not read V1725 file: {path}")
+
+    monkeypatch.setattr(run, "_parse_csv_file", fail_csv_parse)
+
+    analyzer.display_overview(sort_by="time")
+
+    assert run.channel_stats == {}
 
 
 def test_display_overview_time_sort_no_infer_warning(tmp_path: Path, make_csv_fn):

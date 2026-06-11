@@ -280,6 +280,70 @@ def _layer_positions(nodes_by_depth: Dict[int, List[str]], y_gap: float) -> Dict
     return node_y
 
 
+def _layout_nodes_source_to_target(
+    model: LineageGraphModel,
+    style: LineageStyle,
+) -> dict:
+    """Place lineage sources on the left and downstream targets on the right."""
+    pos = {}
+    nodes_by_depth: Dict[int, List[str]] = {}
+    for node_id, node in model.nodes.items():
+        nodes_by_depth.setdefault(node.depth, []).append(node_id)
+
+    for depth in nodes_by_depth:
+        nodes_by_depth[depth] = sorted(nodes_by_depth[depth])
+
+    if getattr(style, "layout_reorder", True):
+        nodes_by_depth = _reorder_layers(
+            nodes_by_depth,
+            model.edges,
+            style.y_gap,
+            getattr(style, "layout_iterations", 3),
+        )
+
+    for d in sorted(nodes_by_depth.keys()):
+        layer = nodes_by_depth[d]
+        x = d * style.x_gap
+        for i, node_id in enumerate(layer):
+            y = (i - (len(layer) - 1) / 2.0) * style.y_gap
+            pos[node_id] = (x, y)
+
+    _set_port_positions(model, pos, style)
+    return pos
+
+
+def _layout_view_metrics(pos: dict, style: LineageStyle) -> dict:
+    """Compute visible ranges and canvas sizes from actual layout coordinates."""
+    if not pos:
+        return {
+            "x_range": [-1.0, 1.0],
+            "y_range": [-1.0, 1.0],
+            "mpl_figsize": (12.0, 7.0),
+            "plotly_width": 1200,
+            "plotly_height": 700,
+        }
+
+    all_x = [point[0] for point in pos.values()]
+    all_y = [point[1] for point in pos.values()]
+    x_min, x_max = min(all_x), max(all_x)
+    y_min, y_max = min(all_y), max(all_y)
+
+    x_margin = max(style.node_width * 0.9, 2.0)
+    y_margin = max(style.node_height * 0.9, 2.0)
+    x_range = [x_min - x_margin, x_max + x_margin]
+    y_range = [y_min - y_margin, y_max + y_margin]
+    x_span = max(x_range[1] - x_range[0], 1.0)
+    y_span = max(y_range[1] - y_range[0], 1.0)
+
+    return {
+        "x_range": x_range,
+        "y_range": y_range,
+        "mpl_figsize": (min(32.0, max(12.0, x_span * 0.65)), min(24.0, max(7.0, y_span * 0.8))),
+        "plotly_width": int(min(3200, max(1200, x_span * 95))),
+        "plotly_height": int(min(2400, max(700, y_span * 120))),
+    }
+
+
 def _build_adjacency(edges: List[Any]) -> tuple:
     upstream_map: Dict[str, List[str]] = {}
     downstream_map: Dict[str, List[str]] = {}
@@ -326,11 +390,11 @@ def _reorder_layers(
     for _ in range(iterations):
         node_y = _layer_positions(layers, y_gap)
         for depth in range(1, max_depth + 1):
-            layers[depth] = _order_layer(layers[depth], downstream_map, node_y)
+            layers[depth] = _order_layer(layers[depth], upstream_map, node_y)
 
         node_y = _layer_positions(layers, y_gap)
-        for depth in range(max_depth - 1, 0, -1):
-            layers[depth] = _order_layer(layers[depth], upstream_map, node_y)
+        for depth in range(max_depth - 1, -1, -1):
+            layers[depth] = _order_layer(layers[depth], downstream_map, node_y)
 
     return layers
 
@@ -423,7 +487,7 @@ def _route_edge_path(
         return default_path, label_pos
 
     direction = 1 if x2 >= x1 else -1
-    stub = max(0.4, style.port_size * 4)
+    stub = max(0.8, style.port_size * 6)
     x1_stub = x1 + direction * stub
     x2_stub = x2 - direction * stub
 
@@ -441,11 +505,11 @@ def _route_edge_path(
     if corridor_boxes:
         y_min = min(box["y_min"] for box in corridor_boxes)
         y_max = max(box["y_max"] for box in corridor_boxes)
-        clearance = max(style.port_size * 4, style.node_height * 0.2, 0.4)
+        clearance = max(style.port_size * 6, style.node_height * 0.45, 0.8)
         candidates.extend([y_max + clearance, y_min - clearance])
 
     y_mid = (y1 + y2) / 2.0
-    lane_step = max(style.y_gap * 0.6, 0.8)
+    lane_step = max(style.y_gap * 0.9, 1.2)
     candidates = [y_mid] + candidates
     for i in range(1, 4):
         candidates.append(y_mid + i * lane_step)
@@ -630,31 +694,7 @@ def plot_lineage_labview(
     _auto_adjust_layout(model, s)
 
     # 2. 布局计算 (基于模型)
-    pos = {}
-    nodes_by_depth: Dict[int, List[str]] = {}
-    for node_id, node in model.nodes.items():
-        nodes_by_depth.setdefault(node.depth, []).append(node_id)
-
-    for depth in nodes_by_depth:
-        nodes_by_depth[depth] = sorted(nodes_by_depth[depth])
-
-    if getattr(s, "layout_reorder", True):
-        nodes_by_depth = _reorder_layers(
-            nodes_by_depth,
-            model.edges,
-            s.y_gap,
-            getattr(s, "layout_iterations", 3),
-        )
-
-    max_d = max(nodes_by_depth.keys()) if nodes_by_depth else 0
-    for d in sorted(nodes_by_depth.keys()):
-        layer = nodes_by_depth[d]
-        x = (max_d - d) * s.x_gap
-        for i, node_id in enumerate(layer):
-            y = (i - (len(layer) - 1) / 2.0) * s.y_gap
-            pos[node_id] = (x, y)
-
-    _set_port_positions(model, pos, s)
+    pos = _layout_nodes_source_to_target(model, s)
 
     # 3. 准备分析数据（用于高亮）
     critical_path_set = set()
@@ -676,11 +716,11 @@ def plot_lineage_labview(
                     parallel_group_map[plugin_name] = i
 
     # 4. 绘图
-    fig, ax = plt.subplots(figsize=(max(12, max_d * 3), 6))
+    view = _layout_view_metrics(pos, s)
+    fig, ax = plt.subplots(figsize=view["mpl_figsize"])
     node_boxes = _build_node_boxes(model, pos, s)
 
     def draw_wire(path: List[tuple], wire_style: dict) -> None:
-        # 提高连线的zorder，确保在节点之上（节点zorder=3-5）
         line_x = [point[0] for point in path]
         line_y = [point[1] for point in path]
         linestyle = _mpl_dash(wire_style.get("dash"))
@@ -690,7 +730,7 @@ def plot_lineage_labview(
             color=wire_style["color"],
             lw=wire_style["width"],
             alpha=wire_style["alpha"],
-            zorder=10,
+            zorder=1,
             solid_capstyle=getattr(s, "wire_capstyle", "round"),
             solid_joinstyle=getattr(s, "wire_joinstyle", "round"),
             linestyle=linestyle,
@@ -706,11 +746,30 @@ def plot_lineage_labview(
                 mutation_scale=s.arrow_mutation_scale,
                 linewidth=wire_style["width"],
                 linestyle=linestyle,
-                zorder=11,
+                zorder=2,
             )
         )
 
-    # 先绘制节点（zorder=3-5），后绘制连线（zorder=10-11），这样连线在节点上方
+    # 先绘制连线，再绘制节点，避免线条压住节点文字。
+    for edge in model.edges:
+        wire_style = _resolve_wire_style(edge, s)
+        p1 = pos.get(edge.source_port_id)
+        p2 = pos.get(edge.target_port_id)
+        if p1 and p2:
+            path, label_pos = _route_edge_path(p1, p2, edge, node_boxes, s)
+            draw_wire(path, wire_style)
+            if data_wires:
+                ax.text(
+                    label_pos[0],
+                    label_pos[1] + 0.12,
+                    edge.dtype,
+                    fontsize=s.font_size_wire,
+                    color=wire_style["color"],
+                    ha="center",
+                    bbox={"fc": "white", "ec": "none", "alpha": 0.85, "boxstyle": "round,pad=0.1"},
+                    zorder=12,
+                )
+
     # 绘制节点
     for node_id, (x, y) in pos.items():
         if node_id.startswith("IN::") or node_id.startswith("OUT::"):
@@ -914,27 +973,9 @@ def plot_lineage_labview(
                 bbox={"boxstyle": "round,pad=0.1", "fc": "white", "ec": "#dcdde1", "alpha": 0.5},
             )
 
-    # 绘制连线（在节点之后绘制，zorder更高，确保在节点之上）
-    for edge in model.edges:
-        wire_style = _resolve_wire_style(edge, s)
-        p1 = pos.get(edge.source_port_id)
-        p2 = pos.get(edge.target_port_id)
-        if p1 and p2:
-            path, label_pos = _route_edge_path(p1, p2, edge, node_boxes, s)
-            draw_wire(path, wire_style)
-            if data_wires:
-                ax.text(
-                    label_pos[0],
-                    label_pos[1] + 0.12,
-                    edge.dtype,
-                    fontsize=s.font_size_wire,
-                    color=wire_style["color"],
-                    ha="center",
-                    bbox={"fc": "white", "ec": "none", "alpha": 0.7, "boxstyle": "round,pad=0.1"},
-                    zorder=12,
-                )
-
     ax.set_title(f"Data Lineage: {target_name}", fontsize=14, fontweight="bold", pad=20)
+    ax.set_xlim(view["x_range"])
+    ax.set_ylim(view["y_range"])
     ax.axis("off")
     plt.tight_layout()
     if save_path:
@@ -1265,31 +1306,8 @@ def plot_lineage_plotly(
     _auto_adjust_layout(model, s)
 
     # 2. 布局计算
-    pos = {}
-    nodes_by_depth: Dict[int, List[str]] = {}
-    for node_id, node in model.nodes.items():
-        nodes_by_depth.setdefault(node.depth, []).append(node_id)
-
-    for depth in nodes_by_depth:
-        nodes_by_depth[depth] = sorted(nodes_by_depth[depth])
-
-    if getattr(s, "layout_reorder", True):
-        nodes_by_depth = _reorder_layers(
-            nodes_by_depth,
-            model.edges,
-            s.y_gap,
-            getattr(s, "layout_iterations", 3),
-        )
-
-    max_d = max(nodes_by_depth.keys()) if nodes_by_depth else 0
-    for d in sorted(nodes_by_depth.keys()):
-        layer = nodes_by_depth[d]
-        x = (max_d - d) * s.x_gap
-        for i, node_id in enumerate(layer):
-            y = (i - (len(layer) - 1) / 2.0) * s.y_gap
-            pos[node_id] = (x, y)
-
-    _set_port_positions(model, pos, s)
+    pos = _layout_nodes_source_to_target(model, s)
+    view = _layout_view_metrics(pos, s)
 
     # 3. 创建 plotly traces 和 shapes
     traces = []
@@ -1460,7 +1478,7 @@ def plot_lineage_plotly(
                     "y1": y + half_h,
                     "fillcolor": node_bg,
                     "line": {"color": node_edge_color, "width": 2},
-                    "layer": "below",
+                    "layer": "above",
                 }
             )
 
@@ -1474,7 +1492,7 @@ def plot_lineage_plotly(
                     "y1": y + half_h,
                     "fillcolor": header_bg,
                     "line": {"color": node_edge_color, "width": 1},
-                    "layer": "below",
+                    "layer": "above",
                 }
             )
 
@@ -1622,18 +1640,6 @@ def plot_lineage_plotly(
     # 合并节点文本注释
     annotations.extend(node_annotations)
 
-    # 计算坐标范围，添加边距
-    all_x = [p[0] for p in pos.values()]
-    all_y = [p[1] for p in pos.values()]
-    x_min, x_max = min(all_x), max(all_x)
-    y_min, y_max = min(all_y), max(all_y)
-
-    # 添加边距（考虑节点大小）
-    x_margin = max(s.node_width, 2.0)
-    y_margin = max(s.node_height, 2.0)
-    x_range = [x_min - x_margin, x_max + x_margin]
-    y_range = [y_min - y_margin, y_max + y_margin]
-
     fig.update_layout(
         title={
             "text": f"Data Lineage: {target_name}",
@@ -1646,14 +1652,14 @@ def plot_lineage_plotly(
             "zeroline": False,
             "showticklabels": False,
             "title": "",
-            "range": x_range,  # 明确设置坐标范围
+            "range": view["x_range"],
         },
         yaxis={
             "showgrid": False,
             "zeroline": False,
             "showticklabels": False,
             "title": "",
-            "range": y_range,  # 明确设置坐标范围
+            "range": view["y_range"],
             "scaleanchor": "x",  # 保持宽高比一致
             "scaleratio": 1,  # 1:1 比例
         },
@@ -1661,8 +1667,8 @@ def plot_lineage_plotly(
         hovermode="closest",
         annotations=annotations,
         shapes=shapes,  # 添加矩形 shapes
-        height=600,
-        width=max(1200, max_d * 300),
+        height=view["plotly_height"],
+        width=view["plotly_width"],
         dragmode="pan",  # 默认为平移模式
     )
 

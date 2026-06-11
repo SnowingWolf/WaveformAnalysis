@@ -104,7 +104,8 @@ python scripts/performance_regression_check.py --base HEAD
 python scripts/release_artifact_sync.py --base HEAD
 ```
 
-统一检查版本号、`CHANGELOG`、agent/auto 文档、doc anchors、关键测试与性能回归结果。
+统一检查版本号、`CHANGELOG`、agent/auto 文档、doc anchors、schema smoke、`tests/`
+全测试目录与性能回归结果。
 
 ## 工作流程
 

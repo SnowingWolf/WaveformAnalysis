@@ -55,6 +55,7 @@ def test_waveform_width_integral_reads_records_view_when_wave_source_records():
     ctx = DummyContext(
         {
             "wave_source": "records",
+            "use_filtered": False,
             "q_low": 0.1,
             "q_high": 0.9,
             "sampling_rate": 0.5,

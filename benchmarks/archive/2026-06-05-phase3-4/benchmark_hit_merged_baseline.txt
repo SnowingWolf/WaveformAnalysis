@@ -1,0 +1,32 @@
+hit_merged Performance Benchmark Results
+======================================================================
+
+Small dataset:
+  Input: 1,000 hits
+  Output: 704 merged hits
+  Time: 57.44 +/- 95.40 ms
+  Throughput: 17,409 hits/s
+
+Medium dataset:
+  Input: 10,000 hits
+  Output: 6,968 merged hits
+  Time: 96.59 +/- 0.51 ms
+  Throughput: 103,531 hits/s
+
+Large dataset:
+  Input: 100,000 hits
+  Output: 69,750 merged hits
+  Time: 1000.34 +/- 3.29 ms
+  Throughput: 99,966 hits/s
+
+High merge rate:
+  Input: 10,000 hits
+  Output: 3,965 merged hits
+  Time: 72.76 +/- 0.19 ms
+  Throughput: 137,441 hits/s
+
+Low merge rate:
+  Input: 10,000 hits
+  Output: 8,939 merged hits
+  Time: 102.14 +/- 0.21 ms
+  Throughput: 97,904 hits/s

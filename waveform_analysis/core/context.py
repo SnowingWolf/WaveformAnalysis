@@ -1668,13 +1668,15 @@ class Context(PluginMixin):
                     )
 
             df_options = pd.DataFrame(option_rows)
-            if show_current_values:
-                df_options = df_options.sort_values(
-                    by=["_is_default", "plugin", "option"], ascending=[True, True, True]
-                )
-            else:
-                df_options = df_options.sort_values(by=["plugin", "option"])
-            df_options = df_options.set_index(["plugin", "option"])
+            if not df_options.empty:
+                if show_current_values:
+                    df_options = df_options.sort_values(
+                        by=["_is_default", "plugin", "option"],
+                        ascending=[True, True, True],
+                    )
+                else:
+                    df_options = df_options.sort_values(by=["plugin", "option"])
+                df_options = df_options.set_index(["plugin", "option"])
 
             # 展示
             if display is not None:
@@ -1682,19 +1684,27 @@ class Context(PluginMixin):
                 display(df_plugins)
 
                 print("\n⚙️ 配置选项明细")
-                df_display = df_options.drop(
-                    columns=["_is_default", "_default_raw", "_current_raw"]
-                )
+                if df_options.empty:
+                    print("该插件没有配置选项。")
+                else:
+                    df_display = df_options.drop(
+                        columns=["_is_default", "_default_raw", "_current_raw"]
+                    )
 
-                styler = self._style_options_table(df_display, show_current_values)
-                display(styler)
+                    styler = self._style_options_table(df_display, show_current_values)
+                    display(styler)
             else:
                 print("\n📦 插件概览")
                 print(df_plugins.to_string())
 
                 print("\n⚙️ 配置选项明细")
-                fallback = df_options.drop(columns=["_is_default", "_default_raw", "_current_raw"])
-                print(fallback.to_string())
+                if df_options.empty:
+                    print("该插件没有配置选项。")
+                else:
+                    fallback = df_options.drop(
+                        columns=["_is_default", "_default_raw", "_current_raw"]
+                    )
+                    print(fallback.to_string())
 
             # 如果你希望函数直接把 DF 返回出去，把下面这行改成：
             # return result, df_plugins, df_options
@@ -2327,7 +2337,7 @@ class Context(PluginMixin):
   • 主入口: AGENTS.md
   • 详细文档: docs/ 目录
   • 专题导航(兼容): docs/agents/INDEX.md
-  • 快速参考: QUICK_REFERENCE.md
+  • API 导航: docs/api/README.md
 
 🚀 快速开始
 ────────────────────────────────────────────────────────────────────────────────

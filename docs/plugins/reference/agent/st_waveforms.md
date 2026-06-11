@@ -19,18 +19,18 @@
 
 ## Outputs
 
-| Field | DType |
-|-------|-------|
-| `baseline` | `float64` |
-| `baseline_upstream` | `float64` |
-| `polarity` | `<U8` |
-| `timestamp` | `int64` |
-| `record_id` | `int64` |
-| `dt` | `int32` |
-| `event_length` | `int32` |
-| `board` | `int16` |
-| `channel` | `int16` |
-| `wave` | `('<i2', (1500,))` |
+| Field | DType | Meaning |
+|-------|-------|---------|
+| `baseline` | `float64` | - |
+| `baseline_upstream` | `float64` | - |
+| `polarity` | `<U8` | - |
+| `timestamp` | `int64` | - |
+| `record_id` | `int64` | - |
+| `dt` | `int32` | - |
+| `event_length` | `int32` | - |
+| `board` | `int16` | - |
+| `channel` | `int16` | - |
+| `wave` | `('<i2', (1500,))` | - |
 
 ## Config
 

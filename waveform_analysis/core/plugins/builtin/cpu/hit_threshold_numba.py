@@ -139,3 +139,107 @@ def fill_ragged_hits(
             hit_boards[write_idx] = int(boards[record_i])
             hit_channels[write_idx] = int(channels[record_i])
             hit_record_ids[write_idx] = int(record_ids[record_i])
+
+
+@njit(cache=True, nogil=True)
+def batch_prefilter_records(
+    wave_pool,
+    wave_offsets,
+    record_lengths,
+    baselines,
+    thresholds,
+    positive_mask,
+):
+    """批量预筛选 records，返回通过阈值检查的 mask。
+
+    使用 min/max 快速判断 record 是否可能包含 hit，避免逐样本扫描。
+
+    Args:
+        wave_pool: 波形数据池
+        wave_offsets: 每条 record 在 wave_pool 中的起始偏移
+        record_lengths: 每条 record 的长度
+        baselines: 基线数组
+        thresholds: 阈值数组
+        positive_mask: 极性掩码（True=正极性）
+
+    Returns:
+        Boolean mask，True 表示该 record 可能包含 hit
+    """
+    n_records = len(record_lengths)
+    pass_mask = np.zeros(n_records, dtype=np.bool_)
+
+    for i in range(n_records):
+        offset = int(wave_offsets[i])
+        length = int(record_lengths[i])
+
+        if length <= 0:
+            continue
+
+        # 计算阈值水平
+        baseline = float(baselines[i])
+        threshold = float(thresholds[i])
+        positive = bool(positive_mask[i])
+
+        # 找到 wave 的 min/max
+        wave_min = float(wave_pool[offset])
+        wave_max = float(wave_pool[offset])
+
+        for j in range(1, length):
+            val = float(wave_pool[offset + j])
+            if val < wave_min:
+                wave_min = val
+            if val > wave_max:
+                wave_max = val
+
+        # 检查是否过阈
+        if positive:
+            threshold_level = baseline + threshold
+            if wave_max >= threshold_level:
+                pass_mask[i] = True
+        else:
+            threshold_level = baseline - threshold
+            if wave_min <= threshold_level:
+                pass_mask[i] = True
+
+    return pass_mask
+
+
+@njit(cache=True, nogil=True)
+def contiguous_regions_numba(indices):
+    """Numba 加速的连续区域查找。
+
+    从排序的索引数组中找到连续区域的起始和结束位置。
+
+    Args:
+        indices: 排序的索引数组
+
+    Returns:
+        (starts, ends): 半开区间 [start, end) 的起始和结束数组
+    """
+    if len(indices) == 0:
+        return np.empty(0, dtype=np.int64), np.empty(0, dtype=np.int64)
+
+    # 计算有多少个区域
+    n_regions = 1
+    for i in range(1, len(indices)):
+        if indices[i] - indices[i - 1] > 1:
+            n_regions += 1
+
+    starts = np.empty(n_regions, dtype=np.int64)
+    ends = np.empty(n_regions, dtype=np.int64)
+
+    region_idx = 0
+    starts[0] = indices[0]
+
+    for i in range(1, len(indices)):
+        if indices[i] - indices[i - 1] > 1:
+            # 当前区域结束
+            ends[region_idx] = indices[i - 1] + 1
+            region_idx += 1
+            # 新区域开始
+            starts[region_idx] = indices[i]
+
+    # 最后一个区域
+    ends[region_idx] = indices[-1] + 1
+
+    return starts, ends

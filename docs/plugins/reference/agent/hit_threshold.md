@@ -9,7 +9,7 @@
 | Provides | `hit_threshold` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `1.0.2` |
+| Version | `1.1.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_finder` |
 | Accelerator | `cpu` |
 
@@ -19,17 +19,17 @@
 
 ## Outputs
 
-| Field | DType |
-|-------|-------|
-| `position` | `int64` |
-| `edge_start` | `int32` |
-| `edge_end` | `int32` |
-| `width` | `float32` |
-| `dt` | `int32` |
-| `timestamp` | `int64` |
-| `board` | `int16` |
-| `channel` | `int16` |
-| `record_id` | `int64` |
+| Field | DType | Meaning |
+|-------|-------|---------|
+| `position` | `int64` | - |
+| `edge_start` | `int32` | - |
+| `edge_end` | `int32` | - |
+| `width` | `float32` | - |
+| `dt` | `int32` | - |
+| `timestamp` | `int64` | - |
+| `board` | `int16` | - |
+| `channel` | `int16` | - |
+| `record_id` | `int64` | - |
 
 ## Config
 
@@ -48,6 +48,7 @@
 | `parallel_chunk_size` | `int` | `50000` | records ragged chunk 并行大小（每个任务处理的 record 数）。 |
 | `parallel_min_records` | `int` | `50000` | 触发 records ragged chunk 并行的最小 record 数。 |
 | `streaming_chunk_size` | `int` | `10000` | 流式处理时的 chunk 大小（仅对 RecordsBundleRef 生效） |
+| `asymmetry_cut_enabled` | `bool` | `False` | 是否在 records 路径的 hit 查找前应用 records_asymmetry_mask。 |
 
 ## Execution Path
 
