@@ -356,6 +356,9 @@ print(f"选项: {plugin.options}")
 print(f"描述: {plugin.description}")
 ```
 
+如果目标插件没有声明 `options`，`list_plugin_configs()` 仍会正常显示插件概览，
+并在配置选项明细中提示“该插件没有配置选项”。
+
 ---
 
 ## 相关文档

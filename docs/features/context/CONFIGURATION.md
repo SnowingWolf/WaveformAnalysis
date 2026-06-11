@@ -98,6 +98,12 @@ ctx.set_config(
 
 `ResolvedConfig` 可用于读取生效值、列出显式值、列出 adapter 推断值，并生成参与 lineage 的配置字典。默认 lineage 只包含显式配置和 adapter 推断值；插件默认值通常不作为显式 lineage 输入。
 
+## 配置展示
+
+`ctx.list_plugin_configs()` 会展示插件概览和配置选项明细。对于没有 `options`
+的插件，配置选项明细会明确显示“该插件没有配置选项”，不会再尝试对空配置表排序或
+设置索引。
+
 ## 推荐实践
 
 - 全局设置 `daq_adapter`。

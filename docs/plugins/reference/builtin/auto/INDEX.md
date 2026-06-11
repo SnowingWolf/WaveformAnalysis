@@ -137,13 +137,13 @@ raw_files ──► records ──► df ──► df_events
 | [`HitMergeClustersPlugin`](hit_merge_clusters.md) | `hit_merge_clusters` | 1.1.0 | 特征提取 | hit_merged, hit_threshold |
 | [`HitMergePlugin`](hit_merged.md) | `hit_merged` | 1.2.0 | 特征提取 | hit_threshold |
 | [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 1.1.0 | 特征提取 | hit_merged, hit_threshold |
-| [`HitMergedFeaturesPlugin`](hit_merged_features.md) | `hit_merged_features` | 0.4.0 | 特征提取 | hit_merged, hit_merged_components, hit_threshold, records, wave_pool |
+| [`HitMergedFeaturesPlugin`](hit_merged_features.md) | `hit_merged_features` | 0.4.0 | 特征提取 | - |
 | [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.1.0 | 特征提取 | - |
 | [`PeakletChannelsPlugin`](peaklet_channels.md) | `peaklet_channels` | 1.0.0 | 特征提取 | peaklets, peaklet_components, hit_merged_features, peaklet_features |
 | [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 1.0.0 | 特征提取 | peaklets, hit_merged |
 | [`PeakletFeaturesPlugin`](peaklet_features.md) | `peaklet_features` | 3.0.1 | 特征提取 | peaklet_waveforms, peaklet_waveform_pool, peaklets |
-| [`PeakletWaveformPoolPlugin`](peaklet_waveform_pool.md) | `peaklet_waveform_pool` | 1.0.0 | 波形处理 | peaklets, peaklet_components, hit_merged, records, wave_pool |
-| [`PeakletWaveformPlugin`](peaklet_waveforms.md) | `peaklet_waveforms` | 1.0.0 | 波形处理 | peaklets, peaklet_components, hit_merged, records, wave_pool |
+| [`PeakletWaveformPoolPlugin`](peaklet_waveform_pool.md) | `peaklet_waveform_pool` | 1.0.0 | 波形处理 | - |
+| [`PeakletWaveformPlugin`](peaklet_waveforms.md) | `peaklet_waveforms` | 1.0.0 | 波形处理 | - |
 | [`PeakletPlugin`](peaklets.md) | `peaklets` | 1.0.0 | 特征提取 | hit_merged |
 | [`PeaksPlugin`](peaks.md) | `peaks` | 3.0.0 | 特征提取 | peaklets, peaklet_features, peaklet_channels |
 | [`RawFileNamesPlugin`](raw_files.md) | `raw_files` | 0.0.2 | 数据加载 | - |
@@ -177,8 +177,8 @@ raw_files ──► records ──► df ──► df_events
 | 插件 | 说明 | 依赖 |
 |------|------|------|
 | [`filtered_waveforms`](filtered_waveforms.md) | Apply filtering to waveforms using Butterworth or Savitzky-G... | st_waveforms |
-| [`peaklet_waveform_pool`](peaklet_waveform_pool.md) | Return flattened float32 peaklet waveform signal pool. | peaklets, peaklet_components, hit_merged, records, wave_pool |
-| [`peaklet_waveforms`](peaklet_waveforms.md) | Build peaklet waveform index rows from records-backed hit_me... | peaklets, peaklet_components, hit_merged, records, wave_pool |
+| [`peaklet_waveform_pool`](peaklet_waveform_pool.md) | Return flattened float32 peaklet waveform signal pool. | - |
+| [`peaklet_waveforms`](peaklet_waveforms.md) | Build peaklet waveform index rows from records-backed hit_me... | - |
 | [`st_waveforms`](st_waveforms.md) | Extract waveforms from raw CSV files and structure them into... | - |
 | [`wave_pool`](wave_pool.md) | Build wave_pool from the shared internal records bundle. | - |
 | [`wave_pool_filtered`](wave_pool_filtered.md) | Build filtered wave_pool from records-backed raw waveforms. | records, wave_pool |
@@ -198,7 +198,7 @@ raw_files ──► records ──► df ──► df_events
 | [`hit_merge_clusters`](hit_merge_clusters.md) | Export cluster membership rows using the authoritative hit_m... | hit_merged, hit_threshold |
 | [`hit_merged`](hit_merged.md) | Merge nearby threshold hits per channel with time-gap and ma... | hit_threshold |
 | [`hit_merged_components`](hit_merged_components.md) | Return per-cluster component hit indices for hit_merged rows... | hit_merged, hit_threshold |
-| [`hit_merged_features`](hit_merged_features.md) | Compute per-hit_merged local waveform features from records-... | hit_merged, hit_merged_components, hit_threshold, records, wave_pool |
+| [`hit_merged_features`](hit_merged_features.md) | Compute per-hit_merged local waveform features from records-... | - |
 | [`hit_threshold`](hit_threshold.md) | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. | - |
 | [`peaklet_channels`](peaklet_channels.md) | Aggregate hit_merged_features into per-peaklet channel contr... | peaklets, peaklet_components, hit_merged_features, peaklet_features |
 | [`peaklet_components`](peaklet_components.md) | Return per-peaklet component hit_merged indices. | peaklets, hit_merged |

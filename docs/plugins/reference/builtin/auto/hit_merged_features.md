@@ -15,13 +15,7 @@
 
 ## Dependencies
 
-This plugin depends on the following data:
-
-- [`hit_merged`](hit_merged.md)
-- [`hit_merged_components`](hit_merged_components.md)
-- [`hit_threshold`](hit_threshold.md)
-- [`records`](records.md)
-- [`wave_pool`](wave_pool.md)
+This plugin has no dependencies.
 
 ## Configuration Options
 
