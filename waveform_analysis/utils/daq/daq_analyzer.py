@@ -54,6 +54,20 @@ class DAQAnalyzer:
         cleaned = series.replace("N/A", pd.NA)
         return pd.to_datetime(cleaned, format="%Y-%m-%d %H:%M:%S", errors="coerce")
 
+    @staticmethod
+    def _parse_time_filter(time_str: str) -> datetime:
+        """Parse time filter string to datetime object.
+
+        Supports formats:
+        - "YYYY-MM-DD" (assumes 00:00:00)
+        - "YYYY-MM-DD HH:MM:SS"
+        """
+        time_str = time_str.strip()
+        if len(time_str) == 10:  # "YYYY-MM-DD"
+            return datetime.strptime(time_str, "%Y-%m-%d")
+        else:  # "YYYY-MM-DD HH:MM:SS"
+            return datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+
     def __init__(
         self,
         daq_root: str | Path = "DAQ",
@@ -280,18 +294,24 @@ class DAQAnalyzer:
         self,
         sort_by: str | None = None,
         ascending: bool = True,
+        max_rows: int | None = None,
+        start_time: str | None = None,
+        end_time: str | None = None,
     ) -> DAQAnalyzer:
-        """显示所有运行的概览表格。
+        """Display overview table of all runs.
 
         Args:
-            sort_by: 排序字段，支持:
-                - "time" / "start": 按采集开始时间排序
-                - "end": 按采集结束时间排序
-                - "size": 按数据大小排序
-                - "files": 按文件数排序
-                - "name": 按运行名称排序
-                - None: 默认按运行名称字母序
-            ascending: 升序排列（默认 True），设为 False 降序
+            sort_by: Sort field, supports:
+                - "time" / "start": Sort by acquisition start time
+                - "end": Sort by acquisition end time
+                - "size": Sort by data size
+                - "files": Sort by file count
+                - "name": Sort by run name
+                - None: Default sort by run name alphabetically
+            ascending: Sort in ascending order (default True), set to False for descending
+            max_rows: Maximum number of rows to display, None for all rows
+            start_time: Filter runs starting after this time (format: "YYYY-MM-DD" or "YYYY-MM-DD HH:MM:SS")
+            end_time: Filter runs ending before this time (format: "YYYY-MM-DD" or "YYYY-MM-DD HH:MM:SS")
         """
         if self.df_runs is None or self.df_runs.empty:
             print("No runs scanned. Call scan_all_runs() first.")
@@ -314,6 +334,21 @@ class DAQAnalyzer:
         df["acquisition_end"] = df["run_name"].map(
             lambda run_name: acquisition_windows.get(run_name, ("N/A", "N/A"))[1]
         )
+
+        # Apply time range filtering if specified
+        if start_time is not None or end_time is not None:
+            df["_start_dt"] = self._parse_overview_time(df["acquisition_start"])
+            df["_end_dt"] = self._parse_overview_time(df["acquisition_end"])
+
+            if start_time is not None:
+                start_dt = self._parse_time_filter(start_time)
+                df = df[df["_end_dt"] >= start_dt]
+
+            if end_time is not None:
+                end_dt = self._parse_time_filter(end_time)
+                df = df[df["_start_dt"] <= end_dt]
+
+            df = df.drop(columns=["_start_dt", "_end_dt"])
 
         # Apply sorting
         if sort_by is not None:
@@ -338,6 +373,10 @@ class DAQAnalyzer:
                     "未知排序字段 '%s'，忽略排序。支持: time/start, end, size, files, name", sort_by
                 )
         df.reset_index(drop=True, inplace=True)
+
+        # Limit rows if max_rows is specified
+        if max_rows is not None and max_rows > 0:
+            df = df.head(max_rows)
 
         display_cols = [
             "run_name",
