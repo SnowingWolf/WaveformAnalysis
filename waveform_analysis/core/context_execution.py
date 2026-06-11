@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 import os
+import time
 from typing import Any, cast
 
 import numpy as np
@@ -310,8 +311,10 @@ class ContextExecutionDomain:
         if name not in self.ctx._plugins:
             raise RuntimeError(f"Dependency '{name}' is missing and no plugin provides it.")
         plugin = self.ctx._plugins[name]
-        if self.ctx.config.get("show_progress", True):
+        show_progress = self.ctx.config.get("show_progress", True)
+        if show_progress:
             print(f"[+] Running plugin: {name} (run_id: {run_id})")
+        started_at = time.perf_counter()
         self.ctx._validation_manager.validate_plugin_config(plugin)
         self.ctx._validation_manager.validate_input_dtypes(plugin, run_id)
         input_size_mb = self.calculate_input_size(plugin, run_id)
@@ -320,6 +323,9 @@ class ContextExecutionDomain:
         self.postprocess_plugin_result(
             plugin, name, run_id, result, key, data_name, tracker, bar_name
         )
+        if show_progress:
+            elapsed = time.perf_counter() - started_at
+            print(f"[done] Finished plugin: {name} (run_id: {run_id}, elapsed: {elapsed:.3f}s)")
 
     def run_plugin(
         self,

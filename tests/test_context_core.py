@@ -695,6 +695,27 @@ def test_context_cache_order_for_dependency(tmp_path, capsys):
     assert calls == {"base": 1, "derived": 2}
 
 
+def test_context_reports_plugin_elapsed_time(tmp_path, capsys):
+    """Plugin execution logs should include elapsed time when progress output is enabled."""
+    dtype = np.dtype([("val", "i4")])
+
+    class TimedPlugin(Plugin):
+        provides = "timed_data"
+        output_dtype = dtype
+
+        def compute(self, context, run_id, **kwargs):
+            return np.array([(1,)], dtype=self.output_dtype)
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(TimedPlugin)
+
+    ctx.get_data("run1", "timed_data")
+    out = capsys.readouterr().out
+
+    assert "[+] Running plugin: timed_data (run_id: run1)" in out
+    assert "[done] Finished plugin: timed_data (run_id: run1, elapsed: " in out
+
+
 def test_context_minimal_dag_happy_path(tmp_path):
     """Validate minimal DAG execution order and cache consistency."""
     order = []
