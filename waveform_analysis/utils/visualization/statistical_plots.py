@@ -72,6 +72,16 @@ def corner_hist(
     add_colorbar: bool = False,
     title: str | None = None,
     min_count: int = 1,
+    hist_alpha: float = 1.0,
+    hist2d_alpha: float = 1.0,
+    fig=None,
+    axes=None,
+    triangle: str = "lower",
+    label_mode: str = "outer",
+    label_fontsize: int = 11,
+    label_fontweight: str = "bold",
+    tick_labelsize: int = 8,
+    diag_title: bool = True,
 ):
     """
     绘制散点矩阵（corner plot）用于多变量分布分析。
@@ -79,7 +89,7 @@ def corner_hist(
     散点矩阵展示多个变量之间的两两关系：
     - 对角线：单变量直方图
     - 下三角：二维直方图（热图）
-    - 上三角：空白
+    - 上三角：可配置（空白/显示/完整矩阵）
 
     适用于探索变量相关性、参数空间和数据质量。
 
@@ -129,6 +139,35 @@ def corner_hist(
         图形标题。
     min_count : int, default=1
         二维直方图中显示的最小计数。低于此值的箱子被遮蔽。
+    hist_alpha : float, default=1.0
+        对角线 1D 直方图的透明度（0-1）。
+    hist2d_alpha : float, default=1.0
+        非对角线 2D 直方图的透明度（0-1）。
+    fig : matplotlib.figure.Figure, optional
+        已有图形对象。与 axes 一起使用可在现有图上叠加新数据。
+    axes : numpy.ndarray, optional
+        已有子图轴数组，形状为 (n, n)。与 fig 一起使用。
+    triangle : {'lower', 'upper', 'full'}, default='lower'
+        控制显示区域：
+
+        - 'lower'：只显示下三角
+        - 'upper'：只显示上三角
+        - 'full'：显示完整矩阵
+    label_mode : {'outer', 'all', 'diag', 'none'}, default='outer'
+        标签显示模式：
+
+        - 'outer'：只在外圈显示标签
+        - 'all'：每个子图都显示标签
+        - 'diag'：只在对角线显示 x 轴标签
+        - 'none'：不显示标签
+    label_fontsize : int, default=11
+        轴标签字体大小。
+    label_fontweight : str, default='bold'
+        轴标签字体粗细。
+    tick_labelsize : int, default=8
+        刻度标签字体大小。
+    diag_title : bool, default=True
+        是否在对角线子图上方显示变量名作为标题。
 
     返回
     -------
@@ -143,6 +182,8 @@ def corner_hist(
         当 data 不是 list 或 tuple 时抛出。
     ValueError
         当 data 为空、数组维度不一致或长度不匹配时抛出。
+        当 triangle 或 label_mode 参数值无效时抛出。
+        当 fig 和 axes 仅提供其中之一时抛出。
     ImportError
         当 matplotlib 未安装时抛出。
 
@@ -170,12 +211,21 @@ def corner_hist(
     ...     ranges=[(1e1, 1e7), (1e2, 1e5), (1e1, 1e5)],
     ... )
     >>> fig.savefig('corner_log.png')
+    >>>
+    >>> # 叠加对比：mask 前后数据
+    >>> fig, axes = corner_hist(data_before, names=names, hist_color='blue',
+    ...                         hist_alpha=0.5, hist2d_alpha=0.5)
+    >>> fig, axes = corner_hist(data_after, names=names, hist_color='red',
+    ...                         hist_alpha=0.5, hist2d_alpha=0.5,
+    ...                         fig=fig, axes=axes)
+    >>> fig.savefig('corner_comparison.png')
 
     注意
     -----
     - 本函数依赖 matplotlib 库
     - 对数刻度要求数据为正值，负值和零会被自动过滤
     - 大量数据点可能导致绘图速度较慢，建议使用合适的 bins 数量
+    - 使用 fig/axes 叠加时，确保两次调用的 names 顺序一致
 
     另见
     --------
@@ -183,6 +233,12 @@ def corner_hist(
     """
     if not MATPLOTLIB_AVAILABLE:
         raise ImportError("corner_hist 需要 matplotlib 库。\n" "安装方法：pip install matplotlib")
+
+    if triangle not in ("lower", "upper", "full"):
+        raise ValueError("triangle must be 'lower', 'upper', or 'full'.")
+
+    if label_mode not in ("outer", "all", "diag", "none"):
+        raise ValueError("label_mode must be 'outer', 'all', 'diag', or 'none'.")
 
     # 参数验证
     if not isinstance(data, list | tuple):
@@ -231,6 +287,10 @@ def corner_hist(
     scales = expand_param(scales, default="linear", name="scales")
     ranges = expand_param(ranges, default=None, name="ranges")
 
+    for s in scales:
+        if s not in ("linear", "log"):
+            raise ValueError("scales 只支持 'linear' 或 'log'。")
+
     # 处理 bins 参数
     if isinstance(bins, int | np.integer):
         bins = [int(bins) for _ in range(n)]
@@ -266,14 +326,27 @@ def corner_hist(
     def resolve_bins(x, b, r, scale):
         # 显式指定的分箱边界
         if not isinstance(b, int | np.integer):
-            return np.asarray(b)
+            edges = np.asarray(b)
+            if edges.ndim != 1 or len(edges) < 2:
+                raise ValueError("显式 bins 必须是一维 bin edge 数组，且长度至少为 2。")
+            return edges
 
         nbin = int(b)
+        if nbin <= 0:
+            raise ValueError("bins 必须为正整数。")
 
         if r is not None:
             lo, hi = r
         else:
             lo, hi = np.nanmin(x), np.nanmax(x)
+
+        if not np.isfinite(lo) or not np.isfinite(hi):
+            raise ValueError("无法确定有效的 bin 范围。")
+
+        if lo == hi:
+            eps = 1e-12 if lo == 0 else abs(lo) * 1e-12
+            lo -= eps
+            hi += eps
 
         if scale == "log":
             if lo <= 0:
@@ -282,31 +355,57 @@ def corner_hist(
                     raise ValueError("对数刻度要求正值，但未找到正值数据。")
                 lo = np.nanmin(positive)
 
-            return np.logspace(np.log10(lo), np.log10(hi), nbin)
+            if hi <= 0:
+                raise ValueError("对数刻度要求 hi > 0。")
 
-        return np.linspace(lo, hi, nbin)
+            return np.logspace(np.log10(lo), np.log10(hi), nbin + 1)
+
+        return np.linspace(lo, hi, nbin + 1)
 
     bin_edges = [
         resolve_bins(x, b, r, scale)
         for x, b, r, scale in zip(data, bins, ranges, scales, strict=False)
     ]
 
-    # 创建图形
-    fig, axes = plt.subplots(
-        n,
-        n,
-        figsize=(figsize_per_panel * n, figsize_per_panel * n),
-        squeeze=False,
-    )
+    # 创建或复用图形
+    if (fig is None) != (axes is None):
+        raise ValueError("fig 和 axes 要么同时提供，要么都不提供。")
+
+    created_new_figure = fig is None and axes is None
+
+    if created_new_figure:
+        fig, axes = plt.subplots(
+            n,
+            n,
+            figsize=(figsize_per_panel * n, figsize_per_panel * n),
+            squeeze=False,
+        )
+    else:
+        axes = np.asarray(axes)
+        if axes.shape != (n, n):
+            raise ValueError(f"axes 形状应为 ({n}, {n})，得到 {axes.shape}。")
 
     if hist2d_norm == "log":
         norm = LogNorm(vmin=hist2d_vmin, vmax=hist2d_vmax)
-    else:
+    elif hist2d_norm is None:
         norm = Normalize(vmin=hist2d_vmin, vmax=hist2d_vmax)
+    else:
+        raise ValueError("hist2d_norm 只支持 'log' 或 None。")
 
     for i in range(n):
         for j in range(n):
             ax = axes[i, j]
+
+            # 控制显示 lower / upper / full
+            if triangle == "lower" and i < j:
+                if created_new_figure:
+                    ax.axis("off")
+                continue
+
+            if triangle == "upper" and i > j:
+                if created_new_figure:
+                    ax.axis("off")
+                continue
 
             x = data[j]
             y = data[i]
@@ -320,11 +419,6 @@ def corner_hist(
             xscale = scales[j]
             yscale = scales[i]
 
-            if i < j:
-                # 上三角：隐藏
-                ax.axis("off")
-                continue
-
             # 对角线：1D 直方图
             if i == j:
                 ax.hist(
@@ -334,12 +428,13 @@ def corner_hist(
                     histtype="step",
                     linewidth=1.5,
                     color=hist_color,
+                    alpha=hist_alpha,
                 )
 
                 ax.set_xscale(xscale)
                 ax.set_yscale("log")
 
-            # 下三角：2D 直方图
+            # 非对角线：2D 直方图
             else:
                 H, xedges, yedges = np.histogram2d(
                     x,
@@ -356,8 +451,9 @@ def corner_hist(
                     yedges,
                     H,
                     cmap=cmap,
-                    norm=norm if hist2d_norm == "log" else None,
+                    norm=norm,
                     shading="auto",
+                    alpha=hist2d_alpha,
                 )
 
                 ax.set_xscale(xscale)
@@ -366,21 +462,63 @@ def corner_hist(
                 if add_colorbar:
                     fig.colorbar(mesh, ax=ax)
 
-            # 标签
-            if i == n - 1:
-                ax.set_xlabel(xname)
+            # label 控制
+            if label_mode == "outer":
+                if triangle == "upper":
+                    show_xlabel = i == 0
+                    show_ylabel = j == n - 1
+                else:
+                    show_xlabel = i == n - 1
+                    show_ylabel = j == 0
+
+            elif label_mode == "all":
+                show_xlabel = True
+                show_ylabel = True
+
+            elif label_mode == "diag":
+                show_xlabel = i == j
+                show_ylabel = False
+
+            elif label_mode == "none":
+                show_xlabel = False
+                show_ylabel = False
+
+            if show_xlabel:
+                ax.set_xlabel(
+                    xname,
+                    fontsize=label_fontsize,
+                    fontweight=label_fontweight,
+                )
             else:
+                ax.set_xlabel("")
                 ax.set_xticklabels([])
 
-            if j == 0 and i != j:
-                ax.set_ylabel(yname)
-            elif j != 0:
+            if show_ylabel:
+                ax.set_ylabel(
+                    yname,
+                    fontsize=label_fontsize,
+                    fontweight=label_fontweight,
+                )
+            else:
+                ax.set_ylabel("")
                 ax.set_yticklabels([])
 
-            ax.tick_params(axis="both", which="both", labelsize=8)
+            if diag_title and i == j:
+                ax.set_title(
+                    xname,
+                    fontsize=label_fontsize + 1,
+                    fontweight=label_fontweight,
+                )
+
+            ax.tick_params(axis="both", which="both", labelsize=tick_labelsize)
 
     if title is not None:
-        fig.suptitle(title, y=1.02, fontsize=14)
+        fig.suptitle(
+            title,
+            y=1.02,
+            fontsize=label_fontsize + 2,
+            fontweight=label_fontweight,
+        )
 
     fig.tight_layout()
     return fig, axes
