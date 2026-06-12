@@ -9,7 +9,7 @@
 | Provides | `peaks` |
 | Depends On | `peaklets`, `peaklet_features`, `peaklet_channels` |
 | Output Kind | `structured_array` |
-| Version | `3.0.0` |
+| Version | `4.0.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.peaklets` |
 | Accelerator | `cpu` |
 
@@ -23,14 +23,15 @@
 
 | Field | DType | Meaning |
 |-------|-------|---------|
-| `time_left` | `int64` | - |
-| `time_right` | `int64` | - |
+| `peak_id` | `int64` | - |
+| `time_start` | `int64` | - |
+| `time_end` | `int64` | - |
 | `time_peak` | `int64` | - |
 | `center_time` | `int64` | - |
 | `rise_time` | `float32` | - |
 | `fall_time` | `float32` | - |
 | `width_25_75` | `float32` | - |
-| `range_50p_area` | `float32` | - |
+| `rise_time_10_50` | `float32` | - |
 | `range_90p_area` | `float32` | - |
 | `area` | `float32` | - |
 | `height` | `float32` | - |

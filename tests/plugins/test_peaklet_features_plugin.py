@@ -98,7 +98,7 @@ def test_peaklet_features_derive_waveform_fields_from_ragged_pool():
     assert float(out[0]["rise_time"]) > 0.0
     assert float(out[0]["fall_time"]) > 0.0
     assert float(out[0]["width_25_75"]) > 0.0
-    assert float(out[0]["range_50p_area"]) > 0.0
+    assert float(out[0]["rise_time_10_50"]) > 0.0
     assert float(out[0]["range_90p_area"]) > 0.0
 
 
@@ -134,7 +134,38 @@ def test_peaklet_features_rise_fall_are_peak_based_and_width_25_75_is_area_based
     assert float(out[0]["rise_time"]) == 3.25
     assert float(out[0]["fall_time"]) == 2.25
     assert float(out[0]["width_25_75"]) == 2.875
-    assert float(out[0]["range_50p_area"]) == 2.875
+    assert float(out[0]["rise_time_10_50"]) == 2.75
+
+
+def test_peaklet_features_numba_path_matches_area_rise_time_field():
+    waveforms = _waveforms(
+        [
+            {
+                "peak_id": i,
+                "time_start": 0,
+                "time_end": 11000,
+                "dt": 1,
+                "wave_offset": i * 11,
+                "wave_length": 11,
+            }
+            for i in range(11)
+        ]
+    )
+    wave = np.array([0, 10, 20, 30, 40, 50, 40, 30, 20, 10, 0], dtype=np.float32)
+    ctx = DummyContext(
+        {},
+        {
+            "peaklets": _peaklets(11),
+            "peaklet_waveforms": waveforms,
+            "peaklet_waveform_pool": np.tile(wave, 11),
+        },
+    )
+
+    out = PeakletFeaturesPlugin().compute(ctx, "run_001")
+
+    assert len(out) == 11
+    assert float(out[0]["rise_time_10_50"]) == 2.75
+    assert "range_50p_area" not in out.dtype.names
 
 
 def test_peaklet_features_empty_waveforms_return_empty_features():

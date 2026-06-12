@@ -76,7 +76,7 @@ def test_peaklet_channels_single_peaklet_multiple_channels():
 
     assert out.dtype == PEAKLET_CHANNELS_DTYPE
     assert len(out) == 2
-    np.testing.assert_array_equal(out["peak_id"], np.array([0, 0], dtype=np.int64))
+    np.testing.assert_array_equal(out["peaklet_id"], np.array([0, 0], dtype=np.int64))
     np.testing.assert_array_equal(out["channel"], np.array([0, 1], dtype=np.int16))
     np.testing.assert_allclose(out["area"], np.array([60.0, 40.0], dtype=np.float32))
     np.testing.assert_array_equal(out["n_hits"], np.array([2, 1], dtype=np.int32))

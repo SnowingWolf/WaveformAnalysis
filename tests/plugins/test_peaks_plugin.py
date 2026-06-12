@@ -28,7 +28,7 @@ def test_peaks_merge_peaklet_metadata_and_waveform_features():
     features[0]["width"] = 6.0
     features[0]["rise_time"] = 2.0
     features[0]["fall_time"] = 4.0
-    features[0]["range_50p_area"] = 3.0
+    features[0]["rise_time_10_50"] = 3.0
     features[0]["range_90p_area"] = 5.0
 
     ctx = DummyContext(
@@ -54,7 +54,7 @@ def test_peaks_merge_peaklet_metadata_and_waveform_features():
     assert float(out[0]["width"]) == 6.0
     assert float(out[0]["rise_time"]) == 2.0
     assert float(out[0]["fall_time"]) == 4.0
-    assert float(out[0]["range_50p_area"]) == 3.0
+    assert float(out[0]["rise_time_10_50"]) == 3.0
     assert float(out[0]["range_90p_area"]) == 5.0
     assert int(out[0]["n_hits"]) == 2
     assert int(out[0]["n_channels"]) == 2

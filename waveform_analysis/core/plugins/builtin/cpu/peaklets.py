@@ -63,7 +63,7 @@ PEAKLET_FEATURES_DTYPE = np.dtype(
         ("rise_time", "f4"),
         ("fall_time", "f4"),
         ("width_25_75", "f4"),
-        ("range_50p_area", "f4"),
+        ("rise_time_10_50", "f4"),
         ("range_90p_area", "f4"),
         ("area", "f4"),
         ("height", "f4"),
@@ -81,7 +81,7 @@ PEAKS_DTYPE = np.dtype(
         ("rise_time", "f4"),
         ("fall_time", "f4"),
         ("width_25_75", "f4"),
-        ("range_50p_area", "f4"),
+        ("rise_time_10_50", "f4"),
         ("range_90p_area", "f4"),
         ("area", "f4"),
         ("height", "f4"),
@@ -253,7 +253,7 @@ def _compute_features_numba(
         results[i, 5] = (time_peak - t10) / 1000.0  # rise_time
         results[i, 6] = (t90 - time_peak) / 1000.0  # fall_time
         results[i, 7] = (t75 - t25) / 1000.0  # width_25_75
-        results[i, 8] = (t75 - t25) / 1000.0  # range_50p_area
+        results[i, 8] = (t50 - t10) / 1000.0  # rise_time_10_50
         results[i, 9] = (t95 - t05) / 1000.0  # range_90p_area
         results[i, 10] = total_area  # area
         results[i, 11] = wave[max_idx]  # height
@@ -983,7 +983,7 @@ class PeakletFeaturesPlugin(Plugin):
     provides = "peaklet_features"
     depends_on = ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
     description = "Compute peaklet waveform features from ragged signal pools."
-    version = "3.0.1"
+    version = "4.0.0"
     output_dtype = PEAKLET_FEATURES_DTYPE
     save_when = "always"
 
@@ -1030,7 +1030,7 @@ class PeakletFeaturesPlugin(Plugin):
                 out[i]["rise_time"] = results[i, 5]
                 out[i]["fall_time"] = results[i, 6]
                 out[i]["width_25_75"] = results[i, 7]
-                out[i]["range_50p_area"] = results[i, 8]
+                out[i]["rise_time_10_50"] = results[i, 8]
                 out[i]["range_90p_area"] = results[i, 9]
                 out[i]["area"] = results[i, 10]
                 out[i]["height"] = results[i, 11]
@@ -1060,7 +1060,7 @@ class PeakletFeaturesPlugin(Plugin):
                         0.0,  # rise_time
                         0.0,  # fall_time
                         0.0,  # width_25_75
-                        0.0,  # range_50p_area
+                        0.0,  # rise_time_10_50
                         0.0,  # range_90p_area
                         0.0,  # area
                         0.0,  # height
@@ -1081,7 +1081,7 @@ class PeakletFeaturesPlugin(Plugin):
             rise_time = float((time_peak - t10) / 1000.0)
             fall_time = float((t90 - time_peak) / 1000.0)
             width_25_75 = float((t75 - t25) / 1000.0)
-            range_50p_area = float((t75 - t25) / 1000.0)
+            rise_time_10_50 = float((t50 - t10) / 1000.0)
             range_90p_area = float((t95 - t05) / 1000.0)
 
             area = float(np.sum(wave, dtype=np.float64))
@@ -1098,7 +1098,7 @@ class PeakletFeaturesPlugin(Plugin):
                     rise_time,
                     fall_time,
                     width_25_75,
-                    range_50p_area,
+                    rise_time_10_50,
                     range_90p_area,
                     area,
                     height,
@@ -1115,7 +1115,7 @@ class PeaksPlugin(Plugin):
     provides = "peaks"
     depends_on = ["peaklets", "peaklet_features", "peaklet_channels"]
     description = "Build final peaks table from peaklets and waveform-derived features."
-    version = "3.0.0"
+    version = "4.0.0"
     output_dtype = PEAKS_DTYPE
     save_when = "always"
 
@@ -1147,7 +1147,7 @@ class PeaksPlugin(Plugin):
                     float(feature["rise_time"]),
                     float(feature["fall_time"]),
                     float(feature["width_25_75"]),
-                    float(feature["range_50p_area"]),
+                    float(feature["rise_time_10_50"]),
                     float(feature["range_90p_area"]),
                     float(feature["area"]),
                     float(feature["height"]),

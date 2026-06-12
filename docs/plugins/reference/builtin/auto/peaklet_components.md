@@ -35,7 +35,7 @@ This plugin depends on the following data:
 
 | Field | Type | Units | Description |
 |-------|------|-------|-------------|
-| `peaklet_index` | `int64` | - | - |
+| `peak_id` | `int64` | - | - |
 | `merged_index` | `int64` | - | - |
 
 ## Usage Example
