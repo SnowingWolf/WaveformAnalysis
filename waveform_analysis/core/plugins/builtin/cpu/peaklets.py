@@ -370,6 +370,32 @@ def _components_by_peaklet(components: np.ndarray, n_peaklets: int) -> list[np.n
     return [np.asarray(rows, dtype=np.int64) for rows in out]
 
 
+def _validate_peaklet_components(
+    *,
+    peaklets: np.ndarray,
+    components: np.ndarray,
+    consumer: str,
+) -> None:
+    if "component_count" not in (peaklets.dtype.names or ()):
+        return
+    if len(components) == 0 and len(peaklets) == 0:
+        return
+
+    counts = np.zeros(len(peaklets), dtype=np.int64)
+    for row in components:
+        peaklet_id = int(row["peak_id"])
+        if not 0 <= peaklet_id < len(peaklets):
+            raise ValueError(
+                f"{consumer} found peaklet_components row with out-of-range "
+                f"peak_id={peaklet_id}"
+            )
+        counts[peaklet_id] += 1
+
+    expected = peaklets["component_count"].astype(np.int64, copy=False)
+    if not np.array_equal(counts, expected):
+        raise ValueError(f"{consumer} found peaklet_components inconsistent with peaklets")
+
+
 def _extract_polarity_signs(records: np.ndarray) -> np.ndarray:
     """批量提取 record 的 polarity 符号数组（用于 Numba）"""
     names = records.dtype.names or ()
@@ -664,7 +690,7 @@ class PeakletComponentsPlugin(BatchProcessingPlugin):
     provides = "peaklet_components"
     depends_on = ["peaklets", "hit_merged"]
     description = "Return per-peaklet component hit_merged indices."
-    version = "1.0.0"
+    version = "1.1.0"
     output_dtype = PEAKLET_COMPONENTS_DTYPE
     save_when = "always"
     parallel = False
@@ -675,23 +701,65 @@ class PeakletComponentsPlugin(BatchProcessingPlugin):
         return self.compute_array(context, run_id, **kwargs)
 
     def compute_array(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
+        peaklets = context.get_data(run_id, "peaklets")
+        if not isinstance(peaklets, np.ndarray):
+            raise ValueError("peaklet_components expects peaklets as a structured array")
+
         merged = context.get_data(run_id, "hit_merged")
         if not isinstance(merged, np.ndarray):
             raise ValueError("peaklet_components expects hit_merged as a structured array")
         if len(merged) == 0:
-            return _empty_components()
+            components = _empty_components()
+            _validate_peaklet_components(
+                peaklets=peaklets,
+                components=components,
+                consumer="peaklet_components",
+            )
+            return components
 
-        time_window_ns = float(context.get_config(self, "time_window_ns"))
-        max_total_width_ns = float(context.get_config(self, "max_total_width_ns"))
+        peaklet_plugin = self._get_peaklet_plugin(context)
+        time_window_ns = float(context.get_config(peaklet_plugin, "time_window_ns"))
+        max_total_width_ns = float(context.get_config(peaklet_plugin, "max_total_width_ns"))
         clusters = _cluster_merged_hits(
             merged,
             time_window_ns=time_window_ns,
             max_total_width_ns=max_total_width_ns,
         )
+        if len(clusters) != len(peaklets):
+            raise ValueError(
+                "peaklet_components clustering is inconsistent with peaklets: "
+                f"{len(clusters)} clusters for {len(peaklets)} peaklets"
+            )
+        if "component_count" in (peaklets.dtype.names or ()):
+            expected_counts = peaklets["component_count"].astype(np.int64, copy=False)
+            actual_counts = np.asarray([len(cluster) for cluster in clusters], dtype=np.int64)
+            if not np.array_equal(actual_counts, expected_counts):
+                raise ValueError(
+                    "peaklet_components clustering component counts are inconsistent with peaklets"
+                )
+
         rows: list[tuple[int, int]] = []
         for peaklet_id, cluster in enumerate(clusters):
             rows.extend((peaklet_id, merged_index) for merged_index in cluster)
-        return np.array(rows, dtype=PEAKLET_COMPONENTS_DTYPE) if rows else _empty_components()
+        components = np.array(rows, dtype=PEAKLET_COMPONENTS_DTYPE) if rows else _empty_components()
+        _validate_peaklet_components(
+            peaklets=peaklets,
+            components=components,
+            consumer="peaklet_components",
+        )
+        return components
+
+    @staticmethod
+    def _get_peaklet_plugin(context: Any) -> PeakletPlugin:
+        get_plugin = getattr(context, "get_plugin", None)
+        if get_plugin is not None:
+            try:
+                plugin = get_plugin("peaklets")
+            except KeyError:
+                plugin = None
+            if plugin is not None:
+                return plugin
+        return PeakletPlugin()
 
     def compute_chunk(self, chunk: Chunk, context: Any, run_id: str, **kwargs) -> Chunk:
         components = self.compute_array(context, run_id, **kwargs)
@@ -749,6 +817,11 @@ class PeakletWaveformPlugin(Plugin):
         components = context.get_data(run_id, "peaklet_components")
         if not isinstance(components, np.ndarray):
             raise ValueError("peaklet_waveforms expects peaklet_components as a structured array")
+        _validate_peaklet_components(
+            peaklets=peaklets,
+            components=components,
+            consumer="peaklet_waveforms",
+        )
         merged = context.get_data(run_id, "hit_merged")
         if not isinstance(merged, np.ndarray):
             raise ValueError("peaklet_waveforms expects hit_merged as a structured array")

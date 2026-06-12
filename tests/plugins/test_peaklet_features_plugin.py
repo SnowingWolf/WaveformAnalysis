@@ -189,6 +189,7 @@ def test_peaklet_channels_uses_peaklet_features_area_for_fraction():
     from waveform_analysis.core.plugins.builtin.cpu.peaklets import PEAKLET_COMPONENTS_DTYPE
 
     peaklets = _peaklets(1)
+    peaklets[0]["component_count"] = 1
     components = np.zeros(1, dtype=PEAKLET_COMPONENTS_DTYPE)
     components[0]["peak_id"] = 0
     components[0]["merged_index"] = 0

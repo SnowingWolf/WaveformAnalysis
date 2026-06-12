@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from tests.utils import DummyContext
 from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import (
@@ -15,8 +16,10 @@ from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
 )
 
 
-def _peaklets(areas):
-    return np.zeros(len(areas), dtype=PEAKLET_DTYPE)
+def _peaklets(areas, *, component_count=1):
+    out = np.zeros(len(areas), dtype=PEAKLET_DTYPE)
+    out["component_count"] = component_count
+    return out
 
 
 def _peaklet_features(areas):
@@ -61,7 +64,7 @@ def _ctx(peaklets, components, features, peaklet_features):
 
 def test_peaklet_channels_single_peaklet_multiple_channels():
     ctx = _ctx(
-        _peaklets([100.0]),
+        _peaklets([100.0], component_count=2),
         _components([(0, 0), (0, 1)]),
         _features(
             [
@@ -85,7 +88,7 @@ def test_peaklet_channels_single_peaklet_multiple_channels():
 
 def test_peaklet_channels_aggregates_multiple_rows_for_same_channel():
     ctx = _ctx(
-        _peaklets([50.0]),
+        _peaklets([50.0], component_count=2),
         _components([(0, 0), (0, 1)]),
         _features(
             [
@@ -122,3 +125,21 @@ def test_peaklet_channels_zero_peaklet_area_writes_zero_fraction():
 
     assert len(out) == 1
     assert float(out[0]["area_fraction"]) == 0.0
+
+
+def test_peaklet_channels_reject_components_misaligned_with_peaklets():
+    peaklets = _peaklets([100.0])
+    peaklets[0]["component_count"] = 2
+    ctx = _ctx(
+        peaklets,
+        _components([(0, 0)]),
+        _features(
+            [
+                {"merged_index": 0, "channel": 0, "area": 5.0, "height": 2.0, "n_hits": 1},
+            ]
+        ),
+        _peaklet_features([100.0]),
+    )
+
+    with pytest.raises(ValueError, match="inconsistent with peaklets"):
+        PeakletChannelsPlugin().compute(ctx, "run_001")

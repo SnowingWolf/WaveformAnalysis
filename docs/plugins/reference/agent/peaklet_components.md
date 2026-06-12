@@ -9,7 +9,7 @@
 | Provides | `peaklet_components` |
 | Depends On | `peaklets`, `hit_merged` |
 | Output Kind | `structured_array` |
-| Version | `1.0.0` |
+| Version | `1.1.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.peaklets` |
 | Accelerator | `cpu` |
 
@@ -22,7 +22,7 @@
 
 | Field | DType | Meaning |
 |-------|-------|---------|
-| `peaklet_index` | `int64` | - |
+| `peak_id` | `int64` | - |
 | `merged_index` | `int64` | - |
 
 ## Config

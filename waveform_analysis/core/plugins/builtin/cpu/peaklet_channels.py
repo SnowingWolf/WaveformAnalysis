@@ -23,6 +23,25 @@ def _empty_channels() -> np.ndarray:
     return np.zeros(0, dtype=PEAKLET_CHANNELS_DTYPE)
 
 
+def _validate_peaklet_components(peaklets: np.ndarray, components: np.ndarray) -> None:
+    if "component_count" not in (peaklets.dtype.names or ()):
+        return
+
+    counts = np.zeros(len(peaklets), dtype=np.int64)
+    for row in components:
+        peaklet_id = int(row["peak_id"])
+        if not 0 <= peaklet_id < len(peaklets):
+            raise ValueError(
+                "peaklet_channels found peaklet_components row with out-of-range "
+                f"peak_id={peaklet_id}"
+            )
+        counts[peaklet_id] += 1
+
+    expected = peaklets["component_count"].astype(np.int64, copy=False)
+    if not np.array_equal(counts, expected):
+        raise ValueError("peaklet_channels found peaklet_components inconsistent with peaklets")
+
+
 class PeakletChannelsPlugin(Plugin):
     """Expand peaklets into per-board/channel contribution rows."""
 
@@ -43,6 +62,7 @@ class PeakletChannelsPlugin(Plugin):
         components = context.get_data(run_id, "peaklet_components")
         if not isinstance(components, np.ndarray):
             raise ValueError("peaklet_channels expects peaklet_components as a structured array")
+        _validate_peaklet_components(peaklets, components)
 
         features = context.get_data(run_id, "hit_merged_features")
         if not isinstance(features, np.ndarray):

@@ -139,11 +139,39 @@ def test_peaklets_split_when_cross_channel_gap_exceeds_window():
     ctx = make_peaklet_context(hits, np.full(20, 100, dtype=np.uint16), time_window_ns=1.0)
 
     out = PeakletPlugin().compute_array(ctx, "run_001")
+    ctx._data["peaklets"] = out
     components = PeakletComponentsPlugin().compute_array(ctx, "run_001")
 
     assert len(out) == 2
     assert components.dtype == PEAKLET_COMPONENTS_DTYPE
     np.testing.assert_array_equal(components["peak_id"], np.array([0, 1], dtype=np.int64))
+    np.testing.assert_array_equal(components["merged_index"], np.array([0, 1], dtype=np.int64))
+
+
+def test_peaklet_components_use_peaklets_clustering_config():
+    hits = np.array(
+        [
+            _make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=2),
+            _make_hit(record_id=1, board=0, channel=1, edge_start=8, edge_end=9),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    ctx = make_peaklet_context(hits, np.full(20, 100, dtype=np.uint16), time_window_ns=1.0)
+    ctx.config = {
+        **ctx.config,
+        "peaklets": {"time_window_ns": 20.0, "max_total_width_ns": 10000.0},
+        "peaklet_components": {"time_window_ns": 1.0, "max_total_width_ns": 10000.0},
+    }
+    peaklet_plugin = PeakletPlugin()
+    ctx.get_plugin = lambda name: peaklet_plugin if name == "peaklets" else None
+
+    out = peaklet_plugin.compute_array(ctx, "run_001")
+    ctx._data["peaklets"] = out
+    components = PeakletComponentsPlugin().compute_array(ctx, "run_001")
+
+    assert len(out) == 1
+    assert int(out[0]["component_count"]) == 2
+    np.testing.assert_array_equal(components["peak_id"], np.array([0, 0], dtype=np.int64))
     np.testing.assert_array_equal(components["merged_index"], np.array([0, 1], dtype=np.int64))
 
 

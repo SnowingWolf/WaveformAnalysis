@@ -69,6 +69,23 @@ def test_peaklet_waveforms_align_and_sum_hit_merged_absolute_windows():
     np.testing.assert_allclose(pool, np.array([20.0, 40.0, 20.0], dtype=np.float32))
 
 
+def test_peaklet_waveforms_reject_components_misaligned_with_peaklets():
+    hits = np.array(
+        [
+            _make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=3),
+            _make_hit(record_id=1, board=0, channel=1, edge_start=1, edge_end=3),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    ctx = make_peaklet_context(hits, np.full(20, 100, dtype=np.uint16))
+    peaklets, components = _compute_peaklets_and_components(ctx)
+    assert int(peaklets[0]["component_count"]) == 2
+    ctx._data["peaklet_components"] = components[:1]
+
+    with pytest.raises(ValueError, match="inconsistent with peaklets"):
+        PeakletWaveformPlugin().compute(ctx, "run_001")
+
+
 def test_peaklet_waveforms_apply_positive_and_negative_polarity_and_clip_negative_signal():
     hits = np.array(
         [
