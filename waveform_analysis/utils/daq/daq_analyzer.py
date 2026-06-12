@@ -73,6 +73,7 @@ class DAQAnalyzer:
         daq_root: str | Path = "DAQ",
         daq_adapter: str | DAQAdapter | None = None,
         directory_layout: DirectoryLayout | None = None,
+        max_waves_for_channels: int = 1000,
     ) -> None:
         """
         初始化 DAQ 数据分析器
@@ -81,6 +82,7 @@ class DAQAnalyzer:
             daq_root: DAQ 数据根目录（默认 "DAQ"）
             daq_adapter: DAQ 适配器名称或实例（可选）
             directory_layout: 目录布局配置（可选，优先于 daq_adapter）
+            max_waves_for_channels: 扫描文件时读取的波形数来判断通道（默认 50）
 
         初始化内容:
         - 设置 DAQ 根目录
@@ -89,6 +91,7 @@ class DAQAnalyzer:
         self.daq_root = str(daq_root)
         self.daq_adapter = daq_adapter
         self.directory_layout = directory_layout
+        self.max_waves_for_channels = max_waves_for_channels
         self.runs: dict[str, DAQRun] = {}
         self.df_runs: pd.DataFrame | None = None
         self.total_bytes = 0
@@ -161,13 +164,36 @@ class DAQAnalyzer:
             return self._html_wrap(f"{duration_s:.3f} s", "#c67f00")
         return self._html_wrap(f"{duration_s:.3f} s", "#1b7a1b")
 
-    def scan_all_runs(self) -> DAQAnalyzer:
-        # Scan DAQ root and load each run directory as a DAQRun.
-        # 局部导入 os 以提高在 autoreload/部分导入失败时的鲁棒性
+    def scan_all_runs(
+        self,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        max_waves_for_channels: int | None = None,
+    ) -> DAQAnalyzer:
+        """扫描 DAQ 根目录中的所有运行
 
+        Args:
+            start_time: 只扫描此时间之后的运行 (格式: "YYYY-MM-DD" 或 "YYYY-MM-DD HH:MM:SS")
+            end_time: 只扫描此时间之前的运行 (格式: "YYYY-MM-DD" 或 "YYYY-MM-DD HH:MM:SS")
+            max_waves_for_channels: 扫描波形数来判断通道（若不指定则使用初始化时的值）
+
+        Returns:
+            self: 支持链式调用
+        """
         if not os.path.exists(self.daq_root):
             logger.error("找不到目录 %s", self.daq_root)
             return self
+
+        # 使用传入的参数或默认值
+        waves_to_scan = (
+            max_waves_for_channels
+            if max_waves_for_channels is not None
+            else self.max_waves_for_channels
+        )
+
+        # 解析时间筛选参数
+        start_dt = self._parse_time_filter(start_time) if start_time else None
+        end_dt = self._parse_time_filter(end_time) if end_time else None
 
         self.runs = {}
         self.total_bytes = 0
@@ -179,13 +205,24 @@ class DAQAnalyzer:
             )
 
         for entry in run_entries:
-            # Aggregate per-run metadata for overview stats.
             run = DAQRun(
                 entry.name,
                 entry.path,
                 daq_adapter=self.daq_adapter,
                 directory_layout=self.directory_layout,
+                max_waves_for_channels=waves_to_scan,
             )
+
+            # 时间筛选
+            if start_dt or end_dt:
+                run_start, run_end = run.get_file_time_window()
+
+                # 跳过不在时间范围内的运行
+                if start_dt and (run_end is None or run_end < start_dt):
+                    continue
+                if end_dt and (run_start is None or run_start > end_dt):
+                    continue
+
             self.runs[entry.name] = run
             self.total_bytes += run.total_bytes
 

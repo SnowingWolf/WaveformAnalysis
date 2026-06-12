@@ -21,6 +21,7 @@ def _record_passes_asymmetry(
     length,
     baseline_f,
     cut_min_f,
+    sign_f,
 ):
     if length <= 0:
         return False
@@ -39,16 +40,19 @@ def _record_passes_asymmetry(
     w_min_f = float(w_min)
     w_max_f = float(w_max)
     peak_to_peak = w_max_f - w_min_f
-    negative_height = baseline_f - w_min_f
 
     if peak_to_peak <= 0.0:
         return False
-    if negative_height <= 0.0:
+
+    main_extreme = w_min_f if sign_f < 0.0 else w_max_f
+    signal_height = baseline_f - main_extreme if sign_f < 0.0 else main_extreme - baseline_f
+
+    if signal_height <= 0.0:
         return False
-    if negative_height > peak_to_peak:
+    if signal_height > peak_to_peak:
         return False
 
-    return negative_height >= cut_min_f * peak_to_peak
+    return signal_height >= cut_min_f * peak_to_peak
 
 
 @njit(cache=True, nogil=True, fastmath=True)
@@ -57,6 +61,7 @@ def fill_asymmetry_mask_numba_serial(
     wave_offsets,
     record_lengths,
     baselines,
+    signs,
     cut_min,
     start,
     stop,
@@ -73,6 +78,7 @@ def fill_asymmetry_mask_numba_serial(
             length,
             float(baselines[record_i]),
             cut_min_f,
+            float(signs[record_i]),
         )
 
 
@@ -82,6 +88,7 @@ def fill_asymmetry_mask_numba_parallel(
     wave_offsets,
     record_lengths,
     baselines,
+    signs,
     cut_min,
     start,
     stop,
@@ -98,6 +105,7 @@ def fill_asymmetry_mask_numba_parallel(
             length,
             float(baselines[record_i]),
             cut_min_f,
+            float(signs[record_i]),
         )
 
 
@@ -107,7 +115,7 @@ class RecordsAsymmetryMaskPlugin(Plugin):
     provides = "records_asymmetry_mask"
     depends_on = ["records", "wave_pool"]
     description = "Bool mask for waveform asymmetry selection."
-    version = "0.1.0"
+    version = "0.2.0"
     save_when = "always"
     output_dtype = np.dtype(np.bool_)
 
@@ -135,6 +143,14 @@ class RecordsAsymmetryMaskPlugin(Plugin):
             track=False,
             help="Numba thread count. <=0 keeps current Numba default.",
         ),
+        "asymmetry_polarity_mode": Option(
+            default="auto",
+            type=str,
+            help=(
+                "Polarity handling mode: 'auto' (extract from records['polarity']), "
+                "'negative' (baseline - w_min), 'positive' (w_max - baseline)."
+            ),
+        ),
     }
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
@@ -150,6 +166,7 @@ class RecordsAsymmetryMaskPlugin(Plugin):
         use_parallel = bool(context.get_config(self, "asymmetry_parallel"))
         chunk_size = int(context.get_config(self, "asymmetry_chunk_size"))
         num_threads = int(context.get_config(self, "asymmetry_num_threads"))
+        polarity_mode = str(context.get_config(self, "asymmetry_polarity_mode"))
 
         if cut_min > 1.0:
             logger.info(
@@ -170,6 +187,21 @@ class RecordsAsymmetryMaskPlugin(Plugin):
         wave_offsets = records["wave_offset"]
         record_lengths = records["event_length"]
         baselines = records["baseline"]
+
+        if polarity_mode == "negative":
+            signs = np.full(n_records, -1.0, dtype=np.float32)
+        elif polarity_mode == "positive":
+            signs = np.full(n_records, 1.0, dtype=np.float32)
+        else:
+            if "polarity" in record_names:
+                polarities = records["polarity"]
+                signs = np.full(n_records, -1.0, dtype=np.float32)
+                if polarities.dtype.kind == "S":
+                    signs[polarities == b"positive"] = 1.0
+                else:
+                    signs[np.asarray(polarities).astype("U16", copy=False) == "positive"] = 1.0
+            else:
+                signs = np.full(n_records, -1.0, dtype=np.float32)
 
         if not wave_pool.flags.c_contiguous:
             logger.warning(
@@ -195,6 +227,7 @@ class RecordsAsymmetryMaskPlugin(Plugin):
                     wave_offsets,
                     record_lengths,
                     baselines,
+                    signs,
                     cut_min,
                     start,
                     stop,
@@ -206,10 +239,11 @@ class RecordsAsymmetryMaskPlugin(Plugin):
 
         kept = int(np.count_nonzero(keep))
         logger.info(
-            "records_asymmetry_mask kept %s/%s records with asymmetry >= %s using %s kernel",
+            "records_asymmetry_mask kept %s/%s records (cut_min=%s, polarity=%s) using %s kernel",
             kept,
             n_records,
             cut_min,
+            polarity_mode,
             "parallel" if use_parallel else "serial",
         )
         return keep

@@ -143,7 +143,7 @@ def test_peaklets_split_when_cross_channel_gap_exceeds_window():
 
     assert len(out) == 2
     assert components.dtype == PEAKLET_COMPONENTS_DTYPE
-    np.testing.assert_array_equal(components["peaklet_index"], np.array([0, 1], dtype=np.int64))
+    np.testing.assert_array_equal(components["peak_id"], np.array([0, 1], dtype=np.int64))
     np.testing.assert_array_equal(components["merged_index"], np.array([0, 1], dtype=np.int64))
 
 
