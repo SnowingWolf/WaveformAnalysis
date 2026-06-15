@@ -15,6 +15,8 @@ def test_get_plugin_set_peaks_available():
     assert provides == [
         "hit",
         "records_asymmetry_mask",
+        "records_detector_mask",
+        "records_veto_mask",
         "hit_threshold",
         "hit_merge_clusters",
         "hit_merged",

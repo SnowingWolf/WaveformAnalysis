@@ -33,12 +33,18 @@ def plugins_peaks():
     from waveform_analysis.core.plugins.builtin.cpu.records_asymmetry import (
         RecordsAsymmetryMaskPlugin,
     )
+    from waveform_analysis.core.plugins.builtin.cpu.records_channel_role import (
+        RecordsDetectorMaskPlugin,
+        RecordsVetoMaskPlugin,
+    )
     from waveform_analysis.core.plugins.builtin.cpu.s1_s2_classifier import S1S2ClassifierPlugin
     from waveform_analysis.core.plugins.builtin.cpu.waveform_width import WaveformWidthPlugin
 
     return [
         HitFinderPlugin(),
         RecordsAsymmetryMaskPlugin(),
+        RecordsDetectorMaskPlugin(),
+        RecordsVetoMaskPlugin(),
         ThresholdHitPlugin(),
         HitMergeClustersPlugin(),
         HitMergePlugin(),

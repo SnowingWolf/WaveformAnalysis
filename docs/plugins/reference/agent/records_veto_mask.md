@@ -1,4 +1,4 @@
-# peaklet_waveforms (PeakletWaveformPlugin)
+# records_veto_mask (RecordsVetoMaskPlugin)
 
 > Agent-first 插件契约文档。面向自动化执行与改动评估。
 
@@ -6,38 +6,34 @@
 
 | Item | Value |
 |------|-------|
-| Provides | `peaklet_waveforms` |
-| Depends On | - |
-| Output Kind | `structured_array` |
-| Version | `1.0.0` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.peaklets` |
+| Provides | `records_veto_mask` |
+| Depends On | `records`, `records_asymmetry_mask` |
+| Output Kind | `array` |
+| Version | `0.1.0` |
+| Module | `waveform_analysis.core.plugins.builtin.cpu.records_channel_role` |
 | Accelerator | `cpu` |
 
 ## Inputs
 
-- 无依赖输入（source plugin）
+- `records`
+- `records_asymmetry_mask`
 
 ## Outputs
 
 | Field | DType | Meaning |
 |-------|-------|---------|
-| `peak_id` | `int64` | - |
-| `time_start` | `int64` | - |
-| `time_end` | `int64` | - |
-| `dt` | `int32` | - |
-| `wave_offset` | `int64` | - |
-| `wave_length` | `int32` | - |
+| `value` | `bool` | - |
 
 ## Config
 
 | Name | Type | Default | Note |
 |------|------|---------|------|
-| `use_filtered` | `bool` | `False` | 是否使用 wave_pool_filtered 构建 peaklet 波形 |
+| `channel_config` | `dict` | `None` | 按 (board, channel) 的通道角色配置；role='detector' 进入正常 hit，role='veto' 仅作为 veto 通道保留。 |
 
 ## Execution Path
 
-`peaklet_waveforms` 依赖链入口：
-`SOURCE -> peaklet_waveforms`
+`records_veto_mask` 依赖链入口：
+`records -> records_asymmetry_mask -> records_veto_mask`
 
 ## Failure Modes
 
@@ -55,7 +51,7 @@
 
 ```bash
 # 单插件文档再生成
-waveform-docs generate plugins-agent --plugin peaklet_waveforms
+waveform-docs generate plugins-agent --plugin records_veto_mask
 
 # 覆盖率检查
 waveform-docs check coverage --strict

@@ -32,33 +32,18 @@
 | `asymmetry_parallel` | `bool` | `True` | Use Numba prange parallel loop. |
 | `asymmetry_chunk_size` | `int` | `200000` | Number of records processed per Numba call. |
 | `asymmetry_num_threads` | `int` | `0` | Numba thread count. <=0 keeps current Numba default. |
-| `asymmetry_polarity_mode` | `str` | `"auto"` | Polarity handling: `"auto"` (from records), `"negative"` (baseline - w_min), `"positive"` (w_max - baseline). |
+| `asymmetry_polarity_mode` | `str` | `auto` | Polarity handling mode: 'auto' (extract from records['polarity']), 'negative' (baseline - w_min), 'positive' (w_max - baseline). |
 
 ## Execution Path
 
 `records_asymmetry_mask` 依赖链入口：
 `records -> wave_pool -> records_asymmetry_mask`
 
-## Asymmetry Calculation
-
-对于负极性信号（polarity="negative"）：
-```
-asymmetry = (baseline - w_min) / (w_max - w_min)
-```
-
-对于正极性信号（polarity="positive"）：
-```
-asymmetry = (w_max - baseline) / (w_max - w_min)
-```
-
-物理意义：主信号高度占峰峰值的比例。
-
 ## Failure Modes
 
 - 依赖数据缺失或字段不匹配，导致 compute 阶段报错
 - 配置值类型/范围不合法，触发参数校验异常
 - 输出 dtype 变更但版本未升级，可能导致缓存命中异常
-- polarity 字段缺失时，自动回退到负极性（默认行为）
 
 ## Change Playbook
 

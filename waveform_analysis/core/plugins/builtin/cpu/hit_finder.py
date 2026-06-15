@@ -184,7 +184,7 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
     provides = "hit_threshold"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Threshold-only hit detector with THRESHOLD_HIT_DTYPE output."
-    version = "1.1.0"
+    version = "1.2.0"
     output_dtype = THRESHOLD_HIT_DTYPE
 
     # 为了不改变原始缓存语义，这里仍保持 always。
@@ -259,6 +259,11 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
             type=bool,
             help="是否在 records 路径的 hit 查找前应用 records_asymmetry_mask。",
         ),
+        "channel_role_cut_enabled": Option(
+            default=False,
+            type=bool,
+            help="是否在 records 路径的 hit 查找前应用 records_detector_mask。",
+        ),
     }
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
@@ -270,6 +275,12 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
             and "records_asymmetry_mask" not in deps
         ):
             deps.append("records_asymmetry_mask")
+        if (
+            spec.source == WAVE_SOURCE_RECORDS
+            and bool(context.get_config(self, "channel_role_cut_enabled"))
+            and "records_detector_mask" not in deps
+        ):
+            deps.append("records_detector_mask")
         return deps
 
     def compute_chunk(self, chunk: Chunk, context: Any, run_id: str, **kwargs) -> Chunk:
@@ -359,7 +370,20 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
                     "hit_threshold failed to load records and wave_pool for records source"
                 )
             records = wave_input.records
-            if bool(context.get_config(self, "asymmetry_cut_enabled")):
+            if bool(context.get_config(self, "channel_role_cut_enabled")):
+                mask = np.asarray(
+                    context.get_data(run_id, "records_detector_mask"),
+                    dtype=np.bool_,
+                )
+                if len(mask) != len(wave_input.records):
+                    raise ValueError(
+                        "records_detector_mask length mismatch: "
+                        f"mask has {len(mask)} entries, records has {len(wave_input.records)}"
+                    )
+                records = wave_input.records[mask]
+                if len(records) == 0:
+                    return _empty_hits()
+            elif bool(context.get_config(self, "asymmetry_cut_enabled")):
                 mask = np.asarray(
                     context.get_data(run_id, "records_asymmetry_mask"),
                     dtype=np.bool_,

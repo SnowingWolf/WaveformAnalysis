@@ -18,7 +18,7 @@ WaveformAnalysis 采用**插件化架构**处理 DAQ（数据采集系统）波�
 
 ### 插件统计
 
-- **总插件数**: 29
+- **总插件数**: 31
 - **类别数**: 8
 - **加速器**: CPU (NumPy/SciPy)
 
@@ -135,12 +135,12 @@ raw_files ──► records ──► df ──► df_events
 | [`HitFinderPlugin`](hit.md) | `hit` | 3.0.0 | 特征提取 | - |
 | [`HitGroupedPlugin`](hit_grouped.md) | `hit_grouped` | 0.5.0 | 特征提取 | hit_merged, hit_merged_components, hit_threshold |
 | [`HitMergeClustersPlugin`](hit_merge_clusters.md) | `hit_merge_clusters` | 1.1.0 | 特征提取 | hit_merged, hit_threshold |
-| [`HitMergePlugin`](hit_merged.md) | `hit_merged` | 1.2.0 | 特征提取 | hit_threshold |
+| [`HitMergePlugin`](hit_merged.md) | `hit_merged` | 2.0.0 | 特征提取 | hit_threshold |
 | [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 1.1.0 | 特征提取 | hit_merged, hit_threshold |
 | [`HitMergedFeaturesPlugin`](hit_merged_features.md) | `hit_merged_features` | 0.4.0 | 特征提取 | - |
-| [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.1.0 | 特征提取 | - |
+| [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.2.0 | 特征提取 | - |
 | [`PeakletChannelsPlugin`](peaklet_channels.md) | `peaklet_channels` | 1.0.0 | 特征提取 | peaklets, peaklet_components, hit_merged_features, peaklet_features |
-| [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 1.0.0 | 特征提取 | peaklets, hit_merged |
+| [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 1.1.0 | 特征提取 | peaklets, hit_merged |
 | [`PeakletFeaturesPlugin`](peaklet_features.md) | `peaklet_features` | 4.0.0 | 特征提取 | peaklet_waveforms, peaklet_waveform_pool, peaklets |
 | [`PeakletWaveformPoolPlugin`](peaklet_waveform_pool.md) | `peaklet_waveform_pool` | 1.0.0 | 波形处理 | - |
 | [`PeakletWaveformPlugin`](peaklet_waveforms.md) | `peaklet_waveforms` | 1.0.0 | 波形处理 | - |
@@ -148,7 +148,9 @@ raw_files ──► records ──► df ──► df_events
 | [`PeaksPlugin`](peaks.md) | `peaks` | 4.0.0 | 特征提取 | peaklets, peaklet_features, peaklet_channels |
 | [`RawFileNamesPlugin`](raw_files.md) | `raw_files` | 0.0.2 | 数据加载 | - |
 | [`RecordsPlugin`](records.md) | `records` | 0.13.0 | 记录处理 | - |
-| [`RecordsAsymmetryMaskPlugin`](records_asymmetry_mask.md) | `records_asymmetry_mask` | 0.1.0 | 记录处理 | records, wave_pool |
+| [`RecordsAsymmetryMaskPlugin`](records_asymmetry_mask.md) | `records_asymmetry_mask` | 0.2.0 | 记录处理 | records, wave_pool |
+| [`RecordsDetectorMaskPlugin`](records_detector_mask.md) | `records_detector_mask` | 0.1.0 | 记录处理 | records, records_asymmetry_mask |
+| [`RecordsVetoMaskPlugin`](records_veto_mask.md) | `records_veto_mask` | 0.1.0 | 记录处理 | records, records_asymmetry_mask |
 | [`S1S2ClassifierPlugin`](s1_s2.md) | `s1_s2` | 0.4.0 | 其他 | waveform_width, basic_features |
 | [`WaveformsPlugin`](st_waveforms.md) | `st_waveforms` | 0.10.0 | 波形处理 | - |
 | [`WavePoolPlugin`](wave_pool.md) | `wave_pool` | 0.13.0 | 波形处理 | - |
@@ -243,6 +245,8 @@ raw_files ──► records ──► df ──► df_events
 |------|------|------|
 | [`records`](records.md) | Build records (event index table) from the shared internal r... | - |
 | [`records_asymmetry_mask`](records_asymmetry_mask.md) | Bool mask for waveform asymmetry selection. | records, wave_pool |
+| [`records_detector_mask`](records_detector_mask.md) | Bool mask for detector-channel records after channel-role sp... | records, records_asymmetry_mask |
+| [`records_veto_mask`](records_veto_mask.md) | Bool mask for veto-channel records after channel-role splitt... | records, records_asymmetry_mask |
 
 ### 其他
 
