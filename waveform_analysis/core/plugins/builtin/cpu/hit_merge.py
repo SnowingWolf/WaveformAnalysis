@@ -25,6 +25,8 @@ from waveform_analysis.core.plugins.core.batch_processing import BatchProcessing
 HIT_MERGED_DTYPE = np.dtype(
     [
         ("position", "i8"),
+        ("time_start", "i8"),
+        ("time_end", "i8"),
         ("sample_start", "i4"),
         ("sample_end", "i4"),
         ("width", "f4"),
@@ -35,6 +37,7 @@ HIT_MERGED_DTYPE = np.dtype(
         ("record_id", "i8"),
         ("component_offset", "i8"),
         ("component_count", "i4"),
+        ("is_single_record", "?"),
     ]
 )
 
@@ -462,6 +465,18 @@ def _hits_to_merged_fast(hits: np.ndarray, explicit_dt: int | None, plugin_name:
     out["record_id"] = hits["record_id"]
     out["component_offset"] = np.arange(len(hits), dtype=np.int64)
     out["component_count"] = 1
+    out["is_single_record"] = True
+
+    # 计算绝对时间
+    positions = out["position"]
+    timestamps = out["timestamp"]
+    sample_starts = out["sample_start"]
+    sample_ends = out["sample_end"]
+    dt_ps = dt_values.astype(np.int64) * 1000
+
+    out["time_start"] = timestamps + (sample_starts - positions) * dt_ps
+    out["time_end"] = timestamps + (sample_ends - positions) * dt_ps
+
     return out
 
 
@@ -539,6 +554,7 @@ def _build_merged_from_cluster_rows(
         merged["record_id"][single_out] = hits["record_id"][single_hit_idx]
         merged["component_offset"][single_out] = starts[single_out]
         merged["component_count"][single_out] = 1
+        merged["is_single_record"][single_out] = True
         if "dt" in hits.dtype.names:
             merged["dt"][single_out] = hits["dt"][single_hit_idx]
         else:
@@ -547,6 +563,10 @@ def _build_merged_from_cluster_rows(
             merged["board"][single_out] = hits["board"][single_hit_idx]
         else:
             merged["board"][single_out] = 0
+
+        # 计算绝对时间（单 hit 情况）
+        merged["time_start"][single_out] = enriched.abs_start_ps[single_hit_idx]
+        merged["time_end"][single_out] = enriched.abs_end_ps[single_hit_idx]
 
     for out_idx in np.flatnonzero(counts != 1):
         start = int(starts[out_idx])
@@ -564,8 +584,11 @@ def _build_merged_from_cluster_rows(
         anchor_idx = int(hit_indices[anchor_local])
 
         merged["position"][out_idx] = hits["position"][anchor_idx]
+        merged["time_start"][out_idx] = cluster_start_ps
+        merged["time_end"][out_idx] = cluster_end_ps
         merged["sample_start"][out_idx] = sample_start
         merged["sample_end"][out_idx] = sample_end
+        merged["is_single_record"][out_idx] = sample_start >= 0 and sample_end >= 0
         if sample_start < 0 or sample_end < 0:
             merged["width"][out_idx] = -1.0
         else:
@@ -593,7 +616,7 @@ class HitMergePlugin(BatchProcessingPlugin):
     provides = "hit_merged"
     depends_on = ["hit_threshold"]
     description = "Merge nearby threshold hits per channel with time-gap and max-width constraints."
-    version = "1.2.0"
+    version = "2.0.0"
     save_when = "always"
     output_dtype = HIT_MERGED_DTYPE
     agent_doc = {
@@ -606,8 +629,10 @@ class HitMergePlugin(BatchProcessingPlugin):
         ],
         "field_notes": {
             "position": "Anchor hit position; for multi-hit clusters this is the hit closest to the merged window midpoint.",
-            "sample_start": "Merged sample window start when all components belong to one record; `-1` when the direct sample window cannot be represented.",
-            "sample_end": "Merged sample window end when all components belong to one record; `-1` when the direct sample window cannot be represented.",
+            "time_start": "Absolute start time (ps) of the merged window; always valid regardless of whether components span records.",
+            "time_end": "Absolute end time (ps) of the merged window; always valid regardless of whether components span records.",
+            "sample_start": "Merged sample window start when all components belong to one record; `-1` when the cluster spans records.",
+            "sample_end": "Merged sample window end when all components belong to one record; `-1` when the cluster spans records.",
             "width": "Merged sample-window width; `-1.0` when the cluster spans records or otherwise cannot resolve a direct sample window.",
             "dt": "Resolved sampling interval from the anchor hit or compatible `dt` configuration fallback.",
             "timestamp": "Anchor hit timestamp; for multi-hit clusters this follows the same anchor rule as `position`.",
@@ -616,6 +641,7 @@ class HitMergePlugin(BatchProcessingPlugin):
             "record_id": "Anchor hit record id, not necessarily a shared record id for every component.",
             "component_offset": "Start row in `hit_merge_clusters` for this cluster's contiguous membership rows.",
             "component_count": "Number of contiguous `hit_merge_clusters` membership rows for this cluster.",
+            "is_single_record": "True when all component hits belong to the same record (fast path available); False when spanning records.",
         },
         "config_notes": {
             "merge_gap_ns": "Maximum boundary gap in ns; values `<= 0` disable merging.",

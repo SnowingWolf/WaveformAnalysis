@@ -92,6 +92,10 @@ def test_hit_merge_same_channel_across_records_marks_direct_window_invalid():
     assert int(out[0]["sample_start"]) == -1
     assert int(out[0]["sample_end"]) == -1
     assert float(out[0]["width"]) == -1.0
+    # 新增：验证新字段
+    assert not out[0]["is_single_record"]
+    assert int(out[0]["time_start"]) == 96000  # min(96000, 106000)
+    assert int(out[0]["time_end"]) == 112000  # max(104000, 112000)
 
 
 def test_hit_merge_single_record_merges_direct_record_window():
@@ -111,6 +115,10 @@ def test_hit_merge_single_record_merges_direct_record_window():
     assert int(out[0]["sample_start"]) == 8
     assert int(out[0]["sample_end"]) == 16
     assert float(out[0]["width"]) == 8.0
+    # 新增：验证新字段
+    assert out[0]["is_single_record"]
+    assert int(out[0]["time_start"]) == 96000
+    assert int(out[0]["time_end"]) == 112000
 
 
 def test_hit_merge_not_across_channels():
