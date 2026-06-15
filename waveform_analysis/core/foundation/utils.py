@@ -15,7 +15,7 @@ from collections import defaultdict
 import contextlib
 from dataclasses import dataclass, field
 import time
-from typing import Any, Dict, List, Optional, Tuple, TypeVar
+from typing import Any, TypeVar
 
 # =============================================================================
 # Exporter - 模块 API 导出管理
@@ -25,7 +25,7 @@ T = TypeVar("T")
 _EXPORT_SENTINEL = object()
 
 
-def exporter(export_self: bool = False) -> Tuple[Any, List[str]]:
+def exporter(export_self: bool = False) -> tuple[Any, list[str]]:
     """
     创建一个模块 API 导出管理器，类似 strax.exporter()。
 
@@ -54,12 +54,12 @@ def exporter(export_self: bool = False) -> Tuple[Any, List[str]]:
     Returns:
         (export, __all__) 元组
     """
-    __all__: List[str] = []
+    __all__: list[str] = []
 
     if export_self:
         __all__.append("exporter")
 
-    def export(obj: Any = _EXPORT_SENTINEL, name: Optional[str] = None) -> Any:
+    def export(obj: Any = _EXPORT_SENTINEL, name: str | None = None) -> Any:
         """
         导出对象。支持作为装饰器、带参数的装饰器或普通函数使用。
         """
@@ -127,7 +127,7 @@ class Profiler:
             self.durations[key] += time.perf_counter() - start
             self.counts[key] += 1
 
-    def profile(self, key: Optional[str] = None):
+    def profile(self, key: str | None = None):
         """
         函数装饰器，自动记录被装饰函数的执行时间。
 
@@ -222,7 +222,7 @@ class LineageStyle:
     header_bg: str = "#dcdde1"
     text_color: str = "#2f3640"
 
-    type_colors: Dict[str, str] = field(
+    type_colors: dict[str, str] = field(
         default_factory=lambda: {
             "List[List[str]]": "#e84393",
             "List[np.ndarray]": "#f1c40f",
@@ -244,7 +244,7 @@ class LineageStyle:
     layout_reorder: bool = True
     layout_iterations: int = 3
     auto_fit_text: bool = True
-    wire_style_by_category: Dict[str, Dict[str, Any]] = field(
+    wire_style_by_category: dict[str, dict[str, Any]] = field(
         default_factory=lambda: {
             "dataframe": {
                 "color": "#546a7b",
@@ -268,8 +268,8 @@ class LineageStyle:
             },
         }
     )
-    wire_style_overrides: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    port_groups: Dict[str, Dict[str, List[List[str]]]] = field(default_factory=dict)
+    wire_style_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
+    port_groups: dict[str, dict[str, list[list[str]]]] = field(default_factory=dict)
     arrow_mutation_scale: float = 12
     wire_alpha: float = 0.95
     verbose: int = 1
@@ -311,7 +311,7 @@ class OneTimeGenerator:
         yield from self.generator
 
 
-def get_plugins_from_context(ctx: Any) -> Dict[str, Any]:
+def get_plugins_from_context(ctx: Any) -> dict[str, Any]:
     """
     从 Context 对象中提取插件字典。
 
@@ -334,7 +334,7 @@ def get_plugins_from_context(ctx: Any) -> Dict[str, Any]:
     return getattr(ctx, "_plugins", getattr(ctx, "plugins", {}))
 
 
-def get_plugin_dtypes(name: str, plugins: Dict[str, Any]) -> Tuple[str, str]:
+def get_plugin_dtypes(name: str, plugins: dict[str, Any]) -> tuple[str, str]:
     """
     获取插件的输入与输出数据类型信息。
 
@@ -387,7 +387,7 @@ def get_plugin_dtypes(name: str, plugins: Dict[str, Any]) -> Tuple[str, str]:
     return in_dtype, out_dtype
 
 
-def get_plugin_title(name: str, info: Dict[str, Any], plugins: Dict[str, Any]) -> str:
+def get_plugin_title(name: str, info: dict[str, Any], plugins: dict[str, Any]) -> str:
     """
     获取插件的显示标题。
 

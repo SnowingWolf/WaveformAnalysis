@@ -10,7 +10,7 @@
 
 import logging
 import os
-from typing import Any, Dict, Literal
+from typing import Any, Literal
 import warnings
 
 from waveform_analysis.core.foundation.utils import exporter
@@ -51,13 +51,13 @@ class IntegrityChecker:
         """
         self._available_algorithms = self._detect_available_algorithms()
 
-    def _detect_available_algorithms(self) -> Dict[str, bool]:
+    def _detect_available_algorithms(self) -> dict[str, bool]:
         """检测可用的哈希算法"""
         available = {}
 
         # Check xxhash
         try:
-            import xxhash
+            import xxhash  # noqa: F401
 
             available["xxhash64"] = True
             available["xxhash32"] = True
@@ -180,7 +180,7 @@ class IntegrityChecker:
 
     def scan_directory(
         self, directory: str, algorithm: str = "xxhash64", pattern: str = "*.bin"
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> dict[str, dict[str, Any]]:
         """
         扫描目录中的所有文件并计算checksum
 

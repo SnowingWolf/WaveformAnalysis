@@ -110,7 +110,7 @@ def _build_component_slices(component_rows: np.ndarray, n_merged: int):
     return hits_sorted, starts, ends
 
 
-@nb.njit(cache=True, fastmath=True)
+@nb.njit(cache=True, fastmath=True, parallel=True, nogil=True)
 def _features_fast_kernel(
     wave_pool,
     rec_indices,
@@ -130,6 +130,7 @@ def _features_fast_kernel(
     - 使用 max() 替代 if 分支（Numba 优化为无分支 SIMD 指令）
     - 优化 baseline 减法顺序
     - fastmath=True: 激进浮点优化
+    - parallel=True: 启用多线程并行
     """
     n = len(rec_indices)
 
@@ -145,7 +146,7 @@ def _features_fast_kernel(
     fall_time = np.zeros(n, dtype=np.float32)
     valid = np.zeros(n, dtype=np.int8)
 
-    for i in range(n):
+    for i in nb.prange(n):
         rec_i = rec_indices[i]
 
         start = merged_sample_start[i]

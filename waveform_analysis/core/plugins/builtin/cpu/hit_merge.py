@@ -371,11 +371,14 @@ def _compute_cluster_rows(
         dts = enriched.dt_ps[order]
         sorted_source_indices = enriched.source_indices[order]
 
-        if _NUMBA_AVAILABLE and len(abs_starts) > 200:
+        if _NUMBA_AVAILABLE and len(abs_starts) > 50:
             cluster_starts, cluster_ends = _merge_clusters_numba(
                 abs_starts, abs_ends, dts, merge_gap_ps, max_total_width_ps
             )
         else:
+            # Numba 不可用时直接报错
+            if not _NUMBA_AVAILABLE:
+                raise RuntimeError("Numba is required for hit merging")
             cluster_starts, cluster_ends = _cluster_bounds_python(
                 abs_starts, abs_ends, dts, merge_gap_ps, max_total_width_ps
             )

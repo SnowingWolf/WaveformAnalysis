@@ -32,7 +32,6 @@ Examples:
 from collections.abc import Callable, Iterator
 import logging
 from pathlib import Path
-from typing import Optional, Union
 
 import numpy as np
 import pandas as pd

@@ -13,7 +13,7 @@
 """
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -47,12 +47,12 @@ class ConfigField:
     type: str = "any"
     default: Any = None
     doc: str = ""
-    units: Optional[str] = None
+    units: str | None = None
     track: bool = True
-    deprecated: Optional[str] = None
-    alias_of: Optional[str] = None
+    deprecated: str | None = None
+    alias_of: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为可序列化的字典"""
         return {
             "type": self.type,
@@ -99,7 +99,7 @@ class FieldSpec:
 
     name: str
     dtype: str
-    units: Optional[str] = None
+    units: str | None = None
     doc: str = ""
     required: bool = True
 
@@ -118,12 +118,12 @@ class OutputSchema:
         doc: schema 说明
     """
 
-    fields: Tuple[FieldSpec, ...] = ()
-    dtype: Optional[str] = None
+    fields: tuple[FieldSpec, ...] = ()
+    dtype: str | None = None
     kind: str = "structured_array"
     doc: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为可序列化的字典"""
         return {
             "fields": [
@@ -195,8 +195,8 @@ class InputRequirement:
     """
 
     name: str
-    version_spec: Optional[str] = None
-    required_fields: Tuple[str, ...] = ()
+    version_spec: str | None = None
+    required_fields: tuple[str, ...] = ()
     doc: str = ""
 
 
@@ -221,9 +221,9 @@ class Capabilities:
     supports_gpu: bool = False
     idempotent: bool = True
     deterministic: bool = True
-    time_field: Optional[str] = None
+    time_field: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为可序列化的字典"""
         return {
             "supports_streaming": self.supports_streaming,
@@ -279,20 +279,20 @@ class PluginSpec:
     name: str
     provides: str
     version: str
-    depends_on: Tuple[InputRequirement, ...] = ()
-    output_schema: Optional[OutputSchema] = None
-    config_spec: Dict[str, ConfigField] = field(default_factory=dict)
+    depends_on: tuple[InputRequirement, ...] = ()
+    output_schema: OutputSchema | None = None
+    config_spec: dict[str, ConfigField] = field(default_factory=dict)
     capabilities: Capabilities = field(default_factory=Capabilities)
     description: str = ""
-    deprecated: Optional[str] = None
-    superseded_by: Optional[str] = None
+    deprecated: str | None = None
+    superseded_by: str | None = None
 
     @property
-    def config_keys(self) -> Tuple[str, ...]:
+    def config_keys(self) -> tuple[str, ...]:
         """向后兼容：返回配置键列表"""
         return tuple(self.config_spec.keys())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为可序列化的字典（用于 lineage hash）"""
         return {
             "name": self.name,
@@ -314,7 +314,7 @@ class PluginSpec:
             "superseded_by": self.superseded_by,
         }
 
-    def validate(self) -> List[str]:
+    def validate(self) -> list[str]:
         """校验 spec 完整性
 
         Returns:

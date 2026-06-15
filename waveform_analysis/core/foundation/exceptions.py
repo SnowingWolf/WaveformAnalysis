@@ -6,7 +6,7 @@ Exceptions 模块 - 异常处理基础类和工具。
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class ErrorSeverity(Enum):
@@ -24,10 +24,10 @@ class ErrorContext:
     run_id: str
     plugin_name: str
     plugin_class: str
-    config: Dict[str, Any]
+    config: dict[str, Any]
     timestamp: str
-    dependencies_info: Dict[str, Any]
-    memory_mb: Optional[float] = None
+    dependencies_info: dict[str, Any]
+    memory_mb: float | None = None
 
 
 class PluginError(Exception):
@@ -42,7 +42,7 @@ class PluginError(Exception):
         severity: ErrorSeverity = ErrorSeverity.FATAL,
         recoverable: bool = False,
         retry_count: int = 0,
-        context: Optional[ErrorContext] = None,
+        context: ErrorContext | None = None,
     ):
         """
         初始化插件异常
@@ -70,7 +70,7 @@ class PluginTimeoutError(PluginError):
     def __init__(
         self,
         message: str,
-        context: Optional[ErrorContext] = None,
+        context: ErrorContext | None = None,
     ):
         """
         初始化插件超时异常

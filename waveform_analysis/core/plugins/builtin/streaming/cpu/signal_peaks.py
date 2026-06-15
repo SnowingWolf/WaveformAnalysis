@@ -7,7 +7,7 @@ CPU Streaming Signal Peaks Plugin.
 
 from collections.abc import Iterator
 import logging
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 from scipy.signal import find_peaks

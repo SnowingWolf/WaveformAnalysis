@@ -8,11 +8,12 @@
 - 超时事件日志记录
 """
 
+from collections.abc import Callable
 from contextlib import contextmanager
 import logging
 import platform
 import time
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 import warnings
 
 from waveform_analysis.core.foundation.exceptions import PluginTimeoutError
@@ -55,9 +56,9 @@ class TimeoutManager:
             _timeout_stats: 超时统计字典，记录各函数的超时次数
         """
         self.is_unix = platform.system() in ["Linux", "Darwin"]
-        self._timeout_stats: Dict[str, int] = {}
+        self._timeout_stats: dict[str, int] = {}
 
-    def run_with_timeout(self, func: Callable, timeout: Optional[float], *args, **kwargs) -> Any:
+    def run_with_timeout(self, func: Callable, timeout: float | None, *args, **kwargs) -> Any:
         """
         执行函数with超时控制
 
@@ -146,7 +147,7 @@ class TimeoutManager:
         return result[0]
 
     @contextmanager
-    def timeout_context(self, timeout: Optional[float], name: str = "operation"):
+    def timeout_context(self, timeout: float | None, name: str = "operation"):
         """
         Context manager for timeout control
 
@@ -189,7 +190,7 @@ class TimeoutManager:
                 signal.alarm(0)
                 signal.signal(signal.SIGALRM, old_handler)
 
-    def get_timeout_stats(self) -> Dict[str, int]:
+    def get_timeout_stats(self) -> dict[str, int]:
         """获取超时统计信息"""
         return self._timeout_stats.copy()
 
@@ -220,7 +221,7 @@ def get_timeout_manager() -> TimeoutManager:
 
 
 @export
-def with_timeout(timeout: Optional[float] = None):
+def with_timeout(timeout: float | None = None):
     """
     装饰器:为函数添加超时控制
 

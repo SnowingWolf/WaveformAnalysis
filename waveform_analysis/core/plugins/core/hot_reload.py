@@ -15,7 +15,7 @@ import os
 from pathlib import Path
 import sys
 import time
-from typing import Any, Dict, List, Optional, Type
+from typing import Any
 
 from waveform_analysis.core.foundation.utils import exporter
 from waveform_analysis.core.plugins.core.base import Plugin
@@ -50,7 +50,7 @@ class PluginHotReloader:
             context: Context对象
         """
         self.context = context
-        self.watched_plugins: Dict[str, Dict[str, Any]] = (
+        self.watched_plugins: dict[str, dict[str, Any]] = (
             {}
         )  # {plugin_name: {path, mtime, hash, ...}}
         self.auto_reload_enabled = False
@@ -59,8 +59,8 @@ class PluginHotReloader:
     def watch_plugin(
         self,
         plugin_name: str,
-        plugin_path: Optional[str] = None,
-        plugin_class: Optional[Type[Plugin]] = None,
+        plugin_path: str | None = None,
+        plugin_class: type[Plugin] | None = None,
     ):
         """
         添加插件到监控列表
@@ -96,7 +96,7 @@ class PluginHotReloader:
         else:
             self.logger.warning(f"Plugin path not found: {plugin_path}")
 
-    def check_updates(self) -> List[str]:
+    def check_updates(self) -> list[str]:
         """
         检查插件是否有更新
 
@@ -249,7 +249,7 @@ class PluginHotReloader:
 @export
 def enable_hot_reload(
     context: Any,
-    plugin_names: Optional[List[str]] = None,
+    plugin_names: list[str] | None = None,
     auto_reload: bool = True,
     interval: float = 2.0,
 ) -> PluginHotReloader:

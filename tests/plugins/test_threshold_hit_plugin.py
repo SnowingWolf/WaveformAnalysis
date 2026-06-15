@@ -16,7 +16,6 @@ from waveform_analysis.core.plugins.builtin.cpu.records_asymmetry import (
 from waveform_analysis.core.processing.dtypes import create_record_dtype
 from waveform_analysis.core.processing.records_builder import (
     RECORDS_DTYPE,
-    RecordsBundle,
     build_records_from_st_waveforms,
 )
 

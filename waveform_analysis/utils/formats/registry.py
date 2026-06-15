@@ -9,8 +9,6 @@ Examples:
     >>> data = reader.read_file("data.csv")
 """
 
-from typing import Dict, List, Optional, Type
-
 from waveform_analysis.core.foundation.utils import exporter
 
 from .base import FormatReader, FormatSpec
@@ -18,15 +16,15 @@ from .base import FormatReader, FormatSpec
 export, __all__ = exporter()
 
 # 格式读取器注册表
-_FORMAT_REGISTRY: Dict[str, Type[FormatReader]] = {}
+_FORMAT_REGISTRY: dict[str, type[FormatReader]] = {}
 
 # 格式规范注册表
-_FORMAT_SPECS: Dict[str, FormatSpec] = {}
+_FORMAT_SPECS: dict[str, FormatSpec] = {}
 
 
 @export
 def register_format(
-    name: str, reader_class: Type[FormatReader], spec: Optional[FormatSpec] = None
+    name: str, reader_class: type[FormatReader], spec: FormatSpec | None = None
 ) -> None:
     """注册一个格式读取器
 
@@ -74,7 +72,7 @@ def get_format_reader(name: str, **kwargs) -> FormatReader:
 
 
 @export
-def get_format_spec(name: str) -> Optional[FormatSpec]:
+def get_format_spec(name: str) -> FormatSpec | None:
     """获取格式规范
 
     Args:
@@ -87,7 +85,7 @@ def get_format_spec(name: str) -> Optional[FormatSpec]:
 
 
 @export
-def list_formats() -> List[str]:
+def list_formats() -> list[str]:
     """列出所有已注册的格式
 
     Returns:

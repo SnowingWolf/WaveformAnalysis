@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 
 from tests.utils import DummyContext
 from waveform_analysis.core.plugins.builtin.cpu.records_asymmetry import RecordsAsymmetryMaskPlugin

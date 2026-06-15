@@ -141,7 +141,7 @@ plot_lineage_labview(
 """
 
 import textwrap
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from matplotlib.patches import Circle, FancyArrowPatch, Rectangle
 import matplotlib.pyplot as plt
@@ -223,7 +223,7 @@ def _build_node_boxes(
     model: LineageGraphModel,
     pos: dict,
     style: LineageStyle,
-) -> List[dict]:
+) -> list[dict]:
     """Create node bounding boxes used for simple wire obstacle avoidance."""
     margin = max(0.2, style.port_size * 2)
     boxes = []
@@ -259,7 +259,7 @@ def _segment_intersects_box(p1: tuple, p2: tuple, box: dict) -> bool:
     return False
 
 
-def _path_intersects_boxes(path: List[tuple], boxes: List[dict], skip_ids: set) -> bool:
+def _path_intersects_boxes(path: list[tuple], boxes: list[dict], skip_ids: set) -> bool:
     for i in range(len(path) - 1):
         p1 = path[i]
         p2 = path[i + 1]
@@ -271,7 +271,7 @@ def _path_intersects_boxes(path: List[tuple], boxes: List[dict], skip_ids: set) 
     return False
 
 
-def _layer_positions(nodes_by_depth: Dict[int, List[str]], y_gap: float) -> Dict[str, float]:
+def _layer_positions(nodes_by_depth: dict[int, list[str]], y_gap: float) -> dict[str, float]:
     node_y = {}
     for _depth, layer in nodes_by_depth.items():
         for idx, node_id in enumerate(layer):
@@ -286,7 +286,7 @@ def _layout_nodes_source_to_target(
 ) -> dict:
     """Place lineage sources on the left and downstream targets on the right."""
     pos = {}
-    nodes_by_depth: Dict[int, List[str]] = {}
+    nodes_by_depth: dict[int, list[str]] = {}
     for node_id, node in model.nodes.items():
         nodes_by_depth.setdefault(node.depth, []).append(node_id)
 
@@ -344,9 +344,9 @@ def _layout_view_metrics(pos: dict, style: LineageStyle) -> dict:
     }
 
 
-def _build_adjacency(edges: List[Any]) -> tuple:
-    upstream_map: Dict[str, List[str]] = {}
-    downstream_map: Dict[str, List[str]] = {}
+def _build_adjacency(edges: list[Any]) -> tuple:
+    upstream_map: dict[str, list[str]] = {}
+    downstream_map: dict[str, list[str]] = {}
     for edge in edges:
         downstream_map.setdefault(edge.source_node_id, []).append(edge.target_node_id)
         upstream_map.setdefault(edge.target_node_id, []).append(edge.source_node_id)
@@ -354,10 +354,10 @@ def _build_adjacency(edges: List[Any]) -> tuple:
 
 
 def _order_layer(
-    layer: List[str],
-    neighbors: Dict[str, List[str]],
-    node_y: Dict[str, float],
-) -> List[str]:
+    layer: list[str],
+    neighbors: dict[str, list[str]],
+    node_y: dict[str, float],
+) -> list[str]:
     if len(layer) <= 1:
         return layer
 
@@ -374,11 +374,11 @@ def _order_layer(
 
 
 def _reorder_layers(
-    nodes_by_depth: Dict[int, List[str]],
-    edges: List[Any],
+    nodes_by_depth: dict[int, list[str]],
+    edges: list[Any],
     y_gap: float,
     iterations: int,
-) -> Dict[int, List[str]]:
+) -> dict[int, list[str]]:
     layers = {depth: list(layer) for depth, layer in nodes_by_depth.items()}
     if not layers:
         return layers
@@ -401,12 +401,12 @@ def _reorder_layers(
 
 def _order_ports(
     node: NodeModel,
-    ports: List[PortModel],
-    edges: List[Any],
+    ports: list[PortModel],
+    edges: list[Any],
     pos: dict,
     style: LineageStyle,
     direction: str,
-) -> List[PortModel]:
+) -> list[PortModel]:
     if len(ports) <= 1:
         return ports
 
@@ -472,7 +472,7 @@ def _route_edge_path(
     p1: tuple,
     p2: tuple,
     edge: Any,
-    boxes: List[dict],
+    boxes: list[dict],
     style: LineageStyle,
 ) -> tuple:
     """Return a Manhattan path and label position that avoids node boxes when possible."""
@@ -577,14 +577,14 @@ def _resolve_wire_style(edge: Any, style: LineageStyle) -> dict:
     return {"color": color, "width": width, "alpha": alpha, "dash": dash}
 
 
-def _mpl_dash(dash: Optional[str]) -> str:
+def _mpl_dash(dash: str | None) -> str:
     if not dash or dash == "solid":
         return "solid"
     mapping = {"dash": "dashed", "dot": "dotted", "dashdot": "dashdot"}
     return mapping.get(dash, dash)
 
 
-def _wrap_text_lines(text: str, max_width: int, max_lines: Optional[int] = None) -> List[str]:
+def _wrap_text_lines(text: str, max_width: int, max_lines: int | None = None) -> list[str]:
     lines = textwrap.wrap(text, width=max_width, break_long_words=False)
     if max_lines is None or max_lines <= 0 or len(lines) <= max_lines:
         return lines
@@ -642,8 +642,8 @@ def plot_lineage_labview(
     lineage: Any,
     target_name: str,
     context: Any = None,
-    style: Optional[LineageStyle] = None,
-    save_path: Optional[str] = None,
+    style: LineageStyle | None = None,
+    save_path: str | None = None,
     data_wires: bool = False,
     interactive: bool = False,
     analysis_result: Any = None,  # DependencyAnalysisResult
@@ -720,7 +720,7 @@ def plot_lineage_labview(
     fig, ax = plt.subplots(figsize=view["mpl_figsize"])
     node_boxes = _build_node_boxes(model, pos, s)
 
-    def draw_wire(path: List[tuple], wire_style: dict) -> None:
+    def draw_wire(path: list[tuple], wire_style: dict) -> None:
         line_x = [point[0] for point in path]
         line_y = [point[1] for point in path]
         linestyle = _mpl_dash(wire_style.get("dash"))
@@ -775,7 +775,7 @@ def plot_lineage_labview(
         if node_id.startswith("IN::") or node_id.startswith("OUT::"):
             # 绘制端口
             # 我们需要找到对应的 PortModel
-            port: Optional[PortModel] = None
+            port: PortModel | None = None
             # 简单起见，从模型中查找
             for n in model.nodes.values():
                 for p in n.in_ports + n.out_ports:
@@ -1228,8 +1228,8 @@ def plot_lineage_plotly(
     lineage: Any,
     target_name: str,
     context: Any = None,
-    style: Optional[LineageStyle] = None,
-    save_path: Optional[str] = None,
+    style: LineageStyle | None = None,
+    save_path: str | None = None,
     data_wires: bool = False,
     interactive: bool = True,
     **kwargs,
@@ -1353,7 +1353,7 @@ def plot_lineage_plotly(
     for node_id, (x, y) in pos.items():
         if node_id.startswith(("IN::", "OUT::")):
             # 端口 - 绘制为小方块
-            port: Optional[PortModel] = None
+            port: PortModel | None = None
             for n in model.nodes.values():
                 for p in n.in_ports + n.out_ports:
                     if p.id == node_id:

@@ -8,7 +8,7 @@ Uses minimal fake DAQ data fixtures to test the complete pipeline.
 """
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import pytest
@@ -185,7 +185,7 @@ class TestGoldenPathWithBuiltinPlugins:
     """Test golden path with actual builtin plugins (if available)."""
 
     @pytest.fixture
-    def minimal_daq_structure(self, temp_storage_dir) -> Dict[str, Any]:
+    def minimal_daq_structure(self, temp_storage_dir) -> dict[str, Any]:
         """Create minimal DAQ directory structure."""
         run_name = "golden_test_run"
         run_dir = temp_storage_dir / run_name

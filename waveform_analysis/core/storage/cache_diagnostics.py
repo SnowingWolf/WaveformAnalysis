@@ -8,7 +8,7 @@
 from dataclasses import dataclass, field
 from enum import Enum
 import os
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from ..foundation.utils import exporter
 from .cache_analyzer import CacheAnalyzer, CacheEntry
@@ -54,12 +54,12 @@ class DiagnosticIssue:
     issue_type: DiagnosticIssueType
     severity: str  # 'error', 'warning', 'info'
     run_id: str
-    data_name: Optional[str]
+    data_name: str | None
     key: str
     description: str
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
     fixable: bool = False
-    fix_action: Optional[str] = None
+    fix_action: str | None = None
 
     def __str__(self) -> str:
         severity_icon = {"error": "❌", "warning": "⚠️", "info": "ℹ️"}.get(self.severity, "?")
@@ -107,14 +107,14 @@ class CacheDiagnostics:
 
     def diagnose(
         self,
-        run_id: Optional[str] = None,
+        run_id: str | None = None,
         check_integrity: bool = True,
         check_orphans: bool = True,
         check_versions: bool = True,
         verbose: bool = True,
         parallel: bool = True,
-        max_workers: Optional[int] = None,
-    ) -> List[DiagnosticIssue]:
+        max_workers: int | None = None,
+    ) -> list[DiagnosticIssue]:
         """执行完整诊断
 
         Args:
@@ -129,7 +129,7 @@ class CacheDiagnostics:
         Returns:
             诊断问题列表
         """
-        issues: List[DiagnosticIssue] = []
+        issues: list[DiagnosticIssue] = []
 
         if verbose:
             print("[CacheDiagnostics] 开始诊断...")
@@ -144,7 +144,7 @@ class CacheDiagnostics:
         if parallel and len(entries) > 10:
             from ..execution.manager import parallel_map
 
-            def check_entry(entry: CacheEntry) -> List[DiagnosticIssue]:
+            def check_entry(entry: CacheEntry) -> list[DiagnosticIssue]:
                 entry_issues = []
                 # 版本检查
                 if check_versions:
@@ -200,7 +200,7 @@ class CacheDiagnostics:
 
         return issues
 
-    def check_version_mismatch(self, entry: CacheEntry) -> Optional[DiagnosticIssue]:
+    def check_version_mismatch(self, entry: CacheEntry) -> DiagnosticIssue | None:
         """检查插件版本不匹配
 
         Args:
@@ -234,7 +234,7 @@ class CacheDiagnostics:
 
         return None
 
-    def check_integrity(self, entry: CacheEntry) -> List[DiagnosticIssue]:
+    def check_integrity(self, entry: CacheEntry) -> list[DiagnosticIssue]:
         """检查单个条目的完整性
 
         Args:
@@ -314,7 +314,7 @@ class CacheDiagnostics:
 
         return issues
 
-    def _verify_checksum(self, entry: CacheEntry) -> Optional[DiagnosticIssue]:
+    def _verify_checksum(self, entry: CacheEntry) -> DiagnosticIssue | None:
         """验证校验和
 
         Args:
@@ -364,7 +364,7 @@ class CacheDiagnostics:
 
         return None
 
-    def find_orphan_files(self, run_id: str) -> List[DiagnosticIssue]:
+    def find_orphan_files(self, run_id: str) -> list[DiagnosticIssue]:
         """查找孤儿文件（有数据文件但无元数据）
 
         Args:
@@ -432,7 +432,7 @@ class CacheDiagnostics:
         return issues
 
     def print_report(
-        self, issues: List[DiagnosticIssue], group_by: str = "severity", show_fixable: bool = True
+        self, issues: list[DiagnosticIssue], group_by: str = "severity", show_fixable: bool = True
     ):
         """打印诊断报告
 
@@ -501,10 +501,10 @@ class CacheDiagnostics:
 
     def auto_fix(
         self,
-        issues: List[DiagnosticIssue],
+        issues: list[DiagnosticIssue],
         dry_run: bool = True,
-        fix_types: Optional[List[DiagnosticIssueType]] = None,
-    ) -> Dict[str, Any]:
+        fix_types: list[DiagnosticIssueType] | None = None,
+    ) -> dict[str, Any]:
         """自动修复问题
 
         Args:

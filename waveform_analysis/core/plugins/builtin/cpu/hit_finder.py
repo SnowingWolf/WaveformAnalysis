@@ -39,7 +39,7 @@ from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
 from waveform_analysis.core.plugins.builtin.cpu.peak_finding import (
     HitFinderPlugin as _CanonicalHitFinderPlugin,
 )
-from waveform_analysis.core.plugins.core.base import Option, Plugin
+from waveform_analysis.core.plugins.core.base import Option
 from waveform_analysis.core.plugins.core.batch_processing import BatchProcessingPlugin
 from waveform_analysis.core.processing.chunk import Chunk
 

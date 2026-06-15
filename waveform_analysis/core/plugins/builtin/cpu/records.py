@@ -4,7 +4,7 @@ Records/wave_pool plugins backed by an internal shared RecordsBundle cache.
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -26,7 +26,6 @@ from waveform_analysis.core.processing.records_builder import (
     build_records_from_raw_files,
     build_records_from_v1725_files,
 )
-import waveform_analysis.utils.formats
 
 _BUNDLE_CACHE_NAME = "_records_bundle"
 

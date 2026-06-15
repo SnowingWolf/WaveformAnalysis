@@ -13,9 +13,8 @@ Context 模块 - 插件系统的核心调度器。
 from collections import deque
 from collections.abc import Callable, Iterator
 import copy
-from datetime import datetime, timezone
+from datetime import datetime
 import functools
-import hashlib
 import importlib
 import inspect
 import json
@@ -23,12 +22,11 @@ import logging
 import os
 import re
 import threading
-from typing import Any, Optional, Union, cast
+from typing import Any
 import warnings
 
 # 2. Third-party imports
 import numpy as np
-import pandas as pd
 
 # 3. Local imports (使用相对导入)
 from ..utils.visualization.lineage_visualizer import (
@@ -39,7 +37,6 @@ from .config import (
     AdapterInfo,
     CompatManager,
     ConfigResolver,
-    ConfigSource,
     ConfigValue,
     ResolvedConfig,
     get_adapter_info,
@@ -50,7 +47,6 @@ from .context_execution import ContextExecutionDomain
 from .context_time import ContextTimeDomain
 from .execution.validation import ValidationManager
 from .foundation.error import ErrorManager
-from .foundation.exceptions import ErrorSeverity
 from .foundation.mixins import PluginMixin
 from .foundation.utils import OneTimeGenerator, Profiler
 from .hardware.channel import HardwareChannel
@@ -370,6 +366,8 @@ class Context(PluginMixin):
         # Re-entrancy guard: track (run_id, data_name) currently being computed
         self._in_progress: dict[tuple, Any] = {}
         self._in_progress_lock = threading.Lock()  # Protect concurrent access
+        # Thread-safe data access lock
+        self._data_lock = threading.Lock()
         # Cache of validated configs per plugin signature
         self._resolved_config_cache: dict[tuple, dict[str, Any]] = {}
 
@@ -1157,33 +1155,36 @@ class Context(PluginMixin):
 
     def _set_data(self, run_id: str, name: str, value: Any):
         """Internal helper to set data in _results and optionally as attribute."""
-        self._results[(run_id, name)] = value
+        with self._data_lock:
+            self._results[(run_id, name)] = value
 
-        # Record lineage hash for config change detection
-        if name in self._plugins:
-            key = self.key_for(run_id, name)  # Contains lineage hash
-            self._results_lineage[(run_id, name)] = key
+            # Record lineage hash for config change detection
+            if name in self._plugins:
+                key = self.key_for(run_id, name)  # Contains lineage hash
+                self._results_lineage[(run_id, name)] = key
 
-        is_generator = isinstance(value, Iterator | OneTimeGenerator) or hasattr(value, "__next__")
+            is_generator = isinstance(value, Iterator | OneTimeGenerator) or hasattr(
+                value, "__next__"
+            )
 
-        # Safe attribute access: whitelist and conflict check
-        # Whitelist: valid python identifier
-        if re.match(r"^[a-zA-Z_]\w*$", name):
-            # Check if it's a property on the class
-            cls_attr = getattr(self.__class__, name, None)
-            is_prop = isinstance(cls_attr, property)
+            # Safe attribute access: whitelist and conflict check
+            # Whitelist: valid python identifier
+            if re.match(r"^[a-zA-Z_]\w*$", name):
+                # Check if it's a property on the class
+                cls_attr = getattr(self.__class__, name, None)
+                is_prop = isinstance(cls_attr, property)
 
-            if name in self._RESERVED_NAMES or (hasattr(self.__class__, name) and not is_prop):
-                warnings.warn(
-                    f"Data name '{name}' conflicts with a Context method or reserved attribute. "
-                    f"Access it via context.get_data(run_id, '{name}') or context._results[(run_id, '{name}')].",
-                    UserWarning,
-                )
-            elif not is_prop and not is_generator:
-                # Note: This overwrites the attribute for different runs.
-                # It's kept for convenience in interactive use.
-                # We don't set it if it's a property, as the property handles access.
-                setattr(self, name, value)
+                if name in self._RESERVED_NAMES or (hasattr(self.__class__, name) and not is_prop):
+                    warnings.warn(
+                        f"Data name '{name}' conflicts with a Context method or reserved attribute. "
+                        f"Access it via context.get_data(run_id, '{name}') or context._results[(run_id, '{name}')].",
+                        UserWarning,
+                    )
+                elif not is_prop and not is_generator:
+                    # Note: This overwrites the attribute for different runs.
+                    # It's kept for convenience in interactive use.
+                    # We don't set it if it's a property, as the property handles access.
+                    setattr(self, name, value)
 
     def _get_data_from_memory(self, run_id: str, name: str) -> Any:
         """Internal helper to get data from _results or attributes."""

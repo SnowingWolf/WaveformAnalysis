@@ -3,7 +3,7 @@ Cache tools for inspecting stored data.
 """
 
 import inspect
-from typing import Any, List
+from typing import Any
 
 from waveform_analysis.core.foundation.utils import exporter
 
@@ -11,7 +11,7 @@ export, __all__ = exporter()
 
 
 @export
-def list_channel_cache_keys(ctx: Any, run_id: str, data_name: str) -> List[str]:
+def list_channel_cache_keys(ctx: Any, run_id: str, data_name: str) -> list[str]:
     """List cache keys matching {key}_ch* for a run/data_name."""
     if data_name not in ctx._plugins:
         raise KeyError(f"Unknown data name: {data_name}")
@@ -21,7 +21,7 @@ def list_channel_cache_keys(ctx: Any, run_id: str, data_name: str) -> List[str]:
     if hasattr(ctx, "_list_channel_keys"):
         return ctx._list_channel_keys(storage, run_id, key)
 
-    keys: List[str] = []
+    keys: list[str] = []
     if hasattr(storage, "list_keys"):
         try:
             params = inspect.signature(storage.list_keys).parameters

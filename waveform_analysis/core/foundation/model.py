@@ -6,7 +6,7 @@ Model 模块 (lineage 图) - 框架内部数据模型定义。
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass

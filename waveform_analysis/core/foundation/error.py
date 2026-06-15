@@ -5,9 +5,10 @@
 """
 
 # 1. Standard library imports
+from collections.abc import Callable
 from datetime import datetime
 import logging
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 # 2. Third-party imports
 import numpy as np
@@ -59,8 +60,8 @@ class ErrorManager:
         run_id: str,
         get_config_fn: Callable[[Any, str], Any],
         get_data_fn: Callable[[str, str], Any],
-        context: Optional[Any] = None,
-    ) -> Dict[str, Any]:
+        context: Any | None = None,
+    ) -> dict[str, Any]:
         """收集错误发生时的上下文信息
 
         Args:
@@ -151,7 +152,7 @@ class ErrorManager:
         exception: Exception,
         run_id: str,
         plugin: Any,
-        error_context: Dict[str, Any],
+        error_context: dict[str, Any],
         get_config_fn: Callable[[Any, str], Any],
     ) -> None:
         """统一的错误日志记录

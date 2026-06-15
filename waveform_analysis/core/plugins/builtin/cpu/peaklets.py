@@ -322,6 +322,64 @@ def _abs_window(rows: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return starts, ends
 
 
+@njit(cache=True, nogil=True)
+def _cluster_peaklets_numba(
+    abs_starts: np.ndarray,
+    abs_ends: np.ndarray,
+    order: np.ndarray,
+    gap_ps: float,
+    max_width_ps: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Numba-accelerated peaklet clustering.
+
+    Returns (cluster_starts, cluster_ends) as index arrays into the order array.
+    Each cluster spans order[starts[i]:ends[i]].
+    """
+    n = len(order)
+    if n == 0:
+        return (np.empty(0, dtype=np.int32), np.empty(0, dtype=np.int32))
+
+    # Pre-allocate for worst case (no merging)
+    starts = np.empty(n, dtype=np.int32)
+    ends = np.empty(n, dtype=np.int32)
+    n_clusters = 0
+
+    cluster_start_idx = 0
+    first_idx = int(order[0])
+    cluster_start_ps = abs_starts[first_idx]
+    cluster_end_ps = abs_ends[first_idx]
+
+    for i in range(1, n):
+        idx = int(order[i])
+        next_start = abs_starts[idx]
+        next_end = abs_ends[idx]
+
+        # 计算合并后的边界
+        merged_end = max(cluster_end_ps, next_end)
+        total_width = merged_end - cluster_start_ps
+        gap = next_start - cluster_end_ps
+
+        if gap <= gap_ps and total_width <= max_width_ps:
+            # 合并到当前 cluster
+            cluster_end_ps = merged_end
+        else:
+            # 保存当前 cluster
+            starts[n_clusters] = cluster_start_idx
+            ends[n_clusters] = i
+            n_clusters += 1
+            # 开始新 cluster
+            cluster_start_idx = i
+            cluster_start_ps = next_start
+            cluster_end_ps = next_end
+
+    # 保存最后一个 cluster
+    starts[n_clusters] = cluster_start_idx
+    ends[n_clusters] = n
+    n_clusters += 1
+
+    return (starts[:n_clusters].copy(), ends[:n_clusters].copy())
+
+
 def _cluster_merged_hits(
     merged: np.ndarray,
     time_window_ns: float,
@@ -339,25 +397,22 @@ def _cluster_merged_hits(
     gap_ps = time_window_ns * 1000.0
     max_width_ps = max_total_width_ns * 1000.0
 
+    # 直接调用 Numba 版本（无 fallback）
+    if not HAS_NUMBA:
+        raise RuntimeError("Numba is required for peaklet clustering")
+
+    cluster_starts, cluster_ends = _cluster_peaklets_numba(
+        abs_starts, abs_ends, order, gap_ps, max_width_ps
+    )
+
+    # 将 Numba 结果转换为原始格式
     clusters: list[list[int]] = []
-    current = [int(order[0])]
-    cluster_start = float(abs_starts[order[0]])
-    cluster_end = float(abs_ends[order[0]])
+    for i in range(len(cluster_starts)):
+        start = int(cluster_starts[i])
+        end = int(cluster_ends[i])
+        cluster = [int(order[j]) for j in range(start, end)]
+        clusters.append(cluster)
 
-    for raw_idx in order[1:]:
-        idx = int(raw_idx)
-        next_end = max(cluster_end, float(abs_ends[idx]))
-        total_width = next_end - cluster_start
-        if abs_starts[idx] <= cluster_end + gap_ps and total_width <= max_width_ps:
-            current.append(idx)
-            cluster_end = next_end
-        else:
-            clusters.append(current)
-            current = [idx]
-            cluster_start = float(abs_starts[idx])
-            cluster_end = float(abs_ends[idx])
-
-    clusters.append(current)
     return clusters
 
 

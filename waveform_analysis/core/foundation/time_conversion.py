@@ -37,7 +37,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import re
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
 
@@ -147,7 +147,7 @@ class EpochInfo:
             timezone_name=str(tz),
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典（用于 JSON 序列化）
 
         Returns:
@@ -162,7 +162,7 @@ class EpochInfo:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EpochInfo":
+    def from_dict(cls, data: dict[str, Any]) -> "EpochInfo":
         """从字典创建 EpochInfo（用于 JSON 反序列化）
 
         Args:
@@ -243,9 +243,7 @@ class TimeConverter:
         }
         return scales.get(self.epoch_info.time_unit, 1e-9)
 
-    def relative_to_absolute(
-        self, relative_time: Union[int, np.ndarray]
-    ) -> Union[datetime, np.ndarray]:
+    def relative_to_absolute(self, relative_time: int | np.ndarray) -> datetime | np.ndarray:
         """相对时间 → 绝对时间（datetime）
 
         支持标量和数组输入。对于数组输入，返回 datetime64[ns] 数组。
@@ -284,9 +282,7 @@ class TimeConverter:
                 absolute_timestamp, tz=self.epoch_info.epoch_datetime.tzinfo
             )
 
-    def absolute_to_relative(
-        self, absolute_time: Union[datetime, np.ndarray]
-    ) -> Union[int, np.ndarray]:
+    def absolute_to_relative(self, absolute_time: datetime | np.ndarray) -> int | np.ndarray:
         """绝对时间（datetime）→ 相对时间
 
         支持 Python datetime 对象和 NumPy datetime64 数组。
@@ -332,8 +328,8 @@ class TimeConverter:
             return int(relative_time)
 
     def convert_time_range(
-        self, start_dt: Optional[datetime], end_dt: Optional[datetime]
-    ) -> Tuple[Optional[int], Optional[int]]:
+        self, start_dt: datetime | None, end_dt: datetime | None
+    ) -> tuple[int | None, int | None]:
         """转换时间范围（datetime → 相对时间）
 
         便捷方法，用于查询接口。
@@ -413,8 +409,8 @@ class EpochExtractor:
 
     def __init__(
         self,
-        filename_patterns: Optional[List[tuple]] = None,
-        csv_metadata_keys: Optional[List[str]] = None,
+        filename_patterns: list[tuple] | None = None,
+        csv_metadata_keys: list[str] | None = None,
     ):
         """初始化提取器
 
@@ -426,8 +422,8 @@ class EpochExtractor:
         self.csv_metadata_keys = csv_metadata_keys or self.DEFAULT_CSV_METADATA_KEYS
 
     def extract_from_filename(
-        self, filepath: Union[str, Path], tz: timezone = timezone.utc
-    ) -> Optional[datetime]:
+        self, filepath: str | Path, tz: timezone = timezone.utc
+    ) -> datetime | None:
         """从文件名解析 epoch
 
         尝试匹配所有注册的文件名模式，返回第一个成功的匹配。
@@ -484,8 +480,8 @@ class EpochExtractor:
         return None
 
     def extract_from_csv_header(
-        self, filepath: Union[str, Path], max_header_lines: int = 20, tz: timezone = timezone.utc
-    ) -> Optional[datetime]:
+        self, filepath: str | Path, max_header_lines: int = 20, tz: timezone = timezone.utc
+    ) -> datetime | None:
         """从 CSV 头部注释提取 epoch
 
         检查文件前几行的注释，查找包含时间戳的元数据字段。
@@ -549,13 +545,13 @@ class EpochExtractor:
 
     def extract_from_first_event(
         self,
-        filepath: Union[str, Path],
+        filepath: str | Path,
         timestamp_column: int = 2,
         header_rows: int = 2,
         delimiter: str = ";",
         time_unit: TimestampUnit = TimestampUnit.PICOSECONDS,
         tz: timezone = timezone.utc,
-    ) -> Optional[datetime]:
+    ) -> datetime | None:
         """从首个事件的时间戳推导 epoch
 
         假设相对时间戳从 0 开始，使用首个事件的时间戳作为偏移量。
@@ -618,7 +614,7 @@ class EpochExtractor:
 
     def auto_extract(
         self,
-        file_paths: List[Union[str, Path]],
+        file_paths: list[str | Path],
         strategy: str = "auto",
         time_unit: TimestampUnit = TimestampUnit.PICOSECONDS,
         tz: timezone = timezone.utc,

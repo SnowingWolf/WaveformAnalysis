@@ -7,7 +7,6 @@ CompatManager 负责集中管理参数别名和弃用信息，
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 import warnings
 
 from waveform_analysis.core.foundation.utils import exporter
