@@ -269,8 +269,20 @@ def test_threshold_hit_use_filtered_branch():
 
 def test_threshold_hit_wave_source_records_depends_on_records_and_wave_pool():
     plugin = ThresholdHitPlugin()
-    ctx = DummyContext({"wave_source": "records"}, {})
+    ctx = DummyContext({"wave_source": "records", "asymmetry_cut_enabled": False}, {})
     assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool"]
+
+
+def test_threshold_hit_records_source_enables_asymmetry_cut_by_default():
+    plugin = ThresholdHitPlugin()
+    ctx = DummyContext({"wave_source": "records"}, {})
+
+    assert ctx.get_config(plugin, "asymmetry_cut_enabled") is True
+    assert plugin.resolve_depends_on(ctx) == [
+        "records",
+        "wave_pool",
+        "records_asymmetry_mask",
+    ]
 
 
 def test_threshold_hit_asymmetry_cut_depends_on_mask_for_records_source():

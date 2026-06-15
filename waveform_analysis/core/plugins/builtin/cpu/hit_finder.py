@@ -255,7 +255,7 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
             help="流式处理时的 chunk 大小（仅对 RecordsBundleRef 生效）",
         ),
         "asymmetry_cut_enabled": Option(
-            default=False,
+            default=True,
             type=bool,
             help="是否在 records 路径的 hit 查找前应用 records_asymmetry_mask。",
         ),

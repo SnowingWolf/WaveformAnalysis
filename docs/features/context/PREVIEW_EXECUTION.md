@@ -202,6 +202,8 @@ print("成功获取数据")
 
 只显示用户修改过的配置项（非默认值），避免信息过载。
 
+其中 `show_config=True` 还会额外展示 Context 级执行开关，例如 `enable_plugin_parallelism` 和 `max_parallel_workers`。
+
 ### 缓存状态汇总
 
 统计各类缓存的数量。

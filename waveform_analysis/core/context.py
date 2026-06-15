@@ -2127,7 +2127,12 @@ class Context(PluginMixin):
 
         # 4. 收集配置信息
         configs = {}
+        global_execution_config = {}
         if show_config:
+            for name in ("enable_plugin_parallelism", "max_parallel_workers"):
+                if name in self.config:
+                    global_execution_config[name] = self.config[name]
+
             for plugin_name in execution_plan:
                 if plugin_name in self._plugins:
                     plugin = self._plugins[plugin_name]
@@ -2163,6 +2168,7 @@ class Context(PluginMixin):
             "execution_plan": execution_plan,
             "cache_status": cache_status,
             "configs": configs,
+            "global_execution_config": global_execution_config,
             "resolved_depends_on": resolved_depends_on,
             "needed_set": sorted(needed_set),
         }
@@ -2237,6 +2243,11 @@ class Context(PluginMixin):
                     print(f"      {opt_name} = {opt_info['value']}{default_str}")
         elif show_config:
             print(f"\n{'⚙️ 自定义配置' if verbose > 0 else '自定义配置'}: 无（使用所有默认值）")
+
+        if show_config and info.get("global_execution_config"):
+            print(f"\n{'🧭 全局执行配置' if verbose > 0 else '全局执行配置'}:")
+            for name, value in info["global_execution_config"].items():
+                print(f"  • {name} = {value}")
 
         # 5. 缓存状态汇总
         if show_cache:
