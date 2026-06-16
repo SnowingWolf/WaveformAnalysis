@@ -199,6 +199,8 @@ class Context(PluginMixin):
             "run_config_path",
             "run_config_filename",
             "run_config_path_template",
+            "enable_plugin_parallelism",
+            "max_parallel_workers",
         }
     )
     _CONTEXT_RUNTIME_KEYS = frozenset(
@@ -223,6 +225,8 @@ class Context(PluginMixin):
         "run_config_filename": "兼容旧配置的 run 配置文件名",
         "run_config_path_template": "兼容旧配置的 run 配置路径模板",
         "storage_dir": "缓存与处理产物存储目录",
+        "enable_plugin_parallelism": "是否启用同级插件并行执行",
+        "max_parallel_workers": "同级插件并行执行的最大工作线程数",
     }
     _TIME_DOMAIN_SYSTEM_NS = "system_ns"
     _TIME_DOMAIN_RAW_PS = "raw_ps"
