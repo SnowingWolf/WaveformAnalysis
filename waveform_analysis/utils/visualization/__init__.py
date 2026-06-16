@@ -6,6 +6,8 @@ __all__ = [
     "plot_lineage_plotly",
     "plot_waveforms",
     "corner_hist",
+    "plot_1d_cut_on_corner",
+    "plot_2d_cut_on_corner",
 ]
 
 
@@ -27,4 +29,12 @@ def __getattr__(name: str):
         from .statistical_plots import corner_hist
 
         return corner_hist
+    elif name == "plot_1d_cut_on_corner":
+        from .statistical_plots import plot_1d_cut_on_corner
+
+        return plot_1d_cut_on_corner
+    elif name == "plot_2d_cut_on_corner":
+        from .statistical_plots import plot_2d_cut_on_corner
+
+        return plot_2d_cut_on_corner
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

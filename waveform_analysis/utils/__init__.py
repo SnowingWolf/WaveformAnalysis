@@ -18,6 +18,8 @@ __all__ = [
     "plot_lineage_plotly",
     "plot_waveforms",
     "corner_hist",
+    "plot_1d_cut_on_corner",
+    "plot_2d_cut_on_corner",
 ]
 
 _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
@@ -38,6 +40,8 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "plot_lineage_plotly": (".visualization", "plot_lineage_plotly"),
     "plot_waveforms": (".visualization", "plot_waveforms"),
     "corner_hist": (".visualization.statistical_plots", "corner_hist"),
+    "plot_1d_cut_on_corner": (".visualization.statistical_plots", "plot_1d_cut_on_corner"),
+    "plot_2d_cut_on_corner": (".visualization.statistical_plots", "plot_2d_cut_on_corner"),
 }
 
 

@@ -6,16 +6,19 @@
 主要功能
 --------
 - corner_hist: 散点矩阵（corner plot），展示多变量的两两关系
-- 对角线显示单变量分布直方图
-- 下三角显示二维直方图
-- 支持对数刻度和自定义分箱
+  * 对角线显示单变量分布直方图
+  * 下三角显示二维直方图
+  * 支持对数刻度和自定义分箱
+- plot_1d_cut_on_corner: 在 corner plot 上绘制单变量切割线
+- plot_2d_cut_on_corner: 在 corner plot 上绘制二维切割曲线
 
 典型应用
 --------
 - Hit/Peak 特征相关性分析（如 area vs height vs width）
 - 参数空间探索和调优
-- 质量控制：识别异常分布
-- 特征工程：发现变量关系
+- 质量控制：识别异常分布，标记切割阈值
+- 特征工程：发现变量关系，可视化边界条件
+- 数据筛选可视化：叠加展示筛选前后的分布对比
 
 依赖
 ----
@@ -24,7 +27,7 @@
 
 示例
 --------
->>> from waveform_analysis.utils import corner_hist
+>>> from waveform_analysis.utils import corner_hist, plot_1d_cut_on_corner
 >>> import numpy as np
 >>>
 >>> # 分析 hit 特征
@@ -35,6 +38,11 @@
 ...     scales=['log', 'log', 'log'],
 ...     bins=100,
 ... )
+>>>
+>>> # 添加切割线标识阈值
+>>> plot_1d_cut_on_corner(axes, ['Area', 'Height', 'Width'],
+...                       'Height', 1.3e4, color='red', label='Threshold')
+>>>
 >>> fig.savefig('hit_features_corner.png')
 """
 
@@ -53,7 +61,7 @@ try:
 except ImportError:
     MATPLOTLIB_AVAILABLE = False
 
-__all__ = ["corner_hist"]
+__all__ = ["corner_hist", "plot_1d_cut_on_corner", "plot_2d_cut_on_corner"]
 
 
 def corner_hist(
@@ -82,6 +90,7 @@ def corner_hist(
     label_fontweight: str = "bold",
     tick_labelsize: int = 8,
     diag_title: bool = True,
+    show_ticks: bool = True,
 ):
     """
     绘制散点矩阵（corner plot）用于多变量分布分析。
@@ -168,6 +177,9 @@ def corner_hist(
         刻度标签字体大小。
     diag_title : bool, default=True
         是否在对角线子图上方显示变量名作为标题。
+    show_ticks : bool, default=True
+        是否显示刻度标记。若为 False，所有子图的刻度标记将被隐藏，
+        但刻度标签的显示仍由 label_mode 控制。
 
     返回
     -------
@@ -512,6 +524,17 @@ def corner_hist(
 
             ax.tick_params(axis="both", which="both", labelsize=tick_labelsize)
 
+            # 控制刻度标记显示
+            if not show_ticks:
+                ax.tick_params(
+                    axis="both",
+                    which="both",
+                    left=False,
+                    right=False,
+                    top=False,
+                    bottom=False,
+                )
+
     if title is not None:
         fig.suptitle(
             title,
@@ -522,3 +545,312 @@ def corner_hist(
 
     fig.tight_layout()
     return fig, axes
+
+
+def _axes_matrix(axes, n):
+    """
+    确保 axes 是一个 n x n 的数组。
+
+    参数
+    ----------
+    axes : array-like
+        轴对象数组。
+    n : int
+        维度大小。
+
+    返回
+    -------
+    numpy.ndarray
+        形状为 (n, n) 的轴数组。
+    """
+    axarr = np.asarray(axes)
+    if axarr.ndim == 1:
+        axarr = axarr.reshape(n, n)
+    return axarr
+
+
+def plot_1d_cut_on_corner(
+    axes,
+    names,
+    var,
+    value,
+    *,
+    triangle="lower",
+    color="crimson",
+    linestyle="--",
+    linewidth=1.5,
+    label=None,
+):
+    """
+    在 corner plot 的所有涉及指定变量的面板上绘制单变量切割线。
+
+    用于在散点矩阵上标记单变量的阈值或切割条件，例如：
+    - height < 1.3e4
+    - n_hits > 200
+    - area >= 100
+
+    切割线会出现在：
+    - 对角线直方图：作为垂直线
+    - 非对角线面板：当 x 或 y 轴为该变量时，作为垂直或水平线
+
+    参数
+    ----------
+    axes : numpy.ndarray
+        由 corner_hist 返回的子图轴数组，形状为 (n, n)。
+    names : list of str
+        变量名称列表，与创建 corner plot 时使用的顺序一致。
+    var : str
+        要绘制切割线的变量名，必须在 names 中。
+    value : float
+        切割线的位置（变量的值）。
+    triangle : {'lower', 'upper', 'full'}, default='lower'
+        corner plot 的显示模式，应与创建时使用的值一致：
+
+        - 'lower'：只在下三角绘制
+        - 'upper'：只在上三角绘制
+        - 'full'：在完整矩阵绘制
+    color : str, default='crimson'
+        切割线的颜色。
+    linestyle : str, default='--'
+        切割线的线型，如 '-', '--', '-.', ':'。
+    linewidth : float, default=1.5
+        切割线的宽度。
+    label : str, optional
+        图例标签。仅在对角线直方图上显示一次。
+
+    示例
+    --------
+    >>> from waveform_analysis.utils import corner_hist, plot_1d_cut_on_corner
+    >>> import numpy as np
+    >>>
+    >>> # 创建 corner plot
+    >>> data = [hits['area'], hits['height'], hits['width']]
+    >>> names = ['Area', 'Height', 'Width']
+    >>> fig, axes = corner_hist(data, names=names, scales='log')
+    >>>
+    >>> # 添加 height 的切割线
+    >>> plot_1d_cut_on_corner(
+    ...     axes, names, 'Height', 1.3e4,
+    ...     color='red', label='Height threshold'
+    ... )
+    >>>
+    >>> # 添加 area 的切割线
+    >>> plot_1d_cut_on_corner(
+    ...     axes, names, 'Area', 100,
+    ...     color='blue', linestyle=':', label='Area min'
+    ... )
+    >>>
+    >>> fig.savefig('corner_with_cuts.png')
+
+    注意
+    -----
+    - var 必须存在于 names 中，否则会引发 ValueError
+    - triangle 参数应与创建 corner plot 时使用的值一致
+    - label 只会在对角线直方图上显示一次，避免重复图例
+
+    另见
+    --------
+    corner_hist : 创建散点矩阵
+    plot_2d_cut_on_corner : 绘制二维切割曲线
+    """
+    n = len(names)
+    axarr = _axes_matrix(axes, n)
+
+    try:
+        k = names.index(var)
+    except ValueError:
+        raise ValueError(f"变量 '{var}' 不在 names 列表中: {names}")
+
+    for row in range(n):
+        for col in range(n):
+            ax = axarr[row, col]
+
+            if ax is None or not ax.get_visible():
+                continue
+
+            # 下三角：配对面板满足 row > col
+            if triangle == "lower" and row < col:
+                continue
+
+            # 上三角：配对面板满足 row < col
+            if triangle == "upper" and row > col:
+                continue
+
+            # 对角线直方图：变量在 x 轴上
+            if row == col == k:
+                ax.axvline(
+                    value,
+                    color=color,
+                    linestyle=linestyle,
+                    linewidth=linewidth,
+                    label=label,
+                )
+
+            # 非对角线：x = names[col], y = names[row]
+            elif col == k:
+                # 变量在 x 轴，绘制垂直线
+                ax.axvline(
+                    value,
+                    color=color,
+                    linestyle=linestyle,
+                    linewidth=linewidth,
+                )
+
+            elif row == k:
+                # 变量在 y 轴，绘制水平线
+                ax.axhline(
+                    value,
+                    color=color,
+                    linestyle=linestyle,
+                    linewidth=linewidth,
+                )
+
+
+def plot_2d_cut_on_corner(
+    axes,
+    names,
+    xvar,
+    yvar,
+    y_func,
+    *,
+    triangle="lower",
+    x_range=None,
+    n_points=300,
+    color="crimson",
+    linestyle="-",
+    linewidth=2.0,
+    label=None,
+):
+    """
+    在 corner plot 的对应面板上绘制二维切割曲线 y = y_func(x)。
+
+    用于在散点矩阵上标记两个变量之间的关系或边界条件，例如：
+    - height = 10 ** (k * log10(area) + b)
+    - width_max = a * sqrt(area)
+    - energy_threshold = c * height
+
+    曲线会出现在 (xvar, yvar) 对应的非对角线面板上。
+
+    参数
+    ----------
+    axes : numpy.ndarray
+        由 corner_hist 返回的子图轴数组，形状为 (n, n)。
+    names : list of str
+        变量名称列表，与创建 corner plot 时使用的顺序一致。
+    xvar : str
+        x 轴变量名，必须在 names 中。
+    yvar : str
+        y 轴变量名，必须在 names 中。
+    y_func : callable
+        函数 y = y_func(x)，接受 numpy 数组并返回对应的 y 值。
+    triangle : {'lower', 'upper', 'full'}, default='lower'
+        corner plot 的显示模式，应与创建时使用的值一致：
+
+        - 'lower'：在下三角查找面板（y 在行，x 在列）
+        - 'upper'：在上三角查找面板（x 在行，y 在列）
+        - 'full'：优先在 (yvar, xvar) 位置绘制
+    x_range : tuple of float, optional
+        x 值的范围 (xmin, xmax)。若为 None，则使用轴的当前 xlim。
+    n_points : int, default=300
+        曲线的采样点数。
+    color : str, default='crimson'
+        曲线颜色。
+    linestyle : str, default='-'
+        曲线线型，如 '-', '--', '-.', ':'。
+    linewidth : float, default=2.0
+        曲线宽度。
+    label : str, optional
+        图例标签。
+
+    示例
+    --------
+    >>> from waveform_analysis.utils import corner_hist, plot_2d_cut_on_corner
+    >>> import numpy as np
+    >>>
+    >>> # 创建 corner plot
+    >>> data = [hits['area'], hits['height'], hits['width']]
+    >>> names = ['Area', 'Height', 'Width']
+    >>> fig, axes = corner_hist(data, names=names, scales='log')
+    >>>
+    >>> # 添加 height vs area 的关系曲线
+    >>> def height_model(area):
+    ...     return 10 ** (0.5 * np.log10(area) + 1.5)
+    >>>
+    >>> plot_2d_cut_on_corner(
+    ...     axes, names, 'Area', 'Height', height_model,
+    ...     color='orange', linewidth=2.5, label='Expected relation'
+    ... )
+    >>>
+    >>> # 添加 width 上限
+    >>> def width_max(area):
+    ...     return 2.0 * np.sqrt(area)
+    >>>
+    >>> plot_2d_cut_on_corner(
+    ...     axes, names, 'Area', 'Width', width_max,
+    ...     color='green', linestyle='--', label='Width limit'
+    ... )
+    >>>
+    >>> fig.savefig('corner_with_2d_cuts.png')
+
+    注意
+    -----
+    - xvar 和 yvar 必须都存在于 names 中
+    - y_func 应该能够处理 numpy 数组输入
+    - 如果轴是对数刻度，函数会自动使用 logspace 采样
+    - triangle 参数应与创建 corner plot 时使用的值一致
+
+    另见
+    --------
+    corner_hist : 创建散点矩阵
+    plot_1d_cut_on_corner : 绘制单变量切割线
+    """
+    n = len(names)
+    axarr = _axes_matrix(axes, n)
+
+    try:
+        ix = names.index(xvar)
+    except ValueError:
+        raise ValueError(f"变量 '{xvar}' 不在 names 列表中: {names}")
+
+    try:
+        iy = names.index(yvar)
+    except ValueError:
+        raise ValueError(f"变量 '{yvar}' 不在 names 列表中: {names}")
+
+    # 根据 triangle 模式确定面板位置
+    if triangle == "lower":
+        row, col = iy, ix
+    elif triangle == "upper":
+        row, col = ix, iy
+    else:
+        # 对于完整矩阵，优先使用 yvar 作为行，xvar 作为列
+        row, col = iy, ix
+
+    ax = axarr[row, col]
+
+    if ax is None or not ax.get_visible():
+        logger.warning(f"面板 ({row}, {col}) 对应 ({xvar}, {yvar}) 不可见，跳过绘制。")
+        return
+
+    # 确定 x 范围
+    if x_range is None:
+        xlo, xhi = ax.get_xlim()
+    else:
+        xlo, xhi = x_range
+
+    # 根据 x 轴刻度选择采样方式
+    if ax.get_xscale() == "log":
+        x = np.logspace(np.log10(xlo), np.log10(xhi), n_points)
+    else:
+        x = np.linspace(xlo, xhi, n_points)
+
+    y = y_func(x)
+
+    ax.plot(
+        x,
+        y,
+        color=color,
+        linestyle=linestyle,
+        linewidth=linewidth,
+        label=label,
+    )
