@@ -5,6 +5,7 @@ __all__ = [
     "plot_lineage_labview",
     "plot_lineage_plotly",
     "plot_waveforms",
+    "plot_peak_channels_with_sum",
     "corner_hist",
     "plot_1d_cut_on_corner",
     "plot_2d_cut_on_corner",
@@ -25,6 +26,10 @@ def __getattr__(name: str):
         from .waveform_visualizer import plot_waveforms
 
         return plot_waveforms
+    elif name == "plot_peak_channels_with_sum":
+        from .waveform_visualizer import plot_peak_channels_with_sum
+
+        return plot_peak_channels_with_sum
     elif name == "corner_hist":
         from .statistical_plots import corner_hist
 
