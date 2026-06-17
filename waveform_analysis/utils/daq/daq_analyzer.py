@@ -139,6 +139,77 @@ class DAQAnalyzer:
             return self._ansi_wrap(f"{duration_s:.3f} s", "yellow")
         return self._ansi_wrap(f"{duration_s:.3f} s", "green")
 
+    # ---- Cache scanning helpers ----
+    @staticmethod
+    def _scan_cache_for_run(run_name: str, storage_dir: str) -> dict[str, int]:
+        """扫描指定 run 的缓存目录，返回每种数据类型的记录数。
+
+        Args:
+            run_name: 运行名称（与 run_id 一致）
+            storage_dir: 存储根目录（如 "./strax_data"）
+
+        Returns:
+            Dict[data_name, count]，例如：{"records": 1200000, "hits": 340000}
+        """
+        cache_dir = Path(storage_dir) / run_name / "_cache"
+        if not cache_dir.exists():
+            return {}
+
+        cache_stats = {}
+        for json_file in cache_dir.glob("*.json"):
+            try:
+                # 从文件名提取 data_name
+                # 格式: {run_id}-{data_name}-{hash}.json
+                stem = json_file.stem
+                parts = stem.split("-")
+                if len(parts) >= 3:
+                    data_name = parts[1]  # 第二部分是 data_name
+
+                    # 读取 count 字段
+                    with open(json_file) as f:
+                        metadata = json.load(f)
+                        count = metadata.get("count", 0)
+
+                    # 如果已存在同名，保留较大的 count（可能有多个 lineage 版本）
+                    if data_name in cache_stats:
+                        cache_stats[data_name] = max(cache_stats[data_name], count)
+                    else:
+                        cache_stats[data_name] = count
+            except Exception as e:
+                logger.debug(f"跳过无效缓存文件 {json_file}: {e}")
+                continue
+
+        return cache_stats
+
+    @staticmethod
+    def _format_cache_status(cache_stats: dict[str, int], target_types: list[str]) -> str:
+        """将缓存统计格式化为紧凑的显示字符串。
+
+        Args:
+            cache_stats: {data_name: count} 字典
+            target_types: 要显示的数据类型列表（如 ["records", "hits", "peaks"]）
+
+        Returns:
+            格式化字符串，如 "records: 1.2M, hits: 340K" 或 "N/A"
+        """
+        if not cache_stats:
+            return "N/A"
+
+        parts = []
+        for data_type in target_types:
+            if data_type in cache_stats:
+                count = cache_stats[data_type]
+                # 格式化为 K/M 单位
+                if count >= 1_000_000:
+                    formatted = f"{count / 1_000_000:.1f}M"
+                elif count >= 1_000:
+                    formatted = f"{count / 1_000:.0f}K"
+                else:
+                    formatted = str(count)
+                parts.append(f"{data_type}: {formatted}")
+
+        return ", ".join(parts) if parts else "N/A"
+
     # ---- HTML helpers for notebook display ----
     @staticmethod
     def _html_wrap(text: str, color: str, bold: bool = True) -> str:
@@ -334,6 +405,9 @@ class DAQAnalyzer:
         max_rows: int | None = None,
         start_time: str | None = None,
         end_time: str | None = None,
+        show_cache: bool = False,
+        cache_storage_dir: str | None = None,
+        cache_data_types: list[str] | None = None,
     ) -> DAQAnalyzer:
         """Display overview table of all runs.
 
@@ -349,6 +423,9 @@ class DAQAnalyzer:
             max_rows: Maximum number of rows to display, None for all rows
             start_time: Filter runs starting after this time (format: "YYYY-MM-DD" or "YYYY-MM-DD HH:MM:SS")
             end_time: Filter runs ending before this time (format: "YYYY-MM-DD" or "YYYY-MM-DD HH:MM:SS")
+            show_cache: Whether to display cache status column (default False)
+            cache_storage_dir: Cache storage directory path (e.g., "./strax_data"), None disables cache column
+            cache_data_types: List of data types to display (default ["records", "hits", "peaks"])
         """
         if self.df_runs is None or self.df_runs.empty:
             print("No runs scanned. Call scan_all_runs() first.")
@@ -415,6 +492,19 @@ class DAQAnalyzer:
         if max_rows is not None and max_rows > 0:
             df = df.head(max_rows)
 
+        # Prepare cache column (if enabled)
+        if show_cache and cache_storage_dir is not None:
+            target_types = cache_data_types or ["records", "hits", "peaks"]
+
+            # Scan cache status for all runs
+            cache_status_list = []
+            for run_name in df["run_name"]:
+                cache_stats = self._scan_cache_for_run(run_name, cache_storage_dir)
+                status_str = self._format_cache_status(cache_stats, target_types)
+                cache_status_list.append(status_str)
+
+            df["cache_status"] = cache_status_list
+
         display_cols = [
             "run_name",
             "file_count",
@@ -429,42 +519,37 @@ class DAQAnalyzer:
             "path",
         ]
 
+        if show_cache and cache_storage_dir is not None:
+            # Insert cache_status before "path"
+            display_cols.insert(-1, "cache_status")
+
         if _in_notebook():
             try:
                 from IPython.display import display as _ipydisplay
 
+                # Prepare column rename dictionary
+                rename_dict = {
+                    "run_name": "运行名称",
+                    "file_count": "文件数",
+                    "size_mb": "大小(MB)",
+                    "size_readable": "大小",
+                    "board_count": "板卡数",
+                    "board_str": "板卡列表",
+                    "channel_count": "通道数",
+                    "channel_str": "通道列表",
+                    "acquisition_start": "采集开始",
+                    "acquisition_end": "采集结束",
+                    "path": "路径",
+                }
+
+                # Add cache status column if enabled
+                if show_cache and cache_storage_dir is not None:
+                    rename_dict["cache_status"] = "缓存状态"
+
                 # Rich notebook styling with gradients.
                 styled_df = (
-                    df[
-                        [
-                            "run_name",
-                            "file_count",
-                            "size_mb",
-                            "size_readable",
-                            "board_count",
-                            "board_str",
-                            "channel_count",
-                            "channel_str",
-                            "acquisition_start",
-                            "acquisition_end",
-                            "path",
-                        ]
-                    ]
-                    .rename(
-                        columns={
-                            "run_name": "运行名称",
-                            "file_count": "文件数",
-                            "size_mb": "大小(MB)",
-                            "size_readable": "大小",
-                            "board_count": "板卡数",
-                            "board_str": "板卡列表",
-                            "channel_count": "通道数",
-                            "channel_str": "通道列表",
-                            "acquisition_start": "采集开始",
-                            "acquisition_end": "采集结束",
-                            "path": "路径",
-                        }
-                    )
+                    df[display_cols]
+                    .rename(columns=rename_dict)
                     .style.background_gradient(subset=["文件数", "板卡数", "通道数"], cmap="Blues")
                     .background_gradient(subset=["大小(MB)"], cmap="Reds")
                     .format({"大小(MB)": "{:.2f}", "大小": "{}"})
@@ -503,6 +588,14 @@ class DAQAnalyzer:
                     f"boards={int(r['board_count']):2d}  "
                     f"channels={int(r['channel_count']):2d}  "
                     f"size={self._color_size(total_bytes)}  "
+                )
+
+                # Add cache status (if enabled)
+                if show_cache and cache_storage_dir is not None:
+                    cache_str = r.get("cache_status", "N/A")
+                    line += f"cache=[{cache_str}]  "
+
+                line += (
                     f"start={r['acquisition_start']}  end={r['acquisition_end']}  "
                     f"path={r['path']}"
                 )
