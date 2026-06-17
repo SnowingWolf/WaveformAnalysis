@@ -1,10 +1,21 @@
 """
 从 peaklet 特征进行 S1/S2 分类。
 
-该插件基于 peaklet_features 的多维特征进行信号类型甄别：
-- S1 特征：窄脉冲，快速上升/下降，小面积
-- S2 特征：宽脉冲，慢速上升，大面积
-- Unknown：不满足任何分类条件
+该插件基于 peaks 的多维特征进行信号类型甄别。
+
+默认分类规则（基于 n_hits 和 rise_time_10_50）：
+┌─────────────┬──────────────────┬──────────┬────────────────────────────────┐
+│ n_hits      │ rise_time_10_50  │ 分类结果 │ 说明                           │
+├─────────────┼──────────────────┼──────────┼────────────────────────────────┤
+│ < 8         │ 任意             │ S1       │ 少量 hits（单通道或少量通道）  │
+│ >= 8        │ <= 100 ns        │ S1       │ 多 hits 但快速上升（类 S1）    │
+│ >= 8        │ > 100 ns         │ S2       │ 多 hits 且慢速上升（典型 S2）  │
+└─────────────┴──────────────────┴──────────┴────────────────────────────────┘
+
+物理意义：
+- n_hits < 8: 信号集中在少量通道，典型的 S1 直接闪烁特征
+- n_hits >= 8 且 rise_time_10_50 <= 100 ns: 多通道但快速上升，可能是强 S1
+- n_hits >= 8 且 rise_time_10_50 > 100 ns: 多通道且慢速上升，典型 S2 电子漂移信号
 
 分类标签：
 - 0: Unknown
@@ -32,16 +43,6 @@ PEAKLET_S1_S2_CLASSIFIER_DTYPE = np.dtype(
     [
         ("peak_id", "i8"),
         ("label", "i1"),
-        ("width_ns", "f4"),
-        ("area", "f4"),
-        ("height", "f4"),
-        ("rise_time_ns", "f4"),
-        ("fall_time_ns", "f4"),
-        ("n_hits", "i4"),
-        ("n_channels", "i4"),
-        ("time_start", "i8"),
-        ("time_end", "i8"),
-        ("time_peak", "i8"),
     ]
 )
 
@@ -77,90 +78,67 @@ def _value_in_range(
 
 @export
 class PeakletS1S2ClassifierPlugin(Plugin):
-    """基于 peaklet 特征进行 S1/S2 分类。
+    """基于 peaks 特征进行 S1/S2 分类。
 
-    该插件使用 peaklet_features 的多维特征（宽度、面积、高度、上升时间、下降时间等）
-    进行信号类型甄别。支持灵活配置各类型的特征范围。
+    该插件使用 peaks 的多维特征（宽度、面积、高度、上升时间、下降时间、n_hits、n_channels 等）
+    进行信号类型甄别。通过字典配置各类型的特征范围。
+
+    可用的特征字段：
+    - width: 宽度 (ns)
+    - area: 面积
+    - height: 高度
+    - rise_time: 上升时间 (ns)，从 10% 到峰值
+    - fall_time: 下降时间 (ns)，从峰值到 90%
+    - rise_time_10_50: 上升时间 (ns)，从 10% 到 50%
+    - width_25_75: 宽度 (ns)，25%-75%
+    - range_90p_area: 90% 面积范围 (ns)
+    - n_hits: hits 数量
+    - n_channels: 通道数量
     """
 
     provides = "peaklet_s1_s2"
-    depends_on = ["peaklet_features", "peaklets"]
-    description = "Classify peaklets into S1/S2 using multi-dimensional features."
-    version = "0.1.0"
+    depends_on = ["peaks"]
+    description = "Classify peaks into S1/S2 using multi-dimensional features."
+    version = "1.0.0"
     save_when = "always"
     output_dtype = PEAKLET_S1_S2_CLASSIFIER_DTYPE
 
     options = {
-        # S1 特征范围（典型：窄脉冲，快速，小面积）
-        "s1_width_range": Option(
+        "s1_ranges": Option(
             default=None,
-            type=tuple,
-            help="S1 宽度范围 (min_ns, max_ns)。None 表示不限制。",
+            type=dict,
+            help=(
+                "S1 特征范围字典。键为特征名，值为 (min, max) 元组。"
+                "例如: {'width': (0, 100), 'area': (0, 500), 'n_hits': (1, 10)}。"
+                "默认 None 时，使用默认分类规则：凡不满足 S2 条件的都判为 S1。"
+            ),
         ),
-        "s1_area_range": Option(
-            default=None,
-            type=tuple,
-            help="S1 面积范围 (min, max)。None 表示不限制。",
+        "s2_ranges": Option(
+            default={"n_hits": (8, None), "rise_time_10_50": (100.01, None)},
+            type=dict,
+            help=(
+                "S2 特征范围字典。键为特征名，值为 (min, max) 元组。"
+                "例如: {'width': (300, None), 'area': (1000, None), 'n_hits': (8, None)}。"
+                "默认: {'n_hits': (8, None), 'rise_time_10_50': (100.01, None)} - "
+                "即 n_hits >= 8 且 rise_time_10_50 > 100 ns 判定为 S2。"
+                "None 表示不配置 S2 判断条件。"
+            ),
         ),
-        "s1_height_range": Option(
-            default=None,
-            type=tuple,
-            help="S1 高度范围 (min, max)。None 表示不限制。",
-        ),
-        "s1_rise_time_range": Option(
-            default=None,
-            type=tuple,
-            help="S1 上升时间范围 (min_ns, max_ns)。None 表示不限制。",
-        ),
-        "s1_fall_time_range": Option(
-            default=None,
-            type=tuple,
-            help="S1 下降时间范围 (min_ns, max_ns)。None 表示不限制。",
-        ),
-        "s1_n_channels_range": Option(
-            default=None,
-            type=tuple,
-            help="S1 通道数范围 (min, max)。None 表示不限制。",
-        ),
-        # S2 特征范围（典型：宽脉冲，慢速，大面积）
-        "s2_width_range": Option(
-            default=None,
-            type=tuple,
-            help="S2 宽度范围 (min_ns, max_ns)。None 表示不限制。",
-        ),
-        "s2_area_range": Option(
-            default=None,
-            type=tuple,
-            help="S2 面积范围 (min, max)。None 表示不限制。",
-        ),
-        "s2_height_range": Option(
-            default=None,
-            type=tuple,
-            help="S2 高度范围 (min, max)。None 表示不限制。",
-        ),
-        "s2_rise_time_range": Option(
-            default=None,
-            type=tuple,
-            help="S2 上升时间范围 (min_ns, max_ns)。None 表示不限制。",
-        ),
-        "s2_fall_time_range": Option(
-            default=None,
-            type=tuple,
-            help="S2 下降时间范围 (min_ns, max_ns)。None 表示不限制。",
-        ),
-        "s2_n_channels_range": Option(
-            default=None,
-            type=tuple,
-            help="S2 通道数范围 (min, max)。None 表示不限制。",
-        ),
-        # 冲突处理策略
         "conflict_policy": Option(
-            default="unknown",
+            default="prefer_s1",
             type=str,
             choices=["unknown", "prefer_s1", "prefer_s2"],
-            help="当同时满足 S1 和 S2 条件时的处理策略。",
+            help="当同时满足 S1 和 S2 条件时的处理策略。默认 prefer_s1。",
         ),
-        # 严格模式
+        "default_label": Option(
+            default="s1",
+            type=str,
+            choices=["unknown", "s1", "s2"],
+            help=(
+                "当不满足任何配置条件时的默认标签。"
+                "默认 's1' - 即凡不满足 S2 条件的都判为 S1（适用于默认配置）。"
+            ),
+        ),
         "strict": Option(
             default=False,
             type=bool,
@@ -170,106 +148,49 @@ class PeakletS1S2ClassifierPlugin(Plugin):
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         # 获取依赖数据
-        features = context.get_data(run_id, "peaklet_features")
-        peaklets = context.get_data(run_id, "peaklets")
+        peaks = context.get_data(run_id, "peaks")
 
-        if not isinstance(features, np.ndarray):
-            raise ValueError("peaklet_s1_s2 expects peaklet_features as a structured array")
-        if not isinstance(peaklets, np.ndarray):
-            raise ValueError("peaklet_s1_s2 expects peaklets as a structured array")
+        if not isinstance(peaks, np.ndarray):
+            raise ValueError("peaklet_s1_s2 expects peaks as a structured array")
 
-        if len(features) == 0:
+        if len(peaks) == 0:
             return np.zeros(0, dtype=PEAKLET_S1_S2_CLASSIFIER_DTYPE)
 
         # 获取配置
-        s1_width_range = _normalize_range(context.get_config(self, "s1_width_range"))
-        s1_area_range = _normalize_range(context.get_config(self, "s1_area_range"))
-        s1_height_range = _normalize_range(context.get_config(self, "s1_height_range"))
-        s1_rise_time_range = _normalize_range(context.get_config(self, "s1_rise_time_range"))
-        s1_fall_time_range = _normalize_range(context.get_config(self, "s1_fall_time_range"))
-        s1_n_channels_range = _normalize_range(context.get_config(self, "s1_n_channels_range"))
-
-        s2_width_range = _normalize_range(context.get_config(self, "s2_width_range"))
-        s2_area_range = _normalize_range(context.get_config(self, "s2_area_range"))
-        s2_height_range = _normalize_range(context.get_config(self, "s2_height_range"))
-        s2_rise_time_range = _normalize_range(context.get_config(self, "s2_rise_time_range"))
-        s2_fall_time_range = _normalize_range(context.get_config(self, "s2_fall_time_range"))
-        s2_n_channels_range = _normalize_range(context.get_config(self, "s2_n_channels_range"))
-
+        s1_ranges = context.get_config(self, "s1_ranges")
+        s2_ranges = context.get_config(self, "s2_ranges")
         conflict_policy = context.get_config(self, "conflict_policy")
+        default_label_str = context.get_config(self, "default_label")
         strict = context.get_config(self, "strict")
 
+        # 标准化范围配置
+        s1_criteria = self._normalize_ranges(s1_ranges)
+        s2_criteria = self._normalize_ranges(s2_ranges)
+
         # 检查是否至少配置了一个判断条件
-        s1_enabled = any(
-            r is not None
-            for r in (
-                s1_width_range,
-                s1_area_range,
-                s1_height_range,
-                s1_rise_time_range,
-                s1_fall_time_range,
-                s1_n_channels_range,
-            )
-        )
-        s2_enabled = any(
-            r is not None
-            for r in (
-                s2_width_range,
-                s2_area_range,
-                s2_height_range,
-                s2_rise_time_range,
-                s2_fall_time_range,
-                s2_n_channels_range,
-            )
-        )
+        s1_enabled = len(s1_criteria) > 0
+        s2_enabled = len(s2_criteria) > 0
 
         if strict and not s1_enabled and not s2_enabled:
             raise ValueError("No S1/S2 criteria configured; set ranges or disable strict.")
 
-        # 构建 peaklet_id -> peaklet 映射
-        peaklet_map = dict(enumerate(peaklets))
+        # 解析 default_label
+        default_label_map = {"unknown": LABEL_UNKNOWN, "s1": LABEL_S1, "s2": LABEL_S2}
+        default_label = default_label_map.get(default_label_str, LABEL_UNKNOWN)
 
-        # 逐个 peaklet 进行分类
+        # 逐个 peak 进行分类
         rows = []
-        for feature in features:
-            peak_id = int(feature["peak_id"])
-            peaklet = peaklet_map.get(peak_id)
-            if peaklet is None:
-                # 跳过没有对应 peaklet 的特征
-                continue
+        for peak in peaks:
+            peak_id = int(peak["peak_id"])
 
-            # 提取特征值（注意：width 在 peaklet_features 中单位是 ns）
-            width_ns = float(feature["width"])
-            area = float(feature["area"])
-            height = float(feature["height"])
-            rise_time_ns = float(feature["rise_time"])
-            fall_time_ns = float(feature["fall_time"])
-            n_hits = int(peaklet["n_hits"])
-            n_channels = int(peaklet["n_channels"])
+            # 提取特征值
+            features = self._extract_features(peak)
 
             # 判断是否满足 S1 条件（所有配置的条件必须同时满足）
-            s1_ok = s1_enabled
-            if s1_ok:
-                s1_ok = (
-                    _value_in_range(width_ns, s1_width_range)
-                    and _value_in_range(area, s1_area_range)
-                    and _value_in_range(height, s1_height_range)
-                    and _value_in_range(rise_time_ns, s1_rise_time_range)
-                    and _value_in_range(fall_time_ns, s1_fall_time_range)
-                    and _value_in_range(n_channels, s1_n_channels_range)
-                )
+            s1_ok = s1_enabled and self._check_criteria(features, s1_criteria)
 
             # 判断是否满足 S2 条件（所有配置的条件必须同时满足）
-            s2_ok = s2_enabled
-            if s2_ok:
-                s2_ok = (
-                    _value_in_range(width_ns, s2_width_range)
-                    and _value_in_range(area, s2_area_range)
-                    and _value_in_range(height, s2_height_range)
-                    and _value_in_range(rise_time_ns, s2_rise_time_range)
-                    and _value_in_range(fall_time_ns, s2_fall_time_range)
-                    and _value_in_range(n_channels, s2_n_channels_range)
-                )
+            s2_ok = s2_enabled and self._check_criteria(features, s2_criteria)
 
             # 根据判断结果和冲突策略确定最终标签
             if s1_ok and not s2_ok:
@@ -284,26 +205,63 @@ class PeakletS1S2ClassifierPlugin(Plugin):
                 else:
                     label = LABEL_UNKNOWN
             else:
-                label = LABEL_UNKNOWN
+                # 不满足任何条件时使用默认标签
+                label = default_label
 
             # 构建输出行
             rows.append(
                 (
                     peak_id,
                     int(label),
-                    float(width_ns),
-                    float(area),
-                    float(height),
-                    float(rise_time_ns),
-                    float(fall_time_ns),
-                    int(n_hits),
-                    int(n_channels),
-                    int(feature["time_start"]),
-                    int(feature["time_end"]),
-                    int(feature["time_peak"]),
                 )
             )
 
         if rows:
             return np.array(rows, dtype=PEAKLET_S1_S2_CLASSIFIER_DTYPE)
         return np.zeros(0, dtype=PEAKLET_S1_S2_CLASSIFIER_DTYPE)
+
+    @staticmethod
+    def _normalize_ranges(ranges: dict | None) -> dict[str, tuple[float | None, float | None]]:
+        """标准化范围配置字典"""
+        if ranges is None:
+            return {}
+
+        if not isinstance(ranges, dict):
+            raise ValueError(f"ranges must be a dict, got {type(ranges)}")
+
+        normalized = {}
+        for key, value in ranges.items():
+            norm_value = _normalize_range(value)
+            if norm_value is not None:
+                normalized[key] = norm_value
+
+        return normalized
+
+    @staticmethod
+    def _extract_features(peak: np.record) -> dict[str, float]:
+        """从 peak 中提取特征值"""
+        return {
+            "width": float(peak["width"]),
+            "area": float(peak["area"]),
+            "height": float(peak["height"]),
+            "rise_time": float(peak["rise_time"]),
+            "fall_time": float(peak["fall_time"]),
+            "rise_time_10_50": float(peak["rise_time_10_50"]),
+            "width_25_75": float(peak["width_25_75"]),
+            "range_90p_area": float(peak["range_90p_area"]),
+            "n_hits": int(peak["n_hits"]),
+            "n_channels": int(peak["n_channels"]),
+        }
+
+    @staticmethod
+    def _check_criteria(
+        features: dict[str, float], criteria: dict[str, tuple[float | None, float | None]]
+    ) -> bool:
+        """检查特征是否满足所有条件（AND 逻辑）"""
+        for feature_name, bounds in criteria.items():
+            value = features.get(feature_name)
+            if value is None:
+                return False
+            if not _value_in_range(value, bounds):
+                return False
+        return True

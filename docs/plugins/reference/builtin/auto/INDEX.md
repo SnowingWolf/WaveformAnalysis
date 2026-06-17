@@ -18,7 +18,7 @@ WaveformAnalysis 采用**插件化架构**处理 DAQ（数据采集系统）波�
 
 ### 插件统计
 
-- **总插件数**: 31
+- **总插件数**: 32
 - **类别数**: 8
 - **加速器**: CPU (NumPy/SciPy)
 
@@ -140,8 +140,9 @@ raw_files ──► records ──► df ──► df_events
 | [`HitMergedFeaturesPlugin`](hit_merged_features.md) | `hit_merged_features` | 0.4.0 | 特征提取 | - |
 | [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.2.0 | 特征提取 | - |
 | [`PeakletChannelsPlugin`](peaklet_channels.md) | `peaklet_channels` | 1.0.0 | 特征提取 | peaklets, peaklet_components, hit_merged_features, peaklet_features |
-| [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 1.1.0 | 特征提取 | peaklets, hit_merged |
+| [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 1.2.0 | 特征提取 | peaklets, hit_merged |
 | [`PeakletFeaturesPlugin`](peaklet_features.md) | `peaklet_features` | 4.0.0 | 特征提取 | peaklet_waveforms, peaklet_waveform_pool, peaklets |
+| [`PeakletS1S2ClassifierPlugin`](peaklet_s1_s2.md) | `peaklet_s1_s2` | 1.0.0 | 特征提取 | peaks |
 | [`PeakletWaveformPoolPlugin`](peaklet_waveform_pool.md) | `peaklet_waveform_pool` | 1.0.0 | 波形处理 | - |
 | [`PeakletWaveformPlugin`](peaklet_waveforms.md) | `peaklet_waveforms` | 1.0.0 | 波形处理 | - |
 | [`PeakletPlugin`](peaklets.md) | `peaklets` | 1.0.0 | 特征提取 | hit_merged |
@@ -205,6 +206,7 @@ raw_files ──► records ──► df ──► df_events
 | [`peaklet_channels`](peaklet_channels.md) | Aggregate hit_merged_features into per-peaklet channel contr... | peaklets, peaklet_components, hit_merged_features, peaklet_features |
 | [`peaklet_components`](peaklet_components.md) | Return per-peaklet component hit_merged indices. | peaklets, hit_merged |
 | [`peaklet_features`](peaklet_features.md) | Compute peaklet waveform features from ragged signal pools. | peaklet_waveforms, peaklet_waveform_pool, peaklets |
+| [`peaklet_s1_s2`](peaklet_s1_s2.md) | Classify peaks into S1/S2 using multi-dimensional features. | peaks |
 | [`peaklets`](peaklets.md) | Build lightweight cross-channel peaklets from hit_merged int... | hit_merged |
 | [`peaks`](peaks.md) | Build final peaks table from peaklets and waveform-derived f... | peaklets, peaklet_features, peaklet_channels |
 

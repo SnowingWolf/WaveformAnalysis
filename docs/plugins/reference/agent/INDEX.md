@@ -14,7 +14,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 
 ## Summary
 
-- 插件总数：31
+- 插件总数：32
 - 类别数：8
 
 ## Plugin Table
@@ -35,8 +35,9 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`hit_merged_features`](hit_merged_features.md) | `HitMergedFeaturesPlugin` | - | `structured_array` | `0.4.0` |
 | [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | - | `structured_array` | `1.2.0` |
 | [`peaklet_channels`](peaklet_channels.md) | `PeakletChannelsPlugin` | `peaklets`, `peaklet_components`, `hit_merged_features`, `peaklet_features` | `structured_array` | `1.0.0` |
-| [`peaklet_components`](peaklet_components.md) | `PeakletComponentsPlugin` | `peaklets`, `hit_merged` | `structured_array` | `1.1.0` |
+| [`peaklet_components`](peaklet_components.md) | `PeakletComponentsPlugin` | `peaklets`, `hit_merged` | `structured_array` | `1.2.0` |
 | [`peaklet_features`](peaklet_features.md) | `PeakletFeaturesPlugin` | `peaklet_waveforms`, `peaklet_waveform_pool`, `peaklets` | `structured_array` | `4.0.0` |
+| [`peaklet_s1_s2`](peaklet_s1_s2.md) | `PeakletS1S2ClassifierPlugin` | `peaks` | `structured_array` | `1.0.0` |
 | [`peaklet_waveform_pool`](peaklet_waveform_pool.md) | `PeakletWaveformPoolPlugin` | - | `array` | `1.0.0` |
 | [`peaklet_waveforms`](peaklet_waveforms.md) | `PeakletWaveformPlugin` | - | `structured_array` | `1.0.0` |
 | [`peaklets`](peaklets.md) | `PeakletPlugin` | `hit_merged` | `structured_array` | `1.0.0` |
@@ -81,6 +82,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 - [`peaklet_channels`](peaklet_channels.md): Aggregate hit_merged_features into per-peaklet channel contribution rows.
 - [`peaklet_components`](peaklet_components.md): Return per-peaklet component hit_merged indices.
 - [`peaklet_features`](peaklet_features.md): Compute peaklet waveform features from ragged signal pools.
+- [`peaklet_s1_s2`](peaklet_s1_s2.md): Classify peaks into S1/S2 using multi-dimensional features.
 - [`peaklets`](peaklets.md): Build lightweight cross-channel peaklets from hit_merged intervals.
 - [`peaks`](peaks.md): Build final peaks table from peaklets and waveform-derived features.
 ### 事件分析
