@@ -77,7 +77,7 @@ class S1S2ClassifierPlugin(Plugin):
     depends_on = ["waveform_width", "basic_features"]
     description = "Classify peaks into S1/S2 using width/area/height ranges."
     version = "0.4.0"
-    save_when = "always"
+    save_when: str = "always"
     output_dtype = S1_S2_CLASSIFIER_DTYPE
 
     options = {
