@@ -745,12 +745,13 @@ class PeakletComponentsPlugin(BatchProcessingPlugin):
     provides = "peaklet_components"
     depends_on = ["peaklets", "hit_merged"]
     description = "Return per-peaklet component hit_merged indices."
-    version = "1.1.0"
+    version = "1.2.0"
     output_dtype = PEAKLET_COMPONENTS_DTYPE
     save_when = "always"
     parallel = False
 
-    options = PeakletPlugin.options
+    # 不再包含独立的配置选项，完全依赖 peaklets 插件的配置
+    options = {}
 
     def compute(self, context: Any, run_id: str, **kwargs) -> np.ndarray:
         return self.compute_array(context, run_id, **kwargs)
