@@ -72,6 +72,21 @@ from .s1_s2_classifier import (
     S1_S2_CLASSIFIER_DTYPE,
     S1S2ClassifierPlugin,
 )
+from .s1_s2_pair_candidates import (
+    FLAG_CLOSE_COMPETITOR,
+    FLAG_MULTI_S1_CANDIDATE,
+    FLAG_MULTI_S2_CANDIDATE,
+    FLAG_NEAR_CHUNK_BOUNDARY,
+    FLAG_ORPHAN_S1,
+    FLAG_ORPHAN_S2,
+    FLAG_RATIO_IN_RANGE,
+    FLAG_S1_LOW_QUALITY,
+    FLAG_S2_LOW_QUALITY,
+    FLAG_VALID_TIME,
+    S1_S2_PAIR_CANDIDATES_DTYPE,
+    S1S2PairCandidatesPlugin,
+)
+from .s1_s2_pair_selection import S1S2PairSelectionPlugin
 
 # CPU 波形宽度插件
 from .waveform_width import WAVEFORM_WIDTH_DTYPE, WaveformWidthPlugin
@@ -152,6 +167,20 @@ __all__ = [
     "LABEL_S1",
     "LABEL_S2",
     "LABEL_UNKNOWN",
+    # S1-S2 pairing
+    "S1S2PairCandidatesPlugin",
+    "S1S2PairSelectionPlugin",
+    "S1_S2_PAIR_CANDIDATES_DTYPE",
+    "FLAG_VALID_TIME",
+    "FLAG_RATIO_IN_RANGE",
+    "FLAG_S1_LOW_QUALITY",
+    "FLAG_S2_LOW_QUALITY",
+    "FLAG_MULTI_S1_CANDIDATE",
+    "FLAG_MULTI_S2_CANDIDATE",
+    "FLAG_CLOSE_COMPETITOR",
+    "FLAG_ORPHAN_S1",
+    "FLAG_ORPHAN_S2",
+    "FLAG_NEAR_CHUNK_BOUNDARY",
     # Cache analysis
     "CacheAnalysisPlugin",
     # Records
