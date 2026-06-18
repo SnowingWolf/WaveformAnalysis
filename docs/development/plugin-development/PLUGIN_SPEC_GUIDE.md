@@ -114,6 +114,9 @@ class PluginSpec:
 
 这些属性会参与注册校验与 lineage hash，确保缓存一致性。
 
+v1.2.0 release gate 覆盖了 `Plugin` 基类和插件契约提取逻辑的同步检查。新增动态依赖、
+输出 dtype 或配置语义时，必须同时更新插件 `version`、生成参考文档和相应契约说明。
+
 ### 相关类
 
 

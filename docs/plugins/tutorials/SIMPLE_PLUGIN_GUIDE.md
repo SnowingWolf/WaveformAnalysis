@@ -111,6 +111,9 @@ class MyDependentPlugin(Plugin):
 - 使用 `context.get_data(run_id, "data_name")` 获取依赖数据
 - Context 会自动处理依赖关系，确保依赖的插件先执行
 
+v1.2.0 release gate 继续要求简单插件示例与 `Plugin` 基类契约保持一致：插件应声明
+稳定的 `provides`、明确的依赖和可验证的输出形态。
+
 ### 动态依赖（可选）
 
 当依赖需要根据配置切换（例如是否使用滤波波形）时，可以实现

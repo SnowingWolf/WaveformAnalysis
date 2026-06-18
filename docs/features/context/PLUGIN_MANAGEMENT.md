@@ -81,6 +81,10 @@ st_waveforms = ctx.get_data("run_001", "st_waveforms")
 chunk stream 或 generator 结果物化为完整数组；完整参数说明见
 [数据获取](DATA_ACCESS.md)。
 
+v1.2.0 release gate 会检查 `Context` 注册、依赖解析和配置展示相关变更是否仍与本文档
+一致。新增插件或动态依赖时，应确保 `provides` 唯一、依赖可解析，并在发布前同步
+生成插件参考页。
+
 ---
 
 ## 查询已注册插件

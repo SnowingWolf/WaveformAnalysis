@@ -119,7 +119,11 @@ class TestEndToEndPipeline:
         assert len(merged) > 0, "hit_merged 应该有输出"
 
         # 2. Hit Merged Components
-        ctx._plugins = {"hit_merged": merge_plugin}
+        ctx._plugins = {
+            "hit_merged": merge_plugin,
+            "records": object(),
+            "wave_pool": object(),
+        }
         ctx.get_plugin = lambda name: ctx._plugins.get(name)
         comp_plugin = HitMergedComponentsPlugin()
         components = comp_plugin.compute(ctx, "e2e_test")
@@ -292,7 +296,11 @@ class TestEndToEndPipeline:
         merged = merge_plugin.compute(ctx, "perf_test")
         ctx._data["hit_merged"] = merged
 
-        ctx._plugins = {"hit_merged": merge_plugin}
+        ctx._plugins = {
+            "hit_merged": merge_plugin,
+            "records": object(),
+            "wave_pool": object(),
+        }
         ctx.get_plugin = lambda name: ctx._plugins.get(name)
         components = HitMergedComponentsPlugin().compute(ctx, "perf_test")
         ctx._data["hit_merged_components"] = components
