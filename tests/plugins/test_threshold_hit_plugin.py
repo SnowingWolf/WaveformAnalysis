@@ -174,6 +174,7 @@ def test_threshold_hit_single_waveform_multiple_hits():
             "left_extension": 0,
             "right_extension": 0,
             "dt": 2,
+            "asymmetry_cut_enabled": False,
         },
         {"st_waveforms": st},
     )
@@ -330,6 +331,7 @@ def test_threshold_hit_reads_records_view_when_wave_source_records():
             "left_extension": 0,
             "right_extension": 0,
             "dt": 2,
+            "asymmetry_cut_enabled": False,
         },
         {
             "records": _make_records_view().records,
@@ -515,6 +517,7 @@ def test_threshold_hit_numba_backend_matches_ragged_with_chunk_parallel():
         "threshold": 10.0,
         "left_extension": 0,
         "right_extension": 0,
+        "asymmetry_cut_enabled": False,
         "parallel_chunk_size": 2,
         "parallel_min_records": 1,
         "n_workers": 2,
@@ -543,6 +546,7 @@ def test_threshold_hit_auto_backend_falls_back_when_numba_unavailable(monkeypatc
             "threshold": 10.0,
             "left_extension": 0,
             "right_extension": 0,
+            "asymmetry_cut_enabled": False,
         },
         {"records": rv.records, "wave_pool": rv.wave_pool},
     )
@@ -563,6 +567,7 @@ def test_threshold_hit_numba_backend_raises_when_numba_unavailable(monkeypatch):
             "wave_source": "records",
             "backend": "numba",
             "threshold": 10.0,
+            "asymmetry_cut_enabled": False,
         },
         {"records": rv.records, "wave_pool": rv.wave_pool},
     )
@@ -586,6 +591,7 @@ def test_threshold_hit_records_empty_returns_empty():
         {
             "wave_source": "records",
             "threshold": 10.0,
+            "asymmetry_cut_enabled": False,
         },
         {},
     )
@@ -863,6 +869,7 @@ def test_threshold_hit_batch_mode_with_recordsbundle():
         {
             "wave_source": "records",
             "threshold": 10.0,
+            "asymmetry_cut_enabled": False,
         },
         {"records": records, "wave_pool": wave_pool},
     )
@@ -900,6 +907,7 @@ def test_threshold_hit_batched_mode_boundary():
             {
                 "wave_source": "records",
                 "threshold": 10.0,
+                "asymmetry_cut_enabled": False,
                 "streaming_chunk_size": 10,  # 设置 chunk_size=10
             },
             {"records": records, "wave_pool": wave_pool},
@@ -926,6 +934,7 @@ def test_threshold_hit_empty_dataset():
         {
             "wave_source": "records",
             "threshold": 10.0,
+            "asymmetry_cut_enabled": False,
         },
         {"records": empty_records, "wave_pool": empty_wave_pool},
     )
@@ -959,6 +968,7 @@ def test_threshold_hit_no_hits_found():
         {
             "wave_source": "records",
             "threshold": 10.0,
+            "asymmetry_cut_enabled": False,
         },
         {"records": records, "wave_pool": wave_pool},
     )
@@ -995,6 +1005,7 @@ def test_threshold_hit_multi_board_multi_channel():
         {
             "wave_source": "records",
             "threshold": 10.0,
+            "asymmetry_cut_enabled": False,
         },
         {"records": records, "wave_pool": wave_pool},
     )
@@ -1038,6 +1049,7 @@ def test_threshold_hit_batched_mode_large_dataset():
         {
             "wave_source": "records",
             "threshold": 10.0,
+            "asymmetry_cut_enabled": False,
             "streaming_chunk_size": 100,  # 强制使用批处理模式
         },
         {"records": records, "wave_pool": wave_pool},

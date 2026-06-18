@@ -36,7 +36,7 @@ def generate_large_dataset(n_records=10000, n_channels=16, hits_per_record=5):
     for i in range(total_hits):
         record_id = i // hits_per_record
         channel = record_id % n_channels
-        timestamp = record_id * 1000 + (i % hits_per_record) * 100
+        timestamp = record_id * 1000 + 20 + (i % hits_per_record) * 100
 
         hits[i]["record_id"] = record_id
         hits[i]["board"] = 0
@@ -84,8 +84,11 @@ class TestLargeDatasets:
 
         # 验证数据完整性
         assert np.all(merged["channel"] >= 0)
-        assert np.all(merged["sample_start"] >= 0)
-        assert np.all(merged["sample_end"] > merged["sample_start"])
+        direct = merged["is_single_record"]
+        assert np.all(merged["sample_start"][direct] >= 0)
+        assert np.all(merged["sample_end"][direct] > merged["sample_start"][direct])
+        assert np.all(merged["sample_start"][~direct] == -1)
+        assert np.all(merged["sample_end"][~direct] == -1)
 
     @pytest.mark.slow
     def test_peaklets_large_dataset(self):

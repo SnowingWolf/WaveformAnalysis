@@ -31,6 +31,7 @@ def test_get_plugin_set_peaks_available():
         "peaks",
         "waveform_width",
         "s1_s2",
+        "peaklet_s1_s2",
     ]
 
 

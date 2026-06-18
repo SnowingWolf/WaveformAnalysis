@@ -174,6 +174,22 @@ def test_my_deprecation(self):
   run: pytest tests/contracts/ -v --tb=short
 ```
 
+## Release v1.2.0 gate notes
+
+v1.2.0 uses `v1.1.0` as the release baseline. The release gate must include the
+schema smoke chain, full `tests/`, doc anchor sync, generated plugin docs sync,
+and performance regression checks.
+
+The schema comparison is expected to report plugin dtype changes in the peaklet,
+peaks, and hit merge families. These changes are intentional release content and
+must remain documented through `CHANGELOG.md`, generated plugin references, and
+the relevant context/plugin guides when follow-up contract details are added.
+
+The performance regression smoke context must register every dependency required
+by the default hot targets. In particular, records-backed `hit_threshold` now
+depends on `records_asymmetry_mask`, so release QA contexts must register
+`RecordsAsymmetryMaskPlugin` before running the `hit_threshold` benchmark.
+
 ## 相关文档
 
 - [PluginSpec 指南](plugin-development/PLUGIN_SPEC_GUIDE.md) - 插件契约规范
