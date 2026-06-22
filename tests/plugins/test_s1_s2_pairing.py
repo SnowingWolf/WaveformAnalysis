@@ -10,10 +10,10 @@ Version: 0.1.0
 import numpy as np
 import pytest
 
-from waveform_analysis.core.plugins.builtin.cpu.peaklet_s1_s2_classifier import (
+from waveform_analysis.core.plugins.builtin.cpu.peak_classification import (
     LABEL_S1,
     LABEL_S2,
-    PEAKLET_S1_S2_CLASSIFIER_DTYPE,
+    PEAK_CLASSIFICATION_DTYPE,
 )
 from waveform_analysis.core.plugins.builtin.cpu.peaklets import PEAKS_DTYPE
 from waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_candidates import (
@@ -58,7 +58,7 @@ def create_test_peak(
 
 def create_test_label(peak_id: int, label: int):
     """创建测试 S1/S2 标签"""
-    row = np.zeros(1, dtype=PEAKLET_S1_S2_CLASSIFIER_DTYPE)[0]
+    row = np.zeros(1, dtype=PEAK_CLASSIFICATION_DTYPE)[0]
     row["peak_id"] = peak_id
     row["label"] = label
     return row
@@ -115,7 +115,7 @@ def test_basic_pairing_one_to_one():
     plugin = S1S2PairCandidatesPlugin()
     ctx = MockContext()
     ctx.set_data("test_run", "peaks", peaks)
-    ctx.set_data("test_run", "peaklet_s1_s2", labels)
+    ctx.set_data("test_run", "peak_classification", labels)
 
     # 执行
     candidates = plugin.compute(ctx, "test_run")
@@ -162,7 +162,7 @@ def test_multiple_s1_for_one_s2():
     plugin = S1S2PairCandidatesPlugin()
     ctx = MockContext()
     ctx.set_data("test_run", "peaks", peaks)
-    ctx.set_data("test_run", "peaklet_s1_s2", labels)
+    ctx.set_data("test_run", "peak_classification", labels)
 
     # 执行
     candidates = plugin.compute(ctx, "test_run")
@@ -216,7 +216,7 @@ def test_time_window_filtering():
     plugin = S1S2PairCandidatesPlugin()
     ctx = MockContext()
     ctx.set_data("test_run", "peaks", peaks)
-    ctx.set_data("test_run", "peaklet_s1_s2", labels)
+    ctx.set_data("test_run", "peak_classification", labels)
     ctx.set_config({"max_drift_time": 10000.0})  # 10 μs
 
     # 执行
@@ -250,7 +250,7 @@ def test_causality_s2_before_s1():
     plugin = S1S2PairCandidatesPlugin()
     ctx = MockContext()
     ctx.set_data("test_run", "peaks", peaks)
-    ctx.set_data("test_run", "peaklet_s1_s2", labels)
+    ctx.set_data("test_run", "peak_classification", labels)
 
     # 执行
     candidates = plugin.compute(ctx, "test_run")
@@ -262,12 +262,12 @@ def test_causality_s2_before_s1():
 def test_empty_input():
     """测试空输入"""
     peaks = np.array([], dtype=PEAKS_DTYPE)
-    labels = np.array([], dtype=PEAKLET_S1_S2_CLASSIFIER_DTYPE)
+    labels = np.array([], dtype=PEAK_CLASSIFICATION_DTYPE)
 
     plugin = S1S2PairCandidatesPlugin()
     ctx = MockContext()
     ctx.set_data("test_run", "peaks", peaks)
-    ctx.set_data("test_run", "peaklet_s1_s2", labels)
+    ctx.set_data("test_run", "peak_classification", labels)
 
     # 执行
     candidates = plugin.compute(ctx, "test_run")
@@ -296,7 +296,7 @@ def test_orphan_s1():
     plugin = S1S2PairCandidatesPlugin()
     ctx = MockContext()
     ctx.set_data("test_run", "peaks", peaks)
-    ctx.set_data("test_run", "peaklet_s1_s2", labels)
+    ctx.set_data("test_run", "peak_classification", labels)
     ctx.set_config({"allow_orphan_s1": False})
 
     candidates = plugin.compute(ctx, "test_run")
@@ -331,7 +331,7 @@ def test_orphan_s2():
     plugin = S1S2PairCandidatesPlugin()
     ctx = MockContext()
     ctx.set_data("test_run", "peaks", peaks)
-    ctx.set_data("test_run", "peaklet_s1_s2", labels)
+    ctx.set_data("test_run", "peak_classification", labels)
     ctx.set_config({"allow_orphan_s2": True})
 
     candidates = plugin.compute(ctx, "test_run")
@@ -364,7 +364,7 @@ def test_min_area_threshold():
     plugin = S1S2PairCandidatesPlugin()
     ctx = MockContext()
     ctx.set_data("test_run", "peaks", peaks)
-    ctx.set_data("test_run", "peaklet_s1_s2", labels)
+    ctx.set_data("test_run", "peak_classification", labels)
     ctx.set_config({"min_s1_area": 100.0})
 
     candidates = plugin.compute(ctx, "test_run")
@@ -394,7 +394,7 @@ def test_log10_s2_s1_calculation():
     plugin = S1S2PairCandidatesPlugin()
     ctx = MockContext()
     ctx.set_data("test_run", "peaks", peaks)
-    ctx.set_data("test_run", "peaklet_s1_s2", labels)
+    ctx.set_data("test_run", "peak_classification", labels)
 
     candidates = plugin.compute(ctx, "test_run")
 
@@ -436,7 +436,7 @@ def test_selection_largest_mode():
     plugin_cand = S1S2PairCandidatesPlugin()
     ctx = MockContext()
     ctx.set_data("test_run", "peaks", peaks)
-    ctx.set_data("test_run", "peaklet_s1_s2", labels)
+    ctx.set_data("test_run", "peak_classification", labels)
 
     candidates = plugin_cand.compute(ctx, "test_run")
     assert len(candidates) == 3
@@ -477,7 +477,7 @@ def test_selection_scores_computed():
     plugin_cand = S1S2PairCandidatesPlugin()
     ctx = MockContext()
     ctx.set_data("test_run", "peaks", peaks)
-    ctx.set_data("test_run", "peaklet_s1_s2", labels)
+    ctx.set_data("test_run", "peak_classification", labels)
     candidates = plugin_cand.compute(ctx, "test_run")
 
     # 选择
@@ -514,7 +514,7 @@ def test_selection_delta_score():
     plugin_cand = S1S2PairCandidatesPlugin()
     ctx = MockContext()
     ctx.set_data("test_run", "peaks", peaks)
-    ctx.set_data("test_run", "peaklet_s1_s2", labels)
+    ctx.set_data("test_run", "peak_classification", labels)
     candidates = plugin_cand.compute(ctx, "test_run")
 
     plugin_sel = S1S2PairSelectionPlugin()
@@ -551,7 +551,7 @@ def test_selection_rank_for_s2():
     plugin_cand = S1S2PairCandidatesPlugin()
     ctx = MockContext()
     ctx.set_data("test_run", "peaks", peaks)
-    ctx.set_data("test_run", "peaklet_s1_s2", labels)
+    ctx.set_data("test_run", "peak_classification", labels)
     candidates = plugin_cand.compute(ctx, "test_run")
 
     plugin_sel = S1S2PairSelectionPlugin()
@@ -593,7 +593,7 @@ def test_selection_all_mode():
     plugin_cand = S1S2PairCandidatesPlugin()
     ctx = MockContext()
     ctx.set_data("test_run", "peaks", peaks)
-    ctx.set_data("test_run", "peaklet_s1_s2", labels)
+    ctx.set_data("test_run", "peak_classification", labels)
     candidates = plugin_cand.compute(ctx, "test_run")
 
     # 选择 (all 模式)

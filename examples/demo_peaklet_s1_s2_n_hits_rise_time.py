@@ -1,7 +1,7 @@
 """
 演示如何使用 n_hits 和 rise_time_10_50 进行 S1/S2 分类
 
-这个示例展示了如何配置 PeakletS1S2ClassifierPlugin，使用以下条件识别 S2 信号：
+这个示例展示了如何配置 PeakClassificationPlugin，使用以下条件识别 S2 信号：
 - n_hits >= 8：S2 信号通常包含更多的 hit（多通道响应）
 - rise_time_10_50 >= 100 ns：S2 信号的上升时间（10%-50%）较长（缓慢上升）
 """
@@ -14,7 +14,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     LABEL_S2,
     LABEL_UNKNOWN,
     PEAKS_DTYPE,
-    PeakletS1S2ClassifierPlugin,
+    PeakClassificationPlugin,
 )
 
 
@@ -81,7 +81,7 @@ def main():
     """主函数"""
     # 创建 Context
     ctx = Context()
-    ctx.register(PeakletS1S2ClassifierPlugin())
+    ctx.register(PeakClassificationPlugin())
 
     # 准备测试数据
     run_id = "demo_run"
@@ -96,11 +96,11 @@ def main():
                 "rise_time_10_50": (100.0, None),  # rise_time_10_50 >= 100 ns
             },
         },
-        plugin_name="peaklet_s1_s2",
+        plugin_name="peak_classification",
     )
 
     # 执行分类
-    labels = ctx.get_data(run_id, "peaklet_s1_s2")
+    labels = ctx.get_data(run_id, "peak_classification")
 
     # 打印结果
     print("=" * 80)

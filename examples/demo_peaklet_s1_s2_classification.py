@@ -1,5 +1,5 @@
 """
-演示 PeakletS1S2ClassifierPlugin 的使用
+演示 PeakClassificationPlugin 的使用
 
 该示例展示如何：
 1. 使用 peaklet 特征进行 S1/S2 分类
@@ -14,7 +14,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     LABEL_S1,
     LABEL_S2,
     LABEL_UNKNOWN,
-    PeakletS1S2ClassifierPlugin,
+    PeakClassificationPlugin,
 )
 
 
@@ -25,7 +25,7 @@ def main():
     ctx = Context(storage_dir="./output/peaklet_s1_s2_demo")
 
     # 注册分类插件
-    ctx.register(PeakletS1S2ClassifierPlugin())
+    ctx.register(PeakClassificationPlugin())
 
     # 配置分类参数（基于暗物质探测器的典型参数）
     ctx.set_config(
@@ -46,11 +46,11 @@ def main():
             # 严格模式：确保至少配置了一个判断条件
             "strict": True,
         },
-        plugin_name="peaklet_s1_s2",
+        plugin_name="peak_classification",
     )
 
     print("=" * 70)
-    print("PeakletS1S2ClassifierPlugin 使用示例")
+    print("PeakClassificationPlugin 使用示例")
     print("=" * 70)
     print("\n配置参数：")
     print("  S1: 窄脉冲 (10-200ns), 小面积 (10-1000), 快速上升/下降")
@@ -69,7 +69,7 @@ def main():
     print()
 
     # 输出数据类型信息
-    plugin = PeakletS1S2ClassifierPlugin()
+    plugin = PeakClassificationPlugin()
     print("输出数据类型字段：")
     for name in plugin.output_dtype.names:
         dtype = plugin.output_dtype.fields[name][0]
@@ -113,10 +113,10 @@ def main():
         """
 # 1. 创建完整的处理上下文
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import PeakletS1S2ClassifierPlugin
+from waveform_analysis.core.plugins.builtin.cpu import PeakClassificationPlugin
 
 ctx = Context(storage_dir="./cache")
-ctx.register(PeakletS1S2ClassifierPlugin())
+ctx.register(PeakClassificationPlugin())
 
 # 2. 配置分类参数
 ctx.set_config({
@@ -124,11 +124,11 @@ ctx.set_config({
     "s1_area_range": (10.0, 1000.0),
     "s2_width_range": (500.0, 20000.0),
     "s2_area_range": (1000.0, None),
-}, plugin_name="peaklet_s1_s2")
+}, plugin_name="peak_classification")
 
 # 3. 获取分类结果
 run_id = "run_001"
-labels = ctx.get_data(run_id, "peaklet_s1_s2")
+labels = ctx.get_data(run_id, "peak_classification")
 
 # 4. 分析结果
 s1_count = np.sum(labels["label"] == 1)

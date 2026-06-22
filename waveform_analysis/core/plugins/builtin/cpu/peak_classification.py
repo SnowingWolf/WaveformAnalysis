@@ -39,7 +39,7 @@ LABEL_UNKNOWN = export(0, name="LABEL_UNKNOWN")
 LABEL_S1 = export(1, name="LABEL_S1")
 LABEL_S2 = export(2, name="LABEL_S2")
 
-PEAKLET_S1_S2_CLASSIFIER_DTYPE = np.dtype(
+PEAK_CLASSIFICATION_DTYPE = np.dtype(
     [
         ("peak_id", "i8"),
         ("label", "i1"),
@@ -77,7 +77,7 @@ def _value_in_range(
 
 
 @export
-class PeakletS1S2ClassifierPlugin(Plugin):
+class PeakClassificationPlugin(Plugin):
     """基于 peaks 特征进行 S1/S2 分类。
 
     该插件使用 peaks 的多维特征（宽度、面积、高度、上升时间、下降时间、n_hits、n_channels 等）
@@ -96,12 +96,12 @@ class PeakletS1S2ClassifierPlugin(Plugin):
     - n_channels: 通道数量
     """
 
-    provides = "peaklet_s1_s2"
+    provides = "peak_classification"
     depends_on = ["peaks"]
     description = "Classify peaks into S1/S2 using multi-dimensional features."
     version = "1.0.0"
     save_when = "always"
-    output_dtype = PEAKLET_S1_S2_CLASSIFIER_DTYPE
+    output_dtype = PEAK_CLASSIFICATION_DTYPE
 
     options = {
         "s1_ranges": Option(
@@ -151,10 +151,10 @@ class PeakletS1S2ClassifierPlugin(Plugin):
         peaks = context.get_data(run_id, "peaks")
 
         if not isinstance(peaks, np.ndarray):
-            raise ValueError("peaklet_s1_s2 expects peaks as a structured array")
+            raise ValueError("peak_classification expects peaks as a structured array")
 
         if len(peaks) == 0:
-            return np.zeros(0, dtype=PEAKLET_S1_S2_CLASSIFIER_DTYPE)
+            return np.zeros(0, dtype=PEAK_CLASSIFICATION_DTYPE)
 
         # 获取配置
         s1_ranges = context.get_config(self, "s1_ranges")
@@ -217,8 +217,8 @@ class PeakletS1S2ClassifierPlugin(Plugin):
             )
 
         if rows:
-            return np.array(rows, dtype=PEAKLET_S1_S2_CLASSIFIER_DTYPE)
-        return np.zeros(0, dtype=PEAKLET_S1_S2_CLASSIFIER_DTYPE)
+            return np.array(rows, dtype=PEAK_CLASSIFICATION_DTYPE)
+        return np.zeros(0, dtype=PEAK_CLASSIFICATION_DTYPE)
 
     @staticmethod
     def _normalize_ranges(ranges: dict | None) -> dict[str, tuple[float | None, float | None]]:

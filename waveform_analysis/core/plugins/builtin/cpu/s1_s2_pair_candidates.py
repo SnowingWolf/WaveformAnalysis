@@ -11,7 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from waveform_analysis.core.plugins.builtin.cpu.peaklet_s1_s2_classifier import (
+from waveform_analysis.core.plugins.builtin.cpu.peak_classification import (
     LABEL_S1,
     LABEL_S2,
 )
@@ -114,7 +114,7 @@ class S1S2PairCandidatesPlugin(Plugin):
     """
 
     provides = "s1_s2_pair_candidates"
-    depends_on = ["peaklet_s1_s2", "peaks"]
+    depends_on = ["peak_classification", "peaks"]
     description = "Generate all physically allowed S1-S2 pairing candidates"
     version = "0.1.0"
     save_when = "always"
@@ -175,7 +175,7 @@ class S1S2PairCandidatesPlugin(Plugin):
         时间复杂度: O(M log N + K), K 是候选总数
         """
         # 获取依赖数据
-        peaklet_s1_s2 = context.get_data(run_id, "peaklet_s1_s2")
+        peak_classification = context.get_data(run_id, "peak_classification")
         peaks = context.get_data(run_id, "peaks")
 
         # 获取配置
@@ -192,7 +192,7 @@ class S1S2PairCandidatesPlugin(Plugin):
         min_drift_ps = int(min_drift_ns * 1000)
 
         # 分离 S1 和 S2
-        s1_peaks, s2_peaks = self._split_s1_s2(peaks, peaklet_s1_s2)
+        s1_peaks, s2_peaks = self._split_s1_s2(peaks, peak_classification)
 
         # 应用面积阈值
         if min_s1_area is not None:
@@ -228,10 +228,10 @@ class S1S2PairCandidatesPlugin(Plugin):
 
         return candidates
 
-    def _split_s1_s2(self, peaks: np.ndarray, peaklet_s1_s2: np.ndarray):
+    def _split_s1_s2(self, peaks: np.ndarray, peak_classification: np.ndarray):
         """分离 S1 和 S2 peaks"""
         # 构建 peak_id -> label 映射
-        label_map = {int(row["peak_id"]): int(row["label"]) for row in peaklet_s1_s2}
+        label_map = {int(row["peak_id"]): int(row["label"]) for row in peak_classification}
 
         s1_peaks = []
         s2_peaks = []

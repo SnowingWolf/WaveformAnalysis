@@ -10,11 +10,11 @@ import numpy as np
 from waveform_analysis.core.plugins.builtin.cpu import (
     LABEL_S1,
     LABEL_S2,
-    PeakletS1S2ClassifierPlugin,
+    PeakClassificationPlugin,
     S1S2PairCandidatesPlugin,
 )
-from waveform_analysis.core.plugins.builtin.cpu.peaklet_s1_s2_classifier import (
-    PEAKLET_S1_S2_CLASSIFIER_DTYPE,
+from waveform_analysis.core.plugins.builtin.cpu.peak_classification import (
+    PEAK_CLASSIFICATION_DTYPE,
 )
 from waveform_analysis.core.plugins.builtin.cpu.peaklets import PEAKS_DTYPE
 
@@ -60,7 +60,7 @@ def create_demo_data():
     peaks[4]["n_channels"] = 20
 
     # 创建 S1/S2 标签
-    labels = np.zeros(5, dtype=PEAKLET_S1_S2_CLASSIFIER_DTYPE)
+    labels = np.zeros(5, dtype=PEAK_CLASSIFICATION_DTYPE)
     labels[0] = (1, LABEL_S1)
     labels[1] = (2, LABEL_S1)
     labels[2] = (10, LABEL_S2)
@@ -110,7 +110,7 @@ def main():
     plugin = S1S2PairCandidatesPlugin()
     ctx = SimpleContext()
     ctx.set_data("demo_run", "peaks", peaks)
-    ctx.set_data("demo_run", "peaklet_s1_s2", labels)
+    ctx.set_data("demo_run", "peak_classification", labels)
 
     # 设置配置
     ctx.set_config(

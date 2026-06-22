@@ -20,11 +20,11 @@ def plugins_peaks():
     from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import (
         HitMergedFeaturesPlugin,
     )
+    from waveform_analysis.core.plugins.builtin.cpu.peak_classification import (
+        PeakClassificationPlugin,
+    )
     from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HitFinderPlugin
     from waveform_analysis.core.plugins.builtin.cpu.peaklet_channels import PeakletChannelsPlugin
-    from waveform_analysis.core.plugins.builtin.cpu.peaklet_s1_s2_classifier import (
-        PeakletS1S2ClassifierPlugin,
-    )
     from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
         PeakletComponentsPlugin,
         PeakletFeaturesPlugin,
@@ -62,5 +62,5 @@ def plugins_peaks():
         PeaksPlugin(),
         WaveformWidthPlugin(),
         S1S2ClassifierPlugin(),
-        PeakletS1S2ClassifierPlugin(),
+        PeakClassificationPlugin(),
     ]
