@@ -88,12 +88,16 @@ def main():
     peaks = create_test_data()
     ctx._results[(run_id, "peaks")] = peaks
 
-    # 配置分类器：使用字典配置 S2 判断条件
+    # 配置分类器：使用 selection 配置 S2 判断条件
     ctx.set_config(
         {
-            "s2_ranges": {
-                "n_hits": (8, None),  # n_hits >= 8
-                "rise_time_10_50": (100.0, None),  # rise_time_10_50 >= 100 ns
+            "s2_selection": {
+                "accept_any": [
+                    {
+                        "n_hits": (8, None),  # n_hits >= 8
+                        "rise_time_10_50": (100.0, None),  # rise_time_10_50 >= 100 ns
+                    },
+                ],
             },
         },
         plugin_name="peak_classification",
@@ -107,10 +111,12 @@ def main():
     print("PeakletS1S2Classifier 演示：使用 n_hits 和 rise_time_10_50")
     print("=" * 80)
     print()
-    print("配置方式（字典配置）：")
-    print("  s2_ranges = {")
-    print("    'n_hits': (8, None),")
-    print("    'rise_time_10_50': (100.0, None),")
+    print("配置方式（selection 配置）：")
+    print("  s2_selection = {")
+    print("    'accept_any': [{")
+    print("      'n_hits': (8, None),")
+    print("      'rise_time_10_50': (100.0, None),")
+    print("    }],")
     print("  }")
     print()
     print("分类条件：")
@@ -155,9 +161,9 @@ def main():
 
     # 展示新配置方式的优势
     print("新配置方式的优势：")
-    print("  1. 更简洁 - 使用字典配置，不需要为每个特征单独定义配置项")
-    print("  2. 更灵活 - 可以动态添加任何 peaks 中的特征")
-    print("  3. 更直观 - 直接看配置就知道用了哪些特征")
+    print("  1. 支持多组 accept_any 条件，满足任一组即可成为候选")
+    print("  2. 支持 reject_any 排除条件，便于表达反选规则")
+    print("  3. 可以动态使用 peaks 中的任意特征")
     print("  4. 依赖更简单 - 仅依赖 peaks，无需分别依赖 peaklet_features 和 peaklets")
     print()
 

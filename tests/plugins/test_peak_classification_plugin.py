@@ -82,20 +82,28 @@ def test_peak_classification_basic(tmp_path):
     run_id = "run_001"
     ctx._results[(run_id, "peaks")] = _make_peaks()
 
-    # 配置分类范围（使用字典配置）
+    # 配置分类条件
     ctx.set_config(
         {
             # S1: 窄脉冲，快速，小面积
-            "s1_ranges": {
-                "width": (0.0, 100.0),
-                "area": (0.0, 500.0),
-                "rise_time": (0.0, 30.0),
-                "fall_time": (0.0, 50.0),
+            "s1_selection": {
+                "accept_any": [
+                    {
+                        "width": (0.0, 100.0),
+                        "area": (0.0, 500.0),
+                        "rise_time": (0.0, 30.0),
+                        "fall_time": (0.0, 50.0),
+                    },
+                ],
             },
             # S2: 宽脉冲，大面积
-            "s2_ranges": {
-                "width": (300.0, None),
-                "area": (1000.0, None),
+            "s2_selection": {
+                "accept_any": [
+                    {
+                        "width": (300.0, None),
+                        "area": (1000.0, None),
+                    },
+                ],
             },
             # 不满足条件时返回 Unknown
             "default_label": "unknown",
@@ -124,7 +132,7 @@ def test_peak_classification_empty(tmp_path):
 
     ctx.set_config(
         {
-            "s1_ranges": {"width": (0.0, 100.0)},
+            "s1_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
         },
         plugin_name="peak_classification",
     )
@@ -150,8 +158,8 @@ def test_peak_classification_conflict_prefer_s1(tmp_path):
     # 配置使得同时满足 S1 和 S2 条件
     ctx.set_config(
         {
-            "s1_ranges": {"width": (0.0, 100.0)},
-            "s2_ranges": {"width": (0.0, 100.0)},
+            "s1_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
+            "s2_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
             "conflict_policy": "prefer_s1",
         },
         plugin_name="peak_classification",
@@ -179,8 +187,8 @@ def test_peak_classification_conflict_prefer_s2(tmp_path):
     # 配置使得同时满足 S1 和 S2 条件
     ctx.set_config(
         {
-            "s1_ranges": {"width": (0.0, 100.0)},
-            "s2_ranges": {"width": (0.0, 100.0)},
+            "s1_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
+            "s2_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
             "conflict_policy": "prefer_s2",
         },
         plugin_name="peak_classification",
@@ -208,8 +216,8 @@ def test_peak_classification_conflict_unknown(tmp_path):
     # 配置使得同时满足 S1 和 S2 条件
     ctx.set_config(
         {
-            "s1_ranges": {"width": (0.0, 100.0)},
-            "s2_ranges": {"width": (0.0, 100.0)},
+            "s1_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
+            "s2_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
             "conflict_policy": "unknown",
         },
         plugin_name="peak_classification",
@@ -237,8 +245,8 @@ def test_peak_classification_conflict_mark_as_s1_s2(tmp_path):
     # 配置使得同时满足 S1 和 S2 条件
     ctx.set_config(
         {
-            "s1_ranges": {"width": (0.0, 100.0)},
-            "s2_ranges": {"width": (0.0, 100.0)},
+            "s1_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
+            "s2_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
             "conflict_policy": "mark_as_s1_s2",
         },
         plugin_name="peak_classification",
@@ -252,13 +260,7 @@ def test_peak_classification_conflict_mark_as_s1_s2(tmp_path):
 def test_peak_classification_strict_mode(tmp_path):
     """测试严格模式：未配置任何条件时报错"""
     ctx = Context(storage_dir=str(tmp_path))
-
-    # 创建一个插件实例并手动覆盖默认配置
-    plugin = PeakClassificationPlugin()
-    plugin.options["s1_ranges"].default = None
-    plugin.options["s2_ranges"].default = None
-
-    ctx.register(plugin)
+    ctx.register(PeakClassificationPlugin())
 
     run_id = "run_001"
     ctx._results[(run_id, "peaks")] = _make_peaks()
@@ -285,8 +287,8 @@ def test_peak_classification_n_channels_filter(tmp_path):
     # 仅使用 n_channels 进行过滤，不使用 width
     ctx.set_config(
         {
-            "s1_ranges": {"n_channels": (1, 4)},
-            "s2_ranges": {"n_channels": (5, None)},
+            "s1_selection": {"accept_any": [{"n_channels": (1, 4)}]},
+            "s2_selection": {"accept_any": [{"n_channels": (5, None)}]},
         },
         plugin_name="peak_classification",
     )
@@ -312,7 +314,7 @@ def test_peak_classification_output_fields(tmp_path):
 
     ctx.set_config(
         {
-            "s1_ranges": {"width": (0.0, 100.0)},
+            "s1_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
         },
         plugin_name="peak_classification",
     )
@@ -343,8 +345,8 @@ def test_peak_classification_n_hits_filter(tmp_path):
     # Peak 0: n_hits=5, Peak 1: n_hits=20, Peak 2: n_hits=10
     ctx.set_config(
         {
-            "s1_ranges": {"n_hits": (1, 7)},  # 仅 Peak 0 满足
-            "s2_ranges": {"n_hits": (8, None)},  # Peak 1 和 2 满足
+            "s1_selection": {"accept_any": [{"n_hits": (1, 7)}]},  # 仅 Peak 0 满足
+            "s2_selection": {"accept_any": [{"n_hits": (8, None)}]},  # Peak 1 和 2 满足
         },
         plugin_name="peak_classification",
     )
@@ -369,8 +371,12 @@ def test_peak_classification_rise_time_10_50_filter(tmp_path):
     # Peak 0: 5.0 ns, Peak 1: 120.0 ns, Peak 2: 30.0 ns
     ctx.set_config(
         {
-            "s1_ranges": {"rise_time_10_50": (0.0, 50.0)},  # Peak 0 和 2 满足
-            "s2_ranges": {"rise_time_10_50": (100.0, None)},  # 仅 Peak 1 满足
+            "s1_selection": {
+                "accept_any": [{"rise_time_10_50": (0.0, 50.0)}],
+            },  # Peak 0 和 2 满足
+            "s2_selection": {
+                "accept_any": [{"rise_time_10_50": (100.0, None)}],
+            },  # 仅 Peak 1 满足
         },
         plugin_name="peak_classification",
     )
@@ -394,10 +400,13 @@ def test_peak_classification_combined_s2_criteria(tmp_path):
     # 组合条件：同时满足 n_hits >= 8 AND rise_time_10_50 >= 100
     ctx.set_config(
         {
-            "s1_ranges": None,  # 不配置 S1
-            "s2_ranges": {
-                "n_hits": (8, None),
-                "rise_time_10_50": (100.0, None),
+            "s2_selection": {
+                "accept_any": [
+                    {
+                        "n_hits": (8, None),
+                        "rise_time_10_50": (100.0, None),
+                    },
+                ],
             },
             "default_label": "unknown",  # 不满足 S2 时返回 Unknown
         },
@@ -482,8 +491,8 @@ def test_peak_classification_reject_any_priority(tmp_path):
     assert labels[2]["label"] == LABEL_UNKNOWN
 
 
-def test_peak_classification_selection_backward_compat(tmp_path):
-    """测试向后兼容：未配置 selection 时使用 ranges"""
+def test_peak_classification_selection_uses_configured_groups(tmp_path):
+    """测试 selection 使用配置的条件组"""
     ctx = Context(storage_dir=str(tmp_path))
     ctx.register(PeakClassificationPlugin())
 
@@ -491,42 +500,11 @@ def test_peak_classification_selection_backward_compat(tmp_path):
     peaks = _make_peaks()
     ctx._results[(run_id, "peaks")] = peaks
 
-    # 只使用旧的 ranges 配置
     ctx.set_config(
         {
-            "s1_ranges": {"width": (0.0, 100.0)},
-            "s2_ranges": {"width": (300.0, None)},
-        },
-        plugin_name="peak_classification",
-    )
-
-    labels = ctx.get_data(run_id, "peak_classification")
-
-    assert len(labels) == 3
-    # Peak 0: width=50 -> S1
-    assert labels[0]["label"] == LABEL_S1
-    # Peak 1: width=500 -> S2
-    assert labels[1]["label"] == LABEL_S2
-    # Peak 2: width=150 -> Unknown (default_label 改为 unknown)
-    assert labels[2]["label"] == LABEL_UNKNOWN
-
-
-def test_peak_classification_selection_override_ranges(tmp_path):
-    """测试 selection 覆盖 ranges"""
-    ctx = Context(storage_dir=str(tmp_path))
-    ctx.register(PeakClassificationPlugin())
-
-    run_id = "run_001"
-    peaks = _make_peaks()
-    ctx._results[(run_id, "peaks")] = peaks
-
-    # 同时配置 selection 和 ranges，selection 应该优先
-    ctx.set_config(
-        {
-            "s1_ranges": {"width": (0.0, 100.0)},  # 这个会被忽略
             "s1_selection": {
                 "accept_any": [
-                    {"area": (0.0, 200.0)},  # 使用不同的条件
+                    {"area": (0.0, 200.0)},
                 ],
             },
         },
