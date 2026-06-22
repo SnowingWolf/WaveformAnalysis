@@ -1,4 +1,4 @@
-"""Tests for PeakletS1S2ClassifierPlugin."""
+"""Tests for PeakClassificationPlugin."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     LABEL_S2,
     LABEL_UNKNOWN,
     PEAKS_DTYPE,
-    PeakletS1S2ClassifierPlugin,
+    PeakClassificationPlugin,
 )
 
 
@@ -73,10 +73,10 @@ def _make_peaks(n: int = 3) -> np.ndarray:
     return peaks
 
 
-def test_peaklet_s1_s2_classifier_basic(tmp_path):
+def test_peak_classification_basic(tmp_path):
     """测试基本的 S1/S2 分类功能"""
     ctx = Context(storage_dir=str(tmp_path))
-    ctx.register(PeakletS1S2ClassifierPlugin())
+    ctx.register(PeakClassificationPlugin())
 
     run_id = "run_001"
     ctx._results[(run_id, "peaks")] = _make_peaks()
@@ -99,10 +99,10 @@ def test_peaklet_s1_s2_classifier_basic(tmp_path):
             # 不满足条件时返回 Unknown
             "default_label": "unknown",
         },
-        plugin_name="peaklet_s1_s2",
+        plugin_name="peak_classification",
     )
 
-    labels = ctx.get_data(run_id, "peaklet_s1_s2")
+    labels = ctx.get_data(run_id, "peak_classification")
 
     assert len(labels) == 3
     assert labels[0]["peak_id"] == 0
@@ -113,10 +113,10 @@ def test_peaklet_s1_s2_classifier_basic(tmp_path):
     assert labels[2]["label"] == LABEL_UNKNOWN
 
 
-def test_peaklet_s1_s2_classifier_empty(tmp_path):
+def test_peak_classification_empty(tmp_path):
     """测试空输入"""
     ctx = Context(storage_dir=str(tmp_path))
-    ctx.register(PeakletS1S2ClassifierPlugin())
+    ctx.register(PeakClassificationPlugin())
 
     run_id = "run_001"
     ctx._results[(run_id, "peaks")] = np.zeros(0, dtype=PEAKS_DTYPE)
@@ -125,17 +125,17 @@ def test_peaklet_s1_s2_classifier_empty(tmp_path):
         {
             "s1_ranges": {"width": (0.0, 100.0)},
         },
-        plugin_name="peaklet_s1_s2",
+        plugin_name="peak_classification",
     )
 
-    labels = ctx.get_data(run_id, "peaklet_s1_s2")
+    labels = ctx.get_data(run_id, "peak_classification")
     assert len(labels) == 0
 
 
-def test_peaklet_s1_s2_classifier_conflict_prefer_s1(tmp_path):
+def test_peak_classification_conflict_prefer_s1(tmp_path):
     """测试冲突策略：prefer_s1"""
     ctx = Context(storage_dir=str(tmp_path))
-    ctx.register(PeakletS1S2ClassifierPlugin())
+    ctx.register(PeakClassificationPlugin())
 
     run_id = "run_001"
     peaks = np.zeros(1, dtype=PEAKS_DTYPE)
@@ -153,18 +153,18 @@ def test_peaklet_s1_s2_classifier_conflict_prefer_s1(tmp_path):
             "s2_ranges": {"width": (0.0, 100.0)},
             "conflict_policy": "prefer_s1",
         },
-        plugin_name="peaklet_s1_s2",
+        plugin_name="peak_classification",
     )
 
-    labels = ctx.get_data(run_id, "peaklet_s1_s2")
+    labels = ctx.get_data(run_id, "peak_classification")
     assert len(labels) == 1
     assert labels[0]["label"] == LABEL_S1
 
 
-def test_peaklet_s1_s2_classifier_conflict_prefer_s2(tmp_path):
+def test_peak_classification_conflict_prefer_s2(tmp_path):
     """测试冲突策略：prefer_s2"""
     ctx = Context(storage_dir=str(tmp_path))
-    ctx.register(PeakletS1S2ClassifierPlugin())
+    ctx.register(PeakClassificationPlugin())
 
     run_id = "run_001"
     peaks = np.zeros(1, dtype=PEAKS_DTYPE)
@@ -182,18 +182,18 @@ def test_peaklet_s1_s2_classifier_conflict_prefer_s2(tmp_path):
             "s2_ranges": {"width": (0.0, 100.0)},
             "conflict_policy": "prefer_s2",
         },
-        plugin_name="peaklet_s1_s2",
+        plugin_name="peak_classification",
     )
 
-    labels = ctx.get_data(run_id, "peaklet_s1_s2")
+    labels = ctx.get_data(run_id, "peak_classification")
     assert len(labels) == 1
     assert labels[0]["label"] == LABEL_S2
 
 
-def test_peaklet_s1_s2_classifier_conflict_unknown(tmp_path):
+def test_peak_classification_conflict_unknown(tmp_path):
     """测试冲突策略：unknown"""
     ctx = Context(storage_dir=str(tmp_path))
-    ctx.register(PeakletS1S2ClassifierPlugin())
+    ctx.register(PeakClassificationPlugin())
 
     run_id = "run_001"
     peaks = np.zeros(1, dtype=PEAKS_DTYPE)
@@ -211,20 +211,20 @@ def test_peaklet_s1_s2_classifier_conflict_unknown(tmp_path):
             "s2_ranges": {"width": (0.0, 100.0)},
             "conflict_policy": "unknown",
         },
-        plugin_name="peaklet_s1_s2",
+        plugin_name="peak_classification",
     )
 
-    labels = ctx.get_data(run_id, "peaklet_s1_s2")
+    labels = ctx.get_data(run_id, "peak_classification")
     assert len(labels) == 1
     assert labels[0]["label"] == LABEL_UNKNOWN
 
 
-def test_peaklet_s1_s2_classifier_strict_mode(tmp_path):
+def test_peak_classification_strict_mode(tmp_path):
     """测试严格模式：未配置任何条件时报错"""
     ctx = Context(storage_dir=str(tmp_path))
 
     # 创建一个插件实例并手动覆盖默认配置
-    plugin = PeakletS1S2ClassifierPlugin()
+    plugin = PeakClassificationPlugin()
     plugin.options["s1_ranges"].default = None
     plugin.options["s2_ranges"].default = None
 
@@ -237,17 +237,17 @@ def test_peaklet_s1_s2_classifier_strict_mode(tmp_path):
         {
             "strict": True,
         },
-        plugin_name="peaklet_s1_s2",
+        plugin_name="peak_classification",
     )
 
     with pytest.raises(RuntimeError, match="No S1/S2 criteria configured"):
-        ctx.get_data(run_id, "peaklet_s1_s2")
+        ctx.get_data(run_id, "peak_classification")
 
 
-def test_peaklet_s1_s2_classifier_n_channels_filter(tmp_path):
+def test_peak_classification_n_channels_filter(tmp_path):
     """测试通道数过滤功能"""
     ctx = Context(storage_dir=str(tmp_path))
-    ctx.register(PeakletS1S2ClassifierPlugin())
+    ctx.register(PeakClassificationPlugin())
 
     run_id = "run_001"
     ctx._results[(run_id, "peaks")] = _make_peaks()
@@ -258,10 +258,10 @@ def test_peaklet_s1_s2_classifier_n_channels_filter(tmp_path):
             "s1_ranges": {"n_channels": (1, 4)},
             "s2_ranges": {"n_channels": (5, None)},
         },
-        plugin_name="peaklet_s1_s2",
+        plugin_name="peak_classification",
     )
 
-    labels = ctx.get_data(run_id, "peaklet_s1_s2")
+    labels = ctx.get_data(run_id, "peak_classification")
 
     assert len(labels) == 3
     # Peak 0: n_channels=3, 满足 S1
@@ -272,10 +272,10 @@ def test_peaklet_s1_s2_classifier_n_channels_filter(tmp_path):
     assert labels[2]["label"] == LABEL_S2
 
 
-def test_peaklet_s1_s2_classifier_output_fields(tmp_path):
+def test_peak_classification_output_fields(tmp_path):
     """测试输出字段完整性"""
     ctx = Context(storage_dir=str(tmp_path))
-    ctx.register(PeakletS1S2ClassifierPlugin())
+    ctx.register(PeakClassificationPlugin())
 
     run_id = "run_001"
     ctx._results[(run_id, "peaks")] = _make_peaks()
@@ -284,10 +284,10 @@ def test_peaklet_s1_s2_classifier_output_fields(tmp_path):
         {
             "s1_ranges": {"width": (0.0, 100.0)},
         },
-        plugin_name="peaklet_s1_s2",
+        plugin_name="peak_classification",
     )
 
-    labels = ctx.get_data(run_id, "peaklet_s1_s2")
+    labels = ctx.get_data(run_id, "peak_classification")
 
     # 检查字段：仅 peak_id 和 label
     expected_fields = {
@@ -301,10 +301,10 @@ def test_peaklet_s1_s2_classifier_output_fields(tmp_path):
     assert labels[0]["label"] == LABEL_S1
 
 
-def test_peaklet_s1_s2_classifier_n_hits_filter(tmp_path):
+def test_peak_classification_n_hits_filter(tmp_path):
     """测试 n_hits 范围过滤功能"""
     ctx = Context(storage_dir=str(tmp_path))
-    ctx.register(PeakletS1S2ClassifierPlugin())
+    ctx.register(PeakClassificationPlugin())
 
     run_id = "run_001"
     ctx._results[(run_id, "peaks")] = _make_peaks()
@@ -316,10 +316,10 @@ def test_peaklet_s1_s2_classifier_n_hits_filter(tmp_path):
             "s1_ranges": {"n_hits": (1, 7)},  # 仅 Peak 0 满足
             "s2_ranges": {"n_hits": (8, None)},  # Peak 1 和 2 满足
         },
-        plugin_name="peaklet_s1_s2",
+        plugin_name="peak_classification",
     )
 
-    labels = ctx.get_data(run_id, "peaklet_s1_s2")
+    labels = ctx.get_data(run_id, "peak_classification")
 
     assert len(labels) == 3
     assert labels[0]["label"] == LABEL_S1  # n_hits=5
@@ -327,10 +327,10 @@ def test_peaklet_s1_s2_classifier_n_hits_filter(tmp_path):
     assert labels[2]["label"] == LABEL_S2  # n_hits=10
 
 
-def test_peaklet_s1_s2_classifier_rise_time_10_50_filter(tmp_path):
+def test_peak_classification_rise_time_10_50_filter(tmp_path):
     """测试 rise_time_10_50 范围过滤功能"""
     ctx = Context(storage_dir=str(tmp_path))
-    ctx.register(PeakletS1S2ClassifierPlugin())
+    ctx.register(PeakClassificationPlugin())
 
     run_id = "run_001"
     ctx._results[(run_id, "peaks")] = _make_peaks()
@@ -342,10 +342,10 @@ def test_peaklet_s1_s2_classifier_rise_time_10_50_filter(tmp_path):
             "s1_ranges": {"rise_time_10_50": (0.0, 50.0)},  # Peak 0 和 2 满足
             "s2_ranges": {"rise_time_10_50": (100.0, None)},  # 仅 Peak 1 满足
         },
-        plugin_name="peaklet_s1_s2",
+        plugin_name="peak_classification",
     )
 
-    labels = ctx.get_data(run_id, "peaklet_s1_s2")
+    labels = ctx.get_data(run_id, "peak_classification")
 
     assert len(labels) == 3
     assert labels[0]["label"] == LABEL_S1  # rise_time_10_50=5.0
@@ -353,10 +353,10 @@ def test_peaklet_s1_s2_classifier_rise_time_10_50_filter(tmp_path):
     assert labels[2]["label"] == LABEL_S1  # rise_time_10_50=30.0
 
 
-def test_peaklet_s1_s2_classifier_combined_s2_criteria(tmp_path):
+def test_peak_classification_combined_s2_criteria(tmp_path):
     """测试组合条件：n_hits >= 8 且 rise_time_10_50 >= 100"""
     ctx = Context(storage_dir=str(tmp_path))
-    ctx.register(PeakletS1S2ClassifierPlugin())
+    ctx.register(PeakClassificationPlugin())
 
     run_id = "run_001"
     ctx._results[(run_id, "peaks")] = _make_peaks()
@@ -371,10 +371,10 @@ def test_peaklet_s1_s2_classifier_combined_s2_criteria(tmp_path):
             },
             "default_label": "unknown",  # 不满足 S2 时返回 Unknown
         },
-        plugin_name="peaklet_s1_s2",
+        plugin_name="peak_classification",
     )
 
-    labels = ctx.get_data(run_id, "peaklet_s1_s2")
+    labels = ctx.get_data(run_id, "peak_classification")
 
     assert len(labels) == 3
     # Peak 0: n_hits=5, rise_time_10_50=5.0 -> Unknown (两个都不满足)

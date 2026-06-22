@@ -17,8 +17,8 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     S1S2PairCandidatesPlugin,
     S1S2PairSelectionPlugin,
 )
-from waveform_analysis.core.plugins.builtin.cpu.peaklet_s1_s2_classifier import (
-    PEAKLET_S1_S2_CLASSIFIER_DTYPE,
+from waveform_analysis.core.plugins.builtin.cpu.peak_classification import (
+    PEAK_CLASSIFICATION_DTYPE,
 )
 from waveform_analysis.core.plugins.builtin.cpu.peaklets import PEAKS_DTYPE
 
@@ -44,7 +44,7 @@ def create_demo_peak(peak_id, time_ns, area, width_ns=100, n_channels=5):
 
 def create_label(peak_id, label):
     """创建 S1/S2 标签"""
-    row = np.zeros(1, dtype=PEAKLET_S1_S2_CLASSIFIER_DTYPE)[0]
+    row = np.zeros(1, dtype=PEAK_CLASSIFICATION_DTYPE)[0]
     row["peak_id"] = peak_id
     row["label"] = label
     return row
@@ -112,7 +112,7 @@ def main():
     # 初始化 context
     ctx = SimpleContext()
     ctx.set_data("demo_run", "peaks", peaks)
-    ctx.set_data("demo_run", "peaklet_s1_s2", labels)
+    ctx.set_data("demo_run", "peak_classification", labels)
 
     # ========================================================================
     # Phase 1: 候选生成
