@@ -18,9 +18,10 @@
 - n_hits >= 8 且 rise_time_10_50 > 100 ns: 多通道且慢速上升，典型 S2 电子漂移信号
 
 分类标签：
-- 0: Unknown
-- 1: S1
-- 2: S2
+- 0: Unknown（未知类型）
+- 1: S1（闪烁信号）
+- 2: S2（电离信号）
+- 3: S1_S2（混合信号或分类冲突）
 """
 
 from __future__ import annotations
@@ -38,6 +39,7 @@ export, __all__ = exporter()
 LABEL_UNKNOWN = export(0, name="LABEL_UNKNOWN")
 LABEL_S1 = export(1, name="LABEL_S1")
 LABEL_S2 = export(2, name="LABEL_S2")
+LABEL_S1_S2 = export(3, name="LABEL_S1_S2")  # 混合信号或分类冲突
 
 PEAK_CLASSIFICATION_DTYPE = np.dtype(
     [
@@ -127,8 +129,14 @@ class PeakClassificationPlugin(Plugin):
         "conflict_policy": Option(
             default="prefer_s1",
             type=str,
-            choices=["unknown", "prefer_s1", "prefer_s2"],
-            help="当同时满足 S1 和 S2 条件时的处理策略。默认 prefer_s1。",
+            choices=["unknown", "prefer_s1", "prefer_s2", "mark_as_s1_s2"],
+            help=(
+                "当同时满足 S1 和 S2 条件时的处理策略。"
+                "- 'prefer_s1': 优先标记为 S1（默认）"
+                "- 'prefer_s2': 优先标记为 S2"
+                "- 'unknown': 标记为 Unknown"
+                "- 'mark_as_s1_s2': 标记为 S1_S2（混合信号）"
+            ),
         ),
         "default_label": Option(
             default="s1",
@@ -202,6 +210,8 @@ class PeakClassificationPlugin(Plugin):
                     label = LABEL_S1
                 elif conflict_policy == "prefer_s2":
                     label = LABEL_S2
+                elif conflict_policy == "mark_as_s1_s2":
+                    label = LABEL_S1_S2
                 else:
                     label = LABEL_UNKNOWN
             else:

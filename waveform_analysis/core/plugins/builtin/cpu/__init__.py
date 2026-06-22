@@ -40,6 +40,10 @@ from .hit_merge import (
 )
 from .hit_merged_features import HIT_MERGED_FEATURES_DTYPE, HitMergedFeaturesPlugin
 from .peak_classification import (
+    LABEL_S1,
+    LABEL_S1_S2,
+    LABEL_S2,
+    LABEL_UNKNOWN,
     PEAK_CLASSIFICATION_DTYPE,
     PeakClassificationPlugin,
 )
@@ -164,6 +168,7 @@ __all__ = [
     "PEAK_CLASSIFICATION_DTYPE",
     "LABEL_S1",
     "LABEL_S2",
+    "LABEL_S1_S2",
     "LABEL_UNKNOWN",
     # S1-S2 pairing
     "S1S2PairCandidatesPlugin",

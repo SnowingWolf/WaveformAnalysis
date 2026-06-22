@@ -229,7 +229,11 @@ class S1S2PairCandidatesPlugin(Plugin):
         return candidates
 
     def _split_s1_s2(self, peaks: np.ndarray, peak_classification: np.ndarray):
-        """分离 S1 和 S2 peaks"""
+        """分离 S1 和 S2 peaks
+
+        注意：只有明确标记为 LABEL_S1 或 LABEL_S2 的 peaks 会被选入。
+        LABEL_UNKNOWN 和 LABEL_S1_S2（混合信号）会被忽略，不参与配对。
+        """
         # 构建 peak_id -> label 映射
         label_map = {int(row["peak_id"]): int(row["label"]) for row in peak_classification}
 
@@ -244,6 +248,7 @@ class S1S2PairCandidatesPlugin(Plugin):
                 s1_peaks.append(peak)
             elif label == LABEL_S2:
                 s2_peaks.append(peak)
+            # LABEL_UNKNOWN 和 LABEL_S1_S2 被忽略
 
         return s1_peaks, s2_peaks
 

@@ -8,6 +8,7 @@ import pytest
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
     LABEL_S1,
+    LABEL_S1_S2,
     LABEL_S2,
     LABEL_UNKNOWN,
     PEAKS_DTYPE,
@@ -217,6 +218,35 @@ def test_peak_classification_conflict_unknown(tmp_path):
     labels = ctx.get_data(run_id, "peak_classification")
     assert len(labels) == 1
     assert labels[0]["label"] == LABEL_UNKNOWN
+
+
+def test_peak_classification_conflict_mark_as_s1_s2(tmp_path):
+    """测试冲突策略：mark_as_s1_s2"""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(PeakClassificationPlugin())
+
+    run_id = "run_001"
+    peaks = np.zeros(1, dtype=PEAKS_DTYPE)
+    peaks[0]["peak_id"] = 0
+    peaks[0]["width"] = 50.0
+    peaks[0]["area"] = 100.0
+    peaks[0]["n_channels"] = 3
+
+    ctx._results[(run_id, "peaks")] = peaks
+
+    # 配置使得同时满足 S1 和 S2 条件
+    ctx.set_config(
+        {
+            "s1_ranges": {"width": (0.0, 100.0)},
+            "s2_ranges": {"width": (0.0, 100.0)},
+            "conflict_policy": "mark_as_s1_s2",
+        },
+        plugin_name="peak_classification",
+    )
+
+    labels = ctx.get_data(run_id, "peak_classification")
+    assert len(labels) == 1
+    assert labels[0]["label"] == LABEL_S1_S2
 
 
 def test_peak_classification_strict_mode(tmp_path):
