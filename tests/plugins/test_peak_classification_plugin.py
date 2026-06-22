@@ -413,3 +413,197 @@ def test_peak_classification_combined_s2_criteria(tmp_path):
     assert labels[1]["label"] == LABEL_S2
     # Peak 2: n_hits=10, rise_time_10_50=30.0 -> Unknown (只满足 n_hits)
     assert labels[2]["label"] == LABEL_UNKNOWN
+
+
+def test_peak_classification_accept_any_logic(tmp_path):
+    """测试 accept_any OR 逻辑"""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(PeakClassificationPlugin())
+
+    run_id = "run_001"
+    peaks = _make_peaks()
+    ctx._results[(run_id, "peaks")] = peaks
+
+    # 配置多组条件，满足任一组即为 S1
+    ctx.set_config(
+        {
+            "s1_selection": {
+                "accept_any": [
+                    {"width": (0.0, 60.0)},  # 条件组1: 非常窄
+                    {"area": (0.0, 200.0)},  # 条件组2: 小面积
+                ],
+            },
+        },
+        plugin_name="peak_classification",
+    )
+
+    labels = ctx.get_data(run_id, "peak_classification")
+
+    assert len(labels) == 3
+    # Peak 0: width=50, area=100 -> 两组都满足 -> S1
+    assert labels[0]["label"] == LABEL_S1
+    # Peak 1: width=500, area=5000 -> 都不满足 -> Unknown
+    assert labels[1]["label"] == LABEL_UNKNOWN
+    # Peak 2: width=150, area=500 -> 都不满足 -> Unknown
+    assert labels[2]["label"] == LABEL_UNKNOWN
+
+
+def test_peak_classification_reject_any_priority(tmp_path):
+    """测试 reject_any 优先级高于 accept_any"""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(PeakClassificationPlugin())
+
+    run_id = "run_001"
+    peaks = _make_peaks()
+    ctx._results[(run_id, "peaks")] = peaks
+
+    # 配置: width < 100 接受，但 area > 50 排除
+    ctx.set_config(
+        {
+            "s1_selection": {
+                "accept_any": [
+                    {"width": (0.0, 100.0)},  # Peak 0 满足
+                ],
+                "reject_any": [
+                    {"area": (50.0, None)},  # Peak 0 的 area=100，也满足
+                ],
+            },
+        },
+        plugin_name="peak_classification",
+    )
+
+    labels = ctx.get_data(run_id, "peak_classification")
+
+    assert len(labels) == 3
+    # Peak 0: 满足 accept 但也满足 reject -> reject 优先 -> Unknown
+    assert labels[0]["label"] == LABEL_UNKNOWN
+    # Peak 1, 2: 也被 reject 排除
+    assert labels[1]["label"] == LABEL_UNKNOWN
+    assert labels[2]["label"] == LABEL_UNKNOWN
+
+
+def test_peak_classification_selection_backward_compat(tmp_path):
+    """测试向后兼容：未配置 selection 时使用 ranges"""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(PeakClassificationPlugin())
+
+    run_id = "run_001"
+    peaks = _make_peaks()
+    ctx._results[(run_id, "peaks")] = peaks
+
+    # 只使用旧的 ranges 配置
+    ctx.set_config(
+        {
+            "s1_ranges": {"width": (0.0, 100.0)},
+            "s2_ranges": {"width": (300.0, None)},
+        },
+        plugin_name="peak_classification",
+    )
+
+    labels = ctx.get_data(run_id, "peak_classification")
+
+    assert len(labels) == 3
+    # Peak 0: width=50 -> S1
+    assert labels[0]["label"] == LABEL_S1
+    # Peak 1: width=500 -> S2
+    assert labels[1]["label"] == LABEL_S2
+    # Peak 2: width=150 -> Unknown (default_label 改为 unknown)
+    assert labels[2]["label"] == LABEL_UNKNOWN
+
+
+def test_peak_classification_selection_override_ranges(tmp_path):
+    """测试 selection 覆盖 ranges"""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(PeakClassificationPlugin())
+
+    run_id = "run_001"
+    peaks = _make_peaks()
+    ctx._results[(run_id, "peaks")] = peaks
+
+    # 同时配置 selection 和 ranges，selection 应该优先
+    ctx.set_config(
+        {
+            "s1_ranges": {"width": (0.0, 100.0)},  # 这个会被忽略
+            "s1_selection": {
+                "accept_any": [
+                    {"area": (0.0, 200.0)},  # 使用不同的条件
+                ],
+            },
+        },
+        plugin_name="peak_classification",
+    )
+
+    labels = ctx.get_data(run_id, "peak_classification")
+
+    assert len(labels) == 3
+    # Peak 0: area=100 < 200 -> S1 (使用 selection 而非 ranges)
+    assert labels[0]["label"] == LABEL_S1
+    # Peak 1: area=5000 > 200 -> Unknown
+    assert labels[1]["label"] == LABEL_UNKNOWN
+
+
+def test_peak_classification_complex_selection(tmp_path):
+    """测试复杂的多组条件配置"""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(PeakClassificationPlugin())
+
+    run_id = "run_001"
+    peaks = _make_peaks()
+    ctx._results[(run_id, "peaks")] = peaks
+
+    # 复杂配置：S1 和 S2 都使用 selection
+    ctx.set_config(
+        {
+            "s1_selection": {
+                "accept_any": [
+                    {"width": (0.0, 100.0), "area": (0.0, 500.0)},  # 窄且小
+                    {"n_channels": (0, 4)},  # 或者少通道（< 5）
+                ],
+                "reject_any": [
+                    {"width": (400.0, None)},  # 太宽的不是 S1
+                ],
+            },
+            "s2_selection": {
+                "accept_any": [
+                    {"width": (200.0, None), "area": (1000.0, None)},  # 宽且大
+                ],
+            },
+        },
+        plugin_name="peak_classification",
+    )
+
+    labels = ctx.get_data(run_id, "peak_classification")
+
+    assert len(labels) == 3
+    # Peak 0: width=50, area=100, n_channels=3 -> 满足 S1 的两组条件 -> S1
+    assert labels[0]["label"] == LABEL_S1
+    # Peak 1: width=500, area=5000, n_channels=10 -> 满足 S2 条件 -> S2
+    assert labels[1]["label"] == LABEL_S2
+    # Peak 2: width=150, area=500, n_channels=5 -> 不满足任何 -> Unknown
+    assert labels[2]["label"] == LABEL_UNKNOWN
+
+
+def test_peak_classification_empty_accept_any(tmp_path):
+    """测试 accept_any 为空列表"""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(PeakClassificationPlugin())
+
+    run_id = "run_001"
+    peaks = _make_peaks()
+    ctx._results[(run_id, "peaks")] = peaks
+
+    # accept_any 为空 -> 不接受任何 peak
+    ctx.set_config(
+        {
+            "s1_selection": {
+                "accept_any": [],  # 空列表
+            },
+        },
+        plugin_name="peak_classification",
+    )
+
+    labels = ctx.get_data(run_id, "peak_classification")
+
+    assert len(labels) == 3
+    # 所有 peak 都不满足 -> Unknown
+    assert all(label["label"] == LABEL_UNKNOWN for label in labels)

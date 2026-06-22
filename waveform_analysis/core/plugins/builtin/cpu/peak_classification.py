@@ -139,18 +139,32 @@ class PeakClassificationPlugin(Plugin):
             ),
         ),
         "default_label": Option(
-            default="s1",
+            default="unknown",
             type=str,
             choices=["unknown", "s1", "s2"],
-            help=(
-                "当不满足任何配置条件时的默认标签。"
-                "默认 's1' - 即凡不满足 S2 条件的都判为 S1（适用于默认配置）。"
-            ),
+            help=("当不满足任何配置条件时的默认标签。" "默认 'unknown'（推荐用于灵活分类）。"),
         ),
         "strict": Option(
             default=False,
             type=bool,
             help="如果为 True，至少需要配置一个 S1 或 S2 的判断条件。",
+        ),
+        "s1_selection": Option(
+            default=None,
+            type=dict,
+            help=(
+                "S1 分类的灵活配置。字典包含："
+                "- 'accept_any': 列表，每个元素是一个条件组（字典），满足任一组即为 S1 候选"
+                "- 'reject_any': 列表，每个元素是一个条件组（字典），满足任一组即排除"
+                "如果配置此项，将忽略 s1_ranges。"
+                "示例: {'accept_any': [{'width': (0, 100)}, {'area': (0, 500)}], "
+                "'reject_any': [{'width': (500, None)}]}"
+            ),
+        ),
+        "s2_selection": Option(
+            default=None,
+            type=dict,
+            help=("S2 分类的灵活配置，格式同 s1_selection。" "如果配置此项，将忽略 s2_ranges。"),
         ),
     }
 
@@ -167,20 +181,28 @@ class PeakClassificationPlugin(Plugin):
         # 获取配置
         s1_ranges = context.get_config(self, "s1_ranges")
         s2_ranges = context.get_config(self, "s2_ranges")
+        s1_selection = context.get_config(self, "s1_selection")
+        s2_selection = context.get_config(self, "s2_selection")
         conflict_policy = context.get_config(self, "conflict_policy")
         default_label_str = context.get_config(self, "default_label")
         strict = context.get_config(self, "strict")
 
-        # 标准化范围配置
-        s1_criteria = self._normalize_ranges(s1_ranges)
-        s2_criteria = self._normalize_ranges(s2_ranges)
+        # 确定使用哪种配置方式
+        use_s1_selection = s1_selection is not None
+        use_s2_selection = s2_selection is not None
+
+        # 标准化范围配置（用于旧方式）
+        s1_criteria = self._normalize_ranges(s1_ranges) if not use_s1_selection else {}
+        s2_criteria = self._normalize_ranges(s2_ranges) if not use_s2_selection else {}
 
         # 检查是否至少配置了一个判断条件
-        s1_enabled = len(s1_criteria) > 0
-        s2_enabled = len(s2_criteria) > 0
+        s1_enabled = use_s1_selection or len(s1_criteria) > 0
+        s2_enabled = use_s2_selection or len(s2_criteria) > 0
 
         if strict and not s1_enabled and not s2_enabled:
-            raise ValueError("No S1/S2 criteria configured; set ranges or disable strict.")
+            raise RuntimeError(
+                "No S1/S2 criteria configured; set ranges/selection or disable strict."
+            )
 
         # 解析 default_label
         default_label_map = {"unknown": LABEL_UNKNOWN, "s1": LABEL_S1, "s2": LABEL_S2}
@@ -194,11 +216,21 @@ class PeakClassificationPlugin(Plugin):
             # 提取特征值
             features = self._extract_features(peak)
 
-            # 判断是否满足 S1 条件（所有配置的条件必须同时满足）
-            s1_ok = s1_enabled and self._check_criteria(features, s1_criteria)
+            # S1 判定
+            if use_s1_selection:
+                s1_accepted, s1_rejected = self._check_selection(features, s1_selection)
+                s1_ok = s1_accepted and not s1_rejected
+            else:
+                # 使用旧逻辑（s1_ranges）
+                s1_ok = s1_enabled and self._check_criteria(features, s1_criteria)
 
-            # 判断是否满足 S2 条件（所有配置的条件必须同时满足）
-            s2_ok = s2_enabled and self._check_criteria(features, s2_criteria)
+            # S2 判定
+            if use_s2_selection:
+                s2_accepted, s2_rejected = self._check_selection(features, s2_selection)
+                s2_ok = s2_accepted and not s2_rejected
+            else:
+                # 使用旧逻辑（s2_ranges）
+                s2_ok = s2_enabled and self._check_criteria(features, s2_criteria)
 
             # 根据判断结果和冲突策略确定最终标签
             if s1_ok and not s2_ok:
@@ -275,3 +307,43 @@ class PeakClassificationPlugin(Plugin):
             if not _value_in_range(value, bounds):
                 return False
         return True
+
+    def _check_selection(
+        self, features: dict[str, float], selection_config: dict | None
+    ) -> tuple[bool, bool]:
+        """检查 accept_any / reject_any 逻辑
+
+        Args:
+            features: 特征字典
+            selection_config: 包含 'accept_any' 和 'reject_any' 的配置字典
+
+        Returns:
+            (is_accepted, is_rejected)
+            - is_accepted: 是否满足任一 accept 条件组
+            - is_rejected: 是否满足任一 reject 条件组
+        """
+        if not selection_config:
+            return False, False
+
+        accept_any = selection_config.get("accept_any", [])
+        reject_any = selection_config.get("reject_any", [])
+
+        # 检查排除条件（优先）
+        is_rejected = False
+        if reject_any:
+            for criteria_group in reject_any:
+                normalized = self._normalize_ranges(criteria_group)
+                if self._check_criteria(features, normalized):
+                    is_rejected = True
+                    break
+
+        # 检查接受条件
+        is_accepted = False
+        if accept_any:
+            for criteria_group in accept_any:
+                normalized = self._normalize_ranges(criteria_group)
+                if self._check_criteria(features, normalized):
+                    is_accepted = True
+                    break
+
+        return is_accepted, is_rejected
