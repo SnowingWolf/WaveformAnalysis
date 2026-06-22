@@ -101,7 +101,7 @@ class PeakClassificationPlugin(Plugin):
     provides = "peak_classification"
     depends_on = ["peaks"]
     description = "Classify peaks into S1/S2 using multi-dimensional features."
-    version = "1.1.0"
+    version = "1.2.0"
     save_when = "always"
     output_dtype = PEAK_CLASSIFICATION_DTYPE
 
@@ -145,6 +145,11 @@ class PeakClassificationPlugin(Plugin):
             type=dict,
             help="S2 分类配置，格式同 s1_selection。",
         ),
+        "s1_s2_selection": Option(
+            default=None,
+            type=dict,
+            help="S1_S2 分类配置，格式同 s1_selection。命中后优先标记为 S1_S2。",
+        ),
     }
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
@@ -160,6 +165,7 @@ class PeakClassificationPlugin(Plugin):
         # 获取配置
         s1_selection = context.get_config(self, "s1_selection")
         s2_selection = context.get_config(self, "s2_selection")
+        s1_s2_selection = context.get_config(self, "s1_s2_selection")
         conflict_policy = context.get_config(self, "conflict_policy")
         default_label_str = context.get_config(self, "default_label")
         strict = context.get_config(self, "strict")
@@ -167,8 +173,9 @@ class PeakClassificationPlugin(Plugin):
         # 检查是否至少配置了一个判断条件
         s1_enabled = s1_selection is not None
         s2_enabled = s2_selection is not None
+        s1_s2_enabled = s1_s2_selection is not None
 
-        if strict and not s1_enabled and not s2_enabled:
+        if strict and not s1_enabled and not s2_enabled and not s1_s2_enabled:
             raise RuntimeError("No S1/S2 criteria configured; set selection or disable strict.")
 
         # 解析 default_label
@@ -182,6 +189,16 @@ class PeakClassificationPlugin(Plugin):
 
             # 提取特征值
             features = self._extract_features(peak)
+
+            # S1_S2 显式判定优先于 S1/S2 单类判定
+            if s1_s2_enabled:
+                s1_s2_accepted, s1_s2_rejected = self._check_selection(
+                    features,
+                    s1_s2_selection,
+                )
+                s1_s2_ok = s1_s2_accepted and not s1_s2_rejected
+            else:
+                s1_s2_ok = False
 
             # S1 判定
             if s1_enabled:
@@ -198,7 +215,9 @@ class PeakClassificationPlugin(Plugin):
                 s2_ok = False
 
             # 根据判断结果和冲突策略确定最终标签
-            if s1_ok and not s2_ok:
+            if s1_s2_ok:
+                label = LABEL_S1_S2
+            elif s1_ok and not s2_ok:
                 label = LABEL_S1
             elif s2_ok and not s1_ok:
                 label = LABEL_S2

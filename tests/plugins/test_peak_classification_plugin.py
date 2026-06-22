@@ -257,6 +257,59 @@ def test_peak_classification_conflict_mark_as_s1_s2(tmp_path):
     assert labels[0]["label"] == LABEL_S1_S2
 
 
+def test_peak_classification_explicit_s1_s2_selection(tmp_path):
+    """测试显式 S1_S2 selection 配置"""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(PeakClassificationPlugin())
+
+    run_id = "run_001"
+    ctx._results[(run_id, "peaks")] = _make_peaks()
+
+    ctx.set_config(
+        {
+            "s1_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
+            "s2_selection": {"accept_any": [{"width": (300.0, None)}]},
+            "s1_s2_selection": {
+                "accept_any": [
+                    {
+                        "width": (100.0, 200.0),
+                        "area": (400.0, 600.0),
+                    },
+                ],
+            },
+        },
+        plugin_name="peak_classification",
+    )
+
+    labels = ctx.get_data(run_id, "peak_classification")
+
+    assert len(labels) == 3
+    assert labels[0]["label"] == LABEL_S1
+    assert labels[1]["label"] == LABEL_S2
+    assert labels[2]["label"] == LABEL_S1_S2
+
+
+def test_peak_classification_s1_s2_selection_takes_priority(tmp_path):
+    """测试显式 S1_S2 selection 优先于 S1/S2 单类规则"""
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(PeakClassificationPlugin())
+
+    run_id = "run_001"
+    ctx._results[(run_id, "peaks")] = _make_peaks()
+
+    ctx.set_config(
+        {
+            "s2_selection": {"accept_any": [{"width": (300.0, None)}]},
+            "s1_s2_selection": {"accept_any": [{"width": (300.0, None)}]},
+        },
+        plugin_name="peak_classification",
+    )
+
+    labels = ctx.get_data(run_id, "peak_classification")
+
+    assert labels[1]["label"] == LABEL_S1_S2
+
+
 def test_peak_classification_strict_mode(tmp_path):
     """测试严格模式：未配置任何条件时报错"""
     ctx = Context(storage_dir=str(tmp_path))

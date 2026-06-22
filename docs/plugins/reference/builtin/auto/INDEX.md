@@ -139,7 +139,7 @@ raw_files ──► records ──► df ──► df_events
 | [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 1.1.0 | 特征提取 | hit_merged, hit_threshold |
 | [`HitMergedFeaturesPlugin`](hit_merged_features.md) | `hit_merged_features` | 0.4.0 | 特征提取 | - |
 | [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.2.0 | 特征提取 | - |
-| [`PeakClassificationPlugin`](peak_classification.md) | `peak_classification` | 1.1.0 | 特征提取 | peaks |
+| [`PeakClassificationPlugin`](peak_classification.md) | `peak_classification` | 1.2.0 | 特征提取 | peaks |
 | [`PeakletChannelsPlugin`](peaklet_channels.md) | `peaklet_channels` | 1.0.0 | 特征提取 | peaklets, peaklet_components, hit_merged_features, peaklet_features |
 | [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 1.2.0 | 特征提取 | peaklets, hit_merged |
 | [`PeakletFeaturesPlugin`](peaklet_features.md) | `peaklet_features` | 4.0.0 | 特征提取 | peaklet_waveforms, peaklet_waveform_pool, peaklets |

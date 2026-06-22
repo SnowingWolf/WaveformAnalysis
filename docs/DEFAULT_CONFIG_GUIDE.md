@@ -2,7 +2,7 @@
 
 `PeakClassificationPlugin` 通过 `peaks` 表中的特征把 peak 标记为 S1、S2、Unknown 或 S1_S2。
 
-当前插件的分类条件统一使用 `s1_selection` 和 `s2_selection`。
+当前插件的分类条件统一使用 `s1_selection`、`s2_selection` 和 `s1_s2_selection`。
 
 每个 selection 可以包含：
 
@@ -38,7 +38,7 @@ ctx.set_config(
 labels = ctx.get_data(run_id, "peak_classification")
 ```
 
-## 同时配置 S1 和 S2
+## 同时配置 S1、S2 和 S1_S2
 
 ```python
 ctx.set_config(
@@ -60,6 +60,14 @@ ctx.set_config(
                 },
             ],
         },
+        "s1_s2_selection": {
+            "accept_any": [
+                {
+                    "width": (100.0, 200.0),
+                    "area": (400.0, 600.0),
+                },
+            ],
+        },
         "default_label": "unknown",
     },
     plugin_name="peak_classification",
@@ -68,11 +76,13 @@ ctx.set_config(
 
 ## 配置选项
 
-### s1_selection / s2_selection
+### s1_selection / s2_selection / s1_s2_selection
 
 **默认值：** `None`
 
 分类 selection 字典。可用字段包括 `width`、`area`、`height`、`rise_time`、`fall_time`、`rise_time_10_50`、`width_25_75`、`range_90p_area`、`n_hits`、`n_channels`。
+
+`s1_s2_selection` 是显式混合分类规则。命中后会优先标记为 `S1_S2`，再考虑普通 S1/S2 规则和冲突策略。
 
 ### default_label
 
@@ -117,6 +127,18 @@ ctx.set_config(
 
 ```python
 {"s2_selection": {"accept_any": [{"rise_time_10_50": (100.0, None)}]}}
+```
+
+显式标记 S1_S2：
+
+```python
+{
+    "s1_s2_selection": {
+        "accept_any": [
+            {"width": (100.0, 200.0), "area": (400.0, 600.0)},
+        ],
+    },
+}
 ```
 
 ## 相关文档

@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `peak_classification` |
-| **Version** | `1.1.0` |
+| **Version** | `1.2.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -28,6 +28,7 @@ This plugin depends on the following data:
 | `strict` | `bool` | `False` | - | 如果为 True，至少需要配置一个 S1 或 S2 的判断条件。 |
 | `s1_selection` | `dict` | `None` | - | S1 分类配置。字典包含：- 'accept_any': 列表，每个元素是一个条件组（字典），满足任一组即为 S1 候选- 'reject_any': 列表，每个元素是一个条件组（字典），满足任一组即排除示例: {'accept_any': [{'width': (0, 100)}, {'area': (0, 500)}], 'reject_any': [{'width': (500, None)}]} |
 | `s2_selection` | `dict` | `None` | - | S2 分类配置，格式同 s1_selection。 |
+| `s1_s2_selection` | `dict` | `None` | - | S1_S2 分类配置，格式同 s1_selection。命中后优先标记为 S1_S2。 |
 
 
 ## Output Schema

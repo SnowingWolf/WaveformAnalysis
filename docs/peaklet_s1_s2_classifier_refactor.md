@@ -30,6 +30,14 @@ ctx.set_config(
                 },
             ],
         },
+        "s1_s2_selection": {
+            "accept_any": [
+                {
+                    "width": (100.0, 200.0),
+                    "area": (400.0, 600.0),
+                },
+            ],
+        },
         "default_label": "unknown",
     },
     plugin_name="peak_classification",
@@ -42,6 +50,7 @@ ctx.set_config(
 - `reject_any`: 满足任一条件组即排除。
 - 条件组内部是 AND 逻辑。
 - 多个条件组之间是 OR 逻辑。
+- `s1_s2_selection` 命中时优先输出 `S1_S2`。
 
 ## 版本变化
 
@@ -49,6 +58,7 @@ ctx.set_config(
 |------|---------|------|
 | v1.0.0 | 范围字典配置 | `["peaks"]` |
 | v1.1.0 | selection 配置 | `["peaks"]` |
+| v1.2.0 | 新增显式 S1_S2 selection | `["peaks"]` |
 
 ## 迁移指南
 

@@ -1,6 +1,6 @@
 # PeakClassificationPlugin 功能更新总结
 
-`PeakClassificationPlugin` 当前直接依赖 `peaks`，并使用 `s1_selection` / `s2_selection` 表达分类条件。
+`PeakClassificationPlugin` 当前直接依赖 `peaks`，并使用 `s1_selection` / `s2_selection` / `s1_s2_selection` 表达分类条件。
 
 ## 核心变化
 
@@ -8,7 +8,7 @@
 - 插件类：`PeakClassificationPlugin`
 - 输入：`peaks`
 - 输出字段：`peak_id`、`label`
-- 配置入口：`s1_selection`、`s2_selection`
+- 配置入口：`s1_selection`、`s2_selection`、`s1_s2_selection`
 
 旧的范围字典入口已删除，不再作为配置入口保留。
 
@@ -60,8 +60,10 @@ labels = ctx.get_data(run_id, "peak_classification")
 
 多个条件组之间使用 OR 逻辑；可用 `reject_any` 添加排除条件。
 
+`s1_s2_selection` 命中时会优先输出 `S1_S2`，不会再由 `conflict_policy` 改写。
+
 ## 兼容性说明
 
-- 配置契约变化，插件版本升级到 `1.1.0`。
+- 配置契约变化，插件版本升级到 `1.2.0`。
 - 旧配置入口已删除，调用方应迁移到 selection 配置。
 - 插件参考文档已同步到 `docs/plugins/reference/agent/peak_classification.md`。
