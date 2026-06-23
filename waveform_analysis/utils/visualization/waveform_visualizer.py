@@ -31,19 +31,17 @@ Examples:
     >>> # 单结构化数组（含 channel 字段）
     >>> plot_waveforms(st_waveforms, event_index=5, channels=[0, 1])
     >>>
-    >>> # Peak 多通道波形展示
+    >>> # Peak 多通道波形展示（简洁用法）
     >>> fig, axes = plot_peak_channels_with_sum(
     ...     peak_id=42,
-    ...     peaklet_components=peaklet_components,
-    ...     hit_merged=hit_merged,
-    ...     hit_merged_components=hit_merged_components,
-    ...     hit_threshold=hit_threshold,
-    ...     wave_pool=wave_pool,
-    ...     record_lookup=record_lookup,
-    ...     peaks_raw=peaks_raw,
-    ...     pad=30,
-    ...     group_by="board_channel",
+    ...     context=context,
+    ...     run_id="run_001",
     ... )
+    >>>
+    >>> # 批量绘制多个 peak（高效用法）
+    >>> plot_func = create_peak_plotter(context=context, run_id="run_001")
+    >>> for peak_id in [42, 43, 44]:
+    ...     fig, axes = plot_func(peak_id=peak_id)
 
 Note:
     - plot_waveforms 需要 Plotly: pip install plotly
@@ -264,7 +262,7 @@ def create_interactive_browser(context, run_id: str):
     return browse
 
 
-def plot_peak_channels_with_sum(
+def _plot_peak_channels_with_sum_impl(
     peak_id,
     *,
     peaklet_components: np.ndarray,
@@ -278,80 +276,10 @@ def plot_peak_channels_with_sum(
     group_by: str = "board_channel",
 ):
     """
-    绘制指定 peak 的多通道波形及其求和波形。
+    内部实现：绘制 peak 的多通道波形（假设所有数据已经提供）。
 
-    此函数重建 peak 的所有组成通道波形，并在顶部显示求和波形，
-    每个通道独立显示在自己的子图中。
-
-    参数
-    ----------
-    peak_id : int
-        要可视化的 peak ID。
-    peaklet_components : ndarray
-        Peaklet 组件数组，包含 'peak_id' 和 'merged_index' 字段。
-    hit_merged : ndarray
-        合并的 hit 数组，包含 'record_id', 'sample_start', 'sample_end',
-        'board', 'channel' 等字段。
-    hit_merged_components : ndarray
-        Hit 合并组件数组，包含 'merged_index' 和 'hit_index' 字段。
-    hit_threshold : ndarray
-        阈值 hit 数组，包含 'record_id', 'edge_start', 'edge_end' 字段。
-    wave_pool : ndarray
-        波形数据池，包含所有 record 的原始波形数据。
-    record_lookup : dict
-        Record 查找字典，键为 record_id，值为 record 结构。
-        Record 应包含 'dt', 'event_length', 'wave_offset', 'baseline',
-        'timestamp', 'polarity' 字段。
-    peaks_raw : ndarray
-        Peak 数组，包含 'n_hits' 字段，用于显示统计信息。
-    pad : int, default=30
-        在 hit 边界外扩展的采样点数。
-    group_by : {"channel", "board_channel"}, default="board_channel"
-        通道分组方式：
-        - "channel": 按通道号分组
-        - "board_channel": 按 (板号, 通道号) 分组
-
-    返回
-    -------
-    fig : matplotlib.figure.Figure or None
-        生成的图形对象，如果没有数据则返回 None。
-    axes : numpy.ndarray or None
-        子图轴对象数组，如果没有数据则返回 None。
-
-    示例
-    --------
-    >>> # 从 context 获取数据
-    >>> peaklet_comps = context.get_data(run_id, "peaklet_components")
-    >>> hit_merged = context.get_data(run_id, "hit_merged")
-    >>> hit_merged_comps = context.get_data(run_id, "hit_merged_components")
-    >>> hit_threshold = context.get_data(run_id, "hit_threshold")
-    >>> records = context.get_data(run_id, "records")
-    >>> wave_pool = context.get_data(run_id, "wave_pool")
-    >>> peaks = context.get_data(run_id, "peaks")
-    >>>
-    >>> # 构建 record 查找字典
-    >>> record_lookup = {int(rec["record_id"]): rec for rec in records}
-    >>>
-    >>> # 绘制 peak 42 的多通道波形
-    >>> fig, axes = plot_peak_channels_with_sum(
-    ...     peak_id=42,
-    ...     peaklet_components=peaklet_comps,
-    ...     hit_merged=hit_merged,
-    ...     hit_merged_components=hit_merged_comps,
-    ...     hit_threshold=hit_threshold,
-    ...     wave_pool=wave_pool,
-    ...     record_lookup=record_lookup,
-    ...     peaks_raw=peaks,
-    ...     pad=30,
-    ...     group_by="board_channel",
-    ... )
-
-    注意
-    -----
-    - 需要 matplotlib 库
-    - 波形按时间对齐，使用事件内的相对时间（纳秒）
-    - 求和波形使用最小 dt 重新采样以对齐所有通道
-    - merged_index 标签显示在每个 hit 窗口上方
+    这是实际的绘图逻辑，由 plot_peak_channels_with_sum 和 create_peak_plotter 调用。
+    用户通常不需要直接调用此函数。
     """
     try:
         import matplotlib.pyplot as plt
@@ -562,3 +490,154 @@ def plot_peak_channels_with_sum(
     plt.show()
 
     return fig, axes
+
+
+def create_peak_plotter(context, run_id: str):
+    """
+    创建一个预加载数据的 peak 绘图函数，适用于批量绘制多个 peak。
+
+    此函数预先从 context 加载所有需要的数据（一次性），然后返回一个
+    快速的绘图函数。适合在循环中绘制多个 peak，避免重复加载数据。
+
+    参数
+    ----------
+    context : Context
+        DAQAnalyzer 的 context 对象。
+    run_id : str
+        Run ID。
+
+    返回
+    -------
+    plot_func : callable
+        预加载数据的绘图函数，签名为：
+        plot_func(peak_id, pad=30, group_by="board_channel") -> (fig, axes)
+
+    示例
+    --------
+    >>> # 批量绘制（推荐用法，快速）
+    >>> plot_func = create_peak_plotter(context=ctx, run_id=run_id)
+    >>> for peak_id in [42, 43, 44]:
+    ...     fig, axes = plot_func(peak_id=peak_id)
+    >>>
+    >>> # 等价于但比下面的方式快得多：
+    >>> for peak_id in [42, 43, 44]:
+    ...     fig, axes = plot_peak_channels_with_sum(
+    ...         peak_id=peak_id, context=ctx, run_id=run_id
+    ...     )  # 每次都重新加载数据（慢）
+
+    注意
+    -----
+    - 预先加载的数据包括：peaklet_components, hit_merged, hit_merged_components,
+      hit_threshold, wave_pool, records, peaks
+    - 返回的函数会保持对这些数据的引用，内存占用会持续到函数对象被释放
+    """
+    # 预先加载所有数据（只加载一次）
+    print(f"预加载数据 from run_id={run_id}...")
+    peaklet_components = context.get_data(run_id, "peaklet_components")
+    hit_merged = context.get_data(run_id, "hit_merged")
+    hit_merged_components = context.get_data(run_id, "hit_merged_components")
+    hit_threshold = context.get_data(run_id, "hit_threshold")
+    wave_pool = context.get_data(run_id, "wave_pool")
+    records = context.get_data(run_id, "records")
+    peaks_raw = context.get_data(run_id, "peaks")
+    record_lookup = {int(rec["record_id"]): rec for rec in records}
+    print("数据加载完成，可以开始快速绘图")
+
+    def plot_func(peak_id, pad: int = 30, group_by: str = "board_channel"):
+        """快速绘制 peak 的多通道波形（数据已预加载）"""
+        return _plot_peak_channels_with_sum_impl(
+            peak_id=peak_id,
+            peaklet_components=peaklet_components,
+            hit_merged=hit_merged,
+            hit_merged_components=hit_merged_components,
+            hit_threshold=hit_threshold,
+            wave_pool=wave_pool,
+            record_lookup=record_lookup,
+            peaks_raw=peaks_raw,
+            pad=pad,
+            group_by=group_by,
+        )
+
+    return plot_func
+
+
+def plot_peak_channels_with_sum(
+    peak_id,
+    *,
+    context,
+    run_id: str,
+    pad: int = 30,
+    group_by: str = "board_channel",
+):
+    """
+    绘制指定 peak 的多通道波形及其求和波形。
+
+    此函数重建 peak 的所有组成通道波形，并在顶部显示求和波形，
+    每个通道独立显示在自己的子图中。所有需要的数据会自动从 context 获取。
+
+    参数
+    ----------
+    peak_id : int
+        要可视化的 peak ID。
+    context : Context
+        DAQAnalyzer 的 context 对象，用于获取所有需要的数据。
+    run_id : str
+        Run ID。
+    pad : int, default=30
+        在 hit 边界外扩展的采样点数。
+    group_by : {"channel", "board_channel"}, default="board_channel"
+        通道分组方式：
+        - "channel": 按通道号分组
+        - "board_channel": 按 (板号, 通道号) 分组
+
+    返回
+    -------
+    fig : matplotlib.figure.Figure or None
+        生成的图形对象，如果没有数据则返回 None。
+    axes : numpy.ndarray or None
+        子图轴对象数组，如果没有数据则返回 None。
+
+    示例
+    --------
+    >>> # 单次调用（简洁）
+    >>> fig, axes = plot_peak_channels_with_sum(
+    ...     peak_id=42,
+    ...     context=context,
+    ...     run_id="run_001",
+    ... )
+    >>>
+    >>> # 批量调用（推荐使用 create_peak_plotter）
+    >>> plot_func = create_peak_plotter(context=ctx, run_id=run_id)
+    >>> for peak_id in [42, 43, 44]:
+    ...     fig, axes = plot_func(peak_id=peak_id)
+
+    注意
+    -----
+    - 需要 matplotlib 库
+    - 波形按时间对齐，使用事件内的相对时间（纳秒）
+    - 求和波形使用最小 dt 重新采样以对齐所有通道
+    - merged_index 标签显示在每个 hit 窗口上方
+    - **批量绘制多个 peak 时，使用 create_peak_plotter() 可以显著提高性能**
+    """
+    # 从 context 获取所有需要的数据
+    peaklet_components = context.get_data(run_id, "peaklet_components")
+    hit_merged = context.get_data(run_id, "hit_merged")
+    hit_merged_components = context.get_data(run_id, "hit_merged_components")
+    hit_threshold = context.get_data(run_id, "hit_threshold")
+    wave_pool = context.get_data(run_id, "wave_pool")
+    records = context.get_data(run_id, "records")
+    peaks_raw = context.get_data(run_id, "peaks")
+    record_lookup = {int(rec["record_id"]): rec for rec in records}
+
+    return _plot_peak_channels_with_sum_impl(
+        peak_id=peak_id,
+        peaklet_components=peaklet_components,
+        hit_merged=hit_merged,
+        hit_merged_components=hit_merged_components,
+        hit_threshold=hit_threshold,
+        wave_pool=wave_pool,
+        record_lookup=record_lookup,
+        peaks_raw=peaks_raw,
+        pad=pad,
+        group_by=group_by,
+    )
