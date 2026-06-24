@@ -272,6 +272,8 @@ def _plot_peak_channels_with_sum_impl(
     wave_pool: np.ndarray,
     record_lookup: dict,
     peaks_raw: np.ndarray,
+    peaklet_waveforms: np.ndarray,
+    peaklet_waveform_pool: np.ndarray,
     pad: int = 30,
     group_by: str = "board_channel",
 ):
@@ -280,6 +282,9 @@ def _plot_peak_channels_with_sum_impl(
 
     这是实际的绘图逻辑，由 plot_peak_channels_with_sum 和 create_peak_plotter 调用。
     用户通常不需要直接调用此函数。
+
+    注意：sum waveform 直接使用 peaklet_waveforms 中已经计算好的求和波形，
+    确保与 peak 特征计算时使用的波形一致。
     """
     try:
         import matplotlib.pyplot as plt
@@ -419,18 +424,29 @@ def _plot_peak_channels_with_sum_impl(
     cmap = plt.get_cmap("tab20", max(len(keys), 1))
     colors = {key: cmap(i) for i, key in enumerate(keys)}
 
-    # 计算求和波形（使用最小 dt 重新采样）
-    dt = min(t["dt_ns"] for t in traces)
+    # 从 peaklet_waveforms 获取已经计算好的 sum waveform
+    peaklet_waveform = peaklet_waveforms[peaklet_waveforms["peak_id"] == int(peak_id)]
+
+    if len(peaklet_waveform) == 0:
+        print(f"No peaklet_waveform found for peak_id={peak_id}")
+        return None, None
+
+    wf = peaklet_waveform[0]
+    wave_offset = int(wf["wave_offset"])
+    wave_length = int(wf["wave_length"])
+    dt = int(wf["dt"])
+    time_start_ps = int(wf["time_start"])
+
+    # 提取求和波形
+    sum_waveform = peaklet_waveform_pool[wave_offset : wave_offset + wave_length]
+
+    # 计算求和波形的时间轴（使用事件最早时间为基准）
+    event_t0 = min(int(t["abs_time_ps"][0]) for t in traces)
+    sum_time_ns = (time_start_ps - event_t0) / 1000.0 + np.arange(wave_length) * dt
+
+    # 计算 x 轴范围（包含所有通道的时间范围）
     t_min = min(t["time_ns"][0] for t in traces)
     t_max = max(t["time_ns"][-1] for t in traces)
-    t_grid = np.arange(t_min, t_max + dt, dt)
-    sum_waveform = np.zeros_like(t_grid, dtype=np.float64)
-
-    for t in traces:
-        # 将每个 trace 插值到统一的时间网格
-        idx = np.round((t["time_ns"] - t_min) / dt).astype(int)
-        valid = (idx >= 0) & (idx < len(t_grid))
-        np.add.at(sum_waveform, idx[valid], t["signal"][valid])
 
     # 创建图形：第一行为求和波形（高度 2.5 倍），其余为各通道
     fig, axes = plt.subplots(
@@ -443,11 +459,11 @@ def _plot_peak_channels_with_sum_impl(
     )
     axes = axes.flatten()
 
-    # 第一个子图：求和波形
+    # 第一个子图：求和波形（使用 peaklet waveform）
     ax_sum = axes[0]
-    ax_sum.plot(t_grid, sum_waveform, color="k", lw=1.5)
+    ax_sum.plot(sum_time_ns, sum_waveform, color="k", lw=1.5)
     n_hits = int(peaks_raw[int(peak_id)]["n_hits"]) if int(peak_id) < len(peaks_raw) else "?"
-    ax_sum.set_title(f"peak_id={peak_id}, summed waveform, peaks.n_hits={n_hits}")
+    ax_sum.set_title(f"peak_id={peak_id}, summed waveform (from peaklet), peaks.n_hits={n_hits}")
     ax_sum.set_ylabel("sum signal")
     ax_sum.grid(True, alpha=0.3)
 
@@ -528,7 +544,7 @@ def create_peak_plotter(context, run_id: str):
     注意
     -----
     - 预先加载的数据包括：peaklet_components, hit_merged, hit_merged_components,
-      hit_threshold, wave_pool, records, peaks
+      hit_threshold, wave_pool, records, peaks, peaklet_waveforms, peaklet_waveform_pool
     - 返回的函数会保持对这些数据的引用，内存占用会持续到函数对象被释放
     """
     # 预先加载所有数据（只加载一次）
@@ -540,6 +556,8 @@ def create_peak_plotter(context, run_id: str):
     wave_pool = context.get_data(run_id, "wave_pool")
     records = context.get_data(run_id, "records")
     peaks_raw = context.get_data(run_id, "peaks")
+    peaklet_waveforms = context.get_data(run_id, "peaklet_waveforms")
+    peaklet_waveform_pool = context.get_data(run_id, "peaklet_waveform_pool")
     record_lookup = {int(rec["record_id"]): rec for rec in records}
     print("数据加载完成，可以开始快速绘图")
 
@@ -554,6 +572,8 @@ def create_peak_plotter(context, run_id: str):
             wave_pool=wave_pool,
             record_lookup=record_lookup,
             peaks_raw=peaks_raw,
+            peaklet_waveforms=peaklet_waveforms,
+            peaklet_waveform_pool=peaklet_waveform_pool,
             pad=pad,
             group_by=group_by,
         )
@@ -615,7 +635,7 @@ def plot_peak_channels_with_sum(
     -----
     - 需要 matplotlib 库
     - 波形按时间对齐，使用事件内的相对时间（纳秒）
-    - 求和波形使用最小 dt 重新采样以对齐所有通道
+    - **sum waveform 直接使用 peaklet_waveforms 中已经计算好的求和波形**
     - merged_index 标签显示在每个 hit 窗口上方
     - **批量绘制多个 peak 时，使用 create_peak_plotter() 可以显著提高性能**
     """
@@ -627,6 +647,8 @@ def plot_peak_channels_with_sum(
     wave_pool = context.get_data(run_id, "wave_pool")
     records = context.get_data(run_id, "records")
     peaks_raw = context.get_data(run_id, "peaks")
+    peaklet_waveforms = context.get_data(run_id, "peaklet_waveforms")
+    peaklet_waveform_pool = context.get_data(run_id, "peaklet_waveform_pool")
     record_lookup = {int(rec["record_id"]): rec for rec in records}
 
     return _plot_peak_channels_with_sum_impl(
@@ -638,6 +660,8 @@ def plot_peak_channels_with_sum(
         wave_pool=wave_pool,
         record_lookup=record_lookup,
         peaks_raw=peaks_raw,
+        peaklet_waveforms=peaklet_waveforms,
+        peaklet_waveform_pool=peaklet_waveform_pool,
         pad=pad,
         group_by=group_by,
     )
