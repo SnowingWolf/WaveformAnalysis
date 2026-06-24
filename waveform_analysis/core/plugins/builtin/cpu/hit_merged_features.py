@@ -319,7 +319,7 @@ class HitMergedFeaturesPlugin(Plugin):
     provides = "hit_merged_features"
     depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Compute per-hit_merged local waveform features from records-backed samples."
-    version = "0.5.0"
+    version = "0.4.0"
     save_when = "always"
     output_dtype = HIT_MERGED_FEATURES_DTYPE
     uses_run_config = True
@@ -499,8 +499,7 @@ class HitMergedFeaturesPlugin(Plugin):
 
                 if len(hit_indices) == 0:
                     raise ValueError(
-                        f"hit_merged_features could not resolve components for merged_index="
-                        f"{merged_index}"
+                        f"hit_merged_features could not resolve components for merged_index={merged_index}"
                     )
 
                 ts, te, a, h, mt = self._fallback_values(
@@ -566,8 +565,7 @@ class HitMergedFeaturesPlugin(Plugin):
 
         if time_start is None or time_end is None or max_time is None:
             raise ValueError(
-                f"hit_merged_features could not integrate merged_index={merged_index}: "
-                "no valid component windows"
+                f"hit_merged_features could not integrate merged_index={merged_index}: no valid component windows"
             )
         return time_start, time_end, area, height, max_time
 

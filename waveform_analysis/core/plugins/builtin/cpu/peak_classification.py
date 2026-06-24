@@ -106,16 +106,13 @@ class PeakClassificationPlugin(Plugin):
     output_dtype = PEAK_CLASSIFICATION_DTYPE
 
     options = {
-        "conflict_policy": Option(
-            default="prefer_s1",
-            type=str,
-            choices=["unknown", "prefer_s1", "prefer_s2", "mark_as_s1_s2"],
+        "priority_order": Option(
+            default=["s1_s2", "s1", "s2"],
+            type=list,
             help=(
-                "当同时满足 S1 和 S2 条件时的处理策略。"
-                "- 'prefer_s1': 优先标记为 S1（默认）"
-                "- 'prefer_s2': 优先标记为 S2"
-                "- 'unknown': 标记为 Unknown"
-                "- 'mark_as_s1_s2': 标记为 S1_S2（混合信号）"
+                "分类优先级顺序（列表），从高到低。"
+                "例如: ['s1_s2', 's1', 's2'] 表示先判定 s1_s2，再判定 s1，最后判定 s2。"
+                "可用值: 's1', 's2', 's1_s2'"
             ),
         ),
         "default_label": Option(
@@ -166,7 +163,7 @@ class PeakClassificationPlugin(Plugin):
         s1_selection = context.get_config(self, "s1_selection")
         s2_selection = context.get_config(self, "s2_selection")
         s1_s2_selection = context.get_config(self, "s1_s2_selection")
-        conflict_policy = context.get_config(self, "conflict_policy")
+        priority_order = context.get_config(self, "priority_order")
         default_label_str = context.get_config(self, "default_label")
         strict = context.get_config(self, "strict")
 
@@ -182,6 +179,16 @@ class PeakClassificationPlugin(Plugin):
         default_label_map = {"unknown": LABEL_UNKNOWN, "s1": LABEL_S1, "s2": LABEL_S2}
         default_label = default_label_map.get(default_label_str, LABEL_UNKNOWN)
 
+        # 验证 priority_order
+        if priority_order is not None:
+            valid_labels = {"s1", "s2", "s1_s2"}
+            for label in priority_order:
+                if label not in valid_labels:
+                    raise ValueError(
+                        f"Invalid label '{label}' in priority_order. "
+                        f"Valid values: {valid_labels}"
+                    )
+
         # 逐个 peak 进行分类
         rows = []
         for peak in peaks:
@@ -190,49 +197,27 @@ class PeakClassificationPlugin(Plugin):
             # 提取特征值
             features = self._extract_features(peak)
 
-            # S1_S2 显式判定优先于 S1/S2 单类判定
+            # 判断各类型
+            s1_s2_ok = False
             if s1_s2_enabled:
                 s1_s2_accepted, s1_s2_rejected = self._check_selection(
                     features,
                     s1_s2_selection,
                 )
                 s1_s2_ok = s1_s2_accepted and not s1_s2_rejected
-            else:
-                s1_s2_ok = False
 
-            # S1 判定
+            s1_ok = False
             if s1_enabled:
                 s1_accepted, s1_rejected = self._check_selection(features, s1_selection)
                 s1_ok = s1_accepted and not s1_rejected
-            else:
-                s1_ok = False
 
-            # S2 判定
+            s2_ok = False
             if s2_enabled:
                 s2_accepted, s2_rejected = self._check_selection(features, s2_selection)
                 s2_ok = s2_accepted and not s2_rejected
-            else:
-                s2_ok = False
 
-            # 根据判断结果和冲突策略确定最终标签
-            if s1_s2_ok:
-                label = LABEL_S1_S2
-            elif s1_ok and not s2_ok:
-                label = LABEL_S1
-            elif s2_ok and not s1_ok:
-                label = LABEL_S2
-            elif s1_ok and s2_ok:
-                if conflict_policy == "prefer_s1":
-                    label = LABEL_S1
-                elif conflict_policy == "prefer_s2":
-                    label = LABEL_S2
-                elif conflict_policy == "mark_as_s1_s2":
-                    label = LABEL_S1_S2
-                else:
-                    label = LABEL_UNKNOWN
-            else:
-                # 不满足任何条件时使用默认标签
-                label = default_label
+            # 使用优先级顺序确定最终标签
+            label = self._determine_label(s1_ok, s2_ok, s1_s2_ok, priority_order, default_label)
 
             # 构建输出行
             rows.append(
@@ -331,3 +316,35 @@ class PeakClassificationPlugin(Plugin):
                     break
 
         return is_accepted, is_rejected
+
+    def _determine_label(
+        self,
+        s1_ok: bool,
+        s2_ok: bool,
+        s1_s2_ok: bool,
+        priority_order: list,
+        default_label: int,
+    ) -> int:
+        """根据判定结果和优先级顺序确定最终标签
+
+        Args:
+            s1_ok: 是否满足 S1 条件
+            s2_ok: 是否满足 S2 条件
+            s1_s2_ok: 是否满足 S1_S2 条件
+            priority_order: 优先级顺序列表，如 ['s1_s2', 's1', 's2']
+            default_label: 默认标签
+
+        Returns:
+            最终标签（LABEL_S1, LABEL_S2, LABEL_S1_S2, 或 LABEL_UNKNOWN）
+        """
+        # 构建判定结果映射
+        ok_map = {"s1": s1_ok, "s2": s2_ok, "s1_s2": s1_s2_ok}
+        label_map = {"s1": LABEL_S1, "s2": LABEL_S2, "s1_s2": LABEL_S1_S2}
+
+        # 按优先级顺序检查
+        for label_name in priority_order:
+            if ok_map.get(label_name, False):
+                return label_map[label_name]
+
+        # 都不满足，返回默认标签
+        return default_label
