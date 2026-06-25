@@ -556,6 +556,9 @@ class PeakChannelAccessor:
         pad: int = 30,
         figsize: tuple[float, float] | None = None,
         show_sum: bool = True,
+        show_features: list[str] | None = None,
+        show_hit_windows: bool = True,
+        show_merged_index: bool = True,
     ) -> tuple[Any | None, np.ndarray | None]:
         """
         绘制 peak 的所有通道波形
@@ -570,6 +573,15 @@ class PeakChannelAccessor:
             图形尺寸 (width, height)，默认自动计算
         show_sum : bool, default=True
             是否显示 sum waveform（第一个子图）
+        show_features : list[str] or None
+            要显示的特征列表，例如 ['area', 'height', 'width']
+            如果为 None，默认显示 ['area', 'height', 'width']
+            可选特征：'area', 'height', 'width', 'rise_time', 'fall_time',
+                     'center_time', 'board', 'channel', 'merged_index'
+        show_hit_windows : bool, default=True
+            是否高亮显示 hit 窗口（半透明阴影）
+        show_merged_index : bool, default=True
+            是否在 hit 窗口上方标注 merged_index
 
         返回
         ----
@@ -582,6 +594,10 @@ class PeakChannelAccessor:
             import matplotlib.pyplot as plt
         except ImportError:
             raise ImportError("plot() requires matplotlib. Install it with: pip install matplotlib")
+
+        # 设置默认显示特征
+        if show_features is None:
+            show_features = ["area", "height", "width"]
 
         # 获取通道数据（包含波形）
         channels = self.get_peak_channel_data(peak_id, include_waveform=True, pad=pad)
@@ -646,6 +662,8 @@ class PeakChannelAccessor:
 
         # 绘制各通道波形
         cmap = plt.get_cmap("tab10")
+        labeled_merged_indices = set()  # 记录已标记的 merged_index
+
         for i, ch in enumerate(channels):
             ax = axes[ax_offset + i]
             color = cmap(i % 10)
@@ -654,37 +672,99 @@ class PeakChannelAccessor:
             if len(ch["waveform"]) > 0:
                 ax.plot(ch["relative_time_ns"], ch["waveform"], color=color, lw=1.2)
 
-                # 标记 hit 窗口（如果有多个 segment）
-                if len(ch["segments"]) > 1:
-                    for seg in ch["segments"]:
-                        seg_time_ns = (seg["abs_time_ps"] - event_t0) / 1000.0
-                        ax.axvspan(
-                            seg_time_ns[0],
-                            seg_time_ns[-1],
-                            color=color,
-                            alpha=0.15,
-                        )
+                # 高亮 hit 窗口
+                if show_hit_windows:
+                    # 计算 hit 窗口的时间范围
+                    if len(ch["segments"]) == 1:
+                        # 单 record hit：从 sample_start 到 sample_end
+                        seg = ch["segments"][0]
+                        hit_start_ns = ch["relative_time_ns"][0]
+                        hit_end_ns = ch["relative_time_ns"][-1]
+                        ax.axvspan(hit_start_ns, hit_end_ns, color=color, alpha=0.15)
+
+                        # 标注 merged_index
+                        if show_merged_index:
+                            merged_idx = ch["merged_index"]
+                            if merged_idx not in labeled_merged_indices:
+                                mid_time = 0.5 * (hit_start_ns + hit_end_ns)
+                                max_signal = (
+                                    np.nanmax(ch["waveform"]) if len(ch["waveform"]) > 0 else 0
+                                )
+                                ax.text(
+                                    mid_time,
+                                    max_signal,
+                                    str(merged_idx),
+                                    color=color,
+                                    fontsize=8,
+                                    ha="center",
+                                    va="bottom",
+                                )
+                                labeled_merged_indices.add(merged_idx)
+
+                    else:
+                        # 多 segment hit：标记每个 segment
+                        for seg in ch["segments"]:
+                            seg_time_ns = (seg["abs_time_ps"] - event_t0) / 1000.0
+                            ax.axvspan(
+                                seg_time_ns[0],
+                                seg_time_ns[-1],
+                                color=color,
+                                alpha=0.15,
+                            )
+
+                        # 标注 merged_index（只标注一次）
+                        if show_merged_index:
+                            merged_idx = ch["merged_index"]
+                            if merged_idx not in labeled_merged_indices:
+                                # 在第一个 segment 上标注
+                                first_seg = ch["segments"][0]
+                                seg_time_ns = (first_seg["abs_time_ps"] - event_t0) / 1000.0
+                                mid_time = 0.5 * (seg_time_ns[0] + seg_time_ns[-1])
+                                max_signal = (
+                                    np.nanmax(ch["waveform"]) if len(ch["waveform"]) > 0 else 0
+                                )
+                                ax.text(
+                                    mid_time,
+                                    max_signal,
+                                    str(merged_idx),
+                                    color=color,
+                                    fontsize=8,
+                                    ha="center",
+                                    va="bottom",
+                                )
+                                labeled_merged_indices.add(merged_idx)
 
             # 标题和标签
             label = f"Board {ch['board']}, Ch {ch['channel']}"
             ax.set_ylabel(label)
             ax.grid(True, alpha=0.3)
 
-            # 添加特征信息
-            info_text = (
-                f"Area: {ch['area']:.1f}, "
-                f"Height: {ch['height']:.1f}, "
-                f"Width: {ch['width']:.1f} ns"
-            )
-            ax.text(
-                0.02,
-                0.95,
-                info_text,
-                transform=ax.transAxes,
-                fontsize=8,
-                verticalalignment="top",
-                bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "alpha": 0.7},
-            )
+            # 构建特征信息文本
+            info_parts = []
+            for feat in show_features:
+                if feat in ch:
+                    value = ch[feat]
+                    # 格式化不同类型的特征
+                    if feat in ["area", "height"]:
+                        info_parts.append(f"{feat.capitalize()}: {value:.1f}")
+                    elif feat in ["width", "rise_time", "fall_time"]:
+                        info_parts.append(f"{feat.replace('_', ' ').capitalize()}: {value:.1f} ns")
+                    elif feat == "center_time":
+                        info_parts.append(f"Center: {value:.1f} ns")
+                    else:
+                        info_parts.append(f"{feat}: {value}")
+
+            if info_parts:
+                info_text = ", ".join(info_parts)
+                ax.text(
+                    0.02,
+                    0.95,
+                    info_text,
+                    transform=ax.transAxes,
+                    fontsize=8,
+                    verticalalignment="top",
+                    bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "alpha": 0.7},
+                )
 
         # 设置 x 轴
         axes[-1].set_xlabel("Time from event start (ns)")
@@ -701,6 +781,9 @@ class PeakChannelAccessor:
         output_dir: str = "output",
         pad: int = 30,
         show_sum: bool = True,
+        show_features: list[str] | None = None,
+        show_hit_windows: bool = True,
+        show_merged_index: bool = True,
     ):
         """
         批量绘制多个 peak
@@ -715,6 +798,12 @@ class PeakChannelAccessor:
             波形窗口 padding
         show_sum : bool, default=True
             是否显示 sum waveform
+        show_features : list[str] or None
+            要显示的特征列表
+        show_hit_windows : bool, default=True
+            是否高亮显示 hit 窗口
+        show_merged_index : bool, default=True
+            是否标注 merged_index
         """
         try:
             import matplotlib.pyplot as plt
@@ -729,7 +818,14 @@ class PeakChannelAccessor:
 
         for peak_id in peak_ids:
             print(f"Plotting peak {peak_id}...")
-            fig, axes = self.plot(peak_id, pad=pad, show_sum=show_sum)
+            fig, axes = self.plot(
+                peak_id,
+                pad=pad,
+                show_sum=show_sum,
+                show_features=show_features,
+                show_hit_windows=show_hit_windows,
+                show_merged_index=show_merged_index,
+            )
 
             if fig:
                 save_path = Path(output_dir) / f"peak_{peak_id}.png"
