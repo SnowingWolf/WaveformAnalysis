@@ -13,6 +13,32 @@
 | Module | `waveform_analysis.core.plugins.builtin.cpu.peak_classification` |
 | Accelerator | `cpu` |
 
+## Source Notes
+
+从 peaklet 特征进行 S1/S2 分类。
+
+该插件基于 peaks 的多维特征进行信号类型甄别。
+
+默认分类规则（基于 n_hits 和 rise_time_10_50）：
+┌─────────────┬──────────────────┬──────────┬────────────────────────────────┐
+│ n_hits      │ rise_time_10_50  │ 分类结果 │ 说明                           │
+├─────────────┼──────────────────┼──────────┼────────────────────────────────┤
+│ < 8         │ 任意             │ S1       │ 少量 hits（单通道或少量通道）  │
+│ >= 8        │ <= 100 ns        │ S1       │ 多 hits 但快速上升（类 S1）    │
+│ >= 8        │ > 100 ns         │ S2       │ 多 hits 且慢速上升（典型 S2）  │
+└─────────────┴──────────────────┴──────────┴────────────────────────────────┘
+
+物理意义：
+- n_hits < 8: 信号集中在少量通道，典型的 S1 直接闪烁特征
+- n_hits >= 8 且 rise_time_10_50 <= 100 ns: 多通道但快速上升，可能是强 S1
+- n_hits >= 8 且 rise_time_10_50 > 100 ns: 多通道且慢速上升，典型 S2 电子漂移信号
+
+分类标签：
+- 0: Unknown（未知类型）
+- 1: S1（闪烁信号）
+- 2: S2（电离信号）
+- 3: S1_S2（混合信号或分类冲突）
+
 ## Inputs
 
 - `peaks`
@@ -28,7 +54,7 @@
 
 | Name | Type | Default | Note |
 |------|------|---------|------|
-| `conflict_policy` | `str` | `prefer_s1` | 当同时满足 S1 和 S2 条件时的处理策略。- 'prefer_s1': 优先标记为 S1（默认）- 'prefer_s2': 优先标记为 S2- 'unknown': 标记为 Unknown- 'mark_as_s1_s2': 标记为 S1_S2（混合信号） |
+| `priority_order` | `list` | `['s1_s2', 's1', 's2']` | 分类优先级顺序（列表），从高到低。例如: ['s1_s2', 's1', 's2'] 表示先判定 s1_s2，再判定 s1，最后判定 s2。可用值: 's1', 's2', 's1_s2' |
 | `default_label` | `str` | `unknown` | 当不满足任何配置条件时的默认标签。默认 'unknown'（推荐用于灵活分类）。 |
 | `strict` | `bool` | `False` | 如果为 True，至少需要配置一个 S1 或 S2 的判断条件。 |
 | `s1_selection` | `dict` | `None` | S1 分类配置。字典包含：- 'accept_any': 列表，每个元素是一个条件组（字典），满足任一组即为 S1 候选- 'reject_any': 列表，每个元素是一个条件组（字典），满足任一组即排除示例: {'accept_any': [{'width': (0, 100)}, {'area': (0, 500)}], 'reject_any': [{'width': (500, None)}]} |

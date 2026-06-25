@@ -12,6 +12,12 @@
 | Version | `{{ plugin.version }}` |
 | Module | `{{ plugin.module_path }}` |
 | Accelerator | `{{ plugin.accelerator }}` |
+{% if plugin.module_doc %}
+
+## Source Notes
+
+{{ plugin.module_doc }}
+{% endif %}
 
 ## Inputs
 

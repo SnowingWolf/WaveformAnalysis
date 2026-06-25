@@ -12,7 +12,9 @@
 """
 
 from dataclasses import dataclass, field
+import inspect
 from pathlib import Path
+import sys
 from typing import Any
 
 import numpy as np
@@ -92,6 +94,7 @@ class PluginDocInfo:
     supports_gpu: bool = False
     is_side_effect: bool = False
     module_path: str = ""  # 模块路径
+    module_doc: str = ""
     behavior_notes: list[str] = field(default_factory=list)
     field_notes: dict[str, str] = field(default_factory=dict)
     config_notes: dict[str, str] = field(default_factory=dict)
@@ -253,6 +256,7 @@ class PluginDocGenerator:
 
         # 模块路径
         module_path = plugin_class.__module__
+        module_doc = self._extract_module_doc(module_path)
 
         # Agent-only documentation extensions.
         agent_doc = self._extract_agent_doc(plugin)
@@ -271,6 +275,7 @@ class PluginDocGenerator:
             supports_streaming=supports_streaming,
             is_side_effect=is_side_effect,
             module_path=module_path,
+            module_doc=module_doc,
             behavior_notes=agent_doc["behavior_notes"],
             field_notes=agent_doc["field_notes"],
             config_notes=agent_doc["config_notes"],
@@ -280,6 +285,14 @@ class PluginDocGenerator:
             downstream_notes=agent_doc["downstream_notes"],
             agent_change_notes=agent_doc["agent_change_notes"],
         )
+
+    @staticmethod
+    def _extract_module_doc(module_path: str) -> str:
+        """Extract the plugin module docstring for generated reference pages."""
+        module = sys.modules.get(module_path)
+        if module is None:
+            return ""
+        return inspect.getdoc(module) or ""
 
     def _extract_agent_doc(self, plugin: Any) -> dict[str, Any]:
         """Extract optional agent-only documentation metadata."""
