@@ -6,12 +6,13 @@ def _provides_names(plugins):
     return [p.provides for p in plugins]
 
 
-def test_get_plugin_set_peaks_available():
-    factory = get_plugin_set("peaks")
+def test_get_plugin_set_hit_available():
+    """Test the new hit plugin set."""
+    factory = get_plugin_set("hit")
     plugins = factory()
 
     provides = _provides_names(plugins)
-    assert len(plugins) >= 6
+    assert len(plugins) == 15
     assert provides == [
         "hit",
         "records_asymmetry_mask",
@@ -28,14 +29,63 @@ def test_get_plugin_set_peaks_available():
         "peaklet_waveform_pool",
         "peaklet_features",
         "peaklet_channels",
-        "peaks",
-        "waveform_width",
-        "s1_s2",
     ]
 
 
-def test_plugin_set_registry_contains_peaks_key():
+def test_get_plugin_set_peaks_available():
+    """Test the updated peaks plugin set (now only 4 plugins)."""
+    factory = get_plugin_set("peaks")
+    plugins = factory()
+
+    provides = _provides_names(plugins)
+    assert len(plugins) == 4
+    assert provides == [
+        "peaks",
+        "waveform_width",
+        "s1_s2",
+        "peak_classification",
+    ]
+
+
+def test_get_plugin_set_event_available():
+    """Test the renamed event plugin set."""
+    factory = get_plugin_set("event")
+    plugins = factory()
+
+    provides = _provides_names(plugins)
+    assert len(plugins) == 3
+    assert provides == [
+        "df_events",
+        "hit_grouped",
+        "df_paired",
+    ]
+
+
+def test_plugin_set_events_alias():
+    """Test backward compatibility alias for events."""
+    assert "events" in PLUGIN_SETS
+    factory = get_plugin_set("events")
+    plugins = factory()
+
+    # Should return the same as "event"
+    provides = _provides_names(plugins)
+    assert provides == [
+        "df_events",
+        "hit_grouped",
+        "df_paired",
+    ]
+
+
+def test_plugin_set_registry_contains_all_keys():
+    """Test that registry contains all expected keys."""
+    assert "io" in PLUGIN_SETS
+    assert "waveform" in PLUGIN_SETS
+    assert "hit" in PLUGIN_SETS
     assert "peaks" in PLUGIN_SETS
+    assert "basic_features" in PLUGIN_SETS
+    assert "tabular" in PLUGIN_SETS
+    assert "event" in PLUGIN_SETS
+    assert "events" in PLUGIN_SETS  # Backward compatibility alias
 
 
 def test_plugins_waveform_includes_records():
@@ -55,3 +105,16 @@ def test_cpu_default_includes_records():
     plugins = profiles.cpu_default()
     provides = _provides_names(plugins)
     assert "records" in provides
+
+
+def test_cpu_default_includes_all_layers():
+    """Test that cpu_default includes all processing layers."""
+    plugins = profiles.cpu_default()
+    provides = _provides_names(plugins)
+
+    # Check key data types from each layer are present
+    assert "records" in provides  # waveform layer
+    assert "hit_threshold" in provides  # hit layer
+    assert "peaklets" in provides  # hit layer (peaklets)
+    assert "peaks" in provides  # peaks layer
+    assert "df_events" in provides  # event layer

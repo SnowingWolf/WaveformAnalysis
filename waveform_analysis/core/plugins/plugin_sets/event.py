@@ -9,7 +9,7 @@ export, __all__ = exporter()
 
 
 @export
-def plugins_events():
+def plugins_event():
     """Return event-level plugin instances in dependency order."""
     from waveform_analysis.core.plugins.builtin.cpu.event_analysis import (
         GroupedEventsPlugin,
