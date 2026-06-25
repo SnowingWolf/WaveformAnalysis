@@ -27,11 +27,12 @@ Note:
     pip install pyarrow
 """
 
+from collections.abc import Iterator
 import csv
 import logging
 from pathlib import Path
 import time
-from typing import TYPE_CHECKING, Iterator, List, Optional
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 import pandas as pd
@@ -67,7 +68,7 @@ def _read_csv_polars(
     delimiter: str = ";",
     skiprows: int = 0,
     samples_start: int = 7,
-    n_cols: Optional[int] = None,
+    n_cols: int | None = None,
 ) -> np.ndarray:
     """Read CSV file using Polars for fastest parsing.
 
@@ -169,11 +170,11 @@ def _read_csv_polars(
 
 
 def _read_files_polars(
-    file_paths: List[str],
+    file_paths: list[str],
     delimiter: str = ";",
     skiprows_first: int = 2,
     show_progress: bool = False,
-    progress_desc: Optional[str] = None,
+    progress_desc: str | None = None,
     samples_start: int = 7,
 ) -> np.ndarray:
     """Read multiple CSV files using Polars.
@@ -261,7 +262,7 @@ def _read_csv_pyarrow(
     delimiter: str = ";",
     skiprows: int = 0,
     samples_start: int = 7,
-    n_cols: Optional[int] = None,
+    n_cols: int | None = None,
 ) -> np.ndarray:
     """Read CSV file using PyArrow for faster parsing.
 
@@ -310,11 +311,11 @@ def _read_csv_pyarrow(
 
 
 def _read_files_pyarrow(
-    file_paths: List[str],
+    file_paths: list[str],
     delimiter: str = ";",
     skiprows_first: int = 2,
     show_progress: bool = False,
-    progress_desc: Optional[str] = None,
+    progress_desc: str | None = None,
     samples_start: int = 7,
 ) -> np.ndarray:
     """Read multiple CSV files using PyArrow.
@@ -398,7 +399,7 @@ def _read_files_pyarrow(
 
 
 def parse_files_generator(
-    file_paths: List[str],
+    file_paths: list[str],
     skiprows: int = 2,
     delimiter: str = ";",
     chunksize: int = 1000,
@@ -480,16 +481,16 @@ def parse_files_generator(
 
 
 def parse_and_stack_files(
-    file_paths: List[str],
+    file_paths: list[str],
     skiprows: int = 2,
     delimiter: str = ";",
-    chunksize: Optional[int] = None,
+    chunksize: int | None = None,
     engine: str = "auto",
     n_jobs: int = 1,
     use_process_pool: bool = False,
     show_progress: bool = False,
-    progress_desc: Optional[str] = None,
-    format_type: Optional[str] = None,
+    progress_desc: str | None = None,
+    format_type: str | None = None,
     format_reader: Optional["FormatReader"] = None,
     samples_start: int = 7,
 ) -> np.ndarray:

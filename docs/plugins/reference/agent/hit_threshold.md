@@ -9,7 +9,7 @@
 | Provides | `hit_threshold` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `1.1.0` |
+| Version | `1.2.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_finder` |
 | Accelerator | `cpu` |
 
@@ -48,7 +48,8 @@
 | `parallel_chunk_size` | `int` | `50000` | records ragged chunk 并行大小（每个任务处理的 record 数）。 |
 | `parallel_min_records` | `int` | `50000` | 触发 records ragged chunk 并行的最小 record 数。 |
 | `streaming_chunk_size` | `int` | `10000` | 流式处理时的 chunk 大小（仅对 RecordsBundleRef 生效） |
-| `asymmetry_cut_enabled` | `bool` | `False` | 是否在 records 路径的 hit 查找前应用 records_asymmetry_mask。 |
+| `asymmetry_cut_enabled` | `bool` | `True` | 是否在 records 路径的 hit 查找前应用 records_asymmetry_mask。 |
+| `channel_role_cut_enabled` | `bool` | `False` | 是否在 records 路径的 hit 查找前应用 records_detector_mask。 |
 
 ## Execution Path
 

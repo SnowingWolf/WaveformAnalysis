@@ -6,7 +6,6 @@
 
 from collections.abc import Callable
 import logging
-from typing import Optional
 
 import numpy as np
 import pandas as pd

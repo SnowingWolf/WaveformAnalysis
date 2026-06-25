@@ -3,7 +3,6 @@
 """
 
 import numpy as np
-import pytest
 
 from waveform_analysis.core.processing.time_utils import (
     compute_absolute_time_ps,

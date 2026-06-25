@@ -20,7 +20,6 @@ Examples:
 from dataclasses import dataclass, field
 from pathlib import Path
 import re
-from typing import Dict, List, Optional
 
 from waveform_analysis.core.foundation.utils import exporter
 
@@ -75,14 +74,14 @@ class DirectoryLayout:
     file_index_regex: str = r"_(\d+)\.CSV$"  # 从文件名提取文件索引
 
     # 可选：运行信息文件
-    run_info_pattern: Optional[str] = "{run_name}_info.txt"
+    run_info_pattern: str | None = "{run_name}_info.txt"
 
     # 元数据
-    metadata: Dict = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
 
     # 编译后的正则表达式（延迟初始化）
-    _channel_re: Optional[re.Pattern] = field(default=None, repr=False, compare=False)
-    _file_index_re: Optional[re.Pattern] = field(default=None, repr=False, compare=False)
+    _channel_re: re.Pattern | None = field(default=None, repr=False, compare=False)
+    _file_index_re: re.Pattern | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self):
         """初始化后编译正则表达式"""
@@ -124,7 +123,7 @@ class DirectoryLayout:
         """
         return Path(data_root) / run_name
 
-    def get_run_info_path(self, data_root: str, run_name: str) -> Optional[Path]:
+    def get_run_info_path(self, data_root: str, run_name: str) -> Path | None:
         """获取运行信息文件路径
 
         Args:
@@ -141,7 +140,7 @@ class DirectoryLayout:
         info_filename = self.run_info_pattern.format(run_name=run_name)
         return run_path / info_filename
 
-    def extract_channel(self, filename: str) -> Optional[int]:
+    def extract_channel(self, filename: str) -> int | None:
         """从文件名提取通道号
 
         Args:
@@ -171,7 +170,7 @@ class DirectoryLayout:
         match = self._file_index_re.search(filename)
         return int(match.group(1)) if match else 0
 
-    def list_files(self, raw_path: Path) -> List[Path]:
+    def list_files(self, raw_path: Path) -> list[Path]:
         """列出目录中匹配的文件
 
         Args:
@@ -185,7 +184,7 @@ class DirectoryLayout:
 
         return sorted(raw_path.glob(self.file_glob_pattern))
 
-    def group_files_by_channel(self, raw_path: Path) -> Dict[int, List[Dict]]:
+    def group_files_by_channel(self, raw_path: Path) -> dict[int, list[dict]]:
         """按通道分组文件
 
         Args:
@@ -202,7 +201,7 @@ class DirectoryLayout:
             }
         """
         files = self.list_files(raw_path)
-        groups: Dict[int, List[Dict]] = {}
+        groups: dict[int, list[dict]] = {}
 
         for f in files:
             ch = self.extract_channel(f.name)

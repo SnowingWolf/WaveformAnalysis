@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `hit_merged` |
-| **Version** | `1.2.0` |
+| **Version** | `2.0.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -35,6 +35,8 @@ This plugin depends on the following data:
 | Field | Type | Units | Description |
 |-------|------|-------|-------------|
 | `position` | `int64` | - | - |
+| `time_start` | `int64` | - | - |
+| `time_end` | `int64` | - | - |
 | `sample_start` | `int32` | - | - |
 | `sample_end` | `int32` | - | - |
 | `width` | `float32` | - | - |
@@ -45,6 +47,7 @@ This plugin depends on the following data:
 | `record_id` | `int64` | - | - |
 | `component_offset` | `int64` | - | - |
 | `component_count` | `int32` | - | - |
+| `is_single_record` | `bool` | - | - |
 
 ## Usage Example
 

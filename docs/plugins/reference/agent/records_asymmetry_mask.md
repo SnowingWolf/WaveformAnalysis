@@ -9,7 +9,7 @@
 | Provides | `records_asymmetry_mask` |
 | Depends On | `records`, `wave_pool` |
 | Output Kind | `array` |
-| Version | `0.1.0` |
+| Version | `0.2.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.records_asymmetry` |
 | Accelerator | `cpu` |
 
@@ -32,6 +32,7 @@
 | `asymmetry_parallel` | `bool` | `True` | Use Numba prange parallel loop. |
 | `asymmetry_chunk_size` | `int` | `200000` | Number of records processed per Numba call. |
 | `asymmetry_num_threads` | `int` | `0` | Numba thread count. <=0 keeps current Numba default. |
+| `asymmetry_polarity_mode` | `str` | `auto` | Polarity handling mode: 'auto' (extract from records['polarity']), 'negative' (baseline - w_min), 'positive' (w_max - baseline). |
 
 ## Execution Path
 

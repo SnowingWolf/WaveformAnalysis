@@ -131,7 +131,6 @@ class RecordsBundleRef:
         Memory:
             单个 chunk 约 200MB (100k events × 1k samples × 2 bytes)
         """
-        from collections.abc import Iterator
 
         for part_ref in self.part_refs:
             # 时间范围过滤（粗粒度）

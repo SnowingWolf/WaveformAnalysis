@@ -8,7 +8,7 @@ Raw Files Plugin - 原始文件扫描插件
 支持 DAQ 集成，可以直接从 DAQ 元数据中获取文件列表。
 """
 
-from typing import Any, List
+from typing import Any
 
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
@@ -24,7 +24,7 @@ class RawFileNamesPlugin(Plugin):
         "daq_adapter": Option(default="vx2730", type=str, help="DAQ adapter name (e.g., 'vx2730')"),
     }
 
-    def compute(self, context: Any, run_id: str, **kwargs) -> List[List[str]]:
+    def compute(self, context: Any, run_id: str, **kwargs) -> list[list[str]]:
         """
         扫描数据目录并按通道分组原始 CSV 文件
 

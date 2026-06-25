@@ -16,7 +16,6 @@ from waveform_analysis.core.plugins.builtin.cpu.records_asymmetry import (
 from waveform_analysis.core.processing.dtypes import create_record_dtype
 from waveform_analysis.core.processing.records_builder import (
     RECORDS_DTYPE,
-    RecordsBundle,
     build_records_from_st_waveforms,
 )
 
@@ -175,6 +174,7 @@ def test_threshold_hit_single_waveform_multiple_hits():
             "left_extension": 0,
             "right_extension": 0,
             "dt": 2,
+            "asymmetry_cut_enabled": False,
         },
         {"st_waveforms": st},
     )
@@ -270,8 +270,20 @@ def test_threshold_hit_use_filtered_branch():
 
 def test_threshold_hit_wave_source_records_depends_on_records_and_wave_pool():
     plugin = ThresholdHitPlugin()
-    ctx = DummyContext({"wave_source": "records"}, {})
+    ctx = DummyContext({"wave_source": "records", "asymmetry_cut_enabled": False}, {})
     assert plugin.resolve_depends_on(ctx) == ["records", "wave_pool"]
+
+
+def test_threshold_hit_records_source_enables_asymmetry_cut_by_default():
+    plugin = ThresholdHitPlugin()
+    ctx = DummyContext({"wave_source": "records"}, {})
+
+    assert ctx.get_config(plugin, "asymmetry_cut_enabled") is True
+    assert plugin.resolve_depends_on(ctx) == [
+        "records",
+        "wave_pool",
+        "records_asymmetry_mask",
+    ]
 
 
 def test_threshold_hit_asymmetry_cut_depends_on_mask_for_records_source():
@@ -291,6 +303,25 @@ def test_threshold_hit_asymmetry_cut_depends_on_mask_for_records_source():
     ]
 
 
+def test_threshold_hit_channel_role_cut_depends_on_detector_mask_for_records_source():
+    plugin = ThresholdHitPlugin()
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "asymmetry_cut_enabled": True,
+            "channel_role_cut_enabled": True,
+        },
+        {},
+    )
+
+    assert plugin.resolve_depends_on(ctx) == [
+        "records",
+        "wave_pool",
+        "records_asymmetry_mask",
+        "records_detector_mask",
+    ]
+
+
 def test_threshold_hit_reads_records_view_when_wave_source_records():
     plugin = ThresholdHitPlugin()
     ctx = DummyContext(
@@ -300,6 +331,7 @@ def test_threshold_hit_reads_records_view_when_wave_source_records():
             "left_extension": 0,
             "right_extension": 0,
             "dt": 2,
+            "asymmetry_cut_enabled": False,
         },
         {
             "records": _make_records_view().records,
@@ -433,6 +465,50 @@ def test_threshold_hit_asymmetry_mask_all_false_returns_empty_hits():
     assert result.dtype == THRESHOLD_HIT_DTYPE
 
 
+def test_threshold_hit_channel_role_mask_skips_veto_records():
+    plugin = ThresholdHitPlugin()
+    rv = _make_asymmetry_records_view()
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "channel_role_cut_enabled": True,
+            "threshold": 10.0,
+            "left_extension": 0,
+            "right_extension": 0,
+            "dt": 2,
+        },
+        {
+            "records": rv.records,
+            "wave_pool": rv.wave_pool,
+            "records_detector_mask": np.array([True, False], dtype=np.bool_),
+        },
+    )
+
+    result = _compute_threshold_hits(plugin, ctx)
+
+    assert len(result) == 1
+    assert set(result["record_id"].tolist()) == {0}
+
+
+def test_threshold_hit_channel_role_mask_length_mismatch_raises():
+    plugin = ThresholdHitPlugin()
+    rv = _make_asymmetry_records_view()
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "channel_role_cut_enabled": True,
+        },
+        {
+            "records": rv.records,
+            "wave_pool": rv.wave_pool,
+            "records_detector_mask": np.array([True], dtype=np.bool_),
+        },
+    )
+
+    with pytest.raises(ValueError, match="records_detector_mask length mismatch"):
+        _compute_threshold_hits(plugin, ctx)
+
+
 def test_threshold_hit_numba_backend_matches_ragged_with_chunk_parallel():
     plugin = ThresholdHitPlugin()
     rv = _make_many_records_view(n_records=6)
@@ -441,6 +517,7 @@ def test_threshold_hit_numba_backend_matches_ragged_with_chunk_parallel():
         "threshold": 10.0,
         "left_extension": 0,
         "right_extension": 0,
+        "asymmetry_cut_enabled": False,
         "parallel_chunk_size": 2,
         "parallel_min_records": 1,
         "n_workers": 2,
@@ -469,6 +546,7 @@ def test_threshold_hit_auto_backend_falls_back_when_numba_unavailable(monkeypatc
             "threshold": 10.0,
             "left_extension": 0,
             "right_extension": 0,
+            "asymmetry_cut_enabled": False,
         },
         {"records": rv.records, "wave_pool": rv.wave_pool},
     )
@@ -489,6 +567,7 @@ def test_threshold_hit_numba_backend_raises_when_numba_unavailable(monkeypatch):
             "wave_source": "records",
             "backend": "numba",
             "threshold": 10.0,
+            "asymmetry_cut_enabled": False,
         },
         {"records": rv.records, "wave_pool": rv.wave_pool},
     )
@@ -512,6 +591,7 @@ def test_threshold_hit_records_empty_returns_empty():
         {
             "wave_source": "records",
             "threshold": 10.0,
+            "asymmetry_cut_enabled": False,
         },
         {},
     )
@@ -789,6 +869,7 @@ def test_threshold_hit_batch_mode_with_recordsbundle():
         {
             "wave_source": "records",
             "threshold": 10.0,
+            "asymmetry_cut_enabled": False,
         },
         {"records": records, "wave_pool": wave_pool},
     )
@@ -826,6 +907,7 @@ def test_threshold_hit_batched_mode_boundary():
             {
                 "wave_source": "records",
                 "threshold": 10.0,
+                "asymmetry_cut_enabled": False,
                 "streaming_chunk_size": 10,  # 设置 chunk_size=10
             },
             {"records": records, "wave_pool": wave_pool},
@@ -852,6 +934,7 @@ def test_threshold_hit_empty_dataset():
         {
             "wave_source": "records",
             "threshold": 10.0,
+            "asymmetry_cut_enabled": False,
         },
         {"records": empty_records, "wave_pool": empty_wave_pool},
     )
@@ -885,6 +968,7 @@ def test_threshold_hit_no_hits_found():
         {
             "wave_source": "records",
             "threshold": 10.0,
+            "asymmetry_cut_enabled": False,
         },
         {"records": records, "wave_pool": wave_pool},
     )
@@ -921,6 +1005,7 @@ def test_threshold_hit_multi_board_multi_channel():
         {
             "wave_source": "records",
             "threshold": 10.0,
+            "asymmetry_cut_enabled": False,
         },
         {"records": records, "wave_pool": wave_pool},
     )
@@ -964,6 +1049,7 @@ def test_threshold_hit_batched_mode_large_dataset():
         {
             "wave_source": "records",
             "threshold": 10.0,
+            "asymmetry_cut_enabled": False,
             "streaming_chunk_size": 100,  # 强制使用批处理模式
         },
         {"records": records, "wave_pool": wave_pool},

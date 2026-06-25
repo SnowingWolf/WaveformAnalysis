@@ -10,6 +10,7 @@
 """
 
 import atexit
+from collections.abc import Callable, Iterator
 from concurrent.futures import (
     Executor,
     ProcessPoolExecutor,
@@ -21,7 +22,7 @@ from dataclasses import dataclass
 import multiprocessing
 import threading
 import time
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Optional
 
 from waveform_analysis.core.foundation.utils import exporter
 
@@ -79,14 +80,14 @@ class ExecutorManager:
             if self._initialized:
                 return
 
-            self._executors: Dict[str, Executor] = {}
-            self._executor_configs: Dict[str, Dict[str, Any]] = {}
-            self._executor_refs: Dict[str, int] = {}  # 引用计数
+            self._executors: dict[str, Executor] = {}
+            self._executor_configs: dict[str, dict[str, Any]] = {}
+            self._executor_refs: dict[str, int] = {}  # 引用计数
             self._executor_lock = threading.Lock()  # Separate lock for executor operations
             self._default_max_workers = multiprocessing.cpu_count()
 
             # 负载均衡器支持
-            self._load_balancer: Optional[Any] = None  # DynamicLoadBalancer实例
+            self._load_balancer: Any | None = None  # DynamicLoadBalancer实例
             self._load_balancing_enabled = False
 
             # 注册退出时的清理函数
@@ -97,7 +98,7 @@ class ExecutorManager:
         self,
         name: str,
         executor_type: str = "thread",
-        max_workers: Optional[int] = None,
+        max_workers: int | None = None,
         reuse: bool = True,
         **kwargs,
     ) -> Executor:
@@ -153,7 +154,7 @@ class ExecutorManager:
         self,
         name: str,
         executor_type: str = "thread",
-        max_workers: Optional[int] = None,
+        max_workers: int | None = None,
         wait: bool = True,
     ):
         """
@@ -191,7 +192,7 @@ class ExecutorManager:
         self,
         name: str,
         executor_type: str = "thread",
-        max_workers: Optional[int] = None,
+        max_workers: int | None = None,
         wait: bool = True,
     ):
         """关闭指定名称的执行器"""
@@ -209,7 +210,7 @@ class ExecutorManager:
         self,
         name: str,
         executor_type: str = "thread",
-        max_workers: Optional[int] = None,
+        max_workers: int | None = None,
         reuse: bool = True,
         wait_on_exit: bool = False,
         **kwargs,
@@ -234,7 +235,7 @@ class ExecutorManager:
             else:
                 executor.shutdown(wait=wait_on_exit)
 
-    def list_executors(self) -> Dict[str, Dict[str, Any]]:
+    def list_executors(self) -> dict[str, dict[str, Any]]:
         """列出所有活跃的执行器"""
         with self._executor_lock:
             return {
@@ -245,7 +246,7 @@ class ExecutorManager:
                 for key in self._executors.keys()
             }
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """获取执行器统计信息"""
         executors = self.list_executors()
         return {
@@ -260,7 +261,7 @@ class ExecutorManager:
     def enable_load_balancing(
         self,
         min_workers: int = 1,
-        max_workers: Optional[int] = None,
+        max_workers: int | None = None,
         cpu_threshold: float = 0.8,
         memory_threshold: float = 0.85,
         check_interval: float = 5.0,
@@ -291,7 +292,7 @@ class ExecutorManager:
         self._load_balancing_enabled = False
         self._load_balancer = None
 
-    def get_load_balancer_stats(self) -> Optional[Dict]:
+    def get_load_balancer_stats(self) -> dict | None:
         """
         获取负载均衡统计信息
 
@@ -330,7 +331,7 @@ class ParallelProgressConfig:
     """
 
     enabled: bool = True
-    desc: Optional[str] = None
+    desc: str | None = None
     unit: str = "it"
 
     @classmethod
@@ -350,7 +351,7 @@ class ParallelProgressConfig:
 
 
 @export
-def parallel_progress(desc: Optional[str] = None, unit: str = "it", enabled: bool = True):
+def parallel_progress(desc: str | None = None, unit: str = "it", enabled: bool = True):
     """
     装饰器：为函数配置并行执行的进度条
 
@@ -396,7 +397,7 @@ def get_executor_manager() -> ExecutorManager:
 def get_executor(
     name: str,
     executor_type: str = "thread",
-    max_workers: Optional[int] = None,
+    max_workers: int | None = None,
     reuse: bool = True,
     **kwargs,
 ) -> Iterator[Executor]:
@@ -424,16 +425,16 @@ def get_executor(
 @export
 def parallel_map(
     func: Callable,
-    iterable: List[Any],
+    iterable: list[Any],
     executor_type: str = "thread",
-    max_workers: Optional[int] = None,
-    executor_name: Optional[str] = None,
+    max_workers: int | None = None,
+    executor_name: str | None = None,
     reuse_executor: bool = False,
-    progress_callback: Optional[Callable[[int], None]] = None,
+    progress_callback: Callable[[int], None] | None = None,
     use_load_balancer: bool = True,
-    estimated_task_size: Optional[int] = None,
+    estimated_task_size: int | None = None,
     **kwargs,
-) -> List[Any]:
+) -> list[Any]:
     """
     并行执行函数（类似map，但并行）。
 
@@ -581,16 +582,16 @@ def parallel_map(
 @export
 def parallel_apply(
     func: Callable,
-    args_list: List[Tuple],
+    args_list: list[tuple],
     executor_type: str = "thread",
-    max_workers: Optional[int] = None,
-    executor_name: Optional[str] = None,
+    max_workers: int | None = None,
+    executor_name: str | None = None,
     reuse_executor: bool = False,
-    progress_callback: Optional[Callable[[int], None]] = None,
+    progress_callback: Callable[[int], None] | None = None,
     use_load_balancer: bool = True,
-    estimated_task_size: Optional[int] = None,
+    estimated_task_size: int | None = None,
     **kwargs,
-) -> List[Any]:
+) -> list[Any]:
     """
     并行执行函数（支持多参数）。
 
@@ -732,7 +733,7 @@ def parallel_apply(
 
 
 @export
-def configure_default_workers(max_workers: Optional[int] = None):
+def configure_default_workers(max_workers: int | None = None):
     """
     配置默认的最大工作线程/进程数。
 
@@ -751,7 +752,7 @@ def get_default_workers() -> int:
 
 
 @export
-def get_stats() -> Dict[str, Any]:
+def get_stats() -> dict[str, Any]:
     """获取执行器统计信息（便捷函数）"""
     return _manager.get_stats()
 
@@ -759,7 +760,7 @@ def get_stats() -> Dict[str, Any]:
 @export
 def enable_global_load_balancing(
     min_workers: int = 1,
-    max_workers: Optional[int] = None,
+    max_workers: int | None = None,
     cpu_threshold: float = 0.8,
     memory_threshold: float = 0.85,
     check_interval: float = 5.0,
@@ -790,7 +791,7 @@ def disable_global_load_balancing():
 
 
 @export
-def get_load_balancer_stats() -> Optional[Dict]:
+def get_load_balancer_stats() -> dict | None:
     """
     获取负载均衡统计信息（便捷函数）
 

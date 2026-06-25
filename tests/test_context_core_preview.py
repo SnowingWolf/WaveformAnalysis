@@ -32,6 +32,25 @@ def test_context_preview_execution_cache_status(tmp_path):
     assert result["cache_status"]["mock_data"]["in_memory"] is True
 
 
+def test_context_preview_execution_shows_global_execution_config(tmp_path, capsys):
+    ctx = Context(
+        storage_dir=str(tmp_path),
+        config={"enable_plugin_parallelism": True, "max_parallel_workers": 4},
+    )
+    ctx.register(MockPlugin)
+
+    result = ctx.preview_execution("run1", "mock_data", show_config=True)
+    out = capsys.readouterr().out
+
+    assert result["global_execution_config"] == {
+        "enable_plugin_parallelism": True,
+        "max_parallel_workers": 4,
+    }
+    assert "全局执行配置" in out
+    assert "enable_plugin_parallelism = True" in out
+    assert "max_parallel_workers = 4" in out
+
+
 def test_context_preview_execution_invalid_data(tmp_path):
     ctx = Context(storage_dir=str(tmp_path))
     ctx.register(MockPlugin)

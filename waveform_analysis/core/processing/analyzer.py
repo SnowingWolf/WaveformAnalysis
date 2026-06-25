@@ -5,7 +5,7 @@ Analyzer 模块 - 高层事件分析与配对逻辑。
 以及跨通道的事件配对 (Pairing)，是生成最终物理分析结果的关键步骤。
 """
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import numpy as np
 import pandas as pd
@@ -43,9 +43,9 @@ class EventAnalyzer:
     def group_events(
         self,
         df: pd.DataFrame,
-        time_window_ns: Optional[float] = None,
+        time_window_ns: float | None = None,
         use_numba: bool = True,
-        n_processes: Optional[int] = None,
+        n_processes: int | None = None,
     ) -> pd.DataFrame:
         """
         按时间窗口聚类多通道事件。
@@ -64,7 +64,7 @@ class EventAnalyzer:
         )
 
     def pair_events(
-        self, df_events: pd.DataFrame, time_window_ns: Optional[float] = None
+        self, df_events: pd.DataFrame, time_window_ns: float | None = None
     ) -> pd.DataFrame:
         """
         筛选成对的 N 通道事件。
@@ -100,7 +100,7 @@ class EventAnalyzer:
 
                 def get_ch_value(arr, idx):
                     """安全地获取数组索引值"""
-                    if isinstance(arr, (list, np.ndarray)) and len(arr) > idx:
+                    if isinstance(arr, list | np.ndarray) and len(arr) > idx:
                         return arr[idx]
                     return np.nan
 

@@ -104,6 +104,13 @@ ctx.set_config(
 的插件，配置选项明细会明确显示“该插件没有配置选项”，不会再尝试对空配置表排序或
 设置索引。
 
+## Release v1.2.0 同步说明
+
+v1.2.0 继续以显式配置优先、adapter 推断次之、插件默认值兜底作为配置解析口径。
+本次 release 中配置兼容层、配置类型和 `Context` 展示行为均按上述规则校验；新增或
+调整的配置项需要继续通过 `ctx.get_resolved_config()` / `ctx.show_resolved_config()`
+确认来源，并确保参与 lineage 的配置保持稳定。
+
 ## 推荐实践
 
 - 全局设置 `daq_adapter`。

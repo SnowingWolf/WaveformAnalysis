@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 import os
 import threading
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from ..foundation.utils import exporter
 from .cache_utils import format_size
@@ -58,7 +58,7 @@ class CacheEntry:
     compressed: bool
     has_checksum: bool
     file_path: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def size_mb(self) -> float:
@@ -127,9 +127,9 @@ class CacheAnalyzer:
             context: Context 实例，用于访问存储层
         """
         self.ctx = context
-        self._cache_index: Dict[str, List[CacheEntry]] = {}  # run_id -> entries
+        self._cache_index: dict[str, list[CacheEntry]] = {}  # run_id -> entries
         self._lock = threading.Lock()
-        self._last_scan_time: Optional[float] = None
+        self._last_scan_time: float | None = None
         self._scanned_runs: set = set()
 
     @property
@@ -140,11 +140,11 @@ class CacheAnalyzer:
     def scan(
         self,
         force_refresh: bool = False,
-        run_ids: Optional[List[str]] = None,
+        run_ids: list[str] | None = None,
         verbose: bool = True,
         parallel: bool = True,
-        max_workers: Optional[int] = None,
-    ) -> Dict[str, List[CacheEntry]]:
+        max_workers: int | None = None,
+    ) -> dict[str, list[CacheEntry]]:
         """扫描缓存目录，构建索引
 
         Args:
@@ -193,7 +193,7 @@ class CacheAnalyzer:
 
             # 更新索引（需要锁保护）
             with self._lock:
-                for run_id, entries in zip(runs_to_scan, results):
+                for run_id, entries in zip(runs_to_scan, results, strict=False):
                     self._cache_index[run_id] = entries
                     self._scanned_runs.add(run_id)
         else:
@@ -219,7 +219,7 @@ class CacheAnalyzer:
 
             return self._cache_index.copy()
 
-    def _extract_runs_from_flat_storage(self) -> List[str]:
+    def _extract_runs_from_flat_storage(self) -> list[str]:
         """从扁平存储结构中提取 run_id 列表"""
         runs = set()
         keys = self.storage.list_keys()
@@ -230,7 +230,7 @@ class CacheAnalyzer:
                 runs.add(parts[0])
         return sorted(runs)
 
-    def _scan_run(self, run_id: str) -> List[CacheEntry]:
+    def _scan_run(self, run_id: str) -> list[CacheEntry]:
         """扫描单个 run 的缓存
 
         Args:
@@ -257,7 +257,7 @@ class CacheAnalyzer:
 
         return entries
 
-    def _create_entry(self, run_id: str, key: str) -> Optional[CacheEntry]:
+    def _create_entry(self, run_id: str, key: str) -> CacheEntry | None:
         """从 key 创建 CacheEntry
 
         Args:
@@ -300,7 +300,7 @@ class CacheAnalyzer:
             metadata=metadata,
         )
 
-    def _get_file_info(self, key: str, run_id: str, metadata: Dict[str, Any]) -> tuple:
+    def _get_file_info(self, key: str, run_id: str, metadata: dict[str, Any]) -> tuple:
         """获取文件路径和大小
 
         Returns:
@@ -352,7 +352,7 @@ class CacheAnalyzer:
 
         return file_path, size_bytes
 
-    def _extract_plugin_version(self, data_name: str, metadata: Dict[str, Any]) -> str:
+    def _extract_plugin_version(self, data_name: str, metadata: dict[str, Any]) -> str:
         """提取插件版本号"""
         # 首先尝试从 metadata 中获取
         if "plugin_version" in metadata:
@@ -375,14 +375,14 @@ class CacheAnalyzer:
 
     def get_entries(
         self,
-        run_id: Optional[str] = None,
-        data_name: Optional[str] = None,
-        min_size: Optional[int] = None,
-        max_size: Optional[int] = None,
-        min_age_days: Optional[float] = None,
-        max_age_days: Optional[float] = None,
-        compressed_only: Optional[bool] = None,
-    ) -> List[CacheEntry]:
+        run_id: str | None = None,
+        data_name: str | None = None,
+        min_size: int | None = None,
+        max_size: int | None = None,
+        min_age_days: float | None = None,
+        max_age_days: float | None = None,
+        compressed_only: bool | None = None,
+    ) -> list[CacheEntry]:
         """获取缓存条目，支持多种过滤条件
 
         Args:
@@ -437,7 +437,7 @@ class CacheAnalyzer:
 
             return result
 
-    def get_total_size(self, run_id: Optional[str] = None) -> int:
+    def get_total_size(self, run_id: str | None = None) -> int:
         """获取总缓存大小
 
         Args:
@@ -449,7 +449,7 @@ class CacheAnalyzer:
         entries = self.get_entries(run_id=run_id)
         return sum(e.size_bytes for e in entries)
 
-    def get_run_summary(self, run_id: str) -> Dict[str, Any]:
+    def get_run_summary(self, run_id: str) -> dict[str, Any]:
         """获取单个 run 的缓存摘要
 
         Args:
@@ -490,12 +490,12 @@ class CacheAnalyzer:
             "newest_entry": newest,
         }
 
-    def get_all_runs(self) -> List[str]:
+    def get_all_runs(self) -> list[str]:
         """获取所有已扫描的 run_id"""
         with self._lock:
             return sorted(self._cache_index.keys())
 
-    def get_data_type_summary(self) -> Dict[str, Dict[str, Any]]:
+    def get_data_type_summary(self) -> dict[str, dict[str, Any]]:
         """按数据类型汇总缓存信息
 
         Returns:

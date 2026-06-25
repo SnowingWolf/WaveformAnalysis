@@ -4,7 +4,7 @@ Records/wave_pool plugins backed by an internal shared RecordsBundle cache.
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -26,7 +26,6 @@ from waveform_analysis.core.processing.records_builder import (
     build_records_from_raw_files,
     build_records_from_v1725_files,
 )
-import waveform_analysis.utils.formats
 
 _BUNDLE_CACHE_NAME = "_records_bundle"
 
@@ -437,6 +436,43 @@ class RecordsPlugin(_RecordsBundlePluginBase):
     depends_on = []
     description = "Build records (event index table) from the shared internal records bundle."
     output_dtype = RECORDS_DTYPE
+    options = {
+        **_RecordsBundlePluginBase.options,
+        "channel_workers": Option(
+            default=16,
+            help="Workers for channel-level waveform loading.",
+            track=False,
+        ),
+        "channel_executor": Option(
+            default="process",
+            type=str,
+            help="Executor type for channel-level loading and records merge: 'thread' or 'process'.",
+            track=False,
+        ),
+        "n_jobs": Option(
+            default=16,
+            type=int,
+            help="Workers per channel for file-level parsing; V1725 None=auto caps file readers at 4.",
+            track=False,
+        ),
+        "use_process_pool": Option(
+            default=True,
+            type=bool,
+            help="Use a process pool for file-level parsing (False=thread pool).",
+            track=False,
+        ),
+        "v1725_part_size": Option(
+            default=20_000,
+            type=int,
+            help="Max V1725 waves per per-file records shard; <=0 uses one shard per file.",
+        ),
+        "keep_on_disk": Option(
+            default=True,
+            type=None,
+            validate=lambda v: v is None or isinstance(v, bool),
+            help="Keep merged records bundle disk-backed. None defaults to True for V1725 and False otherwise.",
+        ),
+    }
 
     def compute(self, context: Any, run_id: str, **kwargs) -> np.ndarray:
         bundle = get_records_bundle(context, run_id)

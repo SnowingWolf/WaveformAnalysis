@@ -63,6 +63,18 @@ def test_records_plugin_builds_directly_from_raw_files(monkeypatch):
     np.testing.assert_array_equal(records["timestamp"], np.array([100], dtype=np.int64))
 
 
+def test_records_plugin_default_parallel_disk_config():
+    plugin = RecordsPlugin()
+    ctx = FakeContext(config={}, plugins={"records": plugin})
+
+    assert ctx.get_config(plugin, "channel_workers") == 16
+    assert ctx.get_config(plugin, "n_jobs") == 16
+    assert ctx.get_config(plugin, "v1725_part_size") == 20_000
+    assert ctx.get_config(plugin, "use_process_pool") is True
+    assert ctx.get_config(plugin, "channel_executor") == "process"
+    assert ctx.get_config(plugin, "keep_on_disk") is True
+
+
 def test_records_plugin_passes_progress_to_v1725_builder(monkeypatch):
     plugin = RecordsPlugin()
     ctx = FakeContext(

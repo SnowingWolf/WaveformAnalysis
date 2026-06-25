@@ -39,6 +39,14 @@ from .hit_merge import (
     HitMergePlugin,
 )
 from .hit_merged_features import HIT_MERGED_FEATURES_DTYPE, HitMergedFeaturesPlugin
+from .peak_classification import (
+    LABEL_S1,
+    LABEL_S1_S2,
+    LABEL_S2,
+    LABEL_UNKNOWN,
+    PEAK_CLASSIFICATION_DTYPE,
+    PeakClassificationPlugin,
+)
 
 # CPU 寻峰插件
 from .peak_finding import HIT_DTYPE, HitFinderPlugin
@@ -60,6 +68,7 @@ from .peaklets import (
 # Records 插件
 from .records import RecordsPlugin, WavePoolFilteredPlugin, WavePoolPlugin
 from .records_asymmetry import RecordsAsymmetryMaskPlugin
+from .records_channel_role import RecordsDetectorMaskPlugin, RecordsVetoMaskPlugin
 from .s1_s2_classifier import (
     LABEL_S1,
     LABEL_S2,
@@ -67,6 +76,21 @@ from .s1_s2_classifier import (
     S1_S2_CLASSIFIER_DTYPE,
     S1S2ClassifierPlugin,
 )
+from .s1_s2_pair_candidates import (
+    FLAG_CLOSE_COMPETITOR,
+    FLAG_MULTI_S1_CANDIDATE,
+    FLAG_MULTI_S2_CANDIDATE,
+    FLAG_NEAR_CHUNK_BOUNDARY,
+    FLAG_ORPHAN_S1,
+    FLAG_ORPHAN_S2,
+    FLAG_RATIO_IN_RANGE,
+    FLAG_S1_LOW_QUALITY,
+    FLAG_S2_LOW_QUALITY,
+    FLAG_VALID_TIME,
+    S1_S2_PAIR_CANDIDATES_DTYPE,
+    S1S2PairCandidatesPlugin,
+)
+from .s1_s2_pair_selection import S1S2PairSelectionPlugin
 
 # CPU 波形宽度插件
 from .waveform_width import WAVEFORM_WIDTH_DTYPE, WaveformWidthPlugin
@@ -124,6 +148,8 @@ __all__ = [
     "PeakletChannelsPlugin",
     "PeaksPlugin",
     "RecordsAsymmetryMaskPlugin",
+    "RecordsDetectorMaskPlugin",
+    "RecordsVetoMaskPlugin",
     "PEAKLET_DTYPE",
     "PEAKLET_COMPONENTS_DTYPE",
     "PEAKLET_WAVEFORMS_DTYPE",
@@ -137,12 +163,27 @@ __all__ = [
     "WAVEFORM_WIDTH_DTYPE",
     "WaveformWidthIntegralPlugin",
     "WAVEFORM_WIDTH_INTEGRAL_DTYPE",
-    # S1/S2 classifier
-    "S1S2ClassifierPlugin",
-    "S1_S2_CLASSIFIER_DTYPE",
+    # Peak classification (S1/S2)
+    "PeakClassificationPlugin",
+    "PEAK_CLASSIFICATION_DTYPE",
     "LABEL_S1",
     "LABEL_S2",
+    "LABEL_S1_S2",
     "LABEL_UNKNOWN",
+    # S1-S2 pairing
+    "S1S2PairCandidatesPlugin",
+    "S1S2PairSelectionPlugin",
+    "S1_S2_PAIR_CANDIDATES_DTYPE",
+    "FLAG_VALID_TIME",
+    "FLAG_RATIO_IN_RANGE",
+    "FLAG_S1_LOW_QUALITY",
+    "FLAG_S2_LOW_QUALITY",
+    "FLAG_MULTI_S1_CANDIDATE",
+    "FLAG_MULTI_S2_CANDIDATE",
+    "FLAG_CLOSE_COMPETITOR",
+    "FLAG_ORPHAN_S1",
+    "FLAG_ORPHAN_S2",
+    "FLAG_NEAR_CHUNK_BOUNDARY",
     # Cache analysis
     "CacheAnalysisPlugin",
     # Records

@@ -132,7 +132,6 @@ class PluginMixin:
         """
         try:
             from packaging.specifiers import SpecifierSet
-            from packaging.version import Version
 
             PACKAGING_AVAILABLE = True
         except ImportError:

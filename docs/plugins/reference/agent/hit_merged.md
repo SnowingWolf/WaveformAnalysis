@@ -9,7 +9,7 @@
 | Provides | `hit_merged` |
 | Depends On | `hit_threshold` |
 | Output Kind | `structured_array` |
-| Version | `1.2.0` |
+| Version | `2.0.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merge` |
 | Accelerator | `cpu` |
 
@@ -22,8 +22,10 @@
 | Field | DType | Meaning |
 |-------|-------|---------|
 | `position` | `int64` | Anchor hit position; for multi-hit clusters this is the hit closest to the merged window midpoint. |
-| `sample_start` | `int32` | Merged sample window start when all components belong to one record; `-1` when the direct sample window cannot be represented. |
-| `sample_end` | `int32` | Merged sample window end when all components belong to one record; `-1` when the direct sample window cannot be represented. |
+| `time_start` | `int64` | Absolute start time (ps) of the merged window; always valid regardless of whether components span records. |
+| `time_end` | `int64` | Absolute end time (ps) of the merged window; always valid regardless of whether components span records. |
+| `sample_start` | `int32` | Merged sample window start when all components belong to one record; `-1` when the cluster spans records. |
+| `sample_end` | `int32` | Merged sample window end when all components belong to one record; `-1` when the cluster spans records. |
 | `width` | `float32` | Merged sample-window width; `-1.0` when the cluster spans records or otherwise cannot resolve a direct sample window. |
 | `dt` | `int32` | Resolved sampling interval from the anchor hit or compatible `dt` configuration fallback. |
 | `timestamp` | `int64` | Anchor hit timestamp; for multi-hit clusters this follows the same anchor rule as `position`. |
@@ -32,6 +34,7 @@
 | `record_id` | `int64` | Anchor hit record id, not necessarily a shared record id for every component. |
 | `component_offset` | `int64` | Start row in `hit_merge_clusters` for this cluster's contiguous membership rows. |
 | `component_count` | `int32` | Number of contiguous `hit_merge_clusters` membership rows for this cluster. |
+| `is_single_record` | `bool` | True when all component hits belong to the same record (fast path available); False when spanning records. |
 
 ## Config
 

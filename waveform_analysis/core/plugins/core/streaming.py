@@ -38,7 +38,7 @@ from collections.abc import Generator, Iterator
 import logging
 import pickle
 import time
-from typing import Any, Optional, Union
+from typing import Any
 import warnings
 
 import numpy as np

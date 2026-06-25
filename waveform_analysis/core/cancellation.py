@@ -8,10 +8,11 @@
 - 资源清理回调
 """
 
+from collections.abc import Callable
 import logging
 import signal
 import threading
-from typing import Callable, List, Optional, Set
+from typing import Optional
 
 from waveform_analysis.core.foundation.utils import exporter
 
@@ -69,7 +70,7 @@ class CancellationToken:
     def __init__(self):
         """初始化取消令牌"""
         self._cancelled = threading.Event()
-        self._callbacks: List[Callable] = []
+        self._callbacks: list[Callable] = []
         self._lock = threading.Lock()
 
     def cancel(self):
@@ -170,7 +171,7 @@ class CancellationManager:
 
     def __init__(self):
         """初始化取消管理器（不要直接调用，使用get_cancellation_manager）"""
-        self._tokens: Set[CancellationToken] = set()
+        self._tokens: set[CancellationToken] = set()
         self._tokens_lock = threading.Lock()
         self._original_sigint = None
         self._enabled = False

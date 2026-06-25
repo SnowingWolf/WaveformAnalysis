@@ -32,7 +32,7 @@ This plugin has no configuration options.
 
 | Field | Type | Units | Description |
 |-------|------|-------|-------------|
-| `peaklet_index` | `int64` | - | - |
+| `peaklet_id` | `int64` | - | - |
 | `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |
 | `area` | `float32` | - | - |

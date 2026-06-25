@@ -49,6 +49,7 @@ def _build_context(storage_dir: Path, data_root: Path):
         GroupedEventsPlugin,
         HitFinderPlugin,
         RawFilesPlugin,
+        RecordsAsymmetryMaskPlugin,
         RecordsPlugin,
         ThresholdHitPlugin,
         WaveformsPlugin,
@@ -63,6 +64,7 @@ def _build_context(storage_dir: Path, data_root: Path):
             "n_channels": 2,
             "hit.use_filtered": False,
             "hit_threshold.wave_source": "records",
+            "hit_threshold.asymmetry_cut_enabled": False,
             "basic_features.use_filtered": False,
             "show_progress": False,
         },
@@ -72,6 +74,7 @@ def _build_context(storage_dir: Path, data_root: Path):
     ctx.register(WaveformsPlugin())
     ctx.register(RecordsPlugin())
     ctx.register(WavePoolPlugin())
+    ctx.register(RecordsAsymmetryMaskPlugin())
     ctx.register(HitFinderPlugin())
     ctx.register(ThresholdHitPlugin())
     ctx.register(BasicFeaturesPlugin())

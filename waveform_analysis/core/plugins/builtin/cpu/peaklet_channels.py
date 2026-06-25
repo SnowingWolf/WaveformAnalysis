@@ -8,7 +8,7 @@ from waveform_analysis.core.plugins.core.base import Plugin
 
 PEAKLET_CHANNELS_DTYPE = np.dtype(
     [
-        ("peaklet_index", "i8"),
+        ("peaklet_id", "i8"),
         ("board", "i2"),
         ("channel", "i2"),
         ("area", "f4"),
@@ -21,6 +21,25 @@ PEAKLET_CHANNELS_DTYPE = np.dtype(
 
 def _empty_channels() -> np.ndarray:
     return np.zeros(0, dtype=PEAKLET_CHANNELS_DTYPE)
+
+
+def _validate_peaklet_components(peaklets: np.ndarray, components: np.ndarray) -> None:
+    if "component_count" not in (peaklets.dtype.names or ()):
+        return
+
+    counts = np.zeros(len(peaklets), dtype=np.int64)
+    for row in components:
+        peaklet_id = int(row["peak_id"])
+        if not 0 <= peaklet_id < len(peaklets):
+            raise ValueError(
+                "peaklet_channels found peaklet_components row with out-of-range "
+                f"peak_id={peaklet_id}"
+            )
+        counts[peaklet_id] += 1
+
+    expected = peaklets["component_count"].astype(np.int64, copy=False)
+    if not np.array_equal(counts, expected):
+        raise ValueError("peaklet_channels found peaklet_components inconsistent with peaklets")
 
 
 class PeakletChannelsPlugin(Plugin):
@@ -43,6 +62,7 @@ class PeakletChannelsPlugin(Plugin):
         components = context.get_data(run_id, "peaklet_components")
         if not isinstance(components, np.ndarray):
             raise ValueError("peaklet_channels expects peaklet_components as a structured array")
+        _validate_peaklet_components(peaklets, components)
 
         features = context.get_data(run_id, "hit_merged_features")
         if not isinstance(features, np.ndarray):
@@ -72,19 +92,17 @@ class PeakletChannelsPlugin(Plugin):
         features_by_merged = {
             int(row["merged_index"]): row for row in features if int(row["valid"]) != 0
         }
-        area_by_peaklet = {
-            int(row["peaklet_index"]): float(row["area"]) for row in peaklet_features
-        }
+        area_by_peaklet = {int(row["peak_id"]): float(row["area"]) for row in peaklet_features}
         grouped: dict[tuple[int, int, int], dict[str, float | int]] = {}
 
         for component in components:
-            peaklet_index = int(component["peaklet_index"])
+            peaklet_id = int(component["peak_id"])
             merged_index = int(component["merged_index"])
             feature = features_by_merged.get(merged_index)
             if feature is None:
                 continue
 
-            key = (peaklet_index, int(feature["board"]), int(feature["channel"]))
+            key = (peaklet_id, int(feature["board"]), int(feature["channel"]))
             values = grouped.setdefault(
                 key,
                 {
@@ -99,14 +117,14 @@ class PeakletChannelsPlugin(Plugin):
 
         rows: list[tuple[int, int, int, float, float, int, float]] = []
         for key in sorted(grouped):
-            peaklet_index, board, channel = key
+            peaklet_id, board, channel = key
             values = grouped[key]
             channel_area = float(values["area"])
-            peaklet_area = area_by_peaklet.get(peaklet_index, 0.0)
+            peaklet_area = area_by_peaklet.get(peaklet_id, 0.0)
             area_fraction = channel_area / peaklet_area if peaklet_area != 0.0 else 0.0
             rows.append(
                 (
-                    peaklet_index,
+                    peaklet_id,
                     board,
                     channel,
                     channel_area,

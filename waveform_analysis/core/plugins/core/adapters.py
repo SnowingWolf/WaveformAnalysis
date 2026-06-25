@@ -9,7 +9,7 @@ Strax Plugin适配器 (Phase 2.3)
 """
 
 import logging
-from typing import Any, Dict, List, Tuple, Type, Union
+from typing import Any
 
 import numpy as np
 
@@ -50,7 +50,7 @@ class StraxPluginAdapter(Plugin):
         ctx.register(adapter())
     """
 
-    def __init__(self, strax_plugin_class: Type):
+    def __init__(self, strax_plugin_class: type):
         """
         初始化适配器
 
@@ -216,7 +216,7 @@ def strax_dtype_to_numpy(strax_dtype: Any) -> np.dtype:
         return strax_dtype
 
     # 如果是列表或元组,尝试创建numpy dtype
-    if isinstance(strax_dtype, (list, tuple)):
+    if isinstance(strax_dtype, list | tuple):
         try:
             return np.dtype(strax_dtype)
         except Exception as e:
@@ -228,7 +228,7 @@ def strax_dtype_to_numpy(strax_dtype: Any) -> np.dtype:
 
 
 @export
-def numpy_dtype_to_strax(numpy_dtype: np.dtype) -> List[Tuple]:
+def numpy_dtype_to_strax(numpy_dtype: np.dtype) -> list[tuple]:
     """
     将numpy dtype转换为strax兼容格式
 
@@ -273,7 +273,7 @@ class StraxContextAdapter:
         self.context = context
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def register(self, plugin_class: Type):
+    def register(self, plugin_class: type):
         """
         注册strax插件
 
@@ -292,8 +292,8 @@ class StraxContextAdapter:
                 raise ValueError(f"Incompatible strax plugin: {plugin_class}")
 
     def get_array(
-        self, run_id: str, targets: Union[str, List[str]], **kwargs
-    ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
+        self, run_id: str, targets: str | list[str], **kwargs
+    ) -> np.ndarray | dict[str, np.ndarray]:
         """
         获取数据数组(strax风格API)
 
@@ -315,7 +315,7 @@ class StraxContextAdapter:
                 results[target] = self.context.get_data(run_id, target, **kwargs)
             return results
 
-    def get_df(self, run_id: str, targets: Union[str, List[str]], **kwargs):
+    def get_df(self, run_id: str, targets: str | list[str], **kwargs):
         """
         获取DataFrame(strax风格API)
 
@@ -364,7 +364,7 @@ class StraxContextAdapter:
                     results[target] = arr
             return results
 
-    def set_config(self, config: Dict[str, Any]):
+    def set_config(self, config: dict[str, Any]):
         """
         设置配置(strax风格API)
 
@@ -373,7 +373,7 @@ class StraxContextAdapter:
         """
         self.context.set_config(config)
 
-    def search_field(self, pattern: str) -> List[str]:
+    def search_field(self, pattern: str) -> list[str]:
         """
         搜索数据字段(strax风格API)
 
@@ -399,7 +399,7 @@ class StraxContextAdapter:
 
 
 @export
-def wrap_strax_plugin(strax_plugin_class: Type) -> Plugin:
+def wrap_strax_plugin(strax_plugin_class: type) -> Plugin:
     """
     包装strax插件为我们的Plugin
 

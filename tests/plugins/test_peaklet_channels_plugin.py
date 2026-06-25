@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from tests.utils import DummyContext
 from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import (
@@ -15,21 +16,23 @@ from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
 )
 
 
-def _peaklets(areas):
-    return np.zeros(len(areas), dtype=PEAKLET_DTYPE)
+def _peaklets(areas, *, component_count=1):
+    out = np.zeros(len(areas), dtype=PEAKLET_DTYPE)
+    out["component_count"] = component_count
+    return out
 
 
 def _peaklet_features(areas):
     out = np.zeros(len(areas), dtype=PEAKLET_FEATURES_DTYPE)
-    out["peaklet_index"] = np.arange(len(areas), dtype=np.int64)
+    out["peak_id"] = np.arange(len(areas), dtype=np.int64)
     out["area"] = np.asarray(areas, dtype=np.float32)
     return out
 
 
 def _components(pairs):
     out = np.zeros(len(pairs), dtype=PEAKLET_COMPONENTS_DTYPE)
-    for i, (peaklet_index, merged_index) in enumerate(pairs):
-        out[i]["peaklet_index"] = peaklet_index
+    for i, (peaklet_id, merged_index) in enumerate(pairs):
+        out[i]["peak_id"] = peaklet_id
         out[i]["merged_index"] = merged_index
     return out
 
@@ -61,7 +64,7 @@ def _ctx(peaklets, components, features, peaklet_features):
 
 def test_peaklet_channels_single_peaklet_multiple_channels():
     ctx = _ctx(
-        _peaklets([100.0]),
+        _peaklets([100.0], component_count=2),
         _components([(0, 0), (0, 1)]),
         _features(
             [
@@ -76,7 +79,7 @@ def test_peaklet_channels_single_peaklet_multiple_channels():
 
     assert out.dtype == PEAKLET_CHANNELS_DTYPE
     assert len(out) == 2
-    np.testing.assert_array_equal(out["peaklet_index"], np.array([0, 0], dtype=np.int64))
+    np.testing.assert_array_equal(out["peaklet_id"], np.array([0, 0], dtype=np.int64))
     np.testing.assert_array_equal(out["channel"], np.array([0, 1], dtype=np.int16))
     np.testing.assert_allclose(out["area"], np.array([60.0, 40.0], dtype=np.float32))
     np.testing.assert_array_equal(out["n_hits"], np.array([2, 1], dtype=np.int32))
@@ -85,7 +88,7 @@ def test_peaklet_channels_single_peaklet_multiple_channels():
 
 def test_peaklet_channels_aggregates_multiple_rows_for_same_channel():
     ctx = _ctx(
-        _peaklets([50.0]),
+        _peaklets([50.0], component_count=2),
         _components([(0, 0), (0, 1)]),
         _features(
             [
@@ -122,3 +125,21 @@ def test_peaklet_channels_zero_peaklet_area_writes_zero_fraction():
 
     assert len(out) == 1
     assert float(out[0]["area_fraction"]) == 0.0
+
+
+def test_peaklet_channels_reject_components_misaligned_with_peaklets():
+    peaklets = _peaklets([100.0])
+    peaklets[0]["component_count"] = 2
+    ctx = _ctx(
+        peaklets,
+        _components([(0, 0)]),
+        _features(
+            [
+                {"merged_index": 0, "channel": 0, "area": 5.0, "height": 2.0, "n_hits": 1},
+            ]
+        ),
+        _peaklet_features([100.0]),
+    )
+
+    with pytest.raises(ValueError, match="inconsistent with peaklets"):
+        PeakletChannelsPlugin().compute(ctx, "run_001")

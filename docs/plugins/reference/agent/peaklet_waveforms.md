@@ -21,7 +21,7 @@
 
 | Field | DType | Meaning |
 |-------|-------|---------|
-| `peaklet_index` | `int64` | - |
+| `peak_id` | `int64` | - |
 | `time_start` | `int64` | - |
 | `time_end` | `int64` | - |
 | `dt` | `int32` | - |

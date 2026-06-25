@@ -24,7 +24,7 @@
 
 | Field | DType | Meaning |
 |-------|-------|---------|
-| `peaklet_index` | `int64` | - |
+| `peaklet_id` | `int64` | - |
 | `board` | `int16` | - |
 | `channel` | `int16` | - |
 | `area` | `float32` | - |

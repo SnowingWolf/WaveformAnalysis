@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
+import time
 from typing import Any, cast
 
 import numpy as np
@@ -17,6 +20,68 @@ class ContextExecutionDomain:
 
     def __init__(self, context: Any) -> None:
         self.ctx = context
+
+    def build_dependency_graph(self, plan: list[str], run_id: str) -> dict[str, list[str]]:
+        """构建依赖图: plugin_name -> [依赖的 plugin_name 列表]
+
+        Args:
+            plan: 执行计划（插件名称列表）
+            run_id: 运行 ID
+
+        Returns:
+            依赖图字典
+        """
+        graph: dict[str, list[str]] = {}
+        for name in plan:
+            if name not in self.ctx._plugins:
+                graph[name] = []
+                continue
+            plugin = self.ctx._plugins[name]
+            deps = self.ctx._get_plugin_dependency_names(plugin, run_id=run_id)
+            # 仅保留在 plan 中的依赖
+            graph[name] = [d for d in deps if d in plan]
+        return graph
+
+    def get_execution_layers(self, graph: dict[str, list[str]]) -> list[list[str]]:
+        """将依赖图分层，返回可并行执行的层
+
+        Args:
+            graph: 依赖图
+
+        Returns:
+            分层列表，每层是可并行执行的插件列表
+        """
+        # 计算入度
+        in_degree: dict[str, int] = defaultdict(int)
+        for node in graph:
+            in_degree[node] = 0
+        for node, deps in graph.items():
+            for _dep in deps:
+                in_degree[node] += 1
+
+        layers: list[list[str]] = []
+        remaining = set(graph.keys())
+
+        while remaining:
+            # 找到所有入度为 0 的节点（当前层）
+            current_layer = [node for node in remaining if in_degree[node] == 0]
+            if not current_layer:
+                # 存在循环依赖，剩余节点无法执行
+                self.ctx.logger.warning(
+                    f"Circular dependency detected, cannot execute: {remaining}"
+                )
+                break
+
+            layers.append(current_layer)
+            remaining -= set(current_layer)
+
+            # 更新入度
+            for node in current_layer:
+                for successor in graph:
+                    if node in graph[successor]:
+                        in_degree[successor] -= 1
+
+        return layers
 
     def check_reentrancy(self, run_id: str, data_name: str) -> None:
         with self.ctx._in_progress_lock:
@@ -310,8 +375,10 @@ class ContextExecutionDomain:
         if name not in self.ctx._plugins:
             raise RuntimeError(f"Dependency '{name}' is missing and no plugin provides it.")
         plugin = self.ctx._plugins[name]
-        if self.ctx.config.get("show_progress", True):
+        show_progress = self.ctx.config.get("show_progress", True)
+        if show_progress:
             print(f"[+] Running plugin: {name} (run_id: {run_id})")
+        started_at = time.perf_counter()
         self.ctx._validation_manager.validate_plugin_config(plugin)
         self.ctx._validation_manager.validate_input_dtypes(plugin, run_id)
         input_size_mb = self.calculate_input_size(plugin, run_id)
@@ -320,6 +387,9 @@ class ContextExecutionDomain:
         self.postprocess_plugin_result(
             plugin, name, run_id, result, key, data_name, tracker, bar_name
         )
+        if show_progress:
+            elapsed = time.perf_counter() - started_at
+            print(f"[done] Finished plugin: {name} (run_id: {run_id}, elapsed: {elapsed:.3f}s)")
 
     def run_plugin(
         self,
@@ -345,23 +415,144 @@ class ContextExecutionDomain:
                 tracker, bar_name = self.init_progress_tracking(
                     show_progress, plan, run_id, data_name, progress_desc
                 )
-                for name in plan:
-                    if name not in needed_set:
-                        key = self.ctx.key_for(run_id, name)
-                        self.ctx._cache_manager.check_cache(run_id, name, key)
-                        if tracker and bar_name:
-                            tracker.update(bar_name, n=1)
-                        continue
-                    # Go back through Context so subclasses overriding the hook still see executions.
-                    self.ctx._execute_single_plugin(
-                        name, run_id, data_name, kwargs, tracker, bar_name, skip_cache_check=True
+
+                # 检查是否启用插件级并行
+                enable_parallelism = self.ctx.config.get("enable_plugin_parallelism", False)
+                if enable_parallelism and len(needed_set) > 1:
+                    # 并行执行路径
+                    self._run_plugin_parallel(
+                        run_id, data_name, plan, needed_set, kwargs, tracker, bar_name
                     )
+                else:
+                    # 串行执行路径（原有逻辑）
+                    for name in plan:
+                        if name not in needed_set:
+                            key = self.ctx.key_for(run_id, name)
+                            self.ctx._cache_manager.check_cache(run_id, name, key)
+                            if tracker and bar_name:
+                                tracker.update(bar_name, n=1)
+                            continue
+                        # Go back through Context so subclasses overriding the hook still see executions.
+                        self.ctx._execute_single_plugin(
+                            name,
+                            run_id,
+                            data_name,
+                            kwargs,
+                            tracker,
+                            bar_name,
+                            skip_cache_check=True,
+                        )
+
                 return self.ctx._get_data_from_memory(run_id, data_name)
             finally:
                 if tracker and bar_name:
                     tracker.close(bar_name)
                 with self.ctx._in_progress_lock:
                     self.ctx._in_progress.pop((run_id, data_name), None)
+
+    def _run_plugin_parallel(
+        self,
+        run_id: str,
+        data_name: str,
+        plan: list[str],
+        needed_set: set[str],
+        kwargs: dict,
+        tracker: Any | None,
+        bar_name: str | None,
+    ) -> None:
+        """并行执行插件（基于依赖图分层）
+
+        Args:
+            run_id: 运行 ID
+            data_name: 目标数据名
+            plan: 执行计划
+            needed_set: 需要执行的插件集合
+            kwargs: 传递给插件的参数
+            tracker: 进度追踪器
+            bar_name: 进度条名称
+        """
+        # 构建依赖图并分层
+        graph = self.build_dependency_graph(plan, run_id)
+        layers = self.get_execution_layers(graph)
+
+        max_workers = self.ctx.config.get("max_parallel_workers", 2)
+
+        for layer in layers:
+            # 过滤出需要执行的插件
+            layer_needed = [name for name in layer if name in needed_set]
+
+            if not layer_needed:
+                # 当前层全部是缓存命中，跳过
+                for name in layer:
+                    if name in plan and name not in needed_set:
+                        key = self.ctx.key_for(run_id, name)
+                        self.ctx._cache_manager.check_cache(run_id, name, key)
+                        if tracker and bar_name:
+                            tracker.update(bar_name, n=1)
+                continue
+
+            if len(layer_needed) == 1:
+                # 当前层只有一个插件，串行执行
+                for name in layer_needed:
+                    self.ctx._execute_single_plugin(
+                        name, run_id, data_name, kwargs, tracker, bar_name, skip_cache_check=True
+                    )
+            else:
+                # 当前层有多个插件，并行执行
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    futures = {}
+                    for name in layer_needed:
+                        future = executor.submit(
+                            self._execute_plugin_safe,
+                            name,
+                            run_id,
+                            data_name,
+                            kwargs,
+                            tracker,
+                            bar_name,
+                        )
+                        futures[future] = name
+
+                    # 等待所有任务完成
+                    for future in as_completed(futures):
+                        name = futures[future]
+                        try:
+                            future.result()
+                        except Exception as e:
+                            # 取消剩余任务
+                            for f in futures:
+                                if not f.done():
+                                    f.cancel()
+                            raise RuntimeError(
+                                f"Parallel execution failed for plugin '{name}': {e}"
+                            ) from e
+
+    def _execute_plugin_safe(
+        self,
+        name: str,
+        run_id: str,
+        data_name: str,
+        kwargs: dict,
+        tracker: Any | None,
+        bar_name: str | None,
+    ) -> None:
+        """线程安全的插件执行包装器
+
+        Args:
+            name: 插件名
+            run_id: 运行 ID
+            data_name: 目标数据名
+            kwargs: 插件参数
+            tracker: 进度追踪器
+            bar_name: 进度条名称
+        """
+        try:
+            self.ctx._execute_single_plugin(
+                name, run_id, data_name, kwargs, tracker, bar_name, skip_cache_check=True
+            )
+        except Exception as e:
+            self.ctx.logger.error(f"Plugin '{name}' execution failed: {e}", exc_info=True)
+            raise
 
     def wrap_generator_to_save(
         self,

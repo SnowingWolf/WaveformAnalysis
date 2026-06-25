@@ -5,6 +5,11 @@ from typing import Any
 import numba as nb
 import numpy as np
 
+from waveform_analysis.core.hardware.channel import (
+    get_gain_adc_per_pe,
+    resolve_channel_value_map,
+    unique_hardware_channels,
+)
 from waveform_analysis.core.plugins.builtin.cpu._dt_compat import resolve_dt_config
 from waveform_analysis.core.plugins.builtin.cpu._record_utils import (
     field_or_default as _field_or_default_util,
@@ -36,6 +41,8 @@ HIT_MERGED_FEATURES_DTYPE = np.dtype(
         ("fall_time", "f4"),
         ("n_hits", "i4"),
         ("valid", "i1"),
+        ("area_pe", "f4"),
+        ("height_pe", "f4"),
     ]
 )
 
@@ -110,7 +117,7 @@ def _build_component_slices(component_rows: np.ndarray, n_merged: int):
     return hits_sorted, starts, ends
 
 
-@nb.njit(cache=True, fastmath=True)
+@nb.njit(cache=True, fastmath=True, parallel=True, nogil=True)
 def _features_fast_kernel(
     wave_pool,
     rec_indices,
@@ -130,6 +137,7 @@ def _features_fast_kernel(
     - 使用 max() 替代 if 分支（Numba 优化为无分支 SIMD 指令）
     - 优化 baseline 减法顺序
     - fastmath=True: 激进浮点优化
+    - parallel=True: 启用多线程并行
     """
     n = len(rec_indices)
 
@@ -145,7 +153,7 @@ def _features_fast_kernel(
     fall_time = np.zeros(n, dtype=np.float32)
     valid = np.zeros(n, dtype=np.int8)
 
-    for i in range(n):
+    for i in nb.prange(n):
         rec_i = rec_indices[i]
 
         start = merged_sample_start[i]
@@ -314,6 +322,7 @@ class HitMergedFeaturesPlugin(Plugin):
     version = "0.4.0"
     save_when = "always"
     output_dtype = HIT_MERGED_FEATURES_DTYPE
+    uses_run_config = True
 
     options = {
         "wave_source": Option(
@@ -327,6 +336,24 @@ class HitMergedFeaturesPlugin(Plugin):
             help="是否使用 wave_pool_filtered 计算局部特征。",
         ),
         "dt": Option(default=None, type=int, help="保留兼容配置；特征优先使用 records/hits 的 dt"),
+        "gain_adc_per_pe": Option(
+            default=None,
+            type=dict,
+            help=(
+                '按硬件通道配置 ADC/PE 增益，键请使用 "board:channel"，'
+                '例如 {"0:0": 12.5, "0:1": 13.2}。'
+                "设置后会新增 area_pe/height_pe 列。"
+            ),
+        ),
+        "normalize_to_pe": Option(
+            default=False,
+            type=bool,
+            help=(
+                "是否将 area/height 直接归一化为 PE 单位。"
+                "False (默认): area/height 保持 ADC 单位，area_pe/height_pe 输出 PE 单位。"
+                "True: area/height 归一化为 PE 单位，area_pe/height_pe 为 NaN。"
+            ),
+        ),
     }
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
@@ -357,13 +384,18 @@ class HitMergedFeaturesPlugin(Plugin):
 
         resolve_dt_config(context, self, deprecated_keys=("sampling_interval_ns", "dt_ns"))
 
-        return self._compute_features(
+        result = self._compute_features(
             merged=merged,
             component_rows=component_rows,
             hits=hits,
             records=loaded.records,
             wave_pool=loaded.wave_pool,
         )
+
+        # 应用增益校准
+        result = self._apply_gain_calibration(context, run_id, result)
+
+        return result
 
     def _compute_features(
         self,
@@ -467,8 +499,7 @@ class HitMergedFeaturesPlugin(Plugin):
 
                 if len(hit_indices) == 0:
                     raise ValueError(
-                        f"hit_merged_features could not resolve components for merged_index="
-                        f"{merged_index}"
+                        f"hit_merged_features could not resolve components for merged_index={merged_index}"
                     )
 
                 ts, te, a, h, mt = self._fallback_values(
@@ -534,10 +565,76 @@ class HitMergedFeaturesPlugin(Plugin):
 
         if time_start is None or time_end is None or max_time is None:
             raise ValueError(
-                f"hit_merged_features could not integrate merged_index={merged_index}: "
-                "no valid component windows"
+                f"hit_merged_features could not integrate merged_index={merged_index}: no valid component windows"
             )
         return time_start, time_end, area, height, max_time
+
+    def _apply_gain_calibration(
+        self, context: Any, run_id: str, features: np.ndarray
+    ) -> np.ndarray:
+        """应用增益校准，支持两种模式：
+
+        1. normalize_to_pe=False (默认): area/height 保持 ADC，area_pe/height_pe 输出 PE
+        2. normalize_to_pe=True: area/height 归一化为 PE，area_pe/height_pe 为 NaN
+        """
+        if len(features) == 0:
+            return features
+
+        # 获取配置
+        gain_adc_per_pe = context.get_config(self, "gain_adc_per_pe")
+        normalize_to_pe = context.get_config(self, "normalize_to_pe")
+
+        # 没有配置增益，全部填充 NaN
+        if gain_adc_per_pe is None or not isinstance(gain_adc_per_pe, dict):
+            features["area_pe"] = np.nan
+            features["height_pe"] = np.nan
+            return features
+
+        # 获取所有唯一通道
+        boards = features["board"]
+        channels = features["channel"]
+        hw_channels = unique_hardware_channels(boards, channels)
+
+        # 解析增益映射
+        gain_map = resolve_channel_value_map(
+            channel_config=gain_adc_per_pe,
+            run_id=run_id,
+            channels=hw_channels,
+            plugin_name=self.provides,
+            value_name="gain_adc_per_pe",
+        )
+
+        if not gain_map:
+            # 没有有效的增益值
+            features["area_pe"] = np.nan
+            features["height_pe"] = np.nan
+            return features
+
+        # 模式 1: normalize_to_pe=True，直接归一化 area/height
+        if normalize_to_pe:
+            for idx in range(len(features)):
+                gain = get_gain_adc_per_pe(gain_map, int(boards[idx]), int(channels[idx]))
+                if gain is not None and gain > 0:
+                    features["area"][idx] /= gain
+                    features["height"][idx] /= gain
+            # area_pe/height_pe 填充 NaN（因为 area/height 已经是 PE 单位）
+            features["area_pe"] = np.nan
+            features["height_pe"] = np.nan
+        else:
+            # 模式 2: normalize_to_pe=False (默认)，保持 area/height 为 ADC，计算 area_pe/height_pe
+            area_pe = np.full(len(features), np.nan, dtype=np.float32)
+            height_pe = np.full(len(features), np.nan, dtype=np.float32)
+
+            for idx in range(len(features)):
+                gain = get_gain_adc_per_pe(gain_map, int(boards[idx]), int(channels[idx]))
+                if gain is not None and gain > 0:
+                    area_pe[idx] = features["area"][idx] / gain
+                    height_pe[idx] = features["height"][idx] / gain
+
+            features["area_pe"] = area_pe
+            features["height_pe"] = height_pe
+
+        return features
 
 
 __all__ = ["HIT_MERGED_FEATURES_DTYPE", "HitMergedFeaturesPlugin"]

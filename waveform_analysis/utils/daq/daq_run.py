@@ -92,6 +92,7 @@ class DAQRun:
         run_path: str | Path,
         daq_adapter: str | DAQAdapter | None = None,
         directory_layout: DirectoryLayout | None = None,
+        max_waves_for_channels: int = 50,
     ):
         """初始化 DAQRun
 
@@ -100,9 +101,11 @@ class DAQRun:
             run_path: 运行根目录路径
             daq_adapter: DAQ 适配器名称或实例（可选）
             directory_layout: 目录布局配置（可选，优先于 daq_adapter）
+            max_waves_for_channels: 扫描文件时读取的波形数来判断通道（默认 50）
         """
         self.run_name = run_name
         self.run_path = str(run_path)
+        self.max_waves_for_channels = max_waves_for_channels
 
         # 初始化适配器和布局
         self.daq_adapter: DAQAdapter | None = None
@@ -225,7 +228,9 @@ class DAQRun:
 
             for file_path in files_to_scan:
                 board = V1725Reader._extract_board_from_path(file_path)
-                channels = self._peek_v1725_channels(file_path, max_waves=50)
+                channels = self._peek_v1725_channels(
+                    file_path, max_waves=self.max_waves_for_channels
+                )
                 if channels:
                     boards_found.add(board)
                     channels_found.update(channels)

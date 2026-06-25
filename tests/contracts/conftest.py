@@ -4,7 +4,7 @@ Shared fixtures for contract tests.
 
 from pathlib import Path
 import tempfile
-from typing import Any, Dict, List, Type
+from typing import Any
 
 import numpy as np
 import pytest
@@ -27,7 +27,7 @@ def context(temp_storage_dir):
 
 
 @pytest.fixture
-def all_builtin_plugins() -> List[Type[Plugin]]:
+def all_builtin_plugins() -> list[type[Plugin]]:
     """Get all builtin plugin classes from cpu module."""
     from waveform_analysis.core.plugins.builtin import cpu
 
@@ -60,7 +60,7 @@ def registered_context(context, all_builtin_plugins):
 
 
 @pytest.fixture
-def fake_daq_data(temp_storage_dir) -> Dict[str, Any]:
+def fake_daq_data(temp_storage_dir) -> dict[str, Any]:
     """Create minimal fake DAQ data for golden path tests."""
     run_name = "test_run_001"
     run_dir = temp_storage_dir / run_name

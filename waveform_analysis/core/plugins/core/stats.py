@@ -16,7 +16,7 @@ import logging
 import os
 import time
 import tracemalloc
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal
 
 from waveform_analysis.core.foundation.utils import exporter
 
@@ -44,13 +44,13 @@ class PluginExecutionRecord:
     duration: float
     success: bool
     cache_hit: bool
-    memory_before_mb: Optional[float] = None
-    memory_after_mb: Optional[float] = None
-    memory_peak_mb: Optional[float] = None
-    input_size_mb: Optional[float] = None
-    output_size_mb: Optional[float] = None
-    error: Optional[str] = None
-    error_type: Optional[str] = None
+    memory_before_mb: float | None = None
+    memory_after_mb: float | None = None
+    memory_peak_mb: float | None = None
+    input_size_mb: float | None = None
+    output_size_mb: float | None = None
+    error: str | None = None
+    error_type: str | None = None
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
 
@@ -82,7 +82,7 @@ class PluginStatistics:
     total_output_size_mb: float = 0.0
 
     # 最近的错误
-    recent_errors: List[str] = field(default_factory=list)
+    recent_errors: list[str] = field(default_factory=list)
 
     def cache_hit_rate(self) -> float:
         """缓存命中率"""
@@ -121,7 +121,7 @@ class PluginStatsCollector:
         self,
         mode: MonitoringMode = "basic",
         enable_memory_tracking: bool = True,
-        log_file: Optional[str] = None,
+        log_file: str | None = None,
         max_recent_errors: int = 10,
     ):
         """
@@ -142,9 +142,9 @@ class PluginStatsCollector:
         self.max_recent_errors = max_recent_errors
 
         # 统计数据
-        self._statistics: Dict[str, PluginStatistics] = {}
-        self._execution_history: List[PluginExecutionRecord] = []
-        self._current_executions: Dict[str, Dict[str, Any]] = {}  # {plugin_name: execution_context}
+        self._statistics: dict[str, PluginStatistics] = {}
+        self._execution_history: list[PluginExecutionRecord] = []
+        self._current_executions: dict[str, dict[str, Any]] = {}  # {plugin_name: execution_context}
 
         # 日志设置
         self._setup_logging()
@@ -181,7 +181,7 @@ class PluginStatsCollector:
         """检查是否启用统计"""
         return self.mode != "off"
 
-    def start_execution(self, plugin_name: str, run_id: str, input_size_mb: Optional[float] = None):
+    def start_execution(self, plugin_name: str, run_id: str, input_size_mb: float | None = None):
         """
         开始记录插件执行
 
@@ -219,8 +219,8 @@ class PluginStatsCollector:
         plugin_name: str,
         success: bool = True,
         cache_hit: bool = False,
-        output_size_mb: Optional[float] = None,
-        error: Optional[Exception] = None,
+        output_size_mb: float | None = None,
+        error: Exception | None = None,
     ):
         """
         结束记录插件执行
@@ -364,7 +364,7 @@ class PluginStatsCollector:
 
             logger.info("".join(msg_parts))
 
-    def get_statistics(self, plugin_name: Optional[str] = None) -> Dict[str, PluginStatistics]:
+    def get_statistics(self, plugin_name: str | None = None) -> dict[str, PluginStatistics]:
         """
         获取统计信息
 
@@ -379,8 +379,8 @@ class PluginStatsCollector:
         return self._statistics.copy()
 
     def get_execution_history(
-        self, plugin_name: Optional[str] = None, limit: int = 100
-    ) -> List[PluginExecutionRecord]:
+        self, plugin_name: str | None = None, limit: int = 100
+    ) -> list[PluginExecutionRecord]:
         """
         获取执行历史
 
@@ -417,7 +417,7 @@ class PluginStatsCollector:
         else:
             raise ValueError(f"Unknown report format: {format}")
 
-    def _generate_dict_report(self) -> Dict[str, Any]:
+    def _generate_dict_report(self) -> dict[str, Any]:
         """生成字典格式报告"""
         report = {
             "summary": {
@@ -523,7 +523,7 @@ _stats_collector = None
 
 @export
 def get_stats_collector(
-    mode: MonitoringMode = "basic", log_file: Optional[str] = None, reset: bool = False
+    mode: MonitoringMode = "basic", log_file: str | None = None, reset: bool = False
 ) -> PluginStatsCollector:
     """
     获取全局统计收集器

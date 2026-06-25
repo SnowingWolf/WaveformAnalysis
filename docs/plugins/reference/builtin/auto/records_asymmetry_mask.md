@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `records_asymmetry_mask` |
-| **Version** | `0.1.0` |
+| **Version** | `0.2.0` |
 | **Category** | 记录处理 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -28,6 +28,7 @@ This plugin depends on the following data:
 | `asymmetry_parallel` | `bool` | `True` | - | Use Numba prange parallel loop. |
 | `asymmetry_chunk_size` | `int` | `200000` | - | Number of records processed per Numba call. |
 | `asymmetry_num_threads` | `int` | `0` | - | Numba thread count. <=0 keeps current Numba default. |
+| `asymmetry_polarity_mode` | `str` | `auto` | - | Polarity handling mode: 'auto' (extract from records['polarity']), 'negative' (baseline - w_min), 'positive' (w_max - baseline). |
 
 
 ## Output Schema

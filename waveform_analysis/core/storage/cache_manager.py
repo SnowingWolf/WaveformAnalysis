@@ -9,7 +9,7 @@
 """
 
 # 1. Standard library imports
-from typing import TYPE_CHECKING, Any, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 # 2. Third-party imports
 # None
@@ -56,7 +56,7 @@ class RuntimeCacheManager:
         """
         self.ctx = context
 
-    def check_memory_cache(self, run_id: str, name: str) -> Optional[Any]:
+    def check_memory_cache(self, run_id: str, name: str) -> Any | None:
         """检查内存缓存
 
         Args:
@@ -68,7 +68,7 @@ class RuntimeCacheManager:
         """
         return self.ctx._get_data_from_memory(run_id, name)
 
-    def check_disk_cache(self, run_id: str, name: str, key: str) -> Optional[Any]:
+    def check_disk_cache(self, run_id: str, name: str, key: str) -> Any | None:
         """检查磁盘缓存
 
         Args:
@@ -82,7 +82,7 @@ class RuntimeCacheManager:
         with self.ctx.profiler.timeit("context.load_cache"):
             return self.ctx._load_from_disk_with_check(run_id, name, key)
 
-    def check_cache(self, run_id: str, name: str, key: str) -> Tuple[Optional[Any], bool]:
+    def check_cache(self, run_id: str, name: str, key: str) -> tuple[Any | None, bool]:
         """统一的缓存检查接口
 
         按顺序检查内存缓存和磁盘缓存，并记录统计信息。

@@ -9,12 +9,13 @@
 - 装饰器支持
 """
 
+from collections.abc import Callable, Iterable, Iterator
 import functools
 import inspect
 import logging
 import threading
 import time
-from typing import Any, Callable, Dict, Iterable, Iterator, Optional, TypeVar
+from typing import Any, TypeVar
 
 from tqdm import tqdm
 
@@ -70,8 +71,8 @@ class ProgressTracker:
         Args:
             disable: 是否禁用进度显示（用于非交互环境）
         """
-        self._bars: Dict[str, tqdm] = {}
-        self._bar_info: Dict[str, Dict[str, Any]] = {}  # 存储进度条元信息
+        self._bars: dict[str, tqdm] = {}
+        self._bar_info: dict[str, dict[str, Any]] = {}  # 存储进度条元信息
         self._lock = threading.RLock()
         self.disable = disable
         self._position_counter = 0  # 用于分配position
@@ -83,7 +84,7 @@ class ProgressTracker:
         desc: str = "",
         unit: str = "it",
         nested: bool = False,
-        parent: Optional[str] = None,
+        parent: str | None = None,
         **kwargs,
     ) -> str:
         """
@@ -223,7 +224,7 @@ class ProgressTracker:
             # 重置position计数器
             self._position_counter = 0
 
-    def get_elapsed_time(self, name: str) -> Optional[float]:
+    def get_elapsed_time(self, name: str) -> float | None:
         """
         获取进度条已经运行的时间
 
@@ -240,7 +241,7 @@ class ProgressTracker:
             start_time = self._bar_info[name]["start_time"]
             return time.time() - start_time
 
-    def calculate_eta(self, name: str) -> Optional[float]:
+    def calculate_eta(self, name: str) -> float | None:
         """
         计算预计剩余时间（ETA）
 
@@ -271,7 +272,7 @@ class ProgressTracker:
 
             return remaining / rate
 
-    def calculate_throughput(self, name: str) -> Optional[float]:
+    def calculate_throughput(self, name: str) -> float | None:
         """
         计算吞吐量
 
@@ -411,12 +412,12 @@ def reset_global_tracker():
 
 @export
 def with_progress(
-    total: Optional[int] = None,
-    desc: Optional[str] = None,
+    total: int | None = None,
+    desc: str | None = None,
     unit: str = "it",
     disable: bool = False,
-    tracker: Optional[ProgressTracker] = None,
-    bar_name: Optional[str] = None,
+    tracker: ProgressTracker | None = None,
+    bar_name: str | None = None,
     show_result: bool = False,
     **tqdm_kwargs,
 ) -> Callable[[F], F]:
@@ -490,7 +491,7 @@ def with_progress(
             elapsed = time.time() - start_time
 
             # 如果返回可迭代对象（非字符串），包装为进度迭代器
-            if hasattr(result, "__iter__") and not isinstance(result, (str, bytes)):
+            if hasattr(result, "__iter__") and not isinstance(result, str | bytes):
                 _total = total
                 if _total is None and hasattr(result, "__len__"):
                     try:
@@ -526,7 +527,7 @@ def _wrap_generator(
     bar_name: str,
     desc: str,
     unit: str,
-    total: Optional[int],
+    total: int | None,
     disable: bool,
     show_result: bool,
     **tqdm_kwargs,
@@ -587,12 +588,12 @@ def _wrap_generator(
 @export
 def progress_iter(
     iterable: Iterable[T],
-    total: Optional[int] = None,
+    total: int | None = None,
     desc: str = "Processing",
     unit: str = "it",
     disable: bool = False,
-    tracker: Optional[ProgressTracker] = None,
-    bar_name: Optional[str] = None,
+    tracker: ProgressTracker | None = None,
+    bar_name: str | None = None,
     **tqdm_kwargs,
 ) -> Iterator[T]:
     """
@@ -649,7 +650,7 @@ def progress_iter(
 def progress_map(
     func: Callable[[T], Any],
     iterable: Iterable[T],
-    total: Optional[int] = None,
+    total: int | None = None,
     desc: str = "Mapping",
     unit: str = "it",
     disable: bool = False,
