@@ -82,7 +82,7 @@ ctx.set_config(
 
 分类 selection 字典。可用字段包括 `width`、`area`、`height`、`rise_time`、`fall_time`、`rise_time_10_50`、`width_25_75`、`range_90p_area`、`n_hits`、`n_channels`。
 
-`s1_s2_selection` 是显式混合分类规则。命中后会优先标记为 `S1_S2`，再考虑普通 S1/S2 规则和冲突策略。
+`s1_s2_selection` 是显式混合分类规则。是否优先输出 `S1_S2` 由 `priority_order` 决定。
 
 ### default_label
 
@@ -90,11 +90,12 @@ ctx.set_config(
 
 当不满足任何配置条件时的默认标签。可选值为 `"unknown"`、`"s1"`、`"s2"`。
 
-### conflict_policy
+### priority_order
 
-**默认值：** `"prefer_s1"`
+**默认值：** `["s1_s2", "s1", "s2"]`
 
-当同时满足 S1 和 S2 条件时的处理策略。可选值为 `"unknown"`、`"prefer_s1"`、`"prefer_s2"`、`"mark_as_s1_s2"`。
+分类判定优先级，从左到右依次检查。可选值为 `"s1"`、`"s2"`、`"s1_s2"`。
+如果设置为空列表，所有 selection 命中都会回退到 `default_label`。
 
 ### strict
 

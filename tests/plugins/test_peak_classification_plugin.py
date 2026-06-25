@@ -142,7 +142,7 @@ def test_peak_classification_empty(tmp_path):
 
 
 def test_peak_classification_conflict_prefer_s1(tmp_path):
-    """测试冲突策略：prefer_s1"""
+    """测试优先级顺序：S1 优先"""
     ctx = Context(storage_dir=str(tmp_path))
     ctx.register(PeakClassificationPlugin())
 
@@ -160,7 +160,7 @@ def test_peak_classification_conflict_prefer_s1(tmp_path):
         {
             "s1_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
             "s2_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
-            "conflict_policy": "prefer_s1",
+            "priority_order": ["s1", "s2", "s1_s2"],
         },
         plugin_name="peak_classification",
     )
@@ -171,7 +171,7 @@ def test_peak_classification_conflict_prefer_s1(tmp_path):
 
 
 def test_peak_classification_conflict_prefer_s2(tmp_path):
-    """测试冲突策略：prefer_s2"""
+    """测试优先级顺序：S2 优先"""
     ctx = Context(storage_dir=str(tmp_path))
     ctx.register(PeakClassificationPlugin())
 
@@ -189,7 +189,7 @@ def test_peak_classification_conflict_prefer_s2(tmp_path):
         {
             "s1_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
             "s2_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
-            "conflict_policy": "prefer_s2",
+            "priority_order": ["s2", "s1", "s1_s2"],
         },
         plugin_name="peak_classification",
     )
@@ -200,7 +200,7 @@ def test_peak_classification_conflict_prefer_s2(tmp_path):
 
 
 def test_peak_classification_conflict_unknown(tmp_path):
-    """测试冲突策略：unknown"""
+    """测试优先级为空时回退到默认标签"""
     ctx = Context(storage_dir=str(tmp_path))
     ctx.register(PeakClassificationPlugin())
 
@@ -218,7 +218,8 @@ def test_peak_classification_conflict_unknown(tmp_path):
         {
             "s1_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
             "s2_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
-            "conflict_policy": "unknown",
+            "priority_order": [],
+            "default_label": "unknown",
         },
         plugin_name="peak_classification",
     )
@@ -229,7 +230,7 @@ def test_peak_classification_conflict_unknown(tmp_path):
 
 
 def test_peak_classification_conflict_mark_as_s1_s2(tmp_path):
-    """测试冲突策略：mark_as_s1_s2"""
+    """测试优先级顺序：显式 S1_S2 条件优先"""
     ctx = Context(storage_dir=str(tmp_path))
     ctx.register(PeakClassificationPlugin())
 
@@ -247,7 +248,8 @@ def test_peak_classification_conflict_mark_as_s1_s2(tmp_path):
         {
             "s1_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
             "s2_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
-            "conflict_policy": "mark_as_s1_s2",
+            "s1_s2_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
+            "priority_order": ["s1_s2", "s1", "s2"],
         },
         plugin_name="peak_classification",
     )

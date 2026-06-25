@@ -23,7 +23,7 @@ This plugin depends on the following data:
 
 | Option | Type | Default | Units | Description |
 |--------|------|---------|-------|-------------|
-| `conflict_policy` | `str` | `prefer_s1` | - | 当同时满足 S1 和 S2 条件时的处理策略。- 'prefer_s1': 优先标记为 S1（默认）- 'prefer_s2': 优先标记为 S2- 'unknown': 标记为 Unknown- 'mark_as_s1_s2': 标记为 S1_S2（混合信号） |
+| `priority_order` | `list` | `['s1_s2', 's1', 's2']` | - | 分类优先级顺序（列表），从高到低。例如: ['s1_s2', 's1', 's2'] 表示先判定 s1_s2，再判定 s1，最后判定 s2。可用值: 's1', 's2', 's1_s2' |
 | `default_label` | `str` | `unknown` | - | 当不满足任何配置条件时的默认标签。默认 'unknown'（推荐用于灵活分类）。 |
 | `strict` | `bool` | `False` | - | 如果为 True，至少需要配置一个 S1 或 S2 的判断条件。 |
 | `s1_selection` | `dict` | `None` | - | S1 分类配置。字典包含：- 'accept_any': 列表，每个元素是一个条件组（字典），满足任一组即为 S1 候选- 'reject_any': 列表，每个元素是一个条件组（字典），满足任一组即排除示例: {'accept_any': [{'width': (0, 100)}, {'area': (0, 500)}], 'reject_any': [{'width': (500, None)}]} |
@@ -52,7 +52,7 @@ ctx.register(PeakClassificationPlugin())
 
 # Configure plugin (optional)
 ctx.set_config({
-    "conflict_policy": 'prefer_s1',
+    "priority_order": ['s1_s2', 's1', 's2'],
     "default_label": 'unknown',
     "strict": False,
 }, plugin_name="peak_classification")

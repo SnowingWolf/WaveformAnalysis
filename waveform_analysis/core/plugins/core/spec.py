@@ -74,8 +74,16 @@ class ConfigField:
         Returns:
             ConfigField 实例
         """
+
+        def _type_name(value: Any) -> str:
+            if value is None:
+                return "any"
+            if isinstance(value, tuple):
+                return " | ".join(_type_name(item) for item in value)
+            return getattr(value, "__name__", str(value))
+
         return cls(
-            type=opt.type.__name__ if opt.type else "any",
+            type=_type_name(opt.type),
             default=opt.default,
             doc=opt.help or "",
             track=getattr(opt, "track", True),

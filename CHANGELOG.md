@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.3.0
+
+This release builds on v1.2.0 with peak-channel access utilities, corrected
+sum-waveform visualization, and new example workflows for channel inspection
+and plotting.
+
+### Highlights
+
+- Added `PeakChannelAccessor` for structured per-channel peak inspection with
+  lazy waveform loading and plotting helpers.
+- Fixed `plot_peak_channels_with_sum` / `create_peak_plotter` to reuse the
+  peaklet sum waveform instead of recomputing it from raw records.
+- Added example scripts and docs for peak-channel access and sum-waveform
+  comparison.
+
+### Validation
+
+- Release baseline: `v1.2.0`
+- Required gates:
+  - `python scripts/release_artifact_sync.py --base v1.2.0`
+  - `python -m pytest tests/`
+
 ## v1.2.0
 
 This release builds on v1.1.0 with peaklet classification improvements,

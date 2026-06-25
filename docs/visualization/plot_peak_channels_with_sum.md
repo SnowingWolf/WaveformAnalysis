@@ -95,8 +95,8 @@ fig, axes = plot_peak_channels_with_sum(
 ### 图形布局
 
 1. **顶部子图（高度 2.5x）**：求和波形
-   - 标题显示：`peak_id=X, summed waveform, peaks.n_hits=N`
-   - 黑色实线表示所有通道的求和
+   - 标题显示：`peak_id=X, summed waveform (from peaklet), peaks.n_hits=N`
+   - 黑色实线表示 `peaklet_waveforms` 中已经计算好的求和结果
 
 2. **其余子图（每个高度 1x）**：各通道波形
    - Y 轴标签：通道标识（如 "board 0, ch 5"）
@@ -129,8 +129,8 @@ fig, axes = plot_peak_channels_with_sum(
    - 转换为相对于事件起始的时间（纳秒）
 
 5. **求和计算**
-   - 使用最小 dt 创建统一时间网格
-   - 将所有通道波形插值到该网格并求和
+   - 直接读取 `peaklet_waveforms` 中已经计算好的 sum waveform
+   - 使用 peaklet 的时间范围对齐到事件起点
 
 6. **绘图**
    - 创建多子图布局
@@ -292,8 +292,8 @@ event_t0 = 事件最早时间戳（ps）
 ## 示例输出
 
 ```
-peak_id=42, summed waveform, peaks.n_hits=8
-[顶部子图: 黑色求和波形]
+peak_id=42, summed waveform (from peaklet), peaks.n_hits=8
+[顶部子图: 黑色 peaklet 求和波形]
 
 board 0, ch 5
 [彩色波形，带 merged_index 标签]

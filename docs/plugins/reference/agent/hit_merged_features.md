@@ -9,7 +9,7 @@
 | Provides | `hit_merged_features` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `0.5.0` |
+| Version | `0.4.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merged_features` |
 | Accelerator | `cpu` |
 

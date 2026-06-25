@@ -121,27 +121,21 @@ ctx.set_config({
 | `["s1", "s1_s2", "s2"]` | S1 | S1 最优先，混合信号次之 |
 | `["s2", "s1_s2", "s1"]` | S2 | S2 最优先，混合信号次之 |
 
-## 向后兼容性
+## 兼容性说明
 
-### ✅ 完全向后兼容
+`priority_order` 已成为 `PeakClassificationPlugin` 的正式优先级配置。
+旧的 `conflict_policy` 不再作为该插件的配置项使用。
 
-如果不设置 `priority_order`（或设置为 `None`），插件会回退到旧的 `conflict_policy` 逻辑：
+如果需要复现旧策略，可用以下 `priority_order` 显式表达：
 
 ```python
-# 旧代码（仍然有效）
-ctx.set_config({
-    "conflict_policy": "prefer_s1",  # 旧方式
-    "s1_selection": {...},
-    "s2_selection": {...}
-})
-
-# 行为与之前完全一致
+prefer_s1 = ["s1", "s2", "s1_s2"]
+prefer_s2 = ["s2", "s1", "s1_s2"]
+mark_as_s1_s2 = ["s1_s2", "s1", "s2"]  # 需要配置 s1_s2_selection
+unknown = []  # 回退到 default_label
 ```
 
-### 优先级
-
-1. 如果设置了 `priority_order` → 使用新逻辑
-2. 如果未设置 `priority_order` → 使用旧的 `conflict_policy` 逻辑
+默认值为 `["s1_s2", "s1", "s2"]`。
 
 ## 测试文件
 
@@ -155,7 +149,7 @@ python examples/test_priority_order.py
 测试内容：
 - ✅ priority_order = ["s1_s2", "s1", "s2"]（默认）
 - ✅ priority_order = ["s1", "s2", "s1_s2"]（S1 优先）
-- ✅ 向后兼容性（使用旧的 conflict_policy）
+- ✅ 空 priority_order 回退到 default_label
 - ✅ 对比不同优先级顺序的效果
 
 ## 配置建议
@@ -199,8 +193,7 @@ def _determine_label(
     s1_ok: bool,
     s2_ok: bool,
     s1_s2_ok: bool,
-    priority_order: list | None,
-    conflict_policy: str,
+    priority_order: list,
     default_label: int,
 ) -> int:
     """根据判定结果和优先级顺序确定最终标签"""
@@ -209,23 +202,17 @@ def _determine_label(
     ok_map = {"s1": s1_ok, "s2": s2_ok, "s1_s2": s1_s2_ok}
     label_map = {"s1": LABEL_S1, "s2": LABEL_S2, "s1_s2": LABEL_S1_S2}
 
-    # 如果使用 priority_order（新方式）
-    if priority_order is not None and len(priority_order) > 0:
-        for label_name in priority_order:
-            if ok_map.get(label_name, False):
-                return label_map[label_name]
-        return default_label
-
-    # 向后兼容：使用旧的 conflict_policy 逻辑
-    # ...
+    for label_name in priority_order:
+        if ok_map.get(label_name, False):
+            return label_map[label_name]
+    return default_label
 ```
 
 ## 版本升级
 
-考虑在未来版本中：
-- 版本: 1.2.0 → 1.3.0
-- 变更类型: MINOR（新增功能，向后兼容）
-- 废弃通知: `conflict_policy` 标记为 deprecated，建议使用 `priority_order`
+- 版本: 1.2.0
+- 变更类型: MINOR（新增优先级配置）
+- `conflict_policy` 已从 `PeakClassificationPlugin` 配置面移除，统一使用 `priority_order`
 
 ## 总结
 
@@ -233,7 +220,7 @@ def _determine_label(
 
 1. **灵活性**：用户可以自定义任意优先级顺序
 2. **清晰性**：逻辑简单，易于理解
-3. **兼容性**：完全向后兼容旧代码
+3. **一致性**：统一使用一个优先级列表表达所有分类优先级
 4. **扩展性**：未来可以轻松添加新的分类类型
 
 ### 📊 改进前后对比
@@ -243,7 +230,7 @@ def _determine_label(
 | s1_s2 优先级 | 硬编码最高 | 可配置 |
 | 优先级调整 | 只能通过 conflict_policy 调整 s1/s2 | 完全自定义 |
 | 配置方式 | 字符串 | 列表（更直观） |
-| 向后兼容 | - | ✅ 完全兼容 |
+| 旧配置迁移 | conflict_policy | 用 priority_order 显式表达 |
 
 ---
 
