@@ -49,6 +49,7 @@ class PeakChannelAccessor:
 
         # 特征层数据
         self._peaklet_components = None
+        self._peaklet_channels = None
         self._hit_merged = None
         self._hit_merged_features = None
         self._peaks = None
@@ -61,6 +62,7 @@ class PeakChannelAccessor:
 
         # 索引（延迟构建）
         self._peak_to_merged_idx = None  # {peak_id: [merged_index, ...]}
+        self._peak_to_channel_rows = None  # {peak_id: [peaklet_channels row, ...]}
         self._record_id_to_idx = None  # {record_id: row_index}
         self._merged_to_hit_idx = None  # {merged_index: [hit_index, ...]}
 
@@ -82,6 +84,14 @@ class PeakChannelAccessor:
         self._peaklet_components = self.context.get_data(self.run_id, "peaklet_components")
         self._hit_merged = self.context.get_data(self.run_id, "hit_merged")
         self._hit_merged_features = self.context.get_data(self.run_id, "hit_merged_features")
+
+        # peaklet_channels 是当前 per-channel 聚合真源；旧缓存或旧配置可能没有。
+        try:
+            peaklet_channels = self.context.get_data(self.run_id, "peaklet_channels")
+            if isinstance(peaklet_channels, np.ndarray):
+                self._peaklet_channels = peaklet_channels
+        except Exception:
+            self._peaklet_channels = None
 
         # peaks 是可选的
         try:
@@ -110,6 +120,77 @@ class PeakChannelAccessor:
             group = sort_order[offset : offset + cnt]
             self._peak_to_merged_idx[int(pid)] = merged_indices[group].tolist()
             offset += cnt
+
+        self._peak_to_channel_rows = {}
+        peaklet_channels = self._peaklet_channels
+        if peaklet_channels is None or len(peaklet_channels) == 0:
+            return
+        names = peaklet_channels.dtype.names or ()
+        if "peaklet_id" not in names:
+            return
+
+        channel_peak_ids = peaklet_channels["peaklet_id"]
+        unique_channels, inverse, counts = np.unique(
+            channel_peak_ids, return_inverse=True, return_counts=True
+        )
+        sort_order = np.argsort(inverse)
+        offset = 0
+        for idx, pid in enumerate(unique_channels):
+            cnt = counts[idx]
+            group = sort_order[offset : offset + cnt]
+            self._peak_to_channel_rows[int(pid)] = peaklet_channels[group]
+            offset += cnt
+
+    def _component_channel_details(self, peak_id: int) -> dict[tuple[int, int], dict]:
+        """Return compatibility fields derived from peaklet_components per channel."""
+        details: dict[tuple[int, int], dict] = {}
+        for merged_idx in self._peak_to_merged_idx.get(peak_id, []):
+            hm = self._hit_merged[merged_idx]
+            feat = self._hit_merged_features[merged_idx]
+            key = (int(hm["board"]), int(hm["channel"]))
+
+            is_single_record = (
+                bool(hm["is_single_record"])
+                if "is_single_record" in self._hit_merged.dtype.names
+                else int(hm["sample_start"]) >= 0 and int(hm["sample_end"]) >= 0
+            )
+
+            current = details.get(key)
+            if current is None:
+                details[key] = {
+                    "merged_index": int(merged_idx),
+                    "merged_indices": [int(merged_idx)],
+                    "width": float(feat["width"]),
+                    "rise_time": float(feat["rise_time"]),
+                    "fall_time": float(feat["fall_time"]),
+                    "center_time": int(feat["center_time"]),
+                    "sample_start": int(hm["sample_start"]),
+                    "sample_end": int(hm["sample_end"]),
+                    "record_id": int(hm["record_id"]),
+                    "is_single_record": is_single_record,
+                    "_height": float(feat["height"]),
+                }
+                continue
+
+            current["merged_indices"].append(int(merged_idx))
+            current["sample_start"] = min(current["sample_start"], int(hm["sample_start"]))
+            current["sample_end"] = max(current["sample_end"], int(hm["sample_end"]))
+            current["is_single_record"] = bool(current["is_single_record"] and is_single_record)
+
+            # Keep timing fields from the highest component on the channel.
+            height = float(feat["height"])
+            if height > float(current["_height"]):
+                current["_height"] = height
+                current["merged_index"] = int(merged_idx)
+                current["width"] = float(feat["width"])
+                current["rise_time"] = float(feat["rise_time"])
+                current["fall_time"] = float(feat["fall_time"])
+                current["center_time"] = int(feat["center_time"])
+                current["record_id"] = int(hm["record_id"])
+
+        for value in details.values():
+            value.pop("_height", None)
+        return details
 
     def _load_waveform_layer(self):
         """延迟加载波形层数据"""
@@ -162,10 +243,13 @@ class PeakChannelAccessor:
             通道特征列表，每个 dict 包含：
             - peak_id: int
             - merged_index: int
+            - merged_indices: list[int]
             - board: int
             - channel: int
             - area: float
             - height: float
+            - n_hits: int
+            - area_fraction: float
             - width: float
             - rise_time: float
             - fall_time: float
@@ -179,6 +263,40 @@ class PeakChannelAccessor:
 
         # 通过索引获取 merged_indices（避免布尔筛选）
         merged_indices = self._peak_to_merged_idx.get(peak_id, [])
+
+        channel_rows = self._peak_to_channel_rows.get(peak_id, [])
+        if len(channel_rows) > 0:
+            details = self._component_channel_details(peak_id)
+            channels = []
+            for row in channel_rows:
+                key = (int(row["board"]), int(row["channel"]))
+                detail = details.get(key, {})
+                channels.append(
+                    {
+                        "peak_id": peak_id,
+                        "merged_index": int(detail.get("merged_index", -1)),
+                        "merged_indices": list(detail.get("merged_indices", [])),
+                        "board": int(row["board"]),
+                        "channel": int(row["channel"]),
+                        "area": float(row["area"]),
+                        "height": float(row["height"]),
+                        "n_hits": int(row["n_hits"]) if "n_hits" in row.dtype.names else 0,
+                        "area_fraction": (
+                            float(row["area_fraction"])
+                            if "area_fraction" in row.dtype.names
+                            else 0.0
+                        ),
+                        "width": float(detail.get("width", 0.0)),
+                        "rise_time": float(detail.get("rise_time", 0.0)),
+                        "fall_time": float(detail.get("fall_time", 0.0)),
+                        "center_time": int(detail.get("center_time", 0)),
+                        "sample_start": int(detail.get("sample_start", -1)),
+                        "sample_end": int(detail.get("sample_end", -1)),
+                        "record_id": int(detail.get("record_id", -1)),
+                        "is_single_record": bool(detail.get("is_single_record", False)),
+                    }
+                )
+            return channels
 
         channels = []
         for merged_idx in merged_indices:
