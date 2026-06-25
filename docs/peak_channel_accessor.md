@@ -64,13 +64,19 @@ accessor.plot(peak_id=42)
 
 获取 peak 的所有通道特征（不加载波形）
 
+当 `peaklet_channels` 可用时，`area`、`height`、`n_hits` 与 `area_fraction`
+来自 per-channel 聚合结果；其他兼容字段来自该通道对应的 peaklet components。
+
 **返回字段**：
 - `peak_id`: int
 - `merged_index`: int
+- `merged_indices`: list[int]
 - `board`: int
 - `channel`: int
 - `area`: float
 - `height`: float
+- `n_hits`: int
+- `area_fraction`: float
 - `width`: float
 - `rise_time`: float
 - `fall_time`: float
