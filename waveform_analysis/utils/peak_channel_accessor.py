@@ -616,15 +616,6 @@ class PeakChannelAccessor:
 
         ax_offset = 0
 
-        # 绘制 sum waveform
-        if show_sum and sum_data:
-            ax_sum = axes[0]
-            ax_sum.plot(sum_data["time_ns"], sum_data["waveform"], "k-", lw=1.5)
-            ax_sum.set_title(f"Peak {peak_id} - Sum Waveform (from peaklet)")
-            ax_sum.set_ylabel("Sum Signal")
-            ax_sum.grid(True, alpha=0.3)
-            ax_offset = 1
-
         # 计算全局时间范围（用于对齐 x 轴）
         event_t0 = min(ch["abs_time_ps"][0] for ch in channels if len(ch["abs_time_ps"]) > 0)
         t_min = float("inf")
@@ -636,6 +627,22 @@ class PeakChannelAccessor:
                 ch["relative_time_ns"] = (ch["abs_time_ps"] - event_t0) / 1000.0
                 t_min = min(t_min, ch["relative_time_ns"][0])
                 t_max = max(t_max, ch["relative_time_ns"][-1])
+
+        # 绘制 sum waveform（需要对齐到 event_t0）
+        if show_sum and sum_data:
+            ax_sum = axes[0]
+            # 将 sum waveform 的时间对齐到 event_t0
+            sum_time_aligned = (sum_data["time_start"] - event_t0) / 1000.0 + sum_data["time_ns"]
+            ax_sum.plot(sum_time_aligned, sum_data["waveform"], "k-", lw=1.5)
+            ax_sum.set_title(f"Peak {peak_id} - Sum Waveform (from peaklet)")
+            ax_sum.set_ylabel("Sum Signal")
+            ax_sum.grid(True, alpha=0.3)
+
+            # 更新时间范围
+            t_min = min(t_min, sum_time_aligned[0])
+            t_max = max(t_max, sum_time_aligned[-1])
+
+            ax_offset = 1
 
         # 绘制各通道波形
         cmap = plt.get_cmap("tab10")
