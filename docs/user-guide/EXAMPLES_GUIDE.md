@@ -229,6 +229,9 @@ peaks = ctx.get_data('run_001', 'signal_peaks')
 | `examples/signal_processing_example.py` | 信号处理示例 |
 | `examples/streaming_plugins_demo.py` | 流式插件演示 |
 | `examples/preview_quickstart.md` | 预览工具快速指南 |
+| `tutorial.ipynb` | 入门 notebook 教程 |
+| `tutorial_advanced.ipynb` | 插件开发、多 run 处理与自定义特征高级 notebook |
+| `run6_xe_fast_0611_teaching.ipynb` | Run 6 Xe Fast 教学 notebook，演示 run 扫描、Context 配置、records/wave_pool 读取与快速分析 |
 
 运行示例：
 
