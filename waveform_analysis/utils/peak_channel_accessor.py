@@ -95,15 +95,21 @@ class PeakChannelAccessor:
         self._feature_layer_loaded = True
 
     def _build_feature_indices(self):
-        """构建特征层索引"""
-        # peak_id -> merged_indices
+        """构建特征层索引（numpy 向量化分组）"""
+        pc = self._peaklet_components
+        peak_ids = pc["peak_id"]
+        merged_indices = pc["merged_index"]
+
+        unique_peaks, inverse, counts = np.unique(peak_ids, return_inverse=True, return_counts=True)
+        sort_order = np.argsort(inverse)
+
         self._peak_to_merged_idx = {}
-        for row in self._peaklet_components:
-            peak_id = int(row["peak_id"])
-            merged_idx = int(row["merged_index"])
-            if peak_id not in self._peak_to_merged_idx:
-                self._peak_to_merged_idx[peak_id] = []
-            self._peak_to_merged_idx[peak_id].append(merged_idx)
+        offset = 0
+        for idx, pid in enumerate(unique_peaks):
+            cnt = counts[idx]
+            group = sort_order[offset : offset + cnt]
+            self._peak_to_merged_idx[int(pid)] = merged_indices[group].tolist()
+            offset += cnt
 
     def _load_waveform_layer(self):
         """延迟加载波形层数据"""
@@ -121,18 +127,25 @@ class PeakChannelAccessor:
         self._waveform_layer_loaded = True
 
     def _build_waveform_indices(self):
-        """构建波形层索引"""
-        # record_id -> row index
+        """构建波形层索引（numpy 向量化分组）"""
         self._record_id_to_idx = {int(rec["record_id"]): i for i, rec in enumerate(self._records)}
 
-        # merged_index -> hit_indices
+        hmc = self._hit_merged_components
+        merged_indices = hmc["merged_index"]
+        hit_indices = hmc["hit_index"]
+
+        unique_mi, inverse, counts = np.unique(
+            merged_indices, return_inverse=True, return_counts=True
+        )
+        sort_order = np.argsort(inverse)
+
         self._merged_to_hit_idx = {}
-        for row in self._hit_merged_components:
-            merged_idx = int(row["merged_index"])
-            hit_idx = int(row["hit_index"])
-            if merged_idx not in self._merged_to_hit_idx:
-                self._merged_to_hit_idx[merged_idx] = []
-            self._merged_to_hit_idx[merged_idx].append(hit_idx)
+        offset = 0
+        for idx, mi in enumerate(unique_mi):
+            cnt = counts[idx]
+            group = sort_order[offset : offset + cnt]
+            self._merged_to_hit_idx[int(mi)] = hit_indices[group].tolist()
+            offset += cnt
 
     def get_peak_channels(self, peak_id: int) -> list[dict]:
         """
