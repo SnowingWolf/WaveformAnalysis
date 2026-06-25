@@ -739,30 +739,31 @@ class PeakChannelAccessor:
             ax.set_ylabel(label)
             ax.grid(True, alpha=0.3)
 
-            # 构建特征信息文本
-            info_parts = []
+            # 构建特征信息文本（每个特征一行）
+            info_lines = []
             for feat in show_features:
                 if feat in ch:
                     value = ch[feat]
                     # 格式化不同类型的特征
                     if feat in ["area", "height"]:
-                        info_parts.append(f"{feat.capitalize()}: {value:.1f}")
+                        info_lines.append(f"{feat.capitalize()}: {value:.1f}")
                     elif feat in ["width", "rise_time", "fall_time"]:
-                        info_parts.append(f"{feat.replace('_', ' ').capitalize()}: {value:.1f} ns")
+                        info_lines.append(f"{feat.replace('_', ' ').capitalize()}: {value:.1f} ns")
                     elif feat == "center_time":
-                        info_parts.append(f"Center: {value:.1f} ns")
+                        info_lines.append(f"Center: {value:.1f} ns")
                     else:
-                        info_parts.append(f"{feat}: {value}")
+                        info_lines.append(f"{feat}: {value}")
 
-            if info_parts:
-                info_text = ", ".join(info_parts)
+            if info_lines:
+                info_text = "\n".join(info_lines)
                 ax.text(
-                    0.02,
-                    0.95,
+                    0.98,
+                    0.98,
                     info_text,
                     transform=ax.transAxes,
                     fontsize=8,
                     verticalalignment="top",
+                    horizontalalignment="right",
                     bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "alpha": 0.7},
                 )
 
