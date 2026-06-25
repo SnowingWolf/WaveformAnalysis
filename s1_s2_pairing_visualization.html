@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S1-S2 配对逻辑说明</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #1F2421;
+            background: #F7F4EF;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #FFFFFF;
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 500;
+            color: #1F2421;
+            margin-bottom: 0.5rem;
+            font-family: Georgia, serif;
+        }
+
+        h1 em {
+            color: #C4612F;
+            font-style: italic;
+        }
+
+        .subtitle {
+            color: #5C635D;
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #E7E1D7;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            font-weight: 500;
+            color: #1F2421;
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            font-family: Georgia, serif;
+        }
+
+        h3 {
+            font-size: 1.3rem;
+            font-weight: 500;
+            color: #C4612F;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .architecture-diagram {
+            background: #FBF9F5;
+            border: 1px solid #E7E1D7;
+            border-radius: 8px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+        }
+
+        .phase-box {
+            background: #FFFFFF;
+            border: 2px solid #C4612F;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        .phase-box.phase1 {
+            border-color: #C4612F;
+        }
+
+        .phase-box.phase2 {
+            border-color: #A94E22;
+        }
+
+        .phase-title {
+            font-weight: 600;
+            color: #C4612F;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .phase2 .phase-title {
+            color: #A94E22;
+        }
+
+        ul {
+            margin-left: 1.5rem;
+            margin-top: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+            color: #1F2421;
+        }
+
+        .code-block {
+            background: #1F2421;
+            color: #F7F4EF;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.85rem;
+        }
+
+        .timeline {
+            background: #FBF9F5;
+            padding: 2rem;
+            border-radius: 8px;
+            border: 1px solid #E7E1D7;
+            margin: 1.5rem 0;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+        }
+
+        .scenario {
+            background: #F2E3D6;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border-left: 4px solid #C4612F;
+        }
+
+        .scenario h4 {
+            color: #C4612F;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+
+        .warning {
+            background: #FFF3CD;
+            border-left: 4px solid #C4612F;
+            padding: 1rem 1.5rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+
+        .warning-title {
+            font-weight: 600;
+            color: #C4612F;
+            margin-bottom: 0.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            background: #FFFFFF;
+        }
+
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #E7E1D7;
+        }
+
+        th {
+            background: #F2E3D6;
+            color: #1F2421;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #FBF9F5;
+        }
+
+        .highlight {
+            background: #F2E3D6;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9em;
+        }
+
+        .arrow {
+            color: #C4612F;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>S1-S2 <em>配对</em>逻辑说明</h1>
+        <div class="subtitle">液氙暗物质探测器中的信号关联算法</div>
+
+        <h2>物理背景</h2>
+        <p>在液氙时间投影室（TPC）中，粒子散射会产生一对信号：</p>
+        <ul>
+            <li><strong>S1（初级闪烁光）</strong>：粒子直接激发液氙原子产生的瞬时光信号</li>
+            <li><strong>S2（次级闪烁光）</strong>：电离电子漂移到探测器顶部后产生的延迟光信号</li>
+        </ul>
+        <p><strong>配对目标</strong>：将同一次散射事件产生的 S1 和 S2 关联起来，重建完整的物理事件。</p>
+
+        <h2>两层架构设计</h2>
+        <div class="architecture-diagram">
+peaks + peaklet_s1_s2 分类结果
+         ↓
+┌──────────────────────────────────────────┐
+│ <span style="color: #C4612F;">Phase 1: 候选生成</span>                       │
+│ S1S2PairCandidatesPlugin               │
+│ • 生成所有物理允许的配对候选            │
+│ • S2-anchor + 二分搜索                  │
+│ • O(M log N) 时间复杂度                 │
+│ • 只做硬约束，不判断好坏                │
+└──────────────────────────────────────────┘
+         ↓
+   s1_s2_pair_candidates
+   (所有候选对, selected=False)
+         ↓
+┌──────────────────────────────────────────┐
+│ <span style="color: #A94E22;">Phase 2: 配对选择</span>                       │
+│ S1S2PairSelectionPlugin                │
+│ • 对候选打分                            │
+│ • 选择最佳配对                          │
+│ • 计算歧义指标                          │
+│ • 设置 selected=True                    │
+└──────────────────────────────────────────┘
+         ↓
+   s1_s2_pairs
+   (最终配对结果)
+        </div>
+
+        <h2>Phase 1: 候选生成</h2>
+        <div class="phase-box phase1">
+            <div class="phase-title">核心算法：S2-anchor + 二分搜索</div>
+            <p>以每个 S2 为基准，向前搜索时间窗口内的 S1 候选</p>
+        </div>
+
+        <div class="code-block">for s2 in s2_peaks_sorted:
+    s2_time = s2["center_time"]
+
+    # 物理约束：漂移时间窗口
+    s1_time_min = s2_time - max_drift_time  # 例如 50 μs
+    s1_time_max = s2_time - min_drift_time  # 例如 0 ns
+
+    # O(log N) 二分查找
+    left = np.searchsorted(s1_times, s1_time_min)
+    right = np.searchsorted(s1_times, s1_time_max)
+
+    # 只遍历候选范围
+    for s1 in s1_peaks_sorted[left:right]:
+        create_candidate(s1, s2)  # 创建候选对</div>
+
+        <h3>硬约束条件</h3>
+        <ul>
+            <li><strong>时间因果性</strong>：<span class="highlight">t_S2 > t_S1</span>（S2 必须在 S1 之后）</li>
+            <li><strong>漂移时间窗口</strong>：<span class="highlight">min_drift < (t_S2 - t_S1) < max_drift</span></li>
+            <li><strong>可选面积阈值</strong>：过滤掉太小的信号</li>
+        </ul>
+
+        <h3>输出内容</h3>
+        <table>
+            <tr>
+                <th>类别</th>
+                <th>字段</th>
+                <th>说明</th>
+            </tr>
+            <tr>
+                <td>标识</td>
+                <td>pair_id, s1_peak_id, s2_peak_id</td>
+                <td>候选对的唯一标识</td>
+            </tr>
+            <tr>
+                <td>时间</td>
+                <td>s1_time, s2_time, drift_time</td>
+                <td>时间戳和漂移时间（ps 精度）</td>
+            </tr>
+            <tr>
+                <td>观测量</td>
+                <td>s1_area, s2_area, log10_s2_s1</td>
+                <td>信号面积、能量比等</td>
+            </tr>
+            <tr>
+                <td>歧义统计</td>
+                <td>n_s1_candidates_for_s2</td>
+                <td>该 S2 有多少个 S1 候选</td>
+            </tr>
+            <tr>
+                <td>标志位</td>
+                <td>flags</td>
+                <td>FLAG_MULTI_S1_CANDIDATE 等</td>
+            </tr>
+        </table>
+
+        <h2>Phase 2: 配对选择</h2>
+        <div class="phase-box phase2">
+            <div class="phase-title">目标：为每个 S2 选择最优的 S1</div>
+            <p>当前实现 v0.1 使用 <strong>largest 模式</strong>：选择面积最大的 S1</p>
+        </div>
+
+        <div class="code-block"># largest 模式：选择面积最大的 S1
+for s2 in unique_s2s:
+    # 找到该 S2 的所有 S1 候选
+    s2_candidates = candidates[candidates["s2_peak_id"] == s2]
+
+    # 计算分数：score = log(1 + S1_area)
+    scores = np.log1p(s2_candidates["s1_area"])
+
+    # 选择分数最高的候选
+    best = s2_candidates[scores.argmax()]
+    best["selected"] = True
+
+    # 计算与次优候选的分数差（量化可靠性）
+    if len(scores) > 1:
+        delta = scores[0] - scores[1]
+        best["delta_score_to_next_best"] = delta</div>
+
+        <h3>选择策略</h3>
+        <table>
+            <tr>
+                <th>模式</th>
+                <th>状态</th>
+                <th>说明</th>
+            </tr>
+            <tr>
+                <td><strong>largest</strong></td>
+                <td>✅ 已实现</td>
+                <td>选择面积最大的 S1（假设更大的 S1 更可靠）</td>
+            </tr>
+            <tr>
+                <td><strong>nearest</strong></td>
+                <td>🔄 预留</td>
+                <td>选择漂移时间最短的 S1（时间最近）</td>
+            </tr>
+            <tr>
+                <td><strong>best_score</strong></td>
+                <td>🔄 预留</td>
+                <td>综合打分（时间 + 面积 + 通道数 + S2/S1 比值）</td>
+            </tr>
+            <tr>
+                <td><strong>all</strong></td>
+                <td>🔄 预留</td>
+                <td>不做选择，保留所有候选供后续分析</td>
+            </tr>
+        </table>
+
+        <h2>多个 S2 距离很近的情况</h2>
+
+        <div class="scenario">
+            <h4>场景：两个 S2 间隔仅 2 μs</h4>
+            <div class="timeline">
+时间轴 →
+                max_drift = 50 μs
+                ←─────────────→
+S1_A ─┐         ┌───────────────┐
+  t=0 │         │   搜索窗口     │
+      │         │   for S2_X    │
+S1_B ─┤         └───────────────┘
+  t=5μs│               │
+      │               │
+      │             S2_X (t=50μs)
+      │               │
+      ├───────────────┤ drift=45μs
+      │            ┌──┴──────────┐
+      │            │  搜索窗口    │
+      │            │  for S2_Y   │
+      └────────────┴─────────────┘
+                      │
+                    S2_Y (t=52μs)  ← 距离仅 2μs
+            </div>
+        </div>
+
+        <h3>当前实现的行为</h3>
+        <p><strong>独立处理</strong>每个 S2，不考虑全局最优：</p>
+
+        <div class="code-block"># S2_X 的配对（独立搜索）
+for S2_X:
+    搜索 [0, 50μs] 范围内的 S1
+    → 找到 S1_A (drift=50μs)
+    → 找到 S1_B (drift=45μs)
+    → 创建 2 个候选对
+
+# S2_Y 的配对（独立搜索）
+for S2_Y:
+    搜索 [2μs, 52μs] 范围内的 S1
+    → 找到 S1_A (drift=52μs)
+    → 找到 S1_B (drift=47μs)
+    → 创建 2 个候选对
+
+<span style="color: #C4612F;"># 结果：4 个候选对</span>
+• S1_A 有 2 个 S2 候选 → FLAG_MULTI_S2_CANDIDATE
+• S1_B 有 2 个 S2 候选 → FLAG_MULTI_S2_CANDIDATE
+• S2_X 有 2 个 S1 候选 → FLAG_MULTI_S1_CANDIDATE
+• S2_Y 有 2 个 S1 候选 → FLAG_MULTI_S1_CANDIDATE</div>
+
+        <h3>Phase 2 选择结果</h3>
+        <p>以 <strong>largest</strong> 模式为例：</p>
+        <div class="code-block"># 为 S2_X 选择
+candidates: (S1_A, S2_X), (S1_B, S2_X)
+选择: S1_B (面积更大) → selected=True
+
+# 为 S2_Y 选择
+candidates: (S1_A, S2_Y), (S1_B, S2_Y)
+选择: S1_B (面积更大) → selected=True
+
+<span style="color: #C4612F;"># 潜在冲突：S1_B 被两个 S2 同时选中！</span></div>
+
+        <div class="warning">
+            <div class="warning-title">⚠️ 当前实现的局限性</div>
+            <ul>
+                <li><strong>贪心策略</strong>：每个 S2 独立选择最优 S1</li>
+                <li><strong>不保证全局最优</strong>：可能同一个 S1 被多个 S2 选中</li>
+                <li><strong>不处理竞争</strong>：没有冲突解决机制</li>
+            </ul>
+        </div>
+
+        <h3>物理解释</h3>
+        <p>多个 S2 距离很近可能代表：</p>
+
+        <div class="scenario">
+            <h4>1. 多重散射（Multiple scatters）</h4>
+            <p>一个粒子在探测器内发生多次散射</p>
+            <ul>
+                <li>应该有：<strong>1 个 S1，多个 S2</strong></li>
+                <li>理想配对：S1_B → (S2_X, S2_Y)</li>
+            </ul>
+        </div>
+
+        <div class="scenario">
+            <h4>2. Pile-up 事件</h4>
+            <p>两个独立粒子几乎同时进入探测器</p>
+            <ul>
+                <li>应该有：<strong>2 个 S1，2 个 S2</strong></li>
+                <li>理想配对：S1_A → S2_X, S1_B → S2_Y</li>
+            </ul>
+        </div>
+
+        <div class="scenario">
+            <h4>3. Single electron + 真实事件</h4>
+            <p>S2_Y 可能是单电子信号（没有对应的 S1）</p>
+            <ul>
+                <li>应该有：<strong>1 个真实 S1，1 个真实 S2，1 个单电子 S2</strong></li>
+                <li>理想配对：S1_B → S2_X，S2_Y → 孤立</li>
+            </ul>
+        </div>
+
+        <h2>如何识别和处理</h2>
+
+        <h3>诊断代码</h3>
+        <div class="code-block"># 获取最终配对
+final_pairs = pairs[pairs["selected"]]
+
+# 找出被多次选中的 S1
+s1_usage = {}
+for pair in final_pairs:
+    s1_id = pair["s1_peak_id"]
+    s1_usage[s1_id] = s1_usage.get(s1_id, 0) + 1
+
+duplicates = {s1: count for s1, count in s1_usage.items() if count > 1}
+print(f"被多次选中的 S1: {duplicates}")
+
+# 检查 FLAG_MULTI_S2_CANDIDATE
+ambiguous = final_pairs[final_pairs["flags"] & FLAG_MULTI_S2_CANDIDATE]
+print(f"有多个 S2 候选的配对: {len(ambiguous)}")
+
+# 检查竞争激烈程度
+close = final_pairs[final_pairs["delta_score_to_next_best"] < 0.1]
+print(f"竞争激烈的配对: {len(close)}")</div>
+
+        <h3>实用策略</h3>
+        <table>
+            <tr>
+                <th>策略</th>
+                <th>适用场景</th>
+            </tr>
+            <tr>
+                <td><strong>事后人工检查</strong></td>
+                <td>标记 FLAG_MULTI_S2_CANDIDATE 或 FLAG_CLOSE_COMPETITOR 的配对需要额外验证</td>
+            </tr>
+            <tr>
+                <td><strong>缩小时间窗口</strong></td>
+                <td>如果 pile-up 严重，将 max_drift_time 从 50μs 降到 30μs</td>
+            </tr>
+            <tr>
+                <td><strong>使用 all 模式</strong></td>
+                <td>不做选择，保留所有候选供后续全局优化</td>
+            </tr>
+            <tr>
+                <td><strong>过滤低质量信号</strong></td>
+                <td>设置 min_s1_area 和 min_s2_area 阈值</td>
+            </tr>
+        </table>
+
+        <h2>未来改进方向</h2>
+
+        <h3>Phase 3: 全局最优配对（未实现）</h3>
+        <p>使用匈牙利算法或二分图最大权匹配：</p>
+        <div class="code-block"># 将配对问题建模为二分图
+# 左侧节点: S1, 右侧节点: S2
+# 边权重: 配对分数
+
+best_matching = hungarian_algorithm(S1_nodes, S2_nodes, scores)
+
+# 保证:
+# • 每个 S1 最多配一个 S2
+# • 每个 S2 最多配一个 S1
+# • 总分数最大</div>
+
+        <h3>Phase 4: 多重散射支持（未实现）</h3>
+        <p>专门处理 1 个 S1 对应多个 S2 的情况：</p>
+        <div class="code-block"># 识别多重散射模式
+if len(S2s_near_in_time) > 1 and len(S1s) == 1:
+    # 创建 interaction 级别的数据结构
+    create_interaction(S1, S2s)
+
+    # 区分主 S2 和次级 S2
+    main_S2 = largest(S2s)
+    alternate_S2s = others(S2s)</div>
+
+        <h2>总结</h2>
+        <ul>
+            <li>当前实现采用 <strong>贪心策略</strong>，每个 S2 独立选择最优 S1</li>
+            <li>多个近距离 S2 会产生 <strong>候选重叠</strong>，可能导致同一个 S1 被多次选中</li>
+            <li>通过 <span class="highlight">FLAG_MULTI_S2_CANDIDATE</span> 和 <span class="highlight">delta_score_to_next_best</span> 可以识别歧义情况</li>
+            <li>需要更高级的算法（如全局匹配）来真正解决多重散射和 pile-up 问题</li>
+            <li>当前系统适合 <strong>单散射事件</strong>，复杂场景需要事后人工检查或算法升级</li>
+        </ul>
+    </div>
+</body>
+</html>
