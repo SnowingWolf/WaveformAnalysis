@@ -28,6 +28,7 @@ __all__ = [
     "get_hits_for_peak",
     "build_peak_to_merged_lookup",
     "build_merged_to_hit_lookup",
+    "S1S2PairAccessor",
 ]
 
 _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
@@ -58,6 +59,7 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "get_hits_for_peak": (".query_helpers", "get_hits_for_peak"),
     "build_peak_to_merged_lookup": (".query_helpers", "build_peak_to_merged_lookup"),
     "build_merged_to_hit_lookup": (".query_helpers", "build_merged_to_hit_lookup"),
+    "S1S2PairAccessor": (".s1_s2_pair_accessor", "S1S2PairAccessor"),
 }
 
 
