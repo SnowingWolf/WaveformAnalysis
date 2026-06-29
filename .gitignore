@@ -203,7 +203,7 @@ docs.backup*/
 .codex/
 .claude/
 claude_output/
-AGENTS.md
+# AGENTS.md is now tracked — do NOT ignore it
 
 # ================================
 # Build and Installation
