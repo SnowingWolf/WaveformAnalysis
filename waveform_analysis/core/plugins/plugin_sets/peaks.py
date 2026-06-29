@@ -5,9 +5,16 @@ Plugin set: Peak construction and classification.
 Contains peak-level processing:
 - Peak construction from peaklets
 - Waveform width computation
-- S1/S2 classification
+- S1/S2 classification (deprecated)
 - Peak classification
+
+.. note::
+    S1S2ClassifierPlugin is deprecated. For S1-S2 analysis, use the modern
+    pairing workflow in plugins_events: S1S2PairCandidatesPlugin and
+    S1S2PairSelectionPlugin.
 """
+
+import warnings
 
 from waveform_analysis.core.foundation.utils import exporter
 
@@ -16,7 +23,12 @@ export, __all__ = exporter()
 
 @export
 def plugins_peaks():
-    """Return peak-related plugin instances in dependency order."""
+    """Return peak-related plugin instances in dependency order.
+
+    .. deprecated::
+        S1S2ClassifierPlugin is deprecated and will be removed in a future version.
+        Use S1S2PairCandidatesPlugin and S1S2PairSelectionPlugin instead.
+    """
     from waveform_analysis.core.plugins.builtin.cpu.peak_classification import (
         PeakClassificationPlugin,
     )
@@ -24,9 +36,16 @@ def plugins_peaks():
     from waveform_analysis.core.plugins.builtin.cpu.s1_s2_classifier import S1S2ClassifierPlugin
     from waveform_analysis.core.plugins.builtin.cpu.waveform_width import WaveformWidthPlugin
 
+    warnings.warn(
+        "plugins_peaks() includes S1S2ClassifierPlugin which is deprecated. "
+        "For S1-S2 analysis, use S1S2PairCandidatesPlugin and S1S2PairSelectionPlugin instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
     return [
         PeaksPlugin(),
         WaveformWidthPlugin(),
-        S1S2ClassifierPlugin(),
+        S1S2ClassifierPlugin(),  # deprecated
         PeakClassificationPlugin(),
     ]
