@@ -7,7 +7,7 @@ from waveform_analysis.core.foundation.utils import exporter
 export, __all__ = exporter()
 
 from .basic_features import plugins_basic_features
-from .event import plugins_event
+from .event import plugins_events
 from .hit import plugins_hit
 from .io import plugins_io
 from .peaks import plugins_peaks
@@ -22,9 +22,7 @@ PLUGIN_SETS = export(
         "peaks": plugins_peaks,
         "basic_features": plugins_basic_features,
         "tabular": plugins_tabular,
-        "event": plugins_event,
-        # Backward compatibility alias
-        "events": plugins_event,
+        "events": plugins_events,
     },
     name="PLUGIN_SETS",
 )

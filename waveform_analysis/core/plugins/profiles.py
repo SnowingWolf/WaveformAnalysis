@@ -6,7 +6,7 @@ Execution profiles composed from plugin sets.
 from waveform_analysis.core.foundation.utils import exporter
 from waveform_analysis.core.plugins.plugin_sets import (
     plugins_basic_features,
-    plugins_event,
+    plugins_events,
     plugins_hit,
     plugins_io,
     plugins_peaks,
@@ -27,7 +27,7 @@ def cpu_default():
         + plugins_peaks()
         + plugins_basic_features()
         + plugins_tabular()
-        + plugins_event()
+        + plugins_events()
     )
 
 

@@ -48,8 +48,8 @@ def test_get_plugin_set_peaks_available():
 
 
 def test_get_plugin_set_event_available():
-    """Test the renamed event plugin set."""
-    factory = get_plugin_set("event")
+    """Test the events plugin set."""
+    factory = get_plugin_set("events")
     plugins = factory()
 
     provides = _provides_names(plugins)
@@ -61,19 +61,9 @@ def test_get_plugin_set_event_available():
     ]
 
 
-def test_plugin_set_events_alias():
-    """Test backward compatibility alias for events."""
+def test_plugin_set_events_in_registry():
+    """Test that events key exists in registry."""
     assert "events" in PLUGIN_SETS
-    factory = get_plugin_set("events")
-    plugins = factory()
-
-    # Should return the same as "event"
-    provides = _provides_names(plugins)
-    assert provides == [
-        "df_events",
-        "hit_grouped",
-        "df_paired",
-    ]
 
 
 def test_plugin_set_registry_contains_all_keys():
@@ -84,8 +74,7 @@ def test_plugin_set_registry_contains_all_keys():
     assert "peaks" in PLUGIN_SETS
     assert "basic_features" in PLUGIN_SETS
     assert "tabular" in PLUGIN_SETS
-    assert "event" in PLUGIN_SETS
-    assert "events" in PLUGIN_SETS  # Backward compatibility alias
+    assert "events" in PLUGIN_SETS
 
 
 def test_plugins_waveform_includes_records():

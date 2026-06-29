@@ -14,7 +14,7 @@ export, __all__ = exporter()
 
 
 @export
-def plugins_event():
+def plugins_events():
     """Return event-level plugin instances in dependency order.
 
     .. deprecated::
@@ -24,7 +24,7 @@ def plugins_event():
         - PairedEventsPlugin: deprecated
     """
     warnings.warn(
-        "plugins_event() is deprecated and will be removed in a future version. "
+        "plugins_events() is deprecated and will be removed in a future version. "
         "All event-level plugins (GroupedEventsPlugin, HitGroupedPlugin, PairedEventsPlugin) "
         "are deprecated.",
         DeprecationWarning,
