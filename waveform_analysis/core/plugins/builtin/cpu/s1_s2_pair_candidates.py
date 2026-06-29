@@ -110,10 +110,10 @@ S1_S2_PAIR_CANDIDATES_DTYPE = np.dtype(
         ("score_pattern", "f4"),  # 模式匹配分数 (预留)
         ("score_ambiguity", "f4"),  # 歧义惩罚 (预留)
         # === Ranking / Ambiguity ===
-        ("rank_for_s1", "i2"),  # 此 S2 在该 S1 所有候选中的排名 (1-based)
-        ("rank_for_s2", "i2"),  # 此 S1 在该 S2 所有候选中的排名 (1-based)
-        ("n_s1_candidates_for_s2", "i2"),  # 该 S2 有多少个 S1 候选
-        ("n_s2_candidates_for_s1", "i2"),  # 该 S1 有多少个 S2 候选
+        ("rank_for_s1", "i4"),  # 此 S2 在该 S1 所有候选中的排名 (1-based)
+        ("rank_for_s2", "i4"),  # 此 S1 在该 S2 所有候选中的排名 (1-based)
+        ("n_s1_candidates_for_s2", "i4"),  # 该 S2 有多少个 S1 候选
+        ("n_s2_candidates_for_s1", "i4"),  # 该 S1 有多少个 S2 候选
         ("delta_score_to_next_best", "f4"),  # 与次优候选的分数差
         # === Flags (bit field) ===
         ("flags", "u4"),  # 状态标志位

@@ -184,6 +184,19 @@ class S1S2PairSelectionPlugin(Plugin):
             # 获取该 S2 的所有候选
             s2_cands = candidates[indices]
 
+            # 数据质量检查：如果候选数过多，可能存在问题
+            n_candidates = len(s2_cands)
+            if n_candidates > 10000:
+                import warnings
+
+                warnings.warn(
+                    f"S2 peak {_s2_id} has {n_candidates} S1 candidates, which is unusually high. "
+                    f"This may indicate data quality issues or misconfigured time windows. "
+                    f"Consider adjusting max_drift_time or min_s1_area thresholds.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+
             # 按 score_total 降序排序
             sorted_indices = np.argsort(-s2_cands["score_total"])
             sorted_cands = s2_cands[sorted_indices]
@@ -233,7 +246,20 @@ class S1S2PairSelectionPlugin(Plugin):
 
         # 处理每个 S1 的候选
         for _s1_id, indices in s1_to_indices.items():
-            if len(indices) == 1:
+            n_candidates = len(indices)
+
+            # 数据质量检查
+            if n_candidates > 10000:
+                import warnings
+
+                warnings.warn(
+                    f"S1 peak {_s1_id} has {n_candidates} S2 candidates, which is unusually high. "
+                    f"This may indicate data quality issues.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+
+            if n_candidates == 1:
                 candidates[indices[0]]["rank_for_s1"] = 1
             else:
                 # 按 score_total 降序排序
