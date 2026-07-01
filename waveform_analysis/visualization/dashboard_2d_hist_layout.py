@@ -10,7 +10,6 @@
 
 import json
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -25,7 +24,7 @@ def render_position_dashboard_with_2d_hist(
     output_dir: str = "output",
     detector_radius_mm: float = 62.5,
     return_html: bool = False,
-) -> Optional[str]:
+) -> str | None:
     """生成交互式仪表板（原始布局 + 2D histogram）
 
     布局：
@@ -305,6 +304,110 @@ def _generate_dashboard_html(
                 bindEvents(s2RMin, s2NMin);
                 bindEvents(s2RMax, s2NMax);
 
+                function getFinitePairs(data, xField, yField, logX=false, logY=false) {{
+                    return data
+                        .map(d => [Number(d[xField]), Number(d[yField])])
+                        .filter(([x, y]) =>
+                            Number.isFinite(x) && Number.isFinite(y) &&
+                            (!logX || x > 0) &&
+                            (!logY || y > 0)
+                        );
+                }}
+
+                function buildBinSpec(values, nBins, useLog) {{
+                    if (values.length === 0) {{
+                        const edges = Array.from({{ length: nBins + 1 }}, (_, i) => i);
+                        const centers = Array.from({{ length: nBins }}, (_, i) => i + 0.5);
+                        return {{ edges, centers, tMin: 0, tMax: nBins, step: 1, transform: v => v }};
+                    }}
+
+                    const transform = useLog ? (v => Math.log10(v)) : (v => v);
+                    let tMin = Math.min(...values.map(transform));
+                    let tMax = Math.max(...values.map(transform));
+
+                    if (tMin === tMax) {{
+                        const pad = useLog ? 0.5 : Math.max(Math.abs(tMin) * 0.05, 0.5);
+                        tMin -= pad;
+                        tMax += pad;
+                    }}
+
+                    const step = (tMax - tMin) / nBins;
+                    const edges = Array.from({{ length: nBins + 1 }}, (_, i) => {{
+                        const edge = tMin + i * step;
+                        return useLog ? Math.pow(10, edge) : edge;
+                    }});
+                    const centers = Array.from({{ length: nBins }}, (_, i) => {{
+                        const center = tMin + (i + 0.5) * step;
+                        return useLog ? Math.pow(10, center) : center;
+                    }});
+
+                    return {{ edges, centers, tMin, tMax, step, transform }};
+                }}
+
+                function buildLogCountColorbar(maxCount) {{
+                    const maxLog = Math.max(Math.log10(Math.max(maxCount, 1)), 0);
+                    const tickMax = Math.max(Math.floor(maxLog), 0);
+                    const tickvals = Array.from({{ length: tickMax + 1 }}, (_, i) => i);
+                    if (maxLog > tickMax) {{
+                        tickvals.push(maxLog);
+                    }}
+                    const ticktext = tickvals.map(v => {{
+                        const count = Math.pow(10, v);
+                        return count >= 1000 ? count.toExponential(0) : Math.round(count).toString();
+                    }});
+                    return {{ maxLog, tickvals, ticktext }};
+                }}
+
+                function makeLogHist2dTrace(data, config) {{
+                    const pairs = getFinitePairs(data, config.xField, config.yField, config.logX, config.logY);
+                    const xValues = pairs.map(([x]) => x);
+                    const yValues = pairs.map(([, y]) => y);
+                    const xBins = buildBinSpec(xValues, config.nbinsx, config.logX);
+                    const yBins = buildBinSpec(yValues, config.nbinsy, config.logY);
+                    const counts = Array.from(
+                        {{ length: config.nbinsy }},
+                        () => Array(config.nbinsx).fill(0)
+                    );
+
+                    for (const [x, y] of pairs) {{
+                        const tx = xBins.transform(x);
+                        const ty = yBins.transform(y);
+                        let ix = Math.floor((tx - xBins.tMin) / xBins.step);
+                        let iy = Math.floor((ty - yBins.tMin) / yBins.step);
+
+                        if (ix === config.nbinsx) ix = config.nbinsx - 1;
+                        if (iy === config.nbinsy) iy = config.nbinsy - 1;
+                        if (ix >= 0 && ix < config.nbinsx && iy >= 0 && iy < config.nbinsy) {{
+                            counts[iy][ix] += 1;
+                        }}
+                    }}
+
+                    const maxCount = Math.max(1, ...counts.flat());
+                    const colorbar = buildLogCountColorbar(maxCount);
+                    const z = counts.map(row => row.map(count => count > 0 ? Math.log10(count) : null));
+
+                    return {{
+                        x: xBins.centers,
+                        y: yBins.centers,
+                        z: z,
+                        customdata: counts,
+                        type: 'heatmap',
+                        colorscale: config.colorscale,
+                        zmin: 0,
+                        zmax: colorbar.maxLog,
+                        hovertemplate:
+                            `${{config.xTitle}}: %{{x:.3g}}<br>` +
+                            `${{config.yTitle}}: %{{y:.3g}}<br>` +
+                            'Counts: %{{customdata}}<extra></extra>',
+                        colorbar: {{
+                            title: 'Counts',
+                            tickmode: 'array',
+                            tickvals: colorbar.tickvals,
+                            ticktext: colorbar.ticktext
+                        }}
+                    }};
+                }}
+
                 function updateAllPlots() {{
                     const s1Min = parseFloat(s1NMin.value);
                     const s1Max = parseFloat(s1NMax.value);
@@ -359,16 +462,17 @@ def _generate_dashboard_html(
                         margin: {{ l:55, r:10, b:50, t:30 }}
                     }}, {{ displayModeBar: false }});
 
-                    // === 3. 2D histograms ===
+                    // === 3. 2D histograms (LogNorm color scale) ===
                     // XY histogram
-                    Plotly.react('hist-xy', [{{
-                        x: filtered.map(d => d.x_rec),
-                        y: filtered.map(d => d.y_rec),
-                        type: 'histogram2d',
-                        colorscale: 'YlOrRd',
+                    Plotly.react('hist-xy', [makeLogHist2dTrace(filtered, {{
+                        xField: 'x_rec',
+                        yField: 'y_rec',
                         nbinsx: 40,
-                        nbinsy: 40
-                    }}], {{
+                        nbinsy: 40,
+                        colorscale: 'YlOrRd',
+                        xTitle: 'X (mm)',
+                        yTitle: 'Y (mm)'
+                    }})], {{
                         title: {{ text: 'XY Density', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'X (mm)' }},
                         yaxis: {{ title: 'Y (mm)', scaleanchor: 'x' }},
@@ -376,14 +480,15 @@ def _generate_dashboard_html(
                     }}, {{ displayModeBar: false }});
 
                     // XZ histogram
-                    Plotly.react('hist-xz', [{{
-                        x: filtered.map(d => d.x_rec),
-                        y: filtered.map(d => d.z_rec),
-                        type: 'histogram2d',
-                        colorscale: 'Viridis',
+                    Plotly.react('hist-xz', [makeLogHist2dTrace(filtered, {{
+                        xField: 'x_rec',
+                        yField: 'z_rec',
                         nbinsx: 40,
-                        nbinsy: 40
-                    }}], {{
+                        nbinsy: 40,
+                        colorscale: 'Viridis',
+                        xTitle: 'X (mm)',
+                        yTitle: 'Z (mm)'
+                    }})], {{
                         title: {{ text: 'XZ Density', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'X (mm)' }},
                         yaxis: {{ title: 'Z (mm)' }},
@@ -391,14 +496,15 @@ def _generate_dashboard_html(
                     }}, {{ displayModeBar: false }});
 
                     // YZ histogram
-                    Plotly.react('hist-yz', [{{
-                        x: filtered.map(d => d.y_rec),
-                        y: filtered.map(d => d.z_rec),
-                        type: 'histogram2d',
-                        colorscale: 'Plasma',
+                    Plotly.react('hist-yz', [makeLogHist2dTrace(filtered, {{
+                        xField: 'y_rec',
+                        yField: 'z_rec',
                         nbinsx: 40,
-                        nbinsy: 40
-                    }}], {{
+                        nbinsy: 40,
+                        colorscale: 'Plasma',
+                        xTitle: 'Y (mm)',
+                        yTitle: 'Z (mm)'
+                    }})], {{
                         title: {{ text: 'YZ Density', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'Y (mm)' }},
                         yaxis: {{ title: 'Z (mm)' }},
@@ -406,14 +512,17 @@ def _generate_dashboard_html(
                     }}, {{ displayModeBar: false }});
 
                     // S1-S2 histogram
-                    Plotly.react('hist-s1s2', [{{
-                        x: filtered.map(d => d.s1_area),
-                        y: filtered.map(d => d.s2_area),
-                        type: 'histogram2d',
-                        colorscale: 'Hot',
+                    Plotly.react('hist-s1s2', [makeLogHist2dTrace(filtered, {{
+                        xField: 's1_area',
+                        yField: 's2_area',
                         nbinsx: 35,
-                        nbinsy: 35
-                    }}], {{
+                        nbinsy: 35,
+                        colorscale: 'Hot',
+                        logX: true,
+                        logY: true,
+                        xTitle: 'S1 (PE)',
+                        yTitle: 'S2 (PE)'
+                    }})], {{
                         title: {{ text: 'S1-S2 Density', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'S1 (PE)', type: 'log' }},
                         yaxis: {{ title: 'S2 (PE)', type: 'log' }},
@@ -421,14 +530,15 @@ def _generate_dashboard_html(
                     }}, {{ displayModeBar: false }});
 
                     // R²-Z histogram
-                    Plotly.react('hist-r2z', [{{
-                        x: filtered.map(d => d.r2_rec),
-                        y: filtered.map(d => d.z_rec),
-                        type: 'histogram2d',
-                        colorscale: 'Cividis',
+                    Plotly.react('hist-r2z', [makeLogHist2dTrace(filtered, {{
+                        xField: 'r2_rec',
+                        yField: 'z_rec',
                         nbinsx: 35,
-                        nbinsy: 35
-                    }}], {{
+                        nbinsy: 35,
+                        colorscale: 'Cividis',
+                        xTitle: 'R² (mm²)',
+                        yTitle: 'Z (mm)'
+                    }})], {{
                         title: {{ text: 'R²-Z Density', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'R² (mm²)' }},
                         yaxis: {{ title: 'Z (mm)' }},
@@ -436,14 +546,15 @@ def _generate_dashboard_html(
                     }}, {{ displayModeBar: false }});
 
                     // R-Theta histogram
-                    Plotly.react('hist-rtheta', [{{
-                        x: filtered.map(d => d.r_rec),
-                        y: filtered.map(d => d.theta_rec),
-                        type: 'histogram2d',
-                        colorscale: 'Portland',
+                    Plotly.react('hist-rtheta', [makeLogHist2dTrace(filtered, {{
+                        xField: 'r_rec',
+                        yField: 'theta_rec',
                         nbinsx: 35,
-                        nbinsy: 35
-                    }}], {{
+                        nbinsy: 35,
+                        colorscale: 'Portland',
+                        xTitle: 'R (mm)',
+                        yTitle: 'θ (rad)'
+                    }})], {{
                         title: {{ text: 'R-θ Density', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'R (mm)' }},
                         yaxis: {{ title: 'θ (rad)' }},
