@@ -563,9 +563,9 @@ def _generate_dashboard_html(
                     }}, {{ displayModeBar: true }});
                     bindSelectionCallback('plot-xy');
 
-                    // === 2. XZ 散点图 ===
+                    // === 2. RZ 散点图 ===
                     Plotly.react('plot-xz', [{{
-                        x: filtered.map(d => d.x_rec),
+                        x: filtered.map(d => d.r_rec),
                         y: filtered.map(d => d.z_rec),
                         customdata: filtered.map(d => d._row_id),
                         meta: 'event-selection',
@@ -579,8 +579,8 @@ def _generate_dashboard_html(
                             colorbar: {{ title: 'S2 (PE)' }}
                         }}
                     }}], {{
-                        title: 'XZ Profile',
-                        xaxis: {{ title: 'X (mm)' }},
+                        title: 'R-Z Profile',
+                        xaxis: {{ title: 'R (mm)' }},
                         yaxis: {{ title: 'Z (mm)', autorange: 'reversed' }},
                         dragmode: 'select',
                         margin: {{ l:55, r:10, b:50, t:30 }}
