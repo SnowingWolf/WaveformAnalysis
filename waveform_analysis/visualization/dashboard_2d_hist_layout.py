@@ -226,6 +226,12 @@ def _generate_dashboard_html(
                     </div>
                 </div>
             </div>
+            <div style="display: flex; align-items: center; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #edf2f7;">
+                <span style="font-size: 12px; color:#2d3748; font-weight: 600;">2D Histogram Bins</span>
+                <input type="range" id="hist-bins-range" min="20" max="100" step="5" value="40" style="width: 220px; cursor:pointer;">
+                <input type="number" id="hist-bins-num" min="20" max="100" step="5" value="40" style="width: 64px; font-size:11px; padding: 2px; border: 1px solid #cbd5e0; border-radius: 4px;">
+                <button id="clear-selection" type="button" style="padding: 4px 10px; background: #edf2f7; color: #2d3748; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; font-size: 11px;">Clear Selection</button>
+            </div>
         </div>
 
         <!-- 1. XY 投影与 XZ 剖面（散点图） -->
@@ -236,16 +242,16 @@ def _generate_dashboard_html(
 
         <!-- 2. 第一行 2D histograms: XY, XZ, YZ -->
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-            <div id="hist-xy" class="plot-container" style="height: 200px;"></div>
-            <div id="hist-xz" class="plot-container" style="height: 200px;"></div>
-            <div id="hist-yz" class="plot-container" style="height: 200px;"></div>
+            <div id="hist-xy" class="plot-container" style="height: 280px;"></div>
+            <div id="hist-xz" class="plot-container" style="height: 280px;"></div>
+            <div id="hist-yz" class="plot-container" style="height: 280px;"></div>
         </div>
 
         <!-- 3. 第二行 2D histograms: S1-S2, R²-Z, R-Theta -->
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-            <div id="hist-s1s2" class="plot-container" style="height: 200px;"></div>
-            <div id="hist-r2z" class="plot-container" style="height: 200px;"></div>
-            <div id="hist-rtheta" class="plot-container" style="height: 200px;"></div>
+            <div id="hist-s1s2" class="plot-container" style="height: 280px;"></div>
+            <div id="hist-r2z" class="plot-container" style="height: 280px;"></div>
+            <div id="hist-rtheta" class="plot-container" style="height: 280px;"></div>
         </div>
 
         <!-- 4. 3D 散点图 -->
@@ -283,7 +289,12 @@ def _generate_dashboard_html(
                 const s2RMax = document.getElementById('s2-range-max');
                 const s2NMin = document.getElementById('s2-num-min');
                 const s2NMax = document.getElementById('s2-num-max');
+                const binsRange = document.getElementById('hist-bins-range');
+                const binsNum = document.getElementById('hist-bins-num');
+                const clearSelection = document.getElementById('clear-selection');
                 const badge = document.getElementById('event-count');
+                const selectionState = {{ rowIds: null }};
+                rawData.forEach((d, i) => {{ d._row_id = i; }});
 
                 // 绑定回调
                 function bindEvents(rangeEl, numEl) {{
@@ -303,6 +314,43 @@ def _generate_dashboard_html(
                 bindEvents(s1RMax, s1NMax);
                 bindEvents(s2RMin, s2NMin);
                 bindEvents(s2RMax, s2NMax);
+
+                function syncBins(value) {{
+                    const bins = Math.max(20, Math.min(100, parseInt(value, 10) || 40));
+                    binsRange.value = bins;
+                    binsNum.value = bins;
+                    updateAllPlots();
+                }}
+
+                binsRange.addEventListener('input', () => syncBins(binsRange.value));
+                binsNum.addEventListener('change', () => syncBins(binsNum.value));
+                clearSelection.addEventListener('click', () => {{
+                    selectionState.rowIds = null;
+                    updateAllPlots();
+                }});
+
+                function bindSelectionCallback(plotId) {{
+                    const element = document.getElementById(plotId);
+                    if (!element || element.dataset.selectionBound === 'true') {{
+                        return;
+                    }}
+                    element.dataset.selectionBound = 'true';
+                    element.on('plotly_selected', eventData => {{
+                        if (!eventData || !eventData.points || eventData.points.length === 0) {{
+                            return;
+                        }}
+                        selectionState.rowIds = new Set(
+                            eventData.points
+                                .map(point => point.customdata)
+                                .filter(rowId => rowId !== undefined && rowId !== null)
+                        );
+                        updateAllPlots();
+                    }});
+                    element.on('plotly_deselect', () => {{
+                        selectionState.rowIds = null;
+                        updateAllPlots();
+                    }});
+                }}
 
                 function getFinitePairs(data, xField, yField, logX=false, logY=false) {{
                     return data
@@ -413,18 +461,24 @@ def _generate_dashboard_html(
                     const s1Max = parseFloat(s1NMax.value);
                     const s2Min = parseFloat(s2NMin.value);
                     const s2Max = parseFloat(s2NMax.value);
+                    const histBins = parseInt(binsNum.value, 10) || 40;
 
-                    const filtered = rawData.filter(d =>
+                    const areaFiltered = rawData.filter(d =>
                         d.s1_area >= s1Min && d.s1_area <= s1Max &&
                         d.s2_area >= s2Min && d.s2_area <= s2Max
                     );
+                    const filtered = selectionState.rowIds
+                        ? areaFiltered.filter(d => selectionState.rowIds.has(d._row_id))
+                        : areaFiltered;
 
-                    badge.innerText = `Selected: ${{filtered.length.toLocaleString()}} / ${{rawData.length.toLocaleString()}} events`;
+                    const selectionText = selectionState.rowIds ? `, box: ${{selectionState.rowIds.size.toLocaleString()}}` : '';
+                    badge.innerText = `Selected: ${{filtered.length.toLocaleString()}} / ${{rawData.length.toLocaleString()}} events${{selectionText}}`;
 
                     // === 1. XY 散点图 ===
                     Plotly.react('plot-xy', [{{
                         x: filtered.map(d => d.x_rec),
                         y: filtered.map(d => d.y_rec),
+                        customdata: filtered.map(d => d._row_id),
                         mode: 'markers',
                         type: 'scattergl',
                         marker: {{
@@ -438,14 +492,17 @@ def _generate_dashboard_html(
                         title: 'XY Projection',
                         xaxis: {{ title: 'X (mm)', range: [-r_tpc*1.2, r_tpc*1.2] }},
                         yaxis: {{ title: 'Y (mm)', range: [-r_tpc*1.2, r_tpc*1.2], scaleanchor: 'x' }},
+                        dragmode: 'select',
                         margin: {{ l:50, r:10, b:50, t:30 }},
                         shapes: [{{ type: 'circle', xref: 'x', yref: 'y', x0: -r_tpc, y0: -r_tpc, x1: r_tpc, y1: r_tpc, line: {{ color: 'red', width: 2, dash: 'dash' }} }}]
-                    }}, {{ displayModeBar: false }});
+                    }}, {{ displayModeBar: true }});
+                    bindSelectionCallback('plot-xy');
 
                     // === 2. XZ 散点图 ===
                     Plotly.react('plot-xz', [{{
                         x: filtered.map(d => d.x_rec),
                         y: filtered.map(d => d.z_rec),
+                        customdata: filtered.map(d => d._row_id),
                         mode: 'markers',
                         type: 'scattergl',
                         marker: {{
@@ -459,16 +516,18 @@ def _generate_dashboard_html(
                         title: 'XZ Profile',
                         xaxis: {{ title: 'X (mm)' }},
                         yaxis: {{ title: 'Z (mm)' }},
+                        dragmode: 'select',
                         margin: {{ l:55, r:10, b:50, t:30 }}
-                    }}, {{ displayModeBar: false }});
+                    }}, {{ displayModeBar: true }});
+                    bindSelectionCallback('plot-xz');
 
                     // === 3. 2D histograms (LogNorm color scale) ===
                     // XY histogram
                     Plotly.react('hist-xy', [makeLogHist2dTrace(filtered, {{
                         xField: 'x_rec',
                         yField: 'y_rec',
-                        nbinsx: 40,
-                        nbinsy: 40,
+                        nbinsx: histBins,
+                        nbinsy: histBins,
                         colorscale: 'YlOrRd',
                         xTitle: 'X (mm)',
                         yTitle: 'Y (mm)'
@@ -483,8 +542,8 @@ def _generate_dashboard_html(
                     Plotly.react('hist-xz', [makeLogHist2dTrace(filtered, {{
                         xField: 'x_rec',
                         yField: 'z_rec',
-                        nbinsx: 40,
-                        nbinsy: 40,
+                        nbinsx: histBins,
+                        nbinsy: histBins,
                         colorscale: 'Viridis',
                         xTitle: 'X (mm)',
                         yTitle: 'Z (mm)'
@@ -499,8 +558,8 @@ def _generate_dashboard_html(
                     Plotly.react('hist-yz', [makeLogHist2dTrace(filtered, {{
                         xField: 'y_rec',
                         yField: 'z_rec',
-                        nbinsx: 40,
-                        nbinsy: 40,
+                        nbinsx: histBins,
+                        nbinsy: histBins,
                         colorscale: 'Plasma',
                         xTitle: 'Y (mm)',
                         yTitle: 'Z (mm)'
@@ -515,8 +574,8 @@ def _generate_dashboard_html(
                     Plotly.react('hist-s1s2', [makeLogHist2dTrace(filtered, {{
                         xField: 's1_area',
                         yField: 's2_area',
-                        nbinsx: 35,
-                        nbinsy: 35,
+                        nbinsx: histBins,
+                        nbinsy: histBins,
                         colorscale: 'Hot',
                         logX: true,
                         logY: true,
@@ -533,8 +592,8 @@ def _generate_dashboard_html(
                     Plotly.react('hist-r2z', [makeLogHist2dTrace(filtered, {{
                         xField: 'r2_rec',
                         yField: 'z_rec',
-                        nbinsx: 35,
-                        nbinsy: 35,
+                        nbinsx: histBins,
+                        nbinsy: histBins,
                         colorscale: 'Cividis',
                         xTitle: 'R² (mm²)',
                         yTitle: 'Z (mm)'
@@ -549,8 +608,8 @@ def _generate_dashboard_html(
                     Plotly.react('hist-rtheta', [makeLogHist2dTrace(filtered, {{
                         xField: 'r_rec',
                         yField: 'theta_rec',
-                        nbinsx: 35,
-                        nbinsy: 35,
+                        nbinsx: histBins,
+                        nbinsy: histBins,
                         colorscale: 'Portland',
                         xTitle: 'R (mm)',
                         yTitle: 'θ (rad)'
