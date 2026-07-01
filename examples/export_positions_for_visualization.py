@@ -87,7 +87,9 @@ def export_positions_to_dataframe(context: Context, run_id: str) -> pd.DataFrame
 
 
 def plot_static_figures(df: pd.DataFrame, output_dir: Path, run_id: str, detector_radius_mm: float):
-    """生成静态位置分布图（matplotlib）- 2D 密度图版本
+    """生成静态位置分布图（matplotlib）- 2D histogram 版本
+
+    使用 2D histogram 替代一维直方图，全部使用 LogNorm。
 
     Args:
         df: 位置数据 DataFrame
@@ -105,8 +107,8 @@ def plot_static_figures(df: pd.DataFrame, output_dir: Path, run_id: str, detecto
         print("[!] 没有数据可供绘图")
         return
 
-    # 创建 2x3 子图布局（增加了图表数量）
-    fig = plt.figure(figsize=(18, 12))
+    # 创建 2×2 子图布局
+    fig = plt.figure(figsize=(14, 12))
 
     # 过滤有效数据
     valid_mask = ~(np.isnan(df['x_rec']) | np.isnan(df['y_rec']) | np.isnan(df['z_rec']))
@@ -116,21 +118,20 @@ def plot_static_figures(df: pd.DataFrame, output_dir: Path, run_id: str, detecto
     s1_valid = df.loc[valid_mask, 's1_area'].values
     s2_valid = df.loc[valid_mask, 's2_area'].values
 
-    # 计算 r²
-    r2_valid = x_valid**2 + y_valid**2
+    # 计算 r
+    r_valid = np.sqrt(x_valid**2 + y_valid**2)
 
-    # === 1. XY 二维密度图 ===
-    ax1 = fig.add_subplot(2, 3, 1)
+    # === 1. XY 平面分布（2D histogram + LogNorm）===
+    ax1 = fig.add_subplot(2, 2, 1)
 
-    # 2D 直方图（热力图）
     h1 = ax1.hist2d(
         x_valid,
         y_valid,
         bins=50,
-        cmap='YlOrRd',
+        cmap='viridis',
+        norm=LogNorm(),
         range=[[-detector_radius_mm*1.2, detector_radius_mm*1.2],
                [-detector_radius_mm*1.2, detector_radius_mm*1.2]],
-        cmin=1,
     )
 
     # 探测器边界
@@ -138,48 +139,72 @@ def plot_static_figures(df: pd.DataFrame, output_dir: Path, run_id: str, detecto
         (0, 0),
         detector_radius_mm,
         fill=False,
-        edgecolor='blue',
+        edgecolor='red',
         linewidth=2,
         linestyle='--',
-        label=f'Detector boundary',
+        label=f'Detector boundary (r={detector_radius_mm} mm)',
     )
     ax1.add_patch(detector_circle)
 
+    # 边缘事件高亮
+    if 'edge_event' in df.columns:
+        edge_mask = valid_mask & df['edge_event']
+        if edge_mask.any():
+            ax1.scatter(
+                df.loc[edge_mask, 'x_rec'],
+                df.loc[edge_mask, 'y_rec'],
+                s=100,
+                facecolors='none',
+                edgecolors='red',
+                linewidth=2,
+                label='Edge events',
+                zorder=10,
+            )
+
     ax1.set_xlabel('X (mm)', fontsize=12)
     ax1.set_ylabel('Y (mm)', fontsize=12)
-    ax1.set_title(f'XY Density Map (n={len(x_valid)})', fontsize=14, fontweight='bold')
+    ax1.set_title(f'XY Position Distribution (Run {run_id})', fontsize=14, fontweight='bold')
     ax1.set_aspect('equal')
+    ax1.grid(True, alpha=0.3)
     ax1.legend(loc='upper right')
 
     cbar1 = plt.colorbar(h1[3], ax=ax1)
-    cbar1.set_label('Counts', fontsize=10)
+    cbar1.set_label('Counts (log scale)', fontsize=10)
 
-    # === 2. R²-Z 二维密度图 ===
-    ax2 = fig.add_subplot(2, 3, 2)
+    # === 2. Z 分布（2D histogram: X-Z + LogNorm）===
+    ax2 = fig.add_subplot(2, 2, 2)
 
     h2 = ax2.hist2d(
-        r2_valid,
+        x_valid,
         z_valid,
         bins=50,
-        cmap='viridis',
-        cmin=1,
+        cmap='plasma',
+        norm=LogNorm(),
     )
 
-    # R² = detector_radius² 边界线
-    r2_boundary = detector_radius_mm**2
-    ax2.axvline(r2_boundary, color='red', linestyle='--', linewidth=2, label=f'R² boundary')
-
-    ax2.set_xlabel('R² (mm²)', fontsize=12)
+    ax2.set_xlabel('X (mm)', fontsize=12)
     ax2.set_ylabel('Z (mm)', fontsize=12)
-    ax2.set_title(f'R²-Z Density Map', fontsize=14, fontweight='bold')
-    ax2.legend(loc='upper right')
+    ax2.set_title(f'X-Z Distribution (n={len(x_valid)})', fontsize=14, fontweight='bold')
     ax2.grid(True, alpha=0.3)
 
     cbar2 = plt.colorbar(h2[3], ax=ax2)
-    cbar2.set_label('Counts', fontsize=10)
+    cbar2.set_label('Counts (log scale)', fontsize=10)
 
-    # === 3. S1-S2 二维密度图（对数坐标）===
-    ax3 = fig.add_subplot(2, 3, 3)
+    # 统计信息
+    z_mean = z_valid.mean()
+    z_std = z_valid.std()
+    ax2.text(
+        0.95, 0.95,
+        f'Z: μ = {z_mean:.1f} mm\n    σ = {z_std:.1f} mm',
+        transform=ax2.transAxes,
+        fontsize=10,
+        verticalalignment='top',
+        horizontalalignment='right',
+        bbox={'boxstyle': 'round', 'facecolor': 'white', 'alpha': 0.8},
+    )
+
+    # === 3. S1-S2 散点图（2D histogram + LogNorm，按位置着色）===
+    ax3 = fig.add_subplot(2, 2, 3)
 
     # 使用对数 bins
     s1_log_bins = np.logspace(np.log10(s1_valid.min()), np.log10(s1_valid.max()), 50)
@@ -189,124 +214,76 @@ def plot_static_figures(df: pd.DataFrame, output_dir: Path, run_id: str, detecto
         s1_valid,
         s2_valid,
         bins=[s1_log_bins, s2_log_bins],
-        cmap='plasma',
-        cmin=1,
+        cmap='coolwarm',
         norm=LogNorm(),
     )
 
     ax3.set_xlabel('S1 Area (PE)', fontsize=12)
     ax3.set_ylabel('S2 Area (PE)', fontsize=12)
-    ax3.set_title('S1-S2 Density Map', fontsize=14, fontweight='bold')
+    ax3.set_title('S1-S2 Distribution', fontsize=14, fontweight='bold')
     ax3.set_xscale('log')
     ax3.set_yscale('log')
-    ax3.grid(True, alpha=0.3, which='both')
+    ax3.grid(True, alpha=0.3)
 
     cbar3 = plt.colorbar(h3[3], ax=ax3)
-    cbar3.set_label('Counts (log)', fontsize=10)
+    cbar3.set_label('Counts (log scale)', fontsize=10)
 
-    # === 4. XY 散点图（按事件数着色，保留传统视图）===
-    ax4 = fig.add_subplot(2, 3, 4)
+    # === 4. 径向分布（2D histogram: R-Z + LogNorm）===
+    ax4 = fig.add_subplot(2, 2, 4)
 
-    scatter4 = ax4.scatter(
-        x_valid,
-        y_valid,
-        c=s2_valid,
-        cmap='coolwarm',
-        s=10,
-        alpha=0.5,
-        edgecolors='none',
+    h4 = ax4.hist2d(
+        r_valid,
+        z_valid,
+        bins=50,
+        cmap='viridis',
+        norm=LogNorm(),
     )
 
-    # 探测器边界
-    detector_circle2 = Circle(
-        (0, 0),
+    ax4.axvline(
         detector_radius_mm,
-        fill=False,
-        edgecolor='blue',
-        linewidth=2,
-        linestyle='--',
-    )
-    ax4.add_patch(detector_circle2)
-
-    ax4.set_xlabel('X (mm)', fontsize=12)
-    ax4.set_ylabel('Y (mm)', fontsize=12)
-    ax4.set_title('XY Scatter (colored by S2)', fontsize=14, fontweight='bold')
-    ax4.set_aspect('equal')
-    ax4.grid(True, alpha=0.3)
-
-    cbar4 = plt.colorbar(scatter4, ax=ax4)
-    cbar4.set_label('S2 Area (PE)', fontsize=10)
-
-    # === 5. Z 一维分布（参考）===
-    ax5 = fig.add_subplot(2, 3, 5)
-
-    ax5.hist(z_valid, bins=60, color='steelblue', alpha=0.7, edgecolor='black')
-
-    z_mean = z_valid.mean()
-    z_std = z_valid.std()
-    ax5.axvline(z_mean, color='red', linestyle='--', linewidth=2, label=f'Mean: {z_mean:.1f} mm')
-
-    ax5.set_xlabel('Z (mm)', fontsize=12)
-    ax5.set_ylabel('Count', fontsize=12)
-    ax5.set_title(f'Z Distribution', fontsize=14, fontweight='bold')
-    ax5.grid(True, alpha=0.3, axis='y')
-    ax5.legend()
-
-    ax5.text(
-        0.95, 0.95,
-        f'μ = {z_mean:.1f} mm\nσ = {z_std:.1f} mm',
-        transform=ax5.transAxes,
-        fontsize=10,
-        verticalalignment='top',
-        horizontalalignment='right',
-        bbox=dict(boxstyle='round', facecolor='white', alpha=0.8),
-    )
-
-    # === 6. R² 一维分布（参考）===
-    ax6 = fig.add_subplot(2, 3, 6)
-
-    ax6.hist(r2_valid, bins=60, color='coral', alpha=0.7, edgecolor='black')
-    ax6.axvline(
-        r2_boundary,
         color='red',
         linestyle='--',
         linewidth=2,
-        label=f'R² boundary ({detector_radius_mm}² mm²)',
+        label=f'Detector edge (r={detector_radius_mm} mm)',
     )
 
-    ax6.set_xlabel('R² (mm²)', fontsize=12)
-    ax6.set_ylabel('Count', fontsize=12)
-    ax6.set_title(f'R² Distribution', fontsize=14, fontweight='bold')
-    ax6.grid(True, alpha=0.3, axis='y')
-    ax6.legend()
+    ax4.set_xlabel('r (mm)', fontsize=12)
+    ax4.set_ylabel('Z (mm)', fontsize=12)
+    ax4.set_title(f'Radial Distribution (n={len(r_valid)})', fontsize=14, fontweight='bold')
+    ax4.grid(True, alpha=0.3)
+    ax4.legend()
 
-    r2_mean = r2_valid.mean()
-    r2_std = r2_valid.std()
-    ax6.text(
+    cbar4 = plt.colorbar(h4[3], ax=ax4)
+    cbar4.set_label('Counts (log scale)', fontsize=10)
+
+    # 统计信息
+    r_mean = r_valid.mean()
+    r_std = r_valid.std()
+    ax4.text(
         0.95, 0.95,
-        f'μ = {r2_mean:.1f} mm²\nσ = {r2_std:.1f} mm²',
-        transform=ax6.transAxes,
+        f'r: μ = {r_mean:.1f} mm\n   σ = {r_std:.1f} mm',
+        transform=ax4.transAxes,
         fontsize=10,
         verticalalignment='top',
         horizontalalignment='right',
-        bbox=dict(boxstyle='round', facecolor='white', alpha=0.8),
+        bbox={'boxstyle': 'round', 'facecolor': 'white', 'alpha': 0.8},
     )
 
     # 总标题
     fig.suptitle(
-        f'Position Reconstruction - 2D Density Maps (Run {run_id})\n'
+        f'Position Reconstruction Summary - Run {run_id}\n'
         f'Total events: {len(df)} | Valid positions: {len(x_valid)}',
         fontsize=16,
         fontweight='bold',
         y=0.995,
     )
 
-    plt.tight_layout(rect=[0, 0, 1, 0.97])
+    plt.tight_layout(rect=[0, 0, 1, 0.98])
 
     # 保存图片
-    output_file = output_dir / f"run_{run_id}_position_2d_distributions.png"
+    output_file = output_dir / f"run_{run_id}_position_distribution.png"
     plt.savefig(output_file, dpi=150, bbox_inches='tight')
-    print(f"[✓] 2D 密度分布图已保存: {output_file}")
+    print(f"[✓] 位置分布图已保存: {output_file}")
 
     plt.close()
 
