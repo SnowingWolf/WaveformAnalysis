@@ -333,6 +333,11 @@ def main():
         help="生成 2D 密度热力图仪表板（推荐，重点展示二维分布）",
     )
     parser.add_argument(
+        "--dashboard-2d-hist",
+        action="store_true",
+        help="生成交互式仪表板（原始布局 + 2D histogram，带S1/S2滑动条回调）",
+    )
+    parser.add_argument(
         "--detector-radius",
         type=float,
         default=62.5,
@@ -436,6 +441,34 @@ def main():
             print("[!] 请确保 waveform_analysis.visualization 模块已安装")
         except Exception as e:
             print(f"[!] 生成 2D 仪表板时出错: {e}")
+            import traceback
+            traceback.print_exc()
+
+    # 可选：生成 2D histogram 仪表板（原始布局）
+    if args.dashboard_2d_hist:
+        print(f"[*] 生成交互式仪表板（原始布局 + 2D histogram）...")
+        try:
+            from waveform_analysis.visualization import render_position_dashboard_with_2d_hist
+
+            # 加载 PMT 布局
+            layout = load_pmt_layout_from_config(ctx.config)
+            if layout is None:
+                layout = load_fallback_layout()
+
+            # 生成仪表板
+            render_position_dashboard_with_2d_hist(
+                df=df,
+                layout=layout,
+                run_id=args.run_id,
+                output_dir=str(output_dir),
+                detector_radius_mm=args.detector_radius,
+            )
+
+        except ImportError as e:
+            print(f"[!] 无法导入可视化模块: {e}")
+            print("[!] 请确保 waveform_analysis.visualization 模块已安装")
+        except Exception as e:
+            print(f"[!] 生成 2D histogram 仪表板时出错: {e}")
             import traceback
             traceback.print_exc()
 
