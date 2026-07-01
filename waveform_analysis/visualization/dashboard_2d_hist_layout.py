@@ -3,9 +3,10 @@
 保持原始布局，将 6 个 1D 直方图改为 2D histogram：
 1. XY 投影 + XZ 剖面（保留散点图）
 2. 第一行 3 个 2D histogram: XY, XZ, YZ
-3. 第二行 3 个 2D histogram: S1-S2, R²-Z, R-Theta
-4. 3D 散点图
-5. S1/S2 selection bar（滑动条）+ 回调
+3. 第二行 3 个 2D histogram: S1-S2, R²-Z, R-cos(theta)
+4. 第三行 3 个特征 pair histogram: S1-Width, S2-Rise, Width-Rise
+5. 3D 散点图
+6. S1/S2 selection bar（滑动条）+ 框选回调
 """
 
 import json
@@ -30,9 +31,10 @@ def render_position_dashboard_with_2d_hist(
     布局：
     - 上层：XY 散点图 + XZ 散点图
     - 中层第一行：XY、XZ、YZ 的 2D histogram
-    - 中层第二行：S1-S2、R²-Z、R-Theta 的 2D histogram
+    - 中层第二行：S1-S2、R²-Z、R-cos(theta) 的 2D histogram
+    - 中层第三行：width、rise_time_10_50 相关特征 pair histogram
     - 下层：3D 散点图
-    - 控制面板：S1/S2 滑动条（带回调）
+    - 控制面板：S1/S2 滑动条、bins 控件、框选回调
 
     Args:
         df: 位置数据 DataFrame
@@ -56,6 +58,12 @@ def render_position_dashboard_with_2d_hist(
 
     # 准备数据
     df_clean = df[required_cols].copy()
+    optional_feature_cols = ["width", "rise_time_10_50"]
+    for col in optional_feature_cols:
+        if col in df.columns:
+            df_clean[col] = df[col]
+        else:
+            df_clean[col] = None
 
     # 添加 drift_time_ns（如果存在）
     if "drift_time_ns" in df.columns:
@@ -67,11 +75,12 @@ def render_position_dashboard_with_2d_hist(
     df_clean["r2_rec"] = df_clean["x_rec"] ** 2 + df_clean["y_rec"] ** 2
     df_clean["r_rec"] = np.sqrt(df_clean["r2_rec"])
     df_clean["theta_rec"] = np.arctan2(df_clean["y_rec"], df_clean["x_rec"])
+    df_clean["cos_theta_rec"] = np.cos(df_clean["theta_rec"])
     df_clean["log10_s1"] = np.log10(df_clean["s1_area"].clip(lower=1.0))
     df_clean["log10_s2"] = np.log10(df_clean["s2_area"].clip(lower=1.0))
 
     # 序列化数据为 JSON
-    json_data = json.dumps(df_clean.to_dict(orient="records"))
+    json_data = json.dumps(df_clean.where(pd.notna(df_clean), None).to_dict(orient="records"))
 
     # 计算数据范围
     z_min = float(df_clean["z_rec"].min())
@@ -228,8 +237,8 @@ def _generate_dashboard_html(
             </div>
             <div style="display: flex; align-items: center; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #edf2f7;">
                 <span style="font-size: 12px; color:#2d3748; font-weight: 600;">2D Histogram Bins</span>
-                <input type="range" id="hist-bins-range" min="20" max="100" step="5" value="40" style="width: 220px; cursor:pointer;">
-                <input type="number" id="hist-bins-num" min="20" max="100" step="5" value="40" style="width: 64px; font-size:11px; padding: 2px; border: 1px solid #cbd5e0; border-radius: 4px;">
+                <input type="range" id="hist-bins-range" min="20" max="200" step="5" value="40" style="width: 220px; cursor:pointer;">
+                <input type="number" id="hist-bins-num" min="20" max="200" step="5" value="40" style="width: 64px; font-size:11px; padding: 2px; border: 1px solid #cbd5e0; border-radius: 4px;">
                 <button id="clear-selection" type="button" style="padding: 4px 10px; background: #edf2f7; color: #2d3748; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; font-size: 11px;">Clear Selection</button>
             </div>
         </div>
@@ -247,14 +256,21 @@ def _generate_dashboard_html(
             <div id="hist-yz" class="plot-container" style="height: 280px;"></div>
         </div>
 
-        <!-- 3. 第二行 2D histograms: S1-S2, R²-Z, R-Theta -->
+        <!-- 3. 第二行 2D histograms: S1-S2, R²-Z, R-cos(theta) -->
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
             <div id="hist-s1s2" class="plot-container" style="height: 280px;"></div>
             <div id="hist-r2z" class="plot-container" style="height: 280px;"></div>
             <div id="hist-rtheta" class="plot-container" style="height: 280px;"></div>
         </div>
 
-        <!-- 4. 3D 散点图 -->
+        <!-- 4. Feature pair histograms: corner-hist style diagnostics -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div id="hist-s1-width" class="plot-container" style="height: 280px;"></div>
+            <div id="hist-s2-rise" class="plot-container" style="height: 280px;"></div>
+            <div id="hist-width-rise" class="plot-container" style="height: 280px;"></div>
+        </div>
+
+        <!-- 5. 3D 散点图 -->
         <div id="plot-3d" class="plot-container" style="height: 480px;"></div>
 
         <script>
@@ -316,7 +332,7 @@ def _generate_dashboard_html(
                 bindEvents(s2RMax, s2NMax);
 
                 function syncBins(value) {{
-                    const bins = Math.max(20, Math.min(100, parseInt(value, 10) || 40));
+                    const bins = Math.max(20, Math.min(200, parseInt(value, 10) || 40));
                     binsRange.value = bins;
                     binsNum.value = bins;
                     updateAllPlots();
@@ -341,9 +357,13 @@ def _generate_dashboard_html(
                         }}
                         selectionState.rowIds = new Set(
                             eventData.points
-                                .map(point => point.customdata)
+                                .map(point => point.data && point.data.meta === 'event-selection' ? point.customdata : null)
                                 .filter(rowId => rowId !== undefined && rowId !== null)
                         );
+                        if (selectionState.rowIds.size === 0) {{
+                            selectionState.rowIds = null;
+                            return;
+                        }}
                         updateAllPlots();
                     }});
                     element.on('plotly_deselect', () => {{
@@ -353,13 +373,24 @@ def _generate_dashboard_html(
                 }}
 
                 function getFinitePairs(data, xField, yField, logX=false, logY=false) {{
-                    return data
-                        .map(d => [Number(d[xField]), Number(d[yField])])
-                        .filter(([x, y]) =>
+                    const pairs = [];
+                    for (const d of data) {{
+                        const rawX = d[xField];
+                        const rawY = d[yField];
+                        if (rawX === null || rawY === null || rawX === undefined || rawY === undefined) {{
+                            continue;
+                        }}
+                        const x = Number(rawX);
+                        const y = Number(rawY);
+                        if (
                             Number.isFinite(x) && Number.isFinite(y) &&
                             (!logX || x > 0) &&
                             (!logY || y > 0)
-                        );
+                        ) {{
+                            pairs.push([x, y]);
+                        }}
+                    }}
+                    return pairs;
                 }}
 
                 function buildBinSpec(values, nBins, useLog) {{
@@ -456,6 +487,39 @@ def _generate_dashboard_html(
                     }};
                 }}
 
+                function makeSelectionTrace(data, config) {{
+                    const points = data.filter(d => {{
+                        const rawX = d[config.xField];
+                        const rawY = d[config.yField];
+                        if (rawX === null || rawY === null || rawX === undefined || rawY === undefined) {{
+                            return false;
+                        }}
+                        const x = Number(rawX);
+                        const y = Number(rawY);
+                        return (
+                            Number.isFinite(x) && Number.isFinite(y) &&
+                            (!config.logX || x > 0) &&
+                            (!config.logY || y > 0)
+                        );
+                    }});
+
+                    return {{
+                        x: points.map(d => d[config.xField]),
+                        y: points.map(d => d[config.yField]),
+                        customdata: points.map(d => d._row_id),
+                        meta: 'event-selection',
+                        mode: 'markers',
+                        type: 'scattergl',
+                        showlegend: false,
+                        hoverinfo: 'skip',
+                        marker: {{
+                            size: 5,
+                            color: 'rgba(26, 32, 44, 0.03)',
+                            line: {{ width: 0 }}
+                        }}
+                    }};
+                }}
+
                 function updateAllPlots() {{
                     const s1Min = parseFloat(s1NMin.value);
                     const s1Max = parseFloat(s1NMax.value);
@@ -479,6 +543,7 @@ def _generate_dashboard_html(
                         x: filtered.map(d => d.x_rec),
                         y: filtered.map(d => d.y_rec),
                         customdata: filtered.map(d => d._row_id),
+                        meta: 'event-selection',
                         mode: 'markers',
                         type: 'scattergl',
                         marker: {{
@@ -503,6 +568,7 @@ def _generate_dashboard_html(
                         x: filtered.map(d => d.x_rec),
                         y: filtered.map(d => d.z_rec),
                         customdata: filtered.map(d => d._row_id),
+                        meta: 'event-selection',
                         mode: 'markers',
                         type: 'scattergl',
                         marker: {{
@@ -515,7 +581,7 @@ def _generate_dashboard_html(
                     }}], {{
                         title: 'XZ Profile',
                         xaxis: {{ title: 'X (mm)' }},
-                        yaxis: {{ title: 'Z (mm)' }},
+                        yaxis: {{ title: 'Z (mm)', autorange: 'reversed' }},
                         dragmode: 'select',
                         margin: {{ l:55, r:10, b:50, t:30 }}
                     }}, {{ displayModeBar: true }});
@@ -550,7 +616,7 @@ def _generate_dashboard_html(
                     }})], {{
                         title: {{ text: 'XZ Density', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'X (mm)' }},
-                        yaxis: {{ title: 'Z (mm)' }},
+                        yaxis: {{ title: 'Z (mm)', autorange: 'reversed' }},
                         margin: {{ l:45, r:10, b:35, t:25 }}
                     }}, {{ displayModeBar: false }});
 
@@ -566,27 +632,37 @@ def _generate_dashboard_html(
                     }})], {{
                         title: {{ text: 'YZ Density', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'Y (mm)' }},
-                        yaxis: {{ title: 'Z (mm)' }},
+                        yaxis: {{ title: 'Z (mm)', autorange: 'reversed' }},
                         margin: {{ l:45, r:10, b:35, t:25 }}
                     }}, {{ displayModeBar: false }});
 
                     // S1-S2 histogram
-                    Plotly.react('hist-s1s2', [makeLogHist2dTrace(filtered, {{
-                        xField: 's1_area',
-                        yField: 's2_area',
-                        nbinsx: histBins,
-                        nbinsy: histBins,
-                        colorscale: 'Hot',
-                        logX: true,
-                        logY: true,
-                        xTitle: 'S1 (PE)',
-                        yTitle: 'S2 (PE)'
-                    }})], {{
+                    Plotly.react('hist-s1s2', [
+                        makeLogHist2dTrace(filtered, {{
+                            xField: 's1_area',
+                            yField: 's2_area',
+                            nbinsx: histBins,
+                            nbinsy: histBins,
+                            colorscale: 'Hot',
+                            logX: true,
+                            logY: true,
+                            xTitle: 'S1 (PE)',
+                            yTitle: 'S2 (PE)'
+                        }}),
+                        makeSelectionTrace(filtered, {{
+                            xField: 's1_area',
+                            yField: 's2_area',
+                            logX: true,
+                            logY: true
+                        }})
+                    ], {{
                         title: {{ text: 'S1-S2 Density', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'S1 (PE)', type: 'log' }},
                         yaxis: {{ title: 'S2 (PE)', type: 'log' }},
+                        dragmode: 'select',
                         margin: {{ l:45, r:10, b:35, t:25 }}
-                    }}, {{ displayModeBar: false }});
+                    }}, {{ displayModeBar: true }});
+                    bindSelectionCallback('hist-s1s2');
 
                     // R²-Z histogram
                     Plotly.react('hist-r2z', [makeLogHist2dTrace(filtered, {{
@@ -600,23 +676,71 @@ def _generate_dashboard_html(
                     }})], {{
                         title: {{ text: 'R²-Z Density', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'R² (mm²)' }},
-                        yaxis: {{ title: 'Z (mm)' }},
+                        yaxis: {{ title: 'Z (mm)', autorange: 'reversed' }},
                         margin: {{ l:45, r:10, b:35, t:25 }}
                     }}, {{ displayModeBar: false }});
 
-                    // R-Theta histogram
+                    // R-cos(theta) histogram
                     Plotly.react('hist-rtheta', [makeLogHist2dTrace(filtered, {{
                         xField: 'r_rec',
-                        yField: 'theta_rec',
+                        yField: 'cos_theta_rec',
                         nbinsx: histBins,
                         nbinsy: histBins,
                         colorscale: 'Portland',
                         xTitle: 'R (mm)',
-                        yTitle: 'θ (rad)'
+                        yTitle: 'cos(θ)'
                     }})], {{
-                        title: {{ text: 'R-θ Density', font: {{ size: 11 }} }},
+                        title: {{ text: 'R-cos(θ) Density', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'R (mm)' }},
-                        yaxis: {{ title: 'θ (rad)' }},
+                        yaxis: {{ title: 'cos(θ)' }},
+                        margin: {{ l:45, r:10, b:35, t:25 }}
+                    }}, {{ displayModeBar: false }});
+
+                    // Corner-hist style feature pairs
+                    Plotly.react('hist-s1-width', [makeLogHist2dTrace(filtered, {{
+                        xField: 's1_area',
+                        yField: 'width',
+                        nbinsx: histBins,
+                        nbinsy: histBins,
+                        colorscale: 'Magma',
+                        logX: true,
+                        xTitle: 'S1 (PE)',
+                        yTitle: 'Width'
+                    }})], {{
+                        title: {{ text: 'S1-Width Density', font: {{ size: 11 }} }},
+                        xaxis: {{ title: 'S1 (PE)', type: 'log' }},
+                        yaxis: {{ title: 'Width' }},
+                        margin: {{ l:45, r:10, b:35, t:25 }}
+                    }}, {{ displayModeBar: false }});
+
+                    Plotly.react('hist-s2-rise', [makeLogHist2dTrace(filtered, {{
+                        xField: 's2_area',
+                        yField: 'rise_time_10_50',
+                        nbinsx: histBins,
+                        nbinsy: histBins,
+                        colorscale: 'Turbo',
+                        logX: true,
+                        xTitle: 'S2 (PE)',
+                        yTitle: 'Rise 10-50'
+                    }})], {{
+                        title: {{ text: 'S2-Rise 10-50 Density', font: {{ size: 11 }} }},
+                        xaxis: {{ title: 'S2 (PE)', type: 'log' }},
+                        yaxis: {{ title: 'Rise 10-50' }},
+                        margin: {{ l:45, r:10, b:35, t:25 }}
+                    }}, {{ displayModeBar: false }});
+
+                    Plotly.react('hist-width-rise', [makeLogHist2dTrace(filtered, {{
+                        xField: 'width',
+                        yField: 'rise_time_10_50',
+                        nbinsx: histBins,
+                        nbinsy: histBins,
+                        colorscale: 'Viridis',
+                        xTitle: 'Width',
+                        yTitle: 'Rise 10-50'
+                    }})], {{
+                        title: {{ text: 'Width-Rise 10-50 Density', font: {{ size: 11 }} }},
+                        xaxis: {{ title: 'Width' }},
+                        yaxis: {{ title: 'Rise 10-50' }},
                         margin: {{ l:45, r:10, b:35, t:25 }}
                     }}, {{ displayModeBar: false }});
 
@@ -639,7 +763,7 @@ def _generate_dashboard_html(
                         scene: {{
                             xaxis: {{ title: 'X (mm)' }},
                             yaxis: {{ title: 'Y (mm)' }},
-                            zaxis: {{ title: 'Z (mm)' }}
+                            zaxis: {{ title: 'Z (mm)', autorange: 'reversed' }}
                         }},
                         margin: {{ l:0, r:0, b:0, t:30 }}
                     }});
