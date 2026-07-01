@@ -20,18 +20,18 @@
 """
 
 import argparse
-import sys
 from pathlib import Path
+import sys
 
 import numpy as np
 import pandas as pd
 
 from waveform_analysis.core.context import Context
-from waveform_analysis.utils.s1_s2_pair_accessor import S1S2PairAccessor
 from waveform_analysis.core.hardware.geometry import (
     load_fallback_layout,
     load_pmt_layout_from_config,
 )
+from waveform_analysis.utils.s1_s2_pair_accessor import S1S2PairAccessor
 
 
 def export_positions_to_dataframe(context: Context, run_id: str) -> pd.DataFrame:
@@ -59,27 +59,56 @@ def export_positions_to_dataframe(context: Context, run_id: str) -> pd.DataFrame
         print(f"[!] Run {run_id} 没有位置重建数据，请先运行位置重建插件")
         return pd.DataFrame()
 
+    def _field_or_nan(data, field: str):
+        if field in data.dtype.names:
+            return data[field]
+        return np.full(len(data), np.nan, dtype=np.float32)
+
+    def _peak_feature_lookup(field: str) -> dict[int, float]:
+        try:
+            peaks = context.get_data(run_id, "peaks")
+        except Exception as e:
+            print(f"[!] 无法加载 peaks 特征 {field}: {e}")
+            return {}
+
+        if field not in peaks.dtype.names:
+            return {}
+        return {int(peak["peak_id"]): float(peak[field]) for peak in peaks}
+
+    rise_time_by_peak = _peak_feature_lookup("rise_time_10_50")
+    width_by_peak = _peak_feature_lookup("width")
+
     # 合并数据
-    df = pd.DataFrame({
-        # 位置坐标
-        'x_rec': positions['x'],
-        'y_rec': positions['y'],
-        'z_rec': positions['z'],
-
-        # S1-S2 信息
-        's1_area': pairs['s1_area'],
-        's2_area': pairs['s2_area'],
-        's1_peak_id': pairs['s1_peak_id'],
-        's2_peak_id': pairs['s2_peak_id'],
-        'drift_time_ns': pairs['drift_time_ns'],
-
-        # 质量标志
-        'position_valid': (positions['flags'] & 0x1) != 0,  # FLAG_POSITION_VALID
-        'edge_event': (positions['flags'] & 0x10) != 0,     # FLAG_EDGE_EVENT
-    })
+    df = pd.DataFrame(
+        {
+            # 位置坐标
+            "x_rec": positions["x"],
+            "y_rec": positions["y"],
+            "z_rec": positions["z"],
+            # S1-S2 信息
+            "s1_area": pairs["s1_area"],
+            "s2_area": pairs["s2_area"],
+            "s1_peak_id": pairs["s1_peak_id"],
+            "s2_peak_id": pairs["s2_peak_id"],
+            "drift_time_ns": pairs["drift_time_ns"],
+            "s1_width": _field_or_nan(pairs, "s1_width"),
+            "s2_width": _field_or_nan(pairs, "s2_width"),
+            "s1_peak_width": [width_by_peak.get(int(pid), np.nan) for pid in pairs["s1_peak_id"]],
+            "s2_peak_width": [width_by_peak.get(int(pid), np.nan) for pid in pairs["s2_peak_id"]],
+            "s1_rise_time_10_50": [
+                rise_time_by_peak.get(int(pid), np.nan) for pid in pairs["s1_peak_id"]
+            ],
+            "s2_rise_time_10_50": [
+                rise_time_by_peak.get(int(pid), np.nan) for pid in pairs["s2_peak_id"]
+            ],
+            # 质量标志
+            "position_valid": (positions["flags"] & 0x1) != 0,  # FLAG_POSITION_VALID
+            "edge_event": (positions["flags"] & 0x10) != 0,  # FLAG_EDGE_EVENT
+        }
+    )
 
     # 过滤无效位置
-    df = df[df['position_valid']].copy()
+    df = df[df["position_valid"]].copy()
 
     print(f"[✓] 导出 {len(df)} 个有效位置")
 
@@ -98,10 +127,11 @@ def plot_static_figures(df: pd.DataFrame, output_dir: Path, run_id: str, detecto
         detector_radius_mm: 探测器半径
     """
     import matplotlib
-    matplotlib.use('Agg')  # 无头模式
-    import matplotlib.pyplot as plt
-    from matplotlib.patches import Circle
+
+    matplotlib.use("Agg")  # 无头模式
     from matplotlib.colors import LogNorm
+    from matplotlib.patches import Circle
+    import matplotlib.pyplot as plt
 
     if len(df) == 0:
         print("[!] 没有数据可供绘图")
@@ -111,12 +141,12 @@ def plot_static_figures(df: pd.DataFrame, output_dir: Path, run_id: str, detecto
     fig = plt.figure(figsize=(14, 12))
 
     # 过滤有效数据
-    valid_mask = ~(np.isnan(df['x_rec']) | np.isnan(df['y_rec']) | np.isnan(df['z_rec']))
-    x_valid = df.loc[valid_mask, 'x_rec'].values
-    y_valid = df.loc[valid_mask, 'y_rec'].values
-    z_valid = df.loc[valid_mask, 'z_rec'].values
-    s1_valid = df.loc[valid_mask, 's1_area'].values
-    s2_valid = df.loc[valid_mask, 's2_area'].values
+    valid_mask = ~(np.isnan(df["x_rec"]) | np.isnan(df["y_rec"]) | np.isnan(df["z_rec"]))
+    x_valid = df.loc[valid_mask, "x_rec"].values
+    y_valid = df.loc[valid_mask, "y_rec"].values
+    z_valid = df.loc[valid_mask, "z_rec"].values
+    s1_valid = df.loc[valid_mask, "s1_area"].values
+    s2_valid = df.loc[valid_mask, "s2_area"].values
 
     # 计算 r
     r_valid = np.sqrt(x_valid**2 + y_valid**2)
@@ -128,10 +158,12 @@ def plot_static_figures(df: pd.DataFrame, output_dir: Path, run_id: str, detecto
         x_valid,
         y_valid,
         bins=50,
-        cmap='viridis',
+        cmap="viridis",
         norm=LogNorm(),
-        range=[[-detector_radius_mm*1.2, detector_radius_mm*1.2],
-               [-detector_radius_mm*1.2, detector_radius_mm*1.2]],
+        range=[
+            [-detector_radius_mm * 1.2, detector_radius_mm * 1.2],
+            [-detector_radius_mm * 1.2, detector_radius_mm * 1.2],
+        ],
     )
 
     # 探测器边界
@@ -139,37 +171,37 @@ def plot_static_figures(df: pd.DataFrame, output_dir: Path, run_id: str, detecto
         (0, 0),
         detector_radius_mm,
         fill=False,
-        edgecolor='red',
+        edgecolor="red",
         linewidth=2,
-        linestyle='--',
-        label=f'Detector boundary (r={detector_radius_mm} mm)',
+        linestyle="--",
+        label=f"Detector boundary (r={detector_radius_mm} mm)",
     )
     ax1.add_patch(detector_circle)
 
     # 边缘事件高亮
-    if 'edge_event' in df.columns:
-        edge_mask = valid_mask & df['edge_event']
+    if "edge_event" in df.columns:
+        edge_mask = valid_mask & df["edge_event"]
         if edge_mask.any():
             ax1.scatter(
-                df.loc[edge_mask, 'x_rec'],
-                df.loc[edge_mask, 'y_rec'],
+                df.loc[edge_mask, "x_rec"],
+                df.loc[edge_mask, "y_rec"],
                 s=100,
-                facecolors='none',
-                edgecolors='red',
+                facecolors="none",
+                edgecolors="red",
                 linewidth=2,
-                label='Edge events',
+                label="Edge events",
                 zorder=10,
             )
 
-    ax1.set_xlabel('X (mm)', fontsize=12)
-    ax1.set_ylabel('Y (mm)', fontsize=12)
-    ax1.set_title(f'XY Position Distribution (Run {run_id})', fontsize=14, fontweight='bold')
-    ax1.set_aspect('equal')
+    ax1.set_xlabel("X (mm)", fontsize=12)
+    ax1.set_ylabel("Y (mm)", fontsize=12)
+    ax1.set_title(f"XY Position Distribution (Run {run_id})", fontsize=14, fontweight="bold")
+    ax1.set_aspect("equal")
     ax1.grid(True, alpha=0.3)
-    ax1.legend(loc='upper right')
+    ax1.legend(loc="upper right")
 
     cbar1 = plt.colorbar(h1[3], ax=ax1)
-    cbar1.set_label('Counts (log scale)', fontsize=10)
+    cbar1.set_label("Counts (log scale)", fontsize=10)
 
     # === 2. Z 分布（2D histogram: X-Z + LogNorm）===
     ax2 = fig.add_subplot(2, 2, 2)
@@ -178,29 +210,30 @@ def plot_static_figures(df: pd.DataFrame, output_dir: Path, run_id: str, detecto
         x_valid,
         z_valid,
         bins=50,
-        cmap='plasma',
+        cmap="plasma",
         norm=LogNorm(),
     )
 
-    ax2.set_xlabel('X (mm)', fontsize=12)
-    ax2.set_ylabel('Z (mm)', fontsize=12)
-    ax2.set_title(f'X-Z Distribution (n={len(x_valid)})', fontsize=14, fontweight='bold')
+    ax2.set_xlabel("X (mm)", fontsize=12)
+    ax2.set_ylabel("Z (mm)", fontsize=12)
+    ax2.set_title(f"X-Z Distribution (n={len(x_valid)})", fontsize=14, fontweight="bold")
     ax2.grid(True, alpha=0.3)
 
     cbar2 = plt.colorbar(h2[3], ax=ax2)
-    cbar2.set_label('Counts (log scale)', fontsize=10)
+    cbar2.set_label("Counts (log scale)", fontsize=10)
 
     # 统计信息
     z_mean = z_valid.mean()
     z_std = z_valid.std()
     ax2.text(
-        0.95, 0.95,
-        f'Z: μ = {z_mean:.1f} mm\n    σ = {z_std:.1f} mm',
+        0.95,
+        0.95,
+        f"Z: μ = {z_mean:.1f} mm\n    σ = {z_std:.1f} mm",
         transform=ax2.transAxes,
         fontsize=10,
-        verticalalignment='top',
-        horizontalalignment='right',
-        bbox={'boxstyle': 'round', 'facecolor': 'white', 'alpha': 0.8},
+        verticalalignment="top",
+        horizontalalignment="right",
+        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
     )
 
     # === 3. S1-S2 散点图（2D histogram + LogNorm，按位置着色）===
@@ -214,19 +247,19 @@ def plot_static_figures(df: pd.DataFrame, output_dir: Path, run_id: str, detecto
         s1_valid,
         s2_valid,
         bins=[s1_log_bins, s2_log_bins],
-        cmap='coolwarm',
+        cmap="coolwarm",
         norm=LogNorm(),
     )
 
-    ax3.set_xlabel('S1 Area (PE)', fontsize=12)
-    ax3.set_ylabel('S2 Area (PE)', fontsize=12)
-    ax3.set_title('S1-S2 Distribution', fontsize=14, fontweight='bold')
-    ax3.set_xscale('log')
-    ax3.set_yscale('log')
+    ax3.set_xlabel("S1 Area (PE)", fontsize=12)
+    ax3.set_ylabel("S2 Area (PE)", fontsize=12)
+    ax3.set_title("S1-S2 Distribution", fontsize=14, fontweight="bold")
+    ax3.set_xscale("log")
+    ax3.set_yscale("log")
     ax3.grid(True, alpha=0.3)
 
     cbar3 = plt.colorbar(h3[3], ax=ax3)
-    cbar3.set_label('Counts (log scale)', fontsize=10)
+    cbar3.set_label("Counts (log scale)", fontsize=10)
 
     # === 4. 径向分布（2D histogram: R-Z + LogNorm）===
     ax4 = fig.add_subplot(2, 2, 4)
@@ -235,46 +268,47 @@ def plot_static_figures(df: pd.DataFrame, output_dir: Path, run_id: str, detecto
         r_valid,
         z_valid,
         bins=50,
-        cmap='viridis',
+        cmap="viridis",
         norm=LogNorm(),
     )
 
     ax4.axvline(
         detector_radius_mm,
-        color='red',
-        linestyle='--',
+        color="red",
+        linestyle="--",
         linewidth=2,
-        label=f'Detector edge (r={detector_radius_mm} mm)',
+        label=f"Detector edge (r={detector_radius_mm} mm)",
     )
 
-    ax4.set_xlabel('r (mm)', fontsize=12)
-    ax4.set_ylabel('Z (mm)', fontsize=12)
-    ax4.set_title(f'Radial Distribution (n={len(r_valid)})', fontsize=14, fontweight='bold')
+    ax4.set_xlabel("r (mm)", fontsize=12)
+    ax4.set_ylabel("Z (mm)", fontsize=12)
+    ax4.set_title(f"Radial Distribution (n={len(r_valid)})", fontsize=14, fontweight="bold")
     ax4.grid(True, alpha=0.3)
     ax4.legend()
 
     cbar4 = plt.colorbar(h4[3], ax=ax4)
-    cbar4.set_label('Counts (log scale)', fontsize=10)
+    cbar4.set_label("Counts (log scale)", fontsize=10)
 
     # 统计信息
     r_mean = r_valid.mean()
     r_std = r_valid.std()
     ax4.text(
-        0.95, 0.95,
-        f'r: μ = {r_mean:.1f} mm\n   σ = {r_std:.1f} mm',
+        0.95,
+        0.95,
+        f"r: μ = {r_mean:.1f} mm\n   σ = {r_std:.1f} mm",
         transform=ax4.transAxes,
         fontsize=10,
-        verticalalignment='top',
-        horizontalalignment='right',
-        bbox={'boxstyle': 'round', 'facecolor': 'white', 'alpha': 0.8},
+        verticalalignment="top",
+        horizontalalignment="right",
+        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
     )
 
     # 总标题
     fig.suptitle(
-        f'Position Reconstruction Summary - Run {run_id}\n'
-        f'Total events: {len(df)} | Valid positions: {len(x_valid)}',
+        f"Position Reconstruction Summary - Run {run_id}\n"
+        f"Total events: {len(df)} | Valid positions: {len(x_valid)}",
         fontsize=16,
-        fontweight='bold',
+        fontweight="bold",
         y=0.995,
     )
 
@@ -282,16 +316,14 @@ def plot_static_figures(df: pd.DataFrame, output_dir: Path, run_id: str, detecto
 
     # 保存图片
     output_file = output_dir / f"run_{run_id}_position_distribution.png"
-    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+    plt.savefig(output_file, dpi=150, bbox_inches="tight")
     print(f"[✓] 位置分布图已保存: {output_file}")
 
     plt.close()
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="导出位置重建数据并生成可视化"
-    )
+    parser = argparse.ArgumentParser(description="导出位置重建数据并生成可视化")
     parser.add_argument(
         "--run-id",
         type=str,
@@ -375,7 +407,7 @@ def main():
 
     # 可选：生成静态图
     if args.plot:
-        print(f"[*] 生成位置分布图...")
+        print("[*] 生成位置分布图...")
         try:
             plot_static_figures(
                 df=df,
@@ -386,11 +418,12 @@ def main():
         except Exception as e:
             print(f"[!] 生成位置分布图时出错: {e}")
             import traceback
+
             traceback.print_exc()
 
     # 可选：生成交互式 HTML 仪表板
     if args.dashboard:
-        print(f"[*] 生成交互式 HTML 仪表板（原始版本）...")
+        print("[*] 生成交互式 HTML 仪表板（原始版本）...")
         try:
             from waveform_analysis.visualization import render_position_dashboard
 
@@ -414,11 +447,12 @@ def main():
         except Exception as e:
             print(f"[!] 生成仪表板时出错: {e}")
             import traceback
+
             traceback.print_exc()
 
     # 可选：生成 2D 密度仪表板
     if args.dashboard_2d:
-        print(f"[*] 生成 2D 密度热力图仪表板（推荐）...")
+        print("[*] 生成 2D 密度热力图仪表板（推荐）...")
         try:
             from waveform_analysis.visualization import render_position_dashboard_2d
 
@@ -442,11 +476,12 @@ def main():
         except Exception as e:
             print(f"[!] 生成 2D 仪表板时出错: {e}")
             import traceback
+
             traceback.print_exc()
 
     # 可选：生成 2D histogram 仪表板（原始布局）
     if args.dashboard_2d_hist:
-        print(f"[*] 生成交互式仪表板（原始布局 + 2D histogram）...")
+        print("[*] 生成交互式仪表板（原始布局 + 2D histogram）...")
         try:
             from waveform_analysis.visualization import render_position_dashboard_with_2d_hist
 
@@ -470,9 +505,10 @@ def main():
         except Exception as e:
             print(f"[!] 生成 2D histogram 仪表板时出错: {e}")
             import traceback
+
             traceback.print_exc()
 
-    print(f"[✓] 完成！")
+    print("[✓] 完成！")
 
 
 if __name__ == "__main__":

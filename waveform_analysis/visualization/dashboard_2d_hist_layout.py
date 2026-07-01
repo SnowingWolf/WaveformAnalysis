@@ -4,7 +4,7 @@
 1. XY 投影 + XZ 剖面（保留散点图）
 2. 第一行 3 个 2D histogram: XY, XZ, YZ
 3. 第二行 3 个 2D histogram: S1-S2, R²-Z, R-cos(theta)
-4. 第三行 3 个特征 pair histogram: S1-Width, S2-Rise, Width-Rise
+4. 第三/四行特征 pair histogram: S1/S2 width-rise_time 相关性矩阵
 5. 3D 散点图
 6. S1/S2 selection bar（滑动条）+ 框选回调
 """
@@ -32,7 +32,7 @@ def render_position_dashboard_with_2d_hist(
     - 上层：XY 散点图 + XZ 散点图
     - 中层第一行：XY、XZ、YZ 的 2D histogram
     - 中层第二行：S1-S2、R²-Z、R-cos(theta) 的 2D histogram
-    - 中层第三行：width、rise_time_10_50 相关特征 pair histogram
+    - 中层第三/四行：width、rise_time_10_50 相关特征 pair histogram
     - 下层：3D 散点图
     - 控制面板：S1/S2 滑动条、bins 控件、框选回调
 
@@ -58,7 +58,16 @@ def render_position_dashboard_with_2d_hist(
 
     # 准备数据
     df_clean = df[required_cols].copy()
-    optional_feature_cols = ["width", "rise_time_10_50"]
+    optional_feature_cols = [
+        "width",
+        "rise_time_10_50",
+        "s1_width",
+        "s2_width",
+        "s1_peak_width",
+        "s2_peak_width",
+        "s1_rise_time_10_50",
+        "s2_rise_time_10_50",
+    ]
     for col in optional_feature_cols:
         if col in df.columns:
             df_clean[col] = df[col]
@@ -265,9 +274,14 @@ def _generate_dashboard_html(
 
         <!-- 4. Feature pair histograms: corner-hist style diagnostics -->
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-            <div id="hist-s1-width" class="plot-container" style="height: 280px;"></div>
-            <div id="hist-s2-rise" class="plot-container" style="height: 280px;"></div>
-            <div id="hist-width-rise" class="plot-container" style="height: 280px;"></div>
+            <div id="hist-s1-width-rise" class="plot-container" style="height: 280px;"></div>
+            <div id="hist-s2-width-rise" class="plot-container" style="height: 280px;"></div>
+            <div id="hist-s1-s2-width" class="plot-container" style="height: 280px;"></div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div id="hist-s1-area-width" class="plot-container" style="height: 280px;"></div>
+            <div id="hist-s2-area-width" class="plot-container" style="height: 280px;"></div>
+            <div id="hist-s1-s2-rise" class="plot-container" style="height: 280px;"></div>
         </div>
 
         <!-- 5. 3D 散点图 -->
@@ -697,50 +711,95 @@ def _generate_dashboard_html(
                     }}, {{ displayModeBar: false }});
 
                     // Corner-hist style feature pairs
-                    Plotly.react('hist-s1-width', [makeLogHist2dTrace(filtered, {{
-                        xField: 's1_area',
-                        yField: 'width',
+                    Plotly.react('hist-s1-width-rise', [makeLogHist2dTrace(filtered, {{
+                        xField: 's1_width',
+                        yField: 's1_rise_time_10_50',
                         nbinsx: histBins,
                         nbinsy: histBins,
                         colorscale: 'Magma',
-                        logX: true,
-                        xTitle: 'S1 (PE)',
-                        yTitle: 'Width'
+                        xTitle: 'S1 width (ns)',
+                        yTitle: 'S1 rise 10-50 (ns)'
                     }})], {{
-                        title: {{ text: 'S1-Width Density', font: {{ size: 11 }} }},
-                        xaxis: {{ title: 'S1 (PE)', type: 'log' }},
-                        yaxis: {{ title: 'Width' }},
+                        title: {{ text: 'S1 Width-Rise 10-50', font: {{ size: 11 }} }},
+                        xaxis: {{ title: 'S1 width (ns)' }},
+                        yaxis: {{ title: 'S1 rise 10-50 (ns)' }},
                         margin: {{ l:45, r:10, b:35, t:25 }}
                     }}, {{ displayModeBar: false }});
 
-                    Plotly.react('hist-s2-rise', [makeLogHist2dTrace(filtered, {{
-                        xField: 's2_area',
-                        yField: 'rise_time_10_50',
+                    Plotly.react('hist-s2-width-rise', [makeLogHist2dTrace(filtered, {{
+                        xField: 's2_width',
+                        yField: 's2_rise_time_10_50',
                         nbinsx: histBins,
                         nbinsy: histBins,
                         colorscale: 'Turbo',
-                        logX: true,
-                        xTitle: 'S2 (PE)',
-                        yTitle: 'Rise 10-50'
+                        xTitle: 'S2 width (ns)',
+                        yTitle: 'S2 rise 10-50 (ns)'
                     }})], {{
-                        title: {{ text: 'S2-Rise 10-50 Density', font: {{ size: 11 }} }},
-                        xaxis: {{ title: 'S2 (PE)', type: 'log' }},
-                        yaxis: {{ title: 'Rise 10-50' }},
+                        title: {{ text: 'S2 Width-Rise 10-50', font: {{ size: 11 }} }},
+                        xaxis: {{ title: 'S2 width (ns)' }},
+                        yaxis: {{ title: 'S2 rise 10-50 (ns)' }},
                         margin: {{ l:45, r:10, b:35, t:25 }}
                     }}, {{ displayModeBar: false }});
 
-                    Plotly.react('hist-width-rise', [makeLogHist2dTrace(filtered, {{
-                        xField: 'width',
-                        yField: 'rise_time_10_50',
+                    Plotly.react('hist-s1-s2-width', [makeLogHist2dTrace(filtered, {{
+                        xField: 's1_width',
+                        yField: 's2_width',
                         nbinsx: histBins,
                         nbinsy: histBins,
                         colorscale: 'Viridis',
-                        xTitle: 'Width',
-                        yTitle: 'Rise 10-50'
+                        xTitle: 'S1 width (ns)',
+                        yTitle: 'S2 width (ns)'
                     }})], {{
-                        title: {{ text: 'Width-Rise 10-50 Density', font: {{ size: 11 }} }},
-                        xaxis: {{ title: 'Width' }},
-                        yaxis: {{ title: 'Rise 10-50' }},
+                        title: {{ text: 'S1-S2 Width Correlation', font: {{ size: 11 }} }},
+                        xaxis: {{ title: 'S1 width (ns)' }},
+                        yaxis: {{ title: 'S2 width (ns)' }},
+                        margin: {{ l:45, r:10, b:35, t:25 }}
+                    }}, {{ displayModeBar: false }});
+
+                    Plotly.react('hist-s1-area-width', [makeLogHist2dTrace(filtered, {{
+                        xField: 's1_area',
+                        yField: 's1_width',
+                        nbinsx: histBins,
+                        nbinsy: histBins,
+                        colorscale: 'Cividis',
+                        logX: true,
+                        xTitle: 'S1 (PE)',
+                        yTitle: 'S1 width (ns)'
+                    }})], {{
+                        title: {{ text: 'S1 Area-Width', font: {{ size: 11 }} }},
+                        xaxis: {{ title: 'S1 (PE)', type: 'log' }},
+                        yaxis: {{ title: 'S1 width (ns)' }},
+                        margin: {{ l:45, r:10, b:35, t:25 }}
+                    }}, {{ displayModeBar: false }});
+
+                    Plotly.react('hist-s2-area-width', [makeLogHist2dTrace(filtered, {{
+                        xField: 's2_area',
+                        yField: 's2_width',
+                        nbinsx: histBins,
+                        nbinsy: histBins,
+                        colorscale: 'Plasma',
+                        logX: true,
+                        xTitle: 'S2 (PE)',
+                        yTitle: 'S2 width (ns)'
+                    }})], {{
+                        title: {{ text: 'S2 Area-Width', font: {{ size: 11 }} }},
+                        xaxis: {{ title: 'S2 (PE)', type: 'log' }},
+                        yaxis: {{ title: 'S2 width (ns)' }},
+                        margin: {{ l:45, r:10, b:35, t:25 }}
+                    }}, {{ displayModeBar: false }});
+
+                    Plotly.react('hist-s1-s2-rise', [makeLogHist2dTrace(filtered, {{
+                        xField: 's1_rise_time_10_50',
+                        yField: 's2_rise_time_10_50',
+                        nbinsx: histBins,
+                        nbinsy: histBins,
+                        colorscale: 'YlGnBu',
+                        xTitle: 'S1 rise 10-50 (ns)',
+                        yTitle: 'S2 rise 10-50 (ns)'
+                    }})], {{
+                        title: {{ text: 'S1-S2 Rise 10-50 Correlation', font: {{ size: 11 }} }},
+                        xaxis: {{ title: 'S1 rise 10-50 (ns)' }},
+                        yaxis: {{ title: 'S2 rise 10-50 (ns)' }},
                         margin: {{ l:45, r:10, b:35, t:25 }}
                     }}, {{ displayModeBar: false }});
 
