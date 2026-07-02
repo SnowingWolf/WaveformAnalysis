@@ -175,13 +175,19 @@ def test_dashboard_with_2d_hist_html_guards_large_frontend_arrays():
     )
 
     assert "type: 'heatmap'" in html_content
+    assert 'class="plot-grid plot-grid-two"' in html_content
     assert "function showPlotlyLoadError" in html_content
+    assert "function waitForDashboardLayout" in html_content
     assert "function resizeAllPlots" in html_content
+    assert "function renderPlot" in html_content
+    assert "responsive: true" in html_content
     assert "for (const value of values)" in html_content
     assert "type: 'scatter3d'" in html_content
     assert "type: 'scattergl'" not in html_content
+    assert "range: [-r_tpc*1.2, r_tpc*1.2]" not in html_content
     assert "Math.min(...values.map" not in html_content
     assert "Math.max(...values.map" not in html_content
+    assert "Math.max(1, ...counts.flat())" not in html_content
 
 
 def main():

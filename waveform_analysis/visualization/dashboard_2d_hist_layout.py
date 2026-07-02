@@ -174,6 +174,9 @@ def _generate_dashboard_html(
             padding: 20px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }}
+        * {{
+            box-sizing: border-box;
+        }}
         #dashboard {{
             background: #fdfdfd;
             padding: 20px;
@@ -183,15 +186,56 @@ def _generate_dashboard_html(
             margin: 10px auto;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
         }}
+        .control-panel {{
+            background: #ffffff;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #edf2f7;
+            margin-bottom: 20px;
+        }}
+        .plot-grid {{
+            display: grid;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: stretch;
+        }}
+        .plot-grid-two {{
+            grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+        }}
+        .plot-grid-three {{
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }}
         .plot-container {{
             border: 1px solid #edf2f7;
             border-radius: 8px;
             background: #fff;
+            height: 280px;
+            min-width: 0;
+            overflow: hidden;
+            position: relative;
+            width: 100%;
+        }}
+        .plot-tall {{
+            height: 380px;
+        }}
+        .plot-3d {{
+            height: 480px;
             margin-bottom: 15px;
+        }}
+        .plot-container .js-plotly-plot,
+        .plot-container .plot-container {{
+            width: 100%;
+            height: 100%;
         }}
         @keyframes spin {{
             0% {{ transform: rotate(0deg); }}
             100% {{ transform: rotate(360deg); }}
+        }}
+        @media (max-width: 1100px) {{
+            .plot-grid-two,
+            .plot-grid-three {{
+                grid-template-columns: 1fr;
+            }}
         }}
     </style>
 </head>
@@ -211,7 +255,7 @@ def _generate_dashboard_html(
         </div>
 
         <!-- 控制面板 -->
-        <div style="background: #ffffff; padding: 15px; border-radius: 8px; border: 1px solid #edf2f7; margin-bottom: 20px;">
+        <div class="control-panel">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <div>
                     <h4 style="margin: 0 0 10px 0; color: #2d3748; font-size: 14px;">S1 Area Filter (PE)</h4>
@@ -253,39 +297,39 @@ def _generate_dashboard_html(
         </div>
 
         <!-- 1. XY 投影与 XZ 剖面（散点图） -->
-        <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 15px; margin-bottom: 15px;">
-            <div id="plot-xy" class="plot-container" style="height: 380px;"></div>
-            <div id="plot-xz" class="plot-container" style="height: 380px;"></div>
+        <div class="plot-grid plot-grid-two">
+            <div id="plot-xy" class="plot-container plot-tall"></div>
+            <div id="plot-xz" class="plot-container plot-tall"></div>
         </div>
 
         <!-- 2. 第一行 2D histograms: XY, XZ, YZ -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-            <div id="hist-xy" class="plot-container" style="height: 280px;"></div>
-            <div id="hist-xz" class="plot-container" style="height: 280px;"></div>
-            <div id="hist-yz" class="plot-container" style="height: 280px;"></div>
+        <div class="plot-grid plot-grid-three">
+            <div id="hist-xy" class="plot-container"></div>
+            <div id="hist-xz" class="plot-container"></div>
+            <div id="hist-yz" class="plot-container"></div>
         </div>
 
         <!-- 3. 第二行 2D histograms: S1-S2, R²-Z, R-cos(theta) -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-            <div id="hist-s1s2" class="plot-container" style="height: 280px;"></div>
-            <div id="hist-r2z" class="plot-container" style="height: 280px;"></div>
-            <div id="hist-rtheta" class="plot-container" style="height: 280px;"></div>
+        <div class="plot-grid plot-grid-three">
+            <div id="hist-s1s2" class="plot-container"></div>
+            <div id="hist-r2z" class="plot-container"></div>
+            <div id="hist-rtheta" class="plot-container"></div>
         </div>
 
         <!-- 4. Feature pair histograms: corner-hist style diagnostics -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-            <div id="hist-s1-width-rise" class="plot-container" style="height: 280px;"></div>
-            <div id="hist-s2-width-rise" class="plot-container" style="height: 280px;"></div>
-            <div id="hist-s1-s2-width" class="plot-container" style="height: 280px;"></div>
+        <div class="plot-grid plot-grid-three">
+            <div id="hist-s1-width-rise" class="plot-container"></div>
+            <div id="hist-s2-width-rise" class="plot-container"></div>
+            <div id="hist-s1-s2-width" class="plot-container"></div>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-            <div id="hist-s1-area-width" class="plot-container" style="height: 280px;"></div>
-            <div id="hist-s2-area-width" class="plot-container" style="height: 280px;"></div>
-            <div id="hist-s1-s2-rise" class="plot-container" style="height: 280px;"></div>
+        <div class="plot-grid plot-grid-three">
+            <div id="hist-s1-area-width" class="plot-container"></div>
+            <div id="hist-s2-area-width" class="plot-container"></div>
+            <div id="hist-s1-s2-rise" class="plot-container"></div>
         </div>
 
         <!-- 5. 3D 散点图 -->
-        <div id="plot-3d" class="plot-container" style="height: 480px;"></div>
+        <div id="plot-3d" class="plot-container plot-3d"></div>
 
         <script>
         (function() {{
@@ -314,9 +358,24 @@ def _generate_dashboard_html(
                 }}, 15000);
             }}
 
+            function waitForDashboardLayout(callback, attempts = 60) {{
+                const dashboard = document.getElementById("dashboard");
+                if (dashboard && dashboard.clientWidth > 0) {{
+                    window.requestAnimationFrame(callback);
+                    return;
+                }}
+                if (attempts <= 0) {{
+                    callback();
+                    return;
+                }}
+                window.setTimeout(() => waitForDashboardLayout(callback, attempts - 1), 50);
+            }}
+
             loadScript("https://cdn.plot.ly/plotly-2.24.1.min.js", function() {{
-                document.getElementById("plotly-loader").style.display = "none";
-                initializeDashboard();
+                waitForDashboardLayout(function() {{
+                    initializeDashboard();
+                    document.getElementById("plotly-loader").style.display = "none";
+                }});
             }}, showPlotlyLoadError);
 
             function initializeDashboard() {{
@@ -356,6 +415,42 @@ def _generate_dashboard_html(
                             Plotly.Plots.resize(element);
                         }}
                     }}
+                }}
+
+                function scheduleResizeAllPlots() {{
+                    window.requestAnimationFrame(resizeAllPlots);
+                    window.setTimeout(resizeAllPlots, 100);
+                    window.setTimeout(resizeAllPlots, 500);
+                }}
+
+                function renderPlot(plotId, traces, layout, config = {{}}) {{
+                    const finalLayout = Object.assign({{ autosize: true }}, layout);
+                    const finalConfig = Object.assign({{ responsive: true, displaylogo: false }}, config);
+                    return Plotly.react(plotId, traces, finalLayout, finalConfig);
+                }}
+
+                function finiteRangeFromData(data, field, fallbackAbs) {{
+                    let minValue = Infinity;
+                    let maxValue = -Infinity;
+                    for (const row of data) {{
+                        const value = Number(row[field]);
+                        if (Number.isFinite(value)) {{
+                            if (value < minValue) minValue = value;
+                            if (value > maxValue) maxValue = value;
+                        }}
+                    }}
+                    if (!Number.isFinite(minValue) || !Number.isFinite(maxValue)) {{
+                        return [-fallbackAbs, fallbackAbs];
+                    }}
+                    if (minValue === maxValue) {{
+                        const pad = Math.max(Math.abs(minValue) * 0.05, fallbackAbs * 0.05, 1);
+                        return [minValue - pad, maxValue + pad];
+                    }}
+                    const pad = Math.max((maxValue - minValue) * 0.05, fallbackAbs * 0.05, 1);
+                    return [
+                        Math.min(minValue - pad, -fallbackAbs),
+                        Math.max(maxValue + pad, fallbackAbs)
+                    ];
                 }}
 
                 window.addEventListener('resize', resizeAllPlots);
@@ -514,7 +609,12 @@ def _generate_dashboard_html(
                         }}
                     }}
 
-                    const maxCount = Math.max(1, ...counts.flat());
+                    let maxCount = 1;
+                    for (const row of counts) {{
+                        for (const count of row) {{
+                            if (count > maxCount) maxCount = count;
+                        }}
+                    }}
                     const colorbar = buildLogCountColorbar(maxCount);
                     const z = counts.map(row => row.map(count => count > 0 ? Math.log10(count) : null));
 
@@ -606,8 +706,10 @@ def _generate_dashboard_html(
                         }}
                         displayXY = temp;
                     }}
+                    const xyXRange = finiteRangeFromData(displayXY, 'x_rec', r_tpc);
+                    const xyYRange = finiteRangeFromData(displayXY, 'y_rec', r_tpc);
 
-                    Plotly.react('plot-xy', [{{
+                    renderPlot('plot-xy', [{{
                         x: displayXY.map(d => d.x_rec),
                         y: displayXY.map(d => d.y_rec),
                         customdata: displayXY.map(d => d._row_id),
@@ -626,8 +728,8 @@ def _generate_dashboard_html(
                         title: displayXY.length < filtered.length
                             ? `XY Projection (showing ${{displayXY.length.toLocaleString()}} / ${{filtered.length.toLocaleString()}})`
                             : 'XY Projection',
-                        xaxis: {{ title: 'X (mm)', range: [-r_tpc*1.2, r_tpc*1.2] }},
-                        yaxis: {{ title: 'Y (mm)', range: [-r_tpc*1.2, r_tpc*1.2], scaleanchor: 'x' }},
+                        xaxis: {{ title: 'X (mm)', range: xyXRange }},
+                        yaxis: {{ title: 'Y (mm)', range: xyYRange, scaleanchor: 'x' }},
                         dragmode: 'select',
                         margin: {{ l:50, r:10, b:50, t:30 }},
                         shapes: [{{ type: 'circle', xref: 'x', yref: 'y', x0: -r_tpc, y0: -r_tpc, x1: r_tpc, y1: r_tpc, line: {{ color: 'red', width: 2, dash: 'dash' }} }}]
@@ -648,7 +750,7 @@ def _generate_dashboard_html(
                         displayRZ = temp;
                     }}
 
-                    Plotly.react('plot-xz', [{{
+                    renderPlot('plot-xz', [{{
                         x: displayRZ.map(d => d.r_rec),
                         y: displayRZ.map(d => d.z_rec),
                         customdata: displayRZ.map(d => d._row_id),
@@ -676,7 +778,7 @@ def _generate_dashboard_html(
 
                     // === 3. 2D histograms (LogNorm color scale) ===
                     // XY histogram
-                    Plotly.react('hist-xy', [
+                    renderPlot('hist-xy', [
                         makeLogHist2dTrace(filtered, {{
                             xField: 'x_rec',
                             yField: 'y_rec',
@@ -700,7 +802,7 @@ def _generate_dashboard_html(
                     bindSelectionCallback('hist-xy');
 
                     // XZ histogram
-                    Plotly.react('hist-xz', [
+                    renderPlot('hist-xz', [
                         makeLogHist2dTrace(filtered, {{
                             xField: 'x_rec',
                             yField: 'z_rec',
@@ -724,7 +826,7 @@ def _generate_dashboard_html(
                     bindSelectionCallback('hist-xz');
 
                     // YZ histogram
-                    Plotly.react('hist-yz', [
+                    renderPlot('hist-yz', [
                         makeLogHist2dTrace(filtered, {{
                             xField: 'y_rec',
                             yField: 'z_rec',
@@ -748,7 +850,7 @@ def _generate_dashboard_html(
                     bindSelectionCallback('hist-yz');
 
                     // S1-S2 histogram
-                    Plotly.react('hist-s1s2', [
+                    renderPlot('hist-s1s2', [
                         makeLogHist2dTrace(filtered, {{
                             xField: 's1_area',
                             yField: 's2_area',
@@ -776,7 +878,7 @@ def _generate_dashboard_html(
                     bindSelectionCallback('hist-s1s2');
 
                     // R²-Z histogram
-                    Plotly.react('hist-r2z', [
+                    renderPlot('hist-r2z', [
                         makeLogHist2dTrace(filtered, {{
                             xField: 'r2_rec',
                             yField: 'z_rec',
@@ -800,7 +902,7 @@ def _generate_dashboard_html(
                     bindSelectionCallback('hist-r2z');
 
                     // R-cos(theta) histogram
-                    Plotly.react('hist-rtheta', [
+                    renderPlot('hist-rtheta', [
                         makeLogHist2dTrace(filtered, {{
                             xField: 'r_rec',
                             yField: 'cos_theta_rec',
@@ -824,7 +926,7 @@ def _generate_dashboard_html(
                     bindSelectionCallback('hist-rtheta');
 
                     // Corner-hist style feature pairs
-                    Plotly.react('hist-s1-width-rise', [
+                    renderPlot('hist-s1-width-rise', [
                         makeLogHist2dTrace(filtered, {{
                             xField: 's1_width',
                             yField: 's1_rise_time_10_50',
@@ -847,7 +949,7 @@ def _generate_dashboard_html(
                     }}, {{ displayModeBar: true }});
                     bindSelectionCallback('hist-s1-width-rise');
 
-                    Plotly.react('hist-s2-width-rise', [
+                    renderPlot('hist-s2-width-rise', [
                         makeLogHist2dTrace(filtered, {{
                             xField: 's2_width',
                             yField: 's2_rise_time_10_50',
@@ -870,7 +972,7 @@ def _generate_dashboard_html(
                     }}, {{ displayModeBar: true }});
                     bindSelectionCallback('hist-s2-width-rise');
 
-                    Plotly.react('hist-s1-s2-width', [
+                    renderPlot('hist-s1-s2-width', [
                         makeLogHist2dTrace(filtered, {{
                             xField: 's1_width',
                             yField: 's2_width',
@@ -893,7 +995,7 @@ def _generate_dashboard_html(
                     }}, {{ displayModeBar: true }});
                     bindSelectionCallback('hist-s1-s2-width');
 
-                    Plotly.react('hist-s1-area-width', [makeLogHist2dTrace(filtered, {{
+                    renderPlot('hist-s1-area-width', [makeLogHist2dTrace(filtered, {{
                         xField: 's1_area',
                         yField: 's1_width',
                         nbinsx: histBins,
@@ -909,7 +1011,7 @@ def _generate_dashboard_html(
                         margin: {{ l:45, r:10, b:35, t:25 }}
                     }}, {{ displayModeBar: false }});
 
-                    Plotly.react('hist-s2-area-width', [makeLogHist2dTrace(filtered, {{
+                    renderPlot('hist-s2-area-width', [makeLogHist2dTrace(filtered, {{
                         xField: 's2_area',
                         yField: 's2_width',
                         nbinsx: histBins,
@@ -925,7 +1027,7 @@ def _generate_dashboard_html(
                         margin: {{ l:45, r:10, b:35, t:25 }}
                     }}, {{ displayModeBar: false }});
 
-                    Plotly.react('hist-s1-s2-rise', [makeLogHist2dTrace(filtered, {{
+                    renderPlot('hist-s1-s2-rise', [makeLogHist2dTrace(filtered, {{
                         xField: 's1_rise_time_10_50',
                         yField: 's2_rise_time_10_50',
                         nbinsx: histBins,
@@ -958,7 +1060,7 @@ def _generate_dashboard_html(
 
                     // 使用 try-catch 包裹 3D 渲染，避免 WebGL 错误导致整个页面崩溃
                     try {{
-                        Plotly.react('plot-3d', [{{
+                        renderPlot('plot-3d', [{{
                             x: display3D.map(d => d.x_rec),
                             y: display3D.map(d => d.y_rec),
                             z: display3D.map(d => d.z_rec),
@@ -996,7 +1098,7 @@ def _generate_dashboard_html(
                             '</div>';
                     }}
 
-                    window.requestAnimationFrame(resizeAllPlots);
+                    scheduleResizeAllPlots();
                 }}
 
                 updateAllPlots();
