@@ -246,8 +246,8 @@ def _generate_dashboard_html(
             </div>
             <div style="display: flex; align-items: center; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #edf2f7;">
                 <span style="font-size: 12px; color:#2d3748; font-weight: 600;">2D Histogram Bins</span>
-                <input type="range" id="hist-bins-range" min="20" max="200" step="5" value="40" style="width: 220px; cursor:pointer;">
-                <input type="number" id="hist-bins-num" min="20" max="200" step="5" value="40" style="width: 64px; font-size:11px; padding: 2px; border: 1px solid #cbd5e0; border-radius: 4px;">
+                <input type="range" id="hist-bins-range" min="20" max="200" step="5" value="100" style="width: 220px; cursor:pointer;">
+                <input type="number" id="hist-bins-num" min="20" max="200" step="5" value="100" style="width: 64px; font-size:11px; padding: 2px; border: 1px solid #cbd5e0; border-radius: 4px;">
                 <button id="clear-selection" type="button" style="padding: 4px 10px; background: #edf2f7; color: #2d3748; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; font-size: 11px;">Clear Selection</button>
             </div>
         </div>
@@ -539,7 +539,7 @@ def _generate_dashboard_html(
                     const s1Max = parseFloat(s1NMax.value);
                     const s2Min = parseFloat(s2NMin.value);
                     const s2Max = parseFloat(s2NMax.value);
-                    const histBins = parseInt(binsNum.value, 10) || 40;
+                    const histBins = parseInt(binsNum.value, 10) || 100;
 
                     const areaFiltered = rawData.filter(d =>
                         d.s1_area >= s1Min && d.s1_area <= s1Max &&
