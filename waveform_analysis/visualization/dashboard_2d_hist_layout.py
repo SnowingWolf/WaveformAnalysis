@@ -554,14 +554,18 @@ def _generate_dashboard_html(
 
                     // === 1. XY 散点图（大数据集降采样）===
                     // 散点图降采样以提高性能
-                    let displayXY = filtered;
+                    let displayXY = filtered.filter(d =>
+                        d.x_rec != null && d.y_rec != null && d.z_rec != null &&
+                        Number.isFinite(d.x_rec) && Number.isFinite(d.y_rec) && Number.isFinite(d.z_rec)
+                    );
                     const MAX_SCATTER_POINTS = 10000;
-                    if (filtered.length > MAX_SCATTER_POINTS) {{
-                        displayXY = [];
-                        const step = Math.ceil(filtered.length / MAX_SCATTER_POINTS);
-                        for (let i = 0; i < filtered.length; i += step) {{
-                            displayXY.push(filtered[i]);
+                    if (displayXY.length > MAX_SCATTER_POINTS) {{
+                        const temp = [];
+                        const step = Math.ceil(displayXY.length / MAX_SCATTER_POINTS);
+                        for (let i = 0; i < displayXY.length; i += step) {{
+                            temp.push(displayXY[i]);
                         }}
+                        displayXY = temp;
                     }}
 
                     Plotly.react('plot-xy', [{{
@@ -592,13 +596,17 @@ def _generate_dashboard_html(
                     bindSelectionCallback('plot-xy');
 
                     // === 2. RZ 散点图（大数据集降采样）===
-                    let displayRZ = filtered;
-                    if (filtered.length > MAX_SCATTER_POINTS) {{
-                        displayRZ = [];
-                        const step = Math.ceil(filtered.length / MAX_SCATTER_POINTS);
-                        for (let i = 0; i < filtered.length; i += step) {{
-                            displayRZ.push(filtered[i]);
+                    let displayRZ = filtered.filter(d =>
+                        d.r_rec != null && d.z_rec != null && d.s2_area != null &&
+                        Number.isFinite(d.r_rec) && Number.isFinite(d.z_rec) && Number.isFinite(d.s2_area)
+                    );
+                    if (displayRZ.length > MAX_SCATTER_POINTS) {{
+                        const temp = [];
+                        const step = Math.ceil(displayRZ.length / MAX_SCATTER_POINTS);
+                        for (let i = 0; i < displayRZ.length; i += step) {{
+                            temp.push(displayRZ[i]);
                         }}
+                        displayRZ = temp;
                     }}
 
                     Plotly.react('plot-xz', [{{
@@ -894,14 +902,19 @@ def _generate_dashboard_html(
                     }}, {{ displayModeBar: false }});
 
                     // === 4. 3D 散点图（大数据集降采样）===
-                    let display3D = filtered;
+                    let display3D = filtered.filter(d =>
+                        d.x_rec != null && d.y_rec != null && d.z_rec != null && d.s2_area != null &&
+                        Number.isFinite(d.x_rec) && Number.isFinite(d.y_rec) && Number.isFinite(d.z_rec) && Number.isFinite(d.s2_area) &&
+                        d.s2_area > 0
+                    );
                     const MAX_3D_POINTS = 5000;
-                    if (filtered.length > MAX_3D_POINTS) {{
-                        display3D = [];
-                        const step = Math.ceil(filtered.length / MAX_3D_POINTS);
-                        for (let i = 0; i < filtered.length; i += step) {{
-                            display3D.push(filtered[i]);
+                    if (display3D.length > MAX_3D_POINTS) {{
+                        const temp = [];
+                        const step = Math.ceil(display3D.length / MAX_3D_POINTS);
+                        for (let i = 0; i < display3D.length; i += step) {{
+                            temp.push(display3D[i]);
                         }}
+                        display3D = temp;
                     }}
 
                     Plotly.react('plot-3d', [{{
