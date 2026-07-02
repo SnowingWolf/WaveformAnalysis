@@ -180,6 +180,8 @@ def test_dashboard_with_2d_hist_html_guards_large_frontend_arrays():
     assert "function waitForDashboardLayout" in html_content
     assert "function resizeAllPlots" in html_content
     assert "function renderPlot" in html_content
+    assert "function requestUpdate" in html_content
+    assert "MAX_SELECTION_POINTS = 2000" in html_content
     assert "responsive: true" in html_content
     assert "for (const value of values)" in html_content
     assert "type: 'scatter3d'" in html_content

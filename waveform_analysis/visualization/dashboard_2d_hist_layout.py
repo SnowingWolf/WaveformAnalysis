@@ -399,6 +399,7 @@ def _generate_dashboard_html(
                 const clearSelection = document.getElementById('clear-selection');
                 const badge = document.getElementById('event-count');
                 const selectionState = {{ rowIds: null }};
+                let updateTimer = null;
                 const plotIds = [
                     'plot-xy', 'plot-xz', 'hist-xy', 'hist-xz', 'hist-yz',
                     'hist-s1s2', 'hist-r2z', 'hist-rtheta',
@@ -427,6 +428,16 @@ def _generate_dashboard_html(
                     const finalLayout = Object.assign({{ autosize: true }}, layout);
                     const finalConfig = Object.assign({{ responsive: true, displaylogo: false }}, config);
                     return Plotly.react(plotId, traces, finalLayout, finalConfig);
+                }}
+
+                function requestUpdate(delayMs = 180) {{
+                    if (updateTimer !== null) {{
+                        window.clearTimeout(updateTimer);
+                    }}
+                    updateTimer = window.setTimeout(() => {{
+                        updateTimer = null;
+                        updateAllPlots();
+                    }}, delayMs);
                 }}
 
                 function finiteRangeFromData(data, field, fallbackAbs) {{
@@ -460,7 +471,7 @@ def _generate_dashboard_html(
                     rangeEl.addEventListener('input', () => {{
                         const val = Math.pow(10, parseFloat(rangeEl.value));
                         numEl.value = val.toFixed(1);
-                        updateAllPlots();
+                        requestUpdate();
                     }});
                     numEl.addEventListener('change', () => {{
                         const val = Math.log10(Math.max(parseFloat(numEl.value), 1.0));
@@ -478,7 +489,7 @@ def _generate_dashboard_html(
                     const bins = Math.max(20, Math.min(200, parseInt(value, 10) || 40));
                     binsRange.value = bins;
                     binsNum.value = bins;
-                    updateAllPlots();
+                    requestUpdate();
                 }}
 
                 binsRange.addEventListener('input', () => syncBins(binsRange.value));
@@ -655,11 +666,21 @@ def _generate_dashboard_html(
                             (!config.logY || y > 0)
                         );
                     }});
+                    const MAX_SELECTION_POINTS = 2000;
+                    let displayPoints = points;
+                    if (displayPoints.length > MAX_SELECTION_POINTS) {{
+                        const sampled = [];
+                        const step = Math.ceil(displayPoints.length / MAX_SELECTION_POINTS);
+                        for (let i = 0; i < displayPoints.length; i += step) {{
+                            sampled.push(displayPoints[i]);
+                        }}
+                        displayPoints = sampled;
+                    }}
 
                     return {{
-                        x: points.map(d => d[config.xField]),
-                        y: points.map(d => d[config.yField]),
-                        customdata: points.map(d => d._row_id),
+                        x: displayPoints.map(d => d[config.xField]),
+                        y: displayPoints.map(d => d[config.yField]),
+                        customdata: displayPoints.map(d => d._row_id),
                         meta: 'event-selection',
                         mode: 'markers',
                         type: 'scatter',
