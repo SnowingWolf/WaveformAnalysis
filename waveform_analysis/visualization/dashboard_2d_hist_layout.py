@@ -527,8 +527,8 @@ def _generate_dashboard_html(
                         showlegend: false,
                         hoverinfo: 'skip',
                         marker: {{
-                            size: 5,
-                            color: 'rgba(26, 32, 44, 0.03)',
+                            size: 2,                           // 更小（从 5 → 2）
+                            color: 'rgba(26, 32, 44, 0.01)',   // 更浅（从 0.03 → 0.01）
                             line: {{ width: 0 }}
                         }}
                     }};
@@ -561,11 +561,12 @@ def _generate_dashboard_html(
                         mode: 'markers',
                         type: 'scattergl',
                         marker: {{
-                            size: 3,
+                            size: 2,                        // 优化：减小点大小（从 3 → 2）
                             color: filtered.map(d => d.z_rec),
                             colorscale: 'Viridis',
                             showscale: true,
-                            colorbar: {{ title: 'Z (mm)' }}
+                            colorbar: {{ title: 'Z (mm)' }},
+                            line: {{ width: 0 }}             // 优化：去掉边框
                         }}
                     }}], {{
                         title: 'XY Projection',
@@ -586,11 +587,12 @@ def _generate_dashboard_html(
                         mode: 'markers',
                         type: 'scattergl',
                         marker: {{
-                            size: 3,
+                            size: 2,                        // 优化：减小点大小（从 3 → 2）
                             color: filtered.map(d => d.s2_area),
                             colorscale: 'Plasma',
                             showscale: true,
-                            colorbar: {{ title: 'S2 (PE)' }}
+                            colorbar: {{ title: 'S2 (PE)' }},
+                            line: {{ width: 0 }}             // 优化：去掉边框
                         }}
                     }}], {{
                         title: 'R-Z Profile',
@@ -820,37 +822,55 @@ def _generate_dashboard_html(
                     }}, {{ displayModeBar: true }});
                     bindSelectionCallback('hist-s1-s2-width');
 
-                    Plotly.react('hist-s1-area-width', [makeLogHist2dTrace(filtered, {{
-                        xField: 's1_area',
-                        yField: 's1_width',
-                        nbinsx: histBins,
-                        nbinsy: histBins,
-                        colorscale: 'Cividis',
-                        logX: true,
-                        xTitle: 'S1 (PE)',
-                        yTitle: 'S1 width (ns)'
-                    }})], {{
+                    Plotly.react('hist-s1-area-width', [
+                        makeLogHist2dTrace(filtered, {{
+                            xField: 's1_area',
+                            yField: 's1_width',
+                            nbinsx: histBins,
+                            nbinsy: histBins,
+                            colorscale: 'Cividis',
+                            logX: true,
+                            xTitle: 'S1 (PE)',
+                            yTitle: 'S1 width (ns)'
+                        }}),
+                        makeSelectionTrace(filtered, {{
+                            xField: 's1_area',
+                            yField: 's1_width',
+                            logX: true
+                        }})
+                    ], {{
                         title: {{ text: 'S1 Area-Width', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'S1 (PE)', type: 'log' }},
                         yaxis: {{ title: 'S1 width (ns)' }},
+                        dragmode: 'select',
                         margin: {{ l:45, r:10, b:35, t:25 }}
-                    }}, {{ displayModeBar: false }});
+                    }}, {{ displayModeBar: true }});
+                    bindSelectionCallback('hist-s1-area-width');
 
-                    Plotly.react('hist-s2-area-width', [makeLogHist2dTrace(filtered, {{
-                        xField: 's2_area',
-                        yField: 's2_width',
-                        nbinsx: histBins,
-                        nbinsy: histBins,
-                        colorscale: 'Plasma',
-                        logX: true,
-                        xTitle: 'S2 (PE)',
-                        yTitle: 'S2 width (ns)'
-                    }})], {{
+                    Plotly.react('hist-s2-area-width', [
+                        makeLogHist2dTrace(filtered, {{
+                            xField: 's2_area',
+                            yField: 's2_width',
+                            nbinsx: histBins,
+                            nbinsy: histBins,
+                            colorscale: 'Plasma',
+                            logX: true,
+                            xTitle: 'S2 (PE)',
+                            yTitle: 'S2 width (μs)'
+                        }}),
+                        makeSelectionTrace(filtered, {{
+                            xField: 's2_area',
+                            yField: 's2_width',
+                            logX: true
+                        }})
+                    ], {{
                         title: {{ text: 'S2 Area-Width', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'S2 (PE)', type: 'log' }},
-                        yaxis: {{ title: 'S2 width (ns)' }},
+                        yaxis: {{ title: 'S2 width (μs)' }},
+                        dragmode: 'select',
                         margin: {{ l:45, r:10, b:35, t:25 }}
-                    }}, {{ displayModeBar: false }});
+                    }}, {{ displayModeBar: true }});
+                    bindSelectionCallback('hist-s2-area-width');
 
                     Plotly.react('hist-s1-s2-rise', [makeLogHist2dTrace(filtered, {{
                         xField: 's1_rise_time_10_50',
