@@ -917,22 +917,24 @@ def _generate_dashboard_html(
                         display3D = temp;
                     }}
 
-                    Plotly.react('plot-3d', [{{
-                        x: display3D.map(d => d.x_rec),
-                        y: display3D.map(d => d.y_rec),
-                        z: display3D.map(d => d.z_rec),
-                        mode: 'markers',
-                        type: 'scatter3d',
-                        marker: {{
-                            size: 1,
-                            color: display3D.map(d => Math.log10(d.s2_area)),
-                            colorscale: 'Viridis',
-                            opacity: 0.4,
-                            line: {{ width: 0 }},
-                            sizemode: 'diameter'
-                        }},
-                        hovertemplate: 'X: %{{x:.1f}} mm<br>Y: %{{y:.1f}} mm<br>Z: %{{z:.1f}} mm<br>S2: %{{marker.color:.2f}}<extra></extra>'
-                    }}], {{
+                    // 使用 try-catch 包裹 3D 渲染，避免 WebGL 错误导致整个页面崩溃
+                    try {{
+                        Plotly.react('plot-3d', [{{
+                            x: display3D.map(d => d.x_rec),
+                            y: display3D.map(d => d.y_rec),
+                            z: display3D.map(d => d.z_rec),
+                            mode: 'markers',
+                            type: 'scatter3d',
+                            marker: {{
+                                size: 1,
+                                color: display3D.map(d => Math.log10(d.s2_area)),
+                                colorscale: 'Viridis',
+                                opacity: 0.6,           // 提高透明度避免 shader 问题
+                                line: {{ width: 0 }},
+                                sizemode: 'diameter'
+                            }},
+                            hovertemplate: 'X: %{{x:.1f}} mm<br>Y: %{{y:.1f}} mm<br>Z: %{{z:.1f}} mm<br>log10(S2): %{{marker.color:.2f}}<extra></extra>'
+                        }}], {{
                         title: {{
                             text: display3D.length < filtered.length
                                 ? `3D Distribution (showing ${{display3D.length.toLocaleString()}} / ${{filtered.length.toLocaleString()}})`
@@ -946,6 +948,14 @@ def _generate_dashboard_html(
                         }},
                         margin: {{ l:0, r:0, b:0, t:30 }}
                     }}, {{ displayModeBar: true }});
+                    }} catch (error) {{
+                        console.warn('3D 渲染失败（WebGL 问题），跳过 3D 图表:', error);
+                        // 显示错误提示
+                        document.getElementById('plot-3d').innerHTML =
+                            '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:#718096; text-align:center;">' +
+                            '<div>⚠️ 3D 图表渲染失败<br><small>可能是 WebGL 支持问题，其他图表正常</small></div>' +
+                            '</div>';
+                    }}
                 }}
 
                 updateAllPlots();
