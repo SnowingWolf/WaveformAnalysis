@@ -751,50 +751,74 @@ def _generate_dashboard_html(
                     bindSelectionCallback('hist-rtheta');
 
                     // Corner-hist style feature pairs
-                    Plotly.react('hist-s1-width-rise', [makeLogHist2dTrace(filtered, {{
-                        xField: 's1_width',
-                        yField: 's1_rise_time_10_50',
-                        nbinsx: histBins,
-                        nbinsy: histBins,
-                        colorscale: 'Magma',
-                        xTitle: 'S1 width (ns)',
-                        yTitle: 'S1 rise 10-50 (ns)'
-                    }})], {{
+                    Plotly.react('hist-s1-width-rise', [
+                        makeLogHist2dTrace(filtered, {{
+                            xField: 's1_width',
+                            yField: 's1_rise_time_10_50',
+                            nbinsx: histBins,
+                            nbinsy: histBins,
+                            colorscale: 'Magma',
+                            xTitle: 'S1 width (ns)',
+                            yTitle: 'S1 rise 10-50 (ns)'
+                        }}),
+                        makeSelectionTrace(filtered, {{
+                            xField: 's1_width',
+                            yField: 's1_rise_time_10_50'
+                        }})
+                    ], {{
                         title: {{ text: 'S1 Width-Rise 10-50', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'S1 width (ns)' }},
                         yaxis: {{ title: 'S1 rise 10-50 (ns)' }},
+                        dragmode: 'select',
                         margin: {{ l:45, r:10, b:35, t:25 }}
-                    }}, {{ displayModeBar: false }});
+                    }}, {{ displayModeBar: true }});
+                    bindSelectionCallback('hist-s1-width-rise');
 
-                    Plotly.react('hist-s2-width-rise', [makeLogHist2dTrace(filtered, {{
-                        xField: 's2_width',
-                        yField: 's2_rise_time_10_50',
-                        nbinsx: histBins,
-                        nbinsy: histBins,
-                        colorscale: 'Turbo',
-                        xTitle: 'S2 width (μs)',
-                        yTitle: 'S2 rise 10-50 (ns)'
-                    }})], {{
+                    Plotly.react('hist-s2-width-rise', [
+                        makeLogHist2dTrace(filtered, {{
+                            xField: 's2_width',
+                            yField: 's2_rise_time_10_50',
+                            nbinsx: histBins,
+                            nbinsy: histBins,
+                            colorscale: 'Turbo',
+                            xTitle: 'S2 width (μs)',
+                            yTitle: 'S2 rise 10-50 (ns)'
+                        }}),
+                        makeSelectionTrace(filtered, {{
+                            xField: 's2_width',
+                            yField: 's2_rise_time_10_50'
+                        }})
+                    ], {{
                         title: {{ text: 'S2 Width-Rise 10-50', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'S2 width (μs)' }},
                         yaxis: {{ title: 'S2 rise 10-50 (ns)' }},
+                        dragmode: 'select',
                         margin: {{ l:45, r:10, b:35, t:25 }}
-                    }}, {{ displayModeBar: false }});
+                    }}, {{ displayModeBar: true }});
+                    bindSelectionCallback('hist-s2-width-rise');
 
-                    Plotly.react('hist-s1-s2-width', [makeLogHist2dTrace(filtered, {{
-                        xField: 's1_width',
-                        yField: 's2_width',
-                        nbinsx: histBins,
-                        nbinsy: histBins,
-                        colorscale: 'Viridis',
-                        xTitle: 'S1 width (ns)',
-                        yTitle: 'S2 width (μs)'
-                    }})], {{
+                    Plotly.react('hist-s1-s2-width', [
+                        makeLogHist2dTrace(filtered, {{
+                            xField: 's1_width',
+                            yField: 's2_width',
+                            nbinsx: histBins,
+                            nbinsy: histBins,
+                            colorscale: 'Viridis',
+                            xTitle: 'S1 width (ns)',
+                            yTitle: 'S2 width (μs)'
+                        }}),
+                        makeSelectionTrace(filtered, {{
+                            xField: 's1_width',
+                            yField: 's2_width'
+                        }})
+                    ], {{
                         title: {{ text: 'S1-S2 Width Correlation', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'S1 width (ns)' }},
                         yaxis: {{ title: 'S2 width (μs)' }},
+                        dragmode: 'select',
                         margin: {{ l:45, r:10, b:35, t:25 }}
-                    }}, {{ displayModeBar: false }});
+                    }}, {{ displayModeBar: true }});
+                    bindSelectionCallback('hist-s1-s2-width');
 
                     Plotly.react('hist-s1-area-width', [makeLogHist2dTrace(filtered, {{
                         xField: 's1_area',
@@ -843,29 +867,46 @@ def _generate_dashboard_html(
                         margin: {{ l:45, r:10, b:35, t:25 }}
                     }}, {{ displayModeBar: false }});
 
-                    // === 4. 3D 散点图 ===
+                    // === 4. 3D 散点图（降采样优化）===
+                    // 3D 图降采样以提高性能
+                    let display3D = filtered;
+                    const MAX_3D_POINTS = 5000;
+                    if (filtered.length > MAX_3D_POINTS) {{
+                        display3D = [];
+                        const step = Math.ceil(filtered.length / MAX_3D_POINTS);
+                        for (let i = 0; i < filtered.length; i += step) {{
+                            display3D.push(filtered[i]);
+                        }}
+                    }}
+
                     Plotly.react('plot-3d', [{{
-                        x: filtered.map(d => d.x_rec),
-                        y: filtered.map(d => d.y_rec),
-                        z: filtered.map(d => d.z_rec),
+                        x: display3D.map(d => d.x_rec),
+                        y: display3D.map(d => d.y_rec),
+                        z: display3D.map(d => d.z_rec),
                         mode: 'markers',
                         type: 'scatter3d',
                         marker: {{
                             size: 2,
-                            color: filtered.map(d => Math.log10(d.s2_area)),
+                            color: display3D.map(d => Math.log10(d.s2_area)),
                             colorscale: 'Viridis',
                             opacity: 0.7,
                             colorbar: {{ title: 'log10(S2)' }}
-                        }}
+                        }},
+                        hovertemplate: 'X: %{{x:.1f}} mm<br>Y: %{{y:.1f}} mm<br>Z: %{{z:.1f}} mm<extra></extra>'
                     }}], {{
-                        title: '3D Distribution',
+                        title: {{
+                            text: display3D.length < filtered.length
+                                ? `3D Distribution (showing ${{display3D.length.toLocaleString()}} / ${{filtered.length.toLocaleString()}})`
+                                : '3D Distribution',
+                            font: {{ size: 13 }}
+                        }},
                         scene: {{
                             xaxis: {{ title: 'X (mm)' }},
                             yaxis: {{ title: 'Y (mm)' }},
                             zaxis: {{ title: 'Z (mm)', autorange: 'reversed' }}
                         }},
                         margin: {{ l:0, r:0, b:0, t:30 }}
-                    }});
+                    }}, {{ displayModeBar: true }});
                 }}
 
                 updateAllPlots();
