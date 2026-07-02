@@ -603,52 +603,76 @@ def _generate_dashboard_html(
 
                     // === 3. 2D histograms (LogNorm color scale) ===
                     // XY histogram
-                    Plotly.react('hist-xy', [makeLogHist2dTrace(filtered, {{
-                        xField: 'x_rec',
-                        yField: 'y_rec',
-                        nbinsx: histBins,
-                        nbinsy: histBins,
-                        colorscale: 'YlOrRd',
-                        xTitle: 'X (mm)',
-                        yTitle: 'Y (mm)'
-                    }})], {{
+                    Plotly.react('hist-xy', [
+                        makeLogHist2dTrace(filtered, {{
+                            xField: 'x_rec',
+                            yField: 'y_rec',
+                            nbinsx: histBins,
+                            nbinsy: histBins,
+                            colorscale: 'YlOrRd',
+                            xTitle: 'X (mm)',
+                            yTitle: 'Y (mm)'
+                        }}),
+                        makeSelectionTrace(filtered, {{
+                            xField: 'x_rec',
+                            yField: 'y_rec'
+                        }})
+                    ], {{
                         title: {{ text: 'XY Density', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'X (mm)' }},
                         yaxis: {{ title: 'Y (mm)', scaleanchor: 'x' }},
+                        dragmode: 'select',
                         margin: {{ l:45, r:10, b:35, t:25 }}
-                    }}, {{ displayModeBar: false }});
+                    }}, {{ displayModeBar: true }});
+                    bindSelectionCallback('hist-xy');
 
                     // XZ histogram
-                    Plotly.react('hist-xz', [makeLogHist2dTrace(filtered, {{
-                        xField: 'x_rec',
-                        yField: 'z_rec',
-                        nbinsx: histBins,
-                        nbinsy: histBins,
-                        colorscale: 'Viridis',
-                        xTitle: 'X (mm)',
-                        yTitle: 'Z (mm)'
-                    }})], {{
+                    Plotly.react('hist-xz', [
+                        makeLogHist2dTrace(filtered, {{
+                            xField: 'x_rec',
+                            yField: 'z_rec',
+                            nbinsx: histBins,
+                            nbinsy: histBins,
+                            colorscale: 'Viridis',
+                            xTitle: 'X (mm)',
+                            yTitle: 'Z (mm)'
+                        }}),
+                        makeSelectionTrace(filtered, {{
+                            xField: 'x_rec',
+                            yField: 'z_rec'
+                        }})
+                    ], {{
                         title: {{ text: 'XZ Density', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'X (mm)' }},
                         yaxis: {{ title: 'Z (mm)', autorange: 'reversed' }},
+                        dragmode: 'select',
                         margin: {{ l:45, r:10, b:35, t:25 }}
-                    }}, {{ displayModeBar: false }});
+                    }}, {{ displayModeBar: true }});
+                    bindSelectionCallback('hist-xz');
 
                     // YZ histogram
-                    Plotly.react('hist-yz', [makeLogHist2dTrace(filtered, {{
-                        xField: 'y_rec',
-                        yField: 'z_rec',
-                        nbinsx: histBins,
-                        nbinsy: histBins,
-                        colorscale: 'Plasma',
-                        xTitle: 'Y (mm)',
-                        yTitle: 'Z (mm)'
-                    }})], {{
+                    Plotly.react('hist-yz', [
+                        makeLogHist2dTrace(filtered, {{
+                            xField: 'y_rec',
+                            yField: 'z_rec',
+                            nbinsx: histBins,
+                            nbinsy: histBins,
+                            colorscale: 'Plasma',
+                            xTitle: 'Y (mm)',
+                            yTitle: 'Z (mm)'
+                        }}),
+                        makeSelectionTrace(filtered, {{
+                            xField: 'y_rec',
+                            yField: 'z_rec'
+                        }})
+                    ], {{
                         title: {{ text: 'YZ Density', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'Y (mm)' }},
                         yaxis: {{ title: 'Z (mm)', autorange: 'reversed' }},
+                        dragmode: 'select',
                         margin: {{ l:45, r:10, b:35, t:25 }}
-                    }}, {{ displayModeBar: false }});
+                    }}, {{ displayModeBar: true }});
+                    bindSelectionCallback('hist-yz');
 
                     // S1-S2 histogram
                     Plotly.react('hist-s1s2', [
@@ -679,36 +703,52 @@ def _generate_dashboard_html(
                     bindSelectionCallback('hist-s1s2');
 
                     // R²-Z histogram
-                    Plotly.react('hist-r2z', [makeLogHist2dTrace(filtered, {{
-                        xField: 'r2_rec',
-                        yField: 'z_rec',
-                        nbinsx: histBins,
-                        nbinsy: histBins,
-                        colorscale: 'Cividis',
-                        xTitle: 'R² (mm²)',
-                        yTitle: 'Z (mm)'
-                    }})], {{
+                    Plotly.react('hist-r2z', [
+                        makeLogHist2dTrace(filtered, {{
+                            xField: 'r2_rec',
+                            yField: 'z_rec',
+                            nbinsx: histBins,
+                            nbinsy: histBins,
+                            colorscale: 'Cividis',
+                            xTitle: 'R² (mm²)',
+                            yTitle: 'Z (mm)'
+                        }}),
+                        makeSelectionTrace(filtered, {{
+                            xField: 'r2_rec',
+                            yField: 'z_rec'
+                        }})
+                    ], {{
                         title: {{ text: 'R²-Z Density', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'R² (mm²)' }},
                         yaxis: {{ title: 'Z (mm)', autorange: 'reversed' }},
+                        dragmode: 'select',
                         margin: {{ l:45, r:10, b:35, t:25 }}
-                    }}, {{ displayModeBar: false }});
+                    }}, {{ displayModeBar: true }});
+                    bindSelectionCallback('hist-r2z');
 
                     // R-cos(theta) histogram
-                    Plotly.react('hist-rtheta', [makeLogHist2dTrace(filtered, {{
-                        xField: 'r_rec',
-                        yField: 'cos_theta_rec',
-                        nbinsx: histBins,
-                        nbinsy: histBins,
-                        colorscale: 'Portland',
-                        xTitle: 'R (mm)',
-                        yTitle: 'cos(θ)'
-                    }})], {{
+                    Plotly.react('hist-rtheta', [
+                        makeLogHist2dTrace(filtered, {{
+                            xField: 'r_rec',
+                            yField: 'cos_theta_rec',
+                            nbinsx: histBins,
+                            nbinsy: histBins,
+                            colorscale: 'Portland',
+                            xTitle: 'R (mm)',
+                            yTitle: 'cos(θ)'
+                        }}),
+                        makeSelectionTrace(filtered, {{
+                            xField: 'r_rec',
+                            yField: 'cos_theta_rec'
+                        }})
+                    ], {{
                         title: {{ text: 'R-cos(θ) Density', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'R (mm)' }},
                         yaxis: {{ title: 'cos(θ)' }},
+                        dragmode: 'select',
                         margin: {{ l:45, r:10, b:35, t:25 }}
-                    }}, {{ displayModeBar: false }});
+                    }}, {{ displayModeBar: true }});
+                    bindSelectionCallback('hist-rtheta');
 
                     // Corner-hist style feature pairs
                     Plotly.react('hist-s1-width-rise', [makeLogHist2dTrace(filtered, {{
@@ -732,11 +772,11 @@ def _generate_dashboard_html(
                         nbinsx: histBins,
                         nbinsy: histBins,
                         colorscale: 'Turbo',
-                        xTitle: 'S2 width (ns)',
+                        xTitle: 'S2 width (μs)',
                         yTitle: 'S2 rise 10-50 (ns)'
                     }})], {{
                         title: {{ text: 'S2 Width-Rise 10-50', font: {{ size: 11 }} }},
-                        xaxis: {{ title: 'S2 width (ns)' }},
+                        xaxis: {{ title: 'S2 width (μs)' }},
                         yaxis: {{ title: 'S2 rise 10-50 (ns)' }},
                         margin: {{ l:45, r:10, b:35, t:25 }}
                     }}, {{ displayModeBar: false }});
@@ -748,11 +788,11 @@ def _generate_dashboard_html(
                         nbinsy: histBins,
                         colorscale: 'Viridis',
                         xTitle: 'S1 width (ns)',
-                        yTitle: 'S2 width (ns)'
+                        yTitle: 'S2 width (μs)'
                     }})], {{
                         title: {{ text: 'S1-S2 Width Correlation', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'S1 width (ns)' }},
-                        yaxis: {{ title: 'S2 width (ns)' }},
+                        yaxis: {{ title: 'S2 width (μs)' }},
                         margin: {{ l:45, r:10, b:35, t:25 }}
                     }}, {{ displayModeBar: false }});
 
