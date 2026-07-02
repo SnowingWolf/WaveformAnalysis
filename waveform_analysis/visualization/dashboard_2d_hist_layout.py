@@ -340,7 +340,25 @@ def _generate_dashboard_html(
                 const clearSelection = document.getElementById('clear-selection');
                 const badge = document.getElementById('event-count');
                 const selectionState = {{ rowIds: null }};
+                const plotIds = [
+                    'plot-xy', 'plot-xz', 'hist-xy', 'hist-xz', 'hist-yz',
+                    'hist-s1s2', 'hist-r2z', 'hist-rtheta',
+                    'hist-s1-width-rise', 'hist-s2-width-rise', 'hist-s1-s2-width',
+                    'hist-s1-area-width', 'hist-s2-area-width', 'hist-s1-s2-rise',
+                    'plot-3d'
+                ];
                 rawData.forEach((d, i) => {{ d._row_id = i; }});
+
+                function resizeAllPlots() {{
+                    for (const plotId of plotIds) {{
+                        const element = document.getElementById(plotId);
+                        if (element && element.data) {{
+                            Plotly.Plots.resize(element);
+                        }}
+                    }}
+                }}
+
+                window.addEventListener('resize', resizeAllPlots);
 
                 // 绑定回调
                 function bindEvents(rangeEl, numEl) {{
@@ -544,7 +562,7 @@ def _generate_dashboard_html(
                         customdata: points.map(d => d._row_id),
                         meta: 'event-selection',
                         mode: 'markers',
-                        type: 'scattergl',
+                        type: 'scatter',
                         showlegend: false,
                         hoverinfo: 'skip',
                         marker: {{
@@ -574,12 +592,12 @@ def _generate_dashboard_html(
                     badge.innerText = `Selected: ${{filtered.length.toLocaleString()}} / ${{rawData.length.toLocaleString()}} events${{selectionText}}`;
 
                     // === 1. XY 散点图（大数据集降采样）===
-                    // 散点图降采样以提高性能
+                    // SVG scatter avoids consuming WebGL contexts needed by the 3D view.
                     let displayXY = filtered.filter(d =>
                         d.x_rec != null && d.y_rec != null && d.z_rec != null &&
                         Number.isFinite(d.x_rec) && Number.isFinite(d.y_rec) && Number.isFinite(d.z_rec)
                     );
-                    const MAX_SCATTER_POINTS = 10000;
+                    const MAX_SCATTER_POINTS = 5000;
                     if (displayXY.length > MAX_SCATTER_POINTS) {{
                         const temp = [];
                         const step = Math.ceil(displayXY.length / MAX_SCATTER_POINTS);
@@ -595,7 +613,7 @@ def _generate_dashboard_html(
                         customdata: displayXY.map(d => d._row_id),
                         meta: 'event-selection',
                         mode: 'markers',
-                        type: 'scattergl',
+                        type: 'scatter',
                         marker: {{
                             size: 2,
                             color: displayXY.map(d => d.z_rec),
@@ -636,7 +654,7 @@ def _generate_dashboard_html(
                         customdata: displayRZ.map(d => d._row_id),
                         meta: 'event-selection',
                         mode: 'markers',
-                        type: 'scattergl',
+                        type: 'scatter',
                         marker: {{
                             size: 2,
                             color: displayRZ.map(d => d.s2_area),
@@ -928,7 +946,7 @@ def _generate_dashboard_html(
                         Number.isFinite(d.x_rec) && Number.isFinite(d.y_rec) && Number.isFinite(d.z_rec) && Number.isFinite(d.s2_area) &&
                         d.s2_area > 0
                     );
-                    const MAX_3D_POINTS = 5000;
+                    const MAX_3D_POINTS = 2000;
                     if (display3D.length > MAX_3D_POINTS) {{
                         const temp = [];
                         const step = Math.ceil(display3D.length / MAX_3D_POINTS);
@@ -977,6 +995,8 @@ def _generate_dashboard_html(
                             '<div>⚠️ 3D 图表渲染失败<br><small>可能是 WebGL 支持问题，其他图表正常</small></div>' +
                             '</div>';
                     }}
+
+                    window.requestAnimationFrame(resizeAllPlots);
                 }}
 
                 updateAllPlots();
