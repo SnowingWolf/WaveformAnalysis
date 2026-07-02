@@ -18,6 +18,7 @@ def test_visualization_import():
 
     try:
         from waveform_analysis.visualization import render_position_dashboard
+
         print("[✓] 成功导入 render_position_dashboard")
         return True
     except ImportError as e:
@@ -38,17 +39,19 @@ def test_dashboard_with_mock_data():
 
         # 在探测器内均匀分布
         r = np.sqrt(np.random.uniform(0, 50**2, n_events))  # r < 50 mm
-        theta = np.random.uniform(0, 2*np.pi, n_events)
+        theta = np.random.uniform(0, 2 * np.pi, n_events)
 
-        df = pd.DataFrame({
-            'x_rec': r * np.cos(theta),
-            'y_rec': r * np.sin(theta),
-            'z_rec': np.random.uniform(-100, -10, n_events),
-            's1_area': np.random.lognormal(4, 0.5, n_events),
-            's2_area': np.random.lognormal(6, 0.7, n_events),
-            's2_peak_id': np.arange(n_events),
-            'drift_time_ns': np.random.uniform(100, 1000, n_events),
-        })
+        df = pd.DataFrame(
+            {
+                "x_rec": r * np.cos(theta),
+                "y_rec": r * np.sin(theta),
+                "z_rec": np.random.uniform(-100, -10, n_events),
+                "s1_area": np.random.lognormal(4, 0.5, n_events),
+                "s2_area": np.random.lognormal(6, 0.7, n_events),
+                "s2_peak_id": np.arange(n_events),
+                "drift_time_ns": np.random.uniform(100, 1000, n_events),
+            }
+        )
 
         # 加载 PMT 布局
         layout = load_fallback_layout()
@@ -76,6 +79,7 @@ def test_dashboard_with_mock_data():
     except Exception as e:
         print(f"[✗] 测试失败: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -89,7 +93,9 @@ def test_layout_loading():
 
         print(f"[✓] 布局来源: {layout.source}")
         print(f"    PMT 数量: {len(layout.entries)}")
-        print(f"    示例 PMT: {layout.entries[0].pmt_id} at ({layout.entries[0].x_mm}, {layout.entries[0].y_mm})")
+        print(
+            f"    示例 PMT: {layout.entries[0].pmt_id} at ({layout.entries[0].x_mm}, {layout.entries[0].y_mm})"
+        )
 
         return True
     except Exception as e:
@@ -105,14 +111,16 @@ def test_html_return():
         from waveform_analysis.visualization import render_position_dashboard
 
         # 简单数据
-        df = pd.DataFrame({
-            'x_rec': [0, 10, -10],
-            'y_rec': [0, 5, -5],
-            'z_rec': [-50, -60, -70],
-            's1_area': [100, 200, 150],
-            's2_area': [1000, 2000, 1500],
-            's2_peak_id': [1, 2, 3],
-        })
+        df = pd.DataFrame(
+            {
+                "x_rec": [0, 10, -10],
+                "y_rec": [0, 5, -5],
+                "z_rec": [-50, -60, -70],
+                "s1_area": [100, 200, 150],
+                "s2_area": [1000, 2000, 1500],
+                "s2_peak_id": [1, 2, 3],
+            }
+        )
 
         layout = load_fallback_layout()
 
@@ -135,8 +143,42 @@ def test_html_return():
     except Exception as e:
         print(f"[✗] 测试失败: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
+
+def test_dashboard_with_2d_hist_html_guards_large_frontend_arrays():
+    """Expanded 2D dashboard HTML should avoid fragile JS array spreads."""
+    from waveform_analysis.visualization import render_position_dashboard_with_2d_hist
+
+    rng = np.random.default_rng(42)
+    n_events = 100
+    r = np.sqrt(rng.uniform(0, 50**2, n_events))
+    theta = rng.uniform(0, 2 * np.pi, n_events)
+    df = pd.DataFrame(
+        {
+            "x_rec": r * np.cos(theta),
+            "y_rec": r * np.sin(theta),
+            "z_rec": rng.uniform(-100, -10, n_events),
+            "s1_area": rng.lognormal(4, 0.5, n_events),
+            "s2_area": rng.lognormal(6, 0.7, n_events),
+            "s2_peak_id": np.arange(n_events),
+        }
+    )
+
+    html_content = render_position_dashboard_with_2d_hist(
+        df=df,
+        layout=load_fallback_layout(),
+        run_id="test_2d_hist_layout",
+        return_html=True,
+    )
+
+    assert "type: 'heatmap'" in html_content
+    assert "function showPlotlyLoadError" in html_content
+    assert "for (const value of values)" in html_content
+    assert "Math.min(...values.map" not in html_content
+    assert "Math.max(...values.map" not in html_content
 
 
 def main():

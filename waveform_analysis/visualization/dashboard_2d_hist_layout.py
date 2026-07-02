@@ -289,19 +289,35 @@ def _generate_dashboard_html(
 
         <script>
         (function() {{
-            function loadScript(url, callback) {{
+            function showPlotlyLoadError(url) {{
+                const loader = document.getElementById("plotly-loader");
+                loader.innerHTML =
+                    '<div style="max-width:520px; padding:24px; border:1px solid #fed7d7; border-radius:8px; background:#fff5f5; color:#742a2a; text-align:left;">' +
+                    '<div style="font-weight:700; font-size:16px; margin-bottom:8px;">Plotly.js 加载失败</div>' +
+                    '<div style="font-size:13px; line-height:1.5;">无法从 ' + url + ' 加载 Plotly.js。请检查网络/CDN 访问，或在已有 Plotly 的 notebook/网页环境中打开该 dashboard。</div>' +
+                    '</div>';
+            }}
+
+            function loadScript(url, callback, onError) {{
                 if (window.Plotly) {{ callback(); return; }}
                 const script = document.createElement("script");
                 script.type = "text/javascript";
                 script.src = url;
                 script.onload = callback;
+                script.onerror = () => onError(url);
                 document.head.appendChild(script);
+
+                window.setTimeout(() => {{
+                    if (!window.Plotly) {{
+                        onError(url);
+                    }}
+                }}, 15000);
             }}
 
             loadScript("https://cdn.plot.ly/plotly-2.24.1.min.js", function() {{
                 document.getElementById("plotly-loader").style.display = "none";
                 initializeDashboard();
-            }});
+            }}, showPlotlyLoadError);
 
             function initializeDashboard() {{
                 const rawData = {json_data};
@@ -415,8 +431,13 @@ def _generate_dashboard_html(
                     }}
 
                     const transform = useLog ? (v => Math.log10(v)) : (v => v);
-                    let tMin = Math.min(...values.map(transform));
-                    let tMax = Math.max(...values.map(transform));
+                    let tMin = Infinity;
+                    let tMax = -Infinity;
+                    for (const value of values) {{
+                        const transformed = transform(value);
+                        if (transformed < tMin) tMin = transformed;
+                        if (transformed > tMax) tMax = transformed;
+                    }}
 
                     if (tMin === tMax) {{
                         const pad = useLog ? 0.5 : Math.max(Math.abs(tMin) * 0.05, 0.5);
