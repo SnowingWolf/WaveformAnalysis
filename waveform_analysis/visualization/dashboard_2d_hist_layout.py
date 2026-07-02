@@ -527,8 +527,8 @@ def _generate_dashboard_html(
                         showlegend: false,
                         hoverinfo: 'skip',
                         marker: {{
-                            size: 2,                           // 更小（从 5 → 2）
-                            color: 'rgba(26, 32, 44, 0.01)',   // 更浅（从 0.03 → 0.01）
+                            size: 5,
+                            color: 'rgba(26, 32, 44, 0.03)',
                             line: {{ width: 0 }}
                         }}
                     }};
@@ -552,24 +552,37 @@ def _generate_dashboard_html(
                     const selectionText = selectionState.rowIds ? `, box: ${{selectionState.rowIds.size.toLocaleString()}}` : '';
                     badge.innerText = `Selected: ${{filtered.length.toLocaleString()}} / ${{rawData.length.toLocaleString()}} events${{selectionText}}`;
 
-                    // === 1. XY 散点图 ===
+                    // === 1. XY 散点图（大数据集降采样）===
+                    // 散点图降采样以提高性能
+                    let displayXY = filtered;
+                    const MAX_SCATTER_POINTS = 10000;
+                    if (filtered.length > MAX_SCATTER_POINTS) {{
+                        displayXY = [];
+                        const step = Math.ceil(filtered.length / MAX_SCATTER_POINTS);
+                        for (let i = 0; i < filtered.length; i += step) {{
+                            displayXY.push(filtered[i]);
+                        }}
+                    }}
+
                     Plotly.react('plot-xy', [{{
-                        x: filtered.map(d => d.x_rec),
-                        y: filtered.map(d => d.y_rec),
-                        customdata: filtered.map(d => d._row_id),
+                        x: displayXY.map(d => d.x_rec),
+                        y: displayXY.map(d => d.y_rec),
+                        customdata: displayXY.map(d => d._row_id),
                         meta: 'event-selection',
                         mode: 'markers',
                         type: 'scattergl',
                         marker: {{
-                            size: 2,                        // 优化：减小点大小（从 3 → 2）
-                            color: filtered.map(d => d.z_rec),
+                            size: 2,
+                            color: displayXY.map(d => d.z_rec),
                             colorscale: 'Viridis',
                             showscale: true,
                             colorbar: {{ title: 'Z (mm)' }},
-                            line: {{ width: 0 }}             // 优化：去掉边框
+                            line: {{ width: 0 }}
                         }}
                     }}], {{
-                        title: 'XY Projection',
+                        title: displayXY.length < filtered.length
+                            ? `XY Projection (showing ${{displayXY.length.toLocaleString()}} / ${{filtered.length.toLocaleString()}})`
+                            : 'XY Projection',
                         xaxis: {{ title: 'X (mm)', range: [-r_tpc*1.2, r_tpc*1.2] }},
                         yaxis: {{ title: 'Y (mm)', range: [-r_tpc*1.2, r_tpc*1.2], scaleanchor: 'x' }},
                         dragmode: 'select',
@@ -578,24 +591,35 @@ def _generate_dashboard_html(
                     }}, {{ displayModeBar: true }});
                     bindSelectionCallback('plot-xy');
 
-                    // === 2. RZ 散点图 ===
+                    // === 2. RZ 散点图（大数据集降采样）===
+                    let displayRZ = filtered;
+                    if (filtered.length > MAX_SCATTER_POINTS) {{
+                        displayRZ = [];
+                        const step = Math.ceil(filtered.length / MAX_SCATTER_POINTS);
+                        for (let i = 0; i < filtered.length; i += step) {{
+                            displayRZ.push(filtered[i]);
+                        }}
+                    }}
+
                     Plotly.react('plot-xz', [{{
-                        x: filtered.map(d => d.r_rec),
-                        y: filtered.map(d => d.z_rec),
-                        customdata: filtered.map(d => d._row_id),
+                        x: displayRZ.map(d => d.r_rec),
+                        y: displayRZ.map(d => d.z_rec),
+                        customdata: displayRZ.map(d => d._row_id),
                         meta: 'event-selection',
                         mode: 'markers',
                         type: 'scattergl',
                         marker: {{
-                            size: 2,                        // 优化：减小点大小（从 3 → 2）
-                            color: filtered.map(d => d.s2_area),
+                            size: 2,
+                            color: displayRZ.map(d => d.s2_area),
                             colorscale: 'Plasma',
                             showscale: true,
                             colorbar: {{ title: 'S2 (PE)' }},
-                            line: {{ width: 0 }}             // 优化：去掉边框
+                            line: {{ width: 0 }}
                         }}
                     }}], {{
-                        title: 'R-Z Profile',
+                        title: displayRZ.length < filtered.length
+                            ? `R-Z Profile (showing ${{displayRZ.length.toLocaleString()}} / ${{filtered.length.toLocaleString()}})`
+                            : 'R-Z Profile',
                         xaxis: {{ title: 'R (mm)' }},
                         yaxis: {{ title: 'Z (mm)', autorange: 'reversed' }},
                         dragmode: 'select',
@@ -822,55 +846,37 @@ def _generate_dashboard_html(
                     }}, {{ displayModeBar: true }});
                     bindSelectionCallback('hist-s1-s2-width');
 
-                    Plotly.react('hist-s1-area-width', [
-                        makeLogHist2dTrace(filtered, {{
-                            xField: 's1_area',
-                            yField: 's1_width',
-                            nbinsx: histBins,
-                            nbinsy: histBins,
-                            colorscale: 'Cividis',
-                            logX: true,
-                            xTitle: 'S1 (PE)',
-                            yTitle: 'S1 width (ns)'
-                        }}),
-                        makeSelectionTrace(filtered, {{
-                            xField: 's1_area',
-                            yField: 's1_width',
-                            logX: true
-                        }})
-                    ], {{
+                    Plotly.react('hist-s1-area-width', [makeLogHist2dTrace(filtered, {{
+                        xField: 's1_area',
+                        yField: 's1_width',
+                        nbinsx: histBins,
+                        nbinsy: histBins,
+                        colorscale: 'Cividis',
+                        logX: true,
+                        xTitle: 'S1 (PE)',
+                        yTitle: 'S1 width (ns)'
+                    }})], {{
                         title: {{ text: 'S1 Area-Width', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'S1 (PE)', type: 'log' }},
                         yaxis: {{ title: 'S1 width (ns)' }},
-                        dragmode: 'select',
                         margin: {{ l:45, r:10, b:35, t:25 }}
-                    }}, {{ displayModeBar: true }});
-                    bindSelectionCallback('hist-s1-area-width');
+                    }}, {{ displayModeBar: false }});
 
-                    Plotly.react('hist-s2-area-width', [
-                        makeLogHist2dTrace(filtered, {{
-                            xField: 's2_area',
-                            yField: 's2_width',
-                            nbinsx: histBins,
-                            nbinsy: histBins,
-                            colorscale: 'Plasma',
-                            logX: true,
-                            xTitle: 'S2 (PE)',
-                            yTitle: 'S2 width (μs)'
-                        }}),
-                        makeSelectionTrace(filtered, {{
-                            xField: 's2_area',
-                            yField: 's2_width',
-                            logX: true
-                        }})
-                    ], {{
+                    Plotly.react('hist-s2-area-width', [makeLogHist2dTrace(filtered, {{
+                        xField: 's2_area',
+                        yField: 's2_width',
+                        nbinsx: histBins,
+                        nbinsy: histBins,
+                        colorscale: 'Plasma',
+                        logX: true,
+                        xTitle: 'S2 (PE)',
+                        yTitle: 'S2 width (ns)'
+                    }})], {{
                         title: {{ text: 'S2 Area-Width', font: {{ size: 11 }} }},
                         xaxis: {{ title: 'S2 (PE)', type: 'log' }},
-                        yaxis: {{ title: 'S2 width (μs)' }},
-                        dragmode: 'select',
+                        yaxis: {{ title: 'S2 width (ns)' }},
                         margin: {{ l:45, r:10, b:35, t:25 }}
-                    }}, {{ displayModeBar: true }});
-                    bindSelectionCallback('hist-s2-area-width');
+                    }}, {{ displayModeBar: false }});
 
                     Plotly.react('hist-s1-s2-rise', [makeLogHist2dTrace(filtered, {{
                         xField: 's1_rise_time_10_50',
@@ -887,25 +893,37 @@ def _generate_dashboard_html(
                         margin: {{ l:45, r:10, b:35, t:25 }}
                     }}, {{ displayModeBar: false }});
 
-                    // === 4. 3D 散点图（性能优化：减小点大小和透明度）===
+                    // === 4. 3D 散点图（大数据集降采样）===
+                    let display3D = filtered;
+                    const MAX_3D_POINTS = 5000;
+                    if (filtered.length > MAX_3D_POINTS) {{
+                        display3D = [];
+                        const step = Math.ceil(filtered.length / MAX_3D_POINTS);
+                        for (let i = 0; i < filtered.length; i += step) {{
+                            display3D.push(filtered[i]);
+                        }}
+                    }}
+
                     Plotly.react('plot-3d', [{{
-                        x: filtered.map(d => d.x_rec),
-                        y: filtered.map(d => d.y_rec),
-                        z: filtered.map(d => d.z_rec),
+                        x: display3D.map(d => d.x_rec),
+                        y: display3D.map(d => d.y_rec),
+                        z: display3D.map(d => d.z_rec),
                         mode: 'markers',
                         type: 'scatter3d',
                         marker: {{
-                            size: 1,                    // 减小点大小（从 2 → 1）
-                            color: filtered.map(d => Math.log10(d.s2_area)),
+                            size: 1,
+                            color: display3D.map(d => Math.log10(d.s2_area)),
                             colorscale: 'Viridis',
-                            opacity: 0.4,               // 降低透明度（从 0.7 → 0.4）
-                            line: {{ width: 0 }},        // 去掉边框
-                            sizemode: 'diameter'        // 优化大小计算
+                            opacity: 0.4,
+                            line: {{ width: 0 }},
+                            sizemode: 'diameter'
                         }},
                         hovertemplate: 'X: %{{x:.1f}} mm<br>Y: %{{y:.1f}} mm<br>Z: %{{z:.1f}} mm<br>S2: %{{marker.color:.2f}}<extra></extra>'
                     }}], {{
                         title: {{
-                            text: `3D Distribution (n=${{filtered.length.toLocaleString()}})`,
+                            text: display3D.length < filtered.length
+                                ? `3D Distribution (showing ${{display3D.length.toLocaleString()}} / ${{filtered.length.toLocaleString()}})`
+                                : `3D Distribution (n=${{filtered.length.toLocaleString()}})`,
                             font: {{ size: 13 }}
                         }},
                         scene: {{
