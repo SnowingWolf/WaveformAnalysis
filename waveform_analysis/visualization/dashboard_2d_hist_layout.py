@@ -867,37 +867,25 @@ def _generate_dashboard_html(
                         margin: {{ l:45, r:10, b:35, t:25 }}
                     }}, {{ displayModeBar: false }});
 
-                    // === 4. 3D 散点图（降采样优化）===
-                    // 3D 图降采样以提高性能
-                    let display3D = filtered;
-                    const MAX_3D_POINTS = 5000;
-                    if (filtered.length > MAX_3D_POINTS) {{
-                        display3D = [];
-                        const step = Math.ceil(filtered.length / MAX_3D_POINTS);
-                        for (let i = 0; i < filtered.length; i += step) {{
-                            display3D.push(filtered[i]);
-                        }}
-                    }}
-
+                    // === 4. 3D 散点图（性能优化：减小点大小和透明度）===
                     Plotly.react('plot-3d', [{{
-                        x: display3D.map(d => d.x_rec),
-                        y: display3D.map(d => d.y_rec),
-                        z: display3D.map(d => d.z_rec),
+                        x: filtered.map(d => d.x_rec),
+                        y: filtered.map(d => d.y_rec),
+                        z: filtered.map(d => d.z_rec),
                         mode: 'markers',
                         type: 'scatter3d',
                         marker: {{
-                            size: 2,
-                            color: display3D.map(d => Math.log10(d.s2_area)),
+                            size: 1,                    // 减小点大小（从 2 → 1）
+                            color: filtered.map(d => Math.log10(d.s2_area)),
                             colorscale: 'Viridis',
-                            opacity: 0.7,
-                            colorbar: {{ title: 'log10(S2)' }}
+                            opacity: 0.4,               // 降低透明度（从 0.7 → 0.4）
+                            line: {{ width: 0 }},        // 去掉边框
+                            sizemode: 'diameter'        // 优化大小计算
                         }},
-                        hovertemplate: 'X: %{{x:.1f}} mm<br>Y: %{{y:.1f}} mm<br>Z: %{{z:.1f}} mm<extra></extra>'
+                        hovertemplate: 'X: %{{x:.1f}} mm<br>Y: %{{y:.1f}} mm<br>Z: %{{z:.1f}} mm<br>S2: %{{marker.color:.2f}}<extra></extra>'
                     }}], {{
                         title: {{
-                            text: display3D.length < filtered.length
-                                ? `3D Distribution (showing ${{display3D.length.toLocaleString()}} / ${{filtered.length.toLocaleString()}})`
-                                : '3D Distribution',
+                            text: `3D Distribution (n=${{filtered.length.toLocaleString()}})`,
                             font: {{ size: 13 }}
                         }},
                         scene: {{
