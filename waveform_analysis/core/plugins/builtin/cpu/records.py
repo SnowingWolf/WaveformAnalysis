@@ -215,6 +215,15 @@ def _cleanup_stale_bundles(context: Any, run_id: str, keep_key: str) -> None:
             cleanup()
 
 
+def _resolve_bundle_config_plugin(context: Any, plugin: Plugin) -> Plugin:
+    """Return the plugin whose config controls the shared records bundle."""
+    if getattr(plugin, "provides", None) == "wave_pool":
+        records_plugin = getattr(context, "_plugins", {}).get("records")
+        if records_plugin is not None:
+            return records_plugin
+    return plugin
+
+
 def _build_records_bundle(
     context: Any,
     run_id: str,
@@ -332,6 +341,7 @@ def _build_records_bundle(
 
 def _resolve_records_upstream_depends(context: Any, plugin: Plugin) -> list[str]:
     """Resolve the shared upstream inputs for records-backed derived products."""
+    plugin = _resolve_bundle_config_plugin(context, plugin)
     input_source = str(context.get_config(plugin, "input_source") or "raw_files").lower()
     if input_source == "st_waveforms":
         adapter_name = _resolve_adapter_name(context, plugin)
@@ -441,7 +451,7 @@ class _RecordsBundlePluginBase(Plugin):
             "Use 'st_waveforms' for the materialized waveform path.",
         ),
     }
-    version = "0.14.0"
+    version = "0.14.1"
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         """Resolve raw-file upstream data for shared records bundle outputs."""

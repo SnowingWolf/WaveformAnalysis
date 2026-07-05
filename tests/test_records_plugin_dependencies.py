@@ -56,6 +56,17 @@ def test_wave_pool_depends_on_same_upstream_as_records():
     assert plugin.resolve_depends_on(ctx) == ["raw_files"]
 
 
+def test_wave_pool_uses_records_input_source_when_records_registered():
+    records_plugin = RecordsPlugin()
+    wave_pool_plugin = WavePoolPlugin()
+    ctx = FakeContext(
+        config={"daq_adapter": "vx2730", "records": {"input_source": "st_waveforms"}},
+        plugins={"records": records_plugin, "wave_pool": wave_pool_plugin},
+    )
+
+    assert wave_pool_plugin.resolve_depends_on(ctx) == ["st_waveforms"]
+
+
 def test_get_records_bundle_reuses_raw_files_for_non_v1725():
     plugin = RecordsPlugin()
     fake_bundle = RecordsBundle(
