@@ -24,6 +24,7 @@ from waveform_analysis.core.processing.records_builder import (
     RecordsBundle,
     RecordsBundleRef,
     build_records_from_raw_files,
+    build_records_from_st_waveforms_sharded,
     build_records_from_v1725_files,
 )
 
@@ -227,6 +228,15 @@ def _build_records_bundle(
     if isinstance(cached, RecordsBundle | RecordsBundleRef):
         return cached
 
+    input_source = str(context.get_config(plugin, "input_source") or "raw_files").lower()
+    if input_source not in {"raw_files", "st_waveforms"}:
+        raise ValueError(
+            f"Invalid records input_source: {input_source!r}. "
+            "Expected 'raw_files' or 'st_waveforms'."
+        )
+    if adapter_name == "v1725" and input_source == "st_waveforms":
+        raise ValueError("records input_source='st_waveforms' is not supported for v1725")
+
     # V1725 采集卡路径
     if adapter_name == "v1725":
         raw_files = context.get_data(run_id, "raw_files")
@@ -261,6 +271,18 @@ def _build_records_bundle(
             memory_budget_gb=memory_budget_gb,
             show_progress=bool(context.config.get("show_progress", True)),
             profiler=profiler,
+        )
+        bundle = _apply_records_polarity(context, run_id, bundle)
+        context._set_data(run_id, cache_key, bundle)
+        _cleanup_stale_bundles(context, run_id, cache_key)
+        return bundle
+
+    if input_source == "st_waveforms":
+        st_waveforms = context.get_data(run_id, "st_waveforms", output="array")
+        bundle = build_records_from_st_waveforms_sharded(
+            st_waveforms,
+            part_size=part_size,
+            default_dt_ns=dt_ns,
         )
         bundle = _apply_records_polarity(context, run_id, bundle)
         context._set_data(run_id, cache_key, bundle)
@@ -310,6 +332,17 @@ def _build_records_bundle(
 
 def _resolve_records_upstream_depends(context: Any, plugin: Plugin) -> list[str]:
     """Resolve the shared upstream inputs for records-backed derived products."""
+    input_source = str(context.get_config(plugin, "input_source") or "raw_files").lower()
+    if input_source == "st_waveforms":
+        adapter_name = _resolve_adapter_name(context, plugin)
+        if adapter_name == "v1725":
+            raise ValueError("records input_source='st_waveforms' is not supported for v1725")
+        return ["st_waveforms"]
+    if input_source != "raw_files":
+        raise ValueError(
+            f"Invalid records input_source: {input_source!r}. "
+            "Expected 'raw_files' or 'st_waveforms'."
+        )
     return ["raw_files"]
 
 
@@ -401,8 +434,14 @@ class _RecordsBundlePluginBase(Plugin):
             "relative to samples_start. JSON lists like [0, 800] are also accepted. "
             "None=adapter default.",
         ),
+        "input_source": Option(
+            default="raw_files",
+            type=str,
+            help="Input source for records bundle: 'raw_files' or 'st_waveforms'. "
+            "Use 'st_waveforms' for the materialized waveform path.",
+        ),
     }
-    version = "0.13.0"
+    version = "0.14.0"
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         """Resolve raw-file upstream data for shared records bundle outputs."""

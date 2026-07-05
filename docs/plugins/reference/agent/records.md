@@ -9,9 +9,13 @@
 | Provides | `records` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `0.13.0` |
+| Version | `0.14.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.records` |
 | Accelerator | `cpu` |
+
+## Source Notes
+
+Records/wave_pool plugins backed by an internal shared RecordsBundle cache.
 
 ## Inputs
 
@@ -53,6 +57,7 @@
 | `memory_budget_gb` | `float` | `50.0` | Memory budget in GB for in-memory records bundle materialization. |
 | `dt` | `int` | `None` | Sample interval in ns for records.dt (defaults to adapter rate or 1ns). |
 | `baseline_samples` | `any` | `None` | Baseline range: int (sample count from adapter start) or tuple (start, end) relative to samples_start. JSON lists like [0, 800] are also accepted. None=adapter default. |
+| `input_source` | `str` | `raw_files` | Input source for records bundle: 'raw_files' or 'st_waveforms'. Use 'st_waveforms' for the materialized waveform path. |
 
 ## Execution Path
 

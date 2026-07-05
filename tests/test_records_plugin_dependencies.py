@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 
 from tests.daq_adapter_helpers import make_v1725_single_wave_blob
 from tests.utils import FakeContext
@@ -31,6 +32,21 @@ def test_records_depends_on_raw_files_for_v1725():
     ctx = FakeContext(config={"daq_adapter": "v1725"})
 
     assert plugin.resolve_depends_on(ctx) == ["raw_files"]
+
+
+def test_records_can_depend_on_st_waveforms_for_vx2730():
+    plugin = RecordsPlugin()
+    ctx = FakeContext(config={"daq_adapter": "vx2730", "records": {"input_source": "st_waveforms"}})
+
+    assert plugin.resolve_depends_on(ctx) == ["st_waveforms"]
+
+
+def test_records_rejects_st_waveforms_source_for_v1725():
+    plugin = RecordsPlugin()
+    ctx = FakeContext(config={"daq_adapter": "v1725", "records": {"input_source": "st_waveforms"}})
+
+    with pytest.raises(ValueError, match="not supported for v1725"):
+        plugin.resolve_depends_on(ctx)
 
 
 def test_wave_pool_depends_on_same_upstream_as_records():
@@ -76,6 +92,38 @@ def test_get_records_bundle_reuses_raw_files_for_non_v1725():
     assert mocked.call_args.kwargs["use_process_pool"] is True
     assert mocked.call_args.kwargs["channel_workers"] == 2
     assert mocked.call_args.kwargs["channel_executor"] == "process"
+    np.testing.assert_array_equal(bundle.wave_pool, fake_bundle.wave_pool)
+
+
+def test_get_records_bundle_can_use_st_waveforms_for_non_v1725():
+    plugin = RecordsPlugin()
+    st_waveforms = np.zeros(2, dtype=[("wave", np.uint16, 4)])
+    fake_bundle = RecordsBundle(
+        records=np.zeros(2, dtype=plugin.output_dtype),
+        wave_pool=np.array([1, 2, 3, 4], dtype=np.uint16),
+    )
+    ctx = FakeContext(
+        config={
+            "daq_adapter": "vx2730",
+            "records": {
+                "input_source": "st_waveforms",
+                "records_part_size": 128,
+            },
+        },
+        data={"st_waveforms": st_waveforms},
+        plugins={"records": plugin},
+    )
+
+    with patch(
+        "waveform_analysis.core.plugins.builtin.cpu.records.build_records_from_st_waveforms_sharded",
+        return_value=fake_bundle,
+    ) as mocked:
+        bundle = get_records_bundle(ctx, "run_001")
+
+    assert mocked.call_count == 1
+    assert mocked.call_args.args[0] is st_waveforms
+    assert mocked.call_args.kwargs["part_size"] == 128
+    assert mocked.call_args.kwargs["default_dt_ns"] == 2
     np.testing.assert_array_equal(bundle.wave_pool, fake_bundle.wave_pool)
 
 
