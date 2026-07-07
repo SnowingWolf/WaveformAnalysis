@@ -1111,15 +1111,20 @@ class PeakletWaveformPlugin(Plugin):
         component_peak_ids = components["peak_id"]
         component_merged_indices = components["merged_index"]
 
-        # For each peaklet, check if it contains any cross-record hit
+        # Vectorized check: for each peaklet, does it contain any cross-record hit?
+        # This is faster than looping through each peaklet
         peaklet_has_cross_record = np.zeros(len(peaklets), dtype=bool)
 
-        for i in range(len(peaklets)):
-            mask = component_peak_ids == i
-            if np.any(mask):
-                merged_indices = component_merged_indices[mask]
-                # Check if any of these merged hits are cross-record
-                peaklet_has_cross_record[i] = np.any(~is_single_record[merged_indices])
+        # Create mapping: component index -> is_cross_record
+        component_is_cross = ~is_single_record[component_merged_indices]
+
+        # Use bincount to check if any component in each peaklet is cross-record
+        # bincount counts True (1) values per peaklet_id
+        cross_counts = np.bincount(
+            component_peak_ids[component_is_cross],
+            minlength=len(peaklets)
+        )
+        peaklet_has_cross_record = cross_counts > 0
 
         # Split into two groups
         single_record_mask = ~peaklet_has_cross_record
