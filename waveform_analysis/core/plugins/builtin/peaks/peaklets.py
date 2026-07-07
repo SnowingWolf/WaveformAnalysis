@@ -1038,8 +1038,24 @@ class PeakletWaveformPlugin(Plugin):
         if len(peaklets) == 0:
             return _empty_waveforms(), _empty_waveform_pool()
 
-        # Numba 快速路径
-        if HAS_NUMBA and len(peaklets) > 5:
+        # Strategy: Split peaklets into single-record and cross-record groups
+        # Process single-record peaklets with Numba, cross-record with Python
+
+        # Check if we have cross-record hits
+        has_cross_record = False
+        if "is_single_record" in merged.dtype.names:
+            is_single_record = merged["is_single_record"]
+            has_cross_record = not np.all(is_single_record)
+        elif "sample_start" in merged.dtype.names:
+            is_single_record = merged["sample_start"] >= 0
+            has_cross_record = not np.all(is_single_record)
+        else:
+            # No way to detect cross-record, assume all single-record
+            is_single_record = np.ones(len(merged), dtype=bool)
+            has_cross_record = False
+
+        # If no cross-record hits, use pure Numba path
+        if not has_cross_record and HAS_NUMBA and len(peaklets) > 5:
             try:
                 return self._build_numba(
                     peaklets=peaklets,
@@ -1049,10 +1065,24 @@ class PeakletWaveformPlugin(Plugin):
                     wave_pool=wave_pool,
                 )
             except Exception:
-                # Numba 失败时降级到 Python
                 pass
 
-        # Python fallback
+        # If we have cross-record hits, use hybrid strategy
+        if has_cross_record and HAS_NUMBA and len(peaklets) > 5:
+            try:
+                return self._build_hybrid(
+                    peaklets=peaklets,
+                    components=components,
+                    merged=merged,
+                    is_single_record=is_single_record,
+                    records=records,
+                    wave_pool=wave_pool,
+                )
+            except Exception:
+                # Hybrid failed, fall back to pure Python
+                pass
+
+        # Python fallback for all cases
         return self._build_python(
             peaklets=peaklets,
             components=components,
@@ -1060,6 +1090,120 @@ class PeakletWaveformPlugin(Plugin):
             records=records,
             wave_pool=wave_pool,
         )
+
+    def _build_hybrid(
+        self,
+        *,
+        peaklets: np.ndarray,
+        components: np.ndarray,
+        merged: np.ndarray,
+        is_single_record: np.ndarray,
+        records: np.ndarray,
+        wave_pool: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Hybrid strategy: use Numba for single-record peaklets, Python for cross-record.
+
+        This significantly improves performance when only a small fraction of peaklets
+        contain cross-record hits.
+        """
+        # Build mapping: which merged indices belong to which peaklet
+        component_peak_ids = components["peak_id"]
+        component_merged_indices = components["merged_index"]
+
+        # For each peaklet, check if it contains any cross-record hit
+        peaklet_has_cross_record = np.zeros(len(peaklets), dtype=bool)
+
+        for i in range(len(peaklets)):
+            mask = component_peak_ids == i
+            if np.any(mask):
+                merged_indices = component_merged_indices[mask]
+                # Check if any of these merged hits are cross-record
+                peaklet_has_cross_record[i] = np.any(~is_single_record[merged_indices])
+
+        # Split into two groups
+        single_record_mask = ~peaklet_has_cross_record
+        cross_record_mask = peaklet_has_cross_record
+
+        n_single = np.sum(single_record_mask)
+        n_cross = np.sum(cross_record_mask)
+
+        # Process single-record peaklets with Numba
+        if n_single > 0:
+            single_peaklet_ids = np.flatnonzero(single_record_mask)
+            single_component_mask = np.isin(component_peak_ids, single_peaklet_ids)
+            single_components = components[single_component_mask]
+
+            # Remap peak_id to 0-based for the subset
+            peak_id_map = np.full(len(peaklets), -1, dtype=np.int64)
+            peak_id_map[single_peaklet_ids] = np.arange(n_single)
+            single_components_remapped = single_components.copy()
+            single_components_remapped["peak_id"] = peak_id_map[single_components["peak_id"]]
+
+            # Create subset peaklets array
+            single_peaklets = peaklets[single_peaklet_ids]
+
+            # Use Numba for this subset
+            single_waveforms, single_pool = self._build_numba(
+                peaklets=single_peaklets,
+                components=single_components_remapped,
+                merged=merged,
+                records=records,
+                wave_pool=wave_pool,
+            )
+        else:
+            single_waveforms = _empty_waveforms()
+            single_pool = _empty_waveform_pool()
+
+        # Process cross-record peaklets with Python
+        if n_cross > 0:
+            cross_peaklet_ids = np.flatnonzero(cross_record_mask)
+            cross_component_mask = np.isin(component_peak_ids, cross_peaklet_ids)
+            cross_components = components[cross_component_mask]
+
+            # Remap peak_id
+            peak_id_map = np.full(len(peaklets), -1, dtype=np.int64)
+            peak_id_map[cross_peaklet_ids] = np.arange(n_cross)
+            cross_components_remapped = cross_components.copy()
+            cross_components_remapped["peak_id"] = peak_id_map[cross_components["peak_id"]]
+
+            cross_peaklets = peaklets[cross_peaklet_ids]
+
+            # Use Python for this subset
+            cross_waveforms, cross_pool = self._build_python(
+                peaklets=cross_peaklets,
+                components=cross_components_remapped,
+                merged=merged,
+                records=records,
+                wave_pool=wave_pool,
+            )
+        else:
+            cross_waveforms = _empty_waveforms()
+            cross_pool = _empty_waveform_pool()
+
+        # Merge results
+        # Concatenate pools
+        total_pool_length = len(single_pool) + len(cross_pool)
+        merged_pool = np.concatenate([single_pool, cross_pool]).astype(np.float32, copy=False)
+
+        # Merge waveform rows and adjust offsets
+        merged_waveforms = np.zeros(len(peaklets), dtype=PEAKLET_WAVEFORMS_DTYPE)
+
+        # Copy single-record results
+        if n_single > 0:
+            single_peaklet_ids = np.flatnonzero(single_record_mask)
+            for i, peaklet_id in enumerate(single_peaklet_ids):
+                merged_waveforms[peaklet_id] = single_waveforms[i]
+
+        # Copy cross-record results and adjust wave_offset
+        if n_cross > 0:
+            cross_peaklet_ids = np.flatnonzero(cross_record_mask)
+            single_pool_size = len(single_pool)
+            for i, peaklet_id in enumerate(cross_peaklet_ids):
+                merged_waveforms[peaklet_id] = cross_waveforms[i]
+                merged_waveforms[peaklet_id]["wave_offset"] += single_pool_size
+
+        return merged_waveforms, merged_pool
 
     def _build_numba(
         self,
@@ -1070,20 +1214,9 @@ class PeakletWaveformPlugin(Plugin):
         records: np.ndarray,
         wave_pool: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Numba 加速路径"""
-        # Check for cross-record hits and fall back to Python if found
-        if "is_single_record" in merged.dtype.names:
-            if not np.all(merged["is_single_record"]):
-                # Has cross-record hits, fall back to Python path
-                raise ValueError(
-                    "Numba path does not support cross-record hits; falling back to Python"
-                )
-        elif "sample_start" in merged.dtype.names:
-            if np.any(merged["sample_start"] < 0):
-                # Has cross-record marker, fall back to Python path
-                raise ValueError(
-                    "Numba path does not support cross-record hits; falling back to Python"
-                )
+        """Numba 加速路径 - 仅处理单 record 的 hit_merged"""
+        # Note: Caller (_build_hybrid) ensures all merged hits are single-record
+        # No need to check for cross-record here
 
         # 批量解析 record_id
         record_lookup = RecordLookup(records)
