@@ -152,7 +152,7 @@ class S1S2PairCandidatesPlugin(Plugin):
     provides = "s1_s2_pair_candidates"
     depends_on = ["peak_classification", "peaks"]
     description = "Generate all physically allowed S1-S2 pairing candidates"
-    version = "0.1.1"
+    version = "0.1.2"
     save_when = "always"
     output_dtype = S1_S2_PAIR_CANDIDATES_DTYPE
 
@@ -310,52 +310,60 @@ class S1S2PairCandidatesPlugin(Plugin):
         if n_candidates == 0:
             return np.zeros(0, dtype=S1_S2_PAIR_CANDIDATES_DTYPE)
 
+        nonzero_s2 = counts > 0
+        s2_indices = np.repeat(
+            np.flatnonzero(nonzero_s2).astype(np.int32, copy=False),
+            counts[nonzero_s2].astype(np.int64, copy=False),
+        )
+        group_starts = np.repeat(
+            np.r_[0, np.cumsum(counts[nonzero_s2], dtype=np.int64)[:-1]],
+            counts[nonzero_s2].astype(np.int64, copy=False),
+        )
+        s1_indices = (
+            np.repeat(
+                left_indices[nonzero_s2].astype(np.int64, copy=False),
+                counts[nonzero_s2].astype(np.int64, copy=False),
+            )
+            + np.arange(n_candidates, dtype=np.int64)
+            - group_starts
+        ).astype(np.int32, copy=False)
+
+        s1_rows = s1_peaks_sorted[s1_indices]
+        s2_rows = s2_peaks_sorted[s2_indices]
+        s1_times = s1_rows[time_field].astype(np.int64, copy=False)
+        s2_times = s2_rows[time_field].astype(np.int64, copy=False)
+        drift_time_ps = s2_times - s1_times
+        s1_area = s1_rows["area"].astype(np.float32, copy=False)
+        s2_area = s2_rows["area"].astype(np.float32, copy=False)
+
         candidates = np.zeros(n_candidates, dtype=S1_S2_PAIR_CANDIDATES_DTYPE)
         candidates["pair_id"] = np.arange(n_candidates, dtype=np.int64)
+        candidates["s1_peak_id"] = s1_rows["peak_id"]
+        candidates["s2_peak_id"] = s2_rows["peak_id"]
+        candidates["s1_index"] = s1_indices
+        candidates["s2_index"] = s2_indices
+        candidates["s1_time"] = s1_times
+        candidates["s2_time"] = s2_times
+        candidates["drift_time"] = drift_time_ps
+        candidates["drift_time_ns"] = drift_time_ps.astype(np.float32, copy=False) / 1000.0
+        candidates["s1_area"] = s1_area
+        candidates["s2_area"] = s2_area
+
+        log10_s2_s1 = np.divide(
+            s2_area,
+            s1_area,
+            out=np.ones(n_candidates, dtype=np.float32),
+            where=s1_area > 0.0,
+        )
+        positive_s1 = s1_area > 0.0
+        log10_s2_s1[positive_s1] = np.log10(log10_s2_s1[positive_s1])
+        log10_s2_s1[~positive_s1] = 0.0
+        candidates["log10_s2_s1"] = log10_s2_s1
+        candidates["s1_width"] = s1_rows["width"].astype(np.float32, copy=False) / 1000.0
+        candidates["s2_width"] = s2_rows["width"].astype(np.float32, copy=False) / 1000.0
+        candidates["s1_n_channels"] = s1_rows["n_channels"]
+        candidates["s2_n_channels"] = s2_rows["n_channels"]
         candidates["flags"] = FLAG_VALID_TIME
-        write_pos = 0
-        for s2_idx, s2_peak in enumerate(s2_peaks_sorted):
-            left_idx = int(left_indices[s2_idx])
-            right_idx = int(right_indices[s2_idx])
-            count = right_idx - left_idx
-            if count <= 0:
-                continue
-
-            rows = slice(write_pos, write_pos + count)
-            s1_indices = np.arange(left_idx, right_idx, dtype=np.int32)
-            s1_rows = s1_peaks_sorted[s1_indices]
-            s2_time = int(s2_peak[time_field])
-            drift_time_ps = s2_time - s1_rows[time_field].astype(np.int64, copy=False)
-            s1_area = s1_rows["area"].astype(np.float32, copy=False)
-            s2_area = float(s2_peak["area"])
-
-            candidates["s1_peak_id"][rows] = s1_rows["peak_id"]
-            candidates["s2_peak_id"][rows] = int(s2_peak["peak_id"])
-            candidates["s1_index"][rows] = s1_indices
-            candidates["s2_index"][rows] = s2_idx
-            candidates["s1_time"][rows] = s1_rows[time_field]
-            candidates["s2_time"][rows] = s2_time
-            candidates["drift_time"][rows] = drift_time_ps
-            candidates["drift_time_ns"][rows] = (
-                drift_time_ps.astype(np.float32, copy=False) / 1000.0
-            )
-            candidates["s1_area"][rows] = s1_area
-            candidates["s2_area"][rows] = s2_area
-            log10_s2_s1 = np.divide(
-                s2_area,
-                s1_area,
-                out=np.ones(count, dtype=np.float32),
-                where=s1_area > 0.0,
-            )
-            positive_s1 = s1_area > 0.0
-            log10_s2_s1[positive_s1] = np.log10(log10_s2_s1[positive_s1])
-            log10_s2_s1[~positive_s1] = 0.0
-            candidates["log10_s2_s1"][rows] = log10_s2_s1
-            candidates["s1_width"][rows] = s1_rows["width"].astype(np.float32, copy=False) / 1000.0
-            candidates["s2_width"][rows] = float(s2_peak["width"] / 1000.0)
-            candidates["s1_n_channels"][rows] = s1_rows["n_channels"]
-            candidates["s2_n_channels"][rows] = int(s2_peak["n_channels"])
-            write_pos += count
 
         return candidates
 
@@ -364,17 +372,19 @@ class S1S2PairCandidatesPlugin(Plugin):
         if len(candidates) == 0:
             return
 
-        _, s2_inverse, s2_counts = np.unique(
-            candidates["s2_peak_id"], return_inverse=True, return_counts=True
-        )
-        s2_candidate_counts = s2_counts[s2_inverse].astype(np.int32, copy=False)
+        s2_indices = candidates["s2_index"].astype(np.int64, copy=False)
+        valid_s2 = s2_indices >= 0
+        s2_counts = np.bincount(s2_indices[valid_s2]) if np.any(valid_s2) else np.zeros(0)
+        s2_candidate_counts = np.zeros(len(candidates), dtype=np.int32)
+        s2_candidate_counts[valid_s2] = s2_counts[s2_indices[valid_s2]].astype(np.int32, copy=False)
         candidates["n_s1_candidates_for_s2"] = s2_candidate_counts
         candidates["flags"][s2_candidate_counts > 1] |= FLAG_MULTI_S1_CANDIDATE
 
-        _, s1_inverse, s1_counts = np.unique(
-            candidates["s1_peak_id"], return_inverse=True, return_counts=True
-        )
-        s1_candidate_counts = s1_counts[s1_inverse].astype(np.int32, copy=False)
+        s1_indices = candidates["s1_index"].astype(np.int64, copy=False)
+        valid_s1 = s1_indices >= 0
+        s1_counts = np.bincount(s1_indices[valid_s1]) if np.any(valid_s1) else np.zeros(0)
+        s1_candidate_counts = np.zeros(len(candidates), dtype=np.int32)
+        s1_candidate_counts[valid_s1] = s1_counts[s1_indices[valid_s1]].astype(np.int32, copy=False)
         candidates["n_s2_candidates_for_s1"] = s1_candidate_counts
         candidates["flags"][s1_candidate_counts > 1] |= FLAG_MULTI_S2_CANDIDATE
 

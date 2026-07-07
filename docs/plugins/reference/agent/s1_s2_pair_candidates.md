@@ -9,7 +9,7 @@
 | Provides | `s1_s2_pair_candidates` |
 | Depends On | `peak_classification`, `peaks` |
 | Output Kind | `structured_array` |
-| Version | `0.1.1` |
+| Version | `0.1.2` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_candidates` |
 | Accelerator | `cpu` |
 

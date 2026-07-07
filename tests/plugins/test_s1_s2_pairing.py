@@ -260,6 +260,43 @@ def test_multiple_s2_for_one_s1_sets_multi_s2_flag():
         assert cand["flags"] & FLAG_MULTI_S2_CANDIDATE
 
 
+def test_candidate_ambiguity_counts_large_vectorized_window():
+    s1_count = 12
+    s2_count = 5
+    peaks = np.array(
+        [
+            *[
+                create_test_peak(peak_id=i + 1, time_ns=1000 + i * 100, area=100 + i)
+                for i in range(s1_count)
+            ],
+            *[
+                create_test_peak(peak_id=100 + i, time_ns=20000 + i * 100, area=5000 + i)
+                for i in range(s2_count)
+            ],
+        ]
+    )
+    labels = np.array(
+        [
+            *[create_test_label(peak_id=i + 1, label=LABEL_S1) for i in range(s1_count)],
+            *[create_test_label(peak_id=100 + i, label=LABEL_S2) for i in range(s2_count)],
+        ]
+    )
+
+    plugin = S1S2PairCandidatesPlugin()
+    ctx = MockContext()
+    ctx.set_data("test_run", "peaks", peaks)
+    ctx.set_data("test_run", "peak_classification", labels)
+
+    candidates = plugin.compute(ctx, "test_run")
+
+    assert len(candidates) == s1_count * s2_count
+    np.testing.assert_array_equal(candidates["pair_id"], np.arange(len(candidates)))
+    assert np.all(candidates["n_s1_candidates_for_s2"] == s1_count)
+    assert np.all(candidates["n_s2_candidates_for_s1"] == s2_count)
+    assert np.all(candidates["flags"] & FLAG_MULTI_S1_CANDIDATE)
+    assert np.all(candidates["flags"] & FLAG_MULTI_S2_CANDIDATE)
+
+
 def test_pair_candidates_ignore_unknown_and_s1_s2_labels():
     peaks = np.array(
         [
