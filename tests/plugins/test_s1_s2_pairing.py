@@ -42,7 +42,7 @@ def create_test_peak(
 ):
     """创建测试 peak"""
     time_ps = int(time_ns * 1000)  # ns -> ps
-    width_ps = int(width_ns * 1000)
+    width_ps = int(width_ns * 1000)  # ns -> ps for timestamp bounds
 
     peak = np.zeros(1, dtype=PEAKS_DTYPE)[0]
     peak["peak_id"] = peak_id
@@ -52,7 +52,7 @@ def create_test_peak(
     peak["time_end"] = time_ps + width_ps // 2
     peak["area"] = area
     peak["height"] = area / 10.0
-    peak["width"] = width_ps
+    peak["width"] = width_ns
     peak["n_channels"] = n_channels
 
     return peak
@@ -101,8 +101,8 @@ def test_basic_pairing_one_to_one():
     # 创建测试数据
     peaks = np.array(
         [
-            create_test_peak(peak_id=1, time_ns=1000, area=100),  # S1
-            create_test_peak(peak_id=2, time_ns=20000, area=5000),  # S2
+            create_test_peak(peak_id=1, time_ns=1000, area=100, width_ns=120.0),  # S1
+            create_test_peak(peak_id=2, time_ns=20000, area=5000, width_ns=640.0),  # S2
         ]
     )
 
@@ -131,6 +131,8 @@ def test_basic_pairing_one_to_one():
     assert cand["drift_time_ns"] == pytest.approx(19000.0, rel=1e-3)  # 20000 - 1000
     assert cand["s1_area"] == pytest.approx(100.0)
     assert cand["s2_area"] == pytest.approx(5000.0)
+    assert cand["s1_width"] == pytest.approx(120.0)
+    assert cand["s2_width"] == pytest.approx(640.0)
     assert cand["log10_s2_s1"] == pytest.approx(np.log10(5000 / 100), rel=1e-3)
     assert cand["n_s1_candidates_for_s2"] == 1
     assert cand["n_s2_candidates_for_s1"] == 1
@@ -379,7 +381,7 @@ def test_orphan_s1():
     # 1 个 S1, 没有 S2
     peaks = np.array(
         [
-            create_test_peak(peak_id=1, time_ns=1000, area=100),  # S1
+            create_test_peak(peak_id=1, time_ns=1000, area=100, width_ns=85.0),  # S1
         ]
     )
 
@@ -406,6 +408,7 @@ def test_orphan_s1():
     assert len(candidates) == 1, "应该有 1 个孤立 S1 记录"
     assert candidates[0]["s1_peak_id"] == 1
     assert candidates[0]["s2_peak_id"] == -1  # 标记缺失
+    assert candidates[0]["s1_width"] == pytest.approx(85.0)
     assert candidates[0]["flags"] & FLAG_ORPHAN_S1
 
 
@@ -414,7 +417,7 @@ def test_orphan_s2():
     # 1 个 S2, 没有 S1
     peaks = np.array(
         [
-            create_test_peak(peak_id=10, time_ns=20000, area=5000),  # S2
+            create_test_peak(peak_id=10, time_ns=20000, area=5000, width_ns=720.0),  # S2
         ]
     )
 
@@ -436,6 +439,7 @@ def test_orphan_s2():
     assert len(candidates) == 1, "应该有 1 个孤立 S2 记录"
     assert candidates[0]["s1_peak_id"] == -1  # 标记缺失
     assert candidates[0]["s2_peak_id"] == 10
+    assert candidates[0]["s2_width"] == pytest.approx(720.0)
     assert candidates[0]["flags"] & FLAG_ORPHAN_S2
 
 

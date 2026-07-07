@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `s1_s2_pair_candidates` |
-| **Version** | `0.1.2` |
+| **Version** | `0.1.3` |
 | **Category** | 事件分析 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |

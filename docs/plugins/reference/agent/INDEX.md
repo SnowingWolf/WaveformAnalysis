@@ -47,7 +47,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`records_asymmetry_mask`](records_asymmetry_mask.md) | `RecordsAsymmetryMaskPlugin` | `records`, `wave_pool` | `array` | `0.2.0` |
 | [`records_detector_mask`](records_detector_mask.md) | `RecordsDetectorMaskPlugin` | `records`, `records_asymmetry_mask` | `array` | `0.1.0` |
 | [`records_veto_mask`](records_veto_mask.md) | `RecordsVetoMaskPlugin` | `records`, `records_asymmetry_mask` | `array` | `0.1.0` |
-| [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md) | `S1S2PairCandidatesPlugin` | `peak_classification`, `peaks` | `structured_array` | `0.1.2` |
+| [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md) | `S1S2PairCandidatesPlugin` | `peak_classification`, `peaks` | `structured_array` | `0.1.3` |
 | [`s1_s2_pairs`](s1_s2_pairs.md) | `S1S2PairSelectionPlugin` | `s1_s2_pair_candidates` | `structured_array` | `0.1.0` |
 | [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | - | `structured_array` | `0.10.0` |
 | [`wave_pool`](wave_pool.md) | `WavePoolPlugin` | - | `array` | `0.14.1` |

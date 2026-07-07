@@ -9,7 +9,7 @@
 | Provides | `s1_s2_pair_candidates` |
 | Depends On | `peak_classification`, `peaks` |
 | Output Kind | `structured_array` |
-| Version | `0.1.2` |
+| Version | `0.1.3` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_candidates` |
 | Accelerator | `cpu` |
 
@@ -44,6 +44,7 @@ S1-S2 配对候选生成插件。
 计算方式：
 - `drift_time = t_S2 - t_S1`
 - `drift_time_ns = drift_time / 1000`
+- `s1_width` 和 `s2_width` 直接沿用 `peaks.width`，单位为 ns
 - 候选时间窗口为 `[t_S2 - max_drift_time, t_S2 - min_drift_time]`
 - `log10_s2_s1 = log10(s2_area / s1_area)`，若 `s1_area <= 0` 则记为 `0.0`
 - `score_*` 字段在这一层不计算，统一置零，留给后续插件补充分数

@@ -152,7 +152,7 @@ raw_files ──► records ──► df ──► df_events
 | [`RecordsAsymmetryMaskPlugin`](records_asymmetry_mask.md) | `records_asymmetry_mask` | 0.2.0 | 记录处理 | records, wave_pool |
 | [`RecordsDetectorMaskPlugin`](records_detector_mask.md) | `records_detector_mask` | 0.1.0 | 记录处理 | records, records_asymmetry_mask |
 | [`RecordsVetoMaskPlugin`](records_veto_mask.md) | `records_veto_mask` | 0.1.0 | 记录处理 | records, records_asymmetry_mask |
-| [`S1S2PairCandidatesPlugin`](s1_s2_pair_candidates.md) | `s1_s2_pair_candidates` | 0.1.2 | 事件分析 | peak_classification, peaks |
+| [`S1S2PairCandidatesPlugin`](s1_s2_pair_candidates.md) | `s1_s2_pair_candidates` | 0.1.3 | 事件分析 | peak_classification, peaks |
 | [`S1S2PairSelectionPlugin`](s1_s2_pairs.md) | `s1_s2_pairs` | 0.1.0 | 事件分析 | s1_s2_pair_candidates |
 | [`WaveformsPlugin`](st_waveforms.md) | `st_waveforms` | 0.10.0 | 波形处理 | - |
 | [`WavePoolPlugin`](wave_pool.md) | `wave_pool` | 0.13.0 | 波形处理 | - |

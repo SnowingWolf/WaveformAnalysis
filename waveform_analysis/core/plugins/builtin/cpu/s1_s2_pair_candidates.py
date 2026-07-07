@@ -27,6 +27,7 @@
 计算方式：
 - `drift_time = t_S2 - t_S1`
 - `drift_time_ns = drift_time / 1000`
+- `s1_width` 和 `s2_width` 直接沿用 `peaks.width`，单位为 ns
 - 候选时间窗口为 `[t_S2 - max_drift_time, t_S2 - min_drift_time]`
 - `log10_s2_s1 = log10(s2_area / s1_area)`，若 `s1_area <= 0` 则记为 `0.0`
 - `score_*` 字段在这一层不计算，统一置零，留给后续插件补充分数
@@ -152,7 +153,7 @@ class S1S2PairCandidatesPlugin(Plugin):
     provides = "s1_s2_pair_candidates"
     depends_on = ["peak_classification", "peaks"]
     description = "Generate all physically allowed S1-S2 pairing candidates"
-    version = "0.1.2"
+    version = "0.1.3"
     save_when = "always"
     output_dtype = S1_S2_PAIR_CANDIDATES_DTYPE
 
@@ -359,8 +360,8 @@ class S1S2PairCandidatesPlugin(Plugin):
         log10_s2_s1[positive_s1] = np.log10(log10_s2_s1[positive_s1])
         log10_s2_s1[~positive_s1] = 0.0
         candidates["log10_s2_s1"] = log10_s2_s1
-        candidates["s1_width"] = s1_rows["width"].astype(np.float32, copy=False) / 1000.0
-        candidates["s2_width"] = s2_rows["width"].astype(np.float32, copy=False) / 1000.0
+        candidates["s1_width"] = s1_rows["width"].astype(np.float32, copy=False)
+        candidates["s2_width"] = s2_rows["width"].astype(np.float32, copy=False)
         candidates["s1_n_channels"] = s1_rows["n_channels"]
         candidates["s2_n_channels"] = s2_rows["n_channels"]
         candidates["flags"] = FLAG_VALID_TIME
@@ -473,7 +474,7 @@ class S1S2PairCandidatesPlugin(Plugin):
             "s1_area": float(s1_peak["area"]),
             "s2_area": 0.0,
             "log10_s2_s1": 0.0,
-            "s1_width": float(s1_peak["width"] / 1000.0),
+            "s1_width": float(s1_peak["width"]),
             "s2_width": 0.0,
             "s1_n_channels": int(s1_peak["n_channels"]),
             "s2_n_channels": 0,
@@ -509,7 +510,7 @@ class S1S2PairCandidatesPlugin(Plugin):
             "s2_area": float(s2_peak["area"]),
             "log10_s2_s1": 0.0,
             "s1_width": 0.0,
-            "s2_width": float(s2_peak["width"] / 1000.0),
+            "s2_width": float(s2_peak["width"]),
             "s1_n_channels": 0,
             "s2_n_channels": int(s2_peak["n_channels"]),
             "score_total": 0.0,
