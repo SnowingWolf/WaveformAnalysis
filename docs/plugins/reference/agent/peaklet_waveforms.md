@@ -9,9 +9,13 @@
 | Provides | `peaklet_waveforms` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `1.0.0` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.peaklets` |
+| Version | `1.2.0` |
+| Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
 | Accelerator | `cpu` |
+
+## Source Notes
+
+Peaklet clustering, ragged waveforms, features, and final peaks.
 
 ## Inputs
 
@@ -33,6 +37,10 @@
 | Name | Type | Default | Note |
 |------|------|---------|------|
 | `use_filtered` | `bool` | `False` | 是否使用 wave_pool_filtered 构建 peaklet 波形 |
+| `debug_numba` | `bool` | `False` | 调试 peaklet waveform Numba 路径；启用后 Numba 异常直接抛出。 |
+| `log_waveform_diagnostics` | `bool` | `False` | 记录 peaklet waveform 构建统计和耗时诊断信息。 |
+| `n_workers` | `int` | `1` | 并行处理的进程数。1=单进程，0=自动（使用 CPU 核心数-1），>1=指定进程数 |
+| `parallel_threshold` | `int` | `5000` | 启用并行化的最小 peaklet 数量。少于此数量时使用单进程 |
 
 ## Execution Path
 

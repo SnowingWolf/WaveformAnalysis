@@ -1,6 +1,8 @@
 """Peaklet clustering, ragged waveforms, features, and final peaks."""
 
 import logging
+from multiprocessing import Pool, cpu_count
+import time
 from typing import Any
 
 import numpy as np
@@ -25,6 +27,7 @@ from waveform_analysis.core.plugins.core.batch_processing import BatchProcessing
 from waveform_analysis.core.processing.chunk import Chunk
 
 logger = logging.getLogger(__name__)
+HAS_MULTIPROCESSING = True
 
 PEAKLET_DTYPE = np.dtype(
     [
@@ -463,13 +466,62 @@ def _prepare_component_groups(
     group_starts_idx = np.flatnonzero(change)
     group_ends_idx = np.r_[group_starts_idx[1:], len(peak_ids)]
 
-    for s, e in zip(group_starts_idx, group_ends_idx):
+    for s, e in zip(group_starts_idx, group_ends_idx, strict=False):
         pid = int(peak_ids[s])
         if 0 <= pid < n_peaklets:
             starts[pid] = s
             ends[pid] = e
 
     return merged_indices, starts, ends
+
+
+def _build_peaklet_component_csr(
+    components: np.ndarray, n_peaklets: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Return CSR-like peaklet_id -> merged_index membership arrays.
+
+    For peaklet_id, grouped_merged_indices[starts[peaklet_id]:ends[peaklet_id]]
+    contains the merged indices belonging to that peaklet. Empty groups use
+    starts=-1 and ends=-1.
+    """
+    return _prepare_component_groups(components, n_peaklets)
+
+
+def _build_hmc_csr(
+    hit_merged_components: np.ndarray, n_merged: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Return CSR-like merged_index -> hit_threshold index membership arrays.
+
+    For merged_index, grouped_hit_indices[starts[merged_index]:ends[merged_index]]
+    contains the hit_threshold indices belonging to that merged hit. Empty
+    groups use starts=-1 and ends=-1.
+    """
+    if len(hit_merged_components) == 0:
+        return (
+            np.array([], dtype=np.int64),
+            np.full(n_merged, -1, dtype=np.int64),
+            np.full(n_merged, -1, dtype=np.int64),
+        )
+
+    order = np.argsort(hit_merged_components["merged_index"], kind="mergesort")
+    merged_indices = hit_merged_components["merged_index"][order].astype(np.int64, copy=False)
+    hit_indices = hit_merged_components["hit_index"][order].astype(np.int64, copy=False)
+
+    starts = np.full(n_merged, -1, dtype=np.int64)
+    ends = np.full(n_merged, -1, dtype=np.int64)
+    change = np.r_[True, merged_indices[1:] != merged_indices[:-1]]
+    group_starts_idx = np.flatnonzero(change)
+    group_ends_idx = np.r_[group_starts_idx[1:], len(merged_indices)]
+
+    for s, e in zip(group_starts_idx, group_ends_idx, strict=False):
+        merged_index = int(merged_indices[s])
+        if 0 <= merged_index < n_merged:
+            starts[merged_index] = s
+            ends[merged_index] = e
+
+    return hit_indices, starts, ends
 
 
 def _build_hit_merged_components_index(
@@ -489,7 +541,6 @@ def _build_hit_merged_components_index(
         hit_idx = int(row["hit_index"])
         out.setdefault(merged_idx, []).append(hit_idx)
     return {k: np.asarray(v, dtype=np.int64) for k, v in out.items()}
-
 
 
 def _validate_peaklet_components(
@@ -680,6 +731,225 @@ def _build_waveforms_numba(
         pool = np.zeros(0, dtype=np.float32)
 
     return waveform_rows, pool
+
+
+@njit(cache=True, nogil=True)
+def _first_pass_cross_record_numba(
+    grouped_merged_indices,
+    peaklet_comp_starts,
+    peaklet_comp_ends,
+    grouped_hit_indices,
+    merged_hit_starts,
+    merged_hit_ends,
+    hit_record_indices,
+    hit_sample_starts,
+    hit_sample_ends,
+    record_dt,
+    record_event_length,
+    record_timestamp,
+):
+    n_peaklets = len(peaklet_comp_starts)
+    waveform_rows = np.zeros((n_peaklets, 6), dtype=np.int64)
+    total_wave_length = 0
+
+    for peaklet_id in range(n_peaklets):
+        comp_start = peaklet_comp_starts[peaklet_id]
+        comp_end = peaklet_comp_ends[peaklet_id]
+        if comp_start < 0 or comp_end <= comp_start:
+            waveform_rows[peaklet_id, 0] = peaklet_id
+            waveform_rows[peaklet_id, 4] = total_wave_length
+            continue
+
+        dt_ns = -1
+        time_start = 0
+        time_end = 0
+        has_piece = False
+
+        for comp_i in range(comp_start, comp_end):
+            merged_index = grouped_merged_indices[comp_i]
+            if merged_index < 0 or merged_index >= len(merged_hit_starts):
+                continue
+            hit_start = merged_hit_starts[merged_index]
+            hit_end = merged_hit_ends[merged_index]
+            if hit_start < 0 or hit_end <= hit_start:
+                continue
+
+            for hmc_i in range(hit_start, hit_end):
+                hit_index = grouped_hit_indices[hmc_i]
+                if hit_index < 0 or hit_index >= len(hit_record_indices):
+                    continue
+                rec_idx = hit_record_indices[hit_index]
+                if rec_idx < 0 or rec_idx >= len(record_dt):
+                    continue
+
+                piece_dt = record_dt[rec_idx]
+                if dt_ns == -1:
+                    dt_ns = piece_dt
+                elif piece_dt != dt_ns:
+                    waveform_rows[peaklet_id, 0] = peaklet_id
+                    waveform_rows[peaklet_id, 1] = -1
+                    waveform_rows[peaklet_id, 2] = -1
+                    waveform_rows[peaklet_id, 3] = -1
+                    waveform_rows[peaklet_id, 4] = total_wave_length
+                    waveform_rows[peaklet_id, 5] = 0
+                    has_piece = False
+                    dt_ns = -2
+                    break
+
+                start = hit_sample_starts[hit_index]
+                end = hit_sample_ends[hit_index]
+                if start < 0:
+                    start = 0
+                rec_length = record_event_length[rec_idx]
+                if end > rec_length:
+                    end = rec_length
+                if end <= start:
+                    continue
+
+                dt_ps = piece_dt * 1000
+                abs_start = record_timestamp[rec_idx] + start * dt_ps
+                abs_end = record_timestamp[rec_idx] + end * dt_ps
+                if not has_piece:
+                    time_start = abs_start
+                    time_end = abs_end
+                    has_piece = True
+                else:
+                    if abs_start < time_start:
+                        time_start = abs_start
+                    if abs_end > time_end:
+                        time_end = abs_end
+            if dt_ns == -2:
+                break
+
+        if dt_ns == -2:
+            continue
+        if not has_piece or dt_ns < 0:
+            waveform_rows[peaklet_id, 0] = peaklet_id
+            waveform_rows[peaklet_id, 4] = total_wave_length
+            continue
+
+        dt_ps = dt_ns * 1000
+        wave_length = 0
+        for comp_i in range(comp_start, comp_end):
+            merged_index = grouped_merged_indices[comp_i]
+            if merged_index < 0 or merged_index >= len(merged_hit_starts):
+                continue
+            hit_start = merged_hit_starts[merged_index]
+            hit_end = merged_hit_ends[merged_index]
+            if hit_start < 0 or hit_end <= hit_start:
+                continue
+
+            for hmc_i in range(hit_start, hit_end):
+                hit_index = grouped_hit_indices[hmc_i]
+                if hit_index < 0 or hit_index >= len(hit_record_indices):
+                    continue
+                rec_idx = hit_record_indices[hit_index]
+                if rec_idx < 0 or rec_idx >= len(record_dt):
+                    continue
+
+                start = hit_sample_starts[hit_index]
+                end = hit_sample_ends[hit_index]
+                if start < 0:
+                    start = 0
+                rec_length = record_event_length[rec_idx]
+                if end > rec_length:
+                    end = rec_length
+                if end <= start:
+                    continue
+
+                abs_start = record_timestamp[rec_idx] + start * dt_ps
+                local_i0 = (abs_start - time_start) // dt_ps
+                sample_length = end - start
+                piece_end = local_i0 + sample_length
+                if piece_end > wave_length:
+                    wave_length = piece_end
+
+        waveform_rows[peaklet_id, 0] = peaklet_id
+        waveform_rows[peaklet_id, 1] = time_start
+        waveform_rows[peaklet_id, 2] = time_end
+        waveform_rows[peaklet_id, 3] = dt_ns
+        waveform_rows[peaklet_id, 4] = total_wave_length
+        waveform_rows[peaklet_id, 5] = wave_length
+        total_wave_length += wave_length
+
+    return waveform_rows, total_wave_length
+
+
+@njit(cache=True, nogil=True)
+def _fill_cross_record_pool_numba(
+    pool,
+    waveform_rows,
+    grouped_merged_indices,
+    peaklet_comp_starts,
+    peaklet_comp_ends,
+    grouped_hit_indices,
+    merged_hit_starts,
+    merged_hit_ends,
+    hit_record_indices,
+    hit_sample_starts,
+    hit_sample_ends,
+    record_dt,
+    record_event_length,
+    record_timestamp,
+    record_wave_offset,
+    record_baseline,
+    record_sign,
+    wave_pool,
+):
+    n_peaklets = len(peaklet_comp_starts)
+    for peaklet_id in range(n_peaklets):
+        wave_length = waveform_rows[peaklet_id, 5]
+        if wave_length <= 0:
+            continue
+
+        comp_start = peaklet_comp_starts[peaklet_id]
+        comp_end = peaklet_comp_ends[peaklet_id]
+        if comp_start < 0 or comp_end <= comp_start:
+            continue
+
+        wave_offset = waveform_rows[peaklet_id, 4]
+        peaklet_time_start = waveform_rows[peaklet_id, 1]
+        dt_ns = waveform_rows[peaklet_id, 3]
+        dt_ps = dt_ns * 1000
+
+        for comp_i in range(comp_start, comp_end):
+            merged_index = grouped_merged_indices[comp_i]
+            if merged_index < 0 or merged_index >= len(merged_hit_starts):
+                continue
+            hit_start = merged_hit_starts[merged_index]
+            hit_end = merged_hit_ends[merged_index]
+            if hit_start < 0 or hit_end <= hit_start:
+                continue
+
+            for hmc_i in range(hit_start, hit_end):
+                hit_index = grouped_hit_indices[hmc_i]
+                if hit_index < 0 or hit_index >= len(hit_record_indices):
+                    continue
+                rec_idx = hit_record_indices[hit_index]
+                if rec_idx < 0 or rec_idx >= len(record_dt):
+                    continue
+
+                start = hit_sample_starts[hit_index]
+                end = hit_sample_ends[hit_index]
+                if start < 0:
+                    start = 0
+                rec_length = record_event_length[rec_idx]
+                if end > rec_length:
+                    end = rec_length
+                if end <= start:
+                    continue
+
+                abs_start = record_timestamp[rec_idx] + start * dt_ps
+                local_i0 = (abs_start - peaklet_time_start) // dt_ps
+                src_offset = record_wave_offset[rec_idx] + start
+                dst_offset = wave_offset + local_i0
+                baseline = record_baseline[rec_idx]
+                sign = record_sign[rec_idx]
+
+                for sample_i in range(end - start):
+                    signal = sign * (np.float32(wave_pool[src_offset + sample_i]) - baseline)
+                    if signal > 0.0:
+                        pool[dst_offset + sample_i] += signal
 
 
 def _merged_wave_pieces_multirecord(
@@ -1070,7 +1340,11 @@ def _process_peaklet_batch(batch_data: dict) -> tuple[np.ndarray, np.ndarray]:
                 else (int(hit["sample_start"]) >= 0 and int(hit["sample_end"]) >= 0)
             )
 
-            if not is_single_record and hit_merged_components is not None and hit_threshold is not None:
+            if (
+                not is_single_record
+                and hit_merged_components is not None
+                and hit_threshold is not None
+            ):
                 # Cross-record path
                 multi_pieces = _merged_wave_pieces_multirecord(
                     hit=hit,
@@ -1142,13 +1416,23 @@ class PeakletWaveformPlugin(Plugin):
     provides = "peaklet_waveforms"
     depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion."
-    version = "1.1.0"
+    version = "1.2.0"
     output_dtype = PEAKLET_WAVEFORMS_DTYPE
     save_when = "always"
 
     options = {
         "use_filtered": Option(
             default=False, type=bool, help="是否使用 wave_pool_filtered 构建 peaklet 波形"
+        ),
+        "debug_numba": Option(
+            default=False,
+            type=bool,
+            help="调试 peaklet waveform Numba 路径；启用后 Numba 异常直接抛出。",
+        ),
+        "log_waveform_diagnostics": Option(
+            default=False,
+            type=bool,
+            help="记录 peaklet waveform 构建统计和耗时诊断信息。",
         ),
         "n_workers": Option(
             default=1,
@@ -1185,6 +1469,8 @@ class PeakletWaveformPlugin(Plugin):
 
         self._n_workers = n_workers
         self._parallel_threshold = int(context.get_config(self, "parallel_threshold"))
+        self._debug_numba = bool(context.get_config(self, "debug_numba"))
+        self._log_waveform_diagnostics = bool(context.get_config(self, "log_waveform_diagnostics"))
 
         waveforms, pool = self._compute_waveforms_and_pool(context, run_id)
         self._store_pool(context, run_id, pool)
@@ -1220,14 +1506,6 @@ class PeakletWaveformPlugin(Plugin):
         hit_merged_components = context.get_data(run_id, "hit_merged_components")
         hit_threshold = context.get_data(run_id, "hit_threshold")
 
-        # Pre-build hit_merged_components index for fast lookup
-        if hit_merged_components is not None and len(hit_merged_components) > 0:
-            self._hit_merged_components_index = _build_hit_merged_components_index(
-                hit_merged_components
-            )
-        else:
-            self._hit_merged_components_index = {}
-
         records = _record_array(context.get_data(run_id, "records"))
         wave_pool_name = (
             "wave_pool_filtered" if bool(context.get_config(self, "use_filtered")) else "wave_pool"
@@ -1239,6 +1517,7 @@ class PeakletWaveformPlugin(Plugin):
         self._run_id = run_id
         self._hit_merged_components = hit_merged_components
         self._hit_threshold = hit_threshold
+        self._hit_merged_components_index = None
 
         return self._build(
             peaklets=peaklets,
@@ -1260,21 +1539,13 @@ class PeakletWaveformPlugin(Plugin):
         if len(peaklets) == 0:
             return _empty_waveforms(), _empty_waveform_pool()
 
-        # Strategy: Split peaklets into single-record and cross-record groups
-        # Process single-record peaklets with Numba, cross-record with Python
-
-        # Check if we have cross-record hits
-        has_cross_record = False
         if "is_single_record" in merged.dtype.names:
             is_single_record = merged["is_single_record"]
-            has_cross_record = not np.all(is_single_record)
         elif "sample_start" in merged.dtype.names:
             is_single_record = merged["sample_start"] >= 0
-            has_cross_record = not np.all(is_single_record)
         else:
-            # No way to detect cross-record, assume all single-record
             is_single_record = np.ones(len(merged), dtype=bool)
-            has_cross_record = False
+        has_cross_record = not np.all(is_single_record)
 
         # If no cross-record hits, use pure Numba path
         if not has_cross_record and HAS_NUMBA and len(peaklets) > 5:
@@ -1287,25 +1558,28 @@ class PeakletWaveformPlugin(Plugin):
                     wave_pool=wave_pool,
                 )
             except Exception as e:
+                if getattr(self, "_debug_numba", False):
+                    raise
                 logger.warning(
                     f"Numba path failed for peaklet_waveforms (all single-record), "
                     f"falling back to Python: {e}"
                 )
 
-        # If we have cross-record hits, use hybrid strategy
-        if has_cross_record and HAS_NUMBA and len(peaklets) > 5:
+        if has_cross_record and HAS_NUMBA:
             try:
-                return self._build_hybrid(
+                return self._build_cross_record_numba(
                     peaklets=peaklets,
                     components=components,
                     merged=merged,
-                    is_single_record=is_single_record,
+                    is_single_record=np.asarray(is_single_record, dtype=bool),
                     records=records,
                     wave_pool=wave_pool,
                 )
             except Exception as e:
+                if getattr(self, "_debug_numba", False):
+                    raise
                 logger.warning(
-                    f"Hybrid Numba/Python path failed for peaklet_waveforms, "
+                    f"Cross-record Numba path failed for peaklet_waveforms, "
                     f"falling back to pure Python: {e}"
                 )
 
@@ -1317,6 +1591,165 @@ class PeakletWaveformPlugin(Plugin):
             records=records,
             wave_pool=wave_pool,
         )
+
+    def _build_cross_record_numba(
+        self,
+        *,
+        peaklets: np.ndarray,
+        components: np.ndarray,
+        merged: np.ndarray,
+        is_single_record: np.ndarray,
+        records: np.ndarray,
+        wave_pool: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        hit_merged_components = getattr(self, "_hit_merged_components", None)
+        hit_threshold = getattr(self, "_hit_threshold", None)
+        if not isinstance(hit_merged_components, np.ndarray) or not isinstance(
+            hit_threshold, np.ndarray
+        ):
+            raise ValueError(
+                "peaklet_waveforms cross-record path requires hit_merged_components "
+                "and hit_threshold arrays"
+            )
+
+        t0 = time.perf_counter()
+        grouped_merged_indices, peaklet_comp_starts, peaklet_comp_ends = (
+            _build_peaklet_component_csr(components, len(peaklets))
+        )
+        grouped_hit_indices, merged_hit_starts, merged_hit_ends = _build_hmc_csr(
+            hit_merged_components, len(merged)
+        )
+
+        hit_names = hit_threshold.dtype.names or ()
+        if {"sample_start", "sample_end"}.issubset(hit_names):
+            hit_sample_starts = hit_threshold["sample_start"].astype(np.int64, copy=False)
+            hit_sample_ends = hit_threshold["sample_end"].astype(np.int64, copy=False)
+        elif {"edge_start", "edge_end"}.issubset(hit_names):
+            hit_sample_starts = hit_threshold["edge_start"].astype(np.int64, copy=False)
+            hit_sample_ends = hit_threshold["edge_end"].astype(np.int64, copy=False)
+        else:
+            raise KeyError(
+                "peaklet_waveforms requires hit_threshold sample_start/sample_end "
+                "or edge_start/edge_end"
+            )
+
+        if "record_id" not in hit_names:
+            raise KeyError("peaklet_waveforms requires hit_threshold record_id")
+        hit_record_ids = hit_threshold["record_id"].astype(np.int64, copy=False)
+        hit_record_indices = (
+            RecordLookup(records).get_indices(hit_record_ids).astype(np.int64, copy=False)
+        )
+
+        record_names = records.dtype.names or ()
+        if "dt" not in record_names:
+            raise KeyError("peaklet_waveforms cross-record path requires records dt")
+        for required in ("event_length", "wave_offset"):
+            if required not in record_names:
+                raise KeyError(f"peaklet_waveforms cross-record path requires records {required}")
+
+        record_dt = records["dt"].astype(np.int64, copy=False)
+        record_event_length = records["event_length"].astype(np.int64, copy=False)
+        record_timestamp = (
+            records["timestamp"].astype(np.int64, copy=False)
+            if "timestamp" in record_names
+            else np.zeros(len(records), dtype=np.int64)
+        )
+        record_wave_offset = records["wave_offset"].astype(np.int64, copy=False)
+        record_baseline = (
+            records["baseline"].astype(np.float32, copy=False)
+            if "baseline" in record_names
+            else np.zeros(len(records), dtype=np.float32)
+        )
+        record_sign = _extract_polarity_signs(records)
+        time_prepare_csr = time.perf_counter() - t0
+
+        t_first = time.perf_counter()
+        waveform_rows, total_wave_length = _first_pass_cross_record_numba(
+            grouped_merged_indices,
+            peaklet_comp_starts,
+            peaklet_comp_ends,
+            grouped_hit_indices,
+            merged_hit_starts,
+            merged_hit_ends,
+            hit_record_indices,
+            hit_sample_starts,
+            hit_sample_ends,
+            record_dt,
+            record_event_length,
+            record_timestamp,
+        )
+        time_first_pass = time.perf_counter() - t_first
+
+        for peaklet_id in range(len(waveform_rows)):
+            if waveform_rows[peaklet_id, 1] == -1:
+                raise ValueError(
+                    f"peaklet_waveforms does not support mixed dt in peaklet_id={peaklet_id}"
+                )
+
+        t_second = time.perf_counter()
+        pool = np.zeros(int(total_wave_length), dtype=np.float32)
+        _fill_cross_record_pool_numba(
+            pool,
+            waveform_rows,
+            grouped_merged_indices,
+            peaklet_comp_starts,
+            peaklet_comp_ends,
+            grouped_hit_indices,
+            merged_hit_starts,
+            merged_hit_ends,
+            hit_record_indices,
+            hit_sample_starts,
+            hit_sample_ends,
+            record_dt,
+            record_event_length,
+            record_timestamp,
+            record_wave_offset,
+            record_baseline,
+            record_sign,
+            wave_pool,
+        )
+        time_second_pass = time.perf_counter() - t_second
+
+        waveforms = np.zeros(len(waveform_rows), dtype=PEAKLET_WAVEFORMS_DTYPE)
+        waveforms["peak_id"] = waveform_rows[:, 0]
+        waveforms["time_start"] = waveform_rows[:, 1]
+        waveforms["time_end"] = waveform_rows[:, 2]
+        waveforms["dt"] = waveform_rows[:, 3]
+        waveforms["wave_offset"] = waveform_rows[:, 4]
+        waveforms["wave_length"] = waveform_rows[:, 5]
+
+        if getattr(self, "_log_waveform_diagnostics", False):
+            component_peak_ids = components["peak_id"].astype(np.int64, copy=False)
+            component_merged_indices = components["merged_index"].astype(np.int64, copy=False)
+            component_is_cross = ~is_single_record[component_merged_indices]
+            if len(component_peak_ids) > 0:
+                cross_counts = np.bincount(
+                    component_peak_ids[component_is_cross], minlength=len(peaklets)
+                )
+                fraction_peaklet_with_cross_record = float(np.mean(cross_counts > 0))
+            else:
+                fraction_peaklet_with_cross_record = 0.0
+            logger.info(
+                "peaklet_waveforms diagnostics: "
+                "n_peaklets=%s n_merged=%s n_hit_threshold=%s "
+                "fraction_cross_record_merged=%.6f "
+                "fraction_peaklet_with_cross_record=%.6f "
+                "total_waveform_pool_length=%s "
+                "time_prepare_csr=%.6fs time_first_pass=%.6fs "
+                "time_second_pass=%.6fs time_total=%.6fs",
+                len(peaklets),
+                len(merged),
+                len(hit_threshold),
+                float(np.mean(~is_single_record)) if len(is_single_record) else 0.0,
+                fraction_peaklet_with_cross_record,
+                int(total_wave_length),
+                time_prepare_csr,
+                time_first_pass,
+                time_second_pass,
+                time.perf_counter() - t0,
+            )
+
+        return waveforms, pool
 
     def _build_hybrid(
         self,
@@ -1402,9 +1835,7 @@ class PeakletWaveformPlugin(Plugin):
             n_workers = getattr(self, "_n_workers", 1)
             parallel_threshold = getattr(self, "_parallel_threshold", 5000)
 
-            use_parallel = (
-                HAS_MULTIPROCESSING and n_workers != 1 and n_cross >= parallel_threshold
-            )
+            use_parallel = HAS_MULTIPROCESSING and n_workers != 1 and n_cross >= parallel_threshold
 
             if use_parallel:
                 # Parallel processing for cross-record peaklets
@@ -1562,9 +1993,7 @@ class PeakletWaveformPlugin(Plugin):
             batch_peaklet_ids = np.arange(i, end_idx)
 
             # Filter components for this batch
-            batch_component_mask = np.isin(
-                components["peak_id"], batch_peaklet_ids
-            )
+            batch_component_mask = np.isin(components["peak_id"], batch_peaklet_ids)
             batch_components = components[batch_component_mask].copy()
 
             # Remap peak_id to be 0-based within this batch
@@ -1572,15 +2001,18 @@ class PeakletWaveformPlugin(Plugin):
             old_to_new[batch_peaklet_ids] = np.arange(len(batch_peaklet_ids))
             batch_components["peak_id"] = old_to_new[batch_components["peak_id"]]
 
-            batches.append({
-                "peaklets": peaklets[batch_peaklet_ids],
-                "components": batch_components,
-                "merged": merged,
-                "records": records,
-                "wave_pool": wave_pool,
-                "hit_merged_components": getattr(self, "_hit_merged_components", None),
-                "hit_threshold": getattr(self, "_hit_threshold", None),
-            })
+            batches.append(
+                {
+                    "peaklets": peaklets[batch_peaklet_ids],
+                    "components": batch_components,
+                    "merged": merged,
+                    "records": records,
+                    "wave_pool": wave_pool,
+                    "hit_merged_components": getattr(self, "_hit_merged_components", None),
+                    "hit_threshold": getattr(self, "_hit_threshold", None),
+                    "peaklet_id_offset": i,
+                }
+            )
 
         # Process batches in parallel
         with Pool(n_workers) as pool:
@@ -1591,10 +2023,11 @@ class PeakletWaveformPlugin(Plugin):
         all_pools = []
         cumulative_offset = 0
 
-        for batch_waveforms, batch_pool in results:
+        for batch, (batch_waveforms, batch_pool) in zip(batches, results, strict=False):
             # Adjust wave_offset
             if len(batch_waveforms) > 0:
                 batch_waveforms["wave_offset"] += cumulative_offset
+                batch_waveforms["peak_id"] += int(batch["peaklet_id_offset"])
             all_waveforms.append(batch_waveforms)
             all_pools.append(batch_pool)
             cumulative_offset += len(batch_pool)
@@ -1627,6 +2060,14 @@ class PeakletWaveformPlugin(Plugin):
         # Get cross-record dependencies (from _compute_waveforms_and_pool)
         hit_merged_components = getattr(self, "_hit_merged_components", None)
         hit_threshold = getattr(self, "_hit_threshold", None)
+        if (
+            hit_merged_components is not None
+            and len(hit_merged_components) > 0
+            and getattr(self, "_hit_merged_components_index", None) is None
+        ):
+            self._hit_merged_components_index = _build_hit_merged_components_index(
+                hit_merged_components
+            )
 
         component_groups = _components_by_peaklet(components, len(peaklets))
         rows: list[tuple[int, int, int, int, int, int]] = []
@@ -1661,7 +2102,9 @@ class PeakletWaveformPlugin(Plugin):
                     # Cross-record path: expand into multiple pieces
                     multi_pieces = _merged_wave_pieces_multirecord(
                         hit=hit,
-                        hit_merged_components_index=getattr(self, "_hit_merged_components_index", {}),
+                        hit_merged_components_index=getattr(
+                            self, "_hit_merged_components_index", {}
+                        ),
                         hit_threshold=hit_threshold,
                         records=records,
                         record_lookup=record_lookup,
@@ -1946,4 +2389,5 @@ __all__ = [
     "PeakletWaveformPlugin",
     "PeakletWaveformPoolPlugin",
     "PeaksPlugin",
+    "_compute_area_quantile_times",
 ]
