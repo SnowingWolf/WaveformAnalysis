@@ -451,7 +451,23 @@ class PeakChannelAccessor:
         }
 
     def _extract_multi_record_waveform(self, merged_index: int, pad: int) -> dict:
-        """从多个 record 提取波形（跨 record hit）"""
+        """从多个 record 提取波形（跨 record hit）
+
+        **重要**：跨 records 的 hits 可能不是时间有序的（取决于 hit_threshold 的输入 records 顺序），
+        因此需要在拼接前按 abs_time_ps 排序，确保输出波形的时间轴单调递增。
+
+        参数
+        ----
+        merged_index : int
+            Merged hit 的索引
+        pad : int
+            波形两端的 padding 点数
+
+        返回
+        ----
+        dict
+            包含波形数据和时间轴信息的字典
+        """
         hm = self._hit_merged[merged_index]
 
         # 通过索引获取 hit_indices（避免布尔筛选）
@@ -526,7 +542,8 @@ class PeakChannelAccessor:
                 "segments": [],
             }
 
-        # 拼接所有片段（按时间排序）
+        # 关键：按绝对时间排序 segments
+        # hit_threshold 输出可能不是时间有序的（按 record 输入顺序连接），必须在此修正
         segments = sorted(segments, key=lambda x: x["abs_time_ps"][0])
 
         # 计算相对时间（基于第一个片段的起始时间）
