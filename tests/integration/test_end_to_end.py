@@ -88,6 +88,14 @@ def generate_realistic_data(n_records=1000, n_channels=8, noise_level=5):
     return hits, records, wave_pool
 
 
+def _compute_peaklets_from_membership(ctx, run_id):
+    peaklet_components = PeakletComponentsPlugin().compute_array(ctx, run_id)
+    ctx._data["peaklet_components"] = peaklet_components
+    peaklets = PeakletPlugin().compute_array(ctx, run_id)
+    ctx._data["peaklets"] = peaklets
+    return peaklets, peaklet_components
+
+
 class TestEndToEndPipeline:
     """端到端流水线测试"""
 
@@ -155,39 +163,31 @@ class TestEndToEndPipeline:
             print(f"跳过 features 测试: {e}")
             features = None
 
-        # 4. Peaklets
-        peaklet_plugin = PeakletPlugin()
-        peaklets = peaklet_plugin.compute_array(ctx, "e2e_test")
-        ctx._data["peaklets"] = peaklets
+        # 4. Peaklet Components
+        peaklets, peaklet_components = _compute_peaklets_from_membership(ctx, "e2e_test")
+        assert len(peaklet_components) > 0, "peaklet_components 应该有输出"
         assert len(peaklets) > 0, "peaklets 应该有输出"
 
-        # 5. Peaklet Components
-        ctx._plugins["peaklets"] = peaklet_plugin
-        peaklet_comp_plugin = PeakletComponentsPlugin()
-        peaklet_components = peaklet_comp_plugin.compute_array(ctx, "e2e_test")
-        ctx._data["peaklet_components"] = peaklet_components
-        assert len(peaklet_components) > 0, "peaklet_components 应该有输出"
-
-        # 6. Peaklet Waveforms
+        # 5. Peaklet Waveforms
         wf_plugin = PeakletWaveformPlugin()
         waveforms = wf_plugin.compute(ctx, "e2e_test")
         ctx._data["peaklet_waveforms"] = waveforms
         assert len(waveforms) == len(peaklets), "每个 peaklet 应有 waveform"
 
-        # 7. Peaklet Waveform Pool
+        # 6. Peaklet Waveform Pool
         pool_plugin = PeakletWaveformPoolPlugin()
         wf_pool = pool_plugin.compute(ctx, "e2e_test")
         ctx._data["peaklet_waveform_pool"] = wf_pool
         # waveform pool 可能为空（如果没有有效的 peaklet waveforms）
         # assert len(wf_pool) > 0, "waveform pool 应该有数据"
 
-        # 8. Peaklet Features
+        # 7. Peaklet Features
         pf_plugin = PeakletFeaturesPlugin()
         peaklet_features = pf_plugin.compute(ctx, "e2e_test")
         ctx._data["peaklet_features"] = peaklet_features
         assert len(peaklet_features) == len(peaklets), "每个 peaklet 应有 feature"
 
-        # 9. Peaks (最终输出)
+        # 8. Peaks (最终输出)
         peaks_plugin = PeaksPlugin()
         peaks = peaks_plugin.compute(ctx, "e2e_test")
         assert len(peaks) == len(peaklets), "peaks 数量应等于 peaklets"
@@ -233,8 +233,9 @@ class TestEndToEndPipeline:
             ctx._plugins = {"hit_merged": merge_plugin}
             ctx.get_plugin = lambda name: ctx._plugins.get(name)
 
-            peaklet_plugin = PeakletPlugin()
-            peaklets = peaklet_plugin.compute_array(ctx, f"consistency_{run_idx}")
+            peaklets, _peaklet_components = _compute_peaklets_from_membership(
+                ctx, f"consistency_{run_idx}"
+            )
 
             results.append(
                 {
@@ -297,12 +298,24 @@ class TestEndToEndPipeline:
         components = HitMergedComponentsPlugin().compute(ctx, "perf_test")
         ctx._data["hit_merged_components"] = components
 
-        features = HitMergedFeaturesPlugin().compute(ctx, "perf_test")
+        features_ctx = DummyContext(
+            {
+                "wave_source": "records",
+                "use_filtered": False,
+                "dt": 2,
+            },
+            {
+                "hit_merged": merged,
+                "hit_merged_components": components,
+                "hit_threshold": hits,
+                "records": records,
+                "wave_pool": wave_pool,
+            },
+        )
+        features = HitMergedFeaturesPlugin().compute(features_ctx, "perf_test")
         ctx._data["hit_merged_features"] = features
 
-        peaklet_plugin = PeakletPlugin()
-        peaklets = peaklet_plugin.compute_array(ctx, "perf_test")
-        ctx._data["peaklets"] = peaklets
+        peaklets, _peaklet_components = _compute_peaklets_from_membership(ctx, "perf_test")
 
         elapsed = time.time() - start
 
@@ -370,13 +383,7 @@ class TestEndToEndPipeline:
             features = merged  # 使用 merged 作为替代
         ctx._data["hit_merged_features"] = features
 
-        peaklet_plugin = PeakletPlugin()
-        peaklets = peaklet_plugin.compute_array(ctx, "integrity_test")
-        ctx._data["peaklets"] = peaklets
-
-        ctx._plugins["peaklets"] = peaklet_plugin
-        peaklet_components = PeakletComponentsPlugin().compute_array(ctx, "integrity_test")
-        ctx._data["peaklet_components"] = peaklet_components
+        peaklets, peaklet_components = _compute_peaklets_from_membership(ctx, "integrity_test")
 
         # 验证数据一致性约束
         # 1. Components 的 hit_index 应该在合法范围内
@@ -438,7 +445,7 @@ class TestEndToEndPipeline:
             ctx._plugins = {"hit_merged": merge_plugin}
             ctx.get_plugin = lambda name: ctx._plugins.get(name)
 
-            peaklets = PeakletPlugin().compute_array(ctx, "config_test")
+            peaklets, _peaklet_components = _compute_peaklets_from_membership(ctx, "config_test")
 
             # 验证输出合理
             assert len(merged) > 0
@@ -482,7 +489,7 @@ class TestRealWorldScenarios:
 
         ctx._plugins = {"hit_merged": merge_plugin}
         ctx.get_plugin = lambda name: ctx._plugins.get(name)
-        peaklets = PeakletPlugin().compute_array(ctx, "high_rate")
+        peaklets, _peaklet_components = _compute_peaklets_from_membership(ctx, "high_rate")
 
         # 验证能正确处理
         assert len(merged) > 0
@@ -535,7 +542,7 @@ class TestRealWorldScenarios:
 
         ctx._plugins = {"hit_merged": merge_plugin}
         ctx.get_plugin = lambda name: ctx._plugins.get(name)
-        peaklets = PeakletPlugin().compute_array(ctx, "sparse")
+        peaklets, _peaklet_components = _compute_peaklets_from_membership(ctx, "sparse")
 
         # 验证能正确处理稀疏数据
         assert len(merged) > 0
@@ -593,7 +600,7 @@ class TestRealWorldScenarios:
 
         ctx._plugins = {"hit_merged": merge_plugin}
         ctx.get_plugin = lambda name: ctx._plugins.get(name)
-        peaklets = PeakletPlugin().compute_array(ctx, "coincidence")
+        peaklets, _peaklet_components = _compute_peaklets_from_membership(ctx, "coincidence")
 
         # 验证符合事件被正确聚类
         # 应该生成至少几个 peaklets（可能所有通道合并成一个大的 peaklet）

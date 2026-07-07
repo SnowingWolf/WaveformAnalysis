@@ -319,13 +319,37 @@ def _hit_abs_window(row: np.void) -> tuple[int, int]:
 
 
 def _abs_window(rows: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    starts = np.zeros(len(rows), dtype=np.float64)
-    ends = np.zeros(len(rows), dtype=np.float64)
-    for i, row in enumerate(rows):
-        start, end = _hit_abs_window(row)
-        starts[i] = start
-        ends[i] = end
-    return starts, ends
+    names = rows.dtype.names or ()
+    if {"time_start", "time_end"}.issubset(names):
+        return (
+            rows["time_start"].astype(np.float64, copy=False),
+            rows["time_end"].astype(np.float64, copy=False),
+        )
+
+    if {"sample_start", "sample_end"}.issubset(names):
+        sample_starts = rows["sample_start"].astype(np.float64, copy=False)
+        sample_ends = rows["sample_end"].astype(np.float64, copy=False)
+    elif {"edge_start", "edge_end"}.issubset(names):
+        sample_starts = rows["edge_start"].astype(np.float64, copy=False)
+        sample_ends = rows["edge_end"].astype(np.float64, copy=False)
+    else:
+        raise KeyError("peaklet inputs require sample_start/sample_end or edge_start/edge_end")
+
+    dt_ps = rows["dt"].astype(np.float64, copy=False) * 1000.0
+    timestamps = (
+        rows["timestamp"].astype(np.float64, copy=False)
+        if "timestamp" in names
+        else np.zeros(len(rows), dtype=np.float64)
+    )
+    positions = (
+        rows["position"].astype(np.float64, copy=False)
+        if "position" in names
+        else np.zeros(len(rows), dtype=np.float64)
+    )
+    return (
+        timestamps + (sample_starts - positions) * dt_ps,
+        timestamps + (sample_ends - positions) * dt_ps,
+    )
 
 
 @njit(cache=True, nogil=True)
@@ -429,6 +453,47 @@ def _components_by_peaklet(components: np.ndarray, n_peaklets: int) -> list[np.n
         if 0 <= peaklet_id < n_peaklets:
             out[peaklet_id].append(int(row["merged_index"]))
     return [np.asarray(rows, dtype=np.int64) for rows in out]
+
+
+def _has_explicit_plugin_config(context: Any, plugin_name: str, name: str) -> bool:
+    config = getattr(context, "config", {})
+    if not isinstance(config, dict):
+        return False
+    plugin_config = config.get(plugin_name)
+    if isinstance(plugin_config, dict) and name in plugin_config:
+        return True
+    return f"{plugin_name}.{name}" in config
+
+
+def _resolve_peaklet_component_config(context: Any, plugin: Plugin, name: str) -> Any:
+    if not _has_explicit_plugin_config(
+        context, plugin.provides, name
+    ) and _has_explicit_plugin_config(context, "peaklets", name):
+        return context.get_config(PeakletPlugin(), name)
+    return context.get_config(plugin, name)
+
+
+def _store_context_memory(context: Any, run_id: str, name: str, value: Any) -> None:
+    set_data = getattr(context, "_set_data", None)
+    if callable(set_data):
+        set_data(run_id, name, value)
+        return
+    data = getattr(context, "_data", None)
+    if isinstance(data, dict):
+        data[name] = value
+
+
+def _get_context_memory(context: Any, run_id: str, name: str) -> Any:
+    get_data = getattr(context, "_get_data_from_memory", None)
+    if callable(get_data):
+        return get_data(run_id, name)
+    results = getattr(context, "_results", None)
+    if isinstance(results, dict) and (run_id, name) in results:
+        return results[(run_id, name)]
+    data = getattr(context, "_data", None)
+    if isinstance(data, dict):
+        return data.get(name)
+    return None
 
 
 def _prepare_component_groups(
@@ -1106,9 +1171,9 @@ class PeakletPlugin(BatchProcessingPlugin):
     """Build lightweight cross-channel peaklet candidates from hit_merged rows."""
 
     provides = "peaklets"
-    depends_on = ["hit_merged"]
+    depends_on = ["hit_merged", "peaklet_components"]
     description = "Build lightweight cross-channel peaklets from hit_merged intervals."
-    version = "1.0.0"
+    version = "1.1.0"
     output_dtype = PEAKLET_DTYPE
     save_when = "always"
     parallel = False
@@ -1128,11 +1193,17 @@ class PeakletPlugin(BatchProcessingPlugin):
             raise ValueError("peaklets expects hit_merged as a structured array")
         if len(merged) == 0:
             return _empty_peaklets()
+        components = context.get_data(run_id, "peaklet_components")
+        if not isinstance(components, np.ndarray):
+            raise ValueError("peaklets expects peaklet_components as a structured array")
 
-        return self._compute_peaklets(merged=merged, context=context)
+        return self._compute_peaklets(merged=merged, components=components, context=context)
 
     def compute_chunk(self, chunk: Chunk, context: Any, run_id: str, **kwargs) -> Chunk:
-        peaklets = self._compute_peaklets(merged=chunk.data, context=context)
+        components = context.get_data(run_id, "peaklet_components")
+        if not isinstance(components, np.ndarray):
+            raise ValueError("peaklets expects peaklet_components as a structured array")
+        peaklets = self._compute_peaklets(merged=chunk.data, components=components, context=context)
         return Chunk(
             data=peaklets,
             start=chunk.start,
@@ -1141,20 +1212,25 @@ class PeakletPlugin(BatchProcessingPlugin):
             data_type=self.provides,
         )
 
-    def _compute_peaklets(self, *, merged: np.ndarray, context: Any) -> np.ndarray:
-        time_window_ns = float(context.get_config(self, "time_window_ns"))
-        max_total_width_ns = float(context.get_config(self, "max_total_width_ns"))
+    def _compute_peaklets(
+        self, *, merged: np.ndarray, components: np.ndarray, context: Any
+    ) -> np.ndarray:
         resolve_dt_config(context, self, deprecated_keys=("sampling_interval_ns", "dt_ns"))
-        clusters = _cluster_merged_hits(
-            merged,
-            time_window_ns=time_window_ns,
-            max_total_width_ns=max_total_width_ns,
-        )
+        if len(components) == 0:
+            return _empty_peaklets()
 
         rows: list[tuple[int, int, int, int, int, int, int]] = []
         component_offset = 0
-        for cluster in clusters:
-            cluster_indices = np.asarray(cluster, dtype=np.int64)
+        n_peaklets = int(np.max(components["peak_id"])) + 1
+        component_groups = _components_by_peaklet(components, n_peaklets)
+        for cluster_indices in component_groups:
+            if len(cluster_indices) == 0:
+                rows.append((0, 0, 0, 0, 0, component_offset, 0))
+                continue
+            if np.any(cluster_indices < 0) or np.any(cluster_indices >= len(merged)):
+                raise ValueError(
+                    "peaklets found peaklet_components row with out-of-range merged_index"
+                )
             cluster_rows = merged[cluster_indices]
             starts, ends = _abs_window(cluster_rows)
             time_start = int(np.min(starts))
@@ -1169,7 +1245,7 @@ class PeakletPlugin(BatchProcessingPlugin):
             n_hits = (
                 int(np.sum(cluster_rows["component_count"], dtype=np.int64))
                 if "component_count" in (merged.dtype.names or ())
-                else len(cluster)
+                else len(cluster_indices)
             )
             rows.append(
                 (
@@ -1179,10 +1255,10 @@ class PeakletPlugin(BatchProcessingPlugin):
                     n_hits,
                     len(channels),
                     component_offset,
-                    len(cluster),
+                    len(cluster_indices),
                 )
             )
-            component_offset += len(cluster)
+            component_offset += len(cluster_indices)
 
         return np.array(rows, dtype=PEAKLET_DTYPE) if rows else _empty_peaklets()
 
@@ -1191,79 +1267,59 @@ class PeakletComponentsPlugin(BatchProcessingPlugin):
     """Return flat peaklet-to-hit_merged membership rows."""
 
     provides = "peaklet_components"
-    depends_on = ["peaklets", "hit_merged"]
+    depends_on = ["hit_merged"]
     description = "Return per-peaklet component hit_merged indices."
-    version = "1.2.0"
+    version = "1.3.0"
     output_dtype = PEAKLET_COMPONENTS_DTYPE
     save_when = "always"
     parallel = False
 
-    # 不再包含独立的配置选项，完全依赖 peaklets 插件的配置
-    options = {}
+    options = {
+        "time_window_ns": Option(default=100.0, type=float, help="跨通道 peaklet 合并时间窗口"),
+        "max_total_width_ns": Option(default=10000.0, type=float, help="peaklet 最大总宽度"),
+        "dt": Option(default=None, type=int, help="保留兼容配置；优先使用输入 hit_merged 的 dt"),
+    }
 
     def compute(self, context: Any, run_id: str, **kwargs) -> np.ndarray:
         return self.compute_array(context, run_id, **kwargs)
 
     def compute_array(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
-        peaklets = context.get_data(run_id, "peaklets")
-        if not isinstance(peaklets, np.ndarray):
-            raise ValueError("peaklet_components expects peaklets as a structured array")
-
         merged = context.get_data(run_id, "hit_merged")
         if not isinstance(merged, np.ndarray):
             raise ValueError("peaklet_components expects hit_merged as a structured array")
         if len(merged) == 0:
-            components = _empty_components()
-            _validate_peaklet_components(
-                peaklets=peaklets,
-                components=components,
-                consumer="peaklet_components",
-            )
-            return components
+            return _empty_components()
 
-        peaklet_plugin = self._get_peaklet_plugin(context)
-        time_window_ns = float(context.get_config(peaklet_plugin, "time_window_ns"))
-        max_total_width_ns = float(context.get_config(peaklet_plugin, "max_total_width_ns"))
+        time_window_ns = float(_resolve_peaklet_component_config(context, self, "time_window_ns"))
+        max_total_width_ns = float(
+            _resolve_peaklet_component_config(context, self, "max_total_width_ns")
+        )
+        resolve_dt_config(context, self, deprecated_keys=("sampling_interval_ns", "dt_ns"))
         clusters = _cluster_merged_hits(
             merged,
             time_window_ns=time_window_ns,
             max_total_width_ns=max_total_width_ns,
         )
-        if len(clusters) != len(peaklets):
-            raise ValueError(
-                "peaklet_components clustering is inconsistent with peaklets: "
-                f"{len(clusters)} clusters for {len(peaklets)} peaklets"
-            )
-        if "component_count" in (peaklets.dtype.names or ()):
-            expected_counts = peaklets["component_count"].astype(np.int64, copy=False)
-            actual_counts = np.asarray([len(cluster) for cluster in clusters], dtype=np.int64)
-            if not np.array_equal(actual_counts, expected_counts):
-                raise ValueError(
-                    "peaklet_components clustering component counts are inconsistent with peaklets"
-                )
-
         rows: list[tuple[int, int]] = []
         for peaklet_id, cluster in enumerate(clusters):
             rows.extend((peaklet_id, merged_index) for merged_index in cluster)
-        components = np.array(rows, dtype=PEAKLET_COMPONENTS_DTYPE) if rows else _empty_components()
-        _validate_peaklet_components(
-            peaklets=peaklets,
-            components=components,
-            consumer="peaklet_components",
-        )
-        return components
+        return np.array(rows, dtype=PEAKLET_COMPONENTS_DTYPE) if rows else _empty_components()
 
-    @staticmethod
-    def _get_peaklet_plugin(context: Any) -> PeakletPlugin:
-        get_plugin = getattr(context, "get_plugin", None)
-        if get_plugin is not None:
-            try:
-                plugin = get_plugin("peaklets")
-            except KeyError:
-                plugin = None
-            if plugin is not None:
-                return plugin
-        return PeakletPlugin()
+    def get_lineage(self, context: Any) -> dict[str, Any]:
+        config = {
+            "time_window_ns": _resolve_peaklet_component_config(context, self, "time_window_ns"),
+            "max_total_width_ns": _resolve_peaklet_component_config(
+                context, self, "max_total_width_ns"
+            ),
+            "dt": _resolve_peaklet_component_config(context, self, "dt"),
+        }
+        return {
+            "plugin_class": self.__class__.__name__,
+            "plugin_version": self.version,
+            "description": self.description,
+            "config": config,
+            "depends_on": {"hit_merged": context.get_lineage("hit_merged")},
+        }
 
     def compute_chunk(self, chunk: Chunk, context: Any, run_id: str, **kwargs) -> Chunk:
         components = self.compute_array(context, run_id, **kwargs)
@@ -1416,7 +1472,7 @@ class PeakletWaveformPlugin(Plugin):
     provides = "peaklet_waveforms"
     depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion."
-    version = "1.2.0"
+    version = "1.3.0"
     output_dtype = PEAKLET_WAVEFORMS_DTYPE
     save_when = "always"
 
@@ -1461,6 +1517,10 @@ class PeakletWaveformPlugin(Plugin):
         return deps
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
+        cached_waveforms = _get_context_memory(context, run_id, "peaklet_waveforms")
+        if isinstance(cached_waveforms, np.ndarray):
+            return cached_waveforms
+
         # Load parallel processing config
         n_workers = int(context.get_config(self, "n_workers"))
         if n_workers == 0 and HAS_MULTIPROCESSING:
@@ -1473,13 +1533,14 @@ class PeakletWaveformPlugin(Plugin):
         self._log_waveform_diagnostics = bool(context.get_config(self, "log_waveform_diagnostics"))
 
         waveforms, pool = self._compute_waveforms_and_pool(context, run_id)
-        self._store_pool(context, run_id, pool)
+        self._store_waveform_pair(context, run_id, waveforms, pool)
         return waveforms
 
-    def _store_pool(self, context: Any, run_id: str, pool: np.ndarray) -> None:
-        data = getattr(context, "_data", None)
-        if isinstance(data, dict):
-            data["peaklet_waveform_pool"] = pool
+    def _store_waveform_pair(
+        self, context: Any, run_id: str, waveforms: np.ndarray, pool: np.ndarray
+    ) -> None:
+        _store_context_memory(context, run_id, "peaklet_waveforms", waveforms)
+        _store_context_memory(context, run_id, "peaklet_waveform_pool", pool)
 
     def _compute_waveforms_and_pool(
         self, context: Any, run_id: str
@@ -2174,7 +2235,7 @@ class PeakletWaveformPoolPlugin(Plugin):
     provides = "peaklet_waveform_pool"
     depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Return flattened float32 peaklet waveform signal pool."
-    version = "1.0.0"
+    version = "1.1.0"
     output_dtype = np.dtype("f4")
     save_when = "always"
 
@@ -2184,13 +2245,12 @@ class PeakletWaveformPoolPlugin(Plugin):
         return PeakletWaveformPlugin().resolve_depends_on(context, run_id)
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
-        data = getattr(context, "_data", None)
-        if isinstance(data, dict) and "peaklet_waveform_pool" in data:
-            return np.asarray(data["peaklet_waveform_pool"], dtype=np.float32)
+        cached_pool = _get_context_memory(context, run_id, "peaklet_waveform_pool")
+        if isinstance(cached_pool, np.ndarray):
+            return np.asarray(cached_pool, dtype=np.float32)
         waveforms, pool = PeakletWaveformPlugin()._compute_waveforms_and_pool(context, run_id)
-        if isinstance(data, dict):
-            data["peaklet_waveforms"] = waveforms
-            data["peaklet_waveform_pool"] = pool
+        _store_context_memory(context, run_id, "peaklet_waveforms", waveforms)
+        _store_context_memory(context, run_id, "peaklet_waveform_pool", pool)
         return pool
 
 

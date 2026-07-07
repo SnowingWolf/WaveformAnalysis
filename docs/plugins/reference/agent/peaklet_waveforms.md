@@ -9,7 +9,7 @@
 | Provides | `peaklet_waveforms` |
 | Depends On | - |
 | Output Kind | `structured_array` |
-| Version | `1.2.0` |
+| Version | `1.3.0` |
 | Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
 | Accelerator | `cpu` |
 

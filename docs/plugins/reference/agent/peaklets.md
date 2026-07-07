@@ -7,15 +7,16 @@
 | Item | Value |
 |------|-------|
 | Provides | `peaklets` |
-| Depends On | `hit_merged` |
+| Depends On | `hit_merged`, `peaklet_components` |
 | Output Kind | `structured_array` |
-| Version | `1.0.0` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.peaklets` |
+| Version | `1.1.0` |
+| Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
 | Accelerator | `cpu` |
 
 ## Inputs
 
 - `hit_merged`
+- `peaklet_components`
 
 ## Outputs
 
@@ -40,7 +41,7 @@
 ## Execution Path
 
 `peaklets` 依赖链入口：
-`hit_merged -> peaklets`
+`hit_merged -> peaklet_components -> peaklets`
 
 ## Failure Modes
 

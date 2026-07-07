@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `peaklets` |
-| **Version** | `1.0.0` |
+| **Version** | `1.1.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -18,6 +18,7 @@
 This plugin depends on the following data:
 
 - [`hit_merged`](hit_merged.md)
+- [`peaklet_components`](peaklet_components.md)
 
 ## Configuration Options
 
@@ -65,7 +66,7 @@ data = ctx.get_data("run_001", "peaklets")
 
 ## Module
 
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.peaklets`
+- **Module Path**: `waveform_analysis.core.plugins.builtin.peaks.peaklets`
 
 ---
 

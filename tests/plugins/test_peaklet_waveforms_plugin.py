@@ -24,10 +24,10 @@ from waveform_analysis.core.plugins.builtin.peaks.peaklets import (
 
 
 def _compute_peaklets_and_components(ctx):
-    peaklets = PeakletPlugin().compute_array(ctx, "run_001")
-    ctx._data["peaklets"] = peaklets
     components = PeakletComponentsPlugin().compute_array(ctx, "run_001")
     ctx._data["peaklet_components"] = components
+    peaklets = PeakletPlugin().compute_array(ctx, "run_001")
+    ctx._data["peaklets"] = peaklets
     return peaklets, components
 
 
@@ -206,6 +206,54 @@ def test_peaklet_waveforms_align_and_sum_hit_merged_absolute_windows():
     np.testing.assert_allclose(pool, np.array([20.0, 40.0, 20.0], dtype=np.float32))
 
 
+def test_peaklet_waveform_pool_reuses_waveforms_memory_result(monkeypatch):
+    hits = np.array(
+        [
+            _make_hit(record_id=0, board=0, channel=0, edge_start=3, edge_end=5),
+            _make_hit(record_id=1, board=0, channel=1, edge_start=4, edge_end=6),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    ctx = make_peaklet_context(hits, np.full(20, 100, dtype=np.uint16))
+    _compute_peaklets_and_components(ctx)
+
+    PeakletWaveformPlugin().compute(ctx, "run_001")
+    expected_pool = ctx._results[("run_001", "peaklet_waveform_pool")]
+
+    def fail_if_called(*_args, **_kwargs):
+        raise AssertionError("peaklet_waveform_pool should reuse memory")
+
+    monkeypatch.setattr(PeakletWaveformPlugin, "_compute_waveforms_and_pool", fail_if_called)
+
+    pool = PeakletWaveformPoolPlugin().compute(ctx, "run_001")
+
+    np.testing.assert_array_equal(pool, expected_pool)
+
+
+def test_peaklet_waveforms_reuses_pool_memory_result(monkeypatch):
+    hits = np.array(
+        [
+            _make_hit(record_id=0, board=0, channel=0, edge_start=3, edge_end=5),
+            _make_hit(record_id=1, board=0, channel=1, edge_start=4, edge_end=6),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    ctx = make_peaklet_context(hits, np.full(20, 100, dtype=np.uint16))
+    _compute_peaklets_and_components(ctx)
+
+    PeakletWaveformPoolPlugin().compute(ctx, "run_001")
+    expected_waveforms = ctx._results[("run_001", "peaklet_waveforms")]
+
+    def fail_if_called(*_args, **_kwargs):
+        raise AssertionError("peaklet_waveforms should reuse memory")
+
+    monkeypatch.setattr(PeakletWaveformPlugin, "_compute_waveforms_and_pool", fail_if_called)
+
+    waveforms = PeakletWaveformPlugin().compute(ctx, "run_001")
+
+    np.testing.assert_array_equal(waveforms, expected_waveforms)
+
+
 def test_peaklet_waveforms_reject_components_misaligned_with_peaklets():
     hits = np.array(
         [
@@ -304,8 +352,8 @@ def test_peaklet_waveforms_empty_peaklets_return_empty_index_and_pool():
         np.zeros(0, dtype=THRESHOLD_HIT_DTYPE),
         np.zeros(0, dtype=np.uint16),
     )
-    ctx._data["peaklets"] = PeakletPlugin().compute_array(ctx, "run_001")
     ctx._data["peaklet_components"] = PeakletComponentsPlugin().compute_array(ctx, "run_001")
+    ctx._data["peaklets"] = PeakletPlugin().compute_array(ctx, "run_001")
 
     waveforms = PeakletWaveformPlugin().compute(ctx, "run_001")
     pool = PeakletWaveformPoolPlugin().compute(ctx, "run_001")

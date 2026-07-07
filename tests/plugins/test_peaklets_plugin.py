@@ -74,7 +74,7 @@ def make_peaklet_context(hits, wave_pool, *, time_window_ns=4.0, use_filtered=Fa
     features = HitMergedFeaturesPlugin().compute(feature_ctx, "run_001")
     data["hit_merged_features"] = features
 
-    return DummyContext(
+    peaklet_ctx = DummyContext(
         {
             "time_window_ns": time_window_ns,
             "max_total_width_ns": 10000.0,
@@ -83,6 +83,8 @@ def make_peaklet_context(hits, wave_pool, *, time_window_ns=4.0, use_filtered=Fa
         },
         data,
     )
+    data["peaklet_components"] = PeakletComponentsPlugin().compute_array(peaklet_ctx, "run_001")
+    return peaklet_ctx
 
 
 def test_peaklets_cluster_cross_channel_hits_without_waveform_features():
@@ -160,19 +162,64 @@ def test_peaklet_components_use_peaklets_clustering_config():
     ctx.config = {
         **ctx.config,
         "peaklets": {"time_window_ns": 20.0, "max_total_width_ns": 10000.0},
-        "peaklet_components": {"time_window_ns": 1.0, "max_total_width_ns": 10000.0},
     }
     peaklet_plugin = PeakletPlugin()
     ctx.get_plugin = lambda name: peaklet_plugin if name == "peaklets" else None
 
+    components = PeakletComponentsPlugin().compute_array(ctx, "run_001")
+    ctx._data["peaklet_components"] = components
     out = peaklet_plugin.compute_array(ctx, "run_001")
     ctx._data["peaklets"] = out
-    components = PeakletComponentsPlugin().compute_array(ctx, "run_001")
 
     assert len(out) == 1
     assert int(out[0]["component_count"]) == 2
     np.testing.assert_array_equal(components["peak_id"], np.array([0, 0], dtype=np.int64))
     np.testing.assert_array_equal(components["merged_index"], np.array([0, 1], dtype=np.int64))
+
+
+def test_peaklet_components_compute_without_peaklets_dependency():
+    hits = np.array(
+        [
+            _make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=2),
+            _make_hit(record_id=1, board=0, channel=1, edge_start=8, edge_end=9),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    ctx = make_peaklet_context(hits, np.full(20, 100, dtype=np.uint16), time_window_ns=1.0)
+    ctx._data.pop("peaklets", None)
+
+    components = PeakletComponentsPlugin().compute_array(ctx, "run_001")
+
+    assert components.dtype == PEAKLET_COMPONENTS_DTYPE
+    np.testing.assert_array_equal(components["peak_id"], np.array([0, 1], dtype=np.int64))
+    np.testing.assert_array_equal(components["merged_index"], np.array([0, 1], dtype=np.int64))
+
+
+def test_peaklets_consume_peaklet_components_without_reclustering(monkeypatch):
+    hits = np.array(
+        [
+            _make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=2),
+            _make_hit(record_id=1, board=0, channel=1, edge_start=8, edge_end=9),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    ctx = make_peaklet_context(hits, np.full(20, 100, dtype=np.uint16), time_window_ns=1.0)
+    components = PeakletComponentsPlugin().compute_array(ctx, "run_001")
+    ctx._data["peaklet_components"] = components
+
+    def fail_if_called(*_args, **_kwargs):
+        raise AssertionError("peaklets should consume peaklet_components")
+
+    monkeypatch.setattr(
+        "waveform_analysis.core.plugins.builtin.peaks.peaklets._cluster_merged_hits",
+        fail_if_called,
+    )
+
+    out = PeakletPlugin().compute_array(ctx, "run_001")
+
+    assert len(out) == 2
+    np.testing.assert_array_equal(out["component_offset"], np.array([0, 1], dtype=np.int64))
+    np.testing.assert_array_equal(out["component_count"], np.array([1, 1], dtype=np.int32))
 
 
 def test_peaklets_respect_max_total_width_window():
@@ -185,6 +232,7 @@ def test_peaklets_respect_max_total_width_window():
     )
     ctx = make_peaklet_context(hits, np.full(20, 100, dtype=np.uint16), time_window_ns=10.0)
     ctx.config["max_total_width_ns"] = 8.0
+    ctx._data["peaklet_components"] = PeakletComponentsPlugin().compute_array(ctx, "run_001")
 
     out = PeakletPlugin().compute_array(ctx, "run_001")
 
