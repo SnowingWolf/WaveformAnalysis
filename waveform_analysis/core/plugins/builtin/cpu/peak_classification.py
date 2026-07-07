@@ -101,7 +101,7 @@ class PeakClassificationPlugin(Plugin):
     provides = "peak_classification"
     depends_on = ["peaks"]
     description = "Classify peaks into S1/S2 using multi-dimensional features."
-    version = "1.2.0"
+    version = "1.2.1"
     save_when = "always"
     output_dtype = PEAK_CLASSIFICATION_DTYPE
 
@@ -189,47 +189,27 @@ class PeakClassificationPlugin(Plugin):
                         f"Valid values: {valid_labels}"
                     )
 
-        # 逐个 peak 进行分类
-        rows = []
-        for peak in peaks:
-            peak_id = int(peak["peak_id"])
+        compiled = {
+            "s1": self._compile_selection(s1_selection),
+            "s2": self._compile_selection(s2_selection),
+            "s1_s2": self._compile_selection(s1_s2_selection),
+        }
+        ok_masks = {
+            name: self._selection_mask(peaks, selection) for name, selection in compiled.items()
+        }
 
-            # 提取特征值
-            features = self._extract_features(peak)
+        out = np.zeros(len(peaks), dtype=PEAK_CLASSIFICATION_DTYPE)
+        out["peak_id"] = peaks["peak_id"]
+        out["label"] = int(default_label)
 
-            # 判断各类型
-            s1_s2_ok = False
-            if s1_s2_enabled:
-                s1_s2_accepted, s1_s2_rejected = self._check_selection(
-                    features,
-                    s1_s2_selection,
-                )
-                s1_s2_ok = s1_s2_accepted and not s1_s2_rejected
-
-            s1_ok = False
-            if s1_enabled:
-                s1_accepted, s1_rejected = self._check_selection(features, s1_selection)
-                s1_ok = s1_accepted and not s1_rejected
-
-            s2_ok = False
-            if s2_enabled:
-                s2_accepted, s2_rejected = self._check_selection(features, s2_selection)
-                s2_ok = s2_accepted and not s2_rejected
-
-            # 使用优先级顺序确定最终标签
-            label = self._determine_label(s1_ok, s2_ok, s1_s2_ok, priority_order, default_label)
-
-            # 构建输出行
-            rows.append(
-                (
-                    peak_id,
-                    int(label),
-                )
-            )
-
-        if rows:
-            return np.array(rows, dtype=PEAK_CLASSIFICATION_DTYPE)
-        return np.zeros(0, dtype=PEAK_CLASSIFICATION_DTYPE)
+        unset = np.ones(len(peaks), dtype=bool)
+        label_map = {"s1": LABEL_S1, "s2": LABEL_S2, "s1_s2": LABEL_S1_S2}
+        for label_name in priority_order:
+            mask = unset & ok_masks[label_name]
+            if np.any(mask):
+                out["label"][mask] = int(label_map[label_name])
+                unset[mask] = False
+        return out
 
     @staticmethod
     def _normalize_ranges(ranges: dict | None) -> dict[str, tuple[float | None, float | None]]:
@@ -247,6 +227,64 @@ class PeakClassificationPlugin(Plugin):
                 normalized[key] = norm_value
 
         return normalized
+
+    @classmethod
+    def _compile_selection(cls, selection_config: dict | None) -> tuple[
+        list[dict[str, tuple[float | None, float | None]]],
+        list[dict[str, tuple[float | None, float | None]]],
+    ]:
+        if not selection_config:
+            return [], []
+        accept_any = [
+            cls._normalize_ranges(criteria_group)
+            for criteria_group in selection_config.get("accept_any", [])
+        ]
+        reject_any = [
+            cls._normalize_ranges(criteria_group)
+            for criteria_group in selection_config.get("reject_any", [])
+        ]
+        return accept_any, reject_any
+
+    @staticmethod
+    def _criteria_mask(
+        peaks: np.ndarray, criteria: dict[str, tuple[float | None, float | None]]
+    ) -> np.ndarray:
+        if not criteria:
+            return np.ones(len(peaks), dtype=bool)
+        names = peaks.dtype.names or ()
+        mask = np.ones(len(peaks), dtype=bool)
+        for feature_name, bounds in criteria.items():
+            if feature_name not in names:
+                return np.zeros(len(peaks), dtype=bool)
+            values = peaks[feature_name]
+            finite_mask = ~np.isnan(values) if np.issubdtype(values.dtype, np.floating) else True
+            lo, hi = bounds
+            feature_mask = finite_mask
+            if lo is not None:
+                feature_mask = feature_mask & (values >= lo)
+            if hi is not None:
+                feature_mask = feature_mask & (values <= hi)
+            mask &= feature_mask
+        return mask
+
+    @classmethod
+    def _selection_mask(
+        cls,
+        peaks: np.ndarray,
+        selection: tuple[
+            list[dict[str, tuple[float | None, float | None]]],
+            list[dict[str, tuple[float | None, float | None]]],
+        ],
+    ) -> np.ndarray:
+        accept_any, reject_any = selection
+        accepted = np.zeros(len(peaks), dtype=bool)
+        for criteria in accept_any:
+            accepted |= cls._criteria_mask(peaks, criteria)
+
+        rejected = np.zeros(len(peaks), dtype=bool)
+        for criteria in reject_any:
+            rejected |= cls._criteria_mask(peaks, criteria)
+        return accepted & ~rejected
 
     @staticmethod
     def _extract_features(peak: np.record) -> dict[str, float]:

@@ -152,7 +152,7 @@ class S1S2PairCandidatesPlugin(Plugin):
     provides = "s1_s2_pair_candidates"
     depends_on = ["peak_classification", "peaks"]
     description = "Generate all physically allowed S1-S2 pairing candidates"
-    version = "0.1.0"
+    version = "0.1.1"
     save_when = "always"
     output_dtype = S1_S2_PAIR_CANDIDATES_DTYPE
 
@@ -232,9 +232,9 @@ class S1S2PairCandidatesPlugin(Plugin):
 
         # 应用面积阈值
         if min_s1_area is not None:
-            s1_peaks = [p for p in s1_peaks if p["area"] >= min_s1_area]
+            s1_peaks = s1_peaks[s1_peaks["area"] >= min_s1_area]
         if min_s2_area is not None:
-            s2_peaks = [p for p in s2_peaks if p["area"] >= min_s2_area]
+            s2_peaks = s2_peaks[s2_peaks["area"] >= min_s2_area]
 
         # 空数据处理
         if len(s1_peaks) == 0 or len(s2_peaks) == 0:
@@ -270,23 +270,20 @@ class S1S2PairCandidatesPlugin(Plugin):
         注意：只有明确标记为 LABEL_S1 或 LABEL_S2 的 peaks 会被选入。
         LABEL_UNKNOWN 和 LABEL_S1_S2（混合信号）会被忽略，不参与配对。
         """
-        # 构建 peak_id -> label 映射
-        label_map = {int(row["peak_id"]): int(row["label"]) for row in peak_classification}
+        if len(peaks) == 0 or len(peak_classification) == 0:
+            return peaks[:0], peaks[:0]
 
-        s1_peaks = []
-        s2_peaks = []
+        label_peak_ids = peak_classification["peak_id"].astype(np.int64, copy=False)
+        label_order = np.argsort(label_peak_ids, kind="mergesort")
+        sorted_label_peak_ids = label_peak_ids[label_order]
+        peak_ids = peaks["peak_id"].astype(np.int64, copy=False)
+        matched_pos = np.searchsorted(sorted_label_peak_ids, peak_ids, side="right") - 1
+        matched = matched_pos >= 0
+        matched[matched] &= sorted_label_peak_ids[matched_pos[matched]] == peak_ids[matched]
 
-        for peak in peaks:
-            peak_id = int(peak["peak_id"])
-            label = label_map.get(peak_id, 0)
-
-            if label == LABEL_S1:
-                s1_peaks.append(peak)
-            elif label == LABEL_S2:
-                s2_peaks.append(peak)
-            # LABEL_UNKNOWN 和 LABEL_S1_S2 被忽略
-
-        return s1_peaks, s2_peaks
+        labels = np.zeros(len(peaks), dtype=np.int8)
+        labels[matched] = peak_classification["label"][label_order[matched_pos[matched]]]
+        return peaks[labels == LABEL_S1], peaks[labels == LABEL_S2]
 
     def _build_candidates(
         self,
@@ -298,98 +295,67 @@ class S1S2PairCandidatesPlugin(Plugin):
     ) -> np.ndarray:
         """生成所有候选对 (S2-anchor + 二分搜索)"""
         # 按时间排序
-        s1_peaks_sorted = sorted(s1_peaks, key=lambda p: p[time_field])
-        s2_peaks_sorted = sorted(s2_peaks, key=lambda p: p[time_field])
+        s1_order = np.argsort(s1_peaks[time_field], kind="mergesort")
+        s2_order = np.argsort(s2_peaks[time_field], kind="mergesort")
+        s1_peaks_sorted = s1_peaks[s1_order]
+        s2_peaks_sorted = s2_peaks[s2_order]
 
         # 提取 S1 时间数组用于二分搜索
-        s1_times = np.array([int(p[time_field]) for p in s1_peaks_sorted], dtype=np.int64)
-
-        candidates_list = []
-        pair_id_counter = 0
-
-        # 主循环: 对每个 S2, 向前搜索 S1 候选
-        for s2_idx, s2_peak in enumerate(s2_peaks_sorted):
-            s2_time = int(s2_peak[time_field])
-
-            # 计算 S1 有效时间范围
-            # S1 必须在 S2 之前, 漂移时间在 [min, max] 内
-            s1_time_min = s2_time - max_drift_ps
-            s1_time_max = s2_time - min_drift_ps
-
-            # O(log N) 二分查找
-            left_idx = np.searchsorted(s1_times, s1_time_min, side="left")
-            right_idx = np.searchsorted(s1_times, s1_time_max, side="right")
-
-            # 遍历候选 S1
-            for s1_idx in range(left_idx, right_idx):
-                s1_peak = s1_peaks_sorted[s1_idx]
-                s1_time = int(s1_peak[time_field])
-
-                # 计算 observables
-                drift_time_ps = s2_time - s1_time
-                drift_time_ns = float(drift_time_ps / 1000.0)
-
-                s1_area = float(s1_peak["area"])
-                s2_area = float(s2_peak["area"])
-
-                # log10(S2/S1), 避免除零
-                if s1_area > 0:
-                    log10_s2_s1 = float(np.log10(s2_area / s1_area))
-                else:
-                    log10_s2_s1 = 0.0
-
-                # 提取宽度 (转换为 ns)
-                s1_width = float(s1_peak["width"] / 1000.0)  # ps -> ns
-                s2_width = float(s2_peak["width"] / 1000.0)
-
-                # 创建候选记录
-                candidate = {
-                    "pair_id": pair_id_counter,
-                    "s1_peak_id": int(s1_peak["peak_id"]),
-                    "s2_peak_id": int(s2_peak["peak_id"]),
-                    "s1_index": s1_idx,
-                    "s2_index": s2_idx,
-                    "s1_time": s1_time,
-                    "s2_time": s2_time,
-                    "drift_time": drift_time_ps,
-                    "drift_time_ns": drift_time_ns,
-                    "s1_area": s1_area,
-                    "s2_area": s2_area,
-                    "log10_s2_s1": log10_s2_s1,
-                    "s1_width": s1_width,
-                    "s2_width": s2_width,
-                    "s1_n_channels": int(s1_peak["n_channels"]),
-                    "s2_n_channels": int(s2_peak["n_channels"]),
-                    # Score components (第二层填充)
-                    "score_total": 0.0,
-                    "score_time": 0.0,
-                    "score_s1_quality": 0.0,
-                    "score_s2_quality": 0.0,
-                    "score_ratio": 0.0,
-                    "score_pattern": 0.0,
-                    "score_ambiguity": 0.0,
-                    # Ranking (后续填充)
-                    "rank_for_s1": 0,
-                    "rank_for_s2": 0,
-                    "n_s1_candidates_for_s2": 0,
-                    "n_s2_candidates_for_s1": 0,
-                    "delta_score_to_next_best": 0.0,
-                    # Flags
-                    "flags": FLAG_VALID_TIME,
-                    "selected": False,
-                }
-
-                candidates_list.append(candidate)
-                pair_id_counter += 1
-
-        # 转换为结构化数组
-        if len(candidates_list) == 0:
+        s1_times = s1_peaks_sorted[time_field].astype(np.int64, copy=False)
+        s2_times = s2_peaks_sorted[time_field].astype(np.int64, copy=False)
+        left_indices = np.searchsorted(s1_times, s2_times - max_drift_ps, side="left")
+        right_indices = np.searchsorted(s1_times, s2_times - min_drift_ps, side="right")
+        counts = right_indices - left_indices
+        n_candidates = int(np.sum(counts))
+        if n_candidates == 0:
             return np.zeros(0, dtype=S1_S2_PAIR_CANDIDATES_DTYPE)
 
-        candidates = np.zeros(len(candidates_list), dtype=S1_S2_PAIR_CANDIDATES_DTYPE)
-        for i, cand in enumerate(candidates_list):
-            for key in cand:
-                candidates[i][key] = cand[key]
+        candidates = np.zeros(n_candidates, dtype=S1_S2_PAIR_CANDIDATES_DTYPE)
+        candidates["pair_id"] = np.arange(n_candidates, dtype=np.int64)
+        candidates["flags"] = FLAG_VALID_TIME
+        write_pos = 0
+        for s2_idx, s2_peak in enumerate(s2_peaks_sorted):
+            left_idx = int(left_indices[s2_idx])
+            right_idx = int(right_indices[s2_idx])
+            count = right_idx - left_idx
+            if count <= 0:
+                continue
+
+            rows = slice(write_pos, write_pos + count)
+            s1_indices = np.arange(left_idx, right_idx, dtype=np.int32)
+            s1_rows = s1_peaks_sorted[s1_indices]
+            s2_time = int(s2_peak[time_field])
+            drift_time_ps = s2_time - s1_rows[time_field].astype(np.int64, copy=False)
+            s1_area = s1_rows["area"].astype(np.float32, copy=False)
+            s2_area = float(s2_peak["area"])
+
+            candidates["s1_peak_id"][rows] = s1_rows["peak_id"]
+            candidates["s2_peak_id"][rows] = int(s2_peak["peak_id"])
+            candidates["s1_index"][rows] = s1_indices
+            candidates["s2_index"][rows] = s2_idx
+            candidates["s1_time"][rows] = s1_rows[time_field]
+            candidates["s2_time"][rows] = s2_time
+            candidates["drift_time"][rows] = drift_time_ps
+            candidates["drift_time_ns"][rows] = (
+                drift_time_ps.astype(np.float32, copy=False) / 1000.0
+            )
+            candidates["s1_area"][rows] = s1_area
+            candidates["s2_area"][rows] = s2_area
+            log10_s2_s1 = np.divide(
+                s2_area,
+                s1_area,
+                out=np.ones(count, dtype=np.float32),
+                where=s1_area > 0.0,
+            )
+            positive_s1 = s1_area > 0.0
+            log10_s2_s1[positive_s1] = np.log10(log10_s2_s1[positive_s1])
+            log10_s2_s1[~positive_s1] = 0.0
+            candidates["log10_s2_s1"][rows] = log10_s2_s1
+            candidates["s1_width"][rows] = s1_rows["width"].astype(np.float32, copy=False) / 1000.0
+            candidates["s2_width"][rows] = float(s2_peak["width"] / 1000.0)
+            candidates["s1_n_channels"][rows] = s1_rows["n_channels"]
+            candidates["s2_n_channels"][rows] = int(s2_peak["n_channels"])
+            write_pos += count
 
         return candidates
 
@@ -398,35 +364,19 @@ class S1S2PairCandidatesPlugin(Plugin):
         if len(candidates) == 0:
             return
 
-        # 统计每个 S2 有多少个 S1 候选
-        s2_to_candidates = {}
-        for cand in candidates:
-            s2_id = int(cand["s2_peak_id"])
-            if s2_id not in s2_to_candidates:
-                s2_to_candidates[s2_id] = []
-            s2_to_candidates[s2_id].append(cand)
+        _, s2_inverse, s2_counts = np.unique(
+            candidates["s2_peak_id"], return_inverse=True, return_counts=True
+        )
+        s2_candidate_counts = s2_counts[s2_inverse].astype(np.int32, copy=False)
+        candidates["n_s1_candidates_for_s2"] = s2_candidate_counts
+        candidates["flags"][s2_candidate_counts > 1] |= FLAG_MULTI_S1_CANDIDATE
 
-        for _s2_id, cands in s2_to_candidates.items():
-            n_s1_cands = len(cands)
-            for cand in cands:
-                cand["n_s1_candidates_for_s2"] = n_s1_cands
-                if n_s1_cands > 1:
-                    cand["flags"] |= FLAG_MULTI_S1_CANDIDATE
-
-        # 统计每个 S1 有多少个 S2 候选
-        s1_to_candidates = {}
-        for cand in candidates:
-            s1_id = int(cand["s1_peak_id"])
-            if s1_id not in s1_to_candidates:
-                s1_to_candidates[s1_id] = []
-            s1_to_candidates[s1_id].append(cand)
-
-        for _s1_id, cands in s1_to_candidates.items():
-            n_s2_cands = len(cands)
-            for cand in cands:
-                cand["n_s2_candidates_for_s1"] = n_s2_cands
-                if n_s2_cands > 1:
-                    cand["flags"] |= FLAG_MULTI_S2_CANDIDATE
+        _, s1_inverse, s1_counts = np.unique(
+            candidates["s1_peak_id"], return_inverse=True, return_counts=True
+        )
+        s1_candidate_counts = s1_counts[s1_inverse].astype(np.int32, copy=False)
+        candidates["n_s2_candidates_for_s1"] = s1_candidate_counts
+        candidates["flags"][s1_candidate_counts > 1] |= FLAG_MULTI_S2_CANDIDATE
 
     def _handle_empty_or_orphan_only(
         self,

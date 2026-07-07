@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `peaklet_channels` |
-| **Version** | `1.0.0` |
+| **Version** | `1.0.1` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -56,7 +56,7 @@ data = ctx.get_data("run_001", "peaklet_channels")
 
 ## Module
 
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.peaklet_channels`
+- **Module Path**: `waveform_analysis.core.plugins.builtin.peaks.peaklet_channels`
 
 ---
 

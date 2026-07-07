@@ -48,7 +48,7 @@ class PeakletChannelsPlugin(Plugin):
     provides = "peaklet_channels"
     depends_on = ["peaklets", "peaklet_components", "hit_merged_features", "peaklet_features"]
     description = "Aggregate hit_merged_features into per-peaklet channel contribution rows."
-    version = "1.0.0"
+    version = "1.0.1"
     output_dtype = PEAKLET_CHANNELS_DTYPE
     save_when = "always"
 
@@ -89,52 +89,69 @@ class PeakletChannelsPlugin(Plugin):
         if len(components) == 0 or len(features) == 0:
             return _empty_channels()
 
-        features_by_merged = {
-            int(row["merged_index"]): row for row in features if int(row["valid"]) != 0
-        }
-        area_by_peaklet = {int(row["peak_id"]): float(row["area"]) for row in peaklet_features}
-        grouped: dict[tuple[int, int, int], dict[str, float | int]] = {}
+        valid_features = features[features["valid"] != 0]
+        if len(valid_features) == 0:
+            return _empty_channels()
 
-        for component in components:
-            peaklet_id = int(component["peak_id"])
-            merged_index = int(component["merged_index"])
-            feature = features_by_merged.get(merged_index)
-            if feature is None:
-                continue
+        feature_merged = valid_features["merged_index"].astype(np.int64, copy=False)
+        feature_order = np.argsort(feature_merged, kind="mergesort")
+        sorted_merged = feature_merged[feature_order]
 
-            key = (peaklet_id, int(feature["board"]), int(feature["channel"]))
-            values = grouped.setdefault(
-                key,
-                {
-                    "area": 0.0,
-                    "height": 0.0,
-                    "n_hits": 0,
-                },
-            )
-            values["area"] = float(values["area"]) + float(feature["area"])
-            values["height"] = max(float(values["height"]), float(feature["height"]))
-            values["n_hits"] = int(values["n_hits"]) + int(feature["n_hits"])
+        component_merged = components["merged_index"].astype(np.int64, copy=False)
+        matched_pos = np.searchsorted(sorted_merged, component_merged, side="right") - 1
+        matched = matched_pos >= 0
+        matched[matched] &= sorted_merged[matched_pos[matched]] == component_merged[matched]
+        if not np.any(matched):
+            return _empty_channels()
 
-        rows: list[tuple[int, int, int, float, float, int, float]] = []
-        for key in sorted(grouped):
-            peaklet_id, board, channel = key
-            values = grouped[key]
-            channel_area = float(values["area"])
-            peaklet_area = area_by_peaklet.get(peaklet_id, 0.0)
-            area_fraction = channel_area / peaklet_area if peaklet_area != 0.0 else 0.0
-            rows.append(
-                (
-                    peaklet_id,
-                    board,
-                    channel,
-                    channel_area,
-                    float(values["height"]),
-                    int(values["n_hits"]),
-                    area_fraction,
-                )
-            )
+        matched_features = valid_features[feature_order[matched_pos[matched]]]
+        peaklet_ids = components["peak_id"][matched].astype(np.int64, copy=False)
+        boards = matched_features["board"].astype(np.int64, copy=False)
+        channels = matched_features["channel"].astype(np.int64, copy=False)
 
-        return np.array(rows, dtype=PEAKLET_CHANNELS_DTYPE) if rows else _empty_channels()
+        group_order = np.lexsort((channels, boards, peaklet_ids))
+        peaklet_ids = peaklet_ids[group_order]
+        boards = boards[group_order]
+        channels = channels[group_order]
+        areas = matched_features["area"][group_order].astype(np.float32, copy=False)
+        heights = matched_features["height"][group_order].astype(np.float32, copy=False)
+        n_hits = matched_features["n_hits"][group_order].astype(np.int32, copy=False)
+
+        group_start_mask = np.r_[
+            True,
+            (peaklet_ids[1:] != peaklet_ids[:-1])
+            | (boards[1:] != boards[:-1])
+            | (channels[1:] != channels[:-1]),
+        ]
+        group_starts = np.flatnonzero(group_start_mask)
+
+        out = np.zeros(len(group_starts), dtype=PEAKLET_CHANNELS_DTYPE)
+        out["peaklet_id"] = peaklet_ids[group_starts]
+        out["board"] = boards[group_starts]
+        out["channel"] = channels[group_starts]
+        out["area"] = np.add.reduceat(areas, group_starts).astype(np.float32, copy=False)
+        out["height"] = np.maximum.reduceat(heights, group_starts).astype(np.float32, copy=False)
+        out["n_hits"] = np.add.reduceat(n_hits, group_starts).astype(np.int32, copy=False)
+
+        area_by_peaklet = np.zeros(len(peaklets), dtype=np.float32)
+        feature_peaklet_ids = peaklet_features["peak_id"].astype(np.int64, copy=False)
+        in_range = (feature_peaklet_ids >= 0) & (feature_peaklet_ids < len(peaklets))
+        area_by_peaklet[feature_peaklet_ids[in_range]] = peaklet_features["area"][in_range].astype(
+            np.float32, copy=False
+        )
+        out_peaklet_ids = out["peaklet_id"].astype(np.int64, copy=False)
+        fraction_denominator = np.zeros(len(out), dtype=np.float32)
+        valid_out_peaklets = (out_peaklet_ids >= 0) & (out_peaklet_ids < len(area_by_peaklet))
+        fraction_denominator[valid_out_peaklets] = area_by_peaklet[
+            out_peaklet_ids[valid_out_peaklets]
+        ]
+        out["area_fraction"] = np.divide(
+            out["area"],
+            fraction_denominator,
+            out=np.zeros(len(out), dtype=np.float32),
+            where=fraction_denominator != 0.0,
+        )
+        return out
 
 
 __all__ = ["PEAKLET_CHANNELS_DTYPE", "PeakletChannelsPlugin"]

@@ -9,7 +9,7 @@
 | Provides | `s1_s2_pair_candidates` |
 | Depends On | `peak_classification`, `peaks` |
 | Output Kind | `structured_array` |
-| Version | `0.1.0` |
+| Version | `0.1.1` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_candidates` |
 | Accelerator | `cpu` |
 
@@ -91,10 +91,10 @@ S1-S2 配对候选生成插件。
 | `score_ratio` | `float32` | - |
 | `score_pattern` | `float32` | - |
 | `score_ambiguity` | `float32` | - |
-| `rank_for_s1` | `int16` | - |
-| `rank_for_s2` | `int16` | - |
-| `n_s1_candidates_for_s2` | `int16` | - |
-| `n_s2_candidates_for_s1` | `int16` | - |
+| `rank_for_s1` | `int32` | - |
+| `rank_for_s2` | `int32` | - |
+| `n_s1_candidates_for_s2` | `int32` | - |
+| `n_s2_candidates_for_s1` | `int32` | - |
 | `delta_score_to_next_best` | `float32` | - |
 | `flags` | `uint32` | - |
 | `selected` | `bool` | - |

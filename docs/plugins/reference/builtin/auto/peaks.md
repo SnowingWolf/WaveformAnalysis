@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `peaks` |
-| **Version** | `4.0.0` |
+| **Version** | `4.0.1` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -63,7 +63,7 @@ data = ctx.get_data("run_001", "peaks")
 
 ## Module
 
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.peaklets`
+- **Module Path**: `waveform_analysis.core.plugins.builtin.peaks.peaklets`
 
 ---
 

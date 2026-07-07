@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `s1_s2_pair_candidates` |
-| **Version** | `0.1.0` |
+| **Version** | `0.1.1` |
 | **Category** | 事件分析 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -62,10 +62,10 @@ This plugin depends on the following data:
 | `score_ratio` | `float32` | - | - |
 | `score_pattern` | `float32` | - | - |
 | `score_ambiguity` | `float32` | - | - |
-| `rank_for_s1` | `int16` | - | - |
-| `rank_for_s2` | `int16` | - | - |
-| `n_s1_candidates_for_s2` | `int16` | - | - |
-| `n_s2_candidates_for_s1` | `int16` | - | - |
+| `rank_for_s1` | `int32` | - | - |
+| `rank_for_s2` | `int32` | - | - |
+| `n_s1_candidates_for_s2` | `int32` | - | - |
+| `n_s2_candidates_for_s1` | `int32` | - | - |
 | `delta_score_to_next_best` | `float32` | - | - |
 | `flags` | `uint32` | - | - |
 | `selected` | `bool` | - | - |

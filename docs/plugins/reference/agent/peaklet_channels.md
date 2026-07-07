@@ -9,9 +9,13 @@
 | Provides | `peaklet_channels` |
 | Depends On | `peaklets`, `peaklet_components`, `hit_merged_features`, `peaklet_features` |
 | Output Kind | `structured_array` |
-| Version | `1.0.0` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.peaklet_channels` |
+| Version | `1.0.1` |
+| Module | `waveform_analysis.core.plugins.builtin.peaks.peaklet_channels` |
 | Accelerator | `cpu` |
+
+## Source Notes
+
+Per-channel contribution table for peaklets.
 
 ## Inputs
 

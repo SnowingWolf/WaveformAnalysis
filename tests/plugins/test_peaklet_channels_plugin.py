@@ -109,6 +109,61 @@ def test_peaklet_channels_aggregates_multiple_rows_for_same_channel():
     assert float(out[0]["area_fraction"]) == 1.0
 
 
+def test_peaklet_channels_filters_invalid_features_and_sorts_keys():
+    ctx = _ctx(
+        _peaklets([50.0, 100.0], component_count=2),
+        _components([(1, 3), (0, 2), (1, 1), (0, 0)]),
+        _features(
+            [
+                {
+                    "merged_index": 3,
+                    "board": 1,
+                    "channel": 2,
+                    "area": 60.0,
+                    "height": 9.0,
+                    "n_hits": 2,
+                },
+                {
+                    "merged_index": 2,
+                    "board": 0,
+                    "channel": 4,
+                    "area": 25.0,
+                    "height": 4.0,
+                    "n_hits": 1,
+                },
+                {
+                    "merged_index": 1,
+                    "board": 0,
+                    "channel": 1,
+                    "area": 40.0,
+                    "height": 7.0,
+                    "n_hits": 3,
+                },
+                {
+                    "merged_index": 0,
+                    "board": 0,
+                    "channel": 3,
+                    "area": 25.0,
+                    "height": 5.0,
+                    "n_hits": 1,
+                    "valid": 0,
+                },
+            ]
+        ),
+        _peaklet_features([50.0, 100.0]),
+    )
+
+    out = PeakletChannelsPlugin().compute(ctx, "run_001")
+
+    assert [(int(r["peaklet_id"]), int(r["board"]), int(r["channel"])) for r in out] == [
+        (0, 0, 4),
+        (1, 0, 1),
+        (1, 1, 2),
+    ]
+    np.testing.assert_allclose(out["area"], np.array([25.0, 40.0, 60.0], dtype=np.float32))
+    np.testing.assert_allclose(out["area_fraction"], np.array([0.5, 0.4, 0.6], dtype=np.float32))
+
+
 def test_peaklet_channels_zero_peaklet_area_writes_zero_fraction():
     ctx = _ctx(
         _peaklets([0.0]),

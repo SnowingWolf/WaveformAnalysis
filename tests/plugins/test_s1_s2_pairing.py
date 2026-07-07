@@ -12,7 +12,9 @@ import pytest
 
 from waveform_analysis.core.plugins.builtin.cpu.peak_classification import (
     LABEL_S1,
+    LABEL_S1_S2,
     LABEL_S2,
+    LABEL_UNKNOWN,
     PEAK_CLASSIFICATION_DTYPE,
 )
 from waveform_analysis.core.plugins.builtin.cpu.peaklets import PEAKS_DTYPE
@@ -227,6 +229,64 @@ def test_time_window_filtering():
 
     s1_ids = sorted([c["s1_peak_id"] for c in candidates])
     assert s1_ids == [2, 3], "S1_1 应该被时间窗口过滤掉"
+
+
+def test_multiple_s2_for_one_s1_sets_multi_s2_flag():
+    peaks = np.array(
+        [
+            create_test_peak(peak_id=1, time_ns=1000, area=100),
+            create_test_peak(peak_id=10, time_ns=20000, area=5000),
+            create_test_peak(peak_id=11, time_ns=25000, area=6000),
+        ]
+    )
+    labels = np.array(
+        [
+            create_test_label(peak_id=1, label=LABEL_S1),
+            create_test_label(peak_id=10, label=LABEL_S2),
+            create_test_label(peak_id=11, label=LABEL_S2),
+        ]
+    )
+
+    plugin = S1S2PairCandidatesPlugin()
+    ctx = MockContext()
+    ctx.set_data("test_run", "peaks", peaks)
+    ctx.set_data("test_run", "peak_classification", labels)
+
+    candidates = plugin.compute(ctx, "test_run")
+
+    assert len(candidates) == 2
+    for cand in candidates:
+        assert cand["n_s2_candidates_for_s1"] == 2
+        assert cand["flags"] & FLAG_MULTI_S2_CANDIDATE
+
+
+def test_pair_candidates_ignore_unknown_and_s1_s2_labels():
+    peaks = np.array(
+        [
+            create_test_peak(peak_id=1, time_ns=1000, area=100),
+            create_test_peak(peak_id=2, time_ns=2000, area=100),
+            create_test_peak(peak_id=3, time_ns=3000, area=100),
+            create_test_peak(peak_id=10, time_ns=20000, area=5000),
+        ]
+    )
+    labels = np.array(
+        [
+            create_test_label(peak_id=1, label=LABEL_S1),
+            create_test_label(peak_id=2, label=LABEL_UNKNOWN),
+            create_test_label(peak_id=3, label=LABEL_S1_S2),
+            create_test_label(peak_id=10, label=LABEL_S2),
+        ]
+    )
+
+    plugin = S1S2PairCandidatesPlugin()
+    ctx = MockContext()
+    ctx.set_data("test_run", "peaks", peaks)
+    ctx.set_data("test_run", "peak_classification", labels)
+
+    candidates = plugin.compute(ctx, "test_run")
+
+    assert len(candidates) == 1
+    assert int(candidates[0]["s1_peak_id"]) == 1
 
 
 def test_causality_s2_before_s1():

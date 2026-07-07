@@ -141,8 +141,8 @@ def test_peak_classification_empty(tmp_path):
     assert len(labels) == 0
 
 
-def test_peak_classification_conflict_prefer_s1(tmp_path):
-    """测试冲突策略：prefer_s1"""
+def test_peak_classification_priority_order_prefers_s1(tmp_path):
+    """测试 priority_order：S1 优先"""
     ctx = Context(storage_dir=str(tmp_path))
     ctx.register(PeakClassificationPlugin())
 
@@ -155,12 +155,11 @@ def test_peak_classification_conflict_prefer_s1(tmp_path):
 
     ctx._results[(run_id, "peaks")] = peaks
 
-    # 配置使得同时满足 S1 和 S2 条件
     ctx.set_config(
         {
             "s1_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
             "s2_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
-            "conflict_policy": "prefer_s1",
+            "priority_order": ["s1", "s2", "s1_s2"],
         },
         plugin_name="peak_classification",
     )
@@ -170,8 +169,8 @@ def test_peak_classification_conflict_prefer_s1(tmp_path):
     assert labels[0]["label"] == LABEL_S1
 
 
-def test_peak_classification_conflict_prefer_s2(tmp_path):
-    """测试冲突策略：prefer_s2"""
+def test_peak_classification_priority_order_prefers_s2(tmp_path):
+    """测试 priority_order：S2 优先"""
     ctx = Context(storage_dir=str(tmp_path))
     ctx.register(PeakClassificationPlugin())
 
@@ -184,12 +183,11 @@ def test_peak_classification_conflict_prefer_s2(tmp_path):
 
     ctx._results[(run_id, "peaks")] = peaks
 
-    # 配置使得同时满足 S1 和 S2 条件
     ctx.set_config(
         {
             "s1_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
             "s2_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
-            "conflict_policy": "prefer_s2",
+            "priority_order": ["s2", "s1", "s1_s2"],
         },
         plugin_name="peak_classification",
     )
@@ -199,8 +197,8 @@ def test_peak_classification_conflict_prefer_s2(tmp_path):
     assert labels[0]["label"] == LABEL_S2
 
 
-def test_peak_classification_conflict_unknown(tmp_path):
-    """测试冲突策略：unknown"""
+def test_peak_classification_priority_order_default_unknown(tmp_path):
+    """测试不命中 selection 时返回 default_label"""
     ctx = Context(storage_dir=str(tmp_path))
     ctx.register(PeakClassificationPlugin())
 
@@ -213,12 +211,11 @@ def test_peak_classification_conflict_unknown(tmp_path):
 
     ctx._results[(run_id, "peaks")] = peaks
 
-    # 配置使得同时满足 S1 和 S2 条件
     ctx.set_config(
         {
-            "s1_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
-            "s2_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
-            "conflict_policy": "unknown",
+            "s1_selection": {"accept_any": [{"width": (0.0, 10.0)}]},
+            "s2_selection": {"accept_any": [{"width": (200.0, None)}]},
+            "default_label": "unknown",
         },
         plugin_name="peak_classification",
     )
@@ -228,8 +225,8 @@ def test_peak_classification_conflict_unknown(tmp_path):
     assert labels[0]["label"] == LABEL_UNKNOWN
 
 
-def test_peak_classification_conflict_mark_as_s1_s2(tmp_path):
-    """测试冲突策略：mark_as_s1_s2"""
+def test_peak_classification_priority_order_prefers_s1_s2(tmp_path):
+    """测试 priority_order：S1_S2 优先"""
     ctx = Context(storage_dir=str(tmp_path))
     ctx.register(PeakClassificationPlugin())
 
@@ -242,12 +239,12 @@ def test_peak_classification_conflict_mark_as_s1_s2(tmp_path):
 
     ctx._results[(run_id, "peaks")] = peaks
 
-    # 配置使得同时满足 S1 和 S2 条件
     ctx.set_config(
         {
             "s1_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
             "s2_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
-            "conflict_policy": "mark_as_s1_s2",
+            "s1_s2_selection": {"accept_any": [{"width": (0.0, 100.0)}]},
+            "priority_order": ["s1_s2", "s1", "s2"],
         },
         plugin_name="peak_classification",
     )

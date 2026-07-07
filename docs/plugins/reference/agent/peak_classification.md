@@ -9,7 +9,7 @@
 | Provides | `peak_classification` |
 | Depends On | `peaks` |
 | Output Kind | `structured_array` |
-| Version | `1.2.0` |
+| Version | `1.2.1` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.peak_classification` |
 | Accelerator | `cpu` |
 

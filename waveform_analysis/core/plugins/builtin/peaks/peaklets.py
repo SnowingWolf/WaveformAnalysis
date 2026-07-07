@@ -2392,7 +2392,7 @@ class PeaksPlugin(Plugin):
     provides = "peaks"
     depends_on = ["peaklets", "peaklet_features", "peaklet_channels"]
     description = "Build final peaks table from peaklets and waveform-derived features."
-    version = "4.0.0"
+    version = "4.0.1"
     output_dtype = PEAKS_DTYPE
     save_when = "always"
 
@@ -2406,35 +2406,41 @@ class PeaksPlugin(Plugin):
         if not isinstance(features, np.ndarray):
             raise ValueError("peaks expects peaklet_features as a structured array")
 
-        features_by_peaklet = {int(row["peak_id"]): row for row in features}
-        rows: list[tuple] = []
-        for peaklet_id, peaklet in enumerate(peaklets):
-            feature = features_by_peaklet.get(peaklet_id)
-            if feature is None:
-                raise ValueError(
-                    f"peaks could not resolve peaklet_features for peaklet_id={peaklet_id}"
-                )
-            rows.append(
-                (
-                    peaklet_id,
-                    int(feature["time_start"]),
-                    int(feature["time_end"]),
-                    int(feature["time_peak"]),
-                    int(feature["center_time"]),
-                    float(feature["rise_time"]),
-                    float(feature["fall_time"]),
-                    float(feature["width_25_75"]),
-                    float(feature["rise_time_10_50"]),
-                    float(feature["range_90p_area"]),
-                    float(feature["area"]),
-                    float(feature["height"]),
-                    float(feature["width"]),
-                    int(peaklet["n_hits"]),
-                    int(peaklet["n_channels"]),
-                )
+        feature_peaklet_ids = features["peak_id"].astype(np.int64, copy=False)
+        feature_order = np.argsort(feature_peaklet_ids, kind="mergesort")
+        sorted_peaklet_ids = feature_peaklet_ids[feature_order]
+
+        peaklet_ids = np.arange(len(peaklets), dtype=np.int64)
+        matched_pos = np.searchsorted(sorted_peaklet_ids, peaklet_ids, side="right") - 1
+        matched = matched_pos >= 0
+        matched[matched] &= sorted_peaklet_ids[matched_pos[matched]] == peaklet_ids[matched]
+        if not np.all(matched):
+            missing_peaklet_id = int(peaklet_ids[~matched][0])
+            raise ValueError(
+                f"peaks could not resolve peaklet_features for peaklet_id={missing_peaklet_id}"
             )
 
-        return np.array(rows, dtype=PEAKS_DTYPE) if rows else _empty_peaks()
+        aligned_features = features[feature_order[matched_pos]]
+        out = np.zeros(len(peaklets), dtype=PEAKS_DTYPE)
+        out["peak_id"] = peaklet_ids
+        for field in (
+            "time_start",
+            "time_end",
+            "time_peak",
+            "center_time",
+            "rise_time",
+            "fall_time",
+            "width_25_75",
+            "rise_time_10_50",
+            "range_90p_area",
+            "area",
+            "height",
+            "width",
+        ):
+            out[field] = aligned_features[field]
+        out["n_hits"] = peaklets["n_hits"]
+        out["n_channels"] = peaklets["n_channels"]
+        return out
 
 
 __all__ = [
