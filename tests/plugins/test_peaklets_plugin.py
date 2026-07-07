@@ -1,14 +1,14 @@
 import numpy as np
 
 from tests.utils import DummyContext, make_records
-from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
-from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
+from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
+from waveform_analysis.core.plugins.builtin.hit.hit_merge import (
     HIT_MERGED_DTYPE,
     HitMergedComponentsPlugin,
     HitMergePlugin,
 )
-from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import HitMergedFeaturesPlugin
-from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
+from waveform_analysis.core.plugins.builtin.hit.hit_merged_features import HitMergedFeaturesPlugin
+from waveform_analysis.core.plugins.builtin.peaks.peaklets import (
     PEAKLET_COMPONENTS_DTYPE,
     PEAKLET_DTYPE,
     PeakletComponentsPlugin,

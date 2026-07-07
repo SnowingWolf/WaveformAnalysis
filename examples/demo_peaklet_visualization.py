@@ -15,7 +15,6 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
     HitMergedComponentsPlugin,
     HitMergePlugin,
@@ -29,6 +28,7 @@ from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PeakletWaveformPoolPlugin,
     PeaksPlugin,
 )
+from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
 
 
 class DummyContext:

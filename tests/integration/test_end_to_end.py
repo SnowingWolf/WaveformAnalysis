@@ -12,7 +12,6 @@ import numpy as np
 import pytest
 
 from tests.utils import DummyContext, make_records
-from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
     HitMergedComponentsPlugin,
     HitMergePlugin,
@@ -28,6 +27,7 @@ from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PeakletWaveformPoolPlugin,
     PeaksPlugin,
 )
+from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
 
 
 def generate_realistic_data(n_records=1000, n_channels=8, noise_level=5):

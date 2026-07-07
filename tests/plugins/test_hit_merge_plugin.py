@@ -1,8 +1,8 @@
 import numpy as np
 
 from tests.utils import DummyContext, FakeContext
-from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
-from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
+from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
+from waveform_analysis.core.plugins.builtin.hit.hit_merge import (
     HIT_MERGE_CLUSTERS_DTYPE,
     HIT_MERGED_COMPONENTS_DTYPE,
     HIT_MERGED_DTYPE,

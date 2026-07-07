@@ -1,14 +1,14 @@
 import numpy as np
 
 from tests.utils import DummyContext
-from waveform_analysis.core.plugins.builtin.cpu.hit_merge import HIT_MERGED_DTYPE
-from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import (
+from waveform_analysis.core.plugins.builtin.hit.hit_merge import HIT_MERGED_DTYPE
+from waveform_analysis.core.plugins.builtin.hit.hit_merged_features import (
     HIT_MERGED_FEATURES_DTYPE,
 )
-from waveform_analysis.core.plugins.builtin.cpu.peaklet_channels import (
+from waveform_analysis.core.plugins.builtin.peaks.peaklet_channels import (
     PEAKLET_CHANNELS_DTYPE,
 )
-from waveform_analysis.core.plugins.builtin.cpu.peaklets import PEAKLET_COMPONENTS_DTYPE
+from waveform_analysis.core.plugins.builtin.peaks.peaklets import PEAKLET_COMPONENTS_DTYPE
 from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
 
 

@@ -14,7 +14,6 @@ import numpy as np
 import pytest
 
 from tests.utils import DummyContext, make_records
-from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
     HIT_MERGED_DTYPE,
     HitMergedComponentsPlugin,
@@ -26,6 +25,7 @@ from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import (
 from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PeakletPlugin,
 )
+from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
 
 
 def generate_large_dataset(n_records=10000, n_channels=16, hits_per_record=5):

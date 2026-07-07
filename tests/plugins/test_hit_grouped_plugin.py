@@ -2,9 +2,9 @@ import numpy as np
 import pandas as pd
 
 from tests.utils import DummyContext, FakeContext
-from waveform_analysis.core.plugins.builtin.cpu.event_analysis import HitGroupedPlugin
-from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
-from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
+from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
+from waveform_analysis.core.plugins.builtin.hit.hit_grouped import HitGroupedPlugin
+from waveform_analysis.core.plugins.builtin.hit.hit_merge import (
     HitMergedComponentsPlugin,
     HitMergePlugin,
 )

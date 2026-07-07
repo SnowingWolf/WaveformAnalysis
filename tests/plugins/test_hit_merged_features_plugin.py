@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 
 from tests.utils import DummyContext, make_records
-from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
     HIT_MERGED_COMPONENTS_DTYPE,
     HIT_MERGED_DTYPE,
@@ -12,6 +11,7 @@ from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import (
     HitMergedFeaturesPlugin,
     _polarity_sign_array,
 )
+from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
 
 
 def _make_hit(*, record_id, board=0, channel=0, edge_start=2, edge_end=5, dt=2, timestamp=0):

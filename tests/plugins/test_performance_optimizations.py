@@ -10,7 +10,6 @@ import numpy as np
 import pytest
 
 from tests.utils import DummyContext, make_records
-from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
     HIT_MERGED_DTYPE,
     HitMergedComponentsPlugin,
@@ -27,6 +26,7 @@ from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PeakletWaveformPlugin,
     _cluster_merged_hits,
 )
+from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
 
 try:
     from numba import njit  # noqa: F401

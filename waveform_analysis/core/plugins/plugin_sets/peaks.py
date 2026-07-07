@@ -32,9 +32,9 @@ def plugins_peaks():
     from waveform_analysis.core.plugins.builtin.cpu.peak_classification import (
         PeakClassificationPlugin,
     )
-    from waveform_analysis.core.plugins.builtin.cpu.peaklets import PeaksPlugin
     from waveform_analysis.core.plugins.builtin.cpu.s1_s2_classifier import S1S2ClassifierPlugin
     from waveform_analysis.core.plugins.builtin.cpu.waveform_width import WaveformWidthPlugin
+    from waveform_analysis.core.plugins.builtin.peaks.peaklets import PeaksPlugin
 
     warnings.warn(
         "plugins_peaks() includes S1S2ClassifierPlugin which is deprecated. "

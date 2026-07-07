@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 
 from tests.plugins.test_peaklets_plugin import _make_hit, make_peaklet_context
-from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PEAKLET_WAVEFORMS_DTYPE,
     PeakletComponentsPlugin,
@@ -10,6 +9,7 @@ from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PeakletWaveformPlugin,
     PeakletWaveformPoolPlugin,
 )
+from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
 
 
 def _compute_peaklets_and_components(ctx):
