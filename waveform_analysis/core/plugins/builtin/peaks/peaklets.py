@@ -941,6 +941,127 @@ class PeakletComponentsPlugin(BatchProcessingPlugin):
         )
 
 
+def _process_peaklet_batch(batch_data: dict) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Process a batch of peaklets in a separate process.
+
+    This function is called by multiprocessing Pool.map() and must be
+    at module level (not a method).
+
+    Parameters
+    ----------
+    batch_data : dict
+        Contains: peaklets, components, merged, records, wave_pool,
+                  hit_merged_components, hit_threshold
+
+    Returns
+    -------
+    waveforms : np.ndarray
+        Waveform index rows for this batch
+    pool : np.ndarray
+        Concatenated waveform pool for this batch
+    """
+    peaklets = batch_data["peaklets"]
+    components = batch_data["components"]
+    merged = batch_data["merged"]
+    records = batch_data["records"]
+    wave_pool = batch_data["wave_pool"]
+    hit_merged_components = batch_data["hit_merged_components"]
+    hit_threshold = batch_data["hit_threshold"]
+
+    # Process using the same logic as _build_python
+    record_lookup = RecordLookup(records)
+    component_groups = _components_by_peaklet(components, len(peaklets))
+    rows: list[tuple[int, int, int, int, int, int]] = []
+    pools: list[np.ndarray] = []
+    wave_offset = 0
+
+    for peaklet_id, merged_indices in enumerate(component_groups):
+        if len(merged_indices) == 0:
+            rows.append((peaklet_id, 0, 0, 0, wave_offset, 0))
+            continue
+
+        pieces: list[tuple[int, int, np.ndarray]] = []
+        dt_ns: int | None = None
+        time_start: int | None = None
+        time_end: int | None = None
+
+        for merged_index in merged_indices:
+            hit = merged[int(merged_index)]
+
+            # Detect cross-record hit
+            is_single_record = (
+                bool(hit["is_single_record"])
+                if "is_single_record" in hit.dtype.names
+                else (int(hit["sample_start"]) >= 0 and int(hit["sample_end"]) >= 0)
+            )
+
+            if not is_single_record and hit_merged_components is not None and hit_threshold is not None:
+                # Cross-record path
+                multi_pieces = _merged_wave_pieces_multirecord(
+                    hit=hit,
+                    hit_merged_components=hit_merged_components,
+                    hit_threshold=hit_threshold,
+                    records=records,
+                    record_lookup=record_lookup,
+                    wave_pool=wave_pool,
+                    merged_index=int(merged_index),
+                )
+
+                for start_ps, end_ps, piece_dt_ns, signal in multi_pieces:
+                    if len(signal) == 0:
+                        continue
+                    if dt_ns is None:
+                        dt_ns = piece_dt_ns
+                    elif piece_dt_ns != dt_ns:
+                        raise ValueError(
+                            f"peaklet_waveforms does not support mixed dt in peaklet_id={peaklet_id}"
+                        )
+                    pieces.append((start_ps, end_ps, signal))
+                    time_start = start_ps if time_start is None else min(time_start, start_ps)
+                    time_end = end_ps if time_end is None else max(time_end, end_ps)
+            else:
+                # Single-record path
+                start_ps, end_ps, piece_dt_ns, signal = _merged_wave_piece(
+                    hit=hit,
+                    records=records,
+                    record_lookup=record_lookup,
+                    wave_pool=wave_pool,
+                )
+                if len(signal) == 0:
+                    continue
+                if dt_ns is None:
+                    dt_ns = piece_dt_ns
+                elif piece_dt_ns != dt_ns:
+                    raise ValueError(
+                        f"peaklet_waveforms does not support mixed dt in peaklet_id={peaklet_id}"
+                    )
+                pieces.append((start_ps, end_ps, signal))
+                time_start = start_ps if time_start is None else min(time_start, start_ps)
+                time_end = end_ps if time_end is None else max(time_end, end_ps)
+
+        if not pieces or dt_ns is None or time_start is None or time_end is None:
+            rows.append((peaklet_id, 0, 0, 0, wave_offset, 0))
+            continue
+
+        dt_ps = dt_ns * 1000
+        wave_length = int((time_end - time_start) // dt_ps)
+        summed = np.zeros(wave_length, dtype=np.float32)
+
+        for start_ps, _end_ps, signal in pieces:
+            i0 = int((start_ps - time_start) // dt_ps)
+            summed[i0 : i0 + len(signal)] += signal
+
+        rows.append((peaklet_id, time_start, time_end, dt_ns, wave_offset, wave_length))
+        pools.append(summed)
+        wave_offset += wave_length
+
+    pool = np.concatenate(pools).astype(np.float32, copy=False) if pools else _empty_waveform_pool()
+    waveforms = np.array(rows, dtype=PEAKLET_WAVEFORMS_DTYPE) if rows else _empty_waveforms()
+
+    return waveforms, pool
+
+
 class PeakletWaveformPlugin(Plugin):
     """Build ragged waveform index rows for peaklets and cache the signal pool."""
 
@@ -982,6 +1103,15 @@ class PeakletWaveformPlugin(Plugin):
         return deps
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
+        # Load parallel processing config
+        n_workers = int(context.get_config(self, "n_workers"))
+        if n_workers == 0 and HAS_MULTIPROCESSING:
+            # Auto mode: use CPU count - 1
+            n_workers = max(1, cpu_count() - 1)
+
+        self._n_workers = n_workers
+        self._parallel_threshold = int(context.get_config(self, "parallel_threshold"))
+
         waveforms, pool = self._compute_waveforms_and_pool(context, run_id)
         self._store_pool(context, run_id, pool)
         return waveforms
@@ -1181,14 +1311,33 @@ class PeakletWaveformPlugin(Plugin):
 
             cross_peaklets = peaklets[cross_peaklet_ids]
 
-            # Use Python for this subset
-            cross_waveforms, cross_pool = self._build_python(
-                peaklets=cross_peaklets,
-                components=cross_components_remapped,
-                merged=merged,
-                records=records,
-                wave_pool=wave_pool,
+            # Determine if we should use parallel processing
+            n_workers = getattr(self, "_n_workers", 1)
+            parallel_threshold = getattr(self, "_parallel_threshold", 5000)
+
+            use_parallel = (
+                HAS_MULTIPROCESSING and n_workers != 1 and n_cross >= parallel_threshold
             )
+
+            if use_parallel:
+                # Parallel processing for cross-record peaklets
+                cross_waveforms, cross_pool = self._build_python_parallel(
+                    peaklets=cross_peaklets,
+                    components=cross_components_remapped,
+                    merged=merged,
+                    records=records,
+                    wave_pool=wave_pool,
+                    n_workers=n_workers,
+                )
+            else:
+                # Use Python for this subset
+                cross_waveforms, cross_pool = self._build_python(
+                    peaklets=cross_peaklets,
+                    components=cross_components_remapped,
+                    merged=merged,
+                    records=records,
+                    wave_pool=wave_pool,
+                )
         else:
             cross_waveforms = _empty_waveforms()
             cross_pool = _empty_waveform_pool()
@@ -1299,6 +1448,82 @@ class PeakletWaveformPlugin(Plugin):
         waveforms["wave_length"] = waveform_rows[:, 5]
 
         return waveforms, pool
+
+    def _build_python_parallel(
+        self,
+        *,
+        peaklets: np.ndarray,
+        components: np.ndarray,
+        merged: np.ndarray,
+        records: np.ndarray,
+        wave_pool: np.ndarray,
+        n_workers: int,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Parallel processing of cross-record peaklets.
+
+        Split peaklets into batches and process them in parallel using multiprocessing.
+        """
+        n_peaklets = len(peaklets)
+
+        # Split peaklets into batches
+        batch_size = max(1, n_peaklets // n_workers)
+        batches = []
+
+        for i in range(0, n_peaklets, batch_size):
+            end_idx = min(i + batch_size, n_peaklets)
+            batch_peaklet_ids = np.arange(i, end_idx)
+
+            # Filter components for this batch
+            batch_component_mask = np.isin(
+                components["peak_id"], batch_peaklet_ids
+            )
+            batch_components = components[batch_component_mask].copy()
+
+            # Remap peak_id to be 0-based within this batch
+            old_to_new = np.full(n_peaklets, -1, dtype=np.int64)
+            old_to_new[batch_peaklet_ids] = np.arange(len(batch_peaklet_ids))
+            batch_components["peak_id"] = old_to_new[batch_components["peak_id"]]
+
+            batches.append({
+                "peaklets": peaklets[batch_peaklet_ids],
+                "components": batch_components,
+                "merged": merged,
+                "records": records,
+                "wave_pool": wave_pool,
+                "hit_merged_components": getattr(self, "_hit_merged_components", None),
+                "hit_threshold": getattr(self, "_hit_threshold", None),
+            })
+
+        # Process batches in parallel
+        with Pool(n_workers) as pool:
+            results = pool.map(_process_peaklet_batch, batches)
+
+        # Merge results from all batches
+        all_waveforms = []
+        all_pools = []
+        cumulative_offset = 0
+
+        for batch_waveforms, batch_pool in results:
+            # Adjust wave_offset
+            if len(batch_waveforms) > 0:
+                batch_waveforms["wave_offset"] += cumulative_offset
+            all_waveforms.append(batch_waveforms)
+            all_pools.append(batch_pool)
+            cumulative_offset += len(batch_pool)
+
+        # Concatenate all results
+        if all_waveforms:
+            final_waveforms = np.concatenate(all_waveforms)
+        else:
+            final_waveforms = _empty_waveforms()
+
+        if all_pools:
+            final_pool = np.concatenate(all_pools).astype(np.float32, copy=False)
+        else:
+            final_pool = _empty_waveform_pool()
+
+        return final_waveforms, final_pool
 
     def _build_python(
         self,
