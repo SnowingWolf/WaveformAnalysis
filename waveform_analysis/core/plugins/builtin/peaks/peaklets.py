@@ -955,6 +955,16 @@ class PeakletWaveformPlugin(Plugin):
         "use_filtered": Option(
             default=False, type=bool, help="是否使用 wave_pool_filtered 构建 peaklet 波形"
         ),
+        "n_workers": Option(
+            default=1,
+            type=int,
+            help="并行处理的进程数。1=单进程，0=自动（使用 CPU 核心数-1），>1=指定进程数",
+        ),
+        "parallel_threshold": Option(
+            default=5000,
+            type=int,
+            help="启用并行化的最小 peaklet 数量。少于此数量时使用单进程",
+        ),
     }
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
@@ -1120,10 +1130,7 @@ class PeakletWaveformPlugin(Plugin):
 
         # Use bincount to check if any component in each peaklet is cross-record
         # bincount counts True (1) values per peaklet_id
-        cross_counts = np.bincount(
-            component_peak_ids[component_is_cross],
-            minlength=len(peaklets)
-        )
+        cross_counts = np.bincount(component_peak_ids[component_is_cross], minlength=len(peaklets))
         peaklet_has_cross_record = cross_counts > 0
 
         # Split into two groups
@@ -1188,7 +1195,6 @@ class PeakletWaveformPlugin(Plugin):
 
         # Merge results
         # Concatenate pools
-        total_pool_length = len(single_pool) + len(cross_pool)
         merged_pool = np.concatenate([single_pool, cross_pool]).astype(np.float32, copy=False)
 
         # Merge waveform rows and adjust offsets
