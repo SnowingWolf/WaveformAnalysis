@@ -39,7 +39,7 @@ class S1S2PairSelectionPlugin(Plugin):
     provides = "s1_s2_pairs"
     depends_on = ["s1_s2_pair_candidates"]
     description = "Select best S1-S2 pairs from candidates"
-    version = "0.1.0"
+    version = "0.2.0"
     save_when = "always"
     output_dtype = S1_S2_PAIR_CANDIDATES_DTYPE
 
@@ -56,6 +56,11 @@ class S1S2PairSelectionPlugin(Plugin):
             help="次优候选接近阈值。delta_score < threshold 时标记 FLAG_CLOSE_COMPETITOR",
             min_value=0.0,
         ),
+        "require_s2_larger_than_s1": Option(
+            default=True,
+            type=bool,
+            help="是否要求 S2_area > S1_area。这是液氙探测器的物理约束。",
+        ),
     }
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
@@ -63,12 +68,13 @@ class S1S2PairSelectionPlugin(Plugin):
 
         算法:
         1. 获取候选
-        2. 计算 score (根据 selection_mode)
-        3. 为每个 S2 选择最优 S1
-        4. 设置 selected flag
-        5. 计算 delta_score_to_next_best
-        6. 计算 rank_for_s2
-        7. 标记 CLOSE_COMPETITOR
+        2. 过滤不满足物理约束的候选 (S1_area < S2_area)
+        3. 计算 score (根据 selection_mode)
+        4. 为每个 S2 选择最优 S1
+        5. 设置 selected flag
+        6. 计算 delta_score_to_next_best
+        7. 计算 rank_for_s2
+        8. 标记 CLOSE_COMPETITOR
         """
         # 获取候选
         candidates = context.get_data(run_id, "s1_s2_pair_candidates")
@@ -83,6 +89,21 @@ class S1S2PairSelectionPlugin(Plugin):
         # 获取配置
         selection_mode = context.get_config(self, "selection_mode")
         close_threshold = context.get_config(self, "close_competitor_threshold")
+        require_s2_larger = context.get_config(self, "require_s2_larger_than_s1")
+
+        # 过滤: S2_area > S1_area (物理约束)
+        if require_s2_larger:
+            # 保留孤立信号和满足约束的候选
+            mask = (
+                (candidates["s2_peak_id"] == -1)
+                | (candidates["s1_peak_id"] == -1)
+                | (candidates["s2_area"] > candidates["s1_area"])
+            )
+            candidates = candidates[mask]
+
+            # 如果过滤后没有候选了，直接返回
+            if len(candidates) == 0:
+                return candidates
 
         # 计算 score
         self._compute_scores(candidates, selection_mode)
@@ -175,6 +196,9 @@ class S1S2PairSelectionPlugin(Plugin):
         s2_to_indices = {}
         for idx, cand in enumerate(candidates):
             s2_id = int(cand["s2_peak_id"])
+            # 跳过孤立信号 (s2_peak_id = -1 表示孤立 S1)
+            if s2_id == -1:
+                continue
             if s2_id not in s2_to_indices:
                 s2_to_indices[s2_id] = []
             s2_to_indices[s2_id].append(idx)
@@ -238,7 +262,8 @@ class S1S2PairSelectionPlugin(Plugin):
         s1_to_indices = {}
         for idx, cand in enumerate(candidates):
             s1_id = int(cand["s1_peak_id"])
-            if s1_id == -1:  # 跳过孤立 S2
+            # 跳过孤立信号 (s1_peak_id = -1 表示孤立 S2)
+            if s1_id == -1:
                 continue
             if s1_id not in s1_to_indices:
                 s1_to_indices[s1_id] = []

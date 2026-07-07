@@ -19,11 +19,17 @@ def plugins_events():
     New S1-S2 pairing workflow:
     - S1S2PairCandidatesPlugin: Generate all physically allowed S1-S2 pairing candidates
     - S1S2PairSelectionPlugin: Select best pairs from candidates
+    - PositionReconstructionPlugin: Reconstruct 3D position from S1-S2 pairs (v0.0.0)
+    - EventPlugin: Complete event reconstruction (v0.0.0)
 
     .. deprecated::
         Legacy plugins (GroupedEventsPlugin, HitGroupedPlugin, PairedEventsPlugin)
         are deprecated and will be removed in a future version.
     """
+    from waveform_analysis.core.plugins.builtin.cpu.event import EventPlugin
+    from waveform_analysis.core.plugins.builtin.cpu.position_reconstruction import (
+        PositionReconstructionPlugin,
+    )
     from waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_candidates import (
         S1S2PairCandidatesPlugin,
     )
@@ -35,15 +41,18 @@ def plugins_events():
         # New S1-S2 pairing workflow (2-stage)
         S1S2PairCandidatesPlugin(),  # Stage 1: Generate candidates
         S1S2PairSelectionPlugin(),  # Stage 2: Select best pairs
+        # Position and event reconstruction (v0.0.0)
+        PositionReconstructionPlugin(),  # Stage 3: Position reconstruction
+        EventPlugin(),  # Stage 4: Complete event reconstruction
     ]
 
     # Legacy deprecated plugins (kept for backward compatibility)
     try:
         from waveform_analysis.core.plugins.builtin.cpu.event_analysis import (
             GroupedEventsPlugin,
-            HitGroupedPlugin,
             PairedEventsPlugin,
         )
+        from waveform_analysis.core.plugins.builtin.hit.hit_grouped import HitGroupedPlugin
 
         warnings.warn(
             "plugins_events() now includes deprecated legacy plugins "

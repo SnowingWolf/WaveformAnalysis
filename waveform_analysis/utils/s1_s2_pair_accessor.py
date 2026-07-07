@@ -713,3 +713,48 @@ class S1S2PairAccessor:
         plt.tight_layout()
 
         return fig, ax
+
+    def get_positions(self) -> np.ndarray:
+        """获取位置重建数据
+
+        返回与当前配对对应的位置重建结果。如果位置重建数据不存在，
+        则返回空数组。
+
+        返回
+        ----
+        positions : np.ndarray
+            位置重建结果数组，包含字段：
+            - event_id, pair_id, s1_peak_id, s2_peak_id
+            - x, y, z, r (mm)
+            - x_err, y_err, z_err (mm)
+            - xy_chi2, xy_ndf, z_quality, position_goodness
+            - xy_method, z_method
+            - drift_time_ns, s2_area, s2_n_channels
+            - flags
+
+        示例
+        ----
+        >>> accessor = S1S2PairAccessor(context, run_id)
+        >>> positions = accessor.get_positions()
+        >>> print(f"重建了 {len(positions)} 个位置")
+        >>> valid = positions[positions['flags'] & 0x1 != 0]  # FLAG_POSITION_VALID
+        >>> print(f"其中 {len(valid)} 个位置有效")
+        """
+        try:
+            positions = self.context.get_data(self.run_id, "position_reconstruction")
+        except (KeyError, FileNotFoundError):
+            # 位置重建数据不存在，返回空数组
+            from waveform_analysis.core.plugins.builtin.cpu.position_reconstruction import (
+                POSITION_RECONSTRUCTION_DTYPE,
+            )
+
+            return np.zeros(0, dtype=POSITION_RECONSTRUCTION_DTYPE)
+
+        # 如果当前 accessor 筛选了配对，也筛选对应的位置
+        if self.selected_only and len(self.pairs) > 0:
+            # 只保留对应配对的位置
+            pair_ids = self.pairs["pair_id"]
+            mask = np.isin(positions["pair_id"], pair_ids)
+            positions = positions[mask]
+
+        return positions

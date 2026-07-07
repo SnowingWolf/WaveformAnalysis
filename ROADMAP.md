@@ -159,98 +159,139 @@ min_quality_score = 0.5  # 最小质量分数阈值
 **背景**:
 在双相时间投影室（TPC）中，通过分析 S2 信号在不同 PMT 通道上的分布，可以重建粒子相互作用在 X-Y 平面的位置。Z 坐标则由漂移时间确定。位置重建是物理分析的核心功能，用于 fiducialization（排除边界事件）、空间相关修正、以及物理分析。
 
+**现状分析**:
+- ✅ 框架已有 `PositionReconstructionPlugin` 骨架（v0.0.0）
+  - 位置: `waveform_analysis/core/plugins/builtin/cpu/position_reconstruction.py`
+  - 数据结构完整（32 字段，包括 x, y, z, 误差、质量指标、标志位）
+  - Z 坐标已实现（drift_time × drift_velocity）
+  - XY 坐标预留接口（待实现）
+- ✅ 数据流已就绪: `s1_s2_pairs` → `position_reconstruction` → `events`
+- ✅ `PeakChannelAccessor` 可获取通道级数据
+- ❌ 缺少 PMT 几何布局系统
+- ❌ 缺少 XY 坐标重建算法
+
 **功能需求**:
+- **PMT 几何布局系统**:
+  - 支持 PMT 位置映射（board, channel → x, y 坐标）
+  - 支持增益校正（每个 PMT 的 gain 参数）
+  - 支持全局配置或 run-specific 配置
+  - 提供 fallback 默认布局（7-PMT 配置）
 - **X-Y 位置重建**:
-  - 基于 S2 通道波形的光分布模式
-  - 支持多种算法:
-    - 重心法 (Center of Gravity)
-    - 最大似然法 (Maximum Likelihood)
-    - 神经网络法 (Neural Network, 预留)
-  - 输出位置坐标、不确定度、算法置信度
+  - 电荷重心法 (Center of Gravity, CoG)
+  - 基于 S2 通道光分布计算加权重心
+  - 应用 PMT 增益校正
+  - 输出位置坐标、质量标志
 - **Z 位置重建**:
-  - 基于 S1-S2 漂移时间
-  - 考虑电场强度、温度、压力修正
-  - 输出 Z 坐标和不确定度
+  - 基于 S1-S2 漂移时间（已实现）
+  - 可配置漂移速度参数
 - **位置质量评估**:
-  - 重建算法收敛性检查
-  - 边界事件标记
-  - 多解检测（如果存在）
-- **探测器几何和 PMT 响应**:
-  - 支持可配置的探测器几何参数
-  - 支持 PMT 位置映射和响应校准
-  - 支持增益不均匀性修正
+  - 边界事件标记（`FLAG_EDGE_EVENT`）
+  - 低信号质量标记（`FLAG_LOW_S2_SIGNAL`）
+  - 重建成功标志（`FLAG_XY_RECONSTRUCTED`, `FLAG_Z_RECONSTRUCTED`）
+- **数据访问增强**:
+  - 扩展 `S1S2PairAccessor` 添加位置访问方法
+  - 支持获取重建位置数据
 
 **技术方案**:
-- **新增插件组** (位置重建子系统):
-  - `PositionReconstructionXYPlugin`: X-Y 平面位置重建
-  - `PositionReconstructionZPlugin`: Z 方向位置重建（基于漂移时间）
-  - `Position3DPlugin`: 合成 3D 坐标（可选）
-- **插入位置**: `event` plugin_set，在 `S1S2PairSelectionPlugin` 之后
-- **依赖数据**:
-  - `s1_s2_pairs`: 配对结果（用于 drift time）
-  - `peaklet_channels` 或 `peak_channels`: 通道级波形信息
-  - `channel_metadata`: PMT 位置和增益信息
-- **输出字段**:
-  ```python
-  position_dtype = [
-      ("pair_id", "i8"),           # 关联到配对
-      ("x", "f4"), ("y", "f4"), ("z", "f4"),  # 重建坐标 (mm)
-      ("x_err", "f4"), ("y_err", "f4"), ("z_err", "f4"),  # 不确定度
-      ("r", "f4"),                 # 径向坐标 r = sqrt(x^2 + y^2)
-      ("algorithm", "U16"),        # 使用的算法
-      ("chi2", "f4"),              # 拟合优度
-      ("n_channels_used", "i2"),   # 用于重建的通道数
-      ("flags", "u4"),             # 重建质量标志
-  ]
-  ```
 
-**算法选项**:
-```python
-# PositionReconstructionXYPlugin 配置
-position_algorithm = "cog"  # "cog" | "ml" | "nn" (预留)
-min_channels_for_position = 5  # 最小通道数要求
-use_top_array_only = False  # 仅使用顶部 PMT 阵列
-apply_gain_correction = True  # 是否应用增益修正
-fiducial_radius = 350.0  # mm, 用于标记边界事件
+**方案决策**（已确认）:
+- ✅ 复用现有 `PositionReconstructionPlugin`（升级 v0.0.0 → v0.1.0）
+- ✅ PMT 布局作为全局配置管理
+- ✅ v0.1.0 仅实现电荷重心法（CoG），暂不支持算法切换
+- ✅ 使用框架现有缓存机制
+- ✅ 可视化保持为独立模块（不集成到框架）
 
-# PositionReconstructionZPlugin 配置
-drift_velocity = 1.335  # mm/us, 典型液氙漂移速度
-cathode_z = -1000.0  # mm, 阴极位置
-gate_z = 0.0  # mm, 栅极位置
-```
+**实施内容**:
+
+1. **新建几何模块**: `waveform_analysis/core/hardware/geometry.py`
+   - 移植自 `xihu_fast_analysis/layout.py`
+   - 类: `PmtEntry`, `PmtLayout`, `load_pmt_layout()`
+   - 配置方式:
+     ```python
+     ctx.set_config({
+         "detector_geometry": {
+             "pmt_mapping": [
+                 {"board": 0, "channel": 15, "pmt_no": 1,
+                  "x_mm": -26.8, "y_mm": 17.7, "gain": 9.2e6},
+                 # ... 更多 PMT
+             ],
+             "default_gain": 9.2e6,
+             "detector_radius": 62.5,  # mm
+         }
+     })
+     ```
+
+2. **升级 PositionReconstructionPlugin** (v0.0.0 → v0.1.0):
+   - 实现电荷重心算法:
+     ```python
+     # 伪代码
+     channels = PeakChannelAccessor.get_peak_channels(s2_peak_id)
+     sum_q, sum_qx, sum_qy = 0, 0, 0
+     for ch in channels:
+         pmt = layout.entry_for_readout(ch.board, ch.channel)
+         q_corrected = ch.area / pmt.gain
+         sum_q += q_corrected
+         sum_qx += q_corrected * pmt.x_mm
+         sum_qy += q_corrected * pmt.y_mm
+     x = sum_qx / sum_q
+     y = sum_qy / sum_q
+     ```
+   - 配置选项:
+     - `drift_velocity` (mm/ns): 漂移速度，默认 1.3
+     - `min_s2_area_for_xy`: XY 重建的最小 S2 面积
+     - `edge_threshold_mm`: 边缘事件判定阈值
+   - 质量标志设置:
+     - `FLAG_XY_RECONSTRUCTED`: XY 成功重建
+     - `FLAG_EDGE_EVENT`: 边界事件
+     - `FLAG_LOW_S2_SIGNAL`: S2 信号过弱
+
+3. **扩展 S1S2PairAccessor** (最小增强):
+   - 添加方法: `get_positions()` 获取位置数据
+   - 保持简洁，不添加复杂过滤功能
 
 **相关文件**:
-- 新增: `waveform_analysis/core/plugins/builtin/cpu/position_reconstruction_xy.py`
-- 新增: `waveform_analysis/core/plugins/builtin/cpu/position_reconstruction_z.py`
-- 新增: `waveform_analysis/core/plugins/builtin/cpu/position_3d.py` (可选)
-- 工具: `waveform_analysis/utils/position/` (算法实现、几何工具)
-- 测试: `tests/plugins/test_position_reconstruction.py`
-- 文档: `docs/plugins/reference/agent/PositionReconstructionXYPlugin.md`
-- 示例: `examples/position_reconstruction_tutorial.ipynb`
+- 新增: `waveform_analysis/core/hardware/geometry.py`
+- 修改: `waveform_analysis/core/plugins/builtin/cpu/position_reconstruction.py` (v0.0.0 → v0.1.0)
+- 修改: `waveform_analysis/utils/s1_s2_pair_accessor.py` (添加位置访问方法)
+- 新增: `tests/plugins/test_position_reconstruction.py`
+- 新增: `examples/export_positions_for_visualization.py` (可视化数据导出)
+- 参考: `/home/wangjun/workspace/Westlake_TPC/xihu_fast_analysis/xihu_fast_analysis/`
+  - `pipeline.py` (XY 重建算法，82-113 行)
+  - `layout.py` (PMT 布局系统)
+  - `dashboard.py` (可视化参考)
 
 **实现阶段**:
-- **Phase 1**: 基础架构和重心法
-  - 插件框架、数据结构
-  - 简单的重心算法实现
-  - 基本的 Z 坐标计算
-- **Phase 2**: 高级算法
-  - 最大似然法实现
-  - 增益和几何修正
-  - 不确定度估计
-- **Phase 3**: 质量控制和优化
-  - 边界检测和 fiducialization
-  - 性能优化（Numba 加速）
-  - 多种探测器几何支持
+- **Phase 1: 基础功能** (v0.1.0, 优先实施)
+  - PMT 几何布局系统（全局配置）
+  - 电荷重心法 XY 重建
+  - 基础测试
+  - 预计工作量: 6-9 小时
+
+- **Phase 2: 增强功能** (v0.2.0+, 未来工作)
+  - 高级重建算法（最大似然、神经网络）
+  - 不确定度估计（填充 x_err, y_err, z_err）
+  - 位置相关修正（电场、光收集效率）
+  - 性能优化（Numba/GPU 加速）
+
+**验证标准** (Definition of Done):
+- [ ] PMT 布局可从全局配置正确加载
+- [ ] XY 坐标对所有有效 S2 正确计算
+- [ ] 增益校正正确应用
+- [ ] 质量标志正确设置
+- [ ] 单元测试通过
+- [ ] 与 xihu_fast_analysis 结果一致（误差 < 1%）
 
 **优先级**: High
-**复杂度**: High
-**预计工作量**: 10-15 days (分阶段实现)
+**复杂度**: Medium (Phase 1), High (Phase 2+)
+**预计工作量**:
+- Phase 1 (v0.1.0): 6-9 小时
+- Phase 2+ (v0.2.0+): 10-15 天 (未来)
 
 **依赖和注意事项**:
-- 需要准确的探测器几何参数和 PMT 映射
-- 需要 PMT 增益校准数据
-- 最大似然法需要光响应函数（Light Response Function, LRF）
-- 神经网络方法需要训练数据集和模型管理
+- 需要准确的 PMT 位置和增益参数
+- 需要测试数据验证重建结果
+- 高级算法（Phase 2+）需要光响应函数和训练数据
+- 详细实施计划见: `.claude/plans/purring-singing-sonnet.md`
 
 ---
 
