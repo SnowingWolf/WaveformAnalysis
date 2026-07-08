@@ -23,7 +23,7 @@
 # compute() 中 (第 317 行)
 for i, pair in enumerate(selected_pairs):  # 外层循环: N 个事件
     x, y, n_channels = self._compute_xy_cog(...)
-    
+
     # _compute_xy_cog() 中 (第 227 行)
     for ch in channels:  # 内层循环: M 个通道
         pmt_entry = layout.entry_for_readout(board, channel_id)
@@ -157,7 +157,7 @@ positions["flags"][edge_mask] |= FLAG_EDGE_EVENT
 
 **v0.1.0** (未优化):
 ```python
-# 已经是向量化的，无需改进
+# 已经是向量化的，无需改进；drift_velocity 单位为 mm/ns，输出 z 单位为 mm
 positions["z"] = selected_pairs["drift_time_ns"] * drift_velocity
 ```
 
@@ -168,11 +168,11 @@ positions["z"] = selected_pairs["drift_time_ns"] * drift_velocity
 for i, pair in enumerate(selected_pairs):
     s2_peak_id = int(pair["s2_peak_id"])
     s2_area = float(pair["s2_area"])
-    
+
     if s2_area < min_s2_area:
         positions["x"][i] = np.nan
         continue
-    
+
     # 逐个计算
     x, y, n_channels = self._compute_xy_cog(context, run_id, s2_peak_id, layout)
     positions["x"][i] = x
@@ -306,7 +306,7 @@ print(f"速率: {n_events/elapsed:.0f} 事件/秒")
 
 ---
 
-**更新日期**: 2026-07-01  
-**作者**: Claude Code (Opus 4.8)  
-**版本**: v0.2.0  
+**更新日期**: 2026-07-01
+**作者**: Claude Code (Opus 4.8)
+**版本**: v0.2.0
 **状态**: ✅ 已优化，性能提升 10-30x

@@ -2,7 +2,7 @@
 
 测试内容：
 1. PMT 几何布局系统
-2. PositionReconstructionPlugin (v0.2.0)
+2. PositionReconstructionPlugin (v0.2.1)
 3. S1S2PairAccessor.get_positions()
 """
 
@@ -121,7 +121,7 @@ def test_plugin_initialization():
 
     assert plugin.provides == "position_reconstruction"
     assert plugin.depends_on == ["s1_s2_pairs"]
-    assert plugin.version == "0.2.0"
+    assert plugin.version == "0.2.1"
     assert plugin.output_dtype == POSITION_RECONSTRUCTION_DTYPE
 
     # 检查配置选项
@@ -233,6 +233,48 @@ def test_plugin_with_mock_data():
     # 第2个: 150 < 200, 应该被标记
     assert result["flags"][0] & FLAG_LOW_S2_SIGNAL == 0  # 第1个信号足够强
     assert result["flags"][1] & FLAG_LOW_S2_SIGNAL != 0  # 第2个信号太弱
+
+
+def test_default_drift_velocity_outputs_z_in_mm():
+    """默认漂移速度以 mm/ns 表达，Z 输出单位为 mm。"""
+    plugin = PositionReconstructionPlugin()
+
+    pairs_dtype = np.dtype(
+        [
+            ("pair_id", "i8"),
+            ("s1_peak_id", "i8"),
+            ("s2_peak_id", "i8"),
+            ("selected", bool),
+            ("drift_time_ns", "f4"),
+            ("s2_area", "f4"),
+            ("s2_n_channels", "i2"),
+        ]
+    )
+    pairs = np.zeros(1, dtype=pairs_dtype)
+    pairs["pair_id"] = [1]
+    pairs["s1_peak_id"] = [10]
+    pairs["s2_peak_id"] = [100]
+    pairs["selected"] = [True]
+    pairs["drift_time_ns"] = [50000.0]
+    pairs["s2_area"] = [500.0]
+    pairs["s2_n_channels"] = [7]
+
+    class SimpleContext:
+        def __init__(self, data_dict):
+            self.config = {}
+            self._data = data_dict
+
+        def get_config(self, plugin, key):
+            return plugin.options[key].default
+
+        def get_data(self, run_id, data_name):
+            return self._data.get(data_name)
+
+    ctx = SimpleContext(data_dict={"s1_s2_pairs": pairs})
+    result = plugin.compute(ctx, "test_run")
+
+    assert result["z"][0] == pytest.approx(65.0, rel=1e-5)
+    assert result["z_err"][0] == pytest.approx(0.013, rel=1e-5)
 
 
 def test_flags():

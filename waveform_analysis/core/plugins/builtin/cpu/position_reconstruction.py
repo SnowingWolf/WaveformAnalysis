@@ -25,21 +25,22 @@
 - v0.0.0: 数据结构定义，仅 Z 坐标占位
 - v0.1.0: 实现 CoG XY 重建，集成 PMT 几何布局
 - v0.2.0: 向量化优化，性能提升 10-100x
+- v0.2.1: 修正默认漂移速度单位，确保 drift_time_ns 输出的 Z 坐标为 mm
 
 Author: Claude Code
-Version: 0.2.0
+Version: 0.2.1
 """
 
 from typing import Any, Optional
 
 import numpy as np
 
-from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.hardware.geometry import (
     PmtLayout,
     load_fallback_layout,
     load_pmt_layout_from_config,
 )
+from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
 
 # ============================================================================
@@ -130,13 +131,13 @@ class PositionReconstructionPlugin(Plugin):
     provides = "position_reconstruction"
     depends_on = ["s1_s2_pairs"]
     description = "Reconstruct 3D position from S1-S2 pairs using vectorized CoG method"
-    version = "0.2.0"
+    version = "0.2.1"
     save_when = "always"
     output_dtype = POSITION_RECONSTRUCTION_DTYPE
 
     options = {
         "drift_velocity": Option(
-            default=1.3,
+            default=0.0013,
             type=float,
             help="漂移速度 (mm/ns)，用于 Z 坐标计算。典型值：液氙 ~0.001 mm/ns, 液氩 ~0.0013 mm/ns",
             min_value=0.0,
@@ -163,8 +164,8 @@ class PositionReconstructionPlugin(Plugin):
 
     def __init__(self):
         super().__init__()
-        self._layout_cache: Optional[PmtLayout] = None
-        self._pmt_map_cache: Optional[dict] = None
+        self._layout_cache: PmtLayout | None = None
+        self._pmt_map_cache: dict | None = None
 
     def _load_pmt_layout(self, context: Any) -> PmtLayout:
         """加载 PMT 几何布局
@@ -265,7 +266,7 @@ class PositionReconstructionPlugin(Plugin):
             return x_array, y_array, n_channels_array
 
         # 批量处理所有事件
-        for i, (s2_peak_id, s2_area) in enumerate(zip(s2_peak_ids, s2_areas)):
+        for i, (s2_peak_id, s2_area) in enumerate(zip(s2_peak_ids, s2_areas, strict=False)):
             # 检查 S2 信号强度
             if s2_area < min_s2_area:
                 continue
