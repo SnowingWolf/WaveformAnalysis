@@ -8,7 +8,7 @@ status: todo
 route: refactor
 owner_role: planner
 created_at: 2026-06-05
-last_update: 2026-06-05
+last_update: 2026-07-09
 ```
 
 ---
@@ -97,6 +97,18 @@ Remaining work:
 * [ ] Decide whether `hit_merged_features` is a new plugin or an extension of existing feature logic.
 * [ ] Write a concrete implementation plan before modifying code.
 
+Optimization follow-ups:
+
+* [ ] Treat `hit_merge_clusters` as the shared membership source for `hit_merged` and `hit_merged_components`, so canonical cluster rows are not recomputed independently.
+* [ ] Evaluate replacing per-channel `hit_merged` grouping plus per-group sort with a single sorted scan over `(board, channel, abs_start)` while preserving the no-cross-channel merge contract.
+* [ ] Keep `hit_merged_components.validate_components` disabled by default; use it only for diagnostics or strict validation gates.
+* [ ] Convert `PeakletComponentsPlugin` from Numba result -> Python `list[list[int]]` -> structured rows to a flat/CSR-style output path.
+* [ ] Vectorize or Numba-accelerate `PeakletPlugin._compute_peaklets()` summary construction, including `time_start`, `time_end`, `n_hits`, and unique `(board, channel)` counting.
+* [ ] Convert the single-record `peaklet_waveforms` path to a two-pass preallocated pool fill, matching the cross-record path's allocation pattern.
+* [ ] Make Numba fallback visibility explicit for performance runs by documenting or enforcing `peaklet_waveforms.debug_numba=True` / `log_waveform_diagnostics=True` in benchmarks.
+* [ ] Review `PeakletWaveformPoolPlugin` and `PeakletWaveformPlugin` shared construction so both products cannot accidentally diverge in cache/config behavior.
+* [ ] Treat multiprocessing cross-record fallback as low priority until profiling shows array-copy overhead is outweighed by batch size.
+
 ---
 
 ## Required Gates
@@ -126,3 +138,10 @@ Do not implement this plan yet. First finish P0 and P1. Then return to this plan
 * Tests: not run yet.
 * Result: plan initialized.
 * Remaining issues: waiting for earlier priorities.
+
+### 2026-07-09
+
+* Changed: added optimization follow-ups based on current `hit_merge.py` and `peaklets.py` implementation review.
+* Tests: not run; planning-only documentation update.
+* Result: backlog now distinguishes current implemented optimizations from remaining follow-up work.
+* Remaining issues: implementation still deferred until the responsibility boundary and dtype ownership are accepted.
