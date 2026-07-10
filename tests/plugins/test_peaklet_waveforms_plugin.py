@@ -271,7 +271,7 @@ def test_peaklet_waveforms_reject_components_misaligned_with_peaklets():
         PeakletWaveformPlugin().compute(ctx, "run_001")
 
 
-def test_peaklet_waveforms_apply_positive_and_negative_polarity_and_clip_negative_signal():
+def test_peaklet_waveforms_preserve_signed_signal_after_polarity_conversion_by_default():
     hits = np.array(
         [
             _make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=4),
@@ -305,6 +305,50 @@ def test_peaklet_waveforms_apply_positive_and_negative_polarity_and_clip_negativ
         dtype=np.uint16,
     )
     ctx = make_peaklet_context(hits, wave_pool)
+    ctx._data["records"]["polarity"] = ["negative", "positive"]
+    _compute_peaklets_and_components(ctx)
+
+    PeakletWaveformPlugin().compute(ctx, "run_001")
+    pool = PeakletWaveformPoolPlugin().compute(ctx, "run_001")
+
+    np.testing.assert_allclose(pool, np.array([40.0, -50.0, 70.0], dtype=np.float32))
+
+
+def test_peaklet_waveforms_can_clip_negative_signal_for_compatibility():
+    hits = np.array(
+        [
+            _make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=4),
+            _make_hit(record_id=1, board=0, channel=1, edge_start=1, edge_end=4),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    wave_pool = np.array(
+        [
+            100,
+            80,
+            130,
+            70,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            120,
+            80,
+            140,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+        ],
+        dtype=np.uint16,
+    )
+    ctx = make_peaklet_context(hits, wave_pool)
+    ctx.config["clip_negative_signal"] = True
     ctx._data["records"]["polarity"] = ["negative", "positive"]
     _compute_peaklets_and_components(ctx)
 

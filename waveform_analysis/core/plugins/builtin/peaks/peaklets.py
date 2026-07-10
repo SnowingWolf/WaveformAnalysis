@@ -672,6 +672,7 @@ def _build_waveforms_numba(
     record_timestamp,
     record_sign,
     wave_pool,
+    clip_negative_signal,
 ):
     """Numba 加速的波形构建核心"""
     n_peaklets = int(np.max(component_peak_ids)) + 1 if len(component_peak_ids) > 0 else 0
@@ -742,7 +743,8 @@ def _build_waveforms_numba(
 
             raw = wave_pool[wave_off + start : wave_off + end].astype(np.float32)
             signal = sign * (raw - np.float32(baseline))
-            signal = np.maximum(signal, 0.0)
+            if clip_negative_signal:
+                signal = np.maximum(signal, 0.0)
 
             piece_time_starts[valid_pieces] = time_start
             piece_time_ends[valid_pieces] = time_end
@@ -960,6 +962,7 @@ def _fill_cross_record_pool_numba(
     record_baseline,
     record_sign,
     wave_pool,
+    clip_negative_signal,
 ):
     n_peaklets = len(peaklet_comp_starts)
     for peaklet_id in range(n_peaklets):
@@ -1013,7 +1016,7 @@ def _fill_cross_record_pool_numba(
 
                 for sample_i in range(end - start):
                     signal = sign * (np.float32(wave_pool[src_offset + sample_i]) - baseline)
-                    if signal > 0.0:
+                    if (not clip_negative_signal) or signal > 0.0:
                         pool[dst_offset + sample_i] += signal
 
 
@@ -1026,6 +1029,7 @@ def _merged_wave_pieces_multirecord(
     record_lookup: RecordLookup,
     wave_pool: np.ndarray,
     merged_index: int,
+    clip_negative_signal: bool,
 ) -> list[tuple[int, int, int, np.ndarray]]:
     """
     Extract multiple waveform pieces from a cross-record hit_merged.
@@ -1108,7 +1112,9 @@ def _merged_wave_pieces_multirecord(
         else:
             signal = np.float32(baseline) - raw
 
-        signal = np.maximum(signal, 0.0).astype(np.float32, copy=False)
+        if clip_negative_signal:
+            signal = np.maximum(signal, 0.0)
+        signal = signal.astype(np.float32, copy=False)
 
         pieces.append((time_start, time_end, dt_ns, signal))
 
@@ -1121,6 +1127,7 @@ def _merged_wave_piece(
     records: np.ndarray,
     record_lookup: RecordLookup,
     wave_pool: np.ndarray,
+    clip_negative_signal: bool,
 ) -> tuple[int, int, int, np.ndarray]:
     """
     Extract waveform from a single-record hit_merged.
@@ -1164,7 +1171,9 @@ def _merged_wave_piece(
         signal = raw - np.float32(baseline)
     else:
         signal = np.float32(baseline) - raw
-    return time_start, time_end, dt_ns, np.maximum(signal, 0.0).astype(np.float32, copy=False)
+    if clip_negative_signal:
+        signal = np.maximum(signal, 0.0)
+    return time_start, time_end, dt_ns, signal.astype(np.float32, copy=False)
 
 
 class PeakletPlugin(BatchProcessingPlugin):
@@ -1359,6 +1368,7 @@ def _process_peaklet_batch(batch_data: dict) -> tuple[np.ndarray, np.ndarray]:
     wave_pool = batch_data["wave_pool"]
     hit_merged_components = batch_data["hit_merged_components"]
     hit_threshold = batch_data["hit_threshold"]
+    clip_negative_signal = bool(batch_data.get("clip_negative_signal", False))
 
     # Build hit_merged_components index if available
     if hit_merged_components is not None and len(hit_merged_components) > 0:
@@ -1410,6 +1420,7 @@ def _process_peaklet_batch(batch_data: dict) -> tuple[np.ndarray, np.ndarray]:
                     record_lookup=record_lookup,
                     wave_pool=wave_pool,
                     merged_index=int(merged_index),
+                    clip_negative_signal=clip_negative_signal,
                 )
 
                 for start_ps, end_ps, piece_dt_ns, signal in multi_pieces:
@@ -1431,6 +1442,7 @@ def _process_peaklet_batch(batch_data: dict) -> tuple[np.ndarray, np.ndarray]:
                     records=records,
                     record_lookup=record_lookup,
                     wave_pool=wave_pool,
+                    clip_negative_signal=clip_negative_signal,
                 )
                 if len(signal) == 0:
                     continue
@@ -1472,13 +1484,18 @@ class PeakletWaveformPlugin(Plugin):
     provides = "peaklet_waveforms"
     depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion."
-    version = "1.3.0"
+    version = "1.3.1"
     output_dtype = PEAKLET_WAVEFORMS_DTYPE
     save_when = "always"
 
     options = {
         "use_filtered": Option(
             default=False, type=bool, help="是否使用 wave_pool_filtered 构建 peaklet 波形"
+        ),
+        "clip_negative_signal": Option(
+            default=False,
+            type=bool,
+            help="是否将 baseline/polarity 转换后的负信号裁剪为 0。默认保留负值。",
         ),
         "debug_numba": Option(
             default=False,
@@ -1531,6 +1548,7 @@ class PeakletWaveformPlugin(Plugin):
         self._parallel_threshold = int(context.get_config(self, "parallel_threshold"))
         self._debug_numba = bool(context.get_config(self, "debug_numba"))
         self._log_waveform_diagnostics = bool(context.get_config(self, "log_waveform_diagnostics"))
+        self._clip_negative_signal = bool(context.get_config(self, "clip_negative_signal"))
 
         waveforms, pool = self._compute_waveforms_and_pool(context, run_id)
         self._store_waveform_pair(context, run_id, waveforms, pool)
@@ -1768,6 +1786,7 @@ class PeakletWaveformPlugin(Plugin):
             record_baseline,
             record_sign,
             wave_pool,
+            bool(getattr(self, "_clip_negative_signal", False)),
         )
         time_second_pass = time.perf_counter() - t_second
 
@@ -2010,6 +2029,7 @@ class PeakletWaveformPlugin(Plugin):
             record_timestamp,
             record_sign,
             wave_pool,
+            bool(getattr(self, "_clip_negative_signal", False)),
         )
 
         # 检查混合 dt 错误
@@ -2071,6 +2091,7 @@ class PeakletWaveformPlugin(Plugin):
                     "wave_pool": wave_pool,
                     "hit_merged_components": getattr(self, "_hit_merged_components", None),
                     "hit_threshold": getattr(self, "_hit_threshold", None),
+                    "clip_negative_signal": bool(getattr(self, "_clip_negative_signal", False)),
                     "peaklet_id_offset": i,
                 }
             )
@@ -2171,6 +2192,7 @@ class PeakletWaveformPlugin(Plugin):
                         record_lookup=record_lookup,
                         wave_pool=wave_pool,
                         merged_index=int(merged_index),
+                        clip_negative_signal=bool(getattr(self, "_clip_negative_signal", False)),
                     )
 
                     for start_ps, end_ps, piece_dt_ns, signal in multi_pieces:
@@ -2192,6 +2214,7 @@ class PeakletWaveformPlugin(Plugin):
                         records=records,
                         record_lookup=record_lookup,
                         wave_pool=wave_pool,
+                        clip_negative_signal=bool(getattr(self, "_clip_negative_signal", False)),
                     )
                     if len(signal) == 0:
                         continue
@@ -2235,7 +2258,7 @@ class PeakletWaveformPoolPlugin(Plugin):
     provides = "peaklet_waveform_pool"
     depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Return flattened float32 peaklet waveform signal pool."
-    version = "1.1.0"
+    version = "1.1.1"
     output_dtype = np.dtype("f4")
     save_when = "always"
 
