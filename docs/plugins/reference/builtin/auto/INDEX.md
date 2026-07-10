@@ -143,7 +143,7 @@ raw_files ──► records ──► df ──► df_events
 | [`PeakletChannelsPlugin`](peaklet_channels.md) | `peaklet_channels` | 1.0.1 | 特征提取 | peaklets, peaklet_components, hit_merged_features, peaklet_features |
 | [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 1.3.0 | 特征提取 | hit_merged |
 | [`PeakletFeaturesPlugin`](peaklet_features.md) | `peaklet_features` | 4.0.0 | 特征提取 | peaklet_waveforms, peaklet_waveform_pool, peaklets |
-| [`PeakletWaveformPoolPlugin`](peaklet_waveform_pool.md) | `peaklet_waveform_pool` | 1.1.0 | 波形处理 | - |
+| [`PeakletWaveformPoolPlugin`](peaklet_waveform_pool.md) | `peaklet_waveform_pool` | 2.0.0 | 波形处理 | peaklet_waveforms |
 | [`PeakletWaveformPlugin`](peaklet_waveforms.md) | `peaklet_waveforms` | 1.3.0 | 波形处理 | - |
 | [`PeakletPlugin`](peaklets.md) | `peaklets` | 1.1.0 | 特征提取 | hit_merged, peaklet_components |
 | [`PeaksPlugin`](peaks.md) | `peaks` | 4.0.1 | 特征提取 | peaklets, peaklet_features, peaklet_channels |
@@ -181,7 +181,7 @@ raw_files ──► records ──► df ──► df_events
 | 插件 | 说明 | 依赖 |
 |------|------|------|
 | [`filtered_waveforms`](filtered_waveforms.md) | Apply filtering to waveforms using Butterworth or Savitzky-G... | st_waveforms |
-| [`peaklet_waveform_pool`](peaklet_waveform_pool.md) | Return flattened float32 peaklet waveform signal pool. | - |
+| [`peaklet_waveform_pool`](peaklet_waveform_pool.md) | Return the flattened float32 signal pool paired with peaklet... | peaklet_waveforms |
 | [`peaklet_waveforms`](peaklet_waveforms.md) | Build peaklet waveform index rows from records-backed hit_me... | - |
 | [`st_waveforms`](st_waveforms.md) | Extract waveforms from raw CSV files and structure them into... | - |
 | [`wave_pool`](wave_pool.md) | Build wave_pool from the shared internal records bundle. | - |

@@ -3,6 +3,7 @@ import pytest
 
 from tests.plugins.test_peaklets_plugin import _make_hit, make_peaklet_context
 from tests.utils import DummyContext, make_records
+from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PEAKLET_WAVEFORMS_DTYPE,
     PeakletComponentsPlugin,
@@ -228,6 +229,62 @@ def test_peaklet_waveform_pool_reuses_waveforms_memory_result(monkeypatch):
     pool = PeakletWaveformPoolPlugin().compute(ctx, "run_001")
 
     np.testing.assert_array_equal(pool, expected_pool)
+
+
+def test_peaklet_waveform_pool_lineage_tracks_canonical_waveform(tmp_path):
+    ctx = Context(
+        config={
+            "peaklet_waveforms": {
+                "use_filtered": True,
+                "clip_negative_signal": True,
+            }
+        },
+        storage_dir=str(tmp_path / "cache"),
+    )
+    ctx.register(PeakletWaveformPlugin(), PeakletWaveformPoolPlugin())
+
+    lineage = ctx.get_lineage("peaklet_waveform_pool")
+
+    assert lineage["plugin_version"] == "2.0.0"
+    assert lineage["config"] == {}
+    assert list(lineage["depends_on"]) == ["peaklet_waveforms"]
+    waveform_lineage = lineage["depends_on"]["peaklet_waveforms"]
+    assert waveform_lineage["plugin_version"] == "1.3.1"
+    assert waveform_lineage["config"]["use_filtered"] is True
+    assert waveform_lineage["config"]["clip_negative_signal"] is True
+    assert "wave_pool_filtered" in waveform_lineage["depends_on"]
+
+
+def test_peaklet_waveform_pool_key_changes_with_waveform_version(tmp_path):
+    def pool_key(version, storage_name, *, use_filtered=False):
+        ctx = Context(
+            config={"peaklet_waveforms": {"use_filtered": use_filtered}},
+            storage_dir=str(tmp_path / storage_name),
+        )
+        waveform_plugin = PeakletWaveformPlugin()
+        waveform_plugin.version = version
+        ctx.register(waveform_plugin, PeakletWaveformPoolPlugin())
+        return ctx.key_for("run_001", "peaklet_waveform_pool")
+
+    assert pool_key("1.3.1", "current") != pool_key("9.9.9", "changed")
+    assert pool_key("1.3.1", "raw") != pool_key("1.3.1", "filtered", use_filtered=True)
+
+
+def test_peaklet_waveform_pool_cold_build_uses_registered_waveform_config():
+    ctx = _make_cross_record_waveform_context(
+        config={
+            "peaklet_waveforms": {"clip_negative_signal": True},
+            "peaklet_waveform_pool": {"clip_negative_signal": False},
+        }
+    )
+    waveform_plugin = PeakletWaveformPlugin()
+    ctx._plugins = {"peaklet_waveforms": waveform_plugin}
+
+    with pytest.warns(FutureWarning, match="peaklet_waveforms"):
+        pool = PeakletWaveformPoolPlugin().compute(ctx, "run_001")
+
+    assert waveform_plugin._clip_negative_signal is True
+    assert len(pool) > 0
 
 
 def test_peaklet_waveforms_reuses_pool_memory_result(monkeypatch):

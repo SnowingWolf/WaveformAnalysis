@@ -153,6 +153,24 @@ class TestPluginDocGenerator:
         assert "threshold" in content
         assert "Detection threshold" in content
 
+    def test_render_plugin_page_uses_custom_usage_example(self):
+        """Plugins can replace the generic registration example when dependencies require it."""
+        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+
+        class CustomUsagePlugin(MockPlugin):
+            provides = "custom_usage"
+            doc_usage_example = """
+            ctx.register(*complete_plugin_set())
+            data = ctx.get_data("run_001", "custom_usage")
+            """
+
+        generator = PluginDocGenerator()
+        doc_info = generator.extract_doc_info(CustomUsagePlugin, CustomUsagePlugin())
+        content = generator.render_plugin_page(doc_info)
+
+        assert "ctx.register(*complete_plugin_set())" in content
+        assert "ctx.register(CustomUsagePlugin())" not in content
+
     def test_render_index_page(self):
         """测试渲染索引页面"""
         from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator

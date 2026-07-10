@@ -103,6 +103,7 @@ class PluginDocInfo:
     downstream_consumers: list[str] = field(default_factory=list)
     downstream_notes: list[str] = field(default_factory=list)
     agent_change_notes: list[str] = field(default_factory=list)
+    usage_example: str = ""
 
     @property
     def category_display(self) -> str:
@@ -260,6 +261,8 @@ class PluginDocGenerator:
 
         # Agent-only documentation extensions.
         agent_doc = self._extract_agent_doc(plugin)
+        raw_usage_example = getattr(plugin, "doc_usage_example", "") or ""
+        usage_example = inspect.cleandoc(str(raw_usage_example)) if raw_usage_example else ""
 
         return PluginDocInfo(
             name=name,
@@ -284,6 +287,7 @@ class PluginDocGenerator:
             downstream_consumers=agent_doc["downstream_consumers"],
             downstream_notes=agent_doc["downstream_notes"],
             agent_change_notes=agent_doc["agent_change_notes"],
+            usage_example=usage_example,
         )
 
     @staticmethod

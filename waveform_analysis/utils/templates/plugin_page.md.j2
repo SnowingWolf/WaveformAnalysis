@@ -64,6 +64,9 @@ This plugin has no configuration options.
 ## Usage Example
 
 ```python
+{% if plugin.usage_example %}
+{{ plugin.usage_example }}
+{% else %}
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import {{ plugin.name }}
 
@@ -82,6 +85,7 @@ ctx.set_config({
 {% endif %}
 # Get data
 data = ctx.get_data("run_001", "{{ plugin.provides }}")
+{% endif %}
 ```
 
 ## Module
