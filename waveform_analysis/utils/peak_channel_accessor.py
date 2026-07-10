@@ -434,6 +434,7 @@ class PeakChannelAccessor:
             "abs_time_ps": abs_time_ps,
             "dt": dt_ns,
             "record_id": record_id,
+            "merged_index": int(merged_index),
             "sample_start": s0,
             "sample_end": s1,
         }
@@ -524,6 +525,7 @@ class PeakChannelAccessor:
                     "abs_time_ps": abs_time_ps,
                     "dt": dt_ns,
                     "record_id": record_id,
+                    "merged_index": int(merged_index),
                     "sample_start": s0,
                     "sample_end": s1,
                 }
@@ -575,6 +577,79 @@ class PeakChannelAccessor:
             "segments": segments,
         }
 
+    @staticmethod
+    def _empty_waveform_data(channel: dict) -> dict:
+        return {
+            "merged_index": int(channel.get("merged_index", -1)),
+            "board": int(channel.get("board", -1)),
+            "channel": int(channel.get("channel", -1)),
+            "waveform": np.array([], dtype=np.float32),
+            "time_ns": np.array([], dtype=np.float32),
+            "abs_time_ps": np.array([], dtype=np.int64),
+            "dt": 0,
+            "is_single_record": False,
+            "segments": [],
+        }
+
+    def _get_channel_waveform_data(self, channel: dict, pad: int) -> dict:
+        """Build waveform data for one logical channel, including all merged hits."""
+        merged_indices = channel.get("merged_indices") or [channel.get("merged_index", -1)]
+        merged_indices = [int(idx) for idx in merged_indices if int(idx) >= 0]
+        if not merged_indices:
+            return self._empty_waveform_data(channel)
+
+        waveforms = [self.get_channel_waveform(merged_idx, pad) for merged_idx in merged_indices]
+        segments = [
+            seg
+            for wf_data in waveforms
+            for seg in wf_data.get("segments", [])
+            if len(seg.get("abs_time_ps", [])) > 0
+        ]
+        if not segments:
+            return self._empty_waveform_data(channel)
+
+        segments = sorted(segments, key=lambda seg: int(seg["abs_time_ps"][0]))
+        t0 = int(segments[0]["abs_time_ps"][0])
+
+        return {
+            "merged_index": int(channel.get("merged_index", merged_indices[0])),
+            "board": int(channel["board"]),
+            "channel": int(channel["channel"]),
+            "waveform": np.concatenate([seg["waveform"] for seg in segments]),
+            "time_ns": np.concatenate([(seg["abs_time_ps"] - t0) / 1000.0 for seg in segments]),
+            "abs_time_ps": np.concatenate([seg["abs_time_ps"] for seg in segments]),
+            "dt": int(segments[0]["dt"]),
+            "is_single_record": len(merged_indices) == 1 and bool(waveforms[0]["is_single_record"]),
+            "segments": segments,
+        }
+
+    @staticmethod
+    def _plot_waveform_segments(
+        ax: Any,
+        segments: list[dict],
+        event_t0: int,
+        *,
+        color: Any,
+        lw: float,
+        alpha: float = 1.0,
+        label: str | None = None,
+    ):
+        """Plot waveform segments separately so gaps do not create diagonal links."""
+        plotted = False
+        for seg in segments:
+            if len(seg.get("waveform", [])) == 0 or len(seg.get("abs_time_ps", [])) == 0:
+                continue
+            seg_time_ns = (seg["abs_time_ps"] - event_t0) / 1000.0
+            ax.plot(
+                seg_time_ns,
+                seg["waveform"],
+                color=color,
+                lw=lw,
+                alpha=alpha,
+                label=label if not plotted else None,
+            )
+            plotted = True
+
     def get_peak_channel_data(
         self, peak_id: int, include_waveform: bool = False, pad: int = 30
     ) -> list[dict]:
@@ -610,8 +685,7 @@ class PeakChannelAccessor:
 
         # 添加波形
         for ch in channels:
-            merged_idx = ch["merged_index"]
-            wf_data = self.get_channel_waveform(merged_idx, pad)
+            wf_data = self._get_channel_waveform_data(ch, pad)
 
             # 合并波形数据
             ch["waveform"] = wf_data["waveform"]
@@ -818,7 +892,13 @@ class PeakChannelAccessor:
 
             # 绘制波形
             if len(ch["waveform"]) > 0:
-                ax.plot(ch["relative_time_ns"], ch["waveform"], color=color, lw=1.2)
+                self._plot_waveform_segments(
+                    ax,
+                    ch["segments"],
+                    event_t0,
+                    color=color,
+                    lw=1.2,
+                )
 
                 # 高亮 hit 窗口
                 if show_hit_windows:
@@ -862,14 +942,14 @@ class PeakChannelAccessor:
 
                         # 标注 merged_index（只标注一次）
                         if show_merged_index:
-                            merged_idx = ch["merged_index"]
-                            if merged_idx not in labeled_merged_indices:
-                                # 在第一个 segment 上标注
-                                first_seg = ch["segments"][0]
-                                seg_time_ns = (first_seg["abs_time_ps"] - event_t0) / 1000.0
+                            for seg in ch["segments"]:
+                                merged_idx = int(seg.get("merged_index", ch["merged_index"]))
+                                if merged_idx in labeled_merged_indices:
+                                    continue
+                                seg_time_ns = (seg["abs_time_ps"] - event_t0) / 1000.0
                                 mid_time = 0.5 * (seg_time_ns[0] + seg_time_ns[-1])
                                 max_signal = (
-                                    np.nanmax(ch["waveform"]) if len(ch["waveform"]) > 0 else 0
+                                    np.nanmax(seg["waveform"]) if len(seg["waveform"]) > 0 else 0
                                 )
                                 ax.text(
                                     mid_time,
@@ -1045,10 +1125,17 @@ class PeakChannelAccessor:
                 continue
 
             color = cmap(i % 10)
-            relative_time_ns = (ch["abs_time_ps"] - event_t0) / 1000.0
 
             label = f"B{ch['board']}:Ch{ch['channel']} (A={ch['area']:.0f})"
-            ax.plot(relative_time_ns, ch["waveform"], color=color, lw=1.5, label=label, alpha=0.8)
+            self._plot_waveform_segments(
+                ax,
+                ch["segments"],
+                event_t0,
+                color=color,
+                lw=1.5,
+                label=label,
+                alpha=0.8,
+            )
 
         ax.set_xlabel("Time from event start (ns)")
         ax.set_ylabel("Signal")
@@ -1124,11 +1211,16 @@ class PeakChannelAccessor:
                 continue
 
             color = cmap(i % 10)
-            relative_time_ns = (ch["abs_time_ps"] - event_t0) / 1000.0
 
             label = f"B{ch['board']}:Ch{ch['channel']}"
-            ax_channels.plot(
-                relative_time_ns, ch["waveform"], color=color, lw=1.2, label=label, alpha=0.7
+            self._plot_waveform_segments(
+                ax_channels,
+                ch["segments"],
+                event_t0,
+                color=color,
+                lw=1.2,
+                label=label,
+                alpha=0.7,
             )
 
         ax_channels.set_xlabel("Time from event start (ns)")
