@@ -112,6 +112,38 @@ ctx.set_config(
 - 使用顶层 `channel_metadata` 表达硬件事实或兼容信息，不参与插件行为决策。
 - 标定值如 `gain_adc_per_pe` 推荐放在 `calibration`。
 - 描述性信息如 `operator`、`sample`、`comment` 放在 `meta`。
+- **术语统一**：使用 `run_id` 作为运行标识符，避免使用已弃用的 `run_name`。
+
+## 术语说明
+
+### `run_id` vs `run_name`
+
+在 WaveformAnalysis 系统中，我们统一使用 `run_id` 作为运行的唯一标识符：
+
+- **`run_id`**：推荐的运行标识符，用于所有 API 调用
+  - `ctx.get_data(run_id, 'peaks')`
+  - 缓存目录结构：`{storage_dir}/{run_id}/_cache/`
+
+- **`run_name`**：已弃用，请使用 `run_id` 代替
+  - 在 `ctx.show_config()` 中的 `run_name` 参数已弃用
+  - 将在未来版本中移除
+
+**迁移示例**：
+
+```python
+# ❌ 旧方式（已弃用）
+ctx.show_config(run_name='my_run')
+
+# ✅ 新方式（推荐）
+run_id = 'my_run'
+ctx.get_data(run_id, 'peaks')
+ctx.show_config(run_id=run_id)  # 会显示 deprecation warning
+```
+
+统一使用 `run_id` 有助于：
+- 避免术语混淆
+- 与缓存目录结构保持一致
+- 提供更清晰的 API 语义
 
 ## 相关文档
 

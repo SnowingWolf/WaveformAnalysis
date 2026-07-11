@@ -791,7 +791,8 @@ class Context(PluginMixin):
             data_name: 可选，指定插件名称以只显示该插件的配置
             show_usage: 是否显示配置项被哪些插件使用（仅在显示全局配置时有效）
             show_full_help: 是否显示完整 help 文本（默认截断）
-            run_name: 可选，显示缓存目录时使用的运行名（仅全局配置视图）
+            run_name: 可选，显示缓存目录时使用的运行名（仅全局配置视图）。
+                       已弃用，请使用 run_id 代替。此参数将在未来版本中移除。
 
         Examples:
             >>> # 显示全局配置，包含配置项使用情况
@@ -803,16 +804,27 @@ class Context(PluginMixin):
             >>> # 显示全局配置，但不显示使用情况
             >>> ctx.show_config(show_usage=False)
 
-            >>> # 指定运行名，显示实际缓存目录
-            >>> ctx.show_config(run_name='run_001')
-
-            >>> # 自动使用最近一次 get_data(run_id=...) 的 run_id
-            >>> ctx.show_config()
+            >>> # 推荐方式：使用 run_id
+            >>> run_id = 'run_001'
+            >>> ctx.get_data(run_id, 'peaks')
+            >>> ctx.show_config(run_id=run_id)
 
         关联说明：
             - 若 data_name 指定为插件名，会直接调用 list_plugin_configs 来展示该插件的“配置项清单”。
             - 若 data_name 未指定，则展示“当前配置汇总”（全局/插件特定/未使用）。
+
+        .. deprecated:: 0.2.0
+            `run_name` 参数已弃用，请使用 `run_id` 代替。这是为了统一术语，`run_id` 是系统中的
+            唯一标识符，而 `run_name` 是容易引起混淆的旧术语。
         """
+
+        if run_name is not None:
+            warnings.warn(
+                "The 'run_name' parameter is deprecated. Use 'run_id' instead for consistency. "
+                "'run_name' will be removed in a future version.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if data_name and data_name in self._plugins:
             # 显示特定插件的配置
             self.list_plugin_configs(

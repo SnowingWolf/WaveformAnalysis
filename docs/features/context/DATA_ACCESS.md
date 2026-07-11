@@ -205,6 +205,8 @@ for plugin, status in result['cache_status'].items():
         print(f"{plugin}: 需要计算")
 ```
 
+> **注意**：所有 API 调用统一使用 `run_id` 作为运行标识符。`run_name` 参数已弃用，请使用 `run_id` 代替。
+
 ### 清除缓存
 
 ```python
