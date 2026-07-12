@@ -52,22 +52,6 @@ from waveform_analysis.testing.fixtures import make_fake_st_waveforms, make_tiny
 - `make_fake_st_waveforms(...)`：最小化的 st_waveforms 假数据
 - `make_tiny_context(storage_dir, run_id, st_waveforms)`：带临时缓存目录的 Context
 
-需要演示或测试当前 records 到 S1/S2 配对的依赖图时，可注册轻量 fake pipeline：
-
-```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.testing import register_fake_current_pipeline
-
-ctx = Context(storage_dir="./fake-cache")
-register_fake_current_pipeline(ctx)
-plan = ctx.preview_execution("run_001", "s1_s2_pairs")
-```
-
-该 pipeline 使用共同的最小 structured dtype 和纯 Python `compute()`，覆盖
-records-backed 的 `hit` 旁支、`hit_threshold -> hit_merged`、peaklet/peaks 关键节点，
-以及 `peak_classification -> s1_s2_pair_candidates -> s1_s2_pairs`。它只用于
-测试、lineage 和教学，不模拟物理算法或生产输出 dtype，也不会加入 production profile。
-
 示例：
 
 ```python
