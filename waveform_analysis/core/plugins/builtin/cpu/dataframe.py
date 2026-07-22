@@ -130,15 +130,9 @@ class DataFramePlugin(Plugin):
             (normalized_gain_map, enabled)
             enabled=True means calibrated columns should be emitted.
         """
-        gain_adc_per_pe = context.get_config(self, "gain_adc_per_pe")
-
-        explicit_config = False
-        has_explicit = getattr(context, "has_explicit_config", None)
-        if callable(has_explicit):
-            try:
-                explicit_config = bool(has_explicit(self, "gain_adc_per_pe"))
-            except Exception:
-                explicit_config = False
+        resolved_gain = context.get_config_value(self, "gain_adc_per_pe")
+        gain_adc_per_pe = resolved_gain.value
+        explicit_config = resolved_gain.is_explicit()
 
         if explicit_config:
             if isinstance(gain_adc_per_pe, dict):

@@ -17,13 +17,6 @@ class _RunConfigContext(FakeContext):
     def get_run_config(self, run_id: str, refresh: bool = False):
         return self._run_config_payload
 
-    def has_explicit_config(self, plugin, name: str):
-        provides = plugin.provides
-        nested = self.config.get(provides)
-        if isinstance(nested, dict) and name in nested:
-            return True
-        return f"{provides}.{name}" in self.config
-
 
 def _make_st_waveforms(include_board: bool = True):
     fields = [("timestamp", "i8"), ("record_id", "i8")]
@@ -136,6 +129,22 @@ def test_dataframe_plugin_gain_from_run_config():
     assert "height_pe" in df.columns
     np.testing.assert_allclose(df["area_pe"].to_numpy(), [np.nan, 2.0, 3.0], equal_nan=True)
     np.testing.assert_allclose(df["height_pe"].to_numpy(), [np.nan, 1.0, 1.5], equal_nan=True)
+
+
+def test_dataframe_plugin_explicit_none_disables_run_config_gain():
+    ctx = _RunConfigContext(
+        config={"df.gain_adc_per_pe": None},
+        data={
+            "st_waveforms": _make_st_waveforms(),
+            "basic_features": _make_basic_features(),
+        },
+        run_config_payload={"calibration": {"gain_adc_per_pe": {"2:0": 10.0}}},
+    )
+    plugin = DataFramePlugin()
+    df = plugin.compute(ctx, "run_001")
+
+    assert "area_pe" not in df.columns
+    assert "height_pe" not in df.columns
 
 
 def test_dataframe_plugin_explicit_gain_overrides_run_config():

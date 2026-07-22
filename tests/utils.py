@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 
+from waveform_analysis.core.config import ConfigSource, ConfigValue
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.dtypes import create_record_dtype
 from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
@@ -338,7 +339,7 @@ class DummyContext:
         self._data = data or {}
         self._results: dict[tuple, Any] = {}
 
-    def get_config(self, plugin, name: str):
+    def get_config_value(self, plugin, name: str) -> ConfigValue:
         """Resolve configuration value for a plugin option.
 
         Resolution order:
@@ -348,26 +349,50 @@ class DummyContext:
         4. Plugin default: plugin.options[name].default
         """
         provides = plugin.provides
+        canonical_key = f"{provides}.{name}"
 
         # Check nested dict style: {"plugin_name": {"option": value}}
         if provides in self.config and isinstance(self.config[provides], dict):
             if name in self.config[provides]:
-                return self.config[provides][name]
+                return ConfigValue(
+                    self.config[provides][name],
+                    ConfigSource.EXPLICIT,
+                    canonical_key,
+                    canonical_key,
+                )
 
         # Check namespaced key style: {"plugin_name.option": value}
         namespaced_key = f"{provides}.{name}"
         if namespaced_key in self.config:
-            return self.config[namespaced_key]
+            return ConfigValue(
+                self.config[namespaced_key],
+                ConfigSource.EXPLICIT,
+                namespaced_key,
+                canonical_key,
+            )
 
         # Check global key
         if name in self.config:
-            return self.config[name]
+            return ConfigValue(
+                self.config[name],
+                ConfigSource.EXPLICIT,
+                name,
+                canonical_key,
+            )
 
         # Fall back to plugin default
         if hasattr(plugin, "options") and name in plugin.options:
-            return plugin.options[name].default
+            return ConfigValue(
+                plugin.options[name].default,
+                ConfigSource.PLUGIN_DEFAULT,
+                name,
+                canonical_key,
+            )
 
-        return None
+        return ConfigValue(None, ConfigSource.GLOBAL_DEFAULT, name, canonical_key)
+
+    def get_config(self, plugin, name: str):
+        return self.get_config_value(plugin, name).value
 
     def get_data(self, run_id: str, name: str, *, output: str = "native", **_kwargs):
         """Get pre-seeded data by name."""

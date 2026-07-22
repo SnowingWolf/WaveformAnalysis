@@ -680,14 +680,6 @@ class Context(PluginMixin):
     def get_config(self, plugin: Plugin, name: str) -> Any:
         return self._config_domain.get_config(plugin, name)
 
-    def has_explicit_config(
-        self,
-        plugin: Plugin,
-        name: str,
-        adapter_name: str | None = None,
-    ) -> bool:
-        return self._config_domain.has_explicit_config(plugin, name, adapter_name=adapter_name)
-
     def get_resolved_config(
         self,
         plugin: Plugin | str,

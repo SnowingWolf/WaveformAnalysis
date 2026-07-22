@@ -486,6 +486,12 @@ def test_context_sync_custom_config_json_disabled_by_default(tmp_path):
     assert not output_path.exists()
 
 
+def test_context_has_explicit_config_api_is_removed(tmp_path):
+    ctx = Context(storage_dir=str(tmp_path))
+
+    assert not hasattr(ctx, "has_explicit_config")
+
+
 def test_show_config_displays_context_config_section(tmp_path, capsys):
     """Context-owned config keys should be shown separately from unused config."""
 

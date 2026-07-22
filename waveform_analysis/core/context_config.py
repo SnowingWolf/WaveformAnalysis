@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from .config import CompatManager, ConfigResolver, ConfigSource, ConfigValue, ResolvedConfig
+from .config import CompatManager, ConfigResolver, ConfigValue, ResolvedConfig
 from .config.run_config import resolve_run_hardware_channels, validate_run_config
 from .plugins.core.base import Plugin
 
@@ -76,18 +76,6 @@ class ContextConfigDomain:
 
     def resolve_config_value(self, plugin: Plugin, name: str) -> Any:
         return self.get_config(plugin, name)
-
-    def has_explicit_config(
-        self,
-        plugin: Plugin,
-        name: str,
-        adapter_name: str | None = None,
-    ) -> bool:
-        try:
-            cv = self.get_config_value(plugin, name, adapter_name=adapter_name)
-        except KeyError:
-            return False
-        return cv.source == ConfigSource.EXPLICIT
 
     def resolve_adapter_name_for_plugin(
         self,
