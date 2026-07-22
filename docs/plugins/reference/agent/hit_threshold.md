@@ -10,8 +10,26 @@
 | Depends On | - |
 | Output Kind | `structured_array` |
 | Version | `1.2.0` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.hit_finder` |
+| Module | `waveform_analysis.core.plugins.builtin.hit.hit_finder` |
 | Accelerator | `cpu` |
+
+## Source Notes
+
+Hit Finder Plugins - 阈值 Hit 检测插件
+
+本模块包含：
+1. HitFinderPlugin: 旧导入路径兼容别名（推荐改为 peak_finding.HitFinderPlugin）
+2. ThresholdHitPlugin: 新的纯阈值 hit 插件（provides='hit_threshold'），输出 THRESHOLD_HIT_DTYPE
+
+本版本的主要改动
+----------------
+1. records 输入路径优先使用 ragged layout：wave_pool + wave_offset + event_length。
+2. 对每条 record 先做 min/max record-level prefilter：
+   - positive polarity: max(wave) >= baseline + threshold
+   - negative polarity: min(wave) <= baseline - threshold
+   未通过预筛选的 record 不构造 mask、不找 hit 区间。
+3. records 路径不再强制调用 rv.waves(...) 生成 padded 2D matrix，适合不等长波形。
+4. waveform matrix 输入路径仍然保留，用于 st_waveforms / filtered_waveforms 等固定窗口数据。
 
 ## Inputs
 

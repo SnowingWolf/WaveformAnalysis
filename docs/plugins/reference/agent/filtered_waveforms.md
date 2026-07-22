@@ -13,6 +13,17 @@
 | Module | `waveform_analysis.core.plugins.builtin.cpu.filtering` |
 | Accelerator | `cpu` |
 
+## Source Notes
+
+CPU Filtering Plugin - 使用 scipy 进行波形滤波
+
+**加速器**: CPU (scipy)
+**功能**: 波形滤波（Butterworth 带通滤波、Savitzky-Golay 滤波）
+
+本模块提供共享的滤波执行层，同时服务：
+- `filtered_waveforms`：结构化数组输出，`wave` 字段为 float32
+- `wave_pool_filtered`：records-backed float32 波形池
+
 ## Inputs
 
 - `st_waveforms`

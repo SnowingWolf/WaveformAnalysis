@@ -14,8 +14,8 @@ waveform-docs generate plugins-agent --plugin raw_files
 
 ## Summary
 
-- 插件总数：33
-- 类别数：7
+- 插件总数：35
+- 类别数：8
 
 ## Plugin Table
 
@@ -26,11 +26,12 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`df`](df.md) | `DataFramePlugin` | - | `unknown` | `1.7.0` |
 | [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `unknown` | `0.0.0` |
 | [`df_paired`](df_paired.md) | `PairedEventsPlugin` | `df_events` | `unknown` | `0.0.0` |
+| [`events`](events.md) | `EventPlugin` | `s1_s2_pairs`, `position_reconstruction` | `structured_array` | `0.0.0` |
 | [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `structured_array` | `3.0.0` |
 | [`hit`](hit.md) | `HitFinderPlugin` | - | `structured_array` | `3.0.0` |
 | [`hit_grouped`](hit_grouped.md) | `HitGroupedPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold` | `unknown` | `0.5.0` |
 | [`hit_merge_clusters`](hit_merge_clusters.md) | `HitMergeClustersPlugin` | `hit_merged`, `hit_threshold` | `structured_array` | `1.1.0` |
-| [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold` | `structured_array` | `2.0.0` |
+| [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold` | `structured_array` | `2.1.0` |
 | [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | `hit_merged`, `hit_threshold` | `structured_array` | `1.1.0` |
 | [`hit_merged_features`](hit_merged_features.md) | `HitMergedFeaturesPlugin` | - | `structured_array` | `0.4.0` |
 | [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | - | `structured_array` | `1.2.0` |
@@ -42,13 +43,14 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`peaklet_waveforms`](peaklet_waveforms.md) | `PeakletWaveformPlugin` | - | `structured_array` | `1.3.1` |
 | [`peaklets`](peaklets.md) | `PeakletPlugin` | `hit_merged`, `peaklet_components` | `structured_array` | `1.1.0` |
 | [`peaks`](peaks.md) | `PeaksPlugin` | `peaklets`, `peaklet_features`, `peaklet_channels` | `structured_array` | `4.0.1` |
+| [`position_reconstruction`](position_reconstruction.md) | `PositionReconstructionPlugin` | `s1_s2_pairs` | `structured_array` | `0.2.1` |
 | [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | `unknown` | `0.0.2` |
 | [`records`](records.md) | `RecordsPlugin` | - | `structured_array` | `0.14.1` |
 | [`records_asymmetry_mask`](records_asymmetry_mask.md) | `RecordsAsymmetryMaskPlugin` | `records`, `wave_pool` | `array` | `0.2.0` |
 | [`records_detector_mask`](records_detector_mask.md) | `RecordsDetectorMaskPlugin` | `records`, `records_asymmetry_mask` | `array` | `0.1.0` |
 | [`records_veto_mask`](records_veto_mask.md) | `RecordsVetoMaskPlugin` | `records`, `records_asymmetry_mask` | `array` | `0.1.0` |
 | [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md) | `S1S2PairCandidatesPlugin` | `peak_classification`, `peaks` | `structured_array` | `0.1.3` |
-| [`s1_s2_pairs`](s1_s2_pairs.md) | `S1S2PairSelectionPlugin` | `s1_s2_pair_candidates` | `structured_array` | `0.1.0` |
+| [`s1_s2_pairs`](s1_s2_pairs.md) | `S1S2PairSelectionPlugin` | `s1_s2_pair_candidates` | `structured_array` | `0.2.0` |
 | [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | - | `structured_array` | `0.10.0` |
 | [`wave_pool`](wave_pool.md) | `WavePoolPlugin` | - | `array` | `0.14.1` |
 | [`wave_pool_filtered`](wave_pool_filtered.md) | `WavePoolFilteredPlugin` | `records`, `wave_pool` | `array` | `3.0.0` |
@@ -64,7 +66,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 
 - [`filtered_waveforms`](filtered_waveforms.md): Apply filtering to waveforms using Butterworth or Savitzky-Golay filters.
 - [`peaklet_waveform_pool`](peaklet_waveform_pool.md): Return the flattened float32 signal pool paired with peaklet_waveforms. Configure waveform construction on peaklet_waveforms.
-- [`peaklet_waveforms`](peaklet_waveforms.md): Build peaklet waveform index rows from records-backed hit_merged samples.
+- [`peaklet_waveforms`](peaklet_waveforms.md): Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion.
 - [`st_waveforms`](st_waveforms.md): Extract waveforms from raw CSV files and structure them into NumPy structured arrays.
 - [`wave_pool`](wave_pool.md): Build wave_pool from the shared internal records bundle.
 - [`wave_pool_filtered`](wave_pool_filtered.md): Build filtered wave_pool from records-backed raw waveforms.
@@ -90,6 +92,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 
 - [`df_events`](df_events.md): Group events across channels within a configurable time window.
 - [`df_paired`](df_paired.md): Pair grouped events across channels for coincidence analysis.
+- [`events`](events.md): Complete event reconstruction from S1-S2 pairs and position
 - [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md): Generate all physically allowed S1-S2 pairing candidates
 - [`s1_s2_pairs`](s1_s2_pairs.md): Select best S1-S2 pairs from candidates
 ### 数据导出
@@ -104,3 +107,6 @@ waveform-docs generate plugins-agent --plugin raw_files
 - [`records_asymmetry_mask`](records_asymmetry_mask.md): Bool mask for waveform asymmetry selection.
 - [`records_detector_mask`](records_detector_mask.md): Bool mask for detector-channel records after channel-role splitting.
 - [`records_veto_mask`](records_veto_mask.md): Bool mask for veto-channel records after channel-role splitting.
+### 其他
+
+- [`position_reconstruction`](position_reconstruction.md): Reconstruct 3D position from S1-S2 pairs using vectorized CoG method

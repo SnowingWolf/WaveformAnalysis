@@ -61,7 +61,7 @@ data = ctx.get_data("run_001", "peaklet_features")
 
 ## Module
 
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.peaklets`
+- **Module Path**: `waveform_analysis.core.plugins.builtin.peaks.peaklets`
 
 ---
 

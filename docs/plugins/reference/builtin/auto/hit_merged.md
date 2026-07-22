@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `hit_merged` |
-| **Version** | `2.0.0` |
+| **Version** | `2.1.0` |
 | **Category** | 特征提取 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -34,6 +34,7 @@ This plugin depends on the following data:
 
 | Field | Type | Units | Description |
 |-------|------|-------|-------------|
+| `merged_id` | `int64` | - | - |
 | `position` | `int64` | - | - |
 | `time_start` | `int64` | - | - |
 | `time_end` | `int64` | - | - |
@@ -72,7 +73,7 @@ data = ctx.get_data("run_001", "hit_merged")
 
 ## Module
 
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.hit_merge`
+- **Module Path**: `waveform_analysis.core.plugins.builtin.hit.hit_merge`
 
 ---
 

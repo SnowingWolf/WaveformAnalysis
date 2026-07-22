@@ -13,6 +13,14 @@
 | Module | `waveform_analysis.core.plugins.builtin.cpu.cache_analysis` |
 | Accelerator | `cpu` |
 
+## Source Notes
+
+Cache analysis plugin.
+
+Collects cache statistics and optionally returns filtered cache entries and
+diagnostic issues. This is meant for interactive inspection and does not
+write to the main cache by default.
+
 ## Inputs
 
 - 无依赖输入（source plugin）

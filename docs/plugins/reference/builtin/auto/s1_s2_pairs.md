@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | **Provides** | `s1_s2_pairs` |
-| **Version** | `0.1.0` |
+| **Version** | `0.2.0` |
 | **Category** | 事件分析 |
 | **Accelerator** | CPU (NumPy/SciPy) |
 | **Streaming** | No |
@@ -25,6 +25,7 @@ This plugin depends on the following data:
 |--------|------|---------|-------|-------------|
 | `selection_mode` | `str` | `largest` | - | 选择策略: largest (最大S1), nearest (最近), best_score (综合), all (全部) |
 | `close_competitor_threshold` | `float` | `0.1` | - | 次优候选接近阈值。delta_score < threshold 时标记 FLAG_CLOSE_COMPETITOR |
+| `require_s2_larger_than_s1` | `bool` | `True` | - | 是否要求 S2_area > S1_area。这是液氙探测器的物理约束。 |
 
 
 ## Output Schema
@@ -56,10 +57,10 @@ This plugin depends on the following data:
 | `score_ratio` | `float32` | - | - |
 | `score_pattern` | `float32` | - | - |
 | `score_ambiguity` | `float32` | - | - |
-| `rank_for_s1` | `int16` | - | - |
-| `rank_for_s2` | `int16` | - | - |
-| `n_s1_candidates_for_s2` | `int16` | - | - |
-| `n_s2_candidates_for_s1` | `int16` | - | - |
+| `rank_for_s1` | `int32` | - | - |
+| `rank_for_s2` | `int32` | - | - |
+| `n_s1_candidates_for_s2` | `int32` | - | - |
+| `n_s2_candidates_for_s1` | `int32` | - | - |
 | `delta_score_to_next_best` | `float32` | - | - |
 | `flags` | `uint32` | - | - |
 | `selected` | `bool` | - | - |
@@ -78,6 +79,7 @@ ctx.register(S1S2PairSelectionPlugin())
 ctx.set_config({
     "selection_mode": 'largest',
     "close_competitor_threshold": 0.1,
+    "require_s2_larger_than_s1": True,
 }, plugin_name="s1_s2_pairs")
 
 # Get data

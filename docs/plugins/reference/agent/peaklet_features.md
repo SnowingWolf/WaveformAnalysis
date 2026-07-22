@@ -10,8 +10,12 @@
 | Depends On | `peaklet_waveforms`, `peaklet_waveform_pool`, `peaklets` |
 | Output Kind | `structured_array` |
 | Version | `4.0.0` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.peaklets` |
+| Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
 | Accelerator | `cpu` |
+
+## Source Notes
+
+Peaklet clustering, ragged waveforms, features, and final peaks.
 
 ## Inputs
 

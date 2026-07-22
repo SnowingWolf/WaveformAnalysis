@@ -13,6 +13,19 @@
 | Module | `waveform_analysis.core.plugins.builtin.cpu.event_analysis` |
 | Accelerator | `cpu` |
 
+## Source Notes
+
+Event Analysis Plugins - 事件分组与配对插件
+
+**加速器**: CPU (NumPy/Numba)
+**功能**: 多通道事件的时间窗口分组和符合配对
+
+本模块包含两个相关的事件分析插件：
+- GroupedEventsPlugin: 按时间窗口分组多通道事件
+- PairedEventsPlugin: 配对跨通道的符合事件
+
+注意：HitGroupedPlugin 已迁移到 waveform_analysis.core.plugins.builtin.hit.hit_grouped
+
 ## Inputs
 
 - `df_events`

@@ -13,6 +13,16 @@
 | Module | `waveform_analysis.core.plugins.builtin.cpu.dataframe` |
 | Accelerator | `cpu` |
 
+## Source Notes
+
+DataFrame Plugin - DataFrame 构建插件
+
+**加速器**: CPU (NumPy/Pandas)
+**功能**: 构建单通道事件的 DataFrame
+
+本模块包含 DataFrame 构建插件，整合结构化波形与基础特征，
+构建包含所有事件信息的 pandas DataFrame。
+
 ## Inputs
 
 - 无依赖输入（source plugin）

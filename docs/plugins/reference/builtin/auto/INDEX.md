@@ -18,8 +18,8 @@ WaveformAnalysis 采用**插件化架构**处理 DAQ（数据采集系统）波�
 
 ### 插件统计
 
-- **总插件数**: 33
-- **类别数**: 7
+- **总插件数**: 35
+- **类别数**: 8
 - **加速器**: CPU (NumPy/SciPy)
 
 ---
@@ -131,11 +131,12 @@ raw_files ──► records ──► df ──► df_events
 | [`DataFramePlugin`](df.md) | `df` | 1.7.0 | 数据导出 | - |
 | [`GroupedEventsPlugin`](df_events.md) | `df_events` | 0.0.0 | 事件分析 | df |
 | [`PairedEventsPlugin`](df_paired.md) | `df_paired` | 0.0.0 | 事件分析 | df_events |
+| [`EventPlugin`](events.md) | `events` | 0.0.0 | 事件分析 | s1_s2_pairs, position_reconstruction |
 | [`FilteredWaveformsPlugin`](filtered_waveforms.md) | `filtered_waveforms` | 3.0.0 | 波形处理 | st_waveforms |
 | [`HitFinderPlugin`](hit.md) | `hit` | 3.0.0 | 特征提取 | - |
 | [`HitGroupedPlugin`](hit_grouped.md) | `hit_grouped` | 0.5.0 | 特征提取 | hit_merged, hit_merged_components, hit_threshold |
 | [`HitMergeClustersPlugin`](hit_merge_clusters.md) | `hit_merge_clusters` | 1.1.0 | 特征提取 | hit_merged, hit_threshold |
-| [`HitMergePlugin`](hit_merged.md) | `hit_merged` | 2.0.0 | 特征提取 | hit_threshold |
+| [`HitMergePlugin`](hit_merged.md) | `hit_merged` | 2.1.0 | 特征提取 | hit_threshold |
 | [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 1.1.0 | 特征提取 | hit_merged, hit_threshold |
 | [`HitMergedFeaturesPlugin`](hit_merged_features.md) | `hit_merged_features` | 0.4.0 | 特征提取 | - |
 | [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.2.0 | 特征提取 | - |
@@ -144,18 +145,19 @@ raw_files ──► records ──► df ──► df_events
 | [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 1.3.0 | 特征提取 | hit_merged |
 | [`PeakletFeaturesPlugin`](peaklet_features.md) | `peaklet_features` | 4.0.0 | 特征提取 | peaklet_waveforms, peaklet_waveform_pool, peaklets |
 | [`PeakletWaveformPoolPlugin`](peaklet_waveform_pool.md) | `peaklet_waveform_pool` | 2.0.0 | 波形处理 | peaklet_waveforms |
-| [`PeakletWaveformPlugin`](peaklet_waveforms.md) | `peaklet_waveforms` | 1.3.0 | 波形处理 | - |
+| [`PeakletWaveformPlugin`](peaklet_waveforms.md) | `peaklet_waveforms` | 1.3.1 | 波形处理 | - |
 | [`PeakletPlugin`](peaklets.md) | `peaklets` | 1.1.0 | 特征提取 | hit_merged, peaklet_components |
 | [`PeaksPlugin`](peaks.md) | `peaks` | 4.0.1 | 特征提取 | peaklets, peaklet_features, peaklet_channels |
+| [`PositionReconstructionPlugin`](position_reconstruction.md) | `position_reconstruction` | 0.2.1 | 其他 | s1_s2_pairs |
 | [`RawFileNamesPlugin`](raw_files.md) | `raw_files` | 0.0.2 | 数据加载 | - |
-| [`RecordsPlugin`](records.md) | `records` | 0.13.0 | 记录处理 | - |
+| [`RecordsPlugin`](records.md) | `records` | 0.14.1 | 记录处理 | - |
 | [`RecordsAsymmetryMaskPlugin`](records_asymmetry_mask.md) | `records_asymmetry_mask` | 0.2.0 | 记录处理 | records, wave_pool |
 | [`RecordsDetectorMaskPlugin`](records_detector_mask.md) | `records_detector_mask` | 0.1.0 | 记录处理 | records, records_asymmetry_mask |
 | [`RecordsVetoMaskPlugin`](records_veto_mask.md) | `records_veto_mask` | 0.1.0 | 记录处理 | records, records_asymmetry_mask |
 | [`S1S2PairCandidatesPlugin`](s1_s2_pair_candidates.md) | `s1_s2_pair_candidates` | 0.1.3 | 事件分析 | peak_classification, peaks |
-| [`S1S2PairSelectionPlugin`](s1_s2_pairs.md) | `s1_s2_pairs` | 0.1.0 | 事件分析 | s1_s2_pair_candidates |
+| [`S1S2PairSelectionPlugin`](s1_s2_pairs.md) | `s1_s2_pairs` | 0.2.0 | 事件分析 | s1_s2_pair_candidates |
 | [`WaveformsPlugin`](st_waveforms.md) | `st_waveforms` | 0.10.0 | 波形处理 | - |
-| [`WavePoolPlugin`](wave_pool.md) | `wave_pool` | 0.13.0 | 波形处理 | - |
+| [`WavePoolPlugin`](wave_pool.md) | `wave_pool` | 0.14.1 | 波形处理 | - |
 | [`WavePoolFilteredPlugin`](wave_pool_filtered.md) | `wave_pool_filtered` | 3.0.0 | 波形处理 | records, wave_pool |
 | [`WaveformWidthPlugin`](waveform_width.md) | `waveform_width` | 3.0.0 | 波形处理 | - |
 | [`WaveformWidthIntegralPlugin`](waveform_width_integral.md) | `waveform_width_integral` | 2.7.0 | 波形处理 | - |
@@ -220,6 +222,7 @@ raw_files ──► records ──► df ──► df_events
 |------|------|------|
 | [`df_events`](df_events.md) | Group events across channels within a configurable time wind... | df |
 | [`df_paired`](df_paired.md) | Pair grouped events across channels for coincidence analysis... | df_events |
+| [`events`](events.md) | Complete event reconstruction from S1-S2 pairs and position | s1_s2_pairs, position_reconstruction |
 | [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md) | Generate all physically allowed S1-S2 pairing candidates | peak_classification, peaks |
 | [`s1_s2_pairs`](s1_s2_pairs.md) | Select best S1-S2 pairs from candidates | s1_s2_pair_candidates |
 
@@ -252,6 +255,13 @@ raw_files ──► records ──► df ──► df_events
 | [`records_asymmetry_mask`](records_asymmetry_mask.md) | Bool mask for waveform asymmetry selection. | records, wave_pool |
 | [`records_detector_mask`](records_detector_mask.md) | Bool mask for detector-channel records after channel-role sp... | records, records_asymmetry_mask |
 | [`records_veto_mask`](records_veto_mask.md) | Bool mask for veto-channel records after channel-role splitt... | records, records_asymmetry_mask |
+
+### 其他
+
+
+| 插件 | 说明 | 依赖 |
+|------|------|------|
+| [`position_reconstruction`](position_reconstruction.md) | Reconstruct 3D position from S1-S2 pairs using vectorized Co... | s1_s2_pairs |
 
 
 ---

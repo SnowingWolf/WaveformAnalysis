@@ -10,8 +10,12 @@
 | Depends On | `hit_merged`, `hit_threshold` |
 | Output Kind | `structured_array` |
 | Version | `1.1.0` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merge` |
+| Module | `waveform_analysis.core.plugins.builtin.hit.hit_merge` |
 | Accelerator | `cpu` |
+
+## Source Notes
+
+Hit Merge Plugin - 合并临近 hit（同通道，允许跨波形/跨文件）
 
 ## Inputs
 

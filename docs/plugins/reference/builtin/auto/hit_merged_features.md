@@ -24,6 +24,8 @@ This plugin has no dependencies.
 | `wave_source` | `str` | `records` | - | 波形来源。hit_merged_features 当前正式支持 records。 |
 | `use_filtered` | `bool` | `False` | - | 是否使用 wave_pool_filtered 计算局部特征。 |
 | `dt` | `int` | `None` | - | 保留兼容配置；特征优先使用 records/hits 的 dt |
+| `gain_adc_per_pe` | `dict` | `None` | - | 按硬件通道配置 ADC/PE 增益，键请使用 "board:channel"，例如 {"0:0": 12.5, "0:1": 13.2}。设置后会新增 area_pe/height_pe 列。 |
+| `normalize_to_pe` | `bool` | `False` | - | 是否将 area/height 直接归一化为 PE 单位。False (默认): area/height 保持 ADC 单位，area_pe/height_pe 输出 PE 单位。True: area/height 归一化为 PE 单位，area_pe/height_pe 为 NaN。 |
 
 
 ## Output Schema
@@ -47,6 +49,8 @@ This plugin has no dependencies.
 | `fall_time` | `float32` | - | - |
 | `n_hits` | `int32` | - | - |
 | `valid` | `int8` | - | - |
+| `area_pe` | `float32` | - | - |
+| `height_pe` | `float32` | - | - |
 
 ## Usage Example
 
@@ -71,7 +75,7 @@ data = ctx.get_data("run_001", "hit_merged_features")
 
 ## Module
 
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.hit_merged_features`
+- **Module Path**: `waveform_analysis.core.plugins.builtin.hit.hit_merged_features`
 
 ---
 

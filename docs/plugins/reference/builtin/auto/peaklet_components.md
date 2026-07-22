@@ -27,6 +27,7 @@ This plugin depends on the following data:
 | `max_total_width_ns` | `float` | `10000.0` | - | peaklet 最大总宽度 |
 | `dt` | `int` | `None` | - | 保留兼容配置；优先使用输入 hit_merged 的 dt |
 
+
 ## Output Schema
 
 **Output Type**: `structured_array`

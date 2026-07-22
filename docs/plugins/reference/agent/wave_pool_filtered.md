@@ -13,6 +13,10 @@
 | Module | `waveform_analysis.core.plugins.builtin.cpu.records` |
 | Accelerator | `cpu` |
 
+## Source Notes
+
+Records/wave_pool plugins backed by an internal shared RecordsBundle cache.
+
 ## Inputs
 
 - `records`

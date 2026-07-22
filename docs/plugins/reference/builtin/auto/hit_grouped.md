@@ -52,7 +52,7 @@ data = ctx.get_data("run_001", "hit_grouped")
 
 ## Module
 
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.event_analysis`
+- **Module Path**: `waveform_analysis.core.plugins.builtin.hit.hit_grouped`
 
 ---
 

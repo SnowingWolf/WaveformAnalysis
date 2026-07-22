@@ -13,6 +13,10 @@
 | Module | `waveform_analysis.core.plugins.builtin.cpu.records_channel_role` |
 | Accelerator | `cpu` |
 
+## Source Notes
+
+Records-backed channel role masks for detector/veto splitting.
+
 ## Inputs
 
 - `records`

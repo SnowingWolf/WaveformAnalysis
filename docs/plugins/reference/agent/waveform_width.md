@@ -13,6 +13,20 @@
 | Module | `waveform_analysis.core.plugins.builtin.cpu.waveform_width` |
 | Accelerator | `cpu` |
 
+## Source Notes
+
+CPU Waveform Width Plugin - 计算波形宽度特征
+
+**加速器**: CPU (NumPy)
+**功能**: 基于峰值检测结果计算波形的上升/下降时间
+
+本插件依赖 HitFinderPlugin 的峰值检测结果，计算每个峰值的：
+1. 上升时间 (Rise Time): 从 10% 到 90% 峰值高度的时间
+2. 下降时间 (Fall Time): 从 90% 到 10% 峰值高度的时间
+3. 总宽度: 从上升起点到下降终点的时间
+
+支持使用原始波形或滤波后的波形进行计算。
+
 ## Inputs
 
 - 无依赖输入（source plugin）

@@ -9,9 +9,19 @@
 | Provides | `s1_s2_pairs` |
 | Depends On | `s1_s2_pair_candidates` |
 | Output Kind | `structured_array` |
-| Version | `0.1.0` |
+| Version | `0.2.0` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_selection` |
 | Accelerator | `cpu` |
+
+## Source Notes
+
+S1-S2 配对选择插件
+
+此插件对候选进行打分并选择最佳配对。
+第一版实现 largest 模式,其他模式预留接口。
+
+Author: Claude Code
+Version: 0.1.0
 
 ## Inputs
 
@@ -44,10 +54,10 @@
 | `score_ratio` | `float32` | - |
 | `score_pattern` | `float32` | - |
 | `score_ambiguity` | `float32` | - |
-| `rank_for_s1` | `int16` | - |
-| `rank_for_s2` | `int16` | - |
-| `n_s1_candidates_for_s2` | `int16` | - |
-| `n_s2_candidates_for_s1` | `int16` | - |
+| `rank_for_s1` | `int32` | - |
+| `rank_for_s2` | `int32` | - |
+| `n_s1_candidates_for_s2` | `int32` | - |
+| `n_s2_candidates_for_s1` | `int32` | - |
 | `delta_score_to_next_best` | `float32` | - |
 | `flags` | `uint32` | - |
 | `selected` | `bool` | - |
@@ -58,6 +68,7 @@
 |------|------|---------|------|
 | `selection_mode` | `str` | `largest` | 选择策略: largest (最大S1), nearest (最近), best_score (综合), all (全部) |
 | `close_competitor_threshold` | `float` | `0.1` | 次优候选接近阈值。delta_score < threshold 时标记 FLAG_CLOSE_COMPETITOR |
+| `require_s2_larger_than_s1` | `bool` | `True` | 是否要求 S2_area > S1_area。这是液氙探测器的物理约束。 |
 
 ## Execution Path
 

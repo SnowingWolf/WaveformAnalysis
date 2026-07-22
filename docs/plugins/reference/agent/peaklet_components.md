@@ -13,6 +13,10 @@
 | Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
 | Accelerator | `cpu` |
 
+## Source Notes
+
+Peaklet clustering, ragged waveforms, features, and final peaks.
+
 ## Inputs
 
 - `hit_merged`

@@ -9,9 +9,13 @@
 | Provides | `hit_merged` |
 | Depends On | `hit_threshold` |
 | Output Kind | `structured_array` |
-| Version | `2.0.0` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.hit_merge` |
+| Version | `2.1.0` |
+| Module | `waveform_analysis.core.plugins.builtin.hit.hit_merge` |
 | Accelerator | `cpu` |
+
+## Source Notes
+
+Hit Merge Plugin - 合并临近 hit（同通道，允许跨波形/跨文件）
 
 ## Inputs
 
@@ -21,6 +25,7 @@
 
 | Field | DType | Meaning |
 |-------|-------|---------|
+| `merged_id` | `int64` | Unique identifier for this hit_merged record, equal to its row index (0-based) in the output array. Used for tracking and referencing specific merged hits. |
 | `position` | `int64` | Anchor hit position; for multi-hit clusters this is the hit closest to the merged window midpoint. |
 | `time_start` | `int64` | Absolute start time (ps) of the merged window; always valid regardless of whether components span records. |
 | `time_end` | `int64` | Absolute end time (ps) of the merged window; always valid regardless of whether components span records. |
@@ -86,9 +91,11 @@ Consumers:
 
 ## Change Playbook
 
-1. Changing merge behavior, output field semantics, or dtype requires a `version` bump because cache lineage depends on the plugin contract.
-2. Keep `hit_merged` and `hit_merged_components` in sync; membership ordering is part of the downstream contract.
-3. After contract changes, regenerate agent docs and run targeted tests for `hit_merge`, `hit_merged_components`, `hit_merged_features`, `hit_grouped`, and `peaklets` consumers as appropriate.
+1. v2.1.0: Added `merged_id` field as unique identifier equal to row index. This is a backward-compatible addition; downstream plugins auto-adapt via dtype.names checks.
+2. v2.0.0: Added `time_start`, `time_end`, `is_single_record` fields to support cross-record merging.
+3. Changing merge behavior, output field semantics, or dtype requires a `version` bump because cache lineage depends on the plugin contract.
+4. Keep `hit_merged` and `hit_merged_components` in sync; membership ordering is part of the downstream contract.
+5. After contract changes, regenerate agent docs and run targeted tests for `hit_merge`, `hit_merged_components`, `hit_merged_features`, `hit_grouped`, and `peaklets` consumers as appropriate.
 
 ## Validation
 

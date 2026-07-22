@@ -77,7 +77,7 @@ data = ctx.get_data("run_001", "hit_threshold")
 
 ## Module
 
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.hit_finder`
+- **Module Path**: `waveform_analysis.core.plugins.builtin.hit.hit_finder`
 
 ---
 

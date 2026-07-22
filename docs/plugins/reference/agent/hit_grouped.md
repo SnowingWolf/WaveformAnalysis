@@ -10,8 +10,18 @@
 | Depends On | `hit_merged`, `hit_merged_components`, `hit_threshold` |
 | Output Kind | `unknown` |
 | Version | `0.5.0` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.event_analysis` |
+| Module | `waveform_analysis.core.plugins.builtin.hit.hit_grouped` |
 | Accelerator | `cpu` |
+
+## Source Notes
+
+Hit Grouped Plugin - Hit 分组插件
+
+**加速器**: CPU (NumPy/Numba)
+**功能**: 按绝对 hit 窗口将多通道的 merged hits 分组为事件级符合窗口
+
+本插件将 hit_merged 数据按时间窗口分组，用于事件级分析。
+已标记为 deprecated，推荐使用新的 S1-S2 配对工作流。
 
 ## Inputs
 

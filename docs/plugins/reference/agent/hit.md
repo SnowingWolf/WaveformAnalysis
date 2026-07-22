@@ -13,6 +13,18 @@
 | Module | `waveform_analysis.core.plugins.builtin.cpu.peak_finding` |
 | Accelerator | `cpu` |
 
+## Source Notes
+
+CPU Peak Finding Plugin - 使用 scipy 进行峰值检测
+
+**加速器**: CPU (scipy)
+**功能**: 基于波形检测峰值并计算峰值特征
+
+本插件使用 scipy.signal.find_peaks 进行峰值检测，支持多种峰值筛选条件。
+计算峰值的位置、高度、积分、边缘等特征。
+
+支持使用原始波形或滤波后的波形进行检测。
+
 ## Inputs
 
 - 无依赖输入（source plugin）

@@ -13,6 +13,19 @@
 | Module | `waveform_analysis.core.plugins.builtin.cpu.waveform_width_integral` |
 | Accelerator | `cpu` |
 
+## Source Notes
+
+CPU Waveform Width Integral Plugin - 事件级积分分位数宽度
+
+**加速器**: CPU (NumPy)
+**功能**: 对每条事件波形计算积分分位数宽度 (t_low/t_high)。
+
+核心口径：
+1) 输出是"按事件"的，不按峰；一条记录 = 一个 record_id
+2) baseline 仅来自 st_waveforms.baseline（插件不再估计 baseline）
+3) 若 use_filtered=True，波形使用 filtered_waveforms，但 baseline 仍来自 st_waveforms
+4) t_low/t_high 是波形内部的相对位置；timestamp 保持 ADC 事件时间语义
+
 ## Inputs
 
 - 无依赖输入（source plugin）

@@ -13,6 +13,10 @@
 | Module | `waveform_analysis.core.plugins.builtin.cpu.records_asymmetry` |
 | Accelerator | `cpu` |
 
+## Source Notes
+
+Records-backed waveform asymmetry mask plugin.
+
 ## Inputs
 
 - `records`

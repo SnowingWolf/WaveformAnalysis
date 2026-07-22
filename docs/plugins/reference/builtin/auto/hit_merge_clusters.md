@@ -49,7 +49,7 @@ data = ctx.get_data("run_001", "hit_merge_clusters")
 
 ## Module
 
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.hit_merge`
+- **Module Path**: `waveform_analysis.core.plugins.builtin.hit.hit_merge`
 
 ---
 

@@ -13,6 +13,27 @@
 | Module | `waveform_analysis.core.plugins.builtin.cpu.basic_features` |
 | Accelerator | `cpu` |
 
+## Source Notes
+
+Basic Features Plugin - 基础特征计算插件
+
+**加速器**: CPU (NumPy)
+**功能**: 计算波形的基础特征（height/area）
+
+本模块包含基础特征计算插件，从结构化波形中提取：
+- height: 脉冲高度（baseline - min(wave)），信号偏离基线的幅度
+- amp: 峰峰值振幅（max - min）
+- area: 波形面积（积分）
+- max_abs_diff: 波形相邻采样点差分绝对值最大值
+
+支持可选的滤波波形输入，可配置计算范围。
+
+设计原则：
+- 逐条处理 record，支持任意长度波形
+- 不使用 padding，避免 padding 影响 area 计算
+- 内存占用最低，最适合 records streaming
+- 通道配置缓存，避免重复解析
+
 ## Inputs
 
 - 无依赖输入（source plugin）

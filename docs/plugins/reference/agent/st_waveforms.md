@@ -13,6 +13,28 @@
 | Module | `waveform_analysis.core.plugins.builtin.cpu.waveforms` |
 | Accelerator | `cpu` |
 
+## Source Notes
+
+Waveforms Plugin - 波形提取与结构化插件
+
+**加速器**: CPU (NumPy)
+**功能**: 从原始 CSV 文件中提取波形数据并结构化为 NumPy 结构化数组
+
+本模块包含：
+1. RawFileNamesPlugin: 扫描数据目录并按通道分组原始 CSV 文件
+2. WaveformsPlugin: 从原始 CSV 文件中提取波形数据并结构化
+3. WaveformStructConfig: 波形结构化配置类
+4. WaveformStruct: 波形结构化处理器
+
+WaveformsPlugin 支持双层并行处理加速：
+- 通道级并行：多个通道同时处理
+- 文件级并行：单个通道内的多个文件并行处理
+
+性能优化特性：
+- 自动使用 PyArrow 引擎（如果已安装）
+- 自动计算最优并行数
+- 支持线程池和进程池两种并行方式
+
 ## Inputs
 
 - 无依赖输入（source plugin）
