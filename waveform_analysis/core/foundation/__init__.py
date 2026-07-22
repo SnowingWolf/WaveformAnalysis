@@ -1,11 +1,10 @@
 """
 Foundation 子模块 - 框架基础设施
 
-提供异常处理、Mixin、模型、工具函数和进度追踪等基础组件。
+提供异常处理、模型、工具函数和进度追踪等基础组件。
 
 主要组件：
 - Exceptions: 异常类和错误处理
-- Mixins: 功能混合类
 - Model: 数据模型
 - Utils: 工具函数
 - ProgressTracker: 进度追踪

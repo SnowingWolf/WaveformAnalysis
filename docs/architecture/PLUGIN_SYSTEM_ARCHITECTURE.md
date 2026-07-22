@@ -245,7 +245,7 @@ data = ctx.get_data("run_001", "paired_events")
 **关键方法**：
 - `analyze_dependencies(target_name)` - 分析依赖图
 - `get_lineage(data_name)` - 获取完整血缘（含配置/版本）
-- `_get_plugin_dependency_names(plugin)` - 提取依赖名称
+- `ContextPluginDomain.get_dependency_names(plugin)` - 提取依赖名称
 - `resolve_dependencies(data_name)` - 构建执行计划
 
 ---

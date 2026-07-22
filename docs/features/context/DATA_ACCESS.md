@@ -37,6 +37,10 @@ def get_data(
 
 ### 自动依赖解析
 
+`ctx.get_data(run_id, data_name)` 会通过内部插件 domain 解析执行计划。动态依赖在解析时
+会接收当前 `run_id`，因此同一插件可针对不同运行选择不同上游；公开接口仍是
+`ctx.resolve_dependencies(data_name, run_id=...)`。
+
 ```python
 # 获取 paired_events 会自动执行整个依赖链
 # raw_files → waveforms → st_waveforms → features → dataframe → paired_events

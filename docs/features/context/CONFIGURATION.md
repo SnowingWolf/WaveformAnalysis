@@ -2,6 +2,9 @@
 
 本文档说明 `Context` 配置解析、DAQ adapter 推断、兼容参数映射与配置类型。Agent 侧约束见 `docs/agents/configuration.md`；本文件是用户与代码锚点使用的配置入口。
 
+`Context` 保持无状态的数据访问接口；配置解析由内部的 `ContextConfigDomain` 承接，
+不改变 `ctx.set_config()`、`ctx.get_config()` 或 `ctx.get_resolved_config()` 的用法。
+
 ## 配置优先级
 
 配置生效顺序为：

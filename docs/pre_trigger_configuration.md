@@ -51,6 +51,7 @@ config = {
 
 ```python
 from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.hit import HitMergePlugin, ThresholdHitPlugin
 
 # 创建 Context 并配置
 ctx = Context()
@@ -59,8 +60,7 @@ ctx.config['merge_gap_ns'] = 10.0   # 10 ns 合并间隔
 ctx.config['max_total_width_ns'] = 10000.0
 
 # 注册插件
-ctx.register_plugin_('hit_threshold')
-ctx.register_plugin_('hit_merged')
+ctx.register(ThresholdHitPlugin(), HitMergePlugin())
 
 # 处理数据
 ctx.make('run_001', 'hit_merged')

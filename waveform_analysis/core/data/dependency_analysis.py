@@ -31,7 +31,7 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 import json
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 from waveform_analysis.core.foundation.model import (
     EdgeModel,
@@ -51,39 +51,39 @@ class DependencyAnalysisResult:
     # 基本信息
     target_name: str
     total_plugins: int
-    execution_plan: List[str]  # 拓扑排序结果
+    execution_plan: list[str]  # 拓扑排序结果
 
     # DAG 结构分析
     max_depth: int  # DAG 最大深度
     max_width: int  # DAG 最大宽度
-    layers: Dict[int, List[str]] = field(default_factory=dict)  # 按深度分层
+    layers: dict[int, list[str]] = field(default_factory=dict)  # 按深度分层
 
     # 关键路径分析
-    critical_path: List[str] = field(default_factory=list)  # 关键路径上的插件列表
-    critical_path_time: Optional[float] = None  # 总时间（如果有性能数据）
+    critical_path: list[str] = field(default_factory=list)  # 关键路径上的插件列表
+    critical_path_time: float | None = None  # 总时间（如果有性能数据）
 
     # 并行机会
-    parallel_groups: List[List[str]] = field(default_factory=list)  # 可并行执行的插件组
+    parallel_groups: list[list[str]] = field(default_factory=list)  # 可并行执行的插件组
     parallelization_potential: float = 1.0  # 理论加速比
 
     # 性能瓶颈（仅在有统计数据时可用）
-    bottlenecks: List[Dict[str, Any]] = field(default_factory=list)
-    performance_summary: Optional[Dict[str, Any]] = None
+    bottlenecks: list[dict[str, Any]] = field(default_factory=list)
+    performance_summary: dict[str, Any] | None = None
 
     # 优化建议
-    recommendations: List[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
     # 元数据
     analyzed_at: str = field(default_factory=lambda: datetime.now().isoformat())
     has_performance_data: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典（可JSON序列化）"""
         data = asdict(self)
         # 确保所有数据可以被 JSON 序列化
         return data
 
-    def to_json(self, filepath: Optional[str] = None, indent: int = 2) -> str:
+    def to_json(self, filepath: str | None = None, indent: int = 2) -> str:
         """
         转换为 JSON 字符串，可选保存到文件
 
@@ -258,7 +258,7 @@ class DependencyAnalyzer:
         self,
         target_name: str,
         include_performance: bool = True,
-        run_id: Optional[str] = None,
+        run_id: str | None = None,
     ) -> DependencyAnalysisResult:
         """
         执行依赖分析
@@ -344,15 +344,15 @@ class DependencyAnalyzer:
 
         return result
 
-    def _get_execution_plan(self, target_name: str) -> List[str]:
+    def _get_execution_plan(self, target_name: str) -> list[str]:
         """获取执行计划（拓扑排序）"""
-        # resolve_dependencies is a method of PluginMixin, called via context
+        # Context delegates dependency resolution to ContextPluginDomain.
         plan = self.context.resolve_dependencies(target_name)
         return plan
 
     def _analyze_static_structure(
-        self, graph: LineageGraphModel, execution_plan: List[str]
-    ) -> Dict[str, Any]:
+        self, graph: LineageGraphModel, execution_plan: list[str]
+    ) -> dict[str, Any]:
         """
         静态依赖分析（不需要性能数据）
 
@@ -376,7 +376,7 @@ class DependencyAnalyzer:
             "layers": dict(layers),
         }
 
-    def _get_performance_data(self, execution_plan: List[str]) -> Optional[Dict[str, Any]]:
+    def _get_performance_data(self, execution_plan: list[str]) -> dict[str, Any] | None:
         """获取性能统计数据"""
         if not self.context.stats_collector:
             return None
@@ -400,8 +400,8 @@ class DependencyAnalyzer:
         return performance_data if performance_data else None
 
     def _find_critical_path_static(
-        self, graph: LineageGraphModel, execution_plan: List[str]
-    ) -> List[str]:
+        self, graph: LineageGraphModel, execution_plan: list[str]
+    ) -> list[str]:
         """
         基于 DAG 深度的关键路径（静态分析）
 
@@ -431,7 +431,7 @@ class DependencyAnalyzer:
 
         return list(reversed(path))
 
-    def _find_deepest_parent(self, graph: LineageGraphModel, node_id: str) -> Optional[str]:
+    def _find_deepest_parent(self, graph: LineageGraphModel, node_id: str) -> str | None:
         """找到节点的深度最大的父节点"""
         node = graph.nodes.get(node_id)
         if not node or not node.in_ports:
@@ -463,9 +463,9 @@ class DependencyAnalyzer:
     def _find_critical_path_dynamic(
         self,
         graph: LineageGraphModel,
-        execution_plan: List[str],
-        performance_data: Dict[str, Any],
-    ) -> Tuple[List[str], float]:
+        execution_plan: list[str],
+        performance_data: dict[str, Any],
+    ) -> tuple[list[str], float]:
         """
         基于实际执行时间的关键路径（CPM算法）
 
@@ -527,8 +527,8 @@ class DependencyAnalyzer:
         return critical_path, total_time
 
     def _build_dependency_graph(
-        self, graph: LineageGraphModel, execution_plan: List[str]
-    ) -> Dict[str, Dict[str, List[str]]]:
+        self, graph: LineageGraphModel, execution_plan: list[str]
+    ) -> dict[str, dict[str, list[str]]]:
         """构建简化的依赖关系图"""
         dependencies = {node: {"predecessors": [], "successors": []} for node in execution_plan}
 
@@ -554,8 +554,8 @@ class DependencyAnalyzer:
         return dependencies
 
     def _find_parallel_opportunities(
-        self, graph: LineageGraphModel, execution_plan: List[str]
-    ) -> List[List[str]]:
+        self, graph: LineageGraphModel, execution_plan: list[str]
+    ) -> list[list[str]]:
         """
         识别可并行执行的插件组
 
@@ -579,8 +579,8 @@ class DependencyAnalyzer:
 
     def _calculate_parallelization_potential(
         self,
-        parallel_groups: List[List[str]],
-        performance_data: Optional[Dict[str, Any]],
+        parallel_groups: list[list[str]],
+        performance_data: dict[str, Any] | None,
     ) -> float:
         """
         计算理论加速比
@@ -613,10 +613,10 @@ class DependencyAnalyzer:
 
     def _identify_bottlenecks(
         self,
-        performance_data: Dict[str, Any],
-        critical_path: List[str],
-        execution_plan: List[str],
-    ) -> List[Dict[str, Any]]:
+        performance_data: dict[str, Any],
+        critical_path: list[str],
+        execution_plan: list[str],
+    ) -> list[dict[str, Any]]:
         """
         识别性能瓶颈
 
@@ -711,14 +711,14 @@ class DependencyAnalyzer:
 
     def _generate_recommendations(
         self,
-        static_analysis: Dict[str, Any],
-        critical_path: List[str],
-        critical_path_time: Optional[float],
-        parallel_groups: List[List[str]],
+        static_analysis: dict[str, Any],
+        critical_path: list[str],
+        critical_path_time: float | None,
+        parallel_groups: list[list[str]],
         parallelization_potential: float,
-        bottlenecks: List[Dict[str, Any]],
+        bottlenecks: list[dict[str, Any]],
         has_performance: bool,
-    ) -> List[str]:
+    ) -> list[str]:
         """基于分析结果生成优化建议"""
         recommendations = []
 

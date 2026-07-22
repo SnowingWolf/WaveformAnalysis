@@ -37,7 +37,7 @@ def verify_plugin_registration():
     ]
 
     for plugin in plugins:
-        ctx.register_plugin_(plugin)
+        ctx.register(plugin)
         print(f"✓ 注册插件: {plugin.__class__.__name__}")
         print(f"  - 提供数据: {plugin.provides}")
         print(f"  - 依赖数据: {plugin.depends_on}")

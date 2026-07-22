@@ -10,6 +10,8 @@ Context 模块 - 插件系统的核心调度器。
 """
 
 # 1. Standard library imports
+from __future__ import annotations
+
 from collections import deque
 from collections.abc import Callable, Iterator
 import copy
@@ -44,10 +46,10 @@ from .config import (
 from .context_cache import ContextCacheDomain
 from .context_config import ContextConfigDomain
 from .context_execution import ContextExecutionDomain
+from .context_plugins import ContextPluginDomain
 from .context_time import ContextTimeDomain
 from .execution.validation import ValidationManager
 from .foundation.error import ErrorManager
-from .foundation.mixins import PluginMixin
 from .foundation.utils import OneTimeGenerator, Profiler
 from .hardware.channel import HardwareChannel
 from .plugins.core.base import Plugin
@@ -97,7 +99,7 @@ def _import_plugin_class(module_name: str, class_name: str) -> Any:
     return getattr(module, class_name)
 
 
-def _create_context_from_spec(spec: dict[str, Any]) -> "Context":
+def _create_context_from_spec(spec: dict[str, Any]) -> Context:
     config = _safe_copy_config(spec.get("config", {}))
     ctx = Context(
         config=config,
@@ -126,7 +128,7 @@ def _create_context_from_spec(spec: dict[str, Any]) -> "Context":
     return ctx
 
 
-class Context(PluginMixin):
+class Context:
     """
     The Context orchestrates plugins and manages data storage/caching.
     Inspired by strax, it is the main entry point for data analysis.
@@ -290,7 +292,7 @@ class Context(PluginMixin):
             >>> # 启用详细统计和日志
             >>> ctx = Context(stats_mode='detailed', stats_log_file='./logs/plugins.log')
         """
-        PluginMixin.__init__(self)
+        self._plugins: dict[str, Any] = {}
 
         self.profiler = Profiler()
         self.config = config or {}
@@ -384,11 +386,6 @@ class Context(PluginMixin):
         self._run_config_cache: dict[str, dict[str, Any]] = {}
         self._run_config_hash_cache: dict[str, str] = {}
         self._run_config_hash_loaded: set[str] = set()
-        # Plugin discovery
-        self.plugin_dirs = external_plugin_dirs or []
-        if auto_discover_plugins:
-            self.discover_and_register_plugins()
-
         # Ensure storage directory exists if using default
         if not storage_backend and not os.path.exists(self.storage_dir):
             os.makedirs(self.storage_dir, exist_ok=True)
@@ -411,9 +408,15 @@ class Context(PluginMixin):
         self._config_domain = ContextConfigDomain(self)
         self._cache_domain = ContextCacheDomain(self)
         self._execution_domain = ContextExecutionDomain(self)
+        self._plugin_domain = ContextPluginDomain(self)
         self._time_domain = ContextTimeDomain(self)
 
-    def clone(self) -> "Context":
+        # Registration invalidates caches, so discovery must run after every domain exists.
+        self.plugin_dirs = external_plugin_dirs or []
+        if auto_discover_plugins:
+            self.discover_and_register_plugins()
+
+    def clone(self) -> Context:
         """
         Create a new Context with the same config and plugin registrations.
 
@@ -519,7 +522,7 @@ class Context(PluginMixin):
             "plugins": plugins,
         }
 
-    def create_context_factory(self) -> Callable[[], "Context"]:
+    def create_context_factory(self) -> Callable[[], Context]:
         """
         Build a picklable context_factory for process-based executors.
 
@@ -613,16 +616,22 @@ class Context(PluginMixin):
                     self.register(item, allow_override=allow_override, require_spec=require_spec)
                 continue
             if isinstance(p, type) and issubclass(p, Plugin):
-                self.register_plugin_(p(), allow_override=allow_override, require_spec=require_spec)
+                self._plugin_domain.register_plugin(
+                    p(), allow_override=allow_override, require_spec=require_spec
+                )
             elif isinstance(p, Plugin):
-                self.register_plugin_(p, allow_override=allow_override, require_spec=require_spec)
+                self._plugin_domain.register_plugin(
+                    p, allow_override=allow_override, require_spec=require_spec
+                )
             elif hasattr(p, "__path__") or hasattr(p, "__file__"):  # It's a module
                 self._register_from_module(
                     p, allow_override=allow_override, require_spec=require_spec
                 )
             else:
                 # Fallback for other types if needed
-                self.register_plugin_(p, allow_override=allow_override, require_spec=require_spec)
+                self._plugin_domain.register_plugin(
+                    p, allow_override=allow_override, require_spec=require_spec
+                )
 
     def discover_and_register_plugins(self, allow_override: bool = False) -> int:
         """
@@ -647,7 +656,7 @@ class Context(PluginMixin):
         registered = 0
         for plugin_class in loader.get_plugins():
             try:
-                self.register_plugin_(plugin_class(), allow_override=allow_override)
+                self._plugin_domain.register_plugin(plugin_class(), allow_override=allow_override)
                 registered += 1
             except Exception as e:
                 self.logger.warning(f"Failed to register plugin {plugin_class.__name__}: {e}")
@@ -838,9 +847,13 @@ class Context(PluginMixin):
 
         for _name, obj in inspect.getmembers(module):
             if inspect.isclass(obj) and issubclass(obj, Plugin) and obj != Plugin:
-                self.register_plugin_(
+                self._plugin_domain.register_plugin(
                     obj(), allow_override=allow_override, require_spec=require_spec
                 )
+
+    def resolve_dependencies(self, target: str, run_id: str | None = None) -> list[str]:
+        """Return the dependency execution order for ``target``."""
+        return self._plugin_domain.resolve_dependencies(target, run_id=run_id)
 
     # ===========================
     # Get Data
@@ -1031,7 +1044,7 @@ class Context(PluginMixin):
         """Collect all downstream data names that depend on a given data_name."""
         reverse_deps: dict[str, list[str]] = {}
         for name, plugin in self._plugins.items():
-            deps = self._get_plugin_dependency_names(plugin, run_id=run_id)
+            deps = self._plugin_domain.get_dependency_names(plugin, run_id=run_id)
             for dep in deps:
                 reverse_deps.setdefault(dep, []).append(name)
 
@@ -1450,7 +1463,7 @@ class Context(PluginMixin):
                 if cv is not None:
                     config[k] = cv.value
 
-        dep_names = self._get_plugin_dependency_names(plugin)
+        dep_names = self._plugin_domain.get_dependency_names(plugin)
         lineage = {
             "plugin_class": plugin.__class__.__name__,
             "plugin_version": getattr(plugin, "version", "0.0.0"),
@@ -2167,7 +2180,7 @@ class Context(PluginMixin):
                 plugin = self._plugins.get(plugin_name)
                 if plugin is None:
                     continue
-                resolved_depends_on[plugin_name] = self._get_plugin_dependency_names(
+                resolved_depends_on[plugin_name] = self._plugin_domain.get_dependency_names(
                     plugin, run_id=run_id
                 )
         result = {
@@ -2305,7 +2318,7 @@ class Context(PluginMixin):
             return
 
         plugin = self._plugins[data_name]
-        dependencies = self._get_plugin_dependency_names(plugin, run_id=run_id)
+        dependencies = self._plugin_domain.get_dependency_names(plugin, run_id=run_id)
 
         if not dependencies:
             return

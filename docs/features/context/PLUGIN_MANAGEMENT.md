@@ -22,6 +22,10 @@
 
 ## 注册插件
 
+`ctx.register()` 是唯一的公共注册入口。Context 将实例、类、模块和序列输入统一交给
+内部的 `ContextPluginDomain` 执行校验、重复/覆盖处理、注册来源记录和缓存失效；
+不再提供单插件的 `register_plugin_()` 入口。
+
 ### 基本用法
 
 ```python

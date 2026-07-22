@@ -1,0 +1,88 @@
+# execution_report
+
+- `task_id`: `retire_plugin_mixin_domain`
+- `workflow_cost`: `strict`
+- `executor_role`: `executor.config`
+- `changed_paths`:
+  - `waveform_analysis/core/context_plugins.py`
+  - `waveform_analysis/core/context.py`
+  - `waveform_analysis/core/context_execution.py`
+  - `waveform_analysis/core/data/dependency_analysis.py`
+  - `waveform_analysis/core/foundation/__init__.py`
+  - `waveform_analysis/core/foundation/mixins.py`
+  - `scripts/check_imports.py`
+  - `scripts/clear_downstream_cache.py`
+  - `examples/demo_preview_execution.py`
+  - `examples/signal_processing_example.py`
+  - `examples/verify_signal_processing_lineage.py`
+  - `tests/test_context_plugin_domain.py`
+  - `tests/test_cache_optimization.py`
+  - `tests/test_strax_adapter.py`
+  - `tests/test_storage_backends.py`
+  - `tests/test_time_range_query.py`
+  - `tests/plugins/test_plugin_versioning.py`
+  - `docs/architecture/ARCHITECTURE.md`
+  - `docs/architecture/PLUGIN_SYSTEM_ARCHITECTURE.md`
+  - `docs/features/context/CONFIGURATION.md`
+  - `docs/features/context/DATA_ACCESS.md`
+  - `docs/features/context/PLUGIN_MANAGEMENT.md`
+  - `docs/pre_trigger_configuration.md`
+  - `docs/development/contributing/IMPORT_STYLE_GUIDE.md`
+  - `docs/analysis/context_api_optimization_plan.md`
+  - `docs/agents/protocol/artifacts/retire_plugin_mixin_domain_compat_inventory.md`
+  - `docs/agents/protocol/artifacts/retire_plugin_mixin_domain_plan_brief.md`
+  - `docs/agents/protocol/artifacts/retire_plugin_mixin_domain_execution_report.md`
+  - `docs/agents/protocol/artifacts/retire_plugin_mixin_domain_review_report.md`
+- `actions_taken`:
+  - Moved PluginMixin behavior into ContextPluginDomain.
+  - Changed Context from inheritance to composition while retaining the stable Context._plugins mapping.
+  - Delegated registration, dependency-name lookup, dynamic dependency resolution, and public dependency resolution to the domain.
+  - Moved automatic discovery after cache state and every Context domain are initialized.
+  - Removed register_plugin_(), legacy mixin import guidance, and all repository call sites.
+  - Preserved duplicate/override, PluginSpec, dependency-version warning, registration-source, and cache-invalidation semantics.
+  - Added direct domain tests for public API removal, registration forms, dynamic dependencies, auto discovery, and four cache invalidation maps.
+  - Synchronized Context and architecture documentation and corrected stale PluginMixin terminology.
+- `commands_run`:
+  - `python -m py_compile` for changed Context/domain/test files
+  - `python -m ruff check waveform_analysis/core/context_plugins.py waveform_analysis/core/context_execution.py tests/test_context_plugin_domain.py`
+  - Direct isolated ContextPluginDomain registration, run-aware dependency, override, and invalidation-hook assertion
+  - `python scripts/render_agent_docs.py --check`
+  - `PATH=/home/wxy/anaconda3/envs/pyroot-kernel/bin:$PATH scripts/check_doc_sync.sh`
+  - `python scripts/check_doc_anchors.py --check-sync --base HEAD`
+  - `python scripts/assess_change_impact.py --base HEAD`
+  - `python scripts/schema_compat_check.py --base HEAD --run-smoke`
+  - Targeted pytest command from the plan brief
+  - `git diff --check`
+- `open_risks`:
+  - External callers must migrate directly from register_plugin_() to register().
+  - Run-aware execution-plan cache key behavior is intentionally unchanged.
+  - check_doc_sync.sh requires the project Python on PATH because /usr/bin/python is Python 2.7.
+- `requested_review_focus`:
+  - Verify direct public API deletion is fully represented in the compat inventory.
+  - Verify all Context and execution dependency consumers use the domain.
+  - Verify registration, dependency resolution, and cache invalidation behavior remains stable.
+
+## retire_compat Notes
+
+- `compat_items_removed`:
+  - `Context.register_plugin_()`
+  - `PluginMixin`
+  - `waveform_analysis.core.foundation.mixins`
+- `compat_items_kept`:
+  - `Context.register()`
+  - `Context.resolve_dependencies()`
+  - `Context._plugins` mapping identity for existing internal consumers
+- `migration_updates`:
+  - Repository code, tests, examples, and docs use `Context.register()`.
+  - Context implementation composes `ContextPluginDomain`.
+- `gates_executed`:
+  - `doc_sync`: pass with project Python on PATH
+  - `doc_anchors`: pass
+  - `assess_change_impact`: pass
+  - `py_compile`: pass
+  - `focused ruff`: pass
+  - `isolated domain behavior check`: pass
+  - `targeted_context_tests`: pass (116 passed, 1 skipped)
+  - `schema_compat_check`: pass
+- `not_executed_and_why`:
+  - None.

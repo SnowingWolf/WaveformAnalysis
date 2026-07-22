@@ -1,7 +1,7 @@
 # Context API 优化计划
 
-> 状态：规划，尚未执行 API 删除或弃用。
-> 范围：`waveform_analysis/core/context.py` 及其公开的 `PluginMixin` 方法。
+> 状态：执行中；`has_explicit_config()` 与 `register_plugin_()` 已确认直接删除，其余 API 尚未执行删除或弃用。
+> 范围：`waveform_analysis/core/context.py` 及其 Context domain 公开方法。
 
 ## 目标与边界
 
@@ -30,7 +30,7 @@
 | 分类 | 方法 | 原因 |
 | --- | --- | --- |
 | 核心数据 | `get_data`, `register`, `set_config`, `clear_cache_for` | 数据处理和缓存生命周期主入口。 |
-| 配置读取 | `get_config`, `get_config_value`, `get_resolved_config`, `has_explicit_config` | 分别提供裸值、单项来源信息、完整解析结果和显式配置判断。 |
+| 配置读取 | `get_config`, `get_config_value`, `get_resolved_config` | 分别提供裸值、单项来源信息和完整解析结果。 |
 | 配置展示 | `show_config`, `list_plugin_configs`, `show_resolved_config` | 展示全局配置、插件选项和解析来源，职责不同。 |
 | 依赖与执行 | `get_lineage`, `resolve_dependencies`, `preview_execution`, `analyze_dependencies` | 分别服务缓存身份、拓扑顺序、run/cache 感知预览和性能/关键路径分析。 |
 | 时间 | `time_range`、epoch 和时间索引方法 | 时间查询、绝对时间换算和索引生命周期接口。 |
@@ -40,10 +40,16 @@
 | 候选 | 计划动作 | 前提 |
 | --- | --- | --- |
 | `get_lineage(data_name, _visited=...)` | 将 `_visited` 移入私有递归 helper，公共签名只保留 `data_name`。 | 增加 lineage 与缓存键回归测试。 |
-| `register_plugin_` | 先盘点直接调用方和公开文档；仅在提供稳定迁移期后私有化。 | 不得影响插件加载、spec 校验或外部扩展。 |
+| `register_plugin_` | 已删除；仓库内调用统一迁移到 `register()`，不保留兼容 facade。 | 保持插件加载、spec 校验和外部扩展语义。 |
 | `clear_performance_caches` | 保留行为，先更正其“规划/lineage/key 缓存失效”语义和文档。 | 证明没有脚本依赖旧名称。 |
 | `help`, `quickstart` | 评估是否改为稳定文档链接；默认保留。 | 用户确认弃用周期和外部 API 迁移策略。 |
 | `analyze_cache`, `cache_stats`, `diagnose_cache` | 暂不弃用。 | `waveform-cache` 必须与 Context 在存储目录、插件注册和版本诊断上语义一致。 |
+
+### 已确认删除
+
+| API | 替代写法 | 决策 |
+| --- | --- | --- |
+| `has_explicit_config(plugin, name, adapter_name=None)` | `get_config_value(plugin, name, adapter_name=...).source == ConfigSource.EXPLICIT` | 用户已确认直接删除；实现与契约测试同步收敛，不保留 facade 或 domain helper。 |
 
 ## 分阶段执行
 

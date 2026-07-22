@@ -38,9 +38,9 @@ class TestCacheOptimization:
                 return np.array([3])
 
         ctx = Context()
-        ctx.register_plugin_(PluginA())
-        ctx.register_plugin_(PluginB())
-        ctx.register_plugin_(PluginC())
+        ctx.register(PluginA())
+        ctx.register(PluginB())
+        ctx.register(PluginC())
 
         # 首次调用应该解析依赖
         ctx.get_data("run_001", "data_c")
@@ -95,9 +95,9 @@ class TestCacheOptimization:
                 return np.array([(3,)], dtype=self.output_dtype)
 
         ctx = TrackingContext(storage_dir=str(tmp_path))
-        ctx.register_plugin_(PluginA())
-        ctx.register_plugin_(PluginB())
-        ctx.register_plugin_(PluginC())
+        ctx.register(PluginA())
+        ctx.register(PluginB())
+        ctx.register(PluginC())
 
         run_id = "run_cache_skip"
         ctx._set_data(run_id, "data_a", np.array([(1,)], dtype=dtype))
@@ -147,9 +147,9 @@ class TestCacheOptimization:
                 return np.array([(3,)], dtype=self.output_dtype)
 
         ctx = TrackingContext(storage_dir=str(tmp_path))
-        ctx.register_plugin_(PluginA())
-        ctx.register_plugin_(PluginB())
-        ctx.register_plugin_(PluginC())
+        ctx.register(PluginA())
+        ctx.register(PluginB())
+        ctx.register(PluginC())
 
         run_id = "run_prune_mid"
         ctx._set_data(run_id, "data_b", np.array([(2,)], dtype=dtype))
@@ -200,9 +200,9 @@ class TestCacheOptimization:
                 return np.array([(3,)], dtype=self.output_dtype)
 
         ctx = TrackingContext(storage_dir=str(tmp_path))
-        ctx.register_plugin_(PluginA())
-        ctx.register_plugin_(PluginB())
-        ctx.register_plugin_(PluginC())
+        ctx.register(PluginA())
+        ctx.register(PluginB())
+        ctx.register(PluginC())
 
         run_id = "run_prune_disk"
         _ = ctx.get_data(run_id, "data_b")
@@ -241,7 +241,7 @@ class TestCacheOptimization:
                 return np.array([(1,)], dtype=self.output_dtype)
 
         ctx = TrackingContext(storage_dir=str(tmp_path))
-        ctx.register_plugin_(PluginA())
+        ctx.register(PluginA())
 
         run_id = "run_disk_cache"
         _ = ctx.get_data(run_id, "data_a")
@@ -263,7 +263,7 @@ class TestCacheOptimization:
                 return np.array([1, 2, 3])
 
         ctx = Context()
-        ctx.register_plugin_(SimplePlugin())
+        ctx.register(SimplePlugin())
 
         # 首次获取 lineage
         lineage1 = ctx.get_lineage("test_data")
@@ -283,7 +283,7 @@ class TestCacheOptimization:
                 return np.array([1])
 
         ctx = Context()
-        ctx.register_plugin_(SimplePlugin())
+        ctx.register(SimplePlugin())
 
         # 首次调用 key_for
         key1 = ctx.key_for("run_001", "test_data")
@@ -305,7 +305,7 @@ class TestCacheOptimization:
                 return np.array([1])
 
         ctx = Context()
-        ctx.register_plugin_(PluginV1())
+        ctx.register(PluginV1())
 
         # 构建缓存
         ctx.get_lineage("data")
@@ -321,7 +321,7 @@ class TestCacheOptimization:
             def compute(self, context, run_id):
                 return np.array([2])
 
-        ctx.register_plugin_(PluginV2(), allow_override=True)
+        ctx.register(PluginV2(), allow_override=True)
 
         # 缓存应该已失效
         assert "data" not in ctx._lineage_cache
@@ -341,7 +341,7 @@ class TestCacheOptimization:
                 return np.array([1])
 
         ctx = Context()
-        ctx.register_plugin_(SimplePlugin())
+        ctx.register(SimplePlugin())
 
         # 构建缓存
         ctx.get_lineage("data")
@@ -384,9 +384,9 @@ class TestCacheOptimization:
                 return np.array([3])
 
         ctx = Context()
-        ctx.register_plugin_(PluginA())
-        ctx.register_plugin_(PluginB())
-        ctx.register_plugin_(PluginC())
+        ctx.register(PluginA())
+        ctx.register(PluginB())
+        ctx.register(PluginC())
 
         # 首次调用（构建缓存）
         start = time.perf_counter()
@@ -432,9 +432,9 @@ class TestCacheOptimization:
                 return np.array([3])
 
         ctx = Context()
-        ctx.register_plugin_(Plugin1())
-        ctx.register_plugin_(Plugin2())
-        ctx.register_plugin_(Plugin3())
+        ctx.register(Plugin1())
+        ctx.register(Plugin2())
+        ctx.register(Plugin3())
 
         # 构建完整的依赖链缓存
         lineage3 = ctx.get_lineage("level3")

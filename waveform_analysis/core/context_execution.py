@@ -37,7 +37,7 @@ class ContextExecutionDomain:
                 graph[name] = []
                 continue
             plugin = self.ctx._plugins[name]
-            deps = self.ctx._get_plugin_dependency_names(plugin, run_id=run_id)
+            deps = self.ctx._plugin_domain.get_dependency_names(plugin, run_id=run_id)
             # 仅保留在 plan 中的依赖
             graph[name] = [d for d in deps if d in plan]
         return graph
@@ -120,7 +120,7 @@ class ContextExecutionDomain:
             if name not in self.ctx._plugins:
                 return
             plugin = self.ctx._plugins[name]
-            for dep_name in self.ctx._get_plugin_dependency_names(plugin, run_id=run_id):
+            for dep_name in self.ctx._plugin_domain.get_dependency_names(plugin, run_id=run_id):
                 dfs(dep_name)
             needed.add(name)
 
@@ -150,7 +150,7 @@ class ContextExecutionDomain:
             return None
         try:
             total_bytes = 0
-            for dep_name in self.ctx._get_plugin_dependency_names(plugin, run_id=run_id):
+            for dep_name in self.ctx._plugin_domain.get_dependency_names(plugin, run_id=run_id):
                 dep_data = self.ctx._get_data_from_memory(run_id, dep_name)
                 if dep_data is not None:
                     if isinstance(dep_data, np.ndarray):

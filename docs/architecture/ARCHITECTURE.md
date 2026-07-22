@@ -162,9 +162,9 @@ flowchart TD
     end
 
     PARSE --> PARSE_SUB
-    PARSE_SUB --> MIXIN["PluginMixin.register_plugin_()"]
+    PARSE_SUB --> DOMAIN["ContextPluginDomain.register_plugin()"]
 
-    subgraph MIXIN_SUB["注册验证"]
+    subgraph DOMAIN_SUB["注册验证"]
         V1["plugin.validate()"]
         V2["检查 provides 唯一性"]
         V3["验证依赖版本兼容性"]
@@ -172,8 +172,8 @@ flowchart TD
         V5["注册到 _plugins 字典"]
     end
 
-    MIXIN --> MIXIN_SUB
-    MIXIN_SUB --> INVALIDATE["_invalidate_caches_for()"]
+    DOMAIN --> DOMAIN_SUB
+    DOMAIN_SUB --> INVALIDATE["_invalidate_caches_for()"]
     INVALIDATE --> DONE["注册完成"]
 
     style REG fill:#e3f2fd,stroke:#1976d2
@@ -183,7 +183,7 @@ flowchart TD
 **流程说明**：
 1. 用户调用 `ctx.register()` 注册插件
 2. Context 支持多种输入类型：实例、类、模块、序列
-3. `PluginMixin.register_plugin_()` 执行验证和注册
+3. `ContextPluginDomain.register_plugin()` 执行验证和注册
 4. 注册后自动失效相关缓存，确保数据一致性
 
 ### 3.2 血缘追踪流程
