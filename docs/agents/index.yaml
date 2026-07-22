@@ -842,6 +842,12 @@ doc_index:
     scope: architecture
     audience: agent
 
+  - id: plugin_documentation_dag
+    title: Plugin Documentation DAG
+    path: docs/agents/PLUGIN_DOCUMENTATION_DAG.md
+    scope: documentation
+    audience: agent
+
   - id: plugins
     title: Agent Plugins Guide
     path: docs/agents/plugins.md

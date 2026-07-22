@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["plugin_name", "summary", "steps", "edge_cases"],
+  "properties": {
+    "plugin_name": {"type": "string"},
+    "summary": {"type": "string"},
+    "overview": {"type": "string"},
+    "steps": {"type": "array"},
+    "edge_cases": {"type": "array"},
+    "operational_notes": {"type": "array"},
+    "source_fingerprint": {"type": "string"},
+    "plugin_version": {"type": "string"},
+    "generator_version": {"type": "string"}
+  }
+}

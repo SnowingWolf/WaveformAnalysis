@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["identity", "configuration", "output_fields"],
+  "properties": {
+    "identity": {"type": "object"},
+    "configuration": {"type": "object"},
+    "input_fields": {"type": "array"},
+    "output_fields": {"type": "array"},
+    "dependencies": {"type": "array"},
+    "observed_expressions": {"type": "array"},
+    "special_values": {"type": "object"},
+    "evidence": {"type": "array"}
+  }
+}

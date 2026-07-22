@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["plugin_name", "passed", "claims"],
+  "properties": {
+    "plugin_name": {"type": "string"},
+    "passed": {"type": "boolean"},
+    "claims": {"type": "array"},
+    "contradicted_claims": {"type": "integer"},
+    "unsupported_critical_claims": {"type": "integer"},
+    "blocking_ambiguities": {"type": "integer"}
+  }
+}

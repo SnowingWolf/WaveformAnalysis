@@ -34,6 +34,7 @@ dependencies = [
     "tqdm>=4.60.0",
     "joblib>=1.0.0",
     "jinja2>=3.0.0",
+    "PyYAML>=6.0.0",
     "plotly>=5.0.0",
 ]
 
@@ -83,6 +84,9 @@ exclude = ["tests*", "docs*", "examples*"]
 
 [tool.setuptools.package-data]
 waveform_analysis = [
+    "documentation/dags/*.yaml",
+    "documentation/prompts/*.md",
+    "documentation/schemas/*.json",
     "utils/templates/*.j2",
     "utils/templates/web/*.j2",
     "utils/templates/web/assets/*",
