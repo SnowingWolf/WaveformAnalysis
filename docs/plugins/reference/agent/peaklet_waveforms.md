@@ -1,71 +1,87 @@
-# peaklet_waveforms (PeakletWaveformPlugin)
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "agent"
+provides: "peaklet_waveforms"
+plugin_class: "PeakletWaveformPlugin"
+module: "waveform_analysis.core.plugins.builtin.peaks.peaklets"
+version: "1.3.1"
+summary: "Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion."
+depends_on: []
+output_kind: "structured_array"
+generated: true
+---
+# peaklet_waveforms
 
-> Agent-first 插件契约文档。面向自动化执行与改动评估。
+## Overview
 
-## Agent Contract
+Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion.
 
 | Item | Value |
-|------|-------|
+| --- | --- |
 | Provides | `peaklet_waveforms` |
-| Depends On | - |
-| Output Kind | `structured_array` |
-| Version | `1.3.1` |
+| Plugin Class | `PeakletWaveformPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
-| Accelerator | `cpu` |
+| Version | `1.3.1` |
+| Category | 波形处理 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-## Source Notes
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| - | - | - | - | - |
+## Configuration
 
-Peaklet clustering, ragged waveforms, features, and final peaks.
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `use_filtered` | `bool` | `False` | - | yes | no | 是否使用 wave_pool_filtered 构建 peaklet 波形 |
+| `clip_negative_signal` | `bool` | `False` | - | yes | no | 是否将 baseline/polarity 转换后的负信号裁剪为 0。默认保留负值。 |
+| `debug_numba` | `bool` | `False` | - | yes | no | 调试 peaklet waveform Numba 路径；启用后 Numba 异常直接抛出。 |
+| `log_waveform_diagnostics` | `bool` | `False` | - | yes | no | 记录 peaklet waveform 构建统计和耗时诊断信息。 |
+| `n_workers` | `int` | `1` | - | yes | no | 并行处理的进程数。1=单进程，0=自动（使用 CPU 核心数-1），>1=指定进程数 |
+| `parallel_threshold` | `int` | `5000` | - | yes | no | 启用并行化的最小 peaklet 数量。少于此数量时使用单进程 |
+## Output
 
-## Inputs
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `peak_id` | `int64` | - | - |
+| `time_start` | `int64` | - | - |
+| `time_end` | `int64` | - | - |
+| `dt` | `int32` | - | - |
+| `wave_offset` | `int64` | - | - |
+| `wave_length` | `int32` | - | - |
+## Usage
 
-- 无依赖输入（source plugin）
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import PeakletWaveformPlugin
 
-## Outputs
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(PeakletWaveformPlugin())
+data = ctx.get_data("run_001", "peaklet_waveforms")
+```
 
-| Field | DType | Meaning |
-|-------|-------|---------|
-| `peak_id` | `int64` | - |
-| `time_start` | `int64` | - |
-| `time_end` | `int64` | - |
-| `dt` | `int32` | - |
-| `wave_offset` | `int64` | - |
-| `wave_length` | `int32` | - |
+## Operational Notes
 
-## Config
+### Behavior
 
-| Name | Type | Default | Note |
-|------|------|---------|------|
-| `use_filtered` | `bool` | `False` | 是否使用 wave_pool_filtered 构建 peaklet 波形 |
-| `clip_negative_signal` | `bool` | `False` | 是否将 baseline/polarity 转换后的负信号裁剪为 0。默认保留负值。 |
-| `debug_numba` | `bool` | `False` | 调试 peaklet waveform Numba 路径；启用后 Numba 异常直接抛出。 |
-| `log_waveform_diagnostics` | `bool` | `False` | 记录 peaklet waveform 构建统计和耗时诊断信息。 |
-| `n_workers` | `int` | `1` | 并行处理的进程数。1=单进程，0=自动（使用 CPU 核心数-1），>1=指定进程数 |
-| `parallel_threshold` | `int` | `5000` | 启用并行化的最小 peaklet 数量。少于此数量时使用单进程 |
+- Peaklet clustering, ragged waveforms, features, and final peaks.
+### Failure Modes
 
-## Execution Path
+- Dependency data, configuration, or output contract validation may fail explicitly.
+### Downstream Impact
 
-`peaklet_waveforms` 依赖链入口：
-`SOURCE -> peaklet_waveforms`
+-
+## Maintenance
 
-## Failure Modes
+### Change Playbook
 
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
-
-## Change Playbook
-
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
-
-## Validation
+1. Keep `provides` and dependency semantics stable or update all consumers.
+2. Bump `version` for behavior, configuration, or output contract changes.
+3. Regenerate auto, agent, and web references after metadata changes.
+### Validation
 
 ```bash
-# 单插件文档再生成
 waveform-docs generate plugins-agent --plugin peaklet_waveforms
-
-# 覆盖率检查
-waveform-docs check coverage --strict
+waveform-docs check coverage --strict --fail-on-warning
 ```

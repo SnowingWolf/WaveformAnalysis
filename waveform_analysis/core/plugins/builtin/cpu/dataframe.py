@@ -24,6 +24,7 @@ from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     resolve_wave_input_spec,
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
+from waveform_analysis.core.plugins.core.spec import OutputSchema
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ class DataFramePlugin(Plugin):
     depends_on = []  # dynamic, resolved by resolve_depends_on
     description = "Build the initial single-channel events DataFrame."
     version = "1.7.0"
+    output_schema = OutputSchema(kind="dataframe", doc="Single-channel event table.")
     save_when = "always"
     uses_run_config = True
     options = {

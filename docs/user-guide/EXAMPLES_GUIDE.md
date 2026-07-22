@@ -191,13 +191,13 @@ for plugin_name, plugin_stats in stats.items():
 ```python
 from waveform_analysis.core.plugins.builtin.cpu import (
     FilteredWaveformsPlugin,
-    SignalPeaksPlugin,
+    HitFinderPlugin,
 )
 
 # 假设 ctx 已初始化并注册基础插件
 # 注册信号处理插件
 ctx.register(FilteredWaveformsPlugin())
-ctx.register(SignalPeaksPlugin())
+ctx.register(HitFinderPlugin())
 
 # 配置滤波器
 ctx.set_config({
@@ -212,7 +212,7 @@ ctx.set_config({
     'height': 10.0,
     'distance': 5,
     'prominence': 5.0,
-}, plugin_name='signal_peaks')
+}, plugin_name='hit')
 
 # 获取处理结果
 filtered = ctx.get_data('run_001', 'filtered_waveforms')
@@ -264,7 +264,7 @@ shutil.rmtree('./strax_data')
 
 ```python
 # 打印依赖树
-ctx.print_dependency_tree('df_paired')
+print(ctx.resolve_dependencies('df_paired'))
 
 # 可视化
 ctx.plot_lineage('df_paired', kind='labview')

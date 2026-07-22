@@ -129,9 +129,9 @@ raw_files ──► records ──► df ──► df_events
 | [`BasicFeaturesPlugin`](basic_features.md) | `basic_features` | 4.1.0 | 特征提取 | - |
 | [`CacheAnalysisPlugin`](cache_analysis.md) | `cache_analysis` | 0.1.0 | 缓存分析 | - |
 | [`DataFramePlugin`](df.md) | `df` | 1.7.0 | 数据导出 | - |
-| [`GroupedEventsPlugin`](df_events.md) | `df_events` | 0.0.0 | 事件分析 | df |
-| [`PairedEventsPlugin`](df_paired.md) | `df_paired` | 0.0.0 | 事件分析 | df_events |
-| [`EventPlugin`](events.md) | `events` | 0.0.0 | 事件分析 | s1_s2_pairs, position_reconstruction |
+| [`GroupedEventsPlugin`](df_events.md) | `df_events` | 0.0.1 | 事件分析 | df |
+| [`PairedEventsPlugin`](df_paired.md) | `df_paired` | 0.0.1 | 事件分析 | df_events |
+| [`EventPlugin`](events.md) | `events` | 0.0.1 | 事件分析 | s1_s2_pairs, position_reconstruction |
 | [`FilteredWaveformsPlugin`](filtered_waveforms.md) | `filtered_waveforms` | 3.0.0 | 波形处理 | st_waveforms |
 | [`HitFinderPlugin`](hit.md) | `hit` | 3.0.0 | 特征提取 | - |
 | [`HitGroupedPlugin`](hit_grouped.md) | `hit_grouped` | 0.5.0 | 特征提取 | hit_merged, hit_merged_components, hit_threshold |

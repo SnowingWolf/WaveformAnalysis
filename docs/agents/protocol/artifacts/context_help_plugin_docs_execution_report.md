@@ -1,0 +1,38 @@
+# execution_report
+
+- `task_id`: `context-help-plugin-docs-20260722`
+- `workflow_cost`: `strict`
+- `executor_role`: `executor.plugin`
+- `changed_paths`:
+  - `waveform_analysis/core/context.py` and `waveform_analysis/utils/context_help.py`
+  - plugin contract/spec metadata and non-array builtin plugin declarations
+  - plugin documentation generator, CLI, Markdown/HTML templates, and package data
+  - generated auto/agent Markdown, active user/agent docs, CI workflow, and focused tests
+- `actions_taken`:
+  - Removed `Context.quickstart()`, its static help topic, and its reserved name without a shim.
+  - Added terminal/Jupyter `HelpDocument` behavior and registered-plugin help with safe dynamic dependency fallback.
+  - Added formal `Plugin.output_schema`, conflict validation, lineage serialization, and all planned non-array schemas/version/help metadata.
+  - Replaced generated plugin pages with schema v1 exact four/six-section documents and a strict structure checker.
+  - Added offline autoescaped HTML generation, local search/assets, read-only serving, and wheel package data.
+  - Corrected active stale Context/plugin docs and the legacy hit merged features import proxy.
+- `commands_run`:
+  - focused pytest: `56 passed, 1 skipped`
+  - hit merged proxy pytest: `8 passed`
+  - strict doc coverage: `100%, 0 warnings`
+  - auto/agent generation: `35 plugins plus INDEX` per profile
+  - `assess_change_impact`: pass; output also included pre-existing dirty peaklet changes
+  - `schema_compat_check --run-smoke`: pass, no dtype changes
+  - `render_agent_docs --check`, doc sync, and doc anchors: pass
+  - ruff and `git diff --check`: pass
+  - sdist/wheel build: pass
+  - wheel install outside source tree and `plugins-web`: pass, 38 files
+  - full pytest: `1233 passed, 10 skipped, 4 failed`
+- `open_risks`:
+  - Full-suite failures are pre-existing/out-of-scope: events plugin-set count, two stress/peaklet expectations, and performance-check dependency registration.
+  - The working tree contains unrelated staged peaklet/benchmark changes; the commit must be constructed from an isolated HEAD worktree.
+  - Three version changes and newly lineaged non-array schemas intentionally cause one-time cache invalidation.
+- `requested_review_focus`:
+  - Help topic disambiguation, no-data/no-mutation behavior, and HTML escaping
+  - exact Markdown schema/sections/tables and INDEX exception
+  - explicit schema/dtype conflict handling and lineage participation
+  - package-data completeness and scoped commit isolation

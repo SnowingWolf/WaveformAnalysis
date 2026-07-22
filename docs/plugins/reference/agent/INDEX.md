@@ -22,14 +22,14 @@ waveform-docs generate plugins-agent --plugin raw_files
 | Provides | Plugin | Depends On | Output Kind | Version |
 |----------|--------|------------|-------------|---------|
 | [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | - | `structured_array` | `4.1.0` |
-| [`cache_analysis`](cache_analysis.md) | `CacheAnalysisPlugin` | - | `unknown` | `0.1.0` |
-| [`df`](df.md) | `DataFramePlugin` | - | `unknown` | `1.7.0` |
-| [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `unknown` | `0.0.0` |
-| [`df_paired`](df_paired.md) | `PairedEventsPlugin` | `df_events` | `unknown` | `0.0.0` |
-| [`events`](events.md) | `EventPlugin` | `s1_s2_pairs`, `position_reconstruction` | `structured_array` | `0.0.0` |
+| [`cache_analysis`](cache_analysis.md) | `CacheAnalysisPlugin` | - | `dict` | `0.1.0` |
+| [`df`](df.md) | `DataFramePlugin` | - | `dataframe` | `1.7.0` |
+| [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `dataframe` | `0.0.1` |
+| [`df_paired`](df_paired.md) | `PairedEventsPlugin` | `df_events` | `dataframe` | `0.0.1` |
+| [`events`](events.md) | `EventPlugin` | `s1_s2_pairs`, `position_reconstruction` | `structured_array` | `0.0.1` |
 | [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `structured_array` | `3.0.0` |
 | [`hit`](hit.md) | `HitFinderPlugin` | - | `structured_array` | `3.0.0` |
-| [`hit_grouped`](hit_grouped.md) | `HitGroupedPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold` | `unknown` | `0.5.0` |
+| [`hit_grouped`](hit_grouped.md) | `HitGroupedPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold` | `dataframe` | `0.5.0` |
 | [`hit_merge_clusters`](hit_merge_clusters.md) | `HitMergeClustersPlugin` | `hit_merged`, `hit_threshold` | `structured_array` | `1.1.0` |
 | [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold` | `structured_array` | `2.1.0` |
 | [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | `hit_merged`, `hit_threshold` | `structured_array` | `1.1.0` |
@@ -44,7 +44,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`peaklets`](peaklets.md) | `PeakletPlugin` | `hit_merged`, `peaklet_components` | `structured_array` | `1.1.0` |
 | [`peaks`](peaks.md) | `PeaksPlugin` | `peaklets`, `peaklet_features`, `peaklet_channels` | `structured_array` | `4.0.1` |
 | [`position_reconstruction`](position_reconstruction.md) | `PositionReconstructionPlugin` | `s1_s2_pairs` | `structured_array` | `0.2.1` |
-| [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | `unknown` | `0.0.2` |
+| [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | `list` | `0.0.2` |
 | [`records`](records.md) | `RecordsPlugin` | - | `structured_array` | `0.14.1` |
 | [`records_asymmetry_mask`](records_asymmetry_mask.md) | `RecordsAsymmetryMaskPlugin` | `records`, `wave_pool` | `array` | `0.2.0` |
 | [`records_detector_mask`](records_detector_mask.md) | `RecordsDetectorMaskPlugin` | `records`, `records_asymmetry_mask` | `array` | `0.1.0` |

@@ -12,12 +12,15 @@ import abc
 from collections.abc import Callable
 import inspect
 import logging
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 import warnings
 
 import numpy as np
 
 from waveform_analysis.core.foundation.utils import exporter
+
+if TYPE_CHECKING:
+    from waveform_analysis.core.plugins.core.spec import OutputSchema
 
 export, __all__ = exporter()
 
@@ -332,6 +335,7 @@ class Plugin(abc.ABC):
     options: dict[str, Option] = {}
     save_when: str = "never"
     output_dtype: np.dtype | None = None
+    output_schema: "OutputSchema | None" = None
     input_dtype: dict[str, np.dtype] = {}
     output_kind: Literal["static", "stream"] = "static"
     description: str = ""
@@ -578,6 +582,45 @@ class Plugin(abc.ABC):
         if self.output_dtype is not None and not isinstance(self.output_dtype, np.dtype | type):
             # Basic check, np.dtype constructor is very flexible
             pass
+
+        if self.output_schema is not None:
+            from waveform_analysis.core.plugins.core.spec import OutputSchema
+
+            if not isinstance(self.output_schema, OutputSchema):
+                raise TypeError(
+                    f"Plugin {self.provides}: 'output_schema' must be an OutputSchema instance"
+                )
+            if self.output_dtype is not None:
+                inferred = OutputSchema.from_dtype(np.dtype(self.output_dtype))
+                if self.output_schema.kind != inferred.kind:
+                    raise ValueError(
+                        f"Plugin {self.provides}: output_schema kind "
+                        f"{self.output_schema.kind!r} conflicts with output_dtype kind "
+                        f"{inferred.kind!r}"
+                    )
+                if self.output_schema.dtype is not None:
+                    try:
+                        schema_dtype = np.dtype(self.output_schema.dtype)
+                    except (TypeError, ValueError) as exc:
+                        raise ValueError(
+                            f"Plugin {self.provides}: invalid output_schema dtype "
+                            f"{self.output_schema.dtype!r}"
+                        ) from exc
+                    if schema_dtype != np.dtype(self.output_dtype):
+                        raise ValueError(
+                            f"Plugin {self.provides}: output_schema dtype conflicts with output_dtype"
+                        )
+                if self.output_schema.fields:
+                    schema_fields = [
+                        (field.name, np.dtype(field.dtype)) for field in self.output_schema.fields
+                    ]
+                    inferred_fields = [
+                        (field.name, np.dtype(field.dtype)) for field in inferred.fields
+                    ]
+                    if schema_fields != inferred_fields:
+                        raise ValueError(
+                            f"Plugin {self.provides}: output_schema fields conflict with output_dtype"
+                        )
 
         # Validate input_dtype keys against depends_on
         for dep, _dt in self.input_dtype.items():

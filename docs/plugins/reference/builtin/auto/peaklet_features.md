@@ -1,36 +1,46 @@
-# PeakletFeaturesPlugin
-
-> Compute peaklet waveform features from ragged signal pools.
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "peaklet_features"
+plugin_class: "PeakletFeaturesPlugin"
+module: "waveform_analysis.core.plugins.builtin.peaks.peaklets"
+version: "4.0.0"
+summary: "Compute peaklet waveform features from ragged signal pools."
+depends_on: ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
+output_kind: "structured_array"
+generated: true
+---
+# peaklet_features
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `peaklet_features` |
-| **Version** | `4.0.0` |
-| **Category** | 特征提取 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Compute peaklet waveform features from ragged signal pools.
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `peaklet_features` |
+| Plugin Class | `PeakletFeaturesPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
+| Version | `4.0.0` |
+| Category | 特征提取 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-This plugin depends on the following data:
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `peaklet_waveforms` | - | declared | - | - |
+| `peaklet_waveform_pool` | - | declared | - | - |
+| `peaklets` | - | declared | - | - |
+## Configuration
 
-- [`peaklet_waveforms`](peaklet_waveforms.md)
-- [`peaklet_waveform_pool`](peaklet_waveform_pool.md)
-- [`peaklets`](peaklets.md)
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| - | - | - | - | - | - | - |
+## Output
 
-## Configuration Options
-
-This plugin has no configuration options.
-
-## Output Schema
-
-**Output Type**: `structured_array`
-
-| Field | Type | Units | Description |
-|-------|------|-------|-------------|
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
 | `peak_id` | `int64` | - | - |
 | `time_start` | `int64` | - | - |
 | `time_end` | `int64` | - | - |
@@ -44,25 +54,13 @@ This plugin has no configuration options.
 | `area` | `float32` | - | - |
 | `height` | `float32` | - | - |
 | `width` | `float32` | - | - |
-
-## Usage Example
+## Usage
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import PeakletFeaturesPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PeakletFeaturesPlugin())
-
-# Get data
 data = ctx.get_data("run_001", "peaklet_features")
 ```
-
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.peaks.peaklets`
-
----
-
-*This documentation was auto-generated from plugin metadata.*

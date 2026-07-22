@@ -1,62 +1,78 @@
-# records_veto_mask (RecordsVetoMaskPlugin)
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "agent"
+provides: "records_veto_mask"
+plugin_class: "RecordsVetoMaskPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.records_channel_role"
+version: "0.1.0"
+summary: "Bool mask for veto-channel records after channel-role splitting."
+depends_on: ["records", "records_asymmetry_mask"]
+output_kind: "array"
+generated: true
+---
+# records_veto_mask
 
-> Agent-first 插件契约文档。面向自动化执行与改动评估。
+## Overview
 
-## Agent Contract
+Bool mask for veto-channel records after channel-role splitting.
 
 | Item | Value |
-|------|-------|
+| --- | --- |
 | Provides | `records_veto_mask` |
-| Depends On | `records`, `records_asymmetry_mask` |
-| Output Kind | `array` |
-| Version | `0.1.0` |
+| Plugin Class | `RecordsVetoMaskPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.records_channel_role` |
-| Accelerator | `cpu` |
+| Version | `0.1.0` |
+| Category | 记录处理 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `array` |
 
-## Source Notes
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `records` | - | declared | - | - |
+| `records_asymmetry_mask` | - | declared | - | - |
+## Configuration
 
-Records-backed channel role masks for detector/veto splitting.
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `channel_config` | `dict` | `None` | - | yes | no | 按 (board, channel) 的通道角色配置；role='detector' 进入正常 hit，role='veto' 仅作为 veto 通道保留。 |
+## Output
 
-## Inputs
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `value` | `bool` | - | - |
+## Usage
 
-- `records`
-- `records_asymmetry_mask`
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import RecordsVetoMaskPlugin
 
-## Outputs
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(RecordsVetoMaskPlugin())
+data = ctx.get_data("run_001", "records_veto_mask")
+```
 
-| Field | DType | Meaning |
-|-------|-------|---------|
-| `value` | `bool` | - |
+## Operational Notes
 
-## Config
+### Behavior
 
-| Name | Type | Default | Note |
-|------|------|---------|------|
-| `channel_config` | `dict` | `None` | 按 (board, channel) 的通道角色配置；role='detector' 进入正常 hit，role='veto' 仅作为 veto 通道保留。 |
+- Records-backed channel role masks for detector/veto splitting.
+### Failure Modes
 
-## Execution Path
+- Dependency data, configuration, or output contract validation may fail explicitly.
+### Downstream Impact
 
-`records_veto_mask` 依赖链入口：
-`records -> records_asymmetry_mask -> records_veto_mask`
+-
+## Maintenance
 
-## Failure Modes
+### Change Playbook
 
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
-
-## Change Playbook
-
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
-
-## Validation
+1. Keep `provides` and dependency semantics stable or update all consumers.
+2. Bump `version` for behavior, configuration, or output contract changes.
+3. Regenerate auto, agent, and web references after metadata changes.
+### Validation
 
 ```bash
-# 单插件文档再生成
 waveform-docs generate plugins-agent --plugin records_veto_mask
-
-# 覆盖率检查
-waveform-docs check coverage --strict
+waveform-docs check coverage --strict --fail-on-warning
 ```

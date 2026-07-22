@@ -1,74 +1,90 @@
-# wave_pool (WavePoolPlugin)
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "agent"
+provides: "wave_pool"
+plugin_class: "WavePoolPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.records"
+version: "0.14.1"
+summary: "Build wave_pool from the shared internal records bundle."
+depends_on: []
+output_kind: "array"
+generated: true
+---
+# wave_pool
 
-> Agent-first 插件契约文档。面向自动化执行与改动评估。
+## Overview
 
-## Agent Contract
+Build wave_pool from the shared internal records bundle.
 
 | Item | Value |
-|------|-------|
+| --- | --- |
 | Provides | `wave_pool` |
-| Depends On | - |
-| Output Kind | `array` |
-| Version | `0.14.1` |
+| Plugin Class | `WavePoolPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.records` |
-| Accelerator | `cpu` |
+| Version | `0.14.1` |
+| Category | 波形处理 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `array` |
 
-## Source Notes
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| - | - | - | - | - |
+## Configuration
 
-Records/wave_pool plugins backed by an internal shared RecordsBundle cache.
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `daq_adapter` | `str` | `vx2730` | - | yes | no | DAQ adapter name for records bundle (e.g., 'vx2730', 'v1725'). |
+| `channel_workers` | `any` | `None` | - | no | no | Workers for channel-level waveform loading (None=auto). |
+| `channel_executor` | `str` | `thread` | - | no | no | Executor type for channel-level loading and records merge: 'thread' or 'process'. |
+| `n_jobs` | `int` | `None` | - | no | no | Workers per channel for file-level parsing; V1725 None=auto caps file readers at 4. |
+| `use_process_pool` | `bool` | `False` | - | no | no | Use a process pool for file-level parsing (False=thread pool). |
+| `chunksize` | `int` | `None` | - | no | no | CSV read chunk size; None reads full file (PyArrow if available). |
+| `parse_engine` | `str` | `auto` | - | no | no | CSV engine: auto \| polars \| pyarrow \| pandas |
+| `records_part_size` | `int` | `250000` | - | yes | no | Max events per records shard; <=0 disables sharding. |
+| `v1725_part_size` | `int` | `100000` | - | yes | no | Max V1725 waves per per-file records shard; <=0 uses one shard per file. |
+| `keep_on_disk` | `any` | `None` | - | yes | no | Keep merged records bundle disk-backed. None defaults to True for V1725 and False otherwise. |
+| `memory_budget_gb` | `float` | `50.0` | - | yes | no | Memory budget in GB for in-memory records bundle materialization. |
+| `dt` | `int` | `None` | - | yes | no | Sample interval in ns for records.dt (defaults to adapter rate or 1ns). |
+| `baseline_samples` | `any` | `None` | - | yes | no | Baseline range: int (sample count from adapter start) or tuple (start, end) relative to samples_start. JSON lists like [0, 800] are also accepted. None=adapter default. |
+| `input_source` | `str` | `raw_files` | - | yes | no | Input source for records bundle: 'raw_files' or 'st_waveforms'. Use 'st_waveforms' for the materialized waveform path. |
+## Output
 
-## Inputs
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `value` | `uint16` | - | - |
+## Usage
 
-- 无依赖输入（source plugin）
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import WavePoolPlugin
 
-## Outputs
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(WavePoolPlugin())
+data = ctx.get_data("run_001", "wave_pool")
+```
 
-| Field | DType | Meaning |
-|-------|-------|---------|
-| `value` | `uint16` | - |
+## Operational Notes
 
-## Config
+### Behavior
 
-| Name | Type | Default | Note |
-|------|------|---------|------|
-| `daq_adapter` | `str` | `vx2730` | DAQ adapter name for records bundle (e.g., 'vx2730', 'v1725'). |
-| `channel_workers` | `any` | `None` | Workers for channel-level waveform loading (None=auto). |
-| `channel_executor` | `str` | `thread` | Executor type for channel-level loading and records merge: 'thread' or 'process'. |
-| `n_jobs` | `int` | `None` | Workers per channel for file-level parsing; V1725 None=auto caps file readers at 4. |
-| `use_process_pool` | `bool` | `False` | Use a process pool for file-level parsing (False=thread pool). |
-| `chunksize` | `int` | `None` | CSV read chunk size; None reads full file (PyArrow if available). |
-| `parse_engine` | `str` | `auto` | CSV engine: auto | polars | pyarrow | pandas |
-| `records_part_size` | `int` | `250000` | Max events per records shard; <=0 disables sharding. |
-| `v1725_part_size` | `int` | `100000` | Max V1725 waves per per-file records shard; <=0 uses one shard per file. |
-| `keep_on_disk` | `any` | `None` | Keep merged records bundle disk-backed. None defaults to True for V1725 and False otherwise. |
-| `memory_budget_gb` | `float` | `50.0` | Memory budget in GB for in-memory records bundle materialization. |
-| `dt` | `int` | `None` | Sample interval in ns for records.dt (defaults to adapter rate or 1ns). |
-| `baseline_samples` | `any` | `None` | Baseline range: int (sample count from adapter start) or tuple (start, end) relative to samples_start. JSON lists like [0, 800] are also accepted. None=adapter default. |
-| `input_source` | `str` | `raw_files` | Input source for records bundle: 'raw_files' or 'st_waveforms'. Use 'st_waveforms' for the materialized waveform path. |
+- Records/wave_pool plugins backed by an internal shared RecordsBundle cache.
+### Failure Modes
 
-## Execution Path
+- Dependency data, configuration, or output contract validation may fail explicitly.
+### Downstream Impact
 
-`wave_pool` 依赖链入口：
-`SOURCE -> wave_pool`
+-
+## Maintenance
 
-## Failure Modes
+### Change Playbook
 
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
-
-## Change Playbook
-
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
-
-## Validation
+1. Keep `provides` and dependency semantics stable or update all consumers.
+2. Bump `version` for behavior, configuration, or output contract changes.
+3. Regenerate auto, agent, and web references after metadata changes.
+### Validation
 
 ```bash
-# 单插件文档再生成
 waveform-docs generate plugins-agent --plugin wave_pool
-
-# 覆盖率检查
-waveform-docs check coverage --strict
+waveform-docs check coverage --strict --fail-on-warning
 ```

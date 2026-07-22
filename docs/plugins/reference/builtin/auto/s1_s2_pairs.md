@@ -1,39 +1,46 @@
-# S1S2PairSelectionPlugin
-
-> Select best S1-S2 pairs from candidates
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "s1_s2_pairs"
+plugin_class: "S1S2PairSelectionPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_selection"
+version: "0.2.0"
+summary: "Select best S1-S2 pairs from candidates"
+depends_on: ["s1_s2_pair_candidates"]
+output_kind: "structured_array"
+generated: true
+---
+# s1_s2_pairs
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `s1_s2_pairs` |
-| **Version** | `0.2.0` |
-| **Category** | 事件分析 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Select best S1-S2 pairs from candidates
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `s1_s2_pairs` |
+| Plugin Class | `S1S2PairSelectionPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_selection` |
+| Version | `0.2.0` |
+| Category | 事件分析 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-This plugin depends on the following data:
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `s1_s2_pair_candidates` | - | declared | - | - |
+## Configuration
 
-- [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md)
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `selection_mode` | `str` | `largest` | - | yes | no | 选择策略: largest (最大S1), nearest (最近), best_score (综合), all (全部) |
+| `close_competitor_threshold` | `float` | `0.1` | - | yes | no | 次优候选接近阈值。delta_score < threshold 时标记 FLAG_CLOSE_COMPETITOR |
+| `require_s2_larger_than_s1` | `bool` | `True` | - | yes | no | 是否要求 S2_area > S1_area。这是液氙探测器的物理约束。 |
+## Output
 
-## Configuration Options
-
-| Option | Type | Default | Units | Description |
-|--------|------|---------|-------|-------------|
-| `selection_mode` | `str` | `largest` | - | 选择策略: largest (最大S1), nearest (最近), best_score (综合), all (全部) |
-| `close_competitor_threshold` | `float` | `0.1` | - | 次优候选接近阈值。delta_score < threshold 时标记 FLAG_CLOSE_COMPETITOR |
-| `require_s2_larger_than_s1` | `bool` | `True` | - | 是否要求 S2_area > S1_area。这是液氙探测器的物理约束。 |
-
-
-## Output Schema
-
-**Output Type**: `structured_array`
-
-| Field | Type | Units | Description |
-|-------|------|-------|-------------|
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
 | `pair_id` | `int64` | - | - |
 | `s1_peak_id` | `int64` | - | - |
 | `s2_peak_id` | `int64` | - | - |
@@ -64,32 +71,13 @@ This plugin depends on the following data:
 | `delta_score_to_next_best` | `float32` | - | - |
 | `flags` | `uint32` | - | - |
 | `selected` | `bool` | - | - |
-
-## Usage Example
+## Usage
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import S1S2PairSelectionPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(S1S2PairSelectionPlugin())
-
-# Configure plugin (optional)
-ctx.set_config({
-    "selection_mode": 'largest',
-    "close_competitor_threshold": 0.1,
-    "require_s2_larger_than_s1": True,
-}, plugin_name="s1_s2_pairs")
-
-# Get data
 data = ctx.get_data("run_001", "s1_s2_pairs")
 ```
-
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_selection`
-
----
-
-*This documentation was auto-generated from plugin metadata.*

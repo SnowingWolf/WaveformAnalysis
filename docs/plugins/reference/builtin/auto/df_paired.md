@@ -1,47 +1,52 @@
-# PairedEventsPlugin
-
-> Pair grouped events across channels for coincidence analysis.
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "df_paired"
+plugin_class: "PairedEventsPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.event_analysis"
+version: "0.0.1"
+summary: "Pair grouped events across channels for coincidence analysis."
+depends_on: ["df_events"]
+output_kind: "dataframe"
+generated: true
+---
+# df_paired
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `df_paired` |
-| **Version** | `0.0.0` |
-| **Category** | 事件分析 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Pair grouped events across channels for coincidence analysis.
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `df_paired` |
+| Plugin Class | `PairedEventsPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.cpu.event_analysis` |
+| Version | `0.0.1` |
+| Category | 事件分析 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `dataframe` |
 
-This plugin depends on the following data:
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `df_events` | - | declared | - | - |
+## Configuration
 
-- [`df_events`](df_events.md)
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| - | - | - | - | - | - | - |
+## Output
 
-## Configuration Options
-
-This plugin has no configuration options.
-
-
-## Usage Example
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| - | `dataframe` | - | Pair grouped events across channels for coincidence analysis. |
+## Usage
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import PairedEventsPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PairedEventsPlugin())
-
-# Get data
 data = ctx.get_data("run_001", "df_paired")
 ```
-
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.event_analysis`
-
----
-
-*This documentation was auto-generated from plugin metadata.*

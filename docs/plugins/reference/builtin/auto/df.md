@@ -1,57 +1,54 @@
-# DataFramePlugin
-
-> Build the initial single-channel events DataFrame.
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "df"
+plugin_class: "DataFramePlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.dataframe"
+version: "1.7.0"
+summary: "Build the initial single-channel events DataFrame."
+depends_on: []
+output_kind: "dataframe"
+generated: true
+---
+# df
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `df` |
-| **Version** | `1.7.0` |
-| **Category** | 数据导出 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Build the initial single-channel events DataFrame.
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `df` |
+| Plugin Class | `DataFramePlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.cpu.dataframe` |
+| Version | `1.7.0` |
+| Category | 数据导出 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `dataframe` |
 
-This plugin has no dependencies.
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| - | - | - | - | - |
+## Configuration
 
-## Configuration Options
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `use_filtered` | `bool` | `False` | - | yes | no | 是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin） |
+| `wave_source` | `str` | `auto` | - | yes | no | 波形数据源: auto\|records\|st_waveforms\|filtered_waveforms |
+| `gain_adc_per_pe` | `dict` | `None` | - | yes | no | 按硬件通道配置 ADC/PE 增益，键请使用 "board:channel"，例如 {"0:0": 12.5, "0:1": 13.2}。设置后会新增 area_pe/height_pe 列。 |
+## Output
 
-| Option | Type | Default | Units | Description |
-|--------|------|---------|-------|-------------|
-| `use_filtered` | `bool` | `False` | - | 是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin） |
-| `wave_source` | `str` | `auto` | - | 波形数据源: auto|records|st_waveforms|filtered_waveforms |
-| `gain_adc_per_pe` | `dict` | `None` | - | 按硬件通道配置 ADC/PE 增益，键请使用 "board:channel"，例如 {"0:0": 12.5, "0:1": 13.2}。设置后会新增 area_pe/height_pe 列。 |
-
-
-
-## Usage Example
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| - | `dataframe` | - | Build the initial single-channel events DataFrame. |
+## Usage
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import DataFramePlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(DataFramePlugin())
-
-# Configure plugin (optional)
-ctx.set_config({
-    "use_filtered": False,
-    "wave_source": 'auto',
-    "gain_adc_per_pe": None,
-}, plugin_name="df")
-
-# Get data
 data = ctx.get_data("run_001", "df")
 ```
-
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.dataframe`
-
----
-
-*This documentation was auto-generated from plugin metadata.*

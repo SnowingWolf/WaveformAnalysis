@@ -96,19 +96,18 @@ def preview_execution(
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import *
+from waveform_analysis.core.plugins import profiles
 
 # 创建 Context 并注册插件
 ctx = Context(storage_dir="./strax_data")
-ctx.register(RawFilesPlugin(), WaveformsPlugin())
-ctx.register(FilteredWaveformsPlugin(), SignalPeaksPlugin())
+ctx.register(*profiles.cpu_default())
 
 # 设置配置
 ctx.set_config({"data_root": "DAQ", "daq_adapter": "vx2730"})
 ctx.set_config({"filter_type": "SG"}, plugin_name="filtered_waveforms")
 
 # 预览执行计划
-ctx.preview_execution('run_001', 'signal_peaks')
+ctx.preview_execution('run_001', 'peaks')
 ```
 
 **输出示例：**

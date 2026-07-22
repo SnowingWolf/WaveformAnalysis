@@ -9,6 +9,8 @@ WaveformAnalysis 文档生成工具 CLI
 """
 
 import argparse
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import sys
 
@@ -37,7 +39,7 @@ def main():
     gen_parser = subparsers.add_parser("generate", help="生成文档")
     gen_parser.add_argument(
         "doc_type",
-        choices=["plugins-auto", "plugins-agent"],
+        choices=["plugins-auto", "plugins-agent", "plugins-web"],
         help="文档类型",
     )
     gen_parser.add_argument("--output", "-o", type=str, help="输出路径（文件或目录）")
@@ -72,6 +74,11 @@ def main():
         help="有警告时也失败",
     )
 
+    serve_parser = subparsers.add_parser("serve", help="服务已生成的静态文档目录")
+    serve_parser.add_argument("--directory", type=str, required=True, help="现有站点目录")
+    serve_parser.add_argument("--host", default="127.0.0.1", help="监听地址")
+    serve_parser.add_argument("--port", default=8000, type=int, help="监听端口")
+
     args = parser.parse_args()
 
     # 检查命令
@@ -84,12 +91,16 @@ def main():
         return cmd_generate(args)
     elif args.command == "check":
         return cmd_check(args)
+    elif args.command == "serve":
+        return cmd_serve(args)
 
     return 0
 
 
 def cmd_generate(args):
     """处理 generate 命令"""
+    if args.doc_type == "plugins-web":
+        return generate_plugins_web(args)
     if args.doc_type == "plugins-agent":
         return generate_plugins_docs(
             args=args,
@@ -103,6 +114,49 @@ def cmd_generate(args):
         default_output="docs/plugins/reference/builtin/auto",
         label="builtin 插件文档",
     )
+
+
+def generate_plugins_web(args):
+    """Generate the offline plugin HTML site."""
+    if args.plugin:
+        print("❌ plugins-web only supports full-site generation")
+        return 1
+    try:
+        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+
+        output_path = Path(args.output or "docs/_site")
+        generator = PluginDocGenerator()
+        count = generator.load_builtin_plugins()
+        results = generator.generate_web(output_path)
+        print(f"✅ 已生成插件静态站点: {count} 个插件")
+        print(f"   输出目录: {output_path}")
+        print(f"   文件数: {len(results)}")
+        return 0
+    except Exception as exc:
+        print(f"❌ 生成静态站点时出错: {exc}")
+        return 1
+
+
+def cmd_serve(args):
+    """Serve an existing directory without generating files or opening a browser."""
+    directory = Path(args.directory).resolve()
+    if not directory.is_dir():
+        print(f"❌ 站点目录不存在: {directory}")
+        return 1
+    handler = partial(SimpleHTTPRequestHandler, directory=str(directory))
+    try:
+        server = ThreadingHTTPServer((args.host, args.port), handler)
+    except OSError as exc:
+        print(f"❌ 无法启动服务器: {exc}")
+        return 1
+    print(f"Serving {directory} at http://{args.host}:{args.port}/")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+    return 0
 
 
 def generate_plugins_docs(args, profile, default_output, label):

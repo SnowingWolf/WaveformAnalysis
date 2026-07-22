@@ -10,6 +10,7 @@
 
 `waveform-docs` 提供以下功能：
 - 自动生成内置插件文档
+- 生成完全离线的插件 HTML 站点并在本机预览
 - 检查文档覆盖率
 
 ---
@@ -40,6 +41,14 @@ waveform-docs generate <文档类型> [选项]
 waveform-docs check coverage [选项]
 ```
 
+### serve - 本地预览
+
+只服务已存在的静态站点目录，不生成站点，也不打开浏览器。
+
+```bash
+waveform-docs serve --directory docs/_site --host 127.0.0.1 --port 8000
+```
+
 ---
 
 ## 文档类型
@@ -48,6 +57,7 @@ waveform-docs check coverage [选项]
 |------|------|----------|
 | `plugins-auto` | 自动生成内置插件文档 | `docs/plugins/reference/builtin/auto/` |
 | `plugins-agent` | 生成 agent 导向插件文档 | `docs/plugins/reference/agent/` |
+| `plugins-web` | 生成离线插件 HTML 站点 | `docs/_site/` |
 
 ---
 
@@ -92,6 +102,9 @@ waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
 
 # 生成单个插件文档
 waveform-docs generate plugins-agent --plugin raw_files
+
+# 生成离线 HTML 站点
+waveform-docs generate plugins-web -o docs/_site
 ```
 
 ### 2. 检查文档覆盖率
@@ -132,6 +145,10 @@ waveform-docs check coverage --fail-on-warning
 Agent 导向文档默认位于 `docs/plugins/reference/agent/`：
 - `INDEX.md`（agent 索引页）
 - `<provides>.md`（每个插件一页）
+
+HTML 站点位于 `docs/_site/`，包含 `index.html`、`plugins/<provides>.html` 与
+本地 `assets/site.css` / `assets/site.js`。站点不引用 CDN 或外部资源，目录属于派生产物，
+不会提交到仓库。
 
 ---
 

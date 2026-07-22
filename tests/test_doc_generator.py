@@ -192,8 +192,9 @@ class TestPluginDocGenerator:
         doc_info = generator.extract_doc_info(MockPlugin, MockPlugin())
         content = generator.render_plugin_page(doc_info, profile="agent")
 
-        assert "Agent Contract" in content
-        assert "Change Playbook" in content
+        assert 'profile: "agent"' in content
+        assert "## Operational Notes" in content
+        assert "### Change Playbook" in content
         assert "mock_data" in content
 
     def test_render_agent_index_page(self):
@@ -249,7 +250,8 @@ class TestPluginDocGenerator:
             assert (output_dir / "INDEX.md").exists()
 
             content = (output_dir / "mock_data.md").read_text()
-            assert "Agent Contract" in content
+            assert 'profile: "agent"' in content
+            assert "## Maintenance" in content
 
     def test_load_builtin_plugins(self):
         """测试加载内置插件"""

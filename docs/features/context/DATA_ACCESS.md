@@ -413,6 +413,12 @@ filtered = df[df['charge'] > 100]
 
 ## 常见问题
 
+### 查询已注册插件但不读取数据
+
+`ctx.help("plugins")` 只列出当前 Context 已注册的插件；`ctx.help("<provides>")` 和
+`ctx.help("plugin:<provides>", run_id=...)` 返回插件契约说明。只有显式提供 `run_id` 时才尝试
+解析动态依赖，失败会回退到声明依赖。该帮助路径不调用 `get_data()`，也不会创建缓存。
+
 ### Q1: 数据获取很慢怎么办？
 
 ```python

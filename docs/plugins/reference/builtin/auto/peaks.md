@@ -1,36 +1,46 @@
-# PeaksPlugin
-
-> Build final peaks table from peaklets and waveform-derived features.
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "peaks"
+plugin_class: "PeaksPlugin"
+module: "waveform_analysis.core.plugins.builtin.peaks.peaklets"
+version: "4.0.1"
+summary: "Build final peaks table from peaklets and waveform-derived features."
+depends_on: ["peaklets", "peaklet_features", "peaklet_channels"]
+output_kind: "structured_array"
+generated: true
+---
+# peaks
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `peaks` |
-| **Version** | `4.0.1` |
-| **Category** | 特征提取 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Build final peaks table from peaklets and waveform-derived features.
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `peaks` |
+| Plugin Class | `PeaksPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
+| Version | `4.0.1` |
+| Category | 特征提取 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-This plugin depends on the following data:
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `peaklets` | - | declared | - | - |
+| `peaklet_features` | - | declared | - | - |
+| `peaklet_channels` | - | declared | - | - |
+## Configuration
 
-- [`peaklets`](peaklets.md)
-- [`peaklet_features`](peaklet_features.md)
-- [`peaklet_channels`](peaklet_channels.md)
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| - | - | - | - | - | - | - |
+## Output
 
-## Configuration Options
-
-This plugin has no configuration options.
-
-## Output Schema
-
-**Output Type**: `structured_array`
-
-| Field | Type | Units | Description |
-|-------|------|-------|-------------|
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
 | `peak_id` | `int64` | - | - |
 | `time_start` | `int64` | - | - |
 | `time_end` | `int64` | - | - |
@@ -46,25 +56,13 @@ This plugin has no configuration options.
 | `width` | `float32` | - | - |
 | `n_hits` | `int32` | - | - |
 | `n_channels` | `int32` | - | - |
-
-## Usage Example
+## Usage
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import PeaksPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PeaksPlugin())
-
-# Get data
 data = ctx.get_data("run_001", "peaks")
 ```
-
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.peaks.peaklets`
-
----
-
-*This documentation was auto-generated from plugin metadata.*

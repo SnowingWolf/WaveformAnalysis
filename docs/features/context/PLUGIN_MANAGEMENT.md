@@ -31,7 +31,7 @@
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin,
+    RawFileNamesPlugin,
     WaveformsPlugin,
 )
 
@@ -39,7 +39,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 ctx = Context(storage_dir="./cache")
 
 # 注册单个插件实例
-ctx.register(RawFilesPlugin())
+ctx.register(RawFileNamesPlugin())
 
 # 注册插件类（会自动实例化）
 ctx.register(WaveformsPlugin)
@@ -49,14 +49,14 @@ ctx.register(WaveformsPlugin)
 
 ```python
 # 方式 1: 注册插件实例
-ctx.register(RawFilesPlugin())
+ctx.register(RawFileNamesPlugin())
 
 # 方式 2: 注册插件类（自动实例化）
 ctx.register(WaveformsPlugin)
 
 # 方式 3: 一次注册多个插件
 ctx.register(
-    RawFilesPlugin(),
+    RawFileNamesPlugin(),
     WaveformsPlugin()
 )
 
@@ -65,7 +65,7 @@ import waveform_analysis.core.plugins.builtin.cpu as cpu
 ctx.register(cpu)  # 自动发现并注册模块中所有 Plugin 子类
 
 # 方式 5: 使用列表批量注册
-plugins = [RawFilesPlugin(), WaveformsPlugin()]
+plugins = [RawFileNamesPlugin(), WaveformsPlugin()]
 ctx.register(*plugins)
 ```
 
@@ -73,7 +73,7 @@ ctx.register(*plugins)
 
 ```python
 # 注册后，通过数据名称访问
-ctx.register(RawFilesPlugin())  # provides = "raw_files"
+ctx.register(RawFileNamesPlugin())  # provides = "raw_files"
 ctx.register(WaveformsPlugin())  # provides = "st_waveforms"
 
 # 获取数据时自动执行插件
@@ -167,7 +167,7 @@ print(f"可并行组: {analysis.parallel_groups}")
 
 ```python
 from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin,
+    RawFileNamesPlugin,
     WaveformsPlugin,
     BasicFeaturesPlugin,
     DataFramePlugin,
@@ -177,7 +177,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 
 # 一次注册完整的处理流水线
 ctx.register(
-    RawFilesPlugin(),
+    RawFileNamesPlugin(),
     WaveformsPlugin(),
     BasicFeaturesPlugin(),
     DataFramePlugin(),
@@ -203,12 +203,12 @@ ctx.register(
 ```python
 from waveform_analysis.core.plugins.builtin.cpu import (
     FilteredWaveformsPlugin,
-    SignalPeaksPlugin,
+    HitFinderPlugin,
 )
 
 ctx.register(
     FilteredWaveformsPlugin(),
-    SignalPeaksPlugin(),
+    HitFinderPlugin(),
 )
 ```
 
@@ -230,16 +230,16 @@ print(ctx.list_provided_data())
 ### 默认行为（禁止覆盖）
 
 ```python
-ctx.register(RawFilesPlugin())
-ctx.register(RawFilesPlugin())  # RuntimeError: 插件已注册
+ctx.register(RawFileNamesPlugin())
+ctx.register(RawFileNamesPlugin())  # RuntimeError: 插件已注册
 ```
 
 ### 允许覆盖
 
 ```python
 # 使用 allow_override=True 允许覆盖
-ctx.register(RawFilesPlugin())
-ctx.register(RawFilesPlugin(), allow_override=True)  # 成功覆盖
+ctx.register(RawFileNamesPlugin())
+ctx.register(RawFileNamesPlugin(), allow_override=True)  # 成功覆盖
 ```
 
 ### 覆盖场景
@@ -247,7 +247,7 @@ ctx.register(RawFilesPlugin(), allow_override=True)  # 成功覆盖
 ```python
 # 场景：使用自定义版本替换内置插件
 class MyCustomWaveformsPlugin(Plugin):
-    provides = "waveforms"  # 与内置插件相同
+    provides = "st_waveforms"  # 与内置插件相同
     depends_on = ["raw_files"]
 
     def compute(self, context, run_id, **kwargs):
@@ -324,8 +324,8 @@ Context 在执行插件时会识别以下可选钩子/属性，用于覆盖默�
 
 **A**: 查看插件的 `provides` 属性：
 ```python
-print(RawFilesPlugin.provides)  # 'raw_files'
-print(WaveformsPlugin.provides)  # 'waveforms'
+print(RawFileNamesPlugin.provides)  # 'raw_files'
+print(WaveformsPlugin.provides)  # 'st_waveforms'
 ```
 
 ### Q2: 插件执行顺序如何确定？

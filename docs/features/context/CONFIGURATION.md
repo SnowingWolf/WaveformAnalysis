@@ -107,6 +107,10 @@ ctx.set_config(
 的插件，配置选项明细会明确显示“该插件没有配置选项”，不会再尝试对空配置表排序或
 设置索引。
 
+`ctx.help("config")` 返回 `HelpDocument`：终端中打印纯文本一次，Jupyter 中由 displayhook
+显示 HTML。帮助查询不会解析 run 配置、执行插件或修改 Context；需要检查实际配置来源时仍应使用
+`get_resolved_config()` / `show_resolved_config()`。
+
 ## 推荐实践
 
 - 全局设置 `daq_adapter`。

@@ -369,9 +369,9 @@ class PluginSpec:
             else:
                 depends_on.append(InputRequirement(name=dep))
 
-        # 提取输出 schema
-        output_schema = None
-        if plugin.output_dtype is not None:
+        # Explicit schemas describe non-array outputs and enrich inferred dtype schemas.
+        output_schema = getattr(plugin, "output_schema", None)
+        if output_schema is None and plugin.output_dtype is not None:
             try:
                 dtype = np.dtype(plugin.output_dtype)
                 output_schema = OutputSchema.from_dtype(dtype, doc=plugin.description)

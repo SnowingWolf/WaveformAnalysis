@@ -1,21 +1,84 @@
-# position_reconstruction (PositionReconstructionPlugin)
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "agent"
+provides: "position_reconstruction"
+plugin_class: "PositionReconstructionPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.position_reconstruction"
+version: "0.2.1"
+summary: "Reconstruct 3D position from S1-S2 pairs using vectorized CoG method"
+depends_on: ["s1_s2_pairs"]
+output_kind: "structured_array"
+generated: true
+---
+# position_reconstruction
 
-> Agent-first 插件契约文档。面向自动化执行与改动评估。
+## Overview
 
-## Agent Contract
+Reconstruct 3D position from S1-S2 pairs using vectorized CoG method
 
 | Item | Value |
-|------|-------|
+| --- | --- |
 | Provides | `position_reconstruction` |
-| Depends On | `s1_s2_pairs` |
-| Output Kind | `structured_array` |
-| Version | `0.2.1` |
+| Plugin Class | `PositionReconstructionPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.position_reconstruction` |
-| Accelerator | `cpu` |
+| Version | `0.2.1` |
+| Category | 其他 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-## Source Notes
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `s1_s2_pairs` | - | declared | - | - |
+## Configuration
 
-位置重建插件（向量化优化版本）
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `drift_velocity` | `float` | `0.0013` | - | yes | no | 漂移速度 (mm/ns)，用于 Z 坐标计算。典型值：液氙 ~0.001 mm/ns, 液氩 ~0.0013 mm/ns |
+| `min_s2_area_for_xy` | `float` | `100.0` | - | yes | no | XY 重建所需的最小 S2 面积 (PE) |
+| `edge_threshold_mm` | `float` | `5.0` | - | yes | no | 边缘事件判定阈值：距离 TPC 边界的最小距离 (mm) |
+| `detector_radius_mm` | `float` | `62.5` | - | yes | no | 探测器有效半径 (mm)，用于边缘事件检测 |
+## Output
+
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `event_id` | `int64` | - | - |
+| `pair_id` | `int64` | - | - |
+| `s1_peak_id` | `int64` | - | - |
+| `s2_peak_id` | `int64` | - | - |
+| `x` | `float32` | - | - |
+| `y` | `float32` | - | - |
+| `z` | `float32` | - | - |
+| `r` | `float32` | - | - |
+| `x_err` | `float32` | - | - |
+| `y_err` | `float32` | - | - |
+| `z_err` | `float32` | - | - |
+| `xy_chi2` | `float32` | - | - |
+| `xy_ndf` | `int16` | - | - |
+| `z_quality` | `float32` | - | - |
+| `position_goodness` | `float32` | - | - |
+| `xy_method` | `<U16` | - | - |
+| `z_method` | `<U16` | - | - |
+| `drift_time_ns` | `float32` | - | - |
+| `s2_area` | `float32` | - | - |
+| `s2_n_channels` | `int16` | - | - |
+| `flags` | `uint32` | - | - |
+## Usage
+
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import PositionReconstructionPlugin
+
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(PositionReconstructionPlugin())
+data = ctx.get_data("run_001", "position_reconstruction")
+```
+
+## Operational Notes
+
+### Behavior
+
+- 位置重建插件（向量化优化版本）
 
 基于 S1-S2 配对的空间位置重建。
 
@@ -46,69 +109,22 @@
 
 Author: Claude Code
 Version: 0.2.1
+### Failure Modes
 
-## Inputs
+- Dependency data, configuration, or output contract validation may fail explicitly.
+### Downstream Impact
 
-- `s1_s2_pairs`
+-
+## Maintenance
 
-## Outputs
+### Change Playbook
 
-| Field | DType | Meaning |
-|-------|-------|---------|
-| `event_id` | `int64` | - |
-| `pair_id` | `int64` | - |
-| `s1_peak_id` | `int64` | - |
-| `s2_peak_id` | `int64` | - |
-| `x` | `float32` | - |
-| `y` | `float32` | - |
-| `z` | `float32` | - |
-| `r` | `float32` | - |
-| `x_err` | `float32` | - |
-| `y_err` | `float32` | - |
-| `z_err` | `float32` | - |
-| `xy_chi2` | `float32` | - |
-| `xy_ndf` | `int16` | - |
-| `z_quality` | `float32` | - |
-| `position_goodness` | `float32` | - |
-| `xy_method` | `<U16` | - |
-| `z_method` | `<U16` | - |
-| `drift_time_ns` | `float32` | - |
-| `s2_area` | `float32` | - |
-| `s2_n_channels` | `int16` | - |
-| `flags` | `uint32` | - |
-
-## Config
-
-| Name | Type | Default | Note |
-|------|------|---------|------|
-| `drift_velocity` | `float` | `0.0013` | 漂移速度 (mm/ns)，用于 Z 坐标计算。典型值：液氙 ~0.001 mm/ns, 液氩 ~0.0013 mm/ns |
-| `min_s2_area_for_xy` | `float` | `100.0` | XY 重建所需的最小 S2 面积 (PE) |
-| `edge_threshold_mm` | `float` | `5.0` | 边缘事件判定阈值：距离 TPC 边界的最小距离 (mm) |
-| `detector_radius_mm` | `float` | `62.5` | 探测器有效半径 (mm)，用于边缘事件检测 |
-
-## Execution Path
-
-`position_reconstruction` 依赖链入口：
-`s1_s2_pairs -> position_reconstruction`
-
-## Failure Modes
-
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
-
-## Change Playbook
-
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
-
-## Validation
+1. Keep `provides` and dependency semantics stable or update all consumers.
+2. Bump `version` for behavior, configuration, or output contract changes.
+3. Regenerate auto, agent, and web references after metadata changes.
+### Validation
 
 ```bash
-# 单插件文档再生成
 waveform-docs generate plugins-agent --plugin position_reconstruction
-
-# 覆盖率检查
-waveform-docs check coverage --strict
+waveform-docs check coverage --strict --fail-on-warning
 ```

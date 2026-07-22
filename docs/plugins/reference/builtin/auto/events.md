@@ -1,41 +1,48 @@
-# EventPlugin
-
-> Complete event reconstruction from S1-S2 pairs and position
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "events"
+plugin_class: "EventPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.event"
+version: "0.0.1"
+summary: "Complete event reconstruction from S1-S2 pairs and position"
+depends_on: ["s1_s2_pairs", "position_reconstruction"]
+output_kind: "structured_array"
+generated: true
+---
+# events
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `events` |
-| **Version** | `0.0.0` |
-| **Category** | 事件分析 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Complete event reconstruction from S1-S2 pairs and position
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `events` |
+| Plugin Class | `EventPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.cpu.event` |
+| Version | `0.0.1` |
+| Category | 事件分析 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-This plugin depends on the following data:
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `s1_s2_pairs` | - | declared | - | - |
+| `position_reconstruction` | - | declared | - | - |
+## Configuration
 
-- [`s1_s2_pairs`](s1_s2_pairs.md)
-- [`position_reconstruction`](position_reconstruction.md)
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `min_s1` | `float` | `0.0` | - | yes | no | 最小 S1 阈值（用于质量筛选） |
+| `min_s2` | `float` | `0.0` | - | yes | no | 最小 S2 阈值（用于质量筛选） |
+| `fiducial_radius` | `(<class 'float'>, <class 'NoneType'>)` | `None` | - | yes | no | 基准体积半径 (mm)。None 表示不应用 |
+| `fiducial_z_range` | `(<class 'tuple'>, <class 'NoneType'>)` | `None` | - | yes | no | 基准体积 Z 范围 (z_min, z_max) mm。None 表示不应用 |
+## Output
 
-## Configuration Options
-
-| Option | Type | Default | Units | Description |
-|--------|------|---------|-------|-------------|
-| `min_s1` | `float` | `0.0` | - | 最小 S1 阈值（用于质量筛选） |
-| `min_s2` | `float` | `0.0` | - | 最小 S2 阈值（用于质量筛选） |
-| `fiducial_radius` | `(<class 'float'>, <class 'NoneType'>)` | `None` | - | 基准体积半径 (mm)。None 表示不应用 |
-| `fiducial_z_range` | `(<class 'tuple'>, <class 'NoneType'>)` | `None` | - | 基准体积 Z 范围 (z_min, z_max) mm。None 表示不应用 |
-
-
-## Output Schema
-
-**Output Type**: `structured_array`
-
-| Field | Type | Units | Description |
-|-------|------|-------|-------------|
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
 | `event_id` | `int64` | - | - |
 | `event_number` | `int64` | - | - |
 | `run_id` | `<U32` | - | - |
@@ -61,32 +68,13 @@ This plugin depends on the following data:
 | `n_s1_candidates` | `int32` | - | - |
 | `n_s2_candidates` | `int32` | - | - |
 | `flags` | `uint32` | - | - |
-
-## Usage Example
+## Usage
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import EventPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(EventPlugin())
-
-# Configure plugin (optional)
-ctx.set_config({
-    "min_s1": 0.0,
-    "min_s2": 0.0,
-    "fiducial_radius": None,
-}, plugin_name="events")
-
-# Get data
 data = ctx.get_data("run_001", "events")
 ```
-
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.event`
-
----
-
-*This documentation was auto-generated from plugin metadata.*

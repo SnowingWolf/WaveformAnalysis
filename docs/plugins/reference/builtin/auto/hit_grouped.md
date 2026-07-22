@@ -1,59 +1,55 @@
-# HitGroupedPlugin
-
-> Group merged hits across channels into event-level coincidence windows.
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "hit_grouped"
+plugin_class: "HitGroupedPlugin"
+module: "waveform_analysis.core.plugins.builtin.hit.hit_grouped"
+version: "0.5.0"
+summary: "Group merged hits across channels into event-level coincidence windows."
+depends_on: ["hit_merged", "hit_merged_components", "hit_threshold"]
+output_kind: "dataframe"
+generated: true
+---
+# hit_grouped
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `hit_grouped` |
-| **Version** | `0.5.0` |
-| **Category** | 特征提取 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Group merged hits across channels into event-level coincidence windows.
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `hit_grouped` |
+| Plugin Class | `HitGroupedPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.hit.hit_grouped` |
+| Version | `0.5.0` |
+| Category | 特征提取 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `dataframe` |
 
-This plugin depends on the following data:
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `hit_merged` | - | declared | - | - |
+| `hit_merged_components` | - | declared | - | - |
+| `hit_threshold` | - | declared | - | - |
+## Configuration
 
-- [`hit_merged`](hit_merged.md)
-- [`hit_merged_components`](hit_merged_components.md)
-- [`hit_threshold`](hit_threshold.md)
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `time_window_ns` | `float` | `100.0` | - | yes | no | Maximum absolute time separation in nanoseconds for grouping hits. |
+| `dt` | `int` | `None` | - | yes | no | 采样间隔（ns）。仅在输入 hit_merged 缺少 dt 字段时作为兼容补充。 |
+## Output
 
-## Configuration Options
-
-| Option | Type | Default | Units | Description |
-|--------|------|---------|-------|-------------|
-| `time_window_ns` | `float` | `100.0` | - | - |
-| `dt` | `int` | `None` | - | 采样间隔（ns）。仅在输入 hit_merged 缺少 dt 字段时作为兼容补充。 |
-
-
-
-## Usage Example
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| - | `dataframe` | - | Group merged hits across channels into event-level coincidence windows. |
+## Usage
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import HitGroupedPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(HitGroupedPlugin())
-
-# Configure plugin (optional)
-ctx.set_config({
-    "time_window_ns": 100.0,
-    "dt": None,
-}, plugin_name="hit_grouped")
-
-# Get data
 data = ctx.get_data("run_001", "hit_grouped")
 ```
-
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.hit.hit_grouped`
-
----
-
-*This documentation was auto-generated from plugin metadata.*

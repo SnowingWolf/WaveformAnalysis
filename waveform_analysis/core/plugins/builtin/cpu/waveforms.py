@@ -37,6 +37,7 @@ from waveform_analysis.core.hardware.channel import (
 )
 from waveform_analysis.core.plugins.builtin.cpu._dt_compat import resolve_dt_config
 from waveform_analysis.core.plugins.core.base import Option, Plugin
+from waveform_analysis.core.plugins.core.spec import OutputSchema
 from waveform_analysis.core.processing.dtypes import (
     DEFAULT_WAVE_LENGTH,
     ST_WAVEFORM_DTYPE,
@@ -889,6 +890,7 @@ class RawFileNamesPlugin(Plugin):
     provides = "raw_files"
     description = "Scan the data directory and group raw CSV files by channel number."
     version = "0.0.2"
+    output_schema = OutputSchema(kind="list", doc="Raw file paths grouped by channel.")
     options = {
         "data_root": Option(default="DAQ", type=str, help="Root directory for data"),
         "daq_adapter": Option(default="vx2730", type=str, help="DAQ adapter name (e.g., 'vx2730')"),

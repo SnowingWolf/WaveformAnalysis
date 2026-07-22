@@ -1,21 +1,61 @@
-# df_paired (PairedEventsPlugin)
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "agent"
+provides: "df_paired"
+plugin_class: "PairedEventsPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.event_analysis"
+version: "0.0.1"
+summary: "Pair grouped events across channels for coincidence analysis."
+depends_on: ["df_events"]
+output_kind: "dataframe"
+generated: true
+---
+# df_paired
 
-> Agent-first 插件契约文档。面向自动化执行与改动评估。
+## Overview
 
-## Agent Contract
+Pair grouped events across channels for coincidence analysis.
 
 | Item | Value |
-|------|-------|
+| --- | --- |
 | Provides | `df_paired` |
-| Depends On | `df_events` |
-| Output Kind | `unknown` |
-| Version | `0.0.0` |
+| Plugin Class | `PairedEventsPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.event_analysis` |
-| Accelerator | `cpu` |
+| Version | `0.0.1` |
+| Category | 事件分析 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `dataframe` |
 
-## Source Notes
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `df_events` | - | declared | - | - |
+## Configuration
 
-Event Analysis Plugins - 事件分组与配对插件
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| - | - | - | - | - | - | - |
+## Output
+
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| - | `dataframe` | - | Pair grouped events across channels for coincidence analysis. |
+## Usage
+
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import PairedEventsPlugin
+
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(PairedEventsPlugin())
+data = ctx.get_data("run_001", "df_paired")
+```
+
+## Operational Notes
+
+### Behavior
+
+- Event Analysis Plugins - 事件分组与配对插件
 
 **加速器**: CPU (NumPy/Numba)
 **功能**: 多通道事件的时间窗口分组和符合配对
@@ -25,42 +65,22 @@ Event Analysis Plugins - 事件分组与配对插件
 - PairedEventsPlugin: 配对跨通道的符合事件
 
 注意：HitGroupedPlugin 已迁移到 waveform_analysis.core.plugins.builtin.hit.hit_grouped
+### Failure Modes
 
-## Inputs
+- Dependency data, configuration, or output contract validation may fail explicitly.
+### Downstream Impact
 
-- `df_events`
+-
+## Maintenance
 
-## Outputs
+### Change Playbook
 
-- 无结构化字段信息（`unknown`）
-
-## Config
-
-- 无可配置项
-
-## Execution Path
-
-`df_paired` 依赖链入口：
-`df_events -> df_paired`
-
-## Failure Modes
-
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
-
-## Change Playbook
-
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
-
-## Validation
+1. Keep `provides` and dependency semantics stable or update all consumers.
+2. Bump `version` for behavior, configuration, or output contract changes.
+3. Regenerate auto, agent, and web references after metadata changes.
+### Validation
 
 ```bash
-# 单插件文档再生成
 waveform-docs generate plugins-agent --plugin df_paired
-
-# 覆盖率检查
-waveform-docs check coverage --strict
+waveform-docs check coverage --strict --fail-on-warning
 ```

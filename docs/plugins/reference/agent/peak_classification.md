@@ -1,21 +1,67 @@
-# peak_classification (PeakClassificationPlugin)
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "agent"
+provides: "peak_classification"
+plugin_class: "PeakClassificationPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.peak_classification"
+version: "1.2.1"
+summary: "Classify peaks into S1/S2 using multi-dimensional features."
+depends_on: ["peaks"]
+output_kind: "structured_array"
+generated: true
+---
+# peak_classification
 
-> Agent-first 插件契约文档。面向自动化执行与改动评估。
+## Overview
 
-## Agent Contract
+Classify peaks into S1/S2 using multi-dimensional features.
 
 | Item | Value |
-|------|-------|
+| --- | --- |
 | Provides | `peak_classification` |
-| Depends On | `peaks` |
-| Output Kind | `structured_array` |
-| Version | `1.2.1` |
+| Plugin Class | `PeakClassificationPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.peak_classification` |
-| Accelerator | `cpu` |
+| Version | `1.2.1` |
+| Category | 特征提取 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-## Source Notes
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `peaks` | - | declared | - | - |
+## Configuration
 
-从 peaklet 特征进行 S1/S2 分类。
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `priority_order` | `list` | `['s1_s2', 's1', 's2']` | - | yes | no | 分类优先级顺序（列表），从高到低。例如: ['s1_s2', 's1', 's2'] 表示先判定 s1_s2，再判定 s1，最后判定 s2。可用值: 's1', 's2', 's1_s2' |
+| `default_label` | `str` | `unknown` | - | yes | no | 当不满足任何配置条件时的默认标签。默认 'unknown'（推荐用于灵活分类）。 |
+| `strict` | `bool` | `False` | - | yes | no | 如果为 True，至少需要配置一个 S1 或 S2 的判断条件。 |
+| `s1_selection` | `dict` | `None` | - | yes | no | S1 分类配置。字典包含：- 'accept_any': 列表，每个元素是一个条件组（字典），满足任一组即为 S1 候选- 'reject_any': 列表，每个元素是一个条件组（字典），满足任一组即排除示例: {'accept_any': [{'width': (0, 100)}, {'area': (0, 500)}], 'reject_any': [{'width': (500, None)}]} |
+| `s2_selection` | `dict` | `None` | - | yes | no | S2 分类配置，格式同 s1_selection。 |
+| `s1_s2_selection` | `dict` | `None` | - | yes | no | S1_S2 分类配置，格式同 s1_selection。命中后优先标记为 S1_S2。 |
+## Output
+
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `peak_id` | `int64` | - | - |
+| `label` | `int8` | - | - |
+## Usage
+
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import PeakClassificationPlugin
+
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(PeakClassificationPlugin())
+data = ctx.get_data("run_001", "peak_classification")
+```
+
+## Operational Notes
+
+### Behavior
+
+- 从 peaklet 特征进行 S1/S2 分类。
 
 该插件基于 peaks 的多维特征进行信号类型甄别。
 
@@ -38,52 +84,22 @@
 - 1: S1（闪烁信号）
 - 2: S2（电离信号）
 - 3: S1_S2（混合信号或分类冲突）
+### Failure Modes
 
-## Inputs
+- Dependency data, configuration, or output contract validation may fail explicitly.
+### Downstream Impact
 
-- `peaks`
+-
+## Maintenance
 
-## Outputs
+### Change Playbook
 
-| Field | DType | Meaning |
-|-------|-------|---------|
-| `peak_id` | `int64` | - |
-| `label` | `int8` | - |
-
-## Config
-
-| Name | Type | Default | Note |
-|------|------|---------|------|
-| `priority_order` | `list` | `['s1_s2', 's1', 's2']` | 分类优先级顺序（列表），从高到低。例如: ['s1_s2', 's1', 's2'] 表示先判定 s1_s2，再判定 s1，最后判定 s2。可用值: 's1', 's2', 's1_s2' |
-| `default_label` | `str` | `unknown` | 当不满足任何配置条件时的默认标签。默认 'unknown'（推荐用于灵活分类）。 |
-| `strict` | `bool` | `False` | 如果为 True，至少需要配置一个 S1 或 S2 的判断条件。 |
-| `s1_selection` | `dict` | `None` | S1 分类配置。字典包含：- 'accept_any': 列表，每个元素是一个条件组（字典），满足任一组即为 S1 候选- 'reject_any': 列表，每个元素是一个条件组（字典），满足任一组即排除示例: {'accept_any': [{'width': (0, 100)}, {'area': (0, 500)}], 'reject_any': [{'width': (500, None)}]} |
-| `s2_selection` | `dict` | `None` | S2 分类配置，格式同 s1_selection。 |
-| `s1_s2_selection` | `dict` | `None` | S1_S2 分类配置，格式同 s1_selection。命中后优先标记为 S1_S2。 |
-
-## Execution Path
-
-`peak_classification` 依赖链入口：
-`peaks -> peak_classification`
-
-## Failure Modes
-
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
-
-## Change Playbook
-
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
-
-## Validation
+1. Keep `provides` and dependency semantics stable or update all consumers.
+2. Bump `version` for behavior, configuration, or output contract changes.
+3. Regenerate auto, agent, and web references after metadata changes.
+### Validation
 
 ```bash
-# 单插件文档再生成
 waveform-docs generate plugins-agent --plugin peak_classification
-
-# 覆盖率检查
-waveform-docs check coverage --strict
+waveform-docs check coverage --strict --fail-on-warning
 ```

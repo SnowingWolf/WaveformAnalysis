@@ -1,63 +1,53 @@
-# RecordsDetectorMaskPlugin
-
-> Bool mask for detector-channel records after channel-role splitting.
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "records_detector_mask"
+plugin_class: "RecordsDetectorMaskPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.records_channel_role"
+version: "0.1.0"
+summary: "Bool mask for detector-channel records after channel-role splitting."
+depends_on: ["records", "records_asymmetry_mask"]
+output_kind: "array"
+generated: true
+---
+# records_detector_mask
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `records_detector_mask` |
-| **Version** | `0.1.0` |
-| **Category** | 记录处理 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Bool mask for detector-channel records after channel-role splitting.
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `records_detector_mask` |
+| Plugin Class | `RecordsDetectorMaskPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.cpu.records_channel_role` |
+| Version | `0.1.0` |
+| Category | 记录处理 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `array` |
 
-This plugin depends on the following data:
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `records` | - | declared | - | - |
+| `records_asymmetry_mask` | - | declared | - | - |
+## Configuration
 
-- [`records`](records.md)
-- [`records_asymmetry_mask`](records_asymmetry_mask.md)
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `channel_config` | `dict` | `None` | - | yes | no | 按 (board, channel) 的通道角色配置；role='detector' 进入正常 hit，role='veto' 仅作为 veto 通道保留。 |
+## Output
 
-## Configuration Options
-
-| Option | Type | Default | Units | Description |
-|--------|------|---------|-------|-------------|
-| `channel_config` | `dict` | `None` | - | 按 (board, channel) 的通道角色配置；role='detector' 进入正常 hit，role='veto' 仅作为 veto 通道保留。 |
-
-
-## Output Schema
-
-**Output Type**: `array`
-
-| Field | Type | Units | Description |
-|-------|------|-------|-------------|
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
 | `value` | `bool` | - | - |
-
-## Usage Example
+## Usage
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import RecordsDetectorMaskPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(RecordsDetectorMaskPlugin())
-
-# Configure plugin (optional)
-ctx.set_config({
-    "channel_config": None,
-}, plugin_name="records_detector_mask")
-
-# Get data
 data = ctx.get_data("run_001", "records_detector_mask")
 ```
-
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.records_channel_role`
-
----
-
-*This documentation was auto-generated from plugin metadata.*

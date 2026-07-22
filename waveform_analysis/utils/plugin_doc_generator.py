@@ -14,6 +14,8 @@
 from dataclasses import dataclass, field
 import inspect
 from pathlib import Path
+import re
+import shutil
 import sys
 from typing import Any
 
@@ -61,6 +63,7 @@ class ConfigOptionInfo:
     units: str | None = None
     doc: str = ""
     deprecated: bool = False
+    tracked: bool = True
 
 
 @export
@@ -76,7 +79,7 @@ class OutputFieldInfo:
 
 @export
 @dataclass
-class PluginDocInfo:
+class PluginDocumentationView:
     """从插件提取的文档信息"""
 
     name: str  # 类名
@@ -120,6 +123,14 @@ class PluginDocInfo:
         }
         return mapping.get(self.accelerator, self.accelerator)
 
+    @property
+    def summary(self) -> str:
+        return " ".join(self.description.split())
+
+
+# Compatibility import for callers that used the old internal data-class name.
+PluginDocInfo = PluginDocumentationView
+
 
 @export
 class PluginDocGenerator:
@@ -148,6 +159,7 @@ class PluginDocGenerator:
         self.template_dir = template_dir
         self._plugins: list[tuple[type, Any]] = []  # (plugin_class, instance)
         self._jinja_env = None
+        self._web_jinja_env = None
 
     def _get_jinja_env(self):
         """获取 Jinja2 环境（延迟加载）"""
@@ -166,7 +178,27 @@ class PluginDocGenerator:
                 lstrip_blocks=True,
                 keep_trailing_newline=True,
             )
+            self._jinja_env.filters["markdown_cell"] = _escape_markdown_cell
         return self._jinja_env
+
+    def _get_web_jinja_env(self):
+        """Return an isolated, autoescaping environment for HTML output."""
+        if self._web_jinja_env is None:
+            try:
+                from jinja2 import Environment, FileSystemLoader, select_autoescape
+            except ImportError as exc:
+                raise ImportError(
+                    "jinja2 is required for documentation generation. "
+                    "Install it with: pip install jinja2"
+                ) from exc
+            self._web_jinja_env = Environment(
+                loader=FileSystemLoader(str(self.template_dir)),
+                autoescape=select_autoescape(enabled_extensions=("html", "xml"), default=True),
+                trim_blocks=True,
+                lstrip_blocks=True,
+                keep_trailing_newline=True,
+            )
+        return self._web_jinja_env
 
     def load_builtin_plugins(self) -> int:
         """加载所有内置插件
@@ -214,7 +246,7 @@ class PluginDocGenerator:
             instance = plugin_class()
         self._plugins.append((plugin_class, instance))
 
-    def extract_doc_info(self, plugin_class: type, plugin: Any) -> PluginDocInfo:
+    def extract_doc_info(self, plugin_class: type, plugin: Any) -> PluginDocumentationView:
         """从插件提取文档信息
 
         Args:
@@ -264,7 +296,7 @@ class PluginDocGenerator:
         raw_usage_example = getattr(plugin, "doc_usage_example", "") or ""
         usage_example = inspect.cleandoc(str(raw_usage_example)) if raw_usage_example else ""
 
-        return PluginDocInfo(
+        return PluginDocumentationView(
             name=name,
             provides=provides,
             version=version,
@@ -408,6 +440,7 @@ class PluginDocGenerator:
                     units=units,
                     doc=doc,
                     deprecated=deprecated,
+                    tracked=getattr(opt, "track", True),
                 )
             )
 
@@ -422,9 +455,23 @@ class PluginDocGenerator:
         Returns:
             (输出字段列表, 输出类型)
         """
+        output_schema = getattr(plugin, "output_schema", None)
         output_dtype = getattr(plugin, "output_dtype", None)
         output_fields = []
         output_kind = "unknown"
+
+        if output_schema is not None:
+            output_kind = output_schema.kind
+            output_fields = [
+                OutputFieldInfo(
+                    name=field.name,
+                    dtype=field.dtype,
+                    units=field.units,
+                    doc=field.doc,
+                )
+                for field in output_schema.fields
+            ]
+            return output_fields, output_kind
 
         if output_dtype is None:
             return output_fields, output_kind
@@ -462,7 +509,7 @@ class PluginDocGenerator:
 
         return output_fields, output_kind
 
-    def get_all_doc_info(self) -> list[PluginDocInfo]:
+    def get_all_doc_info(self) -> list[PluginDocumentationView]:
         """获取所有插件的文档信息
 
         Returns:
@@ -478,7 +525,7 @@ class PluginDocGenerator:
                 pass
         return doc_infos
 
-    def render_plugin_page(self, doc_info: PluginDocInfo, profile: str = "auto") -> str:
+    def render_plugin_page(self, doc_info: PluginDocumentationView, profile: str = "auto") -> str:
         """渲染单个插件页面
 
         Args:
@@ -496,7 +543,9 @@ class PluginDocGenerator:
         template = env.get_template(template_name)
         return template.render(plugin=doc_info)
 
-    def render_index_page(self, plugins: list[PluginDocInfo], profile: str = "auto") -> str:
+    def render_index_page(
+        self, plugins: list[PluginDocumentationView], profile: str = "auto"
+    ) -> str:
         """渲染插件索引页面
 
         Args:
@@ -548,6 +597,41 @@ class PluginDocGenerator:
             category_names=CATEGORY_DISPLAY_NAMES,
         )
 
+    def render_plugin_html(self, doc_info: PluginDocumentationView) -> str:
+        """Render one standalone plugin HTML page with escaped metadata."""
+        return self._get_web_jinja_env().get_template("web/plugin.html.j2").render(plugin=doc_info)
+
+    def render_index_html(self, plugins: list[PluginDocumentationView]) -> str:
+        """Render the searchable static-site index."""
+        return (
+            self._get_web_jinja_env()
+            .get_template("web/index.html.j2")
+            .render(plugins=sorted(plugins, key=lambda item: item.provides))
+        )
+
+    def generate_web(self, output_dir: Path) -> dict[str, Path]:
+        """Generate an offline HTML plugin reference site."""
+        output_dir = Path(output_dir)
+        plugin_dir = output_dir / "plugins"
+        asset_dir = output_dir / "assets"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        asset_dir.mkdir(parents=True, exist_ok=True)
+        plugins = self.get_all_doc_info()
+        generated: dict[str, Path] = {}
+        for plugin in plugins:
+            path = plugin_dir / f"{plugin.provides}.html"
+            path.write_text(self.render_plugin_html(plugin), encoding="utf-8")
+            generated[plugin.provides] = path
+        index_path = output_dir / "index.html"
+        index_path.write_text(self.render_index_html(plugins), encoding="utf-8")
+        generated["INDEX"] = index_path
+        source_assets = self.template_dir / "web" / "assets"
+        for name in ("site.css", "site.js"):
+            target = asset_dir / name
+            shutil.copyfile(source_assets / name, target)
+            generated[f"asset:{name}"] = target
+        return generated
+
     def generate_all(self, output_dir: Path, profile: str = "auto") -> dict[str, Path]:
         """生成所有文档
 
@@ -569,6 +653,12 @@ class PluginDocGenerator:
         # 生成各插件页面
         for doc_info in doc_infos:
             content = self.render_plugin_page(doc_info, profile=profile)
+            structure_errors = check_plugin_document_structure(content, profile)
+            if structure_errors:
+                raise ValueError(
+                    f"Generated {doc_info.provides} documentation is invalid: "
+                    + "; ".join(structure_errors)
+                )
             file_path = output_dir / f"{doc_info.provides}.md"
             file_path.write_text(content, encoding="utf-8")
             generated_files[doc_info.provides] = file_path
@@ -603,9 +693,103 @@ class PluginDocGenerator:
             ):
                 doc_info = self.extract_doc_info(plugin_class, instance)
                 content = self.render_plugin_page(doc_info, profile=profile)
+                structure_errors = check_plugin_document_structure(content, profile)
+                if structure_errors:
+                    raise ValueError(
+                        f"Generated {doc_info.provides} documentation is invalid: "
+                        + "; ".join(structure_errors)
+                    )
                 output_path = Path(output_path)
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 output_path.write_text(content, encoding="utf-8")
                 return output_path
 
         raise ValueError(f"Plugin not found: {plugin_name}")
+
+
+EXPECTED_SECTIONS = {
+    "auto": ["Overview", "Configuration", "Output", "Usage"],
+    "agent": [
+        "Overview",
+        "Configuration",
+        "Output",
+        "Usage",
+        "Operational Notes",
+        "Maintenance",
+    ],
+}
+
+FRONTMATTER_FIELDS = (
+    "schema_version",
+    "document_type",
+    "profile",
+    "provides",
+    "plugin_class",
+    "module",
+    "version",
+    "summary",
+    "depends_on",
+    "output_kind",
+    "generated",
+)
+
+
+def _escape_markdown_cell(value: Any) -> str:
+    return str(value).replace("|", r"\|").replace("\n", "<br>")
+
+
+@export
+def check_plugin_document_structure(content: str, profile: str) -> list[str]:
+    """Validate generated plugin Markdown section and Overview table structure."""
+    errors: list[str] = []
+    expected = EXPECTED_SECTIONS.get(profile)
+    if expected is None:
+        return [f"Unknown profile: {profile}"]
+    if not content.startswith("---\n") or "\n---\n" not in content[4:]:
+        errors.append("Missing YAML frontmatter")
+    else:
+        frontmatter = content.split("\n---\n", 1)[0][4:]
+        keys = [line.split(":", 1)[0] for line in frontmatter.splitlines() if ":" in line]
+        missing = [field for field in FRONTMATTER_FIELDS if field not in keys]
+        extra = [key for key in keys if key not in FRONTMATTER_FIELDS]
+        if missing:
+            errors.append(f"Missing frontmatter fields: {missing!r}")
+        if extra:
+            errors.append(f"Unexpected frontmatter fields: {extra!r}")
+        if f'profile: "{profile}"' not in frontmatter:
+            errors.append(f"Frontmatter profile does not match {profile!r}")
+    sections = re.findall(r"^## ([^#].*)$", content, flags=re.MULTILINE)
+    if sections != expected:
+        errors.append(f"Expected H2 sections {expected!r}, got {sections!r}")
+    overview_start = content.find("## Overview")
+    config_start = content.find("## Configuration")
+    if overview_start < 0 or config_start < 0:
+        return errors
+    overview = content[overview_start:config_start]
+    contract = overview.find("| Item | Value |")
+    dependencies = overview.find(
+        "| Dependency | Version Constraint | Resolution | Required Fields | Description |"
+    )
+    if contract < 0:
+        errors.append("Overview is missing the Contract table")
+    if dependencies < 0:
+        errors.append("Overview is missing the Dependencies table")
+    if contract >= 0 and dependencies >= 0 and contract > dependencies:
+        errors.append("Contract table must precede Dependencies table")
+    summary = overview[len("## Overview") : contract if contract >= 0 else len(overview)].strip()
+    if not summary:
+        errors.append("Overview summary must precede the Contract table")
+    if "| Name | Type | Default | Unit | Tracked | Deprecated | Description |" not in content:
+        errors.append("Configuration table header is missing")
+    if "| Field | DType | Unit | Meaning |" not in content:
+        errors.append("Output table header is missing")
+    return errors
+
+
+@export
+def check_plugin_document(path: Path, profile: str) -> list[str]:
+    """Validate a generated page; INDEX.md intentionally follows separate rules."""
+    path = Path(path)
+    if path.name == "INDEX.md":
+        return []
+    return check_plugin_document_structure(path.read_text(encoding="utf-8"), profile)

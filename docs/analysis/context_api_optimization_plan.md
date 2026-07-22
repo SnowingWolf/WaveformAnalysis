@@ -1,6 +1,6 @@
 # Context API 优化计划
 
-> 状态：执行中；`has_explicit_config()` 与 `register_plugin_()` 已确认直接删除，其余 API 尚未执行删除或弃用。
+> 状态：执行中；`has_explicit_config()`、`register_plugin_()` 与 `quickstart()` 已确认直接删除，`help()` 已升级为结构化 Context/插件帮助。
 > 范围：`waveform_analysis/core/context.py` 及其 Context domain 公开方法。
 
 ## 目标与边界
@@ -42,7 +42,7 @@
 | `get_lineage(data_name, _visited=...)` | 将 `_visited` 移入私有递归 helper，公共签名只保留 `data_name`。 | 增加 lineage 与缓存键回归测试。 |
 | `register_plugin_` | 已删除；仓库内调用统一迁移到 `register()`，不保留兼容 facade。 | 保持插件加载、spec 校验和外部扩展语义。 |
 | `clear_performance_caches` | 保留行为，先更正其“规划/lineage/key 缓存失效”语义和文档。 | 证明没有脚本依赖旧名称。 |
-| `help`, `quickstart` | 评估是否改为稳定文档链接；默认保留。 | 用户确认弃用周期和外部 API 迁移策略。 |
+| `help` | 保留；返回同时支持终端文本和 Jupyter HTML 的 `HelpDocument`，并只查询当前已注册插件。 | 不执行数据；仅有 `run_id` 时解析动态依赖，失败回退声明依赖。 |
 | `analyze_cache`, `cache_stats`, `diagnose_cache` | 暂不弃用。 | `waveform-cache` 必须与 Context 在存储目录、插件注册和版本诊断上语义一致。 |
 
 ### 已确认删除
@@ -50,6 +50,7 @@
 | API | 替代写法 | 决策 |
 | --- | --- | --- |
 | `has_explicit_config(plugin, name, adapter_name=None)` | `get_config_value(plugin, name, adapter_name=...).source == ConfigSource.EXPLICIT` | 用户已确认直接删除；实现与契约测试同步收敛，不保留 facade 或 domain helper。 |
+| `quickstart(template="basic")` | `help("examples")` 或普通文档 `docs/user-guide/QUICKSTART_GUIDE.md` | 用户已确认直接删除；同步删除 `help("quickstart")` 静态主题与 reserved name，不保留 shim。 |
 
 ## 分阶段执行
 

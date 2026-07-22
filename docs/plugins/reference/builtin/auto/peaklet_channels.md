@@ -1,37 +1,47 @@
-# PeakletChannelsPlugin
-
-> Aggregate hit_merged_features into per-peaklet channel contribution rows.
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "peaklet_channels"
+plugin_class: "PeakletChannelsPlugin"
+module: "waveform_analysis.core.plugins.builtin.peaks.peaklet_channels"
+version: "1.0.1"
+summary: "Aggregate hit_merged_features into per-peaklet channel contribution rows."
+depends_on: ["peaklets", "peaklet_components", "hit_merged_features", "peaklet_features"]
+output_kind: "structured_array"
+generated: true
+---
+# peaklet_channels
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `peaklet_channels` |
-| **Version** | `1.0.1` |
-| **Category** | 特征提取 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Aggregate hit_merged_features into per-peaklet channel contribution rows.
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `peaklet_channels` |
+| Plugin Class | `PeakletChannelsPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.peaks.peaklet_channels` |
+| Version | `1.0.1` |
+| Category | 特征提取 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-This plugin depends on the following data:
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `peaklets` | - | declared | - | - |
+| `peaklet_components` | - | declared | - | - |
+| `hit_merged_features` | - | declared | - | - |
+| `peaklet_features` | - | declared | - | - |
+## Configuration
 
-- [`peaklets`](peaklets.md)
-- [`peaklet_components`](peaklet_components.md)
-- [`hit_merged_features`](hit_merged_features.md)
-- [`peaklet_features`](peaklet_features.md)
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| - | - | - | - | - | - | - |
+## Output
 
-## Configuration Options
-
-This plugin has no configuration options.
-
-## Output Schema
-
-**Output Type**: `structured_array`
-
-| Field | Type | Units | Description |
-|-------|------|-------|-------------|
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
 | `peaklet_id` | `int64` | - | - |
 | `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |
@@ -39,25 +49,13 @@ This plugin has no configuration options.
 | `height` | `float32` | - | - |
 | `n_hits` | `int32` | - | - |
 | `area_fraction` | `float32` | - | - |
-
-## Usage Example
+## Usage
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import PeakletChannelsPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PeakletChannelsPlugin())
-
-# Get data
 data = ctx.get_data("run_001", "peaklet_channels")
 ```
-
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.peaks.peaklet_channels`
-
----
-
-*This documentation was auto-generated from plugin metadata.*

@@ -1,44 +1,51 @@
-# S1S2PairCandidatesPlugin
-
-> Generate all physically allowed S1-S2 pairing candidates
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "s1_s2_pair_candidates"
+plugin_class: "S1S2PairCandidatesPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_candidates"
+version: "0.1.3"
+summary: "Generate all physically allowed S1-S2 pairing candidates"
+depends_on: ["peak_classification", "peaks"]
+output_kind: "structured_array"
+generated: true
+---
+# s1_s2_pair_candidates
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `s1_s2_pair_candidates` |
-| **Version** | `0.1.3` |
-| **Category** | 事件分析 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Generate all physically allowed S1-S2 pairing candidates
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `s1_s2_pair_candidates` |
+| Plugin Class | `S1S2PairCandidatesPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_candidates` |
+| Version | `0.1.3` |
+| Category | 事件分析 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-This plugin depends on the following data:
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `peak_classification` | - | declared | - | - |
+| `peaks` | - | declared | - | - |
+## Configuration
 
-- [`peak_classification`](peak_classification.md)
-- [`peaks`](peaks.md)
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `max_drift_time` | `float` | `50000.0` | - | yes | no | 最大漂移时间 (ns). 典型液氙 TPC 约 50 μs |
+| `min_drift_time` | `float` | `0.0` | - | yes | no | 最小漂移时间 (ns). 用于过滤噪声 |
+| `time_field` | `str` | `center_time` | - | yes | no | 使用的时间字段 |
+| `min_s1_area` | `(<class 'float'>, <class 'NoneType'>)` | `None` | - | yes | no | S1 最小面积阈值 (可选) |
+| `min_s2_area` | `(<class 'float'>, <class 'NoneType'>)` | `None` | - | yes | no | S2 最小面积阈值 (可选) |
+| `allow_orphan_s1` | `bool` | `False` | - | yes | no | 是否输出孤立 S1 (无 S2 配对) |
+| `allow_orphan_s2` | `bool` | `False` | - | yes | no | 是否输出孤立 S2 (无 S1 配对) |
+## Output
 
-## Configuration Options
-
-| Option | Type | Default | Units | Description |
-|--------|------|---------|-------|-------------|
-| `max_drift_time` | `float` | `50000.0` | - | 最大漂移时间 (ns). 典型液氙 TPC 约 50 μs |
-| `min_drift_time` | `float` | `0.0` | - | 最小漂移时间 (ns). 用于过滤噪声 |
-| `time_field` | `str` | `center_time` | - | 使用的时间字段 |
-| `min_s1_area` | `(<class 'float'>, <class 'NoneType'>)` | `None` | - | S1 最小面积阈值 (可选) |
-| `min_s2_area` | `(<class 'float'>, <class 'NoneType'>)` | `None` | - | S2 最小面积阈值 (可选) |
-| `allow_orphan_s1` | `bool` | `False` | - | 是否输出孤立 S1 (无 S2 配对) |
-| `allow_orphan_s2` | `bool` | `False` | - | 是否输出孤立 S2 (无 S1 配对) |
-
-
-## Output Schema
-
-**Output Type**: `structured_array`
-
-| Field | Type | Units | Description |
-|-------|------|-------|-------------|
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
 | `pair_id` | `int64` | - | - |
 | `s1_peak_id` | `int64` | - | - |
 | `s2_peak_id` | `int64` | - | - |
@@ -69,32 +76,13 @@ This plugin depends on the following data:
 | `delta_score_to_next_best` | `float32` | - | - |
 | `flags` | `uint32` | - | - |
 | `selected` | `bool` | - | - |
-
-## Usage Example
+## Usage
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import S1S2PairCandidatesPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(S1S2PairCandidatesPlugin())
-
-# Configure plugin (optional)
-ctx.set_config({
-    "max_drift_time": 50000.0,
-    "min_drift_time": 0.0,
-    "time_field": 'center_time',
-}, plugin_name="s1_s2_pair_candidates")
-
-# Get data
 data = ctx.get_data("run_001", "s1_s2_pair_candidates")
 ```
-
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_candidates`
-
----
-
-*This documentation was auto-generated from plugin metadata.*

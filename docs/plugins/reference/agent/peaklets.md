@@ -1,70 +1,86 @@
-# peaklets (PeakletPlugin)
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "agent"
+provides: "peaklets"
+plugin_class: "PeakletPlugin"
+module: "waveform_analysis.core.plugins.builtin.peaks.peaklets"
+version: "1.1.0"
+summary: "Build lightweight cross-channel peaklets from hit_merged intervals."
+depends_on: ["hit_merged", "peaklet_components"]
+output_kind: "structured_array"
+generated: true
+---
+# peaklets
 
-> Agent-first 插件契约文档。面向自动化执行与改动评估。
+## Overview
 
-## Agent Contract
+Build lightweight cross-channel peaklets from hit_merged intervals.
 
 | Item | Value |
-|------|-------|
+| --- | --- |
 | Provides | `peaklets` |
-| Depends On | `hit_merged`, `peaklet_components` |
-| Output Kind | `structured_array` |
-| Version | `1.1.0` |
+| Plugin Class | `PeakletPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
-| Accelerator | `cpu` |
+| Version | `1.1.0` |
+| Category | 特征提取 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-## Source Notes
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `hit_merged` | - | declared | - | - |
+| `peaklet_components` | - | declared | - | - |
+## Configuration
 
-Peaklet clustering, ragged waveforms, features, and final peaks.
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `time_window_ns` | `float` | `100.0` | - | yes | no | 跨通道 peaklet 合并时间窗口 |
+| `max_total_width_ns` | `float` | `10000.0` | - | yes | no | peaklet 最大总宽度 |
+| `dt` | `int` | `None` | - | yes | no | 保留兼容配置；优先使用输入 hit_merged 的 dt |
+## Output
 
-## Inputs
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `time_start` | `int64` | - | - |
+| `time_end` | `int64` | - | - |
+| `center_time` | `int64` | - | - |
+| `n_hits` | `int32` | - | - |
+| `n_channels` | `int32` | - | - |
+| `component_offset` | `int64` | - | - |
+| `component_count` | `int32` | - | - |
+## Usage
 
-- `hit_merged`
-- `peaklet_components`
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import PeakletPlugin
 
-## Outputs
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(PeakletPlugin())
+data = ctx.get_data("run_001", "peaklets")
+```
 
-| Field | DType | Meaning |
-|-------|-------|---------|
-| `time_start` | `int64` | - |
-| `time_end` | `int64` | - |
-| `center_time` | `int64` | - |
-| `n_hits` | `int32` | - |
-| `n_channels` | `int32` | - |
-| `component_offset` | `int64` | - |
-| `component_count` | `int32` | - |
+## Operational Notes
 
-## Config
+### Behavior
 
-| Name | Type | Default | Note |
-|------|------|---------|------|
-| `time_window_ns` | `float` | `100.0` | 跨通道 peaklet 合并时间窗口 |
-| `max_total_width_ns` | `float` | `10000.0` | peaklet 最大总宽度 |
-| `dt` | `int` | `None` | 保留兼容配置；优先使用输入 hit_merged 的 dt |
+- Peaklet clustering, ragged waveforms, features, and final peaks.
+### Failure Modes
 
-## Execution Path
+- Dependency data, configuration, or output contract validation may fail explicitly.
+### Downstream Impact
 
-`peaklets` 依赖链入口：
-`hit_merged -> peaklet_components -> peaklets`
+-
+## Maintenance
 
-## Failure Modes
+### Change Playbook
 
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
-
-## Change Playbook
-
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
-
-## Validation
+1. Keep `provides` and dependency semantics stable or update all consumers.
+2. Bump `version` for behavior, configuration, or output contract changes.
+3. Regenerate auto, agent, and web references after metadata changes.
+### Validation
 
 ```bash
-# 单插件文档再生成
 waveform-docs generate plugins-agent --plugin peaklets
-
-# 覆盖率检查
-waveform-docs check coverage --strict
+waveform-docs check coverage --strict --fail-on-warning
 ```

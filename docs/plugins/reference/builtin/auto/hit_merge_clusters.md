@@ -1,56 +1,54 @@
-# HitMergeClustersPlugin
-
-> Export cluster membership rows using the authoritative hit_merged configuration.
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "hit_merge_clusters"
+plugin_class: "HitMergeClustersPlugin"
+module: "waveform_analysis.core.plugins.builtin.hit.hit_merge"
+version: "1.1.0"
+summary: "Export cluster membership rows using the authoritative hit_merged configuration."
+depends_on: ["hit_merged", "hit_threshold"]
+output_kind: "structured_array"
+generated: true
+---
+# hit_merge_clusters
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `hit_merge_clusters` |
-| **Version** | `1.1.0` |
-| **Category** | 特征提取 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Export cluster membership rows using the authoritative hit_merged configuration.
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `hit_merge_clusters` |
+| Plugin Class | `HitMergeClustersPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.hit.hit_merge` |
+| Version | `1.1.0` |
+| Category | 特征提取 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-This plugin depends on the following data:
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `hit_merged` | - | declared | - | - |
+| `hit_threshold` | - | declared | - | - |
+## Configuration
 
-- [`hit_merged`](hit_merged.md)
-- [`hit_threshold`](hit_threshold.md)
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| - | - | - | - | - | - | - |
+## Output
 
-## Configuration Options
-
-This plugin has no configuration options.
-
-## Output Schema
-
-**Output Type**: `structured_array`
-
-| Field | Type | Units | Description |
-|-------|------|-------|-------------|
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
 | `cluster_index` | `int64` | - | - |
 | `hit_index` | `int64` | - | - |
-
-## Usage Example
+## Usage
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import HitMergeClustersPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(HitMergeClustersPlugin())
-
-# Get data
 data = ctx.get_data("run_001", "hit_merge_clusters")
 ```
-
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.hit.hit_merge`
-
----
-
-*This documentation was auto-generated from plugin metadata.*

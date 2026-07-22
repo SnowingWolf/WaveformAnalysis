@@ -290,6 +290,7 @@ tests/visualization/test_2d_histogram.py
 # Compiled documentation
 *.pdf
 !docs/**/*.pdf
+docs/_site/
 
 # Large output files
 *.png

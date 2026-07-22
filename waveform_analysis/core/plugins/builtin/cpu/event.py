@@ -119,7 +119,7 @@ class EventPlugin(Plugin):
     provides = "events"
     depends_on = ["s1_s2_pairs", "position_reconstruction"]
     description = "Complete event reconstruction from S1-S2 pairs and position"
-    version = "0.0.0"
+    version = "0.0.1"
     save_when = "always"
     output_dtype = EVENT_DTYPE
 

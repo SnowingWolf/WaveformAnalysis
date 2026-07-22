@@ -81,6 +81,13 @@ where = ["."]
 include = ["waveform_analysis*"]
 exclude = ["tests*", "docs*", "examples*"]
 
+[tool.setuptools.package-data]
+waveform_analysis = [
+    "utils/templates/*.j2",
+    "utils/templates/web/*.j2",
+    "utils/templates/web/assets/*",
+]
+
 [tool.black]
 line-length = 100
 target-version = ['py310', 'py311', 'py312']

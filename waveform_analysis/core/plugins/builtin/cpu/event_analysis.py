@@ -14,6 +14,7 @@ Event Analysis Plugins - 事件分组与配对插件
 from typing import Any
 
 from waveform_analysis.core.plugins.core.base import Option, Plugin
+from waveform_analysis.core.plugins.core.spec import OutputSchema
 
 
 class GroupedEventsPlugin(Plugin):
@@ -22,9 +23,15 @@ class GroupedEventsPlugin(Plugin):
     provides = "df_events"
     depends_on = ["df"]
     description = "Group events across channels within a configurable time window."
+    version = "0.0.1"
+    output_schema = OutputSchema(kind="dataframe", doc="Grouped multi-channel event table.")
     save_when = "always"
     options = {
-        "time_window_ns": Option(default=100.0, type=float),
+        "time_window_ns": Option(
+            default=100.0,
+            type=float,
+            help="Maximum time separation in nanoseconds for grouping events.",
+        ),
     }
 
     def compute(self, context: Any, run_id: str, **kwargs) -> Any:
@@ -68,6 +75,8 @@ class PairedEventsPlugin(Plugin):
     provides = "df_paired"
     depends_on = ["df_events"]
     description = "Pair grouped events across channels for coincidence analysis."
+    version = "0.0.1"
+    output_schema = OutputSchema(kind="dataframe", doc="Paired coincidence event table.")
     save_when = "always"
 
     def compute(self, context: Any, run_id: str, **kwargs) -> Any:

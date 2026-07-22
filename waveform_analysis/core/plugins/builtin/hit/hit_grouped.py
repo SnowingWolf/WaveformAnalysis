@@ -15,6 +15,7 @@ from waveform_analysis.core.plugins.builtin.cpu._dt_compat import (
     resolve_dt_config,
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
+from waveform_analysis.core.plugins.core.spec import OutputSchema
 from waveform_analysis.core.processing.event_grouping import group_hit_windows
 
 
@@ -25,9 +26,14 @@ class HitGroupedPlugin(Plugin):
     depends_on = ["hit_merged", "hit_merged_components", "hit_threshold"]
     description = "Group merged hits across channels into event-level coincidence windows."
     version = "0.5.0"
+    output_schema = OutputSchema(kind="dataframe", doc="Grouped hit coincidence table.")
     save_when = "always"
     options = {
-        "time_window_ns": Option(default=100.0, type=float),
+        "time_window_ns": Option(
+            default=100.0,
+            type=float,
+            help="Maximum absolute time separation in nanoseconds for grouping hits.",
+        ),
         "dt": Option(
             default=None,
             type=int,

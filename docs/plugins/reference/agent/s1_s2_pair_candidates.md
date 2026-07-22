@@ -1,21 +1,97 @@
-# s1_s2_pair_candidates (S1S2PairCandidatesPlugin)
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "agent"
+provides: "s1_s2_pair_candidates"
+plugin_class: "S1S2PairCandidatesPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_candidates"
+version: "0.1.3"
+summary: "Generate all physically allowed S1-S2 pairing candidates"
+depends_on: ["peak_classification", "peaks"]
+output_kind: "structured_array"
+generated: true
+---
+# s1_s2_pair_candidates
 
-> Agent-first 插件契约文档。面向自动化执行与改动评估。
+## Overview
 
-## Agent Contract
+Generate all physically allowed S1-S2 pairing candidates
 
 | Item | Value |
-|------|-------|
+| --- | --- |
 | Provides | `s1_s2_pair_candidates` |
-| Depends On | `peak_classification`, `peaks` |
-| Output Kind | `structured_array` |
-| Version | `0.1.3` |
+| Plugin Class | `S1S2PairCandidatesPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_candidates` |
-| Accelerator | `cpu` |
+| Version | `0.1.3` |
+| Category | 事件分析 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-## Source Notes
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `peak_classification` | - | declared | - | - |
+| `peaks` | - | declared | - | - |
+## Configuration
 
-S1-S2 配对候选生成插件。
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `max_drift_time` | `float` | `50000.0` | - | yes | no | 最大漂移时间 (ns). 典型液氙 TPC 约 50 μs |
+| `min_drift_time` | `float` | `0.0` | - | yes | no | 最小漂移时间 (ns). 用于过滤噪声 |
+| `time_field` | `str` | `center_time` | - | yes | no | 使用的时间字段 |
+| `min_s1_area` | `(<class 'float'>, <class 'NoneType'>)` | `None` | - | yes | no | S1 最小面积阈值 (可选) |
+| `min_s2_area` | `(<class 'float'>, <class 'NoneType'>)` | `None` | - | yes | no | S2 最小面积阈值 (可选) |
+| `allow_orphan_s1` | `bool` | `False` | - | yes | no | 是否输出孤立 S1 (无 S2 配对) |
+| `allow_orphan_s2` | `bool` | `False` | - | yes | no | 是否输出孤立 S2 (无 S1 配对) |
+## Output
+
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `pair_id` | `int64` | - | - |
+| `s1_peak_id` | `int64` | - | - |
+| `s2_peak_id` | `int64` | - | - |
+| `s1_index` | `int32` | - | - |
+| `s2_index` | `int32` | - | - |
+| `s1_time` | `int64` | - | - |
+| `s2_time` | `int64` | - | - |
+| `drift_time` | `int64` | - | - |
+| `drift_time_ns` | `float32` | - | - |
+| `s1_area` | `float32` | - | - |
+| `s2_area` | `float32` | - | - |
+| `log10_s2_s1` | `float32` | - | - |
+| `s1_width` | `float32` | - | - |
+| `s2_width` | `float32` | - | - |
+| `s1_n_channels` | `int16` | - | - |
+| `s2_n_channels` | `int16` | - | - |
+| `score_total` | `float32` | - | - |
+| `score_time` | `float32` | - | - |
+| `score_s1_quality` | `float32` | - | - |
+| `score_s2_quality` | `float32` | - | - |
+| `score_ratio` | `float32` | - | - |
+| `score_pattern` | `float32` | - | - |
+| `score_ambiguity` | `float32` | - | - |
+| `rank_for_s1` | `int32` | - | - |
+| `rank_for_s2` | `int32` | - | - |
+| `n_s1_candidates_for_s2` | `int32` | - | - |
+| `n_s2_candidates_for_s1` | `int32` | - | - |
+| `delta_score_to_next_best` | `float32` | - | - |
+| `flags` | `uint32` | - | - |
+| `selected` | `bool` | - | - |
+## Usage
+
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import S1S2PairCandidatesPlugin
+
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(S1S2PairCandidatesPlugin())
+data = ctx.get_data("run_001", "s1_s2_pair_candidates")
+```
+
+## Operational Notes
+
+### Behavior
+
+- S1-S2 配对候选生成插件。
 
 这个插件只负责“生成候选”，不负责“选择最终配对”。
 它先把 `peak_classification` 的结果拆成 S1 和 S2，然后以 S2 为 anchor，
@@ -59,82 +135,22 @@ S1-S2 配对候选生成插件。
 
 这一步的输出是“候选表”，后续插件可以基于分数、歧义和质量标志，
 再从这些候选里选出最终的 S1-S2 配对。
+### Failure Modes
 
-## Inputs
+- Dependency data, configuration, or output contract validation may fail explicitly.
+### Downstream Impact
 
-- `peak_classification`
-- `peaks`
+-
+## Maintenance
 
-## Outputs
+### Change Playbook
 
-| Field | DType | Meaning |
-|-------|-------|---------|
-| `pair_id` | `int64` | - |
-| `s1_peak_id` | `int64` | - |
-| `s2_peak_id` | `int64` | - |
-| `s1_index` | `int32` | - |
-| `s2_index` | `int32` | - |
-| `s1_time` | `int64` | - |
-| `s2_time` | `int64` | - |
-| `drift_time` | `int64` | - |
-| `drift_time_ns` | `float32` | - |
-| `s1_area` | `float32` | - |
-| `s2_area` | `float32` | - |
-| `log10_s2_s1` | `float32` | - |
-| `s1_width` | `float32` | - |
-| `s2_width` | `float32` | - |
-| `s1_n_channels` | `int16` | - |
-| `s2_n_channels` | `int16` | - |
-| `score_total` | `float32` | - |
-| `score_time` | `float32` | - |
-| `score_s1_quality` | `float32` | - |
-| `score_s2_quality` | `float32` | - |
-| `score_ratio` | `float32` | - |
-| `score_pattern` | `float32` | - |
-| `score_ambiguity` | `float32` | - |
-| `rank_for_s1` | `int32` | - |
-| `rank_for_s2` | `int32` | - |
-| `n_s1_candidates_for_s2` | `int32` | - |
-| `n_s2_candidates_for_s1` | `int32` | - |
-| `delta_score_to_next_best` | `float32` | - |
-| `flags` | `uint32` | - |
-| `selected` | `bool` | - |
-
-## Config
-
-| Name | Type | Default | Note |
-|------|------|---------|------|
-| `max_drift_time` | `float` | `50000.0` | 最大漂移时间 (ns). 典型液氙 TPC 约 50 μs |
-| `min_drift_time` | `float` | `0.0` | 最小漂移时间 (ns). 用于过滤噪声 |
-| `time_field` | `str` | `center_time` | 使用的时间字段 |
-| `min_s1_area` | `(<class 'float'>, <class 'NoneType'>)` | `None` | S1 最小面积阈值 (可选) |
-| `min_s2_area` | `(<class 'float'>, <class 'NoneType'>)` | `None` | S2 最小面积阈值 (可选) |
-| `allow_orphan_s1` | `bool` | `False` | 是否输出孤立 S1 (无 S2 配对) |
-| `allow_orphan_s2` | `bool` | `False` | 是否输出孤立 S2 (无 S1 配对) |
-
-## Execution Path
-
-`s1_s2_pair_candidates` 依赖链入口：
-`peak_classification -> peaks -> s1_s2_pair_candidates`
-
-## Failure Modes
-
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
-
-## Change Playbook
-
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
-
-## Validation
+1. Keep `provides` and dependency semantics stable or update all consumers.
+2. Bump `version` for behavior, configuration, or output contract changes.
+3. Regenerate auto, agent, and web references after metadata changes.
+### Validation
 
 ```bash
-# 单插件文档再生成
 waveform-docs generate plugins-agent --plugin s1_s2_pair_candidates
-
-# 覆盖率检查
-waveform-docs check coverage --strict
+waveform-docs check coverage --strict --fail-on-warning
 ```

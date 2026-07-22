@@ -1,55 +1,52 @@
-# GroupedEventsPlugin
-
-> Group events across channels within a configurable time window.
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "df_events"
+plugin_class: "GroupedEventsPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.event_analysis"
+version: "0.0.1"
+summary: "Group events across channels within a configurable time window."
+depends_on: ["df"]
+output_kind: "dataframe"
+generated: true
+---
+# df_events
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `df_events` |
-| **Version** | `0.0.0` |
-| **Category** | 事件分析 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Group events across channels within a configurable time window.
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `df_events` |
+| Plugin Class | `GroupedEventsPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.cpu.event_analysis` |
+| Version | `0.0.1` |
+| Category | 事件分析 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `dataframe` |
 
-This plugin depends on the following data:
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `df` | - | declared | - | - |
+## Configuration
 
-- [`df`](df.md)
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `time_window_ns` | `float` | `100.0` | - | yes | no | Maximum time separation in nanoseconds for grouping events. |
+## Output
 
-## Configuration Options
-
-| Option | Type | Default | Units | Description |
-|--------|------|---------|-------|-------------|
-| `time_window_ns` | `float` | `100.0` | - | - |
-
-
-
-## Usage Example
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| - | `dataframe` | - | Group events across channels within a configurable time window. |
+## Usage
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import GroupedEventsPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(GroupedEventsPlugin())
-
-# Configure plugin (optional)
-ctx.set_config({
-    "time_window_ns": 100.0,
-}, plugin_name="df_events")
-
-# Get data
 data = ctx.get_data("run_001", "df_events")
 ```
-
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.event_analysis`
-
----
-
-*This documentation was auto-generated from plugin metadata.*

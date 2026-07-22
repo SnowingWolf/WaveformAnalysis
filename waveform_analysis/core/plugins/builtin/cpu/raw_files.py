@@ -11,6 +11,7 @@ Raw Files Plugin - 原始文件扫描插件
 from typing import Any
 
 from waveform_analysis.core.plugins.core.base import Option, Plugin
+from waveform_analysis.core.plugins.core.spec import OutputSchema
 
 
 class RawFileNamesPlugin(Plugin):
@@ -19,6 +20,7 @@ class RawFileNamesPlugin(Plugin):
     provides = "raw_files"
     description = "Scan the data directory and group raw CSV files by channel number."
     version = "0.0.2"
+    output_schema = OutputSchema(kind="list", doc="Raw file paths grouped by channel.")
     options = {
         "data_root": Option(default="DAQ", type=str, help="Root directory for data"),
         "daq_adapter": Option(default="vx2730", type=str, help="DAQ adapter name (e.g., 'vx2730')"),

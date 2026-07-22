@@ -1,81 +1,97 @@
-# hit_merged_features (HitMergedFeaturesPlugin)
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "agent"
+provides: "hit_merged_features"
+plugin_class: "HitMergedFeaturesPlugin"
+module: "waveform_analysis.core.plugins.builtin.hit.hit_merged_features"
+version: "0.4.0"
+summary: "Compute per-hit_merged local waveform features from records-backed samples."
+depends_on: []
+output_kind: "structured_array"
+generated: true
+---
+# hit_merged_features
 
-> Agent-first 插件契约文档。面向自动化执行与改动评估。
+## Overview
 
-## Agent Contract
+Compute per-hit_merged local waveform features from records-backed samples.
 
 | Item | Value |
-|------|-------|
+| --- | --- |
 | Provides | `hit_merged_features` |
-| Depends On | - |
-| Output Kind | `structured_array` |
-| Version | `0.4.0` |
+| Plugin Class | `HitMergedFeaturesPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.hit.hit_merged_features` |
-| Accelerator | `cpu` |
+| Version | `0.4.0` |
+| Category | 特征提取 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-## Source Notes
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| - | - | - | - | - |
+## Configuration
 
-Per-channel waveform features for hit_merged rows.
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `wave_source` | `str` | `records` | - | yes | no | 波形来源。hit_merged_features 当前正式支持 records。 |
+| `use_filtered` | `bool` | `False` | - | yes | no | 是否使用 wave_pool_filtered 计算局部特征。 |
+| `dt` | `int` | `None` | - | yes | no | 保留兼容配置；特征优先使用 records/hits 的 dt |
+| `gain_adc_per_pe` | `dict` | `None` | - | yes | no | 按硬件通道配置 ADC/PE 增益，键请使用 "board:channel"，例如 {"0:0": 12.5, "0:1": 13.2}。设置后会新增 area_pe/height_pe 列。 |
+| `normalize_to_pe` | `bool` | `False` | - | yes | no | 是否将 area/height 直接归一化为 PE 单位。False (默认): area/height 保持 ADC 单位，area_pe/height_pe 输出 PE 单位。True: area/height 归一化为 PE 单位，area_pe/height_pe 为 NaN。 |
+## Output
 
-## Inputs
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `merged_index` | `int64` | - | - |
+| `board` | `int16` | - | - |
+| `channel` | `int16` | - | - |
+| `record_id` | `int64` | - | - |
+| `time_start` | `int64` | - | - |
+| `time_end` | `int64` | - | - |
+| `center_time` | `int64` | - | - |
+| `max_time` | `int64` | - | - |
+| `area` | `float32` | - | - |
+| `height` | `float32` | - | - |
+| `width` | `float32` | - | - |
+| `rise_time` | `float32` | - | - |
+| `fall_time` | `float32` | - | - |
+| `n_hits` | `int32` | - | - |
+| `valid` | `int8` | - | - |
+| `area_pe` | `float32` | - | - |
+| `height_pe` | `float32` | - | - |
+## Usage
 
-- 无依赖输入（source plugin）
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import HitMergedFeaturesPlugin
 
-## Outputs
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(HitMergedFeaturesPlugin())
+data = ctx.get_data("run_001", "hit_merged_features")
+```
 
-| Field | DType | Meaning |
-|-------|-------|---------|
-| `merged_index` | `int64` | - |
-| `board` | `int16` | - |
-| `channel` | `int16` | - |
-| `record_id` | `int64` | - |
-| `time_start` | `int64` | - |
-| `time_end` | `int64` | - |
-| `center_time` | `int64` | - |
-| `max_time` | `int64` | - |
-| `area` | `float32` | - |
-| `height` | `float32` | - |
-| `width` | `float32` | - |
-| `rise_time` | `float32` | - |
-| `fall_time` | `float32` | - |
-| `n_hits` | `int32` | - |
-| `valid` | `int8` | - |
-| `area_pe` | `float32` | - |
-| `height_pe` | `float32` | - |
+## Operational Notes
 
-## Config
+### Behavior
 
-| Name | Type | Default | Note |
-|------|------|---------|------|
-| `wave_source` | `str` | `records` | 波形来源。hit_merged_features 当前正式支持 records。 |
-| `use_filtered` | `bool` | `False` | 是否使用 wave_pool_filtered 计算局部特征。 |
-| `dt` | `int` | `None` | 保留兼容配置；特征优先使用 records/hits 的 dt |
-| `gain_adc_per_pe` | `dict` | `None` | 按硬件通道配置 ADC/PE 增益，键请使用 "board:channel"，例如 {"0:0": 12.5, "0:1": 13.2}。设置后会新增 area_pe/height_pe 列。 |
-| `normalize_to_pe` | `bool` | `False` | 是否将 area/height 直接归一化为 PE 单位。False (默认): area/height 保持 ADC 单位，area_pe/height_pe 输出 PE 单位。True: area/height 归一化为 PE 单位，area_pe/height_pe 为 NaN。 |
+- Per-channel waveform features for hit_merged rows.
+### Failure Modes
 
-## Execution Path
+- Dependency data, configuration, or output contract validation may fail explicitly.
+### Downstream Impact
 
-`hit_merged_features` 依赖链入口：
-`SOURCE -> hit_merged_features`
+-
+## Maintenance
 
-## Failure Modes
+### Change Playbook
 
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
-
-## Change Playbook
-
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
-
-## Validation
+1. Keep `provides` and dependency semantics stable or update all consumers.
+2. Bump `version` for behavior, configuration, or output contract changes.
+3. Regenerate auto, agent, and web references after metadata changes.
+### Validation
 
 ```bash
-# 单插件文档再生成
 waveform-docs generate plugins-agent --plugin hit_merged_features
-
-# 覆盖率检查
-waveform-docs check coverage --strict
+waveform-docs check coverage --strict --fail-on-warning
 ```

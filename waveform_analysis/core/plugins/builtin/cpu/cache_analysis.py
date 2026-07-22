@@ -13,6 +13,7 @@ from typing import Any
 
 from waveform_analysis.core.foundation.utils import exporter
 from waveform_analysis.core.plugins.core.base import Option, Plugin
+from waveform_analysis.core.plugins.core.spec import OutputSchema
 from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer, CacheEntry
 from waveform_analysis.core.storage.cache_diagnostics import CacheDiagnostics, DiagnosticIssue
 from waveform_analysis.core.storage.cache_statistics import CacheStatsCollector
@@ -128,6 +129,7 @@ class CacheAnalysisPlugin(Plugin):
     provides = "cache_analysis"
     description = "Analyze cache usage and return summary, entries, and diagnostics."
     version = "0.1.0"
+    output_schema = OutputSchema(kind="dict", doc="Cache summary, entries, and diagnostics.")
     save_when = "never"
     is_side_effect = True
 

@@ -242,15 +242,16 @@ class DocCoverageChecker:
                     )
                 )
 
-        # 检查 output_dtype
+        # Structured arrays use output_dtype; other result types use output_schema.
         output_dtype = getattr(instance, "output_dtype", None)
-        if output_dtype is None:
+        output_schema = getattr(instance, "output_schema", None)
+        if output_dtype is None and output_schema is None:
             issues.append(
                 CoverageIssue(
                     plugin_name=plugin_name,
                     provides=provides,
                     severity="warning",
-                    message="Missing output_dtype",
+                    message="Missing output_dtype or output_schema",
                     category="spec_quality",
                 )
             )

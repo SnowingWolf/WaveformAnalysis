@@ -1,37 +1,46 @@
-# PeakletWaveformPoolPlugin
-
-> Return the flattened float32 signal pool paired with peaklet_waveforms. Configure waveform construction on peaklet_waveforms.
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "peaklet_waveform_pool"
+plugin_class: "PeakletWaveformPoolPlugin"
+module: "waveform_analysis.core.plugins.builtin.peaks.peaklets"
+version: "2.0.0"
+summary: "Return the flattened float32 signal pool paired with peaklet_waveforms. Configure waveform construction on peaklet_waveforms."
+depends_on: ["peaklet_waveforms"]
+output_kind: "array"
+generated: true
+---
+# peaklet_waveform_pool
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `peaklet_waveform_pool` |
-| **Version** | `2.0.0` |
-| **Category** | 波形处理 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Return the flattened float32 signal pool paired with peaklet_waveforms. Configure waveform construction on peaklet_waveforms.
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `peaklet_waveform_pool` |
+| Plugin Class | `PeakletWaveformPoolPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
+| Version | `2.0.0` |
+| Category | 波形处理 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `array` |
 
-This plugin depends on the following data:
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `peaklet_waveforms` | - | declared | - | - |
+## Configuration
 
-- [`peaklet_waveforms`](peaklet_waveforms.md)
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| - | - | - | - | - | - | - |
+## Output
 
-## Configuration Options
-
-This plugin has no configuration options.
-
-## Output Schema
-
-**Output Type**: `array`
-
-| Field | Type | Units | Description |
-|-------|------|-------|-------------|
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
 | `value` | `float32` | - | - |
-
-## Usage Example
+## Usage
 
 ```python
 from waveform_analysis.core.context import Context
@@ -51,11 +60,3 @@ ctx.set_config(
 )
 pool = ctx.get_data("run_001", "peaklet_waveform_pool")
 ```
-
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.peaks.peaklets`
-
----
-
-*This documentation was auto-generated from plugin metadata.*

@@ -1,40 +1,49 @@
-# WaveformWidthIntegralPlugin
-
-> Event-wise integral quantile width using st_waveforms or filtered_waveforms.
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "waveform_width_integral"
+plugin_class: "WaveformWidthIntegralPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.waveform_width_integral"
+version: "2.7.0"
+summary: "Event-wise integral quantile width using st_waveforms or filtered_waveforms."
+depends_on: []
+output_kind: "structured_array"
+generated: true
+---
+# waveform_width_integral
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `waveform_width_integral` |
-| **Version** | `2.7.0` |
-| **Category** | 波形处理 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Event-wise integral quantile width using st_waveforms or filtered_waveforms.
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `waveform_width_integral` |
+| Plugin Class | `WaveformWidthIntegralPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.cpu.waveform_width_integral` |
+| Version | `2.7.0` |
+| Category | 波形处理 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-This plugin has no dependencies.
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| - | - | - | - | - |
+## Configuration
 
-## Configuration Options
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `q_low` | `float` | `0.1` | - | yes | no | 低分位点（默认 0.10） |
+| `q_high` | `float` | `0.9` | - | yes | no | 高分位点（默认 0.90） |
+| `use_filtered` | `bool` | `False` | - | yes | no | 是否使用 filtered_waveforms（若启用，baseline 仍来自 st_waveforms） |
+| `wave_source` | `str` | `auto` | - | yes | no | 波形数据源: auto\|records\|st_waveforms\|filtered_waveforms |
+| `sampling_rate` | `float` | `0.5` | - | yes | no | 采样率（GHz），用于换算时间（ns） |
+| `dt` | `float` | `None` | - | yes | no | 采样间隔（ns），优先级高于 sampling_rate |
+## Output
 
-| Option | Type | Default | Units | Description |
-|--------|------|---------|-------|-------------|
-| `q_low` | `float` | `0.1` | - | 低分位点（默认 0.10） |
-| `q_high` | `float` | `0.9` | - | 高分位点（默认 0.90） |
-| `use_filtered` | `bool` | `False` | - | 是否使用 filtered_waveforms（若启用，baseline 仍来自 st_waveforms） |
-| `wave_source` | `str` | `auto` | - | 波形数据源: auto|records|st_waveforms|filtered_waveforms |
-| `sampling_rate` | `float` | `0.5` | - | 采样率（GHz），用于换算时间（ns） |
-| `dt` | `float` | `None` | - | 采样间隔（ns），优先级高于 sampling_rate |
-
-
-## Output Schema
-
-**Output Type**: `structured_array`
-
-| Field | Type | Units | Description |
-|-------|------|-------|-------------|
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
 | `t_low` | `float32` | - | - |
 | `t_high` | `float32` | - | - |
 | `width` | `float32` | - | - |
@@ -46,32 +55,13 @@ This plugin has no dependencies.
 | `board` | `int16` | - | - |
 | `channel` | `int16` | - | - |
 | `record_id` | `int64` | - | - |
-
-## Usage Example
+## Usage
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import WaveformWidthIntegralPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(WaveformWidthIntegralPlugin())
-
-# Configure plugin (optional)
-ctx.set_config({
-    "q_low": 0.1,
-    "q_high": 0.9,
-    "use_filtered": False,
-}, plugin_name="waveform_width_integral")
-
-# Get data
 data = ctx.get_data("run_001", "waveform_width_integral")
 ```
-
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.waveform_width_integral`
-
----
-
-*This documentation was auto-generated from plugin metadata.*
