@@ -268,3 +268,123 @@ def test_hit_merged_features_raises_when_record_missing():
 
     with pytest.raises(ValueError, match="record_id=2"):
         HitMergedFeaturesPlugin().compute(ctx, "run_001")
+
+
+def test_hit_merged_features_plugin_version_is_050():
+    """验证版本已升级到 0.5.0（MINOR — 内部算法路径变更 + 新配置项）"""
+    assert HitMergedFeaturesPlugin.version == "0.5.0"
+
+
+def test_hit_merged_features_new_option_feature_num_threads():
+    """验证 feature_num_threads 配置项存在且 track=True"""
+    plugin = HitMergedFeaturesPlugin()
+    assert "feature_num_threads" in plugin.options
+    opt = plugin.options["feature_num_threads"]
+    assert opt.default is None
+    assert opt.type is int
+    assert opt.track is True
+
+
+def test_hit_merged_features_no_build_component_slices_function():
+    """验证 _build_component_slices 已被移除"""
+    from waveform_analysis.core.plugins.builtin.hit import hit_merged_features as mod
+
+    assert not hasattr(mod, "_build_component_slices"), "_build_component_slices should be removed"
+    assert not hasattr(mod, "_record_lookup"), "_record_lookup should be removed"
+
+
+def test_hit_merged_features_output_dtype_integrity():
+    """Golden: 验证输出 dtype 完整且所有字段存在"""
+    hit = _make_hit(record_id=0, edge_start=2, edge_end=5)
+    merged = np.array(
+        [_make_merged(record_id=0, sample_start=2, sample_end=5)], dtype=HIT_MERGED_DTYPE
+    )
+    wave_pool = np.array([100, 100, 90, 70, 80, 100, 100, 100, 100, 100], dtype=np.uint16)
+    ctx = _context(
+        merged, _components([(0, 0)]), np.array([hit], dtype=THRESHOLD_HIT_DTYPE), wave_pool
+    )
+
+    out = HitMergedFeaturesPlugin().compute(ctx, "run_001")
+
+    assert out.dtype == HIT_MERGED_FEATURES_DTYPE
+    expected_fields = {
+        "merged_index",
+        "board",
+        "channel",
+        "record_id",
+        "time_start",
+        "time_end",
+        "center_time",
+        "max_time",
+        "area",
+        "height",
+        "width",
+        "rise_time",
+        "fall_time",
+        "n_hits",
+        "valid",
+        "area_pe",
+        "height_pe",
+    }
+    actual_fields = set(out.dtype.names)
+    assert expected_fields == actual_fields, f"Missing fields: {expected_fields - actual_fields}"
+
+
+def test_hit_merged_features_fallback_output_fields_bytewise():
+    """Golden: fallback 路径产出完整字段且 valid=1（无 NaN）"""
+    hits = np.array(
+        [
+            _make_hit(record_id=0, edge_start=2, edge_end=4),
+            _make_hit(record_id=1, edge_start=3, edge_end=5),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    merged = np.array(
+        [_make_merged(record_id=0, sample_start=-1, sample_end=-1, component_count=2)],
+        dtype=HIT_MERGED_DTYPE,
+    )
+    wave_pool = np.array(
+        [
+            100,
+            100,
+            80,
+            80,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            70,
+            70,
+            100,
+            100,
+            100,
+            100,
+            100,
+        ],
+        dtype=np.uint16,
+    )
+    ctx = _context(merged, _components([(0, 0), (0, 1)]), hits, wave_pool)
+
+    out = HitMergedFeaturesPlugin().compute(ctx, "run_001")
+
+    row = out[0]
+    assert int(row["valid"]) == 1
+    assert int(row["n_hits"]) == 2
+    assert int(row["board"]) == 0
+    assert int(row["channel"]) == 0
+    assert int(row["record_id"]) == 0
+    assert float(row["area"]) == 100.0
+    assert float(row["height"]) == 30.0
+    assert int(row["time_start"]) >= 0
+    assert int(row["time_end"]) > int(row["time_start"])
+    assert int(row["center_time"]) >= int(row["time_start"])
+    assert int(row["max_time"]) >= int(row["time_start"])
+    assert float(row["width"]) > 0
+    # area_pe/height_pe should be NaN when no gain configured
+    assert np.isnan(float(row["area_pe"]))
+    assert np.isnan(float(row["height_pe"]))
