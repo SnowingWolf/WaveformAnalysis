@@ -16,24 +16,15 @@ import pandas as pd
 from waveform_analysis.core.execution.manager import get_executor
 from waveform_analysis.core.foundation.utils import exporter
 from waveform_analysis.core.processing.dtypes import PEAK_DTYPE as _PEAK_DTYPE
+from waveform_analysis.core.utils.common import NUMBA_AVAILABLE, jit
 
 # Setup logger
 logger = logging.getLogger(__name__)
 
 # 尝试导入numba（可选）
-try:
-    from numba import jit, prange
-
-    NUMBA_AVAILABLE = True
-except ImportError:
-    NUMBA_AVAILABLE = False
-
-    def jit(*args, **kwargs):
-        def decorator(func):
-            return func
-
-        return decorator
-
+if NUMBA_AVAILABLE:
+    from numba import prange
+else:
     prange = range
 
 # 初始化 exporter

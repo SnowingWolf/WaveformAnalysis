@@ -38,6 +38,12 @@ from waveform_analysis.core.processing.dtypes import (
 from waveform_analysis.core.processing.dtypes import (
     RECORDS_DTYPE as _RECORDS_DTYPE,
 )
+from waveform_analysis.core.utils.baseline import (
+    normalize_baseline_samples as _normalize_baseline_samples,
+)
+from waveform_analysis.core.utils.baseline import (
+    validate_baseline_samples as _validate_baseline_samples,
+)
 
 export, __all__ = exporter()
 
@@ -268,44 +274,6 @@ class RecordsBundleRef:
 
             shutil.rmtree(self.temp_dir)
             self.temp_dir = None
-
-
-def _normalize_baseline_samples(
-    baseline_samples: int | tuple[int, int] | list[int] | None,
-) -> int | tuple[int, int] | None:
-    if isinstance(baseline_samples, list):
-        return tuple(baseline_samples)
-    return baseline_samples
-
-
-def _validate_baseline_samples(
-    baseline_samples: int | tuple[int, int] | list[int] | None,
-) -> None:
-    baseline_samples = _normalize_baseline_samples(baseline_samples)
-    if baseline_samples is None:
-        return
-    if isinstance(baseline_samples, tuple):
-        if len(baseline_samples) != 2:
-            raise ValueError(
-                f"baseline_samples tuple must have 2 elements (start, end), got {len(baseline_samples)}"
-            )
-        start, end = baseline_samples
-        if not isinstance(start, int) or not isinstance(end, int):
-            raise TypeError(
-                f"baseline_samples tuple elements must be int, got ({type(start).__name__}, {type(end).__name__})"
-            )
-        if start < 0 or end < 0:
-            raise ValueError(f"baseline_samples indices must be non-negative, got ({start}, {end})")
-        if start >= end:
-            raise ValueError(f"baseline_samples start must be less than end, got ({start}, {end})")
-        return
-    if isinstance(baseline_samples, int):
-        if baseline_samples <= 0:
-            raise ValueError(f"baseline_samples must be positive, got {baseline_samples}")
-        return
-    raise TypeError(
-        f"baseline_samples must be int or tuple (start, end), got {type(baseline_samples).__name__}"
-    )
 
 
 def _resolve_baseline_window(

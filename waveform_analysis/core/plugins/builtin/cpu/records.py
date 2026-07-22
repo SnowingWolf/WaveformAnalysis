@@ -16,7 +16,6 @@ from waveform_analysis.core.plugins.builtin.cpu.filtering import (
 )
 from waveform_analysis.core.plugins.builtin.cpu.waveforms import (
     _build_polarity_lookup,
-    _validate_baseline_samples,
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.dtypes import RECORDS_DTYPE
@@ -26,6 +25,9 @@ from waveform_analysis.core.processing.records_builder import (
     build_records_from_raw_files,
     build_records_from_st_waveforms_sharded,
     build_records_from_v1725_files,
+)
+from waveform_analysis.core.utils.baseline import (
+    validate_baseline_samples as _validate_baseline_samples,
 )
 
 _BUNDLE_CACHE_NAME = "_records_bundle"

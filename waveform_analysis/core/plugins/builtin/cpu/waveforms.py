@@ -42,6 +42,12 @@ from waveform_analysis.core.processing.dtypes import (
     ST_WAVEFORM_DTYPE,
     create_record_dtype,
 )
+from waveform_analysis.core.utils.baseline import (
+    normalize_baseline_samples as _normalize_baseline_samples,
+)
+from waveform_analysis.core.utils.baseline import (
+    validate_baseline_samples as _validate_baseline_samples,
+)
 
 if TYPE_CHECKING:
     from waveform_analysis.utils.formats.base import ColumnMapping, FormatSpec
@@ -163,48 +169,6 @@ def _detect_wave_length_from_files(
             if samples_end > cols.samples_start:
                 return int(samples_end - cols.samples_start)
     return None
-
-
-def _normalize_baseline_samples(
-    baseline_samples: int | tuple[int, int] | list[int] | None,
-) -> int | tuple[int, int] | None:
-    """Normalize JSON-friendly list inputs into the tuple form expected internally."""
-    if isinstance(baseline_samples, list):
-        return tuple(baseline_samples)
-    return baseline_samples
-
-
-def _validate_baseline_samples(
-    baseline_samples: int | tuple[int, int] | list[int] | None,
-) -> None:
-    baseline_samples = _normalize_baseline_samples(baseline_samples)
-    if baseline_samples is None:
-        return
-    if isinstance(baseline_samples, tuple):
-        if len(baseline_samples) != 2:
-            raise ValueError(
-                "baseline_samples tuple must have 2 elements (start, end), "
-                f"got {len(baseline_samples)}"
-            )
-        start, end = baseline_samples
-        if not isinstance(start, int) or not isinstance(end, int):
-            raise TypeError(
-                "baseline_samples tuple elements must be int, "
-                f"got ({type(start).__name__}, {type(end).__name__})"
-            )
-        if start < 0 or end < 0:
-            raise ValueError(f"baseline_samples indices must be non-negative, got ({start}, {end})")
-        if start >= end:
-            raise ValueError(f"baseline_samples start must be less than end, got ({start}, {end})")
-        return
-    if isinstance(baseline_samples, int):
-        if baseline_samples <= 0:
-            raise ValueError(f"baseline_samples must be positive, got {baseline_samples}")
-        return
-    raise TypeError(
-        "baseline_samples must be int or tuple (start, end), "
-        f"got {type(baseline_samples).__name__}"
-    )
 
 
 def _resolve_baseline_window(
