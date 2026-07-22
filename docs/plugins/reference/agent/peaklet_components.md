@@ -5,7 +5,7 @@ profile: "agent"
 provides: "peaklet_components"
 plugin_class: "PeakletComponentsPlugin"
 module: "waveform_analysis.core.plugins.builtin.peaks.peaklets"
-version: "1.3.0"
+version: "1.4.0"
 summary: "Return per-peaklet component hit_merged indices."
 depends_on: ["hit_merged"]
 output_kind: "structured_array"
@@ -22,7 +22,7 @@ Return per-peaklet component hit_merged indices.
 | Provides | `peaklet_components` |
 | Plugin Class | `PeakletComponentsPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
-| Version | `1.3.0` |
+| Version | `1.4.0` |
 | Category | 特征提取 |
 | Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |

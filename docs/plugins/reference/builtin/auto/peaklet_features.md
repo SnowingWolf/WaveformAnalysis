@@ -5,7 +5,7 @@ profile: "auto"
 provides: "peaklet_features"
 plugin_class: "PeakletFeaturesPlugin"
 module: "waveform_analysis.core.plugins.builtin.peaks.peaklets"
-version: "4.0.0"
+version: "4.1.0"
 summary: "Compute peaklet waveform features from ragged signal pools."
 depends_on: ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
 output_kind: "structured_array"
@@ -22,7 +22,7 @@ Compute peaklet waveform features from ragged signal pools.
 | Provides | `peaklet_features` |
 | Plugin Class | `PeakletFeaturesPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
-| Version | `4.0.0` |
+| Version | `4.1.0` |
 | Category | 特征提取 |
 | Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |

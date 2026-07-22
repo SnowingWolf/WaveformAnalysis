@@ -125,6 +125,96 @@ def test_peaklet_waveforms_cross_record_uses_component_hits_from_each_record():
     np.testing.assert_allclose(pool, np.array([20.0, 70.0, 50.0], dtype=np.float32))
 
 
+def test_peaklet_waveforms_direct_component_offsets_match_csr_fallback():
+    ctx = _make_cross_record_waveform_context()
+    plugin = PeakletWaveformPlugin()
+    plugin._configure_build(ctx)
+    plugin._hit_merged_components = ctx._data["hit_merged_components"]
+    plugin._hit_threshold = ctx._data["hit_threshold"]
+    merged = ctx._data["hit_merged"]
+    kwargs = {
+        "peaklets": ctx._data["peaklets"],
+        "components": ctx._data["peaklet_components"],
+        "is_single_record": merged["is_single_record"],
+        "records": ctx._data["records"],
+        "wave_pool": ctx._data["wave_pool"],
+    }
+
+    direct_waveforms, direct_pool = plugin._build_cross_record_numba(merged=merged, **kwargs)
+    fallback_fields = [
+        name for name in merged.dtype.names if name not in {"component_offset", "component_count"}
+    ]
+    fallback_waveforms, fallback_pool = plugin._build_cross_record_numba(
+        merged=merged[fallback_fields], **kwargs
+    )
+
+    assert direct_waveforms.dtype == PEAKLET_WAVEFORMS_DTYPE
+    for field in PEAKLET_WAVEFORMS_DTYPE.names:
+        np.testing.assert_array_equal(direct_waveforms[field], fallback_waveforms[field])
+    np.testing.assert_array_equal(direct_pool, fallback_pool)
+
+
+def test_peaklet_waveforms_mix_single_and_cross_record_pieces_in_one_peaklet():
+    hits = np.array(
+        [
+            _make_hit(record_id=0, board=0, channel=0, edge_start=3, edge_end=5),
+            _make_hit(record_id=1, board=0, channel=0, edge_start=2, edge_end=4),
+            _make_hit(record_id=2, board=0, channel=0, edge_start=1, edge_end=3),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    merged = np.zeros(2, dtype=HIT_MERGED_DTYPE)
+    merged[0]["merged_id"] = 0
+    merged[0]["time_start"] = 6000
+    merged[0]["time_end"] = 10000
+    merged[0]["sample_start"] = 3
+    merged[0]["sample_end"] = 5
+    merged[0]["dt"] = 2
+    merged[0]["record_id"] = 0
+    merged[0]["component_offset"] = 0
+    merged[0]["component_count"] = 1
+    merged[0]["is_single_record"] = True
+    merged[1]["merged_id"] = 1
+    merged[1]["time_start"] = 8000
+    merged[1]["time_end"] = 14000
+    merged[1]["sample_start"] = -1
+    merged[1]["sample_end"] = -1
+    merged[1]["dt"] = 2
+    merged[1]["record_id"] = 1
+    merged[1]["component_offset"] = 1
+    merged[1]["component_count"] = 2
+    merged[1]["is_single_record"] = False
+
+    hit_merged_components = np.array([(0, 0), (1, 1), (1, 2)], dtype=HIT_MERGED_COMPONENTS_DTYPE)
+    peaklets = np.array([(6000, 14000, 10000, 3, 1, 0, 2)], dtype=PEAKLET_DTYPE)
+    components = np.array([(0, 0), (0, 1)], dtype=PEAKLET_COMPONENTS_DTYPE)
+    records = make_records(n_records=3, event_length=10, baseline=100.0, dt=2)
+    records["timestamp"] = [0, 4000, 8000]
+    records["polarity"] = "negative"
+    wave_pool = np.full(30, 100, dtype=np.uint16)
+    wave_pool[[3, 4, 12, 13, 21, 22]] = [80, 70, 60, 50, 90, 80]
+    ctx = DummyContext(
+        {"use_filtered": False, "debug_numba": True, "log_waveform_diagnostics": False},
+        {
+            "hit_threshold": hits,
+            "hit_merged": merged,
+            "hit_merged_components": hit_merged_components,
+            "peaklets": peaklets,
+            "peaklet_components": components,
+            "records": records,
+            "wave_pool": wave_pool,
+        },
+    )
+
+    waveforms = PeakletWaveformPlugin().compute(ctx, "run_001")
+    pool = PeakletWaveformPoolPlugin().compute(ctx, "run_001")
+
+    assert int(waveforms[0]["time_start"]) == 6000
+    assert int(waveforms[0]["time_end"]) == 14000
+    assert int(waveforms[0]["wave_length"]) == 4
+    np.testing.assert_array_equal(pool, np.array([20.0, 70.0, 60.0, 20.0], dtype=np.float32))
+
+
 def test_peaklet_waveforms_cross_record_mixed_dt_raises_from_numba_path():
     ctx = _make_cross_record_waveform_context()
     ctx._data["records"]["dt"] = [2, 4]
@@ -249,7 +339,7 @@ def test_peaklet_waveform_pool_lineage_tracks_canonical_waveform(tmp_path):
     assert lineage["config"] == {}
     assert list(lineage["depends_on"]) == ["peaklet_waveforms"]
     waveform_lineage = lineage["depends_on"]["peaklet_waveforms"]
-    assert waveform_lineage["plugin_version"] == "1.3.1"
+    assert waveform_lineage["plugin_version"] == "1.4.0"
     assert waveform_lineage["config"]["use_filtered"] is True
     assert waveform_lineage["config"]["clip_negative_signal"] is True
     assert "wave_pool_filtered" in waveform_lineage["depends_on"]

@@ -175,9 +175,8 @@ def _compute_area_quantile_times(
     return (int(time_start) + sample_pos * dt_ps).astype(np.int64)
 
 
-@njit
+@njit(cache=True, nogil=True)
 def _compute_features_numba(
-    waveforms,
     pool,
     peaklet_indices,
     offsets,
@@ -185,10 +184,10 @@ def _compute_features_numba(
     time_starts,
     time_ends,
     dt_ns_arr,
+    out,
 ):
     """Numba-accelerated feature computation for peaklet waveforms."""
-    n = len(waveforms)
-    results = np.zeros((n, 13), dtype=np.float64)
+    n = len(out)
     quantiles = np.array([0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95], dtype=np.float64)
 
     for i in range(n):
@@ -199,26 +198,24 @@ def _compute_features_numba(
         time_end = time_ends[i]
         dt_ns = dt_ns_arr[i]
 
-        results[i, 0] = peaklet_id
+        out[i]["peak_id"] = peaklet_id
+        out[i]["time_start"] = time_start
+        out[i]["time_end"] = time_end
 
         if length <= 0:
-            results[i, 1] = time_start
-            results[i, 2] = time_end
-            results[i, 3] = time_start
-            results[i, 4] = time_start
+            out[i]["time_peak"] = time_start
+            out[i]["center_time"] = time_start
             continue
 
         wave = pool[offset : offset + length]
         total_area = np.sum(wave)
 
         if total_area <= 0:
-            results[i, 1] = time_start
-            results[i, 2] = time_end
-            results[i, 3] = time_start
-            results[i, 4] = time_start
-            results[i, 10] = 0.0
-            results[i, 11] = 0.0
-            results[i, 12] = (time_end - time_start) / 1000.0
+            out[i]["time_peak"] = time_start
+            out[i]["center_time"] = time_start
+            out[i]["area"] = 0.0
+            out[i]["height"] = 0.0
+            out[i]["width"] = (time_end - time_start) / 1000.0
             continue
 
         # Cumulative area quantiles
@@ -253,20 +250,16 @@ def _compute_features_numba(
         time_peak = int(time_start + max_idx * dt_ps)
 
         # Features
-        results[i, 1] = time_start
-        results[i, 2] = time_end
-        results[i, 3] = time_peak
-        results[i, 4] = t50
-        results[i, 5] = (time_peak - t10) / 1000.0  # rise_time
-        results[i, 6] = (t90 - time_peak) / 1000.0  # fall_time
-        results[i, 7] = (t75 - t25) / 1000.0  # width_25_75
-        results[i, 8] = (t50 - t10) / 1000.0  # rise_time_10_50
-        results[i, 9] = (t95 - t05) / 1000.0  # range_90p_area
-        results[i, 10] = total_area  # area
-        results[i, 11] = wave[max_idx]  # height
-        results[i, 12] = (time_end - time_start) / 1000.0  # width
-
-    return results
+        out[i]["time_peak"] = time_peak
+        out[i]["center_time"] = t50
+        out[i]["rise_time"] = (time_peak - t10) / 1000.0
+        out[i]["fall_time"] = (t90 - time_peak) / 1000.0
+        out[i]["width_25_75"] = (t75 - t25) / 1000.0
+        out[i]["rise_time_10_50"] = (t50 - t10) / 1000.0
+        out[i]["range_90p_area"] = (t95 - t05) / 1000.0
+        out[i]["area"] = total_area
+        out[i]["height"] = wave[max_idx]
+        out[i]["width"] = (time_end - time_start) / 1000.0
 
 
 def _record_array(obj: Any) -> np.ndarray:
@@ -411,13 +404,17 @@ def _cluster_peaklets_numba(
     return (starts[:n_clusters].copy(), ends[:n_clusters].copy())
 
 
-def _cluster_merged_hits(
+def _cluster_merged_hit_boundaries(
     merged: np.ndarray,
     time_window_ns: float,
     max_total_width_ns: float,
-) -> list[list[int]]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     if len(merged) == 0:
-        return []
+        return (
+            np.empty(0, dtype=np.int64),
+            np.empty(0, dtype=np.int32),
+            np.empty(0, dtype=np.int32),
+        )
     if time_window_ns < 0:
         raise ValueError("peaklets.time_window_ns must be >= 0")
     if max_total_width_ns <= 0:
@@ -435,6 +432,19 @@ def _cluster_merged_hits(
     cluster_starts, cluster_ends = _cluster_peaklets_numba(
         abs_starts, abs_ends, order, gap_ps, max_width_ps
     )
+    return order.astype(np.int64, copy=False), cluster_starts, cluster_ends
+
+
+def _cluster_merged_hits(
+    merged: np.ndarray,
+    time_window_ns: float,
+    max_total_width_ns: float,
+) -> list[list[int]]:
+    order, cluster_starts, cluster_ends = _cluster_merged_hit_boundaries(
+        merged,
+        time_window_ns=time_window_ns,
+        max_total_width_ns=max_total_width_ns,
+    )
 
     # 将 Numba 结果转换为原始格式
     clusters: list[list[int]] = []
@@ -445,6 +455,24 @@ def _cluster_merged_hits(
         clusters.append(cluster)
 
     return clusters
+
+
+@njit(cache=True, nogil=True)
+def _fill_peaklet_components_numba(
+    order: np.ndarray,
+    cluster_starts: np.ndarray,
+    cluster_ends: np.ndarray,
+    out_peak_ids: np.ndarray,
+    out_merged_indices: np.ndarray,
+) -> None:
+    out_i = 0
+    for peaklet_id in range(len(cluster_starts)):
+        start = cluster_starts[peaklet_id]
+        end = cluster_ends[peaklet_id]
+        for member_i in range(start, end):
+            out_peak_ids[out_i] = peaklet_id
+            out_merged_indices[out_i] = order[member_i]
+            out_i += 1
 
 
 def _components_by_peaklet(components: np.ndarray, n_peaklets: int) -> list[np.ndarray]:
@@ -519,26 +547,98 @@ def _prepare_component_groups(
             np.full(n_peaklets, -1, dtype=np.int64),
         )
 
-    # Sort by peak_id
-    order = np.argsort(components["peak_id"], kind="mergesort")
-    peak_ids = components["peak_id"][order].astype(np.int64)
-    merged_indices = components["merged_index"][order].astype(np.int64)
+    peak_ids = components["peak_id"].astype(np.int64, copy=False)
+    valid = (peak_ids >= 0) & (peak_ids < n_peaklets)
+    if not np.any(valid):
+        return (
+            np.array([], dtype=np.int64),
+            np.full(n_peaklets, -1, dtype=np.int64),
+            np.full(n_peaklets, -1, dtype=np.int64),
+        )
+
+    valid_peak_ids = peak_ids[valid]
+    is_grouped = bool(np.all(valid)) and bool(np.all(peak_ids[1:] >= peak_ids[:-1]))
+    if is_grouped:
+        sorted_peak_ids = peak_ids
+        merged_indices = components["merged_index"].astype(np.int64, copy=False)
+    else:
+        valid_rows = np.flatnonzero(valid)
+        order = np.argsort(valid_peak_ids, kind="mergesort")
+        sorted_rows = valid_rows[order]
+        sorted_peak_ids = peak_ids[sorted_rows]
+        merged_indices = components["merged_index"][sorted_rows].astype(np.int64, copy=False)
 
     # Find group boundaries
     starts = np.full(n_peaklets, -1, dtype=np.int64)
     ends = np.full(n_peaklets, -1, dtype=np.int64)
 
-    change = np.r_[True, peak_ids[1:] != peak_ids[:-1]]
+    change = np.r_[True, sorted_peak_ids[1:] != sorted_peak_ids[:-1]]
     group_starts_idx = np.flatnonzero(change)
-    group_ends_idx = np.r_[group_starts_idx[1:], len(peak_ids)]
-
-    for s, e in zip(group_starts_idx, group_ends_idx, strict=False):
-        pid = int(peak_ids[s])
-        if 0 <= pid < n_peaklets:
-            starts[pid] = s
-            ends[pid] = e
+    group_ends_idx = np.r_[group_starts_idx[1:], len(sorted_peak_ids)]
+    group_peak_ids = sorted_peak_ids[group_starts_idx]
+    starts[group_peak_ids] = group_starts_idx
+    ends[group_peak_ids] = group_ends_idx
 
     return merged_indices, starts, ends
+
+
+@njit(cache=True, nogil=True)
+def _summarize_peaklets_numba(
+    grouped_merged_indices: np.ndarray,
+    group_starts: np.ndarray,
+    group_ends: np.ndarray,
+    abs_starts: np.ndarray,
+    abs_ends: np.ndarray,
+    boards: np.ndarray,
+    channels: np.ndarray,
+    component_counts: np.ndarray,
+    has_component_counts: bool,
+    out: np.ndarray,
+) -> None:
+    component_offset = 0
+    for peaklet_id in range(len(out)):
+        start = group_starts[peaklet_id]
+        end = group_ends[peaklet_id]
+        out[peaklet_id]["component_offset"] = component_offset
+        if start < 0 or end <= start:
+            continue
+
+        first_merged_index = grouped_merged_indices[start]
+        time_start = abs_starts[first_merged_index]
+        time_end = abs_ends[first_merged_index]
+        n_hits = 0
+        n_channels = 0
+
+        for member_i in range(start, end):
+            merged_index = grouped_merged_indices[member_i]
+            if abs_starts[merged_index] < time_start:
+                time_start = abs_starts[merged_index]
+            if abs_ends[merged_index] > time_end:
+                time_end = abs_ends[merged_index]
+
+            if has_component_counts:
+                n_hits += component_counts[merged_index]
+            else:
+                n_hits += 1
+
+            seen = False
+            board = boards[merged_index]
+            channel = channels[merged_index]
+            for previous_i in range(start, member_i):
+                previous_index = grouped_merged_indices[previous_i]
+                if boards[previous_index] == board and channels[previous_index] == channel:
+                    seen = True
+                    break
+            if not seen:
+                n_channels += 1
+
+        out[peaklet_id]["time_start"] = int(time_start)
+        out[peaklet_id]["time_end"] = int(time_end)
+        out[peaklet_id]["center_time"] = int((time_start + time_end) // 2)
+        out[peaklet_id]["n_hits"] = n_hits
+        out[peaklet_id]["n_channels"] = n_channels
+        out[peaklet_id]["component_count"] = end - start
+        component_offset += end - start
 
 
 def _build_peaklet_component_csr(
@@ -806,6 +906,10 @@ def _first_pass_cross_record_numba(
     grouped_merged_indices,
     peaklet_comp_starts,
     peaklet_comp_ends,
+    direct_merged,
+    merged_record_indices,
+    merged_sample_starts,
+    merged_sample_ends,
     grouped_hit_indices,
     merged_hit_starts,
     merged_hit_ends,
@@ -835,8 +939,49 @@ def _first_pass_cross_record_numba(
 
         for comp_i in range(comp_start, comp_end):
             merged_index = grouped_merged_indices[comp_i]
-            if merged_index < 0 or merged_index >= len(merged_hit_starts):
+            if merged_index < 0 or merged_index >= len(direct_merged):
                 continue
+            if direct_merged[merged_index]:
+                rec_idx = merged_record_indices[merged_index]
+                if rec_idx < 0 or rec_idx >= len(record_dt):
+                    continue
+                piece_dt = record_dt[rec_idx]
+                if dt_ns == -1:
+                    dt_ns = piece_dt
+                elif piece_dt != dt_ns:
+                    waveform_rows[peaklet_id, 0] = peaklet_id
+                    waveform_rows[peaklet_id, 1] = -1
+                    waveform_rows[peaklet_id, 2] = -1
+                    waveform_rows[peaklet_id, 3] = -1
+                    waveform_rows[peaklet_id, 4] = total_wave_length
+                    waveform_rows[peaklet_id, 5] = 0
+                    has_piece = False
+                    dt_ns = -2
+                    break
+
+                start = merged_sample_starts[merged_index]
+                end = merged_sample_ends[merged_index]
+                if start < 0:
+                    start = 0
+                rec_length = record_event_length[rec_idx]
+                if end > rec_length:
+                    end = rec_length
+                if end <= start:
+                    continue
+                dt_ps = piece_dt * 1000
+                abs_start = record_timestamp[rec_idx] + start * dt_ps
+                abs_end = record_timestamp[rec_idx] + end * dt_ps
+                if not has_piece:
+                    time_start = abs_start
+                    time_end = abs_end
+                    has_piece = True
+                else:
+                    if abs_start < time_start:
+                        time_start = abs_start
+                    if abs_end > time_end:
+                        time_end = abs_end
+                continue
+
             hit_start = merged_hit_starts[merged_index]
             hit_end = merged_hit_ends[merged_index]
             if hit_start < 0 or hit_end <= hit_start:
@@ -900,8 +1045,28 @@ def _first_pass_cross_record_numba(
         wave_length = 0
         for comp_i in range(comp_start, comp_end):
             merged_index = grouped_merged_indices[comp_i]
-            if merged_index < 0 or merged_index >= len(merged_hit_starts):
+            if merged_index < 0 or merged_index >= len(direct_merged):
                 continue
+            if direct_merged[merged_index]:
+                rec_idx = merged_record_indices[merged_index]
+                if rec_idx < 0 or rec_idx >= len(record_dt):
+                    continue
+                start = merged_sample_starts[merged_index]
+                end = merged_sample_ends[merged_index]
+                if start < 0:
+                    start = 0
+                rec_length = record_event_length[rec_idx]
+                if end > rec_length:
+                    end = rec_length
+                if end <= start:
+                    continue
+                abs_start = record_timestamp[rec_idx] + start * dt_ps
+                local_i0 = (abs_start - time_start) // dt_ps
+                piece_end = local_i0 + (end - start)
+                if piece_end > wave_length:
+                    wave_length = piece_end
+                continue
+
             hit_start = merged_hit_starts[merged_index]
             hit_end = merged_hit_ends[merged_index]
             if hit_start < 0 or hit_end <= hit_start:
@@ -950,6 +1115,10 @@ def _fill_cross_record_pool_numba(
     grouped_merged_indices,
     peaklet_comp_starts,
     peaklet_comp_ends,
+    direct_merged,
+    merged_record_indices,
+    merged_sample_starts,
+    merged_sample_ends,
     grouped_hit_indices,
     merged_hit_starts,
     merged_hit_ends,
@@ -983,8 +1152,34 @@ def _fill_cross_record_pool_numba(
 
         for comp_i in range(comp_start, comp_end):
             merged_index = grouped_merged_indices[comp_i]
-            if merged_index < 0 or merged_index >= len(merged_hit_starts):
+            if merged_index < 0 or merged_index >= len(direct_merged):
                 continue
+            if direct_merged[merged_index]:
+                rec_idx = merged_record_indices[merged_index]
+                if rec_idx < 0 or rec_idx >= len(record_dt):
+                    continue
+                start = merged_sample_starts[merged_index]
+                end = merged_sample_ends[merged_index]
+                if start < 0:
+                    start = 0
+                rec_length = record_event_length[rec_idx]
+                if end > rec_length:
+                    end = rec_length
+                if end <= start:
+                    continue
+
+                abs_start = record_timestamp[rec_idx] + start * dt_ps
+                local_i0 = (abs_start - peaklet_time_start) // dt_ps
+                src_offset = record_wave_offset[rec_idx] + start
+                dst_offset = wave_offset + local_i0
+                baseline = record_baseline[rec_idx]
+                sign = record_sign[rec_idx]
+                for sample_i in range(end - start):
+                    signal = sign * (np.float32(wave_pool[src_offset + sample_i]) - baseline)
+                    if (not clip_negative_signal) or signal > 0.0:
+                        pool[dst_offset + sample_i] += signal
+                continue
+
             hit_start = merged_hit_starts[merged_index]
             hit_end = merged_hit_ends[merged_index]
             if hit_start < 0 or hit_end <= hit_start:
@@ -1183,7 +1378,7 @@ class PeakletPlugin(BatchProcessingPlugin):
     provides = "peaklets"
     depends_on = ["hit_merged", "peaklet_components"]
     description = "Build lightweight cross-channel peaklets from hit_merged intervals."
-    version = "1.1.0"
+    version = "1.2.0"
     output_dtype = PEAKLET_DTYPE
     save_when = "always"
     parallel = False
@@ -1229,48 +1424,45 @@ class PeakletPlugin(BatchProcessingPlugin):
         if len(components) == 0:
             return _empty_peaklets()
 
-        rows: list[tuple[int, int, int, int, int, int, int]] = []
-        component_offset = 0
         n_peaklets = int(np.max(components["peak_id"])) + 1
-        component_groups = _components_by_peaklet(components, n_peaklets)
-        for cluster_indices in component_groups:
-            if len(cluster_indices) == 0:
-                rows.append((0, 0, 0, 0, 0, component_offset, 0))
-                continue
-            if np.any(cluster_indices < 0) or np.any(cluster_indices >= len(merged)):
-                raise ValueError(
-                    "peaklets found peaklet_components row with out-of-range merged_index"
-                )
-            cluster_rows = merged[cluster_indices]
-            starts, ends = _abs_window(cluster_rows)
-            time_start = int(np.min(starts))
-            time_end = int(np.max(ends))
-            channels = {
-                (
-                    int(row["board"]) if "board" in (row.dtype.names or ()) else 0,
-                    int(row["channel"]),
-                )
-                for row in cluster_rows
-            }
-            n_hits = (
-                int(np.sum(cluster_rows["component_count"], dtype=np.int64))
-                if "component_count" in (merged.dtype.names or ())
-                else len(cluster_indices)
-            )
-            rows.append(
-                (
-                    time_start,
-                    time_end,
-                    int((time_start + time_end) // 2),
-                    n_hits,
-                    len(channels),
-                    component_offset,
-                    len(cluster_indices),
-                )
-            )
-            component_offset += len(cluster_indices)
+        if n_peaklets <= 0:
+            return _empty_peaklets()
 
-        return np.array(rows, dtype=PEAKLET_DTYPE) if rows else _empty_peaklets()
+        grouped_merged_indices, group_starts, group_ends = _prepare_component_groups(
+            components, n_peaklets
+        )
+        if np.any(grouped_merged_indices < 0) or np.any(grouped_merged_indices >= len(merged)):
+            raise ValueError("peaklets found peaklet_components row with out-of-range merged_index")
+
+        abs_starts, abs_ends = _abs_window(merged)
+        merged_names = merged.dtype.names or ()
+        boards = (
+            merged["board"].astype(np.int64, copy=False)
+            if "board" in merged_names
+            else np.zeros(len(merged), dtype=np.int64)
+        )
+        channels = merged["channel"].astype(np.int64, copy=False)
+        has_component_counts = "component_count" in merged_names
+        component_counts = (
+            merged["component_count"].astype(np.int64, copy=False)
+            if has_component_counts
+            else np.empty(0, dtype=np.int64)
+        )
+
+        out = np.zeros(n_peaklets, dtype=PEAKLET_DTYPE)
+        _summarize_peaklets_numba(
+            grouped_merged_indices,
+            group_starts,
+            group_ends,
+            abs_starts,
+            abs_ends,
+            boards,
+            channels,
+            component_counts,
+            has_component_counts,
+            out,
+        )
+        return out
 
 
 class PeakletComponentsPlugin(BatchProcessingPlugin):
@@ -1279,7 +1471,7 @@ class PeakletComponentsPlugin(BatchProcessingPlugin):
     provides = "peaklet_components"
     depends_on = ["hit_merged"]
     description = "Return per-peaklet component hit_merged indices."
-    version = "1.3.0"
+    version = "1.4.0"
     output_dtype = PEAKLET_COMPONENTS_DTYPE
     save_when = "always"
     parallel = False
@@ -1305,15 +1497,20 @@ class PeakletComponentsPlugin(BatchProcessingPlugin):
             _resolve_peaklet_component_config(context, self, "max_total_width_ns")
         )
         resolve_dt_config(context, self, deprecated_keys=("sampling_interval_ns", "dt_ns"))
-        clusters = _cluster_merged_hits(
+        order, cluster_starts, cluster_ends = _cluster_merged_hit_boundaries(
             merged,
             time_window_ns=time_window_ns,
             max_total_width_ns=max_total_width_ns,
         )
-        rows: list[tuple[int, int]] = []
-        for peaklet_id, cluster in enumerate(clusters):
-            rows.extend((peaklet_id, merged_index) for merged_index in cluster)
-        return np.array(rows, dtype=PEAKLET_COMPONENTS_DTYPE) if rows else _empty_components()
+        out = np.empty(len(order), dtype=PEAKLET_COMPONENTS_DTYPE)
+        _fill_peaklet_components_numba(
+            order,
+            cluster_starts,
+            cluster_ends,
+            out["peak_id"],
+            out["merged_index"],
+        )
+        return out
 
     def get_lineage(self, context: Any) -> dict[str, Any]:
         config = {
@@ -1485,7 +1682,7 @@ class PeakletWaveformPlugin(Plugin):
     provides = "peaklet_waveforms"
     depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion."
-    version = "1.3.1"
+    version = "1.4.0"
     output_dtype = PEAKLET_WAVEFORMS_DTYPE
     save_when = "always"
 
@@ -1701,9 +1898,44 @@ class PeakletWaveformPlugin(Plugin):
         grouped_merged_indices, peaklet_comp_starts, peaklet_comp_ends = (
             _build_peaklet_component_csr(components, len(peaklets))
         )
-        grouped_hit_indices, merged_hit_starts, merged_hit_ends = _build_hmc_csr(
-            hit_merged_components, len(merged)
+        merged_names = merged.dtype.names or ()
+        if {"component_offset", "component_count"}.issubset(merged_names):
+            grouped_hit_indices = hit_merged_components["hit_index"].astype(np.int64, copy=False)
+            merged_hit_starts = merged["component_offset"].astype(np.int64, copy=False)
+            merged_hit_ends = merged_hit_starts + merged["component_count"].astype(
+                np.int64, copy=False
+            )
+            if (
+                np.any(merged_hit_starts < 0)
+                or np.any(merged_hit_ends < merged_hit_starts)
+                or np.any(merged_hit_ends > len(grouped_hit_indices))
+            ):
+                raise ValueError("peaklet_waveforms found invalid hit_merged component offsets")
+        else:
+            grouped_hit_indices, merged_hit_starts, merged_hit_ends = _build_hmc_csr(
+                hit_merged_components, len(merged)
+            )
+
+        if {"sample_start", "sample_end"}.issubset(merged_names):
+            merged_sample_starts = merged["sample_start"]
+            merged_sample_ends = merged["sample_end"]
+        elif {"edge_start", "edge_end"}.issubset(merged_names):
+            merged_sample_starts = merged["edge_start"]
+            merged_sample_ends = merged["edge_end"]
+        else:
+            raise KeyError(
+                "peaklet_waveforms requires hit_merged sample_start/sample_end "
+                "or edge_start/edge_end"
+            )
+        if "record_id" not in merged_names:
+            raise KeyError("peaklet_waveforms requires hit_merged record_id")
+
+        merged_component_counts = (
+            merged["component_count"].astype(np.int64, copy=False)
+            if "component_count" in merged_names
+            else np.zeros(len(merged), dtype=np.int64)
         )
+        direct_merged = np.asarray(is_single_record, dtype=bool) & (merged_component_counts == 1)
 
         hit_names = hit_threshold.dtype.names or ()
         if {"sample_start", "sample_end"}.issubset(hit_names):
@@ -1720,10 +1952,12 @@ class PeakletWaveformPlugin(Plugin):
 
         if "record_id" not in hit_names:
             raise KeyError("peaklet_waveforms requires hit_threshold record_id")
+        record_lookup = RecordLookup(records)
         hit_record_ids = hit_threshold["record_id"].astype(np.int64, copy=False)
-        hit_record_indices = (
-            RecordLookup(records).get_indices(hit_record_ids).astype(np.int64, copy=False)
-        )
+        hit_record_indices = record_lookup.get_indices(hit_record_ids).astype(np.int64, copy=False)
+        merged_record_indices = record_lookup.get_indices(
+            merged["record_id"].astype(np.int64, copy=False)
+        ).astype(np.int64, copy=False)
 
         record_names = records.dtype.names or ()
         if "dt" not in record_names:
@@ -1753,6 +1987,10 @@ class PeakletWaveformPlugin(Plugin):
             grouped_merged_indices,
             peaklet_comp_starts,
             peaklet_comp_ends,
+            direct_merged,
+            merged_record_indices,
+            merged_sample_starts,
+            merged_sample_ends,
             grouped_hit_indices,
             merged_hit_starts,
             merged_hit_ends,
@@ -1779,6 +2017,10 @@ class PeakletWaveformPlugin(Plugin):
             grouped_merged_indices,
             peaklet_comp_starts,
             peaklet_comp_ends,
+            direct_merged,
+            merged_record_indices,
+            merged_sample_starts,
+            merged_sample_ends,
             grouped_hit_indices,
             merged_hit_starts,
             merged_hit_ends,
@@ -1819,6 +2061,7 @@ class PeakletWaveformPlugin(Plugin):
                 "peaklet_waveforms diagnostics: "
                 "n_peaklets=%s n_merged=%s n_hit_threshold=%s "
                 "fraction_cross_record_merged=%.6f "
+                "fraction_direct_merged=%.6f "
                 "fraction_peaklet_with_cross_record=%.6f "
                 "total_waveform_pool_length=%s "
                 "time_prepare_csr=%.6fs time_first_pass=%.6fs "
@@ -1827,6 +2070,7 @@ class PeakletWaveformPlugin(Plugin):
                 len(merged),
                 len(hit_threshold),
                 float(np.mean(~is_single_record)) if len(is_single_record) else 0.0,
+                float(np.mean(direct_merged)) if len(direct_merged) else 0.0,
                 fraction_peaklet_with_cross_record,
                 int(total_wave_length),
                 time_prepare_csr,
@@ -2354,7 +2598,7 @@ class PeakletFeaturesPlugin(Plugin):
     provides = "peaklet_features"
     depends_on = ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
     description = "Compute peaklet waveform features from ragged signal pools."
-    version = "4.0.0"
+    version = "4.1.0"
     output_dtype = PEAKLET_FEATURES_DTYPE
     save_when = "always"
 
@@ -2373,15 +2617,15 @@ class PeakletFeaturesPlugin(Plugin):
 
         # Extract arrays for Numba
         if HAS_NUMBA and len(waveforms) > 10:
-            peaklet_indices = waveforms["peak_id"].astype(np.int64)
-            offsets = waveforms["wave_offset"].astype(np.int64)
-            lengths = waveforms["wave_length"].astype(np.int64)
-            time_starts = waveforms["time_start"].astype(np.int64)
-            time_ends = waveforms["time_end"].astype(np.int64)
-            dt_ns_arr = waveforms["dt"].astype(np.int64)
+            peaklet_indices = waveforms["peak_id"].astype(np.int64, copy=False)
+            offsets = waveforms["wave_offset"].astype(np.int64, copy=False)
+            lengths = waveforms["wave_length"].astype(np.int64, copy=False)
+            time_starts = waveforms["time_start"].astype(np.int64, copy=False)
+            time_ends = waveforms["time_end"].astype(np.int64, copy=False)
+            dt_ns_arr = waveforms["dt"].astype(np.int64, copy=False)
 
-            results = _compute_features_numba(
-                waveforms,
+            out = np.zeros(len(waveforms), dtype=PEAKLET_FEATURES_DTYPE)
+            _compute_features_numba(
                 pool,
                 peaklet_indices,
                 offsets,
@@ -2389,23 +2633,8 @@ class PeakletFeaturesPlugin(Plugin):
                 time_starts,
                 time_ends,
                 dt_ns_arr,
+                out,
             )
-
-            out = np.zeros(len(waveforms), dtype=PEAKLET_FEATURES_DTYPE)
-            for i in range(len(results)):
-                out[i]["peak_id"] = int(results[i, 0])
-                out[i]["time_start"] = int(results[i, 1])
-                out[i]["time_end"] = int(results[i, 2])
-                out[i]["time_peak"] = int(results[i, 3])
-                out[i]["center_time"] = int(results[i, 4])
-                out[i]["rise_time"] = results[i, 5]
-                out[i]["fall_time"] = results[i, 6]
-                out[i]["width_25_75"] = results[i, 7]
-                out[i]["rise_time_10_50"] = results[i, 8]
-                out[i]["range_90p_area"] = results[i, 9]
-                out[i]["area"] = results[i, 10]
-                out[i]["height"] = results[i, 11]
-                out[i]["width"] = results[i, 12]
             return out
 
         # Fallback: Python loop
@@ -2549,5 +2778,6 @@ __all__ = [
     "PeakletWaveformPlugin",
     "PeakletWaveformPoolPlugin",
     "PeaksPlugin",
+    "_cluster_merged_hits",
     "_compute_area_quantile_times",
 ]

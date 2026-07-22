@@ -116,6 +116,8 @@ class TestPeakletsNumbaAcceleration:
         merged[0]["dt"] = 2
         merged[0]["position"] = 5
         merged[0]["channel"] = 0
+        merged[0]["time_start"] = 1000000
+        merged[0]["time_end"] = 1020000
 
         merged[1]["timestamp"] = 1050000  # 50 ns 后
         merged[1]["sample_start"] = 0
@@ -123,6 +125,8 @@ class TestPeakletsNumbaAcceleration:
         merged[1]["dt"] = 2
         merged[1]["position"] = 5
         merged[1]["channel"] = 1
+        merged[1]["time_start"] = 1050000
+        merged[1]["time_end"] = 1070000
 
         merged[2]["timestamp"] = 2000000  # 远离前两个
         merged[2]["sample_start"] = 0
@@ -130,6 +134,8 @@ class TestPeakletsNumbaAcceleration:
         merged[2]["dt"] = 2
         merged[2]["position"] = 5
         merged[2]["channel"] = 0
+        merged[2]["time_start"] = 2000000
+        merged[2]["time_end"] = 2020000
 
         # 使用小的时间窗口聚类
         clusters = _cluster_merged_hits(merged, time_window_ns=100.0, max_total_width_ns=10000.0)
@@ -149,6 +155,8 @@ class TestPeakletsNumbaAcceleration:
         merged[0]["dt"] = 2
         merged[0]["position"] = 0
         merged[0]["channel"] = 0
+        merged[0]["time_start"] = 1000000
+        merged[0]["time_end"] = 3000000
 
         merged[1]["timestamp"] = 1010000  # 10 ns 后
         merged[1]["sample_start"] = 0
@@ -156,6 +164,8 @@ class TestPeakletsNumbaAcceleration:
         merged[1]["dt"] = 2
         merged[1]["position"] = 0
         merged[1]["channel"] = 1
+        merged[1]["time_start"] = 1010000
+        merged[1]["time_end"] = 3010000
 
         # 使用小的 max_total_width
         clusters = _cluster_merged_hits(merged, time_window_ns=100.0, max_total_width_ns=500.0)
@@ -185,6 +195,8 @@ class TestPeakletsNumbaAcceleration:
             },
         )
 
+        peaklet_components = PeakletComponentsPlugin().compute_array(ctx, "test_run")
+        ctx._data["peaklet_components"] = peaklet_components
         plugin = PeakletPlugin()
         peaklets = plugin.compute_array(ctx, "test_run")
 
@@ -221,19 +233,20 @@ class TestPeakletsNumbaAcceleration:
             },
         )
 
-        # 生成 peaklets 和 components
+        # 生成正式 flat membership，再由 peaklets 消费该依赖。
+        comp_plugin = PeakletComponentsPlugin()
+        peaklet_components = comp_plugin.compute_array(ctx, "test_run")
+        ctx._data["peaklet_components"] = peaklet_components
         peaklet_plugin = PeakletPlugin()
         peaklets = peaklet_plugin.compute_array(ctx, "test_run")
         ctx._data["peaklets"] = peaklets
 
-        comp_plugin = PeakletComponentsPlugin()
-        peaklet_components = comp_plugin.compute_array(ctx, "test_run")
-        ctx._data["peaklet_components"] = peaklet_components
-
-        # 测试 PeakletWaveformPlugin
         wf_plugin = PeakletWaveformPlugin()
+        wf_plugin._hit_merged_components = components
+        wf_plugin._hit_threshold = hits
+        wf_plugin._clip_negative_signal = False
+        wf_plugin._debug_numba = True
 
-        # 强制使用 Python fallback（通过小数据集）
         python_waveforms, python_pool = wf_plugin._build_python(
             peaklets=peaklets,
             components=peaklet_components,
@@ -241,38 +254,26 @@ class TestPeakletsNumbaAcceleration:
             records=records,
             wave_pool=wave_pool,
         )
+        optimized_waveforms, optimized_pool = wf_plugin._build(
+            peaklets=peaklets,
+            components=peaklet_components,
+            merged=merged,
+            records=records,
+            wave_pool=wave_pool,
+        )
 
-        # 尝试使用 Numba（如果数据足够大）
-        try:
-            numba_waveforms, numba_pool = wf_plugin._build_numba(
-                peaklets=peaklets,
-                components=peaklet_components,
-                merged=merged,
-                records=records,
-                wave_pool=wave_pool,
+        assert optimized_waveforms.dtype == python_waveforms.dtype
+        for field in optimized_waveforms.dtype.names:
+            np.testing.assert_array_equal(
+                optimized_waveforms[field],
+                python_waveforms[field],
+                err_msg=f"优化路径和 Python 的 {field} 字段不一致",
             )
-
-            # 验证输出一致性
-            assert len(numba_waveforms) == len(python_waveforms), "输出长度应一致"
-
-            # 比较每个字段
-            for field in ["peak_id", "time_start", "time_end", "dt", "wave_length"]:
-                np.testing.assert_array_equal(
-                    numba_waveforms[field],
-                    python_waveforms[field],
-                    err_msg=f"Numba 和 Python 的 {field} 字段不一致",
-                )
-
-            # 比较波形池（允许小的浮点误差）
-            np.testing.assert_allclose(
-                numba_pool,
-                python_pool,
-                rtol=1e-5,
-                err_msg="Numba 和 Python 的 waveform pool 不一致",
-            )
-        except Exception:
-            # Numba 路径可能失败（降级到 Python），这是允许的
-            pass
+        np.testing.assert_array_equal(
+            optimized_pool,
+            python_pool,
+            err_msg="优化路径和 Python 的 waveform pool 不一致",
+        )
 
 
 class TestHitMergedFeaturesParallel:
@@ -317,7 +318,7 @@ class TestHitMergedFeaturesParallel:
     @pytest.mark.skipif(not HAS_NUMBA, reason="Numba not available")
     def test_features_numba_fast_kernel(self):
         """测试 Numba 快速内核的正确性"""
-        from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import (
+        from waveform_analysis.core.plugins.builtin.hit.hit_merged_features import (
             _features_fast_kernel,
         )
 
@@ -414,6 +415,8 @@ class TestOptimizationConsistency:
             {"hit_merged": merged},
         )
 
+        peaklet_components = PeakletComponentsPlugin().compute_array(ctx, "test_run")
+        ctx._data["peaklet_components"] = peaklet_components
         plugin = PeakletPlugin()
 
         # 多次运行，验证结果一致

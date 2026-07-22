@@ -142,11 +142,11 @@ raw_files ──► records ──► df ──► df_events
 | [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.2.0 | 特征提取 | - |
 | [`PeakClassificationPlugin`](peak_classification.md) | `peak_classification` | 1.2.1 | 特征提取 | peaks |
 | [`PeakletChannelsPlugin`](peaklet_channels.md) | `peaklet_channels` | 1.0.1 | 特征提取 | peaklets, peaklet_components, hit_merged_features, peaklet_features |
-| [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 1.3.0 | 特征提取 | hit_merged |
-| [`PeakletFeaturesPlugin`](peaklet_features.md) | `peaklet_features` | 4.0.0 | 特征提取 | peaklet_waveforms, peaklet_waveform_pool, peaklets |
+| [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 1.4.0 | 特征提取 | hit_merged |
+| [`PeakletFeaturesPlugin`](peaklet_features.md) | `peaklet_features` | 4.1.0 | 特征提取 | peaklet_waveforms, peaklet_waveform_pool, peaklets |
 | [`PeakletWaveformPoolPlugin`](peaklet_waveform_pool.md) | `peaklet_waveform_pool` | 2.0.0 | 波形处理 | peaklet_waveforms |
-| [`PeakletWaveformPlugin`](peaklet_waveforms.md) | `peaklet_waveforms` | 1.3.1 | 波形处理 | - |
-| [`PeakletPlugin`](peaklets.md) | `peaklets` | 1.1.0 | 特征提取 | hit_merged, peaklet_components |
+| [`PeakletWaveformPlugin`](peaklet_waveforms.md) | `peaklet_waveforms` | 1.4.0 | 波形处理 | - |
+| [`PeakletPlugin`](peaklets.md) | `peaklets` | 1.2.0 | 特征提取 | hit_merged, peaklet_components |
 | [`PeaksPlugin`](peaks.md) | `peaks` | 4.0.1 | 特征提取 | peaklets, peaklet_features, peaklet_channels |
 | [`PositionReconstructionPlugin`](position_reconstruction.md) | `position_reconstruction` | 0.2.1 | 其他 | s1_s2_pairs |
 | [`RawFileNamesPlugin`](raw_files.md) | `raw_files` | 0.0.2 | 数据加载 | - |

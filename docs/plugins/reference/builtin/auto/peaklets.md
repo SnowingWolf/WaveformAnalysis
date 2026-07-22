@@ -5,7 +5,7 @@ profile: "auto"
 provides: "peaklets"
 plugin_class: "PeakletPlugin"
 module: "waveform_analysis.core.plugins.builtin.peaks.peaklets"
-version: "1.1.0"
+version: "1.2.0"
 summary: "Build lightweight cross-channel peaklets from hit_merged intervals."
 depends_on: ["hit_merged", "peaklet_components"]
 output_kind: "structured_array"
@@ -22,7 +22,7 @@ Build lightweight cross-channel peaklets from hit_merged intervals.
 | Provides | `peaklets` |
 | Plugin Class | `PeakletPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
-| Version | `1.1.0` |
+| Version | `1.2.0` |
 | Category | 特征提取 |
 | Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |

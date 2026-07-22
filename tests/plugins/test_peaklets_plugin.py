@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from tests.utils import DummyContext, make_records
 from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
@@ -237,3 +238,51 @@ def test_peaklets_respect_max_total_width_window():
     out = PeakletPlugin().compute_array(ctx, "run_001")
 
     assert len(out) == 2
+
+
+def test_peaklet_components_flat_output_preserves_stable_time_order():
+    merged = np.zeros(3, dtype=HIT_MERGED_DTYPE)
+    merged["time_start"] = [1000, 1000, 5000]
+    merged["time_end"] = [2000, 1500, 6000]
+    ctx = DummyContext(
+        {"time_window_ns": 0.0, "max_total_width_ns": 10000.0, "dt": 2},
+        {"hit_merged": merged},
+    )
+
+    components = PeakletComponentsPlugin().compute_array(ctx, "run_001")
+
+    assert components.dtype == PEAKLET_COMPONENTS_DTYPE
+    np.testing.assert_array_equal(components["peak_id"], [0, 0, 1])
+    np.testing.assert_array_equal(components["merged_index"], [0, 1, 2])
+
+
+def test_peaklets_group_unordered_membership_and_deduplicate_board_channel():
+    merged = np.zeros(4, dtype=HIT_MERGED_DTYPE)
+    merged["time_start"] = [1000, 10000, 2000, 9000]
+    merged["time_end"] = [3000, 12000, 4000, 13000]
+    merged["board"] = [2, 3, 2, 3]
+    merged["channel"] = [7, 9, 7, 10]
+    merged["component_count"] = [2, 1, 3, 4]
+    components = np.array([(1, 3), (0, 2), (0, 0), (1, 1)], dtype=PEAKLET_COMPONENTS_DTYPE)
+    ctx = DummyContext({"dt": 2}, {"hit_merged": merged, "peaklet_components": components})
+
+    peaklets = PeakletPlugin().compute_array(ctx, "run_001")
+
+    assert peaklets.dtype == PEAKLET_DTYPE
+    np.testing.assert_array_equal(peaklets["time_start"], [1000, 9000])
+    np.testing.assert_array_equal(peaklets["time_end"], [4000, 13000])
+    np.testing.assert_array_equal(peaklets["n_hits"], [5, 5])
+    np.testing.assert_array_equal(peaklets["n_channels"], [1, 2])
+    np.testing.assert_array_equal(peaklets["component_offset"], [0, 2])
+    np.testing.assert_array_equal(peaklets["component_count"], [2, 2])
+
+
+def test_peaklets_reject_out_of_range_flat_membership_index():
+    merged = np.zeros(1, dtype=HIT_MERGED_DTYPE)
+    merged["time_start"] = [1000]
+    merged["time_end"] = [2000]
+    components = np.array([(0, 1)], dtype=PEAKLET_COMPONENTS_DTYPE)
+    ctx = DummyContext({"dt": 2}, {"hit_merged": merged, "peaklet_components": components})
+
+    with pytest.raises(ValueError, match="out-of-range merged_index"):
+        PeakletPlugin().compute_array(ctx, "run_001")
