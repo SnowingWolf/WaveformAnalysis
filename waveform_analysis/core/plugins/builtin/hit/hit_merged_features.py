@@ -203,7 +203,6 @@ def _features_fallback_kernel(
     comp_offsets,
     comp_counts,
     component_hit_indices,
-    hit_record_id,
     hit_edge_start,
     hit_edge_end,
     hit_timestamp,
@@ -232,7 +231,9 @@ def _features_fallback_kernel(
         t_start = np.int64(0)
         t_end = np.int64(0)
         max_t = np.int64(0)
-        area = np.float32(0.0)
+        # Keep the legacy aggregation precision: each component produces a
+        # float32 sum, then cluster area is accumulated as a Python float.
+        area = 0.0
         height = np.float32(0.0)
         has_any = False
 
@@ -243,11 +244,10 @@ def _features_fallback_kernel(
             edge_s = hit_edge_start[hit_i]
             edge_e = hit_edge_end[hit_i]
 
-            # clip 到 record event_length
+            # Clip only the waveform read. Timing fields deliberately retain
+            # the original hit edges for compatibility with the Python path.
             cs = max(0, edge_s)
             ce = min(rec_event_length[rec_i], edge_e)
-            if ce <= cs:
-                continue
 
             offset = rec_wave_offset[rec_i]
             baseline = rec_baseline[rec_i]
@@ -256,8 +256,8 @@ def _features_fallback_kernel(
             dt_ps = hit_dt[hit_i] * 1000
             hit_ts = hit_timestamp[hit_i]
             hit_pos = hit_position[hit_i]
-            t0 = hit_ts + (cs - hit_pos) * dt_ps
-            t1 = hit_ts + (ce - hit_pos) * dt_ps
+            t0 = hit_ts + (edge_s - hit_pos) * dt_ps
+            t1 = hit_ts + (edge_e - hit_pos) * dt_ps
 
             # 单 pass 计算：area + max
             s = np.float32(0.0)
@@ -288,7 +288,7 @@ def _features_fallback_kernel(
                 if t1 > t_end:
                     t_end = t1
 
-            area += s
+            area += float(s)
             if h > height:
                 height = h
                 max_t = mt
@@ -306,13 +306,93 @@ def _features_fallback_kernel(
             out[merged_idx]["valid"] = 1
 
 
+@nb.njit(cache=True, nogil=True)
+def _validate_fallback_components_kernel(
+    fallback_indices,
+    comp_offsets,
+    comp_counts,
+    component_merged_indices,
+    component_hit_indices,
+    n_hits,
+    hit_edge_start,
+    hit_edge_end,
+    hit_rec_indices,
+    rec_event_length,
+):
+    """Return the first invalid fallback component without entering prange."""
+    n_components = len(component_hit_indices)
+    for fi in range(len(fallback_indices)):
+        merged_idx = fallback_indices[fi]
+        start = comp_offsets[merged_idx]
+        count = comp_counts[merged_idx]
+        if start < 0 or count <= 0 or start + count > n_components:
+            return 1, merged_idx, -1, start, count
+
+        for ci in range(count):
+            component_row = start + ci
+            hit_idx = component_hit_indices[component_row]
+            if component_merged_indices[component_row] != merged_idx:
+                return 2, merged_idx, hit_idx, start, count
+            if hit_idx < 0 or hit_idx >= n_hits:
+                return 3, merged_idx, hit_idx, start, count
+
+            edge_start = hit_edge_start[hit_idx]
+            edge_end = hit_edge_end[hit_idx]
+            if edge_end <= edge_start:
+                return 4, merged_idx, hit_idx, edge_start, edge_end
+
+            record_index = hit_rec_indices[hit_idx]
+            clipped_start = max(0, edge_start)
+            clipped_end = min(rec_event_length[record_index], edge_end)
+            if clipped_end <= clipped_start:
+                return 5, merged_idx, hit_idx, edge_start, edge_end
+
+    return 0, -1, -1, 0, 0
+
+
+def _raise_fallback_validation_error(
+    error_code: int,
+    merged_index: int,
+    hit_index: int,
+    first_value: int,
+    second_value: int,
+) -> None:
+    if error_code == 1:
+        raise ValueError(
+            "hit_merged_features could not resolve components for "
+            f"merged_index={merged_index}: invalid component slice "
+            f"offset={first_value}, count={second_value}"
+        )
+    if error_code == 2:
+        raise ValueError(
+            "hit_merged_features component rows are not aligned with "
+            f"merged_index={merged_index}"
+        )
+    if error_code == 3:
+        raise ValueError(
+            "hit_merged_features component hit index is outside hit_threshold: "
+            f"merged_index={merged_index}, hit_index={hit_index}"
+        )
+    if error_code == 4:
+        raise ValueError(
+            f"hit_merged_features could not integrate merged_index={merged_index}: "
+            f"component hit has empty sample window [{first_value}, {second_value})"
+        )
+    if error_code == 5:
+        raise ValueError(
+            f"hit_merged_features could not integrate merged_index={merged_index}: "
+            f"component hit has empty sample window [{first_value}, {second_value}) after clipping"
+        )
+    raise RuntimeError(f"Unknown fallback component validation error: {error_code}")
+
+
 class HitMergedFeaturesPlugin(Plugin):
     """Compute local single-channel waveform features for every hit_merged row."""
 
     provides = "hit_merged_features"
     depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Compute per-hit_merged local waveform features from records-backed samples."
-    version = "0.5.0"
+    version = "0.5.1"
     save_when = "always"
     output_dtype = HIT_MERGED_FEATURES_DTYPE
     uses_run_config = True
@@ -351,7 +431,7 @@ class HitMergedFeaturesPlugin(Plugin):
             default=None,
             type=int,
             help="Numba kernel 线程数；None 使用 Numba 默认。",
-            track=True,
+            track=False,
         ),
     }
 
@@ -416,8 +496,10 @@ class HitMergedFeaturesPlugin(Plugin):
         # 预分配输出数组
         out = np.zeros(n_merged, dtype=HIT_MERGED_FEATURES_DTYPE)
 
-        # 解析 record_id -> records 行号
-        rec_indices = _resolve_record_indices(records, merged["record_id"])
+        # Build the potentially expensive record-id index once and reuse it
+        # for the direct and cross-record paths.
+        record_lookup = RecordLookup(records)
+        rec_indices = record_lookup.get_indices(merged["record_id"])
 
         # 提取 records 字段为普通数组（Numba 可以高效访问）
         rec_wave_offset = np.asarray(records["wave_offset"], dtype=np.int64)
@@ -444,6 +526,9 @@ class HitMergedFeaturesPlugin(Plugin):
             out["n_hits"] = 1
 
         # Numba 主路径：直接写入 out 数组
+        if num_threads is not None and num_threads <= 0:
+            raise ValueError("feature_num_threads must be positive when set")
+
         old_threads = None
         if num_threads is not None:
             old_threads = nb.get_num_threads()
@@ -463,49 +548,60 @@ class HitMergedFeaturesPlugin(Plugin):
                 merged_position,
                 out,
             )
+            # Only invalid direct windows need component expansion.
+            bad = np.flatnonzero(out["valid"] == 0)
+
+            if len(bad) > 0:
+                comp_offsets = np.asarray(merged["component_offset"], dtype=np.int64)
+                comp_counts = np.asarray(merged["component_count"], dtype=np.int32)
+                component_merged_indices = np.asarray(
+                    component_rows["merged_index"], dtype=np.int64
+                )
+                component_hit_indices = np.asarray(component_rows["hit_index"], dtype=np.int64)
+                hit_record_id = _field_or_default(hits, "record_id", -1, np.int64)
+                hit_edge_start = _field_or_default(hits, "edge_start", 0, np.int64)
+                hit_edge_end = _field_or_default(hits, "edge_end", 0, np.int64)
+                hit_timestamp = _field_or_default(hits, "timestamp", 0, np.int64)
+                hit_dt = _field_or_default(hits, "dt", 1, np.int64)
+                hit_position = _field_or_default(hits, "position", 0, np.int64)
+                hit_rec_indices = record_lookup.get_indices(hit_record_id)
+
+                validation = _validate_fallback_components_kernel(
+                    bad,
+                    comp_offsets,
+                    comp_counts,
+                    component_merged_indices,
+                    component_hit_indices,
+                    len(hits),
+                    hit_edge_start,
+                    hit_edge_end,
+                    hit_rec_indices,
+                    rec_event_length,
+                )
+                if validation[0] != 0:
+                    _raise_fallback_validation_error(*validation)
+
+                _features_fallback_kernel(
+                    wave_pool,
+                    rec_wave_offset,
+                    rec_event_length,
+                    rec_baseline,
+                    rec_polarity_sign,
+                    bad,
+                    comp_offsets,
+                    comp_counts,
+                    component_hit_indices,
+                    hit_edge_start,
+                    hit_edge_end,
+                    hit_timestamp,
+                    hit_dt,
+                    hit_position,
+                    hit_rec_indices,
+                    out,
+                )
         finally:
-            if num_threads is not None:
+            if old_threads is not None:
                 nb.set_num_threads(old_threads)
-
-        # 仅在主路径无法处理的行上构建 fallback 索引。
-        # 主 kernel 已对有效行设置 valid=1，其余保持 0。
-        bad = np.flatnonzero(out["valid"] == 0)
-
-        if len(bad) > 0:
-            # 使用 merge 预建的 component_offset/component_count 直接索引
-            comp_offsets = np.asarray(merged["component_offset"], dtype=np.int64)
-            comp_counts = np.asarray(merged["component_count"], dtype=np.int32)
-            component_hit_indices = np.asarray(component_rows["hit_index"], dtype=np.int64)
-
-            # 批量预解析所有 hit 的 record_id -> records 行号（一次 searchsorted）
-            hit_record_id = _field_or_default(hits, "record_id", -1, np.int64)
-            hit_edge_start = _field_or_default(hits, "edge_start", 0, np.int64)
-            hit_edge_end = _field_or_default(hits, "edge_end", 0, np.int64)
-            hit_timestamp = _field_or_default(hits, "timestamp", 0, np.int64)
-            hit_dt = _field_or_default(hits, "dt", 1, np.int64)
-            hit_position = _field_or_default(hits, "position", 0, np.int64)
-            hit_rec_indices = _resolve_record_indices(records, hit_record_id)
-
-            # Numba fallback kernel：一次 prange 处理全部 fallback clusters
-            _features_fallback_kernel(
-                wave_pool,
-                rec_wave_offset,
-                rec_event_length,
-                rec_baseline,
-                rec_polarity_sign,
-                bad,
-                comp_offsets,
-                comp_counts,
-                component_hit_indices,
-                hit_record_id,
-                hit_edge_start,
-                hit_edge_end,
-                hit_timestamp,
-                hit_dt,
-                hit_position,
-                hit_rec_indices,
-                out,
-            )
 
         return out
 

@@ -5,7 +5,7 @@ profile: "agent"
 provides: "hit_merged_features"
 plugin_class: "HitMergedFeaturesPlugin"
 module: "waveform_analysis.core.plugins.builtin.hit.hit_merged_features"
-version: "0.5.0"
+version: "0.5.1"
 summary: "Compute per-hit_merged local waveform features from records-backed samples."
 depends_on: []
 output_kind: "structured_array"
@@ -22,7 +22,7 @@ Compute per-hit_merged local waveform features from records-backed samples.
 | Provides | `hit_merged_features` |
 | Plugin Class | `HitMergedFeaturesPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.hit.hit_merged_features` |
-| Version | `0.5.0` |
+| Version | `0.5.1` |
 | Category | 特征提取 |
 | Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
@@ -47,7 +47,7 @@ Compute per-hit_merged local waveform features from records-backed samples.
 | `dt` | `int` | `None` | - | yes | no | 保留兼容配置；特征优先使用 records/hits 的 dt |
 | `gain_adc_per_pe` | `dict` | `None` | - | yes | no | 按硬件通道配置 ADC/PE 增益，键请使用 "board:channel"，例如 {"0:0": 12.5, "0:1": 13.2}。设置后会新增 area_pe/height_pe 列。 |
 | `normalize_to_pe` | `bool` | `False` | - | yes | no | 是否将 area/height 直接归一化为 PE 单位。False (默认): area/height 保持 ADC 单位，area_pe/height_pe 输出 PE 单位。True: area/height 归一化为 PE 单位，area_pe/height_pe 为 NaN。 |
-| `feature_num_threads` | `int` | `None` | - | yes | no | Numba kernel 线程数；None 使用 Numba 默认。 |
+| `feature_num_threads` | `int` | `None` | - | no | no | Numba kernel 线程数；None 使用 Numba 默认。 |
 ## Output
 
 structured_array output with fields: merged_index, board, channel, record_id, time_start, time_end, center_time, max_time, ....
