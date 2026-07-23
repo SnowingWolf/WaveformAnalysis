@@ -47,8 +47,9 @@ main { width: min(1180px, calc(100% - 48px)); margin: 28px auto 56px; }
 .lineage-detail-close:hover, .lineage-detail-close:focus-visible { border-color: var(--accent); background: #e8f6f0; outline: none; }
 .lineage-detail-empty { margin: 18px 0; color: var(--muted); }
 .lineage-detail-link { display: inline-block; margin: 14px 0 8px; color: var(--accent); font-weight: 650; }
-.lineage-detail-plot { width: 100%; height: 560px; min-width: 0; margin-top: 10px; overflow: hidden; border-top: 1px solid var(--line); }
-.lineage-detail-plot .js-plotly-plot, .lineage-detail-plot .plot-container, .lineage-detail-plot .svg-container { width: 100% !important; height: 100% !important; }
+.lineage-detail-plot { position: relative; width: 100%; max-width: 100%; height: 560px; min-width: 0; margin-top: 10px; overflow: hidden; contain: layout paint; isolation: isolate; border-top: 1px solid var(--line); }
+.lineage-detail-plot .js-plotly-plot, .lineage-detail-plot .plot-container, .lineage-detail-plot .svg-container { width: 100% !important; max-width: 100% !important; height: 100% !important; max-height: 100% !important; overflow: hidden !important; }
+.lineage-detail-plot .modebar-container { max-width: 100%; overflow: hidden; }
 .lineage-isolated { margin-top: 14px; color: var(--muted); font-size: 13px; }
 .lineage-isolated summary { cursor: pointer; }
 .lineage-isolated-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }

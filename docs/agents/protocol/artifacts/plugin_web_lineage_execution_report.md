@@ -16,7 +16,7 @@
   - Rendered a compact global graph with offline Plotly, local `plotly.min.js`, pan/zoom, hover metrics, selection highlighting, and focused URL restoration.
   - Precomputed local `lineage-details.json` figures for each plugin. Each figure is limited to direct upstream/downstream nodes and uses the shared `LineageGraphModel` plus `plot_lineage_plotly(..., show=False)` renderer used by runtime Context lineage.
   - Added a responsive right-side detail panel with a full plugin-reference link; it stacks below the overview on narrow screens.
-  - Expanded the homepage lineage workspace and detail panel, and removed fixed Plotly figure dimensions before rendering sidebar details so large direct-neighborhood graphs stay inside their frame.
+  - Expanded the homepage lineage workspace and detail panel, replaced generated Plotly dimensions with measured container bounds, and added resize observation plus paint containment so large direct-neighborhood graphs stay inside their frame.
   - Retained compact static Local Lineage SVGs with links to `index.html?focus=<provides>`.
   - Replaced straight overview wires with lightly smoothed native Plotly spline traces and segment-aligned arrowheads; removed the explicit Bezier-path and abandoned dashed-wire experiments.
   - Grouped homepage reference cards by canonical `PLUGIN_SETS` factory membership in execution order, with `Other Plugins` as an explicit fallback for unassigned builtins.

@@ -35,6 +35,15 @@
     const selectedLine = "#b45309";
     const defaultLine = "#087f5b";
 
+    const resizeDetailPlot = () => {
+      if (detailPlot?.data && !detailPlot.hidden) Plotly.Plots.resize(detailPlot);
+    };
+    if (window.ResizeObserver) {
+      new ResizeObserver(resizeDetailPlot).observe(detailPlot);
+    } else {
+      window.addEventListener("resize", resizeDetailPlot);
+    }
+
     const loadDetails = () => {
       if (!detailFigures) {
         detailFigures = fetch(workspace.dataset.lineageDetails).then((response) => {
@@ -90,19 +99,20 @@
         if (selected !== provides) return;
         const figure = figures[provides];
         if (!figure) throw new Error("Lineage detail is unavailable.");
+        const detailBounds = detailPlot.getBoundingClientRect();
         const detailLayout = {
           ...figure.layout,
-          autosize: true,
+          autosize: false,
+          width: Math.max(320, Math.floor(detailBounds.width)),
+          height: Math.max(360, Math.floor(detailBounds.height)),
           margin: { l: 12, r: 12, t: 52, b: 12 },
         };
-        delete detailLayout.width;
-        delete detailLayout.height;
         await Plotly.react(detailPlot, figure.data, detailLayout, {
           displaylogo: false,
           responsive: true,
           scrollZoom: true,
         });
-        Plotly.Plots.resize(detailPlot);
+        resizeDetailPlot();
       } catch (error) {
         if (selected !== provides) return;
         detailEmpty.textContent = "Lineage detail could not be loaded.";
