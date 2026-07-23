@@ -186,6 +186,39 @@ def test_web_lineage_resolves_dynamic_dependencies_from_plugin_defaults():
     }
 
 
+def test_web_cards_group_by_canonical_plugin_sets_and_global_edges_are_curved(tmp_path):
+    generator = PluginDocGenerator()
+    generator.load_builtin_plugins()
+
+    result = generator.generate_web(tmp_path)
+    index = result["INDEX"].read_text(encoding="utf-8")
+    groups = generator._web_plugin_sets(generator.get_all_doc_info())
+
+    assert [group.name for group in groups] == [
+        "io",
+        "waveform",
+        "hit",
+        "peaks",
+        "basic_features",
+        "tabular",
+        "events",
+        "other",
+    ]
+    assert {plugin.provides for group in groups for plugin in group.plugins} == {
+        plugin.provides for plugin in generator.get_all_doc_info()
+    }
+    assert 'data-plugin-set="io"' in index
+    assert 'data-plugin-set="events"' in index
+    assert 'data-plugin-set="other"' in index
+    assert index.index('data-plugin-set="io"') < index.index('data-plugin-set="waveform"')
+    assert index.index('href="plugins/raw_files.html"') < index.index('data-plugin-set="waveform"')
+    assert '"type":"path"' in index
+    assert "plugin-overview-edges" not in index
+
+    site_js = (tmp_path / "assets" / "site.js").read_text(encoding="utf-8")
+    assert "pluginSet.hidden" in site_js
+
+
 def test_detail_lineage_contains_direct_neighbors_not_transitive_plugins():
     class SourcePlugin(_EmptyPlugin):
         provides = "source_rows"

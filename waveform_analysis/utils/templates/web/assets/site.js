@@ -1,6 +1,7 @@
 (() => {
   const input = document.querySelector("#plugin-search");
   const cards = [...document.querySelectorAll(".plugin-card")];
+  const pluginSets = [...document.querySelectorAll("[data-plugin-set]")];
   const status = document.querySelector("#search-status");
   if (input && status) {
     const update = () => {
@@ -10,6 +11,11 @@
         const match = !query || card.dataset.search.toLocaleLowerCase().includes(query);
         card.hidden = !match;
         if (match) visible += 1;
+      }
+      for (const pluginSet of pluginSets) {
+        pluginSet.hidden = ![...pluginSet.querySelectorAll(".plugin-card")].some(
+          (card) => !card.hidden,
+        );
       }
       status.textContent = `${visible} plugin${visible === 1 ? "" : "s"}`;
     };

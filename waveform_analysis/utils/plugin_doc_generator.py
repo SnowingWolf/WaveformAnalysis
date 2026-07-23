@@ -20,6 +20,7 @@ import shutil
 import sys
 from typing import Any
 from urllib.parse import quote
+import warnings
 
 from markupsafe import Markup
 import numpy as np
@@ -199,6 +200,15 @@ class _WebLineageGraph:
     edges: list[_WebLineageEdge]
     isolated_nodes: list[_WebLineageNode]
     global_focus_href: str | None = None
+
+
+@dataclass(frozen=True)
+class _WebPluginSet:
+    """A canonical execution plugin set rendered on the static index."""
+
+    name: str
+    label: str
+    plugins: list[PluginDocumentationView]
 
 
 class _DefaultDocumentationContext:
@@ -1023,6 +1033,44 @@ class PluginDocGenerator:
             )
         return scored
 
+    @staticmethod
+    def _web_plugin_sets(plugins: list[PluginDocumentationView]) -> list[_WebPluginSet]:
+        """Group documentation views by the canonical execution plugin sets."""
+        from waveform_analysis.core.plugins.plugin_sets import PLUGIN_SETS
+
+        by_provides = {plugin.provides: plugin for plugin in plugins}
+        assigned: set[str] = set()
+        groups: list[_WebPluginSet] = []
+        for name, factory in PLUGIN_SETS.items():
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                provides = [str(plugin.provides) for plugin in factory()]
+            duplicates = assigned.intersection(provides)
+            if duplicates:
+                raise ValueError(f"Plugin set membership is ambiguous for {sorted(duplicates)!r}")
+            assigned.update(provides)
+            members = [
+                by_provides[provides_name]
+                for provides_name in provides
+                if provides_name in by_provides
+            ]
+            if members:
+                groups.append(
+                    _WebPluginSet(
+                        name=name,
+                        label=f"Plugin Set: {name.replace('_', ' ').title()}",
+                        plugins=members,
+                    )
+                )
+
+        remaining = sorted(
+            (plugin for plugin in plugins if plugin.provides not in assigned),
+            key=lambda plugin: plugin.provides,
+        )
+        if remaining:
+            groups.append(_WebPluginSet(name="other", label="Other Plugins", plugins=remaining))
+        return groups
+
     def _build_web_lineage_graph(
         self,
         plugins: list[PluginDocumentationView],
@@ -1267,11 +1315,12 @@ class PluginDocGenerator:
             node.node_id: (node.x + node.width / 2, node.y + node.height / 2)
             for node in lineage_graph.nodes
         }
-        shapes = []
+        edge_shapes = []
+        node_shapes = []
         annotations = []
         for node in lineage_graph.nodes:
             x, y = positions[node.node_id]
-            shapes.append(
+            node_shapes.append(
                 {
                     "type": "rect",
                     "x0": node.x,
@@ -1297,12 +1346,33 @@ class PluginDocGenerator:
         for edge in lineage_graph.edges:
             start = positions[edge.source_id]
             end = positions[edge.target_id]
+            start_x, start_y = start[0] + 110, start[1]
+            end_x, end_y = end[0] - 110, end[1]
+            horizontal_gap = end_x - start_x
+            control_x = max(36, min(180, horizontal_gap * 0.42))
+            curve_offset = 34 if end_y >= start_y else -34
+            control_one = (start_x + control_x, start_y + curve_offset)
+            control_two = (end_x - control_x, end_y + curve_offset)
+            edge_shapes.append(
+                {
+                    "type": "path",
+                    "path": (
+                        f"M {start_x},{start_y} C {control_one[0]},{control_one[1]} "
+                        f"{control_two[0]},{control_two[1]} {end_x},{end_y}"
+                    ),
+                    "line": {"color": "#80908a", "width": 1.25},
+                    "layer": "below",
+                }
+            )
+            tangent_x, tangent_y = end_x - control_two[0], end_y - control_two[1]
+            tangent_length = max((tangent_x**2 + tangent_y**2) ** 0.5, 1.0)
             annotations.append(
                 {
-                    "ax": start[0] + 110,
-                    "ay": start[1],
-                    "x": end[0] - 110,
-                    "y": end[1],
+                    # Keep the arrowhead aligned with the Bezier curve tangent.
+                    "ax": end_x - tangent_x / tangent_length * 8,
+                    "ay": end_y - tangent_y / tangent_length * 8,
+                    "x": end_x,
+                    "y": end_y,
                     "xref": "x",
                     "yref": "y",
                     "axref": "x",
@@ -1335,9 +1405,13 @@ class PluginDocGenerator:
             ]
         )
         figure.update_layout(
-            shapes=shapes,
+            shapes=edge_shapes + node_shapes,
             annotations=annotations,
-            meta={"node_shape_indices": {name: index for index, name in enumerate(customdata)}},
+            meta={
+                "node_shape_indices": {
+                    name: len(edge_shapes) + index for index, name in enumerate(customdata)
+                }
+            },
             margin={"l": 22, "r": 22, "t": 22, "b": 22},
             paper_bgcolor="#ffffff",
             plot_bgcolor="#ffffff",
@@ -1463,11 +1537,13 @@ class PluginDocGenerator:
         )
         if global_lineage_html is None:
             global_lineage_html = self._render_global_plotly_html(lineage_graph)
+        plugin_sets = self._web_plugin_sets(scored_plugins)
         return (
             self._get_web_jinja_env()
             .get_template("web/index.html.j2")
             .render(
                 plugins=sorted(scored_plugins, key=lambda item: item.provides),
+                plugin_sets=plugin_sets,
                 lineage_graph=lineage_graph,
                 global_lineage_html=Markup(global_lineage_html),
             )

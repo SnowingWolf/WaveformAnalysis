@@ -54,19 +54,29 @@
       </details>
       {% endif %}
     </section>
-    <div class="plugin-grid" id="plugin-grid">
-    {% for plugin in plugins %}
-      <a class="plugin-card" href="plugins/{{ plugin.provides }}.html"
-         data-search="{{ plugin.provides }} {{ plugin.name }} {{ plugin.category }} {{ plugin.output_kind }} {{ plugin.summary }}">
-        <span class="category">{{ plugin.category_display }}</span>
-        <h2>{{ plugin.provides }}</h2>
-        <p>{{ plugin.summary or "No description available." }}</p>
-        <div class="metric-badges" aria-label="Documentation metrics">
-          <span class="metric-badge" title="Documentation completeness">Docs {{ plugin.documentation_completeness }}/100</span>
-          <span class="metric-badge" title="Relative downstream impact">Impact {{ plugin.dag_impact }}/100</span>
+    <div class="plugin-set-groups" id="plugin-grid">
+    {% for plugin_set in plugin_sets %}
+      <section class="plugin-set" data-plugin-set="{{ plugin_set.name }}">
+        <div class="plugin-set-heading">
+          <h2>{{ plugin_set.label }}</h2>
+          <p>{{ plugin_set.plugins|length }} plugins</p>
         </div>
-        <dl><dt>Output</dt><dd>{{ plugin.output_kind }}</dd><dt>Version</dt><dd>{{ plugin.version }}</dd></dl>
-      </a>
+        <div class="plugin-grid">
+        {% for plugin in plugin_set.plugins %}
+          <a class="plugin-card" href="plugins/{{ plugin.provides }}.html"
+             data-search="{{ plugin.provides }} {{ plugin.name }} {{ plugin.category }} {{ plugin.output_kind }} {{ plugin.summary }}">
+            <span class="category">{{ plugin.category_display }}</span>
+            <h3>{{ plugin.provides }}</h3>
+            <p>{{ plugin.summary or "No description available." }}</p>
+            <div class="metric-badges" aria-label="Documentation metrics">
+              <span class="metric-badge" title="Documentation completeness">Docs {{ plugin.documentation_completeness }}/100</span>
+              <span class="metric-badge" title="Relative downstream impact">Impact {{ plugin.dag_impact }}/100</span>
+            </div>
+            <dl><dt>Output</dt><dd>{{ plugin.output_kind }}</dd><dt>Version</dt><dd>{{ plugin.version }}</dd></dl>
+          </a>
+        {% endfor %}
+        </div>
+      </section>
     {% endfor %}
     </div>
   </main>
