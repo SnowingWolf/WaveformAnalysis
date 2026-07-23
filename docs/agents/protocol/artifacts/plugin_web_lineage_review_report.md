@@ -11,6 +11,7 @@
   - `generated_HTML_inspection`: pass (`raw_files` and `st_waveforms` are global Plotly nodes; local Plotly asset, click handler, and scroll zoom are present)
   - `shared_renderer_regression`: pass (50 focused tests; detail JSON uses the runtime renderer and contains only direct neighbors)
   - `overview_curve_and_set_grouping`: pass (generated global wires are native Plotly spline traces; canonical set ordering and fallback grouping are covered)
+  - `responsive_detail_bounds`: pass (sidebar rendering strips fixed figure width/height, enables autosize, and uses bounded desktop/mobile containers)
   - `doc_sync`: pass
   - `doc_anchors`: pass
 - `decision`: `completed`

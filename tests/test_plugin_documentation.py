@@ -95,6 +95,7 @@ def test_web_generation_is_offline_relative_and_escaped(tmp_path):
     index = result["INDEX"].read_text(encoding="utf-8")
     page = result["special_chars"].read_text(encoding="utf-8")
     assert 'href="plugins/special_chars.html"' in index
+    assert '<body class="site-index">' in index
     assert 'href="../assets/site.css"' in page
     assert "https://" not in index + page
     assert "http://" not in index + page
@@ -107,6 +108,13 @@ def test_web_generation_is_offline_relative_and_escaped(tmp_path):
     assert (tmp_path / "assets" / "site.js").is_file()
     assert (tmp_path / "assets" / "plotly.min.js").is_file()
     assert (tmp_path / "assets" / "lineage-details.json").is_file()
+    site_js = (tmp_path / "assets" / "site.js").read_text(encoding="utf-8")
+    site_css = (tmp_path / "assets" / "site.css").read_text(encoding="utf-8")
+    assert "delete detailLayout.width" in site_js
+    assert "delete detailLayout.height" in site_js
+    assert "autosize: true" in site_js
+    assert "minmax(480px, 520px)" in site_css
+    assert "height: 560px" in site_css
 
 
 def test_web_lineage_omits_unknown_inputs_and_lists_isolated_plugins(tmp_path):

@@ -90,11 +90,19 @@
         if (selected !== provides) return;
         const figure = figures[provides];
         if (!figure) throw new Error("Lineage detail is unavailable.");
-        Plotly.react(detailPlot, figure.data, figure.layout, {
+        const detailLayout = {
+          ...figure.layout,
+          autosize: true,
+          margin: { l: 12, r: 12, t: 52, b: 12 },
+        };
+        delete detailLayout.width;
+        delete detailLayout.height;
+        await Plotly.react(detailPlot, figure.data, detailLayout, {
           displaylogo: false,
           responsive: true,
           scrollZoom: true,
         });
+        Plotly.Plots.resize(detailPlot);
       } catch (error) {
         if (selected !== provides) return;
         detailEmpty.textContent = "Lineage detail could not be loaded.";
