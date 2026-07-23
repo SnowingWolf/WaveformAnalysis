@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion.
-
 | Item | Value |
 | --- | --- |
 | Provides | `peaklet_waveforms` |
@@ -29,7 +28,10 @@ Build peaklet waveform index rows from records-backed hit_merged samples. Suppor
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -42,6 +44,8 @@ Build peaklet waveform index rows from records-backed hit_merged samples. Suppor
 | `parallel_threshold` | `int` | `5000` | - | yes | no | 启用并行化的最小 peaklet 数量。少于此数量时使用单进程 |
 ## Output
 
+structured_array output with fields: peak_id, time_start, time_end, dt, wave_offset, wave_length.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `peak_id` | `int64` | - | - |
@@ -51,6 +55,8 @@ Build peaklet waveform index rows from records-backed hit_merged samples. Suppor
 | `wave_offset` | `int64` | - | - |
 | `wave_length` | `int32` | - | - |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -65,13 +71,13 @@ data = ctx.get_data("run_001", "peaklet_waveforms")
 
 ### Behavior
 
-- Peaklet clustering, ragged waveforms, features, and final peaks.
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Consumers: `peaklet_features`, `peaklet_waveform_pool`
+
 ## Maintenance
 
 ### Change Playbook

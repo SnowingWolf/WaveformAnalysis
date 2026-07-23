@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Build the initial single-channel events DataFrame.
-
 | Item | Value |
 | --- | --- |
 | Provides | `df` |
@@ -29,7 +28,10 @@ Build the initial single-channel events DataFrame.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -39,10 +41,14 @@ Build the initial single-channel events DataFrame.
 | `gain_adc_per_pe` | `dict` | `None` | - | yes | no | 按硬件通道配置 ADC/PE 增益，键请使用 "board:channel"，例如 {"0:0": 12.5, "0:1": 13.2}。设置后会新增 area_pe/height_pe 列。 |
 ## Output
 
+Single-channel event table.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| - | `dataframe` | - | Build the initial single-channel events DataFrame. |
+| container | `dataframe` | - | Single-channel event table. |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -52,3 +58,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(DataFramePlugin())
 data = ctx.get_data("run_001", "df")
 ```
+### Downstream Consumers
+
+- `df_events`

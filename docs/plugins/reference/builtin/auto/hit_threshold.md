@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
-
 | Item | Value |
 | --- | --- |
 | Provides | `hit_threshold` |
@@ -29,7 +28,10 @@ Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -51,6 +53,8 @@ Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
 | `channel_role_cut_enabled` | `bool` | `False` | - | yes | no | 是否在 records 路径的 hit 查找前应用 records_detector_mask。 |
 ## Output
 
+structured_array output with fields: position, edge_start, edge_end, width, dt, timestamp, board, channel, ....
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `position` | `int64` | - | - |
@@ -64,6 +68,8 @@ Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
 | `record_id` | `int64` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import ThresholdHitPlugin
@@ -72,3 +78,9 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(ThresholdHitPlugin())
 data = ctx.get_data("run_001", "hit_threshold")
 ```
+### Downstream Consumers
+
+- `hit_grouped`
+- `hit_merge_clusters`
+- `hit_merged`
+- `hit_merged_components`

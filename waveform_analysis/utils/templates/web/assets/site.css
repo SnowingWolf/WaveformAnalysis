@@ -19,9 +19,17 @@ dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 0; f
 .back-link { display: inline-block; margin-bottom: 22px; color: var(--accent); }
 .lede { max-width: 800px; color: var(--muted); }
 .reference section { padding: 22px 0; border-bottom: 1px solid var(--line); }
+.reference h3 { margin: 24px 0 10px; font-size: 17px; }
+.reference h4 { margin: 20px 0 8px; font-size: 15px; }
+.workflow { margin: 0; padding-left: 24px; }
+.workflow li + li { margin-top: 8px; }
+.execution-chain { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.execution-chain code { padding: 3px 6px; border: 1px solid var(--line); border-radius: 3px; background: var(--paper); }
 table { width: 100%; border-collapse: collapse; display: block; overflow-x: auto; }
 th, td { padding: 9px 11px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
 th { background: var(--paper); white-space: nowrap; }
 code, pre { font-family: ui-monospace, monospace; } pre { overflow-x: auto; padding: 16px; background: #202824; color: #f4f7f5; border-radius: 4px; }
 [hidden] { display: none !important; }
+.plugin-overview { max-width: 800px; margin-bottom: 18px; color: var(--ink); }
+.plugin-overview p { margin: 0 0 10px; line-height: 1.65; }
 @media (max-width: 700px) { .site-header { grid-template-columns: 1fr; } main { width: min(100% - 28px, 1180px); } }

@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Extract waveforms from raw CSV files and structure them into NumPy structured arrays.
-
 | Item | Value |
 | --- | --- |
 | Provides | `st_waveforms` |
@@ -29,7 +28,10 @@ Extract waveforms from raw CSV files and structure them into NumPy structured ar
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -46,6 +48,8 @@ Extract waveforms from raw CSV files and structure them into NumPy structured ar
 | `streaming_mode` | `bool` | `False` | - | no | no | Enable streaming mode: read files and structure waveforms incrementally to reduce memory usage. When enabled, uses memmap for output to avoid full vstack memory overhead. |
 ## Output
 
+structured_array output with fields: baseline, baseline_upstream, polarity, timestamp, record_id, dt, event_length, board, ....
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `baseline` | `float64` | - | - |
@@ -60,6 +64,8 @@ Extract waveforms from raw CSV files and structure them into NumPy structured ar
 | `wave` | `('<i2', (1500,))` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import WaveformsPlugin
@@ -68,3 +74,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(WaveformsPlugin())
 data = ctx.get_data("run_001", "st_waveforms")
 ```
+### Downstream Consumers
+
+- `filtered_waveforms`

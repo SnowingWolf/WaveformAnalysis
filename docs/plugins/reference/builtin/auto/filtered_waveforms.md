@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Apply filtering to waveforms using Butterworth or Savitzky-Golay filters.
-
 | Item | Value |
 | --- | --- |
 | Provides | `filtered_waveforms` |
@@ -29,7 +28,10 @@ Apply filtering to waveforms using Butterworth or Savitzky-Golay filters.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `st_waveforms` | - | declared | - | - |
+| `st_waveforms` | - | declared | - | Extract waveforms from raw CSV files and structure them into NumPy structured arrays. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -46,6 +48,8 @@ Apply filtering to waveforms using Butterworth or Savitzky-Golay filters.
 | `channel_config` | `dict` | `None` | - | yes | no | 按 (board, channel) 的插件通道覆盖配置，可覆盖滤波参数。 |
 ## Output
 
+structured_array output with fields: baseline, baseline_upstream, polarity, timestamp, record_id, dt, event_length, board, ....
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `baseline` | `float64` | - | - |
@@ -60,6 +64,8 @@ Apply filtering to waveforms using Butterworth or Savitzky-Golay filters.
 | `wave` | `('<f4', (1500,))` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import FilteredWaveformsPlugin
@@ -68,3 +74,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(FilteredWaveformsPlugin())
 data = ctx.get_data("run_001", "filtered_waveforms")
 ```
+### Downstream Consumers
+
+- Terminal output; no direct builtin consumer is declared.

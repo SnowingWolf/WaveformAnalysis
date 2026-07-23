@@ -57,6 +57,22 @@ def main():
         choices=["coverage"],
         help="检查类型",
     )
+
+    agent_doc_parser = subparsers.add_parser("agent-doc", help="发布已验证的 AgentDoc 工作流结果")
+    agent_doc_subparsers = agent_doc_parser.add_subparsers(dest="agent_doc_command")
+    publish_parser = agent_doc_subparsers.add_parser(
+        "publish", help="原子发布一个已验证的 AgentDoc"
+    )
+    publish_parser.add_argument("--plugin", required=True, help="插件 provides 名称")
+    publish_parser.add_argument(
+        "--artifact-store",
+        default=".waveform-docs/agent-doc-artifacts",
+        help="工作流状态与 artifact 目录",
+    )
+    publish_parser.add_argument(
+        "--output",
+        help="已审核 YAML 输出目录，默认写入包内 documentation/agent_docs",
+    )
     check_parser.add_argument(
         "--docs-dir",
         "-d",
@@ -93,8 +109,71 @@ def main():
         return cmd_check(args)
     elif args.command == "serve":
         return cmd_serve(args)
+    elif args.command == "agent-doc":
+        return cmd_agent_doc(args)
 
     return 0
+
+
+def cmd_agent_doc(args):
+    if args.agent_doc_command != "publish":
+        print("❌ agent-doc 需要子命令；可用命令：publish")
+        return 1
+    try:
+        import yaml
+
+        from waveform_analysis.documentation import (
+            DocumentationOrchestrator,
+            FileArtifactStore,
+        )
+        from waveform_analysis.documentation.types import DAGState, NodeExecutionResult
+
+        store = FileArtifactStore(args.artifact_store)
+        raw_state = store.load_state(args.plugin)
+        if raw_state is None:
+            raise ValueError(f"找不到插件 `{args.plugin}` 的持久化工作流状态")
+        state = DAGState(**raw_state)
+        if state.plugin_name != args.plugin:
+            raise ValueError("持久化状态的 plugin_name 与 --plugin 不一致")
+        for artifact_name in (
+            "plugin_manifest",
+            "plugin_facts",
+            "agent_doc",
+            "verification_report",
+        ):
+            artifact = store.load_artifact(args.plugin, artifact_name)
+            if artifact is not None:
+                state.artifacts[artifact_name] = artifact
+        if state.current_node != "publish_agent_doc":
+            raise ValueError("只允许发布已通过验证并停在 publish_agent_doc 的工作流状态")
+        if not state.history or state.history[-1] != {
+            "node_id": "verify_agent_doc",
+            "status": "passed",
+            "next_node": "publish_agent_doc",
+        }:
+            raise ValueError("持久化状态缺少通过验证后进入 publish_agent_doc 的记录")
+
+        orchestrator = DocumentationOrchestrator(artifact_store=store)
+        document = orchestrator.published_document(state)
+        destination = Path(args.output) if args.output else None
+        output = orchestrator.publish(state, destination)
+        result = NodeExecutionResult(
+            dag_name=orchestrator.dag.name,
+            dag_version=orchestrator.dag.version,
+            node_id="publish_agent_doc",
+            node_status="success",
+            artifact_type="PublishedAgentDoc",
+            artifact=document,
+            issues=[],
+            requested_evidence=[],
+            confidence="high",
+        )
+        orchestrator.accept_result(state, result)
+        print(f"✅ 已发布验证通过的 AgentDoc: {output}")
+        return 0
+    except Exception as exc:
+        print(f"❌ 发布 AgentDoc 时出错: {exc}")
+        return 1
 
 
 def cmd_generate(args):

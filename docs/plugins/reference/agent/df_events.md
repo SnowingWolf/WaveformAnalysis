@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Group events across channels within a configurable time window.
-
 | Item | Value |
 | --- | --- |
 | Provides | `df_events` |
@@ -29,7 +28,10 @@ Group events across channels within a configurable time window.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `df` | - | declared | - | - |
+| `df` | - | declared | - | Build the initial single-channel events DataFrame. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -37,10 +39,14 @@ Group events across channels within a configurable time window.
 | `time_window_ns` | `float` | `100.0` | - | yes | no | Maximum time separation in nanoseconds for grouping events. |
 ## Output
 
+Grouped multi-channel event table.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| - | `dataframe` | - | Group events across channels within a configurable time window. |
+| container | `dataframe` | - | Grouped multi-channel event table. |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -55,22 +61,15 @@ data = ctx.get_data("run_001", "df_events")
 
 ### Behavior
 
-- Event Analysis Plugins - 事件分组与配对插件
-
-**加速器**: CPU (NumPy/Numba)
-**功能**: 多通道事件的时间窗口分组和符合配对
-
-本模块包含两个相关的事件分析插件：
-- GroupedEventsPlugin: 按时间窗口分组多通道事件
-- PairedEventsPlugin: 配对跨通道的符合事件
-
-注意：HitGroupedPlugin 已迁移到 waveform_analysis.core.plugins.builtin.hit.hit_grouped
+- 按时间窗口分组多通道事件
+- 在指定的时间窗口内识别多通道同时触发的事件，并将它们分组。 支持 Numba 加速和多进程并行处理。
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Consumers: `df_paired`
+
 ## Maintenance
 
 ### Change Playbook

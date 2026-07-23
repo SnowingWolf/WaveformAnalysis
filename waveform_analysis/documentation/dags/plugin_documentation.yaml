@@ -173,7 +173,7 @@ nodes:
       - Update the registry atomically.
     output:
       artifact: published_agent_doc
-      path: "waveform_analysis/docs/agent_docs/${plugin_name}.yaml"
+      path: "waveform_analysis/documentation/agent_docs/${plugin_name}.yaml"
     transitions: {success: terminal, failure: human_review}
 
   human_review:

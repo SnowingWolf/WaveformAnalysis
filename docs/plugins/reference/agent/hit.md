@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Detect peaks in waveforms and extract peak features.
-
 | Item | Value |
 | --- | --- |
 | Provides | `hit` |
@@ -29,7 +28,10 @@ Detect peaks in waveforms and extract peak features.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -51,6 +53,8 @@ Detect peaks in waveforms and extract peak features.
 | `parallel_min_events` | `int` | `20480` | - | yes | no | 触发并行的最小事件数（小数据量时自动串行） |
 ## Output
 
+structured_array output with fields: position, height, integral, edge_start, edge_end, dt, timestamp, board, ....
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `position` | `int64` | - | - |
@@ -65,6 +69,8 @@ Detect peaks in waveforms and extract peak features.
 | `record_id` | `int64` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import HitFinderPlugin
@@ -78,21 +84,16 @@ data = ctx.get_data("run_001", "hit")
 
 ### Behavior
 
-- CPU Peak Finding Plugin - 使用 scipy 进行峰值检测
-
-**加速器**: CPU (scipy)
-**功能**: 基于波形检测峰值并计算峰值特征
-
-本插件使用 scipy.signal.find_peaks 进行峰值检测，支持多种峰值筛选条件。
-计算峰值的位置、高度、积分、边缘等特征。
-
-支持使用原始波形或滤波后的波形进行检测。
+- 从波形中检测峰值
+- 使用配置的参数检测每个事件中的峰值，计算峰值特征 （位置、高度、积分、边缘等）。
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Terminal output; no direct builtin consumer is declared.
+
+
 ## Maintenance
 
 ### Change Playbook

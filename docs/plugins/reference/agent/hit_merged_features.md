@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Compute per-hit_merged local waveform features from records-backed samples.
-
 | Item | Value |
 | --- | --- |
 | Provides | `hit_merged_features` |
@@ -32,12 +31,7 @@ Compute per-hit_merged local waveform features from records-backed samples.
 | - | - | - | - | No declared inputs. |
 ### How It Works
 
-1. Resolve input dependencies at runtime from the Context configuration and run_id.
-2. Compute per-hit_merged local waveform features from records-backed samples.
-3. Return structured_array output with fields: merged_index, board, channel, record_id, time_start, time_end, center_time, max_time, ....
-### Execution Chain
 
-`<runtime-resolved inputs>` -> `hit_merged_features`
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -84,24 +78,17 @@ ctx.register(HitMergedFeaturesPlugin())
 data = ctx.get_data("run_001", "hit_merged_features")
 ```
 
-### Inspect The Execution
-
-```python
-ctx.preview_execution("run_001", "hit_merged_features")
-ctx.help("hit_merged_features", run_id="run_001")
-```
-
 ## Operational Notes
 
 ### Behavior
 
-Execution chain: `<runtime-resolved inputs>` -> `hit_merged_features`
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
-Terminal output; no direct builtin consumer is declared.
+Consumers: `peaklet_channels`
+
 ## Maintenance
 
 ### Change Playbook

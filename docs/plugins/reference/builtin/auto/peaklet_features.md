@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Compute peaklet waveform features from ragged signal pools.
-
 | Item | Value |
 | --- | --- |
 | Provides | `peaklet_features` |
@@ -29,15 +28,20 @@ Compute peaklet waveform features from ragged signal pools.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `peaklet_waveforms` | - | declared | - | - |
-| `peaklet_waveform_pool` | - | declared | - | - |
-| `peaklets` | - | declared | - | - |
+| `peaklet_waveforms` | - | declared | - | Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion. |
+| `peaklet_waveform_pool` | - | declared | - | Return the flattened float32 signal pool paired with peaklet_waveforms. Configure waveform construction on peaklet_waveforms. |
+| `peaklets` | - | declared | - | Build lightweight cross-channel peaklets from hit_merged intervals. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
 | --- | --- | --- | --- | --- | --- | --- |
 | - | - | - | - | - | - | - |
 ## Output
+
+structured_array output with fields: peak_id, time_start, time_end, time_peak, center_time, rise_time, fall_time, width_25_75, ....
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
@@ -56,6 +60,8 @@ Compute peaklet waveform features from ragged signal pools.
 | `width` | `float32` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import PeakletFeaturesPlugin
@@ -64,3 +70,7 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PeakletFeaturesPlugin())
 data = ctx.get_data("run_001", "peaklet_features")
 ```
+### Downstream Consumers
+
+- `peaklet_channels`
+- `peaks`

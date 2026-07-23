@@ -16,7 +16,12 @@ generated: true
 ## Overview
 
 {{ (plugin.description or "-")|markdown_cell }}
+{% if plugin.overview_paragraphs %}
+{% for p in plugin.overview_paragraphs %}{{ p }}
 
+{% endfor %}{% elif plugin.overview %}
+{{ plugin.overview }}
+{% endif %}
 | Item | Value |
 | --- | --- |
 | Provides | `{{ plugin.provides|markdown_cell }}` |
@@ -29,25 +34,33 @@ generated: true
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-{% if plugin.depends_on %}{% for dep in plugin.depends_on %}{% if dep is string %}| `{{ dep|markdown_cell }}` | - | declared | - | - |
-{% else %}| `{{ dep[0]|markdown_cell }}` | `{{ dep[1]|markdown_cell }}` | declared | - | - |
-{% endif %}{% endfor %}{% else %}| - | - | - | - | - |
+{% if plugin.dependency_details %}{% for dep in plugin.dependency_details %}| `{{ dep.name|markdown_cell }}` | {{ (dep.version_constraint or "-")|markdown_cell }} | {{ dep.resolution|markdown_cell }} | {{ (dep.required_fields|join(", ") or "-")|markdown_cell }} | {{ (dep.description or "No producer description available.")|markdown_cell }} |
+{% endfor %}{% else %}| - | - | - | - | No declared inputs. |
 {% endif %}
+### How It Works
+
+{% for step in plugin.workflow_steps %}{{ loop.index }}. {{ step|markdown_cell }}
+{% endfor %}
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
 | --- | --- | --- | --- | --- | --- | --- |
-{% if plugin.config_options %}{% for opt in plugin.config_options %}| `{{ opt.name|markdown_cell }}` | `{{ opt.type|markdown_cell }}` | `{{ opt.default|markdown_cell }}` | {{ (opt.units or "-")|markdown_cell }} | {{ "yes" if opt.tracked else "no" }} | {{ "yes" if opt.deprecated else "no" }} | {{ (opt.doc or "-")|markdown_cell }} |
+{% if plugin.config_options %}{% for opt in plugin.config_options %}| `{{ opt.name|markdown_cell }}` | `{{ opt.type|markdown_cell }}` | `{{ opt.default|markdown_cell }}` | {{ (opt.units or "-")|markdown_cell }} | {{ "yes" if opt.tracked else "no" }} | {{ "yes" if opt.deprecated else "no" }} | {{ plugin.config_notes.get(opt.name, opt.doc or "No description available.")|markdown_cell }} |
 {% endfor %}{% else %}| - | - | - | - | - | - | - |
 {% endif %}
 ## Output
 
+{{ plugin.output_summary|markdown_cell }}
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 {% if plugin.output_fields %}{% for field in plugin.output_fields %}| `{{ field.name|markdown_cell }}` | `{{ field.dtype|markdown_cell }}` | {{ (field.units or "-")|markdown_cell }} | {{ (field.doc or plugin.field_notes.get(field.name, "-"))|markdown_cell }} |
-{% endfor %}{% else %}| - | `{{ plugin.output_kind }}` | - | {{ plugin.description or "-" }} |
+{% endfor %}{% else %}| container | `{{ plugin.output_kind }}` | - | {{ plugin.output_summary|markdown_cell }} |
 {% endif %}
 ## Usage
+
+### Minimal Example
 
 ```python
 {% if plugin.usage_example %}{{ plugin.usage_example }}
@@ -58,3 +71,8 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register({{ plugin.name }}())
 data = ctx.get_data("run_001", "{{ plugin.provides }}")
 {% endif %}```
+### Downstream Consumers
+
+{% if plugin.downstream_consumers %}{% for consumer in plugin.downstream_consumers %}- `{{ consumer|markdown_cell }}`
+{% endfor %}{% else %}- Terminal output; no direct builtin consumer is declared.
+{% endif %}

@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Build filtered wave_pool from records-backed raw waveforms.
-
 | Item | Value |
 | --- | --- |
 | Provides | `wave_pool_filtered` |
@@ -29,8 +28,11 @@ Build filtered wave_pool from records-backed raw waveforms.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `records` | - | declared | - | - |
-| `wave_pool` | - | declared | - | - |
+| `records` | - | declared | - | Build records (event index table) from the shared internal records bundle. |
+| `wave_pool` | - | declared | - | Build wave_pool from the shared internal records bundle. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -47,10 +49,14 @@ Build filtered wave_pool from records-backed raw waveforms.
 | `channel_config` | `dict` | `None` | - | yes | no | 按 (board, channel) 的插件通道覆盖配置，可覆盖滤波参数。 |
 ## Output
 
+array output with fields: value.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `value` | `float32` | - | - |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -60,3 +66,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(WavePoolFilteredPlugin())
 data = ctx.get_data("run_001", "wave_pool_filtered")
 ```
+### Downstream Consumers
+
+- Terminal output; no direct builtin consumer is declared.

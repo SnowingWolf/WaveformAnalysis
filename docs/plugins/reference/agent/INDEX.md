@@ -33,7 +33,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`hit_merge_clusters`](hit_merge_clusters.md) | `HitMergeClustersPlugin` | `hit_merged`, `hit_threshold` | `structured_array` | `1.1.0` |
 | [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold` | `structured_array` | `2.1.0` |
 | [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | `hit_merged`, `hit_threshold` | `structured_array` | `1.1.0` |
-| [`hit_merged_features`](hit_merged_features.md) | `HitMergedFeaturesPlugin` | - | `structured_array` | `0.4.0` |
+| [`hit_merged_features`](hit_merged_features.md) | `HitMergedFeaturesPlugin` | - | `structured_array` | `0.5.1` |
 | [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | - | `structured_array` | `1.2.0` |
 | [`peak_classification`](peak_classification.md) | `PeakClassificationPlugin` | `peaks` | `structured_array` | `1.2.1` |
 | [`peaklet_channels`](peaklet_channels.md) | `PeakletChannelsPlugin` | `peaklets`, `peaklet_components`, `hit_merged_features`, `peaklet_features` | `structured_array` | `1.0.1` |

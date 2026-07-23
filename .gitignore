@@ -35,6 +35,7 @@ waveform_analysis.egg-info/
 *.egg
 MANIFEST
 node_modules/
+.waveform-docs/agent-doc-artifacts/
 
 # PyInstaller
 *.manifest

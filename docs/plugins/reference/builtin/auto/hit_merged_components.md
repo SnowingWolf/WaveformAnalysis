@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Return per-cluster component hit indices for hit_merged rows.
-
 | Item | Value |
 | --- | --- |
 | Provides | `hit_merged_components` |
@@ -29,8 +28,11 @@ Return per-cluster component hit indices for hit_merged rows.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `hit_merged` | - | declared | - | - |
-| `hit_threshold` | - | declared | - | - |
+| `hit_merged` | - | declared | - | Merge nearby threshold hits per channel with time-gap and max-width constraints. |
+| `hit_threshold` | - | declared | - | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -38,11 +40,15 @@ Return per-cluster component hit indices for hit_merged rows.
 | `validate_components` | `bool` | `False` | - | yes | no | 校验 hit_merged 的 component_offset/component_count 与 cluster rows 是否一致。 |
 ## Output
 
+structured_array output with fields: merged_index, hit_index.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `merged_index` | `int64` | - | - |
 | `hit_index` | `int64` | - | - |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -52,3 +58,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(HitMergedComponentsPlugin())
 data = ctx.get_data("run_001", "hit_merged_components")
 ```
+### Downstream Consumers
+
+- `hit_grouped`

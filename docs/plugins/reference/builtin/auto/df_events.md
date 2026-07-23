@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Group events across channels within a configurable time window.
-
 | Item | Value |
 | --- | --- |
 | Provides | `df_events` |
@@ -29,7 +28,10 @@ Group events across channels within a configurable time window.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `df` | - | declared | - | - |
+| `df` | - | declared | - | Build the initial single-channel events DataFrame. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -37,10 +39,14 @@ Group events across channels within a configurable time window.
 | `time_window_ns` | `float` | `100.0` | - | yes | no | Maximum time separation in nanoseconds for grouping events. |
 ## Output
 
+Grouped multi-channel event table.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| - | `dataframe` | - | Group events across channels within a configurable time window. |
+| container | `dataframe` | - | Grouped multi-channel event table. |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -50,3 +56,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(GroupedEventsPlugin())
 data = ctx.get_data("run_001", "df_events")
 ```
+### Downstream Consumers
+
+- `df_paired`

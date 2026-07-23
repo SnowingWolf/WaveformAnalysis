@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Analyze cache usage and return summary, entries, and diagnostics.
-
 | Item | Value |
 | --- | --- |
 | Provides | `cache_analysis` |
@@ -29,7 +28,10 @@ Analyze cache usage and return summary, entries, and diagnostics.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -51,10 +53,14 @@ Analyze cache usage and return summary, entries, and diagnostics.
 | `verbose` | `bool` | `False` | - | yes | no | Print scan and diagnostic progress. |
 ## Output
 
+Cache summary, entries, and diagnostics.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| - | `dict` | - | Analyze cache usage and return summary, entries, and diagnostics. |
+| container | `dict` | - | Cache summary, entries, and diagnostics. |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -69,17 +75,14 @@ data = ctx.get_data("run_001", "cache_analysis")
 
 ### Behavior
 
-- Cache analysis plugin.
-
-Collects cache statistics and optionally returns filtered cache entries and
-diagnostic issues. This is meant for interactive inspection and does not
-write to the main cache by default.
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Terminal output; no direct builtin consumer is declared.
+
+
 ## Maintenance
 
 ### Change Playbook

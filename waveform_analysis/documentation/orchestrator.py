@@ -10,6 +10,11 @@ from typing import Any
 import yaml
 
 from .artifact_store import FileArtifactStore
+from .published_agent_docs import (
+    PUBLISHED_AGENT_DOC_DIR,
+    PUBLISHED_AGENT_DOC_SCHEMA_VERSION,
+    PUBLISHED_AGENT_DOC_TYPE,
+)
 from .routing import route_result
 from .types import (
     DAGState,
@@ -144,7 +149,7 @@ class DocumentationOrchestrator:
         self._persist_state(state)
         return state
 
-    def publish(self, state: DAGState, destination_root: str | Path) -> Path:
+    def publish(self, state: DAGState, destination_root: str | Path | None = None) -> Path:
         """Atomically write AgentDoc only after a passing verification report."""
         report = state.artifacts.get("verification_report", {})
         if report.get("passed") is not True:
@@ -153,14 +158,25 @@ class DocumentationOrchestrator:
         if not agent_doc:
             raise ValueError("No agent_doc artifact is available for publication")
 
-        output = Path(destination_root) / f"{state.plugin_name}.yaml"
+        output = Path(destination_root or PUBLISHED_AGENT_DOC_DIR) / f"{state.plugin_name}.yaml"
         output.parent.mkdir(parents=True, exist_ok=True)
         temporary = output.with_suffix(".yaml.tmp")
+        document = self.published_document(state)
         temporary.write_text(
-            yaml.safe_dump(agent_doc, allow_unicode=True, sort_keys=False), encoding="utf-8"
+            yaml.safe_dump(document, allow_unicode=True, sort_keys=False), encoding="utf-8"
         )
         temporary.replace(output)
         return output
+
+    def published_document(self, state: DAGState) -> dict[str, Any]:
+        """Build the publication envelope without changing the filesystem."""
+        report = state.artifacts.get("verification_report", {})
+        if report.get("passed") is not True:
+            raise ValueError("AgentDoc publication requires verification_report.passed == true")
+        agent_doc = state.artifacts.get("agent_doc")
+        if not isinstance(agent_doc, dict):
+            raise ValueError("No agent_doc artifact is available for publication")
+        return _published_agent_doc(state, agent_doc)
 
     def execute_agent_node(
         self,
@@ -293,3 +309,47 @@ def _string_list(data: dict[str, Any], key: str) -> list[str]:
     if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
         raise ValueError(f"Expected string list `{key}`")
     return value
+
+
+def _published_agent_doc(state: DAGState, agent_doc: dict[str, Any]) -> dict[str, Any]:
+    """Build the immutable envelope consumed by runtime Help and site rendering."""
+    manifest = state.artifacts.get("plugin_manifest", {})
+    source_file = manifest.get("source_file") if isinstance(manifest, dict) else None
+    if not isinstance(source_file, str) or not source_file:
+        raise ValueError("AgentDoc publication requires plugin_manifest.source_file")
+    source_path = Path(source_file)
+    if not source_path.is_absolute():
+        source_path = Path(state.repository_root) / source_path
+    try:
+        import hashlib
+
+        source_fingerprint = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    except OSError as exc:
+        raise ValueError(f"Unable to fingerprint plugin source: {source_path}") from exc
+
+    facts = state.artifacts.get("plugin_facts", {})
+    identity = facts.get("identity", {}) if isinstance(facts, dict) else {}
+    plugin_version = (
+        agent_doc.get("plugin_version")
+        or (identity.get("version") if isinstance(identity, dict) else None)
+        or manifest.get("version")
+    )
+    if not isinstance(plugin_version, str) or not plugin_version:
+        raise ValueError("AgentDoc publication requires the documented plugin version")
+    if agent_doc.get("plugin_name") != state.plugin_name:
+        raise ValueError("AgentDoc plugin_name does not match the workflow plugin")
+
+    content = {
+        key: value
+        for key, value in agent_doc.items()
+        if key not in {"plugin_name", "plugin_version", "source_fingerprint", "generator_version"}
+    }
+    return {
+        "schema_version": PUBLISHED_AGENT_DOC_SCHEMA_VERSION,
+        "document_type": PUBLISHED_AGENT_DOC_TYPE,
+        "plugin_name": state.plugin_name,
+        "plugin_version": plugin_version,
+        "source_fingerprint": source_fingerprint,
+        "generator_version": "plugin_documentation_dag/1",
+        "content": content,
+    }

@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Aggregate hit_merged_features into per-peaklet channel contribution rows.
-
 | Item | Value |
 | --- | --- |
 | Provides | `peaklet_channels` |
@@ -29,16 +28,21 @@ Aggregate hit_merged_features into per-peaklet channel contribution rows.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `peaklets` | - | declared | - | - |
-| `peaklet_components` | - | declared | - | - |
-| `hit_merged_features` | - | declared | - | - |
-| `peaklet_features` | - | declared | - | - |
+| `peaklets` | - | declared | - | Build lightweight cross-channel peaklets from hit_merged intervals. |
+| `peaklet_components` | - | declared | - | Return per-peaklet component hit_merged indices. |
+| `hit_merged_features` | - | declared | - | Compute per-hit_merged local waveform features from records-backed samples. |
+| `peaklet_features` | - | declared | - | Compute peaklet waveform features from ragged signal pools. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
 | --- | --- | --- | --- | --- | --- | --- |
 | - | - | - | - | - | - | - |
 ## Output
+
+structured_array output with fields: peaklet_id, board, channel, area, height, n_hits, area_fraction.
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
@@ -50,6 +54,8 @@ Aggregate hit_merged_features into per-peaklet channel contribution rows.
 | `n_hits` | `int32` | - | - |
 | `area_fraction` | `float32` | - | - |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -64,13 +70,13 @@ data = ctx.get_data("run_001", "peaklet_channels")
 
 ### Behavior
 
-- Per-channel contribution table for peaklets.
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Consumers: `peaks`
+
 ## Maintenance
 
 ### Change Playbook

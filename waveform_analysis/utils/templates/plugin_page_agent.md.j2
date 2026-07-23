@@ -16,7 +16,12 @@ generated: true
 ## Overview
 
 {{ (plugin.description or "-")|markdown_cell }}
+{% if plugin.overview_paragraphs %}
+{% for p in plugin.overview_paragraphs %}{{ p }}
 
+{% endfor %}{% elif plugin.overview %}
+{{ plugin.overview }}
+{% endif %}
 | Item | Value |
 | --- | --- |
 | Provides | `{{ plugin.provides|markdown_cell }}` |
@@ -29,10 +34,14 @@ generated: true
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-{% if plugin.depends_on %}{% for dep in plugin.depends_on %}{% if dep is string %}| `{{ dep|markdown_cell }}` | - | declared | - | - |
-{% else %}| `{{ dep[0]|markdown_cell }}` | `{{ dep[1]|markdown_cell }}` | declared | - | - |
-{% endif %}{% endfor %}{% else %}| - | - | - | - | - |
+{% if plugin.dependency_details %}{% for dep in plugin.dependency_details %}| `{{ dep.name|markdown_cell }}` | {{ (dep.version_constraint or "-")|markdown_cell }} | {{ dep.resolution|markdown_cell }} | {{ (dep.required_fields|join(", ") or "-")|markdown_cell }} | {{ (dep.description or "No producer description available.")|markdown_cell }} |
+{% endfor %}{% else %}| - | - | - | - | No declared inputs. |
 {% endif %}
+### How It Works
+
+{% for step in plugin.workflow_steps %}{{ loop.index }}. {{ step|markdown_cell }}
+{% endfor %}
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -42,12 +51,16 @@ generated: true
 {% endif %}
 ## Output
 
+{{ plugin.output_summary|markdown_cell }}
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 {% if plugin.output_fields %}{% for field in plugin.output_fields %}| `{{ field.name|markdown_cell }}` | `{{ field.dtype|markdown_cell }}` | {{ (field.units or "-")|markdown_cell }} | {{ (field.doc or plugin.field_notes.get(field.name, "-"))|markdown_cell }} |
-{% endfor %}{% else %}| - | `{{ plugin.output_kind }}` | - | {{ plugin.description or "-" }} |
+{% endfor %}{% else %}| container | `{{ plugin.output_kind }}` | - | {{ plugin.output_summary|markdown_cell }} |
 {% endif %}
 ## Usage
+
+### Minimal Example
 
 ```python
 {% if plugin.usage_example %}{{ plugin.usage_example }}
@@ -63,9 +76,9 @@ data = ctx.get_data("run_001", "{{ plugin.provides }}")
 
 ### Behavior
 
-{% if plugin.behavior_notes %}{% for note in plugin.behavior_notes %}- {{ note }}
-{% endfor %}{% else %}- {{ plugin.module_doc or "No additional behavior notes." }}
-{% endif %}
+{% for note in plugin.behavior_notes %}- {{ note }}
+{% endfor %}{% for note in plugin.execution_notes %}- {{ note }}
+{% endfor %}
 ### Failure Modes
 
 {% if plugin.failure_modes %}{% for mode in plugin.failure_modes %}- {{ mode }}
@@ -74,9 +87,12 @@ data = ctx.get_data("run_001", "{{ plugin.provides }}")
 ### Downstream Impact
 
 {% if plugin.downstream_consumers %}Consumers: {% for consumer in plugin.downstream_consumers %}`{{ consumer }}`{% if not loop.last %}, {% endif %}{% endfor %}
-{% else %}-
-{% endif %}{% for note in plugin.downstream_notes %}- {{ note }}
+{% else %}Terminal output; no direct builtin consumer is declared.
+{% endif %}
+
+{% for note in plugin.downstream_notes %}- {{ note }}
 {% endfor %}
+
 ## Maintenance
 
 ### Change Playbook

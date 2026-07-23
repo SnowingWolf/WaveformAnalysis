@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Select best S1-S2 pairs from candidates
-
 | Item | Value |
 | --- | --- |
 | Provides | `s1_s2_pairs` |
@@ -29,7 +28,10 @@ Select best S1-S2 pairs from candidates
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `s1_s2_pair_candidates` | - | declared | - | - |
+| `s1_s2_pair_candidates` | - | declared | - | Generate all physically allowed S1-S2 pairing candidates |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -38,6 +40,8 @@ Select best S1-S2 pairs from candidates
 | `close_competitor_threshold` | `float` | `0.1` | - | yes | no | 次优候选接近阈值。delta_score < threshold 时标记 FLAG_CLOSE_COMPETITOR |
 | `require_s2_larger_than_s1` | `bool` | `True` | - | yes | no | 是否要求 S2_area > S1_area。这是液氙探测器的物理约束。 |
 ## Output
+
+structured_array output with fields: pair_id, s1_peak_id, s2_peak_id, s1_index, s2_index, s1_time, s2_time, drift_time, ....
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
@@ -73,6 +77,8 @@ Select best S1-S2 pairs from candidates
 | `selected` | `bool` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import S1S2PairSelectionPlugin
@@ -81,3 +87,7 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(S1S2PairSelectionPlugin())
 data = ctx.get_data("run_001", "s1_s2_pairs")
 ```
+### Downstream Consumers
+
+- `events`
+- `position_reconstruction`

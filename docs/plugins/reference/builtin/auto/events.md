@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Complete event reconstruction from S1-S2 pairs and position
-
 | Item | Value |
 | --- | --- |
 | Provides | `events` |
@@ -29,8 +28,11 @@ Complete event reconstruction from S1-S2 pairs and position
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `s1_s2_pairs` | - | declared | - | - |
-| `position_reconstruction` | - | declared | - | - |
+| `s1_s2_pairs` | - | declared | - | Select best S1-S2 pairs from candidates |
+| `position_reconstruction` | - | declared | - | Reconstruct 3D position from S1-S2 pairs using vectorized CoG method |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -40,6 +42,8 @@ Complete event reconstruction from S1-S2 pairs and position
 | `fiducial_radius` | `(<class 'float'>, <class 'NoneType'>)` | `None` | - | yes | no | 基准体积半径 (mm)。None 表示不应用 |
 | `fiducial_z_range` | `(<class 'tuple'>, <class 'NoneType'>)` | `None` | - | yes | no | 基准体积 Z 范围 (z_min, z_max) mm。None 表示不应用 |
 ## Output
+
+structured_array output with fields: event_id, event_number, run_id, pair_id, s1_peak_id, s2_peak_id, x, y, ....
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
@@ -70,6 +74,8 @@ Complete event reconstruction from S1-S2 pairs and position
 | `flags` | `uint32` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import EventPlugin
@@ -78,3 +84,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(EventPlugin())
 data = ctx.get_data("run_001", "events")
 ```
+### Downstream Consumers
+
+- Terminal output; no direct builtin consumer is declared.

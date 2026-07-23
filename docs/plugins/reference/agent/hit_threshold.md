@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
-
 | Item | Value |
 | --- | --- |
 | Provides | `hit_threshold` |
@@ -29,7 +28,10 @@ Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -51,6 +53,8 @@ Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
 | `channel_role_cut_enabled` | `bool` | `False` | - | yes | no | 是否在 records 路径的 hit 查找前应用 records_detector_mask。 |
 ## Output
 
+structured_array output with fields: position, edge_start, edge_end, width, dt, timestamp, board, channel, ....
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `position` | `int64` | - | - |
@@ -63,6 +67,8 @@ Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
 | `channel` | `int16` | - | - |
 | `record_id` | `int64` | - | - |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -77,27 +83,13 @@ data = ctx.get_data("run_001", "hit_threshold")
 
 ### Behavior
 
-- Hit Finder Plugins - 阈值 Hit 检测插件
-
-本模块包含：
-1. HitFinderPlugin: 旧导入路径兼容别名（推荐改为 peak_finding.HitFinderPlugin）
-2. ThresholdHitPlugin: 新的纯阈值 hit 插件（provides='hit_threshold'），输出 THRESHOLD_HIT_DTYPE
-
-本版本的主要改动
-----------------
-1. records 输入路径优先使用 ragged layout：wave_pool + wave_offset + event_length。
-2. 对每条 record 先做 min/max record-level prefilter：
-   - positive polarity: max(wave) >= baseline + threshold
-   - negative polarity: min(wave) <= baseline - threshold
-   未通过预筛选的 record 不构造 mask、不找 hit 区间。
-3. records 路径不再强制调用 rv.waves(...) 生成 padded 2D matrix，适合不等长波形。
-4. waveform matrix 输入路径仍然保留，用于 st_waveforms / filtered_waveforms 等固定窗口数据。
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Consumers: `hit_grouped`, `hit_merge_clusters`, `hit_merged`, `hit_merged_components`
+
 ## Maintenance
 
 ### Change Playbook

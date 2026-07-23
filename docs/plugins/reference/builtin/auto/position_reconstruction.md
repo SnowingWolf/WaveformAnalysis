@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Reconstruct 3D position from S1-S2 pairs using vectorized CoG method
-
 | Item | Value |
 | --- | --- |
 | Provides | `position_reconstruction` |
@@ -29,7 +28,10 @@ Reconstruct 3D position from S1-S2 pairs using vectorized CoG method
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `s1_s2_pairs` | - | declared | - | - |
+| `s1_s2_pairs` | - | declared | - | Select best S1-S2 pairs from candidates |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -39,6 +41,8 @@ Reconstruct 3D position from S1-S2 pairs using vectorized CoG method
 | `edge_threshold_mm` | `float` | `5.0` | - | yes | no | 边缘事件判定阈值：距离 TPC 边界的最小距离 (mm) |
 | `detector_radius_mm` | `float` | `62.5` | - | yes | no | 探测器有效半径 (mm)，用于边缘事件检测 |
 ## Output
+
+structured_array output with fields: event_id, pair_id, s1_peak_id, s2_peak_id, x, y, z, r, ....
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
@@ -65,6 +69,8 @@ Reconstruct 3D position from S1-S2 pairs using vectorized CoG method
 | `flags` | `uint32` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import PositionReconstructionPlugin
@@ -73,3 +79,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PositionReconstructionPlugin())
 data = ctx.get_data("run_001", "position_reconstruction")
 ```
+### Downstream Consumers
+
+- `events`

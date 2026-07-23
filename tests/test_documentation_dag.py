@@ -2,6 +2,7 @@ from importlib.resources import files
 from pathlib import Path
 
 import pytest
+import yaml
 
 from waveform_analysis.documentation import DocumentationOrchestrator, FileArtifactStore
 from waveform_analysis.documentation.types import NodeExecutionResult
@@ -213,6 +214,14 @@ def test_deterministic_runner_executes_one_declared_node(tmp_path: Path):
 def test_publish_requires_passing_verification_and_writes_atomically(tmp_path: Path):
     orchestrator = DocumentationOrchestrator()
     state = orchestrator.new_state("hit_merged", tmp_path)
+    source_file = tmp_path / "plugin.py"
+    source_file.write_text("class HitMergePlugin: pass\n", encoding="utf-8")
+    state.artifacts["plugin_manifest"] = {
+        "plugin_name": "hit_merged",
+        "class_name": "HitMergePlugin",
+        "source_file": "plugin.py",
+    }
+    state.artifacts["plugin_facts"] = {"identity": {"version": "2.1.0"}}
     state.artifacts["agent_doc"] = {
         "plugin_name": "hit_merged",
         "summary": "Merge nearby threshold-hit fragments.",
@@ -227,7 +236,12 @@ def test_publish_requires_passing_verification_and_writes_atomically(tmp_path: P
     state.artifacts["verification_report"] = {"passed": True}
     output = orchestrator.publish(state, tmp_path / "published")
     assert output == tmp_path / "published" / "hit_merged.yaml"
-    assert "plugin_name: hit_merged" in output.read_text(encoding="utf-8")
+    published = yaml.safe_load(output.read_text(encoding="utf-8"))
+    assert published["plugin_name"] == "hit_merged"
+    assert published["plugin_version"] == "2.1.0"
+    assert published["document_type"] == "published_agent_doc"
+    assert published["content"]["summary"] == "Merge nearby threshold-hit fragments."
+    assert len(published["source_fingerprint"]) == 64
     assert not output.with_suffix(".yaml.tmp").exists()
 
 

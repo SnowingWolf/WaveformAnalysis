@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Compute per-hit_merged local waveform features from records-backed samples.
-
 | Item | Value |
 | --- | --- |
 | Provides | `hit_merged_features` |
@@ -29,7 +28,10 @@ Compute per-hit_merged local waveform features from records-backed samples.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -41,6 +43,8 @@ Compute per-hit_merged local waveform features from records-backed samples.
 | `normalize_to_pe` | `bool` | `False` | - | yes | no | 是否将 area/height 直接归一化为 PE 单位。False (默认): area/height 保持 ADC 单位，area_pe/height_pe 输出 PE 单位。True: area/height 归一化为 PE 单位，area_pe/height_pe 为 NaN。 |
 | `feature_num_threads` | `int` | `None` | - | no | no | Numba kernel 线程数；None 使用 Numba 默认。 |
 ## Output
+
+structured_array output with fields: merged_index, board, channel, record_id, time_start, time_end, center_time, max_time, ....
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
@@ -63,6 +67,8 @@ Compute per-hit_merged local waveform features from records-backed samples.
 | `height_pe` | `float32` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import HitMergedFeaturesPlugin
@@ -71,3 +77,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(HitMergedFeaturesPlugin())
 data = ctx.get_data("run_001", "hit_merged_features")
 ```
+### Downstream Consumers
+
+- `peaklet_channels`

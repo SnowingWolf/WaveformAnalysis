@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Bool mask for waveform asymmetry selection.
-
 | Item | Value |
 | --- | --- |
 | Provides | `records_asymmetry_mask` |
@@ -29,8 +28,11 @@ Bool mask for waveform asymmetry selection.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `records` | - | declared | - | - |
-| `wave_pool` | - | declared | - | - |
+| `records` | - | declared | - | Build records (event index table) from the shared internal records bundle. |
+| `wave_pool` | - | declared | - | Build wave_pool from the shared internal records bundle. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -42,10 +44,14 @@ Bool mask for waveform asymmetry selection.
 | `asymmetry_polarity_mode` | `str` | `auto` | - | yes | no | Polarity handling mode: 'auto' (extract from records['polarity']), 'negative' (baseline - w_min), 'positive' (w_max - baseline). |
 ## Output
 
+array output with fields: value.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `value` | `bool` | - | - |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -60,13 +66,13 @@ data = ctx.get_data("run_001", "records_asymmetry_mask")
 
 ### Behavior
 
-- Records-backed waveform asymmetry mask plugin.
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Consumers: `records_detector_mask`, `records_veto_mask`
+
 ## Maintenance
 
 ### Change Playbook

@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Pair grouped events across channels for coincidence analysis.
-
 | Item | Value |
 | --- | --- |
 | Provides | `df_paired` |
@@ -29,7 +28,10 @@ Pair grouped events across channels for coincidence analysis.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `df_events` | - | declared | - | - |
+| `df_events` | - | declared | - | Group events across channels within a configurable time window. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -37,10 +39,14 @@ Pair grouped events across channels for coincidence analysis.
 | - | - | - | - | - | - | - |
 ## Output
 
+Paired coincidence event table.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| - | `dataframe` | - | Pair grouped events across channels for coincidence analysis. |
+| container | `dataframe` | - | Paired coincidence event table. |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -55,22 +61,16 @@ data = ctx.get_data("run_001", "df_paired")
 
 ### Behavior
 
-- Event Analysis Plugins - 事件分组与配对插件
-
-**加速器**: CPU (NumPy/Numba)
-**功能**: 多通道事件的时间窗口分组和符合配对
-
-本模块包含两个相关的事件分析插件：
-- GroupedEventsPlugin: 按时间窗口分组多通道事件
-- PairedEventsPlugin: 配对跨通道的符合事件
-
-注意：HitGroupedPlugin 已迁移到 waveform_analysis.core.plugins.builtin.hit.hit_grouped
+- 配对跨通道的符合事件
+- 识别满足时间符合条件的多通道事件对，用于符合测量分析。
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Terminal output; no direct builtin consumer is declared.
+
+
 ## Maintenance
 
 ### Change Playbook

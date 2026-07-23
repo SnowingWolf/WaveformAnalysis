@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Scan the data directory and group raw CSV files by channel number.
-
 | Item | Value |
 | --- | --- |
 | Provides | `raw_files` |
@@ -29,7 +28,10 @@ Scan the data directory and group raw CSV files by channel number.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -38,10 +40,14 @@ Scan the data directory and group raw CSV files by channel number.
 | `daq_adapter` | `str` | `vx2730` | - | yes | no | DAQ adapter name (e.g., 'vx2730') |
 ## Output
 
+Raw file paths grouped by channel.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| - | `list` | - | Scan the data directory and group raw CSV files by channel number. |
+| container | `list` | - | Raw file paths grouped by channel. |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -51,3 +57,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(RawFileNamesPlugin())
 data = ctx.get_data("run_001", "raw_files")
 ```
+### Downstream Consumers
+
+- Terminal output; no direct builtin consumer is declared.

@@ -1,0 +1,29 @@
+# execution_report
+
+- `task_id`: `published_agent_doc_delivery`
+- `workflow_cost`: `strict`
+- `executor_role`: `executor.plugin`
+- `changed_paths`:
+  - `waveform_analysis/documentation/published_agent_docs.py`
+  - `waveform_analysis/documentation/orchestrator.py`
+  - `waveform_analysis/utils/cli_docs.py`
+  - `waveform_analysis/utils/context_help.py`
+  - `waveform_analysis/utils/plugin_doc_generator.py`
+  - `waveform_analysis/documentation/agent_docs/hit_merged.yaml`
+  - `docs/agents/PLUGIN_DOCUMENTATION_DAG.md`
+  - focused tests and generated plugin references
+- `actions_taken`:
+  - Added field-level published-narrative overlay and explicit documentation provenance.
+  - Added the persisted-state-only `waveform-docs agent-doc publish` command.
+  - Published `hit_merged` through that command and regenerated Agent, Auto, and HTML references.
+  - Kept config, dtype, dependencies, and runtime topology extracted from the registered plugin.
+- `commands_run`:
+  - `python -m pytest -q tests/test_published_agent_docs.py tests/test_agent_doc_publish_cli.py tests/test_context_help.py tests/test_documentation_dag.py`
+  - `python -m waveform_analysis.utils.cli_docs agent-doc publish --plugin hit_merged`
+  - `python -m waveform_analysis.utils.cli_docs generate plugins-agent -o docs/plugins/reference/agent/`
+  - `python -m waveform_analysis.utils.cli_docs generate plugins-auto -o docs/plugins/reference/builtin/auto/`
+  - `python -m waveform_analysis.utils.cli_docs generate plugins-web -o /tmp/waveform-agent-doc-site`
+- `open_risks`:
+  - DeepSeek V4 Pro direct configuration lacks `options.baseURL` and `options.apiKey`; its content-generation step could not run in this environment. The published `hit_merged` text was built from the existing source-authored `agent_doc` and local DAG-state verification metadata.
+- `requested_review_focus`:
+  - Confirm CLI history validation, source-fallback-only Help provenance, and generated-output consistency.

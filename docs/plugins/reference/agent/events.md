@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Complete event reconstruction from S1-S2 pairs and position
-
 | Item | Value |
 | --- | --- |
 | Provides | `events` |
@@ -29,8 +28,11 @@ Complete event reconstruction from S1-S2 pairs and position
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `s1_s2_pairs` | - | declared | - | - |
-| `position_reconstruction` | - | declared | - | - |
+| `s1_s2_pairs` | - | declared | - | Select best S1-S2 pairs from candidates |
+| `position_reconstruction` | - | declared | - | Reconstruct 3D position from S1-S2 pairs using vectorized CoG method |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -40,6 +42,8 @@ Complete event reconstruction from S1-S2 pairs and position
 | `fiducial_radius` | `(<class 'float'>, <class 'NoneType'>)` | `None` | - | yes | no | 基准体积半径 (mm)。None 表示不应用 |
 | `fiducial_z_range` | `(<class 'tuple'>, <class 'NoneType'>)` | `None` | - | yes | no | 基准体积 Z 范围 (z_min, z_max) mm。None 表示不应用 |
 ## Output
+
+structured_array output with fields: event_id, event_number, run_id, pair_id, s1_peak_id, s2_peak_id, x, y, ....
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
@@ -70,6 +74,8 @@ Complete event reconstruction from S1-S2 pairs and position
 | `flags` | `uint32` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import EventPlugin
@@ -83,34 +89,16 @@ data = ctx.get_data("run_001", "events")
 
 ### Behavior
 
-- 完整事件重建插件
-
-整合 S1-S2 配对、位置重建和事件级别特征。
-
-此插件是事件分析链的最终阶段，整合所有前置分析结果，
-输出完整的物理事件记录，包含：
-- S1/S2 信号特征
-- 空间位置信息
-- 事件拓扑特征（预留）
-- 质量评估指标
-
-第一版 (v0.0.0) 仅建立数据结构和 lineage，高级特征预留接口。
-
-事件重建流程：
-1. 从 s1_s2_pairs 获取选定配对
-2. 从 position_reconstruction 获取位置信息
-3. 复制基本特征
-4. 评估事件质量
-5. 输出完整事件记录
-
-Author: Claude Code
-Version: 0.0.0 (Placeholder for lineage)
+- 执行完整事件重建
+- v0.0.0 实现: 1. 关联 pairs 和 positions（通过 pair_id） 2. 复制基本特征 3. 设置拓扑特征占位值 4. 应用简单质量标志
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Terminal output; no direct builtin consumer is declared.
+
+
 ## Maintenance
 
 ### Change Playbook

@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Build lightweight cross-channel peaklets from hit_merged intervals.
-
 | Item | Value |
 | --- | --- |
 | Provides | `peaklets` |
@@ -29,8 +28,11 @@ Build lightweight cross-channel peaklets from hit_merged intervals.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `hit_merged` | - | declared | - | - |
-| `peaklet_components` | - | declared | - | - |
+| `hit_merged` | - | declared | - | Merge nearby threshold hits per channel with time-gap and max-width constraints. |
+| `peaklet_components` | - | declared | - | Return per-peaklet component hit_merged indices. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -39,6 +41,8 @@ Build lightweight cross-channel peaklets from hit_merged intervals.
 | `max_total_width_ns` | `float` | `10000.0` | - | yes | no | peaklet 最大总宽度 |
 | `dt` | `int` | `None` | - | yes | no | 保留兼容配置；优先使用输入 hit_merged 的 dt |
 ## Output
+
+structured_array output with fields: time_start, time_end, center_time, n_hits, n_channels, component_offset, component_count.
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
@@ -50,6 +54,8 @@ Build lightweight cross-channel peaklets from hit_merged intervals.
 | `component_offset` | `int64` | - | - |
 | `component_count` | `int32` | - | - |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -64,13 +70,13 @@ data = ctx.get_data("run_001", "peaklets")
 
 ### Behavior
 
-- Peaklet clustering, ragged waveforms, features, and final peaks.
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Consumers: `peaklet_channels`, `peaklet_features`, `peaks`
+
 ## Maintenance
 
 ### Change Playbook

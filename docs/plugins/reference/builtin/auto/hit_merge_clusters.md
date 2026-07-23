@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Export cluster membership rows using the authoritative hit_merged configuration.
-
 | Item | Value |
 | --- | --- |
 | Provides | `hit_merge_clusters` |
@@ -29,8 +28,11 @@ Export cluster membership rows using the authoritative hit_merged configuration.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `hit_merged` | - | declared | - | - |
-| `hit_threshold` | - | declared | - | - |
+| `hit_merged` | - | declared | - | Merge nearby threshold hits per channel with time-gap and max-width constraints. |
+| `hit_threshold` | - | declared | - | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -38,11 +40,15 @@ Export cluster membership rows using the authoritative hit_merged configuration.
 | - | - | - | - | - | - | - |
 ## Output
 
+structured_array output with fields: cluster_index, hit_index.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `cluster_index` | `int64` | - | - |
 | `hit_index` | `int64` | - | - |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -52,3 +58,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(HitMergeClustersPlugin())
 data = ctx.get_data("run_001", "hit_merge_clusters")
 ```
+### Downstream Consumers
+
+- Terminal output; no direct builtin consumer is declared.

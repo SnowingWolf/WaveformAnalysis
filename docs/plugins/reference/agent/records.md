@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Build records (event index table) from the shared internal records bundle.
-
 | Item | Value |
 | --- | --- |
 | Provides | `records` |
@@ -29,7 +28,10 @@ Build records (event index table) from the shared internal records bundle.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -50,6 +52,8 @@ Build records (event index table) from the shared internal records bundle.
 | `input_source` | `str` | `raw_files` | - | yes | no | Input source for records bundle: 'raw_files' or 'st_waveforms'. Use 'st_waveforms' for the materialized waveform path. |
 ## Output
 
+structured_array output with fields: timestamp, pid, board, channel, baseline, baseline_upstream, polarity, record_id, ....
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `timestamp` | `int64` | - | - |
@@ -68,6 +72,8 @@ Build records (event index table) from the shared internal records bundle.
 | `time` | `int64` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import RecordsPlugin
@@ -81,13 +87,13 @@ data = ctx.get_data("run_001", "records")
 
 ### Behavior
 
-- Records/wave_pool plugins backed by an internal shared RecordsBundle cache.
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Consumers: `records_asymmetry_mask`, `records_detector_mask`, `records_veto_mask`, `wave_pool_filtered`
+
 ## Maintenance
 
 ### Change Playbook

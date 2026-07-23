@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Detect peaks in waveforms and extract peak features.
-
 | Item | Value |
 | --- | --- |
 | Provides | `hit` |
@@ -29,7 +28,10 @@ Detect peaks in waveforms and extract peak features.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -51,6 +53,8 @@ Detect peaks in waveforms and extract peak features.
 | `parallel_min_events` | `int` | `20480` | - | yes | no | 触发并行的最小事件数（小数据量时自动串行） |
 ## Output
 
+structured_array output with fields: position, height, integral, edge_start, edge_end, dt, timestamp, board, ....
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `position` | `int64` | - | - |
@@ -65,6 +69,8 @@ Detect peaks in waveforms and extract peak features.
 | `record_id` | `int64` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import HitFinderPlugin
@@ -73,3 +79,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(HitFinderPlugin())
 data = ctx.get_data("run_001", "hit")
 ```
+### Downstream Consumers
+
+- Terminal output; no direct builtin consumer is declared.

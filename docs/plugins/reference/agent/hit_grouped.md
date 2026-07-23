@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Group merged hits across channels into event-level coincidence windows.
-
 | Item | Value |
 | --- | --- |
 | Provides | `hit_grouped` |
@@ -29,9 +28,12 @@ Group merged hits across channels into event-level coincidence windows.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `hit_merged` | - | declared | - | - |
-| `hit_merged_components` | - | declared | - | - |
-| `hit_threshold` | - | declared | - | - |
+| `hit_merged` | - | declared | - | Merge nearby threshold hits per channel with time-gap and max-width constraints. |
+| `hit_merged_components` | - | declared | - | Return per-cluster component hit indices for hit_merged rows. |
+| `hit_threshold` | - | declared | - | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -40,10 +42,14 @@ Group merged hits across channels into event-level coincidence windows.
 | `dt` | `int` | `None` | - | yes | no | 采样间隔（ns）。仅在输入 hit_merged 缺少 dt 字段时作为兼容补充。 |
 ## Output
 
+Grouped hit coincidence table.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| - | `dataframe` | - | Group merged hits across channels into event-level coincidence windows. |
+| container | `dataframe` | - | Grouped hit coincidence table. |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -58,19 +64,14 @@ data = ctx.get_data("run_001", "hit_grouped")
 
 ### Behavior
 
-- Hit Grouped Plugin - Hit 分组插件
-
-**加速器**: CPU (NumPy/Numba)
-**功能**: 按绝对 hit 窗口将多通道的 merged hits 分组为事件级符合窗口
-
-本插件将 hit_merged 数据按时间窗口分组，用于事件级分析。
-已标记为 deprecated，推荐使用新的 S1-S2 配对工作流。
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Terminal output; no direct builtin consumer is declared.
+
+
 ## Maintenance
 
 ### Change Playbook

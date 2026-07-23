@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Return the flattened float32 signal pool paired with peaklet_waveforms. Configure waveform construction on peaklet_waveforms.
-
 | Item | Value |
 | --- | --- |
 | Provides | `peaklet_waveform_pool` |
@@ -29,7 +28,10 @@ Return the flattened float32 signal pool paired with peaklet_waveforms. Configur
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `peaklet_waveforms` | - | declared | - | - |
+| `peaklet_waveforms` | - | declared | - | Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -37,10 +39,14 @@ Return the flattened float32 signal pool paired with peaklet_waveforms. Configur
 | - | - | - | - | - | - | - |
 ## Output
 
+array output with fields: value.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `value` | `float32` | - | - |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -60,3 +66,6 @@ ctx.set_config(
 )
 pool = ctx.get_data("run_001", "peaklet_waveform_pool")
 ```
+### Downstream Consumers
+
+- `peaklet_features`

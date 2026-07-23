@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Pair grouped events across channels for coincidence analysis.
-
 | Item | Value |
 | --- | --- |
 | Provides | `df_paired` |
@@ -29,7 +28,10 @@ Pair grouped events across channels for coincidence analysis.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `df_events` | - | declared | - | - |
+| `df_events` | - | declared | - | Group events across channels within a configurable time window. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -37,10 +39,14 @@ Pair grouped events across channels for coincidence analysis.
 | - | - | - | - | - | - | - |
 ## Output
 
+Paired coincidence event table.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| - | `dataframe` | - | Pair grouped events across channels for coincidence analysis. |
+| container | `dataframe` | - | Paired coincidence event table. |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -50,3 +56,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PairedEventsPlugin())
 data = ctx.get_data("run_001", "df_paired")
 ```
+### Downstream Consumers
+
+- Terminal output; no direct builtin consumer is declared.

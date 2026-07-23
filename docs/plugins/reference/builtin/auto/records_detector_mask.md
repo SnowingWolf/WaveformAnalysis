@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Bool mask for detector-channel records after channel-role splitting.
-
 | Item | Value |
 | --- | --- |
 | Provides | `records_detector_mask` |
@@ -29,8 +28,11 @@ Bool mask for detector-channel records after channel-role splitting.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `records` | - | declared | - | - |
-| `records_asymmetry_mask` | - | declared | - | - |
+| `records` | - | declared | - | Build records (event index table) from the shared internal records bundle. |
+| `records_asymmetry_mask` | - | declared | - | Bool mask for waveform asymmetry selection. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -38,10 +40,14 @@ Bool mask for detector-channel records after channel-role splitting.
 | `channel_config` | `dict` | `None` | - | yes | no | 按 (board, channel) 的通道角色配置；role='detector' 进入正常 hit，role='veto' 仅作为 veto 通道保留。 |
 ## Output
 
+array output with fields: value.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `value` | `bool` | - | - |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -51,3 +57,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(RecordsDetectorMaskPlugin())
 data = ctx.get_data("run_001", "records_detector_mask")
 ```
+### Downstream Consumers
+
+- Terminal output; no direct builtin consumer is declared.

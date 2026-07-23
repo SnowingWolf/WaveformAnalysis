@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Calculate rise/fall time based on peak detection results.
-
 | Item | Value |
 | --- | --- |
 | Provides | `waveform_width` |
@@ -29,7 +28,10 @@ Calculate rise/fall time based on peak detection results.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -42,6 +44,8 @@ Calculate rise/fall time based on peak detection results.
 | `fall_low` | `float` | `0.1` | - | yes | no | 下降时间的低阈值比例（默认 10%） |
 | `interpolation` | `bool` | `True` | - | yes | no | 是否使用线性插值提高时间计算精度 |
 ## Output
+
+structured_array output with fields: rise_time, fall_time, total_width, rise_time_samples, fall_time_samples, total_width_samples, peak_position, peak_height, ....
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
@@ -59,6 +63,8 @@ Calculate rise/fall time based on peak detection results.
 | `record_id` | `int64` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import WaveformWidthPlugin
@@ -72,23 +78,16 @@ data = ctx.get_data("run_001", "waveform_width")
 
 ### Behavior
 
-- CPU Waveform Width Plugin - 计算波形宽度特征
-
-**加速器**: CPU (NumPy)
-**功能**: 基于峰值检测结果计算波形的上升/下降时间
-
-本插件依赖 HitFinderPlugin 的峰值检测结果，计算每个峰值的：
-1. 上升时间 (Rise Time): 从 10% 到 90% 峰值高度的时间
-2. 下降时间 (Fall Time): 从 90% 到 10% 峰值高度的时间
-3. 总宽度: 从上升起点到下降终点的时间
-
-支持使用原始波形或滤波后的波形进行计算。
+- 计算波形宽度特征
+- 基于 HitFinderPlugin 的峰值检测结果，计算每个峰值的上升/下降时间。
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Terminal output; no direct builtin consumer is declared.
+
+
 ## Maintenance
 
 ### Change Playbook

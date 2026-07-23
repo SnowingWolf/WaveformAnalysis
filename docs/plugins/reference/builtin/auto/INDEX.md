@@ -138,7 +138,7 @@ raw_files ──► records ──► df ──► df_events
 | [`HitMergeClustersPlugin`](hit_merge_clusters.md) | `hit_merge_clusters` | 1.1.0 | 特征提取 | hit_merged, hit_threshold |
 | [`HitMergePlugin`](hit_merged.md) | `hit_merged` | 2.1.0 | 特征提取 | hit_threshold |
 | [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 1.1.0 | 特征提取 | hit_merged, hit_threshold |
-| [`HitMergedFeaturesPlugin`](hit_merged_features.md) | `hit_merged_features` | 0.4.0 | 特征提取 | - |
+| [`HitMergedFeaturesPlugin`](hit_merged_features.md) | `hit_merged_features` | 0.5.1 | 特征提取 | - |
 | [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.2.0 | 特征提取 | - |
 | [`PeakClassificationPlugin`](peak_classification.md) | `peak_classification` | 1.2.1 | 特征提取 | peaks |
 | [`PeakletChannelsPlugin`](peaklet_channels.md) | `peaklet_channels` | 1.0.1 | 特征提取 | peaklets, peaklet_components, hit_merged_features, peaklet_features |

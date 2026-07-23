@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Calculate rise/fall time based on peak detection results.
-
 | Item | Value |
 | --- | --- |
 | Provides | `waveform_width` |
@@ -29,7 +28,10 @@ Calculate rise/fall time based on peak detection results.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -42,6 +44,8 @@ Calculate rise/fall time based on peak detection results.
 | `fall_low` | `float` | `0.1` | - | yes | no | 下降时间的低阈值比例（默认 10%） |
 | `interpolation` | `bool` | `True` | - | yes | no | 是否使用线性插值提高时间计算精度 |
 ## Output
+
+structured_array output with fields: rise_time, fall_time, total_width, rise_time_samples, fall_time_samples, total_width_samples, peak_position, peak_height, ....
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
@@ -59,6 +63,8 @@ Calculate rise/fall time based on peak detection results.
 | `record_id` | `int64` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import WaveformWidthPlugin
@@ -67,3 +73,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(WaveformWidthPlugin())
 data = ctx.get_data("run_001", "waveform_width")
 ```
+### Downstream Consumers
+
+- Terminal output; no direct builtin consumer is declared.

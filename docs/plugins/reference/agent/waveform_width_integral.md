@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Event-wise integral quantile width using st_waveforms or filtered_waveforms.
-
 | Item | Value |
 | --- | --- |
 | Provides | `waveform_width_integral` |
@@ -29,7 +28,10 @@ Event-wise integral quantile width using st_waveforms or filtered_waveforms.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -41,6 +43,8 @@ Event-wise integral quantile width using st_waveforms or filtered_waveforms.
 | `sampling_rate` | `float` | `0.5` | - | yes | no | 采样率（GHz），用于换算时间（ns） |
 | `dt` | `float` | `None` | - | yes | no | 采样间隔（ns），优先级高于 sampling_rate |
 ## Output
+
+structured_array output with fields: t_low, t_high, width, t_low_samples, t_high_samples, width_samples, q_total, timestamp, ....
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
@@ -57,6 +61,8 @@ Event-wise integral quantile width using st_waveforms or filtered_waveforms.
 | `record_id` | `int64` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import WaveformWidthIntegralPlugin
@@ -70,22 +76,14 @@ data = ctx.get_data("run_001", "waveform_width_integral")
 
 ### Behavior
 
-- CPU Waveform Width Integral Plugin - 事件级积分分位数宽度
-
-**加速器**: CPU (NumPy)
-**功能**: 对每条事件波形计算积分分位数宽度 (t_low/t_high)。
-
-核心口径：
-1) 输出是"按事件"的，不按峰；一条记录 = 一个 record_id
-2) baseline 仅来自 st_waveforms.baseline（插件不再估计 baseline）
-3) 若 use_filtered=True，波形使用 filtered_waveforms，但 baseline 仍来自 st_waveforms
-4) t_low/t_high 是波形内部的相对位置；timestamp 保持 ADC 事件时间语义
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Terminal output; no direct builtin consumer is declared.
+
+
 ## Maintenance
 
 ### Change Playbook

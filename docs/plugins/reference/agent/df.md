@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Build the initial single-channel events DataFrame.
-
 | Item | Value |
 | --- | --- |
 | Provides | `df` |
@@ -29,7 +28,10 @@ Build the initial single-channel events DataFrame.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -39,10 +41,14 @@ Build the initial single-channel events DataFrame.
 | `gain_adc_per_pe` | `dict` | `None` | - | yes | no | 按硬件通道配置 ADC/PE 增益，键请使用 "board:channel"，例如 {"0:0": 12.5, "0:1": 13.2}。设置后会新增 area_pe/height_pe 列。 |
 ## Output
 
+Single-channel event table.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| - | `dataframe` | - | Build the initial single-channel events DataFrame. |
+| container | `dataframe` | - | Single-channel event table. |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -57,19 +63,15 @@ data = ctx.get_data("run_001", "df")
 
 ### Behavior
 
-- DataFrame Plugin - DataFrame 构建插件
-
-**加速器**: CPU (NumPy/Pandas)
-**功能**: 构建单通道事件的 DataFrame
-
-本模块包含 DataFrame 构建插件，整合结构化波形与基础特征，
-构建包含所有事件信息的 pandas DataFrame。
+- 构建单通道事件的 DataFrame
+- 整合结构化波形与 height/area 特征，构建包含所有事件信息的 pandas DataFrame。
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Consumers: `df_events`
+
 ## Maintenance
 
 ### Change Playbook

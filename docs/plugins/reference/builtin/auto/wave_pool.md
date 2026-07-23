@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Build wave_pool from the shared internal records bundle.
-
 | Item | Value |
 | --- | --- |
 | Provides | `wave_pool` |
@@ -29,7 +28,10 @@ Build wave_pool from the shared internal records bundle.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -50,10 +52,14 @@ Build wave_pool from the shared internal records bundle.
 | `input_source` | `str` | `raw_files` | - | yes | no | Input source for records bundle: 'raw_files' or 'st_waveforms'. Use 'st_waveforms' for the materialized waveform path. |
 ## Output
 
+array output with fields: value.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `value` | `uint16` | - | - |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -63,3 +69,7 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(WavePoolPlugin())
 data = ctx.get_data("run_001", "wave_pool")
 ```
+### Downstream Consumers
+
+- `records_asymmetry_mask`
+- `wave_pool_filtered`

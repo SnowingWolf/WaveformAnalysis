@@ -16,6 +16,13 @@ generated: true
 ## Overview
 
 Merge nearby threshold hits per channel with time-gap and max-width constraints.
+HitMergePlugin 是波形分析中最核心的后处理插件之一，负责将 hit_threshold 产出的过阈 hit 按时间邻近性合并为统一的 hit_merged 记录。它不直接修改原始 hit_threshold 数据，而是生成新的结构化输出，同时提供 cluster 级别的成员关系（hit_merge_clusters）供下游诊断使用。
+
+该插件由三部分协同工作：HitMergePlugin（主合并逻辑）、HitMergeClustersPlugin（导出 cluster 成员关系）和 HitMergedComponentsPlugin（验证与展开 component）。合并策略的核心是"同板同通道、同 dt、邻近链式合并"——即只有相同 (board, channel) 且采样间隔相同的 hit 才能归入同一 cluster，并通过时间 gap 和总宽度限制控制 cluster 的生长。
+
+合并窗口的中点 anchor 策略确保上下游一致：多 hit cluster 选取最接近合并时间窗口中心的 hit 作为 anchor，写入 position、timestamp、channel、record_id 等关键字段。跨 record 时，sample_start/sample_end/width 标记为 -1，time_start/time_end 始终有效。
+
+该插件不依赖外部级联状态，所有合并判断完全由配置 merge_gap_ns、max_total_width_ns 和 dt 推导的绝对时间窗口决定。
 
 | Item | Value |
 | --- | --- |
@@ -29,15 +36,26 @@ Merge nearby threshold hits per channel with time-gap and max-width constraints.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `hit_threshold` | - | declared | - | - |
+| `hit_threshold` | - | declared | - | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. |
+### How It Works
+
+1. 识别可合并的片段：`hit_threshold` 中的每一行都是一个过阈信号片段；插件判断哪些相邻片段应视为同一次通道响应。
+2. 保持通道与采样刻度一致：只合并同一 `(board, channel)` 的片段；采样间隔不同的片段始终分开，避免把不同时间刻度的信号混在一起。
+3. 按时间连接相邻片段：两个片段之间的空档不超过 `merge_gap_ns` 时，可以接入同一个合并窗口。将 `merge_gap_ns` 设为 `<= 0` 会关闭合并。
+4. 限制链式合并的总时长：即使每一对相邻片段都很接近，只要合并后的完整窗口超过 `max_total_width_ns`，后续片段仍会从新的 `hit_merged` 开始。
+5. 选择代表 hit：一个合并窗口包含多个片段时，选取最接近窗口时间中心的原始 hit，继承它的 position、timestamp、channel 和 record_id。
+6. 记录窗口与成员关系：输出保存合并后的时间范围及成员索引；若成员跨越多个 record，则没有唯一的 sample 窗口，`sample_start`、`sample_end` 和 `width` 会标记为无效值。
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
 | --- | --- | --- | --- | --- | --- | --- |
-| `merge_gap_ns` | `float` | `0.0` | - | yes | no | 最大边界间距（ns），<=0 表示不合并 |
-| `max_total_width_ns` | `float` | `10000.0` | - | yes | no | 链式合并后的最大总宽度（ns） |
-| `dt` | `int` | `None` | - | yes | no | 采样间隔（ns）。仅在输入 hit_threshold 缺少 dt 字段时作为兼容补充。 |
+| `merge_gap_ns` | `float` | `0.0` | - | yes | no | Maximum boundary gap in ns; values `<= 0` disable merging. |
+| `max_total_width_ns` | `float` | `10000.0` | - | yes | no | Maximum total absolute cluster width in ns for chained merges. |
+| `dt` | `int` | `None` | - | yes | no | Compatibility fallback sampling interval in ns, used only when `hit_threshold` lacks a `dt` field. |
 ## Output
+
+structured_array output with fields: merged_id, position, time_start, time_end, sample_start, sample_end, width, dt, ....
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
@@ -58,6 +76,8 @@ Merge nearby threshold hits per channel with time-gap and max-width constraints.
 | `is_single_record` | `bool` | - | True when all component hits belong to the same record (fast path available); False when spanning records. |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import HitMergePlugin
@@ -66,3 +86,11 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(HitMergePlugin())
 data = ctx.get_data("run_001", "hit_merged")
 ```
+### Downstream Consumers
+
+- `hit_grouped`
+- `hit_merge_clusters`
+- `hit_merged_components`
+- `hit_merged_features`
+- `peaklet_components`
+- `peaklets`

@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Scan the data directory and group raw CSV files by channel number.
-
 | Item | Value |
 | --- | --- |
 | Provides | `raw_files` |
@@ -29,7 +28,10 @@ Scan the data directory and group raw CSV files by channel number.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -38,10 +40,14 @@ Scan the data directory and group raw CSV files by channel number.
 | `daq_adapter` | `str` | `vx2730` | - | yes | no | DAQ adapter name (e.g., 'vx2730') |
 ## Output
 
+Raw file paths grouped by channel.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| - | `list` | - | Scan the data directory and group raw CSV files by channel number. |
+| container | `list` | - | Raw file paths grouped by channel. |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -56,31 +62,16 @@ data = ctx.get_data("run_001", "raw_files")
 
 ### Behavior
 
-- Waveforms Plugin - 波形提取与结构化插件
-
-**加速器**: CPU (NumPy)
-**功能**: 从原始 CSV 文件中提取波形数据并结构化为 NumPy 结构化数组
-
-本模块包含：
-1. RawFileNamesPlugin: 扫描数据目录并按通道分组原始 CSV 文件
-2. WaveformsPlugin: 从原始 CSV 文件中提取波形数据并结构化
-3. WaveformStructConfig: 波形结构化配置类
-4. WaveformStruct: 波形结构化处理器
-
-WaveformsPlugin 支持双层并行处理加速：
-- 通道级并行：多个通道同时处理
-- 文件级并行：单个通道内的多个文件并行处理
-
-性能优化特性：
-- 自动使用 PyArrow 引擎（如果已安装）
-- 自动计算最优并行数
-- 支持线程池和进程池两种并行方式
+- 扫描数据目录并按通道分组原始 CSV 文件
+- 从配置的数据目录中查找指定运行的所有原始波形文件，并按通道号分组。 支持 DAQ 集成，可以直接从 DAQ 元数据中获取文件列表。 支持通过 daq_adapter 参数指定 DAQ 适配器来处理不同格式。 通道选择由 DAQ 适配器或 DAQ 元数据决定，不再通过插件配置裁剪。
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Terminal output; no direct builtin consumer is declared.
+
+
 ## Maintenance
 
 ### Change Playbook

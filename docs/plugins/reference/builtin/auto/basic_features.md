@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Compute basic height, amplitude, area, and max-abs-diff features from waveform data.
-
 | Item | Value |
 | --- | --- |
 | Provides | `basic_features` |
@@ -29,7 +28,10 @@ Compute basic height, amplitude, area, and max-abs-diff features from waveform d
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -44,6 +46,8 @@ Compute basic height, amplitude, area, and max-abs-diff features from waveform d
 | `batch_size` | `int` | `10000` | - | yes | no | 批处理大小：当 records 数量超过此值时，分批处理以降低内存峰值 |
 ## Output
 
+structured_array output with fields: height, amp, area, max_abs_diff, timestamp, board, channel, record_id.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `height` | `float32` | - | - |
@@ -56,6 +60,8 @@ Compute basic height, amplitude, area, and max-abs-diff features from waveform d
 | `record_id` | `int64` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import BasicFeaturesPlugin
@@ -64,3 +70,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(BasicFeaturesPlugin())
 data = ctx.get_data("run_001", "basic_features")
 ```
+### Downstream Consumers
+
+- Terminal output; no direct builtin consumer is declared.

@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Classify peaks into S1/S2 using multi-dimensional features.
-
 | Item | Value |
 | --- | --- |
 | Provides | `peak_classification` |
@@ -29,7 +28,10 @@ Classify peaks into S1/S2 using multi-dimensional features.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `peaks` | - | declared | - | - |
+| `peaks` | - | declared | - | Build final peaks table from peaklets and waveform-derived features. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -42,11 +44,15 @@ Classify peaks into S1/S2 using multi-dimensional features.
 | `s1_s2_selection` | `dict` | `None` | - | yes | no | S1_S2 分类配置，格式同 s1_selection。命中后优先标记为 S1_S2。 |
 ## Output
 
+structured_array output with fields: peak_id, label.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `peak_id` | `int64` | - | - |
 | `label` | `int8` | - | - |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -61,35 +67,13 @@ data = ctx.get_data("run_001", "peak_classification")
 
 ### Behavior
 
-- 从 peaklet 特征进行 S1/S2 分类。
-
-该插件基于 peaks 的多维特征进行信号类型甄别。
-
-默认分类规则（基于 n_hits 和 rise_time_10_50）：
-┌─────────────┬──────────────────┬──────────┬────────────────────────────────┐
-│ n_hits      │ rise_time_10_50  │ 分类结果 │ 说明                           │
-├─────────────┼──────────────────┼──────────┼────────────────────────────────┤
-│ < 8         │ 任意             │ S1       │ 少量 hits（单通道或少量通道）  │
-│ >= 8        │ <= 100 ns        │ S1       │ 多 hits 但快速上升（类 S1）    │
-│ >= 8        │ > 100 ns         │ S2       │ 多 hits 且慢速上升（典型 S2）  │
-└─────────────┴──────────────────┴──────────┴────────────────────────────────┘
-
-物理意义：
-- n_hits < 8: 信号集中在少量通道，典型的 S1 直接闪烁特征
-- n_hits >= 8 且 rise_time_10_50 <= 100 ns: 多通道但快速上升，可能是强 S1
-- n_hits >= 8 且 rise_time_10_50 > 100 ns: 多通道且慢速上升，典型 S2 电子漂移信号
-
-分类标签：
-- 0: Unknown（未知类型）
-- 1: S1（闪烁信号）
-- 2: S2（电离信号）
-- 3: S1_S2（混合信号或分类冲突）
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Consumers: `s1_s2_pair_candidates`
+
 ## Maintenance
 
 ### Change Playbook

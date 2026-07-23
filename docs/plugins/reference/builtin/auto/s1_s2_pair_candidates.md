@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Generate all physically allowed S1-S2 pairing candidates
-
 | Item | Value |
 | --- | --- |
 | Provides | `s1_s2_pair_candidates` |
@@ -29,8 +28,11 @@ Generate all physically allowed S1-S2 pairing candidates
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `peak_classification` | - | declared | - | - |
-| `peaks` | - | declared | - | - |
+| `peak_classification` | - | declared | - | Classify peaks into S1/S2 using multi-dimensional features. |
+| `peaks` | - | declared | - | Build final peaks table from peaklets and waveform-derived features. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -43,6 +45,8 @@ Generate all physically allowed S1-S2 pairing candidates
 | `allow_orphan_s1` | `bool` | `False` | - | yes | no | 是否输出孤立 S1 (无 S2 配对) |
 | `allow_orphan_s2` | `bool` | `False` | - | yes | no | 是否输出孤立 S2 (无 S1 配对) |
 ## Output
+
+structured_array output with fields: pair_id, s1_peak_id, s2_peak_id, s1_index, s2_index, s1_time, s2_time, drift_time, ....
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
@@ -78,6 +82,8 @@ Generate all physically allowed S1-S2 pairing candidates
 | `selected` | `bool` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import S1S2PairCandidatesPlugin
@@ -86,3 +92,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(S1S2PairCandidatesPlugin())
 data = ctx.get_data("run_001", "s1_s2_pair_candidates")
 ```
+### Downstream Consumers
+
+- `s1_s2_pairs`

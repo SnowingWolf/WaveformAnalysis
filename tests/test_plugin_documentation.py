@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from waveform_analysis.core.plugins.core.base import Plugin
+from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.plugins.core.spec import FieldSpec, OutputSchema
 from waveform_analysis.utils.plugin_doc_generator import (
     PluginDocGenerator,
@@ -16,9 +16,40 @@ class _EmptyPlugin(Plugin):
     description = 'Summary with : colon, <tag>, and "quotes".'
     version = "1.2.3"
     output_schema = OutputSchema(kind="dict")
+    agent_doc = {"overview": "Normal paragraph.\n\n<script>alert(1)</script>"}
 
     def compute(self, context, run_id, **kwargs):
         return {}
+
+
+class _DetailedPlugin(Plugin):
+    provides = "detailed_output"
+    depends_on = ["source_rows"]
+    description = "Transform source rows into documented output."
+    version = "2.0.0"
+    output_dtype = np.dtype([("value", "f4")])
+    options = {
+        "threshold": Option(
+            default=3.0,
+            type=float,
+            help="Select values above the configured threshold.",
+        )
+    }
+    agent_doc = {
+        "workflow_steps": [
+            "Load <source-marker> rows in timestamp order.",
+            "Keep rows above threshold and calculate the output value.",
+        ],
+        "dependency_notes": {"source_rows": "Timestamp-ordered input rows."},
+        "dependency_fields": {"source_rows": ["timestamp", "signal"]},
+        "config_notes": {"threshold": "Changes which source rows reach the output."},
+        "field_notes": {"value": "Calculated value for each selected row."},
+        "execution_notes": ["Row ordering is preserved after selection."],
+        "failure_modes": ["Input rows without signal cannot be evaluated."],
+    }
+
+    def compute(self, context, run_id, **kwargs):
+        return np.zeros(0, dtype=self.output_dtype)
 
 
 def test_markdown_profiles_have_exact_sections_tables_and_frontmatter():
@@ -67,8 +98,53 @@ def test_web_generation_is_offline_relative_and_escaped(tmp_path):
     assert "http://" not in index + page
     assert "<tag>" not in page
     assert "&lt;tag&gt;" in page
+    assert "<script>" not in page
+    assert '<div class="plugin-overview"><p>Normal paragraph.</p>' in page
+    assert "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p></div>" in page
     assert (tmp_path / "assets" / "site.css").is_file()
     assert (tmp_path / "assets" / "site.js").is_file()
+
+
+def test_detailed_content_is_shared_by_markdown_and_web_renderers():
+    generator = PluginDocGenerator()
+    view = generator.extract_doc_info(_DetailedPlugin, _DetailedPlugin())
+    auto = generator.render_plugin_page(view, profile="auto")
+    agent = generator.render_plugin_page(view, profile="agent")
+    html = generator.render_plugin_html(view)
+
+    for rendered in (auto, agent, html):
+        assert "Keep rows above threshold" in rendered
+        assert "Changes which source rows reach the output" in rendered
+        assert "Calculated value for each selected row" in rendered
+        assert "source_rows" in rendered
+        assert "timestamp, signal" in rendered
+    assert "Row ordering is preserved" in agent
+    assert "Row ordering is preserved" in html
+    assert "<source-marker>" in auto
+    assert "<source-marker>" in agent
+    assert "<source-marker>" not in html
+    assert "&lt;source-marker&gt;" in html
+    assert check_plugin_document_structure(auto, "auto") == []
+    assert check_plugin_document_structure(agent, "agent") == []
+
+
+def test_plugin_graph_enriches_dependency_descriptions_and_consumers():
+    class SourcePlugin(_EmptyPlugin):
+        provides = "source_rows"
+        description = "Rows produced for downstream transformations."
+
+    generator = PluginDocGenerator()
+    views = generator.enrich_documentation_views(
+        [
+            generator.extract_doc_info(SourcePlugin, SourcePlugin()),
+            generator.extract_doc_info(_DetailedPlugin, _DetailedPlugin()),
+        ]
+    )
+    source = next(view for view in views if view.provides == "source_rows")
+    detailed = next(view for view in views if view.provides == "detailed_output")
+    assert source.downstream_consumers == ["detailed_output"]
+    assert detailed.dependency_details[0].description == ("Timestamp-ordered input rows.")
+    assert detailed.execution_chain == ["source_rows", "detailed_output"]
 
 
 def test_explicit_output_schema_precedes_dtype_in_plugin_spec():
@@ -107,6 +183,107 @@ def test_web_templates_and_assets_are_source_package_data():
     assert (template_root / "assets" / "site.css").is_file()
 
 
+def test_hit_merged_has_overview_and_workflow_steps():
+    """hit_merged must have Chinese overview text and 6 concrete workflow steps."""
+    from waveform_analysis.core.plugins.builtin.hit.hit_merge import HitMergePlugin
+
+    agent_doc = HitMergePlugin.agent_doc
+    assert isinstance(agent_doc["overview"], str) and len(agent_doc["overview"]) > 50
+    assert "HitMergePlugin" in agent_doc["overview"]
+    assert "板" in agent_doc["overview"]  # Contains Chinese description
+    steps = agent_doc["workflow_steps"]
+    assert len(steps) == 6, f"Expected 6 workflow_steps, got {len(steps)}"
+    # Each step must contain Chinese and its identifier
+    expected_identifiers = [
+        "识别可合并",
+        "保持通道",
+        "按时间连接",
+        "限制链式",
+        "选择代表",
+        "记录窗口",
+    ]
+    for idx, (step, ident) in enumerate(zip(steps, expected_identifiers, strict=False)):
+        assert ident in step, f"Step {idx}: expected identifier '{ident}' not found in '{step}'"
+
+
+def test_hit_merged_cross_renderer_content():
+    """hit_merged overview and workflow steps appear in all four renderers."""
+    generator = PluginDocGenerator()
+    from waveform_analysis.core.plugins.builtin.hit.hit_merge import HitMergePlugin
+
+    view = generator.extract_doc_info(HitMergePlugin, HitMergePlugin())
+    auto_md = generator.render_plugin_page(view, profile="auto")
+    agent_md = generator.render_plugin_page(view, profile="agent")
+    html = generator.render_plugin_html(view)
+
+    # Overview must appear in all four renderers
+    for rendered in (auto_md, agent_md, html):
+        assert (
+            "HitMergePlugin 是波形分析中最核心的后处理插件之一" in rendered
+        ), f"Overview not found in rendered content (first 200): {rendered[:200]}"
+        assert "识别可合并" in rendered
+        assert "按时间连接" in rendered
+        assert "选择代表" in rendered
+        # How It Works section must be present in all
+        assert "How It Works" in rendered
+    # auto profile should NOT have Operational Notes or Maintenance
+    assert "## Operational Notes" not in auto_md
+    # agent profile SHOULD have Operational Notes and Maintenance
+    assert "## Operational Notes" in agent_md
+    assert "## Maintenance" in agent_md
+    # Verify structure check passes
+    assert check_plugin_document_structure(auto_md, "auto") == []
+    assert check_plugin_document_structure(agent_md, "agent") == []
+
+
+def test_hit_merged_no_execution_chain_in_how_it_works():
+    """How It Works section only shows explicit workflow_steps, NOT execution chain."""
+    generator = PluginDocGenerator()
+    from waveform_analysis.core.plugins.builtin.hit.hit_merge import HitMergePlugin
+
+    view = generator.extract_doc_info(HitMergePlugin, HitMergePlugin())
+    auto_md = generator.render_plugin_page(view, profile="auto")
+    agent_md = generator.render_plugin_page(view, profile="agent")
+
+    for rendered in (auto_md, agent_md):
+        # No generic "Read dependency data" or "Return output" or "Resolve input dependencies"
+        assert "Read dependency data" not in rendered
+        assert "Return output" not in rendered
+        assert "Resolve input dependencies" not in rendered
+        assert "Inspect and run" not in rendered
+        assert "Inspect The Execution" not in rendered
+        # No standalone "Execution Chain" section
+        assert "Execution Chain" not in rendered
+
+
+def test_single_plugin_generation_hit_merged(tmp_path):
+    """Generate only hit_merged docs to avoid touching all 35 plugins."""
+    generator = PluginDocGenerator()
+    from waveform_analysis.core.plugins.builtin.hit.hit_merge import HitMergePlugin
+
+    generator.register_plugin(HitMergePlugin)
+    generator.register_plugin(HitMergePlugin, HitMergePlugin())
+
+    auto_path = tmp_path / "auto" / "hit_merged.md"
+    agent_path = tmp_path / "agent" / "hit_merged.md"
+    generator.generate_single("HitMergePlugin", auto_path, profile="auto")
+    generator.generate_single("HitMergePlugin", agent_path, profile="agent")
+
+    auto_content = auto_path.read_text(encoding="utf-8")
+    agent_content = agent_path.read_text(encoding="utf-8")
+
+    assert "HitMergePlugin 是波形分析中最核心的后处理插件之一" in auto_content
+    assert "HitMergePlugin 是波形分析中最核心的后处理插件之一" in agent_content
+    assert "识别可合并" in auto_content
+    assert "按时间连接" in auto_content
+    assert "选择代表" in auto_content
+    assert "按时间连接" in agent_content
+    assert "选择代表" in agent_content
+
+    assert check_plugin_document_structure(auto_content, "auto") == []
+    assert check_plugin_document_structure(agent_content, "agent") == []
+
+
 def test_cli_web_rejects_single_plugin_and_serve_requires_existing_directory(
     tmp_path, monkeypatch, capsys
 ):
@@ -126,3 +303,36 @@ def test_cli_web_rejects_single_plugin_and_serve_requires_existing_directory(
     )
     assert cli_docs.main() == 1
     assert not missing.exists()
+
+
+def test_overview_paragraphs_fallback_from_overview_string():
+    """When overview_paragraphs is absent, split overview by \\n\\n."""
+
+    class _FallbackPlugin(Plugin):
+        provides = "fallback_ov"
+        description = "Fallback test plugin."
+        version = "0.0.1"
+        agent_doc = {
+            "overview": "Para one.\n\nPara two.\n\nPara three.",
+        }
+
+        def compute(self, context, run_id, **kwargs):
+            return {}
+
+    generator = PluginDocGenerator()
+    view = generator.extract_doc_info(_FallbackPlugin, _FallbackPlugin())
+    assert view.overview_paragraphs == ["Para one.", "Para two.", "Para three."]
+    assert view.overview == "Para one.\n\nPara two.\n\nPara three."
+
+    class _EmptyOverviewPlugin(Plugin):
+        provides = "empty_ov"
+        description = "Empty overview test."
+        version = "0.0.1"
+        agent_doc = {"overview": ""}
+
+        def compute(self, context, run_id, **kwargs):
+            return {}
+
+    view2 = generator.extract_doc_info(_EmptyOverviewPlugin, _EmptyOverviewPlugin())
+    assert view2.overview_paragraphs == []
+    assert view2.overview == ""

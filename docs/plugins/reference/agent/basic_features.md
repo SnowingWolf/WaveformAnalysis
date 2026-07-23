@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Compute basic height, amplitude, area, and max-abs-diff features from waveform data.
-
 | Item | Value |
 | --- | --- |
 | Provides | `basic_features` |
@@ -29,7 +28,10 @@ Compute basic height, amplitude, area, and max-abs-diff features from waveform d
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -44,6 +46,8 @@ Compute basic height, amplitude, area, and max-abs-diff features from waveform d
 | `batch_size` | `int` | `10000` | - | yes | no | 批处理大小：当 records 数量超过此值时，分批处理以降低内存峰值 |
 ## Output
 
+structured_array output with fields: height, amp, area, max_abs_diff, timestamp, board, channel, record_id.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `height` | `float32` | - | - |
@@ -55,6 +59,8 @@ Compute basic height, amplitude, area, and max-abs-diff features from waveform d
 | `channel` | `int16` | - | - |
 | `record_id` | `int64` | - | - |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -69,30 +75,17 @@ data = ctx.get_data("run_001", "basic_features")
 
 ### Behavior
 
-- Basic Features Plugin - 基础特征计算插件
-
-**加速器**: CPU (NumPy)
-**功能**: 计算波形的基础特征（height/area）
-
-本模块包含基础特征计算插件，从结构化波形中提取：
-- height: 脉冲高度（baseline - min(wave)），信号偏离基线的幅度
-- amp: 峰峰值振幅（max - min）
-- area: 波形面积（积分）
-- max_abs_diff: 波形相邻采样点差分绝对值最大值
-
-支持可选的滤波波形输入，可配置计算范围。
-
-设计原则：
-- 逐条处理 record，支持任意长度波形
-- 不使用 padding，避免 padding 影响 area 计算
-- 内存占用最低，最适合 records streaming
-- 通道配置缓存，避免重复解析
+- 计算基础特征（height/amp/area/max_abs_diff）
+- 使用逐条处理模式，支持任意长度波形，不使用 padding。
+- height = baseline - min(wave)  (信号偏离基线的幅度) amp = max - min  (峰峰值振幅) area = sum(baseline - wave)  (不包含 padding) max_abs_diff = max(abs(diff(wave)))
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Terminal output; no direct builtin consumer is declared.
+
+
 ## Maintenance
 
 ### Change Playbook

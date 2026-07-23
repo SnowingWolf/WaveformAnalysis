@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Classify peaks into S1/S2 using multi-dimensional features.
-
 | Item | Value |
 | --- | --- |
 | Provides | `peak_classification` |
@@ -29,7 +28,10 @@ Classify peaks into S1/S2 using multi-dimensional features.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `peaks` | - | declared | - | - |
+| `peaks` | - | declared | - | Build final peaks table from peaklets and waveform-derived features. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -42,11 +44,15 @@ Classify peaks into S1/S2 using multi-dimensional features.
 | `s1_s2_selection` | `dict` | `None` | - | yes | no | S1_S2 分类配置，格式同 s1_selection。命中后优先标记为 S1_S2。 |
 ## Output
 
+structured_array output with fields: peak_id, label.
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `peak_id` | `int64` | - | - |
 | `label` | `int8` | - | - |
 ## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
@@ -56,3 +62,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PeakClassificationPlugin())
 data = ctx.get_data("run_001", "peak_classification")
 ```
+### Downstream Consumers
+
+- `s1_s2_pair_candidates`

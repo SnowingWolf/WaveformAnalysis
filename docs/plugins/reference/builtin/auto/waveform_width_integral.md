@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Event-wise integral quantile width using st_waveforms or filtered_waveforms.
-
 | Item | Value |
 | --- | --- |
 | Provides | `waveform_width_integral` |
@@ -29,7 +28,10 @@ Event-wise integral quantile width using st_waveforms or filtered_waveforms.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -41,6 +43,8 @@ Event-wise integral quantile width using st_waveforms or filtered_waveforms.
 | `sampling_rate` | `float` | `0.5` | - | yes | no | 采样率（GHz），用于换算时间（ns） |
 | `dt` | `float` | `None` | - | yes | no | 采样间隔（ns），优先级高于 sampling_rate |
 ## Output
+
+structured_array output with fields: t_low, t_high, width, t_low_samples, t_high_samples, width_samples, q_total, timestamp, ....
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
@@ -57,6 +61,8 @@ Event-wise integral quantile width using st_waveforms or filtered_waveforms.
 | `record_id` | `int64` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import WaveformWidthIntegralPlugin
@@ -65,3 +71,6 @@ ctx = Context(config={"data_root": "DAQ"})
 ctx.register(WaveformWidthIntegralPlugin())
 data = ctx.get_data("run_001", "waveform_width_integral")
 ```
+### Downstream Consumers
+
+- Terminal output; no direct builtin consumer is declared.

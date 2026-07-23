@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Extract waveforms from raw CSV files and structure them into NumPy structured arrays.
-
 | Item | Value |
 | --- | --- |
 | Provides | `st_waveforms` |
@@ -29,7 +28,10 @@ Extract waveforms from raw CSV files and structure them into NumPy structured ar
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | - |
+| - | - | - | - | No declared inputs. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
@@ -46,6 +48,8 @@ Extract waveforms from raw CSV files and structure them into NumPy structured ar
 | `streaming_mode` | `bool` | `False` | - | no | no | Enable streaming mode: read files and structure waveforms incrementally to reduce memory usage. When enabled, uses memmap for output to avoid full vstack memory overhead. |
 ## Output
 
+structured_array output with fields: baseline, baseline_upstream, polarity, timestamp, record_id, dt, event_length, board, ....
+
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `baseline` | `float64` | - | - |
@@ -60,6 +64,8 @@ Extract waveforms from raw CSV files and structure them into NumPy structured ar
 | `wave` | `('<i2', (1500,))` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import WaveformsPlugin
@@ -73,31 +79,16 @@ data = ctx.get_data("run_001", "st_waveforms")
 
 ### Behavior
 
-- Waveforms Plugin - 波形提取与结构化插件
-
-**加速器**: CPU (NumPy)
-**功能**: 从原始 CSV 文件中提取波形数据并结构化为 NumPy 结构化数组
-
-本模块包含：
-1. RawFileNamesPlugin: 扫描数据目录并按通道分组原始 CSV 文件
-2. WaveformsPlugin: 从原始 CSV 文件中提取波形数据并结构化
-3. WaveformStructConfig: 波形结构化配置类
-4. WaveformStruct: 波形结构化处理器
-
-WaveformsPlugin 支持双层并行处理加速：
-- 通道级并行：多个通道同时处理
-- 文件级并行：单个通道内的多个文件并行处理
-
-性能优化特性：
-- 自动使用 PyArrow 引擎（如果已安装）
-- 自动计算最优并行数
-- 支持线程池和进程池两种并行方式
+- 从原始 CSV 文件中提取波形数据并结构化为 NumPy 结构化数组
+- 合并了原来的 WaveformsPlugin 和 StWaveformsPlugin 功能： 1. 读取并解析原始 CSV 文件，提取每个通道的波形数据 2. 将波形数据结构化为包含时间戳、基线、通道号和波形数据的结构化数组
+- 使用文件级扁平化并行处理： - 所有文件统一进入并行池解析（通过 n_jobs 控制） - 解析完成后按通道聚合
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Consumers: `filtered_waveforms`
+
 ## Maintenance
 
 ### Change Playbook

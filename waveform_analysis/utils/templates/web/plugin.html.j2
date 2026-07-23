@@ -15,6 +15,7 @@
   </header>
   <main class="reference">
     <section><h2>Overview</h2>
+      {% if plugin.overview_paragraphs %}<div class="plugin-overview">{% for p in plugin.overview_paragraphs %}<p>{{ p }}</p>{% endfor %}</div>{% elif plugin.overview %}<div class="plugin-overview"><p>{{ plugin.overview }}</p></div>{% endif %}
       <table><thead><tr><th>Item</th><th>Value</th></tr></thead><tbody>
         <tr><td>Plugin Class</td><td><code>{{ plugin.name }}</code></td></tr>
         <tr><td>Module</td><td><code>{{ plugin.module_path }}</code></td></tr>
@@ -23,20 +24,36 @@
       </tbody></table>
       <h3>Dependencies</h3>
       <table><thead><tr><th>Dependency</th><th>Version Constraint</th><th>Resolution</th><th>Required Fields</th><th>Description</th></tr></thead><tbody>
-      {% if plugin.depends_on %}{% for dep in plugin.depends_on %}<tr><td><code>{{ dep if dep is string else dep[0] }}</code></td><td>{{ "-" if dep is string else dep[1] }}</td><td>declared</td><td>-</td><td>-</td></tr>{% endfor %}{% else %}<tr><td colspan="5">-</td></tr>{% endif %}
+      {% if plugin.dependency_details %}{% for dep in plugin.dependency_details %}<tr><td><code>{{ dep.name }}</code></td><td>{{ dep.version_constraint or "-" }}</td><td>{{ dep.resolution }}</td><td>{{ dep.required_fields|join(", ") or "-" }}</td><td>{{ dep.description or "No producer description available." }}</td></tr>{% endfor %}{% else %}<tr><td colspan="5">No declared inputs.</td></tr>{% endif %}
       </tbody></table>
+      <h3>How It Works</h3>
+      <ol class="workflow">{% for step in plugin.workflow_steps %}<li>{{ step }}</li>{% endfor %}</ol>
     </section>
     <section><h2>Configuration</h2>
       <table><thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Unit</th><th>Tracked</th><th>Deprecated</th><th>Description</th></tr></thead><tbody>
-      {% if plugin.config_options %}{% for opt in plugin.config_options %}<tr><td><code>{{ opt.name }}</code></td><td><code>{{ opt.type }}</code></td><td><code>{{ opt.default }}</code></td><td>{{ opt.units or "-" }}</td><td>{{ "yes" if opt.tracked else "no" }}</td><td>{{ "yes" if opt.deprecated else "no" }}</td><td>{{ opt.doc or "-" }}</td></tr>{% endfor %}{% else %}<tr><td colspan="7">-</td></tr>{% endif %}
+      {% if plugin.config_options %}{% for opt in plugin.config_options %}<tr><td><code>{{ opt.name }}</code></td><td><code>{{ opt.type }}</code></td><td><code>{{ opt.default }}</code></td><td>{{ opt.units or "-" }}</td><td>{{ "yes" if opt.tracked else "no" }}</td><td>{{ "yes" if opt.deprecated else "no" }}</td><td>{{ plugin.config_notes.get(opt.name, opt.doc or "No description available.") }}</td></tr>{% endfor %}{% else %}<tr><td colspan="7">This plugin has no plugin-scoped configuration.</td></tr>{% endif %}
       </tbody></table>
     </section>
     <section><h2>Output</h2>
+      <p>{{ plugin.output_summary }}</p>
       <table><thead><tr><th>Field</th><th>DType</th><th>Unit</th><th>Meaning</th></tr></thead><tbody>
-      {% if plugin.output_fields %}{% for field in plugin.output_fields %}<tr><td><code>{{ field.name }}</code></td><td><code>{{ field.dtype }}</code></td><td>{{ field.units or "-" }}</td><td>{{ field.doc or plugin.field_notes.get(field.name, "-") }}</td></tr>{% endfor %}{% else %}<tr><td>-</td><td><code>{{ plugin.output_kind }}</code></td><td>-</td><td>{{ plugin.description or "-" }}</td></tr>{% endif %}
+      {% if plugin.output_fields %}{% for field in plugin.output_fields %}<tr><td><code>{{ field.name }}</code></td><td><code>{{ field.dtype }}</code></td><td>{{ field.units or "-" }}</td><td>{{ field.doc or plugin.field_notes.get(field.name, "No field description available.") }}</td></tr>{% endfor %}{% else %}<tr><td>container</td><td><code>{{ plugin.output_kind }}</code></td><td>-</td><td>{{ plugin.output_summary }}</td></tr>{% endif %}
       </tbody></table>
     </section>
-    <section><h2>Usage</h2><pre><code>{% if plugin.usage_example %}{{ plugin.usage_example }}{% else %}ctx.get_data("run_001", "{{ plugin.provides }}"){% endif %}</code></pre></section>
+    <section><h2>Usage</h2>
+      <h3>Minimal Example</h3>
+      <pre><code>{% if plugin.usage_example %}{{ plugin.usage_example }}{% else %}from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import {{ plugin.name }}
+
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register({{ plugin.name }}())
+data = ctx.get_data("run_001", "{{ plugin.provides }}"){% endif %}</code></pre>
+      <h3>Behavior And Operational Impact</h3>
+      <ul>{% for note in plugin.behavior_notes %}<li>{{ note }}</li>{% endfor %}{% for note in plugin.execution_notes %}<li>{{ note }}</li>{% endfor %}</ul>
+      {% if plugin.failure_modes %}<h4>Failure modes</h4><ul>{% for mode in plugin.failure_modes %}<li>{{ mode }}</li>{% endfor %}</ul>{% endif %}
+      <h4>Downstream consumers</h4>
+      {% if plugin.downstream_consumers %}<ul>{% for consumer in plugin.downstream_consumers %}<li><code>{{ consumer }}</code></li>{% endfor %}</ul>{% else %}<p>Terminal output; no direct builtin consumer is declared.</p>{% endif %}
+    </section>
   </main>
 </body>
 </html>

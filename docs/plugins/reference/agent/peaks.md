@@ -16,7 +16,6 @@ generated: true
 ## Overview
 
 Build final peaks table from peaklets and waveform-derived features.
-
 | Item | Value |
 | --- | --- |
 | Provides | `peaks` |
@@ -29,15 +28,20 @@ Build final peaks table from peaklets and waveform-derived features.
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `peaklets` | - | declared | - | - |
-| `peaklet_features` | - | declared | - | - |
-| `peaklet_channels` | - | declared | - | - |
+| `peaklets` | - | declared | - | Build lightweight cross-channel peaklets from hit_merged intervals. |
+| `peaklet_features` | - | declared | - | Compute peaklet waveform features from ragged signal pools. |
+| `peaklet_channels` | - | declared | - | Aggregate hit_merged_features into per-peaklet channel contribution rows. |
+### How It Works
+
+
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
 | --- | --- | --- | --- | --- | --- | --- |
 | - | - | - | - | - | - | - |
 ## Output
+
+structured_array output with fields: peak_id, time_start, time_end, time_peak, center_time, rise_time, fall_time, width_25_75, ....
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
@@ -58,6 +62,8 @@ Build final peaks table from peaklets and waveform-derived features.
 | `n_channels` | `int32` | - | - |
 ## Usage
 
+### Minimal Example
+
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import PeaksPlugin
@@ -71,13 +77,13 @@ data = ctx.get_data("run_001", "peaks")
 
 ### Behavior
 
-- Peaklet clustering, ragged waveforms, features, and final peaks.
 ### Failure Modes
 
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
--
+Consumers: `peak_classification`, `s1_s2_pair_candidates`
+
 ## Maintenance
 
 ### Change Playbook
