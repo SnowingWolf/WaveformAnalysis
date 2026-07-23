@@ -104,6 +104,7 @@ def test_web_generation_is_offline_relative_and_escaped(tmp_path):
     assert "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p></div>" in page
     assert (tmp_path / "assets" / "site.css").is_file()
     assert (tmp_path / "assets" / "site.js").is_file()
+    assert (tmp_path / "assets" / "plotly.min.js").is_file()
 
 
 def test_web_lineage_omits_unknown_inputs_and_lists_isolated_plugins(tmp_path):
@@ -127,18 +128,19 @@ def test_web_lineage_omits_unknown_inputs_and_lists_isolated_plugins(tmp_path):
     result = generator.generate_web(tmp_path)
     index = result["INDEX"].read_text(encoding="utf-8")
     detailed = result["detailed_output"].read_text(encoding="utf-8")
-    assert '<svg class="lineage-graph" width="' in index
+    assert 'src="assets/plotly.min.js"' in index
+    assert 'id="plugin-global-lineage"' in index
     assert 'href="plugins/source_rows.html"' in index
-    assert "Docs 53 · Impact 100" in index
+    assert '"documentation_completeness":53,"dag_impact":100' in index
     assert 'href="source_rows.html"' in detailed
     assert 'class="lineage-node-placeholder"' not in index
     assert "external_input" not in index
     assert 'href="plugins/external_input.html"' not in index
-    assert "isolated plugins (no declared builtin edge)" in index
+    assert "isolated plugins (under defaults)" in index
     assert 'href="plugins/unknown_output.html"' in index
     assert 'href="../index.html?focus=detailed_output"' in detailed
-    assert 'data-lineage-zoom="in"' in index
-    assert 'data-lineage-zoom="reset"' in index
+    assert '"scrollZoom": true' in index
+    assert "plotly_click" in index
 
     dynamic_view = replace(
         generator.extract_doc_info(_EmptyPlugin, _EmptyPlugin()),
@@ -150,6 +152,29 @@ def test_web_lineage_omits_unknown_inputs_and_lists_isolated_plugins(tmp_path):
     )
     assert dynamic_graph.nodes == []
     assert [node.label for node in dynamic_graph.isolated_nodes] == ["dynamic_output"]
+
+
+def test_web_lineage_resolves_dynamic_dependencies_from_plugin_defaults():
+    generator = PluginDocGenerator()
+    generator.load_builtin_plugins()
+
+    dependencies = generator._default_dependency_map()
+    assert dependencies["st_waveforms"] == ["raw_files"]
+
+    plugins = generator._with_web_scores(
+        generator.get_all_doc_info(), dependencies_by_provides=dependencies
+    )
+    graph = generator._build_web_lineage_graph(
+        plugins,
+        link_prefix="plugins/",
+        dependencies_by_provides=dependencies,
+    )
+    node_ids = {node.node_id for node in graph.nodes}
+    assert "plugin:raw_files" in node_ids
+    assert "plugin:st_waveforms" in node_ids
+    assert ("plugin:raw_files", "plugin:st_waveforms") in {
+        (edge.source_id, edge.target_id) for edge in graph.edges
+    }
 
 
 def test_documentation_completeness_excludes_inapplicable_sections_from_denominator():

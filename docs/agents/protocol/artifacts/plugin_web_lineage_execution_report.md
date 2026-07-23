@@ -11,16 +11,16 @@
   - `tests/test_plugin_documentation.py`
   - `docs/cli/WAVEFORM_DOCS.md`
 - `actions_taken`:
-  - Built the global SVG from declared edges between registered builtin plugins only.
-  - Moved isolated plugins into a compact linked list below the global graph and omitted runtime-resolved inputs from graph nodes.
-  - Added zoom out, reset, and zoom in controls to static lineage SVGs.
-  - Added Local Lineage links to `index.html?focus=<provides>`; the global page highlights and scrolls to the requested plugin.
+  - Added a restricted default-config facade for dynamic dependency resolution; it exposes Option defaults only and cannot access data, caches, or plugin compute.
+  - Built the global graph from the default-resolved builtin edges, so `raw_files` and other default-path nodes participate in topology and impact scores.
+  - Rendered the global graph with offline Plotly, local `plotly.min.js`, pan/zoom, hover metrics, click-to-reference navigation, and focused URL highlighting.
+  - Retained compact static Local Lineage SVGs with links to `index.html?focus=<provides>`.
 - `commands_run`:
-  - `python -m pytest -q --no-cov tests/test_plugin_documentation.py tests/test_doc_generator.py`
+  - `python -m pytest -q --no-cov tests/test_plugin_documentation.py tests/test_doc_generator.py` (44 passed)
   - `python -m black --check waveform_analysis/utils/plugin_doc_generator.py tests/test_plugin_documentation.py`
   - `node --check waveform_analysis/utils/templates/web/assets/site.js`
-  - `python -m waveform_analysis.utils.cli_docs generate plugins-web -o /tmp/waveform-plugin-lineage-site`
+  - `python -m waveform_analysis.utils.cli_docs generate plugins-web -o docs/_site`
 - `open_risks`:
-  - The SVG is static and only exposes declared registered-plugin edges; runtime-resolved dependencies remain deliberately outside this documentation view.
+  - The displayed dynamic edges represent Option defaults only; user configuration can change runtime topology.
 - `requested_review_focus`:
-  - Verify that static local/global navigation remains relative and that isolating no-edge plugins improves graph readability without changing runtime lineage.
+  - Verify Plotly remains offline, default dependency resolution has no data access, and Local-to-global navigation remains relative.

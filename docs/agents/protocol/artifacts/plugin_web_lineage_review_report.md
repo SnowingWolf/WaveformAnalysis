@@ -4,20 +4,20 @@
 - `workflow_cost`: `standard`
 - `reviewer`: `Codex`
 - `gate_results`:
-  - `focused_plugin_web_tests`: pass (43 passed)
+  - `focused_plugin_web_tests`: pass (44 passed)
   - `python_format`: pass
   - `JavaScript_syntax`: pass
-  - `isolated_plugins_web_generation`: pass (35 plugins, 38 files)
-  - `generated_HTML_inspection`: pass (no runtime placeholder nodes; isolated list, zoom controls, and focused-global link present)
+  - `default_resolved_plugins_web_generation`: pass (35 plugins, 39 files)
+  - `generated_HTML_inspection`: pass (`raw_files` and `st_waveforms` are global Plotly nodes; local Plotly asset, click handler, and scroll zoom are present)
   - `doc_sync`: pass
   - `doc_anchors`: pass
 - `decision`: `completed`
 - `blocking_findings`:
   - none
 - `residual_risks`:
-  - Graph metrics are documentation-only scores and must not be interpreted as runtime performance or cache-lineage metrics.
+  - Graph metrics and dynamic edges are documentation-default views; they must not be interpreted as runtime performance, cache lineage, or user-configured topology.
 - `follow_up_actions`:
-  - Keep the focused URL and isolated-node regression coverage when changing web graph layout.
+  - Keep the default dynamic-dependency and offline Plotly regression coverage when changing web graph layout.
 
 ## Rework Control
 

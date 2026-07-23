@@ -20,6 +20,7 @@ import sys
 from typing import Any
 from urllib.parse import quote
 
+from markupsafe import Markup
 import numpy as np
 
 from waveform_analysis.core.foundation.utils import exporter
@@ -197,6 +198,18 @@ class _WebLineageGraph:
     edges: list[_WebLineageEdge]
     isolated_nodes: list[_WebLineageNode]
     global_focus_href: str | None = None
+
+
+class _DefaultDocumentationContext:
+    """Restricted context for resolving documentation-only default dependencies."""
+
+    def __init__(self, plugins: dict[str, Any]):
+        self._plugins = plugins
+        self.config: dict[str, Any] = {}
+
+    def get_config(self, plugin: Any, key: str) -> Any:
+        option = getattr(plugin, "options", {}).get(key)
+        return getattr(option, "default", self.config.get(key))
 
 
 @export
@@ -875,8 +888,35 @@ class PluginDocGenerator:
         )
 
     @classmethod
-    def _dependency_names(cls, plugin: PluginDocumentationView) -> list[str]:
-        return [cls._dependency_parts(dependency)[0] for dependency in plugin.depends_on]
+    def _dependency_names(
+        cls,
+        plugin: PluginDocumentationView,
+        dependencies_by_provides: dict[str, list[str]] | None = None,
+    ) -> list[str]:
+        dependencies = (
+            dependencies_by_provides.get(plugin.provides, plugin.depends_on)
+            if dependencies_by_provides is not None
+            else plugin.depends_on
+        )
+        return [cls._dependency_parts(dependency)[0] for dependency in dependencies]
+
+    def _default_dependency_map(self) -> dict[str, list[str]]:
+        """Resolve dynamic dependencies with plugin defaults and no data access."""
+        plugins = {str(instance.provides): instance for _, instance in self._plugins}
+        context = _DefaultDocumentationContext(plugins)
+        dependencies: dict[str, list[str]] = {}
+        for _, plugin in self._plugins:
+            provides = str(plugin.provides)
+            try:
+                resolved = plugin.resolve_depends_on(context, run_id=None)
+            except TypeError:
+                resolved = plugin.resolve_depends_on(context)
+            except Exception as exc:
+                raise ValueError(
+                    f"Could not resolve default documentation dependencies for {provides!r}"
+                ) from exc
+            dependencies[provides] = [self._dependency_parts(item)[0] for item in resolved]
+        return dependencies
 
     @staticmethod
     def _coverage(items: list[Any], documented) -> float:
@@ -884,7 +924,11 @@ class PluginDocGenerator:
             return 1.0
         return sum(bool(documented(item)) for item in items) / len(items)
 
-    def _documentation_completeness(self, plugin: PluginDocumentationView) -> int:
+    def _documentation_completeness(
+        self,
+        plugin: PluginDocumentationView,
+        dependencies_by_provides: dict[str, list[str]] | None = None,
+    ) -> int:
         """Score authored documentation fields without inspecting runtime data."""
         weighted_scores: list[tuple[float, float]] = [
             (10.0, float(bool(plugin.summary))),
@@ -920,7 +964,7 @@ class PluginDocGenerator:
         else:
             weighted_scores.append((20.0, float(bool(plugin.output_summary))))
 
-        dependency_names = self._dependency_names(plugin)
+        dependency_names = self._dependency_names(plugin, dependencies_by_provides)
         if dependency_names:
             descriptions = {detail.name: detail.description for detail in plugin.dependency_details}
             weighted_scores.append(
@@ -932,13 +976,15 @@ class PluginDocGenerator:
         return round(100 * earned / total_weight) if total_weight else 0
 
     def _with_web_scores(
-        self, plugins: list[PluginDocumentationView]
+        self,
+        plugins: list[PluginDocumentationView],
+        dependencies_by_provides: dict[str, list[str]] | None = None,
     ) -> list[PluginDocumentationView]:
         """Attach independent documentation and graph-impact scores for web output."""
         by_provides = {plugin.provides: plugin for plugin in plugins}
         consumers: dict[str, set[str]] = {name: set() for name in by_provides}
         for plugin in plugins:
-            for dependency in self._dependency_names(plugin):
+            for dependency in self._dependency_names(plugin, dependencies_by_provides):
                 if dependency in consumers:
                     consumers[dependency].add(plugin.provides)
 
@@ -968,7 +1014,9 @@ class PluginDocGenerator:
             scored.append(
                 replace(
                     plugin,
-                    documentation_completeness=self._documentation_completeness(plugin),
+                    documentation_completeness=self._documentation_completeness(
+                        plugin, dependencies_by_provides
+                    ),
                     dag_impact=impact,
                 )
             )
@@ -980,12 +1028,13 @@ class PluginDocGenerator:
         *,
         link_prefix: str,
         focus: str | None = None,
+        dependencies_by_provides: dict[str, list[str]] | None = None,
     ) -> _WebLineageGraph:
         """Build an escaped-template-ready dependency graph from static doc views."""
         by_provides = {plugin.provides: plugin for plugin in plugins}
         consumers: dict[str, set[str]] = {name: set() for name in by_provides}
         for plugin in plugins:
-            for dependency in self._dependency_names(plugin):
+            for dependency in self._dependency_names(plugin, dependencies_by_provides):
                 if dependency in consumers:
                     consumers[dependency].add(plugin.provides)
 
@@ -995,7 +1044,7 @@ class PluginDocGenerator:
             edge_names = [
                 (dependency, plugin.provides)
                 for plugin in plugins
-                for dependency in self._dependency_names(plugin)
+                for dependency in self._dependency_names(plugin, dependencies_by_provides)
                 if dependency in by_provides
             ]
             visible_names = {name for edge in edge_names for name in edge}
@@ -1008,7 +1057,7 @@ class PluginDocGenerator:
         else:
             target = by_provides[focus]
             visible_names = {focus}
-            dependencies = self._dependency_names(target)
+            dependencies = self._dependency_names(target, dependencies_by_provides)
             for dependency in dependencies:
                 if dependency in by_provides:
                     visible_names.add(dependency)
@@ -1156,6 +1205,102 @@ class PluginDocGenerator:
             ),
         )
 
+    @staticmethod
+    def _render_global_plotly_html(lineage_graph: _WebLineageGraph) -> str:
+        """Render the global documentation graph as an offline Plotly fragment."""
+        try:
+            import plotly.graph_objects as go
+        except ImportError as exc:
+            raise ImportError(
+                "plotly is required for the global plugins-web lineage view. "
+                "Install the project documentation dependencies."
+            ) from exc
+
+        nodes = lineage_graph.nodes
+        positions = {node.node_id: (node.x, -node.y) for node in nodes}
+        edge_x: list[float | None] = []
+        edge_y: list[float | None] = []
+        for edge in lineage_graph.edges:
+            source = positions[edge.source_id]
+            target = positions[edge.target_id]
+            edge_x.extend([source[0], target[0], None])
+            edge_y.extend([source[1], target[1], None])
+
+        customdata = [
+            {
+                "href": node.href,
+                "provides": node.label,
+                "documentation_completeness": node.documentation_completeness,
+                "dag_impact": node.dag_impact,
+            }
+            for node in nodes
+        ]
+        figure = go.Figure()
+        figure.add_trace(
+            go.Scatter(
+                x=edge_x,
+                y=edge_y,
+                mode="lines",
+                hoverinfo="skip",
+                line={"color": "#80908a", "width": 1.5},
+                showlegend=False,
+            )
+        )
+        figure.add_trace(
+            go.Scatter(
+                x=[node.x for node in nodes],
+                y=[-node.y for node in nodes],
+                mode="markers+text",
+                text=[node.label for node in nodes],
+                textposition="top center",
+                customdata=customdata,
+                hovertemplate=(
+                    "<b>%{customdata.provides}</b><br>Docs %{customdata.documentation_completeness}"
+                    "<br>Impact %{customdata.dag_impact}<extra>Open plugin reference</extra>"
+                ),
+                marker={"size": 14, "color": "#087f5b", "line": {"width": 1, "color": "#075a42"}},
+                showlegend=False,
+            )
+        )
+        figure.update_layout(
+            height=max(620, min(1400, lineage_graph.height + 120)),
+            margin={"l": 20, "r": 20, "t": 20, "b": 20},
+            paper_bgcolor="#ffffff",
+            plot_bgcolor="#ffffff",
+            dragmode="pan",
+            xaxis={"visible": False, "fixedrange": False},
+            yaxis={"visible": False, "fixedrange": False, "scaleanchor": "x"},
+        )
+        fragment = figure.to_html(
+            full_html=False,
+            include_plotlyjs=False,
+            config={"scrollZoom": True, "displaylogo": False, "responsive": True},
+            div_id="plugin-global-lineage",
+        )
+        return (
+            fragment
+            + """
+<script>
+(() => {
+  const graph = document.getElementById("plugin-global-lineage");
+  if (!graph) return;
+  graph.on("plotly_click", (event) => {
+    const href = event.points[0]?.customdata?.href;
+    if (href) window.location.assign(href);
+  });
+  const focus = new URLSearchParams(window.location.search).get("focus");
+  const trace = graph.data.find((item) => Array.isArray(item.customdata));
+  if (!focus || !trace) return;
+  const index = trace.customdata.findIndex((item) => item.provides === focus);
+  if (index < 0) return;
+  const colors = trace.x.map(() => "#087f5b");
+  colors[index] = "#b45309";
+  Plotly.restyle(graph, {"marker.color": [colors]}, [graph.data.indexOf(trace)]);
+  Plotly.Fx.hover(graph, [{curveNumber: graph.data.indexOf(trace), pointNumber: index}]);
+})();
+</script>"""
+        )
+
     def render_plugin_html(
         self,
         doc_info: PluginDocumentationView,
@@ -1177,18 +1322,25 @@ class PluginDocGenerator:
         plugins: list[PluginDocumentationView],
         *,
         lineage_graph: _WebLineageGraph | None = None,
+        dependencies_by_provides: dict[str, list[str]] | None = None,
+        global_lineage_html: str | None = None,
     ) -> str:
         """Render the searchable static-site index."""
-        scored_plugins = self._with_web_scores(plugins)
+        scored_plugins = self._with_web_scores(plugins, dependencies_by_provides)
         lineage_graph = lineage_graph or self._build_web_lineage_graph(
-            scored_plugins, link_prefix="plugins/"
+            scored_plugins,
+            link_prefix="plugins/",
+            dependencies_by_provides=dependencies_by_provides,
         )
+        if global_lineage_html is None:
+            global_lineage_html = self._render_global_plotly_html(lineage_graph)
         return (
             self._get_web_jinja_env()
             .get_template("web/index.html.j2")
             .render(
                 plugins=sorted(scored_plugins, key=lambda item: item.provides),
                 lineage_graph=lineage_graph,
+                global_lineage_html=Markup(global_lineage_html),
             )
         )
 
@@ -1199,7 +1351,15 @@ class PluginDocGenerator:
         asset_dir = output_dir / "assets"
         plugin_dir.mkdir(parents=True, exist_ok=True)
         asset_dir.mkdir(parents=True, exist_ok=True)
-        plugins = self._with_web_scores(self.get_all_doc_info())
+        default_dependencies = self._default_dependency_map()
+        plugins = self._with_web_scores(
+            self.get_all_doc_info(), dependencies_by_provides=default_dependencies
+        )
+        global_graph = self._build_web_lineage_graph(
+            plugins,
+            link_prefix="plugins/",
+            dependencies_by_provides=default_dependencies,
+        )
         generated: dict[str, Path] = {}
         for plugin in plugins:
             path = plugin_dir / f"{plugin.provides}.html"
@@ -1207,7 +1367,10 @@ class PluginDocGenerator:
                 self.render_plugin_html(
                     plugin,
                     lineage_graph=self._build_web_lineage_graph(
-                        plugins, link_prefix="", focus=plugin.provides
+                        plugins,
+                        link_prefix="",
+                        focus=plugin.provides,
+                        dependencies_by_provides=default_dependencies,
                     ),
                 ),
                 encoding="utf-8",
@@ -1217,7 +1380,9 @@ class PluginDocGenerator:
         index_path.write_text(
             self.render_index_html(
                 plugins,
-                lineage_graph=self._build_web_lineage_graph(plugins, link_prefix="plugins/"),
+                lineage_graph=global_graph,
+                dependencies_by_provides=default_dependencies,
+                global_lineage_html=self._render_global_plotly_html(global_graph),
             ),
             encoding="utf-8",
         )
@@ -1227,6 +1392,15 @@ class PluginDocGenerator:
             target = asset_dir / name
             shutil.copyfile(source_assets / name, target)
             generated[f"asset:{name}"] = target
+        try:
+            from plotly.offline import get_plotlyjs
+        except ImportError as exc:
+            raise ImportError(
+                "plotly is required for the global plugins-web lineage view."
+            ) from exc
+        plotly_asset = asset_dir / "plotly.min.js"
+        plotly_asset.write_text(get_plotlyjs(), encoding="utf-8")
+        generated["asset:plotly.min.js"] = plotly_asset
         return generated
 
     def generate_all(self, output_dir: Path, profile: str = "auto") -> dict[str, Path]:

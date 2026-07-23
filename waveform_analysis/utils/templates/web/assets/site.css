@@ -33,6 +33,9 @@ main { width: min(1180px, calc(100% - 48px)); margin: 28px auto 56px; }
 .lineage-node-title { fill: var(--ink); font: 700 14px system-ui, sans-serif; }
 .lineage-node-metrics { fill: var(--muted); font: 12px system-ui, sans-serif; }
 .lineage-legend { margin: 0; color: var(--muted); font-size: 13px; }
+.lineage-plotly { min-height: 620px; margin: 18px 0 10px; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
+.lineage-plotly .js-plotly-plot { cursor: grab; }
+.lineage-plotly .js-plotly-plot:active { cursor: grabbing; }
 .lineage-isolated { margin-top: 14px; color: var(--muted); font-size: 13px; }
 .lineage-isolated summary { cursor: pointer; }
 .lineage-isolated-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }

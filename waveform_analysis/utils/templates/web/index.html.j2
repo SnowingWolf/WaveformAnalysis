@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>WaveformAnalysis Plugin Reference</title>
   <link rel="stylesheet" href="assets/site.css">
+  <script src="assets/plotly.min.js"></script>
   <script defer src="assets/site.js"></script>
 </head>
 <body>
@@ -18,7 +19,25 @@
   </header>
   <main>
     <p id="search-status" class="status" aria-live="polite">{{ plugins|length }} plugins</p>
-    {% include "web/lineage_graph.html.j2" %}
+    <section class="lineage-section lineage-plotly-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Default dependency view</p>
+          <h2>{{ lineage_graph.title }}</h2>
+        </div>
+        <p>Dependencies resolved from builtin plugin defaults. Drag to pan, use the mode bar or mouse wheel to zoom, and select a node to open its reference page.</p>
+      </div>
+      <div class="lineage-plotly">{{ global_lineage_html }}</div>
+      <p class="lineage-legend">Docs: documentation completeness. Impact: relative downstream reach in the default-resolved plugin graph. No run data or cache is accessed.</p>
+      {% if lineage_graph.isolated_nodes %}
+      <details class="lineage-isolated">
+        <summary>{{ lineage_graph.isolated_nodes|length }} isolated plugins (under defaults)</summary>
+        <div class="lineage-isolated-list">
+          {% for node in lineage_graph.isolated_nodes %}<a href="{{ node.href }}" title="{{ node.tooltip }}">{{ node.label }}</a>{% endfor %}
+        </div>
+      </details>
+      {% endif %}
+    </section>
     <div class="plugin-grid" id="plugin-grid">
     {% for plugin in plugins %}
       <a class="plugin-card" href="plugins/{{ plugin.provides }}.html"
