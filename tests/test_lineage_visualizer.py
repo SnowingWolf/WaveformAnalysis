@@ -7,6 +7,7 @@ from waveform_analysis.core.foundation.model import (
 from waveform_analysis.core.foundation.utils import LineageStyle
 from waveform_analysis.utils.visualization.lineage_visualizer import (
     _layout_nodes_source_to_target,
+    _node_heights_for,
     _reorder_layers,
     plot_lineage_plotly,
 )
@@ -96,7 +97,14 @@ def test_reorder_layers_uses_upstream_neighbors_for_forward_pass():
         1: ["target_b", "target_a"],
     }
 
-    reordered = _reorder_layers(layers, edges, y_gap=1.0, iterations=1)
+    style = LineageStyle(y_gap=1.0)
+    reordered = _reorder_layers(
+        layers,
+        edges,
+        node_heights={"source_a": 2.0, "source_b": 2.0, "target_a": 2.0, "target_b": 2.0},
+        style=style,
+        iterations=1,
+    )
 
     assert reordered[1] == ["target_a", "target_b"]
 
@@ -164,6 +172,80 @@ def test_plotly_lineage_handles_adaptive_layout_without_max_depth_name_error(mon
         ],
     )
 
-    plot_lineage_plotly(model, "waveforms", style=LineageStyle(layout_reorder=False))
+    figure = plot_lineage_plotly(model, "waveforms", style=LineageStyle(layout_reorder=False))
 
     assert shown == [True]
+    assert figure.layout.title.text == "Data Lineage: waveforms"
+
+
+def test_layout_keeps_many_ports_inside_their_node_and_separates_tall_nodes():
+    source_ids = [f"source_{index}" for index in range(8)]
+    sources = {
+        source_id: NodeModel(
+            id=source_id,
+            key=source_id,
+            title=source_id,
+            plugin_class="SourcePlugin",
+            out_ports=[
+                PortModel(
+                    id=f"OUT::{source_id}::0",
+                    name=source_id,
+                    kind="out",
+                    dtype="np.ndarray",
+                    parent_node_id=source_id,
+                    index=0,
+                )
+            ],
+            depth=0,
+        )
+        for source_id in source_ids
+    }
+    target = NodeModel(
+        id="target",
+        key="target",
+        title="Target",
+        plugin_class="TargetPlugin",
+        in_ports=[
+            PortModel(
+                id=f"IN::target::{index}",
+                name=source_id,
+                kind="in",
+                dtype="np.ndarray",
+                parent_node_id="target",
+                index=index,
+            )
+            for index, source_id in enumerate(source_ids)
+        ],
+        depth=1,
+    )
+    sibling = NodeModel(
+        id="sibling",
+        key="sibling",
+        title="Sibling",
+        plugin_class="TargetPlugin",
+        depth=1,
+    )
+    edges = [
+        EdgeModel(
+            source_node_id=source_id,
+            source_port_id=f"OUT::{source_id}::0",
+            target_node_id="target",
+            target_port_id=f"IN::target::{index}",
+            dtype="np.ndarray",
+        )
+        for index, source_id in enumerate(source_ids)
+    ]
+    model = LineageGraphModel(nodes={**sources, "target": target, "sibling": sibling}, edges=edges)
+    style = LineageStyle(layout_reorder=False)
+
+    heights = _node_heights_for(model, style)
+    pos = _layout_nodes_source_to_target(model, style, heights)
+
+    target_y = pos["target"][1]
+    target_half_height = heights["target"] / 2
+    for port in target.in_ports:
+        assert target_y - target_half_height <= pos[port.id][1] <= target_y + target_half_height
+
+    sibling_y = pos["sibling"][1]
+    sibling_half_height = heights["sibling"] / 2
+    assert abs(target_y - sibling_y) >= target_half_height + sibling_half_height

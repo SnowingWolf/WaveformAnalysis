@@ -66,6 +66,7 @@ ctx.plot_lineage("df_paired", kind="labview", verbose=2, interactive=True)
 特性：
 - 支持静态和交互式模式
 - 智能颜色高亮（自动识别节点类型）
+- 自适应节点高度与同层间距，避免多端口节点的端口溢出或遮挡
 - 鼠标悬停显示详细信息
 - 点击节点显示上游依赖
 - 支持依赖分析高亮（关键路径、瓶颈节点、并行组）
@@ -187,6 +188,7 @@ ctx.plot_lineage("df_paired", kind="labview", style=style, interactive=True)
 | `wire_linewidth` | 连线宽度 | 1.5 |
 | `wire_alpha` | 连线透明度 | 0.6 |
 | `layout_reorder` | 是否重排以减少交叉 | `True` |
+| `auto_fit_text` | 是否按正文与端口数量自动调整节点高度 | `True` |
 
 ### 线条语义化 + 端口分组
 

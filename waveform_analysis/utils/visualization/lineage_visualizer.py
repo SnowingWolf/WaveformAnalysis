@@ -223,6 +223,7 @@ def _build_node_boxes(
     model: LineageGraphModel,
     pos: dict,
     style: LineageStyle,
+    node_heights: dict[str, float],
 ) -> list[dict]:
     """Create node bounding boxes used for simple wire obstacle avoidance."""
     margin = max(0.2, style.port_size * 2)
@@ -232,7 +233,7 @@ def _build_node_boxes(
             continue
         x, y = pos[node_id]
         half_w = style.node_width / 2 + margin
-        half_h = style.node_height / 2 + margin
+        half_h = node_heights[node_id] / 2 + margin
         boxes.append(
             {
                 "id": node_id,
@@ -271,21 +272,36 @@ def _path_intersects_boxes(path: list[tuple], boxes: list[dict], skip_ids: set) 
     return False
 
 
-def _layer_positions(nodes_by_depth: dict[int, list[str]], y_gap: float) -> dict[str, float]:
+def _layer_positions(
+    nodes_by_depth: dict[int, list[str]],
+    node_heights: dict[str, float],
+    style: LineageStyle,
+) -> dict[str, float]:
     node_y = {}
     for _depth, layer in nodes_by_depth.items():
-        for idx, node_id in enumerate(layer):
-            y = (idx - (len(layer) - 1) / 2.0) * y_gap
-            node_y[node_id] = y
+        if not layer:
+            continue
+
+        centers = [0.0]
+        for previous, current in zip(layer, layer[1:], strict=False):
+            preserved_clearance = max(style.y_gap - style.node_height, 0.5)
+            distance = node_heights[previous] / 2 + node_heights[current] / 2 + preserved_clearance
+            centers.append(centers[-1] + distance)
+
+        midpoint = (centers[0] + centers[-1]) / 2
+        for node_id, y in zip(layer, centers, strict=False):
+            node_y[node_id] = y - midpoint
     return node_y
 
 
 def _layout_nodes_source_to_target(
     model: LineageGraphModel,
     style: LineageStyle,
+    node_heights: dict[str, float] | None = None,
 ) -> dict:
     """Place lineage sources on the left and downstream targets on the right."""
     pos = {}
+    node_heights = node_heights or _node_heights_for(model, style)
     nodes_by_depth: dict[int, list[str]] = {}
     for node_id, node in model.nodes.items():
         nodes_by_depth.setdefault(node.depth, []).append(node_id)
@@ -297,22 +313,24 @@ def _layout_nodes_source_to_target(
         nodes_by_depth = _reorder_layers(
             nodes_by_depth,
             model.edges,
-            style.y_gap,
+            node_heights,
+            style,
             getattr(style, "layout_iterations", 3),
         )
 
     for d in sorted(nodes_by_depth.keys()):
         layer = nodes_by_depth[d]
         x = d * style.x_gap
-        for i, node_id in enumerate(layer):
-            y = (i - (len(layer) - 1) / 2.0) * style.y_gap
+        layer_y = _layer_positions({d: layer}, node_heights, style)
+        for node_id in layer:
+            y = layer_y[node_id]
             pos[node_id] = (x, y)
 
-    _set_port_positions(model, pos, style)
+    _set_port_positions(model, pos, style, node_heights)
     return pos
 
 
-def _layout_view_metrics(pos: dict, style: LineageStyle) -> dict:
+def _layout_view_metrics(pos: dict, style: LineageStyle, node_heights: dict[str, float]) -> dict:
     """Compute visible ranges and canvas sizes from actual layout coordinates."""
     if not pos:
         return {
@@ -324,7 +342,15 @@ def _layout_view_metrics(pos: dict, style: LineageStyle) -> dict:
         }
 
     all_x = [point[0] for point in pos.values()]
-    all_y = [point[1] for point in pos.values()]
+    all_y = [
+        point[1] + node_heights.get(node_id, 0.0) / 2
+        for node_id, point in pos.items()
+        if node_id in node_heights
+    ] + [
+        point[1] - node_heights.get(node_id, 0.0) / 2
+        for node_id, point in pos.items()
+        if node_id in node_heights
+    ]
     x_min, x_max = min(all_x), max(all_x)
     y_min, y_max = min(all_y), max(all_y)
 
@@ -376,7 +402,8 @@ def _order_layer(
 def _reorder_layers(
     nodes_by_depth: dict[int, list[str]],
     edges: list[Any],
-    y_gap: float,
+    node_heights: dict[str, float],
+    style: LineageStyle,
     iterations: int,
 ) -> dict[int, list[str]]:
     layers = {depth: list(layer) for depth, layer in nodes_by_depth.items()}
@@ -388,11 +415,11 @@ def _reorder_layers(
     iterations = max(0, int(iterations))
 
     for _ in range(iterations):
-        node_y = _layer_positions(layers, y_gap)
+        node_y = _layer_positions(layers, node_heights, style)
         for depth in range(1, max_depth + 1):
             layers[depth] = _order_layer(layers[depth], upstream_map, node_y)
 
-        node_y = _layer_positions(layers, y_gap)
+        node_y = _layer_positions(layers, node_heights, style)
         for depth in range(max_depth - 1, -1, -1):
             layers[depth] = _order_layer(layers[depth], downstream_map, node_y)
 
@@ -444,6 +471,7 @@ def _set_port_positions(
     model: LineageGraphModel,
     pos: dict,
     style: LineageStyle,
+    node_heights: dict[str, float],
 ) -> None:
     for node_id, node in model.nodes.items():
         if node_id not in pos:
@@ -454,17 +482,11 @@ def _set_port_positions(
         out_ports = _order_ports(node, node.out_ports, model.edges, pos, style, "out")
 
         for k, port in enumerate(in_ports):
-            if len(in_ports) > 1:
-                dy = (k - (len(in_ports) - 1) / 2.0) * 0.4
-            else:
-                dy = 0
+            dy = _port_offset(k, len(in_ports), node_heights[node_id], style)
             pos[port.id] = (x - style.node_width / 2, y + dy)
 
         for k, port in enumerate(out_ports):
-            if len(out_ports) > 1:
-                dy = (k - (len(out_ports) - 1) / 2.0) * 0.4
-            else:
-                dy = 0
+            dy = _port_offset(k, len(out_ports), node_heights[node_id], style)
             pos[port.id] = (x + style.node_width / 2, y + dy)
 
 
@@ -618,24 +640,29 @@ def _estimate_node_height(node: NodeModel, style: LineageStyle, max_width_chars:
     return style.header_height + padding_top + padding_bottom + content_height
 
 
-def _auto_adjust_layout(model: LineageGraphModel, style: LineageStyle) -> None:
-    if not getattr(style, "auto_fit_text", True):
-        return
+def _port_offset(index: int, count: int, node_height: float, style: LineageStyle) -> float:
+    """Keep ports evenly spaced inside the usable vertical span of a node."""
+    if count <= 1:
+        return 0.0
 
-    max_width_chars = int(style.node_width * 10)
-    if not model.nodes:
-        return
+    usable_half_height = max(node_height / 2 - style.port_size * 1.5, 0.0)
+    return -usable_half_height + 2 * usable_half_height * index / (count - 1)
 
-    required_heights = [
-        _estimate_node_height(node, style, max_width_chars) for node in model.nodes.values()
-    ]
-    max_required = max(required_heights) if required_heights else style.node_height
-    if max_required > style.node_height:
-        style.node_height = max_required
 
-    min_gap = style.node_height * 1.25
-    if style.y_gap < min_gap:
-        style.y_gap = min_gap
+def _node_heights_for(model: LineageGraphModel, style: LineageStyle) -> dict[str, float]:
+    """Return the smallest readable height for each node without mutating its style."""
+    max_width_chars = max(1, int(style.node_width * 10))
+    heights = {}
+    for node_id, node in model.nodes.items():
+        text_height = (
+            _estimate_node_height(node, style, max_width_chars)
+            if getattr(style, "auto_fit_text", True)
+            else style.node_height
+        )
+        port_count = max(len(node.in_ports), len(node.out_ports), 1)
+        port_height = (port_count - 1) * style.port_size * 3 + style.port_size * 3
+        heights[node_id] = max(style.node_height, text_height, port_height)
+    return heights
 
 
 def plot_lineage_labview(
@@ -691,10 +718,9 @@ def plot_lineage_labview(
             f"lineage must be a dict or LineageGraphModel, but got {type(lineage).__name__}: {lineage}"
         )
 
-    _auto_adjust_layout(model, s)
-
     # 2. 布局计算 (基于模型)
-    pos = _layout_nodes_source_to_target(model, s)
+    node_heights = _node_heights_for(model, s)
+    pos = _layout_nodes_source_to_target(model, s, node_heights)
 
     # 3. 准备分析数据（用于高亮）
     critical_path_set = set()
@@ -716,9 +742,9 @@ def plot_lineage_labview(
                     parallel_group_map[plugin_name] = i
 
     # 4. 绘图
-    view = _layout_view_metrics(pos, s)
+    view = _layout_view_metrics(pos, s, node_heights)
     fig, ax = plt.subplots(figsize=view["mpl_figsize"])
-    node_boxes = _build_node_boxes(model, pos, s)
+    node_boxes = _build_node_boxes(model, pos, s, node_heights)
 
     def draw_wire(path: list[tuple], wire_style: dict) -> None:
         line_x = [point[0] for point in path]
@@ -828,6 +854,7 @@ def plot_lineage_labview(
         node = model.nodes.get(node_id)
         if not node:
             continue
+        node_height = node_heights[node_id]
 
         # 根据节点类型确定颜色
         node_type = _classify_node_type(node)
@@ -856,9 +883,9 @@ def plot_lineage_labview(
         # 主体
         ax.add_patch(
             Rectangle(
-                (x - s.node_width / 2, y - s.node_height / 2),
+                (x - s.node_width / 2, y - node_height / 2),
                 s.node_width,
-                s.node_height,
+                node_height,
                 fc=node_bg,
                 ec=node_edge_color,
                 lw=node_edge_width,
@@ -868,7 +895,7 @@ def plot_lineage_labview(
         # 标题栏
         ax.add_patch(
             Rectangle(
-                (x - s.node_width / 2, y + s.node_height / 2 - s.header_height),
+                (x - s.node_width / 2, y + node_height / 2 - s.header_height),
                 s.node_width,
                 s.header_height,
                 fc=header_bg,
@@ -879,7 +906,7 @@ def plot_lineage_labview(
         )
         ax.text(
             x,
-            y + s.node_height / 2 - s.header_height / 2,
+            y + node_height / 2 - s.header_height / 2,
             node.key,
             fontsize=s.font_size_title,
             fontweight="bold",
@@ -891,8 +918,8 @@ def plot_lineage_labview(
 
         # 根据 verbose 等级显示 class
         line_height = 0.16
-        content_top = y + s.node_height / 2 - s.header_height - 0.1
-        content_bottom = y - s.node_height / 2 + 0.2
+        content_top = y + node_height / 2 - s.header_height - 0.1
+        content_bottom = y - node_height / 2 + 0.2
         class_y = content_top - 0.05
         if s.verbose >= 1:
             ax.text(
@@ -936,7 +963,7 @@ def plot_lineage_labview(
             badge_color = parallel_colors[group_idx % len(parallel_colors)]
             # 在右上角显示小徽章
             badge_x = x + s.node_width / 2 - 0.2
-            badge_y = y + s.node_height / 2 - 0.15
+            badge_y = y + node_height / 2 - 0.15
             ax.add_patch(
                 Circle(
                     (badge_x, badge_y),
@@ -983,12 +1010,20 @@ def plot_lineage_labview(
 
     # 交互式功能
     if interactive:
-        _add_interactive_features(fig, ax, model, pos, s)
+        _add_interactive_features(fig, ax, model, pos, s, node_heights)
 
     plt.show()
+    return fig
 
 
-def _add_interactive_features(fig, ax, model: LineageGraphModel, pos: dict, style: LineageStyle):
+def _add_interactive_features(
+    fig,
+    ax,
+    model: LineageGraphModel,
+    pos: dict,
+    style: LineageStyle,
+    node_heights: dict[str, float],
+):
     """
     为血缘图添加交互式功能。
 
@@ -1025,7 +1060,7 @@ def _add_interactive_features(fig, ax, model: LineageGraphModel, pos: dict, styl
         else:
             # VI 节点边界框
             half_w = style.node_width / 2
-            half_h = style.node_height / 2
+            half_h = node_heights[node_id] / 2
             node_bounds[node_id] = (x - half_w, x + half_w, y - half_h, y + half_h)
 
     def _get_node_info(node_id: str) -> str:
@@ -1303,11 +1338,10 @@ def plot_lineage_plotly(
             f"lineage must be a dict or LineageGraphModel, but got {type(lineage).__name__}: {lineage}"
         )
 
-    _auto_adjust_layout(model, s)
-
     # 2. 布局计算
-    pos = _layout_nodes_source_to_target(model, s)
-    view = _layout_view_metrics(pos, s)
+    node_heights = _node_heights_for(model, s)
+    pos = _layout_nodes_source_to_target(model, s, node_heights)
+    view = _layout_view_metrics(pos, s, node_heights)
 
     # 3. 创建 plotly traces 和 shapes
     traces = []
@@ -1315,7 +1349,7 @@ def plot_lineage_plotly(
     node_annotations = []  # 用于节点文本
 
     # 绘制连线
-    node_boxes = _build_node_boxes(model, pos, s)
+    node_boxes = _build_node_boxes(model, pos, s, node_heights)
     for edge in model.edges:
         p1 = pos.get(edge.source_port_id)
         p2 = pos.get(edge.target_port_id)
@@ -1432,6 +1466,7 @@ def plot_lineage_plotly(
             node = model.nodes.get(node_id)
             if not node:
                 continue
+            node_height = node_heights[node_id]
 
             # 根据节点类型确定颜色
             node_type = _classify_node_type(node)
@@ -1468,7 +1503,7 @@ def plot_lineage_plotly(
 
             # 绘制节点主体矩形
             half_w = s.node_width / 2
-            half_h = s.node_height / 2
+            half_h = node_height / 2
             shapes.append(
                 {
                     "type": "rect",
@@ -1676,3 +1711,4 @@ def plot_lineage_plotly(
         fig.write_image(save_path)
 
     fig.show()
+    return fig
