@@ -1,0 +1,322 @@
+schema_version: 1
+notes:
+  ambiguous_fields: []
+st_waveforms:
+  baseline: Computed global waveform baseline for this record
+  baseline_upstream: Upstream baseline value from preceding processing, optional
+  polarity: "Hardware-truth signal polarity: positive | negative | unknown"
+  timestamp: ADC raw timestamp in picoseconds
+  record_id: Sequential record identifier within the structured waveform array
+  dt: Sample interval in nanoseconds, aligned to time
+  event_length: Waveform length in samples
+  board: Hardware board index
+  channel: Physical channel number
+  wave: ADC sample data as 1-D int16 array
+hit:
+  position: Peak position as sample index within the waveform
+  height: Peak height above baseline
+  integral: Peak integral (area)
+  edge_start: Peak left edge boundary
+  edge_end: Peak right edge boundary
+  dt: Sample interval in nanoseconds
+  timestamp: Global timestamp in picoseconds
+  board: Hardware board index
+  channel: Physical channel number
+  record_id: Source record identifier
+basic_features:
+  height: Pulse height (baseline minus minimum sample)
+  amp: Peak-to-peak amplitude (max minus min)
+  area: Waveform integral area
+  max_abs_diff: Maximum absolute difference between consecutive samples
+  timestamp: ADC timestamp in picoseconds
+  board: Hardware board index
+  channel: Physical channel number
+  record_id: Source record identifier
+events:
+  event_id: Globally unique event identifier
+  event_number: Sequential event number within the run, 0-based
+  run_id: Run identifier string
+  pair_id: S1-S2 pair identifier
+  s1_peak_id: S1 peak identifier
+  s2_peak_id: S2 peak identifier
+  x: X coordinate (mm)
+  y: Y coordinate (mm)
+  z: Z coordinate (drift distance, mm)
+  r: Radial coordinate sqrt(x^2 + y^2) (mm)
+  drift_time: Drift time (ns)
+  s1_time: S1 time relative to run start (ns)
+  s2_time: S2 time (ns)
+  s1_area: S1 raw area
+  s2_area: S2 raw area
+  log10_s2_s1: log10(S2/S1)
+  s1_n_channels: S1 channel count
+  s2_n_channels: S2 channel count
+  s1_area_fraction_top: S1 area fraction in top PMT array
+  s2_area_fraction_top: S2 area fraction in top PMT array
+  s1_rise_time: S1 rise time (ns)
+  s2_rise_time: S2 rise time (ns)
+  n_s1_candidates: Number of S1 candidates for this S2
+  n_s2_candidates: Number of S2 candidates for this S1
+  flags: Bit-field status flags
+position_reconstruction:
+  event_id: Unique event identifier
+  pair_id: S1-S2 pair identifier
+  s1_peak_id: S1 peak identifier
+  s2_peak_id: S2 peak identifier
+  x: X coordinate (mm)
+  y: Y coordinate (mm)
+  z: Z coordinate (drift distance, mm)
+  r: Radial coordinate sqrt(x^2 + y^2) (mm)
+  x_err: X position uncertainty (mm)
+  y_err: Y position uncertainty (mm)
+  z_err: Z position uncertainty (mm)
+  xy_chi2: Chi-squared for XY reconstruction fit
+  xy_ndf: Degrees of freedom for XY reconstruction
+  z_quality: Z reconstruction quality (0 to 1)
+  position_goodness: Overall position quality (0 to 1)
+  xy_method: XY reconstruction method (cog, nn, template, or none)
+  z_method: Z reconstruction method (drift_time, corrected, or none)
+  drift_time_ns: Drift time in nanoseconds
+  s2_area: S2 area used for quality checks
+  s2_n_channels: Number of S2 channels used for quality checks
+  flags: Bit-field reconstruction status flags
+filtered_waveforms:
+  baseline: Computed global waveform baseline for this record
+  baseline_upstream: Upstream baseline value from preceding processing, optional
+  polarity: "Hardware-truth signal polarity: positive | negative | unknown"
+  timestamp: ADC raw timestamp in picoseconds
+  record_id: Sequential record identifier within the structured waveform array
+  dt: Sample interval in nanoseconds, aligned to time
+  event_length: Waveform length in samples
+  board: Hardware board index
+  channel: Physical channel number
+  wave: Filtered ADC sample data as 1-D float32 array
+peak_classification:
+  peak_id: Zero-based index of the input peaks row receiving this classification
+  label: "Classification code: 0=unknown, 1=S1, 2=S2, 3=S1_S2"
+waveform_width:
+  rise_time: Rise time from 10% to 90% of peak height (ns)
+  fall_time: Fall time from 90% to 10% of peak height (ns)
+  total_width: Total width from 10% rise to 10% fall (ns)
+  rise_time_samples: Rise time in sample counts
+  fall_time_samples: Fall time in sample counts
+  total_width_samples: Total width in sample counts
+  peak_position: Peak position as sample index
+  peak_height: Peak height above baseline
+  timestamp: Event timestamp in picoseconds
+  board: Hardware board index
+  channel: Physical channel number
+  record_id: Source record identifier
+waveform_width_integral:
+  t_low: Low-quantile integral point (ns, corresponding to q_low)
+  t_high: High-quantile integral point (ns, corresponding to q_high)
+  width: t_high minus t_low (ns)
+  t_low_samples: Low-quantile integral point in sample index
+  t_high_samples: High-quantile integral point in sample index
+  width_samples: Pulse width in sample counts
+  q_total: Total baseline-subtracted charge (integral)
+  timestamp: ADC event timestamp
+  board: Hardware board index
+  channel: Physical channel number
+  record_id: Source record identifier
+s1_s2_pair_candidates:
+  pair_id: Unique candidate pair identifier
+  s1_peak_id: S1 peak identifier
+  s2_peak_id: S2 peak identifier (anchor)
+  s1_index: S1 row index in the S1-only sub-array
+  s2_index: S2 row index in the S2-only sub-array
+  s1_time: S1 timestamp in picoseconds
+  s2_time: S2 timestamp in picoseconds
+  drift_time: Drift time (S2 time minus S1 time) in picoseconds
+  drift_time_ns: Drift time in nanoseconds
+  s1_area: S1 signal area
+  s2_area: S2 signal area
+  log10_s2_s1: log10 of S2/S1 area ratio
+  s1_width: S1 width (ns)
+  s2_width: S2 width (ns)
+  s1_n_channels: Number of channels for S1
+  s2_n_channels: Number of channels for S2
+  score_total: Total pairing score
+  score_time: Time-matching score
+  score_s1_quality: S1 quality score
+  score_s2_quality: S2 quality score
+  score_ratio: S2/S1 ratio score
+  score_pattern: Pattern-matching score (reserved)
+  score_ambiguity: Ambiguity penalty (reserved)
+  rank_for_s1: Rank of this S2 among all S1 candidates (1-based)
+  rank_for_s2: Rank of this S1 among all S2 candidates (1-based)
+  n_s1_candidates_for_s2: Number of S1 candidates competing for this S2
+  n_s2_candidates_for_s1: Number of S2 candidates competing for this S1
+  delta_score_to_next_best: Score difference to next-best candidate
+  flags: Bit-field status flags
+  selected: Whether this pair was selected as final pairing
+s1_s2_pairs:
+  pair_id: Unique candidate pair identifier
+  s1_peak_id: S1 peak identifier
+  s2_peak_id: S2 peak identifier (anchor)
+  s1_index: S1 row index in the S1-only sub-array
+  s2_index: S2 row index in the S2-only sub-array
+  s1_time: S1 timestamp in picoseconds
+  s2_time: S2 timestamp in picoseconds
+  drift_time: Drift time (S2 time minus S1 time) in picoseconds
+  drift_time_ns: Drift time in nanoseconds
+  s1_area: S1 signal area
+  s2_area: S2 signal area
+  log10_s2_s1: log10 of S2/S1 area ratio
+  s1_width: S1 width (ns)
+  s2_width: S2 width (ns)
+  s1_n_channels: Number of channels for S1
+  s2_n_channels: Number of channels for S2
+  score_total: Total pairing score
+  score_time: Time-matching score
+  score_s1_quality: S1 quality score
+  score_s2_quality: S2 quality score
+  score_ratio: S2/S1 ratio score
+  score_pattern: Pattern-matching score (reserved)
+  score_ambiguity: Ambiguity penalty (reserved)
+  rank_for_s1: Rank of this S2 among all S1 candidates (1-based)
+  rank_for_s2: Rank of this S1 among all S2 candidates (1-based)
+  n_s1_candidates_for_s2: Number of S1 candidates competing for this S2
+  n_s2_candidates_for_s1: Number of S2 candidates competing for this S1
+  delta_score_to_next_best: Score difference to next-best candidate
+  flags: Bit-field status flags
+  selected: Whether this pair was selected as final pairing
+records:
+  timestamp: ADC timestamp in picoseconds
+  pid: Partition identifier used as a tie-breaker
+  board: Hardware board index
+  channel: Physical channel number
+  baseline: Computed global waveform baseline
+  baseline_upstream: Upstream baseline value from preceding processing
+  polarity: Hardware-truth signal polarity
+  record_id: Sequential record identifier after sorting
+  dt: Sample interval in nanoseconds
+  trigger_type: Trigger type code
+  flags: Bit field of record flags
+  wave_offset: Starting index in wave_pool
+  event_length: Waveform length in samples
+  time: System time in nanoseconds
+wave_pool:
+  value: Flattened uint16 ADC sample value
+wave_pool_filtered:
+  value: Flattened float32 filtered sample value
+records_asymmetry_mask:
+  value: "Boolean mask: True for records passing waveform asymmetry selection"
+records_detector_mask:
+  value: "Boolean mask: True for records assigned to detector channel role"
+records_veto_mask:
+  value: "Boolean mask: True for records assigned to veto channel role"
+hit_threshold:
+  position: Representative sample position within the hit interval
+  edge_start: Hit window start boundary (safe half-open sample index within record)
+  edge_end: Hit window end boundary (safe half-open sample index within record)
+  width: Hit window width in samples
+  dt: Sample interval in nanoseconds
+  timestamp: Global timestamp in picoseconds at the hit position
+  board: Hardware board index
+  channel: Physical channel number
+  record_id: Identifier of the source waveform record
+hit_merged:
+  merged_id: Unique identifier for the merged hit record, equal to row index
+  position: Anchor hit position; for multi-hit clusters, nearest to window midpoint
+  time_start: Absolute start time in picoseconds of the merged window
+  time_end: Absolute end time in picoseconds of the merged window
+  sample_start: Merged sample-window start; -1 when spanning multiple records
+  sample_end: Merged sample-window end; -1 when spanning multiple records
+  width: Merged sample-window width; -1.0 when spanning records
+  dt: Resolved sample interval in nanoseconds
+  timestamp: Anchor hit timestamp in picoseconds
+  board: Hardware board from the anchor hit
+  channel: Hardware channel from the anchor hit
+  record_id: Anchor hit record identifier
+  component_offset: Start row in hit_merge_clusters for this cluster
+  component_count: Number of component rows in hit_merge_clusters for this cluster
+  is_single_record: True when all component hits belong to the same record
+hit_merge_clusters:
+  cluster_index: Index of the merged cluster, matching merged_id
+  hit_index: Row index in the source hit_threshold array
+hit_merged_components:
+  merged_index: Index of the merged hit record
+  hit_index: Row index in the source hit_threshold array
+hit_merged_features:
+  merged_index: Index of the merged hit record
+  board: Hardware board index
+  channel: Physical channel number
+  record_id: Source record identifier
+  time_start: Absolute start time of the merged hit
+  time_end: Absolute end time of the merged hit
+  center_time: Center time of the merged hit
+  max_time: Time of the maximum sample value within the hit window
+  area: Waveform area (integral) within the merged hit window
+  height: Maximum sample height above baseline within the merged hit window
+  width: Width of the merged hit (ns)
+  rise_time: Rise time of the merged hit (ns)
+  fall_time: Fall time of the merged hit (ns)
+  n_hits: Number of component hits in the merged hit
+  valid: Validity flag
+  area_pe: Area in photoelectron units, computed when gain is configured
+  height_pe: Height in photoelectron units, computed when gain is configured
+peaklets:
+  time_start: Earliest absolute start time across component hits (ps)
+  time_end: Latest absolute end time across component hits (ps)
+  center_time: Midpoint of time_start and time_end (ps)
+  n_hits: Total number of component hits in the peaklet
+  n_channels: Number of distinct (board, channel) pairs in the peaklet
+  component_offset: Start row in peaklet_components for this peaklet
+  component_count: Number of component rows in peaklet_components for this peaklet
+peaklet_components:
+  peak_id: Peaklet identifier, matching the row index in the peaklets table
+  merged_index: Index of the hit_merged row belonging to this peaklet
+peaklet_waveforms:
+  peak_id: Peaklet identifier, matching the row index in the peaklets table
+  time_start: Absolute start time of the waveform slice (ps)
+  time_end: Absolute end time of the waveform slice (ps)
+  dt: Sample interval in nanoseconds
+  wave_offset: Starting index in peaklet_waveform_pool
+  wave_length: Number of samples in the waveform slice
+peaklet_waveform_pool:
+  value: Flattened float32 waveform sample for peaklet waveform slices
+peaklet_features:
+  peak_id: Peaklet identifier
+  time_start: Absolute start time of the peaklet (ps)
+  time_end: Absolute end time of the peaklet (ps)
+  time_peak: Time of the maximum sample value (ps)
+  center_time: Center time of the peaklet (ps)
+  rise_time: Rise time (ns)
+  fall_time: Fall time (ns)
+  width_25_75: Width between 25% and 75% of the peak (ns)
+  rise_time_10_50: Rise time from 10% to 50% (ns)
+  range_90p_area: Time range covering 90% of the waveform area (ns)
+  area: Total waveform area
+  height: Maximum waveform height
+  width: Pulse width (ns)
+peaklet_channels:
+  peaklet_id: Peaklet identifier
+  board: Hardware board index
+  channel: Physical channel number
+  area: Total area contribution from this channel
+  height: Maximum height contribution from this channel
+  n_hits: Number of component hits from this channel
+  area_fraction: Fraction of the peaklet total area contributed by this channel
+peaks:
+  peak_id: Peak identifier, matching the row index in the peaks table
+  time_start: Earliest absolute start time across component hits (ps)
+  time_end: Latest absolute end time across component hits (ps)
+  time_peak: Time of the maximum sample value (ps)
+  center_time: Center time of the peak (ps)
+  rise_time: Rise time (ns)
+  fall_time: Fall time (ns)
+  width_25_75: Width between 25% and 75% of the peak (ns)
+  rise_time_10_50: Rise time from 10% to 50% (ns)
+  range_90p_area: Time range covering 90% of the waveform area (ns)
+  area: Total waveform area
+  height: Maximum waveform height
+  width: Pulse width (ns)
+  n_hits: Total number of component hits in the peak
+  n_channels: Number of distinct (board, channel) pairs in the peak
+raw_files: {}
+df: {}
+df_events: {}
+df_paired: {}
+cache_analysis: {}
+hit_grouped: {}

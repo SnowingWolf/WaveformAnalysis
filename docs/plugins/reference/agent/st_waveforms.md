@@ -52,16 +52,16 @@ structured_array output with fields: baseline, baseline_upstream, polarity, time
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `baseline` | `float64` | - | - |
-| `baseline_upstream` | `float64` | - | - |
-| `polarity` | `<U8` | - | - |
-| `timestamp` | `int64` | - | - |
-| `record_id` | `int64` | - | - |
-| `dt` | `int32` | - | - |
-| `event_length` | `int32` | - | - |
-| `board` | `int16` | - | - |
-| `channel` | `int16` | - | - |
-| `wave` | `('<i2', (1500,))` | - | - |
+| `baseline` | `float64` | - | Computed global waveform baseline for this record |
+| `baseline_upstream` | `float64` | - | Upstream baseline value from preceding processing, optional |
+| `polarity` | `<U8` | - | Hardware-truth signal polarity: positive \| negative \| unknown |
+| `timestamp` | `int64` | - | ADC raw timestamp in picoseconds |
+| `record_id` | `int64` | - | Sequential record identifier within the structured waveform array |
+| `dt` | `int32` | - | Sample interval in nanoseconds, aligned to time |
+| `event_length` | `int32` | - | Waveform length in samples |
+| `board` | `int16` | - | Hardware board index |
+| `channel` | `int16` | - | Physical channel number |
+| `wave` | `('<i2', (1500,))` | - | ADC sample data as 1-D int16 array |
 ## Usage
 
 ### Minimal Example

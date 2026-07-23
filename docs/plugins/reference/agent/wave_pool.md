@@ -56,7 +56,7 @@ array output with fields: value.
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `value` | `uint16` | - | - |
+| `value` | `uint16` | - | Flattened uint16 ADC sample value |
 ## Usage
 
 ### Minimal Example

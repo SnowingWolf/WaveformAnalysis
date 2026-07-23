@@ -48,12 +48,12 @@ structured_array output with fields: peak_id, time_start, time_end, dt, wave_off
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `peak_id` | `int64` | - | - |
-| `time_start` | `int64` | - | - |
-| `time_end` | `int64` | - | - |
-| `dt` | `int32` | - | - |
-| `wave_offset` | `int64` | - | - |
-| `wave_length` | `int32` | - | - |
+| `peak_id` | `int64` | - | Peaklet identifier, matching the row index in the peaklets table |
+| `time_start` | `int64` | - | Absolute start time of the waveform slice (ps) |
+| `time_end` | `int64` | - | Absolute end time of the waveform slice (ps) |
+| `dt` | `int32` | - | Sample interval in nanoseconds |
+| `wave_offset` | `int64` | - | Starting index in peaklet_waveform_pool |
+| `wave_length` | `int32` | - | Number of samples in the waveform slice |
 ## Usage
 
 ### Minimal Example

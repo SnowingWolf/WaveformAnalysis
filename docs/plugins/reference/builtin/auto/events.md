@@ -47,31 +47,31 @@ structured_array output with fields: event_id, event_number, run_id, pair_id, s1
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `event_id` | `int64` | - | - |
-| `event_number` | `int64` | - | - |
-| `run_id` | `<U32` | - | - |
-| `pair_id` | `int64` | - | - |
-| `s1_peak_id` | `int64` | - | - |
-| `s2_peak_id` | `int64` | - | - |
-| `x` | `float32` | - | - |
-| `y` | `float32` | - | - |
-| `z` | `float32` | - | - |
-| `r` | `float32` | - | - |
-| `drift_time` | `float32` | - | - |
-| `s1_time` | `float64` | - | - |
-| `s2_time` | `float64` | - | - |
-| `s1_area` | `float32` | - | - |
-| `s2_area` | `float32` | - | - |
-| `log10_s2_s1` | `float32` | - | - |
-| `s1_n_channels` | `int16` | - | - |
-| `s2_n_channels` | `int16` | - | - |
-| `s1_area_fraction_top` | `float32` | - | - |
-| `s2_area_fraction_top` | `float32` | - | - |
-| `s1_rise_time` | `float32` | - | - |
-| `s2_rise_time` | `float32` | - | - |
-| `n_s1_candidates` | `int32` | - | - |
-| `n_s2_candidates` | `int32` | - | - |
-| `flags` | `uint32` | - | - |
+| `event_id` | `int64` | - | Globally unique event identifier |
+| `event_number` | `int64` | - | Sequential event number within the run, 0-based |
+| `run_id` | `<U32` | - | Run identifier string |
+| `pair_id` | `int64` | - | S1-S2 pair identifier |
+| `s1_peak_id` | `int64` | - | S1 peak identifier |
+| `s2_peak_id` | `int64` | - | S2 peak identifier |
+| `x` | `float32` | - | X coordinate (mm) |
+| `y` | `float32` | - | Y coordinate (mm) |
+| `z` | `float32` | - | Z coordinate (drift distance, mm) |
+| `r` | `float32` | - | Radial coordinate sqrt(x^2 + y^2) (mm) |
+| `drift_time` | `float32` | - | Drift time (ns) |
+| `s1_time` | `float64` | - | S1 time relative to run start (ns) |
+| `s2_time` | `float64` | - | S2 time (ns) |
+| `s1_area` | `float32` | - | S1 raw area |
+| `s2_area` | `float32` | - | S2 raw area |
+| `log10_s2_s1` | `float32` | - | log10(S2/S1) |
+| `s1_n_channels` | `int16` | - | S1 channel count |
+| `s2_n_channels` | `int16` | - | S2 channel count |
+| `s1_area_fraction_top` | `float32` | - | S1 area fraction in top PMT array |
+| `s2_area_fraction_top` | `float32` | - | S2 area fraction in top PMT array |
+| `s1_rise_time` | `float32` | - | S1 rise time (ns) |
+| `s2_rise_time` | `float32` | - | S2 rise time (ns) |
+| `n_s1_candidates` | `int32` | - | Number of S1 candidates for this S2 |
+| `n_s2_candidates` | `int32` | - | Number of S2 candidates for this S1 |
+| `flags` | `uint32` | - | Bit-field status flags |
 ## Usage
 
 ### Minimal Example

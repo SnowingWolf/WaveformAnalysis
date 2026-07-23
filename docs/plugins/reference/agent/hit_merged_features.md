@@ -48,23 +48,23 @@ structured_array output with fields: merged_index, board, channel, record_id, ti
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `merged_index` | `int64` | - | - |
-| `board` | `int16` | - | - |
-| `channel` | `int16` | - | - |
-| `record_id` | `int64` | - | - |
-| `time_start` | `int64` | - | - |
-| `time_end` | `int64` | - | - |
-| `center_time` | `int64` | - | - |
-| `max_time` | `int64` | - | - |
-| `area` | `float32` | - | - |
-| `height` | `float32` | - | - |
-| `width` | `float32` | - | - |
-| `rise_time` | `float32` | - | - |
-| `fall_time` | `float32` | - | - |
-| `n_hits` | `int32` | - | - |
-| `valid` | `int8` | - | - |
-| `area_pe` | `float32` | - | - |
-| `height_pe` | `float32` | - | - |
+| `merged_index` | `int64` | - | Index of the merged hit record |
+| `board` | `int16` | - | Hardware board index |
+| `channel` | `int16` | - | Physical channel number |
+| `record_id` | `int64` | - | Source record identifier |
+| `time_start` | `int64` | - | Absolute start time of the merged hit |
+| `time_end` | `int64` | - | Absolute end time of the merged hit |
+| `center_time` | `int64` | - | Center time of the merged hit |
+| `max_time` | `int64` | - | Time of the maximum sample value within the hit window |
+| `area` | `float32` | - | Waveform area (integral) within the merged hit window |
+| `height` | `float32` | - | Maximum sample height above baseline within the merged hit window |
+| `width` | `float32` | - | Width of the merged hit (ns) |
+| `rise_time` | `float32` | - | Rise time of the merged hit (ns) |
+| `fall_time` | `float32` | - | Fall time of the merged hit (ns) |
+| `n_hits` | `int32` | - | Number of component hits in the merged hit |
+| `valid` | `int8` | - | Validity flag |
+| `area_pe` | `float32` | - | Area in photoelectron units, computed when gain is configured |
+| `height_pe` | `float32` | - | Height in photoelectron units, computed when gain is configured |
 ## Usage
 
 ### Minimal Example

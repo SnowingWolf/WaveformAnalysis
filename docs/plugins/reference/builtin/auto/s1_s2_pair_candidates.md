@@ -50,36 +50,36 @@ structured_array output with fields: pair_id, s1_peak_id, s2_peak_id, s1_index, 
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `pair_id` | `int64` | - | - |
-| `s1_peak_id` | `int64` | - | - |
-| `s2_peak_id` | `int64` | - | - |
-| `s1_index` | `int32` | - | - |
-| `s2_index` | `int32` | - | - |
-| `s1_time` | `int64` | - | - |
-| `s2_time` | `int64` | - | - |
-| `drift_time` | `int64` | - | - |
-| `drift_time_ns` | `float32` | - | - |
-| `s1_area` | `float32` | - | - |
-| `s2_area` | `float32` | - | - |
-| `log10_s2_s1` | `float32` | - | - |
-| `s1_width` | `float32` | - | - |
-| `s2_width` | `float32` | - | - |
-| `s1_n_channels` | `int16` | - | - |
-| `s2_n_channels` | `int16` | - | - |
-| `score_total` | `float32` | - | - |
-| `score_time` | `float32` | - | - |
-| `score_s1_quality` | `float32` | - | - |
-| `score_s2_quality` | `float32` | - | - |
-| `score_ratio` | `float32` | - | - |
-| `score_pattern` | `float32` | - | - |
-| `score_ambiguity` | `float32` | - | - |
-| `rank_for_s1` | `int32` | - | - |
-| `rank_for_s2` | `int32` | - | - |
-| `n_s1_candidates_for_s2` | `int32` | - | - |
-| `n_s2_candidates_for_s1` | `int32` | - | - |
-| `delta_score_to_next_best` | `float32` | - | - |
-| `flags` | `uint32` | - | - |
-| `selected` | `bool` | - | - |
+| `pair_id` | `int64` | - | Unique candidate pair identifier |
+| `s1_peak_id` | `int64` | - | S1 peak identifier |
+| `s2_peak_id` | `int64` | - | S2 peak identifier (anchor) |
+| `s1_index` | `int32` | - | S1 row index in the S1-only sub-array |
+| `s2_index` | `int32` | - | S2 row index in the S2-only sub-array |
+| `s1_time` | `int64` | - | S1 timestamp in picoseconds |
+| `s2_time` | `int64` | - | S2 timestamp in picoseconds |
+| `drift_time` | `int64` | - | Drift time (S2 time minus S1 time) in picoseconds |
+| `drift_time_ns` | `float32` | - | Drift time in nanoseconds |
+| `s1_area` | `float32` | - | S1 signal area |
+| `s2_area` | `float32` | - | S2 signal area |
+| `log10_s2_s1` | `float32` | - | log10 of S2/S1 area ratio |
+| `s1_width` | `float32` | - | S1 width (ns) |
+| `s2_width` | `float32` | - | S2 width (ns) |
+| `s1_n_channels` | `int16` | - | Number of channels for S1 |
+| `s2_n_channels` | `int16` | - | Number of channels for S2 |
+| `score_total` | `float32` | - | Total pairing score |
+| `score_time` | `float32` | - | Time-matching score |
+| `score_s1_quality` | `float32` | - | S1 quality score |
+| `score_s2_quality` | `float32` | - | S2 quality score |
+| `score_ratio` | `float32` | - | S2/S1 ratio score |
+| `score_pattern` | `float32` | - | Pattern-matching score (reserved) |
+| `score_ambiguity` | `float32` | - | Ambiguity penalty (reserved) |
+| `rank_for_s1` | `int32` | - | Rank of this S2 among all S1 candidates (1-based) |
+| `rank_for_s2` | `int32` | - | Rank of this S1 among all S2 candidates (1-based) |
+| `n_s1_candidates_for_s2` | `int32` | - | Number of S1 candidates competing for this S2 |
+| `n_s2_candidates_for_s1` | `int32` | - | Number of S2 candidates competing for this S1 |
+| `delta_score_to_next_best` | `float32` | - | Score difference to next-best candidate |
+| `flags` | `uint32` | - | Bit-field status flags |
+| `selected` | `bool` | - | Whether this pair was selected as final pairing |
 ## Usage
 
 ### Minimal Example

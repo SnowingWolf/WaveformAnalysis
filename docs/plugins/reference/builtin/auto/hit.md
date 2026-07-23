@@ -57,16 +57,16 @@ structured_array output with fields: position, height, integral, edge_start, edg
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `position` | `int64` | - | - |
-| `height` | `float32` | - | - |
-| `integral` | `float32` | - | - |
-| `edge_start` | `float32` | - | - |
-| `edge_end` | `float32` | - | - |
-| `dt` | `int32` | - | - |
-| `timestamp` | `int64` | - | - |
-| `board` | `int16` | - | - |
-| `channel` | `int16` | - | - |
-| `record_id` | `int64` | - | - |
+| `position` | `int64` | - | Peak position as sample index within the waveform |
+| `height` | `float32` | - | Peak height above baseline |
+| `integral` | `float32` | - | Peak integral (area) |
+| `edge_start` | `float32` | - | Peak left edge boundary |
+| `edge_end` | `float32` | - | Peak right edge boundary |
+| `dt` | `int32` | - | Sample interval in nanoseconds |
+| `timestamp` | `int64` | - | Global timestamp in picoseconds |
+| `board` | `int16` | - | Hardware board index |
+| `channel` | `int16` | - | Physical channel number |
+| `record_id` | `int64` | - | Source record identifier |
 ## Usage
 
 ### Minimal Example

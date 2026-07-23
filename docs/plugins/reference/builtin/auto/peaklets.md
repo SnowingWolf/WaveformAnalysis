@@ -46,13 +46,13 @@ structured_array output with fields: time_start, time_end, center_time, n_hits, 
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `time_start` | `int64` | - | - |
-| `time_end` | `int64` | - | - |
-| `center_time` | `int64` | - | - |
-| `n_hits` | `int32` | - | - |
-| `n_channels` | `int32` | - | - |
-| `component_offset` | `int64` | - | - |
-| `component_count` | `int32` | - | - |
+| `time_start` | `int64` | - | Earliest absolute start time across component hits (ps) |
+| `time_end` | `int64` | - | Latest absolute end time across component hits (ps) |
+| `center_time` | `int64` | - | Midpoint of time_start and time_end (ps) |
+| `n_hits` | `int32` | - | Total number of component hits in the peaklet |
+| `n_channels` | `int32` | - | Number of distinct (board, channel) pairs in the peaklet |
+| `component_offset` | `int64` | - | Start row in peaklet_components for this peaklet |
+| `component_count` | `int32` | - | Number of component rows in peaklet_components for this peaklet |
 ## Usage
 
 ### Minimal Example

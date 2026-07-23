@@ -45,8 +45,8 @@ structured_array output with fields: peak_id, merged_index.
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `peak_id` | `int64` | - | - |
-| `merged_index` | `int64` | - | - |
+| `peak_id` | `int64` | - | Peaklet identifier, matching the row index in the peaklets table |
+| `merged_index` | `int64` | - | Index of the hit_merged row belonging to this peaklet |
 ## Usage
 
 ### Minimal Example

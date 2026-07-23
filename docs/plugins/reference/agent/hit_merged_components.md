@@ -44,8 +44,8 @@ structured_array output with fields: merged_index, hit_index.
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `merged_index` | `int64` | - | - |
-| `hit_index` | `int64` | - | - |
+| `merged_index` | `int64` | - | Index of the merged hit record |
+| `hit_index` | `int64` | - | Row index in the source hit_threshold array |
 ## Usage
 
 ### Minimal Example

@@ -48,17 +48,17 @@ structured_array output with fields: t_low, t_high, width, t_low_samples, t_high
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `t_low` | `float32` | - | - |
-| `t_high` | `float32` | - | - |
-| `width` | `float32` | - | - |
-| `t_low_samples` | `float32` | - | - |
-| `t_high_samples` | `float32` | - | - |
-| `width_samples` | `float32` | - | - |
-| `q_total` | `float64` | - | - |
-| `timestamp` | `int64` | - | - |
-| `board` | `int16` | - | - |
-| `channel` | `int16` | - | - |
-| `record_id` | `int64` | - | - |
+| `t_low` | `float32` | - | Low-quantile integral point (ns, corresponding to q_low) |
+| `t_high` | `float32` | - | High-quantile integral point (ns, corresponding to q_high) |
+| `width` | `float32` | - | t_high minus t_low (ns) |
+| `t_low_samples` | `float32` | - | Low-quantile integral point in sample index |
+| `t_high_samples` | `float32` | - | High-quantile integral point in sample index |
+| `width_samples` | `float32` | - | Pulse width in sample counts |
+| `q_total` | `float64` | - | Total baseline-subtracted charge (integral) |
+| `timestamp` | `int64` | - | ADC event timestamp |
+| `board` | `int16` | - | Hardware board index |
+| `channel` | `int16` | - | Physical channel number |
+| `record_id` | `int64` | - | Source record identifier |
 ## Usage
 
 ### Minimal Example

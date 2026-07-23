@@ -56,20 +56,20 @@ structured_array output with fields: timestamp, pid, board, channel, baseline, b
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `timestamp` | `int64` | - | - |
-| `pid` | `int32` | - | - |
-| `board` | `int16` | - | - |
-| `channel` | `int16` | - | - |
-| `baseline` | `float64` | - | - |
-| `baseline_upstream` | `float64` | - | - |
-| `polarity` | `<U8` | - | - |
-| `record_id` | `int64` | - | - |
-| `dt` | `int32` | - | - |
-| `trigger_type` | `int16` | - | - |
-| `flags` | `uint32` | - | - |
-| `wave_offset` | `int64` | - | - |
-| `event_length` | `int32` | - | - |
-| `time` | `int64` | - | - |
+| `timestamp` | `int64` | - | ADC timestamp in picoseconds |
+| `pid` | `int32` | - | Partition identifier used as a tie-breaker |
+| `board` | `int16` | - | Hardware board index |
+| `channel` | `int16` | - | Physical channel number |
+| `baseline` | `float64` | - | Computed global waveform baseline |
+| `baseline_upstream` | `float64` | - | Upstream baseline value from preceding processing |
+| `polarity` | `<U8` | - | Hardware-truth signal polarity |
+| `record_id` | `int64` | - | Sequential record identifier after sorting |
+| `dt` | `int32` | - | Sample interval in nanoseconds |
+| `trigger_type` | `int16` | - | Trigger type code |
+| `flags` | `uint32` | - | Bit field of record flags |
+| `wave_offset` | `int64` | - | Starting index in wave_pool |
+| `event_length` | `int32` | - | Waveform length in samples |
+| `time` | `int64` | - | System time in nanoseconds |
 ## Usage
 
 ### Minimal Example

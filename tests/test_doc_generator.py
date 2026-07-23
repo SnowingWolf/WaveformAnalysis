@@ -11,6 +11,7 @@ import tempfile
 
 import numpy as np
 import pytest
+import yaml
 
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
@@ -95,8 +96,8 @@ class TestPluginDocGenerator:
         assert "value" in field_names
         assert "count" in field_names
 
-    def test_output_field_notes_are_rendered_from_source_agent_doc(self):
-        """Source field metadata must replace the generated fallback text."""
+    def test_output_field_notes_are_rendered_from_dtype_metadata(self):
+        """Bundled dtype metadata must replace the generated fallback text."""
         from waveform_analysis.core.plugins.builtin.cpu.peak_classification import (
             PeakClassificationPlugin,
         )
@@ -107,15 +108,50 @@ class TestPluginDocGenerator:
         doc_info = generator.extract_doc_info(type(plugin), plugin)
         fields = {field.name: field for field in doc_info.output_fields}
 
-        assert fields["peak_id"].doc == ""
+        assert fields["peak_id"].doc.startswith("Zero-based index")
         assert doc_info.field_notes["peak_id"].startswith("Zero-based index")
-        assert (
-            doc_info.field_notes["label"] == "Classification code: 0=unknown, 1=S1, 2=S2, 3=S1_S2."
-        )
+        assert fields["label"].doc.startswith("Classification code")
 
         html = generator.render_plugin_html(doc_info)
         assert "No field description available." not in html
-        assert "Classification code: 0=unknown, 1=S1, 2=S2, 3=S1_S2." in html
+        assert "Classification code: 0=unknown, 1=S1, 2=S2, 3=S1_S2" in html
+
+    def test_bundled_dtype_field_notes_cover_registered_output_fields(self):
+        """Every registered output field has one bundled source-reviewed narrative."""
+        from waveform_analysis.documentation.field_notes import load_dtype_field_notes
+        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+
+        generator = PluginDocGenerator()
+        generator.load_builtin_plugins()
+        notes = load_dtype_field_notes()
+
+        for doc_info in generator.get_all_doc_info():
+            expected = {field.name for field in doc_info.output_fields}
+            assert set(notes[doc_info.provides]) == expected
+
+    def test_bundled_dtype_field_notes_have_no_duplicate_yaml_keys(self):
+        """YAML parsing must not silently discard a duplicated field narrative."""
+        from importlib.resources import files
+
+        root = files("waveform_analysis.documentation")
+        tree = yaml.compose(
+            root.joinpath("dtype_field_notes.yaml").read_text(encoding="utf-8"),
+            Loader=yaml.SafeLoader,
+        )
+
+        def duplicate_paths(node, path=""):
+            if isinstance(node, yaml.MappingNode):
+                keys = [key.value for key, _ in node.value]
+                duplicates = {key for key in keys if keys.count(key) > 1}
+                assert not duplicates, f"duplicate YAML keys at {path or '<root>'}: {duplicates}"
+                for key, value in node.value:
+                    duplicate_paths(value, f"{path}.{key.value}" if path else key.value)
+            elif isinstance(node, yaml.SequenceNode):
+                for index, value in enumerate(node.value):
+                    duplicate_paths(value, f"{path}[{index}]")
+
+        assert tree is not None
+        duplicate_paths(tree)
 
     def test_category_detection(self):
         """测试类别检测"""

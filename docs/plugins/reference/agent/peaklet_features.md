@@ -45,19 +45,19 @@ structured_array output with fields: peak_id, time_start, time_end, time_peak, c
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `peak_id` | `int64` | - | - |
-| `time_start` | `int64` | - | - |
-| `time_end` | `int64` | - | - |
-| `time_peak` | `int64` | - | - |
-| `center_time` | `int64` | - | - |
-| `rise_time` | `float32` | - | - |
-| `fall_time` | `float32` | - | - |
-| `width_25_75` | `float32` | - | - |
-| `rise_time_10_50` | `float32` | - | - |
-| `range_90p_area` | `float32` | - | - |
-| `area` | `float32` | - | - |
-| `height` | `float32` | - | - |
-| `width` | `float32` | - | - |
+| `peak_id` | `int64` | - | Peaklet identifier |
+| `time_start` | `int64` | - | Absolute start time of the peaklet (ps) |
+| `time_end` | `int64` | - | Absolute end time of the peaklet (ps) |
+| `time_peak` | `int64` | - | Time of the maximum sample value (ps) |
+| `center_time` | `int64` | - | Center time of the peaklet (ps) |
+| `rise_time` | `float32` | - | Rise time (ns) |
+| `fall_time` | `float32` | - | Fall time (ns) |
+| `width_25_75` | `float32` | - | Width between 25% and 75% of the peak (ns) |
+| `rise_time_10_50` | `float32` | - | Rise time from 10% to 50% (ns) |
+| `range_90p_area` | `float32` | - | Time range covering 90% of the waveform area (ns) |
+| `area` | `float32` | - | Total waveform area |
+| `height` | `float32` | - | Maximum waveform height |
+| `width` | `float32` | - | Pulse width (ns) |
 ## Usage
 
 ### Minimal Example

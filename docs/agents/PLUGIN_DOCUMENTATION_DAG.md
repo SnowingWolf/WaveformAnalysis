@@ -67,6 +67,13 @@ that are present (`summary`/`overview`, `steps`, `edge_cases`, and
 `operational_notes`). Plugin configuration, output schema, dependencies, and
 runtime topology always come from the currently registered plugin.
 
+Output field narratives are maintained in
+`waveform_analysis/documentation/dtype_field_notes.yaml`. Its key set must
+match the registered plugin `provides` values, and each field map must exactly
+match the output fields exposed by `PluginDocGenerator`. Explicit
+`OutputSchema` documentation still takes precedence. Regenerate Auto, Agent,
+and static references after changing the resource.
+
 New workflows must provide `plugin_facts.contract`, extracted without running
 plugin code. It records output container/type, option defaults, dependencies,
 and direct returned-call arguments. Candidate prose is linted against this

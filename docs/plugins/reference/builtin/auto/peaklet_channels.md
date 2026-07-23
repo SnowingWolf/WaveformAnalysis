@@ -46,13 +46,13 @@ structured_array output with fields: peaklet_id, board, channel, area, height, n
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `peaklet_id` | `int64` | - | - |
-| `board` | `int16` | - | - |
-| `channel` | `int16` | - | - |
-| `area` | `float32` | - | - |
-| `height` | `float32` | - | - |
-| `n_hits` | `int32` | - | - |
-| `area_fraction` | `float32` | - | - |
+| `peaklet_id` | `int64` | - | Peaklet identifier |
+| `board` | `int16` | - | Hardware board index |
+| `channel` | `int16` | - | Physical channel number |
+| `area` | `float32` | - | Total area contribution from this channel |
+| `height` | `float32` | - | Maximum height contribution from this channel |
+| `n_hits` | `int32` | - | Number of component hits from this channel |
+| `area_fraction` | `float32` | - | Fraction of the peaklet total area contributed by this channel |
 ## Usage
 
 ### Minimal Example

@@ -22,6 +22,7 @@ from typing import Any
 import numpy as np
 
 from waveform_analysis.core.foundation.utils import exporter
+from waveform_analysis.documentation.field_notes import dtype_field_notes_for
 
 export, __all__ = exporter()
 
@@ -685,6 +686,7 @@ class PluginDocGenerator:
         """
         output_schema = getattr(plugin, "output_schema", None)
         output_dtype = getattr(plugin, "output_dtype", None)
+        dtype_notes = dtype_field_notes_for(str(getattr(plugin, "provides", "")))
         output_fields = []
         output_kind = "unknown"
 
@@ -695,7 +697,7 @@ class PluginDocGenerator:
                     name=field.name,
                     dtype=field.dtype,
                     units=field.units,
-                    doc=field.doc,
+                    doc=field.doc or dtype_notes.get(field.name, ""),
                 )
                 for field in output_schema.fields
             ]
@@ -721,6 +723,7 @@ class PluginDocGenerator:
                         OutputFieldInfo(
                             name=name,
                             dtype=str(field_dtype),
+                            doc=dtype_notes.get(name, ""),
                         )
                     )
             else:
@@ -730,6 +733,7 @@ class PluginDocGenerator:
                     OutputFieldInfo(
                         name="value",
                         dtype=str(dtype),
+                        doc=dtype_notes.get("value", ""),
                     )
                 )
         except Exception:

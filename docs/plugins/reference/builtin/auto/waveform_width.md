@@ -49,18 +49,18 @@ structured_array output with fields: rise_time, fall_time, total_width, rise_tim
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `rise_time` | `float32` | - | - |
-| `fall_time` | `float32` | - | - |
-| `total_width` | `float32` | - | - |
-| `rise_time_samples` | `float32` | - | - |
-| `fall_time_samples` | `float32` | - | - |
-| `total_width_samples` | `float32` | - | - |
-| `peak_position` | `int64` | - | - |
-| `peak_height` | `float32` | - | - |
-| `timestamp` | `int64` | - | - |
-| `board` | `int16` | - | - |
-| `channel` | `int16` | - | - |
-| `record_id` | `int64` | - | - |
+| `rise_time` | `float32` | - | Rise time from 10% to 90% of peak height (ns) |
+| `fall_time` | `float32` | - | Fall time from 90% to 10% of peak height (ns) |
+| `total_width` | `float32` | - | Total width from 10% rise to 10% fall (ns) |
+| `rise_time_samples` | `float32` | - | Rise time in sample counts |
+| `fall_time_samples` | `float32` | - | Fall time in sample counts |
+| `total_width_samples` | `float32` | - | Total width in sample counts |
+| `peak_position` | `int64` | - | Peak position as sample index |
+| `peak_height` | `float32` | - | Peak height above baseline |
+| `timestamp` | `int64` | - | Event timestamp in picoseconds |
+| `board` | `int16` | - | Hardware board index |
+| `channel` | `int16` | - | Physical channel number |
+| `record_id` | `int64` | - | Source record identifier |
 ## Usage
 
 ### Minimal Example

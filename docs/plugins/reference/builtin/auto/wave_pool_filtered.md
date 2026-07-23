@@ -53,7 +53,7 @@ array output with fields: value.
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `value` | `float32` | - | - |
+| `value` | `float32` | - | Flattened float32 filtered sample value |
 ## Usage
 
 ### Minimal Example
