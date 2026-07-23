@@ -4,14 +4,16 @@ from pathlib import Path
 import pytest
 import yaml
 
+from waveform_analysis.core.plugins.builtin.cpu.raw_files import RawFileNamesPlugin
 from waveform_analysis.documentation import DocumentationOrchestrator, FileArtifactStore
+from waveform_analysis.documentation.contract_facts import extract_plugin_contract
 from waveform_analysis.documentation.types import NodeExecutionResult
 
 
 def _result(node_id: str, status: str, artifact_type: str | None, artifact: dict | None):
     return NodeExecutionResult(
         dag_name="plugin_documentation",
-        dag_version=1,
+        dag_version=2,
         node_id=node_id,
         node_status=status,
         artifact_type=artifact_type,
@@ -191,6 +193,92 @@ def test_agent_doc_generation_is_blocked_by_prior_blocking_ambiguity(tmp_path: P
         )
 
 
+def test_agent_doc_generation_requires_deterministic_contract(tmp_path: Path):
+    orchestrator = DocumentationOrchestrator()
+    state = orchestrator.new_state("raw_files", tmp_path)
+    state.current_node = "generate_agent_doc"
+    state.artifacts = {
+        "plugin_facts": {
+            "identity": {"plugin_name": "raw_files"},
+            "configuration": {},
+            "output_fields": [],
+        },
+        "semantic_spec": {"plugin_name": "raw_files"},
+        "ambiguity_report": {
+            "plugin_name": "raw_files",
+            "ambiguities": [],
+            "blocking_ambiguities": [],
+        },
+    }
+    candidate = {"plugin_name": "raw_files", "summary": "Scan.", "steps": [], "edge_cases": []}
+
+    with pytest.raises(ValueError, match="requires plugin_facts.contract"):
+        orchestrator.accept_result(
+            state, _result("generate_agent_doc", "success", "AgentDoc", candidate)
+        )
+
+
+def _raw_files_generation_state(tmp_path: Path):
+    plugin = RawFileNamesPlugin()
+    orchestrator = DocumentationOrchestrator()
+    state = orchestrator.new_state("raw_files", tmp_path)
+    state.current_node = "generate_agent_doc"
+    state.artifacts = {
+        "plugin_facts": {
+            "identity": {"plugin_name": "raw_files", "version": plugin.version},
+            "configuration": {},
+            "output_fields": [],
+            "contract": extract_plugin_contract(type(plugin), plugin),
+        },
+        "semantic_spec": {"plugin_name": "raw_files"},
+        "ambiguity_report": {
+            "plugin_name": "raw_files",
+            "ambiguities": [],
+            "blocking_ambiguities": [],
+        },
+    }
+    return orchestrator, state
+
+
+def test_agent_doc_contract_rejects_raw_files_fact_drift_before_verification(tmp_path: Path):
+    orchestrator, state = _raw_files_generation_state(tmp_path)
+    candidate = {
+        "plugin_name": "raw_files",
+        "summary": "Return a dictionary of paths.",
+        "steps": ["Call get_raw_files with run_name, daq_adapter='v2730', and daq_run."],
+        "edge_cases": [],
+    }
+
+    with pytest.raises(ValueError) as exc_info:
+        orchestrator.accept_result(
+            state, _result("generate_agent_doc", "success", "AgentDoc", candidate)
+        )
+
+    message = str(exc_info.value)
+    assert "output container contradicts" in message
+    assert "argument `data_root`" in message
+    assert "default must match `vx2730`" in message
+    assert state.current_node == "generate_agent_doc"
+
+
+def test_agent_doc_contract_allows_raw_files_source_backed_steps(tmp_path: Path):
+    orchestrator, state = _raw_files_generation_state(tmp_path)
+    candidate = {
+        "plugin_name": "raw_files",
+        "summary": "Return raw file paths grouped by channel.",
+        "steps": [
+            "Call get_raw_files with run_name, data_root (default DAQ), optional daq_run, "
+            "and daq_adapter (default vx2730)."
+        ],
+        "edge_cases": [],
+    }
+
+    state = orchestrator.accept_result(
+        state, _result("generate_agent_doc", "success", "AgentDoc", candidate)
+    )
+    assert state.current_node == "verify_agent_doc"
+
+
 def test_deterministic_runner_executes_one_declared_node(tmp_path: Path):
     orchestrator = DocumentationOrchestrator()
     state = orchestrator.new_state("hit_merged", tmp_path)
@@ -259,3 +347,20 @@ def test_bundled_dag_resources_are_available_from_the_package():
     assert root.joinpath("dags/plugin_documentation.yaml").is_file()
     assert root.joinpath("schemas/PluginSemanticSpec.schema.json").is_file()
     assert root.joinpath("prompts/recover_semantics.md").is_file()
+
+
+def test_raw_files_contract_is_extracted_without_executing_compute():
+    plugin = RawFileNamesPlugin()
+    contract = extract_plugin_contract(type(plugin), plugin)
+    assert contract["output"] == {"kind": "list", "annotation": "list[list[str]]"}
+    assert contract["options"] == [
+        {"name": "data_root", "default": "DAQ"},
+        {"name": "daq_adapter", "default": "vx2730"},
+    ]
+    assert contract["calls"] == [
+        {
+            "name": "get_raw_files",
+            "keyword_arguments": ["run_name", "data_root", "daq_run", "daq_adapter"],
+            "option_arguments": ["data_root", "daq_adapter"],
+        }
+    ]

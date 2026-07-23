@@ -67,6 +67,11 @@ that are present (`summary`/`overview`, `steps`, `edge_cases`, and
 `operational_notes`). Plugin configuration, output schema, dependencies, and
 runtime topology always come from the currently registered plugin.
 
+New workflows must provide `plugin_facts.contract`, extracted without running
+plugin code. It records output container/type, option defaults, dependencies,
+and direct returned-call arguments. Candidate prose is linted against this
+contract before semantic verification; a contradiction cannot reach publication.
+
 For an algorithm or contract update: update the source `agent_doc` and focused
 tests, run the documentation DAG without executing plugin data, review every
 agent-node result, then publish only its passed terminal candidate:

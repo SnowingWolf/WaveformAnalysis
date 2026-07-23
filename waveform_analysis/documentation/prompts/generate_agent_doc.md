@@ -10,5 +10,11 @@ from anchor-copied fields; describe cross-record behavior and meaningful edge ca
 Use exact option and field names. Add a small numerical example only when it clarifies
 a decision rule.
 
+The supplied `plugin_facts.contract` is authoritative. If you describe an output
+container, option default, dependency, or direct returned call, copy its value
+exactly from that contract. For direct returned calls, state every listed keyword
+argument and every option-backed argument with its configured default. Omit a
+detail when the contract does not establish it.
+
 Do not regenerate configuration, dtype, dependency, or consumer tables. Do not expose
 source identifiers or make unsupported claims. Return one JSON node-result envelope.

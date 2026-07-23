@@ -1,10 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["identity", "configuration", "output_fields"],
+  "required": ["identity", "configuration", "output_fields", "contract"],
   "properties": {
     "identity": {"type": "object"},
     "configuration": {"type": "object"},
+    "contract": {"type": "object"},
     "input_fields": {"type": "array"},
     "output_fields": {"type": "array"},
     "dependencies": {"type": "array"},

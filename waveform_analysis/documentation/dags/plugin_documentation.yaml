@@ -1,5 +1,5 @@
 name: plugin_documentation
-version: 1
+version: 2
 description: >
   Analyze a waveform-analysis plugin, reconstruct its observable behavior,
   generate a structured AgentDoc, and verify documentation claims before publication.
@@ -65,10 +65,11 @@ nodes:
     inputs: [plugin_context]
     instructions:
       - Extract identity, options, input and output fields, dependencies, comparisons, sentinels and failure conditions.
+      - Extract a deterministic contract for output kind/type, option defaults, declared dependencies, and direct returned calls.
       - Do not infer user-facing meaning from variable names.
     output: {artifact: plugin_facts, schema: PluginFacts}
     acceptance:
-      required: [plugin_facts.identity, plugin_facts.configuration, plugin_facts.output_fields]
+      required: [plugin_facts.identity, plugin_facts.configuration, plugin_facts.output_fields, plugin_facts.contract]
       checks:
         - Every fact references source evidence.
         - Field names and defaults exactly match source.
@@ -133,6 +134,7 @@ nodes:
       - Do not regenerate configuration, output dtype, dependency or consumer tables.
       - Do not include unsupported claims or evidence identifiers.
       - Do not hide non-blocking ambiguity that affects users.
+      - Treat plugin_facts.contract as authoritative for output containers, option defaults, dependencies, and documented call arguments.
     output: {artifact: agent_doc, schema: AgentDoc}
     acceptance:
       required: [agent_doc.summary, agent_doc.steps, agent_doc.edge_cases]

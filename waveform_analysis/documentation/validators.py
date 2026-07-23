@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import Any
 
 from .types import DocumentationDAG, NodeExecutionResult
@@ -116,7 +117,7 @@ def validate_acceptance(
     elif node_id == "detect_ambiguities":
         issues.extend(_validate_ambiguity_report(artifact))
     elif node_id == "generate_agent_doc":
-        issues.extend(_validate_agent_doc_inputs(available_artifacts))
+        issues.extend(_validate_agent_doc_inputs(artifact, available_artifacts))
     elif node_id == "verify_agent_doc":
         issues.extend(_validate_verification_report(artifact, node_status))
     return issues
@@ -169,12 +170,82 @@ def _validate_ambiguity_report(artifact: dict[str, Any]) -> list[str]:
     return issues
 
 
-def _validate_agent_doc_inputs(available_artifacts: dict[str, dict[str, Any]]) -> list[str]:
+def _validate_agent_doc_inputs(
+    artifact: dict[str, Any], available_artifacts: dict[str, dict[str, Any]]
+) -> list[str]:
     report = available_artifacts.get("ambiguity_report", {})
     blocking = report.get("blocking_ambiguities", []) if isinstance(report, dict) else []
     if blocking:
         return ["generate_agent_doc cannot run while blocking ambiguities remain"]
-    return []
+    facts = available_artifacts.get("plugin_facts", {})
+    contract = facts.get("contract") if isinstance(facts, dict) else None
+    if not isinstance(contract, dict):
+        return ["generate_agent_doc requires plugin_facts.contract"]
+    return validate_agent_doc_contract(artifact, contract)
+
+
+def validate_agent_doc_contract(agent_doc: dict[str, Any], contract: dict[str, Any]) -> list[str]:
+    """Reject generated claims that disagree with deterministic source facts."""
+    issues: list[str] = []
+    narrative = _narrative_text(agent_doc)
+    steps = "\n".join(str(item) for item in agent_doc.get("steps", []))
+    output = contract.get("output", {})
+    annotation = str(output.get("annotation", "")).lower()
+    if "list" in annotation and re.search(r"\b(dict|dictionary|mapping)\b", narrative):
+        issues.append(
+            "AgentDoc output container contradicts plugin_facts.contract.output.annotation"
+        )
+
+    option_defaults = {
+        str(item.get("name")): str(item.get("default"))
+        for item in contract.get("options", [])
+        if isinstance(item, dict) and item.get("name") is not None
+    }
+    for call in contract.get("calls", []):
+        if not isinstance(call, dict):
+            continue
+        call_name = str(call.get("name", ""))
+        if call_name and not _contains_term(steps, call_name):
+            issues.append(f"AgentDoc steps must name returned call `{call_name}`")
+        for argument in call.get("keyword_arguments", []):
+            if not _contains_term(steps, str(argument)):
+                issues.append(f"AgentDoc steps must include `{call_name}` argument `{argument}`")
+        for option_name in call.get("option_arguments", []):
+            name = str(option_name)
+            default = option_defaults.get(name)
+            if default is None:
+                continue
+            if not _contains_term(steps, name):
+                issues.append(f"AgentDoc steps must mention option `{name}`")
+            elif not _option_default_matches(steps, name, default):
+                issues.append(
+                    f"AgentDoc option `{name}` default must match `{default}` from contract"
+                )
+    return issues
+
+
+def _narrative_text(agent_doc: dict[str, Any]) -> str:
+    values = []
+    for name in ("summary", "overview", "steps", "edge_cases", "operational_notes"):
+        value = agent_doc.get(name, "")
+        values.extend(value if isinstance(value, list) else [value])
+    return "\n".join(str(value).lower() for value in values)
+
+
+def _contains_term(text: str, term: str) -> bool:
+    return bool(re.search(rf"(?<![\w.]){re.escape(term)}(?![\w.])", text, re.IGNORECASE))
+
+
+def _option_default_matches(text: str, option_name: str, default: str) -> bool:
+    escaped_name = re.escape(option_name)
+    escaped_default = re.escape(default)
+    return bool(
+        re.search(
+            rf"{escaped_name}.{{0,100}}?(?:default|=|is).{{0,20}}?{escaped_default}",
+            text,
+            re.IGNORECASE,
+        )
+    )
 
 
 def _validate_verification_report(artifact: dict[str, Any], node_status: str) -> list[str]:
