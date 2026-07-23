@@ -131,7 +131,7 @@ def test_web_lineage_omits_unknown_inputs_and_lists_isolated_plugins(tmp_path):
     assert 'src="assets/plotly.min.js"' in index
     assert 'id="plugin-global-lineage"' in index
     assert 'href="plugins/source_rows.html"' in index
-    assert '"documentation_completeness":53,"dag_impact":100' in index
+    assert "class: SourcePlugin" in index
     assert 'href="source_rows.html"' in detailed
     assert 'class="lineage-node-placeholder"' not in index
     assert "external_input" not in index

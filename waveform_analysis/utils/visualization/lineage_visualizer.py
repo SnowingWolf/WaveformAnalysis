@@ -1267,6 +1267,7 @@ def plot_lineage_plotly(
     save_path: str | None = None,
     data_wires: bool = False,
     interactive: bool = True,
+    show: bool = True,
     **kwargs,
 ):
     """
@@ -1286,6 +1287,7 @@ def plot_lineage_plotly(
         save_path: 可选，保存图片路径。
         data_wires: 是否在连线上显示数据类型。
         interactive: Plotly 图表始终是交互式的，此参数仅为兼容性保留（会被忽略）。
+        show: Whether to display the figure immediately. Set false for HTML export.
 
     注意:
         需要安装 plotly: pip install plotly
@@ -1710,5 +1712,6 @@ def plot_lineage_plotly(
     if save_path:
         fig.write_image(save_path)
 
-    fig.show()
+    if show:
+        fig.show()
     return fig

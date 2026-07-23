@@ -19,7 +19,7 @@
 ## generate_docs Notes
 
 - `doc_target_scope`: `plugins-web` static site
-- `source_change_summary`: Add a generated clickable plugin DAG and two documentation-only scores. Resolve dynamic dependencies using a no-data default-config facade so raw_files and other default-path nodes appear in the global Plotly graph; retain a compact static SVG for each plugin-local graph.
+- `source_change_summary`: Add a generated clickable plugin DAG and two documentation-only scores. Resolve dynamic dependencies using a no-data default-config facade so raw_files and other default-path nodes appear in the global graph; construct the shared port-level `LineageGraphModel` and reuse the runtime Plotly renderer for visual consistency.
 - `generation_mode`: manual
 - `must_run_commands`:
   - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest tests/test_plugin_documentation.py -q`

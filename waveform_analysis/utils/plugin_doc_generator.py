@@ -1205,72 +1205,72 @@ class PluginDocGenerator:
             ),
         )
 
-    @staticmethod
-    def _render_global_plotly_html(lineage_graph: _WebLineageGraph) -> str:
-        """Render the global documentation graph as an offline Plotly fragment."""
-        try:
-            import plotly.graph_objects as go
-        except ImportError as exc:
-            raise ImportError(
-                "plotly is required for the global plugins-web lineage view. "
-                "Install the project documentation dependencies."
-            ) from exc
+    def _build_default_lineage_model(
+        self,
+        plugins: list[PluginDocumentationView],
+        dependencies_by_provides: dict[str, list[str]],
+    ) -> Any:
+        """Build the same port-level model used by runtime Plotly lineage views."""
+        from waveform_analysis.core.foundation.model import build_lineage_graph
 
-        nodes = lineage_graph.nodes
-        positions = {node.node_id: (node.x, -node.y) for node in nodes}
-        edge_x: list[float | None] = []
-        edge_y: list[float | None] = []
-        for edge in lineage_graph.edges:
-            source = positions[edge.source_id]
-            target = positions[edge.target_id]
-            edge_x.extend([source[0], target[0], None])
-            edge_y.extend([source[1], target[1], None])
+        root_name = "__plugin_docs_root__"
+        views_by_provides = {plugin.provides: plugin for plugin in plugins}
+        instances = {str(instance.provides): instance for _, instance in self._plugins}
 
-        customdata = [
-            {
-                "href": node.href,
-                "provides": node.label,
-                "documentation_completeness": node.documentation_completeness,
-                "dag_impact": node.dag_impact,
+        def lineage_for(provides: str, visiting: set[str]) -> dict[str, Any]:
+            view = views_by_provides[provides]
+            if provides in visiting:
+                return {"plugin_class": "CircularDependency", "depends_on": {}}
+            dependencies = {
+                dependency: lineage_for(dependency, visiting | {provides})
+                for dependency in dependencies_by_provides.get(provides, [])
+                if dependency in views_by_provides
             }
-            for node in nodes
+            return {
+                "plugin_class": view.name,
+                "description": view.description,
+                "provides": provides,
+                "config": {},
+                "depends_on": dependencies,
+            }
+
+        lineage = {
+            "plugin_class": "DocumentationRoot",
+            "description": "Synthetic root for the default builtin plugin graph.",
+            "depends_on": {
+                provides: lineage_for(provides, set()) for provides in views_by_provides
+            },
+        }
+        model = build_lineage_graph(lineage, root_name, instances)
+        model.nodes.pop(root_name, None)
+        model.edges = [
+            edge
+            for edge in model.edges
+            if edge.source_node_id != root_name and edge.target_node_id != root_name
         ]
-        figure = go.Figure()
-        figure.add_trace(
-            go.Scatter(
-                x=edge_x,
-                y=edge_y,
-                mode="lines",
-                hoverinfo="skip",
-                line={"color": "#80908a", "width": 1.5},
-                showlegend=False,
-            )
+        return model
+
+    def _render_global_plotly_html(
+        self,
+        plugins: list[PluginDocumentationView],
+        dependencies_by_provides: dict[str, list[str]],
+    ) -> str:
+        """Render the default plugin graph with the runtime Plotly lineage renderer."""
+        from waveform_analysis.utils.visualization.lineage_visualizer import plot_lineage_plotly
+
+        model = self._build_default_lineage_model(plugins, dependencies_by_provides)
+        figure = plot_lineage_plotly(
+            model,
+            "Builtin Plugin Lineage (Defaults)",
+            show=False,
+            data_wires=False,
         )
-        figure.add_trace(
-            go.Scatter(
-                x=[node.x for node in nodes],
-                y=[-node.y for node in nodes],
-                mode="markers+text",
-                text=[node.label for node in nodes],
-                textposition="top center",
-                customdata=customdata,
-                hovertemplate=(
-                    "<b>%{customdata.provides}</b><br>Docs %{customdata.documentation_completeness}"
-                    "<br>Impact %{customdata.dag_impact}<extra>Open plugin reference</extra>"
-                ),
-                marker={"size": 14, "color": "#087f5b", "line": {"width": 1, "color": "#075a42"}},
-                showlegend=False,
-            )
-        )
-        figure.update_layout(
-            height=max(620, min(1400, lineage_graph.height + 120)),
-            margin={"l": 20, "r": 20, "t": 20, "b": 20},
-            paper_bgcolor="#ffffff",
-            plot_bgcolor="#ffffff",
-            dragmode="pan",
-            xaxis={"visible": False, "fixedrange": False},
-            yaxis={"visible": False, "fixedrange": False, "scaleanchor": "x"},
-        )
+        for trace in figure.data:
+            if not str(trace.name).startswith("node_"):
+                continue
+            provides = str(trace.name).removeprefix("node_")
+            trace.customdata = [{"href": f"plugins/{provides}.html", "provides": provides}]
+
         fragment = figure.to_html(
             full_html=False,
             include_plotlyjs=False,
@@ -1289,14 +1289,12 @@ class PluginDocGenerator:
     if (href) window.location.assign(href);
   });
   const focus = new URLSearchParams(window.location.search).get("focus");
-  const trace = graph.data.find((item) => Array.isArray(item.customdata));
-  if (!focus || !trace) return;
-  const index = trace.customdata.findIndex((item) => item.provides === focus);
-  if (index < 0) return;
-  const colors = trace.x.map(() => "#087f5b");
-  colors[index] = "#b45309";
-  Plotly.restyle(graph, {"marker.color": [colors]}, [graph.data.indexOf(trace)]);
-  Plotly.Fx.hover(graph, [{curveNumber: graph.data.indexOf(trace), pointNumber: index}]);
+  if (!focus) return;
+  const traceIndex = graph.data.findIndex(
+    (item) => item.customdata?.[0]?.provides === focus,
+  );
+  if (traceIndex < 0) return;
+  Plotly.Fx.hover(graph, [{curveNumber: traceIndex, pointNumber: 0}]);
 })();
 </script>"""
         )
@@ -1333,7 +1331,9 @@ class PluginDocGenerator:
             dependencies_by_provides=dependencies_by_provides,
         )
         if global_lineage_html is None:
-            global_lineage_html = self._render_global_plotly_html(lineage_graph)
+            global_lineage_html = self._render_global_plotly_html(
+                scored_plugins, dependencies_by_provides or self._default_dependency_map()
+            )
         return (
             self._get_web_jinja_env()
             .get_template("web/index.html.j2")
@@ -1382,7 +1382,7 @@ class PluginDocGenerator:
                 plugins,
                 lineage_graph=global_graph,
                 dependencies_by_provides=default_dependencies,
-                global_lineage_html=self._render_global_plotly_html(global_graph),
+                global_lineage_html=self._render_global_plotly_html(plugins, default_dependencies),
             ),
             encoding="utf-8",
         )

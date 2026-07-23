@@ -9,6 +9,7 @@
   - `JavaScript_syntax`: pass
   - `default_resolved_plugins_web_generation`: pass (35 plugins, 39 files)
   - `generated_HTML_inspection`: pass (`raw_files` and `st_waveforms` are global Plotly nodes; local Plotly asset, click handler, and scroll zoom are present)
+  - `shared_renderer_regression`: pass (48 focused tests; global HTML contains the runtime renderer's plugin class and port-level node content)
   - `doc_sync`: pass
   - `doc_anchors`: pass
 - `decision`: `completed`
