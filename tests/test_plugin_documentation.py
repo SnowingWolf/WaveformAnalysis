@@ -1,4 +1,5 @@
 from dataclasses import replace
+import json
 from pathlib import Path
 
 import numpy as np
@@ -105,6 +106,7 @@ def test_web_generation_is_offline_relative_and_escaped(tmp_path):
     assert (tmp_path / "assets" / "site.css").is_file()
     assert (tmp_path / "assets" / "site.js").is_file()
     assert (tmp_path / "assets" / "plotly.min.js").is_file()
+    assert (tmp_path / "assets" / "lineage-details.json").is_file()
 
 
 def test_web_lineage_omits_unknown_inputs_and_lists_isolated_plugins(tmp_path):
@@ -128,10 +130,13 @@ def test_web_lineage_omits_unknown_inputs_and_lists_isolated_plugins(tmp_path):
     result = generator.generate_web(tmp_path)
     index = result["INDEX"].read_text(encoding="utf-8")
     detailed = result["detailed_output"].read_text(encoding="utf-8")
+    details = json.loads((tmp_path / "assets" / "lineage-details.json").read_text())
     assert 'src="assets/plotly.min.js"' in index
     assert 'id="plugin-global-lineage"' in index
-    assert 'href="plugins/source_rows.html"' in index
-    assert "class: SourcePlugin" in index
+    assert 'data-lineage-details="assets/lineage-details.json"' in index
+    assert "data-lineage-detail-plot" in index
+    assert "IN::" not in index
+    assert "OUT::" not in index
     assert 'href="source_rows.html"' in detailed
     assert 'class="lineage-node-placeholder"' not in index
     assert "external_input" not in index
@@ -140,7 +145,11 @@ def test_web_lineage_omits_unknown_inputs_and_lists_isolated_plugins(tmp_path):
     assert 'href="plugins/unknown_output.html"' in index
     assert 'href="../index.html?focus=detailed_output"' in detailed
     assert '"scrollZoom": true' in index
-    assert "plotly_click" in index
+    assert "plotly_click" not in index
+    assert {"source_rows", "detailed_output", "unknown_output"} <= details.keys()
+    assert any(
+        trace.get("name") == "node_detailed_output" for trace in details["detailed_output"]["data"]
+    )
 
     dynamic_view = replace(
         generator.extract_doc_info(_EmptyPlugin, _EmptyPlugin()),
@@ -174,6 +183,39 @@ def test_web_lineage_resolves_dynamic_dependencies_from_plugin_defaults():
     assert "plugin:st_waveforms" in node_ids
     assert ("plugin:raw_files", "plugin:st_waveforms") in {
         (edge.source_id, edge.target_id) for edge in graph.edges
+    }
+
+
+def test_detail_lineage_contains_direct_neighbors_not_transitive_plugins():
+    class SourcePlugin(_EmptyPlugin):
+        provides = "source_rows"
+
+    class MiddlePlugin(_DetailedPlugin):
+        provides = "middle_rows"
+        depends_on = ["source_rows"]
+
+    class TargetPlugin(_DetailedPlugin):
+        provides = "target_rows"
+        depends_on = ["middle_rows"]
+
+    class ConsumerPlugin(_DetailedPlugin):
+        provides = "consumer_rows"
+        depends_on = ["target_rows"]
+
+    generator = PluginDocGenerator()
+    for plugin in (SourcePlugin, MiddlePlugin, TargetPlugin, ConsumerPlugin):
+        generator.register_plugin(plugin)
+    dependencies = generator._default_dependency_map()
+    plugins = generator._with_web_scores(
+        generator.get_all_doc_info(), dependencies_by_provides=dependencies
+    )
+    model = generator._build_default_lineage_model(plugins, dependencies)
+    detail = generator._direct_lineage_model(model, "target_rows")
+
+    assert set(detail.nodes) == {"middle_rows", "target_rows", "consumer_rows"}
+    assert {(edge.source_node_id, edge.target_node_id) for edge in detail.edges} == {
+        ("middle_rows", "target_rows"),
+        ("target_rows", "consumer_rows"),
     }
 
 

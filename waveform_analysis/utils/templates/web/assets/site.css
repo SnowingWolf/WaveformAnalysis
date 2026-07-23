@@ -36,6 +36,17 @@ main { width: min(1180px, calc(100% - 48px)); margin: 28px auto 56px; }
 .lineage-plotly { min-height: 620px; margin: 18px 0 10px; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
 .lineage-plotly .js-plotly-plot { cursor: grab; }
 .lineage-plotly .js-plotly-plot:active { cursor: grabbing; }
+.lineage-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 22px; align-items: start; }
+.lineage-overview { min-width: 0; }
+.lineage-detail { position: sticky; top: 18px; min-height: 500px; margin-top: 18px; padding: 18px; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
+.lineage-detail-header { display: flex; justify-content: space-between; gap: 12px; align-items: start; border-bottom: 1px solid var(--line); }
+.lineage-detail-header h3 { margin-bottom: 12px; font-size: 18px; overflow-wrap: anywhere; }
+.lineage-detail-close { width: 32px; height: 32px; flex: 0 0 32px; padding: 0; border: 1px solid #aeb9b4; border-radius: 4px; background: #fff; color: var(--ink); font: 24px/1 system-ui, sans-serif; cursor: pointer; }
+.lineage-detail-close:hover, .lineage-detail-close:focus-visible { border-color: var(--accent); background: #e8f6f0; outline: none; }
+.lineage-detail-empty { margin: 18px 0; color: var(--muted); }
+.lineage-detail-link { display: inline-block; margin: 14px 0 8px; color: var(--accent); font-weight: 650; }
+.lineage-detail-plot { height: 430px; margin-top: 10px; border-top: 1px solid var(--line); }
+.lineage-detail-plot .js-plotly-plot { width: 100% !important; height: 100% !important; }
 .lineage-isolated { margin-top: 14px; color: var(--muted); font-size: 13px; }
 .lineage-isolated summary { cursor: pointer; }
 .lineage-isolated-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
@@ -65,4 +76,5 @@ code, pre { font-family: ui-monospace, monospace; } pre { overflow-x: auto; padd
 [hidden] { display: none !important; }
 .plugin-overview { max-width: 800px; margin-bottom: 18px; color: var(--ink); }
 .plugin-overview p { margin: 0 0 10px; line-height: 1.65; }
-@media (max-width: 700px) { .site-header { grid-template-columns: 1fr; } main { width: min(100% - 28px, 1180px); } .lineage-section { padding: 16px; } .section-heading { display: block; } .section-heading > p { margin-top: 8px; } .lineage-toolbar { align-items: start; flex-direction: column; } }
+@media (max-width: 980px) { .lineage-workspace { grid-template-columns: 1fr; } .lineage-detail { position: static; min-height: 0; margin-top: 0; } .lineage-detail-plot { height: 460px; } }
+@media (max-width: 700px) { .site-header { grid-template-columns: 1fr; } main { width: min(100% - 28px, 1180px); } .lineage-section { padding: 16px; } .section-heading { display: block; } .section-heading > p { margin-top: 8px; } .lineage-toolbar { align-items: start; flex-direction: column; } .lineage-plotly { min-height: 480px; } .lineage-detail { padding: 14px; } .lineage-detail-plot { height: 400px; } }

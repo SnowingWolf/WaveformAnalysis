@@ -107,11 +107,16 @@ waveform-docs generate plugins-agent --plugin raw_files
 waveform-docs generate plugins-web -o docs/_site
 ```
 
-生成后的 HTML 首页使用本地 Plotly 提供可点击、可缩放、可拖拽的全局插件图。动态插件的边按其
-Option 默认值解析，因此 `raw_files` 等默认路径节点会参与拓扑；此过程不读取 run data、缓存或
-执行插件 compute。每个插件页仍包含直接上游和下游的局部 SVG 图，并可跳转到首页对应插件的全局
-定位视图。图中 `Docs` 表示可用文档字段的加权完整度，`Impact` 表示该插件在默认解析图中的相对
-下游覆盖范围；两者均为静态文档指标，不表示运行时性能、数据质量或缓存 lineage。
+生成后的 HTML 首页使用本地 Plotly 提供可点击、可缩放、可拖拽的紧凑全局插件总览。为保持卡片
+可读性，首页默认显示一个可平移的拓扑窗口；缩放或拖拽可查看完整图。点击插件会在首页右侧打开
+只包含该插件、直接输入和直接消费者的端口级 Plotly 谱系图，端口图复用运行时 Context 的渲染器，
+并提供到完整插件参考页的链接。`?focus=<provides>` 可直接恢复该选择。
+
+动态插件的边按其 Option 默认值解析，因此 `raw_files` 等默认路径节点会参与拓扑；此过程不读取
+run data、缓存或执行插件 compute。每个插件页仍包含直接上游和下游的局部 SVG 图，并可跳转到首页
+对应插件的全局定位视图。站点包含本地 `plotly.min.js` 和 `lineage-details.json`，不引用 CDN 或外部
+资源。图中 `Docs` 表示可用文档字段的加权完整度，`Impact` 表示该插件在默认解析图中的相对下游
+覆盖范围；两者均为静态文档指标，不表示运行时性能、数据质量或缓存 lineage。
 
 ### 2. 检查文档覆盖率
 

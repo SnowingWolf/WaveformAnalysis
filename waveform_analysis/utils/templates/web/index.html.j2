@@ -25,9 +25,25 @@
           <p class="eyebrow">Default dependency view</p>
           <h2>{{ lineage_graph.title }}</h2>
         </div>
-        <p>Dependencies resolved from builtin plugin defaults. Drag to pan, use the mode bar or mouse wheel to zoom, and select a node to open its reference page.</p>
+        <p>Dependencies resolved from builtin plugin defaults. Drag to pan, use the mode bar or mouse wheel to zoom, and select a plugin to inspect its direct port-level lineage.</p>
       </div>
-      <div class="lineage-plotly">{{ global_lineage_html }}</div>
+      <div class="lineage-workspace" data-lineage-details="assets/lineage-details.json">
+        <div class="lineage-overview">
+          <div class="lineage-plotly">{{ global_lineage_html }}</div>
+        </div>
+        <aside class="lineage-detail" aria-live="polite">
+          <div class="lineage-detail-header">
+            <div>
+              <p class="eyebrow">Direct lineage</p>
+              <h3 data-lineage-detail-title>Select a plugin</h3>
+            </div>
+            <button class="lineage-detail-close" type="button" title="Close lineage detail" aria-label="Close lineage detail" data-lineage-detail-close>&times;</button>
+          </div>
+          <p class="lineage-detail-empty" data-lineage-detail-empty>Select a node in the overview to inspect its direct inputs and consumers.</p>
+          <a class="lineage-detail-link" data-lineage-detail-link hidden>Open plugin reference</a>
+          <div class="lineage-detail-plot" data-lineage-detail-plot hidden></div>
+        </aside>
+      </div>
       <p class="lineage-legend">Docs: documentation completeness. Impact: relative downstream reach in the default-resolved plugin graph. No run data or cache is accessed.</p>
       {% if lineage_graph.isolated_nodes %}
       <details class="lineage-isolated">

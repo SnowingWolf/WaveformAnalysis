@@ -13,16 +13,17 @@
 - `actions_taken`:
   - Added a restricted default-config facade for dynamic dependency resolution; it exposes Option defaults only and cannot access data, caches, or plugin compute.
   - Built the global graph from the default-resolved builtin edges, so `raw_files` and other default-path nodes participate in topology and impact scores.
-  - Rendered the global graph with offline Plotly, local `plotly.min.js`, pan/zoom, hover metrics, click-to-reference navigation, and focused URL highlighting.
-  - Replaced the point-and-line Plotly fragment with the shared port-level `LineageGraphModel` and `plot_lineage_plotly(..., show=False)` renderer used by runtime Context lineage.
+  - Rendered a compact global graph with offline Plotly, local `plotly.min.js`, pan/zoom, hover metrics, selection highlighting, and focused URL restoration.
+  - Precomputed local `lineage-details.json` figures for each plugin. Each figure is limited to direct upstream/downstream nodes and uses the shared `LineageGraphModel` plus `plot_lineage_plotly(..., show=False)` renderer used by runtime Context lineage.
+  - Added a responsive right-side detail panel with a full plugin-reference link; it stacks below the overview on narrow screens.
   - Retained compact static Local Lineage SVGs with links to `index.html?focus=<provides>`.
 - `commands_run`:
   - `python -m pytest -q --no-cov tests/test_plugin_documentation.py tests/test_doc_generator.py` (44 passed)
   - `python -m black --check waveform_analysis/utils/plugin_doc_generator.py tests/test_plugin_documentation.py`
   - `node --check waveform_analysis/utils/templates/web/assets/site.js`
   - `python -m waveform_analysis.utils.cli_docs generate plugins-web -o docs/_site`
-  - `python -m pytest -q --no-cov tests/test_plugin_documentation.py tests/test_lineage_visualizer.py tests/test_doc_generator.py` (48 passed)
+  - `python -m pytest -q --no-cov tests/test_plugin_documentation.py tests/test_lineage_visualizer.py tests/test_doc_generator.py` (49 passed)
 - `open_risks`:
-  - The displayed dynamic edges represent Option defaults only; user configuration can change runtime topology.
+  - The displayed dynamic edges represent Option defaults only; user configuration can change runtime topology. Detail figures are generated assets and are loaded through an HTTP static server when browser file-origin fetch restrictions apply.
 - `requested_review_focus`:
   - Verify Plotly remains offline, default dependency resolution has no data access, and Local-to-global navigation remains relative.

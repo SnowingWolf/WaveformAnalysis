@@ -13,6 +13,7 @@
 
 from dataclasses import dataclass, field, replace
 import inspect
+import json
 from pathlib import Path
 import re
 import shutil
@@ -1250,54 +1251,184 @@ class PluginDocGenerator:
         ]
         return model
 
-    def _render_global_plotly_html(
-        self,
-        plugins: list[PluginDocumentationView],
-        dependencies_by_provides: dict[str, list[str]],
-    ) -> str:
-        """Render the default plugin graph with the runtime Plotly lineage renderer."""
-        from waveform_analysis.utils.visualization.lineage_visualizer import plot_lineage_plotly
+    def _render_global_plotly_html(self, lineage_graph: _WebLineageGraph) -> str:
+        """Render a compact, clickable plugin-only overview with Plotly.
 
-        model = self._build_default_lineage_model(plugins, dependencies_by_provides)
-        figure = plot_lineage_plotly(
-            model,
-            "Builtin Plugin Lineage (Defaults)",
-            show=False,
-            data_wires=False,
+        The port-level renderer is intentionally reserved for the selected plugin's
+        direct neighborhood. Rendering every port on the overview makes even the
+        default builtin graph hard to scan.
+        """
+        try:
+            import plotly.graph_objects as go
+        except ImportError as exc:
+            raise ImportError("plotly is required for the plugins-web lineage view.") from exc
+
+        positions = {
+            node.node_id: (node.x + node.width / 2, node.y + node.height / 2)
+            for node in lineage_graph.nodes
+        }
+        shapes = []
+        annotations = []
+        for node in lineage_graph.nodes:
+            x, y = positions[node.node_id]
+            shapes.append(
+                {
+                    "type": "rect",
+                    "x0": node.x,
+                    "y0": node.y,
+                    "x1": node.x + node.width,
+                    "y1": node.y + node.height,
+                    "fillcolor": "#ffffff",
+                    "line": {"color": "#087f5b", "width": 1.5},
+                    "layer": "below",
+                }
+            )
+            annotations.append(
+                {
+                    "x": x,
+                    "y": y + 13,
+                    "text": f"<b>{node.label}</b><br><span style='font-size:11px'>Docs {node.documentation_completeness} · Impact {node.dag_impact}</span>",
+                    "showarrow": False,
+                    "align": "center",
+                    "font": {"size": 13, "color": "#17201d"},
+                }
+            )
+
+        for edge in lineage_graph.edges:
+            start = positions[edge.source_id]
+            end = positions[edge.target_id]
+            annotations.append(
+                {
+                    "ax": start[0] + 110,
+                    "ay": start[1],
+                    "x": end[0] - 110,
+                    "y": end[1],
+                    "xref": "x",
+                    "yref": "y",
+                    "axref": "x",
+                    "ayref": "y",
+                    "showarrow": True,
+                    "arrowhead": 2,
+                    "arrowsize": 0.8,
+                    "arrowwidth": 1.25,
+                    "arrowcolor": "#80908a",
+                }
+            )
+
+        x_values = [positions[node.node_id][0] for node in lineage_graph.nodes]
+        y_values = [positions[node.node_id][1] for node in lineage_graph.nodes]
+        customdata = [node.node_id.removeprefix("plugin:") for node in lineage_graph.nodes]
+        hovertext = [node.tooltip for node in lineage_graph.nodes]
+        figure = go.Figure(
+            data=[
+                go.Scatter(
+                    x=x_values,
+                    y=y_values,
+                    mode="markers",
+                    marker={"size": 86, "opacity": 0},
+                    customdata=customdata,
+                    hoverinfo="text",
+                    hovertext=hovertext,
+                    showlegend=False,
+                    name="plugin-overview-nodes",
+                )
+            ]
         )
-        for trace in figure.data:
-            if not str(trace.name).startswith("node_"):
-                continue
-            provides = str(trace.name).removeprefix("node_")
-            trace.customdata = [{"href": f"plugins/{provides}.html", "provides": provides}]
-
-        fragment = figure.to_html(
+        figure.update_layout(
+            shapes=shapes,
+            annotations=annotations,
+            meta={"node_shape_indices": {name: index for index, name in enumerate(customdata)}},
+            margin={"l": 22, "r": 22, "t": 22, "b": 22},
+            paper_bgcolor="#ffffff",
+            plot_bgcolor="#ffffff",
+            # Start at a readable scale; Plotly pan and zoom expose the remaining
+            # default-resolved topology without shrinking every plugin card.
+            xaxis={"visible": False, "range": [0, min(lineage_graph.width, 1500)]},
+            yaxis={
+                "visible": False,
+                "range": [lineage_graph.height, 0],
+                "scaleanchor": "x",
+                "scaleratio": 1,
+            },
+            height=max(560, min(900, lineage_graph.height + 44)),
+        )
+        return figure.to_html(
             full_html=False,
             include_plotlyjs=False,
             config={"scrollZoom": True, "displaylogo": False, "responsive": True},
             div_id="plugin-global-lineage",
         )
-        return (
-            fragment
-            + """
-<script>
-(() => {
-  const graph = document.getElementById("plugin-global-lineage");
-  if (!graph) return;
-  graph.on("plotly_click", (event) => {
-    const href = event.points[0]?.customdata?.href;
-    if (href) window.location.assign(href);
-  });
-  const focus = new URLSearchParams(window.location.search).get("focus");
-  if (!focus) return;
-  const traceIndex = graph.data.findIndex(
-    (item) => item.customdata?.[0]?.provides === focus,
-  );
-  if (traceIndex < 0) return;
-  Plotly.Fx.hover(graph, [{curveNumber: traceIndex, pointNumber: 0}]);
-})();
-</script>"""
+
+    @staticmethod
+    def _direct_lineage_model(model: Any, provides: str) -> Any:
+        """Return the selected plugin and only its direct port-level neighbors."""
+        from waveform_analysis.core.foundation.model import LineageGraphModel
+
+        included_edges = [
+            edge
+            for edge in model.edges
+            if edge.source_node_id == provides or edge.target_node_id == provides
+        ]
+        included_nodes = {provides}
+        for edge in included_edges:
+            included_nodes.add(edge.source_node_id)
+            included_nodes.add(edge.target_node_id)
+        port_ids = {
+            port_id
+            for edge in included_edges
+            for port_id in (edge.source_port_id, edge.target_port_id)
+        }
+        incoming = {node_id: set() for node_id in included_nodes}
+        for edge in included_edges:
+            incoming.setdefault(edge.target_node_id, set()).add(edge.source_node_id)
+        depths = {node_id: 0 for node_id, sources in incoming.items() if not sources}
+        for _ in range(len(included_nodes)):
+            changed = False
+            for edge in included_edges:
+                if edge.source_node_id not in depths:
+                    continue
+                depth = depths[edge.source_node_id] + 1
+                if depth > depths.get(edge.target_node_id, -1):
+                    depths[edge.target_node_id] = depth
+                    changed = True
+            if not changed:
+                break
+        nodes = {
+            node_id: replace(
+                model.nodes[node_id],
+                in_ports=[port for port in model.nodes[node_id].in_ports if port.id in port_ids],
+                out_ports=[port for port in model.nodes[node_id].out_ports if port.id in port_ids],
+                depth=depths.get(node_id, 0),
+            )
+            for node_id in included_nodes
+            if node_id in model.nodes
+        }
+        return LineageGraphModel(
+            nodes=nodes,
+            edges=included_edges,
+            metadata=dict(model.metadata),
         )
+
+    def _render_detail_lineage_figures(
+        self,
+        plugins: list[PluginDocumentationView],
+        dependencies_by_provides: dict[str, list[str]],
+    ) -> dict[str, Any]:
+        """Render direct-neighborhood port figures using the runtime renderer."""
+        from waveform_analysis.utils.visualization.lineage_visualizer import plot_lineage_plotly
+
+        model = self._build_default_lineage_model(plugins, dependencies_by_provides)
+        return {
+            plugin.provides: json.loads(
+                plot_lineage_plotly(
+                    self._direct_lineage_model(model, plugin.provides),
+                    f"{plugin.provides} direct lineage",
+                    show=False,
+                    data_wires=False,
+                ).to_json()
+            )
+            for plugin in plugins
+        }
 
     def render_plugin_html(
         self,
@@ -1331,9 +1462,7 @@ class PluginDocGenerator:
             dependencies_by_provides=dependencies_by_provides,
         )
         if global_lineage_html is None:
-            global_lineage_html = self._render_global_plotly_html(
-                scored_plugins, dependencies_by_provides or self._default_dependency_map()
-            )
+            global_lineage_html = self._render_global_plotly_html(lineage_graph)
         return (
             self._get_web_jinja_env()
             .get_template("web/index.html.j2")
@@ -1382,7 +1511,7 @@ class PluginDocGenerator:
                 plugins,
                 lineage_graph=global_graph,
                 dependencies_by_provides=default_dependencies,
-                global_lineage_html=self._render_global_plotly_html(plugins, default_dependencies),
+                global_lineage_html=self._render_global_plotly_html(global_graph),
             ),
             encoding="utf-8",
         )
@@ -1401,6 +1530,16 @@ class PluginDocGenerator:
         plotly_asset = asset_dir / "plotly.min.js"
         plotly_asset.write_text(get_plotlyjs(), encoding="utf-8")
         generated["asset:plotly.min.js"] = plotly_asset
+        detail_asset = asset_dir / "lineage-details.json"
+        detail_asset.write_text(
+            json.dumps(
+                self._render_detail_lineage_figures(plugins, default_dependencies),
+                ensure_ascii=True,
+                separators=(",", ":"),
+            ),
+            encoding="utf-8",
+        )
+        generated["asset:lineage-details.json"] = detail_asset
         return generated
 
     def generate_all(self, output_dir: Path, profile: str = "auto") -> dict[str, Path]:
