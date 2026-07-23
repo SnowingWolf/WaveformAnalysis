@@ -1350,7 +1350,9 @@ class PluginDocGenerator:
             end_x, end_y = end[0] - 110, end[1]
             horizontal_gap = end_x - start_x
             control_x = max(36, min(180, horizontal_gap * 0.42))
-            curve_offset = 34 if end_y >= start_y else -34
+            curve_offset = min(16, max(8, abs(end_y - start_y) * 0.08))
+            if end_y < start_y:
+                curve_offset = -curve_offset
             control_one = (start_x + control_x, start_y + curve_offset)
             control_two = (end_x - control_x, end_y + curve_offset)
             edge_shapes.append(
