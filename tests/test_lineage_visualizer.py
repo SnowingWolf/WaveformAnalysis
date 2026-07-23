@@ -77,6 +77,92 @@ def test_layout_places_sources_left_of_targets():
     assert pos["OUT::raw_files::0"][0] < pos["IN::waveforms::0"][0]
 
 
+def _node(node_id, depth, *, is_virtual=False):
+    return NodeModel(
+        id=node_id,
+        key=node_id,
+        title=node_id,
+        plugin_class="TestPlugin",
+        in_ports=[
+            PortModel(
+                id=f"IN::{node_id}::0",
+                name="input",
+                kind="in",
+                dtype="np.ndarray",
+                parent_node_id=node_id,
+                index=0,
+            )
+        ],
+        out_ports=[
+            PortModel(
+                id=f"OUT::{node_id}::0",
+                name=node_id,
+                kind="out",
+                dtype="np.ndarray",
+                parent_node_id=node_id,
+                index=0,
+            )
+        ],
+        depth=depth,
+        is_lineage_virtual=is_virtual,
+    )
+
+
+def _edge(source, target):
+    return EdgeModel(
+        source_node_id=source,
+        source_port_id=f"OUT::{source}::0",
+        target_node_id=target,
+        target_port_id=f"IN::{target}::0",
+        dtype="np.ndarray",
+    )
+
+
+def test_model_collapses_virtual_node_and_preserves_ports_and_dtype():
+    model = LineageGraphModel(
+        nodes={
+            "source": _node("source", 0),
+            "virtual": _node("virtual", 1, is_virtual=True),
+            "target": _node("target", 2),
+        },
+        edges=[_edge("source", "virtual"), _edge("virtual", "target")],
+    )
+
+    filtered = model.without_lineage_virtual_nodes("target")
+
+    assert set(filtered.nodes) == {"source", "target"}
+    assert filtered.edges == [_edge("source", "target")]
+    assert filtered.edges[0].source_port_id == "OUT::source::0"
+    assert filtered.edges[0].target_port_id == "IN::target::0"
+    assert filtered.edges[0].dtype == "np.ndarray"
+    assert filtered.nodes["source"].depth == 0
+    assert filtered.nodes["target"].depth == 1
+
+
+def test_model_collapses_consecutive_virtual_nodes_and_keeps_virtual_target():
+    model = LineageGraphModel(
+        nodes={
+            "source": _node("source", 0),
+            "virtual_one": _node("virtual_one", 1, is_virtual=True),
+            "virtual_two": _node("virtual_two", 2, is_virtual=True),
+            "target": _node("target", 3),
+        },
+        edges=[
+            _edge("source", "virtual_one"),
+            _edge("virtual_one", "virtual_two"),
+            _edge("virtual_two", "target"),
+        ],
+    )
+
+    filtered = model.without_lineage_virtual_nodes("target")
+    target_virtual = model.without_lineage_virtual_nodes("virtual_two")
+
+    assert set(filtered.nodes) == {"source", "target"}
+    assert filtered.edges == [_edge("source", "target")]
+    assert "virtual_two" in target_virtual.nodes
+    assert "virtual_one" not in target_virtual.nodes
+
+
 def test_reorder_layers_uses_upstream_neighbors_for_forward_pass():
     edges = [
         EdgeModel(

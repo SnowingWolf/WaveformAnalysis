@@ -1278,13 +1278,22 @@ class Context:
     # Lineage and dependence analysis
     # ===========================
 
-    def plot_lineage(self, data_name: str, kind: str = "labview", **kwargs):
+    def plot_lineage(
+        self,
+        data_name: str,
+        kind: str = "labview",
+        show_virtual_plugins: bool = True,
+        **kwargs,
+    ):
         """
         Visualize the lineage of a data type.
 
         Args:
             data_name: Name of the target data.
             kind: Visualization style ('labview', 'mermaid', or 'plotly').
+            show_virtual_plugins: Whether to show plugins with ``lineage_virtual = True``.
+                When false, non-target virtual nodes are collapsed and their direct
+                upstream and downstream connections are joined for display only.
             **kwargs: Additional arguments passed to the visualizer (e.g., save_path).
         """
         from .foundation.model import build_lineage_graph
@@ -1310,6 +1319,9 @@ class Context:
                 f"build_lineage_graph returned unexpected type: {type(model).__name__}, "
                 f"expected LineageGraphModel for data_name '{data_name}'."
             )
+
+        if not show_virtual_plugins:
+            model = model.without_lineage_virtual_nodes(data_name)
 
         if kind == "labview":
             return plot_lineage_labview(model, data_name, context=self, **kwargs)

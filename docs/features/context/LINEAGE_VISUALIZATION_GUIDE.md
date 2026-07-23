@@ -44,6 +44,29 @@ ctx.plot_lineage("df_paired", kind="plotly")
 mermaid_code = ctx.plot_lineage("df_paired", kind="mermaid")
 ```
 
+### 隐藏展示用虚插件
+
+插件可以用类属性标记仅用于简化血缘图的节点：
+
+```python
+class NormalizedRecordsPlugin(Plugin):
+    provides = "normalized_records"
+    depends_on = ("records",)
+    lineage_virtual = True
+```
+
+默认 `show_virtual_plugins=True`，因此已有图形、Mermaid 输出和调用方式保持不变。传入
+`show_virtual_plugins=False` 时，非目标虚插件会从显示模型中移除；它的每条直接上游边会与
+每条直接下游边重连。连续虚插件链会递归折叠，重连保留源端口、目标端口和源数据类型。若请求的
+目标数据本身是虚插件，它仍会显示，避免产生空图。
+
+```python
+ctx.plot_lineage("df_paired", kind="plotly", show_virtual_plugins=False)
+```
+
+这只影响可视化，不改变 `depends_on`、依赖解析、缓存 lineage、执行计划或数据访问；未声明
+`lineage_virtual` 的插件不会被自动标记。
+
 ---
 
 ## 三种可视化模式
