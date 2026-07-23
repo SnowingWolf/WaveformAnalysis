@@ -48,6 +48,13 @@ PEAK_CLASSIFICATION_DTYPE = np.dtype(
     ]
 )
 
+# Keep field narratives beside the dtype they describe. Generated Help, Markdown,
+# and static HTML consume these through the plugin's source ``agent_doc``.
+PEAK_CLASSIFICATION_FIELD_NOTES = {
+    "peak_id": "Zero-based index of the input `peaks` row receiving this classification.",
+    "label": "Classification code: 0=unknown, 1=S1, 2=S2, 3=S1_S2.",
+}
+
 
 def _normalize_range(value: tuple[float | None, float | None] | None):
     """标准化范围参数 (min, max)"""
@@ -104,6 +111,7 @@ class PeakClassificationPlugin(Plugin):
     version = "1.2.1"
     save_when = "always"
     output_dtype = PEAK_CLASSIFICATION_DTYPE
+    agent_doc = {"field_notes": PEAK_CLASSIFICATION_FIELD_NOTES}
 
     options = {
         "priority_order": Option(

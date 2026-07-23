@@ -48,8 +48,8 @@ structured_array output with fields: peak_id, label.
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `peak_id` | `int64` | - | - |
-| `label` | `int8` | - | - |
+| `peak_id` | `int64` | - | Zero-based index of the input `peaks` row receiving this classification. |
+| `label` | `int8` | - | Classification code: 0=unknown, 1=S1, 2=S2, 3=S1_S2. |
 ## Usage
 
 ### Minimal Example

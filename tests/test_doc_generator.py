@@ -95,6 +95,28 @@ class TestPluginDocGenerator:
         assert "value" in field_names
         assert "count" in field_names
 
+    def test_output_field_notes_are_rendered_from_source_agent_doc(self):
+        """Source field metadata must replace the generated fallback text."""
+        from waveform_analysis.core.plugins.builtin.cpu.peak_classification import (
+            PeakClassificationPlugin,
+        )
+        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+
+        generator = PluginDocGenerator()
+        plugin = PeakClassificationPlugin()
+        doc_info = generator.extract_doc_info(type(plugin), plugin)
+        fields = {field.name: field for field in doc_info.output_fields}
+
+        assert fields["peak_id"].doc == ""
+        assert doc_info.field_notes["peak_id"].startswith("Zero-based index")
+        assert (
+            doc_info.field_notes["label"] == "Classification code: 0=unknown, 1=S1, 2=S2, 3=S1_S2."
+        )
+
+        html = generator.render_plugin_html(doc_info)
+        assert "No field description available." not in html
+        assert "Classification code: 0=unknown, 1=S1, 2=S2, 3=S1_S2." in html
+
     def test_category_detection(self):
         """测试类别检测"""
         from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
