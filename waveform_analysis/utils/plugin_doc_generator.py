@@ -18,6 +18,7 @@ import re
 import shutil
 import sys
 from typing import Any
+from urllib.parse import quote
 
 import numpy as np
 
@@ -129,6 +130,8 @@ class PluginDocumentationView:
     overview_paragraphs: list[str] = field(default_factory=list)
     usage_example: str = ""
     documentation_status: Any = None
+    documentation_completeness: int | None = None
+    dag_impact: int | None = None
 
     @property
     def category_display(self) -> str:
@@ -152,6 +155,48 @@ class PluginDocumentationView:
 
 # Compatibility import for callers that used the old internal data-class name.
 PluginDocInfo = PluginDocumentationView
+
+
+@dataclass(frozen=True)
+class _WebLineageNode:
+    """One positioned node in the generated, documentation-only DAG."""
+
+    node_id: str
+    label: str
+    href: str | None
+    placeholder: bool
+    x: int
+    y: int
+    width: int
+    height: int
+    documentation_completeness: int | None
+    dag_impact: int | None
+    tooltip: str
+    aria_label: str
+
+
+@dataclass(frozen=True)
+class _WebLineageEdge:
+    """A rendered dependency wire between two web-lineage nodes."""
+
+    source_id: str
+    target_id: str
+    path: str
+
+
+@dataclass(frozen=True)
+class _WebLineageGraph:
+    """Template-ready static SVG graph for the plugin reference website."""
+
+    title: str
+    description: str
+    view_box: str
+    width: int
+    height: int
+    nodes: list[_WebLineageNode]
+    edges: list[_WebLineageEdge]
+    isolated_nodes: list[_WebLineageNode]
+    global_focus_href: str | None = None
 
 
 @export
@@ -829,16 +874,322 @@ class PluginDocGenerator:
             category_names=CATEGORY_DISPLAY_NAMES,
         )
 
-    def render_plugin_html(self, doc_info: PluginDocumentationView) -> str:
-        """Render one standalone plugin HTML page with escaped metadata."""
-        return self._get_web_jinja_env().get_template("web/plugin.html.j2").render(plugin=doc_info)
+    @classmethod
+    def _dependency_names(cls, plugin: PluginDocumentationView) -> list[str]:
+        return [cls._dependency_parts(dependency)[0] for dependency in plugin.depends_on]
 
-    def render_index_html(self, plugins: list[PluginDocumentationView]) -> str:
+    @staticmethod
+    def _coverage(items: list[Any], documented) -> float:
+        if not items:
+            return 1.0
+        return sum(bool(documented(item)) for item in items) / len(items)
+
+    def _documentation_completeness(self, plugin: PluginDocumentationView) -> int:
+        """Score authored documentation fields without inspecting runtime data."""
+        weighted_scores: list[tuple[float, float]] = [
+            (10.0, float(bool(plugin.summary))),
+            (10.0, float(bool(plugin.overview_paragraphs or plugin.overview))),
+            (20.0, float(bool(plugin.workflow_steps))),
+            (15.0, float(bool(plugin.usage_example))),
+        ]
+
+        if plugin.config_options:
+            weighted_scores.append(
+                (
+                    15.0,
+                    self._coverage(
+                        plugin.config_options,
+                        lambda option: plugin.config_notes.get(option.name) or option.doc,
+                    ),
+                )
+            )
+
+        if plugin.output_fields:
+            weighted_scores.extend(
+                [
+                    (10.0, float(bool(plugin.output_summary))),
+                    (
+                        10.0,
+                        self._coverage(
+                            plugin.output_fields,
+                            lambda field: plugin.field_notes.get(field.name) or field.doc,
+                        ),
+                    ),
+                ]
+            )
+        else:
+            weighted_scores.append((20.0, float(bool(plugin.output_summary))))
+
+        dependency_names = self._dependency_names(plugin)
+        if dependency_names:
+            descriptions = {detail.name: detail.description for detail in plugin.dependency_details}
+            weighted_scores.append(
+                (10.0, self._coverage(dependency_names, lambda name: descriptions.get(name)))
+            )
+
+        total_weight = sum(weight for weight, _ in weighted_scores)
+        earned = sum(weight * fraction for weight, fraction in weighted_scores)
+        return round(100 * earned / total_weight) if total_weight else 0
+
+    def _with_web_scores(
+        self, plugins: list[PluginDocumentationView]
+    ) -> list[PluginDocumentationView]:
+        """Attach independent documentation and graph-impact scores for web output."""
+        by_provides = {plugin.provides: plugin for plugin in plugins}
+        consumers: dict[str, set[str]] = {name: set() for name in by_provides}
+        for plugin in plugins:
+            for dependency in self._dependency_names(plugin):
+                if dependency in consumers:
+                    consumers[dependency].add(plugin.provides)
+
+        def downstream_count(provides: str) -> int:
+            seen: set[str] = set()
+            pending = list(consumers[provides])
+            while pending:
+                consumer = pending.pop()
+                if consumer in seen:
+                    continue
+                seen.add(consumer)
+                pending.extend(consumers.get(consumer, ()))
+            return len(seen)
+
+        direct_counts = {name: len(names) for name, names in consumers.items()}
+        transitive_counts = {name: downstream_count(name) for name in consumers}
+        max_direct = max(direct_counts.values(), default=0)
+        max_transitive = max(transitive_counts.values(), default=0)
+
+        scored = []
+        for plugin in plugins:
+            direct_component = direct_counts[plugin.provides] / max_direct if max_direct else 0.0
+            transitive_component = (
+                transitive_counts[plugin.provides] / max_transitive if max_transitive else 0.0
+            )
+            impact = round(100 * (0.4 * direct_component + 0.6 * transitive_component))
+            scored.append(
+                replace(
+                    plugin,
+                    documentation_completeness=self._documentation_completeness(plugin),
+                    dag_impact=impact,
+                )
+            )
+        return scored
+
+    def _build_web_lineage_graph(
+        self,
+        plugins: list[PluginDocumentationView],
+        *,
+        link_prefix: str,
+        focus: str | None = None,
+    ) -> _WebLineageGraph:
+        """Build an escaped-template-ready dependency graph from static doc views."""
+        by_provides = {plugin.provides: plugin for plugin in plugins}
+        consumers: dict[str, set[str]] = {name: set() for name in by_provides}
+        for plugin in plugins:
+            for dependency in self._dependency_names(plugin):
+                if dependency in consumers:
+                    consumers[dependency].add(plugin.provides)
+
+        edge_names: list[tuple[str, str]] = []
+        isolated_names: set[str] = set()
+        if focus is None:
+            edge_names = [
+                (dependency, plugin.provides)
+                for plugin in plugins
+                for dependency in self._dependency_names(plugin)
+                if dependency in by_provides
+            ]
+            visible_names = {name for edge in edge_names for name in edge}
+            isolated_names = set(by_provides) - visible_names
+            title = "Plugin Lineage"
+            description = (
+                "Declared builtin plugin dependencies. Isolated plugins and runtime-resolved "
+                "inputs are listed outside the graph."
+            )
+        else:
+            target = by_provides[focus]
+            visible_names = {focus}
+            dependencies = self._dependency_names(target)
+            for dependency in dependencies:
+                if dependency in by_provides:
+                    visible_names.add(dependency)
+                    edge_names.append((dependency, focus))
+            for consumer in sorted(consumers[focus]):
+                visible_names.add(consumer)
+                edge_names.append((focus, consumer))
+            title = "Local Lineage"
+            description = "Direct declared plugin inputs and consumers."
+
+        node_ids = {name: f"plugin:{name}" for name in visible_names}
+        known_edges = [
+            (node_ids[source], node_ids[target])
+            for source, target in edge_names
+            if source in node_ids and target in node_ids
+        ]
+        incoming: dict[str, set[str]] = {node_id: set() for node_id in node_ids.values()}
+        for source, target in known_edges:
+            incoming[target].add(source)
+
+        depths = {node_id: 0 for node_id, sources in incoming.items() if not sources}
+        for _ in range(len(node_ids)):
+            changed = False
+            for source, target in known_edges:
+                if source not in depths:
+                    continue
+                next_depth = depths[source] + 1
+                if next_depth > depths.get(target, -1):
+                    depths[target] = next_depth
+                    changed = True
+            if not changed:
+                break
+        for node_id in node_ids.values():
+            depths.setdefault(node_id, 0)
+
+        layers: dict[int, list[str]] = {}
+        for name, node_id in node_ids.items():
+            layers.setdefault(depths[node_id], []).append(name)
+        for names in layers.values():
+            names.sort(key=lambda name: (name not in by_provides, name))
+
+        node_width = 220
+        node_height = 76
+        x_gap = 92
+        y_gap = 108
+        margin = 36
+        max_layer_size = max((len(names) for names in layers.values()), default=1)
+        max_depth = max(layers, default=0)
+        canvas_width = margin * 2 + (max_depth + 1) * node_width + max_depth * x_gap
+        canvas_height = margin * 2 + max_layer_size * node_height + (max_layer_size - 1) * y_gap
+
+        nodes: list[_WebLineageNode] = []
+        positions: dict[str, tuple[int, int]] = {}
+        for depth, names in sorted(layers.items()):
+            layer_height = len(names) * node_height + max(0, len(names) - 1) * y_gap
+            start_y = margin + (canvas_height - 2 * margin - layer_height) // 2
+            for index, name in enumerate(names):
+                node_id = node_ids[name]
+                x = margin + depth * (node_width + x_gap)
+                y = start_y + index * (node_height + y_gap)
+                positions[node_id] = (x, y)
+                plugin = by_provides[name]
+                placeholder = False
+                label = name
+                if len(label) > 28:
+                    label = label[:25] + "..."
+                documentation_completeness = plugin.documentation_completeness
+                dag_impact = plugin.dag_impact
+                tooltip = (
+                    f"{plugin.provides}. Documentation completeness "
+                    f"{documentation_completeness}/100; DAG impact {dag_impact}/100."
+                )
+                aria_label = tooltip + " Open plugin documentation."
+                href = f"{link_prefix}{plugin.provides}.html"
+                nodes.append(
+                    _WebLineageNode(
+                        node_id=node_id,
+                        label=label,
+                        href=href,
+                        placeholder=placeholder,
+                        x=x,
+                        y=y,
+                        width=node_width,
+                        height=node_height,
+                        documentation_completeness=documentation_completeness,
+                        dag_impact=dag_impact,
+                        tooltip=tooltip,
+                        aria_label=aria_label,
+                    )
+                )
+
+        edges = []
+        for source, target in known_edges:
+            source_x, source_y = positions[source]
+            target_x, target_y = positions[target]
+            start_x = source_x + node_width
+            start_y = source_y + node_height // 2
+            end_x = target_x
+            end_y = target_y + node_height // 2
+            bend = max(32, (end_x - start_x) // 2)
+            path = (
+                f"M {start_x} {start_y} C {start_x + bend} {start_y}, "
+                f"{end_x - bend} {end_y}, {end_x} {end_y}"
+            )
+            edges.append(_WebLineageEdge(source, target, path))
+
+        isolated_nodes = []
+        for name in sorted(isolated_names):
+            plugin = by_provides[name]
+            documentation_completeness = plugin.documentation_completeness
+            dag_impact = plugin.dag_impact
+            tooltip = (
+                f"{plugin.provides}. No declared builtin dependencies or consumers. "
+                f"Documentation completeness {documentation_completeness}/100; "
+                f"DAG impact {dag_impact}/100."
+            )
+            isolated_nodes.append(
+                _WebLineageNode(
+                    node_id=f"plugin:{name}",
+                    label=name,
+                    href=f"{link_prefix}{plugin.provides}.html",
+                    placeholder=False,
+                    x=0,
+                    y=0,
+                    width=0,
+                    height=0,
+                    documentation_completeness=documentation_completeness,
+                    dag_impact=dag_impact,
+                    tooltip=tooltip,
+                    aria_label=tooltip + " Open plugin documentation.",
+                )
+            )
+
+        return _WebLineageGraph(
+            title=title,
+            description=description,
+            view_box=f"0 0 {canvas_width} {canvas_height}",
+            width=canvas_width,
+            height=canvas_height,
+            nodes=nodes,
+            edges=edges,
+            isolated_nodes=isolated_nodes,
+            global_focus_href=(
+                f"../index.html?focus={quote(focus)}" if focus is not None else None
+            ),
+        )
+
+    def render_plugin_html(
+        self,
+        doc_info: PluginDocumentationView,
+        *,
+        lineage_graph: _WebLineageGraph | None = None,
+    ) -> str:
+        """Render one standalone plugin HTML page with escaped metadata."""
+        return (
+            self._get_web_jinja_env()
+            .get_template("web/plugin.html.j2")
+            .render(
+                plugin=doc_info,
+                lineage_graph=lineage_graph,
+            )
+        )
+
+    def render_index_html(
+        self,
+        plugins: list[PluginDocumentationView],
+        *,
+        lineage_graph: _WebLineageGraph | None = None,
+    ) -> str:
         """Render the searchable static-site index."""
+        scored_plugins = self._with_web_scores(plugins)
+        lineage_graph = lineage_graph or self._build_web_lineage_graph(
+            scored_plugins, link_prefix="plugins/"
+        )
         return (
             self._get_web_jinja_env()
             .get_template("web/index.html.j2")
-            .render(plugins=sorted(plugins, key=lambda item: item.provides))
+            .render(
+                plugins=sorted(scored_plugins, key=lambda item: item.provides),
+                lineage_graph=lineage_graph,
+            )
         )
 
     def generate_web(self, output_dir: Path) -> dict[str, Path]:
@@ -848,14 +1199,28 @@ class PluginDocGenerator:
         asset_dir = output_dir / "assets"
         plugin_dir.mkdir(parents=True, exist_ok=True)
         asset_dir.mkdir(parents=True, exist_ok=True)
-        plugins = self.get_all_doc_info()
+        plugins = self._with_web_scores(self.get_all_doc_info())
         generated: dict[str, Path] = {}
         for plugin in plugins:
             path = plugin_dir / f"{plugin.provides}.html"
-            path.write_text(self.render_plugin_html(plugin), encoding="utf-8")
+            path.write_text(
+                self.render_plugin_html(
+                    plugin,
+                    lineage_graph=self._build_web_lineage_graph(
+                        plugins, link_prefix="", focus=plugin.provides
+                    ),
+                ),
+                encoding="utf-8",
+            )
             generated[plugin.provides] = path
         index_path = output_dir / "index.html"
-        index_path.write_text(self.render_index_html(plugins), encoding="utf-8")
+        index_path.write_text(
+            self.render_index_html(
+                plugins,
+                lineage_graph=self._build_web_lineage_graph(plugins, link_prefix="plugins/"),
+            ),
+            encoding="utf-8",
+        )
         generated["INDEX"] = index_path
         source_assets = self.template_dir / "web" / "assets"
         for name in ("site.css", "site.js"):

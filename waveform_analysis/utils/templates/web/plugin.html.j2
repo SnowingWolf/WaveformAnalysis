@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ plugin.provides }} | WaveformAnalysis</title>
   <link rel="stylesheet" href="../assets/site.css">
+  <script defer src="../assets/site.js"></script>
 </head>
 <body>
   <header class="plugin-header">
@@ -14,6 +15,7 @@
     <p class="lede">{{ plugin.description or "No description available." }}</p>
   </header>
   <main class="reference">
+    {% if lineage_graph %}{% include "web/lineage_graph.html.j2" %}{% endif %}
     <section><h2>Overview</h2>
       {% if plugin.overview_paragraphs %}<div class="plugin-overview">{% for p in plugin.overview_paragraphs %}<p>{{ p }}</p>{% endfor %}</div>{% elif plugin.overview %}<div class="plugin-overview"><p>{{ plugin.overview }}</p></div>{% endif %}
       <table><thead><tr><th>Item</th><th>Value</th></tr></thead><tbody>

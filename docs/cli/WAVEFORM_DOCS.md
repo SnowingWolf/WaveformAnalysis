@@ -107,6 +107,11 @@ waveform-docs generate plugins-agent --plugin raw_files
 waveform-docs generate plugins-web -o docs/_site
 ```
 
+生成后的 HTML 首页包含可点击、可缩放的已声明插件依赖图；孤立插件会在图外的紧凑列表中显示，
+运行时解析的输入不会伪装成图节点。每个插件页包含其直接上游和下游的局部图，并可跳转到首页
+对应插件的全局定位视图。图中 `Docs` 表示可用文档字段的加权完整度，`Impact` 表示该插件在当前
+生成图中的相对下游覆盖范围；两者均为静态文档指标，不表示运行时性能、数据质量或缓存 lineage。
+
 ### 2. 检查文档覆盖率
 
 ```bash

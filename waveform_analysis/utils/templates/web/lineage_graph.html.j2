@@ -1,0 +1,52 @@
+<section class="lineage-section">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Static dependency view</p>
+      <h2>{{ lineage_graph.title }}</h2>
+    </div>
+    <p>{{ lineage_graph.description }}</p>
+  </div>
+  <div class="lineage-toolbar" aria-label="{{ lineage_graph.title }} controls">
+    <div class="lineage-zoom-controls" role="group" aria-label="Graph zoom controls">
+      <button class="lineage-control" type="button" data-lineage-zoom="out" title="Zoom out" aria-label="Zoom out">−</button>
+      <button class="lineage-control" type="button" data-lineage-zoom="reset" title="Reset zoom" aria-label="Reset zoom">↺</button>
+      <button class="lineage-control" type="button" data-lineage-zoom="in" title="Zoom in" aria-label="Zoom in">+</button>
+    </div>
+    {% if lineage_graph.global_focus_href %}<a class="lineage-global-link" href="{{ lineage_graph.global_focus_href }}">Show this plugin in global lineage</a>{% endif %}
+  </div>
+  <div class="lineage-scroll" tabindex="0" aria-label="{{ lineage_graph.title }} dependency graph">
+    <svg class="lineage-graph" width="{{ lineage_graph.width }}" height="{{ lineage_graph.height }}" viewBox="{{ lineage_graph.view_box }}" role="img" aria-label="{{ lineage_graph.description }}">
+      <defs>
+        <marker id="lineage-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <path d="M 0 0 L 8 4 L 0 8 z" class="lineage-arrowhead" />
+        </marker>
+      </defs>
+      <g class="lineage-viewport" data-lineage-viewport>
+        {% for edge in lineage_graph.edges %}
+        <path class="lineage-edge" d="{{ edge.path }}" marker-end="url(#lineage-arrow)" />
+        {% endfor %}
+        {% for node in lineage_graph.nodes %}
+        {% if node.href %}<a class="lineage-node-link" data-lineage-node="{{ node.node_id }}" href="{{ node.href }}" aria-label="{{ node.aria_label }}">{% else %}<g class="lineage-node-placeholder" aria-label="{{ node.aria_label }}">{% endif %}
+          <title>{{ node.tooltip }}</title>
+          <rect class="lineage-node{% if node.placeholder %} is-placeholder{% endif %}" x="{{ node.x }}" y="{{ node.y }}" width="{{ node.width }}" height="{{ node.height }}" rx="4" />
+          <text class="lineage-node-title" x="{{ node.x + 12 }}" y="{{ node.y + 27 }}">{{ node.label }}</text>
+          {% if node.documentation_completeness is not none %}
+          <text class="lineage-node-metrics" x="{{ node.x + 12 }}" y="{{ node.y + 53 }}">Docs {{ node.documentation_completeness }} · Impact {{ node.dag_impact }}</text>
+          {% else %}
+          <text class="lineage-node-metrics" x="{{ node.x + 12 }}" y="{{ node.y + 53 }}">No documentation page</text>
+          {% endif %}
+        {% if node.href %}</a>{% else %}</g>{% endif %}
+        {% endfor %}
+      </g>
+    </svg>
+  </div>
+  <p class="lineage-legend">Docs: documentation completeness. Impact: relative downstream reach in the declared plugin graph. Runtime-resolved inputs are intentionally not drawn.</p>
+  {% if lineage_graph.isolated_nodes %}
+  <details class="lineage-isolated">
+    <summary>{{ lineage_graph.isolated_nodes|length }} isolated plugins (no declared builtin edge)</summary>
+    <div class="lineage-isolated-list">
+      {% for node in lineage_graph.isolated_nodes %}<a href="{{ node.href }}" title="{{ node.tooltip }}">{{ node.label }}</a>{% endfor %}
+    </div>
+  </details>
+  {% endif %}
+</section>

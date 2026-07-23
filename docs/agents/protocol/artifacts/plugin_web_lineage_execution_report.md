@@ -1,0 +1,26 @@
+# execution_report
+
+- `task_id`: plugin-web-clickable-lineage
+- `workflow_cost`: `standard`
+- `executor_role`: `executor.docs`
+- `changed_paths`:
+  - `waveform_analysis/utils/plugin_doc_generator.py`
+  - `waveform_analysis/utils/templates/web/lineage_graph.html.j2`
+  - `waveform_analysis/utils/templates/web/assets/site.css`
+  - `waveform_analysis/utils/templates/web/assets/site.js`
+  - `tests/test_plugin_documentation.py`
+  - `docs/cli/WAVEFORM_DOCS.md`
+- `actions_taken`:
+  - Built the global SVG from declared edges between registered builtin plugins only.
+  - Moved isolated plugins into a compact linked list below the global graph and omitted runtime-resolved inputs from graph nodes.
+  - Added zoom out, reset, and zoom in controls to static lineage SVGs.
+  - Added Local Lineage links to `index.html?focus=<provides>`; the global page highlights and scrolls to the requested plugin.
+- `commands_run`:
+  - `python -m pytest -q --no-cov tests/test_plugin_documentation.py tests/test_doc_generator.py`
+  - `python -m black --check waveform_analysis/utils/plugin_doc_generator.py tests/test_plugin_documentation.py`
+  - `node --check waveform_analysis/utils/templates/web/assets/site.js`
+  - `python -m waveform_analysis.utils.cli_docs generate plugins-web -o /tmp/waveform-plugin-lineage-site`
+- `open_risks`:
+  - The SVG is static and only exposes declared registered-plugin edges; runtime-resolved dependencies remain deliberately outside this documentation view.
+- `requested_review_focus`:
+  - Verify that static local/global navigation remains relative and that isolating no-edge plugins improves graph readability without changing runtime lineage.
