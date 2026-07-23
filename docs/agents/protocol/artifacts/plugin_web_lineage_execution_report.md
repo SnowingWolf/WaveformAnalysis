@@ -17,7 +17,7 @@
   - Precomputed local `lineage-details.json` figures for each plugin. Each figure is limited to direct upstream/downstream nodes and uses the shared `LineageGraphModel` plus `plot_lineage_plotly(..., show=False)` renderer used by runtime Context lineage.
   - Added a responsive right-side detail panel with a full plugin-reference link; it stacks below the overview on narrow screens.
   - Retained compact static Local Lineage SVGs with links to `index.html?focus=<provides>`.
-  - Replaced straight overview wires with curved Plotly path shapes and tangent-aligned arrowheads; removed the abandoned dashed-wire experiment.
+  - Replaced straight overview wires with lightly smoothed native Plotly spline traces and segment-aligned arrowheads; removed the explicit Bezier-path and abandoned dashed-wire experiments.
   - Grouped homepage reference cards by canonical `PLUGIN_SETS` factory membership in execution order, with `Other Plugins` as an explicit fallback for unassigned builtins.
 - `commands_run`:
   - `python -m pytest -q --no-cov tests/test_plugin_documentation.py tests/test_doc_generator.py` (44 passed)

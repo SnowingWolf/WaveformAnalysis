@@ -1315,8 +1315,8 @@ class PluginDocGenerator:
             node.node_id: (node.x + node.width / 2, node.y + node.height / 2)
             for node in lineage_graph.nodes
         }
-        edge_shapes = []
         node_shapes = []
+        edge_traces = []
         annotations = []
         for node in lineage_graph.nodes:
             x, y = positions[node.node_id]
@@ -1348,29 +1348,34 @@ class PluginDocGenerator:
             end = positions[edge.target_id]
             start_x, start_y = start[0] + 110, start[1]
             end_x, end_y = end[0] - 110, end[1]
-            horizontal_gap = end_x - start_x
-            control_x = max(36, min(180, horizontal_gap * 0.42))
             curve_offset = min(16, max(8, abs(end_y - start_y) * 0.08))
             if end_y < start_y:
                 curve_offset = -curve_offset
-            control_one = (start_x + control_x, start_y + curve_offset)
-            control_two = (end_x - control_x, end_y + curve_offset)
-            edge_shapes.append(
-                {
-                    "type": "path",
-                    "path": (
-                        f"M {start_x},{start_y} C {control_one[0]},{control_one[1]} "
-                        f"{control_two[0]},{control_two[1]} {end_x},{end_y}"
-                    ),
-                    "line": {"color": "#80908a", "width": 1.25},
-                    "layer": "below",
-                }
+            midpoint = (
+                (start_x + end_x) / 2,
+                (start_y + end_y) / 2 + curve_offset,
             )
-            tangent_x, tangent_y = end_x - control_two[0], end_y - control_two[1]
+            edge_traces.append(
+                go.Scatter(
+                    x=[start_x, midpoint[0], end_x],
+                    y=[start_y, midpoint[1], end_y],
+                    mode="lines",
+                    line={
+                        "color": "#80908a",
+                        "width": 1.25,
+                        "shape": "spline",
+                        "smoothing": 0.35,
+                    },
+                    hoverinfo="skip",
+                    showlegend=False,
+                    name="plugin-overview-spline",
+                )
+            )
+            tangent_x, tangent_y = end_x - midpoint[0], end_y - midpoint[1]
             tangent_length = max((tangent_x**2 + tangent_y**2) ** 0.5, 1.0)
             annotations.append(
                 {
-                    # Keep the arrowhead aligned with the Bezier curve tangent.
+                    # Keep the arrowhead aligned with the final spline segment.
                     "ax": end_x - tangent_x / tangent_length * 8,
                     "ay": end_y - tangent_y / tangent_length * 8,
                     "x": end_x,
@@ -1392,7 +1397,8 @@ class PluginDocGenerator:
         customdata = [node.node_id.removeprefix("plugin:") for node in lineage_graph.nodes]
         hovertext = [node.tooltip for node in lineage_graph.nodes]
         figure = go.Figure(
-            data=[
+            data=edge_traces
+            + [
                 go.Scatter(
                     x=x_values,
                     y=y_values,
@@ -1407,13 +1413,9 @@ class PluginDocGenerator:
             ]
         )
         figure.update_layout(
-            shapes=edge_shapes + node_shapes,
+            shapes=node_shapes,
             annotations=annotations,
-            meta={
-                "node_shape_indices": {
-                    name: len(edge_shapes) + index for index, name in enumerate(customdata)
-                }
-            },
+            meta={"node_shape_indices": {name: index for index, name in enumerate(customdata)}},
             margin={"l": 22, "r": 22, "t": 22, "b": 22},
             paper_bgcolor="#ffffff",
             plot_bgcolor="#ffffff",

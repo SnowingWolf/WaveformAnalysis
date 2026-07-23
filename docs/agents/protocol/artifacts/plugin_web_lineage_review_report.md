@@ -10,7 +10,7 @@
   - `default_resolved_plugins_web_generation`: pass (35 plugins, 39 files)
   - `generated_HTML_inspection`: pass (`raw_files` and `st_waveforms` are global Plotly nodes; local Plotly asset, click handler, and scroll zoom are present)
   - `shared_renderer_regression`: pass (50 focused tests; detail JSON uses the runtime renderer and contains only direct neighbors)
-  - `overview_curve_and_set_grouping`: pass (generated global wires are Bezier path shapes; canonical set ordering and fallback grouping are covered)
+  - `overview_curve_and_set_grouping`: pass (generated global wires are native Plotly spline traces; canonical set ordering and fallback grouping are covered)
   - `doc_sync`: pass
   - `doc_anchors`: pass
 - `decision`: `completed`

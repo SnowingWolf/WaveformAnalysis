@@ -212,8 +212,9 @@ def test_web_cards_group_by_canonical_plugin_sets_and_global_edges_are_curved(tm
     assert 'data-plugin-set="other"' in index
     assert index.index('data-plugin-set="io"') < index.index('data-plugin-set="waveform"')
     assert index.index('href="plugins/raw_files.html"') < index.index('data-plugin-set="waveform"')
-    assert '"type":"path"' in index
-    assert "plugin-overview-edges" not in index
+    assert '"shape":"spline"' in index
+    assert "plugin-overview-spline" in index
+    assert '"type":"path"' not in index
 
     site_js = (tmp_path / "assets" / "site.js").read_text(encoding="utf-8")
     assert "pluginSet.hidden" in site_js
