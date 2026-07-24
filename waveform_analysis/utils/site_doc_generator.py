@@ -475,6 +475,25 @@ class DocumentationSiteGenerator:
     def generate(self, output_dir: Path) -> dict[str, Path]:
         output_dir = Path(output_dir)
         self.plugin_generator.load_builtin_plugins()
+        views = self.build_accessor_views()
+        accessor_search_entries = []
+        for view in views:
+            base_url = f"accessors/{view.slug}.html"
+            accessor_search_entries.extend(
+                {
+                    "title": view.name,
+                    "summary": view.summary,
+                    "kind": "Accessor",
+                    "url": f"{base_url}{anchor}",
+                    "keywords": f"{view.name} {view.summary} {heading}",
+                }
+                for heading, anchor in (
+                    ("整体介绍", "#overview"),
+                    ("构造器", "#constructor"),
+                    ("快速开始", "#quickstart"),
+                    ("公开成员", "#members"),
+                )
+            )
         generated = self.plugin_generator.generate_web(
             output_dir,
             index_relative_path="plugins/index.html",
@@ -482,14 +501,17 @@ class DocumentationSiteGenerator:
             asset_relative_dir="assets",
             site_home_href="index.html",
             accessor_relative_path="accessors/index.html",
+            extra_search_entries=accessor_search_entries,
         )
-        views = self.build_accessor_views()
         env = self.plugin_generator._get_web_jinja_env()
         env.filters["inline_code"] = _inline_code
         accessor_dir = output_dir / "accessors"
         accessor_dir.mkdir(parents=True, exist_ok=True)
         home_path = output_dir / "index.html"
-        home_path.write_text(env.get_template("web/site_index.html.j2").render(), encoding="utf-8")
+        home_path.write_text(
+            env.get_template("web/site_index.html.j2").render(accessor_count=len(views)),
+            encoding="utf-8",
+        )
         generated["SITE_INDEX"] = home_path
         accessor_index = accessor_dir / "index.html"
         accessor_index.write_text(

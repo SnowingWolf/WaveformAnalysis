@@ -236,4 +236,82 @@
     scroll.scrollLeft = Math.max(0, box.x * scaleX - (scroll.clientWidth - box.width * scaleX) / 2);
     scroll.scrollTop = Math.max(0, box.y * scaleY - (scroll.clientHeight - box.height * scaleY) / 2);
   }
+
+  const nav = document.querySelector("[data-doc-nav]");
+  const navOpen = document.querySelector("[data-doc-nav-open]");
+  const navClose = nav?.querySelector("[data-doc-nav-close]");
+  const setNavigation = (open) => {
+    if (!nav || !navOpen) return;
+    nav.classList.toggle("is-open", open);
+    navOpen.setAttribute("aria-expanded", String(open));
+    if (open) navClose?.focus();
+    else navOpen.focus();
+  };
+  navOpen?.addEventListener("click", () => setNavigation(true));
+  navClose?.addEventListener("click", () => setNavigation(false));
+
+  const dialog = document.querySelector("[data-search-dialog]");
+  const openSearch = document.querySelector("[data-search-open]");
+  const closeSearch = dialog?.querySelector("[data-search-close]");
+  const searchInput = dialog?.querySelector("[data-site-search-input]");
+  const searchStatus = dialog?.querySelector("[data-site-search-status]");
+  const searchResults = dialog?.querySelector("[data-site-search-results]");
+  const rootPrefix = document.body.dataset.siteRootPrefix || "";
+  const renderSearch = () => {
+    if (!searchInput || !searchStatus || !searchResults) return;
+    const query = searchInput.value.trim().toLocaleLowerCase();
+    searchResults.replaceChildren();
+    if (!query) {
+      searchStatus.textContent = "输入关键词开始搜索。";
+      return;
+    }
+    const entries = (window.WAVEFORM_DOCS_SEARCH || []).filter((entry) =>
+      `${entry.title} ${entry.summary} ${entry.keywords}`.toLocaleLowerCase().includes(query),
+    ).slice(0, 12);
+    searchStatus.textContent = entries.length ? `找到 ${entries.length} 个结果。` : "没有匹配结果。";
+    for (const entry of entries) {
+      const item = document.createElement("li");
+      const link = document.createElement("a");
+      link.href = `${rootPrefix}${entry.url}`;
+      const kind = document.createElement("span");
+      kind.className = "site-search-kind";
+      kind.textContent = entry.kind;
+      const title = document.createElement("strong");
+      title.textContent = entry.title;
+      const summary = document.createElement("span");
+      summary.textContent = entry.summary;
+      link.append(kind, title, summary);
+      item.append(link);
+      searchResults.append(item);
+    }
+  };
+  const showSearch = () => {
+    if (!dialog) return;
+    dialog.showModal();
+    searchInput?.focus();
+  };
+  openSearch?.addEventListener("click", showSearch);
+  closeSearch?.addEventListener("click", () => dialog?.close());
+  searchInput?.addEventListener("input", renderSearch);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      if (dialog?.open) dialog.close();
+      else if (nav?.classList.contains("is-open")) setNavigation(false);
+    }
+    if (event.key === "/" && !dialog?.open && !["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) {
+      event.preventDefault();
+      showSearch();
+    }
+  });
+
+  const tocLinks = [...document.querySelectorAll(".page-toc a[href^='#']")];
+  if (tocLinks.length && window.IntersectionObserver) {
+    const byId = new Map(tocLinks.map((link) => [link.getAttribute("href").slice(1), link]));
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+      if (!visible) return;
+      for (const link of tocLinks) link.classList.toggle("is-active", link === byId.get(visible.target.id));
+    }, { rootMargin: "-80px 0px -65% 0px" });
+    for (const section of document.querySelectorAll(".reference section[id]")) observer.observe(section);
+  }
 })();

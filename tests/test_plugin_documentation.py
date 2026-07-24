@@ -96,7 +96,7 @@ def test_web_generation_is_offline_relative_and_escaped(tmp_path):
     index = result["INDEX"].read_text(encoding="utf-8")
     page = result["special_chars"].read_text(encoding="utf-8")
     assert 'href="plugins/special_chars.html"' in index
-    assert '<body class="site-index">' in index
+    assert 'class="site-index docs-page docs-plugin-index"' in index
     assert 'href="../assets/site.css"' in page
     assert "https://" not in index + page
     assert "http://" not in index + page
@@ -107,6 +107,7 @@ def test_web_generation_is_offline_relative_and_escaped(tmp_path):
     assert "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p></div>" in page
     assert (tmp_path / "assets" / "site.css").is_file()
     assert (tmp_path / "assets" / "site.js").is_file()
+    assert (tmp_path / "assets" / "search-index.js").is_file()
     assert (tmp_path / "assets" / "plotly.min.js").is_file()
     assert (tmp_path / "assets" / "lineage-details.json").is_file()
     assert (tmp_path / "assets" / "lineage-overviews.json").is_file()
@@ -548,6 +549,7 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     expected_assets = {
         "site.css",
         "site.js",
+        "search-index.js",
         "plotly.min.js",
         "lineage-details.json",
         "lineage-overviews.json",
@@ -562,11 +564,13 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     pair_accessor_page = result["accessor:s1-s2-pair-accessor"].read_text(encoding="utf-8")
     site_css = (tmp_path / "assets" / "site.css").read_text(encoding="utf-8")
     site_js = (tmp_path / "assets" / "site.js").read_text(encoding="utf-8")
+    search_index = (tmp_path / "assets" / "search-index.js").read_text(encoding="utf-8")
     assert 'href="plugins/index.html"' in home
     assert 'href="accessors/index.html"' in home
-    assert 'href="../index.html" class="site-brand"' in plugin_index
+    assert 'class="site-brand" href="../index.html"' in plugin_index
     assert 'href="records.html"' in plugin_index
     assert 'data-lineage-details="../assets/lineage-details.json"' in plugin_index
+    assert 'data-site-root-prefix="../"' in plugin_index
     assert 'href="index.html?focus=records"' in plugin_page
     assert 'href="../accessors/index.html"' in plugin_page
     assert "PeakChannelAccessor" in accessor_index
@@ -577,16 +581,14 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "构造器" in peak_accessor_page
     assert "返回值" in peak_accessor_page
     assert "使用注意" in peak_accessor_page
-    assert 'class="page-location" aria-label="文档位置"' in peak_accessor_page
-    assert '<a href="../index.html">文档总站</a>' in peak_accessor_page
-    assert '<li aria-current="page"><code>PeakChannelAccessor</code></li>' in peak_accessor_page
-    assert "data-detail-sidebar-toggle" in peak_accessor_page
+    assert 'class="site-tree" id="site-navigation"' in peak_accessor_page
+    assert 'class="page-toc" aria-label="本页目录"' in peak_accessor_page
+    assert 'href="../index.html">文档概览</a>' in peak_accessor_page
     assert 'href="#get_peak_channels"' in peak_accessor_page
-    assert 'class="page-location" aria-label="文档位置"' in plugin_page
-    assert '<li aria-current="page"><code>records</code></li>' in plugin_page
-    assert "data-detail-sidebar-toggle" in plugin_page
+    assert 'class="site-tree" id="site-navigation"' in plugin_page
+    assert 'class="page-toc" aria-label="本页目录"' in plugin_page
     assert 'href="#configuration"' in plugin_page
-    assert "layout.dataset.sidebarCollapsed = String(collapsed)" in site_js
+    assert 'nav.classList.toggle("is-open", open)' in site_js
     assert "<code>peak_id</code>" in peak_accessor_page
     assert '<h3><code>plot</code></h3><pre class="member-signature"><code>plot(self,' in (
         peak_accessor_page
@@ -598,6 +600,15 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "<code>peaklet_channels</code>" in peak_accessor_page
     assert ".language-python .k" in site_css
     assert ".language-python .s" in site_css
+    assert "site-search-dialog" in home
+    assert "site-search-dialog" in plugin_index
+    assert "site-tree" in peak_accessor_page
+    assert "page-toc" in peak_accessor_page
+    assert "WAVEFORM_DOCS_SEARCH" in search_index
+    assert '"url":"plugins/records.html#overview"' in search_index
+    assert '"url":"accessors/peak-channel-accessor.html#overview"' in search_index
+    assert "data-doc-nav-open" in site_js
+    assert "data-site-search-input" in site_js
     html = "".join(path.read_text(encoding="utf-8") for path in tmp_path.rglob("*.html"))
     assert "https://" not in html
     assert "http://" not in html

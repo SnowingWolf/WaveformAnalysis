@@ -115,6 +115,11 @@ waveform-docs generate site-web
 总站只支持全量生成，因此不能与 `--plugin` 同时使用。`plugins-web` 继续保留原有参数、默认输出和
 文件布局，适合只需要插件参考或依赖旧路径的调用。
 
+站点使用本地 MDN 风格的文档外壳：顶部导航、左侧文档树、详情页右侧章节目录，以及窄屏下可
+展开的目录抽屉。所有页面均可打开全站搜索；生成器把插件、Accessor 和主要章节写入本地
+`assets/search-index.js`，因此通过 `file://` 直接打开时也不依赖 `fetch`、CDN 或在线服务。
+插件索引原有的页面内筛选仍保留，用于快速过滤当前卡片集合。
+
 生成后的 HTML 首页使用本地 Plotly 提供可点击、可缩放、可拖拽的紧凑全局插件总览。`Core` 是
 默认视图，保留以 `events` 为主终点的处理链；`All outputs` 额外显示 `df_paired`、
 `waveform_width_integral` 等默认配置下无消费者的终点输出。两个视图从同一次完整图布局派生，

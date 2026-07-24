@@ -1,0 +1,39 @@
+{% macro topbar(site_home_href, plugin_index_href, accessor_index_href, current, asset_prefix) -%}
+<header class="site-topbar">
+  <a class="site-brand" href="{{ site_home_href }}"><span class="site-brand-mark" aria-hidden="true">W</span><span>WaveformAnalysis</span></a>
+  <nav class="site-primary-nav" aria-label="主导航">
+    <a href="{{ site_home_href }}"{% if current == "home" %} aria-current="page"{% endif %}>概览</a>
+    <a href="{{ plugin_index_href }}"{% if current == "plugins" %} aria-current="page"{% endif %}>插件参考</a>
+    {% if accessor_index_href %}<a href="{{ accessor_index_href }}"{% if current == "accessors" %} aria-current="page"{% endif %}>Accessor</a>{% endif %}
+  </nav>
+  <div class="site-topbar-actions"><button class="site-search-open" type="button" data-search-open aria-haspopup="dialog" title="搜索文档">搜索</button><button class="site-nav-open" type="button" data-doc-nav-open aria-controls="site-navigation" aria-expanded="false" title="打开文档导航">目录</button></div>
+</header>
+{%- endmacro %}
+
+{% macro navigation(site_home_href, plugin_index_href, accessor_index_href, current) -%}
+<aside class="site-tree" id="site-navigation" data-doc-nav aria-label="文档导航">
+  <div class="site-tree-heading"><span>文档导航</span><button type="button" data-doc-nav-close aria-label="关闭文档导航" title="关闭">关闭</button></div>
+  <nav>
+    <a href="{{ site_home_href }}"{% if current == "home" %} aria-current="page"{% endif %}>文档概览</a>
+    <a href="{{ plugin_index_href }}"{% if current == "plugins" %} aria-current="page"{% endif %}>插件系统</a>
+    {% if accessor_index_href %}<a href="{{ accessor_index_href }}"{% if current == "accessors" %} aria-current="page"{% endif %}>Accessor 接口</a>{% endif %}
+  </nav>
+</aside>
+{%- endmacro %}
+
+{% macro search_dialog(asset_prefix) -%}
+<dialog class="site-search-dialog" data-search-dialog aria-label="搜索文档">
+  <div class="site-search-panel">
+    <div class="site-search-heading"><h2>搜索文档</h2><button type="button" data-search-close aria-label="关闭搜索" title="关闭">关闭</button></div>
+    <label class="sr-only" for="site-search-input">搜索插件和 Accessor</label>
+    <input id="site-search-input" data-site-search-input type="search" placeholder="搜索插件、Accessor 或章节" autocomplete="off">
+    <p class="site-search-status" data-site-search-status aria-live="polite">输入关键词开始搜索。</p>
+    <ul class="site-search-results" data-site-search-results></ul>
+  </div>
+</dialog>
+<script defer src="{{ asset_prefix }}search-index.js"></script>
+{%- endmacro %}
+
+{% macro footer() -%}
+<footer class="site-footer"><span>WaveformAnalysis 文档</span><span>由本地 `waveform-docs` 生成</span></footer>
+{%- endmacro %}

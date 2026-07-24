@@ -1625,6 +1625,7 @@ class PluginDocGenerator:
         site_home_href: str = "../index.html",
         plugin_index_href: str = "../index.html",
         accessor_index_href: str | None = None,
+        site_root_prefix: str = "../",
     ) -> str:
         """Render one standalone plugin HTML page with escaped metadata."""
         return (
@@ -1637,6 +1638,7 @@ class PluginDocGenerator:
                 site_home_href=site_home_href,
                 plugin_index_href=plugin_index_href,
                 accessor_index_href=accessor_index_href,
+                site_root_prefix=site_root_prefix,
             )
         )
 
@@ -1655,6 +1657,7 @@ class PluginDocGenerator:
         lineage_details_json: str | None = None,
         global_lineage_json: str | None = None,
         terminal_outputs: set[str] | None = None,
+        site_root_prefix: str = "",
     ) -> str:
         """Render the searchable static-site index."""
         scored_plugins = self._with_web_scores(plugins, dependencies_by_provides)
@@ -1688,6 +1691,7 @@ class PluginDocGenerator:
                 global_lineage_json=(
                     Markup(global_lineage_json) if global_lineage_json is not None else None
                 ),
+                site_root_prefix=site_root_prefix,
             )
         )
 
@@ -1700,6 +1704,7 @@ class PluginDocGenerator:
         asset_relative_dir: str = "assets",
         site_home_href: str = "index.html",
         accessor_relative_path: str | None = None,
+        extra_search_entries: list[dict[str, str]] | None = None,
     ) -> dict[str, Path]:
         """Generate an offline HTML plugin reference site."""
         output_dir = Path(output_dir)
@@ -1711,6 +1716,11 @@ class PluginDocGenerator:
         asset_dir.mkdir(parents=True, exist_ok=True)
         index_dir.mkdir(parents=True, exist_ok=True)
         index_asset_prefix = Path(os.path.relpath(asset_dir, index_dir)).as_posix() + "/"
+        index_site_root_prefix = Path(os.path.relpath(output_dir, index_dir)).as_posix()
+        if index_site_root_prefix == ".":
+            index_site_root_prefix = ""
+        elif not index_site_root_prefix.endswith("/"):
+            index_site_root_prefix += "/"
         detail_asset_prefix = Path(os.path.relpath(asset_dir, plugin_dir)).as_posix() + "/"
         index_plugin_prefix = Path(os.path.relpath(plugin_dir, index_dir)).as_posix()
         if index_plugin_prefix == ".":
@@ -1718,6 +1728,11 @@ class PluginDocGenerator:
         else:
             index_plugin_prefix += "/"
         detail_home_href = Path(os.path.relpath(output_dir / site_home_href, plugin_dir)).as_posix()
+        detail_site_root_prefix = Path(os.path.relpath(output_dir, plugin_dir)).as_posix()
+        if detail_site_root_prefix == ".":
+            detail_site_root_prefix = ""
+        elif not detail_site_root_prefix.endswith("/"):
+            detail_site_root_prefix += "/"
         plugin_index_href = Path(os.path.relpath(index_path, plugin_dir)).as_posix()
         detail_accessor_href = (
             Path(os.path.relpath(output_dir / accessor_relative_path, plugin_dir)).as_posix()
@@ -1760,6 +1775,7 @@ class PluginDocGenerator:
                     site_home_href=detail_home_href,
                     plugin_index_href=plugin_index_href,
                     accessor_index_href=detail_accessor_href,
+                    site_root_prefix=detail_site_root_prefix,
                 ),
                 encoding="utf-8",
             )
@@ -1793,6 +1809,7 @@ class PluginDocGenerator:
                 lineage_details_json=detail_json,
                 global_lineage_json=global_json,
                 terminal_outputs=terminal_outputs,
+                site_root_prefix=index_site_root_prefix,
             ),
             encoding="utf-8",
         )
@@ -1802,6 +1819,37 @@ class PluginDocGenerator:
             target = asset_dir / name
             shutil.copyfile(source_assets / name, target)
             generated[f"asset:{name}"] = target
+        search_entries = []
+        for plugin in plugins:
+            base_url = f"{plugin_relative_dir}/{plugin.provides}.html"
+            search_entries.extend(
+                {
+                    "title": plugin.provides,
+                    "summary": plugin.summary or plugin.description or "暂无说明。",
+                    "kind": "插件",
+                    "url": f"{base_url}{anchor}",
+                    "keywords": " ".join(
+                        [plugin.provides, plugin.name, plugin.category, plugin.output_kind, heading]
+                    ),
+                }
+                for heading, anchor in (
+                    ("概览", "#overview"),
+                    ("配置", "#configuration"),
+                    ("输出", "#output"),
+                )
+            )
+        search_entries.extend(extra_search_entries or [])
+        search_asset = asset_dir / "search-index.js"
+        search_asset.write_text(
+            "window.WAVEFORM_DOCS_SEARCH="
+            + json.dumps(search_entries, ensure_ascii=True, separators=(",", ":"))
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e")
+            .replace("&", "\\u0026")
+            + ";\n",
+            encoding="utf-8",
+        )
+        generated["asset:search-index.js"] = search_asset
         try:
             from plotly.offline import get_plotlyjs
         except ImportError as exc:
