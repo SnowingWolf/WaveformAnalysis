@@ -22,6 +22,18 @@
     input.addEventListener("input", update);
   }
 
+  for (const layout of document.querySelectorAll("[data-detail-layout]")) {
+    const toggle = layout.querySelector("[data-detail-sidebar-toggle]");
+    const label = layout.querySelector("[data-detail-sidebar-label]");
+    if (!toggle || !label) continue;
+    toggle.addEventListener("click", () => {
+      const collapsed = layout.dataset.sidebarCollapsed !== "true";
+      layout.dataset.sidebarCollapsed = String(collapsed);
+      toggle.setAttribute("aria-expanded", String(!collapsed));
+      label.textContent = collapsed ? "显示目录" : "隐藏目录";
+    });
+  }
+
   const workspace = document.querySelector(".lineage-workspace[data-lineage-details]");
   const overview = document.querySelector("#plugin-global-lineage");
   if (workspace && overview && window.Plotly) {

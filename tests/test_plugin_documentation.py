@@ -561,6 +561,7 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     peak_accessor_page = result["accessor:peak-channel-accessor"].read_text(encoding="utf-8")
     pair_accessor_page = result["accessor:s1-s2-pair-accessor"].read_text(encoding="utf-8")
     site_css = (tmp_path / "assets" / "site.css").read_text(encoding="utf-8")
+    site_js = (tmp_path / "assets" / "site.js").read_text(encoding="utf-8")
     assert 'href="plugins/index.html"' in home
     assert 'href="accessors/index.html"' in home
     assert 'href="../index.html" class="site-brand"' in plugin_index
@@ -579,8 +580,13 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert 'class="page-location" aria-label="文档位置"' in peak_accessor_page
     assert '<a href="../index.html">文档总站</a>' in peak_accessor_page
     assert '<li aria-current="page"><code>PeakChannelAccessor</code></li>' in peak_accessor_page
+    assert "data-detail-sidebar-toggle" in peak_accessor_page
+    assert 'href="#get_peak_channels"' in peak_accessor_page
     assert 'class="page-location" aria-label="文档位置"' in plugin_page
     assert '<li aria-current="page"><code>records</code></li>' in plugin_page
+    assert "data-detail-sidebar-toggle" in plugin_page
+    assert 'href="#configuration"' in plugin_page
+    assert "layout.dataset.sidebarCollapsed = String(collapsed)" in site_js
     assert "<code>peak_id</code>" in peak_accessor_page
     assert '<h3><code>plot</code></h3><pre class="member-signature"><code>plot(self,' in (
         peak_accessor_page
