@@ -569,6 +569,8 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert 'href="../accessors/index.html"' in plugin_page
     assert "PeakChannelAccessor" in accessor_index
     assert "S1S2PairAccessor" in accessor_index
+    assert "通过 peaks 对应的分通道信息" in accessor_index
+    assert "通过 pairs 查询对应的 S1、S2 peaks" in accessor_index
     assert "整体介绍" in peak_accessor_page
     assert "构造器" in peak_accessor_page
     assert "返回值" in peak_accessor_page

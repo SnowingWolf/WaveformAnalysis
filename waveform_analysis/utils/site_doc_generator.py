@@ -72,7 +72,7 @@ ACCESSOR_DOCUMENTATION_REGISTRY = (
     AccessorDocumentationSpec(
         accessor_class=PeakChannelAccessor,
         slug="peak-channel-accessor",
-        summary="按 peak 查询各硬件通道的特征与波形，并提供常用对比绘图。",
+        summary="通过 peaks 对应的分通道信息查询硬件通道特征与波形，并提供常用对比绘图。",
         introduction=(
             "PeakChannelAccessor 面向单个 peak 的通道级排查。它先读取轻量的特征层，"
             "只有请求波形或绘图时才读取 records 与 wave pool，因此适合先用面积和高度筛选，"
@@ -209,7 +209,7 @@ for channel in channels:
     AccessorDocumentationSpec(
         accessor_class=S1S2PairAccessor,
         slug="s1-s2-pair-accessor",
-        summary="查询、筛选和绘制 S1-S2 配对，并按需加载 peak 波形。",
+        summary="通过 pairs 查询对应的 S1、S2 peaks、配对特征与波形，并支持筛选和绘图。",
         introduction=(
             "S1S2PairAccessor 把 S1-S2 配对表、筛选条件、求和波形和位置重建聚合为只读查询接口。"
             "配对表与波形层独立延迟加载，可先在 structured array 上构建条件，再读取少量候选的波形。"
