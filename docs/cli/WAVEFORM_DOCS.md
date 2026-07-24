@@ -186,7 +186,7 @@ Agent 导向文档默认位于 `docs/plugins/reference/agent/`：
 
 ## 依赖要求
 
-文档生成需要以下依赖：
+Markdown 和插件文档生成需要以下依赖：
 
 ```bash
 pip install jinja2
@@ -197,6 +197,10 @@ pip install jinja2
 ```bash
 pip install -e ".[docgen]"
 ```
+
+`site-web` 的 Accessor Python 示例使用本地 Pygments 生成语法高亮；该依赖包含在
+`docgen` extra 中，不作为 WaveformAnalysis 的主运行时依赖。生成 Accessor 页面时若缺少
+Pygments，命令会明确提示安装 `.[docgen]`。
 
 ---
 

@@ -57,6 +57,7 @@ docs = [
 ]
 docgen = [
     "jinja2>=3.0.0",
+    "pygments>=2.0.0",
 ]
 scientific = [
     "iminuit>=2.0.0",

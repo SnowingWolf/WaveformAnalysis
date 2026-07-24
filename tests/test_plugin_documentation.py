@@ -557,6 +557,9 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     plugin_index = (tmp_path / "plugins" / "index.html").read_text(encoding="utf-8")
     plugin_page = result["records"].read_text(encoding="utf-8")
     accessor_index = (tmp_path / "accessors" / "index.html").read_text(encoding="utf-8")
+    peak_accessor_page = result["accessor:peak-channel-accessor"].read_text(encoding="utf-8")
+    pair_accessor_page = result["accessor:s1-s2-pair-accessor"].read_text(encoding="utf-8")
+    site_css = (tmp_path / "assets" / "site.css").read_text(encoding="utf-8")
     assert 'href="plugins/index.html"' in home
     assert 'href="accessors/index.html"' in home
     assert 'href="../index.html" class="site-brand"' in plugin_index
@@ -566,12 +569,24 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert 'href="../accessors/index.html"' in plugin_page
     assert "PeakChannelAccessor" in accessor_index
     assert "S1S2PairAccessor" in accessor_index
+    assert "整体介绍" in peak_accessor_page
+    assert "构造器" in peak_accessor_page
+    assert "返回值" in peak_accessor_page
+    assert "使用注意" in peak_accessor_page
+    assert "<code>peak_id</code>" in peak_accessor_page
+    assert '<pre class="code-block language-python"><code><span class="kn">from</span>' in (
+        peak_accessor_page
+    )
+    assert "score_total_range" in pair_accessor_page
+    assert "<code>peaklet_channels</code>" in peak_accessor_page
+    assert ".language-python .k" in site_css
+    assert ".language-python .s" in site_css
     html = "".join(path.read_text(encoding="utf-8") for path in tmp_path.rglob("*.html"))
     assert "https://" not in html
     assert "http://" not in html
 
 
-def test_accessor_registry_uses_live_signatures_and_fails_for_missing_members():
+def test_accessor_registry_uses_live_signatures_parameters_and_fails_for_invalid_specs():
     import inspect
 
     from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
@@ -579,6 +594,7 @@ def test_accessor_registry_uses_live_signatures_and_fails_for_missing_members():
     from waveform_analysis.utils.site_doc_generator import (
         ACCESSOR_DOCUMENTATION_REGISTRY,
         AccessorMemberSpec,
+        AccessorParameterSpec,
         DocumentationSiteGenerator,
     )
 
@@ -599,6 +615,12 @@ def test_accessor_registry_uses_live_signatures_and_fails_for_missing_members():
     assert all(not member.name.startswith("_") for view in views for member in view.members)
     get_pair = next(member for member in pair_view.members if member.name == "get_pair")
     assert get_pair.signature == str(inspect.signature(S1S2PairAccessor.get_pair))
+    assert [parameter.name for parameter in peak_view.constructor_parameters] == [
+        parameter
+        for parameter in inspect.signature(PeakChannelAccessor).parameters
+        if parameter != "self"
+    ]
+    assert [parameter.name for parameter in get_pair.parameters] == ["pair_id"]
 
     broken = replace(
         ACCESSOR_DOCUMENTATION_REGISTRY[0],
@@ -606,6 +628,49 @@ def test_accessor_registry_uses_live_signatures_and_fails_for_missing_members():
     )
     with pytest.raises(ValueError, match="does not exist"):
         DocumentationSiteGenerator(accessor_registry=(broken,)).build_accessor_views()
+
+    invalid_parameters = replace(
+        ACCESSOR_DOCUMENTATION_REGISTRY[0],
+        members=(
+            AccessorMemberSpec(
+                "get_peak_channels",
+                "Returns channels.",
+                parameters=(AccessorParameterSpec("not_peak_id", "Invalid."),),
+            ),
+        ),
+    )
+    with pytest.raises(ValueError, match="parameter names"):
+        DocumentationSiteGenerator(accessor_registry=(invalid_parameters,)).build_accessor_views()
+
+
+def test_accessor_html_escapes_dynamic_text_and_requires_pygments(tmp_path, monkeypatch):
+    import sys
+
+    from waveform_analysis.utils.site_doc_generator import (
+        ACCESSOR_DOCUMENTATION_REGISTRY,
+        DocumentationSiteGenerator,
+        _highlight_python,
+    )
+
+    unsafe_registry = (
+        replace(
+            ACCESSOR_DOCUMENTATION_REGISTRY[0],
+            summary="<script>alert('summary')</script>",
+            introduction="<img src=x onerror=alert('introduction')>",
+            example="value = '<script>alert(1)</script>'",
+        ),
+    )
+    result = DocumentationSiteGenerator(accessor_registry=unsafe_registry).generate(tmp_path)
+    content = result["accessor:peak-channel-accessor"].read_text(encoding="utf-8")
+    assert "&lt;script&gt;alert" in content
+    assert "&lt;img src=x onerror=alert" in content
+    assert "&lt;script&gt;" in content
+    assert "<script>alert('summary')</script>" not in content
+    assert "<img src=x onerror=alert('introduction')>" not in content
+
+    monkeypatch.setitem(sys.modules, "pygments", None)
+    with pytest.raises(RuntimeError, match="Pygments"):
+        _highlight_python("x = 1")
 
 
 def test_overview_paragraphs_fallback_from_overview_string():
