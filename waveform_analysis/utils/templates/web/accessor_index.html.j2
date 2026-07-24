@@ -1,3 +1,12 @@
-{% import "web/shell.html.j2" as shell %}
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Accessor | WaveformAnalysis</title><link rel="stylesheet" href="../assets/site.css"><script defer src="../assets/site.js"></script></head>
-<body class="docs-page" data-site-root-prefix="../">{{ shell.topbar("../index.html", "../plugins/index.html", "index.html", "accessors", "../assets/") }}<div class="site-layout">{{ shell.navigation("../index.html", "../plugins/index.html", "index.html", "accessors") }}<main class="docs-main"><nav class="breadcrumbs" aria-label="面包屑"><a href="../index.html">文档概览</a><span aria-current="page">Accessor</span></nav><header class="page-heading"><p class="eyebrow">分析接口</p><h1>Accessor</h1><p>面向常见分析查询的只读便捷接口。</p></header><div class="resource-grid">{% for accessor in accessors %}<a class="resource-card" href="{{ accessor.slug }}.html"><span class="category">{{ accessor.name }}</span><h2>{{ accessor.name }}</h2><p>{{ accessor.summary }}</p><span class="card-link">阅读参考</span></a>{% endfor %}</div></main></div>{{ shell.footer() }}{{ shell.search_dialog("../assets/") }}</body></html>
+{% extends "web/base.html.j2" %}
+{% set page_title = "Accessor | WaveformAnalysis" %}
+{% set asset_prefix = "../assets/" %}
+{% set site_root_prefix = "../" %}
+{% set body_class = "docs-page" %}
+{% set current = "accessors" %}
+{% set site_home_href = "../index.html" %}
+{% set plugin_index_href = "../plugins/index.html" %}
+{% set accessor_index_href = "index.html" %}
+{% block document %}
+<main class="docs-main"><nav class="breadcrumbs" aria-label="面包屑"><a href="../index.html">文档概览</a><span aria-current="page">Accessor</span></nav><header class="page-heading"><p class="eyebrow">分析接口</p><h1>Accessor</h1><p>面向常见分析查询的只读便捷接口。</p></header><div class="resource-grid">{% for accessor in accessors %}<a class="resource-card" href="{{ accessor.slug }}.html"><span class="category">{{ accessor.name }}</span><h2>{{ accessor.name }}</h2><p>{{ accessor.summary }}</p><span class="card-link">阅读参考</span></a>{% endfor %}</div></main>
+{% endblock %}

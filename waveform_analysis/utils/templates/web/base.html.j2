@@ -1,0 +1,23 @@
+{% import "web/shell.html.j2" as shell %}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title }}</title>
+  <script>try { document.documentElement.dataset.theme = localStorage.getItem("waveform-docs-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); } catch (_) {}</script>
+  <link rel="stylesheet" href="{{ asset_prefix }}site.css">
+  {% if load_plotly %}<script src="{{ asset_prefix }}plotly.min.js"></script>{% endif %}
+  <script defer src="{{ asset_prefix }}site.js"></script>
+</head>
+<body class="{{ body_class }}" data-site-root-prefix="{{ site_root_prefix }}">
+  {{ shell.topbar(site_home_href, plugin_index_href, accessor_index_href, current, asset_prefix) }}
+  <div class="{{ layout_class|default('site-layout') }}">
+    {{ shell.navigation(site_home_href, plugin_index_href, accessor_index_href, current, active_accessor|default(none), accessor_detail_prefix|default("")) }}
+    {% block document %}{% endblock %}
+  </div>
+  {{ shell.footer() }}
+  {{ shell.search_dialog(asset_prefix) }}
+  {% block after_shell %}{% endblock %}
+</body>
+</html>

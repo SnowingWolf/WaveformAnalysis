@@ -249,6 +249,29 @@
   };
   navOpen?.addEventListener("click", () => setNavigation(true));
   navClose?.addEventListener("click", () => setNavigation(false));
+  for (const toggle of document.querySelectorAll("[data-tree-toggle]")) {
+    const target = document.getElementById(toggle.getAttribute("aria-controls"));
+    if (!target) continue;
+    toggle.addEventListener("click", () => {
+      const expanded = toggle.getAttribute("aria-expanded") !== "true";
+      toggle.setAttribute("aria-expanded", String(expanded));
+      target.hidden = !expanded;
+    });
+  }
+
+  const themeToggle = document.querySelector("[data-theme-toggle]");
+  const syncThemeToggle = () => {
+    const dark = document.documentElement.dataset.theme === "dark";
+    themeToggle?.setAttribute("aria-label", dark ? "切换到浅色主题" : "切换到深色主题");
+    themeToggle?.setAttribute("title", dark ? "切换到浅色主题" : "切换到深色主题");
+  };
+  syncThemeToggle();
+  themeToggle?.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("waveform-docs-theme", next); } catch (_) {}
+    syncThemeToggle();
+  });
 
   const dialog = document.querySelector("[data-search-dialog]");
   const openSearch = document.querySelector("[data-search-open]");
@@ -304,14 +327,54 @@
     }
   });
 
-  const tocLinks = [...document.querySelectorAll(".page-toc a[href^='#']")];
-  if (tocLinks.length && window.IntersectionObserver) {
-    const byId = new Map(tocLinks.map((link) => [link.getAttribute("href").slice(1), link]));
+  const toc = document.querySelector("[data-page-toc]");
+  const tocList = toc?.querySelector("ol");
+  const slugify = (value, fallback) => {
+    const normalized = value.toLocaleLowerCase().trim().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-+|-+$/g, "");
+    return normalized || fallback;
+  };
+  const tocTargets = [];
+  if (tocList) {
+    const usedIds = new Set([...document.querySelectorAll("[id]")].map((element) => element.id));
+    for (const heading of document.querySelectorAll(".reference h2, .reference h3")) {
+      const section = heading.closest("section[id], article[id]");
+      let target = heading.tagName === "H2" && section ? section : heading;
+      if (!target.id) {
+        const base = slugify(heading.textContent, "section");
+        let id = base;
+        let index = 2;
+        while (usedIds.has(id)) id = `${base}-${index++}`;
+        target.id = id;
+        usedIds.add(id);
+      }
+      const item = document.createElement("li");
+      const link = document.createElement("a");
+      link.href = `#${target.id}`;
+      link.dataset.tocLevel = heading.tagName.slice(1);
+      link.textContent = heading.textContent.trim();
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        history.replaceState(null, "", `#${target.id}`);
+      });
+      item.append(link);
+      tocList.append(item);
+      tocTargets.push([target, link]);
+    }
+  }
+  if (tocTargets.length && window.IntersectionObserver) {
+    const tocLinks = tocTargets.map(([, link]) => link);
+    const byId = new Map(tocTargets.map(([target, link]) => [target.id, link]));
     const observer = new IntersectionObserver((entries) => {
       const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
       if (!visible) return;
-      for (const link of tocLinks) link.classList.toggle("is-active", link === byId.get(visible.target.id));
+      for (const link of tocLinks) {
+        const active = link === byId.get(visible.target.id);
+        link.classList.toggle("is-active", active);
+        if (active) link.setAttribute("aria-current", "location");
+        else link.removeAttribute("aria-current");
+      }
     }, { rootMargin: "-80px 0px -65% 0px" });
-    for (const section of document.querySelectorAll(".reference section[id]")) observer.observe(section);
+    for (const [target] of tocTargets) observer.observe(target);
   }
 })();

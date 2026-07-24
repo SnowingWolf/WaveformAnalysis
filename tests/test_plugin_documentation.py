@@ -1,6 +1,12 @@
 from dataclasses import replace
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
+import re
+from threading import Thread
+from urllib.parse import urljoin
+from urllib.request import urlopen
 
 import numpy as np
 import pytest
@@ -102,7 +108,7 @@ def test_web_generation_is_offline_relative_and_escaped(tmp_path):
     assert "http://" not in index + page
     assert "<tag>" not in page
     assert "&lt;tag&gt;" in page
-    assert "<script>" not in page
+    assert "<script>alert(1)</script>" not in page
     assert '<div class="plugin-overview"><p>Normal paragraph.</p>' in page
     assert "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p></div>" in page
     assert (tmp_path / "assets" / "site.css").is_file()
@@ -584,10 +590,10 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert 'class="site-tree" id="site-navigation"' in peak_accessor_page
     assert 'class="page-toc" aria-label="本页目录"' in peak_accessor_page
     assert 'href="../index.html">文档概览</a>' in peak_accessor_page
-    assert 'href="#get_peak_channels"' in peak_accessor_page
+    assert "data-page-toc" in peak_accessor_page
     assert 'class="site-tree" id="site-navigation"' in plugin_page
     assert 'class="page-toc" aria-label="本页目录"' in plugin_page
-    assert 'href="#configuration"' in plugin_page
+    assert "data-page-toc" in plugin_page
     assert 'nav.classList.toggle("is-open", open)' in site_js
     assert "<code>peak_id</code>" in peak_accessor_page
     assert '<h3><code>plot</code></h3><pre class="member-signature"><code>plot(self,' in (
@@ -608,10 +614,51 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert '"url":"plugins/records.html#overview"' in search_index
     assert '"url":"accessors/peak-channel-accessor.html#overview"' in search_index
     assert "data-doc-nav-open" in site_js
+    assert "data-theme-toggle" in site_js
+    assert "data-tree-toggle" in site_js
+    assert "data-page-toc" in site_js
     assert "data-site-search-input" in site_js
     html = "".join(path.read_text(encoding="utf-8") for path in tmp_path.rglob("*.html"))
     assert "https://" not in html
     assert "http://" not in html
+
+
+def test_site_web_assets_are_available_over_http_for_root_and_nested_pages(tmp_path):
+    from waveform_analysis.utils.site_doc_generator import DocumentationSiteGenerator
+
+    DocumentationSiteGenerator().generate(tmp_path)
+    handler = partial(SimpleHTTPRequestHandler, directory=str(tmp_path))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base_url = f"http://127.0.0.1:{server.server_port}/"
+    try:
+        pages = (
+            "index.html",
+            "plugins/index.html",
+            "plugins/records.html",
+            "accessors/index.html",
+            "accessors/peak-channel-accessor.html",
+            "accessors/s1-s2-pair-accessor.html",
+        )
+        for page in pages:
+            with urlopen(urljoin(base_url, page)) as response:
+                assert response.status == 200
+                html = response.read().decode("utf-8")
+            assets = re.findall(r'(?:href|src)="([^"]+)"', html)
+            for asset in assets:
+                if not asset.endswith((".css", ".js")):
+                    continue
+                with urlopen(urljoin(urljoin(base_url, page), asset)) as response:
+                    assert response.status == 200
+                    content_type = response.headers["Content-Type"]
+                if asset.endswith(".css"):
+                    assert content_type.startswith("text/css")
+                else:
+                    assert content_type.startswith(("text/javascript", "application/javascript"))
+    finally:
+        server.shutdown()
+        thread.join()
 
 
 def test_accessor_registry_uses_live_signatures_parameters_and_fails_for_invalid_specs():

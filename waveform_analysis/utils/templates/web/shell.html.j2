@@ -1,22 +1,35 @@
 {% macro topbar(site_home_href, plugin_index_href, accessor_index_href, current, asset_prefix) -%}
 <header class="site-topbar">
-  <a class="site-brand" href="{{ site_home_href }}"><span class="site-brand-mark" aria-hidden="true">W</span><span>WaveformAnalysis</span></a>
+  <a class="site-brand" href="{{ site_home_href }}"><span class="site-brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>WaveformAnalysis</span></a>
   <nav class="site-primary-nav" aria-label="主导航">
     <a href="{{ site_home_href }}"{% if current == "home" %} aria-current="page"{% endif %}>概览</a>
     <a href="{{ plugin_index_href }}"{% if current == "plugins" %} aria-current="page"{% endif %}>插件参考</a>
     {% if accessor_index_href %}<a href="{{ accessor_index_href }}"{% if current == "accessors" %} aria-current="page"{% endif %}>Accessor</a>{% endif %}
   </nav>
-  <div class="site-topbar-actions"><button class="site-search-open" type="button" data-search-open aria-haspopup="dialog" title="搜索文档">搜索</button><button class="site-nav-open" type="button" data-doc-nav-open aria-controls="site-navigation" aria-expanded="false" title="打开文档导航">目录</button></div>
+  <div class="site-topbar-actions"><button class="site-search-open" type="button" data-search-open aria-haspopup="dialog" title="搜索文档"><span class="control-icon search-icon" aria-hidden="true"></span><span>搜索</span></button><button class="site-theme-toggle" type="button" data-theme-toggle aria-label="切换浅色或深色主题" title="切换主题"><span class="theme-toggle-icon" aria-hidden="true"></span></button><button class="site-nav-open" type="button" data-doc-nav-open aria-controls="site-navigation" aria-expanded="false" title="打开文档导航"><span class="control-icon menu-icon" aria-hidden="true"></span><span>目录</span></button></div>
 </header>
 {%- endmacro %}
 
-{% macro navigation(site_home_href, plugin_index_href, accessor_index_href, current) -%}
+{% macro navigation(site_home_href, plugin_index_href, accessor_index_href, current, active_accessor, accessor_detail_prefix) -%}
 <aside class="site-tree" id="site-navigation" data-doc-nav aria-label="文档导航">
-  <div class="site-tree-heading"><span>文档导航</span><button type="button" data-doc-nav-close aria-label="关闭文档导航" title="关闭">关闭</button></div>
-  <nav>
-    <a href="{{ site_home_href }}"{% if current == "home" %} aria-current="page"{% endif %}>文档概览</a>
-    <a href="{{ plugin_index_href }}"{% if current == "plugins" %} aria-current="page"{% endif %}>插件系统</a>
-    {% if accessor_index_href %}<a href="{{ accessor_index_href }}"{% if current == "accessors" %} aria-current="page"{% endif %}>Accessor 接口</a>{% endif %}
+  <div class="site-tree-heading"><span>文档导航</span><button class="site-icon-button" type="button" data-doc-nav-close aria-label="关闭文档导航" title="关闭"><span aria-hidden="true">&times;</span></button></div>
+  <nav aria-label="主文档树">
+    <ul class="site-tree-list">
+      <li><a href="{{ site_home_href }}"{% if current == "home" %} aria-current="page"{% endif %}>文档概览</a></li>
+      <li class="site-tree-group">
+        <div class="site-tree-group-row"><span>插件系统</span><button class="site-tree-toggle" type="button" data-tree-toggle aria-expanded="true" aria-controls="tree-plugins" title="折叠插件系统"><span aria-hidden="true"></span><span class="sr-only">折叠插件系统</span></button></div>
+        <ul id="tree-plugins">
+          <li><a href="{{ plugin_index_href }}"{% if current == "plugins" %} aria-current="page"{% endif %}>插件参考</a></li>
+        </ul>
+      </li>
+      {% if accessor_index_href %}<li class="site-tree-group">
+        <div class="site-tree-group-row"><a href="{{ accessor_index_href }}"{% if current == "accessors" and not active_accessor %} aria-current="page"{% endif %}>Accessor 接口</a><button class="site-tree-toggle" type="button" data-tree-toggle aria-expanded="true" aria-controls="tree-accessors" title="折叠 Accessor 接口"><span aria-hidden="true"></span><span class="sr-only">折叠 Accessor 接口</span></button></div>
+        <ul id="tree-accessors">
+          <li><a href="{{ accessor_detail_prefix }}peak-channel-accessor.html"{% if active_accessor == "peak-channel-accessor" %} aria-current="page"{% endif %}>PeakChannelAccessor</a></li>
+          <li><a href="{{ accessor_detail_prefix }}s1-s2-pair-accessor.html"{% if active_accessor == "s1-s2-pair-accessor" %} aria-current="page"{% endif %}>S1S2PairAccessor</a></li>
+        </ul>
+      </li>{% endif %}
+    </ul>
   </nav>
 </aside>
 {%- endmacro %}
@@ -24,7 +37,7 @@
 {% macro search_dialog(asset_prefix) -%}
 <dialog class="site-search-dialog" data-search-dialog aria-label="搜索文档">
   <div class="site-search-panel">
-    <div class="site-search-heading"><h2>搜索文档</h2><button type="button" data-search-close aria-label="关闭搜索" title="关闭">关闭</button></div>
+    <div class="site-search-heading"><h2>搜索文档</h2><button class="site-icon-button" type="button" data-search-close aria-label="关闭搜索" title="关闭"><span aria-hidden="true">&times;</span></button></div>
     <label class="sr-only" for="site-search-input">搜索插件和 Accessor</label>
     <input id="site-search-input" data-site-search-input type="search" placeholder="搜索插件、Accessor 或章节" autocomplete="off">
     <p class="site-search-status" data-site-search-status aria-live="polite">输入关键词开始搜索。</p>
@@ -35,5 +48,5 @@
 {%- endmacro %}
 
 {% macro footer() -%}
-<footer class="site-footer"><span>WaveformAnalysis 文档</span><span>由本地 `waveform-docs` 生成</span></footer>
+<footer class="site-footer"><div><strong>WaveformAnalysis 文档</strong><span>本地静态参考站</span></div><span>由本地 <code>waveform-docs</code> 生成</span></footer>
 {%- endmacro %}

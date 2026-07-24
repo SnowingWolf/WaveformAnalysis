@@ -1,11 +1,18 @@
-{% import "web/shell.html.j2" as shell %}
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>WaveformAnalysis 文档</title><link rel="stylesheet" href="assets/site.css"><script defer src="assets/site.js"></script></head>
-<body class="docs-page docs-home" data-site-root-prefix="">
-{{ shell.topbar("index.html", "plugins/index.html", "accessors/index.html", "home", "assets/") }}
-<div class="site-layout">{{ shell.navigation("index.html", "plugins/index.html", "accessors/index.html", "home") }}
+{% extends "web/base.html.j2" %}
+{% set page_title = "WaveformAnalysis 文档" %}
+{% set asset_prefix = "assets/" %}
+{% set site_root_prefix = "" %}
+{% set body_class = "docs-page docs-home" %}
+{% set current = "home" %}
+{% set site_home_href = "index.html" %}
+{% set plugin_index_href = "plugins/index.html" %}
+{% set accessor_index_href = "accessors/index.html" %}
+{% set accessor_detail_prefix = "accessors/" %}
+{% block document %}
 <main class="docs-main">
   <nav class="breadcrumbs" aria-label="面包屑"><span aria-current="page">文档概览</span></nav>
   <section class="home-intro"><p class="eyebrow">WaveformAnalysis</p><h1>波形分析文档</h1><p>从数据采集到事件构建，查看可组合的插件处理链与面向分析的只读查询接口。</p><div class="home-actions"><a class="button-link" href="plugins/index.html">浏览插件系统</a><a class="text-link" href="accessors/index.html">查看 {{ accessor_count }} 个 Accessor</a></div></section>
   <section class="home-section" aria-labelledby="start-heading"><p class="eyebrow">开始浏览</p><h2 id="start-heading">按工作流定位文档</h2><div class="resource-grid"><a class="resource-card" href="plugins/index.html"><span class="category">处理系统</span><h3>插件参考</h3><p>搜索插件、检查输出字段、配置项与默认依赖谱系。</p></a><a class="resource-card" href="accessors/index.html"><span class="category">分析接口</span><h3>Accessor</h3><p>以稳定的只读接口查询 peak 通道与 S1-S2 配对结果。</p></a></div></section>
   <section class="home-section home-note" aria-labelledby="offline-heading"><p class="eyebrow">本地优先</p><h2 id="offline-heading">无需网络即可阅读</h2><p>站点由 <code>waveform-docs generate site-web</code> 生成；图谱、搜索与代码高亮全部使用本地资源。</p></section>
-</main></div>{{ shell.footer() }}{{ shell.search_dialog("assets/") }}</body></html>
+</main>
+{% endblock %}
