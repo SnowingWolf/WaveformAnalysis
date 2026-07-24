@@ -1,18 +1,18 @@
 <section class="lineage-section">
   <div class="section-heading">
     <div>
-      <p class="eyebrow">Static dependency view</p>
+      <p class="eyebrow">静态依赖视图</p>
       <h2>{{ lineage_graph.title }}</h2>
     </div>
     <p>{{ lineage_graph.description }}</p>
   </div>
   <div class="lineage-toolbar" aria-label="{{ lineage_graph.title }} controls">
     <div class="lineage-zoom-controls" role="group" aria-label="Graph zoom controls">
-      <button class="lineage-control" type="button" data-lineage-zoom="out" title="Zoom out" aria-label="Zoom out">−</button>
-      <button class="lineage-control" type="button" data-lineage-zoom="reset" title="Reset zoom" aria-label="Reset zoom">↺</button>
-      <button class="lineage-control" type="button" data-lineage-zoom="in" title="Zoom in" aria-label="Zoom in">+</button>
+      <button class="lineage-control" type="button" data-lineage-zoom="out" title="缩小" aria-label="缩小">−</button>
+      <button class="lineage-control" type="button" data-lineage-zoom="reset" title="重置缩放" aria-label="重置缩放">↺</button>
+      <button class="lineage-control" type="button" data-lineage-zoom="in" title="放大" aria-label="放大">+</button>
     </div>
-    {% if lineage_graph.global_focus_href %}<a class="lineage-global-link" href="{{ lineage_graph.global_focus_href }}">Show this plugin in global lineage</a>{% endif %}
+    {% if lineage_graph.global_focus_href %}<a class="lineage-global-link" href="{{ lineage_graph.global_focus_href }}">在全局谱系中显示此插件</a>{% endif %}
   </div>
   <div class="lineage-scroll" tabindex="0" aria-label="{{ lineage_graph.title }} dependency graph">
     <svg class="lineage-graph" width="{{ lineage_graph.width }}" height="{{ lineage_graph.height }}" viewBox="{{ lineage_graph.view_box }}" role="img" aria-label="{{ lineage_graph.description }}">
@@ -33,17 +33,17 @@
           {% if node.documentation_completeness is not none %}
           <text class="lineage-node-metrics" x="{{ node.x + 12 }}" y="{{ node.y + 53 }}">Docs {{ node.documentation_completeness }} · Impact {{ node.dag_impact }}</text>
           {% else %}
-          <text class="lineage-node-metrics" x="{{ node.x + 12 }}" y="{{ node.y + 53 }}">No documentation page</text>
+          <text class="lineage-node-metrics" x="{{ node.x + 12 }}" y="{{ node.y + 53 }}">无文档页面</text>
           {% endif %}
         {% if node.href %}</a>{% else %}</g>{% endif %}
         {% endfor %}
       </g>
     </svg>
   </div>
-  <p class="lineage-legend">Docs: documentation completeness. Impact: relative downstream reach in the declared plugin graph. Runtime-resolved inputs are intentionally not drawn.</p>
+  <p class="lineage-legend">Docs 表示文档完整度，Impact 表示声明插件图中的相对下游影响；运行时解析的输入不会绘制。</p>
   {% if lineage_graph.isolated_nodes %}
   <details class="lineage-isolated">
-    <summary>{{ lineage_graph.isolated_nodes|length }} isolated plugins (no declared builtin edge)</summary>
+    <summary>{{ lineage_graph.isolated_nodes|length }} 个孤立插件（没有声明内置边）</summary>
     <div class="lineage-isolated-list">
       {% for node in lineage_graph.isolated_nodes %}<a href="{{ node.href }}" title="{{ node.tooltip }}">{{ node.label }}</a>{% endfor %}
     </div>

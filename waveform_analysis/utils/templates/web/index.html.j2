@@ -1,84 +1,73 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>WaveformAnalysis Plugin Reference</title>
-  <link rel="stylesheet" href="assets/site.css">
-  <script src="assets/plotly.min.js"></script>
-  <script defer src="assets/site.js"></script>
+  <title>WaveformAnalysis 插件参考</title>
+  <link rel="stylesheet" href="{{ asset_prefix }}site.css">
+  <script src="{{ asset_prefix }}plotly.min.js"></script>
+  <script defer src="{{ asset_prefix }}site.js"></script>
 </head>
 <body class="site-index">
+  <nav class="site-nav" aria-label="主导航">
+    <a href="{{ site_home_href }}" class="site-brand">WaveformAnalysis 文档</a>
+    <a href="{{ plugin_index_href }}" aria-current="page">插件系统</a>
+    {% if accessor_index_href %}<a href="{{ accessor_index_href }}">Accessor</a>{% endif %}
+  </nav>
   <header class="site-header">
-    <div>
-      <p class="eyebrow">WaveformAnalysis</p>
-      <h1>Plugin Reference</h1>
-    </div>
-    <label class="search-label" for="plugin-search">Search plugins</label>
-    <input id="plugin-search" type="search" placeholder="Name, category, output..." autocomplete="off">
+    <div><p class="eyebrow">WaveformAnalysis</p><h1>插件参考</h1></div>
+    <div><label class="search-label" for="plugin-search">搜索插件</label>
+    <input id="plugin-search" type="search" placeholder="名称、类别或输出" autocomplete="off"></div>
   </header>
   <main>
-    <p id="search-status" class="status" aria-live="polite">{{ plugins|length }} plugins</p>
+    <p id="search-status" class="status" aria-live="polite">共 {{ plugins|length }} 个插件</p>
     <section class="lineage-section lineage-plotly-section">
       <div class="section-heading">
-        <div>
-          <p class="eyebrow">Default dependency view</p>
-          <h2>{{ lineage_graph.title }}</h2>
-        </div>
-        <p>Dependencies resolved from builtin plugin defaults. Drag to pan, use the mode bar or mouse wheel to zoom, and select a plugin to inspect its direct port-level lineage.</p>
+        <div><p class="eyebrow">默认依赖视图</p><h2>{{ lineage_graph.title }}</h2></div>
+        <p>依赖按内置插件默认配置解析。拖动可平移，使用工具栏或滚轮缩放；选择插件可查看其直接端口级谱系。</p>
       </div>
-      <div class="lineage-workspace" data-lineage-details="assets/lineage-details.json">
-        <div class="lineage-overview">
-          <div class="lineage-plotly">{{ global_lineage_html }}</div>
-        </div>
+      <div class="lineage-view-controls" role="group" aria-label="谱系输出范围">
+        <button type="button" class="lineage-view-control is-active" data-lineage-view="core" aria-pressed="true">Core</button>
+        <button type="button" class="lineage-view-control" data-lineage-view="all" aria-pressed="false">All outputs</button>
+      </div>
+      <div class="lineage-workspace" data-lineage-details="{{ asset_prefix }}lineage-details.json" data-lineage-overviews="{{ asset_prefix }}lineage-overviews.json" data-terminal-outputs="{{ terminal_outputs|join(',') }}" data-plugin-prefix="{{ plugin_href_prefix }}">
+        <div class="lineage-overview"><div class="lineage-plotly">{{ global_lineage_html }}</div></div>
         <aside class="lineage-detail" aria-live="polite">
-          <div class="lineage-detail-header">
-            <div>
-              <p class="eyebrow">Direct lineage</p>
-              <h3 data-lineage-detail-title>Select a plugin</h3>
-            </div>
-            <button class="lineage-detail-close" type="button" title="Close lineage detail" aria-label="Close lineage detail" data-lineage-detail-close>&times;</button>
-          </div>
-          <p class="lineage-detail-empty" data-lineage-detail-empty>Select a node in the overview to inspect its direct inputs and consumers.</p>
-          <a class="lineage-detail-link" data-lineage-detail-link hidden>Open plugin reference</a>
+          <div class="lineage-detail-header"><div><p class="eyebrow">直接谱系</p><h3 data-lineage-detail-title>选择一个插件</h3></div>
+            <button class="lineage-detail-close" type="button" title="关闭谱系详情" aria-label="关闭谱系详情" data-lineage-detail-close>&times;</button></div>
+          <p class="lineage-detail-empty" data-lineage-detail-empty>在总览中选择节点，查看它的直接输入和消费者。</p>
+          <a class="lineage-detail-link" data-lineage-detail-link hidden>打开插件参考</a>
           <div class="lineage-detail-plot" data-lineage-detail-plot hidden></div>
         </aside>
       </div>
-      <p class="lineage-legend">Docs: documentation completeness. Impact: relative downstream reach in the default-resolved plugin graph. No run data or cache is accessed.</p>
-      {% if lineage_graph.isolated_nodes %}
-      <details class="lineage-isolated">
-        <summary>{{ lineage_graph.isolated_nodes|length }} isolated plugins (under defaults)</summary>
-        <div class="lineage-isolated-list">
-          {% for node in lineage_graph.isolated_nodes %}<a href="{{ node.href }}" title="{{ node.tooltip }}">{{ node.label }}</a>{% endfor %}
-        </div>
-      </details>
-      {% endif %}
+      <p class="lineage-legend">Docs 表示文档完整度，Impact 表示默认解析图中的相对下游影响；生成过程不访问 run 数据或缓存。</p>
+      {% if lineage_graph.isolated_nodes %}<details class="lineage-isolated"><summary>默认配置下有 {{ lineage_graph.isolated_nodes|length }} 个孤立插件</summary>
+        <div class="lineage-isolated-list">{% for node in lineage_graph.isolated_nodes %}<a href="{{ node.href }}" title="{{ node.tooltip }}">{{ node.label }}</a>{% endfor %}</div></details>{% endif %}
     </section>
     <div class="plugin-set-groups" id="plugin-grid">
-    {% for plugin_set in plugin_sets %}
-      <section class="plugin-set" data-plugin-set="{{ plugin_set.name }}">
-        <div class="plugin-set-heading">
-          <h2>{{ plugin_set.label }}</h2>
-          <p>{{ plugin_set.plugins|length }} plugins</p>
-        </div>
-        <div class="plugin-grid">
-        {% for plugin in plugin_set.plugins %}
-          <a class="plugin-card" href="plugins/{{ plugin.provides }}.html"
-             data-search="{{ plugin.provides }} {{ plugin.name }} {{ plugin.category }} {{ plugin.output_kind }} {{ plugin.summary }}">
-            <span class="category">{{ plugin.category_display }}</span>
-            <h3>{{ plugin.provides }}</h3>
-            <p>{{ plugin.summary or "No description available." }}</p>
-            <div class="metric-badges" aria-label="Documentation metrics">
-              <span class="metric-badge" title="Documentation completeness">Docs {{ plugin.documentation_completeness }}/100</span>
-              <span class="metric-badge" title="Relative downstream impact">Impact {{ plugin.dag_impact }}/100</span>
-            </div>
-            <dl><dt>Output</dt><dd>{{ plugin.output_kind }}</dd><dt>Version</dt><dd>{{ plugin.version }}</dd></dl>
-          </a>
-        {% endfor %}
-        </div>
-      </section>
-    {% endfor %}
+    {% for plugin_set in plugin_sets %}<section class="plugin-set" data-plugin-set="{{ plugin_set.name }}">
+      <div class="plugin-set-heading"><h2>{{ plugin_set.label }}</h2><p>{{ plugin_set.plugins|length }} 个插件</p></div>
+      <div class="plugin-grid">{% for plugin in plugin_set.plugins %}
+        <a class="plugin-card" href="{{ plugin_href_prefix }}{{ plugin.provides }}.html" data-search="{{ plugin.provides }} {{ plugin.name }} {{ plugin.category }} {{ plugin.output_kind }} {{ plugin.summary }}">
+          <span class="category">{{ plugin.category_display }}</span><h3>{{ plugin.provides }}</h3>
+          <p>{{ plugin.summary or "暂无说明。" }}</p>
+          <div class="metric-badges" aria-label="文档指标"><span class="metric-badge" title="文档完整度">Docs {{ plugin.documentation_completeness }}/100</span><span class="metric-badge" title="相对下游影响">Impact {{ plugin.dag_impact }}/100</span></div>
+          <dl><dt>输出</dt><dd>{{ plugin.output_kind }}</dd><dt>版本</dt><dd>{{ plugin.version }}</dd></dl>
+        </a>{% endfor %}</div>
+    </section>{% endfor %}
     </div>
+    {% if standalone_plugins %}<section class="standalone-tools" data-plugin-set="standalone">
+      <div class="plugin-set-heading"><div><p class="eyebrow">独立工具</p><h2>Standalone Tools</h2></div><p>{{ standalone_plugins|length }} 个工具</p></div>
+      <div class="plugin-grid">{% for plugin in standalone_plugins %}
+        <a class="plugin-card" href="{{ plugin_href_prefix }}{{ plugin.provides }}.html" data-search="{{ plugin.provides }} {{ plugin.name }} {{ plugin.category }} {{ plugin.output_kind }} {{ plugin.summary }}">
+          <span class="category">{{ plugin.category_display }}</span><h3>{{ plugin.provides }}</h3>
+          <p>{{ plugin.summary or "暂无说明。" }}</p>
+          <div class="metric-badges" aria-label="文档指标"><span class="metric-badge" title="文档完整度">Docs {{ plugin.documentation_completeness }}/100</span></div>
+          <dl><dt>输出</dt><dd>{{ plugin.output_kind }}</dd><dt>版本</dt><dd>{{ plugin.version }}</dd></dl>
+        </a>{% endfor %}</div>
+    </section>{% endif %}
   </main>
+  {% if lineage_details_json %}<script id="lineage-details-data" type="application/json">{{ lineage_details_json }}</script>{% endif %}
+  {% if global_lineage_json %}<script id="lineage-overviews-data" type="application/json">{{ global_lineage_json }}</script>{% endif %}
 </body>
 </html>

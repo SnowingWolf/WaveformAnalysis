@@ -39,7 +39,7 @@ def main():
     gen_parser = subparsers.add_parser("generate", help="生成文档")
     gen_parser.add_argument(
         "doc_type",
-        choices=["plugins-auto", "plugins-agent", "plugins-web"],
+        choices=["plugins-auto", "plugins-agent", "plugins-web", "site-web"],
         help="文档类型",
     )
     gen_parser.add_argument("--output", "-o", type=str, help="输出路径（文件或目录）")
@@ -180,6 +180,8 @@ def cmd_generate(args):
     """处理 generate 命令"""
     if args.doc_type == "plugins-web":
         return generate_plugins_web(args)
+    if args.doc_type == "site-web":
+        return generate_site_web(args)
     if args.doc_type == "plugins-agent":
         return generate_plugins_docs(
             args=args,
@@ -213,6 +215,25 @@ def generate_plugins_web(args):
         return 0
     except Exception as exc:
         print(f"❌ 生成静态站点时出错: {exc}")
+        return 1
+
+
+def generate_site_web(args):
+    """Generate the complete offline HTML documentation site."""
+    if args.plugin:
+        print("❌ site-web 仅支持全量生成，不能使用 --plugin")
+        return 1
+    try:
+        from waveform_analysis.utils.site_doc_generator import DocumentationSiteGenerator
+
+        output_path = Path(args.output or "docs/_site")
+        results = DocumentationSiteGenerator().generate(output_path)
+        print("✅ 已生成 WaveformAnalysis HTML 文档总站")
+        print(f"   输出目录: {output_path}")
+        print(f"   文件数: {len(results)}")
+        return 0
+    except Exception as exc:
+        print(f"❌ 生成 HTML 文档总站时出错: {exc}")
         return 1
 
 

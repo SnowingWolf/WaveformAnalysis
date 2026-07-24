@@ -14,6 +14,7 @@
 from dataclasses import dataclass, field, replace
 import inspect
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -55,6 +56,17 @@ CATEGORY_DISPLAY_NAMES = {
     "records": "记录处理",
     "other": "其他",
 }
+
+DOCUMENTATION_DEFAULT_PROFILE = {
+    "wave_source": "records",
+    "use_filtered": False,
+    "daq_adapter": "vx2730",
+}
+DOCUMENTATION_PLUGIN_DEFAULTS = {
+    "hit_threshold": {"asymmetry_cut_enabled": True},
+}
+STANDALONE_PLUGIN_OUTPUTS = frozenset({"cache_analysis"})
+CORE_TERMINAL_OUTPUT = "events"
 
 
 @export
@@ -214,13 +226,25 @@ class _WebPluginSet:
 class _DefaultDocumentationContext:
     """Restricted context for resolving documentation-only default dependencies."""
 
-    def __init__(self, plugins: dict[str, Any]):
+    def __init__(self, plugins: dict[str, Any], *, shared_profile=None, plugin_profile=None):
         self._plugins = plugins
-        self.config: dict[str, Any] = {}
+        self._shared_profile = dict(shared_profile or DOCUMENTATION_DEFAULT_PROFILE)
+        self._plugin_profile = {
+            name: dict(values)
+            for name, values in (plugin_profile or DOCUMENTATION_PLUGIN_DEFAULTS).items()
+        }
+        self.config = {**self._shared_profile, **self._plugin_profile}
 
     def get_config(self, plugin: Any, key: str) -> Any:
+        provides = str(getattr(plugin, "provides", ""))
+        if key in self._plugin_profile.get(provides, {}):
+            return self._plugin_profile[provides][key]
+        if key in self._shared_profile:
+            return self._shared_profile[key]
         option = getattr(plugin, "options", {}).get(key)
-        return getattr(option, "default", self.config.get(key))
+        if option is None:
+            raise KeyError(f"Unknown documentation config option {provides}.{key}")
+        return option.default
 
 
 @export
@@ -1058,18 +1082,94 @@ class PluginDocGenerator:
                 groups.append(
                     _WebPluginSet(
                         name=name,
-                        label=f"Plugin Set: {name.replace('_', ' ').title()}",
+                        label=f"插件集合：{name.replace('_', ' ').title()}",
                         plugins=members,
                     )
                 )
 
         remaining = sorted(
-            (plugin for plugin in plugins if plugin.provides not in assigned),
+            (
+                plugin
+                for plugin in plugins
+                if plugin.provides not in assigned
+                and plugin.provides not in STANDALONE_PLUGIN_OUTPUTS
+            ),
             key=lambda plugin: plugin.provides,
         )
         if remaining:
-            groups.append(_WebPluginSet(name="other", label="Other Plugins", plugins=remaining))
+            groups.append(_WebPluginSet(name="other", label="其他插件", plugins=remaining))
         return groups
+
+    @staticmethod
+    def _standalone_plugins(plugins):
+        return sorted(
+            (p for p in plugins if p.provides in STANDALONE_PLUGIN_OUTPUTS),
+            key=lambda p: p.provides,
+        )
+
+    @classmethod
+    def _terminal_outputs(cls, plugins, dependencies_by_provides):
+        names = {p.provides for p in plugins if p.provides not in STANDALONE_PLUGIN_OUTPUTS}
+        consumed = {
+            dep
+            for plugin in plugins
+            if plugin.provides in names
+            for dep in dependencies_by_provides.get(plugin.provides, [])
+            if dep in names
+        }
+        return names - consumed - {CORE_TERMINAL_OUTPUT}
+
+    @staticmethod
+    def _filter_lineage_graph(graph, hidden_outputs, *, title):
+        hidden_ids = {f"plugin:{name}" for name in hidden_outputs}
+        return replace(
+            graph,
+            title=title,
+            nodes=[n for n in graph.nodes if n.node_id not in hidden_ids],
+            edges=[
+                e
+                for e in graph.edges
+                if e.source_id not in hidden_ids and e.target_id not in hidden_ids
+            ],
+            isolated_nodes=[n for n in graph.isolated_nodes if n.node_id not in hidden_ids],
+        )
+
+    @staticmethod
+    def _place_terminal_outputs(graph, terminal_outputs):
+        terminal_ids = {f"plugin:{name}" for name in terminal_outputs}
+        by_id = {node.node_id: node for node in graph.nodes}
+        core = [node for node in graph.nodes if node.node_id not in terminal_ids]
+        track_y = max((node.y + node.height for node in core), default=0) + 140
+        positioned = {}
+        for track, node_id in enumerate(sorted(terminal_ids)):
+            node = by_id.get(node_id)
+            if node is None:
+                continue
+            producers = [
+                by_id[e.source_id]
+                for e in graph.edges
+                if e.target_id == node_id and e.source_id in by_id
+            ]
+            x = round(sum(p.x for p in producers) / len(producers)) if producers else node.x
+            positioned[node_id] = replace(node, x=x, y=track_y + track * (node.height + 54))
+        nodes = [positioned.get(node.node_id, node) for node in graph.nodes]
+        width = max((node.x + node.width for node in nodes), default=graph.width) + 36
+        height = max((node.y + node.height for node in nodes), default=graph.height) + 36
+        return replace(
+            graph, nodes=nodes, width=width, height=height, view_box=f"0 0 {width} {height}"
+        )
+
+    def _global_lineage_views(self, plugins, *, link_prefix, dependencies_by_provides):
+        graph_plugins = [p for p in plugins if p.provides not in STANDALONE_PLUGIN_OUTPUTS]
+        full = self._build_web_lineage_graph(
+            graph_plugins,
+            link_prefix=link_prefix,
+            dependencies_by_provides=dependencies_by_provides,
+        )
+        terminals = self._terminal_outputs(graph_plugins, dependencies_by_provides)
+        full = self._place_terminal_outputs(full, terminals)
+        core = self._filter_lineage_graph(full, terminals, title="核心插件谱系")
+        return {"core": core, "all": replace(full, title="全部输出")}, terminals
 
     def _build_web_lineage_graph(
         self,
@@ -1077,6 +1177,7 @@ class PluginDocGenerator:
         *,
         link_prefix: str,
         focus: str | None = None,
+        global_focus_prefix: str = "../index.html?focus=",
         dependencies_by_provides: dict[str, list[str]] | None = None,
     ) -> _WebLineageGraph:
         """Build an escaped-template-ready dependency graph from static doc views."""
@@ -1098,7 +1199,7 @@ class PluginDocGenerator:
             ]
             visible_names = {name for edge in edge_names for name in edge}
             isolated_names = set(by_provides) - visible_names
-            title = "Plugin Lineage"
+            title = "插件谱系"
             description = (
                 "Declared builtin plugin dependencies. Isolated plugins and runtime-resolved "
                 "inputs are listed outside the graph."
@@ -1114,8 +1215,8 @@ class PluginDocGenerator:
             for consumer in sorted(consumers[focus]):
                 visible_names.add(consumer)
                 edge_names.append((focus, consumer))
-            title = "Local Lineage"
-            description = "Direct declared plugin inputs and consumers."
+            title = "局部谱系"
+            description = "直接声明的插件输入与消费者。"
 
         node_ids = {name: f"plugin:{name}" for name in visible_names}
         known_edges = [
@@ -1250,7 +1351,7 @@ class PluginDocGenerator:
             edges=edges,
             isolated_nodes=isolated_nodes,
             global_focus_href=(
-                f"../index.html?focus={quote(focus)}" if focus is not None else None
+                f"{global_focus_prefix}{quote(focus)}" if focus is not None else None
             ),
         )
 
@@ -1299,7 +1400,7 @@ class PluginDocGenerator:
         ]
         return model
 
-    def _render_global_plotly_html(self, lineage_graph: _WebLineageGraph) -> str:
+    def _build_global_plotly_figure(self, lineage_graph: _WebLineageGraph) -> Any:
         """Render a compact, clickable plugin-only overview with Plotly.
 
         The port-level renderer is intentionally reserved for the selected plugin's
@@ -1346,8 +1447,12 @@ class PluginDocGenerator:
         for edge in lineage_graph.edges:
             start = positions[edge.source_id]
             end = positions[edge.target_id]
-            start_x, start_y = start[0] + 110, start[1]
-            end_x, end_y = end[0] - 110, end[1]
+            if abs(end[0] - start[0]) < 150 and end[1] > start[1]:
+                start_x, start_y = start[0], start[1] + 38
+                end_x, end_y = end[0], end[1] - 38
+            else:
+                start_x, start_y = start[0] + 110, start[1]
+                end_x, end_y = end[0] - 110, end[1]
             curve_offset = min(16, max(8, abs(end_y - start_y) * 0.08))
             if end_y < start_y:
                 curve_offset = -curve_offset
@@ -1430,7 +1535,10 @@ class PluginDocGenerator:
             },
             height=max(560, min(900, lineage_graph.height + 44)),
         )
-        return figure.to_html(
+        return figure
+
+    def _render_global_plotly_html(self, lineage_graph: _WebLineageGraph) -> str:
+        return self._build_global_plotly_figure(lineage_graph).to_html(
             full_html=False,
             include_plotlyjs=False,
             config={"scrollZoom": True, "displaylogo": False, "responsive": True},
@@ -1513,6 +1621,10 @@ class PluginDocGenerator:
         doc_info: PluginDocumentationView,
         *,
         lineage_graph: _WebLineageGraph | None = None,
+        asset_prefix: str = "../assets/",
+        site_home_href: str = "../index.html",
+        plugin_index_href: str = "../index.html",
+        accessor_index_href: str | None = None,
     ) -> str:
         """Render one standalone plugin HTML page with escaped metadata."""
         return (
@@ -1521,6 +1633,10 @@ class PluginDocGenerator:
             .render(
                 plugin=doc_info,
                 lineage_graph=lineage_graph,
+                asset_prefix=asset_prefix,
+                site_home_href=site_home_href,
+                plugin_index_href=plugin_index_href,
+                accessor_index_href=accessor_index_href,
             )
         )
 
@@ -1531,6 +1647,14 @@ class PluginDocGenerator:
         lineage_graph: _WebLineageGraph | None = None,
         dependencies_by_provides: dict[str, list[str]] | None = None,
         global_lineage_html: str | None = None,
+        asset_prefix: str = "assets/",
+        site_home_href: str = "index.html",
+        plugin_href_prefix: str = "plugins/",
+        plugin_index_href: str = "index.html",
+        accessor_index_href: str | None = None,
+        lineage_details_json: str | None = None,
+        global_lineage_json: str | None = None,
+        terminal_outputs: set[str] | None = None,
     ) -> str:
         """Render the searchable static-site index."""
         scored_plugins = self._with_web_scores(plugins, dependencies_by_provides)
@@ -1542,6 +1666,7 @@ class PluginDocGenerator:
         if global_lineage_html is None:
             global_lineage_html = self._render_global_plotly_html(lineage_graph)
         plugin_sets = self._web_plugin_sets(scored_plugins)
+        standalone_plugins = self._standalone_plugins(scored_plugins)
         return (
             self._get_web_jinja_env()
             .get_template("web/index.html.j2")
@@ -1550,48 +1675,124 @@ class PluginDocGenerator:
                 plugin_sets=plugin_sets,
                 lineage_graph=lineage_graph,
                 global_lineage_html=Markup(global_lineage_html),
+                asset_prefix=asset_prefix,
+                site_home_href=site_home_href,
+                plugin_href_prefix=plugin_href_prefix,
+                plugin_index_href=plugin_index_href,
+                accessor_index_href=accessor_index_href,
+                standalone_plugins=standalone_plugins,
+                terminal_outputs=sorted(terminal_outputs or set()),
+                lineage_details_json=(
+                    Markup(lineage_details_json) if lineage_details_json is not None else None
+                ),
+                global_lineage_json=(
+                    Markup(global_lineage_json) if global_lineage_json is not None else None
+                ),
             )
         )
 
-    def generate_web(self, output_dir: Path) -> dict[str, Path]:
+    def generate_web(
+        self,
+        output_dir: Path,
+        *,
+        index_relative_path: str = "index.html",
+        plugin_relative_dir: str = "plugins",
+        asset_relative_dir: str = "assets",
+        site_home_href: str = "index.html",
+        accessor_relative_path: str | None = None,
+    ) -> dict[str, Path]:
         """Generate an offline HTML plugin reference site."""
         output_dir = Path(output_dir)
-        plugin_dir = output_dir / "plugins"
-        asset_dir = output_dir / "assets"
+        index_path = output_dir / index_relative_path
+        plugin_dir = output_dir / plugin_relative_dir
+        asset_dir = output_dir / asset_relative_dir
+        index_dir = index_path.parent
         plugin_dir.mkdir(parents=True, exist_ok=True)
         asset_dir.mkdir(parents=True, exist_ok=True)
+        index_dir.mkdir(parents=True, exist_ok=True)
+        index_asset_prefix = Path(os.path.relpath(asset_dir, index_dir)).as_posix() + "/"
+        detail_asset_prefix = Path(os.path.relpath(asset_dir, plugin_dir)).as_posix() + "/"
+        index_plugin_prefix = Path(os.path.relpath(plugin_dir, index_dir)).as_posix()
+        if index_plugin_prefix == ".":
+            index_plugin_prefix = ""
+        else:
+            index_plugin_prefix += "/"
+        detail_home_href = Path(os.path.relpath(output_dir / site_home_href, plugin_dir)).as_posix()
+        plugin_index_href = Path(os.path.relpath(index_path, plugin_dir)).as_posix()
+        detail_accessor_href = (
+            Path(os.path.relpath(output_dir / accessor_relative_path, plugin_dir)).as_posix()
+            if accessor_relative_path
+            else None
+        )
+        index_accessor_href = (
+            Path(os.path.relpath(output_dir / accessor_relative_path, index_dir)).as_posix()
+            if accessor_relative_path
+            else None
+        )
         default_dependencies = self._default_dependency_map()
         plugins = self._with_web_scores(
             self.get_all_doc_info(), dependencies_by_provides=default_dependencies
         )
-        global_graph = self._build_web_lineage_graph(
+        global_views, terminal_outputs = self._global_lineage_views(
             plugins,
-            link_prefix="plugins/",
+            link_prefix=index_plugin_prefix,
             dependencies_by_provides=default_dependencies,
         )
+        global_graph = global_views["core"]
         generated: dict[str, Path] = {}
         for plugin in plugins:
             path = plugin_dir / f"{plugin.provides}.html"
             path.write_text(
                 self.render_plugin_html(
                     plugin,
-                    lineage_graph=self._build_web_lineage_graph(
-                        plugins,
-                        link_prefix="",
-                        focus=plugin.provides,
-                        dependencies_by_provides=default_dependencies,
+                    lineage_graph=(
+                        None
+                        if plugin.provides in STANDALONE_PLUGIN_OUTPUTS
+                        else self._build_web_lineage_graph(
+                            [p for p in plugins if p.provides not in STANDALONE_PLUGIN_OUTPUTS],
+                            link_prefix="",
+                            focus=plugin.provides,
+                            global_focus_prefix=f"{plugin_index_href}?focus=",
+                            dependencies_by_provides=default_dependencies,
+                        )
                     ),
+                    asset_prefix=detail_asset_prefix,
+                    site_home_href=detail_home_href,
+                    plugin_index_href=plugin_index_href,
+                    accessor_index_href=detail_accessor_href,
                 ),
                 encoding="utf-8",
             )
             generated[plugin.provides] = path
-        index_path = output_dir / "index.html"
+        detail_figures = self._render_detail_lineage_figures(plugins, default_dependencies)
+        detail_json = json.dumps(detail_figures, ensure_ascii=True, separators=(",", ":"))
+        detail_json = (
+            detail_json.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+        )
+        global_figures = {
+            name: json.loads(self._build_global_plotly_figure(graph).to_json())
+            for name, graph in global_views.items()
+        }
+        global_json = json.dumps(global_figures, ensure_ascii=True, separators=(",", ":"))
+        global_json = (
+            global_json.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+        )
         index_path.write_text(
             self.render_index_html(
                 plugins,
                 lineage_graph=global_graph,
                 dependencies_by_provides=default_dependencies,
                 global_lineage_html=self._render_global_plotly_html(global_graph),
+                asset_prefix=index_asset_prefix,
+                site_home_href=Path(
+                    os.path.relpath(output_dir / site_home_href, index_dir)
+                ).as_posix(),
+                plugin_href_prefix=index_plugin_prefix,
+                plugin_index_href=Path(os.path.relpath(index_path, index_dir)).as_posix(),
+                accessor_index_href=index_accessor_href,
+                lineage_details_json=detail_json,
+                global_lineage_json=global_json,
+                terminal_outputs=terminal_outputs,
             ),
             encoding="utf-8",
         )
@@ -1613,13 +1814,19 @@ class PluginDocGenerator:
         detail_asset = asset_dir / "lineage-details.json"
         detail_asset.write_text(
             json.dumps(
-                self._render_detail_lineage_figures(plugins, default_dependencies),
+                detail_figures,
                 ensure_ascii=True,
                 separators=(",", ":"),
             ),
             encoding="utf-8",
         )
         generated["asset:lineage-details.json"] = detail_asset
+        global_asset = asset_dir / "lineage-overviews.json"
+        global_asset.write_text(
+            json.dumps(global_figures, ensure_ascii=True, separators=(",", ":")),
+            encoding="utf-8",
+        )
+        generated["asset:lineage-overviews.json"] = global_asset
         return generated
 
     def generate_all(self, output_dir: Path, profile: str = "auto") -> dict[str, Path]:

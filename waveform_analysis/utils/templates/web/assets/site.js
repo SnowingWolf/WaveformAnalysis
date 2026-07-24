@@ -17,7 +17,7 @@
           (card) => !card.hidden,
         );
       }
-      status.textContent = `${visible} plugin${visible === 1 ? "" : "s"}`;
+      status.textContent = `共 ${visible} 个插件`;
     };
     input.addEventListener("input", update);
   }
@@ -30,8 +30,20 @@
     const detailLink = workspace.querySelector("[data-lineage-detail-link]");
     const detailPlot = workspace.querySelector("[data-lineage-detail-plot]");
     const closeButton = workspace.querySelector("[data-lineage-detail-close]");
-    let detailFigures;
+    const viewControls = [...document.querySelectorAll("[data-lineage-view]")];
+    const embeddedDetails = document.querySelector("#lineage-details-data");
+    const embeddedOverviews = document.querySelector("#lineage-overviews-data");
+    const terminalOutputs = new Set(
+      (workspace.dataset.terminalOutputs || "").split(",").filter(Boolean),
+    );
+    let detailFigures = embeddedDetails
+      ? Promise.resolve(JSON.parse(embeddedDetails.textContent))
+      : undefined;
+    let overviewFigures = embeddedOverviews
+      ? Promise.resolve(JSON.parse(embeddedOverviews.textContent))
+      : undefined;
     let selected;
+    let activeView = "core";
     const selectedLine = "#b45309";
     const defaultLine = "#087f5b";
 
@@ -54,11 +66,22 @@
       return detailFigures;
     };
 
-    const updateUrl = (provides) => {
+    const loadOverviews = () => {
+      if (!overviewFigures) {
+        overviewFigures = fetch(workspace.dataset.lineageOverviews).then((response) => {
+          if (!response.ok) throw new Error("Unable to load lineage overview data.");
+          return response.json();
+        });
+      }
+      return overviewFigures;
+    };
+
+    const updateUrl = (view, provides, replace = false) => {
       const url = new URL(window.location.href);
+      url.searchParams.set("view", view);
       if (provides) url.searchParams.set("focus", provides);
       else url.searchParams.delete("focus");
-      window.history.pushState({}, "", url);
+      window.history[replace ? "replaceState" : "pushState"]({}, "", url);
     };
 
     const highlight = (provides) => {
@@ -74,14 +97,29 @@
     const clearSelection = () => {
       selected = undefined;
       highlight();
-      detailTitle.textContent = "Select a plugin";
+      detailTitle.textContent = "选择一个插件";
       detailEmpty.hidden = false;
       detailLink.hidden = true;
       detailPlot.hidden = true;
       detailPlot.replaceChildren();
     };
 
-    const selectPlugin = async (provides, pushUrl = false) => {
+    const renderView = async (view) => {
+      const figures = await loadOverviews();
+      const figure = figures[view];
+      if (!figure) throw new Error(`Unknown lineage view: ${view}`);
+      activeView = view;
+      for (const control of viewControls) {
+        const active = control.dataset.lineageView === view;
+        control.classList.toggle("is-active", active);
+        control.setAttribute("aria-pressed", String(active));
+      }
+      await Plotly.react(overview, figure.data, figure.layout, {
+        displaylogo: false, responsive: true, scrollZoom: true,
+      });
+    };
+
+    const selectPlugin = async (provides) => {
       if (!provides || !overview.layout?.meta?.node_shape_indices?.[provides] && overview.layout?.meta?.node_shape_indices?.[provides] !== 0) {
         clearSelection();
         return;
@@ -90,10 +128,9 @@
       highlight(provides);
       detailTitle.textContent = provides;
       detailEmpty.hidden = true;
-      detailLink.href = `plugins/${provides}.html`;
+      detailLink.href = `${workspace.dataset.pluginPrefix || "plugins/"}${provides}.html`;
       detailLink.hidden = false;
       detailPlot.hidden = false;
-      if (pushUrl) updateUrl(provides);
       try {
         const figures = await loadDetails();
         if (selected !== provides) return;
@@ -115,24 +152,44 @@
         resizeDetailPlot();
       } catch (error) {
         if (selected !== provides) return;
-        detailEmpty.textContent = "Lineage detail could not be loaded.";
+        detailEmpty.textContent = "无法加载谱系详情。";
         detailEmpty.hidden = false;
         detailPlot.hidden = true;
       }
     };
 
+    const restoreState = async ({ push = false, replace = false } = {}) => {
+      const params = new URLSearchParams(window.location.search);
+      let view = params.get("view") === "all" ? "all" : "core";
+      const focus = params.get("focus");
+      if (focus && terminalOutputs.has(focus)) view = "all";
+      await renderView(view);
+      await selectPlugin(focus);
+      if (push || replace || (focus && terminalOutputs.has(focus) && params.get("view") !== "all")) {
+        updateUrl(view, selected, replace || !push);
+      }
+    };
+
     overview.on("plotly_click", (event) => {
       const provides = event.points[0]?.customdata;
-      if (provides) selectPlugin(provides, true);
+      if (provides) selectPlugin(provides).then(() => updateUrl(activeView, selected));
     });
+    for (const control of viewControls) {
+      control.addEventListener("click", async () => {
+        const requested = control.dataset.lineageView;
+        if (requested === activeView) return;
+        if (requested === "core" && terminalOutputs.has(selected)) clearSelection();
+        await renderView(requested);
+        await selectPlugin(selected);
+        updateUrl(activeView, selected);
+      });
+    }
     closeButton?.addEventListener("click", () => {
       clearSelection();
-      updateUrl();
+      updateUrl(activeView);
     });
-    window.addEventListener("popstate", () => {
-      selectPlugin(new URLSearchParams(window.location.search).get("focus"));
-    });
-    selectPlugin(new URLSearchParams(window.location.search).get("focus"));
+    window.addEventListener("popstate", () => restoreState());
+    restoreState({ replace: true });
   }
 
   const focus = new URLSearchParams(window.location.search).get("focus");

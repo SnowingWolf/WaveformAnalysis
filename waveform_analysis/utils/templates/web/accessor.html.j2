@@ -1,0 +1,6 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ accessor.name }} | WaveformAnalysis</title><link rel="stylesheet" href="../assets/site.css"><script defer src="../assets/site.js"></script></head>
+<body><nav class="site-nav" aria-label="主导航"><a href="../index.html" class="site-brand">WaveformAnalysis 文档</a><a href="../plugins/index.html">插件系统</a><a href="index.html" aria-current="page">Accessor</a></nav>
+<header class="plugin-header"><a href="index.html" class="back-link">返回 Accessor 索引</a><p class="eyebrow">{{ accessor.module_path }}</p><h1>{{ accessor.name }}</h1><p class="lede">{{ accessor.summary }}</p></header>
+<main class="reference"><section><h2>用途</h2><p>{{ accessor.purpose }}</p><h3>构造器</h3><pre><code>{{ accessor.name }}{{ accessor.constructor_signature }}</code></pre></section>
+<section><h2>最小示例</h2><pre><code>{{ accessor.example }}</code></pre></section>
+<section><h2>公开成员</h2><div class="member-list">{% for member in accessor.members %}<article class="member"><p class="category">{{ "属性" if member.kind == "property" else "方法" }}</p><h3><code>{{ member.name }}{{ member.signature }}</code></h3><p>{{ member.description }}</p></article>{% endfor %}</div></section></main></body></html>

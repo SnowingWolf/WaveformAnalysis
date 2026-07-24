@@ -10,7 +10,7 @@
 
 `waveform-docs` 提供以下功能：
 - 自动生成内置插件文档
-- 生成完全离线的插件 HTML 站点并在本机预览
+- 生成完全离线的 HTML 文档总站或兼容的独立插件站点，并在本机预览
 - 检查文档覆盖率
 
 ---
@@ -58,6 +58,7 @@ waveform-docs serve --directory docs/_site --host 127.0.0.1 --port 8000
 | `plugins-auto` | 自动生成内置插件文档 | `docs/plugins/reference/builtin/auto/` |
 | `plugins-agent` | 生成 agent 导向插件文档 | `docs/plugins/reference/agent/` |
 | `plugins-web` | 生成离线插件 HTML 站点 | `docs/_site/` |
+| `site-web` | 生成包含插件与 Accessor 的离线 HTML 文档总站 | `docs/_site/` |
 
 ---
 
@@ -105,18 +106,34 @@ waveform-docs generate plugins-agent --plugin raw_files
 
 # 生成离线 HTML 站点
 waveform-docs generate plugins-web -o docs/_site
+
+# 生成包含插件与 Accessor 的 HTML 文档总站
+waveform-docs generate site-web
 ```
 
-生成后的 HTML 首页使用本地 Plotly 提供可点击、可缩放、可拖拽的紧凑全局插件总览。为保持卡片
-可读性，首页默认显示一个可平移的拓扑窗口；缩放或拖拽可查看完整图。点击插件会在首页右侧打开
+`site-web` 生成总站首页，并将插件站放在 `plugins/`、Accessor 参考放在 `accessors/`。
+总站只支持全量生成，因此不能与 `--plugin` 同时使用。`plugins-web` 继续保留原有参数、默认输出和
+文件布局，适合只需要插件参考或依赖旧路径的调用。
+
+生成后的 HTML 首页使用本地 Plotly 提供可点击、可缩放、可拖拽的紧凑全局插件总览。`Core` 是
+默认视图，保留以 `events` 为主终点的处理链；`All outputs` 额外显示 `df_paired`、
+`waveform_width_integral` 等默认配置下无消费者的终点输出。两个视图从同一次完整图布局派生，
+共享核心节点坐标；终点输出位于其生产者下方的疏松轨道。点击插件会在首页右侧打开
 只包含该插件、直接输入和直接消费者的端口级 Plotly 谱系图，端口图复用运行时 Context 的渲染器，
 并提供到完整插件参考页的链接。全局依赖使用弧形箭头以区分并行连接；`?focus=<provides>` 可直接
-恢复该选择。下方卡片按正式 `PLUGIN_SETS` 的执行顺序分组，搜索会隐藏无匹配的整个集合。
+恢复该选择，`?view=core|all&focus=<provides>` 可分享完整页面状态。聚焦终点输出会自动切换到
+`all`，视图切换、聚焦以及浏览器前进/后退会保持 URL 同步。下方卡片按正式 `PLUGIN_SETS` 的
+执行顺序分组，搜索会隐藏无匹配的整个集合；`cache_analysis` 不属于处理 DAG，单独列在
+`Standalone Tools`。
 
-动态插件的边按其 Option 默认值解析，因此 `raw_files` 等默认路径节点会参与拓扑；此过程不读取
-run data、缓存或执行插件 compute。每个插件页仍包含直接上游和下游的局部 SVG 图，并可跳转到首页
+动态依赖使用独立的文档 profile 解析：共享值为 `wave_source=records`、`use_filtered=false`、
+`daq_adapter=vx2730`，`hit_threshold.asymmetry_cut_enabled=true` 为插件专属值。优先级依次为插件
+专属值、共享 profile、`Option.default`，因此 `hit_threshold` 在静态文档图中精确依赖 `records`、
+`wave_pool`、`records_asymmetry_mask`。解析只调用 `resolve_depends_on()`，不读取 run data、缓存或
+执行插件 compute。每个插件页仍包含直接上游和下游的局部 SVG 图，并可跳转到首页
 对应插件的全局定位视图。站点包含本地 `plotly.min.js` 和 `lineage-details.json`，不引用 CDN 或外部
-资源。图中 `Docs` 表示可用文档字段的加权完整度，`Impact` 表示该插件在默认解析图中的相对下游
+资源。Core/All 数据另存为 `lineage-overviews.json`，同时嵌入首页，直接通过 `file://` 打开时无需
+fetch。图中 `Docs` 表示可用文档字段的加权完整度，`Impact` 表示该插件在默认解析图中的相对下游
 覆盖范围；两者均为静态文档指标，不表示运行时性能、数据质量或缓存 lineage。
 
 ### 2. 检查文档覆盖率
@@ -158,8 +175,11 @@ Agent 导向文档默认位于 `docs/plugins/reference/agent/`：
 - `INDEX.md`（agent 索引页）
 - `<provides>.md`（每个插件一页）
 
-HTML 站点位于 `docs/_site/`，包含 `index.html`、`plugins/<provides>.html` 与
-本地 `assets/site.css` / `assets/site.js`。站点不引用 CDN 或外部资源，目录属于派生产物，
+`plugins-web` 站点位于 `docs/_site/`，包含 `index.html`、`plugins/<provides>.html` 与
+本地 `assets/site.css` / `assets/site.js`。`site-web` 使用同一输出根目录，生成
+`index.html`、`plugins/index.html`、`plugins/<provides>.html`、`accessors/index.html`、
+两个 Accessor 详情页以及共享的 `assets/`。两种模式都不引用 CDN 或外部资源，可直接打开
+`index.html`，也可通过 `waveform-docs serve --directory docs/_site` 预览。该目录属于派生产物，
 不会提交到仓库。
 
 ---
@@ -226,6 +246,7 @@ waveform-docs check coverage --strict --fail-on-warning
 2. **输出路径**:
    - `plugins-auto` 默认输出到 `docs/plugins/reference/builtin/auto/`
    - `plugins-agent` 默认输出到 `docs/plugins/reference/agent/`
+   - `plugins-web` 与 `site-web` 默认输出到 `docs/_site/`
    均会覆盖已有文件
 3. **INDEX.md**: 自动生成索引页，包含所有插件的概览表
 

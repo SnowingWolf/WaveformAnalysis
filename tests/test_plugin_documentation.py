@@ -9,6 +9,7 @@ from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.plugins.core.spec import FieldSpec, OutputSchema
 from waveform_analysis.utils.plugin_doc_generator import (
     PluginDocGenerator,
+    _DefaultDocumentationContext,
     check_plugin_document_structure,
 )
 
@@ -108,6 +109,7 @@ def test_web_generation_is_offline_relative_and_escaped(tmp_path):
     assert (tmp_path / "assets" / "site.js").is_file()
     assert (tmp_path / "assets" / "plotly.min.js").is_file()
     assert (tmp_path / "assets" / "lineage-details.json").is_file()
+    assert (tmp_path / "assets" / "lineage-overviews.json").is_file()
     site_js = (tmp_path / "assets" / "site.js").read_text(encoding="utf-8")
     site_css = (tmp_path / "assets" / "site.css").read_text(encoding="utf-8")
     assert "detailPlot.getBoundingClientRect()" in site_js
@@ -151,7 +153,8 @@ def test_web_lineage_omits_unknown_inputs_and_lists_isolated_plugins(tmp_path):
     assert 'class="lineage-node-placeholder"' not in index
     assert "external_input" not in index
     assert 'href="plugins/external_input.html"' not in index
-    assert "isolated plugins (under defaults)" in index
+    assert 'data-lineage-view="core"' in index
+    assert 'data-lineage-view="all"' in index
     assert 'href="plugins/unknown_output.html"' in index
     assert 'href="../index.html?focus=detailed_output"' in detailed
     assert '"scrollZoom": true' in index
@@ -178,7 +181,9 @@ def test_web_lineage_resolves_dynamic_dependencies_from_plugin_defaults():
     generator.load_builtin_plugins()
 
     dependencies = generator._default_dependency_map()
-    assert dependencies["st_waveforms"] == ["raw_files"]
+    assert dependencies["records"] == ["raw_files"]
+    assert dependencies["wave_pool"] == ["raw_files"]
+    assert dependencies["hit_threshold"] == ["records", "wave_pool", "records_asymmetry_mask"]
 
     plugins = generator._with_web_scores(
         generator.get_all_doc_info(), dependencies_by_provides=dependencies
@@ -190,10 +195,31 @@ def test_web_lineage_resolves_dynamic_dependencies_from_plugin_defaults():
     )
     node_ids = {node.node_id for node in graph.nodes}
     assert "plugin:raw_files" in node_ids
-    assert "plugin:st_waveforms" in node_ids
-    assert ("plugin:raw_files", "plugin:st_waveforms") in {
-        (edge.source_id, edge.target_id) for edge in graph.edges
-    }
+    assert {"plugin:records", "plugin:wave_pool"} <= node_ids
+    edges = {(edge.source_id, edge.target_id) for edge in graph.edges}
+    assert ("plugin:raw_files", "plugin:records") in edges
+    assert ("plugin:raw_files", "plugin:wave_pool") in edges
+    assert all("runtime-resolved inputs" not in node.label for node in graph.nodes)
+
+
+def test_documentation_profile_precedence_is_plugin_shared_then_option_default():
+    class ProfilePlugin(_EmptyPlugin):
+        provides = "profile_output"
+        options = {
+            "wave_source": Option(default="st_waveforms", type=str),
+            "use_filtered": Option(default=True, type=bool),
+            "threshold": Option(default=7, type=int),
+        }
+
+    plugin = ProfilePlugin()
+    context = _DefaultDocumentationContext(
+        {plugin.provides: plugin},
+        shared_profile={"wave_source": "records", "use_filtered": False},
+        plugin_profile={"profile_output": {"use_filtered": True}},
+    )
+    assert context.get_config(plugin, "use_filtered") is True
+    assert context.get_config(plugin, "wave_source") == "records"
+    assert context.get_config(plugin, "threshold") == 7
 
 
 def test_web_cards_group_by_canonical_plugin_sets_and_global_edges_are_curved(tmp_path):
@@ -212,14 +238,16 @@ def test_web_cards_group_by_canonical_plugin_sets_and_global_edges_are_curved(tm
         "basic_features",
         "tabular",
         "events",
-        "other",
     ]
     assert {plugin.provides for group in groups for plugin in group.plugins} == {
-        plugin.provides for plugin in generator.get_all_doc_info()
+        plugin.provides
+        for plugin in generator.get_all_doc_info()
+        if plugin.provides != "cache_analysis"
     }
     assert 'data-plugin-set="io"' in index
     assert 'data-plugin-set="events"' in index
-    assert 'data-plugin-set="other"' in index
+    assert 'data-plugin-set="standalone"' in index
+    assert "Standalone Tools" in index
     assert index.index('data-plugin-set="io"') < index.index('data-plugin-set="waveform"')
     assert index.index('href="plugins/raw_files.html"') < index.index('data-plugin-set="waveform"')
     assert '"shape":"spline"' in index
@@ -228,6 +256,28 @@ def test_web_cards_group_by_canonical_plugin_sets_and_global_edges_are_curved(tm
 
     site_js = (tmp_path / "assets" / "site.js").read_text(encoding="utf-8")
     assert "pluginSet.hidden" in site_js
+    assert 'window.addEventListener("popstate", () => restoreState())' in site_js
+    assert 'url.searchParams.set("view", view)' in site_js
+    assert "terminalOutputs.has(focus)" in site_js
+
+
+def test_core_and_all_views_share_layout_and_keep_standalone_out_of_dag():
+    generator = PluginDocGenerator()
+    generator.load_builtin_plugins()
+    dependencies = generator._default_dependency_map()
+    plugins = generator._with_web_scores(generator.get_all_doc_info(), dependencies)
+    views, terminals = generator._global_lineage_views(
+        plugins, link_prefix="plugins/", dependencies_by_provides=dependencies
+    )
+    core = {n.node_id: (n.x, n.y) for n in views["core"].nodes}
+    all_nodes = {n.node_id: (n.x, n.y) for n in views["all"].nodes}
+    assert {"df_paired", "waveform_width_integral"} <= terminals
+    assert "events" not in terminals
+    assert "plugin:events" in core
+    assert "plugin:df_paired" not in core
+    assert "plugin:df_paired" in all_nodes
+    assert core == {name: all_nodes[name] for name in core}
+    assert "plugin:cache_analysis" not in all_nodes
 
 
 def test_detail_lineage_contains_direct_neighbors_not_transitive_plugins():
@@ -392,8 +442,9 @@ def test_hit_merged_cross_renderer_content():
         assert "识别可合并" in rendered
         assert "按时间连接" in rendered
         assert "选择代表" in rendered
-        # How It Works section must be present in all
-        assert "How It Works" in rendered
+    assert "How It Works" in auto_md
+    assert "How It Works" in agent_md
+    assert "工作方式" in html
     # auto profile should NOT have Operational Notes or Maintenance
     assert "## Operational Notes" not in auto_md
     # agent profile SHOULD have Operational Notes and Maintenance
@@ -464,6 +515,13 @@ def test_cli_web_rejects_single_plugin_and_serve_requires_existing_directory(
     assert cli_docs.main() == 1
     assert "full-site generation" in capsys.readouterr().out
 
+    monkeypatch.setattr(
+        "sys.argv",
+        ["waveform-docs", "generate", "site-web", "--plugin", "records"],
+    )
+    assert cli_docs.main() == 1
+    assert "仅支持全量生成" in capsys.readouterr().out
+
     missing = tmp_path / "missing-site"
     monkeypatch.setattr(
         "sys.argv",
@@ -471,6 +529,83 @@ def test_cli_web_rejects_single_plugin_and_serve_requires_existing_directory(
     )
     assert cli_docs.main() == 1
     assert not missing.exists()
+
+
+def test_documentation_site_generates_exact_sections_routes_and_offline_assets(tmp_path):
+    from waveform_analysis.utils.site_doc_generator import DocumentationSiteGenerator
+
+    result = DocumentationSiteGenerator().generate(tmp_path)
+
+    assert result["SITE_INDEX"] == tmp_path / "index.html"
+    assert result["INDEX"] == tmp_path / "plugins" / "index.html"
+    assert result["ACCESSOR_INDEX"] == tmp_path / "accessors" / "index.html"
+    assert {path.name for key, path in result.items() if key.startswith("accessor:")} == {
+        "peak-channel-accessor.html",
+        "s1-s2-pair-accessor.html",
+    }
+    assert not (tmp_path / "plugins" / "plugins").exists()
+    expected_assets = {
+        "site.css",
+        "site.js",
+        "plotly.min.js",
+        "lineage-details.json",
+        "lineage-overviews.json",
+    }
+    assert {path.name for path in (tmp_path / "assets").iterdir()} == expected_assets
+
+    home = (tmp_path / "index.html").read_text(encoding="utf-8")
+    plugin_index = (tmp_path / "plugins" / "index.html").read_text(encoding="utf-8")
+    plugin_page = result["records"].read_text(encoding="utf-8")
+    accessor_index = (tmp_path / "accessors" / "index.html").read_text(encoding="utf-8")
+    assert 'href="plugins/index.html"' in home
+    assert 'href="accessors/index.html"' in home
+    assert 'href="../index.html" class="site-brand"' in plugin_index
+    assert 'href="records.html"' in plugin_index
+    assert 'data-lineage-details="../assets/lineage-details.json"' in plugin_index
+    assert 'href="index.html?focus=records"' in plugin_page
+    assert 'href="../accessors/index.html"' in plugin_page
+    assert "PeakChannelAccessor" in accessor_index
+    assert "S1S2PairAccessor" in accessor_index
+    html = "".join(path.read_text(encoding="utf-8") for path in tmp_path.rglob("*.html"))
+    assert "https://" not in html
+    assert "http://" not in html
+
+
+def test_accessor_registry_uses_live_signatures_and_fails_for_missing_members():
+    import inspect
+
+    from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
+    from waveform_analysis.utils.s1_s2_pair_accessor import S1S2PairAccessor
+    from waveform_analysis.utils.site_doc_generator import (
+        ACCESSOR_DOCUMENTATION_REGISTRY,
+        AccessorMemberSpec,
+        DocumentationSiteGenerator,
+    )
+
+    views = DocumentationSiteGenerator().build_accessor_views()
+    assert [view.slug for view in views] == [
+        "peak-channel-accessor",
+        "s1-s2-pair-accessor",
+    ]
+    peak_view, pair_view = views
+    assert peak_view.constructor_signature == str(inspect.signature(PeakChannelAccessor))
+    assert pair_view.constructor_signature == str(inspect.signature(S1S2PairAccessor))
+    assert len(peak_view.members) == 9
+    assert len(pair_view.members) == 12
+    assert [(member.name, member.kind) for member in pair_view.members][0] == (
+        "pairs",
+        "property",
+    )
+    assert all(not member.name.startswith("_") for view in views for member in view.members)
+    get_pair = next(member for member in pair_view.members if member.name == "get_pair")
+    assert get_pair.signature == str(inspect.signature(S1S2PairAccessor.get_pair))
+
+    broken = replace(
+        ACCESSOR_DOCUMENTATION_REGISTRY[0],
+        members=(AccessorMemberSpec("missing_member", "Missing."),),
+    )
+    with pytest.raises(ValueError, match="does not exist"):
+        DocumentationSiteGenerator(accessor_registry=(broken,)).build_accessor_views()
 
 
 def test_overview_paragraphs_fallback_from_overview_string():
