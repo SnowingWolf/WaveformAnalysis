@@ -7,6 +7,8 @@
 <body>
   <nav class="site-nav" aria-label="主导航"><a href="{{ site_home_href }}" class="site-brand">WaveformAnalysis 文档</a><a href="{{ plugin_index_href }}" aria-current="page">插件系统</a>{% if accessor_index_href %}<a href="{{ accessor_index_href }}">Accessor</a>{% endif %}</nav>
   <header class="plugin-header"><a href="{{ plugin_index_href }}" class="back-link">返回插件索引</a><p class="eyebrow">{{ plugin.category_display }}</p><h1>{{ plugin.provides }}</h1><p class="lede">{{ plugin.description or "暂无说明。" }}</p></header>
+  <div class="detail-layout{% if not accessor_index_href %} detail-layout-standalone{% endif %}">
+    {% if accessor_index_href %}<aside class="page-location" aria-label="文档位置"><p class="category">全局位置</p><ol><li><a href="{{ site_home_href }}">文档总站</a></li><li><a href="{{ plugin_index_href }}">插件系统</a></li><li aria-current="page"><code>{{ plugin.provides }}</code></li></ol><div class="page-location-links"><a href="{{ accessor_index_href }}">前往 Accessor</a></div></aside>{% endif %}
   <main class="reference">
     {% if lineage_graph %}{% include "web/lineage_graph.html.j2" %}{% endif %}
     <section><h2>概览</h2>
@@ -30,5 +32,5 @@ data = ctx.get_data("run_001", "{{ plugin.provides }}"){% endif %}</code></pre>
       {% if plugin.failure_modes %}<h4>失败模式</h4><ul>{% for mode in plugin.failure_modes %}<li>{{ mode }}</li>{% endfor %}</ul>{% endif %}<h4>下游消费者</h4>
       {% if plugin.downstream_consumers %}<ul>{% for consumer in plugin.downstream_consumers %}<li><code>{{ consumer }}</code></li>{% endfor %}</ul>{% else %}<p>终端输出，没有声明直接的内置消费者。</p>{% endif %}
     </section>
-  </main>
+  </main></div>
 </body></html>

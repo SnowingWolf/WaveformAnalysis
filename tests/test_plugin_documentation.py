@@ -157,6 +157,7 @@ def test_web_lineage_omits_unknown_inputs_and_lists_isolated_plugins(tmp_path):
     assert 'data-lineage-view="all"' in index
     assert 'href="plugins/unknown_output.html"' in index
     assert 'href="../index.html?focus=detailed_output"' in detailed
+    assert 'class="page-location"' not in detailed
     assert '"scrollZoom": true' in index
     assert "plotly_click" not in index
     assert {"source_rows", "detailed_output", "unknown_output"} <= details.keys()
@@ -575,6 +576,11 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "构造器" in peak_accessor_page
     assert "返回值" in peak_accessor_page
     assert "使用注意" in peak_accessor_page
+    assert 'class="page-location" aria-label="文档位置"' in peak_accessor_page
+    assert '<a href="../index.html">文档总站</a>' in peak_accessor_page
+    assert '<li aria-current="page"><code>PeakChannelAccessor</code></li>' in peak_accessor_page
+    assert 'class="page-location" aria-label="文档位置"' in plugin_page
+    assert '<li aria-current="page"><code>records</code></li>' in plugin_page
     assert "<code>peak_id</code>" in peak_accessor_page
     assert '<h3><code>plot</code></h3><pre class="member-signature"><code>plot(self,' in (
         peak_accessor_page
