@@ -576,6 +576,9 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "返回值" in peak_accessor_page
     assert "使用注意" in peak_accessor_page
     assert "<code>peak_id</code>" in peak_accessor_page
+    assert '<h3><code>plot</code></h3><pre class="member-signature"><code>plot(self,' in (
+        peak_accessor_page
+    )
     assert '<pre class="code-block language-python"><code><span class="kn">from</span>' in (
         peak_accessor_page
     )
