@@ -2,15 +2,202 @@
 
 from dataclasses import dataclass
 import inspect
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
+import shutil
 from typing import Any
+from xml.etree import ElementTree
 
 from markupsafe import Markup, escape
+import numpy as np
 
 from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
 from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
 from waveform_analysis.utils.s1_s2_pair_accessor import S1S2PairAccessor
+
+_CONTENT_BLOCK_KINDS = frozenset(
+    {"heading", "paragraph", "list", "note", "code", "image", "mathml", "table"}
+)
+_MATHML_TAGS = frozenset(
+    {
+        "math",
+        "mrow",
+        "mi",
+        "mn",
+        "mo",
+        "mtext",
+        "ms",
+        "mspace",
+        "mstyle",
+        "merror",
+        "mpadded",
+        "mphantom",
+        "mfenced",
+        "menclose",
+        "msub",
+        "msup",
+        "msubsup",
+        "munder",
+        "mover",
+        "munderover",
+        "mmultiscripts",
+        "mtable",
+        "mtr",
+        "mtd",
+        "maligngroup",
+        "malignmark",
+        "mlabeledtr",
+        "mfrac",
+        "msqrt",
+        "mroot",
+        "mstack",
+        "mlongdiv",
+        "mscarries",
+        "mscarry",
+        "msline",
+        "maction",
+        "semantics",
+        "annotation",
+        "annotation-xml",
+    }
+)
+_MATHML_ATTRIBUTES = frozenset(
+    {
+        "xmlns",
+        "display",
+        "mathvariant",
+        "mathsize",
+        "mathcolor",
+        "mathbackground",
+        "scriptlevel",
+        "displaystyle",
+        "accent",
+        "accentunder",
+        "stretchy",
+        "symmetric",
+        "form",
+        "fence",
+        "separator",
+        "lspace",
+        "rspace",
+        "minsize",
+        "maxsize",
+        "movablelimits",
+        "largeop",
+        "linebreak",
+        "depth",
+        "height",
+        "width",
+        "voffset",
+        "linethickness",
+        "numalign",
+        "denomalign",
+        "bevelled",
+        "open",
+        "close",
+        "separators",
+        "notation",
+        "columnalign",
+        "rowalign",
+        "columnspacing",
+        "rowspacing",
+        "columnlines",
+        "rowlines",
+        "frame",
+        "framespacing",
+        "equalcolumns",
+        "equalrows",
+        "columnspan",
+        "rowspan",
+        "groupalign",
+        "align",
+        "charalign",
+        "charspacing",
+        "side",
+        "minlabelspacing",
+        "selection",
+        "actiontype",
+        "encoding",
+    }
+)
+
+
+def _safe_mathml(value: str) -> Markup:
+    """Validate a small, presentation-only MathML subset before marking it safe."""
+    if "<!" in value or "<?" in value:
+        raise ValueError("MathML must not contain declarations or processing instructions")
+    try:
+        root = ElementTree.fromstring(value)
+    except ElementTree.ParseError as exc:
+        raise ValueError("Invalid MathML content block") from exc
+
+    if root.tag.rsplit("}", maxsplit=1)[-1] != "math":
+        raise ValueError("A MathML content block must have a <math> root element")
+    for element in root.iter():
+        tag = element.tag.rsplit("}", maxsplit=1)[-1]
+        if tag not in _MATHML_TAGS:
+            raise ValueError(f"Unsupported MathML element: {tag}")
+        for attribute in element.attrib:
+            attribute_name = attribute.rsplit("}", maxsplit=1)[-1]
+            if attribute_name not in _MATHML_ATTRIBUTES:
+                raise ValueError(f"Unsupported MathML attribute: {attribute_name}")
+    return Markup(ElementTree.tostring(root, encoding="unicode", method="xml"))
+
+
+@dataclass(frozen=True)
+class DocumentationContentBlock:
+    """A controlled, offline-safe documentation element rendered by a web template."""
+
+    kind: str
+    text: str = ""
+    items: tuple[str, ...] = ()
+    ordered: bool = False
+    heading_level: int = 3
+    title: str = ""
+    tone: str = "note"
+    code: str = ""
+    language: str = "text"
+    image_src: str = ""
+    image_alt: str = ""
+    image_caption: str = ""
+    mathml: str = ""
+    table_headers: tuple[str, ...] = ()
+    table_rows: tuple[tuple[str, ...], ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.kind not in _CONTENT_BLOCK_KINDS:
+            raise ValueError(f"Unsupported documentation content block: {self.kind}")
+        if self.kind == "heading":
+            if not self.text:
+                raise ValueError("A heading content block requires text")
+            if self.heading_level not in {3, 4}:
+                raise ValueError("A heading content block must use level 3 or 4")
+        if self.kind == "paragraph" and not self.text:
+            raise ValueError("A paragraph content block requires text")
+        if self.kind == "list" and not self.items:
+            raise ValueError("A list content block requires items")
+        if self.kind == "note":
+            if not self.text:
+                raise ValueError("A note content block requires text")
+            if self.tone not in {"note", "important", "warning"}:
+                raise ValueError(f"Unsupported note tone: {self.tone}")
+        if self.kind == "code" and not self.code:
+            raise ValueError("A code content block requires source code")
+        if self.kind == "image":
+            if not self.image_src or not self.image_alt:
+                raise ValueError("An image content block requires image_src and image_alt")
+            path = PurePosixPath(self.image_src)
+            if path.is_absolute() or ".." in path.parts or not path.parts:
+                raise ValueError("image_src must be a relative path inside content-assets")
+        if self.kind == "mathml":
+            if not self.mathml:
+                raise ValueError("A MathML content block requires mathml")
+            _safe_mathml(self.mathml)
+        if self.kind == "table":
+            if not self.table_headers:
+                raise ValueError("A table content block requires table_headers")
+            if any(len(row) != len(self.table_headers) for row in self.table_rows):
+                raise ValueError("Every table content block row must match its header width")
 
 
 @dataclass(frozen=True)
@@ -31,6 +218,15 @@ class AccessorParameterSpec:
 
 
 @dataclass(frozen=True)
+class AccessorNarrativeSection:
+    """One curated explanatory section rendered before an Accessor API list."""
+
+    anchor: str
+    title: str
+    blocks: tuple[DocumentationContentBlock, ...]
+
+
+@dataclass(frozen=True)
 class AccessorDocumentationSpec:
     accessor_class: type
     slug: str
@@ -40,6 +236,9 @@ class AccessorDocumentationSpec:
     example: str
     constructor_parameters: tuple[AccessorParameterSpec, ...]
     members: tuple[AccessorMemberSpec, ...]
+    narrative_sections: tuple[AccessorNarrativeSection, ...] = ()
+    overview_title: str = "整体介绍"
+    overview_blocks: tuple[DocumentationContentBlock, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -47,6 +246,7 @@ class AccessorMemberView:
     name: str
     kind: str
     signature: str
+    signature_html: Markup
     description: str
     parameters: tuple[AccessorParameterSpec, ...]
     returns: str
@@ -66,6 +266,9 @@ class AccessorDocumentationView:
     constructor_signature: str
     constructor_parameters: tuple[AccessorParameterSpec, ...]
     members: tuple[AccessorMemberView, ...]
+    narrative_sections: tuple[AccessorNarrativeSection, ...] = ()
+    overview_title: str = "整体介绍"
+    overview_blocks: tuple[DocumentationContentBlock, ...] = ()
 
 
 ACCESSOR_DOCUMENTATION_REGISTRY = (
@@ -82,10 +285,249 @@ ACCESSOR_DOCUMENTATION_REGISTRY = (
             "返回通道唯一键 `(board, channel)` 下的聚合特征；当 `peaklet_channels` 可用时，"
             "其中的 `area`、`height`、`n_hits` 与 `area_fraction` 是每通道聚合值。"
         ),
+        overview_title="整体介绍",
+        overview_blocks=(
+            DocumentationContentBlock(
+                kind="paragraph",
+                text=(
+                    "`PeakChannelAccessor` 用于排查单个 peak 的通道级组成。它以 `(board, channel)` "
+                    "作为逻辑通道的唯一标识，提供每个通道的聚合特征，并支持按需读取对应波形。"
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="paragraph",
+                text="其推荐使用方式是：",
+            ),
+            DocumentationContentBlock(
+                kind="list",
+                ordered=True,
+                items=(
+                    "先读取轻量特征；",
+                    "根据面积、高度或面积占比筛选通道；",
+                    "仅对少量候选通道加载和检查波形。",
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="paragraph",
+                text="这种设计避免了为全部 peak 和通道预先读取、切片体积较大的 `wave_pool`。",
+            ),
+        ),
+        narrative_sections=(
+            AccessorNarrativeSection(
+                anchor="typical-applications",
+                title="典型应用",
+                blocks=(
+                    DocumentationContentBlock(
+                        kind="paragraph", text="`PeakChannelAccessor` 主要适用于以下任务："
+                    ),
+                    DocumentationContentBlock(
+                        kind="list",
+                        items=(
+                            "找出单个 peak 中面积或高度贡献最大的通道；",
+                            "根据 `area_fraction` 判断信号在不同通道之间的分布；",
+                            "排查异常通道、异常 hit 或波形形状；",
+                            "比较多个候选通道的时间结构；",
+                            "对照框架生成的 peak 求和波形与通道波形叠加结果。",
+                        ),
+                    ),
+                ),
+            ),
+            AccessorNarrativeSection(
+                anchor="channel-identification",
+                title="字段来源与计算口径",
+                blocks=(
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text=(
+                            "通道必须使用 `(board, channel)` 作为唯一键。不能只使用 `channel`，"
+                            "因为不同采集板上可能存在编号相同的通道。"
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text="`peaklet_channels` 是唯一的通道聚合真源；缺失或字段不完整时 Accessor 会失败，不会退回到部分字段的字典。",
+                    ),
+                    DocumentationContentBlock(
+                        kind="table",
+                        table_headers=("字段", "含义", "计算口径"),
+                        table_rows=(
+                            ("`board`", "采集板编号", "通道标识"),
+                            ("`channel`", "板内通道编号", "通道标识"),
+                            (
+                                "`area`",
+                                "通道面积",
+                                "同一 (peaklet_id, board, channel) 的有效组件 area 之和",
+                            ),
+                            ("`height`", "通道高度", "同一分组内有效组件 height 的最大值"),
+                            ("`n_hits`", "通道 hit 数", "同一分组内有效组件 n_hits 之和"),
+                            (
+                                "`area_fraction`",
+                                "通道面积占比",
+                                "area / peaklet_features.area；分母为 0 时为 0",
+                            ),
+                            (
+                                "`merged_indices`",
+                                "通道组件索引",
+                                "来自 peaklet_components 的全部 merged_index",
+                            ),
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="heading", text="代表组件与边界字段", heading_level=3
+                    ),
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text="`width`、`rise_time`、`fall_time`、`center_time` 与 `record_id` 来自高度最大的组件；`merged_index` 也指向该代表组件。",
+                    ),
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text=(
+                            "`sample_start` 与 `sample_end` 分别是所有组件的最小起点和最大终点；"
+                            "`is_single_record` 仅在全部组件均为单 record 时为真。"
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="list",
+                        items=(
+                            "聚合前先过滤 hit_merged_features.valid == 0 的特征；",
+                            "面积、高度和 hit 数描述整个逻辑通道，时间字段只描述代表组件；",
+                            "通道波形来自 records + wave_pool，求和波形来自 peaklet_waveforms + peaklet_waveform_pool。",
+                        ),
+                    ),
+                ),
+            ),
+            AccessorNarrativeSection(
+                anchor="data-loading",
+                title="数据层与加载策略",
+                blocks=(
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text="Accessor 将数据访问分为特征层和波形层。",
+                    ),
+                    DocumentationContentBlock(
+                        kind="table",
+                        table_headers=("数据层", "主要依赖", "加载时机"),
+                        table_rows=(
+                            (
+                                "特征层",
+                                "`peaklet_components`、`peaklet_channels`、`hit_merged`、`hit_merged_features`",
+                                "查询通道特征时",
+                            ),
+                            (
+                                "波形层",
+                                "`records`、`hit_threshold`、`hit_merged_components`、`wave_pool`",
+                                "请求波形或绘图时",
+                            ),
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text=(
+                            "调用 `get_channels()` 时只访问特征层，不读取通道波形。只有在 `include_waveforms=True` 或"
+                            "调用相关绘图方法时，Accessor 才会加载波形层。"
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text="这意味着可以先对大量 peak 执行轻量特征查询，再对少量候选加载波形。",
+                    ),
+                ),
+            ),
+            AccessorNarrativeSection(
+                anchor="waveform-semantics",
+                title="波形来源与语义",
+                blocks=(
+                    DocumentationContentBlock(
+                        kind="paragraph", text="Accessor 中存在两类来源不同的波形。"
+                    ),
+                    DocumentationContentBlock(
+                        kind="table",
+                        table_headers=("波形类型", "获取方式", "数据来源"),
+                        table_rows=(
+                            (
+                                "Peak 求和波形",
+                                "`get_sum_waveform()`",
+                                "`peaklet_waveforms` 生成的求和产物",
+                            ),
+                            (
+                                "通道或组件波形",
+                                "通道波形接口",
+                                "根据 hit 窗口和 `pad` 从 `records + wave_pool` 提取",
+                            ),
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text=(
+                            "两类波形的构建路径不同，因此不要求逐采样点完全一致。可能造成差异的因素包括："
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="list",
+                        items=(
+                            "使用的时间网格不同；",
+                            "`wave_pool` 中保存的是经过处理的波形；",
+                            "波形窗口及 `pad` 配置不同；",
+                            "peak 求和波形与通道波形采用了不同的构建配置。",
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="note",
+                        tone="important",
+                        title="使用 `plot(view='sum-comparison')` 时",
+                        text="应将其理解为对两种波形构建结果的对照，而不是逐点相等性检验。",
+                    ),
+                ),
+            ),
+            AccessorNarrativeSection(
+                anchor="lazy-loading-and-cache",
+                title="延迟加载与缓存",
+                blocks=(
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text="建议在同一个分析循环中复用同一个 `PeakChannelAccessor`，避免重复初始化和读取相同数据。",
+                    ),
+                    DocumentationContentBlock(kind="paragraph", text="设置："),
+                    DocumentationContentBlock(
+                        kind="code", language="python", code="lazy_load=True"
+                    ),
+                    DocumentationContentBlock(
+                        kind="paragraph", text="可以推迟首次特征层读取，直到真正执行查询。"
+                    ),
+                    DocumentationContentBlock(kind="paragraph", text="波形窗口按照："),
+                    DocumentationContentBlock(
+                        kind="code", language="text", code="(merged_index, pad)"
+                    ),
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text="进行缓存。使用相同参数再次请求波形时，可以复用已经提取的结果。",
+                    ),
+                    DocumentationContentBlock(kind="paragraph", text="当内存紧张时，可以调用："),
+                    DocumentationContentBlock(
+                        kind="code",
+                        language="python",
+                        code="clear_waveform_cache(release_wave_pool=True)",
+                    ),
+                    DocumentationContentBlock(kind="paragraph", text="该操作会："),
+                    DocumentationContentBlock(
+                        kind="list",
+                        items=(
+                            "清除已缓存的波形窗口；",
+                            "在 `release_wave_pool=True` 时释放波形层；",
+                            "保留 Accessor，使其仍可继续使用。",
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text="清理后再次请求波形时，Accessor 会重新加载所需的波形数据。",
+                    ),
+                ),
+            ),
+        ),
         example="""from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
 
 accessor = PeakChannelAccessor(ctx, run_id="run_001", lazy_load=True)
-channels = accessor.get_peak_channels(peak_id=919)""",
+channels = accessor.get_channels(peak_id=919)""",
         constructor_parameters=(
             AccessorParameterSpec("context", "已配置插件和数据存储的 Context。"),
             AccessorParameterSpec("run_id", "本次查询对应的 run ID，所有访问都显式绑定到该 run。"),
@@ -95,114 +537,91 @@ channels = accessor.get_peak_channels(peak_id=919)""",
         ),
         members=(
             AccessorMemberSpec(
-                "get_peak_channels",
-                "返回一个 peak 的逐通道特征，不触发波形层读取。",
-                parameters=(AccessorParameterSpec("peak_id", "目标 peak 的整数 ID。"),),
-                returns=(
-                    "`list[dict]`；每项至少含 `board`、`channel`、`area`、`height`、"
-                    "`merged_index`，并在聚合数据可用时含 `n_hits` 与 `area_fraction`。"
+                "get_channels",
+                "返回一个 peak 的逐逻辑通道特征；设置 include_waveforms=True 时，为每项附加完整逻辑通道波形。",
+                parameters=(
+                    AccessorParameterSpec("peak_id", "目标 peak 的整数 ID。"),
+                    AccessorParameterSpec("include_waveforms", "为 True 时加载并附加波形字段。"),
+                    AccessorParameterSpec("pad", "波形窗口两侧额外保留的采样点数。"),
                 ),
-                notes=("空 peak 返回空列表。", "通道键始终应按 `(board, channel)` 解释。"),
-                example="""channels = accessor.get_peak_channels(peak_id=919)
+                returns=(
+                    "`list[dict]`；每项始终包含完整规范特征字段。启用波形后额外包含 "
+                    "`waveform`、`time_ns`、`abs_time_ps`、`dt` 和 `segments`。"
+                ),
+                notes=(
+                    "空 peak 返回空列表。",
+                    "通道键始终按 `(board, channel)` 解释。",
+                    "缺少或不完整的 `peaklet_channels` 会抛出 `PeakChannelDataUnavailableError`，不会使用 fallback。",
+                    "一个逻辑通道的全部 `merged_indices` 会按绝对时间合并为波形片段。",
+                ),
+                example="""channels = accessor.get_channels(peak_id=919, include_waveforms=True)
 for channel in channels:
     print(channel["board"], channel["channel"], channel["area"])
 """,
             ),
             AccessorMemberSpec(
-                "get_channel_waveform",
-                "按 hit-merged 行索引提取一个通道的波形窗口。",
-                parameters=(
-                    AccessorParameterSpec(
-                        "merged_index", "`hit_merged` 的行索引，通常来自 `get_peak_channels()`。"
-                    ),
-                    AccessorParameterSpec("pad", "在 hit 边界两侧额外保留的采样点数。"),
+                "get_sum_waveform",
+                "取得框架已有的 peak 求和波形及其时间信息。",
+                parameters=(AccessorParameterSpec("peak_id", "目标 peak 的整数 ID。"),),
+                returns="求和波形字典；找不到对应 peak 时返回 `None`。",
+                notes=(
+                    "来源是 `peaklet_waveforms` 与 `peaklet_waveform_pool`，不会从当前通道曲线重新求和。",
+                    "与通道波形的窗口、时间网格和滤波来源可能不同，因此不保证逐点相同。",
                 ),
-                returns="包含 `waveform`、`time_ns`、`abs_time_ps`、`dt` 和通道信息的字典。",
-                notes=("首次调用会加载波形层并缓存结果。",),
-            ),
-            AccessorMemberSpec(
-                "get_peak_channel_data",
-                "一次返回 peak 的通道特征，并可为每个通道附加波形。",
-                parameters=(
-                    AccessorParameterSpec("peak_id", "目标 peak 的整数 ID。"),
-                    AccessorParameterSpec("include_waveform", "为 `True` 时给结果项添加波形数据。"),
-                    AccessorParameterSpec("pad", "请求波形时使用的边界扩展采样点数。"),
-                ),
-                returns="`list[dict]`；默认是特征项，启用 `include_waveform` 后同时包含波形字段。",
-                notes=("波形读取成本更高；先用 `get_peak_channels()` 筛选通常更高效。",),
             ),
             AccessorMemberSpec(
                 "clear_waveform_cache",
                 "清空已提取的通道波形缓存，可选地释放原始波形层。",
                 parameters=(
                     AccessorParameterSpec(
-                        "release_wave_pool", "为 `True` 时同时释放已加载的 records/wave pool 层。"
+                        "release_wave_pool", "为 True 时同时释放已加载的 records/wave pool 层。"
                     ),
                 ),
                 returns="无返回值。",
             ),
             AccessorMemberSpec(
-                "get_sum_waveform",
-                "取得 peak 的求和波形及其时间信息。",
-                parameters=(AccessorParameterSpec("peak_id", "目标 peak 的整数 ID。"),),
-                returns="求和波形字典；找不到对应 peak 时返回 `None`。",
-            ),
-            AccessorMemberSpec(
                 "plot",
-                "绘制 peak 的通道波形总览，并可叠加特征和命中窗口。",
+                "唯一的绘图入口：通过 view 选择逐通道总览、通道叠加或求和对照。",
                 parameters=(
                     AccessorParameterSpec("peak_id", "目标 peak 的整数 ID。"),
+                    AccessorParameterSpec("view", "`stacked`、`overlay` 或 `sum-comparison`。"),
                     AccessorParameterSpec("pad", "通道波形窗口的边界扩展采样点数。"),
-                    AccessorParameterSpec("figsize", "Matplotlib 图尺寸；`None` 使用默认布局。"),
-                    AccessorParameterSpec("show_sum", "是否显示求和波形。"),
+                    AccessorParameterSpec("figsize", "Matplotlib 图尺寸；None 使用视图默认布局。"),
+                    AccessorParameterSpec("channel_filter", "仅 overlay 视图使用的通道筛选函数。"),
+                    AccessorParameterSpec("show_sum", "仅 stacked 视图使用；是否显示求和波形。"),
                     AccessorParameterSpec(
-                        "show_features", "要标注的特征名称列表；`None` 使用默认项。"
+                        "show_features", "仅 stacked 视图使用；要标注的特征名称列表。"
                     ),
-                    AccessorParameterSpec("show_hit_windows", "是否显示 hit 时间窗口。"),
-                    AccessorParameterSpec("show_merged_index", "是否在图中标注 merged index。"),
-                ),
-                returns="`(figure, axes)`；未找到数据时元素可能为 `None`。",
-                notes=("需要安装 Matplotlib。",),
-            ),
-            AccessorMemberSpec(
-                "batch_plot",
-                "将多个 peak 的通道图批量写入目录。",
-                parameters=(
-                    AccessorParameterSpec("peak_ids", "要绘制的 peak ID 列表。"),
-                    AccessorParameterSpec("output_dir", "输出图像的目录。"),
-                    AccessorParameterSpec("pad", "波形窗口的边界扩展采样点数。"),
-                    AccessorParameterSpec("show_sum", "是否显示求和波形。"),
-                    AccessorParameterSpec("show_features", "要标注的特征名称列表。"),
-                    AccessorParameterSpec("show_hit_windows", "是否显示 hit 时间窗口。"),
-                    AccessorParameterSpec("show_merged_index", "是否标注 merged index。"),
-                ),
-                returns="无返回值；图像写入 `output_dir`。",
-                notes=("需要安装 Matplotlib，并确保输出目录可写。",),
-            ),
-            AccessorMemberSpec(
-                "plot_channel_comparison",
-                "将选定通道叠加到同一坐标轴，用于比较形状和相对时间。",
-                parameters=(
-                    AccessorParameterSpec("peak_id", "目标 peak 的整数 ID。"),
                     AccessorParameterSpec(
-                        "channel_selector", "要显示的通道选择器；`None` 表示全部通道。"
+                        "show_hit_windows", "仅 stacked 视图使用；是否显示 hit 窗口。"
                     ),
-                    AccessorParameterSpec("pad", "波形窗口的边界扩展采样点数。"),
-                    AccessorParameterSpec("figsize", "Matplotlib 图尺寸。"),
+                    AccessorParameterSpec(
+                        "show_merged_index", "仅 stacked 视图使用；是否标注代表 merged index。"
+                    ),
                 ),
-                returns="`(figure, axes)`。",
-                notes=("需要安装 Matplotlib。",),
-            ),
-            AccessorMemberSpec(
-                "plot_sum_vs_channels",
-                "对比求和波形与各通道波形。",
-                parameters=(
-                    AccessorParameterSpec("peak_id", "目标 peak 的整数 ID。"),
-                    AccessorParameterSpec("pad", "波形窗口的边界扩展采样点数。"),
-                    AccessorParameterSpec("figsize", "Matplotlib 图尺寸。"),
+                returns="`(figure, axes)`；overlay 视图也将单个轴包装为一元素 NumPy 数组。",
+                notes=(
+                    "需要安装 Matplotlib。",
+                    "`sum-comparison` 用于对照两种波形构建路径，不应用作逐采样点相等性检验。",
+                    "批量保存请在调用方显式循环 `plot()`、保存并关闭 figure。",
                 ),
-                returns="`(figure, axes)`。",
-                notes=("需要安装 Matplotlib。",),
+                example="""# 逐通道查看，并标注常用特征
+fig, axes = accessor.plot(
+    peak_id=919,
+    view="stacked",
+    show_features=["area", "height", "width"],
+)
+
+# 只叠加 board 0 的通道
+fig, axes = accessor.plot(
+    peak_id=919,
+    view="overlay",
+    channel_filter=lambda channel: channel["board"] == 0,
+)
+
+# 对照框架求和波形与各通道叠加
+fig, axes = accessor.plot(peak_id=919, view="sum-comparison")
+""",
             ),
         ),
     ),
@@ -372,9 +791,10 @@ def _highlight_python(source: str) -> Markup:
 
 
 def _inline_code(value: str) -> Markup:
-    """Escape prose first, then render its restricted backtick code notation."""
+    """Escape prose first, then render restricted emphasis and code notation."""
     escaped = str(escape(value))
-    return Markup(re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped))
+    emphasized = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
+    return Markup(re.sub(r"`([^`]+)`", r"<code>\1</code>", emphasized))
 
 
 class DocumentationSiteGenerator:
@@ -415,11 +835,15 @@ class DocumentationSiteGenerator:
                         f"Registered member {spec.accessor_class.__name__}.{member_spec.name} is not callable"
                     )
                 signature = inspect.signature(target)
+                rendered_signature = self._format_signature(signature)
                 members.append(
                     AccessorMemberView(
                         name=member_spec.name,
                         kind=member_spec.kind,
-                        signature=str(signature),
+                        signature=rendered_signature,
+                        signature_html=_highlight_python(
+                            f"def {member_spec.name}{rendered_signature}:"
+                        ),
                         description=member_spec.description,
                         parameters=self._validated_parameters(
                             signature,
@@ -452,9 +876,28 @@ class DocumentationSiteGenerator:
                         spec.accessor_class.__name__,
                     ),
                     members=tuple(members),
+                    narrative_sections=spec.narrative_sections,
+                    overview_title=spec.overview_title,
+                    overview_blocks=spec.overview_blocks,
                 )
             )
         return views
+
+    @staticmethod
+    def _format_signature(signature: inspect.Signature, max_width: int = 96) -> str:
+        """Render long callable signatures one parameter per line for the HTML reference."""
+        rendered = str(signature)
+        if len(rendered) <= max_width:
+            return rendered
+
+        parameters = ",\n".join(f"    {parameter}" for parameter in signature.parameters.values())
+        return_annotation = ""
+        if signature.return_annotation is not inspect.Signature.empty:
+            annotation = signature.return_annotation
+            if annotation is np.ndarray:
+                annotation = "np.ndarray"
+            return_annotation = f" -> {annotation}"
+        return f"(\n{parameters},\n){return_annotation}"
 
     @staticmethod
     def _validated_parameters(
@@ -471,6 +914,33 @@ class DocumentationSiteGenerator:
                 f"expected {live_names}, got {documented_names}"
             )
         return documented
+
+    def _copy_content_assets(
+        self,
+        views: list[AccessorDocumentationView],
+        asset_dir: Path,
+        generated: dict[str, Path],
+    ) -> None:
+        """Copy only registry-referenced documentation images into the offline site."""
+        source_dir = self.plugin_generator.template_dir / "web" / "content-assets"
+        image_sources = {
+            block.image_src
+            for view in views
+            for section in view.narrative_sections
+            for block in section.blocks
+            if block.kind == "image"
+        }
+        for image_src in sorted(image_sources):
+            relative_path = Path(PurePosixPath(image_src))
+            source_path = source_dir / relative_path
+            if not source_path.is_file():
+                raise ValueError(
+                    f"Documentation image {image_src!r} is not present in {source_dir}"
+                )
+            target_path = asset_dir / "content" / relative_path
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_path, target_path)
+            generated[f"asset:content/{image_src}"] = target_path
 
     def generate(self, output_dir: Path) -> dict[str, Path]:
         output_dir = Path(output_dir)
@@ -505,6 +975,8 @@ class DocumentationSiteGenerator:
         )
         env = self.plugin_generator._get_web_jinja_env()
         env.filters["inline_code"] = _inline_code
+        env.filters["mathml"] = _safe_mathml
+        self._copy_content_assets(views, output_dir / "assets", generated)
         accessor_dir = output_dir / "accessors"
         accessor_dir.mkdir(parents=True, exist_ok=True)
         home_path = output_dir / "index.html"

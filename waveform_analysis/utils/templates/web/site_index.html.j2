@@ -12,7 +12,7 @@
 <main class="docs-main">
   <nav class="breadcrumbs" aria-label="面包屑"><span aria-current="page">文档概览</span></nav>
   <section class="home-intro"><p class="eyebrow">WaveformAnalysis</p><h1>波形分析文档</h1><p>从数据采集到事件构建，查看可组合的插件处理链与面向分析的只读查询接口。</p><div class="home-actions"><a class="button-link" href="plugins/index.html">浏览插件系统</a><a class="text-link" href="accessors/index.html">查看 {{ accessor_count }} 个 Accessor</a></div></section>
-  <section class="home-section" aria-labelledby="start-heading"><p class="eyebrow">开始浏览</p><h2 id="start-heading">按工作流定位文档</h2><div class="resource-grid"><a class="resource-card" href="plugins/index.html"><span class="category">处理系统</span><h3>插件参考</h3><p>搜索插件、检查输出字段、配置项与默认依赖谱系。</p></a><a class="resource-card" href="accessors/index.html"><span class="category">分析接口</span><h3>Accessor</h3><p>以稳定的只读接口查询 peak 通道与 S1-S2 配对结果。</p></a></div></section>
+  <section class="home-section" aria-labelledby="start-heading"><p class="eyebrow">开始浏览</p><h2 id="start-heading">按工作流定位文档</h2><p>插件声明依赖并负责执行处理，产出可复用的数据结果；Accessor 不属于插件 DAG，而是在分析阶段通过 Context 辅助查询、整理、筛选和可视化插件产物。通常先由插件完成处理，再用 Accessor 定位和检查所需结果。</p><div class="resource-grid"><a class="resource-card" href="plugins/index.html"><span class="category">处理系统</span><h3>插件参考</h3><p>搜索插件、检查输出字段、配置项与默认依赖谱系。</p></a><a class="resource-card" href="accessors/index.html"><span class="category">分析接口</span><h3>Accessor</h3><p>以稳定的只读接口查询 peak 通道与 S1-S2 配对结果。</p></a></div></section>
   <section class="home-section home-note" aria-labelledby="offline-heading"><p class="eyebrow">本地优先</p><h2 id="offline-heading">无需网络即可阅读</h2><p>站点由 <code>waveform-docs generate site-web</code> 生成；图谱、搜索与代码高亮全部使用本地资源。</p></section>
 </main>
 {% endblock %}

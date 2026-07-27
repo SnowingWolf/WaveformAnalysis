@@ -102,7 +102,7 @@ def test_web_generation_is_offline_relative_and_escaped(tmp_path):
     index = result["INDEX"].read_text(encoding="utf-8")
     page = result["special_chars"].read_text(encoding="utf-8")
     assert 'href="plugins/special_chars.html"' in index
-    assert 'class="site-index docs-page docs-plugin-index"' in index
+    assert 'class="site-index docs-page docs-plugin-index docs-page--lineage"' in index
     assert 'href="../assets/site.css"' in page
     assert "https://" not in index + page
     assert "http://" not in index + page
@@ -119,13 +119,18 @@ def test_web_generation_is_offline_relative_and_escaped(tmp_path):
     assert (tmp_path / "assets" / "lineage-overviews.json").is_file()
     site_js = (tmp_path / "assets" / "site.js").read_text(encoding="utf-8")
     site_css = (tmp_path / "assets" / "site.css").read_text(encoding="utf-8")
-    assert "detailPlot.getBoundingClientRect()" in site_js
-    assert "Math.floor(detailBounds.width)" in site_js
-    assert "Math.floor(detailBounds.height)" in site_js
-    assert "new ResizeObserver(resizeDetailPlot)" in site_js
-    assert "minmax(480px, 520px)" in site_css
-    assert "height: 560px" in site_css
-    assert "contain: layout paint" in site_css
+    assert "data-lineage-relations" in site_js
+    assert "renderRelations" in site_js
+    assert 'workspace.classList.add("has-details")' in site_js
+    assert 'workspace.classList.remove("has-details")' in site_js
+    assert 'workspace.dataset.pluginPrefix ?? "plugins/"' in site_js
+    assert "detailPanel.scrollLeft = 0" in site_js
+    assert "new ResizeObserver(resizeOverview)" in site_js
+    assert "--site-max-width: 1680px" in site_css
+    assert "--content-max-width: 980px" in site_css
+    assert "grid-template-columns: minmax(0, 1fr) 380px" in site_css
+    assert "height: min(720px, calc(100vh - 180px))" in site_css
+    assert ".lineage-workspace:not(.has-details)" in site_css
 
 
 def test_web_lineage_omits_unknown_inputs_and_lists_isolated_plugins(tmp_path):
@@ -153,7 +158,9 @@ def test_web_lineage_omits_unknown_inputs_and_lists_isolated_plugins(tmp_path):
     assert 'src="assets/plotly.min.js"' in index
     assert 'id="plugin-global-lineage"' in index
     assert 'data-lineage-details="assets/lineage-details.json"' in index
-    assert "data-lineage-detail-plot" in index
+    assert "data-lineage-relations" in index
+    assert "data-lineage-inputs" in index
+    assert "data-lineage-consumers" in index
     assert "IN::" not in index
     assert "OUT::" not in index
     assert 'href="source_rows.html"' in detailed
@@ -168,9 +175,8 @@ def test_web_lineage_omits_unknown_inputs_and_lists_isolated_plugins(tmp_path):
     assert '"scrollZoom": true' in index
     assert "plotly_click" not in index
     assert {"source_rows", "detailed_output", "unknown_output"} <= details.keys()
-    assert any(
-        trace.get("name") == "node_detailed_output" for trace in details["detailed_output"]["data"]
-    )
+    assert details["detailed_output"] == {"inputs": ["source_rows"], "consumers": []}
+    assert details["unknown_output"] == {"inputs": [], "consumers": []}
 
     dynamic_view = replace(
         generator.extract_doc_info(_EmptyPlugin, _EmptyPlugin()),
@@ -286,6 +292,10 @@ def test_core_and_all_views_share_layout_and_keep_standalone_out_of_dag():
     assert "plugin:df_paired" in all_nodes
     assert core == {name: all_nodes[name] for name in core}
     assert "plugin:cache_analysis" not in all_nodes
+    figure = generator._build_global_plotly_figure(views["all"])
+    shapes = figure.layout.shapes
+    assert figure.layout.xaxis.range[1] >= max(shape.x1 for shape in shapes)
+    assert abs(figure.layout.yaxis.range[0]) >= max(shape.y1 for shape in shapes)
 
 
 def test_detail_lineage_contains_direct_neighbors_not_transitive_plugins():
@@ -573,6 +583,9 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     search_index = (tmp_path / "assets" / "search-index.js").read_text(encoding="utf-8")
     assert 'href="plugins/index.html"' in home
     assert 'href="accessors/index.html"' in home
+    assert "插件声明依赖并负责执行处理" in home
+    assert "Accessor 不属于插件 DAG" in home
+    assert "先由插件完成处理，再用 Accessor" in home
     assert 'class="site-brand" href="../index.html"' in plugin_index
     assert 'href="records.html"' in plugin_index
     assert 'data-lineage-details="../assets/lineage-details.json"' in plugin_index
@@ -596,14 +609,23 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "data-page-toc" in plugin_page
     assert 'nav.classList.toggle("is-open", open)' in site_js
     assert "<code>peak_id</code>" in peak_accessor_page
-    assert '<h3><code>plot</code></h3><pre class="member-signature"><code>plot(self,' in (
-        peak_accessor_page
+    assert (
+        '<h3><code>plot</code></h3><pre class="code-block member-signature language-python"><code><span class="k">def</span> <span class="nf">plot</span><span class="p">(</span>'
+        in (peak_accessor_page)
     )
     assert '<pre class="code-block language-python"><code><span class="kn">from</span>' in (
         peak_accessor_page
     )
     assert "score_total_range" in pair_accessor_page
+    assert '<article class="member" id="build_mask"' in pair_accessor_page
+    assert '<span class="nf">build_mask</span>' in pair_accessor_page
+    assert (
+        '<span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>'
+        in pair_accessor_page
+    )
     assert "<code>peaklet_channels</code>" in peak_accessor_page
+    assert "# 逐通道查看，并标注常用特征" in peak_accessor_page
+    assert "sum-comparison" in peak_accessor_page
     assert ".language-python .k" in site_css
     assert ".language-python .s" in site_css
     assert "site-search-dialog" in home
@@ -617,6 +639,12 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "data-theme-toggle" in site_js
     assert "data-tree-toggle" in site_js
     assert "data-page-toc" in site_js
+    assert "docs-page--lineage" in plugin_index
+    assert "docs-main--wide" in plugin_index
+    assert 'data-lineage-canvas="fit"' in plugin_index
+    assert "fitOverview" in site_js
+    assert "centerOverview" in site_js
+    assert "new ResizeObserver(resizeOverview)" in site_js
     assert "data-site-search-input" in site_js
     html = "".join(path.read_text(encoding="utf-8") for path in tmp_path.rglob("*.html"))
     assert "https://" not in html
@@ -681,7 +709,7 @@ def test_accessor_registry_uses_live_signatures_parameters_and_fails_for_invalid
     peak_view, pair_view = views
     assert peak_view.constructor_signature == str(inspect.signature(PeakChannelAccessor))
     assert pair_view.constructor_signature == str(inspect.signature(S1S2PairAccessor))
-    assert len(peak_view.members) == 9
+    assert len(peak_view.members) == 4
     assert len(pair_view.members) == 12
     assert [(member.name, member.kind) for member in pair_view.members][0] == (
         "pairs",
@@ -690,6 +718,9 @@ def test_accessor_registry_uses_live_signatures_parameters_and_fails_for_invalid
     assert all(not member.name.startswith("_") for view in views for member in view.members)
     get_pair = next(member for member in pair_view.members if member.name == "get_pair")
     assert get_pair.signature == str(inspect.signature(S1S2PairAccessor.get_pair))
+    plot = next(member for member in peak_view.members if member.name == "plot")
+    assert plot.signature.startswith("(\n    self,\n    peak_id: int,")
+    assert "\n    show_merged_index: bool = True,\n) ->" in plot.signature
     assert [parameter.name for parameter in peak_view.constructor_parameters] == [
         parameter
         for parameter in inspect.signature(PeakChannelAccessor).parameters
@@ -708,7 +739,7 @@ def test_accessor_registry_uses_live_signatures_parameters_and_fails_for_invalid
         ACCESSOR_DOCUMENTATION_REGISTRY[0],
         members=(
             AccessorMemberSpec(
-                "get_peak_channels",
+                "get_channels",
                 "Returns channels.",
                 parameters=(AccessorParameterSpec("not_peak_id", "Invalid."),),
             ),

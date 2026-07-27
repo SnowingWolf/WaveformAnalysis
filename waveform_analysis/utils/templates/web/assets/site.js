@@ -40,7 +40,10 @@
     const detailTitle = workspace.querySelector("[data-lineage-detail-title]");
     const detailEmpty = workspace.querySelector("[data-lineage-detail-empty]");
     const detailLink = workspace.querySelector("[data-lineage-detail-link]");
-    const detailPlot = workspace.querySelector("[data-lineage-detail-plot]");
+    const detailPanel = workspace.querySelector(".lineage-detail");
+    const relations = workspace.querySelector("[data-lineage-relations]");
+    const inputList = workspace.querySelector("[data-lineage-inputs]");
+    const consumerList = workspace.querySelector("[data-lineage-consumers]");
     const closeButton = workspace.querySelector("[data-lineage-detail-close]");
     const viewControls = [...document.querySelectorAll("[data-lineage-view]")];
     const embeddedDetails = document.querySelector("#lineage-details-data");
@@ -48,7 +51,7 @@
     const terminalOutputs = new Set(
       (workspace.dataset.terminalOutputs || "").split(",").filter(Boolean),
     );
-    let detailFigures = embeddedDetails
+    let detailRelations = embeddedDetails
       ? Promise.resolve(JSON.parse(embeddedDetails.textContent))
       : undefined;
     let overviewFigures = embeddedOverviews
@@ -56,26 +59,27 @@
       : undefined;
     let selected;
     let activeView = "core";
+    let activeFigure;
     const selectedLine = "#b45309";
     const defaultLine = "#087f5b";
 
-    const resizeDetailPlot = () => {
-      if (detailPlot?.data && !detailPlot.hidden) Plotly.Plots.resize(detailPlot);
+    const resizeOverview = () => {
+      if (overview.data) Plotly.Plots.resize(overview);
     };
     if (window.ResizeObserver) {
-      new ResizeObserver(resizeDetailPlot).observe(detailPlot);
+      new ResizeObserver(resizeOverview).observe(overview.parentElement);
     } else {
-      window.addEventListener("resize", resizeDetailPlot);
+      window.addEventListener("resize", resizeOverview);
     }
 
     const loadDetails = () => {
-      if (!detailFigures) {
-        detailFigures = fetch(workspace.dataset.lineageDetails).then((response) => {
+      if (!detailRelations) {
+        detailRelations = fetch(workspace.dataset.lineageDetails).then((response) => {
           if (!response.ok) throw new Error("Unable to load lineage detail data.");
           return response.json();
         });
       }
-      return detailFigures;
+      return detailRelations;
     };
 
     const loadOverviews = () => {
@@ -96,6 +100,81 @@
       window.history[replace ? "replaceState" : "pushState"]({}, "", url);
     };
 
+    const overviewBounds = (figure) => {
+      const shapes = figure?.layout?.shapes || [];
+      if (!shapes.length) return undefined;
+      return shapes.reduce((bounds, shape) => ({
+        minX: Math.min(bounds.minX, Number(shape.x0)),
+        maxX: Math.max(bounds.maxX, Number(shape.x1)),
+        minY: Math.min(bounds.minY, Number(shape.y0)),
+        maxY: Math.max(bounds.maxY, Number(shape.y1)),
+      }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+    };
+
+    const fitOverview = (figure) => {
+      const bounds = overviewBounds(figure || activeFigure);
+      const rect = overview.getBoundingClientRect();
+      if (!bounds || rect.width < 20 || rect.height < 20) return;
+      const padding = 44;
+      let width = bounds.maxX - bounds.minX + padding * 2;
+      let height = bounds.maxY - bounds.minY + padding * 2;
+      const targetRatio = rect.width / rect.height;
+      if (width / height < targetRatio) width = height * targetRatio;
+      else height = width / targetRatio;
+      const centerX = (bounds.minX + bounds.maxX) / 2;
+      const centerY = (bounds.minY + bounds.maxY) / 2;
+      return Plotly.relayout(overview, {
+        "xaxis.autorange": false,
+        "yaxis.autorange": false,
+        "xaxis.range[0]": centerX - width / 2,
+        "xaxis.range[1]": centerX + width / 2,
+        "yaxis.range[0]": centerY + height / 2,
+        "yaxis.range[1]": centerY - height / 2,
+      });
+    };
+
+    const fitAfterLayout = () => new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        resizeOverview();
+        requestAnimationFrame(() => {
+          Promise.resolve(fitOverview(activeFigure)).finally(resolve);
+        });
+      });
+    });
+
+    const centerOverview = () => {
+      const bounds = overviewBounds(activeFigure);
+      const xRange = overview.layout?.xaxis?.range;
+      const yRange = overview.layout?.yaxis?.range;
+      if (!bounds || !xRange || !yRange) return;
+      const width = Math.abs(xRange[1] - xRange[0]);
+      const height = Math.abs(yRange[1] - yRange[0]);
+      const centerX = (bounds.minX + bounds.maxX) / 2;
+      const centerY = (bounds.minY + bounds.maxY) / 2;
+      return Plotly.relayout(overview, {
+        "xaxis.range[0]": centerX - width / 2,
+        "xaxis.range[1]": centerX + width / 2,
+        "yaxis.range[0]": centerY + height / 2,
+        "yaxis.range[1]": centerY - height / 2,
+      });
+    };
+
+    const zoomOverview = (factor) => {
+      const xRange = overview.layout?.xaxis?.range;
+      const yRange = overview.layout?.yaxis?.range;
+      if (!xRange || !yRange) return;
+      const centerX = (xRange[0] + xRange[1]) / 2;
+      const centerY = (yRange[0] + yRange[1]) / 2;
+      const width = Math.abs(xRange[1] - xRange[0]) * factor;
+      const height = Math.abs(yRange[1] - yRange[0]) * factor;
+      return Plotly.relayout(overview, {
+        "xaxis.range[0]": centerX - width / 2,
+        "xaxis.range[1]": centerX + width / 2,
+        "yaxis.range[0]": centerY + height / 2,
+        "yaxis.range[1]": centerY - height / 2,
+      });
+    };
+
     const highlight = (provides) => {
       const indices = overview.layout?.meta?.node_shape_indices || {};
       const updates = {};
@@ -109,11 +188,38 @@
     const clearSelection = () => {
       selected = undefined;
       highlight();
+      workspace.classList.remove("has-details");
       detailTitle.textContent = "选择一个插件";
       detailEmpty.hidden = false;
       detailLink.hidden = true;
-      detailPlot.hidden = true;
-      detailPlot.replaceChildren();
+      relations.hidden = true;
+      inputList.replaceChildren();
+      consumerList.replaceChildren();
+      detailPanel.scrollTop = 0;
+      detailPanel.scrollLeft = 0;
+      return fitAfterLayout();
+    };
+
+    const renderRelations = (list, names, direction, emptyLabel) => {
+      list.replaceChildren();
+      if (!names.length) {
+        const empty = document.createElement("p");
+        empty.className = "relation-empty";
+        empty.textContent = emptyLabel;
+        list.append(empty);
+        return;
+      }
+      for (const name of names) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "relation-link";
+        button.dataset.lineageRelation = name;
+        button.textContent = `${direction} ${name}`;
+        button.addEventListener("click", () => {
+          selectPlugin(name).then(() => updateUrl(activeView, selected));
+        });
+        list.append(button);
+      }
     };
 
     const renderView = async (view) => {
@@ -121,14 +227,24 @@
       const figure = figures[view];
       if (!figure) throw new Error(`Unknown lineage view: ${view}`);
       activeView = view;
+      activeFigure = figure;
       for (const control of viewControls) {
         const active = control.dataset.lineageView === view;
         control.classList.toggle("is-active", active);
         control.setAttribute("aria-pressed", String(active));
       }
-      await Plotly.react(overview, figure.data, figure.layout, {
+      const overviewBounds = overview.getBoundingClientRect();
+      const overviewLayout = {
+        ...figure.layout,
+        autosize: false,
+        width: Math.max(320, Math.floor(overviewBounds.width)),
+        height: Math.max(480, Math.floor(overviewBounds.height)),
+        margin: { l: 18, r: 18, t: 18, b: 18 },
+      };
+      await Plotly.react(overview, figure.data, overviewLayout, {
         displaylogo: false, responsive: true, scrollZoom: true,
       });
+      await fitAfterLayout();
     };
 
     const selectPlugin = async (provides) => {
@@ -138,35 +254,27 @@
       }
       selected = provides;
       highlight(provides);
+      workspace.classList.add("has-details");
       detailTitle.textContent = provides;
       detailEmpty.hidden = true;
-      detailLink.href = `${workspace.dataset.pluginPrefix || "plugins/"}${provides}.html`;
+      const pluginPrefix = workspace.dataset.pluginPrefix ?? "plugins/";
+      detailLink.href = `${pluginPrefix}${provides}.html`;
       detailLink.hidden = false;
-      detailPlot.hidden = false;
       try {
-        const figures = await loadDetails();
+        const relationMap = await loadDetails();
         if (selected !== provides) return;
-        const figure = figures[provides];
-        if (!figure) throw new Error("Lineage detail is unavailable.");
-        const detailBounds = detailPlot.getBoundingClientRect();
-        const detailLayout = {
-          ...figure.layout,
-          autosize: false,
-          width: Math.max(320, Math.floor(detailBounds.width)),
-          height: Math.max(360, Math.floor(detailBounds.height)),
-          margin: { l: 12, r: 12, t: 52, b: 12 },
-        };
-        await Plotly.react(detailPlot, figure.data, detailLayout, {
-          displaylogo: false,
-          responsive: true,
-          scrollZoom: true,
-        });
-        resizeDetailPlot();
+        const relation = relationMap[provides] || { inputs: [], consumers: [] };
+        renderRelations(inputList, relation.inputs || [], "←", "没有声明直接输入。");
+        renderRelations(consumerList, relation.consumers || [], "→", "没有声明直接消费者。");
+        relations.hidden = false;
+        detailPanel.scrollTop = 0;
+        detailPanel.scrollLeft = 0;
+        await fitAfterLayout();
       } catch (error) {
         if (selected !== provides) return;
         detailEmpty.textContent = "无法加载谱系详情。";
         detailEmpty.hidden = false;
-        detailPlot.hidden = true;
+        relations.hidden = true;
       }
     };
 
@@ -190,16 +298,38 @@
       control.addEventListener("click", async () => {
         const requested = control.dataset.lineageView;
         if (requested === activeView) return;
-        if (requested === "core" && terminalOutputs.has(selected)) clearSelection();
+        if (requested === "core" && terminalOutputs.has(selected)) await clearSelection();
         await renderView(requested);
         await selectPlugin(selected);
         updateUrl(activeView, selected);
       });
     }
-    closeButton?.addEventListener("click", () => {
-      clearSelection();
+    closeButton?.addEventListener("click", async () => {
+      await clearSelection();
       updateUrl(activeView);
     });
+    for (const control of document.querySelectorAll("[data-lineage-canvas]")) {
+      control.addEventListener("click", async () => {
+        switch (control.dataset.lineageCanvas) {
+          case "zoom-in":
+            await zoomOverview(0.72);
+            break;
+          case "zoom-out":
+            await zoomOverview(1.38);
+            break;
+          case "fit":
+            await fitOverview(activeFigure);
+            break;
+          case "center":
+            await centerOverview();
+            break;
+          case "reset":
+            await renderView(activeView);
+            await selectPlugin(selected);
+            break;
+        }
+      });
+    }
     window.addEventListener("popstate", () => restoreState());
     restoreState({ replace: true });
   }

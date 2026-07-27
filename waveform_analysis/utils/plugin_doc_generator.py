@@ -188,6 +188,9 @@ class _WebLineageNode:
     dag_impact: int | None
     tooltip: str
     aria_label: str
+    has_input: bool = False
+    has_output: bool = False
+    is_focus: bool = False
 
 
 @dataclass(frozen=True)
@@ -212,6 +215,7 @@ class _WebLineageGraph:
     edges: list[_WebLineageEdge]
     isolated_nodes: list[_WebLineageNode]
     global_focus_href: str | None = None
+    is_local: bool = False
 
 
 @dataclass(frozen=True)
@@ -1145,13 +1149,11 @@ class PluginDocGenerator:
             node = by_id.get(node_id)
             if node is None:
                 continue
-            producers = [
-                by_id[e.source_id]
-                for e in graph.edges
-                if e.target_id == node_id and e.source_id in by_id
-            ]
-            x = round(sum(p.x for p in producers) / len(producers)) if producers else node.x
-            positioned[node_id] = replace(node, x=x, y=track_y + track * (node.height + 54))
+            positioned[node_id] = replace(
+                node,
+                x=36 + track * (node.width + 56),
+                y=track_y,
+            )
         nodes = [positioned.get(node.node_id, node) for node in graph.nodes]
         width = max((node.x + node.width for node in nodes), default=graph.width) + 36
         height = max((node.y + node.height for node in nodes), default=graph.height) + 36
@@ -1243,37 +1245,132 @@ class PluginDocGenerator:
         for node_id in node_ids.values():
             depths.setdefault(node_id, 0)
 
+        source_ids = {source for source, _ in known_edges}
+        target_ids = {target for _, target in known_edges}
+
+        if focus is not None:
+            # Plugin detail pages use the same left-to-right LabVIEW-style
+            # presentation as the analysis notebook: inputs, selected plugin,
+            # then consumers.  The global index keeps its compact top-down DAG.
+            inputs = sorted(
+                name for name in visible_names if (node_ids[name], node_ids[focus]) in known_edges
+            )
+            consumers_for_focus = sorted(
+                name for name in visible_names if (node_ids[focus], node_ids[name]) in known_edges
+            )
+            columns = (inputs, [focus], consumers_for_focus)
+            node_width = 224
+            node_height = 132
+            x_gap = 104
+            y_gap = 30
+            margin = 44
+            max_rows = max((len(column) for column in columns), default=1)
+            canvas_width = margin * 2 + 3 * node_width + 2 * x_gap
+            canvas_height = margin * 2 + max_rows * node_height + max(0, max_rows - 1) * y_gap
+            positions: dict[str, tuple[int, int]] = {}
+            nodes: list[_WebLineageNode] = []
+            for column_index, names in enumerate(columns):
+                column_height = len(names) * node_height + max(0, len(names) - 1) * y_gap
+                start_y = margin + (canvas_height - 2 * margin - column_height) // 2
+                for name in names:
+                    node_id = node_ids[name]
+                    x = margin + column_index * (node_width + x_gap)
+                    y = start_y
+                    start_y += node_height + y_gap
+                    positions[node_id] = (x, y)
+                    plugin = by_provides[name]
+                    documentation_completeness = plugin.documentation_completeness
+                    dag_impact = plugin.dag_impact
+                    tooltip = (
+                        f"{plugin.provides}. Documentation completeness "
+                        f"{documentation_completeness}/100; DAG impact {dag_impact}/100."
+                    )
+                    nodes.append(
+                        _WebLineageNode(
+                            node_id=node_id,
+                            label=name,
+                            href=f"{link_prefix}{plugin.provides}.html",
+                            placeholder=False,
+                            x=x,
+                            y=y,
+                            width=node_width,
+                            height=node_height,
+                            documentation_completeness=documentation_completeness,
+                            dag_impact=dag_impact,
+                            tooltip=tooltip,
+                            aria_label=tooltip + " Open plugin documentation.",
+                            has_input=node_id in target_ids,
+                            has_output=node_id in source_ids,
+                            is_focus=name == focus,
+                        )
+                    )
+            edges = []
+            for source, target in known_edges:
+                source_x, source_y = positions[source]
+                target_x, target_y = positions[target]
+                start_x = source_x + node_width
+                start_y = source_y + node_height // 2
+                end_x = target_x
+                end_y = target_y + node_height // 2
+                edges.append(
+                    _WebLineageEdge(
+                        source,
+                        target,
+                        f"M {start_x} {start_y} L {end_x} {end_y}",
+                    )
+                )
+            return _WebLineageGraph(
+                title=title,
+                description=description,
+                view_box=f"0 0 {canvas_width} {canvas_height}",
+                width=canvas_width,
+                height=canvas_height,
+                nodes=nodes,
+                edges=edges,
+                isolated_nodes=[],
+                global_focus_href=f"{global_focus_prefix}{quote(focus)}",
+                is_local=True,
+            )
+
         layers: dict[int, list[str]] = {}
         for name, node_id in node_ids.items():
             layers.setdefault(depths[node_id], []).append(name)
         for names in layers.values():
             names.sort(key=lambda name: (name not in by_provides, name))
 
-        node_width = 220
-        node_height = 76
-        x_gap = 92
-        y_gap = 108
+        # Keep names legible in both the static SVG used by plugin pages and the
+        # interactive Plotly overview.  Width is data-dependent so long output
+        # names are not truncated into indistinguishable labels.
+        node_widths = {name: min(240, max(140, 32 + len(name) * 7)) for name in by_provides}
+        node_height = 64
+        x_gap = 48
+        y_gap = 28
         margin = 36
-        max_layer_size = max((len(names) for names in layers.values()), default=1)
         max_depth = max(layers, default=0)
-        canvas_width = margin * 2 + (max_depth + 1) * node_width + max_depth * x_gap
-        canvas_height = margin * 2 + max_layer_size * node_height + (max_layer_size - 1) * y_gap
+        canvas_width = margin * 2 + max(
+            (
+                sum(node_widths[name] for name in names) + max(0, len(names) - 1) * x_gap
+                for names in layers.values()
+            ),
+            default=140,
+        )
+        canvas_height = margin * 2 + (max_depth + 1) * node_height + max_depth * y_gap
 
         nodes: list[_WebLineageNode] = []
         positions: dict[str, tuple[int, int]] = {}
         for depth, names in sorted(layers.items()):
-            layer_height = len(names) * node_height + max(0, len(names) - 1) * y_gap
-            start_y = margin + (canvas_height - 2 * margin - layer_height) // 2
-            for index, name in enumerate(names):
+            layer_width = sum(node_widths[name] for name in names) + max(0, len(names) - 1) * x_gap
+            start_x = margin + (canvas_width - 2 * margin - layer_width) // 2
+            for name in names:
                 node_id = node_ids[name]
-                x = margin + depth * (node_width + x_gap)
-                y = start_y + index * (node_height + y_gap)
+                node_width = node_widths[name]
+                x = start_x
+                y = margin + depth * (node_height + y_gap)
                 positions[node_id] = (x, y)
+                start_x += node_width + x_gap
                 plugin = by_provides[name]
                 placeholder = False
                 label = name
-                if len(label) > 28:
-                    label = label[:25] + "..."
                 documentation_completeness = plugin.documentation_completeness
                 dag_impact = plugin.dag_impact
                 tooltip = (
@@ -1296,6 +1393,8 @@ class PluginDocGenerator:
                         dag_impact=dag_impact,
                         tooltip=tooltip,
                         aria_label=aria_label,
+                        has_input=node_id in target_ids,
+                        has_output=node_id in source_ids,
                     )
                 )
 
@@ -1303,14 +1402,16 @@ class PluginDocGenerator:
         for source, target in known_edges:
             source_x, source_y = positions[source]
             target_x, target_y = positions[target]
-            start_x = source_x + node_width
-            start_y = source_y + node_height // 2
-            end_x = target_x
-            end_y = target_y + node_height // 2
-            bend = max(32, (end_x - start_x) // 2)
+            source_width = next(node.width for node in nodes if node.node_id == source)
+            target_width = next(node.width for node in nodes if node.node_id == target)
+            start_x = source_x + source_width // 2
+            start_y = source_y + node_height
+            end_x = target_x + target_width // 2
+            end_y = target_y
+            bend = max(32, (end_y - start_y) // 2)
             path = (
-                f"M {start_x} {start_y} C {start_x + bend} {start_y}, "
-                f"{end_x - bend} {end_y}, {end_x} {end_y}"
+                f"M {start_x} {start_y} C {start_x} {start_y + bend}, "
+                f"{end_x} {end_y - bend}, {end_x} {end_y}"
             )
             edges.append(_WebLineageEdge(source, target, path))
 
@@ -1436,8 +1537,13 @@ class PluginDocGenerator:
             annotations.append(
                 {
                     "x": x,
-                    "y": y + 13,
-                    "text": f"<b>{node.label}</b><br><span style='font-size:11px'>Docs {node.documentation_completeness} · Impact {node.dag_impact}</span>",
+                    "y": y,
+                    "text": (
+                        f"<b>{node.label}</b>"
+                        f'<br><span style="font-size:10px;color:#5f6b66">'
+                        f"Docs {node.documentation_completeness} · Impact {node.dag_impact}"
+                        "</span>"
+                    ),
                     "showarrow": False,
                     "align": "center",
                     "font": {"size": 13, "color": "#17201d"},
@@ -1447,18 +1553,20 @@ class PluginDocGenerator:
         for edge in lineage_graph.edges:
             start = positions[edge.source_id]
             end = positions[edge.target_id]
-            if abs(end[0] - start[0]) < 150 and end[1] > start[1]:
-                start_x, start_y = start[0], start[1] + 38
-                end_x, end_y = end[0], end[1] - 38
-            else:
-                start_x, start_y = start[0] + 110, start[1]
-                end_x, end_y = end[0] - 110, end[1]
-            curve_offset = min(16, max(8, abs(end_y - start_y) * 0.08))
-            if end_y < start_y:
+            source_node = next(
+                node for node in lineage_graph.nodes if node.node_id == edge.source_id
+            )
+            target_node = next(
+                node for node in lineage_graph.nodes if node.node_id == edge.target_id
+            )
+            start_x, start_y = start[0], start[1] + source_node.height / 2
+            end_x, end_y = end[0], end[1] - target_node.height / 2
+            curve_offset = min(24, max(8, abs(end_x - start_x) * 0.12))
+            if end_x < start_x:
                 curve_offset = -curve_offset
             midpoint = (
-                (start_x + end_x) / 2,
-                (start_y + end_y) / 2 + curve_offset,
+                (start_x + end_x) / 2 + curve_offset,
+                (start_y + end_y) / 2,
             )
             edge_traces.append(
                 go.Scatter(
@@ -1499,6 +1607,17 @@ class PluginDocGenerator:
 
         x_values = [positions[node.node_id][0] for node in lineage_graph.nodes]
         y_values = [positions[node.node_id][1] for node in lineage_graph.nodes]
+        bounds_padding = 44
+        x_min = min((shape["x0"] for shape in node_shapes), default=0) - bounds_padding
+        x_max = (
+            max((shape["x1"] for shape in node_shapes), default=lineage_graph.width)
+            + bounds_padding
+        )
+        y_min = min((shape["y0"] for shape in node_shapes), default=0) - bounds_padding
+        y_max = (
+            max((shape["y1"] for shape in node_shapes), default=lineage_graph.height)
+            + bounds_padding
+        )
         customdata = [node.node_id.removeprefix("plugin:") for node in lineage_graph.nodes]
         hovertext = [node.tooltip for node in lineage_graph.nodes]
         figure = go.Figure(
@@ -1524,16 +1643,14 @@ class PluginDocGenerator:
             margin={"l": 22, "r": 22, "t": 22, "b": 22},
             paper_bgcolor="#ffffff",
             plot_bgcolor="#ffffff",
-            # Start at a readable scale; Plotly pan and zoom expose the remaining
-            # default-resolved topology without shrinking every plugin card.
-            xaxis={"visible": False, "range": [0, min(lineage_graph.width, 1500)]},
+            # The client refines these bounds to the live container; the static first
+            # frame must still fit the current Core/All node set rather than the full DAG.
+            xaxis={"visible": False, "range": [x_min, x_max]},
             yaxis={
                 "visible": False,
-                "range": [lineage_graph.height, 0],
-                "scaleanchor": "x",
-                "scaleratio": 1,
+                "range": [y_max, y_min],
             },
-            height=max(560, min(900, lineage_graph.height + 44)),
+            height=760,
         )
         return figure
 
@@ -1595,26 +1712,32 @@ class PluginDocGenerator:
             metadata=dict(model.metadata),
         )
 
-    def _render_detail_lineage_figures(
+    def _build_detail_lineage_relations(
         self,
         plugins: list[PluginDocumentationView],
         dependencies_by_provides: dict[str, list[str]],
     ) -> dict[str, Any]:
-        """Render direct-neighborhood port figures using the runtime renderer."""
-        from waveform_analysis.utils.visualization.lineage_visualizer import plot_lineage_plotly
+        """Return direct plugin relationships for the interactive detail panel.
 
-        model = self._build_default_lineage_model(plugins, dependencies_by_provides)
-        return {
-            plugin.provides: json.loads(
-                plot_lineage_plotly(
-                    self._direct_lineage_model(model, plugin.provides),
-                    f"{plugin.provides} direct lineage",
-                    show=False,
-                    data_wires=False,
-                ).to_json()
+        A small port-level Plotly graph is unreadable in a 380px sidebar.  The
+        panel intentionally presents just the direct relationships as navigable
+        lists while the main Plotly graph remains the spatial overview.
+        """
+        names = {plugin.provides for plugin in plugins}
+        consumers: dict[str, list[str]] = {name: [] for name in names}
+        relations: dict[str, dict[str, list[str]]] = {}
+        for plugin in plugins:
+            inputs = sorted(
+                dependency
+                for dependency in self._dependency_names(plugin, dependencies_by_provides)
+                if dependency in names
             )
-            for plugin in plugins
-        }
+            relations[plugin.provides] = {"inputs": inputs, "consumers": []}
+            for dependency in inputs:
+                consumers[dependency].append(plugin.provides)
+        for provides, direct_consumers in consumers.items():
+            relations[provides]["consumers"] = sorted(direct_consumers)
+        return relations
 
     def render_plugin_html(
         self,
@@ -1780,8 +1903,8 @@ class PluginDocGenerator:
                 encoding="utf-8",
             )
             generated[plugin.provides] = path
-        detail_figures = self._render_detail_lineage_figures(plugins, default_dependencies)
-        detail_json = json.dumps(detail_figures, ensure_ascii=True, separators=(",", ":"))
+        detail_relations = self._build_detail_lineage_relations(plugins, default_dependencies)
+        detail_json = json.dumps(detail_relations, ensure_ascii=True, separators=(",", ":"))
         detail_json = (
             detail_json.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
         )
@@ -1862,7 +1985,7 @@ class PluginDocGenerator:
         detail_asset = asset_dir / "lineage-details.json"
         detail_asset.write_text(
             json.dumps(
-                detail_figures,
+                detail_relations,
                 ensure_ascii=True,
                 separators=(",", ":"),
             ),
