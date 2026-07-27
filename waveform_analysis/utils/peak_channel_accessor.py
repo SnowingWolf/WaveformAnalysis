@@ -60,6 +60,12 @@ class PeakChannelAccessor:
         self._hit_merged_components = None
         self._wave_pool = None
 
+        # Peak 求和波形层（延迟加载）
+        self._peaklet_waveforms = None
+        self._peaklet_waveform_pool = None
+        self._sorted_sum_waveform_peak_ids = None
+        self._sum_waveform_sort_order = None
+
         # 索引（延迟构建）
         self._peak_to_merged_idx = None  # {peak_id: [merged_index, ...]}
         self._peak_to_channel_rows = None  # {peak_id: [peaklet_channels row, ...]}
@@ -67,11 +73,13 @@ class PeakChannelAccessor:
         self._merged_to_hit_idx = None  # {merged_index: [hit_index, ...]}
 
         # 波形缓存
-        self._waveform_cache = {}  # {merged_index: waveform_data}
+        self._waveform_cache = {}  # {(merged_index, pad): waveform_data}
+        self._channel_waveform_cache = {}  # {(merged_indices, pad): waveform_data}
 
         # 标志
         self._feature_layer_loaded = False
         self._waveform_layer_loaded = False
+        self._sum_waveform_layer_loaded = False
 
         if not lazy_load:
             self._load_feature_layer()
@@ -598,6 +606,11 @@ class PeakChannelAccessor:
         if not merged_indices:
             return self._empty_waveform_data(channel)
 
+        cache_key = (tuple(merged_indices), int(pad))
+        cached = self._channel_waveform_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         waveforms = [self.get_channel_waveform(merged_idx, pad) for merged_idx in merged_indices]
         segments = [
             seg
@@ -611,7 +624,7 @@ class PeakChannelAccessor:
         segments = sorted(segments, key=lambda seg: int(seg["abs_time_ps"][0]))
         t0 = int(segments[0]["abs_time_ps"][0])
 
-        return {
+        result = {
             "merged_index": int(channel.get("merged_index", merged_indices[0])),
             "board": int(channel["board"]),
             "channel": int(channel["channel"]),
@@ -622,6 +635,8 @@ class PeakChannelAccessor:
             "is_single_record": len(merged_indices) == 1 and bool(waveforms[0]["is_single_record"]),
             "segments": segments,
         }
+        self._channel_waveform_cache[cache_key] = result
+        return result
 
     @staticmethod
     def _plot_waveform_segments(
@@ -703,10 +718,12 @@ class PeakChannelAccessor:
         参数
         ----
         release_wave_pool : bool, default=False
-            是否释放 wave_pool（释放后需要重新加载才能访问波形）
+            是否释放 per-channel wave_pool 与 sum waveform pool
+            （释放后需要重新加载才能访问波形）
         """
         # 清理波形缓存
         self._waveform_cache.clear()
+        self._channel_waveform_cache.clear()
 
         # 可选：释放波形层数据
         if release_wave_pool:
@@ -717,6 +734,42 @@ class PeakChannelAccessor:
             self._record_id_to_idx = None
             self._merged_to_hit_idx = None
             self._waveform_layer_loaded = False
+
+            self._peaklet_waveforms = None
+            self._peaklet_waveform_pool = None
+            self._sorted_sum_waveform_peak_ids = None
+            self._sum_waveform_sort_order = None
+            self._sum_waveform_layer_loaded = False
+
+    def _load_sum_waveform_layer(self) -> bool:
+        """Load and index peaklet sum waveforms once per accessor."""
+        if self._sum_waveform_layer_loaded:
+            return True
+
+        try:
+            peaklet_waveforms = self.context.get_data(self.run_id, "peaklet_waveforms")
+            peaklet_waveform_pool = self.context.get_data(self.run_id, "peaklet_waveform_pool")
+        except Exception:
+            return False
+
+        if not isinstance(peaklet_waveforms, np.ndarray) or not isinstance(
+            peaklet_waveform_pool, np.ndarray
+        ):
+            return False
+        if "peak_id" not in (peaklet_waveforms.dtype.names or ()):
+            return False
+
+        self._peaklet_waveforms = peaklet_waveforms
+        self._peaklet_waveform_pool = peaklet_waveform_pool
+        peak_ids = peaklet_waveforms["peak_id"]
+        if len(peak_ids) < 2 or np.all(peak_ids[1:] >= peak_ids[:-1]):
+            self._sorted_sum_waveform_peak_ids = peak_ids
+            self._sum_waveform_sort_order = None
+        else:
+            self._sum_waveform_sort_order = np.argsort(peak_ids, kind="stable")
+            self._sorted_sum_waveform_peak_ids = peak_ids[self._sum_waveform_sort_order]
+        self._sum_waveform_layer_loaded = True
+        return True
 
     def get_sum_waveform(self, peak_id: int) -> dict | None:
         """
@@ -738,19 +791,24 @@ class PeakChannelAccessor:
             - dt: int (ns)
             - time_ns: np.ndarray (相对时间)
         """
-        # 加载 peaklet_waveforms
-        try:
-            peaklet_waveforms = self.context.get_data(self.run_id, "peaklet_waveforms")
-            peaklet_waveform_pool = self.context.get_data(self.run_id, "peaklet_waveform_pool")
-        except Exception:
+        if not self._load_sum_waveform_layer():
             return None
 
-        # 查找对应的 peaklet_waveform
-        wf = peaklet_waveforms[peaklet_waveforms["peak_id"] == peak_id]
-        if len(wf) == 0:
+        peak_id = int(peak_id)
+        sorted_idx = int(np.searchsorted(self._sorted_sum_waveform_peak_ids, peak_id, side="left"))
+        if (
+            sorted_idx >= len(self._sorted_sum_waveform_peak_ids)
+            or int(self._sorted_sum_waveform_peak_ids[sorted_idx]) != peak_id
+        ):
             return None
 
-        wf = wf[0]
+        wf_idx = (
+            sorted_idx
+            if self._sum_waveform_sort_order is None
+            else int(self._sum_waveform_sort_order[sorted_idx])
+        )
+
+        wf = self._peaklet_waveforms[wf_idx]
         wave_offset = int(wf["wave_offset"])
         wave_length = int(wf["wave_length"])
         dt = int(wf["dt"])
@@ -758,7 +816,7 @@ class PeakChannelAccessor:
         time_end = int(wf["time_end"])
 
         # 提取波形
-        waveform = peaklet_waveform_pool[wave_offset : wave_offset + wave_length]
+        waveform = self._peaklet_waveform_pool[wave_offset : wave_offset + wave_length]
         time_ns = np.arange(wave_length) * dt
 
         return {

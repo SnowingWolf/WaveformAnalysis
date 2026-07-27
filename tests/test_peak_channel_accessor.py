@@ -12,7 +12,10 @@ from waveform_analysis.core.plugins.builtin.hit.hit_merged_features import (
 from waveform_analysis.core.plugins.builtin.peaks.peaklet_channels import (
     PEAKLET_CHANNELS_DTYPE,
 )
-from waveform_analysis.core.plugins.builtin.peaks.peaklets import PEAKLET_COMPONENTS_DTYPE
+from waveform_analysis.core.plugins.builtin.peaks.peaklets import (
+    PEAKLET_COMPONENTS_DTYPE,
+    PEAKLET_WAVEFORMS_DTYPE,
+)
 from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
 
 
@@ -115,15 +118,67 @@ def test_get_peak_channel_data_combines_all_channel_merged_waveforms():
         }
     )
 
-    channels = PeakChannelAccessor(ctx, "run").get_peak_channel_data(
-        peak_id=919, include_waveform=True, pad=0
-    )
+    accessor = PeakChannelAccessor(ctx, "run")
+    channels = accessor.get_peak_channel_data(peak_id=919, include_waveform=True, pad=0)
 
     assert len(channels) == 1
     channel = channels[0]
     assert channel["merged_indices"] == [0, 1]
     assert [seg["merged_index"] for seg in channel["segments"]] == [1, 0]
     np.testing.assert_array_equal(channel["waveform"], np.array([30, 40, 10, 20]))
+
+    repeated = accessor.get_peak_channel_data(peak_id=919, include_waveform=True, pad=0)
+    assert repeated[0]["waveform"] is channel["waveform"]
+    assert len(accessor._channel_waveform_cache) == 1
+
+    accessor.clear_waveform_cache()
+    assert accessor._channel_waveform_cache == {}
+
+
+def test_get_sum_waveform_loads_and_indexes_layer_once():
+    class CountingContext(DummyContext):
+        def __init__(self, data):
+            super().__init__(data=data)
+            self.calls = {}
+
+        def get_data(self, run_id, name, **kwargs):
+            self.calls[name] = self.calls.get(name, 0) + 1
+            return super().get_data(run_id, name, **kwargs)
+
+    peaklet_waveforms = np.zeros(2, dtype=PEAKLET_WAVEFORMS_DTYPE)
+    peaklet_waveforms["peak_id"] = [20, 10]
+    peaklet_waveforms["time_start"] = [1_000, 2_000]
+    peaklet_waveforms["time_end"] = [5_000, 8_000]
+    peaklet_waveforms["dt"] = [2, 2]
+    peaklet_waveforms["wave_offset"] = [0, 2]
+    peaklet_waveforms["wave_length"] = [2, 3]
+    peaklet_waveform_pool = np.array([1, 2, 3, 4, 5], dtype=np.float32)
+
+    ctx = CountingContext(
+        data={
+            "peaklet_components": np.zeros(0, dtype=PEAKLET_COMPONENTS_DTYPE),
+            "hit_merged": np.zeros(0, dtype=HIT_MERGED_DTYPE),
+            "hit_merged_features": np.zeros(0, dtype=HIT_MERGED_FEATURES_DTYPE),
+            "peaklet_waveforms": peaklet_waveforms,
+            "peaklet_waveform_pool": peaklet_waveform_pool,
+        }
+    )
+    accessor = PeakChannelAccessor(ctx, "run")
+
+    first = accessor.get_sum_waveform(peak_id=10)
+    repeated = accessor.get_sum_waveform(peak_id=10)
+
+    np.testing.assert_array_equal(first["waveform"], np.array([3, 4, 5], dtype=np.float32))
+    np.testing.assert_array_equal(first["time_ns"], np.array([0, 2, 4]))
+    assert np.shares_memory(repeated["waveform"], first["waveform"])
+    assert ctx.calls["peaklet_waveforms"] == 1
+    assert ctx.calls["peaklet_waveform_pool"] == 1
+    assert accessor.get_sum_waveform(peak_id=999) is None
+
+    accessor.clear_waveform_cache(release_wave_pool=True)
+    accessor.get_sum_waveform(peak_id=10)
+    assert ctx.calls["peaklet_waveforms"] == 2
+    assert ctx.calls["peaklet_waveform_pool"] == 2
 
 
 def test_plot_waveform_segments_plots_each_segment_separately():
