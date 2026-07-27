@@ -31,6 +31,68 @@ def test_validate_manifest_rejects_invalid_workflow_cost():
     assert any("invalid workflow_cost" in issue for issue in issues)
 
 
+def test_validate_manifest_accepts_canonical_workflow_shapes():
+    issues = render_agent_docs.validate_manifest(_load_manifest())
+    assert not any("workflow_shape_contract" in issue for issue in issues)
+
+
+def test_validate_manifest_rejects_unknown_workflow_shape():
+    manifest = _load_manifest()
+    manifest["workflow_shape_contract"]["allowed_shapes"].append("shortcut")
+    issues = render_agent_docs.validate_manifest(manifest)
+    assert any("allowed_shapes must contain" in issue for issue in issues)
+
+
+def test_validate_manifest_requires_cost_to_shape_defaults():
+    manifest = _load_manifest()
+    manifest["workflow_shape_contract"]["default_by_workflow_cost"]["standard"] = "compact"
+    issues = render_agent_docs.validate_manifest(manifest)
+    assert any("standard/strict to staged" in issue for issue in issues)
+
+
+def test_validate_manifest_forbids_compact_standard_workflow():
+    manifest = _load_manifest()
+    manifest["workflow_shape_contract"]["allowed_by_workflow_cost"]["standard"].append("compact")
+    issues = render_agent_docs.validate_manifest(manifest)
+    assert any("allowed_by_workflow_cost must restrict" in issue for issue in issues)
+
+
+def test_validate_manifest_requires_shape_driven_routes():
+    manifest = _load_manifest()
+    route = next(route for route in manifest["task_routes"] if route["task"] == "run_tests")
+    route["workflow_mode"] = "plan_execute_review"
+    issues = render_agent_docs.validate_manifest(manifest)
+    assert any("`run_tests` workflow_mode must be shape_driven" in issue for issue in issues)
+
+
+def test_validate_manifest_requires_shape_field_in_all_artifacts():
+    manifest = _load_manifest()
+    manifest["workflow_shape_contract"]["shape_field_required_in_artifacts"].remove("review_report")
+    issues = render_agent_docs.validate_manifest(manifest)
+    assert any("shape_field_required_in_artifacts must cover" in issue for issue in issues)
+
+
+def test_validate_manifest_requires_compact_task_report():
+    manifest = _load_manifest()
+    manifest["workflow_shape_contract"]["shapes"]["compact"]["artifact"] = "execution_report"
+    issues = render_agent_docs.validate_manifest(manifest)
+    assert any("`compact` must require task_report" in issue for issue in issues)
+
+
+def test_validate_manifest_rejects_direct_mutation():
+    manifest = _load_manifest()
+    manifest["workflow_shape_contract"]["shapes"]["direct"]["mutation"] = "write_scoped"
+    issues = render_agent_docs.validate_manifest(manifest)
+    assert any("`direct` mutation must be read_only" in issue for issue in issues)
+
+
+def test_validate_manifest_requires_shape_escalation_triggers():
+    manifest = _load_manifest()
+    manifest["workflow_shape_contract"]["escalation_triggers"].remove("gate_failure")
+    issues = render_agent_docs.validate_manifest(manifest)
+    assert any("missing escalation_triggers: gate_failure" in issue for issue in issues)
+
+
 def test_validate_manifest_requires_gate_trigger_policy():
     manifest = _load_manifest()
     route = next(route for route in manifest["task_routes"] if route["task"] == "run_tests")
@@ -181,6 +243,7 @@ def test_profile_artifact_templates_expose_canonical_fields():
         "plan_brief.md": ("agent_profile", "profile_plan"),
         "execution_report.md": ("agent_profile",),
         "review_report.md": ("agent_profile", "agent_profile_review"),
+        "task_report.md": ("agent_profile", "profile_plan", "agent_profile_review"),
     }
     for name, fields in expected_fields.items():
         content = (artifact_root / name).read_text(encoding="utf-8")

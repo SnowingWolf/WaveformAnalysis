@@ -68,6 +68,19 @@ class AgentProfile:
 
 VALID_WORKFLOW_COSTS = {"light", "standard", "strict"}
 STRICT_REQUIRED_ARTIFACTS = {"plan_brief", "execution_report", "review_report"}
+VALID_WORKFLOW_SHAPES = {"direct", "compact", "staged"}
+REQUIRED_SHAPE_ESCALATION_TRIGGERS = {
+    "public_surface",
+    "plugin_contract",
+    "dtype_or_field_change",
+    "cache_lineage",
+    "compatibility_removal",
+    "release_validation",
+    "approval_required",
+    "destructive_action",
+    "scope_expansion",
+    "gate_failure",
+}
 
 
 def _load_manifest(path: Path) -> dict[str, Any]:
@@ -225,6 +238,98 @@ def validate_manifest(data: dict[str, Any], project_root: Path = PROJECT_ROOT) -
             if isinstance(role, dict) and isinstance(role.get("id"), str)
         }
 
+    shape_contract = data.get("workflow_shape_contract")
+    if not isinstance(shape_contract, dict):
+        issues.append("Missing top-level `workflow_shape_contract` mapping")
+    else:
+        allowed_shapes = set(_as_str_list(shape_contract, "allowed_shapes"))
+        if allowed_shapes != VALID_WORKFLOW_SHAPES:
+            issues.append(
+                "workflow_shape_contract.allowed_shapes must contain direct, compact, and staged"
+            )
+
+        expected_defaults = {
+            "light": "compact",
+            "standard": "staged",
+            "strict": "staged",
+        }
+        if shape_contract.get("default_by_workflow_cost") != expected_defaults:
+            issues.append(
+                "workflow_shape_contract.default_by_workflow_cost must map light to compact "
+                "and standard/strict to staged"
+            )
+        expected_allowed_by_cost = {
+            "light": ["direct", "compact", "staged"],
+            "standard": ["staged"],
+            "strict": ["staged"],
+        }
+        if shape_contract.get("allowed_by_workflow_cost") != expected_allowed_by_cost:
+            issues.append(
+                "workflow_shape_contract.allowed_by_workflow_cost must restrict "
+                "standard/strict to staged"
+            )
+        if shape_contract.get("escalation_target") != "staged":
+            issues.append("workflow_shape_contract.escalation_target must be staged")
+        if shape_contract.get("route_required_artifacts_apply_to") != "staged":
+            issues.append(
+                "workflow_shape_contract.route_required_artifacts_apply_to must be staged"
+            )
+        expected_shape_artifacts = {
+            "plan_brief",
+            "execution_report",
+            "review_report",
+            "task_report",
+        }
+        shape_artifacts = set(_as_str_list(shape_contract, "shape_field_required_in_artifacts"))
+        if shape_artifacts != expected_shape_artifacts:
+            issues.append(
+                "workflow_shape_contract.shape_field_required_in_artifacts must cover "
+                "all staged and compact artifacts"
+            )
+
+        triggers = set(_as_str_list(shape_contract, "escalation_triggers"))
+        missing_triggers = sorted(REQUIRED_SHAPE_ESCALATION_TRIGGERS - triggers)
+        if missing_triggers:
+            issues.append(
+                "workflow_shape_contract missing escalation_triggers: "
+                + ", ".join(missing_triggers)
+            )
+
+        shapes = shape_contract.get("shapes")
+        if not isinstance(shapes, dict):
+            issues.append("workflow_shape_contract.shapes must be a mapping")
+        else:
+            unknown_shapes = sorted(set(shapes) - VALID_WORKFLOW_SHAPES)
+            missing_shapes = sorted(VALID_WORKFLOW_SHAPES - set(shapes))
+            if unknown_shapes:
+                issues.append(
+                    "workflow_shape_contract has unknown shapes: " + ", ".join(unknown_shapes)
+                )
+            if missing_shapes:
+                issues.append(
+                    "workflow_shape_contract missing shapes: " + ", ".join(missing_shapes)
+                )
+
+            direct = shapes.get("direct")
+            if isinstance(direct, dict) and direct.get("mutation") != "read_only":
+                issues.append("workflow shape `direct` mutation must be read_only")
+
+            compact = shapes.get("compact")
+            if isinstance(compact, dict) and compact.get("artifact") != "task_report":
+                issues.append("workflow shape `compact` must require task_report")
+
+            staged = shapes.get("staged")
+            if isinstance(staged, dict):
+                staged_artifacts = staged.get("artifact")
+                if (
+                    not isinstance(staged_artifacts, list)
+                    or set(staged_artifacts) != STRICT_REQUIRED_ARTIFACTS
+                ):
+                    issues.append(
+                        "workflow shape `staged` must require plan_brief, execution_report, "
+                        "and review_report"
+                    )
+
     profile_contract = data.get("agent_profile_contract")
     if not isinstance(profile_contract, dict):
         issues.append("Missing top-level `agent_profile_contract` mapping")
@@ -256,14 +361,15 @@ def validate_manifest(data: dict[str, Any], project_root: Path = PROJECT_ROOT) -
             "plan_brief": ["agent_profile", "profile_plan"],
             "execution_report": ["agent_profile"],
             "review_report": ["agent_profile", "agent_profile_review"],
+            "task_report": ["agent_profile", "profile_plan", "agent_profile_review"],
         }
         if (
             required_artifact_fields is not None
             and required_artifact_fields != expected_artifact_fields
         ):
             issues.append(
-                "agent_profile_contract.required_artifact_fields must map plan, execution, "
-                "and review artifacts to their canonical profile fields"
+                "agent_profile_contract.required_artifact_fields must map staged and compact "
+                "artifacts to their canonical profile fields"
             )
         expected_phase_contracts = {
             "planning": {
@@ -385,6 +491,8 @@ def validate_manifest(data: dict[str, Any], project_root: Path = PROJECT_ROOT) -
                 f"Route `{route.task}` has invalid workflow_cost `{route.workflow_cost}`; "
                 "expected light, standard, or strict"
             )
+        if route_raw_by_task(data, route.task).get("workflow_mode") != "shape_driven":
+            issues.append(f"Route `{route.task}` workflow_mode must be shape_driven")
         if not route.summary:
             issues.append(f"Route `{route.task}` missing summary")
         if not route.primary_doc:

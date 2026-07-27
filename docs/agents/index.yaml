@@ -1,4 +1,4 @@
-version: 4
+version: 5
 source_of_truth: AGENTS.md
 workflow_source_of_truth: docs/agents/workflows.md
 machine_route_source_of_truth: docs/agents/index.yaml
@@ -93,6 +93,10 @@ agent_profile_contract:
     review_report:
       - agent_profile
       - agent_profile_review
+    task_report:
+      - agent_profile
+      - profile_plan
+      - agent_profile_review
   phase_contracts:
     planning:
       mode: contributor
@@ -150,6 +154,63 @@ agent_profiles:
       - 除非 scope 明确要求，否则运行时图语义与仅展示变换必须分离。
       - 必须保留 route 的 reviewer，此 profile 不能自行批准完成。
 
+workflow_shape_contract:
+  selection_field: workflow_shape
+  route_required_artifacts_apply_to: staged
+  shape_field_required_in_artifacts:
+    - plan_brief
+    - execution_report
+    - review_report
+    - task_report
+  allowed_shapes:
+    - direct
+    - compact
+    - staged
+  default_by_workflow_cost:
+    light: compact
+    standard: staged
+    strict: staged
+  allowed_by_workflow_cost:
+    light:
+      - direct
+      - compact
+      - staged
+    standard:
+      - staged
+    strict:
+      - staged
+  escalation_target: staged
+  escalation_triggers:
+    - public_surface
+    - plugin_contract
+    - dtype_or_field_change
+    - cache_lineage
+    - compatibility_removal
+    - release_validation
+    - approval_required
+    - destructive_action
+    - scope_expansion
+    - gate_failure
+  shapes:
+    direct:
+      mutation: read_only
+      artifact: none
+      terminal_condition: direct_task_verified
+      topology: single_actor_inline
+    compact:
+      mutation: low_risk_scoped_write
+      artifact: task_report
+      terminal_condition: compact_task_report_ready
+      topology: single_actor_with_inline_checkpoints
+    staged:
+      mutation: route_scoped
+      artifact:
+        - plan_brief
+        - execution_report
+        - review_report
+      terminal_condition: all_blocking_gates_pass
+      topology: planner_executor_reviewer
+
 lifecycle:
   version: 1
   primary_states:
@@ -172,6 +233,12 @@ lifecycle:
     - from: created
       to: planning
       condition: task_initialized
+    - from: created
+      to: completed
+      condition: direct_task_verified
+    - from: created
+      to: executing
+      condition: compact_task_authorized
     - from: planning
       to: awaiting_user_input
       condition: missing_user_decision
@@ -205,6 +272,9 @@ lifecycle:
     - from: executing
       to: reviewing
       condition: execution_report_ready
+    - from: executing
+      to: completed
+      condition: compact_task_report_ready
     - from: executing
       to: blocked
       condition: environment_or_permission_blocker
@@ -256,13 +326,16 @@ lifecycle:
       route: retire_compat
     - artifact: execution_report
       required_before_transition: executing -> reviewing
+    - artifact: task_report
+      required_before_transition: executing -> completed
+      shape: compact
     - artifact: review_report
       required_before_transition: reviewing -> completed
 
 task_routes:
   - task: modify_plugin
     summary: 插件与契约改动
-    workflow_mode: plan_execute_review
+    workflow_mode: shape_driven
     workflow_cost: standard
     lifecycle_profile: reviewed_change
     entry_state: created
@@ -340,7 +413,7 @@ task_routes:
 
   - task: retire_compat
     summary: 兼容冗余识别、分级与删除
-    workflow_mode: plan_execute_review
+    workflow_mode: shape_driven
     workflow_cost: strict
     lifecycle_profile: compat_retirement_review
     entry_state: created
@@ -422,7 +495,7 @@ task_routes:
 
   - task: debug_cache
     summary: 缓存、lineage 与执行链排障
-    workflow_mode: plan_execute_review
+    workflow_mode: shape_driven
     workflow_cost: light
     lifecycle_profile: diagnostic_review
     entry_state: created
@@ -483,7 +556,7 @@ task_routes:
 
   - task: generate_docs
     summary: 文档生成、引用同步与锚点检查
-    workflow_mode: plan_execute_review
+    workflow_mode: shape_driven
     workflow_cost: light
     lifecycle_profile: doc_only_reviewed
     entry_state: created
@@ -547,7 +620,7 @@ task_routes:
 
   - task: run_tests
     summary: 定向或全量测试执行
-    workflow_mode: plan_execute_review
+    workflow_mode: shape_driven
     workflow_cost: light
     lifecycle_profile: qa_review
     entry_state: created
@@ -603,7 +676,7 @@ task_routes:
 
   - task: assess_change_impact
     summary: 改动影响面扫描与 version 风险检查
-    workflow_mode: plan_execute_review
+    workflow_mode: shape_driven
     workflow_cost: standard
     lifecycle_profile: qa_review
     entry_state: created
@@ -658,7 +731,7 @@ task_routes:
 
   - task: schema_compat_check
     summary: dtype、字段兼容与关键链路冒烟
-    workflow_mode: plan_execute_review
+    workflow_mode: shape_driven
     workflow_cost: standard
     lifecycle_profile: qa_review
     entry_state: created
@@ -717,7 +790,7 @@ task_routes:
 
   - task: performance_regression_check
     summary: 热点插件性能回归检查
-    workflow_mode: plan_execute_review
+    workflow_mode: shape_driven
     workflow_cost: standard
     lifecycle_profile: qa_review
     entry_state: created
@@ -770,7 +843,7 @@ task_routes:
 
   - task: release_artifact_sync
     summary: 发布前版本、文档与检查结果统一校验
-    workflow_mode: plan_execute_review
+    workflow_mode: shape_driven
     workflow_cost: strict
     lifecycle_profile: release_review
     entry_state: created
@@ -850,6 +923,12 @@ doc_index:
   - id: compat_inventory_artifact
     title: compat_inventory Artifact Template
     path: docs/agents/protocol/artifacts/compat_inventory.md
+    scope: protocol
+    audience: agent
+
+  - id: task_report_artifact
+    title: task_report Artifact Template
+    path: docs/agents/protocol/artifacts/task_report.md
     scope: protocol
     audience: agent
 

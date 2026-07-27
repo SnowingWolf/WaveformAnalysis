@@ -36,6 +36,10 @@
 - `tests_selected`
 - `docs_sync_required`
 
+## Workflow Shape
+- 插件实现、行为或契约修改默认使用 `staged`。
+- 仅 L0 文档/注释类低风险局部改动可降为 `compact`；契约、dtype、依赖或 cache lineage 变化必须保持 `staged`。
+
 ## Rework Policy
 - 默认返工 owner：`executor.plugin`
 - 仅当以下情况允许回到 `planning`：
@@ -49,6 +53,7 @@
 
 - `task_id`:
 - `route`: `modify_plugin`
+- `workflow_shape`: `staged`
 - `lifecycle_profile`: `reviewed_change`
 - `risk_level`: `low|medium|high`
 - `scope_in`:

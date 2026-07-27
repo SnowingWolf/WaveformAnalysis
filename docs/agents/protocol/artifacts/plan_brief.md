@@ -8,6 +8,7 @@
 - `task_id`
 - `route`
 - `workflow_cost`
+- `workflow_shape`
 - `lifecycle_profile`
 - `risk_level`
 - `scope_in`
@@ -21,10 +22,14 @@
 ## Field Rules
 - `workflow_cost`
   仅允许：`light | standard | strict`
+- `workflow_shape`
+  仅允许：`direct | compact | staged`；`standard`/`strict` 必须为 `staged`，命中升级条件也必须为 `staged`
 - `risk_level`
   仅允许：`low | medium | high`
 - `light` 模式
   可省略 `scope_out`、`lifecycle_profile`、`blocking_assumptions` 中不适用的细节，但必须说明最小 `required_gates`
+- `direct`
+  仅适用于 `read_only` 任务，不创建仓库 artifact；`compact` 不要求本 artifact，改用 `task_report`
 - `required_gates`
   使用平铺列表，不写嵌套结构
 - `blocking_assumptions`
@@ -41,6 +46,7 @@
 - `task_id`:
 - `route`:
 - `workflow_cost`: `light|standard|strict`
+- `workflow_shape`: `direct|compact|staged`
 - `lifecycle_profile`:
 - `risk_level`: `low|medium|high`
 - `scope_in`:

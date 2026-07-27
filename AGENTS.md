@@ -63,7 +63,7 @@
 
 | workflow_cost | 适用范围 | Artifact 口径 | Gate 口径 |
 | --- | --- | --- | --- |
-| `light` | 只读解释、定向测试、文档小修、缓存诊断 | 三段式仍保留，但可填写压缩版字段 | 只跑命中目标的最小 gate |
+| `light` | 只读解释、定向测试、文档小修、缓存诊断 | 默认 `compact` 单份 `task_report`；只读简单任务可 `direct` | 只跑命中目标的最小 gate |
 | `standard` | 普通代码、插件内部算法、QA 扫描 | 使用完整 `plan_brief` / `execution_report` / `review_report` | 跑 route 默认 gate 与定向测试 |
 | `strict` | 插件契约、dtype/字段、compat 删除、发布前检查 | 完整 artifact，不得压缩 | 固定 gate 必须全部记录 PASS/FAIL |
 
@@ -94,18 +94,23 @@
 - 若不能提交（例如验证失败、范围不清、需要用户确认），必须明确记录 `未提交` 原因。
 
 ## Agent Collaboration Model
-- 默认协作拓扑固定为 `Planner -> Executor -> Reviewer`。
-- 主状态固定为 `created -> planning -> ready_for_execution -> executing -> reviewing -> completed`。
+- 默认协作拓扑按 `workflow_shape` 选择：`staged` 使用 `Planner -> Executor -> Reviewer`；`compact` 允许单 agent 内联计划、执行与复核；`direct` 仅用于只读简单任务并直接记录结果。
+- `staged` 主状态为 `created -> planning -> ready_for_execution -> executing -> reviewing -> completed`；快速路径使用机器契约声明的缩短迁移。
 - `awaiting_user_input`、`awaiting_approval`、`rework_required`、`blocked`、`failed`、`cancelled` 为正式状态，不要用普通进度消息替代。
-- `Reviewer` 未放行前，不得进入 `completed`，文档-only 任务也一样。
+- `staged` 必须经过阻断式 `Reviewer` 才能进入 `completed`；`direct`/`compact` 使用对应的内联验证，但命中升级条件时必须切换为 `staged`。
 - 默认返工路径为 `reviewing -> rework_required -> executing`；仅当 `scope_changed=true` 时允许回到 `planning`。
 - 专项 agent 使用 `agent_profile` 贯穿规划、执行与审查；规划贡献写入 `profile_plan`，执行时映射到允许的 executor role，profile 不新增状态，也不能替代 `Planner` 或 `Reviewer`。
+
+### Workflow Shape
+- `light` 默认 `compact`，明确只读的简单任务可选 `direct`；`standard`/`strict` 默认 `staged`。
+- 触及 public surface、插件契约、dtype/字段、cache lineage、compat、release、审批、破坏性动作、scope 扩大或 gate 失败时，必须升级到 `staged`。
 
 ## Standard Artifacts
 - `plan_brief`：`planning -> ready_for_execution` 前必须存在。
 - `compat_inventory`：`retire_compat` 在 `planning` 阶段先于 `plan_brief` 完成，用于锁定删除范围。
 - `execution_report`：`executing -> reviewing` 前必须存在。
 - `review_report`：`reviewing -> completed` 前必须存在。
+- `task_report`：`compact` 从 `executing -> completed` 前必须存在；`direct` 不要求仓库 artifact。
 - 交接模板统一在 `docs/agents/protocol/artifacts/`，route 模板统一在 `docs/agents/protocol/route-profiles/`。
 
 ## Supported Routes

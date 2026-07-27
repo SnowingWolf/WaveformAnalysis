@@ -1,0 +1,54 @@
+# execution_report
+
+- `task_id`: `workflow_shape_fast_path`
+- `workflow_cost`: `strict`
+- `workflow_shape`: `staged`
+- `executor_role`: `executor.docs`
+- `agent_profile`: `none`
+- `changed_paths`:
+  - `AGENTS.md`
+  - `docs/agents/index.yaml`
+  - `docs/agents/lifecycle.md`
+  - `docs/agents/workflows.md`
+  - `docs/agents/references.md`
+  - `docs/agents/protocol/README.md`
+  - `docs/agents/protocol/task-lifecycle.md`
+  - `docs/agents/protocol/artifacts/plan_brief.md`
+  - `docs/agents/protocol/artifacts/execution_report.md`
+  - `docs/agents/protocol/artifacts/review_report.md`
+  - `docs/agents/protocol/artifacts/task_report.md`
+  - `docs/agents/protocol/artifacts/workflow_shape_fast_path_plan_brief.md`
+  - `docs/agents/protocol/artifacts/workflow_shape_fast_path_execution_report.md`
+  - `docs/agents/protocol/artifacts/workflow_shape_fast_path_review_report.md`
+  - `docs/agents/protocol/route-profiles/debug_cache.md`
+  - `docs/agents/protocol/route-profiles/generate_docs.md`
+  - `docs/agents/protocol/route-profiles/modify_plugin.md`
+  - `scripts/render_agent_docs.py`
+  - `tests/test_render_agent_docs.py`
+- `actions_taken`:
+  - Added machine-readable `direct`, `compact`, and `staged` workflow shapes.
+  - Added direct/compact lifecycle transitions and compact `task_report` contract.
+  - Changed canonical routes to `workflow_mode=shape_driven` while preserving staged artifact requirements.
+  - Folded lifecycle-wide agent profile fields into compact `task_report` when a profile is selected.
+  - Added manifest validation and regression tests for shape defaults, mutations, artifacts, escalation, and route mode.
+- `commands_run`:
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m black scripts/render_agent_docs.py tests/test_render_agent_docs.py`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest --no-cov -q tests/test_render_agent_docs.py tests/test_check_agent_handoff.py`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/render_agent_docs.py --write`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/render_agent_docs.py --check`
+  - `PATH=/home/wxy/anaconda3/envs/pyroot-kernel/bin:$PATH scripts/check_doc_sync.sh`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py --check-sync --base HEAD`
+  - `git diff --check -- <scoped agent contract paths>`
+- `open_risks`:
+  - Runtime scheduling and external agent provisioning remain out of scope; this change defines repository protocol only.
+- `requested_review_focus`:
+  - Verify direct remains strictly read-only.
+  - Verify compact cannot bypass staged escalation triggers.
+  - Verify Graph Engineer profile fields remain usable across compact and staged without replacing Reviewer authority.
+  - Verify unrelated dirty plugin and analysis files are excluded from the scoped commit.
+
+## Results
+- Focused tests: `36 passed`, with two pre-existing deprecation warnings.
+- Agent manifest render check: PASS.
+- Doc sync check: PASS.
+- Doc anchor check: PASS, zero errors and zero warnings.

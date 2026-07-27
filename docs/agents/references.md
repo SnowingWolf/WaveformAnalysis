@@ -11,6 +11,7 @@
 - `docs/agents/protocol/artifacts/execution_report.md`
 - `docs/agents/protocol/artifacts/review_report.md`
 - `docs/agents/protocol/route-profiles/template.md`
+- `docs/agents/protocol/artifacts/task_report.md`
 - `docs/agents/protocol/route-profiles/modify_plugin.md`
 - `docs/agents/protocol/route-profiles/retire_compat.md`
 - `docs/agents/protocol/route-profiles/generate_docs.md`

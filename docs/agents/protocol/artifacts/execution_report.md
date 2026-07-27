@@ -7,6 +7,7 @@
 ## Required Fields
 - `task_id`
 - `workflow_cost`
+- `workflow_shape`
 - `executor_role`
 - `agent_profile`（plan 选择专项参与者时）
 - `changed_paths`
@@ -18,6 +19,8 @@
 ## Field Rules
 - `workflow_cost`
   仅允许：`light | standard | strict`
+- `workflow_shape`
+  必须与 `plan_brief` 一致；本模板仅用于 `staged`
 - `changed_paths`
   使用仓库相对路径的平铺列表
 - `commands_run`
@@ -33,6 +36,7 @@
 
 - `task_id`:
 - `workflow_cost`: `light|standard|strict`
+- `workflow_shape`: `staged`
 - `executor_role`:
 - `agent_profile`:
 - `changed_paths`:
@@ -61,6 +65,7 @@
 
 ## Completion Checklist
 - `workflow_cost` 已明确，且不低于任务实际风险
+- `workflow_shape` 与计划一致
 - 变更路径已列出
 - 实际运行命令已列出
 - reviewer 需要重点看的点已列出

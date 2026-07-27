@@ -7,6 +7,7 @@
 ## Required Fields
 - `task_id`
 - `workflow_cost`
+- `workflow_shape`
 - `reviewer`
 - `gate_results`
 - `decision`
@@ -25,6 +26,8 @@
 ## Field Rules
 - `workflow_cost`
   仅允许：`light | standard | strict`，必须与最终执行口径一致
+- `workflow_shape`
+  必须为 `staged`，并与 `plan_brief`、`execution_report` 一致
 - `decision`
   仅允许：`completed | rework_required | blocked | failed`
 - `gate_results`
@@ -44,6 +47,7 @@
 
 - `task_id`:
 - `workflow_cost`: `light|standard|strict`
+- `workflow_shape`: `staged`
 - `reviewer`:
 - `gate_results`:
   -
@@ -78,6 +82,7 @@
 
 ## Completion Checklist
 - `workflow_cost` 已明确，且与 gate 结果口径一致
+- `workflow_shape` 在三份 staged artifact 中一致
 - `decision` 合法
 - 若为 `rework_required`，已写明 `scope_changed`
 - 若为 `completed`，阻断 gate 已全部通过

@@ -11,27 +11,30 @@
 
 | 状态 | 所有者 | 含义 | 允许退出 |
 | --- | --- | --- | --- |
-| `created` | system | 任务已创建，尚未进入规划 | `planning` |
+| `created` | system | 任务已创建，尚未选择 workflow shape | `planning` / `executing` / `completed` |
 | `planning` | planner | 任务拆解、风险识别、route 选择、gate 选择 | `awaiting_user_input` / `awaiting_approval` / `ready_for_execution` / `blocked` / `cancelled` |
 | `awaiting_user_input` | planner | 缺少用户决策或关键信息 | `planning` |
 | `awaiting_approval` | planner | 需要权限提升或危险动作批准 | `ready_for_execution` / `blocked` / `cancelled` |
 | `ready_for_execution` | planner | `plan_brief` 已完备，可交给执行者 | `executing` |
-| `executing` | executor | 在授权范围内执行实现、检查或文档同步 | `reviewing` / `blocked` / `failed` / `cancelled` |
+| `executing` | executor | 在授权范围内执行实现、检查或文档同步 | `reviewing` / `completed` / `blocked` / `failed` / `cancelled` |
 | `reviewing` | reviewer | 统一检查 gate、契约、一致性与残余风险 | `completed` / `rework_required` / `blocked` / `failed` / `cancelled` |
 | `rework_required` | reviewer | 审查发现可修复问题，需要返工 | `executing` / `planning` |
 | `blocked` | current owner | 被外部依赖、权限、环境或缺失输入阻塞 | `planning` / `executing` / `cancelled` |
-| `completed` | reviewer | 所有阻断 gate 通过，产物齐全 | 终态 |
+| `completed` | reviewer/inline actor | 当前 shape 的阻断检查通过，所需记录齐全 | 终态 |
 | `failed` | executor/reviewer | 出现不可继续的失败 | 终态 |
 | `cancelled` | any | 任务被取消 | 终态 |
 
 ## 标准迁移
 ```text
 created -> planning
+created -> executing       # compact_task_authorized
+created -> completed       # direct_task_verified
 planning -> awaiting_user_input | awaiting_approval | ready_for_execution | blocked | cancelled
 awaiting_user_input -> planning
 awaiting_approval -> ready_for_execution | blocked | cancelled
 ready_for_execution -> executing
 executing -> reviewing | blocked | failed | cancelled
+executing -> completed     # 仅 compact，task_report_ready
 reviewing -> completed | rework_required | blocked | failed | cancelled
 rework_required -> executing
 rework_required -> planning  # 仅当 scope_changed=true
@@ -76,7 +79,12 @@ blocked -> planning | executing | cancelled
 ## 交接产物
 
 所有交接产物都必须记录 `workflow_cost`，取值为 `light | standard | strict`。
-`light` 只降低填写粒度，不跳过主状态或 Reviewer 放行；`strict` 不允许压缩 artifact。
+`staged` 使用完整三份 artifact；`compact` 使用 `task_report`；`direct` 不要求仓库 artifact，但最终回复必须包含验证结果。命中升级条件时不得继续快速路径。
+
+### `task_report`
+- 仅用于 `compact`，在 `executing -> completed` 前生成。
+- 最少包含：`task_id`、`workflow_shape`、`actions_taken`、`verification`、`decision`、`changed_paths`、`commit_status`、`open_risks`。
+- 使用专项 profile 时还必须包含 `agent_profile`、`profile_plan`、`agent_profile_review`，但内联复核不能覆盖强制升级规则。
 
 ### `plan_brief`
 - 由 `Planner` 生成。
@@ -85,6 +93,7 @@ blocked -> planning | executing | cancelled
   - `task_id`
   - `route`
   - `workflow_cost`
+  - `workflow_shape`
   - `risk_level`
   - `scope_in`
   - `scope_out`
@@ -107,6 +116,7 @@ blocked -> planning | executing | cancelled
 - 最少包含：
   - `task_id`
   - `workflow_cost`
+  - `workflow_shape`
   - `changed_paths`
   - `actions_taken`
   - `commands_run`
@@ -119,6 +129,7 @@ blocked -> planning | executing | cancelled
 - 最少包含：
   - `task_id`
   - `workflow_cost`
+  - `workflow_shape`
   - `gate_results`
   - `decision`
   - `blocking_findings`
@@ -129,8 +140,8 @@ blocked -> planning | executing | cancelled
 - `workflow_cost=light` 时只运行当前任务命中的最小 gate，并在 `review_report.gate_results` 记录未执行项不适用的原因。
 - `workflow_cost=standard` 时运行 route 默认 gate 与定向测试。
 - `workflow_cost=strict` 时阻断 gate 必须全部记录 PASS/FAIL；未执行必须映射为 `blocked` 或 `rework_required`。
-- 所有 route 都必须经过 `reviewing`，即使是文档-only 任务。
-- `Reviewer` 负责把 gate 结果映射到状态：
+- `staged` route 必须经过 `reviewing`；`direct`/`compact` 的内联验证负责快速路径放行。
+- `Reviewer`（或 compact 内联复核）负责把 gate 结果映射到状态：
   - 全部阻断 gate 通过：`completed`
   - gate 失败但可修复：`rework_required`
   - gate 无法执行或受外部条件阻断：`blocked`
