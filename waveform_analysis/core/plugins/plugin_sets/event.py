@@ -25,6 +25,8 @@ def plugins_events():
     .. deprecated::
         Legacy plugins (GroupedEventsPlugin, HitGroupedPlugin, PairedEventsPlugin)
         are deprecated and will be removed in a future version.
+        GroupedEventsPlugin and PairedEventsPlugin have been moved to the
+        ``tabular`` plugin set because they produce DataFrame (tabular) outputs.
     """
     from waveform_analysis.core.plugins.builtin.cpu.event import EventPlugin
     from waveform_analysis.core.plugins.builtin.cpu.position_reconstruction import (
@@ -47,26 +49,21 @@ def plugins_events():
     ]
 
     # Legacy deprecated plugins (kept for backward compatibility)
+    # NOTE: GroupedEventsPlugin and PairedEventsPlugin have been moved to the
+    # ``tabular`` plugin set (they emit DataFrame tabular outputs).
     try:
-        from waveform_analysis.core.plugins.builtin.cpu.event_analysis import (
-            GroupedEventsPlugin,
-            PairedEventsPlugin,
-        )
         from waveform_analysis.core.plugins.builtin.hit.hit_grouped import HitGroupedPlugin
 
         warnings.warn(
             "plugins_events() now includes deprecated legacy plugins "
-            "(GroupedEventsPlugin, HitGroupedPlugin, PairedEventsPlugin). "
-            "These will be removed in a future version.",
+            "(HitGroupedPlugin). These will be removed in a future version.",
             DeprecationWarning,
             stacklevel=2,
         )
 
         plugins.extend(
             [
-                GroupedEventsPlugin(),  # deprecated
                 HitGroupedPlugin(),  # deprecated
-                PairedEventsPlugin(),  # deprecated
             ]
         )
     except ImportError:

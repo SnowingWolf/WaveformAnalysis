@@ -12,7 +12,13 @@ export, __all__ = exporter()
 def plugins_tabular():
     """Return tabular output plugin instances in dependency order."""
     from waveform_analysis.core.plugins.builtin.cpu.dataframe import DataFramePlugin
+    from waveform_analysis.core.plugins.builtin.cpu.event_analysis import (
+        GroupedEventsPlugin,
+        PairedEventsPlugin,
+    )
 
     return [
         DataFramePlugin(),
+        GroupedEventsPlugin(),
+        PairedEventsPlugin(),
     ]
