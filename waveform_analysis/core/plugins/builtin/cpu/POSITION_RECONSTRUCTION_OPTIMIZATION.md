@@ -53,7 +53,7 @@ pmt_entry = layout.entry_for_readout(board, channel_id)
 ### 问题 3：逐个加载通道数据
 
 ```python
-channels = channel_accessor.get_peak_channels(peak_id=s2_peak_id)
+channels = channel_accessor.get_channels(peak_id=s2_peak_id)
 ```
 
 **问题**:

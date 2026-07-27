@@ -16,7 +16,7 @@ def demo_feature_access(accessor, peak_id=0):
     print("1. 特征访问（快速，不加载 wave_pool）")
     print("=" * 60)
 
-    channels = accessor.get_peak_channels(peak_id)
+    channels = accessor.get_channels(peak_id)
 
     print(f"\nPeak {peak_id} 有 {len(channels)} 个通道:")
     for ch in channels:
@@ -35,7 +35,7 @@ def demo_waveform_access(accessor, peak_id=0):
     print("=" * 60)
 
     # 获取特征 + 波形
-    channels = accessor.get_peak_channel_data(peak_id, include_waveform=True)
+    channels = accessor.get_channels(peak_id, include_waveforms=True)
 
     print(f"\nPeak {peak_id} 的通道波形:")
     for ch in channels:
@@ -97,13 +97,13 @@ def demo_channel_comparison(accessor, peak_id=0):
     print("=" * 60)
 
     # 筛选 area > 平均值的通道
-    channels = accessor.get_peak_channels(peak_id)
+    channels = accessor.get_channels(peak_id)
     avg_area = np.mean([ch["area"] for ch in channels])
 
     print(f"\n筛选条件: area > {avg_area:.1f}")
 
-    fig, ax = accessor.plot_channel_comparison(
-        peak_id, channel_selector=lambda ch: ch["area"] > avg_area
+    fig, axes = accessor.plot(
+        peak_id, view="overlay", channel_filter=lambda ch: ch["area"] > avg_area
     )
 
     if fig:
@@ -127,7 +127,7 @@ def demo_sum_vs_channels(accessor, peak_id=0):
     print("6. Sum vs Channels 对比")
     print("=" * 60)
 
-    fig, axes = accessor.plot_sum_vs_channels(peak_id)
+    fig, axes = accessor.plot(peak_id, view="sum-comparison")
 
     if fig:
         print("  ✓ 成功创建对比图")
@@ -150,7 +150,17 @@ def demo_batch_plot(accessor, peak_ids):
     print("7. 批量绘图")
     print("=" * 60)
 
-    accessor.batch_plot(peak_ids, output_dir="examples/output/batch_peaks")
+    from pathlib import Path
+
+    import matplotlib.pyplot as plt
+
+    output_dir = Path("examples/output/batch_peaks")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for peak_id in peak_ids:
+        fig, _ = accessor.plot(peak_id)
+        if fig:
+            fig.savefig(output_dir / f"peak_{peak_id}.png", dpi=150, bbox_inches="tight")
+            plt.close(fig)
     print("  ✓ 完成批量绘图")
 
 
@@ -173,11 +183,11 @@ from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
 accessor = PeakChannelAccessor(context, run_id)
 
 # 2. 只访问特征（快速，不加载 wave_pool）
-channels = accessor.get_peak_channels(peak_id=42)
+channels = accessor.get_channels(peak_id=42)
 print(f"Peak 42 有 {len(channels)} 个通道")
 
 # 3. 访问特征 + 波形
-channels = accessor.get_peak_channel_data(peak_id=42, include_waveform=True)
+channels = accessor.get_channels(peak_id=42, include_waveforms=True)
 for ch in channels:
     print(f"Channel {ch['channel']}: area={ch['area']:.1f}, waveform shape={ch['waveform'].shape}")
 
@@ -187,17 +197,17 @@ sum_data = accessor.get_sum_waveform(peak_id=42)
 # 5. 绘制波形
 fig, axes = accessor.plot(peak_id=42)
 
-# 6. 批量绘制
-accessor.batch_plot([42, 43, 44], output_dir="output")
+# 6. 批量绘制时在调用方显式循环 plot()、保存并关闭 figure
 
 # 7. 通道对比
-fig, ax = accessor.plot_channel_comparison(
+fig, axes = accessor.plot(
     peak_id=42,
-    channel_selector=lambda ch: ch['area'] > 100
+    view="overlay",
+    channel_filter=lambda ch: ch['area'] > 100
 )
 
 # 8. Sum vs Channels 对比
-fig, axes = accessor.plot_sum_vs_channels(peak_id=42)
+fig, axes = accessor.plot(peak_id=42, view="sum-comparison")
 
 # 9. 清理缓存
 accessor.clear_waveform_cache(release_wave_pool=True)

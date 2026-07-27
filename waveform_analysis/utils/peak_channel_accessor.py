@@ -11,21 +11,22 @@ Peak Channel 数据访问器
     >>> accessor = PeakChannelAccessor(context, run_id)
     >>>
     >>> # 只获取特征（快速）
-    >>> channels = accessor.get_peak_channels(peak_id=42)
+    >>> channels = accessor.get_channels(peak_id=42)
     >>>
     >>> # 获取特征 + 波形
-    >>> channels = accessor.get_peak_channel_data(peak_id=42, include_waveform=True)
-    >>>
-    >>> # 单独获取某个通道的波形
-    >>> wf = accessor.get_channel_waveform(merged_index=10)
+    >>> channels = accessor.get_channels(peak_id=42, include_waveforms=True)
     >>>
     >>> # 绘制波形
     >>> fig, axes = accessor.plot(peak_id=42)
 """
 
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
+
+
+class PeakChannelDataUnavailableError(RuntimeError):
+    """Raised when the canonical per-channel feature product is unavailable."""
 
 
 class PeakChannelAccessor:
@@ -93,13 +94,37 @@ class PeakChannelAccessor:
         self._hit_merged = self.context.get_data(self.run_id, "hit_merged")
         self._hit_merged_features = self.context.get_data(self.run_id, "hit_merged_features")
 
-        # peaklet_channels 是当前 per-channel 聚合真源；旧缓存或旧配置可能没有。
+        # peaklet_channels is the canonical per-channel aggregation product.
         try:
             peaklet_channels = self.context.get_data(self.run_id, "peaklet_channels")
-            if isinstance(peaklet_channels, np.ndarray):
-                self._peaklet_channels = peaklet_channels
-        except Exception:
-            self._peaklet_channels = None
+        except Exception as error:
+            raise PeakChannelDataUnavailableError(
+                "PeakChannelAccessor requires the 'peaklet_channels' product. "
+                "Register PeakletChannelsPlugin and regenerate this run."
+            ) from error
+
+        required_fields = {
+            "peaklet_id",
+            "board",
+            "channel",
+            "area",
+            "height",
+            "n_hits",
+            "area_fraction",
+        }
+        names = (
+            set(peaklet_channels.dtype.names or ())
+            if isinstance(peaklet_channels, np.ndarray)
+            else set()
+        )
+        if not isinstance(peaklet_channels, np.ndarray) or not required_fields.issubset(names):
+            missing_fields = sorted(required_fields - names)
+            detail = f" Missing fields: {', '.join(missing_fields)}." if missing_fields else ""
+            raise PeakChannelDataUnavailableError(
+                "PeakChannelAccessor requires 'peaklet_channels' as a structured array with the "
+                f"canonical per-channel fields.{detail} Regenerate the product with PeakletChannelsPlugin."
+            )
+        self._peaklet_channels = peaklet_channels
 
         # peaks 是可选的
         try:
@@ -131,10 +156,7 @@ class PeakChannelAccessor:
 
         self._peak_to_channel_rows = {}
         peaklet_channels = self._peaklet_channels
-        if peaklet_channels is None or len(peaklet_channels) == 0:
-            return
-        names = peaklet_channels.dtype.names or ()
-        if "peaklet_id" not in names:
+        if len(peaklet_channels) == 0:
             return
 
         channel_peak_ids = peaklet_channels["peaklet_id"]
@@ -236,19 +258,25 @@ class PeakChannelAccessor:
             self._merged_to_hit_idx[int(mi)] = hit_indices[group].tolist()
             offset += cnt
 
-    def get_peak_channels(self, peak_id: int) -> list[dict]:
+    def get_channels(
+        self, peak_id: int, include_waveforms: bool = False, pad: int = 30
+    ) -> list[dict]:
         """
-        获取 peak 的所有通道特征（不加载波形）
+        获取 peak 的逻辑通道特征，并按需添加波形。
 
         参数
         ----
         peak_id : int
-            Peak ID
+            Peak ID。
+        include_waveforms : bool, default=False
+            为 True 时添加每个逻辑通道的完整波形片段。
+        pad : int, default=30
+            波形窗口两侧的额外采样点数，仅在 include_waveforms=True 时生效。
 
         返回
         ----
         list[dict]
-            通道特征列表，每个 dict 包含：
+            通道特征列表；每项包含：
             - peak_id: int
             - merged_index: int
             - merged_indices: list[int]
@@ -270,76 +298,37 @@ class PeakChannelAccessor:
         self._load_feature_layer()
 
         # 通过索引获取 merged_indices（避免布尔筛选）
-        merged_indices = self._peak_to_merged_idx.get(peak_id, [])
-
         channel_rows = self._peak_to_channel_rows.get(peak_id, [])
-        if len(channel_rows) > 0:
-            details = self._component_channel_details(peak_id)
-            channels = []
-            for row in channel_rows:
-                key = (int(row["board"]), int(row["channel"]))
-                detail = details.get(key, {})
-                channels.append(
-                    {
-                        "peak_id": peak_id,
-                        "merged_index": int(detail.get("merged_index", -1)),
-                        "merged_indices": list(detail.get("merged_indices", [])),
-                        "board": int(row["board"]),
-                        "channel": int(row["channel"]),
-                        "area": float(row["area"]),
-                        "height": float(row["height"]),
-                        "n_hits": int(row["n_hits"]) if "n_hits" in row.dtype.names else 0,
-                        "area_fraction": (
-                            float(row["area_fraction"])
-                            if "area_fraction" in row.dtype.names
-                            else 0.0
-                        ),
-                        "width": float(detail.get("width", 0.0)),
-                        "rise_time": float(detail.get("rise_time", 0.0)),
-                        "fall_time": float(detail.get("fall_time", 0.0)),
-                        "center_time": int(detail.get("center_time", 0)),
-                        "sample_start": int(detail.get("sample_start", -1)),
-                        "sample_end": int(detail.get("sample_end", -1)),
-                        "record_id": int(detail.get("record_id", -1)),
-                        "is_single_record": bool(detail.get("is_single_record", False)),
-                    }
-                )
-            return channels
-
+        details = self._component_channel_details(peak_id)
         channels = []
-        for merged_idx in merged_indices:
-            hm = self._hit_merged[merged_idx]
-            feat = self._hit_merged_features[merged_idx]
-
-            # 检查是否为单 record hit
-            is_single_record = (
-                bool(hm["is_single_record"])
-                if "is_single_record" in self._hit_merged.dtype.names
-                else int(hm["sample_start"]) >= 0 and int(hm["sample_end"]) >= 0
-            )
-
-            channels.append(
-                {
-                    "peak_id": peak_id,
-                    "merged_index": int(merged_idx),
-                    "board": int(hm["board"]),
-                    "channel": int(hm["channel"]),
-                    "area": float(feat["area"]),
-                    "height": float(feat["height"]),
-                    "width": float(feat["width"]),
-                    "rise_time": float(feat["rise_time"]),
-                    "fall_time": float(feat["fall_time"]),
-                    "center_time": int(feat["center_time"]),
-                    "sample_start": int(hm["sample_start"]),
-                    "sample_end": int(hm["sample_end"]),
-                    "record_id": int(hm["record_id"]),
-                    "is_single_record": is_single_record,
-                }
-            )
-
+        for row in channel_rows:
+            key = (int(row["board"]), int(row["channel"]))
+            detail = details.get(key, {})
+            channel = {
+                "peak_id": peak_id,
+                "merged_index": int(detail.get("merged_index", -1)),
+                "merged_indices": list(detail.get("merged_indices", [])),
+                "board": int(row["board"]),
+                "channel": int(row["channel"]),
+                "area": float(row["area"]),
+                "height": float(row["height"]),
+                "n_hits": int(row["n_hits"]),
+                "area_fraction": float(row["area_fraction"]),
+                "width": float(detail.get("width", 0.0)),
+                "rise_time": float(detail.get("rise_time", 0.0)),
+                "fall_time": float(detail.get("fall_time", 0.0)),
+                "center_time": int(detail.get("center_time", 0)),
+                "sample_start": int(detail.get("sample_start", -1)),
+                "sample_end": int(detail.get("sample_end", -1)),
+                "record_id": int(detail.get("record_id", -1)),
+                "is_single_record": bool(detail.get("is_single_record", False)),
+            }
+            if include_waveforms:
+                channel.update(self._get_channel_waveform_data(channel, pad))
+            channels.append(channel)
         return channels
 
-    def get_channel_waveform(self, merged_index: int, pad: int = 30) -> dict:
+    def _get_merged_waveform(self, merged_index: int, pad: int = 30) -> dict:
         """
         获取单个通道的波形
 
@@ -611,7 +600,7 @@ class PeakChannelAccessor:
         if cached is not None:
             return cached
 
-        waveforms = [self.get_channel_waveform(merged_idx, pad) for merged_idx in merged_indices]
+        waveforms = [self._get_merged_waveform(merged_idx, pad) for merged_idx in merged_indices]
         segments = [
             seg
             for wf_data in waveforms
@@ -664,52 +653,6 @@ class PeakChannelAccessor:
                 label=label if not plotted else None,
             )
             plotted = True
-
-    def get_peak_channel_data(
-        self, peak_id: int, include_waveform: bool = False, pad: int = 30
-    ) -> list[dict]:
-        """
-        获取 peak 的通道数据（特征 + 可选波形）
-
-        参数
-        ----
-        peak_id : int
-            Peak ID
-        include_waveform : bool, default=False
-            是否包含波形数据
-        pad : int, default=30
-            波形窗口 padding（仅当 include_waveform=True 时生效）
-
-        返回
-        ----
-        list[dict]
-            通道数据列表，每个 dict 包含：
-            - 所有 get_peak_channels 返回的字段
-            - 如果 include_waveform=True，额外包含：
-                - waveform: np.ndarray
-                - time_ns: np.ndarray
-                - abs_time_ps: np.ndarray
-                - dt: int
-                - segments: list[dict]
-        """
-        # 获取特征
-        channels = self.get_peak_channels(peak_id)
-
-        if not include_waveform:
-            return channels
-
-        # 添加波形
-        for ch in channels:
-            wf_data = self._get_channel_waveform_data(ch, pad)
-
-            # 合并波形数据
-            ch["waveform"] = wf_data["waveform"]
-            ch["time_ns"] = wf_data["time_ns"]
-            ch["abs_time_ps"] = wf_data["abs_time_ps"]
-            ch["dt"] = wf_data["dt"]
-            ch["segments"] = wf_data["segments"]
-
-        return channels
 
     def clear_waveform_cache(self, release_wave_pool: bool = False):
         """
@@ -830,7 +773,7 @@ class PeakChannelAccessor:
 
     # ========== 可视化方法 ==========
 
-    def plot(
+    def _plot_stacked(
         self,
         peak_id: int,
         pad: int = 30,
@@ -880,7 +823,7 @@ class PeakChannelAccessor:
             show_features = ["area", "height", "width"]
 
         # 获取通道数据（包含波形）
-        channels = self.get_peak_channel_data(peak_id, include_waveform=True, pad=pad)
+        channels = self.get_channels(peak_id, include_waveforms=True, pad=pad)
 
         if not channels:
             print(f"No channels found for peak_id={peak_id}")
@@ -1062,68 +1005,10 @@ class PeakChannelAccessor:
         plt.tight_layout()
         return fig, axes
 
-    def batch_plot(
-        self,
-        peak_ids: list[int],
-        output_dir: str = "output",
-        pad: int = 30,
-        show_sum: bool = True,
-        show_features: list[str] | None = None,
-        show_hit_windows: bool = True,
-        show_merged_index: bool = True,
-    ):
-        """
-        批量绘制多个 peak
-
-        参数
-        ----
-        peak_ids : list[int]
-            Peak ID 列表
-        output_dir : str, default="output"
-            输出目录
-        pad : int, default=30
-            波形窗口 padding
-        show_sum : bool, default=True
-            是否显示 sum waveform
-        show_features : list[str] or None
-            要显示的特征列表
-        show_hit_windows : bool, default=True
-            是否高亮显示 hit 窗口
-        show_merged_index : bool, default=True
-            是否标注 merged_index
-        """
-        try:
-            import matplotlib.pyplot as plt
-        except ImportError:
-            raise ImportError(
-                "batch_plot() requires matplotlib. Install it with: pip install matplotlib"
-            )
-
-        from pathlib import Path
-
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-
-        for peak_id in peak_ids:
-            print(f"Plotting peak {peak_id}...")
-            fig, axes = self.plot(
-                peak_id,
-                pad=pad,
-                show_sum=show_sum,
-                show_features=show_features,
-                show_hit_windows=show_hit_windows,
-                show_merged_index=show_merged_index,
-            )
-
-            if fig:
-                save_path = Path(output_dir) / f"peak_{peak_id}.png"
-                fig.savefig(save_path, dpi=150, bbox_inches="tight")
-                plt.close(fig)
-                print(f"  Saved to {save_path}")
-
-    def plot_channel_comparison(
+    def _plot_overlay(
         self,
         peak_id: int,
-        channel_selector=None,
+        channel_filter=None,
         pad: int = 30,
         figsize: tuple[float, float] = (14, 8),
     ) -> tuple[Any | None, Any | None]:
@@ -1134,7 +1019,7 @@ class PeakChannelAccessor:
         ----
         peak_id : int
             Peak ID
-        channel_selector : callable or None
+        channel_filter : callable or None
             通道筛选函数，接受 channel dict，返回 bool
             例如：lambda ch: ch['area'] > 100
         pad : int, default=30
@@ -1151,20 +1036,20 @@ class PeakChannelAccessor:
             import matplotlib.pyplot as plt
         except ImportError:
             raise ImportError(
-                "plot_channel_comparison() requires matplotlib. "
+                "plot(view='overlay') requires matplotlib. "
                 "Install it with: pip install matplotlib"
             )
 
         # 获取通道数据
-        channels = self.get_peak_channel_data(peak_id, include_waveform=True, pad=pad)
+        channels = self.get_channels(peak_id, include_waveforms=True, pad=pad)
 
         if not channels:
             print(f"No channels found for peak_id={peak_id}")
             return None, None
 
         # 应用筛选
-        if channel_selector:
-            channels = [ch for ch in channels if channel_selector(ch)]
+        if channel_filter:
+            channels = [ch for ch in channels if channel_filter(ch)]
 
         if not channels:
             print(f"No channels match the selector for peak_id={peak_id}")
@@ -1204,7 +1089,7 @@ class PeakChannelAccessor:
         plt.tight_layout()
         return fig, ax
 
-    def plot_sum_vs_channels(
+    def _plot_sum_comparison(
         self,
         peak_id: int,
         pad: int = 30,
@@ -1234,12 +1119,12 @@ class PeakChannelAccessor:
             import matplotlib.pyplot as plt
         except ImportError:
             raise ImportError(
-                "plot_sum_vs_channels() requires matplotlib. "
+                "plot(view='sum-comparison') requires matplotlib. "
                 "Install it with: pip install matplotlib"
             )
 
         # 获取数据
-        channels = self.get_peak_channel_data(peak_id, include_waveform=True, pad=pad)
+        channels = self.get_channels(peak_id, include_waveforms=True, pad=pad)
         sum_data = self.get_sum_waveform(peak_id)
 
         if not channels or not sum_data:
@@ -1289,3 +1174,45 @@ class PeakChannelAccessor:
 
         plt.tight_layout()
         return fig, axes
+
+    def plot(
+        self,
+        peak_id: int,
+        view: str = "stacked",
+        pad: int = 30,
+        figsize: tuple[float, float] | None = None,
+        channel_filter=None,
+        show_sum: bool = True,
+        show_features: list[str] | None = None,
+        show_hit_windows: bool = True,
+        show_merged_index: bool = True,
+    ) -> tuple[Any | None, np.ndarray | None]:
+        """绘制 peak 通道波形。
+
+        ``view`` 可为 ``"stacked"``（逐通道总览）、``"overlay"``（通道叠加）或
+        ``"sum-comparison"``（框架求和波形与通道叠加对照）。所有成功绘图均返回
+        ``(figure, axes)``，其中 ``axes`` 始终是 NumPy 数组。
+        """
+        if view == "stacked":
+            return self._plot_stacked(
+                peak_id,
+                pad=pad,
+                figsize=figsize,
+                show_sum=show_sum,
+                show_features=show_features,
+                show_hit_windows=show_hit_windows,
+                show_merged_index=show_merged_index,
+            )
+        if view == "overlay":
+            fig, ax = self._plot_overlay(
+                peak_id,
+                channel_filter=channel_filter,
+                pad=pad,
+                figsize=figsize or (14, 8),
+            )
+            return fig, None if ax is None else np.asarray([ax])
+        if view == "sum-comparison":
+            return self._plot_sum_comparison(peak_id, pad=pad, figsize=figsize or (14, 10))
+        raise ValueError(
+            "view must be one of 'stacked', 'overlay', or 'sum-comparison'; " f"got {view!r}"
+        )

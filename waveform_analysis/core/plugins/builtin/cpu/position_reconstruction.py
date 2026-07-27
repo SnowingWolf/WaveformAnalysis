@@ -41,7 +41,10 @@ from waveform_analysis.core.hardware.geometry import (
     load_pmt_layout_from_config,
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
-from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
+from waveform_analysis.utils.peak_channel_accessor import (
+    PeakChannelAccessor,
+    PeakChannelDataUnavailableError,
+)
 
 # ============================================================================
 # 质量标志定义
@@ -261,7 +264,7 @@ class PositionReconstructionPlugin(Plugin):
         # 获取通道访问器
         try:
             channel_accessor = PeakChannelAccessor(context, run_id)
-        except (KeyError, TypeError, AttributeError):
+        except (KeyError, TypeError, AttributeError, PeakChannelDataUnavailableError):
             # 通道数据不可用
             return x_array, y_array, n_channels_array
 
@@ -273,8 +276,14 @@ class PositionReconstructionPlugin(Plugin):
 
             # 获取通道级数据
             try:
-                channels = channel_accessor.get_peak_channels(peak_id=int(s2_peak_id))
-            except (KeyError, IndexError, TypeError, AttributeError):
+                channels = channel_accessor.get_channels(peak_id=int(s2_peak_id))
+            except (
+                KeyError,
+                IndexError,
+                TypeError,
+                AttributeError,
+                PeakChannelDataUnavailableError,
+            ):
                 continue
 
             if not channels:

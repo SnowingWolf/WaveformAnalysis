@@ -1,285 +1,73 @@
-# PeakChannelAccessor 设计文档
+# PeakChannelAccessor
 
-## 概述
+`PeakChannelAccessor` 是单个 peak 的通道级只读查询和基础绘图接口。通道唯一键始终为 `(board, channel)`，不能只按 `channel` 解释。
 
-`PeakChannelAccessor` 是一个用于访问 peak 通道级数据的统一接口，集成了数据访问和可视化功能。
-
-## 核心特性
-
-### 1. 分层加载
-
-```python
-# Feature Layer（默认加载）
-- peaklet_components
-- hit_merged
-- hit_merged_features
-- peaks（可选）
-
-# Waveform Layer（延迟加载）
-- records
-- hit_threshold
-- hit_merged_components
-- wave_pool
-```
-
-**优势**：
-- 不需要波形时，只加载几百 KB 的特征数据
-- 避免加载几 GB 的 wave_pool
-- 显著提升交互式分析速度
-
-### 2. 索引优化
-
-预建索引，避免高频布尔筛选：
-
-```python
-# O(1) 查找
-_peak_to_merged_idx = {peak_id: [merged_index, ...]}
-_record_id_to_idx = {record_id: row_index}
-_merged_to_hit_idx = {merged_index: [hit_index, ...]}
-
-# 不再使用 O(n) 扫描
-# records[records["record_id"] == record_id]  ❌
-# records[record_id_to_idx[record_id]]        ✅
-```
-
-### 3. 统一接口
-
-数据访问和可视化在同一个类中：
-
-```python
-accessor = PeakChannelAccessor(context, run_id)
-
-# 数据访问
-channels = accessor.get_peak_channels(peak_id=42)
-
-# 可视化
-accessor.plot(peak_id=42)
-```
-
-## API 参考
-
-### 数据访问方法
-
-#### `get_peak_channels(peak_id)`
-
-获取 peak 的所有通道特征（不加载波形）
-
-当 `peaklet_channels` 可用时，`area`、`height`、`n_hits` 与 `area_fraction`
-来自 per-channel 聚合结果；其他兼容字段来自该通道对应的 peaklet components。
-
-**返回字段**：
-- `peak_id`: int
-- `merged_index`: int
-- `merged_indices`: list[int]
-- `board`: int
-- `channel`: int
-- `area`: float
-- `height`: float
-- `n_hits`: int
-- `area_fraction`: float
-- `width`: float
-- `rise_time`: float
-- `fall_time`: float
-- `center_time`: int
-- `sample_start`: int
-- `sample_end`: int
-- `record_id`: int
-- `is_single_record`: bool
-
-#### `get_channel_waveform(merged_index, pad=30)`
-
-获取单个通道的波形
-
-**返回字段**：
-- `merged_index`: int
-- `board`: int
-- `channel`: int
-- `waveform`: np.ndarray（拼接后的完整波形）
-- `time_ns`: np.ndarray（相对时间）
-- `abs_time_ps`: np.ndarray（绝对时间）
-- `dt`: int（采样间隔 ns）
-- `is_single_record`: bool
-- `segments`: list[dict]（原始片段，保留用于调试）
-
-#### `get_peak_channel_data(peak_id, include_waveform=False, pad=30)`
-
-主接口，获取 peak 的通道数据
-
-**参数**：
-- `include_waveform`: bool - 是否包含波形（默认 False）
-
-**返回**：合并了特征和波形（如果请求）的通道列表
-
-#### `get_sum_waveform(peak_id)`
-
-获取 peak 的 sum waveform（从 peaklet_waveforms）
-
-**返回字段**：
-- `peak_id`: int
-- `waveform`: np.ndarray
-- `time_start`: int（ps）
-- `time_end`: int（ps）
-- `dt`: int（ns）
-- `time_ns`: np.ndarray
-
-#### `clear_waveform_cache(release_wave_pool=False)`
-
-清理波形缓存
-
-**参数**：
-- `release_wave_pool`: bool - 是否释放 wave_pool
-
-### 可视化方法
-
-#### `plot(peak_id, pad=30, figsize=None, show_sum=True)`
-
-绘制 peak 的所有通道波形
-
-**特性**：
-- 第一个子图：sum waveform（可选）
-- 其余子图：各通道波形
-- 自动时间对齐
-- 显示特征信息（area, height, width）
-
-#### `batch_plot(peak_ids, output_dir="output", pad=30, show_sum=True)`
-
-批量绘制多个 peak
-
-**功能**：
-- 自动创建输出目录
-- 保存为 PNG 文件
-- 自动关闭图形释放内存
-
-#### `plot_channel_comparison(peak_id, channel_selector=None, pad=30, figsize=(14, 8))`
-
-在同一图上叠加显示多个通道
-
-**参数**：
-- `channel_selector`: callable - 通道筛选函数
-  - 例如：`lambda ch: ch['area'] > 100`
-
-#### `plot_sum_vs_channels(peak_id, pad=30, figsize=(14, 10))`
-
-对比绘制 sum waveform 与各通道叠加
-
-**布局**：
-- 上图：sum waveform
-- 下图：所有通道叠加
-
-## 使用示例
-
-### 基础使用
+## API
 
 ```python
 from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
 
-# 创建访问器
-accessor = PeakChannelAccessor(context, run_id)
-
-# 只访问特征（快速）
-channels = accessor.get_peak_channels(peak_id=42)
-for ch in channels:
-    print(f"Channel {ch['channel']}: area={ch['area']:.1f}")
-
-# 访问特征 + 波形
-channels = accessor.get_peak_channel_data(peak_id=42, include_waveform=True)
-for ch in channels:
-    print(f"Channel {ch['channel']}: waveform shape={ch['waveform'].shape}")
-
-# 获取 sum waveform
-sum_data = accessor.get_sum_waveform(peak_id=42)
-print(f"Sum waveform shape: {sum_data['waveform'].shape}")
+accessor = PeakChannelAccessor(context, run_id, lazy_load=True)
+channels = accessor.get_channels(peak_id=42)
+channels_with_waveforms = accessor.get_channels(peak_id=42, include_waveforms=True)
+sum_waveform = accessor.get_sum_waveform(peak_id=42)
+fig, axes = accessor.plot(peak_id=42, view="overlay")
 ```
 
-### 可视化
+公开数据读取入口只有：
+
+- `get_channels(peak_id, include_waveforms=False, pad=30)`：返回逻辑通道特征；仅在 `include_waveforms=True` 时读取通道波形。
+- `get_sum_waveform(peak_id)`：返回框架已生成的 peak 求和波形；找不到时返回 `None`。
+
+辅助方法 `clear_waveform_cache(release_wave_pool=False)` 用于释放已提取的波形窗口或波形层。
+
+公开绘图入口只有 `plot(peak_id, view=...)`：
+
+- `view="stacked"`：逐通道总览，可配置特征、hit 窗口和求和波形。
+- `view="overlay"`：在同一坐标轴叠加通道；用 `channel_filter` 筛选。
+- `view="sum-comparison"`：对照框架求和波形与各通道叠加。
+
+所有绘图形式都返回 `(figure, axes)`；`overlay` 的单个坐标轴会包装为一元素 NumPy 数组。批量保存请在调用方显式循环 `plot()`、保存并关闭 figure。
 
 ```python
-# 绘制单个 peak
-fig, axes = accessor.plot(peak_id=42)
-
-# 批量绘制
-accessor.batch_plot([42, 43, 44], output_dir="output")
-
-# 通道对比（只显示 area > 100 的通道）
-fig, ax = accessor.plot_channel_comparison(
-    peak_id=42,
-    channel_selector=lambda ch: ch['area'] > 100
+# 逐通道查看，并标注常用特征
+fig, axes = accessor.plot(
+    peak_id=919,
+    view="stacked",
+    show_features=["area", "height", "width"],
 )
 
-# Sum vs Channels 对比
-fig, axes = accessor.plot_sum_vs_channels(peak_id=42)
+# 只叠加 board 0 的通道
+fig, axes = accessor.plot(
+    peak_id=919,
+    view="overlay",
+    channel_filter=lambda channel: channel["board"] == 0,
+)
+
+# 对照框架求和波形与各通道叠加
+fig, axes = accessor.plot(peak_id=919, view="sum-comparison")
 ```
 
-### 内存管理
+## 字段来源和计算口径
 
-```python
-# 清理波形缓存（保留 wave_pool）
-accessor.clear_waveform_cache(release_wave_pool=False)
+`peaklet_channels` 是通道聚合真源，缺少该产物、它不是结构化数组或缺少规范字段时，会抛出 `PeakChannelDataUnavailableError`。不会退回到 `hit_merged_features` 返回部分字段。
 
-# 完全释放波形层（释放 wave_pool）
-accessor.clear_waveform_cache(release_wave_pool=True)
-```
+每一行的逻辑分组键是 `(peaklet_id, board, channel)`。只使用 `hit_merged_features.valid != 0` 的组件：
 
-## 性能对比
+| 字段 | 口径 |
+| --- | --- |
+| `area` | 分组内 `area` 的和 |
+| `height` | 分组内 `height` 的最大值 |
+| `n_hits` | 分组内 `n_hits` 的和 |
+| `area_fraction` | `area / peaklet_features.area`；分母为 0 时为 0 |
+| `merged_indices` | `peaklet_components` 中该逻辑通道的全部 `merged_index` |
 
-| 操作 | 旧方法 | 新方法 | 提升 |
-|------|--------|--------|------|
-| 加载特征 | 加载全部数据（含 wave_pool） | 只加载特征层 | ~100x |
-| 查找 record | 布尔筛选 O(n) | 索引查找 O(1) | ~1000x |
-| 批量访问 | 每次重新加载 | 预加载 + 缓存 | ~10x |
+`width`、`rise_time`、`fall_time`、`center_time`、`record_id` 和 `merged_index` 来自该逻辑通道中 `height` 最大的代表组件。`sample_start` 是所有组件的最小起点，`sample_end` 是最大终点；只有全部组件均为单 record 时 `is_single_record` 才为真。
 
-## 设计原则
+## 波形和加载
 
-1. **分层加载**：默认最小化内存占用
-2. **索引优化**：避免高频大数组扫描
-3. **统一接口**：数据访问和可视化集成
-4. **保留信息**：跨 record 波形保留 segments
-5. **缓存控制**：允许用户控制内存使用
+特征层读取 `peaklet_components`、`peaklet_channels`、`hit_merged` 与 `hit_merged_features`。通道波形按需从 `records + wave_pool` 依据 hit 窗口和 `pad` 提取；同一逻辑通道的全部组件按绝对时间合并，并按 `(merged_indices, pad)` 缓存。
 
-## 文件位置
+求和波形来自 `peaklet_waveforms + peaklet_waveform_pool`，不会从当前通道曲线重新求和。因此求和与通道波形可能使用不同窗口、时间网格或滤波来源，`sum-comparison` 仅用于构建路径对照，不是逐点相等性检验。
 
-- **实现**：`waveform_analysis/utils/peak_channel_accessor.py`
-- **示例**：`examples/demo_peak_channel_accessor.py`
-- **文档**：`docs/peak_channel_accessor.md`
-
-## 依赖
-
-- **必需**：numpy
-- **可选**：matplotlib（仅用于可视化方法）
-
-如果调用可视化方法但未安装 matplotlib，会给出友好的错误提示：
-```
-ImportError: plot() requires matplotlib. Install it with: pip install matplotlib
-```
-
-## 与旧版本对比
-
-### 旧版本（分离的 Plotter）
-
-```python
-accessor = PeakChannelAccessor(context, run_id)
-plotter = PeakChannelPlotter(accessor)  # 需要两个对象
-
-channels = accessor.get_peak_channels(peak_id=42)
-plotter.plot(peak_id=42)
-```
-
-### 新版本（集成设计）
-
-```python
-accessor = PeakChannelAccessor(context, run_id)  # 一个对象
-
-channels = accessor.get_peak_channels(peak_id=42)
-accessor.plot(peak_id=42)  # 统一接口
-```
-
-## 未来扩展
-
-可以考虑添加的功能：
-
-1. **导出功能**：导出通道数据为 CSV/HDF5
-2. **统计分析**：通道贡献度、主导通道分析
-3. **交互式绘图**：使用 Plotly 支持缩放、悬停等
-4. **并行处理**：批量处理时并行提取波形
-
-但要保持核心原则：**Accessor 只负责数据访问和基础可视化，不混入复杂的分析逻辑**。
+重复查询请复用同一个 Accessor。`lazy_load=True` 可推迟首次特征读取；`clear_waveform_cache(release_wave_pool=True)` 可释放已加载的波形层。

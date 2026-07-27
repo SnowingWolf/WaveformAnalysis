@@ -16,10 +16,13 @@ from waveform_analysis.core.plugins.builtin.peaks.peaklets import (
     PEAKLET_COMPONENTS_DTYPE,
     PEAKLET_WAVEFORMS_DTYPE,
 )
-from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
+from waveform_analysis.utils.peak_channel_accessor import (
+    PeakChannelAccessor,
+    PeakChannelDataUnavailableError,
+)
 
 
-def test_get_peak_channels_uses_peaklet_channels_aggregates():
+def test_get_channels_uses_peaklet_channels_aggregates():
     peaklet_components = np.zeros(3, dtype=PEAKLET_COMPONENTS_DTYPE)
     peaklet_components["peak_id"] = [919, 919, 919]
     peaklet_components["merged_index"] = [0, 1, 2]
@@ -61,7 +64,7 @@ def test_get_peak_channels_uses_peaklet_channels_aggregates():
         }
     )
 
-    channels = PeakChannelAccessor(ctx, "run").get_peak_channels(peak_id=919)
+    channels = PeakChannelAccessor(ctx, "run").get_channels(peak_id=919)
 
     assert len(channels) == 2
     by_channel = {row["channel"]: row for row in channels}
@@ -72,7 +75,7 @@ def test_get_peak_channels_uses_peaklet_channels_aggregates():
     assert by_channel[7]["area"] == 40.0
 
 
-def test_get_peak_channel_data_combines_all_channel_merged_waveforms():
+def test_get_channels_combines_all_channel_merged_waveforms():
     peaklet_components = np.zeros(2, dtype=PEAKLET_COMPONENTS_DTYPE)
     peaklet_components["peak_id"] = [919, 919]
     peaklet_components["merged_index"] = [0, 1]
@@ -119,7 +122,7 @@ def test_get_peak_channel_data_combines_all_channel_merged_waveforms():
     )
 
     accessor = PeakChannelAccessor(ctx, "run")
-    channels = accessor.get_peak_channel_data(peak_id=919, include_waveform=True, pad=0)
+    channels = accessor.get_channels(peak_id=919, include_waveforms=True, pad=0)
 
     assert len(channels) == 1
     channel = channels[0]
@@ -127,7 +130,7 @@ def test_get_peak_channel_data_combines_all_channel_merged_waveforms():
     assert [seg["merged_index"] for seg in channel["segments"]] == [1, 0]
     np.testing.assert_array_equal(channel["waveform"], np.array([30, 40, 10, 20]))
 
-    repeated = accessor.get_peak_channel_data(peak_id=919, include_waveform=True, pad=0)
+    repeated = accessor.get_channels(peak_id=919, include_waveforms=True, pad=0)
     assert repeated[0]["waveform"] is channel["waveform"]
     assert len(accessor._channel_waveform_cache) == 1
 
@@ -157,6 +160,7 @@ def test_get_sum_waveform_loads_and_indexes_layer_once():
     ctx = CountingContext(
         data={
             "peaklet_components": np.zeros(0, dtype=PEAKLET_COMPONENTS_DTYPE),
+            "peaklet_channels": np.zeros(0, dtype=PEAKLET_CHANNELS_DTYPE),
             "hit_merged": np.zeros(0, dtype=HIT_MERGED_DTYPE),
             "hit_merged_features": np.zeros(0, dtype=HIT_MERGED_FEATURES_DTYPE),
             "peaklet_waveforms": peaklet_waveforms,
@@ -179,6 +183,56 @@ def test_get_sum_waveform_loads_and_indexes_layer_once():
     accessor.get_sum_waveform(peak_id=10)
     assert ctx.calls["peaklet_waveforms"] == 2
     assert ctx.calls["peaklet_waveform_pool"] == 2
+
+
+def test_get_channels_requires_complete_peaklet_channels():
+    ctx = DummyContext(
+        data={
+            "peaklet_components": np.zeros(0, dtype=PEAKLET_COMPONENTS_DTYPE),
+            "hit_merged": np.zeros(0, dtype=HIT_MERGED_DTYPE),
+            "hit_merged_features": np.zeros(0, dtype=HIT_MERGED_FEATURES_DTYPE),
+        }
+    )
+
+    with np.testing.assert_raises_regex(
+        PeakChannelDataUnavailableError, "requires 'peaklet_channels' as a structured array"
+    ):
+        PeakChannelAccessor(ctx, "run")
+
+
+def test_plot_dispatches_views_and_normalizes_overlay_axes():
+    accessor = PeakChannelAccessor.__new__(PeakChannelAccessor)
+    stacked_axes = np.asarray([object()])
+    comparison_axes = np.asarray([object(), object()])
+    overlay_ax = object()
+    accessor._plot_stacked = lambda *args, **kwargs: ("stacked", stacked_axes)
+    accessor._plot_overlay = lambda *args, **kwargs: ("overlay", overlay_ax)
+    accessor._plot_sum_comparison = lambda *args, **kwargs: ("comparison", comparison_axes)
+
+    fig, axes = accessor.plot(919, view="stacked")
+    assert fig == "stacked"
+    assert axes is stacked_axes
+    fig, axes = accessor.plot(919, view="overlay", channel_filter=lambda _channel: True)
+    assert fig == "overlay"
+    assert axes.shape == (1,)
+    assert axes[0] is overlay_ax
+    fig, axes = accessor.plot(919, view="sum-comparison")
+    assert fig == "comparison"
+    assert axes is comparison_axes
+    with np.testing.assert_raises_regex(ValueError, "view must be one of"):
+        accessor.plot(919, view="unknown")
+
+
+def test_legacy_public_methods_are_removed():
+    for name in (
+        "get_peak_channels",
+        "get_channel_waveform",
+        "get_peak_channel_data",
+        "batch_plot",
+        "plot_channel_comparison",
+        "plot_sum_vs_channels",
+    ):
+        assert not hasattr(PeakChannelAccessor, name)
 
 
 def test_plot_waveform_segments_plots_each_segment_separately():
