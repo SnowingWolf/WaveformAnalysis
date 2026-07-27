@@ -42,6 +42,7 @@
 - `required_gates`:
   - `diagnosis_reproduced`
 - `executor_role`: `executor.config`
+- `executor_profile`: `graph_engineer|none`
 - `blocking_assumptions`:
   -
 
@@ -61,6 +62,7 @@
 
 - `task_id`:
 - `executor_role`: `executor.config`
+- `executor_profile`: `graph_engineer|none`
 - `changed_paths`:
   -
 - `actions_taken`:
@@ -97,6 +99,7 @@
   -
 - `follow_up_actions`:
   -
+- `executor_profile_review`:
 
 ## Rework Control
 - `scope_changed`: `true|false`

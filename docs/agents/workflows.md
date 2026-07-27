@@ -8,6 +8,12 @@
 - 可选状态：`awaiting_user_input`、`awaiting_approval`、`rework_required`、`blocked`、`failed`、`cancelled`
 - 阻断式审查：`Reviewer` 未放行前，不得进入 `completed`
 
+### Role 与 Profile
+- role（如 `executor.plugin`）定义状态所有权与交接责任。
+- profile（如 `graph_engineer`）定义执行者的专项能力，不新增主状态或绕过 route。
+- 选择 profile 时，`plan_brief` 与 `execution_report` 必须同时记录 `executor_role` 和 `executor_profile`。
+- profile 必须匹配 `docs/agents/index.yaml` 声明的 route/role 绑定，并由 `Reviewer` 覆盖其专项必审项。
+
 ## Workflow Cost 分级
 
 `workflow_cost` 用来控制一次任务的流程重量。它不替代主状态机，只决定 artifact 填写粒度和 gate 数量。
@@ -41,6 +47,7 @@
   - `plan_brief`: `task_id`、`route`、`workflow_cost`、`scope_in`、`required_gates`、`executor_role`
   - `execution_report`: `task_id`、`workflow_cost`、`actions_taken`、`commands_run`、`open_risks`
   - `review_report`: `task_id`、`workflow_cost`、`gate_results`、`decision`、`blocking_findings`
+- 使用专项执行者时，三段式 artifact 还必须分别记录 `executor_profile`、`executor_profile`、`executor_profile_review`。
 
 ## 通用 Commit Handoff
 - `Executor` 在离开 `executing` 前必须检查工作树：`git status --short`、`git diff --stat`

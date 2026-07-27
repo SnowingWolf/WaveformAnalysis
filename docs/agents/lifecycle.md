@@ -67,6 +67,11 @@ blocked -> planning | executing | cancelled
 - `awaiting_approval` 是正式状态，用于权限批准与高风险操作授权。
 - 普通进度同步不算状态迁移，只算事件。
 
+## Agent Profile
+- profile 是执行者能力标签，不是生命周期 role，也不拥有状态。
+- profile 只能绑定机器契约允许的 executor role 与 route。
+- profile 不能替代 `reviewer`；专项审查要求由 `review_report.executor_profile_review` 记录。
+
 ## 交接产物
 
 所有交接产物都必须记录 `workflow_cost`，取值为 `light | standard | strict`。

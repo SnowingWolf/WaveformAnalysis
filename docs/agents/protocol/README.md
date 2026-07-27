@@ -42,6 +42,12 @@
 - `release_check` 复用 `route-profiles/release_artifact_sync.md`
 - 对 alias route 不单独维护第二份 profile，避免语义漂移
 
+## Agent Profile 约定
+- `agent_role` 定义状态所有权；`agent_profile` 定义具体执行者的专项能力，两者不能混用。
+- profile 选择记录在 `executor_profile`，实际生命周期角色仍记录在 `executor_role`。
+- profile 必须在 `docs/agents/index.yaml` 注册，并至少绑定一个适用 route 的 executor role。
+- profile 不拥有生命周期状态，也不能替代 `reviewer` 放行。
+
 ## 使用约束
 - 模板优先给 agent 直接复制、填空、交接，不要求额外转换格式。
 - 若 route profile 已声明字段，artifact 不应发明新的同义字段。

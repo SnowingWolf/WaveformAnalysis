@@ -8,6 +8,7 @@
 - `task_id`
 - `workflow_cost`
 - `executor_role`
+- `executor_profile`（plan 选择专项执行者时）
 - `changed_paths`
 - `actions_taken`
 - `commands_run`
@@ -23,6 +24,8 @@
   记录实际执行过的命令，不记录计划命令
 - `open_risks`
   只记录尚未关闭的风险，不重复已解决项
+- `executor_profile`
+  必须与 `plan_brief` 一致；执行中更换 profile 需记录在 `plan_drift`
 
 ## Copy-ready Template
 ```md
@@ -31,6 +34,7 @@
 - `task_id`:
 - `workflow_cost`: `light|standard|strict`
 - `executor_role`:
+- `executor_profile`:
 - `changed_paths`:
   -
 - `actions_taken`:
@@ -60,4 +64,5 @@
 - 变更路径已列出
 - 实际运行命令已列出
 - reviewer 需要重点看的点已列出
+- 若选择 `executor_profile`，已请求对应 `required_review_focus`
 - 未完成项及原因已显式记录

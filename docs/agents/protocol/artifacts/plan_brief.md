@@ -14,6 +14,7 @@
 - `scope_out`
 - `required_gates`
 - `executor_role`
+- `executor_profile`（选择专项执行者时）
 - `blocking_assumptions`
 
 ## Field Rules
@@ -27,6 +28,8 @@
   使用平铺列表，不写嵌套结构
 - `blocking_assumptions`
   只记录会阻止进入 `executing` 的前提，不写一般性备注
+- `executor_profile`
+  必须来自 `docs/agents/index.yaml.agent_profiles`，并能绑定当前 route 的 `executor_role`
 
 ## Copy-ready Template
 ```md
@@ -42,6 +45,7 @@
 - `required_gates`:
   -
 - `executor_role`:
+- `executor_profile`:
 - `blocking_assumptions`:
   -
 
@@ -67,4 +71,5 @@
 - `workflow_cost` 已明确，且不低于任务实际风险
 - `required_gates` 已明确
 - `executor_role` 已明确
+- 若选择 `executor_profile`，其 role/route 绑定合法
 - 没有缺失会阻止执行的前提

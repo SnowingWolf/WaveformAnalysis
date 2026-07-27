@@ -46,6 +46,17 @@ class Route:
         return self.alias_of is not None
 
 
+@dataclass(frozen=True)
+class AgentProfile:
+    id: str
+    summary: str
+    allowed_roles: list[str]
+    applicable_routes: list[str]
+    capabilities: list[str]
+    required_review_focus: list[str]
+    constraints: list[str]
+
+
 VALID_WORKFLOW_COSTS = {"light", "standard", "strict"}
 STRICT_REQUIRED_ARTIFACTS = {"plan_brief", "execution_report", "review_report"}
 
@@ -93,6 +104,36 @@ def _normalize_routes(data: dict[str, Any]) -> list[Route]:
     return routes
 
 
+def _normalize_agent_profiles(data: dict[str, Any]) -> list[AgentProfile]:
+    profiles_raw = data.get("agent_profiles")
+    if not isinstance(profiles_raw, list):
+        raise ValueError("agent_profiles must be a list")
+
+    profiles: list[AgentProfile] = []
+    seen: set[str] = set()
+    for raw in profiles_raw:
+        if not isinstance(raw, dict):
+            raise ValueError("Each agent profile entry must be a mapping")
+        profile_id = raw.get("id")
+        if not isinstance(profile_id, str) or not profile_id.strip():
+            raise ValueError("Each agent profile entry must have a non-empty id")
+        if profile_id in seen:
+            raise ValueError(f"Duplicate agent profile id: {profile_id}")
+        seen.add(profile_id)
+        profiles.append(
+            AgentProfile(
+                id=profile_id,
+                summary=_as_str(raw, "summary"),
+                allowed_roles=_as_str_list(raw, "allowed_roles"),
+                applicable_routes=_as_str_list(raw, "applicable_routes"),
+                capabilities=_as_str_list(raw, "capabilities"),
+                required_review_focus=_as_str_list(raw, "required_review_focus"),
+                constraints=_as_str_list(raw, "constraints"),
+            )
+        )
+    return profiles
+
+
 def _as_str(data: dict[str, Any], key: str, *, required: bool = True) -> str:
     value = data.get(key)
     if value is None and not required:
@@ -126,6 +167,102 @@ def validate_manifest(data: dict[str, Any], project_root: Path = PROJECT_ROOT) -
     issues: list[str] = []
     routes = _normalize_routes(data)
     route_names = {route.task for route in routes}
+    canonical_route_names = {route.task for route in routes if not route.is_alias}
+    profiles = _normalize_agent_profiles(data)
+
+    roles_raw = data.get("agent_roles")
+    if not isinstance(roles_raw, list):
+        issues.append("Missing top-level `agent_roles` list")
+        role_names: set[str] = set()
+    else:
+        role_names = {
+            role["id"]
+            for role in roles_raw
+            if isinstance(role, dict) and isinstance(role.get("id"), str)
+        }
+
+    profile_contract = data.get("agent_profile_contract")
+    if not isinstance(profile_contract, dict):
+        issues.append("Missing top-level `agent_profile_contract` mapping")
+    else:
+        for key in (
+            "selection_field",
+            "role_field",
+            "profiles_own_lifecycle_states",
+            "profile_cannot_replace_reviewer",
+            "required_artifact_fields",
+        ):
+            if key not in profile_contract:
+                issues.append(f"Missing agent_profile_contract.{key}")
+        expected_contract_values = {
+            "selection_field": "executor_profile",
+            "role_field": "executor_role",
+            "profiles_own_lifecycle_states": False,
+            "profile_cannot_replace_reviewer": True,
+        }
+        for key, expected in expected_contract_values.items():
+            if key in profile_contract and profile_contract[key] != expected:
+                issues.append(
+                    f"agent_profile_contract.{key} must be {expected!r}, "
+                    f"got {profile_contract[key]!r}"
+                )
+        required_artifact_fields = profile_contract.get("required_artifact_fields")
+        expected_artifact_fields = {
+            "plan_brief": "executor_profile",
+            "execution_report": "executor_profile",
+            "review_report": "executor_profile_review",
+        }
+        if (
+            required_artifact_fields is not None
+            and required_artifact_fields != expected_artifact_fields
+        ):
+            issues.append(
+                "agent_profile_contract.required_artifact_fields must map plan, execution, "
+                "and review artifacts to their canonical profile fields"
+            )
+
+    for profile in profiles:
+        if profile.id in role_names:
+            issues.append(f"Agent profile `{profile.id}` must not reuse a lifecycle role id")
+        if not profile.allowed_roles:
+            issues.append(f"Agent profile `{profile.id}` missing allowed_roles")
+        if not profile.applicable_routes:
+            issues.append(f"Agent profile `{profile.id}` missing applicable_routes")
+        if not profile.capabilities:
+            issues.append(f"Agent profile `{profile.id}` missing capabilities")
+        if not profile.required_review_focus:
+            issues.append(f"Agent profile `{profile.id}` missing required_review_focus")
+        if not profile.constraints:
+            issues.append(f"Agent profile `{profile.id}` missing constraints")
+
+        unknown_roles = sorted(set(profile.allowed_roles) - role_names)
+        if unknown_roles:
+            issues.append(
+                f"Agent profile `{profile.id}` references unknown roles: "
+                + ", ".join(unknown_roles)
+            )
+        non_executor_roles = sorted(
+            role for role in profile.allowed_roles if not role.startswith("executor.")
+        )
+        if non_executor_roles:
+            issues.append(
+                f"Agent profile `{profile.id}` may only bind executor roles: "
+                + ", ".join(non_executor_roles)
+            )
+
+        unknown_routes = sorted(set(profile.applicable_routes) - canonical_route_names)
+        if unknown_routes:
+            issues.append(
+                f"Agent profile `{profile.id}` references unknown canonical routes: "
+                + ", ".join(unknown_routes)
+            )
+        for route_name in set(profile.applicable_routes) & canonical_route_names:
+            handoff = set(_as_str_list(route_raw_by_task(data, route_name), "handoff_sequence"))
+            if not handoff.intersection(profile.allowed_roles):
+                issues.append(
+                    f"Agent profile `{profile.id}` has no allowed role in route "
+                    f"`{route_name}` handoff_sequence"
+                )
 
     reading_contract = data.get("agent_reading_contract")
     if not isinstance(reading_contract, dict):
@@ -226,6 +363,7 @@ def route_raw_by_task(data: dict[str, Any], task: str) -> dict[str, Any]:
 def build_generated_sections(data: dict[str, Any]) -> dict[str, str]:
     routes = _normalize_routes(data)
     canonical_routes = [route for route in routes if not route.is_alias]
+    profiles = _normalize_agent_profiles(data)
 
     return {
         "supported_routes": _render_supported_routes(canonical_routes),
@@ -235,6 +373,7 @@ def build_generated_sections(data: dict[str, Any]) -> dict[str, str]:
         "protocol_index": _render_protocol_index(data),
         "route_profile_index": _render_route_profile_index(canonical_routes),
         "adapter_index": _render_adapter_index(data),
+        "agent_profile_catalog": _render_agent_profile_catalog(profiles),
         "profile_summary_modify_plugin": _render_profile_summary(
             _find_route(canonical_routes, "modify_plugin")
         ),
@@ -376,6 +515,29 @@ def _render_adapter_index(data: dict[str, Any]) -> str:
     return "\n".join(f"- `{path}`" for path in adapter_paths)
 
 
+def _render_agent_profile_catalog(profiles: list[AgentProfile]) -> str:
+    sections: list[str] = []
+    for profile in profiles:
+        roles = ", ".join(f"`{role}`" for role in profile.allowed_roles)
+        routes = ", ".join(f"`{route}`" for route in profile.applicable_routes)
+        capabilities = ", ".join(f"`{item}`" for item in profile.capabilities)
+        review_focus = ", ".join(f"`{item}`" for item in profile.required_review_focus)
+        sections.extend(
+            [
+                f"### `{profile.id}`",
+                f"- {profile.summary}",
+                f"- 可承担角色：{roles}",
+                f"- 适用 route：{routes}",
+                f"- 能力：{capabilities}",
+                f"- 必审项：{review_focus}",
+                "- 约束：",
+                *(f"  - {constraint}" for constraint in profile.constraints),
+                "",
+            ]
+        )
+    return "\n".join(sections).rstrip()
+
+
 def _render_profile_summary(route: Route) -> str:
     lines = [
         "## Use When",
@@ -425,6 +587,7 @@ def collect_targets(project_root: Path = PROJECT_ROOT) -> list[Path]:
         project_root / "AGENTS.md",
         project_root / "docs" / "agents" / "INDEX.md",
         project_root / "docs" / "agents" / "references.md",
+        project_root / "docs" / "agents" / "adapters" / "skills.md",
         project_root / "docs" / "agents" / "protocol" / "route-profiles" / "modify_plugin.md",
         project_root / "docs" / "agents" / "protocol" / "route-profiles" / "retire_compat.md",
         project_root / "docs" / "agents" / "protocol" / "route-profiles" / "generate_docs.md",

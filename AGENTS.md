@@ -99,6 +99,7 @@
 - `awaiting_user_input`、`awaiting_approval`、`rework_required`、`blocked`、`failed`、`cancelled` 为正式状态，不要用普通进度消息替代。
 - `Reviewer` 未放行前，不得进入 `completed`，文档-only 任务也一样。
 - 默认返工路径为 `reviewing -> rework_required -> executing`；仅当 `scope_changed=true` 时允许回到 `planning`。
+- 专项 agent 使用 `executor_profile` 记录，并映射到 `docs/agents/index.yaml` 允许的既有 executor role；profile 不新增状态，也不能替代 `Reviewer`。
 
 ## Standard Artifacts
 - `plan_brief`：`planning -> ready_for_execution` 前必须存在。
