@@ -50,10 +50,19 @@ class Route:
 class AgentProfile:
     id: str
     summary: str
-    allowed_roles: list[str]
     applicable_routes: list[str]
     capabilities: list[str]
-    required_review_focus: list[str]
+    planning_mode: str
+    planning_host_role: str
+    planning_owns_state: bool
+    planning_outputs: list[str]
+    executing_mode: str
+    executing_owns_state: bool
+    allowed_roles: list[str]
+    reviewing_mode: str
+    reviewing_host_role: str
+    reviewing_owns_state: bool
+    review_focus: list[str]
     constraints: list[str]
 
 
@@ -120,14 +129,35 @@ def _normalize_agent_profiles(data: dict[str, Any]) -> list[AgentProfile]:
         if profile_id in seen:
             raise ValueError(f"Duplicate agent profile id: {profile_id}")
         seen.add(profile_id)
+        phases = raw.get("phase_participation")
+        if not isinstance(phases, dict):
+            raise ValueError(f"Agent profile `{profile_id}` phase_participation must be a mapping")
+        expected_phases = {"planning", "executing", "reviewing"}
+        if set(phases) != expected_phases:
+            raise ValueError(
+                f"Agent profile `{profile_id}` phase_participation must contain exactly "
+                "planning, executing, and reviewing"
+            )
+        planning = _as_mapping(phases, "planning")
+        executing = _as_mapping(phases, "executing")
+        reviewing = _as_mapping(phases, "reviewing")
         profiles.append(
             AgentProfile(
                 id=profile_id,
                 summary=_as_str(raw, "summary"),
-                allowed_roles=_as_str_list(raw, "allowed_roles"),
                 applicable_routes=_as_str_list(raw, "applicable_routes"),
                 capabilities=_as_str_list(raw, "capabilities"),
-                required_review_focus=_as_str_list(raw, "required_review_focus"),
+                planning_mode=_as_str(planning, "mode"),
+                planning_host_role=_as_str(planning, "host_role"),
+                planning_owns_state=_as_bool(planning, "owns_state"),
+                planning_outputs=_as_str_list(planning, "required_outputs"),
+                executing_mode=_as_str(executing, "mode"),
+                executing_owns_state=_as_bool(executing, "owns_state"),
+                allowed_roles=_as_str_list(executing, "allowed_roles"),
+                reviewing_mode=_as_str(reviewing, "mode"),
+                reviewing_host_role=_as_str(reviewing, "host_role"),
+                reviewing_owns_state=_as_bool(reviewing, "owns_state"),
+                review_focus=_as_str_list(reviewing, "required_focus"),
                 constraints=_as_str_list(raw, "constraints"),
             )
         )
@@ -163,6 +193,20 @@ def _as_str_list(data: dict[str, Any], key: str) -> list[str]:
     return value
 
 
+def _as_mapping(data: dict[str, Any], key: str) -> dict[str, Any]:
+    value = data.get(key)
+    if not isinstance(value, dict):
+        raise ValueError(f"Field `{key}` must be a mapping")
+    return value
+
+
+def _as_bool(data: dict[str, Any], key: str) -> bool:
+    value = data.get(key)
+    if not isinstance(value, bool):
+        raise ValueError(f"Field `{key}` must be a boolean")
+    return value
+
+
 def validate_manifest(data: dict[str, Any], project_root: Path = PROJECT_ROOT) -> list[str]:
     issues: list[str] = []
     routes = _normalize_routes(data)
@@ -191,11 +235,12 @@ def validate_manifest(data: dict[str, Any], project_root: Path = PROJECT_ROOT) -
             "profiles_own_lifecycle_states",
             "profile_cannot_replace_reviewer",
             "required_artifact_fields",
+            "phase_contracts",
         ):
             if key not in profile_contract:
                 issues.append(f"Missing agent_profile_contract.{key}")
         expected_contract_values = {
-            "selection_field": "executor_profile",
+            "selection_field": "agent_profile",
             "role_field": "executor_role",
             "profiles_own_lifecycle_states": False,
             "profile_cannot_replace_reviewer": True,
@@ -208,9 +253,9 @@ def validate_manifest(data: dict[str, Any], project_root: Path = PROJECT_ROOT) -
                 )
         required_artifact_fields = profile_contract.get("required_artifact_fields")
         expected_artifact_fields = {
-            "plan_brief": "executor_profile",
-            "execution_report": "executor_profile",
-            "review_report": "executor_profile_review",
+            "plan_brief": ["agent_profile", "profile_plan"],
+            "execution_report": ["agent_profile"],
+            "review_report": ["agent_profile", "agent_profile_review"],
         }
         if (
             required_artifact_fields is not None
@@ -219,6 +264,31 @@ def validate_manifest(data: dict[str, Any], project_root: Path = PROJECT_ROOT) -
             issues.append(
                 "agent_profile_contract.required_artifact_fields must map plan, execution, "
                 "and review artifacts to their canonical profile fields"
+            )
+        expected_phase_contracts = {
+            "planning": {
+                "mode": "contributor",
+                "owner_role": "planner",
+                "artifact_field": "profile_plan",
+            },
+            "executing": {
+                "mode": "assignee",
+                "role_field": "executor_role",
+                "artifact_field": "agent_profile",
+            },
+            "reviewing": {
+                "mode": "review_subject",
+                "owner_role": "reviewer",
+                "artifact_field": "agent_profile_review",
+            },
+        }
+        if (
+            profile_contract.get("phase_contracts") is not None
+            and profile_contract["phase_contracts"] != expected_phase_contracts
+        ):
+            issues.append(
+                "agent_profile_contract.phase_contracts must preserve canonical planning, "
+                "executing, and reviewing semantics"
             )
 
     for profile in profiles:
@@ -230,8 +300,26 @@ def validate_manifest(data: dict[str, Any], project_root: Path = PROJECT_ROOT) -
             issues.append(f"Agent profile `{profile.id}` missing applicable_routes")
         if not profile.capabilities:
             issues.append(f"Agent profile `{profile.id}` missing capabilities")
-        if not profile.required_review_focus:
-            issues.append(f"Agent profile `{profile.id}` missing required_review_focus")
+        if profile.planning_mode != "contributor":
+            issues.append(f"Agent profile `{profile.id}` planning.mode must be contributor")
+        if profile.planning_host_role != "planner":
+            issues.append(f"Agent profile `{profile.id}` planning.host_role must be planner")
+        if profile.planning_owns_state:
+            issues.append(f"Agent profile `{profile.id}` planning.owns_state must be False")
+        if not profile.planning_outputs:
+            issues.append(f"Agent profile `{profile.id}` planning missing required_outputs")
+        if profile.executing_mode != "assignee":
+            issues.append(f"Agent profile `{profile.id}` executing.mode must be assignee")
+        if profile.executing_owns_state:
+            issues.append(f"Agent profile `{profile.id}` executing.owns_state must be False")
+        if profile.reviewing_mode != "review_subject":
+            issues.append(f"Agent profile `{profile.id}` reviewing.mode must be review_subject")
+        if profile.reviewing_host_role != "reviewer":
+            issues.append(f"Agent profile `{profile.id}` reviewing.host_role must be reviewer")
+        if profile.reviewing_owns_state:
+            issues.append(f"Agent profile `{profile.id}` reviewing.owns_state must be False")
+        if not profile.review_focus:
+            issues.append(f"Agent profile `{profile.id}` reviewing missing required_focus")
         if not profile.constraints:
             issues.append(f"Agent profile `{profile.id}` missing constraints")
 
@@ -521,15 +609,17 @@ def _render_agent_profile_catalog(profiles: list[AgentProfile]) -> str:
         roles = ", ".join(f"`{role}`" for role in profile.allowed_roles)
         routes = ", ".join(f"`{route}`" for route in profile.applicable_routes)
         capabilities = ", ".join(f"`{item}`" for item in profile.capabilities)
-        review_focus = ", ".join(f"`{item}`" for item in profile.required_review_focus)
+        planning_outputs = ", ".join(f"`{item}`" for item in profile.planning_outputs)
+        review_focus = ", ".join(f"`{item}`" for item in profile.review_focus)
         sections.extend(
             [
                 f"### `{profile.id}`",
                 f"- {profile.summary}",
-                f"- 可承担角色：{roles}",
                 f"- 适用 route：{routes}",
                 f"- 能力：{capabilities}",
-                f"- 必审项：{review_focus}",
+                f"- `planning`：`{profile.planning_mode}`；必需输出：{planning_outputs}",
+                f"- `executing`：`{profile.executing_mode}`；可承担角色：{roles}",
+                f"- `reviewing`：`{profile.reviewing_mode}`；必审项：{review_focus}",
                 "- 约束：",
                 *(f"  - {constraint}" for constraint in profile.constraints),
                 "",

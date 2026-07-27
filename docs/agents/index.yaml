@@ -1,4 +1,4 @@
-version: 3
+version: 4
 source_of_truth: AGENTS.md
 workflow_source_of_truth: docs/agents/workflows.md
 machine_route_source_of_truth: docs/agents/index.yaml
@@ -80,22 +80,36 @@ agent_roles:
     required_artifact: review_report
 
 agent_profile_contract:
-  selection_field: executor_profile
+  selection_field: agent_profile
   role_field: executor_role
   profiles_own_lifecycle_states: false
   profile_cannot_replace_reviewer: true
   required_artifact_fields:
-    plan_brief: executor_profile
-    execution_report: executor_profile
-    review_report: executor_profile_review
+    plan_brief:
+      - agent_profile
+      - profile_plan
+    execution_report:
+      - agent_profile
+    review_report:
+      - agent_profile
+      - agent_profile_review
+  phase_contracts:
+    planning:
+      mode: contributor
+      owner_role: planner
+      artifact_field: profile_plan
+    executing:
+      mode: assignee
+      role_field: executor_role
+      artifact_field: agent_profile
+    reviewing:
+      mode: review_subject
+      owner_role: reviewer
+      artifact_field: agent_profile_review
 
 agent_profiles:
   - id: graph_engineer
-    summary: DAG、lineage、图布局与图可视化专项执行者
-    allowed_roles:
-      - executor.plugin
-      - executor.config
-      - executor.docs
+    summary: 贯穿规划、执行与审查的 DAG、lineage、图布局及图可视化专家
     applicable_routes:
       - modify_plugin
       - debug_cache
@@ -105,12 +119,34 @@ agent_profiles:
       - runtime_lineage
       - graph_layout
       - graph_visualization
-    required_review_focus:
-      - dependency_direction
-      - runtime_vs_display_semantics
-      - cross_renderer_consistency
+    phase_participation:
+      planning:
+        mode: contributor
+        host_role: planner
+        owns_state: false
+        required_outputs:
+          - graph_scope
+          - dependency_impact
+          - runtime_vs_display_boundary
+          - gate_recommendations
+      executing:
+        mode: assignee
+        owns_state: false
+        allowed_roles:
+          - executor.plugin
+          - executor.config
+          - executor.docs
+      reviewing:
+        mode: review_subject
+        host_role: reviewer
+        owns_state: false
+        required_focus:
+          - dependency_direction
+          - runtime_vs_display_semantics
+          - cross_renderer_consistency
     constraints:
-      - 必须从所选 route 的 handoff 中选择一个允许的 executor_role。
+      - 规划贡献必须在 Planner 进入 ready_for_execution 前合并到 plan_brief。
+      - 执行阶段必须从所选 route 的 handoff 中选择一个允许的 executor_role。
       - 除非 scope 明确要求，否则运行时图语义与仅展示变换必须分离。
       - 必须保留 route 的 reviewer，此 profile 不能自行批准完成。
 

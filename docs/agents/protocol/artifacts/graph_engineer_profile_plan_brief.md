@@ -1,5 +1,7 @@
 # plan_brief
 
+- `contract_version`: `3`（历史记录，已由 v4 lifecycle-wide profile contract 取代）
+
 - `task_id`: `graph_engineer_profile`
 - `route`: `generate_docs`
 - `workflow_cost`: `strict`

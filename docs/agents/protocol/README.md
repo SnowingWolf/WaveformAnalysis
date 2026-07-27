@@ -44,9 +44,12 @@
 
 ## Agent Profile 约定
 - `agent_role` 定义状态所有权；`agent_profile` 定义具体执行者的专项能力，两者不能混用。
-- profile 选择记录在 `executor_profile`，实际生命周期角色仍记录在 `executor_role`。
+- profile 选择统一记录在 `agent_profile`，并在三阶段复用同一个 id。
+- `planning` 使用 `profile_plan` 记录专项计划输入，最终计划仍由 `planner` 负责。
+- `executing` 使用 `executor_role` 记录 profile 实际承担的生命周期角色。
+- `reviewing` 使用 `agent_profile_review` 记录专项审查，放行权仍归 `reviewer`。
 - profile 必须在 `docs/agents/index.yaml` 注册，并至少绑定一个适用 route 的 executor role。
-- profile 不拥有生命周期状态，也不能替代 `reviewer` 放行。
+- profile 不拥有生命周期状态，也不能替代 `planner` 决策或 `reviewer` 放行。
 
 ## 使用约束
 - 模板优先给 agent 直接复制、填空、交接，不要求额外转换格式。

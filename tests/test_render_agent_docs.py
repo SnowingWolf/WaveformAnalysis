@@ -52,7 +52,7 @@ def test_validate_manifest_requires_strict_route_artifacts():
 def test_validate_manifest_rejects_profile_with_unknown_role():
     manifest = _load_manifest()
     profile = manifest["agent_profiles"][0]
-    profile["allowed_roles"] = ["executor.graph"]
+    profile["phase_participation"]["executing"]["allowed_roles"] = ["executor.graph"]
     issues = render_agent_docs.validate_manifest(manifest)
     assert any("references unknown roles: executor.graph" in issue for issue in issues)
 
@@ -60,7 +60,7 @@ def test_validate_manifest_rejects_profile_with_unknown_role():
 def test_validate_manifest_rejects_profile_without_route_handoff_role():
     manifest = _load_manifest()
     profile = manifest["agent_profiles"][0]
-    profile["allowed_roles"] = ["executor.qa"]
+    profile["phase_participation"]["executing"]["allowed_roles"] = ["executor.qa"]
     profile["applicable_routes"] = ["modify_plugin"]
     issues = render_agent_docs.validate_manifest(manifest)
     assert any("no allowed role in route `modify_plugin`" in issue for issue in issues)
@@ -75,11 +75,42 @@ def test_validate_manifest_rejects_profile_that_owns_lifecycle_states():
 
 def test_validate_manifest_rejects_noncanonical_profile_artifact_fields():
     manifest = _load_manifest()
-    manifest["agent_profile_contract"]["required_artifact_fields"][
-        "review_report"
-    ] = "profile_review"
+    manifest["agent_profile_contract"]["required_artifact_fields"]["review_report"] = [
+        "profile_review"
+    ]
     issues = render_agent_docs.validate_manifest(manifest)
     assert any("canonical profile fields" in issue for issue in issues)
+
+
+def test_validate_manifest_requires_profile_planning_outputs():
+    manifest = _load_manifest()
+    profile = manifest["agent_profiles"][0]
+    profile["phase_participation"]["planning"]["required_outputs"] = []
+    issues = render_agent_docs.validate_manifest(manifest)
+    assert any("planning missing required_outputs" in issue for issue in issues)
+
+
+def test_validate_manifest_preserves_planner_state_ownership():
+    manifest = _load_manifest()
+    profile = manifest["agent_profiles"][0]
+    profile["phase_participation"]["planning"]["owns_state"] = True
+    issues = render_agent_docs.validate_manifest(manifest)
+    assert any("planning.owns_state must be False" in issue for issue in issues)
+
+
+def test_validate_manifest_preserves_reviewer_host_role():
+    manifest = _load_manifest()
+    profile = manifest["agent_profiles"][0]
+    profile["phase_participation"]["reviewing"]["host_role"] = "planner"
+    issues = render_agent_docs.validate_manifest(manifest)
+    assert any("reviewing.host_role must be reviewer" in issue for issue in issues)
+
+
+def test_validate_manifest_rejects_noncanonical_phase_contract():
+    manifest = _load_manifest()
+    manifest["agent_profile_contract"]["phase_contracts"]["planning"]["mode"] = "assignee"
+    issues = render_agent_docs.validate_manifest(manifest)
+    assert any("phase_contracts must preserve canonical" in issue for issue in issues)
 
 
 def test_render_file_replaces_generated_section():
@@ -130,6 +161,8 @@ def test_build_generated_sections_include_graph_engineer_profile():
     assert "`graph_engineer`" in catalog
     assert "`executor.plugin`" in catalog
     assert "`runtime_lineage`" in catalog
+    assert "`planning`：`contributor`" in catalog
+    assert "`reviewing`：`review_subject`" in catalog
 
 
 def test_collect_targets_include_retire_compat_profile():
@@ -145,12 +178,14 @@ def test_collect_targets_include_skills_adapter():
 def test_profile_artifact_templates_expose_canonical_fields():
     artifact_root = render_agent_docs.PROJECT_ROOT / "docs" / "agents" / "protocol" / "artifacts"
     expected_fields = {
-        "plan_brief.md": "executor_profile",
-        "execution_report.md": "executor_profile",
-        "review_report.md": "executor_profile_review",
+        "plan_brief.md": ("agent_profile", "profile_plan"),
+        "execution_report.md": ("agent_profile",),
+        "review_report.md": ("agent_profile", "agent_profile_review"),
     }
-    for name, field in expected_fields.items():
-        assert f"`{field}`" in (artifact_root / name).read_text(encoding="utf-8")
+    for name, fields in expected_fields.items():
+        content = (artifact_root / name).read_text(encoding="utf-8")
+        for field in fields:
+            assert f"`{field}`" in content
 
 
 def test_profile_route_templates_expose_profile_handoff_fields():
@@ -160,5 +195,15 @@ def test_profile_route_templates_expose_profile_handoff_fields():
         for route_name in profile["applicable_routes"]:
             profile_doc = render_agent_docs.PROJECT_ROOT / routes[route_name]["profile_doc"]
             content = profile_doc.read_text(encoding="utf-8")
-            assert "`executor_profile`" in content
-            assert "`executor_profile_review`" in content
+            planner_section = content.split("## Planner Template", 1)[1].split(
+                "## Executor Template", 1
+            )[0]
+            executor_section = content.split("## Executor Template", 1)[1].split(
+                "## Reviewer Template", 1
+            )[0]
+            reviewer_section = content.split("## Reviewer Template", 1)[1]
+            assert "`agent_profile`" in planner_section
+            assert "`profile_plan`" in planner_section
+            assert "`agent_profile`" in executor_section
+            assert "`agent_profile`" in reviewer_section
+            assert "`agent_profile_review`" in reviewer_section

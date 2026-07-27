@@ -68,9 +68,10 @@ blocked -> planning | executing | cancelled
 - 普通进度同步不算状态迁移，只算事件。
 
 ## Agent Profile
-- profile 是执行者能力标签，不是生命周期 role，也不拥有状态。
-- profile 只能绑定机器契约允许的 executor role 与 route。
-- profile 不能替代 `reviewer`；专项审查要求由 `review_report.executor_profile_review` 记录。
+- profile 是贯穿任务的专项参与者，不是生命周期 role，也不拥有状态。
+- `planning` 阶段由 profile 贡献 `profile_plan`，但计划状态与最终决策仍归 `planner`。
+- `executing` 阶段由同一 profile 绑定机器契约允许的 executor role 与 route。
+- `reviewing` 阶段 profile 作为被审对象，不能替代 `reviewer`；专项审查要求由 `review_report.agent_profile_review` 记录。
 
 ## 交接产物
 
