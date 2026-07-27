@@ -506,6 +506,366 @@ print(f"竞争激烈的配对: {len(close)}")</div>
             </tr>
         </table>
 
+        <h2>画图函数参考</h2>
+        <p>本节介绍 <code>waveform_analysis.utils.visualization</code> 模块中用于数据分布可视化的三个核心函数。这些函数基于 matplotlib，支持对数刻度、Numba 加速和叠加对比，适用于 hit/peak 特征分析、质量切割标记和参数空间探索。</p>
+
+        <h3>corner_hist — 绘制散点矩阵</h3>
+        <p>绘制多变量散点矩阵（corner plot）：对角线为 1D 直方图，非对角线为 2D 直方图。内部使用 Numba JIT 加速的 2D 直方图计算（自动降级到 NumPy）。返回 <code>(fig, axes)</code> 元组，其中 <code>axes</code> 形状为 <code>(n, n)</code>。</p>
+
+        <div class="code-block">def corner_hist(
+    data,
+    names=None,
+    bins=100,
+    ranges=None,
+    scales="linear",
+    weights=None,
+    figsize_per_panel=3.0,
+    cmap="viridis",
+    hist_color="C0",
+    hist2d_norm="log",
+    hist2d_vmin=1,
+    hist2d_vmax=None,
+    add_colorbar=False,
+    title=None,
+    min_count=1,
+    hist_alpha=1.0,
+    hist2d_alpha=1.0,
+    fig=None,
+    axes=None,
+    triangle="lower",
+    label_mode="outer",
+    label_fontsize=11,
+    label_fontweight="bold",
+    tick_labelsize=8,
+    diag_title=True,
+    show_ticks=True,
+)</div>
+
+        <table>
+            <tr>
+                <th>参数</th>
+                <th>类型</th>
+                <th>默认值</th>
+                <th>说明</th>
+            </tr>
+            <tr>
+                <td><code>data</code></td>
+                <td>list | tuple of 1D arrays</td>
+                <td>—</td>
+                <td>待分析的变量列表，所有数组长度必须相同</td>
+            </tr>
+            <tr>
+                <td><code>names</code></td>
+                <td>list[str] | None</td>
+                <td>None</td>
+                <td>变量名称列表。若为 None，自动生成 'x0', 'x1' 等名称</td>
+            </tr>
+            <tr>
+                <td><code>bins</code></td>
+                <td>int | list | tuple</td>
+                <td>100</td>
+                <td>分箱规范：整数（所有变量相同分箱数）或列表（每变量指定分箱数或边界）</td>
+            </tr>
+            <tr>
+                <td><code>ranges</code></td>
+                <td>list[tuple[float, float]] | None</td>
+                <td>None</td>
+                <td>每个变量的数据范围 (min, max)</td>
+            </tr>
+            <tr>
+                <td><code>scales</code></td>
+                <td>str | list[str]</td>
+                <td>"linear"</td>
+                <td>坐标轴刻度类型："linear" 或 "log"</td>
+            </tr>
+            <tr>
+                <td><code>weights</code></td>
+                <td>np.ndarray | None</td>
+                <td>None</td>
+                <td>事件权重，长度与每个数据数组相同</td>
+            </tr>
+            <tr>
+                <td><code>cmap</code></td>
+                <td>str</td>
+                <td>"viridis"</td>
+                <td>二维直方图的颜色映射</td>
+            </tr>
+            <tr>
+                <td><code>hist2d_norm</code></td>
+                <td>str | None</td>
+                <td>"log"</td>
+                <td>二维直方图归一化方式："log" 或 None</td>
+            </tr>
+            <tr>
+                <td><code>triangle</code></td>
+                <td>str</td>
+                <td>"lower"</td>
+                <td>显示区域："lower"（下三角）、"upper"（上三角）、"full"（完整矩阵）</td>
+            </tr>
+            <tr>
+                <td><code>label_mode</code></td>
+                <td>str</td>
+                <td>"outer"</td>
+                <td>标签显示模式："outer"、"all"、"diag"、"none"</td>
+            </tr>
+            <tr>
+                <td><code>fig</code> / <code>axes</code></td>
+                <td>Figure / ndarray</td>
+                <td>None</td>
+                <td>已有图形对象和子图轴数组，用于叠加新数据。必须同时提供或同时为 None</td>
+            </tr>
+        </table>
+
+        <div class="code-block">from waveform_analysis.utils import corner_hist
+import numpy as np
+
+# 基本用法：三个正态分布变量
+data = [np.random.randn(1000) for _ in range(3)]
+fig, axes = corner_hist(data, names=['X', 'Y', 'Z'])
+
+# 对数刻度分析 hit 特征
+data = [
+    np.random.lognormal(5, 1, 1000),   # Area
+    np.random.lognormal(3, 0.5, 1000), # Height
+    np.random.lognormal(2, 0.3, 1000), # Width
+]
+fig, axes = corner_hist(
+    data,
+    names=['Area', 'Height', 'Width'],
+    scales=['log', 'log', 'log'],
+    bins=[np.logspace(1, 7, 100), np.logspace(2, 5, 100), np.logspace(1, 5, 100)],
+    ranges=[(1e1, 1e7), (1e2, 1e5), (1e1, 1e5)],
+)
+
+# 叠加对比：mask 前后数据
+data_before = [np.random.lognormal(5, 1, 1000) for _ in range(3)]
+data_after = [values[values > np.median(values)] for values in data_before]
+names = ['Area', 'Height', 'Width']
+fig, axes = corner_hist(data_before, names=names, hist_color='blue',
+                        hist_alpha=0.5, hist2d_alpha=0.5)
+fig, axes = corner_hist(data_after, names=names, hist_color='red',
+                        hist_alpha=0.5, hist2d_alpha=0.5,
+                        fig=fig, axes=axes)</div>
+
+        <h3>plot_1d_cut_on_corner — 单变量切割线</h3>
+        <p>在 corner plot 的所有涉及指定变量的面板上绘制单变量切割线（垂直或水平线）。切割线会出现在对角线直方图（作为垂直线）和非对角线面板（当 x 或 y 轴为该变量时，作为垂直或水平线）。<code>label</code> 只会在对角线直方图上显示一次，避免重复图例。</p>
+
+        <div class="code-block">def plot_1d_cut_on_corner(
+    axes,
+    names,
+    var,
+    value,
+    *,
+    triangle="lower",
+    color="crimson",
+    linestyle="--",
+    linewidth=1.5,
+    label=None,
+)</div>
+
+        <table>
+            <tr>
+                <th>参数</th>
+                <th>类型</th>
+                <th>默认值</th>
+                <th>说明</th>
+            </tr>
+            <tr>
+                <td><code>axes</code></td>
+                <td>np.ndarray</td>
+                <td>—</td>
+                <td>由 <code>corner_hist</code> 返回的子图轴数组，形状为 (n, n)</td>
+            </tr>
+            <tr>
+                <td><code>names</code></td>
+                <td>list[str]</td>
+                <td>—</td>
+                <td>变量名称列表，与创建 corner plot 时使用的顺序一致</td>
+            </tr>
+            <tr>
+                <td><code>var</code></td>
+                <td>str</td>
+                <td>—</td>
+                <td>要绘制切割线的变量名，必须在 <code>names</code> 中</td>
+            </tr>
+            <tr>
+                <td><code>value</code></td>
+                <td>float</td>
+                <td>—</td>
+                <td>切割线的位置（变量的值）</td>
+            </tr>
+            <tr>
+                <td><code>triangle</code></td>
+                <td>str</td>
+                <td>"lower"</td>
+                <td>corner plot 的显示模式，应与创建时使用的值一致</td>
+            </tr>
+            <tr>
+                <td><code>color</code></td>
+                <td>str</td>
+                <td>"crimson"</td>
+                <td>切割线的颜色</td>
+            </tr>
+            <tr>
+                <td><code>linestyle</code></td>
+                <td>str</td>
+                <td>"--"</td>
+                <td>切割线的线型，如 '-', '--', '-.', ':'</td>
+            </tr>
+            <tr>
+                <td><code>linewidth</code></td>
+                <td>float</td>
+                <td>1.5</td>
+                <td>切割线的宽度</td>
+            </tr>
+            <tr>
+                <td><code>label</code></td>
+                <td>str | None</td>
+                <td>None</td>
+                <td>图例标签。仅在对角线直方图上显示一次</td>
+            </tr>
+        </table>
+
+        <div class="code-block">from waveform_analysis.utils import corner_hist, plot_1d_cut_on_corner
+import numpy as np
+
+# 创建 corner plot
+data = [np.random.lognormal(5, 1, 1000) for _ in range(3)]
+names = ['Area', 'Height', 'Width']
+fig, axes = corner_hist(data, names=names, scales='log')
+
+# 添加 height 的切割线
+plot_1d_cut_on_corner(
+    axes, names, 'Height', 1.3e4,
+    color='red', label='Height threshold'
+)
+
+# 添加 area 的切割线
+plot_1d_cut_on_corner(
+    axes, names, 'Area', 100,
+    color='blue', linestyle=':', label='Area min'
+)</div>
+
+        <h3>plot_2d_cut_on_corner — 二维切割曲线</h3>
+        <p>在 corner plot 的对应面板上绘制二维切割曲线 <code>y = y_func(x)</code>。用于在散点矩阵上标记两个变量之间的关系或边界条件，例如 <code>height = 10 ** (k * log10(area) + b)</code> 或 <code>width_max = a * sqrt(area)</code>。如果轴是对数刻度，函数会自动使用 logspace 采样。</p>
+
+        <div class="code-block">def plot_2d_cut_on_corner(
+    axes,
+    names,
+    xvar,
+    yvar,
+    y_func,
+    *,
+    triangle="lower",
+    x_range=None,
+    n_points=300,
+    color="crimson",
+    linestyle="-",
+    linewidth=2.0,
+    label=None,
+)</div>
+
+        <table>
+            <tr>
+                <th>参数</th>
+                <th>类型</th>
+                <th>默认值</th>
+                <th>说明</th>
+            </tr>
+            <tr>
+                <td><code>axes</code></td>
+                <td>np.ndarray</td>
+                <td>—</td>
+                <td>由 <code>corner_hist</code> 返回的子图轴数组</td>
+            </tr>
+            <tr>
+                <td><code>names</code></td>
+                <td>list[str]</td>
+                <td>—</td>
+                <td>变量名称列表，与创建 corner plot 时使用的顺序一致</td>
+            </tr>
+            <tr>
+                <td><code>xvar</code></td>
+                <td>str</td>
+                <td>—</td>
+                <td>x 轴变量名，必须在 <code>names</code> 中</td>
+            </tr>
+            <tr>
+                <td><code>yvar</code></td>
+                <td>str</td>
+                <td>—</td>
+                <td>y 轴变量名，必须在 <code>names</code> 中</td>
+            </tr>
+            <tr>
+                <td><code>y_func</code></td>
+                <td>callable</td>
+                <td>—</td>
+                <td>函数 <code>y = y_func(x)</code>，接受 numpy 数组并返回对应的 y 值</td>
+            </tr>
+            <tr>
+                <td><code>triangle</code></td>
+                <td>str</td>
+                <td>"lower"</td>
+                <td>corner plot 的显示模式，应与创建时使用的值一致</td>
+            </tr>
+            <tr>
+                <td><code>x_range</code></td>
+                <td>tuple | None</td>
+                <td>None</td>
+                <td>x 值的范围 (xmin, xmax)。若为 None，则使用轴的当前 xlim</td>
+            </tr>
+            <tr>
+                <td><code>n_points</code></td>
+                <td>int</td>
+                <td>300</td>
+                <td>曲线的采样点数</td>
+            </tr>
+            <tr>
+                <td><code>color</code></td>
+                <td>str</td>
+                <td>"crimson"</td>
+                <td>曲线颜色</td>
+            </tr>
+            <tr>
+                <td><code>linestyle</code></td>
+                <td>str</td>
+                <td>"-"</td>
+                <td>曲线线型</td>
+            </tr>
+            <tr>
+                <td><code>label</code></td>
+                <td>str | None</td>
+                <td>None</td>
+                <td>图例标签</td>
+            </tr>
+        </table>
+
+        <div class="code-block">from waveform_analysis.utils import corner_hist, plot_2d_cut_on_corner
+import numpy as np
+
+# 创建 corner plot
+data = [np.random.lognormal(5, 1, 1000) for _ in range(3)]
+names = ['Area', 'Height', 'Width']
+fig, axes = corner_hist(data, names=names, scales='log')
+
+# 添加 height vs area 的关系曲线
+def height_model(area):
+    return 10 ** (0.5 * np.log10(area) + 1.5)
+
+plot_2d_cut_on_corner(
+    axes, names, 'Area', 'Height', height_model,
+    color='orange', linewidth=2.5, label='Expected relation'
+)
+
+# 添加 width 上限
+def width_max(area):
+    return 2.0 * np.sqrt(area)
+
+plot_2d_cut_on_corner(
+    axes, names, 'Area', 'Width', width_max,
+    color='green', linestyle='--', label='Width limit'
+)</div>
+
         <h2>未来改进方向</h2>
 
         <h3>Phase 3: 全局最优配对（未实现）</h3>
