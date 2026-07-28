@@ -2,16 +2,36 @@ schema_version: 1
 notes:
   ambiguous_fields: []
 st_waveforms:
-  baseline: Computed global waveform baseline for this record
-  baseline_upstream: Upstream baseline value from preceding processing, optional
-  polarity: "Hardware-truth signal polarity: positive | negative | unknown"
-  timestamp: ADC raw timestamp in picoseconds
-  record_id: Sequential record identifier within the structured waveform array
-  dt: Sample interval in nanoseconds, aligned to time
-  event_length: Waveform length in samples
-  board: Hardware board index
-  channel: Physical channel number
-  wave: ADC sample data as 1-D int16 array
+  baseline:
+    doc: Computed global waveform baseline for this record
+    units: ADC counts
+  baseline_upstream:
+    doc: Upstream baseline value from preceding processing, optional
+    units: ADC counts
+  polarity:
+    doc: "Hardware-truth signal polarity: positive | negative | unknown"
+    units: "-"
+  timestamp:
+    doc: ADC raw timestamp in picoseconds
+    units: ps
+  record_id:
+    doc: Sequential record identifier within the structured waveform array
+    units: "-"
+  dt:
+    doc: Sample interval in nanoseconds, aligned to time
+    units: ns
+  event_length:
+    doc: Waveform length in samples
+    units: samples
+  board:
+    doc: Hardware board index
+    units: "-"
+  channel:
+    doc: Physical channel number
+    units: "-"
+  wave:
+    doc: ADC sample data as 1-D int16 array
+    units: ADC counts
 hit:
   position: Peak position as sample index within the waveform
   height: Peak height above baseline
@@ -120,36 +140,96 @@ waveform_width_integral:
   channel: Physical channel number
   record_id: Source record identifier
 s1_s2_pair_candidates:
-  pair_id: Unique candidate pair identifier
-  s1_peak_id: S1 peak identifier
-  s2_peak_id: S2 peak identifier (anchor)
-  s1_index: S1 row index in the S1-only sub-array
-  s2_index: S2 row index in the S2-only sub-array
-  s1_time: S1 timestamp in picoseconds
-  s2_time: S2 timestamp in picoseconds
-  drift_time: Drift time (S2 time minus S1 time) in picoseconds
-  drift_time_ns: Drift time in nanoseconds
-  s1_area: S1 signal area
-  s2_area: S2 signal area
-  log10_s2_s1: log10 of S2/S1 area ratio
-  s1_width: S1 width (ns)
-  s2_width: S2 width (ns)
-  s1_n_channels: Number of channels for S1
-  s2_n_channels: Number of channels for S2
-  score_total: Total pairing score
-  score_time: Time-matching score
-  score_s1_quality: S1 quality score
-  score_s2_quality: S2 quality score
-  score_ratio: S2/S1 ratio score
-  score_pattern: Pattern-matching score (reserved)
-  score_ambiguity: Ambiguity penalty (reserved)
-  rank_for_s1: Rank of this S2 among all S1 candidates (1-based)
-  rank_for_s2: Rank of this S1 among all S2 candidates (1-based)
-  n_s1_candidates_for_s2: Number of S1 candidates competing for this S2
-  n_s2_candidates_for_s1: Number of S2 candidates competing for this S1
-  delta_score_to_next_best: Score difference to next-best candidate
-  flags: Bit-field status flags
-  selected: Whether this pair was selected as final pairing
+  pair_id:
+    doc: Unique candidate pair identifier
+    units: "-"
+  s1_peak_id:
+    doc: S1 peak identifier
+    units: "-"
+  s2_peak_id:
+    doc: S2 peak identifier (anchor)
+    units: "-"
+  s1_index:
+    doc: S1 row index in the S1-only sub-array
+    units: "-"
+  s2_index:
+    doc: S2 row index in the S2-only sub-array
+    units: "-"
+  s1_time:
+    doc: S1 timestamp
+    units: ps
+  s2_time:
+    doc: S2 timestamp
+    units: ps
+  drift_time:
+    doc: Drift time (S2 time minus S1 time)
+    units: ps
+  drift_time_ns:
+    doc: Drift time in nanoseconds
+    units: ns
+  s1_area:
+    doc: S1 signal area
+    units: "-"
+  s2_area:
+    doc: S2 signal area
+    units: "-"
+  log10_s2_s1:
+    doc: log10 of S2/S1 area ratio
+    units: "-"
+  s1_width:
+    doc: S1 width
+    units: ns
+  s2_width:
+    doc: S2 width
+    units: ns
+  s1_n_channels:
+    doc: Number of channels for S1
+    units: "-"
+  s2_n_channels:
+    doc: Number of channels for S2
+    units: "-"
+  score_total:
+    doc: Total pairing score
+    units: "-"
+  score_time:
+    doc: Time-matching score
+    units: "-"
+  score_s1_quality:
+    doc: S1 quality score
+    units: "-"
+  score_s2_quality:
+    doc: S2 quality score
+    units: "-"
+  score_ratio:
+    doc: S2/S1 ratio score
+    units: "-"
+  score_pattern:
+    doc: Pattern-matching score (reserved)
+    units: "-"
+  score_ambiguity:
+    doc: Ambiguity penalty (reserved)
+    units: "-"
+  rank_for_s1:
+    doc: Rank of this S2 among all S1 candidates (1-based)
+    units: "-"
+  rank_for_s2:
+    doc: Rank of this S1 among all S2 candidates (1-based)
+    units: "-"
+  n_s1_candidates_for_s2:
+    doc: Number of S1 candidates competing for this S2
+    units: "-"
+  n_s2_candidates_for_s1:
+    doc: Number of S2 candidates competing for this S1
+    units: "-"
+  delta_score_to_next_best:
+    doc: Score difference to next-best candidate
+    units: "-"
+  flags:
+    doc: Bit-field status flags
+    units: "-"
+  selected:
+    doc: Whether this pair was selected as final pairing
+    units: "-"
 s1_s2_pairs:
   pair_id: Unique candidate pair identifier
   s1_peak_id: S1 peak identifier
@@ -182,24 +262,56 @@ s1_s2_pairs:
   flags: Bit-field status flags
   selected: Whether this pair was selected as final pairing
 records:
-  timestamp: ADC timestamp in picoseconds
-  pid: Partition identifier used as a tie-breaker
-  board: Hardware board index
-  channel: Physical channel number
-  baseline: Computed global waveform baseline
-  baseline_upstream: Upstream baseline value from preceding processing
-  polarity: Hardware-truth signal polarity
-  record_id: Sequential record identifier after sorting
-  dt: Sample interval in nanoseconds
-  trigger_type: Trigger type code
-  flags: Bit field of record flags
-  wave_offset: Starting index in wave_pool
-  event_length: Waveform length in samples
-  time: System time in nanoseconds
+  timestamp:
+    doc: ADC timestamp in picoseconds
+    units: ps
+  pid:
+    doc: Partition identifier used as a tie-breaker
+    units: "-"
+  board:
+    doc: Hardware board index
+    units: "-"
+  channel:
+    doc: Physical channel number
+    units: "-"
+  baseline:
+    doc: Computed global waveform baseline
+    units: ADC counts
+  baseline_upstream:
+    doc: Upstream baseline value from preceding processing
+    units: ADC counts
+  polarity:
+    doc: Hardware-truth signal polarity
+    units: "-"
+  record_id:
+    doc: Sequential record identifier after sorting
+    units: "-"
+  dt:
+    doc: Sample interval in nanoseconds
+    units: ns
+  trigger_type:
+    doc: Trigger type code
+    units: "-"
+  flags:
+    doc: Bit field of record flags
+    units: "-"
+  wave_offset:
+    doc: Starting index in wave_pool
+    units: "-"
+  event_length:
+    doc: Waveform length in samples
+    units: samples
+  time:
+    doc: System time in nanoseconds
+    units: ns
 wave_pool:
-  value: Flattened uint16 ADC sample value
+  value:
+    doc: Flattened uint16 ADC sample value
+    units: ADC counts
 wave_pool_filtered:
-  value: Flattened float32 filtered sample value
+  value:
+    doc: Flattened float32 filtered sample value
+    units: ADC counts
 records_asymmetry_mask:
   value: "Boolean mask: True for records passing waveform asymmetry selection"
 records_detector_mask:

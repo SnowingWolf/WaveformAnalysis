@@ -48,20 +48,20 @@ Extract waveforms from raw CSV files and structure them into NumPy structured ar
 | `streaming_mode` | `bool` | `False` | - | no | no | Enable streaming mode: read files and structure waveforms incrementally to reduce memory usage. When enabled, uses memmap for output to avoid full vstack memory overhead. |
 ## Output
 
-structured_array output with fields: baseline, baseline_upstream, polarity, timestamp, record_id, dt, event_length, board, ....
+structured_array output with fields: baseline, baseline_upstream, polarity, timestamp, record_id, dt, event_length, board, channel, wave.
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `baseline` | `float64` | - | Computed global waveform baseline for this record |
-| `baseline_upstream` | `float64` | - | Upstream baseline value from preceding processing, optional |
+| `baseline` | `float64` | ADC counts | Computed global waveform baseline for this record |
+| `baseline_upstream` | `float64` | ADC counts | Upstream baseline value from preceding processing, optional |
 | `polarity` | `<U8` | - | Hardware-truth signal polarity: positive \| negative \| unknown |
-| `timestamp` | `int64` | - | ADC raw timestamp in picoseconds |
+| `timestamp` | `int64` | ps | ADC raw timestamp in picoseconds |
 | `record_id` | `int64` | - | Sequential record identifier within the structured waveform array |
-| `dt` | `int32` | - | Sample interval in nanoseconds, aligned to time |
-| `event_length` | `int32` | - | Waveform length in samples |
+| `dt` | `int32` | ns | Sample interval in nanoseconds, aligned to time |
+| `event_length` | `int32` | samples | Waveform length in samples |
 | `board` | `int16` | - | Hardware board index |
 | `channel` | `int16` | - | Physical channel number |
-| `wave` | `('<i2', (1500,))` | - | ADC sample data as 1-D int16 array |
+| `wave` | `('<i2', (1500,))` | ADC counts | ADC sample data as 1-D int16 array |
 ## Usage
 
 ### Minimal Example
