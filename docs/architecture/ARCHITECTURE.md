@@ -16,6 +16,7 @@
 - **流式处理 (Streaming)**: 采用生成器模式，数据以分块（Chunk）形式流过处理链，极大地降低了内存占用。
 - **血缘追踪 (Lineage Tracking)**: 通过哈希插件代码、版本和配置参数，确保数据的可追溯性和缓存的准确性。
 - **零拷贝缓存 (Zero-copy Caching)**: 使用 `numpy.memmap` 实现磁盘数据的瞬时加载。
+- **硬件无关边界 (Hardware-agnostic Boundary)**: DAQ 适配器层把不同数字化仪（CAEN VX2730/V1725 等）的文件格式、目录布局、时间戳单位封装为可注册的 `DAQAdapter`，上层插件链路只面向统一的 `records`/`wave_pool`/`st_waveforms` 抽象。
 
 ---
 
@@ -82,7 +83,98 @@
     - **流合并**: `merge_stream()` 合并多个数据流。
     - **自动转换**: 自动将静态数据转换为 chunk 流，或将流式数据合并为静态数据。
 
-### 2.7 数据管理与查询层 (Data & Query Layer)
+### 2.7 DAQ 适配器层 (DAQ Adapter Layer)
+
+DAQ 适配器层是原始 DAQ 文件与框架内部数据结构之间的统一边界。它把"哪种数字化仪、哪种文件格式、哪种目录布局、哪种时间戳单位"这些硬件相关差异封装在一组可注册、可组合的适配器里，使上层插件链路只需面向统一的 `records`/`wave_pool`/`st_waveforms` 抽象编程。
+
+#### 2.7.1 核心抽象
+
+| 组件 | 位置 | 职责 |
+|------|------|------|
+| `TimestampUnit` | `utils/formats/base.py` | 时间戳单位枚举（ps/ns/μs/ms/s），用于读取时统一换算到皮秒 |
+| `RawTimestampMode` | `utils/formats/base.py` | 原生时间戳语义：物理单位 (`unit`) 或采样点索引 (`sample_index`) |
+| `ColumnMapping` | `utils/formats/base.py` | CSV 列索引映射：board/channel/timestamp/samples_start/samples_end/baseline_* |
+| `FormatSpec` | `utils/formats/base.py` | 完整格式规范：列映射、时间戳单位、分隔符、文件模式、头部行数、采样率、元数据 |
+| `FormatReader` | `utils/formats/base.py` | 格式读取器抽象基类：`read_file`/`read_files`/`read_files_generator`/`extract_columns`/`validate_data` |
+| `DirectoryLayout` | `utils/formats/directory.py` | 目录结构配置：原始数据子目录、运行路径模板、文件 glob、通道识别正则、文件索引正则 |
+| `DAQAdapter` | `utils/formats/adapter.py` | 完整适配器：组合 `FormatReader` + `DirectoryLayout`，提供 `scan_run`/`load_channel`/`load_all_channels`/`load_channel_generator`/`extract_and_convert`/`normalize_timestamp_to_ps`/`get_file_epoch` |
+| `AdapterInfo` | `core/config/adapter_info.py` | 从 adapter 提取的配置推断信息：采样率、时间戳单位、`dt_ns`/`dt_ps`，供插件配置解析器使用 |
+
+#### 2.7.2 注册表与发现
+
+- **格式注册表** (`utils/formats/registry.py`):
+  - `register_format(name, reader_cls, spec)` / `unregister_format(name)`
+  - `get_format_reader(name)` / `get_format_spec(name)` / `is_format_registered(name)` / `list_formats()`
+- **适配器注册表** (`utils/formats/adapter.py`):
+  - `register_adapter(adapter)` / `unregister_adapter(name)`
+  - `get_adapter(name)` / `is_adapter_registered(name)` / `list_adapters()`
+- **自动注册**: `utils/formats/__init__.py` 在导入时自动注册内置格式 `vx2730_csv` 与 `v1725_bin`。
+
+#### 2.7.3 内置适配器
+
+| 适配器 | 格式 | 目录结构 | 时间戳 | 采样率 | 备注 |
+|--------|------|----------|--------|--------|------|
+| `vx2730` | CSV（分号分隔） | `DAQ/{run}/RAW/*.CSV` | ps | 500 MHz | CAEN VX2730，首文件 2 行头部 |
+| `v1725` | 二进制（`.bin`） | 单文件多通道 | sample index → ps | 500 MHz | CAEN V1725 DAW_DEMO，Numba 加速解析 |
+
+#### 2.7.4 与插件链路的集成
+
+适配器层通过两条路径接入插件 DAG：
+
+1. **配置推断** (`AdapterInfo` → 配置解析器):
+   - `AdapterInfo.from_adapter(name)` 从 `FormatSpec` 提取采样率、时间戳单位、`dt_ns`/`dt_ps`。
+   - 配置解析器在缺少显式配置时，调用 `get_adapter_info(adapter_name)` 推断 `sampling_rate_hz`/`dt_ns`/`dt_ps`/`timestamp_unit`/`raw_timestamp_mode` 等键。
+   - 优先级：显式配置 > adapter 推断 > 插件默认值。
+2. **数据加载** (`RawFilesPlugin`/`WaveformsPlugin`/`StWaveformsPlugin`):
+   - 这三个插件均支持 `daq_adapter` 配置选项。
+   - 全局配置：`ctx.set_config({'daq_adapter': 'vx2730'})`。
+   - 插件特定配置：`ctx.set_config({'daq_adapter': 'vx2730'}, plugin_name='st_waveforms')`。
+   - 适配器名称参与血缘哈希，切换适配器会自动失效旧缓存。
+
+#### 2.7.5 适配器与 WaveformStruct 的解耦
+
+- `WaveformStructConfig` 通过 `from_adapter(adapter_name)` 工厂方法从适配器名称创建配置。
+- `WaveformStruct` 支持 `from_adapter(waveforms, "vx2730")` 从适配器名称创建结构化处理器。
+- 无配置时默认使用 VX2730 格式，保持向后兼容。
+
+#### 2.7.6 扩展自定义适配器
+
+```python
+from waveform_analysis.utils.formats import (
+    FormatSpec, ColumnMapping, TimestampUnit,
+    GenericCSVReader, register_format,
+    DirectoryLayout, DAQAdapter, register_adapter,
+)
+
+# 1. 定义格式规范
+spec = FormatSpec(
+    name="my_format",
+    columns=ColumnMapping(timestamp=3),
+    timestamp_unit=TimestampUnit.NANOSECONDS,
+    delimiter=",",
+)
+
+# 2. 注册格式
+register_format("my_format", GenericCSVReader, spec)
+
+# 3. 定义目录布局
+layout = DirectoryLayout(
+    name="my_layout",
+    raw_subdir="data",
+    file_glob_pattern="*.dat",
+    channel_regex=r"channel(\d+)",
+)
+
+# 4. 创建并注册完整适配器
+adapter = DAQAdapter(
+    name="my_adapter",
+    format_reader=GenericCSVReader(spec),
+    directory_layout=layout,
+)
+register_adapter(adapter)
+```
+
+### 2.8 数据管理与查询层 (Data & Query Layer)
 - **时间范围查询** (`core/data/query.py`):
     - `TimeRangeQueryEngine` + `TimeIndex` 支持按时间段检索数据。
     - `time_range` 支持多通道数据与索引缓存（首次查询自动构建索引）。
@@ -100,7 +192,7 @@
     - **注册表**: 支持自定义格式和适配器的注册和获取。
     - **内置支持**: VX2730 (CAEN) 数字化仪格式。
 
-### 2.8 数据处理层 (Data Processing Layer)
+### 2.9 数据处理层 (Data Processing Layer)
 - **`WaveformStruct`** (`core/processing/waveform_struct.py`): 波形结构化处理器，已解耦 DAQ 格式依赖。
     - **配置驱动**: 通过 `WaveformStructConfig` 配置类指定 DAQ 格式。
     - **动态 dtype**: 根据实际波形长度动态创建 `ST_WAVEFORM_DTYPE`。
@@ -132,7 +224,7 @@
     - 全局配置: `ctx.set_config({'daq_adapter': 'vx2730'})`。
     - 插件特定配置: `ctx.set_config({'daq_adapter': 'vx2730'}, plugin_name='st_waveforms')`。
 
-### 2.9 时间字段统一 (Time Field Unification)
+### 2.10 时间字段统一 (Time Field Unification)
 - **时间字段约定**:
     - **`timestamp` (i8)**: ADC 原始时间戳，统一为 ps。
     - **`time` (i8)**: 可选的系统时间（ns），用于绝对时间查询与对齐。
@@ -298,6 +390,13 @@ flowchart TD
 
 ```mermaid
 flowchart LR
+    subgraph Adapter["🔌 DAQ Adapter Layer"]
+        AD["DAQAdapter\n(vx2730/v1725/...)"]
+        FS["FormatSpec\n+ ColumnMapping"]
+        DL["DirectoryLayout"]
+        AI["AdapterInfo\n→ 配置推断"]
+    end
+
     subgraph Context["🎛️ Context (中央调度器)"]
         REG["register()"]
         GET["get_data()"]
@@ -323,6 +422,11 @@ flowchart LR
         SIG["签名验证"]
     end
 
+    AD --> FS
+    AD --> DL
+    AD --> AI
+    AI -->|推断配置| OPTIONS
+
     Plugin -->|注册| REG
     REG -->|存储| Context
 
@@ -341,6 +445,7 @@ flowchart LR
     COMPUTE -->|结果| MEM
     MEM -->|持久化| DISK
 
+    style Adapter fill:#fff3e0,stroke:#f57c00,stroke-width:2px
     style Context fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
     style Plugin fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
     style Lineage fill:#fff3e0,stroke:#f57c00,stroke-width:2px
@@ -351,6 +456,8 @@ flowchart LR
 **核心交互点**：
 | 交互 | 说明 |
 |------|------|
+| DAQAdapter → FormatSpec/DirectoryLayout | 适配器组合格式读取器与目录布局，提供统一数据访问接口 |
+| DAQAdapter → AdapterInfo → Plugin options | 适配器推断采样率/`dt_ns`/时间戳单位，供插件配置解析器使用 |
 | Plugin → Context | 插件通过 `register()` 注册到 `_plugins` 字典 |
 | depends_on → Lineage | `get_lineage()` 递归遍历依赖构建血缘树 |
 | options → Cache | 仅 `track=True` 的选项参与血缘哈希计算 |
@@ -479,7 +586,7 @@ graph TD
     - `data/`: query/batch_processor/export/dependency_analysis/records_view
     - `foundation/`: exceptions/model/utils/progress/constants 等基础能力
 - `waveform_analysis/utils/`: 通用工具
-    - `formats/`: DAQ 数据格式适配器
+    - `formats/`: DAQ 数据格式适配器（`FormatSpec`/`ColumnMapping`/`TimestampUnit`/`DirectoryLayout`/`FormatReader`/`DAQAdapter`/注册表；内置 `vx2730`/`v1725`）
     - `daq/`: DAQ 数据分析工具
     - `io.py`: 文件 I/O 工具
     - `preview.py`: 波形预览工具
