@@ -1804,6 +1804,7 @@ class PluginDocGenerator:
         accessor_index_href: str | None = None,
         context_index_href: str | None = None,
         visualization_index_href: str | None = None,
+        visualization_detail_prefix: str | None = None,
         site_root_prefix: str = "../",
     ) -> str:
         """Render one standalone plugin HTML page with escaped metadata."""
@@ -1819,6 +1820,7 @@ class PluginDocGenerator:
                 accessor_index_href=accessor_index_href,
                 context_index_href=context_index_href,
                 visualization_index_href=visualization_index_href,
+                visualization_detail_prefix=visualization_detail_prefix,
                 site_root_prefix=site_root_prefix,
             )
         )
@@ -1837,6 +1839,7 @@ class PluginDocGenerator:
         accessor_index_href: str | None = None,
         context_index_href: str | None = None,
         visualization_index_href: str | None = None,
+        visualization_detail_prefix: str | None = None,
         lineage_details_json: str | None = None,
         global_lineage_json: str | None = None,
         terminal_outputs: set[str] | None = None,
@@ -1868,6 +1871,7 @@ class PluginDocGenerator:
                 accessor_index_href=accessor_index_href,
                 context_index_href=context_index_href,
                 visualization_index_href=visualization_index_href,
+                visualization_detail_prefix=visualization_detail_prefix,
                 standalone_plugins=standalone_plugins,
                 terminal_outputs=sorted(terminal_outputs or set()),
                 lineage_details_json=(
@@ -1951,6 +1955,21 @@ class PluginDocGenerator:
             if visualization_relative_path
             else None
         )
+        visualization_dir = (
+            output_dir / visualization_relative_path if visualization_relative_path else None
+        )
+        if visualization_dir is not None:
+            visualization_dir = visualization_dir.parent
+        detail_visualization_prefix = (
+            Path(os.path.relpath(visualization_dir, plugin_dir)).as_posix() + "/"
+            if visualization_dir is not None
+            else None
+        )
+        index_visualization_prefix = (
+            Path(os.path.relpath(visualization_dir, index_dir)).as_posix() + "/"
+            if visualization_dir is not None
+            else None
+        )
         default_dependencies = self._default_dependency_map()
         plugins = self._with_web_scores(
             self.get_all_doc_info(), dependencies_by_provides=default_dependencies
@@ -1984,6 +2003,7 @@ class PluginDocGenerator:
                     accessor_index_href=detail_accessor_href,
                     context_index_href=detail_context_href,
                     visualization_index_href=detail_visualization_href,
+                    visualization_detail_prefix=detail_visualization_prefix,
                     site_root_prefix=detail_site_root_prefix,
                 ),
                 encoding="utf-8",
@@ -2017,6 +2037,7 @@ class PluginDocGenerator:
                 accessor_index_href=index_accessor_href,
                 context_index_href=index_context_href,
                 visualization_index_href=index_visualization_href,
+                visualization_detail_prefix=index_visualization_prefix,
                 lineage_details_json=detail_json,
                 global_lineage_json=global_json,
                 terminal_outputs=terminal_outputs,

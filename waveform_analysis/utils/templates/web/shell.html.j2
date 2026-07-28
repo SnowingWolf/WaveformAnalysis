@@ -12,7 +12,7 @@
 </header>
 {%- endmacro %}
 
-{% macro navigation(site_home_href, plugin_index_href, accessor_index_href, context_index_href, visualization_index_href, current, active_accessor, accessor_detail_prefix) -%}
+{% macro navigation(site_home_href, plugin_index_href, accessor_index_href, context_index_href, visualization_index_href, visualization_detail_prefix, current, active_accessor, accessor_detail_prefix) -%}
 <aside class="site-tree" id="site-navigation" data-doc-nav aria-label="文档导航">
   <div class="site-tree-heading"><span>文档导航</span><button class="site-icon-button" type="button" data-doc-nav-close aria-label="关闭文档导航" title="关闭"><span aria-hidden="true">&times;</span></button></div>
   <nav aria-label="主文档树">
@@ -32,7 +32,7 @@
           <li><a href="{{ accessor_detail_prefix }}s1-s2-pair-accessor.html"{% if active_accessor == "s1-s2-pair-accessor" %} aria-current="page"{% endif %}>S1S2PairAccessor</a></li>
         </ul>
       </li>{% endif %}
-      {% if visualization_index_href %}<li class="site-tree-group"><div class="site-tree-group-row"><a href="{{ visualization_index_href }}"{% if current == "visualizations" %} aria-current="page"{% endif %}>可视化</a><button class="site-tree-toggle" type="button" data-tree-toggle aria-expanded="true" aria-controls="tree-visualizations" title="折叠可视化"><span aria-hidden="true"></span><span class="sr-only">折叠可视化</span></button></div><ul id="tree-visualizations"><li><a href="{{ visualization_index_href }}statistical-plots.html">统计图</a></li><li><a href="{{ visualization_index_href }}waveform-plots.html">波形图</a></li></ul></li>{% endif %}
+      {% if visualization_index_href %}<li class="site-tree-group"><div class="site-tree-group-row"><a href="{{ visualization_index_href }}"{% if current == "visualizations" %} aria-current="page"{% endif %}>可视化</a><button class="site-tree-toggle" type="button" data-tree-toggle aria-expanded="true" aria-controls="tree-visualizations" title="折叠可视化"><span aria-hidden="true"></span><span class="sr-only">折叠可视化</span></button></div><ul id="tree-visualizations"><li><a href="{{ visualization_detail_prefix }}statistical-plots.html">统计图</a></li><li><a href="{{ visualization_detail_prefix }}waveform-plots.html">波形图</a></li></ul></li>{% endif %}
     </ul>
   </nav>
 </aside>
