@@ -23,13 +23,34 @@ from typing import Any
 from urllib.parse import quote
 import warnings
 
-from markupsafe import Markup
+from markupsafe import Markup, escape
 import numpy as np
 
 from waveform_analysis.core.foundation.utils import exporter
 from waveform_analysis.documentation.field_notes import dtype_field_notes_for
 
 export, __all__ = exporter()
+
+
+def _inline_code(value: str) -> Markup:
+    """Escape prose first, then render restricted emphasis and code notation."""
+    escaped = str(escape(value))
+    emphasized = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
+    return Markup(re.sub(r"`([^`]+)`", r"<code>\1</code>", emphasized))
+
+
+def _highlight_python(source: str) -> Markup:
+    """Return trusted offline Pygments markup for registry-controlled Python examples."""
+    try:
+        from pygments import highlight
+        from pygments.formatters import HtmlFormatter
+        from pygments.lexers import PythonLexer
+    except ImportError as exc:
+        raise RuntimeError(
+            "site-web plugin examples require Pygments. Install the documentation extra: "
+            'pip install -e ".[docgen]"'
+        ) from exc
+    return Markup(highlight(source, PythonLexer(), HtmlFormatter(nowrap=True)))
 
 
 # 插件类别映射规则
@@ -57,6 +78,17 @@ CATEGORY_DISPLAY_NAMES = {
     "cache_analysis": "缓存分析",
     "records": "记录处理",
     "other": "其他",
+}
+
+# 插件集合描述：每个 plugin_set 的职责与组成
+PLUGIN_SET_DESCRIPTIONS = {
+    "io": "扫描数据目录并按通道号分组原始文件，是处理链路的输入入口。",
+    "waveform": "波形结构化、可选滤波与 records/wave_pool 构建；波形与记录插件必须同集合注册，依赖关系随 adapter 自动调整。",
+    "hit": "Hit 检测与合并：阈值检测、记录掩码（不对称/探测器/veto）、hit 合并与聚类、hit_merged 特征。",
+    "peaks": "Peaklet 构建与 peak 分类：peaklet 组件、peaklets、波形、pool、特征、通道、peaks、波形宽度、S1/S2 分类与 peak 分类。",
+    "basic_features": "基础特征提取：从波形计算高度、面积、最大绝对差等特征。",
+    "tabular": "表格输出（DataFrame、表）：构建单通道事件 DataFrame 与分组/配对事件表。",
+    "events": "事件级处理：S1-S2 配对候选与最终选择、位置重建、完整事件重建与按时间窗口分组的事件。",
 }
 
 DOCUMENTATION_DEFAULT_PROFILE = {
@@ -227,6 +259,7 @@ class _WebPluginSet:
     name: str
     label: str
     plugins: list[PluginDocumentationView]
+    description: str = ""
 
 
 class _DefaultDocumentationContext:
@@ -324,6 +357,8 @@ class PluginDocGenerator:
                 lstrip_blocks=True,
                 keep_trailing_newline=True,
             )
+            self._web_jinja_env.filters["inline_code"] = _inline_code
+            self._web_jinja_env.filters["highlight_python"] = _highlight_python
         return self._web_jinja_env
 
     def load_builtin_plugins(self) -> int:
@@ -795,8 +830,8 @@ class PluginDocGenerator:
                 OutputFieldInfo(
                     name=field.name,
                     dtype=field.dtype,
-                    units=field.units,
-                    doc=field.doc or dtype_notes.get(field.name, ""),
+                    units=field.units or dtype_notes.get(field.name, {}).get("units", "-"),
+                    doc=field.doc or dtype_notes.get(field.name, {}).get("doc", ""),
                 )
                 for field in output_schema.fields
             ]
@@ -818,21 +853,29 @@ class PluginDocGenerator:
                 output_kind = "structured_array"
                 for name in dtype.names:
                     field_dtype = dtype.fields[name][0]
+                    note = dtype_notes.get(name, {})
+                    doc = note.get("doc", "") if isinstance(note, dict) else str(note)
+                    units = note.get("units", "-") if isinstance(note, dict) else "-"
                     output_fields.append(
                         OutputFieldInfo(
                             name=name,
                             dtype=str(field_dtype),
-                            doc=dtype_notes.get(name, ""),
+                            units=units,
+                            doc=doc,
                         )
                     )
             else:
                 # 简单数组
                 output_kind = "array"
+                note = dtype_notes.get("value", {})
+                doc = note.get("doc", "") if isinstance(note, dict) else str(note)
+                units = note.get("units", "-") if isinstance(note, dict) else "-"
                 output_fields.append(
                     OutputFieldInfo(
                         name="value",
                         dtype=str(dtype),
-                        doc=dtype_notes.get("value", ""),
+                        units=units,
+                        doc=doc,
                     )
                 )
         except Exception:
@@ -1091,6 +1134,7 @@ class PluginDocGenerator:
                         name=name,
                         label=f"插件集合：{name.replace('_', ' ').title()}",
                         plugins=members,
+                        description=PLUGIN_SET_DESCRIPTIONS.get(name, ""),
                     )
                 )
 
@@ -1104,7 +1148,14 @@ class PluginDocGenerator:
             key=lambda plugin: plugin.provides,
         )
         if remaining:
-            groups.append(_WebPluginSet(name="other", label="其他插件", plugins=remaining))
+            groups.append(
+                _WebPluginSet(
+                    name="other",
+                    label="其他插件",
+                    plugins=remaining,
+                    description="未归入上述集合的补充插件。",
+                )
+            )
         return groups
 
     @staticmethod
@@ -1751,6 +1802,8 @@ class PluginDocGenerator:
         site_home_href: str = "../index.html",
         plugin_index_href: str = "../index.html",
         accessor_index_href: str | None = None,
+        context_index_href: str | None = None,
+        visualization_index_href: str | None = None,
         site_root_prefix: str = "../",
     ) -> str:
         """Render one standalone plugin HTML page with escaped metadata."""
@@ -1764,6 +1817,8 @@ class PluginDocGenerator:
                 site_home_href=site_home_href,
                 plugin_index_href=plugin_index_href,
                 accessor_index_href=accessor_index_href,
+                context_index_href=context_index_href,
+                visualization_index_href=visualization_index_href,
                 site_root_prefix=site_root_prefix,
             )
         )
@@ -1780,6 +1835,8 @@ class PluginDocGenerator:
         plugin_href_prefix: str = "plugins/",
         plugin_index_href: str = "index.html",
         accessor_index_href: str | None = None,
+        context_index_href: str | None = None,
+        visualization_index_href: str | None = None,
         lineage_details_json: str | None = None,
         global_lineage_json: str | None = None,
         terminal_outputs: set[str] | None = None,
@@ -1809,6 +1866,8 @@ class PluginDocGenerator:
                 plugin_href_prefix=plugin_href_prefix,
                 plugin_index_href=plugin_index_href,
                 accessor_index_href=accessor_index_href,
+                context_index_href=context_index_href,
+                visualization_index_href=visualization_index_href,
                 standalone_plugins=standalone_plugins,
                 terminal_outputs=sorted(terminal_outputs or set()),
                 lineage_details_json=(
@@ -1830,6 +1889,8 @@ class PluginDocGenerator:
         asset_relative_dir: str = "assets",
         site_home_href: str = "index.html",
         accessor_relative_path: str | None = None,
+        context_relative_path: str | None = None,
+        visualization_relative_path: str | None = None,
         extra_search_entries: list[dict[str, str]] | None = None,
     ) -> dict[str, Path]:
         """Generate an offline HTML plugin reference site."""
@@ -1870,6 +1931,26 @@ class PluginDocGenerator:
             if accessor_relative_path
             else None
         )
+        detail_context_href = (
+            Path(os.path.relpath(output_dir / context_relative_path, plugin_dir)).as_posix()
+            if context_relative_path
+            else None
+        )
+        index_context_href = (
+            Path(os.path.relpath(output_dir / context_relative_path, index_dir)).as_posix()
+            if context_relative_path
+            else None
+        )
+        detail_visualization_href = (
+            Path(os.path.relpath(output_dir / visualization_relative_path, plugin_dir)).as_posix()
+            if visualization_relative_path
+            else None
+        )
+        index_visualization_href = (
+            Path(os.path.relpath(output_dir / visualization_relative_path, index_dir)).as_posix()
+            if visualization_relative_path
+            else None
+        )
         default_dependencies = self._default_dependency_map()
         plugins = self._with_web_scores(
             self.get_all_doc_info(), dependencies_by_provides=default_dependencies
@@ -1901,6 +1982,8 @@ class PluginDocGenerator:
                     site_home_href=detail_home_href,
                     plugin_index_href=plugin_index_href,
                     accessor_index_href=detail_accessor_href,
+                    context_index_href=detail_context_href,
+                    visualization_index_href=detail_visualization_href,
                     site_root_prefix=detail_site_root_prefix,
                 ),
                 encoding="utf-8",
@@ -1932,6 +2015,8 @@ class PluginDocGenerator:
                 plugin_href_prefix=index_plugin_prefix,
                 plugin_index_href=Path(os.path.relpath(index_path, index_dir)).as_posix(),
                 accessor_index_href=index_accessor_href,
+                context_index_href=index_context_href,
+                visualization_index_href=index_visualization_href,
                 lineage_details_json=detail_json,
                 global_lineage_json=global_json,
                 terminal_outputs=terminal_outputs,
