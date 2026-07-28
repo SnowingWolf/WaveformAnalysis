@@ -342,6 +342,18 @@ body.docs-page a:focus-visible, body.docs-page button:focus-visible, body.docs-p
 .math-block { display: block; width: fit-content; max-width: 100%; margin: 20px 0; padding: 14px 18px; overflow-x: auto; border: 1px solid var(--doc-line); border-radius: 5px; background: var(--doc-surface); color: var(--doc-ink); }
 .math-block math { display: block; min-width: max-content; font-size: 1.12em; }.table-wrapper { width: 100%; max-width: 100%; overflow-x: auto; }.table-wrapper table { min-width: max-content; }
 
+/* Accessor index: distinguish processing contracts from cross-product analysis queries. */
+.accessor-responsibility { margin: 0 0 34px; padding: 24px; border: 1px solid var(--doc-line); border-left: 4px solid var(--doc-link); border-radius: 5px; background: var(--doc-note); }
+.accessor-responsibility-heading h2 { margin: 3px 0 8px; font-size: 24px; line-height: 1.3; letter-spacing: 0; }
+.accessor-responsibility-heading > p:last-child { max-width: 76ch; margin: 0; color: var(--doc-muted); }
+.accessor-responsibility-flow { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: stretch; gap: 18px; margin-top: 22px; }
+.accessor-responsibility-role { min-width: 0; padding-top: 16px; border-top: 2px solid var(--doc-link); }
+.accessor-responsibility-role h3 { margin: 6px 0 8px; font-size: 20px; }
+.accessor-responsibility-role p { margin: 0; color: var(--doc-ink); }
+.accessor-responsibility-connector { display: grid; place-content: center; justify-items: center; gap: 2px; min-width: 96px; color: var(--doc-muted); font-size: 12px; }
+.accessor-responsibility-connector strong { color: var(--doc-link); font-size: 26px; line-height: 1; }
+.accessor-responsibility-note { margin: 22px 0 0; padding-top: 16px; border-top: 1px solid var(--doc-line); color: var(--doc-muted); }
+
 @media (max-width: 1199px) {
   .docs-page--lineage .lineage-workspace { height: auto; min-height: 0; grid-template-columns: minmax(0, 1fr); }
   .docs-page--lineage .lineage-workspace:not(.has-details) .lineage-detail { display: none; }
@@ -349,6 +361,10 @@ body.docs-page a:focus-visible, body.docs-page button:focus-visible, body.docs-p
   .docs-page--lineage .lineage-detail { max-height: 420px; }
 }
 @media (max-width: 680px) {
+  .accessor-responsibility { padding: 20px 16px; }
+  .accessor-responsibility-flow { grid-template-columns: 1fr; gap: 14px; }
+  .accessor-responsibility-connector { min-width: 0; min-height: 38px; }
+  .accessor-responsibility-connector strong { transform: rotate(90deg); }
   .docs-page--lineage .lineage-plotly { height: 70vh; min-height: 480px; }
   .docs-page--lineage .lineage-detail { max-height: none; }
 }

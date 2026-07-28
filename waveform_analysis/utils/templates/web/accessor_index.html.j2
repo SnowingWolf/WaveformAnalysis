@@ -8,5 +8,30 @@
 {% set plugin_index_href = "../plugins/index.html" %}
 {% set accessor_index_href = "index.html" %}
 {% block document %}
-<main class="docs-main"><nav class="breadcrumbs" aria-label="面包屑"><a href="../index.html">文档概览</a><span aria-current="page">Accessor</span></nav><header class="page-heading"><p class="eyebrow">分析接口</p><h1>Accessor</h1><p>面向常见分析查询的只读便捷接口。</p></header><div class="resource-grid">{% for accessor in accessors %}<a class="resource-card" href="{{ accessor.slug }}.html"><span class="category">{{ accessor.name }}</span><h2>{{ accessor.name }}</h2><p>{{ accessor.summary }}</p><span class="card-link">阅读参考</span></a>{% endfor %}</div></main>
+<main class="docs-main">
+  <nav class="breadcrumbs" aria-label="面包屑"><a href="../index.html">文档概览</a><span aria-current="page">Accessor</span></nav>
+  <header class="page-heading"><p class="eyebrow">分析接口</p><h1>Accessor</h1><p>跨插件组织只读查询、关联与回溯，不重复实现插件的数据处理。</p></header>
+  <section class="accessor-responsibility" aria-labelledby="accessor-responsibility-heading">
+    <div class="accessor-responsibility-heading">
+      <p class="eyebrow">职责分工</p>
+      <h2 id="accessor-responsibility-heading">Plugin 产出单一数据，Accessor 连接多个产物</h2>
+      <p>两者不在同一层工作：插件负责产生可缓存的数据事实，Accessor 负责从分析问题出发组织查询。</p>
+    </div>
+    <div class="accessor-responsibility-flow">
+      <div class="accessor-responsibility-role">
+        <span class="category">处理层</span>
+        <h3>Plugin</h3>
+        <p>每个插件聚焦一个稳定、具名的数据产物，并声明它的依赖、字段、版本和缓存 lineage。</p>
+      </div>
+      <div class="accessor-responsibility-connector" aria-hidden="true"><span>多个插件产物</span><strong>→</strong></div>
+      <div class="accessor-responsibility-role">
+        <span class="category">查询层</span>
+        <h3>Accessor</h3>
+        <p>通过 Context 读取多个插件产物，完成跨插件筛选、关联和回溯，例如从 S1-S2 配对回溯到 peak、通道特征与波形。</p>
+      </div>
+    </div>
+    <p class="accessor-responsibility-note"><strong>边界：</strong>Accessor 不属于插件 DAG，不重新执行算法，也不生成新的缓存数据契约。</p>
+  </section>
+  <div class="resource-grid">{% for accessor in accessors %}<a class="resource-card" href="{{ accessor.slug }}.html"><span class="category">{{ accessor.name }}</span><h2>{{ accessor.name }}</h2><p>{{ accessor.summary }}</p><span class="card-link">阅读参考</span></a>{% endfor %}</div>
+</main>
 {% endblock %}

@@ -1,0 +1,33 @@
+# task_report
+
+- `task_id`: `accessor_index_responsibility`
+- `route`: `generate_docs`
+- `workflow_cost`: `light`
+- `workflow_shape`: `compact`
+- `scope`: `突出 Accessor 索引页中 Plugin 单一数据产出与 Accessor 跨插件查询、关联、回溯的职责边界。`
+- `actions_taken`:
+  - 在 Accessor 索引首屏增加职责分工区块和跨插件回溯示例。
+  - 增加桌面双栏、移动端纵向流程样式。
+  - 增加独立模板契约测试，避免混入并行文档改动。
+- `changed_paths`:
+  - `waveform_analysis/utils/templates/web/accessor_index.html.j2`
+  - `waveform_analysis/utils/templates/web/assets/site.css`
+  - `tests/test_accessor_index_documentation.py`
+  - `docs/agents/protocol/artifacts/accessor_index_responsibility_task_report.md`
+- `verification`:
+  - `site-web generation: pass (51 files)`
+  - `accessor index contract test: pass`
+  - `documentation site generation test: pass`
+  - `doc sync: pass`
+  - `doc anchors: pass`
+  - `desktop screenshot 1440x1000: pass`
+  - `mobile screenshot 390x844: pass`
+- `decision`: `completed`
+- `commit_status`: `committed by the containing scoped Git commit`
+- `open_risks`:
+  - none
+- `agent_profile`: `none`
+- `profile_plan`:
+  - not applicable
+- `agent_profile_review`:
+  - 页面职责表述符合 Plugin DAG 与只读 Accessor 的现有架构边界。
