@@ -612,6 +612,9 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert 'href="../accessors/index.html"' in plugin_page
     assert 'href="../contexts/index.html"' in plugin_page
     assert 'href="../visualizations/index.html"' in plugin_page
+    assert "框架架构" in plugin_page
+    assert 'aria-controls="tree-architecture"' in plugin_page
+    assert plugin_page.index("框架架构") < plugin_page.index("插件系统")
     assert "不保存隐式当前运行" in home
     assert "依赖、执行与 DAG" in context_page
     assert "plot_lineage" in context_page
