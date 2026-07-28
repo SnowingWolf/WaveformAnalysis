@@ -1104,10 +1104,25 @@ class DocumentationSiteGenerator:
         output_dir = Path(output_dir)
         self.plugin_generator.load_builtin_plugins()
         views = self.build_accessor_views()
-        accessor_search_entries = []
+        site_search_entries = [
+            {
+                "title": "Context 与 Plugin 入门",
+                "summary": "Context 管理 run_id、配置、插件依赖和缓存；Plugin 负责产出具名数据。",
+                "kind": "入门",
+                "url": "index.html#context-and-plugin",
+                "keywords": "Context Plugin 插件 DAG run_id 配置 缓存 依赖",
+            },
+            {
+                "title": "Context 最小流程",
+                "summary": "创建 Context、注册 cpu_default 插件集，再通过 get_data 请求目标产物。",
+                "kind": "入门",
+                "url": "index.html#minimal-workflow",
+                "keywords": "Context register cpu_default get_data peaks run_id 最小示例",
+            },
+        ]
         for view in views:
             base_url = f"accessors/{view.slug}.html"
-            accessor_search_entries.extend(
+            site_search_entries.extend(
                 {
                     "title": view.name,
                     "summary": view.summary,
@@ -1129,7 +1144,7 @@ class DocumentationSiteGenerator:
             asset_relative_dir="assets",
             site_home_href="index.html",
             accessor_relative_path="accessors/index.html",
-            extra_search_entries=accessor_search_entries,
+            extra_search_entries=site_search_entries,
         )
         env = self.plugin_generator._get_web_jinja_env()
         env.filters["inline_code"] = _inline_code
@@ -1138,8 +1153,20 @@ class DocumentationSiteGenerator:
         accessor_dir = output_dir / "accessors"
         accessor_dir.mkdir(parents=True, exist_ok=True)
         home_path = output_dir / "index.html"
+        context_plugin_example = """from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins import profiles
+
+run_id = \"run_001\"
+ctx = Context(config={\"data_root\": \"DAQ\", \"daq_adapter\": \"vx2730\"})
+ctx.register(*profiles.cpu_default())
+
+# Context resolves the plugin DAG and reuses available cache entries.
+peaks = ctx.get_data(run_id, \"peaks\")"""
         home_path.write_text(
-            env.get_template("web/site_index.html.j2").render(accessor_count=len(views)),
+            env.get_template("web/site_index.html.j2").render(
+                accessor_count=len(views),
+                context_plugin_example_html=_highlight_python(context_plugin_example),
+            ),
             encoding="utf-8",
         )
         generated["SITE_INDEX"] = home_path

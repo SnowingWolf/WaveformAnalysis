@@ -583,6 +583,12 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     search_index = (tmp_path / "assets" / "search-index.js").read_text(encoding="utf-8")
     assert 'href="plugins/index.html"' in home
     assert 'href="accessors/index.html"' in home
+    assert 'id="context-and-plugin"' in home
+    assert "Context 调度，Plugin 产出数据" in home
+    assert 'id="minimal-workflow"' in home
+    assert '<span class="n">register</span>' in home
+    assert '<span class="n">get_data</span>' in home
+    assert '<pre class="code-block language-python"><code><span class="kn">from</span>' in home
     assert "插件声明依赖并负责执行处理" in home
     assert "Accessor 不属于插件 DAG" in home
     assert "先由插件完成处理，再用 Accessor" in home
@@ -639,6 +645,8 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "site-tree" in peak_accessor_page
     assert "page-toc" in peak_accessor_page
     assert "WAVEFORM_DOCS_SEARCH" in search_index
+    assert '"url":"index.html#context-and-plugin"' in search_index
+    assert '"url":"index.html#minimal-workflow"' in search_index
     assert '"url":"plugins/records.html#overview"' in search_index
     assert '"url":"accessors/peak-channel-accessor.html#overview"' in search_index
     assert "data-doc-nav-open" in site_js
