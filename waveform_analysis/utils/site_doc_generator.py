@@ -628,24 +628,193 @@ fig, axes = accessor.plot(peak_id=919, view="sum-comparison")
     AccessorDocumentationSpec(
         accessor_class=S1S2PairAccessor,
         slug="s1-s2-pair-accessor",
-        summary="通过 pairs 查询对应的 S1、S2 peaks、配对特征与波形，并支持筛选和绘图。",
+        summary="查询 S1-S2 配对、关联 peak 的求和波形和位置重建结果，并支持可组合筛选与单配对绘图。",
         introduction=(
             "S1S2PairAccessor 把 S1-S2 配对表、筛选条件、求和波形和位置重建聚合为只读查询接口。"
             "配对表与波形层独立延迟加载，可先在 structured array 上构建条件，再读取少量候选的波形。"
         ),
         purpose=(
             '用于定位 S1/S2 关系、漂移时间、质量标志与重建位置。默认 `source="pairs"` 读取最终选择结果；'
-            '需要检查全部候选时改用 `source="candidates"`。'
+            '需要检查全部候选时改用 `source="candidates"`；需要完整事件重建时改用 `source="events"`。'
+        ),
+        overview_title="整体介绍",
+        overview_blocks=(
+            DocumentationContentBlock(
+                kind="paragraph",
+                text=(
+                    "`S1S2PairAccessor` 是只读查询接口：配对表负责提供 S1/S2 关系和事件级特征，"
+                    "波形层按 peak ID 提供框架生成的求和波形，位置重建结果单独读取。"
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="list",
+                ordered=True,
+                items=(
+                    "先选择与分析目的一致的 `source`；",
+                    "在 `pairs` structured array 上用 `mask()` 组合筛选条件；",
+                    "仅对保留下来的少量 pair 查询波形、位置或调用 `plot()`。",
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="note",
+                title="数据访问范围",
+                text=(
+                    "所有读取都显式绑定构造器的 `run_id`。Accessor 不会重新执行配对、波形或位置重建插件；"
+                    "它只查询 Context 中已有的产物。"
+                ),
+            ),
+        ),
+        narrative_sections=(
+            AccessorNarrativeSection(
+                anchor="pair-sources",
+                title="配对数据源与查询范围",
+                blocks=(
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text=(
+                            "`source` 决定 `pairs` 属性读取的 structured array。三种来源均通过相同的 "
+                            "`pair()`、`pairs_for_s1()`、`pairs_for_s2()` 和 `mask()` 接口访问。"
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="table",
+                        table_headers=("source", "读取产物", "适用场景"),
+                        table_rows=(
+                            ("`pairs`", "`s1_s2_pairs`", "查看最终选择的 S1-S2 配对。"),
+                            (
+                                "`candidates`",
+                                "`s1_s2_pair_candidates`",
+                                "检查同一 S1 或 S2 的候选、排序与筛选结果。",
+                            ),
+                            (
+                                "`events`",
+                                "`events`",
+                                "联合查看完整事件重建字段与 S1-S2 关系。",
+                            ),
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text=(
+                            "`selected_only=True` 仅在当前数据含有 `selected` 字段时生效；没有该字段时保留全部行。"
+                            "它影响 `pairs`、按 S1/S2 查询和 `positions()` 的结果范围。"
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="note",
+                        tone="important",
+                        title="ID 与空结果",
+                        text=(
+                            "`pair(pair_id)` 找不到记录时返回 `None`；`pairs_for_s1()` 与 `pairs_for_s2()` "
+                            "找不到记录时返回保留原 dtype 的空 structured array。"
+                        ),
+                    ),
+                ),
+            ),
+            AccessorNarrativeSection(
+                anchor="filtering-semantics",
+                title="筛选掩码的组合语义",
+                blocks=(
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text=(
+                            "`mask()` 返回与 `pairs` 等长的布尔数组。所有已提供的条件以逻辑与组合，"
+                            "因此可以直接使用 `accessor.pairs[mask]` 取得交集结果。"
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="table",
+                        table_headers=("条件", "含义", "边界与缺失字段"),
+                        table_rows=(
+                            (
+                                "范围条件",
+                                "`drift_time_ns_range`、`log10_s2_s1_range`、`score_total_range`",
+                                "范围端点包含在内；元组任一端为 `None` 表示不限制。`score_total` 缺失时忽略该条件。",
+                            ),
+                            (
+                                "标志位条件",
+                                "`flags_any`、`flags_all`、`flags_none`",
+                                "分别对应任一命中、全部命中和完全不命中；`flags` 字段缺失时忽略。",
+                            ),
+                            (
+                                "选择与自定义条件",
+                                "`selected`、`custom_filter`",
+                                "`selected` 在字段缺失时忽略；自定义函数接收完整 structured array，必须返回同长度布尔数组。",
+                            ),
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="code",
+                        language="python",
+                        code="""mask = accessor.mask(\n    drift_time_ns_range=(10_000, 50_000),\n    flags_none=bad_quality_bits,\n    custom_filter=lambda pairs: pairs["s2_area"] > 5_000,\n)\nselected_pairs = accessor.pairs[mask]""",
+                    ),
+                ),
+            ),
+            AccessorNarrativeSection(
+                anchor="waveforms-positions-cache",
+                title="波形、位置与缓存",
+                blocks=(
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text=(
+                            "配对表与波形层独立延迟加载。访问 `pairs` 会加载当前 source 的表；首次调用 "
+                            "`waveform()`、`pair_waveforms()` 或 `plot()` 才读取 `peaklet_waveforms` 和 "
+                            "`peaklet_waveform_pool`。"
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="table",
+                        table_headers=("接口", "返回或行为", "使用要点"),
+                        table_rows=(
+                            (
+                                "`waveform(peak_id)`",
+                                "单个 peak 的求和波形字典",
+                                "默认返回缓存中的数组 view；需要原地修改时传入 `copy=True`。",
+                            ),
+                            (
+                                "`pair_waveforms(pair_or_id)`",
+                                "S1、S2 波形字典的二元组",
+                                "可传入 pair ID 或 structured row；`missing='return_none'` 可避免缺失波形抛异常。",
+                            ),
+                            (
+                                "`positions()`",
+                                "位置重建 structured array",
+                                "位置产物不存在时返回正确 dtype 的空数组；`selected_only=True` 时按当前 pair ID 过滤。",
+                            ),
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text=(
+                            "`clear_cache()` 仅清除已提取的 waveform view；`release_layer()` 还会释放原始波形层。"
+                            "释放后下一次波形请求会重新从 Context 读取数据。"
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="note",
+                        title="绘图时间轴",
+                        text=(
+                            "`plot()` 以 S1 波形起点为零点，将 S1 与 S2 放到同一相对时间轴。`pad_ns` 控制显示窗口两端的额外范围，"
+                            "`show_info=True` 会在标题中加入可用的漂移时间、面积、评分、排序和选择状态。"
+                        ),
+                    ),
+                ),
+            ),
         ),
         example="""from waveform_analysis.utils.s1_s2_pair_accessor import S1S2PairAccessor
 
 accessor = S1S2PairAccessor(ctx, run_id="run_001", selected_only=True)
-selected = accessor.filter_pairs(score_total_range=(0.8, 1.0))""",
+mask = accessor.mask(
+    drift_time_ns_range=(10_000, 50_000),
+    log10_s2_s1_range=(1.5, None),
+)
+filtered = accessor.pairs[mask]""",
         constructor_parameters=(
             AccessorParameterSpec("context", "已配置插件和数据存储的 Context。"),
             AccessorParameterSpec("run_id", "本次查询对应的 run ID。"),
             AccessorParameterSpec(
-                "source", '`"pairs"` 读取最终配对；`"candidates"` 读取所有候选配对。'
+                "source",
+                '`"pairs"` 读取最终配对；`"candidates"` 读取所有候选配对；`"events"` 读取完整事件重建结果。',
             ),
             AccessorParameterSpec(
                 "selected_only", "为 `True` 时仅保留 `selected=True` 的行（字段存在时）。"
@@ -663,25 +832,25 @@ selected = accessor.filter_pairs(score_total_range=(0.8, 1.0))""",
                 returns="`np.ndarray` structured array。首次访问会加载配对表。",
             ),
             AccessorMemberSpec(
-                "get_pair",
+                "pair",
                 "按 pair ID 返回一个完整 structured row。",
                 parameters=(AccessorParameterSpec("pair_id", "目标配对的整数 ID。"),),
                 returns="匹配的 `np.void` row；找不到时返回 `None`。",
             ),
             AccessorMemberSpec(
-                "get_pairs_for_s1",
+                "pairs_for_s1",
                 "返回指定 S1 关联的全部配对。",
                 parameters=(AccessorParameterSpec("s1_peak_id", "S1 peak 的整数 ID。"),),
                 returns="保留原 dtype 的 structured array；无匹配时为空数组。",
             ),
             AccessorMemberSpec(
-                "get_pairs_for_s2",
+                "pairs_for_s2",
                 "返回指定 S2 关联的全部配对。",
                 parameters=(AccessorParameterSpec("s2_peak_id", "S2 peak 的整数 ID。"),),
                 returns="保留原 dtype 的 structured array；无匹配时为空数组。",
             ),
             AccessorMemberSpec(
-                "build_mask",
+                "mask",
                 "根据物理量范围、标志位和自定义函数构建布尔筛选掩码。",
                 parameters=(
                     AccessorParameterSpec(
@@ -703,7 +872,7 @@ selected = accessor.filter_pairs(score_total_range=(0.8, 1.0))""",
                     ),
                 ),
                 returns="与 `pairs` 等长的 `np.ndarray[bool]`，`True` 表示保留。",
-                example="""mask = accessor.build_mask(
+                example="""mask = accessor.mask(
     drift_time_ns_range=(10_000, 50_000),
     score_total_range=(0.8, None),
     selected=True,
@@ -712,16 +881,7 @@ candidate_pairs = accessor.pairs[mask]
 """,
             ),
             AccessorMemberSpec(
-                "filter_pairs",
-                "`build_mask()` 的快捷封装，直接返回筛选后的配对。",
-                parameters=(
-                    AccessorParameterSpec("kwargs", "传递给 `build_mask()` 的具名筛选参数。"),
-                ),
-                returns="筛选后的 structured array。",
-                notes=("只接受 `build_mask()` 支持的关键字参数。",),
-            ),
-            AccessorMemberSpec(
-                "get_waveform",
+                "waveform",
                 "按 peak ID 读取求和波形。",
                 parameters=(
                     AccessorParameterSpec("peak_id", "目标 peak 的整数 ID。"),
@@ -732,7 +892,7 @@ candidate_pairs = accessor.pairs[mask]
                 returns="含 `waveform`、`time_start_ns`、`time_rel_ns`、`dt_ns` 的字典；缺失时为 `None`。",
             ),
             AccessorMemberSpec(
-                "get_pair_waveforms",
+                "pair_waveforms",
                 "同时取得一个配对的 S1 和 S2 求和波形。",
                 parameters=(
                     AccessorParameterSpec("pair_or_id", "pair ID 或一条 structured pair row。"),
@@ -743,16 +903,14 @@ candidate_pairs = accessor.pairs[mask]
                 ),
                 returns="`(s1_waveform, s2_waveform)`；按 `missing` 策略处理缺失。",
             ),
+            AccessorMemberSpec("clear_cache", "清空已提取的 waveform 缓存。", returns="无返回值。"),
             AccessorMemberSpec(
-                "clear_waveform_cache", "清空已提取的 waveform 缓存。", returns="无返回值。"
-            ),
-            AccessorMemberSpec(
-                "release_waveform_layer",
+                "release_layer",
                 "释放原始波形层和缓存，下一次波形查询会重新加载。",
                 returns="无返回值。",
             ),
             AccessorMemberSpec(
-                "plot_pair",
+                "plot",
                 "以 S1 起点为零点，在统一时间轴上绘制 S1 和 S2 波形。",
                 parameters=(
                     AccessorParameterSpec("pair_or_id", "pair ID 或一条 structured pair row。"),
@@ -766,7 +924,7 @@ candidate_pairs = accessor.pairs[mask]
                 notes=("需要安装 Matplotlib；缺失波形会抛出异常。",),
             ),
             AccessorMemberSpec(
-                "get_positions",
+                "positions",
                 "返回与当前配对范围对应的位置重建数据。",
                 returns="`np.ndarray` structured array；位置数据不存在时返回正确 dtype 的空数组。",
                 notes=("`selected_only=True` 时结果也会按当前配对集合过滤。",),

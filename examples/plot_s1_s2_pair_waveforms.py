@@ -30,12 +30,12 @@ def plot_pair_waveforms(accessor, pair_id, ax=None, show_info=True):
         绘图轴
     """
     # 获取配对信息
-    pair = accessor.get_pair(pair_id)
+    pair = accessor.pair(pair_id)
     if pair is None:
         raise ValueError(f"Pair {pair_id} not found")
 
     # 获取波形
-    s1_wf, s2_wf = accessor.get_pair_waveforms(pair)
+    s1_wf, s2_wf = accessor.pair_waveforms(pair)
 
     # 创建图形
     if ax is None:
@@ -154,11 +154,11 @@ def plot_pair_comparison(accessor, pair_ids, normalize=True):
     colors = plt.cm.viridis(np.linspace(0, 1, len(pair_ids)))
 
     for i, pair_id in enumerate(pair_ids):
-        pair = accessor.get_pair(pair_id)
+        pair = accessor.pair(pair_id)
         if pair is None:
             continue
 
-        s1_wf, s2_wf = accessor.get_pair_waveforms(pair)
+        s1_wf, s2_wf = accessor.pair_waveforms(pair)
 
         # S1 波形
         s1_data = s1_wf["waveform"]

@@ -54,7 +54,7 @@ def export_positions_to_dataframe(context: Context, run_id: str) -> pd.DataFrame
         return pd.DataFrame()
 
     # 获取位置数据
-    positions = accessor.get_positions()
+    positions = accessor.positions()
     if len(positions) == 0:
         print(f"[!] Run {run_id} 没有位置重建数据，请先运行位置重建插件")
         return pd.DataFrame()

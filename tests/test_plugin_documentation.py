@@ -595,7 +595,7 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "PeakChannelAccessor" in accessor_index
     assert "S1S2PairAccessor" in accessor_index
     assert "通过 peaks 对应的分通道信息" in accessor_index
-    assert "通过 pairs 查询对应的 S1、S2 peaks" in accessor_index
+    assert "查询 S1-S2 配对、关联 peak 的求和波形和位置重建结果" in accessor_index
     assert "整体介绍" in peak_accessor_page
     assert "构造器" in peak_accessor_page
     assert "返回值" in peak_accessor_page
@@ -617,8 +617,14 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
         peak_accessor_page
     )
     assert "score_total_range" in pair_accessor_page
-    assert '<article class="member" id="build_mask"' in pair_accessor_page
-    assert '<span class="nf">build_mask</span>' in pair_accessor_page
+    assert "配对数据源与查询范围" in pair_accessor_page
+    assert "筛选掩码的组合语义" in pair_accessor_page
+    assert "波形、位置与缓存" in pair_accessor_page
+    assert "s1_s2_pair_candidates" in pair_accessor_page
+    assert "flags_none" in pair_accessor_page
+    assert "release_layer()" in pair_accessor_page
+    assert '<article class="member" id="mask"' in pair_accessor_page
+    assert '<span class="nf">mask</span>' in pair_accessor_page
     assert (
         '<span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>'
         in pair_accessor_page
@@ -710,14 +716,14 @@ def test_accessor_registry_uses_live_signatures_parameters_and_fails_for_invalid
     assert peak_view.constructor_signature == str(inspect.signature(PeakChannelAccessor))
     assert pair_view.constructor_signature == str(inspect.signature(S1S2PairAccessor))
     assert len(peak_view.members) == 4
-    assert len(pair_view.members) == 12
+    assert len(pair_view.members) == 11
     assert [(member.name, member.kind) for member in pair_view.members][0] == (
         "pairs",
         "property",
     )
     assert all(not member.name.startswith("_") for view in views for member in view.members)
-    get_pair = next(member for member in pair_view.members if member.name == "get_pair")
-    assert get_pair.signature == str(inspect.signature(S1S2PairAccessor.get_pair))
+    get_pair = next(member for member in pair_view.members if member.name == "pair")
+    assert get_pair.signature == str(inspect.signature(S1S2PairAccessor.pair))
     plot = next(member for member in peak_view.members if member.name == "plot")
     assert plot.signature.startswith("(\n    self,\n    peak_id: int,")
     assert "\n    show_merged_index: bool = True,\n) ->" in plot.signature

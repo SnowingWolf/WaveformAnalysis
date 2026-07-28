@@ -63,7 +63,7 @@ EVENT_DTYPE = np.dtype(
         ("z", "f4"),  # Z 坐标 (漂移距离)
         ("r", "f4"),  # 径向坐标 r = sqrt(x^2 + y^2)
         # === Timing (ns) ===
-        ("drift_time", "f4"),  # 漂移时间
+        ("drift_time_ns", "f4"),  # 漂移时间
         ("s1_time", "f8"),  # S1 时间（相对于 run 起点）
         ("s2_time", "f8"),  # S2 时间
         # === Raw signals ===
@@ -78,8 +78,8 @@ EVENT_DTYPE = np.dtype(
         ("s1_rise_time", "f4"),  # S1 上升时间 (ns)
         ("s2_rise_time", "f4"),  # S2 上升时间 (ns)
         # === Basic quality ===
-        ("n_s1_candidates", "i4"),  # 该 S2 的 S1 候选数
-        ("n_s2_candidates", "i4"),  # 该 S1 的 S2 候选数
+        ("n_s1_candidates_for_s2", "i4"),  # 该 S2 的 S1 候选数
+        ("n_s2_candidates_for_s1", "i4"),  # 该 S1 的 S2 候选数
         # === Flags ===
         ("flags", "u4"),  # 状态标志位
     ]
@@ -204,7 +204,7 @@ class EventPlugin(Plugin):
         # 填充时间信息
         events["s1_time"] = selected_pairs["s1_time"] / 1e12  # ps -> s
         events["s2_time"] = selected_pairs["s2_time"] / 1e12
-        events["drift_time"] = selected_pairs["drift_time_ns"]
+        events["drift_time_ns"] = selected_pairs["drift_time_ns"]
 
         # 填充原始信号
         events["s1_area"] = selected_pairs["s1_area"]
@@ -220,8 +220,8 @@ class EventPlugin(Plugin):
         events["s2_rise_time"] = 0.0  # 占位
 
         # 歧义信息
-        events["n_s1_candidates"] = selected_pairs["n_s1_candidates_for_s2"]
-        events["n_s2_candidates"] = selected_pairs["n_s2_candidates_for_s1"]
+        events["n_s1_candidates_for_s2"] = selected_pairs["n_s1_candidates_for_s2"]
+        events["n_s2_candidates_for_s1"] = selected_pairs["n_s2_candidates_for_s1"]
 
         # 设置标志位
         self._apply_quality_flags(
@@ -273,7 +273,7 @@ class EventPlugin(Plugin):
         events["flags"][in_fiducial] |= FLAG_FIDUCIAL_VOLUME
 
         # 配对歧义
-        ambiguous = (events["n_s1_candidates"] > 1) | (events["n_s2_candidates"] > 1)
+        ambiguous = (events["n_s1_candidates_for_s2"] > 1) | (events["n_s2_candidates_for_s1"] > 1)
         events["flags"][ambiguous] |= FLAG_AMBIGUOUS_PAIRING
 
         # 整体有效性（v0.0.0: 简单逻辑）

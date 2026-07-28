@@ -356,7 +356,7 @@ def test_accessor_get_positions_empty():
     ctx = SimpleContext(config_dict={}, data_dict={"s1_s2_pairs": empty_pairs})
 
     accessor = S1S2PairAccessor(ctx, "test_run")
-    positions = accessor.get_positions()
+    positions = accessor.positions()
 
     # 无位置数据时应该返回空数组
     assert len(positions) == 0

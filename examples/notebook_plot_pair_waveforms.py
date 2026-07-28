@@ -12,8 +12,8 @@ def quick_plot_pair(accessor, pair_id):
     >>> accessor = S1S2PairAccessor(ctx, run_id)
     >>> quick_plot_pair(accessor, pair_id=0)
     """
-    pair = accessor.get_pair(pair_id)
-    s1_wf, s2_wf = accessor.get_pair_waveforms(pair)
+    pair = accessor.pair(pair_id)
+    s1_wf, s2_wf = accessor.pair_waveforms(pair)
 
     fig, ax = plt.subplots(figsize=(14, 6))
 
@@ -69,7 +69,7 @@ def plot_pair_grid(accessor, n_pairs=4, selected_only=True):
 
     for i in range(n):
         pair = pairs[i]
-        s1_wf, s2_wf = accessor.get_pair_waveforms(pair)
+        s1_wf, s2_wf = accessor.pair_waveforms(pair)
 
         ax = axes[i]
         ax.plot(s1_wf["time_ns"], s1_wf["waveform"], "b-", label="S1", lw=1.2)
@@ -95,7 +95,7 @@ def plot_s2_candidates(accessor, s2_peak_id, max_candidates=10):
     >>> accessor = S1S2PairAccessor(ctx, run_id, source='candidates')
     >>> plot_s2_candidates(accessor, s2_peak_id=123)
     """
-    candidates = accessor.get_pairs_for_s2(s2_peak_id)
+    candidates = accessor.pairs_for_s2(s2_peak_id)
 
     if len(candidates) == 0:
         print(f"No candidates found for S2 {s2_peak_id}")
@@ -108,13 +108,13 @@ def plot_s2_candidates(accessor, s2_peak_id, max_candidates=10):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
 
     # 获取 S2 波形（只需一次）
-    s2_wf = accessor.get_waveform(s2_peak_id)
+    s2_wf = accessor.waveform(s2_peak_id)
     ax2.plot(s2_wf["time_ns"], s2_wf["waveform"], "r-", linewidth=2, label=f"S2 {s2_peak_id}")
 
     # 绘制所有 S1 候选
     colors = plt.cm.viridis(np.linspace(0, 1, len(candidates)))
     for i, cand in enumerate(candidates):
-        s1_wf = accessor.get_waveform(int(cand["s1_peak_id"]))
+        s1_wf = accessor.waveform(int(cand["s1_peak_id"]))
         is_selected = cand.get("selected", False)
         lw = 2 if is_selected else 1
         alpha = 1.0 if is_selected else 0.6
