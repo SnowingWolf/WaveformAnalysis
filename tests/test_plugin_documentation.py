@@ -557,6 +557,13 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert result["SITE_INDEX"] == tmp_path / "index.html"
     assert result["INDEX"] == tmp_path / "plugins" / "index.html"
     assert result["ACCESSOR_INDEX"] == tmp_path / "accessors" / "index.html"
+    assert result["CONTEXT_INDEX"] == tmp_path / "contexts" / "index.html"
+    assert result["VISUALIZATION_INDEX"] == tmp_path / "visualizations" / "index.html"
+    assert result["context:context"] == tmp_path / "contexts" / "context.html"
+    assert {path.name for key, path in result.items() if key.startswith("visualization:")} == {
+        "statistical-plots.html",
+        "waveform-plots.html",
+    }
     assert {path.name for key, path in result.items() if key.startswith("accessor:")} == {
         "peak-channel-accessor.html",
         "s1-s2-pair-accessor.html",
@@ -578,11 +585,16 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     accessor_index = (tmp_path / "accessors" / "index.html").read_text(encoding="utf-8")
     peak_accessor_page = result["accessor:peak-channel-accessor"].read_text(encoding="utf-8")
     pair_accessor_page = result["accessor:s1-s2-pair-accessor"].read_text(encoding="utf-8")
+    context_page = result["context:context"].read_text(encoding="utf-8")
+    statistical_plots_page = result["visualization:statistical-plots"].read_text(encoding="utf-8")
+    waveform_plots_page = result["visualization:waveform-plots"].read_text(encoding="utf-8")
     site_css = (tmp_path / "assets" / "site.css").read_text(encoding="utf-8")
     site_js = (tmp_path / "assets" / "site.js").read_text(encoding="utf-8")
     search_index = (tmp_path / "assets" / "search-index.js").read_text(encoding="utf-8")
     assert 'href="plugins/index.html"' in home
     assert 'href="accessors/index.html"' in home
+    assert 'href="contexts/index.html"' in home
+    assert 'href="visualizations/index.html"' in home
     assert 'id="context-and-plugin"' in home
     assert "Context 调度，Plugin 产出数据" in home
     assert 'id="minimal-workflow"' in home
@@ -598,6 +610,19 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert 'data-site-root-prefix="../"' in plugin_index
     assert 'href="index.html?focus=records"' in plugin_page
     assert 'href="../accessors/index.html"' in plugin_page
+    assert 'href="../contexts/index.html"' in plugin_page
+    assert 'href="../visualizations/index.html"' in plugin_page
+    assert "不保存隐式当前运行" in home
+    assert "依赖、执行与 DAG" in context_page
+    assert "plot_lineage" in context_page
+    assert "labview" in context_page
+    assert '<span class="k">class</span> <span class="nc">Context</span>' in context_page
+    assert "corner_hist" in statistical_plots_page
+    assert "plot_1d_cut_on_corner" in statistical_plots_page
+    assert "plot_2d_cut_on_corner" in statistical_plots_page
+    assert "plot_lineage" not in statistical_plots_page
+    assert "plot_waveforms" in waveform_plots_page
+    assert "create_peak_plotter" in waveform_plots_page
     assert "PeakChannelAccessor" in accessor_index
     assert "S1S2PairAccessor" in accessor_index
     assert "通过 peaks 对应的分通道信息" in accessor_index
@@ -649,6 +674,8 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert '"url":"index.html#minimal-workflow"' in search_index
     assert '"url":"plugins/records.html#overview"' in search_index
     assert '"url":"accessors/peak-channel-accessor.html#overview"' in search_index
+    assert '"url":"contexts/context.html#dag-and-execution"' in search_index
+    assert '"url":"visualizations/statistical-plots.html#statistical-plots"' in search_index
     assert "data-doc-nav-open" in site_js
     assert "data-theme-toggle" in site_js
     assert "data-tree-toggle" in site_js
@@ -682,6 +709,11 @@ def test_site_web_assets_are_available_over_http_for_root_and_nested_pages(tmp_p
             "accessors/index.html",
             "accessors/peak-channel-accessor.html",
             "accessors/s1-s2-pair-accessor.html",
+            "contexts/index.html",
+            "contexts/context.html",
+            "visualizations/index.html",
+            "visualizations/statistical-plots.html",
+            "visualizations/waveform-plots.html",
         )
         for page in pages:
             with urlopen(urljoin(base_url, page)) as response:
@@ -761,6 +793,33 @@ def test_accessor_registry_uses_live_signatures_parameters_and_fails_for_invalid
     )
     with pytest.raises(ValueError, match="parameter names"):
         DocumentationSiteGenerator(accessor_registry=(invalid_parameters,)).build_accessor_views()
+
+
+def test_callable_documentation_registry_uses_live_signatures_and_explicit_help():
+    from waveform_analysis.utils.site_doc_generator import (
+        CONTEXT_DOCUMENTATION_PAGE,
+        VISUALIZATION_DOCUMENTATION_PAGES,
+        DocumentationSiteGenerator,
+    )
+
+    generator = DocumentationSiteGenerator()
+    context_view = generator.build_callable_page_view(CONTEXT_DOCUMENTATION_PAGE)
+    visualization_views = [
+        generator.build_callable_page_view(spec) for spec in VISUALIZATION_DOCUMENTATION_PAGES
+    ]
+
+    context_members = {
+        member.name: member for _, members in context_view.groups for member in members
+    }
+    assert context_members["Context"].kind == "class"
+    assert context_members["get_data"].parameters[0].description.startswith("显式指定")
+    assert context_members["plot_lineage"].returns
+    assert context_members["plot_lineage"].example_html
+    statistical_members = {
+        member.name: member for _, members in visualization_views[0].groups for member in members
+    }
+    assert statistical_members["corner_hist"].example_html
+    assert statistical_members["plot_2d_cut_on_corner"].notes
 
 
 def test_accessor_html_escapes_dynamic_text_and_requires_pygments(tmp_path, monkeypatch):

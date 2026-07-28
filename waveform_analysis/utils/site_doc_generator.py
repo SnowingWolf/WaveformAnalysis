@@ -11,9 +11,20 @@ from xml.etree import ElementTree
 from markupsafe import Markup, escape
 import numpy as np
 
+from waveform_analysis.core.context import Context
 from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
 from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
 from waveform_analysis.utils.s1_s2_pair_accessor import S1S2PairAccessor
+from waveform_analysis.utils.visualization.statistical_plots import (
+    corner_hist,
+    plot_1d_cut_on_corner,
+    plot_2d_cut_on_corner,
+)
+from waveform_analysis.utils.visualization.waveform_visualizer import (
+    create_peak_plotter,
+    plot_peak_channels_with_sum,
+    plot_waveforms,
+)
 
 _CONTENT_BLOCK_KINDS = frozenset(
     {"heading", "paragraph", "list", "note", "code", "image", "mathml", "table"}
@@ -269,6 +280,58 @@ class AccessorDocumentationView:
     narrative_sections: tuple[AccessorNarrativeSection, ...] = ()
     overview_title: str = "整体介绍"
     overview_blocks: tuple[DocumentationContentBlock, ...] = ()
+
+
+@dataclass(frozen=True)
+class CallableDocumentationSpec:
+    name: str
+    callable: Any
+    description: str
+    parameters: tuple[AccessorParameterSpec, ...] = ()
+    returns: str = ""
+    notes: tuple[str, ...] = ()
+    example: str = ""
+    kind: str = "function"
+
+
+@dataclass(frozen=True)
+class CallableDocumentationGroup:
+    anchor: str
+    title: str
+    description: str
+    members: tuple[CallableDocumentationSpec, ...]
+
+
+@dataclass(frozen=True)
+class CallableDocumentationPageSpec:
+    slug: str
+    title: str
+    eyebrow: str
+    summary: str
+    introduction: str
+    groups: tuple[CallableDocumentationGroup, ...]
+
+
+@dataclass(frozen=True)
+class CallableDocumentationView:
+    name: str
+    signature_html: Markup
+    description: str
+    parameters: tuple[AccessorParameterSpec, ...]
+    returns: str
+    notes: tuple[str, ...]
+    example_html: Markup
+    kind: str
+
+
+@dataclass(frozen=True)
+class CallableDocumentationPageView:
+    slug: str
+    title: str
+    eyebrow: str
+    summary: str
+    introduction: str
+    groups: tuple[tuple[CallableDocumentationGroup, tuple[CallableDocumentationView, ...]], ...]
 
 
 ACCESSOR_DOCUMENTATION_REGISTRY = (
@@ -934,6 +997,363 @@ candidate_pairs = accessor.pairs[mask]
 )
 
 
+_PARAMETER_HELP = {
+    "storage_backend": "可选存储后端实例。",
+    "storage_dir": "本地缓存目录。",
+    "config": "Context 的显式配置字典。",
+    "external_plugin_dirs": "额外插件发现目录。",
+    "auto_discover_plugins": "是否在构造时自动发现插件。",
+    "stats_mode": "统计记录模式。",
+    "stats_log_file": "可选统计日志文件路径。",
+    "plugins": "要注册的插件实例、类、模块或其序列。",
+    "allow_override": "同名 `provides` 已注册时是否允许覆盖。",
+    "require_spec": "是否要求插件具备完整声明规范。",
+    "run_id": "显式指定要访问、执行或诊断的运行 ID。",
+    "data_name": "已注册插件提供的数据名称。",
+    "plugin": "插件实例或其 `provides` 名称。",
+    "plugin_name": "插件的 `provides` 名称。",
+    "name": "配置项名称。",
+    "adapter_name": "覆盖自动推断的 DAQ adapter 名称。",
+    "refresh": "是否忽略已有 run 配置并重新读取。",
+    "target": "要解析依赖的数据名称。",
+    "target_name": "要分析依赖的数据名称。",
+    "kind": "lineage 输出类型：`labview`、`plotly` 或 `mermaid`。",
+    "show_virtual_plugins": "是否显示仅用于可视化的虚拟插件节点。",
+    "include_performance": "是否将性能信息纳入依赖分析。",
+    "topic": "帮助主题；省略时返回 Context 总览。",
+    "output": "返回形态：`native`、`chunk_stream` 或 `array`。",
+    "show_progress": "是否显示数据请求进度。",
+    "progress_desc": "可选进度显示文本。",
+    "kwargs": "传递给目标插件的数据请求参数。",
+    "time_field": "开始时间字段名；省略时自动推断。",
+    "endtime_field": "结束时间字段名；省略时自动推断。",
+    "force_rebuild": "是否强制重建已有时间索引。",
+    "time_domain": "查询时间域，默认 `system_ns`。",
+    "start_time": "系统时间范围的起点。",
+    "end_time": "系统时间范围的终点。",
+    "auto_build_index": "索引缺失时是否自动建立。",
+    "epoch": "要设置的绝对时间基准。",
+    "time_unit": "数值 epoch 的单位。",
+    "start_dt": "绝对时间范围的起点。",
+    "end_dt": "绝对时间范围的终点。",
+    "auto_extract_epoch": "epoch 缺失时是否自动从数据提取。",
+    "show_tree": "是否显示依赖树。",
+    "show_config": "是否显示解析后的配置。",
+    "show_usage": "是否显示每项配置的使用位置。",
+    "show_full_help": "是否显示完整帮助文本。",
+    "run_name": "仅用于展示的运行名称。",
+    "show_cache": "是否显示缓存命中状态。",
+    "verbose": "输出详细程度。",
+    "_visited": "内部循环检测状态；调用方无需传递。",
+    "downstream": "是否同时清理下游产物。",
+    "clear_memory": "是否清理内存缓存。",
+    "clear_disk": "是否清理磁盘缓存。",
+    "auto_fix": "是否执行可自动修复的诊断建议。",
+    "dry_run": "仅报告诊断结果而不修改缓存。",
+    "detailed": "是否返回详细统计。",
+    "export_path": "可选统计导出路径。",
+    "data": "长度一致的一维变量数组序列。",
+    "names": "变量名称列表。",
+    "bins": "直方图分箱数或每个变量的分箱边界。",
+    "ranges": "每个变量的显示范围。",
+    "scales": "线性或对数坐标设置。",
+    "weights": "与样本等长的可选权重。",
+    "figsize_per_panel": "每个矩阵面板的边长。",
+    "cmap": "二维直方图色图。",
+    "hist_color": "对角线直方图颜色。",
+    "hist2d_norm": "二维直方图归一化方式。",
+    "hist2d_vmin": "二维直方图色标下限。",
+    "hist2d_vmax": "二维直方图色标上限。",
+    "add_colorbar": "是否添加二维直方图色条。",
+    "title": "图标题。",
+    "min_count": "显示二维 bin 的最小计数。",
+    "hist_alpha": "一维直方图透明度。",
+    "hist2d_alpha": "二维直方图透明度。",
+    "fig": "可选复用的 Matplotlib figure。",
+    "axes": "corner 矩阵的 Matplotlib axes。",
+    "triangle": "显示 `lower`、`upper` 或 `full` 矩阵区域。",
+    "label_mode": "轴标签显示方式。",
+    "label_fontsize": "轴标签字号。",
+    "label_fontweight": "轴标签字重。",
+    "tick_labelsize": "刻度字号。",
+    "diag_title": "是否在对角线显示变量标题。",
+    "show_ticks": "是否显示刻度。",
+    "var": "要添加一维阈值的变量名。",
+    "value": "一维阈值位置。",
+    "xvar": "二维曲线的 x 变量名。",
+    "yvar": "二维曲线的 y 变量名。",
+    "y_func": "接收 x 数组并返回 y 边界的函数。",
+    "x_range": "二维曲线采样的 x 范围。",
+    "n_points": "曲线采样点数。",
+    "color": "叠加线颜色。",
+    "linestyle": "叠加线型。",
+    "linewidth": "叠加线宽。",
+    "label": "图例标签。",
+    "waveforms": "波形数组列表、二维数组或带 board/channel 的 structured array。",
+    "channel": '可选通道筛选，推荐 `(board, channel)` 或 `"board:channel"`。',
+    "hits": "可选 hit structured array，用于标注。",
+    "event_index": "要显示的事件索引。",
+    "channels": '待显示通道；使用 `(board, channel)`、`"board:channel"` 或 `HardwareChannel`。',
+    "context": "已配置插件和存储的 Context。",
+    "peak_id": "目标 peak 的整数 ID。",
+    "pad": "hit 窗口两端扩展的采样点数。",
+    "group_by": "按 `channel` 或 `board_channel` 分组。",
+}
+
+_CALLABLE_RETURNS = {
+    "Context": "已配置但未绑定当前 run 的 `Context` 实例。",
+    "list_provided_data": "已注册插件的 `provides` 名称列表。",
+    "get_plugin": "匹配的 `Plugin` 实例。",
+    "get_config_value": "带来源信息的 `ConfigValue`。",
+    "get_resolved_config": "插件的 `ResolvedConfig`。",
+    "get_run_config": "指定 run 的配置字典。",
+    "get_data": "请求的原生结果、数组或 chunk stream。",
+    "build_time_index": "时间索引元数据字典。",
+    "time_range": "命中时间范围的数组或数组列表。",
+    "get_epoch": "指定 run 的 epoch；未设置时为 `None`。",
+    "get_data_time_range_absolute": "命中绝对时间范围的数组或数组列表。",
+    "resolve_dependencies": "按执行顺序排列的依赖名称列表。",
+    "preview_execution": "执行计划、配置与缓存状态字典。",
+    "get_lineage": "目标产物的 lineage 字典。",
+    "plot_lineage": "图形对象或 Mermaid 文本，取决于 `kind`。",
+    "analyze_dependencies": "依赖分析结果。",
+    "help": "结构化 `HelpDocument`。",
+    "clear_cache_for": "已清理的缓存条目数。",
+    "analyze_cache": "`CacheAnalyzer` 分析器。",
+    "diagnose_cache": "诊断问题列表。",
+    "cache_stats": "`CacheStatistics` 汇总结果。",
+    "corner_hist": "`(matplotlib.figure.Figure, numpy.ndarray)`。",
+    "plot_waveforms": "交互式 Plotly figure；Plotly 缺失时返回 `None`。",
+    "plot_peak_channels_with_sum": "`(figure, axes)`；没有 peak 数据时均为 `None`。",
+    "create_peak_plotter": "预加载数据的 `plot_func(peak_id, pad, group_by)`。",
+}
+
+_CALLABLE_NOTES = {
+    "Context": ("Context 无状态；数据访问必须显式传入 `run_id`。",),
+    "register": ("插件行为变更后应升级插件版本，以保证缓存 lineage 失效。",),
+    "get_data": ("请求会按需解析依赖并复用有效缓存。",),
+    "preview_execution": ("只分析元数据，不执行插件或加载 run 数据。",),
+    "plot_lineage": ("`mermaid` 返回文本；`labview` 和 `plotly` 返回图形对象。",),
+    "clear_cache_for": ("设置 `downstream=True` 前应确认影响范围。",),
+    "diagnose_cache": ("默认 `dry_run=True`，不会修改缓存。",),
+    "corner_hist": ("对数坐标要求对应数据和范围为正数。",),
+    "plot_peak_channels_with_sum": ("批量检查多个 peak 时应使用 `create_peak_plotter()`。",),
+    "create_peak_plotter": ("返回函数会持有预加载数组，使用完毕后释放引用。",),
+}
+
+_CALLABLE_EXAMPLES = {
+    "Context": """ctx = Context(config={\"data_root\": \"DAQ\", \"daq_adapter\": \"vx2730\"})\nctx.register(*profiles.cpu_default())""",
+    "get_data": """peaks = ctx.get_data(\"run_001\", \"peaks\")""",
+    "preview_execution": """plan = ctx.preview_execution(\"run_001\", \"peaks\")""",
+    "plot_lineage": """figure = ctx.plot_lineage(\"peaks\", kind=\"plotly\", show_virtual_plugins=False)""",
+    "clear_cache_for": """ctx.clear_cache_for(\"run_001\", \"peaks\", downstream=True)""",
+    "plot_waveforms": """figure = plot_waveforms(waveforms, event_index=0, channels=[\"0:3\"])""",
+    "plot_peak_channels_with_sum": """fig, axes = plot_peak_channels_with_sum(919, context=ctx, run_id=\"run_001\")""",
+    "create_peak_plotter": """plot_peak = create_peak_plotter(ctx, \"run_001\")\nfig, axes = plot_peak(919)""",
+}
+
+
+def _callable_parameters(callable_obj: Any) -> tuple[AccessorParameterSpec, ...]:
+    return tuple(
+        AccessorParameterSpec(name, _PARAMETER_HELP.get(name, f"`{name}` 的调用参数。"))
+        for name in inspect.signature(callable_obj).parameters
+        if name != "self"
+    )
+
+
+def _context_spec(name: str, description: str) -> CallableDocumentationSpec:
+    target = Context if name == "Context" else getattr(Context, name)
+    return CallableDocumentationSpec(
+        name,
+        target,
+        description,
+        _callable_parameters(target),
+        returns=_CALLABLE_RETURNS.get(name, "无返回值；结果通过 Context 状态或终端输出呈现。"),
+        notes=_CALLABLE_NOTES.get(name, ()),
+        example=_CALLABLE_EXAMPLES.get(name, ""),
+        kind="class" if name == "Context" else "function",
+    )
+
+
+CONTEXT_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
+    "context",
+    "Context",
+    "分析运行时",
+    "管理显式 run_id、配置、插件 DAG、数据访问与缓存诊断的分析入口。",
+    "`Context` 不保存隐式当前运行。每次数据访问都传入 `run_id`，由它解析插件依赖、准备配置并复用 lineage 一致的缓存。",
+    (
+        CallableDocumentationGroup(
+            "initialization",
+            "初始化与插件注册",
+            "创建 Context，注册或发现插件，并检查已提供的数据产物。",
+            tuple(
+                _context_spec(*item)
+                for item in (
+                    ("Context", "创建分析 Context；构造器不绑定某个 run。"),
+                    ("register", "注册插件实例、插件类、模块或其序列。"),
+                    ("discover_and_register_plugins", "从 entry point 与配置目录发现插件。"),
+                    ("list_provided_data", "列出已注册的稳定数据名称。"),
+                    ("get_plugin", "按 `provides` 名称取得插件实例。"),
+                )
+            ),
+        ),
+        CallableDocumentationGroup(
+            "configuration",
+            "配置解析",
+            "显式配置优先于 adapter 推断和插件默认值。",
+            tuple(
+                _context_spec(*item)
+                for item in (
+                    ("set_config", "设置全局或插件显式配置。"),
+                    ("get_config_value", "读取单项配置及其解析来源。"),
+                    ("get_resolved_config", "返回插件完整解析配置。"),
+                    ("show_resolved_config", "打印解析配置。"),
+                    ("show_config", "显示当前配置，并标识每个配置项对应的插件。"),
+                    ("get_run_config", "读取特定 run 的 DAQ 配置。"),
+                )
+            ),
+        ),
+        CallableDocumentationGroup(
+            "data-access",
+            "数据访问与时间查询",
+            "按需请求插件产物，并在系统或绝对时间域中切片。",
+            tuple(
+                _context_spec(*item)
+                for item in (
+                    ("get_data", "请求 run 的具名数据；未命中缓存时执行必要上游。"),
+                    ("build_time_index", "建立或刷新时间索引。"),
+                    ("time_range", "在系统时间 ns 域查询范围。"),
+                    ("set_epoch", "设置 run 的绝对时间 epoch。"),
+                    ("get_epoch", "读取 run 的 epoch。"),
+                    ("get_data_time_range_absolute", "使用 datetime 边界查询绝对时间范围。"),
+                )
+            ),
+        ),
+        CallableDocumentationGroup(
+            "dag-and-execution",
+            "依赖、执行与 DAG",
+            "在执行前查看计划与依赖；`plot_lineage()` 是 Context 的 DAG 调试能力。",
+            tuple(
+                _context_spec(*item)
+                for item in (
+                    ("resolve_dependencies", "返回目标依赖执行顺序。"),
+                    ("preview_execution", "预览执行计划、配置与缓存命中。"),
+                    ("get_lineage", "返回插件 lineage 数据结构。"),
+                    ("plot_lineage", "渲染 `labview`、`plotly` 或 `mermaid` DAG。"),
+                    ("analyze_dependencies", "分析上游、下游与性能信息。"),
+                    ("help", "返回结构化帮助文档。"),
+                )
+            ),
+        ),
+        CallableDocumentationGroup(
+            "cache-diagnostics",
+            "缓存与诊断",
+            "缓存 key 由 run、代码、版本、配置和输出契约决定。",
+            tuple(
+                _context_spec(*item)
+                for item in (
+                    ("clear_cache_for", "清理指定 run 的缓存。"),
+                    ("analyze_cache", "生成缓存状态分析。"),
+                    ("diagnose_cache", "诊断缓存问题，默认 dry-run。"),
+                    ("cache_stats", "汇总缓存统计。"),
+                )
+            ),
+        ),
+    ),
+)
+
+
+VISUALIZATION_DOCUMENTATION_PAGES = (
+    CallableDocumentationPageSpec(
+        "statistical-plots",
+        "统计图",
+        "可视化",
+        "使用 corner plot 探索多变量分布，并叠加一维或二维选择条件。",
+        "先由 `corner_hist()` 创建矩阵，再将筛选线或曲线叠加到同一组 axes。",
+        (
+            CallableDocumentationGroup(
+                "statistical-plots",
+                "统计图函数",
+                "基于 Matplotlib 的分布与选择条件检查。",
+                (
+                    CallableDocumentationSpec(
+                        "corner_hist",
+                        corner_hist,
+                        "创建含一维与二维直方图的 corner 矩阵。",
+                        _callable_parameters(corner_hist),
+                        returns=_CALLABLE_RETURNS["corner_hist"],
+                        notes=_CALLABLE_NOTES["corner_hist"],
+                        example="""fig, axes = corner_hist([area, height, width], names=[\"area\", \"height\", \"width\"])
+plot_1d_cut_on_corner(axes, [\"area\", \"height\", \"width\"], \"area\", 1000)
+plot_2d_cut_on_corner(axes, [\"area\", \"height\", \"width\"], \"area\", \"height\", lambda x: 0.1 * x)
+fig.savefig(\"corner.png\", dpi=150)
+""",
+                    ),
+                    CallableDocumentationSpec(
+                        "plot_1d_cut_on_corner",
+                        plot_1d_cut_on_corner,
+                        "叠加一维阈值线。",
+                        _callable_parameters(plot_1d_cut_on_corner),
+                        returns="无返回值；在传入 axes 上添加阈值线。",
+                        notes=("`triangle` 必须与 `corner_hist()` 的设置一致。",),
+                    ),
+                    CallableDocumentationSpec(
+                        "plot_2d_cut_on_corner",
+                        plot_2d_cut_on_corner,
+                        "叠加二维选择曲线。",
+                        _callable_parameters(plot_2d_cut_on_corner),
+                        returns="无返回值；在传入 axes 上添加选择曲线。",
+                        notes=("`y_func` 必须接受 NumPy 数组输入。",),
+                    ),
+                ),
+            ),
+        ),
+    ),
+    CallableDocumentationPageSpec(
+        "waveform-plots",
+        "波形图",
+        "可视化",
+        "使用 Plotly 浏览多通道波形，或检查 peak 通道波形与求和波形。",
+        "Context 驱动的波形访问均显式指定 `run_id`。",
+        (
+            CallableDocumentationGroup(
+                "waveform-plots",
+                "波形图函数",
+                "Plotly 适合交互浏览；批量 peak 检查应复用 plotter。",
+                (
+                    CallableDocumentationSpec(
+                        "plot_waveforms",
+                        plot_waveforms,
+                        "创建原始波形与可选 hit 标注的交互图。",
+                        _callable_parameters(plot_waveforms),
+                        returns=_CALLABLE_RETURNS["plot_waveforms"],
+                        example=_CALLABLE_EXAMPLES["plot_waveforms"],
+                    ),
+                    CallableDocumentationSpec(
+                        "plot_peak_channels_with_sum",
+                        plot_peak_channels_with_sum,
+                        "绘制单个 peak 的逐通道与求和波形。",
+                        _callable_parameters(plot_peak_channels_with_sum),
+                        returns=_CALLABLE_RETURNS["plot_peak_channels_with_sum"],
+                        notes=_CALLABLE_NOTES["plot_peak_channels_with_sum"],
+                        example=_CALLABLE_EXAMPLES["plot_peak_channels_with_sum"],
+                    ),
+                    CallableDocumentationSpec(
+                        "create_peak_plotter",
+                        create_peak_plotter,
+                        "创建绑定 Context 和 run_id 的可复用 peak 绘图函数。",
+                        _callable_parameters(create_peak_plotter),
+                        returns=_CALLABLE_RETURNS["create_peak_plotter"],
+                        notes=_CALLABLE_NOTES["create_peak_plotter"],
+                        example=_CALLABLE_EXAMPLES["create_peak_plotter"],
+                    ),
+                ),
+            ),
+        ),
+    ),
+)
+
+
 def _highlight_python(source: str) -> Markup:
     """Return trusted offline Pygments markup for registry-controlled Python examples."""
     try:
@@ -1041,6 +1461,34 @@ class DocumentationSiteGenerator:
             )
         return views
 
+    def build_callable_page_view(
+        self, spec: CallableDocumentationPageSpec
+    ) -> CallableDocumentationPageView:
+        groups = []
+        for group in spec.groups:
+            members = tuple(
+                CallableDocumentationView(
+                    name=item.name,
+                    signature_html=_highlight_python(
+                        f"{'class' if item.kind == 'class' else 'def'} {item.name}"
+                        f"{self._format_signature(inspect.signature(item.callable))}:"
+                    ),
+                    description=item.description,
+                    parameters=self._validated_parameters(
+                        inspect.signature(item.callable), item.parameters, item.name
+                    ),
+                    returns=item.returns,
+                    notes=item.notes,
+                    example_html=_highlight_python(item.example) if item.example else Markup(""),
+                    kind=item.kind,
+                )
+                for item in group.members
+            )
+            groups.append((group, members))
+        return CallableDocumentationPageView(
+            spec.slug, spec.title, spec.eyebrow, spec.summary, spec.introduction, tuple(groups)
+        )
+
     @staticmethod
     def _format_signature(signature: inspect.Signature, max_width: int = 96) -> str:
         """Render long callable signatures one parameter per line for the HTML reference."""
@@ -1104,6 +1552,10 @@ class DocumentationSiteGenerator:
         output_dir = Path(output_dir)
         self.plugin_generator.load_builtin_plugins()
         views = self.build_accessor_views()
+        context_view = self.build_callable_page_view(CONTEXT_DOCUMENTATION_PAGE)
+        visualization_views = [
+            self.build_callable_page_view(spec) for spec in VISUALIZATION_DOCUMENTATION_PAGES
+        ]
         site_search_entries = [
             {
                 "title": "Context 与 Plugin 入门",
@@ -1137,6 +1589,22 @@ class DocumentationSiteGenerator:
                     ("公开成员", "#members"),
                 )
             )
+        for view in (context_view, *visualization_views):
+            section = "contexts" if view.slug == "context" else "visualizations"
+            for group, members in view.groups:
+                site_search_entries.append(
+                    {
+                        "title": f"{view.title}: {group.title}",
+                        "summary": group.description,
+                        "kind": "Context" if section == "contexts" else "可视化",
+                        "url": f"{section}/{view.slug}.html#{group.anchor}",
+                        "keywords": f"{view.title} {group.title} "
+                        + " ".join(member.name for member in members),
+                    }
+                )
+        env = self.plugin_generator._get_web_jinja_env()
+        env.filters["inline_code"] = _inline_code
+        env.filters["mathml"] = _safe_mathml
         generated = self.plugin_generator.generate_web(
             output_dir,
             index_relative_path="plugins/index.html",
@@ -1144,11 +1612,10 @@ class DocumentationSiteGenerator:
             asset_relative_dir="assets",
             site_home_href="index.html",
             accessor_relative_path="accessors/index.html",
+            context_relative_path="contexts/index.html",
+            visualization_relative_path="visualizations/index.html",
             extra_search_entries=site_search_entries,
         )
-        env = self.plugin_generator._get_web_jinja_env()
-        env.filters["inline_code"] = _inline_code
-        env.filters["mathml"] = _safe_mathml
         self._copy_content_assets(views, output_dir / "assets", generated)
         accessor_dir = output_dir / "accessors"
         accessor_dir.mkdir(parents=True, exist_ok=True)
@@ -1165,6 +1632,8 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
         home_path.write_text(
             env.get_template("web/site_index.html.j2").render(
                 accessor_count=len(views),
+                context_view=context_view,
+                visualization_views=visualization_views,
                 context_plugin_example_html=_highlight_python(context_plugin_example),
             ),
             encoding="utf-8",
@@ -1183,4 +1652,49 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
                 encoding="utf-8",
             )
             generated[f"accessor:{view.slug}"] = path
+        context_dir = output_dir / "contexts"
+        context_dir.mkdir(parents=True, exist_ok=True)
+        context_index = context_dir / "index.html"
+        context_index.write_text(
+            env.get_template("web/callable_index.html.j2").render(
+                title="Context",
+                eyebrow="分析运行时",
+                summary=context_view.summary,
+                pages=(context_view,),
+                current_section="contexts",
+            ),
+            encoding="utf-8",
+        )
+        generated["CONTEXT_INDEX"] = context_index
+        context_path = context_dir / "context.html"
+        context_path.write_text(
+            env.get_template("web/callable_reference.html.j2").render(
+                page=context_view, current_section="contexts", index_title="Context"
+            ),
+            encoding="utf-8",
+        )
+        generated["context:context"] = context_path
+        visualization_dir = output_dir / "visualizations"
+        visualization_dir.mkdir(parents=True, exist_ok=True)
+        visualization_index = visualization_dir / "index.html"
+        visualization_index.write_text(
+            env.get_template("web/callable_index.html.j2").render(
+                title="可视化",
+                eyebrow="参考",
+                summary="统计图与波形图的公开绘图接口。",
+                pages=visualization_views,
+                current_section="visualizations",
+            ),
+            encoding="utf-8",
+        )
+        generated["VISUALIZATION_INDEX"] = visualization_index
+        for view in visualization_views:
+            path = visualization_dir / f"{view.slug}.html"
+            path.write_text(
+                env.get_template("web/callable_reference.html.j2").render(
+                    page=view, current_section="visualizations", index_title="可视化"
+                ),
+                encoding="utf-8",
+            )
+            generated[f"visualization:{view.slug}"] = path
         return generated

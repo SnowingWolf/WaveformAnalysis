@@ -1,16 +1,18 @@
-{% macro topbar(site_home_href, plugin_index_href, accessor_index_href, current, asset_prefix) -%}
+{% macro topbar(site_home_href, plugin_index_href, accessor_index_href, context_index_href, visualization_index_href, current, asset_prefix) -%}
 <header class="site-topbar">
   <a class="site-brand" href="{{ site_home_href }}"><span class="site-brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>WaveformAnalysis</span></a>
   <nav class="site-primary-nav" aria-label="主导航">
     <a href="{{ site_home_href }}"{% if current == "home" %} aria-current="page"{% endif %}>概览</a>
     <a href="{{ plugin_index_href }}"{% if current == "plugins" %} aria-current="page"{% endif %}>插件参考</a>
     {% if accessor_index_href %}<a href="{{ accessor_index_href }}"{% if current == "accessors" %} aria-current="page"{% endif %}>Accessor</a>{% endif %}
+    {% if context_index_href %}<a href="{{ context_index_href }}"{% if current == "contexts" %} aria-current="page"{% endif %}>Context</a>{% endif %}
+    {% if visualization_index_href %}<a href="{{ visualization_index_href }}"{% if current == "visualizations" %} aria-current="page"{% endif %}>可视化</a>{% endif %}
   </nav>
   <div class="site-topbar-actions"><button class="site-search-open" type="button" data-search-open aria-haspopup="dialog" title="搜索文档"><span class="control-icon search-icon" aria-hidden="true"></span><span>搜索</span></button><button class="site-theme-toggle" type="button" data-theme-toggle aria-label="切换浅色或深色主题" title="切换主题"><span class="theme-toggle-icon" aria-hidden="true"></span></button><button class="site-nav-open" type="button" data-doc-nav-open aria-controls="site-navigation" aria-expanded="false" title="打开文档导航"><span class="control-icon menu-icon" aria-hidden="true"></span><span>目录</span></button></div>
 </header>
 {%- endmacro %}
 
-{% macro navigation(site_home_href, plugin_index_href, accessor_index_href, current, active_accessor, accessor_detail_prefix) -%}
+{% macro navigation(site_home_href, plugin_index_href, accessor_index_href, context_index_href, visualization_index_href, current, active_accessor, accessor_detail_prefix) -%}
 <aside class="site-tree" id="site-navigation" data-doc-nav aria-label="文档导航">
   <div class="site-tree-heading"><span>文档导航</span><button class="site-icon-button" type="button" data-doc-nav-close aria-label="关闭文档导航" title="关闭"><span aria-hidden="true">&times;</span></button></div>
   <nav aria-label="主文档树">
@@ -29,6 +31,8 @@
           <li><a href="{{ accessor_detail_prefix }}s1-s2-pair-accessor.html"{% if active_accessor == "s1-s2-pair-accessor" %} aria-current="page"{% endif %}>S1S2PairAccessor</a></li>
         </ul>
       </li>{% endif %}
+      {% if context_index_href %}<li class="site-tree-group"><div class="site-tree-group-row"><a href="{{ context_index_href }}"{% if current == "contexts" %} aria-current="page"{% endif %}>Context</a></div></li>{% endif %}
+      {% if visualization_index_href %}<li class="site-tree-group"><div class="site-tree-group-row"><a href="{{ visualization_index_href }}"{% if current == "visualizations" %} aria-current="page"{% endif %}>可视化</a><button class="site-tree-toggle" type="button" data-tree-toggle aria-expanded="true" aria-controls="tree-visualizations" title="折叠可视化"><span aria-hidden="true"></span><span class="sr-only">折叠可视化</span></button></div><ul id="tree-visualizations"><li><a href="{{ visualization_index_href }}statistical-plots.html">统计图</a></li><li><a href="{{ visualization_index_href }}waveform-plots.html">波形图</a></li></ul></li>{% endif %}
     </ul>
   </nav>
 </aside>
@@ -38,8 +42,8 @@
 <dialog class="site-search-dialog" data-search-dialog aria-label="搜索文档">
   <div class="site-search-panel">
     <div class="site-search-heading"><h2>搜索文档</h2><button class="site-icon-button" type="button" data-search-close aria-label="关闭搜索" title="关闭"><span aria-hidden="true">&times;</span></button></div>
-    <label class="sr-only" for="site-search-input">搜索插件和 Accessor</label>
-    <input id="site-search-input" data-site-search-input type="search" placeholder="搜索插件、Accessor 或章节" autocomplete="off">
+    <label class="sr-only" for="site-search-input">搜索文档</label>
+    <input id="site-search-input" data-site-search-input type="search" placeholder="搜索插件、Context、Accessor 或函数" autocomplete="off">
     <p class="site-search-status" data-site-search-status aria-live="polite">输入关键词开始搜索。</p>
     <ul class="site-search-results" data-site-search-results></ul>
   </div>

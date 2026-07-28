@@ -58,7 +58,7 @@ waveform-docs serve --directory docs/_site --host 127.0.0.1 --port 8000
 | `plugins-auto` | 自动生成内置插件文档 | `docs/plugins/reference/builtin/auto/` |
 | `plugins-agent` | 生成 agent 导向插件文档 | `docs/plugins/reference/agent/` |
 | `plugins-web` | 生成离线插件 HTML 站点 | `docs/_site/` |
-| `site-web` | 生成包含插件与 Accessor 的离线 HTML 文档总站 | `docs/_site/` |
+| `site-web` | 生成包含插件、Context、Accessor 与可视化参考的离线 HTML 文档总站 | `docs/_site/` |
 
 ---
 
@@ -107,11 +107,11 @@ waveform-docs generate plugins-agent --plugin raw_files
 # 生成离线 HTML 站点
 waveform-docs generate plugins-web -o docs/_site
 
-# 生成包含插件与 Accessor 的 HTML 文档总站
+# 生成包含插件、Context、Accessor 与可视化参考的 HTML 文档总站
 waveform-docs generate site-web
 ```
 
-`site-web` 生成总站首页，并将插件站放在 `plugins/`、Accessor 参考放在 `accessors/`。
+`site-web` 生成总站首页，并将插件站放在 `plugins/`、Context 参考放在 `contexts/`、Accessor 参考放在 `accessors/`，统计图与波形图参考放在 `visualizations/`。`Context.plot_lineage()` 归入 Context 的 DAG 专题，不作为绘图参考页。
 总站只支持全量生成，因此不能与 `--plugin` 同时使用。`plugins-web` 继续保留原有参数、默认输出和
 文件布局，适合只需要插件参考或依赖旧路径的调用。
 
@@ -182,8 +182,7 @@ Agent 导向文档默认位于 `docs/plugins/reference/agent/`：
 
 `plugins-web` 站点位于 `docs/_site/`，包含 `index.html`、`plugins/<provides>.html` 与
 本地 `assets/site.css` / `assets/site.js`。`site-web` 使用同一输出根目录，生成
-`index.html`、`plugins/index.html`、`plugins/<provides>.html`、`accessors/index.html`、
-两个 Accessor 详情页以及共享的 `assets/`。两种模式都不引用 CDN 或外部资源，可直接打开
+`index.html`、`plugins/index.html`、`plugins/<provides>.html`、`contexts/index.html`、`contexts/context.html`、`accessors/index.html`、`visualizations/index.html`、两个可视化详情页、两个 Accessor 详情页以及共享的 `assets/`。两种模式都不引用 CDN 或外部资源，可直接打开
 `index.html`，也可通过 `waveform-docs serve --directory docs/_site` 预览。该目录属于派生产物，
 不会提交到仓库。
 
@@ -203,7 +202,7 @@ pip install jinja2
 pip install -e ".[docgen]"
 ```
 
-`site-web` 的 Accessor Python 示例使用本地 Pygments 生成语法高亮；该依赖包含在
+`site-web` 的 Accessor、Context 与可视化 Python 示例使用本地 Pygments 生成语法高亮；该依赖包含在
 `docgen` extra 中，不作为 WaveformAnalysis 的主运行时依赖。生成 Accessor 页面时若缺少
 Pygments，命令会明确提示安装 `.[docgen]`。
 
