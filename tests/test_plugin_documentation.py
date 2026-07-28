@@ -1,6 +1,7 @@
 from dataclasses import replace
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import inspect
 import json
 from pathlib import Path
 import re
@@ -11,6 +12,7 @@ from urllib.request import urlopen
 import numpy as np
 import pytest
 
+from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.plugins.core.spec import FieldSpec, OutputSchema
 from waveform_analysis.utils.plugin_doc_generator import (
@@ -908,3 +910,19 @@ def test_overview_paragraphs_fallback_from_overview_string():
     view2 = generator.extract_doc_info(_EmptyOverviewPlugin, _EmptyOverviewPlugin())
     assert view2.overview_paragraphs == []
     assert view2.overview == ""
+
+
+def test_context_page_covers_all_public_methods():
+    """Context 文档页必须覆盖 Context 的所有公开方法（不含 _ 开头和 dunder）。"""
+    from waveform_analysis.utils.site_doc_generator import CONTEXT_DOCUMENTATION_PAGE
+
+    public_methods = {
+        name
+        for name, _ in inspect.getmembers(Context, predicate=inspect.isfunction)
+        if not name.startswith("_")
+    }
+    documented = {
+        member.name for group in CONTEXT_DOCUMENTATION_PAGE.groups for member in group.members
+    }
+    missing = public_methods - documented
+    assert not missing, f"未收录的公开方法: {sorted(missing)}"
