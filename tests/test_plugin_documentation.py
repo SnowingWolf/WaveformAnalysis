@@ -623,9 +623,9 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert 'href="../visualizations/waveform-plots.html"' in plugin_page
     assert "index.htmlstatistical-plots.html" not in plugin_index
     assert "index.htmlwaveform-plots.html" not in plugin_page
-    assert "框架架构" in plugin_page
+    assert "Context 与适配器" in plugin_page
     assert 'aria-controls="tree-architecture"' in plugin_page
-    assert plugin_page.index("框架架构") < plugin_page.index("插件系统")
+    assert plugin_page.index("Context 与适配器") < plugin_page.index("插件系统")
     assert "不保存隐式当前运行" in home
     assert "依赖、执行与 DAG" in context_page
     assert "plot_lineage" in context_page
@@ -745,7 +745,7 @@ def test_site_web_assets_are_available_over_http_for_root_and_nested_pages(tmp_p
                 html = response.read().decode("utf-8")
             for navigation_label in (
                 "文档概览",
-                "框架架构",
+                "Context 与适配器",
                 "Context",
                 "DAQ 适配器",
                 "插件系统",
