@@ -311,6 +311,33 @@ body.docs-page a:focus-visible, body.docs-page button:focus-visible, body.docs-p
 .lineage-scroll, .lineage-plotly { overscroll-behavior: contain; }
 .lineage-plotly { touch-action: pan-x pan-y pinch-zoom; }
 
+/* The global DAG owns its available document width instead of inheriting prose sizing. */
+.site-layout--lineage { width: min(100% - 48px, 1720px); }
+.docs-page--lineage .docs-main { max-width: 1720px; }
+.docs-page--lineage .lineage-workspace {
+  width: 100%;
+  min-height: clamp(620px, 72vh, 900px);
+  height: clamp(620px, 72vh, 900px);
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 23vw, 380px);
+  gap: 20px;
+}
+.docs-page--lineage .lineage-overview { min-width: 0; height: 100%; }
+.docs-page--lineage .lineage-plotly { width: 100%; min-height: 600px; height: 100%; }
+.docs-page--lineage .lineage-workspace[data-detail-collapsed="true"] { grid-template-columns: minmax(0, 1fr); }
+.docs-page--lineage .lineage-workspace[data-detail-collapsed="true"] .lineage-detail { display: none; }
+.lineage-view-control:disabled { cursor: not-allowed; opacity: .45; }
+.lineage-workspace:fullscreen {
+  display: grid;
+  width: 100vw;
+  height: 100vh;
+  min-height: 0;
+  padding: 18px;
+  grid-template-columns: minmax(0, 1fr);
+  background: var(--doc-page);
+}
+.lineage-workspace:fullscreen .lineage-detail { display: none; }
+.lineage-workspace:fullscreen .lineage-plotly { min-height: 0; height: 100%; }
+
 /* Detail pages mirror the LabVIEW-style lineage displayed in the analysis notebook. */
 .lineage-section--local .lineage-scroll { overflow-x: auto; overflow-y: hidden; padding: 12px; background: var(--doc-surface); }
 .lineage-graph--local { min-width: 780px; }
@@ -353,14 +380,17 @@ body.docs-page a:focus-visible, body.docs-page button:focus-visible, body.docs-p
 .accessor-responsibility-connector { display: grid; place-content: center; justify-items: center; gap: 2px; min-width: 96px; color: var(--doc-muted); font-size: 12px; }
 .accessor-responsibility-connector strong { color: var(--doc-link); font-size: 26px; line-height: 1; }
 .accessor-responsibility-note { margin: 22px 0 0; padding-top: 16px; border-top: 1px solid var(--doc-line); color: var(--doc-muted); }
+.accessor-responsibility-rationale { margin: 18px 0 0; color: var(--doc-muted); }
 
 @media (max-width: 1199px) {
+  .site-layout--lineage { width: min(100% - 40px, 1180px); }
   .docs-page--lineage .lineage-workspace { height: auto; min-height: 0; grid-template-columns: minmax(0, 1fr); }
   .docs-page--lineage .lineage-workspace:not(.has-details) .lineage-detail { display: none; }
   .docs-page--lineage .lineage-plotly { height: 640px; }
   .docs-page--lineage .lineage-detail { max-height: 420px; }
 }
 @media (max-width: 680px) {
+  .site-layout--lineage { width: min(100% - 28px, 820px); }
   .accessor-responsibility { padding: 20px 16px; }
   .accessor-responsibility-flow { grid-template-columns: 1fr; gap: 14px; }
   .accessor-responsibility-connector { min-width: 0; min-height: 38px; }

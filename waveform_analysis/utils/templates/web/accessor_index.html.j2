@@ -34,6 +34,7 @@
         <p>通过 Context 读取多个插件产物，完成跨插件筛选、关联和回溯，例如从 S1-S2 配对回溯到 peak、通道特征与波形。</p>
       </div>
     </div>
+    <p class="accessor-responsibility-rationale">为什么需要 Accessor：一个插件只对应单个产物，而分析中常见的回溯场景——从 peak 回溯到构成它的 channel，或从 S1-S2 pair 回溯到关联的 peaks——都需要多个插件产物协同才能完成。Accessor 把这种跨产物查询封装为只读接口，避免在插件链路里重复拼装。</p>
     <p class="accessor-responsibility-note"><strong>边界：</strong>Accessor 不属于插件 DAG，不重新执行算法，也不生成新的缓存数据契约。</p>
   </section>
   <div class="resource-grid">{% for accessor in accessors %}<a class="resource-card" href="{{ accessor.slug }}.html"><span class="category">{{ accessor.name }}</span><h2>{{ accessor.name }}</h2><p>{{ accessor.summary }}</p><span class="card-link">阅读参考</span></a>{% endfor %}</div>
