@@ -1,12 +1,14 @@
 # DOC: docs/plugins/guides/PLUGIN_SET_PROFILE_GUIDE.md#plugin-sets
 """
-Plugin set: Hit detection and peaklet construction.
+Plugin set: Hit detection and merging.
 
-Contains the complete pipeline from hit detection through peaklet construction:
+Contains hit detection and hit-level processing only:
 - Hit finding and thresholding
 - Record masks (asymmetry, detector, veto)
 - Hit merging and clustering
-- Peaklet construction and features
+- Hit_merged features
+
+Peaklet construction lives in the ``peaks`` plugin set.
 """
 
 from waveform_analysis.core.foundation.utils import exporter
@@ -16,7 +18,7 @@ export, __all__ = exporter()
 
 @export
 def plugins_hit():
-    """Return hit and peaklet plugin instances in dependency order."""
+    """Return hit plugin instances in dependency order."""
     from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HitFinderPlugin
     from waveform_analysis.core.plugins.builtin.cpu.records_asymmetry import (
         RecordsAsymmetryMaskPlugin,
@@ -34,14 +36,6 @@ def plugins_hit():
     from waveform_analysis.core.plugins.builtin.hit.hit_merged_features import (
         HitMergedFeaturesPlugin,
     )
-    from waveform_analysis.core.plugins.builtin.peaks.peaklet_channels import PeakletChannelsPlugin
-    from waveform_analysis.core.plugins.builtin.peaks.peaklets import (
-        PeakletComponentsPlugin,
-        PeakletFeaturesPlugin,
-        PeakletPlugin,
-        PeakletWaveformPlugin,
-        PeakletWaveformPoolPlugin,
-    )
 
     return [
         HitFinderPlugin(),
@@ -53,10 +47,4 @@ def plugins_hit():
         HitMergePlugin(),
         HitMergedComponentsPlugin(),
         HitMergedFeaturesPlugin(),
-        PeakletPlugin(),
-        PeakletComponentsPlugin(),
-        PeakletWaveformPlugin(),
-        PeakletWaveformPoolPlugin(),
-        PeakletFeaturesPlugin(),
-        PeakletChannelsPlugin(),
     ]

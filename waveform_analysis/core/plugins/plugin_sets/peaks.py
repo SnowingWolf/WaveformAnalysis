@@ -1,8 +1,9 @@
 # DOC: docs/plugins/guides/PLUGIN_SET_PROFILE_GUIDE.md#plugin-sets
 """
-Plugin set: Peak construction and classification.
+Plugin set: Peaklet construction, peak building and classification.
 
-Contains peak-level processing:
+Contains peaklet-level and peak-level processing:
+- Peaklet components, peaklets, waveforms, pool, features, channels
 - Peak construction from peaklets
 - Waveform width computation
 - S1/S2 classification (deprecated)
@@ -23,7 +24,7 @@ export, __all__ = exporter()
 
 @export
 def plugins_peaks():
-    """Return peak-related plugin instances in dependency order.
+    """Return peak and peaklet plugin instances in dependency order.
 
     .. deprecated::
         S1S2ClassifierPlugin is deprecated and will be removed in a future version.
@@ -34,7 +35,15 @@ def plugins_peaks():
     )
     from waveform_analysis.core.plugins.builtin.cpu.s1_s2_classifier import S1S2ClassifierPlugin
     from waveform_analysis.core.plugins.builtin.cpu.waveform_width import WaveformWidthPlugin
-    from waveform_analysis.core.plugins.builtin.peaks.peaklets import PeaksPlugin
+    from waveform_analysis.core.plugins.builtin.peaks.peaklet_channels import PeakletChannelsPlugin
+    from waveform_analysis.core.plugins.builtin.peaks.peaklets import (
+        PeakletComponentsPlugin,
+        PeakletFeaturesPlugin,
+        PeakletPlugin,
+        PeakletWaveformPlugin,
+        PeakletWaveformPoolPlugin,
+        PeaksPlugin,
+    )
 
     warnings.warn(
         "plugins_peaks() includes S1S2ClassifierPlugin which is deprecated. "
@@ -44,6 +53,12 @@ def plugins_peaks():
     )
 
     return [
+        PeakletComponentsPlugin(),
+        PeakletPlugin(),
+        PeakletWaveformPlugin(),
+        PeakletWaveformPoolPlugin(),
+        PeakletFeaturesPlugin(),
+        PeakletChannelsPlugin(),
         PeaksPlugin(),
         WaveformWidthPlugin(),
         S1S2ClassifierPlugin(),  # deprecated

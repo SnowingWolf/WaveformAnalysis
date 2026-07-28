@@ -12,7 +12,7 @@ def test_get_plugin_set_hit_available():
     plugins = factory()
 
     provides = _provides_names(plugins)
-    assert len(plugins) == 15
+    assert len(plugins) == 9
     assert provides == [
         "hit",
         "records_asymmetry_mask",
@@ -23,23 +23,23 @@ def test_get_plugin_set_hit_available():
         "hit_merged",
         "hit_merged_components",
         "hit_merged_features",
-        "peaklets",
-        "peaklet_components",
-        "peaklet_waveforms",
-        "peaklet_waveform_pool",
-        "peaklet_features",
-        "peaklet_channels",
     ]
 
 
 def test_get_plugin_set_peaks_available():
-    """Test the updated peaks plugin set (now only 4 plugins)."""
+    """Test the updated peaks plugin set (now includes peaklets)."""
     factory = get_plugin_set("peaks")
     plugins = factory()
 
     provides = _provides_names(plugins)
-    assert len(plugins) == 4
+    assert len(plugins) == 10
     assert provides == [
+        "peaklet_components",
+        "peaklets",
+        "peaklet_waveforms",
+        "peaklet_waveform_pool",
+        "peaklet_features",
+        "peaklet_channels",
         "peaks",
         "waveform_width",
         "s1_s2",
