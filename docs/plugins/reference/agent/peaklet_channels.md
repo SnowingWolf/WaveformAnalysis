@@ -22,7 +22,7 @@ Aggregate hit_merged_features into per-peaklet channel contribution rows.
 | Plugin Class | `PeakletChannelsPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaks.peaklet_channels` |
 | Version | `1.0.1` |
-| Category | 特征提取 |
+| Category | 峰构建 |
 | Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 

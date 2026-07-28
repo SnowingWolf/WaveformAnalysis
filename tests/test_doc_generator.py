@@ -184,6 +184,18 @@ class TestPluginDocGenerator:
             generator._detect_category("lowpass_filter", "LowpassFilterPlugin")
             == "signal_processing"
         )
+        # peaklet 系列插件归入 Peaks 集合（功能域: Peaks）
+        assert generator._detect_category("peaklets", "PeakletPlugin") == "peaks"
+        assert (
+            generator._detect_category("peaklet_components", "PeakletComponentsPlugin") == "peaks"
+        )
+        assert generator._detect_category("peaklet_waveforms", "PeakletWaveformPlugin") == "peaks"
+        assert (
+            generator._detect_category("peaklet_waveform_pool", "PeakletWaveformPoolPlugin")
+            == "peaks"
+        )
+        assert generator._detect_category("peaklet_features", "PeakletFeaturesPlugin") == "peaks"
+        assert generator._detect_category("peaklet_channels", "PeakletChannelsPlugin") == "peaks"
 
     def test_accelerator_detection(self):
         """测试加速器检测"""

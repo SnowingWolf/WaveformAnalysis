@@ -22,7 +22,7 @@ Return the flattened float32 signal pool paired with peaklet_waveforms. Configur
 | Plugin Class | `PeakletWaveformPoolPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
 | Version | `2.0.0` |
-| Category | 波形处理 |
+| Category | 峰构建 |
 | Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `array` |
 

@@ -15,7 +15,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 ## Summary
 
 - 插件总数：35
-- 类别数：8
+- 类别数：9
 
 ## Plugin Table
 
@@ -65,13 +65,19 @@ waveform-docs generate plugins-agent --plugin raw_files
 ### 波形处理
 
 - [`filtered_waveforms`](filtered_waveforms.md): Apply filtering to waveforms using Butterworth or Savitzky-Golay filters.
-- [`peaklet_waveform_pool`](peaklet_waveform_pool.md): Return the flattened float32 signal pool paired with peaklet_waveforms. Configure waveform construction on peaklet_waveforms.
-- [`peaklet_waveforms`](peaklet_waveforms.md): Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion.
 - [`st_waveforms`](st_waveforms.md): Extract waveforms from raw CSV files and structure them into NumPy structured arrays.
 - [`wave_pool`](wave_pool.md): Build wave_pool from the shared internal records bundle.
 - [`wave_pool_filtered`](wave_pool_filtered.md): Build filtered wave_pool from records-backed raw waveforms.
 - [`waveform_width`](waveform_width.md): Calculate rise/fall time based on peak detection results.
 - [`waveform_width_integral`](waveform_width_integral.md): Event-wise integral quantile width using st_waveforms or filtered_waveforms.
+### 峰构建
+
+- [`peaklet_channels`](peaklet_channels.md): Aggregate hit_merged_features into per-peaklet channel contribution rows.
+- [`peaklet_components`](peaklet_components.md): Return per-peaklet component hit_merged indices.
+- [`peaklet_features`](peaklet_features.md): Compute peaklet waveform features from ragged signal pools.
+- [`peaklet_waveform_pool`](peaklet_waveform_pool.md): Return the flattened float32 signal pool paired with peaklet_waveforms. Configure waveform construction on peaklet_waveforms.
+- [`peaklet_waveforms`](peaklet_waveforms.md): Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion.
+- [`peaklets`](peaklets.md): Build lightweight cross-channel peaklets from hit_merged intervals.
 ### 特征提取
 
 - [`basic_features`](basic_features.md): Compute basic height, amplitude, area, and max-abs-diff features from waveform data.
@@ -83,10 +89,6 @@ waveform-docs generate plugins-agent --plugin raw_files
 - [`hit_merged_features`](hit_merged_features.md): Compute per-hit_merged local waveform features from records-backed samples.
 - [`hit_threshold`](hit_threshold.md): Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
 - [`peak_classification`](peak_classification.md): Classify peaks into S1/S2 using multi-dimensional features.
-- [`peaklet_channels`](peaklet_channels.md): Aggregate hit_merged_features into per-peaklet channel contribution rows.
-- [`peaklet_components`](peaklet_components.md): Return per-peaklet component hit_merged indices.
-- [`peaklet_features`](peaklet_features.md): Compute peaklet waveform features from ragged signal pools.
-- [`peaklets`](peaklets.md): Build lightweight cross-channel peaklets from hit_merged intervals.
 - [`peaks`](peaks.md): Build final peaks table from peaklets and waveform-derived features.
 ### 事件分析
 

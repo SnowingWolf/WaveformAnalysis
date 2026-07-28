@@ -22,7 +22,7 @@ Compute peaklet waveform features from ragged signal pools.
 | Plugin Class | `PeakletFeaturesPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
 | Version | `4.1.0` |
-| Category | 特征提取 |
+| Category | 峰构建 |
 | Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 

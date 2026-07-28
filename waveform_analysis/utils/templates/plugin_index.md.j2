@@ -143,6 +143,9 @@ raw_files ──► records ──► df ──► df_events
 {% elif category == "waveform_processing" %}
 波形处理插件对原始波形进行结构化、滤波等预处理。
 
+{% elif category == "peaks" %}
+峰构建插件负责跨通道 peaklet 的构建、波形索引与特征提取，是 Peaks 功能域的核心组件。
+
 {% elif category == "feature_extraction" %}
 特征提取插件从波形中计算各种物理特征（高度、面积、峰值等）。
 

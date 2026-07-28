@@ -35,6 +35,7 @@ export, __all__ = exporter()
 # 插件类别映射规则
 CATEGORY_KEYWORDS = {
     "data_loading": ["raw", "files", "loader", "reader"],
+    "peaks": ["peaklet"],
     "waveform_processing": ["waveform", "st_waveform", "filtered", "wave"],
     "feature_extraction": ["feature", "peak", "hit", "charge", "height", "width"],
     "event_analysis": ["event", "group", "pair", "coincidence"],
@@ -48,6 +49,7 @@ CATEGORY_KEYWORDS = {
 CATEGORY_DISPLAY_NAMES = {
     "data_loading": "数据加载",
     "waveform_processing": "波形处理",
+    "peaks": "峰构建",
     "feature_extraction": "特征提取",
     "event_analysis": "事件分析",
     "data_export": "数据导出",
@@ -903,6 +905,7 @@ class PluginDocGenerator:
         category_order = [
             "data_loading",
             "waveform_processing",
+            "peaks",
             "feature_extraction",
             "signal_processing",
             "event_analysis",

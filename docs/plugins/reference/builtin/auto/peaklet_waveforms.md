@@ -22,7 +22,7 @@ Build peaklet waveform index rows from records-backed hit_merged samples. Suppor
 | Plugin Class | `PeakletWaveformPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
 | Version | `1.4.0` |
-| Category | 波形处理 |
+| Category | 峰构建 |
 | Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 

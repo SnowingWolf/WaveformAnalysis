@@ -22,7 +22,7 @@ Build lightweight cross-channel peaklets from hit_merged intervals.
 | Plugin Class | `PeakletPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
 | Version | `1.2.0` |
-| Category | 特征提取 |
+| Category | 峰构建 |
 | Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 

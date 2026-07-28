@@ -22,7 +22,7 @@ Return per-peaklet component hit_merged indices.
 | Plugin Class | `PeakletComponentsPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
 | Version | `1.4.0` |
-| Category | 特征提取 |
+| Category | 峰构建 |
 | Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
