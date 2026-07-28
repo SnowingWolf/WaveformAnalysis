@@ -1,6 +1,6 @@
 """Internal generator for the offline WaveformAnalysis documentation site."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import inspect
 from pathlib import Path, PurePosixPath
 import re
@@ -343,6 +343,7 @@ class CallableDocumentationPageView:
     summary: str
     introduction: str
     groups: tuple[tuple[CallableDocumentationGroup, tuple[CallableDocumentationView, ...]], ...]
+    href: str = ""
 
 
 ACCESSOR_DOCUMENTATION_REGISTRY = (
@@ -2045,8 +2046,8 @@ class DocumentationSiteGenerator:
             asset_relative_dir="assets",
             site_home_href="index.html",
             accessor_relative_path="accessors/index.html",
-            context_relative_path="contexts/index.html",
-            adapter_relative_path="adapters/index.html",
+            context_relative_path="contexts/context.html",
+            adapter_relative_path="adapters/adapter.html",
             visualization_relative_path="visualizations/index.html",
             extra_search_entries=site_search_entries,
         )
@@ -2088,14 +2089,68 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
             generated[f"accessor:{view.slug}"] = path
         context_dir = output_dir / "contexts"
         context_dir.mkdir(parents=True, exist_ok=True)
+        context_adapter_intro_blocks = (
+            DocumentationContentBlock(
+                kind="paragraph",
+                text=(
+                    "`Context` 是分析运行时的协调层：它管理显式 `run_id`、插件 DAG、配置解析、"
+                    "lineage 与缓存复用。DAQ 适配器是硬件无关边界：它将不同数字化仪的文件格式、"
+                    "目录布局和时间戳语义收敛为统一输入。"
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="table",
+                table_headers=("层", "职责", "边界"),
+                table_rows=(
+                    (
+                        "Context",
+                        "协调 DAG、配置、lineage 与缓存",
+                        "不解析具体 DAQ 文件格式，也不保存隐式当前运行",
+                    ),
+                    (
+                        "DAQ 适配器",
+                        "描述格式读取、目录布局、采样率与时间戳语义",
+                        "不决定插件算法、依赖图或缓存策略",
+                    ),
+                    (
+                        "插件链路",
+                        "将 `raw_files` 构建为 `records`、`wave_pool` 与后续分析产物",
+                        "处理行为由插件配置和已解析的 adapter 信息共同约束",
+                    ),
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="paragraph",
+                text=(
+                    "典型 records-backed 数据流为 `raw_files -> records + wave_pool -> "
+                    "(wave_pool_filtered) -> features/hit`。需要波形访问时，使用 "
+                    "`records_view(ctx, run_id)` 读取正式产物。"
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="note",
+                tone="important",
+                title="配置与复用",
+                text=(
+                    '将已注册 adapter 的名称配置到 `Context(config={"daq_adapter": ...})`。'
+                    "显式插件配置优先于 adapter 推断，adapter 推断优先于插件默认值；"
+                    "adapter 与已解析配置参与 lineage 和缓存键。"
+                ),
+            ),
+        )
         context_index = context_dir / "index.html"
         context_index.write_text(
             env.get_template("web/callable_index.html.j2").render(
-                title="Context",
-                eyebrow="分析运行时",
-                summary=context_view.summary,
-                pages=(context_view,),
+                title="Context 与适配器",
+                eyebrow="分析运行时与硬件边界",
+                summary="Context 负责配置、插件依赖与缓存；DAQ 适配器负责统一原始数据格式、目录布局与时间语义。",
+                pages=(
+                    replace(context_view, href="context.html"),
+                    replace(adapter_view, href="../adapters/adapter.html"),
+                ),
                 current_section="contexts",
+                intro_title="架构职责与数据流",
+                intro_blocks=context_adapter_intro_blocks,
             ),
             encoding="utf-8",
         )
@@ -2113,11 +2168,16 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
         adapter_index = adapter_dir / "index.html"
         adapter_index.write_text(
             env.get_template("web/callable_index.html.j2").render(
-                title="DAQ 适配器",
-                eyebrow="硬件无关边界",
-                summary=ADAPTER_DOCUMENTATION_PAGE.summary,
-                pages=(adapter_view,),
+                title="Context 与适配器",
+                eyebrow="分析运行时与硬件边界",
+                summary="Context 负责配置、插件依赖与缓存；DAQ 适配器负责统一原始数据格式、目录布局与时间语义。",
+                pages=(
+                    replace(context_view, href="../contexts/context.html"),
+                    replace(adapter_view, href="adapter.html"),
+                ),
                 current_section="adapters",
+                intro_title="架构职责与数据流",
+                intro_blocks=context_adapter_intro_blocks,
             ),
             encoding="utf-8",
         )

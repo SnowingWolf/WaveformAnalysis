@@ -598,7 +598,8 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     search_index = (tmp_path / "assets" / "search-index.js").read_text(encoding="utf-8")
     assert 'href="plugins/index.html"' in home
     assert 'href="accessors/index.html"' in home
-    assert 'href="contexts/index.html"' in home
+    assert 'href="contexts/context.html"' in home
+    assert 'href="adapters/adapter.html"' in home
     assert 'href="visualizations/index.html"' in home
     assert 'id="context-and-plugin"' in home
     assert "Context 调度，Plugin 产出数据" in home
@@ -612,10 +613,12 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert 'class="site-brand" href="../index.html"' in plugin_index
     assert 'href="records.html"' in plugin_index
     assert 'data-lineage-details="../assets/lineage-details.json"' in plugin_index
+    context_index_page = result["CONTEXT_INDEX"].read_text(encoding="utf-8")
+    adapter_index_page = result["ADAPTER_INDEX"].read_text(encoding="utf-8")
     assert 'data-site-root-prefix="../"' in plugin_index
     assert 'href="index.html?focus=records"' in plugin_page
     assert 'href="../accessors/index.html"' in plugin_page
-    assert 'href="../contexts/index.html"' in plugin_page
+    assert 'href="../contexts/context.html"' in plugin_page
     assert 'href="../visualizations/index.html"' in plugin_page
     assert 'href="../visualizations/statistical-plots.html"' in plugin_index
     assert 'href="../visualizations/waveform-plots.html"' in plugin_index
@@ -638,18 +641,29 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "缓存 lineage" in adapter_page
     assert "register_adapter" in adapter_page
     assert "my_adapter" in adapter_page
-    assert 'href="../adapters/index.html"' in plugin_page
+    assert 'href="../adapters/adapter.html"' in plugin_page
     assert "corner_hist" in statistical_plots_page
     assert "plot_1d_cut_on_corner" in statistical_plots_page
     assert "plot_2d_cut_on_corner" in statistical_plots_page
     assert "plot_lineage" not in statistical_plots_page
     assert "plot_waveforms" in waveform_plots_page
+    assert 'href="../contexts/index.html">Context 与适配器</a>' in plugin_page
     assert "create_peak_plotter" in waveform_plots_page
     assert "PeakChannelAccessor" in accessor_index
     assert "S1S2PairAccessor" in accessor_index
     assert "通过 peaks 对应的分通道信息" in accessor_index
     assert "查询 S1-S2 配对、关联 peak 的求和波形和位置重建结果" in accessor_index
     assert "整体介绍" in peak_accessor_page
+    assert "Context 与适配器" in context_index_page
+    assert 'href="context.html"' in context_index_page
+    assert 'href="../adapters/adapter.html"' in context_index_page
+    assert "Context 与适配器" in adapter_index_page
+    assert 'href="../contexts/context.html"' in adapter_index_page
+    assert 'href="adapter.html"' in adapter_index_page
+    assert "架构职责与数据流" in adapter_index_page
+    assert "协调 DAG、配置、lineage 与缓存" in adapter_index_page
+    assert "raw_files" in adapter_index_page
+    assert "records_view" in adapter_index_page
     assert "构造器" in peak_accessor_page
     assert "返回值" in peak_accessor_page
     assert "使用注意" in peak_accessor_page
