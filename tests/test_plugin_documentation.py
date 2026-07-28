@@ -560,8 +560,10 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert result["INDEX"] == tmp_path / "plugins" / "index.html"
     assert result["ACCESSOR_INDEX"] == tmp_path / "accessors" / "index.html"
     assert result["CONTEXT_INDEX"] == tmp_path / "contexts" / "index.html"
+    assert result["ADAPTER_INDEX"] == tmp_path / "adapters" / "index.html"
     assert result["VISUALIZATION_INDEX"] == tmp_path / "visualizations" / "index.html"
     assert result["context:context"] == tmp_path / "contexts" / "context.html"
+    assert result["adapter:adapter"] == tmp_path / "adapters" / "adapter.html"
     assert {path.name for key, path in result.items() if key.startswith("visualization:")} == {
         "statistical-plots.html",
         "waveform-plots.html",
@@ -588,6 +590,7 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     peak_accessor_page = result["accessor:peak-channel-accessor"].read_text(encoding="utf-8")
     pair_accessor_page = result["accessor:s1-s2-pair-accessor"].read_text(encoding="utf-8")
     context_page = result["context:context"].read_text(encoding="utf-8")
+    adapter_page = result["adapter:adapter"].read_text(encoding="utf-8")
     statistical_plots_page = result["visualization:statistical-plots"].read_text(encoding="utf-8")
     waveform_plots_page = result["visualization:waveform-plots"].read_text(encoding="utf-8")
     site_css = (tmp_path / "assets" / "site.css").read_text(encoding="utf-8")
@@ -628,6 +631,14 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "plot_lineage" in context_page
     assert "labview" in context_page
     assert '<span class="k">class</span> <span class="nc">Context</span>' in context_page
+    assert "推荐使用流程" in adapter_page
+    assert "Context.get_adapter_info" in adapter_page
+    assert "Context.get_resolved_config" in adapter_page
+    assert "显式插件配置优先于 adapter 推断" in adapter_page
+    assert "缓存 lineage" in adapter_page
+    assert "register_adapter" in adapter_page
+    assert "my_adapter" in adapter_page
+    assert 'href="../adapters/index.html"' in plugin_page
     assert "corner_hist" in statistical_plots_page
     assert "plot_1d_cut_on_corner" in statistical_plots_page
     assert "plot_2d_cut_on_corner" in statistical_plots_page
@@ -722,6 +733,8 @@ def test_site_web_assets_are_available_over_http_for_root_and_nested_pages(tmp_p
             "accessors/s1-s2-pair-accessor.html",
             "contexts/index.html",
             "contexts/context.html",
+            "adapters/index.html",
+            "adapters/adapter.html",
             "visualizations/index.html",
             "visualizations/statistical-plots.html",
             "visualizations/waveform-plots.html",
@@ -734,6 +747,7 @@ def test_site_web_assets_are_available_over_http_for_root_and_nested_pages(tmp_p
                 "文档概览",
                 "框架架构",
                 "Context",
+                "DAQ 适配器",
                 "插件系统",
                 "插件参考",
                 "Accessor 接口",

@@ -1803,6 +1803,7 @@ class PluginDocGenerator:
         plugin_index_href: str = "../index.html",
         accessor_index_href: str | None = None,
         context_index_href: str | None = None,
+        adapter_index_href: str | None = None,
         visualization_index_href: str | None = None,
         visualization_detail_prefix: str | None = None,
         site_root_prefix: str = "../",
@@ -1819,6 +1820,7 @@ class PluginDocGenerator:
                 plugin_index_href=plugin_index_href,
                 accessor_index_href=accessor_index_href,
                 context_index_href=context_index_href,
+                adapter_index_href=adapter_index_href,
                 visualization_index_href=visualization_index_href,
                 visualization_detail_prefix=visualization_detail_prefix,
                 site_root_prefix=site_root_prefix,
@@ -1838,6 +1840,7 @@ class PluginDocGenerator:
         plugin_index_href: str = "index.html",
         accessor_index_href: str | None = None,
         context_index_href: str | None = None,
+        adapter_index_href: str | None = None,
         visualization_index_href: str | None = None,
         visualization_detail_prefix: str | None = None,
         lineage_details_json: str | None = None,
@@ -1870,6 +1873,7 @@ class PluginDocGenerator:
                 plugin_index_href=plugin_index_href,
                 accessor_index_href=accessor_index_href,
                 context_index_href=context_index_href,
+                adapter_index_href=adapter_index_href,
                 visualization_index_href=visualization_index_href,
                 visualization_detail_prefix=visualization_detail_prefix,
                 standalone_plugins=standalone_plugins,
@@ -1894,6 +1898,7 @@ class PluginDocGenerator:
         site_home_href: str = "index.html",
         accessor_relative_path: str | None = None,
         context_relative_path: str | None = None,
+        adapter_relative_path: str | None = None,
         visualization_relative_path: str | None = None,
         extra_search_entries: list[dict[str, str]] | None = None,
     ) -> dict[str, Path]:
@@ -1943,6 +1948,16 @@ class PluginDocGenerator:
         index_context_href = (
             Path(os.path.relpath(output_dir / context_relative_path, index_dir)).as_posix()
             if context_relative_path
+            else None
+        )
+        detail_adapter_href = (
+            Path(os.path.relpath(output_dir / adapter_relative_path, plugin_dir)).as_posix()
+            if adapter_relative_path
+            else None
+        )
+        index_adapter_href = (
+            Path(os.path.relpath(output_dir / adapter_relative_path, index_dir)).as_posix()
+            if adapter_relative_path
             else None
         )
         detail_visualization_href = (
@@ -2002,6 +2017,7 @@ class PluginDocGenerator:
                     plugin_index_href=plugin_index_href,
                     accessor_index_href=detail_accessor_href,
                     context_index_href=detail_context_href,
+                    adapter_index_href=detail_adapter_href,
                     visualization_index_href=detail_visualization_href,
                     visualization_detail_prefix=detail_visualization_prefix,
                     site_root_prefix=detail_site_root_prefix,
@@ -2036,6 +2052,7 @@ class PluginDocGenerator:
                 plugin_index_href=Path(os.path.relpath(index_path, index_dir)).as_posix(),
                 accessor_index_href=index_accessor_href,
                 context_index_href=index_context_href,
+                adapter_index_href=index_adapter_href,
                 visualization_index_href=index_visualization_href,
                 visualization_detail_prefix=index_visualization_prefix,
                 lineage_details_json=detail_json,

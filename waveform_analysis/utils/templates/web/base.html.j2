@@ -13,7 +13,7 @@
 <body class="{{ body_class }}" data-site-root-prefix="{{ site_root_prefix }}">
   {{ shell.topbar(site_home_href, plugin_index_href, accessor_index_href, context_index_href|default(none), visualization_index_href|default(none), current, asset_prefix) }}
   <div class="{{ layout_class|default('site-layout') }}">
-    {{ shell.navigation(site_home_href, plugin_index_href, accessor_index_href, context_index_href|default(none), visualization_index_href|default(none), visualization_detail_prefix|default(visualization_index_href|default("")), current, active_accessor|default(none), accessor_detail_prefix|default("")) }}
+    {{ shell.navigation(site_home_href, plugin_index_href, accessor_index_href, context_index_href|default(none), adapter_index_href|default(none), visualization_index_href|default(none), visualization_detail_prefix|default(visualization_index_href|default("")), current, active_accessor|default(none), accessor_detail_prefix|default("")) }}
     {% block document %}{% endblock %}
   </div>
   {{ shell.footer() }}

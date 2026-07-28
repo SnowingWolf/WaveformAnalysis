@@ -1382,11 +1382,20 @@ _ADAPTER_PARAMETER_HELP = {
     "format_reader": "格式读取器实例（`FormatReader`）。",
     "directory_layout": "目录布局配置（`DirectoryLayout`）。",
     "spec": "格式规范（`FormatSpec`）。",
+    "adapter": "要注册的完整 `DAQAdapter` 实例。",
+    "adapter_name": "已注册的 DAQ adapter 名称；未提供时从 `Context.config['daq_adapter']` 读取。",
+    "plugin": "已注册插件实例或其 `provides` 名称。",
+    "verbose": "是否显示每个配置值的来源与推断细节。",
 }
 
 
 def _adapter_callable_spec(
-    name: str, callable_obj: Any, description: str, returns: str = "", example: str = ""
+    name: str,
+    callable_obj: Any,
+    description: str,
+    returns: str = "",
+    notes: tuple[str, ...] = (),
+    example: str = "",
 ) -> CallableDocumentationSpec:
     parameters = tuple(
         AccessorParameterSpec(
@@ -1403,7 +1412,7 @@ def _adapter_callable_spec(
         description=description,
         parameters=parameters,
         returns=returns,
-        notes=(),
+        notes=notes,
         example=example,
         kind="class" if is_class else "function",
     )
@@ -1425,6 +1434,70 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
         "使上层插件链路只需面向统一的 `records`/`wave_pool`/`st_waveforms` 抽象编程。"
     ),
     groups=(
+        CallableDocumentationGroup(
+            anchor="recommended-workflow",
+            title="推荐使用流程",
+            description=(
+                "先列出并检查内置 adapter，再将名称写入 Context 的全局 `daq_adapter` 配置；"
+                "注册插件后，通过 Context 检查 adapter 元数据和目标插件的已解析配置。"
+                "显式插件配置优先于 adapter 推断，adapter 推断优先于插件默认值。"
+            ),
+            members=(
+                _adapter_callable_spec(
+                    "list_adapters",
+                    list_adapters,
+                    "列出当前进程已注册的 adapter 名称；导入 `waveform_analysis.utils.formats` 后内置 `vx2730` 与 `v1725` 可用。",
+                    returns="已注册 adapter 名称列表。",
+                    example=(
+                        "from waveform_analysis.core.context import Context\n"
+                        "from waveform_analysis.core.plugins import profiles\n"
+                        "from waveform_analysis.utils.formats import get_adapter, list_adapters\n\n"
+                        'run_id = "run_001"\n'
+                        'adapter_name = "vx2730"\n'
+                        "assert adapter_name in list_adapters()\n\n"
+                        "# 在请求插件产物前检查 DAQ 文件与通道发现结果。\n"
+                        "adapter = get_adapter(adapter_name)\n"
+                        'channels = adapter.scan_run("DAQ", run_id)\n\n'
+                        'ctx = Context(config={"data_root": "DAQ", "daq_adapter": adapter_name})\n'
+                        "ctx.register(*profiles.cpu_default())\n\n"
+                        "# adapter 元数据与解析后的插件配置均可直接检查。\n"
+                        "print(ctx.get_adapter_info())\n"
+                        'ctx.show_resolved_config("records")\n'
+                        'records = ctx.get_data(run_id, "records")'
+                    ),
+                ),
+                _adapter_callable_spec(
+                    "Context.get_adapter_info",
+                    Context.get_adapter_info,
+                    "读取当前 Context 选中的 adapter 的采样率、时间戳单位、原生时间戳语义与采样间隔。",
+                    returns="`AdapterInfo`；未配置或名称未注册时返回 `None`。",
+                    notes=(
+                        "`daq_adapter` 应使用已注册 adapter 的名称，而不是 `DAQAdapter` 实例。",
+                        "在执行处理前先确认 `sampling_rate_hz`、`timestamp_unit` 与 `raw_timestamp_mode` 是否符合原始数据。",
+                    ),
+                    example=(
+                        "info = ctx.get_adapter_info()\n"
+                        "if info is None:\n"
+                        '    raise RuntimeError("daq_adapter 未配置或未注册")\n'
+                        "print(info.name, info.sampling_rate_hz, info.timestamp_unit, info.dt_ns)"
+                    ),
+                ),
+                _adapter_callable_spec(
+                    "Context.get_resolved_config",
+                    Context.get_resolved_config,
+                    "获取指定插件的最终配置，用于区分显式值、adapter 推断值与插件默认值。",
+                    returns="包含配置来源的 `ResolvedConfig`。",
+                    notes=(
+                        "传入字符串时，该插件必须已通过 `Context.register()` 注册。",
+                        "adapter 名称和解析结果会参与配置签名与缓存 lineage；更换 adapter 后应重新请求数据。",
+                    ),
+                    example=(
+                        'resolved = ctx.get_resolved_config("records")\n'
+                        "print(resolved.summary(verbose=True))"
+                    ),
+                ),
+            ),
+        ),
         CallableDocumentationGroup(
             anchor="core-abstractions",
             title="核心抽象",
@@ -1538,11 +1611,32 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                 _adapter_callable_spec(
                     "register_adapter",
                     register_adapter,
-                    "注册完整的 DAQ 适配器实例到全局注册表。",
+                    "注册完整的 DAQ 适配器实例到全局注册表；注册后通过其名称写入 Context 的 `daq_adapter` 配置。",
                     returns="无返回值。",
+                    notes=(
+                        "自定义 adapter 应在创建 Context 和请求插件数据前注册。",
+                        "注册表是进程内状态；新的 Python 进程需要再次导入或注册自定义 adapter。",
+                    ),
                     example=(
-                        "from waveform_analysis.utils.formats import register_adapter\n"
-                        "register_adapter(adapter)"
+                        "from waveform_analysis.core.context import Context\n"
+                        "from waveform_analysis.utils.formats import (\n"
+                        "    ColumnMapping, DAQAdapter, DirectoryLayout, FormatSpec,\n"
+                        "    GenericCSVReader, TimestampUnit, register_adapter,\n"
+                        ")\n\n"
+                        "spec = FormatSpec(\n"
+                        '    name="my_csv",\n'
+                        "    columns=ColumnMapping(timestamp=3),\n"
+                        "    timestamp_unit=TimestampUnit.NANOSECONDS,\n"
+                        '    delimiter=",",\n'
+                        "    sampling_rate_hz=500e6,\n"
+                        ")\n"
+                        "layout = DirectoryLayout(\n"
+                        '    name="my_layout", raw_subdir="data",\n'
+                        '    file_glob_pattern="*.csv", channel_regex=r"channel(\\d+)",\n'
+                        ")\n"
+                        'adapter = DAQAdapter("my_adapter", GenericCSVReader(spec), layout)\n'
+                        "register_adapter(adapter)\n\n"
+                        'ctx = Context(config={"data_root": "DAQ", "daq_adapter": "my_adapter"})'
                     ),
                 ),
                 _adapter_callable_spec(
@@ -1554,16 +1648,6 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                         "from waveform_analysis.utils.formats import get_adapter\n"
                         'adapter = get_adapter("vx2730")\n'
                         'data = adapter.load_channel("DAQ", "run_001", channel=0)'
-                    ),
-                ),
-                _adapter_callable_spec(
-                    "list_adapters",
-                    list_adapters,
-                    "列出所有已注册的 DAQ 适配器名称。",
-                    returns="适配器名称列表。",
-                    example=(
-                        "from waveform_analysis.utils.formats import list_adapters\n"
-                        "print(list_adapters())"
                     ),
                 ),
             ),
@@ -1962,6 +2046,7 @@ class DocumentationSiteGenerator:
             site_home_href="index.html",
             accessor_relative_path="accessors/index.html",
             context_relative_path="contexts/index.html",
+            adapter_relative_path="adapters/index.html",
             visualization_relative_path="visualizations/index.html",
             extra_search_entries=site_search_entries,
         )
