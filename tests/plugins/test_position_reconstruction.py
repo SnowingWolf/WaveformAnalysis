@@ -3,7 +3,7 @@
 测试内容：
 1. PMT 几何布局系统
 2. PositionReconstructionPlugin (v0.2.1)
-3. S1S2PairAccessor.get_positions()
+3. S1S2PairAccessor.positions()
 """
 
 import numpy as np
@@ -333,7 +333,7 @@ def test_position_dtype():
 # ============================================================================
 
 
-def test_accessor_get_positions_empty():
+def test_accessor_positions_empty():
     """测试 accessor 位置访问（无数据）"""
     from waveform_analysis.utils.s1_s2_pair_accessor import S1S2PairAccessor
 

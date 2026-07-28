@@ -67,7 +67,7 @@ ctx = Context(config={"data_root": "/path/to/data"})
 
 # 2. 获取位置数据
 accessor = S1S2PairAccessor(ctx, "run_001", selected_only=True)
-positions = accessor.get_positions()
+positions = accessor.positions()
 pairs = accessor.pairs
 
 # 3. 准备 DataFrame

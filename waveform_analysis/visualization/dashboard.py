@@ -62,7 +62,7 @@ def render_position_dashboard(
         >>>
         >>> ctx = Context()
         >>> accessor = S1S2PairAccessor(ctx, "run_001", selected_only=True)
-        >>> positions = accessor.get_positions()
+        >>> positions = accessor.positions()
         >>> pairs = accessor.pairs
         >>>
         >>> df = pd.DataFrame({
@@ -114,13 +114,15 @@ def render_position_dashboard(
     # 序列化 PMT 布局
     pmt_list = []
     for entry in layout.entries:
-        pmt_list.append({
-            "pmt_no": entry.pmt_no,
-            "pmt_id": entry.pmt_id,
-            "x_mm": entry.x_mm,
-            "y_mm": entry.y_mm,
-            "gain": entry.gain,
-        })
+        pmt_list.append(
+            {
+                "pmt_no": entry.pmt_no,
+                "pmt_id": entry.pmt_id,
+                "x_mm": entry.x_mm,
+                "y_mm": entry.y_mm,
+                "gain": entry.gain,
+            }
+        )
     pmt_config_json = json.dumps(pmt_list)
 
     # 读取 HTML 模板

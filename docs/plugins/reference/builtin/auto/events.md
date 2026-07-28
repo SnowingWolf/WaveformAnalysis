@@ -57,7 +57,7 @@ structured_array output with fields: event_id, event_number, run_id, pair_id, s1
 | `y` | `float32` | - | Y coordinate (mm) |
 | `z` | `float32` | - | Z coordinate (drift distance, mm) |
 | `r` | `float32` | - | Radial coordinate sqrt(x^2 + y^2) (mm) |
-| `drift_time` | `float32` | - | Drift time (ns) |
+| `drift_time_ns` | `float32` | - | Drift time (ns) |
 | `s1_time` | `float64` | - | S1 time relative to run start (ns) |
 | `s2_time` | `float64` | - | S2 time (ns) |
 | `s1_area` | `float32` | - | S1 raw area |
@@ -69,8 +69,8 @@ structured_array output with fields: event_id, event_number, run_id, pair_id, s1
 | `s2_area_fraction_top` | `float32` | - | S2 area fraction in top PMT array |
 | `s1_rise_time` | `float32` | - | S1 rise time (ns) |
 | `s2_rise_time` | `float32` | - | S2 rise time (ns) |
-| `n_s1_candidates` | `int32` | - | Number of S1 candidates for this S2 |
-| `n_s2_candidates` | `int32` | - | Number of S2 candidates for this S1 |
+| `n_s1_candidates_for_s2` | `int32` | - | Number of S1 candidates for this S2 |
+| `n_s2_candidates_for_s1` | `int32` | - | Number of S2 candidates for this S1 |
 | `flags` | `uint32` | - | Bit-field status flags |
 ## Usage
 
