@@ -12,6 +12,17 @@ from markupsafe import Markup, escape
 import numpy as np
 
 from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.plugin_sets import PLUGIN_SETS
+from waveform_analysis.utils.formats import (
+    DAQAdapter,
+    DirectoryLayout,
+    FormatSpec,
+    GenericCSVReader,
+    get_adapter,
+    list_adapters,
+    register_adapter,
+    register_format,
+)
 from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
 from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
 from waveform_analysis.utils.s1_s2_pair_accessor import S1S2PairAccessor
@@ -1175,88 +1186,417 @@ def _context_spec(name: str, description: str) -> CallableDocumentationSpec:
     )
 
 
-CONTEXT_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
-    "context",
-    "Context",
-    "分析运行时",
-    "管理显式 run_id、配置、插件 DAG、数据访问与缓存诊断的分析入口。",
-    "`Context` 不保存隐式当前运行。每次数据访问都传入 `run_id`，由它解析插件依赖、准备配置并复用 lineage 一致的缓存。",
+# Context 文档自动构建：分组规则表驱动，反射公开方法，新增方法自动同步。
+# 漂移检测见 tests/test_plugin_documentation.py::test_context_page_covers_all_public_methods
+_CONTEXT_GROUP_RULES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
     (
+        "initialization",
+        "初始化与插件注册",
+        "创建 Context，注册或发现插件，并检查已提供的数据产物。",
+        (
+            "Context",
+            "from_config_json",
+            "clone",
+            "create_context_factory",
+            "register",
+            "discover_and_register_plugins",
+            "list_provided_data",
+            "get_plugin",
+        ),
+    ),
+    (
+        "configuration",
+        "配置解析",
+        "显式配置优先于 adapter 推断和插件默认值。",
+        (
+            "set_config",
+            "get_config",
+            "get_config_value",
+            "get_resolved_config",
+            "show_resolved_config",
+            "show_config",
+            "get_run_config",
+            "validate_run_config",
+            "get_run_hardware_channels",
+            "get_plugin_run_config",
+            "get_adapter_info",
+            "list_plugin_configs",
+        ),
+    ),
+    (
+        "data-access",
+        "数据访问与时间查询",
+        "按需请求插件产物，并在系统或绝对时间域中切片。",
+        (
+            "get_data",
+            "build_time_index",
+            "time_range",
+            "set_epoch",
+            "get_epoch",
+            "get_data_time_range_absolute",
+            "clear_time_index",
+            "get_time_index_stats",
+            "auto_extract_epoch",
+        ),
+    ),
+    (
+        "dag-and-execution",
+        "依赖、执行与 DAG",
+        "在执行前查看计划与依赖；`plot_lineage()` 是 Context 的 DAG 调试能力。",
+        (
+            "resolve_dependencies",
+            "preview_execution",
+            "get_lineage",
+            "plot_lineage",
+            "analyze_dependencies",
+            "help",
+            "get_performance_report",
+            "clear_performance_caches",
+        ),
+    ),
+    (
+        "cache-diagnostics",
+        "缓存与诊断",
+        "缓存 key 由 run、代码、版本、配置和输出契约决定。",
+        (
+            "clear_cache_for",
+            "clear_config_cache",
+            "analyze_cache",
+            "diagnose_cache",
+            "cache_stats",
+            "key_for",
+        ),
+    ),
+)
+
+# 方法描述兜底字典；未列出的方法会回退到 docstring 首行。
+_CONTEXT_DESCRIPTIONS: dict[str, str] = {
+    "Context": "创建分析 Context；构造器不绑定某个 run。",
+    "from_config_json": "从 JSON 配置文件加载并应用配置。",
+    "clone": "创建具有相同配置和插件注册的新 Context。",
+    "create_context_factory": "构建可序列化的 context_factory 用于进程级执行器。",
+    "register": "注册插件实例、插件类、模块或其序列。",
+    "discover_and_register_plugins": "从 entry point 与配置目录发现插件。",
+    "list_provided_data": "列出已注册的稳定数据名称。",
+    "get_plugin": "按 `provides` 名称取得插件实例。",
+    "set_config": "设置全局或插件显式配置。",
+    "get_config": "读取插件的单项配置。",
+    "get_config_value": "读取单项配置及其解析来源。",
+    "get_resolved_config": "返回插件完整解析配置。",
+    "show_resolved_config": "打印解析配置。",
+    "show_config": "显示当前配置，并标识每个配置项对应的插件。",
+    "get_run_config": "读取特定 run 的 DAQ 配置。",
+    "validate_run_config": "校验 run 配置。",
+    "get_run_hardware_channels": "返回 run 的硬件通道映射。",
+    "get_plugin_run_config": "返回插件在特定 run 的配置。",
+    "get_adapter_info": "获取 DAQ adapter 信息。",
+    "list_plugin_configs": "列出插件配置选项。",
+    "get_data": "请求 run 的具名数据；未命中缓存时执行必要上游。",
+    "build_time_index": "建立或刷新时间索引。",
+    "time_range": "在系统时间 ns 域查询范围。",
+    "set_epoch": "设置 run 的绝对时间 epoch。",
+    "get_epoch": "读取 run 的 epoch。",
+    "get_data_time_range_absolute": "使用 datetime 边界查询绝对时间范围。",
+    "clear_time_index": "清除时间索引。",
+    "get_time_index_stats": "返回时间索引统计。",
+    "auto_extract_epoch": "自动提取 run 的 epoch。",
+    "resolve_dependencies": "返回目标依赖执行顺序。",
+    "preview_execution": "预览执行计划、配置与缓存命中。",
+    "get_lineage": "返回插件 lineage 数据结构。",
+    "plot_lineage": "渲染 `labview`、`plotly` 或 `mermaid` DAG。",
+    "analyze_dependencies": "分析上游、下游与性能信息。",
+    "help": "返回结构化帮助文档。",
+    "get_performance_report": "获取插件性能统计报告。",
+    "clear_performance_caches": "清除所有性能优化缓存。",
+    "clear_cache_for": "清理指定 run 的缓存。",
+    "clear_config_cache": "清除配置缓存。",
+    "analyze_cache": "生成缓存状态分析。",
+    "diagnose_cache": "诊断缓存问题，默认 dry-run。",
+    "cache_stats": "汇总缓存统计。",
+    "key_for": "获取数据类型和 run 的唯一键。",
+}
+
+
+def _method_description(name: str) -> str:
+    """返回方法的描述：优先用 _CONTEXT_DESCRIPTIONS，否则取 docstring 首行。"""
+    if name in _CONTEXT_DESCRIPTIONS:
+        return _CONTEXT_DESCRIPTIONS[name]
+    target = Context if name == "Context" else getattr(Context, name)
+    doc = inspect.getdoc(target) or ""
+    first_line = doc.split("\n", 1)[0].strip()
+    return first_line or f"`Context.{name}()`"
+
+
+def _build_context_documentation_page() -> CallableDocumentationPageSpec:
+    """基于反射自动构建 Context 文档页；新增公开方法自动同步。"""
+    groups: list[CallableDocumentationGroup] = []
+    for anchor, title, desc, members in _CONTEXT_GROUP_RULES:
+        member_specs = tuple(
+            _context_spec(name, _method_description(name))
+            for name in members
+            if name == "Context" or hasattr(Context, name)
+        )
+        groups.append(
+            CallableDocumentationGroup(
+                anchor=anchor,
+                title=title,
+                description=desc,
+                members=member_specs,
+            )
+        )
+    return CallableDocumentationPageSpec(
+        slug="context",
+        title="Context",
+        eyebrow="分析运行时",
+        summary="管理显式 run_id、配置、插件 DAG、数据访问与缓存诊断的分析入口。",
+        introduction=(
+            "`Context` 不保存隐式当前运行。每次数据访问都传入 `run_id`，"
+            "由它解析插件依赖、准备配置并复用 lineage 一致的缓存。"
+        ),
+        groups=tuple(groups),
+    )
+
+
+CONTEXT_DOCUMENTATION_PAGE = _build_context_documentation_page()
+
+
+_ADAPTER_PARAMETER_HELP = {
+    "name": "适配器或格式规范的名称。",
+    "version": "格式规范版本号。",
+    "columns": "CSV 列映射配置（`ColumnMapping`）。",
+    "timestamp_unit": "原生时间戳的物理单位（`TimestampUnit`）。",
+    "raw_timestamp_mode": "原生时间戳语义（`RawTimestampMode`）。",
+    "file_pattern": "文件 glob 模式。",
+    "header_rows_first_file": "首个文件跳过的头部行数。",
+    "header_rows_other_files": "其他文件跳过的头部行数。",
+    "delimiter": "CSV 分隔符。",
+    "sampling_rate_hz": "采样率（Hz）。",
+    "metadata": "额外元数据字典。",
+    "raw_subdir": "原始数据子目录名。",
+    "run_path_template": "运行路径模板。",
+    "file_glob_pattern": "文件 glob 模式。",
+    "file_extension": "文件扩展名。",
+    "channel_regex": "从文件名提取通道号的正则表达式。",
+    "file_index_regex": "从文件名提取文件索引的正则表达式。",
+    "run_info_pattern": "运行信息文件模式（可选）。",
+    "format_reader": "格式读取器实例（`FormatReader`）。",
+    "directory_layout": "目录布局配置（`DirectoryLayout`）。",
+    "spec": "格式规范（`FormatSpec`）。",
+}
+
+
+def _adapter_callable_spec(
+    name: str, callable_obj: Any, description: str, returns: str = "", example: str = ""
+) -> CallableDocumentationSpec:
+    parameters = tuple(
+        AccessorParameterSpec(
+            param_name,
+            _ADAPTER_PARAMETER_HELP.get(param_name, f"`{param_name}` 的调用参数。"),
+        )
+        for param_name in inspect.signature(callable_obj).parameters
+        if param_name != "self"
+    )
+    is_class = inspect.isclass(callable_obj)
+    return CallableDocumentationSpec(
+        name=name,
+        callable=callable_obj,
+        description=description,
+        parameters=parameters,
+        returns=returns,
+        notes=(),
+        example=example,
+        kind="class" if is_class else "function",
+    )
+
+
+ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
+    slug="adapter",
+    title="DAQ 适配器",
+    eyebrow="硬件无关边界",
+    summary=(
+        "DAQ 适配器层把不同数字化仪（CAEN VX2730/V1725 等）的文件格式、目录布局、"
+        "时间戳单位封装为可注册的 DAQAdapter，上层插件链路只面向统一的 "
+        "records/wave_pool/st_waveforms 抽象。"
+    ),
+    introduction=(
+        "适配器层是原始 DAQ 文件与框架内部数据结构之间的统一边界。"
+        '它把"哪种数字化仪、哪种文件格式、哪种目录布局、哪种时间戳单位"'
+        "这些硬件相关差异封装在一组可注册、可组合的适配器里，"
+        "使上层插件链路只需面向统一的 `records`/`wave_pool`/`st_waveforms` 抽象编程。"
+    ),
+    groups=(
         CallableDocumentationGroup(
-            "initialization",
-            "初始化与插件注册",
-            "创建 Context，注册或发现插件，并检查已提供的数据产物。",
-            tuple(
-                _context_spec(*item)
-                for item in (
-                    ("Context", "创建分析 Context；构造器不绑定某个 run。"),
-                    ("register", "注册插件实例、插件类、模块或其序列。"),
-                    ("discover_and_register_plugins", "从 entry point 与配置目录发现插件。"),
-                    ("list_provided_data", "列出已注册的稳定数据名称。"),
-                    ("get_plugin", "按 `provides` 名称取得插件实例。"),
-                )
+            anchor="core-abstractions",
+            title="核心抽象",
+            description=(
+                "TimestampUnit/RawTimestampMode 定义时间戳单位与语义；"
+                "ColumnMapping 映射 CSV 列索引；FormatSpec 完整描述一种 DAQ 数据格式；"
+                "DirectoryLayout 定义目录结构与文件匹配模式；"
+                "FormatReader 为格式读取器抽象基类。"
+            ),
+            members=(
+                _adapter_callable_spec(
+                    "FormatSpec",
+                    FormatSpec,
+                    "完整 DAQ 数据格式规范：列映射、时间戳单位、分隔符、文件模式、头部行数、采样率、元数据。",
+                    returns="`FormatSpec` 实例，参与血缘哈希与配置推断。",
+                    example=(
+                        "from waveform_analysis.utils.formats import (\n"
+                        "    FormatSpec, ColumnMapping, TimestampUnit,\n"
+                        ")\n"
+                        "spec = FormatSpec(\n"
+                        '    name="my_format",\n'
+                        "    columns=ColumnMapping(timestamp=3),\n"
+                        "    timestamp_unit=TimestampUnit.NANOSECONDS,\n"
+                        '    delimiter=",",\n'
+                        ")"
+                    ),
+                ),
+                _adapter_callable_spec(
+                    "DirectoryLayout",
+                    DirectoryLayout,
+                    "DAQ 目录结构配置：原始数据子目录、运行路径模板、文件 glob、通道识别正则、文件索引正则。",
+                    returns="`DirectoryLayout` 实例，提供 `get_raw_path`/`group_files_by_channel` 等方法。",
+                    example=(
+                        "from waveform_analysis.utils.formats import DirectoryLayout\n"
+                        "layout = DirectoryLayout(\n"
+                        '    name="my_layout",\n'
+                        '    raw_subdir="data",\n'
+                        '    file_glob_pattern="*.dat",\n'
+                        '    channel_regex=r"channel(\\d+)",\n'
+                        ")"
+                    ),
+                ),
+                _adapter_callable_spec(
+                    "GenericCSVReader",
+                    GenericCSVReader,
+                    "通用 CSV 格式读取器，可通过 FormatSpec 配置读取任意 CSV 格式的 DAQ 数据。",
+                    returns="`GenericCSVReader` 实例，提供 `read_file`/`read_files`/`extract_columns`/`validate_data` 方法。",
+                    example=(
+                        "from waveform_analysis.utils.formats import (\n"
+                        "    GenericCSVReader, FormatSpec, ColumnMapping,\n"
+                        ")\n"
+                        "spec = FormatSpec(\n"
+                        '    name="custom",\n'
+                        "    columns=ColumnMapping(timestamp=3),\n"
+                        '    delimiter=",",\n'
+                        ")\n"
+                        "reader = GenericCSVReader(spec)\n"
+                        "data = reader.read_file('data.csv')"
+                    ),
+                ),
             ),
         ),
         CallableDocumentationGroup(
-            "configuration",
-            "配置解析",
-            "显式配置优先于 adapter 推断和插件默认值。",
-            tuple(
-                _context_spec(*item)
-                for item in (
-                    ("set_config", "设置全局或插件显式配置。"),
-                    ("get_config_value", "读取单项配置及其解析来源。"),
-                    ("get_resolved_config", "返回插件完整解析配置。"),
-                    ("show_resolved_config", "打印解析配置。"),
-                    ("show_config", "显示当前配置，并标识每个配置项对应的插件。"),
-                    ("get_run_config", "读取特定 run 的 DAQ 配置。"),
-                )
+            anchor="complete-adapter",
+            title="完整适配器",
+            description=(
+                "DAQAdapter 组合 FormatReader 与 DirectoryLayout，"
+                "提供 scan_run/load_channel/load_all_channels/load_channel_generator/"
+                "extract_and_convert/normalize_timestamp_to_ps/get_file_epoch 等统一接口。"
+            ),
+            members=(
+                _adapter_callable_spec(
+                    "DAQAdapter",
+                    DAQAdapter,
+                    "完整 DAQ 适配器：组合格式读取器与目录布局，提供统一的 DAQ 数据访问接口。",
+                    returns="`DAQAdapter` 实例。",
+                    example=(
+                        "from waveform_analysis.utils.formats import (\n"
+                        "    DAQAdapter, VX2730Reader, VX2730_LAYOUT,\n"
+                        ")\n"
+                        "adapter = DAQAdapter(\n"
+                        '    name="my_adapter",\n'
+                        "    format_reader=VX2730Reader(),\n"
+                        "    directory_layout=VX2730_LAYOUT,\n"
+                        ")"
+                    ),
+                ),
             ),
         ),
         CallableDocumentationGroup(
-            "data-access",
-            "数据访问与时间查询",
-            "按需请求插件产物，并在系统或绝对时间域中切片。",
-            tuple(
-                _context_spec(*item)
-                for item in (
-                    ("get_data", "请求 run 的具名数据；未命中缓存时执行必要上游。"),
-                    ("build_time_index", "建立或刷新时间索引。"),
-                    ("time_range", "在系统时间 ns 域查询范围。"),
-                    ("set_epoch", "设置 run 的绝对时间 epoch。"),
-                    ("get_epoch", "读取 run 的 epoch。"),
-                    ("get_data_time_range_absolute", "使用 datetime 边界查询绝对时间范围。"),
-                )
+            anchor="registry",
+            title="注册表与发现",
+            description=(
+                "格式注册表管理 FormatReader 与 FormatSpec 的映射；"
+                "适配器注册表管理 DAQAdapter 实例。"
+                "utils/formats/__init__.py 在导入时自动注册内置格式 vx2730_csv 与 v1725_bin。"
+            ),
+            members=(
+                _adapter_callable_spec(
+                    "register_format",
+                    register_format,
+                    "注册 DAQ 格式：绑定格式名称、读取器类与 FormatSpec。",
+                    returns="无返回值。",
+                    example=(
+                        "from waveform_analysis.utils.formats import (\n"
+                        "    GenericCSVReader, FormatSpec, register_format,\n"
+                        ")\n"
+                        'register_format("my_format", GenericCSVReader, my_spec)'
+                    ),
+                ),
+                _adapter_callable_spec(
+                    "register_adapter",
+                    register_adapter,
+                    "注册完整的 DAQ 适配器实例到全局注册表。",
+                    returns="无返回值。",
+                    example=(
+                        "from waveform_analysis.utils.formats import register_adapter\n"
+                        "register_adapter(adapter)"
+                    ),
+                ),
+                _adapter_callable_spec(
+                    "get_adapter",
+                    get_adapter,
+                    "按名称获取已注册的 DAQ 适配器实例。",
+                    returns="`DAQAdapter` 实例。",
+                    example=(
+                        "from waveform_analysis.utils.formats import get_adapter\n"
+                        'adapter = get_adapter("vx2730")\n'
+                        'data = adapter.load_channel("DAQ", "run_001", channel=0)'
+                    ),
+                ),
+                _adapter_callable_spec(
+                    "list_adapters",
+                    list_adapters,
+                    "列出所有已注册的 DAQ 适配器名称。",
+                    returns="适配器名称列表。",
+                    example=(
+                        "from waveform_analysis.utils.formats import list_adapters\n"
+                        "print(list_adapters())"
+                    ),
+                ),
             ),
         ),
         CallableDocumentationGroup(
-            "dag-and-execution",
-            "依赖、执行与 DAG",
-            "在执行前查看计划与依赖；`plot_lineage()` 是 Context 的 DAG 调试能力。",
-            tuple(
-                _context_spec(*item)
-                for item in (
-                    ("resolve_dependencies", "返回目标依赖执行顺序。"),
-                    ("preview_execution", "预览执行计划、配置与缓存命中。"),
-                    ("get_lineage", "返回插件 lineage 数据结构。"),
-                    ("plot_lineage", "渲染 `labview`、`plotly` 或 `mermaid` DAG。"),
-                    ("analyze_dependencies", "分析上游、下游与性能信息。"),
-                    ("help", "返回结构化帮助文档。"),
-                )
+            anchor="builtin-adapters",
+            title="内置适配器",
+            description=(
+                "vx2730: CAEN VX2730 数字化仪（CSV，分号分隔，500 MHz，ps）；"
+                "v1725: CAEN V1725 DAW_DEMO（二进制 .bin，sample index → ps，Numba 加速解析）。"
             ),
-        ),
-        CallableDocumentationGroup(
-            "cache-diagnostics",
-            "缓存与诊断",
-            "缓存 key 由 run、代码、版本、配置和输出契约决定。",
-            tuple(
-                _context_spec(*item)
-                for item in (
-                    ("clear_cache_for", "清理指定 run 的缓存。"),
-                    ("analyze_cache", "生成缓存状态分析。"),
-                    ("diagnose_cache", "诊断缓存问题，默认 dry-run。"),
-                    ("cache_stats", "汇总缓存统计。"),
-                )
+            members=(
+                _adapter_callable_spec(
+                    "get_adapter_vx2730",
+                    lambda: get_adapter("vx2730"),
+                    "获取 VX2730 适配器：CSV 格式，分号分隔，首文件 2 行头部，时间戳单位为皮秒，采样率 500 MHz。",
+                    returns="VX2730 `DAQAdapter` 实例。",
+                    example=(
+                        "from waveform_analysis.utils.formats import get_adapter\n"
+                        'adapter = get_adapter("vx2730")\n'
+                        'channel_files = adapter.scan_run("DAQ", "run_001")'
+                    ),
+                ),
+                _adapter_callable_spec(
+                    "get_adapter_v1725",
+                    lambda: get_adapter("v1725"),
+                    "获取 V1725 适配器：解析多通道波形的 .bin 文件，sample index → ps，使用 Numba 加速。",
+                    returns="V1725 `DAQAdapter` 实例。",
+                    example=(
+                        "from waveform_analysis.utils.formats import get_adapter\n"
+                        'adapter = get_adapter("v1725")'
+                    ),
+                ),
             ),
         ),
     ),
@@ -1556,6 +1896,7 @@ class DocumentationSiteGenerator:
         visualization_views = [
             self.build_callable_page_view(spec) for spec in VISUALIZATION_DOCUMENTATION_PAGES
         ]
+        adapter_view = self.build_callable_page_view(ADAPTER_DOCUMENTATION_PAGE)
         site_search_entries = [
             {
                 "title": "Context 与 Plugin 入门",
@@ -1589,14 +1930,22 @@ class DocumentationSiteGenerator:
                     ("公开成员", "#members"),
                 )
             )
-        for view in (context_view, *visualization_views):
-            section = "contexts" if view.slug == "context" else "visualizations"
+        for view in (context_view, adapter_view, *visualization_views):
+            section = (
+                "contexts"
+                if view.slug == "context"
+                else "adapters" if view.slug == "adapter" else "visualizations"
+            )
             for group, members in view.groups:
                 site_search_entries.append(
                     {
                         "title": f"{view.title}: {group.title}",
                         "summary": group.description,
-                        "kind": "Context" if section == "contexts" else "可视化",
+                        "kind": (
+                            "Context"
+                            if section == "contexts"
+                            else "DAQ 适配器" if section == "adapters" else "可视化"
+                        ),
                         "url": f"{section}/{view.slug}.html#{group.anchor}",
                         "keywords": f"{view.title} {group.title} "
                         + " ".join(member.name for member in members),
@@ -1674,6 +2023,28 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
             encoding="utf-8",
         )
         generated["context:context"] = context_path
+        adapter_dir = output_dir / "adapters"
+        adapter_dir.mkdir(parents=True, exist_ok=True)
+        adapter_index = adapter_dir / "index.html"
+        adapter_index.write_text(
+            env.get_template("web/callable_index.html.j2").render(
+                title="DAQ 适配器",
+                eyebrow="硬件无关边界",
+                summary=ADAPTER_DOCUMENTATION_PAGE.summary,
+                pages=(adapter_view,),
+                current_section="adapters",
+            ),
+            encoding="utf-8",
+        )
+        generated["ADAPTER_INDEX"] = adapter_index
+        adapter_path = adapter_dir / "adapter.html"
+        adapter_path.write_text(
+            env.get_template("web/callable_reference.html.j2").render(
+                page=adapter_view, current_section="adapters", index_title="DAQ 适配器"
+            ),
+            encoding="utf-8",
+        )
+        generated["adapter:adapter"] = adapter_path
         visualization_dir = output_dir / "visualizations"
         visualization_dir.mkdir(parents=True, exist_ok=True)
         visualization_index = visualization_dir / "index.html"
