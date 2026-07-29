@@ -12,6 +12,7 @@ from markupsafe import Markup, escape
 import numpy as np
 
 from waveform_analysis.core.context import Context
+from waveform_analysis.core.data import RecordsView, records_view
 from waveform_analysis.core.plugins.plugin_sets import PLUGIN_SETS
 from waveform_analysis.utils.formats import (
     DAQAdapter,
@@ -1110,6 +1111,21 @@ _PARAMETER_HELP = {
     "peak_id": "目标 peak 的整数 ID。",
     "pad": "hit 窗口两端扩展的采样点数。",
     "group_by": "按 `channel` 或 `board_channel` 分组。",
+    "source": "提供正式插件产物的 Context 或兼容对象。",
+    "records_name": "records 元数据插件产物名称。",
+    "wave_pool_name": "波形池插件产物名称；可指定 `wave_pool_filtered`。",
+    "records": "包含 record_id、wave_offset、event_length 等字段的 structured array。",
+    "wave_pool": "由 records 的 wave_offset 和 event_length 引用的一维波形池。",
+    "record_ids": "单个 record_id，或一组 record_id；不是 records 行号。",
+    "pad_to": "批量返回时统一填充到的采样点数。",
+    "mask": "批量返回时是否同时返回有效采样点掩码。",
+    "baseline_correct": "是否从原始波形中减去每条 record 的 baseline。",
+    "dtype": "可选输出 dtype；信号默认使用 float32。",
+    "baseline": "覆盖单条 signal 使用的 baseline；批量访问不支持覆盖。",
+    "sample_start": "窗口起始采样点，包含该位置。",
+    "sample_end": "窗口结束采样点，不包含该位置。",
+    "t_min": "最小 timestamp，包含边界；省略时从首条 record 开始。",
+    "t_max": "最大 timestamp，包含边界；省略时读取到末尾。",
 }
 
 _CALLABLE_RETURNS = {
@@ -1359,6 +1375,143 @@ def _build_context_documentation_page() -> CallableDocumentationPageSpec:
 
 
 CONTEXT_DOCUMENTATION_PAGE = _build_context_documentation_page()
+
+
+def _records_view_spec(
+    name: str,
+    callable_obj: Any,
+    description: str,
+    returns: str,
+    notes: tuple[str, ...] = (),
+    example: str = "",
+    kind: str = "function",
+) -> CallableDocumentationSpec:
+    return CallableDocumentationSpec(
+        name=name,
+        callable=callable_obj,
+        description=description,
+        parameters=_callable_parameters(callable_obj),
+        returns=returns,
+        notes=notes,
+        example=example,
+        kind=kind,
+    )
+
+
+RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
+    slug="records-view",
+    title="RecordsView",
+    eyebrow="records-backed 波形访问",
+    summary="按稳定 record_id 访问 records 与 wave_pool，并统一完成窗口、批量填充和信号极性处理。",
+    introduction=(
+        "`RecordsView` 将正式插件产物 `records` 与 `wave_pool` 组合成只读访问层。"
+        "推荐通过 `records_view(ctx, run_id)` 构造；所有公开波形接口使用 `record_id`，"
+        "不使用 records 数组行号。"
+    ),
+    groups=(
+        CallableDocumentationGroup(
+            anchor="construction",
+            title="构造与数据源",
+            description="从显式 run 的正式插件产物创建视图，或直接组合已加载的 NumPy 数组。",
+            members=(
+                _records_view_spec(
+                    "records_view",
+                    records_view,
+                    "从 Context-like source 加载 records 与指定 wave pool，并创建 RecordsView。",
+                    "`RecordsView` 实例。",
+                    notes=(
+                        "必须显式传入 run_id；缺少正式 records 或 wave_pool 产物时直接报错。",
+                        '读取滤波波形时设置 wave_pool_name="wave_pool_filtered"。',
+                    ),
+                    example=(
+                        "from waveform_analysis.core.data import records_view\n\n"
+                        'rv = records_view(ctx, "run_001")\n'
+                        "filtered = records_view(\n"
+                        '    ctx, "run_001", wave_pool_name="wave_pool_filtered"\n'
+                        ")"
+                    ),
+                ),
+                _records_view_spec(
+                    "RecordsView",
+                    RecordsView,
+                    "直接组合 records structured array 与其引用的一维 wave_pool。",
+                    "只读的 `RecordsView` 实例。",
+                    notes=(
+                        "record_id 必须唯一，且所有 wave_offset/event_length 范围必须位于 wave_pool 内。",
+                    ),
+                    kind="class",
+                ),
+            ),
+        ),
+        CallableDocumentationGroup(
+            anchor="wave-access",
+            title="波形访问",
+            description="按 record_id 读取单条或批量原始波形，并可限定采样窗口。",
+            members=(
+                _records_view_spec(
+                    "waves",
+                    RecordsView.waves,
+                    "读取原始波形；批量访问时返回统一宽度的二维数组。",
+                    "单条一维数组、批量二维数组；mask=True 时额外返回布尔掩码。",
+                    notes=(
+                        "pad_to 不能小于所选窗口中的最长波形。",
+                        "baseline_correct=True 时默认输出 float32。",
+                    ),
+                    example=(
+                        'record_id = int(rv.records[0]["record_id"])\n'
+                        "wave = rv.waves(record_id, sample_start=40, sample_end=120)\n"
+                        "waves, valid = rv.waves([record_id], pad_to=256, mask=True)"
+                    ),
+                ),
+                _records_view_spec(
+                    "get_wave_pool_view",
+                    RecordsView.get_wave_pool_view,
+                    "返回对齐的 wave_pool、wave_offset 与 event_length 数组视图。",
+                    "`(wave_pool, wave_offsets, event_lengths)`；均复用现有数组。",
+                ),
+            ),
+        ),
+        CallableDocumentationGroup(
+            anchor="signal-access",
+            title="信号访问",
+            description="减去 baseline，并依据 records.polarity 将脉冲统一为负极性。",
+            members=(
+                _records_view_spec(
+                    "signals",
+                    RecordsView.signals,
+                    "读取 baseline 校正且极性归一化后的信号。",
+                    "单条一维数组、批量二维数组；mask=True 时额外返回布尔掩码。",
+                    notes=(
+                        "baseline 覆盖仅支持单个 record_id。",
+                        "records 不含 polarity 字段时保留 baseline 校正后的方向。",
+                    ),
+                    example=(
+                        "signal = rv.signals(record_id, sample_start=40, sample_end=120)\n"
+                        "signals, valid = rv.signals([record_id], pad_to=256, mask=True)"
+                    ),
+                ),
+            ),
+        ),
+        CallableDocumentationGroup(
+            anchor="time-query",
+            title="时间查询",
+            description="在已按 timestamp 排序的 records 中选择闭区间时间窗口。",
+            members=(
+                _records_view_spec(
+                    "query_time_window",
+                    RecordsView.query_time_window,
+                    "返回 timestamp 位于 t_min 与 t_max 边界内的 records 子数组。",
+                    "共享原 records 数据的 structured array 切片。",
+                    notes=("该方法只筛选 records 元数据；随后用返回行中的 record_id 读取波形。",),
+                    example=(
+                        "subset = rv.query_time_window(t_min=0, t_max=1_000_000)\n"
+                        'waves = rv.waves(subset["record_id"], mask=True)'
+                    ),
+                ),
+            ),
+        ),
+    ),
+)
 
 
 _ADAPTER_PARAMETER_HELP = {
@@ -1978,6 +2131,7 @@ class DocumentationSiteGenerator:
         self.plugin_generator.load_builtin_plugins()
         views = self.build_accessor_views()
         context_view = self.build_callable_page_view(CONTEXT_DOCUMENTATION_PAGE)
+        records_view_page = self.build_callable_page_view(RECORDS_VIEW_DOCUMENTATION_PAGE)
         visualization_views = [
             self.build_callable_page_view(spec) for spec in VISUALIZATION_DOCUMENTATION_PAGES
         ]
@@ -2015,10 +2169,10 @@ class DocumentationSiteGenerator:
                     ("公开成员", "#members"),
                 )
             )
-        for view in (context_view, adapter_view, *visualization_views):
+        for view in (context_view, records_view_page, adapter_view, *visualization_views):
             section = (
                 "contexts"
-                if view.slug == "context"
+                if view.slug in {"context", "records-view"}
                 else "adapters" if view.slug == "adapter" else "visualizations"
             )
             for group, members in view.groups:
@@ -2146,6 +2300,7 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
                 summary="Context 负责配置、插件依赖与缓存；DAQ 适配器负责统一原始数据格式、目录布局与时间语义。",
                 pages=(
                     replace(context_view, href="context.html"),
+                    replace(records_view_page, href="records-view.html"),
                     replace(adapter_view, href="../adapters/adapter.html"),
                 ),
                 current_section="contexts",
@@ -2163,6 +2318,16 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
             encoding="utf-8",
         )
         generated["context:context"] = context_path
+        records_view_path = context_dir / "records-view.html"
+        records_view_path.write_text(
+            env.get_template("web/callable_reference.html.j2").render(
+                page=records_view_page,
+                current_section="contexts",
+                index_title="Context 与适配器",
+            ),
+            encoding="utf-8",
+        )
+        generated["context:records-view"] = records_view_path
         adapter_dir = output_dir / "adapters"
         adapter_dir.mkdir(parents=True, exist_ok=True)
         adapter_index = adapter_dir / "index.html"
@@ -2173,6 +2338,7 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
                 summary="Context 负责配置、插件依赖与缓存；DAQ 适配器负责统一原始数据格式、目录布局与时间语义。",
                 pages=(
                     replace(context_view, href="../contexts/context.html"),
+                    replace(records_view_page, href="../contexts/records-view.html"),
                     replace(adapter_view, href="adapter.html"),
                 ),
                 current_section="adapters",
