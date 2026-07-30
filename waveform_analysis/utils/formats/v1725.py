@@ -24,6 +24,14 @@ export, __all__ = exporter()
 logger = logging.getLogger(__name__)
 
 
+class _IncompleteEvent(Exception):
+    """Signal that the current read window does not contain a full event."""
+
+    def __init__(self, required_end: int):
+        super().__init__(required_end)
+        self.required_end = required_end
+
+
 def _bytes_to_int(data: bytes, bit: int | None = None, start: int = 0) -> int:
     full_num = int.from_bytes(bytes=data, byteorder="little") >> start
     if bit is None:
@@ -79,6 +87,68 @@ def _parse_channel_headers_vectorized(headers_data: np.ndarray) -> tuple:
     return parse_channel_headers_numba(headers_data)
 
 
+def _scan_event_batch(data: np.ndarray, max_events: int) -> tuple[
+    int,
+    int,
+    list[np.ndarray],
+    list[tuple[int, int, int]],
+    _IncompleteEvent | None,
+]:
+    """Scan complete events in one window, committing metadata per event."""
+
+    offset = 0
+    events_read = 0
+    channel_headers = []
+    channel_info = []
+
+    while events_read < max_events and offset < len(data):
+        event_start = offset
+        event_headers = []
+        event_info = []
+
+        try:
+            event_header_end = event_start + 16
+            if event_header_end > len(data):
+                raise _IncompleteEvent(event_header_end)
+
+            event_header = data[event_start:event_header_end]
+            channels = _parse_channel_mask_vectorized(int(event_header[4]), int(event_header[11]))
+            offset = event_header_end
+
+            for channel in channels:
+                channel_header_end = offset + 12
+                if channel_header_end > len(data):
+                    raise _IncompleteEvent(channel_header_end)
+
+                channel_header = data[offset:channel_header_end]
+                channel_size = (
+                    int(channel_header[0])
+                    | (int(channel_header[1]) << 8)
+                    | ((int(channel_header[2]) & 0x3F) << 16)
+                )
+                if channel_size < 3:
+                    raise ValueError(
+                        f"Invalid V1725 channel size {channel_size} at byte offset {offset}"
+                    )
+
+                signal_size = (channel_size - 3) << 2
+                signal_end = channel_header_end + signal_size
+                if signal_end > len(data):
+                    raise _IncompleteEvent(signal_end)
+
+                event_headers.append(channel_header)
+                event_info.append((channel, channel_header_end, signal_size))
+                offset = signal_end
+        except _IncompleteEvent as exc:
+            return event_start, events_read, channel_headers, channel_info, exc
+
+        channel_headers.extend(event_headers)
+        channel_info.extend(event_info)
+        events_read += 1
+
+    return offset, events_read, channel_headers, channel_info, None
+
+
 def _one_loc_fast(num: int) -> np.ndarray:
     """快速提取通道掩码中的活动通道（向量化版本）。"""
     if num == 0:
@@ -130,93 +200,52 @@ class V1725Reader(FormatReader):
         Returns:
             V1725Wave 对象列表，如果到达文件末尾则返回 None
         """
-        # 读取大块数据
-        buffer = f.read(self._buffer_size)
-        if not buffer:
-            return None
+        if max_events <= 0:
+            raise ValueError("max_events must be positive")
 
-        # 转换为 NumPy 数组以便高效处理
-        data = np.frombuffer(buffer, dtype=np.uint8)
+        read_size = max(self._buffer_size, 16)
 
-        waves = []
-        offset = 0
-        events_read = 0
+        while True:
+            chunk_start = f.tell()
+            buffer = f.read(read_size)
+            if not buffer:
+                return None
 
-        # 收集所有通道头以便批量解析
-        channel_headers_list = []
-        channel_info_list = []  # 存储 (channel_idx, wave_start, wave_size)
+            data = np.frombuffer(buffer, dtype=np.uint8)
+            (
+                offset,
+                events_read,
+                channel_headers_list,
+                channel_info_list,
+                incomplete_event,
+            ) = _scan_event_batch(data, max_events)
 
-        while events_read < max_events and offset + 16 <= len(data):
-            # 解析事件头（16 字节）
-            event_header = data[offset : offset + 16]
+            # An event larger than the initial window is reread from its header
+            # with enough room. Complete events are returned before retrying a
+            # later boundary event, preserving the existing zero-copy batches.
+            if incomplete_event is not None and events_read == 0 and len(buffer) == read_size:
+                f.seek(chunk_start)
+                read_size = max(read_size * 2, incomplete_event.required_end)
+                continue
 
-            # 提取通道掩码
-            channels = _parse_channel_mask_vectorized(int(event_header[4]), int(event_header[11]))
-
-            offset += 16
-
-            # 收集该事件的所有通道头
-            event_channel_headers = []
-            event_channel_info = []
-
-            for ch in channels:
-                if offset + 12 > len(data):
-                    # 缓冲区不足，回退并退出
-                    f.seek(f.tell() - (len(data) - offset))
-                    # 处理已收集的通道头
-                    if channel_headers_list:
-                        waves.extend(
-                            self._process_channel_batch(
-                                channel_headers_list, channel_info_list, data, board_id
-                            )
-                        )
-                    return waves if waves else None
-
-                # 收集通道头
-                ch_header = data[offset : offset + 12]
-                event_channel_headers.append(ch_header)
-
-                # 快速提取通道大小以确定波形数据位置
-                ch_size = (
-                    int(ch_header[0])
-                    | (int(ch_header[1]) << 8)
-                    | ((int(ch_header[2]) & 0x3F) << 16)
+            waves = []
+            if channel_headers_list:
+                waves.extend(
+                    self._process_channel_batch(
+                        channel_headers_list, channel_info_list, data, board_id
+                    )
                 )
-                sig_size = (ch_size - 3) << 2
 
-                if offset + 12 + sig_size > len(data):
-                    # 波形数据不完整，回退并退出
-                    f.seek(f.tell() - (len(data) - offset))
-                    if channel_headers_list:
-                        waves.extend(
-                            self._process_channel_batch(
-                                channel_headers_list, channel_info_list, data, board_id
-                            )
-                        )
-                    return waves if waves else None
+            if incomplete_event is not None and len(buffer) < read_size:
+                logger.warning("Truncated V1725 event at byte offset %d", chunk_start + offset)
+            elif offset < len(data):
+                f.seek(chunk_start + offset)
 
-                # 记录通道信息
-                event_channel_info.append((ch, offset + 12, sig_size))
-
-                offset += 12 + sig_size
-
-            # 添加到批量处理列表
-            channel_headers_list.extend(event_channel_headers)
-            channel_info_list.extend(event_channel_info)
-
-            events_read += 1
-
-        # 批量处理所有收集的通道头
-        if channel_headers_list:
-            waves.extend(
-                self._process_channel_batch(channel_headers_list, channel_info_list, data, board_id)
-            )
-
-        # 回退未处理的数据
-        if offset < len(data):
-            f.seek(f.tell() - (len(data) - offset))
-
-        return waves if waves else None
+            if waves:
+                return waves
+            if events_read:
+                return []
+            return None
 
     def _process_channel_batch(
         self, channel_headers: list, channel_info: list, data: np.ndarray, board_id: int

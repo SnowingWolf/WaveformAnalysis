@@ -5,7 +5,7 @@ profile: "auto"
 provides: "wave_pool"
 plugin_class: "WavePoolPlugin"
 module: "waveform_analysis.core.plugins.builtin.cpu.records"
-version: "0.14.1"
+version: "0.14.2"
 summary: "Build wave_pool from the shared internal records bundle."
 depends_on: []
 output_kind: "array"
@@ -21,7 +21,7 @@ Build wave_pool from the shared internal records bundle.
 | Provides | `wave_pool` |
 | Plugin Class | `WavePoolPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.records` |
-| Version | `0.14.1` |
+| Version | `0.14.2` |
 | Category | 波形处理 |
 | Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `array` |

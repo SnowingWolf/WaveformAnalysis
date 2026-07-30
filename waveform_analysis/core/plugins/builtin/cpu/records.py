@@ -453,7 +453,7 @@ class _RecordsBundlePluginBase(Plugin):
             "Use 'st_waveforms' for the materialized waveform path.",
         ),
     }
-    version = "0.14.1"
+    version = "0.14.2"
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         """Resolve raw-file upstream data for shared records bundle outputs."""

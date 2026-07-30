@@ -11,6 +11,26 @@ from waveform_analysis.utils.formats import RawTimestampMode, V1725Reader, get_a
 from waveform_analysis.utils.formats.v1725_numba import parse_channel_headers_numba
 
 
+def _make_multi_channel_event(*, event_id: int, channels: int, samples: int) -> bytes:
+    event_header = bytearray(16)
+    payload = bytearray()
+
+    for channel in range(channels):
+        values = np.full(samples, event_id * 100 + channel, dtype=np.int16)
+        blob = make_v1725_single_wave_blob(
+            channel=channel,
+            timestamp=event_id * 1000 + channel,
+            baseline=500 + channel,
+            trunc=channel == channels - 1,
+            samples=values,
+        )
+        event_header[4] |= blob[4]
+        event_header[11] |= blob[11]
+        payload.extend(blob[16:])
+
+    return bytes(event_header + payload)
+
+
 class TestV1725Reader:
     def test_v1725_spec_marks_sample_index_timestamps(self):
         assert get_adapter("v1725").format_spec.raw_timestamp_mode == RawTimestampMode.SAMPLE_INDEX
@@ -82,6 +102,64 @@ class TestV1725Reader:
             assert w_opt.baseline == w_leg.baseline
             assert w_opt.trunc == w_leg.trunc
             np.testing.assert_array_equal(w_opt.waveform, w_leg.waveform)
+
+    def test_optimized_reader_preserves_multi_channel_events_across_buffer_boundaries(
+        self, tmp_path: Path
+    ):
+        raw = tmp_path / "test_raw_b5_seg0.bin"
+        events = [_make_multi_channel_event(event_id=i, channels=7, samples=1500) for i in range(4)]
+        raw.write_bytes(b"".join(events))
+
+        # One event fits, but the second event crosses this read boundary.
+        buffer_size = len(events[0]) + len(events[0]) // 2
+        optimized = list(V1725Reader(buffer_size=buffer_size).iter_waves([raw]))
+        optimized_batched = [
+            wave
+            for batch in V1725Reader(buffer_size=buffer_size).iter_waves_batched(
+                [raw], batch_size=2
+            )
+            for wave in batch
+        ]
+        legacy = list(V1725Reader(use_optimized=False).iter_waves([raw]))
+
+        assert len(optimized) == len(optimized_batched) == len(legacy) == 28
+        for actual_waves in (optimized, optimized_batched):
+            for actual, expected in zip(actual_waves, legacy, strict=True):
+                assert actual.board == expected.board
+                assert actual.channel == expected.channel
+                assert actual.timestamp == expected.timestamp
+                assert actual.baseline == expected.baseline
+                assert actual.trunc == expected.trunc
+                np.testing.assert_array_equal(actual.waveform, expected.waveform)
+
+    def test_optimized_reader_grows_window_for_event_larger_than_buffer(self, tmp_path: Path):
+        raw = tmp_path / "test_raw_b2_seg0.bin"
+        events = [
+            _make_multi_channel_event(event_id=0, channels=1, samples=2),
+            _make_multi_channel_event(event_id=1, channels=7, samples=15_000),
+            _make_multi_channel_event(event_id=2, channels=1, samples=2),
+        ]
+        raw.write_bytes(b"".join(events))
+
+        optimized = list(V1725Reader(buffer_size=64 * 1024).iter_waves([raw]))
+        legacy = list(V1725Reader(use_optimized=False).iter_waves([raw]))
+
+        assert len(events[1]) > 64 * 1024
+        assert len(optimized) == len(legacy) == 9
+        for actual, expected in zip(optimized, legacy, strict=True):
+            assert actual.timestamp == expected.timestamp
+            np.testing.assert_array_equal(actual.waveform, expected.waveform)
+
+    def test_optimized_reader_discards_truncated_final_event(self, tmp_path: Path, caplog):
+        raw = tmp_path / "test_raw_b0_seg0.bin"
+        complete = _make_multi_channel_event(event_id=0, channels=2, samples=10)
+        truncated = _make_multi_channel_event(event_id=1, channels=2, samples=10)[:-5]
+        raw.write_bytes(complete + truncated)
+
+        waves = list(V1725Reader(buffer_size=len(complete) + 8).iter_waves([raw]))
+
+        assert len(waves) == 2
+        assert "Truncated V1725 event" in caplog.text
 
     def test_numba_channel_header_parser_matches_expected_values(self):
         header0 = make_v1725_single_wave_blob(

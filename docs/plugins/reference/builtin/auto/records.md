@@ -5,7 +5,7 @@ profile: "auto"
 provides: "records"
 plugin_class: "RecordsPlugin"
 module: "waveform_analysis.core.plugins.builtin.cpu.records"
-version: "0.14.1"
+version: "0.14.2"
 summary: "Build records (event index table) from the shared internal records bundle."
 depends_on: []
 output_kind: "structured_array"
@@ -21,7 +21,7 @@ Build records (event index table) from the shared internal records bundle.
 | Provides | `records` |
 | Plugin Class | `RecordsPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.records` |
-| Version | `0.14.1` |
+| Version | `0.14.2` |
 | Category | 记录处理 |
 | Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
