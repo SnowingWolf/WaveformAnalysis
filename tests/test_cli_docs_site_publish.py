@@ -9,7 +9,6 @@ import pytest
 
 from waveform_analysis.utils import cli_docs
 
-
 REQUIRED_PATHS = {
     "SITE_INDEX": "index.html",
     "INDEX": "plugins/index.html",
@@ -18,6 +17,7 @@ REQUIRED_PATHS = {
     "ACCESSOR_INDEX": "accessors/index.html",
     "CONTEXT_INDEX": "contexts/index.html",
     "context:records-view": "contexts/records-view.html",
+    "context:records-wave-pool": "contexts/records-wave-pool.html",
     "ADAPTER_INDEX": "adapters/index.html",
     "VISUALIZATION_INDEX": "visualizations/index.html",
 }

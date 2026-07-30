@@ -349,6 +349,28 @@ class CallableDocumentationPageView:
     href: str = ""
 
 
+@dataclass(frozen=True)
+class ContentDocumentationSection:
+    """One curated section in a static conceptual reference page."""
+
+    anchor: str
+    title: str
+    blocks: tuple[DocumentationContentBlock, ...]
+
+
+@dataclass(frozen=True)
+class ContentDocumentationPage:
+    """Structured content for a conceptual page in the offline documentation site."""
+
+    slug: str
+    title: str
+    eyebrow: str
+    summary: str
+    introduction: str
+    sections: tuple[ContentDocumentationSection, ...]
+    href: str = ""
+
+
 ACCESSOR_DOCUMENTATION_REGISTRY = (
     AccessorDocumentationSpec(
         accessor_class=PeakChannelAccessor,
@@ -1516,6 +1538,211 @@ RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
 )
 
 
+RECORDS_WAVE_POOL_DOCUMENTATION_PAGE = ContentDocumentationPage(
+    slug="records-wave-pool",
+    title="Records + WavePool",
+    eyebrow="数据中间层设计",
+    summary="以结构化 records 和连续 wave_pool 表达可变长度 DAQ 波形，并为下游提供稳定的正式数据边界。",
+    introduction=(
+        "`records` 保存事件元数据，`wave_pool` 保存连续的 `uint16` 采样值；"
+        "每条 records 通过 `wave_offset` 与 `event_length` 定位自己的完整原始波形。"
+    ),
+    sections=(
+        ContentDocumentationSection(
+            anchor="data-model",
+            title="数据模型与不变量",
+            blocks=(
+                DocumentationContentBlock(
+                    kind="code",
+                    language="text",
+                    code=(
+                        "records[i]\n"
+                        "  board, channel, timestamp, baseline, polarity, ...\n"
+                        "  wave_offset, event_length\n"
+                        "             |\n"
+                        "             +--> wave_pool[wave_offset : wave_offset + event_length]"
+                    ),
+                ),
+                DocumentationContentBlock(
+                    kind="table",
+                    table_headers=("项目", "约束"),
+                    table_rows=(
+                        ("排序", "records 按 `(timestamp, pid, board, channel)` 全局排序。"),
+                        ("`record_id`", "排序后从 0 开始连续编号，是公开波形访问的稳定标识。"),
+                        (
+                            "波形范围",
+                            "每条记录满足 `0 <= wave_offset` 且 `wave_offset + event_length <= len(wave_pool)`。",
+                        ),
+                        (
+                            "波形归属",
+                            "`wave_pool[wave_offset:wave_offset + event_length]` 是该记录的完整原始波形。",
+                        ),
+                    ),
+                ),
+                DocumentationContentBlock(
+                    kind="note",
+                    tone="important",
+                    title="一对一对齐",
+                    text=(
+                        "排序、分片合并或重新物化 `wave_pool` 时必须同步重写 `wave_offset`；"
+                        "波形池的数组下标不能被当作 `record_id`。"
+                    ),
+                ),
+            ),
+        ),
+        ContentDocumentationSection(
+            anchor="ownership",
+            title="组件与公开边界",
+            blocks=(
+                DocumentationContentBlock(
+                    kind="table",
+                    table_headers=("组件", "职责", "下游边界"),
+                    table_rows=(
+                        (
+                            "`RecordsBundle(records, wave_pool)`",
+                            "一次构建期间共享成对结果",
+                            "内部缓存对象，不是下游依赖",
+                        ),
+                        (
+                            "`RecordsBundleRef`",
+                            "临时 memmap 分片引用与超大数据构建能力",
+                            "不是常规插件输出契约",
+                        ),
+                        ("`RecordsPlugin`", "发布元数据侧", "正式 `records` 产物"),
+                        ("`WavePoolPlugin`", "发布采样侧", "正式 `wave_pool` 产物"),
+                        (
+                            "`records_view(ctx, run_id)`",
+                            "组合正式产物进行 record 访问",
+                            "推荐波形访问接口",
+                        ),
+                    ),
+                ),
+                DocumentationContentBlock(
+                    kind="paragraph",
+                    text=(
+                        "下游插件应声明 `records`、`wave_pool` 或与 records 对齐的派生产物；"
+                        "不得依赖 `RecordsBundle` 或 `_records_bundle-*` 内部缓存键。"
+                    ),
+                ),
+            ),
+        ),
+        ContentDocumentationSection(
+            anchor="input-routing",
+            title="构建路由与配置所有权",
+            blocks=(
+                DocumentationContentBlock(
+                    kind="table",
+                    table_headers=("条件", "共同上游", "构建路径"),
+                    table_rows=(
+                        (
+                            "非 V1725，默认",
+                            "`raw_files`",
+                            "`build_records_from_raw_files(...) -> RecordsBundle`",
+                        ),
+                        (
+                            '非 V1725，`input_source="st_waveforms"`',
+                            "`st_waveforms`",
+                            "`build_records_from_st_waveforms_sharded(...) -> RecordsBundle`",
+                        ),
+                        (
+                            "V1725",
+                            "专用二进制 `raw_files` 路由",
+                            "`build_records_from_v1725_files(...) -> RecordsBundle / RecordsBundleRef`",
+                        ),
+                    ),
+                ),
+                DocumentationContentBlock(
+                    kind="code",
+                    language="python",
+                    code=(
+                        "ctx.set_config(\n"
+                        '    {"input_source": "st_waveforms"},\n'
+                        '    plugin_name="records",\n'
+                        ")"
+                    ),
+                ),
+                DocumentationContentBlock(
+                    kind="paragraph",
+                    text=(
+                        "当 `records` 与 `wave_pool` 同时注册时，`wave_pool` 通过 "
+                        "`_resolve_bundle_config_plugin` 采用 `records` 的动态依赖和配置。"
+                    ),
+                ),
+                DocumentationContentBlock(
+                    kind="note",
+                    tone="warning",
+                    title="V1725 限制",
+                    text=(
+                        "V1725 使用专用二进制读取与分片合并路径，明确拒绝 "
+                        '`input_source="st_waveforms"`。'
+                    ),
+                ),
+            ),
+        ),
+        ContentDocumentationSection(
+            anchor="shared-cache",
+            title="共享构建与缓存",
+            blocks=(
+                DocumentationContentBlock(
+                    kind="code",
+                    language="text",
+                    code=(
+                        "Context request records or wave_pool\n"
+                        "        |\n"
+                        "        v\n"
+                        "get_records_bundle(run_id)\n"
+                        "        |\n"
+                        "        +-- cache hit --> reuse RecordsBundle\n"
+                        "        +-- miss --> build pair --> publish records and wave_pool"
+                    ),
+                ),
+                DocumentationContentBlock(
+                    kind="list",
+                    items=(
+                        "内部 bundle 仅在当前 Context 会话复用；正式 `records` 与 `wave_pool` 可由存储后端持久化。",
+                        "请求任一正式产物后再请求另一个，会复用同一 bundle，避免重复读取原始文件。",
+                        "构建语义、读取器行为或影响输出内容的 tracked 配置变化必须升级两个插件的版本，以失效旧 lineage。",
+                    ),
+                ),
+            ),
+        ),
+        ContentDocumentationSection(
+            anchor="downstream-access",
+            title="公开访问与派生波形池",
+            blocks=(
+                DocumentationContentBlock(
+                    kind="code",
+                    language="python",
+                    code=(
+                        "from waveform_analysis.core.data import records_view\n\n"
+                        'rv = records_view(ctx, "run_001")\n'
+                        'record_id = int(rv.records[0]["record_id"])\n'
+                        "raw_wave = rv.waves(record_id)\n"
+                        "signal = rv.signals(record_id, sample_start=40, sample_end=120)"
+                    ),
+                ),
+                DocumentationContentBlock(
+                    kind="paragraph",
+                    text=(
+                        "`records_view` 按稳定 `record_id` 回切 `wave_offset:event_length`，"
+                        "`signals(...)` 再依据 records 的 `polarity` 统一信号方向。"
+                    ),
+                ),
+                DocumentationContentBlock(
+                    kind="note",
+                    title="滤波波形",
+                    text=(
+                        "`wave_pool_filtered` 与同一 records 保持布局对齐；通过 "
+                        '`records_view(ctx, run_id, wave_pool_name="wave_pool_filtered")` 选择它，'
+                        "不会改变 record 元数据或索引关系。"
+                    ),
+                ),
+            ),
+        ),
+    ),
+)
+
+
 _ADAPTER_PARAMETER_HELP = {
     "name": "适配器或格式规范的名称。",
     "version": "格式规范版本号。",
@@ -2134,6 +2361,7 @@ class DocumentationSiteGenerator:
         views = self.build_accessor_views()
         context_view = self.build_callable_page_view(CONTEXT_DOCUMENTATION_PAGE)
         records_view_page = self.build_callable_page_view(RECORDS_VIEW_DOCUMENTATION_PAGE)
+        records_wave_pool_page = RECORDS_WAVE_POOL_DOCUMENTATION_PAGE
         visualization_views = [
             self.build_callable_page_view(spec) for spec in VISUALIZATION_DOCUMENTATION_PAGES
         ]
@@ -2206,6 +2434,19 @@ class DocumentationSiteGenerator:
                         + " ".join(member.name for member in members),
                     }
                 )
+        for section in records_wave_pool_page.sections:
+            site_search_entries.append(
+                {
+                    "title": f"{records_wave_pool_page.title}: {section.title}",
+                    "summary": records_wave_pool_page.summary,
+                    "kind": "Context",
+                    "url": f"contexts/{records_wave_pool_page.slug}.html#{section.anchor}",
+                    "keywords": (
+                        f"{records_wave_pool_page.title} records wave_pool {section.title} "
+                        "RecordsBundle wave_offset event_length records_view V1725"
+                    ),
+                }
+            )
         env = self.plugin_generator._get_web_jinja_env()
         env.filters["inline_code"] = _inline_code
         env.filters["mathml"] = _safe_mathml
@@ -2370,6 +2611,7 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
                 summary="Context 负责配置、插件依赖与缓存；DAQ 适配器负责统一原始数据格式、目录布局与时间语义。",
                 pages=(
                     replace(context_view, href="context.html"),
+                    replace(records_wave_pool_page, href="records-wave-pool.html"),
                     replace(adapter_view, href="../adapters/adapter.html"),
                 ),
                 current_section="contexts",
@@ -2397,6 +2639,16 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
             encoding="utf-8",
         )
         generated["context:records-view"] = records_view_path
+        records_wave_pool_path = context_dir / "records-wave-pool.html"
+        records_wave_pool_path.write_text(
+            env.get_template("web/content_reference.html.j2").render(
+                page=records_wave_pool_page,
+                current_section="contexts",
+                index_title="Context 与适配器",
+            ),
+            encoding="utf-8",
+        )
+        generated["context:records-wave-pool"] = records_wave_pool_path
         adapter_dir = output_dir / "adapters"
         adapter_dir.mkdir(parents=True, exist_ok=True)
         adapter_index = adapter_dir / "index.html"

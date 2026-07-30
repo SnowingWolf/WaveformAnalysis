@@ -237,6 +237,7 @@ _REQUIRED_SITE_RESULT_KEYS = {
     "ACCESSOR_INDEX",
     "CONTEXT_INDEX",
     "context:records-view",
+    "context:records-wave-pool",
     "ADAPTER_INDEX",
     "VISUALIZATION_INDEX",
 }

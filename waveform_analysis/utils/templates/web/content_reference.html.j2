@@ -1,0 +1,26 @@
+{% extends "web/base.html.j2" %}
+{% import "web/content_block.html.j2" as content %}
+{% set page_title = page.title ~ " | WaveformAnalysis" %}
+{% set asset_prefix = "../assets/" %}
+{% set site_root_prefix = "../" %}
+{% set body_class = "docs-page docs-detail" %}
+{% set layout_class = "doc-layout" %}
+{% set current = current_section %}
+{% set active_accessor = page.slug %}
+{% set site_home_href = "../index.html" %}
+{% set plugin_index_href = "../plugins/index.html" %}
+{% set accessor_index_href = "../accessors/index.html" %}
+{% set accessor_detail_prefix = "../accessors/" %}
+{% set context_index_href = "context.html" %}
+{% set adapter_index_href = "../adapters/adapter.html" %}
+{% set visualization_index_href = "../visualizations/index.html" %}
+{% set visualization_detail_prefix = "../visualizations/" %}
+{% block document %}
+<main class="reference docs-main">
+  <nav class="breadcrumbs" aria-label="面包屑"><a href="../index.html">文档概览</a><a href="index.html">{{ index_title }}</a><span aria-current="page">{{ page.title }}</span></nav>
+  <header class="page-heading"><p class="eyebrow">{{ page.eyebrow }}</p><h1>{{ page.title }}</h1><p>{{ page.summary }}</p></header>
+  <section id="overview"><h2>整体介绍</h2><p>{{ page.introduction | inline_code }}</p></section>
+  {% for section in page.sections %}<section id="{{ section.anchor }}"><h2>{{ section.title }}</h2>{% for block in section.blocks %}{{ content.render(block, asset_prefix) }}{% endfor %}</section>{% endfor %}
+</main>
+<aside class="page-toc" aria-label="本页目录" data-page-toc><p>本文内容</p><ol></ol></aside>
+{% endblock %}
