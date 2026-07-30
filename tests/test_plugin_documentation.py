@@ -869,7 +869,10 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "records_view" in adapter_index_page
     assert "plot_lineage" in context_page
     assert "labview" in context_page
-    assert '<span class="k">class</span> <span class="nc">Context</span>' in context_page
+    assert (
+        '<span class="k">class</span><span class="w"> </span>'
+        '<span class="nc">Context</span>'
+    ) in context_page
     assert "推荐使用流程" in adapter_page
     assert "Context.get_adapter_info" in adapter_page
     assert "Context.get_resolved_config" in adapter_page
@@ -902,7 +905,7 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert 'nav.classList.toggle("is-open", open)' in site_js
     assert "<code>peak_id</code>" in peak_accessor_page
     assert (
-        '<h3><code>plot</code></h3><pre class="code-block member-signature language-python"><code><span class="k">def</span> <span class="nf">plot</span><span class="p">(</span>'
+        '<h3><code>plot</code></h3><pre class="code-block member-signature language-python"><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>'
         in (peak_accessor_page)
     )
     assert '<pre class="code-block language-python"><code><span class="kn">from</span>' in (
