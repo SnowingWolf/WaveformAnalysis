@@ -151,6 +151,7 @@ class S1S2PairCandidatesPlugin(Plugin):
     """
 
     provides = "s1_s2_pair_candidates"
+    lineage_virtual = True
     depends_on = ["peak_classification", "peaks"]
     description = "Generate all physically allowed S1-S2 pairing candidates"
     version = "0.1.3"

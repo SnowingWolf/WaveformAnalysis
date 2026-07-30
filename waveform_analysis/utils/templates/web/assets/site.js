@@ -34,9 +34,9 @@
     });
   }
 
-  const workspace = document.querySelector(".lineage-workspace[data-lineage-details]");
+  const workspace = document.querySelector(".lineage-workspace[data-lineage-graph]");
   const overview = document.querySelector("#plugin-global-lineage");
-  if (workspace && overview && window.Plotly) {
+  if (workspace && overview && window.cytoscape && window.ELK) {
     const detailTitle = workspace.querySelector("[data-lineage-detail-title]");
     const detailEmpty = workspace.querySelector("[data-lineage-detail-empty]");
     const detailLink = workspace.querySelector("[data-lineage-detail-link]");
@@ -46,50 +46,26 @@
     const consumerList = workspace.querySelector("[data-lineage-consumers]");
     const closeButton = workspace.querySelector("[data-lineage-detail-close]");
     const viewControls = [...document.querySelectorAll("[data-lineage-view]")];
-    const embeddedDetails = document.querySelector("#lineage-details-data");
-    const embeddedOverviews = document.querySelector("#lineage-overviews-data");
-    const terminalOutputs = new Set(
-      (workspace.dataset.terminalOutputs || "").split(",").filter(Boolean),
-    );
-    let detailRelations = embeddedDetails
-      ? Promise.resolve(JSON.parse(embeddedDetails.textContent))
-      : undefined;
-    let overviewFigures = embeddedOverviews
-      ? Promise.resolve(JSON.parse(embeddedOverviews.textContent))
+    const tooltip = workspace.querySelector("[data-lineage-tooltip]");
+    const embeddedGraph = document.querySelector("#lineage-graph-data");
+    let graphPromise = embeddedGraph
+      ? Promise.resolve(JSON.parse(embeddedGraph.textContent))
       : undefined;
     let selected;
-    let activeView = "core";
-    let activeFigure;
-    const selectedLine = "#b45309";
-    const defaultLine = "#087f5b";
+    let activeView = "overview";
+    let cy;
+    let currentGraph;
+    let fullscreenViewport;
+    const elk = new ELK();
 
-    const resizeOverview = () => {
-      if (overview.data) Plotly.Plots.resize(overview);
-    };
-    if (window.ResizeObserver) {
-      new ResizeObserver(resizeOverview).observe(overview.parentElement);
-    } else {
-      window.addEventListener("resize", resizeOverview);
-    }
-
-    const loadDetails = () => {
-      if (!detailRelations) {
-        detailRelations = fetch(workspace.dataset.lineageDetails).then((response) => {
-          if (!response.ok) throw new Error("Unable to load lineage detail data.");
+    const loadGraph = () => {
+      if (!graphPromise) {
+        graphPromise = fetch(workspace.dataset.lineageGraph).then((response) => {
+          if (!response.ok) throw new Error("Unable to load lineage graph data.");
           return response.json();
         });
       }
-      return detailRelations;
-    };
-
-    const loadOverviews = () => {
-      if (!overviewFigures) {
-        overviewFigures = fetch(workspace.dataset.lineageOverviews).then((response) => {
-          if (!response.ok) throw new Error("Unable to load lineage overview data.");
-          return response.json();
-        });
-      }
-      return overviewFigures;
+      return graphPromise;
     };
 
     const updateUrl = (view, provides, replace = false) => {
@@ -100,104 +76,155 @@
       window.history[replace ? "replaceState" : "pushState"]({}, "", url);
     };
 
-    const overviewBounds = (figure) => {
-      const shapes = figure?.layout?.shapes || [];
-      if (!shapes.length) return undefined;
-      return shapes.reduce((bounds, shape) => ({
-        minX: Math.min(bounds.minX, Number(shape.x0)),
-        maxX: Math.max(bounds.maxX, Number(shape.x1)),
-        minY: Math.min(bounds.minY, Number(shape.y0)),
-        maxY: Math.max(bounds.maxY, Number(shape.y1)),
-      }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+    const displayLabel = (name) => {
+      if (name.length <= 16 || !name.includes("_")) return name;
+      const breaks = [...name.matchAll(/_/g)].map((match) => match.index + 1);
+      const split = breaks.reduce((best, point) => (
+        Math.abs(point - name.length / 2) < Math.abs(best - name.length / 2) ? point : best
+      ), breaks[0]);
+      return `${name.slice(0, split)}\n${name.slice(split)}`;
     };
 
-    const fitOverview = (figure) => {
-      const bounds = overviewBounds(figure || activeFigure);
-      const rect = overview.getBoundingClientRect();
-      if (!bounds || rect.width < 20 || rect.height < 20) return;
-      const padding = 44;
-      let width = bounds.maxX - bounds.minX + padding * 2;
-      let height = bounds.maxY - bounds.minY + padding * 2;
-      const targetRatio = rect.width / rect.height;
-      if (width / height < targetRatio) width = height * targetRatio;
-      else height = width / targetRatio;
-      const centerX = (bounds.minX + bounds.maxX) / 2;
-      const centerY = (bounds.minY + bounds.maxY) / 2;
-      return Plotly.relayout(overview, {
-        "xaxis.autorange": false,
-        "yaxis.autorange": false,
-        "xaxis.range[0]": centerX - width / 2,
-        "xaxis.range[1]": centerX + width / 2,
-        "yaxis.range[0]": centerY + height / 2,
-        "yaxis.range[1]": centerY - height / 2,
+    const measuredNodes = (nodes) => {
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      context.font = "700 13px system-ui, sans-serif";
+      return nodes.map((node) => {
+        const label = displayLabel(node.data.label);
+        const lines = label.split("\n");
+        const textWidth = Math.max(...lines.map((line) => context.measureText(line).width));
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            displayLabel: label,
+            width: Math.min(190, Math.max(110, Math.ceil(textWidth + 28))),
+            height: lines.length > 1 ? 68 : 50,
+          },
+        };
       });
     };
 
-    const fitAfterLayout = () => new Promise((resolve) => {
-      requestAnimationFrame(() => {
-        resizeOverview();
-        requestAnimationFrame(() => {
-          Promise.resolve(fitOverview(activeFigure)).finally(resolve);
-        });
-      });
-    });
-
-    const centerOverview = () => {
-      const bounds = overviewBounds(activeFigure);
-      const xRange = overview.layout?.xaxis?.range;
-      const yRange = overview.layout?.yaxis?.range;
-      if (!bounds || !xRange || !yRange) return;
-      const width = Math.abs(xRange[1] - xRange[0]);
-      const height = Math.abs(yRange[1] - yRange[0]);
-      const centerX = (bounds.minX + bounds.maxX) / 2;
-      const centerY = (bounds.minY + bounds.maxY) / 2;
-      return Plotly.relayout(overview, {
-        "xaxis.range[0]": centerX - width / 2,
-        "xaxis.range[1]": centerX + width / 2,
-        "yaxis.range[0]": centerY + height / 2,
-        "yaxis.range[1]": centerY - height / 2,
-      });
+    const focusNames = (graph, provides) => {
+      if (!provides) return new Set();
+      const incoming = new Map(graph.nodes.map((node) => [node.data.id, []]));
+      const outgoing = new Map(graph.nodes.map((node) => [node.data.id, []]));
+      for (const edge of graph.edges) {
+        incoming.get(edge.data.target)?.push(edge.data.source);
+        outgoing.get(edge.data.source)?.push(edge.data.target);
+      }
+      const result = new Set([provides]);
+      for (const adjacency of [incoming, outgoing]) {
+        let frontier = [provides];
+        for (let depth = 0; depth < (graph.focusDepth || 2); depth += 1) {
+          frontier = frontier.flatMap((name) => adjacency.get(name) || []);
+          frontier.forEach((name) => result.add(name));
+        }
+      }
+      return result;
     };
 
-    const zoomOverview = (factor) => {
-      const xRange = overview.layout?.xaxis?.range;
-      const yRange = overview.layout?.yaxis?.range;
-      if (!xRange || !yRange) return;
-      const centerX = (xRange[0] + xRange[1]) / 2;
-      const centerY = (yRange[0] + yRange[1]) / 2;
-      const width = Math.abs(xRange[1] - xRange[0]) * factor;
-      const height = Math.abs(yRange[1] - yRange[0]) * factor;
-      return Plotly.relayout(overview, {
-        "xaxis.range[0]": centerX - width / 2,
-        "xaxis.range[1]": centerX + width / 2,
-        "yaxis.range[0]": centerY + height / 2,
-        "yaxis.range[1]": centerY - height / 2,
-      });
+    const visibleNames = (graph, view) => {
+      if (view === "focus") return focusNames(graph, selected);
+      return new Set(graph.views[view] || graph.views.overview);
+    };
+
+    const segmentData = (source, target, bendPoints = []) => {
+      const dx = target.x - source.x;
+      const dy = target.y - source.y;
+      const lengthSquared = dx * dx + dy * dy;
+      const length = Math.sqrt(lengthSquared) || 1;
+      const weights = [];
+      const distances = [];
+      for (const point of bendPoints) {
+        weights.push(lengthSquared ? ((point.x - source.x) * dx + (point.y - source.y) * dy) / lengthSquared : 0.5);
+        distances.push((dx * (point.y - source.y) - dy * (point.x - source.x)) / length);
+      }
+      return {
+        weights: (weights.length ? weights : [0.5]).join(" "),
+        distances: (distances.length ? distances : [0]).join(" "),
+      };
+    };
+
+    const layoutGraph = async (nodes, edges) => {
+      const measured = measuredNodes(nodes);
+      const sizes = new Map(measured.map((node) => [node.data.id, node.data]));
+      const elkGraph = {
+        id: "root",
+        layoutOptions: {
+          "elk.algorithm": "layered",
+          "elk.direction": "RIGHT",
+          "elk.edgeRouting": "ORTHOGONAL",
+          "elk.aspectRatio": "1.8",
+          "elk.spacing.nodeNode": "36",
+          "elk.spacing.edgeNode": "18",
+          "elk.layered.spacing.nodeNodeBetweenLayers": "80",
+          "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
+          "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+          "elk.layered.unnecessaryBendpoints": "true",
+          "elk.layered.wrapping.strategy": "MULTI_EDGE",
+          "elk.layered.wrapping.correctionFactor": "1.35",
+        },
+        children: measured.map((node) => ({
+          id: node.data.id,
+          width: node.data.width,
+          height: node.data.height,
+          layoutOptions: { "elk.portConstraints": "FIXED_SIDE" },
+          ports: [
+            { id: `${node.data.id}:in`, width: 1, height: 1, layoutOptions: { "elk.port.side": "WEST" } },
+            { id: `${node.data.id}:out`, width: 1, height: 1, layoutOptions: { "elk.port.side": "EAST" } },
+          ],
+        })),
+        edges: edges.map((edge) => ({
+          id: edge.data.id,
+          sources: [`${edge.data.source}:out`],
+          targets: [`${edge.data.target}:in`],
+        })),
+      };
+      const result = await elk.layout(elkGraph);
+      const positions = new Map(result.children.map((node) => [node.id, {
+        x: node.x + node.width / 2,
+        y: node.y + node.height / 2,
+      }]));
+      const routeById = new Map(result.edges.map((edge) => [
+        edge.id,
+        (edge.sections || []).flatMap((section) => [
+          section.startPoint,
+          ...(section.bendPoints || []),
+          section.endPoint,
+        ]).filter(Boolean),
+      ]));
+      return {
+        nodes: measured.map((node) => ({ ...node, position: positions.get(node.data.id) })),
+        edges: edges.map((edge) => {
+          const routePoints = routeById.get(edge.data.id) || [];
+          const route = segmentData(
+            positions.get(edge.data.source),
+            positions.get(edge.data.target),
+            routePoints,
+          );
+          return { ...edge, data: { ...edge.data, ...route } };
+        }),
+        sizes,
+      };
     };
 
     const highlight = (provides) => {
-      const indices = overview.layout?.meta?.node_shape_indices || {};
-      const updates = {};
-      for (const [name, index] of Object.entries(indices)) {
-        updates[`shapes[${index}].line.color`] = name === provides ? selectedLine : defaultLine;
-        updates[`shapes[${index}].line.width`] = name === provides ? 3 : 1.5;
-      }
-      Plotly.relayout(overview, updates);
+      if (!cy) return;
+      cy.elements().removeClass("is-selected is-active is-inactive");
+      if (!provides || !cy.getElementById(provides).length) return;
+      const active = cy.getElementById(provides)
+        .union(cy.getElementById(provides).predecessors())
+        .union(cy.getElementById(provides).successors());
+      cy.elements().not(active).addClass("is-inactive");
+      active.addClass("is-active");
+      cy.getElementById(provides).addClass("is-selected");
     };
 
-    const clearSelection = () => {
-      selected = undefined;
-      highlight();
-      workspace.classList.remove("has-details");
-      detailTitle.textContent = "选择一个插件";
-      detailEmpty.hidden = false;
-      detailLink.hidden = true;
-      relations.hidden = true;
-      inputList.replaceChildren();
-      consumerList.replaceChildren();
-      detailPanel.scrollTop = 0;
-      detailPanel.scrollLeft = 0;
-      return fitAfterLayout();
+    const fitGraph = () => {
+      if (!cy || !cy.elements().length) return;
+      cy.resize();
+      cy.fit(cy.elements(), 42);
     };
 
     const renderRelations = (list, names, direction, emptyLabel) => {
@@ -216,91 +243,123 @@
         button.dataset.lineageRelation = name;
         button.textContent = `${direction} ${name}`;
         button.addEventListener("click", () => {
-          selectPlugin(name).then(() => updateUrl(activeView, selected));
+          selectPlugin(name, { updateHistory: true });
         });
         list.append(button);
       }
     };
 
     const renderView = async (view) => {
-      const figures = await loadOverviews();
-      const figure = figures[view];
-      if (!figure) throw new Error(`Unknown lineage view: ${view}`);
+      const graph = currentGraph || await loadGraph();
+      currentGraph = graph;
+      const names = visibleNames(graph, view);
+      if (view === "focus" && !names.size) return;
+      const nodes = graph.nodes.filter((node) => names.has(node.data.id));
+      const edges = graph.edges.filter((edge) => names.has(edge.data.source) && names.has(edge.data.target));
+      const laidOut = await layoutGraph(nodes, edges);
       activeView = view;
-      activeFigure = figure;
       for (const control of viewControls) {
         const active = control.dataset.lineageView === view;
         control.classList.toggle("is-active", active);
         control.setAttribute("aria-pressed", String(active));
       }
-      const overviewBounds = overview.getBoundingClientRect();
-      const overviewLayout = {
-        ...figure.layout,
-        autosize: false,
-        width: Math.max(320, Math.floor(overviewBounds.width)),
-        height: Math.max(480, Math.floor(overviewBounds.height)),
-        margin: { l: 18, r: 18, t: 18, b: 18 },
-      };
-      await Plotly.react(overview, figure.data, overviewLayout, {
-        displaylogo: false, responsive: true, scrollZoom: true,
+      if (cy) cy.destroy();
+      cy = cytoscape({
+        container: overview,
+        elements: [...laidOut.edges, ...laidOut.nodes],
+        layout: { name: "preset", fit: false },
+        minZoom: 0.15,
+        maxZoom: 3.5,
+        wheelSensitivity: 0.18,
+        style: [
+          { selector: "node", style: { "width": "data(width)", "height": "data(height)", "shape": "roundrectangle", "background-color": "#ffffff", "border-color": "#087f5b", "border-width": 1.5, "label": "data(displayLabel)", "font-size": 13, "font-weight": 700, "font-family": "system-ui, sans-serif", "color": "#17201d", "text-wrap": "wrap", "text-valign": "center", "text-halign": "center", "padding": 0, "overlay-opacity": 0 } },
+          { selector: "node[kind = 'input']", style: { "border-color": "#64748b" } },
+          { selector: "node[kind = 'waveform']", style: { "border-color": "#2563eb" } },
+          { selector: "node[kind = 'hit']", style: { "border-color": "#7e22ce" } },
+          { selector: "node[kind = 'peaklet']", style: { "border-color": "#15803d" } },
+          { selector: "node[kind = 'output']", style: { "border-color": "#b45309", "border-width": 2 } },
+          { selector: "edge", style: { "curve-style": "segments", "segment-weights": "data(weights)", "segment-distances": "data(distances)", "line-color": "#8296a5", "target-arrow-color": "#8296a5", "target-arrow-shape": "triangle", "arrow-scale": 0.7, "width": 1.2, "line-cap": "round", "overlay-opacity": 0 } },
+          { selector: "edge[kind = 'main']", style: { "line-color": "#456a80", "target-arrow-color": "#456a80", "width": 2.4, "arrow-scale": 0.85 } },
+          { selector: "edge[kind = 'auxiliary']", style: { "line-color": "#b8c2c9", "target-arrow-color": "#b8c2c9", "line-style": "dashed", "width": 1 } },
+          { selector: ".is-inactive", style: { "opacity": 0.1 } },
+          { selector: ".is-active", style: { "opacity": 1 } },
+          { selector: "node.is-selected", style: { "background-color": "#fff1d8", "border-color": "#b45309", "border-width": 3 } },
+        ],
       });
-      await fitAfterLayout();
+      overview._lineageCy = cy;
+      overview._lineageLayout = laidOut;
+      overview.dataset.lineageReady = "true";
+      overview.dataset.lineageNodeCount = String(laidOut.nodes.length);
+      cy.on("tap", "node", (event) => selectPlugin(event.target.id(), { updateHistory: true }));
+      cy.on("dbltap", "node", (event) => { window.location.href = event.target.data("href"); });
+      cy.on("mouseover", "node", (event) => {
+        const node = event.target;
+        tooltip.textContent = `${node.id()} · ${node.data("pluginClass")} · Docs ${node.data("documentationCompleteness")}/100 · Impact ${node.data("dagImpact")}/100`;
+        tooltip.hidden = false;
+      });
+      cy.on("mousemove", "node", (event) => {
+        tooltip.style.left = `${event.renderedPosition.x + 14}px`;
+        tooltip.style.top = `${event.renderedPosition.y + 14}px`;
+      });
+      cy.on("mouseout", "node", () => { tooltip.hidden = true; });
+      highlight(selected);
+      requestAnimationFrame(fitGraph);
     };
 
-    const selectPlugin = async (provides) => {
-      if (!provides || !overview.layout?.meta?.node_shape_indices?.[provides] && overview.layout?.meta?.node_shape_indices?.[provides] !== 0) {
-        clearSelection();
-        return;
-      }
+    const selectPlugin = async (provides, { updateHistory = false } = {}) => {
+      const graph = currentGraph || await loadGraph();
+      if (!provides || !graph.nodes.some((node) => node.data.id === provides)) return;
       selected = provides;
-      highlight(provides);
+      document.querySelector('[data-lineage-view="focus"]')?.removeAttribute("disabled");
       workspace.classList.add("has-details");
       detailTitle.textContent = provides;
       detailEmpty.hidden = true;
       const pluginPrefix = workspace.dataset.pluginPrefix ?? "plugins/";
       detailLink.href = `${pluginPrefix}${provides}.html`;
       detailLink.hidden = false;
-      try {
-        const relationMap = await loadDetails();
-        if (selected !== provides) return;
-        const relation = relationMap[provides] || { inputs: [], consumers: [] };
-        renderRelations(inputList, relation.inputs || [], "←", "没有声明直接输入。");
-        renderRelations(consumerList, relation.consumers || [], "→", "没有声明直接消费者。");
-        relations.hidden = false;
-        detailPanel.scrollTop = 0;
-        detailPanel.scrollLeft = 0;
-        await fitAfterLayout();
-      } catch (error) {
-        if (selected !== provides) return;
-        detailEmpty.textContent = "无法加载谱系详情。";
-        detailEmpty.hidden = false;
-        relations.hidden = true;
-      }
+      const relation = graph.relations[provides] || { inputs: [], consumers: [] };
+      renderRelations(inputList, relation.inputs || [], "←", "没有声明直接输入。");
+      renderRelations(consumerList, relation.consumers || [], "→", "没有声明直接消费者。");
+      relations.hidden = false;
+      detailPanel.scrollTop = 0;
+      detailPanel.scrollLeft = 0;
+      if (activeView === "focus") await renderView("focus");
+      else highlight(provides);
+      if (updateHistory) updateUrl(activeView, selected);
     };
 
-    const restoreState = async ({ push = false, replace = false } = {}) => {
+    const clearSelection = async () => {
+      selected = undefined;
+      highlight();
+      workspace.classList.remove("has-details");
+      detailTitle.textContent = "选择一个插件";
+      detailEmpty.hidden = false;
+      detailLink.hidden = true;
+      relations.hidden = true;
+      inputList.replaceChildren();
+      consumerList.replaceChildren();
+      if (activeView === "focus") await renderView("overview");
+      else requestAnimationFrame(fitGraph);
+    };
+
+    const restoreState = async ({ replace = false } = {}) => {
       const params = new URLSearchParams(window.location.search);
-      let view = params.get("view") === "all" ? "all" : "core";
+      const requested = params.get("view");
+      let view = ["full", "focus"].includes(requested) ? requested : "overview";
       const focus = params.get("focus");
-      if (focus && terminalOutputs.has(focus)) view = "all";
+      currentGraph = await loadGraph();
+      if (focus) selected = focus;
+      if (view === "focus" && !focus) view = "overview";
       await renderView(view);
-      await selectPlugin(focus);
-      if (push || replace || (focus && terminalOutputs.has(focus) && params.get("view") !== "all")) {
-        updateUrl(view, selected, replace || !push);
-      }
+      if (focus) await selectPlugin(focus);
+      if (replace) updateUrl(view, selected, true);
     };
 
-    overview.on("plotly_click", (event) => {
-      const provides = event.points[0]?.customdata;
-      if (provides) selectPlugin(provides).then(() => updateUrl(activeView, selected));
-    });
     for (const control of viewControls) {
       control.addEventListener("click", async () => {
         const requested = control.dataset.lineageView;
-        if (requested === activeView) return;
-        if (requested === "core" && terminalOutputs.has(selected)) await clearSelection();
+        if (requested === activeView || (requested === "focus" && !selected)) return;
         await renderView(requested);
-        await selectPlugin(selected);
         updateUrl(activeView, selected);
       });
     }
@@ -308,30 +367,71 @@
       await clearSelection();
       updateUrl(activeView);
     });
+    const detailToggle = document.querySelector("[data-lineage-detail-toggle]");
+    const setDetailCollapsed = async (collapsed) => {
+      workspace.dataset.detailCollapsed = String(collapsed);
+      detailToggle?.setAttribute("aria-expanded", String(!collapsed));
+      if (detailToggle) {
+        detailToggle.title = collapsed ? "展开节点详情" : "折叠节点详情";
+        detailToggle.setAttribute("aria-label", detailToggle.title);
+        detailToggle.textContent = collapsed ? "◀" : "▶";
+      }
+      requestAnimationFrame(fitGraph);
+    };
+    detailToggle?.addEventListener("click", () => setDetailCollapsed(workspace.dataset.detailCollapsed !== "true"));
+
+    const fullscreenButton = document.querySelector("[data-lineage-fullscreen]");
+    const syncFullscreen = async () => {
+      const fullscreen = document.fullscreenElement === workspace;
+      if (fullscreen) fullscreenViewport = cy ? { zoom: cy.zoom(), pan: cy.pan() } : undefined;
+      workspace.dataset.fullscreen = String(fullscreen);
+      fullscreenButton?.setAttribute("aria-pressed", String(fullscreen));
+      if (fullscreenButton) {
+        fullscreenButton.title = fullscreen ? "退出全屏" : "全屏查看图谱";
+        fullscreenButton.setAttribute("aria-label", fullscreenButton.title);
+      }
+      requestAnimationFrame(() => {
+        cy?.resize();
+        if (fullscreen) fitGraph();
+        else if (fullscreenViewport && cy) cy.viewport(fullscreenViewport);
+      });
+    };
+    fullscreenButton?.addEventListener("click", async () => {
+      if (document.fullscreenElement === workspace) await document.exitFullscreen();
+      else await workspace.requestFullscreen?.();
+    });
+    document.addEventListener("fullscreenchange", syncFullscreen);
     for (const control of document.querySelectorAll("[data-lineage-canvas]")) {
       control.addEventListener("click", async () => {
         switch (control.dataset.lineageCanvas) {
           case "zoom-in":
-            await zoomOverview(0.72);
+            cy?.zoom({ level: Math.min(3.5, cy.zoom() * 1.2), renderedPosition: { x: overview.clientWidth / 2, y: overview.clientHeight / 2 } });
             break;
           case "zoom-out":
-            await zoomOverview(1.38);
+            cy?.zoom({ level: Math.max(0.15, cy.zoom() / 1.2), renderedPosition: { x: overview.clientWidth / 2, y: overview.clientHeight / 2 } });
             break;
           case "fit":
-            await fitOverview(activeFigure);
+            fitGraph();
             break;
           case "center":
-            await centerOverview();
+            cy?.center();
             break;
           case "reset":
             await renderView(activeView);
-            await selectPlugin(selected);
             break;
         }
       });
     }
+    if (window.ResizeObserver) {
+      new ResizeObserver(() => cy?.resize()).observe(overview.parentElement);
+    } else {
+      window.addEventListener("resize", () => cy?.resize());
+    }
     window.addEventListener("popstate", () => restoreState());
-    restoreState({ replace: true });
+    restoreState({ replace: true }).catch((error) => {
+      console.error("Unable to render plugin DAG", error);
+      overview.textContent = "插件 DAG 加载失败。";
+    });
   }
 
   const focus = new URLSearchParams(window.location.search).get("focus");

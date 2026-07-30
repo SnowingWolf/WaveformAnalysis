@@ -46,6 +46,7 @@ class PeakletChannelsPlugin(Plugin):
     """Expand peaklets into per-board/channel contribution rows."""
 
     provides = "peaklet_channels"
+    lineage_virtual = True
     depends_on = ["peaklets", "peaklet_components", "hit_merged_features", "peaklet_features"]
     description = "Aggregate hit_merged_features into per-peaklet channel contribution rows."
     version = "1.0.1"

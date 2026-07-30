@@ -1,0 +1,32 @@
+# execution_report
+
+- `task_id`: `lineage-virtual-toggle-20260729`
+- `workflow_cost`: `standard`
+- `workflow_shape`: `staged`
+- `executor_role`: `executor.docs`
+- `changed_paths`:
+  - `docs/site-react/src/lineage.ts`
+  - `docs/site-react/src/lineage.test.ts`
+  - `docs/site-react/src/main.tsx`
+  - `docs/site-react/src/site.css`
+  - `waveform_analysis/utils/templates/web/assets/react/waveform-docs.js`
+  - `waveform_analysis/utils/templates/web/assets/react/waveform-docs.css`
+- `actions_taken`:
+  - Added the enabled-by-default `虚拟节点` switch to the DAG toolbar.
+  - Added browser-only virtual-node folding with port-preserving bypass edges, edge deduplication, and regenerated relations/views.
+  - Added a unit test for `real -> virtual -> real` folding and regenerated the offline plugin website.
+  - Made all wire presentation source-owned: a virtual producer emits dashed wires; every non-virtual producer, including `records`, emits solid wires. Increased the `records` node minimum height to `136px`.
+  - Increased same-layer vertical node separation from `28px` to `80px` while retaining the horizontal layered layout, and changed source-port navigation to center the measured target node through React Flow's `fitView`.
+  - Configured ELK to favor straight edges and remove unnecessary bend points; the browser renderer also coalesces adjacent collinear wire segments.
+  - Added content-hashed query versions to generated React asset URLs so a refreshed static site cannot reuse an obsolete DAG bundle from a browser or LAN cache.
+  - Raised the automatic fit-view minimum zoom to `0.62`, so the verified `80px` same-layer spacing is not visually erased by initial downscaling; free pan and scroll remain available.
+  - Fixed port rows to declared `depends_on` positions, removed synthetic fan-out lanes that could cross, made the React Flow viewport uncontrolled for reliable source-node centering, and moved navigation group toggles beside their labels.
+- `commands_run`:
+  - `npm run check`
+  - `tsc -p tsconfig.test.json`
+  - `node --test .test-dist/lineage.test.js`
+  - focused plugin documentation and Context lineage tests with `--no-cov`
+  - `esbuild ... src/main.tsx`
+  - `python -m waveform_analysis.utils.cli_docs generate plugins-web -o docs/_site`
+- `open_risks`:
+  - The canonical Vite production build remains unavailable on this host due to its Rollup binary requiring a newer glibc; the checked esbuild fallback bundle was generated successfully.

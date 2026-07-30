@@ -1,7 +1,9 @@
 """Internal generator for the offline WaveformAnalysis documentation site."""
 
 from dataclasses import dataclass, replace
+import hashlib
 import inspect
+import json
 from pathlib import Path, PurePosixPath
 import re
 import shutil
@@ -2205,6 +2207,45 @@ class DocumentationSiteGenerator:
             visualization_relative_path="visualizations/index.html",
             extra_search_entries=site_search_entries,
         )
+        # Keep the historical root URL as a full-site DAG page.  The plugin
+        # reference itself lives under ``plugins/``, but users and LAN links
+        # commonly open ``/lineage.html`` directly.
+        root_lineage_payload = self.plugin_generator._build_cytoscape_lineage_payload(
+            self.plugin_generator._with_web_scores(
+                self.plugin_generator.get_all_doc_info(),
+                dependencies_by_provides=self.plugin_generator._default_dependency_map(),
+            ),
+            self.plugin_generator._default_dependency_map(),
+            plugin_href_prefix="plugins/",
+        )
+        root_lineage_json = json.dumps(
+            root_lineage_payload, ensure_ascii=True, separators=(",", ":")
+        ).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+        react_assets = self.plugin_generator.template_dir / "web" / "assets" / "react"
+        react_asset_version = hashlib.sha256(
+            (react_assets / "waveform-docs.js").read_bytes()
+            + (react_assets / "waveform-docs.css").read_bytes()
+        ).hexdigest()[:12]
+        root_lineage_path = output_dir / "lineage.html"
+        root_lineage_path.write_text(
+            self.plugin_generator.render_lineage_html(
+                lineage_json=root_lineage_json,
+                asset_prefix="assets/",
+                site_home_href="index.html",
+                plugin_index_href="plugins/index.html",
+                plugin_href_prefix="plugins/",
+                accessor_index_href="accessors/index.html",
+                context_index_href="contexts/context.html",
+                adapter_index_href="adapters/adapter.html",
+                visualization_index_href="visualizations/index.html",
+                visualization_detail_prefix="visualizations/",
+                site_root_prefix="",
+                react_asset_version=react_asset_version,
+                lineage_index_href="lineage.html",
+            ),
+            encoding="utf-8",
+        )
+        generated["ROOT_LINEAGE"] = root_lineage_path
         self._copy_content_assets(views, output_dir / "assets", generated)
         accessor_dir = output_dir / "accessors"
         accessor_dir.mkdir(parents=True, exist_ok=True)

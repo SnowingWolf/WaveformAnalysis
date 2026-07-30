@@ -36,6 +36,7 @@ waveform_analysis.egg-info/
 MANIFEST
 node_modules/
 .waveform-docs/agent-doc-artifacts/
+.waveform-docs/
 
 # PyInstaller
 *.manifest
@@ -185,6 +186,8 @@ docs/_static/
 docs/_templates/
 docs/build/
 docs/source/generated/
+docs/site-react/.test-dist/
+docs/site-react/docs/_site/
 
 # Auto-generated API docs
 docs/api_reference.html
@@ -202,6 +205,7 @@ docs.backup*/
 .agent/
 .agents/
 .codex/
+.omo/
 .claude/
 claude_output/
 # AGENTS.md is now tracked — do NOT ignore it

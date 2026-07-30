@@ -104,7 +104,7 @@ def test_web_generation_is_offline_relative_and_escaped(tmp_path):
     index = result["INDEX"].read_text(encoding="utf-8")
     page = result["special_chars"].read_text(encoding="utf-8")
     assert 'href="plugins/special_chars.html"' in index
-    assert 'class="site-index docs-page docs-plugin-index docs-page--lineage"' in index
+    assert 'class="site-index docs-page docs-plugin-index' in index
     assert 'href="../assets/site.css"' in page
     assert "https://" not in index + page
     assert "http://" not in index + page
@@ -116,23 +116,17 @@ def test_web_generation_is_offline_relative_and_escaped(tmp_path):
     assert (tmp_path / "assets" / "site.css").is_file()
     assert (tmp_path / "assets" / "site.js").is_file()
     assert (tmp_path / "assets" / "search-index.js").is_file()
-    assert (tmp_path / "assets" / "plotly.min.js").is_file()
-    assert (tmp_path / "assets" / "lineage-details.json").is_file()
-    assert (tmp_path / "assets" / "lineage-overviews.json").is_file()
+    assert (tmp_path / "assets" / "react" / "waveform-docs.js").is_file()
+    assert (tmp_path / "assets" / "react" / "waveform-docs.css").is_file()
+    assert (tmp_path / "assets" / "lineage-graph.json").is_file()
     site_js = (tmp_path / "assets" / "site.js").read_text(encoding="utf-8")
     site_css = (tmp_path / "assets" / "site.css").read_text(encoding="utf-8")
-    assert "data-lineage-relations" in site_js
-    assert "renderRelations" in site_js
-    assert 'workspace.classList.add("has-details")' in site_js
-    assert 'workspace.classList.remove("has-details")' in site_js
-    assert 'workspace.dataset.pluginPrefix ?? "plugins/"' in site_js
-    assert "detailPanel.scrollLeft = 0" in site_js
-    assert "new ResizeObserver(resizeOverview)" in site_js
+    react_bundle = (tmp_path / "assets" / "react" / "waveform-docs.js").read_text(encoding="utf-8")
+    assert "ReactFlow" in react_bundle
+    assert "elk.algorithm" in react_bundle
     assert "--site-max-width: 1680px" in site_css
     assert "--content-max-width: 980px" in site_css
-    assert "grid-template-columns: minmax(0, 1fr) 380px" in site_css
-    assert "height: min(720px, calc(100vh - 180px))" in site_css
-    assert ".lineage-workspace:not(.has-details)" in site_css
+    assert "site-tree" in site_css
 
 
 def test_web_lineage_omits_unknown_inputs_and_lists_isolated_plugins(tmp_path):
@@ -154,31 +148,21 @@ def test_web_lineage_omits_unknown_inputs_and_lists_isolated_plugins(tmp_path):
     generator.register_plugin(UnknownInputPlugin)
 
     result = generator.generate_web(tmp_path)
-    index = result["INDEX"].read_text(encoding="utf-8")
+    lineage = result["LINEAGE_INDEX"].read_text(encoding="utf-8")
     detailed = result["detailed_output"].read_text(encoding="utf-8")
-    details = json.loads((tmp_path / "assets" / "lineage-details.json").read_text())
-    assert 'src="assets/plotly.min.js"' in index
-    assert 'id="plugin-global-lineage"' in index
-    assert 'data-lineage-details="assets/lineage-details.json"' in index
-    assert "data-lineage-relations" in index
-    assert "data-lineage-inputs" in index
-    assert "data-lineage-consumers" in index
-    assert "IN::" not in index
-    assert "OUT::" not in index
+    graph = json.loads((tmp_path / "assets" / "lineage-graph.json").read_text())
+    assert "data-react-lineage" in lineage
+    assert re.search(r'src="assets/react/waveform-docs\.js\?v=[0-9a-f]{12}"', lineage)
     assert 'href="source_rows.html"' in detailed
-    assert 'class="lineage-node-placeholder"' not in index
-    assert "external_input" not in index
-    assert 'href="plugins/external_input.html"' not in index
-    assert 'data-lineage-view="core"' in index
-    assert 'data-lineage-view="all"' in index
-    assert 'href="plugins/unknown_output.html"' in index
-    assert 'href="../index.html?focus=detailed_output"' in detailed
+    assert 'class="lineage-node-placeholder"' not in lineage
+    assert "external_input" not in graph["views"]
+    assert {node["data"]["id"] for node in graph["nodes"]} >= {
+        "source_rows",
+        "detailed_output",
+        "unknown_output",
+    }
+    assert 'href="../lineage.html?view=focus&amp;focus=detailed_output"' in detailed
     assert 'class="page-location"' not in detailed
-    assert '"scrollZoom": true' in index
-    assert "plotly_click" not in index
-    assert {"source_rows", "detailed_output", "unknown_output"} <= details.keys()
-    assert details["detailed_output"] == {"inputs": ["source_rows"], "consumers": []}
-    assert details["unknown_output"] == {"inputs": [], "consumers": []}
 
     dynamic_view = replace(
         generator.extract_doc_info(_EmptyPlugin, _EmptyPlugin()),
@@ -216,6 +200,90 @@ def test_web_lineage_resolves_dynamic_dependencies_from_plugin_defaults():
     assert ("plugin:raw_files", "plugin:records") in edges
     assert ("plugin:raw_files", "plugin:wave_pool") in edges
     assert all("runtime-resolved inputs" not in node.label for node in graph.nodes)
+
+
+def test_context_lineage_payload_reuses_port_level_web_contract():
+    class SourcePlugin(_EmptyPlugin):
+        provides = "context_source"
+
+    class TargetPlugin(_DetailedPlugin):
+        provides = "context_target"
+        depends_on = ["context_source"]
+
+    context = Context()
+    context.register(SourcePlugin, TargetPlugin)
+    payload = PluginDocGenerator().build_lineage_payload_for_context(context)
+
+    nodes = {entry["data"]["id"]: entry["data"] for entry in payload["nodes"]}
+    edge = next(entry["data"] for entry in payload["edges"])
+    assert nodes["context_target"]["summary"] == TargetPlugin.description
+    assert edge["source_node_id"] == "context_source"
+    assert edge["target_node_id"] == "context_target"
+    assert edge["source_port_id"] in {
+        port["id"] for port in nodes["context_source"]["out_ports"]
+    }
+    assert edge["target_port_id"] in {
+        port["id"] for port in nodes["context_target"]["in_ports"]
+    }
+
+
+def test_context_lineage_payload_marks_virtual_nodes():
+    class SourcePlugin(_EmptyPlugin):
+        provides = "context_source"
+
+    class VirtualPlugin(_DetailedPlugin):
+        provides = "context_virtual"
+        depends_on = ["context_source"]
+        lineage_virtual = True
+
+    class TargetPlugin(_DetailedPlugin):
+        provides = "context_target"
+        depends_on = ["context_virtual"]
+
+    context = Context()
+    context.register(SourcePlugin, VirtualPlugin, TargetPlugin)
+    payload = PluginDocGenerator().build_lineage_payload_for_context(context)
+    nodes = {entry["data"]["id"]: entry["data"] for entry in payload["nodes"]}
+
+    assert nodes["context_virtual"]["isLineageVirtual"] is True
+    assert nodes["context_source"]["isLineageVirtual"] is False
+
+
+def test_builtin_calculation_backtracking_plugins_are_lineage_virtual():
+    from waveform_analysis.core.plugins.builtin.cpu.records import WavePoolPlugin
+    from waveform_analysis.core.plugins.builtin.cpu.records_asymmetry import (
+        RecordsAsymmetryMaskPlugin,
+    )
+    from waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_candidates import (
+        S1S2PairCandidatesPlugin,
+    )
+    from waveform_analysis.core.plugins.builtin.hit.hit_merge import HitMergedComponentsPlugin
+    from waveform_analysis.core.plugins.builtin.hit.hit_merged_features import (
+        HitMergedFeaturesPlugin,
+    )
+    from waveform_analysis.core.plugins.builtin.peaks.peaklet_channels import (
+        PeakletChannelsPlugin,
+    )
+    from waveform_analysis.core.plugins.builtin.peaks.peaklets import (
+        PeakletComponentsPlugin,
+        PeakletFeaturesPlugin,
+        PeakletWaveformPlugin,
+        PeakletWaveformPoolPlugin,
+    )
+
+    virtual_plugins = (
+        WavePoolPlugin,
+        HitMergedComponentsPlugin,
+        HitMergedFeaturesPlugin,
+        PeakletComponentsPlugin,
+        PeakletChannelsPlugin,
+        PeakletWaveformPoolPlugin,
+        PeakletFeaturesPlugin,
+        S1S2PairCandidatesPlugin,
+    )
+    assert all(plugin.lineage_virtual for plugin in virtual_plugins)
+    assert not getattr(RecordsAsymmetryMaskPlugin, "lineage_virtual", False)
+    assert not getattr(PeakletWaveformPlugin, "lineage_virtual", False)
 
 
 def test_documentation_profile_precedence_is_plugin_shared_then_option_default():
@@ -266,15 +334,12 @@ def test_web_cards_group_by_canonical_plugin_sets_and_global_edges_are_curved(tm
     assert "Standalone Tools" in index
     assert index.index('data-plugin-set="io"') < index.index('data-plugin-set="waveform"')
     assert index.index('href="plugins/raw_files.html"') < index.index('data-plugin-set="waveform"')
-    assert '"shape":"spline"' in index
-    assert "plugin-overview-spline" in index
-    assert '"type":"path"' not in index
+    graph = json.loads((tmp_path / "assets" / "lineage-graph.json").read_text())
+    assert any(edge["data"]["kind"] == "main" for edge in graph["edges"])
 
     site_js = (tmp_path / "assets" / "site.js").read_text(encoding="utf-8")
     assert "pluginSet.hidden" in site_js
-    assert 'window.addEventListener("popstate", () => restoreState())' in site_js
-    assert 'url.searchParams.set("view", view)' in site_js
-    assert "terminalOutputs.has(focus)" in site_js
+    assert "pluginSet.hidden" in site_js
 
 
 def test_core_and_all_views_share_layout_and_keep_standalone_out_of_dag():
@@ -285,19 +350,116 @@ def test_core_and_all_views_share_layout_and_keep_standalone_out_of_dag():
     views, terminals = generator._global_lineage_views(
         plugins, link_prefix="plugins/", dependencies_by_provides=dependencies
     )
-    core = {n.node_id: (n.x, n.y) for n in views["core"].nodes}
-    all_nodes = {n.node_id: (n.x, n.y) for n in views["all"].nodes}
+    overview = {n.node_id: (n.x, n.y) for n in views["overview"].nodes}
+    full_nodes = {n.node_id: (n.x, n.y) for n in views["full"].nodes}
     assert {"df_paired", "waveform_width_integral"} <= terminals
     assert "events" not in terminals
-    assert "plugin:events" in core
-    assert "plugin:df_paired" not in core
-    assert "plugin:df_paired" in all_nodes
-    assert core == {name: all_nodes[name] for name in core}
-    assert "plugin:cache_analysis" not in all_nodes
-    figure = generator._build_global_plotly_figure(views["all"])
-    shapes = figure.layout.shapes
-    assert figure.layout.xaxis.range[1] >= max(shape.x1 for shape in shapes)
-    assert abs(figure.layout.yaxis.range[0]) >= max(shape.y1 for shape in shapes)
+    assert "plugin:events" in overview
+    assert "plugin:df_paired" not in overview
+    assert "plugin:df_paired" in full_nodes
+    assert overview == {name: full_nodes[name] for name in overview}
+    assert "plugin:cache_analysis" not in full_nodes
+
+
+def test_global_lineage_exposes_react_flow_metadata():
+    generator = PluginDocGenerator()
+    generator.load_builtin_plugins()
+    dependencies = generator._default_dependency_map()
+    plugins = generator._with_web_scores(generator.get_all_doc_info(), dependencies)
+    views, _ = generator._global_lineage_views(
+        plugins, link_prefix="plugins/", dependencies_by_provides=dependencies
+    )
+
+    payload = generator._build_cytoscape_lineage_payload(
+        plugins, dependencies, plugin_href_prefix="plugins/"
+    )
+    assert payload["focusDepth"] == 2
+    assert {node["data"]["id"] for node in payload["nodes"]} >= {
+        "peaklet_waveform_pool",
+        "hit_merged_components",
+    }
+    nodes = {node["data"]["id"]: node["data"] for node in payload["nodes"]}
+    ports = {
+        port["id"]: (node_id, port["kind"])
+        for node_id, node in nodes.items()
+        for port in node["in_ports"] + node["out_ports"]
+    }
+    assert payload["edges"]
+    for entry in payload["edges"]:
+        edge = entry["data"]
+        assert ports[edge["source_port_id"]] == (edge["source_node_id"], "out")
+        assert ports[edge["target_port_id"]] == (edge["target_node_id"], "in")
+        assert edge["dtype"]
+        assert edge["category"]
+
+    overview = set(payload["views"]["overview"])
+    overview_edges = [
+        entry["data"]
+        for entry in payload["edges"]
+        if entry["data"]["source_node_id"] in overview
+        and entry["data"]["target_node_id"] in overview
+    ]
+    expected_pairs = {
+        (source, target)
+        for target in overview
+        for source in dependencies.get(target, [])
+        if source in overview
+    }
+    assert {
+        (edge["source_node_id"], edge["target_node_id"])
+        for edge in overview_edges
+    } == expected_pairs
+
+
+def test_web_lineage_embedded_payload_escapes_script_terminators(tmp_path):
+    class ScriptTitlePlugin(_EmptyPlugin):
+        provides = "script_title"
+
+    ScriptTitlePlugin.__name__ = "</script><script>alert(1)</script>"
+    generator = PluginDocGenerator()
+    generator.register_plugin(ScriptTitlePlugin)
+
+    result = generator.generate_web(tmp_path)
+    lineage = result["LINEAGE_INDEX"].read_text(encoding="utf-8")
+
+    assert "</script><script>alert(1)</script>" not in lineage
+    assert r"\u003c/script\u003e\u003cscript\u003ealert(1)" in lineage
+
+
+def test_web_lineage_payload_rejects_dangling_port_with_edge_id():
+    payload = {
+        "nodes": [
+            {
+                "data": {
+                    "id": "source",
+                    "in_ports": [],
+                    "out_ports": [
+                        {"id": "OUT::source::0", "kind": "out"},
+                    ],
+                }
+            },
+            {
+                "data": {
+                    "id": "target",
+                    "in_ports": [{"id": "IN::target::0", "kind": "in"}],
+                    "out_ports": [],
+                }
+            },
+        ],
+        "edges": [
+            {
+                "data": {
+                    "id": "broken-edge",
+                    "source_node_id": "source",
+                    "source_port_id": "OUT::missing::0",
+                    "target_node_id": "target",
+                    "target_port_id": "IN::target::0",
+                }
+            }
+        ],
+    }
+    with pytest.raises(ValueError, match="broken-edge.*OUT::missing::0"):
+        PluginDocGenerator._validate_lineage_payload(payload)
 
 
 def test_detail_lineage_contains_direct_neighbors_not_transitive_plugins():
@@ -551,6 +713,68 @@ def test_cli_web_rejects_single_plugin_and_serve_requires_existing_directory(
     assert not missing.exists()
 
 
+def test_dynamic_lineage_endpoint_serves_context_payload(tmp_path):
+    from waveform_analysis.utils import cli_docs
+
+    class SourcePlugin(_EmptyPlugin):
+        provides = "api_source"
+
+    class TargetPlugin(_DetailedPlugin):
+        provides = "api_target"
+        depends_on = ["api_source"]
+
+    context = Context()
+    context.register(SourcePlugin, TargetPlugin)
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "index.html").write_text("ok", encoding="utf-8")
+    provider = lambda: PluginDocGenerator().build_lineage_payload_for_context(context)
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0),
+        partial(
+            cli_docs._DocumentationRequestHandler,
+            directory=str(site),
+            lineage_payload_provider=provider,
+        ),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with urlopen(f"http://127.0.0.1:{server.server_port}/api/lineage") as response:
+            payload = json.loads(response.read())
+        assert response.headers["Cache-Control"] == "no-store, max-age=0"
+        assert {node["data"]["id"] for node in payload["nodes"]} == {
+            "api_source",
+            "api_target",
+        }
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+def test_dynamic_lineage_factory_requires_a_callable_context_factory(monkeypatch):
+    from types import SimpleNamespace
+
+    from waveform_analysis.utils import cli_docs
+
+    class SourcePlugin(_EmptyPlugin):
+        provides = "factory_source"
+
+    context = Context()
+    context.register(SourcePlugin)
+    monkeypatch.setattr(
+        cli_docs.importlib,
+        "import_module",
+        lambda name: SimpleNamespace(create_context=lambda: context),
+    )
+
+    provider = cli_docs._lineage_payload_provider("trusted.docs:create_context")
+    assert provider()["nodes"][0]["data"]["id"] == "factory_source"
+    with pytest.raises(ValueError, match="package.module:function"):
+        cli_docs._lineage_payload_provider("not-a-factory")
+
+
 def test_documentation_site_generates_exact_sections_routes_and_offline_assets(tmp_path):
     from waveform_analysis.utils.site_doc_generator import DocumentationSiteGenerator
 
@@ -558,6 +782,7 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
 
     assert result["SITE_INDEX"] == tmp_path / "index.html"
     assert result["INDEX"] == tmp_path / "plugins" / "index.html"
+    assert result["ROOT_LINEAGE"] == tmp_path / "lineage.html"
     assert result["ACCESSOR_INDEX"] == tmp_path / "accessors" / "index.html"
     assert result["CONTEXT_INDEX"] == tmp_path / "contexts" / "index.html"
     assert result["ADAPTER_INDEX"] == tmp_path / "adapters" / "index.html"
@@ -577,19 +802,22 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
         "site.css",
         "site.js",
         "search-index.js",
-        "plotly.min.js",
-        "lineage-details.json",
-        "lineage-overviews.json",
+        "lineage-graph.json",
+        "react",
     }
     assert {path.name for path in (tmp_path / "assets").iterdir()} == expected_assets
 
     home = (tmp_path / "index.html").read_text(encoding="utf-8")
     plugin_index = (tmp_path / "plugins" / "index.html").read_text(encoding="utf-8")
+    lineage_page = result["LINEAGE_INDEX"].read_text(encoding="utf-8")
+    root_lineage_page = result["ROOT_LINEAGE"].read_text(encoding="utf-8")
     plugin_page = result["records"].read_text(encoding="utf-8")
     accessor_index = (tmp_path / "accessors" / "index.html").read_text(encoding="utf-8")
     peak_accessor_page = result["accessor:peak-channel-accessor"].read_text(encoding="utf-8")
     pair_accessor_page = result["accessor:s1-s2-pair-accessor"].read_text(encoding="utf-8")
     context_page = result["context:context"].read_text(encoding="utf-8")
+    context_index_page = result["CONTEXT_INDEX"].read_text(encoding="utf-8")
+    adapter_index_page = result["ADAPTER_INDEX"].read_text(encoding="utf-8")
     adapter_page = result["adapter:adapter"].read_text(encoding="utf-8")
     statistical_plots_page = result["visualization:statistical-plots"].read_text(encoding="utf-8")
     waveform_plots_page = result["visualization:waveform-plots"].read_text(encoding="utf-8")
@@ -612,11 +840,8 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "先由插件完成处理，再用 Accessor" in home
     assert 'class="site-brand" href="../index.html"' in plugin_index
     assert 'href="records.html"' in plugin_index
-    assert 'data-lineage-details="../assets/lineage-details.json"' in plugin_index
-    context_index_page = result["CONTEXT_INDEX"].read_text(encoding="utf-8")
-    adapter_index_page = result["ADAPTER_INDEX"].read_text(encoding="utf-8")
     assert 'data-site-root-prefix="../"' in plugin_index
-    assert 'href="index.html?focus=records"' in plugin_page
+    assert 'href="lineage.html?view=focus&amp;focus=records"' in plugin_page
     assert 'href="../accessors/index.html"' in plugin_page
     assert 'href="../contexts/context.html"' in plugin_page
     assert 'href="../visualizations/index.html"' in plugin_page
@@ -627,10 +852,21 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "index.htmlstatistical-plots.html" not in plugin_index
     assert "index.htmlwaveform-plots.html" not in plugin_page
     assert "Context 与适配器" in plugin_page
+    assert 'href="../contexts/index.html">Context 与适配器</a>' in plugin_page
     assert 'aria-controls="tree-architecture"' in plugin_page
     assert plugin_page.index("Context 与适配器") < plugin_page.index("插件系统")
     assert "不保存隐式当前运行" in home
     assert "依赖、执行与 DAG" in context_page
+    assert "Context 与适配器" in context_index_page
+    assert 'href="context.html"' in context_index_page
+    assert 'href="../adapters/adapter.html"' in context_index_page
+    assert "Context 与适配器" in adapter_index_page
+    assert 'href="../contexts/context.html"' in adapter_index_page
+    assert 'href="adapter.html"' in adapter_index_page
+    assert "架构职责与数据流" in adapter_index_page
+    assert "协调 DAG、配置、lineage 与缓存" in adapter_index_page
+    assert "raw_files" in adapter_index_page
+    assert "records_view" in adapter_index_page
     assert "plot_lineage" in context_page
     assert "labview" in context_page
     assert '<span class="k">class</span> <span class="nc">Context</span>' in context_page
@@ -647,23 +883,12 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "plot_2d_cut_on_corner" in statistical_plots_page
     assert "plot_lineage" not in statistical_plots_page
     assert "plot_waveforms" in waveform_plots_page
-    assert 'href="../contexts/index.html">Context 与适配器</a>' in plugin_page
     assert "create_peak_plotter" in waveform_plots_page
     assert "PeakChannelAccessor" in accessor_index
     assert "S1S2PairAccessor" in accessor_index
     assert "通过 peaks 对应的分通道信息" in accessor_index
     assert "查询 S1-S2 配对、关联 peak 的求和波形和位置重建结果" in accessor_index
     assert "整体介绍" in peak_accessor_page
-    assert "Context 与适配器" in context_index_page
-    assert 'href="context.html"' in context_index_page
-    assert 'href="../adapters/adapter.html"' in context_index_page
-    assert "Context 与适配器" in adapter_index_page
-    assert 'href="../contexts/context.html"' in adapter_index_page
-    assert 'href="adapter.html"' in adapter_index_page
-    assert "架构职责与数据流" in adapter_index_page
-    assert "协调 DAG、配置、lineage 与缓存" in adapter_index_page
-    assert "raw_files" in adapter_index_page
-    assert "records_view" in adapter_index_page
     assert "构造器" in peak_accessor_page
     assert "返回值" in peak_accessor_page
     assert "使用注意" in peak_accessor_page
@@ -716,12 +941,14 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "data-theme-toggle" in site_js
     assert "data-tree-toggle" in site_js
     assert "data-page-toc" in site_js
-    assert "docs-page--lineage" in plugin_index
+    assert "docs-page--lineage" in lineage_page
+    assert "Context 与适配器" in root_lineage_page
+    assert "Accessor 接口" in root_lineage_page
+    assert "href=\"lineage.html\" aria-current=\"page\"" in root_lineage_page
     assert "docs-main--wide" in plugin_index
-    assert 'data-lineage-canvas="fit"' in plugin_index
-    assert "fitOverview" in site_js
-    assert "centerOverview" in site_js
-    assert "new ResizeObserver(resizeOverview)" in site_js
+    lineage_page = result["LINEAGE_INDEX"].read_text(encoding="utf-8")
+    assert "data-react-lineage" in lineage_page
+    assert re.search(r'src="../assets/react/waveform-docs\.js\?v=[0-9a-f]{12}"', lineage_page)
     assert "data-site-search-input" in site_js
     html = "".join(path.read_text(encoding="utf-8") for path in tmp_path.rglob("*.html"))
     assert "https://" not in html

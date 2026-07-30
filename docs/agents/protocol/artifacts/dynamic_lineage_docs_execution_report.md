@@ -1,0 +1,59 @@
+# execution_report
+
+- `task_id`: `dynamic-lineage-docs-20260729`
+- `workflow_cost`: `standard`
+- `workflow_shape`: `staged`
+- `executor_role`: `executor.docs`
+- `agent_profile`: `none`
+- `changed_paths`:
+  - `waveform_analysis/utils/plugin_doc_generator.py`
+  - `waveform_analysis/utils/cli_docs.py`
+  - `docs/site-react/src/main.tsx`
+  - `docs/site-react/src/lineage.ts`
+  - `docs/site-react/src/site.css`
+  - `docs/site-react/src/lineage.test.ts`
+  - `waveform_analysis/utils/templates/web/assets/react/waveform-docs.js`
+  - `waveform_analysis/utils/templates/web/assets/react/waveform-docs.css`
+  - `docs/cli/WAVEFORM_DOCS.md`
+  - `tests/test_plugin_documentation.py`
+- `actions_taken`:
+  - Added a renderer-neutral, port-level lineage payload for configured Context instances and validated every edge-to-port reference.
+  - Added opt-in `waveform-docs serve --lineage-context-factory package.module:function` support and a same-origin `GET /api/lineage` endpoint with `Cache-Control: no-store`.
+  - Kept the endpoint topology-only: it accepts no `run_id` or browser configuration, calls no plugin compute methods, and returns no run data.
+  - Implemented React Flow nodes with LabVIEW-style input/output ports, ELK orthogonal wires, free wheel panning, Ctrl/Meta wheel zooming, and a dismissible node preview popover.
+  - Preserved generated static JSON as the default; `?lineage=live` uses the endpoint and automatically falls back to static metadata on failure.
+- `commands_run`:
+  - `npm run check`
+  - `npx tsc -p tsconfig.test.json && node --test .test-dist/lineage.test.js`
+  - `python -m pytest tests/test_plugin_documentation.py -k 'context_lineage_payload_reuses_port_level_web_contract or dynamic_lineage_endpoint_serves_context_payload or dynamic_lineage_factory_requires_a_callable_context_factory'`
+  - `python -m waveform_analysis.utils.cli_docs generate plugins-web -o /tmp/waveform-dynamic-lineage-site`
+  - `python -m waveform_analysis.utils.cli_docs serve --help`
+  - `scripts/check_doc_sync.sh`
+  - `python scripts/check_doc_anchors.py --check-sync --base HEAD`
+  - `git diff --check`
+  - `npm run build` (blocked by the host Rollup native module requiring `GLIBC_2.32`)
+  - `./node_modules/.bin/esbuild src/main.tsx --bundle --format=iife --global-name=WaveformDocs --outfile=dist/waveform-docs.js --minify --target=es2022 ...`
+- `open_risks`:
+  - The optional dynamic endpoint exposes the configured plugin topology to every client that can reach the documentation server; bind the server to trusted networks only.
+  - The canonical Vite build cannot run in this environment because the installed Rollup native binary requires a newer glibc. The checked type/unit tests and esbuild production bundle succeeded.
+  - The full documentation test module has one unrelated existing failure: the Context-page assertion expects a literal space after Pygments' `class` token, while current Pygments emits a whitespace span.
+- `requested_review_focus`:
+  - Confirm the API cannot be used to choose a run, inject Context configuration, execute plugins, or read run data.
+  - Confirm static fallback remains functional and all generated wire endpoints reference the rendered port handles.
+
+## Optional Notes
+
+- `tests_run`:
+  - All three dynamic lineage Python tests passed.
+  - React TypeScript checking and lineage unit tests passed.
+  - Full `tests/test_plugin_documentation.py`: 34 passed, 1 failed (`test_documentation_site_generates_exact_sections_routes_and_offline_assets`, unrelated Pygments whitespace assertion).
+- `gates_executed`:
+  - `doc_sync`: pass
+  - `doc_anchors`: pass
+  - focused implementation tests: pass
+- `docs_updated`:
+  - `docs/cli/WAVEFORM_DOCS.md` documents the trusted Context factory, LAN binding, dynamic URL, and static fallback.
+- `plan_drift`:
+  - No scope drift. The planned Vite build was replaced by a successful esbuild bundle only because the host cannot load Rollup's native module.
+- `not_executed_and_why`:
+  - Vite production build was attempted but could not execute due to `GLIBC_2.32` being unavailable on the host.

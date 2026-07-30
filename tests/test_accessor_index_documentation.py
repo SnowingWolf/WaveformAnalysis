@@ -21,3 +21,9 @@ def test_accessor_index_highlights_plugin_and_accessor_responsibilities():
     assert "跨插件筛选、关联和回溯" in html
     assert "Accessor 不属于插件 DAG" in html
     assert "不生成新的缓存数据契约" in html
+    assert 'href="../contexts/records-view.html"' in html
+    assert 'aria-controls="tree-accessors"' in html
+    assert "折叠 Accessor 接口" in html
+    assert "records-backed 波形访问" in html
+    assert "RecordsView" in html
+    assert "按稳定 <code>record_id</code> 访问 <code>records</code> 与 <code>wave_pool</code>" in html

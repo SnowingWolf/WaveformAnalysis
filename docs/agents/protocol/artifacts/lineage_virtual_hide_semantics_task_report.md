@@ -1,0 +1,25 @@
+# task_report
+
+- `task_id`: `lineage_virtual_hide_semantics`
+- `route`: `generate_docs`
+- `workflow_cost`: `light`
+- `workflow_shape`: `compact`
+- `scope`: 修正插件 DAG 中“隐藏虚拟节点”开关的视觉语义，不改变生成的原始依赖图。
+- `actions_taken`:
+  - 删除虚拟节点过滤时的入边与出边旁路合成逻辑。
+  - 隐藏虚拟节点时，仅保留原本两端都为真实节点的边，并据此重新计算 relations。
+  - 新增单输入单输出与多输入虚拟节点测试，验证不创建新的上游到下游连接，已有真实边仍保留。
+- `changed_paths`:
+  - `docs/site-react/src/lineage.ts`
+  - `docs/site-react/src/lineage.test.ts`
+  - `waveform_analysis/utils/templates/web/assets/react/waveform-docs.js`
+- `verification`:
+  - `npm run check`: PASS.
+  - `tsc -p tsconfig.test.json && node --test .test-dist/lineage.test.js`: PASS.
+  - `scripts/check_doc_sync.sh`: PASS.
+  - `python scripts/check_doc_anchors.py --check-sync --base HEAD`: PASS.
+  - LAN 页面与 bundle 校验和：PASS（版本 `a195c98f9947` 与本地生成资产一致）。
+- `decision`: `completed`
+- `commit_status`: `uncommitted: source files and generated assets overlap with extensive existing user changes, so a scoped commit would mix unrelated work.`
+- `open_risks`:
+  - 当前环境无法加载 Vite 所需的 Rollup 原生模块（`GLIBC_2.32`）；已用通过类型检查的 esbuild 回退 bundle 生成静态资产。

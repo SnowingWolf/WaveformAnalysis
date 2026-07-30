@@ -93,6 +93,7 @@ waveform_analysis = [
     "utils/templates/*.j2",
     "utils/templates/web/*.j2",
     "utils/templates/web/assets/*",
+    "utils/templates/web/assets/react/*",
 ]
 
 [tool.black]

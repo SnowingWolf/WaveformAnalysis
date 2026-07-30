@@ -10,9 +10,16 @@ WaveformAnalysis 文档生成工具 CLI
 
 import argparse
 from functools import partial
+from html.parser import HTMLParser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import importlib
+import json
 from pathlib import Path
+import shutil
 import sys
+import tempfile
+from urllib.parse import unquote, urlparse
+import uuid
 
 
 def main():
@@ -94,6 +101,10 @@ def main():
     serve_parser.add_argument("--directory", type=str, required=True, help="现有站点目录")
     serve_parser.add_argument("--host", default="127.0.0.1", help="监听地址")
     serve_parser.add_argument("--port", default=8000, type=int, help="监听端口")
+    serve_parser.add_argument(
+        "--lineage-context-factory",
+        help="可选 Context 工厂，格式 package.module:function；启用同源只读 /api/lineage",
+    )
 
     args = parser.parse_args()
 
@@ -218,6 +229,106 @@ def generate_plugins_web(args):
         return 1
 
 
+_REQUIRED_SITE_RESULT_KEYS = {
+    "SITE_INDEX",
+    "INDEX",
+    "ROOT_LINEAGE",
+    "LINEAGE_INDEX",
+    "ACCESSOR_INDEX",
+    "CONTEXT_INDEX",
+    "context:records-view",
+    "ADAPTER_INDEX",
+    "VISUALIZATION_INDEX",
+}
+
+
+class _SiteReferenceParser(HTMLParser):
+    """Collect local navigation and asset references from one generated page."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.references: list[str] = []
+
+    def handle_starttag(self, _tag, attrs):
+        for name, value in attrs:
+            if name in {"href", "src"} and value:
+                self.references.append(value)
+
+
+def _validate_generated_site(output_dir: Path, results: dict[str, Path]) -> None:
+    """Reject incomplete builds and broken local HTML references before publication."""
+    missing_keys = sorted(_REQUIRED_SITE_RESULT_KEYS - results.keys())
+    if missing_keys:
+        raise ValueError(f"site-web 生成结果缺少必要页面: {', '.join(missing_keys)}")
+
+    root = output_dir.resolve()
+    for name, generated_path in results.items():
+        path = Path(generated_path).resolve()
+        if not path.is_relative_to(root):
+            raise ValueError(f"site-web 生成结果越过输出目录: {name} -> {path}")
+        if not path.is_file():
+            raise ValueError(f"site-web 生成结果不存在: {name} -> {path}")
+
+    broken: list[str] = []
+    for page in sorted(output_dir.rglob("*.html")):
+        parser = _SiteReferenceParser()
+        parser.feed(page.read_text(encoding="utf-8"))
+        for reference in parser.references:
+            parsed = urlparse(reference)
+            if parsed.scheme or parsed.netloc or not parsed.path:
+                continue
+            reference_path = unquote(parsed.path)
+            target = (
+                root / reference_path.lstrip("/")
+                if reference_path.startswith("/")
+                else page.parent / reference_path
+            ).resolve()
+            if not target.is_relative_to(root):
+                broken.append(f"{page.relative_to(output_dir)} -> {reference}")
+                continue
+            if target.is_dir():
+                target /= "index.html"
+            if not target.is_file():
+                broken.append(f"{page.relative_to(output_dir)} -> {reference}")
+    if broken:
+        preview = "; ".join(broken[:10])
+        suffix = f"; 另有 {len(broken) - 10} 项" if len(broken) > 10 else ""
+        raise ValueError(f"site-web 包含无效本地链接: {preview}{suffix}")
+
+
+def _atomic_generate_site(output_path: Path, generator) -> dict[str, Path]:
+    """Generate, validate, and publish one complete site while preserving rollback."""
+    output_path = Path(output_path)
+    if output_path.is_symlink() or (output_path.exists() and not output_path.is_dir()):
+        raise ValueError(f"site-web 输出路径必须是普通目录: {output_path}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    staging_path = Path(
+        tempfile.mkdtemp(prefix=f".{output_path.name}.staging-", dir=output_path.parent)
+    )
+    backup_path = output_path.parent / f".{output_path.name}.backup-{uuid.uuid4().hex}"
+    try:
+        results = generator.generate(staging_path)
+        _validate_generated_site(staging_path, results)
+        remapped = {
+            name: output_path / Path(path).resolve().relative_to(staging_path.resolve())
+            for name, path in results.items()
+        }
+        if output_path.exists():
+            output_path.rename(backup_path)
+        try:
+            staging_path.rename(output_path)
+        except Exception:
+            if backup_path.exists() and not output_path.exists():
+                backup_path.rename(output_path)
+            raise
+        if backup_path.exists():
+            shutil.rmtree(backup_path)
+        return remapped
+    finally:
+        if staging_path.exists():
+            shutil.rmtree(staging_path, ignore_errors=True)
+
+
 def generate_site_web(args):
     """Generate the complete offline HTML documentation site."""
     if args.plugin:
@@ -227,7 +338,7 @@ def generate_site_web(args):
         from waveform_analysis.utils.site_doc_generator import DocumentationSiteGenerator
 
         output_path = Path(args.output or "docs/_site")
-        results = DocumentationSiteGenerator().generate(output_path)
+        results = _atomic_generate_site(output_path, DocumentationSiteGenerator())
         print("✅ 已生成 WaveformAnalysis HTML 文档总站")
         print(f"   输出目录: {output_path}")
         print(f"   文件数: {len(results)}")
@@ -237,19 +348,86 @@ def generate_site_web(args):
         return 1
 
 
+class _DocumentationRequestHandler(SimpleHTTPRequestHandler):
+    """Serve static documentation and, when configured, a read-only DAG endpoint."""
+
+    def __init__(self, *args, lineage_payload_provider=None, **kwargs):
+        self._lineage_payload_provider = lineage_payload_provider
+        super().__init__(*args, **kwargs)
+
+    def end_headers(self):
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
+        super().end_headers()
+
+    def do_GET(self):  # noqa: N802 - required by BaseHTTPRequestHandler
+        if urlparse(self.path).path != "/api/lineage":
+            return super().do_GET()
+        if self._lineage_payload_provider is None:
+            self.send_error(404, "Dynamic lineage is not enabled")
+            return
+        try:
+            body = json.dumps(
+                self._lineage_payload_provider(), ensure_ascii=True, separators=(",", ":")
+            ).encode("utf-8")
+        except Exception as exc:
+            self.send_error(500, f"Could not build lineage payload: {exc}")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+def _lineage_payload_provider(factory_reference: str):
+    """Load one trusted Context factory and return a topology-only payload provider."""
+    module_name, separator, attribute_name = factory_reference.partition(":")
+    if not separator or not module_name or not attribute_name:
+        raise ValueError("--lineage-context-factory 必须是 package.module:function 格式")
+    factory = getattr(importlib.import_module(module_name), attribute_name, None)
+    if not callable(factory):
+        raise ValueError(f"Context 工厂不可调用: {factory_reference}")
+
+    def provide():
+        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+
+        return PluginDocGenerator().build_lineage_payload_for_context(factory())
+
+    # Fail before serving rather than exposing a nominal API that always returns 500.
+    provide()
+    return provide
+
+
 def cmd_serve(args):
     """Serve an existing directory without generating files or opening a browser."""
     directory = Path(args.directory).resolve()
     if not directory.is_dir():
         print(f"❌ 站点目录不存在: {directory}")
         return 1
-    handler = partial(SimpleHTTPRequestHandler, directory=str(directory))
+    try:
+        lineage_provider = (
+            _lineage_payload_provider(args.lineage_context_factory)
+            if args.lineage_context_factory
+            else None
+        )
+    except Exception as exc:
+        print(f"❌ 无法启用动态 DAG: {exc}")
+        return 1
+    handler = partial(
+        _DocumentationRequestHandler,
+        directory=str(directory),
+        lineage_payload_provider=lineage_provider,
+    )
     try:
         server = ThreadingHTTPServer((args.host, args.port), handler)
     except OSError as exc:
         print(f"❌ 无法启动服务器: {exc}")
         return 1
     print(f"Serving {directory} at http://{args.host}:{args.port}/")
+    if lineage_provider is not None:
+        print("Dynamic lineage enabled at /api/lineage (topology metadata only)")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

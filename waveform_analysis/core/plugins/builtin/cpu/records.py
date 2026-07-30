@@ -534,6 +534,7 @@ class WavePoolPlugin(_RecordsBundlePluginBase):
     """Expose wave_pool as a formal plugin output backed by RecordsBundle."""
 
     provides = "wave_pool"
+    lineage_virtual = True
     depends_on = []
     description = "Build wave_pool from the shared internal records bundle."
     output_dtype = np.dtype(np.uint16)

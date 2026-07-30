@@ -789,6 +789,7 @@ class HitMergedComponentsPlugin(Plugin):
     """Return flat component hit indices for each hit_merged cluster."""
 
     provides = "hit_merged_components"
+    lineage_virtual = True
     depends_on = ["hit_merged", "hit_threshold"]
     description = "Return per-cluster component hit indices for hit_merged rows."
     version = "1.1.0"

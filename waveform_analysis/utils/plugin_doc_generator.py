@@ -12,6 +12,7 @@
 """
 
 from dataclasses import dataclass, field, replace
+import hashlib
 import inspect
 import json
 import os
@@ -91,6 +92,17 @@ PLUGIN_SET_DESCRIPTIONS = {
     "events": "事件级处理：S1-S2 配对候选与最终选择、位置重建、完整事件重建与按时间窗口分组的事件。",
 }
 
+PLUGIN_SET_COLORS = {
+    "io": ("#e8f1fb", "#3b78b8", "#c9dff5"),
+    "waveform": ("#e5f5ee", "#278a5b", "#c8ead9"),
+    "hit": ("#fff0df", "#c76b20", "#f8d5ab"),
+    "peaks": ("#f1e9fb", "#8054b5", "#dfcdf4"),
+    "basic_features": ("#fdf5d8", "#a98219", "#f2e3a6"),
+    "tabular": ("#e6f4f6", "#287e88", "#c8e8eb"),
+    "events": ("#fae8ed", "#bb4666", "#f3cad5"),
+    "other": ("#eef1f2", "#63727b", "#d9e0e3"),
+}
+
 DOCUMENTATION_DEFAULT_PROFILE = {
     "wave_source": "records",
     "use_filtered": False,
@@ -101,6 +113,20 @@ DOCUMENTATION_PLUGIN_DEFAULTS = {
 }
 STANDALONE_PLUGIN_OUTPUTS = frozenset({"cache_analysis"})
 CORE_TERMINAL_OUTPUT = "events"
+MAIN_LINEAGE_PATH = (
+    "raw_files",
+    "records",
+    "hit_threshold",
+    "hit_merged",
+    "peaklets",
+    "peaks",
+    "peak_classification",
+    "s1_s2_pair_candidates",
+    "s1_s2_pairs",
+    "position_reconstruction",
+    "events",
+)
+MAIN_LINEAGE_EDGES = frozenset(zip(MAIN_LINEAGE_PATH, MAIN_LINEAGE_PATH[1:], strict=False))
 
 
 @export
@@ -1223,9 +1249,246 @@ class PluginDocGenerator:
             dependencies_by_provides=dependencies_by_provides,
         )
         terminals = self._terminal_outputs(graph_plugins, dependencies_by_provides)
-        full = self._place_terminal_outputs(full, terminals)
-        core = self._filter_lineage_graph(full, terminals, title="核心插件谱系")
-        return {"core": core, "all": replace(full, title="全部输出")}, terminals
+        available = {plugin.provides for plugin in graph_plugins}
+        overview_outputs: set[str] = set()
+
+        def include_ancestors(output: str) -> None:
+            if output in overview_outputs or output not in available:
+                return
+            overview_outputs.add(output)
+            for dependency in dependencies_by_provides.get(output, []):
+                include_ancestors(dependency)
+
+        include_ancestors(CORE_TERMINAL_OUTPUT)
+        if not overview_outputs:
+            overview_outputs = available - terminals or available
+        hidden = available - overview_outputs
+        overview = self._filter_lineage_graph(full, hidden, title="处理概览")
+        return {"overview": overview, "full": replace(full, title="完整插件 DAG")}, terminals
+
+    @staticmethod
+    def _lineage_node_kind(provides: str) -> str:
+        if provides == "raw_files":
+            return "input"
+        if "wave" in provides or provides in {"records", "st_waveforms"}:
+            return "waveform"
+        if provides.startswith("hit") or provides.startswith("records_"):
+            return "hit"
+        if provides.startswith("peaklet"):
+            return "peaklet"
+        if provides in {"events", "df", "df_events", "df_paired"}:
+            return "output"
+        if provides.startswith("peak") or provides.startswith("s1_s2"):
+            return "peak"
+        return "default"
+
+    @staticmethod
+    def _lineage_edge_kind(source: str, target: str) -> str:
+        if (source, target) in MAIN_LINEAGE_EDGES:
+            return "main"
+        if "wave" in source or "wave" in target or source.endswith("_pool"):
+            return "auxiliary"
+        return "dependency"
+
+    def _build_cytoscape_lineage_payload(
+        self,
+        plugins: list[PluginDocumentationView],
+        dependencies_by_provides: dict[str, list[str]],
+        *,
+        plugin_href_prefix: str,
+    ) -> dict[str, Any]:
+        """Return the runtime lineage model as an offline React Flow payload."""
+        from waveform_analysis.core.foundation.utils import LineageStyle
+        from waveform_analysis.utils.visualization.lineage_visualizer import (
+            _classify_edge_category,
+            _classify_node_type,
+            _resolve_wire_style,
+        )
+
+        graph_plugins = sorted(
+            (plugin for plugin in plugins if plugin.provides not in STANDALONE_PLUGIN_OUTPUTS),
+            key=lambda plugin: plugin.provides,
+        )
+        names = {plugin.provides for plugin in graph_plugins}
+        relations = self._build_detail_lineage_relations(graph_plugins, dependencies_by_provides)
+        overview_names: set[str] = set()
+
+        def include_ancestors(output: str) -> None:
+            if output in overview_names or output not in names:
+                return
+            overview_names.add(output)
+            for dependency in dependencies_by_provides.get(output, []):
+                include_ancestors(dependency)
+
+        include_ancestors(CORE_TERMINAL_OUTPUT)
+        if not overview_names:
+            terminals = self._terminal_outputs(graph_plugins, dependencies_by_provides)
+            overview_names = names - terminals or names
+        model = self._build_default_lineage_model(graph_plugins, dependencies_by_provides)
+        style = LineageStyle()
+        plugin_by_name = {plugin.provides: plugin for plugin in graph_plugins}
+        plugin_sets = {
+            member.provides: group.name
+            for group in self._web_plugin_sets(graph_plugins)
+            for member in group.plugins
+        }
+        nodes = []
+        for node_id, node in sorted(model.nodes.items()):
+            plugin = plugin_by_name[node_id]
+            node_kind = _classify_node_type(node)
+            background, border, header = PLUGIN_SET_COLORS.get(
+                plugin_sets.get(node_id, "other"), PLUGIN_SET_COLORS["other"]
+            )
+
+            def port_payload(port: Any) -> dict[str, Any]:
+                return {
+                    "id": port.id,
+                    "name": port.name,
+                    "kind": port.kind,
+                    "dtype": port.dtype,
+                    "index": port.index,
+                    "color": style.type_colors.get(
+                        port.dtype, style.type_colors.get("Unknown", "#95a5a6")
+                    ),
+                }
+
+            in_ports = [port_payload(port) for port in node.in_ports]
+            out_ports = [port_payload(port) for port in node.out_ports]
+            nodes.append(
+                {
+                    "data": {
+                        "id": node_id,
+                        "label": node.title or node.key,
+                        "pluginClass": plugin.name,
+                        "summary": plugin.summary,
+                        "href": f"{plugin_href_prefix}{plugin.provides}.html",
+                        "kind": node_kind,
+                        "isLineageVirtual": node.is_lineage_virtual,
+                        "pluginSet": plugin_sets.get(node_id, "other"),
+                        "colors": {
+                            "background": background,
+                            "border": border,
+                            "header": header,
+                        },
+                        "in_ports": in_ports,
+                        "out_ports": out_ports,
+                        "width": 248,
+                        "height": 78 + max(len(in_ports), len(out_ports), 1) * 28,
+                        "documentationCompleteness": plugin.documentation_completeness,
+                        "dagImpact": plugin.dag_impact,
+                    }
+                }
+            )
+        edges = []
+        for index, edge in enumerate(model.edges):
+            wire_style = _resolve_wire_style(edge, style)
+            edges.append(
+                {
+                    "data": {
+                        "id": (
+                            f"edge::{index}::{edge.source_port_id}::{edge.target_port_id}"
+                        ),
+                        "source_node_id": edge.source_node_id,
+                        "source_port_id": edge.source_port_id,
+                        "target_node_id": edge.target_node_id,
+                        "target_port_id": edge.target_port_id,
+                        "dtype": edge.dtype,
+                        "category": _classify_edge_category(edge.dtype),
+                        "kind": self._lineage_edge_kind(
+                            edge.source_node_id, edge.target_node_id
+                        ),
+                        "style": wire_style,
+                    }
+                }
+            )
+        payload = {
+            "nodes": nodes,
+            "edges": edges,
+            "views": {
+                "overview": sorted(overview_names),
+                "full": sorted(names),
+            },
+            "relations": relations,
+            "focusDepth": 2,
+        }
+        self._validate_lineage_payload(payload)
+        return payload
+
+    def build_lineage_payload_for_context(
+        self, context: Any, *, plugin_href_prefix: str = "/plugins/"
+    ) -> dict[str, Any]:
+        """Build a read-only web lineage payload from a configured Context.
+
+        This intentionally reuses the same model-to-payload conversion as the
+        offline documentation generator.  ``Context.get_lineage`` resolves
+        configuration and dependency metadata but does not execute plugin
+        compute methods or read run data.
+        """
+        context_plugins = getattr(context, "_plugins", None)
+        if not isinstance(context_plugins, dict) or not context_plugins:
+            raise ValueError("Context factory must return a Context with registered plugins")
+
+        self._plugins = [
+            (plugin.__class__, plugin)
+            for _provides, plugin in sorted(context_plugins.items())
+        ]
+        dependencies: dict[str, list[str]] = {}
+        for provides in context_plugins:
+            lineage = context.get_lineage(provides)
+            direct_dependencies = (lineage or {}).get("depends_on", {})
+            dependencies[provides] = list(direct_dependencies)
+
+        plugins = self._with_web_scores(
+            self.get_all_doc_info(), dependencies_by_provides=dependencies
+        )
+        return self._build_cytoscape_lineage_payload(
+            plugins,
+            dependencies,
+            plugin_href_prefix=plugin_href_prefix,
+        )
+
+    @staticmethod
+    def _validate_lineage_payload(payload: dict[str, Any]) -> None:
+        """Fail generation with the exact dangling node or port reference."""
+        nodes = {entry["data"]["id"]: entry["data"] for entry in payload["nodes"]}
+        ports: dict[str, tuple[str, str]] = {}
+        for node_id, node in nodes.items():
+            for key, expected_kind in (("in_ports", "in"), ("out_ports", "out")):
+                for port in node[key]:
+                    port_id = port["id"]
+                    if port_id in ports:
+                        raise ValueError(f"Duplicate lineage port id {port_id!r}")
+                    if port["kind"] != expected_kind:
+                        raise ValueError(
+                            f"Lineage port {port_id!r} on {node_id!r} has kind "
+                            f"{port['kind']!r}, expected {expected_kind!r}"
+                        )
+                    ports[port_id] = (node_id, expected_kind)
+
+        for entry in payload["edges"]:
+            edge = entry["data"]
+            edge_id = edge["id"]
+            for node_key in ("source_node_id", "target_node_id"):
+                if edge[node_key] not in nodes:
+                    raise ValueError(
+                        f"Lineage edge {edge_id!r} references missing {node_key} "
+                        f"{edge[node_key]!r}"
+                    )
+            for port_key, node_key, expected_kind in (
+                ("source_port_id", "source_node_id", "out"),
+                ("target_port_id", "target_node_id", "in"),
+            ):
+                port_id = edge[port_key]
+                if port_id not in ports:
+                    raise ValueError(
+                        f"Lineage edge {edge_id!r} references missing {port_key} {port_id!r}"
+                    )
+                owner, kind = ports[port_id]
+                if owner != edge[node_key] or kind != expected_kind:
+                    raise ValueError(
+                        f"Lineage edge {edge_id!r} maps {port_key} {port_id!r} to "
+                        f"{edge[node_key]!r}, but the port belongs to {owner!r} as {kind!r}"
+                    )
 
     def _build_web_lineage_graph(
         self,
@@ -1574,6 +1837,8 @@ class PluginDocGenerator:
         node_shapes = []
         edge_traces = []
         annotations = []
+        node_meta = []
+        edge_meta = []
         for node in lineage_graph.nodes:
             x, y = positions[node.node_id]
             node_shapes.append(
@@ -1592,15 +1857,19 @@ class PluginDocGenerator:
                 {
                     "x": x,
                     "y": y,
-                    "text": (
-                        f"<b>{node.label}</b>"
-                        f'<br><span style="font-size:10px;color:#5f6b66">'
-                        f"Docs {node.documentation_completeness} · Impact {node.dag_impact}"
-                        "</span>"
-                    ),
+                    "text": f"<b>{self._lineage_display_label(node.label)}</b>",
                     "showarrow": False,
                     "align": "center",
                     "font": {"size": 13, "color": "#17201d"},
+                }
+            )
+            node_meta.append(
+                {
+                    "id": node.node_id.removeprefix("plugin:"),
+                    "label": self._lineage_display_label(node.label),
+                    "row": node.y,
+                    "shape_index": len(node_shapes) - 1,
+                    "annotation_index": len(annotations) - 1,
                 }
             )
 
@@ -1622,6 +1891,7 @@ class PluginDocGenerator:
                 (start_x + end_x) / 2 + curve_offset,
                 (start_y + end_y) / 2,
             )
+            trace_index = len(edge_traces)
             edge_traces.append(
                 go.Scatter(
                     x=[start_x, midpoint[0], end_x],
@@ -1640,6 +1910,7 @@ class PluginDocGenerator:
             )
             tangent_x, tangent_y = end_x - midpoint[0], end_y - midpoint[1]
             tangent_length = max((tangent_x**2 + tangent_y**2) ** 0.5, 1.0)
+            arrow_index = len(annotations)
             annotations.append(
                 {
                     # Keep the arrowhead aligned with the final spline segment.
@@ -1656,6 +1927,14 @@ class PluginDocGenerator:
                     "arrowsize": 0.8,
                     "arrowwidth": 1.25,
                     "arrowcolor": "#80908a",
+                }
+            )
+            edge_meta.append(
+                {
+                    "source": edge.source_id.removeprefix("plugin:"),
+                    "target": edge.target_id.removeprefix("plugin:"),
+                    "trace_index": trace_index,
+                    "arrow_index": arrow_index,
                 }
             )
 
@@ -1681,7 +1960,7 @@ class PluginDocGenerator:
                     x=x_values,
                     y=y_values,
                     mode="markers",
-                    marker={"size": 86, "opacity": 0},
+                    marker={"size": 210, "opacity": 0},
                     customdata=customdata,
                     hoverinfo="text",
                     hovertext=hovertext,
@@ -1693,8 +1972,14 @@ class PluginDocGenerator:
         figure.update_layout(
             shapes=node_shapes,
             annotations=annotations,
-            meta={"node_shape_indices": {name: index for index, name in enumerate(customdata)}},
-            margin={"l": 22, "r": 22, "t": 22, "b": 22},
+            meta={
+                "node_shape_indices": {name: index for index, name in enumerate(customdata)},
+                "nodes": node_meta,
+                "edges": edge_meta,
+            },
+            autosize=True,
+            uirevision="plugin-doc-lineage",
+            margin={"l": 20, "r": 20, "t": 24, "b": 20},
             paper_bgcolor="#ffffff",
             plot_bgcolor="#ffffff",
             # The client refines these bounds to the live container; the static first
@@ -1704,9 +1989,24 @@ class PluginDocGenerator:
                 "visible": False,
                 "range": [y_max, y_min],
             },
-            height=760,
         )
         return figure
+
+    @staticmethod
+    def _lineage_display_label(name: str) -> str:
+        """Wrap long output names at an underscore without changing their identity."""
+        if len(name) <= 16 or "_" not in name:
+            return name
+        parts = name.split("_")
+        prefix = ""
+        for part in parts[:-1]:
+            candidate = f"{prefix}{part}_"
+            if len(candidate) > 14:
+                break
+            prefix = candidate
+        if prefix:
+            return f"{prefix}<br>{name[len(prefix):]}"
+        return name
 
     def _render_global_plotly_html(self, lineage_graph: _WebLineageGraph) -> str:
         return self._build_global_plotly_figure(lineage_graph).to_html(
@@ -1807,6 +2107,7 @@ class PluginDocGenerator:
         visualization_index_href: str | None = None,
         visualization_detail_prefix: str | None = None,
         site_root_prefix: str = "../",
+        react_asset_version: str = "",
     ) -> str:
         """Render one standalone plugin HTML page with escaped metadata."""
         return (
@@ -1824,6 +2125,7 @@ class PluginDocGenerator:
                 visualization_index_href=visualization_index_href,
                 visualization_detail_prefix=visualization_detail_prefix,
                 site_root_prefix=site_root_prefix,
+                react_asset_version=react_asset_version,
             )
         )
 
@@ -1846,7 +2148,9 @@ class PluginDocGenerator:
         lineage_details_json: str | None = None,
         global_lineage_json: str | None = None,
         terminal_outputs: set[str] | None = None,
+        lineage_href: str = "lineage.html",
         site_root_prefix: str = "",
+        react_asset_version: str = "",
     ) -> str:
         """Render the searchable static-site index."""
         scored_plugins = self._with_web_scores(plugins, dependencies_by_provides)
@@ -1855,8 +2159,6 @@ class PluginDocGenerator:
             link_prefix="plugins/",
             dependencies_by_provides=dependencies_by_provides,
         )
-        if global_lineage_html is None:
-            global_lineage_html = self._render_global_plotly_html(lineage_graph)
         plugin_sets = self._web_plugin_sets(scored_plugins)
         standalone_plugins = self._standalone_plugins(scored_plugins)
         return (
@@ -1878,6 +2180,7 @@ class PluginDocGenerator:
                 visualization_detail_prefix=visualization_detail_prefix,
                 standalone_plugins=standalone_plugins,
                 terminal_outputs=sorted(terminal_outputs or set()),
+                lineage_href=lineage_href,
                 lineage_details_json=(
                     Markup(lineage_details_json) if lineage_details_json is not None else None
                 ),
@@ -1885,6 +2188,44 @@ class PluginDocGenerator:
                     Markup(global_lineage_json) if global_lineage_json is not None else None
                 ),
                 site_root_prefix=site_root_prefix,
+                react_asset_version=react_asset_version,
+            )
+        )
+
+    def render_lineage_html(
+        self,
+        *,
+        lineage_json: str,
+        asset_prefix: str,
+        site_home_href: str,
+        plugin_index_href: str,
+        plugin_href_prefix: str,
+        accessor_index_href: str | None,
+        context_index_href: str | None,
+        adapter_index_href: str | None,
+        visualization_index_href: str | None,
+        visualization_detail_prefix: str | None,
+        site_root_prefix: str,
+        react_asset_version: str = "",
+        lineage_index_href: str | None = None,
+    ) -> str:
+        return (
+            self._get_web_jinja_env()
+            .get_template("web/lineage.html.j2")
+            .render(
+                lineage_json=Markup(lineage_json),
+                asset_prefix=asset_prefix,
+                site_home_href=site_home_href,
+                plugin_index_href=plugin_index_href,
+                plugin_href_prefix=plugin_href_prefix,
+                accessor_index_href=accessor_index_href,
+                context_index_href=context_index_href,
+                adapter_index_href=adapter_index_href,
+                visualization_index_href=visualization_index_href,
+                visualization_detail_prefix=visualization_detail_prefix,
+                site_root_prefix=site_root_prefix,
+                react_asset_version=react_asset_version,
+                lineage_index_href=lineage_index_href,
             )
         )
 
@@ -1905,12 +2246,18 @@ class PluginDocGenerator:
         """Generate an offline HTML plugin reference site."""
         output_dir = Path(output_dir)
         index_path = output_dir / index_relative_path
+        lineage_path = index_path.with_name("lineage.html")
         plugin_dir = output_dir / plugin_relative_dir
         asset_dir = output_dir / asset_relative_dir
         index_dir = index_path.parent
         plugin_dir.mkdir(parents=True, exist_ok=True)
         asset_dir.mkdir(parents=True, exist_ok=True)
         index_dir.mkdir(parents=True, exist_ok=True)
+        source_assets = self.template_dir / "web" / "assets"
+        react_asset_version = hashlib.sha256(
+            (source_assets / "react" / "waveform-docs.js").read_bytes()
+            + (source_assets / "react" / "waveform-docs.css").read_bytes()
+        ).hexdigest()[:12]
         index_asset_prefix = Path(os.path.relpath(asset_dir, index_dir)).as_posix() + "/"
         index_site_root_prefix = Path(os.path.relpath(output_dir, index_dir)).as_posix()
         if index_site_root_prefix == ".":
@@ -1930,6 +2277,7 @@ class PluginDocGenerator:
         elif not detail_site_root_prefix.endswith("/"):
             detail_site_root_prefix += "/"
         plugin_index_href = Path(os.path.relpath(index_path, plugin_dir)).as_posix()
+        detail_lineage_href = Path(os.path.relpath(lineage_path, plugin_dir)).as_posix()
         detail_accessor_href = (
             Path(os.path.relpath(output_dir / accessor_relative_path, plugin_dir)).as_posix()
             if accessor_relative_path
@@ -1994,7 +2342,7 @@ class PluginDocGenerator:
             link_prefix=index_plugin_prefix,
             dependencies_by_provides=default_dependencies,
         )
-        global_graph = global_views["core"]
+        global_graph = global_views["overview"]
         generated: dict[str, Path] = {}
         for plugin in plugins:
             path = plugin_dir / f"{plugin.provides}.html"
@@ -2008,7 +2356,7 @@ class PluginDocGenerator:
                             [p for p in plugins if p.provides not in STANDALONE_PLUGIN_OUTPUTS],
                             link_prefix="",
                             focus=plugin.provides,
-                            global_focus_prefix=f"{plugin_index_href}?focus=",
+                            global_focus_prefix=f"{detail_lineage_href}?view=focus&focus=",
                             dependencies_by_provides=default_dependencies,
                         )
                     ),
@@ -2021,29 +2369,25 @@ class PluginDocGenerator:
                     visualization_index_href=detail_visualization_href,
                     visualization_detail_prefix=detail_visualization_prefix,
                     site_root_prefix=detail_site_root_prefix,
+                    react_asset_version=react_asset_version,
                 ),
                 encoding="utf-8",
             )
             generated[plugin.provides] = path
-        detail_relations = self._build_detail_lineage_relations(plugins, default_dependencies)
-        detail_json = json.dumps(detail_relations, ensure_ascii=True, separators=(",", ":"))
-        detail_json = (
-            detail_json.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+        lineage_payload = self._build_cytoscape_lineage_payload(
+            plugins,
+            default_dependencies,
+            plugin_href_prefix=index_plugin_prefix,
         )
-        global_figures = {
-            name: json.loads(self._build_global_plotly_figure(graph).to_json())
-            for name, graph in global_views.items()
-        }
-        global_json = json.dumps(global_figures, ensure_ascii=True, separators=(",", ":"))
-        global_json = (
-            global_json.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+        lineage_json = json.dumps(lineage_payload, ensure_ascii=True, separators=(",", ":"))
+        lineage_json = (
+            lineage_json.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
         )
         index_path.write_text(
             self.render_index_html(
                 plugins,
                 lineage_graph=global_graph,
                 dependencies_by_provides=default_dependencies,
-                global_lineage_html=self._render_global_plotly_html(global_graph),
                 asset_prefix=index_asset_prefix,
                 site_home_href=Path(
                     os.path.relpath(output_dir / site_home_href, index_dir)
@@ -2055,15 +2399,35 @@ class PluginDocGenerator:
                 adapter_index_href=index_adapter_href,
                 visualization_index_href=index_visualization_href,
                 visualization_detail_prefix=index_visualization_prefix,
-                lineage_details_json=detail_json,
-                global_lineage_json=global_json,
+                global_lineage_json=lineage_json,
                 terminal_outputs=terminal_outputs,
+                lineage_href=Path(os.path.relpath(lineage_path, index_dir)).as_posix(),
                 site_root_prefix=index_site_root_prefix,
+                react_asset_version=react_asset_version,
             ),
             encoding="utf-8",
         )
         generated["INDEX"] = index_path
-        source_assets = self.template_dir / "web" / "assets"
+        lineage_path.write_text(
+            self.render_lineage_html(
+                lineage_json=lineage_json,
+                asset_prefix=index_asset_prefix,
+                site_home_href=Path(
+                    os.path.relpath(output_dir / site_home_href, index_dir)
+                ).as_posix(),
+                plugin_index_href=Path(os.path.relpath(index_path, index_dir)).as_posix(),
+                plugin_href_prefix=index_plugin_prefix,
+                accessor_index_href=index_accessor_href,
+                context_index_href=index_context_href,
+                adapter_index_href=index_adapter_href,
+                visualization_index_href=index_visualization_href,
+                visualization_detail_prefix=index_visualization_prefix,
+                site_root_prefix=index_site_root_prefix,
+                react_asset_version=react_asset_version,
+            ),
+            encoding="utf-8",
+        )
+        generated["LINEAGE_INDEX"] = lineage_path
         for name in ("site.css", "site.js"):
             target = asset_dir / name
             shutil.copyfile(source_assets / name, target)
@@ -2099,31 +2463,17 @@ class PluginDocGenerator:
             encoding="utf-8",
         )
         generated["asset:search-index.js"] = search_asset
-        try:
-            from plotly.offline import get_plotlyjs
-        except ImportError as exc:
-            raise ImportError(
-                "plotly is required for the global plugins-web lineage view."
-            ) from exc
-        plotly_asset = asset_dir / "plotly.min.js"
-        plotly_asset.write_text(get_plotlyjs(), encoding="utf-8")
-        generated["asset:plotly.min.js"] = plotly_asset
-        detail_asset = asset_dir / "lineage-details.json"
-        detail_asset.write_text(
-            json.dumps(
-                detail_relations,
-                ensure_ascii=True,
-                separators=(",", ":"),
-            ),
+        for name in ("waveform-docs.js", "waveform-docs.css"):
+            target = asset_dir / "react" / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source_assets / "react" / name, target)
+            generated[f"asset:react/{name}"] = target
+        graph_asset = asset_dir / "lineage-graph.json"
+        graph_asset.write_text(
+            json.dumps(lineage_payload, ensure_ascii=True, separators=(",", ":")),
             encoding="utf-8",
         )
-        generated["asset:lineage-details.json"] = detail_asset
-        global_asset = asset_dir / "lineage-overviews.json"
-        global_asset.write_text(
-            json.dumps(global_figures, ensure_ascii=True, separators=(",", ":")),
-            encoding="utf-8",
-        )
-        generated["asset:lineage-overviews.json"] = global_asset
+        generated["asset:lineage-graph.json"] = graph_asset
         return generated
 
     def generate_all(self, output_dir: Path, profile: str = "auto") -> dict[str, Path]:

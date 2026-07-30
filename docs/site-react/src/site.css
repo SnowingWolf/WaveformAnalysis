@@ -1,0 +1,56 @@
+.wfa-flow-shell { display: grid; gap: 12px; min-height: 0; }
+.wfa-flow-toolbar { display: flex; gap: 6px; }
+.wfa-flow-source { align-self: center; color: #50605a; font-size: 12px; margin-left: auto; }
+.wfa-flow-toolbar button { border: 1px solid #aebdb7; background: #fff; color: #173f31; padding: 7px 11px; border-radius: 4px; cursor: pointer; }
+.wfa-flow-toolbar button.is-active { background: #1f6b51; color: #fff; border-color: #1f6b51; }
+.wfa-flow-virtual-toggle { display: inline-flex; min-height: 34px; align-items: center; gap: 7px; color: #40514a; font-size: 12px; font-weight: 700; cursor: pointer; user-select: none; }
+.wfa-flow-virtual-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.wfa-flow-virtual-toggle-track { position: relative; width: 30px; height: 18px; border: 1px solid #aebdb7; border-radius: 10px; background: #e8eeeb; transition: background .14s ease, border-color .14s ease; }
+.wfa-flow-virtual-toggle-track::after { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / 20%); content: ""; transition: transform .14s ease; }
+.wfa-flow-virtual-toggle input:checked + .wfa-flow-virtual-toggle-track { border-color: #1f6b51; background: #1f6b51; }
+.wfa-flow-virtual-toggle input:checked + .wfa-flow-virtual-toggle-track::after { transform: translateX(12px); }
+.wfa-flow-virtual-toggle input:focus-visible + .wfa-flow-virtual-toggle-track { outline: 3px solid rgb(31 107 81 / 30%); outline-offset: 2px; }
+.wfa-flow-nav-toggle { width: 34px; height: 34px; margin-left: auto; padding: 0 !important; }
+.wfa-flow-nav-toggle-icon, .wfa-flow-nav-toggle-icon::before, .wfa-flow-nav-toggle-icon::after { display: block; width: 14px; height: 2px; border-radius: 1px; background: currentColor; content: ""; }
+.wfa-flow-nav-toggle-icon { position: relative; }
+.wfa-flow-nav-toggle-icon::before, .wfa-flow-nav-toggle-icon::after { position: absolute; left: 0; }
+.wfa-flow-nav-toggle-icon::before { top: -5px; }
+.wfa-flow-nav-toggle-icon::after { top: 5px; }
+.wfa-flow-canvas { position: relative; height: clamp(540px, 68vh, 820px); min-height: 540px; border: 1px solid #d2ded8; background: #fbfdfc; overflow: hidden; }
+.wfa-flow-canvas > .react-flow { position: absolute; inset: 0; z-index: 2; }
+.wfa-flow-wires { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.wfa-flow-wire-halo { fill: none; stroke: #f7faf8; stroke-width: 7px; stroke-linecap: round; stroke-linejoin: round; opacity: .95; vector-effect: non-scaling-stroke; }
+.wfa-flow-wire { fill: none; stroke: #526a5f; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 1px 1px rgb(23 63 49 / 16%)); vector-effect: non-scaling-stroke; }
+.wfa-flow-wire--main { filter: drop-shadow(0 1px 2px rgb(23 63 49 / 24%)); }
+.wfa-flow-node { box-sizing: border-box; width: 100%; height: 100%; overflow: visible; border: 2px solid var(--node-border); border-radius: 4px; background: var(--node-background); color: #202724; font-size: 12px; line-height: 1.2; }
+.wfa-flow-node.is-lineage-virtual { border-style: dashed; }
+.wfa-flow-node header { box-sizing: border-box; display: grid; height: 58px; gap: 3px; align-content: center; padding: 7px 12px; border-bottom: 1px solid var(--node-border); background: var(--node-header); text-align: center; white-space: nowrap; }
+.wfa-flow-node header strong { font-size: 17px; line-height: 1.2; }
+.wfa-flow-node header span { color: #4a5551; font-size: 10px; font-weight: 500; }
+.wfa-flow-ports { position: absolute; inset: 0; min-height: 28px; }
+.wfa-flow-ports > div { position: absolute; inset: 0; }
+.wfa-flow-port { box-sizing: border-box; position: absolute; display: flex; align-items: center; height: 28px; min-height: 28px; padding: 2px 13px; white-space: nowrap; }
+.wfa-flow-port--in { left: 0; justify-content: flex-start; text-align: left; }
+.wfa-flow-port--out { right: 0; justify-content: flex-end; text-align: right; }
+.wfa-flow-port .wfa-flow-port-handle { width: 10px; height: 10px; border: 0; opacity: 0; }
+.wfa-flow-port--in .wfa-flow-port-handle { left: 0; }
+.wfa-flow-port--out .wfa-flow-port-handle { right: 0; }
+.wfa-flow-port-dot { box-sizing: border-box; position: absolute; z-index: 2; top: 50%; width: 12px; height: 12px; margin: 0; padding: 0; border: 2px solid #fff; border-radius: 50%; background: var(--port-color); box-shadow: 0 0 0 1px color-mix(in srgb, var(--node-border), #fff 20%); cursor: pointer; transform: translateY(-50%); transition: transform .14s ease, box-shadow .14s ease, filter .14s ease; }
+.wfa-flow-port--in .wfa-flow-port-dot { left: -6px; }
+.wfa-flow-port--out .wfa-flow-port-dot { right: -6px; }
+.wfa-flow-port-dot:hover, .wfa-flow-port-dot:focus-visible { filter: brightness(.92); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--port-color), transparent 62%); transform: translateY(-50%) scale(1.25); }
+.wfa-flow-port-dot.is-active { box-shadow: 0 0 0 4px color-mix(in srgb, var(--port-color), transparent 50%); transform: translateY(-50%) scale(1.18); }
+.wfa-flow-preview { position: absolute; z-index: 8; width: min(330px, calc(100% - 24px)); display: grid; gap: 8px; box-sizing: border-box; border: 1px solid #9aada4; border-left: 4px solid #1f6b51; border-radius: 4px; background: #fff; box-shadow: 0 10px 28px rgb(23 63 49 / 22%); padding: 14px; color: #202724; font-size: 12px; }
+.wfa-flow-preview strong { padding-right: 24px; font-size: 14px; overflow-wrap: anywhere; }
+.wfa-flow-preview > span { color: #5b6863; overflow-wrap: anywhere; }
+.wfa-flow-preview p { margin: 0; color: #3f4c47; line-height: 1.45; }
+.wfa-flow-preview dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 10px; margin: 0; }
+.wfa-flow-preview dt { color: #50605a; font-weight: 700; }
+.wfa-flow-preview dd { margin: 0; overflow-wrap: anywhere; }
+.wfa-flow-preview a { width: fit-content; }
+.wfa-flow-preview-close { position: absolute; top: 6px; right: 7px; width: 26px; height: 26px; border: 0; border-radius: 3px; background: transparent; color: #40514a; cursor: pointer; font-size: 20px; line-height: 1; }
+.wfa-flow-preview-close:hover { background: #edf3ef; }
+@media (max-width: 760px) {
+  .wfa-flow-canvas { height: 620px; min-height: 620px; }
+  .wfa-flow-preview { inset: auto 12px 12px !important; width: auto; max-height: 45%; overflow: auto; }
+}

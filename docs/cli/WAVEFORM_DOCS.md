@@ -49,6 +49,19 @@ waveform-docs check coverage [选项]
 waveform-docs serve --directory docs/_site --host 127.0.0.1 --port 8000
 ```
 
+如需让全局 DAG 读取一个已配置的运行时 `Context`，可传入一个可信的无参工厂：
+
+```bash
+waveform-docs serve \
+  --directory docs/_site \
+  --host 0.0.0.0 \
+  --lineage-context-factory my_project.docs:create_context
+```
+
+此时浏览器访问 `?lineage=live` 会从同源 `GET /api/lineage` 读取当前插件与配置解析出的
+端口级 DAG。接口只返回拓扑和文档元数据，不接受 `run_id`、不读取运行数据，也不会执行插件。
+未提供工厂、接口不可用或请求失败时，页面自动使用生成时写入的静态 DAG。
+
 ---
 
 ## 文档类型
@@ -114,6 +127,11 @@ waveform-docs generate site-web
 `site-web` 生成总站首页，并将插件站放在 `plugins/`、Context 参考放在 `contexts/`、Accessor 参考放在 `accessors/`，统计图与波形图参考放在 `visualizations/`。`Context.plot_lineage()` 归入 Context 的 DAG 专题，不作为绘图参考页。
 总站只支持全量生成，因此不能与 `--plugin` 同时使用。`plugins-web` 继续保留原有参数、默认输出和
 文件布局，适合只需要插件参考或依赖旧路径的调用。
+
+`site-web` 会先在输出目录旁生成并校验完整站点，再整体替换目标目录。生成或本地链接校验失败时，
+原站点保持不变；成功发布会移除上一轮遗留文件。因此 `docs/_site` 应仅存放生成产物，不应放置
+需要保留的手工文件。运行中的 `waveform-docs serve` 无需重启，后续请求会读取新发布的文件。
+该服务对 HTML、JSON、脚本和样式统一发送禁缓存响应头，避免浏览器或转发层继续复用旧页面。
 
 站点使用本地 MDN 风格的文档外壳：顶部导航、左侧文档树、详情页右侧章节目录，以及窄屏下可
 展开的目录抽屉。所有页面均可打开全站搜索；生成器把插件、Accessor 和主要章节写入本地

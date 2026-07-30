@@ -5,9 +5,11 @@
 {% set body_class = "docs-page docs-detail" %}
 {% set layout_class = "doc-layout" %}
 {% set current = current_section %}
+{% set active_accessor = "records-view" if page.slug == "records-view" else none %}
 {% set site_home_href = "../index.html" %}
 {% set plugin_index_href = "../plugins/index.html" %}
 {% set accessor_index_href = "../accessors/index.html" %}
+{% set accessor_detail_prefix = "../accessors/" %}
 {% set context_index_href = "../contexts/context.html" %}
 {% set adapter_index_href = "../adapters/adapter.html" %}
 {% set visualization_index_href = "../visualizations/index.html" %}

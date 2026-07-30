@@ -1,0 +1,34 @@
+# task_report
+
+- `task_id`: `lineage_wire_rendering_and_full_view`
+- `route`: `generate_docs`
+- `workflow_cost`: `light`
+- `workflow_shape`: `compact`
+- `scope`: Overview / `Full DAG` 自适应缩放、ELK 主链布局、同一输出端口的共享连线渲染、节点默认宽度，以及根 `/lineage.html` 的完整站点导航。
+- `actions_taken`:
+  - 将 ELK 节点放置改为 `NETWORK_SIMPLEX`，使主链优先保留水平主干。
+  - 取消 Overview / Full DAG 的固定初始缩放下限，改由 `fitView` 根据实际图边界自动计算；画布尺寸变化时自动重新适配。
+  - 将节点默认最小宽度由 `190px` 缩减为 `172px`，在不强制折行的前提下减少横向空间。
+  - 将同一源端口的重合折线段合并为一次绘制，先画全部 halo，再画彩色主干和分支，避免主干重叠变深或出现白色缺口。
+  - 将完整站点的根 `/lineage.html` 作为正式 DAG 页面生成，保留 Context、Accessor、适配器和可视化导航。
+- `changed_paths`:
+  - `docs/site-react/src/main.tsx`
+  - `docs/site-react/src/lineage.ts`
+  - `docs/site-react/src/lineage.test.ts`
+  - `waveform_analysis/utils/plugin_doc_generator.py`
+  - `waveform_analysis/utils/site_doc_generator.py`
+  - `waveform_analysis/utils/templates/web/base.html.j2`
+  - `waveform_analysis/utils/templates/web/assets/react/waveform-docs.js`
+  - `tests/test_plugin_documentation.py`
+- `verification`:
+  - `npm run check`: PASS.
+  - `tsc -p tsconfig.test.json && node --test .test-dist/lineage.test.js`: PASS.
+  - 根 `lineage.html` 生成契约检查：PASS。
+  - `scripts/check_doc_sync.sh`: PASS.
+  - `python scripts/check_doc_anchors.py --check-sync --base HEAD`: PASS.
+  - LAN 页面和 bundle 校验和：PASS（自适应版本 `73e4d38bc08d` 与本地生成资产一致）。
+  - 定向 `test_documentation_site_generates_exact_sections_routes_and_offline_assets`：FAIL，原因是既有 Pygments 空白 token 断言，与本次变更无关。
+- `decision`: `completed`
+- `commit_status`: `uncommitted: source files and generated assets overlap with extensive existing user changes, so a scoped commit would mix unrelated work.`
+- `open_risks`:
+  - 当前环境无法加载 Vite 所需的 Rollup 原生模块（`GLIBC_2.32`）；已用通过类型检查的 esbuild 回退 bundle 生成静态资产。

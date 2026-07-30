@@ -1469,6 +1469,7 @@ class PeakletComponentsPlugin(BatchProcessingPlugin):
     """Return flat peaklet-to-hit_merged membership rows."""
 
     provides = "peaklet_components"
+    lineage_virtual = True
     depends_on = ["hit_merged"]
     description = "Return per-peaklet component hit_merged indices."
     version = "1.4.0"
@@ -2506,6 +2507,7 @@ class PeakletWaveformPoolPlugin(Plugin):
     """Return the pool produced alongside the canonical peaklet waveform index."""
 
     provides = "peaklet_waveform_pool"
+    lineage_virtual = True
     depends_on = ["peaklet_waveforms"]
     description = (
         "Return the flattened float32 signal pool paired with peaklet_waveforms. "
@@ -2596,6 +2598,7 @@ class PeakletFeaturesPlugin(Plugin):
     """Compute waveform-derived features from ragged peaklet waveforms."""
 
     provides = "peaklet_features"
+    lineage_virtual = True
     depends_on = ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
     description = "Compute peaklet waveform features from ragged signal pools."
     version = "4.1.0"
