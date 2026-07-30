@@ -2153,6 +2153,20 @@ class DocumentationSiteGenerator:
                 "url": "index.html#minimal-workflow",
                 "keywords": "Context register cpu_default get_data peaks run_id 最小示例",
             },
+            {
+                "title": "插件系统介绍",
+                "summary": "了解 Plugin 的职责、DAG 依赖、配置、缓存和运行时执行方式。",
+                "kind": "插件指南",
+                "url": "plugins/overview.html",
+                "keywords": "Plugin 插件系统 DAG depends_on provides Context 缓存 配置",
+            },
+            {
+                "title": "编写插件",
+                "summary": "按照现有契约创建、注册、测试并记录一个新的 Plugin。",
+                "kind": "插件指南",
+                "url": "plugins/authoring.html",
+                "keywords": "编写 Plugin 插件 provides depends_on options version output_dtype 测试",
+            },
         ]
         for view in views:
             base_url = f"accessors/{view.slug}.html"
@@ -2218,9 +2232,12 @@ class DocumentationSiteGenerator:
             self.plugin_generator._default_dependency_map(),
             plugin_href_prefix="plugins/",
         )
-        root_lineage_json = json.dumps(
-            root_lineage_payload, ensure_ascii=True, separators=(",", ":")
-        ).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+        root_lineage_json = (
+            json.dumps(root_lineage_payload, ensure_ascii=True, separators=(",", ":"))
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e")
+            .replace("&", "\\u0026")
+        )
         react_assets = self.plugin_generator.template_dir / "web" / "assets" / "react"
         react_asset_version = hashlib.sha256(
             (react_assets / "waveform-docs.js").read_bytes()
@@ -2269,6 +2286,18 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
             encoding="utf-8",
         )
         generated["SITE_INDEX"] = home_path
+        plugin_overview_path = output_dir / "plugins" / "overview.html"
+        plugin_overview_path.write_text(
+            env.get_template("web/plugin_system.html.j2").render(page_kind="overview"),
+            encoding="utf-8",
+        )
+        generated["PLUGIN_OVERVIEW"] = plugin_overview_path
+        plugin_authoring_path = output_dir / "plugins" / "authoring.html"
+        plugin_authoring_path.write_text(
+            env.get_template("web/plugin_system.html.j2").render(page_kind="authoring"),
+            encoding="utf-8",
+        )
+        generated["PLUGIN_AUTHORING"] = plugin_authoring_path
         accessor_index = accessor_dir / "index.html"
         accessor_index.write_text(
             env.get_template("web/accessor_index.html.j2").render(accessors=views),
@@ -2341,7 +2370,6 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
                 summary="Context 负责配置、插件依赖与缓存；DAQ 适配器负责统一原始数据格式、目录布局与时间语义。",
                 pages=(
                     replace(context_view, href="context.html"),
-                    replace(records_view_page, href="records-view.html"),
                     replace(adapter_view, href="../adapters/adapter.html"),
                 ),
                 current_section="contexts",
@@ -2379,7 +2407,6 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
                 summary="Context 负责配置、插件依赖与缓存；DAQ 适配器负责统一原始数据格式、目录布局与时间语义。",
                 pages=(
                     replace(context_view, href="../contexts/context.html"),
-                    replace(records_view_page, href="../contexts/records-view.html"),
                     replace(adapter_view, href="adapter.html"),
                 ),
                 current_section="adapters",

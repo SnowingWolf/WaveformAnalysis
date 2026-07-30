@@ -9,8 +9,8 @@ def test_site_web_includes_records_view_reference(tmp_path):
     page = result["context:records-view"].read_text(encoding="utf-8")
     search_index = (tmp_path / "assets" / "search-index.js").read_text(encoding="utf-8")
 
-    assert 'href="records-view.html"' in context_index
-    assert 'href="../contexts/records-view.html"' in adapter_index
+    assert '<a class="resource-card" href="records-view.html"' not in context_index
+    assert '<a class="resource-card" href="../contexts/records-view.html"' not in adapter_index
     assert "records_view" in page
     assert "RecordsView" in page
     assert "waves" in page

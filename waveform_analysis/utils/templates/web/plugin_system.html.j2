@@ -1,0 +1,38 @@
+{% extends "web/base.html.j2" %}
+{% set is_authoring = page_kind == "authoring" %}
+{% set page_title = "编写插件 | WaveformAnalysis" if is_authoring else "插件系统介绍 | WaveformAnalysis" %}
+{% set asset_prefix = "../assets/" %}
+{% set site_root_prefix = "../" %}
+{% set body_class = "docs-page" %}
+{% set current = "plugin-authoring" if is_authoring else "plugin-overview" %}
+{% set site_home_href = "../index.html" %}
+{% set plugin_index_href = "index.html" %}
+{% set accessor_index_href = "../accessors/index.html" %}
+{% set context_index_href = "../contexts/context.html" %}
+{% set adapter_index_href = "../adapters/adapter.html" %}
+{% set visualization_index_href = "../visualizations/index.html" %}
+{% set visualization_detail_prefix = "../visualizations/" %}
+{% set accessor_detail_prefix = "../accessors/" %}
+{% block document %}
+<main class="docs-main">
+  <nav class="breadcrumbs" aria-label="面包屑"><a href="../index.html">文档概览</a><a href="index.html">插件参考</a><span aria-current="page">{{ "编写插件" if is_authoring else "插件系统介绍" }}</span></nav>
+  {% if is_authoring %}
+  <header class="page-heading"><p class="eyebrow">开发指南</p><h1>编写插件</h1><p>将一个可复用的分析步骤声明为稳定的 DAG 产物，并让配置、缓存与测试一起保持可追溯。</p></header>
+  <section class="content-section"><h2>最小结构</h2><p>Plugin 专注于一个具名产物：用 <code>provides</code> 声明输出，以 <code>depends_on</code> 声明全部上游，再在 <code>compute()</code> 中仅处理已解析的输入。</p><pre class="code-block language-python"><code>class MyPlugin(Plugin):
+    provides = "my_data"
+    depends_on = ("records",)
+    version = "0.1.0"
+    output_dtype = np.dtype([("value", "f4")])
+
+    def compute(self, records, **kwargs):
+        return result</code></pre></section>
+  <section class="content-section"><h2>声明契约</h2><ul><li><code>provides</code> 必须唯一，语义稳定。</li><li><code>depends_on</code> 是唯一的数据依赖来源，不读取隐式当前 run。</li><li><code>options</code> 为每个可配置参数提供类型、默认值和 help。</li><li>输出字段、单位与 dtype 是公开契约；行为或输出变化时升级 <code>version</code>。</li></ul></section>
+  <section class="content-section"><h2>接入与验证</h2><ol><li>将插件放入对应 builtin 目录并通过插件集或 Context 注册。</li><li>所有数据访问显式传入 <code>run_id</code>，不在插件中保存跨 run 状态。</li><li>添加正常输入、空输入/边界输入、配置生效及 dtype/字段稳定性的定向测试。</li><li>生成插件参考页，并运行文档同步检查。</li></ol></section>
+  {% else %}
+  <header class="page-heading"><p class="eyebrow">处理系统</p><h1>插件系统介绍</h1><p>Plugin 将分析步骤组织成可解析、可缓存、可复用的数据处理 DAG。</p></header>
+  <section class="content-section"><h2>Plugin 如何工作</h2><p>每个 Plugin 提供一个具名数据产物，并声明它依赖的上游产物。调用 <code>Context.get_data(run_id, target)</code> 后，Context 解析目标所需的 DAG，只执行缺失链路，并复用命中的缓存。</p></section>
+  <section class="content-section"><h2>核心概念</h2><dl><dt><code>provides</code></dt><dd>插件输出的唯一名称，例如 <code>records</code>、<code>peaks</code> 或 <code>events</code>。</dd><dt><code>depends_on</code></dt><dd>输出所需的上游产物。它决定 DAG 边和执行顺序。</dd><dt><code>options</code></dt><dd>插件的配置项；显式配置优先于 adapter 推断和默认值。</dd><dt>lineage 与缓存</dt><dd>插件版本、代码、配置和输出契约参与缓存判定，保证同一 run 的结果可追溯。</dd></dl></section>
+  <section class="content-section"><h2>从浏览到使用</h2><p>在 <a href="index.html">插件参考</a> 中查看每个产物的配置与输出字段；在 <a href="lineage.html">插件 DAG</a> 中浏览依赖链。图上的插件节点可直接点击，打开该产物的完整说明。</p><p>准备扩展处理链时，阅读 <a href="authoring.html">编写插件</a>，再按项目现有插件的实现与测试模式接入。</p></section>
+  {% endif %}
+</main>
+{% endblock %}

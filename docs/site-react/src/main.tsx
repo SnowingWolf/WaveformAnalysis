@@ -473,7 +473,7 @@ function Lineage({ graph: staticGraph }: { graph: Graph }) {
     </div>
     <div className="wfa-flow-canvas" ref={canvasRef}>
       <WireLayer edges={flow.edges} viewport={viewport} />
-      <ReactFlow<FlowNode, Edge<FlowEdgeData>> nodes={flow.nodes} edges={[]} nodeTypes={nodeTypes} onInit={setInstance} onViewportChange={setViewport} minZoom={MIN_CANVAS_ZOOM} maxZoom={1.5} nodesDraggable={false} panOnScroll panOnScrollMode={PanOnScrollMode.Free} zoomOnScroll zoomActivationKeyCode={["Control", "Meta"]} onNodeClick={(event, node) => { showPreview(event, node.id); centerNode(node.id); }} onPaneClick={() => setPreview(null)} onNodeDoubleClick={(_, node) => location.assign(String(node.data.href))}>
+      <ReactFlow<FlowNode, Edge<FlowEdgeData>> nodes={flow.nodes} edges={[]} nodeTypes={nodeTypes} onInit={setInstance} onViewportChange={setViewport} minZoom={MIN_CANVAS_ZOOM} maxZoom={1.5} nodesDraggable={false} panOnScroll panOnScrollMode={PanOnScrollMode.Free} zoomOnScroll zoomActivationKeyCode={["Control", "Meta"]} onNodeClick={(_, node) => location.assign(String(node.data.href))} onPaneClick={() => setPreview(null)}>
         <Background gap={18} />
         {normalizedView === "full" && <MiniMap zoomable pannable position="bottom-right" style={{ width: 132, height: 92 }} />}
         <Controls />

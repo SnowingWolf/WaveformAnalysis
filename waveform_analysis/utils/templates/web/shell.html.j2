@@ -24,6 +24,8 @@
         <ul id="tree-plugins">
           <li><a href="{{ plugin_index_href }}"{% if current == "plugins" %} aria-current="page"{% endif %}>插件参考</a></li>
           <li><a href="{{ lineage_index_href }}"{% if current == "lineage" %} aria-current="page"{% endif %}>插件 DAG</a></li>
+          <li><a href="{{ plugin_index_href | replace('index.html', 'overview.html') }}"{% if current == "plugin-overview" %} aria-current="page"{% endif %}>插件系统介绍</a></li>
+          <li><a href="{{ plugin_index_href | replace('index.html', 'authoring.html') }}"{% if current == "plugin-authoring" %} aria-current="page"{% endif %}>编写插件</a></li>
         </ul>
       </li>
       {% if accessor_index_href %}<li class="site-tree-group">
