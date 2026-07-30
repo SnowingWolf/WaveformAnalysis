@@ -4,6 +4,9 @@
 
 本文档介绍如何使用 Context 获取插件产出的数据。[^source]
 
+`records` 与 `wave_pool` 的共享构建、输入路由、分片和 lineage 设计见
+[Records + WavePool 设计](../../architecture/RECORDS_WAVE_POOL.md)；本文聚焦运行时访问。
+
 ## 基本数据获取
 
 ### get_data() 方法

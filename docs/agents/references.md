@@ -45,6 +45,7 @@
 
 ## 核心文档
 - `docs/architecture/ARCHITECTURE.md`
+- `docs/architecture/RECORDS_WAVE_POOL.md`
 - `docs/features/context/CONFIGURATION.md`
 - `docs/features/context/DATA_ACCESS.md`
 - `docs/features/context/PREVIEW_EXECUTION.md`
