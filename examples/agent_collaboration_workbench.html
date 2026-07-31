@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent 协作工作台</title>
+  <style>
+    :root {
+      --canvas: #f3f5f4;
+      --surface: #ffffff;
+      --surface-muted: #f8faf9;
+      --ink: #17231f;
+      --muted: #65736d;
+      --line: #d6dfda;
+      --green: #17694e;
+      --green-dark: #0e4935;
+      --green-soft: #e5f2eb;
+      --blue: #1d5d91;
+      --blue-soft: #e7f0f8;
+      --amber: #9a5d00;
+      --amber-soft: #fff2d9;
+      --red: #aa3c37;
+      --red-soft: #fce9e7;
+      --shadow: 0 10px 30px rgb(18 43 32 / 9%);
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; background: var(--canvas); color: var(--ink); font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, input, textarea, select { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3px solid rgb(29 93 145 / 32%); outline-offset: 2px; }
+    .app-shell { min-height: 100vh; }
+    .topbar { position: sticky; z-index: 20; top: 0; display: flex; min-height: 64px; align-items: center; gap: 18px; padding: 10px clamp(16px, 3vw, 42px); border-bottom: 1px solid #cad5cf; background: rgb(255 255 255 / 96%); backdrop-filter: blur(12px); }
+    .brand { display: grid; min-width: 0; gap: 1px; margin-right: auto; }
+    .brand strong { font-size: 16px; }
+    .brand span { color: var(--muted); font-size: 12px; }
+    .topbar-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+    .button, .icon-button { border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 650; }
+    .button { min-height: 34px; padding: 6px 10px; border-radius: 4px; }
+    .button:hover, .icon-button:hover { border-color: #8fa69b; background: #f6faf7; }
+    .button--primary { border-color: var(--green); background: var(--green); color: #fff; }
+    .button--primary:hover { border-color: var(--green-dark); background: var(--green-dark); }
+    .button--danger { color: var(--red); }
+    .icon-button { display: inline-grid; width: 30px; height: 30px; place-items: center; padding: 0; border-radius: 4px; font-size: 17px; line-height: 1; }
+    .page { width: min(1560px, calc(100% - 32px)); margin: 22px auto 44px; }
+    .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: end; margin-bottom: 18px; padding: 6px 2px; }
+    .eyebrow { margin: 0 0 6px; color: var(--green); font-size: 12px; font-weight: 750; text-transform: uppercase; letter-spacing: .06em; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 6px; font-size: clamp(22px, 2vw, 30px); line-height: 1.18; }
+    h2 { margin-bottom: 0; font-size: 16px; }
+    .hero p:last-child { margin: 0; color: var(--muted); }
+    .status-line { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .save-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px var(--green-soft); }
+    .layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(340px, .85fr); gap: 18px; align-items: start; }
+    .workspace, .side-stack { display: grid; gap: 18px; }
+    .panel { border: 1px solid var(--line); border-radius: 6px; background: var(--surface); box-shadow: var(--shadow); }
+    .panel-header { display: flex; min-height: 54px; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+    .panel-header > div { min-width: 0; }
+    .panel-header p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+    .panel-header .header-actions { display: flex; gap: 5px; margin-left: auto; }
+    .outline-list { display: grid; gap: 0; }
+    .section { border-bottom: 1px solid var(--line); }
+    .section:last-child { border-bottom: 0; }
+    .section > summary { display: flex; align-items: center; gap: 10px; padding: 13px 14px; cursor: pointer; list-style: none; }
+    .section > summary::-webkit-details-marker { display: none; }
+    .summary-arrow { color: var(--muted); font-size: 12px; transition: transform .15s ease; }
+    details[open] .summary-arrow { transform: rotate(90deg); }
+    .section-title-input { width: min(100%, 520px); padding: 3px 5px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: var(--ink); font-size: 15px; font-weight: 750; }
+    .section-title-input:hover { border-color: var(--line); }
+    .section-title-input:focus { border-color: #8da99c; background: #fff; }
+    .section-count { margin-left: auto; color: var(--muted); font-size: 12px; }
+    .section-body { padding: 0 14px 15px; }
+    .row-list { display: grid; gap: 8px; }
+    .row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 9px; align-items: start; padding: 8px; border: 1px solid var(--line); border-left: 3px solid #a9bbb1; background: var(--surface-muted); }
+    .row.is-changed { border-left-color: var(--blue); }
+    .row.is-deleted { border-left-color: var(--red); background: #fffafa; }
+    .row-index { display: grid; width: 26px; height: 26px; place-items: center; border: 1px solid var(--line); border-radius: 3px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .row-editor { display: grid; gap: 6px; min-width: 0; }
+    .row textarea { width: 100%; min-height: 50px; resize: vertical; padding: 6px 7px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: var(--ink); line-height: 1.5; }
+    .row textarea:hover { border-color: var(--line); background: #fff; }
+    .row textarea:focus { border-color: #83a797; background: #fff; }
+    .row.is-deleted textarea { color: #75615f; text-decoration: line-through; }
+    .row-meta { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; color: var(--muted); font-size: 11px; }
+    .badge { display: inline-flex; min-height: 19px; align-items: center; padding: 1px 6px; border-radius: 10px; background: #edf1ef; color: #4d5b55; font-weight: 700; }
+    .badge--changed { background: var(--blue-soft); color: var(--blue); }
+    .badge--deleted { background: var(--red-soft); color: var(--red); }
+    .row-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+    .section-add { display: flex; justify-content: flex-start; margin-top: 9px; }
+    .section-add .button { color: var(--green); }
+    .decision-list { display: grid; gap: 16px; padding: 14px; }
+    .decision { padding: 12px; border: 1px solid var(--line); background: var(--surface-muted); }
+    .decision-head { display: flex; gap: 9px; align-items: flex-start; }
+    .decision-head input { min-width: 0; flex: 1; padding: 4px 5px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: var(--ink); font-weight: 750; }
+    .decision-head input:hover { border-color: var(--line); }
+    .decision-head input:focus { border-color: #83a797; background: #fff; }
+    .decision-type { width: 84px; padding: 4px; border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--muted); font-size: 12px; }
+    .choice-list { display: grid; gap: 6px; margin-top: 9px; }
+    .choice { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 7px; align-items: center; min-height: 32px; padding: 4px 5px; border: 1px solid transparent; }
+    .choice:focus-within { border-color: #b8c9c0; background: #fff; }
+    .choice input[type="checkbox"], .choice input[type="radio"] { width: 15px; height: 15px; margin: 0; accent-color: var(--green); }
+    .choice input[type="text"] { width: 100%; padding: 4px 5px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: var(--ink); }
+    .choice input[type="text"]:hover { border-color: var(--line); background: #fff; }
+    .choice input[type="text"]:focus { border-color: #83a797; background: #fff; }
+    .choice-actions { display: flex; gap: 3px; }
+    .choice-other { padding: 6px 0 0 27px; }
+    .choice-other input { width: 100%; padding: 6px; border: 1px solid var(--line); border-radius: 3px; background: #fff; }
+    .decision-footer { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+    .decision-footer .button { color: var(--green); }
+    .graph-shell { padding: 12px; }
+    .graph-canvas { position: relative; min-height: 350px; overflow: hidden; border: 1px solid #cddbd3; background-color: #f8fbf9; background-image: linear-gradient(#e6eeea 1px, transparent 1px), linear-gradient(90deg, #e6eeea 1px, transparent 1px); background-size: 22px 22px; }
+    .graph-canvas svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .graph-edge { stroke: #849c90; stroke-width: 2; }
+    .graph-node { position: absolute; display: grid; width: 132px; min-height: 52px; align-content: center; gap: 3px; padding: 7px 9px; border: 1px solid #92aa9d; border-left: 4px solid var(--green); border-radius: 4px; background: #fff; box-shadow: 0 3px 8px rgb(17 48 36 / 12%); cursor: grab; user-select: none; }
+    .graph-node:active { cursor: grabbing; }
+    .graph-node strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+    .graph-node span { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .graph-node--fact { border-left-color: var(--blue); }
+    .graph-node--constraint { border-left-color: var(--amber); }
+    .graph-node--decision { border-left-color: var(--green); }
+    .graph-node--question { border-left-color: var(--red); }
+    .graph-node--acceptance { border-left-color: #6c5a98; }
+    .graph-tools { display: grid; gap: 9px; margin-top: 10px; }
+    .graph-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; }
+    .graph-form input, .graph-form select, .edge-form select { min-width: 0; padding: 6px; border: 1px solid var(--line); border-radius: 3px; background: #fff; }
+    .edge-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; }
+    .node-list, .edge-list, .suggestion-list, .change-list { display: grid; gap: 6px; max-height: 260px; overflow: auto; }
+    .node-editor, .edge-editor, .suggestion, .change-item { display: grid; gap: 5px; padding: 8px; border: 1px solid var(--line); background: var(--surface-muted); }
+    .node-editor { grid-template-columns: minmax(0, 1fr) 100px auto; align-items: center; }
+    .node-editor input, .node-editor select { min-width: 0; padding: 5px; border: 1px solid var(--line); border-radius: 3px; background: #fff; }
+    .edge-editor { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+    .edge-editor span, .change-item p, .suggestion p { margin: 0; color: var(--muted); font-size: 12px; }
+    .suggestion strong { font-size: 13px; }
+    .suggestion-actions { display: flex; gap: 5px; margin-top: 3px; }
+    .suggestion.is-accepted { border-left: 3px solid var(--green); }
+    .suggestion.is-rejected { border-left: 3px solid var(--red); opacity: .7; }
+    .empty { padding: 16px; color: var(--muted); text-align: center; }
+    .danger-zone { border-color: #e7c9c6; box-shadow: none; }
+    .danger-zone .panel-header { border-bottom-color: #eed7d4; }
+    dialog { width: min(720px, calc(100% - 28px)); max-height: min(780px, calc(100% - 48px)); border: 1px solid #b8c7c0; border-radius: 6px; box-shadow: 0 22px 60px rgb(12 35 26 / 26%); padding: 0; }
+    dialog::backdrop { background: rgb(15 30 23 / 42%); }
+    .dialog-content { display: grid; gap: 12px; padding: 16px; }
+    .dialog-content p { margin-bottom: 0; color: var(--muted); }
+    .dialog-content textarea { min-height: 270px; resize: vertical; padding: 9px; border: 1px solid var(--line); border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 7px; }
+    .import-error { min-height: 20px; margin: 0; color: var(--red) !important; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+    @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } .side-stack { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } .side-stack > .panel:first-child { grid-column: 1 / -1; } }
+    @media (max-width: 720px) { .topbar { align-items: flex-start; } .topbar-actions { justify-content: flex-start; } .page { width: min(100% - 20px, 1560px); margin-top: 14px; } .hero { grid-template-columns: 1fr; gap: 8px; } .status-line { white-space: normal; } .side-stack { grid-template-columns: 1fr; } .side-stack > .panel:first-child { grid-column: auto; } .row { grid-template-columns: 28px minmax(0, 1fr); } .row-actions { grid-column: 2; justify-content: flex-start; } .graph-form, .edge-form { grid-template-columns: 1fr; } .node-editor { grid-template-columns: 1fr 100px auto; } .topbar { padding: 9px 12px; gap: 10px; } .button { padding-inline: 8px; } }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><strong>Agent 协作工作台</strong><span id="task-id-label"></span></div>
+      <div class="topbar-actions">
+        <button class="button" type="button" id="copy-prompt">复制任务包</button>
+        <button class="button" type="button" id="export-markdown">导出 Markdown</button>
+        <button class="button" type="button" id="export-json">导出 JSON</button>
+        <button class="button button--primary" type="button" id="open-import">导入 Agent 回复</button>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">离线协作记录</p>
+          <h1 id="task-title"></h1>
+          <p id="task-summary"></p>
+        </div>
+        <div class="status-line"><span class="save-dot" aria-hidden="true"></span><span id="save-status">本地草稿已保存</span></div>
+      </section>
+
+      <div class="layout">
+        <section class="workspace">
+          <section class="panel">
+            <header class="panel-header"><div><h2>正文修订</h2><p>直接改写每行；原文始终保留在导出记录中。</p></div></header>
+            <div id="outline-list" class="outline-list"></div>
+          </section>
+
+          <section class="panel">
+            <header class="panel-header"><div><h2>决策与选项</h2><p>可添加自定义选项，勾选结果会进入任务包。</p></div><div class="header-actions"><button class="icon-button" type="button" id="add-decision" title="新增决策" aria-label="新增决策">+</button></div></header>
+            <div id="decision-list" class="decision-list"></div>
+          </section>
+        </section>
+
+        <aside class="side-stack">
+          <section class="panel">
+            <header class="panel-header"><div><h2>任务与决策图</h2><p>拖动节点调整布局；连线表达影响或依赖。</p></div></header>
+            <div class="graph-shell">
+              <div class="graph-canvas" id="graph-canvas" aria-label="任务和决策图"></div>
+              <div class="graph-tools">
+                <form id="new-node-form" class="graph-form"><input id="new-node-title" required placeholder="新增节点"><select id="new-node-type"><option value="goal">目标</option><option value="fact">事实</option><option value="constraint">约束</option><option value="decision">决策</option><option value="question">问题</option><option value="acceptance">验收</option></select><button class="button" type="submit">新增</button></form>
+                <form id="new-edge-form" class="edge-form"><select id="edge-source"></select><select id="edge-target"></select><button class="button" type="submit">连线</button></form>
+                <div id="node-list" class="node-list"></div>
+                <div id="edge-list" class="edge-list"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <header class="panel-header"><div><h2>Agent 建议</h2><p>导入后逐项接受、拒绝或保留。</p></div></header>
+            <div id="suggestion-list" class="suggestion-list"></div>
+          </section>
+
+          <section class="panel">
+            <header class="panel-header"><div><h2>变更记录</h2><p>仅显示当前任务的用户和 Agent 操作。</p></div></header>
+            <div id="change-list" class="change-list"></div>
+          </section>
+
+          <section class="panel danger-zone">
+            <header class="panel-header"><div><h2>会话文件</h2><p>完整快照可离线备份或在另一台设备恢复。</p></div></header>
+            <div class="panel-header"><button class="button" type="button" id="export-snapshot">导出快照</button><label class="button" for="snapshot-file">导入快照</label><input id="snapshot-file" class="sr-only" type="file" accept="application/json"><button class="button button--danger" type="button" id="reset-draft">恢复初始模板</button></div>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="import-dialog">
+    <form method="dialog" class="dialog-content">
+      <div><h2>导入 Agent 回复</h2><p>粘贴 `agent-response.json`。建议会进入待处理列表，不会自动覆盖你的文本。</p></div>
+      <textarea id="agent-response-input" spellcheck="false" placeholder='{"schema_version":"1.0","kind":"agent_response","summary":"...","suggestions":[]}'></textarea>
+      <p id="import-error" class="import-error"></p>
+      <div class="dialog-actions"><button class="button" value="cancel">取消</button><button class="button button--primary" type="button" id="confirm-import">导入建议</button></div>
+    </form>
+  </dialog>
+
+  <script>
+    (() => {
+      "use strict";
+      const STORAGE_KEY = "waveform-agent-workbench-v1";
+      const SCHEMA_VERSION = "1.0";
+      const $ = (selector, root = document) => root.querySelector(selector);
+      const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+      const clone = (value) => JSON.parse(JSON.stringify(value));
+      const now = () => new Date().toISOString();
+      const id = (prefix) => `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+      const escapeHtml = (value) => String(value).replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[char]);
+
+      const initialState = {
+        schema_version: SCHEMA_VERSION,
+        task: {
+          id: "architecture-page-outlines-v2-20260731",
+          title: "WaveformAnalysis 架构文档大纲审阅",
+          summary: "审阅六篇架构文档的章节结构与扩写方向。",
+          created_at: now(),
+          updated_at: now(),
+        },
+        sections: [
+          { id: "system", title: "系统架构", rows: [
+            { id: "system_scope", original: "Context 负责注册、配置、依赖解析、执行和存储访问；它不保存隐式的当前 run。", current: "Context 负责注册、配置、依赖解析、执行和存储访问；它不保存隐式的当前 run。", status: "active" },
+            { id: "system_config", original: "按 Context、自定义共享配置、Plugin 专属配置说明解析优先级和 lineage 边界。", current: "按 Context、自定义共享配置、Plugin 专属配置说明解析优先级和 lineage 边界。", status: "active" },
+            { id: "system_request", original: "用一次显式 run 请求解释从 get_data 到正式产物返回的主路径。", current: "用一次显式 run 请求解释从 get_data 到正式产物返回的主路径。", status: "active" },
+          ] },
+          { id: "dag", title: "Plugin DAG、动态依赖、Lineage 与缓存", rows: [
+            { id: "dag_contract", original: "说明 provides、depends_on、options、version 和输出契约如何共同定义 Plugin 节点。", current: "说明 provides、depends_on、options、version 和输出契约如何共同定义 Plugin 节点。", status: "active" },
+            { id: "dag_dynamic", original: "展示 resolve_depends_on 如何在配置确定后选择实际输入，并在执行与 lineage 前固定依赖边。", current: "展示 resolve_depends_on 如何在配置确定后选择实际输入，并在执行与 lineage 前固定依赖边。", status: "active" },
+            { id: "dag_cache", original: "用冷执行、部分命中和全命中解释依赖图、lineage 与缓存重算范围的关系。", current: "用冷执行、部分命中和全命中解释依赖图、lineage 与缓存重算范围的关系。", status: "active" },
+          ] },
+          { id: "products", title: "数据产物与关联型中间产物", rows: [
+            { id: "products_contract", original: "定义唯一命名产物、结构化 dtype、字段语义、排序与 ID 规则的契约边界。", current: "定义唯一命名产物、结构化 dtype、字段语义、排序与 ID 规则的契约边界。", status: "active" },
+            { id: "products_relations", original: "用独立关系表表达成员关系，并区分关系表和按通道等维度的派生聚合表。", current: "用独立关系表表达成员关系，并区分关系表和按通道等维度的派生聚合表。", status: "active" },
+          ] },
+          { id: "waveforms", title: "波形访问模型：结构化索引 + Wave Pool", rows: [
+            { id: "waveforms_pair", original: "说明结构化索引产物和对应波形池必须配对，并受同一 run 与兼容 lineage 约束。", current: "说明结构化索引产物和对应波形池必须配对，并受同一 run 与兼容 lineage 约束。", status: "active" },
+            { id: "waveforms_examples", original: "对比 records + wave_pool、records + wave_pool_filtered 和 peaklet 索引 + pool 三组访问路径。", current: "对比 records + wave_pool、records + wave_pool_filtered 和 peaklet 索引 + pool 三组访问路径。", status: "active" },
+          ] },
+          { id: "accessors", title: "Accessor 与分析查询", rows: [
+            { id: "accessors_boundary", original: "明确 Accessor 不发布 provides、不进入 Plugin DAG，但可按需经由 Context 读取正式产物。", current: "明确 Accessor 不发布 provides、不进入 Plugin DAG，但可按需经由 Context 读取正式产物。", status: "active" },
+            { id: "accessors_queries", original: "通过显式 ctx 与 run_id 组织加载、连接、筛选和波形查询，并避免 N+1 次数据访问。", current: "通过显式 ctx 与 run_id 组织加载、连接、筛选和波形查询，并避免 N+1 次数据访问。", status: "active" },
+          ] },
+          { id: "multi_run", title: "多 Run 处理与批量执行", rows: [
+            { id: "multi_run_scope", original: "如实区分已实现的 BatchProcessor 行为、开发中边界和计划稳定的接口。", current: "如实区分已实现的 BatchProcessor 行为、开发中边界和计划稳定的接口。", status: "active" },
+            { id: "multi_run_isolation", original: "每个 run 仍独立解析 DAG、lineage 和缓存；批处理只在外层调度、重试并汇总状态。", current: "每个 run 仍独立解析 DAG、lineage 和缓存；批处理只在外层调度、重试并汇总状态。", status: "active" },
+          ] },
+        ],
+        decisions: [
+          { id: "outline_decision", prompt: "第二版六篇大纲是否可以作为正文扩写结构？", type: "single", required: true, selected: ["approve"], other: "", options: [
+            { id: "approve", label: "大纲可以执行", description: "按页面展示的层级和内容扩写六篇正文，并重新生成 HTML 文档。" },
+            { id: "revise", label: "需要继续调整", description: "继续修改大纲，不改仓库正文。" },
+          ] },
+          { id: "pages_to_revise", prompt: "仍需调整的页面", type: "multiple", required: false, selected: [], other: "", options: [
+            { id: "system", label: "系统架构", description: "组件边界、Context 配置与请求路径。" },
+            { id: "dag", label: "Plugin DAG", description: "动态依赖、lineage 与缓存协同。" },
+            { id: "products", label: "数据产物", description: "唯一产物、实体 ID 与成员关系表。" },
+            { id: "waveform", label: "波形访问模型", description: "结构化索引、对应 wave pool 与访问视图。" },
+            { id: "accessor", label: "Accessor", description: "查询职责、插件内取数与生命周期。" },
+            { id: "multi_run", label: "多 Run", description: "批量执行、隔离、调度与汇总边界。" },
+          ] },
+        ],
+        nodes: [
+          { id: "goal_outline", type: "goal", title: "确认大纲", x: 32, y: 34 },
+          { id: "fact_six_pages", type: "fact", title: "六篇架构页", x: 216, y: 34 },
+          { id: "constraint_no_body", type: "constraint", title: "暂不改正文", x: 32, y: 158 },
+          { id: "decision_outline", type: "decision", title: "整体判断", x: 216, y: 158 },
+          { id: "acceptance_export", type: "acceptance", title: "导出任务包", x: 124, y: 260 },
+        ],
+        edges: [
+          { id: "edge_1", source: "fact_six_pages", target: "goal_outline" },
+          { id: "edge_2", source: "constraint_no_body", target: "decision_outline" },
+          { id: "edge_3", source: "goal_outline", target: "decision_outline" },
+          { id: "edge_4", source: "decision_outline", target: "acceptance_export" },
+        ],
+        suggestions: [],
+        changes: [],
+      };
+
+      let state = loadState();
+      let drag = null;
+
+      function loadState() {
+        try {
+          const stored = localStorage.getItem(STORAGE_KEY);
+          if (!stored) return clone(initialState);
+          return validateSnapshot(JSON.parse(stored), false);
+        } catch (error) {
+          console.warn("Could not load workbench state", error);
+          return clone(initialState);
+        }
+      }
+
+      function validateSnapshot(value, strict = true) {
+        if (!value || typeof value !== "object") throw new Error("快照必须是 JSON 对象。");
+        if (value.schema_version !== SCHEMA_VERSION) throw new Error(`不支持 schema_version ${value.schema_version || "(missing)"}。`);
+        for (const key of ["task", "sections", "decisions", "nodes", "edges", "suggestions", "changes"]) {
+          if (!(key in value)) throw new Error(`快照缺少 ${key}。`);
+        }
+        const nodeIds = new Set();
+        value.nodes.forEach((node) => {
+          if (!node.id || nodeIds.has(node.id)) throw new Error("节点 ID 必须唯一。");
+          nodeIds.add(node.id);
+        });
+        value.edges.forEach((edge) => {
+          if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) throw new Error(`连线 ${edge.id} 指向不存在的节点。`);
+        });
+        if (strict && !value.task.id) throw new Error("任务缺少 id。");
+        return value;
+      }
+
+      function persist(reason = "已保存") {
+        state.task.updated_at = now();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        $("#save-status").textContent = reason;
+      }
+
+      function log(kind, message) {
+        state.changes.unshift({ id: id("change"), kind, message, at: now() });
+        state.changes = state.changes.slice(0, 80);
+      }
+
+      function sectionById(sectionId) { return state.sections.find((section) => section.id === sectionId); }
+      function rowById(rowId) {
+        for (const section of state.sections) {
+          const row = section.rows.find((entry) => entry.id === rowId);
+          if (row) return { section, row };
+        }
+        return null;
+      }
+      function decisionById(decisionId) { return state.decisions.find((decision) => decision.id === decisionId); }
+      function nodeById(nodeId) { return state.nodes.find((node) => node.id === nodeId); }
+
+      function renderAll() {
+        $("#task-id-label").textContent = state.task.id;
+        $("#task-title").textContent = state.task.title;
+        $("#task-summary").textContent = state.task.summary;
+        renderOutline();
+        renderDecisions();
+        renderGraph();
+        renderSuggestions();
+        renderChanges();
+      }
+
+      function rowStatus(row) {
+        if (row.status === "deleted") return ["已标记删除", "badge--deleted"];
+        if (row.current !== row.original) return ["已修改", "badge--changed"];
+        return ["原文", ""];
+      }
+
+      function renderOutline() {
+        const container = $("#outline-list");
+        container.innerHTML = state.sections.map((section) => {
+          const active = section.rows.filter((row) => row.status !== "deleted").length;
+          return `<details class="section" open data-section-id="${escapeHtml(section.id)}">
+            <summary><span class="summary-arrow">▶</span><input class="section-title-input" data-section-title="${escapeHtml(section.id)}" value="${escapeHtml(section.title)}" aria-label="章节标题"><span class="section-count">${active}/${section.rows.length} 行</span></summary>
+            <div class="section-body"><div class="row-list">${section.rows.map((row, index) => {
+              const [label, className] = rowStatus(row);
+              return `<article class="row ${row.current !== row.original ? "is-changed" : ""} ${row.status === "deleted" ? "is-deleted" : ""}" data-row-id="${escapeHtml(row.id)}">
+                <span class="row-index">${index + 1}</span>
+                <div class="row-editor"><textarea data-row-text="${escapeHtml(row.id)}" aria-label="正文行 ${index + 1}" ${row.status === "deleted" ? "readonly" : ""}>${escapeHtml(row.current)}</textarea><div class="row-meta"><span class="badge ${className}">${label}</span>${row.original !== row.current ? `<span>原文：${escapeHtml(row.original)}</span>` : ""}</div></div>
+                <div class="row-actions"><button class="icon-button" type="button" title="上移" aria-label="上移" data-row-action="up" data-row-id="${escapeHtml(row.id)}">↑</button><button class="icon-button" type="button" title="下移" aria-label="下移" data-row-action="down" data-row-id="${escapeHtml(row.id)}">↓</button><button class="icon-button" type="button" title="在光标处分拆" aria-label="在光标处分拆" data-row-action="split" data-row-id="${escapeHtml(row.id)}">↵</button><button class="icon-button" type="button" title="与下一行合并" aria-label="与下一行合并" data-row-action="merge" data-row-id="${escapeHtml(row.id)}">⇣</button><button class="icon-button" type="button" title="恢复原文" aria-label="恢复原文" data-row-action="restore" data-row-id="${escapeHtml(row.id)}">↶</button><button class="icon-button" type="button" title="${row.status === "deleted" ? "恢复此行" : "标记删除"}" aria-label="${row.status === "deleted" ? "恢复此行" : "标记删除"}" data-row-action="delete" data-row-id="${escapeHtml(row.id)}">${row.status === "deleted" ? "+" : "×"}</button></div>
+              </article>`;
+            }).join("")}</div><div class="section-add"><button class="button" type="button" data-add-row="${escapeHtml(section.id)}">+ 新增行</button></div></div>
+          </details>`;
+        }).join("");
+
+        $$("[data-section-title]").forEach((input) => input.addEventListener("change", (event) => {
+          const section = sectionById(event.currentTarget.dataset.sectionTitle);
+          const next = event.currentTarget.value.trim();
+          if (!section || !next || next === section.title) return renderOutline();
+          const previous = section.title;
+          section.title = next;
+          log("section", `章节标题由“${previous}”改为“${next}”。`);
+          persist(); renderOutline();
+        }));
+        $$("[data-row-text]").forEach((textarea) => textarea.addEventListener("change", (event) => {
+          const found = rowById(event.currentTarget.dataset.rowText);
+          if (!found || found.row.status === "deleted") return;
+          const next = event.currentTarget.value.trim();
+          if (!next || next === found.row.current) return renderOutline();
+          found.row.current = next;
+          log("row", `修改了“${found.section.title}”中的一行。`);
+          persist(); renderOutline();
+        }));
+        $$("[data-row-action]").forEach((button) => button.addEventListener("click", () => handleRowAction(button.dataset.rowAction, button.dataset.rowId)));
+        $$("[data-add-row]").forEach((button) => button.addEventListener("click", () => {
+          const section = sectionById(button.dataset.addRow);
+          if (!section) return;
+          section.rows.push({ id: id("row"), original: "", current: "新增正文行", status: "active", created: true });
+          log("row", `在“${section.title}”中新增一行。`);
+          persist(); renderOutline();
+        }));
+      }
+
+      function handleRowAction(action, rowId) {
+        const found = rowById(rowId);
+        if (!found) return;
+        const { section, row } = found;
+        const index = section.rows.indexOf(row);
+        if (action === "up" && index > 0) {
+          [section.rows[index - 1], section.rows[index]] = [section.rows[index], section.rows[index - 1]];
+          log("row", `上移了“${section.title}”中的一行。`);
+        } else if (action === "down" && index < section.rows.length - 1) {
+          [section.rows[index + 1], section.rows[index]] = [section.rows[index], section.rows[index + 1]];
+          log("row", `下移了“${section.title}”中的一行。`);
+        } else if (action === "restore") {
+          row.current = row.original;
+          row.status = "active";
+          log("row", `恢复了“${section.title}”中的一行原文。`);
+        } else if (action === "delete") {
+          row.status = row.status === "deleted" ? "active" : "deleted";
+          log("row", `${row.status === "deleted" ? "标记删除" : "恢复"}了“${section.title}”中的一行。`);
+        } else if (action === "split") {
+          const textarea = $(`[data-row-text="${CSS.escape(rowId)}"]`);
+          const cursor = textarea ? textarea.selectionStart : -1;
+          const text = row.current;
+          if (cursor <= 0 || cursor >= text.length) { $("#save-status").textContent = "请先将光标放在要拆分的位置"; return; }
+          const before = text.slice(0, cursor).trim();
+          const after = text.slice(cursor).trim();
+          if (!before || !after) { $("#save-status").textContent = "拆分位置两侧都需要有内容"; return; }
+          row.current = before;
+          section.rows.splice(index + 1, 0, { id: id("row"), original: "", current: after, status: "active", created: true });
+          log("row", `拆分了“${section.title}”中的一行。`);
+        } else if (action === "merge") {
+          const next = section.rows[index + 1];
+          if (!next) { $("#save-status").textContent = "当前行后没有可合并的行"; return; }
+          row.current = `${row.current.trim()} ${next.current.trim()}`.trim();
+          section.rows.splice(index + 1, 1);
+          log("row", `合并了“${section.title}”中的两行。`);
+        }
+        persist(); renderOutline();
+      }
+
+      function renderDecisions() {
+        const container = $("#decision-list");
+        container.innerHTML = state.decisions.map((decision) => `<section class="decision" data-decision-id="${escapeHtml(decision.id)}">
+          <div class="decision-head"><input data-decision-prompt="${escapeHtml(decision.id)}" value="${escapeHtml(decision.prompt)}" aria-label="决策问题"><select class="decision-type" data-decision-type="${escapeHtml(decision.id)}" aria-label="决策类型"><option value="single" ${decision.type === "single" ? "selected" : ""}>单选</option><option value="multiple" ${decision.type === "multiple" ? "selected" : ""}>多选</option></select><button class="icon-button" type="button" title="删除决策" aria-label="删除决策" data-delete-decision="${escapeHtml(decision.id)}">×</button></div>
+          <div class="choice-list">${decision.options.map((option, index) => `<label class="choice"><input type="${decision.type === "single" ? "radio" : "checkbox"}" name="decision_${escapeHtml(decision.id)}" value="${escapeHtml(option.id)}" data-choice="${escapeHtml(decision.id)}" ${decision.selected.includes(option.id) ? "checked" : ""}><input type="text" data-option-label="${escapeHtml(decision.id)}::${escapeHtml(option.id)}" value="${escapeHtml(option.label)}" aria-label="选项 ${index + 1}"><span class="choice-actions"><button class="icon-button" type="button" title="上移选项" aria-label="上移选项" data-option-move="up" data-decision="${escapeHtml(decision.id)}" data-option="${escapeHtml(option.id)}">↑</button><button class="icon-button" type="button" title="下移选项" aria-label="下移选项" data-option-move="down" data-decision="${escapeHtml(decision.id)}" data-option="${escapeHtml(option.id)}">↓</button><button class="icon-button" type="button" title="删除选项" aria-label="删除选项" data-option-delete="${escapeHtml(decision.id)}::${escapeHtml(option.id)}">×</button></span></label>`).join("")}</div>
+          <label class="choice choice--other"><input type="${decision.type === "single" ? "radio" : "checkbox"}" name="decision_${escapeHtml(decision.id)}" value="__other__" data-choice="${escapeHtml(decision.id)}" ${decision.selected.includes("__other__") ? "checked" : ""}><span>其他</span></label>
+          ${decision.selected.includes("__other__") ? `<div class="choice-other"><input type="text" data-decision-other="${escapeHtml(decision.id)}" value="${escapeHtml(decision.other || "")}" placeholder="填写自定义选项"></div>` : ""}
+          <div class="decision-footer"><button class="button" type="button" data-add-option="${escapeHtml(decision.id)}">+ 新增选项</button><label><input type="checkbox" data-required="${escapeHtml(decision.id)}" ${decision.required ? "checked" : ""}> 必填</label></div>
+        </section>`).join("") || `<p class="empty">还没有决策项。</p>`;
+
+        $$("[data-choice]").forEach((input) => input.addEventListener("change", () => {
+          const decision = decisionById(input.dataset.choice); if (!decision) return;
+          const chosen = $$(`[data-choice="${CSS.escape(decision.id)}"]`).filter((entry) => entry.checked).map((entry) => entry.value);
+          decision.selected = decision.type === "single" ? chosen.slice(-1) : chosen;
+          log("decision", `更新了决策“${decision.prompt}”。`); persist(); renderDecisions();
+        }));
+        $$("[data-decision-prompt]").forEach((input) => input.addEventListener("change", () => {
+          const decision = decisionById(input.dataset.decisionPrompt); const next = input.value.trim(); if (!decision || !next || next === decision.prompt) return renderDecisions();
+          decision.prompt = next; log("decision", "修改了一个决策问题。"); persist(); renderDecisions();
+        }));
+        $$("[data-decision-type]").forEach((select) => select.addEventListener("change", () => {
+          const decision = decisionById(select.dataset.decisionType); if (!decision) return;
+          decision.type = select.value; if (decision.type === "single" && decision.selected.length > 1) decision.selected = decision.selected.slice(0, 1);
+          log("decision", `将“${decision.prompt}”切换为${decision.type === "single" ? "单选" : "多选"}。`); persist(); renderDecisions();
+        }));
+        $$("[data-option-label]").forEach((input) => input.addEventListener("change", () => {
+          const [decisionId, optionId] = input.dataset.optionLabel.split("::"); const decision = decisionById(decisionId); const option = decision?.options.find((entry) => entry.id === optionId); const next = input.value.trim();
+          if (!option || !next || next === option.label) return renderDecisions(); option.label = next; log("decision", `修改了“${decision.prompt}”的一个选项。`); persist(); renderDecisions();
+        }));
+        $$("[data-option-move]").forEach((button) => button.addEventListener("click", () => {
+          const decision = decisionById(button.dataset.decision); if (!decision) return; const index = decision.options.findIndex((option) => option.id === button.dataset.option); const offset = button.dataset.optionMove === "up" ? -1 : 1;
+          if (index + offset < 0 || index + offset >= decision.options.length) return; [decision.options[index], decision.options[index + offset]] = [decision.options[index + offset], decision.options[index]];
+          log("decision", `调整了“${decision.prompt}”的选项顺序。`); persist(); renderDecisions();
+        }));
+        $$("[data-option-delete]").forEach((button) => button.addEventListener("click", () => {
+          const [decisionId, optionId] = button.dataset.optionDelete.split("::"); const decision = decisionById(decisionId); if (!decision) return;
+          decision.options = decision.options.filter((option) => option.id !== optionId); decision.selected = decision.selected.filter((value) => value !== optionId);
+          log("decision", `删除了“${decision.prompt}”的一个选项。`); persist(); renderDecisions();
+        }));
+        $$("[data-add-option]").forEach((button) => button.addEventListener("click", () => {
+          const decision = decisionById(button.dataset.addOption); if (!decision) return; decision.options.push({ id: id("option"), label: "新选项", description: "" });
+          log("decision", `为“${decision.prompt}”新增了一个选项。`); persist(); renderDecisions();
+        }));
+        $$("[data-required]").forEach((input) => input.addEventListener("change", () => { const decision = decisionById(input.dataset.required); if (!decision) return; decision.required = input.checked; persist(); }));
+        $$("[data-decision-other]").forEach((input) => input.addEventListener("change", () => { const decision = decisionById(input.dataset.decisionOther); if (!decision) return; decision.other = input.value.trim(); log("decision", `填写了“${decision.prompt}”的自定义选项。`); persist(); }));
+        $$("[data-delete-decision]").forEach((button) => button.addEventListener("click", () => { const decision = decisionById(button.dataset.deleteDecision); if (!decision) return; state.decisions = state.decisions.filter((entry) => entry.id !== decision.id); log("decision", `删除了决策“${decision.prompt}”。`); persist(); renderDecisions(); }));
+      }
+
+      function nodeCenter(node) { return { x: node.x + 66, y: node.y + 26 }; }
+      function renderGraph() {
+        const canvas = $("#graph-canvas");
+        const width = Math.max(canvas.clientWidth || 450, 450); const height = Math.max(canvas.clientHeight || 300, 300);
+        canvas.innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true"><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#849c90"></path></marker></defs>${state.edges.map((edge) => { const source = nodeById(edge.source); const target = nodeById(edge.target); if (!source || !target) return ""; const a = nodeCenter(source); const b = nodeCenter(target); return `<line class="graph-edge" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" marker-end="url(#arrow)"></line>`; }).join("")}</svg>${state.nodes.map((node) => `<article class="graph-node graph-node--${escapeHtml(node.type)}" data-graph-node="${escapeHtml(node.id)}" style="left:${Math.max(4, node.x)}px;top:${Math.max(4, node.y)}px"><strong>${escapeHtml(node.title)}</strong><span>${escapeHtml(node.type)}</span></article>`).join("")}`;
+        $$("[data-graph-node]", canvas).forEach((element) => element.addEventListener("pointerdown", startDrag));
+        renderGraphControls();
+      }
+
+      function renderGraphControls() {
+        const choices = state.nodes.map((node) => `<option value="${escapeHtml(node.id)}">${escapeHtml(node.title)}</option>`).join("");
+        $("#edge-source").innerHTML = `<option value="">起点</option>${choices}`;
+        $("#edge-target").innerHTML = `<option value="">终点</option>${choices}`;
+        $("#node-list").innerHTML = state.nodes.map((node) => `<div class="node-editor"><input data-node-title="${escapeHtml(node.id)}" value="${escapeHtml(node.title)}" aria-label="节点标题"><select data-node-type="${escapeHtml(node.id)}"><option value="goal" ${node.type === "goal" ? "selected" : ""}>目标</option><option value="fact" ${node.type === "fact" ? "selected" : ""}>事实</option><option value="constraint" ${node.type === "constraint" ? "selected" : ""}>约束</option><option value="decision" ${node.type === "decision" ? "selected" : ""}>决策</option><option value="question" ${node.type === "question" ? "selected" : ""}>问题</option><option value="acceptance" ${node.type === "acceptance" ? "selected" : ""}>验收</option></select><button class="icon-button" type="button" title="删除节点" aria-label="删除节点" data-node-delete="${escapeHtml(node.id)}">×</button></div>`).join("") || `<p class="empty">还没有图节点。</p>`;
+        $("#edge-list").innerHTML = state.edges.map((edge) => `<div class="edge-editor"><span>${escapeHtml(nodeById(edge.source)?.title || edge.source)} → ${escapeHtml(nodeById(edge.target)?.title || edge.target)}</span><button class="icon-button" type="button" title="删除连线" aria-label="删除连线" data-edge-delete="${escapeHtml(edge.id)}">×</button></div>`).join("") || `<p class="empty">还没有连线。</p>`;
+        $$("[data-node-title]").forEach((input) => input.addEventListener("change", () => { const node = nodeById(input.dataset.nodeTitle); const next = input.value.trim(); if (!node || !next || node.title === next) return renderGraph(); node.title = next; log("graph", "修改了一个图节点。"); persist(); renderGraph(); }));
+        $$("[data-node-type]").forEach((select) => select.addEventListener("change", () => { const node = nodeById(select.dataset.nodeType); if (!node) return; node.type = select.value; log("graph", `更新了节点“${node.title}”的类型。`); persist(); renderGraph(); }));
+        $$("[data-node-delete]").forEach((button) => button.addEventListener("click", () => { const node = nodeById(button.dataset.nodeDelete); if (!node) return; state.nodes = state.nodes.filter((entry) => entry.id !== node.id); state.edges = state.edges.filter((edge) => edge.source !== node.id && edge.target !== node.id); log("graph", `删除了节点“${node.title}”及其关联连线。`); persist(); renderGraph(); }));
+        $$("[data-edge-delete]").forEach((button) => button.addEventListener("click", () => { state.edges = state.edges.filter((edge) => edge.id !== button.dataset.edgeDelete); log("graph", "删除了一条连线。"); persist(); renderGraph(); }));
+      }
+
+      function startDrag(event) {
+        const node = nodeById(event.currentTarget.dataset.graphNode); if (!node) return;
+        const canvas = $("#graph-canvas"); const bounds = canvas.getBoundingClientRect();
+        drag = { node, offsetX: event.clientX - bounds.left - node.x, offsetY: event.clientY - bounds.top - node.y };
+        event.preventDefault();
+      }
+      function onDrag(event) {
+        if (!drag) return; const canvas = $("#graph-canvas"); const bounds = canvas.getBoundingClientRect();
+        drag.node.x = Math.max(4, Math.min(bounds.width - 136, event.clientX - bounds.left - drag.offsetX));
+        drag.node.y = Math.max(4, Math.min(bounds.height - 56, event.clientY - bounds.top - drag.offsetY));
+        renderGraph();
+      }
+      function endDrag() {
+        if (drag) { log("graph", `移动了节点“${drag.node.title}”。`); persist(); }
+        drag = null;
+      }
+
+      function renderSuggestions() {
+        const container = $("#suggestion-list");
+        const items = state.suggestions.slice().reverse();
+        container.innerHTML = items.map((suggestion) => `<article class="suggestion is-${escapeHtml(suggestion.status)}"><strong>${escapeHtml(suggestion.title || suggestion.kind)}</strong><p>${escapeHtml(suggestion.description || "")}</p><p>${suggestion.status === "pending" ? "待处理" : suggestion.status === "accepted" ? "已接受" : "已拒绝"}</p>${suggestion.status === "pending" ? `<div class="suggestion-actions"><button class="button button--primary" type="button" data-suggestion-action="accept" data-suggestion="${escapeHtml(suggestion.id)}">接受</button><button class="button" type="button" data-suggestion-action="reject" data-suggestion="${escapeHtml(suggestion.id)}">拒绝</button></div>` : ""}</article>`).join("") || `<p class="empty">暂无导入建议。</p>`;
+        $$("[data-suggestion-action]").forEach((button) => button.addEventListener("click", () => applySuggestion(button.dataset.suggestionAction, button.dataset.suggestion)));
+      }
+
+      function applySuggestion(action, suggestionId) {
+        const suggestion = state.suggestions.find((entry) => entry.id === suggestionId); if (!suggestion || suggestion.status !== "pending") return;
+        if (action === "reject") { suggestion.status = "rejected"; log("agent", `拒绝了 Agent 建议：${suggestion.title || suggestion.kind}。`); persist(); renderSuggestions(); renderChanges(); return; }
+        try {
+          const payload = suggestion.payload || {};
+          if (suggestion.kind === "row_replace") {
+            const found = rowById(payload.row_id); if (!found) throw new Error(`找不到正文行 ${payload.row_id}。`); found.row.current = String(payload.current || "").trim() || found.row.current;
+          } else if (suggestion.kind === "row_add") {
+            const section = sectionById(payload.section_id); if (!section) throw new Error(`找不到章节 ${payload.section_id}。`); section.rows.push({ id: id("row"), original: "", current: String(payload.current || "新增正文行"), status: "active", created: true });
+          } else if (suggestion.kind === "decision_option_add") {
+            const decision = decisionById(payload.decision_id); if (!decision) throw new Error(`找不到决策 ${payload.decision_id}。`); decision.options.push({ id: id("option"), label: String(payload.label || "新选项"), description: String(payload.description || "") });
+          } else if (suggestion.kind === "node_add") {
+            const node = payload.node; if (!node || !node.title) throw new Error("node_add 缺少 node.title。"); state.nodes.push({ id: id("node"), type: node.type || "question", title: String(node.title), x: Number(node.x) || 40, y: Number(node.y) || 40 });
+          } else if (suggestion.kind === "edge_add") {
+            if (!nodeById(payload.source) || !nodeById(payload.target)) throw new Error("edge_add 引用了不存在的节点。"); state.edges.push({ id: id("edge"), source: payload.source, target: payload.target });
+          } else if (suggestion.kind === "question") {
+            state.nodes.push({ id: id("node"), type: "question", title: String(payload.title || suggestion.description || "待确认问题"), x: 40, y: 40 });
+          } else { throw new Error(`不支持建议类型 ${suggestion.kind}。`); }
+          suggestion.status = "accepted";
+          log("agent", `接受了 Agent 建议：${suggestion.title || suggestion.kind}。`);
+          persist(); renderAll();
+        } catch (error) { $("#save-status").textContent = error.message; }
+      }
+
+      function renderChanges() {
+        const container = $("#change-list");
+        container.innerHTML = state.changes.map((change) => `<article class="change-item"><strong>${escapeHtml(change.kind)}</strong><p>${escapeHtml(change.message)}</p><p>${new Date(change.at).toLocaleString("zh-CN")}</p></article>`).join("") || `<p class="empty">尚未修改初始模板。</p>`;
+      }
+
+      function buildTaskPackage() {
+        const rows = state.sections.flatMap((section) => section.rows.map((row, index) => ({ section_id: section.id, section_title: section.title, order: index + 1, id: row.id, original: row.original, current: row.current, status: row.status })));
+        return {
+          schema_version: SCHEMA_VERSION,
+          kind: "task_package",
+          exported_at: now(),
+          task: state.task,
+          sections: state.sections.map((section) => ({ id: section.id, title: section.title, row_ids: section.rows.map((row) => row.id) })),
+          rows,
+          decisions: state.decisions,
+          graph: { nodes: state.nodes, edges: state.edges },
+          pending_agent_suggestions: state.suggestions.filter((suggestion) => suggestion.status === "pending"),
+          change_log: state.changes,
+          agent_reply_contract: {
+            schema_version: SCHEMA_VERSION,
+            kind: "agent_response",
+            suggestions: [
+              { kind: "row_replace", payload: { row_id: "<row id>", current: "<proposed text>" } },
+              { kind: "decision_option_add", payload: { decision_id: "<decision id>", label: "<option>" } },
+              { kind: "node_add", payload: { node: { title: "<title>", type: "question" } } },
+              { kind: "edge_add", payload: { source: "<node id>", target: "<node id>" } },
+              { kind: "question", payload: { title: "<question requiring user decision>" } },
+            ],
+          },
+        };
+      }
+
+      function buildMarkdown() {
+        const activeSections = state.sections.map((section) => `## ${section.title}\n${section.rows.map((row) => `- [${row.status === "deleted" ? "删除" : row.current !== row.original ? "修改" : "保留"}] (${row.id}) ${row.current}`).join("\n")}`).join("\n\n");
+        const decisions = state.decisions.map((decision) => {
+          const selected = decision.selected.map((value) => value === "__other__" ? `其他：${decision.other || "未填写"}` : decision.options.find((option) => option.id === value)?.label || value).join("；") || "未选择";
+          return `- **${decision.prompt}**：${selected}`;
+        }).join("\n");
+        const nodes = state.nodes.map((node) => `- (${node.id}) [${node.type}] ${node.title}`).join("\n");
+        const edges = state.edges.map((edge) => `- ${edge.source} -> ${edge.target}`).join("\n") || "- 无";
+        return `# ${state.task.title}\n\n${state.task.summary}\n\n任务 ID：\`${state.task.id}\`\n\n${activeSections}\n\n## 决策\n${decisions}\n\n## 任务与决策图\n${nodes}\n\n### 关系\n${edges}\n\n## 给 Agent 的约束\n- 仅引用任务包中的稳定 ID。\n- 将修改建议放在 \`agent_response.suggestions\`，不要把建议当作已批准结论。\n- 缺少依据时返回 \`question\` 建议，而不是猜测。\n`;
+      }
+
+      function download(filename, contents, type) {
+        const anchor = document.createElement("a"); anchor.href = URL.createObjectURL(new Blob([contents], { type })); anchor.download = filename; document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(anchor.href), 0);
+      }
+
+      function importAgentResponse(value) {
+        if (!value || typeof value !== "object") throw new Error("Agent 回复必须是 JSON 对象。");
+        if (value.schema_version !== SCHEMA_VERSION || value.kind !== "agent_response") throw new Error("回复必须包含 schema_version: \"1.0\" 和 kind: \"agent_response\"。 ");
+        if (!Array.isArray(value.suggestions)) throw new Error("回复缺少 suggestions 数组。");
+        const imported = value.suggestions.map((entry) => {
+          if (!entry || typeof entry !== "object" || !entry.kind) throw new Error("每条建议都必须包含 kind。");
+          return { id: id("suggestion"), kind: entry.kind, title: entry.title || entry.kind, description: entry.description || value.summary || "", payload: entry.payload || {}, status: "pending", imported_at: now() };
+        });
+        state.suggestions.push(...imported);
+        log("agent", `导入了 ${imported.length} 条 Agent 建议。`);
+        persist(); renderAll();
+      }
+
+      $("#add-decision").addEventListener("click", () => { state.decisions.push({ id: id("decision"), prompt: "新决策问题", type: "single", required: false, selected: [], other: "", options: [{ id: id("option"), label: "新选项", description: "" }] }); log("decision", "新增了一个决策。 "); persist(); renderDecisions(); });
+      $("#new-node-form").addEventListener("submit", (event) => { event.preventDefault(); const title = $("#new-node-title").value.trim(); if (!title) return; state.nodes.push({ id: id("node"), type: $("#new-node-type").value, title, x: 30 + (state.nodes.length % 3) * 145, y: 35 + Math.floor(state.nodes.length / 3) * 76 }); $("#new-node-title").value = ""; log("graph", `新增了节点“${title}”。`); persist(); renderGraph(); });
+      $("#new-edge-form").addEventListener("submit", (event) => { event.preventDefault(); const source = $("#edge-source").value; const target = $("#edge-target").value; if (!source || !target || source === target) { $("#save-status").textContent = "请选择两个不同节点"; return; } if (state.edges.some((edge) => edge.source === source && edge.target === target)) { $("#save-status").textContent = "这条连线已存在"; return; } state.edges.push({ id: id("edge"), source, target }); log("graph", "新增了一条连线。 "); persist(); renderGraph(); });
+      $("#export-markdown").addEventListener("click", () => download(`${state.task.id}.md`, buildMarkdown(), "text/markdown;charset=utf-8"));
+      $("#export-json").addEventListener("click", () => download(`${state.task.id}-task-package.json`, JSON.stringify(buildTaskPackage(), null, 2), "application/json"));
+      $("#export-snapshot").addEventListener("click", () => download(`${state.task.id}-snapshot.json`, JSON.stringify(state, null, 2), "application/json"));
+      $("#copy-prompt").addEventListener("click", async () => { try { await navigator.clipboard.writeText(`${buildMarkdown()}\n\n\`\`\`json\n${JSON.stringify(buildTaskPackage(), null, 2)}\n\`\`\``); $("#save-status").textContent = "任务包已复制"; } catch (error) { $("#save-status").textContent = "浏览器拒绝访问剪贴板；请使用导出功能"; } });
+      $("#open-import").addEventListener("click", () => { $("#import-error").textContent = ""; $("#import-dialog").showModal(); });
+      $("#confirm-import").addEventListener("click", () => { try { importAgentResponse(JSON.parse($("#agent-response-input").value)); $("#agent-response-input").value = ""; $("#import-dialog").close(); } catch (error) { $("#import-error").textContent = error.message; } });
+      $("#snapshot-file").addEventListener("change", async (event) => { const file = event.target.files?.[0]; if (!file) return; try { state = validateSnapshot(JSON.parse(await file.text())); log("snapshot", "导入了会话快照。 "); persist("快照已导入"); renderAll(); } catch (error) { $("#save-status").textContent = `导入失败：${error.message}`; } finally { event.target.value = ""; } });
+      $("#reset-draft").addEventListener("click", () => { if (!confirm("恢复初始模板会清除当前本地草稿。是否继续？")) return; state = clone(initialState); localStorage.removeItem(STORAGE_KEY); persist("已恢复初始模板"); renderAll(); });
+      window.addEventListener("pointermove", onDrag);
+      window.addEventListener("pointerup", endDrag);
+      window.addEventListener("resize", () => renderGraph());
+      renderAll();
+    })();
+  </script>
+</body>
+</html>
