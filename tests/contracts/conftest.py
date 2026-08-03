@@ -28,22 +28,29 @@ def context(temp_storage_dir):
 
 @pytest.fixture
 def all_builtin_plugins() -> list[type[Plugin]]:
-    """Get all builtin plugin classes from cpu module."""
-    from waveform_analysis.core.plugins.builtin import cpu
+    """Get all builtin plugin classes from the cpu, peaks and hit modules.
+
+    Plugins migrated out of ``builtin.cpu`` (PeaksPlugin, Peaklet*, ThresholdHitPlugin,
+    HitMerge*...) are lazily re-exported by ``cpu`` via ``__getattr__`` and therefore
+    do not appear in ``dir(cpu)``; enumerate the migrated modules explicitly so the
+    contract tests cover the full builtin plugin set.
+    """
+    from waveform_analysis.core.plugins.builtin import cpu, hit, peaks
 
     plugins = []
     seen_classes = set()  # Track by class id to avoid duplicates
-    for name in dir(cpu):
-        obj = getattr(cpu, name)
-        if (
-            isinstance(obj, type)
-            and issubclass(obj, Plugin)
-            and obj is not Plugin
-            and not name.startswith("_")
-            and id(obj) not in seen_classes  # Deduplicate
-        ):
-            seen_classes.add(id(obj))
-            plugins.append(obj)
+    for module in (cpu, peaks, hit):
+        for name in dir(module):
+            obj = getattr(module, name)
+            if (
+                isinstance(obj, type)
+                and issubclass(obj, Plugin)
+                and obj is not Plugin
+                and not name.startswith("_")
+                and id(obj) not in seen_classes  # Deduplicate
+            ):
+                seen_classes.add(id(obj))
+                plugins.append(obj)
     return plugins
 
 
