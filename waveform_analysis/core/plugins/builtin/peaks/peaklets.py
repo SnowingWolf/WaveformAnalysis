@@ -1382,6 +1382,71 @@ class PeakletPlugin(BatchProcessingPlugin):
     output_dtype = PEAKLET_DTYPE
     save_when = "always"
     parallel = False
+    agent_doc = {
+        "overview": (
+            "PeakletPlugin 负责在 hit_merged 与 peaklet_components 之上构建轻量级的跨通道 "
+            "peaklet 候选对象。它本身不检测峰形，而是按 peaklet_components 提供的成员关系，"
+            "把同一逻辑事件（可能横跨多个 (board, channel) 的 hit_merged 行）聚合为一条 "
+            "peaklet 记录，并汇总出绝对时间范围、参与 hit 数与去重后的通道数。\n\n"
+            "该插件是 hit 层与 peak 层之间的桥梁：下游的 peaklet_features 特征计算、"
+            "peaklet_waveforms / peaklet_waveform_pool 波形还原以及最终的 peaks 表都以 "
+            "peaklets 的行索引作为 peak_id，因此本插件的行序与 peak_id 约定是后续所有 "
+            "peaklet 消费插件对齐的基础。\n\n"
+            "实现上先按 peak_id 建立分组成员表并校验组件引用的合法性，再调用 Numba 聚合内核 "
+            "`_summarize_peaklets_numba` 单次遍历完成时间范围、n_hits 与 n_channels 的汇总，"
+            "输出为按行对齐的 PEAKLET_DTYPE 结构化数组。"
+        ),
+        "workflow_steps": [
+            "读取输入：从 context 获取 `hit_merged` 与 `peaklet_components` 结构化数组；任一为空时直接返回空 peaklets 数组。",
+            "推导 peaklet 数量：以 `peaklet_components['peak_id']` 的最大值加 1 作为 n_peaklets，不依赖外部计数状态。",
+            "校验组件引用：调用 `_prepare_component_groups` 按 peak_id 建立分组成员表，并确保每个 `merged_index` 都落在 `hit_merged` 的行范围内，越界即抛错。",
+            "计算绝对时间窗口：由 `hit_merged` 的时间戳与采样窗口推导每条记录的绝对起止时间（`_abs_window`），供跨通道聚合使用。",
+            "聚合摘要：通过 Numba 内核 `_summarize_peaklets_numba` 对每组组件汇总最小/最大绝对时间、`n_hits` 与去重后的 `n_channels`，并连续记录成员在 `peaklet_components` 中的 `component_offset` 与 `component_count`。",
+            "写回输出：返回按 `peak_id`（行序）排序的 `PEAKLET_DTYPE` 结构化数组。",
+        ],
+        "behavior_notes": [
+            "Only `peaklet_components` row membership matters; per-channel hit details are not preserved here and are re-derived downstream via `peaklet_channels`.",
+            "`time_start`/`time_end` are the min/max of member absolute windows and `center_time` is their midpoint `(time_start + time_end) // 2`.",
+            "`n_hits` sums `hit_merged['component_count']` when present, otherwise counts members one by one; `n_channels` counts distinct `(board, channel)` pairs among members.",
+            "`component_offset` accumulates contiguously across peaklets, so it points exactly into `peaklet_components`.",
+            "Empty `peaklet_components` or non-positive peak-id range produce an empty `PEAKLET_DTYPE` array rather than an error.",
+            "`dt` config is a compatibility fallback resolved via `resolve_dt_config`; the effective sample interval is taken from `hit_merged` when available.",
+        ],
+        "field_notes": {
+            "time_start": "The earliest absolute start time (ps) across all member components.",
+            "time_end": "The latest absolute end time (ps) across all member components.",
+            "center_time": "Midpoint of `time_start` and `time_end` (ps).",
+            "n_hits": "Total hit count aggregated over members (from `hit_merged['component_count']` when present).",
+            "n_channels": "Count of distinct `(board, channel)` pairs among members.",
+            "component_offset": "Start row in `peaklet_components` for this peaklet's contiguous membership rows.",
+            "component_count": "Number of contiguous `peaklet_components` membership rows for this peaklet.",
+        },
+        "config_notes": {
+            "time_window_ns": "跨通道 peaklet 合并时间窗口（ns）。由上游 peaklet_components 消费并判定成员关系；本插件只消费其分组结果。",
+            "max_total_width_ns": "peaklet 最大总宽度（ns），限制链式合并总时长；同样由 peaklet_components 消费。",
+            "dt": "兼容性采样间隔（ns）回退配置，仅在输入缺少 dt 时使用；优先采用 `hit_merged` 的 dt。",
+        },
+        "failure_modes": [
+            "`hit_merged` 不是结构化数组时抛出 `ValueError`。",
+            "`peaklet_components` 不是结构化数组时抛出 `ValueError`。",
+            "存在 `peaklet_components` 行的 `merged_index` 越界（超出 `hit_merged` 行范围）时抛出 `ValueError`。",
+            "`peaklet_id` 分组不连续或成员索引错乱时，`component_offset`/`component_count` 指向的成员切片会失真，下游 `peaklet_channels` 的一致性校验将失败。",
+        ],
+        "downstream_consumers": [
+            "peaklet_channels",
+            "peaklet_features",
+            "peaklet_waveforms",
+            "peaks",
+        ],
+        "downstream_notes": [
+            "`peaks` 直接以 peaklets 的行序作为 `peak_id`，任何行序或 `component_offset`/`component_count` 变更都会传播到最终 peaks 表。",
+            "`peaklet_channels` 会校验成员数与 `peaklet_components` 的一致性，因此本插件的成员关系语义必须与 peaklet_components 保持同步。",
+        ],
+        "agent_change_notes": [
+            "聚合字段语义或 `component_offset`/`component_count` 的变化会级联影响 `peaklet_channels`、`peaklet_features`、`peaklet_waveforms` 与 `peaks` 的消费逻辑。",
+            "修改后请运行 peaklets 相关定向测试（test_peaklets_plugin 等）并重新生成 agent 文档。",
+        ],
+    }
 
     options = {
         "time_window_ns": Option(default=100.0, type=float, help="跨通道 peaklet 合并时间窗口"),
@@ -2721,6 +2786,66 @@ class PeaksPlugin(Plugin):
     version = "4.0.1"
     output_dtype = PEAKS_DTYPE
     save_when = "always"
+    agent_doc = {
+        "overview": (
+            "PeaksPlugin 是分析链末端的用户级插件，把 peaklet 层面的元数据与 peaklet_features "
+            "导出的波形派生特征合并为最终的用户可见 peaks 表。它不重新计算任何物理量，只负责把 "
+            "特征按 `peak_id` 稳定地对齐到 `peaklets` 的行序，并以其行索引作为 `peak_id`。\n\n"
+            "由于 `peaklet_features` 的特征行是按 peak_id 解析的，PeaksPlugin 采用稳定排序 + "
+            "`searchsorted` 的方式将每个 peaklet 精确匹配到其特征行：任何 peaklet 缺失对应特征都"
+            "会被认定为数据不一致并抛出异常，从而保证 peaks 表总是完整、且与 peaklets 一一对齐。\n\n"
+            "peaks 表同时携带峰形时序字段（rise_time、fall_time、width_25_75、area、height 等）"
+            "与聚合规模字段（n_hits、n_channels），是上游 S1/S2 分类与物理筛选（peak_classification、"
+            "s1_s2_pair_candidates）的唯一输入入口。"
+        ),
+        "workflow_steps": [
+            "读取输入：从 context 获取 `peaklets` 与 `peaklet_features` 结构化数组；`peaklets` 为空时返回空 peaks 数组。",
+            "排序特征行：以 `peaklet_features['peak_id']` 作稳定排序（mergesort），得到按 peak_id 递增的特征序列。",
+            "对齐 peaklet：对每个 `peak_id`（即 peaklet 行号）用 `searchsorted` 定位特征行，并校验特征行的 peak_id 与 peaklet 一致；任一 peaklet 找不到特征则抛错。",
+            "复制波形特征：将 time_start、time_end、time_peak、center_time、rise_time、fall_time、width_25_75、rise_time_10_50、range_90p_area、area、height、width 从对齐后的特征行复制到输出。",
+            "填入峰规模信息：从 `peaklets` 复制 `n_hits` 与 `n_channels`。",
+            "返回结果：输出 `PEAKS_DTYPE` 结构化数组，行序与 `peaklets` 完全一致，`peak_id` 即行索引。",
+        ],
+        "behavior_notes": [
+            "`peaks` and `peaklets` are strictly 1:1: every peaklet row must have a matching `peaklet_features` row or compute raises.",
+            "`peak_id` equals the row index in the output array and matches the corresponding `peaklets` row.",
+            "Extra `peaklet_features` rows whose `peak_id` is not present in `peaklets` are simply not selected; they do not fail the plugin.",
+            "The plugin performs no physics computation; all waveform quantities originate from `peaklet_features`.",
+        ],
+        "field_notes": {
+            "peak_id": "Unique peak identifier, equal to the row index in `peaks` and aligned to the `peaklets` row of the same index.",
+            "time_start": "Absolute start time (ps) of the peak window, copied from `peaklet_features`.",
+            "time_end": "Absolute end time (ps) of the peak window, copied from `peaklet_features`.",
+            "time_peak": "Absolute time (ps) of the peak maximum, copied from `peaklet_features`.",
+            "center_time": "Center time (ps), copied from `peaklet_features`.",
+            "rise_time": "Rise time (ns) from 10% to peak, copied from `peaklet_features`.",
+            "fall_time": "Fall time (ns) from peak to 90%, copied from `peaklet_features`.",
+            "width_25_75": "Width (ns) between the 25% and 75% area quantiles.",
+            "rise_time_10_50": "Rise time (ns) between the 10% and 50% area quantiles.",
+            "range_90p_area": "Time span (ns) covering the central 90% of the pulse area (5%-95%).",
+            "area": "Integrated pulse area (sum of samples).",
+            "height": "Peak height (maximum sample value).",
+            "width": "Width (ns) of the peak window.",
+            "n_hits": "Number of hit_merged rows aggregating to this peak, copied from `peaklets`.",
+            "n_channels": "Channel aggregation scale of this peak (distinct (board, channel) pairs), copied from `peaklets`.",
+        },
+        "failure_modes": [
+            "`peaklets` 或 `peaklet_features` 不是结构化数组时抛出 `ValueError`。",
+            "存在某个 peaklet 在 `peaklet_features` 中找不到相同 `peak_id` 的特征行时抛出 `ValueError`，通常意味着上游缓存或成员关系错位。",
+            "上游 `peaklet_features` 与 `peaklets` 的 `peak_id` 语义不一致（如特征缺失整段 peaklet）会触发上述异常而使 peaks 无法物化。",
+        ],
+        "downstream_consumers": [
+            "peak_classification",
+            "s1_s2_pair_candidates",
+        ],
+        "downstream_notes": [
+            "`peak_classification` 直接以 peaks 特征做 S1/S2 分类，任何特征字段语义变化都会改变分类结果。",
+            "`s1_s2_pair_candidates` 以 peaks（尤其经过分类后的 peak）生成物理候选配对，依赖 peaks 的时序与规模字段。",
+        ],
+        "agent_change_notes": [
+            "输出字段或对齐规则的变动会影响 `peak_classification` 与 `s1_s2_pair_candidates`，请同步运行对应定向测试并重新生成文档。",
+        ],
+    }
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
         peaklets = context.get_data(run_id, "peaklets")
