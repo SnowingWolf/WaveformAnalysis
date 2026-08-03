@@ -668,6 +668,7 @@
   };
   const tocTargets = [];
   const tocGroups = [];
+  const userCollapsed = new Set();
   const setTocOpen = (open) => {
     if (!toc || !tocToggle) return;
     toc.classList.toggle("is-open", open);
@@ -685,17 +686,21 @@
   };
   const setGroupExpanded = (group, expanded) => {
     if (!group) return;
+    group.expanded = expanded;
     group.list.hidden = !expanded;
     group.toggle.setAttribute("aria-expanded", String(expanded));
     group.toggle.title = expanded ? `折叠 ${group.title}` : `展开 ${group.title}`;
     group.toggle.querySelector(".sr-only").textContent = group.toggle.title;
+    for (const sub of group.subgroups) sub.list.hidden = !sub.expanded;
   };
   if (tocList) {
     const usedIds = new Set([...document.querySelectorAll("[id]")].map((element) => element.id));
     let currentGroup;
+    let currentMemberGroup;
     const headings = [...document.querySelectorAll(".docs-main h2, .docs-main h3, .docs-main h4")]
       .filter((heading) => !heading.closest(".resource-card, .lineage-section, .page-heading"));
-    for (const heading of headings) {
+    for (let i = 0; i < headings.length; i++) {
+      const heading = headings[i];
       const section = heading.closest("section[id], article[id]");
       let target = heading.tagName === "H2" && section ? section : heading;
       if (!target.id) {
@@ -715,6 +720,7 @@
         target.scrollIntoView({ behavior: "smooth", block: "start" });
         history.replaceState(null, "", `#${target.id}`);
       });
+      let group;
       if (heading.tagName === "H2") {
         const item = document.createElement("li");
         item.className = "page-toc-group";
@@ -731,25 +737,54 @@
         children.id = groupId;
         item.append(row, children);
         tocList.append(item);
-        const group = { title: link.textContent, list: children, toggle: groupToggle, item };
+        group = { title: link.textContent, list: children, toggle: groupToggle, item, expanded: true, subgroups: [], parent: null };
         currentGroup = group;
+        currentMemberGroup = null;
         tocGroups.push(group);
         setGroupExpanded(group, tocGroups.length === 1);
         groupToggle.addEventListener("click", () => {
-          setGroupExpanded(group, groupToggle.getAttribute("aria-expanded") !== "true");
+          const expanded = groupToggle.getAttribute("aria-expanded") !== "true";
+          if (expanded) userCollapsed.delete(group);
+          else userCollapsed.add(group);
+          setGroupExpanded(group, expanded);
         });
-      } else if (currentGroup) {
+      } else if (heading.tagName === "H3" && headings[i + 1]?.tagName === "H4" && currentGroup) {
         const item = document.createElement("li");
-        item.className = "page-toc-item";
-        item.append(link);
+        item.className = "page-toc-member-group";
+        const row = document.createElement("div");
+        row.className = "page-toc-member-group-row";
+        const groupToggle = document.createElement("button");
+        groupToggle.type = "button";
+        groupToggle.className = "page-toc-member-group-toggle";
+        const groupId = `page-toc-member-group-${tocGroups.length + 1}`;
+        groupToggle.setAttribute("aria-controls", groupId);
+        groupToggle.innerHTML = '<span aria-hidden="true"></span><span class="sr-only"></span>';
+        row.append(groupToggle, link);
+        const children = document.createElement("ol");
+        children.id = groupId;
+        item.append(row, children);
         currentGroup.list.append(item);
+        group = { title: link.textContent, list: children, toggle: groupToggle, item, expanded: true, subgroups: [], parent: currentGroup };
+        currentMemberGroup = group;
+        currentGroup.subgroups.push(group);
+        tocGroups.push(group);
+        setGroupExpanded(group, true);
+        groupToggle.addEventListener("click", () => {
+          const expanded = groupToggle.getAttribute("aria-expanded") !== "true";
+          if (expanded) userCollapsed.delete(group);
+          else userCollapsed.add(group);
+          setGroupExpanded(group, expanded);
+        });
       } else {
+        if (heading.tagName === "H3") currentMemberGroup = null;
         const item = document.createElement("li");
         item.className = "page-toc-item";
         item.append(link);
-        tocList.append(item);
+        if (currentMemberGroup || currentGroup) (currentMemberGroup || currentGroup).list.append(item);
+        else tocList.append(item);
+        group = currentMemberGroup || currentGroup;
       }
-      tocTargets.push([target, link, currentGroup]);
+      tocTargets.push([target, link, group]);
     }
   }
   if (!tocTargets.length) {
@@ -773,9 +808,12 @@
     });
     tocPin?.addEventListener("click", () => setTocPinned(!toc.classList.contains("is-pinned")));
     tocExpandAll?.addEventListener("click", () => {
+      userCollapsed.clear();
       for (const group of tocGroups) setGroupExpanded(group, true);
     });
     tocCollapseAll?.addEventListener("click", () => {
+      userCollapsed.clear();
+      for (const group of tocGroups) userCollapsed.add(group);
       for (const group of tocGroups) setGroupExpanded(group, false);
     });
   }
@@ -793,7 +831,11 @@
         else link.removeAttribute("aria-current");
       }
       if (activeEntry?.group) {
-        for (const group of tocGroups) setGroupExpanded(group, group === activeEntry.group);
+        let g = activeEntry.group;
+        while (g) {
+          if (!userCollapsed.has(g)) setGroupExpanded(g, true);
+          g = g.parent;
+        }
       }
     }, { rootMargin: "-80px 0px -65% 0px" });
     for (const [target] of tocTargets) observer.observe(target);
