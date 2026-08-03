@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Return the flattened float32 signal pool paired with peaklet_waveforms. Configure waveform construction on peaklet_waveforms.
+Return the pool produced alongside the canonical peaklet waveform index.
+
 | Item | Value |
 | --- | --- |
 | Provides | `peaklet_waveform_pool` |

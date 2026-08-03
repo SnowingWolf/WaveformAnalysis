@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Extract waveforms from raw CSV files and structure them into NumPy structured arrays.
+Plugin to extract and structure waveforms from raw files.
+
 | Item | Value |
 | --- | --- |
 | Provides | `st_waveforms` |
@@ -31,6 +33,9 @@ Extract waveforms from raw CSV files and structure them into NumPy structured ar
 | - | - | - | - | No declared inputs. |
 ### How It Works
 
+1. 从原始 CSV 文件中提取波形数据并结构化为 NumPy 结构化数组
+2. 合并了原来的 WaveformsPlugin 和 StWaveformsPlugin 功能： 1. 读取并解析原始 CSV 文件，提取每个通道的波形数据 2. 将波形数据结构化为包含时间戳、基线、通道号和波形数据的结构化数组
+3. 使用文件级扁平化并行处理： - 所有文件统一进入并行池解析（通过 n_jobs 控制） - 解析完成后按通道聚合
 
 ## Configuration
 
@@ -48,7 +53,7 @@ Extract waveforms from raw CSV files and structure them into NumPy structured ar
 | `streaming_mode` | `bool` | `False` | - | no | no | Enable streaming mode: read files and structure waveforms incrementally to reduce memory usage. When enabled, uses memmap for output to avoid full vstack memory overhead. |
 ## Output
 
-structured_array output with fields: baseline, baseline_upstream, polarity, timestamp, record_id, dt, event_length, board, channel, wave.
+structured_array output with fields: baseline, baseline_upstream, polarity, timestamp, record_id, dt, event_length, board, ....
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |

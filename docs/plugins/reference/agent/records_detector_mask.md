@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Bool mask for detector-channel records after channel-role splitting.
+Bool mask for records that should enter normal detector hit finding.
+
 | Item | Value |
 | --- | --- |
 | Provides | `records_detector_mask` |

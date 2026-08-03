@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Complete event reconstruction from S1-S2 pairs and position
+完整事件重建插件
+
 | Item | Value |
 | --- | --- |
 | Provides | `events` |
@@ -32,6 +34,8 @@ Complete event reconstruction from S1-S2 pairs and position
 | `position_reconstruction` | - | declared | - | Reconstruct 3D position from S1-S2 pairs using vectorized CoG method |
 ### How It Works
 
+1. 执行完整事件重建
+2. v0.0.0 实现: 1. 关联 pairs 和 positions（通过 pair_id） 2. 复制基本特征 3. 设置拓扑特征占位值 4. 应用简单质量标志
 
 ## Configuration
 

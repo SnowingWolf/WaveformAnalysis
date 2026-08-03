@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion.
+Build ragged waveform index rows for peaklets and cache the signal pool.
+
 | Item | Value |
 | --- | --- |
 | Provides | `peaklet_waveforms` |

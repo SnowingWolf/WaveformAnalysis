@@ -523,3 +523,14 @@ body.docs-page a:focus-visible, body.docs-page button:focus-visible, body.docs-p
 .page-toc-member-group-row { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; }.page-toc-member-group-row > a { color: var(--doc-ink); font-size: 12px; font-weight: 700; font-family: ui-monospace, monospace; }.page-toc-member-group-toggle { width: 18px; height: 22px; padding: 0; border-color: transparent; background: transparent; color: var(--doc-muted); }.page-toc-member-group-toggle > span:first-child { width: 6px; height: 6px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-2px); }.page-toc-member-group-toggle[aria-expanded="false"] > span:first-child { transform: rotate(-45deg); }.page-toc-member-group > ol { margin: 1px 0 2px 12px; padding-left: 9px; border-left: 1px solid var(--doc-line); }
 @media (max-width: 860px) { .page-toc { display: none; } }
 @media (max-width: 860px) { .site-tree-heading .site-tree-visibility-toggle { display: none; } }
+
+/* Semantic scoring badges: colour communicates readiness at a glance on the
+   plugin index instead of forcing readers to parse the raw number. */
+.metric-badge { transition: border-color .12s ease, background .12s ease, color .12s ease; }
+.metric-badge--high { border-color: color-mix(in srgb, #2e7d32 30%, var(--doc-line)); background: color-mix(in srgb, #e8f5e9 82%, var(--doc-surface)); color: #1b5e20; }
+.metric-badge--mid { border-color: color-mix(in srgb, #9a6700 32%, var(--doc-line)); background: color-mix(in srgb, #fff8e1 82%, var(--doc-surface)); color: #7a5200; }
+.metric-badge--low { border-color: color-mix(in srgb, #c62828 28%, var(--doc-line)); background: color-mix(in srgb, #fdecea 80%, var(--doc-surface)); color: #9b1c1c; }
+html[data-theme="dark"] .metric-badge--high { background: color-mix(in srgb, #1b3a1f 65%, var(--doc-surface)); color: #7fd18a; }
+html[data-theme="dark"] .metric-badge--mid { background: color-mix(in srgb, #3a3017 65%, var(--doc-surface)); color: #e0bf6e; }
+html[data-theme="dark"] .metric-badge--low { background: color-mix(in srgb, #3a1c1c 65%, var(--doc-surface)); color: #ef9a9a; }
+.plugin-card:hover .metric-badge { filter: saturate(1.06); }

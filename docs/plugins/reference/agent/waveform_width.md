@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Calculate rise/fall time based on peak detection results.
+波形宽度计算插件 - 基于峰值检测结果计算上升/下降时间。
+
 | Item | Value |
 | --- | --- |
 | Provides | `waveform_width` |
@@ -31,6 +33,8 @@ Calculate rise/fall time based on peak detection results.
 | - | - | - | - | No declared inputs. |
 ### How It Works
 
+1. 计算波形宽度特征
+2. 基于 HitFinderPlugin 的峰值检测结果，计算每个峰值的上升/下降时间。
 
 ## Configuration
 

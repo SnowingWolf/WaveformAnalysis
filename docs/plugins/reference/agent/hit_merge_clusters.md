@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Export cluster membership rows using the authoritative hit_merged configuration.
+Internal flat cluster membership for hit merge outputs.
+
 | Item | Value |
 | --- | --- |
 | Provides | `hit_merge_clusters` |

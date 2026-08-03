@@ -490,7 +490,12 @@ class PluginDocGenerator:
             dependency_fields=agent_doc["dependency_fields"],
         )
         output_summary = self._output_summary(plugin, output_kind, output_fields, description)
-        workflow_steps = agent_doc["workflow_steps"]
+        workflow_steps = agent_doc["workflow_steps"] or self._derive_workflow_steps(plugin)
+        derived_overview, derived_overview_paragraphs = self._derive_overview(plugin)
+        overview = agent_doc["overview"] or derived_overview
+        overview_paragraphs = agent_doc["overview_paragraphs"] or (
+            [overview] if overview else derived_overview_paragraphs
+        )
         execution_chain = self._build_execution_chain(
             depends_on,
             provides,
@@ -528,8 +533,8 @@ class PluginDocGenerator:
             downstream_consumers=agent_doc["downstream_consumers"],
             downstream_notes=agent_doc["downstream_notes"],
             agent_change_notes=agent_doc["agent_change_notes"],
-            overview=agent_doc["overview"],
-            overview_paragraphs=agent_doc["overview_paragraphs"],
+            overview=overview,
+            overview_paragraphs=overview_paragraphs,
             usage_example=usage_example,
             documentation_status=agent_doc["documentation_status"],
         )
@@ -632,6 +637,69 @@ class PluginDocGenerator:
         if paragraph:
             narrative.append(" ".join(paragraph))
         return [note for note in narrative if note][:3]
+
+    @staticmethod
+    def _compute_docstring(plugin: Any) -> str:
+        """Return the cleaned compute docstring, or "" when absent."""
+        compute = type(plugin).__dict__.get("compute")
+        if compute is None or compute.__doc__ is None:
+            return ""
+        return inspect.cleandoc(compute.__doc__)
+
+    @staticmethod
+    def _docstring_narrative(doc: str) -> list[str]:
+        """Split cleaned docstring prose (before any section marker) into paragraphs."""
+        section_header = re.compile(
+            r"^(Args|Arguments|Parameters|Returns|Raises|Examples|Yields|Notes):\s*$",
+            re.IGNORECASE,
+        )
+        steps: list[str] = []
+        paragraph: list[str] = []
+        for raw_line in doc.splitlines():
+            line = raw_line.strip()
+            if section_header.match(line):
+                break
+            if not line:
+                if paragraph:
+                    steps.append(" ".join(paragraph))
+                    paragraph = []
+                continue
+            paragraph.append(line)
+        if paragraph:
+            steps.append(" ".join(paragraph))
+        return [step for step in steps if step]
+
+    @staticmethod
+    def _derive_workflow_steps(plugin: Any) -> list[str]:
+        """Derive ordered "How It Works" steps from the compute docstring prose.
+
+        Only the narrative preceding section markers (Args/Returns/...) is used; each
+        narrative clause becomes a distinct, ordered step. A missing compute docstring
+        yields no steps, so plugins whose narrative is authored elsewhere (agent_doc /
+        published YAML) are never disturbed.
+        """
+        compute_doc = PluginDocGenerator._compute_docstring(plugin)
+        if not compute_doc:
+            return []
+        return PluginDocGenerator._docstring_narrative(compute_doc)[:5]
+
+    @staticmethod
+    def _derive_overview(plugin: Any) -> tuple[str, list[str]]:
+        """Derive an overview from the plugin class docstring when none is published.
+
+        Returns ``(overview, overview_paragraphs)``. The first non-empty paragraph of
+        the class docstring becomes the overview sentence; multi-paragraph docstrings
+        are additionally exposed as separate overview paragraphs. Returns empty values
+        when the class has no docstring so authored narrative always wins.
+        """
+        doc = inspect.cleandoc(type(plugin).__doc__ or "")
+        if not doc:
+            return "", []
+        paragraphs = [p.strip() for p in doc.split("\n\n") if p.strip()]
+        if not paragraphs:
+            return "", []
+        overview = paragraphs[0].replace("\n", " ")
+        return overview, [paragraph.replace("\n", " ") for paragraph in paragraphs]
 
     @staticmethod
     def _has_dynamic_dependencies(plugin: Any) -> bool:
@@ -1385,18 +1453,14 @@ class PluginDocGenerator:
             edges.append(
                 {
                     "data": {
-                        "id": (
-                            f"edge::{index}::{edge.source_port_id}::{edge.target_port_id}"
-                        ),
+                        "id": (f"edge::{index}::{edge.source_port_id}::{edge.target_port_id}"),
                         "source_node_id": edge.source_node_id,
                         "source_port_id": edge.source_port_id,
                         "target_node_id": edge.target_node_id,
                         "target_port_id": edge.target_port_id,
                         "dtype": edge.dtype,
                         "category": _classify_edge_category(edge.dtype),
-                        "kind": self._lineage_edge_kind(
-                            edge.source_node_id, edge.target_node_id
-                        ),
+                        "kind": self._lineage_edge_kind(edge.source_node_id, edge.target_node_id),
                         "style": wire_style,
                     }
                 }
@@ -1429,8 +1493,7 @@ class PluginDocGenerator:
             raise ValueError("Context factory must return a Context with registered plugins")
 
         self._plugins = [
-            (plugin.__class__, plugin)
-            for _provides, plugin in sorted(context_plugins.items())
+            (plugin.__class__, plugin) for _provides, plugin in sorted(context_plugins.items())
         ]
         dependencies: dict[str, list[str]] = {}
         for provides in context_plugins:

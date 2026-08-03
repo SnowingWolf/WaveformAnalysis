@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Return per-peaklet component hit_merged indices.
+Return flat peaklet-to-hit_merged membership rows.
+
 | Item | Value |
 | --- | --- |
 | Provides | `peaklet_components` |

@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Reconstruct 3D position from S1-S2 pairs using vectorized CoG method
+位置重建插件（向量化优化版本）
+
 | Item | Value |
 | --- | --- |
 | Provides | `position_reconstruction` |
@@ -31,6 +33,9 @@ Reconstruct 3D position from S1-S2 pairs using vectorized CoG method
 | `s1_s2_pairs` | - | declared | - | Select best S1-S2 pairs from candidates |
 ### How It Works
 
+1. 执行位置重建（向量化优化版本）
+2. v0.2.0 实现: 1. 筛选 selected=True 的配对 2. 加载 PMT 几何布局 3. 计算 Z 坐标（向量化） 4. 计算 XY 坐标（批量向量化） 5. 设置质量标志位（向量化）
+3. 性能优化： - 所有数组操作使用 NumPy 向量化 - 批量处理，避免 Python 循环 - 预计算映射表 - 典型加速比：10-100x
 
 ## Configuration
 

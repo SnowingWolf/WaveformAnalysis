@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Detect peaks in waveforms and extract peak features.
+峰值检测插件 - 基于波形检测峰值并计算峰值特征。
+
 | Item | Value |
 | --- | --- |
 | Provides | `hit` |
@@ -31,6 +33,8 @@ Detect peaks in waveforms and extract peak features.
 | - | - | - | - | No declared inputs. |
 ### How It Works
 
+1. 从波形中检测峰值
+2. 使用配置的参数检测每个事件中的峰值，计算峰值特征 （位置、高度、积分、边缘等）。
 
 ## Configuration
 

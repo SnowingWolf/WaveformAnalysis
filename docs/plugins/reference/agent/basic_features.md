@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Compute basic height, amplitude, area, and max-abs-diff features from waveform data.
+Plugin to compute basic height/area features from structured waveforms.
+
 | Item | Value |
 | --- | --- |
 | Provides | `basic_features` |
@@ -31,6 +33,9 @@ Compute basic height, amplitude, area, and max-abs-diff features from waveform d
 | - | - | - | - | No declared inputs. |
 ### How It Works
 
+1. 计算基础特征（height/amp/area/max_abs_diff）
+2. 使用逐条处理模式，支持任意长度波形，不使用 padding。
+3. height = baseline - min(wave)  (信号偏离基线的幅度) amp = max - min  (峰峰值振幅) area = sum(baseline - wave)  (不包含 padding) max_abs_diff = max(abs(diff(wave)))
 
 ## Configuration
 

@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Event-wise integral quantile width using st_waveforms or filtered_waveforms.
+事件级积分分位数宽度 (Event-wise Integral Quantile Width)。
+
 | Item | Value |
 | --- | --- |
 | Provides | `waveform_width_integral` |

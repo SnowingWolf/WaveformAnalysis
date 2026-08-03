@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
+Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
+
 | Item | Value |
 | --- | --- |
 | Provides | `hit_threshold` |

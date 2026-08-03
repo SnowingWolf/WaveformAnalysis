@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Select best S1-S2 pairs from candidates
+S1-S2 配对选择插件
+
 | Item | Value |
 | --- | --- |
 | Provides | `s1_s2_pairs` |
@@ -31,6 +33,8 @@ Select best S1-S2 pairs from candidates
 | `s1_s2_pair_candidates` | - | declared | - | Generate all physically allowed S1-S2 pairing candidates |
 ### How It Works
 
+1. 选择最佳配对
+2. 算法: 1. 获取候选 2. 过滤不满足物理约束的候选 (S1_area < S2_area) 3. 计算 score (根据 selection_mode) 4. 为每个 S2 选择最优 S1 5. 设置 selected flag 6. 计算 delta_score_to_next_best 7. 计算 rank_for_s2 8. 标记 CLOSE_COMPETITOR
 
 ## Configuration
 

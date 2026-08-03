@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Compute per-hit_merged local waveform features from records-backed samples.
+Compute local single-channel waveform features for every hit_merged row.
+
 | Item | Value |
 | --- | --- |
 | Provides | `hit_merged_features` |

@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Return per-cluster component hit indices for hit_merged rows.
+Return flat component hit indices for each hit_merged cluster.
+
 | Item | Value |
 | --- | --- |
 | Provides | `hit_merged_components` |

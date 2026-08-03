@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Bool mask for waveform asymmetry selection.
+Return a bool mask aligned with the original records array.
+
 | Item | Value |
 | --- | --- |
 | Provides | `records_asymmetry_mask` |

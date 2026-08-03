@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Analyze cache usage and return summary, entries, and diagnostics.
+Analyze cache usage and return a structured report.
+
 | Item | Value |
 | --- | --- |
 | Provides | `cache_analysis` |

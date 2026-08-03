@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Classify peaks into S1/S2 using multi-dimensional features.
+基于 peaks 特征进行 S1/S2 分类。
+
 | Item | Value |
 | --- | --- |
 | Provides | `peak_classification` |

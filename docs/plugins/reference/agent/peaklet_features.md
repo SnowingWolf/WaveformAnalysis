@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Compute peaklet waveform features from ragged signal pools.
+Compute waveform-derived features from ragged peaklet waveforms.
+
 | Item | Value |
 | --- | --- |
 | Provides | `peaklet_features` |

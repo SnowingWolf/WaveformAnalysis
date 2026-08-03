@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Build filtered wave_pool from records-backed raw waveforms.
+Build a filtered wave_pool aligned to the existing records layout.
+
 | Item | Value |
 | --- | --- |
 | Provides | `wave_pool_filtered` |

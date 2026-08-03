@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Bool mask for veto-channel records after channel-role splitting.
+Bool mask for records that should be held out as veto channels.
+
 | Item | Value |
 | --- | --- |
 | Provides | `records_veto_mask` |

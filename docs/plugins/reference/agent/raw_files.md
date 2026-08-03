@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Scan the data directory and group raw CSV files by channel number.
+Plugin to find raw CSV files.
+
 | Item | Value |
 | --- | --- |
 | Provides | `raw_files` |
@@ -31,6 +33,8 @@ Scan the data directory and group raw CSV files by channel number.
 | - | - | - | - | No declared inputs. |
 ### How It Works
 
+1. 扫描数据目录并按通道分组原始 CSV 文件
+2. 从配置的数据目录中查找指定运行的所有原始波形文件，并按通道号分组。 支持 DAQ 集成，可以直接从 DAQ 元数据中获取文件列表。 支持通过 daq_adapter 参数指定 DAQ 适配器来处理不同格式。 通道选择由 DAQ 适配器或 DAQ 元数据决定，不再通过插件配置裁剪。
 
 ## Configuration
 

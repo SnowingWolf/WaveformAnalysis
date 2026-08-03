@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Build the initial single-channel events DataFrame.
+Plugin to build the initial single-channel events DataFrame.
+
 | Item | Value |
 | --- | --- |
 | Provides | `df` |
@@ -31,6 +33,8 @@ Build the initial single-channel events DataFrame.
 | - | - | - | - | No declared inputs. |
 ### How It Works
 
+1. 构建单通道事件的 DataFrame
+2. 整合结构化波形与 height/area 特征，构建包含所有事件信息的 pandas DataFrame。
 
 ## Configuration
 

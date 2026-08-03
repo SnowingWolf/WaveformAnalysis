@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Aggregate hit_merged_features into per-peaklet channel contribution rows.
+Expand peaklets into per-board/channel contribution rows.
+
 | Item | Value |
 | --- | --- |
 | Provides | `peaklet_channels` |
