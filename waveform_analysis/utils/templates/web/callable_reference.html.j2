@@ -6,6 +6,7 @@
 {% set body_class = "docs-page docs-detail" %}
 {% set layout_class = "doc-layout" %}
 {% set current = current_section %}
+{% set load_mermaid = page.has_mermaid %}
 {% set active_accessor = "records-view" if page.slug == "records-view" else none %}
 {% set site_home_href = "../index.html" %}
 {% set plugin_index_href = "../plugins/index.html" %}

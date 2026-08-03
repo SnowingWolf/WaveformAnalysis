@@ -19,6 +19,8 @@
     </figure>
   {% elif block.kind == "mathml" %}
     <div class="math-block">{{ block.mathml | mathml }}</div>
+  {% elif block.kind == "mermaid" %}
+    <div class="mermaid-block" data-mermaid-block><pre class="mermaid-source"><code>{{ block.mermaid }}</code></pre><div class="mermaid-render" data-mermaid-render aria-label="Mermaid 图表"></div><p class="mermaid-error" data-mermaid-error hidden>图表渲染失败，已保留 Mermaid 源码。</p></div>
   {% elif block.kind == "table" %}
     <div class="table-wrapper"><table><thead><tr>{% for header in block.table_headers %}<th scope="col">{{ header | inline_code }}</th>{% endfor %}</tr></thead><tbody>{% for row in block.table_rows %}<tr>{% for cell in row %}<td>{{ cell | inline_code }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
   {% endif %}

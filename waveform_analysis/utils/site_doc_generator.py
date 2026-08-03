@@ -48,7 +48,7 @@ from waveform_analysis.utils.visualization.waveform_visualizer import (
 )
 
 _CONTENT_BLOCK_KINDS = frozenset(
-    {"heading", "paragraph", "list", "note", "code", "image", "mathml", "table"}
+    {"heading", "paragraph", "list", "note", "code", "image", "mathml", "table", "mermaid"}
 )
 _MATHML_TAGS = frozenset(
     {
@@ -193,6 +193,7 @@ class DocumentationContentBlock:
     image_alt: str = ""
     image_caption: str = ""
     mathml: str = ""
+    mermaid: str = ""
     table_headers: tuple[str, ...] = ()
     table_rows: tuple[tuple[str, ...], ...] = ()
 
@@ -225,6 +226,8 @@ class DocumentationContentBlock:
             if not self.mathml:
                 raise ValueError("A MathML content block requires mathml")
             _safe_mathml(self.mathml)
+        if self.kind == "mermaid" and not self.mermaid:
+            raise ValueError("A mermaid content block requires mermaid source")
         if self.kind == "table":
             if not self.table_headers:
                 raise ValueError("A table content block requires table_headers")
@@ -365,6 +368,9 @@ class CallableDocumentationPageView:
     groups: tuple[tuple[CallableDocumentationGroup, tuple[CallableDocumentationView, ...]], ...]
     narrative_sections: tuple[ContentDocumentationSection, ...] = ()
     href: str = ""
+    has_mermaid: bool = False
+    related_guide_href: str = ""
+    related_guide_label: str = ""
 
 
 ACCESSOR_DOCUMENTATION_REGISTRY = (
@@ -1444,8 +1450,10 @@ RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                         '读取滤波波形时设置 wave_pool_name="wave_pool_filtered"。',
                     ),
                     example=(
+                        "# 从 Context-like source 构造视图；默认读取原始 wave_pool\n"
                         "from waveform_analysis.core.data import records_view\n\n"
-                        'rv = records_view(ctx, "run_001")\n'
+                        'rv = records_view(ctx, "run_001")\n\n'
+                        "# 切换为滤波波形池（与同一 records 对齐）\n"
                         "filtered = records_view(\n"
                         '    ctx, "run_001", wave_pool_name="wave_pool_filtered"\n'
                         ")"
@@ -1478,8 +1486,11 @@ RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                         "baseline_correct=True 时默认输出 float32。",
                     ),
                     example=(
+                        "# 取首条记录的 record_id（不能用 records 数组行号）\n"
                         'record_id = int(rv.records[0]["record_id"])\n'
+                        "# 限定采样窗口读取单条原始波形\n"
                         "wave = rv.waves(record_id, sample_start=40, sample_end=120)\n"
+                        "# 批量读取并对齐到统一长度；mask 标记有效行\n"
                         "waves, valid = rv.waves([record_id], pad_to=256, mask=True)"
                     ),
                 ),
@@ -1506,7 +1517,9 @@ RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                         "records 不含 polarity 字段时保留 baseline 校正后的方向。",
                     ),
                     example=(
+                        "# baseline 校正与极性归一化后的信号\n"
                         "signal = rv.signals(record_id, sample_start=40, sample_end=120)\n"
+                        "# 批量读取信号，并对齐到统一长度\n"
                         "signals, valid = rv.signals([record_id], pad_to=256, mask=True)"
                     ),
                 ),
@@ -1524,7 +1537,9 @@ RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     "共享原 records 数据的 structured array 切片。",
                     notes=("该方法只筛选 records 元数据；随后用返回行中的 record_id 读取波形。",),
                     example=(
+                        "# 在 timestamp 排序的 records 中选择闭区间\n"
                         "subset = rv.query_time_window(t_min=0, t_max=1_000_000)\n"
+                        "# 用返回行中的 record_id 读取波形\n"
                         'waves = rv.waves(subset["record_id"], mask=True)'
                     ),
                 ),
@@ -1537,14 +1552,18 @@ RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
             title="数据模型与不变量",
             blocks=(
                 DocumentationContentBlock(
-                    kind="code",
-                    language="text",
-                    code=(
-                        "records[i]\n"
-                        "  board, channel, timestamp, baseline, polarity, ...\n"
-                        "  wave_offset, event_length\n"
-                        "             |\n"
-                        "             +--> wave_pool[wave_offset : wave_offset + event_length]"
+                    kind="mermaid",
+                    mermaid=(
+                        "flowchart LR\n"
+                        '  rec["records[i]"]\n'
+                        '  meta["board, channel,<br/>timestamp, baseline,<br/>polarity, ..."]\n'
+                        '  bounds["wave_offset,<br/>event_length"]\n'
+                        '  pool["wave_pool<br/>一维连续样本池"]\n'
+                        '  slice["wave_pool[wave_offset :<br/>wave_offset + event_length]"]\n'
+                        "  rec --> meta\n"
+                        "  rec --> bounds\n"
+                        "  bounds -->|切片定位| slice\n"
+                        "  slice --> pool"
                     ),
                 ),
                 DocumentationContentBlock(
@@ -1639,6 +1658,7 @@ RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     kind="code",
                     language="python",
                     code=(
+                        "# 切换 records 插件到 st_waveforms 输入源\n"
                         "ctx.set_config(\n"
                         '    {"input_source": "st_waveforms"},\n'
                         '    plugin_name="records",\n'
@@ -1668,16 +1688,18 @@ RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
             title="共享构建与缓存",
             blocks=(
                 DocumentationContentBlock(
-                    kind="code",
-                    language="text",
-                    code=(
-                        "Context request records or wave_pool\n"
-                        "        |\n"
-                        "        v\n"
-                        "get_records_bundle(run_id)\n"
-                        "        |\n"
-                        "        +-- cache hit --> reuse RecordsBundle\n"
-                        "        +-- miss --> build pair --> publish records and wave_pool"
+                    kind="mermaid",
+                    mermaid=(
+                        "flowchart TD\n"
+                        '  req["Context 请求 records 或 wave_pool"]\n'
+                        '  bundle["get_records_bundle(run_id)"]\n'
+                        '  hit["cache hit: 复用 RecordsBundle"]\n'
+                        '  miss["cache miss: 构建配对"]\n'
+                        '  publish["publish records 与 wave_pool"]\n'
+                        "  req --> bundle\n"
+                        "  bundle --> hit\n"
+                        "  bundle --> miss\n"
+                        "  miss --> publish"
                     ),
                 ),
                 DocumentationContentBlock(
@@ -1695,17 +1717,6 @@ RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
             title="公开访问与派生波形池",
             blocks=(
                 DocumentationContentBlock(
-                    kind="code",
-                    language="python",
-                    code=(
-                        "from waveform_analysis.core.data import records_view\n\n"
-                        'rv = records_view(ctx, "run_001")\n'
-                        'record_id = int(rv.records[0]["record_id"])\n'
-                        "raw_wave = rv.waves(record_id)\n"
-                        "signal = rv.signals(record_id, sample_start=40, sample_end=120)"
-                    ),
-                ),
-                DocumentationContentBlock(
                     kind="paragraph",
                     text=(
                         "`records_view` 按稳定 `record_id` 回切 `wave_offset:event_length`，"
@@ -1719,6 +1730,20 @@ RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                         "`wave_pool_filtered` 与同一 records 保持布局对齐；通过 "
                         '`records_view(ctx, run_id, wave_pool_name="wave_pool_filtered")` 选择它，'
                         "不会改变 record 元数据或索引关系。"
+                    ),
+                ),
+                DocumentationContentBlock(
+                    kind="code",
+                    language="python",
+                    code=(
+                        "# 选择滤波后的派生波形池；与同一 records 布局对齐\n"
+                        "from waveform_analysis.core.data import records_view\n\n"
+                        "rv = records_view(\n"
+                        '    ctx, "run_001", wave_pool_name="wave_pool_filtered"\n'
+                        ")\n\n"
+                        "# 批量读取前若干条 record 的滤波波形\n"
+                        'record_ids = rv.records["record_id"][:32]\n'
+                        "waves, valid = rv.waves(record_ids, pad_to=256, mask=True)"
                     ),
                 ),
             ),
@@ -2383,6 +2408,11 @@ class DocumentationSiteGenerator:
                 for item in group.members
             )
             groups.append((group, members))
+        has_mermaid = any(
+            block.kind == "mermaid"
+            for section in spec.narrative_sections
+            for block in section.blocks
+        )
         return CallableDocumentationPageView(
             slug=spec.slug,
             title=spec.title,
@@ -2391,6 +2421,7 @@ class DocumentationSiteGenerator:
             introduction=spec.introduction,
             groups=tuple(groups),
             narrative_sections=spec.narrative_sections,
+            has_mermaid=has_mermaid,
         )
 
     @staticmethod
@@ -2745,6 +2776,8 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
                 page=records_view_page,
                 current_section="contexts",
                 index_title="Context 与适配器",
+                related_guide_href="../architecture/data-products.html",
+                related_guide_label="数据产物与波形访问（架构文档）",
             ),
             encoding="utf-8",
         )

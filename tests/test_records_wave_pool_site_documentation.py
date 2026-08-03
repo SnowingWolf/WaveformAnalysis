@@ -33,8 +33,11 @@ def test_site_web_includes_records_wave_pool_design_reference(tmp_path):
     assert 'window.location.replace("records-view.html#data-model")' in legacy_page
     assert (
         '<a class="inline-reference-link" href="../architecture/data-products.html">'
-        not in records_view
+        in records_view
     )
+    assert "data-mermaid-block" in records_view
+    assert records_view.count('class="mermaid-block"') >= 2
+    assert "assets/mermaid/mermaid.min.js" in records_view
     assert "RecordsBundle" in guide_page
     assert "wave_pool_filtered" in guide_page
     assert "contexts/records-view.html#input-routing" in {entry["url"] for entry in search_entries}
