@@ -373,6 +373,43 @@ class CallableDocumentationPageView:
     related_guide_label: str = ""
 
 
+@dataclass(frozen=True)
+class AccessorSelectionGuideItem:
+    name: str
+    slug: str
+    entry: str
+    question: str
+    scenario: str
+    route: str = ""
+
+
+# accessors/ 下全部 Accessor 页面；RecordsView 位于 contexts/，route 指向其真实页面。
+ACCESSOR_SELECTION_GUIDE = (
+    AccessorSelectionGuideItem(
+        name="PeakChannelAccessor",
+        slug="peak-channel-accessor",
+        entry="`peak_id`",
+        question="一个 peak 由哪些通道构成？各通道的特征和波形是什么？",
+        scenario="通道级排查：查看单 peak 的逐通道面积、高度、占比与波形。",
+    ),
+    AccessorSelectionGuideItem(
+        name="S1S2PairAccessor",
+        slug="s1-s2-pair-accessor",
+        entry="`source` + `mask()` 组合筛选",
+        question="哪些 S1/S2 配对被选中？它们的波形和位置是什么？",
+        scenario="事件级分析：按漂移时间、面积比、标志位筛选配对并读取波形。",
+    ),
+    AccessorSelectionGuideItem(
+        name="RecordsView",
+        slug="records-view",
+        entry="`record_id`",
+        question="如何按稳定 record_id 读取原始或滤波波形？",
+        scenario="records-backed 波形访问：窗口切片、批量填充与信号极性统一处理。",
+        route="../contexts/records-view.html",
+    ),
+)
+
+
 ACCESSOR_DOCUMENTATION_REGISTRY = (
     AccessorDocumentationSpec(
         accessor_class=PeakChannelAccessor,
@@ -1560,37 +1597,66 @@ RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
             ),
         ),
         ContentDocumentationSection(
-            anchor="ownership",
-            title="组件与公开边界",
+            anchor="downstream-access",
+            title="公开访问与派生波形池",
             blocks=(
-                DocumentationContentBlock(
-                    kind="table",
-                    table_headers=("组件", "职责", "下游边界"),
-                    table_rows=(
-                        (
-                            "`RecordsBundle(records, wave_pool)`",
-                            "一次构建期间共享成对结果",
-                            "内部缓存对象，不是下游依赖",
-                        ),
-                        (
-                            "`RecordsBundleRef`",
-                            "临时 memmap 分片引用与超大数据构建能力",
-                            "不是常规插件输出契约",
-                        ),
-                        ("`RecordsPlugin`", "发布元数据侧", "正式 `records` 产物"),
-                        ("`WavePoolPlugin`", "发布采样侧", "正式 `wave_pool` 产物"),
-                        (
-                            "`records_view(ctx, run_id)`",
-                            "组合正式产物进行 record 访问",
-                            "推荐波形访问接口",
-                        ),
-                    ),
-                ),
                 DocumentationContentBlock(
                     kind="paragraph",
                     text=(
-                        "下游插件应声明 `records`、`wave_pool` 或与 records 对齐的派生产物；"
-                        "不得依赖 `RecordsBundle` 或 `_records_bundle-*` 内部缓存键。"
+                        "`records_view` 按稳定 `record_id` 回切 `wave_offset:event_length`，"
+                        "`signals(...)` 再依据 records 的 `polarity` 统一信号方向。"
+                    ),
+                ),
+                DocumentationContentBlock(
+                    kind="note",
+                    title="滤波波形",
+                    text=(
+                        "`wave_pool_filtered` 与同一 records 保持布局对齐；通过 "
+                        '`records_view(ctx, run_id, wave_pool_name="wave_pool_filtered")` 选择它，'
+                        "不会改变 record 元数据或索引关系。"
+                    ),
+                ),
+                DocumentationContentBlock(
+                    kind="code",
+                    language="python",
+                    code=(
+                        "# 选择滤波后的派生波形池；与同一 records 布局对齐\n"
+                        "from waveform_analysis.core.data import records_view\n\n"
+                        "rv = records_view(\n"
+                        '    ctx, "run_001", wave_pool_name="wave_pool_filtered"\n'
+                        ")\n\n"
+                        "# 批量读取前若干条 record 的滤波波形\n"
+                        'record_ids = rv.records["record_id"][:32]\n'
+                        "waves, valid = rv.waves(record_ids, pad_to=256, mask=True)"
+                    ),
+                ),
+            ),
+        ),
+        ContentDocumentationSection(
+            anchor="shared-cache",
+            title="共享构建与缓存",
+            blocks=(
+                DocumentationContentBlock(
+                    kind="mermaid",
+                    mermaid=(
+                        "flowchart TD\n"
+                        '  req["Context 请求 records 或 wave_pool"]\n'
+                        '  bundle["get_records_bundle(run_id)"]\n'
+                        '  hit["cache hit: 复用 RecordsBundle"]\n'
+                        '  miss["cache miss: 构建配对"]\n'
+                        '  publish["publish records 与 wave_pool"]\n'
+                        "  req --> bundle\n"
+                        "  bundle --> hit\n"
+                        "  bundle --> miss\n"
+                        "  miss --> publish"
+                    ),
+                ),
+                DocumentationContentBlock(
+                    kind="list",
+                    items=(
+                        "内部 bundle 仅在当前 Context 会话复用；正式 `records` 与 `wave_pool` 可由存储后端持久化。",
+                        "请求任一正式产物后再请求另一个，会复用同一 bundle，避免重复读取原始文件。",
+                        "构建语义、读取器行为或影响输出内容的 tracked 配置变化必须升级两个插件的版本，以失效旧 lineage。",
                     ),
                 ),
             ),
@@ -1650,66 +1716,37 @@ RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
             ),
         ),
         ContentDocumentationSection(
-            anchor="shared-cache",
-            title="共享构建与缓存",
+            anchor="ownership",
+            title="组件与公开边界",
             blocks=(
                 DocumentationContentBlock(
-                    kind="mermaid",
-                    mermaid=(
-                        "flowchart TD\n"
-                        '  req["Context 请求 records 或 wave_pool"]\n'
-                        '  bundle["get_records_bundle(run_id)"]\n'
-                        '  hit["cache hit: 复用 RecordsBundle"]\n'
-                        '  miss["cache miss: 构建配对"]\n'
-                        '  publish["publish records 与 wave_pool"]\n'
-                        "  req --> bundle\n"
-                        "  bundle --> hit\n"
-                        "  bundle --> miss\n"
-                        "  miss --> publish"
+                    kind="table",
+                    table_headers=("组件", "职责", "下游边界"),
+                    table_rows=(
+                        (
+                            "`RecordsBundle(records, wave_pool)`",
+                            "一次构建期间共享成对结果",
+                            "内部缓存对象，不是下游依赖",
+                        ),
+                        (
+                            "`RecordsBundleRef`",
+                            "临时 memmap 分片引用与超大数据构建能力",
+                            "不是常规插件输出契约",
+                        ),
+                        ("`RecordsPlugin`", "发布元数据侧", "正式 `records` 产物"),
+                        ("`WavePoolPlugin`", "发布采样侧", "正式 `wave_pool` 产物"),
+                        (
+                            "`records_view(ctx, run_id)`",
+                            "组合正式产物进行 record 访问",
+                            "推荐波形访问接口",
+                        ),
                     ),
                 ),
-                DocumentationContentBlock(
-                    kind="list",
-                    items=(
-                        "内部 bundle 仅在当前 Context 会话复用；正式 `records` 与 `wave_pool` 可由存储后端持久化。",
-                        "请求任一正式产物后再请求另一个，会复用同一 bundle，避免重复读取原始文件。",
-                        "构建语义、读取器行为或影响输出内容的 tracked 配置变化必须升级两个插件的版本，以失效旧 lineage。",
-                    ),
-                ),
-            ),
-        ),
-        ContentDocumentationSection(
-            anchor="downstream-access",
-            title="公开访问与派生波形池",
-            blocks=(
                 DocumentationContentBlock(
                     kind="paragraph",
                     text=(
-                        "`records_view` 按稳定 `record_id` 回切 `wave_offset:event_length`，"
-                        "`signals(...)` 再依据 records 的 `polarity` 统一信号方向。"
-                    ),
-                ),
-                DocumentationContentBlock(
-                    kind="note",
-                    title="滤波波形",
-                    text=(
-                        "`wave_pool_filtered` 与同一 records 保持布局对齐；通过 "
-                        '`records_view(ctx, run_id, wave_pool_name="wave_pool_filtered")` 选择它，'
-                        "不会改变 record 元数据或索引关系。"
-                    ),
-                ),
-                DocumentationContentBlock(
-                    kind="code",
-                    language="python",
-                    code=(
-                        "# 选择滤波后的派生波形池；与同一 records 布局对齐\n"
-                        "from waveform_analysis.core.data import records_view\n\n"
-                        "rv = records_view(\n"
-                        '    ctx, "run_001", wave_pool_name="wave_pool_filtered"\n'
-                        ")\n\n"
-                        "# 批量读取前若干条 record 的滤波波形\n"
-                        'record_ids = rv.records["record_id"][:32]\n'
-                        "waves, valid = rv.waves(record_ids, pad_to=256, mask=True)"
+                        "下游插件应声明 `records`、`wave_pool` 或与 records 对齐的派生产物；"
+                        "不得依赖 `RecordsBundle` 或 `_records_bundle-*` 内部缓存键。"
                     ),
                 ),
             ),
@@ -2649,7 +2686,10 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
         generated["SITE_INDEX"] = home_path
         accessor_index = accessor_dir / "index.html"
         accessor_index.write_text(
-            env.get_template("web/accessor_index.html.j2").render(accessors=views),
+            env.get_template("web/accessor_index.html.j2").render(
+                accessors=views,
+                selection_guide=ACCESSOR_SELECTION_GUIDE,
+            ),
             encoding="utf-8",
         )
         generated["ACCESSOR_INDEX"] = accessor_index
