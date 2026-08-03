@@ -19,8 +19,8 @@
 .wfa-flow-canvas { position: relative; height: clamp(540px, 68vh, 820px); min-height: 540px; border: 1px solid #d2ded8; background: #fbfdfc; overflow: hidden; }
 .wfa-flow-canvas > .react-flow { position: absolute; inset: 0; z-index: 2; }
 .wfa-flow-wires { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-.wfa-flow-wire-halo { fill: none; stroke: #f7faf8; stroke-width: 7px; stroke-linecap: round; stroke-linejoin: round; opacity: .95; vector-effect: non-scaling-stroke; }
-.wfa-flow-wire { fill: none; stroke: #526a5f; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 1px 1px rgb(23 63 49 / 16%)); vector-effect: non-scaling-stroke; }
+.wfa-flow-wire-halo { fill: none; stroke: #f7faf8; stroke-width: 7px; stroke-linecap: round; stroke-linejoin: round; opacity: .95; }
+.wfa-flow-wire { fill: none; stroke: #526a5f; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 1px 1px rgb(23 63 49 / 16%)); }
 .wfa-flow-wire--main { filter: drop-shadow(0 1px 2px rgb(23 63 49 / 24%)); }
 .wfa-flow-node { box-sizing: border-box; width: 100%; height: 100%; overflow: visible; border: 2px solid var(--node-border); border-radius: 4px; background: var(--node-background); color: #202724; cursor: pointer; font-size: 12px; line-height: 1.2; }
 .wfa-flow-node.is-lineage-virtual { border-style: dashed; }
