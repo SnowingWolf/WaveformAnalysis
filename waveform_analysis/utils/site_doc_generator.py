@@ -416,25 +416,6 @@ ACCESSOR_DOCUMENTATION_REGISTRY = (
         ),
         narrative_sections=(
             AccessorNarrativeSection(
-                anchor="typical-applications",
-                title="典型应用",
-                blocks=(
-                    DocumentationContentBlock(
-                        kind="paragraph", text="`PeakChannelAccessor` 主要适用于以下任务："
-                    ),
-                    DocumentationContentBlock(
-                        kind="list",
-                        items=(
-                            "找出单个 peak 中面积或高度贡献最大的通道；",
-                            "根据 `area_fraction` 判断信号在不同通道之间的分布；",
-                            "排查异常通道、异常 hit 或波形形状；",
-                            "比较多个候选通道的时间结构；",
-                            "对照框架生成的 peak 求和波形与通道波形叠加结果。",
-                        ),
-                    ),
-                ),
-            ),
-            AccessorNarrativeSection(
                 anchor="channel-identification",
                 title="字段来源与计算口径",
                 blocks=(
