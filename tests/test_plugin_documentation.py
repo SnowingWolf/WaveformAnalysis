@@ -219,12 +219,8 @@ def test_context_lineage_payload_reuses_port_level_web_contract():
     assert nodes["context_target"]["summary"] == TargetPlugin.description
     assert edge["source_node_id"] == "context_source"
     assert edge["target_node_id"] == "context_target"
-    assert edge["source_port_id"] in {
-        port["id"] for port in nodes["context_source"]["out_ports"]
-    }
-    assert edge["target_port_id"] in {
-        port["id"] for port in nodes["context_target"]["in_ports"]
-    }
+    assert edge["source_port_id"] in {port["id"] for port in nodes["context_source"]["out_ports"]}
+    assert edge["target_port_id"] in {port["id"] for port in nodes["context_target"]["in_ports"]}
 
 
 def test_context_lineage_payload_marks_virtual_nodes():
@@ -406,8 +402,7 @@ def test_global_lineage_exposes_react_flow_metadata():
         if source in overview
     }
     assert {
-        (edge["source_node_id"], edge["target_node_id"])
-        for edge in overview_edges
+        (edge["source_node_id"], edge["target_node_id"]) for edge in overview_edges
     } == expected_pairs
 
 
@@ -787,6 +782,14 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert result["CONTEXT_INDEX"] == tmp_path / "contexts" / "index.html"
     assert result["ADAPTER_INDEX"] == tmp_path / "adapters" / "index.html"
     assert result["VISUALIZATION_INDEX"] == tmp_path / "visualizations" / "index.html"
+    assert "guide-index:guides" not in result
+    assert result["guide-index:architecture"] == tmp_path / "architecture" / "index.html"
+    assert "guide:docs/user-guide/QUICKSTART_GUIDE.md" not in result
+    assert not (tmp_path / "guides").exists()
+    assert result["asset:mermaid/mermaid.min.js"] == (
+        tmp_path / "assets" / "mermaid" / "mermaid.min.js"
+    )
+    assert result["asset:mermaid/MERMAID-LICENSE.txt"].is_file()
     assert result["context:context"] == tmp_path / "contexts" / "context.html"
     assert result["adapter:adapter"] == tmp_path / "adapters" / "adapter.html"
     assert {path.name for key, path in result.items() if key.startswith("visualization:")} == {
@@ -803,6 +806,7 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
         "site.js",
         "search-index.js",
         "lineage-graph.json",
+        "mermaid",
         "react",
     }
     assert {path.name for path in (tmp_path / "assets").iterdir()} == expected_assets
@@ -824,11 +828,17 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     site_css = (tmp_path / "assets" / "site.css").read_text(encoding="utf-8")
     site_js = (tmp_path / "assets" / "site.js").read_text(encoding="utf-8")
     search_index = (tmp_path / "assets" / "search-index.js").read_text(encoding="utf-8")
+    architecture_page = result["guide:docs/architecture/ARCHITECTURE.md"].read_text(
+        encoding="utf-8"
+    )
     assert 'href="plugins/index.html"' in home
     assert 'href="accessors/index.html"' in home
     assert 'href="contexts/context.html"' in home
     assert 'href="adapters/adapter.html"' in home
     assert 'href="visualizations/index.html"' in home
+    assert "用户指南" not in home
+    assert "系统架构与数据模型" in home
+    assert 'href="guides/quickstart.html"' not in home
     assert 'id="context-and-plugin"' in home
     assert "Context 调度，Plugin 产出数据" in home
     assert 'id="minimal-workflow"' in home
@@ -854,7 +864,8 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "Context 与适配器" in plugin_page
     assert 'href="../contexts/index.html">Context 与适配器</a>' in plugin_page
     assert 'aria-controls="tree-architecture"' in plugin_page
-    assert plugin_page.index("Context 与适配器") < plugin_page.index("插件系统")
+    sidebar_tree = plugin_page.split('<ul class="site-tree-list">', 1)[1]
+    assert sidebar_tree.index("Context 与适配器") < sidebar_tree.index("插件系统")
     assert "不保存隐式当前运行" in home
     assert "依赖、执行与 DAG" in context_page
     assert "Context 与适配器" in context_index_page
@@ -869,10 +880,11 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "records_view" in adapter_index_page
     assert "plot_lineage" in context_page
     assert "labview" in context_page
-    assert (
-        '<span class="k">class</span><span class="w"> </span>'
-        '<span class="nc">Context</span>'
-    ) in context_page
+    assert re.search(
+        r'<span class="k">class</span>\s*(?:<span class="w"> </span>\s*)?'
+        r'<span class="nc">Context</span>',
+        context_page,
+    )
     assert "推荐使用流程" in adapter_page
     assert "Context.get_adapter_info" in adapter_page
     assert "Context.get_resolved_config" in adapter_page
@@ -896,17 +908,31 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "返回值" in peak_accessor_page
     assert "使用注意" in peak_accessor_page
     assert 'class="site-tree" id="site-navigation"' in peak_accessor_page
-    assert 'class="page-toc" aria-label="本页目录"' in peak_accessor_page
+    assert 'class="page-toc" id="page-toc" aria-label="本页目录"' in peak_accessor_page
     assert 'href="../index.html">文档概览</a>' in peak_accessor_page
-    assert "data-page-toc" in peak_accessor_page
+    assert "data-page-toc-toggle" in peak_accessor_page
+    assert "data-page-toc-pin" in peak_accessor_page
+    assert "data-page-toc-expand-all" in peak_accessor_page
+    assert "data-page-toc-collapse-all" in peak_accessor_page
+    assert "pin-icon--fixed" in peak_accessor_page
     assert 'class="site-tree" id="site-navigation"' in plugin_page
-    assert 'class="page-toc" aria-label="本页目录"' in plugin_page
-    assert "data-page-toc" in plugin_page
+    assert 'class="page-toc" id="page-toc" aria-label="本页目录"' in plugin_page
+    assert "data-page-toc-toggle" in plugin_page
+    assert "data-page-toc-pin" in plugin_page
+    assert "data-tree-visibility-toggle" in architecture_page
+    assert "data-doc-nav-restore" in architecture_page
+    assert 'aria-controls="tree-guide-architecture"' in architecture_page
+    assert 'href="../plugins/overview.html">插件系统</a>' in architecture_page
+    assert "data-page-toc-toggle" in home
+    assert "data-page-toc-pin" in context_index_page
+    assert "data-page-toc" not in lineage_page
     assert 'nav.classList.toggle("is-open", open)' in site_js
     assert "<code>peak_id</code>" in peak_accessor_page
-    assert (
-        '<h3><code>plot</code></h3><pre class="code-block member-signature language-python"><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>'
-        in (peak_accessor_page)
+    assert re.search(
+        r'<h3><code>plot</code></h3><pre class="code-block member-signature language-python">'
+        r'<code><span class="k">def</span>\s*(?:<span class="w"> </span>\s*)?'
+        r'<span class="nf">plot</span><span class="p">\(</span>',
+        peak_accessor_page,
     )
     assert '<pre class="code-block language-python"><code><span class="kn">from</span>' in (
         peak_accessor_page
@@ -940,14 +966,38 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert '"url":"accessors/peak-channel-accessor.html#overview"' in search_index
     assert '"url":"contexts/context.html#dag-and-execution"' in search_index
     assert '"url":"visualizations/statistical-plots.html#statistical-plots"' in search_index
+    assert '"url":"guides/quickstart.html"' not in search_index
+    assert '"url":"guides/index.html"' not in search_index
+    assert '"url":"architecture/system.html"' in search_index
+    assert '"url":"architecture/plugin-dag-lineage-cache.html"' in search_index
+    assert '"url":"architecture/data-products.html"' in search_index
+    assert '"url":"architecture/records-wave-pool.html"' in search_index
+    assert '"url":"architecture/accessor-analysis.html"' in search_index
+    assert '"url":"architecture/multi-run-processing.html"' in search_index
+    assert '"url":"architecture/data-access.html"' not in search_index
+    assert "assets/mermaid/mermaid.min.js?v=" in architecture_page
+    assert "data-mermaid-block" in architecture_page
     assert "data-doc-nav-open" in site_js
     assert "data-theme-toggle" in site_js
     assert "data-tree-toggle" in site_js
+    assert "waveform-docs-navigation-hidden" in site_js
+    assert "restoreNavigation" in site_js
     assert "data-page-toc" in site_js
+    assert "page-toc-group-toggle" in site_js
+    assert "setTocPinned" in site_js
+    assert "data-page-toc-expand-all" in site_js
+    assert "data-page-toc-collapse-all" in site_js
+    assert ".doc-layout.is-navigation-hidden" in site_css
+    assert ".doc-layout.is-navigation-hidden .docs-main" in site_css
+    assert ".site-nav-restore" in site_css
+    assert ".page-toc.is-open" in site_css
     assert "docs-page--lineage" in lineage_page
     assert "Context 与适配器" in root_lineage_page
     assert "Accessor 接口" in root_lineage_page
-    assert "href=\"lineage.html\" aria-current=\"page\"" in root_lineage_page
+    # The DAG remains available from the plugin index, but is intentionally not
+    # duplicated as a standalone sidebar item.
+    assert 'href="lineage.html">独立查看</a>' in plugin_index
+    assert 'href="lineage.html" aria-current="page"' not in root_lineage_page
     assert "docs-main--wide" in plugin_index
     lineage_page = result["LINEAGE_INDEX"].read_text(encoding="utf-8")
     assert "data-react-lineage" in lineage_page
@@ -982,6 +1032,13 @@ def test_site_web_assets_are_available_over_http_for_root_and_nested_pages(tmp_p
             "visualizations/index.html",
             "visualizations/statistical-plots.html",
             "visualizations/waveform-plots.html",
+            "architecture/index.html",
+            "architecture/system.html",
+            "architecture/plugin-dag-lineage-cache.html",
+            "architecture/data-products.html",
+            "architecture/records-wave-pool.html",
+            "architecture/accessor-analysis.html",
+            "architecture/multi-run-processing.html",
         )
         for page in pages:
             with urlopen(urljoin(base_url, page)) as response:
@@ -993,13 +1050,14 @@ def test_site_web_assets_are_available_over_http_for_root_and_nested_pages(tmp_p
                 "Context",
                 "DAQ 适配器",
                 "插件系统",
-                "插件参考",
+                "插件系统",
                 "Accessor 接口",
                 "PeakChannelAccessor",
                 "S1S2PairAccessor",
                 "可视化",
                 "统计图",
                 "波形图",
+        "系统架构与数据模型",
             ):
                 assert navigation_label in html
             assert "index.htmlstatistical-plots.html" not in html

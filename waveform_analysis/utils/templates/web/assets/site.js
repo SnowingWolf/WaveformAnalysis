@@ -467,6 +467,12 @@
     scroll.scrollTop = Math.max(0, box.y * scaleY - (scroll.clientHeight - box.height * scaleY) / 2);
   }
 
+  const readStorage = (key) => {
+    try { return localStorage.getItem(key); } catch (_) { return null; }
+  };
+  const writeStorage = (key, value) => {
+    try { localStorage.setItem(key, value); } catch (_) {}
+  };
   const nav = document.querySelector("[data-doc-nav]");
   const navOpen = document.querySelector("[data-doc-nav-open]");
   const navClose = nav?.querySelector("[data-doc-nav-close]");
@@ -477,18 +483,78 @@
     if (open) navClose?.focus();
     else navOpen.focus();
   };
-  navOpen?.addEventListener("click", () => setNavigation(true));
+  const layout = nav?.parentElement;
+  const navRestore = document.querySelector("[data-doc-nav-restore]");
+  const setNavigationVisibility = (hidden) => {
+    if (!layout || !navOpen) return;
+    layout.classList.toggle("is-navigation-hidden", hidden);
+    document.body.classList.toggle("is-navigation-hidden", hidden);
+    const label = hidden ? "显示文档导航" : "打开文档导航";
+    navOpen.title = label;
+    navOpen.setAttribute("aria-label", label);
+    navOpen.querySelector("span:last-child").textContent = hidden ? "显示目录" : "目录";
+  };
+  const visibilityToggle = nav?.querySelector("[data-tree-visibility-toggle]");
+  const restoreNavigation = () => {
+    setNavigationVisibility(false);
+    visibilityToggle?.setAttribute("aria-pressed", "false");
+    if (visibilityToggle) {
+      visibilityToggle.title = "隐藏文档导航";
+      visibilityToggle.querySelector(".sr-only").textContent = visibilityToggle.title;
+    }
+    writeStorage("waveform-docs-navigation-hidden", "false");
+  };
+  if (layout && visibilityToggle) {
+    const storageKey = "waveform-docs-navigation-hidden";
+    const setVisibilityToggle = (hidden) => {
+      visibilityToggle.setAttribute("aria-pressed", String(hidden));
+      const label = hidden ? "显示文档导航" : "隐藏文档导航";
+      visibilityToggle.title = label;
+      visibilityToggle.querySelector(".sr-only").textContent = label;
+    };
+    const hidden = readStorage("waveform-docs-navigation-hidden") === "true";
+    setNavigationVisibility(hidden);
+    setVisibilityToggle(hidden);
+    visibilityToggle.addEventListener("click", () => {
+      const nextHidden = !layout.classList.contains("is-navigation-hidden");
+      setNavigationVisibility(nextHidden);
+      setVisibilityToggle(nextHidden);
+      writeStorage(storageKey, String(nextHidden));
+    });
+  }
+  navOpen?.addEventListener("click", () => {
+    if (layout?.classList.contains("is-navigation-hidden")) {
+      restoreNavigation();
+    } else {
+      setNavigation(true);
+    }
+  });
+  navRestore?.addEventListener("click", restoreNavigation);
   navClose?.addEventListener("click", () => setNavigation(false));
   for (const toggle of document.querySelectorAll("[data-tree-toggle]")) {
     const target = document.getElementById(toggle.getAttribute("aria-controls"));
     if (!target) continue;
+    const storageKey = `waveform-docs-tree:${target.id}`;
+    const containsCurrentPage = Boolean(target.querySelector('[aria-current="page"]'));
+    const stored = readStorage(storageKey);
+    const expanded = containsCurrentPage || stored !== "false";
+    toggle.setAttribute("aria-expanded", String(expanded));
+    target.hidden = !expanded;
+    const setTitle = (nextExpanded) => {
+      const label = toggle.closest(".site-tree-group")?.querySelector(".site-tree-group-row")?.textContent?.trim() || "分组";
+      const action = nextExpanded ? "折叠" : "展开";
+      toggle.title = `${action} ${label}`;
+      toggle.querySelector(".sr-only").textContent = `${action} ${label}`;
+    };
+    setTitle(expanded);
     toggle.addEventListener("click", () => {
       const expanded = toggle.getAttribute("aria-expanded") !== "true";
       toggle.setAttribute("aria-expanded", String(expanded));
       target.hidden = !expanded;
+      writeStorage(storageKey, String(expanded));
+      setTitle(expanded);
     });
   }
-
   const themeToggle = document.querySelector("[data-theme-toggle]");
   const syncThemeToggle = () => {
     const dark = document.documentElement.dataset.theme === "dark";
@@ -501,7 +567,40 @@
     document.documentElement.dataset.theme = next;
     try { localStorage.setItem("waveform-docs-theme", next); } catch (_) {}
     syncThemeToggle();
+    if (document.querySelector("[data-mermaid-block]")) window.location.reload();
   });
+
+  const mermaidBlocks = [...document.querySelectorAll("[data-mermaid-block]")];
+  if (mermaidBlocks.length) {
+    if (!window.mermaid) {
+      for (const block of mermaidBlocks) block.querySelector("[data-mermaid-error]").hidden = false;
+    } else {
+      window.mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+        suppressErrorRendering: true,
+        theme: document.documentElement.dataset.theme === "dark" ? "dark" : "default",
+      });
+      mermaidBlocks.forEach(async (block, index) => {
+        const source = block.querySelector(".mermaid-source");
+        const target = block.querySelector("[data-mermaid-render]");
+        const error = block.querySelector("[data-mermaid-error]");
+        try {
+          const result = await window.mermaid.render(
+            `waveform-mermaid-${index}`,
+            source.textContent,
+          );
+          target.innerHTML = result.svg;
+          result.bindFunctions?.(target);
+          source.hidden = true;
+          block.classList.add("is-rendered");
+        } catch (renderError) {
+          error.hidden = false;
+          console.error("Unable to render Mermaid diagram", renderError);
+        }
+      });
+    }
+  }
 
   const dialog = document.querySelector("[data-search-dialog]");
   const openSearch = document.querySelector("[data-search-open]");
@@ -559,14 +658,44 @@
 
   const toc = document.querySelector("[data-page-toc]");
   const tocList = toc?.querySelector("ol");
+  const tocToggle = toc?.querySelector("[data-page-toc-toggle]");
+  const tocPin = toc?.querySelector("[data-page-toc-pin]");
+  const tocExpandAll = toc?.querySelector("[data-page-toc-expand-all]");
+  const tocCollapseAll = toc?.querySelector("[data-page-toc-collapse-all]");
   const slugify = (value, fallback) => {
     const normalized = value.toLocaleLowerCase().trim().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-+|-+$/g, "");
     return normalized || fallback;
   };
   const tocTargets = [];
+  const tocGroups = [];
+  const setTocOpen = (open) => {
+    if (!toc || !tocToggle) return;
+    toc.classList.toggle("is-open", open);
+    tocToggle.setAttribute("aria-expanded", String(open));
+    tocToggle.title = open ? "收起本页目录" : "显示本页目录";
+    tocToggle.querySelector(".sr-only").textContent = tocToggle.title;
+  };
+  const setTocPinned = (pinned) => {
+    if (!toc || !tocPin) return;
+    toc.classList.toggle("is-pinned", pinned);
+    tocPin.setAttribute("aria-pressed", String(pinned));
+    tocPin.title = pinned ? "取消固定目录" : "固定目录";
+    tocPin.querySelector(".sr-only").textContent = tocPin.title;
+    if (pinned) setTocOpen(true);
+  };
+  const setGroupExpanded = (group, expanded) => {
+    if (!group) return;
+    group.list.hidden = !expanded;
+    group.toggle.setAttribute("aria-expanded", String(expanded));
+    group.toggle.title = expanded ? `折叠 ${group.title}` : `展开 ${group.title}`;
+    group.toggle.querySelector(".sr-only").textContent = group.toggle.title;
+  };
   if (tocList) {
     const usedIds = new Set([...document.querySelectorAll("[id]")].map((element) => element.id));
-    for (const heading of document.querySelectorAll(".reference h2, .reference h3")) {
+    let currentGroup;
+    const headings = [...document.querySelectorAll(".docs-main h2, .docs-main h3, .docs-main h4")]
+      .filter((heading) => !heading.closest(".resource-card, .lineage-section, .page-heading"));
+    for (const heading of headings) {
       const section = heading.closest("section[id], article[id]");
       let target = heading.tagName === "H2" && section ? section : heading;
       if (!target.id) {
@@ -577,7 +706,6 @@
         target.id = id;
         usedIds.add(id);
       }
-      const item = document.createElement("li");
       const link = document.createElement("a");
       link.href = `#${target.id}`;
       link.dataset.tocLevel = heading.tagName.slice(1);
@@ -587,24 +715,93 @@
         target.scrollIntoView({ behavior: "smooth", block: "start" });
         history.replaceState(null, "", `#${target.id}`);
       });
-      item.append(link);
-      tocList.append(item);
-      tocTargets.push([target, link]);
+      if (heading.tagName === "H2") {
+        const item = document.createElement("li");
+        item.className = "page-toc-group";
+        const row = document.createElement("div");
+        row.className = "page-toc-group-row";
+        const groupToggle = document.createElement("button");
+        groupToggle.type = "button";
+        groupToggle.className = "page-toc-group-toggle";
+        const groupId = `page-toc-group-${tocGroups.length + 1}`;
+        groupToggle.setAttribute("aria-controls", groupId);
+        groupToggle.innerHTML = '<span aria-hidden="true"></span><span class="sr-only"></span>';
+        row.append(groupToggle, link);
+        const children = document.createElement("ol");
+        children.id = groupId;
+        item.append(row, children);
+        tocList.append(item);
+        const group = { title: link.textContent, list: children, toggle: groupToggle, item };
+        currentGroup = group;
+        tocGroups.push(group);
+        setGroupExpanded(group, tocGroups.length === 1);
+        groupToggle.addEventListener("click", () => {
+          setGroupExpanded(group, groupToggle.getAttribute("aria-expanded") !== "true");
+        });
+      } else if (currentGroup) {
+        const item = document.createElement("li");
+        item.className = "page-toc-item";
+        item.append(link);
+        currentGroup.list.append(item);
+      } else {
+        const item = document.createElement("li");
+        item.className = "page-toc-item";
+        item.append(link);
+        tocList.append(item);
+      }
+      tocTargets.push([target, link, currentGroup]);
     }
+  }
+  if (!tocTargets.length) {
+    if (toc) toc.hidden = true;
+  } else if (toc) {
+    setTocOpen(false);
+    setTocPinned(false);
+    toc.addEventListener("mouseenter", () => setTocOpen(true));
+    toc.addEventListener("mouseleave", () => {
+      if (!toc.classList.contains("is-pinned")) setTocOpen(false);
+    });
+    toc.addEventListener("focusin", () => setTocOpen(true));
+    toc.addEventListener("focusout", () => {
+      window.setTimeout(() => {
+        if (!toc.contains(document.activeElement) && !toc.classList.contains("is-pinned")) setTocOpen(false);
+      }, 0);
+    });
+    tocToggle?.addEventListener("click", () => {
+      setTocPinned(!toc.classList.contains("is-pinned"));
+      if (!toc.classList.contains("is-pinned")) setTocOpen(false);
+    });
+    tocPin?.addEventListener("click", () => setTocPinned(!toc.classList.contains("is-pinned")));
+    tocExpandAll?.addEventListener("click", () => {
+      for (const group of tocGroups) setGroupExpanded(group, true);
+    });
+    tocCollapseAll?.addEventListener("click", () => {
+      for (const group of tocGroups) setGroupExpanded(group, false);
+    });
   }
   if (tocTargets.length && window.IntersectionObserver) {
     const tocLinks = tocTargets.map(([, link]) => link);
-    const byId = new Map(tocTargets.map(([target, link]) => [target.id, link]));
+    const byId = new Map(tocTargets.map(([target, link, group]) => [target.id, { link, group }]));
     const observer = new IntersectionObserver((entries) => {
       const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
       if (!visible) return;
+      const activeEntry = byId.get(visible.target.id);
       for (const link of tocLinks) {
-        const active = link === byId.get(visible.target.id);
+        const active = link === activeEntry?.link;
         link.classList.toggle("is-active", active);
         if (active) link.setAttribute("aria-current", "location");
         else link.removeAttribute("aria-current");
       }
+      if (activeEntry?.group) {
+        for (const group of tocGroups) setGroupExpanded(group, group === activeEntry.group);
+      }
     }, { rootMargin: "-80px 0px -65% 0px" });
     for (const [target] of tocTargets) observer.observe(target);
   }
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && toc?.classList.contains("is-open") && !toc.classList.contains("is-pinned")) {
+      setTocOpen(false);
+      tocToggle?.blur();
+    }
+  });
 })();

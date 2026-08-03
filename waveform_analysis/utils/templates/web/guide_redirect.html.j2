@@ -1,0 +1,12 @@
+{% extends "web/base.html.j2" %}
+{% set page_title = title ~ " | WaveformAnalysis" %}
+{% set body_class = "docs-page" %}
+{% set current = "guide" %}
+{% block document %}
+<main class="docs-main">
+  <nav class="breadcrumbs" aria-label="面包屑"><a href="{{ site_home_href }}">文档概览</a><span aria-current="page">{{ title }}</span></nav>
+  <header class="page-heading"><p class="eyebrow">文档地址已更新</p><h1>{{ title }}</h1><p>该设计正文现在直接从 Markdown 真源生成。</p></header>
+  <p><a class="button-link" href="{{ target_href }}">打开最新页面</a></p>
+  <script>window.location.replace({{ target_href | tojson }});</script>
+</main>
+{% endblock %}

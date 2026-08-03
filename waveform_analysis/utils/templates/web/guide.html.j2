@@ -1,0 +1,13 @@
+{% extends "web/base.html.j2" %}
+{% set page_title = page.title ~ " | WaveformAnalysis" %}
+{% set body_class = "docs-page docs-detail docs-guide" %}
+{% set layout_class = "doc-layout" %}
+{% set current = "guide" %}
+{% set current_guide_route = page.route %}
+{% set load_mermaid = page.has_mermaid %}
+{% block document %}
+<main class="reference docs-main guide-article">
+  <nav class="breadcrumbs" aria-label="面包屑"><a href="{{ site_home_href }}">文档概览</a><a href="{{ section_index_href }}">{{ section.title }}</a><span aria-current="page">{{ page.title }}</span></nav>
+  <article class="markdown-body">{{ page.html }}</article>
+</main>
+{% endblock %}

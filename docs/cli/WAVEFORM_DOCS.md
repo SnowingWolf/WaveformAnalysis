@@ -133,6 +133,44 @@ waveform-docs generate site-web
 需要保留的手工文件。运行中的 `waveform-docs serve` 无需重启，后续请求会读取新发布的文件。
 该服务对 HTML、JSON、脚本和样式统一发送禁缓存响应头，避免浏览器或转发层继续复用旧页面。
 
+`site-web` 还会读取 `docs/site-guides.yaml`，把显式收录的 Markdown 渲染进同一 HTML 外壳，
+并同步加入左侧分类导航与全站搜索。清单当前发布 11 篇核心正文：5 篇用户指南，以及系统架构、
+Plugin DAG/动态依赖/lineage/缓存、数据产物、Records + WavePool、Accessor 分析和多 Run 处理
+6 篇架构文档。Markdown 文件是正文唯一真源；生成的 HTML 只负责统一发布，不应手工维护同一份正文。
+
+清单使用 `schema_version: 1`，每个分类声明 `id`、`title`、`index_route` 与显式 `pages`：
+
+```yaml
+schema_version: 1
+sections:
+  - id: guides
+    title: 用户指南
+    index_route: guides/index.html
+    pages:
+      - source: docs/user-guide/QUICKSTART_GUIDE.md
+        route: guides/quickstart.html
+```
+
+`source` 必须是 `docs/` 内存在的 Markdown 文件，`route` 必须是无 `..` 的相对 `.html` 路径；
+重复 source、重复 route、路径逃逸、缺失资源或与总站已有页面冲突都会阻断生成。清单内页面链接、
+分类索引和插件参考会改写为对应 HTML 地址；仓库内未收录的 Markdown 链接显示为不可点击文本，
+并在命令结束时输出警告。本地图片等资源会复制到 `assets/content/`。
+
+清单中的 Markdown 支持 Mermaid fenced block，包括 `flowchart TD`、子图、边标签和样式：
+
+````markdown
+```mermaid
+flowchart TD
+    RECORDS[records] --> VIEW[RecordsView]
+    VIEW --> WAVE[wave_pool]
+```
+````
+
+站点固定使用本地 Mermaid 11.12.0，不访问 CDN。只有包含 Mermaid block 的页面才加载
+`assets/mermaid/mermaid.min.js`，并以 `securityLevel: "strict"` 渲染。加载或语法解析失败时，
+页面保留原始 Mermaid 源码并显示错误说明；切换明暗主题时该页面会刷新一次，以当前主题重新绘图。
+Mermaid bundle 与 MIT 许可证随站点一起发布。
+
 站点使用本地 MDN 风格的文档外壳：顶部导航、左侧文档树、详情页右侧章节目录，以及窄屏下可
 展开的目录抽屉。所有页面均可打开全站搜索；生成器把插件、Accessor 和主要章节写入本地
 `assets/search-index.js`，因此通过 `file://` 直接打开时也不依赖 `fetch`、CDN 或在线服务。
@@ -220,9 +258,10 @@ pip install jinja2
 pip install -e ".[docgen]"
 ```
 
-`site-web` 的 Accessor、Context 与可视化 Python 示例使用本地 Pygments 生成语法高亮；该依赖包含在
-`docgen` extra 中，不作为 WaveformAnalysis 的主运行时依赖。生成 Accessor 页面时若缺少
-Pygments，命令会明确提示安装 `.[docgen]`。
+`site-web` 使用 Mistune 3 渲染清单中的 Markdown，并使用本地 Pygments 为 Accessor、Context 与
+可视化 Python 示例生成语法高亮；两项 Python 依赖都包含在 `docgen` extra 中，不作为
+WaveformAnalysis 的主运行时依赖。Mermaid 是固定版本的站点前端资产，不需要 Python 包。
+缺少 Python 文档依赖时，命令会明确提示安装 `.[docgen]`。
 
 ---
 

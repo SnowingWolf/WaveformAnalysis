@@ -339,10 +339,16 @@ def generate_site_web(args):
         from waveform_analysis.utils.site_doc_generator import DocumentationSiteGenerator
 
         output_path = Path(args.output or "docs/_site")
-        results = _atomic_generate_site(output_path, DocumentationSiteGenerator())
+        generator = DocumentationSiteGenerator()
+        results = _atomic_generate_site(output_path, generator)
         print("✅ 已生成 WaveformAnalysis HTML 文档总站")
         print(f"   输出目录: {output_path}")
         print(f"   文件数: {len(results)}")
+        guide_warnings = getattr(generator, "guide_warnings", ())
+        if guide_warnings:
+            print(f"   Markdown 链接警告: {len(guide_warnings)}")
+            for warning in guide_warnings:
+                print(f"   ⚠️ {warning}")
         return 0
     except Exception as exc:
         print(f"❌ 生成 HTML 文档总站时出错: {exc}")

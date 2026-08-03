@@ -1,0 +1,42 @@
+# task_report
+
+- `task_id`: `plugin_system_navigation_api_20260731`
+- `route`: `generate_docs`
+- `workflow_cost`: `light`
+- `workflow_shape`: `compact`
+- `scope`: 合并插件系统说明与模板 API，保留内置插件列表独立入口，并维护旧页面 URL 的兼容重定向。
+- `actions_taken`:
+  - 将 `docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md` 扩展为唯一的插件系统与模板 API Markdown 真源，加入系统边界、输出契约、配置、静态/动态依赖、lineage/cache、生命周期和 Chunk Plugin。
+  - 将 canonical 页面发布到 `plugins/overview.html`，内置插件列表继续使用 `plugins/index.html`；移除侧栏重复的插件 DAG、模板 API 独立项和“从浏览到使用”章节。
+  - 保留 `plugins/system.html`、`plugins/template-api.html` 和 `plugins/authoring.html`，统一重定向到 `plugins/overview.html`。
+  - 扩展 Markdown fenced Python 渲染，使用与其他 site-web Python 示例一致的 Pygments 模板；Mermaid 继续使用专用渲染容器。
+  - 更新插件 API、插件开发索引和站点导航测试，删除重复的 `PLUGIN_TEMPLATE_API.md` 正文源。
+- `changed_paths`:
+  - `waveform_analysis/utils/templates/web/base.html.j2`
+  - `waveform_analysis/utils/templates/web/shell.html.j2`
+  - `waveform_analysis/utils/site_doc_generator.py`
+  - `waveform_analysis/utils/site_guides.py`
+  - `docs/site-guides.yaml`
+  - `docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md`
+  - `docs/plugins/README.md`
+  - `docs/api/README.md`
+  - `docs/development/plugin-development/README.md`
+  - `tests/test_plugin_system_navigation.py`
+  - `tests/test_site_plugin_guides_documentation.py`
+  - `tests/test_site_guides.py`
+  - `tests/test_plugin_documentation.py`
+- `verification`:
+  - `PASS`: `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q --no-cov tests/test_plugin_system_navigation.py tests/test_site_plugin_guides_documentation.py tests/test_site_guides.py tests/test_context_plugin_domain.py tests/test_plugin_documentation.py`（54 passed）。
+  - `PASS`: `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m compileall -q waveform_analysis/utils/site_guides.py waveform_analysis/utils/site_doc_generator.py waveform_analysis/core/context_plugins.py`。
+  - `PASS`: `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.utils.cli_docs generate site-web -o docs/_site`（73 files）。
+  - `PASS`: `PATH=/home/wxy/anaconda3/envs/pyroot-kernel/bin:$PATH scripts/check_doc_sync.sh`。
+  - `PASS`: `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py --check-sync --base HEAD`。
+  - `PASS`: `git diff --check`。
+  - `PASS`: 生成 HTML 的 overview 页面包含 8 个二级标题、6 个 Python 高亮代码块和 3 个 Mermaid 图；旧三条页面 URL 均重定向到 overview，搜索索引只保留 canonical 页面。
+- `decision`: `completed`
+- `commit_status`: `未提交：生成器、共享 Web 模板和总站回归测试与既有架构文档刷新重叠；当前 index 还包含 5 个非本轮 staged 变更，直接提交会混入无关范围。`
+- `open_risks`:
+  - 交互式 DAG 页面继续保留为独立诊断工具，未在合并页重复展开其交互说明。
+- `agent_profile`: `none`
+- `profile_plan`: `not_applicable`
+- `agent_profile_review`: `Inline review verified the canonical route, navigation tree, redirect targets, search index, syntax highlighting, Mermaid blocks, Chunk Plugin coverage, and documentation gates.`

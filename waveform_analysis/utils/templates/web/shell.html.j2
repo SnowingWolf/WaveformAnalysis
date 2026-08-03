@@ -1,9 +1,9 @@
-{% macro topbar(site_home_href, plugin_index_href, accessor_index_href, context_index_href, visualization_index_href, current, asset_prefix) -%}
+{% macro topbar(site_home_href, plugin_index_href, plugin_system_href, accessor_index_href, context_index_href, visualization_index_href, current, asset_prefix) -%}
 <header class="site-topbar">
   <a class="site-brand" href="{{ site_home_href }}"><span class="site-brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>WaveformAnalysis</span></a>
   <nav class="site-primary-nav" aria-label="主导航">
     <a href="{{ site_home_href }}"{% if current == "home" %} aria-current="page"{% endif %}>概览</a>
-    <a href="{{ plugin_index_href }}"{% if current == "plugins" %} aria-current="page"{% endif %}>插件参考</a>
+    <a href="{{ plugin_system_href }}"{% if current == "plugin-system" %} aria-current="page"{% endif %}>插件系统</a>
     {% if accessor_index_href %}<a href="{{ accessor_index_href }}"{% if current == "accessors" %} aria-current="page"{% endif %}>Accessor</a>{% endif %}
     {% if context_index_href %}<a href="{{ context_index_href }}"{% if current == "contexts" %} aria-current="page"{% endif %}>Context</a>{% endif %}
     {% if visualization_index_href %}<a href="{{ visualization_index_href }}"{% if current == "visualizations" %} aria-current="page"{% endif %}>可视化</a>{% endif %}
@@ -12,20 +12,22 @@
 </header>
 {%- endmacro %}
 
-{% macro navigation(site_home_href, plugin_index_href, lineage_index_href, accessor_index_href, context_index_href, adapter_index_href, visualization_index_href, visualization_detail_prefix, current, active_accessor, accessor_detail_prefix) -%}
+{% macro navigation(site_home_href, plugin_index_href, plugin_system_href, lineage_index_href, accessor_index_href, context_index_href, adapter_index_href, visualization_index_href, visualization_detail_prefix, current, active_accessor, accessor_detail_prefix, guide_sections, current_guide_route, site_root_prefix) -%}
 <aside class="site-tree" id="site-navigation" data-doc-nav aria-label="文档导航">
-  <div class="site-tree-heading"><span>文档导航</span><button class="site-icon-button" type="button" data-doc-nav-close aria-label="关闭文档导航" title="关闭"><span aria-hidden="true">&times;</span></button></div>
+  <div class="site-tree-heading"><span>文档导航</span><div class="site-tree-heading-actions"><button class="site-tree-visibility-toggle" type="button" data-tree-visibility-toggle aria-pressed="false" title="隐藏文档导航"><span class="sidebar-icon" aria-hidden="true"></span><span class="sr-only">隐藏文档导航</span></button><button class="site-icon-button" type="button" data-doc-nav-close aria-label="关闭文档导航" title="关闭"><span aria-hidden="true">&times;</span></button></div></div>
   <nav aria-label="主文档树">
     <ul class="site-tree-list">
       <li><a href="{{ site_home_href }}"{% if current == "home" %} aria-current="page"{% endif %}>文档概览</a></li>
-      {% if context_index_href %}<li class="site-tree-group"><div class="site-tree-group-row"><a href="{{ context_index_href | replace('context.html', 'index.html') }}">Context 与适配器</a><button class="site-tree-toggle" type="button" data-tree-toggle aria-expanded="true" aria-controls="tree-architecture" title="折叠 Context 与适配器"><span aria-hidden="true"></span><span class="sr-only">折叠 Context 与适配器</span></button></div><ul id="tree-architecture"><li><a href="{{ context_index_href }}"{% if current == "contexts" and active_accessor != "records-view" and active_accessor != "records-wave-pool" %} aria-current="page"{% endif %}>Context</a></li><li><a href="{{ context_index_href | replace('context.html', 'records-wave-pool.html') }}"{% if active_accessor == "records-wave-pool" %} aria-current="page"{% endif %}>Records + WavePool</a></li>{% if adapter_index_href %}<li><a href="{{ adapter_index_href }}"{% if current == "adapters" %} aria-current="page"{% endif %}>DAQ 适配器</a></li>{% endif %}</ul></li>{% endif %}
+      {% for guide_section in guide_sections if guide_section.section_id != "plugin-system" %}<li class="site-tree-group">
+        <div class="site-tree-group-row"><a href="{{ site_root_prefix }}{{ guide_section.index_route }}"{% if current_guide_route == guide_section.index_route %} aria-current="page"{% endif %}>{{ guide_section.title }}</a><button class="site-tree-toggle" type="button" data-tree-toggle aria-expanded="true" aria-controls="tree-guide-{{ guide_section.section_id }}" title="折叠 {{ guide_section.title }}"><span aria-hidden="true"></span><span class="sr-only">折叠 {{ guide_section.title }}</span></button></div>
+        <ul id="tree-guide-{{ guide_section.section_id }}">{% for guide_page in guide_section.pages %}<li><a href="{{ site_root_prefix }}{{ guide_page.route }}"{% if current_guide_route == guide_page.route %} aria-current="page"{% endif %}>{{ guide_page.title }}</a></li>{% endfor %}</ul>
+      </li>{% endfor %}
+      {% if context_index_href %}<li class="site-tree-group"><div class="site-tree-group-row"><a href="{{ context_index_href | replace('context.html', 'index.html') }}">Context 与适配器</a><button class="site-tree-toggle" type="button" data-tree-toggle aria-expanded="true" aria-controls="tree-architecture" title="折叠 Context 与适配器"><span aria-hidden="true"></span><span class="sr-only">折叠 Context 与适配器</span></button></div><ul id="tree-architecture"><li><a href="{{ context_index_href }}"{% if current == "contexts" and active_accessor != "records-view" %} aria-current="page"{% endif %}>Context</a></li>{% if adapter_index_href %}<li><a href="{{ adapter_index_href }}"{% if current == "adapters" %} aria-current="page"{% endif %}>DAQ 适配器</a></li>{% endif %}</ul></li>{% endif %}
       <li class="site-tree-group">
-        <div class="site-tree-group-row"><span>插件系统</span><button class="site-tree-toggle" type="button" data-tree-toggle aria-expanded="true" aria-controls="tree-plugins" title="折叠插件系统"><span aria-hidden="true"></span><span class="sr-only">折叠插件系统</span></button></div>
+        <div class="site-tree-group-row"><a href="{{ plugin_system_href }}"{% if current_guide_route == "plugins/overview.html" %} aria-current="page"{% endif %}>插件系统</a><button class="site-tree-toggle" type="button" data-tree-toggle aria-expanded="true" aria-controls="tree-plugins" title="折叠插件系统"><span aria-hidden="true"></span><span class="sr-only">折叠插件系统</span></button></div>
         <ul id="tree-plugins">
-          <li><a href="{{ plugin_index_href }}"{% if current == "plugins" %} aria-current="page"{% endif %}>插件参考</a></li>
-          <li><a href="{{ lineage_index_href }}"{% if current == "lineage" %} aria-current="page"{% endif %}>插件 DAG</a></li>
-          <li><a href="{{ plugin_index_href | replace('index.html', 'overview.html') }}"{% if current == "plugin-overview" %} aria-current="page"{% endif %}>插件系统介绍</a></li>
-          <li><a href="{{ plugin_index_href | replace('index.html', 'authoring.html') }}"{% if current == "plugin-authoring" %} aria-current="page"{% endif %}>编写插件</a></li>
+          <li><a href="{{ plugin_index_href }}"{% if current == "plugins" %} aria-current="page"{% endif %}>内置插件列表</a></li>
+          <li><a href="{{ plugin_system_href }}"{% if current_guide_route == "plugins/overview.html" %} aria-current="page"{% endif %}>插件系统与模板 API</a></li>
         </ul>
       </li>
       {% if accessor_index_href %}<li class="site-tree-group">
@@ -39,6 +41,16 @@
       {% if visualization_index_href %}<li class="site-tree-group"><div class="site-tree-group-row"><a href="{{ visualization_index_href }}"{% if current == "visualizations" %} aria-current="page"{% endif %}>可视化</a><button class="site-tree-toggle" type="button" data-tree-toggle aria-expanded="true" aria-controls="tree-visualizations" title="折叠可视化"><span aria-hidden="true"></span><span class="sr-only">折叠可视化</span></button></div><ul id="tree-visualizations"><li><a href="{{ visualization_detail_prefix }}statistical-plots.html">统计图</a></li><li><a href="{{ visualization_detail_prefix }}waveform-plots.html">波形图</a></li></ul></li>{% endif %}
     </ul>
   </nav>
+</aside>
+{%- endmacro %}
+
+{% macro page_toc() -%}
+<aside class="page-toc" id="page-toc" aria-label="本页目录" data-page-toc>
+  <button class="page-toc-trigger" type="button" data-page-toc-toggle aria-controls="page-toc-panel" aria-expanded="false" title="显示本页目录"><span class="toc-trigger-icon" aria-hidden="true"></span><span class="sr-only">显示本页目录</span></button>
+  <div class="page-toc-panel" id="page-toc-panel">
+    <div class="page-toc-heading"><p>本文内容</p><div class="page-toc-actions"><button class="page-toc-action" type="button" data-page-toc-expand-all title="展开全部二级目录">展开</button><button class="page-toc-action" type="button" data-page-toc-collapse-all title="折叠全部二级目录">折叠</button><button class="page-toc-pin" type="button" data-page-toc-pin aria-pressed="false" title="固定目录"><span class="pin-icon pin-icon--floating" aria-hidden="true"></span><span class="pin-icon pin-icon--fixed" aria-hidden="true"></span><span class="sr-only">固定目录</span></button></div></div>
+    <ol></ol>
+  </div>
 </aside>
 {%- endmacro %}
 

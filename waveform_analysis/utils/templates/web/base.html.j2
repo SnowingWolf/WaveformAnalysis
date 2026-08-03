@@ -8,13 +8,16 @@
   <script>try { document.documentElement.dataset.theme = localStorage.getItem("waveform-docs-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); } catch (_) {}</script>
   <link rel="stylesheet" href="{{ asset_prefix }}site.css">
   {% if load_lineage %}<link rel="stylesheet" href="{{ asset_prefix }}react/waveform-docs.css{% if react_asset_version %}?v={{ react_asset_version }}{% endif %}"><script defer src="{{ asset_prefix }}react/waveform-docs.js{% if react_asset_version %}?v={{ react_asset_version }}{% endif %}"></script>{% endif %}
+  {% if load_mermaid %}<script defer src="{{ asset_prefix }}mermaid/mermaid.min.js{% if mermaid_asset_version %}?v={{ mermaid_asset_version }}{% endif %}"></script>{% endif %}
   <script defer src="{{ asset_prefix }}site.js"></script>
 </head>
 <body class="{{ body_class }}" data-site-root-prefix="{{ site_root_prefix }}">
-  {{ shell.topbar(site_home_href, plugin_index_href, accessor_index_href, context_index_href|default(none), visualization_index_href|default(none), current, asset_prefix) }}
-  <div class="{{ layout_class|default('site-layout') }}">
-    {{ shell.navigation(site_home_href, plugin_index_href, lineage_index_href|default(plugin_index_href|replace('index.html', 'lineage.html'), true), accessor_index_href, context_index_href|default(none), adapter_index_href|default(none), visualization_index_href|default(none), visualization_detail_prefix|default(visualization_index_href|default("")), current, active_accessor|default(none), accessor_detail_prefix|default("")) }}
+  {{ shell.topbar(site_home_href, plugin_index_href, plugin_system_href|default(plugin_index_href|replace('index.html', 'overview.html'), true), accessor_index_href, context_index_href|default(none), visualization_index_href|default(none), current, asset_prefix) }}
+  <div class="{{ layout_class|default('doc-layout') }}">
+    {{ shell.navigation(site_home_href, plugin_index_href, plugin_system_href|default(plugin_index_href|replace('index.html', 'overview.html'), true), lineage_index_href|default(plugin_index_href|replace('index.html', 'lineage.html'), true), accessor_index_href, context_index_href|default(none), adapter_index_href|default(none), visualization_index_href|default(none), visualization_detail_prefix|default(visualization_index_href|default("")), current, active_accessor|default(none), accessor_detail_prefix|default(""), guide_sections|default(()), current_guide_route|default(none), site_root_prefix) }}
+    <button class="site-nav-restore" type="button" data-doc-nav-restore aria-label="显示文档导航" title="显示文档导航"><span class="sidebar-icon" aria-hidden="true"></span><span class="sr-only">显示文档导航</span></button>
     {% block document %}{% endblock %}
+    {% if show_page_toc|default(true) %}{{ shell.page_toc() }}{% endif %}
   </div>
   {{ shell.footer() }}
   {{ shell.search_dialog(asset_prefix) }}

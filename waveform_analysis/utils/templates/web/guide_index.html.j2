@@ -1,0 +1,12 @@
+{% extends "web/base.html.j2" %}
+{% set page_title = section.title ~ " | WaveformAnalysis" %}
+{% set body_class = "docs-page" %}
+{% set current = "guide" %}
+{% set current_guide_route = section.index_route %}
+{% block document %}
+<main class="docs-main">
+  <nav class="breadcrumbs" aria-label="面包屑"><a href="{{ site_home_href }}">文档概览</a><span aria-current="page">{{ section.title }}</span></nav>
+  <header class="page-heading"><p class="eyebrow">Markdown 指南</p><h1>{{ section.title }}</h1><p>正文来自仓库 Markdown，HTML 页面由 <code>waveform-docs</code> 统一发布。</p></header>
+  <div class="resource-grid">{% for page in section.pages %}<a class="resource-card" href="{{ page.route | guide_relative(section.index_route) }}"><span class="category">{{ section.title }}</span><h2>{{ page.title }}</h2><p>{{ page.summary }}</p><span class="card-link">阅读指南</span></a>{% endfor %}</div>
+</main>
+{% endblock %}

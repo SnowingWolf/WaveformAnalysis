@@ -5,6 +5,7 @@ import hashlib
 import inspect
 import json
 from pathlib import Path, PurePosixPath
+import posixpath
 import re
 import shutil
 from typing import Any
@@ -29,6 +30,12 @@ from waveform_analysis.utils.formats import (
 from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
 from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
 from waveform_analysis.utils.s1_s2_pair_accessor import S1S2PairAccessor
+from waveform_analysis.utils.site_guides import (
+    RenderedGuideSection,
+    RenderedGuideSite,
+    load_guide_manifest,
+    render_guide_manifest,
+)
 from waveform_analysis.utils.visualization.statistical_plots import (
     corner_hist,
     plot_1d_cut_on_corner,
@@ -297,6 +304,15 @@ class AccessorDocumentationView:
 
 
 @dataclass(frozen=True)
+class ContentDocumentationSection:
+    """One curated section in a static conceptual reference page."""
+
+    anchor: str
+    title: str
+    blocks: tuple[DocumentationContentBlock, ...]
+
+
+@dataclass(frozen=True)
 class CallableDocumentationSpec:
     name: str
     callable: Any
@@ -324,6 +340,7 @@ class CallableDocumentationPageSpec:
     summary: str
     introduction: str
     groups: tuple[CallableDocumentationGroup, ...]
+    narrative_sections: tuple[ContentDocumentationSection, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -346,28 +363,7 @@ class CallableDocumentationPageView:
     summary: str
     introduction: str
     groups: tuple[tuple[CallableDocumentationGroup, tuple[CallableDocumentationView, ...]], ...]
-    href: str = ""
-
-
-@dataclass(frozen=True)
-class ContentDocumentationSection:
-    """One curated section in a static conceptual reference page."""
-
-    anchor: str
-    title: str
-    blocks: tuple[DocumentationContentBlock, ...]
-
-
-@dataclass(frozen=True)
-class ContentDocumentationPage:
-    """Structured content for a conceptual page in the offline documentation site."""
-
-    slug: str
-    title: str
-    eyebrow: str
-    summary: str
-    introduction: str
-    sections: tuple[ContentDocumentationSection, ...]
+    narrative_sections: tuple[ContentDocumentationSection, ...] = ()
     href: str = ""
 
 
@@ -1535,19 +1531,7 @@ RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
             ),
         ),
     ),
-)
-
-
-RECORDS_WAVE_POOL_DOCUMENTATION_PAGE = ContentDocumentationPage(
-    slug="records-wave-pool",
-    title="Records + WavePool",
-    eyebrow="数据中间层设计",
-    summary="以结构化 records 和连续 wave_pool 表达可变长度 DAQ 波形，并为下游提供稳定的正式数据边界。",
-    introduction=(
-        "`records` 保存事件元数据，`wave_pool` 保存连续的 `uint16` 采样值；"
-        "每条 records 通过 `wave_offset` 与 `event_length` 定位自己的完整原始波形。"
-    ),
-    sections=(
+    narrative_sections=(
         ContentDocumentationSection(
             anchor="data-model",
             title="数据模型与不变量",
@@ -2189,9 +2173,116 @@ class DocumentationSiteGenerator:
         self,
         plugin_generator: PluginDocGenerator | None = None,
         accessor_registry: tuple[AccessorDocumentationSpec, ...] = ACCESSOR_DOCUMENTATION_REGISTRY,
+        guide_manifest_path: Path | None = None,
     ):
         self.plugin_generator = plugin_generator or PluginDocGenerator()
         self.accessor_registry = accessor_registry
+        self.guide_manifest_path = (
+            Path(guide_manifest_path)
+            if guide_manifest_path is not None
+            else Path.cwd() / "docs" / "site-guides.yaml"
+        )
+        self.guide_warnings: tuple[str, ...] = ()
+
+    @staticmethod
+    def _route_href(current_route: str, target_route: str) -> str:
+        return posixpath.relpath(target_route, PurePosixPath(current_route).parent.as_posix())
+
+    @staticmethod
+    def _route_context(output_dir: Path, route: str) -> dict[str, str]:
+        page_dir = (output_dir / route).parent
+        root_prefix = Path(posixpath.relpath(output_dir, page_dir)).as_posix()
+        root_prefix = "" if root_prefix == "." else f"{root_prefix}/"
+        return {
+            "asset_prefix": f"{root_prefix}assets/",
+            "site_root_prefix": root_prefix,
+            "site_home_href": f"{root_prefix}index.html",
+            "plugin_index_href": f"{root_prefix}plugins/index.html",
+            "plugin_system_href": f"{root_prefix}plugins/overview.html",
+            "accessor_index_href": f"{root_prefix}accessors/index.html",
+            "accessor_detail_prefix": f"{root_prefix}accessors/",
+            "context_index_href": f"{root_prefix}contexts/context.html",
+            "adapter_index_href": f"{root_prefix}adapters/adapter.html",
+            "visualization_index_href": f"{root_prefix}visualizations/index.html",
+            "visualization_detail_prefix": f"{root_prefix}visualizations/",
+        }
+
+    def _rendered_guides(self) -> RenderedGuideSite:
+        if not self.guide_manifest_path.is_file():
+            self.guide_warnings = ()
+            return RenderedGuideSite(sections=(), warnings=())
+        rendered = render_guide_manifest(load_guide_manifest(self.guide_manifest_path))
+        self.guide_warnings = rendered.warnings
+        return rendered
+
+    def _publish_guides(
+        self,
+        *,
+        output_dir: Path,
+        rendered: RenderedGuideSite,
+        generated: dict[str, Path],
+        env: Any,
+    ) -> None:
+        occupied = {path.resolve() for path in generated.values()}
+        copied_assets: set[str] = set()
+        if any(page.has_mermaid for section in rendered.sections for page in section.pages):
+            mermaid_dir = self.plugin_generator.template_dir / "web" / "assets" / "mermaid"
+            for name in ("mermaid.min.js", "MERMAID-LICENSE.txt"):
+                source = mermaid_dir / name
+                if not source.is_file():
+                    raise ValueError(f"Mermaid asset is missing: {source}")
+                target = output_dir / "assets" / "mermaid" / name
+                if target.resolve() in occupied:
+                    raise ValueError(f"Mermaid asset collides with generated site output: {name}")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, target)
+                generated[f"asset:mermaid/{name}"] = target
+                occupied.add(target.resolve())
+        for section in rendered.sections:
+            index_path = output_dir / section.index_route
+            if index_path.resolve() in occupied:
+                raise ValueError(
+                    f"Guide route collides with generated site page: {section.index_route}"
+                )
+            index_path.parent.mkdir(parents=True, exist_ok=True)
+            index_path.write_text(
+                env.get_template("web/guide_index.html.j2").render(
+                    section=section,
+                    **self._route_context(output_dir, section.index_route),
+                ),
+                encoding="utf-8",
+            )
+            generated[f"guide-index:{section.section_id}"] = index_path
+            occupied.add(index_path.resolve())
+            for page in section.pages:
+                page_path = output_dir / page.route
+                if page_path.resolve() in occupied:
+                    raise ValueError(f"Guide route collides with generated site page: {page.route}")
+                page_path.parent.mkdir(parents=True, exist_ok=True)
+                page_path.write_text(
+                    env.get_template("web/guide.html.j2").render(
+                        page=replace(page, html=Markup(page.html)),
+                        section=section,
+                        section_index_href=self._route_href(page.route, section.index_route),
+                        **self._route_context(output_dir, page.route),
+                    ),
+                    encoding="utf-8",
+                )
+                generated[f"guide:{page.source_label}"] = page_path
+                occupied.add(page_path.resolve())
+                for asset in page.assets:
+                    if asset.route in copied_assets:
+                        continue
+                    target = output_dir / asset.route
+                    if target.resolve() in occupied:
+                        raise ValueError(
+                            f"Guide asset collides with generated site output: {asset.route}"
+                        )
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(asset.source, target)
+                    generated[f"guide-asset:{asset.route}"] = target
+                    copied_assets.add(asset.route)
+                    occupied.add(target.resolve())
 
     def build_accessor_views(self) -> list[AccessorDocumentationView]:
         views = []
@@ -2293,7 +2384,13 @@ class DocumentationSiteGenerator:
             )
             groups.append((group, members))
         return CallableDocumentationPageView(
-            spec.slug, spec.title, spec.eyebrow, spec.summary, spec.introduction, tuple(groups)
+            slug=spec.slug,
+            title=spec.title,
+            eyebrow=spec.eyebrow,
+            summary=spec.summary,
+            introduction=spec.introduction,
+            groups=tuple(groups),
+            narrative_sections=spec.narrative_sections,
         )
 
     @staticmethod
@@ -2357,11 +2454,16 @@ class DocumentationSiteGenerator:
 
     def generate(self, output_dir: Path) -> dict[str, Path]:
         output_dir = Path(output_dir)
+        rendered_guides = self._rendered_guides()
+        guide_route_map = {
+            page.source_label: page.route
+            for section in rendered_guides.sections
+            for page in section.pages
+        }
         self.plugin_generator.load_builtin_plugins()
         views = self.build_accessor_views()
         context_view = self.build_callable_page_view(CONTEXT_DOCUMENTATION_PAGE)
         records_view_page = self.build_callable_page_view(RECORDS_VIEW_DOCUMENTATION_PAGE)
-        records_wave_pool_page = RECORDS_WAVE_POOL_DOCUMENTATION_PAGE
         visualization_views = [
             self.build_callable_page_view(spec) for spec in VISUALIZATION_DOCUMENTATION_PAGES
         ]
@@ -2380,20 +2482,6 @@ class DocumentationSiteGenerator:
                 "kind": "入门",
                 "url": "index.html#minimal-workflow",
                 "keywords": "Context register cpu_default get_data peaks run_id 最小示例",
-            },
-            {
-                "title": "插件系统介绍",
-                "summary": "了解 Plugin 的职责、DAG 依赖、配置、缓存和运行时执行方式。",
-                "kind": "插件指南",
-                "url": "plugins/overview.html",
-                "keywords": "Plugin 插件系统 DAG depends_on provides Context 缓存 配置",
-            },
-            {
-                "title": "编写插件",
-                "summary": "按照现有契约创建、注册、测试并记录一个新的 Plugin。",
-                "kind": "插件指南",
-                "url": "plugins/authoring.html",
-                "keywords": "编写 Plugin 插件 provides depends_on options version output_dtype 测试",
             },
         ]
         for view in views:
@@ -2434,22 +2522,57 @@ class DocumentationSiteGenerator:
                         + " ".join(member.name for member in members),
                     }
                 )
-        for section in records_wave_pool_page.sections:
-            site_search_entries.append(
-                {
-                    "title": f"{records_wave_pool_page.title}: {section.title}",
-                    "summary": records_wave_pool_page.summary,
-                    "kind": "Context",
-                    "url": f"contexts/{records_wave_pool_page.slug}.html#{section.anchor}",
-                    "keywords": (
-                        f"{records_wave_pool_page.title} records wave_pool {section.title} "
-                        "RecordsBundle wave_offset event_length records_view V1725"
-                    ),
-                }
-            )
+            for narrative_section in view.narrative_sections:
+                site_search_entries.append(
+                    {
+                        "title": f"{view.title}: {narrative_section.title}",
+                        "summary": view.summary,
+                        "kind": "Context",
+                        "url": f"{section}/{view.slug}.html#{narrative_section.anchor}",
+                        "keywords": (
+                            f"{view.title} records wave_pool {narrative_section.title} "
+                            "RecordsBundle wave_offset event_length records_view V1725"
+                        ),
+                    }
+                )
+        for guide_section in rendered_guides.sections:
+            for page in guide_section.pages:
+                site_search_entries.append(
+                    {
+                        "title": page.title,
+                        "summary": page.summary,
+                        "kind": guide_section.title,
+                        "url": page.route,
+                        "keywords": f"{guide_section.title} {page.title} {page.summary}",
+                    }
+                )
+                site_search_entries.extend(
+                    {
+                        "title": f"{page.title}: {heading.title}",
+                        "summary": page.summary,
+                        "kind": guide_section.title,
+                        "url": f"{page.route}#{heading.anchor}",
+                        "keywords": f"{guide_section.title} {page.title} {heading.title}",
+                    }
+                    for heading in page.headings
+                    if heading.level in {2, 3}
+                )
         env = self.plugin_generator._get_web_jinja_env()
         env.filters["inline_code"] = _inline_code
         env.filters["mathml"] = _safe_mathml
+        env.filters["guide_relative"] = lambda target_route, current_route: self._route_href(
+            current_route, target_route
+        )
+        mermaid_asset = (
+            self.plugin_generator.template_dir / "web" / "assets" / "mermaid" / "mermaid.min.js"
+        )
+        env.globals["mermaid_asset_version"] = (
+            hashlib.sha256(mermaid_asset.read_bytes()).hexdigest()[:12]
+            if mermaid_asset.is_file()
+            else ""
+        )
+        env.globals["guide_sections"] = rendered_guides.sections
+        env.globals["guide_route_map"] = guide_route_map
         generated = self.plugin_generator.generate_web(
             output_dir,
             index_relative_path="plugins/index.html",
@@ -2527,18 +2650,6 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
             encoding="utf-8",
         )
         generated["SITE_INDEX"] = home_path
-        plugin_overview_path = output_dir / "plugins" / "overview.html"
-        plugin_overview_path.write_text(
-            env.get_template("web/plugin_system.html.j2").render(page_kind="overview"),
-            encoding="utf-8",
-        )
-        generated["PLUGIN_OVERVIEW"] = plugin_overview_path
-        plugin_authoring_path = output_dir / "plugins" / "authoring.html"
-        plugin_authoring_path.write_text(
-            env.get_template("web/plugin_system.html.j2").render(page_kind="authoring"),
-            encoding="utf-8",
-        )
-        generated["PLUGIN_AUTHORING"] = plugin_authoring_path
         accessor_index = accessor_dir / "index.html"
         accessor_index.write_text(
             env.get_template("web/accessor_index.html.j2").render(accessors=views),
@@ -2611,7 +2722,6 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
                 summary="Context 负责配置、插件依赖与缓存；DAQ 适配器负责统一原始数据格式、目录布局与时间语义。",
                 pages=(
                     replace(context_view, href="context.html"),
-                    replace(records_wave_pool_page, href="records-wave-pool.html"),
                     replace(adapter_view, href="../adapters/adapter.html"),
                 ),
                 current_section="contexts",
@@ -2639,12 +2749,13 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
             encoding="utf-8",
         )
         generated["context:records-view"] = records_view_path
-        records_wave_pool_path = context_dir / "records-wave-pool.html"
+        legacy_route = "contexts/records-wave-pool.html"
+        records_wave_pool_path = output_dir / legacy_route
         records_wave_pool_path.write_text(
-            env.get_template("web/content_reference.html.j2").render(
-                page=records_wave_pool_page,
-                current_section="contexts",
-                index_title="Context 与适配器",
+            env.get_template("web/guide_redirect.html.j2").render(
+                title="Records + WavePool",
+                target_href="records-view.html#data-model",
+                **self._route_context(output_dir, legacy_route),
             ),
             encoding="utf-8",
         )
@@ -2699,4 +2810,31 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
                 encoding="utf-8",
             )
             generated[f"visualization:{view.slug}"] = path
+        self._publish_guides(
+            output_dir=output_dir,
+            rendered=rendered_guides,
+            generated=generated,
+            env=env,
+        )
+
+        # The consolidated Markdown guide owns the canonical plugin-system URL.
+        # Keep the routes used by earlier site versions as lightweight aliases.
+        plugin_overview_path = output_dir / "plugins" / "overview.html"
+        generated["PLUGIN_OVERVIEW"] = plugin_overview_path
+        for legacy_route, title in (
+            ("plugins/system.html", "插件系统介绍"),
+            ("plugins/template-api.html", "插件模板的 API 介绍"),
+            ("plugins/authoring.html", "编写插件"),
+        ):
+            legacy_path = output_dir / legacy_route
+            legacy_path.write_text(
+                env.get_template("web/guide_redirect.html.j2").render(
+                    title=title,
+                    target_href="overview.html",
+                    **self._route_context(output_dir, legacy_route),
+                ),
+                encoding="utf-8",
+            )
+            generated[f"legacy:{legacy_route}"] = legacy_path
+        generated["PLUGIN_AUTHORING"] = output_dir / "plugins" / "authoring.html"
         return generated
