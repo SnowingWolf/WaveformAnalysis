@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from html import escape
 from html.parser import HTMLParser
-import posixpath
 from pathlib import Path, PurePosixPath
+import posixpath
 import re
 from typing import Any
 from urllib.parse import unquote, urlsplit

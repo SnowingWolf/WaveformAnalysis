@@ -119,7 +119,6 @@ def test_web_generation_is_offline_relative_and_escaped(tmp_path):
     assert (tmp_path / "assets" / "react" / "waveform-docs.js").is_file()
     assert (tmp_path / "assets" / "react" / "waveform-docs.css").is_file()
     assert (tmp_path / "assets" / "lineage-graph.json").is_file()
-    site_js = (tmp_path / "assets" / "site.js").read_text(encoding="utf-8")
     site_css = (tmp_path / "assets" / "site.css").read_text(encoding="utf-8")
     react_bundle = (tmp_path / "assets" / "react" / "waveform-docs.js").read_text(encoding="utf-8")
     assert "ReactFlow" in react_bundle
@@ -723,7 +722,10 @@ def test_dynamic_lineage_endpoint_serves_context_payload(tmp_path):
     site = tmp_path / "site"
     site.mkdir()
     (site / "index.html").write_text("ok", encoding="utf-8")
-    provider = lambda: PluginDocGenerator().build_lineage_payload_for_context(context)
+
+    def provider() -> dict:
+        return PluginDocGenerator().build_lineage_payload_for_context(context)
+
     server = ThreadingHTTPServer(
         ("127.0.0.1", 0),
         partial(
@@ -1057,7 +1059,7 @@ def test_site_web_assets_are_available_over_http_for_root_and_nested_pages(tmp_p
                 "可视化",
                 "统计图",
                 "波形图",
-        "系统架构与数据模型",
+                "系统架构与数据模型",
             ):
                 assert navigation_label in html
             assert "index.htmlstatistical-plots.html" not in html
