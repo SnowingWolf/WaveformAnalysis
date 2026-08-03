@@ -652,17 +652,17 @@ class HitMergePlugin(BatchProcessingPlugin):
         ],
         "workflow_diagram": (
             "flowchart TD\n"
-            '  A["读取 hit_threshold 并物化"] --> B{"为空?"}\n'
-            '  B -- "是" --> Z["返回空 HIT_MERGED"]\n'
-            '  B -- "否" --> C["解析配置: merge_gap_ns / max_total_width_ns / dt / pre-trigger"]\n'
-            '  C --> D["计算 canonical cluster rows<br/>同板同通道 + 时间邻近链式合并"]\n'
-            '  D --> E{"merge_gap_ns <= 0（合并关闭）?"}\n'
-            '  E -- "是" --> F["fast 路径: 每条 hit 1:1 映射为 hit_merged"]\n'
-            '  E -- "否" --> G["富化 hits + 解析绝对时间窗口"]\n'
-            '  G --> H["从 cluster rows 构建 hit_merged"]\n'
-            '  F --> I["输出: 选取 anchor 最接近窗口中心<br/>跨 record 时 sample 字段标记 -1"]\n'
+            '  A["读取并加载 hit_threshold 数据"] --> B{记录为空?}\n'
+            '  B -- "是" --> Z["返回空结果"]\n'
+            '  B -- "否" --> C["读取合并配置<br/>(merge_gap_ns / max_total_width_ns / dt)" ]\n'
+            '  C --> D["按同板同通道、<br/>时间邻近链式分组"]\n'
+            "  D --> E{合并已关闭?<br/>(merge_gap_ns <= 0)}\n"
+            '  E -- "是" --> F["直接映射: 每条 hit 对应一条输出"]\n'
+            '  E -- "否" --> G["补充 hits 时间窗口信息"]\n'
+            '  G --> H["按分组构建合并结果"]\n'
+            '  F --> I["选取代表 hit 输出<br/>(跨 record 时 sample 字段为 -1)"]\n'
             "  H --> I\n"
-            '  I --> J["下游: hit_merged_features / peaklets / hit_grouped ..."]\n'
+            '  I --> J["供下游消费<br/>(hit_merged_features / peaklets / hit_grouped)"]\n'
         ),
         "behavior_notes": [
             "Only hits with the same `(board, channel)` are eligible for merging; boardless inputs use board `0` as the compatibility value.",

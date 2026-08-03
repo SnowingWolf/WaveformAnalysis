@@ -437,6 +437,16 @@ body.docs-page a:focus-visible, body.docs-page button:focus-visible, body.docs-p
 .mermaid-render svg { display: block; width: 100%; min-width: 640px; height: auto; margin: 0 auto; padding: 14px; }
 .mermaid-source[hidden] { display: none; }
 .mermaid-error { margin: 8px 0 0; color: #b42318; font-size: 13px; }
+/* 仅覆盖插件页"处理流程图"；不可改动上方 guide 通用 .mermaid-block 规则 */
+.mermaid-block--plugin { width: auto; max-width: 720px; margin: 20px auto; }
+.mermaid-block--plugin .mermaid-render { max-width: 100%; border-radius: 8px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.05); }
+.mermaid-block--plugin .mermaid-render svg { min-width: 0; width: auto; max-width: 100%; height: auto; margin: 0 auto; padding: 18px; }
+.mermaid-block--plugin .mermaid-source + .mermaid-render:empty { border: 0; background: transparent; box-shadow: none; }
+.mermaid-block--plugin .mermaid-render .node rect,
+.mermaid-block--plugin .mermaid-render .node polygon,
+.mermaid-block--plugin .mermaid-render .node path,
+.mermaid-block--plugin .mermaid-render .node circle { rx: 4px; ry: 4px; }
+html[data-theme="dark"] .mermaid-block--plugin .mermaid-render { border-color: var(--doc-line); background: var(--doc-surface); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3); }
 
 @media (max-width: 1199px) {
   .site-layout--lineage { width: calc(100% - 40px); }
