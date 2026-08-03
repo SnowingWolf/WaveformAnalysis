@@ -178,4 +178,4 @@ def test_my_deprecation(self):
 
 - [PluginSpec 指南](plugin-development/PLUGIN_SPEC_GUIDE.md) - 插件契约规范
 - [配置系统](../features/context/CONFIGURATION.md) - 配置管理
-- [缓存管理](../features/context/DATA_ACCESS.md) - 缓存行为
+- [Plugin DAG、lineage 与缓存](../architecture/PLUGIN_DAG_LINEAGE_CACHE.md) - 缓存行为

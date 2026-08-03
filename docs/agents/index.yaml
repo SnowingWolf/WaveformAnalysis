@@ -507,7 +507,7 @@ task_routes:
     aliases: []
     secondary_docs:
       - docs/agents/lifecycle.md
-      - docs/features/context/DATA_ACCESS.md
+      - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
       - docs/features/context/PREVIEW_EXECUTION.md
     read_order:
       - AGENTS.md
@@ -515,7 +515,7 @@ task_routes:
       - docs/agents/workflows.md
       - docs/agents/protocol/route-profiles/debug_cache.md
       - docs/features/context/PREVIEW_EXECUTION.md
-      - docs/features/context/DATA_ACCESS.md
+      - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
     required_inputs:
       - run_id
       - target plugin or target data product
@@ -744,7 +744,7 @@ task_routes:
     secondary_docs:
       - docs/agents/lifecycle.md
       - docs/agents/plugins.md
-      - docs/features/context/DATA_ACCESS.md
+      - docs/architecture/DATA_PRODUCTS.md
     read_order:
       - AGENTS.md
       - docs/agents/lifecycle.md

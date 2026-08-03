@@ -1,4 +1,4 @@
-# DOC: docs/features/context/DATA_ACCESS.md
+# DOC: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
 # DOC: docs/features/context/CONFIGURATION.md
 # DOC: docs/features/context/PLUGIN_MANAGEMENT.md
 """

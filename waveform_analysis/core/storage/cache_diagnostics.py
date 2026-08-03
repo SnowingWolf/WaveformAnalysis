@@ -1,4 +1,4 @@
-# DOC: docs/features/context/DATA_ACCESS.md#诊断问题
+# DOC: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md#检查与诊断
 """
 缓存诊断模块 - 问题诊断与修复工具。
 

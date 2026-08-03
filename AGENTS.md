@@ -39,7 +39,7 @@
 1. `docs/agents/workflows.md`
 2. `docs/agents/lifecycle.md`
 3. `docs/features/context/PREVIEW_EXECUTION.md`
-4. `docs/features/context/DATA_ACCESS.md`
+4. `docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md`
 
 ### 场景 5: 文档同步与发布前检查
 1. `docs/agents/references.md`
@@ -279,8 +279,12 @@ waveform-process --show-daq --daq-root DAQ
 - Skills 适配：`docs/agents/adapters/skills.md`
 - MCP 适配：`docs/agents/adapters/mcp.md`
 - 核心架构：`docs/architecture/ARCHITECTURE.md`
+- Plugin DAG、lineage 与缓存：`docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md`
+- 数据产物与关联型中间产物：`docs/architecture/DATA_PRODUCTS.md`
+- Records + WavePool：`docs/architecture/RECORDS_WAVE_POOL.md`
+- Accessor 与分析查询：`docs/architecture/ACCESSOR_ANALYSIS.md`
+- 多 Run 处理：`docs/architecture/MULTI_RUN_PROCESSING.md`
 - 配置：`docs/features/context/CONFIGURATION.md`
-- 数据访问：`docs/features/context/DATA_ACCESS.md`
 - 执行预览：`docs/features/context/PREVIEW_EXECUTION.md`
 - 流式插件：`docs/features/plugin/STREAMING_PLUGINS_GUIDE.md`
 - 执行器管理：`docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md`

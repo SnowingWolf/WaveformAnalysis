@@ -1,4 +1,4 @@
-# DOC: docs/features/context/DATA_ACCESS.md#扫描与索引
+# DOC: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md#检查与诊断
 """
 缓存分析器模块 - 统一的缓存扫描与索引接口。
 

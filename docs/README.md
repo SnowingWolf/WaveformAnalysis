@@ -41,7 +41,7 @@ waveform-process --help
 | 如何预览执行计划？ | [PREVIEW_EXECUTION.md](features/context/PREVIEW_EXECUTION.md) |
 | 如何可视化依赖关系/血缘？ | [LINEAGE_VISUALIZATION_GUIDE.md](features/context/LINEAGE_VISUALIZATION_GUIDE.md) |
 | 如何管理配置来源？ | [CONFIGURATION.md](features/context/CONFIGURATION.md) |
-| 缓存为什么失效或命中异常？ | [DATA_ACCESS.md](features/context/DATA_ACCESS.md) |
+| 缓存为什么失效或命中异常？ | [PLUGIN_DAG_LINEAGE_CACHE.md](architecture/PLUGIN_DAG_LINEAGE_CACHE.md) |
 | records 与 wave_pool 如何共同构建和访问？ | [RECORDS_WAVE_POOL.md](architecture/RECORDS_WAVE_POOL.md) |
 | 如何使用信号处理插件？ | [SIGNAL_PROCESSING_PLUGINS.md](plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md) |
 | 如何开发自定义插件？ | [SIMPLE_PLUGIN_GUIDE.md](plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) |

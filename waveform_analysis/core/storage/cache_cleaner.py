@@ -1,4 +1,4 @@
-# DOC: docs/features/context/DATA_ACCESS.md#清理缓存
+# DOC: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md#检查与诊断
 """
 缓存清理模块 - 智能清理策略。
 

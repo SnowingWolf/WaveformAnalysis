@@ -1,4 +1,4 @@
-# DOC: docs/features/context/DATA_ACCESS.md#缓存管理
+# DOC: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md#Lineage-与缓存身份
 """
 Cache 模块 - 缓存管理与签名校验。
 

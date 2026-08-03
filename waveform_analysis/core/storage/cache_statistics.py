@@ -1,4 +1,4 @@
-# DOC: docs/features/context/DATA_ACCESS.md#缓存统计
+# DOC: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md#检查与诊断
 """
 缓存统计模块 - 统计收集与报告。
 

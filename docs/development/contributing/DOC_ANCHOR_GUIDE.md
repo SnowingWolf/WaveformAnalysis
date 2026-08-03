@@ -62,7 +62,7 @@ class Plugin:
 
 ```python
 # -*- coding: utf-8 -*-
-# DOC: docs/features/context/DATA_ACCESS.md
+# DOC: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
 # DOC: docs/features/context/CONFIGURATION.md
 """
 Context 模块 - 插件系统的核心调度器。

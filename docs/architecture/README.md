@@ -1,26 +1,28 @@
-# 架构设计
+# 系统架构与数据模型
 
-**导航**: [文档中心](../README.md) > 架构设计
+**导航**: [文档中心](../README.md) > 系统架构与数据模型
 
-理解系统设计和数据流程，适合需要深入了解项目架构的开发者。
+理解 Plugin 如何运行、数据如何关联，以及单 run 与多 run 的处理边界。
 
 ## 文档列表
 
 | 文档 | 说明 |
 |------|------|
-| [系统架构](ARCHITECTURE.md) | 系统总体架构和设计原则 |
-| [插件系统架构](PLUGIN_SYSTEM_ARCHITECTURE.md) | 插件系统完整架构分析 |
-| [项目结构](PROJECT_STRUCTURE.md) | 项目目录结构和模块说明 |
-| [Context 工作流](CONTEXT_PROCESSOR_WORKFLOW.md) | Context 和 Processor 工作流程 |
-| [Records + WavePool](RECORDS_WAVE_POOL.md) | 数据中间层设计 |
+| [系统总览：组件、边界与数据流](ARCHITECTURE.md) | 默认数据流与各层职责 |
+| [插件执行链：DAG、动态依赖、Lineage 与缓存](PLUGIN_DAG_LINEAGE_CACHE.md) | 从依赖解析到缓存复用的主线 |
+| [数据产物：实体关系与派生结果](DATA_PRODUCTS.md) | 唯一具名产物、实体关系与派生聚合 |
+| [波形数据：records 与 Wave Pool 的配对访问](RECORDS_WAVE_POOL.md) | 结构化索引与对应波形池的访问边界 |
+| [分析查询：Accessor 与只读数据访问](ACCESSOR_ANALYSIS.md) | 处理完成后的查询与组合职责 |
+| [批量运行：多 Run 调度与执行（开发中）](MULTI_RUN_PROCESSING.md) | 当前批处理能力、隔离、调度与尚未稳定的边界 |
 
 ## 学习路径
 
-1. [项目结构](PROJECT_STRUCTURE.md) - 了解项目结构
-2. [系统架构](ARCHITECTURE.md) - 理解整体架构
-3. [插件系统架构](PLUGIN_SYSTEM_ARCHITECTURE.md) - 深入插件系统
-4. [Context 工作流](CONTEXT_PROCESSOR_WORKFLOW.md) - 掌握核心流程
-5. [Records + WavePool](RECORDS_WAVE_POOL.md) - 数据中间层
+1. [系统总览：组件、边界与数据流](ARCHITECTURE.md) - 了解默认数据流与层次边界
+2. [插件执行链：DAG、动态依赖、Lineage 与缓存](PLUGIN_DAG_LINEAGE_CACHE.md) - 理解处理如何执行和复用
+3. [数据产物：实体关系与派生结果](DATA_PRODUCTS.md) - 理解正式输出与 ID 关系
+4. [波形数据：records 与 Wave Pool 的配对访问](RECORDS_WAVE_POOL.md) - 理解不同数据如何使用对应的索引产物和 pool
+5. [分析查询：Accessor 与只读数据访问](ACCESSOR_ANALYSIS.md) - 理解分析阶段的只读接口
+6. [批量运行：多 Run 调度与执行（开发中）](MULTI_RUN_PROCESSING.md) - 区分当前能力与仍在演进的批量边界
 
 ## 相关资源
 

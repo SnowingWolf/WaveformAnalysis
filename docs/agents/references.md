@@ -46,8 +46,11 @@
 ## 核心文档
 - `docs/architecture/ARCHITECTURE.md`
 - `docs/architecture/RECORDS_WAVE_POOL.md`
+- `docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md`
+- `docs/architecture/DATA_PRODUCTS.md`
+- `docs/architecture/ACCESSOR_ANALYSIS.md`
+- `docs/architecture/MULTI_RUN_PROCESSING.md`
 - `docs/features/context/CONFIGURATION.md`
-- `docs/features/context/DATA_ACCESS.md`
 - `docs/features/context/PREVIEW_EXECUTION.md`
 - `docs/features/plugin/STREAMING_PLUGINS_GUIDE.md`
 - `docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md`

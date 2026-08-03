@@ -29,6 +29,6 @@
 
 ## 相关资源
 
-- [架构设计](../architecture/README.md) - 系统架构与数据流
+- [系统架构与数据模型](../architecture/README.md) - 系统架构与数据流
 - [插件系统文档](../plugins/README.md) - 插件教程与参考
 - [API 参考](../api/README.md) - API 与配置说明

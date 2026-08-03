@@ -40,5 +40,5 @@
 ## 相关资源
 
 - [功能特性](../features/README.md) - 详细功能说明
-- [开发者指南](../development/README.md) - 插件开发和架构设计
+- [开发者指南](../development/README.md) - 插件开发和系统架构
 - [API 参考](../api/README.md) - API 文档

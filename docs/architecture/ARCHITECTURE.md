@@ -1,621 +1,259 @@
-**导航**: [文档中心](../README.md) > [架构设计](README.md) > 系统架构
+# 系统总览：组件、边界与数据流
 
----
+**导航**: [文档中心](../README.md) > [系统架构与数据模型](README.md) > 系统总览：组件、边界与数据流
 
-# WaveformAnalysis 架构设计文档
+本文定义运行时组件、配置作用域和一次数据请求的完整路径。算法细节属于 Plugin 文档；本页固定
+Context、DAQ adapter、Plugin、Storage、Accessor 与批量执行器之间的所有权边界。
 
-本文档详细说明了 `WaveformAnalysis` 工具包的规范化架构设计、核心模式以及数据流向。
+## 1. 系统边界
 
----
-
-## 1. 设计哲学
-
-- **插件化 (Plugin-based)**: 受 `strax` 启发，将处理逻辑拆分为独立的插件，每个插件声明其“提供什么”和“依赖什么”。
-- **模块化核心 (Modular Core)**: `core/` 采用分层子目录（storage/execution/plugins/processing/data/foundation），职责清晰、可扩展。
-- **无状态上下文 (Stateless Context)**: 核心调度器不再依赖全局可变状态（如 `self.char`），而是通过显式传递 `run_id` 来隔离不同运行的数据。
-- **流式处理 (Streaming)**: 采用生成器模式，数据以分块（Chunk）形式流过处理链，极大地降低了内存占用。
-- **血缘追踪 (Lineage Tracking)**: 通过哈希插件代码、版本和配置参数，确保数据的可追溯性和缓存的准确性。
-- **零拷贝缓存 (Zero-copy Caching)**: 使用 `numpy.memmap` 实现磁盘数据的瞬时加载。
-- **硬件无关边界 (Hardware-agnostic Boundary)**: DAQ 适配器层把不同数字化仪（CAEN VX2730/V1725 等）的文件格式、目录布局、时间戳单位封装为可注册的 `DAQAdapter`，上层插件链路只面向统一的 `records`/`wave_pool`/`st_waveforms` 抽象。
-
----
-
-## 2. 核心架构组件
-
-### 2.1 上下文层 (Context Layer)
-- **`Context`**: 系统的核心协调者。它管理插件注册、配置分发、依赖解析以及存储调度。
-- **显式 Run ID**: 所有数据操作均需指定 `run_id`，数据存储在 `_results[(run_id, data_name)]` 中.
-- **重入保护 (Re-entrancy Guard)**: 自动检测并阻止插件依赖链中的循环调用。
-- **依赖解析 (DAG)**: 自动构建有向无环图，确定插件的执行顺序。
-
-### 2.2 插件层 (Plugin Layer)
-- **`Plugin`**: 逻辑单元。
-    - `provides`: 插件产出的数据名称。
-    - `depends_on`: 插件所需的输入数据。
-    - `options`: 插件的配置项（带类型验证和默认值）。
-    - `version`: 插件版本号，参与血缘哈希计算。
-    - `is_side_effect`: 标记插件是否具有副作用（如生成绘图、导出文件）。
-    - `compute`: 核心计算逻辑。
-    - `on_error` / `cleanup`: 生命周期钩子，确保异常处理和资源释放。
-- **插件分层**:
-    - `plugins/core/`: 核心基础设施（`base`, `streaming`, `loader`, `stats`, `hot_reload`, `adapters`）。
-    - `plugins/builtin/`: 内置插件，按加速器划分（`cpu/`, `jax/`, `streaming/`）。
-- **兼容与扩展**:
-    - `StreamingPlugin` 支持 Chunk 流式计算。
-    - `StraxPluginAdapter`/`StraxContextAdapter` 提供 strax 插件与 API 兼容。
-
-### 2.3 存储层 (Storage Layer)
-- **`MemmapStorage`**: 负责将结构化数组持久化为二进制文件。
-- **原子性与并发安全**:
-    - **原子写入**: 所有数据和元数据均先写入 `.tmp` 文件，完成后通过 `rename` 替换，确保不会产生部分写入的损坏文件。
-    - **文件锁**: 使用 `.lock` 文件实现简单的进程间互斥，防止多个进程同时写入同一个缓存键。
-    - **完整性校验**: 加载时验证文件大小是否等于 `count * itemsize`，并检查 `STORAGE_VERSION`。
-- **侧效应隔离**: 副作用插件的输出被隔离在 `_side_effects/{run_id}/{plugin_name}` 目录下。
-- **自动缓存机制**: `Context` 在运行插件前会检查磁盘缓存，如果血缘哈希匹配，则直接加载 `memmap`。
-
-### 2.4 时间分块层 (Chunking Layer)
-- **`Chunk`**: 数据的基本载体。它不仅包含 NumPy 数组，还封装了时间边界 (`start`, `end`) 和运行信息。
-- **时间区间操作**: 提供 `split`, `merge`, `clip` 等操作，确保在处理连续时间流数据时的正确性。
-- **严格校验**: 自动检查数据的单调性、重叠以及是否超出分块边界，是保证物理分析准确性的基石。
-
-### 2.5 执行器管理层 (Executor Management Layer)
-- **`ExecutorManager`**: 全局单例，统一管理线程池和进程池资源。
-    - **资源重用**: 支持执行器重用，避免频繁创建和销毁的开销。
-    - **引用计数**: 自动管理执行器的生命周期，确保资源正确释放。
-    - **上下文管理器**: 提供 `get_executor()` 上下文管理器，自动获取和释放执行器。
-    - **预定义配置**: 提供多种预定义配置（IO密集型、CPU密集型等），简化使用。
-- **`ExecutorConfig`**: 执行器配置管理。
-    - **预定义配置**: `io_intensive`, `cpu_intensive`, `large_data`, `small_data` 等。
-    - **自定义配置**: 支持注册自定义执行器配置。
-- **便捷函数**:
-    - `parallel_map()`: 并行 map 操作，自动选择合适的执行器类型。
-    - `parallel_apply()`: 并行 apply 操作，支持 DataFrame 并行处理。
-
-### 2.6 流式处理层 (Streaming Layer)
-- **`StreamingPlugin`**: 支持流式处理的插件基类。
-    - **Chunk 流处理**: `compute()` 返回 chunk 迭代器，而不是静态数据。
-    - **自动并行化**: 支持自动将 chunk 分发到多个工作线程/进程处理。
-    - **时间边界对齐**: 自动验证和处理 chunk 的时间边界。
-    - **灵活配置**: 可配置 chunk 大小、并行策略和执行器类型。
-- **`StreamingContext`**: 流式处理的上下文管理器。
-    - **数据流获取**: `get_stream()` 获取数据流，支持时间范围过滤。
-    - **Chunk 迭代**: `iter_chunks()` 便捷的 chunk 迭代接口。
-    - **流合并**: `merge_stream()` 合并多个数据流。
-    - **自动转换**: 自动将静态数据转换为 chunk 流，或将流式数据合并为静态数据。
-
-### 2.7 DAQ 适配器层 (DAQ Adapter Layer)
-
-DAQ 适配器层是原始 DAQ 文件与框架内部数据结构之间的统一边界。它把"哪种数字化仪、哪种文件格式、哪种目录布局、哪种时间戳单位"这些硬件相关差异封装在一组可注册、可组合的适配器里，使上层插件链路只需面向统一的 `records`/`wave_pool`/`st_waveforms` 抽象编程。
-
-#### 2.7.1 核心抽象
-
-| 组件 | 位置 | 职责 |
-|------|------|------|
-| `TimestampUnit` | `utils/formats/base.py` | 时间戳单位枚举（ps/ns/μs/ms/s），用于读取时统一换算到皮秒 |
-| `RawTimestampMode` | `utils/formats/base.py` | 原生时间戳语义：物理单位 (`unit`) 或采样点索引 (`sample_index`) |
-| `ColumnMapping` | `utils/formats/base.py` | CSV 列索引映射：board/channel/timestamp/samples_start/samples_end/baseline_* |
-| `FormatSpec` | `utils/formats/base.py` | 完整格式规范：列映射、时间戳单位、分隔符、文件模式、头部行数、采样率、元数据 |
-| `FormatReader` | `utils/formats/base.py` | 格式读取器抽象基类：`read_file`/`read_files`/`read_files_generator`/`extract_columns`/`validate_data` |
-| `DirectoryLayout` | `utils/formats/directory.py` | 目录结构配置：原始数据子目录、运行路径模板、文件 glob、通道识别正则、文件索引正则 |
-| `DAQAdapter` | `utils/formats/adapter.py` | 完整适配器：组合 `FormatReader` + `DirectoryLayout`，提供 `scan_run`/`load_channel`/`load_all_channels`/`load_channel_generator`/`extract_and_convert`/`normalize_timestamp_to_ps`/`get_file_epoch` |
-| `AdapterInfo` | `core/config/adapter_info.py` | 从 adapter 提取的配置推断信息：采样率、时间戳单位、`dt_ns`/`dt_ps`，供插件配置解析器使用 |
-
-#### 2.7.2 注册表与发现
-
-- **格式注册表** (`utils/formats/registry.py`):
-  - `register_format(name, reader_cls, spec)` / `unregister_format(name)`
-  - `get_format_reader(name)` / `get_format_spec(name)` / `is_format_registered(name)` / `list_formats()`
-- **适配器注册表** (`utils/formats/adapter.py`):
-  - `register_adapter(adapter)` / `unregister_adapter(name)`
-  - `get_adapter(name)` / `is_adapter_registered(name)` / `list_adapters()`
-- **自动注册**: `utils/formats/__init__.py` 在导入时自动注册内置格式 `vx2730_csv` 与 `v1725_bin`。
-
-#### 2.7.3 内置适配器
-
-| 适配器 | 格式 | 目录结构 | 时间戳 | 采样率 | 备注 |
-|--------|------|----------|--------|--------|------|
-| `vx2730` | CSV（分号分隔） | `DAQ/{run}/RAW/*.CSV` | ps | 500 MHz | CAEN VX2730，首文件 2 行头部 |
-| `v1725` | 二进制（`.bin`） | 单文件多通道 | sample index → ps | 500 MHz | CAEN V1725 DAW_DEMO，Numba 加速解析 |
-
-#### 2.7.4 与插件链路的集成
-
-适配器层通过两条路径接入插件 DAG：
-
-1. **配置推断** (`AdapterInfo` → 配置解析器):
-   - `AdapterInfo.from_adapter(name)` 从 `FormatSpec` 提取采样率、时间戳单位、`dt_ns`/`dt_ps`。
-   - 配置解析器在缺少显式配置时，调用 `get_adapter_info(adapter_name)` 推断 `sampling_rate_hz`/`dt_ns`/`dt_ps`/`timestamp_unit`/`raw_timestamp_mode` 等键。
-   - 优先级：显式配置 > adapter 推断 > 插件默认值。
-2. **数据加载** (`RawFilesPlugin`/`WaveformsPlugin`/`StWaveformsPlugin`):
-   - 这三个插件均支持 `daq_adapter` 配置选项。
-   - 全局配置：`ctx.set_config({'daq_adapter': 'vx2730'})`。
-   - 插件特定配置：`ctx.set_config({'daq_adapter': 'vx2730'}, plugin_name='st_waveforms')`。
-   - 适配器名称参与血缘哈希，切换适配器会自动失效旧缓存。
-
-#### 2.7.5 适配器与 WaveformStruct 的解耦
-
-- `WaveformStructConfig` 通过 `from_adapter(adapter_name)` 工厂方法从适配器名称创建配置。
-- `WaveformStruct` 支持 `from_adapter(waveforms, "vx2730")` 从适配器名称创建结构化处理器。
-- 无配置时默认使用 VX2730 格式，保持向后兼容。
-
-#### 2.7.6 扩展自定义适配器
-
-```python
-from waveform_analysis.utils.formats import (
-    FormatSpec, ColumnMapping, TimestampUnit,
-    GenericCSVReader, register_format,
-    DirectoryLayout, DAQAdapter, register_adapter,
-)
-
-# 1. 定义格式规范
-spec = FormatSpec(
-    name="my_format",
-    columns=ColumnMapping(timestamp=3),
-    timestamp_unit=TimestampUnit.NANOSECONDS,
-    delimiter=",",
-)
-
-# 2. 注册格式
-register_format("my_format", GenericCSVReader, spec)
-
-# 3. 定义目录布局
-layout = DirectoryLayout(
-    name="my_layout",
-    raw_subdir="data",
-    file_glob_pattern="*.dat",
-    channel_regex=r"channel(\d+)",
-)
-
-# 4. 创建并注册完整适配器
-adapter = DAQAdapter(
-    name="my_adapter",
-    format_reader=GenericCSVReader(spec),
-    directory_layout=layout,
-)
-register_adapter(adapter)
-```
-
-### 2.8 数据管理与查询层 (Data & Query Layer)
-- **时间范围查询** (`core/data/query.py`):
-    - `TimeRangeQueryEngine` + `TimeIndex` 支持按时间段检索数据。
-    - `time_range` 支持多通道数据与索引缓存（首次查询自动构建索引）。
-    - `get_data_time_range_absolute` 支持 `datetime` 绝对时间查询（依赖 epoch）。
-- **批量处理与导出** (`core/data/batch_processor.py`, `core/data/export.py`):
-    - `BatchProcessor` 并行处理多个 run。
-    - `DataExporter`/`batch_export` 统一导出 Parquet/HDF5/CSV/JSON/NumPy。
-- **依赖分析** (`core/data/dependency_analysis.py`): DAG 结构与性能瓶颈分析，支持报告输出。
-- **Records 视图** (`core/data/records_view.py`): `RecordsView` 提供 records + wave_pool 的零拷贝访问接口；`records_view(...)` 必须依赖正式插件产物 `records` 与 `wave_pool`，并统一通过 `waves(...)` / `signals(...)` 按稳定 `record_id` 回切波形。若指定 `wave_pool_name="wave_pool_filtered"`，则可在保持同一份 `records` 元数据的前提下访问滤波后的 records-backed 波形。
-- **`IO Module`** (`utils/io.py`): `parse_and_stack_files`/`parse_files_generator` 支持流式解析与并行加载。
-- **`DAQ Adapters`** (`utils/formats/`): 统一不同硬件厂商的数据组织格式。
-    - **格式规范 (`FormatSpec`)**: 定义 CSV 列映射、时间戳单位、分隔符等。
-    - **目录布局 (`DirectoryLayout`)**: 定义目录结构、文件模式、通道识别规则。
-    - **适配器 (`DAQAdapter`)**: 结合格式读取器和目录布局的完整适配器。
-    - **注册表**: 支持自定义格式和适配器的注册和获取。
-    - **内置支持**: VX2730 (CAEN) 数字化仪格式。
-
-### 2.9 数据处理层 (Data Processing Layer)
-- **`WaveformStruct`** (`core/processing/waveform_struct.py`): 波形结构化处理器，已解耦 DAQ 格式依赖。
-    - **配置驱动**: 通过 `WaveformStructConfig` 配置类指定 DAQ 格式。
-    - **动态 dtype**: 根据实际波形长度动态创建 `ST_WAVEFORM_DTYPE`。
-    - **列映射**: 从 `FormatSpec` 读取列索引（board, channel, timestamp, samples_start, baseline_start/end）。
-    - **向后兼容**: 无配置时默认使用 VX2730 格式。
-    - **多种创建方式**:
-        - 默认: `WaveformStruct(waveforms)` - 使用 VX2730 配置
-        - 适配器: `WaveformStruct.from_adapter(waveforms, "vx2730")` - 从适配器名称创建
-        - 自定义: `WaveformStruct(waveforms, config=custom_config)` - 使用自定义配置
-- **`WaveformStructConfig`**: 波形结构化配置类。
-    - **格式规范**: 封装 `FormatSpec` 和波形长度配置。
-    - **工厂方法**: `default_vx2730()`, `from_adapter(adapter_name)`。
-    - **优先级**: wave_length > format_spec.expected_samples > DEFAULT_WAVE_LENGTH。
-- **特征计算与事件分析**:
-    - 基础特征由 `BasicFeaturesPlugin` 计算（height/amp/area）。
-    - `DataFramePlugin` 拼接 DataFrame。
-    - `EventAnalyzer` 负责多通道事件分组与配对（Numba/多进程可选）。
-
-**English**: `BasicFeaturesPlugin` computes height/amp/area features.
-- **Records + WavePool** (`core/processing/records_builder.py`):
-    - 构建 `RecordsBundle(records, wave_pool)` 作为内部共享构建结果。
-    - `records` 与 `wave_pool` 分别作为正式插件产物暴露，下游通过 `records_view(...)` 组装访问。
-    - 非 `v1725` 适配器同样支持从 `raw_files` 直接增量构建 `records + wave_pool`，避免先完整物化 `st_waveforms`。
-    - `wave_pool_filtered` 可基于 `records + wave_pool` 构建，供 `wave_source=records` 且 `use_filtered=True` 的插件复用。
-    - `records_view(...)` 不再从内部 `RecordsBundle` fallback 取数。
-    - 适用于大规模数据的零拷贝访问与下游索引。
-- **插件集成**: `StWaveformsPlugin` 支持 `daq_adapter` 配置选项。
-    - 与 `RawFilesPlugin` 和 `WaveformsPlugin` 的 `daq_adapter` 选项保持一致。
-    - 全局配置: `ctx.set_config({'daq_adapter': 'vx2730'})`。
-    - 插件特定配置: `ctx.set_config({'daq_adapter': 'vx2730'}, plugin_name='st_waveforms')`。
-
-### 2.10 时间字段统一 (Time Field Unification)
-- **时间字段约定**:
-    - **`timestamp` (i8)**: ADC 原始时间戳，统一为 ps。
-    - **`time` (i8)**: 可选的系统时间（ns），用于绝对时间查询与对齐。
-- **Epoch 获取**: `DAQAdapter.get_file_epoch()` 可从文件创建时间推导 `epoch_ns`。
-- **WaveformStructConfig**: `epoch_ns` 参与时间转换；当 dtype 包含 `time` 字段时自动填充。
-- **时间字段解析**:
-    - `chunk.py`/`query.py` 默认使用 `time`，不存在时回退到 `timestamp`。
-    - 若没有 `epoch_ns`，`time` 使用 `timestamp // 1000` 的相对时间（ns）。
-
----
-
-## 3. 组件交互流程
-
-### 3.1 插件注册流程
-
-```mermaid
-flowchart TD
-    USER["用户代码"] --> REG["ctx.register(plugin)"]
-
-    REG --> PARSE["Context.register()"]
-
-    subgraph PARSE_SUB["支持多种输入类型"]
-        P1["插件实例"]
-        P2["插件类"]
-        P3["Python 模块"]
-        P4["插件序列"]
-    end
-
-    PARSE --> PARSE_SUB
-    PARSE_SUB --> DOMAIN["ContextPluginDomain.register_plugin()"]
-
-    subgraph DOMAIN_SUB["注册验证"]
-        V1["plugin.validate()"]
-        V2["检查 provides 唯一性"]
-        V3["验证依赖版本兼容性"]
-        V4["记录元数据"]
-        V5["注册到 _plugins 字典"]
-    end
-
-    DOMAIN --> DOMAIN_SUB
-    DOMAIN_SUB --> INVALIDATE["_invalidate_caches_for()"]
-    INVALIDATE --> DONE["注册完成"]
-
-    style REG fill:#e3f2fd,stroke:#1976d2
-    style MIXIN_SUB fill:#e8f5e9,stroke:#388e3c
-```
-
-**流程说明**：
-1. 用户调用 `ctx.register()` 注册插件
-2. Context 支持多种输入类型：实例、类、模块、序列
-3. `ContextPluginDomain.register_plugin()` 执行验证和注册
-4. 注册后自动失效相关缓存，确保数据一致性
-
-### 3.2 血缘追踪流程
-
-```mermaid
-flowchart TD
-    USER["用户代码"] --> PLOT["ctx.plot_lineage('target_data')"]
-
-    PLOT --> GET_LINEAGE["get_lineage('target_data')"]
-
-    subgraph LINEAGE_BUILD["构建血缘树"]
-        L1["检查 _lineage_cache"]
-        L2["递归遍历依赖树"]
-        L3["获取插件配置<br/>(仅 track=True 的选项)"]
-        L4["获取依赖名称列表"]
-        L5["递归调用 get_lineage(dep)"]
-        L6["缓存结果到 _lineage_cache"]
-
-        L1 --> L2 --> L3 --> L4 --> L5 --> L6
-    end
-
-    GET_LINEAGE --> LINEAGE_BUILD
-    LINEAGE_BUILD --> BUILD_GRAPH["build_lineage_graph()"]
-
-    subgraph GRAPH_BUILD["构建图模型"]
-        G1["第一阶段: DFS 遍历收集节点"]
-        G2["第二阶段: 计算 depth (最长路径)"]
-        G3["第三阶段: 创建 NodeModel + PortModel"]
-        G4["第四阶段: 创建 EdgeModel (连线)"]
-
-        G1 --> G2 --> G3 --> G4
-    end
-
-    BUILD_GRAPH --> GRAPH_BUILD
-    GRAPH_BUILD --> VIS["可视化函数"]
-
-    subgraph VIS_SUB["渲染输出"]
-        V1["plot_lineage_labview()"]
-        V2["plot_lineage_plotly()"]
-        V3["to_mermaid()"]
-    end
-
-    VIS --> VIS_SUB
-
-    subgraph RENDER["渲染步骤"]
-        R1["自动分类节点类型"]
-        R2["应用颜色高亮"]
-        R3["布局计算"]
-        R4["绘制节点、端口、连线"]
-        R5["显示或保存图形"]
-    end
-
-    VIS_SUB --> RENDER
-
-    style PLOT fill:#ffeb3b,stroke:#f57c00
-    style LINEAGE_BUILD fill:#e3f2fd,stroke:#1976d2
-    style GRAPH_BUILD fill:#fff3e0,stroke:#f57c00
-    style VIS_SUB fill:#f3e5f5,stroke:#7b1fa2
-```
-
-**流程说明**：
-1. `get_lineage()` 递归遍历插件的 `depends_on` 构建依赖树
-2. `build_lineage_graph()` 将血缘字典转换为 `LineageGraphModel`
-3. 可视化函数根据 `kind` 参数选择渲染方式（LabVIEW/Plotly/Mermaid）
-4. 智能颜色高亮自动识别节点类型（原始数据、DataFrame、聚合等）
-
-### 3.3 缓存验证流程
-
-```mermaid
-flowchart TD
-    USER["ctx.get_data(run_id, name)"] --> CHECK["RuntimeCacheManager.check_cache()"]
-
-    subgraph CACHE_CHECK["缓存检查"]
-        direction TB
-        MEM["检查内存缓存<br/>check_memory_cache(run_id, name)"]
-        DISK["检查磁盘缓存<br/>check_disk_cache(run_id, name, key)"]
-        SIG["验证血缘签名<br/>compute_lineage_hash()"]
-
-        MEM -->|未命中| DISK
-        DISK -->|未命中| SIG
-    end
-
-    CHECK --> CACHE_CHECK
-
-    CACHE_CHECK -->|缓存命中| HIT["返回缓存数据"]
-    CACHE_CHECK -->|缓存未命中/失效| COMPUTE["执行插件计算"]
-
-    subgraph COMPUTE_SUB["计算流程"]
-        C1["解析依赖 (递归)"]
-        C2["调用 plugin.compute()"]
-        C3["验证输出契约"]
-        C4["保存到内存缓存"]
-        C5["持久化到磁盘"]
-    end
-
-    COMPUTE --> COMPUTE_SUB
-    COMPUTE_SUB --> RETURN["返回数据"]
-    HIT --> RETURN
-
-    style USER fill:#e3f2fd,stroke:#1976d2
-    style CACHE_CHECK fill:#f3e5f5,stroke:#7b1fa2
-    style COMPUTE_SUB fill:#e8f5e9,stroke:#388e3c
-```
-
-**流程说明**：
-1. 首先检查内存缓存（最快）
-2. 内存未命中则检查磁盘缓存
-3. 磁盘缓存需验证血缘签名（基于插件版本、配置、上游依赖哈希）
-4. 缓存失效或未命中时执行插件计算，结果自动缓存
-
-### 3.4 组件关系总览
+WaveformAnalysis 以显式的 `(run_id, data_name)` 请求为起点。Context 不保存“当前 run”，Plugin
+不直接解释任意 DAQ 文件，Accessor 也不发布新的处理结果。组件关系如下：
 
 ```mermaid
 flowchart LR
-    subgraph Adapter["🔌 DAQ Adapter Layer"]
-        AD["DAQAdapter\n(vx2730/v1725/...)"]
-        FS["FormatSpec\n+ ColumnMapping"]
-        DL["DirectoryLayout"]
-        AI["AdapterInfo\n→ 配置推断"]
-    end
+    USER[Notebook / CLI / analysis code]
+    CTX[Context<br/>注册 配置 依赖解析 执行协调]
+    ADAPTER[DAQ adapter<br/>输入格式与硬件事实]
+    PLUGIN[Plugin DAG<br/>唯一命名产物]
+    STORAGE[Storage<br/>按 lineage 持久化]
+    ACCESSOR[Accessor / RecordsView<br/>查询 关联 展示]
+    BATCH[BatchProcessor<br/>多 run 编排]
 
-    subgraph Context["🎛️ Context (中央调度器)"]
-        REG["register()"]
-        GET["get_data()"]
-        PLOT["plot_lineage()"]
-    end
-
-    subgraph Plugin["🔌 Plugin (处理单元)"]
-        PROVIDES["provides: str"]
-        DEPENDS["depends_on: List"]
-        OPTIONS["options: Dict"]
-        COMPUTE["compute()"]
-    end
-
-    subgraph Lineage["🔗 Lineage (血缘追踪)"]
-        TREE["依赖树"]
-        GRAPH["LineageGraphModel"]
-        VIS["可视化"]
-    end
-
-    subgraph Cache["💾 Cache (缓存机制)"]
-        MEM["内存缓存"]
-        DISK["磁盘缓存"]
-        SIG["签名验证"]
-    end
-
-    AD --> FS
-    AD --> DL
-    AD --> AI
-    AI -->|推断配置| OPTIONS
-
-    Plugin -->|注册| REG
-    REG -->|存储| Context
-
-    GET -->|解析| DEPENDS
-    DEPENDS -->|构建| TREE
-
-    PLOT -->|渲染| VIS
-    TREE -->|转换| GRAPH
-    GRAPH --> VIS
-
-    OPTIONS -->|track=True| TREE
-    TREE -->|计算哈希| SIG
-    SIG -->|验证| MEM
-    SIG -->|验证| DISK
-
-    COMPUTE -->|结果| MEM
-    MEM -->|持久化| DISK
-
-    style Adapter fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    style Context fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    style Plugin fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
-    style Lineage fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    style Cache fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    style PLOT fill:#ffeb3b,stroke:#f57c00,stroke-width:2px
+    USER --> CTX
+    BATCH -->|逐个 run 请求| CTX
+    CTX --> ADAPTER
+    CTX --> PLUGIN
+    PLUGIN --> STORAGE
+    STORAGE --> CTX
+    CTX --> ACCESSOR
+    ACCESSOR --> USER
 ```
 
-**核心交互点**：
-| 交互 | 说明 |
-|------|------|
-| DAQAdapter → FormatSpec/DirectoryLayout | 适配器组合格式读取器与目录布局，提供统一数据访问接口 |
-| DAQAdapter → AdapterInfo → Plugin options | 适配器推断采样率/`dt_ns`/时间戳单位，供插件配置解析器使用 |
-| Plugin → Context | 插件通过 `register()` 注册到 `_plugins` 字典 |
-| depends_on → Lineage | `get_lineage()` 递归遍历依赖构建血缘树 |
-| options → Cache | 仅 `track=True` 的选项参与血缘哈希计算 |
-| Lineage → Cache | 血缘哈希用于缓存键生成和验证 |
-| compute() → Cache | 计算结果自动缓存到内存和磁盘 |
+这张图中的箭头表示调用或数据所有权，不表示所有对象都进入 Plugin DAG。只有正式 Plugin 产物是
+DAG 节点；Storage 保存这些节点的结果，Accessor 在图外查询它们，BatchProcessor 在单 run
+Context 调用之外安排多个任务。
 
----
+### 1.1 组件职责矩阵
 
-## 4. 关键机制说明
+| 组件 | 接收 | 负责 | 不负责 |
+| --- | --- | --- | --- |
+| `Context` | `run_id`、目标产物、注册表、配置 | 解析依赖、lineage、缓存和执行计划 | 实现具体算法或保存隐式当前 run |
+| DAQ adapter | 原始路径、文件格式、硬件描述 | 将输入差异归一为统一解释 | 计算 hit、peaklet 或分析特征 |
+| Plugin | 声明的上游产物、已解析配置 | 发布一个唯一 `provides` 产物 | 跨 run 调度、交互查询或私有跨 Plugin 通信 |
+| Storage | 缓存键、数组、元数据 | 保存、加载、校验正式结果 | 决定结果的物理语义 |
+| Accessor / View | Context、`run_id`、正式产物和 ID | 加载、连接、筛选、波形访问和展示 | 声明新 DAG 节点或正式缓存身份 |
+| `BatchProcessor` | run 列表、目标或回调、调度选项 | 并发、重试、取消、错误和结果汇总 | 改变单 run 的 DAG 与 lineage 语义 |
 
-### 3.1 血缘哈希 (Lineage Hash)
-数据的唯一标识由以下因素决定：
-1. 插件的类名。
-2. 插件的版本号 (`version`)。
-3. 插件所使用的配置参数（经过验证的 `Option`）。
-4. 插件输出的 **标准化 DType** (`dtype.descr`)。
-5. 所有上游依赖的血缘哈希。
+### 1.2 稳定边界
 
-这意味着如果你修改了阈值、更改了处理算法或升级了插件版本，系统会自动识别并重新计算，而不会错误地使用旧缓存。
+1. 正式计算必须由 Plugin 通过唯一 `provides` 发布。
+2. 正式读取必须通过 Context 并显式携带 `run_id`。
+3. Plugin 之间只交换已声明产物，不交换 `_results`、bundle 或临时文件引用。
+4. 行级实体通过 ID 与关联表连接，不能依赖两个数组“恰好同序”。
+5. Storage 复用由 lineage 决定；文件存在本身不构成缓存命中。
 
-### 4.2 安全性与鲁棒性
-- **输出契约校验**: 自动验证插件返回的数据类型是否符合声明。
-- **原子性写入**: 使用 `.tmp` 临时文件确保数据写入的完整性，防止因崩溃产生损坏的缓存。
-- **并发保护**: 通过文件锁机制确保多进程环境下的缓存一致性。
-- **Generator 一次性消费语义**:
-    - 插件返回的生成器被包装在 `OneTimeGenerator` 中。
-    - 强制执行“一次消费”原则，防止因多次迭代导致的静默数据丢失。
-    - 消费过程中自动触发磁盘持久化，后续访问将自动切换为高性能的 `memmap`。
-- **血缘校验**: 加载缓存时验证元数据中的血缘信息，若逻辑发生变更（如版本升级）则自动失效并重算。
-- **签名校验 (`WATCH_SIG_KEY`)**: 基于输入文件的修改时间 (mtime) 和大小 (size) 计算 SHA1 签名，确保缓存数据与原始文件的一致性。
+## 2. Context 配置模型
 
-**缓存检查工具**: 推荐使用 `ctx.preview_execution(..., show_cache=True)`、`ctx.analyze_cache()` 与 `ctx.diagnose_cache()` 来查看当前插件缓存状态、磁盘占用和完整性问题。
+Context 同时持有运行环境配置和 Plugin 配置。二者使用同一个配置入口，但消费者、解析方式和是否进入
+lineage 不同。配置应先按作用域分类，再讨论最终优先级。
 
-### 4.3 性能优化路径
-- **向量化**: 尽可能使用 Numpy 广播机制（如 `compute_stacked_waveforms`）。
-- **并行化**:
-    - **全局执行器管理**: 通过 `ExecutorManager` 统一管理线程池和进程池，支持资源重用和自动清理。
-    - **IO 密集型任务**: 使用 `ThreadPoolExecutor`（通过预定义配置 `io_intensive`）。
-    - **CPU 密集型任务**: 使用 `ProcessPoolExecutor`（通过预定义配置 `cpu_intensive`）。
-    - **自适应选择**: 根据任务类型和数据规模自动选择最优的并行策略。
-- **加速器**:
-    - **Numba JIT**: 针对热点循环（如波形归一化、边界查找）提供可选的 `Numba` 加速路径。
-    - **多进程加速**: 对于大规模数据集，支持多进程并行处理（如 `group_multi_channel_hits`）。
-    - **混合优化**: 结合 Numba 和 multiprocessing，实现最佳性能。
+### 2.1 Context 自身配置
 
----
+Context 自身配置直接控制运行环境，不经过某个 Plugin 的 `options` 解析。
 
-## 5. 标准插件链
+| 配置类别 | 当前键 | 作用 |
+| --- | --- | --- |
+| 输入与运行配置 | `data_root`、`run_config_path`、`run_config_filename`、`run_config_path_template` | 定位 DAQ 数据和 run 级硬件配置 |
+| 存储后端 | `plugin_backends`、`compression`、`compression_kwargs` | 选择产物后端和压缩方式 |
+| 完整性 | `enable_checksum`、`verify_on_load`、`checksum_algorithm` | 控制缓存写入和读取校验 |
+| 执行资源 | `enable_plugin_parallelism`、`max_parallel_workers` | 控制同级 Plugin 并行执行 |
+| 配置快照 | `custom_config_json_path` | 将本次分析配置写入指定 JSON 路径 |
 
-### 5.1 插件依赖关系
+`storage_dir` 是 Context 初始化时的运行参数。未显式提供时，当前实现使用 `config["data_root"]`
+作为默认存储目录；因此输入目录与缓存目录需要分离时，应明确传入 `storage_dir`。
 
-系统定义了以下标准插件，按执行顺序排列：
+```python
+from waveform_analysis import Context
 
-1. **`RawFilesPlugin`**: 扫描数据目录，生成文件路径清单
-   - `provides`: `raw_files`
-   - `depends_on`: `[]`
+ctx = Context(
+    config={
+        "data_root": "/data/DAQ",
+        "daq_adapter": "v1725",
+        "compression": "lz4",
+        "enable_checksum": True,
+    },
+    storage_dir="/data/cache",
+)
+```
 
-2. **`WaveformsPlugin`**: 从原始文件提取波形数据
-   - `provides`: `waveforms`
-   - `depends_on`: `["raw_files"]`
+### 2.2 共享配置与 Plugin 专属配置
 
-3. **`StWaveformsPlugin`**: 将波形数据转换为结构化 NumPy 数组
-   - `provides`: `st_waveforms`
-   - `depends_on`: `["waveforms"]`
-4. **`FilteredWaveformsPlugin`** *(可选)*: 对波形进行滤波
-   - `provides`: `filtered_waveforms`
-   - `depends_on`: `["st_waveforms"]`
+Plugin option 有三个显式写法。解析器按“Plugin 嵌套配置、点号配置、共享配置”的顺序查找；三者
+都属于显式配置，均高于 adapter 推断与 Plugin 默认值。
 
-5. **`BasicFeaturesPlugin`**: 提供高度/面积数据
-   - `provides`: `basic_features`
-   - `depends_on`: `["st_waveforms"]`
-   - 可选依赖 `filtered_waveforms`（`use_filtered=True`）
+```python
+# 共享配置：所有声明 sampling_rate 的 Plugin 都可以读取
+ctx.set_config({"sampling_rate": 0.25})
 
-6. **`DataFramePlugin`**: 构建单通道事件 DataFrame
-   - `provides`: `df`
-   - `depends_on`: `["st_waveforms", "basic_features"]`
+# 推荐的 Plugin 专属配置
+ctx.set_config({"input_source": "raw_files"}, plugin_name="records")
 
-7. **`GroupedEventsPlugin`**: 按时间窗口聚类多通道事件
-   - `provides`: `df_events`
-   - `depends_on`: `["df"]`
-   - 支持 Numba 加速和多进程并行
+# 等价的点号形式，适合配置文件或命令行展开
+ctx.set_config({"records.input_source": "raw_files"})
+```
 
-8. **`PairedEventsPlugin`**: 跨通道配对事件
-   - `provides`: `df_paired`
-   - `depends_on`: `["df_events"]`
+同一个键同时存在时，Plugin 专属值覆盖共享值。`set_config` 会清除已解析配置缓存、性能缓存和 run
+配置缓存，保证后续请求重新解析；它不会直接删除已经持久化的 Plugin 结果，新的 lineage 是否变化
+由受跟踪配置决定。
 
-**可选扩展插件**：
-- **`HitFinderPlugin`**: `hit`（依赖 `st_waveforms`）
-- **`SignalPeaksPlugin`**: `signal_peaks`（依赖 `filtered_waveforms` + `st_waveforms`）
-
-### 5.2 数据流向图
+### 2.3 配置解析顺序
 
 ```mermaid
-graph TD
-    A[原始 CSV 文件] -->|RawFilesPlugin| B(raw_files: 文件路径清单)
-    B -->|WaveformsPlugin| C(waveforms: 原始波形数组)
-    C -->|StWaveformsPlugin| D(st_waveforms: 结构化波形)
-    D -->|FilteredWaveformsPlugin| E(filtered_waveforms: 滤波波形)
-    D -->|BasicFeaturesPlugin| F(basic_features: height/amp/area)
-    E -.->|BasicFeaturesPlugin(use_filtered)| F
-    D -->|DataFramePlugin| H(df: 单通道事件 DataFrame)
-    F -->|DataFramePlugin| H
-    H -->|GroupedEventsPlugin<br/>Numba + Multiprocessing| I(df_events: 聚类事件 DataFrame)
-    I -->|PairedEventsPlugin| J(df_paired: 配对事件 DataFrame)
-    D -->|HitFinderPlugin| K(hit: Hit 列表)
-    E -->|SignalPeaksPlugin| L(signal_peaks: 高级峰值)
-    J -->|Persistence| M[Parquet/CSV/Cache]
-
-    style E fill:#e1f5ff
-    style I fill:#e8f5e9
+flowchart TD
+    OPTION[Plugin option] --> PNS{plugin_name 下有值?}
+    PNS -->|是| EXPLICIT[显式值]
+    PNS -->|否| DOTTED{plugin_name.option 有值?}
+    DOTTED -->|是| EXPLICIT
+    DOTTED -->|否| GLOBAL{共享键有值?}
+    GLOBAL -->|是| EXPLICIT
+    GLOBAL -->|否| ADAPTER{adapter 可推断?}
+    ADAPTER -->|是| INFERRED[adapter 推断值]
+    ADAPTER -->|否| DEFAULT[Plugin option 默认值]
+    EXPLICIT --> VALIDATE[类型与约束校验]
+    INFERRED --> VALIDATE
+    DEFAULT --> VALIDATE
+    VALIDATE --> RESOLVED[ResolvedConfig: 值 + 来源]
 ```
 
-**English**: `basic_features` includes height/amp/area.
+解析优先级是：
 
----
+1. Plugin 专属显式配置；
+2. 点号形式的 Plugin 显式配置；
+3. 共享显式配置；
+4. DAQ adapter 推断；
+5. Plugin option 默认值。
 
-## 6. 目录规范
+adapter 当前可推断采样率、采样间隔、时间戳单位和原始时间戳模式等硬件相关 option。adapter 只
+提供推断值，显式配置始终可以覆盖它。
 
-- `waveform_analysis/core/`: 核心逻辑（模块化子目录架构）
-    - `context.py`: Context 核心调度器
-    - `cancellation.py` / `load_balancer.py`: 取消与负载控制
-    - `storage/`: memmap 缓存、压缩、完整性、缓存工具
-    - `execution/`: 执行器管理与超时控制
-    - `plugins/`: 插件核心设施与内置插件（CPU/JAX/Streaming/Legacy）
-    - `processing/`: loader/event_grouping/waveform_struct/analyzer/chunk/records_builder
-    - `data/`: query/batch_processor/export/dependency_analysis/records_view
-    - `foundation/`: exceptions/model/utils/progress/constants 等基础能力
-- `waveform_analysis/utils/`: 通用工具
-    - `formats/`: DAQ 数据格式适配器（`FormatSpec`/`ColumnMapping`/`TimestampUnit`/`DirectoryLayout`/`FormatReader`/`DAQAdapter`/注册表；内置 `vx2730`/`v1725`）
-    - `daq/`: DAQ 数据分析工具
-    - `io.py`: 文件 I/O 工具
-    - `preview.py`: 波形预览工具
-- `tests/`: 单元测试与集成测试。
-- `docs/`: 架构、缓存、执行器与功能专题文档。
+### 2.4 查看最终值与来源
 
-## 7. 最新更新 (Recent Updates)
+```python
+resolved = ctx.get_resolved_config("records")
+print(resolved.to_dict())
 
-### 7.1 模块化核心与插件分层 (2026-01)
-- `core/` 拆分为 storage/execution/plugins/processing/data/foundation，Context 保持在根目录。
-- 内置插件按加速器分层：`builtin/cpu/`, `builtin/jax/`, `builtin/streaming/`。
+ctx.show_resolved_config("records", verbose=True)
+```
 
-### 7.2 DAQ 适配器与 WaveformStruct 解耦 (2026-01)
-- **新增模块**: `waveform_analysis/utils/formats/`
-- **核心组件**: `FormatSpec`/`DirectoryLayout`/`DAQAdapter` 统一格式与目录布局。
-- **集成点**: `RawFilesPlugin`/`WaveformsPlugin`/`StWaveformsPlugin` 支持 `daq_adapter` 配置。
+`get_resolved_config()` 返回可编程读取的 `ResolvedConfig`；`show_resolved_config()` 展示值、来源和
+adapter。排查配置问题时应查看 resolved config，而不是只检查传给 Context 的原始字典。
 
-### 7.3 时间范围查询与索引 (Phase 2.2)
-- `TimeRangeQueryEngine` + `TimeIndex` 支持时间段检索与缓存索引。
-- `time_range`/`get_data_time_range_absolute` 支持相对/绝对时间查询。
+### 2.5 配置与 lineage
 
-### 7.4 Strax 适配与热重载 (Phase 2.3 / 3.3)
-- `StraxPluginAdapter`/`StraxContextAdapter` 提供 strax 兼容接口。
-- `PluginHotReloader` 支持插件热重载与缓存一致性维护。
+Plugin option 的 `track` 声明配置是否改变结果语义：
 
-### 7.5 批量处理与导出 (Phase 3.1 / 3.2)
-- `BatchProcessor` 并行处理多个 run，支持错误策略与进度追踪。
-- `DataExporter`/`batch_export` 提供统一导出接口。
+| 配置变化 | lineage 行为 | 适用条件 |
+| --- | --- | --- |
+| `track=True` 的算法或输入配置 | 生成新结果身份，下游随 DAG 失效 | 值会改变输出内容、字段或选择 |
+| `track=False` 的资源配置 | 通常保持原结果身份 | 只改变并发、批大小或资源位置且结果完全等价 |
+| Context 存储压缩、校验开关 | 改变保存方式，不应改变物理结果 | Storage 能保证读取结果等价 |
 
-### 7.6 缓存管理工具集 (2026-01)
-- `CacheAnalyzer`/`CacheDiagnostics`/`CacheCleaner`/`CacheStatsCollector` 提供扫描、诊断与清理。
-- CLI 支持 `waveform-cache` (info, stats, diagnose, list, clean)。
+把会改变结果的 option 标为 `track=False` 会错误复用旧缓存；把纯资源 option 标为 `track=True`
+则会产生不必要的重算。两者都属于配置契约错误。
+
+## 3. 一次请求的运行路径
+
+### 3.1 从 API 到执行计划
+
+```mermaid
+sequenceDiagram
+    participant U as Caller
+    participant C as Context
+    participant D as Dependency domain
+    participant S as Storage
+    participant P as Plugin executor
+
+    U->>C: get_data(run_id, target)
+    C->>C: 解析本次 Plugin 配置
+    C->>D: 解析静态与动态依赖
+    D-->>C: 本次 DAG 与依赖顺序
+    C->>C: 计算 target 及上游 lineage
+    C->>S: 查询当前缓存键
+    alt 缓存命中
+        S-->>C: 一致的正式产物
+    else 缓存缺失或身份变化
+        C->>P: 只执行缺失节点
+        P-->>S: 保存正式产物与元数据
+        S-->>C: 返回结果
+    end
+    C-->>U: native / chunk_stream / array
+```
+
+请求下游产物不会无条件重算整条链。Context 先计算本次 DAG 和 lineage，再把已经命中的节点从
+执行计划中排除。Accessor 调用 `get_data` 也走同一路径；Accessor 的“只读”表示它不拥有新产物
+契约，并不表示它只能读取已经驻留内存的数组。
+
+### 3.2 输出形态
+
+| `output` | 返回行为 | 典型用途 |
+| --- | --- | --- |
+| `native` | 保持 Plugin 原生结果 | 普通数组或 Plugin 自定义结果 |
+| `chunk_stream` | 保留流式 chunk | 流式消费、限制峰值内存 |
+| `array` | 将可物化流拼接为数组并记录内存结果 | 交互分析和整体数组算法 |
+
+输出形态改变调用端如何消费结果，不改变 Plugin 的 `provides` 名称。是否产生新缓存身份仍由 Plugin
+契约和 lineage 决定。
+
+## 4. 数据流与访问层
+
+```mermaid
+flowchart TD
+    RAW[DAQ 原始输入] --> ADAPTER[DAQ adapter]
+    ADAPTER --> INPUT[raw_files / 声明的输入产物]
+    INPUT --> INDEX[结构化索引产物]
+    INPUT --> POOL[对应 wave pool]
+    INDEX --> PROCESS[分析 Plugin]
+    POOL --> PROCESS
+    PROCESS --> ENTITY[hit / peaklet / peak 等主产物]
+    ENTITY --> RELATION[成员关系与派生聚合产物]
+    INDEX --> VIEW[波形访问 View]
+    POOL --> VIEW
+    ENTITY --> ACCESSOR[Accessor]
+    RELATION --> ACCESSOR
+    VIEW --> ACCESSOR
+```
+
+`records + wave_pool` 是“结构化索引 + 连续波形池”的一个实例；`peaklet_waveforms +
+peaklet_waveform_pool` 是另一实例。不同实体必须使用对应的索引产物和 pool，不能因为都是一维数组就
+交叉配对。具体规则见[波形数据：records 与 Wave Pool 的配对访问](RECORDS_WAVE_POOL.md)。
+
+## 5. 组件选择
+
+| 需求 | 放置位置 | 原因 |
+| --- | --- | --- |
+| 新的可复用计算结果 | 单一职责 Plugin | 进入 DAG、lineage、缓存和契约测试 |
+| 父实体与成员的关系 | 独立关联型中间产物 | 关系可单独版本化、缓存和校验 |
+| 已有产物的筛选、连接和绘图 | Accessor | 不创造新的处理语义 |
+| 索引产物对应的波形切片 | 对应 View / Accessor | 统一校验 ID、offset 和 length |
+| 多个 run 的同一操作 | `BatchProcessor` 或显式循环 | 单 run 结果身份保持隔离 |
+| 新硬件或文件格式 | DAQ adapter | 输入差异不扩散到分析 Plugin |
+
+## 6. 不变量与故障原因
+
+| 现象 | 可能原因 | 首先检查 |
+| --- | --- | --- |
+| 同一请求意外重算 | tracked 配置、adapter、version、schema 或上游 lineage 已变化 | `preview_execution`、resolved config、当前 lineage |
+| 本应重算却复用旧结果 | 影响输出的配置未跟踪，或行为变化未升级 version | Plugin option、version、lineage 内容 |
+| 结果来自错误 run | 调用端复用局部 ID 或未显式传递正确 `run_id` | 所有 `get_data` 与 Accessor 构造入口 |
+| 波形切片越界 | 索引产物与 wave pool 不配对，pool 被截断或 offset 错误 | run、lineage、pool 长度与切片字段 |
+| Accessor 查询为空 | ID 空间错误、输入产物缺失或关联表不覆盖该实体 | Accessor 输入表、关系字段和 run_id |
+| 切换 adapter 后物理量异常 | 显式配置覆盖了推断值，或输入解释未进入 lineage | `show_resolved_config` 与 adapter 信息 |
+
+## 7. 阅读顺序
+
+1. [插件执行链：DAG、动态依赖、Lineage 与缓存](PLUGIN_DAG_LINEAGE_CACHE.md)
+2. [数据产物：实体关系与派生结果](DATA_PRODUCTS.md)
+3. [波形数据：records 与 Wave Pool 的配对访问](RECORDS_WAVE_POOL.md)
+4. [分析查询：Accessor 与只读数据访问](ACCESSOR_ANALYSIS.md)
+5. [批量运行：多 Run 调度与执行（开发中）](MULTI_RUN_PROCESSING.md)
