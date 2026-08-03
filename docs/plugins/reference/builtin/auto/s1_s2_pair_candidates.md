@@ -55,15 +55,15 @@ structured_array output with fields: pair_id, s1_peak_id, s2_peak_id, s1_index, 
 | `s2_peak_id` | `int64` | - | S2 peak identifier (anchor) |
 | `s1_index` | `int32` | - | S1 row index in the S1-only sub-array |
 | `s2_index` | `int32` | - | S2 row index in the S2-only sub-array |
-| `s1_time` | `int64` | - | S1 timestamp in picoseconds |
-| `s2_time` | `int64` | - | S2 timestamp in picoseconds |
-| `drift_time` | `int64` | - | Drift time (S2 time minus S1 time) in picoseconds |
-| `drift_time_ns` | `float32` | - | Drift time in nanoseconds |
+| `s1_time` | `int64` | ps | S1 timestamp |
+| `s2_time` | `int64` | ps | S2 timestamp |
+| `drift_time` | `int64` | ps | Drift time (S2 time minus S1 time) |
+| `drift_time_ns` | `float32` | ns | Drift time in nanoseconds |
 | `s1_area` | `float32` | - | S1 signal area |
 | `s2_area` | `float32` | - | S2 signal area |
 | `log10_s2_s1` | `float32` | - | log10 of S2/S1 area ratio |
-| `s1_width` | `float32` | - | S1 width (ns) |
-| `s2_width` | `float32` | - | S2 width (ns) |
+| `s1_width` | `float32` | ns | S1 width |
+| `s2_width` | `float32` | ns | S2 width |
 | `s1_n_channels` | `int16` | - | Number of channels for S1 |
 | `s2_n_channels` | `int16` | - | Number of channels for S2 |
 | `score_total` | `float32` | - | Total pairing score |

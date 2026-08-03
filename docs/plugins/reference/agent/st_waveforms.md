@@ -48,7 +48,7 @@ Extract waveforms from raw CSV files and structure them into NumPy structured ar
 | `streaming_mode` | `bool` | `False` | - | no | no | Enable streaming mode: read files and structure waveforms incrementally to reduce memory usage. When enabled, uses memmap for output to avoid full vstack memory overhead. |
 ## Output
 
-structured_array output with fields: baseline, baseline_upstream, polarity, timestamp, record_id, dt, event_length, board, channel, wave.
+structured_array output with fields: baseline, baseline_upstream, polarity, timestamp, record_id, dt, event_length, board, ....
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |

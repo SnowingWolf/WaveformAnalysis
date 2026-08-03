@@ -157,6 +157,7 @@ class TestHistogram2DCorrectness:
 class TestCornerHistPerformance:
     """corner_hist 性能基准测试"""
 
+    @pytest.mark.slow
     @pytest.mark.parametrize(
         "n_points,n_vars,desc",
         [

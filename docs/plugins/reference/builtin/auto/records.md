@@ -52,7 +52,7 @@ Build records (event index table) from the shared internal records bundle.
 | `input_source` | `str` | `raw_files` | - | yes | no | Input source for records bundle: 'raw_files' or 'st_waveforms'. Use 'st_waveforms' for the materialized waveform path. |
 ## Output
 
-structured_array output with fields: timestamp, pid, board, channel, baseline, baseline_upstream, polarity, record_id, dt, trigger_type, flags, wave_offset, event_length, time.
+structured_array output with fields: timestamp, pid, board, channel, baseline, baseline_upstream, polarity, record_id, ....
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
