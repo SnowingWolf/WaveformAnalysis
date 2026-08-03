@@ -26,7 +26,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`df`](df.md) | `DataFramePlugin` | - | `dataframe` | `1.7.0` |
 | [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `dataframe` | `0.0.1` |
 | [`df_paired`](df_paired.md) | `PairedEventsPlugin` | `df_events` | `dataframe` | `0.0.1` |
-| [`events`](events.md) | `EventPlugin` | `s1_s2_pairs`, `position_reconstruction` | `structured_array` | `0.0.1` |
+| [`events`](events.md) | `EventPlugin` | `s1_s2_pairs`, `position_reconstruction` | `structured_array` | `0.0.3` |
 | [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `structured_array` | `3.0.0` |
 | [`hit`](hit.md) | `HitFinderPlugin` | - | `structured_array` | `3.0.0` |
 | [`hit_grouped`](hit_grouped.md) | `HitGroupedPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold` | `dataframe` | `0.5.0` |

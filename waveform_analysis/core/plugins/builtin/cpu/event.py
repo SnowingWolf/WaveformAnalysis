@@ -62,10 +62,10 @@ EVENT_DTYPE = np.dtype(
         ("y", "f4"),  # Y 坐标
         ("z", "f4"),  # Z 坐标 (漂移距离)
         ("r", "f4"),  # 径向坐标 r = sqrt(x^2 + y^2)
-        # === Timing (ns) ===
-        ("drift_time_ns", "f4"),  # 漂移时间
-        ("s1_time", "f8"),  # S1 时间（相对于 run 起点）
-        ("s2_time", "f8"),  # S2 时间
+        # === Timing ===
+        ("drift_time_ns", "f4"),  # 漂移时间 (ns)
+        ("s1_time", "f8"),  # S1 时间 (ps，相对于 run 起点)
+        ("s2_time", "f8"),  # S2 时间 (ps)
         # === Raw signals ===
         ("s1_area", "f4"),  # S1 原始面积
         ("s2_area", "f4"),  # S2 原始面积
@@ -119,7 +119,7 @@ class EventPlugin(Plugin):
     provides = "events"
     depends_on = ["s1_s2_pairs", "position_reconstruction"]
     description = "Complete event reconstruction from S1-S2 pairs and position"
-    version = "0.0.1"
+    version = "0.0.3"
     save_when = "always"
     output_dtype = EVENT_DTYPE
 
@@ -202,8 +202,8 @@ class EventPlugin(Plugin):
         events["r"] = positions["r"]
 
         # 填充时间信息
-        events["s1_time"] = selected_pairs["s1_time"] / 1e12  # ps -> s
-        events["s2_time"] = selected_pairs["s2_time"] / 1e12
+        events["s1_time"] = selected_pairs["s1_time"]  # ps，原样继承
+        events["s2_time"] = selected_pairs["s2_time"]  # ps
         events["drift_time_ns"] = selected_pairs["drift_time_ns"]
 
         # 填充原始信号

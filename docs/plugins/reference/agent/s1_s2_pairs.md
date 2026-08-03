@@ -49,36 +49,36 @@ structured_array output with fields: pair_id, s1_peak_id, s2_peak_id, s1_index, 
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `pair_id` | `int64` | - | Unique candidate pair identifier |
-| `s1_peak_id` | `int64` | - | S1 peak identifier |
-| `s2_peak_id` | `int64` | - | S2 peak identifier (anchor) |
-| `s1_index` | `int32` | - | S1 row index in the S1-only sub-array |
-| `s2_index` | `int32` | - | S2 row index in the S2-only sub-array |
-| `s1_time` | `int64` | - | S1 timestamp in picoseconds |
-| `s2_time` | `int64` | - | S2 timestamp in picoseconds |
-| `drift_time` | `int64` | - | Drift time (S2 time minus S1 time) in picoseconds |
-| `drift_time_ns` | `float32` | - | Drift time in nanoseconds |
-| `s1_area` | `float32` | - | S1 signal area |
-| `s2_area` | `float32` | - | S2 signal area |
-| `log10_s2_s1` | `float32` | - | log10 of S2/S1 area ratio |
-| `s1_width` | `float32` | - | S1 width (ns) |
-| `s2_width` | `float32` | - | S2 width (ns) |
-| `s1_n_channels` | `int16` | - | Number of channels for S1 |
-| `s2_n_channels` | `int16` | - | Number of channels for S2 |
-| `score_total` | `float32` | - | Total pairing score |
-| `score_time` | `float32` | - | Time-matching score |
-| `score_s1_quality` | `float32` | - | S1 quality score |
-| `score_s2_quality` | `float32` | - | S2 quality score |
-| `score_ratio` | `float32` | - | S2/S1 ratio score |
-| `score_pattern` | `float32` | - | Pattern-matching score (reserved) |
-| `score_ambiguity` | `float32` | - | Ambiguity penalty (reserved) |
-| `rank_for_s1` | `int32` | - | Rank of this S2 among all S1 candidates (1-based) |
-| `rank_for_s2` | `int32` | - | Rank of this S1 among all S2 candidates (1-based) |
-| `n_s1_candidates_for_s2` | `int32` | - | Number of S1 candidates competing for this S2 |
-| `n_s2_candidates_for_s1` | `int32` | - | Number of S2 candidates competing for this S1 |
-| `delta_score_to_next_best` | `float32` | - | Score difference to next-best candidate |
-| `flags` | `uint32` | - | Bit-field status flags |
-| `selected` | `bool` | - | Whether this pair was selected as final pairing |
+| `pair_id` | `int64` | None | Unique candidate pair identifier |
+| `s1_peak_id` | `int64` | None | S1 peak identifier |
+| `s2_peak_id` | `int64` | None | S2 peak identifier (anchor) |
+| `s1_index` | `int32` | None | S1 row index in the S1-only sub-array |
+| `s2_index` | `int32` | None | S2 row index in the S2-only sub-array |
+| `s1_time` | `int64` | ps | S1 timestamp in picoseconds |
+| `s2_time` | `int64` | ps | S2 timestamp in picoseconds |
+| `drift_time` | `int64` | ps | Drift time (S2 time minus S1 time) in picoseconds |
+| `drift_time_ns` | `float32` | ns | Drift time in nanoseconds |
+| `s1_area` | `float32` | ADC counts | S1 signal area |
+| `s2_area` | `float32` | ADC counts | S2 signal area |
+| `log10_s2_s1` | `float32` | None | log10 of S2/S1 area ratio |
+| `s1_width` | `float32` | ns | S1 width (ns) |
+| `s2_width` | `float32` | ns | S2 width (ns) |
+| `s1_n_channels` | `int16` | None | Number of channels for S1 |
+| `s2_n_channels` | `int16` | None | Number of channels for S2 |
+| `score_total` | `float32` | None | Total pairing score |
+| `score_time` | `float32` | None | Time-matching score |
+| `score_s1_quality` | `float32` | None | S1 quality score |
+| `score_s2_quality` | `float32` | None | S2 quality score |
+| `score_ratio` | `float32` | None | S2/S1 ratio score |
+| `score_pattern` | `float32` | None | Pattern-matching score (reserved) |
+| `score_ambiguity` | `float32` | None | Ambiguity penalty (reserved) |
+| `rank_for_s1` | `int32` | None | Rank of this S2 among all S1 candidates (1-based) |
+| `rank_for_s2` | `int32` | None | Rank of this S1 among all S2 candidates (1-based) |
+| `n_s1_candidates_for_s2` | `int32` | None | Number of S1 candidates competing for this S2 |
+| `n_s2_candidates_for_s1` | `int32` | None | Number of S2 candidates competing for this S1 |
+| `delta_score_to_next_best` | `float32` | None | Score difference to next-best candidate |
+| `flags` | `uint32` | None | Bit-field status flags |
+| `selected` | `bool` | None | Whether this pair was selected as final pairing |
 ## Usage
 
 ### Minimal Example

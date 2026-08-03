@@ -55,14 +55,14 @@ structured_array output with fields: height, amp, area, max_abs_diff, timestamp,
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `height` | `float32` | - | Pulse height (baseline minus minimum sample) |
-| `amp` | `float32` | - | Peak-to-peak amplitude (max minus min) |
-| `area` | `float32` | - | Waveform integral area |
-| `max_abs_diff` | `float32` | - | Maximum absolute difference between consecutive samples |
-| `timestamp` | `int64` | - | ADC timestamp in picoseconds |
-| `board` | `int16` | - | Hardware board index |
-| `channel` | `int16` | - | Physical channel number |
-| `record_id` | `int64` | - | Source record identifier |
+| `height` | `float32` | ADC counts | Pulse height (baseline minus minimum sample) |
+| `amp` | `float32` | ADC counts | Peak-to-peak amplitude (max minus min) |
+| `area` | `float32` | ADC counts | Waveform integral area |
+| `max_abs_diff` | `float32` | ADC counts | Maximum absolute difference between consecutive samples |
+| `timestamp` | `int64` | ps | ADC timestamp in picoseconds |
+| `board` | `int16` | None | Hardware board index |
+| `channel` | `int16` | None | Physical channel number |
+| `record_id` | `int64` | None | Source record identifier |
 ## Usage
 
 ### Minimal Example

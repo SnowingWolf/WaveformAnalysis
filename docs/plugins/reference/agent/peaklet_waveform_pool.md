@@ -45,7 +45,7 @@ array output with fields: value.
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `value` | `float32` | - | Flattened float32 waveform sample for peaklet waveform slices |
+| `value` | `float32` | ADC counts | Flattened float32 waveform sample for peaklet waveform slices |
 ## Usage
 
 ### Minimal Example

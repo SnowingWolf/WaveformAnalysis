@@ -59,15 +59,15 @@ structured_array output with fields: position, edge_start, edge_end, width, dt, 
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `position` | `int64` | - | Representative sample position within the hit interval |
-| `edge_start` | `int32` | - | Hit window start boundary (safe half-open sample index within record) |
-| `edge_end` | `int32` | - | Hit window end boundary (safe half-open sample index within record) |
-| `width` | `float32` | - | Hit window width in samples |
-| `dt` | `int32` | - | Sample interval in nanoseconds |
-| `timestamp` | `int64` | - | Global timestamp in picoseconds at the hit position |
-| `board` | `int16` | - | Hardware board index |
-| `channel` | `int16` | - | Physical channel number |
-| `record_id` | `int64` | - | Identifier of the source waveform record |
+| `position` | `int64` | samples | Representative sample position within the hit interval |
+| `edge_start` | `int32` | samples | Hit window start boundary (safe half-open sample index within record) |
+| `edge_end` | `int32` | samples | Hit window end boundary (safe half-open sample index within record) |
+| `width` | `float32` | samples | Hit window width in samples |
+| `dt` | `int32` | ns | Sample interval in nanoseconds |
+| `timestamp` | `int64` | ps | Global timestamp in picoseconds at the hit position |
+| `board` | `int16` | None | Hardware board index |
+| `channel` | `int16` | None | Physical channel number |
+| `record_id` | `int64` | None | Identifier of the source waveform record |
 ## Usage
 
 ### Minimal Example

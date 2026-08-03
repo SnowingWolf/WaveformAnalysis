@@ -61,16 +61,16 @@ structured_array output with fields: position, height, integral, edge_start, edg
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `position` | `int64` | - | Peak position as sample index within the waveform |
-| `height` | `float32` | - | Peak height above baseline |
-| `integral` | `float32` | - | Peak integral (area) |
-| `edge_start` | `float32` | - | Peak left edge boundary |
-| `edge_end` | `float32` | - | Peak right edge boundary |
-| `dt` | `int32` | - | Sample interval in nanoseconds |
-| `timestamp` | `int64` | - | Global timestamp in picoseconds |
-| `board` | `int16` | - | Hardware board index |
-| `channel` | `int16` | - | Physical channel number |
-| `record_id` | `int64` | - | Source record identifier |
+| `position` | `int64` | samples | Peak position as sample index within the waveform |
+| `height` | `float32` | ADC counts | Peak height above baseline |
+| `integral` | `float32` | ADC counts | Peak integral (area) |
+| `edge_start` | `float32` | samples | Peak left edge boundary |
+| `edge_end` | `float32` | samples | Peak right edge boundary |
+| `dt` | `int32` | ns | Sample interval in nanoseconds |
+| `timestamp` | `int64` | ps | Global timestamp in picoseconds |
+| `board` | `int16` | None | Hardware board index |
+| `channel` | `int16` | None | Physical channel number |
+| `record_id` | `int64` | None | Source record identifier |
 ## Usage
 
 ### Minimal Example

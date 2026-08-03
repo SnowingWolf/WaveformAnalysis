@@ -123,11 +123,11 @@ events:
     doc: Drift time (ns)
     units: ns
   s1_time:
-    doc: S1 time relative to run start (s)
-    units: s
+    doc: S1 time relative to run start (ps)
+    units: ps
   s2_time:
-    doc: S2 time (s)
-    units: s
+    doc: S2 time (ps)
+    units: ps
   s1_area:
     doc: S1 raw area
     units: ADC counts

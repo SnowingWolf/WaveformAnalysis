@@ -46,7 +46,7 @@ array output with fields: value.
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `value` | `bool` | - | Boolean mask: True for records assigned to detector channel role |
+| `value` | `bool` | None | Boolean mask: True for records assigned to detector channel role |
 ## Usage
 
 ### Minimal Example

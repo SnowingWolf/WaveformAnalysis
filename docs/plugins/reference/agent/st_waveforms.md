@@ -59,13 +59,13 @@ structured_array output with fields: baseline, baseline_upstream, polarity, time
 | --- | --- | --- | --- |
 | `baseline` | `float64` | ADC counts | Computed global waveform baseline for this record |
 | `baseline_upstream` | `float64` | ADC counts | Upstream baseline value from preceding processing, optional |
-| `polarity` | `<U8` | - | Hardware-truth signal polarity: positive \| negative \| unknown |
+| `polarity` | `<U8` | None | Hardware-truth signal polarity: positive \| negative \| unknown |
 | `timestamp` | `int64` | ps | ADC raw timestamp in picoseconds |
-| `record_id` | `int64` | - | Sequential record identifier within the structured waveform array |
+| `record_id` | `int64` | None | Sequential record identifier within the structured waveform array |
 | `dt` | `int32` | ns | Sample interval in nanoseconds, aligned to time |
 | `event_length` | `int32` | samples | Waveform length in samples |
-| `board` | `int16` | - | Hardware board index |
-| `channel` | `int16` | - | Physical channel number |
+| `board` | `int16` | None | Hardware board index |
+| `channel` | `int16` | None | Physical channel number |
 | `wave` | `('<i2', (1500,))` | ADC counts | ADC sample data as 1-D int16 array |
 ## Usage
 

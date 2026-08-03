@@ -66,17 +66,17 @@ structured_array output with fields: timestamp, pid, board, channel, baseline, b
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `timestamp` | `int64` | ps | ADC timestamp in picoseconds |
-| `pid` | `int32` | - | Partition identifier used as a tie-breaker |
-| `board` | `int16` | - | Hardware board index |
-| `channel` | `int16` | - | Physical channel number |
+| `pid` | `int32` | None | Partition identifier used as a tie-breaker |
+| `board` | `int16` | None | Hardware board index |
+| `channel` | `int16` | None | Physical channel number |
 | `baseline` | `float64` | ADC counts | Computed global waveform baseline |
 | `baseline_upstream` | `float64` | ADC counts | Upstream baseline value from preceding processing |
-| `polarity` | `<U8` | - | Hardware-truth signal polarity |
-| `record_id` | `int64` | - | Sequential record identifier after sorting |
+| `polarity` | `<U8` | None | Hardware-truth signal polarity |
+| `record_id` | `int64` | None | Sequential record identifier after sorting |
 | `dt` | `int32` | ns | Sample interval in nanoseconds |
-| `trigger_type` | `int16` | - | Trigger type code |
-| `flags` | `uint32` | - | Bit field of record flags |
-| `wave_offset` | `int64` | - | Starting index in wave_pool |
+| `trigger_type` | `int16` | None | Trigger type code |
+| `flags` | `uint32` | None | Bit field of record flags |
+| `wave_offset` | `int64` | None | Starting index in wave_pool |
 | `event_length` | `int32` | samples | Waveform length in samples |
 | `time` | `int64` | ns | System time in nanoseconds |
 ## Usage

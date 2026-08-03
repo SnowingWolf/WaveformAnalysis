@@ -50,7 +50,7 @@ array output with fields: value.
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `value` | `bool` | - | Boolean mask: True for records passing waveform asymmetry selection |
+| `value` | `bool` | None | Boolean mask: True for records passing waveform asymmetry selection |
 ## Usage
 
 ### Minimal Example

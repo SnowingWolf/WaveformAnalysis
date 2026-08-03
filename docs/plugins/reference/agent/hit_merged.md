@@ -59,21 +59,21 @@ structured_array output with fields: merged_id, position, time_start, time_end, 
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `merged_id` | `int64` | - | Unique identifier for the merged hit record, equal to row index |
-| `position` | `int64` | - | Anchor hit position; for multi-hit clusters, nearest to window midpoint |
-| `time_start` | `int64` | - | Absolute start time in picoseconds of the merged window |
-| `time_end` | `int64` | - | Absolute end time in picoseconds of the merged window |
-| `sample_start` | `int32` | - | Merged sample-window start; -1 when spanning multiple records |
-| `sample_end` | `int32` | - | Merged sample-window end; -1 when spanning multiple records |
-| `width` | `float32` | - | Merged sample-window width; -1.0 when spanning records |
-| `dt` | `int32` | - | Resolved sample interval in nanoseconds |
-| `timestamp` | `int64` | - | Anchor hit timestamp in picoseconds |
-| `board` | `int16` | - | Hardware board from the anchor hit |
-| `channel` | `int16` | - | Hardware channel from the anchor hit |
-| `record_id` | `int64` | - | Anchor hit record identifier |
-| `component_offset` | `int64` | - | Start row in hit_merge_clusters for this cluster |
-| `component_count` | `int32` | - | Number of component rows in hit_merge_clusters for this cluster |
-| `is_single_record` | `bool` | - | True when all component hits belong to the same record |
+| `merged_id` | `int64` | None | Unique identifier for the merged hit record, equal to row index |
+| `position` | `int64` | samples | Anchor hit position; for multi-hit clusters, nearest to window midpoint |
+| `time_start` | `int64` | ps | Absolute start time in picoseconds of the merged window |
+| `time_end` | `int64` | ps | Absolute end time in picoseconds of the merged window |
+| `sample_start` | `int32` | samples | Merged sample-window start; -1 when spanning multiple records |
+| `sample_end` | `int32` | samples | Merged sample-window end; -1 when spanning multiple records |
+| `width` | `float32` | samples | Merged sample-window width; -1.0 when spanning records |
+| `dt` | `int32` | ns | Resolved sample interval in nanoseconds |
+| `timestamp` | `int64` | ps | Anchor hit timestamp in picoseconds |
+| `board` | `int16` | None | Hardware board from the anchor hit |
+| `channel` | `int16` | None | Hardware channel from the anchor hit |
+| `record_id` | `int64` | None | Anchor hit record identifier |
+| `component_offset` | `int64` | None | Start row in hit_merge_clusters for this cluster |
+| `component_count` | `int32` | None | Number of component rows in hit_merge_clusters for this cluster |
+| `is_single_record` | `bool` | None | True when all component hits belong to the same record |
 ## Usage
 
 ### Minimal Example

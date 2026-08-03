@@ -924,7 +924,7 @@ class PluginDocGenerator:
                 OutputFieldInfo(
                     name=field.name,
                     dtype=field.dtype,
-                    units=field.units or dtype_notes.get(field.name, {}).get("units", "-"),
+                    units=field.units or dtype_notes.get(field.name, {}).get("units", "None"),
                     doc=field.doc or dtype_notes.get(field.name, {}).get("doc", ""),
                 )
                 for field in output_schema.fields
@@ -949,7 +949,7 @@ class PluginDocGenerator:
                     field_dtype = dtype.fields[name][0]
                     note = dtype_notes.get(name, {})
                     doc = note.get("doc", "") if isinstance(note, dict) else str(note)
-                    units = note.get("units", "-") if isinstance(note, dict) else "-"
+                    units = note.get("units", "None") if isinstance(note, dict) else "None"
                     output_fields.append(
                         OutputFieldInfo(
                             name=name,
