@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from tests.utils import DummyContext, make_records
+from tests.utils import DummyContext, make_hit, make_records
 from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.builtin.hit.hit_merge import (
     HIT_MERGED_DTYPE,
@@ -15,21 +15,6 @@ from waveform_analysis.core.plugins.builtin.peaks.peaklets import (
     PeakletComponentsPlugin,
     PeakletPlugin,
 )
-
-
-def _make_hit(*, record_id, board, channel, edge_start, edge_end, dt=2, timestamp=0):
-    arr = np.zeros(1, dtype=THRESHOLD_HIT_DTYPE)
-    position = (edge_start + edge_end - 1) // 2
-    arr[0]["position"] = position
-    arr[0]["edge_start"] = edge_start
-    arr[0]["edge_end"] = edge_end
-    arr[0]["width"] = edge_end - edge_start
-    arr[0]["dt"] = dt
-    arr[0]["timestamp"] = timestamp + position * dt * 1000
-    arr[0]["board"] = board
-    arr[0]["channel"] = channel
-    arr[0]["record_id"] = record_id
-    return arr[0]
 
 
 def make_peaklet_context(hits, wave_pool, *, time_window_ns=4.0, use_filtered=False):
@@ -91,8 +76,8 @@ def make_peaklet_context(hits, wave_pool, *, time_window_ns=4.0, use_filtered=Fa
 def test_peaklets_cluster_cross_channel_hits_without_waveform_features():
     hits = np.array(
         [
-            _make_hit(record_id=0, board=0, channel=0, edge_start=3, edge_end=5),
-            _make_hit(record_id=1, board=0, channel=1, edge_start=4, edge_end=6),
+            make_hit(record_id=0, board=0, channel=0, edge_start=3, edge_end=5),
+            make_hit(record_id=1, board=0, channel=1, edge_start=4, edge_end=6),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
@@ -134,8 +119,8 @@ def test_peaklets_empty_input_returns_empty_lightweight_dtype():
 def test_peaklets_split_when_cross_channel_gap_exceeds_window():
     hits = np.array(
         [
-            _make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=2),
-            _make_hit(record_id=1, board=0, channel=1, edge_start=8, edge_end=9),
+            make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=2),
+            make_hit(record_id=1, board=0, channel=1, edge_start=8, edge_end=9),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
@@ -154,8 +139,8 @@ def test_peaklets_split_when_cross_channel_gap_exceeds_window():
 def test_peaklet_components_use_peaklets_clustering_config():
     hits = np.array(
         [
-            _make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=2),
-            _make_hit(record_id=1, board=0, channel=1, edge_start=8, edge_end=9),
+            make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=2),
+            make_hit(record_id=1, board=0, channel=1, edge_start=8, edge_end=9),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
@@ -181,8 +166,8 @@ def test_peaklet_components_use_peaklets_clustering_config():
 def test_peaklet_components_compute_without_peaklets_dependency():
     hits = np.array(
         [
-            _make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=2),
-            _make_hit(record_id=1, board=0, channel=1, edge_start=8, edge_end=9),
+            make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=2),
+            make_hit(record_id=1, board=0, channel=1, edge_start=8, edge_end=9),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
@@ -199,8 +184,8 @@ def test_peaklet_components_compute_without_peaklets_dependency():
 def test_peaklets_consume_peaklet_components_without_reclustering(monkeypatch):
     hits = np.array(
         [
-            _make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=2),
-            _make_hit(record_id=1, board=0, channel=1, edge_start=8, edge_end=9),
+            make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=2),
+            make_hit(record_id=1, board=0, channel=1, edge_start=8, edge_end=9),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
@@ -226,8 +211,8 @@ def test_peaklets_consume_peaklet_components_without_reclustering(monkeypatch):
 def test_peaklets_respect_max_total_width_window():
     hits = np.array(
         [
-            _make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=4),
-            _make_hit(record_id=1, board=0, channel=1, edge_start=3, edge_end=8),
+            make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=4),
+            make_hit(record_id=1, board=0, channel=1, edge_start=3, edge_end=8),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )

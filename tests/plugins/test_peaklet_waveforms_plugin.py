@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from tests.plugins.test_peaklets_plugin import _make_hit, make_peaklet_context
-from tests.utils import DummyContext, make_records
+from tests.plugins.test_peaklets_plugin import make_peaklet_context
+from tests.utils import DummyContext, make_hit, make_records
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PEAKLET_WAVEFORMS_DTYPE,
@@ -35,8 +35,8 @@ def _compute_peaklets_and_components(ctx):
 def _make_cross_record_waveform_context(*, config=None):
     hits = np.array(
         [
-            _make_hit(record_id=0, board=0, channel=0, edge_start=3, edge_end=5),
-            _make_hit(record_id=1, board=0, channel=0, edge_start=2, edge_end=4),
+            make_hit(record_id=0, board=0, channel=0, edge_start=3, edge_end=5),
+            make_hit(record_id=1, board=0, channel=0, edge_start=2, edge_end=4),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
@@ -157,9 +157,9 @@ def test_peaklet_waveforms_direct_component_offsets_match_csr_fallback():
 def test_peaklet_waveforms_mix_single_and_cross_record_pieces_in_one_peaklet():
     hits = np.array(
         [
-            _make_hit(record_id=0, board=0, channel=0, edge_start=3, edge_end=5),
-            _make_hit(record_id=1, board=0, channel=0, edge_start=2, edge_end=4),
-            _make_hit(record_id=2, board=0, channel=0, edge_start=1, edge_end=3),
+            make_hit(record_id=0, board=0, channel=0, edge_start=3, edge_end=5),
+            make_hit(record_id=1, board=0, channel=0, edge_start=2, edge_end=4),
+            make_hit(record_id=2, board=0, channel=0, edge_start=1, edge_end=3),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
@@ -251,8 +251,8 @@ def test_peaklet_waveform_csr_helpers_mark_empty_groups():
 def test_peaklet_waveforms_align_and_sum_hit_merged_absolute_windows():
     hits = np.array(
         [
-            _make_hit(record_id=0, board=0, channel=0, edge_start=3, edge_end=5),
-            _make_hit(record_id=1, board=0, channel=1, edge_start=4, edge_end=6),
+            make_hit(record_id=0, board=0, channel=0, edge_start=3, edge_end=5),
+            make_hit(record_id=1, board=0, channel=1, edge_start=4, edge_end=6),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
@@ -300,8 +300,8 @@ def test_peaklet_waveforms_align_and_sum_hit_merged_absolute_windows():
 def test_peaklet_waveform_pool_reuses_waveforms_memory_result(monkeypatch):
     hits = np.array(
         [
-            _make_hit(record_id=0, board=0, channel=0, edge_start=3, edge_end=5),
-            _make_hit(record_id=1, board=0, channel=1, edge_start=4, edge_end=6),
+            make_hit(record_id=0, board=0, channel=0, edge_start=3, edge_end=5),
+            make_hit(record_id=1, board=0, channel=1, edge_start=4, edge_end=6),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
@@ -380,8 +380,8 @@ def test_peaklet_waveform_pool_cold_build_uses_registered_waveform_config():
 def test_peaklet_waveforms_reuses_pool_memory_result(monkeypatch):
     hits = np.array(
         [
-            _make_hit(record_id=0, board=0, channel=0, edge_start=3, edge_end=5),
-            _make_hit(record_id=1, board=0, channel=1, edge_start=4, edge_end=6),
+            make_hit(record_id=0, board=0, channel=0, edge_start=3, edge_end=5),
+            make_hit(record_id=1, board=0, channel=1, edge_start=4, edge_end=6),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
@@ -404,8 +404,8 @@ def test_peaklet_waveforms_reuses_pool_memory_result(monkeypatch):
 def test_peaklet_waveforms_reject_components_misaligned_with_peaklets():
     hits = np.array(
         [
-            _make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=3),
-            _make_hit(record_id=1, board=0, channel=1, edge_start=1, edge_end=3),
+            make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=3),
+            make_hit(record_id=1, board=0, channel=1, edge_start=1, edge_end=3),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
@@ -421,8 +421,8 @@ def test_peaklet_waveforms_reject_components_misaligned_with_peaklets():
 def test_peaklet_waveforms_preserve_signed_signal_after_polarity_conversion_by_default():
     hits = np.array(
         [
-            _make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=4),
-            _make_hit(record_id=1, board=0, channel=1, edge_start=1, edge_end=4),
+            make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=4),
+            make_hit(record_id=1, board=0, channel=1, edge_start=1, edge_end=4),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
@@ -464,8 +464,8 @@ def test_peaklet_waveforms_preserve_signed_signal_after_polarity_conversion_by_d
 def test_peaklet_waveforms_can_clip_negative_signal_for_compatibility():
     hits = np.array(
         [
-            _make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=4),
-            _make_hit(record_id=1, board=0, channel=1, edge_start=1, edge_end=4),
+            make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=4),
+            make_hit(record_id=1, board=0, channel=1, edge_start=1, edge_end=4),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
@@ -507,7 +507,7 @@ def test_peaklet_waveforms_can_clip_negative_signal_for_compatibility():
 
 def test_peaklet_waveforms_use_filtered_pool_when_configured():
     hits = np.array(
-        [_make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=3)],
+        [make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=3)],
         dtype=THRESHOLD_HIT_DTYPE,
     )
     ctx = make_peaklet_context(hits, np.full(10, 100, dtype=np.uint16), use_filtered=True)
@@ -525,8 +525,8 @@ def test_peaklet_waveforms_use_filtered_pool_when_configured():
 def test_peaklet_waveforms_mixed_dt_in_one_peaklet_raises():
     hits = np.array(
         [
-            _make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=3, dt=2),
-            _make_hit(record_id=1, board=0, channel=1, edge_start=1, edge_end=3, dt=4),
+            make_hit(record_id=0, board=0, channel=0, edge_start=1, edge_end=3, dt=2),
+            make_hit(record_id=1, board=0, channel=1, edge_start=1, edge_end=3, dt=4),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from tests.utils import DummyContext, make_records
+from tests.utils import DummyContext, make_hit, make_records
 from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
     HIT_MERGED_COMPONENTS_DTYPE,
     HIT_MERGED_DTYPE,
@@ -12,21 +12,6 @@ from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import (
     _polarity_sign_array,
 )
 from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
-
-
-def _make_hit(*, record_id, board=0, channel=0, edge_start=2, edge_end=5, dt=2, timestamp=0):
-    arr = np.zeros(1, dtype=THRESHOLD_HIT_DTYPE)
-    position = (edge_start + edge_end - 1) // 2
-    arr[0]["position"] = position
-    arr[0]["edge_start"] = edge_start
-    arr[0]["edge_end"] = edge_end
-    arr[0]["width"] = edge_end - edge_start
-    arr[0]["dt"] = dt
-    arr[0]["timestamp"] = timestamp + position * dt * 1000
-    arr[0]["board"] = board
-    arr[0]["channel"] = channel
-    arr[0]["record_id"] = record_id
-    return arr[0]
 
 
 def _make_merged(
@@ -141,7 +126,7 @@ def test_hit_merged_features_empty_input_returns_dtype():
 
 
 def test_hit_merged_features_single_merged_hit_direct_window():
-    hit = _make_hit(record_id=0, edge_start=2, edge_end=5)
+    hit = make_hit(record_id=0, edge_start=2, edge_end=5)
     merged = np.array(
         [_make_merged(record_id=0, sample_start=2, sample_end=5)], dtype=HIT_MERGED_DTYPE
     )
@@ -168,8 +153,8 @@ def test_hit_merged_features_single_merged_hit_direct_window():
 def test_hit_merged_features_direct_merged_window_covers_full_window_for_multiple_hits():
     hits = np.array(
         [
-            _make_hit(record_id=0, edge_start=2, edge_end=4),
-            _make_hit(record_id=0, edge_start=6, edge_end=8),
+            make_hit(record_id=0, edge_start=2, edge_end=4),
+            make_hit(record_id=0, edge_start=6, edge_end=8),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
@@ -189,7 +174,7 @@ def test_hit_merged_features_direct_merged_window_covers_full_window_for_multipl
 
 
 def test_hit_merged_features_positive_polarity_direct_window():
-    hit = _make_hit(record_id=0, edge_start=2, edge_end=5)
+    hit = make_hit(record_id=0, edge_start=2, edge_end=5)
     merged = np.array(
         [_make_merged(record_id=0, sample_start=2, sample_end=5)], dtype=HIT_MERGED_DTYPE
     )
@@ -230,8 +215,8 @@ def test_hit_merged_features_polarity_sign_array_vectorized_string_dtypes():
 def test_hit_merged_features_fallback_for_invalid_cross_record_window():
     hits = np.array(
         [
-            _make_hit(record_id=0, edge_start=2, edge_end=4),
-            _make_hit(record_id=1, edge_start=3, edge_end=5),
+            make_hit(record_id=0, edge_start=2, edge_end=4),
+            make_hit(record_id=1, edge_start=3, edge_end=5),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
@@ -276,7 +261,7 @@ def test_hit_merged_features_fallback_for_invalid_cross_record_window():
 
 
 def test_hit_merged_features_fallback_keeps_unclipped_time_edges():
-    hit = _make_hit(record_id=0, edge_start=-2, edge_end=2)
+    hit = make_hit(record_id=0, edge_start=-2, edge_end=2)
     merged = np.array(
         [_make_merged(record_id=0, sample_start=-1, sample_end=-1)], dtype=HIT_MERGED_DTYPE
     )
@@ -293,7 +278,7 @@ def test_hit_merged_features_fallback_keeps_unclipped_time_edges():
 
 
 def test_hit_merged_features_fallback_rejects_empty_component_window():
-    hit = _make_hit(record_id=0, edge_start=12, edge_end=13)
+    hit = make_hit(record_id=0, edge_start=12, edge_end=13)
     merged = np.array(
         [_make_merged(record_id=0, sample_start=-1, sample_end=-1)], dtype=HIT_MERGED_DTYPE
     )
@@ -309,7 +294,7 @@ def test_hit_merged_features_fallback_rejects_empty_component_window():
 
 
 def test_hit_merged_features_fallback_rejects_misaligned_component_rows():
-    hit = _make_hit(record_id=0, edge_start=2, edge_end=4)
+    hit = make_hit(record_id=0, edge_start=2, edge_end=4)
     merged = np.array(
         [_make_merged(record_id=0, sample_start=-1, sample_end=-1)], dtype=HIT_MERGED_DTYPE
     )
@@ -325,7 +310,7 @@ def test_hit_merged_features_fallback_rejects_misaligned_component_rows():
 
 
 def test_hit_merged_features_use_filtered_reads_filtered_wave_pool():
-    hit = _make_hit(record_id=0, edge_start=2, edge_end=4)
+    hit = make_hit(record_id=0, edge_start=2, edge_end=4)
     merged = np.array(
         [_make_merged(record_id=0, sample_start=2, sample_end=4)], dtype=HIT_MERGED_DTYPE
     )
@@ -345,7 +330,7 @@ def test_hit_merged_features_use_filtered_reads_filtered_wave_pool():
 
 
 def test_hit_merged_features_raises_when_record_missing():
-    hit = _make_hit(record_id=2, edge_start=2, edge_end=4)
+    hit = make_hit(record_id=2, edge_start=2, edge_end=4)
     merged = np.array(
         [_make_merged(record_id=2, sample_start=2, sample_end=4)], dtype=HIT_MERGED_DTYPE
     )
@@ -393,7 +378,7 @@ def test_hit_merged_features_thread_option_covers_fallback(monkeypatch):
     monkeypatch.setattr(module, "_validate_fallback_components_kernel", fake_validate)
     monkeypatch.setattr(module, "_features_fallback_kernel", fake_fallback)
 
-    hit = _make_hit(record_id=0)
+    hit = make_hit(record_id=0)
     merged = np.array(
         [_make_merged(record_id=0, sample_start=-1, sample_end=-1)], dtype=HIT_MERGED_DTYPE
     )
@@ -423,7 +408,7 @@ def test_hit_merged_features_no_build_component_slices_function():
 
 def test_hit_merged_features_output_dtype_integrity():
     """Golden: 验证输出 dtype 完整且所有字段存在"""
-    hit = _make_hit(record_id=0, edge_start=2, edge_end=5)
+    hit = make_hit(record_id=0, edge_start=2, edge_end=5)
     merged = np.array(
         [_make_merged(record_id=0, sample_start=2, sample_end=5)], dtype=HIT_MERGED_DTYPE
     )
@@ -461,7 +446,7 @@ def test_hit_merged_features_output_dtype_integrity():
 def test_hit_merged_features_fallback_matches_legacy_reference_exactly():
     rng = np.random.default_rng(7)
     hits = np.array(
-        [_make_hit(record_id=index, edge_start=0, edge_end=10) for index in range(100)],
+        [make_hit(record_id=index, edge_start=0, edge_end=10) for index in range(100)],
         dtype=THRESHOLD_HIT_DTYPE,
     )
     merged = np.array(

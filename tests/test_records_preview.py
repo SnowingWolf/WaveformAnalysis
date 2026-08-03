@@ -5,57 +5,48 @@ matplotlib.use("Agg")
 import numpy as np
 import pytest
 
-from waveform_analysis.core.data import RecordsView
-from waveform_analysis.core.processing.dtypes import RECORDS_DTYPE
+from tests.utils import make_records_view
 from waveform_analysis.utils.preview import plot_records_waveforms
 
 
-def _make_records_view() -> RecordsView:
-    records = np.zeros(3, dtype=RECORDS_DTYPE)
-    records["record_id"] = np.array([101, 102, 103], dtype=np.int64)
-    records["timestamp"] = np.array([1000, 2000, 3000], dtype=np.int64)
-    records["board"] = 0
-    records["channel"] = np.array([1, 1, 2], dtype=np.int16)
-    records["baseline"] = 100.0
-    records["polarity"] = "negative"
-    records["dt"] = 2
-    records["wave_offset"] = np.array([0, 8, 16], dtype=np.int64)
-    records["event_length"] = 8
-
-    wave_pool = np.array(
-        [
-            100,
-            100,
-            95,
-            70,
-            95,
-            100,
-            100,
-            100,
-            100,
-            100,
-            90,
-            85,
-            90,
-            100,
-            100,
-            100,
-            100,
-            100,
-            99,
-            98,
-            99,
-            100,
-            100,
-            100,
-        ],
-        dtype=np.int16,
-    )
-    return RecordsView(records, wave_pool)
-
-
 def test_plot_records_waveforms_accepts_explicit_record_ids():
-    rv = _make_records_view()
+    rv = make_records_view(
+        n_records=3,
+        record_id=[101, 102, 103],
+        timestamp=[1000, 2000, 3000],
+        channel=[1, 1, 2],
+        polarity="negative",
+        dt=2,
+        wave_pool=np.array(
+            [
+                100,
+                100,
+                95,
+                70,
+                95,
+                100,
+                100,
+                100,
+                100,
+                100,
+                90,
+                85,
+                90,
+                100,
+                100,
+                100,
+                100,
+                100,
+                99,
+                98,
+                99,
+                100,
+                100,
+                100,
+            ],
+            dtype=np.int16,
+        ),
+    )
 
     with pytest.warns(DeprecationWarning, match="plot_records_waveforms"):
         fig = plot_records_waveforms(rv, record_ids=[102, 101], ncols=1)
@@ -68,7 +59,43 @@ def test_plot_records_waveforms_accepts_explicit_record_ids():
 
 
 def test_plot_records_waveforms_supports_feature_filters():
-    rv = _make_records_view()
+    rv = make_records_view(
+        n_records=3,
+        record_id=[101, 102, 103],
+        timestamp=[1000, 2000, 3000],
+        channel=[1, 1, 2],
+        polarity="negative",
+        dt=2,
+        wave_pool=np.array(
+            [
+                100,
+                100,
+                95,
+                70,
+                95,
+                100,
+                100,
+                100,
+                100,
+                100,
+                90,
+                85,
+                90,
+                100,
+                100,
+                100,
+                100,
+                100,
+                99,
+                98,
+                99,
+                100,
+                100,
+                100,
+            ],
+            dtype=np.int16,
+        ),
+    )
 
     with pytest.warns(DeprecationWarning, match="plot_records_waveforms"):
         fig = plot_records_waveforms(
@@ -85,7 +112,43 @@ def test_plot_records_waveforms_supports_feature_filters():
 
 
 def test_plot_records_waveforms_handles_empty_query():
-    rv = _make_records_view()
+    rv = make_records_view(
+        n_records=3,
+        record_id=[101, 102, 103],
+        timestamp=[1000, 2000, 3000],
+        channel=[1, 1, 2],
+        polarity="negative",
+        dt=2,
+        wave_pool=np.array(
+            [
+                100,
+                100,
+                95,
+                70,
+                95,
+                100,
+                100,
+                100,
+                100,
+                100,
+                90,
+                85,
+                90,
+                100,
+                100,
+                100,
+                100,
+                100,
+                99,
+                98,
+                99,
+                100,
+                100,
+                100,
+            ],
+            dtype=np.int16,
+        ),
+    )
 
     with pytest.warns(DeprecationWarning, match="plot_records_waveforms"):
         fig = plot_records_waveforms(rv, channel=9)

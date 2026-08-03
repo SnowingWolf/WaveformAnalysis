@@ -1,39 +1,13 @@
 import numpy as np
 import pandas as pd
 
-from tests.utils import DummyContext, FakeContext
+from tests.utils import DummyContext, FakeContext, make_hit
 from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.builtin.hit.hit_grouped import HitGroupedPlugin
 from waveform_analysis.core.plugins.builtin.hit.hit_merge import (
     HitMergedComponentsPlugin,
     HitMergePlugin,
 )
-
-
-def _make_hit(
-    *,
-    position,
-    height,
-    integral,
-    edge_start,
-    edge_end,
-    timestamp,
-    board,
-    channel,
-    record_id,
-    dt=2,
-):
-    arr = np.zeros(1, dtype=THRESHOLD_HIT_DTYPE)
-    arr[0]["position"] = position
-    arr[0]["edge_start"] = edge_start
-    arr[0]["edge_end"] = edge_end
-    arr[0]["width"] = edge_end - edge_start
-    arr[0]["dt"] = dt
-    arr[0]["timestamp"] = timestamp
-    arr[0]["board"] = board
-    arr[0]["channel"] = channel
-    arr[0]["record_id"] = record_id
-    return arr[0]
 
 
 def test_hit_grouped_empty():
@@ -73,10 +47,8 @@ def test_hit_grouped_empty():
 
 def test_hit_grouped_merges_overlapping_windows_across_channels():
     plugin = HitGroupedPlugin()
-    h1 = _make_hit(
+    h1 = make_hit(
         position=10,
-        height=20.0,
-        integral=30.0,
         edge_start=8.0,
         edge_end=12.0,
         timestamp=100_000,
@@ -84,10 +56,8 @@ def test_hit_grouped_merges_overlapping_windows_across_channels():
         channel=0,
         record_id=0,
     )
-    h2 = _make_hit(
+    h2 = make_hit(
         position=14,
-        height=25.0,
-        integral=40.0,
         edge_start=13.0,
         edge_end=16.0,
         timestamp=106_000,
@@ -125,10 +95,8 @@ def test_hit_grouped_merges_overlapping_windows_across_channels():
 
 def test_hit_grouped_merges_non_overlapping_windows_with_gap_threshold():
     plugin = HitGroupedPlugin()
-    h1 = _make_hit(
+    h1 = make_hit(
         position=10,
-        height=10.0,
-        integral=5.0,
         edge_start=8.0,
         edge_end=12.0,
         timestamp=100_000,
@@ -136,10 +104,8 @@ def test_hit_grouped_merges_non_overlapping_windows_with_gap_threshold():
         channel=0,
         record_id=0,
     )
-    h2 = _make_hit(
+    h2 = make_hit(
         position=18,
-        height=12.0,
-        integral=6.0,
         edge_start=17.0,
         edge_end=19.0,
         timestamp=112_000,
@@ -168,10 +134,8 @@ def test_hit_grouped_merges_non_overlapping_windows_with_gap_threshold():
 
 def test_hit_grouped_splits_clusters_when_gap_is_too_large():
     plugin = HitGroupedPlugin()
-    h1 = _make_hit(
+    h1 = make_hit(
         position=10,
-        height=10.0,
-        integral=5.0,
         edge_start=8.0,
         edge_end=12.0,
         timestamp=100_000,
@@ -179,10 +143,8 @@ def test_hit_grouped_splits_clusters_when_gap_is_too_large():
         channel=0,
         record_id=0,
     )
-    h2 = _make_hit(
+    h2 = make_hit(
         position=18,
-        height=12.0,
-        integral=6.0,
         edge_start=17.0,
         edge_end=19.0,
         timestamp=112_000,
@@ -210,10 +172,8 @@ def test_hit_grouped_splits_clusters_when_gap_is_too_large():
 
 def test_hit_grouped_keeps_all_hits_and_sorts_by_board_then_channel():
     plugin = HitGroupedPlugin()
-    h1 = _make_hit(
+    h1 = make_hit(
         position=10,
-        height=11.0,
-        integral=5.0,
         edge_start=8.0,
         edge_end=12.0,
         timestamp=100_000,
@@ -221,10 +181,8 @@ def test_hit_grouped_keeps_all_hits_and_sorts_by_board_then_channel():
         channel=0,
         record_id=10,
     )
-    h2 = _make_hit(
+    h2 = make_hit(
         position=11,
-        height=12.0,
-        integral=6.0,
         edge_start=9.0,
         edge_end=13.0,
         timestamp=100_500,
@@ -232,10 +190,8 @@ def test_hit_grouped_keeps_all_hits_and_sorts_by_board_then_channel():
         channel=1,
         record_id=11,
     )
-    h3 = _make_hit(
+    h3 = make_hit(
         position=12,
-        height=13.0,
-        integral=7.0,
         edge_start=10.0,
         edge_end=14.0,
         timestamp=101_000,
@@ -267,10 +223,8 @@ def test_hit_grouped_keeps_all_hits_and_sorts_by_board_then_channel():
 
 def test_hit_grouped_supports_chain_expansion():
     plugin = HitGroupedPlugin()
-    h1 = _make_hit(
+    h1 = make_hit(
         position=10,
-        height=10.0,
-        integral=5.0,
         edge_start=9.0,
         edge_end=11.0,
         timestamp=100_000,
@@ -278,10 +232,8 @@ def test_hit_grouped_supports_chain_expansion():
         channel=0,
         record_id=0,
     )
-    h2 = _make_hit(
+    h2 = make_hit(
         position=14,
-        height=12.0,
-        integral=6.0,
         edge_start=13.0,
         edge_end=15.0,
         timestamp=108_000,
@@ -289,10 +241,8 @@ def test_hit_grouped_supports_chain_expansion():
         channel=1,
         record_id=1,
     )
-    h3 = _make_hit(
+    h3 = make_hit(
         position=18,
-        height=14.0,
-        integral=7.0,
         edge_start=17.0,
         edge_end=19.0,
         timestamp=116_000,
@@ -320,10 +270,8 @@ def test_hit_grouped_supports_chain_expansion():
 
 def test_hit_grouped_merges_different_dt_values_when_absolute_windows_overlap():
     plugin = HitGroupedPlugin()
-    h1 = _make_hit(
+    h1 = make_hit(
         position=10,
-        height=20.0,
-        integral=30.0,
         edge_start=8.0,
         edge_end=12.0,
         timestamp=100_000,
@@ -332,10 +280,8 @@ def test_hit_grouped_merges_different_dt_values_when_absolute_windows_overlap():
         record_id=0,
         dt=2,
     )
-    h2 = _make_hit(
+    h2 = make_hit(
         position=10,
-        height=22.0,
-        integral=31.0,
         edge_start=8.0,
         edge_end=12.0,
         timestamp=100_000,
@@ -370,10 +316,8 @@ def test_hit_grouped_uses_components_for_cross_record_merged_windows():
     components_plugin = HitMergedComponentsPlugin()
     grouped_plugin = HitGroupedPlugin()
 
-    h1 = _make_hit(
+    h1 = make_hit(
         position=10,
-        height=20.0,
-        integral=30.0,
         edge_start=8,
         edge_end=12,
         timestamp=100_000,
@@ -382,10 +326,8 @@ def test_hit_grouped_uses_components_for_cross_record_merged_windows():
         record_id=0,
         dt=2,
     )
-    h2 = _make_hit(
+    h2 = make_hit(
         position=14,
-        height=25.0,
-        integral=40.0,
         edge_start=13,
         edge_end=16,
         timestamp=108_000,
@@ -394,10 +336,8 @@ def test_hit_grouped_uses_components_for_cross_record_merged_windows():
         record_id=1,
         dt=2,
     )
-    h3 = _make_hit(
+    h3 = make_hit(
         position=10,
-        height=18.0,
-        integral=22.0,
         edge_start=8,
         edge_end=12,
         timestamp=107_000,

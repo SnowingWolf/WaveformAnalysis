@@ -3,7 +3,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from tests.utils import DummyContext
+from tests.utils import DummyContext, make_records_view, make_st_waveforms
 from waveform_analysis.core.data.records_view import RecordsView
 from waveform_analysis.core.plugins.builtin.cpu.records_asymmetry import (
     RecordsAsymmetryMaskPlugin,
@@ -13,37 +13,10 @@ from waveform_analysis.core.plugins.builtin.hit.hit_finder import (
     THRESHOLD_HIT_DTYPE,
     ThresholdHitPlugin,
 )
-from waveform_analysis.core.processing.dtypes import create_record_dtype
 from waveform_analysis.core.processing.records_builder import (
     RECORDS_DTYPE,
     build_records_from_st_waveforms,
 )
-
-
-def _make_st_waveforms(n_events=1, wave_len=64):
-    dtype = create_record_dtype(wave_len)
-    data = np.zeros(n_events, dtype=dtype)
-    data["baseline"] = 100.0
-    data["timestamp"] = 1_000_000
-    data["record_id"] = np.arange(n_events, dtype=np.int64)
-    data["channel"] = 0
-    data["dt"] = 2
-    data["event_length"] = wave_len
-    data["wave"] = 100
-    return data
-
-
-def _make_records_view():
-    records = np.zeros(1, dtype=RECORDS_DTYPE)
-    records["baseline"] = 100.0
-    records["timestamp"] = 123_456
-    records["board"] = 5
-    records["channel"] = 2
-    records["dt"] = 2
-    records["event_length"] = 8
-    records["wave_offset"] = 0
-    wave_pool = np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.uint16)
-    return RecordsView(records, wave_pool)
 
 
 def _make_many_records_view(n_records=4):
@@ -142,7 +115,16 @@ def _compute_threshold_hits(plugin, ctx, run_id="run_001"):
 
 def test_threshold_hit_dtype_matches_advanced_peak_dtype():
     plugin = ThresholdHitPlugin()
-    st = _make_st_waveforms(n_events=0)
+    st = make_st_waveforms(
+        n_events=0,
+        n_samples=64,
+        baseline=100.0,
+        timestamp=1_000_000,
+        record_id=True,
+        channel=0,
+        dt=2,
+        wave_fill=100,
+    )
     ctx = DummyContext({"threshold": 10.0}, {"st_waveforms": st})
 
     result = _compute_threshold_hits(plugin, ctx)
@@ -164,7 +146,16 @@ def test_threshold_hit_dtype_matches_advanced_peak_dtype():
 
 def test_threshold_hit_single_waveform_multiple_hits():
     plugin = ThresholdHitPlugin()
-    st = _make_st_waveforms(n_events=1, wave_len=32)
+    st = make_st_waveforms(
+        n_events=1,
+        n_samples=32,
+        baseline=100.0,
+        timestamp=1_000_000,
+        record_id=True,
+        channel=0,
+        dt=2,
+        wave_fill=100,
+    )
     st[0]["wave"][5:8] = 80
     st[0]["wave"][15:18] = 70
 
@@ -191,7 +182,16 @@ def test_threshold_hit_single_waveform_multiple_hits():
 
 def test_threshold_hit_no_event_length_truncation():
     plugin = ThresholdHitPlugin()
-    st = _make_st_waveforms(n_events=1, wave_len=32)
+    st = make_st_waveforms(
+        n_events=1,
+        n_samples=32,
+        baseline=100.0,
+        timestamp=1_000_000,
+        record_id=True,
+        channel=0,
+        dt=2,
+        wave_fill=100,
+    )
     st[0]["event_length"] = 8
     st[0]["wave"][20:23] = 75
 
@@ -212,7 +212,16 @@ def test_threshold_hit_no_event_length_truncation():
 
 def test_threshold_hit_empty_input():
     plugin = ThresholdHitPlugin()
-    st = _make_st_waveforms(n_events=0, wave_len=16)
+    st = make_st_waveforms(
+        n_events=0,
+        n_samples=16,
+        baseline=100.0,
+        timestamp=1_000_000,
+        record_id=True,
+        channel=0,
+        dt=2,
+        wave_fill=100,
+    )
     ctx = DummyContext({}, {"st_waveforms": st})
 
     result = _compute_threshold_hits(plugin, ctx)
@@ -223,7 +232,16 @@ def test_threshold_hit_empty_input():
 
 def test_threshold_hit_extension_applied():
     plugin = ThresholdHitPlugin()
-    st = _make_st_waveforms(n_events=1, wave_len=32)
+    st = make_st_waveforms(
+        n_events=1,
+        n_samples=32,
+        baseline=100.0,
+        timestamp=1_000_000,
+        record_id=True,
+        channel=0,
+        dt=2,
+        wave_fill=100,
+    )
     st[0]["wave"][10:12] = 80
 
     ctx = DummyContext(
@@ -246,8 +264,26 @@ def test_threshold_hit_extension_applied():
 def test_threshold_hit_use_filtered_branch():
     """Test wave_source='filtered_waveforms' selects filtered data"""
     plugin = ThresholdHitPlugin()
-    st = _make_st_waveforms(n_events=1, wave_len=32)
-    filtered = _make_st_waveforms(n_events=1, wave_len=32)
+    st = make_st_waveforms(
+        n_events=1,
+        n_samples=32,
+        baseline=100.0,
+        timestamp=1_000_000,
+        record_id=True,
+        channel=0,
+        dt=2,
+        wave_fill=100,
+    )
+    filtered = make_st_waveforms(
+        n_events=1,
+        n_samples=32,
+        baseline=100.0,
+        timestamp=1_000_000,
+        record_id=True,
+        channel=0,
+        dt=2,
+        wave_fill=100,
+    )
     filtered[0]["wave"][12:15] = 70
 
     ctx = DummyContext(
@@ -323,6 +359,13 @@ def test_threshold_hit_channel_role_cut_depends_on_detector_mask_for_records_sou
 
 def test_threshold_hit_reads_records_view_when_wave_source_records():
     plugin = ThresholdHitPlugin()
+    rv = make_records_view(
+        timestamp=123_456,
+        board=5,
+        channel=2,
+        dt=2,
+        wave_pool=np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.uint16),
+    )
     ctx = DummyContext(
         {
             "wave_source": "records",
@@ -331,10 +374,7 @@ def test_threshold_hit_reads_records_view_when_wave_source_records():
             "right_extension": 0,
             "dt": 2,
         },
-        {
-            "records": _make_records_view().records,
-            "wave_pool": _make_records_view().wave_pool,
-        },
+        {"records": rv.records, "wave_pool": rv.wave_pool},
     )
 
     result = _compute_threshold_hits(plugin, ctx)
@@ -535,7 +575,13 @@ def test_threshold_hit_numba_backend_matches_ragged_with_chunk_parallel():
 
 def test_threshold_hit_auto_backend_falls_back_when_numba_unavailable(monkeypatch):
     plugin = ThresholdHitPlugin()
-    rv = _make_records_view()
+    rv = make_records_view(
+        timestamp=123_456,
+        board=5,
+        channel=2,
+        dt=2,
+        wave_pool=np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.uint16),
+    )
     ctx = DummyContext(
         {
             "wave_source": "records",
@@ -557,7 +603,13 @@ def test_threshold_hit_auto_backend_falls_back_when_numba_unavailable(monkeypatc
 
 def test_threshold_hit_numba_backend_raises_when_numba_unavailable(monkeypatch):
     plugin = ThresholdHitPlugin()
-    rv = _make_records_view()
+    rv = make_records_view(
+        timestamp=123_456,
+        board=5,
+        channel=2,
+        dt=2,
+        wave_pool=np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.uint16),
+    )
     ctx = DummyContext(
         {
             "wave_source": "records",
@@ -594,7 +646,16 @@ def test_threshold_hit_records_empty_returns_empty():
 
 def test_threshold_hit_rejects_boardless_channel_config_keys():
     plugin = ThresholdHitPlugin()
-    st = _make_st_waveforms(n_events=1, wave_len=32)
+    st = make_st_waveforms(
+        n_events=1,
+        n_samples=32,
+        baseline=100.0,
+        timestamp=1_000_000,
+        record_id=True,
+        channel=0,
+        dt=2,
+        wave_fill=100,
+    )
     st[0]["board"] = 0
     st[0]["channel"] = 1
     st[0]["wave"][6:9] = 80
@@ -617,7 +678,16 @@ def test_threshold_hit_rejects_boardless_channel_config_keys():
 
 def test_threshold_hit_channel_config_overrides_threshold_per_channel():
     plugin = ThresholdHitPlugin()
-    st = _make_st_waveforms(n_events=2, wave_len=32)
+    st = make_st_waveforms(
+        n_events=2,
+        n_samples=32,
+        baseline=100.0,
+        timestamp=1_000_000,
+        record_id=True,
+        channel=0,
+        dt=2,
+        wave_fill=100,
+    )
     st[0]["board"] = 0
     st[0]["channel"] = 0
     st[1]["board"] = 0
@@ -646,7 +716,16 @@ def test_threshold_hit_channel_config_overrides_threshold_per_channel():
 
 def test_threshold_hit_does_not_merge_same_channel_across_boards():
     plugin = ThresholdHitPlugin()
-    st = _make_st_waveforms(n_events=2, wave_len=32)
+    st = make_st_waveforms(
+        n_events=2,
+        n_samples=32,
+        baseline=100.0,
+        timestamp=1_000_000,
+        record_id=True,
+        channel=0,
+        dt=2,
+        wave_fill=100,
+    )
     st[0]["board"] = 0
     st[0]["channel"] = 1
     st[1]["board"] = 1
@@ -671,7 +750,16 @@ def test_threshold_hit_does_not_merge_same_channel_across_boards():
 
 def test_threshold_hit_keeps_only_interval_fields():
     plugin = ThresholdHitPlugin()
-    st = _make_st_waveforms(n_events=1, wave_len=16)
+    st = make_st_waveforms(
+        n_events=1,
+        n_samples=16,
+        baseline=100.0,
+        timestamp=1_000_000,
+        record_id=True,
+        channel=0,
+        dt=2,
+        wave_fill=100,
+    )
     st[0]["wave"][4:9] = [80, 70, 60, 70, 80]
 
     ctx = DummyContext(
@@ -697,7 +785,16 @@ def test_threshold_hit_keeps_only_interval_fields():
 
 def test_threshold_hit_interval_extensions_do_not_compute_features():
     plugin = ThresholdHitPlugin()
-    st = _make_st_waveforms(n_events=1, wave_len=16)
+    st = make_st_waveforms(
+        n_events=1,
+        n_samples=16,
+        baseline=100.0,
+        timestamp=1_000_000,
+        record_id=True,
+        channel=0,
+        dt=2,
+        wave_fill=100,
+    )
     st[0]["wave"][4:9] = [80, 70, 60, 70, 80]
 
     ctx = DummyContext(
@@ -906,28 +1003,6 @@ def test_threshold_hit_batched_mode_boundary():
         ), f"n_records={n_records}, expected {n_records} hits, got {len(result)}"
         assert result.dtype == THRESHOLD_HIT_DTYPE
         assert set(result["channel"].tolist()) == set(range(n_records))
-
-
-def test_threshold_hit_empty_dataset():
-    """测试空数据集"""
-    plugin = ThresholdHitPlugin()
-
-    # 空 RecordsBundle
-    empty_records = np.zeros(0, dtype=RECORDS_DTYPE)
-    empty_wave_pool = np.zeros(0, dtype=np.uint16)
-    ctx = DummyContext(
-        {
-            "wave_source": "records",
-            "threshold": 10.0,
-        },
-        {"records": empty_records, "wave_pool": empty_wave_pool},
-    )
-
-    result = plugin.compute_array(ctx, "run_001")
-
-    # 验证结果：应该返回空数组
-    assert len(result) == 0
-    assert result.dtype == THRESHOLD_HIT_DTYPE
 
 
 def test_threshold_hit_no_hits_found():

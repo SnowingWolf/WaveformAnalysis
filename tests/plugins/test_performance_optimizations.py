@@ -9,7 +9,7 @@
 import numpy as np
 import pytest
 
-from tests.utils import DummyContext, make_records
+from tests.utils import DummyContext, make_hit, make_records
 from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
     HIT_MERGED_DTYPE,
     HitMergedComponentsPlugin,
@@ -36,22 +36,6 @@ except ImportError:
     HAS_NUMBA = False
 
 
-def _make_hit(*, record_id, board, channel, edge_start, edge_end, dt=2, timestamp=0):
-    """创建测试用的 hit 数据"""
-    arr = np.zeros(1, dtype=THRESHOLD_HIT_DTYPE)
-    position = (edge_start + edge_end - 1) // 2
-    arr[0]["position"] = position
-    arr[0]["edge_start"] = edge_start
-    arr[0]["edge_end"] = edge_end
-    arr[0]["width"] = edge_end - edge_start
-    arr[0]["dt"] = dt
-    arr[0]["timestamp"] = timestamp + position * dt * 1000
-    arr[0]["board"] = board
-    arr[0]["channel"] = channel
-    arr[0]["record_id"] = record_id
-    return arr[0]
-
-
 def _make_test_context(n_hits=10, n_channels=4, time_gap=2):
     """创建测试上下文，包含完整的数据流"""
     # 生成测试数据：多通道、时间上有轻微间隔
@@ -59,7 +43,7 @@ def _make_test_context(n_hits=10, n_channels=4, time_gap=2):
     for i in range(n_hits):
         channel = i % n_channels
         timestamp = i * time_gap * 1000  # 每个 hit 间隔 time_gap ns
-        hit = _make_hit(
+        hit = make_hit(
             record_id=i,
             board=0,
             channel=channel,

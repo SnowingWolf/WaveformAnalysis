@@ -6,6 +6,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
+from tests.daq_adapter_helpers import make_v1725_single_wave_blob
 from waveform_analysis.core.foundation.utils import Profiler
 from waveform_analysis.core.processing.dtypes import create_record_dtype
 from waveform_analysis.core.processing.records_builder import (
@@ -22,6 +23,9 @@ from waveform_analysis.core.processing.records_builder import (
     build_records_from_v1725_files,
 )
 
+# 本模块默认使用 4 个采样点的 v1725 blob（区别于共享 helper 的默认 2 个采样点）。
+_DEFAULT_V1725_SAMPLES = np.array([11, 12, 13, 14], dtype=np.int16)
+
 
 def _make_st_waveforms() -> np.ndarray:
     dtype = create_record_dtype(4)
@@ -34,35 +38,6 @@ def _make_st_waveforms() -> np.ndarray:
     data["event_length"] = [4, 4, 4, 4, 4, 4]
     data["wave"] = np.arange(4, dtype=np.int16)
     return data
-
-
-def _make_v1725_single_wave_blob(
-    *,
-    channel: int,
-    timestamp: int,
-    baseline: int = 0,
-    trunc: bool = False,
-    samples: np.ndarray | None = None,
-) -> bytes:
-    if samples is None:
-        samples = np.array([11, 12, 13, 14], dtype=np.int16)
-    payload = np.asarray(samples, dtype=np.int16).tobytes()
-
-    event_header = bytearray(16)
-    channel_mask = 1 << int(channel)
-    event_header[4] = channel_mask & 0xFF
-    event_header[11] = (channel_mask >> 8) & 0xFF
-
-    ch_header = bytearray(12)
-    ch_size = 3 + (len(payload) // 4)
-    ch_header[0] = ch_size & 0xFF
-    ch_header[1] = (ch_size >> 8) & 0xFF
-    ch_header[2] = (ch_size >> 16) & 0x3F
-    if trunc:
-        ch_header[3] |= 0x40
-    ch_header[4:10] = int(timestamp).to_bytes(6, byteorder="little", signed=False)
-    ch_header[10:12] = int(baseline).to_bytes(2, byteorder="little", signed=False)
-    return bytes(event_header + ch_header + payload)
 
 
 def _waves_by_timestamp(records: np.ndarray, wave_pool: np.ndarray) -> dict[int, np.ndarray]:
@@ -107,8 +82,16 @@ def test_build_records_from_st_waveforms_sharded_keeps_global_timestamp_order():
 def test_build_records_from_v1725_files_sorts_approximately_ordered_input(tmp_path: Path):
     raw0 = tmp_path / "test_raw_b3_seg0.bin"
     raw1 = tmp_path / "test_raw_b4_seg1.bin"
-    raw0.write_bytes(_make_v1725_single_wave_blob(channel=1, timestamp=30, baseline=100))
-    raw1.write_bytes(_make_v1725_single_wave_blob(channel=0, timestamp=10, baseline=200))
+    raw0.write_bytes(
+        make_v1725_single_wave_blob(
+            channel=1, timestamp=30, baseline=100, samples=_DEFAULT_V1725_SAMPLES
+        )
+    )
+    raw1.write_bytes(
+        make_v1725_single_wave_blob(
+            channel=0, timestamp=10, baseline=200, samples=_DEFAULT_V1725_SAMPLES
+        )
+    )
 
     bundle = build_records_from_v1725_files([str(raw0), str(raw1)], dt_ns=4)
 
@@ -125,7 +108,7 @@ def test_build_records_from_v1725_files_keeps_disk_refs_after_tempdir_cleanup(tm
     for idx, timestamp in enumerate([30, 10, 20]):
         raw = tmp_path / f"test_raw_b{idx}_seg0.bin"
         raw.write_bytes(
-            _make_v1725_single_wave_blob(
+            make_v1725_single_wave_blob(
                 channel=idx,
                 timestamp=timestamp,
                 baseline=100 + idx,
@@ -181,7 +164,7 @@ def test_build_records_from_v1725_files_run_merge_keeps_variable_wave_offsets(tm
                 dtype=np.int16,
             )
             blobs.append(
-                _make_v1725_single_wave_blob(
+                make_v1725_single_wave_blob(
                     channel=board,
                     timestamp=timestamp,
                     baseline=100 + board,
@@ -216,7 +199,7 @@ def test_build_records_from_v1725_files_disk_batch_merge_uses_disk_parts(tmp_pat
     for board, timestamp in enumerate([10, 20, 30, 40]):
         raw = tmp_path / f"test_raw_b{board}_seg0.bin"
         raw.write_bytes(
-            _make_v1725_single_wave_blob(
+            make_v1725_single_wave_blob(
                 channel=board,
                 timestamp=timestamp,
                 baseline=board,
@@ -279,7 +262,7 @@ def test_build_records_from_v1725_files_shows_disk_batch_merge_progress(
     for board, timestamp in enumerate([10, 20, 30, 40]):
         raw = tmp_path / f"test_raw_b{board}_seg0.bin"
         raw.write_bytes(
-            _make_v1725_single_wave_blob(
+            make_v1725_single_wave_blob(
                 channel=board,
                 timestamp=timestamp,
                 baseline=board,
@@ -309,7 +292,7 @@ def test_build_records_from_v1725_files_disk_concat_fast_path(tmp_path: Path):
     for board, timestamp in enumerate([10, 20, 30]):
         raw = tmp_path / f"test_raw_b{board}_seg0.bin"
         raw.write_bytes(
-            _make_v1725_single_wave_blob(
+            make_v1725_single_wave_blob(
                 channel=board,
                 timestamp=timestamp,
                 baseline=board,
@@ -470,7 +453,11 @@ def test_resolve_v1725_file_workers_uses_io_friendly_auto_default():
 
 def test_build_records_from_v1725_files_rejects_implicit_over_budget_disk_ref(tmp_path: Path):
     raw = tmp_path / "test_raw_b0_seg0.bin"
-    raw.write_bytes(_make_v1725_single_wave_blob(channel=0, timestamp=10, baseline=100))
+    raw.write_bytes(
+        make_v1725_single_wave_blob(
+            channel=0, timestamp=10, baseline=100, samples=_DEFAULT_V1725_SAMPLES
+        )
+    )
 
     with pytest.raises(MemoryError, match="keep_on_disk=True"):
         build_records_from_v1725_files(

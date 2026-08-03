@@ -2,21 +2,9 @@ import numpy as np
 import pytest
 from scipy.signal import butter, savgol_filter, sosfiltfilt
 
-from tests.utils import FakeContext
+from tests.utils import FakeContext, make_records
 from waveform_analysis.core.plugins.builtin.cpu.records import WavePoolFilteredPlugin
 from waveform_analysis.core.processing.dtypes import RECORDS_DTYPE
-
-
-def _make_records() -> np.ndarray:
-    records = np.zeros(2, dtype=RECORDS_DTYPE)
-    records["record_id"] = np.array([1, 2], dtype=np.int64)
-    records["timestamp"] = np.array([10, 20], dtype=np.int64)
-    records["board"] = 0
-    records["channel"] = np.array([0, 1], dtype=np.int16)
-    records["baseline"] = 100.0
-    records["wave_offset"] = np.array([0, 7], dtype=np.int64)
-    records["event_length"] = np.array([7, 7], dtype=np.int32)
-    return records
 
 
 def _legacy_reference(raw_wave_pool: np.ndarray, config: dict) -> np.ndarray:
@@ -52,7 +40,9 @@ def _legacy_reference(raw_wave_pool: np.ndarray, config: dict) -> np.ndarray:
     ids=["sg", "bw"],
 )
 def test_wave_pool_filtered_plugin_builds_float32_pool(config):
-    records = _make_records()
+    records = make_records(
+        n_records=2, record_id=[1, 2], timestamp=[10, 20], channel=[0, 1], event_length=7, dt=0
+    )
     raw_wave_pool = np.array(
         [
             100,
