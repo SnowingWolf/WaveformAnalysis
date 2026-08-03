@@ -337,8 +337,9 @@ class TestHitMergedFeaturesParallel:
         merged_dt = np.full(n, 2, dtype=np.int64)
         merged_position = np.zeros(n, dtype=np.int64)
 
-        # 调用 Numba 内核
-        results = _features_fast_kernel(
+        # 调用 Numba 内核：签名要求第 12 个参数为预分配的 out 数组，内核直接写入而非返回
+        out = np.zeros(n, dtype=HIT_MERGED_FEATURES_DTYPE)
+        _features_fast_kernel(
             wave_pool,
             rec_indices,
             rec_wave_offset,
@@ -350,27 +351,23 @@ class TestHitMergedFeaturesParallel:
             merged_timestamp,
             merged_dt,
             merged_position,
+            out,
         )
 
-        # 验证输出
-        (
-            time_start,
-            time_end,
-            center_time,
-            max_time,
-            area,
-            height,
-            width,
-            rise_time,
-            fall_time,
-            valid,
-        ) = results
-
-        assert np.all(valid == 1), "所有结果应该是 valid 的"
-        assert np.all(time_start < time_end), "time_start 应小于 time_end"
-        assert np.all(area >= 0), "area 应非负"
-        assert np.all(height >= 0), "height 应非负"
-        assert np.all(width >= 0), "width 应非负"
+        # 验证输出（从 out 的字段读取）
+        assert np.all(out["valid"] == 1), "所有结果应该是 valid 的"
+        assert np.all(out["time_start"] < out["time_end"]), "time_start 应小于 time_end"
+        assert np.all(out["area"] >= 0), "area 应非负"
+        assert np.all(out["height"] >= 0), "height 应非负"
+        assert np.all(out["width"] >= 0), "width 应非负"
+        assert np.all(out["time_start"] <= out["center_time"]) and np.all(
+            out["center_time"] <= out["time_end"]
+        ), "center_time 应位于 [time_start, time_end] 内"
+        assert np.all(out["time_start"] <= out["max_time"]) and np.all(
+            out["max_time"] <= out["time_end"]
+        ), "max_time 应位于 [time_start, time_end] 内"
+        assert np.all(out["rise_time"] >= 0), "rise_time 应非负"
+        assert np.all(out["fall_time"] >= 0), "fall_time 应非负"
 
     def test_features_edge_cases(self):
         """测试边界情况"""

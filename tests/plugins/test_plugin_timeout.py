@@ -44,11 +44,11 @@ class TestTimeoutManager:
         manager = TimeoutManager()
 
         def slow_func():
-            time.sleep(3)
+            time.sleep(1.5)
             return "completed"
 
         with pytest.raises(PluginTimeoutError):
-            manager.run_with_timeout(slow_func, timeout=1.0)
+            manager.run_with_timeout(slow_func, timeout=0.5)
 
     def test_no_timeout(self):
         """测试None timeout(无限制)"""
@@ -88,8 +88,8 @@ class TestTimeoutManager:
         manager = TimeoutManager()
 
         with pytest.raises(PluginTimeoutError):
-            with manager.timeout_context(1.0, "slow_operation"):
-                time.sleep(3)
+            with manager.timeout_context(0.5, "slow_operation"):
+                time.sleep(1.5)
 
     @pytest.mark.slow
     def test_timeout_stats(self):
@@ -98,7 +98,7 @@ class TestTimeoutManager:
         manager.reset_stats()
 
         def slow_func():
-            time.sleep(2)
+            time.sleep(1.5)
 
         # 执行几次超时
         for _ in range(3):
@@ -150,9 +150,9 @@ class TestTimeoutDecorator:
     def test_decorator_with_timeout(self):
         """测试装饰器超时"""
 
-        @with_timeout(timeout=1.0)
+        @with_timeout(timeout=0.5)
         def slow_func():
-            time.sleep(3)
+            time.sleep(1.5)
             return "done"
 
         with pytest.raises(PluginTimeoutError):
@@ -221,7 +221,7 @@ class TestCrossPlatform:
         manager = TimeoutManager()
 
         def slow_func():
-            time.sleep(2)
+            time.sleep(1.5)
 
         with pytest.raises(PluginTimeoutError):
             manager.run_with_timeout(slow_func, timeout=0.5)

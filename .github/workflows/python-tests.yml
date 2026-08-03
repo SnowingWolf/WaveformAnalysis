@@ -26,7 +26,8 @@ jobs:
         run: ruff check .
       - name: Black
         run: black --check .
-      - name: Pytest
+      # 快速层：继承 pyproject addopts，自动排除 slow（-m 'not slow'）
+      - name: Pytest (fast)
         run: pytest
       - name: Upload coverage artifact
         if: ${{ always() }}
@@ -34,3 +35,20 @@ jobs:
         with:
           name: htmlcov-py${{ matrix.python-version }}
           path: htmlcov
+
+  test-slow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
+          python -m pip install -e ".[dev]"
+      # 慢层：只跑 slow 标记测试，跳过覆盖率避免重复上报
+      - name: Pytest (slow)
+        run: pytest -m slow -o addopts=""

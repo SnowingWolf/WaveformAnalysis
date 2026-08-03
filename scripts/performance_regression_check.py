@@ -65,6 +65,8 @@ def build_context(storage_dir, data_root):
             "n_channels": 2,
             "hit.use_filtered": False,
             "hit_threshold.wave_source": "records",
+            # 性能基准不启用 records asymmetry cut，避免引入 records_asymmetry_mask 依赖
+            "hit_threshold.asymmetry_cut_enabled": False,
             "basic_features.use_filtered": False,
             "show_progress": False,
         },

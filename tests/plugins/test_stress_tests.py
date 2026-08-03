@@ -23,6 +23,7 @@ from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import (
     HitMergedFeaturesPlugin,
 )
 from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
+    PeakletComponentsPlugin,
     PeakletPlugin,
 )
 from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
@@ -84,8 +85,17 @@ class TestLargeDatasets:
 
         # 验证数据完整性
         assert np.all(merged["channel"] >= 0)
-        assert np.all(merged["sample_start"] >= 0)
-        assert np.all(merged["sample_end"] > merged["sample_start"])
+
+        # 契约：跨 record 的 cluster 没有唯一 sample 窗口，sample_start/sample_end/width
+        # 合法标记为 -1（is_single_record=False），而 time_start/time_end 始终有效。
+        single = merged[merged["is_single_record"]]
+        assert np.all(single["sample_start"] >= 0)
+        assert np.all(single["sample_end"] > single["sample_start"])
+
+        cross = merged[~merged["is_single_record"]]
+        assert np.all(cross["sample_start"] == -1)
+        assert np.all(cross["sample_end"] == -1)
+        assert np.all(cross["time_start"] < cross["time_end"])  # 时间范围仍然有效
 
     @pytest.mark.slow
     def test_peaklets_large_dataset(self):
@@ -104,6 +114,10 @@ class TestLargeDatasets:
             {"time_window_ns": 100.0, "max_total_width_ns": 10000.0, "dt": 2},
             {"hit_merged": merged},
         )
+
+        # PeakletPlugin 依赖 peaklet_components，由 PeakletComponentsPlugin 先行产出
+        peaklet_components = PeakletComponentsPlugin().compute_array(ctx, "large_run")
+        ctx._data["peaklet_components"] = peaklet_components
 
         plugin = PeakletPlugin()
         peaklets = plugin.compute_array(ctx, "large_run")

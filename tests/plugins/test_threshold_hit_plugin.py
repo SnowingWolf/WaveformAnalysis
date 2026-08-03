@@ -573,13 +573,6 @@ def test_threshold_hit_numba_backend_raises_when_numba_unavailable(monkeypatch):
         plugin.compute_array(ctx, "run_001")
 
 
-def test_threshold_hit_records_use_filtered_reads_filtered_pool():
-    """Test that filtered wave_pool is no longer supported - use wave_source instead"""
-    # This test is removed as use_filtered parameter has been deprecated
-    # Use wave_source='filtered_waveforms' for filtered data
-    pass
-
-
 def test_threshold_hit_records_empty_returns_empty():
     plugin = ThresholdHitPlugin()
     ctx = DummyContext(

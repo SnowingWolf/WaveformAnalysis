@@ -361,34 +361,3 @@ def test_accessor_positions_empty():
     # 无位置数据时应该返回空数组
     assert len(positions) == 0
     assert positions.dtype == POSITION_RECONSTRUCTION_DTYPE
-
-
-# ============================================================================
-# 集成测试占位（需要完整数据）
-# ============================================================================
-
-
-@pytest.mark.skip(reason="需要真实测试数据")
-def test_end_to_end_position_reconstruction():
-    """端到端测试：从原始数据到位置重建
-
-    此测试需要：
-    1. 完整的 run 数据
-    2. 已配置的 PMT 布局
-    3. 有效的 S1-S2 配对
-    """
-    # TODO: 使用真实测试数据验证
-    pass
-
-
-@pytest.mark.skip(reason="需要参考结果")
-def test_compare_with_xihu_fast_analysis():
-    """对比测试：验证与 xihu_fast_analysis 结果一致性
-
-    此测试需要：
-    1. 相同输入数据
-    2. xihu_fast_analysis 的重建结果作为参考
-    3. 验证相对误差 < 1%
-    """
-    # TODO: 实现对比验证
-    pass

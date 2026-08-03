@@ -107,9 +107,10 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --cov=waveform_analysis --cov-report=html --cov-report=term"
+# 默认只跑快速层；慢测试用 `pytest -m slow` 单独运行（CI 分层见 .github/workflows/python-tests.yml）
+addopts = "-v --cov=waveform_analysis --cov-report=html --cov-report=term -m 'not slow'"
 markers = [
-    "slow: 耗时较长的测试（真实文件 I/O 等）",
+    "slow: 耗时较长的测试（真实文件 I/O、大数据集、超时等）",
     "integration: 集成测试（需要完整 Context 或多插件协作）",
     "contract: 契约/兼容性测试",
 ]
