@@ -643,13 +643,27 @@ class HitMergePlugin(BatchProcessingPlugin):
             "和 dt 推导的绝对时间窗口决定。"
         ),
         "workflow_steps": [
-            "**识别可合并片段**：`hit_threshold` 每行为过阈片段，判断哪些相邻片段应合并为同一次通道响应。",
-            "**保持通道/刻度一致**：仅合并同一 `(board, channel)`、相同 `dt` 的片段，避免混入不同时间刻度。",
-            "**按时间连接**：空档 ≤ `merge_gap_ns` 才接入同窗口；`merge_gap_ns` ≤ 0 时关闭合并。",
-            "**限制链式总时长**：合并窗口超过 `max_total_width_ns` 时，后续片段另起新的 `hit_merged`。",
-            "**选择代表 hit**：取最接近窗口中心的原始 hit，继承其 position、timestamp、channel、record_id。",
-            "**记录窗口与成员**：输出时间范围与成员索引；跨 record 时 `sample_start`、`sample_end`、`width` 为 -1。",
+            "**识别可合并片段**：`hit_threshold` 中的每一行都是一个过阈信号片段，插件判断哪些相邻片段应视为同一次通道响应。",
+            "**保持通道与采样刻度一致**：只合并同一 `(board, channel)` 的片段；采样间隔不同的片段始终分开，避免把不同时间刻度的信号混在一起。",
+            "**按时间连接相邻片段**：两个片段之间的空档不超过 `merge_gap_ns` 时，可以接入同一个合并窗口。将 `merge_gap_ns` 设为 `<= 0` 会关闭合并。",
+            "**限制链式合并的总时长**：即使每一对相邻片段都很接近，只要合并后的完整窗口超过 `max_total_width_ns`，后续片段仍会从新的 `hit_merged` 开始。",
+            "**选择代表 hit**：一个合并窗口包含多个片段时，选取最接近窗口时间中心的原始 hit，继承它的 position、timestamp、channel 和 record_id。",
+            "**记录窗口与成员关系**：输出保存合并后的时间范围及成员索引；若成员跨越多个 record，则没有唯一的 sample 窗口，`sample_start`、`sample_end` 和 `width` 会标记为无效值。",
         ],
+        "workflow_diagram": (
+            "flowchart TD\n"
+            '  A["读取 hit_threshold 并物化"] --> B{"为空?"}\n'
+            '  B -- "是" --> Z["返回空 HIT_MERGED"]\n'
+            '  B -- "否" --> C["解析配置: merge_gap_ns / max_total_width_ns / dt / pre-trigger"]\n'
+            '  C --> D["计算 canonical cluster rows<br/>同板同通道 + 时间邻近链式合并"]\n'
+            '  D --> E{"merge_gap_ns <= 0（合并关闭）?"}\n'
+            '  E -- "是" --> F["fast 路径: 每条 hit 1:1 映射为 hit_merged"]\n'
+            '  E -- "否" --> G["富化 hits + 解析绝对时间窗口"]\n'
+            '  G --> H["从 cluster rows 构建 hit_merged"]\n'
+            '  F --> I["输出: 选取 anchor 最接近窗口中心<br/>跨 record 时 sample 字段标记 -1"]\n'
+            "  H --> I\n"
+            '  I --> J["下游: hit_merged_features / peaklets / hit_grouped ..."]\n'
+        ),
         "behavior_notes": [
             "Only hits with the same `(board, channel)` are eligible for merging; boardless inputs use board `0` as the compatibility value.",
             "`merge_gap_ns <= 0` disables merging and maps each `hit_threshold` row to one `hit_merged` row.",

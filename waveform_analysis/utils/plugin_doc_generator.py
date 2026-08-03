@@ -207,6 +207,7 @@ class PluginDocumentationView:
     documentation_status: Any = None
     documentation_completeness: int | None = None
     dag_impact: int | None = None
+    workflow_diagram: str = ""  # mermaid flowchart 源码（插件内部处理流程）
 
     @property
     def category_display(self) -> str:
@@ -503,6 +504,7 @@ class PluginDocGenerator:
         )
         raw_usage_example = getattr(plugin, "doc_usage_example", "") or ""
         usage_example = inspect.cleandoc(str(raw_usage_example)) if raw_usage_example else ""
+        workflow_diagram = agent_doc["workflow_diagram"]
 
         return PluginDocumentationView(
             name=name,
@@ -537,6 +539,7 @@ class PluginDocGenerator:
             overview_paragraphs=overview_paragraphs,
             usage_example=usage_example,
             documentation_status=agent_doc["documentation_status"],
+            workflow_diagram=workflow_diagram,
         )
 
     @staticmethod
@@ -608,6 +611,7 @@ class PluginDocGenerator:
             "downstream_consumers": list_value("downstream_consumers"),
             "downstream_notes": list_value("downstream_notes"),
             "agent_change_notes": list_value("agent_change_notes"),
+            "workflow_diagram": str_value("workflow_diagram"),
             "documentation_status": resolution.status,
         }
 
@@ -2179,6 +2183,7 @@ class PluginDocGenerator:
             .render(
                 plugin=doc_info,
                 lineage_graph=lineage_graph,
+                load_mermaid=bool(doc_info.workflow_diagram),
                 asset_prefix=asset_prefix,
                 site_home_href=site_home_href,
                 plugin_index_href=plugin_index_href,
