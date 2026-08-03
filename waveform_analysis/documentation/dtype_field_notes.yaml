@@ -10,13 +10,13 @@ st_waveforms:
     units: ADC counts
   polarity:
     doc: "Hardware-truth signal polarity: positive | negative | unknown"
-    units: "-"
+    units: None
   timestamp:
     doc: ADC raw timestamp in picoseconds
     units: ps
   record_id:
     doc: Sequential record identifier within the structured waveform array
-    units: "-"
+    units: None
   dt:
     doc: Sample interval in nanoseconds, aligned to time
     units: ns
@@ -25,136 +25,334 @@ st_waveforms:
     units: samples
   board:
     doc: Hardware board index
-    units: "-"
+    units: None
   channel:
     doc: Physical channel number
-    units: "-"
+    units: None
   wave:
     doc: ADC sample data as 1-D int16 array
     units: ADC counts
 hit:
-  position: Peak position as sample index within the waveform
-  height: Peak height above baseline
-  integral: Peak integral (area)
-  edge_start: Peak left edge boundary
-  edge_end: Peak right edge boundary
-  dt: Sample interval in nanoseconds
-  timestamp: Global timestamp in picoseconds
-  board: Hardware board index
-  channel: Physical channel number
-  record_id: Source record identifier
+  position:
+    doc: Peak position as sample index within the waveform
+    units: samples
+  height:
+    doc: Peak height above baseline
+    units: ADC counts
+  integral:
+    doc: Peak integral (area)
+    units: ADC counts
+  edge_start:
+    doc: Peak left edge boundary
+    units: samples
+  edge_end:
+    doc: Peak right edge boundary
+    units: samples
+  dt:
+    doc: Sample interval in nanoseconds
+    units: ns
+  timestamp:
+    doc: Global timestamp in picoseconds
+    units: ps
+  board:
+    doc: Hardware board index
+    units: None
+  channel:
+    doc: Physical channel number
+    units: None
+  record_id:
+    doc: Source record identifier
+    units: None
 basic_features:
-  height: Pulse height (baseline minus minimum sample)
-  amp: Peak-to-peak amplitude (max minus min)
-  area: Waveform integral area
-  max_abs_diff: Maximum absolute difference between consecutive samples
-  timestamp: ADC timestamp in picoseconds
-  board: Hardware board index
-  channel: Physical channel number
-  record_id: Source record identifier
+  height:
+    doc: Pulse height (baseline minus minimum sample)
+    units: ADC counts
+  amp:
+    doc: Peak-to-peak amplitude (max minus min)
+    units: ADC counts
+  area:
+    doc: Waveform integral area
+    units: ADC counts
+  max_abs_diff:
+    doc: Maximum absolute difference between consecutive samples
+    units: ADC counts
+  timestamp:
+    doc: ADC timestamp in picoseconds
+    units: ps
+  board:
+    doc: Hardware board index
+    units: None
+  channel:
+    doc: Physical channel number
+    units: None
+  record_id:
+    doc: Source record identifier
+    units: None
 events:
-  event_id: Globally unique event identifier
-  event_number: Sequential event number within the run, 0-based
-  run_id: Run identifier string
-  pair_id: S1-S2 pair identifier
-  s1_peak_id: S1 peak identifier
-  s2_peak_id: S2 peak identifier
-  x: X coordinate (mm)
-  y: Y coordinate (mm)
-  z: Z coordinate (drift distance, mm)
-  r: Radial coordinate sqrt(x^2 + y^2) (mm)
-  drift_time_ns: Drift time (ns)
-  s1_time: S1 time relative to run start (ns)
-  s2_time: S2 time (ns)
-  s1_area: S1 raw area
-  s2_area: S2 raw area
-  log10_s2_s1: log10(S2/S1)
-  s1_n_channels: S1 channel count
-  s2_n_channels: S2 channel count
-  s1_area_fraction_top: S1 area fraction in top PMT array
-  s2_area_fraction_top: S2 area fraction in top PMT array
-  s1_rise_time: S1 rise time (ns)
-  s2_rise_time: S2 rise time (ns)
-  n_s1_candidates_for_s2: Number of S1 candidates for this S2
-  n_s2_candidates_for_s1: Number of S2 candidates for this S1
-  flags: Bit-field status flags
+  event_id:
+    doc: Globally unique event identifier
+    units: None
+  event_number:
+    doc: Sequential event number within the run, 0-based
+    units: None
+  run_id:
+    doc: Run identifier string
+    units: None
+  pair_id:
+    doc: S1-S2 pair identifier
+    units: None
+  s1_peak_id:
+    doc: S1 peak identifier
+    units: None
+  s2_peak_id:
+    doc: S2 peak identifier
+    units: None
+  x:
+    doc: X coordinate (mm)
+    units: mm
+  y:
+    doc: Y coordinate (mm)
+    units: mm
+  z:
+    doc: Z coordinate (drift distance, mm)
+    units: mm
+  r:
+    doc: Radial coordinate sqrt(x^2 + y^2) (mm)
+    units: mm
+  drift_time_ns:
+    doc: Drift time (ns)
+    units: ns
+  s1_time:
+    doc: S1 time relative to run start (s)
+    units: s
+  s2_time:
+    doc: S2 time (s)
+    units: s
+  s1_area:
+    doc: S1 raw area
+    units: ADC counts
+  s2_area:
+    doc: S2 raw area
+    units: ADC counts
+  log10_s2_s1:
+    doc: log10(S2/S1)
+    units: None
+  s1_n_channels:
+    doc: S1 channel count
+    units: None
+  s2_n_channels:
+    doc: S2 channel count
+    units: None
+  s1_area_fraction_top:
+    doc: S1 area fraction in top PMT array
+    units: None
+  s2_area_fraction_top:
+    doc: S2 area fraction in top PMT array
+    units: None
+  s1_rise_time:
+    doc: S1 rise time (ns)
+    units: ns
+  s2_rise_time:
+    doc: S2 rise time (ns)
+    units: ns
+  n_s1_candidates_for_s2:
+    doc: Number of S1 candidates for this S2
+    units: None
+  n_s2_candidates_for_s1:
+    doc: Number of S2 candidates for this S1
+    units: None
+  flags:
+    doc: Bit-field status flags
+    units: None
 position_reconstruction:
-  event_id: Unique event identifier
-  pair_id: S1-S2 pair identifier
-  s1_peak_id: S1 peak identifier
-  s2_peak_id: S2 peak identifier
-  x: X coordinate (mm)
-  y: Y coordinate (mm)
-  z: Z coordinate (drift distance, mm)
-  r: Radial coordinate sqrt(x^2 + y^2) (mm)
-  x_err: X position uncertainty (mm)
-  y_err: Y position uncertainty (mm)
-  z_err: Z position uncertainty (mm)
-  xy_chi2: Chi-squared for XY reconstruction fit
-  xy_ndf: Degrees of freedom for XY reconstruction
-  z_quality: Z reconstruction quality (0 to 1)
-  position_goodness: Overall position quality (0 to 1)
-  xy_method: XY reconstruction method (cog, nn, template, or none)
-  z_method: Z reconstruction method (drift_time, corrected, or none)
-  drift_time_ns: Drift time in nanoseconds
-  s2_area: S2 area used for quality checks
-  s2_n_channels: Number of S2 channels used for quality checks
-  flags: Bit-field reconstruction status flags
+  event_id:
+    doc: Unique event identifier
+    units: None
+  pair_id:
+    doc: S1-S2 pair identifier
+    units: None
+  s1_peak_id:
+    doc: S1 peak identifier
+    units: None
+  s2_peak_id:
+    doc: S2 peak identifier
+    units: None
+  x:
+    doc: X coordinate (mm)
+    units: mm
+  y:
+    doc: Y coordinate (mm)
+    units: mm
+  z:
+    doc: Z coordinate (drift distance, mm)
+    units: mm
+  r:
+    doc: Radial coordinate sqrt(x^2 + y^2) (mm)
+    units: mm
+  x_err:
+    doc: X position uncertainty (mm)
+    units: mm
+  y_err:
+    doc: Y position uncertainty (mm)
+    units: mm
+  z_err:
+    doc: Z position uncertainty (mm)
+    units: mm
+  xy_chi2:
+    doc: Chi-squared for XY reconstruction fit
+    units: None
+  xy_ndf:
+    doc: Degrees of freedom for XY reconstruction
+    units: None
+  z_quality:
+    doc: Z reconstruction quality (0 to 1)
+    units: None
+  position_goodness:
+    doc: Overall position quality (0 to 1)
+    units: None
+  xy_method:
+    doc: XY reconstruction method (cog, nn, template, or none)
+    units: None
+  z_method:
+    doc: Z reconstruction method (drift_time, corrected, or none)
+    units: None
+  drift_time_ns:
+    doc: Drift time in nanoseconds
+    units: ns
+  s2_area:
+    doc: S2 area used for quality checks
+    units: ADC counts
+  s2_n_channels:
+    doc: Number of S2 channels used for quality checks
+    units: None
+  flags:
+    doc: Bit-field reconstruction status flags
+    units: None
 filtered_waveforms:
-  baseline: Computed global waveform baseline for this record
-  baseline_upstream: Upstream baseline value from preceding processing, optional
-  polarity: "Hardware-truth signal polarity: positive | negative | unknown"
-  timestamp: ADC raw timestamp in picoseconds
-  record_id: Sequential record identifier within the structured waveform array
-  dt: Sample interval in nanoseconds, aligned to time
-  event_length: Waveform length in samples
-  board: Hardware board index
-  channel: Physical channel number
-  wave: Filtered ADC sample data as 1-D float32 array
+  baseline:
+    doc: Computed global waveform baseline for this record
+    units: ADC counts
+  baseline_upstream:
+    doc: Upstream baseline value from preceding processing, optional
+    units: ADC counts
+  polarity:
+    doc: "Hardware-truth signal polarity: positive | negative | unknown"
+    units: None
+  timestamp:
+    doc: ADC raw timestamp in picoseconds
+    units: ps
+  record_id:
+    doc: Sequential record identifier within the structured waveform array
+    units: None
+  dt:
+    doc: Sample interval in nanoseconds, aligned to time
+    units: ns
+  event_length:
+    doc: Waveform length in samples
+    units: samples
+  board:
+    doc: Hardware board index
+    units: None
+  channel:
+    doc: Physical channel number
+    units: None
+  wave:
+    doc: Filtered ADC sample data as 1-D float32 array
+    units: ADC counts
 peak_classification:
-  peak_id: Zero-based index of the input peaks row receiving this classification
-  label: "Classification code: 0=unknown, 1=S1, 2=S2, 3=S1_S2"
+  peak_id:
+    doc: Zero-based index of the input peaks row receiving this classification
+    units: None
+  label:
+    doc: "Classification code: 0=unknown, 1=S1, 2=S2, 3=S1_S2"
+    units: None
 waveform_width:
-  rise_time: Rise time from 10% to 90% of peak height (ns)
-  fall_time: Fall time from 90% to 10% of peak height (ns)
-  total_width: Total width from 10% rise to 10% fall (ns)
-  rise_time_samples: Rise time in sample counts
-  fall_time_samples: Fall time in sample counts
-  total_width_samples: Total width in sample counts
-  peak_position: Peak position as sample index
-  peak_height: Peak height above baseline
-  timestamp: Event timestamp in picoseconds
-  board: Hardware board index
-  channel: Physical channel number
-  record_id: Source record identifier
+  rise_time:
+    doc: Rise time from 10% to 90% of peak height (ns)
+    units: ns
+  fall_time:
+    doc: Fall time from 90% to 10% of peak height (ns)
+    units: ns
+  total_width:
+    doc: Total width from 10% rise to 10% fall (ns)
+    units: ns
+  rise_time_samples:
+    doc: Rise time in sample counts
+    units: samples
+  fall_time_samples:
+    doc: Fall time in sample counts
+    units: samples
+  total_width_samples:
+    doc: Total width in sample counts
+    units: samples
+  peak_position:
+    doc: Peak position as sample index
+    units: samples
+  peak_height:
+    doc: Peak height above baseline
+    units: ADC counts
+  timestamp:
+    doc: Event timestamp in picoseconds
+    units: ps
+  board:
+    doc: Hardware board index
+    units: None
+  channel:
+    doc: Physical channel number
+    units: None
+  record_id:
+    doc: Source record identifier
+    units: None
 waveform_width_integral:
-  t_low: Low-quantile integral point (ns, corresponding to q_low)
-  t_high: High-quantile integral point (ns, corresponding to q_high)
-  width: t_high minus t_low (ns)
-  t_low_samples: Low-quantile integral point in sample index
-  t_high_samples: High-quantile integral point in sample index
-  width_samples: Pulse width in sample counts
-  q_total: Total baseline-subtracted charge (integral)
-  timestamp: ADC event timestamp
-  board: Hardware board index
-  channel: Physical channel number
-  record_id: Source record identifier
+  t_low:
+    doc: Low-quantile integral point (ns, corresponding to q_low)
+    units: ns
+  t_high:
+    doc: High-quantile integral point (ns, corresponding to q_high)
+    units: ns
+  width:
+    doc: t_high minus t_low (ns)
+    units: ns
+  t_low_samples:
+    doc: Low-quantile integral point in sample index
+    units: samples
+  t_high_samples:
+    doc: High-quantile integral point in sample index
+    units: samples
+  width_samples:
+    doc: Pulse width in sample counts
+    units: samples
+  q_total:
+    doc: Total baseline-subtracted charge (integral)
+    units: ADC counts
+  timestamp:
+    doc: ADC event timestamp
+    units: ps
+  board:
+    doc: Hardware board index
+    units: None
+  channel:
+    doc: Physical channel number
+    units: None
+  record_id:
+    doc: Source record identifier
+    units: None
 s1_s2_pair_candidates:
   pair_id:
     doc: Unique candidate pair identifier
-    units: "-"
+    units: None
   s1_peak_id:
     doc: S1 peak identifier
-    units: "-"
+    units: None
   s2_peak_id:
     doc: S2 peak identifier (anchor)
-    units: "-"
+    units: None
   s1_index:
     doc: S1 row index in the S1-only sub-array
-    units: "-"
+    units: None
   s2_index:
     doc: S2 row index in the S2-only sub-array
-    units: "-"
+    units: None
   s1_time:
     doc: S1 timestamp
     units: ps
@@ -169,13 +367,13 @@ s1_s2_pair_candidates:
     units: ns
   s1_area:
     doc: S1 signal area
-    units: "-"
+    units: ADC counts
   s2_area:
     doc: S2 signal area
-    units: "-"
+    units: ADC counts
   log10_s2_s1:
     doc: log10 of S2/S1 area ratio
-    units: "-"
+    units: None
   s1_width:
     doc: S1 width
     units: ns
@@ -184,96 +382,156 @@ s1_s2_pair_candidates:
     units: ns
   s1_n_channels:
     doc: Number of channels for S1
-    units: "-"
+    units: None
   s2_n_channels:
     doc: Number of channels for S2
-    units: "-"
+    units: None
   score_total:
     doc: Total pairing score
-    units: "-"
+    units: None
   score_time:
     doc: Time-matching score
-    units: "-"
+    units: None
   score_s1_quality:
     doc: S1 quality score
-    units: "-"
+    units: None
   score_s2_quality:
     doc: S2 quality score
-    units: "-"
+    units: None
   score_ratio:
     doc: S2/S1 ratio score
-    units: "-"
+    units: None
   score_pattern:
     doc: Pattern-matching score (reserved)
-    units: "-"
+    units: None
   score_ambiguity:
     doc: Ambiguity penalty (reserved)
-    units: "-"
+    units: None
   rank_for_s1:
     doc: Rank of this S2 among all S1 candidates (1-based)
-    units: "-"
+    units: None
   rank_for_s2:
     doc: Rank of this S1 among all S2 candidates (1-based)
-    units: "-"
+    units: None
   n_s1_candidates_for_s2:
     doc: Number of S1 candidates competing for this S2
-    units: "-"
+    units: None
   n_s2_candidates_for_s1:
     doc: Number of S2 candidates competing for this S1
-    units: "-"
+    units: None
   delta_score_to_next_best:
     doc: Score difference to next-best candidate
-    units: "-"
+    units: None
   flags:
     doc: Bit-field status flags
-    units: "-"
+    units: None
   selected:
     doc: Whether this pair was selected as final pairing
-    units: "-"
+    units: None
 s1_s2_pairs:
-  pair_id: Unique candidate pair identifier
-  s1_peak_id: S1 peak identifier
-  s2_peak_id: S2 peak identifier (anchor)
-  s1_index: S1 row index in the S1-only sub-array
-  s2_index: S2 row index in the S2-only sub-array
-  s1_time: S1 timestamp in picoseconds
-  s2_time: S2 timestamp in picoseconds
-  drift_time: Drift time (S2 time minus S1 time) in picoseconds
-  drift_time_ns: Drift time in nanoseconds
-  s1_area: S1 signal area
-  s2_area: S2 signal area
-  log10_s2_s1: log10 of S2/S1 area ratio
-  s1_width: S1 width (ns)
-  s2_width: S2 width (ns)
-  s1_n_channels: Number of channels for S1
-  s2_n_channels: Number of channels for S2
-  score_total: Total pairing score
-  score_time: Time-matching score
-  score_s1_quality: S1 quality score
-  score_s2_quality: S2 quality score
-  score_ratio: S2/S1 ratio score
-  score_pattern: Pattern-matching score (reserved)
-  score_ambiguity: Ambiguity penalty (reserved)
-  rank_for_s1: Rank of this S2 among all S1 candidates (1-based)
-  rank_for_s2: Rank of this S1 among all S2 candidates (1-based)
-  n_s1_candidates_for_s2: Number of S1 candidates competing for this S2
-  n_s2_candidates_for_s1: Number of S2 candidates competing for this S1
-  delta_score_to_next_best: Score difference to next-best candidate
-  flags: Bit-field status flags
-  selected: Whether this pair was selected as final pairing
+  pair_id:
+    doc: Unique candidate pair identifier
+    units: None
+  s1_peak_id:
+    doc: S1 peak identifier
+    units: None
+  s2_peak_id:
+    doc: S2 peak identifier (anchor)
+    units: None
+  s1_index:
+    doc: S1 row index in the S1-only sub-array
+    units: None
+  s2_index:
+    doc: S2 row index in the S2-only sub-array
+    units: None
+  s1_time:
+    doc: S1 timestamp in picoseconds
+    units: ps
+  s2_time:
+    doc: S2 timestamp in picoseconds
+    units: ps
+  drift_time:
+    doc: Drift time (S2 time minus S1 time) in picoseconds
+    units: ps
+  drift_time_ns:
+    doc: Drift time in nanoseconds
+    units: ns
+  s1_area:
+    doc: S1 signal area
+    units: ADC counts
+  s2_area:
+    doc: S2 signal area
+    units: ADC counts
+  log10_s2_s1:
+    doc: log10 of S2/S1 area ratio
+    units: None
+  s1_width:
+    doc: S1 width (ns)
+    units: ns
+  s2_width:
+    doc: S2 width (ns)
+    units: ns
+  s1_n_channels:
+    doc: Number of channels for S1
+    units: None
+  s2_n_channels:
+    doc: Number of channels for S2
+    units: None
+  score_total:
+    doc: Total pairing score
+    units: None
+  score_time:
+    doc: Time-matching score
+    units: None
+  score_s1_quality:
+    doc: S1 quality score
+    units: None
+  score_s2_quality:
+    doc: S2 quality score
+    units: None
+  score_ratio:
+    doc: S2/S1 ratio score
+    units: None
+  score_pattern:
+    doc: Pattern-matching score (reserved)
+    units: None
+  score_ambiguity:
+    doc: Ambiguity penalty (reserved)
+    units: None
+  rank_for_s1:
+    doc: Rank of this S2 among all S1 candidates (1-based)
+    units: None
+  rank_for_s2:
+    doc: Rank of this S1 among all S2 candidates (1-based)
+    units: None
+  n_s1_candidates_for_s2:
+    doc: Number of S1 candidates competing for this S2
+    units: None
+  n_s2_candidates_for_s1:
+    doc: Number of S2 candidates competing for this S1
+    units: None
+  delta_score_to_next_best:
+    doc: Score difference to next-best candidate
+    units: None
+  flags:
+    doc: Bit-field status flags
+    units: None
+  selected:
+    doc: Whether this pair was selected as final pairing
+    units: None
 records:
   timestamp:
     doc: ADC timestamp in picoseconds
     units: ps
   pid:
     doc: Partition identifier used as a tie-breaker
-    units: "-"
+    units: None
   board:
     doc: Hardware board index
-    units: "-"
+    units: None
   channel:
     doc: Physical channel number
-    units: "-"
+    units: None
   baseline:
     doc: Computed global waveform baseline
     units: ADC counts
@@ -282,22 +540,22 @@ records:
     units: ADC counts
   polarity:
     doc: Hardware-truth signal polarity
-    units: "-"
+    units: None
   record_id:
     doc: Sequential record identifier after sorting
-    units: "-"
+    units: None
   dt:
     doc: Sample interval in nanoseconds
     units: ns
   trigger_type:
     doc: Trigger type code
-    units: "-"
+    units: None
   flags:
     doc: Bit field of record flags
-    units: "-"
+    units: None
   wave_offset:
     doc: Starting index in wave_pool
-    units: "-"
+    units: None
   event_length:
     doc: Waveform length in samples
     units: samples
@@ -313,119 +571,321 @@ wave_pool_filtered:
     doc: Flattened float32 filtered sample value
     units: ADC counts
 records_asymmetry_mask:
-  value: "Boolean mask: True for records passing waveform asymmetry selection"
+  value:
+    doc: "Boolean mask: True for records passing waveform asymmetry selection"
+    units: None
 records_detector_mask:
-  value: "Boolean mask: True for records assigned to detector channel role"
+  value:
+    doc: "Boolean mask: True for records assigned to detector channel role"
+    units: None
 records_veto_mask:
-  value: "Boolean mask: True for records assigned to veto channel role"
+  value:
+    doc: >-
+      Boolean veto mask, one entry per `records` row: True marks a record that
+      belongs to a veto channel (role='veto' in channel_config) and passed the
+      waveform asymmetry selection, so it should be excluded from normal
+      detector hit finding.
+    units: None
 hit_threshold:
-  position: Representative sample position within the hit interval
-  edge_start: Hit window start boundary (safe half-open sample index within record)
-  edge_end: Hit window end boundary (safe half-open sample index within record)
-  width: Hit window width in samples
-  dt: Sample interval in nanoseconds
-  timestamp: Global timestamp in picoseconds at the hit position
-  board: Hardware board index
-  channel: Physical channel number
-  record_id: Identifier of the source waveform record
+  position:
+    doc: Representative sample position within the hit interval
+    units: samples
+  edge_start:
+    doc: Hit window start boundary (safe half-open sample index within record)
+    units: samples
+  edge_end:
+    doc: Hit window end boundary (safe half-open sample index within record)
+    units: samples
+  width:
+    doc: Hit window width in samples
+    units: samples
+  dt:
+    doc: Sample interval in nanoseconds
+    units: ns
+  timestamp:
+    doc: Global timestamp in picoseconds at the hit position
+    units: ps
+  board:
+    doc: Hardware board index
+    units: None
+  channel:
+    doc: Physical channel number
+    units: None
+  record_id:
+    doc: Identifier of the source waveform record
+    units: None
 hit_merged:
-  merged_id: Unique identifier for the merged hit record, equal to row index
-  position: Anchor hit position; for multi-hit clusters, nearest to window midpoint
-  time_start: Absolute start time in picoseconds of the merged window
-  time_end: Absolute end time in picoseconds of the merged window
-  sample_start: Merged sample-window start; -1 when spanning multiple records
-  sample_end: Merged sample-window end; -1 when spanning multiple records
-  width: Merged sample-window width; -1.0 when spanning records
-  dt: Resolved sample interval in nanoseconds
-  timestamp: Anchor hit timestamp in picoseconds
-  board: Hardware board from the anchor hit
-  channel: Hardware channel from the anchor hit
-  record_id: Anchor hit record identifier
-  component_offset: Start row in hit_merge_clusters for this cluster
-  component_count: Number of component rows in hit_merge_clusters for this cluster
-  is_single_record: True when all component hits belong to the same record
+  merged_id:
+    doc: Unique identifier for the merged hit record, equal to row index
+    units: None
+  position:
+    doc: Anchor hit position; for multi-hit clusters, nearest to window midpoint
+    units: samples
+  time_start:
+    doc: Absolute start time in picoseconds of the merged window
+    units: ps
+  time_end:
+    doc: Absolute end time in picoseconds of the merged window
+    units: ps
+  sample_start:
+    doc: Merged sample-window start; -1 when spanning multiple records
+    units: samples
+  sample_end:
+    doc: Merged sample-window end; -1 when spanning multiple records
+    units: samples
+  width:
+    doc: Merged sample-window width; -1.0 when spanning records
+    units: samples
+  dt:
+    doc: Resolved sample interval in nanoseconds
+    units: ns
+  timestamp:
+    doc: Anchor hit timestamp in picoseconds
+    units: ps
+  board:
+    doc: Hardware board from the anchor hit
+    units: None
+  channel:
+    doc: Hardware channel from the anchor hit
+    units: None
+  record_id:
+    doc: Anchor hit record identifier
+    units: None
+  component_offset:
+    doc: Start row in hit_merge_clusters for this cluster
+    units: None
+  component_count:
+    doc: Number of component rows in hit_merge_clusters for this cluster
+    units: None
+  is_single_record:
+    doc: True when all component hits belong to the same record
+    units: None
 hit_merge_clusters:
-  cluster_index: Index of the merged cluster, matching merged_id
-  hit_index: Row index in the source hit_threshold array
+  cluster_index:
+    doc: Index of the merged cluster, matching merged_id
+    units: None
+  hit_index:
+    doc: Row index in the source hit_threshold array
+    units: None
 hit_merged_components:
-  merged_index: Index of the merged hit record
-  hit_index: Row index in the source hit_threshold array
+  merged_index:
+    doc: Index of the merged hit record
+    units: None
+  hit_index:
+    doc: Row index in the source hit_threshold array
+    units: None
 hit_merged_features:
-  merged_index: Index of the merged hit record
-  board: Hardware board index
-  channel: Physical channel number
-  record_id: Source record identifier
-  time_start: Absolute start time of the merged hit
-  time_end: Absolute end time of the merged hit
-  center_time: Center time of the merged hit
-  max_time: Time of the maximum sample value within the hit window
-  area: Waveform area (integral) within the merged hit window
-  height: Maximum sample height above baseline within the merged hit window
-  width: Width of the merged hit (ns)
-  rise_time: Rise time of the merged hit (ns)
-  fall_time: Fall time of the merged hit (ns)
-  n_hits: Number of component hits in the merged hit
-  valid: Validity flag
-  area_pe: Area in photoelectron units, computed when gain is configured
-  height_pe: Height in photoelectron units, computed when gain is configured
+  merged_index:
+    doc: Index of the merged hit record
+    units: None
+  board:
+    doc: Hardware board index
+    units: None
+  channel:
+    doc: Physical channel number
+    units: None
+  record_id:
+    doc: Source record identifier
+    units: None
+  time_start:
+    doc: Absolute start time of the merged hit
+    units: ps
+  time_end:
+    doc: Absolute end time of the merged hit
+    units: ps
+  center_time:
+    doc: Center time of the merged hit
+    units: ps
+  max_time:
+    doc: Time of the maximum sample value within the hit window
+    units: ps
+  area:
+    doc: Waveform area (integral) within the merged hit window
+    units: ADC counts
+  height:
+    doc: Maximum sample height above baseline within the merged hit window
+    units: ADC counts
+  width:
+    doc: Width of the merged hit (ns)
+    units: ns
+  rise_time:
+    doc: Rise time of the merged hit (ns)
+    units: ns
+  fall_time:
+    doc: Fall time of the merged hit (ns)
+    units: ns
+  n_hits:
+    doc: Number of component hits in the merged hit
+    units: None
+  valid:
+    doc: Validity flag
+    units: None
+  area_pe:
+    doc: Area in photoelectron units, computed when gain is configured
+    units: PE
+  height_pe:
+    doc: Height in photoelectron units, computed when gain is configured
+    units: PE
 peaklets:
-  time_start: Earliest absolute start time across component hits (ps)
-  time_end: Latest absolute end time across component hits (ps)
-  center_time: Midpoint of time_start and time_end (ps)
-  n_hits: Total number of component hits in the peaklet
-  n_channels: Number of distinct (board, channel) pairs in the peaklet
-  component_offset: Start row in peaklet_components for this peaklet
-  component_count: Number of component rows in peaklet_components for this peaklet
+  time_start:
+    doc: Earliest absolute start time across component hits (ps)
+    units: ps
+  time_end:
+    doc: Latest absolute end time across component hits (ps)
+    units: ps
+  center_time:
+    doc: Midpoint of time_start and time_end (ps)
+    units: ps
+  n_hits:
+    doc: Total number of component hits in the peaklet
+    units: None
+  n_channels:
+    doc: Number of distinct (board, channel) pairs in the peaklet
+    units: None
+  component_offset:
+    doc: Start row in peaklet_components for this peaklet
+    units: None
+  component_count:
+    doc: Number of component rows in peaklet_components for this peaklet
+    units: None
 peaklet_components:
-  peak_id: Peaklet identifier, matching the row index in the peaklets table
-  merged_index: Index of the hit_merged row belonging to this peaklet
+  peak_id:
+    doc: Peaklet identifier, matching the row index in the peaklets table
+    units: None
+  merged_index:
+    doc: Index of the hit_merged row belonging to this peaklet
+    units: None
 peaklet_waveforms:
-  peak_id: Peaklet identifier, matching the row index in the peaklets table
-  time_start: Absolute start time of the waveform slice (ps)
-  time_end: Absolute end time of the waveform slice (ps)
-  dt: Sample interval in nanoseconds
-  wave_offset: Starting index in peaklet_waveform_pool
-  wave_length: Number of samples in the waveform slice
+  peak_id:
+    doc: Peaklet identifier, matching the row index in the peaklets table
+    units: None
+  time_start:
+    doc: Absolute start time of the waveform slice (ps)
+    units: ps
+  time_end:
+    doc: Absolute end time of the waveform slice (ps)
+    units: ps
+  dt:
+    doc: Sample interval in nanoseconds
+    units: ns
+  wave_offset:
+    doc: Starting index in peaklet_waveform_pool
+    units: None
+  wave_length:
+    doc: Number of samples in the waveform slice
+    units: samples
 peaklet_waveform_pool:
-  value: Flattened float32 waveform sample for peaklet waveform slices
+  value:
+    doc: Flattened float32 waveform sample for peaklet waveform slices
+    units: ADC counts
 peaklet_features:
-  peak_id: Peaklet identifier
-  time_start: Absolute start time of the peaklet (ps)
-  time_end: Absolute end time of the peaklet (ps)
-  time_peak: Time of the maximum sample value (ps)
-  center_time: Center time of the peaklet (ps)
-  rise_time: Rise time (ns)
-  fall_time: Fall time (ns)
-  width_25_75: Width between 25% and 75% of the peak (ns)
-  rise_time_10_50: Rise time from 10% to 50% (ns)
-  range_90p_area: Time range covering 90% of the waveform area (ns)
-  area: Total waveform area
-  height: Maximum waveform height
-  width: Pulse width (ns)
+  peak_id:
+    doc: Peaklet identifier
+    units: None
+  time_start:
+    doc: Absolute start time of the peaklet (ps)
+    units: ps
+  time_end:
+    doc: Absolute end time of the peaklet (ps)
+    units: ps
+  time_peak:
+    doc: Time of the maximum sample value (ps)
+    units: ps
+  center_time:
+    doc: Center time of the peaklet (ps)
+    units: ps
+  rise_time:
+    doc: Rise time (ns)
+    units: ns
+  fall_time:
+    doc: Fall time (ns)
+    units: ns
+  width_25_75:
+    doc: Width between 25% and 75% of the peak (ns)
+    units: ns
+  rise_time_10_50:
+    doc: Rise time from 10% to 50% (ns)
+    units: ns
+  range_90p_area:
+    doc: Time range covering 90% of the waveform area (ns)
+    units: ns
+  area:
+    doc: Total waveform area
+    units: ADC counts
+  height:
+    doc: Maximum waveform height
+    units: ADC counts
+  width:
+    doc: Pulse width (ns)
+    units: ns
 peaklet_channels:
-  peaklet_id: Peaklet identifier
-  board: Hardware board index
-  channel: Physical channel number
-  area: Total area contribution from this channel
-  height: Maximum height contribution from this channel
-  n_hits: Number of component hits from this channel
-  area_fraction: Fraction of the peaklet total area contributed by this channel
+  peaklet_id:
+    doc: Peaklet identifier
+    units: None
+  board:
+    doc: Hardware board index
+    units: None
+  channel:
+    doc: Physical channel number
+    units: None
+  area:
+    doc: Total area contribution from this channel
+    units: ADC counts
+  height:
+    doc: Maximum height contribution from this channel
+    units: ADC counts
+  n_hits:
+    doc: Number of component hits from this channel
+    units: None
+  area_fraction:
+    doc: Fraction of the peaklet total area contributed by this channel
+    units: None
 peaks:
-  peak_id: Peak identifier, matching the row index in the peaks table
-  time_start: Earliest absolute start time across component hits (ps)
-  time_end: Latest absolute end time across component hits (ps)
-  time_peak: Time of the maximum sample value (ps)
-  center_time: Center time of the peak (ps)
-  rise_time: Rise time (ns)
-  fall_time: Fall time (ns)
-  width_25_75: Width between 25% and 75% of the peak (ns)
-  rise_time_10_50: Rise time from 10% to 50% (ns)
-  range_90p_area: Time range covering 90% of the waveform area (ns)
-  area: Total waveform area
-  height: Maximum waveform height
-  width: Pulse width (ns)
-  n_hits: Total number of component hits in the peak
-  n_channels: Number of distinct (board, channel) pairs in the peak
+  peak_id:
+    doc: Peak identifier, matching the row index in the peaks table
+    units: None
+  time_start:
+    doc: Earliest absolute start time across component hits (ps)
+    units: ps
+  time_end:
+    doc: Latest absolute end time across component hits (ps)
+    units: ps
+  time_peak:
+    doc: Time of the maximum sample value (ps)
+    units: ps
+  center_time:
+    doc: Center time of the peak (ps)
+    units: ps
+  rise_time:
+    doc: Rise time (ns)
+    units: ns
+  fall_time:
+    doc: Fall time (ns)
+    units: ns
+  width_25_75:
+    doc: Width between 25% and 75% of the peak (ns)
+    units: ns
+  rise_time_10_50:
+    doc: Rise time from 10% to 50% (ns)
+    units: ns
+  range_90p_area:
+    doc: Time range covering 90% of the waveform area (ns)
+    units: ns
+  area:
+    doc: Total waveform area
+    units: ADC counts
+  height:
+    doc: Maximum waveform height
+    units: ADC counts
+  width:
+    doc: Pulse width (ns)
+    units: ns
+  n_hits:
+    doc: Total number of component hits in the peak
+    units: None
+  n_channels:
+    doc: Number of distinct (board, channel) pairs in the peak
+    units: None
 raw_files: {}
 df: {}
 df_events: {}
