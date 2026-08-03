@@ -973,9 +973,9 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert '"url":"architecture/system.html"' in search_index
     assert '"url":"architecture/plugin-dag-lineage-cache.html"' in search_index
     assert '"url":"architecture/data-products.html"' in search_index
-    assert '"url":"architecture/records-wave-pool.html"' in search_index
     assert '"url":"architecture/accessor-analysis.html"' in search_index
-    assert '"url":"architecture/multi-run-processing.html"' in search_index
+    assert '"url":"architecture/records-wave-pool.html"' not in search_index
+    assert '"url":"architecture/multi-run-processing.html"' not in search_index
     assert '"url":"architecture/data-access.html"' not in search_index
     assert "assets/mermaid/mermaid.min.js?v=" in architecture_page
     assert "data-mermaid-block" in architecture_page
@@ -1038,9 +1038,7 @@ def test_site_web_assets_are_available_over_http_for_root_and_nested_pages(tmp_p
             "architecture/system.html",
             "architecture/plugin-dag-lineage-cache.html",
             "architecture/data-products.html",
-            "architecture/records-wave-pool.html",
             "architecture/accessor-analysis.html",
-            "architecture/multi-run-processing.html",
         )
         for page in pages:
             with urlopen(urljoin(base_url, page)) as response:

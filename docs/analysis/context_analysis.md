@@ -725,7 +725,7 @@ ctx.get_performance_report()                # 性能报告
 
 - 主文档：`docs/features/context/`
 - 配置管理：`docs/features/context/CONFIGURATION.md`
-- 数据访问：`docs/architecture/RECORDS_WAVE_POOL.md`
+- 数据访问：`docs/architecture/DATA_PRODUCTS.md`
 - 执行预览：`docs/features/context/PREVIEW_EXECUTION.md`
 - 依赖分析：`docs/features/context/DEPENDENCY_ANALYSIS_GUIDE.md`
 - 插件管理：`docs/features/context/PLUGIN_MANAGEMENT.md`

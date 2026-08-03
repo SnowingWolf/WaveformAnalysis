@@ -61,7 +61,7 @@ WaveformAnalysis 的插件系统文档，包括教程、开发指南和参考资
 |------|------|
 | [ADAPTER_SYSTEM_GUIDE.md](reference/ADAPTER_SYSTEM_GUIDE.md) | 适配器系统架构详解 |
 | [ADAPTER_PLUGIN_BEHAVIOR.md](reference/ADAPTER_PLUGIN_BEHAVIOR.md) | 适配器与插件行为分析 |
-| [RECORDS_WAVE_POOL.md](../architecture/RECORDS_WAVE_POOL.md) | records 与 wave_pool 共享中间层设计 |
+| [DATA_PRODUCTS.md](../architecture/DATA_PRODUCTS.md) | records 与 wave_pool 共享中间层设计 |
 | [builtin/](reference/builtin/) | 内置插件文档 |
 
 ## 快速链接

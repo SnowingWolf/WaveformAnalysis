@@ -549,7 +549,7 @@ storage_dir/
 
 ## 相关文档
 
-- [系统总览：组件、边界与数据流](ARCHITECTURE.md) - 完整系统架构
+- [系统架构与数据流](ARCHITECTURE.md) - 完整系统架构
 - [插件开发教程](../plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) - 从零开始写插件
 - [插件开发完整指南](../development/plugin-development/plugin_guide.md) - 深入学习
 - [PluginSpec 指南](../development/plugin-development/PLUGIN_SPEC_GUIDE.md) - 高级契约系统

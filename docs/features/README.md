@@ -28,7 +28,7 @@
 
 - [配置管理](context/CONFIGURATION.md)
 - [Plugin DAG、lineage 与缓存](../architecture/PLUGIN_DAG_LINEAGE_CACHE.md)
-- [Records + WavePool](../architecture/RECORDS_WAVE_POOL.md)
+- [数据产物与波形访问](../architecture/DATA_PRODUCTS.md)
 - [依赖分析](context/DEPENDENCY_ANALYSIS_GUIDE.md)
 - [血缘可视化](context/LINEAGE_VISUALIZATION_GUIDE.md)
 - [执行预览](context/PREVIEW_EXECUTION.md)

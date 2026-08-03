@@ -1,6 +1,6 @@
-# 插件执行链：DAG、动态依赖、Lineage 与缓存
+# 插件执行链与缓存
 
-**导航**: [文档中心](../README.md) > [系统架构与数据模型](README.md) > 插件执行链：DAG、动态依赖、Lineage 与缓存
+**导航**: [文档中心](../README.md) > [系统架构与数据模型](README.md) > 插件执行链与缓存
 
 一次 `Context.get_data(run_id, target)` 请求同时使用四类信息：Plugin 契约声明节点，静态和动态
 依赖组成当前 DAG，lineage 在该 DAG 上递归建立结果身份，缓存用 `(run_id, provides, lineage)`
@@ -249,6 +249,5 @@ flowchart TD
 
 ## 9. 相关专题
 
-- [数据产物：实体关系与派生结果](DATA_PRODUCTS.md)
-- [波形数据：records 与 Wave Pool 的配对访问](RECORDS_WAVE_POOL.md)
-- [批量运行：多 Run 调度与执行（开发中）](MULTI_RUN_PROCESSING.md)
+- [数据产物与波形访问](DATA_PRODUCTS.md)
+- [分析查询与批量运行](ACCESSOR_ANALYSIS.md)

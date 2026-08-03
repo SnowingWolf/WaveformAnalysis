@@ -13,7 +13,7 @@
 | 文档 | 说明 |
 |------|------|
 | [配置管理](../features/context/CONFIGURATION.md) | Context 配置、来源解析与推荐写法 |
-| [Records + WavePool](../architecture/RECORDS_WAVE_POOL.md) | records、wave_pool 与 records-backed 波形边界 |
+| [数据产物与波形访问](../architecture/DATA_PRODUCTS.md) | records、wave_pool 与 records-backed 波形边界 |
 
 ### 核心组件
 
@@ -40,7 +40,7 @@
 
 1. **快速开始**: [快速开始指南](../user-guide/QUICKSTART_GUIDE.md) - 5 分钟上手
 2. **配置管理**: [配置管理](../features/context/CONFIGURATION.md) - 配置来源与覆盖规则
-3. **数据访问**: [Records + WavePool](../architecture/RECORDS_WAVE_POOL.md) - records 与波形访问模式
+3. **数据访问**: [数据产物与波形访问](../architecture/DATA_PRODUCTS.md) - records 与波形访问模式
 
 ### API 查找
 

@@ -134,9 +134,9 @@ waveform-docs generate site-web
 该服务对 HTML、JSON、脚本和样式统一发送禁缓存响应头，避免浏览器或转发层继续复用旧页面。
 
 `site-web` 还会读取 `docs/site-guides.yaml`，把显式收录的 Markdown 渲染进同一 HTML 外壳，
-并同步加入左侧分类导航与全站搜索。清单当前发布 11 篇核心正文：5 篇用户指南，以及系统架构、
-Plugin DAG/动态依赖/lineage/缓存、数据产物、Records + WavePool、Accessor 分析和多 Run 处理
-6 篇架构文档。Markdown 文件是正文唯一真源；生成的 HTML 只负责统一发布，不应手工维护同一份正文。
+并同步加入左侧分类导航与全站搜索。清单当前发布 9 篇核心正文：5 篇用户指南，以及系统架构与数据流、
+插件执行链与缓存、数据产物与波形访问、分析查询与批量运行 4 篇架构文档。Markdown 文件是正文唯一真源；
+生成的 HTML 只负责统一发布，不应手工维护同一份正文。
 
 清单使用 `schema_version: 1`，每个分类声明 `id`、`title`、`index_route` 与显式 `pages`：
 

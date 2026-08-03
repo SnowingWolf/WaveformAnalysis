@@ -11,7 +11,7 @@ Context 相关的功能文档，包括依赖分析、血缘可视化、执行预
 |------|------|
 | [配置管理](CONFIGURATION.md) | 配置管理功能 |
 | [Plugin DAG、lineage 与缓存](../../architecture/PLUGIN_DAG_LINEAGE_CACHE.md) | 依赖、缓存与诊断边界 |
-| [Records + WavePool](../../architecture/RECORDS_WAVE_POOL.md) | records-backed 波形构建边界 |
+| [数据产物与波形访问](../../architecture/DATA_PRODUCTS.md) | records-backed 波形构建边界 |
 | [插件管理](PLUGIN_MANAGEMENT.md) | 插件管理功能 |
 | [执行预览](PREVIEW_EXECUTION.md) | 预览执行计划功能 |
 | [血缘可视化](LINEAGE_VISUALIZATION_GUIDE.md) | 血缘可视化功能使用指南 |

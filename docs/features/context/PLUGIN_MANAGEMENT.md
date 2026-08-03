@@ -83,7 +83,7 @@ st_waveforms = ctx.get_data("run_001", "st_waveforms")
 
 当下游插件需要固定数组形态时，可使用 `ctx.get_data(..., output="array")` 将
 chunk stream 或 generator 结果物化为完整数组；正式产物的依赖与读取边界见
-[数据产物：实体关系与派生结果](../../architecture/DATA_PRODUCTS.md)。
+[数据产物与波形访问](../../architecture/DATA_PRODUCTS.md)。
 
 ---
 
@@ -368,7 +368,7 @@ print(f"描述: {plugin.description}")
 ## 相关文档
 
 - [配置管理](CONFIGURATION.md) - 设置插件配置
-- [数据产物：实体关系与派生结果](../../architecture/DATA_PRODUCTS.md) - 获取插件产出的数据
+- [数据产物与波形访问](../../architecture/DATA_PRODUCTS.md) - 获取插件产出的数据
 - [插件开发](../../development/plugin-development/README.md) - 开发自定义插件
 - [Agent 入口](../../../AGENTS.md) - 任务导航与约束
 - [Agent 文档索引](../../agents/INDEX.md) - agent 专题说明

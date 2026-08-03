@@ -281,9 +281,9 @@ waveform-process --show-daq --daq-root DAQ
 - 核心架构：`docs/architecture/ARCHITECTURE.md`
 - Plugin DAG、lineage 与缓存：`docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md`
 - 数据产物与关联型中间产物：`docs/architecture/DATA_PRODUCTS.md`
-- Records + WavePool：`docs/architecture/RECORDS_WAVE_POOL.md`
+- 数据产物与波形访问：`docs/architecture/DATA_PRODUCTS.md`
 - Accessor 与分析查询：`docs/architecture/ACCESSOR_ANALYSIS.md`
-- 多 Run 处理：`docs/architecture/MULTI_RUN_PROCESSING.md`
+- 分析查询与批量运行：`docs/architecture/ACCESSOR_ANALYSIS.md`
 - 配置：`docs/features/context/CONFIGURATION.md`
 - 执行预览：`docs/features/context/PREVIEW_EXECUTION.md`
 - 流式插件：`docs/features/plugin/STREAMING_PLUGINS_GUIDE.md`

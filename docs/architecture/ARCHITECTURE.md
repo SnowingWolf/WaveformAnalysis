@@ -1,6 +1,6 @@
-# 系统总览：组件、边界与数据流
+# 系统架构与数据流
 
-**导航**: [文档中心](../README.md) > [系统架构与数据模型](README.md) > 系统总览：组件、边界与数据流
+**导航**: [文档中心](../README.md) > [系统架构与数据模型](README.md) > 系统架构与数据流
 
 本文定义运行时组件、配置作用域和一次数据请求的完整路径。算法细节属于 Plugin 文档；本页固定
 Context、DAQ adapter、Plugin、Storage、Accessor 与批量执行器之间的所有权边界。
@@ -226,7 +226,7 @@ flowchart TD
 
 `records + wave_pool` 是“结构化索引 + 连续波形池”的一个实例；`peaklet_waveforms +
 peaklet_waveform_pool` 是另一实例。不同实体必须使用对应的索引产物和 pool，不能因为都是一维数组就
-交叉配对。具体规则见[波形数据：records 与 Wave Pool 的配对访问](RECORDS_WAVE_POOL.md)。
+交叉配对。具体规则见[数据产物与波形访问](DATA_PRODUCTS.md)。
 
 ## 5. 组件选择
 
@@ -252,8 +252,6 @@ peaklet_waveform_pool` 是另一实例。不同实体必须使用对应的索引
 
 ## 7. 阅读顺序
 
-1. [插件执行链：DAG、动态依赖、Lineage 与缓存](PLUGIN_DAG_LINEAGE_CACHE.md)
-2. [数据产物：实体关系与派生结果](DATA_PRODUCTS.md)
-3. [波形数据：records 与 Wave Pool 的配对访问](RECORDS_WAVE_POOL.md)
-4. [分析查询：Accessor 与只读数据访问](ACCESSOR_ANALYSIS.md)
-5. [批量运行：多 Run 调度与执行（开发中）](MULTI_RUN_PROCESSING.md)
+1. [插件执行链与缓存](PLUGIN_DAG_LINEAGE_CACHE.md)
+2. [数据产物与波形访问](DATA_PRODUCTS.md)
+3. [分析查询与批量运行](ACCESSOR_ANALYSIS.md)

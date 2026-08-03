@@ -13,12 +13,8 @@ sections:
         route: architecture/plugin-dag-lineage-cache.html
       - source: docs/architecture/DATA_PRODUCTS.md
         route: architecture/data-products.html
-      - source: docs/architecture/RECORDS_WAVE_POOL.md
-        route: architecture/records-wave-pool.html
       - source: docs/architecture/ACCESSOR_ANALYSIS.md
         route: architecture/accessor-analysis.html
-      - source: docs/architecture/MULTI_RUN_PROCESSING.md
-        route: architecture/multi-run-processing.html
   - id: plugin-system
     title: 插件系统
     index_route: plugins/guides.html
