@@ -379,9 +379,8 @@ ACCESSOR_DOCUMENTATION_REGISTRY = (
         slug="peak-channel-accessor",
         summary="通过 peaks 对应的分通道信息查询硬件通道特征与波形，并提供常用对比绘图。",
         introduction=(
-            "PeakChannelAccessor 面向单个 peak 的通道级排查。它先读取轻量的特征层，"
-            "只有请求波形或绘图时才读取 records 与 wave pool，因此适合先用面积和高度筛选，"
-            "再针对少量候选做波形检查。"
+            "`PeakChannelAccessor` 面向单个 peak 的通道级排查：以 `(board, channel)` "
+            "作为逻辑通道唯一键，返回逐通道聚合特征，并支持按需读取对应波形。"
         ),
         purpose=(
             "返回通道唯一键 `(board, channel)` 下的聚合特征；当 `peaklet_channels` 可用时，"
@@ -391,14 +390,7 @@ ACCESSOR_DOCUMENTATION_REGISTRY = (
         overview_blocks=(
             DocumentationContentBlock(
                 kind="paragraph",
-                text=(
-                    "`PeakChannelAccessor` 用于排查单个 peak 的通道级组成。它以 `(board, channel)` "
-                    "作为逻辑通道的唯一标识，提供每个通道的聚合特征，并支持按需读取对应波形。"
-                ),
-            ),
-            DocumentationContentBlock(
-                kind="paragraph",
-                text="其推荐使用方式是：",
+                text="推荐使用方式是：",
             ),
             DocumentationContentBlock(
                 kind="list",
@@ -429,6 +421,13 @@ ACCESSOR_DOCUMENTATION_REGISTRY = (
                     DocumentationContentBlock(
                         kind="paragraph",
                         text="`peaklet_channels` 是唯一的通道聚合真源；缺失或字段不完整时 Accessor 会失败，不会退回到部分字段的字典。",
+                    ),
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text=(
+                            "聚合以 `(peaklet_id, board, channel)` 为分组键，且只使用 "
+                            "`hit_merged_features.valid != 0` 的有效组件。"
+                        ),
                     ),
                     DocumentationContentBlock(
                         kind="table",
@@ -472,20 +471,19 @@ ACCESSOR_DOCUMENTATION_REGISTRY = (
                     DocumentationContentBlock(
                         kind="list",
                         items=(
-                            "聚合前先过滤 hit_merged_features.valid == 0 的特征；",
                             "面积、高度和 hit 数描述整个逻辑通道，时间字段只描述代表组件；",
-                            "通道波形来自 records + wave_pool，求和波形来自 peaklet_waveforms + peaklet_waveform_pool。",
+                            "波形字段与波形来源见「数据分层、加载与缓存」与「波形来源与语义」。",
                         ),
                     ),
                 ),
             ),
             AccessorNarrativeSection(
                 anchor="data-loading",
-                title="数据层与加载策略",
+                title="数据分层、加载与缓存",
                 blocks=(
                     DocumentationContentBlock(
                         kind="paragraph",
-                        text="Accessor 将数据访问分为特征层和波形层。",
+                        text="Accessor 将数据访问分为特征层和波形层，按需加载：",
                     ),
                     DocumentationContentBlock(
                         kind="table",
@@ -513,6 +511,37 @@ ACCESSOR_DOCUMENTATION_REGISTRY = (
                     DocumentationContentBlock(
                         kind="paragraph",
                         text="这意味着可以先对大量 peak 执行轻量特征查询，再对少量候选加载波形。",
+                    ),
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text=(
+                            "设置 `lazy_load=True` 可以推迟首次特征层读取，直到真正执行查询，"
+                            "适合先创建多个访问器但不立即使用的场景。建议在同一个分析循环中复用同一个 "
+                            "`PeakChannelAccessor`，避免重复初始化和读取相同数据。"
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text=(
+                            "波形窗口按照 `(merged_index, pad)` 进行缓存，使用相同参数再次请求波形时可以复用"
+                            "已经提取的结果。"
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text="当内存紧张时，可以调用 `clear_waveform_cache(release_wave_pool=True)`，该操作会：",
+                    ),
+                    DocumentationContentBlock(
+                        kind="list",
+                        items=(
+                            "清除已缓存的波形窗口；",
+                            "在 `release_wave_pool=True` 时释放波形层；",
+                            "保留 Accessor，使其仍可继续使用。",
+                        ),
+                    ),
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text="清理后再次请求波形时，Accessor 会重新加载所需的波形数据。",
                     ),
                 ),
             ),
@@ -559,50 +588,6 @@ ACCESSOR_DOCUMENTATION_REGISTRY = (
                         tone="important",
                         title="使用 `plot(view='sum-comparison')` 时",
                         text="应将其理解为对两种波形构建结果的对照，而不是逐点相等性检验。",
-                    ),
-                ),
-            ),
-            AccessorNarrativeSection(
-                anchor="lazy-loading-and-cache",
-                title="延迟加载与缓存",
-                blocks=(
-                    DocumentationContentBlock(
-                        kind="paragraph",
-                        text="建议在同一个分析循环中复用同一个 `PeakChannelAccessor`，避免重复初始化和读取相同数据。",
-                    ),
-                    DocumentationContentBlock(kind="paragraph", text="设置："),
-                    DocumentationContentBlock(
-                        kind="code", language="python", code="lazy_load=True"
-                    ),
-                    DocumentationContentBlock(
-                        kind="paragraph", text="可以推迟首次特征层读取，直到真正执行查询。"
-                    ),
-                    DocumentationContentBlock(kind="paragraph", text="波形窗口按照："),
-                    DocumentationContentBlock(
-                        kind="code", language="text", code="(merged_index, pad)"
-                    ),
-                    DocumentationContentBlock(
-                        kind="paragraph",
-                        text="进行缓存。使用相同参数再次请求波形时，可以复用已经提取的结果。",
-                    ),
-                    DocumentationContentBlock(kind="paragraph", text="当内存紧张时，可以调用："),
-                    DocumentationContentBlock(
-                        kind="code",
-                        language="python",
-                        code="clear_waveform_cache(release_wave_pool=True)",
-                    ),
-                    DocumentationContentBlock(kind="paragraph", text="该操作会："),
-                    DocumentationContentBlock(
-                        kind="list",
-                        items=(
-                            "清除已缓存的波形窗口；",
-                            "在 `release_wave_pool=True` 时释放波形层；",
-                            "保留 Accessor，使其仍可继续使用。",
-                        ),
-                    ),
-                    DocumentationContentBlock(
-                        kind="paragraph",
-                        text="清理后再次请求波形时，Accessor 会重新加载所需的波形数据。",
                     ),
                 ),
             ),
@@ -713,8 +698,9 @@ fig, axes = accessor.plot(peak_id=919, view="sum-comparison")
         slug="s1-s2-pair-accessor",
         summary="查询 S1-S2 配对、关联 peak 的求和波形和位置重建结果，并支持可组合筛选与单配对绘图。",
         introduction=(
-            "S1S2PairAccessor 把 S1-S2 配对表、筛选条件、求和波形和位置重建聚合为只读查询接口。"
-            "配对表与波形层独立延迟加载，可先在 structured array 上构建条件，再读取少量候选的波形。"
+            "`S1S2PairAccessor` 是只读查询接口：配对表提供 S1/S2 关系和事件级特征，"
+            "波形层按 peak ID 提供框架生成的求和波形，位置重建结果单独读取。"
+            "配对表与波形层独立延迟加载，可先构建筛选条件，再读取少量候选的波形。"
         ),
         purpose=(
             '用于定位 S1/S2 关系、漂移时间、质量标志与重建位置。默认 `source="pairs"` 读取最终选择结果；'
@@ -722,13 +708,6 @@ fig, axes = accessor.plot(peak_id=919, view="sum-comparison")
         ),
         overview_title="整体介绍",
         overview_blocks=(
-            DocumentationContentBlock(
-                kind="paragraph",
-                text=(
-                    "`S1S2PairAccessor` 是只读查询接口：配对表负责提供 S1/S2 关系和事件级特征，"
-                    "波形层按 peak ID 提供框架生成的求和波形，位置重建结果单独读取。"
-                ),
-            ),
             DocumentationContentBlock(
                 kind="list",
                 ordered=True,
@@ -834,8 +813,8 @@ fig, axes = accessor.plot(peak_id=919, view="sum-comparison")
                 ),
             ),
             AccessorNarrativeSection(
-                anchor="waveforms-positions-cache",
-                title="波形、位置与缓存",
+                anchor="waveforms-positions",
+                title="波形与位置",
                 blocks=(
                     DocumentationContentBlock(
                         kind="paragraph",
@@ -867,18 +846,24 @@ fig, axes = accessor.plot(peak_id=919, view="sum-comparison")
                         ),
                     ),
                     DocumentationContentBlock(
-                        kind="paragraph",
-                        text=(
-                            "`clear_cache()` 仅清除已提取的 waveform view；`release_layer()` 还会释放原始波形层。"
-                            "释放后下一次波形请求会重新从 Context 读取数据。"
-                        ),
-                    ),
-                    DocumentationContentBlock(
                         kind="note",
                         title="绘图时间轴",
                         text=(
                             "`plot()` 以 S1 波形起点为零点，将 S1 与 S2 放到同一相对时间轴。`pad_ns` 控制显示窗口两端的额外范围，"
                             "`show_info=True` 会在标题中加入可用的漂移时间、面积、评分、排序和选择状态。"
+                        ),
+                    ),
+                ),
+            ),
+            AccessorNarrativeSection(
+                anchor="cache-release",
+                title="缓存与释放",
+                blocks=(
+                    DocumentationContentBlock(
+                        kind="paragraph",
+                        text=(
+                            "`clear_cache()` 仅清除已提取的 waveform view；`release_layer()` 还会释放原始波形层。"
+                            "释放后下一次波形请求会重新从 Context 读取数据。"
                         ),
                     ),
                 ),

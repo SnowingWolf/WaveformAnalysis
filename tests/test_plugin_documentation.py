@@ -942,7 +942,8 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "score_total_range" in pair_accessor_page
     assert "配对数据源与查询范围" in pair_accessor_page
     assert "筛选掩码的组合语义" in pair_accessor_page
-    assert "波形、位置与缓存" in pair_accessor_page
+    assert "波形与位置" in pair_accessor_page
+    assert "缓存与释放" in pair_accessor_page
     assert "s1_s2_pair_candidates" in pair_accessor_page
     assert "flags_none" in pair_accessor_page
     assert "release_layer()" in pair_accessor_page
