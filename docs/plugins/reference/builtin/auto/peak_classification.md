@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Classify peaks into S1/S2 using multi-dimensional features.
+基于 peaks 特征进行 S1/S2 分类。
+
 | Item | Value |
 | --- | --- |
 | Provides | `peak_classification` |
@@ -48,8 +50,8 @@ structured_array output with fields: peak_id, label.
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `peak_id` | `int64` | - | Zero-based index of the input peaks row receiving this classification |
-| `label` | `int8` | - | Classification code: 0=unknown, 1=S1, 2=S2, 3=S1_S2 |
+| `peak_id` | `int64` | None | Zero-based index of the input peaks row receiving this classification |
+| `label` | `int8` | None | Classification code: 0=unknown, 1=S1, 2=S2, 3=S1_S2 |
 ## Usage
 
 ### Minimal Example

@@ -36,7 +36,7 @@ HitMergePlugin 是波形分析中最核心的后处理插件之一，负责将 h
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `hit_threshold` | - | declared | - | No producer description available. |
+| `hit_threshold` | - | declared | - | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. |
 ### How It Works
 
 1. 识别可合并的片段：`hit_threshold` 中的每一行都是一个过阈信号片段；插件判断哪些相邻片段应视为同一次通道响应。
@@ -104,7 +104,7 @@ data = ctx.get_data("run_001", "hit_merged")
 - Cluster rows reference hit indices that are outside the materialized `hit_threshold` array.
 ### Downstream Impact
 
-Consumers: `hit_merged_components`, `hit_merged_features`, `hit_grouped`, `peaklets`, `peaklet_components`
+Consumers: `hit_grouped`, `hit_merge_clusters`, `hit_merged_components`, `hit_merged_features`, `peaklet_components`, `peaklets`
 - Field semantics and row ordering changes propagate to component expansion, waveform feature extraction, cross-channel grouping, and peaklet membership.
 - Changing `component_offset`/`component_count` requires matching updates to `hit_merge_clusters` ordering and all component consumer tests.
 - Changing anchor-field semantics affects downstream `position`, `timestamp`, `record_id`, and channel aggregation behavior.

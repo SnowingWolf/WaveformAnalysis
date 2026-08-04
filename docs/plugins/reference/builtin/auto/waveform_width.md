@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Calculate rise/fall time based on peak detection results.
+波形宽度计算插件 - 基于峰值检测结果计算上升/下降时间。
+
 | Item | Value |
 | --- | --- |
 | Provides | `waveform_width` |
@@ -31,6 +33,8 @@ Calculate rise/fall time based on peak detection results.
 | - | - | - | - | No declared inputs. |
 ### How It Works
 
+1. 计算波形宽度特征
+2. 基于 HitFinderPlugin 的峰值检测结果，计算每个峰值的上升/下降时间。
 
 ## Configuration
 
@@ -49,18 +53,18 @@ structured_array output with fields: rise_time, fall_time, total_width, rise_tim
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `rise_time` | `float32` | - | Rise time from 10% to 90% of peak height (ns) |
-| `fall_time` | `float32` | - | Fall time from 90% to 10% of peak height (ns) |
-| `total_width` | `float32` | - | Total width from 10% rise to 10% fall (ns) |
-| `rise_time_samples` | `float32` | - | Rise time in sample counts |
-| `fall_time_samples` | `float32` | - | Fall time in sample counts |
-| `total_width_samples` | `float32` | - | Total width in sample counts |
-| `peak_position` | `int64` | - | Peak position as sample index |
-| `peak_height` | `float32` | - | Peak height above baseline |
-| `timestamp` | `int64` | - | Event timestamp in picoseconds |
-| `board` | `int16` | - | Hardware board index |
-| `channel` | `int16` | - | Physical channel number |
-| `record_id` | `int64` | - | Source record identifier |
+| `rise_time` | `float32` | ns | Rise time from 10% to 90% of peak height (ns) |
+| `fall_time` | `float32` | ns | Fall time from 90% to 10% of peak height (ns) |
+| `total_width` | `float32` | ns | Total width from 10% rise to 10% fall (ns) |
+| `rise_time_samples` | `float32` | samples | Rise time in sample counts |
+| `fall_time_samples` | `float32` | samples | Fall time in sample counts |
+| `total_width_samples` | `float32` | samples | Total width in sample counts |
+| `peak_position` | `int64` | samples | Peak position as sample index |
+| `peak_height` | `float32` | ADC counts | Peak height above baseline |
+| `timestamp` | `int64` | ps | Event timestamp in picoseconds |
+| `board` | `int16` | None | Hardware board index |
+| `channel` | `int16` | None | Physical channel number |
+| `record_id` | `int64` | None | Source record identifier |
 ## Usage
 
 ### Minimal Example

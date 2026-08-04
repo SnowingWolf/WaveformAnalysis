@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Aggregate hit_merged_features into per-peaklet channel contribution rows.
+Expand peaklets into per-board/channel contribution rows.
+
 | Item | Value |
 | --- | --- |
 | Provides | `peaklet_channels` |
@@ -46,13 +48,13 @@ structured_array output with fields: peaklet_id, board, channel, area, height, n
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `peaklet_id` | `int64` | - | Peaklet identifier |
-| `board` | `int16` | - | Hardware board index |
-| `channel` | `int16` | - | Physical channel number |
-| `area` | `float32` | - | Total area contribution from this channel |
-| `height` | `float32` | - | Maximum height contribution from this channel |
-| `n_hits` | `int32` | - | Number of component hits from this channel |
-| `area_fraction` | `float32` | - | Fraction of the peaklet total area contributed by this channel |
+| `peaklet_id` | `int64` | None | Peaklet identifier |
+| `board` | `int16` | None | Hardware board index |
+| `channel` | `int16` | None | Physical channel number |
+| `area` | `float32` | ADC counts | Total area contribution from this channel |
+| `height` | `float32` | ADC counts | Maximum height contribution from this channel |
+| `n_hits` | `int32` | None | Number of component hits from this channel |
+| `area_fraction` | `float32` | None | Fraction of the peaklet total area contributed by this channel |
 ## Usage
 
 ### Minimal Example

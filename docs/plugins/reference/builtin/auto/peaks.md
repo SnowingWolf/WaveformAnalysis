@@ -16,6 +16,12 @@ generated: true
 ## Overview
 
 Build final peaks table from peaklets and waveform-derived features.
+PeaksPlugin 是分析链末端的用户级插件，把 peaklet 层面的元数据与 peaklet_features 导出的波形派生特征合并为最终的用户可见 peaks 表。它不重新计算任何物理量，只负责把 特征按 `peak_id` 稳定地对齐到 `peaklets` 的行序，并以其行索引作为 `peak_id`。
+
+由于 `peaklet_features` 的特征行是按 peak_id 解析的，PeaksPlugin 采用稳定排序 + `searchsorted` 的方式将每个 peaklet 精确匹配到其特征行：任何 peaklet 缺失对应特征都会被认定为数据不一致并抛出异常，从而保证 peaks 表总是完整、且与 peaklets 一一对齐。
+
+peaks 表同时携带峰形时序字段（rise_time、fall_time、width_25_75、area、height 等）与聚合规模字段（n_hits、n_channels），是上游 S1/S2 分类与物理筛选（peak_classification、s1_s2_pair_candidates）的唯一输入入口。
+
 | Item | Value |
 | --- | --- |
 | Provides | `peaks` |
@@ -33,6 +39,12 @@ Build final peaks table from peaklets and waveform-derived features.
 | `peaklet_channels` | - | declared | - | Aggregate hit_merged_features into per-peaklet channel contribution rows. |
 ### How It Works
 
+1. 读取输入：从 context 获取 `peaklets` 与 `peaklet_features` 结构化数组；`peaklets` 为空时返回空 peaks 数组。
+2. 排序特征行：以 `peaklet_features['peak_id']` 作稳定排序（mergesort），得到按 peak_id 递增的特征序列。
+3. 对齐 peaklet：对每个 `peak_id`（即 peaklet 行号）用 `searchsorted` 定位特征行，并校验特征行的 peak_id 与 peaklet 一致；任一 peaklet 找不到特征则抛错。
+4. 复制波形特征：将 time_start、time_end、time_peak、center_time、rise_time、fall_time、width_25_75、rise_time_10_50、range_90p_area、area、height、width 从对齐后的特征行复制到输出。
+5. 填入峰规模信息：从 `peaklets` 复制 `n_hits` 与 `n_channels`。
+6. 返回结果：输出 `PEAKS_DTYPE` 结构化数组，行序与 `peaklets` 完全一致，`peak_id` 即行索引。
 
 ## Configuration
 
@@ -45,21 +57,21 @@ structured_array output with fields: peak_id, time_start, time_end, time_peak, c
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `peak_id` | `int64` | - | Peak identifier, matching the row index in the peaks table |
-| `time_start` | `int64` | - | Earliest absolute start time across component hits (ps) |
-| `time_end` | `int64` | - | Latest absolute end time across component hits (ps) |
-| `time_peak` | `int64` | - | Time of the maximum sample value (ps) |
-| `center_time` | `int64` | - | Center time of the peak (ps) |
-| `rise_time` | `float32` | - | Rise time (ns) |
-| `fall_time` | `float32` | - | Fall time (ns) |
-| `width_25_75` | `float32` | - | Width between 25% and 75% of the peak (ns) |
-| `rise_time_10_50` | `float32` | - | Rise time from 10% to 50% (ns) |
-| `range_90p_area` | `float32` | - | Time range covering 90% of the waveform area (ns) |
-| `area` | `float32` | - | Total waveform area |
-| `height` | `float32` | - | Maximum waveform height |
-| `width` | `float32` | - | Pulse width (ns) |
-| `n_hits` | `int32` | - | Total number of component hits in the peak |
-| `n_channels` | `int32` | - | Number of distinct (board, channel) pairs in the peak |
+| `peak_id` | `int64` | None | Peak identifier, matching the row index in the peaks table |
+| `time_start` | `int64` | ps | Earliest absolute start time across component hits (ps) |
+| `time_end` | `int64` | ps | Latest absolute end time across component hits (ps) |
+| `time_peak` | `int64` | ps | Time of the maximum sample value (ps) |
+| `center_time` | `int64` | ps | Center time of the peak (ps) |
+| `rise_time` | `float32` | ns | Rise time (ns) |
+| `fall_time` | `float32` | ns | Fall time (ns) |
+| `width_25_75` | `float32` | ns | Width between 25% and 75% of the peak (ns) |
+| `rise_time_10_50` | `float32` | ns | Rise time from 10% to 50% (ns) |
+| `range_90p_area` | `float32` | ns | Time range covering 90% of the waveform area (ns) |
+| `area` | `float32` | ADC counts | Total waveform area |
+| `height` | `float32` | ADC counts | Maximum waveform height |
+| `width` | `float32` | ns | Pulse width (ns) |
+| `n_hits` | `int32` | None | Total number of component hits in the peak |
+| `n_channels` | `int32` | None | Number of distinct (board, channel) pairs in the peak |
 ## Usage
 
 ### Minimal Example

@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Return the flattened float32 signal pool paired with peaklet_waveforms. Configure waveform construction on peaklet_waveforms.
+Return the pool produced alongside the canonical peaklet waveform index.
+
 | Item | Value |
 | --- | --- |
 | Provides | `peaklet_waveform_pool` |
@@ -43,7 +45,7 @@ array output with fields: value.
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `value` | `float32` | - | Flattened float32 waveform sample for peaklet waveform slices |
+| `value` | `float32` | ADC counts | Flattened float32 waveform sample for peaklet waveform slices |
 ## Usage
 
 ### Minimal Example

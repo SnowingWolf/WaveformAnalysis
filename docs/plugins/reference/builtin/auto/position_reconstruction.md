@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Reconstruct 3D position from S1-S2 pairs using vectorized CoG method
+位置重建插件（向量化优化版本）
+
 | Item | Value |
 | --- | --- |
 | Provides | `position_reconstruction` |
@@ -31,6 +33,9 @@ Reconstruct 3D position from S1-S2 pairs using vectorized CoG method
 | `s1_s2_pairs` | - | declared | - | Select best S1-S2 pairs from candidates |
 ### How It Works
 
+1. 执行位置重建（向量化优化版本）
+2. v0.2.0 实现: 1. 筛选 selected=True 的配对 2. 加载 PMT 几何布局 3. 计算 Z 坐标（向量化） 4. 计算 XY 坐标（批量向量化） 5. 设置质量标志位（向量化）
+3. 性能优化： - 所有数组操作使用 NumPy 向量化 - 批量处理，避免 Python 循环 - 预计算映射表 - 典型加速比：10-100x
 
 ## Configuration
 
@@ -46,27 +51,27 @@ structured_array output with fields: event_id, pair_id, s1_peak_id, s2_peak_id, 
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `event_id` | `int64` | - | Unique event identifier |
-| `pair_id` | `int64` | - | S1-S2 pair identifier |
-| `s1_peak_id` | `int64` | - | S1 peak identifier |
-| `s2_peak_id` | `int64` | - | S2 peak identifier |
-| `x` | `float32` | - | X coordinate (mm) |
-| `y` | `float32` | - | Y coordinate (mm) |
-| `z` | `float32` | - | Z coordinate (drift distance, mm) |
-| `r` | `float32` | - | Radial coordinate sqrt(x^2 + y^2) (mm) |
-| `x_err` | `float32` | - | X position uncertainty (mm) |
-| `y_err` | `float32` | - | Y position uncertainty (mm) |
-| `z_err` | `float32` | - | Z position uncertainty (mm) |
-| `xy_chi2` | `float32` | - | Chi-squared for XY reconstruction fit |
-| `xy_ndf` | `int16` | - | Degrees of freedom for XY reconstruction |
-| `z_quality` | `float32` | - | Z reconstruction quality (0 to 1) |
-| `position_goodness` | `float32` | - | Overall position quality (0 to 1) |
-| `xy_method` | `<U16` | - | XY reconstruction method (cog, nn, template, or none) |
-| `z_method` | `<U16` | - | Z reconstruction method (drift_time, corrected, or none) |
-| `drift_time_ns` | `float32` | - | Drift time in nanoseconds |
-| `s2_area` | `float32` | - | S2 area used for quality checks |
-| `s2_n_channels` | `int16` | - | Number of S2 channels used for quality checks |
-| `flags` | `uint32` | - | Bit-field reconstruction status flags |
+| `event_id` | `int64` | None | Unique event identifier |
+| `pair_id` | `int64` | None | S1-S2 pair identifier |
+| `s1_peak_id` | `int64` | None | S1 peak identifier |
+| `s2_peak_id` | `int64` | None | S2 peak identifier |
+| `x` | `float32` | mm | X coordinate (mm) |
+| `y` | `float32` | mm | Y coordinate (mm) |
+| `z` | `float32` | mm | Z coordinate (drift distance, mm) |
+| `r` | `float32` | mm | Radial coordinate sqrt(x^2 + y^2) (mm) |
+| `x_err` | `float32` | mm | X position uncertainty (mm) |
+| `y_err` | `float32` | mm | Y position uncertainty (mm) |
+| `z_err` | `float32` | mm | Z position uncertainty (mm) |
+| `xy_chi2` | `float32` | None | Chi-squared for XY reconstruction fit |
+| `xy_ndf` | `int16` | None | Degrees of freedom for XY reconstruction |
+| `z_quality` | `float32` | None | Z reconstruction quality (0 to 1) |
+| `position_goodness` | `float32` | None | Overall position quality (0 to 1) |
+| `xy_method` | `<U16` | None | XY reconstruction method (cog, nn, template, or none) |
+| `z_method` | `<U16` | None | Z reconstruction method (drift_time, corrected, or none) |
+| `drift_time_ns` | `float32` | ns | Drift time in nanoseconds |
+| `s2_area` | `float32` | ADC counts | S2 area used for quality checks |
+| `s2_n_channels` | `int16` | None | Number of S2 channels used for quality checks |
+| `flags` | `uint32` | None | Bit-field reconstruction status flags |
 ## Usage
 
 ### Minimal Example

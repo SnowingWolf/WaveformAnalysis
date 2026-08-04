@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Extract waveforms from raw CSV files and structure them into NumPy structured arrays.
+Plugin to extract and structure waveforms from raw files.
+
 | Item | Value |
 | --- | --- |
 | Provides | `st_waveforms` |
@@ -31,6 +33,9 @@ Extract waveforms from raw CSV files and structure them into NumPy structured ar
 | - | - | - | - | No declared inputs. |
 ### How It Works
 
+1. 从原始 CSV 文件中提取波形数据并结构化为 NumPy 结构化数组
+2. 合并了原来的 WaveformsPlugin 和 StWaveformsPlugin 功能： 1. 读取并解析原始 CSV 文件，提取每个通道的波形数据 2. 将波形数据结构化为包含时间戳、基线、通道号和波形数据的结构化数组
+3. 使用文件级扁平化并行处理： - 所有文件统一进入并行池解析（通过 n_jobs 控制） - 解析完成后按通道聚合
 
 ## Configuration
 
@@ -48,19 +53,19 @@ Extract waveforms from raw CSV files and structure them into NumPy structured ar
 | `streaming_mode` | `bool` | `False` | - | no | no | Enable streaming mode: read files and structure waveforms incrementally to reduce memory usage. When enabled, uses memmap for output to avoid full vstack memory overhead. |
 ## Output
 
-structured_array output with fields: baseline, baseline_upstream, polarity, timestamp, record_id, dt, event_length, board, channel, wave.
+structured_array output with fields: baseline, baseline_upstream, polarity, timestamp, record_id, dt, event_length, board, ....
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
 | `baseline` | `float64` | ADC counts | Computed global waveform baseline for this record |
 | `baseline_upstream` | `float64` | ADC counts | Upstream baseline value from preceding processing, optional |
-| `polarity` | `<U8` | - | Hardware-truth signal polarity: positive \| negative \| unknown |
+| `polarity` | `<U8` | None | Hardware-truth signal polarity: positive \| negative \| unknown |
 | `timestamp` | `int64` | ps | ADC raw timestamp in picoseconds |
-| `record_id` | `int64` | - | Sequential record identifier within the structured waveform array |
+| `record_id` | `int64` | None | Sequential record identifier within the structured waveform array |
 | `dt` | `int32` | ns | Sample interval in nanoseconds, aligned to time |
 | `event_length` | `int32` | samples | Waveform length in samples |
-| `board` | `int16` | - | Hardware board index |
-| `channel` | `int16` | - | Physical channel number |
+| `board` | `int16` | None | Hardware board index |
+| `channel` | `int16` | None | Physical channel number |
 | `wave` | `('<i2', (1500,))` | ADC counts | ADC sample data as 1-D int16 array |
 ## Usage
 

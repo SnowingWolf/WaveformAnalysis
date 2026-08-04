@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Bool mask for detector-channel records after channel-role splitting.
+Bool mask for records that should enter normal detector hit finding.
+
 | Item | Value |
 | --- | --- |
 | Provides | `records_detector_mask` |
@@ -44,7 +46,7 @@ array output with fields: value.
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `value` | `bool` | - | Boolean mask: True for records assigned to detector channel role |
+| `value` | `bool` | None | Boolean mask: True for records assigned to detector channel role |
 ## Usage
 
 ### Minimal Example

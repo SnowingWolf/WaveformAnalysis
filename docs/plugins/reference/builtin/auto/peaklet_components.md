@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Return per-peaklet component hit_merged indices.
+Return flat peaklet-to-hit_merged membership rows.
+
 | Item | Value |
 | --- | --- |
 | Provides | `peaklet_components` |
@@ -45,8 +47,8 @@ structured_array output with fields: peak_id, merged_index.
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `peak_id` | `int64` | - | Peaklet identifier, matching the row index in the peaklets table |
-| `merged_index` | `int64` | - | Index of the hit_merged row belonging to this peaklet |
+| `peak_id` | `int64` | None | Peaklet identifier, matching the row index in the peaklets table |
+| `merged_index` | `int64` | None | Index of the hit_merged row belonging to this peaklet |
 ## Usage
 
 ### Minimal Example

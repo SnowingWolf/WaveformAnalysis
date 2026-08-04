@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Group merged hits across channels into event-level coincidence windows.
+Plugin to group merged hits across channels using absolute hit windows.
+
 | Item | Value |
 | --- | --- |
 | Provides | `hit_grouped` |

@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Return per-cluster component hit indices for hit_merged rows.
+Return flat component hit indices for each hit_merged cluster.
+
 | Item | Value |
 | --- | --- |
 | Provides | `hit_merged_components` |
@@ -44,8 +46,8 @@ structured_array output with fields: merged_index, hit_index.
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `merged_index` | `int64` | - | Index of the merged hit record |
-| `hit_index` | `int64` | - | Row index in the source hit_threshold array |
+| `merged_index` | `int64` | None | Index of the merged hit record |
+| `hit_index` | `int64` | None | Row index in the source hit_threshold array |
 ## Usage
 
 ### Minimal Example

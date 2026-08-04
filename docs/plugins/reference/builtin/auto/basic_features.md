@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Compute basic height, amplitude, area, and max-abs-diff features from waveform data.
+Plugin to compute basic height/area features from structured waveforms.
+
 | Item | Value |
 | --- | --- |
 | Provides | `basic_features` |
@@ -31,6 +33,9 @@ Compute basic height, amplitude, area, and max-abs-diff features from waveform d
 | - | - | - | - | No declared inputs. |
 ### How It Works
 
+1. 计算基础特征（height/amp/area/max_abs_diff）
+2. 使用逐条处理模式，支持任意长度波形，不使用 padding。
+3. height = baseline - min(wave)  (信号偏离基线的幅度) amp = max - min  (峰峰值振幅) area = sum(baseline - wave)  (不包含 padding) max_abs_diff = max(abs(diff(wave)))
 
 ## Configuration
 
@@ -50,14 +55,14 @@ structured_array output with fields: height, amp, area, max_abs_diff, timestamp,
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `height` | `float32` | - | Pulse height (baseline minus minimum sample) |
-| `amp` | `float32` | - | Peak-to-peak amplitude (max minus min) |
-| `area` | `float32` | - | Waveform integral area |
-| `max_abs_diff` | `float32` | - | Maximum absolute difference between consecutive samples |
-| `timestamp` | `int64` | - | ADC timestamp in picoseconds |
-| `board` | `int16` | - | Hardware board index |
-| `channel` | `int16` | - | Physical channel number |
-| `record_id` | `int64` | - | Source record identifier |
+| `height` | `float32` | ADC counts | Pulse height (baseline minus minimum sample) |
+| `amp` | `float32` | ADC counts | Peak-to-peak amplitude (max minus min) |
+| `area` | `float32` | ADC counts | Waveform integral area |
+| `max_abs_diff` | `float32` | ADC counts | Maximum absolute difference between consecutive samples |
+| `timestamp` | `int64` | ps | ADC timestamp in picoseconds |
+| `board` | `int16` | None | Hardware board index |
+| `channel` | `int16` | None | Physical channel number |
+| `record_id` | `int64` | None | Source record identifier |
 ## Usage
 
 ### Minimal Example

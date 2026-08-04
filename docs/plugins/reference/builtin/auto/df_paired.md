@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Pair grouped events across channels for coincidence analysis.
+Plugin to pair events across channels.
+
 | Item | Value |
 | --- | --- |
 | Provides | `df_paired` |
@@ -31,6 +33,8 @@ Pair grouped events across channels for coincidence analysis.
 | `df_events` | - | declared | - | Group events across channels within a configurable time window. |
 ### How It Works
 
+1. 配对跨通道的符合事件
+2. 识别满足时间符合条件的多通道事件对，用于符合测量分析。
 
 ## Configuration
 

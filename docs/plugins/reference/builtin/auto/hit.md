@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Detect peaks in waveforms and extract peak features.
+峰值检测插件 - 基于波形检测峰值并计算峰值特征。
+
 | Item | Value |
 | --- | --- |
 | Provides | `hit` |
@@ -31,6 +33,8 @@ Detect peaks in waveforms and extract peak features.
 | - | - | - | - | No declared inputs. |
 ### How It Works
 
+1. 从波形中检测峰值
+2. 使用配置的参数检测每个事件中的峰值，计算峰值特征 （位置、高度、积分、边缘等）。
 
 ## Configuration
 
@@ -57,16 +61,16 @@ structured_array output with fields: position, height, integral, edge_start, edg
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `position` | `int64` | - | Peak position as sample index within the waveform |
-| `height` | `float32` | - | Peak height above baseline |
-| `integral` | `float32` | - | Peak integral (area) |
-| `edge_start` | `float32` | - | Peak left edge boundary |
-| `edge_end` | `float32` | - | Peak right edge boundary |
-| `dt` | `int32` | - | Sample interval in nanoseconds |
-| `timestamp` | `int64` | - | Global timestamp in picoseconds |
-| `board` | `int16` | - | Hardware board index |
-| `channel` | `int16` | - | Physical channel number |
-| `record_id` | `int64` | - | Source record identifier |
+| `position` | `int64` | samples | Peak position as sample index within the waveform |
+| `height` | `float32` | ADC counts | Peak height above baseline |
+| `integral` | `float32` | ADC counts | Peak integral (area) |
+| `edge_start` | `float32` | samples | Peak left edge boundary |
+| `edge_end` | `float32` | samples | Peak right edge boundary |
+| `dt` | `int32` | ns | Sample interval in nanoseconds |
+| `timestamp` | `int64` | ps | Global timestamp in picoseconds |
+| `board` | `int16` | None | Hardware board index |
+| `channel` | `int16` | None | Physical channel number |
+| `record_id` | `int64` | None | Source record identifier |
 ## Usage
 
 ### Minimal Example

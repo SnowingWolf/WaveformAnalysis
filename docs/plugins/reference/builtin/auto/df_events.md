@@ -16,6 +16,8 @@ generated: true
 ## Overview
 
 Group events across channels within a configurable time window.
+Plugin to group events by time window.
+
 | Item | Value |
 | --- | --- |
 | Provides | `df_events` |
@@ -31,6 +33,8 @@ Group events across channels within a configurable time window.
 | `df` | - | declared | - | Build the initial single-channel events DataFrame. |
 ### How It Works
 
+1. 按时间窗口分组多通道事件
+2. 在指定的时间窗口内识别多通道同时触发的事件，并将它们分组。 支持 Numba 加速和多进程并行处理。
 
 ## Configuration
 
