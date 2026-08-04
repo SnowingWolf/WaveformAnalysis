@@ -1,0 +1,10 @@
+provides: st_waveforms
+plugin_class: WaveformsPlugin
+version: 0.10.0
+depends_on:
+  - raw_files
+third_party_dependencies:
+  - numpy
+  - tqdm
+plugin_dependencies: []
+category: waveform_extraction

@@ -6,14 +6,14 @@ import numpy as np
 import pytest
 
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import (
+from waveform_analysis.core.plugins.builtin.peak_classification import (
     LABEL_S1,
     LABEL_S1_S2,
     LABEL_S2,
     LABEL_UNKNOWN,
-    PEAKS_DTYPE,
     PeakClassificationPlugin,
 )
+from waveform_analysis.core.plugins.builtin.peaks import PEAKS_DTYPE
 
 
 def _make_peaks(n: int = 3) -> np.ndarray:

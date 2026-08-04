@@ -1,0 +1,9 @@
+provides: peak_classification
+plugin_class: PeakClassificationPlugin
+version: 1.2.1
+depends_on:
+  - peaks
+third_party_dependencies:
+  - numpy
+plugin_dependencies: []
+category: classification

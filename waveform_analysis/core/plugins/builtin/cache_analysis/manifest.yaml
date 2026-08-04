@@ -1,0 +1,7 @@
+provides: cache_analysis
+plugin_class: CacheAnalysisPlugin
+version: 0.1.0
+depends_on: []
+third_party_dependencies: []
+plugin_dependencies: []
+category: diagnostics

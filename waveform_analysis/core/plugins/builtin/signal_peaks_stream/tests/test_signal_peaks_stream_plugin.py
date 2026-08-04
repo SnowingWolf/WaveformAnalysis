@@ -3,7 +3,7 @@ import pytest
 
 from tests.utils import DummyContext, make_st_waveforms
 from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HIT_DTYPE
-from waveform_analysis.core.plugins.builtin.streaming.cpu.signal_peaks import (
+from waveform_analysis.core.plugins.builtin.signal_peaks_stream import (
     SignalPeaksStreamPlugin,
 )
 

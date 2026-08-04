@@ -115,3 +115,167 @@ def test_peaklet_dtypes_resolve_from_bundles():
     assert cpu.PEAKLET_WAVEFORMS_DTYPE is PEAKLET_WAVEFORMS_DTYPE
     assert cpu.PEAKLET_FEATURES_DTYPE is PEAKLET_FEATURES_DTYPE
     assert cpu.PEAKS_DTYPE is PEAKS_DTYPE
+
+
+def test_phase4c_cpu_module_shims_resolve_to_bundles():
+    """Phase 4c 迁移后，旧 cpu.* 深导入与新 bundle 路径指向同一类对象。"""
+    import importlib
+
+    mod_pairs = [
+        # (old module, name, new bundle)
+        ("waveform_analysis.core.plugins.builtin.cpu.raw_files", "RawFileNamesPlugin", "raw_files"),
+        ("waveform_analysis.core.plugins.builtin.cpu.waveforms", "RawFileNamesPlugin", "raw_files"),
+        ("waveform_analysis.core.plugins.builtin.cpu.waveforms", "WaveformsPlugin", "st_waveforms"),
+        ("waveform_analysis.core.plugins.builtin.cpu.waveforms", "WaveformStruct", "st_waveforms"),
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.waveforms",
+            "WaveformStructConfig",
+            "st_waveforms",
+        ),
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.filtering",
+            "FilteredWaveformsPlugin",
+            "filtered_waveforms",
+        ),
+        ("waveform_analysis.core.plugins.builtin.cpu.dataframe", "DataFramePlugin", "df"),
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.basic_features",
+            "BasicFeaturesPlugin",
+            "basic_features",
+        ),
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.cache_analysis",
+            "CacheAnalysisPlugin",
+            "cache_analysis",
+        ),
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.peak_classification",
+            "PeakClassificationPlugin",
+            "peak_classification",
+        ),
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_candidates",
+            "S1S2PairCandidatesPlugin",
+            "s1_s2_pair_candidates",
+        ),
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_selection",
+            "S1S2PairSelectionPlugin",
+            "s1_s2_pairs",
+        ),
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.waveform_width",
+            "WaveformWidthPlugin",
+            "waveform_width",
+        ),
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.waveform_width_integral",
+            "WaveformWidthIntegralPlugin",
+            "waveform_width_integral",
+        ),
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.energy_reconstruction",
+            "EnergyReconstructionPlugin",
+            "energy_reconstruction",
+        ),
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.position_reconstruction",
+            "PositionReconstructionPlugin",
+            "position_reconstruction",
+        ),
+        ("waveform_analysis.core.plugins.builtin.cpu.event", "EventPlugin", "events"),
+        (
+            "waveform_analysis.core.plugins.builtin.streaming.cpu.signal_peaks",
+            "SignalPeaksStreamPlugin",
+            "signal_peaks_stream",
+        ),
+    ]
+    for old_mod, name, bundle in mod_pairs:
+        old = getattr(importlib.import_module(old_mod), name)
+        new = getattr(
+            importlib.import_module(f"waveform_analysis.core.plugins.builtin.{bundle}"), name
+        )
+        assert old is new, f"{name}: {old_mod} 与 {bundle} bundle 不是同一对象"
+
+
+def test_phase4c_cpu_package_lazy_resolves_to_bundles():
+    """Phase 4c 迁移后，builtin.cpu 懒加载类名指向新 bundle 同一类对象。"""
+    import importlib
+
+    from waveform_analysis.core.plugins.builtin import cpu
+
+    pairs = [
+        ("WaveformsPlugin", "st_waveforms"),
+        ("WaveformStruct", "st_waveforms"),
+        ("WaveformStructConfig", "st_waveforms"),
+        ("RawFileNamesPlugin", "raw_files"),
+        ("FilteredWaveformsPlugin", "filtered_waveforms"),
+        ("DataFramePlugin", "df"),
+        ("BasicFeaturesPlugin", "basic_features"),
+        ("CacheAnalysisPlugin", "cache_analysis"),
+        ("PeakClassificationPlugin", "peak_classification"),
+        ("S1S2PairCandidatesPlugin", "s1_s2_pair_candidates"),
+        ("S1S2PairSelectionPlugin", "s1_s2_pairs"),
+        ("WaveformWidthPlugin", "waveform_width"),
+        ("WaveformWidthIntegralPlugin", "waveform_width_integral"),
+        ("EnergyReconstructionPlugin", "energy_reconstruction"),
+        ("PositionReconstructionPlugin", "position_reconstruction"),
+        ("EventPlugin", "events"),
+    ]
+    for class_name, bundle in pairs:
+        old = getattr(cpu, class_name)
+        new = getattr(
+            importlib.import_module(f"waveform_analysis.core.plugins.builtin.{bundle}"),
+            class_name,
+        )
+        assert old is new, f"{class_name}: builtin.cpu 与 {bundle} bundle 不是同一对象"
+
+
+def test_phase4c_dtypes_resolve_from_bundles():
+    """Phase 4c 迁移后 dtype 常量可从新 bundle 路径解析。"""
+    import importlib
+
+    dtype_pairs = [
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.basic_features",
+            "BASIC_FEATURES_DTYPE",
+            "basic_features",
+        ),
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.waveform_width",
+            "WAVEFORM_WIDTH_DTYPE",
+            "waveform_width",
+        ),
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.waveform_width_integral",
+            "WAVEFORM_WIDTH_INTEGRAL_DTYPE",
+            "waveform_width_integral",
+        ),
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.peak_classification",
+            "PEAK_CLASSIFICATION_DTYPE",
+            "peak_classification",
+        ),
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_candidates",
+            "S1_S2_PAIR_CANDIDATES_DTYPE",
+            "s1_s2_pair_candidates",
+        ),
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.energy_reconstruction",
+            "ENERGY_RECONSTRUCTION_DTYPE",
+            "energy_reconstruction",
+        ),
+        (
+            "waveform_analysis.core.plugins.builtin.cpu.position_reconstruction",
+            "POSITION_RECONSTRUCTION_DTYPE",
+            "position_reconstruction",
+        ),
+        ("waveform_analysis.core.plugins.builtin.cpu.event", "EVENT_DTYPE", "events"),
+    ]
+    for old_mod, name, bundle in dtype_pairs:
+        old = getattr(importlib.import_module(old_mod), name)
+        new = getattr(
+            importlib.import_module(f"waveform_analysis.core.plugins.builtin.{bundle}"), name
+        )
+        assert old is new, f"{name}: {old_mod} 与 {bundle} bundle 不是同一对象"

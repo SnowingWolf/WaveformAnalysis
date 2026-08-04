@@ -1,0 +1,10 @@
+provides: filtered_waveforms
+plugin_class: FilteredWaveformsPlugin
+version: 3.0.0
+depends_on:
+  - st_waveforms
+third_party_dependencies:
+  - numpy
+  - scipy
+plugin_dependencies: []
+category: signal_processing

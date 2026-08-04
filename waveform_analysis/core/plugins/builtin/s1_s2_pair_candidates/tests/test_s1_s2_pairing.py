@@ -10,15 +10,18 @@ Version: 0.1.0
 import numpy as np
 import pytest
 
-from waveform_analysis.core.plugins.builtin.cpu.peak_classification import (
+from waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_selection import (
+    S1S2PairSelectionPlugin,
+)
+from waveform_analysis.core.plugins.builtin.peak_classification import (
     LABEL_S1,
     LABEL_S1_S2,
     LABEL_S2,
     LABEL_UNKNOWN,
     PEAK_CLASSIFICATION_DTYPE,
 )
-from waveform_analysis.core.plugins.builtin.cpu.peaklets import PEAKS_DTYPE
-from waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_candidates import (
+from waveform_analysis.core.plugins.builtin.peaks import PEAKS_DTYPE
+from waveform_analysis.core.plugins.builtin.s1_s2_pair_candidates import (
     FLAG_CLOSE_COMPETITOR,
     FLAG_MULTI_S1_CANDIDATE,
     FLAG_MULTI_S2_CANDIDATE,
@@ -27,9 +30,6 @@ from waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_candidates import (
     FLAG_VALID_TIME,
     S1_S2_PAIR_CANDIDATES_DTYPE,
     S1S2PairCandidatesPlugin,
-)
-from waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_selection import (
-    S1S2PairSelectionPlugin,
 )
 
 # ============================================================================

@@ -1,0 +1,11 @@
+provides: signal_peaks_stream
+plugin_class: SignalPeaksStreamPlugin
+version: 1.2.0
+depends_on:
+  - filtered_waveforms
+  - st_waveforms
+third_party_dependencies:
+  - numpy
+  - scipy
+plugin_dependencies: []
+category: signal_processing

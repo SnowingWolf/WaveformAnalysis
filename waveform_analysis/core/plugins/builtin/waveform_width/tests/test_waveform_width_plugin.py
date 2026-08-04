@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import WaveformWidthPlugin
+from waveform_analysis.core.plugins.builtin.waveform_width import WaveformWidthPlugin
 from waveform_analysis.core.processing.dtypes import create_record_dtype
 
 

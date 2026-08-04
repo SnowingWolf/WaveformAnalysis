@@ -1,0 +1,8 @@
+provides: waveform_width_integral
+plugin_class: WaveformWidthIntegralPlugin
+version: 2.7.0
+depends_on: []
+third_party_dependencies:
+  - numpy
+plugin_dependencies: []
+category: feature_extraction

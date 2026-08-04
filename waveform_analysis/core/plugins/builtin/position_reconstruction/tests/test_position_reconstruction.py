@@ -15,7 +15,7 @@ from waveform_analysis.core.hardware.geometry import (
     load_fallback_layout,
     load_pmt_layout_from_config,
 )
-from waveform_analysis.core.plugins.builtin.cpu.position_reconstruction import (
+from waveform_analysis.core.plugins.builtin.position_reconstruction import (
     FLAG_EDGE_EVENT,
     FLAG_LOW_S2_SIGNAL,
     FLAG_POSITION_VALID,

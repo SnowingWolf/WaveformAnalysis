@@ -1,0 +1,11 @@
+provides: df
+plugin_class: DataFramePlugin
+version: 1.7.0
+depends_on:
+  - basic_features
+third_party_dependencies:
+  - numpy
+  - pandas
+plugin_dependencies:
+  - basic_features
+category: tabular

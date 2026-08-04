@@ -13,7 +13,7 @@ export, __all__ = exporter()
 @export
 def plugins_io():
     """Return IO plugin instances in dependency order."""
-    from waveform_analysis.core.plugins.builtin.cpu.raw_files import RawFileNamesPlugin
+    from waveform_analysis.core.plugins.builtin.raw_files import RawFileNamesPlugin
 
     return [
         RawFileNamesPlugin(),

@@ -9,7 +9,7 @@
 import numpy as np
 import pytest
 
-from waveform_analysis.core.plugins.builtin.cpu.energy_reconstruction import (
+from waveform_analysis.core.plugins.builtin.energy_reconstruction import (
     ENERGY_RECONSTRUCTION_DTYPE,
     FLAG_ENERGY_NOT_IMPLEMENTED,
     FLAG_ENERGY_RECONSTRUCTED,

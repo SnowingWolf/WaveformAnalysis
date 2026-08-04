@@ -11,8 +11,8 @@ export, __all__ = exporter()
 @export
 def plugins_basic_features():
     """Return basic feature plugin instances in dependency order."""
-    from waveform_analysis.core.plugins.builtin.cpu.basic_features import BasicFeaturesPlugin
-    from waveform_analysis.core.plugins.builtin.cpu.waveform_width_integral import (
+    from waveform_analysis.core.plugins.builtin.basic_features import BasicFeaturesPlugin
+    from waveform_analysis.core.plugins.builtin.waveform_width_integral import (
         WaveformWidthIntegralPlugin,
     )
 

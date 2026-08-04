@@ -29,17 +29,17 @@ def plugins_events():
         GroupedEventsPlugin and PairedEventsPlugin have been moved to the
         ``tabular`` plugin set because they produce DataFrame (tabular) outputs.
     """
-    from waveform_analysis.core.plugins.builtin.cpu.energy_reconstruction import (
+    from waveform_analysis.core.plugins.builtin.energy_reconstruction import (
         EnergyReconstructionPlugin,
     )
-    from waveform_analysis.core.plugins.builtin.cpu.event import EventPlugin
-    from waveform_analysis.core.plugins.builtin.cpu.position_reconstruction import (
+    from waveform_analysis.core.plugins.builtin.events import EventPlugin
+    from waveform_analysis.core.plugins.builtin.position_reconstruction import (
         PositionReconstructionPlugin,
     )
-    from waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_candidates import (
+    from waveform_analysis.core.plugins.builtin.s1_s2_pair_candidates import (
         S1S2PairCandidatesPlugin,
     )
-    from waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_selection import (
+    from waveform_analysis.core.plugins.builtin.s1_s2_pairs import (
         S1S2PairSelectionPlugin,
     )
 

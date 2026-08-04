@@ -4,7 +4,7 @@ import numpy as np
 
 from tests.utils import DummyContext
 from waveform_analysis.core.data.records_view import RecordsView
-from waveform_analysis.core.plugins.builtin.cpu.waveform_width_integral import (
+from waveform_analysis.core.plugins.builtin.waveform_width_integral import (
     WaveformWidthIntegralPlugin,
 )
 from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE

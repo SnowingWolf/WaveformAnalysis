@@ -1,0 +1,9 @@
+provides: position_reconstruction
+plugin_class: PositionReconstructionPlugin
+version: 0.2.1
+depends_on:
+  - s1_s2_pairs
+third_party_dependencies:
+  - numpy
+plugin_dependencies: []
+category: event_reconstruction

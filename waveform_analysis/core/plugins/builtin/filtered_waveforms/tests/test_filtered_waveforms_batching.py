@@ -3,7 +3,7 @@ import pytest
 from scipy.signal import butter, savgol_filter, sosfiltfilt
 
 from tests.utils import DummyContext, make_st_waveforms
-from waveform_analysis.core.plugins.builtin.cpu.filtering import FilteredWaveformsPlugin
+from waveform_analysis.core.plugins.builtin.filtered_waveforms import FilteredWaveformsPlugin
 
 
 def _legacy_filtered_waveforms_reference(st_waveforms: np.ndarray, config: dict) -> np.ndarray:

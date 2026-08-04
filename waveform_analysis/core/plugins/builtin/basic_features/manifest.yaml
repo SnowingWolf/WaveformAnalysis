@@ -1,0 +1,9 @@
+provides: basic_features
+plugin_class: BasicFeaturesPlugin
+version: 4.1.0
+depends_on: []
+third_party_dependencies:
+  - numpy
+  - numba
+plugin_dependencies: []
+category: feature_extraction
