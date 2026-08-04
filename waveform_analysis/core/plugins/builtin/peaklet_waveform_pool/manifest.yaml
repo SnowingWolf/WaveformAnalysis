@@ -1,0 +1,10 @@
+provides: peaklet_waveform_pool
+plugin_class: PeakletWaveformPoolPlugin
+version: 2.0.0
+depends_on:
+  - peaklet_waveforms
+third_party_dependencies:
+  - numpy
+plugin_dependencies:
+  - peaklet_waveforms
+  - peaklets

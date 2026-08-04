@@ -82,7 +82,7 @@ waveform-cache = "waveform_analysis.cli_cache:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["waveform_analysis*"]
-exclude = ["tests*", "docs*", "examples*"]
+exclude = ["tests*", "docs*", "examples*", "*.tests", "*.tests.*"]
 
 [tool.setuptools.package-data]
 waveform_analysis = [
@@ -103,10 +103,11 @@ target-version = ['py310', 'py311', 'py312']
 include = '\.pyi?$'
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "waveform_analysis/core/plugins/builtin"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+pythonpath = ["."]
 # 默认只跑快速层；慢测试用 `pytest -m slow` 单独运行（CI 分层见 .github/workflows/python-tests.yml）
 addopts = "-v --cov=waveform_analysis --cov-report=html --cov-report=term -m 'not slow'"
 markers = [

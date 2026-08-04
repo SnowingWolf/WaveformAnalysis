@@ -35,15 +35,15 @@ def plugins_peaks():
     )
     from waveform_analysis.core.plugins.builtin.cpu.s1_s2_classifier import S1S2ClassifierPlugin
     from waveform_analysis.core.plugins.builtin.cpu.waveform_width import WaveformWidthPlugin
-    from waveform_analysis.core.plugins.builtin.peaks.peaklet_channels import PeakletChannelsPlugin
-    from waveform_analysis.core.plugins.builtin.peaks.peaklets import (
-        PeakletComponentsPlugin,
-        PeakletFeaturesPlugin,
-        PeakletPlugin,
-        PeakletWaveformPlugin,
+    from waveform_analysis.core.plugins.builtin.peaklet_channels import PeakletChannelsPlugin
+    from waveform_analysis.core.plugins.builtin.peaklet_components import PeakletComponentsPlugin
+    from waveform_analysis.core.plugins.builtin.peaklet_features import PeakletFeaturesPlugin
+    from waveform_analysis.core.plugins.builtin.peaklet_waveform_pool import (
         PeakletWaveformPoolPlugin,
-        PeaksPlugin,
     )
+    from waveform_analysis.core.plugins.builtin.peaklet_waveforms import PeakletWaveformPlugin
+    from waveform_analysis.core.plugins.builtin.peaklets import PeakletPlugin
+    from waveform_analysis.core.plugins.builtin.peaks import PeaksPlugin
 
     warnings.warn(
         "plugins_peaks() includes S1S2ClassifierPlugin which is deprecated. "

@@ -1,0 +1,12 @@
+provides: peaklet_features
+plugin_class: PeakletFeaturesPlugin
+version: 4.1.0
+depends_on:
+  - peaklet_waveforms
+  - peaklet_waveform_pool
+  - peaklets
+third_party_dependencies:
+  - numpy
+  - numba
+plugin_dependencies:
+  - peaklets

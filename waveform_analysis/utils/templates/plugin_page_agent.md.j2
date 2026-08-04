@@ -29,7 +29,6 @@ generated: true
 | Module | `{{ plugin.module_path|markdown_cell }}` |
 | Version | `{{ plugin.version|markdown_cell }}` |
 | Category | {{ plugin.category_display }} |
-| Accelerator | {{ plugin.accelerator_display }} |
 | Output Kind | `{{ plugin.output_kind|markdown_cell }}` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -65,7 +64,7 @@ generated: true
 ```python
 {% if plugin.usage_example %}{{ plugin.usage_example }}
 {% else %}from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import {{ plugin.name }}
+from {{ plugin.module_import_path }} import {{ plugin.name }}
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register({{ plugin.name }}())

@@ -1,0 +1,11 @@
+provides: hit_merge_clusters
+plugin_class: HitMergeClustersPlugin
+version: 1.1.0
+depends_on:
+  - hit_merged
+  - hit_threshold
+third_party_dependencies:
+  - numpy
+plugin_dependencies:
+  - hit_merged
+category: feature_extraction

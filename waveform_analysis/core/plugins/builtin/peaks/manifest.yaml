@@ -1,0 +1,11 @@
+provides: peaks
+plugin_class: PeaksPlugin
+version: 4.0.1
+depends_on:
+  - peaklets
+  - peaklet_features
+  - peaklet_channels
+third_party_dependencies:
+  - numpy
+plugin_dependencies:
+  - peaklets

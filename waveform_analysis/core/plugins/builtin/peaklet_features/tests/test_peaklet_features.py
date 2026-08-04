@@ -7,9 +7,11 @@ from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PEAKLET_FEATURES_DTYPE,
     PEAKLET_WAVEFORMS_DTYPE,
     PeakletFeaturesPlugin,
+)
+from waveform_analysis.core.plugins.builtin.peaklets import _compute as peaklets_module
+from waveform_analysis.core.plugins.builtin.peaklets._compute import (
     _compute_area_quantile_times,
 )
-from waveform_analysis.core.plugins.builtin.peaks import peaklets as peaklets_module
 
 
 def _peaklets(n):

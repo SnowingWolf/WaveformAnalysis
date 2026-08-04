@@ -24,9 +24,9 @@ from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PeakletComponentsPlugin,
     PeakletPlugin,
     PeakletWaveformPlugin,
-    _cluster_merged_hits,
 )
 from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
+from waveform_analysis.core.plugins.builtin.peaklets._compute import _cluster_merged_hits
 
 try:
     from numba import njit  # noqa: F401

@@ -1,0 +1,10 @@
+provides: peaklets
+plugin_class: PeakletPlugin
+version: 1.2.0
+depends_on:
+  - hit_merged
+  - peaklet_components
+third_party_dependencies:
+  - numpy
+  - numba
+plugin_dependencies:

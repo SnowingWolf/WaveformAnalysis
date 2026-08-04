@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>插件 skill 化重构 — 目录结构预览</title>
+<style>
+  :root {
+    --bg: #0f1720;
+    --panel: #1a2434;
+    --panel2: #223046;
+    --border: #31435e;
+    --text: #e6edf5;
+    --dim: #93a4ba;
+    --bundle: #2f9e6e;
+    --bundle-bg: rgba(47,158,110,.12);
+    --shared: #a97be0;
+    --shared-bg: rgba(169,123,224,.12);
+    --shim: #8b98ab;
+    --shim-bg: rgba(139,152,171,.10);
+    --conflict: #e5a13a;
+    --conflict-bg: rgba(229,161,58,.13);
+    --new: #4dabf7;
+    --py: #7cc1f5;
+    --yaml: #5fd0c5;
+    --skill: #f2b86b;
+    --req: #e88f8f;
+    --test: #e7a5d8;
+    --code: #31435e;
+    --highlight: #ffe066;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.5;
+  }
+  header {
+    padding: 22px 32px; background: linear-gradient(135deg, #14202f, #1d2b3f);
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { margin: 0 0 6px; font-size: 22px; }
+  header p { margin: 2px 0; color: var(--dim); font-size: 14px; }
+  .controls {
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    padding: 14px 32px; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  .controls input[type=text] {
+    background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 14px; border-radius: 8px; font-size: 14px; min-width: 320px;
+  }
+  .controls button {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px;
+  }
+  .controls button:hover { border-color: var(--new); }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+  .legend span { font-size: 12px; color: var(--dim); display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  main { display: grid; grid-template-columns: minmax(560px, 1.15fr) minmax(420px, .85fr); gap: 20px; padding: 24px 32px; align-items: start; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .card > h2 { margin: 0; padding: 14px 18px; font-size: 15px; background: var(--panel2); border-bottom: 1px solid var(--border); }
+  .card > .body { padding: 12px 14px; }
+
+  /* tree */
+  .tree ul { list-style: none; margin: 0; padding-left: 22px; border-left: 1px dashed var(--border); }
+  .tree > ul { padding-left: 0; border-left: none; }
+  .tree li { position: relative; }
+  .node { display: flex; align-items: baseline; gap: 8px; padding: 3px 6px; border-radius: 6px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+  .node:hover { background: rgba(255,255,255,.05); }
+  .toggle { width: 16px; height: 16px; flex: none; cursor: pointer; text-align: center; font-size: 11px; color: var(--dim); user-select: none; border-radius: 4px; }
+  .toggle:hover { background: var(--panel2); }
+  .caret { width: 16px; flex: none; color: var(--dim); font-size: 11px; }
+  .name { font-weight: 600; }
+  .note { font-size: 12px; color: var(--dim); }
+  .note b { color: var(--highlight); font-weight: 600; }
+  .file .name { font-weight: 400; }
+  .hidden { display: none; }
+
+  .k-bundle      { color: var(--bundle); }   .k-bundle .name { color: var(--bundle); }
+  .k-bundle      { background: var(--bundle-bg); border: 1px solid transparent; }
+  .k-shared      { color: var(--shared); }   .k-shared .name { color: var(--shared); }
+  .k-shared      { background: var(--shared-bg); }
+  .k-shim        { color: var(--shim); }     .k-shim .name { color: var(--shim); }
+  .k-shim        { background: var(--shim-bg); border-style: dashed; border-color: var(--shim); }
+  .k-conflict    { color: var(--conflict); } .k-conflict .name { color: var(--conflict); }
+  .k-conflict    { background: var(--conflict-bg); border: 1px solid var(--conflict); }
+  .k-new         { outline: 1px dashed var(--new); }
+  .tag { font-size: 10px; padding: 1px 7px; border-radius: 10px; font-family: sans-serif; font-weight: 600; letter-spacing: .3px; }
+  .tag-new { background: var(--new); color: #05263d; }
+  .tag-star { background: var(--conflict); color: #3a2602; }
+  .tag-owner { background: var(--shared); color: #2a1640; }
+  .tag-dup { background: var(--req); color: #401212; }
+
+  .f-py    { color: var(--py); }
+  .f-init  { color: var(--dim); }
+  .f-yaml  { color: var(--yaml); }
+  .f-skill { color: var(--skill); }
+  .f-req   { color: var(--req); }
+  .f-test  { color: var(--test); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; font-size: 12px; background: var(--panel2); position: sticky; top: 0; }
+  tr:hover td { background: rgba(255,255,255,.03); }
+  td code, .m { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+  .m { color: var(--dim); }
+  .hl { background: rgba(255,224,102,.15); border-radius: 3px; }
+  .g-bundle { color: var(--bundle); }
+  .g-shared { color: var(--shared); }
+  .g-shim { color: var(--shim); }
+  .g-conflict { color: var(--conflict); }
+  .g-new { color: var(--new); }
+  .note2 { color: var(--dim); font-size: 13px; }
+  .card .body.notes { line-height: 1.7; font-size: 14px; }
+  .badge { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 10px; margin-left: 6px; vertical-align: middle; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>插件 skill 化重构 — <span style="color:#4dabf7">builtin/</span> 目录结构预览</h1>
+  <p>目标：严格 per-plugin 平铺目录，每个插件一个 bundle（代码 + 文档 + 测试 + 依赖同目录），旧 import 路径全部保留为 shim。</p>
+  <p>预览产物 · 非实现代码 · 生成于 <span id="gen-date"></span></p>
+</header>
+
+<div class="controls">
+  <input type="text" id="filter" placeholder="筛选：输入 provides / 类名 / 旧模块，如 hit_merged / peaklets / records">
+  <button id="expand-all">全部展开</button>
+  <button id="collapse-all">全部折叠</button>
+  <button id="only-bundles">只看 bundle</button>
+  <div class="legend">
+    <span><span class="swatch" style="background:#2f9e6e"></span> bundle（per-plugin 目录）</span>
+    <span><span class="swatch" style="background:#a97be0"></span> shared 共享库 / 算法属主</span>
+    <span><span class="swatch" style="background:#8b98ab"></span> shim 兼容壳</span>
+    <span><span class="swatch" style="background:#e5a13a"></span> 冲突 bundle（= 家族目录）</span>
+    <span><span class="swatch" style="background:#4dabf7"></span> 新增</span>
+  </div>
+</div>
+
+<main>
+  <section class="card">
+    <h2>重构后目录树（waveform_analysis/core/plugins/builtin/）</h2>
+    <div class="body">
+      <div id="tree" class="tree"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>插件 → 旧模块 → 新 bundle 映射</h2>
+    <div class="body" style="max-height:78vh; overflow:auto;">
+      <table id="map">
+        <thead><tr><th>provides</th><th>插件类</th><th>当前源码</th><th>新 bundle</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card" style="grid-column:1 / -1;">
+    <h2>设计要点</h2>
+    <div class="body notes">
+      <ul>
+        <li><b class="g-bundle">平铺 per-plugin</b>：每个 <code>provides</code> 一个目录，含 <code>plugin.py</code>（类实现）、<code>__init__.py</code>（新代码唯一 import 面）、<code>manifest.yaml</code>（声明）、<code>SKILL.md</code>（agent 叙事，生成器产出）、<code>requirements.txt</code>（第三方依赖）、<code>tests/</code>（随插件测试）。</li>
+        <li><b class="g-shim">向后兼容</b>：<code>cpu/</code>、<code>streaming/</code> 退化为纯 shim 壳；<code>hit/</code>、<code>peaks/</code> 因 provides 同名冲突升级为 bundle，同时承载旧家族 shim 模块（<code>hit_merge.py</code>、<code>peaklets.py</code> 等保留原路径，旧深导入继续可用）。</li>
+        <li><b class="g-shared">算法属主</b>：多插件共享计算由「属主 bundle」的 <code>_compute.py</code> 持有，兄弟 bundle 单向依赖（<code>hit_merged</code> ← <code>hit_merge_clusters</code>/<code>hit_merged_components</code>；<code>peaklets</code> ← 其余 5 个；<code>records</code> ← <code>wave_pool*</code>；<code>records_detector_mask</code> ← <code>records_veto_mask</code>）。</li>
+        <li><b class="g-new">shared/ 库</b>：<code>_dt_compat</code>/<code>_record_utils</code>/<code>_wave_source</code> 上提为跨插件通用库。</li>
+        <li><b class="g-shared">依赖三分</b>：<code>manifest.yaml</code> 区分 <code>depends_on</code>（数据依赖）/ <code>third_party_dependencies</code>（第三方 Python 包）/ <code>plugin_dependencies</code>（跨 bundle 代码耦合）。</li>
+        <li><b>删除 accelerator</b>：装饰性文档字段（36 插件中 35 cpu / 1 streaming / 0 jax，区分度近零），从生成器/模板/测试移除；保留运行时相关的 <code>output_kind</code>/<code>supports_streaming</code>/<code>supports_gpu</code>。</li>
+        <li><b class="tag tag-dup">双副本</b>：<code>RawFileNamesPlugin</code> 在 <code>cpu/raw_files.py</code> 与 <code>cpu/waveforms.py</code> 各定义一份（<code>plugin_sets/io.py</code> 与 <code>cpu/__init__.py</code> 用不同副本），重构时合并到 <code>raw_files/</code> bundle。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="card" style="grid-column:1 / -1;">
+    <h2>实施计划（分阶段执行）</h2>
+    <div class="body notes">
+      <p><b>每阶段出口标准</b>：<code>pytest</code> 全绿 · <code>check_imports.py</code> / <code>check_plugin_deps.py</code> 绿 · 文档重生成后 <code>git diff --exit-code</code> 干净</p>
+      <ul>
+        <li><b>Step 0 — HTML 预览</b>（当前）：目录结构可视化 + 计划写入。✅ 已完成</li>
+        <li><b>Phase 0 — 地基（无行为变化）</b>
+          <ol>
+            <li>建 <code>builtin/shared/</code>，迁入 <code>_dt_compat / _record_utils / _wave_source</code>，原文件改 shim</li>
+            <li>建 <code>builtin/_registry.py</code> + <code>scripts/check_plugin_deps.py</code> + manifest schema</li>
+            <li>更新 pytest 四项配置；改模板 Usage 兜底；删除 accelerator（<code>plugin_doc_generator.py</code> + 两个模板 + 测试）</li>
+          </ol>
+        </li>
+        <li><b>Phase 1 — 试点 <code>hit_merged</code></b>
+          <ol>
+            <li>建 <code>builtin/hit_merged/</code>（<code>plugin.py</code> / <code>_compute.py</code>=3 dtype+集群计算 / <code>__init__</code> / <code>manifest</code> / <code>SKILL.md</code> / <code>requirements</code> / <code>tests</code>）</li>
+            <li><code>hit/hit_merge.py</code> 抽走 HitMergePlugin 与共享计算，保留兄弟类，整文件改 shim</li>
+            <li>更新 <code>_LAZY_ATTRS</code>、<code>cpu/__init__.py</code>、<code>hit/__init__.py</code>、<code>plugin_sets/hit.py</code>、相关测试 import</li>
+            <li>重算 <code>hit_merged.yaml</code> <code>source_fingerprint</code></li>
+            <li>加旧路径兼容测试（新旧路径 <code>is</code> 同一类对象）</li>
+          </ol>
+        </li>
+        <li><b>Phase 2 — <code>hit_merge_clusters</code> / <code>hit_merged_components</code></b>（沿用 Phase 1 模式完成家族）</li>
+        <li><b>Phase 3 — peaks 家族（最大）</b>：拆 <code>peaklets.py</code> 六插件，共享计算入 <code>peaklets/_compute.py</code>，其余 5 bundle 单向依赖</li>
+        <li><b>Phase 4 — cpu 剩余</b>：records 家族、event_analysis、records_channel_role、单插件模块；<b>合并 RawFileNamesPlugin 双副本</b>到 <code>raw_files/</code></li>
+        <li><b>Phase 5 — 收尾</b>：streaming/jax 占位；全量重生成 docs 并提交；docs-check / python-tests 全绿</li>
+      </ul>
+      <p><b>每阶段验证命令</b>：</p>
+      <pre style="background:#0b1119;border:1px solid var(--border);border-radius:8px;padding:12px;overflow:auto;font-size:12px;">pip install -e .
+pytest -q
+python scripts/check_imports.py
+python scripts/check_plugin_deps.py
+waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/
+waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
+git diff --exit-code -- docs/plugins/reference/builtin/auto/ docs/plugins/reference/agent/
+ruff check . && black --check .</pre>
+      <p><b>关键耦合点</b>：① RawFileNamesPlugin 双副本（<code>raw_files.py:17</code> / <code>waveforms.py:887</code>）→ 合并到 <code>raw_files/</code>；② <code>hit_finder.py</code> 懒加载 <code>cpu.records.get_records_bundle</code> + 字符串 mock 私有函数 → shim 必须复刻私有名；③ <code>cpu/peak_finding.py</code>（provides="hit"）被 <code>hit_finder</code> / <code>signal_peaks_stream</code> 引用 → shim 复刻全部导出；④ agent_docs <code>source_fingerprint</code> 失效 → 迁移后必须重算。</p>
+    </div>
+  </section>
+</main>
+
+<script>
+const genDate = new Date().toISOString().slice(0,10);
+document.getElementById('gen-date').textContent = genDate;
+
+const TAG = {
+  bundle: '<span class="tag tag-new">bundle</span>',
+  star: '<span class="tag tag-star">冲突</span>',
+  owner: '<span class="tag tag-owner">属主</span>',
+  dup: '<span class="tag tag-dup">双副本</span>',
+  shim: '<span class="tag" style="background:#8b98ab;color:#10151c">shim</span>',
+  new: '<span class="tag tag-new">新</span>',
+};
+
+// 一个 bundle 的标准内容模板
+function bundleFiles(provides, opts={}) {
+  const files = [
+    { name: '__init__.py', kind: 'file', cls: 'f-init', note: '导出本 bundle 插件类 + 契约 dtype（新代码唯一 import 面）' },
+    { name: 'plugin.py', kind: 'file', cls: 'f-py', note: opts.cls + ' 类实现' },
+  ];
+  if (opts.owner) files.push({ name: '_compute.py', kind: 'file', cls: 'f-py', note: '[' + opts.owner + '] ' + opts.ownerNote });
+  files.push(
+    { name: 'manifest.yaml', kind: 'file', cls: 'f-yaml', note: 'provides / depends_on / third_party_dependencies / plugin_dependencies' },
+    { name: 'SKILL.md', kind: 'file', cls: 'f-skill', note: 'agent 叙事文档（生成器产出，一条源→两产物）' },
+    { name: 'requirements.txt', kind: 'file', cls: 'f-req', note: '第三方 Python 依赖' },
+  );
+  files.push({ name: 'tests/', kind: 'dir', cls: '', note: '', children: [
+    { name: 'test_' + provides + '.py', kind: 'file', cls: 'f-test', note: opts.testNote || '← tests/plugins/ 迁入（无 __init__.py）' },
+  ]});
+  return files;
+}
+
+const tree = [
+  { name: 'waveform_analysis/core/plugins/builtin/', kind: 'dir', note: '顶层包', children: [
+    { name: '__init__.py', kind: 'file', cls: 'f-init', note: '聚合 + 兼容（保持现有导出面）' },
+    { name: '_registry.py', kind: 'file', cls: 'f-py', note: TAG.new + ' provides→bundle 映射（扫描 manifest）' },
+    { name: 'shared/', kind: 'dir', cls: 'k-shared', note: TAG.owner + ' 通用跨插件库（非 bundle）', children: [
+      { name: '__init__.py', kind: 'file', cls: 'f-init', note: '' },
+      { name: 'dt_compat.py', kind: 'file', cls: 'f-py', note: '← cpu/_dt_compat.py（仅依赖 numpy/stdlib）' },
+      { name: 'record_utils.py', kind: 'file', cls: 'f-py', note: '← cpu/_record_utils.py' },
+      { name: 'wave_source.py', kind: 'file', cls: 'f-py', note: '← cpu/_wave_source.py' },
+    ]},
+    { name: 'cpu/', kind: 'dir', cls: 'k-shim', note: '纯兼容 shim 壳（无同名 provides）', children: [
+      { name: '__init__.py', kind: 'file', cls: 'f-init', note: '聚合 + _LAZY_IMPORTS 懒加载' },
+      { name: 'standard.py', kind: 'file', cls: 'f-py', note: 'standard_plugins 汇总' },
+      { name: '{raw_files, waveforms, records, event_analysis, ...}.py', kind: 'file', cls: 'f-py', note: TAG.shim + ' 单行转发 → 平铺 bundle' },
+      { name: '_dt_compat.py', kind: 'file', cls: 'f-init', note: TAG.shim + ' → shared.dt_compat' },
+      { name: '_record_utils.py', kind: 'file', cls: 'f-init', note: TAG.shim + ' → shared.record_utils' },
+      { name: '_wave_source.py', kind: 'file', cls: 'f-init', note: TAG.shim + ' → shared.wave_source' },
+    ]},
+    { name: 'streaming/', kind: 'dir', cls: 'k-shim', note: '纯兼容 shim 壳', children: [
+      { name: 'cpu/signal_peaks.py', kind: 'file', cls: 'f-py', note: TAG.shim + ' → builtin.signal_peaks_stream' },
+    ]},
+    { name: 'hit/', kind: 'dir', cls: 'k-conflict', note: TAG.star + ' = HitFinderPlugin bundle（provides="hit"）+ 旧家族 shim 宿主', children: [
+      { name: '__init__.py', kind: 'file', cls: 'f-init', note: '导出 HitFinderPlugin + 兼容属性式导入' },
+      { name: 'plugin.py', kind: 'file', cls: 'f-py', note: 'HitFinderPlugin ← cpu/peak_finding.py' },
+      { name: 'hit_merge.py', kind: 'file', cls: 'f-py', note: TAG.shim + ' → builtin.hit_merged' },
+      { name: 'hit_finder.py', kind: 'file', cls: 'f-py', note: TAG.shim + ' → builtin.hit_threshold' },
+      { name: 'hit_grouped.py', kind: 'file', cls: 'f-py', note: TAG.shim + ' → builtin.hit_grouped' },
+      { name: 'hit_merged_features.py', kind: 'file', cls: 'f-py', note: TAG.shim + ' → builtin.hit_merged_features' },
+      { name: 'hit_threshold_numba.py', kind: 'file', cls: 'f-py', note: TAG.shim + ' →（共享计算）' },
+      ...bundleFiles('hit', { cls: 'HitFinderPlugin', testNote: '← tests/plugins/ 迁入' }),
+    ]},
+    { name: 'peaks/', kind: 'dir', cls: 'k-conflict', note: TAG.star + ' = PeaksPlugin bundle（provides="peaks"）+ 旧家族 shim 宿主', children: [
+      { name: '__init__.py', kind: 'file', cls: 'f-init', note: '导出 PeaksPlugin + 兼容属性式导入' },
+      { name: 'plugin.py', kind: 'file', cls: 'f-py', note: 'PeaksPlugin ← peaks/peaklets.py' },
+      { name: 'peaklets.py', kind: 'file', cls: 'f-py', note: TAG.shim + ' → builtin.peaklets' },
+      { name: 'peaklet_channels.py', kind: 'file', cls: 'f-py', note: TAG.shim + ' → builtin.peaklet_channels' },
+      ...bundleFiles('peaks', { cls: 'PeaksPlugin' }),
+    ]},
+    { name: 'basic_features/', kind: 'dir', cls: 'k-bundle', note: 'BasicFeaturesPlugin', children: bundleFiles('basic_features', { cls: 'BasicFeaturesPlugin' }) },
+    { name: 'cache_analysis/', kind: 'dir', cls: 'k-bundle', note: 'CacheAnalysisPlugin', children: bundleFiles('cache_analysis', { cls: 'CacheAnalysisPlugin' }) },
+    { name: 'df/', kind: 'dir', cls: 'k-bundle', note: 'DataFramePlugin', children: bundleFiles('df', { cls: 'DataFramePlugin' }) },
+    { name: 'df_events/', kind: 'dir', cls: 'k-bundle', note: 'GroupedEventsPlugin ← cpu/event_analysis.py', children: bundleFiles('df_events', { cls: 'GroupedEventsPlugin' }) },
+    { name: 'df_paired/', kind: 'dir', cls: 'k-bundle', note: 'PairedEventsPlugin ← cpu/event_analysis.py', children: bundleFiles('df_paired', { cls: 'PairedEventsPlugin' }) },
+    { name: 'energy_reconstruction/', kind: 'dir', cls: 'k-bundle', note: 'EnergyReconstructionPlugin', children: bundleFiles('energy_reconstruction', { cls: 'EnergyReconstructionPlugin' }) },
+    { name: 'events/', kind: 'dir', cls: 'k-bundle', note: 'EventPlugin', children: bundleFiles('events', { cls: 'EventPlugin' }) },
+    { name: 'filtered_waveforms/', kind: 'dir', cls: 'k-bundle', note: 'FilteredWaveformsPlugin', children: bundleFiles('filtered_waveforms', { cls: 'FilteredWaveformsPlugin' }) },
+    { name: 'hit_grouped/', kind: 'dir', cls: 'k-bundle', note: 'HitGroupedPlugin', children: bundleFiles('hit_grouped', { cls: 'HitGroupedPlugin' }) },
+    { name: 'hit_merge_clusters/', kind: 'dir', cls: 'k-bundle', note: 'HitMergeClustersPlugin', children: bundleFiles('hit_merge_clusters', { cls: 'HitMergeClustersPlugin' }) },
+    { name: 'hit_merged/', kind: 'dir', cls: 'k-bundle', note: TAG.owner + ' HitMergePlugin（pilot）· 算法属主', children: bundleFiles('hit_merged', { cls: 'HitMergePlugin', owner: '共享', ownerNote: 'HIT_MERGED_DTYPE / HIT_MERGE_CLUSTERS_DTYPE / HIT_MERGED_COMPONENTS_DTYPE + 集群计算辅助' }) },
+    { name: 'hit_merged_components/', kind: 'dir', cls: 'k-bundle', note: 'HitMergedComponentsPlugin', children: bundleFiles('hit_merged_components', { cls: 'HitMergedComponentsPlugin' }) },
+    { name: 'hit_merged_features/', kind: 'dir', cls: 'k-bundle', note: 'HitMergedFeaturesPlugin', children: bundleFiles('hit_merged_features', { cls: 'HitMergedFeaturesPlugin' }) },
+    { name: 'hit_threshold/', kind: 'dir', cls: 'k-bundle', note: 'ThresholdHitPlugin', children: bundleFiles('hit_threshold', { cls: 'ThresholdHitPlugin' }) },
+    { name: 'peak_classification/', kind: 'dir', cls: 'k-bundle', note: 'PeakClassificationPlugin', children: bundleFiles('peak_classification', { cls: 'PeakClassificationPlugin' }) },
+    { name: 'peaklet_channels/', kind: 'dir', cls: 'k-bundle', note: 'PeakletChannelsPlugin', children: bundleFiles('peaklet_channels', { cls: 'PeakletChannelsPlugin' }) },
+    { name: 'peaklet_components/', kind: 'dir', cls: 'k-bundle', note: 'PeakletComponentsPlugin', children: bundleFiles('peaklet_components', { cls: 'PeakletComponentsPlugin' }) },
+    { name: 'peaklet_features/', kind: 'dir', cls: 'k-bundle', note: 'PeakletFeaturesPlugin', children: bundleFiles('peaklet_features', { cls: 'PeakletFeaturesPlugin' }) },
+    { name: 'peaklet_waveform_pool/', kind: 'dir', cls: 'k-bundle', note: 'PeakletWaveformPoolPlugin', children: bundleFiles('peaklet_waveform_pool', { cls: 'PeakletWaveformPoolPlugin' }) },
+    { name: 'peaklet_waveforms/', kind: 'dir', cls: 'k-bundle', note: 'PeakletWaveformPlugin', children: bundleFiles('peaklet_waveforms', { cls: 'PeakletWaveformPlugin' }) },
+    { name: 'peaklets/', kind: 'dir', cls: 'k-bundle', note: TAG.owner + ' PeakletPlugin · 算法属主', children: bundleFiles('peaklets', { cls: 'PeakletPlugin', owner: '共享', ownerNote: '~1500 行 numba 辅助 + dtype 常量' }) },
+    { name: 'position_reconstruction/', kind: 'dir', cls: 'k-bundle', note: 'PositionReconstructionPlugin', children: bundleFiles('position_reconstruction', { cls: 'PositionReconstructionPlugin' }) },
+    { name: 'raw_files/', kind: 'dir', cls: 'k-bundle', note: TAG.dup + ' RawFileNamesPlugin（合并双副本）', children: bundleFiles('raw_files', { cls: 'RawFileNamesPlugin', testNote: '← tests/plugins/ 迁入；双副本合并到此' }) },
+    { name: 'records/', kind: 'dir', cls: 'k-bundle', note: TAG.owner + ' RecordsPlugin · 算法属主', children: bundleFiles('records', { cls: 'RecordsPlugin', owner: '共享', ownerNote: '_RecordsBundlePluginBase / get_records_bundle / RecordLookup' }) },
+    { name: 'records_asymmetry_mask/', kind: 'dir', cls: 'k-bundle', note: 'RecordsAsymmetryMaskPlugin', children: bundleFiles('records_asymmetry_mask', { cls: 'RecordsAsymmetryMaskPlugin' }) },
+    { name: 'records_detector_mask/', kind: 'dir', cls: 'k-bundle', note: TAG.owner + ' RecordsDetectorMaskPlugin · 算法属主', children: bundleFiles('records_detector_mask', { cls: 'RecordsDetectorMaskPlugin', owner: '共享', ownerNote: '_RecordsChannelRoleMaskPlugin / _resolve_roles / 角色常量' }) },
+    { name: 'records_veto_mask/', kind: 'dir', cls: 'k-bundle', note: 'RecordsVetoMaskPlugin', children: bundleFiles('records_veto_mask', { cls: 'RecordsVetoMaskPlugin' }) },
+    { name: 's1_s2_pair_candidates/', kind: 'dir', cls: 'k-bundle', note: 'S1S2PairCandidatesPlugin', children: bundleFiles('s1_s2_pair_candidates', { cls: 'S1S2PairCandidatesPlugin' }) },
+    { name: 's1_s2_pairs/', kind: 'dir', cls: 'k-bundle', note: 'S1S2PairSelectionPlugin', children: bundleFiles('s1_s2_pairs', { cls: 'S1S2PairSelectionPlugin' }) },
+    { name: 'signal_peaks_stream/', kind: 'dir', cls: 'k-bundle', note: 'SignalPeaksStreamPlugin（streaming）', children: bundleFiles('signal_peaks_stream', { cls: 'SignalPeaksStreamPlugin' }) },
+    { name: 'st_waveforms/', kind: 'dir', cls: 'k-bundle', note: 'WaveformsPlugin', children: bundleFiles('st_waveforms', { cls: 'WaveformsPlugin' }) },
+    { name: 'wave_pool/', kind: 'dir', cls: 'k-bundle', note: 'WavePoolPlugin', children: bundleFiles('wave_pool', { cls: 'WavePoolPlugin' }) },
+    { name: 'wave_pool_filtered/', kind: 'dir', cls: 'k-bundle', note: 'WavePoolFilteredPlugin', children: bundleFiles('wave_pool_filtered', { cls: 'WavePoolFilteredPlugin' }) },
+    { name: 'waveform_width/', kind: 'dir', cls: 'k-bundle', note: 'WaveformWidthPlugin', children: bundleFiles('waveform_width', { cls: 'WaveformWidthPlugin' }) },
+    { name: 'waveform_width_integral/', kind: 'dir', cls: 'k-bundle', note: 'WaveformWidthIntegralPlugin', children: bundleFiles('waveform_width_integral', { cls: 'WaveformWidthIntegralPlugin' }) },
+  ]},
+];
+
+const mapping = [
+  ['raw_files','RawFileNamesPlugin','cpu/raw_files.py + cpu/waveforms.py（双副本）','builtin/raw_files/', 'conflict'],
+  ['st_waveforms','WaveformsPlugin','cpu/waveforms.py','builtin/st_waveforms/','bundle'],
+  ['filtered_waveforms','FilteredWaveformsPlugin','cpu/filtering.py','builtin/filtered_waveforms/','bundle'],
+  ['records','RecordsPlugin','cpu/records.py','builtin/records/（属主 _compute.py）','bundle'],
+  ['wave_pool','WavePoolPlugin','cpu/records.py','builtin/wave_pool/','bundle'],
+  ['wave_pool_filtered','WavePoolFilteredPlugin','cpu/records.py','builtin/wave_pool_filtered/','bundle'],
+  ['hit','HitFinderPlugin','cpu/peak_finding.py','builtin/hit/（= 家族目录）','conflict'],
+  ['hit_threshold','ThresholdHitPlugin','hit/hit_finder.py','builtin/hit_threshold/','bundle'],
+  ['hit_merged','HitMergePlugin','hit/hit_merge.py','builtin/hit_merged/（属主 _compute.py）','bundle'],
+  ['hit_merge_clusters','HitMergeClustersPlugin','hit/hit_merge.py','builtin/hit_merge_clusters/','bundle'],
+  ['hit_merged_components','HitMergedComponentsPlugin','hit/hit_merge.py','builtin/hit_merged_components/','bundle'],
+  ['hit_merged_features','HitMergedFeaturesPlugin','hit/hit_merged_features.py','builtin/hit_merged_features/','bundle'],
+  ['hit_grouped','HitGroupedPlugin','hit/hit_grouped.py','builtin/hit_grouped/','bundle'],
+  ['basic_features','BasicFeaturesPlugin','cpu/basic_features.py','builtin/basic_features/','bundle'],
+  ['waveform_width','WaveformWidthPlugin','cpu/waveform_width.py','builtin/waveform_width/','bundle'],
+  ['waveform_width_integral','WaveformWidthIntegralPlugin','cpu/waveform_width_integral.py','builtin/waveform_width_integral/','bundle'],
+  ['cache_analysis','CacheAnalysisPlugin','cpu/cache_analysis.py','builtin/cache_analysis/','bundle'],
+  ['df','DataFramePlugin','cpu/dataframe.py','builtin/df/','bundle'],
+  ['df_events','GroupedEventsPlugin','cpu/event_analysis.py','builtin/df_events/','bundle'],
+  ['df_paired','PairedEventsPlugin','cpu/event_analysis.py','builtin/df_paired/','bundle'],
+  ['peaklet_components','PeakletComponentsPlugin','peaks/peaklets.py','builtin/peaklet_components/','bundle'],
+  ['peaklets','PeakletPlugin','peaks/peaklets.py','builtin/peaklets/（属主 _compute.py）','bundle'],
+  ['peaklet_waveforms','PeakletWaveformPlugin','peaks/peaklets.py','builtin/peaklet_waveforms/','bundle'],
+  ['peaklet_waveform_pool','PeakletWaveformPoolPlugin','peaks/peaklets.py','builtin/peaklet_waveform_pool/','bundle'],
+  ['peaklet_features','PeakletFeaturesPlugin','peaks/peaklets.py','builtin/peaklet_features/','bundle'],
+  ['peaks','PeaksPlugin','peaks/peaklets.py','builtin/peaks/（= 家族目录）','conflict'],
+  ['peaklet_channels','PeakletChannelsPlugin','peaks/peaklet_channels.py','builtin/peaklet_channels/','bundle'],
+  ['peak_classification','PeakClassificationPlugin','cpu/peak_classification.py','builtin/peak_classification/','bundle'],
+  ['records_asymmetry_mask','RecordsAsymmetryMaskPlugin','cpu/records_asymmetry.py','builtin/records_asymmetry_mask/','bundle'],
+  ['records_detector_mask','RecordsDetectorMaskPlugin','cpu/records_channel_role.py','builtin/records_detector_mask/（属主 _compute.py）','bundle'],
+  ['records_veto_mask','RecordsVetoMaskPlugin','cpu/records_channel_role.py','builtin/records_veto_mask/','bundle'],
+  ['s1_s2_pair_candidates','S1S2PairCandidatesPlugin','cpu/s1_s2_pair_candidates.py','builtin/s1_s2_pair_candidates/','bundle'],
+  ['s1_s2_pairs','S1S2PairSelectionPlugin','cpu/s1_s2_pair_selection.py','builtin/s1_s2_pairs/','bundle'],
+  ['position_reconstruction','PositionReconstructionPlugin','cpu/position_reconstruction.py','builtin/position_reconstruction/','bundle'],
+  ['energy_reconstruction','EnergyReconstructionPlugin','cpu/energy_reconstruction.py','builtin/energy_reconstruction/','bundle'],
+  ['events','EventPlugin','cpu/event.py','builtin/events/','bundle'],
+  ['signal_peaks','SignalPeaksStreamPlugin','streaming/cpu/signal_peaks.py','builtin/signal_peaks_stream/','bundle'],
+  ['(弃用) s1_s2_classifier','S1S2ClassifierPlugin','cpu/s1_s2_classifier.py','保留 shim，不建 bundle','shim'],
+];
+
+// ---------- 渲染树 ----------
+const treeRoot = document.getElementById('tree');
+
+function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function renderNode(node, depth){
+  const li = document.createElement('li');
+  const row = document.createElement('div');
+  row.className = 'node ' + (node.cls || '');
+  if (node.kind === 'dir' && node.children && node.children.length) {
+    row.dataset.dir = '1';
+  }
+  // caret / toggle
+  const caret = document.createElement('span');
+  caret.className = 'caret';
+  if (node.kind === 'dir') {
+    caret.textContent = '▾';
+    if (node.children && node.children.length) {
+      caret.classList.add('toggle');
+      caret.dataset.toggle = '1';
+    }
+  } else {
+    caret.textContent = '';
+  }
+  row.appendChild(caret);
+
+  const name = document.createElement('span');
+  name.className = 'name';
+  name.textContent = node.name;
+  row.appendChild(name);
+
+  if (node.note) {
+    const note = document.createElement('span');
+    note.className = 'note';
+    note.innerHTML = '&nbsp;· ' + node.note;
+    row.appendChild(note);
+  }
+
+  li.appendChild(row);
+
+  if (node.kind === 'dir' && node.children && node.children.length) {
+    const ul = document.createElement('ul');
+    node.children.forEach(c => ul.appendChild(renderNode(c, depth+1)));
+    li.appendChild(ul);
+  }
+  return li;
+}
+
+tree.forEach(n => treeRoot.appendChild(renderNode(n, 0)));
+
+// toggle
+document.addEventListener('click', function(e){
+  const t = e.target.closest('.toggle');
+  if (!t) return;
+  const ul = t.closest('li').querySelector(':scope > ul');
+  if (!ul) return;
+  const collapsed = ul.classList.toggle('hidden');
+  t.textContent = collapsed ? '▸' : '▾';
+});
+
+// buttons
+document.getElementById('expand-all').addEventListener('click', () => setAll(false));
+document.getElementById('collapse-all').addEventListener('click', () => setAll(true));
+function setAll(collapse){
+  document.querySelectorAll('#tree ul').forEach(ul => {
+    ul.classList.toggle('hidden', collapse);
+  });
+  document.querySelectorAll('#tree .toggle').forEach(t => { t.textContent = collapse ? '▸' : '▾'; });
+}
+
+// only bundles: collapse shim/shared subtrees
+document.getElementById('only-bundles').addEventListener('click', () => {
+  setAll(false);
+  document.querySelectorAll('#tree li').forEach(li => {
+    const row = li.querySelector(':scope > .node');
+    if (!row) return;
+    if (row.classList.contains('k-shim') || row.classList.contains('k-shared')) {
+      const ul = li.querySelector(':scope > ul');
+      if (ul) ul.classList.add('hidden');
+    }
+  });
+});
+
+// filter
+const filterInput = document.getElementById('filter');
+filterInput.addEventListener('input', () => {
+  const q = filterInput.value.trim().toLowerCase();
+  walk(document.getElementById('tree'));
+  function walk(node){
+    const children = Array.from(node.children);
+    children.forEach(child => {
+      walk(child);
+    });
+    if (node.tagName === 'LI'){
+      const text = (node.textContent||'').toLowerCase();
+      const isMatch = q === '' || text.includes(q);
+      node.style.display = isMatch ? '' : 'none';
+      // highlight matched name
+      node.querySelectorAll('.name').forEach(n => n.classList.toggle('hl', q !== '' && (n.textContent||'').toLowerCase().includes(q)));
+      // keep parent chain visible: if node matches, show ancestors
+      if (isMatch && q !== ''){
+        let p = node.parentElement;
+        while(p && p !== document.getElementById('tree')){
+          if (p.tagName === 'UL'){ p.classList.remove('hidden'); }
+          if (p.tagName === 'LI'){ p.style.display = ''; }
+          p = p.parentElement;
+        }
+      }
+    }
+  }
+});
+
+// ---------- 渲染映射表 ----------
+const tbody = document.querySelector('#map tbody');
+mapping.forEach(m => {
+  const tr = document.createElement('tr');
+  const cls = m[4] || 'bundle';
+  tr.innerHTML =
+    '<td><code>' + escapeHtml(m[0]) + '</code></td>' +
+    '<td>' + escapeHtml(m[1]) + '</td>' +
+    '<td class="m">' + escapeHtml(m[2]) + '</td>' +
+    '<td class="g-' + cls + '">' + escapeHtml(m[3]) + '</td>';
+  tbody.appendChild(tr);
+});
+</script>
+</body>
+</html>

@@ -197,7 +197,7 @@ def test_peaklets_consume_peaklet_components_without_reclustering(monkeypatch):
         raise AssertionError("peaklets should consume peaklet_components")
 
     monkeypatch.setattr(
-        "waveform_analysis.core.plugins.builtin.peaks.peaklets._cluster_merged_hits",
+        "waveform_analysis.core.plugins.builtin.peaklets._compute._cluster_merged_hits",
         fail_if_called,
     )
 

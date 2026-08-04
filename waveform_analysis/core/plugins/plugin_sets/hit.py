@@ -28,13 +28,15 @@ def plugins_hit():
         RecordsVetoMaskPlugin,
     )
     from waveform_analysis.core.plugins.builtin.hit.hit_finder import ThresholdHitPlugin
-    from waveform_analysis.core.plugins.builtin.hit.hit_merge import (
-        HitMergeClustersPlugin,
-        HitMergedComponentsPlugin,
-        HitMergePlugin,
-    )
     from waveform_analysis.core.plugins.builtin.hit.hit_merged_features import (
         HitMergedFeaturesPlugin,
+    )
+    from waveform_analysis.core.plugins.builtin.hit_merge_clusters import (
+        HitMergeClustersPlugin,
+    )
+    from waveform_analysis.core.plugins.builtin.hit_merged import HitMergePlugin
+    from waveform_analysis.core.plugins.builtin.hit_merged_components import (
+        HitMergedComponentsPlugin,
     )
 
     return [

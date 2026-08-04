@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
 
-from tests.plugins.test_peaklets_plugin import make_peaklet_context
 from tests.utils import DummyContext, make_hit, make_records
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
@@ -15,6 +14,9 @@ from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_
 from waveform_analysis.core.plugins.builtin.hit.hit_merge import (
     HIT_MERGED_COMPONENTS_DTYPE,
     HIT_MERGED_DTYPE,
+)
+from waveform_analysis.core.plugins.builtin.peaklets.tests.test_peaklets import (
+    make_peaklet_context,
 )
 from waveform_analysis.core.plugins.builtin.peaks.peaklets import (
     PEAKLET_COMPONENTS_DTYPE,

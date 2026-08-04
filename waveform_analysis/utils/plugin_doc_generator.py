@@ -176,7 +176,6 @@ class PluginDocumentationView:
     version: str  # 版本
     description: str  # 描述
     category: str  # 类别 (data_loading, features, events...)
-    accelerator: str  # 加速器 (cpu, jax, streaming)
     depends_on: list[str] = field(default_factory=list)  # 依赖列表
     config_options: list[ConfigOptionInfo] = field(default_factory=list)  # 配置选项
     output_fields: list[OutputFieldInfo] = field(default_factory=list)  # 输出字段
@@ -215,14 +214,12 @@ class PluginDocumentationView:
         return CATEGORY_DISPLAY_NAMES.get(self.category, self.category)
 
     @property
-    def accelerator_display(self) -> str:
-        """获取加速器显示名称"""
-        mapping = {
-            "cpu": "CPU (NumPy/SciPy)",
-            "jax": "JAX (GPU)",
-            "streaming": "Streaming",
-        }
-        return mapping.get(self.accelerator, self.accelerator)
+    def module_import_path(self) -> str:
+        """模块路径，去掉尾部 '.plugin' 段，用于生成 import 语句。"""
+        parts = self.module_path.split(".")
+        if parts and parts[-1] == "plugin":
+            return ".".join(parts[:-1])
+        return self.module_path
 
     @property
     def summary(self) -> str:
@@ -459,9 +456,6 @@ class PluginDocGenerator:
         # 检测类别
         category = self._detect_category(provides, name)
 
-        # 检测加速器
-        accelerator = self._detect_accelerator(plugin_class)
-
         # 依赖
         depends_on = list(getattr(plugin, "depends_on", []))
 
@@ -512,7 +506,6 @@ class PluginDocGenerator:
             version=version,
             description=description,
             category=category,
-            accelerator=accelerator,
             depends_on=depends_on,
             config_options=config_options,
             output_fields=output_fields,
@@ -842,24 +835,6 @@ class PluginDocGenerator:
                     return category
 
         return "other"
-
-    def _detect_accelerator(self, plugin_class: type) -> str:
-        """检测插件加速器类型
-
-        Args:
-            plugin_class: 插件类
-
-        Returns:
-            加速器类型 (cpu, jax, streaming)
-        """
-        module = plugin_class.__module__
-
-        if ".streaming." in module or ".streaming" in module:
-            return "streaming"
-        elif ".jax." in module or ".jax" in module:
-            return "jax"
-        else:
-            return "cpu"
 
     def _extract_config_options(self, plugin: Any) -> list[ConfigOptionInfo]:
         """提取配置选项信息

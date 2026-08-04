@@ -197,15 +197,6 @@ class TestPluginDocGenerator:
         assert generator._detect_category("peaklet_features", "PeakletFeaturesPlugin") == "peaks"
         assert generator._detect_category("peaklet_channels", "PeakletChannelsPlugin") == "peaks"
 
-    def test_accelerator_detection(self):
-        """测试加速器检测"""
-        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
-
-        generator = PluginDocGenerator()
-
-        # CPU 插件
-        assert generator._detect_accelerator(MockPlugin) == "cpu"
-
     def test_render_plugin_page(self):
         """测试渲染插件页面"""
         from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
