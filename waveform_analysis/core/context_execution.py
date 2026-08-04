@@ -506,29 +506,38 @@ class ContextExecutionDomain:
 
         max_workers = self.ctx.config.get("max_parallel_workers", 2)
 
-        for layer in layers:
-            # 过滤出需要执行的插件
-            layer_needed = [name for name in layer if name in needed_set]
+        # 复用同一个线程池跨所有层，避免每层重建线程带来的开销。
+        executor = ThreadPoolExecutor(max_workers=max_workers)
+        failed = False
+        try:
+            for layer in layers:
+                # 过滤出需要执行的插件
+                layer_needed = [name for name in layer if name in needed_set]
 
-            if not layer_needed:
-                # 当前层全部是缓存命中，跳过
-                for name in layer:
-                    if name in plan and name not in needed_set:
-                        key = self.ctx.key_for(run_id, name)
-                        self.ctx._cache_manager.check_cache(run_id, name, key)
-                        if tracker and bar_name:
-                            tracker.update(bar_name, n=1)
-                continue
+                if not layer_needed:
+                    # 当前层全部是缓存命中，跳过
+                    for name in layer:
+                        if name in plan and name not in needed_set:
+                            key = self.ctx.key_for(run_id, name)
+                            self.ctx._cache_manager.check_cache(run_id, name, key)
+                            if tracker and bar_name:
+                                tracker.update(bar_name, n=1)
+                    continue
 
-            if len(layer_needed) == 1:
-                # 当前层只有一个插件，串行执行
-                for name in layer_needed:
-                    self.ctx._execute_single_plugin(
-                        name, run_id, data_name, kwargs, tracker, bar_name, skip_cache_check=True
-                    )
-            else:
-                # 当前层有多个插件，并行执行
-                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                if len(layer_needed) == 1:
+                    # 当前层只有一个插件，串行执行
+                    for name in layer_needed:
+                        self.ctx._execute_single_plugin(
+                            name,
+                            run_id,
+                            data_name,
+                            kwargs,
+                            tracker,
+                            bar_name,
+                            skip_cache_check=True,
+                        )
+                else:
+                    # 当前层有多个插件，并行执行
                     futures = {}
                     for name in layer_needed:
                         future = executor.submit(
@@ -552,14 +561,18 @@ class ContextExecutionDomain:
                             for f in futures:
                                 if not f.done():
                                     f.cancel()
+                            failed = True
                             raise RuntimeError(
                                 f"Parallel execution failed for plugin '{name}': {e}"
                             ) from e
 
-            # 层内节点互不依赖；下游必在更后层。层执行完后在单线程里级联失效下游，
-            # 避免并发修改共享缓存字典。
-            for name in layer_needed:
-                self._invalidate_downstream_caches(name, run_id, needed_set)
+                # 层内节点互不依赖；下游必在更后层。层执行完后在单线程里级联失效下游，
+                # 避免并发修改共享缓存字典。
+                for name in layer_needed:
+                    self._invalidate_downstream_caches(name, run_id, needed_set)
+        finally:
+            # 出错时取消未开始任务并不阻塞等待；正常路径等所有任务完成。
+            executor.shutdown(wait=not failed, cancel_futures=failed)
 
     def _execute_plugin_safe(
         self,

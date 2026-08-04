@@ -1218,28 +1218,27 @@ class Context:
                 key = self.key_for(run_id, name)  # Contains lineage hash
                 self._results_lineage[(run_id, name)] = key
 
-            is_generator = isinstance(value, Iterator | OneTimeGenerator) or hasattr(
-                value, "__next__"
+        # Attribute assignment / warning logic doesn't touch shared dicts; keep it
+        # out of the lock to shorten hold time (key_for stays locked for cache dicts).
+        is_generator = isinstance(value, Iterator | OneTimeGenerator) or hasattr(value, "__next__")
+        if not re.match(r"^[a-zA-Z_]\w*$", name):
+            return
+
+        # Check if it's a property on the class
+        cls_attr = getattr(self.__class__, name, None)
+        is_prop = isinstance(cls_attr, property)
+
+        if name in self._RESERVED_NAMES or (hasattr(self.__class__, name) and not is_prop):
+            warnings.warn(
+                f"Data name '{name}' conflicts with a Context method or reserved attribute. "
+                f"Access it via context.get_data(run_id, '{name}') or context._results[(run_id, '{name}')].",
+                UserWarning,
             )
-
-            # Safe attribute access: whitelist and conflict check
-            # Whitelist: valid python identifier
-            if re.match(r"^[a-zA-Z_]\w*$", name):
-                # Check if it's a property on the class
-                cls_attr = getattr(self.__class__, name, None)
-                is_prop = isinstance(cls_attr, property)
-
-                if name in self._RESERVED_NAMES or (hasattr(self.__class__, name) and not is_prop):
-                    warnings.warn(
-                        f"Data name '{name}' conflicts with a Context method or reserved attribute. "
-                        f"Access it via context.get_data(run_id, '{name}') or context._results[(run_id, '{name}')].",
-                        UserWarning,
-                    )
-                elif not is_prop and not is_generator:
-                    # Note: This overwrites the attribute for different runs.
-                    # It's kept for convenience in interactive use.
-                    # We don't set it if it's a property, as the property handles access.
-                    setattr(self, name, value)
+        elif not is_prop and not is_generator:
+            # Note: This overwrites the attribute for different runs.
+            # It's kept for convenience in interactive use.
+            # We don't set it if it's a property, as the property handles access.
+            setattr(self, name, value)
 
     def _get_data_from_memory(self, run_id: str, name: str) -> Any:
         """Internal helper to get data from _results or attributes."""
