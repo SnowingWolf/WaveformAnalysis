@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "agent"
 provides: "hit_merged"
 plugin_class: "HitMergePlugin"
-module: "waveform_analysis.core.plugins.builtin.hit.hit_merge"
+module: "waveform_analysis.core.plugins.builtin.hit_merged.plugin"
 version: "2.1.0"
 summary: "Merge nearby threshold hits per channel with time-gap and max-width constraints."
 depends_on: ["hit_threshold"]
@@ -28,10 +28,9 @@ HitMergePlugin 是波形分析中最核心的后处理插件之一，负责将 h
 | --- | --- |
 | Provides | `hit_merged` |
 | Plugin Class | `HitMergePlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.hit.hit_merge` |
+| Module | `waveform_analysis.core.plugins.builtin.hit_merged.plugin` |
 | Version | `2.1.0` |
 | Category | 特征提取 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -39,12 +38,12 @@ HitMergePlugin 是波形分析中最核心的后处理插件之一，负责将 h
 | `hit_threshold` | - | declared | - | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. |
 ### How It Works
 
-1. 识别可合并的片段：`hit_threshold` 中的每一行都是一个过阈信号片段；插件判断哪些相邻片段应视为同一次通道响应。
-2. 保持通道与采样刻度一致：只合并同一 `(board, channel)` 的片段；采样间隔不同的片段始终分开，避免把不同时间刻度的信号混在一起。
-3. 按时间连接相邻片段：两个片段之间的空档不超过 `merge_gap_ns` 时，可以接入同一个合并窗口。将 `merge_gap_ns` 设为 `<= 0` 会关闭合并。
-4. 限制链式合并的总时长：即使每一对相邻片段都很接近，只要合并后的完整窗口超过 `max_total_width_ns`，后续片段仍会从新的 `hit_merged` 开始。
-5. 选择代表 hit：一个合并窗口包含多个片段时，选取最接近窗口时间中心的原始 hit，继承它的 position、timestamp、channel 和 record_id。
-6. 记录窗口与成员关系：输出保存合并后的时间范围及成员索引；若成员跨越多个 record，则没有唯一的 sample 窗口，`sample_start`、`sample_end` 和 `width` 会标记为无效值。
+1. **识别可合并片段**：`hit_threshold` 中的每一行都是一个过阈信号片段，插件判断哪些相邻片段应视为同一次通道响应。
+2. **保持通道与采样刻度一致**：只合并同一 `(board, channel)` 的片段；采样间隔不同的片段始终分开，避免把不同时间刻度的信号混在一起。
+3. **按时间连接相邻片段**：两个片段之间的空档不超过 `merge_gap_ns` 时，可以接入同一个合并窗口。将 `merge_gap_ns` 设为 `<= 0` 会关闭合并。
+4. **限制链式合并的总时长**：即使每一对相邻片段都很接近，只要合并后的完整窗口超过 `max_total_width_ns`，后续片段仍会从新的 `hit_merged` 开始。
+5. **选择代表 hit**：一个合并窗口包含多个片段时，选取最接近窗口时间中心的原始 hit，继承它的 position、timestamp、channel 和 record_id。
+6. **记录窗口与成员关系**：输出保存合并后的时间范围及成员索引；若成员跨越多个 record，则没有唯一的 sample 窗口，`sample_start`、`sample_end` 和 `width` 会标记为无效值。
 
 ## Configuration
 
@@ -80,7 +79,7 @@ structured_array output with fields: merged_id, position, time_start, time_end, 
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import HitMergePlugin
+from waveform_analysis.core.plugins.builtin.hit_merged import HitMergePlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(HitMergePlugin())

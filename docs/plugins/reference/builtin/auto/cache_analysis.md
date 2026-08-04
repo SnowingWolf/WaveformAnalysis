@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "cache_analysis"
 plugin_class: "CacheAnalysisPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.cache_analysis"
+module: "waveform_analysis.core.plugins.builtin.cache_analysis.plugin"
 version: "0.1.0"
 summary: "Analyze cache usage and return summary, entries, and diagnostics."
 depends_on: []
@@ -22,10 +22,9 @@ Analyze cache usage and return a structured report.
 | --- | --- |
 | Provides | `cache_analysis` |
 | Plugin Class | `CacheAnalysisPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.cache_analysis` |
+| Module | `waveform_analysis.core.plugins.builtin.cache_analysis.plugin` |
 | Version | `0.1.0` |
 | Category | 缓存分析 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `dict` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -66,7 +65,7 @@ Cache summary, entries, and diagnostics.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import CacheAnalysisPlugin
+from waveform_analysis.core.plugins.builtin.cache_analysis import CacheAnalysisPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(CacheAnalysisPlugin())

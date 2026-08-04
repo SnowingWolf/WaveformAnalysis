@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "hit_merged_components"
 plugin_class: "HitMergedComponentsPlugin"
-module: "waveform_analysis.core.plugins.builtin.hit.hit_merge"
+module: "waveform_analysis.core.plugins.builtin.hit_merged_components.plugin"
 version: "1.1.0"
 summary: "Return per-cluster component hit indices for hit_merged rows."
 depends_on: ["hit_merged", "hit_threshold"]
@@ -22,10 +22,9 @@ Return flat component hit indices for each hit_merged cluster.
 | --- | --- |
 | Provides | `hit_merged_components` |
 | Plugin Class | `HitMergedComponentsPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.hit.hit_merge` |
+| Module | `waveform_analysis.core.plugins.builtin.hit_merged_components.plugin` |
 | Version | `1.1.0` |
 | Category | 特征提取 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -54,7 +53,7 @@ structured_array output with fields: merged_index, hit_index.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import HitMergedComponentsPlugin
+from waveform_analysis.core.plugins.builtin.hit_merged_components import HitMergedComponentsPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(HitMergedComponentsPlugin())

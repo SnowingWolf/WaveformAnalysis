@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "peaklet_waveforms"
 plugin_class: "PeakletWaveformPlugin"
-module: "waveform_analysis.core.plugins.builtin.peaks.peaklets"
+module: "waveform_analysis.core.plugins.builtin.peaklet_waveforms.plugin"
 version: "1.4.0"
 summary: "Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion."
 depends_on: []
@@ -22,10 +22,9 @@ Build ragged waveform index rows for peaklets and cache the signal pool.
 | --- | --- |
 | Provides | `peaklet_waveforms` |
 | Plugin Class | `PeakletWaveformPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
+| Module | `waveform_analysis.core.plugins.builtin.peaklet_waveforms.plugin` |
 | Version | `1.4.0` |
 | Category | 峰构建 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -62,7 +61,7 @@ structured_array output with fields: peak_id, time_start, time_end, dt, wave_off
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import PeakletWaveformPlugin
+from waveform_analysis.core.plugins.builtin.peaklet_waveforms import PeakletWaveformPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PeakletWaveformPlugin())

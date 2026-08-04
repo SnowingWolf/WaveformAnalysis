@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "df"
 plugin_class: "DataFramePlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.dataframe"
+module: "waveform_analysis.core.plugins.builtin.df.plugin"
 version: "1.7.0"
 summary: "Build the initial single-channel events DataFrame."
 depends_on: []
@@ -22,10 +22,9 @@ Plugin to build the initial single-channel events DataFrame.
 | --- | --- |
 | Provides | `df` |
 | Plugin Class | `DataFramePlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.dataframe` |
+| Module | `waveform_analysis.core.plugins.builtin.df.plugin` |
 | Version | `1.7.0` |
 | Category | 数据导出 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `dataframe` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -56,7 +55,7 @@ Single-channel event table.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import DataFramePlugin
+from waveform_analysis.core.plugins.builtin.df import DataFramePlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(DataFramePlugin())

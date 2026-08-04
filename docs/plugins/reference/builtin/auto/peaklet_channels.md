@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "peaklet_channels"
 plugin_class: "PeakletChannelsPlugin"
-module: "waveform_analysis.core.plugins.builtin.peaks.peaklet_channels"
+module: "waveform_analysis.core.plugins.builtin.peaklet_channels.plugin"
 version: "1.0.1"
 summary: "Aggregate hit_merged_features into per-peaklet channel contribution rows."
 depends_on: ["peaklets", "peaklet_components", "hit_merged_features", "peaklet_features"]
@@ -22,10 +22,9 @@ Expand peaklets into per-board/channel contribution rows.
 | --- | --- |
 | Provides | `peaklet_channels` |
 | Plugin Class | `PeakletChannelsPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.peaks.peaklet_channels` |
+| Module | `waveform_analysis.core.plugins.builtin.peaklet_channels.plugin` |
 | Version | `1.0.1` |
 | Category | 峰构建 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -61,7 +60,7 @@ structured_array output with fields: peaklet_id, board, channel, area, height, n
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import PeakletChannelsPlugin
+from waveform_analysis.core.plugins.builtin.peaklet_channels import PeakletChannelsPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PeakletChannelsPlugin())

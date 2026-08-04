@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "hit_merged_features"
 plugin_class: "HitMergedFeaturesPlugin"
-module: "waveform_analysis.core.plugins.builtin.hit.hit_merged_features"
+module: "waveform_analysis.core.plugins.builtin.hit_merged_features.plugin"
 version: "0.5.1"
 summary: "Compute per-hit_merged local waveform features from records-backed samples."
 depends_on: []
@@ -22,10 +22,9 @@ Compute local single-channel waveform features for every hit_merged row.
 | --- | --- |
 | Provides | `hit_merged_features` |
 | Plugin Class | `HitMergedFeaturesPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.hit.hit_merged_features` |
+| Module | `waveform_analysis.core.plugins.builtin.hit_merged_features.plugin` |
 | Version | `0.5.1` |
 | Category | 特征提取 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -73,7 +72,7 @@ structured_array output with fields: merged_index, board, channel, record_id, ti
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import HitMergedFeaturesPlugin
+from waveform_analysis.core.plugins.builtin.hit_merged_features import HitMergedFeaturesPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(HitMergedFeaturesPlugin())

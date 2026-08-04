@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "filtered_waveforms"
 plugin_class: "FilteredWaveformsPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.filtering"
+module: "waveform_analysis.core.plugins.builtin.filtered_waveforms.plugin"
 version: "3.0.0"
 summary: "Apply filtering to waveforms using Butterworth or Savitzky-Golay filters."
 depends_on: ["st_waveforms"]
@@ -26,10 +26,9 @@ FilteredWaveformsPlugin 对 `st_waveforms` 中每个事件的波形应用数字�
 | --- | --- |
 | Provides | `filtered_waveforms` |
 | Plugin Class | `FilteredWaveformsPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.filtering` |
+| Module | `waveform_analysis.core.plugins.builtin.filtered_waveforms.plugin` |
 | Version | `3.0.0` |
 | Category | 波形处理 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -80,7 +79,7 @@ structured_array output with fields: baseline, baseline_upstream, polarity, time
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import FilteredWaveformsPlugin
+from waveform_analysis.core.plugins.builtin.filtered_waveforms import FilteredWaveformsPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(FilteredWaveformsPlugin())

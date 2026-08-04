@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "events"
 plugin_class: "EventPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.event"
+module: "waveform_analysis.core.plugins.builtin.events.plugin"
 version: "0.0.3"
 summary: "Complete event reconstruction from S1-S2 pairs and position"
 depends_on: ["s1_s2_pairs", "position_reconstruction"]
@@ -22,10 +22,9 @@ Complete event reconstruction from S1-S2 pairs and position
 | --- | --- |
 | Provides | `events` |
 | Plugin Class | `EventPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.event` |
+| Module | `waveform_analysis.core.plugins.builtin.events.plugin` |
 | Version | `0.0.3` |
 | Category | 事件分析 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -82,7 +81,7 @@ structured_array output with fields: event_id, event_number, run_id, pair_id, s1
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import EventPlugin
+from waveform_analysis.core.plugins.builtin.events import EventPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(EventPlugin())

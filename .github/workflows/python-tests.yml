@@ -26,6 +26,8 @@ jobs:
         run: ruff check .
       - name: Black
         run: black --check .
+      - name: Check plugin deps (bundle + shim consistency)
+        run: python scripts/check_plugin_deps.py
       # 快速层：继承 pyproject addopts，自动排除 slow（-m 'not slow'）
       - name: Pytest (fast)
         run: pytest

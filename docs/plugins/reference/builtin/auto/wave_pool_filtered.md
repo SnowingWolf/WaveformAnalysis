@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "wave_pool_filtered"
 plugin_class: "WavePoolFilteredPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.records"
+module: "waveform_analysis.core.plugins.builtin.wave_pool_filtered.plugin"
 version: "3.0.0"
 summary: "Build filtered wave_pool from records-backed raw waveforms."
 depends_on: ["records", "wave_pool"]
@@ -22,10 +22,9 @@ Build a filtered wave_pool aligned to the existing records layout.
 | --- | --- |
 | Provides | `wave_pool_filtered` |
 | Plugin Class | `WavePoolFilteredPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.records` |
+| Module | `waveform_analysis.core.plugins.builtin.wave_pool_filtered.plugin` |
 | Version | `3.0.0` |
 | Category | 波形处理 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -62,7 +61,7 @@ array output with fields: value.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import WavePoolFilteredPlugin
+from waveform_analysis.core.plugins.builtin.wave_pool_filtered import WavePoolFilteredPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(WavePoolFilteredPlugin())

@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "waveform_width"
 plugin_class: "WaveformWidthPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.waveform_width"
+module: "waveform_analysis.core.plugins.builtin.waveform_width.plugin"
 version: "3.0.0"
 summary: "Calculate rise/fall time based on peak detection results."
 depends_on: []
@@ -22,10 +22,9 @@ Calculate rise/fall time based on peak detection results.
 | --- | --- |
 | Provides | `waveform_width` |
 | Plugin Class | `WaveformWidthPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.waveform_width` |
+| Module | `waveform_analysis.core.plugins.builtin.waveform_width.plugin` |
 | Version | `3.0.0` |
 | Category | 波形处理 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -71,7 +70,7 @@ structured_array output with fields: rise_time, fall_time, total_width, rise_tim
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import WaveformWidthPlugin
+from waveform_analysis.core.plugins.builtin.waveform_width import WaveformWidthPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(WaveformWidthPlugin())

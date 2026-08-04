@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "position_reconstruction"
 plugin_class: "PositionReconstructionPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.position_reconstruction"
+module: "waveform_analysis.core.plugins.builtin.position_reconstruction.plugin"
 version: "0.2.1"
 summary: "Reconstruct 3D position from S1-S2 pairs using vectorized CoG method"
 depends_on: ["s1_s2_pairs"]
@@ -22,10 +22,9 @@ Reconstruct 3D position from S1-S2 pairs using vectorized CoG method
 | --- | --- |
 | Provides | `position_reconstruction` |
 | Plugin Class | `PositionReconstructionPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.position_reconstruction` |
+| Module | `waveform_analysis.core.plugins.builtin.position_reconstruction.plugin` |
 | Version | `0.2.1` |
 | Category | 其他 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -78,7 +77,7 @@ structured_array output with fields: event_id, pair_id, s1_peak_id, s2_peak_id, 
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import PositionReconstructionPlugin
+from waveform_analysis.core.plugins.builtin.position_reconstruction import PositionReconstructionPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PositionReconstructionPlugin())

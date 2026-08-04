@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "hit_grouped"
 plugin_class: "HitGroupedPlugin"
-module: "waveform_analysis.core.plugins.builtin.hit.hit_grouped"
+module: "waveform_analysis.core.plugins.builtin.hit_grouped.plugin"
 version: "0.5.0"
 summary: "Group merged hits across channels into event-level coincidence windows."
 depends_on: ["hit_merged", "hit_merged_components", "hit_threshold"]
@@ -22,10 +22,9 @@ Plugin to group merged hits across channels using absolute hit windows.
 | --- | --- |
 | Provides | `hit_grouped` |
 | Plugin Class | `HitGroupedPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.hit.hit_grouped` |
+| Module | `waveform_analysis.core.plugins.builtin.hit_grouped.plugin` |
 | Version | `0.5.0` |
 | Category | 特征提取 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `dataframe` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -55,7 +54,7 @@ Grouped hit coincidence table.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import HitGroupedPlugin
+from waveform_analysis.core.plugins.builtin.hit_grouped import HitGroupedPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(HitGroupedPlugin())

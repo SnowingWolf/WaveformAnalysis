@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "hit"
 plugin_class: "HitFinderPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.peak_finding"
+module: "waveform_analysis.core.plugins.builtin.hit.plugin"
 version: "3.0.0"
 summary: "Detect peaks in waveforms and extract peak features."
 depends_on: []
@@ -22,10 +22,9 @@ Detect peaks in waveforms and extract peak features.
 | --- | --- |
 | Provides | `hit` |
 | Plugin Class | `HitFinderPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.peak_finding` |
+| Module | `waveform_analysis.core.plugins.builtin.hit.plugin` |
 | Version | `3.0.0` |
 | Category | 特征提取 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -77,7 +76,7 @@ structured_array output with fields: position, height, integral, edge_start, edg
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import HitFinderPlugin
+from waveform_analysis.core.plugins.builtin.hit import HitFinderPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(HitFinderPlugin())

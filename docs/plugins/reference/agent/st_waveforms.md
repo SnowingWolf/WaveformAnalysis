@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "agent"
 provides: "st_waveforms"
 plugin_class: "WaveformsPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.waveforms"
+module: "waveform_analysis.core.plugins.builtin.st_waveforms.plugin"
 version: "0.10.0"
 summary: "Extract waveforms from raw CSV files and structure them into NumPy structured arrays."
 depends_on: []
@@ -22,10 +22,9 @@ Plugin to extract and structure waveforms from raw files.
 | --- | --- |
 | Provides | `st_waveforms` |
 | Plugin Class | `WaveformsPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.waveforms` |
+| Module | `waveform_analysis.core.plugins.builtin.st_waveforms.plugin` |
 | Version | `0.10.0` |
 | Category | 波形处理 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -73,7 +72,7 @@ structured_array output with fields: baseline, baseline_upstream, polarity, time
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import WaveformsPlugin
+from waveform_analysis.core.plugins.builtin.st_waveforms import WaveformsPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(WaveformsPlugin())

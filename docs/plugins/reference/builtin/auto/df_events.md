@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "df_events"
 plugin_class: "GroupedEventsPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.event_analysis"
+module: "waveform_analysis.core.plugins.builtin.df_events.plugin"
 version: "0.0.1"
 summary: "Group events across channels within a configurable time window."
 depends_on: ["df"]
@@ -22,10 +22,9 @@ Plugin to group events by time window.
 | --- | --- |
 | Provides | `df_events` |
 | Plugin Class | `GroupedEventsPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.event_analysis` |
+| Module | `waveform_analysis.core.plugins.builtin.df_events.plugin` |
 | Version | `0.0.1` |
 | Category | 事件分析 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `dataframe` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -54,7 +53,7 @@ Grouped multi-channel event table.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import GroupedEventsPlugin
+from waveform_analysis.core.plugins.builtin.df_events import GroupedEventsPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(GroupedEventsPlugin())

@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "agent"
 provides: "peaklet_components"
 plugin_class: "PeakletComponentsPlugin"
-module: "waveform_analysis.core.plugins.builtin.peaks.peaklets"
+module: "waveform_analysis.core.plugins.builtin.peaklet_components.plugin"
 version: "1.4.0"
 summary: "Return per-peaklet component hit_merged indices."
 depends_on: ["hit_merged"]
@@ -22,10 +22,9 @@ Return flat peaklet-to-hit_merged membership rows.
 | --- | --- |
 | Provides | `peaklet_components` |
 | Plugin Class | `PeakletComponentsPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
+| Module | `waveform_analysis.core.plugins.builtin.peaklet_components.plugin` |
 | Version | `1.4.0` |
 | Category | 峰构建 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -55,7 +54,7 @@ structured_array output with fields: peak_id, merged_index.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import PeakletComponentsPlugin
+from waveform_analysis.core.plugins.builtin.peaklet_components import PeakletComponentsPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PeakletComponentsPlugin())

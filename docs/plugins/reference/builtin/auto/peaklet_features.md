@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "peaklet_features"
 plugin_class: "PeakletFeaturesPlugin"
-module: "waveform_analysis.core.plugins.builtin.peaks.peaklets"
+module: "waveform_analysis.core.plugins.builtin.peaklet_features.plugin"
 version: "4.1.0"
 summary: "Compute peaklet waveform features from ragged signal pools."
 depends_on: ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
@@ -22,10 +22,9 @@ Compute waveform-derived features from ragged peaklet waveforms.
 | --- | --- |
 | Provides | `peaklet_features` |
 | Plugin Class | `PeakletFeaturesPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
+| Module | `waveform_analysis.core.plugins.builtin.peaklet_features.plugin` |
 | Version | `4.1.0` |
 | Category | 峰构建 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -66,7 +65,7 @@ structured_array output with fields: peak_id, time_start, time_end, time_peak, c
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import PeakletFeaturesPlugin
+from waveform_analysis.core.plugins.builtin.peaklet_features import PeakletFeaturesPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PeakletFeaturesPlugin())

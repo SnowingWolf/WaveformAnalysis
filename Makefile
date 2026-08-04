@@ -1,5 +1,6 @@
 # Add project-level Makefile commands here
-.PHONY: dev test lint fmt clean test-core test-records test-stw test-plugins bench check-docs check-docs-sync
+.PHONY: dev test lint fmt clean test-core test-records test-stw test-plugins bench check-docs check-docs-sync \
+	check-plugin-deps test-bundles docs-bundles
 
 dev:
 	pip install -e ".[dev]"
@@ -38,3 +39,12 @@ check-docs:
 
 check-docs-sync:
 	@python scripts/check_doc_anchors.py --check-sync --base origin/main || [ $$? -eq 2 ]
+
+check-plugin-deps:
+	python scripts/check_plugin_deps.py
+
+test-bundles:
+	pytest -q waveform_analysis/core/plugins/builtin
+
+docs-bundles:
+	python -m waveform_analysis.utils.cli_docs generate plugins-agent -o docs/plugins/reference/agent/

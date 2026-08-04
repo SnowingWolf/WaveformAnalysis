@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "records"
 plugin_class: "RecordsPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.records"
+module: "waveform_analysis.core.plugins.builtin.records.plugin"
 version: "0.14.2"
 summary: "Build records (event index table) from the shared internal records bundle."
 depends_on: []
@@ -26,10 +26,9 @@ records 是绝大多数 records-backed 产物的源头：波形池的切片访�
 | --- | --- |
 | Provides | `records` |
 | Plugin Class | `RecordsPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.records` |
+| Module | `waveform_analysis.core.plugins.builtin.records.plugin` |
 | Version | `0.14.2` |
 | Category | 记录处理 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -85,7 +84,7 @@ structured_array output with fields: timestamp, pid, board, channel, baseline, b
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import RecordsPlugin
+from waveform_analysis.core.plugins.builtin.records import RecordsPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(RecordsPlugin())

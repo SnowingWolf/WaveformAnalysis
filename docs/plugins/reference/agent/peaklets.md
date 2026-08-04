@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "agent"
 provides: "peaklets"
 plugin_class: "PeakletPlugin"
-module: "waveform_analysis.core.plugins.builtin.peaks.peaklets"
+module: "waveform_analysis.core.plugins.builtin.peaklets.plugin"
 version: "1.2.0"
 summary: "Build lightweight cross-channel peaklets from hit_merged intervals."
 depends_on: ["hit_merged", "peaklet_components"]
@@ -26,10 +26,9 @@ PeakletPlugin 负责在 hit_merged 与 peaklet_components 之上构建轻量级�
 | --- | --- |
 | Provides | `peaklets` |
 | Plugin Class | `PeakletPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
+| Module | `waveform_analysis.core.plugins.builtin.peaklets.plugin` |
 | Version | `1.2.0` |
 | Category | 峰构建 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -71,7 +70,7 @@ structured_array output with fields: time_start, time_end, center_time, n_hits, 
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import PeakletPlugin
+from waveform_analysis.core.plugins.builtin.peaklets import PeakletPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PeakletPlugin())

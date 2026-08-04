@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "basic_features"
 plugin_class: "BasicFeaturesPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.basic_features"
+module: "waveform_analysis.core.plugins.builtin.basic_features.plugin"
 version: "4.1.0"
 summary: "Compute basic height, amplitude, area, and max-abs-diff features from waveform data."
 depends_on: []
@@ -22,10 +22,9 @@ Plugin to compute basic height/area features from structured waveforms.
 | --- | --- |
 | Provides | `basic_features` |
 | Plugin Class | `BasicFeaturesPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.basic_features` |
+| Module | `waveform_analysis.core.plugins.builtin.basic_features.plugin` |
 | Version | `4.1.0` |
 | Category | 特征提取 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -69,7 +68,7 @@ structured_array output with fields: height, amp, area, max_abs_diff, timestamp,
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import BasicFeaturesPlugin
+from waveform_analysis.core.plugins.builtin.basic_features import BasicFeaturesPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(BasicFeaturesPlugin())

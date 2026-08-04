@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "agent"
 provides: "s1_s2_pairs"
 plugin_class: "S1S2PairSelectionPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_selection"
+module: "waveform_analysis.core.plugins.builtin.s1_s2_pairs.plugin"
 version: "0.2.0"
 summary: "Select best S1-S2 pairs from candidates"
 depends_on: ["s1_s2_pair_candidates"]
@@ -22,10 +22,9 @@ S1-S2 配对选择插件
 | --- | --- |
 | Provides | `s1_s2_pairs` |
 | Plugin Class | `S1S2PairSelectionPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_selection` |
+| Module | `waveform_analysis.core.plugins.builtin.s1_s2_pairs.plugin` |
 | Version | `0.2.0` |
 | Category | 事件分析 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -85,7 +84,7 @@ structured_array output with fields: pair_id, s1_peak_id, s2_peak_id, s1_index, 
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import S1S2PairSelectionPlugin
+from waveform_analysis.core.plugins.builtin.s1_s2_pairs import S1S2PairSelectionPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(S1S2PairSelectionPlugin())

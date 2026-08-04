@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "raw_files"
 plugin_class: "RawFileNamesPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.waveforms"
+module: "waveform_analysis.core.plugins.builtin.raw_files.plugin"
 version: "0.0.2"
 summary: "Scan the data directory and group raw CSV files by channel number."
 depends_on: []
@@ -22,10 +22,9 @@ Plugin to find raw CSV files.
 | --- | --- |
 | Provides | `raw_files` |
 | Plugin Class | `RawFileNamesPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.waveforms` |
+| Module | `waveform_analysis.core.plugins.builtin.raw_files.plugin` |
 | Version | `0.0.2` |
 | Category | 数据加载 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `list` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -55,7 +54,7 @@ Raw file paths grouped by channel.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import RawFileNamesPlugin
+from waveform_analysis.core.plugins.builtin.raw_files import RawFileNamesPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(RawFileNamesPlugin())

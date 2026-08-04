@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "wave_pool"
 plugin_class: "WavePoolPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.records"
+module: "waveform_analysis.core.plugins.builtin.wave_pool.plugin"
 version: "0.14.2"
 summary: "Build wave_pool from the shared internal records bundle."
 depends_on: []
@@ -26,10 +26,9 @@ WavePoolPlugin 把共享 RecordsBundle 中的原始 ADC 波形样本暴露为正
 | --- | --- |
 | Provides | `wave_pool` |
 | Plugin Class | `WavePoolPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.records` |
+| Module | `waveform_analysis.core.plugins.builtin.wave_pool.plugin` |
 | Version | `0.14.2` |
 | Category | 波形处理 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -72,7 +71,7 @@ array output with fields: value.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import WavePoolPlugin
+from waveform_analysis.core.plugins.builtin.wave_pool import WavePoolPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(WavePoolPlugin())

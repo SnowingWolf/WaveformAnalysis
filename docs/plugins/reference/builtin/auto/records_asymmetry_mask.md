@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "records_asymmetry_mask"
 plugin_class: "RecordsAsymmetryMaskPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.records_asymmetry"
+module: "waveform_analysis.core.plugins.builtin.records_asymmetry_mask.plugin"
 version: "0.2.0"
 summary: "Bool mask for waveform asymmetry selection."
 depends_on: ["records", "wave_pool"]
@@ -22,10 +22,9 @@ Return a bool mask aligned with the original records array.
 | --- | --- |
 | Provides | `records_asymmetry_mask` |
 | Plugin Class | `RecordsAsymmetryMaskPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.records_asymmetry` |
+| Module | `waveform_analysis.core.plugins.builtin.records_asymmetry_mask.plugin` |
 | Version | `0.2.0` |
 | Category | 记录处理 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -57,7 +56,7 @@ array output with fields: value.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import RecordsAsymmetryMaskPlugin
+from waveform_analysis.core.plugins.builtin.records_asymmetry_mask import RecordsAsymmetryMaskPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(RecordsAsymmetryMaskPlugin())

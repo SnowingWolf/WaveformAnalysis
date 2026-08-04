@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "df_paired"
 plugin_class: "PairedEventsPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.event_analysis"
+module: "waveform_analysis.core.plugins.builtin.df_paired.plugin"
 version: "0.0.1"
 summary: "Pair grouped events across channels for coincidence analysis."
 depends_on: ["df_events"]
@@ -22,10 +22,9 @@ Plugin to pair events across channels.
 | --- | --- |
 | Provides | `df_paired` |
 | Plugin Class | `PairedEventsPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.event_analysis` |
+| Module | `waveform_analysis.core.plugins.builtin.df_paired.plugin` |
 | Version | `0.0.1` |
 | Category | 事件分析 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `dataframe` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -54,7 +53,7 @@ Paired coincidence event table.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import PairedEventsPlugin
+from waveform_analysis.core.plugins.builtin.df_paired import PairedEventsPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PairedEventsPlugin())

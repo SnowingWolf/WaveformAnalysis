@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "agent"
 provides: "peak_classification"
 plugin_class: "PeakClassificationPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.peak_classification"
+module: "waveform_analysis.core.plugins.builtin.peak_classification.plugin"
 version: "1.2.1"
 summary: "Classify peaks into S1/S2 using multi-dimensional features."
 depends_on: ["peaks"]
@@ -22,10 +22,9 @@ Classify peaks into S1/S2 using multi-dimensional features.
 | --- | --- |
 | Provides | `peak_classification` |
 | Plugin Class | `PeakClassificationPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.peak_classification` |
+| Module | `waveform_analysis.core.plugins.builtin.peak_classification.plugin` |
 | Version | `1.2.1` |
 | Category | 特征提取 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -58,7 +57,7 @@ structured_array output with fields: peak_id, label.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import PeakClassificationPlugin
+from waveform_analysis.core.plugins.builtin.peak_classification import PeakClassificationPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PeakClassificationPlugin())

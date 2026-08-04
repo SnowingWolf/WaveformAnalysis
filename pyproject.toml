@@ -86,6 +86,9 @@ exclude = ["tests*", "docs*", "examples*", "*.tests", "*.tests.*"]
 
 [tool.setuptools.package-data]
 waveform_analysis = [
+    "core/plugins/builtin/*/manifest.yaml",
+    "core/plugins/builtin/*/SKILL.md",
+    "core/plugins/builtin/*/requirements.txt",
     "documentation/dags/*.yaml",
     "documentation/agent_docs/*.yaml",
     "documentation/dtype_field_notes.yaml",

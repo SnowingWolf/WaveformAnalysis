@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "agent"
 provides: "waveform_width_integral"
 plugin_class: "WaveformWidthIntegralPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.waveform_width_integral"
+module: "waveform_analysis.core.plugins.builtin.waveform_width_integral.plugin"
 version: "2.7.0"
 summary: "Event-wise integral quantile width using st_waveforms or filtered_waveforms."
 depends_on: []
@@ -22,10 +22,9 @@ Event-wise integral quantile width using st_waveforms or filtered_waveforms.
 | --- | --- |
 | Provides | `waveform_width_integral` |
 | Plugin Class | `WaveformWidthIntegralPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.waveform_width_integral` |
+| Module | `waveform_analysis.core.plugins.builtin.waveform_width_integral.plugin` |
 | Version | `2.7.0` |
 | Category | 波形处理 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -67,7 +66,7 @@ structured_array output with fields: t_low, t_high, width, t_low_samples, t_high
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import WaveformWidthIntegralPlugin
+from waveform_analysis.core.plugins.builtin.waveform_width_integral import WaveformWidthIntegralPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(WaveformWidthIntegralPlugin())

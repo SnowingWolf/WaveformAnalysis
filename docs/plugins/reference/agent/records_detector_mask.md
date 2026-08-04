@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "agent"
 provides: "records_detector_mask"
 plugin_class: "RecordsDetectorMaskPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.records_channel_role"
+module: "waveform_analysis.core.plugins.builtin.records_detector_mask.plugin"
 version: "0.1.0"
 summary: "Bool mask for detector-channel records after channel-role splitting."
 depends_on: ["records", "records_asymmetry_mask"]
@@ -22,10 +22,9 @@ Bool mask for records that should enter normal detector hit finding.
 | --- | --- |
 | Provides | `records_detector_mask` |
 | Plugin Class | `RecordsDetectorMaskPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.records_channel_role` |
+| Module | `waveform_analysis.core.plugins.builtin.records_detector_mask.plugin` |
 | Version | `0.1.0` |
 | Category | 记录处理 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -53,7 +52,7 @@ array output with fields: value.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import RecordsDetectorMaskPlugin
+from waveform_analysis.core.plugins.builtin.records_detector_mask import RecordsDetectorMaskPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(RecordsDetectorMaskPlugin())

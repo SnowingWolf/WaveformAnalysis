@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "hit_threshold"
 plugin_class: "ThresholdHitPlugin"
-module: "waveform_analysis.core.plugins.builtin.hit.hit_finder"
+module: "waveform_analysis.core.plugins.builtin.hit_threshold.plugin"
 version: "1.2.0"
 summary: "Threshold-only hit detector with THRESHOLD_HIT_DTYPE output."
 depends_on: []
@@ -22,10 +22,9 @@ Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
 | --- | --- |
 | Provides | `hit_threshold` |
 | Plugin Class | `ThresholdHitPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.hit.hit_finder` |
+| Module | `waveform_analysis.core.plugins.builtin.hit_threshold.plugin` |
 | Version | `1.2.0` |
 | Category | 特征提取 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -74,7 +73,7 @@ structured_array output with fields: position, edge_start, edge_end, width, dt, 
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import ThresholdHitPlugin
+from waveform_analysis.core.plugins.builtin.hit_threshold import ThresholdHitPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(ThresholdHitPlugin())

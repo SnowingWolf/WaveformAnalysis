@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "auto"
 provides: "energy_reconstruction"
 plugin_class: "EnergyReconstructionPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.energy_reconstruction"
+module: "waveform_analysis.core.plugins.builtin.energy_reconstruction.plugin"
 version: "0.1.0"
 summary: "Reconstruct energy from selected S1-S2 pairs"
 depends_on: ["s1_s2_pairs"]
@@ -22,10 +22,9 @@ Reconstruct energy from selected S1-S2 pairs
 | --- | --- |
 | Provides | `energy_reconstruction` |
 | Plugin Class | `EnergyReconstructionPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.energy_reconstruction` |
+| Module | `waveform_analysis.core.plugins.builtin.energy_reconstruction.plugin` |
 | Version | `0.1.0` |
 | Category | 其他 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -76,7 +75,7 @@ structured_array output with fields: event_id, pair_id, s1_peak_id, s2_peak_id, 
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import EnergyReconstructionPlugin
+from waveform_analysis.core.plugins.builtin.energy_reconstruction import EnergyReconstructionPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(EnergyReconstructionPlugin())

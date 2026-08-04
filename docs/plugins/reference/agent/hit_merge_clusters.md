@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "agent"
 provides: "hit_merge_clusters"
 plugin_class: "HitMergeClustersPlugin"
-module: "waveform_analysis.core.plugins.builtin.hit.hit_merge"
+module: "waveform_analysis.core.plugins.builtin.hit_merge_clusters.plugin"
 version: "1.1.0"
 summary: "Export cluster membership rows using the authoritative hit_merged configuration."
 depends_on: ["hit_merged", "hit_threshold"]
@@ -22,10 +22,9 @@ Internal flat cluster membership for hit merge outputs.
 | --- | --- |
 | Provides | `hit_merge_clusters` |
 | Plugin Class | `HitMergeClustersPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.hit.hit_merge` |
+| Module | `waveform_analysis.core.plugins.builtin.hit_merge_clusters.plugin` |
 | Version | `1.1.0` |
 | Category | 特征提取 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -54,7 +53,7 @@ structured_array output with fields: cluster_index, hit_index.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import HitMergeClustersPlugin
+from waveform_analysis.core.plugins.builtin.hit_merge_clusters import HitMergeClustersPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(HitMergeClustersPlugin())

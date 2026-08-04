@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "agent"
 provides: "peaks"
 plugin_class: "PeaksPlugin"
-module: "waveform_analysis.core.plugins.builtin.peaks.peaklets"
+module: "waveform_analysis.core.plugins.builtin.peaks.plugin"
 version: "4.0.1"
 summary: "Build final peaks table from peaklets and waveform-derived features."
 depends_on: ["peaklets", "peaklet_features", "peaklet_channels"]
@@ -26,10 +26,9 @@ peaks 表同时携带峰形时序字段（rise_time、fall_time、width_25_75、
 | --- | --- |
 | Provides | `peaks` |
 | Plugin Class | `PeaksPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
+| Module | `waveform_analysis.core.plugins.builtin.peaks.plugin` |
 | Version | `4.0.1` |
 | Category | 特征提取 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -78,7 +77,7 @@ structured_array output with fields: peak_id, time_start, time_end, time_peak, c
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import PeaksPlugin
+from waveform_analysis.core.plugins.builtin.peaks import PeaksPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PeaksPlugin())

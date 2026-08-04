@@ -4,7 +4,7 @@ document_type: "plugin_reference"
 profile: "agent"
 provides: "records_veto_mask"
 plugin_class: "RecordsVetoMaskPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.records_channel_role"
+module: "waveform_analysis.core.plugins.builtin.records_veto_mask.plugin"
 version: "0.1.0"
 summary: "Bool mask for veto-channel records after channel-role splitting."
 depends_on: ["records", "records_asymmetry_mask"]
@@ -26,10 +26,9 @@ Bool mask for veto-channel records after channel-role splitting.
 | --- | --- |
 | Provides | `records_veto_mask` |
 | Plugin Class | `RecordsVetoMaskPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.records_channel_role` |
+| Module | `waveform_analysis.core.plugins.builtin.records_veto_mask.plugin` |
 | Version | `0.1.0` |
 | Category | 记录处理 |
-| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
@@ -62,7 +61,7 @@ array output with fields: value.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import RecordsVetoMaskPlugin
+from waveform_analysis.core.plugins.builtin.records_veto_mask import RecordsVetoMaskPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(RecordsVetoMaskPlugin())
