@@ -10,6 +10,7 @@ __all__ = [
     "corner_hist",
     "plot_1d_cut_on_corner",
     "plot_2d_cut_on_corner",
+    "save_figures_pdf",
 ]
 
 
@@ -47,4 +48,8 @@ def __getattr__(name: str):
         from .statistical_plots import plot_2d_cut_on_corner
 
         return plot_2d_cut_on_corner
+    elif name == "save_figures_pdf":
+        from .pdf_export import save_figures_pdf
+
+        return save_figures_pdf
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

@@ -11,12 +11,14 @@ DAQ 适配器、DAQ 运行分析与事件筛选等实用工具。
 | [DAQ 适配器](../../plugins/guides/DAQ_ADAPTER_GUIDE.md) | DAQ 适配器层使用指南（格式读取、目录结构） |
 | [DAQ 运行分析器](DAQ_ANALYZER_GUIDE.md) | DAQ 运行概览与统计导出 |
 | [事件筛选](EVENT_FILTERS_GUIDE.md) | 事件筛选工具使用指南 |
+| [Matplotlib PDF 导出](PDF_EXPORT_GUIDE.md) | 将单个或多个 Figure 导出为 PDF |
 
 ## 学习路径
 
 1. [DAQ 适配器](../../plugins/guides/DAQ_ADAPTER_GUIDE.md) - DAQ 数据格式适配
 2. [DAQ 运行分析器](DAQ_ANALYZER_GUIDE.md) - 运行概览与统计
 3. [事件筛选](EVENT_FILTERS_GUIDE.md) - 事件筛选
+4. [Matplotlib PDF 导出](PDF_EXPORT_GUIDE.md) - 生成单页或多页分析图报告
 
 ## 相关资源
 
