@@ -2504,21 +2504,25 @@ class PluginDocGenerator:
         search_entries = []
         for plugin in plugins:
             base_url = f"{plugin_relative_dir}/{plugin.provides}.html"
-            search_entries.extend(
+            # 每插件仅一条词条，避免同一 title 按分节锚点重复出现；分节名并入关键词以保留命中。
+            search_entries.append(
                 {
                     "title": plugin.provides,
                     "summary": plugin.summary or plugin.description or "暂无说明。",
                     "kind": "插件",
-                    "url": f"{base_url}{anchor}",
+                    "url": f"{base_url}#overview",
                     "keywords": " ".join(
-                        [plugin.provides, plugin.name, plugin.category, plugin.output_kind, heading]
+                        [
+                            plugin.provides,
+                            plugin.name,
+                            plugin.category,
+                            plugin.output_kind,
+                            "概览",
+                            "配置",
+                            "输出",
+                        ]
                     ),
                 }
-                for heading, anchor in (
-                    ("概览", "#overview"),
-                    ("配置", "#configuration"),
-                    ("输出", "#output"),
-                )
             )
         search_entries.extend(extra_search_entries or [])
         search_asset = asset_dir / "search-index.js"
