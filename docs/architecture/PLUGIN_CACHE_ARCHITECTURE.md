@@ -80,7 +80,7 @@ flowchart TD
 
 `MemmapStorage` 按 run 组织缓存目录：
 
-```
+```text
 work_dir/{run_id}/_cache/{key}.bin       # 数组本体（memmap / 二进制）
 work_dir/{run_id}/_cache/{key}.meta      # JSON 元数据：lineage、dtype、type 等
 work_dir/{run_id}/_cache/{key}_ch{i}     # 多通道产物拆分的通道文件

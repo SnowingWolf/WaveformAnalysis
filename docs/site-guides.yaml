@@ -11,6 +11,8 @@ sections:
         route: architecture/system.html
       - source: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
         route: architecture/plugin-dag-lineage-cache.html
+      - source: docs/architecture/PLUGIN_CACHE_ARCHITECTURE.md
+        route: architecture/plugin-cache-architecture.html
       - source: docs/architecture/DATA_PRODUCTS.md
         route: architecture/data-products.html
       - source: docs/architecture/ACCESSOR_ANALYSIS.md
