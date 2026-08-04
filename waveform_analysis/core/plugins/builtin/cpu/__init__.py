@@ -30,7 +30,6 @@ from .energy_reconstruction import (
 
 # 事件分析插件
 from .event import EventPlugin
-from .event_analysis import GroupedEventsPlugin, PairedEventsPlugin
 
 # CPU 滤波插件
 from .filtering import FilteredWaveformsPlugin
@@ -47,10 +46,7 @@ from .peak_classification import (
 from .peak_finding import HIT_DTYPE, HitFinderPlugin
 from .position_reconstruction import PositionReconstructionPlugin
 
-# Records 插件
-from .records import RecordsPlugin, WavePoolFilteredPlugin, WavePoolPlugin
-from .records_asymmetry import RecordsAsymmetryMaskPlugin
-from .records_channel_role import RecordsDetectorMaskPlugin, RecordsVetoMaskPlugin
+# Records 插件（已迁移至独立 bundle，见下方 _LAZY_IMPORTS）
 from .s1_s2_classifier import (
     LABEL_S1,
     LABEL_S2,
@@ -119,6 +115,16 @@ _LAZY_IMPORTS = {
     "HIT_MERGE_CLUSTERS_DTYPE": "..hit_merge_clusters",
     "HIT_MERGED_COMPONENTS_DTYPE": "..hit_merged_components",
     "HIT_MERGED_FEATURES_DTYPE": "..hit.hit_merged_features",
+    # Records family (迁移到 records/ / wave_pool/ / wave_pool_filtered/)
+    "RecordsPlugin": "..records",
+    "WavePoolPlugin": "..wave_pool",
+    "WavePoolFilteredPlugin": "..wave_pool_filtered",
+    "RecordsAsymmetryMaskPlugin": "..records_asymmetry_mask",
+    "RecordsDetectorMaskPlugin": "..records_detector_mask",
+    "RecordsVetoMaskPlugin": "..records_veto_mask",
+    # Event analysis (迁移到 df_events/ / df_paired/)
+    "GroupedEventsPlugin": "..df_events",
+    "PairedEventsPlugin": "..df_paired",
 }
 
 

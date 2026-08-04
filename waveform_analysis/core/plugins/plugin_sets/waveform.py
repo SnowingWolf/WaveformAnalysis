@@ -33,12 +33,12 @@ def plugins_waveform():
       WaveformsPlugin can still build ``st_waveforms`` independently.
     """
     from waveform_analysis.core.plugins.builtin.cpu.filtering import FilteredWaveformsPlugin
-    from waveform_analysis.core.plugins.builtin.cpu.records import (
-        RecordsPlugin,
-        WavePoolFilteredPlugin,
-        WavePoolPlugin,
-    )
     from waveform_analysis.core.plugins.builtin.cpu.waveforms import WaveformsPlugin
+    from waveform_analysis.core.plugins.builtin.records import RecordsPlugin
+    from waveform_analysis.core.plugins.builtin.wave_pool import WavePoolPlugin
+    from waveform_analysis.core.plugins.builtin.wave_pool_filtered import (
+        WavePoolFilteredPlugin,
+    )
 
     return [
         WaveformsPlugin(),

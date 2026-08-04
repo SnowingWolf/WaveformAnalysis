@@ -1,7 +1,9 @@
 import numpy as np
 
 from tests.utils import DummyContext
-from waveform_analysis.core.plugins.builtin.cpu.records_asymmetry import RecordsAsymmetryMaskPlugin
+from waveform_analysis.core.plugins.builtin.records_asymmetry_mask import (
+    RecordsAsymmetryMaskPlugin,
+)
 from waveform_analysis.core.processing.dtypes import RECORDS_DTYPE
 
 

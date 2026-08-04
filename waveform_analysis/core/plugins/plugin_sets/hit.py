@@ -20,13 +20,6 @@ export, __all__ = exporter()
 def plugins_hit():
     """Return hit plugin instances in dependency order."""
     from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HitFinderPlugin
-    from waveform_analysis.core.plugins.builtin.cpu.records_asymmetry import (
-        RecordsAsymmetryMaskPlugin,
-    )
-    from waveform_analysis.core.plugins.builtin.cpu.records_channel_role import (
-        RecordsDetectorMaskPlugin,
-        RecordsVetoMaskPlugin,
-    )
     from waveform_analysis.core.plugins.builtin.hit.hit_finder import ThresholdHitPlugin
     from waveform_analysis.core.plugins.builtin.hit.hit_merged_features import (
         HitMergedFeaturesPlugin,
@@ -37,6 +30,15 @@ def plugins_hit():
     from waveform_analysis.core.plugins.builtin.hit_merged import HitMergePlugin
     from waveform_analysis.core.plugins.builtin.hit_merged_components import (
         HitMergedComponentsPlugin,
+    )
+    from waveform_analysis.core.plugins.builtin.records_asymmetry_mask import (
+        RecordsAsymmetryMaskPlugin,
+    )
+    from waveform_analysis.core.plugins.builtin.records_detector_mask import (
+        RecordsDetectorMaskPlugin,
+    )
+    from waveform_analysis.core.plugins.builtin.records_veto_mask import (
+        RecordsVetoMaskPlugin,
     )
 
     return [

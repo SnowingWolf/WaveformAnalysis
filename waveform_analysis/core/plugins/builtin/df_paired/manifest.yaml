@@ -1,0 +1,9 @@
+provides: df_paired
+plugin_class: PairedEventsPlugin
+version: 0.0.1
+depends_on:
+  - df_events
+third_party_dependencies:
+  - numpy
+  - pandas
+plugin_dependencies:

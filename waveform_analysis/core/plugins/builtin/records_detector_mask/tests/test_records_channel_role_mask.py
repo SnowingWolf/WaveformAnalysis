@@ -3,10 +3,10 @@ import pytest
 
 from tests.plugins.test_threshold_hit_plugin import _make_many_records_view
 from tests.utils import DummyContext
-from waveform_analysis.core.plugins.builtin.cpu.records_channel_role import (
+from waveform_analysis.core.plugins.builtin.records_detector_mask import (
     RecordsDetectorMaskPlugin,
-    RecordsVetoMaskPlugin,
 )
+from waveform_analysis.core.plugins.builtin.records_veto_mask import RecordsVetoMaskPlugin
 
 
 def _compute_masks(config, records=None, asymmetry_mask=None):
