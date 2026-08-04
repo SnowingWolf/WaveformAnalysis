@@ -3,10 +3,8 @@ import pytest
 
 from tests.utils import DummyContext
 from waveform_analysis.core.data.records_view import RecordsView
-from waveform_analysis.core.plugins.builtin.cpu.records_channel_role import (
-    RecordsDetectorMaskPlugin,
-    RecordsVetoMaskPlugin,
-)
+from waveform_analysis.core.plugins.builtin.records_detector_mask import RecordsDetectorMaskPlugin
+from waveform_analysis.core.plugins.builtin.records_veto_mask import RecordsVetoMaskPlugin
 from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
 
 

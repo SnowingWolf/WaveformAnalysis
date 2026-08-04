@@ -364,3 +364,142 @@ def test_hit_merged_features_old_path_is_new_bundle():
     assert OldDeep is New
     assert OldDT is NewDT
     assert OldDeepDT is NewDT
+
+
+def test_records_old_paths_resolve_to_bundles():
+    """records 家族迁移后，旧 cpu.records.* 路径与新 bundle 路径指向同一类对象。"""
+    from waveform_analysis.core.plugins.builtin.cpu import records as old
+    from waveform_analysis.core.plugins.builtin.records import RecordsPlugin as NewRecords
+    from waveform_analysis.core.plugins.builtin.wave_pool import WavePoolPlugin as NewWavePool
+    from waveform_analysis.core.plugins.builtin.wave_pool_filtered import (
+        WavePoolFilteredPlugin as NewWavePoolFiltered,
+    )
+
+    assert old.RecordsPlugin is NewRecords
+    assert old.WavePoolPlugin is NewWavePool
+    assert old.WavePoolFilteredPlugin is NewWavePoolFiltered
+
+
+def test_records_shim_reexports_private_names():
+    """cpu.records shim 必须 re-export 供字符串 mock / 懒加载的私有名。"""
+    from waveform_analysis.core.plugins.builtin.cpu import records as shim
+    from waveform_analysis.core.plugins.builtin.records._compute import (
+        _build_records_bundle,
+        _cleanup_stale_bundles,
+        _RecordsBundlePluginBase,
+        get_records_bundle,
+        get_records_bundle_cache_key,
+    )
+
+    assert shim._RecordsBundlePluginBase is _RecordsBundlePluginBase
+    assert shim._build_records_bundle is _build_records_bundle
+    assert shim._cleanup_stale_bundles is _cleanup_stale_bundles
+    assert shim.get_records_bundle is get_records_bundle
+    assert shim.get_records_bundle_cache_key is get_records_bundle_cache_key
+    assert callable(shim.build_records_from_raw_files)
+    assert callable(shim._build_polarity_lookup)
+    assert hasattr(shim, "RecordLookup")
+
+
+def test_records_asymmetry_mask_old_path_is_new_bundle():
+    """records_asymmetry_mask 迁移后，旧深导入与新 bundle 路径指向同一类对象。"""
+    from waveform_analysis.core.plugins.builtin.cpu.records_asymmetry import (
+        RecordsAsymmetryMaskPlugin as Old,
+    )
+    from waveform_analysis.core.plugins.builtin.records_asymmetry_mask import (
+        RecordsAsymmetryMaskPlugin as New,
+    )
+
+    assert Old is New
+
+
+def test_records_channel_role_masks_old_paths_are_new_bundles():
+    """channel-role masks 迁移后，旧 records_channel_role.* 路径指向新 bundle 类对象。"""
+    from waveform_analysis.core.plugins.builtin.cpu.records_channel_role import (
+        ROLE_DETECTOR as OldRoleDetector,
+    )
+    from waveform_analysis.core.plugins.builtin.cpu.records_channel_role import (
+        ROLE_VETO as OldRoleVeto,
+    )
+    from waveform_analysis.core.plugins.builtin.cpu.records_channel_role import (
+        RecordsDetectorMaskPlugin as OldDetector,
+    )
+    from waveform_analysis.core.plugins.builtin.cpu.records_channel_role import (
+        RecordsVetoMaskPlugin as OldVeto,
+    )
+    from waveform_analysis.core.plugins.builtin.cpu.records_channel_role import (
+        _RecordsChannelRoleMaskPlugin as OldBase,
+    )
+    from waveform_analysis.core.plugins.builtin.cpu.records_channel_role import (
+        _resolve_roles as OldResolve,
+    )
+    from waveform_analysis.core.plugins.builtin.records_detector_mask import (
+        RecordsDetectorMaskPlugin as NewDetector,
+    )
+    from waveform_analysis.core.plugins.builtin.records_detector_mask._compute import (
+        ROLE_DETECTOR as NewRoleDetector,
+    )
+    from waveform_analysis.core.plugins.builtin.records_detector_mask._compute import (
+        ROLE_VETO as NewRoleVeto,
+    )
+    from waveform_analysis.core.plugins.builtin.records_detector_mask._compute import (
+        _RecordsChannelRoleMaskPlugin as NewBase,
+    )
+    from waveform_analysis.core.plugins.builtin.records_detector_mask._compute import (
+        _resolve_roles as NewResolve,
+    )
+    from waveform_analysis.core.plugins.builtin.records_veto_mask import (
+        RecordsVetoMaskPlugin as NewVeto,
+    )
+
+    assert OldDetector is NewDetector
+    assert OldVeto is NewVeto
+    assert OldBase is NewBase
+    assert OldResolve is NewResolve
+    assert OldRoleDetector == NewRoleDetector == "detector"
+    assert OldRoleVeto == NewRoleVeto == "veto"
+
+
+def test_event_analysis_old_paths_resolve_to_bundles():
+    """event_analysis 迁移后，旧 cpu.event_analysis.* 路径指向 df_events / df_paired。"""
+    from waveform_analysis.core.plugins.builtin.cpu.event_analysis import (
+        GroupedEventsPlugin as OldGrouped,
+    )
+    from waveform_analysis.core.plugins.builtin.cpu.event_analysis import (
+        PairedEventsPlugin as OldPaired,
+    )
+    from waveform_analysis.core.plugins.builtin.df_events import (
+        GroupedEventsPlugin as NewGrouped,
+    )
+    from waveform_analysis.core.plugins.builtin.df_paired import (
+        PairedEventsPlugin as NewPaired,
+    )
+
+    assert OldGrouped is NewGrouped
+    assert OldPaired is NewPaired
+
+
+def test_cpu_lazy_imports_resolve_to_new_bundles():
+    """builtin.cpu 懒加载映射指向新 bundle（RecordsPlugin 等）。"""
+    from waveform_analysis.core.plugins.builtin import cpu
+
+    expected = {
+        "RecordsPlugin": "waveform_analysis.core.plugins.builtin.records.plugin",
+        "WavePoolPlugin": "waveform_analysis.core.plugins.builtin.wave_pool.plugin",
+        "WavePoolFilteredPlugin": (
+            "waveform_analysis.core.plugins.builtin.wave_pool_filtered.plugin"
+        ),
+        "RecordsAsymmetryMaskPlugin": (
+            "waveform_analysis.core.plugins.builtin.records_asymmetry_mask.plugin"
+        ),
+        "RecordsDetectorMaskPlugin": (
+            "waveform_analysis.core.plugins.builtin.records_detector_mask.plugin"
+        ),
+        "RecordsVetoMaskPlugin": (
+            "waveform_analysis.core.plugins.builtin.records_veto_mask.plugin"
+        ),
+        "GroupedEventsPlugin": "waveform_analysis.core.plugins.builtin.df_events.plugin",
+        "PairedEventsPlugin": "waveform_analysis.core.plugins.builtin.df_paired.plugin",
+    }
+    for name, module in expected.items():
+        assert getattr(cpu, name).__module__ == module, name

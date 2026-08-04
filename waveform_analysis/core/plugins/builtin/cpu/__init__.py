@@ -18,14 +18,7 @@ CPU 插件模块 - 使用 NumPy/SciPy 实现
 ``__all__`` 保持全量以维持向后兼容。
 """
 
-# 数据加载与结构化插件
-# 事件分析插件（4b 负责 event_analysis 迁移）
-from .event_analysis import GroupedEventsPlugin, PairedEventsPlugin
-
-# Records 插件（4b 负责迁移）
-from .records import RecordsPlugin, WavePoolFilteredPlugin, WavePoolPlugin
-from .records_asymmetry import RecordsAsymmetryMaskPlugin
-from .records_channel_role import RecordsDetectorMaskPlugin, RecordsVetoMaskPlugin
+# 已迁移插件均经 _LAZY_IMPORTS 懒加载（见下）；仅保留未迁移的 s1_s2_classifier 急切导入
 from .s1_s2_classifier import (
     LABEL_S1,
     LABEL_S2,
@@ -98,6 +91,16 @@ _LAZY_IMPORTS = {
     "ENERGY_RECONSTRUCTION_DTYPE": "..energy_reconstruction",
     "PositionReconstructionPlugin": "..position_reconstruction",
     "EventPlugin": "..events",
+    # Records family (迁移到 records/ / wave_pool/ / wave_pool_filtered/)
+    "RecordsPlugin": "..records",
+    "WavePoolPlugin": "..wave_pool",
+    "WavePoolFilteredPlugin": "..wave_pool_filtered",
+    "RecordsAsymmetryMaskPlugin": "..records_asymmetry_mask",
+    "RecordsDetectorMaskPlugin": "..records_detector_mask",
+    "RecordsVetoMaskPlugin": "..records_veto_mask",
+    # Event analysis (迁移到 df_events/ / df_paired/)
+    "GroupedEventsPlugin": "..df_events",
+    "PairedEventsPlugin": "..df_paired",
 }
 
 # 兼容别名（懒解析，保持 __all__ 中同名导出与主符号同一对象）

@@ -32,15 +32,15 @@ def plugins_waveform():
     - V1725 path: records bundle plugins keep their dedicated raw-file path, while
       WaveformsPlugin can still build ``st_waveforms`` independently.
     """
-    from waveform_analysis.core.plugins.builtin.cpu.records import (
-        RecordsPlugin,
-        WavePoolFilteredPlugin,
-        WavePoolPlugin,
-    )
     from waveform_analysis.core.plugins.builtin.filtered_waveforms import (
         FilteredWaveformsPlugin,
     )
+    from waveform_analysis.core.plugins.builtin.records import RecordsPlugin
     from waveform_analysis.core.plugins.builtin.st_waveforms import WaveformsPlugin
+    from waveform_analysis.core.plugins.builtin.wave_pool import WavePoolPlugin
+    from waveform_analysis.core.plugins.builtin.wave_pool_filtered import (
+        WavePoolFilteredPlugin,
+    )
 
     return [
         WaveformsPlugin(),

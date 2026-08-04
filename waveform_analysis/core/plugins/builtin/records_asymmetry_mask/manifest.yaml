@@ -1,0 +1,10 @@
+provides: records_asymmetry_mask
+plugin_class: RecordsAsymmetryMaskPlugin
+version: 0.2.0
+depends_on:
+  - records
+  - wave_pool
+third_party_dependencies:
+  - numpy
+  - numba
+plugin_dependencies:

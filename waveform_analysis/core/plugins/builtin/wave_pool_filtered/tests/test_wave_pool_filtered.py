@@ -3,7 +3,7 @@ import pytest
 from scipy.signal import butter, savgol_filter, sosfiltfilt
 
 from tests.utils import FakeContext, make_records
-from waveform_analysis.core.plugins.builtin.cpu.records import WavePoolFilteredPlugin
+from waveform_analysis.core.plugins.builtin.wave_pool_filtered import WavePoolFilteredPlugin
 from waveform_analysis.core.processing.dtypes import RECORDS_DTYPE
 
 
