@@ -32,6 +32,14 @@ from .channel import (
     resolve_plugin_channel_overrides,
     unique_hardware_channels,
 )
+from .geometry import (
+    DEFAULT_PMT_GAIN,
+    PmtEntry,
+    PmtLayout,
+    load_fallback_layout,
+    load_pmt_layout_from_config,
+    load_pmt_layout_from_runinfo,
+)
 
 __all__ = [
     "ChannelConfig",
@@ -64,4 +72,11 @@ __all__ = [
     "resolve_plugin_channel_overrides",
     "resolve_channel_value_map",
     "unique_hardware_channels",
+    # Geometry
+    "DEFAULT_PMT_GAIN",
+    "PmtEntry",
+    "PmtLayout",
+    "load_fallback_layout",
+    "load_pmt_layout_from_config",
+    "load_pmt_layout_from_runinfo",
 ]

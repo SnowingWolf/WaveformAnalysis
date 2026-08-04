@@ -1,68 +1,67 @@
-# PeakletComponentsPlugin
-
-> Return per-peaklet component hit_merged indices.
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "peaklet_components"
+plugin_class: "PeakletComponentsPlugin"
+module: "waveform_analysis.core.plugins.builtin.peaks.peaklets"
+version: "1.4.0"
+summary: "Return per-peaklet component hit_merged indices."
+depends_on: ["hit_merged"]
+output_kind: "structured_array"
+generated: true
+---
+# peaklet_components
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `peaklet_components` |
-| **Version** | `1.0.0` |
-| **Category** | 特征提取 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Return per-peaklet component hit_merged indices.
+Return flat peaklet-to-hit_merged membership rows.
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `peaklet_components` |
+| Plugin Class | `PeakletComponentsPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
+| Version | `1.4.0` |
+| Category | 峰构建 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-This plugin depends on the following data:
-
-- [`peaklets`](peaklets.md)
-- [`hit_merged`](hit_merged.md)
-
-## Configuration Options
-
-| Option | Type | Default | Units | Description |
-|--------|------|---------|-------|-------------|
-| `time_window_ns` | `float` | `100.0` | - | 跨通道 peaklet 合并时间窗口 |
-| `max_total_width_ns` | `float` | `10000.0` | - | peaklet 最大总宽度 |
-| `dt` | `int` | `None` | - | 保留兼容配置；优先使用输入 hit_merged 的 dt |
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `hit_merged` | - | declared | - | Merge nearby threshold hits per channel with time-gap and max-width constraints. |
+### How It Works
 
 
-## Output Schema
+## Configuration
 
-**Output Type**: `structured_array`
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `time_window_ns` | `float` | `100.0` | - | yes | no | 跨通道 peaklet 合并时间窗口 |
+| `max_total_width_ns` | `float` | `10000.0` | - | yes | no | peaklet 最大总宽度 |
+| `dt` | `int` | `None` | - | yes | no | 保留兼容配置；优先使用输入 hit_merged 的 dt |
+## Output
 
-| Field | Type | Units | Description |
-|-------|------|-------|-------------|
-| `peaklet_index` | `int64` | - | - |
-| `merged_index` | `int64` | - | - |
+structured_array output with fields: peak_id, merged_index.
 
-## Usage Example
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `peak_id` | `int64` | None | Peaklet identifier, matching the row index in the peaklets table |
+| `merged_index` | `int64` | None | Index of the hit_merged row belonging to this peaklet |
+## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import PeakletComponentsPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PeakletComponentsPlugin())
-
-# Configure plugin (optional)
-ctx.set_config({
-    "time_window_ns": 100.0,
-    "max_total_width_ns": 10000.0,
-    "dt": None,
-}, plugin_name="peaklet_components")
-
-# Get data
 data = ctx.get_data("run_001", "peaklet_components")
 ```
+### Downstream Consumers
 
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.peaklets`
-
----
-
-*This documentation was auto-generated from plugin metadata.*
+- `peaklet_channels`
+- `peaklets`

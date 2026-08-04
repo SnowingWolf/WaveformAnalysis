@@ -1,56 +1,91 @@
-# raw_files (RawFileNamesPlugin)
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "agent"
+provides: "raw_files"
+plugin_class: "RawFileNamesPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.waveforms"
+version: "0.0.2"
+summary: "Scan the data directory and group raw CSV files by channel number."
+depends_on: []
+output_kind: "list"
+generated: true
+---
+# raw_files
 
-> Agent-first 插件契约文档。面向自动化执行与改动评估。
+## Overview
 
-## Agent Contract
+Scan the data directory and group raw CSV files by channel number.
+Plugin to find raw CSV files.
 
 | Item | Value |
-|------|-------|
+| --- | --- |
 | Provides | `raw_files` |
-| Depends On | - |
-| Output Kind | `unknown` |
-| Version | `0.0.2` |
+| Plugin Class | `RawFileNamesPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.waveforms` |
-| Accelerator | `cpu` |
+| Version | `0.0.2` |
+| Category | 数据加载 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `list` |
 
-## Inputs
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| - | - | - | - | No declared inputs. |
+### How It Works
 
-- 无依赖输入（source plugin）
+1. 扫描数据目录并按通道分组原始 CSV 文件
+2. 从配置的数据目录中查找指定运行的所有原始波形文件，并按通道号分组。 支持 DAQ 集成，可以直接从 DAQ 元数据中获取文件列表。 支持通过 daq_adapter 参数指定 DAQ 适配器来处理不同格式。 通道选择由 DAQ 适配器或 DAQ 元数据决定，不再通过插件配置裁剪。
 
-## Outputs
+## Configuration
 
-- 无结构化字段信息（`unknown`）
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `data_root` | `str` | `DAQ` | - | yes | no | Root directory for data |
+| `daq_adapter` | `str` | `vx2730` | - | yes | no | DAQ adapter name (e.g., 'vx2730') |
+## Output
 
-## Config
+Raw file paths grouped by channel.
 
-| Name | Type | Default | Note |
-|------|------|---------|------|
-| `data_root` | `str` | `DAQ` | Root directory for data |
-| `daq_adapter` | `str` | `vx2730` | DAQ adapter name (e.g., 'vx2730') |
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| container | `list` | - | Raw file paths grouped by channel. |
+## Usage
 
-## Execution Path
+### Minimal Example
 
-`raw_files` 依赖链入口：
-`SOURCE -> raw_files`
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import RawFileNamesPlugin
 
-## Failure Modes
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(RawFileNamesPlugin())
+data = ctx.get_data("run_001", "raw_files")
+```
 
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
+## Operational Notes
 
-## Change Playbook
+### Behavior
 
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
+- 扫描数据目录并按通道分组原始 CSV 文件
+- 从配置的数据目录中查找指定运行的所有原始波形文件，并按通道号分组。 支持 DAQ 集成，可以直接从 DAQ 元数据中获取文件列表。 支持通过 daq_adapter 参数指定 DAQ 适配器来处理不同格式。 通道选择由 DAQ 适配器或 DAQ 元数据决定，不再通过插件配置裁剪。
+### Failure Modes
 
-## Validation
+- Dependency data, configuration, or output contract validation may fail explicitly.
+### Downstream Impact
+
+Terminal output; no direct builtin consumer is declared.
+
+
+## Maintenance
+
+### Change Playbook
+
+1. Keep `provides` and dependency semantics stable or update all consumers.
+2. Bump `version` for behavior, configuration, or output contract changes.
+3. Regenerate auto, agent, and web references after metadata changes.
+### Validation
 
 ```bash
-# 单插件文档再生成
 waveform-docs generate plugins-agent --plugin raw_files
-
-# 覆盖率检查
-waveform-docs check coverage --strict
+waveform-docs check coverage --strict --fail-on-warning
 ```

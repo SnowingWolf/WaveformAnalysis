@@ -1,4 +1,4 @@
-# DOC: docs/features/context/DATA_ACCESS.md#memmap-存储零拷贝访问
+# DOC: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
 """
 压缩后端模块 - 为存储系统提供可插拔的压缩支持
 
@@ -16,7 +16,7 @@
 """
 
 import logging
-from typing import Any, Dict, Optional, Protocol, Type
+from typing import Any, Protocol
 import warnings
 
 import numpy as np
@@ -393,15 +393,15 @@ class CompressionManager:
         - 注册压缩后端字典
         - 初始化实例缓存（避免重复创建）
         """
-        self._backends: Dict[str, Type] = {
+        self._backends: dict[str, type] = {
             "blosc2": Blosc2Compression,
             "lz4": LZ4Compression,
             "zstd": ZstdCompression,
             "gzip": GzipCompression,
         }
-        self._instances: Dict[str, Any] = {}
+        self._instances: dict[str, Any] = {}
 
-    def get_backend(self, name: Optional[str] = None, fallback: bool = True, **kwargs) -> Any:
+    def get_backend(self, name: str | None = None, fallback: bool = True, **kwargs) -> Any:
         """
         获取压缩后端实例
 
@@ -450,7 +450,7 @@ class CompressionManager:
         self._instances[cache_key] = instance
         return instance
 
-    def _get_first_available(self, exclude: Optional[list] = None) -> str:
+    def _get_first_available(self, exclude: list | None = None) -> str:
         """获取第一个可用的压缩后端名称"""
         exclude = exclude or []
 
@@ -483,8 +483,8 @@ class CompressionManager:
         return available
 
     def benchmark(
-        self, data: bytes, backends: Optional[list] = None, repeats: int = 3
-    ) -> Dict[str, Dict[str, float]]:
+        self, data: bytes, backends: list | None = None, repeats: int = 3
+    ) -> dict[str, dict[str, float]]:
         """
         对比不同压缩算法的性能
 

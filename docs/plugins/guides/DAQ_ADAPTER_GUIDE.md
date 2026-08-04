@@ -624,7 +624,7 @@ for f in files:
 ## 相关文档
 
 - [快速入门指南](../../user-guide/QUICKSTART_GUIDE.md)
-- [架构设计文档](../../architecture/ARCHITECTURE.md)
+- [系统架构文档](../../architecture/ARCHITECTURE.md)
 - [插件开发指南](../../development/plugin-development/plugin_guide.md)
 - [API 参考](../../api/README.md)
 

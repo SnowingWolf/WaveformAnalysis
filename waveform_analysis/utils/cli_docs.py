@@ -9,8 +9,17 @@ WaveformAnalysis 文档生成工具 CLI
 """
 
 import argparse
+from functools import partial
+from html.parser import HTMLParser
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import importlib
+import json
 from pathlib import Path
+import shutil
 import sys
+import tempfile
+from urllib.parse import unquote, urlparse
+import uuid
 
 
 def main():
@@ -37,7 +46,7 @@ def main():
     gen_parser = subparsers.add_parser("generate", help="生成文档")
     gen_parser.add_argument(
         "doc_type",
-        choices=["plugins-auto", "plugins-agent"],
+        choices=["plugins-auto", "plugins-agent", "plugins-web", "site-web"],
         help="文档类型",
     )
     gen_parser.add_argument("--output", "-o", type=str, help="输出路径（文件或目录）")
@@ -54,6 +63,22 @@ def main():
         "check_type",
         choices=["coverage"],
         help="检查类型",
+    )
+
+    agent_doc_parser = subparsers.add_parser("agent-doc", help="发布已验证的 AgentDoc 工作流结果")
+    agent_doc_subparsers = agent_doc_parser.add_subparsers(dest="agent_doc_command")
+    publish_parser = agent_doc_subparsers.add_parser(
+        "publish", help="原子发布一个已验证的 AgentDoc"
+    )
+    publish_parser.add_argument("--plugin", required=True, help="插件 provides 名称")
+    publish_parser.add_argument(
+        "--artifact-store",
+        default=".waveform-docs/agent-doc-artifacts",
+        help="工作流状态与 artifact 目录",
+    )
+    publish_parser.add_argument(
+        "--output",
+        help="已审核 YAML 输出目录，默认写入包内 documentation/agent_docs",
     )
     check_parser.add_argument(
         "--docs-dir",
@@ -72,6 +97,15 @@ def main():
         help="有警告时也失败",
     )
 
+    serve_parser = subparsers.add_parser("serve", help="服务已生成的静态文档目录")
+    serve_parser.add_argument("--directory", type=str, required=True, help="现有站点目录")
+    serve_parser.add_argument("--host", default="127.0.0.1", help="监听地址")
+    serve_parser.add_argument("--port", default=8000, type=int, help="监听端口")
+    serve_parser.add_argument(
+        "--lineage-context-factory",
+        help="可选 Context 工厂，格式 package.module:function；启用同源只读 /api/lineage",
+    )
+
     args = parser.parse_args()
 
     # 检查命令
@@ -84,12 +118,81 @@ def main():
         return cmd_generate(args)
     elif args.command == "check":
         return cmd_check(args)
+    elif args.command == "serve":
+        return cmd_serve(args)
+    elif args.command == "agent-doc":
+        return cmd_agent_doc(args)
 
     return 0
 
 
+def cmd_agent_doc(args):
+    if args.agent_doc_command != "publish":
+        print("❌ agent-doc 需要子命令；可用命令：publish")
+        return 1
+    try:
+        import yaml
+
+        from waveform_analysis.documentation import (
+            DocumentationOrchestrator,
+            FileArtifactStore,
+        )
+        from waveform_analysis.documentation.types import DAGState, NodeExecutionResult
+
+        store = FileArtifactStore(args.artifact_store)
+        raw_state = store.load_state(args.plugin)
+        if raw_state is None:
+            raise ValueError(f"找不到插件 `{args.plugin}` 的持久化工作流状态")
+        state = DAGState(**raw_state)
+        if state.plugin_name != args.plugin:
+            raise ValueError("持久化状态的 plugin_name 与 --plugin 不一致")
+        for artifact_name in (
+            "plugin_manifest",
+            "plugin_facts",
+            "agent_doc",
+            "verification_report",
+        ):
+            artifact = store.load_artifact(args.plugin, artifact_name)
+            if artifact is not None:
+                state.artifacts[artifact_name] = artifact
+        if state.current_node != "publish_agent_doc":
+            raise ValueError("只允许发布已通过验证并停在 publish_agent_doc 的工作流状态")
+        if not state.history or state.history[-1] != {
+            "node_id": "verify_agent_doc",
+            "status": "passed",
+            "next_node": "publish_agent_doc",
+        }:
+            raise ValueError("持久化状态缺少通过验证后进入 publish_agent_doc 的记录")
+
+        orchestrator = DocumentationOrchestrator(artifact_store=store)
+        document = orchestrator.published_document(state)
+        destination = Path(args.output) if args.output else None
+        output = orchestrator.publish(state, destination)
+        result = NodeExecutionResult(
+            dag_name=orchestrator.dag.name,
+            dag_version=orchestrator.dag.version,
+            node_id="publish_agent_doc",
+            node_status="success",
+            artifact_type="PublishedAgentDoc",
+            artifact=document,
+            issues=[],
+            requested_evidence=[],
+            confidence="high",
+        )
+        orchestrator.accept_result(state, result)
+        print(f"✅ 已发布验证通过的 AgentDoc: {output}")
+        return 0
+    except Exception as exc:
+        print(f"❌ 发布 AgentDoc 时出错: {exc}")
+        return 1
+
+
 def cmd_generate(args):
     """处理 generate 命令"""
+    if args.doc_type == "plugins-web":
+        return generate_plugins_web(args)
+    if args.doc_type == "site-web":
+        return generate_site_web(args)
     if args.doc_type == "plugins-agent":
         return generate_plugins_docs(
             args=args,
@@ -103,6 +206,242 @@ def cmd_generate(args):
         default_output="docs/plugins/reference/builtin/auto",
         label="builtin 插件文档",
     )
+
+
+def generate_plugins_web(args):
+    """Generate the offline plugin HTML site."""
+    if args.plugin:
+        print("❌ plugins-web only supports full-site generation")
+        return 1
+    try:
+        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+
+        output_path = Path(args.output or "docs/_site")
+        generator = PluginDocGenerator()
+        count = generator.load_builtin_plugins()
+        results = generator.generate_web(output_path)
+        print(f"✅ 已生成插件静态站点: {count} 个插件")
+        print(f"   输出目录: {output_path}")
+        print(f"   文件数: {len(results)}")
+        return 0
+    except Exception as exc:
+        print(f"❌ 生成静态站点时出错: {exc}")
+        return 1
+
+
+_REQUIRED_SITE_RESULT_KEYS = {
+    "SITE_INDEX",
+    "INDEX",
+    "ROOT_LINEAGE",
+    "LINEAGE_INDEX",
+    "ACCESSOR_INDEX",
+    "CONTEXT_INDEX",
+    "context:records-view",
+    "context:records-wave-pool",
+    "ADAPTER_INDEX",
+    "VISUALIZATION_INDEX",
+}
+
+
+class _SiteReferenceParser(HTMLParser):
+    """Collect local navigation and asset references from one generated page."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.references: list[str] = []
+
+    def handle_starttag(self, _tag, attrs):
+        for name, value in attrs:
+            if name in {"href", "src"} and value:
+                self.references.append(value)
+
+
+def _validate_generated_site(output_dir: Path, results: dict[str, Path]) -> None:
+    """Reject incomplete builds and broken local HTML references before publication."""
+    missing_keys = sorted(_REQUIRED_SITE_RESULT_KEYS - results.keys())
+    if missing_keys:
+        raise ValueError(f"site-web 生成结果缺少必要页面: {', '.join(missing_keys)}")
+
+    root = output_dir.resolve()
+    for name, generated_path in results.items():
+        path = Path(generated_path).resolve()
+        if not path.is_relative_to(root):
+            raise ValueError(f"site-web 生成结果越过输出目录: {name} -> {path}")
+        if not path.is_file():
+            raise ValueError(f"site-web 生成结果不存在: {name} -> {path}")
+
+    broken: list[str] = []
+    for page in sorted(output_dir.rglob("*.html")):
+        parser = _SiteReferenceParser()
+        parser.feed(page.read_text(encoding="utf-8"))
+        for reference in parser.references:
+            parsed = urlparse(reference)
+            if parsed.scheme or parsed.netloc or not parsed.path:
+                continue
+            reference_path = unquote(parsed.path)
+            target = (
+                root / reference_path.lstrip("/")
+                if reference_path.startswith("/")
+                else page.parent / reference_path
+            ).resolve()
+            if not target.is_relative_to(root):
+                broken.append(f"{page.relative_to(output_dir)} -> {reference}")
+                continue
+            if target.is_dir():
+                target /= "index.html"
+            if not target.is_file():
+                broken.append(f"{page.relative_to(output_dir)} -> {reference}")
+    if broken:
+        preview = "; ".join(broken[:10])
+        suffix = f"; 另有 {len(broken) - 10} 项" if len(broken) > 10 else ""
+        raise ValueError(f"site-web 包含无效本地链接: {preview}{suffix}")
+
+
+def _atomic_generate_site(output_path: Path, generator) -> dict[str, Path]:
+    """Generate, validate, and publish one complete site while preserving rollback."""
+    output_path = Path(output_path)
+    if output_path.is_symlink() or (output_path.exists() and not output_path.is_dir()):
+        raise ValueError(f"site-web 输出路径必须是普通目录: {output_path}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    staging_path = Path(
+        tempfile.mkdtemp(prefix=f".{output_path.name}.staging-", dir=output_path.parent)
+    )
+    backup_path = output_path.parent / f".{output_path.name}.backup-{uuid.uuid4().hex}"
+    try:
+        results = generator.generate(staging_path)
+        _validate_generated_site(staging_path, results)
+        remapped = {
+            name: output_path / Path(path).resolve().relative_to(staging_path.resolve())
+            for name, path in results.items()
+        }
+        if output_path.exists():
+            output_path.rename(backup_path)
+        try:
+            staging_path.rename(output_path)
+        except Exception:
+            if backup_path.exists() and not output_path.exists():
+                backup_path.rename(output_path)
+            raise
+        if backup_path.exists():
+            shutil.rmtree(backup_path)
+        return remapped
+    finally:
+        if staging_path.exists():
+            shutil.rmtree(staging_path, ignore_errors=True)
+
+
+def generate_site_web(args):
+    """Generate the complete offline HTML documentation site."""
+    if args.plugin:
+        print("❌ site-web 仅支持全量生成，不能使用 --plugin")
+        return 1
+    try:
+        from waveform_analysis.utils.site_doc_generator import DocumentationSiteGenerator
+
+        output_path = Path(args.output or "docs/_site")
+        generator = DocumentationSiteGenerator()
+        results = _atomic_generate_site(output_path, generator)
+        print("✅ 已生成 WaveformAnalysis HTML 文档总站")
+        print(f"   输出目录: {output_path}")
+        print(f"   文件数: {len(results)}")
+        guide_warnings = getattr(generator, "guide_warnings", ())
+        if guide_warnings:
+            print(f"   Markdown 链接警告: {len(guide_warnings)}")
+            for warning in guide_warnings:
+                print(f"   ⚠️ {warning}")
+        return 0
+    except Exception as exc:
+        print(f"❌ 生成 HTML 文档总站时出错: {exc}")
+        return 1
+
+
+class _DocumentationRequestHandler(SimpleHTTPRequestHandler):
+    """Serve static documentation and, when configured, a read-only DAG endpoint."""
+
+    def __init__(self, *args, lineage_payload_provider=None, **kwargs):
+        self._lineage_payload_provider = lineage_payload_provider
+        super().__init__(*args, **kwargs)
+
+    def end_headers(self):
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
+        super().end_headers()
+
+    def do_GET(self):  # noqa: N802 - required by BaseHTTPRequestHandler
+        if urlparse(self.path).path != "/api/lineage":
+            return super().do_GET()
+        if self._lineage_payload_provider is None:
+            self.send_error(404, "Dynamic lineage is not enabled")
+            return
+        try:
+            body = json.dumps(
+                self._lineage_payload_provider(), ensure_ascii=True, separators=(",", ":")
+            ).encode("utf-8")
+        except Exception as exc:
+            self.send_error(500, f"Could not build lineage payload: {exc}")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+def _lineage_payload_provider(factory_reference: str):
+    """Load one trusted Context factory and return a topology-only payload provider."""
+    module_name, separator, attribute_name = factory_reference.partition(":")
+    if not separator or not module_name or not attribute_name:
+        raise ValueError("--lineage-context-factory 必须是 package.module:function 格式")
+    factory = getattr(importlib.import_module(module_name), attribute_name, None)
+    if not callable(factory):
+        raise ValueError(f"Context 工厂不可调用: {factory_reference}")
+
+    def provide():
+        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+
+        return PluginDocGenerator().build_lineage_payload_for_context(factory())
+
+    # Fail before serving rather than exposing a nominal API that always returns 500.
+    provide()
+    return provide
+
+
+def cmd_serve(args):
+    """Serve an existing directory without generating files or opening a browser."""
+    directory = Path(args.directory).resolve()
+    if not directory.is_dir():
+        print(f"❌ 站点目录不存在: {directory}")
+        return 1
+    try:
+        lineage_provider = (
+            _lineage_payload_provider(args.lineage_context_factory)
+            if args.lineage_context_factory
+            else None
+        )
+    except Exception as exc:
+        print(f"❌ 无法启用动态 DAG: {exc}")
+        return 1
+    handler = partial(
+        _DocumentationRequestHandler,
+        directory=str(directory),
+        lineage_payload_provider=lineage_provider,
+    )
+    try:
+        server = ThreadingHTTPServer((args.host, args.port), handler)
+    except OSError as exc:
+        print(f"❌ 无法启动服务器: {exc}")
+        return 1
+    print(f"Serving {directory} at http://{args.host}:{args.port}/")
+    if lineage_provider is not None:
+        print("Dynamic lineage enabled at /api/lineage (topology metadata only)")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+    return 0
 
 
 def generate_plugins_docs(args, profile, default_output, label):

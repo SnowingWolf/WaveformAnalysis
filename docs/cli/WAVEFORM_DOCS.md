@@ -10,6 +10,7 @@
 
 `waveform-docs` 提供以下功能：
 - 自动生成内置插件文档
+- 生成完全离线的 HTML 文档总站或兼容的独立插件站点，并在本机预览
 - 检查文档覆盖率
 
 ---
@@ -40,6 +41,27 @@ waveform-docs generate <文档类型> [选项]
 waveform-docs check coverage [选项]
 ```
 
+### serve - 本地预览
+
+只服务已存在的静态站点目录，不生成站点，也不打开浏览器。
+
+```bash
+waveform-docs serve --directory docs/_site --host 127.0.0.1 --port 8000
+```
+
+如需让全局 DAG 读取一个已配置的运行时 `Context`，可传入一个可信的无参工厂：
+
+```bash
+waveform-docs serve \
+  --directory docs/_site \
+  --host 0.0.0.0 \
+  --lineage-context-factory my_project.docs:create_context
+```
+
+此时浏览器访问 `?lineage=live` 会从同源 `GET /api/lineage` 读取当前插件与配置解析出的
+端口级 DAG。接口只返回拓扑和文档元数据，不接受 `run_id`、不读取运行数据，也不会执行插件。
+未提供工厂、接口不可用或请求失败时，页面自动使用生成时写入的静态 DAG。
+
 ---
 
 ## 文档类型
@@ -48,6 +70,8 @@ waveform-docs check coverage [选项]
 |------|------|----------|
 | `plugins-auto` | 自动生成内置插件文档 | `docs/plugins/reference/builtin/auto/` |
 | `plugins-agent` | 生成 agent 导向插件文档 | `docs/plugins/reference/agent/` |
+| `plugins-web` | 生成离线插件 HTML 站点 | `docs/_site/` |
+| `site-web` | 生成包含插件、Context、Accessor 与可视化参考的离线 HTML 文档总站 | `docs/_site/` |
 
 ---
 
@@ -92,7 +116,86 @@ waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
 
 # 生成单个插件文档
 waveform-docs generate plugins-agent --plugin raw_files
+
+# 生成离线 HTML 站点
+waveform-docs generate plugins-web -o docs/_site
+
+# 生成包含插件、Context、Accessor 与可视化参考的 HTML 文档总站
+waveform-docs generate site-web
 ```
+
+`site-web` 生成总站首页，并将插件站放在 `plugins/`、Context 参考放在 `contexts/`、Accessor 参考放在 `accessors/`，统计图与波形图参考放在 `visualizations/`。`Context.plot_lineage()` 归入 Context 的 DAG 专题，不作为绘图参考页。
+总站只支持全量生成，因此不能与 `--plugin` 同时使用。`plugins-web` 继续保留原有参数、默认输出和
+文件布局，适合只需要插件参考或依赖旧路径的调用。
+
+`site-web` 会先在输出目录旁生成并校验完整站点，再整体替换目标目录。生成或本地链接校验失败时，
+原站点保持不变；成功发布会移除上一轮遗留文件。因此 `docs/_site` 应仅存放生成产物，不应放置
+需要保留的手工文件。运行中的 `waveform-docs serve` 无需重启，后续请求会读取新发布的文件。
+该服务对 HTML、JSON、脚本和样式统一发送禁缓存响应头，避免浏览器或转发层继续复用旧页面。
+
+`site-web` 还会读取 `docs/site-guides.yaml`，把显式收录的 Markdown 渲染进同一 HTML 外壳，
+并同步加入左侧分类导航与全站搜索。清单当前发布 9 篇核心正文：5 篇用户指南，以及系统架构与数据流、
+插件执行链与缓存、数据产物与波形访问、分析查询与批量运行 4 篇架构文档。Markdown 文件是正文唯一真源；
+生成的 HTML 只负责统一发布，不应手工维护同一份正文。
+
+清单使用 `schema_version: 1`，每个分类声明 `id`、`title`、`index_route` 与显式 `pages`：
+
+```yaml
+schema_version: 1
+sections:
+  - id: guides
+    title: 用户指南
+    index_route: guides/index.html
+    pages:
+      - source: docs/user-guide/QUICKSTART_GUIDE.md
+        route: guides/quickstart.html
+```
+
+`source` 必须是 `docs/` 内存在的 Markdown 文件，`route` 必须是无 `..` 的相对 `.html` 路径；
+重复 source、重复 route、路径逃逸、缺失资源或与总站已有页面冲突都会阻断生成。清单内页面链接、
+分类索引和插件参考会改写为对应 HTML 地址；仓库内未收录的 Markdown 链接显示为不可点击文本，
+并在命令结束时输出警告。本地图片等资源会复制到 `assets/content/`。
+
+清单中的 Markdown 支持 Mermaid fenced block，包括 `flowchart TD`、子图、边标签和样式：
+
+````markdown
+```mermaid
+flowchart TD
+    RECORDS[records] --> VIEW[RecordsView]
+    VIEW --> WAVE[wave_pool]
+```
+````
+
+站点固定使用本地 Mermaid 11.12.0，不访问 CDN。只有包含 Mermaid block 的页面才加载
+`assets/mermaid/mermaid.min.js`，并以 `securityLevel: "strict"` 渲染。加载或语法解析失败时，
+页面保留原始 Mermaid 源码并显示错误说明；切换明暗主题时该页面会刷新一次，以当前主题重新绘图。
+Mermaid bundle 与 MIT 许可证随站点一起发布。
+
+站点使用本地 MDN 风格的文档外壳：顶部导航、左侧文档树、详情页右侧章节目录，以及窄屏下可
+展开的目录抽屉。所有页面均可打开全站搜索；生成器把插件、Accessor 和主要章节写入本地
+`assets/search-index.js`，因此通过 `file://` 直接打开时也不依赖 `fetch`、CDN 或在线服务。
+插件索引原有的页面内筛选仍保留，用于快速过滤当前卡片集合。
+
+生成后的 HTML 首页使用本地 Plotly 提供可点击、可缩放、可拖拽的紧凑全局插件总览。`Core` 是
+默认视图，保留以 `events` 为主终点的处理链；`All outputs` 额外显示 `df_paired`、
+`waveform_width_integral` 等默认配置下无消费者的终点输出。两个视图从同一次完整图布局派生，
+共享核心节点坐标；终点输出位于其生产者下方的疏松轨道。点击插件会在首页右侧打开
+只包含该插件、直接输入和直接消费者的端口级 Plotly 谱系图，端口图复用运行时 Context 的渲染器，
+并提供到完整插件参考页的链接。全局依赖使用弧形箭头以区分并行连接；`?focus=<provides>` 可直接
+恢复该选择，`?view=core|all&focus=<provides>` 可分享完整页面状态。聚焦终点输出会自动切换到
+`all`，视图切换、聚焦以及浏览器前进/后退会保持 URL 同步。下方卡片按正式 `PLUGIN_SETS` 的
+执行顺序分组，搜索会隐藏无匹配的整个集合；`cache_analysis` 不属于处理 DAG，单独列在
+`Standalone Tools`。
+
+动态依赖使用独立的文档 profile 解析：共享值为 `wave_source=records`、`use_filtered=false`、
+`daq_adapter=vx2730`，`hit_threshold.asymmetry_cut_enabled=true` 为插件专属值。优先级依次为插件
+专属值、共享 profile、`Option.default`，因此 `hit_threshold` 在静态文档图中精确依赖 `records`、
+`wave_pool`、`records_asymmetry_mask`。解析只调用 `resolve_depends_on()`，不读取 run data、缓存或
+执行插件 compute。每个插件页仍包含直接上游和下游的局部 SVG 图，并可跳转到首页
+对应插件的全局定位视图。站点包含本地 `plotly.min.js` 和 `lineage-details.json`，不引用 CDN 或外部
+资源。Core/All 数据另存为 `lineage-overviews.json`，同时嵌入首页，直接通过 `file://` 打开时无需
+fetch。图中 `Docs` 表示可用文档字段的加权完整度，`Impact` 表示该插件在默认解析图中的相对下游
+覆盖范围；两者均为静态文档指标，不表示运行时性能、数据质量或缓存 lineage。
 
 ### 2. 检查文档覆盖率
 
@@ -133,11 +236,17 @@ Agent 导向文档默认位于 `docs/plugins/reference/agent/`：
 - `INDEX.md`（agent 索引页）
 - `<provides>.md`（每个插件一页）
 
+`plugins-web` 站点位于 `docs/_site/`，包含 `index.html`、`plugins/<provides>.html` 与
+本地 `assets/site.css` / `assets/site.js`。`site-web` 使用同一输出根目录，生成
+`index.html`、`plugins/index.html`、`plugins/<provides>.html`、`contexts/index.html`、`contexts/context.html`、`accessors/index.html`、`visualizations/index.html`、两个可视化详情页、两个 Accessor 详情页以及共享的 `assets/`。两种模式都不引用 CDN 或外部资源，可直接打开
+`index.html`，也可通过 `waveform-docs serve --directory docs/_site` 预览。该目录属于派生产物，
+不会提交到仓库。
+
 ---
 
 ## 依赖要求
 
-文档生成需要以下依赖：
+Markdown 和插件文档生成需要以下依赖：
 
 ```bash
 pip install jinja2
@@ -148,6 +257,11 @@ pip install jinja2
 ```bash
 pip install -e ".[docgen]"
 ```
+
+`site-web` 使用 Mistune 3 渲染清单中的 Markdown，并使用本地 Pygments 为 Accessor、Context 与
+可视化 Python 示例生成语法高亮；两项 Python 依赖都包含在 `docgen` extra 中，不作为
+WaveformAnalysis 的主运行时依赖。Mermaid 是固定版本的站点前端资产，不需要 Python 包。
+缺少 Python 文档依赖时，命令会明确提示安装 `.[docgen]`。
 
 ---
 
@@ -197,6 +311,7 @@ waveform-docs check coverage --strict --fail-on-warning
 2. **输出路径**:
    - `plugins-auto` 默认输出到 `docs/plugins/reference/builtin/auto/`
    - `plugins-agent` 默认输出到 `docs/plugins/reference/agent/`
+   - `plugins-web` 与 `site-web` 默认输出到 `docs/_site/`
    均会覆盖已有文件
 3. **INDEX.md**: 自动生成索引页，包含所有插件的概览表
 

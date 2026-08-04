@@ -1,68 +1,69 @@
-# RecordsAsymmetryMaskPlugin
-
-> Bool mask for waveform asymmetry selection.
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "records_asymmetry_mask"
+plugin_class: "RecordsAsymmetryMaskPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.records_asymmetry"
+version: "0.2.0"
+summary: "Bool mask for waveform asymmetry selection."
+depends_on: ["records", "wave_pool"]
+output_kind: "array"
+generated: true
+---
+# records_asymmetry_mask
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `records_asymmetry_mask` |
-| **Version** | `0.1.0` |
-| **Category** | 记录处理 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Bool mask for waveform asymmetry selection.
+Return a bool mask aligned with the original records array.
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `records_asymmetry_mask` |
+| Plugin Class | `RecordsAsymmetryMaskPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.cpu.records_asymmetry` |
+| Version | `0.2.0` |
+| Category | 记录处理 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `array` |
 
-This plugin depends on the following data:
-
-- [`records`](records.md)
-- [`wave_pool`](wave_pool.md)
-
-## Configuration Options
-
-| Option | Type | Default | Units | Description |
-|--------|------|---------|-------|-------------|
-| `asymmetry_cut_min` | `float` | `0.7` | - | Keep records with asymmetry >= this value. |
-| `asymmetry_parallel` | `bool` | `True` | - | Use Numba prange parallel loop. |
-| `asymmetry_chunk_size` | `int` | `200000` | - | Number of records processed per Numba call. |
-| `asymmetry_num_threads` | `int` | `0` | - | Numba thread count. <=0 keeps current Numba default. |
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `records` | - | declared | - | Build records (event index table) from the shared internal records bundle. |
+| `wave_pool` | - | declared | - | Build wave_pool from the shared internal records bundle. |
+### How It Works
 
 
-## Output Schema
+## Configuration
 
-**Output Type**: `array`
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `asymmetry_cut_min` | `float` | `0.7` | - | yes | no | Keep records with asymmetry >= this value. |
+| `asymmetry_parallel` | `bool` | `True` | - | no | no | Use Numba prange parallel loop. |
+| `asymmetry_chunk_size` | `int` | `200000` | - | no | no | Number of records processed per Numba call. |
+| `asymmetry_num_threads` | `int` | `0` | - | no | no | Numba thread count. <=0 keeps current Numba default. |
+| `asymmetry_polarity_mode` | `str` | `auto` | - | yes | no | Polarity handling mode: 'auto' (extract from records['polarity']), 'negative' (baseline - w_min), 'positive' (w_max - baseline). |
+## Output
 
-| Field | Type | Units | Description |
-|-------|------|-------|-------------|
-| `value` | `bool` | - | - |
+array output with fields: value.
 
-## Usage Example
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `value` | `bool` | None | Boolean mask: True for records passing waveform asymmetry selection |
+## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import RecordsAsymmetryMaskPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(RecordsAsymmetryMaskPlugin())
-
-# Configure plugin (optional)
-ctx.set_config({
-    "asymmetry_cut_min": 0.7,
-    "asymmetry_parallel": True,
-    "asymmetry_chunk_size": 200000,
-}, plugin_name="records_asymmetry_mask")
-
-# Get data
 data = ctx.get_data("run_001", "records_asymmetry_mask")
 ```
+### Downstream Consumers
 
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.records_asymmetry`
-
----
-
-*This documentation was auto-generated from plugin metadata.*
+- `records_detector_mask`
+- `records_veto_mask`

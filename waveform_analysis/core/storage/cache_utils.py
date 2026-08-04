@@ -5,7 +5,7 @@
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
 
 from ..foundation.utils import exporter
 
@@ -99,13 +99,13 @@ class CacheEntryFilter:
         >>> old_entries = filter.filter(all_entries)
     """
 
-    run_id: Optional[str] = None
-    data_name: Optional[str] = None
-    min_size: Optional[int] = None
-    max_size: Optional[int] = None
-    min_age_days: Optional[float] = None
-    max_age_days: Optional[float] = None
-    compressed_only: Optional[bool] = None
+    run_id: str | None = None
+    data_name: str | None = None
+    min_size: int | None = None
+    max_size: int | None = None
+    min_age_days: float | None = None
+    max_age_days: float | None = None
+    compressed_only: bool | None = None
 
     def matches(self, entry: "CacheEntry") -> bool:
         """检查条目是否匹配所有过滤条件
@@ -132,7 +132,7 @@ class CacheEntryFilter:
             return False
         return True
 
-    def filter(self, entries: List["CacheEntry"]) -> List["CacheEntry"]:
+    def filter(self, entries: list["CacheEntry"]) -> list["CacheEntry"]:
         """过滤条目列表
 
         Args:

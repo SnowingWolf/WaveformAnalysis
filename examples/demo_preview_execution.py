@@ -37,7 +37,7 @@ def example_basic_preview():
     ]
 
     for plugin in plugins:
-        ctx.register_plugin_(plugin)
+        ctx.register(plugin)
 
     # 设置配置
     ctx.set_config(
@@ -93,7 +93,7 @@ def example_different_verbosity():
         FilteredWaveformsPlugin(),
         SignalPeaksPlugin(),
     ]:
-        ctx.register_plugin_(plugin)
+        ctx.register(plugin)
 
     ctx.set_config({"data_root": "DAQ", "n_channels": 2})
     ctx.set_config(
@@ -127,7 +127,7 @@ def example_selective_display():
         FilteredWaveformsPlugin(),
         SignalPeaksPlugin(),
     ]:
-        ctx.register_plugin_(plugin)
+        ctx.register(plugin)
 
     ctx.set_config({"data_root": "DAQ", "n_channels": 2})
 
@@ -158,7 +158,7 @@ def example_programmatic_use():
         FilteredWaveformsPlugin(),
         SignalPeaksPlugin(),
     ]:
-        ctx.register_plugin_(plugin)
+        ctx.register(plugin)
 
     ctx.set_config({"data_root": "DAQ", "n_channels": 2})
 
@@ -210,7 +210,7 @@ def example_workflow():
         FilteredWaveformsPlugin(),
         SignalPeaksPlugin(),
     ]:
-        ctx.register_plugin_(plugin)
+        ctx.register(plugin)
 
     ctx.set_config(
         {
@@ -265,7 +265,7 @@ def example_compare_multiple_targets():
         FilteredWaveformsPlugin(),
         SignalPeaksPlugin(),
     ]:
-        ctx.register_plugin_(plugin)
+        ctx.register(plugin)
 
     ctx.set_config({"data_root": "DAQ", "n_channels": 2})
 

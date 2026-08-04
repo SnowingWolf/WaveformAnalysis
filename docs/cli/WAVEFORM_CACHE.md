@@ -351,5 +351,5 @@ waveform-cache clean --run run_001 --strategy oldest --days 30 --no-dry-run
 
 **相关文档**:
 [CLI 工具总览](README.md) |
-[缓存机制](../features/context/DATA_ACCESS.md#缓存机制) |
+[Plugin DAG、lineage 与缓存](../architecture/PLUGIN_DAG_LINEAGE_CACHE.md) |
 [存储系统](../architecture/ARCHITECTURE.md)

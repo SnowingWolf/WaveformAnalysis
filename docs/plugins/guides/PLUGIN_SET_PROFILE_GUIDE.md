@@ -18,9 +18,9 @@ Plugin Set 是最小可复用插件组，每个 set 只关注单一职责。
 | `io` | RawFileNamesPlugin | 扫描并分组原始文件 |
 | `waveform` | WaveformsPlugin, FilteredWaveformsPlugin, RecordsPlugin | 波形提取、滤波与 records 构建 |
 | `basic_features` | BasicFeaturesPlugin, WaveformWidthIntegralPlugin | 基础特征计算 |
-| `tabular` | DataFramePlugin | 表格化输出 |
-| `events` | GroupedEventsPlugin, PairedEventsPlugin | 事件分组与配对 |
-| `peaks` | HitFinderPlugin, RecordsAsymmetryMaskPlugin, ThresholdHitPlugin, HitMergeClustersPlugin, HitMergePlugin, HitMergedComponentsPlugin, HitMergedFeaturesPlugin, PeakletPlugin, PeakletComponentsPlugin, PeakletWaveformPlugin, PeakletWaveformPoolPlugin, PeakletFeaturesPlugin, PeakletChannelsPlugin, PeaksPlugin, WaveformWidthPlugin, S1S2ClassifierPlugin | 峰值检测、轻量 peaklet 聚类、records-backed peaklet 波形/特征与最终 peaks 输出 |
+| `tabular` | DataFramePlugin, GroupedEventsPlugin, PairedEventsPlugin | DataFrame 表格化输出，包括 legacy 事件分组与配对表 |
+| `events` | S1S2PairCandidatesPlugin, S1S2PairSelectionPlugin, PositionReconstructionPlugin, EventPlugin, HitGroupedPlugin | 事件构建、S1/S2 配对、位置重建与 legacy hit 分组 |
+| `peaks` | HitFinderPlugin, RecordsAsymmetryMaskPlugin, RecordsDetectorMaskPlugin, RecordsVetoMaskPlugin, ThresholdHitPlugin, HitMergeClustersPlugin, HitMergePlugin, HitMergedComponentsPlugin, HitMergedFeaturesPlugin, PeakletPlugin, PeakletComponentsPlugin, PeakletWaveformPlugin, PeakletWaveformPoolPlugin, PeakletFeaturesPlugin, PeakletChannelsPlugin, PeaksPlugin, WaveformWidthPlugin, S1S2ClassifierPlugin, PeakletS1S2ClassifierPlugin | 峰值检测、asymmetry 后通道角色分流、轻量 peaklet 聚类、records-backed peaklet 波形/特征、最终 peaks 输出与 S1/S2 分类 |
 
 `plugins_peaks()` 中 `peaklets` 是轻量聚类产物，旧的 `area`、`height`、
 `max_time`、`width`、`rise_time`、`fall_time` 字段由 `peaklet_features`

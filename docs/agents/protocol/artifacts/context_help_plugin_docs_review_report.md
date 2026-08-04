@@ -1,0 +1,29 @@
+# review_report
+
+- `task_id`: `context-help-plugin-docs-20260722`
+- `workflow_cost`: `strict`
+- `reviewer`: `reviewer`
+- `gate_results`:
+  - `compat_inventory_ready`: `pass`
+  - `deletion_scope_confirmed`: `pass`
+  - `targeted_tests`: `pass`
+  - `strict_doc_coverage`: `pass` (`100%`, `0 warnings`)
+  - `generated_markdown_structure`: `pass`
+  - `html_offline_and_escape_checks`: `pass`
+  - `assess_change_impact`: `pass`
+  - `schema_compat_check`: `pass`
+  - `doc_sync`: `pass`
+  - `doc_anchors`: `pass`
+  - `ruff_and_diff_check`: `pass`
+  - `wheel_build_install_plugins_web`: `pass`
+  - `full_pytest`: `non_blocking_fail` (`1233 passed`, `10 skipped`, `4 unrelated failures`)
+- `decision`: `completed`
+- `blocking_findings`: none
+- `residual_risks`:
+  - Four full-suite failures remain in the pre-existing events set, stress/peaklet, and performance dependency paths.
+  - The checker validates the required structure but not every malformed table-cell or frontmatter-value semantic.
+  - A shared dirty index requires isolated commit construction to avoid unrelated peaklet/benchmark changes.
+- `follow_up_actions`:
+  - Track the four unrelated suite failures separately.
+  - Consider deeper malformed-document checker tests in a future documentation task.
+- `completion_allowed`: `true`

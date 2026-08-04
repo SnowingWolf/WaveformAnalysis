@@ -2,23 +2,8 @@ import numpy as np
 import pytest
 from scipy.signal import butter, savgol_filter, sosfiltfilt
 
-from tests.utils import DummyContext
+from tests.utils import DummyContext, make_st_waveforms
 from waveform_analysis.core.plugins.builtin.cpu.filtering import FilteredWaveformsPlugin
-from waveform_analysis.core.processing.dtypes import create_record_dtype
-
-
-def _make_st_waveforms(n_events=96, n_samples=128, n_channels=4, seed=42):
-    dtype = create_record_dtype(n_samples)
-    st_waveforms = np.zeros(n_events, dtype=dtype)
-    st_waveforms["channel"] = np.arange(n_events, dtype=np.int16) % np.int16(n_channels)
-    st_waveforms["timestamp"] = np.arange(n_events, dtype=np.int64) * 1000
-    st_waveforms["baseline"] = 0.0
-    st_waveforms["event_length"] = n_samples
-    st_waveforms["dt"] = 1
-
-    rng = np.random.default_rng(seed)
-    st_waveforms["wave"] = rng.integers(-200, 200, size=(n_events, n_samples), dtype=np.int16)
-    return st_waveforms
 
 
 def _legacy_filtered_waveforms_reference(st_waveforms: np.ndarray, config: dict) -> np.ndarray:
@@ -89,7 +74,9 @@ def _legacy_filtered_waveforms_reference(st_waveforms: np.ndarray, config: dict)
     ids=["sg", "bw"],
 )
 def test_batch_size_matches_non_batch(config):
-    st_waveforms = _make_st_waveforms()
+    st_waveforms = make_st_waveforms(
+        n_events=96, n_samples=128, n_channels=4, seed=42, timestamp_scale=1000
+    )
 
     ctx_no_batch = DummyContext(
         {**config, "batch_size": 0, "max_workers": 1},
@@ -115,7 +102,9 @@ def test_batch_size_matches_non_batch(config):
     ids=["sg", "bw"],
 )
 def test_parallel_matches_serial_with_batching(config):
-    st_waveforms = _make_st_waveforms(n_events=128, n_samples=256, n_channels=8)
+    st_waveforms = make_st_waveforms(
+        n_events=128, n_samples=256, n_channels=8, seed=42, timestamp_scale=1000
+    )
 
     ctx_serial = DummyContext(
         {**config, "batch_size": 8, "max_workers": 1},
@@ -133,7 +122,9 @@ def test_parallel_matches_serial_with_batching(config):
 
 
 def test_negative_batch_size_raises():
-    st_waveforms = _make_st_waveforms()
+    st_waveforms = make_st_waveforms(
+        n_events=96, n_samples=128, n_channels=4, seed=42, timestamp_scale=1000
+    )
     ctx = DummyContext(
         {"filter_type": "SG", "sg_window_size": 11, "sg_poly_order": 2, "batch_size": -1},
         {"st_waveforms": st_waveforms},
@@ -151,7 +142,9 @@ def test_negative_batch_size_raises():
     ids=["sg", "bw"],
 )
 def test_float32_path_matches_legacy_reference_with_tolerance(config):
-    st_waveforms = _make_st_waveforms(n_events=96, n_samples=128, n_channels=4)
+    st_waveforms = make_st_waveforms(
+        n_events=96, n_samples=128, n_channels=4, seed=42, timestamp_scale=1000
+    )
     ctx = DummyContext(
         {**config, "batch_size": 8, "max_workers": 1},
         {"st_waveforms": st_waveforms},
@@ -193,7 +186,9 @@ def test_interleaved_channel_batches_fall_back_to_indices_without_batching():
 
 
 def test_sg_short_wave_returns_original_wave_and_preserves_metadata():
-    st_waveforms = _make_st_waveforms(n_events=6, n_samples=3, n_channels=2)
+    st_waveforms = make_st_waveforms(
+        n_events=6, n_samples=3, n_channels=2, seed=42, timestamp_scale=1000
+    )
     ctx = DummyContext(
         {
             "filter_type": "SG",
@@ -215,7 +210,9 @@ def test_sg_short_wave_returns_original_wave_and_preserves_metadata():
 
 
 def test_output_wave_dtype_is_float32_and_metadata_preserved():
-    st_waveforms = _make_st_waveforms(n_events=4, n_samples=16, n_channels=2)
+    st_waveforms = make_st_waveforms(
+        n_events=4, n_samples=16, n_channels=2, seed=42, timestamp_scale=1000
+    )
     ctx = DummyContext(
         {"filter_type": "SG", "sg_window_size": 5, "sg_poly_order": 2},
         {"st_waveforms": st_waveforms},
@@ -232,7 +229,9 @@ def test_output_wave_dtype_is_float32_and_metadata_preserved():
 
 
 def test_channel_config_overrides_filter_per_hardware_channel():
-    st_waveforms = _make_st_waveforms(n_events=4, n_samples=9, n_channels=2)
+    st_waveforms = make_st_waveforms(
+        n_events=4, n_samples=9, n_channels=2, seed=42, timestamp_scale=1000
+    )
     st_waveforms["board"] = np.array([0, 0, 0, 0], dtype=np.int16)
     st_waveforms["channel"] = np.array([0, 0, 1, 1], dtype=np.int16)
     st_waveforms["wave"][0] = np.array([100, 100, 60, 40, 20, 40, 60, 100, 100], dtype=np.int16)

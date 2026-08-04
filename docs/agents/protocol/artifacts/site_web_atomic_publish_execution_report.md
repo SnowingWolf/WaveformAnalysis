@@ -1,0 +1,55 @@
+# execution_report
+
+- `task_id`: `site_web_atomic_publish`
+- `workflow_cost`: `standard`
+- `workflow_shape`: `staged`
+- `executor_role`: `executor.docs`
+- `agent_profile`: `none`
+- `changed_paths`:
+  - `waveform_analysis/utils/cli_docs.py`
+  - `waveform_analysis/utils/templates/web/base.html.j2`
+  - `waveform_analysis/utils/templates/web/lineage.html.j2`
+  - `tests/test_cli_docs_site_publish.py`
+  - `tests/test_plugin_documentation.py`
+  - `docs/cli/WAVEFORM_DOCS.md`
+  - `docs/agents/protocol/artifacts/site_web_atomic_publish_plan_brief.md`
+  - `docs/agents/protocol/artifacts/site_web_atomic_publish_execution_report.md`
+  - `docs/agents/protocol/artifacts/site_web_atomic_publish_review_report.md`
+- `actions_taken`:
+  - Added staging-directory generation, complete-result validation, local-link validation, atomic directory replacement, and rollback for `site-web`.
+  - Added cache-disabled headers to all `waveform-docs serve` responses.
+  - Corrected depth-sensitive lineage navigation links found by the real-site validator.
+  - Added focused publication, rollback, validation, navigation, and live-server regression tests.
+  - Documented atomic publication and cache behavior, regenerated `docs/_site`, and restarted the existing documentation server.
+- `commands_run`:
+  - `python -m pytest tests/test_cli_docs_site_publish.py tests/test_accessor_index_documentation.py tests/test_records_view_documentation.py -q --no-cov`
+  - `python -m pytest tests/test_plugin_documentation.py -q --no-cov`
+  - `waveform-docs generate site-web -o /tmp/waveform-docs-atomic-validation.FYVW7s/site`
+  - `waveform-docs generate site-web -o docs/_site`
+  - `scripts/check_doc_sync.sh`
+  - `python scripts/check_doc_anchors.py --check-sync --base HEAD`
+  - `git diff --check -- <task paths>`
+  - `curl -sS -D - -o /tmp/waveform-accessors-live-fixed.html http://127.0.0.1:8000/accessors/index.html`
+- `open_risks`:
+  - `none`
+- `requested_review_focus`:
+  - Verify rollback behavior, complete-site validation coverage, link resolution at root and nested depths, and cache headers on the running server.
+
+## Optional Notes
+
+- `tests_run`:
+  - `8 passed` for atomic publication, navigation, RecordsView, and Accessor documentation tests.
+  - `37 passed` for the complete plugin documentation test module.
+- `gates_executed`:
+  - `site_web_generation`: PASS, 56 generated results.
+  - `doc_sync`: PASS.
+  - `doc_anchors`: PASS.
+  - `diff_check`: PASS.
+- `docs_updated`:
+  - `docs/cli/WAVEFORM_DOCS.md`
+- `plan_drift`:
+  - Real-site validation exposed three pre-existing lineage navigation failures; template fixes and a focused regression test were added without expanding the public CLI scope.
+- `not_executed_and_why`:
+  - Full repository tests were not required for the `generate_docs` route; the complete documentation module and focused RecordsView tests were run instead.
+- `implementation_commit`:
+  - `c2ec353` contains the atomic publication, cache headers, navigation fixes, plan, focused tests, and CLI documentation together with the related documentation-site work already present in the shared worktree.

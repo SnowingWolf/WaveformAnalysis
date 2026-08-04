@@ -3,10 +3,23 @@
 本页定义常见任务的标准 workflow。状态机真源见 `lifecycle.md`，机器可读路由见 `index.yaml`。
 
 ## 通用协作模型
-- 拓扑固定：`Planner -> Executor -> Reviewer`
-- 主状态固定：`created -> planning -> ready_for_execution -> executing -> reviewing -> completed`
+- `workflow_shape=staged` 的默认拓扑为 `Planner -> Executor -> Reviewer`；`compact` 可由单 agent 内联完成计划、执行和复核；`direct` 只用于只读简单任务。
+- `staged` 主状态：`created -> planning -> ready_for_execution -> executing -> reviewing -> completed`
 - 可选状态：`awaiting_user_input`、`awaiting_approval`、`rework_required`、`blocked`、`failed`、`cancelled`
-- 阻断式审查：`Reviewer` 未放行前，不得进入 `completed`
+- 阻断式审查：`staged` 未经 `Reviewer` 放行不得进入 `completed`；快速路径命中升级条件时必须转为 `staged`。
+
+### Shape 选择与升级
+- `light` 默认 `compact`，纯只读解释、查看、定向查询可选 `direct`。
+- `standard` 与 `strict` 默认 `staged`。
+- 触及 public surface、插件契约、dtype/字段、cache lineage、compat 删除、release、审批、破坏性动作、scope 扩大或 gate 失败，必须升级到 `staged`。
+- `direct` 的 mutation 必须是 `read_only`，不得产生仓库改动；`compact` 只能做低风险、局部、可回滚的 scoped write。
+
+### Role 与 Profile
+- role（如 `executor.plugin`）定义状态所有权与交接责任。
+- profile（如 `graph_engineer`）定义贯穿任务的专项参与，不新增主状态或绕过 route。
+- `planning`：profile 作为 contributor 产出 `profile_plan`，由 `Planner` 合并并负责最终计划。
+- `executing`：同一个 `agent_profile` 映射到当前 route 允许的 `executor_role`。
+- `reviewing`：profile 是 review subject，由阻断式 `Reviewer` 在 `agent_profile_review` 中覆盖专项必审项。
 
 ## Workflow Cost 分级
 
@@ -14,7 +27,7 @@
 
 | workflow_cost | 适用范围 | Artifact 口径 | Gate 口径 |
 | --- | --- | --- | --- |
-| `light` | 只读解释、定向测试、文档小修、缓存诊断 | 三段式仍保留，但允许压缩填写 | 只跑当前目标必需的最小 gate |
+| `light` | 只读解释、定向测试、文档小修、缓存诊断 | 默认 `compact` 单份 `task_report`；只读简单任务可 `direct` | 只跑当前目标必需的最小 gate |
 | `standard` | 普通代码、插件内部算法、QA 扫描 | 完整填写通用 artifact | 跑 route 默认 gate 与定向测试 |
 | `strict` | 插件契约、dtype/字段、compat 删除、发布前检查 | 完整 artifact，不得压缩 | 固定 gate 必须全部记录 PASS/FAIL |
 
@@ -37,10 +50,16 @@
 - `review_report`
   - 由 `Reviewer` 生成
   - `reviewing -> completed` 前必须存在
+- `task_report`
+  - 仅用于 `compact`
+  - 由同一执行者在内联验证后生成，`executing -> completed` 前必须存在
+  - 至少记录 `task_id`、`workflow_shape`、`actions_taken`、`verification`、`decision`、`changed_paths`、`commit_status`、`open_risks`
 - `light` 模式最低字段：
   - `plan_brief`: `task_id`、`route`、`workflow_cost`、`scope_in`、`required_gates`、`executor_role`
   - `execution_report`: `task_id`、`workflow_cost`、`actions_taken`、`commands_run`、`open_risks`
   - `review_report`: `task_id`、`workflow_cost`、`gate_results`、`decision`、`blocking_findings`
+- 使用专项 profile 的 `staged` 任务时，三段式 artifact 还必须分别记录 `agent_profile + profile_plan`、`agent_profile`、`agent_profile_review`。
+- 使用专项 profile 的 `compact` 任务时，上述字段折叠进同一份 `task_report`，内联专项复核不改变最终决策责任。
 
 ## 通用 Commit Handoff
 - `Executor` 在离开 `executing` 前必须检查工作树：`git status --short`、`git diff --stat`
@@ -295,6 +314,12 @@ python scripts/schema_compat_check.py --base HEAD --run-smoke
 
 Agent 文档同步检查（`python scripts/render_agent_docs.py --check`、`scripts/check_doc_sync.sh`、`python scripts/check_doc_anchors.py --check-sync --base HEAD`）属于文档同步流程，不计入本节“四条命令”。若 PR 同时改了 agent 文档，也必须另行记录这些检查结果。
 
+### PR Commit 完整性与逐项说明
+- PR 描述必须有 `## 提交清单与逐项说明`；以 GitHub `pulls.listCommits` 返回的当前 PR commit 集合为唯一真源，而不是本地分支名或手工挑选的范围。
+- 清单中的每一行必须使用一个完整 40 位 SHA，且与当前 PR commit 集合一一对应：不得遗漏、重复或保留已被 rebase 替换的 SHA。
+- 每个 commit 必须填写“变更目的和影响”及“验证证据”。验证未执行时，必须写明理由；空白、`TODO`、`待补充`、`N/A`、`无` 和“同上”均不构成有效说明。
+- `.github/workflows/pr-commit-description-check.yml` 在 PR 创建、追加/改写 commit 与编辑 PR 描述时执行。仓库管理员必须将 `PR Commit Description Check / commit-description` 配置为目标分支的 required status check；配置完成后，失败会阻止合并。更新目标分支导致 PR commit 集合变化时，也必须更新说明清单。
+
 ### Lifecycle 绑定
 - `Planner` 决定哪些 gate 必须进入 `plan_brief`
 - `Executor` 负责运行命令并产出 `execution_report`
@@ -303,7 +328,9 @@ Agent 文档同步检查（`python scripts/render_agent_docs.py --check`、`scri
 ### Definition of Done
 1. 命中触发条件时，三类闸门对应的四条命令全部执行并通过
 2. PR 描述包含执行命令与 PASS/FAIL 摘要
-3. `docs/agents/index.yaml` 对应 route 命令与本节一致
+3. PR 描述的 `提交清单与逐项说明` 与当前 PR 的全部 commit 一一对应，且逐项说明完整
+4. `.github/workflows/pr-commit-description-check.yml` 通过
+5. `docs/agents/index.yaml` 对应 route 命令与本节一致
 
 ## Workflow: assess_change_impact
 

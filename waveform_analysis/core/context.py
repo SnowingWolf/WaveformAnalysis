@@ -1,4 +1,4 @@
-# DOC: docs/features/context/DATA_ACCESS.md
+# DOC: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
 # DOC: docs/features/context/CONFIGURATION.md
 # DOC: docs/features/context/PLUGIN_MANAGEMENT.md
 """
@@ -10,12 +10,13 @@ Context 模块 - 插件系统的核心调度器。
 """
 
 # 1. Standard library imports
+from __future__ import annotations
+
 from collections import deque
 from collections.abc import Callable, Iterator
 import copy
-from datetime import datetime, timezone
+from datetime import datetime
 import functools
-import hashlib
 import importlib
 import inspect
 import json
@@ -23,12 +24,11 @@ import logging
 import os
 import re
 import threading
-from typing import Any, Optional, Union, cast
+from typing import TYPE_CHECKING, Any
 import warnings
 
 # 2. Third-party imports
 import numpy as np
-import pandas as pd
 
 # 3. Local imports (使用相对导入)
 from ..utils.visualization.lineage_visualizer import (
@@ -39,7 +39,6 @@ from .config import (
     AdapterInfo,
     CompatManager,
     ConfigResolver,
-    ConfigSource,
     ConfigValue,
     ResolvedConfig,
     get_adapter_info,
@@ -47,16 +46,18 @@ from .config import (
 from .context_cache import ContextCacheDomain
 from .context_config import ContextConfigDomain
 from .context_execution import ContextExecutionDomain
+from .context_plugins import ContextPluginDomain
 from .context_time import ContextTimeDomain
 from .execution.validation import ValidationManager
 from .foundation.error import ErrorManager
-from .foundation.exceptions import ErrorSeverity
-from .foundation.mixins import PluginMixin
 from .foundation.utils import OneTimeGenerator, Profiler
 from .hardware.channel import HardwareChannel
 from .plugins.core.base import Plugin
 from .storage.cache_manager import RuntimeCacheManager
 from .storage.memmap import MemmapStorage
+
+if TYPE_CHECKING:
+    from ..utils.context_help import HelpDocument
 
 
 def _safe_copy_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -101,7 +102,7 @@ def _import_plugin_class(module_name: str, class_name: str) -> Any:
     return getattr(module, class_name)
 
 
-def _create_context_from_spec(spec: dict[str, Any]) -> "Context":
+def _create_context_from_spec(spec: dict[str, Any]) -> Context:
     config = _safe_copy_config(spec.get("config", {}))
     ctx = Context(
         config=config,
@@ -130,7 +131,7 @@ def _create_context_from_spec(spec: dict[str, Any]) -> "Context":
     return ctx
 
 
-class Context(PluginMixin):
+class Context:
     """
     The Context orchestrates plugins and manages data storage/caching.
     Inspired by strax, it is the main entry point for data analysis.
@@ -161,7 +162,6 @@ class Context(PluginMixin):
             "plot_lineage",
             "preview_execution",
             "profiling_summary",
-            "quickstart",
             "register",
             "resolve_dependencies",
             "run_plugin",
@@ -203,6 +203,8 @@ class Context(PluginMixin):
             "run_config_path",
             "run_config_filename",
             "run_config_path_template",
+            "enable_plugin_parallelism",
+            "max_parallel_workers",
         }
     )
     _CONTEXT_RUNTIME_KEYS = frozenset(
@@ -227,6 +229,8 @@ class Context(PluginMixin):
         "run_config_filename": "兼容旧配置的 run 配置文件名",
         "run_config_path_template": "兼容旧配置的 run 配置路径模板",
         "storage_dir": "缓存与处理产物存储目录",
+        "enable_plugin_parallelism": "是否启用同级插件并行执行",
+        "max_parallel_workers": "同级插件并行执行的最大工作线程数",
     }
     _TIME_DOMAIN_SYSTEM_NS = "system_ns"
     _TIME_DOMAIN_RAW_PS = "raw_ps"
@@ -290,7 +294,7 @@ class Context(PluginMixin):
             >>> # 启用详细统计和日志
             >>> ctx = Context(stats_mode='detailed', stats_log_file='./logs/plugins.log')
         """
-        PluginMixin.__init__(self)
+        self._plugins: dict[str, Any] = {}
 
         self.profiler = Profiler()
         self.config = config or {}
@@ -370,23 +374,32 @@ class Context(PluginMixin):
         # Re-entrancy guard: track (run_id, data_name) currently being computed
         self._in_progress: dict[tuple, Any] = {}
         self._in_progress_lock = threading.Lock()  # Protect concurrent access
+        # Thread-safe data access lock
+        self._data_lock = threading.Lock()
         # Cache of validated configs per plugin signature
         self._resolved_config_cache: dict[tuple, dict[str, Any]] = {}
 
         # Performance optimization caches
-        self._execution_plan_cache: dict[str, list[str]] = {}  # data_name -> execution plan
+        self._execution_plan_cache: dict[tuple, list[str]] = (
+            {}
+        )  # (run_id, data_name) -> execution plan
         self._lineage_cache: dict[str, dict[str, Any]] = {}  # data_name -> lineage dict
         self._lineage_hash_cache: dict[str, str] = {}  # data_name -> lineage hash
         self._key_cache: dict[tuple, str] = {}  # (run_id, data_name) -> key
+        self._key_prefix_cache: dict[str, str] = (
+            {}
+        )  # data_name -> "<data_name>-<lineage_hash>" suffix
+        self._run_key_list_cache: dict[tuple, list[str]] = (
+            {}
+        )  # (id(storage), run_id) -> list_keys result
+        self._reverse_deps_cache: dict[tuple, dict[str, list[str]]] = (
+            {}
+        )  # (run_id, registry_version) -> reverse deps
+        self._registry_version: int = 0  # bumped on register/override to invalidate reverse deps
         # Per-run config cache (loaded from run_config.json) and hash tracking.
         self._run_config_cache: dict[str, dict[str, Any]] = {}
         self._run_config_hash_cache: dict[str, str] = {}
         self._run_config_hash_loaded: set[str] = set()
-        # Plugin discovery
-        self.plugin_dirs = external_plugin_dirs or []
-        if auto_discover_plugins:
-            self.discover_and_register_plugins()
-
         # Ensure storage directory exists if using default
         if not storage_backend and not os.path.exists(self.storage_dir):
             os.makedirs(self.storage_dir, exist_ok=True)
@@ -409,9 +422,15 @@ class Context(PluginMixin):
         self._config_domain = ContextConfigDomain(self)
         self._cache_domain = ContextCacheDomain(self)
         self._execution_domain = ContextExecutionDomain(self)
+        self._plugin_domain = ContextPluginDomain(self)
         self._time_domain = ContextTimeDomain(self)
 
-    def clone(self) -> "Context":
+        # Registration invalidates caches, so discovery must run after every domain exists.
+        self.plugin_dirs = external_plugin_dirs or []
+        if auto_discover_plugins:
+            self.discover_and_register_plugins()
+
+    def clone(self) -> Context:
         """
         Create a new Context with the same config and plugin registrations.
 
@@ -517,7 +536,7 @@ class Context(PluginMixin):
             "plugins": plugins,
         }
 
-    def create_context_factory(self) -> Callable[[], "Context"]:
+    def create_context_factory(self) -> Callable[[], Context]:
         """
         Build a picklable context_factory for process-based executors.
 
@@ -611,16 +630,22 @@ class Context(PluginMixin):
                     self.register(item, allow_override=allow_override, require_spec=require_spec)
                 continue
             if isinstance(p, type) and issubclass(p, Plugin):
-                self.register_plugin_(p(), allow_override=allow_override, require_spec=require_spec)
+                self._plugin_domain.register_plugin(
+                    p(), allow_override=allow_override, require_spec=require_spec
+                )
             elif isinstance(p, Plugin):
-                self.register_plugin_(p, allow_override=allow_override, require_spec=require_spec)
+                self._plugin_domain.register_plugin(
+                    p, allow_override=allow_override, require_spec=require_spec
+                )
             elif hasattr(p, "__path__") or hasattr(p, "__file__"):  # It's a module
                 self._register_from_module(
                     p, allow_override=allow_override, require_spec=require_spec
                 )
             else:
                 # Fallback for other types if needed
-                self.register_plugin_(p, allow_override=allow_override, require_spec=require_spec)
+                self._plugin_domain.register_plugin(
+                    p, allow_override=allow_override, require_spec=require_spec
+                )
 
     def discover_and_register_plugins(self, allow_override: bool = False) -> int:
         """
@@ -645,7 +670,7 @@ class Context(PluginMixin):
         registered = 0
         for plugin_class in loader.get_plugins():
             try:
-                self.register_plugin_(plugin_class(), allow_override=allow_override)
+                self._plugin_domain.register_plugin(plugin_class(), allow_override=allow_override)
                 registered += 1
             except Exception as e:
                 self.logger.warning(f"Failed to register plugin {plugin_class.__name__}: {e}")
@@ -677,14 +702,6 @@ class Context(PluginMixin):
 
     def get_config(self, plugin: Plugin, name: str) -> Any:
         return self._config_domain.get_config(plugin, name)
-
-    def has_explicit_config(
-        self,
-        plugin: Plugin,
-        name: str,
-        adapter_name: str | None = None,
-    ) -> bool:
-        return self._config_domain.has_explicit_config(plugin, name, adapter_name=adapter_name)
 
     def get_resolved_config(
         self,
@@ -789,7 +806,8 @@ class Context(PluginMixin):
             data_name: 可选，指定插件名称以只显示该插件的配置
             show_usage: 是否显示配置项被哪些插件使用（仅在显示全局配置时有效）
             show_full_help: 是否显示完整 help 文本（默认截断）
-            run_name: 可选，显示缓存目录时使用的运行名（仅全局配置视图）
+            run_name: 可选，显示缓存目录时使用的运行名（仅全局配置视图）。
+                       已弃用，请使用 run_id 代替。此参数将在未来版本中移除。
 
         Examples:
             >>> # 显示全局配置，包含配置项使用情况
@@ -801,16 +819,27 @@ class Context(PluginMixin):
             >>> # 显示全局配置，但不显示使用情况
             >>> ctx.show_config(show_usage=False)
 
-            >>> # 指定运行名，显示实际缓存目录
-            >>> ctx.show_config(run_name='run_001')
-
-            >>> # 自动使用最近一次 get_data(run_id=...) 的 run_id
-            >>> ctx.show_config()
+            >>> # 推荐方式：使用 run_id
+            >>> run_id = 'run_001'
+            >>> ctx.get_data(run_id, 'peaks')
+            >>> ctx.show_config(run_id=run_id)
 
         关联说明：
             - 若 data_name 指定为插件名，会直接调用 list_plugin_configs 来展示该插件的“配置项清单”。
             - 若 data_name 未指定，则展示“当前配置汇总”（全局/插件特定/未使用）。
+
+        .. deprecated:: 0.2.0
+            `run_name` 参数已弃用，请使用 `run_id` 代替。这是为了统一术语，`run_id` 是系统中的
+            唯一标识符，而 `run_name` 是容易引起混淆的旧术语。
         """
+
+        if run_name is not None:
+            warnings.warn(
+                "The 'run_name' parameter is deprecated. Use 'run_id' instead for consistency. "
+                "'run_name' will be removed in a future version.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if data_name and data_name in self._plugins:
             # 显示特定插件的配置
             self.list_plugin_configs(
@@ -832,9 +861,13 @@ class Context(PluginMixin):
 
         for _name, obj in inspect.getmembers(module):
             if inspect.isclass(obj) and issubclass(obj, Plugin) and obj != Plugin:
-                self.register_plugin_(
+                self._plugin_domain.register_plugin(
                     obj(), allow_override=allow_override, require_spec=require_spec
                 )
+
+    def resolve_dependencies(self, target: str, run_id: str | None = None) -> list[str]:
+        """Return the dependency execution order for ``target``."""
+        return self._plugin_domain.resolve_dependencies(target, run_id=run_id)
 
     # ===========================
     # Get Data
@@ -894,7 +927,10 @@ class Context(PluginMixin):
         if not plan:
             val = self._get_data_from_memory(run_id, data_name)
             return self._coerce_get_data_output(run_id, data_name, val, output)
-        needed_set = self._execution_domain.compute_needed_set(run_id, data_name, plan)
+        # 目标已在第 2 步确认非内存/磁盘命中，避免在 needed_set 中重复检查。
+        needed_set = self._execution_domain.compute_needed_set(
+            run_id, data_name, plan, target_is_missing=True
+        )
 
         # 4. Execute plan
         result = self._execution_domain.run_plugin(
@@ -1023,11 +1059,15 @@ class Context(PluginMixin):
         self, data_name: str, run_id: str | None = None
     ) -> list[str]:
         """Collect all downstream data names that depend on a given data_name."""
-        reverse_deps: dict[str, list[str]] = {}
-        for name, plugin in self._plugins.items():
-            deps = self._get_plugin_dependency_names(plugin, run_id=run_id)
-            for dep in deps:
-                reverse_deps.setdefault(dep, []).append(name)
+        cache_key = (run_id, self._registry_version)
+        reverse_deps = self._reverse_deps_cache.get(cache_key)
+        if reverse_deps is None:
+            reverse_deps = {}
+            for name, plugin in self._plugins.items():
+                deps = self._plugin_domain.get_dependency_names(plugin, run_id=run_id)
+                for dep in deps:
+                    reverse_deps.setdefault(dep, []).append(name)
+            self._reverse_deps_cache[cache_key] = reverse_deps
 
         seen: set = set()
         queue = deque(reverse_deps.get(data_name, []))
@@ -1111,19 +1151,32 @@ class Context(PluginMixin):
 
     def _storage_list_keys(self, storage: Any, run_id: str | None) -> list[str]:
         """List keys from storage, filtering by run_id when needed."""
+        cache_key = (id(storage), run_id)
+        cached = self._run_key_list_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         method = getattr(storage, "list_keys", None)
         if method is None:
             return []
         try:
             if run_id is not None and self._storage_supports_run_id(storage, "list_keys"):
-                return method(run_id=run_id)
-            keys = method()
+                keys = method(run_id=run_id)
+            else:
+                keys = method()
         except Exception:
             return []
         if run_id is None:
-            return keys
-        prefix = f"{run_id}-"
-        return [k for k in keys if k.startswith(prefix)]
+            result = keys
+        else:
+            prefix = f"{run_id}-"
+            result = [k for k in keys if k.startswith(prefix)]
+        self._run_key_list_cache[cache_key] = result
+        return result
+
+    def _invalidate_storage_key_list_cache(self, storage: Any, run_id: str | None) -> None:
+        """Invalidate the cached key list for a storage/run after a disk write or delete."""
+        self._run_key_list_cache.pop((id(storage), run_id), None)
 
     def _list_channel_keys(self, storage: Any, run_id: str | None, key: str) -> list[str]:
         """List multi-channel cache keys (key_ch*) for a base key."""
@@ -1157,33 +1210,36 @@ class Context(PluginMixin):
 
     def _set_data(self, run_id: str, name: str, value: Any):
         """Internal helper to set data in _results and optionally as attribute."""
-        self._results[(run_id, name)] = value
+        with self._data_lock:
+            self._results[(run_id, name)] = value
 
-        # Record lineage hash for config change detection
-        if name in self._plugins:
-            key = self.key_for(run_id, name)  # Contains lineage hash
-            self._results_lineage[(run_id, name)] = key
+            # Record lineage hash for config change detection
+            if name in self._plugins:
+                key = self.key_for(run_id, name)  # Contains lineage hash
+                self._results_lineage[(run_id, name)] = key
 
-        is_generator = isinstance(value, Iterator | OneTimeGenerator) or hasattr(value, "__next__")
+            is_generator = isinstance(value, Iterator | OneTimeGenerator) or hasattr(
+                value, "__next__"
+            )
 
-        # Safe attribute access: whitelist and conflict check
-        # Whitelist: valid python identifier
-        if re.match(r"^[a-zA-Z_]\w*$", name):
-            # Check if it's a property on the class
-            cls_attr = getattr(self.__class__, name, None)
-            is_prop = isinstance(cls_attr, property)
+            # Safe attribute access: whitelist and conflict check
+            # Whitelist: valid python identifier
+            if re.match(r"^[a-zA-Z_]\w*$", name):
+                # Check if it's a property on the class
+                cls_attr = getattr(self.__class__, name, None)
+                is_prop = isinstance(cls_attr, property)
 
-            if name in self._RESERVED_NAMES or (hasattr(self.__class__, name) and not is_prop):
-                warnings.warn(
-                    f"Data name '{name}' conflicts with a Context method or reserved attribute. "
-                    f"Access it via context.get_data(run_id, '{name}') or context._results[(run_id, '{name}')].",
-                    UserWarning,
-                )
-            elif not is_prop and not is_generator:
-                # Note: This overwrites the attribute for different runs.
-                # It's kept for convenience in interactive use.
-                # We don't set it if it's a property, as the property handles access.
-                setattr(self, name, value)
+                if name in self._RESERVED_NAMES or (hasattr(self.__class__, name) and not is_prop):
+                    warnings.warn(
+                        f"Data name '{name}' conflicts with a Context method or reserved attribute. "
+                        f"Access it via context.get_data(run_id, '{name}') or context._results[(run_id, '{name}')].",
+                        UserWarning,
+                    )
+                elif not is_prop and not is_generator:
+                    # Note: This overwrites the attribute for different runs.
+                    # It's kept for convenience in interactive use.
+                    # We don't set it if it's a property, as the property handles access.
+                    setattr(self, name, value)
 
     def _get_data_from_memory(self, run_id: str, name: str) -> Any:
         """Internal helper to get data from _results or attributes."""
@@ -1254,13 +1310,22 @@ class Context(PluginMixin):
     # Lineage and dependence analysis
     # ===========================
 
-    def plot_lineage(self, data_name: str, kind: str = "labview", **kwargs):
+    def plot_lineage(
+        self,
+        data_name: str,
+        kind: str = "labview",
+        show_virtual_plugins: bool = True,
+        **kwargs,
+    ):
         """
         Visualize the lineage of a data type.
 
         Args:
             data_name: Name of the target data.
             kind: Visualization style ('labview', 'mermaid', or 'plotly').
+            show_virtual_plugins: Whether to show plugins with ``lineage_virtual = True``.
+                When false, non-target virtual nodes are collapsed and their direct
+                upstream and downstream connections are joined for display only.
             **kwargs: Additional arguments passed to the visualizer (e.g., save_path).
         """
         from .foundation.model import build_lineage_graph
@@ -1286,6 +1351,9 @@ class Context(PluginMixin):
                 f"build_lineage_graph returned unexpected type: {type(model).__name__}, "
                 f"expected LineageGraphModel for data_name '{data_name}'."
             )
+
+        if not show_virtual_plugins:
+            model = model.without_lineage_virtual_nodes(data_name)
 
         if kind == "labview":
             return plot_lineage_labview(model, data_name, context=self, **kwargs)
@@ -1407,9 +1475,14 @@ class Context(PluginMixin):
             A dictionary representing the lineage of the specified data type.
 
         """
-        # Check cache (only for non-recursive calls)
-        if _visited is None and data_name in self._lineage_cache:
-            return self._lineage_cache[data_name]
+        # Cache holds base lineage (without adapter_info) for every node so that
+        # cascade invalidation re-checks downstream lineages in O(N) instead of
+        # re-recursing each chain. Top-level calls augment with adapter_info.
+        if data_name in self._lineage_cache:
+            lineage = self._lineage_cache[data_name]
+            if _visited is None:
+                return self._augment_adapter_info(lineage)
+            return lineage
 
         if _visited is None:
             _visited = set()
@@ -1441,7 +1514,7 @@ class Context(PluginMixin):
                 if cv is not None:
                     config[k] = cv.value
 
-        dep_names = self._get_plugin_dependency_names(plugin)
+        dep_names = self._plugin_domain.get_dependency_names(plugin)
         lineage = {
             "plugin_class": plugin.__class__.__name__,
             "plugin_version": getattr(plugin, "version", "0.0.0"),
@@ -1469,19 +1542,29 @@ class Context(PluginMixin):
                 # If dtype is not a valid numpy dtype (e.g., "List[str]"), store as string
                 lineage["dtype"] = str(plugin.output_dtype)
 
-        # Add adapter_info for top-level calls
-        if len(_visited) == 1:
-            adapter_name = self.config.get("daq_adapter")
-            if adapter_name:
-                adapter_info = get_adapter_info(adapter_name)
-                if adapter_info:
-                    lineage["adapter_info"] = adapter_info.to_dict()
+        output_schema = getattr(plugin, "output_schema", None)
+        if output_schema is not None:
+            lineage["output_schema"] = output_schema.to_dict()
 
-        # Cache the lineage (only for top-level calls)
-        if len(_visited) == 1:  # Top-level call
-            self._lineage_cache[data_name] = lineage
+        # Cache base lineage (without adapter_info) at every depth; adapter_info
+        # only applies to the top-level view and is added on return.
+        self._lineage_cache[data_name] = lineage
 
+        if _visited is None:
+            return self._augment_adapter_info(lineage)
         return lineage
+
+    def _augment_adapter_info(self, lineage: dict[str, Any]) -> dict[str, Any]:
+        """Return a top-level lineage view with adapter_info, without mutating cache."""
+        adapter_name = self.config.get("daq_adapter")
+        if not adapter_name:
+            return lineage
+        adapter_info = get_adapter_info(adapter_name)
+        if not adapter_info:
+            return lineage
+        result = dict(lineage)
+        result["adapter_info"] = adapter_info.to_dict()
+        return result
 
     @staticmethod
     def _format_display_value(value: Any, width: int) -> str:
@@ -2126,7 +2209,12 @@ class Context(PluginMixin):
 
         # 4. 收集配置信息
         configs = {}
+        global_execution_config = {}
         if show_config:
+            for name in ("enable_plugin_parallelism", "max_parallel_workers"):
+                if name in self.config:
+                    global_execution_config[name] = self.config[name]
+
             for plugin_name in execution_plan:
                 if plugin_name in self._plugins:
                     plugin = self._plugins[plugin_name]
@@ -2153,7 +2241,7 @@ class Context(PluginMixin):
                 plugin = self._plugins.get(plugin_name)
                 if plugin is None:
                     continue
-                resolved_depends_on[plugin_name] = self._get_plugin_dependency_names(
+                resolved_depends_on[plugin_name] = self._plugin_domain.get_dependency_names(
                     plugin, run_id=run_id
                 )
         result = {
@@ -2162,6 +2250,7 @@ class Context(PluginMixin):
             "execution_plan": execution_plan,
             "cache_status": cache_status,
             "configs": configs,
+            "global_execution_config": global_execution_config,
             "resolved_depends_on": resolved_depends_on,
             "needed_set": sorted(needed_set),
         }
@@ -2237,6 +2326,11 @@ class Context(PluginMixin):
         elif show_config:
             print(f"\n{'⚙️ 自定义配置' if verbose > 0 else '自定义配置'}: 无（使用所有默认值）")
 
+        if show_config and info.get("global_execution_config"):
+            print(f"\n{'🧭 全局执行配置' if verbose > 0 else '全局执行配置'}:")
+            for name, value in info["global_execution_config"].items():
+                print(f"  • {name} = {value}")
+
         # 5. 缓存状态汇总
         if show_cache:
             cache_summary = {"in_memory": 0, "on_disk": 0, "needs_compute": 0, "pruned": 0}
@@ -2285,7 +2379,7 @@ class Context(PluginMixin):
             return
 
         plugin = self._plugins[data_name]
-        dependencies = self._get_plugin_dependency_names(plugin, run_id=run_id)
+        dependencies = self._plugin_domain.get_dependency_names(plugin, run_id=run_id)
 
         if not dependencies:
             return
@@ -2299,186 +2393,19 @@ class Context(PluginMixin):
             )
 
     # ==========================
-    # 帮助系统和快速开始模板
+    # Help system
     # ==========================
 
-    def help(self, topic: str | None = None) -> str:
-        """
-        显示文档位置和快速参考
+    def help(
+        self,
+        topic: str | None = None,
+        *,
+        run_id: str | None = None,
+    ) -> HelpDocument:
+        """Return terminal text and a rich Jupyter representation for a help topic."""
+        from waveform_analysis.utils.context_help import build_context_help, show_context_help
 
-        Args:
-            topic: 可选的主题名称（用于提示具体文档路径）
-
-        Returns:
-            帮助文本
-
-        Examples:
-            >>> ctx.help()  # 显示文档位置
-            >>> ctx.help('config')  # 提示配置相关文档
-        """
-        # 主题到文档的映射
-        topic_docs = {
-            "quickstart": "docs/user-guide/QUICKSTART_GUIDE.md",
-            "config": "docs/features/context/CONFIGURATION.md",
-            "plugins": "docs/features/plugin/README.md",
-            "performance": "docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md",
-            "examples": "docs/user-guide/EXAMPLES_GUIDE.md",
-        }
-
-        if topic is None:
-            # 快速参考
-            result = """
-
-╔══════════════════════════════════════════════════════════════════════════════╗
-║ WaveformAnalysis - 文档指南                                                 ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-
-📚 文档位置
-  • 主入口: AGENTS.md
-  • 详细文档: docs/ 目录
-  • 专题导航(兼容): docs/agents/INDEX.md
-  • API 导航: docs/api/README.md
-
-🚀 快速开始
-────────────────────────────────────────────────────────────────────────────────
-  from waveform_analysis.core.context import Context
-  from waveform_analysis.core.plugins import profiles
-
-  ctx = Context(storage_dir='./data')
-  ctx.register(*profiles.cpu_default())
-  ctx.set_config({'n_channels': 2})
-  data = ctx.get_data('run_001', 'basic_features')
-────────────────────────────────────────────────────────────────────────────────
-
-📖 主题文档
-  ctx.help('quickstart')   - 快速上手指南
-  ctx.help('config')       - 配置管理
-  ctx.help('plugins')      - 插件系统
-  ctx.help('performance')  - 性能优化
-  ctx.help('examples')     - 使用示例
-
-🔧 常用方法
-  ctx.list_plugin_configs()     - 查看所有配置选项
-  ctx.show_config()             - 查看当前配置
-  ctx.list_provided_data()      - 查看可用数据类型
-  ctx.plot_lineage('peaks')     - 可视化依赖关系
-  ctx.preview_execution(...)    - 预览执行计划
-
-💡 提示: 使用 IDE 或编辑器打开 docs/ 目录获得最佳阅读体验
-"""
-        elif topic in topic_docs:
-            doc_path = topic_docs[topic]
-            result = f"""
-📖 {topic.upper()} 主题文档
-
-文档位置: {doc_path}
-
-💡 查看方式:
-  • 命令行: cat {doc_path}
-  • 编辑器: code {doc_path}
-  • 带高亮: bat {doc_path}
-
-返回主菜单: ctx.help()
-"""
-        else:
-            available = ", ".join(topic_docs.keys())
-            result = f"""
-❌ 未知主题: '{topic}'
-
-可用主题: {available}
-
-💡 使用 ctx.help() 查看完整帮助
-"""
-
-        print(result)
-        return result
-
-    def quickstart(self, template: str = "basic") -> str:
-        """
-        显示快速开始代码示例
-
-        Args:
-            template: 模板名称（目前仅支持 'basic'）
-
-        Returns:
-            示例代码字符串
-
-        Examples:
-            >>> ctx.quickstart()
-            >>> ctx.quickstart('basic')
-        """
-        if template != "basic":
-            result = f"""
-❌ 未知模板: '{template}'
-
-目前仅支持 'basic' 模板。
-
-💡 更多示例请查看:
-  • docs/user-guide/QUICKSTART_GUIDE.md
-  • docs/user-guide/EXAMPLES_GUIDE.md
-  • examples/ 目录
-"""
-            print(result)
-            return result
-
-        # 基础分析流程示例
-        code = '''"""
-WaveformAnalysis 基础分析流程
-
-这是一个完整的数据分析示例，展示从原始数据到事件配对的完整流程。
-"""
-
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import profiles
-
-# 1. 创建 Context 并注册插件
-ctx = Context(config={
-    'data_root': 'DAQ',           # 数据根目录
-    'n_channels': 2,              # 通道数
-    'daq_adapter': 'vx2730',      # DAQ 适配器
-})
-
-# 注册标准 CPU 插件
-ctx.register(*profiles.cpu_default())
-
-# 2. 设置运行 ID
-run_id = 'run_001'
-
-# 3. 获取数据（自动解析依赖）
-peaks = ctx.get_data(run_id, 'peaks')
-print(f"找到 {len(peaks)} 个峰值")
-
-# 4. 查看配置和依赖
-ctx.show_config()                      # 显示当前配置
-ctx.plot_lineage('peaks')              # 可视化依赖关系
-ctx.preview_execution(run_id, 'peaks') # 预览执行计划
-
-# 5. 更多数据类型
-df = ctx.get_data(run_id, 'df')                    # DataFrame
-grouped = ctx.get_data(run_id, 'df_grouped')       # 分组事件
-paired = ctx.get_data(run_id, 'df_paired')         # 配对事件
-
-# 6. 时间范围查询
-peaks_subset = ctx.time_range(
-    run_id, 'peaks',
-    start_time=1000000,
-    end_time=2000000
-)
-
-# 7. 缓存管理
-ctx.cache_stats()                      # 查看缓存统计
-ctx.diagnose_cache(run_id)             # 诊断缓存问题
-
-print("✅ 分析完成！")
-
-# 💡 更多示例请查看:
-#   • docs/user-guide/QUICKSTART_GUIDE.md
-#   • docs/user-guide/EXAMPLES_GUIDE.md
-#   • examples/ 目录
-'''
-
-        print(code)
-        return code
+        return show_context_help(build_context_help(self, topic, run_id=run_id))
 
     # ===========================
     # 缓存管理工具 (Cache Management)

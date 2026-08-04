@@ -4,6 +4,12 @@
 
 WaveformAnalysis 的插件系统文档，包括教程、开发指南和参考资料。
 
+## 站点主入口
+
+- [插件系统与模板 API](PLUGIN_SYSTEM_OVERVIEW.md) - 系统边界、配置、静态/动态依赖、lineage、生命周期和 Chunk Plugin 的统一说明
+- [内置插件参考](reference/builtin/auto/INDEX.md) - 每个内置产物的依赖、配置和输出字段
+- 交互式 Plugin DAG - 在离线 HTML 文档的插件系统页面中打开独立 DAG 工具
+
 ## 学习路径
 
 ### 🚀 入门（初学者）
@@ -55,11 +61,12 @@ WaveformAnalysis 的插件系统文档，包括教程、开发指南和参考资
 |------|------|
 | [ADAPTER_SYSTEM_GUIDE.md](reference/ADAPTER_SYSTEM_GUIDE.md) | 适配器系统架构详解 |
 | [ADAPTER_PLUGIN_BEHAVIOR.md](reference/ADAPTER_PLUGIN_BEHAVIOR.md) | 适配器与插件行为分析 |
+| [DATA_PRODUCTS.md](../architecture/DATA_PRODUCTS.md) | records 与 wave_pool 共享中间层设计 |
 | [builtin/](reference/builtin/) | 内置插件文档 |
 
 ## 快速链接
 
-- 🏗️ [插件系统架构](../architecture/PLUGIN_SYSTEM_ARCHITECTURE.md) - 完整架构分析
+- 🏗️ [插件系统与模板 API](PLUGIN_SYSTEM_OVERVIEW.md) - 当前插件系统的完整事实和开发契约
 - 📖 [API 参考](../api/README.md) - API 文档
 - 🚀 [快速入门](../user-guide/QUICKSTART_GUIDE.md) - 快速开始
 - ⚙️ [配置管理](../features/context/CONFIGURATION.md) - 配置系统

@@ -10,7 +10,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class ConfigSource(Enum):
@@ -60,7 +60,7 @@ class ConfigValue:
     source: ConfigSource
     original_key: str
     canonical_key: str
-    inferred_from: Optional[str] = None
+    inferred_from: str | None = None
 
     def summary(self) -> str:
         """生成配置值摘要字符串"""
@@ -108,8 +108,8 @@ class ResolvedConfig:
     """
 
     plugin_name: str
-    values: Dict[str, ConfigValue] = field(default_factory=dict)
-    adapter_name: Optional[str] = None
+    values: dict[str, ConfigValue] = field(default_factory=dict)
+    adapter_name: str | None = None
 
     def get(self, key: str, default: Any = None) -> Any:
         """获取配置值
@@ -125,7 +125,7 @@ class ResolvedConfig:
             return self.values[key].value
         return default
 
-    def get_value(self, key: str) -> Optional[ConfigValue]:
+    def get_value(self, key: str) -> ConfigValue | None:
         """获取完整的 ConfigValue 对象
 
         Args:
@@ -148,7 +148,7 @@ class ResolvedConfig:
         """支持 in 操作符"""
         return key in self.values
 
-    def keys(self) -> List[str]:
+    def keys(self) -> list[str]:
         """返回所有配置键"""
         return list(self.values.keys())
 
@@ -157,7 +157,7 @@ class ResolvedConfig:
         for key, cv in self.values.items():
             yield key, cv.value
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为普通字典（仅包含值）
 
         Returns:
@@ -165,7 +165,7 @@ class ResolvedConfig:
         """
         return {key: cv.value for key, cv in self.values.items()}
 
-    def to_lineage_dict(self, include_non_tracked: bool = False) -> Dict[str, Any]:
+    def to_lineage_dict(self, include_non_tracked: bool = False) -> dict[str, Any]:
         """转换为 lineage 格式的字典
 
         用于生成数据血缘信息，默认只包含 tracked 的配置项。
@@ -185,7 +185,7 @@ class ResolvedConfig:
                 result[key] = cv.value
         return result
 
-    def get_explicit_values(self) -> Dict[str, Any]:
+    def get_explicit_values(self) -> dict[str, Any]:
         """获取所有显式设置的配置值
 
         Returns:
@@ -195,7 +195,7 @@ class ResolvedConfig:
             key: cv.value for key, cv in self.values.items() if cv.source == ConfigSource.EXPLICIT
         }
 
-    def get_inferred_values(self) -> Dict[str, Any]:
+    def get_inferred_values(self) -> dict[str, Any]:
         """获取所有推断的配置值
 
         Returns:
@@ -207,7 +207,7 @@ class ResolvedConfig:
             if cv.source == ConfigSource.ADAPTER_INFERRED
         }
 
-    def get_default_values(self) -> Dict[str, Any]:
+    def get_default_values(self) -> dict[str, Any]:
         """获取所有使用默认值的配置
 
         Returns:

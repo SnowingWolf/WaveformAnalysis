@@ -3,12 +3,11 @@ CacheDiagnostics 测试模块
 """
 
 import os
-import tempfile
 import time
 
-import numpy as np
 import pytest
 
+from tests.cache_test_helpers import build_cache_context
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer, CacheEntry
 from waveform_analysis.core.storage.cache_diagnostics import (
@@ -19,31 +18,15 @@ from waveform_analysis.core.storage.cache_diagnostics import (
 
 
 @pytest.fixture
-def temp_storage_dir():
-    """创建临时存储目录"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yield tmpdir
-
-
-@pytest.fixture
 def context_with_cache(temp_storage_dir):
     """创建带有缓存数据的 Context"""
-    ctx = Context(storage_dir=temp_storage_dir)
-    storage = ctx.storage
-
-    # 创建正常的缓存数据
-    for run_id in ["run_001", "run_002"]:
-        key = f"{run_id}-peaks-abc123"
-        data = np.zeros(100, dtype=[("time", "<f8"), ("value", "<f4")])
-        storage.save_memmap(key, data, run_id=run_id)
-
-        # 更新元数据
-        meta = storage.get_metadata(key, run_id)
-        if meta:
-            meta["plugin_version"] = "1.0.0"
-            storage.save_metadata(key, meta, run_id)
-
-    return ctx
+    return build_cache_context(
+        temp_storage_dir,
+        [
+            ("run_001", "peaks", 100, None),
+            ("run_002", "peaks", 100, None),
+        ],
+    )
 
 
 class TestDiagnosticIssue:

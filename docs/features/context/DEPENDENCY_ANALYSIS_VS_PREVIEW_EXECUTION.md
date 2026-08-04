@@ -318,14 +318,14 @@ ctx.register(
     PairedEventsPlugin(),
 )
 
-run_name = "my_run"
+run_id = "my_run"
 
 # === 阶段 1: 预览阶段 ===
 print("=" * 60)
 print("阶段 1: 执行前预览")
 print("=" * 60)
 
-preview = ctx.preview_execution(run_name, 'df_paired', verbose=2)
+preview = ctx.preview_execution(run_id, 'df_paired', verbose=2)
 
 # 检查缓存状态
 needs_compute = sum(1 for s in preview['cache_status'].values() if s['needs_compute'])
@@ -336,7 +336,7 @@ print("\n" + "=" * 60)
 print("阶段 2: 执行数据处理")
 print("=" * 60)
 
-data = ctx.get_data(run_name, 'df_paired')
+data = ctx.get_data(run_id, 'df_paired')
 print(f"✓ 数据获取完成，共 {len(data)} 条记录")
 
 # === 阶段 3: 分析阶段 ===
@@ -555,12 +555,12 @@ ctx = Context(
 # 注册插件...
 # ... (注册代码) ...
 
-run_name = "my_run"
+run_id = "my_run"
 target = "df_paired"
 
 # === 1. 预览阶段 ===
 print("📋 步骤 1: 预览执行计划")
-preview = ctx.preview_execution(run_name, target, verbose=1)
+preview = ctx.preview_execution(run_id, target, verbose=1)
 
 # 检查是否需要大量计算
 needs_compute = sum(1 for s in preview['cache_status'].values() if s['needs_compute'])
@@ -572,7 +572,7 @@ if needs_compute > 5:
 
 # === 2. 执行阶段 ===
 print("\n⚙️ 步骤 2: 执行数据处理")
-data = ctx.get_data(run_name, target)
+data = ctx.get_data(run_id, target)
 print(f"✓ 完成，共 {len(data))} 条记录")
 
 # === 3. 分析阶段 ===

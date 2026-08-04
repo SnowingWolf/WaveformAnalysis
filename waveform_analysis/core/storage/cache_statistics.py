@@ -1,4 +1,4 @@
-# DOC: docs/features/context/DATA_ACCESS.md#缓存统计
+# DOC: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md#检查与诊断
 """
 缓存统计模块 - 统计收集与报告。
 
@@ -8,7 +8,7 @@
 from dataclasses import dataclass, field
 import json
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from ..foundation.utils import exporter
 from .cache_analyzer import CacheAnalyzer, CacheEntry
@@ -44,11 +44,11 @@ class CacheStatistics:
     total_size_bytes: int
     compressed_entries: int
     avg_entry_size_bytes: float
-    largest_entry: Optional[CacheEntry]
-    oldest_entry: Optional[CacheEntry]
-    newest_entry: Optional[CacheEntry]
-    by_run: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    by_data_type: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    largest_entry: CacheEntry | None
+    oldest_entry: CacheEntry | None
+    newest_entry: CacheEntry | None
+    by_run: dict[str, dict[str, Any]] = field(default_factory=dict)
+    by_data_type: dict[str, dict[str, Any]] = field(default_factory=dict)
     scan_time: float = 0.0
 
     @property
@@ -68,7 +68,7 @@ class CacheStatistics:
             return 0.0
         return self.compressed_entries / self.total_entries
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为可序列化的字典"""
         result = {
             "total_runs": self.total_runs,
@@ -103,7 +103,7 @@ class CacheStatistics:
         return result
 
     @staticmethod
-    def _entry_to_dict(entry: CacheEntry) -> Dict[str, Any]:
+    def _entry_to_dict(entry: CacheEntry) -> dict[str, Any]:
         """将 CacheEntry 转换为字典（不包含 metadata）"""
         return {
             "run_id": entry.run_id,
@@ -151,7 +151,7 @@ class CacheStatsCollector:
         self.analyzer = analyzer
         self.ctx = analyzer.ctx
 
-    def collect(self, run_id: Optional[str] = None) -> CacheStatistics:
+    def collect(self, run_id: str | None = None) -> CacheStatistics:
         """收集缓存统计信息
 
         Args:
@@ -208,9 +208,9 @@ class CacheStatsCollector:
             scan_time=time.time() - start_time,
         )
 
-    def _collect_by_run(self, entries: List[CacheEntry]) -> Dict[str, Dict[str, Any]]:
+    def _collect_by_run(self, entries: list[CacheEntry]) -> dict[str, dict[str, Any]]:
         """按运行分组统计"""
-        by_run: Dict[str, Dict[str, Any]] = {}
+        by_run: dict[str, dict[str, Any]] = {}
 
         for entry in entries:
             if entry.run_id not in by_run:
@@ -242,9 +242,9 @@ class CacheStatsCollector:
 
         return by_run
 
-    def _collect_by_data_type(self, entries: List[CacheEntry]) -> Dict[str, Dict[str, Any]]:
+    def _collect_by_data_type(self, entries: list[CacheEntry]) -> dict[str, dict[str, Any]]:
         """按数据类型分组统计"""
-        by_type: Dict[str, Dict[str, Any]] = {}
+        by_type: dict[str, dict[str, Any]] = {}
 
         for entry in entries:
             if entry.data_name not in by_type:
@@ -344,7 +344,7 @@ class CacheStatsCollector:
         print("\n" + "=" * 70)
         print(f"统计耗时: {stats.scan_time * 1000:.1f} ms")
 
-    def get_hit_rate_stats(self) -> Dict[str, Any]:
+    def get_hit_rate_stats(self) -> dict[str, Any]:
         """获取缓存命中率统计
 
         集成 Context 的 stats_collector（如果可用）
@@ -399,7 +399,7 @@ class CacheStatsCollector:
 
         return result
 
-    def analyze_disk_usage(self) -> Dict[str, Any]:
+    def analyze_disk_usage(self) -> dict[str, Any]:
         """分析磁盘使用情况
 
         Returns:

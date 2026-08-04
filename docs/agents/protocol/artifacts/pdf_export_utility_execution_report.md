@@ -1,0 +1,33 @@
+# execution_report
+
+- `task_id`: `pdf_export_utility`
+- `workflow_cost`: `strict`
+- `workflow_shape`: `staged`
+- `executor_role`: `executor.python`
+- `agent_profile`: `none`
+- `changed_paths`:
+  - `waveform_analysis/utils/visualization/pdf_export.py`
+  - `waveform_analysis/utils/visualization/__init__.py`
+  - `waveform_analysis/utils/__init__.py`
+  - `tests/visualization/test_pdf_export.py`
+  - `docs/features/utils/PDF_EXPORT_GUIDE.md`
+  - `docs/features/utils/README.md`
+  - `docs/agents/protocol/artifacts/pdf_export_utility_*.md`
+- `actions_taken`:
+  - Added a streaming PdfPages-based export utility for a single Figure or a Figure iterable.
+  - Normalized output paths to `.pdf`, created parent directories, and retained caller Figure lifecycle ownership.
+  - Added stable lazy exports, usage documentation, and focused tests.
+- `commands_run`:
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q tests/visualization/test_pdf_export.py`
+  - `PATH=/home/wxy/anaconda3/envs/pyroot-kernel/bin:$PATH waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/`
+  - `PATH=/home/wxy/anaconda3/envs/pyroot-kernel/bin:$PATH waveform-docs generate plugins-agent -o docs/plugins/reference/agent/`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/assess_change_impact.py --base HEAD`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/schema_compat_check.py --base HEAD --run-smoke`
+  - `PATH=/home/wxy/anaconda3/envs/pyroot-kernel/bin:$PATH scripts/check_doc_sync.sh`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py --check-sync --base HEAD`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m ruff check waveform_analysis/utils/visualization/pdf_export.py waveform_analysis/utils/__init__.py waveform_analysis/utils/visualization/__init__.py tests/visualization/test_pdf_export.py`
+- `open_risks`:
+  - `check_doc_sync.sh` reports an existing warning for unrelated `waveform_analysis/core/context.py` documentation coverage.
+  - Plugin documentation generation refreshed generated files based on existing unrelated dirty plugin changes; those files are excluded from this task's commit.
+- `requested_review_focus`:
+  - Public import stability, Figure lifecycle preservation, PDF page behavior, and scoped staging.

@@ -1,0 +1,28 @@
+# task_report
+
+- `task_id`: `records_view_site_docs_20260729`
+- `route`: `generate_docs`
+- `workflow_cost`: `light`
+- `workflow_shape`: `compact`
+- `scope`: Add a generated `RecordsView` API reference to `site-web`, including index and search entry points, without changing runtime behavior or existing unrelated documentation work.
+- `actions_taken`:
+  - Added signature-validated documentation for `records_view`, `RecordsView`, `waves`, `signals`, `get_wave_pool_view`, and `query_time_window`.
+  - Added `contexts/records-view.html` generation and linked it from both Context/adapter indexes.
+  - Added a focused generation test covering the page, index links, filtered wave-pool guidance, and search index.
+- `changed_paths`:
+  - `waveform_analysis/utils/site_doc_generator.py`
+  - `tests/test_records_view_documentation.py`
+  - `docs/agents/protocol/artifacts/records_view_docs_task_report.md`
+- `verification`:
+  - PASS: `python -m pytest tests/test_records_view_documentation.py tests/test_plugin_documentation.py -q --no-cov` (37 passed).
+  - PASS: `python -m black --check waveform_analysis/utils/site_doc_generator.py tests/test_records_view_documentation.py`.
+  - PASS: `python -m ruff check waveform_analysis/utils/site_doc_generator.py tests/test_records_view_documentation.py`.
+  - PASS: `scripts/check_doc_sync.sh`.
+  - PASS: `python scripts/check_doc_anchors.py --check-sync --base HEAD`.
+  - PASS: `waveform-docs generate site-web -o /tmp/waveform-records-view-docs` (55 files generated; page, index links, and search entry inspected).
+  - PASS: scoped commit pre-commit hooks (`ruff`, `black`, whitespace, EOF, YAML, large-file check).
+- `decision`: `completed`
+- `commit_status`: `committed: b4013e1`
+- `open_risks`:
+  - Browser visual inspection was not required because no template or styling changed; rendered HTML structure and navigation were checked from generated output.
+  - Unrelated pre-existing staged and unstaged documentation-site work remains outside this task.

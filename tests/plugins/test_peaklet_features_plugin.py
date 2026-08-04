@@ -9,6 +9,7 @@ from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PeakletFeaturesPlugin,
     _compute_area_quantile_times,
 )
+from waveform_analysis.core.plugins.builtin.peaks import peaklets as peaklets_module
 
 
 def _peaklets(n):
@@ -56,7 +57,7 @@ def test_peaklet_features_derive_waveform_fields_from_ragged_pool():
     waveforms = _waveforms(
         [
             {
-                "peaklet_index": 0,
+                "peak_id": 0,
                 "time_start": 6000,
                 "time_end": 12000,
                 "dt": 2,
@@ -78,11 +79,11 @@ def test_peaklet_features_derive_waveform_fields_from_ragged_pool():
 
     assert out.dtype == PEAKLET_FEATURES_DTYPE
     assert len(out) == 1
-    assert int(out[0]["peaklet_index"]) == 0
+    assert int(out[0]["peak_id"]) == 0
 
     # Derived time fields.
-    assert int(out[0]["time_left"]) == 6000
-    assert int(out[0]["time_right"]) == 12000
+    assert int(out[0]["time_start"]) == 6000
+    assert int(out[0]["time_end"]) == 12000
     assert int(out[0]["time_peak"]) == 8000
 
     # Basic waveform features.
@@ -98,7 +99,7 @@ def test_peaklet_features_derive_waveform_fields_from_ragged_pool():
     assert float(out[0]["rise_time"]) > 0.0
     assert float(out[0]["fall_time"]) > 0.0
     assert float(out[0]["width_25_75"]) > 0.0
-    assert float(out[0]["range_50p_area"]) > 0.0
+    assert float(out[0]["rise_time_10_50"]) > 0.0
     assert float(out[0]["range_90p_area"]) > 0.0
 
 
@@ -106,7 +107,7 @@ def test_peaklet_features_rise_fall_are_peak_based_and_width_25_75_is_area_based
     waveforms = _waveforms(
         [
             {
-                "peaklet_index": 0,
+                "peak_id": 0,
                 "time_start": 0,
                 "time_end": 11000,
                 "dt": 1,
@@ -134,7 +135,69 @@ def test_peaklet_features_rise_fall_are_peak_based_and_width_25_75_is_area_based
     assert float(out[0]["rise_time"]) == 3.25
     assert float(out[0]["fall_time"]) == 2.25
     assert float(out[0]["width_25_75"]) == 2.875
-    assert float(out[0]["range_50p_area"]) == 2.875
+    assert float(out[0]["rise_time_10_50"]) == 2.75
+
+
+def test_peaklet_features_numba_path_matches_area_rise_time_field():
+    waveforms = _waveforms(
+        [
+            {
+                "peak_id": i,
+                "time_start": 0,
+                "time_end": 11000,
+                "dt": 1,
+                "wave_offset": i * 11,
+                "wave_length": 11,
+            }
+            for i in range(11)
+        ]
+    )
+    wave = np.array([0, 10, 20, 30, 40, 50, 40, 30, 20, 10, 0], dtype=np.float32)
+    ctx = DummyContext(
+        {},
+        {
+            "peaklets": _peaklets(11),
+            "peaklet_waveforms": waveforms,
+            "peaklet_waveform_pool": np.tile(wave, 11),
+        },
+    )
+
+    out = PeakletFeaturesPlugin().compute(ctx, "run_001")
+
+    assert len(out) == 11
+    assert float(out[0]["rise_time_10_50"]) == 2.75
+    assert "range_50p_area" not in out.dtype.names
+
+
+def test_peaklet_features_numba_output_exactly_matches_python_dtype_and_values(monkeypatch):
+    wave = np.array([0, 10, 20, 30, 40, 50, 40, 30, 20, 10, 0], dtype=np.float32)
+    waveforms = _waveforms(
+        [
+            {
+                "peak_id": i,
+                "time_start": i * 100000,
+                "time_end": i * 100000 + 11000,
+                "dt": 1,
+                "wave_offset": i * len(wave),
+                "wave_length": len(wave),
+            }
+            for i in range(11)
+        ]
+    )
+    data = {
+        "peaklets": _peaklets(11),
+        "peaklet_waveforms": waveforms,
+        "peaklet_waveform_pool": np.tile(wave, 11),
+    }
+
+    optimized = PeakletFeaturesPlugin().compute(DummyContext({}, data), "run_001")
+    monkeypatch.setattr(peaklets_module, "HAS_NUMBA", False)
+    reference = PeakletFeaturesPlugin().compute(DummyContext({}, data), "run_001")
+
+    assert optimized.dtype == PEAKLET_FEATURES_DTYPE
+    assert reference.dtype == PEAKLET_FEATURES_DTYPE
+    for field in PEAKLET_FEATURES_DTYPE.names:
+        np.testing.assert_array_equal(optimized[field], reference[field], err_msg=field)
 
 
 def test_peaklet_features_empty_waveforms_return_empty_features():
@@ -158,8 +221,9 @@ def test_peaklet_channels_uses_peaklet_features_area_for_fraction():
     from waveform_analysis.core.plugins.builtin.cpu.peaklets import PEAKLET_COMPONENTS_DTYPE
 
     peaklets = _peaklets(1)
+    peaklets[0]["component_count"] = 1
     components = np.zeros(1, dtype=PEAKLET_COMPONENTS_DTYPE)
-    components[0]["peaklet_index"] = 0
+    components[0]["peak_id"] = 0
     components[0]["merged_index"] = 0
     hit_features = np.zeros(1, dtype=HIT_MERGED_FEATURES_DTYPE)
     hit_features[0]["merged_index"] = 0
@@ -169,7 +233,7 @@ def test_peaklet_channels_uses_peaklet_features_area_for_fraction():
     hit_features[0]["n_hits"] = 1
     hit_features[0]["valid"] = 1
     peaklet_features = np.zeros(1, dtype=PEAKLET_FEATURES_DTYPE)
-    peaklet_features[0]["peaklet_index"] = 0
+    peaklet_features[0]["peak_id"] = 0
     peaklet_features[0]["area"] = 100.0
     ctx = DummyContext(
         {},

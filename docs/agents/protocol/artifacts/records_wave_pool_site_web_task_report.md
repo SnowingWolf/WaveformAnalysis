@@ -1,0 +1,34 @@
+# task_report
+
+- `task_id`: `records_wave_pool_site_web`
+- `route`: `generate_docs`
+- `workflow_cost`: `light`
+- `workflow_shape`: `compact`
+- `scope`: Add a generated offline HTML design reference for the formal `records` and `wave_pool` data boundary.
+- `actions_taken`:
+  - Added the structured `contexts/records-wave-pool.html` source page to `DocumentationSiteGenerator`.
+  - Linked the page from the home page, Context index, Context navigation tree, local search index, and atomic site publication contract.
+  - Added focused site-generation and atomic-publication coverage.
+- `changed_paths`:
+  - `waveform_analysis/utils/site_doc_generator.py`
+  - `waveform_analysis/utils/cli_docs.py`
+  - `waveform_analysis/utils/templates/web/content_reference.html.j2`
+  - `waveform_analysis/utils/templates/web/shell.html.j2`
+  - `waveform_analysis/utils/templates/web/site_index.html.j2`
+  - `tests/test_records_wave_pool_site_documentation.py`
+  - `tests/test_cli_docs_site_publish.py`
+- `verification`:
+  - `pytest tests/test_records_wave_pool_site_documentation.py tests/test_records_view_documentation.py tests/test_cli_docs_site_publish.py -q --no-cov`: PASS, 8 tests.
+  - `waveform-docs generate site-web -o docs/_site`: PASS; verified page, navigation, search anchors, and local-link validation.
+  - `scripts/check_doc_sync.sh`: PASS with the project Python interpreter on `PATH`.
+  - `python scripts/check_doc_anchors.py --check-sync --base HEAD`: PASS.
+  - `python scripts/render_agent_docs.py --check`: PASS with the project Python interpreter.
+  - `git diff --check`: PASS.
+  - `pytest tests/test_plugin_documentation.py -q --no-cov`: 36 passed, 1 pre-existing Pygments whitespace assertion failure in the Context page; this scope does not alter that renderer.
+- `decision`: `completed`
+- `commit_status`: `committed: this scoped commit; hash recorded in final handoff`
+- `open_risks`:
+  - The full documentation test module has one unrelated expectation for an exact Pygments whitespace sequence.
+- `agent_profile`: `none`
+- `profile_plan`: `not_applicable`
+- `agent_profile_review`: `Inline review confirmed generated-page discovery, local links, and publication result coverage.`

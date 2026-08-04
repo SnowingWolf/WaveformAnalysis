@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from importlib import import_module
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from waveform_analysis.core.foundation.utils import exporter
 

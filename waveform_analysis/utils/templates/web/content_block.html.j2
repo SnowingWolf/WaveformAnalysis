@@ -1,0 +1,27 @@
+{% macro render(block, asset_prefix) -%}
+  {% if block.kind == "heading" %}
+    {% if block.heading_level == 3 %}<h3>{{ block.text | inline_code }}</h3>{% else %}<h4>{{ block.text | inline_code }}</h4>{% endif %}
+  {% elif block.kind == "paragraph" %}
+    <p>{{ block.text | inline_code }}</p>
+  {% elif block.kind == "list" %}
+    {% if block.ordered %}<ol>{% for item in block.items %}<li>{{ item | inline_code }}</li>{% endfor %}</ol>{% else %}<ul>{% for item in block.items %}<li>{{ item | inline_code }}</li>{% endfor %}</ul>{% endif %}
+  {% elif block.kind == "note" %}
+    <aside class="doc-note doc-note--{{ block.tone }}"{% if block.title %} aria-label="{{ block.title }}"{% endif %}>
+      {% if block.title %}<p class="doc-note-title">{{ block.title }}</p>{% endif %}
+      <p>{{ block.text | inline_code }}</p>
+    </aside>
+  {% elif block.kind == "code" %}
+    <pre class="code-block language-{{ block.language }}"><code>{{ block.code }}</code></pre>
+  {% elif block.kind == "image" %}
+    <figure class="doc-figure">
+      <img src="{{ asset_prefix }}content/{{ block.image_src }}" alt="{{ block.image_alt }}" loading="lazy">
+      {% if block.image_caption %}<figcaption>{{ block.image_caption | inline_code }}</figcaption>{% endif %}
+    </figure>
+  {% elif block.kind == "mathml" %}
+    <div class="math-block">{{ block.mathml | mathml }}</div>
+  {% elif block.kind == "mermaid" %}
+    <div class="mermaid-block" data-mermaid-block><pre class="mermaid-source"><code>{{ block.mermaid }}</code></pre><div class="mermaid-render" data-mermaid-render aria-label="Mermaid 图表"></div><p class="mermaid-error" data-mermaid-error hidden>图表渲染失败，已保留 Mermaid 源码。</p></div>
+  {% elif block.kind == "table" %}
+    <div class="table-wrapper"><table><thead><tr>{% for header in block.table_headers %}<th scope="col">{{ header | inline_code }}</th>{% endfor %}</tr></thead><tbody>{% for row in block.table_rows %}<tr>{% for cell in row %}<td>{{ cell | inline_code }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+  {% endif %}
+{%- endmacro %}

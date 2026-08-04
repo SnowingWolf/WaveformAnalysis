@@ -1,0 +1,102 @@
+# execution_report
+
+- `task_id`: `architecture_docs_refresh_20260730`
+- `workflow_cost`: `strict`
+- `workflow_shape`: `staged`
+- `executor_role`: `executor.docs`
+- `agent_profile`: `not_applicable`
+- `changed_paths`:
+  - `AGENTS.md`
+  - `docs/README.md`
+  - `docs/agents/index.yaml`
+  - `docs/agents/references.md`
+  - `docs/agents/protocol/artifacts/architecture_docs_refresh_plan_brief.md`
+  - `docs/agents/protocol/artifacts/architecture_docs_retire_data_access_compat_inventory.md`
+  - `docs/architecture/ACCESSOR_ANALYSIS.md`
+  - `docs/architecture/ARCHITECTURE.md`
+  - `docs/architecture/CONTEXT_PROCESSOR_WORKFLOW.md`
+  - `docs/architecture/DATA_PRODUCTS.md`
+  - `docs/architecture/MULTI_RUN_PROCESSING.md`
+  - `docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md`
+  - `docs/architecture/README.md`
+  - `docs/architecture/RECORDS_WAVE_POOL.md`
+  - `docs/cli/WAVEFORM_CACHE.md`
+  - `docs/cli/WAVEFORM_DOCS.md`
+  - `docs/development/CONTRACT_TESTS.md`
+  - `docs/development/contributing/DOC_ANCHOR_GUIDE.md`
+  - `docs/features/README.md`
+  - `docs/features/context/CONFIGURATION.md`
+  - `docs/features/context/DATA_ACCESS.md`
+  - `docs/features/context/DEPENDENCY_ANALYSIS_GUIDE.md`
+  - `docs/features/context/PLUGIN_MANAGEMENT.md`
+  - `docs/features/context/README.md`
+  - `docs/site-guides.yaml`
+  - `tests/test_plugin_documentation.py`
+  - `tests/test_records_wave_pool_site_documentation.py`
+  - `waveform_analysis/core/context.py`
+  - `waveform_analysis/core/storage/cache.py`
+  - `waveform_analysis/core/storage/cache_analyzer.py`
+  - `waveform_analysis/core/storage/cache_cleaner.py`
+  - `waveform_analysis/core/storage/cache_diagnostics.py`
+  - `waveform_analysis/core/storage/cache_statistics.py`
+  - `waveform_analysis/core/storage/compression.py`
+  - `waveform_analysis/core/storage/integrity.py`
+  - `waveform_analysis/core/storage/memmap.py`
+- `actions_taken`:
+  - 用六篇架构专题替换旧的单页数据访问叙事，并将站点路由与阅读顺序固定为系统、DAG/lineage/cache、数据产物、Records + WavePool、Accessor、多 Run。
+  - 删除 `docs/features/context/DATA_ACCESS.md`，不发布 `architecture/data-access.html`，并按缓存、正式产物和 records-backed 波形三类语义迁移活跃链接与 `# DOC` 注释。
+  - 保留 `contexts/records-wave-pool.html -> records-view.html#data-model` 的既有兼容跳转。
+  - 将新增架构页纳入站点清单、导航与搜索，并增加六条路由、旧路由缺失与 HTTP 资产可访问性的回归测试。
+  - 将 Pygments 语法高亮测试改为验证 `class Context` 与 `def plot` 的语义 HTML，兼容空白 token 的合法版本差异。
+- `commands_run`:
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest tests/test_site_guides.py tests/test_plugin_documentation.py tests/test_records_wave_pool_site_documentation.py tests/test_cli_docs_site_publish.py -q --no-cov` -> `55 passed`
+  - `PATH=/home/wxy/anaconda3/envs/pyroot-kernel/bin:$PATH waveform-docs generate site-web -o docs/_site` -> `74 files`
+  - `PATH=/home/wxy/anaconda3/envs/pyroot-kernel/bin:$PATH scripts/check_doc_sync.sh` -> `PASS`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py --check-sync --base HEAD` -> `0 errors, 0 warnings`
+  - generated-site route/search assertion -> `six architecture routes present; data-access.html absent`
+  - `git diff --check` -> `PASS`
+- `open_risks`:
+  - 站点生成仍报告 14 条未收录 Markdown 链接，均来自本任务范围外的用户/功能文档；新增架构页已无此类警告。
+  - 工作树含共享的未跟踪 `docs/site-guides.yaml` 和站点生成器改动，不能在不混入并行工作内容的情况下完成独立 scoped commit。
+- `requested_review_focus`:
+  - 确认 `DATA_ACCESS.md` 与 `architecture/data-access.html` 的删除范围严格遵循用户确认，且没有新 redirect。
+  - 确认活跃入口和代码文档锚点均迁移到与其语义匹配的架构页，旧 `contexts/records-wave-pool.html` 跳转仍被保留。
+  - 确认六页站点路由、导航和搜索项完整，且残余链接警告不属于本任务新增内容。
+
+## Optional Notes
+
+- `tests_run`: `55 focused documentation/site tests passed`
+- `gates_executed`: `site_web_generation`, `doc_sync`, `doc_anchors`, `diff_check`
+- `docs_updated`: `architecture sources, active cross-references, route catalog, site publishing reference`
+- `plan_drift`: `none`
+- `not_executed_and_why`: `No standalone commit was attempted because the required site manifest and generator integration are shared uncommitted worktree changes.`
+
+## Depth Expansion 2026-07-31
+
+- `trigger`: 用户通过 `architecture-page-outlines-v2-20260731` 批准六篇深度大纲，并要求重点加强数据产物页和图表表达。
+- `docs_updated_manually`:
+  - `docs/architecture/ARCHITECTURE.md`
+  - `docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md`
+  - `docs/architecture/DATA_PRODUCTS.md`
+  - `docs/architecture/RECORDS_WAVE_POOL.md`
+  - `docs/architecture/ACCESSOR_ANALYSIS.md`
+  - `docs/architecture/MULTI_RUN_PROCESSING.md`
+  - `docs/architecture/README.md`
+- `test_updated`:
+  - `tests/test_records_wave_pool_site_documentation.py`
+- `actions_taken`:
+  - 将六篇源文档扩写为 203–268 行，统一为概念与职责、运行机制、不变量、端到端例子、故障原因和维护检查的多级结构。
+  - 系统页完整记录 Context 自身配置、共享配置、Plugin 专属配置、设置入口、解析优先级、resolved config 和 `track` 对 lineage 的影响。
+  - 将 Records + WavePool 重写为通用的“结构化索引 + 对应 wave pool”模型，并并列记录 records 原始/滤波 pool 与 peaklet waveform pool。
+  - 将成员关系表提升为数据产物页的独立主章节，记录 `hit_merged_components`、`peaklet_components`、父表 offset/count 和 `peaklet_channels` 派生聚合的不同契约。
+  - 将 DAG 与 lineage 写成同一执行链上的协同机制；将多 Run 页标为开发中，并如实记录 `readonly` 当前不强制只读。
+  - 新增 39 个 Mermaid 图块；浏览器静态检查实际渲染 `39/39`，错误 `0`。
+- `commands_run`:
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest tests/test_site_guides.py tests/test_plugin_documentation.py tests/test_records_wave_pool_site_documentation.py tests/test_cli_docs_site_publish.py -q --no-cov` -> `55 passed`
+  - `PATH=/home/wxy/anaconda3/envs/pyroot-kernel/bin:$PATH waveform-docs generate site-web -o docs/_site` -> `74 files; 14 pre-existing out-of-manifest warnings`
+  - `PATH=/home/wxy/anaconda3/envs/pyroot-kernel/bin:$PATH scripts/check_doc_sync.sh` -> `PASS`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py --check-sync --base HEAD` -> `0 errors, 0 warnings`
+  - `git diff --check` -> `PASS`
+- `open_risks`:
+  - `docs/_site` 已从源文件重新生成但保持 ignored；14 条未收录 Markdown 链接均来自本轮范围外的用户/功能指南。
+  - 原任务仍依赖共享的未提交站点 manifest/generator 集成，提交前必须先划清共享 dirty 内容。

@@ -1,0 +1,30 @@
+# task_report
+
+- `task_id`: `lineage_reload_consistency`
+- `route`: `generate_docs`
+- `workflow_cost`: `light`
+- `workflow_shape`: `compact`
+- `actions_taken`:
+  - Prevented the temporary seed-node grid from triggering automatic viewport fitting.
+  - Added a monotonic layout revision so stale asynchronous ELK results cannot update the graph or viewport.
+  - Made the post-layout initial viewport fit deterministic by removing its animation.
+  - Prevented ordinary node selection in Overview/Full DAG from starting a redundant layout and overriding node-centering navigation.
+- `verification`:
+  - `npm run check`: PASS.
+  - `npx tsc -p tsconfig.test.json`: PASS.
+  - `node --test .test-dist/lineage.test.js`: PASS (5 tests).
+  - Focused plugin documentation generation and HTTP asset tests: PASS (5 tests).
+  - `python -m waveform_analysis.utils.cli_docs generate plugins-web -o /tmp/waveform-lineage-reload-site-20260729`: PASS (35 plugins, 43 files).
+  - `scripts/check_doc_sync.sh`: PASS.
+  - `python scripts/check_doc_anchors.py --check-sync --base HEAD`: PASS.
+  - `git diff --check` excluding the generated minified JS bundle: PASS.
+  - Full `tests/test_plugin_documentation.py`: 36 PASS, 1 unrelated existing Pygments whitespace assertion failure.
+  - Canonical `npm run build`: blocked by the host Rollup binary requiring `GLIBC_2.32`; the established esbuild fallback bundle succeeded.
+- `decision`: `completed`
+- `changed_paths`:
+  - `docs/site-react/src/main.tsx`
+  - `waveform_analysis/utils/templates/web/assets/react/waveform-docs.js`
+  - `docs/agents/protocol/artifacts/lineage_reload_consistency_task_report.md`
+- `commit_status`: `uncommitted`; the touched source and generated bundle already contain overlapping user changes, so a scoped commit cannot be created without mixing work.
+- `open_risks`:
+  - No browser automation dependency is available in the repository; verification covers the layout lifecycle, compiled asset, and generated-site contracts rather than repeated screenshot comparison.

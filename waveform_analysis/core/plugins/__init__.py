@@ -96,6 +96,22 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "WaveformStructConfig": (".builtin.cpu", "WaveformStructConfig"),
     "WaveformWidthPlugin": (".builtin.cpu", "WaveformWidthPlugin"),
     "SignalPeaksStreamPlugin": (".builtin.streaming", "SignalPeaksStreamPlugin"),
+    # Peaklet plugins - new location in peaks/
+    "PeakletPlugin": (".builtin.peaks.peaklets", "PeakletPlugin"),
+    "PeakletComponentsPlugin": (".builtin.peaks.peaklets", "PeakletComponentsPlugin"),
+    "PeakletWaveformPlugin": (".builtin.peaks.peaklets", "PeakletWaveformPlugin"),
+    "PeakletWaveformPoolPlugin": (".builtin.peaks.peaklets", "PeakletWaveformPoolPlugin"),
+    "PeakletFeaturesPlugin": (".builtin.peaks.peaklets", "PeakletFeaturesPlugin"),
+    "PeaksPlugin": (".builtin.peaks.peaklets", "PeaksPlugin"),
+    "PeakletChannelsPlugin": (".builtin.peaks.peaklet_channels", "PeakletChannelsPlugin"),
+    # Hit plugins - new location in hit/
+    "HitGroupedPlugin": (".builtin.hit.hit_grouped", "HitGroupedPlugin"),
+    "ThresholdHitPlugin": (".builtin.hit.hit_finder", "ThresholdHitPlugin"),
+    "HitMergePlugin": (".builtin.hit.hit_merge", "HitMergePlugin"),
+    "HitMergeClustersPlugin": (".builtin.hit.hit_merge", "HitMergeClustersPlugin"),
+    "HitMergedComponentsPlugin": (".builtin.hit.hit_merge", "HitMergedComponentsPlugin"),
+    "HitMergedFeaturesPlugin": (".builtin.hit.hit_merged_features", "HitMergedFeaturesPlugin"),
+    # Core infrastructure
     "Option": (".core", "Option"),
     "Plugin": (".core", "Plugin"),
     "PluginExecutionRecord": (".core", "PluginExecutionRecord"),

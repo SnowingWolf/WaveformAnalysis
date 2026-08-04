@@ -1,0 +1,25 @@
+schema_version: 1
+
+sections:
+  - id: architecture
+    title: 系统架构与数据模型
+    index_route: architecture/index.html
+    source_indexes:
+      - docs/architecture/README.md
+    pages:
+      - source: docs/architecture/ARCHITECTURE.md
+        route: architecture/system.html
+      - source: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
+        route: architecture/plugin-dag-lineage-cache.html
+      - source: docs/architecture/DATA_PRODUCTS.md
+        route: architecture/data-products.html
+      - source: docs/architecture/ACCESSOR_ANALYSIS.md
+        route: architecture/accessor-analysis.html
+  - id: plugin-system
+    title: 插件系统
+    index_route: plugins/guides.html
+    source_indexes:
+      - docs/plugins/README.md
+    pages:
+      - source: docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+        route: plugins/overview.html

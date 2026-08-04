@@ -114,6 +114,11 @@ class PluginSpec:
 
 这些属性会参与注册校验与 lineage hash，确保缓存一致性。
 
+`Plugin.output_schema` 现在也是正式的类级契约。结构化或普通 NumPy 数组可继续只声明
+`output_dtype`，系统会推导 schema；DataFrame、list、dict 等非 ndarray 输出必须显式声明
+`OutputSchema(kind=...)`。同时声明两者时，显式 schema 优先提供文档元数据，但 kind、dtype 或字段
+与 `output_dtype` 冲突会在插件校验阶段明确失败。
+
 ### 相关类
 
 

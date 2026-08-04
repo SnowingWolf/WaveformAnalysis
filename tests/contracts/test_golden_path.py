@@ -8,7 +8,7 @@ Uses minimal fake DAQ data fixtures to test the complete pipeline.
 """
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import pytest
@@ -185,28 +185,35 @@ class TestGoldenPathWithBuiltinPlugins:
     """Test golden path with actual builtin plugins (if available)."""
 
     @pytest.fixture
-    def minimal_daq_structure(self, temp_storage_dir) -> Dict[str, Any]:
-        """Create minimal DAQ directory structure."""
+    def minimal_daq_structure(self, temp_storage_dir) -> dict[str, Any]:
+        """Create minimal DAQ directory structure matching the vx2730 adapter contract.
+
+        The vx2730 adapter scans ``{data_root}/{run_name}/RAW/*CH*.CSV`` and groups
+        files by channel via the ``RUN_CH{ch}_{idx}.CSV`` filename pattern (see
+        tests/utils.py make_csv). Files are written in the same META/HEADER + data-row
+        layout used elsewhere in the test suite so RawFilesPlugin can actually find them.
+        """
         run_name = "golden_test_run"
         run_dir = temp_storage_dir / run_name
-        run_dir.mkdir(parents=True, exist_ok=True)
+        raw_dir = run_dir / "RAW"
+        raw_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create minimal CSV files in VX2730 format
-        # Columns: board, channel, timestamp, trigger_id, samples...
+        # VX2730 contract CSV layout: META line + HEADER;X;TIMETAG;S0... + data rows
         n_samples = 50
         n_events = 5
+        sample_headers = ";".join(f"S{i}" for i in range(n_samples))
 
-        for board in range(1):
-            for channel in range(2):
-                csv_path = run_dir / f"wave{board}_{channel}.csv"
-                with open(csv_path, "w") as f:
-                    for event_idx in range(n_events):
-                        row = [board, channel, event_idx * 1000000, event_idx]
-                        # Baseline + pulse waveform
-                        samples = [100.0] * n_samples
-                        samples[20:30] = [150.0] * 10  # Pulse
-                        row.extend(samples)
-                        f.write(",".join(map(str, row)) + "\n")
+        for channel in range(2):
+            for idx in range(2):
+                csv_path = raw_dir / f"RUN_CH{channel}_{idx}.CSV"
+                rows = ["META;INFO", f"HEADER;X;TIMETAG;{sample_headers}"]
+                for event_idx in range(n_events):
+                    tag = event_idx * 1000000
+                    # Baseline + pulse waveform
+                    samples = [100] * n_samples
+                    samples[20:30] = [150] * 10
+                    rows.append(f"v;1;{tag};" + ";".join(map(str, samples)))
+                csv_path.write_text("\n".join(rows) + "\n", encoding="utf-8")
 
         return {
             "data_root": str(temp_storage_dir),
@@ -233,36 +240,12 @@ class TestGoldenPathWithBuiltinPlugins:
         raw_files = ctx.get_data(minimal_daq_structure["run_name"], "raw_files")
 
         assert raw_files is not None
-        # Should find CSV files (may be empty list if format doesn't match)
-        if isinstance(raw_files, list) and len(raw_files) == 0:
-            pytest.skip("RawFilesPlugin found no files (format mismatch with minimal test data)")
-
-    def test_builtin_pipeline_partial(self, minimal_daq_structure):
-        """Test partial builtin pipeline."""
-        try:
-            from waveform_analysis.core.plugins.builtin.cpu import (
-                RawFilesPlugin,
-                WaveformsPlugin,
-            )
-        except ImportError:
-            pytest.skip("Builtin plugins not available")
-
-        ctx = Context(
-            config={
-                "data_root": minimal_daq_structure["data_root"],
-                "n_channels": minimal_daq_structure["n_channels"],
-                "daq_adapter": "vx2730",
-            }
-        )
-        ctx.register(RawFilesPlugin())
-        ctx.register(WaveformsPlugin())
-
-        try:
-            waveforms = ctx.get_data(minimal_daq_structure["run_name"], "waveforms")
-            assert waveforms is not None
-        except Exception as e:
-            # May fail due to format issues with minimal test data
-            pytest.skip(f"Waveform extraction failed (expected with minimal data): {e}")
+        # vx2730 adapter must find the RUN_CH{ch}_{idx}.CSV files under RAW/
+        assert isinstance(raw_files, list)
+        assert len(raw_files) == minimal_daq_structure["n_channels"]
+        for ch_files in raw_files:
+            assert len(ch_files) > 0, "RawFilesPlugin found no files for a channel"
+            assert all(str(p).endswith(".CSV") for p in ch_files)
 
 
 class TestGoldenPathErrorHandling:

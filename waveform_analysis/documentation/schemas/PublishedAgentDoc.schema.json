@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "document_type",
+    "plugin_name",
+    "plugin_version",
+    "source_fingerprint",
+    "generator_version",
+    "content"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "enum": [1]},
+    "document_type": {"type": "string", "enum": ["published_agent_doc"]},
+    "plugin_name": {"type": "string"},
+    "plugin_version": {"type": "string"},
+    "source_fingerprint": {"type": "string"},
+    "generator_version": {"type": "string"},
+    "content": {"type": "object"}
+  }
+}

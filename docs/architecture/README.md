@@ -1,26 +1,24 @@
-# 架构设计
+# 系统架构与数据模型
 
-**导航**: [文档中心](../README.md) > 架构设计
+**导航**: [文档中心](../README.md) > 系统架构与数据模型
 
-理解系统设计和数据流程，适合需要深入了解项目架构的开发者。
+理解 Plugin 如何运行、数据如何关联，以及单 run 与多 run 的处理边界。
 
 ## 文档列表
 
 | 文档 | 说明 |
 |------|------|
-| [系统架构](ARCHITECTURE.md) | 系统总体架构和设计原则 |
-| [插件系统架构](PLUGIN_SYSTEM_ARCHITECTURE.md) | 插件系统完整架构分析 |
-| [项目结构](PROJECT_STRUCTURE.md) | 项目目录结构和模块说明 |
-| [Context 工作流](CONTEXT_PROCESSOR_WORKFLOW.md) | Context 和 Processor 工作流程 |
-| [Records + WavePool](RECORDS_WAVE_POOL.md) | 数据中间层设计 |
+| [系统架构与数据流](ARCHITECTURE.md) | 默认数据流与各层职责 |
+| [插件执行链与缓存](PLUGIN_DAG_LINEAGE_CACHE.md) | 从依赖解析到缓存复用的主线 |
+| [数据产物与波形访问](DATA_PRODUCTS.md) | 正式产物契约、实体关系、派生聚合与 records/pool 波形访问 |
+| [分析查询与批量运行](ACCESSOR_ANALYSIS.md) | 处理完成后的只读查询，以及多 run 调度与执行边界 |
 
 ## 学习路径
 
-1. [项目结构](PROJECT_STRUCTURE.md) - 了解项目结构
-2. [系统架构](ARCHITECTURE.md) - 理解整体架构
-3. [插件系统架构](PLUGIN_SYSTEM_ARCHITECTURE.md) - 深入插件系统
-4. [Context 工作流](CONTEXT_PROCESSOR_WORKFLOW.md) - 掌握核心流程
-5. [Records + WavePool](RECORDS_WAVE_POOL.md) - 数据中间层
+1. [系统架构与数据流](ARCHITECTURE.md) - 了解默认数据流与层次边界
+2. [插件执行链与缓存](PLUGIN_DAG_LINEAGE_CACHE.md) - 理解处理如何执行和复用
+3. [数据产物与波形访问](DATA_PRODUCTS.md) - 理解正式输出、ID 关系与波形配对
+4. [分析查询与批量运行](ACCESSOR_ANALYSIS.md) - 理解分析阶段的只读接口与批量边界
 
 ## 相关资源
 

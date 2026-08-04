@@ -1,0 +1,18 @@
+{% extends "web/base.html.j2" %}
+{% import "web/content_block.html.j2" as content %}
+{% set page_title = title ~ " | WaveformAnalysis" %}
+{% set asset_prefix = "../assets/" %}
+{% set site_root_prefix = "../" %}
+{% set body_class = "docs-page" %}
+{% set current = current_section %}
+{% set site_home_href = "../index.html" %}
+{% set plugin_index_href = "../plugins/index.html" %}
+{% set accessor_index_href = "../accessors/index.html" %}
+{% set accessor_detail_prefix = "../accessors/" %}
+{% set context_index_href = "../contexts/context.html" %}
+{% set adapter_index_href = "../adapters/adapter.html" %}
+{% set visualization_index_href = "../visualizations/index.html" %}
+{% set visualization_detail_prefix = "../visualizations/" %}
+{% block document %}
+<main class="docs-main"><nav class="breadcrumbs" aria-label="面包屑"><a href="../index.html">文档概览</a><span aria-current="page">{{ title }}</span></nav><header class="page-heading"><p class="eyebrow">{{ eyebrow }}</p><h1>{{ title }}</h1><p>{{ summary }}</p></header>{% if intro_blocks %}<section class="callable-index-introduction" id="architecture-overview"><h2>{{ intro_title|default("整体介绍") }}</h2>{% for block in intro_blocks %}{{ content.render(block, asset_prefix) }}{% endfor %}</section>{% endif %}<div class="resource-grid">{% for page in pages %}<a class="resource-card" href="{{ page.href or page.slug ~ '.html' }}"><span class="category">{{ page.eyebrow }}</span><h2>{{ page.title }}</h2><p>{{ page.summary }}</p><span class="card-link">阅读参考</span></a>{% endfor %}</div></main>
+{% endblock %}

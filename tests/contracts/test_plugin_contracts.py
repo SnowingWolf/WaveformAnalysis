@@ -9,7 +9,6 @@ Verifies that all builtin plugins have valid specs and follow contracts:
 """
 
 import json
-from typing import Dict, List, Set
 
 import pytest
 
@@ -174,8 +173,8 @@ class TestDependencyGraph:
     def test_no_circular_dependencies(self, all_builtin_plugins):
         """Dependency graph must be acyclic (DAG)."""
         # Build dependency graph
-        provides_map: Dict[str, str] = {}  # data_name -> plugin_name
-        depends_map: Dict[str, List[str]] = {}  # plugin_name -> [dep_data_names]
+        provides_map: dict[str, str] = {}  # data_name -> plugin_name
+        depends_map: dict[str, list[str]] = {}  # plugin_name -> [dep_data_names]
 
         for plugin_cls in all_builtin_plugins:
             try:
@@ -190,7 +189,7 @@ class TestDependencyGraph:
                 pass
 
         # Check for cycles using DFS
-        def has_cycle(node: str, visited: Set[str], rec_stack: Set[str]) -> bool:
+        def has_cycle(node: str, visited: set[str], rec_stack: set[str]) -> bool:
             visited.add(node)
             rec_stack.add(node)
 
@@ -208,7 +207,7 @@ class TestDependencyGraph:
             rec_stack.remove(node)
             return False
 
-        visited: Set[str] = set()
+        visited: set[str] = set()
         for plugin_name in depends_map:
             if plugin_name not in visited:
                 if has_cycle(plugin_name, visited, set()):
@@ -216,7 +215,7 @@ class TestDependencyGraph:
 
     def test_provides_unique(self, all_builtin_plugins):
         """Each plugin must provide a unique data name."""
-        provides_seen: Dict[str, str] = {}  # data_name -> plugin_name
+        provides_seen: dict[str, str] = {}  # data_name -> plugin_name
 
         for plugin_cls in all_builtin_plugins:
             try:
@@ -235,7 +234,7 @@ class TestDependencyGraph:
     def test_depends_on_resolvable(self, registered_context, all_builtin_plugins):
         """All dependencies should be resolvable within builtin plugins."""
         # Get all provided data names
-        provided: Set[str] = set()
+        provided: set[str] = set()
         for plugin_cls in all_builtin_plugins:
             try:
                 plugin = plugin_cls()

@@ -11,7 +11,6 @@
 import logging
 import multiprocessing
 import time
-from typing import Dict, List, Optional
 
 try:
     import psutil
@@ -61,7 +60,7 @@ class DynamicLoadBalancer:
     def __init__(
         self,
         min_workers: int = 1,
-        max_workers: Optional[int] = None,
+        max_workers: int | None = None,
         cpu_threshold: float = 0.8,  # CPU使用率阈值
         memory_threshold: float = 0.85,  # 内存使用率阈值
         check_interval: float = 5.0,  # 检查间隔（秒）
@@ -84,7 +83,7 @@ class DynamicLoadBalancer:
 
         self._current_workers = self.min_workers
         self._last_check_time = 0
-        self._task_history: List[Dict] = []  # 任务执行历史
+        self._task_history: list[dict] = []  # 任务执行历史
         self.logger = logging.getLogger(self.__class__.__name__)
 
         # 检查psutil是否可用
@@ -94,7 +93,7 @@ class DynamicLoadBalancer:
                 "Install with: pip install psutil"
             )
 
-    def get_optimal_workers(self, n_tasks: int, estimated_task_size: Optional[int] = None) -> int:
+    def get_optimal_workers(self, n_tasks: int, estimated_task_size: int | None = None) -> int:
         """
         获取当前最优worker数量
 
@@ -165,7 +164,7 @@ class DynamicLoadBalancer:
         return suggested_workers
 
     def record_task_completion(
-        self, duration: float, memory_used: Optional[int] = None, success: bool = True
+        self, duration: float, memory_used: int | None = None, success: bool = True
     ):
         """
         记录任务完成情况（用于未来优化）
@@ -189,7 +188,7 @@ class DynamicLoadBalancer:
         if len(self._task_history) > 1000:
             self._task_history = self._task_history[-1000:]
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """
         获取负载均衡统计信息
 
@@ -235,7 +234,7 @@ class DynamicLoadBalancer:
 
 
 @export
-def get_system_info() -> Dict:
+def get_system_info() -> dict:
     """
     获取系统资源信息
 

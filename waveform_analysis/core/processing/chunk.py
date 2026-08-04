@@ -10,8 +10,8 @@ Chunk Utilities - 时间区间与分块操作
 受 strax 启发的时间分块处理逻辑。
 """
 
+from collections.abc import Generator, Iterator
 from dataclasses import dataclass, field
-from typing import Generator, Iterator, List, Optional, Tuple
 
 import numpy as np
 
@@ -92,8 +92,8 @@ class Chunk:
         dt_field: str = DT_FIELD,
         length_field: str = LENGTH_FIELD,
         endtime_field: str = ENDTIME_FIELD,
-        dt: Optional[float] = None,
-        metadata: Optional[dict] = None,
+        dt: float | None = None,
+        metadata: dict | None = None,
     ):
         """
         初始化 Chunk 对象
@@ -240,8 +240,8 @@ class ValidationResult:
     """数据校验结果"""
 
     is_valid: bool
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
     stats: dict = field(default_factory=dict)
 
     def __bool__(self) -> bool:
@@ -265,7 +265,7 @@ def compute_endtime(
     time_field: str = TIME_FIELD,
     dt_field: str = DT_FIELD,
     length_field: str = LENGTH_FIELD,
-    dt: Optional[float] = None,
+    dt: float | None = None,
 ) -> np.ndarray:
     """
     计算 endtime = time + dt * length
@@ -391,7 +391,7 @@ def get_endtime(
     endtime_field: str = ENDTIME_FIELD,
     dt_field: str = DT_FIELD,
     length_field: str = LENGTH_FIELD,
-    dt: Optional[float] = None,
+    dt: float | None = None,
 ) -> np.ndarray:
     """
     获取 endtime，如果没有 endtime 字段则计算
@@ -588,8 +588,8 @@ def get_time_range(
     endtime_field: str = ENDTIME_FIELD,
     dt_field: str = DT_FIELD,
     length_field: str = LENGTH_FIELD,
-    dt: Optional[float] = None,
-) -> Tuple[int, int]:
+    dt: float | None = None,
+) -> tuple[int, int]:
     """
     获取数据的时间范围 [min_time, max_endtime)
 
@@ -619,14 +619,14 @@ def get_time_range(
 @export
 def select_time_range(
     data: np.ndarray,
-    start: Optional[int] = None,
-    end: Optional[int] = None,
+    start: int | None = None,
+    end: int | None = None,
     strict: bool = False,
     time_field: str = TIME_FIELD,
     endtime_field: str = ENDTIME_FIELD,
     dt_field: str = DT_FIELD,
     length_field: str = LENGTH_FIELD,
-    dt: Optional[float] = None,
+    dt: float | None = None,
 ) -> np.ndarray:
     """
     选择时间范围内的记录
@@ -675,8 +675,8 @@ def select_time_range(
 @export
 def clip_to_time_range(
     data: np.ndarray,
-    start: Optional[int] = None,
-    end: Optional[int] = None,
+    start: int | None = None,
+    end: int | None = None,
 ) -> np.ndarray:
     """
     裁剪记录到指定时间范围（会调整 time/length/endtime）
@@ -767,8 +767,8 @@ def clip_to_time_range(
 def split_by_time(
     data: np.ndarray,
     chunk_duration_ns: int,
-    start_time: Optional[int] = None,
-) -> Generator[Tuple[np.ndarray, ChunkInfo], None, None]:
+    start_time: int | None = None,
+) -> Generator[tuple[np.ndarray, ChunkInfo], None, None]:
     """
     按固定时间间隔分割数据
 
@@ -817,7 +817,7 @@ def split_by_time(
 def split_by_count(
     data: np.ndarray,
     chunk_size: int = DEFAULT_CHUNK_SIZE,
-) -> Generator[Tuple[np.ndarray, ChunkInfo], None, None]:
+) -> Generator[tuple[np.ndarray, ChunkInfo], None, None]:
     """
     按记录数量分割数据
 
@@ -862,8 +862,8 @@ def split_by_breaks(
     endtime_field: str = ENDTIME_FIELD,
     dt_field: str = DT_FIELD,
     length_field: str = LENGTH_FIELD,
-    dt: Optional[float] = None,
-) -> Generator[Tuple[np.ndarray, ChunkInfo], None, None]:
+    dt: float | None = None,
+) -> Generator[tuple[np.ndarray, ChunkInfo], None, None]:
     """
     按时间间隙分割数据（在大间隙处断开）
 
@@ -960,10 +960,10 @@ def merge_chunks(chunks: Iterator[np.ndarray], sort: bool = True) -> np.ndarray:
 
 @export
 def rechunk(
-    chunks: Iterator[Tuple[np.ndarray, ChunkInfo]],
+    chunks: Iterator[tuple[np.ndarray, ChunkInfo]],
     target_size: int = DEFAULT_CHUNK_SIZE,
-    max_size: Optional[int] = None,
-) -> Generator[Tuple[np.ndarray, ChunkInfo], None, None]:
+    max_size: int | None = None,
+) -> Generator[tuple[np.ndarray, ChunkInfo], None, None]:
     """
     重新分块，使每个 chunk 大小接近目标值
 
@@ -980,11 +980,11 @@ def rechunk(
     if max_size is None:
         max_size = target_size * 2
 
-    buffer: List[np.ndarray] = []
+    buffer: list[np.ndarray] = []
     buffer_size = 0
     chunk_i = 0
 
-    def flush_buffer() -> Tuple[np.ndarray, ChunkInfo]:
+    def flush_buffer() -> tuple[np.ndarray, ChunkInfo]:
         nonlocal buffer, buffer_size, chunk_i
         if not buffer:
             return None, ChunkInfo()
@@ -1042,9 +1042,9 @@ def rechunk(
 
 @export
 def rechunk_to_boundaries(
-    chunks: Iterator[Tuple[np.ndarray, ChunkInfo]],
+    chunks: Iterator[tuple[np.ndarray, ChunkInfo]],
     boundary_times: np.ndarray,
-) -> Generator[Tuple[np.ndarray, ChunkInfo], None, None]:
+) -> Generator[tuple[np.ndarray, ChunkInfo], None, None]:
     """
     重新分块到指定的时间边界
 
@@ -1064,7 +1064,7 @@ def rechunk_to_boundaries(
     # 确保边界排序
     boundary_times = np.sort(boundary_times)
 
-    buffer: List[np.ndarray] = []
+    buffer: list[np.ndarray] = []
     current_boundary_idx = 0
     chunk_i = 0
 
@@ -1139,7 +1139,7 @@ def check_chunk_boundaries(
     endtime_field: str = ENDTIME_FIELD,
     dt_field: str = DT_FIELD,
     length_field: str = LENGTH_FIELD,
-    dt: Optional[float] = None,
+    dt: float | None = None,
 ) -> ValidationResult:
     """
     检查数据是否违反 chunk 边界
@@ -1205,7 +1205,7 @@ def check_chunk_boundaries(
 
 @export
 def check_chunk_continuity(
-    chunks: List[Tuple[np.ndarray, ChunkInfo]],
+    chunks: list[tuple[np.ndarray, ChunkInfo]],
     allow_gaps: bool = False,
     max_gap_ns: int = 0,
 ) -> ValidationResult:
@@ -1277,7 +1277,7 @@ def _validate_time_fields(
     time_field: str = TIME_FIELD,
     dt_field: str = DT_FIELD,
     length_field: str = LENGTH_FIELD,
-    dt: Optional[float] = None,
+    dt: float | None = None,
 ):
     """验证数组包含必要的时间字段"""
     if not hasattr(data, "dtype") or data.dtype.names is None:
@@ -1303,7 +1303,7 @@ def sort_by_time(data: np.ndarray) -> np.ndarray:
 
 
 @export
-def concat_sorted(arrays: List[np.ndarray], already_sorted: bool = False) -> np.ndarray:
+def concat_sorted(arrays: list[np.ndarray], already_sorted: bool = False) -> np.ndarray:
     """
     连接多个数组并保持时间排序
 

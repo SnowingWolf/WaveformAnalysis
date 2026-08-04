@@ -9,10 +9,11 @@ write to the main cache by default.
 import csv
 import json
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from waveform_analysis.core.foundation.utils import exporter
 from waveform_analysis.core.plugins.core.base import Option, Plugin
+from waveform_analysis.core.plugins.core.spec import OutputSchema
 from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer, CacheEntry
 from waveform_analysis.core.storage.cache_diagnostics import CacheDiagnostics, DiagnosticIssue
 from waveform_analysis.core.storage.cache_statistics import CacheStatsCollector
@@ -39,7 +40,7 @@ _ENTRY_FIELDS = [
 ]
 
 
-def _entry_to_dict(entry: CacheEntry, include_metadata: bool) -> Dict[str, Any]:
+def _entry_to_dict(entry: CacheEntry, include_metadata: bool) -> dict[str, Any]:
     result = {
         "run_id": entry.run_id,
         "data_name": entry.data_name,
@@ -63,7 +64,7 @@ def _entry_to_dict(entry: CacheEntry, include_metadata: bool) -> Dict[str, Any]:
     return result
 
 
-def _issue_to_dict(issue: DiagnosticIssue) -> Dict[str, Any]:
+def _issue_to_dict(issue: DiagnosticIssue) -> dict[str, Any]:
     return {
         "issue_type": issue.issue_type.value,
         "severity": issue.severity,
@@ -78,11 +79,11 @@ def _issue_to_dict(issue: DiagnosticIssue) -> Dict[str, Any]:
 
 
 def _resolve_export_target(
-    export_path: Optional[str],
-    export_format: Optional[str],
+    export_path: str | None,
+    export_format: str | None,
     export_name: str,
-    output_dir: Optional[str],
-) -> Tuple[Optional[str], Optional[str]]:
+    output_dir: str | None,
+) -> tuple[str | None, str | None]:
     if export_path:
         fmt = export_format
         lower_path = export_path.lower()
@@ -105,12 +106,12 @@ def _resolve_export_target(
     return os.path.join(base_dir, f"{export_name}.{fmt}"), fmt
 
 
-def _export_json(path: str, payload: Dict[str, Any]) -> None:
+def _export_json(path: str, payload: dict[str, Any]) -> None:
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, ensure_ascii=True, sort_keys=True)
 
 
-def _export_csv(path: str, entries: List[Dict[str, Any]]) -> None:
+def _export_csv(path: str, entries: list[dict[str, Any]]) -> None:
     with open(path, "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=_ENTRY_FIELDS)
         writer.writeheader()
@@ -128,6 +129,7 @@ class CacheAnalysisPlugin(Plugin):
     provides = "cache_analysis"
     description = "Analyze cache usage and return summary, entries, and diagnostics."
     version = "0.1.0"
+    output_schema = OutputSchema(kind="dict", doc="Cache summary, entries, and diagnostics.")
     save_when = "never"
     is_side_effect = True
 
@@ -209,7 +211,7 @@ class CacheAnalysisPlugin(Plugin):
         ),
     }
 
-    def compute(self, context: Any, run_id: str, **kwargs) -> Dict[str, Any]:
+    def compute(self, context: Any, run_id: str, **kwargs) -> dict[str, Any]:
         scan_all_runs = context.get_config(self, "scan_all_runs")
         data_name = context.get_config(self, "data_name")
         min_size_bytes = context.get_config(self, "min_size_bytes")
@@ -236,12 +238,12 @@ class CacheAnalysisPlugin(Plugin):
         collector = CacheStatsCollector(analyzer)
         stats = collector.collect(run_id=target_run_id)
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "run_id": target_run_id or "all",
             "summary": stats.to_dict(),
         }
 
-        entries: List[Dict[str, Any]] = []
+        entries: list[dict[str, Any]] = []
         if include_entries:
             raw_entries = analyzer.get_entries(
                 run_id=target_run_id,

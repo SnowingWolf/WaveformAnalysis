@@ -15,7 +15,6 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Type
 
 from waveform_analysis.core.foundation.utils import exporter
 
@@ -59,9 +58,9 @@ class CoverageReport:
     total_plugins: int
     documented_plugins: int
     coverage_percent: float
-    issues: List[CoverageIssue] = field(default_factory=list)
-    documented_provides: Set[str] = field(default_factory=set)
-    missing_provides: Set[str] = field(default_factory=set)
+    issues: list[CoverageIssue] = field(default_factory=list)
+    documented_provides: set[str] = field(default_factory=set)
+    missing_provides: set[str] = field(default_factory=set)
 
     @property
     def passed(self) -> bool:
@@ -99,8 +98,8 @@ class DocCoverageChecker:
 
     def __init__(
         self,
-        docs_dir: Optional[Path] = None,
-        auto_docs_dir: Optional[Path] = None,
+        docs_dir: Path | None = None,
+        auto_docs_dir: Path | None = None,
     ):
         """初始化检查器
 
@@ -125,7 +124,7 @@ class DocCoverageChecker:
             auto_docs_dir = self.docs_dir / "plugins" / "reference" / "builtin" / "auto"
         self.auto_docs_dir = Path(auto_docs_dir)
 
-    def get_builtin_plugins(self) -> List[Tuple[str, str, Type]]:
+    def get_builtin_plugins(self) -> list[tuple[str, str, type]]:
         """获取所有内置插件
 
         Returns:
@@ -134,7 +133,7 @@ class DocCoverageChecker:
         from waveform_analysis.core.plugins.builtin import cpu
 
         plugins = []
-        seen_provides: Set[str] = set()
+        seen_provides: set[str] = set()
 
         for name in cpu.__all__:
             obj = getattr(cpu, name, None)
@@ -154,7 +153,7 @@ class DocCoverageChecker:
 
         return plugins
 
-    def get_documented_plugins(self) -> Set[str]:
+    def get_documented_plugins(self) -> set[str]:
         """获取已文档化的插件（provides 名称）
 
         Returns:
@@ -174,7 +173,7 @@ class DocCoverageChecker:
 
         return documented
 
-    def check_spec_quality(self, plugin_class: Type) -> List[CoverageIssue]:
+    def check_spec_quality(self, plugin_class: type) -> list[CoverageIssue]:
         """检查插件 spec 质量
 
         Args:
@@ -243,15 +242,16 @@ class DocCoverageChecker:
                     )
                 )
 
-        # 检查 output_dtype
+        # Structured arrays use output_dtype; other result types use output_schema.
         output_dtype = getattr(instance, "output_dtype", None)
-        if output_dtype is None:
+        output_schema = getattr(instance, "output_schema", None)
+        if output_dtype is None and output_schema is None:
             issues.append(
                 CoverageIssue(
                     plugin_name=plugin_name,
                     provides=provides,
                     severity="warning",
-                    message="Missing output_dtype",
+                    message="Missing output_dtype or output_schema",
                     category="spec_quality",
                 )
             )
@@ -362,7 +362,7 @@ class DocCoverageChecker:
 
 @export
 def check_and_report(
-    docs_dir: Optional[Path] = None,
+    docs_dir: Path | None = None,
     strict: bool = False,
     fail_on_warning: bool = False,
 ) -> bool:

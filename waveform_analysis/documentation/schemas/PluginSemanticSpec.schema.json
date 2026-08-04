@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["plugin_name", "processing_unit", "processing_steps", "invariants", "field_origins"],
+  "properties": {
+    "plugin_name": {"type": "string"},
+    "processing_unit": {"type": "object"},
+    "processing_steps": {"type": "array"},
+    "ordering": {"type": "object"},
+    "decision_rules": {"type": "array"},
+    "invariants": {"type": "array"},
+    "anchor_rule": {"type": "object"},
+    "field_origins": {"type": "object"},
+    "edge_cases": {"type": "array"},
+    "ambiguities": {"type": "array"}
+  }
+}

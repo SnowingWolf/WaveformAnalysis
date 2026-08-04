@@ -36,12 +36,12 @@ def example_basic_usage():
     ctx = Context(storage_dir="./strax_data")
 
     # 注册标准插件
-    ctx.register_plugin_(RawFilesPlugin())
-    ctx.register_plugin_(WaveformsPlugin())
+    ctx.register(RawFilesPlugin())
+    ctx.register(WaveformsPlugin())
 
     # 注册信号处理插件
-    ctx.register_plugin_(FilteredWaveformsPlugin())
-    ctx.register_plugin_(HitFinderPlugin())
+    ctx.register(FilteredWaveformsPlugin())
+    ctx.register(HitFinderPlugin())
 
     # 设置全局配置
     ctx.set_config(
@@ -118,9 +118,9 @@ def example_butterworth_filter():
     ctx = Context(storage_dir="./strax_data")
 
     # 注册插件
-    ctx.register_plugin_(RawFilesPlugin())
-    ctx.register_plugin_(WaveformsPlugin())
-    ctx.register_plugin_(FilteredWaveformsPlugin())
+    ctx.register(RawFilesPlugin())
+    ctx.register(WaveformsPlugin())
+    ctx.register(FilteredWaveformsPlugin())
 
     # 全局配置
     ctx.set_config(
@@ -258,17 +258,17 @@ def example_compare_filters():
 
     # 获取原始波形
     ctx_original = Context(storage_dir="./strax_data")
-    ctx_original.register_plugin_(RawFilesPlugin())
-    ctx_original.register_plugin_(WaveformsPlugin())
+    ctx_original.register(RawFilesPlugin())
+    ctx_original.register(WaveformsPlugin())
     ctx_original.set_config({"data_root": "DAQ", "n_channels": 2, "start_channel_slice": 6})
     st_waveforms = ctx_original.get_data(run_id, "st_waveforms")
     original_waveform = st_waveforms[channel_idx][event_idx]["wave"]
 
     # 使用 SG 滤波器
     ctx_sg = Context(storage_dir="./strax_data_sg")
-    ctx_sg.register_plugin_(RawFilesPlugin())
-    ctx_sg.register_plugin_(WaveformsPlugin())
-    ctx_sg.register_plugin_(FilteredWaveformsPlugin())
+    ctx_sg.register(RawFilesPlugin())
+    ctx_sg.register(WaveformsPlugin())
+    ctx_sg.register(FilteredWaveformsPlugin())
     ctx_sg.set_config({"data_root": "DAQ", "n_channels": 2, "start_channel_slice": 6})
     ctx_sg.set_config(
         {"filter_type": "SG", "sg_window_size": 11, "sg_poly_order": 2},
@@ -279,9 +279,9 @@ def example_compare_filters():
 
     # 使用 BW 滤波器
     ctx_bw = Context(storage_dir="./strax_data_bw")
-    ctx_bw.register_plugin_(RawFilesPlugin())
-    ctx_bw.register_plugin_(WaveformsPlugin())
-    ctx_bw.register_plugin_(FilteredWaveformsPlugin())
+    ctx_bw.register(RawFilesPlugin())
+    ctx_bw.register(WaveformsPlugin())
+    ctx_bw.register(FilteredWaveformsPlugin())
     ctx_bw.set_config({"data_root": "DAQ", "n_channels": 2, "start_channel_slice": 6})
     ctx_bw.set_config(
         {

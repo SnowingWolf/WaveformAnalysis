@@ -1,67 +1,96 @@
-# wave_pool_filtered (WavePoolFilteredPlugin)
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "agent"
+provides: "wave_pool_filtered"
+plugin_class: "WavePoolFilteredPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.records"
+version: "3.0.0"
+summary: "Build filtered wave_pool from records-backed raw waveforms."
+depends_on: ["records", "wave_pool"]
+output_kind: "array"
+generated: true
+---
+# wave_pool_filtered
 
-> Agent-first 插件契约文档。面向自动化执行与改动评估。
+## Overview
 
-## Agent Contract
+Build filtered wave_pool from records-backed raw waveforms.
+Build a filtered wave_pool aligned to the existing records layout.
 
 | Item | Value |
-|------|-------|
+| --- | --- |
 | Provides | `wave_pool_filtered` |
-| Depends On | `records`, `wave_pool` |
-| Output Kind | `array` |
-| Version | `3.0.0` |
+| Plugin Class | `WavePoolFilteredPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.records` |
-| Accelerator | `cpu` |
+| Version | `3.0.0` |
+| Category | 波形处理 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `array` |
 
-## Inputs
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `records` | - | declared | - | Build records (event index table) from the shared internal records bundle. |
+| `wave_pool` | - | declared | - | Build wave_pool from the shared internal records bundle. |
+### How It Works
 
-- `records`
-- `wave_pool`
 
-## Outputs
+## Configuration
 
-| Field | DType | Meaning |
-|-------|-------|---------|
-| `value` | `float32` | - |
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `filter_type` | `str` | `SG` | - | yes | no | 滤波器类型: 'BW' 或 'SG' |
+| `lowcut` | `float` | `0.1` | - | yes | no | BW 低频截止 |
+| `highcut` | `float` | `0.5` | - | yes | no | BW 高频截止 |
+| `fs` | `float` | `0.5` | - | yes | no | BW 采样率（GHz） |
+| `filter_order` | `int` | `4` | - | yes | no | BW 阶数 |
+| `sg_window_size` | `int` | `11` | - | yes | no | SG 窗口大小（奇数） |
+| `sg_poly_order` | `int` | `2` | - | yes | no | SG 多项式阶数 |
+| `max_workers` | `int` | `None` | - | yes | no | 并行工作线程数；None 使用 CPU 核心数，1 或 0 禁用并行 |
+| `batch_size` | `int` | `0` | - | yes | no | 每批次记录数（0 表示不分批，整个通道一次处理） |
+| `channel_config` | `dict` | `None` | - | yes | no | 按 (board, channel) 的插件通道覆盖配置，可覆盖滤波参数。 |
+## Output
 
-## Config
+array output with fields: value.
 
-| Name | Type | Default | Note |
-|------|------|---------|------|
-| `filter_type` | `str` | `SG` | 滤波器类型: 'BW' 或 'SG' |
-| `lowcut` | `float` | `0.1` | BW 低频截止 |
-| `highcut` | `float` | `0.5` | BW 高频截止 |
-| `fs` | `float` | `0.5` | BW 采样率（GHz） |
-| `filter_order` | `int` | `4` | BW 阶数 |
-| `sg_window_size` | `int` | `11` | SG 窗口大小（奇数） |
-| `sg_poly_order` | `int` | `2` | SG 多项式阶数 |
-| `max_workers` | `int` | `None` | 并行工作线程数；None 使用 CPU 核心数，1 或 0 禁用并行 |
-| `batch_size` | `int` | `0` | 每批次记录数（0 表示不分批，整个通道一次处理） |
-| `channel_config` | `dict` | `None` | 按 (board, channel) 的插件通道覆盖配置，可覆盖滤波参数。 |
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `value` | `float32` | ADC counts | Flattened float32 filtered sample value |
+## Usage
 
-## Execution Path
+### Minimal Example
 
-`wave_pool_filtered` 依赖链入口：
-`records -> wave_pool -> wave_pool_filtered`
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import WavePoolFilteredPlugin
 
-## Failure Modes
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(WavePoolFilteredPlugin())
+data = ctx.get_data("run_001", "wave_pool_filtered")
+```
 
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
+## Operational Notes
 
-## Change Playbook
+### Behavior
 
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
+### Failure Modes
 
-## Validation
+- Dependency data, configuration, or output contract validation may fail explicitly.
+### Downstream Impact
+
+Terminal output; no direct builtin consumer is declared.
+
+
+## Maintenance
+
+### Change Playbook
+
+1. Keep `provides` and dependency semantics stable or update all consumers.
+2. Bump `version` for behavior, configuration, or output contract changes.
+3. Regenerate auto, agent, and web references after metadata changes.
+### Validation
 
 ```bash
-# 单插件文档再生成
 waveform-docs generate plugins-agent --plugin wave_pool_filtered
-
-# 覆盖率检查
-waveform-docs check coverage --strict
+waveform-docs check coverage --strict --fail-on-warning
 ```

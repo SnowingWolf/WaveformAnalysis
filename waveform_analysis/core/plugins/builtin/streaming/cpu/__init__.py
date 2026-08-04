@@ -12,7 +12,7 @@
 
 from waveform_analysis.core.foundation.utils import exporter
 
-from .signal_peaks import SignalPeaksStreamPlugin
+from .signal_peaks import SignalPeaksStreamPlugin as SignalPeaksStreamPlugin
 
 export, __all__ = exporter()
 

@@ -4,7 +4,7 @@ Records/wave_pool plugins backed by an internal shared RecordsBundle cache.
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -16,7 +16,6 @@ from waveform_analysis.core.plugins.builtin.cpu.filtering import (
 )
 from waveform_analysis.core.plugins.builtin.cpu.waveforms import (
     _build_polarity_lookup,
-    _validate_baseline_samples,
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.dtypes import RECORDS_DTYPE
@@ -24,9 +23,12 @@ from waveform_analysis.core.processing.records_builder import (
     RecordsBundle,
     RecordsBundleRef,
     build_records_from_raw_files,
+    build_records_from_st_waveforms_sharded,
     build_records_from_v1725_files,
 )
-import waveform_analysis.utils.formats
+from waveform_analysis.core.utils.baseline import (
+    validate_baseline_samples as _validate_baseline_samples,
+)
 
 _BUNDLE_CACHE_NAME = "_records_bundle"
 
@@ -215,6 +217,15 @@ def _cleanup_stale_bundles(context: Any, run_id: str, keep_key: str) -> None:
             cleanup()
 
 
+def _resolve_bundle_config_plugin(context: Any, plugin: Plugin) -> Plugin:
+    """Return the plugin whose config controls the shared records bundle."""
+    if getattr(plugin, "provides", None) == "wave_pool":
+        records_plugin = getattr(context, "_plugins", {}).get("records")
+        if records_plugin is not None:
+            return records_plugin
+    return plugin
+
+
 def _build_records_bundle(
     context: Any,
     run_id: str,
@@ -227,6 +238,15 @@ def _build_records_bundle(
     cached = context._results.get((run_id, cache_key))
     if isinstance(cached, RecordsBundle | RecordsBundleRef):
         return cached
+
+    input_source = str(context.get_config(plugin, "input_source") or "raw_files").lower()
+    if input_source not in {"raw_files", "st_waveforms"}:
+        raise ValueError(
+            f"Invalid records input_source: {input_source!r}. "
+            "Expected 'raw_files' or 'st_waveforms'."
+        )
+    if adapter_name == "v1725" and input_source == "st_waveforms":
+        raise ValueError("records input_source='st_waveforms' is not supported for v1725")
 
     # V1725 采集卡路径
     if adapter_name == "v1725":
@@ -262,6 +282,18 @@ def _build_records_bundle(
             memory_budget_gb=memory_budget_gb,
             show_progress=bool(context.config.get("show_progress", True)),
             profiler=profiler,
+        )
+        bundle = _apply_records_polarity(context, run_id, bundle)
+        context._set_data(run_id, cache_key, bundle)
+        _cleanup_stale_bundles(context, run_id, cache_key)
+        return bundle
+
+    if input_source == "st_waveforms":
+        st_waveforms = context.get_data(run_id, "st_waveforms", output="array")
+        bundle = build_records_from_st_waveforms_sharded(
+            st_waveforms,
+            part_size=part_size,
+            default_dt_ns=dt_ns,
         )
         bundle = _apply_records_polarity(context, run_id, bundle)
         context._set_data(run_id, cache_key, bundle)
@@ -311,6 +343,18 @@ def _build_records_bundle(
 
 def _resolve_records_upstream_depends(context: Any, plugin: Plugin) -> list[str]:
     """Resolve the shared upstream inputs for records-backed derived products."""
+    plugin = _resolve_bundle_config_plugin(context, plugin)
+    input_source = str(context.get_config(plugin, "input_source") or "raw_files").lower()
+    if input_source == "st_waveforms":
+        adapter_name = _resolve_adapter_name(context, plugin)
+        if adapter_name == "v1725":
+            raise ValueError("records input_source='st_waveforms' is not supported for v1725")
+        return ["st_waveforms"]
+    if input_source != "raw_files":
+        raise ValueError(
+            f"Invalid records input_source: {input_source!r}. "
+            "Expected 'raw_files' or 'st_waveforms'."
+        )
     return ["raw_files"]
 
 
@@ -402,8 +446,14 @@ class _RecordsBundlePluginBase(Plugin):
             "relative to samples_start. JSON lists like [0, 800] are also accepted. "
             "None=adapter default.",
         ),
+        "input_source": Option(
+            default="raw_files",
+            type=str,
+            help="Input source for records bundle: 'raw_files' or 'st_waveforms'. "
+            "Use 'st_waveforms' for the materialized waveform path.",
+        ),
     }
-    version = "0.13.0"
+    version = "0.14.2"
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         """Resolve raw-file upstream data for shared records bundle outputs."""
@@ -437,6 +487,115 @@ class RecordsPlugin(_RecordsBundlePluginBase):
     depends_on = []
     description = "Build records (event index table) from the shared internal records bundle."
     output_dtype = RECORDS_DTYPE
+    agent_doc = {
+        "overview": (
+            "RecordsPlugin 是分析链最底层的基础插件，把共享的 RecordsBundle / RecordsBundleRef "
+            "（由 raw_files 或 st_waveforms 构建）产出的记录元数据暴露为正式的 `records` 结构化"
+            "数组。每条记录对应一次事件，包含时间戳、板卡/通道、基线、极性、触发类型、dt，以及"
+            "指向 wave_pool 的 `wave_offset` 与 `event_length` 等关键索引字段。\n\n"
+            "records 是绝大多数 records-backed 产物的源头：波形池的切片访问、通道角色掩码、"
+            "不对称性筛选、滤波波形池与 peaklet 波形还原等都从 records 的行结构与字段约定取得"
+            "语义。该插件不重复读取原始波形，而是复用同一份内存或磁盘 bundle（单分片直接 memmap "
+            "records_path，多分片仅合并元数据视图），保证整条链共享一致的记录视图。\n\n"
+            "插件通过 `_RecordsBundlePluginBase` 共享配置源，并支持 `input_source` 在 raw_files "
+            "与 st_waveforms 之间切换（V1725 仅支持 raw_files）；`resolve_depends_on` 按所选输入源"
+            "动态声明上游依赖。"
+        ),
+        "workflow_steps": [
+            "解析共享 bundle：调用 `get_records_bundle(context, run_id)` 获取（必要时构建）本 run 的 RecordsBundle / RecordsBundleRef。",
+            "选择元数据视图：单分片 `RecordsBundleRef` 时直接 memmap `records_path`，多分片时通过 `get_records_view()` 仅合并 records 元数据（不载入 wave_pool），内存 bundle 直接返回 `bundle.records`。",
+            "返回结果：输出按行对齐的 `RECORDS_DTYPE` 元数据数组，行序即后续 `record_id` 对齐约定。",
+        ],
+        "behavior_notes": [
+            "The plugin never re-parses raw waveforms itself; it only materializes the record metadata view from the shared bundle.",
+            "Single-part `RecordsBundleRef` returns a memmap over `records_path` (zero-copy); multi-part falls back to a merged metadata-only view.",
+            "`wave_offset` + `event_length` references into the `wave_pool` array (uint16), so `records` and `wave_pool` must stay index-consistent.",
+            "Polarity and baseline enrichment are applied while the shared bundle is built, not inside this plugin's compute.",
+        ],
+        "field_notes": {
+            "timestamp": "ADC 时间戳（ps）。",
+            "pid": "分区 id（partition id），作为排序平局决胜字段。",
+            "board": "板卡索引（int16）。",
+            "channel": "物理通道号（int16）。",
+            "baseline": "基线（float64），由 bundle 构建阶段计算。",
+            "baseline_upstream": "上游插件写入的基线（float64，可选）。",
+            "polarity": "硬件真实极性（'positive' | 'negative' | 'unknown' 或按设备约定）。",
+            "record_id": "排序后的顺序记录 id（int64）。",
+            "dt": "采样间隔（ns，与 time 对齐，int32）。",
+            "trigger_type": "触发类型码（int16）。",
+            "flags": "位标志（uint32）。",
+            "wave_offset": "事件波形在 wave_pool 中的起始索引（int64）。",
+            "event_length": "事件波形长度（采样点数，int32）。",
+            "time": "系统时间（ns，语义可选）。",
+        },
+        "config_notes": {
+            "daq_adapter": "DAQ 适配器名称（vx2730/v1725 等），决定 bundle 的解析路径与默认 dt。",
+            "input_source": "records bundle 输入源：'raw_files' 或 'st_waveforms'（V1725 仅支持 'raw_files'）。",
+            "dt": "采样间隔（ns），写回 records.dt；缺省取适配器采样率或 1ns。",
+            "keep_on_disk": "是否保持 bundle 磁盘驻留；None 时 V1725 默认 True、其余适配器默认 False。",
+            "memory_budget_gb": "内存驻留 records bundle 的内存预算（GB）。",
+            "baseline_samples": "基线范围：int（距适配器起始的采样数）或 (start, end) 元组，相对 samples_start。",
+            "channel_workers / channel_executor / n_jobs / use_process_pool": "通道级与文件级加载/合并不的并行控制参数（不参与血缘 track）。",
+            "v1725_part_size": "V1725 每文件 records 分片的最大波形数；<=0 表示每文件一个分片。",
+        },
+        "failure_modes": [
+            "所选 `input_source` 非 'raw_files'/'st_waveforms' 时抛出 `ValueError`。",
+            "V1725 使用 `input_source='st_waveforms'` 时抛出 `ValueError`（不支持该组合）。",
+            "上游 `raw_files` 数据缺失（非 list）时由共享 bundle 构建逻辑抛出 `ValueError`。",
+            "多分片 bundle 的元数据视图只合并 records、不合并 wave_pool，若下游误按 records 行取波形会越界——属消费方契约错误，本插件不单独拦截。",
+        ],
+        "downstream_consumers": [
+            "records_asymmetry_mask",
+            "records_detector_mask",
+            "records_veto_mask",
+            "wave_pool_filtered",
+            "peaklet_waveforms",
+        ],
+        "downstream_notes": [
+            "行序与 `record_id` 语义的变更会影响所有 mask 类产物（其输出长度必须与 records 一致）以及 align 到 records 的派生数组。",
+            "`wave_offset`/`event_length` 与 `wave_pool` 的索引一致性由下游切片访问共享，修改 records 布局需同步校验 `wave_pool_filtered` 与 `peaklet_waveforms`。",
+        ],
+        "agent_change_notes": [
+            "RECORDS_DTYPE 字段或行序变化会级联影响 records 的 mask/滤波/peaklet 消费链，请同步运行对应定向测试并重新生成文档。",
+        ],
+    }
+    options = {
+        **_RecordsBundlePluginBase.options,
+        "channel_workers": Option(
+            default=16,
+            help="Workers for channel-level waveform loading.",
+            track=False,
+        ),
+        "channel_executor": Option(
+            default="process",
+            type=str,
+            help="Executor type for channel-level loading and records merge: 'thread' or 'process'.",
+            track=False,
+        ),
+        "n_jobs": Option(
+            default=16,
+            type=int,
+            help="Workers per channel for file-level parsing; V1725 None=auto caps file readers at 4.",
+            track=False,
+        ),
+        "use_process_pool": Option(
+            default=True,
+            type=bool,
+            help="Use a process pool for file-level parsing (False=thread pool).",
+            track=False,
+        ),
+        "v1725_part_size": Option(
+            default=20_000,
+            type=int,
+            help="Max V1725 waves per per-file records shard; <=0 uses one shard per file.",
+        ),
+        "keep_on_disk": Option(
+            default=True,
+            type=None,
+            validate=lambda v: v is None or isinstance(v, bool),
+            help="Keep merged records bundle disk-backed. None defaults to True for V1725 and False otherwise.",
+        ),
+    }
 
     def compute(self, context: Any, run_id: str, **kwargs) -> np.ndarray:
         bundle = get_records_bundle(context, run_id)
@@ -447,9 +606,52 @@ class WavePoolPlugin(_RecordsBundlePluginBase):
     """Expose wave_pool as a formal plugin output backed by RecordsBundle."""
 
     provides = "wave_pool"
+    lineage_virtual = True
     depends_on = []
     description = "Build wave_pool from the shared internal records bundle."
     output_dtype = np.dtype(np.uint16)
+    agent_doc = {
+        "overview": (
+            "WavePoolPlugin 把共享 RecordsBundle 中的原始 ADC 波形样本暴露为正式的 `wave_pool` "
+            "插件输出。wave_pool 是一维 uint16 数组，事件波形通过 `records['wave_offset']` 与 "
+            "`records['event_length']` 切片获得，因此它必须与 `records` 保持行对齐的索引约定。\n\n"
+            "与 `records` 一样，wave_pool 复用同一份内存或磁盘 bundle：单分片 `RecordsBundleRef` "
+            "时直接 memmap `wave_pool_path`，避免二次拷贝；`lineage_virtual=True` 标记其血缘推导为"
+            "虚拟，配置与血缘共享 `records` 插件的来源，避免两处配置漂移。\n\n"
+            "它是 records-backed 波形访问与滤波产物（如 `wave_pool_filtered`）的直接数据源，也是"
+            " peaklet 波形还原（peaklet_waveforms，在 use_filtered=False 时）的原始波形池。"
+        ),
+        "workflow_steps": [
+            "解析共享 bundle：调用 `get_records_bundle(context, run_id)` 获取本 run 的 RecordsBundle / RecordsBundleRef。",
+            "选择波形池视图：`RecordsBundleRef` 单分片时直接 memmap `wave_pool_path`（uint16, shape=(n_samples,)），内存 bundle 直接返回 `bundle.wave_pool`。",
+            "返回结果：输出一维 uint16 数组，供 `records` 的 `wave_offset`/`event_length` 切片访问。",
+        ],
+        "behavior_notes": [
+            "The returned array is a flat `uint16` pool; per-event waveforms are slices `pool[offset : offset + length]`.",
+            "`wave_pool` is paired 1:1 with `records` through `wave_offset`/`event_length`; keeping both plugins consistent is part of the shared bundle contract.",
+            "Config resolution follows the `records` plugin (`_resolve_bundle_config_plugin`) so the two outputs never drift in dtype/dt/bundle semantics.",
+        ],
+        "config_notes": {
+            "daq_adapter": "DAQ 适配器名称，决定 bundle 的解析路径（vx2730/v1725 等）；与 records 共享。",
+            "keep_on_disk": "是否保持 bundle 磁盘驻留；None 时 V1725 默认 True、其余适配器默认 False。",
+            "dt": "采样间隔（ns），写回 records.dt；缺省取适配器采样率或 1ns。",
+            "baseline_samples": "基线范围（int 或 (start, end)），在 bundle 构建时同步用于 records。",
+            "input_source": "records bundle 输入源：raw_files 或 st_waveforms（V1725 仅支持 raw_files）。",
+        },
+        "failure_modes": [
+            "`RecordsBundleRef` 为多分片且未合并为单分片视图时，`_wave_pool_from_bundle` 抛出 `ValueError`（wave_pool 要求单分片 memmap 视图）。",
+            "上游 bundle 缺失或 `input_source` 非法时，由共享 bundle 构建逻辑抛出 `ValueError`。",
+        ],
+        "downstream_consumers": [
+            "records_asymmetry_mask",
+            "wave_pool_filtered",
+            "peaklet_waveforms",
+        ],
+        "downstream_notes": [
+            "`wave_pool_filtered` 以 wave_pool 为输入做滤波，输出同为 records 对齐的 float32 池。",
+            "`peaklet_waveforms` 在 `use_filtered=False` 时直接消费 wave_pool；池的索引约定必须与 records 保持一致。",
+        ],
+    }
 
     def compute(self, context: Any, run_id: str, **kwargs) -> np.ndarray:
         bundle = get_records_bundle(context, run_id)

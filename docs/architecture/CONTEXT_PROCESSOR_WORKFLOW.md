@@ -1,4 +1,4 @@
-**导航**: [文档中心](../README.md) > [架构设计](README.md) > 工作流程
+**导航**: [文档中心](../README.md) > [系统架构与数据模型](README.md) > 工作流程
 
 ---
 
@@ -625,7 +625,7 @@ st_waveforms = ctx.get_data("run_001", "st_waveforms")  # 再测试下一步
 - [项目结构说明](PROJECT_STRUCTURE.md)
 - [插件系统指南](PLUGIN_SYSTEM_ARCHITECTURE.md)
 - [快速开始指南](../user-guide/QUICKSTART_GUIDE.md)
-- [缓存机制说明](../features/context/DATA_ACCESS.md#缓存机制)
+- [Plugin DAG、lineage 与缓存](PLUGIN_DAG_LINEAGE_CACHE.md)
 - [流式处理指南](../plugins/guides/STREAMING_PLUGINS_GUIDE.md)
 
 ---

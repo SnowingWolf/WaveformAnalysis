@@ -24,10 +24,11 @@
 
 ### [Context 功能](context/README.md)
 
-依赖分析、血缘可视化、执行预览、配置管理、数据访问等。
+依赖分析、血缘可视化、执行预览、配置管理等。正式产物、缓存与波形访问的架构边界见下方专题。
 
 - [配置管理](context/CONFIGURATION.md)
-- [数据访问](context/DATA_ACCESS.md)
+- [Plugin DAG、lineage 与缓存](../architecture/PLUGIN_DAG_LINEAGE_CACHE.md)
+- [数据产物与波形访问](../architecture/DATA_PRODUCTS.md)
 - [依赖分析](context/DEPENDENCY_ANALYSIS_GUIDE.md)
 - [血缘可视化](context/LINEAGE_VISUALIZATION_GUIDE.md)
 - [执行预览](context/PREVIEW_EXECUTION.md)
@@ -71,7 +72,7 @@ DAQ 适配器、DAQ 运行分析与事件筛选等实用工具。
 | 场景 | 文档 |
 |------|------|
 | 管理执行器 | [EXECUTOR_MANAGER_GUIDE.md](advanced/EXECUTOR_MANAGER_GUIDE.md) |
-| 了解缓存机制 | [DATA_ACCESS.md](context/DATA_ACCESS.md) |
+| 了解缓存机制 | [PLUGIN_DAG_LINEAGE_CACHE.md](../architecture/PLUGIN_DAG_LINEAGE_CACHE.md) |
 | 追踪进度 | [PROGRESS_TRACKING_GUIDE.md](advanced/PROGRESS_TRACKING_GUIDE.md) |
 | 处理 CSV 文件头 | [IO_CSV_HEADER_HANDLING.md](advanced/IO_CSV_HEADER_HANDLING.md) |
 | 配置 DAQ 数据格式 | [DAQ_ADAPTER_GUIDE.md](../plugins/guides/DAQ_ADAPTER_GUIDE.md) |
@@ -103,5 +104,5 @@ DAQ 适配器、DAQ 运行分析与事件筛选等实用工具。
 
 - [用户指南](../user-guide/README.md) - 快速入门
 - [API 参考](../api/README.md) - API 文档
-- [架构设计](../architecture/README.md) - 系统架构
+- [系统架构与数据模型](../architecture/README.md) - 系统架构
 - [插件详解](../plugins/README.md) - 内置插件说明

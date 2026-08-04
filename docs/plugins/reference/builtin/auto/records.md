@@ -1,87 +1,100 @@
-# RecordsPlugin
-
-> Build records (event index table) from the shared internal records bundle.
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "records"
+plugin_class: "RecordsPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.records"
+version: "0.14.2"
+summary: "Build records (event index table) from the shared internal records bundle."
+depends_on: []
+output_kind: "structured_array"
+generated: true
+---
+# records
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `records` |
-| **Version** | `0.13.0` |
-| **Category** | 记录处理 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Build records (event index table) from the shared internal records bundle.
+RecordsPlugin 是分析链最底层的基础插件，把共享的 RecordsBundle / RecordsBundleRef （由 raw_files 或 st_waveforms 构建）产出的记录元数据暴露为正式的 `records` 结构化数组。每条记录对应一次事件，包含时间戳、板卡/通道、基线、极性、触发类型、dt，以及指向 wave_pool 的 `wave_offset` 与 `event_length` 等关键索引字段。
 
-## Dependencies
+records 是绝大多数 records-backed 产物的源头：波形池的切片访问、通道角色掩码、不对称性筛选、滤波波形池与 peaklet 波形还原等都从 records 的行结构与字段约定取得语义。该插件不重复读取原始波形，而是复用同一份内存或磁盘 bundle（单分片直接 memmap records_path，多分片仅合并元数据视图），保证整条链共享一致的记录视图。
 
-This plugin has no dependencies.
+插件通过 `_RecordsBundlePluginBase` 共享配置源，并支持 `input_source` 在 raw_files 与 st_waveforms 之间切换（V1725 仅支持 raw_files）；`resolve_depends_on` 按所选输入源动态声明上游依赖。
 
-## Configuration Options
+| Item | Value |
+| --- | --- |
+| Provides | `records` |
+| Plugin Class | `RecordsPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.cpu.records` |
+| Version | `0.14.2` |
+| Category | 记录处理 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-| Option | Type | Default | Units | Description |
-|--------|------|---------|-------|-------------|
-| `daq_adapter` | `str` | `vx2730` | - | DAQ adapter name for records bundle (e.g., 'vx2730', 'v1725'). |
-| `channel_workers` | `any` | `None` | - | Workers for channel-level waveform loading (None=auto). |
-| `channel_executor` | `str` | `thread` | - | Executor type for channel-level loading and records merge: 'thread' or 'process'. |
-| `n_jobs` | `int` | `None` | - | Workers per channel for file-level parsing; V1725 None=auto caps file readers at 4. |
-| `use_process_pool` | `bool` | `False` | - | Use a process pool for file-level parsing (False=thread pool). |
-| `chunksize` | `int` | `None` | - | CSV read chunk size; None reads full file (PyArrow if available). |
-| `parse_engine` | `str` | `auto` | - | CSV engine: auto | polars | pyarrow | pandas |
-| `records_part_size` | `int` | `250000` | - | Max events per records shard; <=0 disables sharding. |
-| `v1725_part_size` | `int` | `100000` | - | Max V1725 waves per per-file records shard; <=0 uses one shard per file. |
-| `keep_on_disk` | `any` | `None` | - | Keep merged records bundle disk-backed. None defaults to True for V1725 and False otherwise. |
-| `memory_budget_gb` | `float` | `50.0` | - | Memory budget in GB for in-memory records bundle materialization. |
-| `dt` | `int` | `None` | - | Sample interval in ns for records.dt (defaults to adapter rate or 1ns). |
-| `baseline_samples` | `any` | `None` | - | Baseline range: int (sample count from adapter start) or tuple (start, end) relative to samples_start. JSON lists like [0, 800] are also accepted. None=adapter default. |
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| - | - | - | - | No declared inputs. |
+### How It Works
 
+1. 解析共享 bundle：调用 `get_records_bundle(context, run_id)` 获取（必要时构建）本 run 的 RecordsBundle / RecordsBundleRef。
+2. 选择元数据视图：单分片 `RecordsBundleRef` 时直接 memmap `records_path`，多分片时通过 `get_records_view()` 仅合并 records 元数据（不载入 wave_pool），内存 bundle 直接返回 `bundle.records`。
+3. 返回结果：输出按行对齐的 `RECORDS_DTYPE` 元数据数组，行序即后续 `record_id` 对齐约定。
 
-## Output Schema
+## Configuration
 
-**Output Type**: `structured_array`
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `daq_adapter` | `str` | `vx2730` | - | yes | no | DAQ 适配器名称（vx2730/v1725 等），决定 bundle 的解析路径与默认 dt。 |
+| `channel_workers` | `any` | `16` | - | no | no | Workers for channel-level waveform loading. |
+| `channel_executor` | `str` | `process` | - | no | no | Executor type for channel-level loading and records merge: 'thread' or 'process'. |
+| `n_jobs` | `int` | `16` | - | no | no | Workers per channel for file-level parsing; V1725 None=auto caps file readers at 4. |
+| `use_process_pool` | `bool` | `True` | - | no | no | Use a process pool for file-level parsing (False=thread pool). |
+| `chunksize` | `int` | `None` | - | no | no | CSV read chunk size; None reads full file (PyArrow if available). |
+| `parse_engine` | `str` | `auto` | - | no | no | CSV engine: auto \| polars \| pyarrow \| pandas |
+| `records_part_size` | `int` | `250000` | - | yes | no | Max events per records shard; <=0 disables sharding. |
+| `v1725_part_size` | `int` | `20000` | - | yes | no | V1725 每文件 records 分片的最大波形数；<=0 表示每文件一个分片。 |
+| `keep_on_disk` | `any` | `True` | - | yes | no | 是否保持 bundle 磁盘驻留；None 时 V1725 默认 True、其余适配器默认 False。 |
+| `memory_budget_gb` | `float` | `50.0` | - | yes | no | 内存驻留 records bundle 的内存预算（GB）。 |
+| `dt` | `int` | `None` | - | yes | no | 采样间隔（ns），写回 records.dt；缺省取适配器采样率或 1ns。 |
+| `baseline_samples` | `any` | `None` | - | yes | no | 基线范围：int（距适配器起始的采样数）或 (start, end) 元组，相对 samples_start。 |
+| `input_source` | `str` | `raw_files` | - | yes | no | records bundle 输入源：'raw_files' 或 'st_waveforms'（V1725 仅支持 'raw_files'）。 |
+## Output
 
-| Field | Type | Units | Description |
-|-------|------|-------|-------------|
-| `timestamp` | `int64` | - | - |
-| `pid` | `int32` | - | - |
-| `board` | `int16` | - | - |
-| `channel` | `int16` | - | - |
-| `baseline` | `float64` | - | - |
-| `baseline_upstream` | `float64` | - | - |
-| `polarity` | `<U8` | - | - |
-| `record_id` | `int64` | - | - |
-| `dt` | `int32` | - | - |
-| `trigger_type` | `int16` | - | - |
-| `flags` | `uint32` | - | - |
-| `wave_offset` | `int64` | - | - |
-| `event_length` | `int32` | - | - |
-| `time` | `int64` | - | - |
+structured_array output with fields: timestamp, pid, board, channel, baseline, baseline_upstream, polarity, record_id, ....
 
-## Usage Example
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `timestamp` | `int64` | ps | ADC timestamp in picoseconds |
+| `pid` | `int32` | None | Partition identifier used as a tie-breaker |
+| `board` | `int16` | None | Hardware board index |
+| `channel` | `int16` | None | Physical channel number |
+| `baseline` | `float64` | ADC counts | Computed global waveform baseline |
+| `baseline_upstream` | `float64` | ADC counts | Upstream baseline value from preceding processing |
+| `polarity` | `<U8` | None | Hardware-truth signal polarity |
+| `record_id` | `int64` | None | Sequential record identifier after sorting |
+| `dt` | `int32` | ns | Sample interval in nanoseconds |
+| `trigger_type` | `int16` | None | Trigger type code |
+| `flags` | `uint32` | None | Bit field of record flags |
+| `wave_offset` | `int64` | None | Starting index in wave_pool |
+| `event_length` | `int32` | samples | Waveform length in samples |
+| `time` | `int64` | ns | System time in nanoseconds |
+## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import RecordsPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(RecordsPlugin())
-
-# Configure plugin (optional)
-ctx.set_config({
-    "daq_adapter": 'vx2730',
-    "channel_workers": None,
-    "channel_executor": 'thread',
-}, plugin_name="records")
-
-# Get data
 data = ctx.get_data("run_001", "records")
 ```
+### Downstream Consumers
 
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.records`
-
----
-
-*This documentation was auto-generated from plugin metadata.*
+- `peaklet_waveforms`
+- `records_asymmetry_mask`
+- `records_detector_mask`
+- `records_veto_mask`
+- `wave_pool_filtered`

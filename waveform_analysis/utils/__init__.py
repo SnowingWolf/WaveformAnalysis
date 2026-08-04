@@ -17,7 +17,20 @@ __all__ = [
     "plot_lineage_labview",
     "plot_lineage_plotly",
     "plot_waveforms",
+    "plot_peak_channels_with_sum",
+    "create_peak_plotter",
+    "save_figures_pdf",
     "corner_hist",
+    "plot_1d_cut_on_corner",
+    "plot_2d_cut_on_corner",
+    "get_merged_indices_for_peak",
+    "get_hit_indices_for_merged",
+    "get_hits_for_merged",
+    "get_hits_for_peak",
+    "build_peak_to_merged_lookup",
+    "build_merged_to_hit_lookup",
+    "S1S2PairAccessor",
+    "PeakChannelAccessor",
 ]
 
 _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
@@ -37,7 +50,20 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "plot_lineage_labview": (".visualization", "plot_lineage_labview"),
     "plot_lineage_plotly": (".visualization", "plot_lineage_plotly"),
     "plot_waveforms": (".visualization", "plot_waveforms"),
+    "plot_peak_channels_with_sum": (".visualization", "plot_peak_channels_with_sum"),
+    "create_peak_plotter": (".visualization", "create_peak_plotter"),
+    "save_figures_pdf": (".visualization", "save_figures_pdf"),
     "corner_hist": (".visualization.statistical_plots", "corner_hist"),
+    "plot_1d_cut_on_corner": (".visualization.statistical_plots", "plot_1d_cut_on_corner"),
+    "plot_2d_cut_on_corner": (".visualization.statistical_plots", "plot_2d_cut_on_corner"),
+    "get_merged_indices_for_peak": (".query_helpers", "get_merged_indices_for_peak"),
+    "get_hit_indices_for_merged": (".query_helpers", "get_hit_indices_for_merged"),
+    "get_hits_for_merged": (".query_helpers", "get_hits_for_merged"),
+    "get_hits_for_peak": (".query_helpers", "get_hits_for_peak"),
+    "build_peak_to_merged_lookup": (".query_helpers", "build_peak_to_merged_lookup"),
+    "build_merged_to_hit_lookup": (".query_helpers", "build_merged_to_hit_lookup"),
+    "S1S2PairAccessor": (".s1_s2_pair_accessor", "S1S2PairAccessor"),
+    "PeakChannelAccessor": (".peak_channel_accessor", "PeakChannelAccessor"),
 }
 
 

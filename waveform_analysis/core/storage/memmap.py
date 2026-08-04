@@ -1,4 +1,4 @@
-# DOC: docs/features/context/DATA_ACCESS.md#memmap-存储零拷贝访问
+# DOC: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
 """
 Storage 模块 - 负责数据的持久化与加载。
 
@@ -11,12 +11,13 @@ Storage 模块 - 负责数据的持久化与加载。
 - 压缩数据不支持 memmap，但节省存储空间
 """
 
+from collections.abc import Iterator
 import fcntl
 import json
 import logging
 import os
 import time
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any
 import warnings
 
 import numpy as np
@@ -83,9 +84,9 @@ class MemmapStorage:
     def __init__(
         self,
         work_dir: str,
-        profiler: Optional[Any] = None,
-        compression: Optional[Union[str, Any]] = None,
-        compression_kwargs: Optional[Dict[str, Any]] = None,
+        profiler: Any | None = None,
+        compression: str | Any | None = None,
+        compression_kwargs: dict[str, Any] | None = None,
         enable_checksum: bool = False,
         checksum_algorithm: str = "xxhash64",
         verify_on_load: bool = False,
@@ -137,7 +138,7 @@ class MemmapStorage:
         if compression is not None:
             self._setup_compression(compression, compression_kwargs or {})
 
-    def _setup_compression(self, compression: Union[str, Any], kwargs: Dict[str, Any]):
+    def _setup_compression(self, compression: str | Any, kwargs: dict[str, Any]):
         """Setup compression backend"""
         try:
             from waveform_analysis.core.storage.compression import get_compression_manager
@@ -172,7 +173,7 @@ class MemmapStorage:
 
         return nullcontext()
 
-    def _get_paths(self, key: str, run_id: Optional[str] = None) -> Tuple[str, str, str]:
+    def _get_paths(self, key: str, run_id: str | None = None) -> tuple[str, str, str]:
         """
         生成存储路径（分层结构）。
 
@@ -227,7 +228,7 @@ class MemmapStorage:
         """
         return os.path.join(self.work_dir, run_id, self.side_effects_subdir)
 
-    def _acquire_lock(self, lock_path: str, timeout: int = 10) -> Optional[int]:
+    def _acquire_lock(self, lock_path: str, timeout: int = 10) -> int | None:
         """
         Acquire an atomic file-based lock using fcntl (POSIX/Linux).
         Returns file descriptor on success, None on timeout.
@@ -270,7 +271,7 @@ class MemmapStorage:
 
             return None
 
-    def _release_lock(self, fd: Optional[int], lock_path: str):
+    def _release_lock(self, fd: int | None, lock_path: str):
         """释放锁并关闭文件描述符"""
         if fd is not None:
             try:
@@ -300,7 +301,7 @@ class MemmapStorage:
         except Exception as e:
             logger.warning(f"Unexpected error removing lock file {lock_path}: {e}")
 
-    def save_metadata(self, key: str, metadata: Dict[str, Any], run_id: Optional[str] = None):
+    def save_metadata(self, key: str, metadata: dict[str, Any], run_id: str | None = None):
         """Atomically save metadata for a key."""
         _, meta_path, _ = self._get_paths(key, run_id)
         tmp_meta_path = meta_path + ".tmp"
@@ -315,9 +316,9 @@ class MemmapStorage:
         key: str,
         total_count: int,
         dtype: np.dtype,
-        extra_metadata: Optional[Dict[str, Any]] = None,
-        shape: Optional[Tuple[int, ...]] = None,
-        run_id: Optional[str] = None,
+        extra_metadata: dict[str, Any] | None = None,
+        shape: tuple[int, ...] | None = None,
+        run_id: str | None = None,
     ):
         """Finalize a save operation by renaming temp files and writing metadata."""
         bin_path, meta_path, _ = self._get_paths(key, run_id)
@@ -427,9 +428,9 @@ class MemmapStorage:
         key: str,
         stream: Iterator[np.ndarray],
         dtype: np.dtype,
-        extra_metadata: Optional[Dict[str, Any]] = None,
-        shape: Optional[Tuple[int, ...]] = None,
-        run_id: Optional[str] = None,
+        extra_metadata: dict[str, Any] | None = None,
+        shape: tuple[int, ...] | None = None,
+        run_id: str | None = None,
     ) -> int:
         """
         Consumes a stream of numpy arrays and saves them to a binary file.
@@ -502,8 +503,8 @@ class MemmapStorage:
         self,
         key: str,
         data: np.ndarray,
-        extra_metadata: Optional[Dict[str, Any]] = None,
-        run_id: Optional[str] = None,
+        extra_metadata: dict[str, Any] | None = None,
+        run_id: str | None = None,
     ):
         """Save a single numpy array to storage."""
         if data is None or data.size == 0:
@@ -512,7 +513,7 @@ class MemmapStorage:
             key, iter([data]), data.dtype, extra_metadata, shape=data.shape, run_id=run_id
         )
 
-    def get_metadata(self, key: str, run_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def get_metadata(self, key: str, run_id: str | None = None) -> dict[str, Any] | None:
         """Retrieve metadata for a given key."""
         with self._timeit("storage.get_metadata"):
             _, meta_path, _ = self._get_paths(key, run_id)
@@ -525,7 +526,7 @@ class MemmapStorage:
                 warnings.warn(f"Failed to read metadata at {meta_path}: {str(e)}")
                 return None
 
-    def load_memmap(self, key: str, run_id: Optional[str] = None) -> Optional[np.ndarray]:
+    def load_memmap(self, key: str, run_id: str | None = None) -> np.ndarray | None:
         """
         Loads a binary file as a read-only memmap with integrity checks.
 
@@ -615,11 +616,11 @@ class MemmapStorage:
     def _load_compressed(
         self,
         key: str,
-        meta: Dict[str, Any],
+        meta: dict[str, Any],
         dtype: np.dtype,
-        shape: Tuple[int, ...],
-        run_id: Optional[str] = None,
-    ) -> Optional[np.ndarray]:
+        shape: tuple[int, ...],
+        run_id: str | None = None,
+    ) -> np.ndarray | None:
         """Load compressed data (returns in-memory array, not memmap)"""
         bin_path, _, _ = self._get_paths(key, run_id)
 
@@ -686,7 +687,7 @@ class MemmapStorage:
             warnings.warn(f"Failed to decompress {key}: {e}")
             return None
 
-    def exists(self, key: str, run_id: Optional[str] = None) -> bool:
+    def exists(self, key: str, run_id: str | None = None) -> bool:
         """
         检查给定 key 的数据是否存在，支持单文件（二进制/memmap, parquet）和多通道格式。
         """
@@ -704,7 +705,7 @@ class MemmapStorage:
 
         return False
 
-    def _list_channel_keys(self, key: str, run_id: Optional[str] = None) -> List[str]:
+    def _list_channel_keys(self, key: str, run_id: str | None = None) -> list[str]:
         """列出指定 key 的所有多通道缓存 key（key_ch*）。"""
         if run_id is None:
             parts = key.split("-")
@@ -724,7 +725,7 @@ class MemmapStorage:
                 keys.append(f[:-5])
         return keys
 
-    def _check_single_exists(self, key: str, run_id: Optional[str] = None) -> bool:
+    def _check_single_exists(self, key: str, run_id: str | None = None) -> bool:
         """内部辅助方法：检查单个 key 的数据完整性。"""
         bin_path, meta_path, _ = self._get_paths(key, run_id)
 
@@ -807,14 +808,14 @@ class MemmapStorage:
             logger.warning(f"Unexpected error checking existence of {key}: {e}", exc_info=False)
             return False
 
-    def delete(self, key: str, run_id: Optional[str] = None):
+    def delete(self, key: str, run_id: str | None = None):
         """Delete data and metadata for a key."""
         bin_path, meta_path, lock_path = self._get_paths(key, run_id)
         for p in [bin_path, meta_path, lock_path]:
             if os.path.exists(p):
                 os.remove(p)
 
-    def list_keys(self, run_id: Optional[str] = None) -> List[str]:
+    def list_keys(self, run_id: str | None = None) -> list[str]:
         """
         List all keys in the storage.
 
@@ -840,7 +841,7 @@ class MemmapStorage:
 
         return keys
 
-    def list_runs(self) -> List[str]:
+    def list_runs(self) -> list[str]:
         """
         List all run IDs in the work_dir.
 
@@ -856,14 +857,14 @@ class MemmapStorage:
                     runs.append(d)
         return sorted(runs)
 
-    def get_size(self, key: str, run_id: Optional[str] = None) -> int:
+    def get_size(self, key: str, run_id: str | None = None) -> int:
         """Get the number of records for a key."""
         meta = self.get_metadata(key, run_id)
         if meta:
             return meta.get("count", 0)
         return 0
 
-    def save_dataframe(self, key: str, df: pd.DataFrame, run_id: Optional[str] = None):
+    def save_dataframe(self, key: str, df: pd.DataFrame, run_id: str | None = None):
         """Save a pandas DataFrame.
 
         Preferred format is Parquet. If parquet engines are unavailable,
@@ -895,7 +896,7 @@ class MemmapStorage:
                 os.remove(parquet_path)
             df.to_pickle(pickle_path)
 
-    def load_dataframe(self, key: str, run_id: Optional[str] = None) -> Optional[pd.DataFrame]:
+    def load_dataframe(self, key: str, run_id: str | None = None) -> pd.DataFrame | None:
         """Load a pandas DataFrame from Parquet or Pickle fallback."""
         # 提取 run_id（如果未显式传入）
         effective_run_id = run_id
@@ -930,9 +931,7 @@ class MemmapStorage:
             return pd.read_pickle(pickle_path)
         return None
 
-    def verify_integrity(
-        self, run_id: Optional[str] = None, verbose: bool = True
-    ) -> Dict[str, Any]:
+    def verify_integrity(self, run_id: str | None = None, verbose: bool = True) -> dict[str, Any]:
         """
         验证存储数据的完整性
 

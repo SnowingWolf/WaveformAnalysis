@@ -1,0 +1,34 @@
+# execution_report
+
+- `task_id`: plugin-web-clickable-lineage
+- `workflow_cost`: `standard`
+- `executor_role`: `executor.docs`
+- `changed_paths`:
+  - `waveform_analysis/utils/plugin_doc_generator.py`
+  - `waveform_analysis/utils/templates/web/lineage_graph.html.j2`
+  - `waveform_analysis/utils/templates/web/assets/site.css`
+  - `waveform_analysis/utils/templates/web/assets/site.js`
+  - `tests/test_plugin_documentation.py`
+  - `docs/cli/WAVEFORM_DOCS.md`
+- `actions_taken`:
+  - Added a restricted default-config facade for dynamic dependency resolution; it exposes Option defaults only and cannot access data, caches, or plugin compute.
+  - Built the global graph from the default-resolved builtin edges, so `raw_files` and other default-path nodes participate in topology and impact scores.
+  - Rendered a compact global graph with offline Plotly, local `plotly.min.js`, pan/zoom, hover metrics, selection highlighting, and focused URL restoration.
+  - Precomputed local `lineage-details.json` figures for each plugin. Each figure is limited to direct upstream/downstream nodes and uses the shared `LineageGraphModel` plus `plot_lineage_plotly(..., show=False)` renderer used by runtime Context lineage.
+  - Added a responsive right-side detail panel with a full plugin-reference link; it stacks below the overview on narrow screens.
+  - Expanded the homepage lineage workspace and detail panel, replaced generated Plotly dimensions with measured container bounds, and added resize observation plus paint containment so large direct-neighborhood graphs stay inside their frame.
+  - Retained compact static Local Lineage SVGs with links to `index.html?focus=<provides>`.
+  - Replaced straight overview wires with lightly smoothed native Plotly spline traces and segment-aligned arrowheads; removed the explicit Bezier-path and abandoned dashed-wire experiments.
+  - Grouped homepage reference cards by canonical `PLUGIN_SETS` factory membership in execution order, with `Other Plugins` as an explicit fallback for unassigned builtins.
+- `commands_run`:
+  - `python -m pytest -q --no-cov tests/test_plugin_documentation.py tests/test_doc_generator.py` (44 passed)
+  - `python -m black --check waveform_analysis/utils/plugin_doc_generator.py tests/test_plugin_documentation.py`
+  - `node --check waveform_analysis/utils/templates/web/assets/site.js`
+  - `python -m waveform_analysis.utils.cli_docs generate plugins-web -o docs/_site`
+  - `python -m pytest -q --no-cov tests/test_plugin_documentation.py tests/test_lineage_visualizer.py tests/test_doc_generator.py` (49 passed)
+  - `python -m pytest -q --no-cov tests/test_plugin_documentation.py tests/test_lineage_visualizer.py tests/test_doc_generator.py` (50 passed)
+  - `python -m waveform_analysis.utils.cli_docs generate plugins-web -o /tmp/waveform-plugin-site-sets` (35 plugins, 40 files)
+- `open_risks`:
+  - The displayed dynamic edges represent Option defaults only; user configuration can change runtime topology. Detail figures are generated assets and are loaded through an HTTP static server when browser file-origin fetch restrictions apply. `cache_analysis` is currently outside the formal plugin-set registry and therefore appears in `Other Plugins`.
+- `requested_review_focus`:
+  - Verify Plotly remains offline, default dependency resolution has no data access, and Local-to-global navigation remains relative.

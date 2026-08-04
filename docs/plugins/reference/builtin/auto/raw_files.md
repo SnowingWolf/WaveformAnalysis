@@ -1,55 +1,66 @@
-# RawFileNamesPlugin
-
-> Scan the data directory and group raw CSV files by channel number.
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "raw_files"
+plugin_class: "RawFileNamesPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.waveforms"
+version: "0.0.2"
+summary: "Scan the data directory and group raw CSV files by channel number."
+depends_on: []
+output_kind: "list"
+generated: true
+---
+# raw_files
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `raw_files` |
-| **Version** | `0.0.2` |
-| **Category** | 数据加载 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Scan the data directory and group raw CSV files by channel number.
+Plugin to find raw CSV files.
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `raw_files` |
+| Plugin Class | `RawFileNamesPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.cpu.waveforms` |
+| Version | `0.0.2` |
+| Category | 数据加载 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `list` |
 
-This plugin has no dependencies.
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| - | - | - | - | No declared inputs. |
+### How It Works
 
-## Configuration Options
+1. 扫描数据目录并按通道分组原始 CSV 文件
+2. 从配置的数据目录中查找指定运行的所有原始波形文件，并按通道号分组。 支持 DAQ 集成，可以直接从 DAQ 元数据中获取文件列表。 支持通过 daq_adapter 参数指定 DAQ 适配器来处理不同格式。 通道选择由 DAQ 适配器或 DAQ 元数据决定，不再通过插件配置裁剪。
 
-| Option | Type | Default | Units | Description |
-|--------|------|---------|-------|-------------|
-| `data_root` | `str` | `DAQ` | - | Root directory for data |
-| `daq_adapter` | `str` | `vx2730` | - | DAQ adapter name (e.g., 'vx2730') |
+## Configuration
 
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `data_root` | `str` | `DAQ` | - | yes | no | Root directory for data |
+| `daq_adapter` | `str` | `vx2730` | - | yes | no | DAQ adapter name (e.g., 'vx2730') |
+## Output
 
+Raw file paths grouped by channel.
 
-## Usage Example
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| container | `list` | - | Raw file paths grouped by channel. |
+## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import RawFileNamesPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(RawFileNamesPlugin())
-
-# Configure plugin (optional)
-ctx.set_config({
-    "data_root": 'DAQ',
-    "daq_adapter": 'vx2730',
-}, plugin_name="raw_files")
-
-# Get data
 data = ctx.get_data("run_001", "raw_files")
 ```
+### Downstream Consumers
 
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.waveforms`
-
----
-
-*This documentation was auto-generated from plugin metadata.*
+- Terminal output; no direct builtin consumer is declared.

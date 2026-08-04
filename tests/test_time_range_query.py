@@ -127,7 +127,7 @@ def test_context_time_range_query():
     ctx = Context(storage_dir="./test_time_query_cache")
 
     # 注册测试插件
-    ctx.register_plugin_(DummyDataPlugin())
+    ctx.register(DummyDataPlugin())
 
     # 获取数据
     data = ctx.get_data("run_001", "test_data")
@@ -152,7 +152,7 @@ def test_context_time_range_query():
 def test_context_time_range_builds_index():
     """测试 time_range 自动构建时间索引"""
     ctx = Context(storage_dir="./test_time_query_cache")
-    ctx.register_plugin_(DummyDataPlugin())
+    ctx.register(DummyDataPlugin())
 
     # 首次查询触发索引构建
     _ = ctx.time_range(

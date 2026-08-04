@@ -17,7 +17,7 @@ from .execution import (
     parallel_map,
 )
 from .foundation.exceptions import ErrorContext, ErrorSeverity, PluginError
-from .plugins.builtin.cpu.waveforms import WaveformStruct, WaveformStructConfig
+from .plugins.builtin.cpu.waveforms import WaveformStruct
 from .plugins.core.base import Option, Plugin
 from .processing.chunk import (
     CHANNEL_FIELD,

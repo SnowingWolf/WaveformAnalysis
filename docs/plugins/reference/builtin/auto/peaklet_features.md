@@ -1,68 +1,78 @@
-# PeakletFeaturesPlugin
-
-> Compute peaklet waveform features from ragged signal pools.
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "peaklet_features"
+plugin_class: "PeakletFeaturesPlugin"
+module: "waveform_analysis.core.plugins.builtin.peaks.peaklets"
+version: "4.1.0"
+summary: "Compute peaklet waveform features from ragged signal pools."
+depends_on: ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
+output_kind: "structured_array"
+generated: true
+---
+# peaklet_features
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `peaklet_features` |
-| **Version** | `3.0.1` |
-| **Category** | 特征提取 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Compute peaklet waveform features from ragged signal pools.
+Compute waveform-derived features from ragged peaklet waveforms.
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `peaklet_features` |
+| Plugin Class | `PeakletFeaturesPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
+| Version | `4.1.0` |
+| Category | 峰构建 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-This plugin depends on the following data:
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `peaklet_waveforms` | - | declared | - | Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion. |
+| `peaklet_waveform_pool` | - | declared | - | Return the flattened float32 signal pool paired with peaklet_waveforms. Configure waveform construction on peaklet_waveforms. |
+| `peaklets` | - | declared | - | Build lightweight cross-channel peaklets from hit_merged intervals. |
+### How It Works
 
-- [`peaklet_waveforms`](peaklet_waveforms.md)
-- [`peaklet_waveform_pool`](peaklet_waveform_pool.md)
-- [`peaklets`](peaklets.md)
 
-## Configuration Options
+## Configuration
 
-This plugin has no configuration options.
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| - | - | - | - | - | - | - |
+## Output
 
-## Output Schema
+structured_array output with fields: peak_id, time_start, time_end, time_peak, center_time, rise_time, fall_time, width_25_75, ....
 
-**Output Type**: `structured_array`
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `peak_id` | `int64` | None | Peaklet identifier |
+| `time_start` | `int64` | ps | Absolute start time of the peaklet (ps) |
+| `time_end` | `int64` | ps | Absolute end time of the peaklet (ps) |
+| `time_peak` | `int64` | ps | Time of the maximum sample value (ps) |
+| `center_time` | `int64` | ps | Center time of the peaklet (ps) |
+| `rise_time` | `float32` | ns | Rise time (ns) |
+| `fall_time` | `float32` | ns | Fall time (ns) |
+| `width_25_75` | `float32` | ns | Width between 25% and 75% of the peak (ns) |
+| `rise_time_10_50` | `float32` | ns | Rise time from 10% to 50% (ns) |
+| `range_90p_area` | `float32` | ns | Time range covering 90% of the waveform area (ns) |
+| `area` | `float32` | ADC counts | Total waveform area |
+| `height` | `float32` | ADC counts | Maximum waveform height |
+| `width` | `float32` | ns | Pulse width (ns) |
+## Usage
 
-| Field | Type | Units | Description |
-|-------|------|-------|-------------|
-| `peaklet_index` | `int64` | - | - |
-| `time_left` | `int64` | - | - |
-| `time_right` | `int64` | - | - |
-| `time_peak` | `int64` | - | - |
-| `center_time` | `int64` | - | - |
-| `rise_time` | `float32` | - | - |
-| `fall_time` | `float32` | - | - |
-| `width_25_75` | `float32` | - | - |
-| `range_50p_area` | `float32` | - | - |
-| `range_90p_area` | `float32` | - | - |
-| `area` | `float32` | - | - |
-| `height` | `float32` | - | - |
-| `width` | `float32` | - | - |
-
-## Usage Example
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import PeakletFeaturesPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(PeakletFeaturesPlugin())
-
-# Get data
 data = ctx.get_data("run_001", "peaklet_features")
 ```
+### Downstream Consumers
 
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.peaklets`
-
----
-
-*This documentation was auto-generated from plugin metadata.*
+- `peaklet_channels`
+- `peaks`

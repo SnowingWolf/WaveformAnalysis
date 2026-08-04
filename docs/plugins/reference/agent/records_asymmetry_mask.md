@@ -1,61 +1,90 @@
-# records_asymmetry_mask (RecordsAsymmetryMaskPlugin)
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "agent"
+provides: "records_asymmetry_mask"
+plugin_class: "RecordsAsymmetryMaskPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.records_asymmetry"
+version: "0.2.0"
+summary: "Bool mask for waveform asymmetry selection."
+depends_on: ["records", "wave_pool"]
+output_kind: "array"
+generated: true
+---
+# records_asymmetry_mask
 
-> Agent-first 插件契约文档。面向自动化执行与改动评估。
+## Overview
 
-## Agent Contract
+Bool mask for waveform asymmetry selection.
+Return a bool mask aligned with the original records array.
 
 | Item | Value |
-|------|-------|
+| --- | --- |
 | Provides | `records_asymmetry_mask` |
-| Depends On | `records`, `wave_pool` |
-| Output Kind | `array` |
-| Version | `0.1.0` |
+| Plugin Class | `RecordsAsymmetryMaskPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.records_asymmetry` |
-| Accelerator | `cpu` |
+| Version | `0.2.0` |
+| Category | 记录处理 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `array` |
 
-## Inputs
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `records` | - | declared | - | Build records (event index table) from the shared internal records bundle. |
+| `wave_pool` | - | declared | - | Build wave_pool from the shared internal records bundle. |
+### How It Works
 
-- `records`
-- `wave_pool`
 
-## Outputs
+## Configuration
 
-| Field | DType | Meaning |
-|-------|-------|---------|
-| `value` | `bool` | - |
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `asymmetry_cut_min` | `float` | `0.7` | - | yes | no | Keep records with asymmetry >= this value. |
+| `asymmetry_parallel` | `bool` | `True` | - | no | no | Use Numba prange parallel loop. |
+| `asymmetry_chunk_size` | `int` | `200000` | - | no | no | Number of records processed per Numba call. |
+| `asymmetry_num_threads` | `int` | `0` | - | no | no | Numba thread count. <=0 keeps current Numba default. |
+| `asymmetry_polarity_mode` | `str` | `auto` | - | yes | no | Polarity handling mode: 'auto' (extract from records['polarity']), 'negative' (baseline - w_min), 'positive' (w_max - baseline). |
+## Output
 
-## Config
+array output with fields: value.
 
-| Name | Type | Default | Note |
-|------|------|---------|------|
-| `asymmetry_cut_min` | `float` | `0.7` | Keep records with asymmetry >= this value. |
-| `asymmetry_parallel` | `bool` | `True` | Use Numba prange parallel loop. |
-| `asymmetry_chunk_size` | `int` | `200000` | Number of records processed per Numba call. |
-| `asymmetry_num_threads` | `int` | `0` | Numba thread count. <=0 keeps current Numba default. |
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `value` | `bool` | None | Boolean mask: True for records passing waveform asymmetry selection |
+## Usage
 
-## Execution Path
+### Minimal Example
 
-`records_asymmetry_mask` 依赖链入口：
-`records -> wave_pool -> records_asymmetry_mask`
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import RecordsAsymmetryMaskPlugin
 
-## Failure Modes
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(RecordsAsymmetryMaskPlugin())
+data = ctx.get_data("run_001", "records_asymmetry_mask")
+```
 
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
+## Operational Notes
 
-## Change Playbook
+### Behavior
 
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
+### Failure Modes
 
-## Validation
+- Dependency data, configuration, or output contract validation may fail explicitly.
+### Downstream Impact
+
+Consumers: `records_detector_mask`, `records_veto_mask`
+
+## Maintenance
+
+### Change Playbook
+
+1. Keep `provides` and dependency semantics stable or update all consumers.
+2. Bump `version` for behavior, configuration, or output contract changes.
+3. Regenerate auto, agent, and web references after metadata changes.
+### Validation
 
 ```bash
-# 单插件文档再生成
 waveform-docs generate plugins-agent --plugin records_asymmetry_mask
-
-# 覆盖率检查
-waveform-docs check coverage --strict
+waveform-docs check coverage --strict --fail-on-warning
 ```

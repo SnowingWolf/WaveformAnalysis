@@ -1,32 +1,37 @@
 import numpy as np
 import pytest
 
-from tests.utils import DummyContext
+from tests.utils import DummyContext, make_st_waveforms
 from waveform_analysis.core.plugins.builtin.cpu.peak_finding import HIT_DTYPE
 from waveform_analysis.core.plugins.builtin.streaming.cpu.signal_peaks import (
     SignalPeaksStreamPlugin,
 )
-from waveform_analysis.core.processing.dtypes import create_record_dtype
-
-
-def _make_waveforms(n_events=1, wave_len=32, *, dt=4):
-    dtype = create_record_dtype(wave_len)
-    data = np.zeros(n_events, dtype=dtype)
-    data["baseline"] = 100.0
-    data["timestamp"] = 1_000_000
-    data["board"] = 3
-    data["channel"] = 7
-    data["record_id"] = np.arange(n_events, dtype=np.int64)
-    data["event_length"] = wave_len
-    data["dt"] = dt
-    data["wave"] = 100
-    return data
 
 
 def test_signal_peaks_stream_prefers_input_dt_over_deprecated_config():
     plugin = SignalPeaksStreamPlugin()
-    st = _make_waveforms(dt=4)
-    filtered = _make_waveforms(dt=4)
+    st = make_st_waveforms(
+        n_events=1,
+        n_samples=32,
+        baseline=100.0,
+        timestamp=1_000_000,
+        board=3,
+        channel=7,
+        record_id=True,
+        dt=4,
+        wave_fill=100,
+    )
+    filtered = make_st_waveforms(
+        n_events=1,
+        n_samples=32,
+        baseline=100.0,
+        timestamp=1_000_000,
+        board=3,
+        channel=7,
+        record_id=True,
+        dt=4,
+        wave_fill=100,
+    )
     filtered[0]["wave"][10:13] = np.array([80, 60, 80], dtype=filtered[0]["wave"].dtype)
 
     ctx = DummyContext(

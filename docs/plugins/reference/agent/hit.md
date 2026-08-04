@@ -1,80 +1,113 @@
-# hit (HitFinderPlugin)
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "agent"
+provides: "hit"
+plugin_class: "HitFinderPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.peak_finding"
+version: "3.0.0"
+summary: "Detect peaks in waveforms and extract peak features."
+depends_on: []
+output_kind: "structured_array"
+generated: true
+---
+# hit
 
-> Agent-first 插件契约文档。面向自动化执行与改动评估。
+## Overview
 
-## Agent Contract
+Detect peaks in waveforms and extract peak features.
+峰值检测插件 - 基于波形检测峰值并计算峰值特征。
 
 | Item | Value |
-|------|-------|
+| --- | --- |
 | Provides | `hit` |
-| Depends On | - |
-| Output Kind | `structured_array` |
-| Version | `3.0.0` |
+| Plugin Class | `HitFinderPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.peak_finding` |
-| Accelerator | `cpu` |
+| Version | `3.0.0` |
+| Category | 特征提取 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-## Inputs
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| - | - | - | - | No declared inputs. |
+### How It Works
 
-- 无依赖输入（source plugin）
+1. 从波形中检测峰值
+2. 使用配置的参数检测每个事件中的峰值，计算峰值特征 （位置、高度、积分、边缘等）。
 
-## Outputs
+## Configuration
 
-| Field | DType | Meaning |
-|-------|-------|---------|
-| `position` | `int64` | - |
-| `height` | `float32` | - |
-| `integral` | `float32` | - |
-| `edge_start` | `float32` | - |
-| `edge_end` | `float32` | - |
-| `dt` | `int32` | - |
-| `timestamp` | `int64` | - |
-| `board` | `int16` | - |
-| `channel` | `int16` | - |
-| `record_id` | `int64` | - |
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `use_filtered` | `bool` | `True` | - | yes | no | 是否使用 filtered_waveforms（默认 True，需要先注册 FilteredWaveformsPlugin） |
+| `wave_source` | `str` | `auto` | - | yes | no | 波形数据源: auto\|records\|st_waveforms\|filtered_waveforms |
+| `use_derivative` | `bool` | `True` | - | yes | no | 是否使用一阶导数进行峰值检测（True: 检测导数峰值, False: 检测波形峰值） |
+| `height` | `float` | `30.0` | - | yes | no | 峰值的最小高度阈值 |
+| `distance` | `int` | `2` | - | yes | no | 峰值之间的最小距离（采样点数） |
+| `prominence` | `float` | `0.7` | - | yes | no | 峰值的最小显著性（prominence） |
+| `width` | `int` | `4` | - | yes | no | 峰值的最小宽度（采样点数） |
+| `threshold` | `any` | `None` | - | yes | no | 峰值的阈值条件（可选） |
+| `height_method` | `str` | `minmax` | - | yes | no | 峰高计算方法: 'diff' (积分差分) 或 'minmax' (最大最小值差) |
+| `height_window_extension` | `int` | `4` | - | yes | no | height_method='minmax' 时，峰值窗口左右两侧扩展的采样点数 |
+| `dt` | `int` | `None` | - | yes | no | 采样间隔（ns）。仅在输入数据缺少 dt 字段时作为兼容补充。 |
+| `parallel` | `bool` | `True` | - | yes | no | 是否启用并行峰值检测（按事件分块并行） |
+| `n_workers` | `int` | `0` | - | yes | no | 并行 worker 数；<=0 表示自动（基于 CPU 核心数） |
+| `chunk_size` | `int` | `1024` | - | yes | no | 并行分块大小（每个任务处理的事件数） |
+| `parallel_min_events` | `int` | `20480` | - | yes | no | 触发并行的最小事件数（小数据量时自动串行） |
+## Output
 
-## Config
+structured_array output with fields: position, height, integral, edge_start, edge_end, dt, timestamp, board, ....
 
-| Name | Type | Default | Note |
-|------|------|---------|------|
-| `use_filtered` | `bool` | `True` | 是否使用 filtered_waveforms（默认 True，需要先注册 FilteredWaveformsPlugin） |
-| `wave_source` | `str` | `auto` | 波形数据源: auto|records|st_waveforms|filtered_waveforms |
-| `use_derivative` | `bool` | `True` | 是否使用一阶导数进行峰值检测（True: 检测导数峰值, False: 检测波形峰值） |
-| `height` | `float` | `30.0` | 峰值的最小高度阈值 |
-| `distance` | `int` | `2` | 峰值之间的最小距离（采样点数） |
-| `prominence` | `float` | `0.7` | 峰值的最小显著性（prominence） |
-| `width` | `int` | `4` | 峰值的最小宽度（采样点数） |
-| `threshold` | `any` | `None` | 峰值的阈值条件（可选） |
-| `height_method` | `str` | `minmax` | 峰高计算方法: 'diff' (积分差分) 或 'minmax' (最大最小值差) |
-| `height_window_extension` | `int` | `4` | height_method='minmax' 时，峰值窗口左右两侧扩展的采样点数 |
-| `dt` | `int` | `None` | 采样间隔（ns）。仅在输入数据缺少 dt 字段时作为兼容补充。 |
-| `parallel` | `bool` | `True` | 是否启用并行峰值检测（按事件分块并行） |
-| `n_workers` | `int` | `0` | 并行 worker 数；<=0 表示自动（基于 CPU 核心数） |
-| `chunk_size` | `int` | `1024` | 并行分块大小（每个任务处理的事件数） |
-| `parallel_min_events` | `int` | `20480` | 触发并行的最小事件数（小数据量时自动串行） |
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `position` | `int64` | samples | Peak position as sample index within the waveform |
+| `height` | `float32` | ADC counts | Peak height above baseline |
+| `integral` | `float32` | ADC counts | Peak integral (area) |
+| `edge_start` | `float32` | samples | Peak left edge boundary |
+| `edge_end` | `float32` | samples | Peak right edge boundary |
+| `dt` | `int32` | ns | Sample interval in nanoseconds |
+| `timestamp` | `int64` | ps | Global timestamp in picoseconds |
+| `board` | `int16` | None | Hardware board index |
+| `channel` | `int16` | None | Physical channel number |
+| `record_id` | `int64` | None | Source record identifier |
+## Usage
 
-## Execution Path
+### Minimal Example
 
-`hit` 依赖链入口：
-`SOURCE -> hit`
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import HitFinderPlugin
 
-## Failure Modes
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(HitFinderPlugin())
+data = ctx.get_data("run_001", "hit")
+```
 
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
+## Operational Notes
 
-## Change Playbook
+### Behavior
 
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
+- 从波形中检测峰值
+- 使用配置的参数检测每个事件中的峰值，计算峰值特征 （位置、高度、积分、边缘等）。
+### Failure Modes
 
-## Validation
+- Dependency data, configuration, or output contract validation may fail explicitly.
+### Downstream Impact
+
+Terminal output; no direct builtin consumer is declared.
+
+
+## Maintenance
+
+### Change Playbook
+
+1. Keep `provides` and dependency semantics stable or update all consumers.
+2. Bump `version` for behavior, configuration, or output contract changes.
+3. Regenerate auto, agent, and web references after metadata changes.
+### Validation
 
 ```bash
-# 单插件文档再生成
 waveform-docs generate plugins-agent --plugin hit
-
-# 覆盖率检查
-waveform-docs check coverage --strict
+waveform-docs check coverage --strict --fail-on-warning
 ```

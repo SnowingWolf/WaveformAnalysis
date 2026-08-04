@@ -103,14 +103,14 @@ class TestPluginVersioning:
                 return np.array([3])
 
         ctx = Context()
-        ctx.register_plugin_(ProducerPlugin())
+        ctx.register(ProducerPlugin())
 
         # 兼容的插件应该可以注册
-        ctx.register_plugin_(CompatibleConsumerPlugin())
+        ctx.register(CompatibleConsumerPlugin())
 
         # 不兼容的插件会记录警告但不会失败（graceful degradation）
         try:
-            ctx.register_plugin_(IncompatibleConsumerPlugin())
+            ctx.register(IncompatibleConsumerPlugin())
         except ValueError:
             # 如果packaging可用，可能会抛出ValueError
             pass

@@ -11,6 +11,7 @@
 - `docs/agents/protocol/artifacts/execution_report.md`
 - `docs/agents/protocol/artifacts/review_report.md`
 - `docs/agents/protocol/route-profiles/template.md`
+- `docs/agents/protocol/artifacts/task_report.md`
 - `docs/agents/protocol/route-profiles/modify_plugin.md`
 - `docs/agents/protocol/route-profiles/retire_compat.md`
 - `docs/agents/protocol/route-profiles/generate_docs.md`
@@ -44,8 +45,10 @@
 
 ## 核心文档
 - `docs/architecture/ARCHITECTURE.md`
+- `docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md`
+- `docs/architecture/DATA_PRODUCTS.md`
+- `docs/architecture/ACCESSOR_ANALYSIS.md`
 - `docs/features/context/CONFIGURATION.md`
-- `docs/features/context/DATA_ACCESS.md`
 - `docs/features/context/PREVIEW_EXECUTION.md`
 - `docs/features/plugin/STREAMING_PLUGINS_GUIDE.md`
 - `docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md`

@@ -9,7 +9,7 @@
 5. 旧名称解析 (resolve_config_name, migrate_config)
 """
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 import warnings
 
 from waveform_analysis.core.foundation.utils import exporter
@@ -45,7 +45,7 @@ class StandardUnits:
     SAMPLING_RATE_UNIT = "Hz"  # 采样率：Hz
 
     # 时间单位转换到皮秒的系数
-    TIME_TO_PS: Dict[str, float] = {
+    TIME_TO_PS: dict[str, float] = {
         "ps": 1.0,
         "ns": 1e3,
         "us": 1e6,
@@ -54,7 +54,7 @@ class StandardUnits:
     }
 
     # 时间单位转换到纳秒的系数
-    TIME_TO_NS: Dict[str, float] = {
+    TIME_TO_NS: dict[str, float] = {
         "ps": 1e-3,
         "ns": 1.0,
         "us": 1e3,
@@ -63,7 +63,7 @@ class StandardUnits:
     }
 
     # 频率单位转换到 Hz 的系数
-    FREQ_TO_HZ: Dict[str, float] = {
+    FREQ_TO_HZ: dict[str, float] = {
         "Hz": 1.0,
         "kHz": 1e3,
         "MHz": 1e6,
@@ -73,14 +73,14 @@ class StandardUnits:
 
 # 旧配置名映射
 # 格式: "old_name": ("new_name", "deprecation_message")
-LEGACY_CONFIG_NAMES: Dict[str, Tuple[str, str]] = {
+LEGACY_CONFIG_NAMES: dict[str, tuple[str, str]] = {
     # 示例（根据实际需要添加）:
     # "sample_rate": ("sampling_rate", "Use 'sampling_rate' instead of 'sample_rate'"),
 }
 
 # 旧字段名映射
 # 格式: "old_field": ("new_field", "deprecation_message")
-LEGACY_FIELD_NAMES: Dict[str, Tuple[str, str]] = {
+LEGACY_FIELD_NAMES: dict[str, tuple[str, str]] = {
     # 示例（根据实际需要添加）:
     # "ts": ("timestamp", "Use 'timestamp' instead of 'ts'"),
 }
@@ -272,7 +272,7 @@ def resolve_field_name(name: str, warn: bool = True) -> str:
 
 
 @export
-def migrate_config(config: Dict[str, Any], warn: bool = True) -> Dict[str, Any]:
+def migrate_config(config: dict[str, Any], warn: bool = True) -> dict[str, Any]:
     """
     迁移配置字典，将所有旧配置名替换为新名称。
 
@@ -310,7 +310,7 @@ def migrate_config(config: Dict[str, Any], warn: bool = True) -> Dict[str, Any]:
 
 
 @export
-def add_legacy_config_mapping(old_name: str, new_name: str, message: Optional[str] = None) -> None:
+def add_legacy_config_mapping(old_name: str, new_name: str, message: str | None = None) -> None:
     """
     添加旧配置名映射。
 
@@ -335,7 +335,7 @@ def add_legacy_config_mapping(old_name: str, new_name: str, message: Optional[st
 
 
 @export
-def add_legacy_field_mapping(old_name: str, new_name: str, message: Optional[str] = None) -> None:
+def add_legacy_field_mapping(old_name: str, new_name: str, message: str | None = None) -> None:
     """
     添加旧字段名映射。
 

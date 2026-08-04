@@ -5,6 +5,8 @@ on:
     paths:
       - 'waveform_analysis/core/plugins/**'
       - 'waveform_analysis/utils/plugin_doc_generator.py'
+      - 'waveform_analysis/utils/context_help.py'
+      - 'waveform_analysis/utils/cli_docs.py'
       - 'waveform_analysis/utils/doc_coverage.py'
       - 'waveform_analysis/utils/templates/**'
       - 'docs/plugins/**'
@@ -13,6 +15,8 @@ on:
     paths:
       - 'waveform_analysis/core/plugins/**'
       - 'waveform_analysis/utils/plugin_doc_generator.py'
+      - 'waveform_analysis/utils/context_help.py'
+      - 'waveform_analysis/utils/cli_docs.py'
       - 'waveform_analysis/utils/doc_coverage.py'
       - 'waveform_analysis/utils/templates/**'
       - 'docs/plugins/**'
@@ -36,20 +40,25 @@ jobs:
 
       - name: Generate plugin documentation
         run: |
-          python -m waveform_analysis.utils.cli_docs generate plugins-auto -o docs/plugins/builtin/auto/
+          python -m waveform_analysis.utils.cli_docs generate plugins-auto -o docs/plugins/reference/builtin/auto/
+          python -m waveform_analysis.utils.cli_docs generate plugins-agent -o docs/plugins/reference/agent/
+          python -m waveform_analysis.utils.cli_docs generate plugins-web -o "${RUNNER_TEMP}/waveform-docs-site"
 
       - name: Check documentation coverage
         run: |
-          python -m waveform_analysis.utils.cli_docs check coverage --strict
+          python -m waveform_analysis.utils.cli_docs check coverage --strict --fail-on-warning
 
       - name: Check for uncommitted doc changes
         run: |
-          git diff --exit-code docs/plugins/builtin/auto/ || \
-            (echo "::error::Auto-generated docs are out of date. Run 'waveform-docs generate plugins-auto -o docs/plugins/builtin/auto/'" && exit 1)
+          git diff --exit-code -- docs/plugins/reference/builtin/auto/ docs/plugins/reference/agent/ || \
+            (echo "::error::Generated plugin docs are out of date. Regenerate auto and agent references." && exit 1)
 
       - name: Upload generated docs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: generated-plugin-docs
-          path: docs/plugins/builtin/auto/
+          path: |
+            docs/plugins/reference/builtin/auto/
+            docs/plugins/reference/agent/
+            ${{ runner.temp }}/waveform-docs-site/

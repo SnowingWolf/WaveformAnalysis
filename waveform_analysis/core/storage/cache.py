@@ -1,4 +1,4 @@
-# DOC: docs/features/context/DATA_ACCESS.md#缓存管理
+# DOC: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md#Lineage-与缓存身份
 """
 Cache 模块 - 缓存管理与签名校验。
 
@@ -8,7 +8,7 @@ Cache 模块 - 缓存管理与签名校验。
 
 import hashlib
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from waveform_analysis.core.foundation.utils import exporter
 
@@ -46,7 +46,7 @@ class CacheManager:
         return hashlib.sha1(combined.encode()).hexdigest()
 
     @staticmethod
-    def compute_watch_signature(obj: Any, watch_attrs: List[str]) -> str:
+    def compute_watch_signature(obj: Any, watch_attrs: list[str]) -> str:
         """
         计算监视属性的签名，用于检测数据是否发生变化。
 
@@ -71,7 +71,7 @@ class CacheManager:
                     sig_parts.append(f"{attr}:{stat.st_mtime}:{stat.st_size}")
                 except OSError:
                     sig_parts.append(f"{attr}:error")
-            elif isinstance(val, (list, tuple)):
+            elif isinstance(val, list | tuple):
                 # 如果是文件列表（支持嵌套列表）
                 def _get_file_sig(item):
                     if isinstance(item, str) and os.path.exists(item):
@@ -80,7 +80,7 @@ class CacheManager:
                             return f"{stat.st_mtime}:{stat.st_size}"
                         except OSError:
                             return "error"
-                    elif isinstance(item, (list, tuple)):
+                    elif isinstance(item, list | tuple):
                         return f"[{','.join([_get_file_sig(i) for i in item])}]"
                     else:
                         return str(item)
@@ -95,7 +95,7 @@ class CacheManager:
         return hashlib.sha1(combined.encode()).hexdigest()
 
     @staticmethod
-    def save_data(path: str, data: Dict[str, Any], backend: str = "joblib") -> bool:
+    def save_data(path: str, data: dict[str, Any], backend: str = "joblib") -> bool:
         """
         保存缓存数据到磁盘。
 
@@ -130,7 +130,7 @@ class CacheManager:
             return False
 
     @staticmethod
-    def load_data(path: str, backend: str = "joblib") -> Optional[Dict[str, Any]]:
+    def load_data(path: str, backend: str = "joblib") -> dict[str, Any] | None:
         """
         从磁盘加载缓存数据。
 

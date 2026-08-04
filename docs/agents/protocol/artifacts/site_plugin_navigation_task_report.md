@@ -1,0 +1,27 @@
+# task_report
+
+- `task_id`: `site_plugin_navigation_20260730`
+- `route`: `generate_docs`
+- `workflow_cost`: `light`
+- `workflow_shape`: `compact`
+- `scope`: Remove the RecordsView resource card from Context and adapter indexes; make plugin DAG nodes open plugin references on click; add offline plugin-system overview and authoring pages.
+- `actions_taken`:
+  - Kept the RecordsView detail page, search entry, and sidebar link while removing it from index card grids.
+  - Added generated `plugins/overview.html` and `plugins/authoring.html` pages, search entries, and navigation links.
+  - Rebuilt the React lineage asset so a node click navigates to the corresponding plugin reference.
+- `changed_paths`:
+  - `waveform_analysis/utils/site_doc_generator.py`
+  - `waveform_analysis/utils/templates/web/`
+  - `docs/site-react/src/`
+  - `tests/test_records_view_documentation.py`
+  - `tests/test_site_plugin_guides_documentation.py`
+- `verification`:
+  - PASS: `npm run check && npm run build` in `docs/site-react`.
+  - PASS: `python -m pytest tests/test_records_view_documentation.py tests/test_site_plugin_guides_documentation.py tests/test_cli_docs_site_publish.py -q --no-cov` (8 passed).
+  - PASS: `scripts/check_doc_sync.sh`.
+  - PASS: `python scripts/check_doc_anchors.py --check-sync --base HEAD`.
+  - PASS: generated `docs/_site` and inspected `plugins/overview.html` plus `contexts/index.html` with headless Firefox.
+- `decision`: `completed`
+- `commit_status`: `uncommitted: pending scoped commit`
+- `open_risks`:
+  - The existing uncommitted `tests/test_plugin_documentation.py` changes cause its full broad test to fail on an unrelated syntax-highlighting assertion and are excluded from this scope.

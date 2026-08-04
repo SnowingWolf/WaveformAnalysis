@@ -345,6 +345,7 @@ ctx.analyze_dependencies("plugin_provides_name")
 |------|------|------|
 | `options` | `Dict[str, Option]` | 配置选项字典 |
 | `output_dtype` | `np.dtype` | 输出数据类型（影响缓存与 lineage） |
+| `output_schema` | `OutputSchema` | 非 ndarray 输出的正式契约；显式 schema 会进入 lineage |
 | `input_dtype` | `Dict[str, np.dtype]` | 依赖数据期望 dtype（用于输入校验） |
 | `output_kind` | `"static"`/`"stream"` | 输出类型（流式插件要求返回迭代器） |
 | `description` | `str` | 插件描述 |
@@ -360,6 +361,8 @@ ctx.analyze_dependencies("plugin_provides_name")
 - `depends_on`: 可写为 `["waveforms"]` 或 `[("waveforms", ">=1.0.0")]`。
 - `output_kind`: `stream` 表示 `compute()` 必须返回 generator/iterator。
 - `output_dtype`: 用于输出 dtype 校验、memmap 存储和 lineage。
+- `output_schema`: DataFrame、list、dict 等输出必须声明 `OutputSchema(kind=...)`；若同时声明
+  `output_dtype`，两者的 kind、dtype 和字段必须一致。
 - `input_dtype`: 仅在声明的依赖上生效，用于运行前 dtype 兼容检查。
 - `is_side_effect`: 常用于绘图、导出、写文件等非数据产出场景。
 - `uses_run_config`: 插件在 `compute()` 或配置解析阶段需要读取 `run_config` 时应显式设为 `True`。

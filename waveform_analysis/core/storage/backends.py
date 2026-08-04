@@ -17,7 +17,7 @@ from collections.abc import Iterator
 import json
 import logging
 import sqlite3
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 

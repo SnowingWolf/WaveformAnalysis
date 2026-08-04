@@ -1,69 +1,99 @@
-# peaklet_features (PeakletFeaturesPlugin)
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "agent"
+provides: "peaklet_features"
+plugin_class: "PeakletFeaturesPlugin"
+module: "waveform_analysis.core.plugins.builtin.peaks.peaklets"
+version: "4.1.0"
+summary: "Compute peaklet waveform features from ragged signal pools."
+depends_on: ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
+output_kind: "structured_array"
+generated: true
+---
+# peaklet_features
 
-> Agent-first 插件契约文档。面向自动化执行与改动评估。
+## Overview
 
-## Agent Contract
+Compute peaklet waveform features from ragged signal pools.
+Compute waveform-derived features from ragged peaklet waveforms.
 
 | Item | Value |
-|------|-------|
+| --- | --- |
 | Provides | `peaklet_features` |
-| Depends On | `peaklet_waveforms`, `peaklet_waveform_pool`, `peaklets` |
+| Plugin Class | `PeakletFeaturesPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.peaks.peaklets` |
+| Version | `4.1.0` |
+| Category | 峰构建 |
+| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
-| Version | `3.0.1` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.peaklets` |
-| Accelerator | `cpu` |
 
-## Inputs
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `peaklet_waveforms` | - | declared | - | Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion. |
+| `peaklet_waveform_pool` | - | declared | - | Return the flattened float32 signal pool paired with peaklet_waveforms. Configure waveform construction on peaklet_waveforms. |
+| `peaklets` | - | declared | - | Build lightweight cross-channel peaklets from hit_merged intervals. |
+### How It Works
 
-- `peaklet_waveforms`
-- `peaklet_waveform_pool`
-- `peaklets`
 
-## Outputs
+## Configuration
 
-| Field | DType | Meaning |
-|-------|-------|---------|
-| `peaklet_index` | `int64` | - |
-| `time_left` | `int64` | - |
-| `time_right` | `int64` | - |
-| `time_peak` | `int64` | - |
-| `center_time` | `int64` | - |
-| `rise_time` | `float32` | - |
-| `fall_time` | `float32` | - |
-| `width_25_75` | `float32` | - |
-| `range_50p_area` | `float32` | - |
-| `range_90p_area` | `float32` | - |
-| `area` | `float32` | - |
-| `height` | `float32` | - |
-| `width` | `float32` | - |
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| - | - | - | - | - | - | - |
+## Output
 
-## Config
+structured_array output with fields: peak_id, time_start, time_end, time_peak, center_time, rise_time, fall_time, width_25_75, ....
 
-- 无可配置项
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `peak_id` | `int64` | None | Peaklet identifier |
+| `time_start` | `int64` | ps | Absolute start time of the peaklet (ps) |
+| `time_end` | `int64` | ps | Absolute end time of the peaklet (ps) |
+| `time_peak` | `int64` | ps | Time of the maximum sample value (ps) |
+| `center_time` | `int64` | ps | Center time of the peaklet (ps) |
+| `rise_time` | `float32` | ns | Rise time (ns) |
+| `fall_time` | `float32` | ns | Fall time (ns) |
+| `width_25_75` | `float32` | ns | Width between 25% and 75% of the peak (ns) |
+| `rise_time_10_50` | `float32` | ns | Rise time from 10% to 50% (ns) |
+| `range_90p_area` | `float32` | ns | Time range covering 90% of the waveform area (ns) |
+| `area` | `float32` | ADC counts | Total waveform area |
+| `height` | `float32` | ADC counts | Maximum waveform height |
+| `width` | `float32` | ns | Pulse width (ns) |
+## Usage
 
-## Execution Path
+### Minimal Example
 
-`peaklet_features` 依赖链入口：
-`peaklet_waveforms -> peaklet_waveform_pool -> peaklets -> peaklet_features`
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import PeakletFeaturesPlugin
 
-## Failure Modes
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(PeakletFeaturesPlugin())
+data = ctx.get_data("run_001", "peaklet_features")
+```
 
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
+## Operational Notes
 
-## Change Playbook
+### Behavior
 
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
+### Failure Modes
 
-## Validation
+- Dependency data, configuration, or output contract validation may fail explicitly.
+### Downstream Impact
+
+Consumers: `peaklet_channels`, `peaks`
+
+## Maintenance
+
+### Change Playbook
+
+1. Keep `provides` and dependency semantics stable or update all consumers.
+2. Bump `version` for behavior, configuration, or output contract changes.
+3. Regenerate auto, agent, and web references after metadata changes.
+### Validation
 
 ```bash
-# 单插件文档再生成
 waveform-docs generate plugins-agent --plugin peaklet_features
-
-# 覆盖率检查
-waveform-docs check coverage --strict
+waveform-docs check coverage --strict --fail-on-warning
 ```

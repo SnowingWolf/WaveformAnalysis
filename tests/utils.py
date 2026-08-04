@@ -12,6 +12,9 @@ from typing import Any
 
 import numpy as np
 
+from waveform_analysis.core.config import ConfigSource, ConfigValue
+from waveform_analysis.core.data.records_view import RecordsView
+from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 from waveform_analysis.core.processing.dtypes import create_record_dtype
 from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
@@ -203,15 +206,50 @@ def make_st_waveforms(
     baseline: float = 0.0,
     dt: int = 1,
     timestamp_start: int = 0,
+    timestamp: int | np.ndarray | None = None,
+    timestamp_scale: int = 1,
+    board: int | np.ndarray | None = None,
+    channel: int | np.ndarray | None = None,
+    record_id: bool | np.ndarray | None = None,
+    seed: int | None = None,
+    wave_fill: int | float | None = None,
 ) -> np.ndarray:
-    """Create a structured st_waveforms array with standard metadata filled."""
+    """Create a structured st_waveforms array with standard metadata filled.
+
+    Extra knobs (defaults keep the historical behavior):
+    - ``timestamp``: override timestamps (scalar broadcast or per-event array);
+      when None, timestamps are ``(arange(n_events) + timestamp_start) * timestamp_scale``.
+    - ``board`` / ``channel``: override board/channel (scalar or per-event array).
+    - ``record_id``: ``True`` fills ``arange(n_events)``, or pass a per-event array.
+    - ``seed``: fill ``wave`` with deterministic random int16 values in [-200, 200).
+    - ``wave_fill``: fill ``wave`` with a constant value.
+    """
     dtype = create_record_dtype(n_samples)
     st_waveforms = np.zeros(n_events, dtype=dtype)
-    st_waveforms["channel"] = np.arange(n_events, dtype=np.int16) % np.int16(max(n_channels, 1))
-    st_waveforms["timestamp"] = np.arange(n_events, dtype=np.int64) + np.int64(timestamp_start)
+    if channel is None:
+        st_waveforms["channel"] = np.arange(n_events, dtype=np.int16) % np.int16(max(n_channels, 1))
+    else:
+        st_waveforms["channel"] = channel
+    if timestamp is None:
+        st_waveforms["timestamp"] = (
+            np.arange(n_events, dtype=np.int64) + np.int64(timestamp_start)
+        ) * np.int64(timestamp_scale)
+    else:
+        st_waveforms["timestamp"] = timestamp
+    if board is not None:
+        st_waveforms["board"] = board
+    if record_id is True:
+        st_waveforms["record_id"] = np.arange(n_events, dtype=np.int64)
+    elif record_id is not None:
+        st_waveforms["record_id"] = record_id
     st_waveforms["baseline"] = baseline
     st_waveforms["event_length"] = n_samples
     st_waveforms["dt"] = dt
+    if seed is not None:
+        rng = np.random.default_rng(seed)
+        st_waveforms["wave"] = rng.integers(-200, 200, size=(n_events, n_samples), dtype=np.int16)
+    if wave_fill is not None:
+        st_waveforms["wave"] = wave_fill
     return st_waveforms
 
 
@@ -224,18 +262,115 @@ def make_records(
     timestamp_start: int = 0,
     board: int = 0,
     channel_start: int = 0,
+    record_id: np.ndarray | list | None = None,
+    timestamp: np.ndarray | list | None = None,
+    channel: np.ndarray | list | None = None,
+    polarity: str | None = None,
 ) -> np.ndarray:
-    """Create a records array with contiguous wave offsets."""
+    """Create a records array with contiguous wave offsets.
+
+    Extra knobs (defaults keep the historical behavior):
+    - ``record_id`` / ``timestamp`` / ``channel``: per-record value overrides.
+    - ``polarity``: set the polarity field (e.g. "negative").
+    """
     records = np.zeros(n_records, dtype=RECORDS_DTYPE)
-    records["record_id"] = np.arange(n_records, dtype=np.int64)
-    records["timestamp"] = np.arange(n_records, dtype=np.int64) + np.int64(timestamp_start)
+    if record_id is None:
+        records["record_id"] = np.arange(n_records, dtype=np.int64)
+    else:
+        records["record_id"] = record_id
+    if timestamp is None:
+        records["timestamp"] = np.arange(n_records, dtype=np.int64) + np.int64(timestamp_start)
+    else:
+        records["timestamp"] = timestamp
     records["board"] = np.int16(board)
-    records["channel"] = np.arange(channel_start, channel_start + n_records, dtype=np.int16)
+    if channel is None:
+        records["channel"] = np.arange(channel_start, channel_start + n_records, dtype=np.int16)
+    else:
+        records["channel"] = channel
     records["baseline"] = baseline
     records["wave_offset"] = np.arange(0, n_records * event_length, event_length, dtype=np.int64)
     records["event_length"] = np.int32(event_length)
     records["dt"] = np.int32(dt)
+    if polarity is not None:
+        records["polarity"] = polarity
     return records
+
+
+def make_records_view(
+    n_records: int = 1,
+    *,
+    baseline: float = 100.0,
+    dt: int = 1,
+    event_length: int = 8,
+    board: int | np.ndarray = 0,
+    channel: int | np.ndarray | list | None = None,
+    timestamp: int | np.ndarray | list | None = None,
+    record_id: np.ndarray | list | None = None,
+    polarity: str | None = None,
+    wave_pool: np.ndarray | None = None,
+) -> RecordsView:
+    """Create a RecordsView with contiguous wave offsets.
+
+    Defaults build a single-record view (wave_pool zeros); pass arrays to
+    build multi-record views with custom metadata.
+    """
+    records = np.zeros(n_records, dtype=RECORDS_DTYPE)
+    records["baseline"] = baseline
+    records["dt"] = np.int32(dt)
+    records["event_length"] = np.int32(event_length)
+    records["board"] = board
+    if channel is None:
+        records["channel"] = np.arange(n_records, dtype=np.int16)
+    else:
+        records["channel"] = channel
+    if timestamp is None:
+        records["timestamp"] = np.arange(n_records, dtype=np.int64)
+    else:
+        records["timestamp"] = timestamp
+    if record_id is None:
+        records["record_id"] = np.arange(n_records, dtype=np.int64)
+    else:
+        records["record_id"] = record_id
+    if polarity is not None:
+        records["polarity"] = polarity
+    records["wave_offset"] = np.arange(0, n_records * event_length, event_length, dtype=np.int64)
+    if wave_pool is None:
+        wave_pool = np.zeros(n_records * event_length, dtype=np.uint16)
+    return RecordsView(records, wave_pool)
+
+
+def make_hit(
+    record_id: int,
+    *,
+    board: int = 0,
+    channel: int = 0,
+    edge_start: int | float = 2,
+    edge_end: int | float = 5,
+    dt: int = 2,
+    timestamp: int = 0,
+    position: int | float | None = None,
+):
+    """Create a single THRESHOLD_HIT_DTYPE record.
+
+    When ``position`` is None it is computed as ``(edge_start + edge_end - 1) // 2``
+    and ``timestamp`` is shifted by ``position * dt * 1000`` (the merged-features /
+    peaklets convention). When ``position`` is given explicitly, ``timestamp`` is
+    used verbatim (the grouped-plugin convention).
+    """
+    arr = np.zeros(1, dtype=THRESHOLD_HIT_DTYPE)
+    if position is None:
+        position = (edge_start + edge_end - 1) // 2
+        timestamp = timestamp + position * dt * 1000
+    arr[0]["position"] = position
+    arr[0]["edge_start"] = edge_start
+    arr[0]["edge_end"] = edge_end
+    arr[0]["width"] = edge_end - edge_start
+    arr[0]["dt"] = dt
+    arr[0]["timestamp"] = timestamp
+    arr[0]["board"] = board
+    arr[0]["channel"] = channel
+    arr[0]["record_id"] = record_id
+    return arr[0]
 
 
 def register_test_adapter(name: str, sampling_rate_hz: float = 1e9) -> None:
@@ -338,7 +473,7 @@ class DummyContext:
         self._data = data or {}
         self._results: dict[tuple, Any] = {}
 
-    def get_config(self, plugin, name: str):
+    def get_config_value(self, plugin, name: str) -> ConfigValue:
         """Resolve configuration value for a plugin option.
 
         Resolution order:
@@ -348,26 +483,50 @@ class DummyContext:
         4. Plugin default: plugin.options[name].default
         """
         provides = plugin.provides
+        canonical_key = f"{provides}.{name}"
 
         # Check nested dict style: {"plugin_name": {"option": value}}
         if provides in self.config and isinstance(self.config[provides], dict):
             if name in self.config[provides]:
-                return self.config[provides][name]
+                return ConfigValue(
+                    self.config[provides][name],
+                    ConfigSource.EXPLICIT,
+                    canonical_key,
+                    canonical_key,
+                )
 
         # Check namespaced key style: {"plugin_name.option": value}
         namespaced_key = f"{provides}.{name}"
         if namespaced_key in self.config:
-            return self.config[namespaced_key]
+            return ConfigValue(
+                self.config[namespaced_key],
+                ConfigSource.EXPLICIT,
+                namespaced_key,
+                canonical_key,
+            )
 
         # Check global key
         if name in self.config:
-            return self.config[name]
+            return ConfigValue(
+                self.config[name],
+                ConfigSource.EXPLICIT,
+                name,
+                canonical_key,
+            )
 
         # Fall back to plugin default
         if hasattr(plugin, "options") and name in plugin.options:
-            return plugin.options[name].default
+            return ConfigValue(
+                plugin.options[name].default,
+                ConfigSource.PLUGIN_DEFAULT,
+                name,
+                canonical_key,
+            )
 
-        return None
+        return ConfigValue(None, ConfigSource.GLOBAL_DEFAULT, name, canonical_key)
+
+    def get_config(self, plugin, name: str):
+        return self.get_config_value(plugin, name).value
 
     def get_data(self, run_id: str, name: str, *, output: str = "native", **_kwargs):
         """Get pre-seeded data by name."""

@@ -12,6 +12,7 @@
 - 主入口（推荐）：`../../AGENTS.md`
 - 生命周期：`lifecycle.md`
 - 架构总览：`architecture.md`
+- 插件文档 DAG：`PLUGIN_DOCUMENTATION_DAG.md`
 - 插件体系：`plugins.md`
 - 配置与兼容：`configuration.md`
 - 常见工作流：`workflows.md`

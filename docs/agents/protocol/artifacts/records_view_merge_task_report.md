@@ -1,0 +1,37 @@
+# task_report
+
+- `task_id`: `records_view_merge_20260730`
+- `route`: `generate_docs`
+- `workflow_cost`: `light`
+- `workflow_shape`: `compact`
+- `scope`: Merge the former Context-facing Records + WavePool design reference into `contexts/records-view.html`, preserve the old Context URL as a redirect, remove its home and Context-index resource cards, and merge plugin authoring into `plugins/overview.html`.
+- `actions_taken`:
+  - Added the five data-boundary sections to the generated RecordsView reference, including data invariants, ownership, input routing, cache behavior, and filtered-wave-pool access.
+  - Redirected `contexts/records-wave-pool.html` to `records-view.html#data-model`.
+  - Kept `docs/architecture/RECORDS_WAVE_POOL.md` as the independently published architecture guide without using it as the old Context page target or a resource card.
+  - Redirected `plugins/authoring.html` to the `#authoring` section in `plugins/overview.html` and updated navigation and search assertions.
+- `changed_paths`:
+  - `waveform_analysis/utils/site_doc_generator.py`
+  - `waveform_analysis/utils/templates/web/callable_reference.html.j2`
+  - `waveform_analysis/utils/templates/web/plugin_system.html.j2`
+  - `waveform_analysis/utils/templates/web/shell.html.j2`
+  - `waveform_analysis/utils/templates/web/site_index.html.j2`
+  - `waveform_analysis/utils/templates/web/guide_redirect.html.j2`
+  - `tests/test_records_wave_pool_site_documentation.py`
+  - `tests/test_site_plugin_guides_documentation.py`
+- `verification`:
+  - `pytest tests/test_records_wave_pool_site_documentation.py tests/test_records_view_documentation.py tests/test_site_plugin_guides_documentation.py tests/test_cli_docs_site_publish.py tests/test_site_guides.py -q --no-cov`: PASS, 18 tests.
+  - `waveform-docs generate site-web -o docs/_site`: PASS; inspected the RecordsView and legacy Context pages, both index pages, plugin overview/redirect, and the search index.
+  - `scripts/check_doc_sync.sh`: PASS.
+  - `python scripts/check_doc_anchors.py --check-sync --base HEAD`: PASS.
+  - `python scripts/render_agent_docs.py --check`: PASS.
+  - `git diff --check`: PASS.
+  - `pytest tests/test_plugin_documentation.py -q --no-cov`: 36 passed, 1 known pre-existing Pygments whitespace assertion failure in the Context page; this scope does not modify that highlighter output.
+- `decision`: `completed`
+- `commit_status`: `uncommitted: the generator and template files overlap with the user's in-progress Markdown guide publication changes, so a scoped commit cannot be created without taking unrelated work.`
+- `open_risks`:
+  - The Markdown guide publisher reports 22 non-blocking links to unselected source documents during site generation.
+  - The broad plugin-documentation test retains one unrelated, exact-Pygments-whitespace assertion failure.
+- `agent_profile`: `none`
+- `profile_plan`: `not_applicable`
+- `agent_profile_review`: `Inline review verified generated HTML routes, redirect targets, search URLs, card removal, and required documentation gates.`

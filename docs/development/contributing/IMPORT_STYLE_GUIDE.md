@@ -71,7 +71,6 @@ def process(path: str | Path) -> int | None:
 | `waveform_analysis.core.chunk_utils` | `waveform_analysis.core.processing.chunk` |
 | `waveform_analysis.core.utils` | `waveform_analysis.core.foundation.utils` |
 | `waveform_analysis.core.exceptions` | `waveform_analysis.core.foundation.exceptions` |
-| `waveform_analysis.core.mixins` | `waveform_analysis.core.foundation.mixins` |
 | `waveform_analysis.core.processor` | `waveform_analysis.core.processing.event_grouping` |
 | `waveform_analysis.core.analyzer` | `waveform_analysis.core.processing.analyzer` |
 | `waveform_analysis.core.executor_manager` | `waveform_analysis.core.execution.manager` |

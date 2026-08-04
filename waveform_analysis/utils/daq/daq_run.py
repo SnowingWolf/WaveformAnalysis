@@ -92,6 +92,7 @@ class DAQRun:
         run_path: str | Path,
         daq_adapter: str | DAQAdapter | None = None,
         directory_layout: DirectoryLayout | None = None,
+        max_waves_for_channels: int = 50,
     ):
         """初始化 DAQRun
 
@@ -100,9 +101,11 @@ class DAQRun:
             run_path: 运行根目录路径
             daq_adapter: DAQ 适配器名称或实例（可选）
             directory_layout: 目录布局配置（可选，优先于 daq_adapter）
+            max_waves_for_channels: 扫描文件时读取的波形数来判断通道（默认 50）
         """
         self.run_name = run_name
         self.run_path = str(run_path)
+        self.max_waves_for_channels = max_waves_for_channels
 
         # 初始化适配器和布局
         self.daq_adapter: DAQAdapter | None = None
@@ -225,7 +228,9 @@ class DAQRun:
 
             for file_path in files_to_scan:
                 board = V1725Reader._extract_board_from_path(file_path)
-                channels = self._peek_v1725_channels(file_path, max_waves=50)
+                channels = self._peek_v1725_channels(
+                    file_path, max_waves=self.max_waves_for_channels
+                )
                 if channels:
                     boards_found.add(board)
                     channels_found.update(channels)
@@ -460,6 +465,7 @@ class DAQRun:
         self._populate_file_timetags()
 
         run_earliest_created_time = None
+        run_earliest_start_tag_ps = None
         run_latest_end_tag_ps = None
 
         for ch in sorted(self.channel_files.keys()):
@@ -501,9 +507,14 @@ class DAQRun:
                 else None
             )
             latest_end_time = None
-            if earliest_created_time is not None and max_tag_ps is not None:
+            if (
+                earliest_created_time is not None
+                and max_tag_ps is not None
+                and min_tag_ps is not None
+            ):
+                # 使用相对时间差（结束时间戳 - 开始时间戳）而非绝对时间戳
                 latest_end_time = earliest_created_time + timedelta(
-                    seconds=max_tag_ps / self.ps_per_s
+                    seconds=(max_tag_ps - min_tag_ps) / self.ps_per_s
                 )
 
             self.channel_stats[ch] = {
@@ -525,15 +536,24 @@ class DAQRun:
                 or earliest_created_time < run_earliest_created_time
             ):
                 run_earliest_created_time = earliest_created_time
+            if min_tag_ps is not None and (
+                run_earliest_start_tag_ps is None or min_tag_ps < run_earliest_start_tag_ps
+            ):
+                run_earliest_start_tag_ps = min_tag_ps
             if max_tag_ps is not None and (
                 run_latest_end_tag_ps is None or max_tag_ps > run_latest_end_tag_ps
             ):
                 run_latest_end_tag_ps = max_tag_ps
 
         acquisition_end = None
-        if run_earliest_created_time is not None and run_latest_end_tag_ps is not None:
+        if (
+            run_earliest_created_time is not None
+            and run_earliest_start_tag_ps is not None
+            and run_latest_end_tag_ps is not None
+        ):
+            # 使用相对时间差（结束时间戳 - 开始时间戳）而非绝对时间戳
             acquisition_end = run_earliest_created_time + timedelta(
-                seconds=run_latest_end_tag_ps / self.ps_per_s
+                seconds=(run_latest_end_tag_ps - run_earliest_start_tag_ps) / self.ps_per_s
             )
         self._run_acquisition_window = (run_earliest_created_time, acquisition_end)
 

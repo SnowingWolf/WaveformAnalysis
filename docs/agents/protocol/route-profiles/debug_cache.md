@@ -22,6 +22,10 @@
 - `python scripts/check_doc_anchors.py --check-sync --base HEAD`
 <!-- END GENERATED: profile_summary_debug_cache -->
 
+## Workflow Shape
+- 单纯只读查询可用 `direct`；需要形成可复现诊断记录时默认使用 `compact` 和 `task_report`。
+- 任何代码或配置修复必须退出快速路径，切换到匹配的 `staged` route。
+
 ## Rework Policy
 - 默认返工 owner：`executor.config`
 - 仅当以下情况允许回到 `planning`：
@@ -35,6 +39,7 @@
 
 - `task_id`:
 - `route`: `debug_cache`
+- `workflow_shape`: `staged`
 - `lifecycle_profile`: `diagnostic_review`
 - `risk_level`: `low|medium|high`
 - `scope_in`:
@@ -42,6 +47,9 @@
 - `required_gates`:
   - `diagnosis_reproduced`
 - `executor_role`: `executor.config`
+- `agent_profile`: `graph_engineer|none`
+- `profile_plan`:
+  -
 - `blocking_assumptions`:
   -
 
@@ -61,6 +69,7 @@
 
 - `task_id`:
 - `executor_role`: `executor.config`
+- `agent_profile`: `graph_engineer|none`
 - `changed_paths`:
   -
 - `actions_taken`:
@@ -97,6 +106,8 @@
   -
 - `follow_up_actions`:
   -
+- `agent_profile`: `graph_engineer|none`
+- `agent_profile_review`:
 
 ## Rework Control
 - `scope_changed`: `true|false`

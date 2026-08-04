@@ -4,8 +4,6 @@
 提供常用的执行器配置模板，便于快速使用。
 """
 
-from typing import Dict
-
 from waveform_analysis.core.foundation.utils import exporter
 
 # 初始化 exporter
@@ -61,7 +59,7 @@ EXECUTOR_CONFIGS = export(
 )
 
 
-def get_config(config_name: str) -> Dict:
+def get_config(config_name: str) -> dict:
     """
     获取预定义配置。
 
@@ -81,7 +79,7 @@ def get_config(config_name: str) -> Dict:
     return EXECUTOR_CONFIGS[config_name].copy()
 
 
-def register_config(name: str, config: Dict):
+def register_config(name: str, config: dict):
     """
     注册新的配置。
 

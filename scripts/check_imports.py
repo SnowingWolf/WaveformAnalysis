@@ -37,7 +37,6 @@ EXPECTED_IMPORTS = {
     "chunk_utils": "waveform_analysis.core.processing.chunk",
     "foundation.utils": "waveform_analysis.core.foundation.utils",
     "foundation.exceptions": "waveform_analysis.core.foundation.exceptions",
-    "foundation.mixins": "waveform_analysis.core.foundation.mixins",
     "executor_manager": "waveform_analysis.core.execution.manager",
     "processor": "waveform_analysis.core.processing.event_grouping",
     "analyzer": "waveform_analysis.core.processing.analyzer",

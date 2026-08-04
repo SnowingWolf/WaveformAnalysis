@@ -22,12 +22,16 @@
 
 ## 注册插件
 
+`ctx.register()` 是唯一的公共注册入口。Context 将实例、类、模块和序列输入统一交给
+内部的 `ContextPluginDomain` 执行校验、重复/覆盖处理、注册来源记录和缓存失效；
+不再提供单插件的 `register_plugin_()` 入口。
+
 ### 基本用法
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin,
+    RawFileNamesPlugin,
     WaveformsPlugin,
 )
 
@@ -35,7 +39,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 ctx = Context(storage_dir="./cache")
 
 # 注册单个插件实例
-ctx.register(RawFilesPlugin())
+ctx.register(RawFileNamesPlugin())
 
 # 注册插件类（会自动实例化）
 ctx.register(WaveformsPlugin)
@@ -45,14 +49,14 @@ ctx.register(WaveformsPlugin)
 
 ```python
 # 方式 1: 注册插件实例
-ctx.register(RawFilesPlugin())
+ctx.register(RawFileNamesPlugin())
 
 # 方式 2: 注册插件类（自动实例化）
 ctx.register(WaveformsPlugin)
 
 # 方式 3: 一次注册多个插件
 ctx.register(
-    RawFilesPlugin(),
+    RawFileNamesPlugin(),
     WaveformsPlugin()
 )
 
@@ -61,7 +65,7 @@ import waveform_analysis.core.plugins.builtin.cpu as cpu
 ctx.register(cpu)  # 自动发现并注册模块中所有 Plugin 子类
 
 # 方式 5: 使用列表批量注册
-plugins = [RawFilesPlugin(), WaveformsPlugin()]
+plugins = [RawFileNamesPlugin(), WaveformsPlugin()]
 ctx.register(*plugins)
 ```
 
@@ -69,7 +73,7 @@ ctx.register(*plugins)
 
 ```python
 # 注册后，通过数据名称访问
-ctx.register(RawFilesPlugin())  # provides = "raw_files"
+ctx.register(RawFileNamesPlugin())  # provides = "raw_files"
 ctx.register(WaveformsPlugin())  # provides = "st_waveforms"
 
 # 获取数据时自动执行插件
@@ -78,8 +82,8 @@ st_waveforms = ctx.get_data("run_001", "st_waveforms")
 ```
 
 当下游插件需要固定数组形态时，可使用 `ctx.get_data(..., output="array")` 将
-chunk stream 或 generator 结果物化为完整数组；完整参数说明见
-[数据获取](DATA_ACCESS.md)。
+chunk stream 或 generator 结果物化为完整数组；正式产物的依赖与读取边界见
+[数据产物与波形访问](../../architecture/DATA_PRODUCTS.md)。
 
 ---
 
@@ -163,7 +167,7 @@ print(f"可并行组: {analysis.parallel_groups}")
 
 ```python
 from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin,
+    RawFileNamesPlugin,
     WaveformsPlugin,
     BasicFeaturesPlugin,
     DataFramePlugin,
@@ -173,7 +177,7 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 
 # 一次注册完整的处理流水线
 ctx.register(
-    RawFilesPlugin(),
+    RawFileNamesPlugin(),
     WaveformsPlugin(),
     BasicFeaturesPlugin(),
     DataFramePlugin(),
@@ -199,12 +203,12 @@ ctx.register(
 ```python
 from waveform_analysis.core.plugins.builtin.cpu import (
     FilteredWaveformsPlugin,
-    SignalPeaksPlugin,
+    HitFinderPlugin,
 )
 
 ctx.register(
     FilteredWaveformsPlugin(),
-    SignalPeaksPlugin(),
+    HitFinderPlugin(),
 )
 ```
 
@@ -226,16 +230,16 @@ print(ctx.list_provided_data())
 ### 默认行为（禁止覆盖）
 
 ```python
-ctx.register(RawFilesPlugin())
-ctx.register(RawFilesPlugin())  # RuntimeError: 插件已注册
+ctx.register(RawFileNamesPlugin())
+ctx.register(RawFileNamesPlugin())  # RuntimeError: 插件已注册
 ```
 
 ### 允许覆盖
 
 ```python
 # 使用 allow_override=True 允许覆盖
-ctx.register(RawFilesPlugin())
-ctx.register(RawFilesPlugin(), allow_override=True)  # 成功覆盖
+ctx.register(RawFileNamesPlugin())
+ctx.register(RawFileNamesPlugin(), allow_override=True)  # 成功覆盖
 ```
 
 ### 覆盖场景
@@ -243,7 +247,7 @@ ctx.register(RawFilesPlugin(), allow_override=True)  # 成功覆盖
 ```python
 # 场景：使用自定义版本替换内置插件
 class MyCustomWaveformsPlugin(Plugin):
-    provides = "waveforms"  # 与内置插件相同
+    provides = "st_waveforms"  # 与内置插件相同
     depends_on = ["raw_files"]
 
     def compute(self, context, run_id, **kwargs):
@@ -320,8 +324,8 @@ Context 在执行插件时会识别以下可选钩子/属性，用于覆盖默�
 
 **A**: 查看插件的 `provides` 属性：
 ```python
-print(RawFilesPlugin.provides)  # 'raw_files'
-print(WaveformsPlugin.provides)  # 'waveforms'
+print(RawFileNamesPlugin.provides)  # 'raw_files'
+print(WaveformsPlugin.provides)  # 'st_waveforms'
 ```
 
 ### Q2: 插件执行顺序如何确定？
@@ -364,11 +368,11 @@ print(f"描述: {plugin.description}")
 ## 相关文档
 
 - [配置管理](CONFIGURATION.md) - 设置插件配置
-- [数据获取](DATA_ACCESS.md) - 获取插件产出的数据
+- [数据产物与波形访问](../../architecture/DATA_PRODUCTS.md) - 获取插件产出的数据
 - [插件开发](../../development/plugin-development/README.md) - 开发自定义插件
 - [Agent 入口](../../../AGENTS.md) - 任务导航与约束
 - [Agent 文档索引](../../agents/INDEX.md) - agent 专题说明
 
 ---
 
-**快速链接**: [配置管理](CONFIGURATION.md) | [数据获取](DATA_ACCESS.md) | [血缘可视化](LINEAGE_VISUALIZATION_GUIDE.md)
+**快速链接**: [配置管理](CONFIGURATION.md) | [数据产物](../../architecture/DATA_PRODUCTS.md) | [血缘可视化](LINEAGE_VISUALIZATION_GUIDE.md)

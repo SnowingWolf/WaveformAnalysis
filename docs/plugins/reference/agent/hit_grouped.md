@@ -1,58 +1,89 @@
-# hit_grouped (HitGroupedPlugin)
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "agent"
+provides: "hit_grouped"
+plugin_class: "HitGroupedPlugin"
+module: "waveform_analysis.core.plugins.builtin.hit.hit_grouped"
+version: "0.5.0"
+summary: "Group merged hits across channels into event-level coincidence windows."
+depends_on: ["hit_merged", "hit_merged_components", "hit_threshold"]
+output_kind: "dataframe"
+generated: true
+---
+# hit_grouped
 
-> Agent-first 插件契约文档。面向自动化执行与改动评估。
+## Overview
 
-## Agent Contract
+Group merged hits across channels into event-level coincidence windows.
+Plugin to group merged hits across channels using absolute hit windows.
 
 | Item | Value |
-|------|-------|
+| --- | --- |
 | Provides | `hit_grouped` |
-| Depends On | `hit_merged`, `hit_merged_components`, `hit_threshold` |
-| Output Kind | `unknown` |
+| Plugin Class | `HitGroupedPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.hit.hit_grouped` |
 | Version | `0.5.0` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.event_analysis` |
-| Accelerator | `cpu` |
+| Category | 特征提取 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `dataframe` |
 
-## Inputs
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `hit_merged` | - | declared | - | Merge nearby threshold hits per channel with time-gap and max-width constraints. |
+| `hit_merged_components` | - | declared | - | Return per-cluster component hit indices for hit_merged rows. |
+| `hit_threshold` | - | declared | - | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. |
+### How It Works
 
-- `hit_merged`
-- `hit_merged_components`
-- `hit_threshold`
 
-## Outputs
+## Configuration
 
-- 无结构化字段信息（`unknown`）
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `time_window_ns` | `float` | `100.0` | - | yes | no | Maximum absolute time separation in nanoseconds for grouping hits. |
+| `dt` | `int` | `None` | - | yes | no | 采样间隔（ns）。仅在输入 hit_merged 缺少 dt 字段时作为兼容补充。 |
+## Output
 
-## Config
+Grouped hit coincidence table.
 
-| Name | Type | Default | Note |
-|------|------|---------|------|
-| `time_window_ns` | `float` | `100.0` | - |
-| `dt` | `int` | `None` | 采样间隔（ns）。仅在输入 hit_merged 缺少 dt 字段时作为兼容补充。 |
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| container | `dataframe` | - | Grouped hit coincidence table. |
+## Usage
 
-## Execution Path
+### Minimal Example
 
-`hit_grouped` 依赖链入口：
-`hit_merged -> hit_merged_components -> hit_threshold -> hit_grouped`
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import HitGroupedPlugin
 
-## Failure Modes
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(HitGroupedPlugin())
+data = ctx.get_data("run_001", "hit_grouped")
+```
 
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
+## Operational Notes
 
-## Change Playbook
+### Behavior
 
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
+### Failure Modes
 
-## Validation
+- Dependency data, configuration, or output contract validation may fail explicitly.
+### Downstream Impact
+
+Terminal output; no direct builtin consumer is declared.
+
+
+## Maintenance
+
+### Change Playbook
+
+1. Keep `provides` and dependency semantics stable or update all consumers.
+2. Bump `version` for behavior, configuration, or output contract changes.
+3. Regenerate auto, agent, and web references after metadata changes.
+### Validation
 
 ```bash
-# 单插件文档再生成
 waveform-docs generate plugins-agent --plugin hit_grouped
-
-# 覆盖率检查
-waveform-docs check coverage --strict
+waveform-docs check coverage --strict --fail-on-warning
 ```

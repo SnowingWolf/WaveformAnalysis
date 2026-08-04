@@ -1,0 +1,35 @@
+# plan_brief
+
+- `task_id`: `context-help-plugin-docs-20260722`
+- `route`: `modify_plugin` plus `retire_compat`
+- `workflow_cost`: `strict`
+- `risk_level`: `high`
+- `change_level`: `L3`
+- `executor_role`: `executor.plugin`
+- `execution_backend`: `python`; plugin compute backends are unchanged
+- `scope_in`:
+  - `HelpDocument`, shared `PluginDocumentationView`, and `Context.help(topic, *, run_id)`
+  - Markdown schema v1 and exact auto/agent page structures
+  - offline `plugins-web`, read-only `serve`, and wheel package data
+  - formal `Plugin.output_schema`, non-array schemas, version metadata, and option help
+  - approved quickstart removal and active Context/documentation entry points
+- `scope_out`:
+  - GitHub Pages, external assets, browser launch, or site deployment
+  - removing `QUICKSTART_GUIDE.md`
+  - changing plugin algorithms, `provides`, dependencies, or compute backends
+  - modifying historical protocol artifacts
+- `contract_impact`:
+  - `provides`: unchanged
+  - `depends_on`: unchanged
+  - `options`: two existing options gain help text only
+  - `output_dtype`: unchanged
+  - `output_schema`: added as the formal non-array output contract
+  - `version`: `events`, `df_events`, and `df_paired` become `0.0.1`
+- `required_gates`:
+  - targeted help, documentation, contract, and version tests
+  - strict documentation coverage with warnings treated as failures
+  - full auto/agent generation and structure validation
+  - wheel build/install and `plugins-web` generation outside the source tree
+  - `assess_change_impact`, `schema_compat_check`, doc sync, and doc anchors
+  - full test suite
+- `dirty_tree_policy`: Stage only paths listed in the execution report; preserve pre-existing peaklet, benchmark, notebook, and analysis changes.

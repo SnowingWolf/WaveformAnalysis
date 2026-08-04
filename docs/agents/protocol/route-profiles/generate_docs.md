@@ -30,6 +30,10 @@
 - `doc_targets_resolved`
 - `sync_checks_pending`
 
+## Workflow Shape
+- docs-only 的低风险局部更新默认可用 `compact` 并填写 `task_report`。
+- 文档反映代码契约变化、scope 扩大或 gate 失败时，升级为 `staged` 并使用下方三阶段模板。
+
 ## Rework Policy
 - 默认返工 owner：`executor.docs`
 - 仅当以下情况允许回到 `planning`：
@@ -43,6 +47,7 @@
 
 - `task_id`:
 - `route`: `generate_docs`
+- `workflow_shape`: `staged`
 - `lifecycle_profile`: `doc_only_reviewed`
 - `risk_level`: `low|medium|high`
 - `scope_in`:
@@ -51,6 +56,9 @@
   - `doc_sync`
   - `doc_anchors`
 - `executor_role`: `executor.docs`
+- `agent_profile`: `graph_engineer|none`
+- `profile_plan`:
+  -
 - `blocking_assumptions`:
   -
 
@@ -71,6 +79,7 @@
 
 - `task_id`:
 - `executor_role`: `executor.docs`
+- `agent_profile`: `graph_engineer|none`
 - `changed_paths`:
   -
 - `actions_taken`:
@@ -109,6 +118,8 @@
   -
 - `follow_up_actions`:
   -
+- `agent_profile`: `graph_engineer|none`
+- `agent_profile_review`:
 
 ## Rework Control
 - `scope_changed`: `true|false`

@@ -6,27 +6,13 @@
 
 from collections.abc import Callable
 import logging
-from typing import Optional
 
 import numpy as np
 import pandas as pd
 
+from waveform_analysis.core.utils.common import NUMBA_AVAILABLE, jit
+
 logger = logging.getLogger(__name__)
-
-# 尝试导入 numba 用于加速
-try:
-    from numba import jit
-
-    NUMBA_AVAILABLE = True
-except ImportError:
-    NUMBA_AVAILABLE = False
-
-    # 定义占位符装饰器
-    def jit(*args, **kwargs):
-        def decorator(func):
-            return func
-
-        return decorator
 
 
 @jit(nopython=True, cache=True)

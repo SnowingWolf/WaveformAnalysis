@@ -4,20 +4,17 @@ Event Analysis Plugins - 事件分组与配对插件
 **加速器**: CPU (NumPy/Numba)
 **功能**: 多通道事件的时间窗口分组和符合配对
 
-本模块包含三个相关的事件分析插件：
+本模块包含两个相关的事件分析插件：
 - GroupedEventsPlugin: 按时间窗口分组多通道事件
-- HitGroupedPlugin: 按 hit 窗口分组多通道 hit_merged 事件
 - PairedEventsPlugin: 配对跨通道的符合事件
+
+注意：HitGroupedPlugin 已迁移到 waveform_analysis.core.plugins.builtin.hit.hit_grouped
 """
 
 from typing import Any
 
-from waveform_analysis.core.plugins.builtin.cpu._dt_compat import (
-    require_dt_array,
-    resolve_dt_config,
-)
 from waveform_analysis.core.plugins.core.base import Option, Plugin
-from waveform_analysis.core.processing.event_grouping import group_hit_windows
+from waveform_analysis.core.plugins.core.spec import OutputSchema
 
 
 class GroupedEventsPlugin(Plugin):
@@ -26,9 +23,15 @@ class GroupedEventsPlugin(Plugin):
     provides = "df_events"
     depends_on = ["df"]
     description = "Group events across channels within a configurable time window."
+    version = "0.0.1"
+    output_schema = OutputSchema(kind="dataframe", doc="Grouped multi-channel event table.")
     save_when = "always"
     options = {
-        "time_window_ns": Option(default=100.0, type=float),
+        "time_window_ns": Option(
+            default=100.0,
+            type=float,
+            help="Maximum time separation in nanoseconds for grouping events.",
+        ),
     }
 
     def compute(self, context: Any, run_id: str, **kwargs) -> Any:
@@ -66,52 +69,14 @@ class GroupedEventsPlugin(Plugin):
         return analyzer.group_events(df, tw, use_numba=use_numba, n_processes=n_processes)
 
 
-class HitGroupedPlugin(Plugin):
-    """Plugin to group merged hits across channels using absolute hit windows."""
-
-    provides = "hit_grouped"
-    depends_on = ["hit_merged", "hit_merged_components", "hit_threshold"]
-    description = "Group merged hits across channels into event-level coincidence windows."
-    version = "0.5.0"
-    save_when = "always"
-    options = {
-        "time_window_ns": Option(default=100.0, type=float),
-        "dt": Option(
-            default=None,
-            type=int,
-            help="采样间隔（ns）。仅在输入 hit_merged 缺少 dt 字段时作为兼容补充。",
-        ),
-    }
-
-    def compute(self, context: Any, run_id: str, **kwargs) -> Any:
-        hits = context.get_data(run_id, "hit_merged")
-        component_rows = context.get_data(run_id, "hit_merged_components")
-        component_hits = context.get_data(run_id, "hit_threshold")
-        time_window_ns = float(context.get_config(self, "time_window_ns"))
-        explicit_dt = resolve_dt_config(
-            context, self, deprecated_keys=("sampling_interval_ns", "dt_ns")
-        )
-        dt_values = require_dt_array(
-            hits,
-            explicit_dt=explicit_dt,
-            plugin_name=self.provides,
-            data_name="hit_merged",
-        )
-        return group_hit_windows(
-            hits,
-            time_window_ns=time_window_ns,
-            dt_values=dt_values,
-            component_rows=component_rows,
-            component_hits=component_hits,
-        )
-
-
 class PairedEventsPlugin(Plugin):
     """Plugin to pair events across channels."""
 
     provides = "df_paired"
     depends_on = ["df_events"]
     description = "Pair grouped events across channels for coincidence analysis."
+    version = "0.0.1"
+    output_schema = OutputSchema(kind="dataframe", doc="Paired coincidence event table.")
     save_when = "always"
 
     def compute(self, context: Any, run_id: str, **kwargs) -> Any:

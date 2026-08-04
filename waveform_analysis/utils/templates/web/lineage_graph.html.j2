@@ -1,0 +1,61 @@
+<section class="lineage-section{% if lineage_graph.is_local %} lineage-section--local{% endif %}">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">静态依赖视图</p>
+      <h2>{{ lineage_graph.title }}</h2>
+    </div>
+    <p>{{ lineage_graph.description }}</p>
+  </div>
+  <div class="lineage-toolbar" aria-label="{{ lineage_graph.title }} controls">
+    <div class="lineage-zoom-controls" role="group" aria-label="Graph zoom controls">
+      <button class="lineage-control" type="button" data-lineage-zoom="out" title="缩小" aria-label="缩小">−</button>
+      <button class="lineage-control" type="button" data-lineage-zoom="reset" title="重置缩放" aria-label="重置缩放">↺</button>
+      <button class="lineage-control" type="button" data-lineage-zoom="in" title="放大" aria-label="放大">+</button>
+    </div>
+    {% if lineage_graph.global_focus_href %}<a class="lineage-global-link" href="{{ lineage_graph.global_focus_href }}">在全局谱系中显示此插件</a>{% endif %}
+  </div>
+  <div class="lineage-scroll" tabindex="0" aria-label="{{ lineage_graph.title }} dependency graph">
+    <svg class="lineage-graph{% if lineage_graph.is_local %} lineage-graph--local{% endif %}" width="{{ lineage_graph.width }}" height="{{ lineage_graph.height }}" viewBox="{{ lineage_graph.view_box }}" role="img" aria-label="{{ lineage_graph.description }}">
+      <defs>
+        <marker id="lineage-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <path d="M 0 0 L 8 4 L 0 8 z" class="lineage-arrowhead" />
+        </marker>
+      </defs>
+      <g class="lineage-viewport" data-lineage-viewport>
+        {% for edge in lineage_graph.edges %}
+        <path class="lineage-edge" d="{{ edge.path }}" marker-end="url(#lineage-arrow)" />
+        {% endfor %}
+        {% for node in lineage_graph.nodes %}
+        {% if node.href %}<a class="lineage-node-link" data-lineage-node="{{ node.node_id }}" href="{{ node.href }}" aria-label="{{ node.aria_label }}">{% else %}<g class="lineage-node-placeholder" aria-label="{{ node.aria_label }}">{% endif %}
+          <title>{{ node.tooltip }}</title>
+          <rect class="lineage-node{% if node.placeholder %} is-placeholder{% endif %}{% if node.is_focus %} is-focus{% endif %}" x="{{ node.x }}" y="{{ node.y }}" width="{{ node.width }}" height="{{ node.height }}" rx="{% if lineage_graph.is_local %}0{% else %}4{% endif %}" />
+          {% if lineage_graph.is_local %}
+          <rect class="lineage-node-header{% if node.is_focus %} is-focus{% endif %}" x="{{ node.x }}" y="{{ node.y }}" width="{{ node.width }}" height="32" />
+          {% if node.has_input %}<rect class="lineage-port lineage-port--in" x="{{ node.x - 5 }}" y="{{ node.y + node.height // 2 - 9 }}" width="10" height="18" />{% endif %}
+          {% if node.has_output %}<rect class="lineage-port lineage-port--out" x="{{ node.x + node.width - 5 }}" y="{{ node.y + node.height // 2 - 9 }}" width="10" height="18" />{% endif %}
+          <text class="lineage-node-title" x="{{ node.x + node.width // 2 }}" y="{{ node.y + 21 }}" text-anchor="middle">{{ node.label }}</text>
+          <text class="lineage-node-subtitle" x="{{ node.x + node.width // 2 }}" y="{{ node.y + 62 }}" text-anchor="middle">plugin output</text>
+          {% if node.documentation_completeness is not none %}<text class="lineage-node-metrics" x="{{ node.x + node.width // 2 }}" y="{{ node.y + 92 }}" text-anchor="middle">Docs {{ node.documentation_completeness }} · Impact {{ node.dag_impact }}</text>{% endif %}
+          {% else %}
+          <text class="lineage-node-title" x="{{ node.x + 12 }}" y="{{ node.y + 27 }}">{{ node.label }}</text>
+          {% if node.documentation_completeness is not none %}
+          <text class="lineage-node-metrics" x="{{ node.x + 12 }}" y="{{ node.y + 53 }}">Docs {{ node.documentation_completeness }} · Impact {{ node.dag_impact }}</text>
+          {% else %}
+          <text class="lineage-node-metrics" x="{{ node.x + 12 }}" y="{{ node.y + 53 }}">无文档页面</text>
+          {% endif %}
+          {% endif %}
+        {% if node.href %}</a>{% else %}</g>{% endif %}
+        {% endfor %}
+      </g>
+    </svg>
+  </div>
+  <p class="lineage-legend">Docs 表示文档完整度，Impact 表示声明插件图中的相对下游影响；运行时解析的输入不会绘制。</p>
+  {% if lineage_graph.isolated_nodes %}
+  <details class="lineage-isolated">
+    <summary>{{ lineage_graph.isolated_nodes|length }} 个孤立插件（没有声明内置边）</summary>
+    <div class="lineage-isolated-list">
+      {% for node in lineage_graph.isolated_nodes %}<a href="{{ node.href }}" title="{{ node.tooltip }}">{{ node.label }}</a>{% endfor %}
+    </div>
+  </details>
+  {% endif %}
+</section>

@@ -1,64 +1,65 @@
-# HitMergedComponentsPlugin
-
-> Return per-cluster component hit indices for hit_merged rows.
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "auto"
+provides: "hit_merged_components"
+plugin_class: "HitMergedComponentsPlugin"
+module: "waveform_analysis.core.plugins.builtin.hit.hit_merge"
+version: "1.1.0"
+summary: "Return per-cluster component hit indices for hit_merged rows."
+depends_on: ["hit_merged", "hit_threshold"]
+output_kind: "structured_array"
+generated: true
+---
+# hit_merged_components
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Provides** | `hit_merged_components` |
-| **Version** | `1.1.0` |
-| **Category** | 特征提取 |
-| **Accelerator** | CPU (NumPy/SciPy) |
-| **Streaming** | No |
-| **Side Effect** | No |
+Return per-cluster component hit indices for hit_merged rows.
+Return flat component hit indices for each hit_merged cluster.
 
-## Dependencies
+| Item | Value |
+| --- | --- |
+| Provides | `hit_merged_components` |
+| Plugin Class | `HitMergedComponentsPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.hit.hit_merge` |
+| Version | `1.1.0` |
+| Category | 特征提取 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-This plugin depends on the following data:
-
-- [`hit_merged`](hit_merged.md)
-- [`hit_threshold`](hit_threshold.md)
-
-## Configuration Options
-
-| Option | Type | Default | Units | Description |
-|--------|------|---------|-------|-------------|
-| `validate_components` | `bool` | `False` | - | 校验 hit_merged 的 component_offset/component_count 与 cluster rows 是否一致。 |
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| `hit_merged` | - | declared | - | Merge nearby threshold hits per channel with time-gap and max-width constraints. |
+| `hit_threshold` | - | declared | - | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. |
+### How It Works
 
 
-## Output Schema
+## Configuration
 
-**Output Type**: `structured_array`
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `validate_components` | `bool` | `False` | - | yes | no | 校验 hit_merged 的 component_offset/component_count 与 cluster rows 是否一致。 |
+## Output
 
-| Field | Type | Units | Description |
-|-------|------|-------|-------------|
-| `merged_index` | `int64` | - | - |
-| `hit_index` | `int64` | - | - |
+structured_array output with fields: merged_index, hit_index.
 
-## Usage Example
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `merged_index` | `int64` | None | Index of the merged hit record |
+| `hit_index` | `int64` | None | Row index in the source hit_threshold array |
+## Usage
+
+### Minimal Example
 
 ```python
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import HitMergedComponentsPlugin
 
-# Create context and register plugin
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(HitMergedComponentsPlugin())
-
-# Configure plugin (optional)
-ctx.set_config({
-    "validate_components": False,
-}, plugin_name="hit_merged_components")
-
-# Get data
 data = ctx.get_data("run_001", "hit_merged_components")
 ```
+### Downstream Consumers
 
-## Module
-
-- **Module Path**: `waveform_analysis.core.plugins.builtin.cpu.hit_merge`
-
----
-
-*This documentation was auto-generated from plugin metadata.*
+- `hit_grouped`

@@ -1,0 +1,25 @@
+# task_report
+
+- `task_id`: `lineage_layout_center_and_routes`
+- `route`: `generate_docs`
+- `workflow_shape`: `compact`
+- `changed_paths`:
+  - `docs/site-react/src/lineage.ts`
+  - `docs/site-react/src/main.tsx`
+  - `docs/site-react/src/site.css`
+  - `docs/site-react/src/lineage.test.ts`
+  - `waveform_analysis/utils/templates/web/assets/react/waveform-docs.js`
+  - `waveform_analysis/utils/templates/web/assets/react/waveform-docs.css`
+- `result`:
+  - 保持 `raw_files` 位于水平中轴。
+  - ELK 可在固定左右侧的前提下重排端口上下位置。
+  - 共用输出端口的边在离开端口后扇出，减少长距离共线路径。
+- `verification`:
+  - `npm run check`: PASS
+  - `node --test .test-dist/lineage.test.js`: PASS
+  - `npm run build`: PASS
+  - `pytest tests/test_plugin_documentation.py tests/test_records_view_documentation.py -q --no-cov`: PASS (38)
+  - `scripts/check_doc_sync.sh`: PASS
+  - `python scripts/check_doc_anchors.py --check-sync --base HEAD`: PASS
+- `residual_risk`:
+  - 同一真实输出端口的边在端点处保留极短公共段；这是单端口图模型的固有语义。

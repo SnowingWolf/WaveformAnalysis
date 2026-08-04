@@ -44,6 +44,29 @@ ctx.plot_lineage("df_paired", kind="plotly")
 mermaid_code = ctx.plot_lineage("df_paired", kind="mermaid")
 ```
 
+### 隐藏展示用虚插件
+
+插件可以用类属性标记仅用于简化血缘图的节点：
+
+```python
+class NormalizedRecordsPlugin(Plugin):
+    provides = "normalized_records"
+    depends_on = ("records",)
+    lineage_virtual = True
+```
+
+默认 `show_virtual_plugins=True`，因此已有图形、Mermaid 输出和调用方式保持不变。传入
+`show_virtual_plugins=False` 时，非目标虚插件会从显示模型中移除；它的每条直接上游边会与
+每条直接下游边重连。连续虚插件链会递归折叠，重连保留源端口、目标端口和源数据类型。若请求的
+目标数据本身是虚插件，它仍会显示，避免产生空图。
+
+```python
+ctx.plot_lineage("df_paired", kind="plotly", show_virtual_plugins=False)
+```
+
+这只影响可视化，不改变 `depends_on`、依赖解析、缓存 lineage、执行计划或数据访问；未声明
+`lineage_virtual` 的插件不会被自动标记。
+
 ---
 
 ## 三种可视化模式
@@ -66,6 +89,7 @@ ctx.plot_lineage("df_paired", kind="labview", verbose=2, interactive=True)
 特性：
 - 支持静态和交互式模式
 - 智能颜色高亮（自动识别节点类型）
+- 自适应节点高度与同层间距，避免多端口节点的端口溢出或遮挡
 - 鼠标悬停显示详细信息
 - 点击节点显示上游依赖
 - 支持依赖分析高亮（关键路径、瓶颈节点、并行组）
@@ -187,6 +211,7 @@ ctx.plot_lineage("df_paired", kind="labview", style=style, interactive=True)
 | `wire_linewidth` | 连线宽度 | 1.5 |
 | `wire_alpha` | 连线透明度 | 0.6 |
 | `layout_reorder` | 是否重排以减少交叉 | `True` |
+| `auto_fit_text` | 是否按正文与端口数量自动调整节点高度 | `True` |
 
 ### 线条语义化 + 端口分组
 

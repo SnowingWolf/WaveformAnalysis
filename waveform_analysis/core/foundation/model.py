@@ -5,8 +5,8 @@ Model 模块 (lineage 图) - 框架内部数据模型定义。
 如 PortModel, NodeModel, GraphModel 等，用于描述处理流程的拓扑结构。
 """
 
-from dataclasses import dataclass, field
-from typing import Any, Optional
+from dataclasses import dataclass, field, replace
+from typing import Any
 
 
 @dataclass
@@ -30,6 +30,7 @@ class NodeModel:
     in_ports: list[PortModel] = field(default_factory=list)
     out_ports: list[PortModel] = field(default_factory=list)
     depth: int = 0
+    is_lineage_virtual: bool = False
 
 
 @dataclass
@@ -46,6 +47,52 @@ class LineageGraphModel:
     nodes: dict[str, NodeModel] = field(default_factory=dict)
     edges: list[EdgeModel] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    def without_lineage_virtual_nodes(self, target_name: str) -> "LineageGraphModel":
+        """Return a display-only graph with non-target virtual nodes collapsed."""
+        nodes = {
+            node_id: replace(node, in_ports=list(node.in_ports), out_ports=list(node.out_ports))
+            for node_id, node in self.nodes.items()
+        }
+        edges = list(self.edges)
+
+        while True:
+            virtual_node_id = next(
+                (
+                    node_id
+                    for node_id, node in nodes.items()
+                    if node.is_lineage_virtual and node_id != target_name
+                ),
+                None,
+            )
+            if virtual_node_id is None:
+                break
+
+            incoming = [edge for edge in edges if edge.target_node_id == virtual_node_id]
+            outgoing = [edge for edge in edges if edge.source_node_id == virtual_node_id]
+            retained_edges = [
+                edge
+                for edge in edges
+                if edge.source_node_id != virtual_node_id and edge.target_node_id != virtual_node_id
+            ]
+
+            for source_edge in incoming:
+                for target_edge in outgoing:
+                    retained_edges.append(
+                        EdgeModel(
+                            source_node_id=source_edge.source_node_id,
+                            source_port_id=source_edge.source_port_id,
+                            target_node_id=target_edge.target_node_id,
+                            target_port_id=target_edge.target_port_id,
+                            dtype=source_edge.dtype,
+                        )
+                    )
+
+            nodes.pop(virtual_node_id)
+            edges = _deduplicate_edges(retained_edges)
+
+        _recalculate_depths(nodes, edges)
+        return LineageGraphModel(nodes=nodes, edges=edges, metadata=dict(self.metadata))
 
     def to_mermaid(self) -> str:
         """
@@ -148,6 +195,7 @@ def build_lineage_graph(
             description=info.get("description", ""),
             config=info.get("config", {}) or {},
             depth=plugin_depth.get(p, 0),
+            is_lineage_virtual=bool(getattr(plugins.get(p), "lineage_virtual", False)),
         )
 
         # 获取输入输出类型
@@ -224,3 +272,43 @@ def build_lineage_graph(
                 )
 
     return model
+
+
+def _deduplicate_edges(edges: list[EdgeModel]) -> list[EdgeModel]:
+    """Preserve edge order while removing identical display connections."""
+    unique_edges = []
+    seen = set()
+    for edge in edges:
+        edge_key = (
+            edge.source_node_id,
+            edge.source_port_id,
+            edge.target_node_id,
+            edge.target_port_id,
+            edge.dtype,
+        )
+        if edge_key not in seen:
+            seen.add(edge_key)
+            unique_edges.append(edge)
+    return unique_edges
+
+
+def _recalculate_depths(nodes: dict[str, NodeModel], edges: list[EdgeModel]) -> None:
+    """Assign display depths after virtual nodes have been removed."""
+    dependencies = {node_id: set() for node_id in nodes}
+    for edge in edges:
+        if edge.source_node_id in nodes and edge.target_node_id in nodes:
+            dependencies[edge.target_node_id].add(edge.source_node_id)
+
+    depths = {node_id: 0 for node_id, deps in dependencies.items() if not deps}
+    while len(depths) < len(nodes):
+        progressed = False
+        for node_id, deps in dependencies.items():
+            if node_id not in depths and deps.issubset(depths):
+                depths[node_id] = max((depths[dep] for dep in deps), default=-1) + 1
+                progressed = True
+        if not progressed:
+            for node_id in nodes:
+                depths.setdefault(node_id, 0)
+
+    for node_id, node in nodes.items():
+        node.depth = depths[node_id]

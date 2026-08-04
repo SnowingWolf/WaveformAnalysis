@@ -51,6 +51,9 @@ __all__ = [
     "WaveformPreviewer",
     "preview_waveforms",
     "plot_records_waveforms",
+    # 位置重建可视化
+    "render_position_dashboard",
+    "render_position_dashboard_2d",
     # 插件热重载
     "PluginHotReloader",
     "enable_hot_reload",
@@ -96,6 +99,8 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "WaveformPreviewer": (".utils.preview", "WaveformPreviewer"),
     "preview_waveforms": (".utils.preview", "preview_waveforms"),
     "plot_records_waveforms": (".utils.preview", "plot_records_waveforms"),
+    "render_position_dashboard": (".visualization", "render_position_dashboard"),
+    "render_position_dashboard_2d": (".visualization", "render_position_dashboard_2d"),
 }
 
 

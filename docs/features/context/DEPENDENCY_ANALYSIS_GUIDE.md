@@ -253,5 +253,5 @@ ctx = Context(stats_mode='detailed')
 ## 相关文档
 
 - [架构文档](../../architecture/ARCHITECTURE.md)
-- [缓存机制](DATA_ACCESS.md#缓存机制)
+- [Plugin DAG、lineage 与缓存](../../architecture/PLUGIN_DAG_LINEAGE_CACHE.md)
 - [并行执行](../advanced/EXECUTOR_MANAGER_GUIDE.md)

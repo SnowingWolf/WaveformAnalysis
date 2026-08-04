@@ -8,19 +8,19 @@ clears their caches (memory + disk) for a specific run_id.
 
 import argparse
 from collections import deque
+from collections.abc import Iterable
 import sys
-from typing import Dict, Iterable, List, Optional, Set
 
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins import profiles as plugin_profiles
 
 
 def _build_context(
-    data_root: Optional[str],
-    storage_dir: Optional[str],
+    data_root: str | None,
+    storage_dir: str | None,
     profile: str,
     discover: bool,
-    plugin_dirs: List[str],
+    plugin_dirs: list[str],
 ) -> Context:
     config = {}
     if data_root:
@@ -44,17 +44,17 @@ def _build_context(
     return ctx
 
 
-def _build_reverse_dependencies(ctx: Context, run_id: str) -> Dict[str, List[str]]:
-    reverse: Dict[str, List[str]] = {}
+def _build_reverse_dependencies(ctx: Context, run_id: str) -> dict[str, list[str]]:
+    reverse: dict[str, list[str]] = {}
     for name, plugin in ctx._plugins.items():
-        deps = ctx._get_plugin_dependency_names(plugin, run_id=run_id)
+        deps = ctx._plugin_domain.get_dependency_names(plugin, run_id=run_id)
         for dep in deps:
             reverse.setdefault(dep, []).append(name)
     return reverse
 
 
-def _collect_downstream(reverse: Dict[str, List[str]], data_name: str) -> List[str]:
-    seen: Set[str] = set()
+def _collect_downstream(reverse: dict[str, list[str]], data_name: str) -> list[str]:
+    seen: set[str] = set()
     queue: deque = deque(reverse.get(data_name, []))
     while queue:
         node = queue.popleft()
@@ -66,7 +66,7 @@ def _collect_downstream(reverse: Dict[str, List[str]], data_name: str) -> List[s
     return list(seen)
 
 
-def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Clear downstream cache entries for a given data type and run_id."
     )
@@ -146,7 +146,7 @@ def _print_targets(targets: Iterable[str], run_id: str, data_name: str) -> None:
         print(f"  - {name}")
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
 
     try:
@@ -177,7 +177,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 2
 
     downstream = _collect_downstream(reverse, args.data_name)
-    targets: List[str] = []
+    targets: list[str] = []
     if not args.exclude_self:
         targets.append(args.data_name)
     targets.extend(downstream)

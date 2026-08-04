@@ -170,21 +170,6 @@ class TestMemmapStorage:
         # Lock file may still exist but should be releasable
         # (fcntl locks are released when fd is closed)
 
-    @pytest.mark.skip(reason="Stale lock detection not used with fcntl locks")
-    def test_acquire_removes_stale_lock(self, storage, tmp_path):
-        """测试过期锁会被移除（不适用于fcntl）"""
-        pass
-
-    @pytest.mark.skip(reason="Live lock check not used with fcntl locks")
-    def test_acquire_respects_live_lock(self, storage, tmp_path, monkeypatch):
-        """如果 PID 被认为是存活的，acquire 不应移除锁（不适用于fcntl）"""
-        pass
-
-    @pytest.mark.skip(reason="PID-based lock detection not used with fcntl locks")
-    def test_acquire_removes_stale_lock_when_pid_dead(self, storage, tmp_path, monkeypatch):
-        """如果 PID 不存在（os.kill 抛出），应移除锁并获取（不适用于fcntl）"""
-        pass
-
     def test_load_memmap_not_exists(self, storage, test_run_id):
         """测试加载不存在的 memmap"""
         result = storage.load_memmap("nonexistent", test_run_id)

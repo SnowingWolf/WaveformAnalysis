@@ -9,11 +9,16 @@ This plugin classifies each detected peak (from WaveformWidthPlugin) as:
 Classification uses configurable ranges on width/area/height derived from:
 - waveform_width: total_width / total_width_samples per peak
 - basic_features: area / height per event
+
+.. deprecated::
+    This plugin is deprecated and will be removed in a future version.
+    Use S1S2PairCandidatesPlugin and S1S2PairSelectionPlugin for modern S1-S2 analysis.
 """
 
 from __future__ import annotations
 
 from typing import Any
+import warnings
 
 import numpy as np
 
@@ -71,13 +76,18 @@ def _value_in_range(
 
 @export
 class S1S2ClassifierPlugin(Plugin):
-    """Classify peaks into S1/S2/Unknown using waveform width + basic features."""
+    """Classify peaks into S1/S2/Unknown using waveform width + basic features.
+
+    .. deprecated::
+        This plugin is deprecated. Use S1S2PairCandidatesPlugin and
+        S1S2PairSelectionPlugin for modern S1-S2 analysis workflow.
+    """
 
     provides = "s1_s2"
     depends_on = ["waveform_width", "basic_features"]
     description = "Classify peaks into S1/S2 using width/area/height ranges."
     version = "0.4.0"
-    save_when = "always"
+    save_when: str = "always"
     output_dtype = S1_S2_CLASSIFIER_DTYPE
 
     options = {
@@ -131,6 +141,13 @@ class S1S2ClassifierPlugin(Plugin):
     }
 
     def compute(self, context: Any, run_id: str, **_kwargs) -> np.ndarray:
+        warnings.warn(
+            "S1S2ClassifierPlugin is deprecated and will be removed in a future version. "
+            "Use S1S2PairCandidatesPlugin and S1S2PairSelectionPlugin instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         widths = context.get_data(run_id, "waveform_width")
         features = context.get_data(run_id, "basic_features")
 

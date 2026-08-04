@@ -1,8 +1,8 @@
 import numpy as np
 
-from tests.utils import DummyContext, FakeContext
-from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
-from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
+from tests.utils import DummyContext, FakeContext, make_hit
+from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
+from waveform_analysis.core.plugins.builtin.hit.hit_merge import (
     HIT_MERGE_CLUSTERS_DTYPE,
     HIT_MERGED_COMPONENTS_DTYPE,
     HIT_MERGED_DTYPE,
@@ -11,29 +11,6 @@ from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
     HitMergePlugin,
 )
 from waveform_analysis.core.processing.chunk import Chunk
-
-
-def _make_hit(
-    position,
-    height,
-    integral,
-    edge_start,
-    edge_end,
-    timestamp,
-    channel,
-    record_id,
-    dt=2,
-):
-    arr = np.zeros(1, dtype=THRESHOLD_HIT_DTYPE)
-    arr[0]["position"] = position
-    arr[0]["edge_start"] = edge_start
-    arr[0]["edge_end"] = edge_end
-    arr[0]["width"] = edge_end - edge_start
-    arr[0]["dt"] = dt
-    arr[0]["timestamp"] = timestamp
-    arr[0]["channel"] = channel
-    arr[0]["record_id"] = record_id
-    return arr[0]
 
 
 def _chunk_stream(data, *more_data):
@@ -69,8 +46,12 @@ def test_hit_merge_dtype_and_empty():
 def test_hit_merge_same_channel_across_records_marks_direct_window_invalid():
     plugin = HitMergePlugin()
 
-    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
-    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 1)
+    h1 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=100_000, channel=0, record_id=0
+    )
+    h2 = make_hit(
+        position=14, edge_start=13.0, edge_end=16.0, timestamp=108_000, channel=0, record_id=1
+    )
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
 
     ctx = DummyContext(
@@ -92,12 +73,20 @@ def test_hit_merge_same_channel_across_records_marks_direct_window_invalid():
     assert int(out[0]["sample_start"]) == -1
     assert int(out[0]["sample_end"]) == -1
     assert float(out[0]["width"]) == -1.0
+    # 新增：验证新字段
+    assert not out[0]["is_single_record"]
+    assert int(out[0]["time_start"]) == 96000  # min(96000, 106000)
+    assert int(out[0]["time_end"]) == 112000  # max(104000, 112000)
 
 
 def test_hit_merge_single_record_merges_direct_record_window():
     plugin = HitMergePlugin()
-    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 7)
-    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 7)
+    h1 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=100_000, channel=0, record_id=7
+    )
+    h2 = make_hit(
+        position=14, edge_start=13.0, edge_end=16.0, timestamp=108_000, channel=0, record_id=7
+    )
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
 
     ctx = DummyContext(
@@ -111,13 +100,21 @@ def test_hit_merge_single_record_merges_direct_record_window():
     assert int(out[0]["sample_start"]) == 8
     assert int(out[0]["sample_end"]) == 16
     assert float(out[0]["width"]) == 8.0
+    # 新增：验证新字段
+    assert out[0]["is_single_record"]
+    assert int(out[0]["time_start"]) == 96000
+    assert int(out[0]["time_end"]) == 112000
 
 
 def test_hit_merge_not_across_channels():
     plugin = HitMergePlugin()
 
-    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
-    h2 = _make_hit(11, 22.0, 31.0, 9.0, 13.0, 101_000, 1, 1)
+    h1 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=100_000, channel=0, record_id=0
+    )
+    h2 = make_hit(
+        position=11, edge_start=9.0, edge_end=13.0, timestamp=101_000, channel=1, record_id=1
+    )
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
 
     ctx = DummyContext(
@@ -137,8 +134,12 @@ def test_hit_merge_not_across_channels():
 def test_hit_merge_gap_exceeds_threshold():
     plugin = HitMergePlugin()
 
-    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
-    h2 = _make_hit(10, 22.0, 31.0, 8.0, 12.0, 200_000, 0, 1)
+    h1 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=100_000, channel=0, record_id=0
+    )
+    h2 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=200_000, channel=0, record_id=1
+    )
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
 
     ctx = DummyContext(
@@ -158,9 +159,15 @@ def test_hit_merge_gap_exceeds_threshold():
 def test_hit_merge_respects_max_total_width():
     plugin = HitMergePlugin()
 
-    h1 = _make_hit(10, 10.0, 5.0, 9.0, 11.0, 100_000, 0, 0)
-    h2 = _make_hit(14, 12.0, 6.0, 13.0, 15.0, 106_000, 0, 1)
-    h3 = _make_hit(18, 14.0, 7.0, 17.0, 19.0, 112_000, 0, 2)
+    h1 = make_hit(
+        position=10, edge_start=9.0, edge_end=11.0, timestamp=100_000, channel=0, record_id=0
+    )
+    h2 = make_hit(
+        position=14, edge_start=13.0, edge_end=15.0, timestamp=106_000, channel=0, record_id=1
+    )
+    h3 = make_hit(
+        position=18, edge_start=17.0, edge_end=19.0, timestamp=112_000, channel=0, record_id=2
+    )
     hits = np.array([h1, h2, h3], dtype=THRESHOLD_HIT_DTYPE)
 
     ctx = DummyContext(
@@ -180,8 +187,12 @@ def test_hit_merge_respects_max_total_width():
 def test_hit_merge_disabled_when_gap_non_positive():
     plugin = HitMergePlugin()
 
-    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
-    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 110_000, 0, 1)
+    h1 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=100_000, channel=0, record_id=0
+    )
+    h2 = make_hit(
+        position=14, edge_start=13.0, edge_end=16.0, timestamp=110_000, channel=0, record_id=1
+    )
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
 
     ctx = DummyContext(
@@ -212,8 +223,12 @@ def test_hit_merge_disabled_does_not_read_cluster_rows():
                 )
             return super().get_data(run_id, name, **kwargs)
 
-    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
-    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 110_000, 0, 1)
+    h1 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=100_000, channel=0, record_id=0
+    )
+    h2 = make_hit(
+        position=14, edge_start=13.0, edge_end=16.0, timestamp=110_000, channel=0, record_id=1
+    )
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
     ctx = NoClusterContext(
         {"merge_gap_ns": 0.0, "max_total_width_ns": 10000.0, "dt": 2},
@@ -233,8 +248,12 @@ def test_hit_merge_ignores_stale_cluster_rows_and_uses_own_config():
                 raise AssertionError("hit_merged should not read hit_merge_clusters")
             return super().get_data(run_id, name, **kwargs)
 
-    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
-    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 1)
+    h1 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=100_000, channel=0, record_id=0
+    )
+    h2 = make_hit(
+        position=14, edge_start=13.0, edge_end=16.0, timestamp=108_000, channel=0, record_id=1
+    )
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
     stale_cluster_rows = np.array([(0, 0), (1, 1)], dtype=HIT_MERGE_CLUSTERS_DTYPE)
     ctx = StaleClusterContext(
@@ -252,8 +271,12 @@ def test_hit_merge_clusters_disabled_when_gap_non_positive_maps_hits_one_to_one(
     plugin = HitMergeClustersPlugin()
     merge_plugin = HitMergePlugin()
 
-    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
-    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 110_000, 0, 1)
+    h1 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=100_000, channel=0, record_id=0
+    )
+    h2 = make_hit(
+        position=14, edge_start=13.0, edge_end=16.0, timestamp=110_000, channel=0, record_id=1
+    )
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
 
     ctx = FakeContext(
@@ -273,8 +296,12 @@ def test_hit_merge_clusters_uses_hit_merged_config_namespace():
     plugin = HitMergeClustersPlugin()
     merge_plugin = HitMergePlugin()
 
-    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
-    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 1)
+    h1 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=100_000, channel=0, record_id=0
+    )
+    h2 = make_hit(
+        position=14, edge_start=13.0, edge_end=16.0, timestamp=108_000, channel=0, record_id=1
+    )
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
     ctx = FakeContext(
         {
@@ -299,8 +326,24 @@ def test_hit_merge_uses_int64_ps_for_large_timestamps_and_small_gaps():
     plugin = HitMergePlugin()
 
     base_timestamp = 10_000_000_000_000_000
-    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, base_timestamp, 0, 0, dt=1)
-    h2 = _make_hit(10, 25.0, 40.0, 8.0, 12.0, base_timestamp + 20_000, 0, 1, dt=1)
+    h1 = make_hit(
+        position=10,
+        edge_start=8.0,
+        edge_end=12.0,
+        timestamp=base_timestamp,
+        channel=0,
+        record_id=0,
+        dt=1,
+    )
+    h2 = make_hit(
+        position=10,
+        edge_start=8.0,
+        edge_end=12.0,
+        timestamp=base_timestamp + 20_000,
+        channel=0,
+        record_id=1,
+        dt=1,
+    )
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
 
     ctx = DummyContext(
@@ -319,15 +362,13 @@ def test_hit_merge_clusters_numba_path_returns_contiguous_cluster_rows():
     merge_plugin = HitMergePlugin()
     hits = np.array(
         [
-            _make_hit(
-                10,
-                20.0,
-                30.0,
-                8.0,
-                12.0,
-                100_000 + idx * 20_000,
-                0,
-                idx,
+            make_hit(
+                position=10,
+                edge_start=8.0,
+                edge_end=12.0,
+                timestamp=100_000 + idx * 20_000,
+                channel=0,
+                record_id=idx,
                 dt=1,
             )
             for idx in range(205)
@@ -354,10 +395,38 @@ def test_hit_merge_clusters_keeps_contiguous_cluster_offsets_across_channels():
     merge_plugin = HitMergePlugin()
     hits = np.array(
         [
-            _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0),
-            _make_hit(10, 22.0, 31.0, 8.0, 12.0, 200_000, 1, 1),
-            _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 2),
-            _make_hit(14, 26.0, 41.0, 13.0, 16.0, 208_000, 1, 3),
+            make_hit(
+                position=10,
+                edge_start=8.0,
+                edge_end=12.0,
+                timestamp=100_000,
+                channel=0,
+                record_id=0,
+            ),
+            make_hit(
+                position=10,
+                edge_start=8.0,
+                edge_end=12.0,
+                timestamp=200_000,
+                channel=1,
+                record_id=1,
+            ),
+            make_hit(
+                position=14,
+                edge_start=13.0,
+                edge_end=16.0,
+                timestamp=108_000,
+                channel=0,
+                record_id=2,
+            ),
+            make_hit(
+                position=14,
+                edge_start=13.0,
+                edge_end=16.0,
+                timestamp=208_000,
+                channel=1,
+                record_id=3,
+            ),
         ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
@@ -415,8 +484,12 @@ def test_hit_merge_single_hit_cluster_uses_sample_fields_without_temp_array():
 def test_hit_merge_does_not_merge_different_dt_values():
     plugin = HitMergePlugin()
 
-    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0, dt=2)
-    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 1, dt=4)
+    h1 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=100_000, channel=0, record_id=0, dt=2
+    )
+    h2 = make_hit(
+        position=14, edge_start=13.0, edge_end=16.0, timestamp=108_000, channel=0, record_id=1, dt=4
+    )
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
 
     ctx = DummyContext(
@@ -430,9 +503,15 @@ def test_hit_merge_does_not_merge_different_dt_values():
 def test_hit_merged_components_returns_flat_component_rows():
     merge_plugin = HitMergePlugin()
     components_plugin = HitMergedComponentsPlugin()
-    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
-    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 1)
-    h3 = _make_hit(10, 22.0, 31.0, 8.0, 12.0, 200_000, 0, 2)
+    h1 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=100_000, channel=0, record_id=0
+    )
+    h2 = make_hit(
+        position=14, edge_start=13.0, edge_end=16.0, timestamp=108_000, channel=0, record_id=1
+    )
+    h3 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=200_000, channel=0, record_id=2
+    )
     hits = np.array([h1, h2, h3], dtype=THRESHOLD_HIT_DTYPE)
 
     base_ctx = DummyContext(
@@ -461,8 +540,12 @@ def test_hit_merged_components_ignores_stale_cluster_rows_and_matches_hit_merged
 
     merge_plugin = HitMergePlugin()
     components_plugin = HitMergedComponentsPlugin()
-    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
-    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 1)
+    h1 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=100_000, channel=0, record_id=0
+    )
+    h2 = make_hit(
+        position=14, edge_start=13.0, edge_end=16.0, timestamp=108_000, channel=0, record_id=1
+    )
     hits = np.array([h1, h2], dtype=THRESHOLD_HIT_DTYPE)
     config = {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0, "dt": 2}
     merged = merge_plugin.compute(DummyContext(config, {"hit_threshold": hits}), "run_001")
@@ -486,7 +569,9 @@ def test_hit_merged_components_ignores_stale_cluster_rows_and_matches_hit_merged
 def test_hit_merged_components_validate_components_checks_consistency():
     components_plugin = HitMergedComponentsPlugin()
     merge_plugin = HitMergePlugin()
-    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
+    h1 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=100_000, channel=0, record_id=0
+    )
     hits = np.array([h1], dtype=THRESHOLD_HIT_DTYPE)
     merged = np.zeros(1, dtype=HIT_MERGED_DTYPE)
     merged[0]["component_offset"] = 99
@@ -517,9 +602,15 @@ def test_hit_merged_components_validate_components_checks_consistency():
 def test_hit_merge_clusters_materializes_hit_threshold_chunk_stream():
     plugin = HitMergeClustersPlugin()
     merge_plugin = HitMergePlugin()
-    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
-    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 1)
-    h3 = _make_hit(10, 22.0, 31.0, 8.0, 12.0, 200_000, 0, 2)
+    h1 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=100_000, channel=0, record_id=0
+    )
+    h2 = make_hit(
+        position=14, edge_start=13.0, edge_end=16.0, timestamp=108_000, channel=0, record_id=1
+    )
+    h3 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=200_000, channel=0, record_id=2
+    )
     hits = np.array([h1, h2, h3], dtype=THRESHOLD_HIT_DTYPE)
     ctx = FakeContext(
         {"hit_merged": {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0, "dt": 2}},
@@ -538,15 +629,13 @@ def test_hit_merge_clusters_materializes_many_hit_threshold_chunks():
     merge_plugin = HitMergePlugin()
     hits = np.array(
         [
-            _make_hit(
-                10,
-                20.0,
-                30.0,
-                8.0,
-                12.0,
-                100_000 + idx * 20_000,
-                0,
-                idx,
+            make_hit(
+                position=10,
+                edge_start=8.0,
+                edge_end=12.0,
+                timestamp=100_000 + idx * 20_000,
+                channel=0,
+                record_id=idx,
             )
             for idx in range(105)
         ],
@@ -567,9 +656,15 @@ def test_hit_merge_clusters_materializes_many_hit_threshold_chunks():
 def test_hit_merge_materializes_upstream_array_outputs():
     cluster_plugin = HitMergeClustersPlugin()
     merge_plugin = HitMergePlugin()
-    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
-    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 1)
-    h3 = _make_hit(10, 22.0, 31.0, 8.0, 12.0, 200_000, 0, 2)
+    h1 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=100_000, channel=0, record_id=0
+    )
+    h2 = make_hit(
+        position=14, edge_start=13.0, edge_end=16.0, timestamp=108_000, channel=0, record_id=1
+    )
+    h3 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=200_000, channel=0, record_id=2
+    )
     hits = np.array([h1, h2, h3], dtype=THRESHOLD_HIT_DTYPE)
     config = {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0, "dt": 2}
     cluster_rows = cluster_plugin.compute(
@@ -599,9 +694,15 @@ def test_hit_merged_components_materializes_upstream_array_outputs():
     cluster_plugin = HitMergeClustersPlugin()
     merge_plugin = HitMergePlugin()
     components_plugin = HitMergedComponentsPlugin()
-    h1 = _make_hit(10, 20.0, 30.0, 8.0, 12.0, 100_000, 0, 0)
-    h2 = _make_hit(14, 25.0, 40.0, 13.0, 16.0, 108_000, 0, 1)
-    h3 = _make_hit(10, 22.0, 31.0, 8.0, 12.0, 200_000, 0, 2)
+    h1 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=100_000, channel=0, record_id=0
+    )
+    h2 = make_hit(
+        position=14, edge_start=13.0, edge_end=16.0, timestamp=108_000, channel=0, record_id=1
+    )
+    h3 = make_hit(
+        position=10, edge_start=8.0, edge_end=12.0, timestamp=200_000, channel=0, record_id=2
+    )
     hits = np.array([h1, h2, h3], dtype=THRESHOLD_HIT_DTYPE)
     config = {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0, "dt": 2}
     cluster_rows = cluster_plugin.compute(

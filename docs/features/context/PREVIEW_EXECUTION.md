@@ -96,19 +96,18 @@ def preview_execution(
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import *
+from waveform_analysis.core.plugins import profiles
 
 # 创建 Context 并注册插件
 ctx = Context(storage_dir="./strax_data")
-ctx.register(RawFilesPlugin(), WaveformsPlugin())
-ctx.register(FilteredWaveformsPlugin(), SignalPeaksPlugin())
+ctx.register(*profiles.cpu_default())
 
 # 设置配置
 ctx.set_config({"data_root": "DAQ", "daq_adapter": "vx2730"})
 ctx.set_config({"filter_type": "SG"}, plugin_name="filtered_waveforms")
 
 # 预览执行计划
-ctx.preview_execution('run_001', 'signal_peaks')
+ctx.preview_execution('run_001', 'peaks')
 ```
 
 **输出示例：**
@@ -201,6 +200,8 @@ print("成功获取数据")
 ### 自定义配置
 
 只显示用户修改过的配置项（非默认值），避免信息过载。
+
+其中 `show_config=True` 还会额外展示 Context 级执行开关，例如 `enable_plugin_parallelism` 和 `max_parallel_workers`。
 
 ### 缓存状态汇总
 

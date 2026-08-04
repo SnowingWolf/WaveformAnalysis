@@ -1,0 +1,57 @@
+# execution_report
+
+- `task_id`: `lineage-reactflow-port-alignment-20260728`
+- `executor_role`: `executor.docs`
+- `agent_profile`: `graph_engineer`
+- `changed_paths`:
+  - `docs/agents/protocol/artifacts/plugin_web_lineage_port_plan_brief.md`
+  - `docs/agents/protocol/artifacts/plugin_web_lineage_port_execution_report.md`
+  - `docs/site-react/src/main.tsx`
+  - `docs/site-react/src/site.css`
+  - `docs/site-react/src/lineage.ts`
+  - `docs/site-react/src/lineage.test.ts`
+  - `docs/site-react/src/node-shims.d.ts`
+  - `docs/site-react/tsconfig.test.json`
+  - `tests/test_plugin_documentation.py`
+  - `waveform_analysis/utils/plugin_doc_generator.py`
+  - `waveform_analysis/utils/templates/web/assets/react/waveform-docs.js`
+  - `waveform_analysis/utils/templates/web/assets/react/waveform-docs.css`
+- `actions_taken`:
+  - Serialized the real `LineageGraphModel` input/output ports and port-level edges, including dtype/category/style metadata and LabVIEW node classification/colors.
+  - Added generation-time validation for duplicate ports, wrong directions, missing nodes, missing ports, and port ownership mismatches with the exact edge ID in failures.
+  - Added real React Flow Handles, measured two-pass ELK layout with fixed port sides/order, ELK section-based orthogonal edges, and a smoothstep fallback.
+  - Preserved `overview`/`full`, `core`/`all` aliases, focus neighborhoods, relations, click details, double-click reference navigation, and exact `debug=lineage` diagnostics.
+  - Added pure TypeScript helper tests and Python payload/dangling-reference tests, then rebuilt and synchronized the vendored IIFE/CSS assets.
+- `commands_run`:
+  - `npm run check` (PASS)
+  - `./node_modules/.bin/tsc -p tsconfig.test.json && node --test .test-dist/lineage.test.js` (PASS, 3 subtests in one Node test module)
+  - `npm run build` (PASS)
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest tests/test_plugin_documentation.py -q --no-cov` (PASS, 31 tests)
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.utils.cli_docs generate plugins-web -o /tmp/waveform-plugin-lineage-port-site` (PASS, 35 plugins/43 files)
+  - `cmp` checks for both vendored React build assets (PASS)
+  - scoped `git diff --check` (PASS)
+- `open_risks`:
+  - Browser screenshot/interaction verification was not run by the Executor; ELK geometry and final viewport framing still require Reviewer browser inspection.
+  - Full doc sync and anchor gates were intentionally left for the root agent after the requested immediate handoff.
+  - The shared worktree contains pre-existing related and unrelated dirty changes; this report lists only files modified by this Executor.
+- `requested_review_focus`:
+  - Confirm every one of the generated 68 port-level edges is visible in overview/full and that edge endpoints align with their labeled ports.
+  - Check `plugins/index.html?view=core`, `plugins/lineage.html?view=all`, and `?view=focus&focus=records` under desktop and mobile widths.
+  - Confirm MiniMap is absent in overview, compact in full, and the rightmost terminal node remains inside `fitView`.
+
+## generate_docs Notes
+
+- `docs_generated`:
+  - `/tmp/waveform-plugin-lineage-port-site` (verification output only, not committed)
+- `docs_updated_manually`:
+  - React lineage source, focused tests, and staged workflow artifacts listed above.
+- `gates_executed`:
+  - `focused_plugin_web_tests`
+  - `site_react_typecheck`
+  - `site_react_unit_tests`
+  - `site_react_production_build`
+  - `plugins_web_generation`
+- `not_executed_and_why`:
+  - `doc_sync`: left to the root agent after immediate Executor handoff.
+  - `doc_anchors`: left to the root agent after immediate Executor handoff.
+  - Browser visual checks: left to blocking Reviewer validation.

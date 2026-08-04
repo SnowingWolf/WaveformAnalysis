@@ -5,10 +5,21 @@
 import numpy as np
 import pytest
 
+from tests.streaming_helpers import TransformStreamingPlugin
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.execution.manager import ExecutorManager
 from waveform_analysis.core.plugins.core.streaming import StreamingPlugin, _pick_time_field
 from waveform_analysis.core.processing.chunk import TIME_FIELD, TIMESTAMP_FIELD, Chunk
+
+
+class SimpleStreamingPlugin(TransformStreamingPlugin):
+    """并行 value*2 流式插件，复用 TransformStreamingPlugin 的计算逻辑。"""
+
+    provides = "processed_data"
+    depends_on = []
+    parallel = True
+    max_workers = 2
+    parallel_batch_size = 3  # 小批量，便于测试
 
 
 class TestStreamingOptimization:
@@ -25,24 +36,6 @@ class TestStreamingOptimization:
 
         # 定义完整的 dtype（包含 time, dt, length）
         dtype = np.dtype([("time", "i8"), ("dt", "i8"), ("length", "i8"), ("value", "f4")])
-
-        class SimpleStreamingPlugin(StreamingPlugin):
-            provides = "processed_data"
-            parallel = True
-            max_workers = 2
-            parallel_batch_size = 3  # 小批量，便于测试
-
-            def compute_chunk(self, chunk, context, run_id, **kwargs):
-                # 简单处理：value * 2
-                processed_data = chunk.data.copy()
-                processed_data["value"] *= 2
-                return Chunk(
-                    data=processed_data,
-                    start=chunk.start,
-                    end=chunk.end,
-                    run_id=chunk.run_id,
-                    data_type=self.provides,
-                )
 
         # 创建一个生成器（模拟大数据流）
         def chunk_generator():

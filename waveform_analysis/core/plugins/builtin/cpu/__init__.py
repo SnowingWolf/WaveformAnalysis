@@ -23,43 +23,34 @@ from .cache_analysis import CacheAnalysisPlugin
 
 # 数据整合插件
 from .dataframe import DataFramePlugin
+from .energy_reconstruction import (
+    ENERGY_RECONSTRUCTION_DTYPE,
+    EnergyReconstructionPlugin,
+)
 
 # 事件分析插件
-from .event_analysis import GroupedEventsPlugin, HitGroupedPlugin, PairedEventsPlugin
+from .event import EventPlugin
+from .event_analysis import GroupedEventsPlugin, PairedEventsPlugin
 
 # CPU 滤波插件
 from .filtering import FilteredWaveformsPlugin
-from .hit_finder import THRESHOLD_HIT_DTYPE, ThresholdHitPlugin
-from .hit_merge import (
-    HIT_MERGE_CLUSTERS_DTYPE,
-    HIT_MERGED_COMPONENTS_DTYPE,
-    HIT_MERGED_DTYPE,
-    HitMergeClustersPlugin,
-    HitMergedComponentsPlugin,
-    HitMergePlugin,
+from .peak_classification import (
+    LABEL_S1,
+    LABEL_S1_S2,
+    LABEL_S2,
+    LABEL_UNKNOWN,
+    PEAK_CLASSIFICATION_DTYPE,
+    PeakClassificationPlugin,
 )
-from .hit_merged_features import HIT_MERGED_FEATURES_DTYPE, HitMergedFeaturesPlugin
 
 # CPU 寻峰插件
 from .peak_finding import HIT_DTYPE, HitFinderPlugin
-from .peaklet_channels import PEAKLET_CHANNELS_DTYPE, PeakletChannelsPlugin
-from .peaklets import (
-    PEAKLET_COMPONENTS_DTYPE,
-    PEAKLET_DTYPE,
-    PEAKLET_FEATURES_DTYPE,
-    PEAKLET_WAVEFORMS_DTYPE,
-    PEAKS_DTYPE,
-    PeakletComponentsPlugin,
-    PeakletFeaturesPlugin,
-    PeakletPlugin,
-    PeakletWaveformPlugin,
-    PeakletWaveformPoolPlugin,
-    PeaksPlugin,
-)
+from .position_reconstruction import PositionReconstructionPlugin
 
 # Records 插件
 from .records import RecordsPlugin, WavePoolFilteredPlugin, WavePoolPlugin
 from .records_asymmetry import RecordsAsymmetryMaskPlugin
+from .records_channel_role import RecordsDetectorMaskPlugin, RecordsVetoMaskPlugin
 from .s1_s2_classifier import (
     LABEL_S1,
     LABEL_S2,
@@ -67,6 +58,21 @@ from .s1_s2_classifier import (
     S1_S2_CLASSIFIER_DTYPE,
     S1S2ClassifierPlugin,
 )
+from .s1_s2_pair_candidates import (
+    FLAG_CLOSE_COMPETITOR,
+    FLAG_MULTI_S1_CANDIDATE,
+    FLAG_MULTI_S2_CANDIDATE,
+    FLAG_NEAR_CHUNK_BOUNDARY,
+    FLAG_ORPHAN_S1,
+    FLAG_ORPHAN_S2,
+    FLAG_RATIO_IN_RANGE,
+    FLAG_S1_LOW_QUALITY,
+    FLAG_S2_LOW_QUALITY,
+    FLAG_VALID_TIME,
+    S1_S2_PAIR_CANDIDATES_DTYPE,
+    S1S2PairCandidatesPlugin,
+)
+from .s1_s2_pair_selection import S1S2PairSelectionPlugin
 
 # CPU 波形宽度插件
 from .waveform_width import WAVEFORM_WIDTH_DTYPE, WaveformWidthPlugin
@@ -85,6 +91,48 @@ from .waveforms import (
 RawFilesPlugin = RawFileNamesPlugin
 StWaveformsPlugin = WaveformsPlugin
 
+# Lazy imports for backward compatibility - redirect to new locations
+_LAZY_IMPORTS = {
+    # Peaklet plugins (迁移到 peaks/)
+    "PeakletPlugin": "..peaks.peaklets",
+    "PeakletComponentsPlugin": "..peaks.peaklets",
+    "PeakletWaveformPlugin": "..peaks.peaklets",
+    "PeakletWaveformPoolPlugin": "..peaks.peaklets",
+    "PeakletFeaturesPlugin": "..peaks.peaklets",
+    "PeaksPlugin": "..peaks.peaklets",
+    "PeakletChannelsPlugin": "..peaks.peaklet_channels",
+    "PEAKLET_DTYPE": "..peaks.peaklets",
+    "PEAKLET_COMPONENTS_DTYPE": "..peaks.peaklets",
+    "PEAKLET_WAVEFORMS_DTYPE": "..peaks.peaklets",
+    "PEAKLET_FEATURES_DTYPE": "..peaks.peaklets",
+    "PEAKS_DTYPE": "..peaks.peaklets",
+    "PEAKLET_CHANNELS_DTYPE": "..peaks.peaklet_channels",
+    # Hit plugins (迁移到 hit/)
+    "HitGroupedPlugin": "..hit.hit_grouped",
+    "ThresholdHitPlugin": "..hit.hit_finder",
+    "HitMergePlugin": "..hit.hit_merge",
+    "HitMergeClustersPlugin": "..hit.hit_merge",
+    "HitMergedComponentsPlugin": "..hit.hit_merge",
+    "HitMergedFeaturesPlugin": "..hit.hit_merged_features",
+    "THRESHOLD_HIT_DTYPE": "..hit.hit_finder",
+    "HIT_MERGED_DTYPE": "..hit.hit_merge",
+    "HIT_MERGE_CLUSTERS_DTYPE": "..hit.hit_merge",
+    "HIT_MERGED_COMPONENTS_DTYPE": "..hit.hit_merge",
+    "HIT_MERGED_FEATURES_DTYPE": "..hit.hit_merged_features",
+}
+
+
+def __getattr__(name):
+    """Lazy loading for backward compatibility."""
+    if name in _LAZY_IMPORTS:
+        module_path = _LAZY_IMPORTS[name]
+        from importlib import import_module
+
+        module = import_module(module_path, __package__)
+        return getattr(module, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 from waveform_analysis.core.plugins.profiles import cpu_default
 
 standard_plugins = cpu_default()
@@ -101,35 +149,21 @@ __all__ = [
     "BasicFeaturesPlugin",
     "BASIC_FEATURES_DTYPE",
     "DataFramePlugin",
+    "EventPlugin",
     "GroupedEventsPlugin",
-    "HitGroupedPlugin",
     "PairedEventsPlugin",
+    "PositionReconstructionPlugin",
+    "EnergyReconstructionPlugin",
+    "ENERGY_RECONSTRUCTION_DTYPE",
     # 滤波插件
     "FilteredWaveformsPlugin",
-    "ThresholdHitPlugin",
-    "THRESHOLD_HIT_DTYPE",
-    "HitMergeClustersPlugin",
-    "HitMergePlugin",
-    "HitMergedComponentsPlugin",
-    "HIT_MERGE_CLUSTERS_DTYPE",
-    "HIT_MERGED_DTYPE",
-    "HIT_MERGED_COMPONENTS_DTYPE",
-    "HitMergedFeaturesPlugin",
-    "HIT_MERGED_FEATURES_DTYPE",
-    "PeakletPlugin",
-    "PeakletComponentsPlugin",
-    "PeakletWaveformPlugin",
-    "PeakletWaveformPoolPlugin",
-    "PeakletFeaturesPlugin",
-    "PeakletChannelsPlugin",
-    "PeaksPlugin",
-    "RecordsAsymmetryMaskPlugin",
-    "PEAKLET_DTYPE",
-    "PEAKLET_COMPONENTS_DTYPE",
-    "PEAKLET_WAVEFORMS_DTYPE",
-    "PEAKLET_FEATURES_DTYPE",
-    "PEAKLET_CHANNELS_DTYPE",
-    "PEAKS_DTYPE",
+    # Peak classification (S1/S2)
+    "PeakClassificationPlugin",
+    "PEAK_CLASSIFICATION_DTYPE",
+    "LABEL_S1",
+    "LABEL_S2",
+    "LABEL_S1_S2",
+    "LABEL_UNKNOWN",
     # 寻峰插件
     "HIT_DTYPE",
     # 波形宽度插件
@@ -137,17 +171,54 @@ __all__ = [
     "WAVEFORM_WIDTH_DTYPE",
     "WaveformWidthIntegralPlugin",
     "WAVEFORM_WIDTH_INTEGRAL_DTYPE",
-    # S1/S2 classifier
-    "S1S2ClassifierPlugin",
-    "S1_S2_CLASSIFIER_DTYPE",
-    "LABEL_S1",
-    "LABEL_S2",
-    "LABEL_UNKNOWN",
+    # S1-S2 pairing
+    "S1S2PairCandidatesPlugin",
+    "S1S2PairSelectionPlugin",
+    "S1_S2_PAIR_CANDIDATES_DTYPE",
+    "FLAG_VALID_TIME",
+    "FLAG_RATIO_IN_RANGE",
+    "FLAG_S1_LOW_QUALITY",
+    "FLAG_S2_LOW_QUALITY",
+    "FLAG_MULTI_S1_CANDIDATE",
+    "FLAG_MULTI_S2_CANDIDATE",
+    "FLAG_CLOSE_COMPETITOR",
+    "FLAG_ORPHAN_S1",
+    "FLAG_ORPHAN_S2",
+    "FLAG_NEAR_CHUNK_BOUNDARY",
     # Cache analysis
     "CacheAnalysisPlugin",
     # Records
     "RecordsPlugin",
     "WavePoolPlugin",
     "WavePoolFilteredPlugin",
+    "RecordsAsymmetryMaskPlugin",
+    "RecordsDetectorMaskPlugin",
+    "RecordsVetoMaskPlugin",
     "standard_plugins",
+    # Backward compatibility - hit plugins (now in hit/)
+    "HitGroupedPlugin",
+    "ThresholdHitPlugin",
+    "HitMergePlugin",
+    "HitMergeClustersPlugin",
+    "HitMergedComponentsPlugin",
+    "HitMergedFeaturesPlugin",
+    "THRESHOLD_HIT_DTYPE",
+    "HIT_MERGED_DTYPE",
+    "HIT_MERGE_CLUSTERS_DTYPE",
+    "HIT_MERGED_COMPONENTS_DTYPE",
+    "HIT_MERGED_FEATURES_DTYPE",
+    # Backward compatibility - peaklet plugins (now in peaks/)
+    "PeakletPlugin",
+    "PeakletComponentsPlugin",
+    "PeakletWaveformPlugin",
+    "PeakletWaveformPoolPlugin",
+    "PeakletFeaturesPlugin",
+    "PeakletChannelsPlugin",
+    "PeaksPlugin",
+    "PEAKLET_DTYPE",
+    "PEAKLET_COMPONENTS_DTYPE",
+    "PEAKLET_WAVEFORMS_DTYPE",
+    "PEAKLET_FEATURES_DTYPE",
+    "PEAKLET_CHANNELS_DTYPE",
+    "PEAKS_DTYPE",
 ]

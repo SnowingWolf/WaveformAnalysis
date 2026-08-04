@@ -15,7 +15,6 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from waveform_analysis.core.plugins.builtin.cpu.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
     HitMergedComponentsPlugin,
     HitMergePlugin,
@@ -29,6 +28,7 @@ from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PeakletWaveformPoolPlugin,
     PeaksPlugin,
 )
+from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
 
 
 class DummyContext:
@@ -332,7 +332,7 @@ def visualize_peaklet_pipeline(
         peaklet_colors = plt.cm.Set3(np.linspace(0, 1, max(len(peaklets), 3)))
 
         for pk_idx, waveform_row in enumerate(peaklet_waveforms):
-            peaklet_index = int(waveform_row["peaklet_index"])
+            peaklet_id = int(waveform_row["peak_id"])
             time_start = int(waveform_row["time_start"]) / 1000.0  # ps -> ns
             dt = int(waveform_row["dt"])
             wave_offset = int(waveform_row["wave_offset"])
@@ -350,24 +350,24 @@ def visualize_peaklet_pipeline(
                 ax4.plot(
                     time_axis,
                     wave_norm + pk_idx * 1.5,
-                    color=peaklet_colors[peaklet_index],
+                    color=peaklet_colors[peaklet_id],
                     linewidth=2,
-                    label=f"Peaklet {peaklet_index}",
+                    label=f"Peaklet {peaklet_id}",
                 )
 
                 # 标记特征
                 if pk_idx < len(peaklet_features):
                     feature = peaklet_features[pk_idx]
-                    max_time = int(feature["max_time"]) / 1000.0  # ps -> ns
+                    time_peak = int(feature["time_peak"]) / 1000.0  # ps -> ns
                     area = float(feature["area"])
                     height = float(feature["height"])
                     width = float(feature["width"])
 
                     # 标记峰值位置
-                    max_idx = int((max_time - time_start) / dt)
+                    max_idx = int((time_peak - time_start) / dt)
                     if 0 <= max_idx < len(wave_norm):
                         ax4.plot(
-                            max_time,
+                            time_peak,
                             wave_norm[max_idx] + pk_idx * 1.5,
                             "r*",
                             markersize=15,
@@ -386,7 +386,7 @@ def visualize_peaklet_pipeline(
                         fontsize=8,
                         bbox={
                             "boxstyle": "round,pad=0.3",
-                            "facecolor": peaklet_colors[peaklet_index],
+                            "facecolor": peaklet_colors[peaklet_id],
                             "alpha": 0.3,
                         },
                     )
@@ -510,7 +510,7 @@ def main():
         print(f"\n【Peak {pk_idx}】")
         print(f"  时间范围: {peak['time_start']/1000:.1f} - {peak['time_end']/1000:.1f} ns")
         print(f"  中心时间: {peak['center_time']/1000:.1f} ns")
-        print(f"  峰值时间: {peak['max_time']/1000:.1f} ns")
+        print(f"  峰值时间: {peak['time_peak']/1000:.1f} ns")
         print(f"  面积: {peak['area']:.2f}")
         print(f"  高度: {peak['height']:.2f}")
         print(f"  宽度: {peak['width']:.2f} ns")

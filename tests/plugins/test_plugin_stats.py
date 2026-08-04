@@ -9,6 +9,7 @@ import tempfile
 import numpy as np
 import pytest
 
+from tests.batch_processor_helpers import FailingPlugin
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.core.base import Plugin
 from waveform_analysis.core.plugins.core.stats import (
@@ -27,31 +28,6 @@ class SimplePlugin(Plugin):
 
     def compute(self, context, run_id, **kwargs):
         return np.array([(1,), (2,), (3,)], dtype=self.output_dtype)
-
-
-class SlowPlugin(Plugin):
-    """慢速测试插件(用于测试时间统计)"""
-
-    provides = "slow_data"
-    depends_on = []
-    output_dtype = np.dtype([("value", np.int32)])
-
-    def compute(self, context, run_id, **kwargs):
-        import time
-
-        time.sleep(0.1)  # 100ms
-        return np.array([(1,)], dtype=self.output_dtype)
-
-
-class FailingPlugin(Plugin):
-    """失败的测试插件"""
-
-    provides = "failing_data"
-    depends_on = []
-    output_dtype = np.dtype([("value", np.int32)])
-
-    def compute(self, context, run_id, **kwargs):
-        raise ValueError("Intentional failure for testing")
 
 
 class TestPluginStatsCollector:

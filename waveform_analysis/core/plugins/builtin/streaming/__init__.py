@@ -13,7 +13,7 @@
 
 from waveform_analysis.core.foundation.utils import exporter
 
-from .cpu import SignalPeaksStreamPlugin
+from .cpu import SignalPeaksStreamPlugin as SignalPeaksStreamPlugin
 
 export, __all__ = exporter()
 

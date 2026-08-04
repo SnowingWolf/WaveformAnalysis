@@ -1,0 +1,30 @@
+# task_report
+
+- `task_id`: `accessor_records_view_card`
+- `route`: `generate_docs`
+- `workflow_cost`: `light`
+- `workflow_shape`: `compact`
+- `actions_taken`:
+  - Added a RecordsView reference card to the Accessor index.
+  - Linked the card to the existing canonical `contexts/records-view.html` page.
+  - Added RecordsView to the left navigation's collapsible Accessor group and marked it active on its reference page.
+  - Corrected Accessor detail prefixes in callable index/detail pages so every expanded sidebar link resolves from Context pages.
+  - Added focused assertions for the link and user-facing copy.
+- `verification`:
+  - `python -m pytest tests/test_accessor_index_documentation.py tests/test_records_view_documentation.py -q --no-cov`: PASS (2 tests).
+  - `python -m waveform_analysis.utils.cli_docs generate site-web -o /tmp/waveform-accessor-records-view-site-20260729-v3`: PASS (56 files).
+  - `scripts/check_doc_sync.sh`: PASS.
+  - `python scripts/check_doc_anchors.py --check-sync --base HEAD`: PASS.
+  - Focused `git diff --check`: PASS.
+- `decision`: `completed`
+- `changed_paths`:
+  - `waveform_analysis/utils/templates/web/accessor_index.html.j2`
+  - `waveform_analysis/utils/templates/web/callable_reference.html.j2`
+  - `waveform_analysis/utils/templates/web/callable_index.html.j2`
+  - `waveform_analysis/utils/templates/web/shell.html.j2`
+  - `tests/test_accessor_index_documentation.py`
+  - `tests/test_records_view_documentation.py`
+  - `docs/agents/protocol/artifacts/accessor_records_view_card_task_report.md`
+- `commit_status`: `uncommitted`; `shell.html.j2` already contained overlapping user changes, so the completed task cannot be committed without mixing work.
+- `open_risks`:
+  - None identified.

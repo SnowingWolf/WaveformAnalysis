@@ -1,78 +1,107 @@
-# hit_threshold (ThresholdHitPlugin)
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "agent"
+provides: "hit_threshold"
+plugin_class: "ThresholdHitPlugin"
+module: "waveform_analysis.core.plugins.builtin.hit.hit_finder"
+version: "1.2.0"
+summary: "Threshold-only hit detector with THRESHOLD_HIT_DTYPE output."
+depends_on: []
+output_kind: "structured_array"
+generated: true
+---
+# hit_threshold
 
-> Agent-first 插件契约文档。面向自动化执行与改动评估。
+## Overview
 
-## Agent Contract
+Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
+Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
 
 | Item | Value |
-|------|-------|
+| --- | --- |
 | Provides | `hit_threshold` |
-| Depends On | - |
+| Plugin Class | `ThresholdHitPlugin` |
+| Module | `waveform_analysis.core.plugins.builtin.hit.hit_finder` |
+| Version | `1.2.0` |
+| Category | 特征提取 |
+| Accelerator | CPU (NumPy/SciPy) |
 | Output Kind | `structured_array` |
-| Version | `1.1.0` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.hit_finder` |
-| Accelerator | `cpu` |
 
-## Inputs
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| - | - | - | - | No declared inputs. |
+### How It Works
 
-- 无依赖输入（source plugin）
 
-## Outputs
+## Configuration
 
-| Field | DType | Meaning |
-|-------|-------|---------|
-| `position` | `int64` | - |
-| `edge_start` | `int32` | - |
-| `edge_end` | `int32` | - |
-| `width` | `float32` | - |
-| `dt` | `int32` | - |
-| `timestamp` | `int64` | - |
-| `board` | `int16` | - |
-| `channel` | `int16` | - |
-| `record_id` | `int64` | - |
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `threshold` | `float` | `10.0` | - | yes | no | Hit 检测阈值 |
+| `use_filtered` | `bool` | `False` | - | yes | no | 是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin） |
+| `wave_source` | `str` | `auto` | - | yes | no | 波形数据源: auto\|records\|st_waveforms\|filtered_waveforms |
+| `left_extension` | `int` | `2` | - | yes | no | Hit 左侧扩展点数 |
+| `right_extension` | `int` | `2` | - | yes | no | Hit 右侧扩展点数 |
+| `dt` | `int` | `None` | - | yes | no | 采样间隔（ns）。仅在输入数据缺少 dt 字段时作为兼容补充。 |
+| `channel_config` | `dict` | `None` | - | yes | no | 按 (board, channel) 的插件通道覆盖配置，可覆盖 threshold。 |
+| `backend` | `str` | `auto` | - | yes | no | Hit finding backend: auto\|numba\|ragged。auto 对 records 在达到 parallel_min_records 后尝试 numba，否则使用 ragged。 |
+| `chunk_parallel` | `bool` | `True` | - | yes | no | 是否对 records ragged numba 后端启用 chunk 级线程并行。 |
+| `n_workers` | `int` | `0` | - | yes | no | records ragged chunk 并行 worker 数；<=0 表示自动。 |
+| `parallel_chunk_size` | `int` | `50000` | - | yes | no | records ragged chunk 并行大小（每个任务处理的 record 数）。 |
+| `parallel_min_records` | `int` | `50000` | - | yes | no | 触发 records ragged chunk 并行的最小 record 数。 |
+| `streaming_chunk_size` | `int` | `10000` | - | yes | no | 流式处理时的 chunk 大小（仅对 RecordsBundleRef 生效） |
+| `asymmetry_cut_enabled` | `bool` | `True` | - | yes | no | 是否在 records 路径的 hit 查找前应用 records_asymmetry_mask。 |
+| `channel_role_cut_enabled` | `bool` | `False` | - | yes | no | 是否在 records 路径的 hit 查找前应用 records_detector_mask。 |
+## Output
 
-## Config
+structured_array output with fields: position, edge_start, edge_end, width, dt, timestamp, board, channel, ....
 
-| Name | Type | Default | Note |
-|------|------|---------|------|
-| `threshold` | `float` | `10.0` | Hit 检测阈值 |
-| `use_filtered` | `bool` | `False` | 是否使用 filtered_waveforms（需要先注册 FilteredWaveformsPlugin） |
-| `wave_source` | `str` | `auto` | 波形数据源: auto|records|st_waveforms|filtered_waveforms |
-| `left_extension` | `int` | `2` | Hit 左侧扩展点数 |
-| `right_extension` | `int` | `2` | Hit 右侧扩展点数 |
-| `dt` | `int` | `None` | 采样间隔（ns）。仅在输入数据缺少 dt 字段时作为兼容补充。 |
-| `channel_config` | `dict` | `None` | 按 (board, channel) 的插件通道覆盖配置，可覆盖 threshold。 |
-| `backend` | `str` | `auto` | Hit finding backend: auto|numba|ragged。auto 对 records 在达到 parallel_min_records 后尝试 numba，否则使用 ragged。 |
-| `chunk_parallel` | `bool` | `True` | 是否对 records ragged numba 后端启用 chunk 级线程并行。 |
-| `n_workers` | `int` | `0` | records ragged chunk 并行 worker 数；<=0 表示自动。 |
-| `parallel_chunk_size` | `int` | `50000` | records ragged chunk 并行大小（每个任务处理的 record 数）。 |
-| `parallel_min_records` | `int` | `50000` | 触发 records ragged chunk 并行的最小 record 数。 |
-| `streaming_chunk_size` | `int` | `10000` | 流式处理时的 chunk 大小（仅对 RecordsBundleRef 生效） |
-| `asymmetry_cut_enabled` | `bool` | `False` | 是否在 records 路径的 hit 查找前应用 records_asymmetry_mask。 |
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `position` | `int64` | samples | Representative sample position within the hit interval |
+| `edge_start` | `int32` | samples | Hit window start boundary (safe half-open sample index within record) |
+| `edge_end` | `int32` | samples | Hit window end boundary (safe half-open sample index within record) |
+| `width` | `float32` | samples | Hit window width in samples |
+| `dt` | `int32` | ns | Sample interval in nanoseconds |
+| `timestamp` | `int64` | ps | Global timestamp in picoseconds at the hit position |
+| `board` | `int16` | None | Hardware board index |
+| `channel` | `int16` | None | Physical channel number |
+| `record_id` | `int64` | None | Identifier of the source waveform record |
+## Usage
 
-## Execution Path
+### Minimal Example
 
-`hit_threshold` 依赖链入口：
-`SOURCE -> hit_threshold`
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import ThresholdHitPlugin
 
-## Failure Modes
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(ThresholdHitPlugin())
+data = ctx.get_data("run_001", "hit_threshold")
+```
 
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
+## Operational Notes
 
-## Change Playbook
+### Behavior
 
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
+### Failure Modes
 
-## Validation
+- Dependency data, configuration, or output contract validation may fail explicitly.
+### Downstream Impact
+
+Consumers: `hit_grouped`, `hit_merge_clusters`, `hit_merged`, `hit_merged_components`
+
+## Maintenance
+
+### Change Playbook
+
+1. Keep `provides` and dependency semantics stable or update all consumers.
+2. Bump `version` for behavior, configuration, or output contract changes.
+3. Regenerate auto, agent, and web references after metadata changes.
+### Validation
 
 ```bash
-# 单插件文档再生成
 waveform-docs generate plugins-agent --plugin hit_threshold
-
-# 覆盖率检查
-waveform-docs check coverage --strict
+waveform-docs check coverage --strict --fail-on-warning
 ```

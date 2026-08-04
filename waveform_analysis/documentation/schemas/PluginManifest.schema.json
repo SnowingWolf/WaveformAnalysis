@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["plugin_name", "class_name", "source_file"],
+  "properties": {
+    "plugin_name": {"type": "string"},
+    "class_name": {"type": "string"},
+    "source_file": {"type": "string"},
+    "module": {"type": "string"},
+    "dependencies": {"type": "array"},
+    "evidence": {"type": "array"}
+  }
+}

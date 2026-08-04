@@ -7,12 +7,15 @@
 ## Required Fields
 - `task_id`
 - `workflow_cost`
+- `workflow_shape`
 - `reviewer`
 - `gate_results`
 - `decision`
 - `blocking_findings`
 - `residual_risks`
 - `follow_up_actions`
+- `agent_profile`（使用专项参与者时）
+- `agent_profile_review`（使用专项参与者时）
 
 ## Decision Values
 - `completed`
@@ -23,6 +26,8 @@
 ## Field Rules
 - `workflow_cost`
   仅允许：`light | standard | strict`，必须与最终执行口径一致
+- `workflow_shape`
+  必须为 `staged`，并与 `plan_brief`、`execution_report` 一致
 - `decision`
   仅允许：`completed | rework_required | blocked | failed`
 - `gate_results`
@@ -31,6 +36,10 @@
   只记录会阻断完成态的问题
 - `scope_changed`
   布尔值；仅当 `decision=rework_required` 时需要填写
+- `agent_profile_review`
+  核对 `profile_plan`、执行结果与 route/role 绑定，并覆盖 profile 在 reviewing 阶段声明的 `required_focus`
+- `agent_profile`
+  必须与 `plan_brief`、`execution_report` 使用同一个 profile id
 
 ## Copy-ready Template
 ```md
@@ -38,6 +47,7 @@
 
 - `task_id`:
 - `workflow_cost`: `light|standard|strict`
+- `workflow_shape`: `staged`
 - `reviewer`:
 - `gate_results`:
   -
@@ -48,6 +58,8 @@
   -
 - `follow_up_actions`:
   -
+- `agent_profile`:
+- `agent_profile_review`:
 
 ## Rework Control
 - `scope_changed`: `true|false`
@@ -70,8 +82,10 @@
 
 ## Completion Checklist
 - `workflow_cost` 已明确，且与 gate 结果口径一致
+- `workflow_shape` 在三份 staged artifact 中一致
 - `decision` 合法
 - 若为 `rework_required`，已写明 `scope_changed`
 - 若为 `completed`，阻断 gate 已全部通过
 - 插件算法改动已审查执行后端与并发层级
+- 若使用 `agent_profile`，规划贡献、执行绑定与专项必审项已覆盖
 - 残余风险与后续动作已明确

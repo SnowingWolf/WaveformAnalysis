@@ -1,4 +1,4 @@
-**导航**: [文档中心](../README.md) > [架构设计](README.md) > 插件系统架构
+**导航**: [文档中心](../README.md) > [系统架构与数据模型](README.md) > 插件系统架构
 
 ---
 
@@ -245,7 +245,7 @@ data = ctx.get_data("run_001", "paired_events")
 **关键方法**：
 - `analyze_dependencies(target_name)` - 分析依赖图
 - `get_lineage(data_name)` - 获取完整血缘（含配置/版本）
-- `_get_plugin_dependency_names(plugin)` - 提取依赖名称
+- `ContextPluginDomain.get_dependency_names(plugin)` - 提取依赖名称
 - `resolve_dependencies(data_name)` - 构建执行计划
 
 ---
@@ -549,7 +549,7 @@ storage_dir/
 
 ## 相关文档
 
-- [系统架构](ARCHITECTURE.md) - 完整系统架构
+- [系统架构与数据流](ARCHITECTURE.md) - 完整系统架构
 - [插件开发教程](../plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) - 从零开始写插件
 - [插件开发完整指南](../development/plugin-development/plugin_guide.md) - 深入学习
 - [PluginSpec 指南](../development/plugin-development/PLUGIN_SPEC_GUIDE.md) - 高级契约系统

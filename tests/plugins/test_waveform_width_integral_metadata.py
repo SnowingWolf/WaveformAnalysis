@@ -7,31 +7,7 @@ from waveform_analysis.core.data.records_view import RecordsView
 from waveform_analysis.core.plugins.builtin.cpu.waveform_width_integral import (
     WaveformWidthIntegralPlugin,
 )
-from waveform_analysis.core.processing.dtypes import create_record_dtype
 from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
-
-
-def _make_waveforms(n_events=1, wave_len=32):
-    dtype = create_record_dtype(wave_len)
-    data = np.zeros(n_events, dtype=dtype)
-    data["baseline"] = 100.0
-    data["timestamp"] = 123456
-    data["channel"] = 1
-    data["event_length"] = wave_len
-    data["wave"] = 100
-    return data
-
-
-def _make_records_view():
-    records = np.zeros(1, dtype=RECORDS_DTYPE)
-    records["baseline"] = 100.0
-    records["timestamp"] = 123456
-    records["board"] = 7
-    records["channel"] = 1
-    records["event_length"] = 8
-    records["wave_offset"] = 0
-    wave_pool = np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.uint16)
-    return RecordsView(records, wave_pool)
 
 
 def test_waveform_width_integral_wave_source_records_depends_on_records_and_wave_pool():

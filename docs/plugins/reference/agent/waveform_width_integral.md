@@ -1,72 +1,101 @@
-# waveform_width_integral (WaveformWidthIntegralPlugin)
+---
+schema_version: 1
+document_type: "plugin_reference"
+profile: "agent"
+provides: "waveform_width_integral"
+plugin_class: "WaveformWidthIntegralPlugin"
+module: "waveform_analysis.core.plugins.builtin.cpu.waveform_width_integral"
+version: "2.7.0"
+summary: "Event-wise integral quantile width using st_waveforms or filtered_waveforms."
+depends_on: []
+output_kind: "structured_array"
+generated: true
+---
+# waveform_width_integral
 
-> Agent-first 插件契约文档。面向自动化执行与改动评估。
+## Overview
 
-## Agent Contract
+Event-wise integral quantile width using st_waveforms or filtered_waveforms.
+事件级积分分位数宽度 (Event-wise Integral Quantile Width)。
 
 | Item | Value |
-|------|-------|
+| --- | --- |
 | Provides | `waveform_width_integral` |
-| Depends On | - |
-| Output Kind | `structured_array` |
-| Version | `2.7.0` |
+| Plugin Class | `WaveformWidthIntegralPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.cpu.waveform_width_integral` |
-| Accelerator | `cpu` |
+| Version | `2.7.0` |
+| Category | 波形处理 |
+| Accelerator | CPU (NumPy/SciPy) |
+| Output Kind | `structured_array` |
 
-## Inputs
+| Dependency | Version Constraint | Resolution | Required Fields | Description |
+| --- | --- | --- | --- | --- |
+| - | - | - | - | No declared inputs. |
+### How It Works
 
-- 无依赖输入（source plugin）
 
-## Outputs
+## Configuration
 
-| Field | DType | Meaning |
-|-------|-------|---------|
-| `t_low` | `float32` | - |
-| `t_high` | `float32` | - |
-| `width` | `float32` | - |
-| `t_low_samples` | `float32` | - |
-| `t_high_samples` | `float32` | - |
-| `width_samples` | `float32` | - |
-| `q_total` | `float64` | - |
-| `timestamp` | `int64` | - |
-| `board` | `int16` | - |
-| `channel` | `int16` | - |
-| `record_id` | `int64` | - |
+| Name | Type | Default | Unit | Tracked | Deprecated | Description |
+| --- | --- | --- | --- | --- | --- | --- |
+| `q_low` | `float` | `0.1` | - | yes | no | 低分位点（默认 0.10） |
+| `q_high` | `float` | `0.9` | - | yes | no | 高分位点（默认 0.90） |
+| `use_filtered` | `bool` | `False` | - | yes | no | 是否使用 filtered_waveforms（若启用，baseline 仍来自 st_waveforms） |
+| `wave_source` | `str` | `auto` | - | yes | no | 波形数据源: auto\|records\|st_waveforms\|filtered_waveforms |
+| `sampling_rate` | `float` | `0.5` | - | yes | no | 采样率（GHz），用于换算时间（ns） |
+| `dt` | `float` | `None` | - | yes | no | 采样间隔（ns），优先级高于 sampling_rate |
+## Output
 
-## Config
+structured_array output with fields: t_low, t_high, width, t_low_samples, t_high_samples, width_samples, q_total, timestamp, ....
 
-| Name | Type | Default | Note |
-|------|------|---------|------|
-| `q_low` | `float` | `0.1` | 低分位点（默认 0.10） |
-| `q_high` | `float` | `0.9` | 高分位点（默认 0.90） |
-| `use_filtered` | `bool` | `False` | 是否使用 filtered_waveforms（若启用，baseline 仍来自 st_waveforms） |
-| `wave_source` | `str` | `auto` | 波形数据源: auto|records|st_waveforms|filtered_waveforms |
-| `sampling_rate` | `float` | `0.5` | 采样率（GHz），用于换算时间（ns） |
-| `dt` | `float` | `None` | 采样间隔（ns），优先级高于 sampling_rate |
+| Field | DType | Unit | Meaning |
+| --- | --- | --- | --- |
+| `t_low` | `float32` | ns | Low-quantile integral point (ns, corresponding to q_low) |
+| `t_high` | `float32` | ns | High-quantile integral point (ns, corresponding to q_high) |
+| `width` | `float32` | ns | t_high minus t_low (ns) |
+| `t_low_samples` | `float32` | samples | Low-quantile integral point in sample index |
+| `t_high_samples` | `float32` | samples | High-quantile integral point in sample index |
+| `width_samples` | `float32` | samples | Pulse width in sample counts |
+| `q_total` | `float64` | ADC counts | Total baseline-subtracted charge (integral) |
+| `timestamp` | `int64` | ps | ADC event timestamp |
+| `board` | `int16` | None | Hardware board index |
+| `channel` | `int16` | None | Physical channel number |
+| `record_id` | `int64` | None | Source record identifier |
+## Usage
 
-## Execution Path
+### Minimal Example
 
-`waveform_width_integral` 依赖链入口：
-`SOURCE -> waveform_width_integral`
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins.builtin.cpu import WaveformWidthIntegralPlugin
 
-## Failure Modes
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(WaveformWidthIntegralPlugin())
+data = ctx.get_data("run_001", "waveform_width_integral")
+```
 
-- 依赖数据缺失或字段不匹配，导致 compute 阶段报错
-- 配置值类型/范围不合法，触发参数校验异常
-- 输出 dtype 变更但版本未升级，可能导致缓存命中异常
+## Operational Notes
 
-## Change Playbook
+### Behavior
 
-1. 修改 `options`/`output_dtype`/核心算法后同步提升 `version`
-2. 保持 `provides` 稳定；若必须变更，更新依赖插件与文档索引
-3. 新增/删除输出字段时，同时更新消费方插件和回归测试
+### Failure Modes
 
-## Validation
+- Dependency data, configuration, or output contract validation may fail explicitly.
+### Downstream Impact
+
+Terminal output; no direct builtin consumer is declared.
+
+
+## Maintenance
+
+### Change Playbook
+
+1. Keep `provides` and dependency semantics stable or update all consumers.
+2. Bump `version` for behavior, configuration, or output contract changes.
+3. Regenerate auto, agent, and web references after metadata changes.
+### Validation
 
 ```bash
-# 单插件文档再生成
 waveform-docs generate plugins-agent --plugin waveform_width_integral
-
-# 覆盖率检查
-waveform-docs check coverage --strict
+waveform-docs check coverage --strict --fail-on-warning
 ```

@@ -35,6 +35,8 @@ waveform_analysis.egg-info/
 *.egg
 MANIFEST
 node_modules/
+.waveform-docs/agent-doc-artifacts/
+.waveform-docs/
 
 # PyInstaller
 *.manifest
@@ -184,6 +186,8 @@ docs/_static/
 docs/_templates/
 docs/build/
 docs/source/generated/
+docs/site-react/.test-dist/
+docs/site-react/docs/_site/
 
 # Auto-generated API docs
 docs/api_reference.html
@@ -201,9 +205,10 @@ docs.backup*/
 .agent/
 .agents/
 .codex/
+.omo/
 .claude/
 claude_output/
-AGENTS.md
+# AGENTS.md is now tracked — do NOT ignore it
 
 # ================================
 # Build and Installation
@@ -218,11 +223,6 @@ install.log
 # Profiling and Performance
 # ================================
 *.prof
-*.lprof
-*.pstats
-benchmark_*.py
-profile_*.py
-profile_*.txt
 
 # ================================
 # OS Specific
@@ -279,6 +279,7 @@ debug_*.py
 !tests/test_*.py
 !tests/**/test_*.py
 !**/tests/test_*.py
+tests/visualization/test_2d_histogram.py
 
 # Temporary optimization reports
 /COMPLETE_JOURNEY.md
@@ -294,6 +295,7 @@ debug_*.py
 # Compiled documentation
 *.pdf
 !docs/**/*.pdf
+docs/_site/
 
 # Large output files
 *.png

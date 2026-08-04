@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["plugin_name", "evidence"],
+  "properties": {
+    "plugin_name": {"type": "string"},
+    "evidence": {"type": "array"},
+    "source_index": {"type": "object"}
+  }
+}

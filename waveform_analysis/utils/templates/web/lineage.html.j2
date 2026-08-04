@@ -1,0 +1,16 @@
+{% extends "web/base.html.j2" %}
+{% set page_title = "WaveformAnalysis 插件 DAG" %}
+{% set body_class = "docs-page docs-page--lineage" %}
+{% set layout_class = "site-layout site-layout--lineage" %}
+{% set show_page_toc = false %}
+{% set current = "lineage" %}
+{% set load_lineage = true %}
+{% set accessor_detail_prefix = accessor_index_href | replace("index.html", "") %}
+{% block document %}
+<main class="docs-main docs-main--wide">
+  <nav class="breadcrumbs" aria-label="面包屑"><a href="{{ site_home_href }}">文档概览</a><a href="{{ plugin_index_href }}">插件参考</a><span aria-current="page">插件 DAG</span></nav>
+  <header class="page-heading"><p class="eyebrow">数据血缘</p><h1>插件 DAG</h1><p>连续查看从原始输入到事件产物的默认处理链，并按需展开全部输出或局部上下游。</p></header>
+  <section class="lineage-section" data-react-lineage></section>
+</main>
+{% endblock %}
+{% block after_shell %}<script id="lineage-graph-data" type="application/json">{{ lineage_json }}</script>{% endblock %}

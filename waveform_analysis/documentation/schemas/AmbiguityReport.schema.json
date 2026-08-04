@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["plugin_name", "ambiguities", "blocking_ambiguities"],
+  "properties": {
+    "plugin_name": {"type": "string"},
+    "ambiguities": {"type": "array"},
+    "blocking_ambiguities": {"type": "array"}
+  }
+}

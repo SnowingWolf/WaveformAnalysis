@@ -9,14 +9,18 @@ Plugins 模块 - 定义插件和配置选项的基类。
 """
 
 import abc
+from collections.abc import Callable
 import inspect
 import logging
-from typing import Any, Dict, List, Literal, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Literal
 import warnings
 
 import numpy as np
 
 from waveform_analysis.core.foundation.utils import exporter
+
+if TYPE_CHECKING:
+    from waveform_analysis.core.plugins.core.spec import OutputSchema
 
 export, __all__ = exporter()
 
@@ -60,19 +64,19 @@ class Option:
     def __init__(
         self,
         default: Any = None,
-        type: Optional[Union[Type, tuple]] = None,
+        type: type | tuple | None = None,
         help: str = "",
-        validate: Optional[callable] = None,
+        validate: Callable | None = None,
         track: bool = True,
         # 新增字段
-        unit: Optional[str] = None,
-        internal_unit: Optional[str] = None,
-        choices: Optional[List[Any]] = None,
-        min_value: Optional[float] = None,
-        max_value: Optional[float] = None,
+        unit: str | None = None,
+        internal_unit: str | None = None,
+        choices: list[Any] | None = None,
+        min_value: float | None = None,
+        max_value: float | None = None,
         deprecated: bool = False,
         deprecated_message: str = "",
-        alias: Optional[str] = None,
+        alias: str | None = None,
     ):
         """
         初始化插件配置选项
@@ -249,7 +253,7 @@ class Option:
             )
 
         # 4. Range validation (only for numeric types)
-        if isinstance(value, (int, float)):
+        if isinstance(value, int | float):
             if self.min_value is not None and value < self.min_value:
                 raise ValueError(
                     f"Plugin '{plugin_name}' option '{name}' must be >= {self.min_value}, "
@@ -262,7 +266,7 @@ class Option:
                 )
 
         # 5. Unit conversion
-        if isinstance(value, (int, float)) and self.unit and self.internal_unit:
+        if isinstance(value, int | float) and self.unit and self.internal_unit:
             value = self._convert_unit(value, plugin_name, name)
 
         # 6. Custom validation
@@ -296,7 +300,7 @@ def option(name: str, **kwargs):
 
 
 @export
-def takes_config(config_dict: Dict[str, Option]):
+def takes_config(config_dict: dict[str, Option]):
     """
     Decorator to add multiple options to a Plugin class.
     Usage:
@@ -327,21 +331,22 @@ class Plugin(abc.ABC):
     # DOC: docs/development/plugin-development/PLUGIN_SPEC_GUIDE.md#插件属性
 
     provides: str = ""
-    depends_on: List[Union[str, Tuple[str, str]]] = []  # Support version constraints
-    options: Dict[str, Option] = {}
+    depends_on: list[str | tuple[str, str]] = []  # Support version constraints
+    options: dict[str, Option] = {}
     save_when: str = "never"
-    output_dtype: Optional[np.dtype] = None
-    input_dtype: Dict[str, np.dtype] = {}
+    output_dtype: np.dtype | None = None
+    output_schema: "OutputSchema | None" = None
+    input_dtype: dict[str, np.dtype] = {}
     output_kind: Literal["static", "stream"] = "static"
     description: str = ""
     version: str = "0.0.0"
     is_side_effect: bool = False
     uses_run_config: bool = False
-    timeout: Optional[float] = None  # Plugin execution timeout in seconds (None = no timeout)
+    timeout: float | None = None  # Plugin execution timeout in seconds (None = no timeout)
 
     # Metadata for tracking
-    _registered_from_module: Optional[str] = None
-    _registered_class: Optional[str] = None
+    _registered_from_module: str | None = None
+    _registered_class: str | None = None
 
     @property
     def semantic_version(self):
@@ -356,7 +361,7 @@ class Plugin(abc.ABC):
             )
             return Version("0.0.0")
 
-    def get_dependency_name(self, dep: Union[str, Tuple[str, str]]) -> str:
+    def get_dependency_name(self, dep: str | tuple[str, str]) -> str:
         """从依赖规范中提取依赖名称。
 
         插件的依赖可以是简单的字符串（插件名），也可以是包含版本约束的元组。
@@ -380,7 +385,7 @@ class Plugin(abc.ABC):
             return dep[0]
         return dep
 
-    def get_dependency_version_spec(self, dep: Union[str, Tuple[str, str]]) -> Optional[str]:
+    def get_dependency_version_spec(self, dep: str | tuple[str, str]) -> str | None:
         """从依赖规范中提取版本约束。
 
         当依赖声明包含版本约束时（元组形式），提取版本规范字符串。
@@ -405,8 +410,8 @@ class Plugin(abc.ABC):
         return None
 
     def resolve_depends_on(
-        self, context: Any, run_id: Optional[str] = None
-    ) -> List[Union[str, Tuple[str, str]]]:
+        self, context: Any, run_id: str | None = None
+    ) -> list[str | tuple[str, str]]:
         """
         Resolve dependencies dynamically based on context/config.
 
@@ -472,7 +477,7 @@ class Plugin(abc.ABC):
         cls.options = all_options
 
     @property
-    def config_keys(self) -> List[str]:
+    def config_keys(self) -> list[str]:
         """List of configuration keys this plugin uses (derived from options)."""
         return list(self.options.keys())
 
@@ -486,7 +491,7 @@ class Plugin(abc.ABC):
             raise ValueError(f"Plugin {self.__class__.__name__} must specify 'provides'")
 
         # Validate depends_on type
-        if not isinstance(self.depends_on, (list, tuple)):
+        if not isinstance(self.depends_on, list | tuple):
             raise TypeError(
                 f"Plugin {self.provides}: 'depends_on' must be a list or tuple, got {type(self.depends_on)}"
             )
@@ -574,9 +579,48 @@ class Plugin(abc.ABC):
             raise ValueError(f"Plugin {self.provides}: 'output_kind' must be 'static' or 'stream'")
 
         # Validate dtypes
-        if self.output_dtype is not None and not isinstance(self.output_dtype, (np.dtype, type)):
+        if self.output_dtype is not None and not isinstance(self.output_dtype, np.dtype | type):
             # Basic check, np.dtype constructor is very flexible
             pass
+
+        if self.output_schema is not None:
+            from waveform_analysis.core.plugins.core.spec import OutputSchema
+
+            if not isinstance(self.output_schema, OutputSchema):
+                raise TypeError(
+                    f"Plugin {self.provides}: 'output_schema' must be an OutputSchema instance"
+                )
+            if self.output_dtype is not None:
+                inferred = OutputSchema.from_dtype(np.dtype(self.output_dtype))
+                if self.output_schema.kind != inferred.kind:
+                    raise ValueError(
+                        f"Plugin {self.provides}: output_schema kind "
+                        f"{self.output_schema.kind!r} conflicts with output_dtype kind "
+                        f"{inferred.kind!r}"
+                    )
+                if self.output_schema.dtype is not None:
+                    try:
+                        schema_dtype = np.dtype(self.output_schema.dtype)
+                    except (TypeError, ValueError) as exc:
+                        raise ValueError(
+                            f"Plugin {self.provides}: invalid output_schema dtype "
+                            f"{self.output_schema.dtype!r}"
+                        ) from exc
+                    if schema_dtype != np.dtype(self.output_dtype):
+                        raise ValueError(
+                            f"Plugin {self.provides}: output_schema dtype conflicts with output_dtype"
+                        )
+                if self.output_schema.fields:
+                    schema_fields = [
+                        (field.name, np.dtype(field.dtype)) for field in self.output_schema.fields
+                    ]
+                    inferred_fields = [
+                        (field.name, np.dtype(field.dtype)) for field in inferred.fields
+                    ]
+                    if schema_fields != inferred_fields:
+                        raise ValueError(
+                            f"Plugin {self.provides}: output_schema fields conflict with output_dtype"
+                        )
 
         # Validate input_dtype keys against depends_on
         for dep, _dt in self.input_dtype.items():
@@ -612,7 +656,7 @@ class Plugin(abc.ABC):
         """
         pass
 
-    def validate_config(self, context: Any) -> Dict[str, Any]:
+    def validate_config(self, context: Any) -> dict[str, Any]:
         """
         验证并返回此插件的已解析配置。
 

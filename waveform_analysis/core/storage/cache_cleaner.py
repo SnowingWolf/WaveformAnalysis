@@ -1,4 +1,4 @@
-# DOC: docs/features/context/DATA_ACCESS.md#清理缓存
+# DOC: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md#检查与诊断
 """
 缓存清理模块 - 智能清理策略。
 
@@ -9,7 +9,7 @@
 from dataclasses import dataclass
 from enum import Enum
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..foundation.utils import exporter
 from .cache_analyzer import CacheAnalyzer, CacheEntry
@@ -45,9 +45,9 @@ class CleanupPlan:
     """
 
     strategy: CleanupStrategy
-    entries_to_delete: List[CacheEntry]
+    entries_to_delete: list[CacheEntry]
     total_size_to_free: int
-    affected_runs: List[str]
+    affected_runs: list[str]
     reason: str = ""
 
     @property
@@ -97,7 +97,7 @@ class CacheCleaner:
         """
         self.analyzer = analyzer
         self.ctx = analyzer.ctx
-        self._plan: Optional[CleanupPlan] = None
+        self._plan: CleanupPlan | None = None
 
     @property
     def storage(self):
@@ -114,11 +114,11 @@ class CacheCleaner:
     def plan_cleanup(
         self,
         strategy: CleanupStrategy = CleanupStrategy.LRU,
-        target_size_mb: Optional[float] = None,
-        keep_recent_days: Optional[float] = None,
-        run_id: Optional[str] = None,
-        data_name: Optional[str] = None,
-        max_entries: Optional[int] = None,
+        target_size_mb: float | None = None,
+        keep_recent_days: float | None = None,
+        run_id: str | None = None,
+        data_name: str | None = None,
+        max_entries: int | None = None,
     ) -> "CacheCleaner":
         """创建清理计划
 
@@ -199,7 +199,7 @@ class CacheCleaner:
         )
         return self
 
-    def _filter_version_mismatch(self, entries: List[CacheEntry]) -> List[CacheEntry]:
+    def _filter_version_mismatch(self, entries: list[CacheEntry]) -> list[CacheEntry]:
         """过滤版本不匹配的条目"""
         result = []
         for entry in entries:
@@ -214,7 +214,7 @@ class CacheCleaner:
 
         return result
 
-    def _filter_failed_integrity(self, entries: List[CacheEntry]) -> List[CacheEntry]:
+    def _filter_failed_integrity(self, entries: list[CacheEntry]) -> list[CacheEntry]:
         """过滤完整性检查失败的条目"""
         import os
 
@@ -237,14 +237,14 @@ class CacheCleaner:
 
         return result
 
-    def _resolve_plan(self, plan: Optional[CleanupPlan]) -> CleanupPlan:
+    def _resolve_plan(self, plan: CleanupPlan | None) -> CleanupPlan:
         if plan is not None:
             self._plan = plan
         if self._plan is None:
             raise ValueError("未设置清理计划，请先调用 plan_cleanup() 或传入 plan。")
         return self._plan
 
-    def preview_plan(self, plan: Optional[CleanupPlan] = None, detailed: bool = False):
+    def preview_plan(self, plan: CleanupPlan | None = None, detailed: bool = False):
         """预览清理计划
 
         Args:
@@ -267,7 +267,7 @@ class CacheCleaner:
             print("详细列表:")
 
             # 按 run_id 分组
-            by_run: Dict[str, List[CacheEntry]] = {}
+            by_run: dict[str, list[CacheEntry]] = {}
             for entry in plan.entries_to_delete:
                 if entry.run_id not in by_run:
                     by_run[entry.run_id] = []
@@ -285,7 +285,7 @@ class CacheCleaner:
 
         print("\n" + "=" * 60)
 
-    def execute(self, plan: Optional[CleanupPlan] = None, dry_run: bool = True) -> Dict[str, Any]:
+    def execute(self, plan: CleanupPlan | None = None, dry_run: bool = True) -> dict[str, Any]:
         """执行清理计划
 
         Args:
@@ -345,8 +345,8 @@ class CacheCleaner:
         return result
 
     def cleanup_by_age(
-        self, max_age_days: float, run_id: Optional[str] = None, dry_run: bool = True
-    ) -> Dict[str, Any]:
+        self, max_age_days: float, run_id: str | None = None, dry_run: bool = True
+    ) -> dict[str, Any]:
         """按年龄清理缓存
 
         删除超过指定天数的缓存。
@@ -371,9 +371,9 @@ class CacheCleaner:
         self,
         target_total_mb: float,
         strategy: CleanupStrategy = CleanupStrategy.LRU,
-        run_id: Optional[str] = None,
+        run_id: str | None = None,
         dry_run: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """清理到目标总大小
 
         删除缓存直到总大小低于目标值。
@@ -410,8 +410,8 @@ class CacheCleaner:
         return self.execute(dry_run=dry_run)
 
     def cleanup_run(
-        self, run_id: str, data_names: Optional[List[str]] = None, dry_run: bool = True
-    ) -> Dict[str, Any]:
+        self, run_id: str, data_names: list[str] | None = None, dry_run: bool = True
+    ) -> dict[str, Any]:
         """清理指定运行的缓存
 
         Args:
@@ -440,8 +440,8 @@ class CacheCleaner:
         return self.execute(plan, dry_run=dry_run)
 
     def cleanup_data_type(
-        self, data_name: str, run_ids: Optional[List[str]] = None, dry_run: bool = True
-    ) -> Dict[str, Any]:
+        self, data_name: str, run_ids: list[str] | None = None, dry_run: bool = True
+    ) -> dict[str, Any]:
         """清理指定数据类型的缓存
 
         Args:

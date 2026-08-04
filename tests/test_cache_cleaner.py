@@ -2,12 +2,11 @@
 CacheCleaner 测试模块
 """
 
-import tempfile
 import time
 
-import numpy as np
 import pytest
 
+from tests.cache_test_helpers import build_cache_context
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
 from waveform_analysis.core.storage.cache_cleaner import (
@@ -18,39 +17,17 @@ from waveform_analysis.core.storage.cache_cleaner import (
 
 
 @pytest.fixture
-def temp_storage_dir():
-    """创建临时存储目录"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yield tmpdir
-
-
-@pytest.fixture
 def context_with_cache(temp_storage_dir):
-    """创建带有缓存数据的 Context"""
-    ctx = Context(storage_dir=temp_storage_dir)
-    storage = ctx.storage
-
-    # 创建不同大小和时间的缓存数据
-    test_data = [
-        ("run_001", "peaks", 100, time.time() - 7 * 24 * 3600),  # 7 天前
-        ("run_001", "waveforms", 1000, time.time() - 3 * 24 * 3600),  # 3 天前
-        ("run_002", "peaks", 500, time.time() - 1 * 24 * 3600),  # 1 天前
-        ("run_002", "waveforms", 2000, time.time()),  # 现在
-    ]
-
-    for run_id, data_name, size, timestamp in test_data:
-        key = f"{run_id}-{data_name}-abc123"
-        data = np.zeros(size, dtype=[("time", "<f8"), ("value", "<f4")])
-        storage.save_memmap(key, data, run_id=run_id)
-
-        # 更新时间戳
-        meta = storage.get_metadata(key, run_id)
-        if meta:
-            meta["timestamp"] = timestamp
-            meta["plugin_version"] = "1.0.0"
-            storage.save_metadata(key, meta, run_id)
-
-    return ctx
+    """创建带有缓存数据的 Context（不同大小和时间）"""
+    return build_cache_context(
+        temp_storage_dir,
+        [
+            ("run_001", "peaks", 100, time.time() - 7 * 24 * 3600),  # 7 天前
+            ("run_001", "waveforms", 1000, time.time() - 3 * 24 * 3600),  # 3 天前
+            ("run_002", "peaks", 500, time.time() - 1 * 24 * 3600),  # 1 天前
+            ("run_002", "waveforms", 2000, time.time()),  # 现在
+        ],
+    )
 
 
 class TestCleanupStrategy:
