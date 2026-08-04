@@ -85,6 +85,8 @@ class ContextPluginDomain:
 
         self.ctx._plugins[provides] = plugin
         self.ctx._invalidate_caches_for(provides)
+        # 注册/覆盖会改变依赖关系：使 reverse_deps 缓存键失效。
+        self.ctx._registry_version += 1
 
     def _validate_plugin_dependencies(self, plugin: Any) -> None:
         """Validate dependency versions against already registered providers."""

@@ -50,8 +50,15 @@ class ContextCacheDomain:
             lineage_hash = hashlib.sha1(lineage_json.encode()).hexdigest()[:8]
             self.ctx._lineage_hash_cache[data_name] = lineage_hash
 
-        key = f"{run_id}-{data_name}-{lineage_hash}"
+        # "<data_name>-<lineage_hash>" 与 run_id 无关，预计算一次供所有 run 复用。
+        suffix = self.ctx._key_prefix_cache.get(data_name)
+        if suffix is None:
+            suffix = f"{data_name}-{lineage_hash}"
+            self.ctx._key_prefix_cache[data_name] = suffix
+
+        key = f"{run_id}-{suffix}"
         self.ctx._key_cache[cache_key] = key
+        self._cap_key_cache()
         return key
 
     def clear_cache_for(
@@ -264,37 +271,46 @@ class ContextCacheDomain:
 
         return self.is_disk_cache_valid(run_id, name, key)
 
+    def _cap_key_cache(self) -> None:
+        """Evict oldest entries when _key_cache exceeds its cap.
+
+        key 可廉价重算（get_lineage 命中谱系缓存后仅字符串拼接），FIFO 淘汰安全。
+        """
+        max_entries = 8192
+        while len(self.ctx._key_cache) > max_entries:
+            self.ctx._key_cache.pop(next(iter(self.ctx._key_cache)), None)
+
     def clear_performance_caches(self) -> None:
         """Clear execution/lineage/key caches used for cache planning."""
         self.ctx._execution_plan_cache.clear()
         self.ctx._lineage_cache.clear()
         self.ctx._lineage_hash_cache.clear()
+        self.ctx._key_prefix_cache.clear()
         self.ctx._key_cache.clear()
+        self.ctx._run_key_list_cache.clear()
         self.ctx.logger.debug("Performance caches cleared")
 
     def invalidate_caches_for(self, data_name: str) -> None:
         """Invalidate cached plans/hash keys affected by a data name."""
-        if data_name in self.ctx._execution_plan_cache:
-            del self.ctx._execution_plan_cache[data_name]
-
         to_remove = []
-        for cached_name, plan in self.ctx._execution_plan_cache.items():
-            if data_name in plan:
-                to_remove.append(cached_name)
+        for cache_key, plan in self.ctx._execution_plan_cache.items():
+            if cache_key[1] == data_name or data_name in plan:
+                to_remove.append(cache_key)
 
-        for name in to_remove:
-            del self.ctx._execution_plan_cache[name]
+        for cache_key in to_remove:
+            del self.ctx._execution_plan_cache[cache_key]
 
-        if data_name in self.ctx._lineage_cache:
-            del self.ctx._lineage_cache[data_name]
-        if data_name in self.ctx._lineage_hash_cache:
-            del self.ctx._lineage_hash_cache[data_name]
+        self._clear_lineage_key_caches(data_name)
+        self.ctx.logger.debug("Caches invalidated for '%s'", data_name)
 
+    def _clear_lineage_key_caches(self, data_name: str) -> None:
+        """Clear lineage/hash/key performance caches for a data name."""
+        self.ctx._lineage_cache.pop(data_name, None)
+        self.ctx._lineage_hash_cache.pop(data_name, None)
+        self.ctx._key_prefix_cache.pop(data_name, None)
         keys_to_remove = [k for k in self.ctx._key_cache if k[1] == data_name]
         for key in keys_to_remove:
             del self.ctx._key_cache[key]
-
-        self.ctx.logger.debug("Caches invalidated for '%s'", data_name)
 
     def delete_disk_cache(
         self, key: str, run_id: str | None = None, data_name: str | None = None
@@ -344,4 +360,6 @@ class ContextCacheDomain:
                             e,
                         )
 
+        if count > 0:
+            self.ctx._invalidate_storage_key_list_cache(storage, run_id)
         return count

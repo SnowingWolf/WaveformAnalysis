@@ -380,10 +380,22 @@ class Context:
         self._resolved_config_cache: dict[tuple, dict[str, Any]] = {}
 
         # Performance optimization caches
-        self._execution_plan_cache: dict[str, list[str]] = {}  # data_name -> execution plan
+        self._execution_plan_cache: dict[tuple, list[str]] = (
+            {}
+        )  # (run_id, data_name) -> execution plan
         self._lineage_cache: dict[str, dict[str, Any]] = {}  # data_name -> lineage dict
         self._lineage_hash_cache: dict[str, str] = {}  # data_name -> lineage hash
         self._key_cache: dict[tuple, str] = {}  # (run_id, data_name) -> key
+        self._key_prefix_cache: dict[str, str] = (
+            {}
+        )  # data_name -> "<data_name>-<lineage_hash>" suffix
+        self._run_key_list_cache: dict[tuple, list[str]] = (
+            {}
+        )  # (id(storage), run_id) -> list_keys result
+        self._reverse_deps_cache: dict[tuple, dict[str, list[str]]] = (
+            {}
+        )  # (run_id, registry_version) -> reverse deps
+        self._registry_version: int = 0  # bumped on register/override to invalidate reverse deps
         # Per-run config cache (loaded from run_config.json) and hash tracking.
         self._run_config_cache: dict[str, dict[str, Any]] = {}
         self._run_config_hash_cache: dict[str, str] = {}
@@ -915,7 +927,10 @@ class Context:
         if not plan:
             val = self._get_data_from_memory(run_id, data_name)
             return self._coerce_get_data_output(run_id, data_name, val, output)
-        needed_set = self._execution_domain.compute_needed_set(run_id, data_name, plan)
+        # 目标已在第 2 步确认非内存/磁盘命中，避免在 needed_set 中重复检查。
+        needed_set = self._execution_domain.compute_needed_set(
+            run_id, data_name, plan, target_is_missing=True
+        )
 
         # 4. Execute plan
         result = self._execution_domain.run_plugin(
@@ -1044,11 +1059,15 @@ class Context:
         self, data_name: str, run_id: str | None = None
     ) -> list[str]:
         """Collect all downstream data names that depend on a given data_name."""
-        reverse_deps: dict[str, list[str]] = {}
-        for name, plugin in self._plugins.items():
-            deps = self._plugin_domain.get_dependency_names(plugin, run_id=run_id)
-            for dep in deps:
-                reverse_deps.setdefault(dep, []).append(name)
+        cache_key = (run_id, self._registry_version)
+        reverse_deps = self._reverse_deps_cache.get(cache_key)
+        if reverse_deps is None:
+            reverse_deps = {}
+            for name, plugin in self._plugins.items():
+                deps = self._plugin_domain.get_dependency_names(plugin, run_id=run_id)
+                for dep in deps:
+                    reverse_deps.setdefault(dep, []).append(name)
+            self._reverse_deps_cache[cache_key] = reverse_deps
 
         seen: set = set()
         queue = deque(reverse_deps.get(data_name, []))
@@ -1132,19 +1151,32 @@ class Context:
 
     def _storage_list_keys(self, storage: Any, run_id: str | None) -> list[str]:
         """List keys from storage, filtering by run_id when needed."""
+        cache_key = (id(storage), run_id)
+        cached = self._run_key_list_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         method = getattr(storage, "list_keys", None)
         if method is None:
             return []
         try:
             if run_id is not None and self._storage_supports_run_id(storage, "list_keys"):
-                return method(run_id=run_id)
-            keys = method()
+                keys = method(run_id=run_id)
+            else:
+                keys = method()
         except Exception:
             return []
         if run_id is None:
-            return keys
-        prefix = f"{run_id}-"
-        return [k for k in keys if k.startswith(prefix)]
+            result = keys
+        else:
+            prefix = f"{run_id}-"
+            result = [k for k in keys if k.startswith(prefix)]
+        self._run_key_list_cache[cache_key] = result
+        return result
+
+    def _invalidate_storage_key_list_cache(self, storage: Any, run_id: str | None) -> None:
+        """Invalidate the cached key list for a storage/run after a disk write or delete."""
+        self._run_key_list_cache.pop((id(storage), run_id), None)
 
     def _list_channel_keys(self, storage: Any, run_id: str | None, key: str) -> list[str]:
         """List multi-channel cache keys (key_ch*) for a base key."""
@@ -1443,9 +1475,14 @@ class Context:
             A dictionary representing the lineage of the specified data type.
 
         """
-        # Check cache (only for non-recursive calls)
-        if _visited is None and data_name in self._lineage_cache:
-            return self._lineage_cache[data_name]
+        # Cache holds base lineage (without adapter_info) for every node so that
+        # cascade invalidation re-checks downstream lineages in O(N) instead of
+        # re-recursing each chain. Top-level calls augment with adapter_info.
+        if data_name in self._lineage_cache:
+            lineage = self._lineage_cache[data_name]
+            if _visited is None:
+                return self._augment_adapter_info(lineage)
+            return lineage
 
         if _visited is None:
             _visited = set()
@@ -1509,19 +1546,25 @@ class Context:
         if output_schema is not None:
             lineage["output_schema"] = output_schema.to_dict()
 
-        # Add adapter_info for top-level calls
-        if len(_visited) == 1:
-            adapter_name = self.config.get("daq_adapter")
-            if adapter_name:
-                adapter_info = get_adapter_info(adapter_name)
-                if adapter_info:
-                    lineage["adapter_info"] = adapter_info.to_dict()
+        # Cache base lineage (without adapter_info) at every depth; adapter_info
+        # only applies to the top-level view and is added on return.
+        self._lineage_cache[data_name] = lineage
 
-        # Cache the lineage (only for top-level calls)
-        if len(_visited) == 1:  # Top-level call
-            self._lineage_cache[data_name] = lineage
-
+        if _visited is None:
+            return self._augment_adapter_info(lineage)
         return lineage
+
+    def _augment_adapter_info(self, lineage: dict[str, Any]) -> dict[str, Any]:
+        """Return a top-level lineage view with adapter_info, without mutating cache."""
+        adapter_name = self.config.get("daq_adapter")
+        if not adapter_name:
+            return lineage
+        adapter_info = get_adapter_info(adapter_name)
+        if not adapter_info:
+            return lineage
+        result = dict(lineage)
+        result["adapter_info"] = adapter_info.to_dict()
+        return result
 
     @staticmethod
     def _format_display_value(value: Any, width: int) -> str:

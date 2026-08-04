@@ -123,14 +123,14 @@ def test_plugin_domain_registration_invalidates_caches_on_override(tmp_path):
 
     ctx = Context(storage_dir=str(tmp_path))
     ctx.register(PluginV1)
-    ctx._execution_plan_cache["cache_domain_target"] = ["cache_domain_target"]
+    ctx._execution_plan_cache[("run_001", "cache_domain_target")] = ["cache_domain_target"]
     ctx._lineage_cache["cache_domain_target"] = {"plugin_version": "1.0.0"}
     ctx._lineage_hash_cache["cache_domain_target"] = "old-hash"
     ctx._key_cache[("run_001", "cache_domain_target")] = "old-key"
 
     ctx.register(PluginV2, allow_override=True)
 
-    assert "cache_domain_target" not in ctx._execution_plan_cache
+    assert ("run_001", "cache_domain_target") not in ctx._execution_plan_cache
     assert "cache_domain_target" not in ctx._lineage_cache
     assert "cache_domain_target" not in ctx._lineage_hash_cache
     assert ("run_001", "cache_domain_target") not in ctx._key_cache

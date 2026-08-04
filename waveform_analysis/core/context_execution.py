@@ -95,11 +95,12 @@ class ContextExecutionDomain:
     def resolve_execution_plan(self, run_id: str, data_name: str) -> list[str]:
         try:
             with self.ctx.profiler.timeit("context.resolve_dependencies"):
-                if data_name in self.ctx._execution_plan_cache:
-                    plan = self.ctx._execution_plan_cache[data_name]
+                cache_key = (run_id, data_name)
+                if cache_key in self.ctx._execution_plan_cache:
+                    plan = self.ctx._execution_plan_cache[cache_key]
                 else:
                     plan = self.ctx.resolve_dependencies(data_name, run_id=run_id)
-                    self.ctx._execution_plan_cache[data_name] = plan
+                    self.ctx._execution_plan_cache[cache_key] = plan
             return plan
         except ValueError:
             val = self.ctx._get_data_from_memory(run_id, data_name)
@@ -107,7 +108,13 @@ class ContextExecutionDomain:
                 return []
             raise
 
-    def compute_needed_set(self, run_id: str, data_name: str, plan: list[str]) -> set[str]:
+    def compute_needed_set(
+        self,
+        run_id: str,
+        data_name: str,
+        plan: list[str],
+        target_is_missing: bool = False,
+    ) -> set[str]:
         needed: set[str] = set()
         visited: set[str] = set()
 
@@ -115,8 +122,10 @@ class ContextExecutionDomain:
             if name in visited:
                 return
             visited.add(name)
-            if self.ctx._is_cache_hit(run_id, name, load=False):
-                return
+            # get_data 第 2 步已确认目标非内存/磁盘命中；跳过重复检查。
+            if not (name == data_name and target_is_missing):
+                if self.ctx._is_cache_hit(run_id, name, load=False):
+                    return
             if name not in self.ctx._plugins:
                 return
             plugin = self.ctx._plugins[name]
@@ -259,6 +268,7 @@ class ContextExecutionDomain:
         target_dtype: np.dtype | None,
     ) -> Any:
         storage = self.ctx._get_storage_for_data_name(name)
+        self.ctx._invalidate_storage_key_list_cache(storage, run_id)
         if isinstance(result, pd.DataFrame):
             if hasattr(storage, "save_dataframe"):
                 self.ctx._storage_call(storage, "save_dataframe", key, run_id, result)
@@ -442,6 +452,10 @@ class ContextExecutionDomain:
                             bar_name,
                             skip_cache_check=True,
                         )
+                        # 重算会改变下游结果身份：级联失效下游谱系/键缓存，并用新鲜谱系
+                        # 复查下游；复查失败的下游加入 needed_set，随计划执行重算，
+                        # 而不是命中陈旧的 _lineage_cache 结果。
+                        self._invalidate_downstream_caches(name, run_id, needed_set)
 
                 return self.ctx._get_data_from_memory(run_id, data_name)
             finally:
@@ -449,6 +463,21 @@ class ContextExecutionDomain:
                     tracker.close(bar_name)
                 with self.ctx._in_progress_lock:
                     self.ctx._in_progress.pop((run_id, data_name), None)
+
+    def _invalidate_downstream_caches(
+        self, data_name: str, run_id: str, needed_set: set[str]
+    ) -> None:
+        """Cascade-invalidate lineage/key caches for a node's transitive downstream.
+
+        重算一个节点会改变其下游结果身份（下游 lineage 内嵌该节点）。对每个下游：
+        1. 清除 _lineage_cache / _lineage_hash_cache / _key_cache（保留执行计划缓存），
+           使后续校验用新鲜谱系重新派生；
+        2. 用新鲜谱系复查下游磁盘/内存缓存，失败的加入 needed_set 以便随后重算。
+        """
+        for downstream in self.ctx._collect_downstream_data_names(data_name, run_id=run_id):
+            self.ctx._cache_domain._clear_lineage_key_caches(downstream)
+            if not self.ctx._is_cache_hit(run_id, downstream, load=False):
+                needed_set.add(downstream)
 
     def _run_plugin_parallel(
         self,
@@ -526,6 +555,11 @@ class ContextExecutionDomain:
                             raise RuntimeError(
                                 f"Parallel execution failed for plugin '{name}': {e}"
                             ) from e
+
+            # 层内节点互不依赖；下游必在更后层。层执行完后在单线程里级联失效下游，
+            # 避免并发修改共享缓存字典。
+            for name in layer_needed:
+                self._invalidate_downstream_caches(name, run_id, needed_set)
 
     def _execute_plugin_safe(
         self,
@@ -618,6 +652,10 @@ class ContextExecutionDomain:
 
                 self.ctx.storage.finalize_save(
                     key, total_count, dtype, extra_metadata={"lineage": lineage}
+                )
+                self.ctx._invalidate_storage_key_list_cache(self.ctx.storage, run_id)
+                self.ctx._invalidate_storage_key_list_cache(
+                    self.ctx._get_storage_for_data_name(data_name), run_id
                 )
 
                 if total_count > 0:
