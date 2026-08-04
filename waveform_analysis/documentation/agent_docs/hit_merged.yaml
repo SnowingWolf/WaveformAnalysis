@@ -2,7 +2,7 @@ schema_version: 1
 document_type: published_agent_doc
 plugin_name: hit_merged
 plugin_version: 2.1.0
-source_fingerprint: f2b2dce7e029e0da7fa351edf65a469851fc85067651d9c94f752bc9985359a3
+source_fingerprint: df06e32ccab63779abcb4c0684c6a3326135d58b9271e3af2a658b8bca9b681b
 generator_version: plugin_documentation_dag/1
 content:
   edge_cases:

@@ -656,7 +656,7 @@ class HitMergePlugin(BatchProcessingPlugin):
             '  B -- "是" --> Z["返回空结果"]\n'
             '  B -- "否" --> C["读取合并配置<br/>(merge_gap_ns / max_total_width_ns / dt)" ]\n'
             '  C --> D["按同板同通道、<br/>时间邻近链式分组"]\n'
-            "  D --> E{合并已关闭?<br/>(merge_gap_ns <= 0)}\n"
+            '  D --> E{"合并已关闭?<br/>(merge_gap_ns <= 0)"}\n'
             '  E -- "是" --> F["直接映射: 每条 hit 对应一条输出"]\n'
             '  E -- "否" --> G["补充 hits 时间窗口信息"]\n'
             '  G --> H["按分组构建合并结果"]\n'
