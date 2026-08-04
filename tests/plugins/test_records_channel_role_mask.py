@@ -1,12 +1,30 @@
 import numpy as np
 import pytest
 
-from tests.plugins.test_threshold_hit_plugin import _make_many_records_view
 from tests.utils import DummyContext
+from waveform_analysis.core.data.records_view import RecordsView
 from waveform_analysis.core.plugins.builtin.cpu.records_channel_role import (
     RecordsDetectorMaskPlugin,
     RecordsVetoMaskPlugin,
 )
+from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
+
+
+def _make_many_records_view(n_records=4):
+    records = np.zeros(n_records, dtype=RECORDS_DTYPE)
+    records["baseline"] = 100.0
+    records["timestamp"] = np.arange(n_records, dtype=np.int64) * 1_000_000
+    records["board"] = np.arange(n_records, dtype=np.int16) % 2
+    records["channel"] = np.arange(n_records, dtype=np.int16)
+    records["dt"] = 2
+    records["event_length"] = 8
+    records["wave_offset"] = np.arange(n_records, dtype=np.int64) * 8
+    records["record_id"] = np.arange(n_records, dtype=np.int64)
+    wave_pool = np.tile(
+        np.array([100, 100, 80, 80, 80, 80, 100, 100], dtype=np.uint16),
+        n_records,
+    )
+    return RecordsView(records, wave_pool)
 
 
 def _compute_masks(config, records=None, asymmetry_mask=None):

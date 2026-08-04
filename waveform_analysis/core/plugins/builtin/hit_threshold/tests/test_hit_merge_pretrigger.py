@@ -5,8 +5,8 @@
 import numpy as np
 
 from tests.utils import DummyContext
-from waveform_analysis.core.plugins.builtin.cpu.hit_merge import HitMergePlugin
-from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
+from waveform_analysis.core.plugins.builtin.hit_merged import HitMergePlugin
+from waveform_analysis.core.plugins.builtin.hit_threshold import THRESHOLD_HIT_DTYPE
 
 
 def test_hit_merge_with_pretrigger_backward_compatible():

@@ -12,7 +12,7 @@ import pytest
 
 from tests.utils import DummyContext
 from waveform_analysis.core.data.records_view import RecordsView
-from waveform_analysis.core.plugins.builtin.hit.hit_finder import (
+from waveform_analysis.core.plugins.builtin.hit_threshold import (
     THRESHOLD_HIT_DTYPE,
     ThresholdHitPlugin,
 )

@@ -44,7 +44,6 @@ from .peak_classification import (
 )
 
 # CPU 寻峰插件
-from .peak_finding import HIT_DTYPE, HitFinderPlugin
 from .position_reconstruction import PositionReconstructionPlugin
 
 # Records 插件
@@ -107,18 +106,20 @@ _LAZY_IMPORTS = {
     "PEAKLET_FEATURES_DTYPE": "..peaklet_features",
     "PEAKS_DTYPE": "..peaks",
     "PEAKLET_CHANNELS_DTYPE": "..peaklet_channels",
-    # Hit plugins (迁移到 hit/)
-    "HitGroupedPlugin": "..hit.hit_grouped",
-    "ThresholdHitPlugin": "..hit.hit_finder",
+    # Hit plugins (迁移到 per-provides bundle)
+    "HitFinderPlugin": "..hit",
+    "HIT_DTYPE": "..hit",
+    "HitGroupedPlugin": "..hit_grouped",
+    "ThresholdHitPlugin": "..hit_threshold",
     "HitMergePlugin": "..hit_merged",
     "HitMergeClustersPlugin": "..hit_merge_clusters",
     "HitMergedComponentsPlugin": "..hit_merged_components",
-    "HitMergedFeaturesPlugin": "..hit.hit_merged_features",
-    "THRESHOLD_HIT_DTYPE": "..hit.hit_finder",
+    "HitMergedFeaturesPlugin": "..hit_merged_features",
+    "THRESHOLD_HIT_DTYPE": "..hit_threshold",
     "HIT_MERGED_DTYPE": "..hit_merged",
     "HIT_MERGE_CLUSTERS_DTYPE": "..hit_merge_clusters",
     "HIT_MERGED_COMPONENTS_DTYPE": "..hit_merged_components",
-    "HIT_MERGED_FEATURES_DTYPE": "..hit.hit_merged_features",
+    "HIT_MERGED_FEATURES_DTYPE": "..hit_merged_features",
 }
 
 

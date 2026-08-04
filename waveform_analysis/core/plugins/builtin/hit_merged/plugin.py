@@ -4,7 +4,6 @@ from typing import Any
 
 import numpy as np
 
-from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.builtin.hit_merged._compute import (
     HIT_MERGED_DTYPE,
     _build_enriched_for_hits,
@@ -13,6 +12,7 @@ from waveform_analysis.core.plugins.builtin.hit_merged._compute import (
     _hits_to_merged_fast,
     _materialize_array,
 )
+from waveform_analysis.core.plugins.builtin.hit_threshold import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.core.base import Option
 from waveform_analysis.core.plugins.core.batch_processing import BatchProcessingPlugin
 

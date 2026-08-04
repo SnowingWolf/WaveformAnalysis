@@ -6,5 +6,6 @@ depends_on:
 third_party_dependencies:
   - numpy
   - numba
-plugin_dependencies: []
+plugin_dependencies:
+  - hit_threshold
 category: feature_extraction

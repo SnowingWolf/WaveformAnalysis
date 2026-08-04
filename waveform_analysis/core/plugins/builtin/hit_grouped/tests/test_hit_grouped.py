@@ -2,12 +2,12 @@ import numpy as np
 import pandas as pd
 
 from tests.utils import DummyContext, FakeContext, make_hit
-from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
-from waveform_analysis.core.plugins.builtin.hit.hit_grouped import HitGroupedPlugin
-from waveform_analysis.core.plugins.builtin.hit.hit_merge import (
+from waveform_analysis.core.plugins.builtin.hit_grouped import HitGroupedPlugin
+from waveform_analysis.core.plugins.builtin.hit_merged import HitMergePlugin
+from waveform_analysis.core.plugins.builtin.hit_merged_components import (
     HitMergedComponentsPlugin,
-    HitMergePlugin,
 )
+from waveform_analysis.core.plugins.builtin.hit_threshold import THRESHOLD_HIT_DTYPE
 
 
 def test_hit_grouped_empty():

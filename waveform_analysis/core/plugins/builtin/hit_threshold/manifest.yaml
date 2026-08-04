@@ -1,0 +1,9 @@
+provides: hit_threshold
+plugin_class: ThresholdHitPlugin
+version: 1.2.0
+depends_on: []
+third_party_dependencies:
+  - numpy
+  - numba
+plugin_dependencies: []
+category: feature_extraction
