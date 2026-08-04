@@ -176,28 +176,14 @@
     <div class="body notes">
       <p><b>每阶段出口标准</b>：<code>pytest</code> 全绿 · <code>check_imports.py</code> / <code>check_plugin_deps.py</code> 绿 · 文档重生成后 <code>git diff --exit-code</code> 干净</p>
       <ul>
-        <li><b>Step 0 — HTML 预览</b>（当前）：目录结构可视化 + 计划写入。✅ 已完成</li>
-        <li><b>Phase 0 — 地基（无行为变化）</b>
-          <ol>
-            <li>建 <code>builtin/shared/</code>，迁入 <code>_dt_compat / _record_utils / _wave_source</code>，原文件改 shim</li>
-            <li>建 <code>builtin/_registry.py</code> + <code>scripts/check_plugin_deps.py</code> + manifest schema</li>
-            <li>更新 pytest 四项配置；改模板 Usage 兜底；删除 accelerator（<code>plugin_doc_generator.py</code> + 两个模板 + 测试）</li>
-          </ol>
-        </li>
-        <li><b>Phase 1 — 试点 <code>hit_merged</code></b>
-          <ol>
-            <li>建 <code>builtin/hit_merged/</code>（<code>plugin.py</code> / <code>_compute.py</code>=3 dtype+集群计算 / <code>__init__</code> / <code>manifest</code> / <code>SKILL.md</code> / <code>requirements</code> / <code>tests</code>）</li>
-            <li><code>hit/hit_merge.py</code> 抽走 HitMergePlugin 与共享计算，保留兄弟类，整文件改 shim</li>
-            <li>更新 <code>_LAZY_ATTRS</code>、<code>cpu/__init__.py</code>、<code>hit/__init__.py</code>、<code>plugin_sets/hit.py</code>、相关测试 import</li>
-            <li>重算 <code>hit_merged.yaml</code> <code>source_fingerprint</code></li>
-            <li>加旧路径兼容测试（新旧路径 <code>is</code> 同一类对象）</li>
-          </ol>
-        </li>
-        <li><b>Phase 2 — <code>hit_merge_clusters</code> / <code>hit_merged_components</code></b>（沿用 Phase 1 模式完成家族）</li>
-        <li><b>Phase 3 — peaks 家族（最大）</b>：拆 <code>peaklets.py</code> 六插件，共享计算入 <code>peaklets/_compute.py</code>，其余 5 bundle 单向依赖</li>
-        <li><b>Phase 4 — cpu 剩余</b>：records 家族、event_analysis、records_channel_role、单插件模块；<b>合并 RawFileNamesPlugin 双副本</b>到 <code>raw_files/</code></li>
-        <li><b>Phase 5 — 收尾</b>：streaming/jax 占位；全量重生成 docs 并提交；docs-check / python-tests 全绿</li>
+        <li><b>✅ Step 0 — HTML 预览</b>：目录结构可视化 + 计划写入</li>
+        <li><b>✅ Phase 0 — 地基</b>：<code>builtin/shared/</code> 上提；<code>_registry.py</code> + <code>check_plugin_deps.py</code>；pytest 配置；模板 Usage 兜底；删除 accelerator</li>
+        <li><b>✅ Phase 1-2 — hit 家族</b>：<code>hit_merged</code> / <code>hit_merge_clusters</code> / <code>hit_merged_components</code> 迁移 bundle</li>
+        <li><b>✅ Phase 3 — peaks 家族</b>：<code>peaklets</code> 等 6 个 bundle，<code>peaks/</code> 升级为 PeaksPlugin bundle</li>
+        <li><b>✅ Phase 4 — cpu 剩余</b>：records 家族、events/masks、单插件模块共 20+ 插件迁移；<b>RawFileNamesPlugin 双副本合并</b></li>
+        <li><b>✅ Phase 5 — 收尾</b>：全量重生成 docs（module 路径更新）+ 提交；CI/Makefile/package-data 适配；docs 无漂移</li>
       </ul>
+      <p><b>完成状态</b>：37 个 per-plugin bundle 迁移到位；全量测试 <b>1426 passed</b>（唯一失败为既有的 flaky 性能测试，与重构无关）；<code>check_plugin_deps</code> 校验 37 bundle + shim 完备 149/0；旧 import 路径全部经 shim 兼容。</p>
       <p><b>每阶段验证命令</b>：</p>
       <pre style="background:#0b1119;border:1px solid var(--border);border-radius:8px;padding:12px;overflow:auto;font-size:12px;">pip install -e .
 pytest -q
