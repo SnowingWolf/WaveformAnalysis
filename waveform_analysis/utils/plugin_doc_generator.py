@@ -1696,11 +1696,12 @@ class PluginDocGenerator:
                 start_y = source_y + node_height // 2
                 end_x = target_x
                 end_y = target_y + node_height // 2
+                mid_x = (start_x + end_x) // 2
                 edges.append(
                     _WebLineageEdge(
                         source,
                         target,
-                        f"M {start_x} {start_y} L {end_x} {end_y}",
+                        f"M {start_x} {start_y} L {mid_x} {start_y} L {mid_x} {end_y} L {end_x} {end_y}",
                     )
                 )
             return _WebLineageGraph(
