@@ -314,6 +314,12 @@ python scripts/schema_compat_check.py --base HEAD --run-smoke
 
 Agent 文档同步检查（`python scripts/render_agent_docs.py --check`、`scripts/check_doc_sync.sh`、`python scripts/check_doc_anchors.py --check-sync --base HEAD`）属于文档同步流程，不计入本节“四条命令”。若 PR 同时改了 agent 文档，也必须另行记录这些检查结果。
 
+### PR Commit 完整性与逐项说明
+- PR 描述必须有 `## 提交清单与逐项说明`；以 GitHub `pulls.listCommits` 返回的当前 PR commit 集合为唯一真源，而不是本地分支名或手工挑选的范围。
+- 清单中的每一行必须使用一个完整 40 位 SHA，且与当前 PR commit 集合一一对应：不得遗漏、重复或保留已被 rebase 替换的 SHA。
+- 每个 commit 必须填写“变更目的和影响”及“验证证据”。验证未执行时，必须写明理由；空白、`TODO`、`待补充`、`N/A`、`无` 和“同上”均不构成有效说明。
+- `.github/workflows/pr-commit-description-check.yml` 在 PR 创建、追加/改写 commit 与编辑 PR 描述时执行。仓库管理员必须将 `PR Commit Description Check / commit-description` 配置为目标分支的 required status check；配置完成后，失败会阻止合并。更新目标分支导致 PR commit 集合变化时，也必须更新说明清单。
+
 ### Lifecycle 绑定
 - `Planner` 决定哪些 gate 必须进入 `plan_brief`
 - `Executor` 负责运行命令并产出 `execution_report`
@@ -322,7 +328,9 @@ Agent 文档同步检查（`python scripts/render_agent_docs.py --check`、`scri
 ### Definition of Done
 1. 命中触发条件时，三类闸门对应的四条命令全部执行并通过
 2. PR 描述包含执行命令与 PASS/FAIL 摘要
-3. `docs/agents/index.yaml` 对应 route 命令与本节一致
+3. PR 描述的 `提交清单与逐项说明` 与当前 PR 的全部 commit 一一对应，且逐项说明完整
+4. `.github/workflows/pr-commit-description-check.yml` 通过
+5. `docs/agents/index.yaml` 对应 route 命令与本节一致
 
 ## Workflow: assess_change_impact
 

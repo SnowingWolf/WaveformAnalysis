@@ -252,13 +252,16 @@ waveform-process --show-daq --daq-root DAQ
   - `python scripts/release_artifact_sync.py --base HEAD`
 - PR 记录要求：
   - 在 PR 描述中附三类闸门执行摘要（命令 + PASS/FAIL）。
+  - 在 `提交清单与逐项说明` 中列出 GitHub 当前 PR commit 集合的全部完整 40 位 SHA；每个 SHA 只能出现一次，并填写该 commit 的变更目的和影响、验证证据或未执行理由。
+  - `.github/workflows/pr-commit-description-check.yml` 必须通过；遗漏、重复、过期 SHA 或空白/占位说明均不得合并。
+  - 目标分支的 GitHub branch protection 或 ruleset 必须将 `PR Commit Description Check / commit-description` 设为 required status check；在此配置完成前，工作流失败只会报告失败，不能技术性阻止合并。
 
 ## Commit & PR
 - Commit 前缀：`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`。
 - 修改任务完成后默认提交本轮相关改动；收尾时必须显式交代 commit 状态。
 - 若未提交，必须说明原因；若工作区存在无关改动，提交时只 stage 本轮相关文件。
 - 可使用 `python scripts/check_agent_handoff.py --allow-uncommitted --reason "<原因>"` 记录“未提交但已说明”的交付状态。
-- PR 至少包含：变更摘要、测试结果、文档变更说明（若用户可见）。
+- PR 至少包含：变更摘要、测试结果、文档变更说明（若用户可见），以及与当前 PR 全部 commit 一一对应的逐项说明。
 
 ## Common Pitfalls
 - 缺失 `run_id` 导致缓存冲突或数据覆盖。
