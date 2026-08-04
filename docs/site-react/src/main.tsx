@@ -266,7 +266,20 @@ async function layout(
   return { nodes, edges };
 }
 
-type Preview = { id: string; x: number; y: number };
+type Preview = { id: string; x: number; y: number; source: "click" | "hover" };
+
+const KIND_LABELS: Record<string, string> = {
+  raw_data: "原始数据",
+  structured_array: "结构化数组",
+  dataframe: "表格数据",
+  grouped: "聚合/分组",
+  side_effect: "导出/副作用",
+  intermediate: "中间处理",
+};
+
+function kindLabel(kind: string) {
+  return KIND_LABELS[kind] ?? kind;
+}
 
 function Lineage({ graph: staticGraph }: { graph: Graph }) {
   const params = new URLSearchParams(location.search);
@@ -280,6 +293,9 @@ function Lineage({ graph: staticGraph }: { graph: Graph }) {
   const [fittedLayoutRevision, setFittedLayoutRevision] = useState(0);
   const [instance, setInstance] = useState<ReactFlowInstance<FlowNode, Edge<FlowEdgeData>> | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
+  const previewRef = useRef(preview);
+  const previewDismissTimer = useRef<number | null>(null);
+  useEffect(() => { previewRef.current = preview; }, [preview]);
   const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
   const [navigationHidden, setNavigationHidden] = useState(false);
   const [showVirtualNodes, setShowVirtualNodes] = useState(true);
@@ -316,22 +332,53 @@ function Lineage({ graph: staticGraph }: { graph: Graph }) {
       duration: 240,
     });
   }, [instance]);
-  const showPreview = useCallback((event: React.MouseEvent, id: string) => {
+  const showPreview = useCallback((event: React.MouseEvent, id: string, source: "click" | "hover" = "click") => {
     const bounds = canvasRef.current?.getBoundingClientRect();
     const width = bounds?.width ?? 360;
     const height = bounds?.height ?? 540;
-    const x = Math.min(Math.max(12, event.clientX - (bounds?.left ?? 0) + 14), Math.max(12, width - 348));
-    const y = Math.min(Math.max(12, event.clientY - (bounds?.top ?? 0) + 14), Math.max(12, height - 300));
-    setPreview({ id, x, y });
+    const x = Math.min(Math.max(12, event.clientX - (bounds?.left ?? 0) + 14), Math.max(12, width - 292));
+    const y = Math.min(Math.max(12, event.clientY - (bounds?.top ?? 0) + 14), Math.max(12, height - 276));
+    setPreview({ id, x, y, source });
   }, []);
   const handleInputSourceAction = useCallback<InputSourceAction>((event, sourceId, action) => {
     if (action === "preview") {
-      showPreview(event, sourceId);
+      showPreview(event, sourceId, "click");
       return;
     }
     select(sourceId);
     centerNode(sourceId);
   }, [centerNode, select, showPreview]);
+
+  const cancelDismiss = useCallback(() => {
+    if (previewDismissTimer.current !== null) window.clearTimeout(previewDismissTimer.current);
+    previewDismissTimer.current = null;
+  }, []);
+  const dismissPreview = useCallback((delay = 220) => {
+    // A port-click preview stays pinned until explicitly closed, so hovering
+    // away or leaving the panel must not auto-dismiss it.
+    if (previewRef.current?.source === "click") return;
+    if (previewDismissTimer.current !== null) window.clearTimeout(previewDismissTimer.current);
+    previewDismissTimer.current = window.setTimeout(() => {
+      previewDismissTimer.current = null;
+      setPreview(null);
+    }, delay);
+  }, []);
+  const closePreview = useCallback(() => {
+    cancelDismiss();
+    setPreview(null);
+  }, [cancelDismiss]);
+  const handleNodeMouseEnter = useCallback((event: React.MouseEvent, node: FlowNode) => {
+    cancelDismiss();
+    if (previewRef.current?.source === "click") return;
+    showPreview(event, node.id, "hover");
+  }, [cancelDismiss, showPreview]);
+  const handleNodeMouseLeave = useCallback(() => {
+    if (previewRef.current?.source === "click") return;
+    dismissPreview();
+  }, [dismissPreview]);
+  useEffect(() => () => {
+    if (previewDismissTimer.current !== null) window.clearTimeout(previewDismissTimer.current);
+  }, []);
 
   useEffect(() => {
     if (params.get("lineage") !== "live") return;
@@ -441,11 +488,11 @@ function Lineage({ graph: staticGraph }: { graph: Graph }) {
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPreview(null);
+      if (event.key === "Escape") closePreview();
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, []);
+  }, [closePreview]);
 
   const changeView = useCallback((next: string) => {
     setView(next);
@@ -464,7 +511,7 @@ function Lineage({ graph: staticGraph }: { graph: Graph }) {
     <div className="wfa-flow-toolbar" role="group" aria-label="谱系视图">
       {[["overview", "Overview"], ["full", "Full DAG"]].map(([value, label]) => <button key={value} type="button" className={normalizedView === value ? "is-active" : ""} onClick={() => changeView(value)}>{label}</button>)}
       <label className="wfa-flow-virtual-toggle" title="显示或隐藏虚拟计算节点">
-        <input type="checkbox" checked={showVirtualNodes} onChange={(event) => { setShowVirtualNodes(event.target.checked); setPreview(null); }} />
+        <input type="checkbox" checked={showVirtualNodes} onChange={(event) => { setShowVirtualNodes(event.target.checked); closePreview(); }} />
         <span className="wfa-flow-virtual-toggle-track" aria-hidden="true" />
         <span>虚拟节点</span>
       </label>
@@ -473,16 +520,16 @@ function Lineage({ graph: staticGraph }: { graph: Graph }) {
     </div>
     <div className="wfa-flow-canvas" ref={canvasRef}>
       <WireLayer edges={flow.edges} viewport={viewport} />
-      <ReactFlow<FlowNode, Edge<FlowEdgeData>> nodes={flow.nodes} edges={[]} nodeTypes={nodeTypes} onInit={setInstance} onViewportChange={setViewport} minZoom={MIN_CANVAS_ZOOM} maxZoom={1.5} nodesDraggable={false} panOnScroll panOnScrollMode={PanOnScrollMode.Free} zoomOnScroll zoomActivationKeyCode={["Control", "Meta"]} onNodeClick={(_, node) => location.assign(String(node.data.href))} onPaneClick={() => setPreview(null)}>
+      <ReactFlow<FlowNode, Edge<FlowEdgeData>> nodes={flow.nodes} edges={[]} nodeTypes={nodeTypes} onInit={setInstance} onViewportChange={setViewport} minZoom={MIN_CANVAS_ZOOM} maxZoom={1.5} nodesDraggable={false} panOnScroll panOnScrollMode={PanOnScrollMode.Free} zoomOnScroll zoomActivationKeyCode={["Control", "Meta"]} onNodeClick={(_, node) => location.assign(String(node.data.href))} onNodeMouseEnter={handleNodeMouseEnter} onNodeMouseLeave={handleNodeMouseLeave} onPaneClick={closePreview}>
         <Background gap={18} />
         {normalizedView === "full" && <MiniMap zoomable pannable position="bottom-right" style={{ width: 132, height: 92 }} />}
         <Controls />
       </ReactFlow>
-      {previewNode && preview && <aside className="wfa-flow-preview" style={{ left: preview.x, top: preview.y }} aria-label={`${previewNode.label} 预览`}>
-        <button type="button" className="wfa-flow-preview-close" aria-label="关闭节点预览" onClick={() => setPreview(null)}>×</button>
+      {previewNode && preview && <aside className="wfa-flow-preview" style={{ left: preview.x, top: preview.y }} aria-label={`${previewNode.label} 预览`} onMouseEnter={cancelDismiss} onMouseLeave={() => dismissPreview()}>
+        <button type="button" className="wfa-flow-preview-close" aria-label="关闭节点预览" onClick={closePreview}>×</button>
         <strong>{previewNode.id}</strong><span>{previewNode.pluginClass}</span>
         {previewNode.summary && <p>{previewNode.summary}</p>}
-        <dl><dt>输入</dt><dd>{previewNode.in_ports.map((port) => port.name).join(", ") || "无"}</dd><dt>输出</dt><dd>{previewNode.out_ports.map((port) => port.name).join(", ") || "无"}</dd><dt>下游</dt><dd>{previewRelation?.consumers.join(", ") || "无"}</dd></dl>
+        <dl><dt>输入</dt><dd>{previewNode.in_ports.map((port) => port.name).join(", ") || "无"}</dd><dt>输出</dt><dd>{previewNode.out_ports.map((port) => port.name).join(", ") || "无"}</dd><dt>下游</dt><dd>{previewRelation?.consumers.join(", ") || "无"}</dd><dt>分类</dt><dd>{kindLabel(previewNode.kind)}</dd><dt>集合</dt><dd>{previewNode.pluginSet}</dd></dl>
         <a href={previewNode.href}>打开完整文档</a>
       </aside>}
     </div>

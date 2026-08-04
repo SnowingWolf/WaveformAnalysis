@@ -40,15 +40,16 @@
 .wfa-flow-port--out .wfa-flow-port-dot { right: -6px; }
 .wfa-flow-port-dot:hover, .wfa-flow-port-dot:focus-visible { filter: brightness(.92); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--port-color), transparent 62%); transform: translateY(-50%) scale(1.25); }
 .wfa-flow-port-dot.is-active { box-shadow: 0 0 0 4px color-mix(in srgb, var(--port-color), transparent 50%); transform: translateY(-50%) scale(1.18); }
-.wfa-flow-preview { position: absolute; z-index: 8; width: min(330px, calc(100% - 24px)); display: grid; gap: 8px; box-sizing: border-box; border: 1px solid #9aada4; border-left: 4px solid #1f6b51; border-radius: 4px; background: #fff; box-shadow: 0 10px 28px rgb(23 63 49 / 22%); padding: 14px; color: #202724; font-size: 12px; }
-.wfa-flow-preview strong { padding-right: 24px; font-size: 14px; overflow-wrap: anywhere; }
+.wfa-flow-preview { position: absolute; z-index: 8; width: min(270px, calc(100% - 20px)); display: grid; gap: 7px; box-sizing: border-box; border: 1px solid #9aada4; border-left: 4px solid #1f6b51; border-radius: 4px; background: #fff; box-shadow: 0 10px 28px rgb(23 63 49 / 22%); padding: 12px; color: #202724; font-size: 12px; animation: wfa-preview-in .14s ease-out; }
+@keyframes wfa-preview-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+.wfa-flow-preview strong { padding-right: 22px; font-size: 13px; overflow-wrap: anywhere; }
 .wfa-flow-preview > span { color: #5b6863; overflow-wrap: anywhere; }
 .wfa-flow-preview p { margin: 0; color: #3f4c47; line-height: 1.45; }
-.wfa-flow-preview dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 10px; margin: 0; }
+.wfa-flow-preview dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 8px; margin: 0; }
 .wfa-flow-preview dt { color: #50605a; font-weight: 700; }
 .wfa-flow-preview dd { margin: 0; overflow-wrap: anywhere; }
 .wfa-flow-preview a { width: fit-content; }
-.wfa-flow-preview-close { position: absolute; top: 6px; right: 7px; width: 26px; height: 26px; border: 0; border-radius: 3px; background: transparent; color: #40514a; cursor: pointer; font-size: 20px; line-height: 1; }
+.wfa-flow-preview-close { position: absolute; top: 5px; right: 6px; width: 24px; height: 24px; border: 0; border-radius: 3px; background: transparent; color: #40514a; cursor: pointer; font-size: 18px; line-height: 1; }
 .wfa-flow-preview-close:hover { background: #edf3ef; }
 @media (max-width: 760px) {
   .wfa-flow-canvas { height: 620px; min-height: 620px; }
