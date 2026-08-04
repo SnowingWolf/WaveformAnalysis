@@ -1,7 +1,9 @@
 import numpy as np
 
-from tests.plugins.test_threshold_hit_plugin import _make_many_records_view
 from tests.utils import DummyContext
+from waveform_analysis.core.plugins.builtin.hit_threshold.tests.test_hit_threshold import (
+    _make_many_records_view,
+)
 from waveform_analysis.core.plugins.builtin.records_veto_mask import RecordsVetoMaskPlugin
 
 
