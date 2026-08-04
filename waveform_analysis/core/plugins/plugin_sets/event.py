@@ -20,6 +20,7 @@ def plugins_events():
     - S1S2PairCandidatesPlugin: Generate all physically allowed S1-S2 pairing candidates
     - S1S2PairSelectionPlugin: Select best pairs from candidates
     - PositionReconstructionPlugin: Reconstruct 3D position from S1-S2 pairs (v0.0.0)
+    - EnergyReconstructionPlugin: Reconstruct energy from S1-S2 pairs (v0.1.0)
     - EventPlugin: Complete event reconstruction (v0.0.0)
 
     .. deprecated::
@@ -28,6 +29,9 @@ def plugins_events():
         GroupedEventsPlugin and PairedEventsPlugin have been moved to the
         ``tabular`` plugin set because they produce DataFrame (tabular) outputs.
     """
+    from waveform_analysis.core.plugins.builtin.cpu.energy_reconstruction import (
+        EnergyReconstructionPlugin,
+    )
     from waveform_analysis.core.plugins.builtin.cpu.event import EventPlugin
     from waveform_analysis.core.plugins.builtin.cpu.position_reconstruction import (
         PositionReconstructionPlugin,
@@ -45,7 +49,8 @@ def plugins_events():
         S1S2PairSelectionPlugin(),  # Stage 2: Select best pairs
         # Position and event reconstruction (v0.0.0)
         PositionReconstructionPlugin(),  # Stage 3: Position reconstruction
-        EventPlugin(),  # Stage 4: Complete event reconstruction
+        EnergyReconstructionPlugin(),  # Stage 4: Energy reconstruction
+        EventPlugin(),  # Stage 5: Complete event reconstruction
     ]
 
     # Legacy deprecated plugins (kept for backward compatibility)

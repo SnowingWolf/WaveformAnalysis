@@ -18,7 +18,7 @@ WaveformAnalysis 采用**插件化架构**处理 DAQ（数据采集系统）波�
 
 ### 插件统计
 
-- **总插件数**: 35
+- **总插件数**: 36
 - **类别数**: 9
 - **加速器**: CPU (NumPy/SciPy)
 
@@ -131,7 +131,8 @@ raw_files ──► records ──► df ──► df_events
 | [`DataFramePlugin`](df.md) | `df` | 1.7.0 | 数据导出 | - |
 | [`GroupedEventsPlugin`](df_events.md) | `df_events` | 0.0.1 | 事件分析 | df |
 | [`PairedEventsPlugin`](df_paired.md) | `df_paired` | 0.0.1 | 事件分析 | df_events |
-| [`EventPlugin`](events.md) | `events` | 0.0.1 | 事件分析 | s1_s2_pairs, position_reconstruction |
+| [`EnergyReconstructionPlugin`](energy_reconstruction.md) | `energy_reconstruction` | 0.1.0 | 其他 | s1_s2_pairs |
+| [`EventPlugin`](events.md) | `events` | 0.0.3 | 事件分析 | s1_s2_pairs, position_reconstruction |
 | [`FilteredWaveformsPlugin`](filtered_waveforms.md) | `filtered_waveforms` | 3.0.0 | 波形处理 | st_waveforms |
 | [`HitFinderPlugin`](hit.md) | `hit` | 3.0.0 | 特征提取 | - |
 | [`HitGroupedPlugin`](hit_grouped.md) | `hit_grouped` | 0.5.0 | 特征提取 | hit_merged, hit_merged_components, hit_threshold |
@@ -150,14 +151,14 @@ raw_files ──► records ──► df ──► df_events
 | [`PeaksPlugin`](peaks.md) | `peaks` | 4.0.1 | 特征提取 | peaklets, peaklet_features, peaklet_channels |
 | [`PositionReconstructionPlugin`](position_reconstruction.md) | `position_reconstruction` | 0.2.1 | 其他 | s1_s2_pairs |
 | [`RawFileNamesPlugin`](raw_files.md) | `raw_files` | 0.0.2 | 数据加载 | - |
-| [`RecordsPlugin`](records.md) | `records` | 0.14.1 | 记录处理 | - |
+| [`RecordsPlugin`](records.md) | `records` | 0.14.2 | 记录处理 | - |
 | [`RecordsAsymmetryMaskPlugin`](records_asymmetry_mask.md) | `records_asymmetry_mask` | 0.2.0 | 记录处理 | records, wave_pool |
 | [`RecordsDetectorMaskPlugin`](records_detector_mask.md) | `records_detector_mask` | 0.1.0 | 记录处理 | records, records_asymmetry_mask |
 | [`RecordsVetoMaskPlugin`](records_veto_mask.md) | `records_veto_mask` | 0.1.0 | 记录处理 | records, records_asymmetry_mask |
 | [`S1S2PairCandidatesPlugin`](s1_s2_pair_candidates.md) | `s1_s2_pair_candidates` | 0.1.3 | 事件分析 | peak_classification, peaks |
 | [`S1S2PairSelectionPlugin`](s1_s2_pairs.md) | `s1_s2_pairs` | 0.2.0 | 事件分析 | s1_s2_pair_candidates |
 | [`WaveformsPlugin`](st_waveforms.md) | `st_waveforms` | 0.10.0 | 波形处理 | - |
-| [`WavePoolPlugin`](wave_pool.md) | `wave_pool` | 0.14.1 | 波形处理 | - |
+| [`WavePoolPlugin`](wave_pool.md) | `wave_pool` | 0.14.2 | 波形处理 | - |
 | [`WavePoolFilteredPlugin`](wave_pool_filtered.md) | `wave_pool_filtered` | 3.0.0 | 波形处理 | records, wave_pool |
 | [`WaveformWidthPlugin`](waveform_width.md) | `waveform_width` | 3.0.0 | 波形处理 | - |
 | [`WaveformWidthIntegralPlugin`](waveform_width_integral.md) | `waveform_width_integral` | 2.7.0 | 波形处理 | - |
@@ -269,6 +270,7 @@ raw_files ──► records ──► df ──► df_events
 
 | 插件 | 说明 | 依赖 |
 |------|------|------|
+| [`energy_reconstruction`](energy_reconstruction.md) | Reconstruct energy from selected S1-S2 pairs | s1_s2_pairs |
 | [`position_reconstruction`](position_reconstruction.md) | Reconstruct 3D position from S1-S2 pairs using vectorized Co... | s1_s2_pairs |
 
 

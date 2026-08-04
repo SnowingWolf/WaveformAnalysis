@@ -103,7 +103,7 @@ data = ctx.get_data("run_001", "s1_s2_pairs")
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
-Consumers: `events`, `position_reconstruction`
+Consumers: `energy_reconstruction`, `events`, `position_reconstruction`
 
 ## Maintenance
 

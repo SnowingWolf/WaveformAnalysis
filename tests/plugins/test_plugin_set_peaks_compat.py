@@ -63,6 +63,7 @@ def test_get_plugin_set_event_available():
         "s1_s2_pair_candidates",
         "s1_s2_pairs",
         "position_reconstruction",
+        "energy_reconstruction",
         "events",
         "hit_grouped",
     ]

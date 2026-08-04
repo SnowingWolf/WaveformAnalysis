@@ -23,6 +23,10 @@ from .cache_analysis import CacheAnalysisPlugin
 
 # 数据整合插件
 from .dataframe import DataFramePlugin
+from .energy_reconstruction import (
+    ENERGY_RECONSTRUCTION_DTYPE,
+    EnergyReconstructionPlugin,
+)
 
 # 事件分析插件
 from .event import EventPlugin
@@ -149,6 +153,8 @@ __all__ = [
     "GroupedEventsPlugin",
     "PairedEventsPlugin",
     "PositionReconstructionPlugin",
+    "EnergyReconstructionPlugin",
+    "ENERGY_RECONSTRUCTION_DTYPE",
     # 滤波插件
     "FilteredWaveformsPlugin",
     # Peak classification (S1/S2)

@@ -14,7 +14,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 
 ## Summary
 
-- 插件总数：35
+- 插件总数：36
 - 类别数：9
 
 ## Plugin Table
@@ -26,6 +26,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`df`](df.md) | `DataFramePlugin` | - | `dataframe` | `1.7.0` |
 | [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `dataframe` | `0.0.1` |
 | [`df_paired`](df_paired.md) | `PairedEventsPlugin` | `df_events` | `dataframe` | `0.0.1` |
+| [`energy_reconstruction`](energy_reconstruction.md) | `EnergyReconstructionPlugin` | `s1_s2_pairs` | `structured_array` | `0.1.0` |
 | [`events`](events.md) | `EventPlugin` | `s1_s2_pairs`, `position_reconstruction` | `structured_array` | `0.0.3` |
 | [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `structured_array` | `3.0.0` |
 | [`hit`](hit.md) | `HitFinderPlugin` | - | `structured_array` | `3.0.0` |
@@ -111,4 +112,5 @@ waveform-docs generate plugins-agent --plugin raw_files
 - [`records_veto_mask`](records_veto_mask.md): Bool mask for veto-channel records after channel-role splitting.
 ### 其他
 
+- [`energy_reconstruction`](energy_reconstruction.md): Reconstruct energy from selected S1-S2 pairs
 - [`position_reconstruction`](position_reconstruction.md): Reconstruct 3D position from S1-S2 pairs using vectorized CoG method

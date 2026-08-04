@@ -228,6 +228,73 @@ position_reconstruction:
   flags:
     doc: Bit-field reconstruction status flags
     units: None
+energy_reconstruction:
+  event_id:
+    doc: Unique event identifier
+    units: None
+  pair_id:
+    doc: S1-S2 pair identifier
+    units: None
+  s1_peak_id:
+    doc: S1 peak identifier
+    units: None
+  s2_peak_id:
+    doc: S2 peak identifier
+    units: None
+  s1_energy:
+    doc: S1 energy
+    units: keV
+  s2_energy:
+    doc: S2 energy
+    units: keV
+  total_energy:
+    doc: Total reconstructed energy
+    units: keV
+  s1_energy_fraction:
+    doc: S1 energy fraction of total
+    units: None
+  s1_energy_err:
+    doc: S1 energy uncertainty
+    units: keV
+  s2_energy_err:
+    doc: S2 energy uncertainty
+    units: keV
+  total_energy_err:
+    doc: Total energy uncertainty
+    units: keV
+  energy_chi2:
+    doc: Chi-squared for energy reconstruction fit
+    units: None
+  energy_ndf:
+    doc: Degrees of freedom for energy reconstruction
+    units: None
+  energy_goodness:
+    doc: Overall energy reconstruction quality (0 to 1)
+    units: None
+  s1_method:
+    doc: S1 energy reconstruction method (area_scale, none)
+    units: None
+  s2_method:
+    doc: S2 energy reconstruction method (area_scale, none)
+    units: None
+  s1_area:
+    doc: S1 raw area used for energy calibration
+    units: ADC counts
+  s2_area:
+    doc: S2 raw area used for energy calibration
+    units: ADC counts
+  s1_n_channels:
+    doc: Number of S1 channels
+    units: None
+  s2_n_channels:
+    doc: Number of S2 channels
+    units: None
+  drift_time_ns:
+    doc: Drift time in nanoseconds
+    units: ns
+  flags:
+    doc: Bit-field energy reconstruction status flags
+    units: None
 filtered_waveforms:
   baseline:
     doc: Computed global waveform baseline for this record
