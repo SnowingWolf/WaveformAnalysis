@@ -1,0 +1,9 @@
+provides: hit
+plugin_class: HitFinderPlugin
+version: 3.0.0
+depends_on: []
+third_party_dependencies:
+  - numpy
+  - scipy
+plugin_dependencies: []
+category: feature_extraction

@@ -57,7 +57,7 @@ def plugins_events():
     # NOTE: GroupedEventsPlugin and PairedEventsPlugin have been moved to the
     # ``tabular`` plugin set (they emit DataFrame tabular outputs).
     try:
-        from waveform_analysis.core.plugins.builtin.hit.hit_grouped import HitGroupedPlugin
+        from waveform_analysis.core.plugins.builtin.hit_grouped import HitGroupedPlugin
 
         warnings.warn(
             "plugins_events() now includes deprecated legacy plugins "

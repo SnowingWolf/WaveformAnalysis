@@ -86,7 +86,7 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "DataFramePlugin": (".builtin.df", "DataFramePlugin"),
     "FilteredWaveformsPlugin": (".builtin.filtered_waveforms", "FilteredWaveformsPlugin"),
     "GroupedEventsPlugin": (".builtin.cpu", "GroupedEventsPlugin"),
-    "HitFinderPlugin": (".builtin.cpu", "HitFinderPlugin"),
+    "HitFinderPlugin": (".builtin.hit", "HitFinderPlugin"),
     "PairedEventsPlugin": (".builtin.cpu", "PairedEventsPlugin"),
     "RawFileNamesPlugin": (".builtin.raw_files", "RawFileNamesPlugin"),
     "RecordsPlugin": (".builtin.cpu", "RecordsPlugin"),
@@ -104,13 +104,13 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "PeakletFeaturesPlugin": (".builtin.peaklet_features", "PeakletFeaturesPlugin"),
     "PeaksPlugin": (".builtin.peaks", "PeaksPlugin"),
     "PeakletChannelsPlugin": (".builtin.peaklet_channels", "PeakletChannelsPlugin"),
-    # Hit plugins - new location in hit/
-    "HitGroupedPlugin": (".builtin.hit.hit_grouped", "HitGroupedPlugin"),
-    "ThresholdHitPlugin": (".builtin.hit.hit_finder", "ThresholdHitPlugin"),
+    # Hit plugins - new location in per-provides bundles
+    "HitGroupedPlugin": (".builtin.hit_grouped", "HitGroupedPlugin"),
+    "ThresholdHitPlugin": (".builtin.hit_threshold", "ThresholdHitPlugin"),
     "HitMergePlugin": (".builtin.hit_merged", "HitMergePlugin"),
     "HitMergeClustersPlugin": (".builtin.hit_merge_clusters", "HitMergeClustersPlugin"),
     "HitMergedComponentsPlugin": (".builtin.hit_merged_components", "HitMergedComponentsPlugin"),
-    "HitMergedFeaturesPlugin": (".builtin.hit.hit_merged_features", "HitMergedFeaturesPlugin"),
+    "HitMergedFeaturesPlugin": (".builtin.hit_merged_features", "HitMergedFeaturesPlugin"),
     # Core infrastructure
     "Option": (".core", "Option"),
     "Plugin": (".core", "Plugin"),

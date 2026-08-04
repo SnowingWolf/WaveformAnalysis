@@ -4,12 +4,12 @@ from typing import Any
 
 import numpy as np
 
-from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.builtin.hit_merged._compute import (
     HIT_MERGE_CLUSTERS_DTYPE,
     _compute_canonical_cluster_rows,
     _materialize_array,
 )
+from waveform_analysis.core.plugins.builtin.hit_threshold import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.core.base import Plugin
 
 

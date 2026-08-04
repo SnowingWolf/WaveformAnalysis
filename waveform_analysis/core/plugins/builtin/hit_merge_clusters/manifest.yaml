@@ -8,4 +8,5 @@ third_party_dependencies:
   - numpy
 plugin_dependencies:
   - hit_merged
+  - hit_threshold
 category: feature_extraction

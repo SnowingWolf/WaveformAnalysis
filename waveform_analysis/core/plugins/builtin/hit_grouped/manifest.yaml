@@ -1,0 +1,11 @@
+provides: hit_grouped
+plugin_class: HitGroupedPlugin
+version: 0.5.0
+depends_on:
+  - hit_merged
+  - hit_merged_components
+  - hit_threshold
+third_party_dependencies:
+  - numpy
+plugin_dependencies: []
+category: feature_extraction

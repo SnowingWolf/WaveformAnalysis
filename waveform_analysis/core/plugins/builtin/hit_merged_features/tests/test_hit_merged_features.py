@@ -2,16 +2,18 @@ import numpy as np
 import pytest
 
 from tests.utils import DummyContext, make_hit, make_records
-from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
+from waveform_analysis.core.plugins.builtin.hit_merged._compute import (
     HIT_MERGED_COMPONENTS_DTYPE,
     HIT_MERGED_DTYPE,
 )
-from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import (
+from waveform_analysis.core.plugins.builtin.hit_merged_features import (
     HIT_MERGED_FEATURES_DTYPE,
     HitMergedFeaturesPlugin,
+)
+from waveform_analysis.core.plugins.builtin.hit_merged_features.plugin import (
     _polarity_sign_array,
 )
-from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
+from waveform_analysis.core.plugins.builtin.hit_threshold import THRESHOLD_HIT_DTYPE
 
 
 def _make_merged(
@@ -361,7 +363,7 @@ def test_hit_merged_features_new_option_feature_num_threads():
 
 
 def test_hit_merged_features_thread_option_covers_fallback(monkeypatch):
-    from waveform_analysis.core.plugins.builtin.hit import hit_merged_features as module
+    from waveform_analysis.core.plugins.builtin.hit_merged_features import plugin as module
 
     seen = {}
 
@@ -400,7 +402,7 @@ def test_hit_merged_features_thread_option_covers_fallback(monkeypatch):
 
 def test_hit_merged_features_no_build_component_slices_function():
     """验证 _build_component_slices 已被移除"""
-    from waveform_analysis.core.plugins.builtin.hit import hit_merged_features as mod
+    from waveform_analysis.core.plugins.builtin.hit_merged_features import plugin as mod
 
     assert not hasattr(mod, "_build_component_slices"), "_build_component_slices should be removed"
     assert not hasattr(mod, "_record_lookup"), "_record_lookup should be removed"

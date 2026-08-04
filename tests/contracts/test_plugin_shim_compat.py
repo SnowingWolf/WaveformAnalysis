@@ -279,3 +279,88 @@ def test_phase4c_dtypes_resolve_from_bundles():
             importlib.import_module(f"waveform_analysis.core.plugins.builtin.{bundle}"), name
         )
         assert old is new, f"{name}: {old_mod} 与 {bundle} bundle 不是同一对象"
+
+
+def test_hit_old_path_is_new_bundle():
+    """hit 迁移后，旧 cpu.peak_finding 深导入与新 hit bundle 指向同一 HitFinderPlugin。"""
+    from waveform_analysis.core.plugins.builtin.cpu.peak_finding import (
+        HIT_DTYPE as OldDT,
+    )
+    from waveform_analysis.core.plugins.builtin.cpu.peak_finding import (
+        HitFinderPlugin as Old,
+    )
+    from waveform_analysis.core.plugins.builtin.hit import HIT_DTYPE as NewDT
+    from waveform_analysis.core.plugins.builtin.hit import HitFinderPlugin as New
+
+    assert Old is New
+    assert OldDT is NewDT
+
+
+def test_hit_threshold_old_path_is_new_bundle():
+    """hit_threshold 迁移后，旧 hit.hit_finder 深导入与新 hit_threshold bundle 指向同一 ThresholdHitPlugin。"""
+    from waveform_analysis.core.plugins.builtin.hit.hit_finder import (
+        THRESHOLD_HIT_DTYPE as OldDT,
+    )
+    from waveform_analysis.core.plugins.builtin.hit.hit_finder import (
+        ThresholdHitPlugin as Old,
+    )
+    from waveform_analysis.core.plugins.builtin.hit_threshold import (
+        THRESHOLD_HIT_DTYPE as NewDT,
+    )
+    from waveform_analysis.core.plugins.builtin.hit_threshold import (
+        ThresholdHitPlugin as New,
+    )
+
+    assert Old is New
+    assert OldDT is NewDT
+
+
+def test_hit_threshold_numba_old_path_is_new_compute():
+    """hit_threshold_numba 迁移后，旧 hit.hit_threshold_numba 与新 hit_threshold._compute 指向同一内核。"""
+    from waveform_analysis.core.plugins.builtin.hit.hit_threshold_numba import (
+        count_ragged_hits as Old,
+    )
+    from waveform_analysis.core.plugins.builtin.hit_threshold._compute import (
+        count_ragged_hits as New,
+    )
+
+    assert Old is New
+
+
+def test_hit_grouped_old_path_is_new_bundle():
+    """hit_grouped 迁移后，旧 hit.hit_grouped 深导入与新 hit_grouped bundle 指向同一 HitGroupedPlugin。"""
+    from waveform_analysis.core.plugins.builtin.hit.hit_grouped import (
+        HitGroupedPlugin as Old,
+    )
+    from waveform_analysis.core.plugins.builtin.hit_grouped import (
+        HitGroupedPlugin as New,
+    )
+
+    assert Old is New
+
+
+def test_hit_merged_features_old_path_is_new_bundle():
+    """hit_merged_features 迁移后，旧 cpu/hit 深导入与新 hit_merged_features bundle 指向同一插件。"""
+    from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import (
+        HIT_MERGED_FEATURES_DTYPE as OldDT,
+    )
+    from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import (
+        HitMergedFeaturesPlugin as Old,
+    )
+    from waveform_analysis.core.plugins.builtin.hit.hit_merged_features import (
+        HIT_MERGED_FEATURES_DTYPE as OldDeepDT,
+    )
+    from waveform_analysis.core.plugins.builtin.hit.hit_merged_features import (
+        HitMergedFeaturesPlugin as OldDeep,
+    )
+    from waveform_analysis.core.plugins.builtin.hit_merged_features import (
+        HIT_MERGED_FEATURES_DTYPE as NewDT,
+    )
+    from waveform_analysis.core.plugins.builtin.hit_merged_features import (
+        HitMergedFeaturesPlugin as New,
+    )
+
+    assert Old is New
+    assert OldDeep is New
+    assert OldDT is NewDT
+    assert OldDeepDT is NewDT

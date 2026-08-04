@@ -22,10 +22,6 @@ CPU 插件模块 - 使用 NumPy/SciPy 实现
 # 事件分析插件（4b 负责 event_analysis 迁移）
 from .event_analysis import GroupedEventsPlugin, PairedEventsPlugin
 
-# CPU 寻峰插件
-from .peak_finding import HIT_DTYPE, HitFinderPlugin
-from .raw_files import RawFileNamesPlugin
-
 # Records 插件（4b 负责迁移）
 from .records import RecordsPlugin, WavePoolFilteredPlugin, WavePoolPlugin
 from .records_asymmetry import RecordsAsymmetryMaskPlugin
@@ -37,9 +33,6 @@ from .s1_s2_classifier import (
     S1_S2_CLASSIFIER_DTYPE,
     S1S2ClassifierPlugin,
 )
-
-# Backward-compatible aliases
-RawFilesPlugin = RawFileNamesPlugin
 
 # Lazy imports for backward compatibility - redirect to new locations
 _LAZY_IMPORTS = {
@@ -57,19 +50,22 @@ _LAZY_IMPORTS = {
     "PEAKLET_FEATURES_DTYPE": "..peaklet_features",
     "PEAKS_DTYPE": "..peaks",
     "PEAKLET_CHANNELS_DTYPE": "..peaklet_channels",
-    # Hit plugins (迁移到 hit/)
-    "HitGroupedPlugin": "..hit.hit_grouped",
-    "ThresholdHitPlugin": "..hit.hit_finder",
+    # Hit plugins (迁移到 per-provides bundle)
+    "HitFinderPlugin": "..hit",
+    "HIT_DTYPE": "..hit",
+    "HitGroupedPlugin": "..hit_grouped",
+    "ThresholdHitPlugin": "..hit_threshold",
     "HitMergePlugin": "..hit_merged",
     "HitMergeClustersPlugin": "..hit_merge_clusters",
     "HitMergedComponentsPlugin": "..hit_merged_components",
-    "HitMergedFeaturesPlugin": "..hit.hit_merged_features",
-    "THRESHOLD_HIT_DTYPE": "..hit.hit_finder",
+    "HitMergedFeaturesPlugin": "..hit_merged_features",
+    "THRESHOLD_HIT_DTYPE": "..hit_threshold",
     "HIT_MERGED_DTYPE": "..hit_merged",
     "HIT_MERGE_CLUSTERS_DTYPE": "..hit_merge_clusters",
     "HIT_MERGED_COMPONENTS_DTYPE": "..hit_merged_components",
-    "HIT_MERGED_FEATURES_DTYPE": "..hit.hit_merged_features",
+    "HIT_MERGED_FEATURES_DTYPE": "..hit_merged_features",
     # Phase 4c 迁移：cpu 单插件模块 → per-plugin bundle
+    "RawFileNamesPlugin": "..raw_files",
     "WaveformsPlugin": "..st_waveforms",
     "WaveformStruct": "..st_waveforms",
     "WaveformStructConfig": "..st_waveforms",
@@ -107,6 +103,7 @@ _LAZY_IMPORTS = {
 # 兼容别名（懒解析，保持 __all__ 中同名导出与主符号同一对象）
 _ALIASES = {
     "StWaveformsPlugin": "WaveformsPlugin",
+    "RawFilesPlugin": "RawFileNamesPlugin",
 }
 
 
