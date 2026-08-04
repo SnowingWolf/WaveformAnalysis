@@ -356,16 +356,16 @@ body.docs-page a:focus-visible, body.docs-page button:focus-visible, body.docs-p
 /* Detail pages mirror the LabVIEW-style lineage displayed in the analysis notebook. */
 .lineage-section--local .lineage-scroll { overflow-x: auto; overflow-y: hidden; padding: 12px; background: var(--doc-surface); }
 .lineage-graph--local { min-width: 780px; }
-.lineage-graph--local .lineage-edge { stroke: #aeb8be; stroke-width: 2.25; }
-.lineage-graph--local .lineage-arrowhead { fill: #aeb8be; }
-.lineage-graph--local .lineage-node { fill: #fafafa; stroke: #424242; stroke-width: 2; }
-.lineage-graph--local .lineage-node.is-focus { fill: #f4e7f6; stroke: #7b1fa2; stroke-width: 2.5; }
-.lineage-node-header { fill: #e0e0e0; stroke: #424242; stroke-width: 1; }
-.lineage-node-header.is-focus { fill: #d7b5dd; stroke: #7b1fa2; }
-.lineage-graph--local .lineage-node-title { fill: #2f3640; font: 700 14px system-ui, sans-serif; }
-.lineage-node-subtitle { fill: #7f8c8d; font: 11px system-ui, sans-serif; }
-.lineage-graph--local .lineage-node-metrics { fill: #5f6b66; font: 11px system-ui, sans-serif; }
-.lineage-port { fill: #bdc3c7; stroke: #424242; stroke-width: 1; }
+.lineage-graph--local .lineage-edge { stroke: #80908a; stroke-width: 2.25; }
+.lineage-graph--local .lineage-arrowhead { fill: #80908a; }
+.lineage-graph--local .lineage-node { fill: #fff; stroke: #087f5b; stroke-width: 2; }
+.lineage-graph--local .lineage-node.is-focus { fill: #fff1d8; stroke: var(--warm); stroke-width: 2.5; }
+.lineage-node-header { fill: #e8f6f0; stroke: #087f5b; stroke-width: 1; }
+.lineage-node-header.is-focus { fill: #fff1d8; stroke: var(--warm); }
+.lineage-graph--local .lineage-node-title { fill: var(--ink); font: 700 14px system-ui, sans-serif; }
+.lineage-node-subtitle { fill: var(--muted); font: 11px system-ui, sans-serif; }
+.lineage-graph--local .lineage-node-metrics { fill: var(--muted); font: 11px system-ui, sans-serif; }
+.lineage-port { fill: #087f5b; stroke: #087f5b; stroke-width: 1; }
 
 /* A short signature should wrap in its own panel instead of widening the document. */
 .member-signature { width: 100%; min-width: 0; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
