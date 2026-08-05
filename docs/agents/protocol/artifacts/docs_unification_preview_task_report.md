@@ -1,0 +1,28 @@
+# task_report
+
+- `task_id`: `docs_unification_preview`
+- `route`: `generate_docs`
+- `workflow_cost`: `light`
+- `workflow_shape`: `compact`
+- `scope`: Refine the standalone documentation-unification preview and add its target directory view; no generator, manifest, generated site, or README files are changed.
+- `actions_taken`:
+  - Added a dedicated "改完后的目录" section that shows the target `docs/`, generator, template, and test ownership boundaries.
+  - Aligned the preview with the recommended implementation: atomic schema v2 migration, directory discovery for Markdown, and provider-owned generated reference routes.
+  - Made README convergence an explicitly separate follow-up decision and changed the source-file action to work offline by default.
+- `changed_paths`:
+  - `docs_unification_preview.html`
+  - `docs/agents/protocol/artifacts/docs_unification_preview_task_report.md`
+- `verification`:
+  - `git diff --no-index --check /dev/null docs_unification_preview.html`: PASS.
+  - `git diff --check`: PASS.
+  - Legacy-plan consistency scan for `reference_pages`, `sync_docs_nav`, direct offline edit promises, v1/v2 compatibility, and premature confirmed README decisions: PASS; no matches.
+  - Firefox headless rendering of `docs_unification_preview.html`: PASS; the preview layout and schema block rendered without browser errors.
+- `decision`: `completed`
+- `commit_status`: `committed: see final handoff; the hash is assigned after this report enters the scoped commit`
+- `open_risks`:
+  - This is an implementation plan only. The schema, provider interface, and README follow-up remain subject to the pending decision-page selection before implementation.
+- `agent_profile`: `none`
+- `profile_plan`:
+  - Not applicable.
+- `agent_profile_review`:
+  - Reviewed the proposed directory ownership against the live `docs/site-guides.yaml`, `site_guides.py`, and hard-coded generated-page navigation.
