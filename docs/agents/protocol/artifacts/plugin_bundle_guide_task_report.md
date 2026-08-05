@@ -1,0 +1,39 @@
+# task_report
+
+- `task_id`: `plugin_bundle_guide`
+- `route`: `generate_docs`
+- `workflow_cost`: `light`
+- `workflow_shape`: `compact`
+- `scope`: Document the per-provides plugin bundle organization and publish it through the offline documentation system.
+- `actions_taken`:
+  - Added a standalone bundle guide covering directory ownership, manifests, public exports, compatibility re-exports, shared computation, Plugin Sets, and Profiles.
+  - Added the guide to the source documentation indexes and corrected the canonical plugin placement guidance.
+  - Published the guide through `docs/site-guides.yaml`, the plugin-system navigation tree, and the global search index.
+  - Regenerated the local `docs/_site` atomically after temporarily disabling an unrelated incomplete plugin-set image table in the publishing process.
+- `changed_paths`:
+  - `docs/plugins/guides/PLUGIN_BUNDLE_GUIDE.md`
+  - `docs/plugins/guides/PLUGIN_AUTHORING_GUIDE.md`
+  - `docs/plugins/README.md`
+  - `docs/site-guides.yaml`
+  - `docs/agents/plugins.md`
+  - `waveform_analysis/utils/templates/web/shell.html.j2`
+  - `tests/test_site_guides.py`
+  - `tests/test_site_plugin_guides_documentation.py`
+- `verification`:
+  - `pytest tests/test_site_guides.py -k 'not site_generation_rejects_guide_route_collision'`: PASS, 10 passed.
+  - Real manifest Markdown rendering: PASS, route `plugins/bundles.html`, 9 headings, no guide warnings.
+  - Atomic `docs/_site` publication with the unrelated missing image table disabled in-process: PASS, 74 generated files; route, navigation, search, and local links verified.
+  - `python scripts/render_agent_docs.py --check`: PASS.
+  - `scripts/check_doc_sync.sh`: PASS.
+  - `python scripts/check_doc_anchors.py --check-sync --base HEAD`: PASS with zero errors and zero warnings.
+  - `git diff --check` for scoped paths: PASS.
+  - Full site test baseline remains blocked before reaching this task's assertions because uncommitted `PLUGIN_SET_IMAGES` entries reference missing `plugin-sets/*.png` assets.
+- `decision`: `completed`
+- `commit_status`: `committed: see final handoff; the hash is assigned after this report enters the scoped commit`
+- `open_risks`:
+  - Canonical site generation without the temporary in-process image-table override remains blocked by unrelated, incomplete plugin-set image work in the current worktree.
+- `agent_profile`: `none`
+- `profile_plan`:
+  - Not applicable.
+- `agent_profile_review`:
+  - Source-of-truth, navigation discovery, route publication, search discovery, and dirty-tree isolation were reviewed inline.

@@ -25,3 +25,5 @@ sections:
     pages:
       - source: docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
         route: plugins/overview.html
+      - source: docs/plugins/guides/PLUGIN_BUNDLE_GUIDE.md
+        route: plugins/bundles.html

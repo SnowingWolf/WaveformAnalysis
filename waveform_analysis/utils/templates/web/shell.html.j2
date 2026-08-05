@@ -28,6 +28,7 @@
         <ul id="tree-plugins">
           <li><a href="{{ plugin_index_href }}"{% if current == "plugins" %} aria-current="page"{% endif %}>内置插件列表</a></li>
           <li><a href="{{ plugin_system_href }}"{% if current_guide_route == "plugins/overview.html" %} aria-current="page"{% endif %}>插件系统与模板 API</a></li>
+          {% for guide_section in guide_sections if guide_section.section_id == "plugin-system" %}{% for guide_page in guide_section.pages if guide_page.route != "plugins/overview.html" %}<li><a href="{{ site_root_prefix }}{{ guide_page.route }}"{% if current_guide_route == guide_page.route %} aria-current="page"{% endif %}>{{ guide_page.title }}</a></li>{% endfor %}{% endfor %}
         </ul>
       </li>
       {% if accessor_index_href %}<li class="site-tree-group">

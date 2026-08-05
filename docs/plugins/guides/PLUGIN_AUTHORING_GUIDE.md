@@ -26,14 +26,17 @@
 
 ### 插件放置位置
 
-- CPU 插件：`waveform_analysis/core/plugins/builtin/cpu/`
+- 新增内置插件：`waveform_analysis/core/plugins/builtin/<provides>/`
 - Streaming 插件：`waveform_analysis/core/plugins/builtin/streaming/`
-- Legacy 兼容：`waveform_analysis/core/plugins/builtin/legacy/`（不建议新增）
+- `builtin/cpu/`、家族入口和 legacy 模块仅保留兼容转发，不承载新的 canonical 插件实现
+
+每个正式 `provides` 使用独立 bundle，并包含 `manifest.yaml`、`plugin.py`、显式
+`__all__` 和定向测试。目录与属主规则详见[插件 Bundle 组织指南](PLUGIN_BUNDLE_GUIDE.md)。
 
 ### 推荐导入方式
 
 ```python
-from waveform_analysis.core.plugins.builtin.cpu import MyPlugin
+from waveform_analysis.core.plugins.builtin.my_data import MyPlugin
 ```
 
 ---

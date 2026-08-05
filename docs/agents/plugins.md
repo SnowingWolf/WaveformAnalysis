@@ -8,6 +8,14 @@
 - `version`
 - `output_dtype` 或 output kind
 
+## Bundle 组织
+
+- 每个正式 `provides` 对应 `waveform_analysis/core/plugins/builtin/<provides>/` 下的独立 bundle。
+- `manifest.yaml` 声明插件属主、版本与依赖，bundle 根目录的 `__all__` 声明公开导出。
+- `hit`、`peaks`、`builtin.cpu` 等兼容入口可以转发名称，但不取得兄弟插件的代码属主。
+- Plugin Set 与 Profile 只负责组合，不拥有插件实现。
+- 完整目录、共享计算和兼容规则见[插件 Bundle 组织指南](../plugins/guides/PLUGIN_BUNDLE_GUIDE.md)。
+
 ## 变更检查单
 1. `provides` 是否稳定且唯一
 2. `depends_on` 与 `resolve_depends_on()` 是否一致

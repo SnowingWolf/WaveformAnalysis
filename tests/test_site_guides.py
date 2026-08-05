@@ -17,6 +17,19 @@ def _manifest(project: Path, body: str) -> Path:
     return path
 
 
+def test_repository_manifest_publishes_plugin_bundle_guide():
+    manifest_path = Path(__file__).parents[1] / "docs" / "site-guides.yaml"
+
+    rendered = render_guide_manifest(load_guide_manifest(manifest_path))
+    pages = {page.route: page for section in rendered.sections for page in section.pages}
+    bundle_guide = pages["plugins/bundles.html"]
+
+    assert bundle_guide.title == "插件 Bundle 组织指南"
+    assert "一个正式插件产物的独立 Python 包" in bundle_guide.summary
+    assert any(heading.title == "Canonical Bundle 与兼容转发" for heading in bundle_guide.headings)
+    assert rendered.warnings == ()
+
+
 def test_manifest_renders_markdown_and_rewrites_selected_links_and_assets(tmp_path):
     _write(
         tmp_path / "docs" / "guides" / "start.md",
