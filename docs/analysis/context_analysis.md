@@ -370,7 +370,6 @@ ctx.list_plugin_configs("waveforms")  # 专门的配置列表方法
 ctx.clear_cache_for(run_id, data_name)           # 清理指定缓存
 ctx.clear_performance_caches()                   # 清理性能缓存
 ctx.clear_config_cache()                         # 清理配置缓存
-ctx.clear_time_index(run_id, data_name)          # 清理时间索引
 ```
 
 **建议**：统一接口或更清晰的层级关系

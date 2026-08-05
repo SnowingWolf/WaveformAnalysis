@@ -187,15 +187,6 @@ class ContextTimeDomain:
         self.ctx.logger.warning("Data '%s' is not a supported type, returning as-is", data_name)
         return data
 
-    def clear_time_index(self, run_id: str | None = None, data_name: str | None = None) -> None:
-        if hasattr(self.ctx, "_time_query_engine"):
-            self.ctx._time_query_engine.clear_index(run_id, data_name)
-
-    def get_time_index_stats(self) -> dict[str, Any]:
-        if hasattr(self.ctx, "_time_query_engine"):
-            return self.ctx._time_query_engine.get_stats()
-        return {"total_indices": 0, "indices": {}}
-
     def normalize_channel_ref(
         self,
         channel: int | HardwareChannel | tuple[int, int] | str | None,

@@ -169,9 +169,9 @@
 
 - `compat_id`: `context_time_domain_methods`
   - `kind`: `canonical_form`
-  - `canonical_form`: `set_epoch()`, `get_epoch()`, `auto_extract_epoch()`, `build_time_index()`, `clear_time_index()`, `get_time_index_stats()`
+  - `canonical_form`: `set_epoch()`, `get_epoch()`, `auto_extract_epoch()`, `build_time_index()`, `time_range()`, `get_data_time_range_absolute()`
   - `legacy_form`: N/A (已经是规范形态)
-  - `location`: `context.py:1951-2018`
+  - `location`: `context.py:2026-2089`
   - `runtime_surface`: `public_python_api`
   - `delete_action`: `keep`
   - `risk_level`: `low`

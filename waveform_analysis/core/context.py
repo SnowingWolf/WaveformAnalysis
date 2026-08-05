@@ -145,7 +145,6 @@ class Context:
             "clear_cache_for",
             "clear_config_cache",
             "clear_performance_caches",
-            "clear_time_index",
             "config",
             "get_data",
             "get_config",
@@ -153,7 +152,6 @@ class Context:
             "get_performance_report",
             "get_run_config",
             "get_run_hardware_channels",
-            "get_time_index_stats",
             "help",
             "key_for",
             "list_plugin_configs",
@@ -2066,12 +2064,6 @@ class Context:
             channel=channel,
             time_domain=time_domain,
         )
-
-    def clear_time_index(self, run_id: str | None = None, data_name: str | None = None):
-        self._time_domain.clear_time_index(run_id, data_name)
-
-    def get_time_index_stats(self) -> dict[str, Any]:
-        return self._time_domain.get_time_index_stats()
 
     def set_epoch(
         self,
