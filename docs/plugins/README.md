@@ -6,8 +6,7 @@ WaveformAnalysis 的插件系统文档，包括教程、开发指南和参考资
 
 ## 站点主入口
 
-- [插件系统与模板 API](PLUGIN_SYSTEM_OVERVIEW.md) - 系统边界、配置、静态/动态依赖、lineage、生命周期和 Chunk Plugin 的统一说明
-- [插件 Bundle 组织指南](guides/PLUGIN_BUNDLE_GUIDE.md) - 一个 `provides` 一个 bundle 的目录、属主、公开导出与兼容规则
+- [插件系统与模板 API](PLUGIN_SYSTEM_OVERVIEW.md) - 系统边界、配置、依赖、lineage、生命周期、Bundle 组织、Version 策略与 Plugin Set/Profile 的统一说明
 - [内置插件参考](reference/builtin/auto/INDEX.md) - 每个内置产物的依赖、配置和输出字段
 - 交互式 Plugin DAG - 在离线 HTML 文档的插件系统页面中打开独立 DAG 工具
 
@@ -15,22 +14,18 @@ WaveformAnalysis 的插件系统文档，包括教程、开发指南和参考资
 
 ### 🚀 入门（初学者）
 
-1. **[简单插件开发教程](tutorials/SIMPLE_PLUGIN_GUIDE.md)** - 从零开始写第一个插件
-2. **[插件功能概述](tutorials/PLUGIN_FEATURE.md)** - 了解插件系统的核心概念
+1. **[插件编写规范](PLUGIN_SYSTEM_OVERVIEW.md)** - 插件编写规范与最佳实践
 
 ### 📚 进阶（开发者）
 
 1. **[信号处理插件](tutorials/SIGNAL_PROCESSING_PLUGINS.md)** - 学习信号处理插件的实现
 2. **[流式插件开发指南](guides/STREAMING_PLUGINS_GUIDE.md)** - 开发流式处理插件
-3. **[插件集合与 Profile](guides/PLUGIN_SET_PROFILE_GUIDE.md)** - 组织和管理插件集合
 
 ### 🔧 开发（高级）
 
-1. **[插件 Bundle 组织指南](guides/PLUGIN_BUNDLE_GUIDE.md)** - 理解每个插件的目录和代码属主
-2. **[插件开发完整指南](guides/PLUGIN_AUTHORING_GUIDE.md)** - 深入学习插件开发
-3. **[DAQ 适配器指南](guides/DAQ_ADAPTER_GUIDE.md)** - 开发 DAQ 适配器
-4. **[适配器系统架构](reference/ADAPTER_SYSTEM_GUIDE.md)** - 理解适配器系统设计
-5. **[适配器与插件行为](reference/ADAPTER_PLUGIN_BEHAVIOR.md)** - 适配器与插件的交互
+1. **[插件开发完整指南](../development/plugin-development/plugin_guide.md)** - 深入学习插件开发
+2. **[适配器系统架构](reference/ADAPTER_SYSTEM_GUIDE.md)** - DAQ 适配器系统与使用指南
+3. **[适配器与插件行为](reference/ADAPTER_PLUGIN_BEHAVIOR.md)** - 适配器与插件的交互
 
 ## 文档结构
 
@@ -40,8 +35,6 @@ WaveformAnalysis 的插件系统文档，包括教程、开发指南和参考资
 
 | 文档 | 说明 |
 |------|------|
-| [SIMPLE_PLUGIN_GUIDE.md](tutorials/SIMPLE_PLUGIN_GUIDE.md) | 从零开始写第一个插件 |
-| [PLUGIN_FEATURE.md](tutorials/PLUGIN_FEATURE.md) | 插件功能概述与 Strax 适配器 |
 | [SIGNAL_PROCESSING_PLUGINS.md](tutorials/SIGNAL_PROCESSING_PLUGINS.md) | 信号处理插件实现示例 |
 
 ### 📋 [guides/](guides/) - 开发指南（开发者向）
@@ -50,11 +43,7 @@ WaveformAnalysis 的插件系统文档，包括教程、开发指南和参考资
 
 | 文档 | 说明 |
 |------|------|
-| [PLUGIN_BUNDLE_GUIDE.md](guides/PLUGIN_BUNDLE_GUIDE.md) | 插件 bundle 目录、属主、公开 API 与兼容转发 |
-| [PLUGIN_AUTHORING_GUIDE.md](guides/PLUGIN_AUTHORING_GUIDE.md) | 插件开发完整指南 |
 | [STREAMING_PLUGINS_GUIDE.md](guides/STREAMING_PLUGINS_GUIDE.md) | 流式插件开发指南 |
-| [PLUGIN_SET_PROFILE_GUIDE.md](guides/PLUGIN_SET_PROFILE_GUIDE.md) | 插件集合与 Profile 组合 |
-| [DAQ_ADAPTER_GUIDE.md](guides/DAQ_ADAPTER_GUIDE.md) | DAQ 适配器开发指南 |
 
 ### 🔍 [reference/](reference/) - 参考文档
 

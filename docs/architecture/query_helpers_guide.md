@@ -277,9 +277,8 @@ python examples/demo_hit_query.py
 
 ## 相关文档
 
-- [Peaklet S1/S2 分类插件](peaklet_s1_s2_classifier_update.md)
-- [DAQ Analyzer 使用指南](features/daq_analyzer_cache_display.md)
-- [插件参考文档](../waveform_analysis/core/plugins/README.md)
+- [DAQ Analyzer 使用指南](../features/daq_analyzer_cache_display.md)
+- [插件参考文档](../plugins/reference/builtin/auto/INDEX.md)
 
 ## 版本历史
 
