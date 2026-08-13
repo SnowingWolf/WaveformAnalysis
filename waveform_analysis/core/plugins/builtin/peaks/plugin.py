@@ -53,7 +53,7 @@ class PeaksPlugin(Plugin):
             "time_peak": "Absolute time (ps) of the peak maximum, copied from `peaklet_features`.",
             "center_time": "Center time (ps), copied from `peaklet_features`.",
             "rise_time": "Rise time (ns) from 10% to peak, copied from `peaklet_features`.",
-            "fall_time": "Fall time (ns) from peak to 90%, copied from `peaklet_features`.",
+            "fall_time": "Fall time (ns) between the 50% and 90% cumulative-area quantiles, copied from `peaklet_features`.",
             "width_25_75": "Width (ns) between the 25% and 75% area quantiles.",
             "rise_time_10_50": "Rise time (ns) between the 10% and 50% area quantiles.",
             "range_90p_area": "Time span (ns) covering the central 90% of the pulse area (5%-95%).",

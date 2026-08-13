@@ -243,7 +243,7 @@ def _compute_features_numba(
         out[i]["time_peak"] = time_peak
         out[i]["center_time"] = t50
         out[i]["rise_time"] = (time_peak - t10) / 1000.0
-        out[i]["fall_time"] = (t90 - time_peak) / 1000.0
+        out[i]["fall_time"] = (t90 - t50) / 1000.0
         out[i]["width_25_75"] = (t75 - t25) / 1000.0
         out[i]["rise_time_10_50"] = (t50 - t10) / 1000.0
         out[i]["range_90p_area"] = (t95 - t05) / 1000.0

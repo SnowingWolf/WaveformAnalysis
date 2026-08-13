@@ -97,7 +97,7 @@ class PeakClassificationPlugin(Plugin):
     - area: 面积
     - height: 高度
     - rise_time: 上升时间 (ns)，从 10% 到峰值
-    - fall_time: 下降时间 (ns)，从峰值到 90%
+    - fall_time: 下降时间 (ns)，50%-90% 面积分位数
     - rise_time_10_50: 上升时间 (ns)，从 10% 到 50%
     - width_25_75: 宽度 (ns)，25%-75%
     - range_90p_area: 90% 面积范围 (ns)
@@ -111,7 +111,43 @@ class PeakClassificationPlugin(Plugin):
     version = "1.2.1"
     save_when = "always"
     output_dtype = PEAK_CLASSIFICATION_DTYPE
-    agent_doc = {"field_notes": PEAK_CLASSIFICATION_FIELD_NOTES}
+    agent_doc = {
+        "field_notes": PEAK_CLASSIFICATION_FIELD_NOTES,
+        "config_notes": {
+            "priority_order": (
+                "分类优先级顺序（列表，从高到低）。按顺序检查每个标签，"
+                "返回第一个满足条件的类型。可用值: 's1', 's2', 's1_s2'。"
+                "示例: ['s1_s2', 's1', 's2'] 先判定 s1_s2，再 s1，最后 s2；"
+                "['s1', 's2', 's1_s2'] 则 S1 优先。"
+            ),
+            "default_label": (
+                "当不满足任何配置条件时的默认标签。可选值: 'unknown', 's1', 's2'。"
+                "默认 'unknown'（推荐，避免误判）。"
+            ),
+            "strict": (
+                "为 True 时，至少需要配置一个 s1_selection / s2_selection / "
+                "s1_s2_selection，否则抛出 RuntimeError。"
+            ),
+            "s1_selection": (
+                "S1 分类配置字典。accept_any: 条件组列表，满足任一组即候选（组间 OR）；"
+                "reject_any: 条件组列表，满足任一组即排除；条件组内字段条件为 AND。"
+                "可用字段: width, area, height, rise_time, fall_time, rise_time_10_50, "
+                "width_25_75, range_90p_area, n_hits, n_channels。"
+                "示例: {'accept_any': [{'width': (0, 100)}, {'area': (0, 500)}], "
+                "'reject_any': [{'width': (500, None)}]}"
+            ),
+            "s2_selection": "S2 分类配置，格式同 s1_selection。",
+            "s1_s2_selection": ("S1_S2 分类配置，格式同 s1_selection。命中后优先标记为 S1_S2。"),
+        },
+        "behavior_notes": [
+            "基于 peaks 表特征（width、area、height、rise_time、n_hits、n_channels 等）"
+            "把每条 peak 标记为 Unknown(0)、S1(1)、S2(2) 或 S1_S2(3)。",
+            "判定按 priority_order 顺序执行：为每个标签计算 selection 掩码，"
+            "返回第一个满足条件的标签；都不满足时返回 default_label。",
+            "accept_any 组间为 OR，组内字段条件为 AND；reject_any 命中即排除。",
+            "s1_s2_selection 命中时优先标记为 S1_S2，再考虑普通 S1/S2 规则。",
+        ],
+    }
 
     options = {
         "priority_order": Option(

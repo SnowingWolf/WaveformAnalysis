@@ -105,7 +105,7 @@ def test_peaklet_features_derive_waveform_fields_from_ragged_pool():
     assert float(out[0]["range_90p_area"]) > 0.0
 
 
-def test_peaklet_features_rise_fall_are_peak_based_and_width_25_75_is_area_based():
+def test_peaklet_features_rise_is_peak_based_fall_and_width_are_area_based():
     waveforms = _waveforms(
         [
             {
@@ -135,7 +135,7 @@ def test_peaklet_features_rise_fall_are_peak_based_and_width_25_75_is_area_based
     assert int(out[0]["time_peak"]) == 5000
     assert int(out[0]["center_time"]) == 4500
     assert float(out[0]["rise_time"]) == 3.25
-    assert float(out[0]["fall_time"]) == 2.25
+    assert float(out[0]["fall_time"]) == 2.75
     assert float(out[0]["width_25_75"]) == 2.875
     assert float(out[0]["rise_time_10_50"]) == 2.75
 

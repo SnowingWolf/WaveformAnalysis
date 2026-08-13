@@ -52,7 +52,7 @@ structured_array output with fields: peak_id, time_start, time_end, time_peak, c
 | `time_peak` | `int64` | ps | Time of the maximum sample value (ps) |
 | `center_time` | `int64` | ps | Center time of the peaklet (ps) |
 | `rise_time` | `float32` | ns | Rise time (ns) |
-| `fall_time` | `float32` | ns | Fall time (ns) |
+| `fall_time` | `float32` | ns | Fall time between the 50% and 90% cumulative-area quantiles (ns) |
 | `width_25_75` | `float32` | ns | Width between 25% and 75% of the peak (ns) |
 | `rise_time_10_50` | `float32` | ns | Rise time from 10% to 50% (ns) |
 | `range_90p_area` | `float32` | ns | Time range covering 90% of the waveform area (ns) |

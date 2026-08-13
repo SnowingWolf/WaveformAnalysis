@@ -865,7 +865,7 @@ peaklet_features:
     doc: Rise time (ns)
     units: ns
   fall_time:
-    doc: Fall time (ns)
+    doc: Fall time between the 50% and 90% cumulative-area quantiles (ns)
     units: ns
   width_25_75:
     doc: Width between 25% and 75% of the peak (ns)
@@ -927,7 +927,7 @@ peaks:
     doc: Rise time (ns)
     units: ns
   fall_time:
-    doc: Fall time (ns)
+    doc: Fall time between the 50% and 90% cumulative-area quantiles (ns)
     units: ns
   width_25_75:
     doc: Width between 25% and 75% of the peak (ns)

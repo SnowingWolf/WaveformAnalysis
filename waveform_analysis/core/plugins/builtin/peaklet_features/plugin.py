@@ -115,7 +115,7 @@ class PeakletFeaturesPlugin(Plugin):
             time_peak = int(time_left + max_idx * dt_ns * 1000)
 
             rise_time = float((time_peak - t10) / 1000.0)
-            fall_time = float((t90 - time_peak) / 1000.0)
+            fall_time = float((t90 - t50) / 1000.0)
             width_25_75 = float((t75 - t25) / 1000.0)
             rise_time_10_50 = float((t50 - t10) / 1000.0)
             range_90p_area = float((t95 - t05) / 1000.0)
