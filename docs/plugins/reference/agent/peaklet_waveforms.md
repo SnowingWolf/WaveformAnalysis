@@ -5,7 +5,7 @@ profile: "agent"
 provides: "peaklet_waveforms"
 plugin_class: "PeakletWaveformPlugin"
 module: "waveform_analysis.core.plugins.builtin.peaklet_waveforms.plugin"
-version: "1.4.0"
+version: "2.0.0"
 summary: "Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion."
 depends_on: []
 output_kind: "structured_array"
@@ -23,7 +23,7 @@ Build ragged waveform index rows for peaklets and cache the signal pool.
 | Provides | `peaklet_waveforms` |
 | Plugin Class | `PeakletWaveformPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaklet_waveforms.plugin` |
-| Version | `1.4.0` |
+| Version | `2.0.0` |
 | Category | 峰构建 |
 | Output Kind | `structured_array` |
 

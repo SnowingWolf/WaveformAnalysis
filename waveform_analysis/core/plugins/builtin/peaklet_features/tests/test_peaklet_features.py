@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from tests.utils import DummyContext
 from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import HIT_MERGED_FEATURES_DTYPE
@@ -8,7 +9,7 @@ from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PEAKLET_WAVEFORMS_DTYPE,
     PeakletFeaturesPlugin,
 )
-from waveform_analysis.core.plugins.builtin.peaklets import _compute as peaklets_module
+from waveform_analysis.core.plugins.builtin.peaklet_features import plugin as feature_module
 from waveform_analysis.core.plugins.builtin.peaklets._compute import (
     _compute_area_quantile_times,
 )
@@ -105,6 +106,94 @@ def test_peaklet_features_derive_waveform_fields_from_ragged_pool():
     assert float(out[0]["range_90p_area"]) > 0.0
 
 
+def test_peaklet_features_preserves_signed_area_and_first_quantile_crossing():
+    waveforms = _waveforms(
+        [
+            {
+                "peak_id": 0,
+                "time_start": 0,
+                "time_end": 4000,
+                "dt": 1,
+                "wave_offset": 0,
+                "wave_length": 4,
+            }
+        ]
+    )
+    wave = np.array([10.0, -8.0, 10.0, -2.0], dtype=np.float32)
+    ctx = DummyContext(
+        {},
+        {
+            "peaklets": _peaklets(1),
+            "peaklet_waveforms": waveforms,
+            "peaklet_waveform_pool": wave,
+        },
+    )
+
+    out = PeakletFeaturesPlugin().compute(ctx, "run_001")
+
+    assert float(out[0]["area"]) == float(np.sum(wave)) == 10.0
+    assert int(out[0]["center_time"]) == 0
+
+
+def test_peaklet_features_nonpositive_signed_area_is_not_rewritten_to_zero():
+    waveforms = _waveforms(
+        [
+            {
+                "peak_id": 0,
+                "time_start": 5000,
+                "time_end": 8000,
+                "dt": 1,
+                "wave_offset": 0,
+                "wave_length": 3,
+            }
+        ]
+    )
+    ctx = DummyContext(
+        {},
+        {
+            "peaklets": _peaklets(1),
+            "peaklet_waveforms": waveforms,
+            "peaklet_waveform_pool": np.array([-2.0, 1.0, -3.0], dtype=np.float32),
+        },
+    )
+
+    out = PeakletFeaturesPlugin().compute(ctx, "run_001")
+
+    assert float(out[0]["area"]) == -4.0
+    assert float(out[0]["height"]) == 1.0
+    assert int(out[0]["center_time"]) == 5000
+    assert int(out[0]["time_peak"]) == 6000
+
+
+def test_peaklet_features_numba_nonpositive_branch_matches_python(monkeypatch):
+    wave = np.array([-2.0, 1.0, -3.0], dtype=np.float32)
+    waveforms = _waveforms(
+        [
+            {
+                "peak_id": i,
+                "time_start": 5000 + i * 10_000,
+                "time_end": 8000 + i * 10_000,
+                "dt": 1,
+                "wave_offset": i * len(wave),
+                "wave_length": len(wave),
+            }
+            for i in range(11)
+        ]
+    )
+    data = {
+        "peaklets": _peaklets(11),
+        "peaklet_waveforms": waveforms,
+        "peaklet_waveform_pool": np.tile(wave, 11),
+    }
+
+    optimized = PeakletFeaturesPlugin().compute(DummyContext({}, data), "run_001")
+    monkeypatch.setattr(feature_module, "HAS_NUMBA", False)
+    reference = PeakletFeaturesPlugin().compute(DummyContext({}, data), "run_001")
+
+    for field in PEAKLET_FEATURES_DTYPE.names:
+        np.testing.assert_array_equal(optimized[field], reference[field], err_msg=field)
+
+
 def test_peaklet_features_rise_is_peak_based_fall_and_width_are_area_based():
     waveforms = _waveforms(
         [
@@ -193,11 +282,70 @@ def test_peaklet_features_numba_output_exactly_matches_python_dtype_and_values(m
     }
 
     optimized = PeakletFeaturesPlugin().compute(DummyContext({}, data), "run_001")
-    monkeypatch.setattr(peaklets_module, "HAS_NUMBA", False)
+    monkeypatch.setattr(feature_module, "HAS_NUMBA", False)
     reference = PeakletFeaturesPlugin().compute(DummyContext({}, data), "run_001")
 
     assert optimized.dtype == PEAKLET_FEATURES_DTYPE
     assert reference.dtype == PEAKLET_FEATURES_DTYPE
+    for field in PEAKLET_FEATURES_DTYPE.names:
+        np.testing.assert_array_equal(optimized[field], reference[field], err_msg=field)
+
+
+def test_peaklet_features_numba_matches_python_for_signed_nonmonotonic_cumsum(monkeypatch):
+    wave = np.array([10, -8, 10, -2, 5, -4, 10, -3, 1, -1, 2], dtype=np.float32)
+    waveforms = _waveforms(
+        [
+            {
+                "peak_id": i,
+                "time_start": i * 100_000,
+                "time_end": i * 100_000 + 11_000,
+                "dt": 1,
+                "wave_offset": i * len(wave),
+                "wave_length": len(wave),
+            }
+            for i in range(11)
+        ]
+    )
+    data = {
+        "peaklets": _peaklets(11),
+        "peaklet_waveforms": waveforms,
+        "peaklet_waveform_pool": np.tile(wave, 11),
+    }
+
+    optimized = PeakletFeaturesPlugin().compute(DummyContext({}, data), "run_001")
+    monkeypatch.setattr(feature_module, "HAS_NUMBA", False)
+    reference = PeakletFeaturesPlugin().compute(DummyContext({}, data), "run_001")
+
+    for field in PEAKLET_FEATURES_DTYPE.names:
+        np.testing.assert_array_equal(optimized[field], reference[field], err_msg=field)
+
+
+def test_peaklet_features_numba_matches_python_for_long_float32_waveform(monkeypatch):
+    rng = np.random.default_rng(20260817)
+    wave = rng.normal(loc=2.0, scale=20.0, size=10_000).astype(np.float32)
+    waveforms = _waveforms(
+        [
+            {
+                "peak_id": i,
+                "time_start": i * 20_000_000,
+                "time_end": i * 20_000_000 + len(wave) * 1000,
+                "dt": 1,
+                "wave_offset": i * len(wave),
+                "wave_length": len(wave),
+            }
+            for i in range(11)
+        ]
+    )
+    data = {
+        "peaklets": _peaklets(11),
+        "peaklet_waveforms": waveforms,
+        "peaklet_waveform_pool": np.tile(wave, 11),
+    }
+
+    optimized = PeakletFeaturesPlugin().compute(DummyContext({}, data), "run_001")
+    monkeypatch.setattr(feature_module, "HAS_NUMBA", False)
+    reference = PeakletFeaturesPlugin().compute(DummyContext({}, data), "run_001")
+
     for field in PEAKLET_FEATURES_DTYPE.names:
         np.testing.assert_array_equal(optimized[field], reference[field], err_msg=field)
 
@@ -218,7 +366,7 @@ def test_peaklet_features_empty_waveforms_return_empty_features():
     assert len(out) == 0
 
 
-def test_peaklet_channels_uses_peaklet_features_area_for_fraction():
+def test_peaklet_channels_rejects_fraction_when_channel_area_is_incomplete():
     from waveform_analysis.core.plugins.builtin.cpu.peaklet_channels import PeakletChannelsPlugin
     from waveform_analysis.core.plugins.builtin.cpu.peaklets import PEAKLET_COMPONENTS_DTYPE
 
@@ -237,16 +385,10 @@ def test_peaklet_channels_uses_peaklet_features_area_for_fraction():
     peaklet_features = np.zeros(1, dtype=PEAKLET_FEATURES_DTYPE)
     peaklet_features[0]["peak_id"] = 0
     peaklet_features[0]["area"] = 100.0
-    ctx = DummyContext(
-        {},
-        {
-            "peaklets": peaklets,
-            "peaklet_components": components,
-            "hit_merged_features": hit_features,
-            "peaklet_features": peaklet_features,
-        },
-    )
-
-    out = PeakletChannelsPlugin().compute(ctx, "run_001")
-
-    assert float(out[0]["area_fraction"]) == 0.25
+    with pytest.raises(ValueError, match="area conservation failed"):
+        PeakletChannelsPlugin()._compute_channels(
+            peaklets=peaklets,
+            components=components,
+            features=hit_features,
+            peaklet_features=peaklet_features,
+        )

@@ -5,7 +5,7 @@ profile: "agent"
 provides: "hit_merged_features"
 plugin_class: "HitMergedFeaturesPlugin"
 module: "waveform_analysis.core.plugins.builtin.hit_merged_features.plugin"
-version: "0.5.1"
+version: "1.0.0"
 summary: "Compute per-hit_merged local waveform features from records-backed samples."
 depends_on: []
 output_kind: "structured_array"
@@ -23,7 +23,7 @@ Compute local single-channel waveform features for every hit_merged row.
 | Provides | `hit_merged_features` |
 | Plugin Class | `HitMergedFeaturesPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.hit_merged_features.plugin` |
-| Version | `0.5.1` |
+| Version | `1.0.0` |
 | Category | 特征提取 |
 | Output Kind | `structured_array` |
 
@@ -39,6 +39,7 @@ Compute local single-channel waveform features for every hit_merged row.
 | --- | --- | --- | --- | --- | --- | --- |
 | `wave_source` | `str` | `records` | - | yes | no | 波形来源。hit_merged_features 当前正式支持 records。 |
 | `use_filtered` | `bool` | `False` | - | yes | no | 是否使用 wave_pool_filtered 计算局部特征。 |
+| `clip_negative_signal` | `bool` | `False` | - | yes | no | 是否在积分前把负的基线扣除采样裁剪为 0。默认 False，area 直接积分有符号波形；True 仅用于兼容旧行为。 |
 | `dt` | `int` | `None` | - | yes | no | 保留兼容配置；特征优先使用 records/hits 的 dt |
 | `gain_adc_per_pe` | `dict` | `None` | - | yes | no | 按硬件通道配置 ADC/PE 增益，键请使用 "board:channel"，例如 {"0:0": 12.5, "0:1": 13.2}。设置后会新增 area_pe/height_pe 列。 |
 | `normalize_to_pe` | `bool` | `False` | - | yes | no | 是否将 area/height 直接归一化为 PE 单位。False (默认): area/height 保持 ADC 单位，area_pe/height_pe 输出 PE 单位。True: area/height 归一化为 PE 单位，area_pe/height_pe 为 NaN。 |

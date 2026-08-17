@@ -139,17 +139,17 @@ raw_files ──► records ──► df ──► df_events
 | [`HitMergeClustersPlugin`](hit_merge_clusters.md) | `hit_merge_clusters` | 1.1.0 | 特征提取 | hit_merged, hit_threshold |
 | [`HitMergePlugin`](hit_merged.md) | `hit_merged` | 2.1.0 | 特征提取 | hit_threshold |
 | [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 1.1.0 | 特征提取 | hit_merged, hit_threshold |
-| [`HitMergedFeaturesPlugin`](hit_merged_features.md) | `hit_merged_features` | 0.5.1 | 特征提取 | - |
+| [`HitMergedFeaturesPlugin`](hit_merged_features.md) | `hit_merged_features` | 1.0.0 | 特征提取 | - |
 | [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.2.0 | 特征提取 | - |
 | [`PeakClassificationPlugin`](peak_classification.md) | `peak_classification` | 1.2.1 | 特征提取 | peaks |
-| [`PeakletChannelsPlugin`](peaklet_channels.md) | `peaklet_channels` | 1.0.1 | 峰构建 | peaklets, peaklet_components, hit_merged_features, peaklet_features |
+| [`PeakletChannelsPlugin`](peaklet_channels.md) | `peaklet_channels` | 2.0.0 | 峰构建 | peaklets, peaklet_components, hit_merged, hit_merged_components, hit_threshold, hit_merged_features, peaklet_features, records, wave_pool |
 | [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 1.4.0 | 峰构建 | hit_merged |
-| [`PeakletFeaturesPlugin`](peaklet_features.md) | `peaklet_features` | 4.1.0 | 峰构建 | peaklet_waveforms, peaklet_waveform_pool, peaklets |
-| [`PeakletWaveformPoolPlugin`](peaklet_waveform_pool.md) | `peaklet_waveform_pool` | 2.0.0 | 峰构建 | peaklet_waveforms |
-| [`PeakletWaveformPlugin`](peaklet_waveforms.md) | `peaklet_waveforms` | 1.4.0 | 峰构建 | - |
+| [`PeakletFeaturesPlugin`](peaklet_features.md) | `peaklet_features` | 5.0.0 | 峰构建 | peaklet_waveforms, peaklet_waveform_pool, peaklets |
+| [`PeakletWaveformPoolPlugin`](peaklet_waveform_pool.md) | `peaklet_waveform_pool` | 3.0.0 | 峰构建 | peaklet_waveforms |
+| [`PeakletWaveformPlugin`](peaklet_waveforms.md) | `peaklet_waveforms` | 2.0.0 | 峰构建 | - |
 | [`PeakletPlugin`](peaklets.md) | `peaklets` | 1.2.0 | 峰构建 | hit_merged, peaklet_components |
-| [`PeaksPlugin`](peaks.md) | `peaks` | 4.0.1 | 特征提取 | peaklets, peaklet_features, peaklet_channels |
-| [`PositionReconstructionPlugin`](position_reconstruction.md) | `position_reconstruction` | 0.2.1 | 其他 | s1_s2_pairs |
+| [`PeaksPlugin`](peaks.md) | `peaks` | 5.0.0 | 特征提取 | peaklets, peaklet_features, peaklet_channels |
+| [`PositionReconstructionPlugin`](position_reconstruction.md) | `position_reconstruction` | 0.3.0 | 其他 | s1_s2_pairs, peaklet_channels |
 | [`RawFileNamesPlugin`](raw_files.md) | `raw_files` | 0.0.2 | 数据加载 | - |
 | [`RecordsPlugin`](records.md) | `records` | 0.14.2 | 记录处理 | - |
 | [`RecordsAsymmetryMaskPlugin`](records_asymmetry_mask.md) | `records_asymmetry_mask` | 0.2.0 | 记录处理 | records, wave_pool |
@@ -197,7 +197,7 @@ raw_files ──► records ──► df ──► df_events
 
 | 插件 | 说明 | 依赖 |
 |------|------|------|
-| [`peaklet_channels`](peaklet_channels.md) | Aggregate hit_merged_features into per-peaklet channel contr... | peaklets, peaklet_components, hit_merged_features, peaklet_features |
+| [`peaklet_channels`](peaklet_channels.md) | Reconstruct deduplicated per-peaklet channel waveform contri... | peaklets, peaklet_components, hit_merged, hit_merged_components, hit_threshold, hit_merged_features, peaklet_features, records, wave_pool |
 | [`peaklet_components`](peaklet_components.md) | Return per-peaklet component hit_merged indices. | hit_merged |
 | [`peaklet_features`](peaklet_features.md) | Compute peaklet waveform features from ragged signal pools. | peaklet_waveforms, peaklet_waveform_pool, peaklets |
 | [`peaklet_waveform_pool`](peaklet_waveform_pool.md) | Return the flattened float32 signal pool paired with peaklet... | peaklet_waveforms |
@@ -271,7 +271,7 @@ raw_files ──► records ──► df ──► df_events
 | 插件 | 说明 | 依赖 |
 |------|------|------|
 | [`energy_reconstruction`](energy_reconstruction.md) | Reconstruct energy from selected S1-S2 pairs | s1_s2_pairs |
-| [`position_reconstruction`](position_reconstruction.md) | Reconstruct 3D position from S1-S2 pairs using vectorized Co... | s1_s2_pairs |
+| [`position_reconstruction`](position_reconstruction.md) | Reconstruct 3D position from S1-S2 pairs using vectorized Co... | s1_s2_pairs, peaklet_channels |
 
 
 ---

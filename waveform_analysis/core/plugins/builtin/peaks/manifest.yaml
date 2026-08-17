@@ -1,6 +1,6 @@
 provides: peaks
 plugin_class: PeaksPlugin
-version: 4.0.1
+version: 5.0.0
 depends_on:
   - peaklets
   - peaklet_features

@@ -1,8 +1,9 @@
 provides: position_reconstruction
 plugin_class: PositionReconstructionPlugin
-version: 0.2.1
+version: 0.3.0
 depends_on:
   - s1_s2_pairs
+  - peaklet_channels
 third_party_dependencies:
   - numpy
 plugin_dependencies: []

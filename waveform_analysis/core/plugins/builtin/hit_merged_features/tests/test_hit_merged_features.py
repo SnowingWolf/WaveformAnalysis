@@ -14,6 +14,9 @@ from waveform_analysis.core.plugins.builtin.hit_merged_features.plugin import (
     _polarity_sign_array,
 )
 from waveform_analysis.core.plugins.builtin.hit_threshold import THRESHOLD_HIT_DTYPE
+from waveform_analysis.core.plugins.builtin.shared.waveform_merge import (
+    WaveformOverlapConflictError,
+)
 
 
 def _make_merged(
@@ -54,7 +57,9 @@ def _components(pairs):
     return out
 
 
-def _context(merged, components, hits, wave_pool, *, filtered_pool=None):
+def _context(
+    merged, components, hits, wave_pool, *, filtered_pool=None, clip_negative_signal=False
+):
     records = make_records(
         n_records=max(len(wave_pool) // 10, 1), event_length=10, baseline=100.0, dt=2
     )
@@ -69,7 +74,14 @@ def _context(merged, components, hits, wave_pool, *, filtered_pool=None):
     }
     if filtered_pool is not None:
         data["wave_pool_filtered"] = filtered_pool
-    return DummyContext({"wave_source": "records", "use_filtered": filtered_pool is not None}, data)
+    return DummyContext(
+        {
+            "wave_source": "records",
+            "use_filtered": filtered_pool is not None,
+            "clip_negative_signal": clip_negative_signal,
+        },
+        data,
+    )
 
 
 def _legacy_fallback_values(hits, records, wave_pool):
@@ -193,6 +205,34 @@ def test_hit_merged_features_positive_polarity_direct_window():
     assert int(out[0]["max_time"]) == 6000
 
 
+def test_hit_merged_features_integrates_signed_waveform_by_default():
+    hit = make_hit(record_id=0, edge_start=2, edge_end=5)
+    merged = np.array(
+        [_make_merged(record_id=0, sample_start=2, sample_end=5)], dtype=HIT_MERGED_DTYPE
+    )
+    wave_pool = np.array([100, 100, 90, 120, 70, 100, 100, 100, 100, 100], dtype=np.uint16)
+    components = _components([(0, 0)])
+    hits = np.array([hit], dtype=THRESHOLD_HIT_DTYPE)
+
+    signed = HitMergedFeaturesPlugin().compute(
+        _context(merged, components, hits, wave_pool), "run_001"
+    )
+    clipped = HitMergedFeaturesPlugin().compute(
+        _context(
+            merged,
+            components,
+            hits,
+            wave_pool,
+            clip_negative_signal=True,
+        ),
+        "run_001",
+    )
+
+    assert float(signed[0]["area"]) == 20.0
+    assert float(signed[0]["height"]) == 30.0
+    assert float(clipped[0]["area"]) == 40.0
+
+
 def test_hit_merged_features_polarity_sign_array_vectorized_string_dtypes():
     unicode_records = make_records(n_records=3)
     unicode_records["polarity"] = ["negative", "positive", "unknown"]
@@ -241,7 +281,7 @@ def test_hit_merged_features_fallback_for_invalid_cross_record_window():
             100,
             100,
             100,
-            70,
+            80,
             70,
             100,
             100,
@@ -256,13 +296,13 @@ def test_hit_merged_features_fallback_for_invalid_cross_record_window():
     out = HitMergedFeaturesPlugin().compute(ctx, "run_001")
 
     assert len(out) == 1
-    assert float(out[0]["area"]) == 100.0
+    assert float(out[0]["area"]) == 70.0
     assert float(out[0]["height"]) == 30.0
     assert int(out[0]["n_hits"]) == 2
     assert int(out[0]["valid"]) == 1
 
 
-def test_hit_merged_features_fallback_keeps_unclipped_time_edges():
+def test_hit_merged_features_fallback_uses_clipped_waveform_time_edges():
     hit = make_hit(record_id=0, edge_start=-2, edge_end=2)
     merged = np.array(
         [_make_merged(record_id=0, sample_start=-1, sample_end=-1)], dtype=HIT_MERGED_DTYPE
@@ -274,9 +314,9 @@ def test_hit_merged_features_fallback_keeps_unclipped_time_edges():
 
     out = HitMergedFeaturesPlugin().compute(ctx, "run_001")
 
-    assert int(out[0]["time_start"]) == -4000
+    assert int(out[0]["time_start"]) == 0
     assert int(out[0]["time_end"]) == 4000
-    assert int(out[0]["max_time"]) == -4000
+    assert int(out[0]["max_time"]) == 0
 
 
 def test_hit_merged_features_fallback_rejects_empty_component_window():
@@ -347,9 +387,9 @@ def test_hit_merged_features_raises_when_record_missing():
         HitMergedFeaturesPlugin().compute(ctx, "run_001")
 
 
-def test_hit_merged_features_plugin_version_is_051():
-    """Fallback validation and cache semantics require a PATCH lineage bump."""
-    assert HitMergedFeaturesPlugin.version == "0.5.1"
+def test_hit_merged_features_plugin_version_is_100():
+    """Signed integration and overlap semantics require a MAJOR lineage bump."""
+    assert HitMergedFeaturesPlugin.version == "1.0.0"
 
 
 def test_hit_merged_features_new_option_feature_num_threads():
@@ -373,12 +413,14 @@ def test_hit_merged_features_thread_option_covers_fallback(monkeypatch):
     def fake_validate(*_args):
         return 0, -1, -1, 0, 0
 
-    def fake_fallback(*_args):
+    def fake_fallback(**_kwargs):
         seen["fallback"] = module.nb.get_num_threads()
 
     monkeypatch.setattr(module, "_features_fast_kernel", fake_fast)
     monkeypatch.setattr(module, "_validate_fallback_components_kernel", fake_validate)
-    monkeypatch.setattr(module, "_features_fallback_kernel", fake_fallback)
+    monkeypatch.setattr(
+        HitMergedFeaturesPlugin, "_compute_fallback_features", staticmethod(fake_fallback)
+    )
 
     hit = make_hit(record_id=0)
     merged = np.array(
@@ -445,10 +487,18 @@ def test_hit_merged_features_output_dtype_integrity():
     assert expected_fields == actual_fields, f"Missing fields: {expected_fields - actual_fields}"
 
 
-def test_hit_merged_features_fallback_matches_legacy_reference_exactly():
+def test_hit_merged_features_fallback_clip_option_matches_legacy_reference_exactly():
     rng = np.random.default_rng(7)
     hits = np.array(
-        [make_hit(record_id=index, edge_start=0, edge_end=10) for index in range(100)],
+        [
+            make_hit(
+                record_id=index,
+                edge_start=0,
+                edge_end=10,
+                timestamp=index * 20_000,
+            )
+            for index in range(100)
+        ],
         dtype=THRESHOLD_HIT_DTYPE,
     )
     merged = np.array(
@@ -456,7 +506,13 @@ def test_hit_merged_features_fallback_matches_legacy_reference_exactly():
         dtype=HIT_MERGED_DTYPE,
     )
     wave_pool = rng.integers(60, 121, size=1000, dtype=np.uint16)
-    ctx = _context(merged, _components([(0, index) for index in range(len(hits))]), hits, wave_pool)
+    ctx = _context(
+        merged,
+        _components([(0, index) for index in range(len(hits))]),
+        hits,
+        wave_pool,
+        clip_negative_signal=True,
+    )
     ctx._data["records"]["baseline"] = 100.3
 
     out = HitMergedFeaturesPlugin().compute(ctx, "run_001")

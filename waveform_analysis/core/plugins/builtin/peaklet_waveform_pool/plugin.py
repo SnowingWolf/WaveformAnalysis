@@ -25,7 +25,7 @@ class PeakletWaveformPoolPlugin(Plugin):
         "Return the flattened float32 signal pool paired with peaklet_waveforms. "
         "Configure waveform construction on peaklet_waveforms."
     )
-    version = "2.0.0"
+    version = "3.0.0"
     output_dtype = np.dtype("f4")
     save_when = "always"
     agent_doc = {

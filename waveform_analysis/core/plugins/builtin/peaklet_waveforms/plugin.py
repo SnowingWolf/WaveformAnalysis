@@ -7,6 +7,9 @@ from typing import Any
 import numpy as np
 
 from waveform_analysis.core.plugins.builtin.cpu._record_utils import RecordLookup
+from waveform_analysis.core.plugins.builtin.shared.waveform_merge import (
+    merge_waveform_segments,
+)
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 try:
@@ -98,10 +101,7 @@ def _process_peaklet_batch(batch_data: dict) -> tuple[np.ndarray, np.ndarray]:
             rows.append((peaklet_id, 0, 0, 0, wave_offset, 0))
             continue
 
-        pieces: list[tuple[int, int, np.ndarray]] = []
-        dt_ns: int | None = None
-        time_start: int | None = None
-        time_end: int | None = None
+        segments: list[dict[str, Any]] = []
 
         for merged_index in merged_indices:
             hit = merged[int(merged_index)]
@@ -130,21 +130,24 @@ def _process_peaklet_batch(batch_data: dict) -> tuple[np.ndarray, np.ndarray]:
                     clip_negative_signal=clip_negative_signal,
                 )
 
-                for start_ps, end_ps, piece_dt_ns, signal in multi_pieces:
+                for start_ps, _end_ps, piece_dt_ns, signal, record_id in multi_pieces:
                     if len(signal) == 0:
                         continue
-                    if dt_ns is None:
-                        dt_ns = piece_dt_ns
-                    elif piece_dt_ns != dt_ns:
-                        raise ValueError(
-                            f"peaklet_waveforms does not support mixed dt in peaklet_id={peaklet_id}"
-                        )
-                    pieces.append((start_ps, end_ps, signal))
-                    time_start = start_ps if time_start is None else min(time_start, start_ps)
-                    time_end = end_ps if time_end is None else max(time_end, end_ps)
+                    segments.append(
+                        {
+                            "waveform": signal,
+                            "abs_time_ps": start_ps
+                            + np.arange(len(signal), dtype=np.int64) * piece_dt_ns * 1000,
+                            "dt": piece_dt_ns,
+                            "board": int(hit["board"]),
+                            "channel": int(hit["channel"]),
+                            "record_id": record_id,
+                            "merged_index": int(merged_index),
+                        }
+                    )
             else:
                 # Single-record path
-                start_ps, end_ps, piece_dt_ns, signal = _merged_wave_piece(
+                start_ps, _end_ps, piece_dt_ns, signal, record_id = _merged_wave_piece(
                     hit=hit,
                     records=records,
                     record_lookup=record_lookup,
@@ -153,27 +156,34 @@ def _process_peaklet_batch(batch_data: dict) -> tuple[np.ndarray, np.ndarray]:
                 )
                 if len(signal) == 0:
                     continue
-                if dt_ns is None:
-                    dt_ns = piece_dt_ns
-                elif piece_dt_ns != dt_ns:
-                    raise ValueError(
-                        f"peaklet_waveforms does not support mixed dt in peaklet_id={peaklet_id}"
-                    )
-                pieces.append((start_ps, end_ps, signal))
-                time_start = start_ps if time_start is None else min(time_start, start_ps)
-                time_end = end_ps if time_end is None else max(time_end, end_ps)
+                segments.append(
+                    {
+                        "waveform": signal,
+                        "abs_time_ps": start_ps
+                        + np.arange(len(signal), dtype=np.int64) * piece_dt_ns * 1000,
+                        "dt": piece_dt_ns,
+                        "board": int(hit["board"]),
+                        "channel": int(hit["channel"]),
+                        "record_id": record_id,
+                        "merged_index": int(merged_index),
+                    }
+                )
 
-        if not pieces or dt_ns is None or time_start is None or time_end is None:
+        if not segments:
             rows.append((peaklet_id, 0, 0, 0, wave_offset, 0))
             continue
 
-        dt_ps = dt_ns * 1000
-        wave_length = int((time_end - time_start) // dt_ps)
-        summed = np.zeros(wave_length, dtype=np.float32)
-
-        for start_ps, _end_ps, signal in pieces:
-            i0 = int((start_ps - time_start) // dt_ps)
-            summed[i0 : i0 + len(signal)] += signal
+        merged_waveform = merge_waveform_segments(
+            segments,
+            sum_channels=True,
+            dense=True,
+            context=f"peaklet_id={peaklet_id}",
+        )
+        summed = merged_waveform["waveform"]
+        dt_ns = int(merged_waveform["dt"])
+        time_start = int(merged_waveform["abs_time_ps"][0])
+        wave_length = len(summed)
+        time_end = time_start + wave_length * dt_ns * 1000
 
         rows.append((peaklet_id, time_start, time_end, dt_ns, wave_offset, wave_length))
         pools.append(summed)
@@ -191,7 +201,7 @@ class PeakletWaveformPlugin(Plugin):
     provides = "peaklet_waveforms"
     depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion."
-    version = "1.4.0"
+    version = "2.0.0"
     output_dtype = PEAKLET_WAVEFORMS_DTYPE
     save_when = "always"
 
@@ -298,6 +308,8 @@ class PeakletWaveformPlugin(Plugin):
         hit_threshold = context.get_data(run_id, "hit_threshold")
 
         records = _record_array(context.get_data(run_id, "records"))
+        if "dt" not in (records.dtype.names or ()):
+            raise KeyError("records dt field is required")
         wave_pool_name = (
             "wave_pool_filtered" if bool(context.get_config(self, "use_filtered")) else "wave_pool"
         )
@@ -338,6 +350,29 @@ class PeakletWaveformPlugin(Plugin):
             is_single_record = np.ones(len(merged), dtype=bool)
         has_cross_record = not np.all(is_single_record)
 
+        requires_canonical = has_cross_record or self._has_overlapping_channel_windows(
+            components=components,
+            merged=merged,
+            is_single_record=np.asarray(is_single_record, dtype=bool),
+            records=records,
+        )
+        if not requires_canonical:
+            requires_canonical = not self._numba_inputs_are_canonical_safe(
+                peaklets=peaklets,
+                components=components,
+                merged=merged,
+                records=records,
+                wave_pool=wave_pool,
+            )
+        if requires_canonical:
+            return self._build_canonical(
+                peaklets=peaklets,
+                components=components,
+                merged=merged,
+                records=records,
+                wave_pool=wave_pool,
+            )
+
         # If no cross-record hits, use pure Numba path
         if not has_cross_record and HAS_NUMBA and len(peaklets) > 5:
             try:
@@ -356,25 +391,152 @@ class PeakletWaveformPlugin(Plugin):
                     f"falling back to Python: {e}"
                 )
 
-        if has_cross_record and HAS_NUMBA:
-            try:
-                return self._build_cross_record_numba(
-                    peaklets=peaklets,
-                    components=components,
-                    merged=merged,
-                    is_single_record=np.asarray(is_single_record, dtype=bool),
-                    records=records,
-                    wave_pool=wave_pool,
+        # Python fallback for all cases
+        return self._build_canonical(
+            peaklets=peaklets,
+            components=components,
+            merged=merged,
+            records=records,
+            wave_pool=wave_pool,
+        )
+
+    def _has_overlapping_channel_windows(
+        self,
+        *,
+        components: np.ndarray,
+        merged: np.ndarray,
+        is_single_record: np.ndarray,
+        records: np.ndarray,
+    ) -> bool:
+        """Return whether one peak/channel has overlapping sample windows."""
+        if "dt" not in (records.dtype.names or ()):
+            raise KeyError("records dt field is required")
+        record_lookup = RecordLookup(records)
+        hit_threshold = getattr(self, "_hit_threshold", None)
+        component_rows = getattr(self, "_hit_merged_components", None)
+        merged_to_hits = (
+            _build_hit_merged_components_index(component_rows)
+            if isinstance(component_rows, np.ndarray) and len(component_rows)
+            else {}
+        )
+        windows: list[tuple[int, int, int, int, int]] = []
+
+        for component in components:
+            peaklet_id = int(component["peak_id"])
+            merged_index = int(component["merged_index"])
+            hit = merged[merged_index]
+            board = int(hit["board"])
+            channel = int(hit["channel"])
+
+            if bool(is_single_record[merged_index]):
+                record = record_lookup.get(int(hit["record_id"]))
+                if record is None:
+                    continue
+                start = int(hit["sample_start"])
+                end = int(hit["sample_end"])
+                dt_ps = int(record["dt"]) * 1000
+                timestamp = int(record["timestamp"])
+                windows.append(
+                    (peaklet_id, board, channel, timestamp + start * dt_ps, timestamp + end * dt_ps)
                 )
-            except Exception as e:
-                if getattr(self, "_debug_numba", False):
-                    raise
-                logger.warning(
-                    f"Cross-record Numba path failed for peaklet_waveforms, "
-                    f"falling back to pure Python: {e}"
+                continue
+
+            if not isinstance(hit_threshold, np.ndarray):
+                continue
+            for hit_index in merged_to_hits.get(merged_index, ()):  # cross-record members
+                component_hit = hit_threshold[int(hit_index)]
+                record = record_lookup.get(int(component_hit["record_id"]))
+                if record is None:
+                    continue
+                start = int(component_hit["edge_start"])
+                end = int(component_hit["edge_end"])
+                dt_ps = int(record["dt"]) * 1000
+                timestamp = int(record["timestamp"])
+                windows.append(
+                    (peaklet_id, board, channel, timestamp + start * dt_ps, timestamp + end * dt_ps)
                 )
 
-        # Python fallback for all cases
+        windows.sort(key=lambda row: (row[0], row[1], row[2], row[3], row[4]))
+        previous_key: tuple[int, int, int] | None = None
+        previous_end = 0
+        for peaklet_id, board, channel, start, end in windows:
+            key = (peaklet_id, board, channel)
+            if key == previous_key and start < previous_end:
+                return True
+            if key != previous_key:
+                previous_key = key
+                previous_end = end
+            else:
+                previous_end = max(previous_end, end)
+        return False
+
+    def _numba_inputs_are_canonical_safe(
+        self,
+        *,
+        peaklets: np.ndarray,
+        components: np.ndarray,
+        merged: np.ndarray,
+        records: np.ndarray,
+        wave_pool: np.ndarray,
+    ) -> bool:
+        """Return whether the all-single Numba path satisfies merger invariants."""
+        record_lookup = RecordLookup(records)
+        for merged_indices in _components_by_peaklet(components, len(peaklets)):
+            common_dt_ps: int | None = None
+            grid_origin: int | None = None
+            for merged_index in merged_indices:
+                hit = merged[int(merged_index)]
+                record = record_lookup.get(int(hit["record_id"]))
+                if record is None:
+                    return False
+                start = max(0, int(hit["sample_start"]))
+                end = min(int(record["event_length"]), int(hit["sample_end"]))
+                if end <= start:
+                    continue
+                dt_ns = int(record["dt"])
+                if dt_ns <= 0:
+                    return False
+                dt_ps = dt_ns * 1000
+                abs_start = int(record["timestamp"]) + start * dt_ps
+                if common_dt_ps is None:
+                    common_dt_ps = dt_ps
+                    grid_origin = abs_start
+                elif dt_ps != common_dt_ps or (abs_start - int(grid_origin)) % dt_ps != 0:
+                    return False
+                baseline = float(record["baseline"])
+                offset = int(record["wave_offset"])
+                raw = wave_pool[offset + start : offset + end]
+                if not np.isfinite(baseline) or not np.all(np.isfinite(raw)):
+                    return False
+        return True
+
+    def _build_canonical(
+        self,
+        *,
+        peaklets: np.ndarray,
+        components: np.ndarray,
+        merged: np.ndarray,
+        records: np.ndarray,
+        wave_pool: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Build with the provenance-aware merger, optionally across processes."""
+        n_workers = int(getattr(self, "_n_workers", 1))
+        parallel_threshold = int(getattr(self, "_parallel_threshold", 5000))
+        if (
+            HAS_MULTIPROCESSING
+            and n_workers != 1
+            and len(peaklets) >= parallel_threshold
+            and isinstance(getattr(self, "_hit_merged_components", None), np.ndarray)
+            and isinstance(getattr(self, "_hit_threshold", None), np.ndarray)
+        ):
+            return self._build_python_parallel(
+                peaklets=peaklets,
+                components=components,
+                merged=merged,
+                records=records,
+                wave_pool=wave_pool,
+                n_workers=n_workers,
+            )
         return self._build_python(
             peaklets=peaklets,
             components=components,
@@ -393,6 +555,31 @@ class PeakletWaveformPlugin(Plugin):
         records: np.ndarray,
         wave_pool: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
+        # Cross-record occupancy and provenance validation are canonical-only.
+        # Keep this entry point for compatibility with internal callers/tests.
+        return self._build_canonical(
+            peaklets=peaklets,
+            components=components,
+            merged=merged,
+            records=records,
+            wave_pool=wave_pool,
+        )
+
+        # Legacy two-pass implementation retained below while cached callers
+        # migrate to the canonical path.
+        if self._has_overlapping_channel_windows(
+            components=components,
+            merged=merged,
+            is_single_record=is_single_record,
+            records=records,
+        ):
+            return self._build_python(
+                peaklets=peaklets,
+                components=components,
+                merged=merged,
+                records=records,
+                wave_pool=wave_pool,
+            )
         hit_merged_components = getattr(self, "_hit_merged_components", None)
         hit_threshold = getattr(self, "_hit_threshold", None)
         if not isinstance(hit_merged_components, np.ndarray) or not isinstance(
@@ -732,6 +919,25 @@ class PeakletWaveformPlugin(Plugin):
         wave_pool: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Numba 加速路径 - 仅处理单 record 的 hit_merged"""
+        if self._has_overlapping_channel_windows(
+            components=components,
+            merged=merged,
+            is_single_record=np.ones(len(merged), dtype=bool),
+            records=records,
+        ) or not self._numba_inputs_are_canonical_safe(
+            peaklets=peaklets,
+            components=components,
+            merged=merged,
+            records=records,
+            wave_pool=wave_pool,
+        ):
+            return self._build_canonical(
+                peaklets=peaklets,
+                components=components,
+                merged=merged,
+                records=records,
+                wave_pool=wave_pool,
+            )
         # Note: Caller (_build_hybrid) ensures all merged hits are single-record
         # No need to check for cross-record here
 
@@ -920,10 +1126,7 @@ class PeakletWaveformPlugin(Plugin):
                 rows.append((peaklet_id, 0, 0, 0, wave_offset, 0))
                 continue
 
-            pieces: list[tuple[int, int, np.ndarray]] = []
-            dt_ns: int | None = None
-            time_start: int | None = None
-            time_end: int | None = None
+            segments: list[dict[str, Any]] = []
 
             for merged_index in merged_indices:
                 hit = merged[int(merged_index)]
@@ -954,21 +1157,24 @@ class PeakletWaveformPlugin(Plugin):
                         clip_negative_signal=bool(getattr(self, "_clip_negative_signal", False)),
                     )
 
-                    for start_ps, end_ps, piece_dt_ns, signal in multi_pieces:
+                    for start_ps, _end_ps, piece_dt_ns, signal, record_id in multi_pieces:
                         if len(signal) == 0:
                             continue
-                        if dt_ns is None:
-                            dt_ns = piece_dt_ns
-                        elif piece_dt_ns != dt_ns:
-                            raise ValueError(
-                                f"peaklet_waveforms does not support mixed dt in peaklet_id={peaklet_id}"
-                            )
-                        pieces.append((start_ps, end_ps, signal))
-                        time_start = start_ps if time_start is None else min(time_start, start_ps)
-                        time_end = end_ps if time_end is None else max(time_end, end_ps)
+                        segments.append(
+                            {
+                                "waveform": signal,
+                                "abs_time_ps": start_ps
+                                + np.arange(len(signal), dtype=np.int64) * piece_dt_ns * 1000,
+                                "dt": piece_dt_ns,
+                                "board": int(hit["board"]),
+                                "channel": int(hit["channel"]),
+                                "record_id": record_id,
+                                "merged_index": int(merged_index),
+                            }
+                        )
                 else:
                     # Single-record path
-                    start_ps, end_ps, piece_dt_ns, signal = _merged_wave_piece(
+                    start_ps, _end_ps, piece_dt_ns, signal, record_id = _merged_wave_piece(
                         hit=hit,
                         records=records,
                         record_lookup=record_lookup,
@@ -977,27 +1183,34 @@ class PeakletWaveformPlugin(Plugin):
                     )
                     if len(signal) == 0:
                         continue
-                    if dt_ns is None:
-                        dt_ns = piece_dt_ns
-                    elif piece_dt_ns != dt_ns:
-                        raise ValueError(
-                            f"peaklet_waveforms does not support mixed dt in peaklet_id={peaklet_id}"
-                        )
-                    pieces.append((start_ps, end_ps, signal))
-                    time_start = start_ps if time_start is None else min(time_start, start_ps)
-                    time_end = end_ps if time_end is None else max(time_end, end_ps)
+                    segments.append(
+                        {
+                            "waveform": signal,
+                            "abs_time_ps": start_ps
+                            + np.arange(len(signal), dtype=np.int64) * piece_dt_ns * 1000,
+                            "dt": piece_dt_ns,
+                            "board": int(hit["board"]),
+                            "channel": int(hit["channel"]),
+                            "record_id": record_id,
+                            "merged_index": int(merged_index),
+                        }
+                    )
 
-            if not pieces or dt_ns is None or time_start is None or time_end is None:
+            if not segments:
                 rows.append((peaklet_id, 0, 0, 0, wave_offset, 0))
                 continue
 
-            dt_ps = dt_ns * 1000
-            wave_length = int((time_end - time_start) // dt_ps)
-            summed = np.zeros(wave_length, dtype=np.float32)
-
-            for start_ps, _end_ps, signal in pieces:
-                i0 = int((start_ps - time_start) // dt_ps)
-                summed[i0 : i0 + len(signal)] += signal
+            merged_waveform = merge_waveform_segments(
+                segments,
+                sum_channels=True,
+                dense=True,
+                context=f"peaklet_id={peaklet_id}",
+            )
+            summed = merged_waveform["waveform"]
+            dt_ns = int(merged_waveform["dt"])
+            time_start = int(merged_waveform["abs_time_ps"][0])
+            wave_length = len(summed)
+            time_end = time_start + wave_length * dt_ns * 1000
 
             rows.append((peaklet_id, time_start, time_end, dt_ns, wave_offset, wave_length))
             pools.append(summed)

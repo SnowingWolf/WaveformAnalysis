@@ -5,7 +5,7 @@ profile: "agent"
 provides: "peaks"
 plugin_class: "PeaksPlugin"
 module: "waveform_analysis.core.plugins.builtin.peaks.plugin"
-version: "4.0.1"
+version: "5.0.0"
 summary: "Build final peaks table from peaklets and waveform-derived features."
 depends_on: ["peaklets", "peaklet_features", "peaklet_channels"]
 output_kind: "structured_array"
@@ -27,7 +27,7 @@ peaks 表同时携带峰形时序字段（rise_time、fall_time、width_25_75、
 | Provides | `peaks` |
 | Plugin Class | `PeaksPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaks.plugin` |
-| Version | `4.0.1` |
+| Version | `5.0.0` |
 | Category | 特征提取 |
 | Output Kind | `structured_array` |
 
@@ -35,7 +35,7 @@ peaks 表同时携带峰形时序字段（rise_time、fall_time、width_25_75、
 | --- | --- | --- | --- | --- |
 | `peaklets` | - | declared | - | Build lightweight cross-channel peaklets from hit_merged intervals. |
 | `peaklet_features` | - | declared | - | Compute peaklet waveform features from ragged signal pools. |
-| `peaklet_channels` | - | declared | - | Aggregate hit_merged_features into per-peaklet channel contribution rows. |
+| `peaklet_channels` | - | declared | - | Reconstruct deduplicated per-peaklet channel waveform contributions. |
 ### How It Works
 
 1. 读取输入：从 context 获取 `peaklets` 与 `peaklet_features` 结构化数组；`peaklets` 为空时返回空 peaks 数组。

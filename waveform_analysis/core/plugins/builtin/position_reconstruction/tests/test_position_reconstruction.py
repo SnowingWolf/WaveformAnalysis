@@ -2,7 +2,7 @@
 
 测试内容：
 1. PMT 几何布局系统
-2. PositionReconstructionPlugin (v0.2.1)
+2. PositionReconstructionPlugin (v0.3.0)
 3. S1S2PairAccessor.positions()
 """
 
@@ -120,8 +120,8 @@ def test_plugin_initialization():
     plugin = PositionReconstructionPlugin()
 
     assert plugin.provides == "position_reconstruction"
-    assert plugin.depends_on == ["s1_s2_pairs"]
-    assert plugin.version == "0.2.1"
+    assert plugin.depends_on == ["s1_s2_pairs", "peaklet_channels"]
+    assert plugin.version == "0.3.0"
     assert plugin.output_dtype == POSITION_RECONSTRUCTION_DTYPE
 
     # 检查配置选项

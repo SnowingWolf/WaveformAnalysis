@@ -34,7 +34,7 @@ class PeakletFeaturesPlugin(Plugin):
     lineage_virtual = True
     depends_on = ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
     description = "Compute peaklet waveform features from ragged signal pools."
-    version = "4.1.0"
+    version = "5.0.0"
     output_dtype = PEAKLET_FEATURES_DTYPE
     save_when = "always"
 

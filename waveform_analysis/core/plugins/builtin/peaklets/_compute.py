@@ -134,7 +134,13 @@ def _compute_area_quantile_times(
     targets = quantiles * total_area
     dt_ps = int(dt_ns) * 1000
 
-    idx = np.searchsorted(cumsum, targets, side="left")
+    # Signed waveforms can make cumsum non-monotonic, so searchsorted is not
+    # valid.  Use the first physical threshold crossing instead.
+    idx = np.full(len(targets), n, dtype=np.int64)
+    for target_index, target in enumerate(targets):
+        crossings = np.flatnonzero(cumsum >= target)
+        if len(crossings):
+            idx[target_index] = int(crossings[0])
     sample_pos = np.empty(len(quantiles), dtype=np.float64)
 
     mask_hi = idx >= n
@@ -198,24 +204,37 @@ def _compute_features_numba(
             continue
 
         wave = pool[offset : offset + length]
-        total_area = np.sum(wave)
+        total_area = 0.0
+        cumsum = np.empty(length, dtype=np.float64)
+        for sample_idx in range(length):
+            total_area += float(wave[sample_idx])
+            cumsum[sample_idx] = total_area
 
         if total_area <= 0:
-            out[i]["time_peak"] = time_start
+            max_idx = np.argmax(wave)
             out[i]["center_time"] = time_start
-            out[i]["area"] = 0.0
-            out[i]["height"] = 0.0
+            out[i]["time_peak"] = int(time_start + max_idx * dt_ns * 1000)
+            out[i]["rise_time"] = (out[i]["time_peak"] - time_start) / 1000.0
+            out[i]["fall_time"] = 0.0
+            out[i]["width_25_75"] = 0.0
+            out[i]["rise_time_10_50"] = 0.0
+            out[i]["range_90p_area"] = 0.0
+            out[i]["area"] = total_area
+            out[i]["height"] = wave[max_idx]
             out[i]["width"] = (time_end - time_start) / 1000.0
             continue
 
         # Cumulative area quantiles
-        cumsum = np.cumsum(wave)
         dt_ps = dt_ns * 1000
         quantile_times = np.empty(7, dtype=np.int64)
 
         for q_idx in range(7):
             target = quantiles[q_idx] * total_area
-            idx = np.searchsorted(cumsum, target)
+            idx = length
+            for sample_idx in range(length):
+                if cumsum[sample_idx] >= target:
+                    idx = sample_idx
+                    break
 
             if idx >= length:
                 sample_pos = float(length - 1)
@@ -838,7 +857,7 @@ def _build_waveforms_numba(
             raw = wave_pool[wave_off + start : wave_off + end].astype(np.float32)
             signal = sign * (raw - np.float32(baseline))
             if clip_negative_signal:
-                signal = np.maximum(signal, 0.0)
+                signal = np.maximum(signal, np.float32(0.0))
 
             piece_time_starts[valid_pieces] = time_start
             piece_time_ends[valid_pieces] = time_end
@@ -864,7 +883,10 @@ def _build_waveforms_numba(
         dt_ps = piece_dt_ns * 1000
         wave_length = int((global_time_end - global_time_start) // dt_ps)
 
-        summed = np.zeros(wave_length, dtype=np.float32)
+        # Match the canonical merger's order-independent reduction precision.
+        # Casting only when materializing the public float32 pool avoids signed
+        # cancellation errors that can otherwise trip area conservation.
+        summed = np.zeros(wave_length, dtype=np.float64)
         for i in range(valid_pieces):
             start_offset = int((piece_time_starts[i] - global_time_start) // dt_ps)
             signal = piece_signals[i]
@@ -885,11 +907,13 @@ def _build_waveforms_numba(
         pool_lengths[peaklet_id] = wave_length
         wave_offset_total += wave_length
 
-    # 拼接 pool
-    if len(pool_pieces) > 0:
-        pool = np.concatenate(pool_pieces)
-    else:
-        pool = np.zeros(0, dtype=np.float32)
+    # Numba does not support np.concatenate on a typed list of arrays.
+    pool = np.empty(wave_offset_total, dtype=np.float32)
+    pool_offset = 0
+    for piece in pool_pieces:
+        piece_length = len(piece)
+        pool[pool_offset : pool_offset + piece_length] = piece
+        pool_offset += piece_length
 
     return waveform_rows, pool
 
@@ -1219,7 +1243,7 @@ def _merged_wave_pieces_multirecord(
     wave_pool: np.ndarray,
     merged_index: int,
     clip_negative_signal: bool,
-) -> list[tuple[int, int, int, np.ndarray]]:
+) -> list[tuple[int, int, int, np.ndarray, int]]:
     """
     Extract multiple waveform pieces from a cross-record hit_merged.
 
@@ -1246,7 +1270,7 @@ def _merged_wave_pieces_multirecord(
     Returns
     -------
     list of tuple
-        List of (time_start_ps, time_end_ps, dt_ns, signal) tuples
+        List of (time_start_ps, time_end_ps, dt_ns, signal, record_id) tuples
     """
     # Get component hit indices from pre-built index
     hit_indices = hit_merged_components_index.get(merged_index)
@@ -1302,10 +1326,10 @@ def _merged_wave_pieces_multirecord(
             signal = np.float32(baseline) - raw
 
         if clip_negative_signal:
-            signal = np.maximum(signal, 0.0)
+            signal = np.maximum(signal, np.float32(0.0))
         signal = signal.astype(np.float32, copy=False)
 
-        pieces.append((time_start, time_end, dt_ns, signal))
+        pieces.append((time_start, time_end, dt_ns, signal, int(component_hit["record_id"])))
 
     return pieces
 
@@ -1317,7 +1341,7 @@ def _merged_wave_piece(
     record_lookup: RecordLookup,
     wave_pool: np.ndarray,
     clip_negative_signal: bool,
-) -> tuple[int, int, int, np.ndarray]:
+) -> tuple[int, int, int, np.ndarray, int]:
     """
     Extract waveform from a single-record hit_merged.
 
@@ -1330,7 +1354,7 @@ def _merged_wave_piece(
     if start < 0 or end < 0:
         # Cross-record case - return empty (caller should use multirecord path)
         dt_ns = int(hit["dt"]) if "dt" in hit.dtype.names else 2
-        return (0, 0, dt_ns, np.zeros(0, dtype=np.float32))
+        return (0, 0, dt_ns, np.zeros(0, dtype=np.float32), int(hit["record_id"]))
 
     record = record_lookup.get(int(hit["record_id"]))
     names = record.dtype.names or ()
@@ -1343,6 +1367,7 @@ def _merged_wave_piece(
             0,
             int(record["dt"]) if "dt" in names else int(hit["dt"]),
             np.zeros(0, dtype=np.float32),
+            int(hit["record_id"]),
         )
 
     dt_ns = int(record["dt"]) if "dt" in names else int(hit["dt"])
@@ -1361,5 +1386,11 @@ def _merged_wave_piece(
     else:
         signal = np.float32(baseline) - raw
     if clip_negative_signal:
-        signal = np.maximum(signal, 0.0)
-    return time_start, time_end, dt_ns, signal.astype(np.float32, copy=False)
+        signal = np.maximum(signal, np.float32(0.0))
+    return (
+        time_start,
+        time_end,
+        dt_ns,
+        signal.astype(np.float32, copy=False),
+        int(hit["record_id"]),
+    )

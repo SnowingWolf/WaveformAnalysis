@@ -26,9 +26,10 @@
 - v0.1.0: 实现 CoG XY 重建，集成 PMT 几何布局
 - v0.2.0: 向量化优化，性能提升 10-100x
 - v0.2.1: 修正默认漂移速度单位，确保 drift_time_ns 输出的 Z 坐标为 mm
+- v0.3.0: 声明 peaklet_channels 依赖，使 XY 通道面积进入缓存 lineage
 
 Author: Claude Code
-Version: 0.2.1
+Version: 0.3.0
 """
 
 from typing import Any, Optional
@@ -132,9 +133,9 @@ class PositionReconstructionPlugin(Plugin):
     """
 
     provides = "position_reconstruction"
-    depends_on = ["s1_s2_pairs"]
+    depends_on = ["s1_s2_pairs", "peaklet_channels"]
     description = "Reconstruct 3D position from S1-S2 pairs using vectorized CoG method"
-    version = "0.2.1"
+    version = "0.3.0"
     save_when = "always"
     output_dtype = POSITION_RECONSTRUCTION_DTYPE
 

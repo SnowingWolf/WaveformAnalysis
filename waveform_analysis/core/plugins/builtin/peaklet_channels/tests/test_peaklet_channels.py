@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from tests.utils import DummyContext
+from tests.utils import DummyContext, make_hit, make_records
 from waveform_analysis.core.plugins.builtin.cpu.hit_merged_features import (
     HIT_MERGED_FEATURES_DTYPE,
 )
@@ -13,6 +13,11 @@ from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PEAKLET_COMPONENTS_DTYPE,
     PEAKLET_DTYPE,
     PEAKLET_FEATURES_DTYPE,
+)
+from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
+from waveform_analysis.core.plugins.builtin.hit.hit_merge import (
+    HIT_MERGED_COMPONENTS_DTYPE,
+    HIT_MERGED_DTYPE,
 )
 
 
@@ -62,6 +67,15 @@ def _ctx(peaklets, components, features, peaklet_features):
     )
 
 
+def _compute(ctx):
+    return PeakletChannelsPlugin()._compute_channels(
+        peaklets=ctx._data["peaklets"],
+        components=ctx._data["peaklet_components"],
+        features=ctx._data["hit_merged_features"],
+        peaklet_features=ctx._data["peaklet_features"],
+    )
+
+
 def test_peaklet_channels_single_peaklet_multiple_channels():
     ctx = _ctx(
         _peaklets([100.0], component_count=2),
@@ -75,7 +89,7 @@ def test_peaklet_channels_single_peaklet_multiple_channels():
         _peaklet_features([100.0]),
     )
 
-    out = PeakletChannelsPlugin().compute(ctx, "run_001")
+    out = _compute(ctx)
 
     assert out.dtype == PEAKLET_CHANNELS_DTYPE
     assert len(out) == 2
@@ -99,7 +113,7 @@ def test_peaklet_channels_aggregates_multiple_rows_for_same_channel():
         _peaklet_features([50.0]),
     )
 
-    out = PeakletChannelsPlugin().compute(ctx, "run_001")
+    out = _compute(ctx)
 
     assert len(out) == 1
     assert int(out[0]["channel"]) == 3
@@ -109,7 +123,56 @@ def test_peaklet_channels_aggregates_multiple_rows_for_same_channel():
     assert float(out[0]["area_fraction"]) == 1.0
 
 
-def test_peaklet_channels_filters_invalid_features_and_sorts_keys():
+def test_peaklet_channels_reconstructs_and_deduplicates_cross_record_waveform():
+    peaklets = _peaklets([70.0])
+    components = _components([(0, 0)])
+    features = _features(
+        [{"merged_index": 0, "channel": 3, "area": 100.0, "height": 30.0, "n_hits": 2}]
+    )
+    peaklet_features = _peaklet_features([70.0])
+    merged = np.zeros(1, dtype=HIT_MERGED_DTYPE)
+    merged[0]["board"] = 0
+    merged[0]["channel"] = 3
+    merged[0]["record_id"] = 0
+    merged[0]["sample_start"] = -1
+    merged[0]["sample_end"] = -1
+    merged[0]["is_single_record"] = False
+    hits = np.array(
+        [
+            make_hit(record_id=0, channel=3, edge_start=2, edge_end=4),
+            make_hit(record_id=1, channel=3, edge_start=1, edge_end=3),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    component_hits = np.array([(0, 0), (0, 1)], dtype=HIT_MERGED_COMPONENTS_DTYPE)
+    records = make_records(n_records=2, event_length=10, baseline=100.0, dt=2)
+    records["timestamp"] = [0, 4000]
+    records["polarity"] = "negative"
+    wave_pool = np.full(20, 100, dtype=np.uint16)
+    wave_pool[[2, 3, 11, 12]] = [80, 80, 80, 70]
+
+    ctx = DummyContext(
+        {"wave_source": "records", "use_filtered": False, "clip_negative_signal": False},
+        {
+            "peaklets": peaklets,
+            "peaklet_components": components,
+            "hit_merged_features": features,
+            "peaklet_features": peaklet_features,
+            "hit_merged": merged,
+            "hit_merged_components": component_hits,
+            "hit_threshold": hits,
+            "records": records,
+            "wave_pool": wave_pool,
+        },
+    )
+    out = PeakletChannelsPlugin().compute(ctx, "run_001")
+
+    assert float(out[0]["area"]) == 70.0
+    assert float(out[0]["height"]) == 30.0
+    assert float(out[0]["area_fraction"]) == 1.0
+
+
+def test_peaklet_channels_rejects_invalid_features_that_break_area_conservation():
     ctx = _ctx(
         _peaklets([50.0, 100.0], component_count=2),
         _components([(1, 3), (0, 2), (1, 1), (0, 0)]),
@@ -153,18 +216,11 @@ def test_peaklet_channels_filters_invalid_features_and_sorts_keys():
         _peaklet_features([50.0, 100.0]),
     )
 
-    out = PeakletChannelsPlugin().compute(ctx, "run_001")
-
-    assert [(int(r["peaklet_id"]), int(r["board"]), int(r["channel"])) for r in out] == [
-        (0, 0, 4),
-        (1, 0, 1),
-        (1, 1, 2),
-    ]
-    np.testing.assert_allclose(out["area"], np.array([25.0, 40.0, 60.0], dtype=np.float32))
-    np.testing.assert_allclose(out["area_fraction"], np.array([0.5, 0.4, 0.6], dtype=np.float32))
+    with pytest.raises(ValueError, match="area conservation failed"):
+        _compute(ctx)
 
 
-def test_peaklet_channels_zero_peaklet_area_writes_zero_fraction():
+def test_peaklet_channels_zero_peaklet_area_rejects_nonzero_channel_area():
     ctx = _ctx(
         _peaklets([0.0]),
         _components([(0, 0)]),
@@ -176,10 +232,38 @@ def test_peaklet_channels_zero_peaklet_area_writes_zero_fraction():
         _peaklet_features([0.0]),
     )
 
-    out = PeakletChannelsPlugin().compute(ctx, "run_001")
+    with pytest.raises(ValueError, match="area conservation failed"):
+        _compute(ctx)
 
-    assert len(out) == 1
-    assert float(out[0]["area_fraction"]) == 0.0
+
+def test_peaklet_channels_zero_peaklet_area_writes_zero_fractions_when_channels_cancel():
+    ctx = _ctx(
+        _peaklets([0.0], component_count=2),
+        _components([(0, 0), (0, 1)]),
+        _features(
+            [
+                {"merged_index": 0, "channel": 0, "area": 5.0, "height": 2.0, "n_hits": 1},
+                {"merged_index": 1, "channel": 1, "area": -5.0, "height": 1.0, "n_hits": 1},
+            ]
+        ),
+        _peaklet_features([0.0]),
+    )
+
+    out = _compute(ctx)
+
+    np.testing.assert_array_equal(out["area_fraction"], np.zeros(2, dtype=np.float32))
+
+
+def test_peaklet_channels_near_zero_nonzero_area_checks_fraction_sum():
+    ctx = _ctx(
+        _peaklets([1e-6]),
+        _components([(0, 0)]),
+        _features([{"merged_index": 0, "channel": 0, "area": 2e-6, "height": 1.0, "n_hits": 1}]),
+        _peaklet_features([1e-6]),
+    )
+
+    with pytest.raises(ValueError, match="fraction conservation failed"):
+        _compute(ctx)
 
 
 def test_peaklet_channels_reject_components_misaligned_with_peaklets():

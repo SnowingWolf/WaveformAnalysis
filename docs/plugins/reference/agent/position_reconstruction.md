@@ -5,9 +5,9 @@ profile: "agent"
 provides: "position_reconstruction"
 plugin_class: "PositionReconstructionPlugin"
 module: "waveform_analysis.core.plugins.builtin.position_reconstruction.plugin"
-version: "0.2.1"
+version: "0.3.0"
 summary: "Reconstruct 3D position from S1-S2 pairs using vectorized CoG method"
-depends_on: ["s1_s2_pairs"]
+depends_on: ["s1_s2_pairs", "peaklet_channels"]
 output_kind: "structured_array"
 generated: true
 ---
@@ -23,13 +23,14 @@ Reconstruct 3D position from S1-S2 pairs using vectorized CoG method
 | Provides | `position_reconstruction` |
 | Plugin Class | `PositionReconstructionPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.position_reconstruction.plugin` |
-| Version | `0.2.1` |
+| Version | `0.3.0` |
 | Category | 其他 |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
 | `s1_s2_pairs` | - | declared | - | Select best S1-S2 pairs from candidates |
+| `peaklet_channels` | - | declared | - | Reconstruct deduplicated per-peaklet channel waveform contributions. |
 ### How It Works
 
 1. 执行位置重建（向量化优化版本）

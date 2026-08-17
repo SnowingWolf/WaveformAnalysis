@@ -1,0 +1,84 @@
+# execution_report
+
+- `task_id`: `peak_waveform_dedup_and_area_conservation`
+- `workflow_cost`: `strict`
+- `workflow_shape`: `staged`
+- `executor_role`: `executor.plugin`
+- `agent_profile`: `graph_engineer`
+- `changed_paths`:
+  - `waveform_analysis/core/plugins/builtin/shared/waveform_merge.py`
+  - `waveform_analysis/core/plugins/builtin/hit_merged_features/`
+  - `waveform_analysis/core/plugins/builtin/peaklet_waveforms/`
+  - `waveform_analysis/core/plugins/builtin/peaklet_waveform_pool/`
+  - `waveform_analysis/core/plugins/builtin/peaklet_features/`
+  - `waveform_analysis/core/plugins/builtin/peaklet_channels/`
+  - `waveform_analysis/core/plugins/builtin/peaklets/_compute.py`
+  - `waveform_analysis/core/plugins/builtin/peaks/`
+  - `waveform_analysis/core/plugins/builtin/position_reconstruction/`
+  - `waveform_analysis/utils/peak_channel_accessor.py`
+  - `tests/test_waveform_merge.py`
+  - `tests/test_peak_channel_accessor.py`
+  - `docs/api/peak_channel_accessor.md`
+  - `docs/plugins/reference/builtin/auto/`
+  - `docs/plugins/reference/agent/`
+  - `docs/agents/protocol/artifacts/peak_waveform_dedup_plan_brief.md`
+  - `docs/agents/protocol/artifacts/peak_waveform_dedup_execution_report.md`
+- `actions_taken`:
+  - 新增统一的绝对时间波形合并器；按 `(board, channel, abs_time_ps)` 去重位级相同的 `float32` 采样，冲突立即抛出带来源信息的 `WaveformOverlapConflictError`。
+  - Accessor 改为合并同一 PMT 的全部 `merged_indices`，返回唯一严格递增时间轴和 `waveform_area`；按 `use_filtered`/`clip_negative_signal` 读取与通道插件一致的波形。
+  - `peaklet_waveforms` 的 Python、hybrid、重叠回退和 process-worker 路径共享规范合并器；无重叠 Numba 快路径保留，重叠事件在进入快路径前转入规范实现。
+  - `hit_merged_features` 默认直接积分有符号波形，跨 record fallback 使用规范合并器；`clip_negative_signal=True` 保留旧裁剪口径。
+  - `peaklet_channels` 新增 records-backed 动态依赖并从去重通道波形重算 area/height；强制检查通道面积和 peak 面积守恒。
+  - 修正有符号波形累计面积量化：总面积非正时保留真实 area，量化时间回退到起点；总面积为正时使用第一次累计阈值穿越，Python/Numba 语义一致。
+  - 更新 7 个插件 class/manifest 版本，并把 `peaklet_channels` 加入 `position_reconstruction` lineage。
+  - Reviewer 返工后：所有 cross-record 事件统一进入 canonical merger；all-single Numba 快路径在进入 JIT 前校验共同 `dt`、绝对时间网格及有限 waveform/baseline，无法证明安全的输入转入 canonical 路径。
+  - 修复 all-single Numba 首次 JIT 的 float32/float64 类型合并，并用真实首次编译覆盖 clipped/signed 两种配置；cross-record 入口不再展开 single-record 多 component 的 threshold-hit 窗口。
+  - Numba feature 改用 float64 total/cumsum，并对 `area <= 0` 填充与 Python 相同的回退派生字段；新增 10000 点高动态范围与非正面积 parity 回归。
+  - merger 改为先验证每个 segment 的维度、长度和有限值，再忽略合法空段；`peaklet_channels` 同时显式检查非零 peak 的 fraction 总和。
+  - 第二轮复审发现 all-single Numba 的跨通道 signed 抵消仍受 float32 累加顺序影响；已把累加器改为 float64、仅在写公开 pool 时转为 float32，并新增 shuffled 三通道 signed/clipped canonical parity 测试。
+- `commands_run`:
+  - 最终合并复跑 waveform/accessor/feature/channel/position 与下游 peaks/cache：122 passed, 1 skipped。
+  - process-worker/canonical 一致性、all-single Numba 首次 JIT（signed/clipped）、off-grid/non-finite 拒绝、single-record 多 component 去重及 Python/Numba feature 对照：均包含在 92 项通过结果中。
+  - `ruff check`（任务代码和测试）：PASS。
+  - `python -m compileall`（任务 Python 文件）：PASS。
+  - `waveform-docs generate plugins-auto ...`：PASS，37 个页面。
+  - `waveform-docs generate plugins-agent ...`：PASS，37 个页面。
+  - `python scripts/assess_change_impact.py --base HEAD`：PASS；2 medium lineage risks，均为计划内 dependency 变化。
+  - `python scripts/schema_compat_check.py --base HEAD --run-smoke`：PASS；dtype changes 0，smoke chain PASS。
+  - `python scripts/performance_regression_check.py --base HEAD`：FAIL_BASELINE；返工后复跑仍只有 `hit_threshold` 内存 `0.11 MB -> 0.30 MB (+183.84%)` 超阈值，并伴随脚本自身 multiprocessing pickle 错误。
+  - 在完全干净的 HEAD clone 复跑 performance gate：同样 FAIL（`hit_threshold` 约 `0.11 MB -> 0.30 MB`），证明为既有 gate baseline 问题而非本补丁引入。
+  - synthetic long-S2 前后对比（192 segments / 196608 inputs）：旧直接拼接 mean 0.000242 s、min 0.000131 s、peak 4.504 MB、输出 196608 个含重复采样；canonical merge mean 0.287876 s、min 0.287202 s、peak 12.943 MB、输出 4080 个唯一采样。旧路径没有对齐/校验且结果错误，因此该对比用于记录正确性成本，不是等价算法性能回归。
+  - `python scripts/render_agent_docs.py --check`：PASS。
+  - `scripts/check_doc_sync.sh`（Python 3.12 PATH）：FAIL_PREEXISTING_DIRTY；任务文档生成和 manifest 验证通过，但用户既有 dirty `core/context.py` 未同步 `docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md`，脚本以 exit 2 结束。
+  - `python scripts/check_doc_anchors.py --check-sync --base HEAD`：FAIL_PREEXISTING_DIRTY；同一既有 warning，0 errors / 1 warning。
+  - `python scripts/check_agent_handoff.py --allow-uncommitted --reason ...`：PASS；显式记录 `未提交：返工已完成，等待 staged Reviewer 复审后进行 scoped commit；工作树另有用户既存无关改动`。
+- `open_risks`:
+  - 外部 `run_id=00200, peak_id=98216` 数据未在仓库中，真实数据复验未执行；合成夹具覆盖了相同重复、冲突重复、跨 record、跨 merged、混合 dt、错位和 signed/clipped 口径。
+  - performance gate 在干净 HEAD 自身失败；需要 reviewer 判断该已证实的 baseline failure 是否作为非阻断残余风险记录。
+  - canonical merger 为获得唯一绝对时间网格和冲突校验，需要物化与排序；任务专属基准记录了相对旧错误拼接路径的时间/内存成本。
+- `requested_review_focus`:
+  - 审核 raw records-backed `peaklet_channels` dependency/lineage 是否与动态 wave source 和 position reconstruction 一致。
+  - 审核所有重叠入口是否在 Numba/hybrid/process 之前或内部进入相同冲突/去重语义。
+  - 审核 signed area、量化时间和零面积 fraction 的边界定义，以及 performance baseline failure 的归因证据。
+
+## Optional Notes
+
+- `tests_run`:
+  - 所有任务阻断定向与下游测试批次通过（下游批次含 1 skipped）；另有 plugin documentation 全量测试 36 passed/3 failed，其中 2 个因 sandbox 禁止监听 socket，1 个来自本轮开始前已有的 site template dirty change。
+- `gates_executed`:
+  - plugin docs、impact、schema smoke、agent docs 均通过。
+  - doc sync/doc anchors 因用户既有 dirty `core/context.py` 警告退出 2；本任务涉及的生成参考页及 manifest 校验通过。
+  - performance gate 失败，但在无任何改动的 clean HEAD 上可稳定复现相同失败。
+- `docs_updated`:
+  - Accessor 波形/面积/segments 契约说明与 7 个插件的 auto/agent 生成页及索引。
+- `plan_drift`:
+  - 未新增 Numba occupancy buffer；重叠事件统一回退到 NumPy 规范合并器，无重叠事件继续使用现有 Numba 快路径。此实现减少了并行写冲突风险，并由 process-worker/Numba/Python 对照测试覆盖。
+  - 真实 run 数据不可用，按计划中的 blocking assumption 使用合成重叠回归作为验收来源。
+  - 既有 `hit_merged_features` 直接特征 kernel 保留原来的 `parallel=True`；本次新增 canonical overlap/dedup 算法为串行，未引入第二层并行。cross-record Numba 名义入口保留供内部兼容，但立即委托 canonical 实现。
+
+## Rework Handoff
+
+- `state`: `executing -> reviewing`
+- `submission_status`: `未提交：返工已完成，等待 staged Reviewer 复审后进行 scoped commit；工作树另有用户既存无关改动`
+- `reviewer_blockers_addressed`: `7/7`
+- `final_targeted_tests`: `122 passed, 1 skipped`

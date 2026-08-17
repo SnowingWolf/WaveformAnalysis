@@ -5,7 +5,7 @@ profile: "agent"
 provides: "peaklet_waveform_pool"
 plugin_class: "PeakletWaveformPoolPlugin"
 module: "waveform_analysis.core.plugins.builtin.peaklet_waveform_pool.plugin"
-version: "2.0.0"
+version: "3.0.0"
 summary: "Return the flattened float32 signal pool paired with peaklet_waveforms. Configure waveform construction on peaklet_waveforms."
 depends_on: ["peaklet_waveforms"]
 output_kind: "array"
@@ -23,7 +23,7 @@ Return the pool produced alongside the canonical peaklet waveform index.
 | Provides | `peaklet_waveform_pool` |
 | Plugin Class | `PeakletWaveformPoolPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaklet_waveform_pool.plugin` |
-| Version | `2.0.0` |
+| Version | `3.0.0` |
 | Category | 峰构建 |
 | Output Kind | `array` |
 

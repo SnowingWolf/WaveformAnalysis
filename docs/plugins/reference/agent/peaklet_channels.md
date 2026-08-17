@@ -5,9 +5,9 @@ profile: "agent"
 provides: "peaklet_channels"
 plugin_class: "PeakletChannelsPlugin"
 module: "waveform_analysis.core.plugins.builtin.peaklet_channels.plugin"
-version: "1.0.1"
-summary: "Aggregate hit_merged_features into per-peaklet channel contribution rows."
-depends_on: ["peaklets", "peaklet_components", "hit_merged_features", "peaklet_features"]
+version: "2.0.0"
+summary: "Reconstruct deduplicated per-peaklet channel waveform contributions."
+depends_on: ["peaklets", "peaklet_components", "hit_merged", "hit_merged_components", "hit_threshold", "hit_merged_features", "peaklet_features", "records", "wave_pool"]
 output_kind: "structured_array"
 generated: true
 ---
@@ -15,24 +15,29 @@ generated: true
 
 ## Overview
 
-Aggregate hit_merged_features into per-peaklet channel contribution rows.
-Expand peaklets into per-board/channel contribution rows.
+Reconstruct deduplicated per-peaklet channel waveform contributions.
+Reconstruct peaklets into deduplicated per-board/channel contribution rows.
 
 | Item | Value |
 | --- | --- |
 | Provides | `peaklet_channels` |
 | Plugin Class | `PeakletChannelsPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaklet_channels.plugin` |
-| Version | `1.0.1` |
+| Version | `2.0.0` |
 | Category | 峰构建 |
 | Output Kind | `structured_array` |
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| `peaklets` | - | declared | - | Build lightweight cross-channel peaklets from hit_merged intervals. |
-| `peaklet_components` | - | declared | - | Return per-peaklet component hit_merged indices. |
-| `hit_merged_features` | - | declared | - | Compute per-hit_merged local waveform features from records-backed samples. |
-| `peaklet_features` | - | declared | - | Compute peaklet waveform features from ragged signal pools. |
+| `peaklets` | - | dynamic | - | Build lightweight cross-channel peaklets from hit_merged intervals. |
+| `peaklet_components` | - | dynamic | - | Return per-peaklet component hit_merged indices. |
+| `hit_merged` | - | dynamic | - | Merge nearby threshold hits per channel with time-gap and max-width constraints. |
+| `hit_merged_components` | - | dynamic | - | Return per-cluster component hit indices for hit_merged rows. |
+| `hit_threshold` | - | dynamic | - | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. |
+| `hit_merged_features` | - | dynamic | - | Compute per-hit_merged local waveform features from records-backed samples. |
+| `peaklet_features` | - | dynamic | - | Compute peaklet waveform features from ragged signal pools. |
+| `records` | - | dynamic | - | Build records (event index table) from the shared internal records bundle. |
+| `wave_pool` | - | dynamic | - | Build wave_pool from the shared internal records bundle. |
 ### How It Works
 
 
@@ -40,7 +45,9 @@ Expand peaklets into per-board/channel contribution rows.
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
 | --- | --- | --- | --- | --- | --- | --- |
-| - | - | - | - | - | - | - |
+| `wave_source` | `str` | `records` | - | yes | no | 波形来源；peaklet_channels 当前正式支持 records。 |
+| `use_filtered` | `bool` | `False` | - | yes | no | 是否从 wave_pool_filtered 重建通道波形。 |
+| `clip_negative_signal` | `bool` | `False` | - | yes | no | 是否在通道波形合并与积分前把负采样裁剪为 0。 |
 ## Output
 
 structured_array output with fields: peaklet_id, board, channel, area, height, n_hits, area_fraction.
@@ -76,7 +83,7 @@ data = ctx.get_data("run_001", "peaklet_channels")
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
-Consumers: `peaks`
+Consumers: `peaks`, `position_reconstruction`
 
 ## Maintenance
 

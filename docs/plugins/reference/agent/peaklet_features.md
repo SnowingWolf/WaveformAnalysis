@@ -5,7 +5,7 @@ profile: "agent"
 provides: "peaklet_features"
 plugin_class: "PeakletFeaturesPlugin"
 module: "waveform_analysis.core.plugins.builtin.peaklet_features.plugin"
-version: "4.1.0"
+version: "5.0.0"
 summary: "Compute peaklet waveform features from ragged signal pools."
 depends_on: ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
 output_kind: "structured_array"
@@ -23,7 +23,7 @@ Compute waveform-derived features from ragged peaklet waveforms.
 | Provides | `peaklet_features` |
 | Plugin Class | `PeakletFeaturesPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaklet_features.plugin` |
-| Version | `4.1.0` |
+| Version | `5.0.0` |
 | Category | 峰构建 |
 | Output Kind | `structured_array` |
 

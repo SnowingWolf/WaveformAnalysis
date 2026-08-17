@@ -25,6 +25,7 @@ from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     load_wave_input,
     resolve_wave_input_spec,
 )
+from waveform_analysis.core.plugins.builtin.shared.waveform_merge import merge_waveform_segments
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
 HIT_MERGED_FEATURES_DTYPE = np.dtype(
@@ -114,6 +115,7 @@ def _features_fast_kernel(
     merged_timestamp,
     merged_dt,
     merged_position,
+    clip_negative_signal,
     out,
 ):
     """
@@ -158,7 +160,7 @@ def _features_fast_kernel(
 
         # 单 pass 计算：area + max
         s = 0.0
-        h = 0.0
+        h = -np.inf
         max_j = 0
 
         base = offset + clipped_start
@@ -168,8 +170,8 @@ def _features_fast_kernel(
         for j in range(n_sample):
             raw = float(wave_pool[base + j])
             v = sign * (raw - baseline)
-            # 使用 max 替代 if（无分支指令）
-            v = max(v, 0.0)
+            if clip_negative_signal and v < 0.0:
+                v = 0.0
 
             s += v
 
@@ -393,7 +395,7 @@ class HitMergedFeaturesPlugin(Plugin):
     lineage_virtual = True
     depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Compute per-hit_merged local waveform features from records-backed samples."
-    version = "0.5.1"
+    version = "1.0.0"
     save_when = "always"
     output_dtype = HIT_MERGED_FEATURES_DTYPE
     uses_run_config = True
@@ -408,6 +410,14 @@ class HitMergedFeaturesPlugin(Plugin):
             default=False,
             type=bool,
             help="是否使用 wave_pool_filtered 计算局部特征。",
+        ),
+        "clip_negative_signal": Option(
+            default=False,
+            type=bool,
+            help=(
+                "是否在积分前把负的基线扣除采样裁剪为 0。默认 False，"
+                "area 直接积分有符号波形；True 仅用于兼容旧行为。"
+            ),
         ),
         "dt": Option(default=None, type=int, help="保留兼容配置；特征优先使用 records/hits 的 dt"),
         "gain_adc_per_pe": Option(
@@ -465,6 +475,7 @@ class HitMergedFeaturesPlugin(Plugin):
         resolve_dt_config(context, self, deprecated_keys=("sampling_interval_ns", "dt_ns"))
 
         num_threads = context.get_config(self, "feature_num_threads")
+        clip_negative_signal = bool(context.get_config(self, "clip_negative_signal"))
 
         result = self._compute_features(
             merged=merged,
@@ -473,6 +484,7 @@ class HitMergedFeaturesPlugin(Plugin):
             records=loaded.records,
             wave_pool=loaded.wave_pool,
             num_threads=num_threads,
+            clip_negative_signal=clip_negative_signal,
         )
 
         # 应用增益校准
@@ -489,6 +501,7 @@ class HitMergedFeaturesPlugin(Plugin):
         records: np.ndarray,
         wave_pool: np.ndarray,
         num_threads: int | None = None,
+        clip_negative_signal: bool = False,
     ) -> np.ndarray:
         n_merged = len(merged)
         if n_merged == 0:
@@ -547,6 +560,7 @@ class HitMergedFeaturesPlugin(Plugin):
                 merged_timestamp,
                 merged_dt,
                 merged_position,
+                clip_negative_signal,
                 out,
             )
             # Only invalid direct windows need component expansion.
@@ -562,9 +576,6 @@ class HitMergedFeaturesPlugin(Plugin):
                 hit_record_id = _field_or_default(hits, "record_id", -1, np.int64)
                 hit_edge_start = _field_or_default(hits, "edge_start", 0, np.int64)
                 hit_edge_end = _field_or_default(hits, "edge_end", 0, np.int64)
-                hit_timestamp = _field_or_default(hits, "timestamp", 0, np.int64)
-                hit_dt = _field_or_default(hits, "dt", 1, np.int64)
-                hit_position = _field_or_default(hits, "position", 0, np.int64)
                 hit_rec_indices = record_lookup.get_indices(hit_record_id)
 
                 validation = _validate_fallback_components_kernel(
@@ -582,29 +593,102 @@ class HitMergedFeaturesPlugin(Plugin):
                 if validation[0] != 0:
                     _raise_fallback_validation_error(*validation)
 
-                _features_fallback_kernel(
-                    wave_pool,
-                    rec_wave_offset,
-                    rec_event_length,
-                    rec_baseline,
-                    rec_polarity_sign,
-                    bad,
-                    comp_offsets,
-                    comp_counts,
-                    component_hit_indices,
-                    hit_edge_start,
-                    hit_edge_end,
-                    hit_timestamp,
-                    hit_dt,
-                    hit_position,
-                    hit_rec_indices,
-                    out,
+                self._compute_fallback_features(
+                    bad=bad,
+                    comp_offsets=comp_offsets,
+                    comp_counts=comp_counts,
+                    component_hit_indices=component_hit_indices,
+                    hits=hits,
+                    records=records,
+                    wave_pool=wave_pool,
+                    record_lookup=record_lookup,
+                    clip_negative_signal=clip_negative_signal,
+                    out=out,
                 )
         finally:
             if old_threads is not None:
                 nb.set_num_threads(old_threads)
 
         return out
+
+    @staticmethod
+    def _compute_fallback_features(
+        *,
+        bad: np.ndarray,
+        comp_offsets: np.ndarray,
+        comp_counts: np.ndarray,
+        component_hit_indices: np.ndarray,
+        hits: np.ndarray,
+        records: np.ndarray,
+        wave_pool: np.ndarray,
+        record_lookup: RecordLookup,
+        clip_negative_signal: bool,
+        out: np.ndarray,
+    ) -> None:
+        """Compute cross-record features from the canonical absolute-time waveform."""
+        for merged_index in bad:
+            segments: list[dict[str, Any]] = []
+            start = int(comp_offsets[merged_index])
+            count = int(comp_counts[merged_index])
+            for component_row in range(start, start + count):
+                hit_index = int(component_hit_indices[component_row])
+                hit = hits[hit_index]
+                record_index = int(record_lookup.get_indices(np.array([hit["record_id"]]))[0])
+                record = records[record_index]
+                edge_start = int(hit["edge_start"])
+                edge_end = int(hit["edge_end"])
+                clipped_start = max(0, edge_start)
+                clipped_end = min(int(record["event_length"]), edge_end)
+                offset = int(record["wave_offset"])
+                raw = wave_pool[offset + clipped_start : offset + clipped_end].astype(
+                    np.float32, copy=False
+                )
+                sign = float(_polarity_sign_array(records[record_index : record_index + 1])[0])
+                signal = sign * (raw - np.float32(record["baseline"]))
+                if clip_negative_signal:
+                    signal = np.maximum(signal, np.float32(0.0))
+                dt_ns = int(hit["dt"])
+                dt_ps = dt_ns * 1000
+                sample_time_start = (
+                    int(hit["timestamp"]) + (clipped_start - int(hit["position"])) * dt_ps
+                )
+                segments.append(
+                    {
+                        "waveform": signal,
+                        "abs_time_ps": sample_time_start
+                        + np.arange(len(signal), dtype=np.int64) * dt_ps,
+                        "dt": dt_ns,
+                        "board": int(hit["board"]),
+                        "channel": int(hit["channel"]),
+                        "record_id": int(hit["record_id"]),
+                        "merged_index": int(merged_index),
+                    }
+                )
+
+            merged_wave = merge_waveform_segments(
+                segments,
+                sum_channels=False,
+                dense=False,
+                context=f"hit_merged_features merged_index={int(merged_index)}",
+            )
+            wave = merged_wave["waveform"]
+            times = merged_wave["abs_time_ps"]
+            if len(wave) == 0:
+                continue
+            max_index = int(np.argmax(wave))
+            time_start = int(times[0])
+            time_end = int(times[-1]) + int(merged_wave["dt"]) * 1000
+            max_time = int(times[max_index])
+            out[merged_index]["time_start"] = time_start
+            out[merged_index]["time_end"] = time_end
+            out[merged_index]["center_time"] = (time_start + time_end) // 2
+            out[merged_index]["max_time"] = max_time
+            out[merged_index]["area"] = np.sum(wave, dtype=np.float64)
+            out[merged_index]["height"] = wave[max_index]
+            out[merged_index]["width"] = (time_end - time_start) / 1000.0
+            out[merged_index]["rise_time"] = (max_time - time_start) / 1000.0
+            out[merged_index]["fall_time"] = (time_end - max_time) / 1000.0
+            out[merged_index]["valid"] = 1
 
     def _apply_gain_calibration(
         self, context: Any, run_id: str, features: np.ndarray

@@ -24,6 +24,11 @@ from typing import Any
 
 import numpy as np
 
+from waveform_analysis.core.plugins.builtin.shared.waveform_merge import (
+    WaveformOverlapConflictError,
+    merge_waveform_segments,
+)
+
 
 class PeakChannelDataUnavailableError(RuntimeError):
     """Raised when the canonical per-channel feature product is unavailable."""
@@ -60,6 +65,7 @@ class PeakChannelAccessor:
         self._hit_threshold = None
         self._hit_merged_components = None
         self._wave_pool = None
+        self._clip_negative_signal = False
 
         # Peak 求和波形层（延迟加载）
         self._peaklet_waveforms = None
@@ -227,10 +233,19 @@ class PeakChannelAccessor:
         if self._waveform_layer_loaded:
             return
 
+        from waveform_analysis.core.plugins.builtin.peaklet_channels import PeakletChannelsPlugin
+
+        channel_plugin = PeakletChannelsPlugin()
+        use_filtered = bool(self.context.get_config(channel_plugin, "use_filtered"))
+        self._clip_negative_signal = bool(
+            self.context.get_config(channel_plugin, "clip_negative_signal")
+        )
         self._records = self.context.get_data(self.run_id, "records")
         self._hit_threshold = self.context.get_data(self.run_id, "hit_threshold")
         self._hit_merged_components = self.context.get_data(self.run_id, "hit_merged_components")
-        self._wave_pool = self.context.get_data(self.run_id, "wave_pool")
+        self._wave_pool = self.context.get_data(
+            self.run_id, "wave_pool_filtered" if use_filtered else "wave_pool"
+        )
 
         # 构建波形层索引
         self._build_waveform_indices()
@@ -419,6 +434,8 @@ class PeakChannelAccessor:
         # 根据极性计算信号
         polarity = str(rec["polarity"]) if "polarity" in rec.dtype.names else "negative"
         signal = raw - baseline if polarity == "positive" else baseline - raw
+        if self._clip_negative_signal:
+            signal = np.maximum(signal, np.float32(0.0))
 
         # 计算时间轴
         sample_indices = np.arange(s0, s1)
@@ -432,6 +449,8 @@ class PeakChannelAccessor:
             "dt": dt_ns,
             "record_id": record_id,
             "merged_index": int(merged_index),
+            "board": int(hm["board"]),
+            "channel": int(hm["channel"]),
             "sample_start": s0,
             "sample_end": s1,
         }
@@ -441,6 +460,7 @@ class PeakChannelAccessor:
             "board": int(hm["board"]),
             "channel": int(hm["channel"]),
             "waveform": signal,
+            "waveform_area": float(np.sum(signal, dtype=np.float64)),
             "time_ns": time_ns,
             "abs_time_ps": abs_time_ps,
             "dt": dt_ns,
@@ -477,6 +497,7 @@ class PeakChannelAccessor:
                 "board": int(hm["board"]),
                 "channel": int(hm["channel"]),
                 "waveform": np.array([], dtype=np.float32),
+                "waveform_area": 0.0,
                 "time_ns": np.array([], dtype=np.float32),
                 "abs_time_ps": np.array([], dtype=np.int64),
                 "dt": 0,
@@ -512,6 +533,8 @@ class PeakChannelAccessor:
             raw = self._wave_pool[wave_offset + s0 : wave_offset + s1].astype(np.float32)
             polarity = str(rec["polarity"]) if "polarity" in rec.dtype.names else "negative"
             signal = raw - baseline if polarity == "positive" else baseline - raw
+            if self._clip_negative_signal:
+                signal = np.maximum(signal, np.float32(0.0))
 
             sample_indices = np.arange(s0, s1)
             abs_time_ps = timestamp + sample_indices * dt_ns * 1000
@@ -523,6 +546,8 @@ class PeakChannelAccessor:
                     "dt": dt_ns,
                     "record_id": record_id,
                     "merged_index": int(merged_index),
+                    "board": int(hm["board"]),
+                    "channel": int(hm["channel"]),
                     "sample_start": s0,
                     "sample_end": s1,
                 }
@@ -534,6 +559,7 @@ class PeakChannelAccessor:
                 "board": int(hm["board"]),
                 "channel": int(hm["channel"]),
                 "waveform": np.array([], dtype=np.float32),
+                "waveform_area": 0.0,
                 "time_ns": np.array([], dtype=np.float32),
                 "abs_time_ps": np.array([], dtype=np.int64),
                 "dt": 0,
@@ -541,32 +567,24 @@ class PeakChannelAccessor:
                 "segments": [],
             }
 
-        # 关键：按绝对时间排序 segments
-        # hit_threshold 输出可能不是时间有序的（按 record 输入顺序连接），必须在此修正
         segments = sorted(segments, key=lambda x: x["abs_time_ps"][0])
-
-        # 计算相对时间（基于第一个片段的起始时间）
-        t0 = segments[0]["abs_time_ps"][0]
-
-        waveforms = []
-        times_ns = []
-        abs_times_ps = []
-
-        for seg in segments:
-            waveforms.append(seg["waveform"])
-            abs_times_ps.append(seg["abs_time_ps"])
-            times_ns.append((seg["abs_time_ps"] - t0) / 1000.0)
-
-        # 拼接
-        concat_waveform = np.concatenate(waveforms)
-        concat_time_ns = np.concatenate(times_ns)
-        concat_abs_time_ps = np.concatenate(abs_times_ps)
+        merged_waveform = merge_waveform_segments(
+            segments,
+            sum_channels=False,
+            dense=False,
+            context=f"merged_index={merged_index}",
+        )
+        concat_waveform = merged_waveform["waveform"]
+        concat_abs_time_ps = merged_waveform["abs_time_ps"]
+        t0 = int(concat_abs_time_ps[0])
+        concat_time_ns = (concat_abs_time_ps - t0) / 1000.0
 
         return {
             "merged_index": int(merged_index),
             "board": int(hm["board"]),
             "channel": int(hm["channel"]),
             "waveform": concat_waveform,
+            "waveform_area": float(np.sum(concat_waveform, dtype=np.float64)),
             "time_ns": concat_time_ns,
             "abs_time_ps": concat_abs_time_ps,
             "dt": segments[0]["dt"],
@@ -581,6 +599,7 @@ class PeakChannelAccessor:
             "board": int(channel.get("board", -1)),
             "channel": int(channel.get("channel", -1)),
             "waveform": np.array([], dtype=np.float32),
+            "waveform_area": 0.0,
             "time_ns": np.array([], dtype=np.float32),
             "abs_time_ps": np.array([], dtype=np.int64),
             "dt": 0,
@@ -611,16 +630,28 @@ class PeakChannelAccessor:
             return self._empty_waveform_data(channel)
 
         segments = sorted(segments, key=lambda seg: int(seg["abs_time_ps"][0]))
-        t0 = int(segments[0]["abs_time_ps"][0])
+        merged_waveform = merge_waveform_segments(
+            segments,
+            sum_channels=False,
+            dense=False,
+            context=(
+                f"peak_id={int(channel.get('peak_id', -1))}, "
+                f"board={int(channel['board'])}, channel={int(channel['channel'])}"
+            ),
+        )
+        waveform = merged_waveform["waveform"]
+        abs_time_ps = merged_waveform["abs_time_ps"]
+        t0 = int(abs_time_ps[0])
 
         result = {
             "merged_index": int(channel.get("merged_index", merged_indices[0])),
             "board": int(channel["board"]),
             "channel": int(channel["channel"]),
-            "waveform": np.concatenate([seg["waveform"] for seg in segments]),
-            "time_ns": np.concatenate([(seg["abs_time_ps"] - t0) / 1000.0 for seg in segments]),
-            "abs_time_ps": np.concatenate([seg["abs_time_ps"] for seg in segments]),
-            "dt": int(segments[0]["dt"]),
+            "waveform": waveform,
+            "waveform_area": float(np.sum(waveform, dtype=np.float64)),
+            "time_ns": (abs_time_ps - t0) / 1000.0,
+            "abs_time_ps": abs_time_ps,
+            "dt": int(merged_waveform["dt"]),
             "is_single_record": len(merged_indices) == 1 and bool(waveforms[0]["is_single_record"]),
             "segments": segments,
         }

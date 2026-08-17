@@ -17,7 +17,7 @@ class PeaksPlugin(Plugin):
     provides = "peaks"
     depends_on = ["peaklets", "peaklet_features", "peaklet_channels"]
     description = "Build final peaks table from peaklets and waveform-derived features."
-    version = "4.0.1"
+    version = "5.0.0"
     output_dtype = PEAKS_DTYPE
     save_when = "always"
     agent_doc = {
