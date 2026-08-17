@@ -146,7 +146,7 @@ raw_files ──► records ──► df ──► df_events
 | [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 1.4.0 | 峰构建 | hit_merged |
 | [`PeakletFeaturesPlugin`](peaklet_features.md) | `peaklet_features` | 5.0.0 | 峰构建 | peaklet_waveforms, peaklet_waveform_pool, peaklets |
 | [`PeakletWaveformPoolPlugin`](peaklet_waveform_pool.md) | `peaklet_waveform_pool` | 3.0.0 | 峰构建 | peaklet_waveforms |
-| [`PeakletWaveformPlugin`](peaklet_waveforms.md) | `peaklet_waveforms` | 2.0.0 | 峰构建 | - |
+| [`PeakletWaveformPlugin`](peaklet_waveforms.md) | `peaklet_waveforms` | 2.1.0 | 峰构建 | - |
 | [`PeakletPlugin`](peaklets.md) | `peaklets` | 1.2.0 | 峰构建 | hit_merged, peaklet_components |
 | [`PeaksPlugin`](peaks.md) | `peaks` | 5.0.0 | 特征提取 | peaklets, peaklet_features, peaklet_channels |
 | [`PositionReconstructionPlugin`](position_reconstruction.md) | `position_reconstruction` | 0.3.0 | 其他 | s1_s2_pairs, peaklet_channels |

@@ -41,7 +41,7 @@ waveform-docs generate plugins-agent --plugin raw_files
 | [`peaklet_components`](peaklet_components.md) | `PeakletComponentsPlugin` | `hit_merged` | `structured_array` | `1.4.0` |
 | [`peaklet_features`](peaklet_features.md) | `PeakletFeaturesPlugin` | `peaklet_waveforms`, `peaklet_waveform_pool`, `peaklets` | `structured_array` | `5.0.0` |
 | [`peaklet_waveform_pool`](peaklet_waveform_pool.md) | `PeakletWaveformPoolPlugin` | `peaklet_waveforms` | `array` | `3.0.0` |
-| [`peaklet_waveforms`](peaklet_waveforms.md) | `PeakletWaveformPlugin` | - | `structured_array` | `2.0.0` |
+| [`peaklet_waveforms`](peaklet_waveforms.md) | `PeakletWaveformPlugin` | - | `structured_array` | `2.1.0` |
 | [`peaklets`](peaklets.md) | `PeakletPlugin` | `hit_merged`, `peaklet_components` | `structured_array` | `1.2.0` |
 | [`peaks`](peaks.md) | `PeaksPlugin` | `peaklets`, `peaklet_features`, `peaklet_channels` | `structured_array` | `5.0.0` |
 | [`position_reconstruction`](position_reconstruction.md) | `PositionReconstructionPlugin` | `s1_s2_pairs`, `peaklet_channels` | `structured_array` | `0.3.0` |
