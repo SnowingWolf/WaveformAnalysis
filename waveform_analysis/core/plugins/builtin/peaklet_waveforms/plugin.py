@@ -529,6 +529,62 @@ class PeakletWaveformPlugin(Plugin):
     version = "2.1.0"
     output_dtype = PEAKLET_WAVEFORMS_DTYPE
     save_when = "always"
+    agent_doc = {
+        "overview": (
+            "`peaklet_waveforms` 将 peaklet 的 `hit_merged` 组件还原为按绝对时间对齐的 "
+            "ragged 求和波形，并与 `peaklet_waveform_pool` 在同一次构建中写入。"
+            "输入先按 peaklet、硬件键 `(board, channel)` 与绝对起点整理；普通单记录、"
+            "无同通道重叠的 peaklet 使用轻量 Numba 累加，cross-record 或重叠 peaklet "
+            "使用严格的 canonical Numba 合并。"
+        ),
+        "workflow_steps": [
+            "读取 peaklets、peaklet_components、hit_merged、records 与所选 wave pool；cross-record merged 行通过 hit_merged_components 展开为 threshold-hit 片段。",
+            "将片段按 `(peaklet_id, board, channel, absolute_start)` 排序并构建每个 peaklet 的 CSR 范围。",
+            "Numba 分类阶段验证 record、dt、pool 边界、有限采样和共同绝对时间网格，同时计算输出行及 fast/canonical 路由。",
+            "fast 路径直接累加无重叠的片段；canonical 路径按硬件通道使用 occupancy buffer 去重后，按确定顺序跨通道求和。",
+            "以 float64 累加器完成通道求和、最终物化为 float32 pool；index 行和 pool 一起缓存，供 peaklet_features 与 peaklet_waveform_pool 消费。",
+        ],
+        "behavior_notes": [
+            "同一 `(board, channel, abs_time_ps)` 的 bitwise-identical float32 采样是重复观测，只保留一次；不同通道在同一时刻仍相加。",
+            "同一硬件通道的不同采样值不会静默覆盖或求和，而是抛出 WaveformOverlapConflictError，并包含 board、channel、绝对时间和两个来源。",
+            "默认保留 baseline/polarity 转换后的有符号信号；clip_negative_signal=True 在合并前将负采样裁剪为零。",
+            "n_workers 与 parallel_threshold 仅影响 Python canonical fallback；Numba routed 路径是串行的，不叠加第二层并行。",
+        ],
+        "failure_modes": [
+            "同一 peaklet 的有效片段具有 mixed dt、偏离共同 dt 网格、非有限 baseline/采样、未知 record 或越界 pool 切片时，构建会显式失败。",
+            "同一通道同一绝对时间的位级不同 float32 值会抛出 WaveformOverlapConflictError。",
+            "Numba 缺失或发生非契约性内部错误时回退 Python canonical；debug_numba=True 会直接暴露该内部异常。",
+        ],
+        "config_notes": {
+            "use_filtered": "选择 wave_pool_filtered 而非原始 wave_pool；此选择参与 cache lineage。",
+            "clip_negative_signal": "控制 canonical 与 fast 路径共同使用的采样裁剪口径，默认 False。",
+            "debug_numba": "仅用于排查 Numba 内部异常；契约性输入错误始终直接抛出。",
+            "log_waveform_diagnostics": "记录 fast/canonical/fallback peaklet 数、输入与唯一采样数、分类/内核耗时以及 JIT signature 状态。",
+            "n_workers": "保留公开兼容；只用于 Python canonical fallback，不改变 Numba routed 路径的并行度。",
+            "parallel_threshold": "仅控制 Python fallback 何时尝试 process pool。",
+        },
+        "downstream_notes": [
+            "版本 2.1.0 改变了构建执行路径；peaklet_waveform_pool 因依赖 peaklet_waveforms 自动获得新的 cache lineage。",
+            "peaklet_features 读取本插件的 index 与配对 pool，因此始终使用已经按绝对时间、通道去重后的求和波形。",
+        ],
+        "agent_change_notes": [
+            "修改 Numba 路由、重叠语义、时间网格验证或 pool 写入顺序时必须保持 Python canonical、process fallback 与 Numba 输出一致，并升级版本。",
+            "不要通过放宽同通道重复或冲突规则换取性能；基准应分别覆盖普通、混合 cross-record 和长 S2 场景。",
+        ],
+        "workflow_diagram": """flowchart TD
+    Legacy[旧策略：批次中任一复杂输入] --> LegacyFallback[整批回退 Python canonical]
+    Input[components / hit_merged / records / wave_pool] --> Classify[Numba 分类与尺寸计算]
+    Classify --> Fast[普通单记录、同一时间网格、无同通道重叠]
+    Fast --> FastFill[fast：直接累加]
+    Classify --> Canonical[cross-record 或同通道重叠]
+    Canonical --> Dedup[canonical：逐通道去重与冲突检测]
+    FastFill --> Sum[固定顺序跨通道 float64 求和]
+    Dedup --> Sum
+    Sum --> Pool[float32 peaklet_waveform_pool]
+    Pool --> Consumers[peaklet_features / peaklet_waveform_pool]
+    classDef legacy fill:#fef3c7,stroke:#d97706,color:#78350f
+    class Legacy,LegacyFallback legacy""",
+    }
 
     options = {
         "use_filtered": Option(

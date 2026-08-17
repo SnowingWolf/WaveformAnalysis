@@ -1,0 +1,22 @@
+# task_report
+
+- `task_id`: `peaklet_waveforms_numba_docs`
+- `route`: `generate_docs`
+- `workflow_cost`: `light`
+- `workflow_shape`: `compact`
+- `actions_taken`:
+  - Added source-owned `agent_doc` metadata to `PeakletWaveformPlugin`.
+  - Regenerated builtin-auto and agent plugin references from that metadata.
+- `verification`:
+  - `python -m py_compile waveform_analysis/core/plugins/builtin/peaklet_waveforms/plugin.py`
+  - `waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/`
+  - `waveform-docs generate plugins-agent -o docs/plugins/reference/agent/`
+  - `python -m pytest -q tests/test_doc_generator.py` (22 passed, 2 deselected)
+  - `git diff --check` for all task paths.
+- `decision`: completed; Mermaid diagram is source-owned in `agent_doc.workflow_diagram`, so web references render it while generated Markdown retains the equivalent workflow text.
+- `changed_paths`:
+  - `waveform_analysis/core/plugins/builtin/peaklet_waveforms/plugin.py`
+  - `docs/plugins/reference/builtin/auto/peaklet_waveforms.md`
+  - `docs/plugins/reference/agent/peaklet_waveforms.md`
+- `commit_status`: pending scoped commit.
+- `open_risks`: unrelated pre-existing worktree changes may make repository-wide doc checks report warnings outside this task.
