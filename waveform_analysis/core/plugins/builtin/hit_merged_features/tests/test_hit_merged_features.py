@@ -302,6 +302,109 @@ def test_hit_merged_features_fallback_for_invalid_cross_record_window():
     assert int(out[0]["valid"]) == 1
 
 
+def test_hit_merged_features_numba_fallback_matches_disjoint_canonical_segments(monkeypatch):
+    hits = np.array(
+        [
+            make_hit(record_id=0, edge_start=2, edge_end=4, timestamp=0),
+            make_hit(record_id=1, edge_start=2, edge_end=4, timestamp=10_000),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    merged = np.array(
+        [_make_merged(record_id=0, sample_start=-1, sample_end=-1, component_count=2)],
+        dtype=HIT_MERGED_DTYPE,
+    )
+    wave_pool = np.array(
+        [
+            100,
+            100,
+            80,
+            70,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            90,
+            60,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+        ],
+        dtype=np.uint16,
+    )
+    components = _components([(0, 0), (0, 1)])
+    ctx = _context(merged, components, hits, wave_pool)
+
+    out = HitMergedFeaturesPlugin().compute(ctx, "run_001")
+
+    assert int(out[0]["valid"]) == 1
+    assert int(out[0]["time_start"]) == 4000
+    assert int(out[0]["time_end"]) == 18_000
+    assert float(out[0]["area"]) == 100.0
+    assert float(out[0]["height"]) == 40.0
+    assert int(out[0]["max_time"]) == 16_000
+
+    monkeypatch.setattr(
+        HitMergedFeaturesPlugin,
+        "_compute_nonoverlap_fallback_features",
+        staticmethod(lambda **kwargs: kwargs["bad"]),
+    )
+    oracle = HitMergedFeaturesPlugin().compute(
+        _context(merged, components, hits, wave_pool), "run_001"
+    )
+    assert out.tobytes() == oracle.tobytes()
+
+
+def test_hit_merged_features_overlapping_cross_record_conflict_keeps_python_oracle():
+    hits = np.array(
+        [
+            make_hit(record_id=0, edge_start=2, edge_end=4, timestamp=0),
+            make_hit(record_id=1, edge_start=2, edge_end=4, timestamp=0),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    merged = np.array(
+        [_make_merged(record_id=0, sample_start=-1, sample_end=-1, component_count=2)],
+        dtype=HIT_MERGED_DTYPE,
+    )
+    wave_pool = np.array(
+        [
+            100,
+            100,
+            80,
+            80,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            70,
+            70,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+        ],
+        dtype=np.uint16,
+    )
+    ctx = _context(merged, _components([(0, 0), (0, 1)]), hits, wave_pool)
+
+    with pytest.raises(WaveformOverlapConflictError, match="conflicting overlap"):
+        HitMergedFeaturesPlugin().compute(ctx, "run_001")
+
+
 def test_hit_merged_features_fallback_uses_clipped_waveform_time_edges():
     hit = make_hit(record_id=0, edge_start=-2, edge_end=2)
     merged = np.array(
@@ -387,9 +490,9 @@ def test_hit_merged_features_raises_when_record_missing():
         HitMergedFeaturesPlugin().compute(ctx, "run_001")
 
 
-def test_hit_merged_features_plugin_version_is_100():
-    """Signed integration and overlap semantics require a MAJOR lineage bump."""
-    assert HitMergedFeaturesPlugin.version == "1.0.0"
+def test_hit_merged_features_plugin_version_is_110():
+    """The routed Numba fallback requires a fresh cache lineage."""
+    assert HitMergedFeaturesPlugin.version == "1.1.0"
 
 
 def test_hit_merged_features_new_option_feature_num_threads():
@@ -416,10 +519,19 @@ def test_hit_merged_features_thread_option_covers_fallback(monkeypatch):
     def fake_fallback(**_kwargs):
         seen["fallback"] = module.nb.get_num_threads()
 
+    def fake_nonoverlap(**kwargs):
+        seen["numba_fallback"] = module.nb.get_num_threads()
+        return kwargs["bad"]
+
     monkeypatch.setattr(module, "_features_fast_kernel", fake_fast)
     monkeypatch.setattr(module, "_validate_fallback_components_kernel", fake_validate)
     monkeypatch.setattr(
         HitMergedFeaturesPlugin, "_compute_fallback_features", staticmethod(fake_fallback)
+    )
+    monkeypatch.setattr(
+        HitMergedFeaturesPlugin,
+        "_compute_nonoverlap_fallback_features",
+        staticmethod(fake_nonoverlap),
     )
 
     hit = make_hit(record_id=0)
@@ -439,7 +551,7 @@ def test_hit_merged_features_thread_option_covers_fallback(monkeypatch):
         num_threads=1,
     )
 
-    assert seen == {"fast": 1, "fallback": 1}
+    assert seen == {"fast": 1, "numba_fallback": 1, "fallback": 1}
 
 
 def test_hit_merged_features_no_build_component_slices_function():

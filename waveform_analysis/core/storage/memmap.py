@@ -50,8 +50,14 @@ class BufferedStreamWriter:
 
     def write_array(self, arr: np.ndarray):
         """Write numpy array to buffer, flushing when necessary."""
-        data = arr.tobytes()
-        data_len = len(data)
+        array = np.asarray(arr)
+        if not array.flags.c_contiguous:
+            array = np.ascontiguousarray(array)
+        # ``tobytes`` creates a full Python bytes copy for a large waveform
+        # pool.  A byte memoryview writes the existing contiguous ndarray
+        # buffer directly while preserving the on-disk representation.
+        data = memoryview(array).cast("B")
+        data_len = data.nbytes
 
         # If data larger than buffer, write directly
         if data_len > self.buffer_size:

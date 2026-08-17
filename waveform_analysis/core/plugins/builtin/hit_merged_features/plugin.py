@@ -1,5 +1,7 @@
 """HitMergedFeaturesPlugin 类实现 - 为每条 hit_merged 行计算单通道波形特征。"""
 
+import logging
+import time
 from typing import Any
 
 import numba as nb
@@ -194,120 +196,6 @@ def _features_fast_kernel(
         out[i]["valid"] = 1
 
 
-@nb.njit(cache=True, fastmath=True, parallel=True, nogil=True)
-def _features_fallback_kernel(
-    wave_pool,
-    rec_wave_offset,
-    rec_event_length,
-    rec_baseline,
-    rec_polarity_sign,
-    fallback_indices,
-    comp_offsets,
-    comp_counts,
-    component_hit_indices,
-    hit_edge_start,
-    hit_edge_end,
-    hit_timestamp,
-    hit_dt,
-    hit_position,
-    hit_rec_indices,
-    out,
-):
-    """
-    Numba fallback 核心：批量处理跨 record 或无合法窗口的 merged hits。
-
-    外层 nb.prange 遍历 clusters，内层遍历每个 cluster 的 component hits。
-    对每个 component hit 执行波形切片、极性转换、sum 和 argmax，
-    然后聚合并写入 out 数组。
-
-    - fastmath=True，parallel=True，nogil=True
-    - 使用 max() 替代 if 分支（与主 kernel 风格一致）
-    """
-    for fi in nb.prange(len(fallback_indices)):
-        merged_idx = fallback_indices[fi]
-        start = comp_offsets[merged_idx]
-        count = comp_counts[merged_idx]
-        if count <= 0:
-            continue
-
-        t_start = np.int64(0)
-        t_end = np.int64(0)
-        max_t = np.int64(0)
-        # Keep the legacy aggregation precision: each component produces a
-        # float32 sum, then cluster area is accumulated as a Python float.
-        area = 0.0
-        height = np.float32(0.0)
-        has_any = False
-
-        for ci in range(count):
-            hit_i = component_hit_indices[start + ci]
-            rec_i = hit_rec_indices[hit_i]
-
-            edge_s = hit_edge_start[hit_i]
-            edge_e = hit_edge_end[hit_i]
-
-            # Clip only the waveform read. Timing fields deliberately retain
-            # the original hit edges for compatibility with the Python path.
-            cs = max(0, edge_s)
-            ce = min(rec_event_length[rec_i], edge_e)
-
-            offset = rec_wave_offset[rec_i]
-            baseline = rec_baseline[rec_i]
-            sign = rec_polarity_sign[rec_i]
-
-            dt_ps = hit_dt[hit_i] * 1000
-            hit_ts = hit_timestamp[hit_i]
-            hit_pos = hit_position[hit_i]
-            t0 = hit_ts + (edge_s - hit_pos) * dt_ps
-            t1 = hit_ts + (edge_e - hit_pos) * dt_ps
-
-            # 单 pass 计算：area + max
-            s = np.float32(0.0)
-            h = np.float32(0.0)
-            max_j = 0
-            base = offset + cs
-            n_sample = ce - cs
-
-            for j in range(n_sample):
-                raw = np.float32(wave_pool[base + j])
-                v = sign * (raw - baseline)
-                v = max(v, np.float32(0.0))
-                s += v
-                if v > h:
-                    h = v
-                    max_j = j
-
-            mt = t0 + max_j * dt_ps
-
-            if not has_any:
-                t_start = t0
-                t_end = t1
-                max_t = mt
-                has_any = True
-            else:
-                if t0 < t_start:
-                    t_start = t0
-                if t1 > t_end:
-                    t_end = t1
-
-            area += float(s)
-            if h > height:
-                height = h
-                max_t = mt
-
-        if has_any:
-            out[merged_idx]["time_start"] = t_start
-            out[merged_idx]["time_end"] = t_end
-            out[merged_idx]["center_time"] = (t_start + t_end) // 2
-            out[merged_idx]["max_time"] = max_t
-            out[merged_idx]["area"] = area
-            out[merged_idx]["height"] = height
-            out[merged_idx]["width"] = np.float32(t_end - t_start) / np.float32(1000.0)
-            out[merged_idx]["rise_time"] = np.float32(max_t - t_start) / np.float32(1000.0)
-            out[merged_idx]["fall_time"] = np.float32(t_end - max_t) / np.float32(1000.0)
-            out[merged_idx]["valid"] = 1
-
-
 @nb.njit(cache=True, nogil=True)
 def _validate_fallback_components_kernel(
     fallback_indices,
@@ -350,6 +238,55 @@ def _validate_fallback_components_kernel(
                 return 5, merged_idx, hit_idx, edge_start, edge_end
 
     return 0, -1, -1, 0, 0
+
+
+@nb.njit(cache=True, nogil=True, parallel=True)
+def _fill_nonoverlap_fallback_pool_kernel(
+    wave_pool,
+    group_component_offsets,
+    group_pool_offsets,
+    ordered_record_indices,
+    ordered_clipped_starts,
+    ordered_clipped_ends,
+    ordered_time_starts,
+    ordered_dts,
+    rec_wave_offset,
+    rec_baseline,
+    rec_polarity_sign,
+    clip_negative_signal,
+    values_out,
+    times_out,
+):
+    """Materialize disjoint fallback segments in canonical time order.
+
+    Each group owns a disjoint output range, so this is the only parallel
+    layer.  Reduction intentionally stays in NumPy: it preserves the current
+    Python canonical ``sum(dtype=float64)`` and first-maximum behaviour.
+    """
+    n_groups = len(group_pool_offsets) - 1
+    for group_index in nb.prange(n_groups):
+        component_start = group_component_offsets[group_index]
+        component_end = group_component_offsets[group_index + 1]
+        pool_index = group_pool_offsets[group_index]
+
+        for component_index in range(component_start, component_end):
+            record_index = ordered_record_indices[component_index]
+            clipped_start = ordered_clipped_starts[component_index]
+            clipped_end = ordered_clipped_ends[component_index]
+            sample_time = ordered_time_starts[component_index]
+            dt_ps = ordered_dts[component_index] * 1000
+            wave_offset = rec_wave_offset[record_index]
+            baseline = rec_baseline[record_index]
+            polarity_sign = rec_polarity_sign[record_index]
+
+            for sample_index in range(clipped_end - clipped_start):
+                raw = np.float32(wave_pool[wave_offset + clipped_start + sample_index])
+                value = polarity_sign * (raw - baseline)
+                if clip_negative_signal and value < np.float32(0.0):
+                    value = np.float32(0.0)
+                values_out[pool_index] = value
+                times_out[pool_index] = sample_time + sample_index * dt_ps
+                pool_index += 1
 
 
 def _raise_fallback_validation_error(
@@ -395,10 +332,44 @@ class HitMergedFeaturesPlugin(Plugin):
     lineage_virtual = True
     depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Compute per-hit_merged local waveform features from records-backed samples."
-    version = "1.0.0"
+    version = "1.1.0"
     save_when = "always"
     output_dtype = HIT_MERGED_FEATURES_DTYPE
     uses_run_config = True
+    agent_doc = {
+        "overview": (
+            "为每条 `hit_merged` 计算单硬件通道的局部波形特征。直接窗口由 Numba "
+            "并行计算；cross-record fallback 先按安全性分流，非重叠片段按绝对时间在 "
+            "Numba 中物化，再用与 Python canonical 相同的 NumPy 归约生成特征。"
+        ),
+        "workflow_steps": [
+            "读取 hit_merged、component 映射、threshold hits、records 与所选波形池。",
+            "直接窗口走 Numba 单遍 area/height 计算；无效窗口展开为 component 片段。",
+            "同通道、同 dt 且绝对时间不重叠的 fallback 片段走 Numba compact 路径；可能重叠或不安全的行保留 Python canonical 合并。",
+            "将 canonical 顺序的 float32 样本以 NumPy float64 求面积，并写入固定输出 dtype。",
+        ],
+        "behavior_notes": [
+            "默认积分有符号的 baseline/polarity 转换后波形；clip_negative_signal=True 在积分前裁剪负采样。",
+            "fallback 保留同通道重叠的去重和 WaveformOverlapConflictError 语义，不用直接 component 求和替代。",
+            "feature_num_threads 只控制 Numba 路径；log_feature_diagnostics 仅记录运行时统计，不参与 cache lineage。",
+        ],
+        "failure_modes": [
+            "缺失 record、无效 component 映射或空的裁剪后窗口会显式失败。",
+            "同一硬件通道同一绝对时间的位级不同采样会抛出 WaveformOverlapConflictError。",
+        ],
+        "config_notes": {
+            "feature_num_threads": "设置 Numba 路径线程数；None 使用 Numba 默认，且不改变 cache lineage。",
+            "log_feature_diagnostics": "记录 direct/Numba canonical/Python canonical 的行数、样本数和耗时。",
+        },
+        "downstream_notes": [
+            "peaklet_channels、peaklets 与后续峰特征消费本插件的 area、height 和时间字段。",
+            "版本 1.1.0 更换 fallback 执行路径，缓存会因 lineage 自动重建。",
+        ],
+        "agent_change_notes": [
+            "修改 fallback 时必须对照 Python canonical，保持 signed、clipped、重叠去重和冲突错误语义。",
+            "性能回归同时报告 Numba compute 和波形 pool 的 cache-save I/O，避免将持久化误判为重算。",
+        ],
+    }
 
     options = {
         "wave_source": Option(
@@ -444,6 +415,12 @@ class HitMergedFeaturesPlugin(Plugin):
             help="Numba kernel 线程数；None 使用 Numba 默认。",
             track=False,
         ),
+        "log_feature_diagnostics": Option(
+            default=False,
+            type=bool,
+            help="记录 direct、Numba canonical 与 Python canonical fallback 的数量和耗时。",
+            track=False,
+        ),
     }
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
@@ -476,6 +453,7 @@ class HitMergedFeaturesPlugin(Plugin):
 
         num_threads = context.get_config(self, "feature_num_threads")
         clip_negative_signal = bool(context.get_config(self, "clip_negative_signal"))
+        log_diagnostics = bool(context.get_config(self, "log_feature_diagnostics"))
 
         result = self._compute_features(
             merged=merged,
@@ -485,6 +463,7 @@ class HitMergedFeaturesPlugin(Plugin):
             wave_pool=loaded.wave_pool,
             num_threads=num_threads,
             clip_negative_signal=clip_negative_signal,
+            log_diagnostics=log_diagnostics,
         )
 
         # 应用增益校准
@@ -502,6 +481,7 @@ class HitMergedFeaturesPlugin(Plugin):
         wave_pool: np.ndarray,
         num_threads: int | None = None,
         clip_negative_signal: bool = False,
+        log_diagnostics: bool = False,
     ) -> np.ndarray:
         n_merged = len(merged)
         if n_merged == 0:
@@ -539,6 +519,17 @@ class HitMergedFeaturesPlugin(Plugin):
         else:
             out["n_hits"] = 1
 
+        diagnostics = {
+            "direct_rows": 0,
+            "numba_canonical_rows": 0,
+            "python_canonical_rows": 0,
+            "fallback_components": 0,
+            "numba_canonical_samples": 0,
+            "classify_seconds": 0.0,
+            "numba_canonical_seconds": 0.0,
+            "python_canonical_seconds": 0.0,
+        }
+
         # Numba 主路径：直接写入 out 数组
         if num_threads is not None and num_threads <= 0:
             raise ValueError("feature_num_threads must be positive when set")
@@ -565,8 +556,10 @@ class HitMergedFeaturesPlugin(Plugin):
             )
             # Only invalid direct windows need component expansion.
             bad = np.flatnonzero(out["valid"] == 0)
+            diagnostics["direct_rows"] = int(n_merged - len(bad))
 
             if len(bad) > 0:
+                classify_started_at = time.perf_counter()
                 comp_offsets = np.asarray(merged["component_offset"], dtype=np.int64)
                 comp_counts = np.asarray(merged["component_count"], dtype=np.int32)
                 component_merged_indices = np.asarray(
@@ -592,24 +585,222 @@ class HitMergedFeaturesPlugin(Plugin):
                 )
                 if validation[0] != 0:
                     _raise_fallback_validation_error(*validation)
-
-                self._compute_fallback_features(
+                diagnostics["fallback_components"] = int(np.sum(comp_counts[bad]))
+                numba_bad = self._compute_nonoverlap_fallback_features(
                     bad=bad,
                     comp_offsets=comp_offsets,
                     comp_counts=comp_counts,
                     component_hit_indices=component_hit_indices,
                     hits=hits,
-                    records=records,
                     wave_pool=wave_pool,
                     record_lookup=record_lookup,
+                    rec_wave_offset=rec_wave_offset,
+                    rec_event_length=rec_event_length,
+                    rec_baseline=rec_baseline,
+                    rec_polarity_sign=rec_polarity_sign,
                     clip_negative_signal=clip_negative_signal,
                     out=out,
+                    diagnostics=diagnostics,
                 )
+                diagnostics["classify_seconds"] = time.perf_counter() - classify_started_at
+                if len(numba_bad) > 0:
+                    python_started_at = time.perf_counter()
+                    self._compute_fallback_features(
+                        bad=numba_bad,
+                        comp_offsets=comp_offsets,
+                        comp_counts=comp_counts,
+                        component_hit_indices=component_hit_indices,
+                        hits=hits,
+                        records=records,
+                        wave_pool=wave_pool,
+                        record_lookup=record_lookup,
+                        clip_negative_signal=clip_negative_signal,
+                        out=out,
+                    )
+                    diagnostics["python_canonical_seconds"] = (
+                        time.perf_counter() - python_started_at
+                    )
+                    diagnostics["python_canonical_rows"] = int(len(numba_bad))
         finally:
             if old_threads is not None:
                 nb.set_num_threads(old_threads)
 
+        if log_diagnostics:
+            logging.getLogger(__name__).info(
+                "hit_merged_features diagnostics: "
+                f"direct={diagnostics['direct_rows']} "
+                f"numba_canonical={diagnostics['numba_canonical_rows']} "
+                f"python_canonical={diagnostics['python_canonical_rows']} "
+                f"fallback_components={diagnostics['fallback_components']} "
+                f"numba_samples={diagnostics['numba_canonical_samples']} "
+                f"classify={diagnostics['classify_seconds']:.3f}s "
+                f"numba={diagnostics['numba_canonical_seconds']:.3f}s "
+                f"python={diagnostics['python_canonical_seconds']:.3f}s "
+                f"jit_signatures={len(_fill_nonoverlap_fallback_pool_kernel.signatures)}"
+            )
+
         return out
+
+    @staticmethod
+    def _compute_nonoverlap_fallback_features(
+        *,
+        bad: np.ndarray,
+        comp_offsets: np.ndarray,
+        comp_counts: np.ndarray,
+        component_hit_indices: np.ndarray,
+        hits: np.ndarray,
+        wave_pool: np.ndarray,
+        record_lookup: RecordLookup,
+        rec_wave_offset: np.ndarray,
+        rec_event_length: np.ndarray,
+        rec_baseline: np.ndarray,
+        rec_polarity_sign: np.ndarray,
+        clip_negative_signal: bool,
+        out: np.ndarray,
+        diagnostics: dict[str, Any],
+    ) -> np.ndarray:
+        """Use Numba for canonical fallback rows with disjoint time segments.
+
+        The existing Python canonical merge remains the oracle for rows which
+        could contain an overlap.  Eligible rows have one hardware channel,
+        one dt and non-overlapping segments; materialising their samples in
+        stable absolute-time order gives NumPy exactly the values it would see
+        after ``merge_waveform_segments(..., dense=False)``.
+        """
+        group_component_offsets = np.empty(len(bad) + 1, dtype=np.int64)
+        group_component_offsets[0] = 0
+        for group_index, merged_index in enumerate(bad):
+            group_component_offsets[group_index + 1] = (
+                group_component_offsets[group_index] + comp_counts[merged_index]
+            )
+
+        n_components = int(group_component_offsets[-1])
+        if n_components == 0:
+            return bad
+
+        flat_merged_indices = np.empty(n_components, dtype=np.int64)
+        flat_hit_indices = np.empty(n_components, dtype=np.int64)
+        for group_index, merged_index in enumerate(bad):
+            source_start = int(comp_offsets[merged_index])
+            source_end = source_start + int(comp_counts[merged_index])
+            target_start = int(group_component_offsets[group_index])
+            target_end = int(group_component_offsets[group_index + 1])
+            flat_merged_indices[target_start:target_end] = merged_index
+            flat_hit_indices[target_start:target_end] = component_hit_indices[
+                source_start:source_end
+            ]
+
+        hit_record_id = _field_or_default(hits, "record_id", -1, np.int64)
+        hit_record_indices = record_lookup.get_indices(hit_record_id[flat_hit_indices])
+        hit_edge_start = _field_or_default(hits, "edge_start", 0, np.int64)[flat_hit_indices]
+        hit_edge_end = _field_or_default(hits, "edge_end", 0, np.int64)[flat_hit_indices]
+        hit_timestamp = _field_or_default(hits, "timestamp", 0, np.int64)[flat_hit_indices]
+        hit_dt = _field_or_default(hits, "dt", 1, np.int64)[flat_hit_indices]
+        hit_position = _field_or_default(hits, "position", 0, np.int64)[flat_hit_indices]
+        hit_board = _field_or_default(hits, "board", 0, np.int16)[flat_hit_indices]
+        hit_channel = _field_or_default(hits, "channel", 0, np.int16)[flat_hit_indices]
+
+        clipped_starts = np.maximum(hit_edge_start, 0)
+        clipped_ends = np.minimum(hit_edge_end, rec_event_length[hit_record_indices])
+        component_lengths = clipped_ends - clipped_starts
+        component_times = hit_timestamp + (clipped_starts - hit_position) * hit_dt * 1000
+        component_ends = component_times + component_lengths * hit_dt * 1000
+
+        candidate_component_orders: list[np.ndarray] = []
+        candidate_merged_indices: list[int] = []
+        python_merged_indices: list[int] = []
+        for group_index, merged_index in enumerate(bad):
+            start = int(group_component_offsets[group_index])
+            end = int(group_component_offsets[group_index + 1])
+            times = component_times[start:end]
+            order = np.argsort(times, kind="stable")
+            positions = start + order
+
+            same_hardware = bool(
+                np.all(hit_board[positions] == hit_board[positions[0]])
+                and np.all(hit_channel[positions] == hit_channel[positions[0]])
+            )
+            same_dt = bool(
+                hit_dt[positions[0]] > 0 and np.all(hit_dt[positions] == hit_dt[positions[0]])
+            )
+            disjoint = bool(
+                len(positions) == 1
+                or np.all(component_ends[positions[:-1]] <= component_times[positions[1:]])
+            )
+            if same_hardware and same_dt and disjoint:
+                candidate_component_orders.append(positions)
+                candidate_merged_indices.append(int(merged_index))
+            else:
+                python_merged_indices.append(int(merged_index))
+
+        if not candidate_component_orders:
+            return np.asarray(python_merged_indices, dtype=np.int64)
+
+        ordered_positions = np.concatenate(candidate_component_orders)
+        candidate_component_offsets = np.empty(len(candidate_component_orders) + 1, dtype=np.int64)
+        candidate_component_offsets[0] = 0
+        for group_index, positions in enumerate(candidate_component_orders):
+            candidate_component_offsets[group_index + 1] = candidate_component_offsets[
+                group_index
+            ] + len(positions)
+
+        candidate_pool_offsets = np.empty(len(candidate_component_orders) + 1, dtype=np.int64)
+        candidate_pool_offsets[0] = 0
+        for group_index, positions in enumerate(candidate_component_orders):
+            candidate_pool_offsets[group_index + 1] = candidate_pool_offsets[group_index] + int(
+                np.sum(component_lengths[positions])
+            )
+
+        n_samples = int(candidate_pool_offsets[-1])
+        values = np.empty(n_samples, dtype=np.float32)
+        times = np.empty(n_samples, dtype=np.int64)
+        started_at = time.perf_counter()
+        _fill_nonoverlap_fallback_pool_kernel(
+            wave_pool,
+            candidate_component_offsets,
+            candidate_pool_offsets,
+            hit_record_indices[ordered_positions],
+            clipped_starts[ordered_positions],
+            clipped_ends[ordered_positions],
+            component_times[ordered_positions],
+            hit_dt[ordered_positions],
+            rec_wave_offset,
+            rec_baseline,
+            rec_polarity_sign,
+            clip_negative_signal,
+            values,
+            times,
+        )
+        diagnostics["numba_canonical_seconds"] += time.perf_counter() - started_at
+        diagnostics["numba_canonical_rows"] += len(candidate_merged_indices)
+        diagnostics["numba_canonical_samples"] += n_samples
+
+        for group_index, merged_index in enumerate(candidate_merged_indices):
+            start = int(candidate_pool_offsets[group_index])
+            end = int(candidate_pool_offsets[group_index + 1])
+            wave = values[start:end]
+            abs_times = times[start:end]
+            max_index = int(np.argmax(wave))
+            time_start = int(abs_times[0])
+            time_end = (
+                int(abs_times[-1])
+                + int(hit_dt[ordered_positions[candidate_component_offsets[group_index + 1] - 1]])
+                * 1000
+            )
+            max_time = int(abs_times[max_index])
+
+            out[merged_index]["time_start"] = time_start
+            out[merged_index]["time_end"] = time_end
+            out[merged_index]["center_time"] = (time_start + time_end) // 2
+            out[merged_index]["max_time"] = max_time
+            out[merged_index]["area"] = np.sum(wave, dtype=np.float64)
+            out[merged_index]["height"] = wave[max_index]
+            out[merged_index]["width"] = (time_end - time_start) / 1000.0
+            out[merged_index]["rise_time"] = (max_time - time_start) / 1000.0
+            out[merged_index]["fall_time"] = (time_end - max_time) / 1000.0
+            out[merged_index]["valid"] = 1
+
+        return np.asarray(python_merged_indices, dtype=np.int64)
 
     @staticmethod
     def _compute_fallback_features(

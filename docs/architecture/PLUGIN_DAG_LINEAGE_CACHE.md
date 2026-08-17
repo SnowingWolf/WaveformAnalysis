@@ -210,6 +210,13 @@ flowchart TD
 当前缓存键包含 `run_id`、产物名称和 lineage 摘要。同名产物在不同 run 中不会共享键；同一 run
 中配置、version、输出契约或上游身份变化也会产生不同键。
 
+### 6.1.1 大型波形池的持久化
+
+`peaklet_waveform_pool` 一类的大型连续数组仍须完整写入磁盘，才能在新 Context 中命中缓存；这段
+I/O 不能视为 waveform 的重复计算。memmap 存储直接写入连续 ndarray 的 buffer，避免先用
+`tobytes()` 创建同等大小的 Python 临时副本。性能诊断应分别记录 Plugin compute 与 cache-save
+时间，避免把存储带宽、压缩或 checksum 成本误判为算法回归。
+
 ### 6.2 失效矩阵
 
 | 变化 | 正常行为 | 失败时的表现 |
