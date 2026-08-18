@@ -5,7 +5,7 @@ profile: "agent"
 provides: "peaklet_channels"
 plugin_class: "PeakletChannelsPlugin"
 module: "waveform_analysis.core.plugins.builtin.peaklet_channels.plugin"
-version: "2.0.1"
+version: "2.0.2"
 summary: "Reconstruct deduplicated per-peaklet channel waveform contributions."
 depends_on: ["peaklets", "peaklet_components", "hit_merged", "hit_merged_components", "hit_threshold", "hit_merged_features", "peaklet_features", "records", "wave_pool"]
 output_kind: "structured_array"
@@ -23,7 +23,7 @@ Reconstruct peaklets into deduplicated per-board/channel contribution rows.
 | Provides | `peaklet_channels` |
 | Plugin Class | `PeakletChannelsPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaklet_channels.plugin` |
-| Version | `2.0.1` |
+| Version | `2.0.2` |
 | Category | 峰构建 |
 | Output Kind | `structured_array` |
 

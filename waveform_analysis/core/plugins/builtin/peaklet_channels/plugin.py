@@ -11,6 +11,11 @@ from waveform_analysis.core.plugins.builtin.cpu._wave_source import (
     load_wave_input,
     resolve_wave_input_spec,
 )
+from waveform_analysis.core.plugins.builtin.shared.canonical_waveform_numba import (
+    MAX_CANONICAL_DENSE_SAMPLES_PER_BATCH,
+    classify_dense_canonical_groups,
+    materialize_dense_canonical_groups,
+)
 from waveform_analysis.core.plugins.builtin.shared.waveform_merge import merge_waveform_segments
 from waveform_analysis.core.plugins.core.base import Option, Plugin
 
@@ -25,6 +30,8 @@ PEAKLET_CHANNELS_DTYPE = np.dtype(
         ("area_fraction", "f4"),
     ]
 )
+
+_CANONICAL_GROUPS_PER_BATCH = 4_096
 
 
 def _empty_channels() -> np.ndarray:
@@ -47,6 +54,50 @@ def _validate_peaklet_components(peaklets: np.ndarray, components: np.ndarray) -
     expected = peaklets["component_count"].astype(np.int64, copy=False)
     if not np.array_equal(counts, expected):
         raise ValueError("peaklet_channels found peaklet_components inconsistent with peaklets")
+
+
+@nb.njit(cache=True, nogil=True)
+def _has_dense_identity_merged_indices(merged_indices: np.ndarray) -> bool:
+    for index in range(len(merged_indices)):
+        if merged_indices[index] != index:
+            return False
+    return True
+
+
+@nb.njit(cache=True, nogil=True)
+def _keys_are_nondecreasing(
+    peaklet_ids: np.ndarray, boards: np.ndarray, channels: np.ndarray
+) -> bool:
+    for index in range(1, len(peaklet_ids)):
+        previous_peaklet = peaklet_ids[index - 1]
+        peaklet = peaklet_ids[index]
+        if peaklet < previous_peaklet:
+            return False
+        if peaklet == previous_peaklet:
+            previous_board = boards[index - 1]
+            board = boards[index]
+            if board < previous_board:
+                return False
+            if board == previous_board and channels[index] < channels[index - 1]:
+                return False
+    return True
+
+
+def _polarity_sign_array(records: np.ndarray) -> np.ndarray:
+    sign = np.full(len(records), -1.0, dtype=np.float32)
+    names = records.dtype.names or ()
+    if "polarity" not in names:
+        return sign
+    polarity = records["polarity"]
+    if polarity.dtype.kind == "S":
+        sign[polarity == b"positive"] = 1.0
+    elif polarity.dtype.kind == "U":
+        sign[polarity == "positive"] = 1.0
+    else:
+        for index, value in enumerate(polarity):
+            if (value.decode("utf-8") if isinstance(value, bytes) else str(value)) == "positive":
+                sign[index] = 1.0
+    return sign
 
 
 @nb.njit(cache=True, nogil=True, parallel=True)
@@ -100,7 +151,7 @@ class PeakletChannelsPlugin(Plugin):
         "wave_pool",
     ]
     description = "Reconstruct deduplicated per-peaklet channel waveform contributions."
-    version = "2.0.1"
+    version = "2.0.2"
     output_dtype = PEAKLET_CHANNELS_DTYPE
     save_when = "always"
 
@@ -189,7 +240,7 @@ class PeakletChannelsPlugin(Plugin):
             loaded = load_wave_input(context, self, run_id)
             if not loaded.spec.is_records or loaded.records is None or loaded.wave_pool is None:
                 raise ValueError("peaklet_channels currently supports wave_source='records' only")
-            self._replace_with_waveform_features(
+            unresolved_groups = self._replace_with_numba_canonical_features(
                 out=out,
                 group_offsets=group_offsets,
                 grouped_merged_indices=grouped_merged_indices,
@@ -201,6 +252,20 @@ class PeakletChannelsPlugin(Plugin):
                 wave_pool=loaded.wave_pool,
                 clip_negative_signal=bool(context.get_config(self, "clip_negative_signal")),
             )
+            if len(unresolved_groups):
+                self._replace_with_waveform_features(
+                    out=out,
+                    group_offsets=group_offsets,
+                    grouped_merged_indices=grouped_merged_indices,
+                    rebuild_groups=rebuild_groups,
+                    group_indices=unresolved_groups,
+                    merged=merged,
+                    component_hits=component_hits,
+                    hits=hits,
+                    records=loaded.records,
+                    wave_pool=loaded.wave_pool,
+                    clip_negative_signal=bool(context.get_config(self, "clip_negative_signal")),
+                )
         self._validate_and_fill_fractions(out, peaklets, peaklet_features)
         return out
 
@@ -221,7 +286,7 @@ class PeakletChannelsPlugin(Plugin):
         return signal
 
     @classmethod
-    def _replace_with_waveform_features(
+    def _replace_with_numba_canonical_features(
         cls,
         *,
         out: np.ndarray,
@@ -234,12 +299,213 @@ class PeakletChannelsPlugin(Plugin):
         records: np.ndarray,
         wave_pool: np.ndarray,
         clip_negative_signal: bool,
+    ) -> np.ndarray:
+        """Rebuild safe channel groups with the shared dense canonical kernel.
+
+        The CSR expansion is deliberately batched. Groups that cannot be
+        expressed as validated record windows, that do not fit the dense time
+        grid, or that report a duplicate-sample conflict are returned to the
+        existing Python oracle for exact public diagnostics.
+        """
+        record_lookup = RecordLookup(records)
+        component_hit_indices = component_hits["hit_index"].astype(np.int64, copy=False)
+        component_merged_indices = component_hits["merged_index"].astype(np.int64, copy=False)
+        rec_wave_offsets = records["wave_offset"].astype(np.int64, copy=False)
+        rec_event_lengths = records["event_length"].astype(np.int64, copy=False)
+        rec_timestamps = records["timestamp"].astype(np.int64, copy=False)
+        rec_dts = records["dt"].astype(np.int64, copy=False)
+        rec_baselines = records["baseline"].astype(np.float32, copy=False)
+        rec_polarity_signs = _polarity_sign_array(records)
+        hit_record_ids = hits["record_id"].astype(np.int64, copy=False)
+        hit_starts = hits["edge_start"].astype(np.int64, copy=False)
+        hit_ends = hits["edge_end"].astype(np.int64, copy=False)
+
+        unresolved: list[int] = []
+        rebuild_indices = np.flatnonzero(rebuild_groups)
+        for batch_start in range(0, len(rebuild_indices), _CANONICAL_GROUPS_PER_BATCH):
+            batch_groups = rebuild_indices[batch_start : batch_start + _CANONICAL_GROUPS_PER_BATCH]
+            candidate_groups: list[int] = []
+            group_offsets_local = [0]
+            record_ids: list[int] = []
+            starts: list[int] = []
+            ends: list[int] = []
+            boards: list[int] = []
+            channels: list[int] = []
+
+            for group_index in batch_groups:
+                group_start = int(group_offsets[group_index])
+                group_end = int(group_offsets[group_index + 1])
+                saved_length = len(record_ids)
+                complete_csr = True
+                for grouped_index in range(group_start, group_end):
+                    merged_index = int(grouped_merged_indices[grouped_index])
+                    merged_row = merged[merged_index]
+                    sample_start = int(merged_row["sample_start"])
+                    sample_end = int(merged_row["sample_end"])
+                    is_single = (
+                        bool(merged_row["is_single_record"])
+                        if "is_single_record" in merged.dtype.names
+                        else sample_start >= 0 and sample_end > sample_start
+                    )
+                    if is_single and sample_start >= 0 and sample_end > sample_start:
+                        windows = ((int(merged_row["record_id"]), sample_start, sample_end),)
+                    else:
+                        component_offset = int(merged_row["component_offset"])
+                        component_count = int(merged_row["component_count"])
+                        if (
+                            component_offset < 0
+                            or component_count <= 0
+                            or component_offset + component_count > len(component_hit_indices)
+                            or not np.all(
+                                component_merged_indices[
+                                    component_offset : component_offset + component_count
+                                ]
+                                == merged_index
+                            )
+                        ):
+                            complete_csr = False
+                            break
+                        windows = tuple(
+                            (
+                                int(hit_record_ids[hit_index]),
+                                int(hit_starts[hit_index]),
+                                int(hit_ends[hit_index]),
+                            )
+                            for hit_index in component_hit_indices[
+                                component_offset : component_offset + component_count
+                            ]
+                        )
+                    for record_id, start, end in windows:
+                        record_ids.append(record_id)
+                        starts.append(start)
+                        ends.append(end)
+                        boards.append(int(out[group_index]["board"]))
+                        channels.append(int(out[group_index]["channel"]))
+
+                if not complete_csr or len(record_ids) == saved_length:
+                    del record_ids[saved_length:]
+                    del starts[saved_length:]
+                    del ends[saved_length:]
+                    del boards[saved_length:]
+                    del channels[saved_length:]
+                    unresolved.append(int(group_index))
+                    continue
+                candidate_groups.append(int(group_index))
+                group_offsets_local.append(len(record_ids))
+
+            if not candidate_groups:
+                continue
+
+            local_offsets = np.asarray(group_offsets_local, dtype=np.int64)
+            record_ids_array = np.asarray(record_ids, dtype=np.int64)
+            record_indices = record_lookup.get_indices(record_ids_array)
+            starts_array = np.asarray(starts, dtype=np.int64)
+            ends_array = np.asarray(ends, dtype=np.int64)
+            clipped_starts = np.maximum(starts_array, 0)
+            clipped_ends = np.minimum(ends_array, rec_event_lengths[record_indices])
+            component_lengths = clipped_ends - clipped_starts
+            component_dts = rec_dts[record_indices]
+            component_times = rec_timestamps[record_indices] + clipped_starts * component_dts * 1000
+            component_ends = component_times + component_lengths * component_dts * 1000
+            group_time_starts = np.zeros(len(candidate_groups), dtype=np.int64)
+            group_spans = np.zeros(len(candidate_groups), dtype=np.int64)
+            group_status = np.zeros(len(candidate_groups), dtype=np.int8)
+            classify_dense_canonical_groups(
+                local_offsets,
+                component_times,
+                component_ends,
+                component_dts,
+                np.asarray(boards, dtype=np.int16),
+                np.asarray(channels, dtype=np.int16),
+                rec_baselines[record_indices],
+                group_time_starts,
+                group_spans,
+                group_status,
+            )
+            candidate_groups_array = np.asarray(candidate_groups, dtype=np.int64)
+            unresolved.extend(map(int, candidate_groups_array[group_status != 0]))
+
+            safe_groups = np.flatnonzero(group_status == 0)
+            safe_cursor = 0
+            while safe_cursor < len(safe_groups):
+                cumulative_spans = np.cumsum(group_spans[safe_groups[safe_cursor:]], dtype=np.int64)
+                selected_count = int(
+                    np.searchsorted(
+                        cumulative_spans,
+                        MAX_CANONICAL_DENSE_SAMPLES_PER_BATCH,
+                        side="right",
+                    )
+                )
+                selected_count = max(selected_count, 1)
+                selected_groups = safe_groups[safe_cursor : safe_cursor + selected_count]
+                selected_spans = group_spans[selected_groups]
+                pool_offsets = np.empty(len(selected_groups) + 1, dtype=np.int64)
+                pool_offsets[0] = 0
+                np.cumsum(selected_spans, out=pool_offsets[1:])
+                values = np.zeros(int(pool_offsets[-1]), dtype=np.float32)
+                occupied = np.zeros(len(values), dtype=np.uint8)
+                conflicts = np.zeros(len(selected_groups), dtype=np.uint8)
+                materialize_dense_canonical_groups(
+                    wave_pool,
+                    selected_groups,
+                    local_offsets,
+                    pool_offsets,
+                    group_time_starts[selected_groups],
+                    record_indices,
+                    clipped_starts,
+                    clipped_ends,
+                    component_times,
+                    component_dts,
+                    rec_wave_offsets,
+                    rec_baselines,
+                    rec_polarity_signs,
+                    clip_negative_signal,
+                    values,
+                    values.view(np.uint32),
+                    occupied,
+                    conflicts,
+                )
+                for local_index, local_group_index in enumerate(selected_groups):
+                    output_group_index = int(candidate_groups_array[local_group_index])
+                    if conflicts[local_index]:
+                        unresolved.append(output_group_index)
+                        continue
+                    pool_start = int(pool_offsets[local_index])
+                    pool_end = int(pool_offsets[local_index + 1])
+                    sample_indices = np.flatnonzero(occupied[pool_start:pool_end])
+                    if len(sample_indices) == 0:
+                        unresolved.append(output_group_index)
+                        continue
+                    waveform = values[pool_start:pool_end][sample_indices]
+                    out[output_group_index]["area"] = np.sum(waveform, dtype=np.float64)
+                    out[output_group_index]["height"] = np.max(waveform)
+                safe_cursor += selected_count
+
+        return np.asarray(sorted(set(unresolved)), dtype=np.int64)
+
+    @classmethod
+    def _replace_with_waveform_features(
+        cls,
+        *,
+        out: np.ndarray,
+        group_offsets: np.ndarray,
+        grouped_merged_indices: np.ndarray,
+        rebuild_groups: np.ndarray,
+        group_indices: np.ndarray | None = None,
+        merged: np.ndarray,
+        component_hits: np.ndarray,
+        hits: np.ndarray,
+        records: np.ndarray,
+        wave_pool: np.ndarray,
+        clip_negative_signal: bool,
     ) -> None:
         """Rebuild only the channel groups that can contain shared samples."""
         record_lookup = RecordLookup(records)
         hit_indices = component_hits["hit_index"].astype(np.int64, copy=False)
 
-        for group_index in np.flatnonzero(rebuild_groups):
+        if group_indices is None:
+            group_indices = np.flatnonzero(rebuild_groups)
+        for group_index in group_indices:
             out_row = out[group_index]
             peaklet_id = int(out_row["peaklet_id"])
             board = int(out_row["board"])
@@ -392,40 +658,53 @@ class PeakletChannelsPlugin(Plugin):
                 return empty, np.zeros(1, dtype=np.int64), np.zeros(0, dtype=np.int64)
             return empty
 
-        valid_features = features[features["valid"] != 0]
-        if len(valid_features) == 0:
-            empty = _empty_channels()
-            if return_groups:
-                return empty, np.zeros(1, dtype=np.int64), np.zeros(0, dtype=np.int64)
-            return empty
-
-        feature_merged = valid_features["merged_index"].astype(np.int64, copy=False)
-        feature_order = np.argsort(feature_merged, kind="mergesort")
-        sorted_merged = feature_merged[feature_order]
-
         component_merged = components["merged_index"].astype(np.int64, copy=False)
-        matched_pos = np.searchsorted(sorted_merged, component_merged, side="right") - 1
-        matched = matched_pos >= 0
-        matched[matched] &= sorted_merged[matched_pos[matched]] == component_merged[matched]
+        feature_merged = features["merged_index"].astype(np.int64, copy=False)
+        if _has_dense_identity_merged_indices(feature_merged):
+            matched = (component_merged >= 0) & (component_merged < len(features))
+            matched_positions = component_merged[matched]
+            valid_matched = features["valid"][matched_positions] != 0
+            component_positions = np.flatnonzero(matched)
+            matched = np.zeros(len(components), dtype=bool)
+            matched[component_positions[valid_matched]] = True
+            matched_features = features[component_merged[matched]]
+        else:
+            valid_features = features[features["valid"] != 0]
+            if len(valid_features) == 0:
+                empty = _empty_channels()
+                if return_groups:
+                    return empty, np.zeros(1, dtype=np.int64), np.zeros(0, dtype=np.int64)
+                return empty
+            valid_merged = valid_features["merged_index"].astype(np.int64, copy=False)
+            feature_order = np.argsort(valid_merged, kind="mergesort")
+            sorted_merged = valid_merged[feature_order]
+            matched_pos = np.searchsorted(sorted_merged, component_merged, side="right") - 1
+            matched = matched_pos >= 0
+            matched[matched] &= sorted_merged[matched_pos[matched]] == component_merged[matched]
+            matched_features = valid_features[feature_order[matched_pos[matched]]]
         if not np.any(matched):
             empty = _empty_channels()
             if return_groups:
                 return empty, np.zeros(1, dtype=np.int64), np.zeros(0, dtype=np.int64)
             return empty
 
-        matched_features = valid_features[feature_order[matched_pos[matched]]]
         peaklet_ids = components["peak_id"][matched].astype(np.int64, copy=False)
         boards = matched_features["board"].astype(np.int64, copy=False)
         channels = matched_features["channel"].astype(np.int64, copy=False)
-
-        group_order = np.lexsort((channels, boards, peaklet_ids))
-        peaklet_ids = peaklet_ids[group_order]
-        boards = boards[group_order]
-        channels = channels[group_order]
-        areas = matched_features["area"][group_order].astype(np.float32, copy=False)
-        heights = matched_features["height"][group_order].astype(np.float32, copy=False)
-        n_hits = matched_features["n_hits"][group_order].astype(np.int32, copy=False)
-        grouped_merged_indices = component_merged[matched][group_order]
+        grouped_merged_indices = component_merged[matched]
+        if _keys_are_nondecreasing(peaklet_ids, boards, channels):
+            areas = matched_features["area"].astype(np.float32, copy=False)
+            heights = matched_features["height"].astype(np.float32, copy=False)
+            n_hits = matched_features["n_hits"].astype(np.int32, copy=False)
+        else:
+            group_order = np.lexsort((channels, boards, peaklet_ids))
+            peaklet_ids = peaklet_ids[group_order]
+            boards = boards[group_order]
+            channels = channels[group_order]
+            areas = matched_features["area"][group_order].astype(np.float32, copy=False)
+            heights = matched_features["height"][group_order].astype(np.float32, copy=False)
+            n_hits = matched_features["n_hits"][group_order].astype(np.int32, copy=False)
+            grouped_merged_indices = grouped_merged_indices[group_order]
 
         group_start_mask = np.r_[
             True,

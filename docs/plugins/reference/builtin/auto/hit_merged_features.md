@@ -5,7 +5,7 @@ profile: "auto"
 provides: "hit_merged_features"
 plugin_class: "HitMergedFeaturesPlugin"
 module: "waveform_analysis.core.plugins.builtin.hit_merged_features.plugin"
-version: "1.1.1"
+version: "1.1.2"
 summary: "Compute per-hit_merged local waveform features from records-backed samples."
 depends_on: []
 output_kind: "structured_array"
@@ -23,7 +23,7 @@ Compute per-hit_merged local waveform features from records-backed samples.
 | Provides | `hit_merged_features` |
 | Plugin Class | `HitMergedFeaturesPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.hit_merged_features.plugin` |
-| Version | `1.1.1` |
+| Version | `1.1.2` |
 | Category | 特征提取 |
 | Output Kind | `structured_array` |
 

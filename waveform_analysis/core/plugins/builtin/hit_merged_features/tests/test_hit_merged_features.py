@@ -492,7 +492,7 @@ def test_hit_merged_features_raises_when_record_missing():
 
 def test_hit_merged_features_plugin_version_is_111():
     """The routed Numba fallback requires a fresh cache lineage."""
-    assert HitMergedFeaturesPlugin.version == "1.1.1"
+    assert HitMergedFeaturesPlugin.version == "1.1.2"
 
 
 def test_hit_merged_features_new_option_feature_num_threads():

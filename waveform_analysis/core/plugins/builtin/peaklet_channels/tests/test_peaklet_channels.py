@@ -19,6 +19,9 @@ from waveform_analysis.core.plugins.builtin.hit.hit_merge import (
     HIT_MERGED_COMPONENTS_DTYPE,
     HIT_MERGED_DTYPE,
 )
+from waveform_analysis.core.plugins.builtin.shared.waveform_merge import (
+    WaveformOverlapConflictError,
+)
 
 
 def _peaklets(areas, *, component_count=1):
@@ -100,6 +103,65 @@ def test_peaklet_channels_single_peaklet_multiple_channels():
     np.testing.assert_allclose(out["area_fraction"], np.array([0.6, 0.4], dtype=np.float32))
 
 
+def test_peaklet_channels_dense_feature_identity_matches_shuffled_feature_fallback():
+    peaklets = _peaklets([100.0], component_count=2)
+    components = _components([(0, 0), (0, 1)])
+    peaklet_features = _peaklet_features([100.0])
+    direct = _compute(
+        _ctx(
+            peaklets,
+            components,
+            _features(
+                [
+                    {"merged_index": 0, "channel": 0, "area": 60.0, "height": 30.0, "n_hits": 2},
+                    {"merged_index": 1, "channel": 1, "area": 40.0, "height": 25.0, "n_hits": 1},
+                ]
+            ),
+            peaklet_features,
+        )
+    )
+    generic = _compute(
+        _ctx(
+            peaklets,
+            components,
+            _features(
+                [
+                    {"merged_index": 1, "channel": 1, "area": 40.0, "height": 25.0, "n_hits": 1},
+                    {"merged_index": 0, "channel": 0, "area": 60.0, "height": 30.0, "n_hits": 2},
+                ]
+            ),
+            peaklet_features,
+        )
+    )
+
+    np.testing.assert_array_equal(direct, generic)
+
+
+def test_peaklet_channels_presorted_components_do_not_need_lexsort(monkeypatch):
+    import waveform_analysis.core.plugins.builtin.peaklet_channels.plugin as plugin_module
+
+    ctx = _ctx(
+        _peaklets([100.0], component_count=2),
+        _components([(0, 0), (0, 1)]),
+        _features(
+            [
+                {"merged_index": 0, "channel": 0, "area": 60.0, "height": 30.0, "n_hits": 2},
+                {"merged_index": 1, "channel": 1, "area": 40.0, "height": 25.0, "n_hits": 1},
+            ]
+        ),
+        _peaklet_features([100.0]),
+    )
+
+    monkeypatch.setattr(
+        plugin_module.np,
+        "lexsort",
+        lambda *_args, **_kwargs: pytest.fail("presorted fast path called lexsort"),
+    )
+    out = _compute(ctx)
+
+    assert len(out) == 2
+
+
 def test_peaklet_channels_aggregates_multiple_rows_for_same_channel():
     ctx = _ctx(
         _peaklets([50.0], component_count=2),
@@ -170,6 +232,51 @@ def test_peaklet_channels_reconstructs_and_deduplicates_cross_record_waveform():
     assert float(out[0]["area"]) == 70.0
     assert float(out[0]["height"]) == 30.0
     assert float(out[0]["area_fraction"]) == 1.0
+
+
+def test_peaklet_channels_numba_conflict_reenters_python_canonical_oracle():
+    peaklets = _peaklets([70.0])
+    components = _components([(0, 0)])
+    features = _features(
+        [{"merged_index": 0, "channel": 3, "area": 100.0, "height": 30.0, "n_hits": 2}]
+    )
+    merged = np.zeros(1, dtype=HIT_MERGED_DTYPE)
+    merged[0]["board"] = 0
+    merged[0]["channel"] = 3
+    merged[0]["record_id"] = 0
+    merged[0]["sample_start"] = -1
+    merged[0]["sample_end"] = -1
+    merged[0]["is_single_record"] = False
+    hits = np.array(
+        [
+            make_hit(record_id=0, channel=3, edge_start=2, edge_end=4),
+            make_hit(record_id=1, channel=3, edge_start=1, edge_end=3),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    component_hits = np.array([(0, 0), (0, 1)], dtype=HIT_MERGED_COMPONENTS_DTYPE)
+    records = make_records(n_records=2, event_length=10, baseline=100.0, dt=2)
+    records["timestamp"] = [0, 4000]
+    records["polarity"] = "negative"
+    wave_pool = np.full(20, 100, dtype=np.uint16)
+    wave_pool[[2, 3, 11, 12]] = [80, 80, 60, 80]
+    ctx = DummyContext(
+        {"wave_source": "records", "use_filtered": False, "clip_negative_signal": False},
+        {
+            "peaklets": peaklets,
+            "peaklet_components": components,
+            "hit_merged_features": features,
+            "peaklet_features": _peaklet_features([70.0]),
+            "hit_merged": merged,
+            "hit_merged_components": component_hits,
+            "hit_threshold": hits,
+            "records": records,
+            "wave_pool": wave_pool,
+        },
+    )
+
+    with pytest.raises(WaveformOverlapConflictError, match="conflicting overlap"):
+        PeakletChannelsPlugin().compute(ctx, "run_001")
 
 
 def test_peaklet_channels_reuses_single_record_feature_without_waveform_dependencies():
