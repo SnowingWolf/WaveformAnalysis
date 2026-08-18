@@ -1,0 +1,57 @@
+# execution_report
+
+- `task_id`: `peaklet_channels_phase2`
+- `workflow_cost`: `strict`
+- `workflow_shape`: `staged`
+- `executor_role`: `executor.plugin`
+- `agent_profile`: `graph_engineer`
+- `changed_paths`:
+  - `waveform_analysis/core/plugins/builtin/peaklet_channels/plugin.py`
+  - `waveform_analysis/core/plugins/builtin/shared/canonical_waveform_numba.py`
+  - `waveform_analysis/core/plugins/builtin/peaklet_channels/tests/test_peaklet_channels.py`
+  - `waveform_analysis/core/plugins/builtin/peaklet_channels/manifest.yaml`
+  - `docs/plugins/reference/agent/peaklet_channels.md`
+  - `docs/plugins/reference/agent/INDEX.md`
+  - `docs/plugins/reference/builtin/auto/peaklet_channels.md`
+  - `docs/plugins/reference/builtin/auto/INDEX.md`
+  - `docs/agents/protocol/artifacts/peaklet_channels_phase2_plan_brief.md`
+  - `docs/agents/protocol/artifacts/peaklet_channels_phase2_execution_report.md`
+- `actions_taken`:
+  - 将版本从 `2.0.2` 升至 `2.0.3`，保持 provides、depends_on、公开 options、输出 dtype 和缓存语义不变。
+  - 增加连续 component CSR + dense identity feature 的 Numba count/fill 路径；组内硬件键用局部稳定排序保持旧输出顺序，结构异常回到通用匹配路径。
+  - 用 Numba 批量展开 record windows，并以并行 occupied/area/height 归约处理安全 dense canonical 组；冲突、非致密时间轴和异常 CSR 仍交给现有 Python oracle。
+  - 合并 fraction 写入与面积/fraction 守恒检查；面积 reduce 使用 NumPy pairwise reduceat 以保持 2.0.2 位级结果。
+  - 保留单一 Numba 并行层，不设置全局线程数，不新增 worker 配置。
+- `commands_run`:
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q waveform_analysis/core/plugins/builtin/peaklet_channels/tests/test_peaklet_channels.py tests/test_peak_channel_accessor.py`（22 passed）。
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q waveform_analysis/core/plugins/builtin/peaklet_channels/tests/test_peaklet_channels.py`（15 passed）。
+  - 下游定向集合（peaks、compat、documentation、benchmark）：107 passed、2 deselected、1 个既有 site-doc-generator 断言失败。
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m compileall -q waveform_analysis/core/plugins/builtin/peaklet_channels waveform_analysis/core/plugins/builtin/shared/canonical_waveform_numba.py`（PASS）。
+  - `ruff check`、`black --check`（任务代码、共享 Numba 模块和定向测试，PASS）。
+  - `python scripts/assess_change_impact.py --base HEAD`（PASS）。
+  - `python scripts/schema_compat_check.py --base HEAD --run-smoke`（PASS，dtype changes=0）。
+  - 两套 `waveform-docs generate`、pyroot `render_agent_docs.py --check`（PASS）；`check_doc_sync.sh` 受系统 Python 语法版本阻断，pyroot doc render 已通过。
+  - `check_doc_anchors.py --check-sync --base HEAD`（errors=0；仅报告无关 context 文档 warning）。
+  - `python scripts/performance_regression_check.py --base HEAD`（无关既有 `hit_threshold` RSS 回归，未通过）。
+- `open_risks`:
+  - 完整 `00196` 优化版在稳定上游缓存、16 threads、JIT warm 后 3 次为 7.7066/7.6911/7.7086 s，median 7.7066 s；三次 hash 均为 `fea1d5107bd2cb98b1292c1fb4d312197096dfe12354b7e541805d0e960b8b38`，与现有严格 oracle `00196-peaklet_channels-32f15add` 逐字节一致，增量 RSS 约 3.55–3.59 GB。
+  - 同缓存动态加载 2.0.2 基线在完整输出阶段因旧版 global matching/lexsort 临时数组触发环境 OOM，无法取得其 3 次完整 median/RSS；该阻断已记录，未伪造比较结果。
+  - 1M component 合成（组内乱序、dense identity）warm-JIT 线程矩阵 median：1/8/16/32/64/192 threads 为 0.0754/0.0485/0.0395/0.0330/0.0293/0.0283 s；2.0.2 同输入 16 threads median 0.2579 s，输出逐字段相等。
+  - 95% 普通组 + 5% overlap/cross-record 合成门槛已完成（此前 warm-JIT 记录：优化版 median 0.002470 s，2.0.2 median 0.165269 s，输出逐字段相等）。
+  - 既有工作区包含 site-doc-generator 重构等大量无关 dirty 文件，本次未修改、未清理、未纳入 stage。
+- `requested_review_focus`:
+  - 核对局部硬件键排序、group/member CSR offset 和 NumPy pairwise area reduce 是否保持旧顺序、重复计数与位级数值。
+  - 核对 canonical fast/fallback 分界、冲突诊断文本、signed/clipped 语义和 records-backed cache lineage。
+  - 核对 Numba 并行层级、线程数不外泄及 OOM 基线阻断是否应作为发布前残余风险。
+
+## Optional Notes
+
+- `tests_run`：空输入、CSR/fallback、feature 重排、组内乱序、多通道、重复/cross-record、冲突、signed/clipped、零面积和长 S2 均由定向测试及随机 oracle 对照覆盖。
+- `gates_executed`：impact、schema smoke、doc generation/sync/anchors、compileall、Ruff、Black、性能矩阵、完整优化版 00196。
+- `docs_updated`：agent/auto peaklet_channels 页面与索引同步至 2.0.3。
+- `plan_drift`：为覆盖真实 00196 的乱序 component CSR，将 fast path 从“要求键预排序”调整为“每个 peaklet 局部稳定键排序”；仍跳过全局 matching/key arrays/lexsort，fallback 边界未放宽。
+- `version_changed`: `true`
+- `contract_changed`: `false`
+- `backend_implemented_as_planned`: `true`
+- `backend_deviations`：为复现 2.0.2 的浮点 reduceat 结果，fast CSR 填充后仅对 member area 执行 NumPy pairwise reduce；未恢复全局匹配或排序。
+- `not_executed_and_why`：完整 2.0.2 对照因 OOM 未完成；性能回归脚本和一个 site documentation 测试分别被无关现有改动阻断。

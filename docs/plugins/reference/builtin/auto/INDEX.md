@@ -142,7 +142,7 @@ raw_files ──► records ──► df ──► df_events
 | [`HitMergedFeaturesPlugin`](hit_merged_features.md) | `hit_merged_features` | 1.1.0 | 特征提取 | - |
 | [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.2.0 | 特征提取 | - |
 | [`PeakClassificationPlugin`](peak_classification.md) | `peak_classification` | 1.2.1 | 特征提取 | peaks |
-| [`PeakletChannelsPlugin`](peaklet_channels.md) | `peaklet_channels` | 2.0.0 | 峰构建 | peaklets, peaklet_components, hit_merged, hit_merged_components, hit_threshold, hit_merged_features, peaklet_features, records, wave_pool |
+| [`PeakletChannelsPlugin`](peaklet_channels.md) | `peaklet_channels` | 2.0.3 | 峰构建 | peaklets, peaklet_components, hit_merged, hit_merged_components, hit_threshold, hit_merged_features, peaklet_features, records, wave_pool |
 | [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 1.4.0 | 峰构建 | hit_merged |
 | [`PeakletFeaturesPlugin`](peaklet_features.md) | `peaklet_features` | 5.0.0 | 峰构建 | peaklet_waveforms, peaklet_waveform_pool, peaklets |
 | [`PeakletWaveformPoolPlugin`](peaklet_waveform_pool.md) | `peaklet_waveform_pool` | 3.0.0 | 峰构建 | peaklet_waveforms |

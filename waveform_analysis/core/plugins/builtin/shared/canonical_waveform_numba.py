@@ -140,9 +140,45 @@ def materialize_dense_canonical_groups(
         conflicts_out[local_group_index] = has_conflict
 
 
+@nb.njit(cache=True, nogil=True, parallel=True)
+def reduce_dense_canonical_groups(
+    values,
+    group_pool_offsets,
+    occupied,
+    areas_out,
+    heights_out,
+    has_samples_out,
+):
+    """Reduce materialized dense buffers without constructing waveform views.
+
+    Materialization intentionally remains serial because each group owns an
+    occupancy/bit-pattern buffer.  Once materialization is complete, groups
+    are independent and their area/height reductions can safely run in the
+    single Numba parallel layer used by the caller.
+    """
+    for local_group_index in nb.prange(len(group_pool_offsets) - 1):
+        start = group_pool_offsets[local_group_index]
+        end = group_pool_offsets[local_group_index + 1]
+        area = 0.0
+        height = np.float32(-np.inf)
+        has_samples = 0
+        for sample_index in range(start, end):
+            if occupied[sample_index] == 0:
+                continue
+            value = values[sample_index]
+            area += np.float64(value)
+            if has_samples == 0 or value > height:
+                height = value
+            has_samples = 1
+        areas_out[local_group_index] = area
+        heights_out[local_group_index] = height
+        has_samples_out[local_group_index] = has_samples
+
+
 __all__ = [
     "MAX_CANONICAL_DENSE_SAMPLES_PER_BATCH",
     "MAX_CANONICAL_DENSE_SAMPLES_PER_GROUP",
     "classify_dense_canonical_groups",
     "materialize_dense_canonical_groups",
+    "reduce_dense_canonical_groups",
 ]

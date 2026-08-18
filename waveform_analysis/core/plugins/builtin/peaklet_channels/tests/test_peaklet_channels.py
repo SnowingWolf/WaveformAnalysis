@@ -162,6 +162,96 @@ def test_peaklet_channels_presorted_components_do_not_need_lexsort(monkeypatch):
     assert len(out) == 2
 
 
+def test_peaklet_channels_fast_csr_preserves_member_order_and_offsets():
+    peaklets = _peaklets([100.0, 50.0], component_count=0)
+    peaklets[0]["component_offset"] = 0
+    peaklets[0]["component_count"] = 3
+    peaklets[1]["component_offset"] = 3
+    peaklets[1]["component_count"] = 2
+    components = _components([(0, 0), (0, 1), (0, 2), (1, 3), (1, 4)])
+    features = _features(
+        [
+            {"merged_index": 0, "channel": 1, "area": 10.0, "height": 2.0, "n_hits": 1},
+            {"merged_index": 1, "channel": 1, "area": 20.0, "height": 5.0, "n_hits": 2},
+            {"merged_index": 2, "channel": 3, "area": 30.0, "height": 4.0, "n_hits": 1},
+            {"merged_index": 3, "channel": 0, "area": 15.0, "height": 3.0, "n_hits": 1},
+            {"merged_index": 4, "channel": 2, "area": 35.0, "height": 7.0, "n_hits": 2},
+        ]
+    )
+    out, group_offsets, grouped_members = PeakletChannelsPlugin()._compute_channels(
+        peaklets=peaklets,
+        components=components,
+        features=features,
+        peaklet_features=_peaklet_features([60.0, 50.0]),
+        validate=False,
+        return_groups=True,
+    )
+
+    np.testing.assert_array_equal(out["peaklet_id"], [0, 0, 1, 1])
+    np.testing.assert_array_equal(out["channel"], [1, 3, 0, 2])
+    np.testing.assert_allclose(out["area"], [30.0, 30.0, 15.0, 35.0])
+    np.testing.assert_array_equal(group_offsets, [0, 2, 3, 4, 5])
+    np.testing.assert_array_equal(grouped_members, [0, 1, 2, 3, 4])
+
+
+def test_peaklet_channels_fast_csr_sorts_unsorted_components_per_peaklet():
+    peaklets = _peaklets([100.0], component_count=0)
+    peaklets[0]["component_offset"] = 0
+    peaklets[0]["component_count"] = 4
+    components = _components([(0, 2), (0, 0), (0, 3), (0, 1)])
+    features = _features(
+        [
+            {"merged_index": 0, "channel": 2, "area": 20.0, "height": 2.0, "n_hits": 1},
+            {"merged_index": 1, "channel": 0, "area": 10.0, "height": 5.0, "n_hits": 2},
+            {"merged_index": 2, "channel": 1, "area": 30.0, "height": 4.0, "n_hits": 1},
+            {"merged_index": 3, "channel": 0, "area": 40.0, "height": 7.0, "n_hits": 3},
+        ]
+    )
+    out, group_offsets, grouped_members = PeakletChannelsPlugin()._compute_channels(
+        peaklets=peaklets,
+        components=components,
+        features=features,
+        peaklet_features=_peaklet_features([100.0]),
+        validate=False,
+        return_groups=True,
+    )
+
+    np.testing.assert_array_equal(out["channel"], [0, 1, 2])
+    np.testing.assert_allclose(out["area"], [50.0, 30.0, 20.0])
+    np.testing.assert_array_equal(out["n_hits"], [5, 1, 1])
+    np.testing.assert_array_equal(group_offsets, [0, 2, 3, 4])
+    np.testing.assert_array_equal(grouped_members, [3, 1, 2, 0])
+
+
+def test_peaklet_channels_noncontiguous_components_use_generic_fallback(monkeypatch):
+    import waveform_analysis.core.plugins.builtin.peaklet_channels.plugin as plugin_module
+
+    peaklets = _peaklets([100.0, 50.0], component_count=0)
+    peaklets[0]["component_offset"] = 0
+    peaklets[0]["component_count"] = 1
+    peaklets[1]["component_offset"] = 1
+    peaklets[1]["component_count"] = 1
+    components = _components([(1, 1), (0, 0)])
+    features = _features(
+        [
+            {"merged_index": 0, "channel": 0, "area": 100.0, "height": 10.0, "n_hits": 1},
+            {"merged_index": 1, "channel": 0, "area": 50.0, "height": 5.0, "n_hits": 1},
+        ]
+    )
+    calls = {"count": 0}
+    original_lexsort = plugin_module.np.lexsort
+
+    def counting_lexsort(*args, **kwargs):
+        calls["count"] += 1
+        return original_lexsort(*args, **kwargs)
+
+    monkeypatch.setattr(plugin_module.np, "lexsort", counting_lexsort)
+    out = _compute(_ctx(peaklets, components, features, _peaklet_features([100.0, 50.0])))
+
+    assert calls["count"] == 1
+    np.testing.assert_array_equal(out["peaklet_id"], [0, 1])
+
+
 def test_peaklet_channels_aggregates_multiple_rows_for_same_channel():
     ctx = _ctx(
         _peaklets([50.0], component_count=2),
