@@ -54,12 +54,21 @@ def require_dt_array(
     explicit_dt: Any = None,
     plugin_name: str,
     data_name: str,
+    selector: np.ndarray | None = None,
 ) -> np.ndarray:
     """Return per-row ``dt`` values as ``int32`` using data first, explicit config second."""
     names = data.dtype.names or ()
+    if selector is None:
+        selected_length = len(data)
+    else:
+        selector = np.asarray(selector)
+        selected_length = (
+            int(np.count_nonzero(selector)) if selector.dtype == np.bool_ else len(selector)
+        )
     if "dt" in names:
-        dt = np.asarray(data["dt"], dtype=np.int64)
-        if len(dt) != len(data):
+        values = data["dt"] if selector is None else data["dt"][selector]
+        dt = np.asarray(values, dtype=np.int64)
+        if len(dt) != selected_length:
             raise ValueError(f"[{plugin_name}] {data_name}.dt length mismatch")
         if np.any(dt <= 0):
             raise ValueError(f"[{plugin_name}] {data_name}.dt must be positive for every row")
@@ -78,4 +87,4 @@ def require_dt_array(
         raise ValueError(f"[{plugin_name}] dt must be > 0")
     if dt_scalar > np.iinfo(np.int32).max:
         raise ValueError(f"[{plugin_name}] dt exceeds int32 range: {dt_scalar}")
-    return np.full(len(data), dt_scalar, dtype=np.int32)
+    return np.full(selected_length, dt_scalar, dtype=np.int32)

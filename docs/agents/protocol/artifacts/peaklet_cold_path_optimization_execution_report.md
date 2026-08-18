@@ -1,0 +1,77 @@
+# execution_report
+
+- `task_id`: `peaklet_cold_path_optimization_20260819`
+- `workflow_cost`: `strict`
+- `workflow_shape`: `staged`
+- `executor_role`: `executor.plugin`
+- `agent_profile`: `none`
+- `changed_paths`:
+  - `waveform_analysis/core/plugins/builtin/shared/wave_source.py`
+  - `waveform_analysis/core/plugins/builtin/shared/dt_compat.py`
+  - `waveform_analysis/core/plugins/builtin/shared/canonical_waveform_numba.py`
+  - `waveform_analysis/core/plugins/builtin/hit_threshold/plugin.py`
+  - `waveform_analysis/core/plugins/builtin/hit_threshold/manifest.yaml`
+  - `waveform_analysis/core/plugins/builtin/hit_threshold/tests/test_hit_threshold.py`
+  - `waveform_analysis/core/plugins/builtin/hit_merged_features/plugin.py`
+  - `waveform_analysis/core/plugins/builtin/hit_merged_features/manifest.yaml`
+  - `waveform_analysis/core/plugins/builtin/hit_merged_features/tests/test_hit_merged_features.py`
+  - `waveform_analysis/core/plugins/builtin/peaklet_channels/plugin.py`
+  - `waveform_analysis/core/plugins/builtin/peaklet_channels/manifest.yaml`
+  - `scripts/check_doc_sync.sh`
+  - `docs/plugins/reference/agent/INDEX.md`
+  - `docs/plugins/reference/agent/hit_threshold.md`
+  - `docs/plugins/reference/agent/hit_merged_features.md`
+  - `docs/plugins/reference/agent/peaklet_channels.md`
+  - `docs/plugins/reference/builtin/auto/INDEX.md`
+  - `docs/plugins/reference/builtin/auto/hit_threshold.md`
+  - `docs/plugins/reference/builtin/auto/hit_merged_features.md`
+  - `docs/plugins/reference/builtin/auto/peaklet_channels.md`
+  - `docs/agents/protocol/artifacts/peaklet_cold_path_optimization_plan_brief.md`
+  - `docs/agents/protocol/artifacts/peaklet_cold_path_optimization_execution_report.md`
+  - `docs/agents/protocol/artifacts/peaklet_cold_path_optimization_review_report.md`
+- `actions_taken`:
+  - 为 records formal ndarray 增加 `needs_records_view=False` 内部路径；hit_threshold、hit_merged_features、peaklet_channels 只读取原始 records/wave_pool，不构造全量 RecordsView 的 ends、polarity、lookup 临时对象。
+  - hit_threshold 的 detector/asymmetry mask 改为按字段 selector 提取 metadata，避免 `records[mask]` 的完整 structured copy；dt 兼容 helper 支持 selector，保留 record 顺序和异常文本。
+  - canonical 长窗口批次上限从 8M 调为 4M，并将受 occupancy bitmap 保护的 dense values 改为 `np.empty`，保留 serial materialize、位级冲突检测与 Python fallback。
+  - hit_threshold、hit_merged_features、peaklet_channels 版本分别升级至 `1.2.2`、`1.1.3`、`2.0.5`，同步两个插件文档集合及索引。
+  - doc-sync 脚本改为优先 `WAVEFORM_PYTHON`、当前 virtualenv、仓库 `.venv`，最后才 fallback 到 Python 3；不再硬编码过旧 `python`。
+- `commands_run`:
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q waveform_analysis/core/plugins/builtin/hit_threshold/tests waveform_analysis/core/plugins/builtin/hit_merged_features/tests waveform_analysis/core/plugins/builtin/peaklet_channels/tests tests/test_record_utils.py tests/test_records_view.py`（98 项通过）
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m compileall -q ...`（通过）
+  - `ruff check`、`black --check`（通过）
+  - `.venv/bin/waveform-docs generate plugins-auto/agent -o /tmp/...`（两套各 37 文件生成成功；保留工作区既有非本任务文档内容）
+  - `./scripts/check_doc_sync.sh`（解释器选择已修复；因既有 context.py DOC anchor 警告返回 2）
+  - `python scripts/check_doc_anchors.py --check-sync --base HEAD`（错误 0，既有 warning 1）
+  - `python scripts/assess_change_impact.py --base HEAD`（通过，受影响插件 low）
+  - `python scripts/schema_compat_check.py --base HEAD --run-smoke`（通过，dtype changes=0）
+  - `python scripts/performance_regression_check.py --base HEAD --repeats 10`（通过，无回归；sandbox fallback 明确记录）
+  - `python scripts/release_artifact_sync.py --base HEAD --skip-tests --skip-perf`（因既有 docs/site-generator dirty 导致 generated docs mismatch，未通过）
+  - 00196 只读 memmap warm-JIT 链路各 3 次：hit_threshold、peaklet_channels；另对 hit_merged_features 做 NaN-aware cache 对照。
+- `open_risks`:
+  - 旧版 2.0.2 global matching/lexsort 全量基线仍被系统终止，无法完成严格旧新三次 hash/RSS 对照。
+  - 工作区既有 `context.py` anchor 改动未同步其文档，导致 doc-sync/doc-anchor 与 release_artifact_sync 阻断；未混入本任务提交。
+  - release 生成器在既有 site-doc refactor dirty 状态下额外生成 `s1_s2.md` 且 INDEX/若干页面不一致；本任务只同步受影响插件版本，未重写无关文档。
+- `requested_review_focus`:
+  - 检查 direct records path 是否只在不需要 RecordsView 的消费者使用，默认路径和 RecordsBundleRef 语义是否保持。
+  - 检查 mask selector 的 field-level gather、dt fallback、空选择器和错误文本。
+  - 检查 canonical 4M/`np.empty` 是否仍由 occupancy 保护所有读取，冲突检测和 fallback 是否未旁路。
+  - 检查版本、manifest、两套插件文档索引的一致性，以及上述外部 gate 阻断是否被明确保留。
+
+## Optional Notes
+
+- `tests_run`:
+  - 00196 hit_threshold：3 次 `6.2370/6.2475/6.2599 s`，输出 shape `(64587847,)`，hash `9f0f02fc7f3f60ffb74dd72c88044cd426d89af726d2e6da1b44b017fcf48701`，peak RSS `17.672–17.783 GiB`。
+  - 00196 peaklet_channels：3 次 `10.4923/10.5363/10.5668 s`，输出 shape `(17762453,)`，hash `fea1d5107bd2cb98b1292c1fb4d312197096dfe12354b7e541805d0e960b8b38`，peak RSS `22.817–22.825 GiB`。
+  - `load_wave_input` RecordsView 冷路径：before `16.1455 s / +11.451 GiB`；direct path `0.0062 s / +0.000 GiB`（同一只读 00196 cache）。
+  - hit_merged_features direct 4M batch：20.8716 s；与旧 cache NaN-aware 逐字段一致，差异仅 `area_pe`/`height_pe` 的 NaN bit pattern。
+- `gates_executed`:
+  - `assess_change_impact`: PASS
+  - `schema_compat_check --run-smoke`: PASS
+  - targeted tests/compileall/ruff/black: PASS
+  - `performance_regression_check --repeats 10`: PASS
+  - `doc_sync`/`doc_anchors`: BLOCKED by pre-existing warning (error count 0)
+  - `release_artifact_sync`: BLOCKED by pre-existing generated-doc drift and the same anchor warning
+- `docs_updated`: `true`（版本/索引同步；未覆盖工作区无关 site-doc 重构）
+- `plan_drift`: `none`
+- `not_executed_and_why`:
+  - 未重复运行 2.0.2 全量三次对照：先前同一旧版已在 global matching/lexsort 被系统终止，继续运行不会提供可用基线且有高内存风险。

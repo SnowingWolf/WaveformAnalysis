@@ -340,7 +340,7 @@ class HitMergedFeaturesPlugin(Plugin):
     lineage_virtual = True
     depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Compute per-hit_merged local waveform features from records-backed samples."
-    version = "1.1.2"
+    version = "1.1.3"
     save_when = "always"
     output_dtype = HIT_MERGED_FEATURES_DTYPE
     uses_run_config = True
@@ -453,7 +453,7 @@ class HitMergedFeaturesPlugin(Plugin):
         if not isinstance(hits, np.ndarray):
             raise ValueError("hit_merged_features expects hit_threshold as a structured array")
 
-        loaded = load_wave_input(context, self, run_id)
+        loaded = load_wave_input(context, self, run_id, needs_records_view=False)
         if not loaded.spec.is_records or loaded.records is None or loaded.wave_pool is None:
             raise ValueError("hit_merged_features currently supports wave_source='records' only")
 
@@ -762,7 +762,9 @@ class HitMergedFeaturesPlugin(Plugin):
                 pool_offsets[0] = 0
                 np.cumsum(selected_spans, out=pool_offsets[1:])
                 pool_size = int(pool_offsets[-1])
-                values = np.zeros(pool_size, dtype=np.float32)
+                # ``occupied`` guards every read, so the dense value buffer
+                # does not need an eager zero fill for long windows.
+                values = np.empty(pool_size, dtype=np.float32)
                 values_bits = values.view(np.uint32)
                 occupied = np.zeros(pool_size, dtype=np.uint8)
                 conflicts = np.zeros(len(selected_groups), dtype=np.uint8)

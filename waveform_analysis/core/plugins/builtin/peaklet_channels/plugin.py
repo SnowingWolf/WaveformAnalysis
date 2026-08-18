@@ -500,7 +500,7 @@ class PeakletChannelsPlugin(Plugin):
         "wave_pool",
     ]
     description = "Reconstruct deduplicated per-peaklet channel waveform contributions."
-    version = "2.0.4"
+    version = "2.0.5"
     output_dtype = PEAKLET_CHANNELS_DTYPE
     save_when = "always"
 
@@ -586,7 +586,7 @@ class PeakletChannelsPlugin(Plugin):
             hits = context.get_data(run_id, "hit_threshold")
             if not all(isinstance(value, np.ndarray) for value in (component_hits, hits)):
                 raise ValueError("peaklet_channels requires structured hit reconstruction products")
-            loaded = load_wave_input(context, self, run_id)
+            loaded = load_wave_input(context, self, run_id, needs_records_view=False)
             if not loaded.spec.is_records or loaded.records is None or loaded.wave_pool is None:
                 raise ValueError("peaklet_channels currently supports wave_source='records' only")
             unresolved_groups = self._replace_with_numba_canonical_features(
@@ -792,7 +792,10 @@ class PeakletChannelsPlugin(Plugin):
                 pool_offsets = np.empty(len(selected_groups) + 1, dtype=np.int64)
                 pool_offsets[0] = 0
                 np.cumsum(selected_spans, out=pool_offsets[1:])
-                values = np.zeros(int(pool_offsets[-1]), dtype=np.float32)
+                # Occupancy is the authoritative initialization bitmap; the
+                # materializer writes values before any occupied slot is read.
+                # Avoid zero-filling multi-million-sample long windows.
+                values = np.empty(int(pool_offsets[-1]), dtype=np.float32)
                 occupied = np.zeros(len(values), dtype=np.uint8)
                 conflicts = np.zeros(len(selected_groups), dtype=np.uint8)
                 materialize_dense_canonical_groups(

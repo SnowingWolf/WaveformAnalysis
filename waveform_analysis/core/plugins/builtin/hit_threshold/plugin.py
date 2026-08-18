@@ -179,7 +179,7 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
     provides = "hit_threshold"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Threshold-only hit detector with THRESHOLD_HIT_DTYPE output."
-    version = "1.2.1"
+    version = "1.2.2"
     output_dtype = THRESHOLD_HIT_DTYPE
 
     # 为了不改变原始缓存语义，这里仍保持 always。
@@ -353,6 +353,7 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
             run_id,
             needs_wave_samples=True,
             allow_records_bundle_ref=True,
+            needs_records_view=False,
         )
 
         if wave_input.spec.is_records:
@@ -374,6 +375,7 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
                     "hit_threshold failed to load records and wave_pool for records source"
                 )
             records = wave_input.records
+            record_selector = None
             if bool(context.get_config(self, "channel_role_cut_enabled")):
                 mask = np.asarray(
                     context.get_data(run_id, "records_detector_mask"),
@@ -384,23 +386,20 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
                         "records_detector_mask length mismatch: "
                         f"mask has {len(mask)} entries, records has {len(wave_input.records)}"
                     )
-                records = wave_input.records[mask]
-                if len(records) == 0:
-                    return _empty_hits()
+                record_selector = mask
             elif bool(context.get_config(self, "asymmetry_cut_enabled")):
                 mask_data = context.get_data(run_id, "records_asymmetry_mask")
                 if mask_data is not None:
                     mask = np.asarray(mask_data, dtype=np.bool_)
-                    if len(mask) != len(records):
+                    if len(mask) != len(wave_input.records):
                         raise ValueError(
                             "records_asymmetry_mask length mismatch: "
-                            f"mask has {len(mask)} entries, records has {len(records)}"
+                            f"mask has {len(mask)} entries, records has {len(wave_input.records)}"
                         )
-                    records = records[mask]
-                    if len(records) == 0:
-                        return _empty_hits()
+                    record_selector = mask
             return self._process_records_ragged_input(
                 records=records,
+                record_selector=record_selector,
                 wave_pool=wave_input.wave_pool,
                 context=context,
                 run_id=run_id,
@@ -626,6 +625,7 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
         self,
         records: np.ndarray,
         explicit_dt: int | None,
+        record_selector: np.ndarray | None = None,
     ) -> tuple[
         np.ndarray,  # wave_offsets
         np.ndarray,  # record_lengths
@@ -651,32 +651,55 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
             )
 
         record_names = records.dtype.names or ()
+        selector = None if record_selector is None else np.asarray(record_selector)
+        if selector is not None:
+            if selector.ndim != 1:
+                raise ValueError("hit_threshold records selector must be one-dimensional")
+            if selector.dtype == np.bool_ and len(selector) != len(records):
+                raise ValueError(
+                    "hit_threshold records selector length mismatch: "
+                    f"selector has {len(selector)} entries, records has {len(records)}"
+                )
+        selected_length = (
+            len(records)
+            if selector is None
+            else (int(np.count_nonzero(selector)) if selector.dtype == np.bool_ else len(selector))
+        )
+
+        def selected_field(name: str) -> np.ndarray:
+            values = records[name]
+            return values if selector is None else values[selector]
+
         required = ("wave_offset", "event_length", "baseline", "timestamp")
         missing = [name for name in required if name not in record_names]
         if missing:
             raise ValueError(f"hit_threshold records input missing required fields: {missing}")
 
-        wave_offsets = records["wave_offset"].astype(np.int64, copy=False)
-        record_lengths = records["event_length"].astype(np.int64, copy=False)
-        baselines = records["baseline"].astype(np.float32, copy=False)
-        timestamps = records["timestamp"].astype(np.int64, copy=False)
+        wave_offsets = selected_field("wave_offset").astype(np.int64, copy=False)
+        record_lengths = selected_field("event_length").astype(np.int64, copy=False)
+        baselines = selected_field("baseline").astype(np.float32, copy=False)
+        timestamps = selected_field("timestamp").astype(np.int64, copy=False)
         boards = (
-            records["board"].astype(np.int16, copy=False)
+            selected_field("board").astype(np.int16, copy=False)
             if "board" in record_names
-            else np.zeros(len(records), dtype=np.int16)
+            else np.zeros(selected_length, dtype=np.int16)
         )
         channels = (
-            records["channel"].astype(np.int16, copy=False)
+            selected_field("channel").astype(np.int16, copy=False)
             if "channel" in record_names
-            else np.zeros(len(records), dtype=np.int16)
+            else np.zeros(selected_length, dtype=np.int16)
         )
         record_ids = (
-            records["record_id"].astype(np.int64, copy=False)
+            selected_field("record_id").astype(np.int64, copy=False)
             if "record_id" in record_names
-            else np.arange(len(records), dtype=np.int64)
+            else (
+                np.arange(len(records), dtype=np.int64)
+                if selector is None
+                else np.arange(len(records), dtype=np.int64)[selector]
+            )
         )
         data_polarities = (
-            np.asarray(records["polarity"]).astype("U16", copy=False)
+            np.asarray(selected_field("polarity")).astype("U16", copy=False)
             if "polarity" in record_names
             else None
         )
@@ -685,6 +708,7 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
             explicit_dt=explicit_dt,
             plugin_name=self.provides,
             data_name="records",
+            selector=selector,
         )
 
         return (
@@ -780,10 +804,26 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
         right_extension: int,
         explicit_dt: int | None,
         channel_config_cfg: Any,
+        record_selector: np.ndarray | None = None,
     ) -> np.ndarray:
         """records 输入的 ragged 核心路径。"""
         if len(records) == 0:
             return _empty_hits()
+
+        if record_selector is not None:
+            selector = np.asarray(record_selector)
+            if selector.ndim != 1:
+                raise ValueError("hit_threshold records selector must be one-dimensional")
+            if selector.dtype == np.bool_ and len(selector) != len(records):
+                raise ValueError(
+                    "hit_threshold records selector length mismatch: "
+                    f"selector has {len(selector)} entries, records has {len(records)}"
+                )
+            selected_length = (
+                int(np.count_nonzero(selector)) if selector.dtype == np.bool_ else len(selector)
+            )
+            if selected_length == 0:
+                return _empty_hits()
 
         (
             wave_offsets,
@@ -795,7 +835,11 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
             record_ids,
             data_polarities,
             dt_values,
-        ) = self._extract_records_ragged_metadata(records, explicit_dt)
+        ) = self._extract_records_ragged_metadata(
+            records,
+            explicit_dt,
+            record_selector=record_selector,
+        )
 
         thresholds, positive_mask = self._resolve_thresholds(
             context=context,

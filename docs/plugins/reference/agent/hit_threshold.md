@@ -5,7 +5,7 @@ profile: "agent"
 provides: "hit_threshold"
 plugin_class: "ThresholdHitPlugin"
 module: "waveform_analysis.core.plugins.builtin.hit_threshold.plugin"
-version: "1.2.1"
+version: "1.2.2"
 summary: "Threshold-only hit detector with THRESHOLD_HIT_DTYPE output."
 depends_on: []
 output_kind: "structured_array"
@@ -23,7 +23,7 @@ Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
 | Provides | `hit_threshold` |
 | Plugin Class | `ThresholdHitPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.hit_threshold.plugin` |
-| Version | `1.2.1` |
+| Version | `1.2.2` |
 | Category | 特征提取 |
 | Output Kind | `structured_array` |
 

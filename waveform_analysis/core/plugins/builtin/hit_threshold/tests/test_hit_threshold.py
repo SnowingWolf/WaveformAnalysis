@@ -1,3 +1,4 @@
+import importlib
 from unittest.mock import patch
 
 import numpy as np
@@ -13,6 +14,7 @@ from waveform_analysis.core.plugins.builtin.hit_threshold import (
     ThresholdHitPlugin,
 )
 from waveform_analysis.core.plugins.builtin.hit_threshold import plugin as hit_finder_module
+from waveform_analysis.core.plugins.builtin.shared.wave_source import load_wave_input
 from waveform_analysis.core.processing.records_builder import (
     RECORDS_DTYPE,
     build_records_from_st_waveforms,
@@ -395,6 +397,61 @@ def test_threshold_hit_reads_records_view_when_wave_source_records():
     assert int(result[0]["record_id"]) == 0
     assert int(result[0]["edge_start"]) == 2
     assert int(result[0]["edge_end"]) == 6
+
+
+def test_records_direct_wave_input_skips_expensive_records_view(monkeypatch):
+    plugin = ThresholdHitPlugin()
+    rv = _make_many_records_view(n_records=2)
+    ctx = DummyContext(
+        {
+            "wave_source": "records",
+            "threshold": 10.0,
+            "dt": 2,
+        },
+        {"records": rv.records, "wave_pool": rv.wave_pool},
+    )
+
+    def fail_records_view(*_args, **_kwargs):
+        raise AssertionError("direct records consumers must not construct RecordsView")
+
+    records_view_module = importlib.import_module("waveform_analysis.core.data.records_view")
+    monkeypatch.setattr(records_view_module, "records_view", fail_records_view)
+    loaded = load_wave_input(
+        ctx,
+        plugin,
+        "run_001",
+        needs_wave_samples=True,
+        needs_records_view=False,
+    )
+
+    assert loaded.records_view is None
+    np.testing.assert_array_equal(loaded.wave_offsets, rv.records["wave_offset"])
+    np.testing.assert_array_equal(loaded.wave_lengths, rv.records["event_length"])
+    assert loaded.wave_pool is rv.wave_pool
+
+
+def test_records_mask_metadata_selector_avoids_structured_copy():
+    plugin = ThresholdHitPlugin()
+    rv = _make_many_records_view(n_records=2)
+    selector = np.array([True, False], dtype=np.bool_)
+
+    class RejectStructuredMaskCopy(np.ndarray):
+        def __getitem__(self, key):
+            if isinstance(key, np.ndarray) and key.dtype == np.bool_ and self.dtype.names:
+                raise AssertionError("structured records must not be copied by mask")
+            return super().__getitem__(key)
+
+    records = rv.records.view(RejectStructuredMaskCopy)
+    metadata = plugin._extract_records_ragged_metadata(
+        records,
+        explicit_dt=2,
+        record_selector=selector,
+    )
+
+    np.testing.assert_array_equal(metadata[0], rv.records["wave_offset"][selector])
+    np.testing.assert_array_equal(metadata[1], rv.records["event_length"][selector])
+    np.testing.assert_array_equal(metadata[3], rv.records["timestamp"][selector])
+    np.testing.assert_array_equal(metadata[6], rv.records["record_id"][selector])
 
 
 def test_records_asymmetry_mask_plugin_serial_and_parallel_match():

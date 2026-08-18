@@ -6,7 +6,12 @@ import numba as nb
 import numpy as np
 
 MAX_CANONICAL_DENSE_SAMPLES_PER_GROUP = 262_144
-MAX_CANONICAL_DENSE_SAMPLES_PER_BATCH = 8_000_000
+# Keep the dense materialization working set below the last-level-cache and
+# avoid faulting a second multi-ten-million-sample temporary array on long
+# records.  The limit only changes batching; each group remains bounded by
+# ``MAX_CANONICAL_DENSE_SAMPLES_PER_GROUP`` and the canonical conflict oracle
+# is unchanged.
+MAX_CANONICAL_DENSE_SAMPLES_PER_BATCH = 4_000_000
 
 
 @nb.njit(cache=True, inline="always")

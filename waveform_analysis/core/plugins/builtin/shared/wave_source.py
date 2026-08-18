@@ -176,6 +176,7 @@ def load_wave_input(
     use_filtered_option: str = "use_filtered",
     needs_wave_samples: bool = True,
     allow_records_bundle_ref: bool = False,
+    needs_records_view: bool = True,
 ) -> LoadedWaveInput:
     spec = resolve_wave_input_spec(
         context,
@@ -216,6 +217,28 @@ def load_wave_input(
                 )
             if not isinstance(wave_pool, np.ndarray):
                 raise ValueError(f"records_view requires formal '{wave_pool_name}' plugin output")
+
+            if not needs_records_view:
+                record_names = records.dtype.names or ()
+                missing = [
+                    name for name in ("wave_offset", "event_length") if name not in record_names
+                ]
+                if missing:
+                    raise ValueError(
+                        f"{plugin.provides} records input missing required fields for direct "
+                        f"wave access: {missing}"
+                    )
+                return LoadedWaveInput(
+                    spec=spec,
+                    records=records,
+                    records_view=None,
+                    wave_pool=wave_pool,
+                    # Keep the strided record fields as views.  Consumers that
+                    # need contiguous/int64 buffers materialize only the
+                    # fields they actually pass to a kernel.
+                    wave_offsets=records["wave_offset"],
+                    wave_lengths=records["event_length"],
+                )
 
             from waveform_analysis.core.data.records_view import records_view
 

@@ -1,6 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+project_root="$(cd -- "${script_dir}/.." && pwd)"
+
+if [[ -n "${WAVEFORM_PYTHON:-}" ]]; then
+  python_bin="${WAVEFORM_PYTHON}"
+elif [[ -n "${VIRTUAL_ENV:-}" && -x "${VIRTUAL_ENV}/bin/python" ]]; then
+  python_bin="${VIRTUAL_ENV}/bin/python"
+elif [[ -x "${project_root}/.venv/bin/python" ]]; then
+  python_bin="${project_root}/.venv/bin/python"
+else
+  python_bin="$(command -v python3 || command -v python || true)"
+fi
+if [[ "${python_bin}" != */* ]]; then
+  python_bin="$(command -v "${python_bin}" || true)"
+fi
+if [[ -z "${python_bin}" || ! -x "${python_bin}" ]]; then
+  echo "Could not find a usable Python 3 interpreter; set WAVEFORM_PYTHON." >&2
+  exit 1
+fi
+
+cd "${project_root}"
 base="${1:-HEAD}"
 
 echo "Doc sync check (base: ${base})"
@@ -23,10 +44,10 @@ echo
 
 echo "Running Agent Doc manifest validation..."
 echo
-python scripts/render_agent_docs.py --check
+"${python_bin}" scripts/render_agent_docs.py --check
 echo
 
 # 运行 Python 脚本进行详细检查
 echo "Running Doc Anchor validation..."
 echo
-python scripts/check_doc_anchors.py --check-sync --base "${base}"
+"${python_bin}" scripts/check_doc_anchors.py --check-sync --base "${base}"
