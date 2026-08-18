@@ -146,8 +146,8 @@ def _count_fast_groups_kernel(
         start = peaklet_component_offsets[peaklet_id]
         end = start + peaklet_component_counts[peaklet_id]
         local_size = max(1, end - start)
-        unique_boards = np.empty(local_size, dtype=np.int64)
-        unique_channels = np.empty(local_size, dtype=np.int64)
+        unique_boards = np.empty(local_size, dtype=np.int16)
+        unique_channels = np.empty(local_size, dtype=np.int16)
         n_unique = 0
         members = 0
         for component_index in range(start, end):
@@ -208,8 +208,8 @@ def _fill_fast_groups_kernel(
         group_cursor = group_prefix[peaklet_id]
         member_cursor = member_prefix[peaklet_id]
         local_size = max(1, component_end - component_start)
-        unique_boards = np.empty(local_size, dtype=np.int64)
-        unique_channels = np.empty(local_size, dtype=np.int64)
+        unique_boards = np.empty(local_size, dtype=np.int16)
+        unique_channels = np.empty(local_size, dtype=np.int16)
         n_unique = 0
         for component_index in range(component_start, component_end):
             merged_index = component_merged_indices[component_index]
@@ -330,8 +330,6 @@ def _fill_fractions_and_validate_kernel(
     output_areas: np.ndarray,
     output_fractions: np.ndarray,
     peaklet_areas: np.ndarray,
-    channel_areas_out: np.ndarray,
-    fraction_sums_out: np.ndarray,
     area_mismatch: np.ndarray,
     fraction_mismatch: np.ndarray,
 ):
@@ -343,7 +341,6 @@ def _fill_fractions_and_validate_kernel(
         channel_area = 0.0
         for output_index in range(start, end):
             channel_area += np.float64(output_areas[output_index])
-        channel_areas_out[peaklet_id] = channel_area
         area_difference = abs(channel_area - expected_area)
         if not (area_difference <= 1e-3 + 1e-5 * abs(expected_area)):
             area_mismatch[peaklet_id] = 1
@@ -357,7 +354,6 @@ def _fill_fractions_and_validate_kernel(
                 fraction = np.float32(output_areas[output_index] / expected_area)
             output_fractions[output_index] = fraction
             fraction_sum += np.float64(fraction)
-        fraction_sums_out[peaklet_id] = fraction_sum
         if expected_area != 0.0:
             fraction_difference = abs(fraction_sum - 1.0)
             if not (fraction_difference <= 1e-3 + 1e-5):
@@ -504,7 +500,7 @@ class PeakletChannelsPlugin(Plugin):
         "wave_pool",
     ]
     description = "Reconstruct deduplicated per-peaklet channel waveform contributions."
-    version = "2.0.3"
+    version = "2.0.4"
     output_dtype = PEAKLET_CHANNELS_DTYPE
     save_when = "always"
 
@@ -967,12 +963,21 @@ class PeakletChannelsPlugin(Plugin):
     def _validate_and_fill_fractions(
         out: np.ndarray, peaklets: np.ndarray, peaklet_features: np.ndarray
     ) -> None:
-        area_by_peaklet = np.zeros(len(peaklets), dtype=np.float64)
         feature_ids = peaklet_features["peak_id"].astype(np.int64, copy=False)
-        valid_features = (feature_ids >= 0) & (feature_ids < len(peaklets))
-        area_by_peaklet[feature_ids[valid_features]] = peaklet_features["area"][
-            valid_features
-        ].astype(np.float64, copy=False)
+        if len(peaklet_features) == len(peaklets) and _has_dense_identity_merged_indices(
+            feature_ids
+        ):
+            # Production peaklet_features is dense by peak_id.  Keep the
+            # native float32 field as a view instead of materializing a full
+            # float64 area table; the Numba kernel promotes each value to
+            # float64 for the same conservation arithmetic.
+            area_by_peaklet = peaklet_features["area"].astype(np.float32, copy=False)
+        else:
+            area_by_peaklet = np.zeros(len(peaklets), dtype=np.float64)
+            valid_features = (feature_ids >= 0) & (feature_ids < len(peaklets))
+            area_by_peaklet[feature_ids[valid_features]] = peaklet_features["area"][
+                valid_features
+            ].astype(np.float64, copy=False)
         out_ids = out["peaklet_id"].astype(np.int64, copy=False)
         if np.any((out_ids < 0) | (out_ids >= len(peaklets))):
             # Keep the historical indexing failure shape for malformed
@@ -983,34 +988,36 @@ class PeakletChannelsPlugin(Plugin):
         )
         area_mismatch = np.zeros(len(peaklets), dtype=np.uint8)
         fraction_mismatch = np.zeros(len(peaklets), dtype=np.uint8)
-        channel_areas = np.zeros(len(peaklets), dtype=np.float64)
-        fraction_sums = np.zeros(len(peaklets), dtype=np.float64)
         _fill_fractions_and_validate_kernel(
             output_peaklet_starts,
             out_ids,
             out["area"],
             out["area_fraction"],
             area_by_peaklet,
-            channel_areas,
-            fraction_sums,
             area_mismatch,
             fraction_mismatch,
         )
         mismatch = area_mismatch != 0
         if np.any(mismatch):
             peaklet_id = int(np.flatnonzero(mismatch)[0])
+            start = int(output_peaklet_starts[peaklet_id])
+            end = int(output_peaklet_starts[peaklet_id + 1])
+            channel_area = np.sum(out["area"][start:end], dtype=np.float64)
             raise ValueError(
                 "peaklet_channels area conservation failed for "
-                f"peaklet_id={peaklet_id}: channel_area={channel_areas[peaklet_id]} "
+                f"peaklet_id={peaklet_id}: channel_area={channel_area} "
                 f"!= peak_area={area_by_peaklet[peaklet_id]}"
             )
         nonzero_area = area_by_peaklet != 0.0
         fraction_mismatch = (fraction_mismatch != 0) & nonzero_area
         if np.any(fraction_mismatch):
             peaklet_id = int(np.flatnonzero(fraction_mismatch)[0])
+            start = int(output_peaklet_starts[peaklet_id])
+            end = int(output_peaklet_starts[peaklet_id + 1])
+            fraction_sum = np.sum(out["area_fraction"][start:end], dtype=np.float64)
             raise ValueError(
                 "peaklet_channels fraction conservation failed for "
-                f"peaklet_id={peaklet_id}: fraction_sum={fraction_sums[peaklet_id]}"
+                f"peaklet_id={peaklet_id}: fraction_sum={fraction_sum}"
             )
 
     def _compute_channels(
@@ -1061,9 +1068,13 @@ class PeakletChannelsPlugin(Plugin):
                     np.int64, copy=False
                 )
                 peaklet_component_counts = peaklets["component_count"].astype(np.int64, copy=False)
-                feature_valid = features["valid"].astype(np.int8, copy=False)
-                feature_boards = features["board"].astype(np.int64, copy=False)
-                feature_channels = features["channel"].astype(np.int64, copy=False)
+                # Keep the native i1/i2 feature fields.  Widening every
+                # board/channel to int64 here costs hundreds of MiB on the
+                # production feature cache and does not improve the Numba
+                # comparisons or the i2 output fields.
+                feature_valid = features["valid"]
+                feature_boards = features["board"]
+                feature_channels = features["channel"]
                 if _fast_group_structure_is_valid(
                     components["peak_id"].astype(np.int64, copy=False),
                     components["merged_index"].astype(np.int64, copy=False),

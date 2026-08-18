@@ -21,6 +21,7 @@ Threshold Hit Plugin - 阈值 Hit 检测插件（provides='hit_threshold'）。
 4. waveform matrix 输入路径仍然保留，用于 st_waveforms / filtered_waveforms 等固定窗口数据。
 """
 
+from collections import deque
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 import logging
@@ -178,7 +179,7 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
     provides = "hit_threshold"
     depends_on = []  # 动态依赖，由 resolve_depends_on 决定
     description = "Threshold-only hit detector with THRESHOLD_HIT_DTYPE output."
-    version = "1.2.0"
+    version = "1.2.1"
     output_dtype = THRESHOLD_HIT_DTYPE
 
     # 为了不改变原始缓存语义，这里仍保持 always。
@@ -190,6 +191,15 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
     chunk_size = 10_000
     parallel = True
     executor_type = "thread"
+
+    # ``n_workers <= 0`` is the historical auto mode.  On high-core hosts,
+    # using every CPU for ragged chunk tasks creates more simultaneous Numba
+    # output buffers than the memory bandwidth can sustain.  Keep the public
+    # option and explicit worker override unchanged, but bound only the
+    # implicit fan-out.  The 64-worker ceiling keeps the full-run task pool
+    # bounded while retaining the measured throughput once a slice has more
+    # than a few dozen chunks; smaller inputs are still capped by n_chunks.
+    _AUTO_MAX_CHUNK_WORKERS = 64
 
     options = {
         "threshold": Option(default=10.0, type=float, help="Hit 检测阈值"),
@@ -898,33 +908,23 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
         workers = self._resolve_chunk_workers(n_workers, len(ranges))
 
         if use_parallel and workers > 1:
-            with ThreadPoolExecutor(max_workers=workers) as executor:
-                parts = list(
-                    executor.map(
-                        lambda bounds: self._build_hits_from_ragged_records_numba_range(
-                            wave_pool=wave_pool,
-                            wave_offsets=wave_offsets,
-                            record_lengths=record_lengths,
-                            baselines=baselines,
-                            thresholds=thresholds,
-                            positive_mask=positive_mask,
-                            timestamps=timestamps,
-                            boards=boards,
-                            channels=channels,
-                            record_ids=record_ids,
-                            left_extension=left_extension,
-                            right_extension=right_extension,
-                            dt_values=dt_values,
-                            start_idx=bounds[0],
-                            end_idx=bounds[1],
-                        ),
-                        ranges,
-                    )
-                )
-            non_empty = [part for part in parts if len(part) > 0]
-            if not non_empty:
-                return _empty_hits()
-            return np.concatenate(non_empty)
+            return self._collect_parallel_ragged_hits(
+                ranges=ranges,
+                workers=workers,
+                wave_pool=wave_pool,
+                wave_offsets=wave_offsets,
+                record_lengths=record_lengths,
+                baselines=baselines,
+                thresholds=thresholds,
+                positive_mask=positive_mask,
+                timestamps=timestamps,
+                boards=boards,
+                channels=channels,
+                record_ids=record_ids,
+                left_extension=left_extension,
+                right_extension=right_extension,
+                dt_values=dt_values,
+            )
 
         return self._build_hits_from_ragged_records_numba_range(
             wave_pool=wave_pool,
@@ -943,6 +943,99 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
             start_idx=0,
             end_idx=n_records,
         )
+
+    def _collect_parallel_ragged_hits(
+        self,
+        *,
+        ranges: list[tuple[int, int]],
+        workers: int,
+        wave_pool: np.ndarray,
+        wave_offsets: np.ndarray,
+        record_lengths: np.ndarray,
+        baselines: np.ndarray,
+        thresholds: np.ndarray,
+        positive_mask: np.ndarray,
+        timestamps: np.ndarray,
+        boards: np.ndarray,
+        channels: np.ndarray,
+        record_ids: np.ndarray,
+        left_extension: int,
+        right_extension: int,
+        dt_values: np.ndarray,
+    ) -> np.ndarray:
+        """Run ordered ragged chunks with bounded result retention.
+
+        ``ThreadPoolExecutor.map`` submits every range and the old collector
+        retained every chunk output until one final ``np.concatenate``.  For a
+        large run that briefly doubles the complete hit output in memory.  A
+        sliding window of futures keeps at most ``workers`` chunk arrays alive;
+        results are copied into one amortized output buffer in record order.
+        """
+        common_kwargs = {
+            "wave_pool": wave_pool,
+            "wave_offsets": wave_offsets,
+            "record_lengths": record_lengths,
+            "baselines": baselines,
+            "thresholds": thresholds,
+            "positive_mask": positive_mask,
+            "timestamps": timestamps,
+            "boards": boards,
+            "channels": channels,
+            "record_ids": record_ids,
+            "left_extension": left_extension,
+            "right_extension": right_extension,
+            "dt_values": dt_values,
+        }
+        pending = deque()
+        next_range = 0
+        output = None
+        output_capacity = 0
+        output_size = 0
+
+        def submit(executor, bounds):
+            return executor.submit(
+                self._build_hits_from_ragged_records_numba_range,
+                **common_kwargs,
+                start_idx=bounds[0],
+                end_idx=bounds[1],
+            )
+
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            while next_range < min(workers, len(ranges)):
+                bounds = ranges[next_range]
+                pending.append((bounds, submit(executor, bounds)))
+                next_range += 1
+
+            while pending:
+                bounds, future = pending.popleft()
+                part = future.result()
+                part_size = len(part)
+                if part_size:
+                    needed = output_size + part_size
+                    if output is None:
+                        records_in_first_part = max(1, bounds[1] - bounds[0])
+                        estimated_total = int(
+                            part_size * len(record_lengths) / records_in_first_part * 1.10
+                        )
+                        output_capacity = max(part_size, estimated_total)
+                        output = np.empty(output_capacity, dtype=THRESHOLD_HIT_DTYPE)
+                    elif needed > output_capacity:
+                        new_capacity = max(needed, int(output_capacity * 1.5))
+                        grown = np.empty(new_capacity, dtype=THRESHOLD_HIT_DTYPE)
+                        grown[:output_size] = output[:output_size]
+                        output = grown
+                        output_capacity = new_capacity
+                    output[output_size:needed] = part
+                    output_size = needed
+
+                if next_range < len(ranges):
+                    bounds = ranges[next_range]
+                    pending.append((bounds, submit(executor, bounds)))
+                    next_range += 1
+
+        if output is None:
+            return _empty_hits()
+        return output[:output_size]
 
     def _build_hits_from_ragged_records_numba_range(
         self,
@@ -1079,7 +1172,11 @@ class ThresholdHitPlugin(BatchProcessingPlugin):
     def _resolve_chunk_workers(self, n_workers: int, n_chunks: int) -> int:
         if n_workers > 0:
             return min(max(1, int(n_workers)), max(1, n_chunks))
-        return min(max(1, os.cpu_count() or 1), max(1, n_chunks))
+        return min(
+            max(1, os.cpu_count() or 1),
+            self._AUTO_MAX_CHUNK_WORKERS,
+            max(1, n_chunks),
+        )
 
     def _process_waveform_matrix_input(
         self,

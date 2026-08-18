@@ -113,6 +113,16 @@ def _compute_threshold_hits(plugin, ctx, run_id="run_001"):
         return plugin.compute_array(ctx, run_id)
 
 
+def test_auto_chunk_workers_are_bounded_without_changing_explicit_override(monkeypatch):
+    plugin = ThresholdHitPlugin()
+    monkeypatch.setattr(hit_finder_module.os, "cpu_count", lambda: 192)
+
+    assert plugin._resolve_chunk_workers(0, 1_011) == 64
+    assert plugin._resolve_chunk_workers(0, 8) == 8
+    assert plugin._resolve_chunk_workers(64, 1_011) == 64
+    assert plugin._resolve_chunk_workers(64, 8) == 8
+
+
 def test_threshold_hit_dtype_matches_advanced_peak_dtype():
     plugin = ThresholdHitPlugin()
     st = make_st_waveforms(

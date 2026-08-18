@@ -12,6 +12,33 @@ from typing import Any
 
 import numpy as np
 
+# Keep the identity check bounded in memory.  ``np.array_equal(ids,
+# np.arange(len(ids)))`` is convenient, but for a production records cache it
+# allocates another full int64 array (hundreds of MiB for tens of millions of
+# records) before the first waveform window is even read.
+_IDENTITY_CHECK_CHUNK_SIZE = 1_000_000
+
+
+def _is_identity_ids(ids: np.ndarray) -> bool:
+    """Return whether ``ids`` is exactly ``0, 1, ..., len(ids)-1``.
+
+    The comparison is chunked so the fast direct-lookup decision does not
+    create a full-size temporary ``arange``.  The result is intentionally
+    strict: non-contiguous, reordered, and duplicated record IDs still use the
+    sorted lookup path.
+    """
+    if len(ids) == 0:
+        return True
+    if int(ids[0]) != 0 or int(ids[-1]) != len(ids) - 1:
+        return False
+    for start in range(0, len(ids), _IDENTITY_CHECK_CHUNK_SIZE):
+        stop = min(start + _IDENTITY_CHECK_CHUNK_SIZE, len(ids))
+        expected = np.arange(start, stop, dtype=np.int64)
+        if not np.array_equal(ids[start:stop], expected):
+            return False
+    return True
+
+
 # =============================================================================
 # Record Lookup (优化的 record_id 查找)
 # =============================================================================
@@ -46,9 +73,7 @@ class RecordLookup:
         ids = records["record_id"].astype(np.int64, copy=False)
 
         # 检查是否 record_id == row index（最优情况）
-        if len(ids) == len(records) and np.array_equal(
-            ids, np.arange(len(records), dtype=np.int64)
-        ):
+        if len(ids) == len(records) and _is_identity_ids(ids):
             self.mode = "direct"
             self._ids_sorted = None
             self._order = None

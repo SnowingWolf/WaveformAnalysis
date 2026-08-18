@@ -1,6 +1,6 @@
 provides: hit_threshold
 plugin_class: ThresholdHitPlugin
-version: 1.2.0
+version: 1.2.1
 depends_on: []
 third_party_dependencies:
   - numpy
