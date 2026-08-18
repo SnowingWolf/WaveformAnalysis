@@ -1,6 +1,6 @@
 provides: hit_merged_features
 plugin_class: HitMergedFeaturesPlugin
-version: 1.1.0
+version: 1.1.1
 depends_on:
   - hit_merged
   - hit_merged_components

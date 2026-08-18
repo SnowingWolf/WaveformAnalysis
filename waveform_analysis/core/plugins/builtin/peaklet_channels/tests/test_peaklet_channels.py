@@ -172,6 +172,36 @@ def test_peaklet_channels_reconstructs_and_deduplicates_cross_record_waveform():
     assert float(out[0]["area_fraction"]) == 1.0
 
 
+def test_peaklet_channels_reuses_single_record_feature_without_waveform_dependencies():
+    peaklets = _peaklets([30.0])
+    components = _components([(0, 0)])
+    features = _features(
+        [{"merged_index": 0, "channel": 3, "area": 30.0, "height": 20.0, "n_hits": 1}]
+    )
+    merged = np.zeros(1, dtype=HIT_MERGED_DTYPE)
+    merged[0]["sample_start"] = 2
+    merged[0]["sample_end"] = 4
+    merged[0]["time_start"] = 4_000
+    merged[0]["time_end"] = 8_000
+
+    ctx = DummyContext(
+        {},
+        {
+            "peaklets": peaklets,
+            "peaklet_components": components,
+            "hit_merged_features": features,
+            "peaklet_features": _peaklet_features([30.0]),
+            "hit_merged": merged,
+        },
+    )
+
+    out = PeakletChannelsPlugin().compute(ctx, "run_001")
+
+    assert len(out) == 1
+    assert float(out[0]["area"]) == 30.0
+    assert float(out[0]["height"]) == 20.0
+
+
 def test_peaklet_channels_rejects_invalid_features_that_break_area_conservation():
     ctx = _ctx(
         _peaklets([50.0, 100.0], component_count=2),

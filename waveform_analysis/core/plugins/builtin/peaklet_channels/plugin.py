@@ -2,6 +2,7 @@
 
 from typing import Any
 
+import numba as nb
 import numpy as np
 
 from waveform_analysis.core.plugins.builtin.cpu._record_utils import RecordLookup
@@ -34,19 +35,52 @@ def _validate_peaklet_components(peaklets: np.ndarray, components: np.ndarray) -
     if "component_count" not in (peaklets.dtype.names or ()):
         return
 
-    counts = np.zeros(len(peaklets), dtype=np.int64)
-    for row in components:
-        peaklet_id = int(row["peak_id"])
-        if not 0 <= peaklet_id < len(peaklets):
-            raise ValueError(
-                "peaklet_channels found peaklet_components row with out-of-range "
-                f"peak_id={peaklet_id}"
-            )
-        counts[peaklet_id] += 1
-
+    peaklet_ids = components["peak_id"].astype(np.int64, copy=False)
+    invalid = (peaklet_ids < 0) | (peaklet_ids >= len(peaklets))
+    if np.any(invalid):
+        peaklet_id = int(peaklet_ids[np.flatnonzero(invalid)[0]])
+        raise ValueError(
+            "peaklet_channels found peaklet_components row with out-of-range "
+            f"peak_id={peaklet_id}"
+        )
+    counts = np.bincount(peaklet_ids, minlength=len(peaklets)).astype(np.int64, copy=False)
     expected = peaklets["component_count"].astype(np.int64, copy=False)
     if not np.array_equal(counts, expected):
         raise ValueError("peaklet_channels found peaklet_components inconsistent with peaklets")
+
+
+@nb.njit(cache=True, nogil=True, parallel=True)
+def _mark_waveform_rebuild_groups_kernel(
+    group_offsets,
+    grouped_merged_indices,
+    merged_sample_start,
+    merged_sample_end,
+    merged_time_start,
+    merged_time_end,
+    rebuild_groups,
+):
+    """Mark only channel groups whose aggregate features are insufficient.
+
+    A single record-backed merged hit can be reused exactly.  Any multi-hit
+    group is rebuilt from samples: adding quantized float32 feature areas is
+    not bitwise equivalent to the canonical float64 waveform integral.
+    """
+    n_groups = len(group_offsets) - 1
+    for group_index in nb.prange(n_groups):
+        start = group_offsets[group_index]
+        end = group_offsets[group_index + 1]
+        if end <= start:
+            rebuild_groups[group_index] = 1
+            continue
+        if end - start == 1:
+            merged_index = grouped_merged_indices[start]
+            rebuild_groups[group_index] = int(
+                merged_sample_start[merged_index] < 0
+                or merged_sample_end[merged_index] <= merged_sample_start[merged_index]
+            )
+            continue
+
+        rebuild_groups[group_index] = 1
 
 
 class PeakletChannelsPlugin(Plugin):
@@ -66,7 +100,7 @@ class PeakletChannelsPlugin(Plugin):
         "wave_pool",
     ]
     description = "Reconstruct deduplicated per-peaklet channel waveform contributions."
-    version = "2.0.0"
+    version = "2.0.1"
     output_dtype = PEAKLET_CHANNELS_DTYPE
     save_when = "always"
 
@@ -122,37 +156,51 @@ class PeakletChannelsPlugin(Plugin):
         if not isinstance(peaklet_features, np.ndarray):
             raise ValueError("peaklet_channels expects peaklet_features as a structured array")
 
-        out = self._compute_channels(
+        out, group_offsets, grouped_merged_indices = self._compute_channels(
             peaklets=peaklets,
             components=components,
             features=features,
             peaklet_features=peaklet_features,
             validate=False,
+            return_groups=True,
         )
         if len(out) == 0:
             self._validate_and_fill_fractions(out, peaklets, peaklet_features)
             return out
 
         merged = context.get_data(run_id, "hit_merged")
-        component_hits = context.get_data(run_id, "hit_merged_components")
-        hits = context.get_data(run_id, "hit_threshold")
-        if not all(isinstance(value, np.ndarray) for value in (merged, component_hits, hits)):
-            raise ValueError("peaklet_channels requires structured hit reconstruction products")
-        loaded = load_wave_input(context, self, run_id)
-        if not loaded.spec.is_records or loaded.records is None or loaded.wave_pool is None:
-            raise ValueError("peaklet_channels currently supports wave_source='records' only")
-
-        self._replace_with_waveform_features(
-            out=out,
-            components=components,
-            features=features,
-            merged=merged,
-            component_hits=component_hits,
-            hits=hits,
-            records=loaded.records,
-            wave_pool=loaded.wave_pool,
-            clip_negative_signal=bool(context.get_config(self, "clip_negative_signal")),
+        if not isinstance(merged, np.ndarray):
+            raise ValueError("peaklet_channels requires hit_merged as a structured array")
+        rebuild_groups = np.zeros(len(out), dtype=np.uint8)
+        _mark_waveform_rebuild_groups_kernel(
+            group_offsets,
+            grouped_merged_indices,
+            merged["sample_start"].astype(np.int64, copy=False),
+            merged["sample_end"].astype(np.int64, copy=False),
+            merged["time_start"].astype(np.int64, copy=False),
+            merged["time_end"].astype(np.int64, copy=False),
+            rebuild_groups,
         )
+        if np.any(rebuild_groups):
+            component_hits = context.get_data(run_id, "hit_merged_components")
+            hits = context.get_data(run_id, "hit_threshold")
+            if not all(isinstance(value, np.ndarray) for value in (component_hits, hits)):
+                raise ValueError("peaklet_channels requires structured hit reconstruction products")
+            loaded = load_wave_input(context, self, run_id)
+            if not loaded.spec.is_records or loaded.records is None or loaded.wave_pool is None:
+                raise ValueError("peaklet_channels currently supports wave_source='records' only")
+            self._replace_with_waveform_features(
+                out=out,
+                group_offsets=group_offsets,
+                grouped_merged_indices=grouped_merged_indices,
+                rebuild_groups=rebuild_groups,
+                merged=merged,
+                component_hits=component_hits,
+                hits=hits,
+                records=loaded.records,
+                wave_pool=loaded.wave_pool,
+                clip_negative_signal=bool(context.get_config(self, "clip_negative_signal")),
+            )
         self._validate_and_fill_fractions(out, peaklets, peaklet_features)
         return out
 
@@ -177,8 +225,9 @@ class PeakletChannelsPlugin(Plugin):
         cls,
         *,
         out: np.ndarray,
-        components: np.ndarray,
-        features: np.ndarray,
+        group_offsets: np.ndarray,
+        grouped_merged_indices: np.ndarray,
+        rebuild_groups: np.ndarray,
         merged: np.ndarray,
         component_hits: np.ndarray,
         hits: np.ndarray,
@@ -186,25 +235,20 @@ class PeakletChannelsPlugin(Plugin):
         wave_pool: np.ndarray,
         clip_negative_signal: bool,
     ) -> None:
-        """Replace aggregate features with canonical per-channel waveform features."""
+        """Rebuild only the channel groups that can contain shared samples."""
         record_lookup = RecordLookup(records)
-        merged_to_hits: dict[int, list[int]] = {}
-        for row in component_hits:
-            merged_to_hits.setdefault(int(row["merged_index"]), []).append(int(row["hit_index"]))
+        hit_indices = component_hits["hit_index"].astype(np.int64, copy=False)
 
-        for out_row in out:
+        for group_index in np.flatnonzero(rebuild_groups):
+            out_row = out[group_index]
             peaklet_id = int(out_row["peaklet_id"])
             board = int(out_row["board"])
             channel = int(out_row["channel"])
-            component_rows = components[components["peak_id"] == peaklet_id]
-            merged_indices = [
-                int(row["merged_index"])
-                for row in component_rows
-                if int(merged[int(row["merged_index"])]["board"]) == board
-                and int(merged[int(row["merged_index"])]["channel"]) == channel
-            ]
+            group_start = int(group_offsets[group_index])
+            group_end = int(group_offsets[group_index + 1])
             segments: list[dict[str, Any]] = []
-            for merged_index in merged_indices:
+            for grouped_index in range(group_start, group_end):
+                merged_index = int(grouped_merged_indices[grouped_index])
                 merged_row = merged[merged_index]
                 sample_start = int(merged_row["sample_start"])
                 sample_end = int(merged_row["sample_end"])
@@ -213,6 +257,26 @@ class PeakletChannelsPlugin(Plugin):
                     if "is_single_record" in merged.dtype.names
                     else sample_start >= 0 and sample_end > sample_start
                 )
+                component_offset = int(merged_row["component_offset"])
+                component_count = int(merged_row["component_count"])
+                if (
+                    component_count > 0
+                    and component_offset >= 0
+                    and component_offset + component_count <= len(hit_indices)
+                    and np.all(
+                        component_hits["merged_index"][
+                            component_offset : component_offset + component_count
+                        ]
+                        == merged_index
+                    )
+                ):
+                    merged_hit_indices = hit_indices[
+                        component_offset : component_offset + component_count
+                    ]
+                else:
+                    # Compatibility fallback for older/incomplete merged rows.
+                    # Production rows use the O(1) CSR slice above.
+                    merged_hit_indices = hit_indices[component_hits["merged_index"] == merged_index]
                 windows = (
                     [(int(merged_row["record_id"]), sample_start, sample_end)]
                     if is_single and sample_start >= 0 and sample_end > sample_start
@@ -222,7 +286,7 @@ class PeakletChannelsPlugin(Plugin):
                             int(hits[hit_index]["edge_start"]),
                             int(hits[hit_index]["edge_end"]),
                         )
-                        for hit_index in merged_to_hits.get(merged_index, ())
+                        for hit_index in merged_hit_indices
                     ]
                 )
                 for record_id, start, end in windows:
@@ -320,13 +384,20 @@ class PeakletChannelsPlugin(Plugin):
         features: np.ndarray,
         peaklet_features: np.ndarray,
         validate: bool = True,
-    ) -> np.ndarray:
+        return_groups: bool = False,
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray, np.ndarray]:
         if len(components) == 0 or len(features) == 0:
-            return _empty_channels()
+            empty = _empty_channels()
+            if return_groups:
+                return empty, np.zeros(1, dtype=np.int64), np.zeros(0, dtype=np.int64)
+            return empty
 
         valid_features = features[features["valid"] != 0]
         if len(valid_features) == 0:
-            return _empty_channels()
+            empty = _empty_channels()
+            if return_groups:
+                return empty, np.zeros(1, dtype=np.int64), np.zeros(0, dtype=np.int64)
+            return empty
 
         feature_merged = valid_features["merged_index"].astype(np.int64, copy=False)
         feature_order = np.argsort(feature_merged, kind="mergesort")
@@ -337,7 +408,10 @@ class PeakletChannelsPlugin(Plugin):
         matched = matched_pos >= 0
         matched[matched] &= sorted_merged[matched_pos[matched]] == component_merged[matched]
         if not np.any(matched):
-            return _empty_channels()
+            empty = _empty_channels()
+            if return_groups:
+                return empty, np.zeros(1, dtype=np.int64), np.zeros(0, dtype=np.int64)
+            return empty
 
         matched_features = valid_features[feature_order[matched_pos[matched]]]
         peaklet_ids = components["peak_id"][matched].astype(np.int64, copy=False)
@@ -351,6 +425,7 @@ class PeakletChannelsPlugin(Plugin):
         areas = matched_features["area"][group_order].astype(np.float32, copy=False)
         heights = matched_features["height"][group_order].astype(np.float32, copy=False)
         n_hits = matched_features["n_hits"][group_order].astype(np.int32, copy=False)
+        grouped_merged_indices = component_merged[matched][group_order]
 
         group_start_mask = np.r_[
             True,
@@ -368,7 +443,13 @@ class PeakletChannelsPlugin(Plugin):
         out["height"] = np.maximum.reduceat(heights, group_starts).astype(np.float32, copy=False)
         out["n_hits"] = np.add.reduceat(n_hits, group_starts).astype(np.int32, copy=False)
 
+        group_offsets = np.empty(len(group_starts) + 1, dtype=np.int64)
+        group_offsets[:-1] = group_starts
+        group_offsets[-1] = len(grouped_merged_indices)
+
         if not validate:
+            if return_groups:
+                return out, group_offsets, grouped_merged_indices
             return out
 
         area_by_peaklet = np.zeros(len(peaklets), dtype=np.float32)
@@ -425,6 +506,8 @@ class PeakletChannelsPlugin(Plugin):
                 "peaklet_channels fraction conservation failed for "
                 f"peaklet_id={peaklet_id}: fraction_sum={fraction_sums[peaklet_id]}"
             )
+        if return_groups:
+            return out, group_offsets, grouped_merged_indices
         return out
 
 

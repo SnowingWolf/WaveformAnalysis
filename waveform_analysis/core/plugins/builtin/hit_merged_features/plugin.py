@@ -289,6 +289,147 @@ def _fill_nonoverlap_fallback_pool_kernel(
                 pool_index += 1
 
 
+# Each cross-record merged hit is limited by the hit-merger's width guard in
+# normal production.  Keep a hard cap nevertheless: a malformed record must
+# not turn the canonical scratch pool into an unbounded allocation.
+_MAX_CANONICAL_DENSE_SAMPLES_PER_GROUP = 262_144
+_MAX_CANONICAL_DENSE_SAMPLES_PER_BATCH = 8_000_000
+_FALLBACK_GROUPS_PER_BATCH = 4_096
+
+
+@nb.njit(cache=True, nogil=True, inline="always")
+def _float32_bits(value):
+    """Return the IEEE-754 representation without a Python scalar conversion."""
+    return np.float32(value).view(np.uint32)
+
+
+@nb.njit(cache=True, nogil=True, parallel=True)
+def _classify_dense_canonical_groups_kernel(
+    group_component_offsets,
+    component_times,
+    component_ends,
+    component_dts,
+    component_boards,
+    component_channels,
+    component_baselines,
+    group_time_starts,
+    group_spans,
+    group_status,
+):
+    """Classify canonical groups without allocating Python waveform segments.
+
+    Status zero means one board/channel and one positive, common time grid
+    whose dense span is bounded.  Other statuses are deliberately delegated
+    to the Python canonical oracle, which owns the public error messages.
+    """
+    n_groups = len(group_component_offsets) - 1
+    for group_index in nb.prange(n_groups):
+        start = group_component_offsets[group_index]
+        end = group_component_offsets[group_index + 1]
+        if end <= start:
+            group_status[group_index] = 1
+            continue
+
+        first_time = component_times[start]
+        first_dt = component_dts[start]
+        first_board = component_boards[start]
+        first_channel = component_channels[start]
+        if first_dt <= 0 or not np.isfinite(component_baselines[start]):
+            group_status[group_index] = 1
+            continue
+
+        dt_ps = first_dt * 1000
+        minimum_time = first_time
+        maximum_end = component_ends[start]
+        status = 0
+        for component_index in range(start, end):
+            if (
+                component_dts[component_index] != first_dt
+                or component_boards[component_index] != first_board
+                or component_channels[component_index] != first_channel
+                or not np.isfinite(component_baselines[component_index])
+            ):
+                status = 1
+                break
+            sample_time = component_times[component_index]
+            if (sample_time - first_time) % dt_ps != 0:
+                status = 2
+                break
+            if sample_time < minimum_time:
+                minimum_time = sample_time
+            if component_ends[component_index] > maximum_end:
+                maximum_end = component_ends[component_index]
+
+        if status == 0:
+            span = (maximum_end - minimum_time) // dt_ps
+            if span <= 0 or span > _MAX_CANONICAL_DENSE_SAMPLES_PER_GROUP:
+                status = 3
+            else:
+                group_time_starts[group_index] = minimum_time
+                group_spans[group_index] = span
+        group_status[group_index] = status
+
+
+@nb.njit(cache=True, nogil=True)
+def _materialize_dense_canonical_groups_kernel(
+    wave_pool,
+    group_indices,
+    group_component_offsets,
+    group_pool_offsets,
+    group_time_starts,
+    ordered_record_indices,
+    ordered_clipped_starts,
+    ordered_clipped_ends,
+    ordered_time_starts,
+    ordered_dts,
+    rec_wave_offset,
+    rec_baseline,
+    rec_polarity_sign,
+    clip_negative_signal,
+    values_out,
+    values_bits_out,
+    occupied_out,
+    conflicts_out,
+):
+    """Materialize one canonical dense axis per group in disjoint buffers."""
+    # Keep the bit-pattern comparison in a serial nopython kernel.  Numba's
+    # parallel lowering currently mishandles scalar ``float32.view(uint32)``
+    # in this loop; group classification remains parallel and this hot loop
+    # still executes as native code without Python segment construction.
+    for local_group_index in range(len(group_indices)):
+        group_index = group_indices[local_group_index]
+        component_start = group_component_offsets[group_index]
+        component_end = group_component_offsets[group_index + 1]
+        pool_start = group_pool_offsets[local_group_index]
+        time_start = group_time_starts[local_group_index]
+        has_conflict = 0
+
+        for component_index in range(component_start, component_end):
+            record_index = ordered_record_indices[component_index]
+            clipped_start = ordered_clipped_starts[component_index]
+            clipped_end = ordered_clipped_ends[component_index]
+            dt_ps = ordered_dts[component_index] * 1000
+            sample_offset = (ordered_time_starts[component_index] - time_start) // dt_ps
+            wave_offset = rec_wave_offset[record_index]
+            baseline = rec_baseline[record_index]
+            polarity_sign = rec_polarity_sign[record_index]
+
+            for sample_index in range(clipped_end - clipped_start):
+                pool_index = pool_start + sample_offset + sample_index
+                raw = np.float32(wave_pool[wave_offset + clipped_start + sample_index])
+                value = polarity_sign * (raw - baseline)
+                if clip_negative_signal and value < np.float32(0.0):
+                    value = np.float32(0.0)
+                value_bits = _float32_bits(value)
+                if occupied_out[pool_index] == 0:
+                    values_out[pool_index] = value
+                    values_bits_out[pool_index] = value_bits
+                    occupied_out[pool_index] = 1
+                elif values_bits_out[pool_index] != value_bits:
+                    has_conflict = 1
+        conflicts_out[local_group_index] = has_conflict
+
+
 def _raise_fallback_validation_error(
     error_code: int,
     merged_index: int,
@@ -332,7 +473,7 @@ class HitMergedFeaturesPlugin(Plugin):
     lineage_virtual = True
     depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Compute per-hit_merged local waveform features from records-backed samples."
-    version = "1.1.0"
+    version = "1.1.1"
     save_when = "always"
     output_dtype = HIT_MERGED_FEATURES_DTYPE
     uses_run_config = True
@@ -636,7 +777,7 @@ class HitMergedFeaturesPlugin(Plugin):
                 f"classify={diagnostics['classify_seconds']:.3f}s "
                 f"numba={diagnostics['numba_canonical_seconds']:.3f}s "
                 f"python={diagnostics['python_canonical_seconds']:.3f}s "
-                f"jit_signatures={len(_fill_nonoverlap_fallback_pool_kernel.signatures)}"
+                f"jit_signatures={len(_materialize_dense_canonical_groups_kernel.signatures)}"
             )
 
         return out
@@ -659,146 +800,165 @@ class HitMergedFeaturesPlugin(Plugin):
         out: np.ndarray,
         diagnostics: dict[str, Any],
     ) -> np.ndarray:
-        """Use Numba for canonical fallback rows with disjoint time segments.
+        """Materialize bounded canonical axes for all safe fallback groups.
 
-        The existing Python canonical merge remains the oracle for rows which
-        could contain an overlap.  Eligible rows have one hardware channel,
-        one dt and non-overlapping segments; materialising their samples in
-        stable absolute-time order gives NumPy exactly the values it would see
-        after ``merge_waveform_segments(..., dense=False)``.
+        Unlike the previous compact path, overlapping component observations
+        are handled in Numba as well.  The occupancy map is keyed by the
+        absolute-time bin, so output naturally has the stable time ordering
+        that ``merge_waveform_segments(..., dense=False)`` returns.
         """
-        group_component_offsets = np.empty(len(bad) + 1, dtype=np.int64)
-        group_component_offsets[0] = 0
-        for group_index, merged_index in enumerate(bad):
-            group_component_offsets[group_index + 1] = (
-                group_component_offsets[group_index] + comp_counts[merged_index]
-            )
-
-        n_components = int(group_component_offsets[-1])
-        if n_components == 0:
-            return bad
-
-        flat_merged_indices = np.empty(n_components, dtype=np.int64)
-        flat_hit_indices = np.empty(n_components, dtype=np.int64)
-        for group_index, merged_index in enumerate(bad):
-            source_start = int(comp_offsets[merged_index])
-            source_end = source_start + int(comp_counts[merged_index])
-            target_start = int(group_component_offsets[group_index])
-            target_end = int(group_component_offsets[group_index + 1])
-            flat_merged_indices[target_start:target_end] = merged_index
-            flat_hit_indices[target_start:target_end] = component_hit_indices[
-                source_start:source_end
-            ]
-
-        hit_record_id = _field_or_default(hits, "record_id", -1, np.int64)
-        hit_record_indices = record_lookup.get_indices(hit_record_id[flat_hit_indices])
-        hit_edge_start = _field_or_default(hits, "edge_start", 0, np.int64)[flat_hit_indices]
-        hit_edge_end = _field_or_default(hits, "edge_end", 0, np.int64)[flat_hit_indices]
-        hit_timestamp = _field_or_default(hits, "timestamp", 0, np.int64)[flat_hit_indices]
-        hit_dt = _field_or_default(hits, "dt", 1, np.int64)[flat_hit_indices]
-        hit_position = _field_or_default(hits, "position", 0, np.int64)[flat_hit_indices]
-        hit_board = _field_or_default(hits, "board", 0, np.int16)[flat_hit_indices]
-        hit_channel = _field_or_default(hits, "channel", 0, np.int16)[flat_hit_indices]
-
-        clipped_starts = np.maximum(hit_edge_start, 0)
-        clipped_ends = np.minimum(hit_edge_end, rec_event_length[hit_record_indices])
-        component_lengths = clipped_ends - clipped_starts
-        component_times = hit_timestamp + (clipped_starts - hit_position) * hit_dt * 1000
-        component_ends = component_times + component_lengths * hit_dt * 1000
-
-        candidate_component_orders: list[np.ndarray] = []
-        candidate_merged_indices: list[int] = []
         python_merged_indices: list[int] = []
-        for group_index, merged_index in enumerate(bad):
-            start = int(group_component_offsets[group_index])
-            end = int(group_component_offsets[group_index + 1])
-            times = component_times[start:end]
-            order = np.argsort(times, kind="stable")
-            positions = start + order
+        hit_record_id = _field_or_default(hits, "record_id", -1, np.int64)
+        hit_edge_start_all = _field_or_default(hits, "edge_start", 0, np.int64)
+        hit_edge_end_all = _field_or_default(hits, "edge_end", 0, np.int64)
+        hit_timestamp_all = _field_or_default(hits, "timestamp", 0, np.int64)
+        hit_dt_all = _field_or_default(hits, "dt", 1, np.int64)
+        hit_position_all = _field_or_default(hits, "position", 0, np.int64)
+        hit_board_all = _field_or_default(hits, "board", 0, np.int16)
+        hit_channel_all = _field_or_default(hits, "channel", 0, np.int16)
 
-            same_hardware = bool(
-                np.all(hit_board[positions] == hit_board[positions[0]])
-                and np.all(hit_channel[positions] == hit_channel[positions[0]])
+        for bad_start in range(0, len(bad), _FALLBACK_GROUPS_PER_BATCH):
+            batch_merged = bad[bad_start : bad_start + _FALLBACK_GROUPS_PER_BATCH]
+            group_component_offsets = np.empty(len(batch_merged) + 1, dtype=np.int64)
+            group_component_offsets[0] = 0
+            for group_index, merged_index in enumerate(batch_merged):
+                group_component_offsets[group_index + 1] = (
+                    group_component_offsets[group_index] + comp_counts[merged_index]
+                )
+            n_components = int(group_component_offsets[-1])
+            if n_components == 0:
+                python_merged_indices.extend(map(int, batch_merged))
+                continue
+
+            flat_hit_indices = np.empty(n_components, dtype=np.int64)
+            for group_index, merged_index in enumerate(batch_merged):
+                source_start = int(comp_offsets[merged_index])
+                source_end = source_start + int(comp_counts[merged_index])
+                target_start = int(group_component_offsets[group_index])
+                flat_hit_indices[target_start : target_start + (source_end - source_start)] = (
+                    component_hit_indices[source_start:source_end]
+                )
+
+            hit_record_indices = record_lookup.get_indices(hit_record_id[flat_hit_indices])
+            clipped_starts = np.maximum(hit_edge_start_all[flat_hit_indices], 0)
+            clipped_ends = np.minimum(
+                hit_edge_end_all[flat_hit_indices], rec_event_length[hit_record_indices]
             )
-            same_dt = bool(
-                hit_dt[positions[0]] > 0 and np.all(hit_dt[positions] == hit_dt[positions[0]])
-            )
-            disjoint = bool(
-                len(positions) == 1
-                or np.all(component_ends[positions[:-1]] <= component_times[positions[1:]])
-            )
-            if same_hardware and same_dt and disjoint:
-                candidate_component_orders.append(positions)
-                candidate_merged_indices.append(int(merged_index))
-            else:
-                python_merged_indices.append(int(merged_index))
-
-        if not candidate_component_orders:
-            return np.asarray(python_merged_indices, dtype=np.int64)
-
-        ordered_positions = np.concatenate(candidate_component_orders)
-        candidate_component_offsets = np.empty(len(candidate_component_orders) + 1, dtype=np.int64)
-        candidate_component_offsets[0] = 0
-        for group_index, positions in enumerate(candidate_component_orders):
-            candidate_component_offsets[group_index + 1] = candidate_component_offsets[
-                group_index
-            ] + len(positions)
-
-        candidate_pool_offsets = np.empty(len(candidate_component_orders) + 1, dtype=np.int64)
-        candidate_pool_offsets[0] = 0
-        for group_index, positions in enumerate(candidate_component_orders):
-            candidate_pool_offsets[group_index + 1] = candidate_pool_offsets[group_index] + int(
-                np.sum(component_lengths[positions])
-            )
-
-        n_samples = int(candidate_pool_offsets[-1])
-        values = np.empty(n_samples, dtype=np.float32)
-        times = np.empty(n_samples, dtype=np.int64)
-        started_at = time.perf_counter()
-        _fill_nonoverlap_fallback_pool_kernel(
-            wave_pool,
-            candidate_component_offsets,
-            candidate_pool_offsets,
-            hit_record_indices[ordered_positions],
-            clipped_starts[ordered_positions],
-            clipped_ends[ordered_positions],
-            component_times[ordered_positions],
-            hit_dt[ordered_positions],
-            rec_wave_offset,
-            rec_baseline,
-            rec_polarity_sign,
-            clip_negative_signal,
-            values,
-            times,
-        )
-        diagnostics["numba_canonical_seconds"] += time.perf_counter() - started_at
-        diagnostics["numba_canonical_rows"] += len(candidate_merged_indices)
-        diagnostics["numba_canonical_samples"] += n_samples
-
-        for group_index, merged_index in enumerate(candidate_merged_indices):
-            start = int(candidate_pool_offsets[group_index])
-            end = int(candidate_pool_offsets[group_index + 1])
-            wave = values[start:end]
-            abs_times = times[start:end]
-            max_index = int(np.argmax(wave))
-            time_start = int(abs_times[0])
-            time_end = (
-                int(abs_times[-1])
-                + int(hit_dt[ordered_positions[candidate_component_offsets[group_index + 1] - 1]])
+            component_lengths = clipped_ends - clipped_starts
+            component_times = (
+                hit_timestamp_all[flat_hit_indices]
+                + (clipped_starts - hit_position_all[flat_hit_indices])
+                * hit_dt_all[flat_hit_indices]
                 * 1000
             )
-            max_time = int(abs_times[max_index])
+            component_ends = (
+                component_times + component_lengths * hit_dt_all[flat_hit_indices] * 1000
+            )
+            component_dts = hit_dt_all[flat_hit_indices]
+            component_boards = hit_board_all[flat_hit_indices]
+            component_channels = hit_channel_all[flat_hit_indices]
+            component_baselines = rec_baseline[hit_record_indices]
 
-            out[merged_index]["time_start"] = time_start
-            out[merged_index]["time_end"] = time_end
-            out[merged_index]["center_time"] = (time_start + time_end) // 2
-            out[merged_index]["max_time"] = max_time
-            out[merged_index]["area"] = np.sum(wave, dtype=np.float64)
-            out[merged_index]["height"] = wave[max_index]
-            out[merged_index]["width"] = (time_end - time_start) / 1000.0
-            out[merged_index]["rise_time"] = (max_time - time_start) / 1000.0
-            out[merged_index]["fall_time"] = (time_end - max_time) / 1000.0
-            out[merged_index]["valid"] = 1
+            group_time_starts = np.zeros(len(batch_merged), dtype=np.int64)
+            group_spans = np.zeros(len(batch_merged), dtype=np.int64)
+            group_status = np.zeros(len(batch_merged), dtype=np.int8)
+            _classify_dense_canonical_groups_kernel(
+                group_component_offsets,
+                component_times,
+                component_ends,
+                component_dts,
+                component_boards,
+                component_channels,
+                component_baselines,
+                group_time_starts,
+                group_spans,
+                group_status,
+            )
+            python_merged_indices.extend(map(int, batch_merged[group_status != 0]))
+
+            safe_groups = np.flatnonzero(group_status == 0)
+            safe_cursor = 0
+            while safe_cursor < len(safe_groups):
+                safe_spans = group_spans[safe_groups[safe_cursor:]]
+                cumulative_spans = np.cumsum(safe_spans, dtype=np.int64)
+                local_count = int(
+                    np.searchsorted(
+                        cumulative_spans,
+                        _MAX_CANONICAL_DENSE_SAMPLES_PER_BATCH,
+                        side="right",
+                    )
+                )
+                local_count = max(local_count, 1)
+                selected_groups = safe_groups[safe_cursor : safe_cursor + local_count]
+                selected_spans = group_spans[selected_groups]
+                pool_offsets = np.empty(len(selected_groups) + 1, dtype=np.int64)
+                pool_offsets[0] = 0
+                np.cumsum(selected_spans, out=pool_offsets[1:])
+                pool_size = int(pool_offsets[-1])
+                values = np.zeros(pool_size, dtype=np.float32)
+                values_bits = values.view(np.uint32)
+                occupied = np.zeros(pool_size, dtype=np.uint8)
+                conflicts = np.zeros(len(selected_groups), dtype=np.uint8)
+
+                started_at = time.perf_counter()
+                _materialize_dense_canonical_groups_kernel(
+                    wave_pool,
+                    selected_groups,
+                    group_component_offsets,
+                    pool_offsets,
+                    group_time_starts[selected_groups],
+                    hit_record_indices,
+                    clipped_starts,
+                    clipped_ends,
+                    component_times,
+                    component_dts,
+                    rec_wave_offset,
+                    rec_baseline,
+                    rec_polarity_sign,
+                    clip_negative_signal,
+                    values,
+                    values_bits,
+                    occupied,
+                    conflicts,
+                )
+                diagnostics["numba_canonical_seconds"] += time.perf_counter() - started_at
+
+                for local_index, group_index in enumerate(selected_groups):
+                    merged_index = int(batch_merged[group_index])
+                    if conflicts[local_index]:
+                        # Re-enter the existing oracle to retain its precise
+                        # public conflict provenance and exception wording.
+                        python_merged_indices.append(merged_index)
+                        continue
+                    pool_start = int(pool_offsets[local_index])
+                    pool_end = int(pool_offsets[local_index + 1])
+                    occupied_indices = np.flatnonzero(occupied[pool_start:pool_end])
+                    if len(occupied_indices) == 0:
+                        python_merged_indices.append(merged_index)
+                        continue
+                    wave = values[pool_start:pool_end][occupied_indices]
+                    dt_ps = int(component_dts[group_component_offsets[group_index]]) * 1000
+                    time_start = int(group_time_starts[group_index] + occupied_indices[0] * dt_ps)
+                    time_end = int(
+                        group_time_starts[group_index] + (occupied_indices[-1] + 1) * dt_ps
+                    )
+                    max_index = int(np.argmax(wave))
+                    max_time = int(
+                        group_time_starts[group_index] + occupied_indices[max_index] * dt_ps
+                    )
+                    out[merged_index]["time_start"] = time_start
+                    out[merged_index]["time_end"] = time_end
+                    out[merged_index]["center_time"] = (time_start + time_end) // 2
+                    out[merged_index]["max_time"] = max_time
+                    out[merged_index]["area"] = np.sum(wave, dtype=np.float64)
+                    out[merged_index]["height"] = wave[max_index]
+                    out[merged_index]["width"] = (time_end - time_start) / 1000.0
+                    out[merged_index]["rise_time"] = (max_time - time_start) / 1000.0
+                    out[merged_index]["fall_time"] = (time_end - max_time) / 1000.0
+                    out[merged_index]["valid"] = 1
+                    diagnostics["numba_canonical_rows"] += 1
+                    diagnostics["numba_canonical_samples"] += len(occupied_indices)
+                safe_cursor += local_count
 
         return np.asarray(python_merged_indices, dtype=np.int64)
 
