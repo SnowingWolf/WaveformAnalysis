@@ -834,9 +834,15 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert result["ADAPTER_INDEX"] == tmp_path / "adapters" / "index.html"
     assert result["VISUALIZATION_INDEX"] == tmp_path / "visualizations" / "index.html"
     assert "guide-index:guides" not in result
+    assert result["guide-index:user-guide"] == tmp_path / "user-guide" / "index.html"
+    assert result["guide:docs/user-guide/QUICKSTART_GUIDE.md"] == (
+        tmp_path / "user-guide" / "QUICKSTART_GUIDE.html"
+    )
+    assert result["guide:docs/user-guide/EXAMPLES_GUIDE.md"] == (
+        tmp_path / "user-guide" / "EXAMPLES_GUIDE.html"
+    )
     assert result["guide-index:architecture"] == tmp_path / "architecture" / "index.html"
-    assert "guide:docs/user-guide/QUICKSTART_GUIDE.md" not in result
-    assert not (tmp_path / "guides").exists()
+    assert (tmp_path / "user-guide" / "index.html").is_file()
     assert result["asset:mermaid/mermaid.min.js"] == (
         tmp_path / "assets" / "mermaid" / "mermaid.min.js"
     )
@@ -860,6 +866,7 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
         "mermaid",
         "react",
         "plugin-sets",
+        "content",
     }
     assert {path.name for path in (tmp_path / "assets").iterdir()} == expected_assets
 
@@ -888,9 +895,10 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert 'href="contexts/context.html"' in home
     assert 'href="adapters/adapter.html"' in home
     assert 'href="visualizations/index.html"' in home
-    assert "用户指南" not in home
+    assert "用户指南" in home
     assert "系统架构与数据模型" in home
-    assert 'href="guides/quickstart.html"' not in home
+    assert 'href="user-guide/QUICKSTART_GUIDE.html"' in home
+    assert 'href="user-guide/EXAMPLES_GUIDE.html"' in home
     assert 'id="context-and-plugin"' in home
     assert "Context 调度，Plugin 产出数据" in home
     assert 'id="minimal-workflow"' in home
@@ -1019,8 +1027,8 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert '"url":"accessors/peak-channel-accessor.html#overview"' in search_index
     assert '"url":"contexts/context.html#dag-and-execution"' in search_index
     assert '"url":"visualizations/statistical-plots.html#statistical-plots"' in search_index
-    assert '"url":"guides/quickstart.html"' not in search_index
-    assert '"url":"guides/index.html"' not in search_index
+    assert '"url":"user-guide/QUICKSTART_GUIDE.html"' in search_index
+    assert '"url":"user-guide/EXAMPLES_GUIDE.html"' in search_index
     assert '"url":"architecture/system.html"' in search_index
     assert '"url":"architecture/plugin-dag-lineage-cache.html"' in search_index
     assert '"url":"architecture/data-products.html"' in search_index
@@ -1057,7 +1065,10 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert re.search(r'src="../assets/react/waveform-docs\.js\?v=[0-9a-f]{12}"', lineage_page)
     assert "data-site-search-input" in site_js
     html = "".join(path.read_text(encoding="utf-8") for path in tmp_path.rglob("*.html"))
-    assert "https://" not in html
+    assert (
+        "https://github.com/SnowingWolf/WaveformAnalysis/blob/0bc56668c0d2ebf81fc391287fb0097cd94b49f7/"
+        "archive/notebooks/run6_xe_fast_0611_teaching.ipynb"
+    ) in html
     assert "http://" not in html
 
 

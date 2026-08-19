@@ -8,6 +8,8 @@ WaveformAnalysis 文档生成工具 CLI
   waveform-docs check coverage            # 检查文档覆盖率
 """
 
+from __future__ import annotations
+
 import argparse
 from functools import partial
 from html.parser import HTMLParser
@@ -15,15 +17,38 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import importlib
 import json
 from pathlib import Path
+import re
 import shutil
 import sys
 import tempfile
 from urllib.parse import unquote, urlparse
 import uuid
 
+EXIT_OK = 0
+EXIT_ERROR = 1
+EXIT_WARNING = 2
+MIN_PYTHON = (3, 10)
+
+
+def _ensure_supported_python() -> bool:
+    """Fail early with an actionable message on an unsupported interpreter."""
+
+    if sys.version_info[:2] >= MIN_PYTHON:
+        return True
+    required = ".".join(str(value) for value in MIN_PYTHON)
+    current = ".".join(str(value) for value in sys.version_info[:3])
+    print(
+        f"❌ waveform-docs 需要 Python >= {required}（当前为 {current}）；"
+        "请设置 WAVEFORM_PYTHON 后通过对应解释器运行。",
+        file=sys.stderr,
+    )
+    return False
+
 
 def main():
     """CLI 主入口"""
+    if not _ensure_supported_python():
+        return EXIT_ERROR
     parser = argparse.ArgumentParser(
         description="WaveformAnalysis 文档生成工具",
         epilog="""
@@ -61,7 +86,7 @@ def main():
     check_parser = subparsers.add_parser("check", help="检查文档")
     check_parser.add_argument(
         "check_type",
-        choices=["coverage"],
+        choices=["coverage", "links"],
         help="检查类型",
     )
 
@@ -249,11 +274,66 @@ class _SiteReferenceParser(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.references: list[str] = []
+        self.anchors: set[str] = set()
+        self.aria_controls: list[str] = []
 
     def handle_starttag(self, _tag, attrs):
-        for name, value in attrs:
-            if name in {"href", "src"} and value:
+        values = {name.lower(): value for name, value in attrs if value is not None}
+        for name in ("href", "src"):
+            value = values.get(name)
+            if value:
                 self.references.append(value)
+        for name in ("id", "name"):
+            value = values.get(name)
+            if value:
+                self.anchors.add(value)
+        controls = values.get("aria-controls")
+        if controls:
+            self.aria_controls.extend(token for token in controls.split() if token)
+
+
+def _resolve_site_reference(root: Path, page: Path, reference: str) -> tuple[Path | None, str]:
+    """Resolve one local HTML URL and return its target plus fragment."""
+
+    parsed = urlparse(reference)
+    if parsed.scheme or parsed.netloc:
+        return None, unquote(parsed.fragment)
+    path_text = unquote(parsed.path)
+    if not path_text:
+        target = page.resolve()
+    else:
+        target = (
+            root / path_text.lstrip("/") if path_text.startswith("/") else page.parent / path_text
+        ).resolve()
+        if target.is_dir():
+            target /= "index.html"
+    return target, unquote(parsed.fragment)
+
+
+def _extract_search_index_urls(path: Path) -> list[str]:
+    """Read URLs from a generated ``assets/search-index.js`` file."""
+
+    text = path.read_text(encoding="utf-8")
+    match = re.search(r"(?:window\.)?WAVEFORM_DOCS_SEARCH\s*=\s*", text)
+    if not match:
+        raise ValueError(f"搜索索引缺少 WAVEFORM_DOCS_SEARCH 数组: {path.name}")
+    try:
+        payload = text[match.end() :].lstrip()
+        entries, end = json.JSONDecoder().raw_decode(payload)
+        if payload[end:].strip().strip(";").strip():
+            raise ValueError("搜索索引数组后存在非空内容")
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise ValueError(f"搜索索引不是有效 JSON: {path.name}: {exc}") from exc
+    except ValueError as exc:
+        raise ValueError(f"搜索索引不是有效 JSON: {path.name}: {exc}") from exc
+    if not isinstance(entries, list):
+        raise ValueError(f"搜索索引必须是数组: {path.name}")
+    urls: list[str] = []
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict) or not isinstance(entry.get("url"), str):
+            raise ValueError(f"搜索索引第 {index + 1} 项缺少字符串 url: {path.name}")
+        urls.append(entry["url"])
+    return urls
 
 
 def _validate_generated_site(output_dir: Path, results: dict[str, Path]) -> None:
@@ -270,27 +350,61 @@ def _validate_generated_site(output_dir: Path, results: dict[str, Path]) -> None
         if not path.is_file():
             raise ValueError(f"site-web 生成结果不存在: {name} -> {path}")
 
-    broken: list[str] = []
-    for page in sorted(output_dir.rglob("*.html")):
+    html_pages = sorted(output_dir.rglob("*.html"))
+    page_anchors: dict[Path, set[str]] = {}
+    page_parsers: dict[Path, _SiteReferenceParser] = {}
+    for page in html_pages:
         parser = _SiteReferenceParser()
         parser.feed(page.read_text(encoding="utf-8"))
+        page_anchors[page.resolve()] = parser.anchors
+        page_parsers[page.resolve()] = parser
+
+    broken: list[str] = []
+    for page in html_pages:
+        parser = page_parsers[page.resolve()]
         for reference in parser.references:
-            parsed = urlparse(reference)
-            if parsed.scheme or parsed.netloc or not parsed.path:
+            target, fragment = _resolve_site_reference(root, page, reference)
+            if target is None:
                 continue
-            reference_path = unquote(parsed.path)
-            target = (
-                root / reference_path.lstrip("/")
-                if reference_path.startswith("/")
-                else page.parent / reference_path
-            ).resolve()
             if not target.is_relative_to(root):
                 broken.append(f"{page.relative_to(output_dir)} -> {reference}")
                 continue
-            if target.is_dir():
-                target /= "index.html"
             if not target.is_file():
                 broken.append(f"{page.relative_to(output_dir)} -> {reference}")
+                continue
+            if fragment and target.suffix.lower() in {".html", ".htm"}:
+                anchors = page_anchors.get(target.resolve(), set())
+                if not any(anchor.casefold() == fragment.casefold() for anchor in anchors):
+                    broken.append(
+                        f"{page.relative_to(output_dir)} -> {reference} (fragment 不存在)"
+                    )
+
+        for control in parser.aria_controls:
+            if control not in parser.anchors:
+                broken.append(
+                    f"{page.relative_to(output_dir)} -> aria-controls={control} (DOM 节点不存在)"
+                )
+
+    for search_index in sorted(output_dir.rglob("search-index.js")):
+        try:
+            search_urls = _extract_search_index_urls(search_index)
+        except ValueError as exc:
+            broken.append(str(exc))
+            continue
+        search_source = root / "index.html"
+        for url in search_urls:
+            target, fragment = _resolve_site_reference(root, search_source, url)
+            if target is None:
+                continue
+            if not target.is_relative_to(root) or not target.is_file():
+                broken.append(f"{search_index.relative_to(output_dir)} -> {url}")
+                continue
+            if fragment and target.suffix.lower() in {".html", ".htm"}:
+                anchors = page_anchors.get(target.resolve(), set())
+                if not any(anchor.casefold() == fragment.casefold() for anchor in anchors):
+                    broken.append(
+                        f"{search_index.relative_to(output_dir)} -> {url} (fragment 不存在)"
+                    )
     if broken:
         preview = "; ".join(broken[:10])
         suffix = f"; 另有 {len(broken) - 10} 项" if len(broken) > 10 else ""
@@ -349,7 +463,8 @@ def generate_site_web(args):
             print(f"   Markdown 链接警告: {len(guide_warnings)}")
             for warning in guide_warnings:
                 print(f"   ⚠️ {warning}")
-        return 0
+            return EXIT_WARNING
+        return EXIT_OK
     except Exception as exc:
         print(f"❌ 生成 HTML 文档总站时出错: {exc}")
         return 1
@@ -556,7 +671,9 @@ def cmd_check(args):
     """处理 check 命令"""
     if args.check_type == "coverage":
         return check_coverage(args)
-    return 0
+    if args.check_type == "links":
+        return check_links(args)
+    return EXIT_OK
 
 
 def check_coverage(args):
@@ -582,20 +699,51 @@ def check_coverage(args):
         checker.print_report(report)
 
         # 确定退出码
-        if args.fail_on_warning:
-            return 0 if len(report.issues) == 0 else 1
-        return 0 if report.passed else 1
+        if report.error_count:
+            return EXIT_ERROR
+        if report.warning_count:
+            # Keep the historical default (warnings are informational), while
+            # exposing a distinct non-zero code when a quality gate opts in.
+            return EXIT_WARNING if args.fail_on_warning else EXIT_OK
+        return EXIT_OK
 
     except ImportError as e:
         print(f"❌ 缺少依赖: {e}")
-        return 1
+        return EXIT_ERROR
 
     except Exception as e:
         print(f"❌ 检查覆盖率时出错: {e}")
         import traceback
 
         traceback.print_exc()
-        return 1
+        return EXIT_ERROR
+
+
+def check_links(args):
+    """Check local Markdown links, page fragments and embedded resources."""
+
+    try:
+        from waveform_analysis.utils.doc_links import check_markdown_links
+
+        docs_dir = Path(args.docs_dir) if args.docs_dir else Path("docs")
+        report = check_markdown_links(docs_dir)
+        print("\nMarkdown Link Report")
+        print(f"Docs directory: {report.docs_dir}")
+        print(f"Markdown files: {report.files_checked}")
+        print(f"Local references: {report.links_checked}")
+        if report.issues:
+            print(f"Issues: {len(report.issues)}")
+            for issue in report.issues:
+                print(f"  ❌ {issue.format(report.docs_dir)}")
+            return EXIT_ERROR
+        print("✅ All local Markdown links and fragments are valid")
+        return EXIT_OK
+    except ImportError as exc:
+        print(f"❌ 缺少依赖: {exc}")
+        return EXIT_ERROR
+    except Exception as exc:
+        print(f"❌ 检查 Markdown 链接时出错: {exc}")
+        return EXIT_ERROR
 
 
 if __name__ == "__main__":

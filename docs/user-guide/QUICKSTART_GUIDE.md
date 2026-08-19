@@ -17,7 +17,7 @@
 7. [场景 2: 批量处理](#场景-2-批量处理)
 8. [场景 3: 流式处理](#场景-3-流式处理)
 9. [场景 4: 使用自定义 DAQ 格式](#场景-4-使用自定义-daq-格式)
-10. [快速参考卡](#快速参考卡)
+10. [快速参考](#快速参考)
 
 ---
 
@@ -46,6 +46,14 @@ pip install -e ".[dev]"
 | **Plugin** | 数据处理单元（RawFiles → Waveforms → Features） |
 | **Lineage** | 自动血缘追踪，确保缓存一致性 |
 
+### `run_name` 与 `run_id`
+
+- `run_name` 是 DAQ/CLI 使用的数据集名称，通常对应下面目录树中的运行目录名。
+- `run_id` 是 Context/API 访问数据时显式传入的标识。Context 不保存隐式当前 run，每次 `ctx.get_data(run_id, target)` 都要明确传入它。
+- `waveform-process` 使用正式参数 `--run-name` 指定 `run_name`；`--char` 仅作为旧脚本的兼容别名，新命令统一使用 `--run-name`。
+
+常见情况下两个名称的字符串相同，但语义不同：`run_name` 面向 DAQ/CLI 数据集，`run_id` 面向 API 调用边界。
+
 推荐使用 **Context** API 进行数据处理。
 
 ---
@@ -56,7 +64,7 @@ WaveformAnalysis 期望的 DAQ 数据目录结构：
 
 ```
 DAQ/                          # data_root（可配置）
-├── run_001/                  # run_id
+├── run_001/                  # run_name（API 调用时作为 run_id 传入）
 │   └── RAW/                  # 原始数据子目录
 │       ├── DataR_CH6.CSV     # 通道 6 数据文件
 │       ├── DataR_CH7.CSV     # 通道 7 数据文件

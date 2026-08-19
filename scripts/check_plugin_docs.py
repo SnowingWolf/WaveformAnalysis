@@ -17,6 +17,14 @@ from pathlib import Path
 import subprocess
 import sys
 
+try:
+    from scripts._python_compat import require_supported_python
+except ImportError:  # direct ``python scripts/check_plugin_docs.py`` execution
+    from _python_compat import require_supported_python
+
+if not require_supported_python("check_plugin_docs.py"):
+    raise SystemExit(1)
+
 
 def main():
     parser = argparse.ArgumentParser(description="检查插件文档覆盖率")

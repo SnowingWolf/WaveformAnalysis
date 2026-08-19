@@ -18,7 +18,15 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-from typing import Dict, List, NamedTuple, Optional, Set, Tuple
+from typing import NamedTuple
+
+try:
+    from scripts._python_compat import require_supported_python
+except ImportError:  # direct ``python scripts/check_doc_anchors.py`` execution
+    from _python_compat import require_supported_python
+
+if not require_supported_python("check_doc_anchors.py"):
+    raise SystemExit(1)
 
 
 class DocAnchor(NamedTuple):
@@ -27,7 +35,7 @@ class DocAnchor(NamedTuple):
     file_path: str
     line_num: int
     doc_path: str
-    anchor: Optional[str]
+    anchor: str | None
     raw_line: str
 
 
@@ -51,7 +59,7 @@ DOC_PATTERN = re.compile(r"#\s*DOC:\s*(?P<path>docs/[^\s#]+)(?:#(?P<anchor>[^\s]
 PROJECT_ROOT = Path(__file__).parent.parent
 
 
-def find_doc_anchors(file_path: Path) -> List[DocAnchor]:
+def find_doc_anchors(file_path: Path) -> list[DocAnchor]:
     """扫描文件中的 DOC 注释
 
     Args:
@@ -145,7 +153,7 @@ def check_anchor_exists(doc_path: str, anchor: str) -> bool:
         return False
 
 
-def validate_anchors(anchors: List[DocAnchor]) -> List[Issue]:
+def validate_anchors(anchors: list[DocAnchor]) -> list[Issue]:
     """验证所有 DOC 锚点
 
     Args:
@@ -185,7 +193,7 @@ def validate_anchors(anchors: List[DocAnchor]) -> List[Issue]:
     return issues
 
 
-def get_changed_files(base: str) -> Tuple[Set[str], Set[str]]:
+def get_changed_files(base: str) -> tuple[set[str], set[str]]:
     """获取相对于 base 的变更文件
 
     Args:
@@ -229,7 +237,7 @@ def get_changed_files(base: str) -> Tuple[Set[str], Set[str]]:
         return set(), set()
 
 
-def check_sync(base: str, anchors: List[DocAnchor]) -> List[Issue]:
+def check_sync(base: str, anchors: list[DocAnchor]) -> list[Issue]:
     """检查代码变更是否需要同步文档
 
     Args:
@@ -246,7 +254,7 @@ def check_sync(base: str, anchors: List[DocAnchor]) -> List[Issue]:
         return issues
 
     # 构建代码文件到文档的映射
-    code_to_docs: Dict[str, Set[str]] = {}
+    code_to_docs: dict[str, set[str]] = {}
     for anchor in anchors:
         # 转换为相对路径
         rel_path = os.path.relpath(anchor.file_path, PROJECT_ROOT)
@@ -273,7 +281,7 @@ def check_sync(base: str, anchors: List[DocAnchor]) -> List[Issue]:
     return issues
 
 
-def scan_all_files() -> List[DocAnchor]:
+def scan_all_files() -> list[DocAnchor]:
     """扫描所有 Python 文件中的 DOC 注释
 
     Returns:
@@ -304,7 +312,7 @@ def scan_all_files() -> List[DocAnchor]:
     return all_anchors
 
 
-def print_issues(issues: List[Issue]) -> Tuple[int, int]:
+def print_issues(issues: list[Issue]) -> tuple[int, int]:
     """打印问题列表
 
     Args:
@@ -317,7 +325,7 @@ def print_issues(issues: List[Issue]) -> Tuple[int, int]:
     warning_count = 0
 
     # 按文件分组
-    by_file: Dict[str, List[Issue]] = {}
+    by_file: dict[str, list[Issue]] = {}
     for issue in issues:
         if issue.file_path not in by_file:
             by_file[issue.file_path] = []
@@ -342,7 +350,7 @@ def print_issues(issues: List[Issue]) -> Tuple[int, int]:
     return error_count, warning_count
 
 
-def print_summary(anchors: List[DocAnchor], error_count: int, warning_count: int):
+def print_summary(anchors: list[DocAnchor], error_count: int, warning_count: int):
     """打印摘要信息"""
     print(f"\n{'=' * 50}")
     print("Doc Anchor 检查摘要")

@@ -27,5 +27,9 @@ pytest -v --cov=waveform_analysis --cov-report=html
 
 ## 文档
 
-- 文档中心: `docs/README.md`
+- 文档中心: [`docs/README.md`](docs/README.md)
+- 用户指南: [`docs/user-guide/README.md`](docs/user-guide/README.md)
+- 快速开始: [`docs/user-guide/QUICKSTART_GUIDE.md`](docs/user-guide/QUICKSTART_GUIDE.md)
 - Agent 入口: `AGENTS.md`
+
+命名约定：DAQ/CLI 数据集名称使用 `run_name`，Context/API 数据访问标识使用显式 `run_id`；CLI 正式参数为 `--run-name`，`--char` 仅保留为兼容别名。

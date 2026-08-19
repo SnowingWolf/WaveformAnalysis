@@ -15,10 +15,17 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from waveform_analysis.core.foundation.utils import exporter
 
 export, __all__ = exporter()
+
+
+# These pages are deliberately hand-maintained migration references.  They
+# live next to generated plugin pages for compatibility, but are not plugin
+# coverage entries and therefore do not need generated frontmatter.
+_LEGACY_REFERENCE_DOCS = frozenset({"s1_s2.md"})
 
 
 @export
@@ -61,6 +68,9 @@ class CoverageReport:
     issues: list[CoverageIssue] = field(default_factory=list)
     documented_provides: set[str] = field(default_factory=set)
     missing_provides: set[str] = field(default_factory=set)
+    stale_provides: set[str] = field(default_factory=set)
+    extra_provides: set[str] = field(default_factory=set)
+    filename_mismatches: dict[str, str] = field(default_factory=dict)
 
     @property
     def passed(self) -> bool:
@@ -154,24 +164,76 @@ class DocCoverageChecker:
         return plugins
 
     def get_documented_plugins(self) -> set[str]:
-        """获取已文档化的插件（provides 名称）
+        """获取 frontmatter 声明的已文档化插件 provides 名称。
 
         Returns:
-            已文档化的 provides 集合
+            只信任 Markdown frontmatter 中的 ``provides``，不以文件名推断。
         """
-        documented = set()
+        return {
+            record["provides"]
+            for record in self._documentation_records()
+            if isinstance(record.get("provides"), str) and record["provides"]
+        }
+
+    def _documentation_records(self) -> list[dict[str, Any]]:
+        """Read auto-generated Markdown metadata without inferring identity.
+
+        Coverage must not silently turn a renamed or hand-copied file into a
+        valid plugin page.  Every record therefore keeps the filename and the
+        parsed frontmatter side by side so the checker can report both stale
+        pages and filename/content mismatches.
+        """
+
+        records: list[dict[str, Any]] = []
 
         if not self.auto_docs_dir.exists():
-            return documented
+            return records
 
-        for md_file in self.auto_docs_dir.glob("*.md"):
+        for md_file in sorted(self.auto_docs_dir.glob("*.md")):
             if md_file.name == "INDEX.md":
                 continue
-            # 文件名即为 provides 名称
-            provides = md_file.stem
-            documented.add(provides)
+            if md_file.name in _LEGACY_REFERENCE_DOCS:
+                continue
+            record: dict[str, Any] = {
+                "path": md_file,
+                "filename": md_file.stem,
+                "provides": None,
+                "version": None,
+                "error": None,
+            }
+            try:
+                text = md_file.read_text(encoding="utf-8")
+                lines = text.splitlines()
+                if not lines or lines[0].strip() != "---":
+                    record["error"] = "缺少 frontmatter（首行应为 ---）"
+                else:
+                    try:
+                        end = next(
+                            index
+                            for index, line in enumerate(lines[1:], start=1)
+                            if line.strip() == "---"
+                        )
+                    except StopIteration:
+                        record["error"] = "frontmatter 未闭合"
+                    else:
+                        import yaml
 
-        return documented
+                        frontmatter = yaml.safe_load("\n".join(lines[1:end]))
+                        if not isinstance(frontmatter, dict):
+                            record["error"] = "frontmatter 必须是 mapping"
+                        else:
+                            record["provides"] = frontmatter.get("provides")
+                            record["version"] = frontmatter.get("version")
+                            if (
+                                not isinstance(record["provides"], str)
+                                or not record["provides"].strip()
+                            ):
+                                record["error"] = "frontmatter 缺少有效 provides"
+            except Exception as exc:
+                record["error"] = f"无法解析 frontmatter: {exc}"
+            records.append(record)
+
+        return records
 
     def check_spec_quality(self, plugin_class: type) -> list[CoverageIssue]:
         """检查插件 spec 质量
@@ -268,10 +330,99 @@ class DocCoverageChecker:
             覆盖报告
         """
         builtin_plugins = self.get_builtin_plugins()
-        documented = self.get_documented_plugins()
+        records = self._documentation_records()
+        documented = {
+            record["provides"]
+            for record in records
+            if isinstance(record.get("provides"), str) and record["provides"]
+        }
+        builtin_by_provides = {
+            provides: (plugin_name, plugin_class)
+            for plugin_name, provides, plugin_class in builtin_plugins
+        }
 
         issues = []
         missing_provides = set()
+        stale_provides: set[str] = set()
+        extra_provides: set[str] = set()
+        filename_mismatches: dict[str, str] = {}
+        seen_provides: dict[str, Path] = {}
+
+        for record in records:
+            path = record["path"]
+            provides = record.get("provides")
+            if record.get("error"):
+                issues.append(
+                    CoverageIssue(
+                        plugin_name=path.stem,
+                        provides=str(provides or "unknown"),
+                        severity="error",
+                        message=str(record["error"]),
+                        category="frontmatter",
+                    )
+                )
+                continue
+            if not isinstance(provides, str) or not provides:
+                continue
+            if provides in seen_provides:
+                issues.append(
+                    CoverageIssue(
+                        plugin_name=path.stem,
+                        provides=provides,
+                        severity="error",
+                        message=(
+                            f"Duplicate documentation provides; first declared by "
+                            f"{seen_provides[provides].name}"
+                        ),
+                        category="duplicate",
+                    )
+                )
+            else:
+                seen_provides[provides] = path
+            if provides not in builtin_by_provides:
+                extra_provides.add(provides)
+                issues.append(
+                    CoverageIssue(
+                        plugin_name=path.stem,
+                        provides=provides,
+                        severity="error",
+                        message=f"Documentation provides is not a builtin plugin: {provides}",
+                        category="extra_documentation",
+                    )
+                )
+                continue
+
+            plugin_name, plugin_class = builtin_by_provides[provides]
+            if path.stem != provides:
+                filename_mismatches[path.name] = provides
+                issues.append(
+                    CoverageIssue(
+                        plugin_name=plugin_name,
+                        provides=provides,
+                        severity="error",
+                        message=f"Filename/content mismatch: {path.name} declares provides {provides}",
+                        category="filename_mismatch",
+                    )
+                )
+            try:
+                current_version = getattr(plugin_class(), "version", None)
+            except Exception:
+                current_version = None
+            document_version = record.get("version")
+            if current_version and str(document_version or "") != str(current_version):
+                stale_provides.add(provides)
+                issues.append(
+                    CoverageIssue(
+                        plugin_name=plugin_name,
+                        provides=provides,
+                        severity="error",
+                        message=(
+                            f"Stale documentation version: frontmatter has {document_version!r}, "
+                            f"current plugin is {current_version!r}"
+                        ),
+                        category="stale_documentation",
+                    )
+                )
 
         for plugin_name, provides, plugin_class in builtin_plugins:
             # 检查文档是否存在
@@ -304,6 +455,9 @@ class DocCoverageChecker:
             issues=issues,
             documented_provides=documented,
             missing_provides=missing_provides,
+            stale_provides=stale_provides,
+            extra_provides=extra_provides,
+            filename_mismatches=filename_mismatches,
         )
 
     def print_report(self, report: CoverageReport, verbose: bool = True) -> None:
@@ -356,6 +510,21 @@ class DocCoverageChecker:
             print("-" * 60)
             for provides in sorted(report.missing_provides):
                 print(f"  - {provides}.md")
+
+        if report.stale_provides:
+            print("\nStale Documentation:")
+            for provides in sorted(report.stale_provides):
+                print(f"  - {provides}.md")
+
+        if report.extra_provides:
+            print("\nExtra Documentation:")
+            for provides in sorted(report.extra_provides):
+                print(f"  - {provides}.md")
+
+        if report.filename_mismatches:
+            print("\nFilename/Frontmatter Mismatches:")
+            for filename, provides in sorted(report.filename_mismatches.items()):
+                print(f"  - {filename} -> {provides}")
 
         print("\n" + "=" * 60)
 

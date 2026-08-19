@@ -44,6 +44,7 @@ WaveformAnalysis 的插件系统文档，包括教程、开发指南和参考资
 | 文档 | 说明 |
 |------|------|
 | [STREAMING_PLUGINS_GUIDE.md](guides/STREAMING_PLUGINS_GUIDE.md) | 流式插件开发指南 |
+| [DEFAULT_CONFIG_GUIDE.md](guides/DEFAULT_CONFIG_GUIDE.md) | PeakClassificationPlugin 配置示例 |
 
 ### 🔍 [reference/](reference/) - 参考文档
 

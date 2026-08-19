@@ -11,6 +11,14 @@ import sys
 from typing import Any
 
 try:
+    from scripts._python_compat import require_supported_python
+except ImportError:  # direct ``python scripts/render_agent_docs.py`` execution
+    from _python_compat import require_supported_python
+
+if not require_supported_python("render_agent_docs.py"):
+    raise SystemExit(1)
+
+try:
     import yaml
 except ImportError as exc:  # pragma: no cover
     raise SystemExit(

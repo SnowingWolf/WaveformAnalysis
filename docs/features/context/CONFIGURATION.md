@@ -119,40 +119,44 @@ ctx.set_config(
 - 使用顶层 `channel_metadata` 表达硬件事实或兼容信息，不参与插件行为决策。
 - 标定值如 `gain_adc_per_pe` 推荐放在 `calibration`。
 - 描述性信息如 `operator`、`sample`、`comment` 放在 `meta`。
-- **术语统一**：使用 `run_id` 作为运行标识符，避免使用已弃用的 `run_name`。
+- **术语统一**：DAQ/CLI 数据集名称使用 `run_name`，Context/API 数据访问使用显式 `run_id`。
 
 ## 术语说明
 
 ### `run_id` vs `run_name`
 
-在 WaveformAnalysis 系统中，我们统一使用 `run_id` 作为运行的唯一标识符：
+在 WaveformAnalysis 系统中，两个术语分别属于不同边界：
 
-- **`run_id`**：推荐的运行标识符，用于所有 API 调用
+- **`run_name`**：DAQ/CLI 使用的数据集名称，通常对应 DAQ 根目录下的运行目录名。
+  `waveform-process --run-name <run_name>` 使用该名称选择数据集。
+
+- **`run_id`**：Context/API 访问数据时显式传入的运行标识符，用于所有数据读取和缓存范围
   - `ctx.get_data(run_id, 'peaks')`
   - 缓存目录结构：`{storage_dir}/{run_id}/_cache/`
 
-- **`run_name`**：已弃用，请使用 `run_id` 代替
-  - 在 `ctx.show_config()` 中的 `run_name` 参数已弃用
-  - 将在未来版本中移除
+`run_name` 和 `run_id` 在常见目录布局中可以是同一个字符串，但不要把它们当作同一个 API
+参数。Context 不保存隐式当前 run，每次数据访问都必须显式传入 `run_id`。
 
-**迁移示例**：
+`ctx.show_config(run_name=...)` 中的 `run_name` 是保留的兼容参数，仅用于配置展示时标注缓存目录，
+并会发出 deprecation warning；它不替代数据 API 的 `run_id`。
+
+**使用示例**：
 
 ```python
-# ❌ 旧方式（已弃用）
-ctx.show_config(run_name='my_run')
+# DAQ/CLI 数据集名称
+run_name = 'my_run'
+waveform_process_args = ['--run-name', run_name]
 
-# ✅ 新方式（推荐）
-run_id = 'my_run'
+# Context 数据访问标识
+run_id = run_name
 ctx.get_data(run_id, 'peaks')
-ctx.show_config(run_id=run_id)  # 会显示 deprecation warning
+# 兼容的配置展示参数（会显示 deprecation warning）
+ctx.show_config(run_name=run_name)
 ```
 
-统一使用 `run_id` 有助于：
-- 避免术语混淆
-- 与缓存目录结构保持一致
-- 提供更清晰的 API 语义
+这样既能保持 DAQ/CLI 的数据集命名，又能让每次 Context 数据访问的作用域清晰可见。
 
 ## 相关文档
 
 - [Plugin DAG、lineage 与缓存](../../architecture/PLUGIN_DAG_LINEAGE_CACHE.md)
-- [Agent 配置约束](../../agents/configuration.md)
+- [Agent 配置约束](https://github.com/SnowingWolf/WaveformAnalysis/blob/0bc56668c0d2ebf81fc391287fb0097cd94b49f7/docs/agents/configuration.md)

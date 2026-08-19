@@ -773,9 +773,9 @@ hit_threshold (v1.0.0) -> hit_merged (v1.2.0) -> hit_merged_features (v1.1.0)
 
 ### 相关资源
 
-- [AGENTS.md](../../AGENTS.md) - 插件契约 checklist（第 208-215 行）
-- [schema_compat_check.py](../../scripts/schema_compat_check.py) - 兼容性检查工具
-- [assess_change_impact.py](../../scripts/assess_change_impact.py) - 影响评估工具
+- [AGENTS.md](https://github.com/SnowingWolf/WaveformAnalysis/blob/0bc56668c0d2ebf81fc391287fb0097cd94b49f7/AGENTS.md) - 插件契约 checklist（第 208-215 行）
+- [schema_compat_check.py](https://github.com/SnowingWolf/WaveformAnalysis/blob/0bc56668c0d2ebf81fc391287fb0097cd94b49f7/scripts/schema_compat_check.py) - 兼容性检查工具
+- [assess_change_impact.py](https://github.com/SnowingWolf/WaveformAnalysis/blob/0bc56668c0d2ebf81fc391287fb0097cd94b49f7/scripts/assess_change_impact.py) - 影响评估工具
 
 ### 总结
 

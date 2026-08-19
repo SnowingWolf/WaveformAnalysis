@@ -228,9 +228,9 @@ peaks = ctx.get_data('run_001', 'signal_peaks')
 | `examples/config_management_example.py` | 配置管理示例 |
 | `examples/signal_processing_example.py` | 信号处理示例 |
 | `examples/streaming_plugins_demo.py` | 流式插件演示 |
-| `tutorial.ipynb` | 入门 notebook 教程 |
-| `tutorial_advanced.ipynb` | 插件开发、多 run 处理与自定义特征高级 notebook |
-| `run6_xe_fast_0611_teaching.ipynb` | Run 6 Xe Fast 教学 notebook，演示 run 扫描、Context 配置、records/wave_pool 读取与快速分析 |
+| [tutorial.ipynb](https://github.com/SnowingWolf/WaveformAnalysis/blob/0bc56668c0d2ebf81fc391287fb0097cd94b49f7/archive/notebooks/tutorial.ipynb) | 入门 notebook 教程 |
+| [tutorial_advanced.ipynb](https://github.com/SnowingWolf/WaveformAnalysis/blob/0bc56668c0d2ebf81fc391287fb0097cd94b49f7/archive/notebooks/tutorial_advanced.ipynb) | 插件开发、多 run 处理与自定义特征高级 notebook |
+| [Run 6 Xe Fast 教学 notebook](https://github.com/SnowingWolf/WaveformAnalysis/blob/0bc56668c0d2ebf81fc391287fb0097cd94b49f7/archive/notebooks/run6_xe_fast_0611_teaching.ipynb) | Run 6 Xe Fast 教学 notebook，演示 run 扫描、Context 配置、records/wave_pool 读取与快速分析 |
 
 运行示例：
 

@@ -21,6 +21,12 @@ if [[ -z "${python_bin}" || ! -x "${python_bin}" ]]; then
   exit 1
 fi
 
+if ! "${python_bin}" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)' >/dev/null 2>&1; then
+  version="$(${python_bin} -c 'import sys; print(".".join(map(str, sys.version_info[:3])))' 2>/dev/null || printf 'unknown')"
+  echo "需要 Python >= 3.10（选择的解释器为 ${version}: ${python_bin}）；请设置 WAVEFORM_PYTHON。" >&2
+  exit 1
+fi
+
 cd "${project_root}"
 base="${1:-HEAD}"
 

@@ -75,6 +75,46 @@ def test_atomic_site_publish_preserves_the_previous_site_on_failure(tmp_path, fa
     assert not list(tmp_path.glob(".site.backup-*"))
 
 
+def test_site_validation_checks_html_fragments_and_aria_controls(tmp_path):
+    output = tmp_path / "site"
+    output.mkdir()
+    index = output / "index.html"
+    index.write_text(
+        '<nav id="site-navigation"></nav><a href="page.html#missing">bad</a>'
+        '<button aria-controls="missing-node"></button>',
+        encoding="utf-8",
+    )
+    page = output / "page.html"
+    page.write_text('<h1 id="present">Page</h1>', encoding="utf-8")
+    results = {name: output / relative for name, relative in REQUIRED_PATHS.items()}
+    for path in results.values():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not path.exists():
+            path.write_text("<div id='site-navigation'></div>", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="fragment 不存在|DOM 节点不存在"):
+        cli_docs._validate_generated_site(output, results)
+
+
+def test_site_validation_checks_search_index_urls(tmp_path):
+    output = tmp_path / "site"
+    output.mkdir()
+    results = {}
+    for name, relative in REQUIRED_PATHS.items():
+        path = output / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("<div id='site-navigation'></div>", encoding="utf-8")
+        results[name] = path
+    (output / "assets").mkdir()
+    (output / "assets" / "search-index.js").write_text(
+        'window.WAVEFORM_DOCS_SEARCH=[{"title":"bad","url":"missing.html#x"}];\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="search-index.js.*missing.html"):
+        cli_docs._validate_generated_site(output, results)
+
+
 def test_generate_site_web_uses_atomic_publication(tmp_path, monkeypatch):
     from waveform_analysis.utils import site_doc_generator
 

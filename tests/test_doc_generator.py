@@ -399,6 +399,41 @@ class TestDocCoverageChecker:
             assert report.passed
             assert report.error_count == 0
 
+    def test_coverage_uses_frontmatter_identity_and_reports_drift(self):
+        """Filename-only copies must not silently satisfy plugin coverage."""
+        from waveform_analysis.utils.doc_coverage import DocCoverageChecker
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            auto_docs_dir = Path(tmpdir) / "auto"
+            auto_docs_dir.mkdir(parents=True)
+            (auto_docs_dir / "renamed.md").write_text(
+                "---\nprovides: mock_data\nversion: 0.0.1\n---\n# mock_data\n",
+                encoding="utf-8",
+            )
+            (auto_docs_dir / "removed.md").write_text(
+                "---\nprovides: removed_plugin\nversion: 1.0.0\n---\n# removed_plugin\n",
+                encoding="utf-8",
+            )
+
+            checker = DocCoverageChecker(
+                docs_dir=Path(tmpdir),
+                auto_docs_dir=auto_docs_dir,
+            )
+            checker.get_builtin_plugins = lambda: [("MockPlugin", "mock_data", MockPlugin)]
+
+            report = checker.check_coverage()
+
+            assert report.coverage_percent == 100.0
+            assert report.stale_provides == {"mock_data"}
+            assert report.extra_provides == {"removed_plugin"}
+            assert report.filename_mismatches == {"renamed.md": "mock_data"}
+            assert {issue.category for issue in report.issues} >= {
+                "stale_documentation",
+                "extra_documentation",
+                "filename_mismatch",
+            }
+            assert not report.passed
+
     def test_check_spec_quality_warnings(self):
         """测试检查 spec 质量警告"""
         from waveform_analysis.utils.doc_coverage import DocCoverageChecker
@@ -553,3 +588,45 @@ class TestCLI:
 
             assert result in (0, 1)
             assert "Coverage" in captured.out
+
+    def test_cli_check_coverage_uses_warning_exit_code(self, monkeypatch):
+        """Warning-only quality results use the shared exit code 2."""
+        from waveform_analysis.utils import cli_docs, doc_coverage
+
+        report = doc_coverage.CoverageReport(
+            total_plugins=1,
+            documented_plugins=1,
+            coverage_percent=100.0,
+            issues=[
+                doc_coverage.CoverageIssue(
+                    plugin_name="MockPlugin",
+                    provides="mock_data",
+                    severity="warning",
+                    message="spec warning",
+                )
+            ],
+        )
+
+        class StubChecker:
+            def __init__(self, **_kwargs):
+                pass
+
+            def check_coverage(self, **_kwargs):
+                return report
+
+            def print_report(self, _report):
+                pass
+
+        monkeypatch.setattr(doc_coverage, "DocCoverageChecker", StubChecker)
+        monkeypatch.setattr(
+            "sys.argv",
+            ["waveform-docs", "check", "coverage"],
+        )
+
+        assert cli_docs.main() == cli_docs.EXIT_OK
+
+        monkeypatch.setattr(
+            "sys.argv",
+            ["waveform-docs", "check", "coverage", "--fail-on-warning"],
+        )
+        assert cli_docs.main() == cli_docs.EXIT_WARNING

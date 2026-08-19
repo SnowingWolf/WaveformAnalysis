@@ -1,54 +1,19 @@
 schema_version: 2
 
+# 生产站点使用显式页面白名单。schema v2 的 source_dirs 仍由解析器支持，
+# 但不在这里使用，避免分析草稿、执行计划和内部文档被意外发布。
 sections:
-  - id: architecture
-    title: 系统架构与数据模型
-    nav_weight: 40
-    index_route: architecture/index.html
+  - id: user-guide
+    title: 用户指南
+    nav_weight: 5
+    index_route: user-guide/index.html
     source_indexes:
-      - docs/architecture/README.md
-    source_dirs:
-      - docs/architecture
-    exclude:
-      - "**/README.md"
+      - docs/user-guide/README.md
     pages:
-      - source: docs/architecture/ARCHITECTURE.md
-        route: architecture/system.html
-      - source: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
-        route: architecture/plugin-dag-lineage-cache.html
-      - source: docs/architecture/PLUGIN_CACHE_ARCHITECTURE.md
-        route: architecture/plugin-cache-architecture.html
-      - source: docs/architecture/DATA_PRODUCTS.md
-        route: architecture/data-products.html
-      - source: docs/architecture/ACCESSOR_ANALYSIS.md
-        route: architecture/accessor-analysis.html
-
-  - id: features
-    title: 功能特性
-    nav_weight: 50
-    index_route: features/index.html
-    source_indexes:
-      - docs/features/README.md
-    source_dirs:
-      - docs/features
-    exclude:
-      - "**/README.md"
-
-  - id: plugin-system
-    title: 插件系统
-    nav_weight: 20
-    index_route: plugins/guides.html
-    source_indexes:
-      - docs/plugins/README.md
-    source_dirs:
-      - docs/plugins
-    exclude:
-      - "**/README.md"
-      - "plugins/reference/agent/**"
-      - "plugins/reference/builtin/auto/**"
-    pages:
-      - source: docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
-        route: plugins/overview.html
+      - source: docs/user-guide/QUICKSTART_GUIDE.md
+        route: user-guide/QUICKSTART_GUIDE.html
+      - source: docs/user-guide/EXAMPLES_GUIDE.md
+        route: user-guide/EXAMPLES_GUIDE.html
 
   - id: contexts-reference
     title: Context 与适配器
@@ -61,6 +26,28 @@ sections:
       - route: adapters/adapter.html
         title: DAQ 适配器
         tag: reflect
+
+  - id: plugin-system
+    title: 插件系统
+    nav_weight: 20
+    index_route: plugins/guides.html
+    source_indexes:
+      - docs/plugins/README.md
+    pages:
+      - source: docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+        route: plugins/overview.html
+      - source: docs/plugins/guides/DEFAULT_CONFIG_GUIDE.md
+        route: plugins/guides/DEFAULT_CONFIG_GUIDE.html
+      - source: docs/plugins/guides/STREAMING_PLUGINS_GUIDE.md
+        route: plugins/guides/STREAMING_PLUGINS_GUIDE.html
+      - source: docs/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR.md
+        route: plugins/reference/ADAPTER_PLUGIN_BEHAVIOR.html
+      - source: docs/plugins/reference/ADAPTER_SYSTEM_GUIDE.md
+        route: plugins/reference/ADAPTER_SYSTEM_GUIDE.html
+      - source: docs/plugins/reference/builtin/WAVEFORM_WIDTH_PLUGIN.md
+        route: plugins/reference/builtin/WAVEFORM_WIDTH_PLUGIN.html
+      - source: docs/plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md
+        route: plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.html
 
   - id: accessors-reference
     title: Accessor 接口
@@ -79,6 +66,61 @@ sections:
       - route: contexts/records-view.html
         title: RecordsView
         tag: reflect
+
+  - id: architecture
+    title: 系统架构与数据模型
+    nav_weight: 40
+    index_route: architecture/index.html
+    source_indexes:
+      - docs/architecture/README.md
+    pages:
+      - source: docs/architecture/ARCHITECTURE.md
+        route: architecture/system.html
+      - source: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
+        route: architecture/plugin-dag-lineage-cache.html
+      - source: docs/architecture/PLUGIN_CACHE_ARCHITECTURE.md
+        route: architecture/plugin-cache-architecture.html
+      - source: docs/architecture/DATA_PRODUCTS.md
+        route: architecture/data-products.html
+      - source: docs/architecture/ACCESSOR_ANALYSIS.md
+        route: architecture/accessor-analysis.html
+      - source: docs/architecture/CONTEXT_PROCESSOR_WORKFLOW.md
+        route: architecture/CONTEXT_PROCESSOR_WORKFLOW.html
+      - source: docs/architecture/PROJECT_STRUCTURE.md
+        route: architecture/PROJECT_STRUCTURE.html
+      - source: docs/architecture/query_helpers_guide.md
+        route: architecture/query_helpers_guide.html
+
+  - id: features
+    title: 功能特性
+    nav_weight: 50
+    index_route: features/index.html
+    source_indexes:
+      - docs/features/README.md
+      - docs/features/context/README.md
+      - docs/features/advanced/README.md
+      - docs/features/utils/README.md
+    pages:
+      - source: docs/features/context/ABSOLUTE_TIME_GUIDE.md
+        route: features/context/ABSOLUTE_TIME_GUIDE.html
+      - source: docs/features/context/BATCH_PROCESSOR.md
+        route: features/context/BATCH_PROCESSOR.html
+      - source: docs/features/context/CONFIGURATION.md
+        route: features/context/CONFIGURATION.html
+      - source: docs/features/context/DEPENDENCY_ANALYSIS_GUIDE.md
+        route: features/context/DEPENDENCY_ANALYSIS_GUIDE.html
+      - source: docs/features/context/LINEAGE_VISUALIZATION_GUIDE.md
+        route: features/context/LINEAGE_VISUALIZATION_GUIDE.html
+      - source: docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md
+        route: features/advanced/EXECUTOR_MANAGER_GUIDE.html
+      - source: docs/features/advanced/IO_CSV_HEADER_HANDLING.md
+        route: features/advanced/IO_CSV_HEADER_HANDLING.html
+      - source: docs/features/advanced/PROGRESS_TRACKING_GUIDE.md
+        route: features/advanced/PROGRESS_TRACKING_GUIDE.html
+      - source: docs/features/utils/DAQ_ANALYZER_GUIDE.md
+        route: features/utils/DAQ_ANALYZER_GUIDE.html
+      - source: docs/features/utils/PDF_EXPORT_GUIDE.md
+        route: features/utils/PDF_EXPORT_GUIDE.html
 
   - id: visualizations-reference
     title: 可视化
@@ -101,10 +143,11 @@ sections:
     index_route: api/index.html
     source_indexes:
       - docs/api/README.md
-    source_dirs:
-      - docs/api
-    exclude:
-      - "**/README.md"
+    pages:
+      - source: docs/api/peak_channel_accessor.md
+        route: api/peak_channel_accessor.html
+      - source: docs/api/plot_peak_channels_with_sum.md
+        route: api/plot_peak_channels_with_sum.html
 
   - id: cli
     title: 命令行工具
@@ -112,10 +155,13 @@ sections:
     index_route: cli/index.html
     source_indexes:
       - docs/cli/README.md
-    source_dirs:
-      - docs/cli
-    exclude:
-      - "**/README.md"
+    pages:
+      - source: docs/cli/WAVEFORM_CACHE.md
+        route: cli/WAVEFORM_CACHE.html
+      - source: docs/cli/WAVEFORM_DOCS.md
+        route: cli/WAVEFORM_DOCS.html
+      - source: docs/cli/WAVEFORM_PROCESS.md
+        route: cli/WAVEFORM_PROCESS.html
 
   - id: development
     title: 开发者指南
@@ -123,7 +169,22 @@ sections:
     index_route: development/index.html
     source_indexes:
       - docs/development/README.md
-    source_dirs:
-      - docs/development
-    exclude:
-      - "**/README.md"
+      - docs/development/contributing/README.md
+      - docs/development/plugin-development/README.md
+    pages:
+      - source: docs/development/CONTRACT_TESTS.md
+        route: development/CONTRACT_TESTS.html
+      - source: docs/development/contributing/COMMIT_CONVENTION.md
+        route: development/contributing/COMMIT_CONVENTION.html
+      - source: docs/development/contributing/DOC_ANCHOR_GUIDE.md
+        route: development/contributing/DOC_ANCHOR_GUIDE.html
+      - source: docs/development/contributing/IMPORT_STYLE_GUIDE.md
+        route: development/contributing/IMPORT_STYLE_GUIDE.html
+      - source: docs/development/plugin-development/PLUGIN_SCAFFOLD.md
+        route: development/plugin-development/PLUGIN_SCAFFOLD.html
+      - source: docs/development/plugin-development/PLUGIN_SPEC_GUIDE.md
+        route: development/plugin-development/PLUGIN_SPEC_GUIDE.html
+      - source: docs/development/plugin-development/plugin_guide.md
+        route: development/plugin-development/plugin_guide.html
+      - source: docs/development/worktrees.md
+        route: development/worktrees.html

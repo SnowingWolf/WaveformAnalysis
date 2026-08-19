@@ -283,6 +283,8 @@ waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
 python scripts/render_agent_docs.py --check
 scripts/check_doc_sync.sh
 python scripts/check_doc_anchors.py --check-sync --base HEAD
+waveform-docs check links --docs-dir docs
+waveform-docs check coverage --strict --fail-on-warning
 ```
 
 ### 触发策略
@@ -313,6 +315,7 @@ python scripts/schema_compat_check.py --base HEAD --run-smoke
 ```
 
 Agent 文档同步检查（`python scripts/render_agent_docs.py --check`、`scripts/check_doc_sync.sh`、`python scripts/check_doc_anchors.py --check-sync --base HEAD`）属于文档同步流程，不计入本节“四条命令”。若 PR 同时改了 agent 文档，也必须另行记录这些检查结果。
+Markdown 链接和插件覆盖率检查同属文档质量门禁；它们使用统一退出码：`0` 为通过、`1` 为错误、`2` 为仅有警告。
 
 ### PR Commit 完整性与逐项说明
 - PR 描述必须有 `## 提交清单与逐项说明`；以 GitHub `pulls.listCommits` 返回的当前 PR commit 集合为唯一真源，而不是本地分支名或手工挑选的范围。

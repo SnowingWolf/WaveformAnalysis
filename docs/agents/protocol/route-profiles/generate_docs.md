@@ -22,6 +22,8 @@
 ## Canonical Commands
 - `waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/`
 - `waveform-docs generate plugins-agent -o docs/plugins/reference/agent/`
+- `waveform-docs check links --docs-dir docs`
+- `waveform-docs check coverage --strict --fail-on-warning`
 - `scripts/check_doc_sync.sh`
 - `python scripts/check_doc_anchors.py --check-sync --base HEAD`
 <!-- END GENERATED: profile_summary_generate_docs -->

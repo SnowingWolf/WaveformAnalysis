@@ -13,6 +13,9 @@
 | [插件缓存架构](PLUGIN_CACHE_ARCHITECTURE.md) | 缓存分层、键与身份、命中/写盘/失效路径 |
 | [数据产物与波形访问](DATA_PRODUCTS.md) | 正式产物契约、实体关系、派生聚合与 records/pool 波形访问 |
 | [分析查询与批量运行](ACCESSOR_ANALYSIS.md) | 处理完成后的只读查询，以及多 run 调度与执行边界 |
+| [Context 处理工作流](CONTEXT_PROCESSOR_WORKFLOW.md) | Context、Processor 与插件执行的端到端流程 |
+| [项目结构](PROJECT_STRUCTURE.md) | 代码、文档、示例和质量检查的目录边界 |
+| [Hit Threshold 查询工具](query_helpers_guide.md) | 查询 peak、merged 与 hit_threshold 之间的关系 |
 
 ## 学习路径
 
@@ -21,6 +24,7 @@
 3. [插件缓存架构](PLUGIN_CACHE_ARCHITECTURE.md) - 理解缓存分层与命中/失效路径
 4. [数据产物与波形访问](DATA_PRODUCTS.md) - 理解正式输出、ID 关系与波形配对
 5. [分析查询与批量运行](ACCESSOR_ANALYSIS.md) - 理解分析阶段的只读接口与批量边界
+6. [项目结构](PROJECT_STRUCTURE.md) - 找到代码、文档和示例的维护入口
 
 ## 相关资源
 

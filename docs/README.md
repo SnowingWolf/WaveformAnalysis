@@ -30,6 +30,19 @@ waveform-process --help
 | 使用命令行工具 | [CLI 文档](cli/README.md) | `waveform-process` 等命令说明 |
 | 维护 Agent 入口文档 | [AGENTS.md](../AGENTS.md) | 仓库入口规则真源 |
 
+用户指南是公开文档的首个入口：从文档中心进入用户指南后，可在第二次点击到达[快速开始](user-guide/QUICKSTART_GUIDE.md)或[示例集合](user-guide/EXAMPLES_GUIDE.md)。站点导航与本页保持同一学习顺序。
+
+## 术语约定
+
+| 术语 | 规范含义 |
+|---|---|
+| `run_name` | DAQ/CLI 使用的数据集名称，通常对应 DAQ 根目录下的运行目录名。 |
+| `run_id` | Context/API 访问数据时显式传入的运行标识；Context 不保存隐式的“当前 run”。 |
+| `--run-name` | `waveform-process` 的正式 CLI 参数，用于指定 `run_name`。 |
+| `--char` | `--run-name` 的 legacy 兼容别名，仅为旧脚本保留；新命令和文档统一使用 `--run-name`。 |
+
+`run_name` 和 `run_id` 在常见目录布局中可能使用同一个字符串，但前者描述 DAQ/CLI 数据集名称，后者描述 API 调用边界。需要访问数据时始终显式传入 `run_id`，例如 `ctx.get_data(run_id, "records")`。
+
 ## 角色导航
 
 按角色选择入口请看 [功能特性](features/README.md) 的“按角色选择入口”。

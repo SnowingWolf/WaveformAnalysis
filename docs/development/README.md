@@ -12,6 +12,7 @@
 | [插件开发](plugin-development/README.md) | 自定义插件开发教程与高级指南 |
 | [契约测试](CONTRACT_TESTS.md) | 契约测试原则与实践 |
 | [多工作树协作](worktrees.md) | `git worktree` 开发流程 |
+| [项目结构](../architecture/PROJECT_STRUCTURE.md) | 代码、文档、示例和质量检查的目录边界 |
 
 ## 学习路径
 
@@ -19,7 +20,8 @@
 
 1. [开发规范](contributing/README.md)
 2. [契约测试](CONTRACT_TESTS.md)
-3. [多工作树协作](worktrees.md)
+3. [项目结构](../architecture/PROJECT_STRUCTURE.md)
+4. [多工作树协作](worktrees.md)
 
 ### 插件开发者
 

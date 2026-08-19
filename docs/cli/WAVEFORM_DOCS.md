@@ -2,7 +2,9 @@
 
 **导航**: [文档中心](../README.md) > [命令行工具](README.md) > waveform-docs 命令参考
 
-`waveform-docs` 是 WaveformAnalysis 的文档生成工具，用于自动生成插件文档和检查文档覆盖率。
+`waveform-docs` 是 WaveformAnalysis 的文档生成工具，用于自动生成插件文档、检查 Markdown 链接和文档覆盖率。
+文档工具要求 Python 3.10 或更高版本；仓库同时安装多个解释器时，可通过
+`WAVEFORM_PYTHON=/path/to/python` 选择解释器（Makefile 和文档同步脚本会沿用该选择）。
 
 ---
 
@@ -35,11 +37,15 @@ waveform-docs generate <文档类型> [选项]
 
 ### check - 检查文档
 
-检查文档覆盖率。
+检查文档链接或插件覆盖率。
 
 ```bash
+waveform-docs check links [选项]
 waveform-docs check coverage [选项]
 ```
+
+`check links` 离线扫描 `docs/` 下的 Markdown，检查相对文件链接、图片等本地资源，以及同页和跨页
+fragment。HTTP(S)、`mailto:` 等外部链接不会被网络请求；链接错误返回退出码 `1`。
 
 ### serve - 本地预览
 
@@ -92,6 +98,10 @@ waveform-docs serve \
 | `--strict` | - | flag | False | 严格模式（也检查 spec 质量） |
 | `--fail-on-warning` | - | flag | False | 有警告时也失败 |
 
+`--docs-dir` 同时适用于 `check links` 和 `check coverage`。质量门禁统一使用退出码：`0` 表示通过或
+默认容忍的 warning，`1` 表示错误，`2` 表示在传入 `--fail-on-warning` 后仍存在 warning。
+传入该选项可明确表达“警告也不能被忽略”的 CI 意图。
+
 ---
 
 ## 使用示例
@@ -122,6 +132,9 @@ waveform-docs generate plugins-web -o docs/_site
 
 # 生成包含插件、Context、Accessor 与可视化参考的 HTML 文档总站
 waveform-docs generate site-web
+
+# 检查 docs/ 下的 Markdown 本地链接、资源和 fragment
+waveform-docs check links --docs-dir docs
 ```
 
 `site-web` 生成总站首页，并将插件站放在 `plugins/`、Context 参考放在 `contexts/`、Accessor 参考放在 `accessors/`，统计图与波形图参考放在 `visualizations/`。`Context.plot_lineage()` 归入 Context 的 DAG 专题，不作为绘图参考页。
@@ -132,6 +145,9 @@ waveform-docs generate site-web
 原站点保持不变；成功发布会移除上一轮遗留文件。因此 `docs/_site` 应仅存放生成产物，不应放置
 需要保留的手工文件。运行中的 `waveform-docs serve` 无需重启，后续请求会读取新发布的文件。
 该服务对 HTML、JSON、脚本和样式统一发送禁缓存响应头，避免浏览器或转发层继续复用旧页面。
+
+发布前校验还会检查 HTML `href`/`src` 对应文件和 fragment、搜索索引中的每个 URL，以及每个
+`aria-controls` 是否指向当前页面存在的 DOM 节点。任一项失败都会阻断原子发布并保留旧站点。
 
 `site-web` 还会读取 `docs/site-guides.yaml`，把显式收录的 Markdown 渲染进同一 HTML 外壳，
 并同步加入左侧分类导航与全站搜索。清单按栏目收录 Markdown 正文：系统架构与数据模型、功能特性、
@@ -209,9 +225,13 @@ waveform-docs check coverage
 # 严格模式（检查 spec 质量）
 waveform-docs check coverage --strict
 
-# 有警告时失败
+# 有警告时失败（退出码 2）
 waveform-docs check coverage --fail-on-warning
 ```
+
+覆盖率以插件文档 frontmatter 的真实 `provides` 为准，而不是以文件名猜测身份。检查会报告缺失、
+版本过期、多余页面、frontmatter `provides` 与文件名不一致，以及重复声明；这些契约错误都会使
+命令返回 `1`。
 
 ---
 
