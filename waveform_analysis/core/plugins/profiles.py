@@ -1,4 +1,4 @@
-# DOC: docs/plugins/guides/PLUGIN_SET_PROFILE_GUIDE.md#profiles
+# DOC: docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md#profiles
 """
 Execution profiles composed from plugin sets.
 """

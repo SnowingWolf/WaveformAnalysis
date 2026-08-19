@@ -50,8 +50,8 @@
 
 ### 插件开发
 
-1. **入门教程**: [简单插件指南](../plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) - 写第一个插件
-2. **开发指南**: [插件开发指南](../plugins/guides/PLUGIN_AUTHORING_GUIDE.md) - 深入学习
+1. **入门教程**: [插件编写规范](../plugins/PLUGIN_SYSTEM_OVERVIEW.md) - 写第一个插件
+2. **开发指南**: [插件开发完整指南](../development/plugin-development/plugin_guide.md) - 深入学习
 3. **高级特性**: [流式插件](../plugins/guides/STREAMING_PLUGINS_GUIDE.md) - 处理大数据集
 4. **配置系统**: [配置管理](../features/context/CONFIGURATION.md) - 了解配置选项
 

@@ -6,6 +6,9 @@
 依赖组成当前 DAG，lineage 在该 DAG 上递归建立结果身份，缓存用 `(run_id, provides, lineage)`
 判断结果能否复用。
 
+Context 负责统一协调插件注册、依赖解析、lineage 与缓存复用；具体产物仍由单一 Plugin 发布，
+组合查询由 Accessor 完成。
+
 ```mermaid
 flowchart LR
     CONTRACT[Plugin 契约] --> DAG[本次 Plugin DAG]

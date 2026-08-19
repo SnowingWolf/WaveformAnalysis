@@ -1,10 +1,33 @@
 from types import SimpleNamespace
 
 from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+from waveform_analysis.utils.site_guides import RenderedGuidePage, RenderedGuideSection
 
 
 def test_accessor_index_highlights_plugin_and_accessor_responsibilities():
-    env = PluginDocGenerator()._get_web_jinja_env()
+    generator = PluginDocGenerator()
+    env = generator._get_web_jinja_env()
+    records_page = RenderedGuidePage(
+        source=None,
+        source_label="contexts/records-view.html",
+        route="contexts/records-view.html",
+        section_id="accessors-reference",
+        title="RecordsView",
+        summary="",
+        html=None,
+        has_mermaid=False,
+        headings=(),
+        assets=(),
+        tag="reflect",
+    )
+    env.globals["guide_sections"] = (
+        RenderedGuideSection(
+            section_id="accessors-reference",
+            title="Accessor 接口",
+            index_route="accessors/guides.html",
+            pages=(records_page,),
+        ),
+    )
     html = env.get_template("web/accessor_index.html.j2").render(
         accessors=(
             SimpleNamespace(
@@ -22,7 +45,7 @@ def test_accessor_index_highlights_plugin_and_accessor_responsibilities():
     assert "Accessor 不属于插件 DAG" in html
     assert "不生成新的缓存数据契约" in html
     assert 'href="../contexts/records-view.html"' in html
-    assert 'aria-controls="tree-accessors"' in html
+    assert 'aria-controls="tree-guide-accessors-reference"' in html
     assert "折叠 Accessor 接口" in html
     assert "records-backed 波形访问" in html
     assert "RecordsView" in html

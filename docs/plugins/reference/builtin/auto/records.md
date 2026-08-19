@@ -92,6 +92,7 @@ data = ctx.get_data("run_001", "records")
 ```
 ### Downstream Consumers
 
+- `peaklet_channels`
 - `peaklet_waveforms`
 - `records_asymmetry_mask`
 - `records_detector_mask`

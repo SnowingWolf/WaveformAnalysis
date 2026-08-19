@@ -9,5 +9,12 @@
 <main class="reference docs-main guide-article">
   <nav class="breadcrumbs" aria-label="面包屑"><a href="{{ site_home_href }}">文档概览</a><a href="{{ section_index_href }}">{{ section.title }}</a><span aria-current="page">{{ page.title }}</span></nav>
   <article class="markdown-body">{{ page.html }}</article>
+  <footer class="guide-footer">
+    {% if page.source_relative and edit_base_href|default("") %}<a class="guide-edit" href="{{ edit_base_href }}{{ page.source_relative }}" target="_blank" rel="noopener" title="在 GitHub 上查看该文档源码">编辑此页</a>{% endif %}
+    <nav class="guide-pager" aria-label="上一页 / 下一页">
+      {% if page.prev_route %}<a class="guide-pager-prev" href="{{ page.prev_route | guide_relative(page.route) }}"><span class="guide-pager-dir">上一页</span><span class="guide-pager-title">{{ page.prev_title }}</span></a>{% endif %}
+      {% if page.next_route %}<a class="guide-pager-next" href="{{ page.next_route | guide_relative(page.route) }}"><span class="guide-pager-dir">下一页</span><span class="guide-pager-title">{{ page.next_title }}</span></a>{% endif %}
+    </nav>
+  </footer>
 </main>
 {% endblock %}

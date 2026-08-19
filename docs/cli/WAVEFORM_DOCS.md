@@ -134,21 +134,24 @@ waveform-docs generate site-web
 该服务对 HTML、JSON、脚本和样式统一发送禁缓存响应头，避免浏览器或转发层继续复用旧页面。
 
 `site-web` 还会读取 `docs/site-guides.yaml`，把显式收录的 Markdown 渲染进同一 HTML 外壳，
-并同步加入左侧分类导航与全站搜索。清单当前发布 9 篇核心正文：5 篇用户指南，以及系统架构与数据流、
-插件执行链与缓存、数据产物与波形访问、分析查询与批量运行 4 篇架构文档。Markdown 文件是正文唯一真源；
-生成的 HTML 只负责统一发布，不应手工维护同一份正文。
+并同步加入左侧分类导航与全站搜索。清单按栏目收录 Markdown 正文：系统架构与数据模型、功能特性、
+插件系统、Context 与适配器、Accessor 接口、可视化、API 参考、命令行工具与开发者指南。Markdown
+文件是正文唯一真源；生成的 HTML 只负责统一发布，不应手工维护同一份正文。
 
-清单使用 `schema_version: 1`，每个分类声明 `id`、`title`、`index_route` 与显式 `pages`：
+清单使用 `schema_version: 2`，每个分类声明 `id`、`title` 与 `index_route`；`source_dirs` 目录扫描
+自动收录 Markdown，也可用显式 `pages` 声明个别页面：
 
 ```yaml
-schema_version: 1
+schema_version: 2
 sections:
-  - id: guides
-    title: 用户指南
-    index_route: guides/index.html
+  - id: architecture
+    title: 系统架构与数据模型
+    index_route: architecture/index.html
+    source_dirs:
+      - docs/architecture
     pages:
-      - source: docs/user-guide/QUICKSTART_GUIDE.md
-        route: guides/quickstart.html
+      - source: docs/architecture/ARCHITECTURE.md
+        route: architecture/system.html
 ```
 
 `source` 必须是 `docs/` 内存在的 Markdown 文件，`route` 必须是无 `..` 的相对 `.html` 路径；

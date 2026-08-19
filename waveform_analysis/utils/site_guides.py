@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from html import escape
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
@@ -16,10 +16,14 @@ import yaml
 
 @dataclass(frozen=True)
 class GuidePageSpec:
-    source: Path
+    source: Path | None
     source_label: str
     route: str
     section_id: str
+    tag: str = "markdown"
+    title_override: str | None = None
+    summary_override: str | None = None
+    nav_weight: int = 0
 
 
 @dataclass(frozen=True)
@@ -29,6 +33,7 @@ class GuideSectionSpec:
     index_route: str
     source_indexes: tuple[Path, ...]
     pages: tuple[GuidePageSpec, ...]
+    nav_weight: int = 0
 
 
 @dataclass(frozen=True)
@@ -36,6 +41,7 @@ class GuideManifest:
     project_root: Path
     docs_root: Path
     sections: tuple[GuideSectionSpec, ...]
+    provider_pages: tuple[GuidePageSpec, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -53,16 +59,22 @@ class GuideAsset:
 
 @dataclass(frozen=True)
 class RenderedGuidePage:
-    source: Path
+    source: Path | None
     source_label: str
     route: str
     section_id: str
     title: str
     summary: str
-    html: str
+    html: str | None
     has_mermaid: bool
     headings: tuple[GuideHeading, ...]
     assets: tuple[GuideAsset, ...]
+    tag: str = "markdown"
+    source_relative: str | None = None
+    prev_route: str | None = None
+    prev_title: str | None = None
+    next_route: str | None = None
+    next_title: str | None = None
 
 
 @dataclass(frozen=True)
@@ -77,6 +89,7 @@ class RenderedGuideSection:
 class RenderedGuideSite:
     sections: tuple[RenderedGuideSection, ...]
     warnings: tuple[str, ...]
+    provider_pages: tuple[GuidePageSpec, ...] = ()
 
 
 class _PlainTextParser(HTMLParser):
@@ -114,12 +127,128 @@ def _validated_source(project_root: Path, docs_root: Path, value: Any, *, field:
     return source
 
 
+_FRONTMATTER_PATTERN = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|$)", re.DOTALL)
+_VALID_TAGS = ("markdown", "reflect", "plugin-provider")
+
+
+def parse_frontmatter(text: str) -> tuple[dict[str, Any], str]:
+    """Split YAML frontmatter from Markdown body. Returns (frontmatter, body)."""
+    match = _FRONTMATTER_PATTERN.match(text)
+    if not match:
+        return {}, text
+    raw = yaml.safe_load(match.group(1))
+    if raw is None:
+        raw = {}
+    if not isinstance(raw, dict):
+        raise ValueError("Markdown frontmatter must be a mapping")
+    return raw, text[match.end() :]
+
+
+def _validated_tag(value: Any, *, field: str) -> str:
+    if not isinstance(value, str) or value not in _VALID_TAGS:
+        raise ValueError(f"{field} must be one of {_VALID_TAGS}: {value!r}")
+    return value
+
+
+def _derived_route(source: Path, docs_root: Path) -> str:
+    plugin_route = _plugin_reference_route(source, docs_root)
+    if plugin_route is not None:
+        return plugin_route
+    relative = source.relative_to(docs_root).as_posix()
+    return relative[: -len(".md")] + ".html"
+
+
+def _glob_match(relative: str, pattern: str) -> bool:
+    pattern = pattern.strip()
+    if not pattern:
+        return False
+    if "**" in pattern:
+        regex = re.escape(pattern).replace(r"\*\*", ".*").replace(r"\*", "[^/]*")
+        return re.fullmatch(regex, relative) is not None
+    return re.fullmatch(re.escape(pattern).replace(r"\*", "[^/]*"), relative) is not None
+
+
+def _iter_scanned_sources(
+    *,
+    source_dirs: list[Any],
+    excludes: list[Any],
+    project_root: Path,
+    docs_root: Path,
+    section_index: int,
+) -> tuple[list[Path], list[Path]]:
+    if not isinstance(excludes, list):
+        raise ValueError(f"sections[{section_index}].exclude must be a list")
+    exclude_patterns = [str(value) for value in excludes if isinstance(value, str)]
+    collected: list[Path] = []
+    skipped_readmes: list[Path] = []
+    for dir_index, dir_value in enumerate(source_dirs):
+        if not isinstance(dir_value, str) or not dir_value:
+            raise ValueError(
+                f"sections[{section_index}].source_dirs[{dir_index}] must be a non-empty string"
+            )
+        base = (project_root / dir_value).resolve()
+        if not base.is_relative_to(docs_root):
+            raise ValueError(
+                f"sections[{section_index}].source_dirs[{dir_index}] must stay inside {docs_root}: "
+                f"{dir_value!r}"
+            )
+        if not base.is_dir():
+            raise ValueError(
+                f"sections[{section_index}].source_dirs[{dir_index}] must be an existing directory: "
+                f"{dir_value!r}"
+            )
+        for source in sorted(base.rglob("*.md")):
+            relative = source.relative_to(docs_root).as_posix()
+            if source.name == "README.md":
+                # README files are deliberately not rendered as individual pages.  Keep
+                # their directory as a link target, however, unless a broader exclude
+                # removes that subtree.  The manifest's explicit **/README.md exclusion
+                # only documents the skip and must not suppress this compatibility map.
+                if any(
+                    _glob_match(relative, pattern) and not pattern.rstrip("/").endswith("README.md")
+                    for pattern in exclude_patterns
+                ):
+                    continue
+                skipped_readmes.append(source)
+                continue
+            if any(_glob_match(relative, pattern) for pattern in exclude_patterns):
+                continue
+            collected.append(source)
+    return collected, skipped_readmes
+
+
+def _optional_str(value: Any, *, field: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{field} must be a non-empty string")
+    return value
+
+
+def _validated_int(value: Any, *, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{field} must be an integer")
+    return value
+
+
 def load_guide_manifest(manifest_path: Path) -> GuideManifest:
-    """Load and strictly validate one guide publication manifest."""
+    """Load and strictly validate one guide publication manifest (schema v1 or v2).
+
+    v2 扩展:
+    - ``sections[].source_dirs`` 目录扫描(Markdown 自动收录)
+    - ``sections[].exclude`` glob 排除
+    - ``sections[].nav_weight`` 栏目排序
+    - ``sections[].pages[].tag`` 页面来源声明,缺省 ``markdown``
+    - 页面 frontmatter 控制:``title`` / ``summary`` / ``nav_weight`` /
+      ``exclude_from_nav`` / ``hidden`` / ``tag``
+    tag != ``markdown`` 的页面不渲染,只登记到 ``provider_pages``。
+    """
     manifest_path = Path(manifest_path).resolve()
     raw = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
-    if not isinstance(raw, dict) or raw.get("schema_version") != 1:
-        raise ValueError("site guide manifest must declare schema_version: 1")
+    if not isinstance(raw, dict):
+        raise ValueError("site guide manifest must be a mapping")
+    if raw.get("schema_version") not in (1, 2):
+        raise ValueError("site guide manifest must declare schema_version: 1 or 2")
     raw_sections = raw.get("sections")
     if not isinstance(raw_sections, list) or not raw_sections:
         raise ValueError("site guide manifest must contain a non-empty sections list")
@@ -127,9 +256,16 @@ def load_guide_manifest(manifest_path: Path) -> GuideManifest:
     project_root = manifest_path.parent.parent.resolve()
     docs_root = (project_root / "docs").resolve()
     sections: list[GuideSectionSpec] = []
+    provider_pages: list[GuidePageSpec] = []
     section_ids: set[str] = set()
     sources: set[Path] = set()
     routes: set[str] = set()
+
+    def register_route(route: str) -> None:
+        if route in routes:
+            raise ValueError(f"Duplicate guide route: {route}")
+        routes.add(route)
+
     for section_index, raw_section in enumerate(raw_sections):
         if not isinstance(raw_section, dict):
             raise ValueError(f"sections[{section_index}] must be a mapping")
@@ -145,9 +281,10 @@ def load_guide_manifest(manifest_path: Path) -> GuideManifest:
         index_route = _validated_route(
             raw_section.get("index_route"), field=f"sections[{section_index}].index_route"
         )
-        if index_route in routes:
-            raise ValueError(f"Duplicate guide route: {index_route}")
-        routes.add(index_route)
+        register_route(index_route)
+        nav_weight = raw_section.get("nav_weight", 0)
+        if isinstance(nav_weight, bool) or not isinstance(nav_weight, int):
+            raise ValueError(f"sections[{section_index}].nav_weight must be an integer")
 
         raw_source_indexes = raw_section.get("source_indexes", [])
         if not isinstance(raw_source_indexes, list):
@@ -161,48 +298,112 @@ def load_guide_manifest(manifest_path: Path) -> GuideManifest:
             )
             for value in raw_source_indexes
         )
-        raw_pages = raw_section.get("pages")
-        if not isinstance(raw_pages, list) or not raw_pages:
-            raise ValueError(f"sections[{section_index}].pages must be a non-empty list")
+
+        raw_pages = raw_section.get("pages", [])
+        if not isinstance(raw_pages, list):
+            raise ValueError(f"sections[{section_index}].pages must be a list")
         pages: list[GuidePageSpec] = []
         for page_index, raw_page in enumerate(raw_pages):
             if not isinstance(raw_page, dict):
                 raise ValueError(f"sections[{section_index}].pages[{page_index}] must be a mapping")
+            field = f"sections[{section_index}].pages[{page_index}]"
+            tag = _validated_tag(raw_page.get("tag", "markdown"), field=f"{field}.tag")
+            source: Path | None = None
             source_value = raw_page.get("source")
-            source = _validated_source(
-                project_root,
-                docs_root,
-                source_value,
-                field=f"sections[{section_index}].pages[{page_index}].source",
-            )
-            route = _validated_route(
-                raw_page.get("route"),
-                field=f"sections[{section_index}].pages[{page_index}].route",
-            )
-            if source in sources:
-                raise ValueError(f"Duplicate guide source: {source_value}")
-            if route in routes:
-                raise ValueError(f"Duplicate guide route: {route}")
-            sources.add(source)
-            routes.add(route)
-            pages.append(
-                GuidePageSpec(
-                    source=source,
-                    source_label=str(source_value),
-                    route=route,
-                    section_id=section_id,
+            if source_value is not None:
+                source = _validated_source(
+                    project_root,
+                    docs_root,
+                    source_value,
+                    field=f"{field}.source",
                 )
+                if source in sources:
+                    raise ValueError(f"Duplicate guide source: {source_value}")
+                sources.add(source)
+            route = _validated_route(raw_page.get("route"), field=f"{field}.route")
+            register_route(route)
+            spec = GuidePageSpec(
+                source=source,
+                source_label=str(source_value or route),
+                route=route,
+                section_id=section_id,
+                tag=tag,
+                title_override=_optional_str(raw_page.get("title"), field=f"{field}.title"),
+                summary_override=_optional_str(raw_page.get("summary"), field=f"{field}.summary"),
+                nav_weight=_validated_int(
+                    raw_page.get("nav_weight", 0), field=f"{field}.nav_weight"
+                ),
             )
+            pages.append(spec)
+            if tag != "markdown":
+                provider_pages.append(spec)
+
+        source_dirs = raw_section.get("source_dirs", [])
+        if not isinstance(source_dirs, list):
+            raise ValueError(f"sections[{section_index}].source_dirs must be a list")
+        scanned_sources, scanned_readmes = _iter_scanned_sources(
+            source_dirs=source_dirs,
+            excludes=raw_section.get("exclude", []),
+            project_root=project_root,
+            docs_root=docs_root,
+            section_index=section_index,
+        )
+        source_index_list = list(source_indexes)
+        for readme in scanned_readmes:
+            if readme not in source_index_list:
+                source_index_list.append(readme)
+        for source in scanned_sources:
+            if source in sources:
+                continue
+            frontmatter, _ = parse_frontmatter(source.read_text(encoding="utf-8"))
+            if frontmatter.get("exclude_from_nav") or frontmatter.get("hidden"):
+                continue
+            tag = _validated_tag(
+                frontmatter.get("tag", "markdown"),
+                field=f"frontmatter tag in {source.relative_to(docs_root).as_posix()}",
+            )
+            source_label = source.relative_to(docs_root).as_posix()
+            route = _derived_route(source, docs_root)
+            register_route(route)
+            sources.add(source)
+            spec = GuidePageSpec(
+                source=source,
+                source_label=source_label,
+                route=route,
+                section_id=section_id,
+                tag=tag,
+                title_override=_optional_str(
+                    frontmatter.get("title"), field=f"frontmatter title in {source_label}"
+                ),
+                summary_override=_optional_str(
+                    frontmatter.get("summary"), field=f"frontmatter summary in {source_label}"
+                ),
+                nav_weight=_validated_int(
+                    frontmatter.get("nav_weight", 0),
+                    field=f"frontmatter nav_weight in {source_label}",
+                ),
+            )
+            pages.append(spec)
+            if tag != "markdown":
+                provider_pages.append(spec)
+
         sections.append(
             GuideSectionSpec(
                 section_id=section_id,
                 title=title.strip(),
                 index_route=index_route,
-                source_indexes=source_indexes,
+                source_indexes=tuple(source_index_list),
                 pages=tuple(pages),
+                nav_weight=nav_weight,
             )
         )
-    return GuideManifest(project_root=project_root, docs_root=docs_root, sections=tuple(sections))
+    sections.sort(key=lambda section: section.nav_weight)
+    return GuideManifest(
+        project_root=project_root,
+        docs_root=docs_root,
+        sections=tuple(sections),
+        provider_pages=tuple(provider_pages),
+    )
 
 
 def _relative_href(current_route: str, target_route: str, fragment: str = "") -> str:
@@ -294,7 +495,8 @@ class _GuideRenderer:
                 return super().image(text, href, title)
 
             def block_code(self, code: str, info: str | None = None) -> str:
-                language = (info or "").strip().split(None, 1)[0].lower()
+                parts = (info or "").strip().split(None, 1)
+                language = parts[0].lower() if parts else ""
                 if language == "mermaid":
                     self.has_mermaid = True
                     escaped_code = escape(code)
@@ -372,27 +574,78 @@ class _GuideRenderer:
         return _relative_href(self.page.route, asset_route, unquote(parsed.fragment))
 
     def render(self) -> RenderedGuidePage:
-        rendered = self.markdown(self.page.source.read_text(encoding="utf-8"))
-        if not self.renderer.title:
-            raise ValueError(f"Guide source must contain an H1 heading: {self.page.source_label}")
+        if self.page.source is None:
+            raise ValueError(f"Guide page has no Markdown source: {self.page.route}")
+        _frontmatter, body = parse_frontmatter(self.page.source.read_text(encoding="utf-8"))
+        rendered = self.markdown(body)
+        if not self.renderer.title and not self.page.title_override:
+            raise ValueError(
+                f"Guide source must contain an H1 heading or a frontmatter title: "
+                f"{self.page.source_label}"
+            )
+        title = self.page.title_override or self.renderer.title
+        summary = self.page.summary_override or self.renderer.summary or title
         return RenderedGuidePage(
             source=self.page.source,
             source_label=self.page.source_label,
             route=self.page.route,
             section_id=self.page.section_id,
-            title=self.renderer.title,
-            summary=self.renderer.summary or self.renderer.title,
+            title=title,
+            summary=summary,
             html=rendered,
             has_mermaid=self.renderer.has_mermaid,
             headings=tuple(self.renderer.headings),
             assets=tuple(self.renderer.assets.values()),
+            source_relative=_source_relative(self.page, self.manifest),
         )
 
 
+def _source_relative(page: GuidePageSpec, manifest: GuideManifest) -> str | None:
+    if page.source is None:
+        return None
+    if page.source.is_relative_to(manifest.project_root):
+        return page.source.relative_to(manifest.project_root).as_posix()
+    return page.source_label
+
+
+def _spec_title(page: GuidePageSpec) -> str:
+    if page.title_override:
+        return page.title_override
+    if page.source is not None:
+        frontmatter, body = parse_frontmatter(page.source.read_text(encoding="utf-8"))
+        if isinstance(frontmatter.get("title"), str):
+            return frontmatter["title"]
+        match = re.search(r"^#\s+(.+)$", body, re.MULTILINE)
+        if match:
+            return match.group(1).strip()
+    return Path(page.route).stem
+
+
+def _placeholder_guide_page(page: GuidePageSpec, manifest: GuideManifest) -> RenderedGuidePage:
+    title = _spec_title(page)
+    return RenderedGuidePage(
+        source=page.source,
+        source_label=page.source_label,
+        route=page.route,
+        section_id=page.section_id,
+        title=title,
+        summary=page.summary_override or "",
+        html=None,
+        has_mermaid=False,
+        headings=(),
+        assets=(),
+        tag=page.tag,
+        source_relative=_source_relative(page, manifest),
+    )
+
+
 def render_guide_manifest(manifest: GuideManifest) -> RenderedGuideSite:
-    """Render all explicitly selected pages and return navigation/search metadata."""
+    """Render markdown pages, register provider pages, and link prev/next per section."""
     source_routes = {
-        page.source: page.route for section in manifest.sections for page in section.pages
+        page.source: page.route
+        for section in manifest.sections
+        for page in section.pages
+        if page.source is not None
     }
     source_index_routes = {
         source: section.index_route
@@ -402,22 +655,40 @@ def render_guide_manifest(manifest: GuideManifest) -> RenderedGuideSite:
     warnings: list[str] = []
     rendered_sections = []
     for section in manifest.sections:
-        pages = tuple(
-            _GuideRenderer(
-                page=page,
-                manifest=manifest,
-                source_routes=source_routes,
-                source_index_routes=source_index_routes,
-                warnings=warnings,
-            ).render()
-            for page in section.pages
-        )
+        ordered = sorted(section.pages, key=lambda page: page.nav_weight)
+        rendered_pages: list[RenderedGuidePage] = []
+        for index, page in enumerate(ordered):
+            if page.tag == "markdown":
+                rendered = _GuideRenderer(
+                    page=page,
+                    manifest=manifest,
+                    source_routes=source_routes,
+                    source_index_routes=source_index_routes,
+                    warnings=warnings,
+                ).render()
+            else:
+                rendered = _placeholder_guide_page(page, manifest)
+            prev_page = ordered[index - 1] if index > 0 else None
+            next_page = ordered[index + 1] if index + 1 < len(ordered) else None
+            rendered_pages.append(
+                replace(
+                    rendered,
+                    prev_route=prev_page.route if prev_page else None,
+                    prev_title=_spec_title(prev_page) if prev_page else None,
+                    next_route=next_page.route if next_page else None,
+                    next_title=_spec_title(next_page) if next_page else None,
+                )
+            )
         rendered_sections.append(
             RenderedGuideSection(
                 section_id=section.section_id,
                 title=section.title,
                 index_route=section.index_route,
-                pages=pages,
+                pages=tuple(rendered_pages),
             )
         )
-    return RenderedGuideSite(sections=tuple(rendered_sections), warnings=tuple(warnings))
+    return RenderedGuideSite(
+        sections=tuple(rendered_sections),
+        warnings=tuple(warnings),
+        provider_pages=manifest.provider_pages,
+    )

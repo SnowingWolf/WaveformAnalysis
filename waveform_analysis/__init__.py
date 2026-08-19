@@ -47,10 +47,6 @@ __all__ = [
     "StreamingPlugin",
     "StreamingContext",
     "get_streaming_context",
-    # 波形预览
-    "WaveformPreviewer",
-    "preview_waveforms",
-    "plot_records_waveforms",
     # 位置重建可视化
     "render_position_dashboard",
     "render_position_dashboard_2d",
@@ -96,9 +92,6 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "StorageBackend": (".core.storage", "StorageBackend"),
     "DAQAnalyzer": (".utils.daq", "DAQAnalyzer"),
     "DAQRun": (".utils.daq", "DAQRun"),
-    "WaveformPreviewer": (".utils.preview", "WaveformPreviewer"),
-    "preview_waveforms": (".utils.preview", "preview_waveforms"),
-    "plot_records_waveforms": (".utils.preview", "plot_records_waveforms"),
     "render_position_dashboard": (".visualization", "render_position_dashboard"),
     "render_position_dashboard_2d": (".visualization", "render_position_dashboard_2d"),
 }

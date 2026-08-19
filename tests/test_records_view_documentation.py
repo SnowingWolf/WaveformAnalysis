@@ -20,5 +20,5 @@ def test_site_web_includes_records_view_reference(tmp_path):
     assert 'href="../accessors/peak-channel-accessor.html"' in page
     assert 'href="../accessors/s1-s2-pair-accessor.html"' in page
     assert 'href="../contexts/records-view.html" aria-current="page">RecordsView</a>' in page
-    assert 'aria-controls="tree-accessors"' in page
+    assert 'aria-controls="tree-guide-accessors-reference"' in page
     assert "contexts/records-view.html#construction" in search_index

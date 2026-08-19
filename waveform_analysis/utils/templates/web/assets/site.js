@@ -555,6 +555,19 @@
       setTitle(expanded);
     });
   }
+  const treeCollapseAll = nav?.querySelector("[data-tree-collapse-all]");
+  treeCollapseAll?.addEventListener("click", () => {
+    for (const toggle of document.querySelectorAll("[data-tree-toggle]")) {
+      const target = document.getElementById(toggle.getAttribute("aria-controls"));
+      if (!target || toggle.getAttribute("aria-expanded") === "false") continue;
+      toggle.setAttribute("aria-expanded", "false");
+      target.hidden = true;
+      writeStorage(`waveform-docs-tree:${target.id}`, "false");
+      const label = toggle.closest(".site-tree-group")?.querySelector(".site-tree-group-row")?.textContent?.trim() || "分组";
+      toggle.title = `展开 ${label}`;
+      toggle.querySelector(".sr-only").textContent = `展开 ${label}`;
+    }
+  });
   const themeToggle = document.querySelector("[data-theme-toggle]");
   const syncThemeToggle = () => {
     const dark = document.documentElement.dataset.theme === "dark";

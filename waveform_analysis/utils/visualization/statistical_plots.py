@@ -209,6 +209,8 @@ def corner_hist(
     tick_labelsize: int = 8,
     diag_title: bool = True,
     show_ticks: bool = True,
+    show_ticklabels: bool | tuple | None = None,
+    hist_density: bool = False,
 ):
     """
     绘制散点矩阵（corner plot）用于多变量分布分析。
@@ -298,6 +300,18 @@ def corner_hist(
     show_ticks : bool, default=True
         是否显示刻度标记。若为 False，所有子图的刻度标记将被隐藏，
         但刻度标签的显示仍由 label_mode 控制。
+    show_ticklabels : bool or tuple or None, default=None
+        是否显示刻度标签（数字 ticker）。用于在每个子图上显示数字刻度：
+
+        - None：跟随 label_mode。内部子图的刻度标签被隐藏，
+          只有外圈子图显示刻度标签（默认行为，向后兼容）。
+        - True：所有子图都显示刻度标签。
+        - False：所有子图都隐藏刻度标签。
+        - tuple：如 (True, False)，对所有子图分别控制 x/y 轴刻度标签，
+          即所有子图的 x 轴是否显示、所有子图的 y 轴是否显示。
+    hist_density : bool, default=False
+        对角线 1D 直方图是否按概率密度归一化（density=True，积分=1）。
+        默认 False = 原始计数。叠加对比前后景时建议 True，让两层用同一归一化可直接比形状。
 
     返回
     -------
@@ -369,6 +383,12 @@ def corner_hist(
 
     if label_mode not in ("outer", "all", "diag", "none"):
         raise ValueError("label_mode must be 'outer', 'all', 'diag', or 'none'.")
+
+    if show_ticklabels is not None and not isinstance(show_ticklabels, bool | tuple | list):
+        raise ValueError("show_ticklabels 应为 bool、tuple、list 或 None。")
+    if isinstance(show_ticklabels, tuple | list):
+        if len(show_ticklabels) != 2:
+            raise ValueError("show_ticklabels 元组长度应为 2（分别对应 x 轴、y 轴）。")
 
     # 参数验证
     if not isinstance(data, list | tuple):
@@ -572,6 +592,7 @@ def corner_hist(
                     linewidth=1.5,
                     color=hist_color,
                     alpha=hist_alpha,
+                    density=hist_density,
                 )
 
                 ax.set_xscale(xscale)
@@ -622,6 +643,15 @@ def corner_hist(
                 show_xlabel = False
                 show_ylabel = False
 
+            # 解析刻度标签显示（数字 ticker）
+            if show_ticklabels is None:
+                show_xticklabels = show_xlabel
+                show_yticklabels = show_ylabel
+            elif isinstance(show_ticklabels, tuple | list):
+                show_xticklabels, show_yticklabels = show_ticklabels
+            else:
+                show_xticklabels = show_yticklabels = bool(show_ticklabels)
+
             if show_xlabel:
                 ax.set_xlabel(
                     xname,
@@ -630,7 +660,6 @@ def corner_hist(
                 )
             else:
                 ax.set_xlabel("")
-                ax.set_xticklabels([])
 
             if show_ylabel:
                 ax.set_ylabel(
@@ -640,7 +669,14 @@ def corner_hist(
                 )
             else:
                 ax.set_ylabel("")
-                ax.set_yticklabels([])
+
+            # Hiding tick labels through ``tick_params`` avoids constructing
+            # replacement Text artists on every panel (which is costly for a
+            # corner matrix) while preserving the visible-label contract.
+            if not show_xticklabels:
+                ax.tick_params(axis="x", which="both", labelbottom=False, labeltop=False)
+            if not show_yticklabels:
+                ax.tick_params(axis="y", which="both", labelleft=False, labelright=False)
 
             if diag_title and i == j:
                 ax.set_title(

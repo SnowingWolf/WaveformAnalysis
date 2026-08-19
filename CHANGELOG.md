@@ -6,6 +6,10 @@
 
 - 移除 `Context.clear_time_index()` 与 `Context.get_time_index_stats()` 公开 API。时间索引由 `time_range()`/`build_time_index()` 隐式管理，不再提供独立的清空/统计入口。
 
+### Features
+
+- 插件索引 web 页：为 7 个插件集合（io/waveform/hit/peaks/basic_features/tabular/events）区块加入真实波形配图，由 `examples/generate_plugin_set_images.py` 从真实 DAQ 数据经真实插件链（hit → hit_merged → peaklets → peaks）生成。
+
 ## v1.5.0
 
 This release focuses on Context 公共 API 收敛、峰重建与 peaklet 管线优化、S1-S2 配对与访问器、可视化 dashboard 交互增强，以及离线文档站点的大规模重构。

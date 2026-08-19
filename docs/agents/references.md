@@ -49,7 +49,6 @@
 - `docs/architecture/DATA_PRODUCTS.md`
 - `docs/architecture/ACCESSOR_ANALYSIS.md`
 - `docs/features/context/CONFIGURATION.md`
-- `docs/features/context/PREVIEW_EXECUTION.md`
 - `docs/features/plugin/STREAMING_PLUGINS_GUIDE.md`
 - `docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md`
 

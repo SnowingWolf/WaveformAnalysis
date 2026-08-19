@@ -85,3 +85,4 @@ data = ctx.get_data("run_001", "hit_threshold")
 - `hit_merge_clusters`
 - `hit_merged`
 - `hit_merged_components`
+- `peaklet_channels`

@@ -128,6 +128,29 @@ def test_web_generation_is_offline_relative_and_escaped(tmp_path):
     assert "site-tree" in site_css
 
 
+def test_standalone_web_generation_keeps_fixed_sidebar_navigation(tmp_path):
+    generator = PluginDocGenerator()
+    generator.register_plugin(_EmptyPlugin)
+    result = generator.generate_web(
+        tmp_path,
+        accessor_relative_path="accessors/index.html",
+        context_relative_path="contexts/context.html",
+        adapter_relative_path="adapters/index.html",
+    )
+    page = result["special_chars"].read_text(encoding="utf-8")
+
+    assert 'href="../index.html" aria-current="page">内置插件列表</a>' in page
+    assert 'href="../overview.html">插件系统与模板 API</a>' in page
+    assert 'href="../contexts/index.html">Context 与适配器</a>' in page
+    assert 'href="../accessors/index.html">Accessor 接口</a>' in page
+
+
+def test_plugin_set_images_are_declared_as_wheel_package_data():
+    pyproject = Path(__file__).parents[1] / "pyproject.toml"
+    package_data = pyproject.read_text(encoding="utf-8")
+    assert '"utils/templates/web/assets/plugin-sets/*",' in package_data
+
+
 def test_web_lineage_omits_unknown_inputs_and_lists_isolated_plugins(tmp_path):
     class SourcePlugin(_EmptyPlugin):
         provides = "source_rows"
@@ -335,6 +358,32 @@ def test_web_cards_group_by_canonical_plugin_sets_and_global_edges_are_curved(tm
     site_js = (tmp_path / "assets" / "site.js").read_text(encoding="utf-8")
     assert "pluginSet.hidden" in site_js
     assert "pluginSet.hidden" in site_js
+
+
+def test_plugin_set_images_cover_all_canonical_plugin_sets():
+    from waveform_analysis.core.plugins.plugin_sets import PLUGIN_SETS
+    from waveform_analysis.utils.plugin_doc_generator import PLUGIN_SET_IMAGES
+
+    assert set(PLUGIN_SET_IMAGES) == set(PLUGIN_SETS)
+
+
+def test_web_index_renders_plugin_set_images_and_copies_assets(tmp_path):
+    from waveform_analysis.utils.plugin_doc_generator import PLUGIN_SET_IMAGES
+
+    generator = PluginDocGenerator()
+    generator.load_builtin_plugins()
+
+    result = generator.generate_web(tmp_path)
+    index = result["INDEX"].read_text(encoding="utf-8")
+
+    assert index.count('<figure class="plugin-set-figure">') == len(PLUGIN_SET_IMAGES)
+    srcs = re.findall(r'<img src="([^"]+)" alt="[^"]*真实波形演示"', index)
+    assert sorted(srcs) == sorted(f"assets/{rel}" for rel in PLUGIN_SET_IMAGES.values())
+    for rel in PLUGIN_SET_IMAGES.values():
+        copied = tmp_path / "assets" / rel
+        assert copied.is_file(), f"配图未复制到站点: {rel}"
+        assert copied.stat().st_size > 0
+        assert f"asset:{rel}" in result
 
 
 def test_core_and_all_views_share_layout_and_keep_standalone_out_of_dag():
@@ -810,6 +859,7 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
         "lineage-graph.json",
         "mermaid",
         "react",
+        "plugin-sets",
     }
     assert {path.name for path in (tmp_path / "assets").iterdir()} == expected_assets
 

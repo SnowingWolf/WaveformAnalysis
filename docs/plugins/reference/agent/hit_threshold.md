@@ -89,7 +89,7 @@ data = ctx.get_data("run_001", "hit_threshold")
 - Dependency data, configuration, or output contract validation may fail explicitly.
 ### Downstream Impact
 
-Consumers: `hit_grouped`, `hit_merge_clusters`, `hit_merged`, `hit_merged_components`
+Consumers: `hit_grouped`, `hit_merge_clusters`, `hit_merged`, `hit_merged_components`, `peaklet_channels`
 
 ## Maintenance
 

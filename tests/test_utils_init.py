@@ -2,16 +2,14 @@ import subprocess
 import sys
 
 
-def test_utils_import_does_not_eagerly_import_preview():
+def test_utils_no_longer_exports_plot_records_waveforms():
     result = subprocess.run(
         [
             sys.executable,
             "-c",
             (
-                "import sys; "
                 "import waveform_analysis.utils as utils; "
-                "assert 'plot_records_waveforms' in dir(utils); "
-                "print('waveform_analysis.utils.preview' in sys.modules)"
+                "print('plot_records_waveforms' in dir(utils))"
             ),
         ],
         capture_output=True,
@@ -22,22 +20,18 @@ def test_utils_import_does_not_eagerly_import_preview():
     assert result.stdout.strip() == "False"
 
 
-def test_utils_lazy_export_still_resolves_plot_records_waveforms():
+def test_utils_removed_lazy_export_for_plot_records_waveforms():
     result = subprocess.run(
         [
             sys.executable,
             "-c",
-            (
-                "from waveform_analysis.utils import plot_records_waveforms; "
-                "print(callable(plot_records_waveforms))"
-            ),
+            "from waveform_analysis.utils import plot_records_waveforms",
         ],
         capture_output=True,
         text=True,
-        check=True,
     )
 
-    assert result.stdout.strip() == "True"
+    assert result.returncode != 0
 
 
 def test_utils_import_does_not_eagerly_import_statistical_plots_or_matplotlib():

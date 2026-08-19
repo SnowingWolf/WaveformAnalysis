@@ -229,6 +229,33 @@ def analyze_dependencies(
 | `to_markdown()` | 生成 Markdown 报告 |
 | `save_markdown(filepath)` | 保存 Markdown 报告 |
 
+## 依赖分析与执行预览的关系
+
+`analyze_dependencies` 与 `preview_execution` 都是只读分析（不执行插件计算），但关注点不同：
+
+| 维度 | 依赖分析 (`analyze_dependencies`) | 执行预览 (`preview_execution`) |
+|------|----------------------------------|-------------------------------|
+| 定位 | 结构分析与性能优化 | 执行前确认与配置检查 |
+| 信息 | 关键路径、并行组、瓶颈、优化建议 | 执行顺序、缓存状态、配置参数 |
+| 时机 | 执行前（静态）或执行后（动态） | 仅执行前 |
+
+`preview_execution` 返回执行计划、配置与缓存状态字典，适合在执行前确认将要计算哪些插件：
+
+```python
+preview = ctx.preview_execution('run_001', 'df_paired')
+needs_compute = sum(1 for s in preview['cache_status'].values() if s['needs_compute'])
+print(f"需计算: {needs_compute} 个插件")
+```
+
+结合使用的典型工作流：**预览 → 执行 → 分析 → 优化**。
+
+1. `preview_execution` 确认执行计划与缓存命中情况；
+2. `ctx.get_data` 执行计算并收集性能数据（需要 `stats_mode='basic'` 或 `'detailed'`）；
+3. `analyze_dependencies` 定位瓶颈并生成优化建议；
+4. 应用建议后再次分析，对比 `critical_path_time` 验证优化效果。
+
+日常快速确认用 `preview_execution`；性能优化与报告生成用 `analyze_dependencies`。
+
 ## 常见问题
 
 ### Q: 如何启用性能统计？

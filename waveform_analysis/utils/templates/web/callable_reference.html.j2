@@ -8,6 +8,7 @@
 {% set current = current_section %}
 {% set load_mermaid = page.has_mermaid %}
 {% set active_accessor = "records-view" if page.slug == "records-view" else none %}
+{% set current_guide_route = current_section ~ "/" ~ page.slug ~ ".html" %}
 {% set site_home_href = "../index.html" %}
 {% set plugin_index_href = "../plugins/index.html" %}
 {% set accessor_index_href = "../accessors/index.html" %}

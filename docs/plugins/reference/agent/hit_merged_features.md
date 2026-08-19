@@ -98,8 +98,7 @@ data = ctx.get_data("run_001", "hit_merged_features")
 - 同一硬件通道同一绝对时间的位级不同采样会抛出 WaveformOverlapConflictError。
 ### Downstream Impact
 
-Terminal output; no direct builtin consumer is declared.
-
+Consumers: `peaklet_channels`
 - peaklet_channels、peaklets 与后续峰特征消费本插件的 area、height 和时间字段。
 - 版本 1.1.0 更换 fallback 执行路径，缓存会因 lineage 自动重建。
 

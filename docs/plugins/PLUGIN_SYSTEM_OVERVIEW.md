@@ -364,3 +364,529 @@ class AreaBatchPlugin(BatchProcessingPlugin):
 
 交互式插件 DAG 仍可从站点的独立 DAG 工具查看；本页只保留依赖解析和执行所需的事实，不重复描述独立
 可视化工具的使用方式。
+
+---
+
+Plugin bundle 是一个正式插件产物的独立 Python 包。它把实现、机器可读元数据、公开导出、
+依赖声明和定向测试放在同一目录中，使插件的代码属主、缓存版本和维护边界保持一致。
+
+> 本文中的 plugin bundle 指插件源码目录，不是 `RecordsBundle`、`RecordsBundleRef` 等运行时
+> 数据容器。后者只是多个正式产物复用计算或存储的内部实现。
+
+## 核心规则
+
+内置插件遵循一个 `provides` 对应一个 bundle：
+
+```text
+waveform_analysis/core/plugins/builtin/
+├── records/              # provides: records
+├── wave_pool/            # provides: wave_pool
+├── hit_threshold/        # provides: hit_threshold
+├── hit_merged/           # provides: hit_merged
+├── peaklets/             # provides: peaklets
+└── peaklet_channels/     # provides: peaklet_channels
+```
+
+一个 bundle 只拥有一个正式插件产物。具有相近功能、共享底层计算或处于同一 DAG 家族，
+都不构成把多个 `provides` 合并到同一插件中的理由。
+
+## 标准目录
+
+```text
+<provides>/
+├── manifest.yaml
+├── __init__.py
+├── plugin.py
+├── _compute.py           # 可选
+├── requirements.txt
+└── tests/
+    └── test_<provides>.py
+```
+
+| 文件 | 职责 |
+| --- | --- |
+| `manifest.yaml` | 声明 `provides`、插件类、版本和依赖关系 |
+| `plugin.py` | 插件类、配置解析以及与 Context 的交互 |
+| `_compute.py` | 可选的纯计算、Numba kernel 或共享实现 |
+| `__init__.py` | bundle 的稳定公开 Python API |
+| `requirements.txt` | bundle 的第三方运行依赖 |
+| `tests/` | 与该产物契约直接对应的定向测试 |
+
+`plugin.py` 与 `_compute.py` 的拆分不是强制的。只有在计算逻辑需要独立测试、跨实现复用，
+或需要把编排层与热点算法分开时才增加 `_compute.py`。
+
+## Manifest 是插件属主声明
+
+典型 manifest：
+
+```yaml
+provides: hit_threshold
+plugin_class: ThresholdHitPlugin
+version: 1.2.0
+depends_on:
+  - records
+third_party_dependencies:
+  - numpy
+plugin_dependencies: []
+category: feature_extraction
+```
+
+字段含义：
+
+- `provides`：DAG 和 Context 使用的正式数据产物名，全局唯一。
+- `plugin_class`：拥有该产物的插件类。
+- `version`：插件行为版本，参与缓存 lineage。
+- `depends_on`：正式数据依赖，不表示 Python import 关系。
+- `third_party_dependencies`：NumPy、SciPy 等外部 Python 依赖。
+- `plugin_dependencies`：跨 bundle 的实现复用关系。
+- `category`：文档和发现层使用的分类。
+
+注册表只扫描含 `manifest.yaml` 的目录，因此缺少 manifest 的 legacy 模块不属于正式 bundle。
+
+## `__all__` 是公开导出真源
+
+bundle 的 `__init__.py` 隔离内部文件布局，并明确允许外部使用的名称：
+
+```python
+from waveform_analysis.core.plugins.builtin.peaklets._compute import PEAKLET_DTYPE
+from waveform_analysis.core.plugins.builtin.peaklets.plugin import PeakletPlugin
+
+__all__ = ["PeakletPlugin", "PEAKLET_DTYPE"]
+```
+
+推荐从 bundle 根路径导入：
+
+```python
+from waveform_analysis.core.plugins.builtin.peaklets import (
+    PEAKLET_DTYPE,
+    PeakletPlugin,
+)
+```
+
+外部代码不应依赖 `plugin.py`、`_compute.py` 或其他私有文件的位置。内部实现可以调整，
+但 `__all__` 中名称的对象身份和语义属于公开兼容契约。
+
+## Canonical Bundle 与兼容转发
+
+部分历史家族入口仍会转发兄弟 bundle。例如 `builtin.hit` 可导出
+`ThresholdHitPlugin`，但该插件的 canonical bundle 是 `builtin.hit_threshold`；
+`builtin.peaks` 也会转发 peaklet 家族的类和 dtype。
+
+判断属主时遵循：
+
+1. `manifest.yaml` 中 `plugin_class` 所在 bundle 是插件类的 canonical owner。
+2. leaf bundle 自己声明的 dtype、常量和 helper 由该 leaf bundle 所有。
+3. 家族入口中的 re-export 只用于兼容，不转移代码属主、版本或测试责任。
+4. `builtin.cpu`、`builtin` 和 `core.plugins` 是兼容 facade，不是新的插件 bundle。
+
+新代码应优先使用 canonical bundle 路径。维护兼容入口时必须保证转发结果与 canonical
+对象相同，不能复制类、dtype 或常量。
+
+## 共享计算不合并产物
+
+一个 `provides` 一个 bundle 不禁止共享实现。例如 `records` 与 `wave_pool` 可以复用
+`records/_compute.py` 中的底层构建逻辑，但仍由两个插件分别提供正式产物：
+
+```text
+records/_compute.py       # 共享底层构建逻辑
+records/plugin.py         # provides: records
+wave_pool/plugin.py       # provides: wave_pool
+```
+
+共享必须满足：
+
+- 算法属主唯一，兄弟 bundle 单向依赖属主实现。
+- 每个正式产物保持独立的插件类、`provides`、version 和 lineage。
+- 下游插件只依赖正式产物，不依赖内部 bundle、临时文件或私有 Context 状态。
+- 修改共享实现时同时检查所有消费方的行为、缓存版本和测试。
+
+## Bundle、Plugin Set 与 Profile
+
+三者解决不同问题：
+
+| 概念 | 作用 | 是否拥有插件实现 |
+| --- | --- | --- |
+| Bundle | 封装一个正式产物的实现与契约 | 是 |
+| Plugin Set | 组合一个职责域需要的若干插件 | 否 |
+| Profile | 组合多组插件形成可执行 pipeline | 否 |
+| 兼容 facade | 保留旧导入路径并转发公开名称 | 否 |
+
+插件属于哪个 bundle 不会因为它被加入某个 Plugin Set 或 Profile 而改变。
+
+## 新增 Bundle 检查单
+
+1. 创建 `builtin/<provides>/`，确保目录名与 `provides` 一致。
+2. 在 `manifest.yaml` 声明唯一 `provides`、`plugin_class`、version 和依赖。
+3. 在 `plugin.py` 实现单一职责的插件类。
+4. 在 `__init__.py` 用显式 `__all__` 暴露稳定接口。
+5. 仅在需要时增加 `_compute.py`，避免复制兄弟 bundle 的算法。
+6. 在 bundle 自己的 `tests/` 中覆盖正常路径、空输入、边界输入和 dtype。
+7. 按使用场景把插件加入适当的 Plugin Set；不要把注册逻辑放回兼容 facade。
+8. 生成插件参考文档，并运行影响、schema、文档同步与锚点检查。
+
+插件契约、依赖、配置、lineage 和生命周期的完整说明见
+
+---
+
+## 插件 Version 升级策略
+
+插件的 `version` 字段用于缓存 lineage 管理。当插件的行为、输出结构或配置语义发生变化时，必须升级 `version` 以触发下游缓存失效，确保数据一致性。
+
+### 版本格式
+
+插件 `version` 遵循语义化版本（Semantic Versioning）规范：
+
+```
+MAJOR.MINOR.PATCH
+```
+
+例如：`"1.2.3"`
+
+- **MAJOR**（主版本号）：破坏性变更，不兼容旧数据或配置
+- **MINOR**（次版本号）：向后兼容的功能变更或算法修改
+- **PATCH**（修订号）：向后兼容的 bug 修复或性能优化
+
+### 升级规则
+
+#### MAJOR 升级（X.0.0）
+
+**触发场景**：破坏性变更，导致输出结构、契约或依赖关系不兼容。
+
+**具体情况**：
+
+1. **输出 dtype 字段删除或重命名**
+   - 删除已有字段（下游代码可能依赖该字段）
+   - 重命名字段（例如 `record_id` 改为 `rid`）
+   - 字段类型不兼容变更（例如 `i4` 改为 `i8`，可能导致精度或溢出问题）
+
+2. **`provides` 名称变更**
+   - 修改插件的 `provides` 值会破坏依赖关系
+
+3. **不兼容的配置项变更**
+   - 删除配置项（没有默认值的情况）
+   - 配置项语义变更（例如时间单位从 ns 改为 us）
+   - 配置项取值范围变更导致现有配置失效
+
+4. **依赖关系破坏性变更**
+   - 修改 `depends_on` 列表，移除原有依赖
+   - 修改依赖的解析逻辑，导致无法兼容旧配置
+
+**示例**：
+
+```python
+# MAJOR 升级示例：字段重命名
+# 从 version "1.5.2" -> "2.0.0"
+
+# 旧版本
+output_dtype = np.dtype([
+    ("record_id", "i8"),
+    ("position", "i8"),
+])
+
+# 新版本（字段重命名）
+output_dtype = np.dtype([
+    ("rid", "i8"),  # record_id 改为 rid
+    ("position", "i8"),
+])
+```
+
+#### MINOR 升级（0.X.0）
+
+**触发场景**：向后兼容的功能变更、算法逻辑修改或配置扩展。
+
+**具体情况**：
+
+1. **输出 dtype 新增字段（向后兼容）**
+   - 在结构化数组中新增字段，不影响现有字段
+   - 下游插件可以选择性使用新字段
+
+2. **算法逻辑变更**
+   - 内部实现路径变更，即使输出数值完全相同
+   - 例如：从 tuple 构建改为预分配数组（hit_merged Phase 3）
+   - 优化算法分支、数据结构或计算顺序
+
+3. **依赖列表变更**
+   - 新增依赖项（不删除原有依赖）
+   - 调整依赖解析逻辑但保持兼容
+
+4. **新增配置项（有默认值）**
+   - 新增可选配置项，旧配置仍然有效
+   - 配置项语义扩展但保持向后兼容
+
+**示例**：
+
+```python
+# MINOR 升级示例 1：算法逻辑变更
+# hit_merged Phase 3: 内部构建路径从 tuple 改为预分配数组
+# 从 version "1.1.0" -> "1.2.0"
+
+# 旧实现（tuple 构建）
+def _emit_cluster(hits, indices):
+    return (position, start, end, ...)
+
+# 新实现（预分配数组）
+def _build_merged_from_cluster_rows(cluster_count):
+    output = np.empty(cluster_count, dtype=HIT_MERGED_DTYPE)
+    # 原地填充
+    return output
+
+# MINOR 升级示例 2：新增字段
+# 从 version "1.3.0" -> "1.4.0"
+
+# 旧版本
+output_dtype = np.dtype([
+    ("position", "i8"),
+    ("width", "f4"),
+])
+
+# 新版本（新增字段）
+output_dtype = np.dtype([
+    ("position", "i8"),
+    ("width", "f4"),
+    ("amplitude", "f4"),  # 新增字段
+])
+
+# MINOR 升级示例 3：新增配置项
+# 从 version "1.2.0" -> "1.3.0"
+
+options = [
+    Option("merge_gap_ns", default=1000),
+    Option("enable_feature_x", default=False),  # 新增配置项
+]
+```
+
+#### PATCH 升级（0.0.X）
+
+**触发场景**：向后兼容的 bug 修复或性能优化，输出结果可能变化但不改变契约。
+
+**具体情况**：
+
+1. **Bug 修复（输出结果变化）**
+   - 修复边界条件错误
+   - 修复计算错误
+   - 修复数据类型转换错误
+
+2. **纯性能优化（输出完全不变）**
+   - Numba `parallel=True` 优化（输出数值完全一致）
+   - 内存分配优化
+   - 缓存友好性优化
+
+3. **文档修正**
+   - 修正注释、docstring 或 `agent_doc`
+   - 不影响代码行为
+
+4. **类型注解修正**
+   - 修正类型提示，不影响运行时行为
+
+**示例**：
+
+```python
+# PATCH 升级示例 1：bug 修复
+# 从 version "1.2.3" -> "1.2.4"
+
+# 旧实现（bug：边界条件错误）
+if end_time < chunk_end:  # 应该是 <=
+    process(data)
+
+# 新实现（修复边界条件）
+if end_time <= chunk_end:
+    process(data)
+
+# PATCH 升级示例 2：性能优化（输出不变）
+# 从 version "1.2.4" -> "1.2.5"
+
+# 旧实现
+@njit
+def compute(data):
+    return data.sum()
+
+# 新实现（并行优化，输出完全一致）
+@njit(parallel=True)
+def compute(data):
+    return data.sum()
+```
+
+### 缓存失效机制
+
+插件 `version` 的变更会触发缓存 lineage 重新计算：
+
+1. **直接失效**：修改插件的 `version` 会导致该插件的所有缓存失效
+2. **级联失效**：依赖该插件的所有下游插件缓存也会失效
+3. **重新计算**：下次访问时，整条依赖链会重新执行
+
+因此，即使是 PATCH 升级也应谨慎，确认变更确实需要触发缓存失效。
+
+**示例场景**：
+
+```
+hit_threshold (v1.0.0) -> hit_merged (v1.2.0) -> hit_merged_features (v1.1.0)
+```
+
+如果 `hit_merged` 升级到 `v1.3.0`：
+- `hit_merged` 的所有缓存失效
+- `hit_merged_features` 的所有缓存失效
+- `hit_threshold` 的缓存不受影响（上游独立）
+
+### 特殊情况处理
+
+#### 内部实现路径变更
+
+即使输出结果完全相同，内部实现路径的变更也应触发 **MINOR 升级**。
+
+**原因**：
+
+- 缓存 lineage 基于插件代码的完整性
+- 实现路径变更可能引入微小的数值差异（浮点运算顺序）
+- 保守策略确保数据一致性
+
+**案例参考**：
+
+- `hit_merged` 优化（升级到 v1.1.2）：从 tuple 构建改为预分配数组。
+- `hit_merged_features` 优化（升级到 v0.3.0）：从 Python 循环改为 Numba 单 pass。
+
+#### 文档-only 变更
+
+纯文档变更（修改 `agent_doc`、注释、docstring）**不需要**升级 `version`。
+
+**判断标准**：
+
+- 代码行为完全不变
+- 输出结果完全不变
+- 配置解析逻辑不变
+
+#### 依赖版本约束
+
+插件不直接声明依赖插件的版本约束。依赖关系通过 `provides` 名称解析，版本管理由缓存 lineage 自动处理。
+
+### 升级 Checklist
+
+升级 `version` 前确认以下事项：
+
+- [ ] **明确升级原因**：记录为什么需要升级（bug 修复、功能变更、性能优化）
+- [ ] **确定升级级别**：根据规则确定 MAJOR/MINOR/PATCH
+- [ ] **更新变更日志**：在项目 CHANGELOG 或相关正式文档中记录变更
+- [ ] **运行兼容性检查**：执行 `python scripts/schema_compat_check.py --base HEAD --run-smoke`
+- [ ] **更新插件文档**：执行 `waveform-docs generate plugins-agent --plugin <provides>`
+- [ ] **评估影响范围**：执行 `python scripts/assess_change_impact.py --base HEAD`
+- [ ] **运行相关测试**：确保变更不引入回归
+- [ ] **评估性能影响**：对于性能关键插件，执行性能回归检查
+
+### 相关资源
+
+- [AGENTS.md](../../AGENTS.md) - 插件契约 checklist（第 208-215 行）
+- [schema_compat_check.py](../../scripts/schema_compat_check.py) - 兼容性检查工具
+- [assess_change_impact.py](../../scripts/assess_change_impact.py) - 影响评估工具
+
+### 总结
+
+- **MAJOR**：破坏性变更（字段删除/重命名、配置不兼容）
+- **MINOR**：向后兼容的功能变更或算法逻辑修改
+- **PATCH**：bug 修复或性能优化（输出完全不变时谨慎使用）
+- **内部实现路径变更**：即使输出相同，也应 MINOR 升级
+- **文档-only 变更**：不需要升级 version
+
+遵循本策略可确保缓存 lineage 的正确性和数据一致性。
+
+
+---
+
+本指南说明如何使用 **Plugin Set** 与 **Profile** 组合插件，形成可维护的处理链路。[^source]
+
+> 文档同步说明：本页对应 `waveform_analysis/core/plugins/plugin_sets/*` 与
+> `waveform_analysis/core/plugins/profiles.py` 中的 `# DOC` 引用。
+
+---
+
+## Plugin Sets
+
+Plugin Set 是最小可复用插件组，每个 set 只关注单一职责。
+
+| Set | 插件 | 说明 |
+| --- | --- | --- |
+| `io` | RawFileNamesPlugin | 扫描并分组原始文件 |
+| `waveform` | WaveformsPlugin, FilteredWaveformsPlugin, RecordsPlugin | 波形提取、滤波与 records 构建 |
+| `basic_features` | BasicFeaturesPlugin, WaveformWidthIntegralPlugin | 基础特征计算 |
+| `tabular` | DataFramePlugin, GroupedEventsPlugin, PairedEventsPlugin | DataFrame 表格化输出，包括 legacy 事件分组与配对表 |
+| `events` | S1S2PairCandidatesPlugin, S1S2PairSelectionPlugin, PositionReconstructionPlugin, EventPlugin, HitGroupedPlugin | 事件构建、S1/S2 配对、位置重建与 legacy hit 分组 |
+| `peaks` | HitFinderPlugin, RecordsAsymmetryMaskPlugin, RecordsDetectorMaskPlugin, RecordsVetoMaskPlugin, ThresholdHitPlugin, HitMergeClustersPlugin, HitMergePlugin, HitMergedComponentsPlugin, HitMergedFeaturesPlugin, PeakletPlugin, PeakletComponentsPlugin, PeakletWaveformPlugin, PeakletWaveformPoolPlugin, PeakletFeaturesPlugin, PeakletChannelsPlugin, PeaksPlugin, WaveformWidthPlugin, S1S2ClassifierPlugin, PeakletS1S2ClassifierPlugin | 峰值检测、asymmetry 后通道角色分流、轻量 peaklet 聚类、records-backed peaklet 波形/特征、最终 peaks 输出与 S1/S2 分类 |
+
+`plugins_peaks()` 中 `peaklets` 是轻量聚类产物，旧的 `area`、`height`、
+`max_time`、`width`、`rise_time`、`fall_time` 字段由 `peaklet_features`
+从 `peaklet_waveforms + peaklet_waveform_pool` 派生；面向用户的主分析表为
+`peaks`。
+
+示例：
+
+```python
+from waveform_analysis.core.plugins.plugin_sets import plugins_io, plugins_waveform
+
+io_plugins = plugins_io()
+waveform_plugins = plugins_waveform()
+```
+
+`plugins_waveform()` 已包含 `RecordsPlugin` 与 `WavePoolPlugin`，注册后可直接使用
+`records_view`：
+
+```python
+from waveform_analysis.core.data import records_view
+from waveform_analysis.core.plugins.plugin_sets import plugins_io, plugins_waveform
+
+ctx.register(*plugins_io(), *plugins_waveform())
+rv = records_view(ctx, run_id)
+```
+
+注意：`records_view(...)` 现在要求正式 `records + wave_pool` 产物同时可用，不会再
+fallback 到内部 `RecordsBundle`。
+
+其中 `rv.waves(record_id, ...)` 返回指定 `record_id` 的原始波形，`rv.signals(record_id, ...)`
+返回做过 baseline 校正且按 `records.polarity` 统一为负极性的信号。批量访问同样使用
+`rv.waves([record_id, ...], pad_to=..., mask=True)` / `rv.signals([record_id, ...], ...)`。
+
+---
+
+## Profiles
+
+Profile 是对多个 Plugin Set 的组合，代表一条可执行 pipeline。
+
+### CPU 默认 Profile
+
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins import profiles
+
+ctx = Context()
+ctx.register(*profiles.cpu_default())
+```
+
+`cpu_default()` 等价于：
+
+```
+io + waveform + peaks + basic_features + tabular + events
+```
+
+---
+
+## Profile 选择
+
+CLI 可通过 `--profile` 选择执行链路：
+
+```bash
+waveform-process --run-name run_001 --profile cpu
+```
+
+目前 `streaming` 与 `jax` 仍为占位 Profile，会提示未实现。
+
+---
+
+## 兼容 standard_plugins
+
+历史用法仍可使用：
+
+```python
+from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
+ctx.register(*standard_plugins)
+```
+
+推荐新代码使用 `profiles.cpu_default()`，便于后续扩展。
+
+[^source]: 来源：`waveform_analysis/core/plugins/plugin_sets/`、`waveform_analysis/core/plugins/profiles.py`、`waveform_analysis/cli.py`。

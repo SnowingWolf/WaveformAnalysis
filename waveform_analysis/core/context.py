@@ -1,6 +1,6 @@
 # DOC: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
 # DOC: docs/features/context/CONFIGURATION.md
-# DOC: docs/features/context/PLUGIN_MANAGEMENT.md
+# DOC: docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
 """
 Context 模块 - 插件系统的核心调度器。
 

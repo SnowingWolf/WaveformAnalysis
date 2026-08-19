@@ -7,6 +7,7 @@ corner_hist 性能和正确性测试
 3. 边界情况测试
 """
 
+import inspect
 import time
 
 import numpy as np
@@ -175,6 +176,14 @@ class TestCornerHistPerformance:
         # 预热 Numba（首次编译）
         _ensure_numba_histogram2d()
 
+        # Matplotlib 的首次 figure/artist 初始化会受到整个测试进程中
+        # 已加载后端和字体缓存的影响；预热一次，避免把冷启动噪声当作
+        # corner_hist 算法回归。
+        import matplotlib.pyplot as plt
+
+        warm_fig, _ = corner_hist(data, names=names, bins=50)
+        plt.close(warm_fig)
+
         # 性能测试
         t0 = time.time()
         fig, axes = corner_hist(data, names=names, bins=50)
@@ -188,8 +197,6 @@ class TestCornerHistPerformance:
         assert axes.shape == (n_vars, n_vars)
 
         # 清理
-        import matplotlib.pyplot as plt
-
         plt.close(fig)
 
         # 性能断言（宽松，主要用于回归检测）
@@ -286,6 +293,39 @@ class TestCornerHistIntegration:
         plt.close(fig1)
         plt.close(fig2)
         plt.close(fig3)
+
+    def test_hist_density_is_appended_after_legacy_positional_parameters(self):
+        parameters = list(inspect.signature(corner_hist).parameters)
+        assert parameters == [
+            "data",
+            "names",
+            "bins",
+            "ranges",
+            "scales",
+            "weights",
+            "figsize_per_panel",
+            "cmap",
+            "hist_color",
+            "hist2d_norm",
+            "hist2d_vmin",
+            "hist2d_vmax",
+            "add_colorbar",
+            "title",
+            "min_count",
+            "hist_alpha",
+            "hist2d_alpha",
+            "fig",
+            "axes",
+            "triangle",
+            "label_mode",
+            "label_fontsize",
+            "label_fontweight",
+            "tick_labelsize",
+            "diag_title",
+            "show_ticks",
+            "show_ticklabels",
+            "hist_density",
+        ]
 
 
 class TestNumbaAvailability:

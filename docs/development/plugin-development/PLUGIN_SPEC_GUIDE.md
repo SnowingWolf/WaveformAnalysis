@@ -501,12 +501,12 @@ from waveform_analysis.core.plugins.core import (
 
 ## 相关文档
 
-- [简单插件教程](../../plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) - 插件开发入门
+- [插件编写规范](../../plugins/PLUGIN_SYSTEM_OVERVIEW.md) - 插件开发入门
 - [插件开发完整指南](plugin_guide.md) - 插件开发详细指南
 - [API 参考](../../api/README.md) - 完整 API 文档
 
 ---
 
-**快速链接**: [简单教程](../../plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) | [完整指南](plugin_guide.md) | [返回目录](README.md)
+**快速链接**: [插件编写规范](../../plugins/PLUGIN_SYSTEM_OVERVIEW.md) | [完整指南](plugin_guide.md) | [返回目录](README.md)
 
 [^source]: 来源：`waveform_analysis/core/plugins/core/spec.py`。

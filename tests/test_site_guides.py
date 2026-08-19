@@ -22,12 +22,17 @@ def test_repository_manifest_publishes_plugin_bundle_guide():
 
     rendered = render_guide_manifest(load_guide_manifest(manifest_path))
     pages = {page.route: page for section in rendered.sections for page in section.pages}
-    bundle_guide = pages["plugins/bundles.html"]
+    overview = pages["plugins/overview.html"]
 
-    assert bundle_guide.title == "插件 Bundle 组织指南"
-    assert "一个正式插件产物的独立 Python 包" in bundle_guide.summary
-    assert any(heading.title == "Canonical Bundle 与兼容转发" for heading in bundle_guide.headings)
-    assert rendered.warnings == ()
+    assert overview.title == "插件系统与模板 API"
+    assert any(heading.title == "Canonical Bundle 与兼容转发" for heading in overview.headings)
+    assert any(heading.title == "Plugin Sets" for heading in overview.headings)
+    assert any(heading.title == "Profiles" for heading in overview.headings)
+    bundle_warnings = [w for w in rendered.warnings if "PLUGIN_BUNDLE_GUIDE" in w]
+    assert not bundle_warnings
+    adapter = pages["plugins/reference/ADAPTER_SYSTEM_GUIDE.html"]
+    assert "DAQ 适配器" in adapter.title
+    assert not any("ADAPTER_SYSTEM_GUIDE.md" in warning for warning in rendered.warnings)
 
 
 def test_manifest_renders_markdown_and_rewrites_selected_links_and_assets(tmp_path):
@@ -170,7 +175,7 @@ sections:
 @pytest.mark.parametrize(
     ("manifest_body", "message"),
     [
-        ("schema_version: 2\nsections: []\n", "schema_version: 1"),
+        ("schema_version: 3\nsections: []\n", "schema_version: 1 or 2"),
         (
             """schema_version: 1
 sections:
@@ -228,6 +233,253 @@ sections:
 
     with pytest.raises(ValueError, match=f"Duplicate guide {duplicate_field}"):
         load_guide_manifest(manifest_path)
+
+
+def test_schema_v2_scans_source_dirs_with_frontmatter_and_exclude(tmp_path):
+    _write(
+        tmp_path / "docs" / "features" / "a.md",
+        """---
+title: 功能 A
+summary: 前文摘要覆盖第一段。
+---
+# 备用 H1
+
+第一段会被 frontmatter summary 覆盖。
+
+## 小节
+
+正文。
+""",
+    )
+    _write(
+        tmp_path / "docs" / "features" / "b.md",
+        "# 功能 B\n\n功能 B 正文。\n",
+    )
+    _write(
+        tmp_path / "docs" / "features" / "hidden.md",
+        """---
+hidden: true
+---
+# 隐藏页
+
+不应出现在导航。
+""",
+    )
+    _write(
+        tmp_path / "docs" / "features" / "internal" / "draft.md",
+        "# 草稿\n\n不应被扫描。\n",
+    )
+    manifest_path = _manifest(
+        tmp_path,
+        """schema_version: 2
+sections:
+  - id: features
+    title: 功能特性
+    index_route: features/index.html
+    source_indexes:
+      - docs/features/a.md
+    source_dirs:
+      - docs/features
+    exclude:
+      - "**/internal/**"
+""",
+    )
+
+    rendered = render_guide_manifest(load_guide_manifest(manifest_path))
+    pages = {page.route: page for section in rendered.sections for page in section.pages}
+
+    assert set(pages) == {"features/a.html", "features/b.html"}
+    assert "features/hidden.html" not in pages
+    assert "features/internal/draft.html" not in pages
+    assert pages["features/a.html"].title == "功能 A"
+    assert pages["features/a.html"].summary == "前文摘要覆盖第一段。"
+    assert "title: 功能 A" not in pages["features/a.html"].html
+    assert "summary: 前文摘要覆盖第一段。" not in pages["features/a.html"].html
+    assert "备用 H1" in pages["features/a.html"].html
+    assert pages["features/b.html"].title == "功能 B"
+
+
+def test_schema_v2_maps_skipped_directory_readmes_to_section_index(tmp_path):
+    _write(tmp_path / "docs" / "features" / "advanced" / "README.md", "# 高级功能\n")
+    _write(
+        tmp_path / "docs" / "features" / "advanced" / "executor.md",
+        "# 执行器\n\n参见同目录的 [高级功能](README.md)。\n",
+    )
+    manifest_path = _manifest(
+        tmp_path,
+        """schema_version: 2
+sections:
+  - id: features
+    title: 功能特性
+    index_route: features/index.html
+    source_dirs:
+      - docs/features
+    exclude:
+      - "**/README.md"
+""",
+    )
+
+    rendered = render_guide_manifest(load_guide_manifest(manifest_path))
+    page = rendered.sections[0].pages[0]
+
+    assert 'href="../index.html">高级功能</a>' in page.html
+    assert rendered.warnings == ()
+
+
+def test_schema_v2_frontmatter_excludes_page_and_scanned_route_uses_md_path(tmp_path):
+    _write(
+        tmp_path / "docs" / "guides" / "excluded.md",
+        """---
+exclude_from_nav: true
+---
+# 不入导航
+
+正文。
+""",
+    )
+    _write(
+        tmp_path / "docs" / "guides" / "kept.md",
+        "# 保留页\n\n正文。\n",
+    )
+    manifest_path = _manifest(
+        tmp_path,
+        """schema_version: 2
+sections:
+  - id: guides
+    title: 指南
+    index_route: guides/index.html
+    source_dirs:
+      - docs/guides
+""",
+    )
+
+    rendered = render_guide_manifest(load_guide_manifest(manifest_path))
+    routes = [page.route for section in rendered.sections for page in section.pages]
+
+    assert routes == ["guides/kept.html"]
+
+
+def test_schema_v2_tag_registers_provider_page_without_rendering(tmp_path):
+    _write(
+        tmp_path / "docs" / "contexts" / "context.md",
+        """---
+tag: reflect
+---
+# Context
+
+由 site_doc_generator 反射生成,无 H1 渲染需求。
+""",
+    )
+    _write(
+        tmp_path / "docs" / "contexts" / "manual.md",
+        "# 手写页\n\n正文。\n",
+    )
+    manifest_path = _manifest(
+        tmp_path,
+        """schema_version: 2
+sections:
+  - id: api
+    title: API 参考
+    index_route: api/index.html
+    source_dirs:
+      - docs/contexts
+""",
+    )
+
+    rendered = render_guide_manifest(load_guide_manifest(manifest_path))
+    markdown_routes = [
+        page.route
+        for section in rendered.sections
+        for page in section.pages
+        if page.html is not None
+    ]
+    provider_routes = [page.route for page in rendered.provider_pages]
+
+    assert markdown_routes == ["contexts/manual.html"]
+    assert provider_routes == ["contexts/context.html"]
+    assert [page.route for page in rendered.sections[0].pages] == [
+        "contexts/context.html",
+        "contexts/manual.html",
+    ]
+    assert rendered.sections[0].pages[0].tag == "reflect"
+    assert rendered.sections[0].pages[0].html is None
+
+
+def test_schema_v2_explicit_page_tag_and_title_override(tmp_path):
+    _write(tmp_path / "docs" / "contexts" / "context.md", "# Context\n")
+    manifest_path = _manifest(
+        tmp_path,
+        """schema_version: 2
+sections:
+  - id: api
+    title: API 参考
+    index_route: api/index.html
+    pages:
+      - route: contexts/context.html
+        title: Context 参考
+        tag: reflect
+""",
+    )
+
+    rendered = render_guide_manifest(load_guide_manifest(manifest_path))
+    page = rendered.sections[0].pages[0]
+    assert page.route == "contexts/context.html"
+    assert page.tag == "reflect"
+    assert page.title == "Context 参考"
+    assert page.html is None
+    assert [p.route for p in rendered.provider_pages] == ["contexts/context.html"]
+
+
+def test_schema_v2_pages_link_prev_next_and_source_relative(tmp_path):
+    _write(tmp_path / "docs" / "guides" / "a.md", "# A\n\nA 正文。\n")
+    _write(tmp_path / "docs" / "guides" / "b.md", "# B\n\nB 正文。\n")
+    _write(tmp_path / "docs" / "guides" / "c.md", "# C\n\nC 正文。\n")
+    manifest_path = _manifest(
+        tmp_path,
+        """schema_version: 2
+sections:
+  - id: guides
+    title: 指南
+    index_route: guides/index.html
+    source_dirs: [docs/guides]
+""",
+    )
+
+    rendered = render_guide_manifest(load_guide_manifest(manifest_path))
+    pages = {page.route: page for section in rendered.sections for page in section.pages}
+
+    assert pages["guides/a.html"].next_route == "guides/b.html"
+    assert pages["guides/a.html"].next_title == "B"
+    assert pages["guides/a.html"].prev_route is None
+    assert pages["guides/b.html"].prev_route == "guides/a.html"
+    assert pages["guides/b.html"].next_route == "guides/c.html"
+    assert pages["guides/c.html"].next_route is None
+    assert pages["guides/a.html"].source_relative == "docs/guides/a.md"
+
+
+def test_schema_v2_nav_weight_orders_sections(tmp_path):
+    _write(tmp_path / "docs" / "b" / "b.md", "# B\n")
+    _write(tmp_path / "docs" / "a" / "a.md", "# A\n")
+    manifest_path = _manifest(
+        tmp_path,
+        """schema_version: 2
+sections:
+  - id: first
+    title: 第二栏
+    index_route: b/index.html
+    nav_weight: 30
+    source_dirs: [docs/b]
+  - id: second
+    title: 第一栏
+    index_route: a/index.html
+    nav_weight: 10
+    source_dirs: [docs/a]
+""",
+    )
+
+    manifest = load_guide_manifest(manifest_path)
+
+    assert [section.section_id for section in manifest.sections] == ["second", "first"]
 
 
 def test_renderer_blocks_repository_escape(tmp_path):

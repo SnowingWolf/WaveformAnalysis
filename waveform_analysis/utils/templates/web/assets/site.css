@@ -67,6 +67,8 @@ main { width: min(1180px, calc(100% - 48px)); margin: 28px auto 56px; }
 .plugin-set-heading { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; margin-bottom: 14px; }
 .plugin-set-heading h2 { margin: 0; font-size: 22px; }
 .plugin-set-heading p { margin: 0; color: var(--muted); font-size: 13px; }
+.plugin-set-figure { margin: 14px 0 20px; }
+.plugin-set-figure img { display: block; max-width: 100%; height: auto; border: 1px solid var(--wa-line, #d7dadd); border-radius: 8px; background: #fff; }
 .standalone-tools { margin-top: 40px; padding-top: 28px; border-top: 2px solid var(--line); }
 .standalone-tools .plugin-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 360px)); }
 .plugin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
@@ -430,6 +432,15 @@ body.docs-page a:focus-visible, body.docs-page button:focus-visible, body.docs-p
 .markdown-body th { background: color-mix(in srgb, var(--doc-page) 75%, var(--doc-surface)); }
 .markdown-body img { display: block; max-width: 100%; height: auto; }
 .guide-link-unavailable { color: var(--doc-muted); text-decoration: underline dotted; cursor: help; }
+.guide-footer { margin: 44px 0 8px; padding-top: 18px; border-top: 1px solid var(--doc-line); }
+.guide-edit { display: inline-block; font-size: 13px; color: var(--doc-link); text-decoration: none; }
+.guide-edit:hover { text-decoration: underline; }
+.guide-pager { display: flex; gap: 14px; margin-top: 14px; justify-content: space-between; }
+.guide-pager a { flex: 1 1 0; min-width: 0; display: block; padding: 12px 16px; border: 1px solid var(--doc-line); border-radius: 5px; text-decoration: none; background: var(--doc-surface); }
+.guide-pager a:hover { border-color: var(--doc-link); }
+.guide-pager-next { text-align: right; }
+.guide-pager-dir { display: block; font-size: 12px; color: var(--doc-muted); }
+.guide-pager-title { display: block; margin-top: 2px; color: var(--doc-ink); font-weight: 600; }
 .footnotes { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--doc-line); color: var(--doc-muted); font-size: 14px; }
 .mermaid-block { width: 100%; margin: 24px 0; }
 .mermaid-render { width: 100%; overflow-x: auto; border: 1px solid var(--doc-line); border-radius: 5px; background: var(--doc-surface); }
@@ -475,6 +486,8 @@ html[data-theme="dark"] .mermaid-block--plugin .mermaid-render { border-color: v
 .site-tree-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .site-tree-heading > span { color: var(--doc-ink); font-size: 13px; font-weight: 800; letter-spacing: 0; }
 .site-tree-heading-actions { display: inline-flex; align-items: center; gap: 3px; }
+.site-tree-collapse-all { display: inline-flex; align-items: center; height: 28px; padding: 0 7px; border: 0; border-radius: 4px; background: transparent; color: var(--doc-muted); font-size: 11px; font-weight: 700; line-height: 1; cursor: pointer; }
+.site-tree-collapse-all:hover, .site-tree-collapse-all:focus-visible { background: var(--doc-link-soft); color: var(--doc-link); }
 .site-tree-visibility-toggle, .page-toc-trigger, .page-toc-pin, .page-toc-group-toggle, .page-toc-member-group-toggle, .page-toc-action {
   display: inline-grid;
   width: 30px;

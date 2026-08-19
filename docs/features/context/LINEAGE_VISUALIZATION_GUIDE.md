@@ -325,5 +325,4 @@ print(lineage_dict)
 ## 相关文档
 
 - [依赖分析指南](DEPENDENCY_ANALYSIS_GUIDE.md)
-- [预览执行计划](PREVIEW_EXECUTION.md)
 - [API 参考](../../api/README.md)

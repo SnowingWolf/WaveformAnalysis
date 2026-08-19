@@ -38,6 +38,34 @@
 
 ## 推荐用法
 
+### 完整流程（含插件注册）
+
+从注册插件到批量获取结果的完整示例：
+
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.data import BatchProcessor
+from waveform_analysis.core.plugins import profiles
+
+ctx = Context(storage_dir='./strax_data')
+ctx.register(*profiles.cpu_default())
+ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
+
+processor = BatchProcessor(ctx)
+results = processor.process_runs(
+    run_ids=['run_001', 'run_002', 'run_003'],
+    data_name='basic_features',
+    max_workers=4,
+    show_progress=True,
+    on_error='continue',  # 'continue' / 'stop' / 'raise'
+)
+
+for run_id, data in results['results'].items():
+    print(f"{run_id}: {len(data)} events")
+if results['errors']:
+    print(f"Errors: {results['errors']}")
+```
+
 ### 串行批量获取
 
 ```python

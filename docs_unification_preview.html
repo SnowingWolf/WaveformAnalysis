@@ -29,7 +29,8 @@
   * { box-sizing: border-box; }
   body {
     margin: 0; font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-    background: var(--bg); color: var(--text); line-height: 1.55;
+    background: var(--bg); color: var(--text); line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
   header {
     padding: 22px 32px; background: linear-gradient(135deg, #14202f, #1d2b3f);
@@ -67,16 +68,16 @@
   .arrow { color: var(--green); font-size: 16px; padding: 4px 0; }
   .center { text-align: center; }
 
-  .k-src   { color: var(--green); }  .k-src .name { color: var(--green); }
-  .k-src   { background: var(--green-bg); }
-  .k-dup   { color: var(--amber); }  .k-dup .name { color: var(--amber); }
-  .k-dup   { background: var(--amber-bg); }
-  .k-gap   { color: var(--red); }    .k-gap .name { color: var(--red); }
-  .k-gap   { background: var(--red-bg); }
-  .k-target{ color: var(--blue); }   .k-target .name { color: var(--blue); }
-  .k-target{ background: var(--blue-bg); }
-  .k-keep  { color: var(--purple); } .k-keep .name { color: var(--purple); }
-  .k-keep  { background: var(--purple-bg); }
+  .k-src    { color: var(--green);  background: var(--green-bg); }
+  .k-src .name   { color: var(--green); }
+  .k-dup    { color: var(--amber);  background: var(--amber-bg); }
+  .k-dup .name   { color: var(--amber); }
+  .k-gap    { color: var(--red);    background: var(--red-bg); }
+  .k-gap .name   { color: var(--red); }
+  .k-target { color: var(--blue);   background: var(--blue-bg); }
+  .k-target .name{ color: var(--blue); }
+  .k-keep   { color: var(--purple); background: var(--purple-bg); }
+  .k-keep .name  { color: var(--purple); }
 
   .b-dup   { background: var(--amber); color: #3a2602; }
   .b-gap   { background: var(--red); color: #401212; }
@@ -142,14 +143,85 @@
   .cp .f { font-family: var(--mono); font-size: 12px; color: var(--blue); }
   .cp .act { color: var(--dim); }
   .cp .act b { color: var(--text); }
+
+  /* ============ 优化补充 ============ */
+
+  /* 平滑滚动 + 锚点避开吸顶栏 */
+  html { scroll-behavior: smooth; }
+  section, h2, h3 { scroll-margin-top: 64px; }
+
+  /* 图例控制栏吸顶 */
+  .controls {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(26, 36, 52, .94);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* 表格横向滚动容器（窄屏不挤压） */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-wrap table { min-width: 460px; }
+
+  /* 通用段落 / 小标题（替代内联样式） */
+  .para { margin: 0 0 8px; font-size: 13px; }
+  .para:last-child { margin-bottom: 0; }
+  .h3-sub { margin: 18px 0 8px; font-size: 13px; }
+  .m-note { margin: 8px 0 0; }
+
+  /* 「新增 / 改造」徽标（RTD 特性表） */
+  .tag-badge {
+    display: inline-block; padding: 1px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 600; line-height: 1.5; white-space: nowrap;
+  }
+  .tag-badge.new { background: var(--blue); color: #05263d; }
+  .tag-badge.mod { background: var(--amber); color: #3a2602; }
+
+  /* 交互细节 */
+  .card { transition: border-color .15s ease; }
+  .card:hover { border-color: #3d5272; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  pre.code { scrollbar-width: thin; scrollbar-color: #45607f transparent; }
+
+  /* 窄屏适配 */
+  @media (max-width: 720px) {
+    header { padding: 18px 16px; }
+    header h1 { font-size: 19px; }
+    .controls { padding: 10px 16px; gap: 10px; }
+    main { padding: 16px; }
+    .card > h2 { padding: 12px 14px; }
+    .body { padding: 12px 14px; }
+    .cp { grid-template-columns: 1fr; }
+  }
+
+  /* 动效偏好 */
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .card { transition: none; }
+  }
+
+  /* 打印 */
+  @media print {
+    :root {
+      --bg: #ffffff; --panel: #ffffff; --panel2: #f2f5f9; --border: #d3dae4;
+      --text: #1d2530; --dim: #5b6a7d;
+    }
+    header { background: #ffffff; border-bottom: 2px solid var(--border); }
+    .controls { display: none; }
+    .card, .callout, .steps li, tr, .tree ul { break-inside: avoid; }
+    .card, pre.code { border-color: var(--border); }
+    pre.code { background: var(--panel2); color: var(--text); }
+    th { background: var(--panel2); }
+    table { font-size: 11.5px; }
+    a { color: inherit; text-decoration: none; }
+  }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>文档系统配置统一 — 概念与细化设计</h1>
+  <h1>文档系统配置统一 — 设计 + 实施进度</h1>
   <p>目标:建立「单一导航真源」,生成统一 RTD 风格文档站,让以后的修改只有一个明确入口</p>
-  <p>阶段:概念已确认 → 参考 Read the Docs 特性细化设计(待你确认后实施)</p>
+  <p>阶段:设计已确认 → 阶段 A 实施中(当前:内容盘点 + site_guides.py 改造)</p>
 </header>
 
 <div class="controls">
@@ -225,7 +297,7 @@
 
   <!-- 3: 配置 schema v2 -->
   <section class="card">
-    <h2>配置 schema v2 <span class="sub">栏目级目录声明 + 显式覆盖 + 排序</span></h2>
+    <h2>配置 schema v2 <span class="sub">yaml 只管栏目骨架;页面的「来源 tag」标注在文档文件头</span></h2>
     <div class="body">
       <pre class="code"><span class="c-k">schema_version:</span> <span class="c-s">2</span>
 <span class="c-k">site_title:</span> <span class="c-s">WaveformAnalysis 文档中心</span>
@@ -233,45 +305,109 @@
 <span class="c-k">sections:</span>
   <span class="c-b">- id:</span> <span class="c-s">user-guide</span>
     <span class="c-b">title:</span> <span class="c-s">用户指南</span>
-    <span class="c-b">source_dir:</span> <span class="c-s">docs/user-guide</span>   <span class="c-c"># 新增:目录自动发现</span>
-    <span class="c-b">index_route:</span> <span class="c-s">user-guide/index.html</span>
-    <span class="c-b">nav_weight:</span> <span class="c-s">10</span>               <span class="c-c"># 新增:栏目排序</span>
+    <span class="c-b">source_dirs:</span> <span class="c-s">[docs/user-guide]</span>  <span class="c-c"># 迁移期:每个现有内容目录一个栏目,不合并</span>
+    <span class="c-b">nav_weight:</span> <span class="c-s">10</span>
 
   <span class="c-b">- id:</span> <span class="c-s">features</span>
     <span class="c-b">title:</span> <span class="c-s">功能特性</span>
-    <span class="c-b">source_dir:</span> <span class="c-s">docs/features</span>
-    <span class="c-b">index_route:</span> <span class="c-s">features/index.html</span>
+    <span class="c-b">source_dirs:</span> <span class="c-s">[docs/features]</span>
     <span class="c-b">nav_weight:</span> <span class="c-s">20</span>
 
   <span class="c-b">- id:</span> <span class="c-s">plugins</span>
     <span class="c-b">title:</span> <span class="c-s">插件系统</span>
-    <span class="c-b">source_dir:</span> <span class="c-s">docs/plugins</span>
+    <span class="c-b">source_dirs:</span> <span class="c-s">[docs/plugins]</span>
     <span class="c-b">index_route:</span> <span class="c-s">plugins/index.html</span>
     <span class="c-b">nav_weight:</span> <span class="c-s">30</span>
-    <span class="c-b">exclude:</span>                    <span class="c-c"># 新增:排除自动生成目录</span>
+    <span class="c-b">exclude:</span>
       <span class="c-b">-</span> <span class="c-s">reference/**</span>
-      <span class="c-b">-</span> <span class="c-s">**/README.md</span>           <span class="c-c"># README 用作栏目索引,不进页面列表</span>
-    <span class="c-b">pages:</span>                      <span class="c-c"># 显式覆盖(优先级高于自动发现)</span>
+      <span class="c-b">-</span> <span class="c-s">"**/README.md"</span>
+    <span class="c-b">pages:</span>                      <span class="c-c"># 仅特殊路由需显式登记</span>
       <span class="c-b">- source:</span> <span class="c-s">docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md</span>
         <span class="c-b">route:</span> <span class="c-s">plugins/overview.html</span>
-        <span class="c-b">title:</span> <span class="c-s">插件系统与模板 API</span>
-    <span class="c-b">page_providers:</span>
-      <span class="c-b">-</span> <span class="c-s">plugin_reference</span>       <span class="c-c"># 插件页保留在插件栏目</span>
+    <span class="c-c"># 插件参考页(plugins/index.html、lineage.html)由插件生成器自动产出导航节点,</span>
+    <span class="c-c"># 不在此登记;tag 标注见对应 md 文件头</span>
 
-  <span class="c-b">- id:</span> <span class="c-s">api-reference</span>       <span class="c-c"># docstring/反射生成页纳入导航</span>
+  <span class="c-b">- id:</span> <span class="c-s">api</span>
     <span class="c-b">title:</span> <span class="c-s">API 参考</span>
+    <span class="c-b">source_dirs:</span> <span class="c-s">[docs/api]</span>  <span class="c-c"># cli 独立一个栏目,不合并</span>
     <span class="c-b">nav_weight:</span> <span class="c-s">40</span>
-    <span class="c-b">page_providers:</span>            <span class="c-c"># 新增:注册代码生成页;路由由生成器属主提供</span>
-      <span class="c-b">-</span> <span class="c-s">context_reference</span>
-      <span class="c-b">-</span> <span class="c-s">accessor_reference</span>
+    <span class="c-c"># Context / Accessor 参考页不在此登记 —— 在其叙述 md(docs/api/context.md)文件头标 tag: reflect</span>
 
-  <span class="c-b">- id:</span> <span class="c-s">cli</span>  <span class="c-b">… nav_weight:</span> <span class="c-s">50</span>
-  <span class="c-b">- id:</span> <span class="c-s">architecture</span> <span class="c-b">… nav_weight:</span> <span class="c-s">60</span>
-  <span class="c-b">- id:</span> <span class="c-s">development</span> <span class="c-b">… nav_weight:</span> <span class="c-s">70</span>
-  <span class="c-b">- id:</span> <span class="c-s">visualization</span> <span class="c-b">… nav_weight:</span> <span class="c-s">80</span></pre>
+  <span class="c-b">- id:</span> <span class="c-s">cli</span>          <span class="c-b">source_dirs:</span> <span class="c-s">[docs/cli]</span>          <span class="c-b">… nav_weight:</span> <span class="c-s">50</span>
+  <span class="c-b">- id:</span> <span class="c-s">architecture</span> <span class="c-b">source_dirs:</span> <span class="c-s">[docs/architecture]</span>  <span class="c-b">… nav_weight:</span> <span class="c-s">60</span>
+  <span class="c-b">- id:</span> <span class="c-s">development</span>  <span class="c-b">source_dirs:</span> <span class="c-s">[docs/development]</span>   <span class="c-b">… nav_weight:</span> <span class="c-s">70</span>
+  <span class="c-b">- id:</span> <span class="c-s">visualization</span> <span class="c-b">source_dirs:</span> <span class="c-s">[docs/visualization]</span> <span class="c-b">… nav_weight:</span> <span class="c-s">80</span>
+  <span class="c-b">- id:</span> <span class="c-s">analysis</span>     <span class="c-b">source_dirs:</span> <span class="c-s">[docs/analysis]</span>     <span class="c-b">… nav_weight:</span> <span class="c-s">90</span>
+  <span class="c-b">- id:</span> <span class="c-s">optimization</span> <span class="c-b">source_dirs:</span> <span class="c-s">[docs/optimization]</span> <span class="c-b">… nav_weight:</span> <span class="c-s">100</span></pre>
+      <div class="callout blue">
+        <b>tag 标注在文档文件头,不在 yaml:</b>生成器扫描 <code>source_dirs</code> 时读每个 md 的 frontmatter 识别 tag。
+        参考页(如 <code>docs/api/context.md</code>)文件头写 <code>tag: reflect</code>;普通指南页不写(缺省 markdown)。
+      </div>
       <div class="callout blue">
         <b>迁移策略:</b>一次性将 <code>docs/site-guides.yaml</code> 更新为 <code>schema_version: 2</code>,
         由测试与 site-web 生成验证。避免长期保留 v1/v2 分支，使维护入口真正收敛。
+      </div>
+    </div>
+  </section>
+
+  <!-- 3.4: v1→v2 迁移路径 -->
+  <section class="card">
+    <h2>v1 → v2 迁移路径 <span class="sub">现有 site-guides.yaml(2 栏目)如何分步扩到全栏目</span></h2>
+    <div class="body">
+      <ol class="steps">
+        <li>
+          <span class="step-t">内容盘点与清理(前置)</span>
+          <div class="step-d">docs/ 根下 7 个过程性总结(*_SUMMARY / *_fix / *_refactor)归档或删除;4 个正式文档(pre-trigger / 配置 / 查询工具 / Accessor)并入 api / features / plugins 后删除;小目录(visualization / analysis / optimization)并入相邻栏目</div>
+        </li>
+        <li>
+          <span class="step-t">schema 升级 + 保留现有栏目</span>
+          <div class="step-d">schema_version 改 2;现有 architecture / plugin-system 先按新字段迁移(plugin-system 加 exclude;插件参考页来源由插件生成器标注)</div>
+        </li>
+        <li>
+          <span class="step-t">逐个加内容目录为栏目</span>
+          <div class="step-d">盘点后保留的目录各一个栏目,source_dirs 自动发现</div>
+        </li>
+        <li>
+          <span class="step-t">配置 exclude 与显式 pages</span>
+          <div class="step-d">排除 <code>reference/**</code>、<code>**/README.md</code>;特殊路由用显式 pages 覆盖</div>
+        </li>
+        <li>
+          <span class="step-t">代码生成参考页归入栏目</span>
+          <div class="step-d">参考页叙述 md 文件头写 <code>tag: reflect</code>(Context/Accessor)或 <code>tag: plugin-provider</code>(插件),生成器识别后归入所属栏目</div>
+        </li>
+        <li>
+          <span class="step-t">逐栏目验证发布</span>
+          <div class="step-d">每加一个栏目即 generate site-web:路由无冲突、栏目齐全、死链校验通过</div>
+        </li>
+      </ol>
+      <div class="callout blue">
+        <b>原则:</b>先内容盘点——不再需要的过程性总结清理,正式文档归并入对应栏目;栏目划分基于「最终需要的文档」,不做机械的一一对应;小目录并入相邻栏目。<code>source_dirs</code> 保留合并能力,但迁移期优先用「盘点后并入」。
+      </div>
+    </div>
+  </section>
+
+  <!-- 3.5: tag 标记生成方式 -->
+  <section class="card">
+    <h2>tag 标记生成方式 <span class="sub">「来源」标注写在文档文件头,生成器扫描时识别</span></h2>
+    <div class="body">
+      <p class="para">
+        <code>tag</code> 是<b>单页元数据,标注在文档文件头(frontmatter/注释)</b>,不是 yaml 里的登记项。
+        文档放进 <code>source_dirs</code> 目录即可,生成器扫描时读文件头识别 tag,按 tag 分派渲染或注册导航节点。
+        直接打开 markdown 时这个标注不干扰阅读,但生成器能识别。
+      </p>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>tag</th><th>含义</th><th>生成器行为</th></tr></thead>
+        <tbody>
+          <tr><td><code>markdown</code>(缺省)</td><td>手写 md 页面</td><td><code>site_guides</code> 渲染;支持 frontmatter / 目录扫描</td></tr>
+          <tr><td><code>reflect</code></td><td>由代码反射生成(Context / Accessor / records-view)</td><td>校验路由已由 <code>site_doc_generator</code> 产出,只注册导航节点</td></tr>
+          <tr><td><code>plugin-provider</code></td><td>由插件生成器产出(插件参考 / DAG)</td><td>校验路由已由 <code>plugin_doc_generator</code> 产出,只注册导航节点</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <div class="callout green">
+        <b>统一的关键:</b>tag 标注在<b>文档文件头</b>(如 <code>tag: reflect</code> 写在 <code>---</code> 包裹的 frontmatter 里),
+        不用在 yaml 里逐页登记。维护者打开文档就知道这页怎么来、改哪里;生成器扫描 <code>source_dirs</code> 时读 frontmatter 识别 tag,分派渲染或注册。
       </div>
     </div>
   </section>
@@ -287,6 +423,7 @@
 <span class="c-b">exclude_from_nav:</span> <span class="c-s">false</span>  <span class="c-c"># true = 进站但不出现在侧边栏</span>
 <span class="c-b">hidden:</span> <span class="c-s">false</span>             <span class="c-c"># true = 完全不收录</span>
 <span class="c-c">---</span></pre>
+      <div class="table-wrap">
       <table>
         <thead><tr><th>字段</th><th>用途</th><th>缺省</th></tr></thead>
         <tbody>
@@ -297,6 +434,7 @@
           <tr><td><code>hidden</code></td><td>完全不收录</td><td>false</td></tr>
         </tbody>
       </table>
+      </div>
       <div class="callout green">
         mistune 3.3 无内置 frontmatter 插件 → 在 <span class="mono">site_guides.py</span> 内自写一个约 15 行解析函数,可控、可单测。
       </div>
@@ -307,6 +445,7 @@
   <section class="card">
     <h2>docstring 与 markdown 的配合模型 <span class="sub">三层分工,导航统一,各司其职</span></h2>
     <div class="body">
+      <div class="table-wrap">
       <table>
         <thead><tr><th>层</th><th>事实源</th><th>在网站中呈现为</th><th>内容职责</th></tr></thead>
         <tbody>
@@ -326,15 +465,49 @@
             <td><strong>导航</strong></td>
             <td><span class="m">site-guides.yaml</span></td>
             <td>侧边栏菜单 / 首页 / 栏目索引 —— 决定页面组织与顺序</td>
-            <td class="m">「谁进站、放哪个栏目、什么顺序」—— <code>page_providers</code> 选择生成页类别;provider 返回实际节点和路由</td>
+            <td class="m">「谁进站、放哪个栏目、什么顺序」—— 页面文件头的 <code>tag</code> 标明生成方式;生成器扫描时读 frontmatter 分派渲染或注册</td>
           </tr>
         </tbody>
       </table>
+      </div>
       <div class="callout green">
         <b>配合规则(防重复 / 防冲突):</b><br>
         ① <b>事实性内容只写一处</b> —— 签名 / 参数只在 docstring,解释只在 markdown,不双写;<br>
         ② <b>指南页引用参考页用链接锚点</b>(如 <code>context.html#get_data</code>),不复制 API 细节;<br>
-        ③ 生成器里硬编码的叙述块(<code>intro_blocks</code> / <code>_CONTEXT_DESCRIPTIONS</code>)作为<b>过渡兜底</b>,后续逐步迁到 markdown / docstring(写入里程碑)。
+        ③ 生成器里硬编码的叙述块(<code>intro_blocks</code> / <code>_CONTEXT_DESCRIPTIONS</code>)在<b>阶段 A 迁出</b>:契约描述 → docstring,叙述 → docs/ 对应 md,生成器不再写页面文案。
+      </div>
+    </div>
+  </section>
+
+  <!-- 4.55: 参考页内容集中示例 -->
+  <section class="card">
+    <h2>参考页内容集中:一个 Context 页的完整例子 <span class="sub">契约在 docstring,叙述在 docs/ md,生成器只做反射 + 组装</span></h2>
+    <div class="body">
+      <table>
+        <thead><tr><th>内容来源</th><th>放哪</th><th>示例</th></tr></thead>
+        <tbody>
+          <tr><td><strong>契约描述</strong>(签名/参数/返回/方法一句话)</td><td><code>core/context.py</code> 的 docstring</td><td><code>get_data</code> 的参数与返回写在方法 docstring</td></tr>
+          <tr><td><strong>页面叙述</strong>(分组/介绍/示例)</td><td><code>docs/api/context.md</code></td><td>「调度与状态」「数据访问」「缓存诊断」分组说明</td></tr>
+          <tr><td><strong>登记与导航</strong></td><td><code>docs/api/context.md</code> 文件头 + yaml 的 api 栏目(<code>source_dirs: [docs/api]</code>)</td><td>文件头写 <code>tag: reflect</code>;yaml 只声明目录,不逐页登记</td></tr>
+        </tbody>
+      </table>
+      <pre class="code"><span class="c-c"># docs/api/context.md —— 页面叙述(手写)</span>
+<span class="c-c">---</span>
+<span class="c-b">title:</span> <span class="c-s">Context</span>
+<span class="c-b">tag:</span> <span class="c-s">reflect</span>              <span class="c-c"># 标注来源:由代码反射生成;生成器据此纳入导航</span>
+<span class="c-c">---</span>
+# Context
+
+`Context` 是分析运行时的协调层:管理显式 `run_id`、插件 DAG、配置解析、lineage 与缓存复用。
+
+## 分组与职责
+- <span class="c-b">调度与状态</span> · 注册、发现插件、列出数据产物
+- <span class="c-b">数据访问</span> · `get_data`、`time_range`、epoch
+- <span class="c-b">缓存诊断</span> · `diagnose_cache`、`cache_stats`、`key_for`</pre>
+      <div class="callout green">
+        <b>生成器只做三件事:</b>① 反射 <code>Context</code> 类读每个方法签名与 docstring 一句话(契约);
+        ② 读 <code>docs/api/context.md</code> 取叙述;③ 合并渲染成 <code>contexts/context.html</code>。
+        改签名去代码,改文案去 <code>docs/api/context.md</code> —— <b>页面内容全部在内容层,生成器不再持有文案</b>。
       </div>
     </div>
   </section>
@@ -343,6 +516,7 @@
   <section class="card">
     <h2>一一对应:源文件 → 生成器 → 输出页面 <span class="sub">具体到文件路径</span></h2>
     <div class="body">
+      <div class="table-wrap">
       <table>
         <thead><tr><th>页面</th><th>源文件(具体位置)</th><th>生成器</th><th>输出 HTML</th><th>导航现状</th></tr></thead>
         <tbody>
@@ -383,9 +557,10 @@
           </tr>
         </tbody>
       </table>
+      </div>
       <div class="callout amber">
         <b>这就是「不统一」的具体表现:</b>前三行(docstring 生成的参考页)<b>不走 yaml</b>,是生成器 + 模板硬编码进导航;只有后两行(markdown 指南页)由 <code>site-guides.yaml</code> 管理。
-        统一后,前三行由 <code>page_providers</code> 注册到栏目;每个 provider 继续拥有其实际页面、路由和生成时机,
+        统一后,前三行在其叙述 md 文件头用 <code>tag</code>(reflect / plugin-provider)标明代码生成;生成器扫描时识别并注册导航节点,
         与后两行在<b>同一棵侧边栏</b>按 <code>nav_weight</code> 排序。
       </div>
     </div>
@@ -395,6 +570,7 @@
   <section class="card">
     <h2>文档多了会不会冲突 <span class="sub">冲突在生成期报错,绝不静默覆盖</span></h2>
     <div class="body">
+      <div class="table-wrap">
       <table>
         <thead><tr><th>冲突类型</th><th>防护机制</th></tr></thead>
         <tbody>
@@ -424,6 +600,7 @@
           </tr>
         </tbody>
       </table>
+      </div>
       <div class="callout green">
         <b>关键原则:冲突一律在生成时报错、CI 失败,绝不让两篇文档静默互相覆盖。</b>同名文件靠「栏目前缀」天然隔离(不同栏目目录互不撞);每步生成后 git diff + 死链校验,出问题马上定位到具体文件。
       </div>
@@ -434,6 +611,7 @@
   <section class="card">
     <h2>参考 Read the Docs 的特性映射 <span class="sub">已有能力补齐,新增能力按需</span></h2>
     <div class="body">
+      <div class="table-wrap">
       <table>
         <thead><tr><th>RTD 特性</th><th>现状</th><th>本方案</th></tr></thead>
         <tbody>
@@ -443,12 +621,13 @@
           <tr><td>全文搜索</td><td class="yes">✓ 已有</td><td>不变(frontmatter summary 进索引)</td></tr>
           <tr><td>深浅主题</td><td class="yes">✓ 已有</td><td>不变</td></tr>
           <tr><td>栏目索引页</td><td class="yes">✓ 已有 guide_index</td><td>内容随自动发现补全</td></tr>
-          <tr><td>上一页 / 下一页</td><td class="no">✗ 缺失</td><td><span class="b-new" style="display:inline-block;padding:1px 7px;border-radius:10px;background:var(--blue);color:#05263d;font-size:11px;font-weight:600">新增</span> guide.html 底部同栏目翻页</td></tr>
-          <tr><td>页脚源文件入口</td><td class="no">✗ 缺失</td><td><span class="b-new" style="display:inline-block;padding:1px 7px;border-radius:10px;background:var(--blue);color:#05263d;font-size:11px;font-weight:600">新增</span> 始终显示源 md 相对路径;配置 repository URL 时才提供「编辑此页」链接</td></tr>
-          <tr><td>首页栏目导航</td><td class="no">部分硬编码</td><td><span class="b-new" style="display:inline-block;padding:1px 7px;border-radius:10px;background:var(--blue);color:#05263d;font-size:11px;font-weight:600">改造</span> site_index.html.j2 改为遍历 manifest 动态生成栏目卡片</td></tr>
+          <tr><td>上一页 / 下一页</td><td class="no">✗ 缺失</td><td><span class="tag-badge new">新增</span> guide.html 底部同栏目翻页</td></tr>
+          <tr><td>页脚源文件入口</td><td class="no">✗ 缺失</td><td><span class="tag-badge new">新增</span> 始终显示源 md 相对路径;配置 repository URL 时才提供「编辑此页」链接</td></tr>
+          <tr><td>首页栏目导航</td><td class="no">部分硬编码</td><td><span class="tag-badge mod">改造</span> site_index.html.j2 改为遍历 manifest 动态生成栏目卡片</td></tr>
           <tr><td>版本选择器</td><td class="no">✗</td><td>不需要(本地静态站)</td></tr>
         </tbody>
       </table>
+      </div>
     </div>
   </section>
 
@@ -457,16 +636,44 @@
     <h2>生成器改动点 <span class="sub">核心集中在 site_guides.py,站点编排基本不动</span></h2>
     <div class="body">
       <div class="cp"><div class="f">site_guides.py</div><div class="act">新增 <b>_parse_frontmatter(source)</b>:解析文件头 title/summary/nav_weight/exclude_from_nav/hidden</div></div>
-      <div class="cp"><div class="f">site_guides.py · load_guide_manifest</div><div class="act">解析 <b>schema_version: 2</b>、<b>source_dir</b> 目录扫描、<b>exclude</b> 通配与显式 <b>pages</b>;section 级 <b>nav_weight</b> 排序</div></div>
-      <div class="cp"><div class="f">site_guides.py · GuideSectionSpec / GuidePageSpec / RenderedGuidePage</div><div class="act">增加字段:<b>nav_weight</b>、<b>frontmatter</b>、<b>source_relative</b>、<b>prev/next</b>、<b>page_providers</b></div></div>
+      <div class="cp"><div class="f">site_guides.py · load_guide_manifest</div><div class="act">解析 <b>schema_version: 2</b>、<b>source_dirs</b> 扫描、<b>exclude</b> 与显式 <b>pages</b>;扫描 md 时<b>从 frontmatter 读 tag 分派</b>(markdown 渲染 / reflect、plugin-provider 注册导航节点)</div></div>
+      <div class="cp"><div class="f">site_guides.py · GuideSectionSpec / GuidePageSpec / RenderedGuidePage</div><div class="act">增加字段:<b>nav_weight</b>、<b>frontmatter</b>(含从文件头读到的 <b>tag</b>)、<b>source_relative</b>、<b>prev/next</b></div></div>
       <div class="cp"><div class="f">site_guides.py · render_guide_manifest (L392)</div><div class="act">组装同栏目 prev/next 链</div></div>
       <div class="cp"><div class="f">site_guides.py · _GuideRenderer (L224)</div><div class="act">title/summary 改为 frontmatter 优先,H1/首段回退</div></div>
       <div class="cp"><div class="f">site_doc_generator.py · _publish_guides (L2242)</div><div class="act">guide.html.j2 渲染传入 source_relative + prev/next</div></div>
       <div class="cp"><div class="f">site_doc_generator.py · generate (L2485)</div><div class="act">首页传入 guide_sections,动态生成栏目卡片</div></div>
       <div class="cp"><div class="f">templates/web/guide.html.j2 + site_index.html.j2</div><div class="act">页脚源路径(可选编辑链接)、底部上一页/下一页、首页栏目卡片模板化</div></div>
-      <div class="cp"><div class="f">site_doc_generator.py</div><div class="act">为每个 provider 收集实际导航节点,再与 Markdown 页面合并、排序并检测路由冲突</div></div>
+      <div class="cp"><div class="f">site_doc_generator.py</div><div class="act">tag=reflect / plugin-provider 的页面,校验路由已由对应生成器产出后注册导航节点;与 markdown 页合并、排序并检测路由冲突</div></div>
       <div class="cp"><div class="f">.github/workflows/docs-check.yml</div><div class="act">增加三步:① manifest v2/provider 合法性 ② generate site-web 后本地链接校验 ③ 目标目录与生成产物边界校验</div></div>
+      <div class="cp"><div class="f">site_doc_generator.py · 参考页内容集中</div><div class="act">把 <b>_CONTEXT_DESCRIPTIONS</b> / <b>intro_blocks</b> / <b>ACCESSOR_DOCUMENTATION_REGISTRY</b> 的叙述迁出:<b>契约描述 → docstring</b>,<b>页面叙述 → docs/ 对应 md</b>;生成器只保留反射签名 + 渲染 + 组装,不再写页面文案</div></div>
       <div class="cp"><div class="f">docs/DOCS_MAINTENANCE.md (新)</div><div class="act">维护手册:四个常见场景、前置检查和发布命令</div></div>
+    </div>
+  </section>
+
+  <!-- 6.4: generation vs content -->
+  <section class="card">
+    <h2>生成与内容的组织 <span class="sub">现状「不在一起」→ 目标各归其位</span></h2>
+    <div class="body grid2">
+      <div class="scope-col out">
+        <h3>现状：三处分散</h3>
+        <ul>
+          <li><b>内容</b>：<code>docs/</code>(markdown)</li>
+          <li><b>生成/发布代码</b>：<code>utils/</code>，与通用工具混在一起</li>
+          <li><b>产物</b>：<code>docs/_site/</code>(已 gitignore)</li>
+          <li><b>参考页文案</b>：一部分硬编码在生成器 Python(<code>intro_blocks</code> / <code>_CONTEXT_DESCRIPTIONS</code>)，与 docs/ 内容分裂</li>
+        </ul>
+        <p class="m m-note">发布代码躺在泛化的 <code>utils/</code> 里，是「不在一起」的根源。</p>
+      </div>
+      <div class="scope-col keep">
+        <h3>目标：内容、代码、产物各归其位</h3>
+        <ul>
+          <li><b>内容</b>：<code>docs/</code>，只放 markdown 正文</li>
+          <li><b>发布代码</b>：<code>documentation/site/</code> 专门子包（独立后续任务收敛）</li>
+          <li><b>产物</b>：<code>docs/_site/</code>，可重建、不入库、不手工编辑</li>
+          <li><b>页面文案</b>：契约描述在 docstring，叙述在 <code>docs/</code> 对应 md，生成器不再写页面文案</li>
+        </ul>
+        <p class="m m-note">生成逻辑集中、内容集中、产物可丢弃重建。</p>
+      </div>
     </div>
   </section>
 
@@ -474,10 +681,12 @@
   <section class="card">
     <h2>改完后的目录 <span class="sub">推荐方案：栏目配置 + 目录发现；生成产物不入库</span></h2>
     <div class="body">
-      <pre class="code"><span class="c-b">docs/</span>
+      <pre class="code"><span class="c-c"># 目标目录（统一完成后）；当前目录尚未全部迁移</span>
+<span class="c-c"># 每条注释标注统一后该目录承担的职责与遵守的规则，并非现在的 ls 输出</span>
+<span class="c-b">docs/</span>
 ├── <span class="c-s">site-guides.yaml</span>                 <span class="c-c"># v2：栏目、顺序、扫描边界、生成页 provider</span>
 ├── <span class="c-s">README.md</span>                        <span class="c-c"># GitHub/源码浏览入口；保留精简链接，不重复站点导航</span>
-├── <span class="c-b">user-guide/</span>                     <span class="c-c"># 人类文档栏目；Markdown 由目录发现收录</span>
+├── <span class="c-b">user-guide/</span>                     <span class="c-c"># 内容目录；不要求与左侧栏一一对应</span>
 ├── <span class="c-b">features/</span>
 ├── <span class="c-b">plugins/</span>
 │   ├── <span class="c-s">PLUGIN_SYSTEM_OVERVIEW.md</span>
@@ -488,14 +697,56 @@
 ├── <span class="c-b">agents/</span>                         <span class="c-c"># LLM 协作体系，保持独立，不进入人类站点扫描</span>
 └── <span class="c-b">_site/</span>                          <span class="c-c"># site-web 原子发布的派生产物；gitignore，不手工编辑</span>
 
-<span class="c-b">waveform_analysis/utils/</span>
-├── <span class="c-s">site_guides.py</span>                  <span class="c-c"># 解析 schema、frontmatter、目录发现、导航序列</span>
-├── <span class="c-s">site_doc_generator.py</span>           <span class="c-c"># 汇集 Markdown 与代码生成页，发布统一站点</span>
-└── <span class="c-b">templates/web/</span>                  <span class="c-c"># 侧边栏、栏目索引、上一页/下一页、源文件入口</span>
+<span class="c-b">waveform_analysis/documentation/</span>    <span class="c-c"># 文档发布代码（收敛 → 独立后续任务；阶段 A 仍在 utils/）</span>
+├── <span class="c-b">site/</span>                            <span class="c-c"># 站点发布子包；与 Agent 发布职责隔离</span>
+│   ├── <span class="c-s">site_guides.py</span>            <span class="c-c"># 解析 schema、frontmatter、目录发现、导航序列</span>
+│   ├── <span class="c-s">site_doc_generator.py</span>     <span class="c-c"># 汇集 Markdown 与代码生成页，发布统一站点</span>
+│   ├── <span class="c-s">plugin_doc_generator.py</span>   <span class="c-c"># 插件参考 provider</span>
+│   ├── <span class="c-s">cli_docs.py</span> · <span class="c-s">doc_coverage.py</span>  <span class="c-c"># CLI 入口与覆盖检查</span>
+│   └── <span class="c-b">templates/web/</span>            <span class="c-c"># 侧边栏、栏目索引、上一页/下一页、源文件入口</span>
+└── <span class="c-s">orchestrator.py</span> · <span class="c-s">prompts/</span> · <span class="c-s">dags/</span> …  <span class="c-c"># 现有 Agent 发布代码（不动）</span>
 
 <span class="c-b">tests/</span>
 ├── <span class="c-s">test_site_guides.py</span>             <span class="c-c"># schema、发现、排序、frontmatter、冲突</span>
 └── <span class="c-s">test_cli_docs_site_publish.py</span>   <span class="c-c"># 原子发布与本地链接校验</span></pre>
+      <h3 class="h3-sub">目录职责 <span class="sub">以下是统一完成后的目标职责，不表示当前目录已经全部迁移</span></h3>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>路径</th><th>内容与维护方式</th></tr></thead>
+        <tbody>
+          <tr><td><code>site-guides.yaml</code></td><td>站点编排配置：栏目、顺序、扫描边界和生成页 provider；不保存正文。</td></tr>
+          <tr><td><code>README.md</code></td><td>GitHub/源码浏览的简短入口，不承担完整站点导航。</td></tr>
+          <tr><td><code>user-guide/</code></td><td>面向使用者的入门、快速开始和示例。</td></tr>
+          <tr><td><code>features/</code></td><td>按功能组织的说明，例如配置、缓存和执行。</td></tr>
+          <tr><td><code>plugins/</code></td><td>插件系统概念、开发指南和专题材料；<code>guides/</code> 由人维护，<code>reference/</code> 是生成器产出的插件参考，不手工编辑。</td></tr>
+          <tr><td><code>api/</code> / <code>cli/</code></td><td>分别存放稳定 API、数据结构与调用接口，以及命令行参数、示例和行为说明。</td></tr>
+          <tr><td><code>architecture/</code></td><td>系统设计：DAG、缓存、数据产物和核心边界。</td></tr>
+          <tr><td><code>development/</code></td><td>贡献、测试、开发流程和工程约定。</td></tr>
+          <tr><td><code>analysis/</code> / <code>optimization/</code> / <code>visualization/</code></td><td>分别存放分析方法、性能优化与绘图相关文档。</td></tr>
+          <tr><td><code>agents/</code></td><td>面向 Agent 的流程、协议和硬约束；与面向人类的站点内容隔离。</td></tr>
+          <tr><td><code>_site/</code></td><td>生成器的静态 HTML 派生产物，可重建，不手工编辑。</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <h3 class="h3-sub">栏目划分 <span class="sub">内容盘点后合并 / 并入；不做机械的一一对应；source_dirs 保留合并能力</span></h3>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>内容目录</th><th>盘点后去向</th></tr></thead>
+        <tbody>
+          <tr><td><code>user-guide/</code></td><td class="after">保留为栏目</td></tr>
+          <tr><td><code>features/</code></td><td class="after">保留;吸收 pre-trigger、查询工具等正式文档</td></tr>
+          <tr><td><code>plugins/</code></td><td class="after">保留;<code>reference/</code> 由 <code>tag=plugin-provider</code> 生成;吸收 DEFAULT_CONFIG_GUIDE</td></tr>
+          <tr><td><code>api/</code></td><td class="after">保留;Context/Accessor 参考页以 <code>tag=reflect</code> 归入;吸收 peak_channel_accessor</td></tr>
+          <tr><td><code>cli/</code></td><td class="after">保留</td></tr>
+          <tr><td><code>architecture/</code></td><td class="after">保留</td></tr>
+          <tr><td><code>development/</code></td><td class="after">保留</td></tr>
+          <tr><td><code>visualization/</code></td><td class="now">内容少,盘点后并入 features / analysis</td></tr>
+          <tr><td><code>analysis/</code></td><td class="now">内容少,盘点后并入 features</td></tr>
+          <tr><td><code>optimization/</code></td><td class="now">内容少,盘点后并入 development</td></tr>
+          <tr><td>docs/ 根下零散 md</td><td class="now">7 个过程性总结归档/删除;4 个正式文档并入 api/features/plugins 后删除</td></tr>
+        </tbody>
+      </table>
+      </div>
       <div class="callout blue">
         <b>关键边界:</b>目录是内容归属，<code>site-guides.yaml</code> 是栏目和发布策略，
         frontmatter 是单页元数据。代码生成的 Context、Accessor、Plugin 参考页不复制成 Markdown，
@@ -512,6 +763,7 @@
   <section class="card">
     <h2>以后怎么改:四个场景对照 <span class="sub">「不知道如何修改」的解法</span></h2>
     <div class="body">
+      <div class="table-wrap">
       <table>
         <thead><tr><th>场景</th><th>统一后(单一真源)</th></tr></thead>
         <tbody>
@@ -522,6 +774,7 @@
           <tr><td><strong>不确定怎么改</strong></td><td class="after">查 <code>DOCS_MAINTENANCE.md</code>;CI 会提示改哪里</td></tr>
         </tbody>
       </table>
+      </div>
     </div>
   </section>
 
@@ -532,9 +785,8 @@
       <div class="scope-col keep">
         <h3>纳入统一(面向人类的文档)</h3>
         <ul>
-          <li><code>user-guide</code> / <code>features</code> / <code>plugins</code></li>
-          <li><code>api</code> / <code>cli</code> / <code>architecture</code></li>
-          <li><code>development</code> / <code>visualization</code> / <code>analysis</code> / <code>optimization</code></li>
+          <li>栏目基于内容盘点：不再需要的过程性总结清理，小目录并入相邻栏目；代码生成参考页用 <code>tag</code> 归入所属栏目</li>
+          <li>内容仍分别归属 <code>user-guide</code>、<code>features</code>、<code>plugins</code>、<code>api</code> 等目录</li>
           <li>各栏目 README 保留为源码浏览入口，不承担站点导航真源</li>
           <li>CI 增加配置/provider 合法性 + 站点链接 + 生成产物边界校验</li>
         </ul>
@@ -560,6 +812,7 @@
         <b>首个交付的决策:</b>保留 <code>docs/README.md</code> 与各栏目 README 作为 GitHub/源码浏览入口，
         不自动生成、不删除、不改变既有链接。待导航统一稳定后，再单独决定哪些 README 应保留、精简或迁移。
       </div>
+      <div class="table-wrap">
       <table>
         <thead><tr><th>类别</th><th>对象</th><th>处理</th></tr></thead>
         <tbody>
@@ -580,6 +833,7 @@
           </tr>
         </tbody>
       </table>
+      </div>
       <pre class="code"><span class="c-c">阶段 A</span>  站点覆盖全部栏目 + 统一导航策略                         <span class="c-c">← 本次交付</span>
 <span class="c-c">阶段 B</span>  README 链接与内容盘点
 <span class="c-c">阶段 C</span>  单独评审迁移范围,分批改链并做死链校验
@@ -606,7 +860,7 @@
         </li>
         <li>
           <span class="step-t">site_guides.py 改造</span>
-          <div class="step-d">frontmatter 解析、source_dir 扫描、nav_weight 排序、prev/next、source_relative、provider 接口</div>
+          <div class="step-d">frontmatter 解析(含 tag)、source_dirs 扫描、nav_weight 排序、prev/next、source_relative、按 tag 分派渲染或注册</div>
         </li>
         <li>
           <span class="step-t">模板与站点编排</span>
@@ -614,7 +868,11 @@
         </li>
         <li>
           <span class="step-t">扩写 site-guides.yaml</span>
-          <div class="step-d">覆盖全部 10 个栏目,定义 exclude 与显式 pages</div>
+          <div class="step-d">覆盖全部内容目录为栏目（迁移期一对一，不合并），配置排除规则；页面来源 tag 标注在文档文件头</div>
+        </li>
+        <li>
+          <span class="step-t">参考页内容集中(阶段 A)</span>
+          <div class="step-d">_CONTEXT_DESCRIPTIONS / intro_blocks / Accessor 叙述迁出：契约 → docstring，叙述 → docs/ 对应 md；生成器只保留反射 + 渲染 + 组装</div>
         </li>
         <li>
           <span class="step-t">发布检查 + 维护手册</span>
@@ -625,6 +883,10 @@
           <div class="step-d">先盘点入链与内容，再评审迁移范围；每批死链校验 + git diff</div>
         </li>
         <li>
+          <span class="step-t">发布代码收敛(独立后续任务)</span>
+          <div class="step-d">utils/ 文档发布代码迁至 documentation/site 子包；改 import、pyproject 入口、CI、测试</div>
+        </li>
+        <li>
           <span class="step-t">维护手册 + 全量验证</span>
           <div class="step-d">DOCS_MAINTENANCE.md;generate site-web 全量生成 + 死链校验 + 测试</div>
         </li>
@@ -632,21 +894,130 @@
     </div>
   </section>
 
+  <!-- 实施进度:当前状态 -->
+  <section class="card">
+    <h2>实施进度追踪 <span class="sub">阶段 A 执行状态,随实施持续更新</span></h2>
+    <div class="body">
+      <ol class="steps">
+        <li class="done">
+          <span class="step-t">内容盘点(docs/ 根下与零散目录)</span>
+          <div class="step-d">厘清 8 个过程性总结 / 4 个正式文档 / 3 个零散目录的去留(清单见下) → 尚未执行删除或移动</div>
+        </li>
+        <li class="done">
+          <span class="step-t">site_guides.py 改造</span>
+          <div class="step-d">schema v2:frontmatter 解析(含 tag)、source_dirs 扫描、exclude、nav_weight 排序、provider_pages 登记;保持 schema v1 兼容</div>
+        </li>
+        <li class="done">
+          <span class="step-t">扩写 site-guides.yaml</span>
+          <div class="step-d">覆盖 7 个内容栏目(source_dirs 自动收录 + 显式 route 覆盖);插件栏目 id 保持 plugin-system 以匹配模板分组</div>
+        </li>
+        <li class="done">
+          <span class="step-t">验证</span>
+          <div class="step-d">generate site-web 全量生成 exit=0;站点死链校验 0 缺失;文档相关 pytest 57 通过(3 预存在失败排除)</div>
+        </li>
+        <li class="done">
+          <span class="step-t">模板与站点编排</span>
+          <div class="step-d">guide.html「编辑此页 + 上一页/下一页」;site_index 首页新增「按栏目浏览」动态区块;参考页(Context/适配器/Accessor/可视化)注册为 tag: reflect 栏目,shell 导航移除硬编码分组、改由 guide_sections 统一渲染</div>
+        </li>
+        <li class="done">
+          <span class="step-t">内容迁移执行</span>
+          <div class="step-d">8 个正式文档 git mv 归并(DEFAULT_CONFIG→plugins/guides、query_helpers→architecture、pre_trigger→features/context、peak_channel_accessor→api、analysis×2→architecture、peaks_upstream→development、plot_peak_channels→api);8 个过程性总结删除;analysis/optimization/visualization 空目录消失;重新生成站点后各栏目索引与侧边栏已收录全部迁移页面</div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 实施进度:发现与阻塞 -->
+  <section class="card">
+    <h2>实施发现与阻塞 <span class="sub">本次推进中遇到的问题与决策</span></h2>
+    <div class="body">
+      <h3 class="h3-sub">修复:既有 bug —— 空代码块渲染崩溃</h3>
+      <p class="para"><span class="mono">block_code</span> 对无语言标记的空代码块(<span class="kbd">```</span>)会 <span class="mono">IndexError</span>。schema v1 只收录 2 栏目未触发;扩写后扫到含空代码块的页面暴露。已在 <span class="mono">site_guides.py</span> 修复(防御空 info)。</p>
+      <h3 class="h3-sub">文档头补 title:无 H1 无 frontmatter 的页面</h3>
+      <p class="para"><span class="mono">plugins/tutorials/PLUGIN_FEATURE.md</span> 无 H1 且以孤立 <span class="kbd">---</span> 开头。处理:frontmatter title 可作为标题替代 H1;该文件补了 <span class="kbd">title: 插件功能概述</span>。</p>
+      <h3 class="h3-sub">坏链 warning(32 条,非致命,后续清理项)</h3>
+      <p class="para">扩写后真实仓库有 32 条「未收录链接」warning,渲染为灰色占位链接,不阻塞生成。来源:子目录 README.md(15,README 收敛任务处理)、<span class="mono">agents/</span> 与 <span class="kbd">AGENTS.md</span>(独立导航,不收录)、<span class="mono">scripts/*.py</span>(非文档)、<span class="mono">PROJECT_STRUCTURE.md</span>(不存在)。</p>
+      <h3 class="h3-sub">阻塞:plugin-sets 占位图(已解除)</h3>
+      <p class="para">你的未提交改动 <span class="mono">plugin_doc_generator.py</span> 要求复制 <span class="mono">plugin-sets/*.png</span>,但资源从未创建,导致完整生成失败。已按你的确认在 <span class="mono">waveform_analysis/utils/templates/web/assets/plugin-sets/</span> 创建 7 个 1×1 占位 PNG;后续请用真实配图替换。</p>
+      <h3 class="h3-sub">预存在失败:test_site_generation_rejects_guide_route_collision</h3>
+      <p class="para">该用例被同一 plugin-sets 阻塞,与我改动无关,验证时排除。</p>
+      <h3 class="h3-sub">参考页导航统一:硬编码分组 → guide_sections</h3>
+      <p class="para">shell.html.j2 移除硬编码的 Context/适配器、Accessor、可视化分组;新增 3 个参考栏目(<span class="mono">contexts-reference</span> / <span class="mono">accessors-reference</span> / <span class="mono">visualizations-reference</span>,tag: reflect),由 <span class="mono">guide_sections</span> 统一渲染。参考页模板补 <span class="mono">current_guide_route</span>(callable_reference / accessor / callable_index / accessor_index)使导航高亮当前页。</p>
+      <h3 class="h3-sub">测试随导航结构更新</h3>
+      <p class="para">3 个测试注入模拟 <span class="mono">guide_sections</span> 以贴近真实生成,并把 <span class="mono">aria-controls="tree-accessors"</span> 等旧硬编码 id 断言更新为 <span class="mono">tree-guide-accessors-reference</span>。</p>
+    </div>
+  </section>
+
+  <!-- 实施进度:内容盘点 A -->
+  <section class="card">
+    <h2>内容盘点发现 A:docs/ 根下零散 markdown <span class="sub">谁留 / 谁并 / 谁归档(尚未执行)</span></h2>
+    <div class="body">
+      <h3 class="h3-sub">过程性总结 —— 建议归档删除(8)</h3>
+      <div class="table-wrap">
+        <table>
+          <tr><th>文件</th><th>性质</th><th>证据</th></tr>
+          <tr><td class="m">FINAL_SUMMARY.md</td><td>全量最终总结</td><td>未跟踪文件</td></tr>
+          <tr><td class="m">IMPLEMENTATION_SUMMARY.md</td><td>实施总结</td><td>未跟踪文件</td></tr>
+          <tr><td class="m">s1_s2_pairing_final_summary.md</td><td>S1/S2 配对总结</td><td>2026-06-18,421 行</td></tr>
+          <tr><td class="m">s1_s2_pairing_implementation_summary.md</td><td>S1/S2 配对实施记录</td><td>2026-06-18,232 行</td></tr>
+          <tr><td class="m">query_helpers_implementation_summary.md</td><td>查询助手实施记录</td><td>2026-06-18,231 行</td></tr>
+          <tr><td class="m">peaklet_s1_s2_classifier_refactor.md</td><td>分类器重构记录</td><td>2026-06-22,103 行</td></tr>
+          <tr><td class="m">peaklet_s1_s2_classifier_update.md</td><td>分类器更新记录</td><td>2026-06-22,69 行</td></tr>
+          <tr><td class="m">sum_waveform_fix.md</td><td>波形求和修复记录</td><td>2026-06-25,138 行</td></tr>
+        </table>
+      </div>
+      <h3 class="h3-sub">正式文档 —— 建议归并到对应目录(4)</h3>
+      <div class="table-wrap">
+        <table>
+          <tr><th>文件</th><th>内容</th><th>建议去向</th></tr>
+          <tr><td class="m">pre_trigger_configuration.md</td><td>预触发配置指南</td><td><span class="mono">features/context/</span>(与 CONFIGURATION.md 相邻)</td></tr>
+          <tr><td class="m">DEFAULT_CONFIG_GUIDE.md</td><td>默认配置指南</td><td><span class="mono">features/context/</span></td></tr>
+          <tr><td class="m">query_helpers_guide.md</td><td>查询助手指南</td><td><span class="mono">architecture/</span>(与 ACCESSOR_ANALYSIS.md 相邻)</td></tr>
+          <tr><td class="m">peak_channel_accessor.md</td><td>PeakChannelAccessor 参考</td><td><span class="mono">api/</span> 或 <span class="mono">plugins/reference/</span></td></tr>
+        </table>
+      </div>
+      <h3 class="h3-sub">保留(1)</h3>
+      <div class="table-wrap">
+        <table>
+          <tr><th>文件</th><th>理由</th></tr>
+          <tr><td class="m">README.md</td><td>文档中心总入口,148 处引用,保留</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 实施进度:内容盘点 B -->
+  <section class="card">
+    <h2>内容盘点发现 B:零散小目录 <span class="sub">建议并入相邻栏目或归档(尚未执行)</span></h2>
+    <div class="body">
+      <div class="table-wrap">
+        <table>
+          <tr><th>目录</th><th>文件</th><th>性质</th><th>建议</th></tr>
+          <tr><td class="m">analysis/</td><td class="m">context_analysis.md</td><td>现状总结(2026-08-05 仍在更新)</td><td>并入 <span class="mono">architecture/</span> 或归档</td></tr>
+          <tr><td class="m">analysis/</td><td class="m">context_api_optimization_plan.md</td><td>优化计划(2026-07-22)</td><td>并入 <span class="mono">architecture/</span> 或归档</td></tr>
+          <tr><td class="m">optimization/</td><td class="m">peaks_upstream_optimization.md</td><td>优化方案(2026-06-12)</td><td>并入 <span class="mono">development/</span> 或归档</td></tr>
+          <tr><td class="m">visualization/</td><td class="m">plot_peak_channels_with_sum.md</td><td>正式使用指南(2026-06-18)</td><td>并入 <span class="mono">api/</span> 或 <span class="mono">user-guide/</span>(正式内容保留)</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <!-- 10: 预览与下一步 -->
   <section class="card">
     <h2>本页预览方式与下一步</h2>
     <div class="body">
-      <p style="margin:0 0 8px;font-size:13px;">
+      <p class="para">
         仓库根目录 <span class="kbd">python3 -m http.server 8088</span> → <span class="kbd">http://10.18.154.11:8088/docs_unification_preview.html</span>
       </p>
-      <p style="margin:0;font-size:13px;">
-        若细化设计 OK,即进入里程碑 3 → 6 实施。涉及文件:
+      <p class="para">
+        若细化设计 OK,即进入里程碑 3 → 6 实施。阶段 A 改动仍在 <span class="mono">utils/</span> 现有文件:
         <span class="mono">waveform_analysis/utils/site_guides.py</span>、
-        <span class="mono">site_doc_generator.py</span>、
-        <span class="mono">templates/web/guide.html.j2</span>、
-        <span class="mono">site_index.html.j2</span>、
+        <span class="mono">waveform_analysis/utils/site_doc_generator.py</span>、
+        <span class="mono">waveform_analysis/utils/templates/web/guide.html.j2</span>、
+        <span class="mono">waveform_analysis/utils/templates/web/site_index.html.j2</span>、
         <span class="mono">docs/site-guides.yaml</span>、
         <span class="mono">.github/workflows/docs-check.yml</span>。
+        代码收敛至 <span class="mono">documentation/site/</span> 为独立后续任务。
       </p>
     </div>
   </section>

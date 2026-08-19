@@ -91,7 +91,7 @@ data = ctx.get_data("run_001", "wave_pool")
 - 上游 bundle 缺失或 `input_source` 非法时，由共享 bundle 构建逻辑抛出 `ValueError`。
 ### Downstream Impact
 
-Consumers: `peaklet_waveforms`, `records_asymmetry_mask`, `wave_pool_filtered`
+Consumers: `peaklet_channels`, `peaklet_waveforms`, `records_asymmetry_mask`, `wave_pool_filtered`
 - `wave_pool_filtered` 以 wave_pool 为输入做滤波，输出同为 records 对齐的 float32 池。
 - `peaklet_waveforms` 在 `use_filtered=False` 时直接消费 wave_pool；池的索引约定必须与 records 保持一致。
 

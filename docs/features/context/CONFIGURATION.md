@@ -155,6 +155,4 @@ ctx.show_config(run_id=run_id)  # 会显示 deprecation warning
 ## 相关文档
 
 - [Plugin DAG、lineage 与缓存](../../architecture/PLUGIN_DAG_LINEAGE_CACHE.md)
-- [执行预览](PREVIEW_EXECUTION.md)
-- [插件管理](PLUGIN_MANAGEMENT.md)
 - [Agent 配置约束](../../agents/configuration.md)

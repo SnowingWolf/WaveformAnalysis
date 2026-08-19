@@ -1,4 +1,4 @@
-# DOC: docs/plugins/guides/PLUGIN_SET_PROFILE_GUIDE.md#plugin-sets
+# DOC: docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md#plugin-sets
 """
 Plugin set: Event grouping and pairing.
 

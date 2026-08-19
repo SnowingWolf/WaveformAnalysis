@@ -25,7 +25,7 @@
 
 1. [插件开发](plugin-development/README.md)
 2. [开发规范](contributing/README.md)
-3. [插件系统架构](../architecture/PLUGIN_SYSTEM_ARCHITECTURE.md)
+3. [插件系统与模板 API](../plugins/PLUGIN_SYSTEM_OVERVIEW.md)
 
 ## 相关资源
 

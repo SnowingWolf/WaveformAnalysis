@@ -32,7 +32,7 @@
 
 ```python
 # -*- coding: utf-8 -*-
-# DOC: docs/plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md
+# DOC: docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
 # DOC: docs/development/plugin-development/PLUGIN_SPEC_GUIDE.md
 """
 Plugins 模块 - 定义插件和配置选项的基类。
@@ -92,7 +92,7 @@ class ConfigResolver:
 | Context 类 | 数据访问、配置管理、插件管理 |
 | 配置系统 | 配置指南 |
 | 存储/缓存 | 数据访问、缓存管理 |
-| 公开 API | 对应的用户指南 |
+| 公开 API | 对应的指南 |
 
 ---
 

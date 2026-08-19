@@ -1,11 +1,16 @@
-schema_version: 1
+schema_version: 2
 
 sections:
   - id: architecture
     title: 系统架构与数据模型
+    nav_weight: 40
     index_route: architecture/index.html
     source_indexes:
       - docs/architecture/README.md
+    source_dirs:
+      - docs/architecture
+    exclude:
+      - "**/README.md"
     pages:
       - source: docs/architecture/ARCHITECTURE.md
         route: architecture/system.html
@@ -17,13 +22,108 @@ sections:
         route: architecture/data-products.html
       - source: docs/architecture/ACCESSOR_ANALYSIS.md
         route: architecture/accessor-analysis.html
+
+  - id: features
+    title: 功能特性
+    nav_weight: 50
+    index_route: features/index.html
+    source_indexes:
+      - docs/features/README.md
+    source_dirs:
+      - docs/features
+    exclude:
+      - "**/README.md"
+
   - id: plugin-system
     title: 插件系统
+    nav_weight: 20
     index_route: plugins/guides.html
     source_indexes:
       - docs/plugins/README.md
+    source_dirs:
+      - docs/plugins
+    exclude:
+      - "**/README.md"
+      - "plugins/reference/agent/**"
+      - "plugins/reference/builtin/auto/**"
     pages:
       - source: docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
         route: plugins/overview.html
-      - source: docs/plugins/guides/PLUGIN_BUNDLE_GUIDE.md
-        route: plugins/bundles.html
+
+  - id: contexts-reference
+    title: Context 与适配器
+    nav_weight: 10
+    index_route: contexts/index.html
+    pages:
+      - route: contexts/context.html
+        title: Context
+        tag: reflect
+      - route: adapters/adapter.html
+        title: DAQ 适配器
+        tag: reflect
+
+  - id: accessors-reference
+    title: Accessor 接口
+    nav_weight: 30
+    index_route: accessors/guides.html
+    pages:
+      - route: accessors/index.html
+        title: Accessor 总览
+        tag: reflect
+      - route: accessors/peak-channel-accessor.html
+        title: PeakChannelAccessor
+        tag: reflect
+      - route: accessors/s1-s2-pair-accessor.html
+        title: S1S2PairAccessor
+        tag: reflect
+      - route: contexts/records-view.html
+        title: RecordsView
+        tag: reflect
+
+  - id: visualizations-reference
+    title: 可视化
+    nav_weight: 60
+    index_route: visualizations/guides.html
+    pages:
+      - route: visualizations/index.html
+        title: 可视化总览
+        tag: reflect
+      - route: visualizations/statistical-plots.html
+        title: 统计图
+        tag: reflect
+      - route: visualizations/waveform-plots.html
+        title: 波形图
+        tag: reflect
+
+  - id: api
+    title: API 参考
+    nav_weight: 70
+    index_route: api/index.html
+    source_indexes:
+      - docs/api/README.md
+    source_dirs:
+      - docs/api
+    exclude:
+      - "**/README.md"
+
+  - id: cli
+    title: 命令行工具
+    nav_weight: 80
+    index_route: cli/index.html
+    source_indexes:
+      - docs/cli/README.md
+    source_dirs:
+      - docs/cli
+    exclude:
+      - "**/README.md"
+
+  - id: development
+    title: 开发者指南
+    nav_weight: 90
+    index_route: development/index.html
+    source_indexes:
+      - docs/development/README.md
+    source_dirs:
+      - docs/development
+    exclude:
+      - "**/README.md"

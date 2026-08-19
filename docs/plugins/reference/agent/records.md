@@ -107,7 +107,7 @@ data = ctx.get_data("run_001", "records")
 - 多分片 bundle 的元数据视图只合并 records、不合并 wave_pool，若下游误按 records 行取波形会越界——属消费方契约错误，本插件不单独拦截。
 ### Downstream Impact
 
-Consumers: `peaklet_waveforms`, `records_asymmetry_mask`, `records_detector_mask`, `records_veto_mask`, `wave_pool_filtered`
+Consumers: `peaklet_channels`, `peaklet_waveforms`, `records_asymmetry_mask`, `records_detector_mask`, `records_veto_mask`, `wave_pool_filtered`
 - 行序与 `record_id` 语义的变更会影响所有 mask 类产物（其输出长度必须与 records 一致）以及 align 到 records 的派生数组。
 - `wave_offset`/`event_length` 与 `wave_pool` 的索引一致性由下游切片访问共享，修改 records 布局需同步校验 `wave_pool_filtered` 与 `peaklet_waveforms`。
 

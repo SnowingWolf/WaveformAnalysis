@@ -38,14 +38,13 @@ waveform-process --help
 
 | 问题 | 文档 |
 |---|---|
-| 如何预览执行计划？ | [PREVIEW_EXECUTION.md](features/context/PREVIEW_EXECUTION.md) |
 | 如何可视化依赖关系/血缘？ | [LINEAGE_VISUALIZATION_GUIDE.md](features/context/LINEAGE_VISUALIZATION_GUIDE.md) |
 | 如何管理配置来源？ | [CONFIGURATION.md](features/context/CONFIGURATION.md) |
 | 缓存为什么失效或命中异常？ | [PLUGIN_DAG_LINEAGE_CACHE.md](architecture/PLUGIN_DAG_LINEAGE_CACHE.md) |
 | 插件缓存如何分层、如何生成键与失效？ | [PLUGIN_CACHE_ARCHITECTURE.md](architecture/PLUGIN_CACHE_ARCHITECTURE.md) |
 | records 与 wave_pool 如何共同构建和访问？ | [DATA_PRODUCTS.md](architecture/DATA_PRODUCTS.md) |
 | 如何使用信号处理插件？ | [SIGNAL_PROCESSING_PLUGINS.md](plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md) |
-| 如何开发自定义插件？ | [SIMPLE_PLUGIN_GUIDE.md](plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) |
+| 如何开发自定义插件？ | [PLUGIN_SYSTEM_OVERVIEW.md](plugins/PLUGIN_SYSTEM_OVERVIEW.md) |
 | 如何管理执行器与并行处理？ | [EXECUTOR_MANAGER_GUIDE.md](features/advanced/EXECUTOR_MANAGER_GUIDE.md) |
 
 ## 常用命令

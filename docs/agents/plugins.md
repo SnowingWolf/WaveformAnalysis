@@ -14,7 +14,7 @@
 - `manifest.yaml` 声明插件属主、版本与依赖，bundle 根目录的 `__all__` 声明公开导出。
 - `hit`、`peaks`、`builtin.cpu` 等兼容入口可以转发名称，但不取得兄弟插件的代码属主。
 - Plugin Set 与 Profile 只负责组合，不拥有插件实现。
-- 完整目录、共享计算和兼容规则见[插件 Bundle 组织指南](../plugins/guides/PLUGIN_BUNDLE_GUIDE.md)。
+- 完整目录、共享计算和兼容规则见[插件系统与模板 API](../plugins/PLUGIN_SYSTEM_OVERVIEW.md)。
 
 ## 变更检查单
 1. `provides` 是否稳定且唯一
@@ -74,7 +74,7 @@
 
 ### 详细规则
 完整的升级场景、示例和决策流程，详见：
-- [插件 Version 升级策略](../plugins/PLUGIN_VERSION_POLICY.md)
+- [插件系统与模板 API](../plugins/PLUGIN_SYSTEM_OVERVIEW.md)
 
 ### 实际案例
 - `hit_merged` v1.1.1 → v1.1.2：预分配路径优化，算法路径变更 → MINOR 升级。

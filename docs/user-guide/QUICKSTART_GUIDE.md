@@ -358,36 +358,7 @@ if __name__ == '__main__':
 
 ## 场景 2: 批量处理
 
-处理多个 run，并行处理多个数据集。
-
-```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.data.export import BatchProcessor
-from waveform_analysis.core.plugins import profiles
-
-# 初始化
-ctx = Context(storage_dir='./strax_data')
-ctx.register(*profiles.cpu_default())
-ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
-
-# 批量处理
-processor = BatchProcessor(ctx)
-results = processor.process_runs(
-    run_ids=['run_001', 'run_002', 'run_003'],
-    data_name='basic_features',
-    max_workers=4,
-    show_progress=True,
-    on_error='continue'  # 'continue', 'stop', 'raise'
-)
-
-# 访问结果
-for run_id, data in results['results'].items():
-    print(f"{run_id}: {len(data)} events")
-
-# 检查错误
-if results['errors']:
-    print(f"Errors: {results['errors']}")
-```
+处理多个 run，并行处理多个数据集。完整用法见 [BatchProcessor 文档](../features/context/BATCH_PROCESSOR.md)。
 
 ## 场景 3: 流式处理
 
@@ -533,7 +504,7 @@ ctx.clear_cache_for('run_001')
 ## 下一步
 
 - [配置管理](../features/context/CONFIGURATION.md) - 详细配置说明
-- [插件教程](../plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) - 自定义插件开发
+- [插件编写规范](../plugins/PLUGIN_SYSTEM_OVERVIEW.md) - 自定义插件开发
 - [血缘可视化](../features/context/LINEAGE_VISUALIZATION_GUIDE.md) - 可视化数据流
 - [示例代码](EXAMPLES_GUIDE.md) - 更多使用场景
 

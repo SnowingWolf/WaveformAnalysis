@@ -126,8 +126,30 @@ def test_documentation_server_disables_cache_and_reads_republished_files(tmp_pat
 
 def test_lineage_pages_use_depth_correct_navigation_links(tmp_path):
     from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+    from waveform_analysis.utils.site_guides import RenderedGuidePage, RenderedGuideSection
 
     generator = PluginDocGenerator()
+    nav_page = RenderedGuidePage(
+        source=None,
+        source_label="accessors/peak-channel-accessor.html",
+        route="accessors/peak-channel-accessor.html",
+        section_id="accessors-reference",
+        title="PeakChannelAccessor",
+        summary="",
+        html=None,
+        has_mermaid=False,
+        headings=(),
+        assets=(),
+        tag="reflect",
+    )
+    generator._get_web_jinja_env().globals["guide_sections"] = (
+        RenderedGuideSection(
+            section_id="accessors-reference",
+            title="Accessor 接口",
+            index_route="accessors/guides.html",
+            pages=(nav_page,),
+        ),
+    )
     common = {
         "lineage_json": "{}",
         "asset_prefix": "assets/",

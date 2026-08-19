@@ -174,28 +174,7 @@ ctx.plot_lineage("basic_features", kind="mermaid")  # 输出 Mermaid 图
 
 ### 2. 批量处理多个运行
 
-```python
-from waveform_analysis.core.data.export import BatchProcessor
-
-# 创建批量处理器
-batch_processor = BatchProcessor(ctx)
-
-# 批量处理多个运行
-results = batch_processor.process_runs(
-    run_ids=["run_001", "run_002", "run_003"],
-    data_name="basic_features",
-    max_workers=4,  # 并行处理
-    show_progress=True,
-)
-
-# 结果结构：{"results": ..., "errors": ..., "meta": ...}
-for run_id, data in results["results"].items():
-    print(f"{run_id}: {len(data)} 个事件")
-if results["errors"]:
-    print(f"Errors: {results['errors']}")
-```
-
-**English**: `len(data)` is the event count in the `basic_features` array.
+多个 run 的批量处理用法见 [BatchProcessor 文档](../features/context/BATCH_PROCESSOR.md)。
 
 ### 3. 时间范围查询
 
@@ -623,8 +602,7 @@ st_waveforms = ctx.get_data("run_001", "st_waveforms")  # 再测试下一步
 ## 相关文档
 
 - [项目结构说明](PROJECT_STRUCTURE.md)
-- [插件系统指南](PLUGIN_SYSTEM_ARCHITECTURE.md)
-- [快速开始指南](../user-guide/QUICKSTART_GUIDE.md)
+- [插件系统与模板 API](../plugins/PLUGIN_SYSTEM_OVERVIEW.md)
 - [Plugin DAG、lineage 与缓存](PLUGIN_DAG_LINEAGE_CACHE.md)
 - [流式处理指南](../plugins/guides/STREAMING_PLUGINS_GUIDE.md)
 

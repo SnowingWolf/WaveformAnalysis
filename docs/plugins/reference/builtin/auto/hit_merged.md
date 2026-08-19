@@ -91,5 +91,6 @@ data = ctx.get_data("run_001", "hit_merged")
 - `hit_merge_clusters`
 - `hit_merged_components`
 - `hit_merged_features`
+- `peaklet_channels`
 - `peaklet_components`
 - `peaklets`

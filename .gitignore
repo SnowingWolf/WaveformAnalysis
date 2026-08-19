@@ -304,6 +304,7 @@ docs/_site/
 !docs/**/*.png
 !docs/**/*.jpg
 !examples/**/*.png
+!waveform_analysis/utils/templates/web/assets/plugin-sets/*.png
 
 # NFS temporary files
 .nfs*

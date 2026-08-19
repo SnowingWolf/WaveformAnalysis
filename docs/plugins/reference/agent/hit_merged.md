@@ -103,7 +103,7 @@ data = ctx.get_data("run_001", "hit_merged")
 - Cluster rows reference hit indices that are outside the materialized `hit_threshold` array.
 ### Downstream Impact
 
-Consumers: `hit_grouped`, `hit_merge_clusters`, `hit_merged_components`, `hit_merged_features`, `peaklet_components`, `peaklets`
+Consumers: `hit_grouped`, `hit_merge_clusters`, `hit_merged_components`, `hit_merged_features`, `peaklet_channels`, `peaklet_components`, `peaklets`
 - Field semantics and row ordering changes propagate to component expansion, waveform feature extraction, cross-channel grouping, and peaklet membership.
 - Changing `component_offset`/`component_count` requires matching updates to `hit_merge_clusters` ordering and all component consumer tests.
 - Changing anchor-field semantics affects downstream `position`, `timestamp`, `record_id`, and channel aggregation behavior.

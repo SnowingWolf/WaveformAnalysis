@@ -1,0 +1,59 @@
+# execution_report
+
+- `task_id`: `site_doc_generator_review_fixes`
+- `workflow_cost`: `strict`
+- `workflow_shape`: `staged`
+- `executor_role`: `executor.docs`
+- `agent_profile`: `none`
+- `changed_paths`:
+  - `pyproject.toml`
+  - `docs/site-guides.yaml`
+  - `docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md`
+  - `waveform_analysis/utils/plugin_doc_generator.py`
+  - `waveform_analysis/utils/site_guides.py`
+  - `waveform_analysis/utils/site_doc_generator.py`
+  - `waveform_analysis/utils/templates/web/shell.html.j2`
+  - `waveform_analysis/utils/templates/web/guide.html.j2`
+  - `waveform_analysis/utils/visualization/statistical_plots.py`
+  - `tests/test_site_guides.py`
+  - `tests/test_plugin_documentation.py`
+  - `tests/test_cli_docs_site_publish.py`
+  - `tests/test_corner_hist_performance.py`
+- `actions_taken`:
+  - 增加 `assets/plugin-sets/*` package data，并以 wheel 解包内容和临时 target 安装验证安装态资源存在。
+  - 为无 guide manifest 的 `plugins-web` 增加历史固定侧栏；完整站点按 manifest 渲染 Context、Accessor 和可视化入口。
+  - 将 `corner_hist.hist_density` 放到已有参数末尾，并增加参数顺序回归测试；同时修正该函数新增类型检查的 Ruff 兼容写法。
+  - 解析 frontmatter 后只把 body 交给 Markdown 渲染器。
+  - 将跳过的 README 加入 section index 路由映射，避免同目录链接变成不可用 span。
+  - 只排除自动生成的 agent/auto reference，发布手写 `ADAPTER_SYSTEM_GUIDE.md`。
+  - 恢复 `contexts/index.html`，避免 provider 页面覆盖已有综合索引；移除离线站点中的外部编辑链接。
+- `commands_run`:
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q tests/test_site_guides.py tests/test_plugin_documentation.py tests/test_corner_hist_performance.py -k 'not dynamic_lineage_endpoint and not assets_are_available_over_http'` — `75 passed, 2 deselected`。
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q tests/test_cli_docs_site_publish.py::test_documentation_server_disables_cache_and_reads_republished_files tests/test_plugin_documentation.py::test_dynamic_lineage_endpoint_serves_context_payload tests/test_plugin_documentation.py::test_site_web_assets_are_available_over_http_for_root_and_nested_pages` — `3 passed`（HTTP 绑定权限使用批准的提升权限执行）。
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m build --wheel --no-isolation --outdir /tmp/waveform-review-wheel` — PASS。
+  - 临时 target 安装 wheel，检查 7 个 plugin-set PNG，并以安装包生成 `plugins-web`/`site-web` — PASS。
+  - `python -m waveform_analysis.utils.cli_docs generate plugins-web ...` 和 `site-web ...` — PASS。
+  - `waveform-docs generate plugins-auto ...`、`plugins-agent ...` — PASS。
+  - `python scripts/assess_change_impact.py --base HEAD` — PASS；未检测到插件契约变化。
+  - `python scripts/schema_compat_check.py --base HEAD --run-smoke` — PASS；dtype 变化 0，冒烟链完成。
+  - `scripts/check_doc_sync.sh` 与 `python scripts/check_doc_anchors.py --check-sync --base HEAD` — PASS。
+  - 相关文件 Ruff、Black、compileall、`git diff --check` — PASS。
+  - `python scripts/performance_regression_check.py --base HEAD` — 历史首次运行受噪声样本影响；复核阶段的 10 次中位数 gate 已 PASS。
+  - `python scripts/release_artifact_sync.py --base HEAD` — 历史首次尝试被安全中断；复核阶段完整 gate 已 PASS。
+- `open_risks`:
+  - 上述性能与发布闸门问题已在复核阶段重跑并通过；早期失败记录保留在本报告的历史命令清单中。
+  - 完整站点仍报告 5 个既有文档链接警告（AGENTS、schema/impact 脚本、PROJECT_STRUCTURE、旧 agents 配置路径），本轮仅关闭审查指出的 README/适配器链接警告。
+  - 工作区有大量本轮之外的 dirty 文件，不能安全生成不混入无关内容的 scoped commit。
+- `requested_review_focus`:
+  - wheel 安装态是否能读取 plugin-set 图片。
+  - standalone `plugins-web` 和完整 `site-web` 侧栏/Context 兼容路由。
+  - `corner_hist` 位置参数兼容性。
+  - frontmatter、README、手写适配器指南的发布与链接解析。
+  - 离线生成结果不应含外部编辑链接。
+
+## Revalidation after review fixes (2026-08-19)
+
+- `scripts/performance_regression_check.py --base HEAD --repeats 10`: PASS。比较逻辑使用中位数，并对 tracemalloc 采用 1 MiB 绝对噪声门槛；各目标均未触发时间或内存回归。
+- `scripts/release_artifact_sync.py --base HEAD --perf-repeats 10`: PASS；`version_changelog`、`generated_docs_sync`、`doc_sync_anchors`、`key_tests` 和 `performance_regression` 全部通过。
+- wheel 安装态复验：PASS。`waveform_analysis-1.4.0-py3-none-any.whl` 包含 7 个 `assets/plugin-sets/*.png`；临时 target 安装后 `site-web` 与 `plugins-web` 均成功生成。
+- review 项的定向测试、HTTP 发布测试、schema smoke、impact、compileall、Ruff、可用文件的 Black check 和 diff check 均 PASS。

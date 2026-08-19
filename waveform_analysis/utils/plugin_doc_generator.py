@@ -103,6 +103,17 @@ PLUGIN_SET_COLORS = {
     "other": ("#eef1f2", "#63727b", "#d9e0e3"),
 }
 
+# 插件集合配图：集合名 -> 资产相对路径（相对于输出 assets/），由 generate_web 从模板资产复制。
+PLUGIN_SET_IMAGES = {
+    "io": "plugin-sets/io.png",
+    "waveform": "plugin-sets/waveform.png",
+    "hit": "plugin-sets/hit.png",
+    "peaks": "plugin-sets/peaks.png",
+    "basic_features": "plugin-sets/basic_features.png",
+    "tabular": "plugin-sets/tabular.png",
+    "events": "plugin-sets/events.png",
+}
+
 DOCUMENTATION_DEFAULT_PROFILE = {
     "wave_source": "records",
     "use_filtered": False,
@@ -284,6 +295,7 @@ class _WebPluginSet:
     label: str
     plugins: list[PluginDocumentationView]
     description: str = ""
+    image: str = ""
 
 
 class _DefaultDocumentationContext:
@@ -1208,6 +1220,7 @@ class PluginDocGenerator:
                         label=f"插件集合：{name.replace('_', ' ').title()}",
                         plugins=members,
                         description=PLUGIN_SET_DESCRIPTIONS.get(name, ""),
+                        image=PLUGIN_SET_IMAGES.get(name, ""),
                     )
                 )
 
@@ -2476,6 +2489,14 @@ class PluginDocGenerator:
             target = asset_dir / name
             shutil.copyfile(source_assets / name, target)
             generated[f"asset:{name}"] = target
+        for rel in PLUGIN_SET_IMAGES.values():
+            source = source_assets / rel
+            if not source.is_file():
+                raise FileNotFoundError(f"插件集合配图缺失: {source}")
+            target = asset_dir / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, target)
+            generated[f"asset:{rel}"] = target
         search_entries = []
         for plugin in plugins:
             base_url = f"{plugin_relative_dir}/{plugin.provides}.html"

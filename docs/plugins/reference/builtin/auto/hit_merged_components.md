@@ -62,3 +62,4 @@ data = ctx.get_data("run_001", "hit_merged_components")
 ### Downstream Consumers
 
 - `hit_grouped`
+- `peaklet_channels`
