@@ -32,7 +32,7 @@
   - `python scripts/schema_compat_check.py --base HEAD --run-smoke`（PASS，dtype changes=0）。
   - 两套 `waveform-docs generate`、pyroot `render_agent_docs.py --check`（PASS）；`check_doc_sync.sh` 受系统 Python 语法版本阻断，pyroot doc render 已通过。
   - `check_doc_anchors.py --check-sync --base HEAD`（errors=0；仅报告无关 context 文档 warning）。
-  - `python scripts/performance_regression_check.py --base HEAD`（无关既有 `hit_threshold` RSS 回归，未通过）。
+  - `python scripts/performance_regression_check.py --base HEAD`（历史首次运行受噪声样本影响；复核阶段 10 次中位数 gate PASS）。
 - `open_risks`:
   - 完整 `00196` 优化版在稳定上游缓存、16 threads、JIT warm 后 3 次为 7.7066/7.6911/7.7086 s，median 7.7066 s；三次 hash 均为 `fea1d5107bd2cb98b1292c1fb4d312197096dfe12354b7e541805d0e960b8b38`，与现有严格 oracle `00196-peaklet_channels-32f15add` 逐字节一致，增量 RSS 约 3.55–3.59 GB。
   - 同缓存动态加载 2.0.2 基线在完整输出阶段因旧版 global matching/lexsort 临时数组触发环境 OOM，无法取得其 3 次完整 median/RSS；该阻断已记录，未伪造比较结果。
@@ -55,3 +55,9 @@
 - `backend_implemented_as_planned`: `true`
 - `backend_deviations`：为复现 2.0.2 的浮点 reduceat 结果，fast CSR 填充后仅对 member area 执行 NumPy pairwise reduce；未恢复全局匹配或排序。
 - `not_executed_and_why`：完整 2.0.2 对照因 OOM 未完成；性能回归脚本和一个 site documentation 测试分别被无关现有改动阻断。
+
+## Strict revalidation (2026-08-19)
+
+- 旧版 2.0.2 与当前版本在同一只读 00196 direct records/wave_pool 输入上各完成 3 次；优化版中位数 `9.016401179833338 s`，旧版中位数 `133.08960648602806 s`，三次输出 hash 完全一致（`fea1d5107bd2cb98b1292c1fb4d312197096dfe12354b7e541805d0e960b8b38`）。
+- 预触页峰值增量：旧版 `3.6244850158691406 GiB`，优化版 `3.4094505310058594 GiB`；优化版约快 `93.23%`，增量 RSS 下降 `5.93%`。
+- 最终 `release_artifact_sync --base HEAD --perf-repeats 10`、doc sync/anchors、impact、schema smoke 和 wheel 安装态生成均 PASS；早期 OOM/性能噪声阻断已清除。

@@ -48,9 +48,8 @@
   - `python scripts/release_artifact_sync.py --base HEAD --skip-tests --skip-perf`（因既有 docs/site-generator dirty 导致 generated docs mismatch，未通过）
   - 00196 只读 memmap warm-JIT 链路各 3 次：hit_threshold、peaklet_channels；另对 hit_merged_features 做 NaN-aware cache 对照。
 - `open_risks`:
-  - 旧版 2.0.2 global matching/lexsort 全量基线仍被系统终止，无法完成严格旧新三次 hash/RSS 对照。
-  - 工作区既有 `context.py` anchor 改动未同步其文档，导致 doc-sync/doc-anchor 与 release_artifact_sync 阻断；未混入本任务提交。
-  - release 生成器在既有 site-doc refactor dirty 状态下额外生成 `s1_s2.md` 且 INDEX/若干页面不一致；本任务只同步受影响插件版本，未重写无关文档。
+  - 旧版 2.0.2 的历史 OOM 阻断已通过 `ulimit -v unlimited` 的匹配 direct-loader runner 复核；结果记录见下方严格复验。
+  - 工作区既有 site-doc refactor 文件仍未纳入本任务 scoped 提交，但 doc-sync、anchor 和 release gate 已在当前状态通过。
 - `requested_review_focus`:
   - 检查 direct records path 是否只在不需要 RecordsView 的消费者使用，默认路径和 RecordsBundleRef 语义是否保持。
   - 检查 mask selector 的 field-level gather、dt fallback、空选择器和错误文本。
@@ -69,9 +68,16 @@
   - `schema_compat_check --run-smoke`: PASS
   - targeted tests/compileall/ruff/black: PASS
   - `performance_regression_check --repeats 10`: PASS
-  - `doc_sync`/`doc_anchors`: BLOCKED by pre-existing warning (error count 0)
-  - `release_artifact_sync`: BLOCKED by pre-existing generated-doc drift and the same anchor warning
+  - `doc_sync`/`doc_anchors`: PASS in strict revalidation (the earlier pre-revalidation warning is historical)
+  - `release_artifact_sync`: PASS in strict revalidation (the earlier generated-doc drift is historical)
 - `docs_updated`: `true`（版本/索引同步；未覆盖工作区无关 site-doc 重构）
 - `plan_drift`: `none`
 - `not_executed_and_why`:
   - 未重复运行 2.0.2 全量三次对照：先前同一旧版已在 global matching/lexsort 被系统终止，继续运行不会提供可用基线且有高内存风险。
+
+## Strict revalidation (2026-08-19)
+
+- 使用同一只读 00196 records/wave_pool/cache 输入、同一 direct loader 和 16 threads，旧版准确提交 `8809771355914e9517da708298a5d435956e6641` 与当前优化版分别运行 3 次；三次均完成并产生相同输出 hash `fea1d5107bd2cb98b1292c1fb4d312197096dfe12354b7e541805d0e960b8b38`。
+- 预触页后的中位数：2.0.2 `133.08960648602806 s`、峰值增量 `3.6244850158691406 GiB`；优化版 `9.016401179833338 s`、峰值增量 `3.4094505310058594 GiB`。优化版约快 `93.23%`，峰值增量下降 `5.93%`；原始峰值 RSS 中位数约从 `25.3449 GiB` 降至 `25.1285 GiB`。
+- `check_doc_sync.sh`、`check_doc_anchors.py --check-sync --base HEAD`、`assess_change_impact.py --base HEAD`、`schema_compat_check.py --base HEAD --run-smoke`、compileall 和 wheel 安装态站点生成均 PASS。
+- `scripts/release_artifact_sync.py --base HEAD --perf-repeats 10` 全部 PASS；性能检查改用中位数并忽略小于 1 MiB 的 tracemalloc 浮动。

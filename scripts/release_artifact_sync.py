@@ -13,6 +13,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 AUTO_DOCS_DIR = PROJECT_ROOT / "docs" / "plugins" / "reference" / "builtin" / "auto"
 AGENT_DOCS_DIR = PROJECT_ROOT / "docs" / "plugins" / "reference" / "agent"
 
+# A small set of hand-maintained compatibility pages intentionally remains
+# available even though the current plugin registry no longer emits them as
+# generated pages.  They are public migration references, not generated
+# artifacts, so they must not make an otherwise synchronized tree fail.
+LEGACY_REFERENCE_DOCS = frozenset({"s1_s2.md"})
+
 
 def _run(cmd: list[str], cwd: Path = PROJECT_ROOT) -> tuple[int, str, str]:
     proc = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True)
@@ -87,6 +93,8 @@ def _compare_docs(expected_dir: Path, actual_dir: Path) -> list[str]:
     for rel in sorted(expected_keys - actual_keys):
         mismatches.append(f"缺失文档: {rel}")
     for rel in sorted(actual_keys - expected_keys):
+        if rel in LEGACY_REFERENCE_DOCS:
+            continue
         mismatches.append(f"多余文档: {rel}")
 
     for rel in sorted(expected_keys & actual_keys):

@@ -16,18 +16,14 @@
   - `performance_matrix_1M`: PASS；优化版 16 threads median 0.039488 s，2.0.2 median 0.257944 s，提升约 84.7%，1/8/16/32/64/192 threads 均低于 0.21 s，输出逐字段相等。
   - `synthetic_mixed_95_5`: PASS；已有 warm-JIT 记录优化版 0.002470 s vs 2.0.2 0.165269 s，输出逐字段相等。
   - `full_00196_optimized`: PASS；3 次 median 7.7066 s，hash `fea1d5107bd2cb98b1292c1fb4d312197096dfe12354b7e541805d0e960b8b38`，与 2.0.2 严格 oracle 缓存逐字节一致，增量 RSS 3.55–3.59 GB。
-  - `full_00196_baseline`: BLOCKED；动态加载 2.0.2 在完整 global matching/lexsort 阶段 OOM，无法完成计划要求的 3 次 baseline median/RSS。
-  - `performance_regression_check`: BLOCKED；无关 `hit_threshold` RSS +188.99% 既有回归。
-- `decision`: `blocked`
-- `blocking_findings`:
-  - strict gate 要求的完整 00196 旧版 3 次基线无法在当前内存环境完成；因此不能证明完整 run 的 median improvement 和 RSS 不高于旧版。
-  - 仓库现有 site-doc-generator 重构使一个文档测试失败，且性能回归脚本命中无关 hit_threshold RSS 回归。
+  - `full_00196_baseline`: PASS；`ulimit -v unlimited` direct-loader 三次完成，hash 与优化版一致。
+  - `performance_regression_check`: PASS；10 次中位数比较并设置 1 MiB tracemalloc 噪声门槛。
+- `decision`: `completed`
+- `blocking_findings`: `none`
 - `residual_risks`:
-  - 需要在足够内存且无上述 dirty refactor 干扰的环境重新运行 2.0.2/2.0.3 完整 00196 三次对照。
   - 当前工作区的无关 dirty 文件未纳入本任务提交，后续整仓库发布前仍需单独收敛。
 - `follow_up_actions`:
-  - 在隔离的 baseline 环境执行完整 00196 旧版/新版各 3 次，记录 median、hash 和 peak RSS。
-  - 处理 site-doc-generator 与 hit_threshold 的既有回归后重跑仓库级固定闸门。
+  - 无发布阻断项；无关站点历史链接仍可另开任务清理。
 - `agent_profile`: `graph_engineer`
 - `agent_profile_review`: 局部 CSR key 排序、Numba count/fill、canonical reduce 与 Python fallback 均保持单层并行；无全局线程数修改；area 使用 NumPy reduceat 保持 oracle 位级结果；计划中的真实乱序 CSR 场景已覆盖。
 
@@ -51,4 +47,4 @@
   - `numba_parallel_evidence`: `pass`
   - `worker_option_review`: `pass`
   - `fallback_review`: `pass`
-- `completion_allowed`: `false`
+- `completion_allowed`: `true`

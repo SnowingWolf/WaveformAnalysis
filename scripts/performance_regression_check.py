@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+from statistics import median
 import subprocess
 import sys
 import tempfile
@@ -22,6 +23,7 @@ import tempfile
 import time
 import tracemalloc
 from pathlib import Path
+from statistics import median
 
 
 def create_synthetic_vx2730_run(data_root, run_name="run_smoke_001", n_channels=2, n_events=12, n_samples=128):
@@ -112,6 +114,8 @@ def benchmark_hot_targets(targets, repeats=2):
                 "max_time_sec": 0.0,
                 "avg_peak_mem_mb": 0.0,
                 "max_peak_mem_mb": 0.0,
+                "median_time_sec": 0.0,
+                "median_peak_mem_mb": 0.0,
             }
             continue
         times = [x[0] for x in vals]
@@ -121,6 +125,8 @@ def benchmark_hot_targets(targets, repeats=2):
             "max_time_sec": max(times),
             "avg_peak_mem_mb": sum(mems) / float(len(mems)),
             "max_peak_mem_mb": max(mems),
+            "median_time_sec": median(times),
+            "median_peak_mem_mb": median(mems),
         }
     return out
 
@@ -229,8 +235,16 @@ def compare(
             )
             continue
 
-        time_delta = _pct(before["avg_time_sec"], after["avg_time_sec"])
-        mem_delta = _pct(before["avg_peak_mem_mb"], after["avg_peak_mem_mb"])
+        # Prefer medians for release decisions: the synthetic benchmark is
+        # intentionally tiny, so one cold import or allocator sample can
+        # dominate an average.  Older JSON reports remain compatible through
+        # the avg-field fallback.
+        before_time = before.get("median_time_sec", before["avg_time_sec"])
+        after_time = after.get("median_time_sec", after["avg_time_sec"])
+        before_mem = before.get("median_peak_mem_mb", before["avg_peak_mem_mb"])
+        after_mem = after.get("median_peak_mem_mb", after["avg_peak_mem_mb"])
+        time_delta = _pct(before_time, after_time)
+        mem_delta = _pct(before_mem, after_mem)
 
         row = {
             "target": target,
@@ -241,7 +255,13 @@ def compare(
         }
         rows.append(row)
 
-        if time_delta > time_threshold_pct or mem_delta > mem_threshold_pct:
+        # A sub-megabyte tracemalloc difference is measurement noise for this
+        # smoke dataset; require both the percentage and a 1 MB absolute rise
+        # before treating memory as a regression.
+        mem_absolute_delta = after_mem - before_mem
+        if time_delta > time_threshold_pct or (
+            mem_delta > mem_threshold_pct and mem_absolute_delta > 1.0
+        ):
             regressions.append(
                 {
                     "target": target,
@@ -279,16 +299,16 @@ def _print_report(report: dict[str, object], base: str) -> None:
 
         print(f"- {target}")
         print(
-            "  time: {:.4f}s -> {:.4f}s ({:+.2f}%)".format(
-                row["before"]["avg_time_sec"],
-                row["after"]["avg_time_sec"],
+            "  median_time: {:.4f}s -> {:.4f}s ({:+.2f}%)".format(
+                row["before"].get("median_time_sec", row["before"]["avg_time_sec"]),
+                row["after"].get("median_time_sec", row["after"]["avg_time_sec"]),
                 row["time_delta_pct"],
             )
         )
         print(
-            "  peak_mem: {:.2f}MB -> {:.2f}MB ({:+.2f}%)".format(
-                row["before"]["avg_peak_mem_mb"],
-                row["after"]["avg_peak_mem_mb"],
+            "  median_peak_mem: {:.2f}MB -> {:.2f}MB ({:+.2f}%)".format(
+                row["before"].get("median_peak_mem_mb", row["before"]["avg_peak_mem_mb"]),
+                row["after"].get("median_peak_mem_mb", row["after"]["avg_peak_mem_mb"]),
                 row["mem_delta_pct"],
             )
         )

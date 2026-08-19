@@ -91,6 +91,37 @@ def test_performance_regression_check_cli_runs(tmp_path):
     assert "hit_threshold" in payload["after"]
 
 
+def test_performance_compare_uses_median_and_ignores_sub_megabyte_noise(monkeypatch):
+    monkeypatch.syspath_prepend(str(PROJECT_ROOT / "scripts"))
+    from scripts.performance_regression_check import compare
+
+    before = {
+        "target": {
+            "avg_time_sec": 1.0,
+            "max_time_sec": 1.0,
+            "avg_peak_mem_mb": 0.08,
+            "max_peak_mem_mb": 0.08,
+            "median_time_sec": 1.0,
+            "median_peak_mem_mb": 0.08,
+        }
+    }
+    after = {
+        "target": {
+            "avg_time_sec": 1.2,
+            "max_time_sec": 1.2,
+            "avg_peak_mem_mb": 0.12,
+            "max_peak_mem_mb": 0.12,
+            "median_time_sec": 0.99,
+            "median_peak_mem_mb": 0.12,
+        }
+    }
+
+    report = compare(before, after, time_threshold_pct=10.0, mem_threshold_pct=15.0)
+
+    assert report["regressions"] == []
+    assert report["rows"][0]["time_delta_pct"] == pytest.approx(-1.0)
+
+
 def test_release_artifact_sync_key_tests_run_full_pytest(monkeypatch):
     from scripts import release_artifact_sync
 
@@ -122,3 +153,20 @@ def test_release_artifact_sync_key_tests_run_full_pytest(monkeypatch):
             "tests/",
         ],
     ]
+
+
+def test_release_artifact_sync_keeps_legacy_reference_pages_allowed(tmp_path):
+    from scripts import release_artifact_sync
+
+    expected = tmp_path / "expected"
+    actual = tmp_path / "actual"
+    expected.mkdir()
+    actual.mkdir()
+    (expected / "INDEX.md").write_text("index\n", encoding="utf-8")
+    (actual / "INDEX.md").write_text("index\n", encoding="utf-8")
+    (actual / "s1_s2.md").write_text("legacy compatibility page\n", encoding="utf-8")
+
+    assert release_artifact_sync._compare_docs(expected, actual) == []
+
+    (actual / "unexpected.md").write_text("not allow-listed\n", encoding="utf-8")
+    assert release_artifact_sync._compare_docs(expected, actual) == ["多余文档: unexpected.md"]

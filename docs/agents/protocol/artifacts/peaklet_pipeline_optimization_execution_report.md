@@ -50,12 +50,18 @@
   - `doc_anchors`: PASS（0 errors，1 unrelated warning）
   - `compileall/ruff/black`: PASS
   - `performance_regression_check`: PASS
-  - `doc_sync`: BLOCKED；仓库 shell 包装脚本强制调用系统 Python，当前解释器无法解析 Python 3.10 的 `raise ... from` 语法；同一检查中的 pyroot render 已通过。
+  - `doc_sync`: PASS in strict revalidation；早期系统 Python 过旧记录为历史环境问题。
 - `open_risks`:
   - 旧 2.0.2 的完整 00196 global matching/lexsort 基线在当前环境单次执行即被系统终止，无法取得计划要求的 3 次 baseline median/RSS；因此未宣称完整 wall-clock/RSS 改善比例。
   - 当前完整新链路是只读 memmap 单次诊断；首次触页和输入映射会显著放大 `peaklet_channels` 冷路径耗时（约 27.85 s），与 warm prepared benchmark（约 7.7 s）不是同一口径。
   - 自动 worker 上限 64 已由 2M/40-chunk 真实切片验证；全量 00196 的 1,011 个 chunk 未做三次重复 worker 矩阵。
   - 工作区仍有既有 site-doc-generator 等无关 dirty 改动，本任务不纳入也不清理。
+
+## Strict revalidation (2026-08-19)
+
+- 旧版 2.0.2 与当前优化版使用同一只读 00196 direct records/wave_pool 输入各运行 3 次；旧版中位数 `133.08960648602806 s`，优化版中位数 `9.016401179833338 s`，输出 hash 均为 `fea1d5107bd2cb98b1292c1fb4d312197096dfe12354b7e541805d0e960b8b38`，优化版约快 `93.23%`。
+- 预触页峰值增量从旧版 `3.6244850158691406 GiB` 降至 `3.4094505310058594 GiB`；完整原始峰值 RSS 中位数从约 `25.3449 GiB` 降至 `25.1285 GiB`。
+- 当前 Python 3.10+ 环境下 doc sync、anchors、impact、schema smoke、compileall、wheel 安装态生成及完整 `release_artifact_sync --perf-repeats 10` 均 PASS。
 - `requested_review_focus`:
   - 检查 bounded collector 是否保持 chunk/record 顺序、空 chunk 行为和 `THRESHOLD_HIT_DTYPE`。
   - 检查 native board/channel dtype 与 dense float32 view 是否只作用于安全 fast path，异常/重排/冲突是否仍严格 fallback。
