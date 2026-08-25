@@ -367,7 +367,7 @@ def main():
     parser.add_argument(
         "--dashboard-2d-hist",
         action="store_true",
-        help="生成交互式仪表板（原始布局 + 2D histogram，带S1/S2滑动条回调）",
+        help="已弃用：等价于 --dashboard-2d",
     )
     parser.add_argument(
         "--detector-radius",
@@ -450,9 +450,11 @@ def main():
 
             traceback.print_exc()
 
-    # 可选：生成 2D 密度仪表板
-    if args.dashboard_2d:
-        print("[*] 生成 2D 密度热力图仪表板（推荐）...")
+    # 可选：生成 canonical 2D dashboard；旧 hist flag 只作为兼容 alias。
+    if args.dashboard_2d or args.dashboard_2d_hist:
+        if args.dashboard_2d_hist and not args.dashboard_2d:
+            print("[!] --dashboard-2d-hist 已弃用，请改用 --dashboard-2d")
+        print("[*] 生成增强版 2D 密度仪表板（推荐）...")
         try:
             from waveform_analysis.visualization import render_position_dashboard_2d
 
@@ -475,35 +477,6 @@ def main():
             print("[!] 请确保 waveform_analysis.visualization 模块已安装")
         except Exception as e:
             print(f"[!] 生成 2D 仪表板时出错: {e}")
-            import traceback
-
-            traceback.print_exc()
-
-    # 可选：生成 2D histogram 仪表板（原始布局）
-    if args.dashboard_2d_hist:
-        print("[*] 生成交互式仪表板（原始布局 + 2D histogram）...")
-        try:
-            from waveform_analysis.visualization import render_position_dashboard_with_2d_hist
-
-            # 加载 PMT 布局
-            layout = load_pmt_layout_from_config(ctx.config)
-            if layout is None:
-                layout = load_fallback_layout()
-
-            # 生成仪表板
-            render_position_dashboard_with_2d_hist(
-                df=df,
-                layout=layout,
-                run_id=args.run_id,
-                output_dir=str(output_dir),
-                detector_radius_mm=args.detector_radius,
-            )
-
-        except ImportError as e:
-            print(f"[!] 无法导入可视化模块: {e}")
-            print("[!] 请确保 waveform_analysis.visualization 模块已安装")
-        except Exception as e:
-            print(f"[!] 生成 2D histogram 仪表板时出错: {e}")
             import traceback
 
             traceback.print_exc()

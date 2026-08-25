@@ -1,24 +1,116 @@
-"""交互式仪表板 - 2D histogram 版本
+"""Shared enhanced 2D dashboard renderer and compatibility wrapper.
 
-保持原始布局，将 6 个 1D 直方图改为 2D histogram：
+The implementation keeps the original expanded layout and provides:
 1. XY 投影 + XZ 剖面（保留散点图）
 2. 第一行 3 个 2D histogram: XY, XZ, YZ
 3. 第二行 3 个 2D histogram: S1-S2, R²-Z, R-cos(theta)
 4. 第三/四行特征 pair histogram: S1/S2 width-rise_time 相关性矩阵
 5. 3D 散点图
 6. S1/S2 selection bar（滑动条）+ 框选回调
+
+The supported public entry point lives in :mod:`dashboard_2d`; the legacy
+``render_position_dashboard_with_2d_hist`` name is retained below only as a
+deprecation wrapper.
 """
 
 import json
 from pathlib import Path
+import warnings
 
 import numpy as np
 import pandas as pd
 
 from waveform_analysis.core.hardware.geometry import PmtLayout
 
+_REQUIRED_COLUMNS = ("x_rec", "y_rec", "z_rec", "s1_area", "s2_area", "s2_peak_id")
+_NUMERIC_REQUIRED_COLUMNS = ("x_rec", "y_rec", "z_rec", "s1_area", "s2_area")
+_OPTIONAL_NUMERIC_COLUMNS = (
+    "width",
+    "rise_time_10_50",
+    "s1_width",
+    "s2_width",
+    "s1_peak_width",
+    "s2_peak_width",
+    "s1_rise_time_10_50",
+    "s2_rise_time_10_50",
+    "drift_time_ns",
+)
 
-def render_position_dashboard_with_2d_hist(
+
+def _numeric_column(series: pd.Series, column: str, *, strict: bool) -> pd.Series:
+    """Convert a dashboard column to float while keeping nulls as nulls."""
+    converted = pd.to_numeric(series, errors="coerce")
+    if strict:
+        invalid = series.notna().to_numpy(dtype=bool) & converted.isna().to_numpy(dtype=bool)
+        if invalid.any():
+            raise ValueError(f"Dashboard column {column!r} contains non-numeric values.")
+    return converted.astype(float)
+
+
+def _finite_range(series: pd.Series, column: str) -> tuple[float, float]:
+    values = series.to_numpy(dtype=float)
+    values = values[np.isfinite(values)]
+    if values.size == 0:
+        raise ValueError(f"Dashboard column {column!r} has no finite values.")
+    lo = float(values.min())
+    hi = float(values.max())
+    if lo == hi:
+        delta = max(abs(lo) * 0.01, 1.0)
+        lo -= delta
+        hi += delta
+    return lo, hi
+
+
+def _positive_range(series: pd.Series, column: str) -> tuple[float, float]:
+    values = series.to_numpy(dtype=float)
+    values = values[np.isfinite(values) & (values > 0)]
+    if values.size == 0:
+        raise ValueError(f"Dashboard column {column!r} has no positive finite values.")
+    lo = float(values.min())
+    hi = float(values.max())
+    if lo == hi:
+        hi = lo * 1.01 if lo else 1.0
+    return lo, hi
+
+
+def _prepare_dashboard_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate and derive the JSON-safe frame shared by both public APIs."""
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Dashboard input must be a pandas DataFrame.")
+    if df.empty:
+        raise ValueError("DataFrame 为空，无法生成仪表板")
+
+    missing_cols = [col for col in _REQUIRED_COLUMNS if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"DataFrame 缺少必需字段: {missing_cols}")
+
+    frame = df.loc[:, list(_REQUIRED_COLUMNS)].copy()
+    for column in _NUMERIC_REQUIRED_COLUMNS:
+        frame[column] = _numeric_column(df[column], column, strict=True)
+        if not np.isfinite(frame[column].to_numpy(dtype=float)).any():
+            raise ValueError(f"Dashboard column {column!r} has no finite values.")
+
+    for column in _OPTIONAL_NUMERIC_COLUMNS:
+        if column in df.columns:
+            frame[column] = _numeric_column(df[column], column, strict=False)
+        elif column == "drift_time_ns":
+            frame[column] = 0.0
+        else:
+            frame[column] = np.nan
+
+    frame.replace([np.inf, -np.inf], np.nan, inplace=True)
+    frame["r2_rec"] = frame["x_rec"] ** 2 + frame["y_rec"] ** 2
+    frame["r_rec"] = np.sqrt(frame["r2_rec"])
+    frame["theta_rec"] = np.arctan2(frame["y_rec"], frame["x_rec"])
+    frame["cos_theta_rec"] = np.cos(frame["theta_rec"])
+    frame["log10_s1"] = np.log10(frame["s1_area"].where(frame["s1_area"] > 0))
+    frame["log10_s2"] = np.log10(frame["s2_area"].where(frame["s2_area"] > 0))
+    frame.replace([np.inf, -np.inf], np.nan, inplace=True)
+    frame["_row_id"] = np.arange(len(frame), dtype=np.int64)
+    return frame
+
+
+def _render_position_dashboard_2d_impl(
     df: pd.DataFrame,
     layout: PmtLayout,
     run_id: str = "unknown",
@@ -26,7 +118,7 @@ def render_position_dashboard_with_2d_hist(
     detector_radius_mm: float = 62.5,
     return_html: bool = False,
 ) -> str | None:
-    """生成交互式仪表板（原始布局 + 2D histogram）
+    """Generate the enhanced 2D dashboard from a validated data frame.
 
     布局：
     - 上层：XY 散点图 + XZ 散点图
@@ -47,57 +139,16 @@ def render_position_dashboard_with_2d_hist(
     Returns:
         输出文件路径或 HTML 字符串
     """
-    # 数据验证
-    required_cols = ["x_rec", "y_rec", "z_rec", "s1_area", "s2_area", "s2_peak_id"]
-    missing_cols = [col for col in required_cols if col not in df.columns]
-    if missing_cols:
-        raise ValueError(f"DataFrame 缺少必需字段: {missing_cols}")
+    if not np.isfinite(detector_radius_mm) or detector_radius_mm <= 0:
+        raise ValueError("detector_radius_mm must be a positive finite number.")
 
-    if len(df) == 0:
-        raise ValueError("DataFrame 为空，无法生成仪表板")
+    df_clean = _prepare_dashboard_frame(df)
+    records = df_clean.astype(object).where(pd.notna(df_clean), None).to_dict(orient="records")
+    json_data = json.dumps(records, allow_nan=False)
 
-    # 准备数据
-    df_clean = df[required_cols].copy()
-    optional_feature_cols = [
-        "width",
-        "rise_time_10_50",
-        "s1_width",
-        "s2_width",
-        "s1_peak_width",
-        "s2_peak_width",
-        "s1_rise_time_10_50",
-        "s2_rise_time_10_50",
-    ]
-    for col in optional_feature_cols:
-        if col in df.columns:
-            df_clean[col] = df[col]
-        else:
-            df_clean[col] = None
-
-    # 添加 drift_time_ns（如果存在）
-    if "drift_time_ns" in df.columns:
-        df_clean["drift_time_ns"] = df["drift_time_ns"]
-    else:
-        df_clean["drift_time_ns"] = 0.0
-
-    # 预计算特征
-    df_clean["r2_rec"] = df_clean["x_rec"] ** 2 + df_clean["y_rec"] ** 2
-    df_clean["r_rec"] = np.sqrt(df_clean["r2_rec"])
-    df_clean["theta_rec"] = np.arctan2(df_clean["y_rec"], df_clean["x_rec"])
-    df_clean["cos_theta_rec"] = np.cos(df_clean["theta_rec"])
-    df_clean["log10_s1"] = np.log10(df_clean["s1_area"].clip(lower=1.0))
-    df_clean["log10_s2"] = np.log10(df_clean["s2_area"].clip(lower=1.0))
-
-    # 序列化数据为 JSON
-    json_data = json.dumps(df_clean.where(pd.notna(df_clean), None).to_dict(orient="records"))
-
-    # 计算数据范围
-    z_min = float(df_clean["z_rec"].min())
-    z_max = float(df_clean["z_rec"].max())
-    s1_min_raw = float(max(df_clean["s1_area"].min(), 1.0))
-    s1_max_raw = float(df_clean["s1_area"].max())
-    s2_min_raw = float(max(df_clean["s2_area"].min(), 1.0))
-    s2_max_raw = float(df_clean["s2_area"].max())
+    z_min, z_max = _finite_range(df_clean["z_rec"], "z_rec")
+    s1_min_raw, s1_max_raw = _positive_range(df_clean["s1_area"], "s1_area")
+    s2_min_raw, s2_max_raw = _positive_range(df_clean["s2_area"], "s2_area")
 
     # 序列化 PMT 布局
     pmt_list = []
@@ -111,7 +162,7 @@ def render_position_dashboard_with_2d_hist(
                 "gain": entry.gain,
             }
         )
-    pmt_config_json = json.dumps(pmt_list)
+    pmt_config_json = json.dumps(pmt_list, allow_nan=False)
 
     # 生成 HTML
     html_content = _generate_dashboard_html(
@@ -133,7 +184,7 @@ def render_position_dashboard_with_2d_hist(
     # 保存为独立 HTML 文件
     output_dir_path = Path(output_dir)
     output_dir_path.mkdir(parents=True, exist_ok=True)
-    output_file = output_dir_path / f"run_{run_id}_dashboard_2d_hist.html"
+    output_file = output_dir_path / f"run_{run_id}_position_dashboard_2d.html"
 
     with open(output_file, "w", encoding="utf-8") as f:
         f.write(html_content)
@@ -1131,3 +1182,28 @@ def _generate_dashboard_html(
 </html>"""
 
     return html_template
+
+
+def render_position_dashboard_with_2d_hist(
+    df: pd.DataFrame,
+    layout: PmtLayout,
+    run_id: str = "unknown",
+    output_dir: str = "output",
+    detector_radius_mm: float = 62.5,
+    return_html: bool = False,
+) -> str | None:
+    """Deprecated compatibility wrapper for the canonical 2D dashboard."""
+    warnings.warn(
+        "render_position_dashboard_with_2d_hist is deprecated; use "
+        "render_position_dashboard_2d instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _render_position_dashboard_2d_impl(
+        df=df,
+        layout=layout,
+        run_id=run_id,
+        output_dir=output_dir,
+        detector_radius_mm=detector_radius_mm,
+        return_html=return_html,
+    )
