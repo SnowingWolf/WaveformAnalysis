@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "agent"
 provides: "hit_merged_features"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.hit_merged_features.plugin"
 version: "1.1.3"
 summary: "Compute per-hit_merged local waveform features from records-backed samples."
 depends_on: []
+declared_depends_on: []
+resolved_depends_on: ["hit_merged", "hit_merged_components", "hit_threshold", "records", "wave_pool"]
+dependency_profile: "documentation-default-v1"
+dependency_profile_values: {"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}
+dependency_config_keys: ["clip_negative_signal", "use_filtered", "wave_source"]
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "6e1f87b9584a394c14e56aa54949186af8dfc484f9f20c3a1341a7120ccb4ea3"
 generated: true
 ---
 # hit_merged_features
@@ -25,11 +34,27 @@ Compute per-hit_merged local waveform features from records-backed samples.
 | Module | `waveform_analysis.core.plugins.builtin.hit_merged_features.plugin` |
 | Version | `1.1.3` |
 | Category | 特征提取 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | yes |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `6e1f87b9584a394c14e56aa54949186af8dfc484f9f20c3a1341a7120ccb4ea3` |
+
+### Dependencies
+
+默认文档画像：`documentation-default-v1`（{"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}）。
+该插件通过 `resolve_depends_on(context, run_id)` 动态解析依赖；可能影响解析的配置键：`clip_negative_signal`, `use_filtered`, `wave_source`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | No declared inputs. |
+| `hit_merged` | - | dynamic-default | - | Merge nearby threshold hits per channel with time-gap and max-width constraints. |
+| `hit_merged_components` | - | dynamic-default | - | Return per-cluster component hit indices for hit_merged rows. |
+| `hit_threshold` | - | dynamic-default | - | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. |
+| `records` | - | dynamic-default | - | Build records (event index table) from the shared internal records bundle. |
+| `wave_pool` | - | dynamic-default | - | Build wave_pool from the shared internal records bundle. |
 ### How It Works
 
 1. 读取 hit_merged、component 映射、threshold hits、records 与所选波形池。
@@ -78,12 +103,14 @@ structured_array output with fields: merged_index, board, channel, record_id, ti
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.hit_merged_features import HitMergedFeaturesPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(HitMergedFeaturesPlugin())
-data = ctx.get_data("run_001", "hit_merged_features")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "hit_merged_features")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
 
 ## Operational Notes
 
@@ -98,8 +125,7 @@ data = ctx.get_data("run_001", "hit_merged_features")
 - 同一硬件通道同一绝对时间的位级不同采样会抛出 WaveformOverlapConflictError。
 ### Downstream Impact
 
-Consumers: `peaklet_channels`
-- peaklet_channels、peaklets 与后续峰特征消费本插件的 area、height 和时间字段。
+直接消费者：`peaklet_channels`- peaklet_channels、peaklets 与后续峰特征消费本插件的 area、height 和时间字段。
 - 版本 1.1.0 更换 fallback 执行路径，缓存会因 lineage 自动重建。
 
 ## Maintenance

@@ -207,7 +207,8 @@ Mermaid bundle 与 MIT 许可证随站点一起发布。
 `Standalone Tools`。
 
 动态依赖使用独立的文档 profile 解析：共享值为 `wave_source=records`、`use_filtered=false`、
-`daq_adapter=vx2730`，`hit_threshold.asymmetry_cut_enabled=true` 为插件专属值。优先级依次为插件
+文档默认画像为 `documentation-default-v1`：共享值是 `wave_source=records`、`use_filtered=false`、
+`daq_adapter=vx2730`，另为 `hit_threshold` 设置 `asymmetry_cut_enabled=true`。优先级依次为插件
 专属值、共享 profile、`Option.default`，因此 `hit_threshold` 在静态文档图中精确依赖 `records`、
 `wave_pool`、`records_asymmetry_mask`。解析只调用 `resolve_depends_on()`，不读取 run data、缓存或
 执行插件 compute。每个插件页仍包含直接上游和下游的局部 SVG 图，并可跳转到首页
@@ -222,16 +223,17 @@ fetch。图中 `Docs` 表示可用文档字段的加权完整度，`Impact` 表�
 # 基本检查
 waveform-docs check coverage
 
-# 严格模式（检查 spec 质量）
+# 严格模式（检查 spec、生成内容、源码 fingerprint 与 Auto/Agent 漂移）
 waveform-docs check coverage --strict
 
 # 有警告时失败（退出码 2）
 waveform-docs check coverage --fail-on-warning
 ```
 
-覆盖率以插件文档 frontmatter 的真实 `provides` 为准，而不是以文件名猜测身份。检查会报告缺失、
-版本过期、多余页面、frontmatter `provides` 与文件名不一致，以及重复声明；这些契约错误都会使
-命令返回 `1`。
+覆盖率以插件文档 frontmatter 的真实 `provides` 为准，而不是以文件名猜测身份。普通检查会报告缺失、
+版本过期、多余页面、frontmatter `provides` 与文件名不一致，以及重复声明；严格检查还会比较当前
+代码事实与两套生成页面，拒绝动态依赖解析漂移、空的工作流/行为/失败模式/示例、无来源 fingerprint、
+失效的 published AgentDoc 和占位说明。生成器在提取失败或插件实例化失败时会直接报错，不再静默跳过。
 
 ---
 
@@ -240,18 +242,21 @@ waveform-docs check coverage --fail-on-warning
 ### 插件文档
 
 每个插件生成一个 Markdown 文件，包含：
-- 基本信息（类名、版本、provides、依赖）
-- 描述
-- 输出 schema（dtype 字段）
-- 配置选项表
-- 使用示例
+- 基本信息（类名、版本、provides、声明依赖与默认画像下的解析依赖）
+- 输出容器、执行模式、保存策略、`run_id`/运行配置契约
+- 配置选项表（默认值、单位、范围/choices、弃用信息）
+- 输出 schema（dtype 字段、单位和字段含义）
+- 源码/AgentDoc 叙述来源与 `source_fingerprint`
+- 基于当前插件 profile 的可运行使用示例、工作流和失败模式
 
 生成的文件位于 `docs/plugins/reference/builtin/auto/` 目录：
 - `raw_files.md`
-- `waveforms.md`
 - `st_waveforms.md`
-- `filtered_waveforms.md`
-- `signal_peaks.md`
+- `records.md`
+- `hit_threshold.md`
+- `peaklets.md`
+- `peaks.md`
+- `events.md`
 - `INDEX.md`（索引页）
 - ...
 

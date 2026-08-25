@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "records_detector_mask"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.records_detector_mask.plugin"
 version: "0.1.0"
 summary: "Bool mask for detector-channel records after channel-role splitting."
 depends_on: ["records", "records_asymmetry_mask"]
+declared_depends_on: ["records", "records_asymmetry_mask"]
+resolved_depends_on: ["records", "records_asymmetry_mask"]
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "488f69c243caafa119701f392beab66142cc9074440189557fcd779381510df8"
 generated: true
 ---
 # records_detector_mask
@@ -25,7 +34,18 @@ Bool mask for records that should enter normal detector hit finding.
 | Module | `waveform_analysis.core.plugins.builtin.records_detector_mask.plugin` |
 | Version | `0.1.0` |
 | Category | 记录处理 |
-| Output Kind | `array` |
+| Output Container | `array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `488f69c243caafa119701f392beab66142cc9074440189557fcd779381510df8` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
@@ -33,6 +53,7 @@ Bool mask for records that should enter normal detector hit finding.
 | `records_asymmetry_mask` | - | declared | - | Bool mask for waveform asymmetry selection. |
 ### How It Works
 
+1. Bool mask for records that should enter normal detector hit finding.
 
 ## Configuration
 
@@ -52,12 +73,15 @@ array output with fields: value.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.records_detector_mask import RecordsDetectorMaskPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(RecordsDetectorMaskPlugin())
-data = ctx.get_data("run_001", "records_detector_mask")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "records_detector_mask")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
-- Terminal output; no direct builtin consumer is declared.
+- 没有声明直接的内置消费者。

@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "df_events"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.df_events.plugin"
 version: "0.0.1"
 summary: "Group events across channels within a configurable time window."
 depends_on: ["df"]
+declared_depends_on: ["df"]
+resolved_depends_on: ["df"]
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "dataframe"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "d9db055c97dabb001dfa2e61ea513d922597fedeb20a34dc55d7b38aaaec1cff"
 generated: true
 ---
 # df_events
@@ -25,7 +34,18 @@ Plugin to group events by time window.
 | Module | `waveform_analysis.core.plugins.builtin.df_events.plugin` |
 | Version | `0.0.1` |
 | Category | 事件分析 |
-| Output Kind | `dataframe` |
+| Output Container | `dataframe` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `d9db055c97dabb001dfa2e61ea513d922597fedeb20a34dc55d7b38aaaec1cff` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
@@ -53,12 +73,15 @@ Grouped multi-channel event table.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.df_events import GroupedEventsPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(GroupedEventsPlugin())
-data = ctx.get_data("run_001", "df_events")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "df_events")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
 - `df_paired`

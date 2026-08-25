@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "agent"
 provides: "hit_merged"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.hit_merged.plugin"
 version: "2.1.0"
 summary: "Merge nearby threshold hits per channel with time-gap and max-width constraints."
 depends_on: ["hit_threshold"]
+declared_depends_on: ["hit_threshold"]
+resolved_depends_on: ["hit_threshold"]
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "published"
+narrative_source_reason: null
+source_fingerprint: "22ed871847fb6de92e3657287d9e7436adbe23d4f1cc5fa3010cabc54dc41678"
 generated: true
 ---
 # hit_merged
@@ -31,19 +40,30 @@ HitMergePlugin 是波形分析中最核心的后处理插件之一，负责将 h
 | Module | `waveform_analysis.core.plugins.builtin.hit_merged.plugin` |
 | Version | `2.1.0` |
 | Category | 特征提取 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `published` |
+| Source Fingerprint | `22ed871847fb6de92e3657287d9e7436adbe23d4f1cc5fa3010cabc54dc41678` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
 | `hit_threshold` | - | declared | - | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. |
 ### How It Works
 
-1. **识别可合并片段**：`hit_threshold` 中的每一行都是一个过阈信号片段，插件判断哪些相邻片段应视为同一次通道响应。
-2. **保持通道与采样刻度一致**：只合并同一 `(board, channel)` 的片段；采样间隔不同的片段始终分开，避免把不同时间刻度的信号混在一起。
-3. **按时间连接相邻片段**：两个片段之间的空档不超过 `merge_gap_ns` 时，可以接入同一个合并窗口。将 `merge_gap_ns` 设为 `<= 0` 会关闭合并。
-4. **限制链式合并的总时长**：即使每一对相邻片段都很接近，只要合并后的完整窗口超过 `max_total_width_ns`，后续片段仍会从新的 `hit_merged` 开始。
-5. **选择代表 hit**：一个合并窗口包含多个片段时，选取最接近窗口时间中心的原始 hit，继承它的 position、timestamp、channel 和 record_id。
-6. **记录窗口与成员关系**：输出保存合并后的时间范围及成员索引；若成员跨越多个 record，则没有唯一的 sample 窗口，`sample_start`、`sample_end` 和 `width` 会标记为无效值。
+1. 识别可合并的片段：`hit_threshold` 中的每一行都是一个过阈信号片段；插件判断哪些相邻片段应视为同一次通道响应。
+2. 保持通道与采样刻度一致：只合并同一 `(board, channel)` 的片段；采样间隔不同的片段始终分开，避免把不同时间刻度的信号混在一起。
+3. 按时间连接相邻片段：两个片段之间的空档不超过 `merge_gap_ns` 时，可以接入同一个合并窗口。将 `merge_gap_ns` 设为 `<= 0` 会关闭合并。
+4. 限制链式合并的总时长：即使每一对相邻片段都很接近，只要合并后的完整窗口超过 `max_total_width_ns`，后续片段仍会从新的 `hit_merged` 开始。
+5. 选择代表 hit：一个合并窗口包含多个片段时，选取最接近窗口时间中心的原始 hit，继承它的 position、timestamp、channel 和 record_id。
+6. 记录窗口与成员关系：输出保存合并后的时间范围及成员索引；若成员跨越多个 record，则没有唯一的 sample 窗口，`sample_start`、`sample_end` 和 `width` 会标记为无效值。
 
 ## Configuration
 
@@ -79,12 +99,14 @@ structured_array output with fields: merged_id, position, time_start, time_end, 
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.hit_merged import HitMergePlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(HitMergePlugin())
-data = ctx.get_data("run_001", "hit_merged")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "hit_merged")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
 
 ## Operational Notes
 
@@ -103,8 +125,7 @@ data = ctx.get_data("run_001", "hit_merged")
 - Cluster rows reference hit indices that are outside the materialized `hit_threshold` array.
 ### Downstream Impact
 
-Consumers: `hit_grouped`, `hit_merge_clusters`, `hit_merged_components`, `hit_merged_features`, `peaklet_channels`, `peaklet_components`, `peaklets`
-- Field semantics and row ordering changes propagate to component expansion, waveform feature extraction, cross-channel grouping, and peaklet membership.
+直接消费者：`hit_grouped`、`hit_merge_clusters`、`hit_merged_components`、`hit_merged_features`、`peaklet_channels`、`peaklet_components`、`peaklet_waveforms`、`peaklets`- Field semantics and row ordering changes propagate to component expansion, waveform feature extraction, cross-channel grouping, and peaklet membership.
 - Changing `component_offset`/`component_count` requires matching updates to `hit_merge_clusters` ordering and all component consumer tests.
 - Changing anchor-field semantics affects downstream `position`, `timestamp`, `record_id`, and channel aggregation behavior.
 

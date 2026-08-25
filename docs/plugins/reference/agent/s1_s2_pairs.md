@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "agent"
 provides: "s1_s2_pairs"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.s1_s2_pairs.plugin"
 version: "0.2.0"
 summary: "Select best S1-S2 pairs from candidates"
 depends_on: ["s1_s2_pair_candidates"]
+declared_depends_on: ["s1_s2_pair_candidates"]
+resolved_depends_on: ["s1_s2_pair_candidates"]
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "c0d8c444d1d3c15e9c74f53cf7f368da414f6a77d62a307e98d813f6ce2aca22"
 generated: true
 ---
 # s1_s2_pairs
@@ -18,6 +27,12 @@ generated: true
 Select best S1-S2 pairs from candidates
 S1-S2 配对选择插件
 
+对候选进行打分并选择最佳配对。为每个 S2 选择最优的 S1。
+
+选择模式: - largest: 选择面积最大的 S1 (v0.1 实现) - nearest: 选择时间最近的 S1 (预留) - best_score: 综合打分 (预留) - all: 不做选择,保留所有候选 (预留)
+
+输出: - 修改 candidates 的 selected flag - 填充 score 字段 - 计算 delta_score_to_next_best - 计算 rank_for_s2
+
 | Item | Value |
 | --- | --- |
 | Provides | `s1_s2_pairs` |
@@ -25,7 +40,18 @@ S1-S2 配对选择插件
 | Module | `waveform_analysis.core.plugins.builtin.s1_s2_pairs.plugin` |
 | Version | `0.2.0` |
 | Category | 事件分析 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `c0d8c444d1d3c15e9c74f53cf7f368da414f6a77d62a307e98d813f6ce2aca22` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
@@ -39,8 +65,8 @@ S1-S2 配对选择插件
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
 | --- | --- | --- | --- | --- | --- | --- |
-| `selection_mode` | `str` | `largest` | - | yes | no | 选择策略: largest (最大S1), nearest (最近), best_score (综合), all (全部) |
-| `close_competitor_threshold` | `float` | `0.1` | - | yes | no | 次优候选接近阈值。delta_score < threshold 时标记 FLAG_CLOSE_COMPETITOR |
+| `selection_mode` | `str` | `largest` | - | yes | no | 选择策略: largest (最大S1), nearest (最近), best_score (综合), all (全部)；可选值：`largest`, `nearest`, `best_score`, `all` |
+| `close_competitor_threshold` | `float` | `0.1` | - | yes | no | 次优候选接近阈值。delta_score < threshold 时标记 FLAG_CLOSE_COMPETITOR；范围：0.0 至 +∞ |
 | `require_s2_larger_than_s1` | `bool` | `True` | - | yes | no | 是否要求 S2_area > S1_area。这是液氙探测器的物理约束。 |
 ## Output
 
@@ -84,33 +110,35 @@ structured_array output with fields: pair_id, s1_peak_id, s2_peak_id, s1_index, 
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.s1_s2_pairs import S1S2PairSelectionPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(S1S2PairSelectionPlugin())
-data = ctx.get_data("run_001", "s1_s2_pairs")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "s1_s2_pairs")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
 
 ## Operational Notes
 
 ### Behavior
 
-- 选择最佳配对
-- 算法: 1. 获取候选 2. 过滤不满足物理约束的候选 (S1_area < S2_area) 3. 计算 score (根据 selection_mode) 4. 为每个 S2 选择最优 S1 5. 设置 selected flag 6. 计算 delta_score_to_next_best 7. 计算 rank_for_s2 8. 标记 CLOSE_COMPETITOR
+- S1-S2 配对选择插件
+- 此插件对候选进行打分并选择最佳配对。 第一版实现 largest 模式,其他模式预留接口。
 ### Failure Modes
 
-- Dependency data, configuration, or output contract validation may fail explicitly.
+- 任一声明依赖（`s1_s2_pair_candidates`）缺失或字段不符合输入契约时，执行会失败。
+- 配置校验或输出 schema 校验失败时，结果不会被视为有效插件产物。
 ### Downstream Impact
 
-Consumers: `energy_reconstruction`, `events`, `position_reconstruction`
-
+直接消费者：`energy_reconstruction`、`events`、`position_reconstruction`
 ## Maintenance
 
 ### Change Playbook
 
-1. Keep `provides` and dependency semantics stable or update all consumers.
-2. Bump `version` for behavior, configuration, or output contract changes.
-3. Regenerate auto, agent, and web references after metadata changes.
+1. 保持 `provides`、依赖和输出字段语义稳定，或同步所有下游消费者。
+2. 行为、配置或输出契约改变时升级插件 `version`。
+3. 修改插件源码后重新生成 Auto、Agent 和 HTML 参考。
 ### Validation
 
 ```bash

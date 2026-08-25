@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "peaklets"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.peaklets.plugin"
 version: "1.2.0"
 summary: "Build lightweight cross-channel peaklets from hit_merged intervals."
 depends_on: ["hit_merged", "peaklet_components"]
+declared_depends_on: ["hit_merged", "peaklet_components"]
+resolved_depends_on: ["hit_merged", "peaklet_components"]
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "a7ea09e603ca1b276ed0715450de1e628e51123a836e7b41d22fa6213f003ca9"
 generated: true
 ---
 # peaklets
@@ -29,7 +38,18 @@ PeakletPlugin 负责在 hit_merged 与 peaklet_components 之上构建轻量级�
 | Module | `waveform_analysis.core.plugins.builtin.peaklets.plugin` |
 | Version | `1.2.0` |
 | Category | 峰构建 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `a7ea09e603ca1b276ed0715450de1e628e51123a836e7b41d22fa6213f003ca9` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
@@ -70,12 +90,15 @@ structured_array output with fields: time_start, time_end, center_time, n_hits, 
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.peaklets import PeakletPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(PeakletPlugin())
-data = ctx.get_data("run_001", "peaklets")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "peaklets")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
 - `peaklet_channels`

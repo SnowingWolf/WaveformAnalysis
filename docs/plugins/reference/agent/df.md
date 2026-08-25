@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "agent"
 provides: "df"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.df.plugin"
 version: "1.7.0"
 summary: "Build the initial single-channel events DataFrame."
 depends_on: []
+declared_depends_on: []
+resolved_depends_on: ["records", "basic_features"]
+dependency_profile: "documentation-default-v1"
+dependency_profile_values: {"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}
+dependency_config_keys: ["use_filtered", "wave_source"]
 output_kind: "dataframe"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "04fa2ea58f5a365441622f84bd12bbcfe8288ffe73fb37e5bdc2c242dc1c7407"
 generated: true
 ---
 # df
@@ -25,11 +34,24 @@ Plugin to build the initial single-channel events DataFrame.
 | Module | `waveform_analysis.core.plugins.builtin.df.plugin` |
 | Version | `1.7.0` |
 | Category | 数据导出 |
-| Output Kind | `dataframe` |
+| Output Container | `dataframe` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | yes |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `04fa2ea58f5a365441622f84bd12bbcfe8288ffe73fb37e5bdc2c242dc1c7407` |
+
+### Dependencies
+
+默认文档画像：`documentation-default-v1`（{"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}）。
+该插件通过 `resolve_depends_on(context, run_id)` 动态解析依赖；可能影响解析的配置键：`use_filtered`, `wave_source`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | No declared inputs. |
+| `records` | - | dynamic-default | - | Build records (event index table) from the shared internal records bundle. |
+| `basic_features` | - | dynamic-default | - | Compute basic height, amplitude, area, and max-abs-diff features from waveform data. |
 ### How It Works
 
 1. 构建单通道事件的 DataFrame
@@ -55,33 +77,35 @@ Single-channel event table.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.df import DataFramePlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(DataFramePlugin())
-data = ctx.get_data("run_001", "df")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "df")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
 
 ## Operational Notes
 
 ### Behavior
 
-- 构建单通道事件的 DataFrame
-- 整合结构化波形与 height/area 特征，构建包含所有事件信息的 pandas DataFrame。
+- DataFrame Plugin - DataFrame 构建插件
+- **加速器**: CPU (NumPy/Pandas) **功能**: 构建单通道事件的 DataFrame
 ### Failure Modes
 
-- Dependency data, configuration, or output contract validation may fail explicitly.
+- `df` 的实际输入由 `resolve_depends_on(context, run_id)` 决定；默认画像之外的配置需要重新确认依赖是否可用。
+- 动态依赖无法解析、所需配置不合法或上游产物缺失时，插件不会生成有效输出。
 ### Downstream Impact
 
-Consumers: `df_events`
-
+直接消费者：`df_events`
 ## Maintenance
 
 ### Change Playbook
 
-1. Keep `provides` and dependency semantics stable or update all consumers.
-2. Bump `version` for behavior, configuration, or output contract changes.
-3. Regenerate auto, agent, and web references after metadata changes.
+1. 保持 `provides`、依赖和输出字段语义稳定，或同步所有下游消费者。
+2. 行为、配置或输出契约改变时升级插件 `version`。
+3. 修改插件源码后重新生成 Auto、Agent 和 HTML 参考。
 ### Validation
 
 ```bash

@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "hit_threshold"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.hit_threshold.plugin"
 version: "1.2.2"
 summary: "Threshold-only hit detector with THRESHOLD_HIT_DTYPE output."
 depends_on: []
+declared_depends_on: []
+resolved_depends_on: ["records", "wave_pool", "records_asymmetry_mask"]
+dependency_profile: "documentation-default-v1"
+dependency_profile_values: {"asymmetry_cut_enabled": true, "daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}
+dependency_config_keys: ["asymmetry_cut_enabled", "channel_role_cut_enabled", "use_filtered", "wave_source"]
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "79ebfcefb52cdf0771c16bdc5c3149f93ce53e1f68b085d62bc4f40059c2833f"
 generated: true
 ---
 # hit_threshold
@@ -16,7 +25,9 @@ generated: true
 ## Overview
 
 Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
-Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
+records 输入路径采用 ragged wave_pool 扫描，避免不等长波形被强制 padding 成二维矩阵。
+
+**重要 - 输出顺序说明:** - 输出的 hits 按 record 输入顺序连接，**不保证**按全局时间戳排序 - 单个 record 内的 hits 按 sample position 有序（时间递增） - 跨 records 时，如果输入 records 的时间戳乱序，hits 也会乱序 - 下游组件（如 PeakChannelAccessor）在拼接跨 records 波形时会按时间排序 - 如果需要时间有序的 hits，应在使用前按 'timestamp' 字段排序
 
 | Item | Value |
 | --- | --- |
@@ -25,13 +36,30 @@ Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
 | Module | `waveform_analysis.core.plugins.builtin.hit_threshold.plugin` |
 | Version | `1.2.2` |
 | Category | 特征提取 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `79ebfcefb52cdf0771c16bdc5c3149f93ce53e1f68b085d62bc4f40059c2833f` |
+
+### Dependencies
+
+默认文档画像：`documentation-default-v1`（{"asymmetry_cut_enabled": true, "daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}）。
+该插件通过 `resolve_depends_on(context, run_id)` 动态解析依赖；可能影响解析的配置键：`asymmetry_cut_enabled`, `channel_role_cut_enabled`, `use_filtered`, `wave_source`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | No declared inputs. |
+| `records` | - | dynamic-default | - | Build records (event index table) from the shared internal records bundle. |
+| `wave_pool` | - | dynamic-default | - | Build wave_pool from the shared internal records bundle. |
+| `records_asymmetry_mask` | - | dynamic-default | - | Bool mask for waveform asymmetry selection. |
 ### How It Works
 
+1. Threshold-only hit detector with THRESHOLD_HIT_DTYPE output.
+2. records 输入路径采用 ragged wave_pool 扫描，避免不等长波形被强制 padding 成二维矩阵。
+3. **重要 - 输出顺序说明:** - 输出的 hits 按 record 输入顺序连接，**不保证**按全局时间戳排序 - 单个 record 内的 hits 按 sample position 有序（时间递增） - 跨 records 时，如果输入 records 的时间戳乱序，hits 也会乱序 - 下游组件（如 PeakChannelAccessor）在拼接跨 records 波形时会按时间排序 - 如果需要时间有序的 hits，应在使用前按 'timestamp' 字段排序
 
 ## Configuration
 
@@ -73,16 +101,21 @@ structured_array output with fields: position, edge_start, edge_end, width, dt, 
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.hit_threshold import ThresholdHitPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(ThresholdHitPlugin())
-data = ctx.get_data("run_001", "hit_threshold")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "hit_threshold")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
 - `hit_grouped`
 - `hit_merge_clusters`
 - `hit_merged`
 - `hit_merged_components`
+- `hit_merged_features`
 - `peaklet_channels`
+- `peaklet_waveforms`

@@ -1,62 +1,69 @@
 # WaveformAnalysis Agent Plugin Reference
 
-> 面向 agent 的插件执行与改动参考。保持与 `builtin/auto` 分离维护。
+> 面向 agent 的执行契约索引。每个页面都保留声明依赖与文档默认画像下的解析依赖，并标出叙述来源与源码 fingerprint。
 
 ## Usage
 
 ```bash
-# 生成全部 agent 插件文档
 waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
+waveform-docs check coverage --strict --fail-on-warning
+```
 
-# 仅生成单个插件文档
-waveform-docs generate plugins-agent --plugin raw_files
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins import profiles
+
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "events")
 ```
 
 ## Summary
 
 - 插件总数：36
 - 类别数：9
+- 默认依赖画像：`documentation-default-v1`（`{"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}`）
 
 ## Plugin Table
 
-| Provides | Plugin | Depends On | Output Kind | Version |
-|----------|--------|------------|-------------|---------|
-| [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | - | `structured_array` | `4.1.0` |
-| [`cache_analysis`](cache_analysis.md) | `CacheAnalysisPlugin` | - | `dict` | `0.1.0` |
-| [`df`](df.md) | `DataFramePlugin` | - | `dataframe` | `1.7.0` |
-| [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `dataframe` | `0.0.1` |
-| [`df_paired`](df_paired.md) | `PairedEventsPlugin` | `df_events` | `dataframe` | `0.0.1` |
-| [`energy_reconstruction`](energy_reconstruction.md) | `EnergyReconstructionPlugin` | `s1_s2_pairs` | `structured_array` | `0.1.0` |
-| [`events`](events.md) | `EventPlugin` | `s1_s2_pairs`, `position_reconstruction` | `structured_array` | `0.0.3` |
-| [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `structured_array` | `3.0.0` |
-| [`hit`](hit.md) | `HitFinderPlugin` | - | `structured_array` | `3.0.0` |
-| [`hit_grouped`](hit_grouped.md) | `HitGroupedPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold` | `dataframe` | `0.5.0` |
-| [`hit_merge_clusters`](hit_merge_clusters.md) | `HitMergeClustersPlugin` | `hit_merged`, `hit_threshold` | `structured_array` | `1.1.0` |
-| [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold` | `structured_array` | `2.1.0` |
-| [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | `hit_merged`, `hit_threshold` | `structured_array` | `1.1.0` |
-| [`hit_merged_features`](hit_merged_features.md) | `HitMergedFeaturesPlugin` | - | `structured_array` | `1.1.3` |
-| [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | - | `structured_array` | `1.2.2` |
-| [`peak_classification`](peak_classification.md) | `PeakClassificationPlugin` | `peaks` | `structured_array` | `1.2.1` |
-| [`peaklet_channels`](peaklet_channels.md) | `PeakletChannelsPlugin` | `peaklets`, `peaklet_components`, `hit_merged`, `hit_merged_components`, `hit_threshold`, `hit_merged_features`, `peaklet_features`, `records`, `wave_pool` | `structured_array` | `2.0.5` |
-| [`peaklet_components`](peaklet_components.md) | `PeakletComponentsPlugin` | `hit_merged` | `structured_array` | `1.4.0` |
-| [`peaklet_features`](peaklet_features.md) | `PeakletFeaturesPlugin` | `peaklet_waveforms`, `peaklet_waveform_pool`, `peaklets` | `structured_array` | `5.0.0` |
-| [`peaklet_waveform_pool`](peaklet_waveform_pool.md) | `PeakletWaveformPoolPlugin` | `peaklet_waveforms` | `array` | `3.0.0` |
-| [`peaklet_waveforms`](peaklet_waveforms.md) | `PeakletWaveformPlugin` | - | `structured_array` | `2.1.0` |
-| [`peaklets`](peaklets.md) | `PeakletPlugin` | `hit_merged`, `peaklet_components` | `structured_array` | `1.2.0` |
-| [`peaks`](peaks.md) | `PeaksPlugin` | `peaklets`, `peaklet_features`, `peaklet_channels` | `structured_array` | `5.0.0` |
-| [`position_reconstruction`](position_reconstruction.md) | `PositionReconstructionPlugin` | `s1_s2_pairs`, `peaklet_channels` | `structured_array` | `0.3.0` |
-| [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | `list` | `0.0.2` |
-| [`records`](records.md) | `RecordsPlugin` | - | `structured_array` | `0.14.2` |
-| [`records_asymmetry_mask`](records_asymmetry_mask.md) | `RecordsAsymmetryMaskPlugin` | `records`, `wave_pool` | `array` | `0.2.0` |
-| [`records_detector_mask`](records_detector_mask.md) | `RecordsDetectorMaskPlugin` | `records`, `records_asymmetry_mask` | `array` | `0.1.0` |
-| [`records_veto_mask`](records_veto_mask.md) | `RecordsVetoMaskPlugin` | `records`, `records_asymmetry_mask` | `array` | `0.1.0` |
-| [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md) | `S1S2PairCandidatesPlugin` | `peak_classification`, `peaks` | `structured_array` | `0.1.3` |
-| [`s1_s2_pairs`](s1_s2_pairs.md) | `S1S2PairSelectionPlugin` | `s1_s2_pair_candidates` | `structured_array` | `0.2.0` |
-| [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | - | `structured_array` | `0.10.0` |
-| [`wave_pool`](wave_pool.md) | `WavePoolPlugin` | - | `array` | `0.14.2` |
-| [`wave_pool_filtered`](wave_pool_filtered.md) | `WavePoolFilteredPlugin` | `records`, `wave_pool` | `array` | `3.0.0` |
-| [`waveform_width`](waveform_width.md) | `WaveformWidthPlugin` | - | `structured_array` | `3.0.0` |
-| [`waveform_width_integral`](waveform_width_integral.md) | `WaveformWidthIntegralPlugin` | - | `structured_array` | `2.7.0` |
+| Provides | Plugin | Declared Depends On | Resolved Depends On | Dynamic Config Keys | Output Kind | Execution | Narrative Source | Version |
+|----------|--------|---------------------|---------------------|---------------------|-------------|-----------|------------------|---------|
+| [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | - | `records`, `wave_pool` | `use_filtered`, `wave_source` | `structured_array` | `static` | `source` | `4.1.0` |
+| [`cache_analysis`](cache_analysis.md) | `CacheAnalysisPlugin` | - | - | - | `dict` | `static` | `source` | `0.1.0` |
+| [`df`](df.md) | `DataFramePlugin` | - | `records`, `basic_features` | `use_filtered`, `wave_source` | `dataframe` | `static` | `source` | `1.7.0` |
+| [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `df` | - | `dataframe` | `static` | `source` | `0.0.1` |
+| [`df_paired`](df_paired.md) | `PairedEventsPlugin` | `df_events` | `df_events` | - | `dataframe` | `static` | `source` | `0.0.1` |
+| [`energy_reconstruction`](energy_reconstruction.md) | `EnergyReconstructionPlugin` | `s1_s2_pairs` | `s1_s2_pairs` | - | `structured_array` | `static` | `source` | `0.1.0` |
+| [`events`](events.md) | `EventPlugin` | `s1_s2_pairs`, `position_reconstruction` | `s1_s2_pairs`, `position_reconstruction` | - | `structured_array` | `static` | `source` | `0.0.3` |
+| [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `st_waveforms` | - | `structured_array` | `static` | `source` | `3.0.0` |
+| [`hit`](hit.md) | `HitFinderPlugin` | - | `records`, `wave_pool` | `use_filtered`, `wave_source` | `structured_array` | `static` | `source` | `3.0.0` |
+| [`hit_grouped`](hit_grouped.md) | `HitGroupedPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold` | `hit_merged`, `hit_merged_components`, `hit_threshold` | - | `dataframe` | `static` | `source` | `0.5.0` |
+| [`hit_merge_clusters`](hit_merge_clusters.md) | `HitMergeClustersPlugin` | `hit_merged`, `hit_threshold` | `hit_merged`, `hit_threshold` | - | `structured_array` | `static` | `source` | `1.1.0` |
+| [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold` | `hit_threshold` | - | `structured_array` | `static` | `published` | `2.1.0` |
+| [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | `hit_merged`, `hit_threshold` | `hit_merged`, `hit_threshold` | - | `structured_array` | `static` | `source` | `1.1.0` |
+| [`hit_merged_features`](hit_merged_features.md) | `HitMergedFeaturesPlugin` | - | `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `clip_negative_signal`, `use_filtered`, `wave_source` | `structured_array` | `static` | `source` | `1.1.3` |
+| [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | - | `records`, `wave_pool`, `records_asymmetry_mask` | `asymmetry_cut_enabled`, `channel_role_cut_enabled`, `use_filtered`, `wave_source` | `structured_array` | `static` | `source` | `1.2.2` |
+| [`peak_classification`](peak_classification.md) | `PeakClassificationPlugin` | `peaks` | `peaks` | - | `structured_array` | `static` | `source` | `1.2.1` |
+| [`peaklet_channels`](peaklet_channels.md) | `PeakletChannelsPlugin` | `peaklets`, `peaklet_components`, `hit_merged`, `hit_merged_components`, `hit_threshold`, `hit_merged_features`, `peaklet_features`, `records`, `wave_pool` | `peaklets`, `peaklet_components`, `hit_merged`, `hit_merged_components`, `hit_threshold`, `hit_merged_features`, `peaklet_features`, `records`, `wave_pool` | `clip_negative_signal`, `use_filtered`, `wave_source` | `structured_array` | `static` | `source` | `2.0.5` |
+| [`peaklet_components`](peaklet_components.md) | `PeakletComponentsPlugin` | `hit_merged` | `hit_merged` | - | `structured_array` | `static` | `source` | `1.4.0` |
+| [`peaklet_features`](peaklet_features.md) | `PeakletFeaturesPlugin` | `peaklet_waveforms`, `peaklet_waveform_pool`, `peaklets` | `peaklet_waveforms`, `peaklet_waveform_pool`, `peaklets` | - | `structured_array` | `static` | `source` | `5.0.0` |
+| [`peaklet_waveform_pool`](peaklet_waveform_pool.md) | `PeakletWaveformPoolPlugin` | `peaklet_waveforms` | `peaklet_waveforms` | - | `array` | `static` | `source` | `3.0.0` |
+| [`peaklet_waveforms`](peaklet_waveforms.md) | `PeakletWaveformPlugin` | - | `peaklets`, `peaklet_components`, `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `clip_negative_signal`, `use_filtered` | `structured_array` | `static` | `source` | `2.1.0` |
+| [`peaklets`](peaklets.md) | `PeakletPlugin` | `hit_merged`, `peaklet_components` | `hit_merged`, `peaklet_components` | - | `structured_array` | `static` | `source` | `1.2.0` |
+| [`peaks`](peaks.md) | `PeaksPlugin` | `peaklets`, `peaklet_features`, `peaklet_channels` | `peaklets`, `peaklet_features`, `peaklet_channels` | - | `structured_array` | `static` | `source` | `5.0.0` |
+| [`position_reconstruction`](position_reconstruction.md) | `PositionReconstructionPlugin` | `s1_s2_pairs`, `peaklet_channels` | `s1_s2_pairs`, `peaklet_channels` | - | `structured_array` | `static` | `source` | `0.3.0` |
+| [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | - | - | `list` | `static` | `source` | `0.0.2` |
+| [`records`](records.md) | `RecordsPlugin` | - | `raw_files` | `daq_adapter`, `input_source` | `structured_array` | `static` | `source` | `0.14.2` |
+| [`records_asymmetry_mask`](records_asymmetry_mask.md) | `RecordsAsymmetryMaskPlugin` | `records`, `wave_pool` | `records`, `wave_pool` | - | `array` | `static` | `source` | `0.2.0` |
+| [`records_detector_mask`](records_detector_mask.md) | `RecordsDetectorMaskPlugin` | `records`, `records_asymmetry_mask` | `records`, `records_asymmetry_mask` | - | `array` | `static` | `source` | `0.1.0` |
+| [`records_veto_mask`](records_veto_mask.md) | `RecordsVetoMaskPlugin` | `records`, `records_asymmetry_mask` | `records`, `records_asymmetry_mask` | - | `array` | `static` | `source` | `0.1.0` |
+| [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md) | `S1S2PairCandidatesPlugin` | `peak_classification`, `peaks` | `peak_classification`, `peaks` | - | `structured_array` | `static` | `source` | `0.1.3` |
+| [`s1_s2_pairs`](s1_s2_pairs.md) | `S1S2PairSelectionPlugin` | `s1_s2_pair_candidates` | `s1_s2_pair_candidates` | - | `structured_array` | `static` | `source` | `0.2.0` |
+| [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | - | `raw_files` | `daq_adapter`, `use_upstream_baseline` | `structured_array` | `static` | `source` | `0.10.0` |
+| [`wave_pool`](wave_pool.md) | `WavePoolPlugin` | - | `raw_files` | `daq_adapter`, `input_source` | `array` | `static` | `source` | `0.14.2` |
+| [`wave_pool_filtered`](wave_pool_filtered.md) | `WavePoolFilteredPlugin` | `records`, `wave_pool` | `records`, `wave_pool` | - | `array` | `static` | `source` | `3.0.0` |
+| [`waveform_width`](waveform_width.md) | `WaveformWidthPlugin` | - | `hit`, `st_waveforms` | `use_filtered` | `structured_array` | `static` | `source` | `3.0.0` |
+| [`waveform_width_integral`](waveform_width_integral.md) | `WaveformWidthIntegralPlugin` | - | `records`, `wave_pool` | `use_filtered`, `wave_source` | `structured_array` | `static` | `source` | `2.7.0` |
 
 ## By Category
 
@@ -114,3 +121,10 @@ waveform-docs generate plugins-agent --plugin raw_files
 
 - [`energy_reconstruction`](energy_reconstruction.md): Reconstruct energy from selected S1-S2 pairs
 - [`position_reconstruction`](position_reconstruction.md): Reconstruct 3D position from S1-S2 pairs using vectorized CoG method
+
+## Agent Change Checklist
+
+1. 先读目标插件页的 `declared_depends_on` 与 `resolved_depends_on`；动态插件还要检查列出的配置键。
+2. 修改行为、配置、依赖或输出字段时升级插件 `version`，并重新生成 Auto、Agent 与 HTML 页面。
+3. 检查 `source_fingerprint`、叙述来源和输出字段说明是否仍与源码一致。
+4. 运行 `waveform-docs check coverage --strict --fail-on-warning` 以及仓库固定 schema/影响面闸门。

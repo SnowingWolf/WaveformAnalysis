@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "agent"
 provides: "waveform_width_integral"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.waveform_width_integral.plugin"
 version: "2.7.0"
 summary: "Event-wise integral quantile width using st_waveforms or filtered_waveforms."
 depends_on: []
+declared_depends_on: []
+resolved_depends_on: ["records", "wave_pool"]
+dependency_profile: "documentation-default-v1"
+dependency_profile_values: {"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}
+dependency_config_keys: ["use_filtered", "wave_source"]
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "f249922ddbb38c01179b7f12ef88db72b3fbf87670aa049c7e57bde060b551b7"
 generated: true
 ---
 # waveform_width_integral
@@ -18,6 +27,8 @@ generated: true
 Event-wise integral quantile width using st_waveforms or filtered_waveforms.
 事件级积分分位数宽度 (Event-wise Integral Quantile Width)。
 
+对每条波形进行基线校正后积分，计算累计积分的 t_low/t_high 并得到宽度。 baseline 始终来自 st_waveforms.baseline，与系统其它特征一致。
+
 | Item | Value |
 | --- | --- |
 | Provides | `waveform_width_integral` |
@@ -25,13 +36,28 @@ Event-wise integral quantile width using st_waveforms or filtered_waveforms.
 | Module | `waveform_analysis.core.plugins.builtin.waveform_width_integral.plugin` |
 | Version | `2.7.0` |
 | Category | 波形处理 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `f249922ddbb38c01179b7f12ef88db72b3fbf87670aa049c7e57bde060b551b7` |
+
+### Dependencies
+
+默认文档画像：`documentation-default-v1`（{"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}）。
+该插件通过 `resolve_depends_on(context, run_id)` 动态解析依赖；可能影响解析的配置键：`use_filtered`, `wave_source`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | No declared inputs. |
+| `records` | - | dynamic-default | - | Build records (event index table) from the shared internal records bundle. |
+| `wave_pool` | - | dynamic-default | - | Build wave_pool from the shared internal records bundle. |
 ### How It Works
 
+1. 事件级积分分位数宽度 (Event-wise Integral Quantile Width)。
+2. 对每条波形进行基线校正后积分，计算累计积分的 t_low/t_high 并得到宽度。 baseline 始终来自 st_waveforms.baseline，与系统其它特征一致。
 
 ## Configuration
 
@@ -66,32 +92,36 @@ structured_array output with fields: t_low, t_high, width, t_low_samples, t_high
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.waveform_width_integral import WaveformWidthIntegralPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(WaveformWidthIntegralPlugin())
-data = ctx.get_data("run_001", "waveform_width_integral")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "waveform_width_integral")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
 
 ## Operational Notes
 
 ### Behavior
 
+- CPU Waveform Width Integral Plugin - 事件级积分分位数宽度
+- **加速器**: CPU (NumPy) **功能**: 对每条事件波形计算积分分位数宽度 (t_low/t_high)。
 ### Failure Modes
 
-- Dependency data, configuration, or output contract validation may fail explicitly.
+- `waveform_width_integral` 的实际输入由 `resolve_depends_on(context, run_id)` 决定；默认画像之外的配置需要重新确认依赖是否可用。
+- 动态依赖无法解析、所需配置不合法或上游产物缺失时，插件不会生成有效输出。
 ### Downstream Impact
 
-Terminal output; no direct builtin consumer is declared.
-
+没有声明直接的内置消费者。
 
 ## Maintenance
 
 ### Change Playbook
 
-1. Keep `provides` and dependency semantics stable or update all consumers.
-2. Bump `version` for behavior, configuration, or output contract changes.
-3. Regenerate auto, agent, and web references after metadata changes.
+1. 保持 `provides`、依赖和输出字段语义稳定，或同步所有下游消费者。
+2. 行为、配置或输出契约改变时升级插件 `version`。
+3. 修改插件源码后重新生成 Auto、Agent 和 HTML 参考。
 ### Validation
 
 ```bash

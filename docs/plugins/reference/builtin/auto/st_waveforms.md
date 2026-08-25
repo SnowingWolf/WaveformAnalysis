@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "st_waveforms"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.st_waveforms.plugin"
 version: "0.10.0"
 summary: "Extract waveforms from raw CSV files and structure them into NumPy structured arrays."
 depends_on: []
+declared_depends_on: []
+resolved_depends_on: ["raw_files"]
+dependency_profile: "documentation-default-v1"
+dependency_profile_values: {"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}
+dependency_config_keys: ["daq_adapter", "use_upstream_baseline"]
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "18b2f23c8e21d3471d1026c58a149583384988e0aa0c0742162d33ccd8922821"
 generated: true
 ---
 # st_waveforms
@@ -18,6 +27,8 @@ generated: true
 Extract waveforms from raw CSV files and structure them into NumPy structured arrays.
 Plugin to extract and structure waveforms from raw files.
 
+合并了原来的 WaveformsPlugin 和 StWaveformsPlugin 功能： 1. 从原始 CSV 文件中提取波形数据 2. 将波形数据结构化为 NumPy 结构化数组（ST_WAVEFORM_DTYPE）
+
 | Item | Value |
 | --- | --- |
 | Provides | `st_waveforms` |
@@ -25,11 +36,23 @@ Plugin to extract and structure waveforms from raw files.
 | Module | `waveform_analysis.core.plugins.builtin.st_waveforms.plugin` |
 | Version | `0.10.0` |
 | Category | 波形处理 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | yes |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `18b2f23c8e21d3471d1026c58a149583384988e0aa0c0742162d33ccd8922821` |
+
+### Dependencies
+
+默认文档画像：`documentation-default-v1`（{"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}）。
+该插件通过 `resolve_depends_on(context, run_id)` 动态解析依赖；可能影响解析的配置键：`daq_adapter`, `use_upstream_baseline`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | No declared inputs. |
+| `raw_files` | - | dynamic-default | - | Scan the data directory and group raw CSV files by channel number. |
 ### How It Works
 
 1. 从原始 CSV 文件中提取波形数据并结构化为 NumPy 结构化数组
@@ -72,12 +95,16 @@ structured_array output with fields: baseline, baseline_upstream, polarity, time
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.st_waveforms import WaveformsPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(WaveformsPlugin())
-data = ctx.get_data("run_001", "st_waveforms")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "st_waveforms")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
 - `filtered_waveforms`
+- `waveform_width`

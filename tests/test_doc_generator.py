@@ -7,6 +7,7 @@
 """
 
 from pathlib import Path
+import shutil
 import tempfile
 
 import numpy as np
@@ -332,6 +333,27 @@ class TestPluginDocGenerator:
         # 注意：具体插件名称可能因版本而异
         assert len(provides_list) > 0
 
+    def test_dynamic_dependency_view_preserves_declared_and_resolved_contracts(self):
+        """Dynamic plugins expose both their declaration and the documentation profile result."""
+        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+
+        generator = PluginDocGenerator()
+        generator.load_builtin_plugins()
+        view = next(
+            item for item in generator.get_all_doc_info() if item.provides == "hit_threshold"
+        )
+
+        assert view.depends_on == []
+        assert view.resolved_depends_on == [
+            "records",
+            "wave_pool",
+            "records_asymmetry_mask",
+        ]
+        assert view.dependency_profile == "documentation-default-v1"
+        assert "wave_source" in view.dependency_config_keys
+        assert "asymmetry_cut_enabled" in view.dependency_config_keys
+        assert view.source_fingerprint
+
 
 class TestDocCoverageChecker:
     """测试 DocCoverageChecker"""
@@ -398,6 +420,39 @@ class TestDocCoverageChecker:
             assert report.coverage_percent == 100.0
             assert report.passed
             assert report.error_count == 0
+
+    def test_strict_content_quality_detects_generated_drift(self, tmp_path):
+        """Strict coverage must catch a stale generated page, not just missing files."""
+        from waveform_analysis.utils.doc_coverage import DocCoverageChecker
+
+        repository_root = Path(__file__).parents[1]
+        auto_docs = tmp_path / "auto"
+        agent_docs = tmp_path / "agent"
+        shutil.copytree(repository_root / "docs/plugins/reference/builtin/auto", auto_docs)
+        shutil.copytree(repository_root / "docs/plugins/reference/agent", agent_docs)
+        stale_page = auto_docs / "hit_threshold.md"
+        stale_page.write_text(
+            stale_page.read_text(encoding="utf-8").replace(
+                "source_fingerprint:", "source_fingerprint: stale-marker\n# source_fingerprint:"
+            ),
+            encoding="utf-8",
+        )
+
+        checker = DocCoverageChecker(
+            docs_dir=tmp_path,
+            auto_docs_dir=auto_docs,
+            agent_docs_dir=agent_docs,
+        )
+        report = checker.check_coverage(
+            require_spec_quality=True,
+            require_content_quality=True,
+        )
+
+        assert not report.passed
+        assert any(
+            issue.provides == "hit_threshold" and issue.category == "generated_drift"
+            for issue in report.issues
+        )
 
     def test_coverage_uses_frontmatter_identity_and_reports_drift(self):
         """Filename-only copies must not silently satisfy plugin coverage."""

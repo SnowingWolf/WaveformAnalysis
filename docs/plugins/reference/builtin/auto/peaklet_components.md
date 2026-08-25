@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "peaklet_components"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.peaklet_components.plugin"
 version: "1.4.0"
 summary: "Return per-peaklet component hit_merged indices."
 depends_on: ["hit_merged"]
+declared_depends_on: ["hit_merged"]
+resolved_depends_on: ["hit_merged"]
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "b7af9eb03d7904b533669172b2723fb3dda0a7ee6919db3fe259dd89e149d3d7"
 generated: true
 ---
 # peaklet_components
@@ -25,13 +34,25 @@ Return flat peaklet-to-hit_merged membership rows.
 | Module | `waveform_analysis.core.plugins.builtin.peaklet_components.plugin` |
 | Version | `1.4.0` |
 | Category | 峰构建 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `b7af9eb03d7904b533669172b2723fb3dda0a7ee6919db3fe259dd89e149d3d7` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
 | `hit_merged` | - | declared | - | Merge nearby threshold hits per channel with time-gap and max-width constraints. |
 ### How It Works
 
+1. Return flat peaklet-to-hit_merged membership rows.
 
 ## Configuration
 
@@ -54,13 +75,17 @@ structured_array output with fields: peak_id, merged_index.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.peaklet_components import PeakletComponentsPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(PeakletComponentsPlugin())
-data = ctx.get_data("run_001", "peaklet_components")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "peaklet_components")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
 - `peaklet_channels`
+- `peaklet_waveforms`
 - `peaklets`

@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "agent"
 provides: "peaks"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.peaks.plugin"
 version: "5.0.0"
 summary: "Build final peaks table from peaklets and waveform-derived features."
 depends_on: ["peaklets", "peaklet_features", "peaklet_channels"]
+declared_depends_on: ["peaklets", "peaklet_features", "peaklet_channels"]
+resolved_depends_on: ["peaklets", "peaklet_features", "peaklet_channels"]
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "a2a5742e2c5f8f96ad171643f6769be0c6da65d7eb39d790afaaac9a70c3f759"
 generated: true
 ---
 # peaks
@@ -29,7 +38,18 @@ peaks 表同时携带峰形时序字段（rise_time、fall_time、width_25_75、
 | Module | `waveform_analysis.core.plugins.builtin.peaks.plugin` |
 | Version | `5.0.0` |
 | Category | 特征提取 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `a2a5742e2c5f8f96ad171643f6769be0c6da65d7eb39d790afaaac9a70c3f759` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
@@ -49,7 +69,7 @@ peaks 表同时携带峰形时序字段（rise_time、fall_time、width_25_75、
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
 | --- | --- | --- | --- | --- | --- | --- |
-| - | - | - | - | - | - | - |
+| - | - | - | - | - | - | 此插件没有插件级配置。 |
 ## Output
 
 structured_array output with fields: peak_id, time_start, time_end, time_peak, center_time, rise_time, fall_time, width_25_75, ....
@@ -77,12 +97,14 @@ structured_array output with fields: peak_id, time_start, time_end, time_peak, c
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.peaks import PeaksPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(PeaksPlugin())
-data = ctx.get_data("run_001", "peaks")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "peaks")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
 
 ## Operational Notes
 
@@ -99,8 +121,7 @@ data = ctx.get_data("run_001", "peaks")
 - 上游 `peaklet_features` 与 `peaklets` 的 `peak_id` 语义不一致（如特征缺失整段 peaklet）会触发上述异常而使 peaks 无法物化。
 ### Downstream Impact
 
-Consumers: `peak_classification`, `s1_s2_pair_candidates`
-- `peak_classification` 直接以 peaks 特征做 S1/S2 分类，任何特征字段语义变化都会改变分类结果。
+直接消费者：`peak_classification`、`s1_s2_pair_candidates`- `peak_classification` 直接以 peaks 特征做 S1/S2 分类，任何特征字段语义变化都会改变分类结果。
 - `s1_s2_pair_candidates` 以 peaks（尤其经过分类后的 peak）生成物理候选配对，依赖 peaks 的时序与规模字段。
 
 ## Maintenance

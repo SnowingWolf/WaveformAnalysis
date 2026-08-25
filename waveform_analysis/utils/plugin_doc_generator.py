@@ -11,6 +11,7 @@
     >>> generator.generate_all(Path("docs/plugins/reference/builtin/auto"))
 """
 
+import ast
 from dataclasses import dataclass, field, replace
 import hashlib
 import inspect
@@ -20,6 +21,7 @@ from pathlib import Path
 import re
 import shutil
 import sys
+import textwrap
 from typing import Any
 from urllib.parse import quote
 import warnings
@@ -119,6 +121,7 @@ DOCUMENTATION_DEFAULT_PROFILE = {
     "use_filtered": False,
     "daq_adapter": "vx2730",
 }
+DOCUMENTATION_DEFAULT_PROFILE_NAME = "documentation-default-v1"
 DOCUMENTATION_PLUGIN_DEFAULTS = {
     "hit_threshold": {"asymmetry_cut_enabled": True},
 }
@@ -152,6 +155,12 @@ class ConfigOptionInfo:
     doc: str = ""
     deprecated: bool = False
     tracked: bool = True
+    internal_units: str | None = None
+    choices: list[Any] = field(default_factory=list)
+    min_value: Any = None
+    max_value: Any = None
+    deprecated_message: str = ""
+    alias: str | None = None
 
 
 @export
@@ -187,10 +196,19 @@ class PluginDocumentationView:
     version: str  # 版本
     description: str  # 描述
     category: str  # 类别 (data_loading, features, events...)
-    depends_on: list[str] = field(default_factory=list)  # 依赖列表
+    depends_on: list[Any] = field(default_factory=list)  # 类声明的依赖列表
+    resolved_depends_on: list[Any] = field(default_factory=list)  # 文档默认画像下的依赖列表
+    dependency_profile: str = ""
+    dependency_profile_values: dict[str, Any] = field(default_factory=dict)
+    dependency_config_keys: list[str] = field(default_factory=list)
     config_options: list[ConfigOptionInfo] = field(default_factory=list)  # 配置选项
     output_fields: list[OutputFieldInfo] = field(default_factory=list)  # 输出字段
     output_kind: str = "structured_array"  # 输出类型
+    execution_kind: str = "static"  # static/stream 执行模式
+    save_when: str = "never"
+    uses_run_config: bool = False
+    timeout: float | None = None
+    input_requirements: dict[str, list[str]] = field(default_factory=dict)
     supports_streaming: bool = False
     supports_parallel: bool = True
     supports_gpu: bool = False
@@ -198,6 +216,7 @@ class PluginDocumentationView:
     module_path: str = ""  # 模块路径
     module_doc: str = ""
     dependency_details: list[DependencyDocumentationInfo] = field(default_factory=list)
+    resolved_dependency_details: list[DependencyDocumentationInfo] = field(default_factory=list)
     workflow_steps: list[str] = field(default_factory=list)
     execution_chain: list[str] = field(default_factory=list)
     execution_notes: list[str] = field(default_factory=list)
@@ -215,6 +234,7 @@ class PluginDocumentationView:
     overview_paragraphs: list[str] = field(default_factory=list)
     usage_example: str = ""
     documentation_status: Any = None
+    source_fingerprint: str | None = None
     documentation_completeness: int | None = None
     dag_impact: int | None = None
     workflow_diagram: str = ""  # mermaid flowchart 源码（插件内部处理流程）
@@ -348,6 +368,7 @@ class PluginDocGenerator:
             template_dir = Path(__file__).parent / "templates"
         self.template_dir = template_dir
         self._plugins: list[tuple[type, Any]] = []  # (plugin_class, instance)
+        self._load_errors: list[tuple[str, str]] = []
         self._jinja_env = None
         self._web_jinja_env = None
         if published_agent_docs is None:
@@ -419,6 +440,7 @@ class PluginDocGenerator:
 
         # 实例化插件（去重）
         self._plugins = []
+        self._load_errors = []
         for cls in plugin_classes:
             try:
                 instance = cls()
@@ -426,10 +448,13 @@ class PluginDocGenerator:
                 if provides and provides not in seen_provides:
                     self._plugins.append((cls, instance))
                     seen_provides.add(provides)
-            except Exception:
-                # 跳过无法实例化的插件
-                pass
+            except Exception as exc:
+                # Keep the failure visible to strict generation/coverage checks.
+                self._load_errors.append((cls.__name__, repr(exc)))
 
+        if self._load_errors:
+            details = "; ".join(f"{name}: {error}" for name, error in self._load_errors)
+            raise RuntimeError(f"无法实例化内置插件，文档生成已中止: {details}")
         return len(self._plugins)
 
     def register_plugin(self, plugin_class: type, instance: Any | None = None):
@@ -477,9 +502,11 @@ class PluginDocGenerator:
         # 输出字段
         output_fields, output_kind = self._extract_output_fields(plugin)
 
-        # 能力
-        supports_streaming = getattr(plugin, "output_kind", "static") == "stream"
+        # 执行契约
+        execution_kind = str(getattr(plugin, "output_kind", "static"))
+        supports_streaming = execution_kind == "stream"
         is_side_effect = getattr(plugin, "is_side_effect", False)
+        input_requirements = self._extract_input_requirements(plugin)
 
         # 模块路径
         module_path = plugin_class.__module__
@@ -488,29 +515,52 @@ class PluginDocGenerator:
         # Structured documentation extensions shared by Help, Markdown, and HTML.
         agent_doc = self._extract_agent_doc(plugin_class, plugin)
         compute_notes = self._extract_compute_notes(plugin)
-        behavior_notes = agent_doc["behavior_notes"] or compute_notes
+        behavior_notes = agent_doc["behavior_notes"] or self._derive_behavior_notes(
+            plugin, module_doc, compute_notes
+        )
         has_dynamic_dependencies = self._has_dynamic_dependencies(plugin)
+        dependency_config_keys = self._extract_dependency_config_keys(plugin_class, plugin)
+        dependency_fields = dict(input_requirements)
+        dependency_fields.update(agent_doc["dependency_fields"])
         dependency_details = self._build_dependency_details(
             depends_on,
             resolution="dynamic" if has_dynamic_dependencies else "declared",
             dependency_notes=agent_doc["dependency_notes"],
-            dependency_fields=agent_doc["dependency_fields"],
+            dependency_fields=dependency_fields,
         )
         output_summary = self._output_summary(plugin, output_kind, output_fields, description)
-        workflow_steps = agent_doc["workflow_steps"] or self._derive_workflow_steps(plugin)
+        workflow_steps = agent_doc["workflow_steps"] or self._derive_workflow_steps(
+            plugin, provides, output_kind, depends_on
+        )
+        failure_modes = agent_doc["failure_modes"] or self._derive_failure_modes(
+            plugin, provides, depends_on, has_dynamic_dependencies
+        )
         derived_overview, derived_overview_paragraphs = self._derive_overview(plugin)
         overview = agent_doc["overview"] or derived_overview
-        overview_paragraphs = agent_doc["overview_paragraphs"] or (
-            [overview] if overview else derived_overview_paragraphs
-        )
+        overview_paragraphs = agent_doc["overview_paragraphs"] or derived_overview_paragraphs
+        overview_paragraphs = self._remove_duplicate_prose(overview_paragraphs, description)
+        if overview and not overview_paragraphs:
+            overview_paragraphs = [overview]
         execution_chain = self._build_execution_chain(
             depends_on,
             provides,
             has_dynamic_dependencies=has_dynamic_dependencies,
         )
         raw_usage_example = getattr(plugin, "doc_usage_example", "") or ""
-        usage_example = inspect.cleandoc(str(raw_usage_example)) if raw_usage_example else ""
+        usage_example = (
+            inspect.cleandoc(str(raw_usage_example))
+            if raw_usage_example
+            else self._derive_usage_example(plugin_class, plugin)
+        )
         workflow_diagram = agent_doc["workflow_diagram"]
+        source_fingerprint = self._source_fingerprint(plugin_class)
+        resolved_details = [
+            replace(
+                detail,
+                resolution="dynamic-default" if has_dynamic_dependencies else detail.resolution,
+            )
+            for detail in dependency_details
+        ]
 
         return PluginDocumentationView(
             name=name,
@@ -519,14 +569,23 @@ class PluginDocGenerator:
             description=description,
             category=category,
             depends_on=depends_on,
+            resolved_depends_on=list(depends_on),
+            dependency_profile="declared" if not has_dynamic_dependencies else "runtime",
+            dependency_config_keys=dependency_config_keys,
             config_options=config_options,
             output_fields=output_fields,
             output_kind=output_kind,
+            execution_kind=execution_kind,
+            save_when=str(getattr(plugin, "save_when", "never")),
+            uses_run_config=bool(getattr(plugin, "uses_run_config", False)),
+            timeout=getattr(plugin, "timeout", None),
+            input_requirements=input_requirements,
             supports_streaming=supports_streaming,
             is_side_effect=is_side_effect,
             module_path=module_path,
             module_doc=module_doc,
             dependency_details=dependency_details,
+            resolved_dependency_details=resolved_details,
             workflow_steps=workflow_steps,
             execution_chain=execution_chain,
             execution_notes=agent_doc["execution_notes"],
@@ -536,7 +595,7 @@ class PluginDocGenerator:
             field_notes=agent_doc["field_notes"],
             config_notes=agent_doc["config_notes"],
             cluster_contract=agent_doc["cluster_contract"],
-            failure_modes=agent_doc["failure_modes"],
+            failure_modes=failure_modes,
             downstream_consumers=agent_doc["downstream_consumers"],
             downstream_notes=agent_doc["downstream_notes"],
             agent_change_notes=agent_doc["agent_change_notes"],
@@ -544,6 +603,7 @@ class PluginDocGenerator:
             overview_paragraphs=overview_paragraphs,
             usage_example=usage_example,
             documentation_status=agent_doc["documentation_status"],
+            source_fingerprint=source_fingerprint,
             workflow_diagram=workflow_diagram,
         )
 
@@ -648,6 +708,115 @@ class PluginDocGenerator:
         return [note for note in narrative if note][:3]
 
     @staticmethod
+    def _remove_duplicate_prose(paragraphs: list[str], description: str) -> list[str]:
+        """Keep the overview readable when class and plugin descriptions repeat."""
+        normalized_description = " ".join(str(description).split()).casefold()
+        result: list[str] = []
+        seen: set[str] = set()
+        for paragraph in paragraphs:
+            cleaned = " ".join(str(paragraph).split())
+            normalized = cleaned.casefold()
+            if not cleaned or normalized == normalized_description or normalized in seen:
+                continue
+            result.append(cleaned)
+            seen.add(normalized)
+        return result
+
+    @staticmethod
+    def _source_fingerprint(plugin_class: type) -> str | None:
+        """Return the defining source fingerprint used by published AgentDocs."""
+        from waveform_analysis.documentation.published_agent_docs import fingerprint_plugin_source
+
+        return fingerprint_plugin_source(plugin_class)
+
+    @staticmethod
+    def _extract_input_requirements(plugin: Any) -> dict[str, list[str]]:
+        """Extract structured input fields when a plugin declares input dtypes."""
+        requirements: dict[str, list[str]] = {}
+        for dependency, dtype in (getattr(plugin, "input_dtype", {}) or {}).items():
+            try:
+                names = list(np.dtype(dtype).names or ())
+            except (TypeError, ValueError):
+                names = []
+            if names:
+                requirements[str(dependency)] = names
+        return requirements
+
+    @staticmethod
+    def _extract_dependency_config_keys(plugin_class: type, plugin: Any) -> list[str]:
+        """Find configuration keys visibly consulted by ``resolve_depends_on``.
+
+        This deliberately reports only literal keys present in the resolver source or
+        declared options. It never infers a dependency branch from arbitrary code.
+        """
+        from waveform_analysis.core.plugins.core.base import Plugin
+
+        resolver = type(plugin).resolve_depends_on
+        if resolver is Plugin.resolve_depends_on:
+            return []
+        try:
+            source = inspect.getsource(resolver)
+            tree = ast.parse(textwrap.dedent(source))
+        except (OSError, TypeError, SyntaxError):
+            return []
+
+        keys: set[str] = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            function = node.func
+            attribute = function.attr if isinstance(function, ast.Attribute) else ""
+            if attribute == "get_config" and len(node.args) >= 2:
+                candidate = node.args[1]
+                if isinstance(candidate, ast.Constant) and isinstance(candidate.value, str):
+                    keys.add(candidate.value)
+            elif attribute == "get" and node.args:
+                candidate = node.args[0]
+                if isinstance(candidate, ast.Constant) and isinstance(candidate.value, str):
+                    keys.add(candidate.value)
+
+        source_lower = source.casefold()
+        for name in getattr(plugin, "options", {}) or {}:
+            if re.search(rf"\b{re.escape(str(name))}\b", source_lower):
+                keys.add(str(name))
+        for name in DOCUMENTATION_DEFAULT_PROFILE:
+            if re.search(rf"\b{re.escape(name)}\b", source_lower):
+                keys.add(name)
+        dependency_selector_keys = {
+            "wave_source",
+            "use_filtered",
+            "daq_adapter",
+            "input_source",
+            "asymmetry_cut_enabled",
+            "channel_role_cut_enabled",
+            "clip_negative_signal",
+        }
+        keys.update(
+            str(name)
+            for name in getattr(plugin, "options", {}) or {}
+            if str(name) in dependency_selector_keys
+        )
+        return sorted(keys)
+
+    @classmethod
+    def _derive_behavior_notes(
+        cls, plugin: Any, module_doc: str, compute_notes: list[str]
+    ) -> list[str]:
+        """Build source-backed behavior notes when no authored narrative exists."""
+        candidates = cls._docstring_narrative(module_doc)
+        if not candidates:
+            candidates = cls._docstring_narrative(inspect.cleandoc(type(plugin).__doc__ or ""))
+        if candidates:
+            return cls._remove_duplicate_prose(candidates, getattr(plugin, "description", ""))[:2]
+        if compute_notes:
+            return compute_notes[:2]
+        provides = str(getattr(plugin, "provides", "output"))
+        output_kind = str(getattr(getattr(plugin, "output_schema", None), "kind", "output"))
+        return [
+            f"通过 `compute(context, run_id)` 生成 `{provides}`；输出容器类型为 `{output_kind}`。"
+        ]
+
+    @staticmethod
     def _compute_docstring(plugin: Any) -> str:
         """Return the cleaned compute docstring, or "" when absent."""
         compute = type(plugin).__dict__.get("compute")
@@ -678,8 +847,10 @@ class PluginDocGenerator:
             steps.append(" ".join(paragraph))
         return [step for step in steps if step]
 
-    @staticmethod
-    def _derive_workflow_steps(plugin: Any) -> list[str]:
+    @classmethod
+    def _derive_workflow_steps(
+        cls, plugin: Any, provides: str, output_kind: str, depends_on: list[Any]
+    ) -> list[str]:
         """Derive ordered "How It Works" steps from the compute docstring prose.
 
         Only the narrative preceding section markers (Args/Returns/...) is used; each
@@ -687,10 +858,69 @@ class PluginDocGenerator:
         yields no steps, so plugins whose narrative is authored elsewhere (agent_doc /
         published YAML) are never disturbed.
         """
-        compute_doc = PluginDocGenerator._compute_docstring(plugin)
-        if not compute_doc:
-            return []
-        return PluginDocGenerator._docstring_narrative(compute_doc)[:5]
+        candidates = cls._docstring_narrative(cls._compute_docstring(plugin))
+        if not candidates:
+            candidates = cls._docstring_narrative(inspect.cleandoc(type(plugin).__doc__ or ""))
+        if candidates:
+            return candidates[:5]
+        dependency_names = [cls._dependency_parts(dep)[0] for dep in depends_on]
+        input_text = ", ".join(f"`{name}`" for name in dependency_names) or "插件配置和运行上下文"
+        return [
+            f"读取上游输入（{input_text}）。",
+            f"调用 `compute(context, run_id)` 执行 `{provides}` 的处理逻辑。",
+            f"返回 `{output_kind}` 形式的 `{provides}` 结果。",
+        ]
+
+    @staticmethod
+    def _derive_failure_modes(
+        plugin: Any,
+        provides: str,
+        depends_on: list[Any],
+        has_dynamic_dependencies: bool,
+    ) -> list[str]:
+        """Describe only contract-level failure conditions when no authored list exists."""
+        dependency_names = [PluginDocGenerator._dependency_parts(dep)[0] for dep in depends_on]
+        if has_dynamic_dependencies:
+            return [
+                f"`{provides}` 的实际输入由 `resolve_depends_on(context, run_id)` 决定；默认画像之外的配置需要重新确认依赖是否可用。",
+                "动态依赖无法解析、所需配置不合法或上游产物缺失时，插件不会生成有效输出。",
+            ]
+        if dependency_names:
+            return [
+                f"任一声明依赖（{', '.join(f'`{name}`' for name in dependency_names)}）缺失或字段不符合输入契约时，执行会失败。",
+                "配置校验或输出 schema 校验失败时，结果不会被视为有效插件产物。",
+            ]
+        return [
+            "配置校验失败或输入数据不满足插件实现的前置条件时，执行会失败。",
+            "输出不符合声明的 dtype/schema 时，结果不会被视为有效插件产物。",
+        ]
+
+    @staticmethod
+    def _derive_usage_example(plugin_class: type, plugin: Any) -> str:
+        """Return a registration example based on the canonical CPU profile."""
+        provides = str(getattr(plugin, "provides", "output"))
+        if provides == "cache_analysis":
+            module = plugin_class.__module__
+            return inspect.cleandoc(
+                f"""
+                from waveform_analysis.core.context import Context
+                from {module} import {plugin_class.__name__}
+
+                ctx = Context(config={{"data_root": "DAQ"}})
+                ctx.register({plugin_class.__name__}())
+                result = ctx.get_data("run_001", "{provides}")
+                """
+            )
+        return inspect.cleandoc(
+            f"""
+            from waveform_analysis.core.context import Context
+            from waveform_analysis.core.plugins import profiles
+
+            ctx = Context(config={{"data_root": "DAQ", "daq_adapter": "vx2730"}})
+            ctx.register(*profiles.cpu_default())
+            result = ctx.get_data("run_001", "{provides}")
+            """
+        )
 
     @staticmethod
     def _derive_overview(plugin: Any) -> tuple[str, list[str]]:
@@ -782,7 +1012,7 @@ class PluginDocGenerator:
         by_provides = {view.provides: view for view in views}
         consumers: dict[str, set[str]] = {name: set() for name in by_provides}
         for consumer in views:
-            for dep in consumer.depends_on:
+            for dep in consumer.resolved_depends_on or consumer.depends_on:
                 dep_name, _ = self._dependency_parts(dep)
                 if dep_name in consumers:
                     consumers[dep_name].add(consumer.provides)
@@ -797,11 +1027,23 @@ class PluginDocGenerator:
                 )
                 for detail in view.dependency_details
             ]
+            resolved_details = [
+                replace(
+                    detail,
+                    description=detail.description or descriptions.get(detail.name, ""),
+                )
+                for detail in view.resolved_dependency_details
+            ]
             downstream = sorted(
                 set(view.downstream_consumers) | consumers.get(view.provides, set())
             )
             enriched.append(
-                replace(view, dependency_details=details, downstream_consumers=downstream)
+                replace(
+                    view,
+                    dependency_details=details,
+                    resolved_dependency_details=resolved_details,
+                    downstream_consumers=downstream,
+                )
             )
         return enriched
 
@@ -815,15 +1057,38 @@ class PluginDocGenerator:
     ) -> PluginDocumentationView:
         """Return a view with run-specific dependencies without executing plugin data."""
         descriptions = {item.provides: item.summary for item in (available_views or [])}
-        details = self._build_dependency_details(
-            dependencies,
-            resolution=resolution,
-            producer_descriptions=descriptions,
-        )
+        declared_by_name = {detail.name: detail for detail in view.dependency_details}
+        details = []
+        for dependency in dependencies:
+            name, version = self._dependency_parts(dependency)
+            declared = declared_by_name.get(name)
+            details.append(
+                DependencyDocumentationInfo(
+                    name=name,
+                    version_constraint=version or (declared.version_constraint if declared else ""),
+                    resolution=resolution,
+                    required_fields=(
+                        list(declared.required_fields)
+                        if declared is not None
+                        else list(view.input_requirements.get(name, []))
+                    ),
+                    description=(
+                        declared.description
+                        if declared is not None and declared.description
+                        else descriptions.get(name, "")
+                    ),
+                )
+            )
+        default_values = dict(DOCUMENTATION_DEFAULT_PROFILE)
+        default_values.update(DOCUMENTATION_PLUGIN_DEFAULTS.get(view.provides, {}))
         return replace(
             view,
-            depends_on=list(dependencies),
-            dependency_details=details,
+            resolved_depends_on=list(dependencies),
+            dependency_profile=(
+                DOCUMENTATION_DEFAULT_PROFILE_NAME if resolution != "declared" else "declared"
+            ),
+            dependency_profile_values=(default_values if resolution != "declared" else {}),
+            resolved_dependency_details=details,
             execution_chain=self._build_execution_chain(
                 list(dependencies), view.provides, has_dynamic_dependencies=False
             ),
@@ -889,6 +1154,12 @@ class PluginDocGenerator:
                     doc=doc,
                     deprecated=deprecated,
                     tracked=getattr(opt, "track", True),
+                    internal_units=getattr(opt, "internal_unit", None),
+                    choices=list(getattr(opt, "choices", None) or []),
+                    min_value=getattr(opt, "min_value", None),
+                    max_value=getattr(opt, "max_value", None),
+                    deprecated_message=str(getattr(opt, "deprecated_message", "") or ""),
+                    alias=getattr(opt, "alias", None),
                 )
             )
 
@@ -968,7 +1239,9 @@ class PluginDocGenerator:
 
         return output_fields, output_kind
 
-    def get_all_doc_info(self) -> list[PluginDocumentationView]:
+    def get_all_doc_info(
+        self, *, resolve_default_dependencies: bool = True
+    ) -> list[PluginDocumentationView]:
         """获取所有插件的文档信息
 
         Returns:
@@ -979,10 +1252,27 @@ class PluginDocGenerator:
             try:
                 doc_info = self.extract_doc_info(plugin_class, instance)
                 doc_infos.append(doc_info)
-            except Exception:
-                # 跳过提取失败的插件
-                pass
-        return self.enrich_documentation_views(doc_infos)
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Failed to extract documentation for {getattr(instance, 'provides', plugin_class.__name__)!r}"
+                ) from exc
+        enriched = self.enrich_documentation_views(doc_infos)
+        if not resolve_default_dependencies or not enriched:
+            return enriched
+        default_dependencies = self._default_dependency_map()
+        resolved = []
+        for view in enriched:
+            dependencies = default_dependencies.get(view.provides, view.depends_on)
+            resolution = "dynamic-default" if view.has_dynamic_dependencies else "declared"
+            resolved.append(
+                self.apply_dependency_resolution(
+                    view,
+                    dependencies,
+                    resolution=resolution,
+                    available_views=enriched,
+                )
+            )
+        return self.enrich_documentation_views(resolved)
 
     def render_plugin_page(self, doc_info: PluginDocumentationView, profile: str = "auto") -> str:
         """渲染单个插件页面
@@ -1055,6 +1345,8 @@ class PluginDocGenerator:
             plugins=plugins,
             by_category=sorted_categories,
             category_names=CATEGORY_DISPLAY_NAMES,
+            default_profile_name=DOCUMENTATION_DEFAULT_PROFILE_NAME,
+            default_profile_values=DOCUMENTATION_DEFAULT_PROFILE,
         )
 
     @classmethod
@@ -1066,7 +1358,7 @@ class PluginDocGenerator:
         dependencies = (
             dependencies_by_provides.get(plugin.provides, plugin.depends_on)
             if dependencies_by_provides is not None
-            else plugin.depends_on
+            else plugin.resolved_depends_on or plugin.depends_on
         )
         return [cls._dependency_parts(dependency)[0] for dependency in dependencies]
 
@@ -2604,7 +2896,17 @@ class PluginDocGenerator:
                 plugin_class.__name__ == plugin_name
                 or getattr(instance, "provides", None) == plugin_name
             ):
-                doc_info = self.extract_doc_info(plugin_class, instance)
+                # Use the same default dependency profile as full generation so a
+                # single-page refresh cannot silently regress to an unresolved
+                # runtime-only dependency view.
+                doc_info = next(
+                    (
+                        item
+                        for item in self.get_all_doc_info()
+                        if item.provides == getattr(instance, "provides", None)
+                    ),
+                    self.extract_doc_info(plugin_class, instance),
+                )
                 content = self.render_plugin_page(doc_info, profile=profile)
                 structure_errors = check_plugin_document_structure(content, profile)
                 if structure_errors:
@@ -2642,7 +2944,16 @@ FRONTMATTER_FIELDS = (
     "version",
     "summary",
     "depends_on",
+    "declared_depends_on",
+    "resolved_depends_on",
+    "dependency_profile",
+    "dependency_profile_values",
+    "dependency_config_keys",
     "output_kind",
+    "execution_kind",
+    "narrative_source",
+    "narrative_source_reason",
+    "source_fingerprint",
     "generated",
 )
 
@@ -2669,6 +2980,8 @@ def check_plugin_document_structure(content: str, profile: str) -> list[str]:
             errors.append(f"Missing frontmatter fields: {missing!r}")
         if extra:
             errors.append(f"Unexpected frontmatter fields: {extra!r}")
+        if not re.search(r"^schema_version:\s*2\s*$", frontmatter, flags=re.MULTILINE):
+            errors.append("Unsupported plugin reference schema_version; expected 2")
         if f'profile: "{profile}"' not in frontmatter:
             errors.append(f"Frontmatter profile does not match {profile!r}")
     sections = re.findall(r"^## ([^#].*)$", content, flags=re.MULTILINE)

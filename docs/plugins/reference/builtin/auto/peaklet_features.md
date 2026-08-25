@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "peaklet_features"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.peaklet_features.plugin"
 version: "5.0.0"
 summary: "Compute peaklet waveform features from ragged signal pools."
 depends_on: ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
+declared_depends_on: ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
+resolved_depends_on: ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "48ec6eaa661dde02dd57860f1e35fa97d1b20268fa4bac149b83d889d58a1725"
 generated: true
 ---
 # peaklet_features
@@ -25,7 +34,18 @@ Compute waveform-derived features from ragged peaklet waveforms.
 | Module | `waveform_analysis.core.plugins.builtin.peaklet_features.plugin` |
 | Version | `5.0.0` |
 | Category | 峰构建 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `48ec6eaa661dde02dd57860f1e35fa97d1b20268fa4bac149b83d889d58a1725` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
@@ -34,12 +54,13 @@ Compute waveform-derived features from ragged peaklet waveforms.
 | `peaklets` | - | declared | - | Build lightweight cross-channel peaklets from hit_merged intervals. |
 ### How It Works
 
+1. Compute waveform-derived features from ragged peaklet waveforms.
 
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
 | --- | --- | --- | --- | --- | --- | --- |
-| - | - | - | - | - | - | - |
+| - | - | - | - | - | - | 此插件没有插件级配置。 |
 ## Output
 
 structured_array output with fields: peak_id, time_start, time_end, time_peak, center_time, rise_time, fall_time, width_25_75, ....
@@ -65,12 +86,15 @@ structured_array output with fields: peak_id, time_start, time_end, time_peak, c
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.peaklet_features import PeakletFeaturesPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(PeakletFeaturesPlugin())
-data = ctx.get_data("run_001", "peaklet_features")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "peaklet_features")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
 - `peaklet_channels`

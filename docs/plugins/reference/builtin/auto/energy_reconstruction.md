@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "energy_reconstruction"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.energy_reconstruction.plugin"
 version: "0.1.0"
 summary: "Reconstruct energy from selected S1-S2 pairs"
 depends_on: ["s1_s2_pairs"]
+declared_depends_on: ["s1_s2_pairs"]
+resolved_depends_on: ["s1_s2_pairs"]
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "875523fbb2f5b85815c754ab1ccd3f8d700d2811b630c7b38d66ed6c94a0bd56"
 generated: true
 ---
 # energy_reconstruction
@@ -18,6 +27,16 @@ generated: true
 Reconstruct energy from selected S1-S2 pairs
 能量重建插件（结构占位版本）
 
+从选定的 S1-S2 配对重建事件能量。
+
+输入: - s1_s2_pairs: S1-S2 配对结果（仅处理 selected=True 的配对）
+
+输出: - energy_reconstruction: 能量重建结果
+
+v0.1.0 功能: - 定义完整的输出结构与接口 - 筛选 selected 配对并填充身份与可观测字段 - 能量字段填占位值 NaN，标志 FLAG_ENERGY_NOT_IMPLEMENTED
+
+未来版本计划: - v0.2.0: 实现基于面积的线性标定能量重建 - v1.0.0: 位置相关能量校正（电场、光收集效率）
+
 | Item | Value |
 | --- | --- |
 | Provides | `energy_reconstruction` |
@@ -25,7 +44,18 @@ Reconstruct energy from selected S1-S2 pairs
 | Module | `waveform_analysis.core.plugins.builtin.energy_reconstruction.plugin` |
 | Version | `0.1.0` |
 | Category | 其他 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `875523fbb2f5b85815c754ab1ccd3f8d700d2811b630c7b38d66ed6c94a0bd56` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
@@ -39,8 +69,8 @@ Reconstruct energy from selected S1-S2 pairs
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
 | --- | --- | --- | --- | --- | --- | --- |
-| `s1_energy_scale` | `float` | `1.0` | - | yes | no | S1 面积到能量的转换系数 (keV/PE)，占位默认值 |
-| `s2_energy_scale` | `float` | `1.0` | - | yes | no | S2 面积到能量的转换系数 (keV/PE)，占位默认值 |
+| `s1_energy_scale` | `float` | `1.0` | - | yes | no | S1 面积到能量的转换系数 (keV/PE)，占位默认值；范围：0.0 至 +∞ |
+| `s2_energy_scale` | `float` | `1.0` | - | yes | no | S2 面积到能量的转换系数 (keV/PE)，占位默认值；范围：0.0 至 +∞ |
 ## Output
 
 structured_array output with fields: event_id, pair_id, s1_peak_id, s2_peak_id, s1_energy, s2_energy, total_energy, s1_energy_fraction, ....
@@ -75,12 +105,15 @@ structured_array output with fields: event_id, pair_id, s1_peak_id, s2_peak_id, 
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.energy_reconstruction import EnergyReconstructionPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(EnergyReconstructionPlugin())
-data = ctx.get_data("run_001", "energy_reconstruction")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "energy_reconstruction")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
-- Terminal output; no direct builtin consumer is declared.
+- 没有声明直接的内置消费者。

@@ -118,7 +118,7 @@ def test_help_shows_rejected_published_doc_reason_but_static_renderers_do_not(
     generator = PluginDocGenerator(published_agent_docs=registry)
     view = generator.extract_doc_info(_PublishedNarrativePlugin, _PublishedNarrativePlugin())
     assert "documentation-note" not in generator.render_plugin_html(view)
-    assert "source fingerprint does not match" not in generator.render_plugin_page(view)
+    assert "source fingerprint does not match" in generator.render_plugin_page(view)
 
     monkeypatch.setattr(
         "waveform_analysis.documentation.PublishedAgentDocRegistry", lambda: registry

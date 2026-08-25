@@ -1,443 +1,209 @@
-# WaveformAnalysis 内置插件文档
+# WaveformAnalysis 内置插件参考
 
-> 本文档由 PluginSpec 元数据自动生成，提供所有内置插件的完整参考。
-
-## 概述
-
-WaveformAnalysis 采用**插件化架构**处理 DAQ（数据采集系统）波形数据。每个插件负责数据处理流水线中的一个特定步骤，通过声明式的依赖关系自动构建处理 DAG（有向无环图）。
-
-### 核心特性
-
-| 特性 | 说明 |
-|------|------|
-| **自动依赖解析** | 插件声明 `depends_on`，Context 自动按正确顺序执行 |
-| **智能缓存** | 基于 lineage（代码版本+配置+dtype）的缓存，自动失效 |
-| **零拷贝存储** | 使用 `numpy.memmap` 实现大数据的高效持久化 |
-| **流式处理** | 支持内存受限场景下的分块流式处理 |
-| **多加速器** | CPU (NumPy/SciPy/Numba)、JAX (GPU) 等多种后端 |
-
-### 插件统计
-
-- **总插件数**: 36
-- **类别数**: 9
-- **加速器**: CPU (NumPy/SciPy)
-
----
+> 本页与各插件页面均由当前 `PluginSpec` 和源码事实生成。Auto 画像强调可查阅性；Agent 画像强调执行契约。依赖表中的动态插件使用文档默认画像，不代表所有运行配置下的唯一结果。
 
 ## 快速开始
 
-### 基本用法
-
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
+from waveform_analysis.core.plugins import profiles
 
-# 创建 Context 并注册所有标准插件
-ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
-ctx.register(*standard_plugins)
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
 
-# 获取数据（自动解析依赖并执行）
-st_waveforms = ctx.get_data("run_001", "st_waveforms")
-peaks = ctx.get_data("run_001", "signal_peaks")
+# run_id 必须显式传入；目标产物会按 DAG 自动解析依赖并复用 lineage 缓存。
+peaks = ctx.get_data("run_001", "peaks")
+events = ctx.get_data("run_001", "events")
 ```
 
-### 配置插件
+### 执行前预览
 
 ```python
-# 全局配置
-ctx.set_config({
-    "n_channels": 2,
-    "daq_adapter": "vx2730",
-})
-
-# 插件特定配置
-ctx.set_config({
-    "height": 30.0,
-    "prominence": 0.7,
-    "use_derivative": True,
-}, plugin_name="signal_peaks")
-
-# 查看插件配置选项
-ctx.list_plugin_configs(plugin_name="signal_peaks")
+preview = ctx.preview_execution("run_001", "events")
+print(preview)
 ```
 
-### 预览执行计划
+### 文档默认依赖画像
 
-```python
-# 在执行前预览依赖和缓存状态
-ctx.preview_execution("run_001", "signal_peaks")
-```
+- Profile：`documentation-default-v1`
+- 值：`{"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}`
+- 动态依赖页面同时列出 `resolve_depends_on(context, run_id)` 可能读取的配置键；需要真实运行时配置时，应再次预览执行计划。
 
----
+## 插件总览
 
-## 数据处理流水线
-
-### 标准流水线
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           数据加载层                                      │
-│                                                                          │
-│   CSV Files ──► raw_files ──► records                                   │
-│                     │                                                    │
-└─────────────────────┼────────────────────────────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          波形处理层                                       │
-│                                                                          │
-│   raw_files ──► st_waveforms ──► filtered_waveforms                     │
-│                      │                                                   │
-│                      ├──► waveform_width                                │
-│                      └──► waveform_width_integral                       │
-└──────────────────────┼───────────────────────────────────────────────────┘
-                       │
-       ┌───────────────┼───────────────┐
-       ▼               ▼               ▼
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│  特征提取    │ │  峰值检测    │ │  Hit检测     │
-│              │ │              │ │              │
-│basic_features│ │ signal_peaks │ │     hit      │
-└──────┬───────┘ └──────────────┘ └──────────────┘
-       │
-       ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          数据整合层                                       │
-│                                                                          │
-│   basic_features + st_waveforms ──► df (DataFrame)                      │
-│                                       │                                  │
-│                                       ▼                                  │
-│                                   df_events (时间窗口分组)               │
-│                                       │                                  │
-│                                       ▼                                  │
-│                                   df_paired (跨通道配对)                 │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### 新版事件流水线
-
-```
-raw_files ──► records ──► df ──► df_events
-```
-
----
-
-## 插件快速参考
-
-| 插件 | 提供数据 | 版本 | 类别 | 依赖 |
-|------|----------|------|------|------|
-| [`BasicFeaturesPlugin`](basic_features.md) | `basic_features` | 4.1.0 | 特征提取 | - |
-| [`CacheAnalysisPlugin`](cache_analysis.md) | `cache_analysis` | 0.1.0 | 缓存分析 | - |
-| [`DataFramePlugin`](df.md) | `df` | 1.7.0 | 数据导出 | - |
-| [`GroupedEventsPlugin`](df_events.md) | `df_events` | 0.0.1 | 事件分析 | df |
-| [`PairedEventsPlugin`](df_paired.md) | `df_paired` | 0.0.1 | 事件分析 | df_events |
-| [`EnergyReconstructionPlugin`](energy_reconstruction.md) | `energy_reconstruction` | 0.1.0 | 其他 | s1_s2_pairs |
-| [`EventPlugin`](events.md) | `events` | 0.0.3 | 事件分析 | s1_s2_pairs, position_reconstruction |
-| [`FilteredWaveformsPlugin`](filtered_waveforms.md) | `filtered_waveforms` | 3.0.0 | 波形处理 | st_waveforms |
-| [`HitFinderPlugin`](hit.md) | `hit` | 3.0.0 | 特征提取 | - |
-| [`HitGroupedPlugin`](hit_grouped.md) | `hit_grouped` | 0.5.0 | 特征提取 | hit_merged, hit_merged_components, hit_threshold |
-| [`HitMergeClustersPlugin`](hit_merge_clusters.md) | `hit_merge_clusters` | 1.1.0 | 特征提取 | hit_merged, hit_threshold |
-| [`HitMergePlugin`](hit_merged.md) | `hit_merged` | 2.1.0 | 特征提取 | hit_threshold |
-| [`HitMergedComponentsPlugin`](hit_merged_components.md) | `hit_merged_components` | 1.1.0 | 特征提取 | hit_merged, hit_threshold |
-| [`HitMergedFeaturesPlugin`](hit_merged_features.md) | `hit_merged_features` | 1.1.3 | 特征提取 | - |
-| [`ThresholdHitPlugin`](hit_threshold.md) | `hit_threshold` | 1.2.2 | 特征提取 | - |
-| [`PeakClassificationPlugin`](peak_classification.md) | `peak_classification` | 1.2.1 | 特征提取 | peaks |
-| [`PeakletChannelsPlugin`](peaklet_channels.md) | `peaklet_channels` | 2.0.5 | 峰构建 | peaklets, peaklet_components, hit_merged, hit_merged_components, hit_threshold, hit_merged_features, peaklet_features, records, wave_pool |
-| [`PeakletComponentsPlugin`](peaklet_components.md) | `peaklet_components` | 1.4.0 | 峰构建 | hit_merged |
-| [`PeakletFeaturesPlugin`](peaklet_features.md) | `peaklet_features` | 5.0.0 | 峰构建 | peaklet_waveforms, peaklet_waveform_pool, peaklets |
-| [`PeakletWaveformPoolPlugin`](peaklet_waveform_pool.md) | `peaklet_waveform_pool` | 3.0.0 | 峰构建 | peaklet_waveforms |
-| [`PeakletWaveformPlugin`](peaklet_waveforms.md) | `peaklet_waveforms` | 2.1.0 | 峰构建 | - |
-| [`PeakletPlugin`](peaklets.md) | `peaklets` | 1.2.0 | 峰构建 | hit_merged, peaklet_components |
-| [`PeaksPlugin`](peaks.md) | `peaks` | 5.0.0 | 特征提取 | peaklets, peaklet_features, peaklet_channels |
-| [`PositionReconstructionPlugin`](position_reconstruction.md) | `position_reconstruction` | 0.3.0 | 其他 | s1_s2_pairs, peaklet_channels |
-| [`RawFileNamesPlugin`](raw_files.md) | `raw_files` | 0.0.2 | 数据加载 | - |
-| [`RecordsPlugin`](records.md) | `records` | 0.14.2 | 记录处理 | - |
-| [`RecordsAsymmetryMaskPlugin`](records_asymmetry_mask.md) | `records_asymmetry_mask` | 0.2.0 | 记录处理 | records, wave_pool |
-| [`RecordsDetectorMaskPlugin`](records_detector_mask.md) | `records_detector_mask` | 0.1.0 | 记录处理 | records, records_asymmetry_mask |
-| [`RecordsVetoMaskPlugin`](records_veto_mask.md) | `records_veto_mask` | 0.1.0 | 记录处理 | records, records_asymmetry_mask |
-| [`S1S2PairCandidatesPlugin`](s1_s2_pair_candidates.md) | `s1_s2_pair_candidates` | 0.1.3 | 事件分析 | peak_classification, peaks |
-| [`S1S2PairSelectionPlugin`](s1_s2_pairs.md) | `s1_s2_pairs` | 0.2.0 | 事件分析 | s1_s2_pair_candidates |
-| [`WaveformsPlugin`](st_waveforms.md) | `st_waveforms` | 0.10.0 | 波形处理 | - |
-| [`WavePoolPlugin`](wave_pool.md) | `wave_pool` | 0.14.2 | 波形处理 | - |
-| [`WavePoolFilteredPlugin`](wave_pool_filtered.md) | `wave_pool_filtered` | 3.0.0 | 波形处理 | records, wave_pool |
-| [`WaveformWidthPlugin`](waveform_width.md) | `waveform_width` | 3.0.0 | 波形处理 | - |
-| [`WaveformWidthIntegralPlugin`](waveform_width_integral.md) | `waveform_width_integral` | 2.7.0 | 波形处理 | - |
-
----
+| Provides | 插件类 | 类别 | 解析后依赖 | 输出容器 | 执行模式 | 版本 |
+| --- | --- | --- | --- | --- | --- | --- |
+| [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | 特征提取 | `records`, `wave_pool` | `structured_array` | `static` | `4.1.0` |
+| [`cache_analysis`](cache_analysis.md) | `CacheAnalysisPlugin` | 缓存分析 | - | `dict` | `static` | `0.1.0` |
+| [`df`](df.md) | `DataFramePlugin` | 数据导出 | `records`, `basic_features` | `dataframe` | `static` | `1.7.0` |
+| [`df_events`](df_events.md) | `GroupedEventsPlugin` | 事件分析 | `df` | `dataframe` | `static` | `0.0.1` |
+| [`df_paired`](df_paired.md) | `PairedEventsPlugin` | 事件分析 | `df_events` | `dataframe` | `static` | `0.0.1` |
+| [`energy_reconstruction`](energy_reconstruction.md) | `EnergyReconstructionPlugin` | 其他 | `s1_s2_pairs` | `structured_array` | `static` | `0.1.0` |
+| [`events`](events.md) | `EventPlugin` | 事件分析 | `s1_s2_pairs`, `position_reconstruction` | `structured_array` | `static` | `0.0.3` |
+| [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | 波形处理 | `st_waveforms` | `structured_array` | `static` | `3.0.0` |
+| [`hit`](hit.md) | `HitFinderPlugin` | 特征提取 | `records`, `wave_pool` | `structured_array` | `static` | `3.0.0` |
+| [`hit_grouped`](hit_grouped.md) | `HitGroupedPlugin` | 特征提取 | `hit_merged`, `hit_merged_components`, `hit_threshold` | `dataframe` | `static` | `0.5.0` |
+| [`hit_merge_clusters`](hit_merge_clusters.md) | `HitMergeClustersPlugin` | 特征提取 | `hit_merged`, `hit_threshold` | `structured_array` | `static` | `1.1.0` |
+| [`hit_merged`](hit_merged.md) | `HitMergePlugin` | 特征提取 | `hit_threshold` | `structured_array` | `static` | `2.1.0` |
+| [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | 特征提取 | `hit_merged`, `hit_threshold` | `structured_array` | `static` | `1.1.0` |
+| [`hit_merged_features`](hit_merged_features.md) | `HitMergedFeaturesPlugin` | 特征提取 | `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `structured_array` | `static` | `1.1.3` |
+| [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | 特征提取 | `records`, `wave_pool`, `records_asymmetry_mask` | `structured_array` | `static` | `1.2.2` |
+| [`peak_classification`](peak_classification.md) | `PeakClassificationPlugin` | 特征提取 | `peaks` | `structured_array` | `static` | `1.2.1` |
+| [`peaklet_channels`](peaklet_channels.md) | `PeakletChannelsPlugin` | 峰构建 | `peaklets`, `peaklet_components`, `hit_merged`, `hit_merged_components`, `hit_threshold`, `hit_merged_features`, `peaklet_features`, `records`, `wave_pool` | `structured_array` | `static` | `2.0.5` |
+| [`peaklet_components`](peaklet_components.md) | `PeakletComponentsPlugin` | 峰构建 | `hit_merged` | `structured_array` | `static` | `1.4.0` |
+| [`peaklet_features`](peaklet_features.md) | `PeakletFeaturesPlugin` | 峰构建 | `peaklet_waveforms`, `peaklet_waveform_pool`, `peaklets` | `structured_array` | `static` | `5.0.0` |
+| [`peaklet_waveform_pool`](peaklet_waveform_pool.md) | `PeakletWaveformPoolPlugin` | 峰构建 | `peaklet_waveforms` | `array` | `static` | `3.0.0` |
+| [`peaklet_waveforms`](peaklet_waveforms.md) | `PeakletWaveformPlugin` | 峰构建 | `peaklets`, `peaklet_components`, `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `structured_array` | `static` | `2.1.0` |
+| [`peaklets`](peaklets.md) | `PeakletPlugin` | 峰构建 | `hit_merged`, `peaklet_components` | `structured_array` | `static` | `1.2.0` |
+| [`peaks`](peaks.md) | `PeaksPlugin` | 特征提取 | `peaklets`, `peaklet_features`, `peaklet_channels` | `structured_array` | `static` | `5.0.0` |
+| [`position_reconstruction`](position_reconstruction.md) | `PositionReconstructionPlugin` | 其他 | `s1_s2_pairs`, `peaklet_channels` | `structured_array` | `static` | `0.3.0` |
+| [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | 数据加载 | - | `list` | `static` | `0.0.2` |
+| [`records`](records.md) | `RecordsPlugin` | 记录处理 | `raw_files` | `structured_array` | `static` | `0.14.2` |
+| [`records_asymmetry_mask`](records_asymmetry_mask.md) | `RecordsAsymmetryMaskPlugin` | 记录处理 | `records`, `wave_pool` | `array` | `static` | `0.2.0` |
+| [`records_detector_mask`](records_detector_mask.md) | `RecordsDetectorMaskPlugin` | 记录处理 | `records`, `records_asymmetry_mask` | `array` | `static` | `0.1.0` |
+| [`records_veto_mask`](records_veto_mask.md) | `RecordsVetoMaskPlugin` | 记录处理 | `records`, `records_asymmetry_mask` | `array` | `static` | `0.1.0` |
+| [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md) | `S1S2PairCandidatesPlugin` | 事件分析 | `peak_classification`, `peaks` | `structured_array` | `static` | `0.1.3` |
+| [`s1_s2_pairs`](s1_s2_pairs.md) | `S1S2PairSelectionPlugin` | 事件分析 | `s1_s2_pair_candidates` | `structured_array` | `static` | `0.2.0` |
+| [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | 波形处理 | `raw_files` | `structured_array` | `static` | `0.10.0` |
+| [`wave_pool`](wave_pool.md) | `WavePoolPlugin` | 波形处理 | `raw_files` | `array` | `static` | `0.14.2` |
+| [`wave_pool_filtered`](wave_pool_filtered.md) | `WavePoolFilteredPlugin` | 波形处理 | `records`, `wave_pool` | `array` | `static` | `3.0.0` |
+| [`waveform_width`](waveform_width.md) | `WaveformWidthPlugin` | 波形处理 | `hit`, `st_waveforms` | `structured_array` | `static` | `3.0.0` |
+| [`waveform_width_integral`](waveform_width_integral.md) | `WaveformWidthIntegralPlugin` | 波形处理 | `records`, `wave_pool` | `structured_array` | `static` | `2.7.0` |
 
 ## 按类别浏览
 
 ### 数据加载
 
-数据加载插件负责扫描和读取原始数据文件。
-
-
-| 插件 | 说明 | 依赖 |
-|------|------|------|
-| [`raw_files`](raw_files.md) | Scan the data directory and group raw CSV files by channel n... | - |
+扫描并组织原始 DAQ 文件，为后续 records 构建提供入口。
+| Provides | 插件类 | 解析后依赖 | 页面来源 |
+| --- | --- | --- | --- |
+| [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | `source` |
 
 ### 波形处理
 
-波形处理插件对原始波形进行结构化、滤波等预处理。
-
-
-| 插件 | 说明 | 依赖 |
-|------|------|------|
-| [`filtered_waveforms`](filtered_waveforms.md) | Apply filtering to waveforms using Butterworth or Savitzky-G... | st_waveforms |
-| [`st_waveforms`](st_waveforms.md) | Extract waveforms from raw CSV files and structure them into... | - |
-| [`wave_pool`](wave_pool.md) | Build wave_pool from the shared internal records bundle. | - |
-| [`wave_pool_filtered`](wave_pool_filtered.md) | Build filtered wave_pool from records-backed raw waveforms. | records, wave_pool |
-| [`waveform_width`](waveform_width.md) | Calculate rise/fall time based on peak detection results. | - |
-| [`waveform_width_integral`](waveform_width_integral.md) | Event-wise integral quantile width using st_waveforms or fil... | - |
+构建、筛选或度量波形，并保留 records-backed 的输入关系。
+| Provides | 插件类 | 解析后依赖 | 页面来源 |
+| --- | --- | --- | --- |
+| [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `source` |
+| [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | `raw_files` | `source` |
+| [`wave_pool`](wave_pool.md) | `WavePoolPlugin` | `raw_files` | `source` |
+| [`wave_pool_filtered`](wave_pool_filtered.md) | `WavePoolFilteredPlugin` | `records`, `wave_pool` | `source` |
+| [`waveform_width`](waveform_width.md) | `WaveformWidthPlugin` | `hit`, `st_waveforms` | `source` |
+| [`waveform_width_integral`](waveform_width_integral.md) | `WaveformWidthIntegralPlugin` | `records`, `wave_pool` | `source` |
 
 ### 峰构建
 
-峰构建插件负责跨通道 peaklet 的构建、波形索引与特征提取，是 Peaks 功能域的核心组件。
-
-
-| 插件 | 说明 | 依赖 |
-|------|------|------|
-| [`peaklet_channels`](peaklet_channels.md) | Reconstruct deduplicated per-peaklet channel waveform contri... | peaklets, peaklet_components, hit_merged, hit_merged_components, hit_threshold, hit_merged_features, peaklet_features, records, wave_pool |
-| [`peaklet_components`](peaklet_components.md) | Return per-peaklet component hit_merged indices. | hit_merged |
-| [`peaklet_features`](peaklet_features.md) | Compute peaklet waveform features from ragged signal pools. | peaklet_waveforms, peaklet_waveform_pool, peaklets |
-| [`peaklet_waveform_pool`](peaklet_waveform_pool.md) | Return the flattened float32 signal pool paired with peaklet... | peaklet_waveforms |
-| [`peaklet_waveforms`](peaklet_waveforms.md) | Build peaklet waveform index rows from records-backed hit_me... | - |
-| [`peaklets`](peaklets.md) | Build lightweight cross-channel peaklets from hit_merged int... | hit_merged, peaklet_components |
+从 peaklet、通道聚合到 peak 分类，形成峰级分析产物。
+| Provides | 插件类 | 解析后依赖 | 页面来源 |
+| --- | --- | --- | --- |
+| [`peaklet_channels`](peaklet_channels.md) | `PeakletChannelsPlugin` | `peaklets`, `peaklet_components`, `hit_merged`, `hit_merged_components`, `hit_threshold`, `hit_merged_features`, `peaklet_features`, `records`, `wave_pool` | `source` |
+| [`peaklet_components`](peaklet_components.md) | `PeakletComponentsPlugin` | `hit_merged` | `source` |
+| [`peaklet_features`](peaklet_features.md) | `PeakletFeaturesPlugin` | `peaklet_waveforms`, `peaklet_waveform_pool`, `peaklets` | `source` |
+| [`peaklet_waveform_pool`](peaklet_waveform_pool.md) | `PeakletWaveformPoolPlugin` | `peaklet_waveforms` | `source` |
+| [`peaklet_waveforms`](peaklet_waveforms.md) | `PeakletWaveformPlugin` | `peaklets`, `peaklet_components`, `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `source` |
+| [`peaklets`](peaklets.md) | `PeakletPlugin` | `hit_merged`, `peaklet_components` | `source` |
 
 ### 特征提取
 
-特征提取插件从波形中计算各种物理特征（高度、面积、峰值等）。
-
-
-| 插件 | 说明 | 依赖 |
-|------|------|------|
-| [`basic_features`](basic_features.md) | Compute basic height, amplitude, area, and max-abs-diff feat... | - |
-| [`hit`](hit.md) | Detect peaks in waveforms and extract peak features. | - |
-| [`hit_grouped`](hit_grouped.md) | Group merged hits across channels into event-level coinciden... | hit_merged, hit_merged_components, hit_threshold |
-| [`hit_merge_clusters`](hit_merge_clusters.md) | Export cluster membership rows using the authoritative hit_m... | hit_merged, hit_threshold |
-| [`hit_merged`](hit_merged.md) | Merge nearby threshold hits per channel with time-gap and ma... | hit_threshold |
-| [`hit_merged_components`](hit_merged_components.md) | Return per-cluster component hit indices for hit_merged rows... | hit_merged, hit_threshold |
-| [`hit_merged_features`](hit_merged_features.md) | Compute per-hit_merged local waveform features from records-... | - |
-| [`hit_threshold`](hit_threshold.md) | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. | - |
-| [`peak_classification`](peak_classification.md) | Classify peaks into S1/S2 using multi-dimensional features. | peaks |
-| [`peaks`](peaks.md) | Build final peaks table from peaklets and waveform-derived f... | peaklets, peaklet_features, peaklet_channels |
+从 hit、peak 或波形计算结构化特征。
+| Provides | 插件类 | 解析后依赖 | 页面来源 |
+| --- | --- | --- | --- |
+| [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | `records`, `wave_pool` | `source` |
+| [`hit`](hit.md) | `HitFinderPlugin` | `records`, `wave_pool` | `source` |
+| [`hit_grouped`](hit_grouped.md) | `HitGroupedPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold` | `source` |
+| [`hit_merge_clusters`](hit_merge_clusters.md) | `HitMergeClustersPlugin` | `hit_merged`, `hit_threshold` | `source` |
+| [`hit_merged`](hit_merged.md) | `HitMergePlugin` | `hit_threshold` | `published` |
+| [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | `hit_merged`, `hit_threshold` | `source` |
+| [`hit_merged_features`](hit_merged_features.md) | `HitMergedFeaturesPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `source` |
+| [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | `records`, `wave_pool`, `records_asymmetry_mask` | `source` |
+| [`peak_classification`](peak_classification.md) | `PeakClassificationPlugin` | `peaks` | `source` |
+| [`peaks`](peaks.md) | `PeaksPlugin` | `peaklets`, `peaklet_features`, `peaklet_channels` | `source` |
 
 ### 事件分析
 
-事件分析插件进行时间窗口分组、跨通道配对等高级分析。
-
-
-| 插件 | 说明 | 依赖 |
-|------|------|------|
-| [`df_events`](df_events.md) | Group events across channels within a configurable time wind... | df |
-| [`df_paired`](df_paired.md) | Pair grouped events across channels for coincidence analysis... | df_events |
-| [`events`](events.md) | Complete event reconstruction from S1-S2 pairs and position | s1_s2_pairs, position_reconstruction |
-| [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md) | Generate all physically allowed S1-S2 pairing candidates | peak_classification, peaks |
-| [`s1_s2_pairs`](s1_s2_pairs.md) | Select best S1-S2 pairs from candidates | s1_s2_pair_candidates |
+将峰或 hit 组织为事件、配对结果或位置重建结果。
+| Provides | 插件类 | 解析后依赖 | 页面来源 |
+| --- | --- | --- | --- |
+| [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `source` |
+| [`df_paired`](df_paired.md) | `PairedEventsPlugin` | `df_events` | `source` |
+| [`events`](events.md) | `EventPlugin` | `s1_s2_pairs`, `position_reconstruction` | `source` |
+| [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md) | `S1S2PairCandidatesPlugin` | `peak_classification`, `peaks` | `source` |
+| [`s1_s2_pairs`](s1_s2_pairs.md) | `S1S2PairSelectionPlugin` | `s1_s2_pair_candidates` | `source` |
 
 ### 数据导出
 
-数据导出插件将处理结果整合为 DataFrame 等便于分析的格式。
-
-
-| 插件 | 说明 | 依赖 |
-|------|------|------|
-| [`df`](df.md) | Build the initial single-channel events DataFrame. | - |
+把插件产物整理为分析侧表格或批量输出。
+| Provides | 插件类 | 解析后依赖 | 页面来源 |
+| --- | --- | --- | --- |
+| [`df`](df.md) | `DataFramePlugin` | `records`, `basic_features` | `source` |
 
 ### 缓存分析
 
-缓存分析插件用于诊断和管理缓存状态。
-
-
-| 插件 | 说明 | 依赖 |
-|------|------|------|
-| [`cache_analysis`](cache_analysis.md) | Analyze cache usage and return summary, entries, and diagnos... | - |
+提供缓存结构与 lineage 的只读诊断信息。
+| Provides | 插件类 | 解析后依赖 | 页面来源 |
+| --- | --- | --- | --- |
+| [`cache_analysis`](cache_analysis.md) | `CacheAnalysisPlugin` | - | `source` |
 
 ### 记录处理
 
-记录处理插件构建事件索引表，支持高效的数据查询。
-
-
-| 插件 | 说明 | 依赖 |
-|------|------|------|
-| [`records`](records.md) | Build records (event index table) from the shared internal r... | - |
-| [`records_asymmetry_mask`](records_asymmetry_mask.md) | Bool mask for waveform asymmetry selection. | records, wave_pool |
-| [`records_detector_mask`](records_detector_mask.md) | Bool mask for detector-channel records after channel-role sp... | records, records_asymmetry_mask |
-| [`records_veto_mask`](records_veto_mask.md) | Bool mask for veto-channel records after channel-role splitt... | records, records_asymmetry_mask |
+构建 records 及其关联的屏蔽、波形访问输入。
+| Provides | 插件类 | 解析后依赖 | 页面来源 |
+| --- | --- | --- | --- |
+| [`records`](records.md) | `RecordsPlugin` | `raw_files` | `source` |
+| [`records_asymmetry_mask`](records_asymmetry_mask.md) | `RecordsAsymmetryMaskPlugin` | `records`, `wave_pool` | `source` |
+| [`records_detector_mask`](records_detector_mask.md) | `RecordsDetectorMaskPlugin` | `records`, `records_asymmetry_mask` | `source` |
+| [`records_veto_mask`](records_veto_mask.md) | `RecordsVetoMaskPlugin` | `records`, `records_asymmetry_mask` | `source` |
 
 ### 其他
 
+该类别中的插件按各自页面声明的输入、配置和输出契约运行。
+| Provides | 插件类 | 解析后依赖 | 页面来源 |
+| --- | --- | --- | --- |
+| [`energy_reconstruction`](energy_reconstruction.md) | `EnergyReconstructionPlugin` | `s1_s2_pairs` | `source` |
+| [`position_reconstruction`](position_reconstruction.md) | `PositionReconstructionPlugin` | `s1_s2_pairs`, `peaklet_channels` | `source` |
 
-| 插件 | 说明 | 依赖 |
-|------|------|------|
-| [`energy_reconstruction`](energy_reconstruction.md) | Reconstruct energy from selected S1-S2 pairs | s1_s2_pairs |
-| [`position_reconstruction`](position_reconstruction.md) | Reconstruct 3D position from S1-S2 pairs using vectorized Co... | s1_s2_pairs, peaklet_channels |
 
+## 常见目标
 
----
-
-## 常见用例
-
-### 用例 1: 基础波形分析
+### 读取峰级结果
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFileNamesPlugin,
-    WaveformsPlugin,
-    BasicFeaturesPlugin,
-    DataFramePlugin,
-)
-
-ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
-ctx.register(RawFileNamesPlugin())
-ctx.register(WaveformsPlugin())
-ctx.register(BasicFeaturesPlugin())
-ctx.register(DataFramePlugin())
-
-# 获取包含基础特征的 DataFrame
-df = ctx.get_data("run_001", "df")
-print(df.head())
+peaks = ctx.get_data("run_001", "peaks")
+print(peaks.dtype.names)
 ```
 
-### 用例 2: 峰值检测与分析
+### 读取事件级结果
 
 ```python
-from waveform_analysis.core.plugins.builtin.cpu import (
-    FilteredWaveformsPlugin,
-    SignalPeaksPlugin,
-)
-
-# 添加滤波和峰值检测插件
-ctx.register(FilteredWaveformsPlugin())
-ctx.register(SignalPeaksPlugin())
-
-# 配置峰值检测参数
-ctx.set_config({
-    "height": 30.0,
-    "prominence": 0.7,
-    "distance": 2,
-}, plugin_name="signal_peaks")
-
-# 获取峰值数据
-peaks = ctx.get_data("run_001", "signal_peaks")
-for ch, ch_peaks in enumerate(peaks):
-    print(f"Channel {ch}: {len(ch_peaks)} peaks detected")
+events = ctx.get_data("run_001", "events")
+print(events.dtype.names)
 ```
 
-### 用例 3: 事件配对分析
+### 诊断缓存
 
 ```python
-from waveform_analysis.core.plugins.builtin.cpu import (
-    GroupedEventsPlugin,
-    PairedEventsPlugin,
-)
-
-ctx.register(GroupedEventsPlugin())
-ctx.register(PairedEventsPlugin())
-
-# 配置时间窗口
-ctx.set_config({"time_window_ns": 100}, plugin_name="df_events")
-
-# 获取配对事件
-paired = ctx.get_data("run_001", "df_paired")
-print(f"Found {len(paired)} paired events")
+cache = ctx.get_data("run_001", "cache_analysis")
 ```
 
----
+每个目标的精确依赖、配置键、保存策略和输出字段，以对应插件页为准。
 
-## 开发自定义插件
-
-### 插件模板
+## 自定义插件的最小契约
 
 ```python
-from waveform_analysis.core.plugins.core.base import Plugin, Option
 import numpy as np
 
-class MyCustomPlugin(Plugin):
-    """自定义插件示例"""
+from waveform_analysis.core.plugins.core.base import Plugin
 
-    provides = "my_custom_data"
-    depends_on = ["st_waveforms"]
+
+class MyPlugin(Plugin):
+    provides = "my_output"
+    depends_on = ["records"]
     version = "1.0.0"
-    description = "计算自定义特征"
-
-    # 输出数据类型
-    output_dtype = np.dtype([
-        ("feature_a", "f4"),
-        ("feature_b", "f4"),
-    ])
-
-    # 配置选项
-    options = {
-        "threshold": Option(
-            default=10.0,
-            type=float,
-            help="检测阈值",
-        ),
-        "window_size": Option(
-            default=100,
-            type=int,
-            help="窗口大小（采样点）",
-        ),
-    }
+    output_dtype = np.dtype([("value", "f4")])
 
     def compute(self, context, run_id, **kwargs):
-        # 获取依赖数据
-        st_waveforms = context.get_data(run_id, "st_waveforms")
-
-        # 获取配置
-        threshold = context.get_config(self, "threshold")
-        window_size = context.get_config(self, "window_size")
-
-        # 计算特征
-        results = []
-        for ch_data in st_waveforms:
-            ch_result = np.zeros(len(ch_data), dtype=self.output_dtype)
-            # ... 计算逻辑 ...
-            results.append(ch_result)
-
-        return results
+        records = context.get_data(run_id, "records")
+        return np.zeros(len(records), dtype=self.output_dtype)
 ```
 
-### 注册和使用
-
-```python
-ctx.register(MyCustomPlugin())
-my_data = ctx.get_data("run_001", "my_custom_data")
-```
-
----
-
-## 相关文档
-
-- [快速开始指南](../../../../user-guide/QUICKSTART_GUIDE.md)
-- [架构概览](../../../../architecture/ARCHITECTURE.md)
-- [配置管理](../../../../features/context/CONFIGURATION.md)
-- [流式处理指南](../../../guides/STREAMING_PLUGINS_GUIDE.md)
-- [信号处理插件](../../../tutorials/SIGNAL_PROCESSING_PLUGINS.md)
-- [PluginSpec 开发指南](../../../../development/plugin-development/PLUGIN_SPEC_GUIDE.md)
-
----
-
-## 文档维护
-
-本文档由 `waveform-docs` 工具自动生成：
-
-```bash
-# 重新生成插件文档
-waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/
-
-# 检查文档覆盖率
-waveform-docs check coverage
-
-# 严格模式（检查 spec 质量）
-waveform-docs check coverage --strict
-```
-
-> **注意**: 请勿手动编辑 `auto/` 目录下的文件，它们会在下次生成时被覆盖。
-> 如需补充内容，请在 `manual/` 目录下创建文档。
-
----
-
-*本文档由 PluginSpec 元数据自动生成*
+新增或修改插件时，同时检查 `provides`、`depends_on`/`resolve_depends_on`、输出 dtype、配置说明、版本和两套生成文档；发布前运行仓库 `AGENTS.md` 中列出的文档与 schema 闸门。

@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "cache_analysis"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.cache_analysis.plugin"
 version: "0.1.0"
 summary: "Analyze cache usage and return summary, entries, and diagnostics."
 depends_on: []
+declared_depends_on: []
+resolved_depends_on: []
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "dict"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "0e275469219f1f0328e79f16aa264f923b719e6a085096c3ea27b1269c03d44f"
 generated: true
 ---
 # cache_analysis
@@ -25,13 +34,25 @@ Analyze cache usage and return a structured report.
 | Module | `waveform_analysis.core.plugins.builtin.cache_analysis.plugin` |
 | Version | `0.1.0` |
 | Category | 缓存分析 |
-| Output Kind | `dict` |
+| Output Container | `dict` |
+| Execution Mode | `static` |
+| Save Policy | `never` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | yes |
+| Narrative Source | `source` |
+| Source Fingerprint | `0e275469219f1f0328e79f16aa264f923b719e6a085096c3ea27b1269c03d44f` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | No declared inputs. |
+| - | - | declared | - | 无输入依赖。 |
 ### How It Works
 
+1. Analyze cache usage and return a structured report.
 
 ## Configuration
 
@@ -65,12 +86,15 @@ Cache summary, entries, and diagnostics.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cache_analysis import CacheAnalysisPlugin
+from waveform_analysis.core.plugins.builtin.cache_analysis.plugin import CacheAnalysisPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(CacheAnalysisPlugin())
-data = ctx.get_data("run_001", "cache_analysis")
+result = ctx.get_data("run_001", "cache_analysis")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
-- Terminal output; no direct builtin consumer is declared.
+- 没有声明直接的内置消费者。

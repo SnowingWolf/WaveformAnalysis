@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "agent"
 provides: "cache_analysis"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.cache_analysis.plugin"
 version: "0.1.0"
 summary: "Analyze cache usage and return summary, entries, and diagnostics."
 depends_on: []
+declared_depends_on: []
+resolved_depends_on: []
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "dict"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "0e275469219f1f0328e79f16aa264f923b719e6a085096c3ea27b1269c03d44f"
 generated: true
 ---
 # cache_analysis
@@ -25,13 +34,25 @@ Analyze cache usage and return a structured report.
 | Module | `waveform_analysis.core.plugins.builtin.cache_analysis.plugin` |
 | Version | `0.1.0` |
 | Category | 缓存分析 |
-| Output Kind | `dict` |
+| Output Container | `dict` |
+| Execution Mode | `static` |
+| Save Policy | `never` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | yes |
+| Narrative Source | `source` |
+| Source Fingerprint | `0e275469219f1f0328e79f16aa264f923b719e6a085096c3ea27b1269c03d44f` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | No declared inputs. |
+| - | - | declared | - | 无输入依赖。 |
 ### How It Works
 
+1. Analyze cache usage and return a structured report.
 
 ## Configuration
 
@@ -65,32 +86,36 @@ Cache summary, entries, and diagnostics.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cache_analysis import CacheAnalysisPlugin
+from waveform_analysis.core.plugins.builtin.cache_analysis.plugin import CacheAnalysisPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(CacheAnalysisPlugin())
-data = ctx.get_data("run_001", "cache_analysis")
+result = ctx.get_data("run_001", "cache_analysis")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
 
 ## Operational Notes
 
 ### Behavior
 
+- Cache analysis plugin.
+- Collects cache statistics and optionally returns filtered cache entries and diagnostic issues. This is meant for interactive inspection and does not write to the main cache by default.
 ### Failure Modes
 
-- Dependency data, configuration, or output contract validation may fail explicitly.
+- 配置校验失败或输入数据不满足插件实现的前置条件时，执行会失败。
+- 输出不符合声明的 dtype/schema 时，结果不会被视为有效插件产物。
 ### Downstream Impact
 
-Terminal output; no direct builtin consumer is declared.
-
+没有声明直接的内置消费者。
 
 ## Maintenance
 
 ### Change Playbook
 
-1. Keep `provides` and dependency semantics stable or update all consumers.
-2. Bump `version` for behavior, configuration, or output contract changes.
-3. Regenerate auto, agent, and web references after metadata changes.
+1. 保持 `provides`、依赖和输出字段语义稳定，或同步所有下游消费者。
+2. 行为、配置或输出契约改变时升级插件 `version`。
+3. 修改插件源码后重新生成 Auto、Agent 和 HTML 参考。
 ### Validation
 
 ```bash

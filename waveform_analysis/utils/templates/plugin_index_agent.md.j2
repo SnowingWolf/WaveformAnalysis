@@ -1,28 +1,35 @@
 # WaveformAnalysis Agent Plugin Reference
 
-> 面向 agent 的插件执行与改动参考。保持与 `builtin/auto` 分离维护。
+> 面向 agent 的执行契约索引。每个页面都保留声明依赖与文档默认画像下的解析依赖，并标出叙述来源与源码 fingerprint。
 
 ## Usage
 
 ```bash
-# 生成全部 agent 插件文档
 waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
+waveform-docs check coverage --strict --fail-on-warning
+```
 
-# 仅生成单个插件文档
-waveform-docs generate plugins-agent --plugin raw_files
+```python
+from waveform_analysis.core.context import Context
+from waveform_analysis.core.plugins import profiles
+
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "events")
 ```
 
 ## Summary
 
 - 插件总数：{{ plugins|length }}
 - 类别数：{{ by_category|length }}
+- 默认依赖画像：`{{ default_profile_name }}`（`{{ default_profile_values|tojson }}`）
 
 ## Plugin Table
 
-| Provides | Plugin | Depends On | Output Kind | Version |
-|----------|--------|------------|-------------|---------|
+| Provides | Plugin | Declared Depends On | Resolved Depends On | Dynamic Config Keys | Output Kind | Execution | Narrative Source | Version |
+|----------|--------|---------------------|---------------------|---------------------|-------------|-----------|------------------|---------|
 {% for plugin in plugins|sort(attribute='provides') %}
-| [`{{ plugin.provides }}`]({{ plugin.provides }}.md) | `{{ plugin.name }}` | {% if plugin.depends_on %}`{{ plugin.depends_on|join("`, `") }}`{% else %}-{% endif %} | `{{ plugin.output_kind }}` | `{{ plugin.version }}` |
+| [`{{ plugin.provides }}`]({{ plugin.provides }}.md) | `{{ plugin.name }}` | {% if plugin.depends_on %}`{{ plugin.depends_on|join("`, `") }}`{% else %}-{% endif %} | {% if plugin.resolved_depends_on %}`{{ plugin.resolved_depends_on|join("`, `") }}`{% else %}-{% endif %} | {% if plugin.dependency_config_keys %}`{{ plugin.dependency_config_keys|join("`, `") }}`{% else %}-{% endif %} | `{{ plugin.output_kind }}` | `{{ plugin.execution_kind }}` | `{{ plugin.documentation_status.source if plugin.documentation_status else "unknown" }}` | `{{ plugin.version }}` |
 {% endfor %}
 
 ## By Category
@@ -31,6 +38,13 @@ waveform-docs generate plugins-agent --plugin raw_files
 ### {{ category_names.get(category, category) }}
 
 {% for plugin in category_plugins|sort(attribute='provides') %}
-- [`{{ plugin.provides }}`]({{ plugin.provides }}.md): {{ plugin.description or "No description." }}
+- [`{{ plugin.provides }}`]({{ plugin.provides }}.md): {{ plugin.summary }}
 {% endfor %}
 {% endfor %}
+
+## Agent Change Checklist
+
+1. 先读目标插件页的 `declared_depends_on` 与 `resolved_depends_on`；动态插件还要检查列出的配置键。
+2. 修改行为、配置、依赖或输出字段时升级插件 `version`，并重新生成 Auto、Agent 与 HTML 页面。
+3. 检查 `source_fingerprint`、叙述来源和输出字段说明是否仍与源码一致。
+4. 运行 `waveform-docs check coverage --strict --fail-on-warning` 以及仓库固定 schema/影响面闸门。

@@ -70,13 +70,17 @@ def test_markdown_profiles_have_exact_sections_tables_and_frontmatter():
     agent = generator.render_plugin_page(view, profile="agent")
     assert check_plugin_document_structure(auto, "auto") == []
     assert check_plugin_document_structure(agent, "agent") == []
-    assert "schema_version: 1" in auto
+    assert "schema_version: 2" in auto
     assert 'profile: "auto"' in auto
     assert "| - | - | - | - | - |" in auto
-    assert "| - | - | - | - | - | - | - |" in auto
+    assert "| - | - | - | - | - | - | 此插件没有插件级配置。 |" in auto
     assert "## Operational Notes" not in auto
     assert "### Behavior" in agent
     assert "### Validation" in agent
+    legacy = auto.replace("schema_version: 2", "schema_version: 1", 1)
+    assert any(
+        "schema_version" in error for error in check_plugin_document_structure(legacy, "auto")
+    )
 
 
 def test_structure_checker_rejects_duplicate_or_extra_sections():
@@ -544,7 +548,7 @@ def test_documentation_completeness_excludes_inapplicable_sections_from_denomina
 
     scored = generator._with_web_scores([view])[0]
 
-    assert scored.documentation_completeness == 53
+    assert scored.documentation_completeness == 100
     assert scored.dag_impact == 0
 
 

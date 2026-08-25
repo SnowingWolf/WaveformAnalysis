@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "agent"
 provides: "filtered_waveforms"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.filtered_waveforms.plugin"
 version: "3.0.0"
 summary: "Apply filtering to waveforms using Butterworth or Savitzky-Golay filters."
 depends_on: ["st_waveforms"]
+declared_depends_on: ["st_waveforms"]
+resolved_depends_on: ["st_waveforms"]
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "fe489329b697bfe507578d9732c1009231142d4907e2aefa01ab6a2f4bcc7e7c"
 generated: true
 ---
 # filtered_waveforms
@@ -29,7 +38,18 @@ FilteredWaveformsPlugin 对 `st_waveforms` 中每个事件的波形应用数字�
 | Module | `waveform_analysis.core.plugins.builtin.filtered_waveforms.plugin` |
 | Version | `3.0.0` |
 | Category | 波形处理 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `target` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `fe489329b697bfe507578d9732c1009231142d4907e2aefa01ab6a2f4bcc7e7c` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
@@ -79,12 +99,14 @@ structured_array output with fields: baseline, baseline_upstream, polarity, time
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.filtered_waveforms import FilteredWaveformsPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(FilteredWaveformsPlugin())
-data = ctx.get_data("run_001", "filtered_waveforms")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "filtered_waveforms")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
 
 ## Operational Notes
 
@@ -104,8 +126,7 @@ data = ctx.get_data("run_001", "filtered_waveforms")
 - SG 参数非法（window<=0、poly_order<0、poly_order>=window）时抛出 `ValueError`。
 ### Downstream Impact
 
-Consumers: `signal_peaks_stream`, `waveform_width`
-- `signal_peaks_stream` 以 `filtered_waveforms` 为波形源做流式峰值检测，输出字段或 dtype 变化会影响其解析。
+直接消费者：`signal_peaks_stream`、`waveform_width`- `signal_peaks_stream` 以 `filtered_waveforms` 为波形源做流式峰值检测，输出字段或 dtype 变化会影响其解析。
 - `waveform_width` 在 `use_filtered=True` 时经 `resolve_depends_on` 动态依赖 `filtered_waveforms`，依赖 `wave` 字段与行对齐。
 
 ## Maintenance

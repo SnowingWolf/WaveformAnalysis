@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "peaklet_waveforms"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.peaklet_waveforms.plugin"
 version: "2.1.0"
 summary: "Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion."
 depends_on: []
+declared_depends_on: []
+resolved_depends_on: ["peaklets", "peaklet_components", "hit_merged", "hit_merged_components", "hit_threshold", "records", "wave_pool"]
+dependency_profile: "documentation-default-v1"
+dependency_profile_values: {"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}
+dependency_config_keys: ["clip_negative_signal", "use_filtered"]
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "8019dc98352bd4622b8fb6bf6dd6031ef041a68518730ffa98b972fb3c0d9c9b"
 generated: true
 ---
 # peaklet_waveforms
@@ -25,11 +34,29 @@ Build peaklet waveform index rows from records-backed hit_merged samples. Suppor
 | Module | `waveform_analysis.core.plugins.builtin.peaklet_waveforms.plugin` |
 | Version | `2.1.0` |
 | Category | 峰构建 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `8019dc98352bd4622b8fb6bf6dd6031ef041a68518730ffa98b972fb3c0d9c9b` |
+
+### Dependencies
+
+默认文档画像：`documentation-default-v1`（{"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}）。
+该插件通过 `resolve_depends_on(context, run_id)` 动态解析依赖；可能影响解析的配置键：`clip_negative_signal`, `use_filtered`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | No declared inputs. |
+| `peaklets` | - | dynamic-default | - | Build lightweight cross-channel peaklets from hit_merged intervals. |
+| `peaklet_components` | - | dynamic-default | - | Return per-peaklet component hit_merged indices. |
+| `hit_merged` | - | dynamic-default | - | Merge nearby threshold hits per channel with time-gap and max-width constraints. |
+| `hit_merged_components` | - | dynamic-default | - | Return per-cluster component hit indices for hit_merged rows. |
+| `hit_threshold` | - | dynamic-default | - | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. |
+| `records` | - | dynamic-default | - | Build records (event index table) from the shared internal records bundle. |
+| `wave_pool` | - | dynamic-default | - | Build wave_pool from the shared internal records bundle. |
 ### How It Works
 
 1. 读取 peaklets、peaklet_components、hit_merged、records 与所选 wave pool；cross-record merged 行通过 hit_merged_components 展开为 threshold-hit 片段。
@@ -66,12 +93,15 @@ structured_array output with fields: peak_id, time_start, time_end, dt, wave_off
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.peaklet_waveforms import PeakletWaveformPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(PeakletWaveformPlugin())
-data = ctx.get_data("run_001", "peaklet_waveforms")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "peaklet_waveforms")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
 - `peaklet_features`

@@ -693,7 +693,10 @@ def check_coverage(args):
         checker = DocCoverageChecker(docs_dir=docs_dir, auto_docs_dir=auto_docs_dir)
 
         # 执行检查
-        report = checker.check_coverage(require_spec_quality=args.strict)
+        report = checker.check_coverage(
+            require_spec_quality=args.strict,
+            require_content_quality=args.strict,
+        )
 
         # 打印报告
         checker.print_report(report)

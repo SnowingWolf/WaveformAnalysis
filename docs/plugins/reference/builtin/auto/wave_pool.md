@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "wave_pool"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.wave_pool.plugin"
 version: "0.14.2"
 summary: "Build wave_pool from the shared internal records bundle."
 depends_on: []
+declared_depends_on: []
+resolved_depends_on: ["raw_files"]
+dependency_profile: "documentation-default-v1"
+dependency_profile_values: {"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}
+dependency_config_keys: ["daq_adapter", "input_source"]
 output_kind: "array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "ec6c0538db1567e967a6269e93dbcfc4aa2adb5efd92cbbe73327438c8831b59"
 generated: true
 ---
 # wave_pool
@@ -29,11 +38,23 @@ WavePoolPlugin 把共享 RecordsBundle 中的原始 ADC 波形样本暴露为正
 | Module | `waveform_analysis.core.plugins.builtin.wave_pool.plugin` |
 | Version | `0.14.2` |
 | Category | 波形处理 |
-| Output Kind | `array` |
+| Output Container | `array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | yes |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `ec6c0538db1567e967a6269e93dbcfc4aa2adb5efd92cbbe73327438c8831b59` |
+
+### Dependencies
+
+默认文档画像：`documentation-default-v1`（{"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}）。
+该插件通过 `resolve_depends_on(context, run_id)` 动态解析依赖；可能影响解析的配置键：`daq_adapter`, `input_source`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | No declared inputs. |
+| `raw_files` | - | dynamic-default | - | Scan the data directory and group raw CSV files by channel number. |
 ### How It Works
 
 1. 解析共享 bundle：调用 `get_records_bundle(context, run_id)` 获取本 run 的 RecordsBundle / RecordsBundleRef。
@@ -71,15 +92,23 @@ array output with fields: value.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.wave_pool import WavePoolPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(WavePoolPlugin())
-data = ctx.get_data("run_001", "wave_pool")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "wave_pool")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
+- `basic_features`
+- `hit`
+- `hit_merged_features`
+- `hit_threshold`
 - `peaklet_channels`
 - `peaklet_waveforms`
 - `records_asymmetry_mask`
 - `wave_pool_filtered`
+- `waveform_width_integral`

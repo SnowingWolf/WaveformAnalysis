@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: {{ plugin.provides|tojson }}
@@ -8,20 +8,26 @@ module: {{ plugin.module_path|tojson }}
 version: {{ plugin.version|tojson }}
 summary: {{ plugin.summary|tojson }}
 depends_on: {{ plugin.depends_on|tojson }}
+declared_depends_on: {{ plugin.depends_on|tojson }}
+resolved_depends_on: {{ plugin.resolved_depends_on|tojson }}
+dependency_profile: {{ plugin.dependency_profile|tojson }}
+dependency_profile_values: {{ plugin.dependency_profile_values|tojson }}
+dependency_config_keys: {{ plugin.dependency_config_keys|tojson }}
 output_kind: {{ plugin.output_kind|tojson }}
+execution_kind: {{ plugin.execution_kind|tojson }}
+narrative_source: {{ (plugin.documentation_status.source if plugin.documentation_status else "unknown")|tojson }}
+narrative_source_reason: {{ (plugin.documentation_status.reason if plugin.documentation_status else "")|tojson }}
+source_fingerprint: {{ plugin.source_fingerprint|tojson }}
 generated: true
 ---
 # {{ plugin.provides }}
 
 ## Overview
 
-{{ (plugin.description or "-")|markdown_cell }}
-{% if plugin.overview_paragraphs %}
-{% for p in plugin.overview_paragraphs %}{{ p }}
+{{ (plugin.description or "暂无插件说明。")|markdown_cell }}
+{% for p in plugin.overview_paragraphs %}{{ p|markdown_cell }}
 
-{% endfor %}{% elif plugin.overview %}
-{{ plugin.overview }}
-{% endif %}
+{% endfor %}
 | Item | Value |
 | --- | --- |
 | Provides | `{{ plugin.provides|markdown_cell }}` |
@@ -29,12 +35,26 @@ generated: true
 | Module | `{{ plugin.module_path|markdown_cell }}` |
 | Version | `{{ plugin.version|markdown_cell }}` |
 | Category | {{ plugin.category_display|markdown_cell }} |
-| Output Kind | `{{ plugin.output_kind|markdown_cell }}` |
+| Output Container | `{{ plugin.output_kind|markdown_cell }}` |
+| Execution Mode | `{{ plugin.execution_kind|markdown_cell }}` |
+| Save Policy | `{{ plugin.save_when|markdown_cell }}` |
+| Uses Run Config | {{ "yes" if plugin.uses_run_config else "no" }} |
+| Timeout | `{{ plugin.timeout if plugin.timeout is not none else "none" }}` |
+| Side Effect | {{ "yes" if plugin.is_side_effect else "no" }} |
+| Narrative Source | `{{ (plugin.documentation_status.source if plugin.documentation_status else "unknown")|markdown_cell }}` |
+| Source Fingerprint | `{{ (plugin.source_fingerprint or "unavailable")|markdown_cell }}` |
+
+### Dependencies
+
+默认文档画像：`{{ plugin.dependency_profile|markdown_cell }}`{% if plugin.dependency_profile_values %}（{{ plugin.dependency_profile_values|tojson }}）{% endif %}。
+{% if plugin.has_dynamic_dependencies %}
+该插件通过 `resolve_depends_on(context, run_id)` 动态解析依赖；可能影响解析的配置键：{% if plugin.dependency_config_keys %}`{{ plugin.dependency_config_keys|join("`, `") }}`{% else %}源码未声明可静态提取的配置键{% endif %}。
+{% endif %}
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-{% if plugin.dependency_details %}{% for dep in plugin.dependency_details %}| `{{ dep.name|markdown_cell }}` | {{ (dep.version_constraint or "-")|markdown_cell }} | {{ dep.resolution|markdown_cell }} | {{ (dep.required_fields|join(", ") or "-")|markdown_cell }} | {{ (dep.description or "No producer description available.")|markdown_cell }} |
-{% endfor %}{% else %}| - | - | - | - | No declared inputs. |
+{% if plugin.resolved_dependency_details %}{% for dep in plugin.resolved_dependency_details %}| `{{ dep.name|markdown_cell }}` | {{ (dep.version_constraint or "-")|markdown_cell }} | {{ dep.resolution|markdown_cell }} | {{ (dep.required_fields|join(", ") or "-")|markdown_cell }} | {{ (dep.description or "暂无生产者说明。")|markdown_cell }} |
+{% endfor %}{% else %}| - | - | declared | - | 无输入依赖。 |
 {% endif %}
 ### How It Works
 
@@ -45,8 +65,8 @@ generated: true
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
 | --- | --- | --- | --- | --- | --- | --- |
-{% if plugin.config_options %}{% for opt in plugin.config_options %}| `{{ opt.name|markdown_cell }}` | `{{ opt.type|markdown_cell }}` | `{{ opt.default|markdown_cell }}` | {{ (opt.units or "-")|markdown_cell }} | {{ "yes" if opt.tracked else "no" }} | {{ "yes" if opt.deprecated else "no" }} | {{ plugin.config_notes.get(opt.name, opt.doc or "No description available.")|markdown_cell }} |
-{% endfor %}{% else %}| - | - | - | - | - | - | - |
+{% if plugin.config_options %}{% for opt in plugin.config_options %}| `{{ opt.name|markdown_cell }}` | `{{ opt.type|markdown_cell }}` | `{{ opt.default|markdown_cell }}` | {{ (opt.units or "-")|markdown_cell }} | {{ "yes" if opt.tracked else "no" }} | {{ "yes" if opt.deprecated else "no" }} | {{ plugin.config_notes.get(opt.name, opt.doc or "未声明说明。")|markdown_cell }}{% if opt.choices %}；可选值：`{{ opt.choices|join("`, `") }}`{% endif %}{% if opt.min_value is not none or opt.max_value is not none %}；范围：{{ opt.min_value if opt.min_value is not none else "-∞" }} 至 {{ opt.max_value if opt.max_value is not none else "+∞" }}{% endif %}{% if opt.internal_units %}；内部单位：`{{ opt.internal_units }}`{% endif %}{% if opt.alias %}；别名：`{{ opt.alias }}`{% endif %}{% if opt.deprecated_message %}；弃用说明：{{ opt.deprecated_message }}{% endif %} |
+{% endfor %}{% else %}| - | - | - | - | - | - | 此插件没有插件级配置。 |
 {% endif %}
 ## Output
 
@@ -54,7 +74,7 @@ generated: true
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-{% if plugin.output_fields %}{% for field in plugin.output_fields %}| `{{ field.name|markdown_cell }}` | `{{ field.dtype|markdown_cell }}` | {{ (field.units or "-")|markdown_cell }} | {{ (field.doc or plugin.field_notes.get(field.name, "-"))|markdown_cell }} |
+{% if plugin.output_fields %}{% for field in plugin.output_fields %}| `{{ field.name|markdown_cell }}` | `{{ field.dtype|markdown_cell }}` | {{ (field.units or "未声明")|markdown_cell }} | {{ (field.doc or plugin.field_notes.get(field.name, "未声明字段含义。"))|markdown_cell }} |
 {% endfor %}{% else %}| container | `{{ plugin.output_kind }}` | - | {{ plugin.output_summary|markdown_cell }} |
 {% endif %}
 ## Usage
@@ -62,16 +82,13 @@ generated: true
 ### Minimal Example
 
 ```python
-{% if plugin.usage_example %}{{ plugin.usage_example }}
-{% else %}from waveform_analysis.core.context import Context
-from {{ plugin.module_import_path }} import {{ plugin.name }}
+{{ plugin.usage_example }}
+```
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register({{ plugin.name }}())
-data = ctx.get_data("run_001", "{{ plugin.provides }}")
-{% endif %}```
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
 {% if plugin.downstream_consumers %}{% for consumer in plugin.downstream_consumers %}- `{{ consumer|markdown_cell }}`
-{% endfor %}{% else %}- Terminal output; no direct builtin consumer is declared.
+{% endfor %}{% else %}- 没有声明直接的内置消费者。
 {% endif %}

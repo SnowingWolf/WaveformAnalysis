@@ -110,6 +110,7 @@ class DocCoverageChecker:
         self,
         docs_dir: Path | None = None,
         auto_docs_dir: Path | None = None,
+        agent_docs_dir: Path | None = None,
     ):
         """初始化检查器
 
@@ -134,6 +135,11 @@ class DocCoverageChecker:
             auto_docs_dir = self.docs_dir / "plugins" / "reference" / "builtin" / "auto"
         self.auto_docs_dir = Path(auto_docs_dir)
 
+        if agent_docs_dir is None:
+            agent_docs_dir = self.docs_dir / "plugins" / "reference" / "agent"
+        self.agent_docs_dir = Path(agent_docs_dir)
+        self._builtin_load_errors: list[tuple[str, str]] = []
+
     def get_builtin_plugins(self) -> list[tuple[str, str, type]]:
         """获取所有内置插件
 
@@ -143,6 +149,7 @@ class DocCoverageChecker:
         from waveform_analysis.core.plugins.builtin import cpu
 
         plugins = []
+        self._builtin_load_errors = []
         seen_provides: set[str] = set()
 
         for name in cpu.__all__:
@@ -157,9 +164,8 @@ class DocCoverageChecker:
                     if provides and provides not in seen_provides:
                         plugins.append((name, provides, obj))
                         seen_provides.add(provides)
-                except Exception:
-                    # 跳过无法实例化的插件
-                    pass
+                except Exception as exc:
+                    self._builtin_load_errors.append((name, repr(exc)))
 
         return plugins
 
@@ -320,11 +326,234 @@ class DocCoverageChecker:
 
         return issues
 
-    def check_coverage(self, require_spec_quality: bool = False) -> CoverageReport:
+    def _check_generated_content_quality(
+        self,
+        builtin_plugins: list[tuple[str, str, type]],
+    ) -> list[CoverageIssue]:
+        """Check generated Auto/Agent pages against current code-derived views.
+
+        Coverage answers "does a page exist?".  This gate answers the more useful
+        release question: "does the page still describe the current plugin contract,
+        use non-empty narrative, and identify where that narrative came from?"  The
+        comparison is deliberately exact because these two directories are generated
+        artifacts, not hand-maintained prose.
+        """
+
+        from waveform_analysis.utils.plugin_doc_generator import (
+            PluginDocGenerator,
+            check_plugin_document_structure,
+        )
+
+        issues: list[CoverageIssue] = []
+        generator = PluginDocGenerator()
+        try:
+            loaded = generator.load_builtin_plugins()
+            if loaded != len(builtin_plugins):
+                issues.append(
+                    CoverageIssue(
+                        plugin_name="PluginDocGenerator",
+                        provides="*",
+                        severity="error",
+                        message=(
+                            f"Generator loaded {loaded} builtin plugins but coverage found "
+                            f"{len(builtin_plugins)}"
+                        ),
+                        category="extraction",
+                    )
+                )
+            views = generator.get_all_doc_info()
+        except Exception as exc:
+            return [
+                CoverageIssue(
+                    plugin_name="PluginDocGenerator",
+                    provides="*",
+                    severity="error",
+                    message=f"文档事实提取失败，禁止静默跳过插件: {exc}",
+                    category="extraction",
+                )
+            ]
+
+        by_provides = {view.provides: view for view in views}
+        required_narrative = {
+            "overview": lambda view: bool(view.overview or view.overview_paragraphs),
+            "workflow_steps": lambda view: bool(view.workflow_steps),
+            "behavior_notes": lambda view: bool(view.behavior_notes),
+            "failure_modes": lambda view: bool(view.failure_modes),
+            "usage_example": lambda view: bool(view.usage_example),
+        }
+        fallback_fragments = (
+            "暂无插件说明",
+            "暂无生产者说明",
+            "暂无字段说明",
+            "未声明字段含义",
+            "未声明说明",
+            "No description",
+            "No documented",
+            "placeholder",
+            "TBD",
+        )
+
+        for plugin_name, provides, _plugin_class in builtin_plugins:
+            view = by_provides.get(provides)
+            if view is None:
+                issues.append(
+                    CoverageIssue(
+                        plugin_name=plugin_name,
+                        provides=provides,
+                        severity="error",
+                        message="代码事实提取结果缺少该 builtin 插件",
+                        category="extraction",
+                    )
+                )
+                continue
+
+            status = view.documentation_status
+            source = getattr(status, "source", None)
+            if source == "source_fallback":
+                issues.append(
+                    CoverageIssue(
+                        plugin_name=plugin_name,
+                        provides=provides,
+                        severity="error",
+                        message=(
+                            "已发布 AgentDoc 被拒绝，必须重新审核/发布；"
+                            f"原因: {getattr(status, 'reason', '')}"
+                        ),
+                        category="source_drift",
+                    )
+                )
+            if not view.source_fingerprint:
+                issues.append(
+                    CoverageIssue(
+                        plugin_name=plugin_name,
+                        provides=provides,
+                        severity="error",
+                        message="无法取得插件源码 fingerprint",
+                        category="provenance",
+                    )
+                )
+
+            for field_name, predicate in required_narrative.items():
+                if not predicate(view):
+                    issues.append(
+                        CoverageIssue(
+                            plugin_name=plugin_name,
+                            provides=provides,
+                            severity="error",
+                            message=f"生成模型缺少非空叙述字段: {field_name}",
+                            category="content_quality",
+                        )
+                    )
+            for option in view.config_options:
+                if not (view.config_notes.get(option.name) or option.doc):
+                    issues.append(
+                        CoverageIssue(
+                            plugin_name=plugin_name,
+                            provides=provides,
+                            severity="error",
+                            message=f"配置选项缺少说明: {option.name}",
+                            category="content_quality",
+                        )
+                    )
+            for output_field in view.output_fields:
+                if not (view.field_notes.get(output_field.name) or output_field.doc):
+                    issues.append(
+                        CoverageIssue(
+                            plugin_name=plugin_name,
+                            provides=provides,
+                            severity="error",
+                            message=f"输出字段缺少含义说明: {output_field.name}",
+                            category="content_quality",
+                        )
+                    )
+            if view.resolved_depends_on and any(
+                not detail.description for detail in view.resolved_dependency_details
+            ):
+                issues.append(
+                    CoverageIssue(
+                        plugin_name=plugin_name,
+                        provides=provides,
+                        severity="error",
+                        message="解析后的依赖缺少生产者说明",
+                        category="content_quality",
+                    )
+                )
+
+            for profile, directory in (
+                ("auto", self.auto_docs_dir),
+                ("agent", self.agent_docs_dir),
+            ):
+                path = directory / f"{provides}.md"
+                if not path.is_file():
+                    issues.append(
+                        CoverageIssue(
+                            plugin_name=plugin_name,
+                            provides=provides,
+                            severity="error",
+                            message=f"缺少 {profile} 生成页面: {path}",
+                            category="generated_documentation",
+                        )
+                    )
+                    continue
+                try:
+                    content = path.read_text(encoding="utf-8")
+                    structure_errors = check_plugin_document_structure(content, profile)
+                    for error in structure_errors:
+                        issues.append(
+                            CoverageIssue(
+                                plugin_name=plugin_name,
+                                provides=provides,
+                                severity="error",
+                                message=f"{profile} 页面结构错误: {error}",
+                                category="generated_documentation",
+                            )
+                        )
+                    expected = generator.render_plugin_page(view, profile=profile)
+                    if content != expected:
+                        issues.append(
+                            CoverageIssue(
+                                plugin_name=plugin_name,
+                                provides=provides,
+                                severity="error",
+                                message=f"{profile} 页面与当前代码事实/模板不一致，请重新生成",
+                                category="generated_drift",
+                            )
+                        )
+                    for fragment in fallback_fragments:
+                        if fragment.casefold() in content.casefold():
+                            issues.append(
+                                CoverageIssue(
+                                    plugin_name=plugin_name,
+                                    provides=provides,
+                                    severity="error",
+                                    message=f"{profile} 页面包含占位或空泛说明: {fragment}",
+                                    category="content_quality",
+                                )
+                            )
+                            break
+                except OSError as exc:
+                    issues.append(
+                        CoverageIssue(
+                            plugin_name=plugin_name,
+                            provides=provides,
+                            severity="error",
+                            message=f"无法读取 {profile} 页面: {exc}",
+                            category="generated_documentation",
+                        )
+                    )
+
+        return issues
+
+    def check_coverage(
+        self,
+        require_spec_quality: bool = False,
+        require_content_quality: bool = False,
+    ) -> CoverageReport:
         """检查文档覆盖率
 
         Args:
             require_spec_quality: 是否也检查 spec 质量
+            require_content_quality: 是否校验 Auto/Agent 生成内容、源码 fingerprint 与叙述完整性
 
         Returns:
             覆盖报告
@@ -347,6 +576,17 @@ class DocCoverageChecker:
         extra_provides: set[str] = set()
         filename_mismatches: dict[str, str] = {}
         seen_provides: dict[str, Path] = {}
+
+        for plugin_name, error in self._builtin_load_errors:
+            issues.append(
+                CoverageIssue(
+                    plugin_name=plugin_name,
+                    provides="unknown",
+                    severity="error",
+                    message=f"无法实例化 builtin 插件，不能静默跳过: {error}",
+                    category="instantiation",
+                )
+            )
 
         for record in records:
             path = record["path"]
@@ -442,6 +682,9 @@ class DocCoverageChecker:
             if require_spec_quality:
                 spec_issues = self.check_spec_quality(plugin_class)
                 issues.extend(spec_issues)
+
+        if require_content_quality:
+            issues.extend(self._check_generated_content_quality(builtin_plugins))
 
         # 计算覆盖率
         total = len(builtin_plugins)
@@ -539,14 +782,17 @@ def check_and_report(
 
     Args:
         docs_dir: 文档目录
-        strict: 是否检查 spec 质量
+        strict: 是否检查 spec 质量与生成内容质量
         fail_on_warning: 是否在有警告时也失败
 
     Returns:
         是否通过检查
     """
     checker = DocCoverageChecker(docs_dir=docs_dir)
-    report = checker.check_coverage(require_spec_quality=strict)
+    report = checker.check_coverage(
+        require_spec_quality=strict,
+        require_content_quality=strict,
+    )
     checker.print_report(report)
 
     if fail_on_warning:

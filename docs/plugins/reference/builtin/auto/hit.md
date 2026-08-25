@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "hit"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.hit.plugin"
 version: "3.0.0"
 summary: "Detect peaks in waveforms and extract peak features."
 depends_on: []
+declared_depends_on: []
+resolved_depends_on: ["records", "wave_pool"]
+dependency_profile: "documentation-default-v1"
+dependency_profile_values: {"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}
+dependency_config_keys: ["use_filtered", "wave_source"]
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "90424264df7f1c8b2a1785b15805e9af0b6cb14270e90be56053e1075d86e0af"
 generated: true
 ---
 # hit
@@ -18,6 +27,12 @@ generated: true
 Detect peaks in waveforms and extract peak features.
 峰值检测插件 - 基于波形检测峰值并计算峰值特征。
 
+使用 scipy.signal.find_peaks 进行峰值检测，支持多种峰值筛选条件。 计算峰值的位置、高度、积分、边缘等特征。
+
+注意：此插件是当前唯一官方 Hit 检测接口（provides="hit"）。
+
+配置示例： >>> ctx.set_config({ ... 'dt': 2, ... 'use_filtered': True, # 使用滤波后的波形 ... }, plugin_name='hit')
+
 | Item | Value |
 | --- | --- |
 | Provides | `hit` |
@@ -25,11 +40,24 @@ Detect peaks in waveforms and extract peak features.
 | Module | `waveform_analysis.core.plugins.builtin.hit.plugin` |
 | Version | `3.0.0` |
 | Category | 特征提取 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `90424264df7f1c8b2a1785b15805e9af0b6cb14270e90be56053e1075d86e0af` |
+
+### Dependencies
+
+默认文档画像：`documentation-default-v1`（{"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}）。
+该插件通过 `resolve_depends_on(context, run_id)` 动态解析依赖；可能影响解析的配置键：`use_filtered`, `wave_source`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | No declared inputs. |
+| `records` | - | dynamic-default | - | Build records (event index table) from the shared internal records bundle. |
+| `wave_pool` | - | dynamic-default | - | Build wave_pool from the shared internal records bundle. |
 ### How It Works
 
 1. 从波形中检测峰值
@@ -76,12 +104,15 @@ structured_array output with fields: position, height, integral, edge_start, edg
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.hit import HitFinderPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(HitFinderPlugin())
-data = ctx.get_data("run_001", "hit")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "hit")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
-- Terminal output; no direct builtin consumer is declared.
+- `waveform_width`

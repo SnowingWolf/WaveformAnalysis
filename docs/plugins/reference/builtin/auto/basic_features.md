@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "basic_features"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.basic_features.plugin"
 version: "4.1.0"
 summary: "Compute basic height, amplitude, area, and max-abs-diff features from waveform data."
 depends_on: []
+declared_depends_on: []
+resolved_depends_on: ["records", "wave_pool"]
+dependency_profile: "documentation-default-v1"
+dependency_profile_values: {"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}
+dependency_config_keys: ["use_filtered", "wave_source"]
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "c418569295963ec951c2fb2910f8fc3706542531607b1ed7bb9037a313fd29d3"
 generated: true
 ---
 # basic_features
@@ -25,11 +34,24 @@ Plugin to compute basic height/area features from structured waveforms.
 | Module | `waveform_analysis.core.plugins.builtin.basic_features.plugin` |
 | Version | `4.1.0` |
 | Category | 特征提取 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `c418569295963ec951c2fb2910f8fc3706542531607b1ed7bb9037a313fd29d3` |
+
+### Dependencies
+
+默认文档画像：`documentation-default-v1`（{"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}）。
+该插件通过 `resolve_depends_on(context, run_id)` 动态解析依赖；可能影响解析的配置键：`use_filtered`, `wave_source`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | No declared inputs. |
+| `records` | - | dynamic-default | - | Build records (event index table) from the shared internal records bundle. |
+| `wave_pool` | - | dynamic-default | - | Build wave_pool from the shared internal records bundle. |
 ### How It Works
 
 1. 计算基础特征（height/amp/area/max_abs_diff）
@@ -68,12 +90,15 @@ structured_array output with fields: height, amp, area, max_abs_diff, timestamp,
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.basic_features import BasicFeaturesPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(BasicFeaturesPlugin())
-data = ctx.get_data("run_001", "basic_features")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "basic_features")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
-- Terminal output; no direct builtin consumer is declared.
+- `df`

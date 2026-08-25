@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "agent"
 provides: "events"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.events.plugin"
 version: "0.0.3"
 summary: "Complete event reconstruction from S1-S2 pairs and position"
 depends_on: ["s1_s2_pairs", "position_reconstruction"]
+declared_depends_on: ["s1_s2_pairs", "position_reconstruction"]
+resolved_depends_on: ["s1_s2_pairs", "position_reconstruction"]
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "f40afade8aefd9aff2e666625178afd057773f52f5b0678ca8370cedccac5c11"
 generated: true
 ---
 # events
@@ -18,6 +27,16 @@ generated: true
 Complete event reconstruction from S1-S2 pairs and position
 完整事件重建插件
 
+整合 S1-S2 配对和位置重建，输出完整的物理事件记录。
+
+输入: - s1_s2_pairs: S1-S2 配对结果 - position_reconstruction: 位置重建结果
+
+输出: - events: 完整事件记录
+
+v0.0.0 状态: - 仅建立数据结构和依赖关系 - 基本特征从输入数据复制 - 拓扑特征使用占位值（预留接口） - 质量评估使用简单阈值检查
+
+未来版本计划: - v0.1.0: 基础特征提取和质量检查 - v0.2.0: 拓扑特征计算（需要通道波形信息） - v0.3.0: 高级质量评估 - v1.0.0: 完整的事件重建和分类
+
 | Item | Value |
 | --- | --- |
 | Provides | `events` |
@@ -25,7 +44,18 @@ Complete event reconstruction from S1-S2 pairs and position
 | Module | `waveform_analysis.core.plugins.builtin.events.plugin` |
 | Version | `0.0.3` |
 | Category | 事件分析 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `f40afade8aefd9aff2e666625178afd057773f52f5b0678ca8370cedccac5c11` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
@@ -40,8 +70,8 @@ Complete event reconstruction from S1-S2 pairs and position
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
 | --- | --- | --- | --- | --- | --- | --- |
-| `min_s1` | `float` | `0.0` | - | yes | no | 最小 S1 阈值（用于质量筛选） |
-| `min_s2` | `float` | `0.0` | - | yes | no | 最小 S2 阈值（用于质量筛选） |
+| `min_s1` | `float` | `0.0` | - | yes | no | 最小 S1 阈值（用于质量筛选）；范围：0.0 至 +∞ |
+| `min_s2` | `float` | `0.0` | - | yes | no | 最小 S2 阈值（用于质量筛选）；范围：0.0 至 +∞ |
 | `fiducial_radius` | `(<class 'float'>, <class 'NoneType'>)` | `None` | - | yes | no | 基准体积半径 (mm)。None 表示不应用 |
 | `fiducial_z_range` | `(<class 'tuple'>, <class 'NoneType'>)` | `None` | - | yes | no | 基准体积 Z 范围 (z_min, z_max) mm。None 表示不应用 |
 ## Output
@@ -81,34 +111,36 @@ structured_array output with fields: event_id, event_number, run_id, pair_id, s1
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.events import EventPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(EventPlugin())
-data = ctx.get_data("run_001", "events")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "events")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
 
 ## Operational Notes
 
 ### Behavior
 
-- 执行完整事件重建
-- v0.0.0 实现: 1. 关联 pairs 和 positions（通过 pair_id） 2. 复制基本特征 3. 设置拓扑特征占位值 4. 应用简单质量标志
+- 完整事件重建插件
+- 整合 S1-S2 配对、位置重建和事件级别特征。
 ### Failure Modes
 
-- Dependency data, configuration, or output contract validation may fail explicitly.
+- 任一声明依赖（`s1_s2_pairs`, `position_reconstruction`）缺失或字段不符合输入契约时，执行会失败。
+- 配置校验或输出 schema 校验失败时，结果不会被视为有效插件产物。
 ### Downstream Impact
 
-Terminal output; no direct builtin consumer is declared.
-
+没有声明直接的内置消费者。
 
 ## Maintenance
 
 ### Change Playbook
 
-1. Keep `provides` and dependency semantics stable or update all consumers.
-2. Bump `version` for behavior, configuration, or output contract changes.
-3. Regenerate auto, agent, and web references after metadata changes.
+1. 保持 `provides`、依赖和输出字段语义稳定，或同步所有下游消费者。
+2. 行为、配置或输出契约改变时升级插件 `version`。
+3. 修改插件源码后重新生成 Auto、Agent 和 HTML 参考。
 ### Validation
 
 ```bash

@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "agent"
 provides: "records"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.records.plugin"
 version: "0.14.2"
 summary: "Build records (event index table) from the shared internal records bundle."
 depends_on: []
+declared_depends_on: []
+resolved_depends_on: ["raw_files"]
+dependency_profile: "documentation-default-v1"
+dependency_profile_values: {"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}
+dependency_config_keys: ["daq_adapter", "input_source"]
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "a2bb9701b804b34ee1ab45ff1415df6b1e2245ab005b0e29f009a5d8c430aac4"
 generated: true
 ---
 # records
@@ -29,11 +38,23 @@ records 是绝大多数 records-backed 产物的源头：波形池的切片访�
 | Module | `waveform_analysis.core.plugins.builtin.records.plugin` |
 | Version | `0.14.2` |
 | Category | 记录处理 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | yes |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `a2bb9701b804b34ee1ab45ff1415df6b1e2245ab005b0e29f009a5d8c430aac4` |
+
+### Dependencies
+
+默认文档画像：`documentation-default-v1`（{"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}）。
+该插件通过 `resolve_depends_on(context, run_id)` 动态解析依赖；可能影响解析的配置键：`daq_adapter`, `input_source`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | No declared inputs. |
+| `raw_files` | - | dynamic-default | - | Scan the data directory and group raw CSV files by channel number. |
 ### How It Works
 
 1. 解析共享 bundle：调用 `get_records_bundle(context, run_id)` 获取（必要时构建）本 run 的 RecordsBundle / RecordsBundleRef。
@@ -84,12 +105,14 @@ structured_array output with fields: timestamp, pid, board, channel, baseline, b
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.records import RecordsPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(RecordsPlugin())
-data = ctx.get_data("run_001", "records")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "records")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
 
 ## Operational Notes
 
@@ -107,8 +130,7 @@ data = ctx.get_data("run_001", "records")
 - 多分片 bundle 的元数据视图只合并 records、不合并 wave_pool，若下游误按 records 行取波形会越界——属消费方契约错误，本插件不单独拦截。
 ### Downstream Impact
 
-Consumers: `peaklet_channels`, `peaklet_waveforms`, `records_asymmetry_mask`, `records_detector_mask`, `records_veto_mask`, `wave_pool_filtered`
-- 行序与 `record_id` 语义的变更会影响所有 mask 类产物（其输出长度必须与 records 一致）以及 align 到 records 的派生数组。
+直接消费者：`basic_features`、`df`、`hit`、`hit_merged_features`、`hit_threshold`、`peaklet_channels`、`peaklet_waveforms`、`records_asymmetry_mask`、`records_detector_mask`、`records_veto_mask`、`wave_pool_filtered`、`waveform_width_integral`- 行序与 `record_id` 语义的变更会影响所有 mask 类产物（其输出长度必须与 records 一致）以及 align 到 records 的派生数组。
 - `wave_offset`/`event_length` 与 `wave_pool` 的索引一致性由下游切片访问共享，修改 records 布局需同步校验 `wave_pool_filtered` 与 `peaklet_waveforms`。
 
 ## Maintenance

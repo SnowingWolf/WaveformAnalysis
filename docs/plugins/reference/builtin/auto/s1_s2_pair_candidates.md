@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "s1_s2_pair_candidates"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.s1_s2_pair_candidates.plugin"
 version: "0.1.3"
 summary: "Generate all physically allowed S1-S2 pairing candidates"
 depends_on: ["peak_classification", "peaks"]
+declared_depends_on: ["peak_classification", "peaks"]
+resolved_depends_on: ["peak_classification", "peaks"]
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "ce140efec954613eb2fdb8766b6b6ace72c5c2ab2dba8a9dc1cd2115b0572305"
 generated: true
 ---
 # s1_s2_pair_candidates
@@ -18,6 +27,14 @@ generated: true
 Generate all physically allowed S1-S2 pairing candidates
 S1-S2 配对候选生成插件
 
+生成所有物理允许的 S1-S2 配对候选对。采用 S2 为 anchor 的设计, 对每个 S2 向前搜索满足时间窗口约束的 S1 候选。
+
+Hard constraints (物理必须满足): - t_S2 > t_S1 (时间因果性) - min_drift_time < (t_S2 - t_S1) < max_drift_time (漂移时间窗口) - 可选: S1/S2 最小面积阈值
+
+不做的事: - 不判断哪个配对"更好" - 不强制唯一配对 - 不做复杂的能量比筛选 (只存储 log10_s2_s1)
+
+输出: - 候选表,包含所有满足物理约束的 (S1, S2) 配对 - selected=False (由第二层插件设置) - score=0.0 (由第二层插件计算)
+
 | Item | Value |
 | --- | --- |
 | Provides | `s1_s2_pair_candidates` |
@@ -25,7 +42,18 @@ S1-S2 配对候选生成插件
 | Module | `waveform_analysis.core.plugins.builtin.s1_s2_pair_candidates.plugin` |
 | Version | `0.1.3` |
 | Category | 事件分析 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `ce140efec954613eb2fdb8766b6b6ace72c5c2ab2dba8a9dc1cd2115b0572305` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
@@ -41,9 +69,9 @@ S1-S2 配对候选生成插件
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
 | --- | --- | --- | --- | --- | --- | --- |
-| `max_drift_time` | `float` | `50000.0` | - | yes | no | 最大漂移时间 (ns). 典型液氙 TPC 约 50 μs |
-| `min_drift_time` | `float` | `0.0` | - | yes | no | 最小漂移时间 (ns). 用于过滤噪声 |
-| `time_field` | `str` | `center_time` | - | yes | no | 使用的时间字段 |
+| `max_drift_time` | `float` | `50000.0` | - | yes | no | 最大漂移时间 (ns). 典型液氙 TPC 约 50 μs；范围：0.0 至 +∞ |
+| `min_drift_time` | `float` | `0.0` | - | yes | no | 最小漂移时间 (ns). 用于过滤噪声；范围：0.0 至 +∞ |
+| `time_field` | `str` | `center_time` | - | yes | no | 使用的时间字段；可选值：`center_time`, `time_start`, `time_peak` |
 | `min_s1_area` | `(<class 'float'>, <class 'NoneType'>)` | `None` | - | yes | no | S1 最小面积阈值 (可选) |
 | `min_s2_area` | `(<class 'float'>, <class 'NoneType'>)` | `None` | - | yes | no | S2 最小面积阈值 (可选) |
 | `allow_orphan_s1` | `bool` | `False` | - | yes | no | 是否输出孤立 S1 (无 S2 配对) |
@@ -90,12 +118,15 @@ structured_array output with fields: pair_id, s1_peak_id, s2_peak_id, s1_index, 
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.s1_s2_pair_candidates import S1S2PairCandidatesPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(S1S2PairCandidatesPlugin())
-data = ctx.get_data("run_001", "s1_s2_pair_candidates")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "s1_s2_pair_candidates")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
 - `s1_s2_pairs`

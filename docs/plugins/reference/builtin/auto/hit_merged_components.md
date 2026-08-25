@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "hit_merged_components"
@@ -8,7 +8,16 @@ module: "waveform_analysis.core.plugins.builtin.hit_merged_components.plugin"
 version: "1.1.0"
 summary: "Return per-cluster component hit indices for hit_merged rows."
 depends_on: ["hit_merged", "hit_threshold"]
+declared_depends_on: ["hit_merged", "hit_threshold"]
+resolved_depends_on: ["hit_merged", "hit_threshold"]
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "9ec3069a90ba7e34e486ace53d577caf533f54668423fe3533770552cedd2db7"
 generated: true
 ---
 # hit_merged_components
@@ -25,7 +34,18 @@ Return flat component hit indices for each hit_merged cluster.
 | Module | `waveform_analysis.core.plugins.builtin.hit_merged_components.plugin` |
 | Version | `1.1.0` |
 | Category | 特征提取 |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `9ec3069a90ba7e34e486ace53d577caf533f54668423fe3533770552cedd2db7` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
@@ -33,6 +53,7 @@ Return flat component hit indices for each hit_merged cluster.
 | `hit_threshold` | - | declared | - | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. |
 ### How It Works
 
+1. Return flat component hit indices for each hit_merged cluster.
 
 ## Configuration
 
@@ -53,13 +74,18 @@ structured_array output with fields: merged_index, hit_index.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.hit_merged_components import HitMergedComponentsPlugin
+from waveform_analysis.core.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(HitMergedComponentsPlugin())
-data = ctx.get_data("run_001", "hit_merged_components")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "hit_merged_components")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
 - `hit_grouped`
+- `hit_merged_features`
 - `peaklet_channels`
+- `peaklet_waveforms`
