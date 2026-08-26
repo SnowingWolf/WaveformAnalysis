@@ -42,8 +42,6 @@ sections:
         route: plugins/reference/ADAPTER_PLUGIN_BEHAVIOR.html
       - source: docs/plugins/reference/ADAPTER_SYSTEM_GUIDE.md
         route: plugins/reference/ADAPTER_SYSTEM_GUIDE.html
-      - source: docs/plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md
-        route: plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.html
 
   - id: accessors-reference
     title: Accessor 接口
@@ -109,6 +107,8 @@ sections:
         route: features/utils/DAQ_ANALYZER_GUIDE.html
       - source: docs/features/utils/PDF_EXPORT_GUIDE.md
         route: features/utils/PDF_EXPORT_GUIDE.html
+      - source: docs/features/visualizations/POSITION_DASHBOARD_GUIDE.md
+        route: features/visualizations/POSITION_DASHBOARD_GUIDE.html
 
   - id: visualizations-reference
     title: 可视化
@@ -123,6 +123,9 @@ sections:
         tag: reflect
       - route: visualizations/waveform-plots.html
         title: 波形图
+        tag: reflect
+      - route: visualizations/position-dashboard.html
+        title: 位置二维 Dashboard
         tag: reflect
 
   - id: cli

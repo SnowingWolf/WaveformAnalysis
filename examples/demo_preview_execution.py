@@ -14,8 +14,8 @@ import sys
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
     FilteredWaveformsPlugin,
+    HitFinderPlugin,
     RawFilesPlugin,
-    SignalPeaksPlugin,
     WaveformsPlugin,
 )
 
@@ -33,7 +33,7 @@ def example_basic_preview():
         RawFilesPlugin(),
         WaveformsPlugin(),
         FilteredWaveformsPlugin(),
-        SignalPeaksPlugin(),
+        HitFinderPlugin(),
     ]
 
     for plugin in plugins:
@@ -63,12 +63,12 @@ def example_basic_preview():
             "prominence": 0.7,
             "use_derivative": True,
         },
-        plugin_name="signal_peaks",
+        plugin_name="hit",
     )
 
     # 预览执行计划
-    print("调用 ctx.preview_execution('run_001', 'signal_peaks')\n")
-    result = ctx.preview_execution("run_001", "signal_peaks")
+    print("调用 ctx.preview_execution('run_001', 'hit')\n")
+    result = ctx.preview_execution("run_001", "hit")
 
     # 返回结果也是一个字典，可以程序化使用
     print("\n返回的结果字典包含:")
@@ -91,7 +91,7 @@ def example_different_verbosity():
         RawFilesPlugin(),
         WaveformsPlugin(),
         FilteredWaveformsPlugin(),
-        SignalPeaksPlugin(),
+        HitFinderPlugin(),
     ]:
         ctx.register(plugin)
 
@@ -102,15 +102,15 @@ def example_different_verbosity():
 
     # verbose=0: 简洁模式
     print("\n>>> verbose=0 (简洁模式):")
-    ctx.preview_execution("run_001", "signal_peaks", verbose=0)
+    ctx.preview_execution("run_001", "hit", verbose=0)
 
     # verbose=1: 标准模式（默认）
     print("\n>>> verbose=1 (标准模式):")
-    ctx.preview_execution("run_001", "signal_peaks", verbose=1)
+    ctx.preview_execution("run_001", "hit", verbose=1)
 
     # verbose=2: 详细模式
     print("\n>>> verbose=2 (详细模式，显示默认值):")
-    ctx.preview_execution("run_001", "signal_peaks", verbose=2)
+    ctx.preview_execution("run_001", "hit", verbose=2)
 
 
 def example_selective_display():
@@ -125,7 +125,7 @@ def example_selective_display():
         RawFilesPlugin(),
         WaveformsPlugin(),
         FilteredWaveformsPlugin(),
-        SignalPeaksPlugin(),
+        HitFinderPlugin(),
     ]:
         ctx.register(plugin)
 
@@ -133,15 +133,11 @@ def example_selective_display():
 
     # 只显示执行计划和缓存状态
     print(">>> 只显示执行计划和缓存状态（不显示依赖树和配置）:")
-    ctx.preview_execution(
-        "run_001", "signal_peaks", show_tree=False, show_config=False, show_cache=True
-    )
+    ctx.preview_execution("run_001", "hit", show_tree=False, show_config=False, show_cache=True)
 
     # 只显示依赖树
     print("\n>>> 只显示依赖树:")
-    ctx.preview_execution(
-        "run_001", "signal_peaks", show_tree=True, show_config=False, show_cache=False
-    )
+    ctx.preview_execution("run_001", "hit", show_tree=True, show_config=False, show_cache=False)
 
 
 def example_programmatic_use():
@@ -156,14 +152,14 @@ def example_programmatic_use():
         RawFilesPlugin(),
         WaveformsPlugin(),
         FilteredWaveformsPlugin(),
-        SignalPeaksPlugin(),
+        HitFinderPlugin(),
     ]:
         ctx.register(plugin)
 
     ctx.set_config({"data_root": "DAQ", "n_channels": 2})
 
     # 获取预览结果但不打印（通过重定向或使用返回值）
-    result = ctx.preview_execution("run_001", "signal_peaks")
+    result = ctx.preview_execution("run_001", "hit")
 
     # 程序化分析结果
     print("\n程序化分析预览结果：\n")
@@ -208,7 +204,7 @@ def example_workflow():
         RawFilesPlugin(),
         WaveformsPlugin(),
         FilteredWaveformsPlugin(),
-        SignalPeaksPlugin(),
+        HitFinderPlugin(),
     ]:
         ctx.register(plugin)
 
@@ -221,11 +217,11 @@ def example_workflow():
     )
 
     ctx.set_config({"filter_type": "SG"}, plugin_name="filtered_waveforms")
-    ctx.set_config({"height": 30.0}, plugin_name="signal_peaks")
+    ctx.set_config({"height": 30.0}, plugin_name="hit")
 
     # 步骤 1: 预览执行计划
     print("步骤 1: 预览执行计划\n")
-    _ = ctx.preview_execution("run_001", "signal_peaks", verbose=1)
+    _ = ctx.preview_execution("run_001", "hit", verbose=1)
 
     # 步骤 2: 用户确认（可选）
     print("\n步骤 2: 用户确认")
@@ -243,7 +239,7 @@ def example_workflow():
     print("\n步骤 3: 执行数据处理")
     try:
         # 注意：如果没有真实数据文件，这里会失败
-        # data = ctx.get_data('run_001', 'signal_peaks')
+        # data = ctx.get_data('run_001', 'hit')
         # print(f"✓ 成功获取数据: {type(data)}")
         print("（跳过实际执行，因为可能没有真实数据文件）")
     except FileNotFoundError as e:
@@ -263,14 +259,14 @@ def example_compare_multiple_targets():
         RawFilesPlugin(),
         WaveformsPlugin(),
         FilteredWaveformsPlugin(),
-        SignalPeaksPlugin(),
+        HitFinderPlugin(),
     ]:
         ctx.register(plugin)
 
     ctx.set_config({"data_root": "DAQ", "n_channels": 2})
 
     # 比较不同目标的执行计划复杂度
-    targets = ["st_waveforms", "filtered_waveforms", "signal_peaks"]
+    targets = ["st_waveforms", "filtered_waveforms", "hit"]
 
     print("比较不同目标的执行计划复杂度:\n")
     for target in targets:

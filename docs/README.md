@@ -23,6 +23,7 @@ waveform-process --help
 |---|---|---|
 | 快速完成首次流程 | [快速开始](user-guide/QUICKSTART_GUIDE.md) | 新用户建议从此处开始 |
 | 参考常见场景示例 | [示例集合](user-guide/EXAMPLES_GUIDE.md) | 提供可复用代码模板 |
+| 使用位置二维 Dashboard | [位置二维 Dashboard](features/visualizations/POSITION_DASHBOARD_GUIDE.md) | 位置重建、S1/S2 分布与交互式 HTML 检查 |
 | 查阅核心能力（配置/缓存/执行链） | [功能特性](features/README.md) | Context、插件与高级能力说明 |
 | 查看内置插件能力 | [插件详解](plugins/README.md) | 按插件类型组织 |
 | 开发或修改插件 | [插件开发](development/plugin-development/README.md) | 插件开发规范与实践 |
@@ -50,12 +51,13 @@ waveform-process --help
 
 | 问题 | 文档 |
 |---|---|
+| 如何生成位置二维 Dashboard？ | [位置二维 Dashboard](features/visualizations/POSITION_DASHBOARD_GUIDE.md) |
 | 如何可视化依赖关系/血缘？ | [LINEAGE_VISUALIZATION_GUIDE.md](features/context/LINEAGE_VISUALIZATION_GUIDE.md) |
 | 如何管理配置来源？ | [CONFIGURATION.md](features/context/CONFIGURATION.md) |
 | 缓存为什么失效或命中异常？ | [PLUGIN_DAG_LINEAGE_CACHE.md](architecture/PLUGIN_DAG_LINEAGE_CACHE.md) |
 | 插件缓存如何分层、如何生成键与失效？ | [PLUGIN_CACHE_ARCHITECTURE.md](architecture/PLUGIN_CACHE_ARCHITECTURE.md) |
 | records 与 wave_pool 如何共同构建和访问？ | [DATA_PRODUCTS.md](architecture/DATA_PRODUCTS.md) |
-| 如何使用信号处理插件？ | [SIGNAL_PROCESSING_PLUGINS.md](plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md) |
+| 如何使用滤波与峰值插件？ | [FilteredWaveformsPlugin](plugins/reference/agent/filtered_waveforms.md) / [HitFinderPlugin](plugins/reference/agent/hit.md) |
 | 如何开发自定义插件？ | [PLUGIN_SYSTEM_OVERVIEW.md](plugins/PLUGIN_SYSTEM_OVERVIEW.md) |
 | 如何管理执行器与并行处理？ | [系统架构：执行器管理框架](architecture/ARCHITECTURE.md#执行器管理框架) |
 

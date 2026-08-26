@@ -33,6 +33,9 @@ def test_repository_manifest_publishes_plugin_bundle_guide():
     adapter = pages["plugins/reference/ADAPTER_SYSTEM_GUIDE.html"]
     assert "DAQ 适配器" in adapter.title
     assert not any("ADAPTER_SYSTEM_GUIDE.md" in warning for warning in rendered.warnings)
+    position_dashboard = pages["features/visualizations/POSITION_DASHBOARD_GUIDE.html"]
+    assert position_dashboard.title == "位置二维 Dashboard"
+    assert "plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.html" not in pages
 
 
 def test_manifest_renders_markdown_and_rewrites_selected_links_and_assets(tmp_path):

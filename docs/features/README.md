@@ -44,7 +44,8 @@
 信号处理插件、流式处理插件、Strax 适配器、插件开发教程。
 
 - [插件系统与模板 API](../plugins/PLUGIN_SYSTEM_OVERVIEW.md)
-- [信号处理插件](../plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md)
+- [滤波插件参考](../plugins/reference/agent/filtered_waveforms.md)
+- [峰值检测插件参考](../plugins/reference/agent/hit.md)
 - [流式处理插件](../plugins/guides/STREAMING_PLUGINS_GUIDE.md)
 
 ### [高级功能](advanced/README.md)
@@ -60,6 +61,10 @@ DAQ 适配器、DAQ 运行分析与事件筛选等实用工具。
 - [DAQ 适配器](../plugins/reference/ADAPTER_SYSTEM_GUIDE.md)
 - [DAQ 分析器](utils/DAQ_ANALYZER_GUIDE.md)
 
+### 可视化功能
+
+- [位置二维 Dashboard](visualizations/POSITION_DASHBOARD_GUIDE.md) - 位置重建、S1/S2 分布与交互式二维检查
+
 ## 按场景查找
 
 | 场景 | 文档 |
@@ -69,11 +74,13 @@ DAQ 适配器、DAQ 运行分析与事件筛选等实用工具。
 | 追踪进度 | [PROGRESS_TRACKING_GUIDE.md](advanced/PROGRESS_TRACKING_GUIDE.md) |
 | 配置 DAQ 数据格式 | [ADAPTER_SYSTEM_GUIDE.md](../plugins/reference/ADAPTER_SYSTEM_GUIDE.md) |
 | 查看 DAQ 运行概览 | [DAQ_ANALYZER_GUIDE.md](utils/DAQ_ANALYZER_GUIDE.md) |
+| 使用位置二维 Dashboard | [POSITION_DASHBOARD_GUIDE.md](visualizations/POSITION_DASHBOARD_GUIDE.md) |
 | 可视化数据血缘 | [LINEAGE_VISUALIZATION_GUIDE.md](context/LINEAGE_VISUALIZATION_GUIDE.md) |
 | 分析依赖关系 | [DEPENDENCY_ANALYSIS_GUIDE.md](context/DEPENDENCY_ANALYSIS_GUIDE.md) |
 | 管理配置 | [CONFIGURATION.md](context/CONFIGURATION.md) |
 | 绝对时间查询 | [ABSOLUTE_TIME_GUIDE.md](context/ABSOLUTE_TIME_GUIDE.md) |
-| 使用信号处理插件 | [SIGNAL_PROCESSING_PLUGINS.md](../plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md) |
+| 使用滤波插件 | [filtered_waveforms.md](../plugins/reference/agent/filtered_waveforms.md) |
+| 使用峰值检测插件 | [hit.md](../plugins/reference/agent/hit.md) |
 | 开发自定义插件 | [PLUGIN_SYSTEM_OVERVIEW.md](../plugins/PLUGIN_SYSTEM_OVERVIEW.md) |
 
 ## 学习路径

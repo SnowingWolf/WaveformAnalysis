@@ -40,7 +40,6 @@ DIR_NAMES = {
 FILE_TITLES = {
     "DEPENDENCY_ANALYSIS_GUIDE.md": "依赖分析",
     "LINEAGE_VISUALIZATION.md": "血缘图预览",
-    "SIGNAL_PROCESSING_PLUGINS.md": "信号处理插件",
     "STREAMING_PLUGINS_GUIDE.md": "流式处理插件",
     "STRAX_PLUGINS_ADAPTER.md": "Strax 适配器",
     "CACHE.md": "缓存系统",

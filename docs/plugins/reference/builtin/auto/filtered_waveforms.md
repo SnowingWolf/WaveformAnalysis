@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "fe489329b697bfe507578d9732c1009231142d4907e2aefa01ab6a2f4bcc7e7c"
+source_fingerprint: "c6ff61b2033b6e87ff7a1ba29eaededfe8893caa6f7b01b26bbf539dbe354021"
 generated: true
 ---
 # filtered_waveforms
@@ -45,7 +45,7 @@ FilteredWaveformsPlugin 对 `st_waveforms` 中每个事件的波形应用数字�
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `fe489329b697bfe507578d9732c1009231142d4907e2aefa01ab6a2f4bcc7e7c` |
+| Source Fingerprint | `c6ff61b2033b6e87ff7a1ba29eaededfe8893caa6f7b01b26bbf539dbe354021` |
 
 ### Dependencies
 
@@ -103,7 +103,15 @@ from waveform_analysis.core.plugins import profiles
 
 ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 ctx.register(*profiles.cpu_default())
-result = ctx.get_data("run_001", "filtered_waveforms")
+ctx.set_config(
+    {
+        "filter_type": "SG",
+        "sg_window_size": 11,
+        "sg_poly_order": 2,
+    },
+    plugin_name="filtered_waveforms",
+)
+filtered_waveforms = ctx.get_data("run_001", "filtered_waveforms")
 ```
 
 示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。

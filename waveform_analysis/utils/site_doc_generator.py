@@ -46,6 +46,10 @@ from waveform_analysis.utils.visualization.waveform_visualizer import (
     plot_peak_channels_with_sum,
     plot_waveforms,
 )
+from waveform_analysis.visualization import (
+    render_position_dashboard_2d,
+    render_position_dashboard_with_2d_hist,
+)
 
 _CONTENT_BLOCK_KINDS = frozenset(
     {"heading", "paragraph", "list", "note", "code", "image", "mathml", "table", "mermaid"}
@@ -1213,6 +1217,12 @@ _CALLABLE_RETURNS = {
     "plot_waveforms": "交互式 Plotly figure；Plotly 缺失时返回 `None`。",
     "plot_peak_channels_with_sum": "`(figure, axes)`；没有 peak 数据时均为 `None`。",
     "create_peak_plotter": "预加载数据的 `plot_func(peak_id, pad, group_by)`。",
+    "render_position_dashboard_2d": (
+        "当 `return_html=False` 时返回生成的 HTML 文件路径；当 `return_html=True` 时返回完整 HTML 字符串。"
+    ),
+    "render_position_dashboard_with_2d_hist": (
+        "与 `render_position_dashboard_2d` 相同；旧入口仅作为弃用兼容包装保留。"
+    ),
 }
 
 _CALLABLE_NOTES = {
@@ -1226,6 +1236,14 @@ _CALLABLE_NOTES = {
     "corner_hist": ("对数坐标要求对应数据和范围为正数。",),
     "plot_peak_channels_with_sum": ("批量检查多个 peak 时应使用 `create_peak_plotter()`。",),
     "create_peak_plotter": ("返回函数会持有预加载数组，使用完毕后释放引用。",),
+    "render_position_dashboard_2d": (
+        "该函数只接收已准备好的 `DataFrame` 和 PMT `layout`，不需要 `Context`。",
+        "输出 HTML 内嵌数据，但 Plotly.js 通过 CDN 加载；离线环境需要自行提供 Plotly.js。",
+        "`render_position_dashboard_with_2d_hist` 和 `--dashboard-2d-hist` 已弃用。",
+    ),
+    "render_position_dashboard_with_2d_hist": (
+        "请迁移到 `render_position_dashboard_2d`；调用旧入口会发出 `DeprecationWarning`。",
+    ),
 }
 
 _CALLABLE_EXAMPLES = {
@@ -1237,6 +1255,26 @@ _CALLABLE_EXAMPLES = {
     "plot_waveforms": """figure = plot_waveforms(waveforms, event_index=0, channels=[\"0:3\"])""",
     "plot_peak_channels_with_sum": """fig, axes = plot_peak_channels_with_sum(919, context=ctx, run_id=\"run_001\")""",
     "create_peak_plotter": """plot_peak = create_peak_plotter(ctx, \"run_001\")\nfig, axes = plot_peak(919)""",
+    "render_position_dashboard_2d": """import pandas as pd
+
+from waveform_analysis import render_position_dashboard_2d
+from waveform_analysis.core.hardware.geometry import load_fallback_layout
+
+df = pd.DataFrame({
+    "x_rec": [1.2, -3.4],
+    "y_rec": [5.6, 2.1],
+    "z_rec": [-40.0, -55.0],
+    "s1_area": [120.0, 180.0],
+    "s2_area": [1500.0, 2400.0],
+    "s2_peak_id": [101, 102],
+})
+
+path = render_position_dashboard_2d(
+    df=df,
+    layout=load_fallback_layout(),
+    run_id="run_001",
+    output_dir="output",
+)""",
 }
 
 
@@ -2246,7 +2284,165 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
 )
 
 
+_POSITION_DASHBOARD_PARAMETERS = (
+    AccessorParameterSpec(
+        "df",
+        "包含 `x_rec`、`y_rec`、`z_rec`、`s1_area`、`s2_area`、`s2_peak_id` 的位置与 S1/S2 特征 DataFrame。",
+    ),
+    AccessorParameterSpec(
+        "layout", "PMT 几何布局，通常来自 `load_fallback_layout()` 或配置加载函数。"
+    ),
+    AccessorParameterSpec(
+        "run_id", "用于 HTML 标题和输出文件名的运行标识；不会触发 Context 数据访问。"
+    ),
+    AccessorParameterSpec("output_dir", "`return_html=False` 时保存独立 HTML 文件的目录。"),
+    AccessorParameterSpec("detector_radius_mm", "探测器半径，必须是正的有限数值，用于边界标注。"),
+    AccessorParameterSpec(
+        "return_html",
+        "为 `False` 返回 HTML 路径；为 `True` 直接返回 HTML 字符串且不写文件。",
+    ),
+)
+
+_POSITION_DASHBOARD_NARRATIVE = (
+    ContentDocumentationSection(
+        anchor="input-contract",
+        title="输入 DataFrame 契约",
+        blocks=(
+            DocumentationContentBlock(
+                kind="paragraph",
+                text=(
+                    "Dashboard 不接收 Context，也不负责从 run 读取数据；调用方需要先准备一个位置重建与 S1/S2 特征 DataFrame。"
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="table",
+                table_headers=("类别", "字段", "说明"),
+                table_rows=(
+                    ("必需", "`x_rec`, `y_rec`, `z_rec`", "重建位置坐标，通常单位为 mm。"),
+                    ("必需", "`s1_area`, `s2_area`", "S1/S2 面积；至少各自需要一个正的有限值。"),
+                    ("必需", "`s2_peak_id`", "S2 peak 标识；用于追踪事件。"),
+                    ("可选", "`drift_time_ns`", "漂移时间；缺失时使用 0。"),
+                    (
+                        "可选",
+                        "`width`, `rise_time_10_50`",
+                        "通用宽度和上升时间特征。",
+                    ),
+                    (
+                        "可选",
+                        "`s1_width`, `s2_width`, `s1_peak_width`, `s2_peak_width`",
+                        "S1/S2 宽度特征。",
+                    ),
+                    (
+                        "可选",
+                        "`s1_rise_time_10_50`, `s2_rise_time_10_50`",
+                        "S1/S2 上升时间特征。",
+                    ),
+                    (
+                        "内部派生",
+                        "`r2_rec`, `r_rec`, `theta_rec`, `cos_theta_rec`, `log10_s1`, `log10_s2`, `_row_id`",
+                        "由函数自动计算，不需要调用方提供。",
+                    ),
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="note",
+                tone="important",
+                text=(
+                    "函数会复制并清洗输入数据，不会添加或修改调用方 DataFrame 的列。非有限行会被序列化为 null，并由前端图表忽略。"
+                ),
+            ),
+        ),
+    ),
+    ContentDocumentationSection(
+        anchor="usage-and-output",
+        title="调用方式与输出",
+        blocks=(
+            DocumentationContentBlock(
+                kind="paragraph",
+                text="已经有 DataFrame 时直接调用 API；只有通过 CLI 从指定 run 导出数据时，才由脚本内部使用 Context。",
+            ),
+            DocumentationContentBlock(
+                kind="code",
+                language="bash",
+                code=(
+                    "python examples/export_positions_for_visualization.py \\\n"
+                    "  --run-id run_001 \\\n"
+                    "  --data-root /path/to/data \\\n"
+                    "  --output output \\\n"
+                    "  --dashboard-2d"
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="paragraph",
+                text=(
+                    "默认写出 `output/run_{run_id}_position_dashboard_2d.html` 并返回路径；"
+                    "设置 `return_html=True` 时直接返回完整 HTML 字符串。页面包含 XY/XZ/YZ、R²-Z、"
+                    "R-cos(θ)、S1-S2、特征相关性和 3D 图表，以及筛选、框选联动和清除选择。"
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="note",
+                tone="warning",
+                text=(
+                    "页面使用 Plotly CDN。打开 HTML 时需要网络访问 CDN；加载失败时页面会显示明确错误提示。"
+                ),
+            ),
+        ),
+    ),
+    ContentDocumentationSection(
+        anchor="compatibility",
+        title="兼容入口",
+        blocks=(
+            DocumentationContentBlock(
+                kind="paragraph",
+                text=(
+                    "`render_position_dashboard_with_2d_hist` 和 CLI 的 `--dashboard-2d-hist` 仍保留用于旧脚本，"
+                    "但均已弃用。新代码统一使用 `render_position_dashboard_2d` 与 `--dashboard-2d`。"
+                ),
+            ),
+        ),
+    ),
+)
+
+
 VISUALIZATION_DOCUMENTATION_PAGES = (
+    CallableDocumentationPageSpec(
+        "position-dashboard",
+        "位置二维 Dashboard",
+        "可视化",
+        "从位置重建与 S1/S2 特征 DataFrame 生成独立的交互式二维分析页面。",
+        (
+            "`render_position_dashboard_2d` 是位置分析的 canonical 入口：它不依赖 Context，"
+            "将输入数据内嵌到 HTML 中，并通过 Plotly 提供二维 histogram、筛选和框选联动。"
+        ),
+        (
+            CallableDocumentationGroup(
+                "position-dashboard-api",
+                "位置 Dashboard 函数",
+                "直接 API 接收已准备好的 DataFrame 和 PMT 布局；数据导出和 Context 编排由调用方或 CLI 负责。",
+                (
+                    CallableDocumentationSpec(
+                        "render_position_dashboard_2d",
+                        render_position_dashboard_2d,
+                        "生成 canonical 交互式位置二维 Dashboard。",
+                        parameters=_POSITION_DASHBOARD_PARAMETERS,
+                        returns=_CALLABLE_RETURNS["render_position_dashboard_2d"],
+                        notes=_CALLABLE_NOTES["render_position_dashboard_2d"],
+                        example=_CALLABLE_EXAMPLES["render_position_dashboard_2d"],
+                    ),
+                    CallableDocumentationSpec(
+                        "render_position_dashboard_with_2d_hist",
+                        render_position_dashboard_with_2d_hist,
+                        "旧版兼容包装；转发到 canonical 实现并发出弃用警告。",
+                        parameters=_POSITION_DASHBOARD_PARAMETERS,
+                        returns=_CALLABLE_RETURNS["render_position_dashboard_with_2d_hist"],
+                        notes=_CALLABLE_NOTES["render_position_dashboard_with_2d_hist"],
+                    ),
+                ),
+            ),
+        ),
+        narrative_sections=_POSITION_DASHBOARD_NARRATIVE,
+    ),
     CallableDocumentationPageSpec(
         "statistical-plots",
         "统计图",

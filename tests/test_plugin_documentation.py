@@ -845,6 +845,9 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert result["guide:docs/user-guide/EXAMPLES_GUIDE.md"] == (
         tmp_path / "user-guide" / "EXAMPLES_GUIDE.html"
     )
+    assert result["guide:docs/features/visualizations/POSITION_DASHBOARD_GUIDE.md"] == (
+        tmp_path / "features" / "visualizations" / "POSITION_DASHBOARD_GUIDE.html"
+    )
     assert result["guide-index:architecture"] == tmp_path / "architecture" / "index.html"
     assert (tmp_path / "user-guide" / "index.html").is_file()
     assert result["asset:mermaid/mermaid.min.js"] == (
@@ -854,6 +857,7 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert result["context:context"] == tmp_path / "contexts" / "context.html"
     assert result["adapter:adapter"] == tmp_path / "adapters" / "adapter.html"
     assert {path.name for key, path in result.items() if key.startswith("visualization:")} == {
+        "position-dashboard.html",
         "statistical-plots.html",
         "waveform-plots.html",
     }
@@ -894,6 +898,7 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     ].read_text(encoding="utf-8")
     statistical_plots_page = result["visualization:statistical-plots"].read_text(encoding="utf-8")
     waveform_plots_page = result["visualization:waveform-plots"].read_text(encoding="utf-8")
+    position_dashboard_page = result["visualization:position-dashboard"].read_text(encoding="utf-8")
     site_css = (tmp_path / "assets" / "site.css").read_text(encoding="utf-8")
     site_js = (tmp_path / "assets" / "site.js").read_text(encoding="utf-8")
     search_index = (tmp_path / "assets" / "search-index.js").read_text(encoding="utf-8")
@@ -927,10 +932,14 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert 'href="../visualizations/index.html"' in plugin_page
     assert 'href="../visualizations/statistical-plots.html"' in plugin_index
     assert 'href="../visualizations/waveform-plots.html"' in plugin_index
+    assert 'href="../visualizations/position-dashboard.html"' in plugin_index
     assert 'href="../visualizations/statistical-plots.html"' in plugin_page
     assert 'href="../visualizations/waveform-plots.html"' in plugin_page
+    assert 'href="../visualizations/position-dashboard.html"' in plugin_page
     assert "index.htmlstatistical-plots.html" not in plugin_index
     assert "index.htmlwaveform-plots.html" not in plugin_page
+    assert "index.htmlposition-dashboard.html" not in plugin_index
+    assert "index.htmlposition-dashboard.html" not in plugin_page
     assert "Context 与适配器" in plugin_page
     assert 'href="../contexts/index.html">Context 与适配器</a>' in plugin_page
     assert 'aria-controls="tree-architecture"' in plugin_page
@@ -976,6 +985,15 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "plot_lineage" not in statistical_plots_page
     assert "plot_waveforms" in waveform_plots_page
     assert "create_peak_plotter" in waveform_plots_page
+    assert "render_position_dashboard_2d" in position_dashboard_page
+    assert "render_position_dashboard_with_2d_hist" in position_dashboard_page
+    assert "x_rec" in position_dashboard_page
+    assert "s1_area" in position_dashboard_page
+    assert "s2_peak_id" in position_dashboard_page
+    assert "return_html" in position_dashboard_page
+    assert "--dashboard-2d" in position_dashboard_page
+    assert "不接收 Context" in position_dashboard_page
+    assert "run_{run_id}_position_dashboard_2d.html" in position_dashboard_page
     assert "PeakChannelAccessor" in accessor_index
     assert "S1S2PairAccessor" in accessor_index
     assert "按 peak 查询 threshold hits、硬件通道特征与波形" in accessor_index
@@ -1044,6 +1062,8 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert '"url":"accessors/peak-channel-accessor.html#overview"' in search_index
     assert '"url":"contexts/context.html#dag-and-execution"' in search_index
     assert '"url":"visualizations/statistical-plots.html#statistical-plots"' in search_index
+    assert '"url":"visualizations/position-dashboard.html#position-dashboard-api"' in search_index
+    assert '"url":"visualizations/position-dashboard.html#input-contract"' in search_index
     assert '"url":"user-guide/QUICKSTART_GUIDE.html"' in search_index
     assert '"url":"user-guide/EXAMPLES_GUIDE.html"' in search_index
     assert '"url":"architecture/system.html"' in search_index
@@ -1119,6 +1139,7 @@ def test_site_web_assets_are_available_over_http_for_root_and_nested_pages(tmp_p
             "visualizations/index.html",
             "visualizations/statistical-plots.html",
             "visualizations/waveform-plots.html",
+            "visualizations/position-dashboard.html",
             "architecture/index.html",
             "architecture/system.html",
             "architecture/plugin-dag-lineage-cache.html",
@@ -1144,11 +1165,13 @@ def test_site_web_assets_are_available_over_http_for_root_and_nested_pages(tmp_p
                 "可视化",
                 "统计图",
                 "波形图",
+                "位置二维 Dashboard",
                 "系统架构与数据模型",
             ):
                 assert navigation_label in html
             assert "index.htmlstatistical-plots.html" not in html
             assert "index.htmlwaveform-plots.html" not in html
+            assert "index.htmlposition-dashboard.html" not in html
             assets = re.findall(r'(?:href|src)="([^"]+)"', html)
             for asset in assets:
                 if not asset.endswith((".css", ".js")):
@@ -1237,9 +1260,10 @@ def test_callable_documentation_registry_uses_live_signatures_and_explicit_help(
 
     generator = DocumentationSiteGenerator()
     context_view = generator.build_callable_page_view(CONTEXT_DOCUMENTATION_PAGE)
-    visualization_views = [
-        generator.build_callable_page_view(spec) for spec in VISUALIZATION_DOCUMENTATION_PAGES
-    ]
+    visualization_views = {
+        spec.slug: generator.build_callable_page_view(spec)
+        for spec in VISUALIZATION_DOCUMENTATION_PAGES
+    }
 
     context_members = {
         member.name: member for _, members in context_view.groups for member in members
@@ -1249,10 +1273,29 @@ def test_callable_documentation_registry_uses_live_signatures_and_explicit_help(
     assert context_members["plot_lineage"].returns
     assert context_members["plot_lineage"].example_html
     statistical_members = {
-        member.name: member for _, members in visualization_views[0].groups for member in members
+        member.name: member
+        for _, members in visualization_views["statistical-plots"].groups
+        for member in members
     }
     assert statistical_members["corner_hist"].example_html
     assert statistical_members["plot_2d_cut_on_corner"].notes
+    position_members = {
+        member.name: member
+        for _, members in visualization_views["position-dashboard"].groups
+        for member in members
+    }
+    assert position_members["render_position_dashboard_2d"].example_html
+    assert [
+        parameter.name for parameter in position_members["render_position_dashboard_2d"].parameters
+    ] == [
+        "df",
+        "layout",
+        "run_id",
+        "output_dir",
+        "detector_radius_mm",
+        "return_html",
+    ]
+    assert position_members["render_position_dashboard_with_2d_hist"].notes
 
 
 def test_accessor_html_escapes_dynamic_text_and_requires_pygments(tmp_path, monkeypatch):

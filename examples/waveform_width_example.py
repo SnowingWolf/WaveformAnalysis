@@ -9,7 +9,7 @@ import numpy as np
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.builtin.cpu import (
     FilteredWaveformsPlugin,
-    SignalPeaksPlugin,
+    HitFinderPlugin,
     WaveformsPlugin,
     WaveformWidthPlugin,
 )
@@ -27,7 +27,7 @@ def example_basic_usage():
     # 注册必要的插件
     ctx.register(WaveformsPlugin())
     ctx.register(FilteredWaveformsPlugin())  # 可选，用于滤波
-    ctx.register(SignalPeaksPlugin())  # 必需，提供峰值检测
+    ctx.register(HitFinderPlugin())  # 必需，提供峰值检测
     ctx.register(WaveformWidthPlugin())  # 波形宽度插件
 
     # 配置插件参数
@@ -48,12 +48,12 @@ def example_basic_usage():
             "prominence": 0.7,
             "use_derivative": True,
         },
-        plugin_name="signal_peaks",
+        plugin_name="hit",
     )
 
     print("\n配置完成，插件链:")
     print("  WaveformsPlugin → FilteredWaveformsPlugin")
-    print("  → SignalPeaksPlugin → WaveformWidthPlugin")
+    print("  → HitFinderPlugin → WaveformWidthPlugin")
 
     # 获取数据（假设有数据文件）
     try:
@@ -93,7 +93,7 @@ def example_with_filtered_waveforms():
     # 注册插件
     ctx.register(WaveformsPlugin())
     ctx.register(FilteredWaveformsPlugin())
-    ctx.register(SignalPeaksPlugin())
+    ctx.register(HitFinderPlugin())
     ctx.register(WaveformWidthPlugin())
 
     # 配置滤波参数
@@ -140,7 +140,7 @@ def example_custom_thresholds():
     ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
 
     ctx.register(WaveformsPlugin())
-    ctx.register(SignalPeaksPlugin())
+    ctx.register(HitFinderPlugin())
     ctx.register(WaveformWidthPlugin())
 
     # 使用 20%-80% 阈值（而不是默认的 10%-90%）
@@ -177,7 +177,7 @@ def example_data_analysis():
     ctx = Context(config={"data_root": "DAQ", "n_channels": 2})
 
     ctx.register(WaveformsPlugin())
-    ctx.register(SignalPeaksPlugin())
+    ctx.register(HitFinderPlugin())
     ctx.register(WaveformWidthPlugin())
 
     ctx.set_config({"sampling_rate": 0.5}, plugin_name="waveform_width")

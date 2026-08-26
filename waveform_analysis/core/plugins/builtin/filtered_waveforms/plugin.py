@@ -489,6 +489,23 @@ class FilteredWaveformsPlugin(Plugin):
         ],
     }
 
+    doc_usage_example = """
+    from waveform_analysis.core.context import Context
+    from waveform_analysis.core.plugins import profiles
+
+    ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+    ctx.register(*profiles.cpu_default())
+    ctx.set_config(
+        {
+            "filter_type": "SG",
+            "sg_window_size": 11,
+            "sg_poly_order": 2,
+        },
+        plugin_name="filtered_waveforms",
+    )
+    filtered_waveforms = ctx.get_data("run_001", "filtered_waveforms")
+    """
+
     options = {
         "filter_type": Option(default="SG", type=str, help="滤波器类型: 'BW' 或 'SG'"),
         "lowcut": Option(default=0.1, type=float, help="BW 低频截止"),

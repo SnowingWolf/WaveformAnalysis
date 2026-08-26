@@ -18,8 +18,9 @@ WaveformAnalysis 的插件系统文档，包括教程、开发指南和参考资
 
 ### 📚 进阶（开发者）
 
-1. **[信号处理插件](tutorials/SIGNAL_PROCESSING_PLUGINS.md)** - 学习信号处理插件的实现
-2. **[流式插件开发指南](guides/STREAMING_PLUGINS_GUIDE.md)** - 开发流式处理插件
+1. **[FilteredWaveformsPlugin](reference/agent/filtered_waveforms.md)** - 配置 BW/SG 波形滤波
+2. **[HitFinderPlugin](reference/agent/hit.md)** - 配置峰值检测并读取 `hit` 特征
+3. **[流式插件开发指南](guides/STREAMING_PLUGINS_GUIDE.md)** - 开发流式处理插件
 
 ### 🔧 开发（高级）
 
@@ -28,14 +29,6 @@ WaveformAnalysis 的插件系统文档，包括教程、开发指南和参考资
 3. **[适配器与插件行为](reference/ADAPTER_PLUGIN_BEHAVIOR.md)** - 适配器与插件的交互
 
 ## 文档结构
-
-### 📖 [tutorials/](tutorials/) - 教程（用户向）
-
-实践性教程，适合学习如何使用和开发插件。
-
-| 文档 | 说明 |
-|------|------|
-| [SIGNAL_PROCESSING_PLUGINS.md](tutorials/SIGNAL_PROCESSING_PLUGINS.md) | 信号处理插件实现示例 |
 
 ### 📋 [guides/](guides/) - 开发指南（开发者向）
 
@@ -53,6 +46,8 @@ WaveformAnalysis 的插件系统文档，包括教程、开发指南和参考资
 |------|------|
 | [ADAPTER_SYSTEM_GUIDE.md](reference/ADAPTER_SYSTEM_GUIDE.md) | 适配器系统架构详解 |
 | [ADAPTER_PLUGIN_BEHAVIOR.md](reference/ADAPTER_PLUGIN_BEHAVIOR.md) | 适配器与插件行为分析 |
+| [filtered_waveforms.md](reference/agent/filtered_waveforms.md) | 波形滤波插件契约、配置与示例 |
+| [hit.md](reference/agent/hit.md) | 峰值检测插件契约、配置与示例 |
 | [DATA_PRODUCTS.md](../architecture/DATA_PRODUCTS.md) | records 与 wave_pool 共享中间层设计 |
 | [builtin/](reference/builtin/) | 内置插件文档 |
 

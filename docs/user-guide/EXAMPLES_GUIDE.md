@@ -60,15 +60,15 @@ ctx.set_config({'height_range': (0, None)}, plugin_name='basic_features')
 
 ```python
 # 预览执行计划
-ctx.preview_execution('run_001', 'signal_peaks')
+ctx.preview_execution('run_001', 'hit')
 
 # 不同详细程度
-ctx.preview_execution('run_001', 'signal_peaks', verbose=0)  # 简洁
-ctx.preview_execution('run_001', 'signal_peaks', verbose=1)  # 标准
-ctx.preview_execution('run_001', 'signal_peaks', verbose=2)  # 详细
+ctx.preview_execution('run_001', 'hit', verbose=0)  # 简洁
+ctx.preview_execution('run_001', 'hit', verbose=1)  # 标准
+ctx.preview_execution('run_001', 'hit', verbose=2)  # 详细
 
 # 程序化使用
-result = ctx.preview_execution('run_001', 'signal_peaks')
+result = ctx.preview_execution('run_001', 'hit')
 needs_compute = [p for p, s in result['cache_status'].items() if s['needs_compute']]
 print(f"需要计算 {len(needs_compute)} 个插件")
 ```
@@ -90,6 +90,35 @@ from waveform_analysis.core.foundation.utils import LineageStyle
 style = LineageStyle(node_width=4.0, node_height=2.0, verbose=2)
 ctx.plot_lineage('df_paired', kind='plotly', style=style)
 ```
+
+### 位置二维 Dashboard
+
+如果已经有位置重建与 S1/S2 特征 `DataFrame`，直接调用 Dashboard API，不需要 `Context`：
+
+```python
+from waveform_analysis import render_position_dashboard_2d
+from waveform_analysis.core.hardware.geometry import load_fallback_layout
+
+output = render_position_dashboard_2d(
+    df=position_df,
+    layout=load_fallback_layout(),
+    run_id="run_001",
+    output_dir="output",
+)
+print(output)
+```
+
+如果需要从指定 run 自动导出数据，使用完整示例程序：
+
+```bash
+python examples/export_positions_for_visualization.py \
+  --run-id run_001 \
+  --data-root /path/to/data \
+  --output output \
+  --dashboard-2d
+```
+
+完整的字段契约、输出文件和交互功能见[位置二维 Dashboard 指南](../features/visualizations/POSITION_DASHBOARD_GUIDE.md)。
 
 
 ## 高级场景示例
@@ -201,10 +230,11 @@ ctx.register(HitFinderPlugin())
 
 # 配置滤波器
 ctx.set_config({
-    'filter_type': 'butterworth',
-    'lowcut': 1e6,
-    'highcut': 10e6,
-    'order': 4,
+    'filter_type': 'BW',
+    'lowcut': 0.05,
+    'highcut': 0.8,
+    'fs': 1.0,
+    'filter_order': 4,
 }, plugin_name='filtered_waveforms')
 
 # 配置寻峰
@@ -216,7 +246,7 @@ ctx.set_config({
 
 # 获取处理结果
 filtered = ctx.get_data('run_001', 'filtered_waveforms')
-peaks = ctx.get_data('run_001', 'signal_peaks')
+peaks = ctx.get_data('run_001', 'hit')
 ```
 
 ## 完整示例程序
@@ -228,6 +258,7 @@ peaks = ctx.get_data('run_001', 'signal_peaks')
 | `examples/config_management_example.py` | 配置管理示例 |
 | `examples/signal_processing_example.py` | 信号处理示例 |
 | `examples/streaming_plugins_demo.py` | 流式插件演示 |
+| `examples/export_positions_for_visualization.py` | 导出位置数据并生成位置二维 Dashboard |
 | [tutorial.ipynb](https://github.com/SnowingWolf/WaveformAnalysis/blob/0bc56668c0d2ebf81fc391287fb0097cd94b49f7/archive/notebooks/tutorial.ipynb) | 入门 notebook 教程 |
 | [tutorial_advanced.ipynb](https://github.com/SnowingWolf/WaveformAnalysis/blob/0bc56668c0d2ebf81fc391287fb0097cd94b49f7/archive/notebooks/tutorial_advanced.ipynb) | 插件开发、多 run 处理与自定义特征高级 notebook |
 | [Run 6 Xe Fast 教学 notebook](https://github.com/SnowingWolf/WaveformAnalysis/blob/0bc56668c0d2ebf81fc391287fb0097cd94b49f7/archive/notebooks/run6_xe_fast_0611_teaching.ipynb) | Run 6 Xe Fast 教学 notebook，演示 run 扫描、Context 配置、records/wave_pool 读取与快速分析 |

@@ -67,6 +67,95 @@ class HitFinderPlugin(Plugin):
     save_when = "always"  # 峰值数据较小，总是保存
     output_dtype = HIT_DTYPE
 
+    agent_doc = {
+        "overview": (
+            "HitFinderPlugin 是当前官方的静态峰值检测接口（provides='hit'），从波形中检测峰值并"
+            "输出位置、高度、积分、边缘、时间戳、板卡、通道和 record_id 等特征。它使用"
+            "`scipy.signal.find_peaks`，可在滤波波形或其他已解析波形源上工作。\n\n"
+            "旧版信号处理教程中的 `SignalPeaksPlugin` 已由本插件替代；兼容导入仍可从"
+            "`waveform_analysis.core.plugins.builtin.cpu` 获取 `HitFinderPlugin`，但数据产物名称应统一使用"
+            "`hit`。"
+        ),
+        "workflow_steps": [
+            "解析波形来源：依据 `use_filtered` 与 `wave_source` 动态选择 `records`/`wave_pool` 或 `st_waveforms`/`filtered_waveforms`，并读取显式 `run_id` 对应的数据。",
+            "准备检测信号：`use_derivative=True` 时检测波形一阶差分的负值，否则使用基线减波形的直接信号。",
+            "调用 `scipy.signal.find_peaks`，按 `height`、`distance`、`prominence`、`width` 和可选 `threshold` 筛选候选峰。",
+            "按 `height_method` 计算峰高，并将峰位置、左右边缘、采样间隔、绝对时间、board、channel 和 record_id 写入 `HIT_DTYPE`。",
+            "小数据量自动串行，大数据量按 `chunk_size` 和 `parallel_min_events` 使用配置的并行策略，最后返回结构化 `hit` 数组。",
+        ],
+        "behavior_notes": [
+            "`use_derivative=True` 适合当前负脉冲检测约定；`False` 时直接在基线减波形上找峰。",
+            "`height_method='diff'` 使用差分积分计算峰高，`'minmax'` 使用峰窗口内最大最小值差；后者可由 `height_window_extension` 扩展窗口。",
+            "`dt` 只在输入数据缺少采样间隔字段时作为兼容补充；输出时间戳统一使用 ps，`dt` 字段单位为 ns。",
+            "默认 `use_filtered=True`，但实际依赖由 `wave_source` 和 Context 中可用的数据源动态解析；请求 filtered 波形前必须注册 `FilteredWaveformsPlugin`。",
+            "旧版 `SignalPeaksPlugin`/`signal_peaks` 教程接口已退出当前插件契约；新代码使用 `HitFinderPlugin`/`hit`。",
+        ],
+        "dependency_notes": {
+            "records": "当 wave_source 解析为 records 时，使用 records 与 wave_pool 读取 records-backed 波形。",
+            "wave_pool": "与 records 配套提供连续波形样本；缺失时无法完成 records-backed 峰值检测。",
+            "st_waveforms": "当 wave_source 解析为 st_waveforms 时，读取结构化波形及 baseline/timestamp/dt 等字段。",
+            "filtered_waveforms": "启用滤波波形时由 FilteredWaveformsPlugin 提供，与 st_waveforms 保持行对齐。",
+        },
+        "field_notes": {
+            "position": "峰值在输入波形中的采样点位置。",
+            "height": "按 `height_method` 计算的峰高，单位为 ADC counts。",
+            "integral": "峰值积分；当前寻峰输出保留接口字段，单位为 ADC counts。",
+            "edge_start": "峰值左边缘位置，单位为采样点。",
+            "edge_end": "峰值右边缘位置，单位为采样点。",
+            "dt": "采样间隔，单位为 ns。",
+            "timestamp": "峰值绝对时间戳，单位为 ps。",
+            "board": "来源硬件板卡编号。",
+            "channel": "来源物理通道号。",
+            "record_id": "来源波形/record 的稳定标识。",
+        },
+        "config_notes": {
+            "use_filtered": "是否优先使用 filtered_waveforms；启用时需注册 FilteredWaveformsPlugin。",
+            "wave_source": "波形来源：auto、records、st_waveforms 或 filtered_waveforms。",
+            "use_derivative": "是否检测一阶导数信号；当前负脉冲数据通常保持 True。",
+            "height": "峰值最小高度阈值。",
+            "distance": "相邻峰之间的最小采样点距离。",
+            "prominence": "峰值最小显著性。",
+            "width": "峰值最小宽度，单位为采样点。",
+            "threshold": "可选的 scipy 峰值阈值条件。",
+            "height_method": "diff 或 minmax，分别表示差分积分或窗口最大最小值差。",
+            "height_window_extension": "minmax 模式下向峰窗口两侧扩展的采样点数。",
+            "dt": "输入缺少 dt 时的兼容采样间隔，单位为 ns。",
+        },
+        "failure_modes": [
+            "动态解析的波形依赖缺失、字段不完整或波形池切片越界时，插件无法生成有效 `hit` 输出。",
+            "峰值检测参数不满足 scipy 或本插件的约束时，执行会抛出配置校验错误。",
+            "输入时间戳或采样间隔不合法时，无法构造统一 ps 时间戳。",
+        ],
+        "downstream_consumers": ["waveform_width"],
+        "downstream_notes": [
+            "`waveform_width` 使用 `hit` 的位置和边缘字段计算波形宽度；峰值筛选参数变化会改变下游宽度样本。",
+            "需要跨通道峰级分析时，应继续使用 `peaklets`/`peaks` 链，而不是把 `hit` 当作最终 peak 表。",
+        ],
+        "agent_change_notes": [
+            "修改寻峰参数、波形来源或 HIT_DTYPE 字段时，应同步检查 waveform_width 和相关兼容 shim，并重新生成 Auto、Agent 与 HTML 文档。",
+        ],
+    }
+
+    doc_usage_example = """
+    from waveform_analysis.core.context import Context
+    from waveform_analysis.core.plugins import profiles
+
+    ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+    ctx.register(*profiles.cpu_default())
+    ctx.set_config(
+        {
+            "use_derivative": True,
+            "height": 30.0,
+            "distance": 2,
+            "prominence": 0.7,
+            "width": 4,
+            "height_method": "minmax",
+        },
+        plugin_name="hit",
+    )
+    hits = ctx.get_data("run_001", "hit")
+    """
+
     options = {
         "use_filtered": Option(
             default=True,

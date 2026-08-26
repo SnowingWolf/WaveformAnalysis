@@ -23,8 +23,8 @@ WaveformAnalysis 采用按计算加速器类型组织插件的架构，便于在
 waveform_analysis/core/plugins/builtin/
 ├── cpu/              # CPU 实现 (NumPy/SciPy/Numba)
 │   ├── standard.py   # 标准数据处理插件（10个）
-│   ├── filtering.py  # FilteredWaveformsPlugin
-│   └── peak_finding.py # SignalPeaksPlugin
+│   ├── filtering.py  # 兼容 shim（FilteredWaveformsPlugin 属于 builtin.filtered_waveforms）
+│   └── peak_finding.py # 兼容 shim（HitFinderPlugin 属于 builtin.hit）
 ├── jax/              # JAX GPU 实现（待开发）
 │   ├── filtering.py  # JAX 滤波插件
 │   └── peak_finding.py # JAX 寻峰插件
@@ -40,7 +40,7 @@ waveform_analysis/core/plugins/builtin/
 from waveform_analysis.core.plugins.builtin.cpu import (
     RawFilesPlugin,
     FilteredWaveformsPlugin,
-    SignalPeaksPlugin,
+    HitFinderPlugin,
 )
 ```
 
@@ -59,14 +59,14 @@ from waveform_analysis.core.plugins.builtin.cpu import (
 - `PairedEventsPlugin`: 跨通道事件配对
 
 #### 信号处理插件
-- `FilteredWaveformsPlugin` (`cpu/filtering.py`): 波形滤波
+- `FilteredWaveformsPlugin` (`builtin/filtered_waveforms`): 波形滤波
   - Butterworth 带通滤波器
   - Savitzky-Golay 滤波器
-- `SignalPeaksPlugin` (`cpu/peak_finding.py`): 高级峰值检测
+- `HitFinderPlugin` (`builtin/hit`，provides=`hit`): 高级峰值检测
   - 基于 scipy.signal.find_peaks
   - 支持导数检测、高度、距离、显著性等参数
 
-> 📖 **详细文档**: 查看 [信号处理插件完整文档](../../plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md) 了解详细的使用方法、配置选项和示例。
+> 📖 **详细文档**: 查看 [FilteredWaveformsPlugin](../../plugins/reference/agent/filtered_waveforms.md) 和 [HitFinderPlugin](../../plugins/reference/agent/hit.md) 的生成参考页，了解滤波、寻峰配置和示例。
 
 ### 迁移指南
 
