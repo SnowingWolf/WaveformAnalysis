@@ -1,37 +1,24 @@
-# Hit Threshold 查询工具函数使用指南
+# Hit Threshold 查询使用指南
 
 ## 概述
 
-`waveform_analysis.utils.query_helpers` 模块提供了便捷的查询函数，用于分析 peak、merged 和 hit_threshold 之间的关系。
+推荐通过 `PeakChannelAccessor` 分析 peak、merged 和 `hit_threshold` 之间的关系。Accessor 负责按 `run_id` 延迟加载关系数据，并复用 `waveform_analysis.utils.query_helpers` 的 DataFrame 契约；只有需要批量复用已在内存中的数组时，才直接调用底层函数。
 
 ## 快速开始
 
-### 基本导入
+### 基本用法
 
 ```python
-from waveform_analysis.utils import (
-    get_hits_for_peak,
-    get_hits_for_merged,
-    get_merged_indices_for_peak,
-    get_hit_indices_for_merged,
-)
+from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
+
+accessor = PeakChannelAccessor(ctx, run_id, lazy_load=True)
 ```
 
 ### 使用场景 1: 查询某个 peak 的所有 hit 数据
 
 ```python
-# 从 DAQAnalyzer 或 Context 获取数据
-peaklet_components = analyzer.get_array(run_id, "peaklet_components")
-hit_merged_components = analyzer.get_array(run_id, "hit_merged_components")
-hit_threshold = analyzer.get_array(run_id, "hit_threshold")
-
 # 查询 peak 123 的所有 hit 数据（自动计算时间间隔）
-intervals = get_hits_for_peak(
-    peak_id=123,
-    peaklet_components=peaklet_components,
-    hit_merged_components=hit_merged_components,
-    hit_threshold=hit_threshold
-)
+intervals = accessor.get_hits(peak_id=123)
 
 # 查看结果
 print(f"Peak 123 包含 {len(intervals)} 个 hits")
@@ -61,21 +48,19 @@ plt.show()
 
 ```python
 # 查询 merged 456 的所有 hit 数据
-df = get_hits_for_merged(
-    merged_index=456,
-    hit_merged_components=hit_merged_components,
-    hit_threshold=hit_threshold
-)
+df = accessor.get_merged_hits(merged_index=456)
 
 print(df[["hit_index", "time_start", "dt_start_to_start_ns"]])
 ```
 
-### 使用场景 4: 批量查询优化
+### 使用场景 4: 直接使用底层函数
 
-如果需要查询多个 peak 或 merged，可以预先构建索引映射：
+如果已经持有完整的 NumPy 产物，或要预先构建映射以优化大批量查询，可以继续使用底层函数。它们是保留的稳定接口，也是 Accessor 返回契约的实现真源：
 
 ```python
 from waveform_analysis.utils import (
+    get_hits_for_peak,
+    get_hits_for_merged,
     build_peak_to_merged_lookup,
     build_merged_to_hit_lookup,
 )
@@ -88,6 +73,14 @@ merged_lookup = build_merged_to_hit_lookup(hit_merged_components)
 for peak_id in [100, 101, 102]:
     merged_indices = peak_lookup.get(peak_id, np.array([], dtype=np.int64))
     print(f"Peak {peak_id}: {len(merged_indices)} merged hits")
+
+# 直接复用已加载数组，返回结构与 accessor.get_hits() 一致
+intervals = get_hits_for_peak(
+    peak_id=123,
+    peaklet_components=peaklet_components,
+    hit_merged_components=hit_merged_components,
+    hit_threshold=hit_threshold,
+)
 ```
 
 ## 返回的 DataFrame 结构
@@ -220,27 +213,18 @@ time_end_ps = timestamp + (edge_end - position) * dt * 1000
 
 ## 常见问题
 
-### Q: 如何获取 peaklet_components 等数据？
+### Q: Accessor 会加载波形吗？
 
-**A**: 从 DAQAnalyzer 或 Context 获取：
+**A**: 不会。`get_hits()` 和 `get_merged_hits()` 使用独立的 hit 查询层，只读取 `peaklet_components`、`hit_merged_components` 与 `hit_threshold`。它们不读取 `peaklet_channels`、`records` 或 wave pool。构造时使用 `lazy_load=True`，还可以避免在首次 hit 查询前预加载通道特征层。
+
+### Q: 如何直接获取 peaklet_components 等数据？
+
+**A**: 仅在确实需要调用底层函数或进行批量数组计算时，从 Context 获取：
 
 ```python
-# 方法 1: 使用 DAQAnalyzer
-from waveform_analysis.utils import DAQAnalyzer
-
-analyzer = DAQAnalyzer(data_dir="path/to/data", output_dir="path/to/output")
-analyzer.make(run_id, targets=["peaklet_components", "hit_merged_components", "hit_threshold"])
-
-peaklet_components = analyzer.get_array(run_id, "peaklet_components")
-hit_merged_components = analyzer.get_array(run_id, "hit_merged_components")
-hit_threshold = analyzer.get_array(run_id, "hit_threshold")
-
-# 方法 2: 使用 Context
-from waveform_analysis import Context
-
-ctx = Context()
-# ... 配置和运行 ...
-peaklet_components = ctx.get_array(run_id, "peaklet_components")
+peaklet_components = ctx.get_data(run_id, "peaklet_components")
+hit_merged_components = ctx.get_data(run_id, "hit_merged_components")
+hit_threshold = ctx.get_data(run_id, "hit_threshold")
 ```
 
 ### Q: 为什么第一行的时间间隔是 NaN？
@@ -265,18 +249,9 @@ if len(intervals) == 0:
 
 **A**: `dt_start_to_start_ns` 和 `dt_end_to_start_ns` 的单位是纳秒（ns）。原始的 `time_start` 和 `time_end` 单位是皮秒（ps）。
 
-## 示例
-
-完整的示例脚本位于 `examples/demo_hit_query.py`。
-
-运行示例：
-
-```bash
-python examples/demo_hit_query.py
-```
-
 ## 相关文档
 
+- [PeakChannelAccessor API](../api/peak_channel_accessor.md)
 - [DAQ Analyzer 使用指南](../features/utils/DAQ_ANALYZER_GUIDE.md)
 - [插件参考文档](../plugins/reference/builtin/auto/INDEX.md)
 

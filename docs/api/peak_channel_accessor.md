@@ -9,13 +9,17 @@ from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
 
 accessor = PeakChannelAccessor(context, run_id, lazy_load=True)
 channels = accessor.get_channels(peak_id=42)
+hits = accessor.get_hits(peak_id=42)
+merged_hits = accessor.get_merged_hits(merged_index=17)
 channels_with_waveforms = accessor.get_channels(peak_id=42, include_waveforms=True)
 sum_waveform = accessor.get_sum_waveform(peak_id=42)
 fig, axes = accessor.plot(peak_id=42, view="overlay")
 ```
 
-公开数据读取入口只有：
+公开数据读取入口包括：
 
+- `get_hits(peak_id)`：返回该 peak 的 threshold hits、所属 `merged_index` 与相邻时间间隔。
+- `get_merged_hits(merged_index)`：返回该 merged hit 的 threshold hits 与相邻时间间隔。
 - `get_channels(peak_id, include_waveforms=False, pad=30)`：返回逻辑通道特征；仅在 `include_waveforms=True` 时读取通道波形。
 - `get_sum_waveform(peak_id)`：返回框架已生成的 peak 求和波形；找不到时返回 `None`。
 
@@ -65,9 +69,17 @@ fig, axes = accessor.plot(peak_id=919, view="sum-comparison")
 
 `width`、`rise_time`、`fall_time`、`center_time`、`record_id` 和 `merged_index` 来自该逻辑通道中 `height` 最大的代表组件。`sample_start` 是所有组件的最小起点，`sample_end` 是最大终点；只有全部组件均为单 record 时 `is_single_record` 才为真。
 
-## 波形和加载
+## 数据分层、波形和加载
 
-特征层读取 `peaklet_components`、`peaklet_channels`、`hit_merged` 与 `hit_merged_features`。通道波形按需从 `records + wave_pool` 依据 hit 窗口和 `pad` 提取；同一逻辑通道的全部组件按绝对时间合并，并按 `(merged_indices, pad)` 缓存。顶层 `abs_time_ps` 只包含观测到的唯一采样且严格递增；同一 `(board, channel, abs_time_ps)` 的重复采样只有在 `float32` 位级相同时才会保留一次，不同值会抛出 `WaveformOverlapConflictError`。
+Accessor 分为三个相互独立的延迟加载层：
+
+| 数据层 | 依赖 | 触发入口 |
+| --- | --- | --- |
+| hit 查询层 | `peaklet_components`、`hit_merged_components`、`hit_threshold` | `get_hits()`、`get_merged_hits()` |
+| 通道特征层 | `peaklet_components`、`peaklet_channels`、`hit_merged`、`hit_merged_features` | `get_channels()`；默认构造器会预加载，`lazy_load=True` 可推迟 |
+| 波形层 | `records`、`hit_threshold`、`hit_merged_components`、`wave_pool` | `include_waveforms=True` 或绘图 |
+
+因此，使用 `lazy_load=True` 的纯 hit 查询不会读取 `peaklet_channels`、`records` 或 wave pool。通道波形按需从 `records + wave_pool` 依据 hit 窗口和 `pad` 提取；同一逻辑通道的全部组件按绝对时间合并，并按 `(merged_indices, pad)` 缓存。顶层 `abs_time_ps` 只包含观测到的唯一采样且严格递增；同一 `(board, channel, abs_time_ps)` 的重复采样只有在 `float32` 位级相同时才会保留一次，不同值会抛出 `WaveformOverlapConflictError`。
 
 返回值中的 `segments` 只用于检查原始 record 来源，片段之间允许重叠，不能直接拼接或积分。应使用顶层 `waveform`、`abs_time_ps` 和 `waveform_area`。当 `pad=0` 且波形来源和 `clip_negative_signal` 配置一致时，`waveform_area` 应与通道 `area` 在守恒容差内相等；`pad>0` 会包含额外窗口，不要求相等。`clip_negative_signal=False` 是默认物理口径；设为 `True` 时，裁剪发生在合并和积分之前。
 

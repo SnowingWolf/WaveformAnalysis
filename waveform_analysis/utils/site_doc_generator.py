@@ -389,8 +389,8 @@ ACCESSOR_SELECTION_GUIDE = (
         name="PeakChannelAccessor",
         slug="peak-channel-accessor",
         entry="`peak_id`",
-        question="一个 peak 由哪些通道构成？各通道的特征和波形是什么？",
-        scenario="通道级排查：查看单 peak 的逐通道面积、高度、占比与波形。",
+        question="一个 peak 包含哪些 threshold hits 和通道？它们的特征与波形是什么？",
+        scenario="peak 内部排查：查询 hit 时间关系，再查看逐通道面积、高度、占比与波形。",
     ),
     AccessorSelectionGuideItem(
         name="S1S2PairAccessor",
@@ -414,14 +414,14 @@ ACCESSOR_DOCUMENTATION_REGISTRY = (
     AccessorDocumentationSpec(
         accessor_class=PeakChannelAccessor,
         slug="peak-channel-accessor",
-        summary="通过 peaks 对应的分通道信息查询硬件通道特征与波形，并提供常用对比绘图。",
+        summary="按 peak 查询 threshold hits、硬件通道特征与波形，并提供常用对比绘图。",
         introduction=(
-            "`PeakChannelAccessor` 面向单个 peak 的通道级排查：以 `(board, channel)` "
-            "作为逻辑通道唯一键，返回逐通道聚合特征，并支持按需读取对应波形。"
+            "`PeakChannelAccessor` 面向单个 peak 的内部结构与通道级排查：可先查询 peak/merged "
+            "对应的 threshold hits，再以 `(board, channel)` 作为逻辑通道唯一键读取聚合特征和波形。"
         ),
         purpose=(
-            "返回通道唯一键 `(board, channel)` 下的聚合特征；当 `peaklet_channels` 可用时，"
-            "其中的 `area`、`height`、`n_hits` 与 `area_fraction` 是每通道聚合值。"
+            "返回 peak 或 merged hit 的 threshold hit 明细，以及通道唯一键 `(board, channel)` 下的聚合特征；"
+            "`peaklet_channels` 中的 `area`、`height`、`n_hits` 与 `area_fraction` 是每通道聚合值。"
         ),
         overview_title="整体介绍",
         overview_blocks=(
@@ -433,7 +433,8 @@ ACCESSOR_DOCUMENTATION_REGISTRY = (
                 kind="list",
                 ordered=True,
                 items=(
-                    "先读取轻量特征；",
+                    "先用 `get_hits()` 或 `get_merged_hits()` 检查 threshold hit 的时间关系；",
+                    "需要通道汇总时再读取轻量特征；",
                     "根据面积、高度或面积占比筛选通道；",
                     "仅对少量候选通道加载和检查波形。",
                 ),
@@ -520,12 +521,17 @@ ACCESSOR_DOCUMENTATION_REGISTRY = (
                 blocks=(
                     DocumentationContentBlock(
                         kind="paragraph",
-                        text="Accessor 将数据访问分为特征层和波形层，按需加载：",
+                        text="Accessor 将数据访问分为 hit 查询层、特征层和波形层，按需加载：",
                     ),
                     DocumentationContentBlock(
                         kind="table",
                         table_headers=("数据层", "主要依赖", "加载时机"),
                         table_rows=(
+                            (
+                                "hit 查询层",
+                                "`peaklet_components`、`hit_merged_components`、`hit_threshold`",
+                                "调用 `get_hits()` 或 `get_merged_hits()` 时",
+                            ),
                             (
                                 "特征层",
                                 "`peaklet_components`、`peaklet_channels`、`hit_merged`、`hit_merged_features`",
@@ -541,7 +547,8 @@ ACCESSOR_DOCUMENTATION_REGISTRY = (
                     DocumentationContentBlock(
                         kind="paragraph",
                         text=(
-                            "调用 `get_channels()` 时只访问特征层，不读取通道波形。只有在 `include_waveforms=True` 或"
+                            "使用 `lazy_load=True` 时，纯 hit 查询不会读取 `peaklet_channels`、`records` 或 wave pool。"
+                            "调用 `get_channels()` 时只访问特征层，不读取通道波形；只有在 `include_waveforms=True` 或"
                             "调用相关绘图方法时，Accessor 才会加载波形层。"
                         ),
                     ),
@@ -641,6 +648,29 @@ channels = accessor.get_channels(peak_id=919)""",
             ),
         ),
         members=(
+            AccessorMemberSpec(
+                "get_hits",
+                "返回一个 peak 包含的 threshold hits、所属 merged_index 与相邻时间间隔。",
+                parameters=(AccessorParameterSpec("peak_id", "目标 peak 的整数 ID。"),),
+                returns="`pandas.DataFrame`；按 `time_start` 排序，空结果保留列结构。",
+                notes=(
+                    "复用 query_helpers.get_hits_for_peak 的返回契约。",
+                    "使用 lazy_load=True 时不会加载 peaklet_channels、records 或 wave pool。",
+                ),
+                example="""hits = accessor.get_hits(peak_id=919)
+print(hits[["merged_index", "hit_index", "dt_start_to_start_ns"]])
+""",
+            ),
+            AccessorMemberSpec(
+                "get_merged_hits",
+                "返回一个 merged hit 包含的 threshold hits 与相邻时间间隔。",
+                parameters=(AccessorParameterSpec("merged_index", "目标 merged hit 的整数索引。"),),
+                returns="`pandas.DataFrame`；按 `time_start` 排序，空结果保留列结构。",
+                notes=(
+                    "复用 query_helpers.get_hits_for_merged 的返回契约。",
+                    "与 get_hits() 共享独立延迟加载的 hit 查询层。",
+                ),
+            ),
             AccessorMemberSpec(
                 "get_channels",
                 "返回一个 peak 的逐逻辑通道特征；设置 include_waveforms=True 时，为每项附加完整逻辑通道波形。",

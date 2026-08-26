@@ -23,11 +23,13 @@ Peak Channel 数据访问器
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
 from waveform_analysis.core.plugins.builtin.shared.waveform_merge import (
     WaveformOverlapConflictError,
     merge_waveform_segments,
 )
+from waveform_analysis.utils.query_helpers import get_hits_for_merged, get_hits_for_peak
 
 
 class PeakChannelDataUnavailableError(RuntimeError):
@@ -60,6 +62,10 @@ class PeakChannelAccessor:
         self._hit_merged_features = None
         self._peaks = None
 
+        # Hit 查询层数据（独立延迟加载）
+        self._hit_query_merged_components = None
+        self._hit_query_threshold = None
+
         # 波形层数据（延迟加载）
         self._records = None
         self._hit_threshold = None
@@ -85,6 +91,7 @@ class PeakChannelAccessor:
 
         # 标志
         self._feature_layer_loaded = False
+        self._hit_query_layer_loaded = False
         self._waveform_layer_loaded = False
         self._sum_waveform_layer_loaded = False
 
@@ -96,7 +103,8 @@ class PeakChannelAccessor:
         if self._feature_layer_loaded:
             return
 
-        self._peaklet_components = self.context.get_data(self.run_id, "peaklet_components")
+        if self._peaklet_components is None:
+            self._peaklet_components = self.context.get_data(self.run_id, "peaklet_components")
         self._hit_merged = self.context.get_data(self.run_id, "hit_merged")
         self._hit_merged_features = self.context.get_data(self.run_id, "hit_merged_features")
 
@@ -177,6 +185,19 @@ class PeakChannelAccessor:
             self._peak_to_channel_rows[int(pid)] = peaklet_channels[group]
             offset += cnt
 
+    def _load_hit_query_layer(self) -> None:
+        """加载 peak/merged 到 threshold hit 的只读查询层。"""
+        if self._hit_query_layer_loaded:
+            return
+
+        if self._peaklet_components is None:
+            self._peaklet_components = self.context.get_data(self.run_id, "peaklet_components")
+        self._hit_query_merged_components = self.context.get_data(
+            self.run_id, "hit_merged_components"
+        )
+        self._hit_query_threshold = self.context.get_data(self.run_id, "hit_threshold")
+        self._hit_query_layer_loaded = True
+
     def _component_channel_details(self, peak_id: int) -> dict[tuple[int, int], dict]:
         """Return compatibility fields derived from peaklet_components per channel."""
         details: dict[tuple[int, int], dict] = {}
@@ -240,9 +261,10 @@ class PeakChannelAccessor:
         self._clip_negative_signal = bool(
             self.context.get_config(channel_plugin, "clip_negative_signal")
         )
+        self._load_hit_query_layer()
         self._records = self.context.get_data(self.run_id, "records")
-        self._hit_threshold = self.context.get_data(self.run_id, "hit_threshold")
-        self._hit_merged_components = self.context.get_data(self.run_id, "hit_merged_components")
+        self._hit_threshold = self._hit_query_threshold
+        self._hit_merged_components = self._hit_query_merged_components
         self._wave_pool = self.context.get_data(
             self.run_id, "wave_pool_filtered" if use_filtered else "wave_pool"
         )
@@ -342,6 +364,35 @@ class PeakChannelAccessor:
                 channel.update(self._get_channel_waveform_data(channel, pad))
             channels.append(channel)
         return channels
+
+    def get_hits(self, peak_id: int) -> pd.DataFrame:
+        """返回一个 peak 包含的 threshold hits 及相邻时间间隔。
+
+        该查询只加载 peak/merged/hit 的关系数据，不加载通道特征或波形数据。
+        返回列、时间排序与空结果语义与
+        :func:`waveform_analysis.utils.query_helpers.get_hits_for_peak` 一致。
+        """
+        self._load_hit_query_layer()
+        return get_hits_for_peak(
+            peak_id=peak_id,
+            peaklet_components=self._peaklet_components,
+            hit_merged_components=self._hit_query_merged_components,
+            hit_threshold=self._hit_query_threshold,
+        )
+
+    def get_merged_hits(self, merged_index: int) -> pd.DataFrame:
+        """返回一个 merged hit 包含的 threshold hits 及相邻时间间隔。
+
+        该查询只加载 peak/merged/hit 的关系数据，不加载通道特征或波形数据。
+        返回列、时间排序与空结果语义与
+        :func:`waveform_analysis.utils.query_helpers.get_hits_for_merged` 一致。
+        """
+        self._load_hit_query_layer()
+        return get_hits_for_merged(
+            merged_index=merged_index,
+            hit_merged_components=self._hit_query_merged_components,
+            hit_threshold=self._hit_query_threshold,
+        )
 
     def _get_merged_waveform(self, merged_index: int, pad: int = 30) -> dict:
         """
