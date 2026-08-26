@@ -2,19 +2,18 @@
 
 **导航**: [文档中心](../../README.md) > [功能特性](../README.md) > 高级功能
 
-执行器管理、进度追踪等高级功能。
+进度追踪等高级功能。全局执行器管理已并入系统架构，并从 Context 单一入口进入。
 
 ## 文档列表
 
 | 文档 | 说明 |
 |------|------|
-| [执行器管理](EXECUTOR_MANAGER_GUIDE.md) | 执行器管理框架完整指南（架构、使用、最佳实践） |
 | [进度追踪](PROGRESS_TRACKING_GUIDE.md) | 进度追踪功能使用指南 |
 
 ## 学习路径
 
-1. [进度追踪](PROGRESS_TRACKING_GUIDE.md) - 进度追踪
-2. [执行器管理](EXECUTOR_MANAGER_GUIDE.md) - 执行器管理
+1. [系统架构](../../architecture/ARCHITECTURE.md#执行器管理框架) - Context 与执行器边界
+2. [进度追踪](PROGRESS_TRACKING_GUIDE.md) - 进度追踪
 
 ## 相关资源
 

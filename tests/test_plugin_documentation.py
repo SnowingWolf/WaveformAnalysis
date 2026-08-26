@@ -886,6 +886,12 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     context_index_page = result["CONTEXT_INDEX"].read_text(encoding="utf-8")
     adapter_index_page = result["ADAPTER_INDEX"].read_text(encoding="utf-8")
     adapter_page = result["adapter:adapter"].read_text(encoding="utf-8")
+    context_workflow_redirect = result[
+        "legacy:architecture/CONTEXT_PROCESSOR_WORKFLOW.html"
+    ].read_text(encoding="utf-8")
+    executor_manager_redirect = result[
+        "legacy:features/advanced/EXECUTOR_MANAGER_GUIDE.html"
+    ].read_text(encoding="utf-8")
     statistical_plots_page = result["visualization:statistical-plots"].read_text(encoding="utf-8")
     waveform_plots_page = result["visualization:waveform-plots"].read_text(encoding="utf-8")
     site_css = (tmp_path / "assets" / "site.css").read_text(encoding="utf-8")
@@ -931,6 +937,13 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     sidebar_tree = plugin_page.split('<ul class="site-tree-list">', 1)[1]
     assert sidebar_tree.index("Context 与适配器") < sidebar_tree.index("插件系统")
     assert "不保存隐式当前运行" in home
+    assert 'id="execution-framework"' in context_page
+    assert "ExecutorManager" in context_page
+    assert "BatchProcessor" in context_page
+    assert "Context、ExecutorManager 与处理工作流" in context_page
+    assert "parallel_map" in context_page
+    assert 'href="../architecture/system.html"' in context_page
+    assert "系统架构与执行器边界" in context_page
     assert "依赖、执行与 DAG" in context_page
     assert "Context 与适配器" in context_index_page
     assert 'href="context.html"' in context_index_page
@@ -1042,6 +1055,12 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert '"url":"architecture/data-access.html"' not in search_index
     assert "assets/mermaid/mermaid.min.js?v=" in architecture_page
     assert "data-mermaid-block" in architecture_page
+    assert "执行器管理框架" in architecture_page
+    assert "ExecutorManager" in architecture_page
+    assert 'href="../contexts/context.html#execution-framework"' in context_workflow_redirect
+    assert 'href="../../contexts/context.html#execution-framework"' in executor_manager_redirect
+    assert "window.location.replace" in context_workflow_redirect
+    assert "window.location.replace" in executor_manager_redirect
     assert "data-doc-nav-open" in site_js
     assert "data-theme-toggle" in site_js
     assert "data-tree-toggle" in site_js
@@ -1105,6 +1124,8 @@ def test_site_web_assets_are_available_over_http_for_root_and_nested_pages(tmp_p
             "architecture/plugin-dag-lineage-cache.html",
             "architecture/data-products.html",
             "architecture/accessor-analysis.html",
+            "architecture/CONTEXT_PROCESSOR_WORKFLOW.html",
+            "features/advanced/EXECUTOR_MANAGER_GUIDE.html",
         )
         for page in pages:
             with urlopen(urljoin(base_url, page)) as response:

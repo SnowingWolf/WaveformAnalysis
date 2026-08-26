@@ -50,7 +50,6 @@
 - `docs/architecture/ACCESSOR_ANALYSIS.md`
 - `docs/features/context/CONFIGURATION.md`
 - `docs/features/plugin/STREAMING_PLUGINS_GUIDE.md`
-- `docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md`
 
 ## 插件文档
 - Agent: `docs/plugins/reference/agent/INDEX.md`

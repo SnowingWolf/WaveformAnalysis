@@ -31,7 +31,7 @@ class HelpDocument(str):
 
 STATIC_TOPICS = {
     "config": ("Configuration", "docs/features/context/CONFIGURATION.md"),
-    "performance": ("Performance", "docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md"),
+    "performance": ("Performance", "docs/architecture/ARCHITECTURE.md#执行器管理框架"),
     "examples": ("Examples", "docs/user-guide/EXAMPLES_GUIDE.md"),
 }
 

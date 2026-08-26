@@ -49,9 +49,8 @@
 
 ### [高级功能](advanced/README.md)
 
-执行器管理、进度追踪等。
+进度追踪等高级功能。全局执行器与 Context 执行协作见[系统架构](../architecture/ARCHITECTURE.md)。
 
-- [执行器管理](advanced/EXECUTOR_MANAGER_GUIDE.md)
 - [进度追踪](advanced/PROGRESS_TRACKING_GUIDE.md)
 
 ### [工具函数](utils/README.md)
@@ -65,7 +64,7 @@ DAQ 适配器、DAQ 运行分析与事件筛选等实用工具。
 
 | 场景 | 文档 |
 |------|------|
-| 管理执行器 | [EXECUTOR_MANAGER_GUIDE.md](advanced/EXECUTOR_MANAGER_GUIDE.md) |
+| 管理执行器 | [系统架构：执行器管理框架](../architecture/ARCHITECTURE.md#执行器管理框架) |
 | 了解缓存机制 | [PLUGIN_DAG_LINEAGE_CACHE.md](../architecture/PLUGIN_DAG_LINEAGE_CACHE.md) |
 | 追踪进度 | [PROGRESS_TRACKING_GUIDE.md](advanced/PROGRESS_TRACKING_GUIDE.md) |
 | 配置 DAQ 数据格式 | [ADAPTER_SYSTEM_GUIDE.md](../plugins/reference/ADAPTER_SYSTEM_GUIDE.md) |

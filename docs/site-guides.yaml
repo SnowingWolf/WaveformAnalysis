@@ -80,8 +80,6 @@ sections:
         route: architecture/data-products.html
       - source: docs/architecture/ACCESSOR_ANALYSIS.md
         route: architecture/accessor-analysis.html
-      - source: docs/architecture/CONTEXT_PROCESSOR_WORKFLOW.md
-        route: architecture/CONTEXT_PROCESSOR_WORKFLOW.html
       - source: docs/architecture/PROJECT_STRUCTURE.md
         route: architecture/PROJECT_STRUCTURE.html
 
@@ -105,8 +103,6 @@ sections:
         route: features/context/DEPENDENCY_ANALYSIS_GUIDE.html
       - source: docs/features/context/LINEAGE_VISUALIZATION_GUIDE.md
         route: features/context/LINEAGE_VISUALIZATION_GUIDE.html
-      - source: docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md
-        route: features/advanced/EXECUTOR_MANAGER_GUIDE.html
       - source: docs/features/advanced/PROGRESS_TRACKING_GUIDE.md
         route: features/advanced/PROGRESS_TRACKING_GUIDE.html
       - source: docs/features/utils/DAQ_ANALYZER_GUIDE.md

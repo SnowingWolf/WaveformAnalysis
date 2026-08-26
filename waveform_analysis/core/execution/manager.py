@@ -9,6 +9,8 @@
 - 动态负载均衡（可选）
 """
 
+# DOC: docs/architecture/ARCHITECTURE.md#执行器管理框架
+
 import atexit
 from collections.abc import Callable, Iterator
 from concurrent.futures import (

@@ -1,0 +1,32 @@
+# plan_brief
+
+- `task_id`: `context_executor_doc_integration_20260826`
+- `route`: `generate_docs`
+- `workflow_cost`: `standard`
+- `workflow_shape`: `staged`
+- `lifecycle_profile`: `doc_only_reviewed`
+- `risk_level`: `low`
+- `scope_in`:
+  - 将 Context 处理工作流和全局 ExecutorManager 说明整合到生成的 `contexts/context.html`。
+  - 在系统架构页补充 ExecutorManager、BatchProcessor、StreamingPlugin 的职责边界与配置不变量。
+  - 删除两份重复的 Markdown 正文和 manifest 导航项；旧 HTML 地址保留为跳转到 Context 单一入口的兼容页。
+  - 迁移帮助、架构索引、功能导航、插件指南和 agent 参考中的旧路径。
+- `scope_out`:
+  - 不改变 Context、BatchProcessor、ExecutorManager 或 Plugin 的运行时行为。
+  - 不修改插件输出、dtype、配置语义、缓存 lineage 或执行器实现。
+  - 不手工编辑 `docs/_site`；由 site-web 生成器发布预览文件。
+- `required_gates`:
+  - `focused_documentation_tests`
+  - `site_web_generation`
+  - `doc_links_and_coverage`
+  - `doc_sync`
+  - `doc_anchors`
+  - `diff_check`
+  - `http_preview`
+- `executor_role`: `executor.docs`
+- `agent_profile`: `none`
+- `profile_plan`:
+  - `not_applicable`
+- `blocking_assumptions`:
+  - 用户指定 `contexts/context.html` 为 Context、工作流和执行器的单一浏览器入口。
+  - 为避免旧书签失效，旧 HTML 路由使用兼容跳转而不是继续发布重复正文。

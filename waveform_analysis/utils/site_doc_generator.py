@@ -1399,6 +1399,143 @@ def _method_description(name: str) -> str:
     return first_line or f"`Context.{name}()`"
 
 
+_CONTEXT_NARRATIVE_SECTIONS = (
+    ContentDocumentationSection(
+        anchor="execution-framework",
+        title="Context、ExecutorManager 与处理工作流",
+        blocks=(
+            DocumentationContentBlock(
+                kind="paragraph",
+                text=(
+                    "Context 是单个 `run_id` 的执行协调层：它解析插件 DAG、确认配置与缓存命中，"
+                    "再按执行计划请求缺失产物。全局 `ExecutorManager` 是并行资源层：统一管理可复用的"
+                    "线程池/进程池、引用计数、关闭和统计；`BatchProcessor` 负责把多个 run 拆成彼此隔离的 "
+                    "Context 任务。三者职责不同，但都从本页进入。"
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="mermaid",
+                mermaid=(
+                    "flowchart LR\n"
+                    "    CALLER[Notebook / CLI] --> CTX[Context]\n"
+                    "    BATCH[BatchProcessor] --> CTX\n"
+                    "    CTX --> PLAN[依赖解析与执行计划]\n"
+                    "    PLAN --> DAGPOOL[Context DAG 调度器]\n"
+                    "    CALLER --> EM[ExecutorManager]\n"
+                    "    STREAM[StreamingPlugin] --> EM\n"
+                    "    EM --> THREAD[线程池]\n"
+                    "    EM --> PROCESS[进程池]\n"
+                    "    DAGPOOL --> PLUGIN[Plugin compute]\n"
+                    "    THREAD --> PLUGIN\n"
+                    "    PROCESS --> PLUGIN\n"
+                    "    PLUGIN --> STORE[Storage / lineage cache]\n"
+                    "    STORE --> CTX"
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="table",
+                table_headers=("层", "主要入口", "职责", "生命周期边界"),
+                table_rows=(
+                    (
+                        "Context",
+                        "`get_data(run_id, data_name)`",
+                        "解析依赖、resolved config、lineage、缓存与单 run 执行计划",
+                        "每次请求必须显式传入 `run_id`；不保存隐式当前 run",
+                    ),
+                    (
+                        "ExecutorManager",
+                        "`get_executor()` / `parallel_map()` / `parallel_apply()`",
+                        "创建、复用、统计和关闭 thread/process executor；可选负载均衡",
+                        "池按名称、类型和 worker 数识别；`with` 退出时释放引用",
+                    ),
+                    (
+                        "BatchProcessor",
+                        "`process_runs()` / `process_func()`",
+                        "编排多个 run 的并发、重试、取消、进度和结果汇总",
+                        "并行任务使用 `ctx.clone()` 或 `ctx.create_context_factory()` 隔离 Context",
+                    ),
+                    (
+                        "StreamingPlugin",
+                        "`executor_config`",
+                        "按配置名或字典选择流式 chunk 的 executor 类型与 worker 数",
+                        "资源配置不应改变产物语义；影响输出的配置仍需进入 lineage",
+                    ),
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="heading",
+                text="推荐使用路径",
+                heading_level=3,
+            ),
+            DocumentationContentBlock(
+                kind="code",
+                language="python",
+                code=(
+                    "from concurrent.futures import as_completed\n"
+                    "\n"
+                    "from waveform_analysis.core.context import Context\n"
+                    "from waveform_analysis.core.execution import get_config, get_executor\n"
+                    "from waveform_analysis.core.plugins import profiles\n"
+                    "\n"
+                    'run_id = "run_001"\n'
+                    'ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})\n'
+                    "ctx.register(*profiles.cpu_default())\n"
+                    "\n"
+                    "# Context 负责单 run 的 DAG、缓存和产物语义。\n"
+                    'peaks = ctx.get_data(run_id, "peaks")\n'
+                    "\n"
+                    "# 公共并行任务通过全局 ExecutorManager 获取资源。\n"
+                    'executor_config = get_config("waveform_loading")\n'
+                    'with get_executor("waveform-loading", **executor_config) as executor:\n'
+                    "    futures = [executor.submit(load_file, path) for path in paths]\n"
+                    "    loaded = [future.result() for future in as_completed(futures)]\n"
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="heading",
+                text="配置、隔离与缓存不变量",
+                heading_level=3,
+            ),
+            DocumentationContentBlock(
+                kind="list",
+                ordered=True,
+                items=(
+                    "先用 `preview_execution(run_id, data_name)` 检查依赖顺序、resolved config 与缓存命中，再决定是否执行。",
+                    "IO 密集型任务通常选 `thread`，CPU 密集型任务通常选 `process`；进程任务的函数、参数和 `Context` 工厂必须可 pickle。",
+                    "复用执行器必须保持稳定的名称、类型和 `max_workers`；推荐使用 `with get_executor(...)`，不要依赖内部 `_executor_refs`。",
+                    "多个 run 不共享可变 Context；使用 `BatchProcessor` 的 `context_factory` 或显式 `ctx.clone()`，让每个 run 的缓存和错误边界可追踪。",
+                    "worker 数、进度条和负载均衡属于资源策略；只有改变输出内容、字段或选择的配置才应通过 Plugin `track` 进入 lineage。",
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="note",
+                tone="important",
+                title="边界说明",
+                text=(
+                    "Context 的 `enable_plugin_parallelism`/`max_parallel_workers` 控制同一 run 内的 DAG 分层调度；"
+                    "ExecutorManager 管理公共 thread/process 池和并行辅助函数。不要把 worker 数当作数据产物配置，"
+                    "也不要在多个 run 之间共享同一个可变 Context。"
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="heading",
+                text="排障顺序",
+                heading_level=3,
+            ),
+            DocumentationContentBlock(
+                kind="list",
+                items=(
+                    "执行计划异常：检查 `resolve_dependencies()`、`preview_execution()` 和 `get_lineage()`。",
+                    "配置来源异常：检查 `get_resolved_config()`；不要只看传入 Context 的原始字典。",
+                    "并行任务泄漏或重复创建：检查执行器名称、`reuse`、`release_executor()` 与 `get_executor_manager().list_executors()`。",
+                    "进程池失败：先确认函数/参数可序列化，再降低 `max_workers` 或切换到 `thread`；不要静默改变 `run_id` 或缓存目录。",
+                ),
+            ),
+        ),
+    ),
+)
+
+
 def _build_context_documentation_page() -> CallableDocumentationPageSpec:
     """基于反射自动构建 Context 文档页；新增公开方法自动同步。"""
     groups: list[CallableDocumentationGroup] = []
@@ -1426,6 +1563,7 @@ def _build_context_documentation_page() -> CallableDocumentationPageSpec:
             "由它解析插件依赖、准备配置并复用 lineage 一致的缓存。"
         ),
         groups=tuple(groups),
+        narrative_sections=_CONTEXT_NARRATIVE_SECTIONS,
     )
 
 
@@ -2598,7 +2736,8 @@ class DocumentationSiteGenerator:
                         "url": f"{section}/{view.slug}.html#{narrative_section.anchor}",
                         "keywords": (
                             f"{view.title} records wave_pool {narrative_section.title} "
-                            "RecordsBundle wave_offset event_length records_view V1725"
+                            "RecordsBundle wave_offset event_length records_view V1725 "
+                            "ExecutorManager BatchProcessor thread process parallel_map"
                         ),
                     }
                 )
@@ -2806,7 +2945,11 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
         context_path = context_dir / "context.html"
         context_path.write_text(
             env.get_template("web/callable_reference.html.j2").render(
-                page=context_view, current_section="contexts", index_title="Context"
+                page=context_view,
+                current_section="contexts",
+                index_title="Context",
+                related_guide_href="../architecture/system.html",
+                related_guide_label="系统架构与执行器边界",
             ),
             encoding="utf-8",
         )
@@ -2899,12 +3042,19 @@ peaks = ctx.get_data(run_id, \"peaks\")"""
             ("plugins/system.html", "插件系统介绍"),
             ("plugins/template-api.html", "插件模板的 API 介绍"),
             ("plugins/authoring.html", "编写插件"),
+            ("architecture/CONTEXT_PROCESSOR_WORKFLOW.html", "Context 处理工作流"),
+            ("features/advanced/EXECUTOR_MANAGER_GUIDE.html", "全局执行器管理框架"),
         ):
             legacy_path = output_dir / legacy_route
+            target_href = "overview.html"
+            if legacy_route.startswith("architecture/"):
+                target_href = "../contexts/context.html#execution-framework"
+            elif legacy_route.startswith("features/"):
+                target_href = "../../contexts/context.html#execution-framework"
             legacy_path.write_text(
                 env.get_template("web/guide_redirect.html.j2").render(
                     title=title,
-                    target_href="overview.html",
+                    target_href=target_href,
                     **self._route_context(output_dir, legacy_route),
                 ),
                 encoding="utf-8",

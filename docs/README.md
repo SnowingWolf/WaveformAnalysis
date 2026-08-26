@@ -57,7 +57,7 @@ waveform-process --help
 | records 与 wave_pool 如何共同构建和访问？ | [DATA_PRODUCTS.md](architecture/DATA_PRODUCTS.md) |
 | 如何使用信号处理插件？ | [SIGNAL_PROCESSING_PLUGINS.md](plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md) |
 | 如何开发自定义插件？ | [PLUGIN_SYSTEM_OVERVIEW.md](plugins/PLUGIN_SYSTEM_OVERVIEW.md) |
-| 如何管理执行器与并行处理？ | [EXECUTOR_MANAGER_GUIDE.md](features/advanced/EXECUTOR_MANAGER_GUIDE.md) |
+| 如何管理执行器与并行处理？ | [系统架构：执行器管理框架](architecture/ARCHITECTURE.md#执行器管理框架) |
 
 ## 常用命令
 

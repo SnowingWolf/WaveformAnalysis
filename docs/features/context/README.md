@@ -2,8 +2,9 @@
 
 **导航**: [文档中心](../../README.md) > [功能特性](../README.md) > Context 功能
 
-Context 相关的功能文档，包括依赖分析、血缘可视化、执行预览和配置管理。正式数据产物、
-缓存与波形访问边界由架构专题统一说明。依赖分析与执行预览的对比关系见 [依赖分析](DEPENDENCY_ANALYSIS_GUIDE.md) 文档中的说明。
+Context 相关的功能文档，包括依赖分析、血缘可视化、执行预览和配置管理。Context API、端到端执行工作流、
+全局 ExecutorManager 与正式数据产物边界统一从[系统架构](../../architecture/ARCHITECTURE.md)进入。
+依赖分析与执行预览的对比关系见 [依赖分析](DEPENDENCY_ANALYSIS_GUIDE.md) 文档中的说明。
 
 ## 文档列表
 
@@ -25,5 +26,5 @@ Context 相关的功能文档，包括依赖分析、血缘可视化、执行预
 
 ## 相关资源
 
-- [高级功能](../advanced/README.md) - 执行器管理、进度追踪
+- [高级功能](../advanced/README.md) - 进度追踪
 - [插件功能](../../plugins/README.md) - 插件开发

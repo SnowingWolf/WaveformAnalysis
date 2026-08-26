@@ -226,5 +226,5 @@ stream_ctx = get_streaming_context(
 
 - [信号处理插件](../tutorials/SIGNAL_PROCESSING_PLUGINS.md)
 - [插件开发指南](../../development/plugin-development/README.md)
-- [ExecutorManager 指南](../../features/advanced/EXECUTOR_MANAGER_GUIDE.md)
+- [系统架构：执行器管理框架](../../architecture/ARCHITECTURE.md#执行器管理框架)
 - [架构文档](../../architecture/ARCHITECTURE.md)

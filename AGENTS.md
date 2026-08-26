@@ -290,7 +290,7 @@ waveform-process --show-daq --daq-root DAQ
 - 配置：`docs/features/context/CONFIGURATION.md`
 - 执行预览：`docs/features/context/PREVIEW_EXECUTION.md`
 - 流式插件：`docs/features/plugin/STREAMING_PLUGINS_GUIDE.md`
-- 执行器管理：`docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md`
+- 执行器管理：`docs/architecture/ARCHITECTURE.md#执行器管理框架`
 - CLI: `docs/cli/WAVEFORM_PROCESS.md`
 - 文档 CLI: `docs/cli/WAVEFORM_DOCS.md`
 - 缓存 CLI: `docs/cli/WAVEFORM_CACHE.md`

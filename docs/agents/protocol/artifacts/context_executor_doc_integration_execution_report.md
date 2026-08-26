@@ -1,0 +1,34 @@
+# execution_report
+
+- `task_id`: `context_executor_doc_integration_20260826`
+- `executor_role`: `executor.docs`
+- `agent_profile`: `none`
+- `changed_paths`:
+  - `waveform_analysis/utils/site_doc_generator.py`
+  - `docs/architecture/ARCHITECTURE.md`
+  - `docs/architecture/README.md`
+  - `docs/site-guides.yaml`
+  - `docs/architecture/CONTEXT_PROCESSOR_WORKFLOW.md`（删除）
+  - `docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md`（删除）
+  - 相关导航、帮助、`# DOC` 引用与站点测试
+- `actions_taken`:
+  - 新增 Context 生成页的 `execution-framework` 叙事：职责表、Mermaid 数据流、ExecutorManager 示例、隔离/lineage 不变量和排障顺序。
+  - 在系统架构 Markdown 中加入 ExecutorManager 组件矩阵、资源边界和推荐入口。
+  - 移除两份重复正文与 manifest 发布项；生成器保留两个旧 URL 的轻量兼容跳转。
+  - 将 Context 页头部链接到 `architecture/system.html`，搜索索引增加 ExecutorManager/BatchProcessor 关键词。
+- `commands_run`:
+  - `python -m waveform_analysis.utils.cli_docs check links --docs-dir docs` -> PASS
+  - `python -m waveform_analysis.utils.cli_docs check coverage --strict --fail-on-warning --docs-dir docs` -> PASS（36/36）
+  - `python -m waveform_analysis.utils.cli_docs generate site-web -o /tmp/waveform-docs-context-check` -> PASS（116 files）
+  - `python -m waveform_analysis.utils.cli_docs generate site-web -o docs/_site` -> PASS（116 files）
+  - focused documentation/site tests -> PASS（66 tests）；需要端口的 3 项在 escalated HTTP run 中 PASS
+  - `ruff check`（本轮 Python 文件）与 `black --check`（生成器、帮助、脚本、测试和执行器管理器） -> PASS；未格式化仅改动注释的既有 `backends.py`
+  - `scripts/check_doc_sync.sh` -> PASS
+  - `python scripts/check_doc_anchors.py --check-sync --base HEAD` -> PASS（0 errors/0 warnings）
+  - `python scripts/render_agent_docs.py --check` -> PASS
+  - 8008 HTTP 检查：Context/system/两个 legacy URL 均返回 200；两个旧 URL 均指向 `contexts/context.html#execution-framework`
+- `open_risks`:
+  - `tests/test_context_help.py` 中 1 项既有 resolved-dependency 断言失败，与本轮静态文档路径变更无关；未纳入本轮文档 gate。
+- `requested_review_focus`:
+  - 确认 Context 页含完整 `execution-framework` 内容且旧页面不再出现在导航/搜索正文中。
+  - 确认旧 URL 仅跳转、不产生第二份正文，所有本地 Markdown 链接和站点 fragment 有效。

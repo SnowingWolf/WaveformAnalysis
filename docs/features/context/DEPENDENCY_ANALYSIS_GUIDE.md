@@ -281,4 +281,4 @@ ctx = Context(stats_mode='detailed')
 
 - [架构文档](../../architecture/ARCHITECTURE.md)
 - [Plugin DAG、lineage 与缓存](../../architecture/PLUGIN_DAG_LINEAGE_CACHE.md)
-- [并行执行](../advanced/EXECUTOR_MANAGER_GUIDE.md)
+- [执行器管理框架](../../architecture/ARCHITECTURE.md#执行器管理框架)

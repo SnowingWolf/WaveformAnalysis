@@ -802,13 +802,13 @@ task_routes:
     aliases: []
     secondary_docs:
       - docs/agents/lifecycle.md
-      - docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md
+      - docs/architecture/ARCHITECTURE.md
     read_order:
       - AGENTS.md
       - docs/agents/lifecycle.md
       - docs/agents/workflows.md
       - docs/agents/protocol/route-profiles/performance_regression_check.md
-      - docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md
+      - docs/architecture/ARCHITECTURE.md
     required_inputs:
       - baseline reference
     handoff_sequence:
