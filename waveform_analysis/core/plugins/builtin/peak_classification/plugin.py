@@ -149,6 +149,41 @@ class PeakClassificationPlugin(Plugin):
         ],
     }
 
+    doc_usage_example = """
+    from waveform_analysis.core.context import Context
+    from waveform_analysis.core.plugins.builtin.cpu import PeakClassificationPlugin
+
+    run_id = "run_001"
+    ctx = Context(config={"data_root": "DAQ"})
+    ctx.register(PeakClassificationPlugin())
+
+    # 条件组内部使用 AND；accept_any/reject_any 的多个条件组使用 OR。
+    ctx.set_config(
+        {
+            "s1_selection": {
+                "accept_any": [
+                    {"width": (0.0, 100.0), "n_hits": (1, 7)},
+                ],
+            },
+            "s2_selection": {
+                "accept_any": [
+                    {"width": (300.0, None), "n_hits": (8, None)},
+                    {"rise_time_10_50": (100.0, None)},
+                ],
+            },
+            "s1_s2_selection": {
+                "accept_any": [
+                    {"width": (100.0, 200.0), "area": (400.0, 600.0)},
+                ],
+            },
+            "priority_order": ["s1_s2", "s1", "s2"],
+            "default_label": "unknown",
+        },
+        plugin_name="peak_classification",
+    )
+    labels = ctx.get_data(run_id, "peak_classification")
+    """
+
     options = {
         "priority_order": Option(
             default=["s1_s2", "s1", "s2"],

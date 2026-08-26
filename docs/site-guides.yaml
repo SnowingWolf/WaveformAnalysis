@@ -36,8 +36,6 @@ sections:
     pages:
       - source: docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
         route: plugins/overview.html
-      - source: docs/plugins/guides/DEFAULT_CONFIG_GUIDE.md
-        route: plugins/guides/DEFAULT_CONFIG_GUIDE.html
       - source: docs/plugins/guides/STREAMING_PLUGINS_GUIDE.md
         route: plugins/guides/STREAMING_PLUGINS_GUIDE.html
       - source: docs/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR.md

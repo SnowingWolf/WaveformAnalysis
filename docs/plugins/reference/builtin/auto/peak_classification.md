@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "5cb6ed7e7f64f86c50b74e0bc6beee6ec3f393d69ad343387df7c2930592c878"
+source_fingerprint: "162076343ab8ea37f03d6cfb6f149c52a5bb6b99ac6ea6649735d9be066543b4"
 generated: true
 ---
 # peak_classification
@@ -45,7 +45,7 @@ Classify peaks into S1/S2 using multi-dimensional features.
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `5cb6ed7e7f64f86c50b74e0bc6beee6ec3f393d69ad343387df7c2930592c878` |
+| Source Fingerprint | `162076343ab8ea37f03d6cfb6f149c52a5bb6b99ac6ea6649735d9be066543b4` |
 
 ### Dependencies
 
@@ -84,11 +84,37 @@ structured_array output with fields: peak_id, label.
 
 ```python
 from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import profiles
+from waveform_analysis.core.plugins.builtin.cpu import PeakClassificationPlugin
 
-ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
-ctx.register(*profiles.cpu_default())
-result = ctx.get_data("run_001", "peak_classification")
+run_id = "run_001"
+ctx = Context(config={"data_root": "DAQ"})
+ctx.register(PeakClassificationPlugin())
+
+# 条件组内部使用 AND；accept_any/reject_any 的多个条件组使用 OR。
+ctx.set_config(
+    {
+        "s1_selection": {
+            "accept_any": [
+                {"width": (0.0, 100.0), "n_hits": (1, 7)},
+            ],
+        },
+        "s2_selection": {
+            "accept_any": [
+                {"width": (300.0, None), "n_hits": (8, None)},
+                {"rise_time_10_50": (100.0, None)},
+            ],
+        },
+        "s1_s2_selection": {
+            "accept_any": [
+                {"width": (100.0, 200.0), "area": (400.0, 600.0)},
+            ],
+        },
+        "priority_order": ["s1_s2", "s1", "s2"],
+        "default_label": "unknown",
+    },
+    plugin_name="peak_classification",
+)
+labels = ctx.get_data(run_id, "peak_classification")
 ```
 
 示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
