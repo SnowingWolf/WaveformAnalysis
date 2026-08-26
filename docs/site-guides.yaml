@@ -107,8 +107,6 @@ sections:
         route: features/context/LINEAGE_VISUALIZATION_GUIDE.html
       - source: docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md
         route: features/advanced/EXECUTOR_MANAGER_GUIDE.html
-      - source: docs/features/advanced/IO_CSV_HEADER_HANDLING.md
-        route: features/advanced/IO_CSV_HEADER_HANDLING.html
       - source: docs/features/advanced/PROGRESS_TRACKING_GUIDE.md
         route: features/advanced/PROGRESS_TRACKING_GUIDE.html
       - source: docs/features/utils/DAQ_ANALYZER_GUIDE.md

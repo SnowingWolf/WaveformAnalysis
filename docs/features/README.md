@@ -49,11 +49,10 @@
 
 ### [高级功能](advanced/README.md)
 
-执行器管理、进度追踪、CSV 处理等。
+执行器管理、进度追踪等。
 
 - [执行器管理](advanced/EXECUTOR_MANAGER_GUIDE.md)
 - [进度追踪](advanced/PROGRESS_TRACKING_GUIDE.md)
-- [CSV 文件头处理](advanced/IO_CSV_HEADER_HANDLING.md)
 
 ### [工具函数](utils/README.md)
 
@@ -69,7 +68,6 @@ DAQ 适配器、DAQ 运行分析与事件筛选等实用工具。
 | 管理执行器 | [EXECUTOR_MANAGER_GUIDE.md](advanced/EXECUTOR_MANAGER_GUIDE.md) |
 | 了解缓存机制 | [PLUGIN_DAG_LINEAGE_CACHE.md](../architecture/PLUGIN_DAG_LINEAGE_CACHE.md) |
 | 追踪进度 | [PROGRESS_TRACKING_GUIDE.md](advanced/PROGRESS_TRACKING_GUIDE.md) |
-| 处理 CSV 文件头 | [IO_CSV_HEADER_HANDLING.md](advanced/IO_CSV_HEADER_HANDLING.md) |
 | 配置 DAQ 数据格式 | [ADAPTER_SYSTEM_GUIDE.md](../plugins/reference/ADAPTER_SYSTEM_GUIDE.md) |
 | 查看 DAQ 运行概览 | [DAQ_ANALYZER_GUIDE.md](utils/DAQ_ANALYZER_GUIDE.md) |
 | 可视化数据血缘 | [LINEAGE_VISUALIZATION_GUIDE.md](context/LINEAGE_VISUALIZATION_GUIDE.md) |
