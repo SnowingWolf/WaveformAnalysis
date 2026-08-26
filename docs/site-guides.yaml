@@ -42,8 +42,6 @@ sections:
         route: plugins/reference/ADAPTER_PLUGIN_BEHAVIOR.html
       - source: docs/plugins/reference/ADAPTER_SYSTEM_GUIDE.md
         route: plugins/reference/ADAPTER_SYSTEM_GUIDE.html
-      - source: docs/plugins/reference/builtin/WAVEFORM_WIDTH_PLUGIN.md
-        route: plugins/reference/builtin/WAVEFORM_WIDTH_PLUGIN.html
       - source: docs/plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md
         route: plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.html
 
@@ -132,16 +130,6 @@ sections:
       - route: visualizations/waveform-plots.html
         title: 波形图
         tag: reflect
-
-  - id: api
-    title: API 参考
-    nav_weight: 70
-    index_route: api/index.html
-    source_indexes:
-      - docs/api/README.md
-    pages:
-      - source: docs/api/peak_channel_accessor.md
-        route: api/peak_channel_accessor.html
 
   - id: cli
     title: 命令行工具

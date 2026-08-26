@@ -151,7 +151,7 @@ waveform-docs check links --docs-dir docs
 
 `site-web` 还会读取 `docs/site-guides.yaml`，把显式收录的 Markdown 渲染进同一 HTML 外壳，
 并同步加入左侧分类导航与全站搜索。清单按栏目收录 Markdown 正文：系统架构与数据模型、功能特性、
-插件系统、Context 与适配器、Accessor 接口、可视化、API 参考、命令行工具与开发者指南。Markdown
+插件系统、Context 与适配器、Accessor 接口、可视化、命令行工具与开发者指南。Markdown
 文件是正文唯一真源；生成的 HTML 只负责统一发布，不应手工维护同一份正文。
 
 清单使用 `schema_version: 2`，每个分类声明 `id`、`title` 与 `index_route`；`source_dirs` 目录扫描
@@ -347,5 +347,4 @@ waveform-docs check coverage --strict --fail-on-warning
 
 **相关文档**:
 [CLI 工具总览](README.md) |
-[API 参考](../api/README.md) |
 [插件开发指南](../plugins/README.md)

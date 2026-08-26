@@ -55,6 +55,28 @@ class WaveformWidthPlugin(Plugin):
     version = "3.0.0"  # 版本升级：输出使用 record_id 替代 event_index
     save_when = "always"
     output_dtype = WAVEFORM_WIDTH_DTYPE
+    doc_usage_example = """
+    from waveform_analysis.core.context import Context
+    from waveform_analysis.core.plugins import profiles
+
+    ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+    ctx.register(*profiles.cpu_default())
+
+    ctx.set_config(
+        {
+            "sampling_rate": 0.5,
+            "rise_low": 0.1,
+            "rise_high": 0.9,
+            "fall_high": 0.9,
+            "fall_low": 0.1,
+            "interpolation": True,
+        },
+        plugin_name="waveform_width",
+    )
+    widths = ctx.get_data("run_001", "waveform_width")
+    rise_times_ns = widths["rise_time"]
+    fall_times_ns = widths["fall_time"]
+    """
 
     options = {
         "use_filtered": Option(

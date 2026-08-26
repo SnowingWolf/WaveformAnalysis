@@ -59,7 +59,6 @@ WaveformAnalysis 的插件系统文档，包括教程、开发指南和参考资
 ## 快速链接
 
 - 🏗️ [插件系统与模板 API](PLUGIN_SYSTEM_OVERVIEW.md) - 当前插件系统的完整事实和开发契约
-- 📖 [API 参考](../api/README.md) - API 文档
 - 🚀 [快速入门](../user-guide/QUICKSTART_GUIDE.md) - 快速开始
 - ⚙️ [配置管理](../features/context/CONFIGURATION.md) - 配置系统
 

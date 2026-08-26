@@ -27,6 +27,5 @@
 
 ## 相关资源
 
-- [API 参考](../api/README.md) - 查看具体 API
 - [功能特性](../features/README.md) - 了解功能实现
 - [开发指南](../development/README.md) - 贡献代码

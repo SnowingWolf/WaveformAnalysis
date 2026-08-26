@@ -95,6 +95,5 @@ DAQ 适配器、DAQ 运行分析与事件筛选等实用工具。
 
 ## 相关资源
 
-- [API 参考](../api/README.md) - API 文档
 - [系统架构与数据模型](../architecture/README.md) - 系统架构
 - [插件详解](../plugins/README.md) - 内置插件说明

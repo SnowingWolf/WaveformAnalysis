@@ -26,7 +26,6 @@ waveform-process --help
 | 查阅核心能力（配置/缓存/执行链） | [功能特性](features/README.md) | Context、插件与高级能力说明 |
 | 查看内置插件能力 | [插件详解](plugins/README.md) | 按插件类型组织 |
 | 开发或修改插件 | [插件开发](development/plugin-development/README.md) | 插件开发规范与实践 |
-| 查阅 API 与配置说明 | [API 参考](api/README.md) | 代码接口与参数定义 |
 | 使用命令行工具 | [CLI 文档](cli/README.md) | `waveform-process` 等命令说明 |
 | 维护 Agent 入口文档 | [AGENTS.md](../AGENTS.md) | 仓库入口规则真源 |
 
@@ -80,4 +79,4 @@ waveform-process --show-daq --daq-root DAQ
 
 - Agent 入口规则以 [AGENTS.md](../AGENTS.md) 为唯一真源。
 - `CLAUDE.md` 与 `docs/agents/*` 为兼容入口，新增入口规则优先更新 `AGENTS.md`。
-- 用户可见的功能变更，请同步更新对应子目录文档（`features/`、`plugins/`、`api/`）。
+- 用户可见的功能变更，请同步更新对应子目录文档（`features/`、`plugins/`、`architecture/` 等）。

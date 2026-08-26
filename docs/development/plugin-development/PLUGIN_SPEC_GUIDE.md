@@ -503,7 +503,6 @@ from waveform_analysis.core.plugins.core import (
 
 - [插件编写规范](../../plugins/PLUGIN_SYSTEM_OVERVIEW.md) - 插件开发入门
 - [插件开发完整指南](plugin_guide.md) - 插件开发详细指南
-- [API 参考](../../api/README.md) - 完整 API 文档
 
 ---
 

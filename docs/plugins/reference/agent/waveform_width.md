@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "db9196ef32741a24d9399076b3f1e20f1004eeac312dde09fc86f781655f4430"
+source_fingerprint: "3301315de87b0f4d67c1a63d18188182df40c60f39c94e15cc588a3eb304bc81"
 generated: true
 ---
 # waveform_width
@@ -45,7 +45,7 @@ Calculate rise/fall time based on peak detection results.
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `db9196ef32741a24d9399076b3f1e20f1004eeac312dde09fc86f781655f4430` |
+| Source Fingerprint | `3301315de87b0f4d67c1a63d18188182df40c60f39c94e15cc588a3eb304bc81` |
 
 ### Dependencies
 
@@ -100,7 +100,21 @@ from waveform_analysis.core.plugins import profiles
 
 ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 ctx.register(*profiles.cpu_default())
-result = ctx.get_data("run_001", "waveform_width")
+
+ctx.set_config(
+    {
+        "sampling_rate": 0.5,
+        "rise_low": 0.1,
+        "rise_high": 0.9,
+        "fall_high": 0.9,
+        "fall_low": 0.1,
+        "interpolation": True,
+    },
+    plugin_name="waveform_width",
+)
+widths = ctx.get_data("run_001", "waveform_width")
+rise_times_ns = widths["rise_time"]
+fall_times_ns = widths["fall_time"]
 ```
 
 示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。

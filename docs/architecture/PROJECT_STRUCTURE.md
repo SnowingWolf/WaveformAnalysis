@@ -17,7 +17,6 @@ WaveformAnalysis/
 │   ├── features/            # 功能专题
 │   ├── plugins/             # 插件教程与参考
 │   ├── architecture/        # 架构、数据产物和缓存说明
-│   ├── api/                 # API 参考
 │   ├── cli/                 # 命令行参考
 │   ├── development/         # 贡献与插件开发指南
 │   └── agents/              # Agent 执行协议和内部维护入口
@@ -43,7 +42,7 @@ WaveformAnalysis/
 
 离线文档总站由 [`docs/site-guides.yaml`](../site-guides.yaml) 驱动。生产清单采用显式 `pages` 白名单：
 
-- `user-guide/`、`features/`、`architecture/`、`plugins/`、`api/`、`cli/` 和 `development/` 中登记的页面属于公开学习路径。
+- `user-guide/`、`features/`、`architecture/`、`plugins/`、`cli/` 和 `development/` 中登记的页面属于公开学习路径。
 - `docs/agents/` 保存 Agent 协议、执行计划和质量交接记录，供仓库维护使用，不自动发布到用户站点。
 - `archive/` 中的历史 notebook 和报告不作为站点页面；需要分享时使用对应的稳定仓库链接。
 - `docs/_site/` 是可重建的生成产物，不应手工编辑或提交。

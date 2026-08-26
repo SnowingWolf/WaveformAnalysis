@@ -22,4 +22,3 @@ DAQ 适配器、DAQ 运行分析与事件筛选等实用工具。
 
 - [高级功能](../advanced/README.md) - 执行器管理、缓存机制
 - [插件功能](../../plugins/README.md) - 信号处理、流式插件
-- [API 参考](../../api/README.md) - API 文档

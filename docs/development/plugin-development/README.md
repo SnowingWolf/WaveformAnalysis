@@ -27,5 +27,4 @@
 
 - [插件系统与模板 API](../../plugins/PLUGIN_SYSTEM_OVERVIEW.md) - 插件系统完整事实与开发契约
 - [系统架构与数据模型](../../architecture/README.md) - 理解系统架构
-- [API 参考](../../api/README.md) - 完整 API 文档
 - [插件功能](../../plugins/README.md) - 内置插件使用
