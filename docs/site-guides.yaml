@@ -146,8 +146,6 @@ sections:
     pages:
       - source: docs/api/peak_channel_accessor.md
         route: api/peak_channel_accessor.html
-      - source: docs/api/plot_peak_channels_with_sum.md
-        route: api/plot_peak_channels_with_sum.html
 
   - id: cli
     title: 命令行工具

@@ -24,7 +24,6 @@
 | **Storage** | [Plugin DAG、lineage 与缓存](../architecture/PLUGIN_DAG_LINEAGE_CACHE.md) | 存储后端和缓存管理 |
 | **Executor** | [执行器管理](../features/advanced/EXECUTOR_MANAGER_GUIDE.md) | 并行处理和任务调度 |
 | **PeakChannelAccessor** | [通道级 API](peak_channel_accessor.md) | 查询 peak 的 threshold hits、通道特征、波形与对比绘图 |
-| **plot_peak_channels_with_sum** | [使用指南](plot_peak_channels_with_sum.md) | 独立绘制单个 peak 的逐通道波形与框架求和波形 |
 
 ### 插件 API
 
