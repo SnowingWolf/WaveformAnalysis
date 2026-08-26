@@ -86,8 +86,6 @@ sections:
         route: architecture/CONTEXT_PROCESSOR_WORKFLOW.html
       - source: docs/architecture/PROJECT_STRUCTURE.md
         route: architecture/PROJECT_STRUCTURE.html
-      - source: docs/architecture/query_helpers_guide.md
-        route: architecture/query_helpers_guide.html
 
   - id: features
     title: 功能特性

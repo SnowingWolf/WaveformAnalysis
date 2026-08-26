@@ -15,7 +15,6 @@
 | [分析查询与批量运行](ACCESSOR_ANALYSIS.md) | 处理完成后的只读查询，以及多 run 调度与执行边界 |
 | [Context 处理工作流](CONTEXT_PROCESSOR_WORKFLOW.md) | Context、Processor 与插件执行的端到端流程 |
 | [项目结构](PROJECT_STRUCTURE.md) | 代码、文档、示例和质量检查的目录边界 |
-| [Hit Threshold 查询](query_helpers_guide.md) | 优先通过 PeakChannelAccessor 查询 peak、merged 与 hit_threshold 的关系 |
 
 ## 学习路径
 
