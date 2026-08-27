@@ -1098,6 +1098,11 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert ".doc-layout.is-navigation-hidden .docs-main" in site_css
     assert ".site-nav-restore" in site_css
     assert ".page-toc.is-open" in site_css
+    assert ".site-tree-list a,\n.site-tree-group-row > span,\n.page-toc a" in site_css
+    assert "overflow-wrap: anywhere" in site_css
+    assert "word-break: break-word" in site_css
+    assert ".site-tree-group-row { min-height: 34px;" in site_css
+    assert "align-items: flex-start" in site_css
     assert "docs-page--lineage" in lineage_page
     assert "Context 与适配器" in root_lineage_page
     assert "Accessor 接口" in root_lineage_page
