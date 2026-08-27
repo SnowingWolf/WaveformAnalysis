@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "816f619d98e09bab33a9c2e824e56d2402e93bf64a4d183fd526e5e747a8eff3"
+source_fingerprint: "c5d11e855ae24e66adfa15bf67eb75bd41decf5989bf179b0651b34c621f5f94"
 generated: true
 ---
 # s1_s2_pairs
@@ -47,7 +47,7 @@ S1-S2 配对选择插件
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `816f619d98e09bab33a9c2e824e56d2402e93bf64a4d183fd526e5e747a8eff3` |
+| Source Fingerprint | `c5d11e855ae24e66adfa15bf67eb75bd41decf5989bf179b0651b34c621f5f94` |
 
 ### Dependencies
 

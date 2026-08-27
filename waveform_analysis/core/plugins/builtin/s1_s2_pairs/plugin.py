@@ -83,19 +83,30 @@ class S1S2PairSelectionPlugin(Plugin):
         # 获取候选
         candidates = context.get_data(run_id, "s1_s2_pair_candidates")
 
-        # 物理配对主链只接受完整的 S1-S2 行。先过滤 orphan，再复制，
-        # 避免把大体积 orphan 表带入后续面积筛选、打分和排名。
-        complete_pair_mask = (candidates["s1_peak_id"] >= 0) & (candidates["s2_peak_id"] >= 0)
-        candidates = candidates[complete_pair_mask].copy()
-
-        # 空数据处理（包括输入只有 orphan 的情况）
+        # 空数据处理（保持旧路径的 copy 语义）
         if len(candidates) == 0:
-            return candidates
+            return candidates.copy()
 
         # 获取配置
         selection_mode = context.get_config(self, "selection_mode")
         close_threshold = context.get_config(self, "close_competitor_threshold")
         require_s2_larger = context.get_config(self, "require_s2_larger_than_s1")
+
+        # The old implementation normalized drift time after its area filter,
+        # while retaining orphan rows in that temporary input.  Preserve those
+        # scalar bounds without copying orphan records into the main chain.
+        drift_bounds = None
+        if selection_mode in {"nearest", "best_score"}:
+            drift_bounds = self._legacy_drift_bounds(candidates, require_s2_larger)
+
+        # 物理配对主链只接受完整的 S1-S2 行。先过滤 orphan，再复制，
+        # 避免把大体积 orphan 表带入后续面积筛选、打分和排名。
+        complete_pair_mask = (candidates["s1_peak_id"] >= 0) & (candidates["s2_peak_id"] >= 0)
+        candidates = candidates[complete_pair_mask].copy()
+
+        # 输入只有 orphan 时，主链输出为空
+        if len(candidates) == 0:
+            return candidates
 
         # 过滤: S2_area > S1_area (物理约束)
         if require_s2_larger:
@@ -107,7 +118,7 @@ class S1S2PairSelectionPlugin(Plugin):
                 return candidates
 
         # 计算 score
-        self._compute_scores(candidates, selection_mode)
+        self._compute_scores(candidates, selection_mode, drift_bounds)
 
         # 选择最佳配对
         if selection_mode == "all":
@@ -119,7 +130,46 @@ class S1S2PairSelectionPlugin(Plugin):
 
         return candidates
 
-    def _compute_scores(self, candidates: np.ndarray, mode: str):
+    @staticmethod
+    def _legacy_drift_bounds(
+        candidates: np.ndarray, require_s2_larger: bool
+    ) -> tuple[np.float32, np.float32]:
+        """Return the pre-filter drift bounds used by the legacy scorer.
+
+        The bounds are scalar reductions over the rows that the old area
+        filter would have retained, including sentinel ``-1`` orphan rows.
+        No orphan structured-array copy is created and no orphan participates
+        in grouping or ranking.
+        """
+        drift_times = candidates["drift_time_ns"]
+        if require_s2_larger:
+            legacy_score_mask = (
+                (candidates["s2_peak_id"] == -1)
+                | (candidates["s1_peak_id"] == -1)
+                | (candidates["s2_area"] > candidates["s1_area"])
+            )
+            if not np.any(legacy_score_mask):
+                return np.float32(0.0), np.float32(0.0)
+            return (
+                np.min(
+                    drift_times,
+                    where=legacy_score_mask,
+                    initial=np.float32(np.inf),
+                ),
+                np.max(
+                    drift_times,
+                    where=legacy_score_mask,
+                    initial=np.float32(-np.inf),
+                ),
+            )
+        return np.min(drift_times), np.max(drift_times)
+
+    def _compute_scores(
+        self,
+        candidates: np.ndarray,
+        mode: str,
+        drift_bounds: tuple[np.float32, np.float32] | None = None,
+    ):
         """计算 score (in-place 修改)"""
         if mode == "largest":
             # largest 模式: score = S1 面积
@@ -132,8 +182,10 @@ class S1S2PairSelectionPlugin(Plugin):
             # 时间越短,分数越高
             drift_times = candidates["drift_time_ns"]
             if len(drift_times) > 0:
-                min_drift = np.min(drift_times)
-                max_drift = np.max(drift_times)
+                min_drift, max_drift = drift_bounds or (
+                    np.min(drift_times),
+                    np.max(drift_times),
+                )
                 if max_drift > min_drift:
                     normalized = (drift_times - min_drift) / (max_drift - min_drift)
                     candidates["score_time"] = 1.0 - normalized
@@ -145,7 +197,7 @@ class S1S2PairSelectionPlugin(Plugin):
             # best_score 模式: 综合打分 (预留)
             # score = w_time * score_time + w_s1 * score_s1 + w_s2 * score_s2
             # 目前使用简单的均等权重
-            self._compute_quality_scores(candidates)
+            self._compute_quality_scores(candidates, drift_bounds)
             candidates["score_total"] = (
                 0.2 * candidates["score_time"]
                 + 0.4 * candidates["score_s1_quality"]
@@ -157,7 +209,11 @@ class S1S2PairSelectionPlugin(Plugin):
             # all 模式: 不计算 score
             pass
 
-    def _compute_quality_scores(self, candidates: np.ndarray):
+    def _compute_quality_scores(
+        self,
+        candidates: np.ndarray,
+        drift_bounds: tuple[np.float32, np.float32] | None = None,
+    ):
         """计算质量分数 (预留接口)
 
         这是一个预留的综合打分函数,未来可以根据 calibration data 优化。
@@ -180,8 +236,10 @@ class S1S2PairSelectionPlugin(Plugin):
         # 时间分数 (归一化)
         drift_times = candidates["drift_time_ns"]
         if len(drift_times) > 0:
-            min_drift = np.min(drift_times)
-            max_drift = np.max(drift_times)
+            min_drift, max_drift = drift_bounds or (
+                np.min(drift_times),
+                np.max(drift_times),
+            )
             if max_drift > min_drift:
                 normalized = (drift_times - min_drift) / (max_drift - min_drift)
                 candidates["score_time"] = 1.0 - normalized
