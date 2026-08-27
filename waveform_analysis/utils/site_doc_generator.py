@@ -767,7 +767,7 @@ fig, axes = accessor.plot(peak_id=919, view="sum-comparison")
     AccessorDocumentationSpec(
         accessor_class=S1S2PairAccessor,
         slug="s1-s2-pair-accessor",
-        summary="查询 S1-S2 配对、关联 peak 的求和波形和位置重建结果，并支持可组合筛选与单配对绘图。",
+        summary="查询 S1-S2 配对、关联 peak 的求和波形和位置重建结果，并支持单配对及 S2 候选集绘图。",
         introduction=(
             "`S1S2PairAccessor` 是只读查询接口：配对表提供 S1/S2 关系和事件级特征，"
             "波形层按 peak ID 提供框架生成的求和波形，位置重建结果单独读取。"
@@ -891,7 +891,7 @@ fig, axes = accessor.plot(peak_id=919, view="sum-comparison")
                         kind="paragraph",
                         text=(
                             "配对表与波形层独立延迟加载。访问 `pairs` 会加载当前 source 的表；首次调用 "
-                            "`waveform()`、`pair_waveforms()` 或 `plot()` 才读取 `peaklet_waveforms` 和 "
+                            "`waveform()`、`pair_waveforms()`、`plot()` 或 `plot_s2_candidates()` 才读取 `peaklet_waveforms` 和 "
                             "`peaklet_waveform_pool`。"
                         ),
                     ),
@@ -922,6 +922,8 @@ fig, axes = accessor.plot(peak_id=919, view="sum-comparison")
                         text=(
                             "`plot()` 以 S1 波形起点为零点，将 S1 与 S2 放到同一相对时间轴。`pad_ns` 控制显示窗口两端的额外范围，"
                             "`show_info=True` 会在标题中加入可用的漂移时间、面积、评分、排序和选择状态。"
+                            "`plot_s2_candidates()` 则以全部可用波形的最早起点为事件零点，用独立左右 y 轴同时展示候选 S1 与 S2，"
+                            "并以绿色粗线突出 pipeline 最终选择的 S1。"
                         ),
                     ),
                 ),
@@ -940,14 +942,13 @@ fig, axes = accessor.plot(peak_id=919, view="sum-comparison")
                 ),
             ),
         ),
-        example="""from waveform_analysis.utils.s1_s2_pair_accessor import S1S2PairAccessor
+        example="""from waveform_analysis.utils import S1S2PairAccessor
 
-accessor = S1S2PairAccessor(ctx, run_id="run_001", selected_only=True)
-mask = accessor.mask(
-    drift_time_ns_range=(10_000, 50_000),
-    log10_s2_s1_range=(1.5, None),
-)
-filtered = accessor.pairs[mask]""",
+accessor = S1S2PairAccessor(ctx, run_id)
+fig, (ax_s1, ax_s2), info = accessor.plot_s2_candidates(
+    s2_peak_id=1721983,
+    yscale="linear",
+)""",
         constructor_parameters=(
             AccessorParameterSpec("context", "已配置插件和数据存储的 Context。"),
             AccessorParameterSpec("run_id", "本次查询对应的 run ID。"),
@@ -1047,6 +1048,26 @@ candidate_pairs = accessor.pairs[mask]
                 "release_layer",
                 "释放原始波形层和缓存，下一次波形查询会重新加载。",
                 returns="无返回值。",
+            ),
+            AccessorMemberSpec(
+                "plot_s2_candidates",
+                "绘制一个 S2、全部候选 S1，并突出 pipeline 最终选择的 S1。",
+                parameters=(
+                    AccessorParameterSpec("s2_peak_id", "目标 S2 peak 的整数 ID。"),
+                    AccessorParameterSpec("yscale", '左右 y 轴的 scale，例如 `"linear"`。'),
+                    AccessorParameterSpec("show_intervals", "是否显示 S1/S2 peak 区间阴影。"),
+                    AccessorParameterSpec("show_info", "是否显示候选数、最终 S1 与漂移时间标题。"),
+                    AccessorParameterSpec("ax", "可选左侧 Matplotlib axes。"),
+                ),
+                returns="`(figure, (ax_s1, ax_s2), info)`；左右轴共享时间 x 轴但保持独立 y scale。",
+                notes=(
+                    "候选 S1 波形缺失时会跳过并记录在 `info`；S2 波形缺失时抛出 `WaveformNotFoundError`。",
+                    "重复 selected pair 会作为数据一致性错误抛出，不会静默选择第一行。",
+                ),
+                example="""fig, (ax_s1, ax_s2), info = accessor.plot_s2_candidates(
+    s2_peak_id=1721983,
+    yscale="linear",
+)""",
             ),
             AccessorMemberSpec(
                 "plot",

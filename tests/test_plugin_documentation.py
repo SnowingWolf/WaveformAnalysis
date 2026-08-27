@@ -1040,6 +1040,9 @@ def test_documentation_site_generates_exact_sections_routes_and_offline_assets(t
     assert "s1_s2_pair_candidates" in pair_accessor_page
     assert "flags_none" in pair_accessor_page
     assert "release_layer()" in pair_accessor_page
+    assert "plot_s2_candidates" in pair_accessor_page
+    assert "pipeline 最终选择的 S1" in pair_accessor_page
+    assert "1721983" in pair_accessor_page
     assert '<article class="member" id="mask"' in pair_accessor_page
     assert '<span class="nf">mask</span>' in pair_accessor_page
     assert (
@@ -1209,7 +1212,7 @@ def test_accessor_registry_uses_live_signatures_parameters_and_fails_for_invalid
     assert peak_view.constructor_signature == str(inspect.signature(PeakChannelAccessor))
     assert pair_view.constructor_signature == str(inspect.signature(S1S2PairAccessor))
     assert len(peak_view.members) == 6
-    assert len(pair_view.members) == 11
+    assert len(pair_view.members) == 12
     assert [(member.name, member.kind) for member in pair_view.members][0] == (
         "pairs",
         "property",
@@ -1217,6 +1220,18 @@ def test_accessor_registry_uses_live_signatures_parameters_and_fails_for_invalid
     assert all(not member.name.startswith("_") for view in views for member in view.members)
     get_pair = next(member for member in pair_view.members if member.name == "pair")
     assert get_pair.signature == str(inspect.signature(S1S2PairAccessor.pair))
+    plot_candidates = next(
+        member for member in pair_view.members if member.name == "plot_s2_candidates"
+    )
+    assert plot_candidates.signature.startswith("(\n    self,\n    s2_peak_id: int,")
+    assert "\n    ax: Any = None,\n) -> typing.Any" in plot_candidates.signature
+    assert [parameter.name for parameter in plot_candidates.parameters] == [
+        "s2_peak_id",
+        "yscale",
+        "show_intervals",
+        "show_info",
+        "ax",
+    ]
     get_hits = next(member for member in peak_view.members if member.name == "get_hits")
     assert get_hits.signature == str(inspect.signature(PeakChannelAccessor.get_hits))
     assert [parameter.name for parameter in get_hits.parameters] == ["peak_id"]

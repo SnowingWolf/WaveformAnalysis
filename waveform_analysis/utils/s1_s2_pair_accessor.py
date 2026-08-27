@@ -106,6 +106,10 @@ class S1S2PairAccessor:
         self._s1_to_indices: dict[int, np.ndarray] | None = None
         self._s2_to_indices: dict[int, np.ndarray] | None = None
 
+        # 候选绘图查询层（与 source 独立，按需加载且保留 native/memmap 形态）
+        self._candidate_pair_table: np.ndarray | None = None
+        self._selected_pair_table: np.ndarray | None = None
+
         # 波形层（延迟加载）
         self._peaklet_waveforms: np.ndarray | None = None
         self._peaklet_waveform_pool: np.ndarray | None = None
@@ -140,7 +144,17 @@ class S1S2PairAccessor:
             )
 
         # 加载数据
-        pairs = self.context.get_data(self.run_id, data_key)
+        if data_key == "s1_s2_pair_candidates" and self._candidate_pair_table is not None:
+            pairs = self._candidate_pair_table
+        elif data_key == "s1_s2_pairs" and self._selected_pair_table is not None:
+            pairs = self._selected_pair_table
+        else:
+            pairs = self.context.get_data(self.run_id, data_key)
+
+        if data_key == "s1_s2_pair_candidates":
+            self._candidate_pair_table = pairs
+        elif data_key == "s1_s2_pairs":
+            self._selected_pair_table = pairs
 
         # 应用 selected_only 筛选
         if self.selected_only:
@@ -423,6 +437,167 @@ class S1S2PairAccessor:
         self._waveform_layer_loaded = False
 
     # ========== 可视化方法 ==========
+
+    def _candidate_table(self) -> np.ndarray:
+        """Return the cached native candidate table without building global indices."""
+        if self._candidate_pair_table is None:
+            self._candidate_pair_table = self.context.get_data(
+                self.run_id, "s1_s2_pair_candidates", output="native"
+            )
+        return self._candidate_pair_table
+
+    def _selected_table(self) -> np.ndarray:
+        """Return the cached native selected-pair table without building global indices."""
+        if self._selected_pair_table is None:
+            self._selected_pair_table = self.context.get_data(
+                self.run_id, "s1_s2_pairs", output="native"
+            )
+        return self._selected_pair_table
+
+    @staticmethod
+    def _peak_interval_ns(row: np.void, prefix: str) -> tuple[float, float] | None:
+        """Extract a center-time/width interval from a candidate or selected row."""
+        names = row.dtype.names or ()
+        time_field = f"{prefix}_time"
+        width_field = f"{prefix}_width"
+        if time_field not in names or width_field not in names:
+            return None
+
+        center_ns = float(row[time_field]) / 1000.0
+        width_ns = float(row[width_field])
+        if (
+            center_ns < 0
+            or not np.isfinite(center_ns)
+            or width_ns <= 0
+            or not np.isfinite(width_ns)
+        ):
+            return None
+        half_width_ns = width_ns / 2.0
+        return center_ns - half_width_ns, center_ns + half_width_ns
+
+    def plot_s2_candidates(
+        self,
+        s2_peak_id: int,
+        *,
+        yscale: str = "linear",
+        show_intervals: bool = True,
+        show_info: bool = True,
+        ax: Any = None,
+    ) -> Any:
+        """Plot one S2, every candidate S1, and the pipeline-selected S1.
+
+        Candidate and selected-pair tables are loaded independently of ``source`` and
+        cached. The query uses a vector mask for this S2 only, so it does not build a
+        Python index for the full candidate table.
+        """
+        s2_peak_id = int(s2_peak_id)
+        candidates = self._candidate_table()
+        selected_pairs = self._selected_table()
+
+        candidate_rows = candidates[candidates["s2_peak_id"] == s2_peak_id]
+        pair_rows_for_s2 = selected_pairs[selected_pairs["s2_peak_id"] == s2_peak_id]
+        selected_s2_rows = pair_rows_for_s2
+        if "selected" in (selected_pairs.dtype.names or ()):
+            selected_s2_rows = selected_s2_rows[selected_s2_rows["selected"]]
+        else:
+            selected_s2_rows = selected_s2_rows[:0]
+
+        if len(selected_s2_rows) > 1:
+            raise ValueError(
+                f"Data consistency error: multiple selected S1-S2 pairs for "
+                f"s2_peak_id={s2_peak_id}"
+            )
+
+        candidate_s1_peak_ids: list[int] = []
+        candidate_row_by_s1: dict[int, np.void] = {}
+        for row in candidate_rows:
+            s1_peak_id = int(row["s1_peak_id"])
+            if s1_peak_id < 0 or s1_peak_id in candidate_row_by_s1:
+                continue
+            candidate_s1_peak_ids.append(s1_peak_id)
+            candidate_row_by_s1[s1_peak_id] = row
+
+        selected_row = selected_s2_rows[0] if len(selected_s2_rows) else None
+        selected_s1_peak_id = int(selected_row["s1_peak_id"]) if selected_row is not None else None
+        selected_s1_outside_candidates = (
+            selected_s1_peak_id is not None and selected_s1_peak_id not in candidate_row_by_s1
+        )
+
+        plotted_s1_peak_ids = list(candidate_s1_peak_ids)
+        if selected_s1_outside_candidates:
+            assert selected_s1_peak_id is not None
+            plotted_s1_peak_ids.append(selected_s1_peak_id)
+
+        s2_waveform = self.waveform(s2_peak_id, copy=False)
+        s2_known = len(candidate_rows) > 0 or len(pair_rows_for_s2) > 0
+        if s2_waveform is None:
+            if s2_known:
+                raise WaveformNotFoundError(f"Missing waveform for s2_peak_id={s2_peak_id}")
+            raise ValueError(f"S2 peak_id={s2_peak_id} not found")
+
+        s1_waveforms: dict[int, dict[str, Any]] = {}
+        missing_waveform_peak_ids: list[int] = []
+        for s1_peak_id in plotted_s1_peak_ids:
+            waveform = self.waveform(s1_peak_id, copy=False)
+            if waveform is None:
+                missing_waveform_peak_ids.append(s1_peak_id)
+                continue
+            s1_waveforms[s1_peak_id] = waveform
+
+        peak_intervals_ns: dict[int, tuple[float, float]] = {}
+        for s1_peak_id, row in candidate_row_by_s1.items():
+            interval = self._peak_interval_ns(row, "s1")
+            if interval is not None:
+                peak_intervals_ns[s1_peak_id] = interval
+        if selected_row is not None and selected_s1_peak_id is not None:
+            selected_interval = self._peak_interval_ns(selected_row, "s1")
+            if selected_interval is not None:
+                peak_intervals_ns[selected_s1_peak_id] = selected_interval
+
+        s2_metadata_row = (
+            selected_row
+            if selected_row is not None
+            else (candidate_rows[0] if len(candidate_rows) else None)
+        )
+        if s2_metadata_row is not None:
+            s2_interval = self._peak_interval_ns(s2_metadata_row, "s2")
+            if s2_interval is not None:
+                peak_intervals_ns[s2_peak_id] = s2_interval
+
+        drift_time_ns = (
+            float(selected_row["drift_time_ns"])
+            if selected_row is not None and "drift_time_ns" in (selected_row.dtype.names or ())
+            else None
+        )
+
+        from waveform_analysis.utils.visualization._s1_s2_candidates import (
+            _plot_s2_candidates,
+        )
+
+        fig, axes, event_t0_ns = _plot_s2_candidates(
+            s2_peak_id=s2_peak_id,
+            candidate_s1_peak_ids=candidate_s1_peak_ids,
+            selected_s1_peak_id=selected_s1_peak_id,
+            s1_waveforms=s1_waveforms,
+            s2_waveform=s2_waveform,
+            peak_intervals_ns=peak_intervals_ns,
+            drift_time_ns=drift_time_ns,
+            yscale=yscale,
+            show_intervals=show_intervals,
+            show_info=show_info,
+            ax=ax,
+        )
+        info = {
+            "s2_peak_id": s2_peak_id,
+            "candidate_s1_peak_ids": candidate_s1_peak_ids,
+            "selected_s1_peak_id": selected_s1_peak_id,
+            "missing_waveform_peak_ids": missing_waveform_peak_ids,
+            "selected_s1_outside_candidates": selected_s1_outside_candidates,
+            "plotted_s1_peak_ids": list(s1_waveforms),
+            "drift_time_ns": drift_time_ns,
+            "event_t0_ns": event_t0_ns,
+        }
+        return fig, axes, info
 
     def plot(
         self,
