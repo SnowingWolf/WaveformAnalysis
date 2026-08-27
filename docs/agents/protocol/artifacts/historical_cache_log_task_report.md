@@ -1,0 +1,28 @@
+# task_report
+
+- `task_id`: `historical_cache_log_20260827`
+- `route`: `generate_docs`
+- `workflow_cost`: `light`
+- `workflow_shape`: `compact`
+- `scope`: 说明 `Using compatible historical cache` 日志的触发条件、key 箭头语义、依赖扫描场景和非重算含义。
+- `actions_taken`:
+  - 在插件缓存架构文档的历史 key 兼容规则后增加用户可见日志说明。
+  - 记录直接读取与下游 DAG 依赖检查两种触发路径。
+  - 说明同一 Context 的日志去重、不会出现日志的条件，以及不兼容缓存的处理方式。
+- `changed_paths`:
+  - `docs/architecture/PLUGIN_CACHE_ARCHITECTURE.md`
+  - `docs/agents/protocol/artifacts/historical_cache_log_task_report.md`
+- `verification`:
+  - `PASS`: `git diff --check`。
+  - `PASS`: `PATH=/home/wxy/anaconda3/envs/pyroot-kernel/bin:$PATH scripts/check_doc_sync.sh`。
+  - `PASS`: `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py --check-sync --base HEAD`。
+  - `PASS`: `PATH=/home/wxy/anaconda3/envs/pyroot-kernel/bin:$PATH waveform-docs check links --docs-dir docs`（295 个 Markdown 文件、503 个本地引用）。
+- `decision`: `completed`
+- `commit_status`: `committed by the containing scoped Git commit`
+- `open_risks`:
+  - none
+- `agent_profile`: `none`
+- `profile_plan`:
+  - not applicable
+- `agent_profile_review`:
+  - Inline review matched the documented trigger and arrow direction against `ContextCacheDomain._resolve_disk_cache_key` and dependency-cache traversal against `compute_needed_set`.

@@ -68,6 +68,29 @@ Context 在递归过程中只缓存不含 `adapter_info` 的基础 lineage，并
 版本、配置、dtype/schema/spec、依赖和 run 的差异不会被该兼容规则忽略。历史文件保持只读，新计算始终
 写入当前规范 key。
 
+### 2.4 `Using compatible historical cache` 日志
+
+首次为某个 `(run_id, data_name)` 检查磁盘缓存时，如果当前规范 key 没有直接命中，但读取器找到并验证了
+一个语义等价的历史 key，Context 会记录一条 `INFO` 日志：
+
+```text
+Context - INFO - Using compatible historical cache for 'records_asymmetry_mask'
+(00196-records_asymmetry_mask-cc508c18 -> 00196-records_asymmetry_mask-d15cd8a6)
+```
+
+箭头左侧是当前 lineage 计算出的规范 key，右侧是本次实际复用的历史 key。这条日志表示历史缓存已通过
+元数据和 lineage 兼容校验，不是报错，也不表示该产物正在重算；读取器直接使用右侧文件，并且不会复制、
+重命名或改写它。后续如果发生新计算，结果仍写入左侧的当前规范 key。
+
+日志既可能在直接调用 `ctx.get_data(run_id, "records_asymmetry_mask")` 时出现，也可能在请求下游产物时
+出现。`compute_needed_set` 会沿 DAG 检查依赖缓存，因此请求 `s1_s2_pair_candidates` 等下游结果时，即使
+用户没有显式读取 `records_asymmetry_mask`，也可能在依赖扫描阶段看到这条信息。
+
+同一个 `Context` 实例中，每个 `(run_id, data_name)` 最多记录一次兼容命中；创建新 Context 后可能再次
+出现。以下情况不会记录该信息：内存结果已命中、当前规范 key 直接命中、没有历史候选、历史缓存缺少
+lineage 元数据、lineage 不兼容，或者日志级别高于 `INFO`。不兼容的历史缓存不会被复用，执行链会继续
+查找其他缓存或重算缺失节点。
+
 ## 3. 内存结果缓存
 
 `_results[(run_id, data_name)]` 保存结果对象；`_results_lineage[(run_id, data_name)]` 记录写入该结果
