@@ -48,7 +48,10 @@ key = f"{run_id}-{data_name}-{lineage_hash}"
 - 递归上游 lineage；
 - 顶层 adapter 信息（`daq_adapter` 的解释结果）。
 
-Plugin 可通过 `get_lineage(context)` 补充自身构建语义。lineage 不包含数组内容，也不表示缓存一定存在。
+Plugin 可通过 `get_lineage(context, *, dependency_resolver=None)` 补充自身构建语义；自定义 hook
+应使用 Context 传入的 `dependency_resolver` 构建依赖 lineage。旧的 `get_lineage(context)` 签名仍兼容。
+Context 在递归过程中只缓存不含 `adapter_info` 的基础 lineage，并仅在顶层返回值补充一次 adapter
+信息，因此冷缓存、热缓存和不同遍历顺序会得到相同 key。lineage 不包含数组内容，也不表示缓存一定存在。
 
 ### 2.3 什么会改变 key
 
@@ -59,7 +62,11 @@ Plugin 可通过 `get_lineage(context)` 补充自身构建语义。lineage 不�
 | `run_id` 不同 | 即使 lineage 相同，key 也不同，同名单名产物不跨 run 复用 |
 | 纯资源配置（`track=False`） | 不影响 key |
 
-文件存在本身不是命中；只有「当前 key 与落盘 key/lineage 一致」才是命中。
+文件存在本身不是命中；只有「当前 key 与落盘 key/lineage 一致」才是命中。为兼容历史上
+`adapter_info` 附着层级不稳定所产生的旧 key，读取端还会检查同一 run/product 的历史 key：仅当元数据
+存在，递归移除 `adapter_info` 后其余 lineage 完全相同，并且双方声明的 adapter 信息不冲突时才复用。
+版本、配置、dtype/schema/spec、依赖和 run 的差异不会被该兼容规则忽略。历史文件保持只读，新计算始终
+写入当前规范 key。
 
 ## 3. 内存结果缓存
 
@@ -94,14 +101,16 @@ work_dir/{run_id}/_cache/{key}.lock      # 写入锁
 ### 4.2 元数据中的 lineage
 
 `{key}.meta` 保存写入时的 lineage（JSON）。读取校验的核心是：把元数据里的 lineage 与当前
-`get_lineage(data_name)` 做 JSON 比较，一致才加载，不一致则丢弃并重算。
+`get_lineage(data_name)` 做 JSON 比较。规范 key 优先；历史 key 必须通过上节所述的严格
+adapter-placement 兼容检查，缺少 lineage 元数据的历史 key 不会复用。
 
 ## 5. 命中与校验路径
 
 `Context.get_data(run_id, target)` 依次检查：
 
 1. **内存命中**：`_get_data_from_memory` 校验 `_results_lineage` 中的 key。
-2. **磁盘命中**：`key_for` 得到当前 key，`load_from_disk_with_check` 校验文件存在 + lineage 一致。
+2. **磁盘命中**：`key_for` 得到当前 key，共享解析器按“规范 key → 可证明等价的历史 key”校验；
+   validity、执行预览和实际加载使用同一解析结果。
 3. **执行计划**：`resolve_execution_plan` 拓扑序 + `compute_needed_set` 剪枝未命中节点。
 4. **执行**：只跑缺失节点，`save_plugin_result` 写盘。
 

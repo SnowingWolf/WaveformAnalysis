@@ -1,0 +1,61 @@
+# execution_report
+
+- `task_id`: `cache-lineage-key-stability`
+- `workflow_cost`: `strict`
+- `workflow_shape`: `staged`
+- `executor_role`: `executor.plugin`
+- `agent_profile`: `graph_engineer`
+- `changed_paths`:
+  - `waveform_analysis/core/context.py`
+  - `waveform_analysis/core/context_cache.py`
+  - `waveform_analysis/core/plugins/core/base.py`
+  - `waveform_analysis/core/plugins/builtin/records/_compute.py`
+  - `waveform_analysis/core/plugins/builtin/st_waveforms/plugin.py`
+  - `waveform_analysis/core/plugins/builtin/peaklet_components/plugin.py`
+  - `tests/test_cache_optimization.py`
+  - `waveform_analysis/core/config/tests/test_config.py`
+  - `docs/architecture/PLUGIN_CACHE_ARCHITECTURE.md`
+  - `docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md`
+  - `docs/development/plugin-development/plugin_guide.md`
+  - `docs/development/plugin-development/PLUGIN_SPEC_GUIDE.md`
+  - `docs/features/context/CONFIGURATION.md`
+  - `docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md`
+  - generated `peaklet_components.md` and `st_waveforms.md` pages under both plugin reference trees
+  - staged workflow artifacts for this task
+- `actions_taken`:
+  - Split public top-level lineage augmentation from recursive base-lineage construction.
+  - Added a keyword-only dependency resolver for custom lineage hooks while retaining the historical one-argument hook.
+  - Migrated records, st_waveforms, and peaklet_components custom providers to the resolver.
+  - Added one shared disk-key resolver for validity, preview planning, and load paths.
+  - Kept canonical keys first, then the direct historical base key, then newest metadata-proven equivalent historical keys.
+  - Limited compatibility normalization to recursive removal of `adapter_info`; all other lineage fields remain exact and adapter conflicts reject reuse.
+  - Performed read-only run `00196` resolution without loading peak arrays or mutating production cache files.
+- `commands_run`:
+  - focused pytest suites after reviewer rework: 104 passed, 1 skipped
+  - `./scripts/run_tests.sh -v -k lineage`: 36 passed; one loopback-socket test rerun outside sandbox and passed
+  - `./scripts/run_tests.sh -v -k cache`: 134 passed, 1 skipped; one loopback-socket test rerun outside sandbox and passed
+  - both plugin documentation generation commands: passed
+  - `scripts/assess_change_impact.py --base HEAD`: passed, no plugin contract changes
+  - `scripts/schema_compat_check.py --base HEAD --run-smoke`: passed, dtype changes 0
+  - `scripts/render_agent_docs.py --check`: passed
+  - `scripts/check_doc_sync.sh`: passed after completing all anchored docs
+  - `scripts/check_doc_anchors.py --check-sync --base HEAD`: passed with zero warnings
+- `open_risks`:
+  - Compatibility lookup adds metadata reads only when the canonical key is absent; reviewer should assess whether this bounded overhead is acceptable.
+- `requested_review_focus`:
+  - Verify that adapter-only normalization cannot hide version, config, dtype/schema/spec, dependency, class, or run differences.
+  - Verify legacy third-party hook behavior, candidate ordering, shared validity/load behavior, and no production-cache writes.
+
+## Optional Notes
+
+- `tests_run`:
+  - Cold/warm and traversal-order stability, built-in custom providers, legacy hook regression, canonical preference, newest fallback, safe reuse, and semantic/adapter rejection.
+- `gates_executed`:
+  - All strict modify_plugin fixed gates and documentation sync gates completed.
+- `docs_updated`:
+  - Cache architecture, DAG/lineage architecture, configuration, plugin system, developer guides, and generated plugin references.
+- `plan_drift`:
+  - The combined `-k 'lineage or cache'` wrapper command splits its expression; equivalent lineage and cache selections were run separately. Socket-only failures caused by sandbox policy were rerun individually outside the sandbox and passed.
+  - Reviewer rework tightened resolver signature detection, added a canonical fast path, and made metadata read failures fail closed; focused gates were rerun afterward.
+- `not_executed_and_why`:
+  - No full run `00196` array load or plugin execution, to preserve the read-only/no-large-materialization constraint.

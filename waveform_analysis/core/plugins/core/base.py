@@ -420,7 +420,12 @@ class Plugin(abc.ABC):
         """
         return list(self.depends_on) if self.depends_on else []
 
-    def _build_depends_lineage(self, context: Any) -> dict:
+    def _build_depends_lineage(
+        self,
+        context: Any,
+        *,
+        dependency_resolver: Callable[[str], dict] | None = None,
+    ) -> dict:
         """
         构建依赖血缘的辅助方法。
 
@@ -429,6 +434,8 @@ class Plugin(abc.ABC):
 
         Args:
             context: Context 实例，用于获取依赖的血缘信息
+            dependency_resolver: Context 提供的内部依赖解析器。自定义 lineage
+                hook 应透传该参数，避免把依赖误当成顶层 lineage。
 
         Returns:
             dict: 依赖名称到血缘信息的映射
@@ -458,7 +465,8 @@ class Plugin(abc.ABC):
             # 提取依赖名称（去除版本约束）
             dep_name = self.get_dependency_name(dep)
             # 递归获取依赖的血缘
-            depends_lineage[dep_name] = context.get_lineage(dep_name)
+            resolver = dependency_resolver or context.get_lineage
+            depends_lineage[dep_name] = resolver(dep_name)
 
         return depends_lineage
 

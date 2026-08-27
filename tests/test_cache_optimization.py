@@ -2,6 +2,9 @@
 测试依赖解析缓存优化的性能提升
 """
 
+import copy
+import hashlib
+import json
 import time
 
 import numpy as np
@@ -272,6 +275,258 @@ class TestCacheOptimization:
         # 再次获取应该使用缓存
         lineage2 = ctx.get_lineage("test_data")
         assert lineage1 is lineage2  # 应该是同一个对象
+
+    def test_lineage_key_is_stable_across_cold_warm_and_traversal_order(self):
+        class Source(Plugin):
+            provides = "stable_source"
+
+            def compute(self, context, run_id):
+                return np.array([1])
+
+        class Target(Plugin):
+            provides = "stable_target"
+            depends_on = ["stable_source"]
+
+            def get_lineage(self, context, *, dependency_resolver=None):
+                return {
+                    "plugin_class": self.__class__.__name__,
+                    "plugin_version": self.version,
+                    "description": self.description,
+                    "config": {},
+                    "depends_on": self._build_depends_lineage(
+                        context, dependency_resolver=dependency_resolver
+                    ),
+                }
+
+            def compute(self, context, run_id):
+                return np.array([2])
+
+        ctx = Context(config={"daq_adapter": "vx2730"})
+        ctx.register(Source())
+        ctx.register(Target())
+
+        cold_lineage = ctx.get_lineage("stable_target")
+        cold_key = ctx.key_for("run_stable", "stable_target")
+        assert "adapter_info" in cold_lineage
+        assert "adapter_info" not in cold_lineage["depends_on"]["stable_source"]
+
+        ctx.clear_performance_caches()
+        ctx.get_lineage("stable_source")
+        warm_lineage = ctx.get_lineage("stable_target")
+        warm_key = ctx.key_for("run_stable", "stable_target")
+        assert warm_lineage == cold_lineage
+        assert warm_key == cold_key
+
+    def test_legacy_kwargs_lineage_hook_is_not_treated_as_resolver_protocol(self):
+        calls = []
+
+        class Source(Plugin):
+            provides = "kwargs_source"
+
+            def compute(self, context, run_id):
+                return np.array([1])
+
+        class LegacyTarget(Plugin):
+            provides = "kwargs_target"
+            depends_on = ["kwargs_source"]
+
+            def get_lineage(self, context, **kwargs):
+                calls.append(kwargs)
+                return {
+                    "plugin_class": self.__class__.__name__,
+                    "plugin_version": self.version,
+                    "depends_on": {"kwargs_source": context.get_lineage("kwargs_source")},
+                }
+
+            def compute(self, context, run_id):
+                return np.array([2])
+
+        ctx = Context(config={"daq_adapter": "vx2730"})
+        ctx.register(Source())
+        ctx.register(LegacyTarget())
+
+        ctx.get_lineage("kwargs_target")
+        ctx.get_lineage("kwargs_target")
+        assert calls == [{}, {}]
+        assert "kwargs_target" not in ctx._lineage_cache
+
+    def test_compatible_historical_cache_is_loaded_without_execution(self, tmp_path):
+        dtype = np.dtype([("v", "i4")])
+        executed = []
+
+        class CachedPlugin(Plugin):
+            provides = "compat_data"
+            output_dtype = dtype
+
+            def compute(self, context, run_id):
+                executed.append(True)
+                return np.array([(99,)], dtype=dtype)
+
+        ctx = Context(
+            storage_dir=str(tmp_path),
+            config={"daq_adapter": "vx2730", "show_progress": False},
+        )
+        ctx.register(CachedPlugin())
+        run_id = "run_compat"
+        canonical_key = ctx.key_for(run_id, "compat_data")
+        base_lineage = ctx._get_base_lineage("compat_data", set())
+        base_hash = hashlib.sha1(
+            json.dumps(base_lineage, sort_keys=True, default=str).encode()
+        ).hexdigest()[:8]
+        legacy_key = f"{run_id}-compat_data-{base_hash}"
+        assert legacy_key != canonical_key
+        expected = np.array([(7,)], dtype=dtype)
+        ctx.storage.save_memmap(
+            legacy_key,
+            expected,
+            extra_metadata={"lineage": base_lineage},
+            run_id=run_id,
+        )
+        ctx._invalidate_storage_key_list_cache(ctx.storage, run_id)
+
+        assert ctx._is_disk_cache_valid(run_id, "compat_data", canonical_key)
+        loaded = ctx.get_data(run_id, "compat_data")
+        np.testing.assert_array_equal(loaded, expected)
+        assert executed == []
+
+    def test_historical_cache_rejects_semantic_or_adapter_conflicts(self, tmp_path):
+        dtype = np.dtype([("v", "i4")])
+
+        class CachedPlugin(Plugin):
+            provides = "guarded_data"
+            version = "2.0.0"
+            output_dtype = dtype
+
+            def compute(self, context, run_id):
+                return np.array([(11,)], dtype=dtype)
+
+        ctx = Context(
+            storage_dir=str(tmp_path),
+            config={"daq_adapter": "vx2730", "show_progress": False},
+        )
+        ctx.register(CachedPlugin())
+        canonical_key = ctx.key_for("run_semantic", "guarded_data")
+        stale_lineage = copy.deepcopy(ctx.get_lineage("guarded_data"))
+        stale_lineage["plugin_version"] = "1.0.0"
+        ctx.storage.save_memmap(
+            "run_semantic-guarded_data-deadbeef",
+            np.array([(1,)], dtype=dtype),
+            extra_metadata={"lineage": stale_lineage},
+            run_id="run_semantic",
+        )
+        ctx._invalidate_storage_key_list_cache(ctx.storage, "run_semantic")
+        assert not ctx._is_disk_cache_valid("run_semantic", "guarded_data", canonical_key)
+
+        base_lineage = copy.deepcopy(ctx._get_base_lineage("guarded_data", set()))
+        base_lineage["adapter_info"] = {"name": "conflicting-adapter"}
+        ctx.storage.save_memmap(
+            "run_adapter-guarded_data-deadbeef",
+            np.array([(2,)], dtype=dtype),
+            extra_metadata={"lineage": base_lineage},
+            run_id="run_adapter",
+        )
+        ctx._invalidate_storage_key_list_cache(ctx.storage, "run_adapter")
+        adapter_key = ctx.key_for("run_adapter", "guarded_data")
+        assert not ctx._is_disk_cache_valid("run_adapter", "guarded_data", adapter_key)
+
+    def test_canonical_cache_is_preferred_over_compatible_historical_key(self, tmp_path):
+        dtype = np.dtype([("v", "i4")])
+
+        class CachedPlugin(Plugin):
+            provides = "preferred_data"
+            output_dtype = dtype
+
+            def compute(self, context, run_id):
+                raise AssertionError("cache should be loaded")
+
+        ctx = Context(
+            storage_dir=str(tmp_path),
+            config={"daq_adapter": "vx2730", "show_progress": False},
+        )
+        ctx.register(CachedPlugin())
+        run_id = "run_preferred"
+        current_lineage = ctx.get_lineage("preferred_data")
+        canonical_key = ctx.key_for(run_id, "preferred_data")
+        base_lineage = ctx._get_base_lineage("preferred_data", set())
+        base_hash = hashlib.sha1(
+            json.dumps(base_lineage, sort_keys=True, default=str).encode()
+        ).hexdigest()[:8]
+        legacy_key = f"{run_id}-preferred_data-{base_hash}"
+        ctx.storage.save_memmap(
+            legacy_key,
+            np.array([(7,)], dtype=dtype),
+            extra_metadata={"lineage": base_lineage},
+            run_id=run_id,
+        )
+        ctx.storage.save_memmap(
+            canonical_key,
+            np.array([(9,)], dtype=dtype),
+            extra_metadata={"lineage": current_lineage},
+            run_id=run_id,
+        )
+        ctx._invalidate_storage_key_list_cache(ctx.storage, run_id)
+
+        loaded = ctx.get_data(run_id, "preferred_data")
+        np.testing.assert_array_equal(loaded, np.array([(9,)], dtype=dtype))
+
+    def test_newest_equivalent_historical_cache_is_selected(self, tmp_path):
+        dtype = np.dtype([("v", "i4")])
+
+        class CachedPlugin(Plugin):
+            provides = "newest_data"
+            output_dtype = dtype
+
+            def compute(self, context, run_id):
+                raise AssertionError("cache should be loaded")
+
+        ctx = Context(
+            storage_dir=str(tmp_path),
+            config={"daq_adapter": "vx2730", "show_progress": False},
+        )
+        ctx.register(CachedPlugin())
+        run_id = "run_newest"
+        canonical_key = ctx.key_for(run_id, "newest_data")
+        base_lineage = ctx._get_base_lineage("newest_data", set())
+        for suffix, value, timestamp in (("aaaaaaaa", 1, 10.0), ("bbbbbbbb", 2, 20.0)):
+            ctx.storage.save_memmap(
+                f"{run_id}-newest_data-{suffix}",
+                np.array([(value,)], dtype=dtype),
+                extra_metadata={"lineage": base_lineage, "timestamp": timestamp},
+                run_id=run_id,
+            )
+        ctx._invalidate_storage_key_list_cache(ctx.storage, run_id)
+
+        resolved = ctx._cache_domain._resolve_disk_cache_key(run_id, "newest_data", canonical_key)
+        assert resolved == f"{run_id}-newest_data-bbbbbbbb"
+
+    def test_cache_metadata_read_error_is_not_a_valid_hit(self, tmp_path, monkeypatch):
+        dtype = np.dtype([("v", "i4")])
+
+        class CachedPlugin(Plugin):
+            provides = "broken_meta_data"
+            output_dtype = dtype
+
+            def compute(self, context, run_id):
+                return np.array([(1,)], dtype=dtype)
+
+        ctx = Context(storage_dir=str(tmp_path), config={"show_progress": False})
+        ctx.register(CachedPlugin())
+        run_id = "run_broken_meta"
+        canonical_key = ctx.key_for(run_id, "broken_meta_data")
+        ctx.storage.save_memmap(
+            canonical_key,
+            np.array([(1,)], dtype=dtype),
+            extra_metadata={"lineage": ctx.get_lineage("broken_meta_data")},
+            run_id=run_id,
+        )
+        ctx._invalidate_storage_key_list_cache(ctx.storage, run_id)
+
+        monkeypatch.setattr(
+            ctx.storage,
+            "get_metadata",
+            lambda *args, **kwargs: (_ for _ in ()).throw(OSError("broken metadata")),
+        )
+        assert not ctx._is_disk_cache_valid(run_id, "broken_meta_data", canonical_key)
 
     def test_key_cache(self):
         """测试 key 缓存"""

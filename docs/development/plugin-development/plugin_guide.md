@@ -163,12 +163,17 @@ None
 ```
 
 ---
-##### `get_lineage(self, context: Any) -> dict`
+##### `get_lineage(self, context: Any, *, dependency_resolver=None) -> dict`
 
 Optional hook to override Context lineage generation.
 If a plugin defines this method, `Context.get_lineage()` will use it instead of
 the default lineage builder. This is useful when lineage needs to reflect
 internal branching (e.g., adapter-specific paths) or custom dtype handling.
+When the hook embeds upstream lineage, pass `dependency_resolver` to
+`self._build_depends_lineage(context, dependency_resolver=dependency_resolver)`
+or call it directly for a named dependency. This keeps adapter metadata at the
+top level and makes cache keys independent of lookup order. The historical
+`get_lineage(context)` signature remains supported for third-party plugins.
 
 ---
 ##### `on_error(self, context: Any, exception: Exception)`

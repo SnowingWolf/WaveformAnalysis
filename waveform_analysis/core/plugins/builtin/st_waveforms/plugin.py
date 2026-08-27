@@ -1000,7 +1000,7 @@ class WaveformsPlugin(Plugin):
             config.wave_length = wave_length
         return config.get_record_dtype()
 
-    def get_lineage(self, context: Any) -> dict:
+    def get_lineage(self, context: Any, *, dependency_resolver=None) -> dict:
         config = {}
         for key in self.config_keys:
             option = self.options.get(key)
@@ -1014,7 +1014,9 @@ class WaveformsPlugin(Plugin):
             "plugin_version": getattr(self, "version", "0.0.0"),
             "description": getattr(self, "description", ""),
             "config": config,
-            "depends_on": self._build_depends_lineage(context),
+            "depends_on": self._build_depends_lineage(
+                context, dependency_resolver=dependency_resolver
+            ),
         }
         try:
             dtype = self._get_record_dtype(daq_adapter, wave_length)

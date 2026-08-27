@@ -114,6 +114,11 @@ class PluginSpec:
 
 这些属性会参与注册校验与 lineage hash，确保缓存一致性。
 
+插件若覆盖 lineage 构建，推荐使用
+`get_lineage(context, *, dependency_resolver=None)` 并将 resolver 传给
+`_build_depends_lineage()`。这样上游采用 Context 的基础 lineage 递归规则，顶层 adapter 信息不会
+被错误嵌入依赖节点；旧的 `get_lineage(context)` hook 仍保持兼容。
+
 `Plugin.output_schema` 现在也是正式的类级契约。结构化或普通 NumPy 数组可继续只声明
 `output_dtype`，系统会推导 schema；DataFrame、list、dict 等非 ndarray 输出必须显式声明
 `OutputSchema(kind=...)`。同时声明两者时，显式 schema 优先提供文档元数据，但 kind、dtype 或字段

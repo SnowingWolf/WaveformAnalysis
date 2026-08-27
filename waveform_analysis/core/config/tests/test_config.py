@@ -588,6 +588,25 @@ class TestIntegration:
         assert lineage["config"]["daq_adapter"] == "vx2730"
         assert lineage["config"]["dt"] == 2
 
+    @pytest.mark.parametrize("data_name", ["records", "st_waveforms", "peaklet_components"])
+    def test_builtin_custom_lineage_is_cold_warm_stable(self, data_name):
+        """内置自定义 lineage provider 不应因缓存冷热状态改变身份。"""
+        from waveform_analysis.core.context import Context
+        from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
+
+        ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+        ctx.register(*standard_plugins)
+        cold = ctx.get_lineage(data_name)
+        cold_key = ctx.key_for("run_lineage", data_name)
+
+        ctx.clear_performance_caches()
+        warm = ctx.get_lineage(data_name)
+        warm_key = ctx.key_for("run_lineage", data_name)
+
+        assert warm == cold
+        assert warm_key == cold_key
+        assert "adapter_info" in warm
+
     def test_context_get_adapter_info(self):
         """测试 Context.get_adapter_info()"""
         from waveform_analysis.core.context import Context

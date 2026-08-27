@@ -65,7 +65,7 @@ class PeakletComponentsPlugin(BatchProcessingPlugin):
         )
         return out
 
-    def get_lineage(self, context: Any) -> dict[str, Any]:
+    def get_lineage(self, context: Any, *, dependency_resolver=None) -> dict[str, Any]:
         config = {
             "time_window_ns": _resolve_peaklet_component_config(context, self, "time_window_ns"),
             "max_total_width_ns": _resolve_peaklet_component_config(
@@ -78,7 +78,9 @@ class PeakletComponentsPlugin(BatchProcessingPlugin):
             "plugin_version": self.version,
             "description": self.description,
             "config": config,
-            "depends_on": {"hit_merged": context.get_lineage("hit_merged")},
+            "depends_on": {
+                "hit_merged": (dependency_resolver or context.get_lineage)("hit_merged")
+            },
         }
 
     def compute_chunk(self, chunk: Chunk, context: Any, run_id: str, **kwargs) -> Chunk:

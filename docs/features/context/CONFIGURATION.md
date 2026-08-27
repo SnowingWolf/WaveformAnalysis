@@ -100,6 +100,8 @@ ctx.set_config(
 - `ResolvedConfig`：某个插件的完整解析配置集合。
 
 `ResolvedConfig` 可用于读取生效值、列出显式值、列出 adapter 推断值，并生成参与 lineage 的配置字典。默认 lineage 只包含显式配置和 adapter 推断值；插件默认值通常不作为显式 lineage 输入。
+DAQ adapter 的解释信息由 Context 仅附加在顶层 lineage。递归上游使用不含该字段的基础 lineage，
+从而保证首次查询、缓存后查询及不同依赖遍历顺序产生相同缓存身份。
 
 ## 配置展示
 

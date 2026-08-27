@@ -489,7 +489,7 @@ class _RecordsBundlePluginBase(Plugin):
         return _resolve_records_upstream_depends(context, self)
 
     #
-    def get_lineage(self, context: Any) -> dict:
+    def get_lineage(self, context: Any, *, dependency_resolver=None) -> dict:
         adapter_name = _resolve_adapter_name(context, self)
         config = {}
         for key in self.config_keys:
@@ -504,7 +504,9 @@ class _RecordsBundlePluginBase(Plugin):
             "plugin_version": getattr(self, "version", "0.0.0"),
             "description": getattr(self, "description", ""),
             "config": config,
-            "depends_on": self._build_depends_lineage(context),
+            "depends_on": self._build_depends_lineage(
+                context, dependency_resolver=dependency_resolver
+            ),
             "dtype": np.dtype(self.output_dtype).descr,
         }
 

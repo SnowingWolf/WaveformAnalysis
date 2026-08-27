@@ -192,6 +192,11 @@ class ConfiguredPlugin(Plugin):
 
 静态依赖来自类属性；动态依赖覆盖 `resolve_depends_on(context, run_id=None)`。动态解析器的返回值
 就是本次运行的实际输入边，Context 会在构建执行计划、检查版本约束和计算 lineage 时使用同一结果。
+Context 递归缓存的是不含 `adapter_info` 的基础 lineage，adapter 信息仅在顶层补充一次，因此缓存
+冷热状态和查询顺序不会改变身份。自定义 lineage hook 推荐声明
+`get_lineage(context, *, dependency_resolver=None)`，并用 resolver 构建上游；旧单参数签名仍兼容。
+若历史 key 仅有 adapter 信息附着层级差异，读取端只有在元数据能证明其余 lineage 完全一致且
+adapter 不冲突时才只读复用，新结果仍写当前规范 key。
 
 ```mermaid
 flowchart TD

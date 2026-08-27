@@ -158,8 +158,10 @@ Context 先解析目标的依赖顺序，再计算各节点当前缓存键。执
 #### 5.1 结果身份的组成
 
 默认 lineage 是可序列化配方，包含 Plugin 类、version、描述、受跟踪配置和递归上游 lineage；
-存在时还会加入规范化 dtype、`output_schema`、已验证 spec hash 和顶层 adapter 信息。Plugin 可用
-`get_lineage(context)` 补充自身构建语义。
+存在时还会加入规范化 dtype、`output_schema`、已验证 spec hash 和顶层 adapter 信息。Context 递归缓存
+不含 adapter 信息的基础 lineage，并只在顶层补充一次，所以首次查询、缓存后查询及不同遍历顺序具有
+相同身份。Plugin 可用 `get_lineage(context, *, dependency_resolver=None)` 补充自身构建语义，并应使用
+传入的 resolver 构造上游；旧的单参数 hook 仍兼容。
 
 ```mermaid
 flowchart TD
@@ -178,6 +180,11 @@ flowchart TD
 
 lineage 不包含数组内容，也不表示缓存一定存在。它回答“这份结果应该由什么产生”；Storage 再根据
 该身份检查是否存在可读取结果。
+
+历史版本若仅因 `adapter_info` 附着层级不同生成了另一个 key，磁盘读取器可以只读复用，但必须有
+lineage 元数据作为证明：递归移除 `adapter_info` 后其余 JSON 完全一致，且已声明的 adapter 信息没有
+冲突。规范 key 始终优先，新计算也只写规范 key；任何 version、配置、dtype/schema/spec 或依赖差异
+仍会触发重算。
 
 ### 5.2 传播规则
 

@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "b7af9eb03d7904b533669172b2723fb3dda0a7ee6919db3fe259dd89e149d3d7"
+source_fingerprint: "819350de0403b06e738b5b6a71f07bdd506bfecbb80efed00acd2f11be80aa77"
 generated: true
 ---
 # peaklet_components
@@ -41,7 +41,7 @@ Return flat peaklet-to-hit_merged membership rows.
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `b7af9eb03d7904b533669172b2723fb3dda0a7ee6919db3fe259dd89e149d3d7` |
+| Source Fingerprint | `819350de0403b06e738b5b6a71f07bdd506bfecbb80efed00acd2f11be80aa77` |
 
 ### Dependencies
 

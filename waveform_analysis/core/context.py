@@ -1472,19 +1472,27 @@ class Context:
             A dictionary representing the lineage of the specified data type.
 
         """
+        top_level = _visited is None
+        visited = set() if _visited is None else _visited
+        lineage = self._get_base_lineage(data_name, visited)
+        if top_level:
+            return self._augment_adapter_info(lineage)
+        return lineage
+
+    def _get_base_lineage(self, data_name: str, visited: set[str]) -> dict[str, Any]:
+        """Build lineage without top-level adapter metadata.
+
+        Keeping recursion in this helper makes a cold lookup identical to a
+        lookup served from ``_lineage_cache``.  ``adapter_info`` is a Context
+        concern and is added exactly once by :meth:`get_lineage`.
+        """
         # Cache holds base lineage (without adapter_info) for every node so that
         # cascade invalidation re-checks downstream lineages in O(N) instead of
-        # re-recursing each chain. Top-level calls augment with adapter_info.
+        # re-recursing each chain.
         if data_name in self._lineage_cache:
-            lineage = self._lineage_cache[data_name]
-            if _visited is None:
-                return self._augment_adapter_info(lineage)
-            return lineage
+            return self._lineage_cache[data_name]
 
-        if _visited is None:
-            _visited = set()
-
-        if data_name in _visited:
+        if data_name in visited:
             return {"plugin_class": "CircularDependency", "target": data_name}
 
         if data_name not in self._plugins:
@@ -1497,9 +1505,35 @@ class Context:
 
         # Extensibility: Allow plugin to customize its lineage info
         if hasattr(plugin, "get_lineage"):
-            return plugin.get_lineage(self)
+            get_lineage = plugin.get_lineage
+            provider_visited = visited | {data_name}
 
-        _visited.add(data_name)
+            def dependency_resolver(dep: str) -> dict[str, Any]:
+                return self._get_base_lineage(dep, provider_visited.copy())
+
+            try:
+                resolver_param = inspect.signature(get_lineage).parameters.get(
+                    "dependency_resolver"
+                )
+                accepts_resolver = resolver_param is not None and (
+                    resolver_param.kind
+                    in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+                    and resolver_param.default is not inspect.Parameter.empty
+                )
+            except (TypeError, ValueError):
+                accepts_resolver = False
+            if accepts_resolver:
+                lineage = get_lineage(self, dependency_resolver=dependency_resolver)
+                self._lineage_cache[data_name] = lineage
+            else:
+                # Third-party hooks using the historical ``get_lineage(context)``
+                # signature remain supported. Do not cache these hooks: they may
+                # recursively call the public API and must retain the historical
+                # downstream invalidation behavior.
+                lineage = get_lineage(self)
+            return lineage
+
+        visited.add(data_name)
 
         # Filter config to only include tracked options
         config = {}
@@ -1517,9 +1551,7 @@ class Context:
             "plugin_version": getattr(plugin, "version", "0.0.0"),
             "description": getattr(plugin, "description", ""),
             "config": config,
-            "depends_on": {
-                dep: self.get_lineage(dep, _visited=_visited.copy()) for dep in dep_names
-            },
+            "depends_on": {dep: self._get_base_lineage(dep, visited.copy()) for dep in dep_names},
         }
 
         # Add spec_hash if plugin has validated spec
@@ -1544,11 +1576,8 @@ class Context:
             lineage["output_schema"] = output_schema.to_dict()
 
         # Cache base lineage (without adapter_info) at every depth; adapter_info
-        # only applies to the top-level view and is added on return.
+        # only applies to the top-level view.
         self._lineage_cache[data_name] = lineage
-
-        if _visited is None:
-            return self._augment_adapter_info(lineage)
         return lineage
 
     def _augment_adapter_info(self, lineage: dict[str, Any]) -> dict[str, Any]:
