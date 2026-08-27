@@ -72,4 +72,4 @@
   - 无范围漂移；没有新增 provides、依赖、字段、配置或独立 orphan 产品，没有写/删正式缓存。
   - 仅因 `waveform-docs` console script 在当前环境不可用，使用仓库同一 CLI 模块入口完成相同生成操作。
 - `commit_status`:
-  - 原实现 commit：`0bde2c70062908fdfd31498ff01d128837d00ff0`；返工实现 commit SHA 待返工代码提交后写入本报告，并通过后续 scoped docs-only commit 固化。
+  - 原实现 commit：`0bde2c70062908fdfd31498ff01d128837d00ff0`；返工实现 commit：`59470d032c4f07704105f3e2636bf9e20e280703`。本报告随后以 scoped docs-only commit 固化；该 docs-only commit 不纳入本字段的实现 commit 列表，避免自引用。
