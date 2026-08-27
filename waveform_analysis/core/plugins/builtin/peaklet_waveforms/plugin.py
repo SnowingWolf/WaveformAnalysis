@@ -376,6 +376,84 @@ def _fill_routed_peaklet_pool_numba(
     return -1, -1, -1, -1, np.float32(0.0), np.float32(0.0), unique_samples
 
 
+@njit(cache=True, nogil=True)
+def _fill_numba_piece_arrays(
+    component_peak_ids,
+    component_merged_indices,
+    component_is_single,
+    component_piece_offsets,
+    component_hmc_starts,
+    component_hmc_ends,
+    merged_boards,
+    merged_channels,
+    merged_record_ids,
+    merged_starts,
+    merged_ends,
+    hmc_hit_indices,
+    hit_record_ids,
+    hit_starts,
+    hit_ends,
+    out_peak_ids,
+    out_boards,
+    out_channels,
+    out_record_ids,
+    out_starts,
+    out_ends,
+    out_merged_indices,
+    out_source_indices,
+    out_cross_flags,
+):
+    """Expand component provenance into preallocated numeric piece arrays.
+
+    The function deliberately follows the original component/HMC iteration
+    order.  This makes the later stable five-key ``lexsort`` produce the same
+    order, while keeping all per-piece storage in contiguous NumPy arrays.
+    Status ``1`` reports an invalid merged index and status ``2`` an invalid
+    threshold-hit index; the Python caller turns either into the historical
+    exception message.
+    """
+    for component_i in range(len(component_peak_ids)):
+        merged_index = component_merged_indices[component_i]
+        if merged_index < 0 or merged_index >= len(merged_boards):
+            return 1, merged_index
+
+        out_i = component_piece_offsets[component_i]
+        board = merged_boards[merged_index]
+        channel = merged_channels[merged_index]
+        if component_is_single[component_i]:
+            out_peak_ids[out_i] = component_peak_ids[component_i]
+            out_boards[out_i] = board
+            out_channels[out_i] = channel
+            out_record_ids[out_i] = merged_record_ids[merged_index]
+            out_starts[out_i] = merged_starts[merged_index]
+            out_ends[out_i] = merged_ends[merged_index]
+            out_merged_indices[out_i] = merged_index
+            out_source_indices[out_i] = merged_index
+            out_cross_flags[out_i] = False
+            continue
+
+        hmc_start = component_hmc_starts[component_i]
+        hmc_end = component_hmc_ends[component_i]
+        if hmc_start < 0 or hmc_end <= hmc_start:
+            continue
+        for hmc_i in range(hmc_start, hmc_end):
+            hit_index = hmc_hit_indices[hmc_i]
+            if hit_index < 0 or hit_index >= len(hit_record_ids):
+                return 2, hit_index
+            out_peak_ids[out_i] = component_peak_ids[component_i]
+            out_boards[out_i] = board
+            out_channels[out_i] = channel
+            out_record_ids[out_i] = hit_record_ids[hit_index]
+            out_starts[out_i] = hit_starts[hit_index]
+            out_ends[out_i] = hit_ends[hit_index]
+            out_merged_indices[out_i] = merged_index
+            out_source_indices[out_i] = hit_index
+            out_cross_flags[out_i] = True
+            out_i += 1
+
+    return 0, -1
+
+
 def _process_peaklet_batch(batch_data: dict) -> tuple[np.ndarray, np.ndarray]:
     """
     Process a batch of peaklets in a separate process.
@@ -520,13 +598,198 @@ def _process_peaklet_batch(batch_data: dict) -> tuple[np.ndarray, np.ndarray]:
     return waveforms, pool
 
 
+_HMC_VALIDATION_CHUNK_SIZE = 1_000_000
+
+
+def _is_non_decreasing(values: np.ndarray) -> bool:
+    """Check a numeric array's ordering without making a full-size diff."""
+    if len(values) < 2:
+        return True
+    previous = int(values[0])
+    for start in range(1, len(values), _HMC_VALIDATION_CHUNK_SIZE):
+        stop = min(start + _HMC_VALIDATION_CHUNK_SIZE, len(values))
+        block = values[start:stop]
+        if int(block[0]) < previous:
+            return False
+        if len(block) > 1 and bool(np.any(block[1:] < block[:-1])):
+            return False
+        previous = int(block[-1])
+    return True
+
+
+def _compact_hmc_ranges(
+    hit_merged_components: np.ndarray,
+    cross_merged_ids: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Build a stable CSR only for merged IDs used by cross-record pieces."""
+    hmc_merged_indices = hit_merged_components["merged_index"].astype(np.int64, copy=False)
+    hmc_hit_indices = hit_merged_components["hit_index"].astype(np.int64, copy=False)
+    unique_cross_ids = np.unique(cross_merged_ids)
+    if len(hmc_merged_indices) == 0 or len(unique_cross_ids) == 0:
+        empty = np.empty(0, dtype=np.int64)
+        return (
+            empty,
+            np.zeros(len(unique_cross_ids), dtype=np.int64),
+            np.zeros(len(unique_cross_ids), dtype=np.int64),
+        )
+
+    # ``np.isin`` is intentionally applied to the HMC rows, not to every
+    # merged row.  The fallback is only used when the trusted offsets cannot
+    # be used (for example, an old/unordered cache).
+    selected = np.flatnonzero(np.isin(hmc_merged_indices, unique_cross_ids))
+    if len(selected) == 0:
+        empty = np.empty(0, dtype=np.int64)
+        return (
+            empty,
+            np.zeros(len(unique_cross_ids), dtype=np.int64),
+            np.zeros(len(unique_cross_ids), dtype=np.int64),
+        )
+
+    selected_merged = hmc_merged_indices[selected]
+    order = np.argsort(selected_merged, kind="mergesort")
+    compact_merged = selected_merged[order]
+    compact_hits = hmc_hit_indices[selected][order]
+    starts = np.searchsorted(compact_merged, unique_cross_ids, side="left").astype(
+        np.int64, copy=False
+    )
+    ends = np.searchsorted(compact_merged, unique_cross_ids, side="right").astype(
+        np.int64, copy=False
+    )
+    return compact_hits, starts, ends
+
+
+def _resolve_component_hmc_ranges(
+    *,
+    components: np.ndarray,
+    merged: np.ndarray,
+    hit_merged_components: np.ndarray,
+    valid_merged_mask: np.ndarray,
+    component_is_single: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, bool]:
+    """Resolve component -> HMC ranges using offsets or a compact fallback.
+
+    Returns component piece counts, component HMC starts/ends, the HMC hit
+    index array backing those ranges, and whether compact fallback was used.
+    ``component_is_single`` has invalid merged rows marked as direct so that
+    malformed component indices can be reported in their original iteration
+    order by the Numba expansion pass.
+    """
+    n_components = len(components)
+    component_counts = np.ones(n_components, dtype=np.int64)
+    component_hmc_starts = np.full(n_components, -1, dtype=np.int64)
+    component_hmc_ends = np.full(n_components, -1, dtype=np.int64)
+    cross_mask = valid_merged_mask & ~component_is_single
+    if len(hit_merged_components):
+        hmc_names = hit_merged_components.dtype.names or ()
+        if "merged_index" not in hmc_names or "hit_index" not in hmc_names:
+            # The historical dict builder touched the first non-empty row
+            # before iterating peaklet components.  Preserve that malformed
+            # schema failure even when every merged row is direct.
+            first_hmc = hit_merged_components[0]
+            first_hmc["merged_index"]
+            first_hmc["hit_index"]
+    if not np.any(cross_mask):
+        return (
+            component_counts,
+            component_hmc_starts,
+            component_hmc_ends,
+            np.empty(0, dtype=np.int64),
+            False,
+        )
+
+    if len(hit_merged_components) == 0:
+        component_counts[cross_mask] = 0
+        return (
+            component_counts,
+            component_hmc_starts,
+            component_hmc_ends,
+            np.empty(0, dtype=np.int64),
+            True,
+        )
+
+    component_merged_indices = components["merged_index"].astype(np.int64, copy=False)
+    cross_merged_ids = component_merged_indices[cross_mask]
+    hmc_merged_indices = hit_merged_components["merged_index"].astype(np.int64, copy=False)
+    hmc_hit_indices = hit_merged_components["hit_index"].astype(np.int64, copy=False)
+    merged_names = merged.dtype.names or ()
+    offset_fast_path = {"component_offset", "component_count"}.issubset(merged_names)
+    if offset_fast_path and _is_non_decreasing(hmc_merged_indices):
+        merged_offsets = merged["component_offset"].astype(np.int64, copy=False)
+        merged_counts = merged["component_count"].astype(np.int64, copy=False)
+        requested_offsets = merged_offsets[cross_merged_ids]
+        requested_counts = merged_counts[cross_merged_ids]
+        requested_ends = requested_offsets + requested_counts
+        valid_ranges = (
+            (requested_offsets >= 0)
+            & (requested_counts > 0)
+            & (requested_ends <= len(hmc_merged_indices))
+        )
+        if bool(np.all(valid_ranges)):
+            range_starts = requested_offsets
+            range_ends = requested_ends
+            # Check both endpoints and the adjacent boundaries.  Together
+            # with non-decreasing HMC IDs this proves each offset slice is
+            # exactly the corresponding merged-ID group.
+            range_ids_ok = np.array_equal(
+                hmc_merged_indices[range_starts], cross_merged_ids
+            ) and np.array_equal(hmc_merged_indices[range_ends - 1], cross_merged_ids)
+            if range_ids_ok:
+                before_mask = range_starts > 0
+                if np.any(before_mask):
+                    range_ids_ok = bool(
+                        np.all(
+                            hmc_merged_indices[range_starts[before_mask] - 1]
+                            != cross_merged_ids[before_mask]
+                        )
+                    )
+                after_mask = range_ends < len(hmc_merged_indices)
+                if range_ids_ok and np.any(after_mask):
+                    range_ids_ok = bool(
+                        np.all(
+                            hmc_merged_indices[range_ends[after_mask]]
+                            != cross_merged_ids[after_mask]
+                        )
+                    )
+            if range_ids_ok:
+                component_hmc_starts[cross_mask] = requested_offsets
+                component_hmc_ends[cross_mask] = requested_ends
+                component_counts[cross_mask] = requested_counts
+                return (
+                    component_counts,
+                    component_hmc_starts,
+                    component_hmc_ends,
+                    hmc_hit_indices,
+                    False,
+                )
+
+    # Unordered/untrusted inputs use only actual cross merged IDs.  Stable
+    # sorting preserves the original HMC order within each merged group.
+    compact_hits, compact_starts, compact_ends = _compact_hmc_ranges(
+        hit_merged_components, cross_merged_ids
+    )
+    unique_cross_ids = np.unique(cross_merged_ids)
+    cross_positions = np.searchsorted(unique_cross_ids, cross_merged_ids)
+    requested_starts = compact_starts[cross_positions]
+    requested_ends = compact_ends[cross_positions]
+    component_hmc_starts[cross_mask] = requested_starts
+    component_hmc_ends[cross_mask] = requested_ends
+    component_counts[cross_mask] = requested_ends - requested_starts
+    return (
+        component_counts,
+        component_hmc_starts,
+        component_hmc_ends,
+        compact_hits,
+        True,
+    )
+
+
 class PeakletWaveformPlugin(Plugin):
     """Build ragged waveform index rows for peaklets and cache the signal pool."""
 
     provides = "peaklet_waveforms"
     depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion."
-    version = "2.1.0"
+    version = "2.1.1"
     output_dtype = PEAKLET_WAVEFORMS_DTYPE
     save_when = "always"
     agent_doc = {
@@ -559,12 +822,12 @@ class PeakletWaveformPlugin(Plugin):
             "use_filtered": "选择 wave_pool_filtered 而非原始 wave_pool；此选择参与 cache lineage。",
             "clip_negative_signal": "控制 canonical 与 fast 路径共同使用的采样裁剪口径，默认 False。",
             "debug_numba": "仅用于排查 Numba 内部异常；契约性输入错误始终直接抛出。",
-            "log_waveform_diagnostics": "记录 fast/canonical/fallback peaklet 数、输入与唯一采样数、分类/内核耗时以及 JIT signature 状态。",
+            "log_waveform_diagnostics": "记录 fast/canonical/fallback peaklet 数、输入与唯一采样数、展开/排序/物化分阶段耗时以及 JIT signature 状态。",
             "n_workers": "保留公开兼容；只用于 Python canonical fallback，不改变 Numba routed 路径的并行度。",
             "parallel_threshold": "仅控制 Python fallback 何时尝试 process pool。",
         },
         "downstream_notes": [
-            "版本 2.1.0 改变了构建执行路径；peaklet_waveform_pool 因依赖 peaklet_waveforms 自动获得新的 cache lineage。",
+            "版本 2.1.1 优化组件展开与数值数组物化；peaklet_waveform_pool 因依赖 peaklet_waveforms 自动获得新的 cache lineage。",
             "peaklet_features 读取本插件的 index 与配对 pool，因此始终使用已经按绝对时间、通道去重后的求和波形。",
         ],
         "agent_change_notes": [
@@ -770,7 +1033,16 @@ class PeakletWaveformPlugin(Plugin):
         merged: np.ndarray,
         records: np.ndarray,
     ) -> tuple[np.ndarray, ...]:
-        """Flatten component provenance and sort it into peak/channel CSR order."""
+        """Expand component provenance into numeric arrays and sort it.
+
+        The old implementation grew ten Python lists and first materialized a
+        dictionary containing every row of ``hit_merged_components``.  Run 196
+        makes both allocations prohibitively large.  This implementation uses
+        two passes: resolve a compact range/count for each component, then let
+        one Numba loop fill exactly-sized numeric arrays.  The final five-key
+        lexsort is intentionally unchanged.
+        """
+        prepare_started = time.perf_counter()
         merged_names = merged.dtype.names or ()
         if {"sample_start", "sample_end"}.issubset(merged_names):
             merged_starts = merged["sample_start"]
@@ -813,70 +1085,96 @@ class PeakletWaveformPlugin(Plugin):
             if "is_single_record" in merged_names
             else (np.asarray(merged_starts) >= 0) & (np.asarray(merged_ends) >= 0)
         )
-        merged_to_hits = _build_hit_merged_components_index(hit_merged_components)
+
+        component_peak_ids = components["peak_id"].astype(np.int64, copy=False)
+        component_merged_indices = components["merged_index"].astype(np.int64, copy=False)
+        if len(merged):
+            safe_merged_indices = np.clip(component_merged_indices, 0, len(merged) - 1)
+            valid_merged_mask = (component_merged_indices >= 0) & (
+                component_merged_indices < len(merged)
+            )
+            component_is_single = is_single_record[safe_merged_indices].copy()
+            # Keep malformed indices out of the HMC resolver.  The Numba
+            # expansion pass still checks them in component order, preserving
+            # the historical first-error behavior.
+            component_is_single[~valid_merged_mask] = True
+        else:
+            valid_merged_mask = np.zeros(len(components), dtype=bool)
+            component_is_single = np.ones(len(components), dtype=bool)
+
+        index_started = time.perf_counter()
+        (
+            component_counts,
+            component_hmc_starts,
+            component_hmc_ends,
+            hmc_hit_indices,
+            used_compact_hmc,
+        ) = _resolve_component_hmc_ranges(
+            components=components,
+            merged=merged,
+            hit_merged_components=hit_merged_components,
+            valid_merged_mask=valid_merged_mask,
+            component_is_single=component_is_single,
+        )
         record_lookup = RecordLookup(records)
+        index_build_sec = time.perf_counter() - index_started
 
-        peak_ids: list[int] = []
-        boards: list[int] = []
-        channels: list[int] = []
-        record_ids: list[int] = []
-        record_indices: list[int] = []
-        starts: list[int] = []
-        ends: list[int] = []
-        merged_indices: list[int] = []
-        source_indices: list[int] = []
-        cross_flags: list[bool] = []
+        component_piece_ends = np.cumsum(component_counts, dtype=np.int64)
+        component_piece_offsets = component_piece_ends - component_counts
+        total_pieces = int(component_piece_ends[-1]) if len(component_piece_ends) else 0
+        cross_piece_mask = valid_merged_mask & ~component_is_single & (component_counts > 0)
+        if np.any(cross_piece_mask):
+            hit_record_ids_for_numba = hit_threshold["record_id"].astype(np.int64, copy=False)
+        else:
+            # Direct-only and missing-HMC groups never read hit_threshold
+            # record IDs in the historical expansion path.
+            hit_record_ids_for_numba = np.empty(0, dtype=np.int64)
 
-        for component in components:
-            peaklet_id = int(component["peak_id"])
-            merged_index = int(component["merged_index"])
-            if not 0 <= merged_index < len(merged):
-                raise IndexError(f"peaklet_waveforms found invalid merged_index={merged_index}")
-            hit = merged[merged_index]
-            board = int(hit["board"])
-            channel = int(hit["channel"])
-            if bool(is_single_record[merged_index]):
-                record_id = int(hit["record_id"])
-                peak_ids.append(peaklet_id)
-                boards.append(board)
-                channels.append(channel)
-                record_ids.append(record_id)
-                record_indices.append(record_id)
-                starts.append(int(merged_starts[merged_index]))
-                ends.append(int(merged_ends[merged_index]))
-                merged_indices.append(merged_index)
-                source_indices.append(merged_index)
-                cross_flags.append(False)
-                continue
+        starts_arr = np.empty(total_pieces, dtype=np.int64)
+        ends_arr = np.empty(total_pieces, dtype=np.int64)
+        record_ids_arr = np.empty(total_pieces, dtype=np.int64)
+        merged_indices_arr = np.empty(total_pieces, dtype=np.int64)
+        source_indices_arr = np.empty(total_pieces, dtype=np.int64)
+        peak_ids_arr = np.empty(total_pieces, dtype=np.int64)
+        boards_arr = np.empty(total_pieces, dtype=np.int16)
+        channels_arr = np.empty(total_pieces, dtype=np.int16)
+        cross_flags_arr = np.empty(total_pieces, dtype=np.bool_)
 
-            for hit_index_value in merged_to_hits.get(merged_index, ()):
-                hit_index = int(hit_index_value)
-                if not 0 <= hit_index < len(hit_threshold):
-                    raise IndexError(f"peaklet_waveforms found invalid hit_index={hit_index}")
-                component_hit = hit_threshold[hit_index]
-                record_id = int(component_hit["record_id"])
-                peak_ids.append(peaklet_id)
-                boards.append(board)
-                channels.append(channel)
-                record_ids.append(record_id)
-                record_indices.append(record_id)
-                starts.append(int(hit_starts[hit_index]))
-                ends.append(int(hit_ends[hit_index]))
-                merged_indices.append(merged_index)
-                source_indices.append(hit_index)
-                cross_flags.append(True)
+        expand_started = time.perf_counter()
+        if len(components):
+            status, bad_index = _fill_numba_piece_arrays(
+                component_peak_ids,
+                component_merged_indices,
+                component_is_single,
+                component_piece_offsets,
+                component_hmc_starts,
+                component_hmc_ends,
+                merged["board"].astype(np.int16, copy=False),
+                merged["channel"].astype(np.int16, copy=False),
+                merged["record_id"].astype(np.int64, copy=False),
+                merged_starts.astype(np.int64, copy=False),
+                merged_ends.astype(np.int64, copy=False),
+                hmc_hit_indices,
+                hit_record_ids_for_numba,
+                hit_starts.astype(np.int64, copy=False),
+                hit_ends.astype(np.int64, copy=False),
+                peak_ids_arr,
+                boards_arr,
+                channels_arr,
+                record_ids_arr,
+                starts_arr,
+                ends_arr,
+                merged_indices_arr,
+                source_indices_arr,
+                cross_flags_arr,
+            )
+            if status == 1:
+                raise IndexError(f"peaklet_waveforms found invalid merged_index={bad_index}")
+            if status == 2:
+                raise IndexError(f"peaklet_waveforms found invalid hit_index={bad_index}")
+        expand_components_sec = time.perf_counter() - expand_started
 
-        peak_ids_arr = np.asarray(peak_ids, dtype=np.int64)
-        boards_arr = np.asarray(boards, dtype=np.int16)
-        channels_arr = np.asarray(channels, dtype=np.int16)
-        record_ids_arr = np.asarray(record_ids, dtype=np.int64)
-        record_ids_arr = np.asarray(record_ids, dtype=np.int64)
         record_indices_arr = record_lookup.get_indices(record_ids_arr)
-        starts_arr = np.asarray(starts, dtype=np.int64)
-        ends_arr = np.asarray(ends, dtype=np.int64)
-        merged_indices_arr = np.asarray(merged_indices, dtype=np.int64)
-        source_indices_arr = np.asarray(source_indices, dtype=np.int64)
-        cross_flags_arr = np.asarray(cross_flags, dtype=np.bool_)
 
         if len(peak_ids_arr):
             safe_record_indices = np.maximum(record_indices_arr, 0)
@@ -887,6 +1185,7 @@ class PeakletWaveformPlugin(Plugin):
             )
             record_dt = records["dt"].astype(np.int64, copy=False)[safe_record_indices]
             abs_starts = timestamps + np.maximum(starts_arr, 0) * record_dt * 1000
+            lexsort_started = time.perf_counter()
             order = np.lexsort(
                 (
                     source_indices_arr,
@@ -896,6 +1195,7 @@ class PeakletWaveformPlugin(Plugin):
                     peak_ids_arr,
                 )
             )
+            lexsort_sec = time.perf_counter() - lexsort_started
             peak_ids_arr = peak_ids_arr[order]
             boards_arr = boards_arr[order]
             channels_arr = channels_arr[order]
@@ -905,6 +1205,8 @@ class PeakletWaveformPlugin(Plugin):
             ends_arr = ends_arr[order]
             merged_indices_arr = merged_indices_arr[order]
             cross_flags_arr = cross_flags_arr[order]
+        else:
+            lexsort_sec = 0.0
 
         counts = np.bincount(peak_ids_arr, minlength=len(peaklets))
         piece_ends = np.cumsum(counts, dtype=np.int64)
@@ -912,6 +1214,14 @@ class PeakletWaveformPlugin(Plugin):
         empty = counts == 0
         piece_starts[empty] = -1
         piece_ends[empty] = -1
+        self._last_piece_diagnostics = {
+            "index_build_sec": float(index_build_sec),
+            "expand_components_sec": float(expand_components_sec),
+            "lexsort_sec": float(lexsort_sec),
+            "used_compact_hmc": bool(used_compact_hmc),
+            "total_pieces": total_pieces,
+            "prepare_sec": float(time.perf_counter() - prepare_started),
+        }
         return (
             starts_arr,
             ends_arr,
@@ -1067,10 +1377,13 @@ class PeakletWaveformPlugin(Plugin):
                 f"merged_index={int(piece_merged_indices[other_piece_i])})"
             )
 
+        materialize_started = time.perf_counter()
         waveforms = np.zeros(len(waveform_rows), dtype=PEAKLET_WAVEFORMS_DTYPE)
         for field_i, field in enumerate(PEAKLET_WAVEFORMS_DTYPE.names):
             waveforms[field] = waveform_rows[:, field_i]
         pool = pool64.astype(np.float32)
+        materialize_output_sec = time.perf_counter() - materialize_started
+        total_sec = time.perf_counter() - started
         self._log_route_diagnostics(
             n_peaklets=len(peaklets),
             n_fast=int(np.sum(routes == _ROUTE_FAST)),
@@ -1082,8 +1395,28 @@ class PeakletWaveformPlugin(Plugin):
             kernel_sec=kernel_sec,
             jit_before=jit_before,
             jit_after=bool(getattr(_classify_and_size_peaklets_numba, "signatures", ())),
-            total_sec=time.perf_counter() - started,
+            total_sec=total_sec,
         )
+        piece_diagnostics = getattr(self, "_last_piece_diagnostics", {})
+        phase_timings = {
+            "index_build": float(piece_diagnostics.get("index_build_sec", 0.0)),
+            "expand_components": float(piece_diagnostics.get("expand_components_sec", 0.0)),
+            "lexsort": float(piece_diagnostics.get("lexsort_sec", 0.0)),
+            "materialize_output": float(materialize_output_sec),
+        }
+        diagnostics = dict(getattr(self, "_last_waveform_diagnostics", {}))
+        diagnostics.update(
+            {
+                "phase_timings": phase_timings,
+                "index_build_sec": phase_timings["index_build"],
+                "expand_components_sec": phase_timings["expand_components"],
+                "lexsort_sec": phase_timings["lexsort"],
+                "materialize_output_sec": phase_timings["materialize_output"],
+                "used_compact_hmc": bool(piece_diagnostics.get("used_compact_hmc", False)),
+                "fallback_peaklets": 0,
+            }
+        )
+        self._last_waveform_diagnostics = diagnostics
         return waveforms, pool
 
     def _log_route_diagnostics(
@@ -1101,6 +1434,20 @@ class PeakletWaveformPlugin(Plugin):
         jit_after: bool,
         total_sec: float | None = None,
     ) -> None:
+        total = classify_sec + kernel_sec if total_sec is None else total_sec
+        self._last_waveform_diagnostics = {
+            "n_peaklets": int(n_peaklets),
+            "fast_peaklets": int(n_fast),
+            "canonical_peaklets": int(n_canonical),
+            "fallback_peaklets": int(n_fallback),
+            "input_samples": int(input_samples),
+            "unique_samples": int(unique_samples),
+            "classify_sec": float(classify_sec),
+            "kernel_sec": float(kernel_sec),
+            "total_sec": float(total),
+            "jit_signature_before": bool(jit_before),
+            "jit_signature_after": bool(jit_after),
+        }
         if not getattr(self, "_log_waveform_diagnostics", False):
             return
         logger.info(
@@ -1116,7 +1463,7 @@ class PeakletWaveformPlugin(Plugin):
             unique_samples,
             classify_sec,
             kernel_sec,
-            classify_sec + kernel_sec if total_sec is None else total_sec,
+            total,
             jit_before,
             jit_after,
         )

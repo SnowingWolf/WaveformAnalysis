@@ -329,6 +329,203 @@ def test_peaklet_waveforms_direct_component_offsets_match_csr_fallback():
     np.testing.assert_array_equal(direct_pool, fallback_pool)
 
 
+def test_peaklet_waveforms_reports_preallocated_expansion_phases():
+    ctx = _make_cross_record_waveform_context()
+    plugin = PeakletWaveformPlugin()
+    plugin._configure_build(ctx)
+    plugin._hit_merged_components = ctx._data["hit_merged_components"]
+    plugin._hit_threshold = ctx._data["hit_threshold"]
+
+    routed_rows, routed_pool = plugin._build_routed_numba(
+        peaklets=ctx._data["peaklets"],
+        components=ctx._data["peaklet_components"],
+        merged=ctx._data["hit_merged"],
+        records=ctx._data["records"],
+        wave_pool=ctx._data["wave_pool"],
+    )
+
+    diagnostics = plugin._last_waveform_diagnostics
+    assert diagnostics["used_compact_hmc"] is False
+    assert diagnostics["fallback_peaklets"] == 0
+    assert set(diagnostics["phase_timings"]) == {
+        "index_build",
+        "expand_components",
+        "lexsort",
+        "materialize_output",
+    }
+    assert all(value >= 0.0 for value in diagnostics["phase_timings"].values())
+    assert routed_rows.dtype == PEAKLET_WAVEFORMS_DTYPE
+    assert np.array_equal(routed_pool, np.array([20.0, 30.0, 50.0], dtype=np.float32))
+
+
+def test_peaklet_waveforms_unordered_hmc_uses_compact_stable_fallback():
+    ctx = _make_cross_record_waveform_context()
+    merged = np.concatenate([ctx._data["hit_merged"], ctx._data["hit_merged"]])
+    merged[1]["merged_id"] = 1
+    merged[1]["component_offset"] = 2
+    merged[1]["component_count"] = 1
+    ctx._data["hit_merged"] = merged
+    ctx._data["peaklet_components"] = np.array([(0, 0), (0, 1)], dtype=PEAKLET_COMPONENTS_DTYPE)
+    ctx._data["peaklets"][0]["component_count"] = 2
+    ctx._data["hit_merged_components"] = np.array(
+        [(1, 0), (0, 0), (0, 1)], dtype=HIT_MERGED_COMPONENTS_DTYPE
+    )
+    plugin = PeakletWaveformPlugin()
+    plugin._configure_build(ctx)
+    plugin._hit_merged_components = ctx._data["hit_merged_components"]
+    plugin._hit_threshold = ctx._data["hit_threshold"]
+
+    actual_rows, actual_pool = plugin._build_routed_numba(
+        peaklets=ctx._data["peaklets"],
+        components=ctx._data["peaklet_components"],
+        merged=ctx._data["hit_merged"],
+        records=ctx._data["records"],
+        wave_pool=ctx._data["wave_pool"],
+    )
+    expected_rows, expected_pool = plugin._build_python(
+        peaklets=ctx._data["peaklets"],
+        components=ctx._data["peaklet_components"],
+        merged=ctx._data["hit_merged"],
+        records=ctx._data["records"],
+        wave_pool=ctx._data["wave_pool"],
+    )
+
+    assert plugin._last_waveform_diagnostics["used_compact_hmc"] is True
+    assert np.array_equal(actual_rows, expected_rows)
+    assert np.array_equal(actual_pool, expected_pool)
+
+
+def test_peaklet_waveforms_invalid_hmc_offsets_use_compact_fallback():
+    ctx = _make_cross_record_waveform_context()
+    ctx._data["hit_merged"][0]["component_offset"] = 1
+    ctx._data["hit_merged"][0]["component_count"] = 2
+    plugin = PeakletWaveformPlugin()
+    plugin._configure_build(ctx)
+    plugin._hit_merged_components = ctx._data["hit_merged_components"]
+    plugin._hit_threshold = ctx._data["hit_threshold"]
+
+    actual_rows, actual_pool = plugin._build_routed_numba(
+        peaklets=ctx._data["peaklets"],
+        components=ctx._data["peaklet_components"],
+        merged=ctx._data["hit_merged"],
+        records=ctx._data["records"],
+        wave_pool=ctx._data["wave_pool"],
+    )
+    expected_rows, expected_pool = plugin._build_python(
+        peaklets=ctx._data["peaklets"],
+        components=ctx._data["peaklet_components"],
+        merged=ctx._data["hit_merged"],
+        records=ctx._data["records"],
+        wave_pool=ctx._data["wave_pool"],
+    )
+
+    assert plugin._last_waveform_diagnostics["used_compact_hmc"] is True
+    assert np.array_equal(actual_rows, expected_rows)
+    assert np.array_equal(actual_pool, expected_pool)
+
+
+def test_peaklet_waveforms_missing_hmc_group_preserves_empty_group_semantics():
+    ctx = _make_cross_record_waveform_context()
+    ctx._data["hit_merged_components"] = np.zeros(0, dtype=HIT_MERGED_COMPONENTS_DTYPE)
+    plugin = PeakletWaveformPlugin()
+    plugin._configure_build(ctx)
+    plugin._hit_merged_components = ctx._data["hit_merged_components"]
+    plugin._hit_threshold = ctx._data["hit_threshold"]
+
+    actual_rows, actual_pool = plugin._build_routed_numba(
+        peaklets=ctx._data["peaklets"],
+        components=ctx._data["peaklet_components"],
+        merged=ctx._data["hit_merged"],
+        records=ctx._data["records"],
+        wave_pool=ctx._data["wave_pool"],
+    )
+    expected_rows, expected_pool = plugin._build_python(
+        peaklets=ctx._data["peaklets"],
+        components=ctx._data["peaklet_components"],
+        merged=ctx._data["hit_merged"],
+        records=ctx._data["records"],
+        wave_pool=ctx._data["wave_pool"],
+    )
+
+    assert plugin._last_waveform_diagnostics["used_compact_hmc"] is True
+    assert np.array_equal(actual_rows, expected_rows)
+    assert np.array_equal(actual_pool, expected_pool)
+
+
+def test_peaklet_waveforms_direct_merged_component_count_stays_one_piece():
+    peaklets, components, merged, records, wave_pool = _make_all_single_numba_inputs(1)
+    merged[0]["component_count"] = 7
+    plugin = PeakletWaveformPlugin()
+    plugin._clip_negative_signal = False
+    plugin._hit_merged_components = np.array([(0, 0)], dtype=HIT_MERGED_COMPONENTS_DTYPE)
+    plugin._hit_threshold = np.zeros(1, dtype=THRESHOLD_HIT_DTYPE)
+
+    routed_rows, routed_pool = plugin._build_routed_numba(
+        peaklets=peaklets,
+        components=components,
+        merged=merged,
+        records=records,
+        wave_pool=wave_pool,
+    )
+    canonical_rows, canonical_pool = plugin._build_python(
+        peaklets=peaklets,
+        components=components,
+        merged=merged,
+        records=records,
+        wave_pool=wave_pool,
+    )
+
+    assert len(routed_pool) == 2
+    assert np.array_equal(routed_rows, canonical_rows)
+    assert np.array_equal(routed_pool, canonical_pool)
+
+
+def test_peaklet_waveforms_direct_path_preserves_nonempty_malformed_hmc_error():
+    peaklets, components, merged, records, wave_pool = _make_all_single_numba_inputs(1)
+    plugin = PeakletWaveformPlugin()
+    plugin._clip_negative_signal = False
+    plugin._hit_merged_components = np.zeros(1, dtype=[("wrong", "i8")])
+    plugin._hit_threshold = np.zeros(1, dtype=THRESHOLD_HIT_DTYPE)
+
+    with pytest.raises(ValueError, match="no field of name merged_index"):
+        plugin._build_routed_numba(
+            peaklets=peaklets,
+            components=components,
+            merged=merged,
+            records=records,
+            wave_pool=wave_pool,
+        )
+
+
+def test_peaklet_waveforms_expansion_preserves_first_error_order():
+    ctx = _make_cross_record_waveform_context()
+    ctx._data["hit_merged_components"][0]["hit_index"] = 99
+    ctx._data["peaklet_components"] = np.array([(0, 0), (0, 99)], dtype=PEAKLET_COMPONENTS_DTYPE)
+    plugin = PeakletWaveformPlugin()
+    plugin._configure_build(ctx)
+    plugin._hit_merged_components = ctx._data["hit_merged_components"]
+    plugin._hit_threshold = ctx._data["hit_threshold"]
+
+    with pytest.raises(IndexError, match="invalid hit_index=99"):
+        plugin._build_routed_numba(
+            peaklets=ctx._data["peaklets"],
+            components=ctx._data["peaklet_components"],
+            merged=ctx._data["hit_merged"],
+            records=ctx._data["records"],
+            wave_pool=ctx._data["wave_pool"],
+        )
+
+    ctx._data["peaklet_components"] = np.array([(0, 99), (0, 0)], dtype=PEAKLET_COMPONENTS_DTYPE)
+    with pytest.raises(IndexError, match="invalid merged_index=99"):
+        plugin._build_routed_numba(
+            peaklets=ctx._data["peaklets"],
+            components=ctx._data["peaklet_components"],
+            merged=ctx._data["hit_merged"],
+            records=ctx._data["records"],
+            wave_pool=ctx._data["wave_pool"],
+        )
+
+
 def test_peaklet_waveforms_process_worker_matches_canonical_overlap_result():
     ctx = _make_cross_record_waveform_context()
     expected_waveforms = PeakletWaveformPlugin().compute(ctx, "run_001")
@@ -541,7 +738,7 @@ def test_peaklet_waveform_pool_lineage_tracks_canonical_waveform(tmp_path):
     assert lineage["config"] == {}
     assert list(lineage["depends_on"]) == ["peaklet_waveforms"]
     waveform_lineage = lineage["depends_on"]["peaklet_waveforms"]
-    assert waveform_lineage["plugin_version"] == "2.1.0"
+    assert waveform_lineage["plugin_version"] == "2.1.1"
     assert waveform_lineage["config"]["use_filtered"] is True
     assert waveform_lineage["config"]["clip_negative_signal"] is True
     assert "wave_pool_filtered" in waveform_lineage["depends_on"]

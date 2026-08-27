@@ -5,7 +5,7 @@ profile: "auto"
 provides: "peaklet_waveforms"
 plugin_class: "PeakletWaveformPlugin"
 module: "waveform_analysis.core.plugins.builtin.peaklet_waveforms.plugin"
-version: "2.1.0"
+version: "2.1.1"
 summary: "Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion."
 depends_on: []
 declared_depends_on: []
@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "8019dc98352bd4622b8fb6bf6dd6031ef041a68518730ffa98b972fb3c0d9c9b"
+source_fingerprint: "be74465f495d165eeead41f9dc7c726c2fbe85f20cdd6dcab2853320dbb5834b"
 generated: true
 ---
 # peaklet_waveforms
@@ -32,7 +32,7 @@ Build peaklet waveform index rows from records-backed hit_merged samples. Suppor
 | Provides | `peaklet_waveforms` |
 | Plugin Class | `PeakletWaveformPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaklet_waveforms.plugin` |
-| Version | `2.1.0` |
+| Version | `2.1.1` |
 | Category | 峰构建 |
 | Output Container | `structured_array` |
 | Execution Mode | `static` |
@@ -41,7 +41,7 @@ Build peaklet waveform index rows from records-backed hit_merged samples. Suppor
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `8019dc98352bd4622b8fb6bf6dd6031ef041a68518730ffa98b972fb3c0d9c9b` |
+| Source Fingerprint | `be74465f495d165eeead41f9dc7c726c2fbe85f20cdd6dcab2853320dbb5834b` |
 
 ### Dependencies
 
@@ -72,7 +72,7 @@ Build peaklet waveform index rows from records-backed hit_merged samples. Suppor
 | `use_filtered` | `bool` | `False` | - | yes | no | 选择 wave_pool_filtered 而非原始 wave_pool；此选择参与 cache lineage。 |
 | `clip_negative_signal` | `bool` | `False` | - | yes | no | 控制 canonical 与 fast 路径共同使用的采样裁剪口径，默认 False。 |
 | `debug_numba` | `bool` | `False` | - | yes | no | 仅用于排查 Numba 内部异常；契约性输入错误始终直接抛出。 |
-| `log_waveform_diagnostics` | `bool` | `False` | - | yes | no | 记录 fast/canonical/fallback peaklet 数、输入与唯一采样数、分类/内核耗时以及 JIT signature 状态。 |
+| `log_waveform_diagnostics` | `bool` | `False` | - | yes | no | 记录 fast/canonical/fallback peaklet 数、输入与唯一采样数、展开/排序/物化分阶段耗时以及 JIT signature 状态。 |
 | `n_workers` | `int` | `1` | - | yes | no | 保留公开兼容；只用于 Python canonical fallback，不改变 Numba routed 路径的并行度。 |
 | `parallel_threshold` | `int` | `5000` | - | yes | no | 仅控制 Python fallback 何时尝试 process pool。 |
 ## Output
