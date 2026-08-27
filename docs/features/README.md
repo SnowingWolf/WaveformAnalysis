@@ -56,10 +56,11 @@
 
 ### [工具函数](utils/README.md)
 
-DAQ 适配器、DAQ 运行分析与事件筛选等实用工具。
+DAQ 适配器、DAQ 运行分析、二维抽样与事件筛选等实用工具。
 
 - [DAQ 适配器](../plugins/reference/ADAPTER_SYSTEM_GUIDE.md)
 - [DAQ 分析器](utils/DAQ_ANALYZER_GUIDE.md)
+- [自适应二维分层抽样](utils/ADAPTIVE_2D_SAMPLING_GUIDE.md)
 
 ### 可视化功能
 
@@ -74,6 +75,7 @@ DAQ 适配器、DAQ 运行分析与事件筛选等实用工具。
 | 追踪进度 | [PROGRESS_TRACKING_GUIDE.md](advanced/PROGRESS_TRACKING_GUIDE.md) |
 | 配置 DAQ 数据格式 | [ADAPTER_SYSTEM_GUIDE.md](../plugins/reference/ADAPTER_SYSTEM_GUIDE.md) |
 | 查看 DAQ 运行概览 | [DAQ_ANALYZER_GUIDE.md](utils/DAQ_ANALYZER_GUIDE.md) |
+| 在二维特征空间选取代表性子集 | [ADAPTIVE_2D_SAMPLING_GUIDE.md](utils/ADAPTIVE_2D_SAMPLING_GUIDE.md) |
 | 使用位置二维 Dashboard | [POSITION_DASHBOARD_GUIDE.md](visualizations/POSITION_DASHBOARD_GUIDE.md) |
 | 可视化数据血缘 | [LINEAGE_VISUALIZATION_GUIDE.md](context/LINEAGE_VISUALIZATION_GUIDE.md) |
 | 分析依赖关系 | [DEPENDENCY_ANALYSIS_GUIDE.md](context/DEPENDENCY_ANALYSIS_GUIDE.md) |

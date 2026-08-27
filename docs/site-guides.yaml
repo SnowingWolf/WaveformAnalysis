@@ -105,6 +105,8 @@ sections:
         route: features/advanced/PROGRESS_TRACKING_GUIDE.html
       - source: docs/features/utils/DAQ_ANALYZER_GUIDE.md
         route: features/utils/DAQ_ANALYZER_GUIDE.html
+      - source: docs/features/utils/ADAPTIVE_2D_SAMPLING_GUIDE.md
+        route: features/utils/ADAPTIVE_2D_SAMPLING_GUIDE.html
       - source: docs/features/utils/PDF_EXPORT_GUIDE.md
         route: features/utils/PDF_EXPORT_GUIDE.html
       - source: docs/features/visualizations/POSITION_DASHBOARD_GUIDE.md

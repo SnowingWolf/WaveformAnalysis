@@ -30,6 +30,8 @@ __all__ = [
     "build_merged_to_hit_lookup",
     "S1S2PairAccessor",
     "PeakChannelAccessor",
+    "adaptive_sample_count",
+    "adaptive_stratified_sample_2d",
 ]
 
 _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
@@ -62,6 +64,8 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "build_merged_to_hit_lookup": (".query_helpers", "build_merged_to_hit_lookup"),
     "S1S2PairAccessor": (".s1_s2_pair_accessor", "S1S2PairAccessor"),
     "PeakChannelAccessor": (".peak_channel_accessor", "PeakChannelAccessor"),
+    "adaptive_sample_count": (".sampling", "adaptive_sample_count"),
+    "adaptive_stratified_sample_2d": (".sampling", "adaptive_stratified_sample_2d"),
 }
 
 
