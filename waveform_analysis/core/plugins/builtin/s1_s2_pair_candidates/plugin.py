@@ -154,7 +154,7 @@ class S1S2PairCandidatesPlugin(Plugin):
     lineage_virtual = True
     depends_on = ["peak_classification", "peaks"]
     description = "Generate all physically allowed S1-S2 pairing candidates"
-    version = "0.1.3"
+    version = "0.2.0"
     save_when = "always"
     output_dtype = S1_S2_PAIR_CANDIDATES_DTYPE
 
@@ -392,8 +392,8 @@ class S1S2PairCandidatesPlugin(Plugin):
 
     def _handle_empty_or_orphan_only(
         self,
-        s1_peaks: list,
-        s2_peaks: list,
+        s1_peaks: np.ndarray,
+        s2_peaks: np.ndarray,
         allow_orphan_s1: bool,
         allow_orphan_s2: bool,
     ) -> np.ndarray:
@@ -401,131 +401,91 @@ class S1S2PairCandidatesPlugin(Plugin):
         if len(s1_peaks) == 0 and len(s2_peaks) == 0:
             return np.zeros(0, dtype=S1_S2_PAIR_CANDIDATES_DTYPE)
 
-        orphan_records = []
-
-        # 只有 S1, 无 S2
-        if len(s2_peaks) == 0 and allow_orphan_s1:
-            for idx, s1_peak in enumerate(s1_peaks):
-                orphan_records.append(self._create_orphan_s1_record(s1_peak, idx))
-
-        # 只有 S2, 无 S1
-        if len(s1_peaks) == 0 and allow_orphan_s2:
-            for idx, s2_peak in enumerate(s2_peaks):
-                orphan_records.append(self._create_orphan_s2_record(s2_peak, idx))
-
-        if len(orphan_records) == 0:
-            return np.zeros(0, dtype=S1_S2_PAIR_CANDIDATES_DTYPE)
-
-        result = np.zeros(len(orphan_records), dtype=S1_S2_PAIR_CANDIDATES_DTYPE)
-        for i, rec in enumerate(orphan_records):
-            for key in rec:
-                result[i][key] = rec[key]
-
-        return result
+        # Keep the legacy ordering: all orphan S1 rows first, followed by
+        # orphan S2 rows.  The common helper performs one final allocation and
+        # fills the structured fields in bulk.
+        s1_indices = (
+            np.arange(len(s1_peaks), dtype=np.intp)
+            if len(s2_peaks) == 0 and allow_orphan_s1
+            else np.empty(0, dtype=np.intp)
+        )
+        s2_indices = (
+            np.arange(len(s2_peaks), dtype=np.intp)
+            if len(s1_peaks) == 0 and allow_orphan_s2
+            else np.empty(0, dtype=np.intp)
+        )
+        return self._build_orphan_records(s1_peaks, s1_indices, s2_peaks, s2_indices)
 
     def _generate_orphan_records(
         self,
-        s1_peaks: list,
-        s2_peaks: list,
+        s1_peaks: np.ndarray,
+        s2_peaks: np.ndarray,
         candidates: np.ndarray,
         allow_orphan_s1: bool,
         allow_orphan_s2: bool,
     ) -> np.ndarray:
-        """生成孤立信号记录"""
-        orphan_records = []
+        """生成孤立信号记录。匹配和填充均使用 NumPy 批量操作。"""
+        # ``np.isin`` preserves the old set-membership semantics for duplicate
+        # or unsorted peak IDs while avoiding one Python dict per output row.
+        s1_indices = (
+            np.flatnonzero(~np.isin(s1_peaks["peak_id"], candidates["s1_peak_id"]))
+            if allow_orphan_s1
+            else np.empty(0, dtype=np.intp)
+        )
+        s2_indices = (
+            np.flatnonzero(~np.isin(s2_peaks["peak_id"], candidates["s2_peak_id"]))
+            if allow_orphan_s2
+            else np.empty(0, dtype=np.intp)
+        )
+        return self._build_orphan_records(s1_peaks, s1_indices, s2_peaks, s2_indices)
 
-        # 找出有配对的 S1 和 S2
-        paired_s1_ids = {int(c["s1_peak_id"]) for c in candidates}
-        paired_s2_ids = {int(c["s2_peak_id"]) for c in candidates}
+    @staticmethod
+    def _build_orphan_records(
+        s1_peaks: np.ndarray,
+        s1_indices: np.ndarray,
+        s2_peaks: np.ndarray,
+        s2_indices: np.ndarray,
+    ) -> np.ndarray:
+        """一次分配并向量化填充 orphan rows。
 
-        # 孤立 S1
-        if allow_orphan_s1:
-            for idx, s1_peak in enumerate(s1_peaks):
-                if int(s1_peak["peak_id"]) not in paired_s1_ids:
-                    orphan_records.append(self._create_orphan_s1_record(s1_peak, idx))
+        Rows are intentionally emitted as ``S1 orphans + S2 orphans`` to keep
+        the pre-optimization order and all sentinel/flag values unchanged.
+        ``s1_indices`` and ``s2_indices`` refer to the original separated peak
+        arrays, so the index fields retain their legacy meaning.
+        """
+        n_s1 = len(s1_indices)
+        n_s2 = len(s2_indices)
+        result = np.zeros(n_s1 + n_s2, dtype=S1_S2_PAIR_CANDIDATES_DTYPE)
+        if n_s1:
+            s1_rows = result[:n_s1]
+            s1_rows["pair_id"] = -1
+            s1_rows["s1_peak_id"] = s1_peaks["peak_id"][s1_indices]
+            s1_rows["s2_peak_id"] = -1
+            s1_rows["s1_index"] = s1_indices
+            s1_rows["s2_index"] = -1
+            s1_rows["s1_time"] = s1_peaks["center_time"][s1_indices]
+            s1_rows["s2_time"] = -1
+            s1_rows["drift_time"] = -1
+            s1_rows["drift_time_ns"] = -1.0
+            s1_rows["s1_area"] = s1_peaks["area"][s1_indices]
+            s1_rows["s1_width"] = s1_peaks["width"][s1_indices]
+            s1_rows["s1_n_channels"] = s1_peaks["n_channels"][s1_indices]
+            s1_rows["flags"] = FLAG_ORPHAN_S1
 
-        # 孤立 S2
-        if allow_orphan_s2:
-            for idx, s2_peak in enumerate(s2_peaks):
-                if int(s2_peak["peak_id"]) not in paired_s2_ids:
-                    orphan_records.append(self._create_orphan_s2_record(s2_peak, idx))
-
-        if len(orphan_records) == 0:
-            return np.zeros(0, dtype=S1_S2_PAIR_CANDIDATES_DTYPE)
-
-        result = np.zeros(len(orphan_records), dtype=S1_S2_PAIR_CANDIDATES_DTYPE)
-        for i, rec in enumerate(orphan_records):
-            for key in rec:
-                result[i][key] = rec[key]
+        if n_s2:
+            s2_rows = result[n_s1:]
+            s2_rows["pair_id"] = -1
+            s2_rows["s1_peak_id"] = -1
+            s2_rows["s2_peak_id"] = s2_peaks["peak_id"][s2_indices]
+            s2_rows["s1_index"] = -1
+            s2_rows["s2_index"] = s2_indices
+            s2_rows["s1_time"] = -1
+            s2_rows["s2_time"] = s2_peaks["center_time"][s2_indices]
+            s2_rows["drift_time"] = -1
+            s2_rows["drift_time_ns"] = -1.0
+            s2_rows["s2_area"] = s2_peaks["area"][s2_indices]
+            s2_rows["s2_width"] = s2_peaks["width"][s2_indices]
+            s2_rows["s2_n_channels"] = s2_peaks["n_channels"][s2_indices]
+            s2_rows["flags"] = FLAG_ORPHAN_S2
 
         return result
-
-    def _create_orphan_s1_record(self, s1_peak, s1_idx: int) -> dict:
-        """创建孤立 S1 记录"""
-        return {
-            "pair_id": -1,
-            "s1_peak_id": int(s1_peak["peak_id"]),
-            "s2_peak_id": -1,  # 标记缺失
-            "s1_index": s1_idx,
-            "s2_index": -1,
-            "s1_time": int(s1_peak["center_time"]),
-            "s2_time": -1,
-            "drift_time": -1,
-            "drift_time_ns": -1.0,
-            "s1_area": float(s1_peak["area"]),
-            "s2_area": 0.0,
-            "log10_s2_s1": 0.0,
-            "s1_width": float(s1_peak["width"]),
-            "s2_width": 0.0,
-            "s1_n_channels": int(s1_peak["n_channels"]),
-            "s2_n_channels": 0,
-            "score_total": 0.0,
-            "score_time": 0.0,
-            "score_s1_quality": 0.0,
-            "score_s2_quality": 0.0,
-            "score_ratio": 0.0,
-            "score_pattern": 0.0,
-            "score_ambiguity": 0.0,
-            "rank_for_s1": 0,
-            "rank_for_s2": 0,
-            "n_s1_candidates_for_s2": 0,
-            "n_s2_candidates_for_s1": 0,
-            "delta_score_to_next_best": 0.0,
-            "flags": FLAG_ORPHAN_S1,
-            "selected": False,
-        }
-
-    def _create_orphan_s2_record(self, s2_peak, s2_idx: int) -> dict:
-        """创建孤立 S2 记录"""
-        return {
-            "pair_id": -1,
-            "s1_peak_id": -1,  # 标记缺失
-            "s2_peak_id": int(s2_peak["peak_id"]),
-            "s1_index": -1,
-            "s2_index": s2_idx,
-            "s1_time": -1,
-            "s2_time": int(s2_peak["center_time"]),
-            "drift_time": -1,
-            "drift_time_ns": -1.0,
-            "s1_area": 0.0,
-            "s2_area": float(s2_peak["area"]),
-            "log10_s2_s1": 0.0,
-            "s1_width": 0.0,
-            "s2_width": float(s2_peak["width"]),
-            "s1_n_channels": 0,
-            "s2_n_channels": int(s2_peak["n_channels"]),
-            "score_total": 0.0,
-            "score_time": 0.0,
-            "score_s1_quality": 0.0,
-            "score_s2_quality": 0.0,
-            "score_ratio": 0.0,
-            "score_pattern": 0.0,
-            "score_ambiguity": 0.0,
-            "rank_for_s1": 0,
-            "rank_for_s2": 0,
-            "n_s1_candidates_for_s2": 0,
-            "n_s2_candidates_for_s1": 0,
-            "delta_score_to_next_best": 0.0,
-            "flags": FLAG_ORPHAN_S2,
-            "selected": False,
-        }

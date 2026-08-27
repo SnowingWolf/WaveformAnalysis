@@ -1,6 +1,6 @@
 provides: s1_s2_pairs
 plugin_class: S1S2PairSelectionPlugin
-version: 0.2.0
+version: 0.3.0
 depends_on:
   - s1_s2_pair_candidates
 third_party_dependencies:

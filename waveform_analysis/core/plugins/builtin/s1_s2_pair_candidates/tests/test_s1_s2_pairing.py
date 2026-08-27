@@ -66,6 +66,61 @@ def create_test_label(peak_id: int, label: int):
     return row
 
 
+def legacy_orphan_rows(
+    s1_peaks: np.ndarray,
+    s2_peaks: np.ndarray,
+    candidates: np.ndarray,
+    allow_orphan_s1: bool = True,
+    allow_orphan_s2: bool = True,
+) -> np.ndarray:
+    """Independent row-by-row oracle for the pre-vectorization contract."""
+    paired_s1_ids = {int(candidate["s1_peak_id"]) for candidate in candidates}
+    paired_s2_ids = {int(candidate["s2_peak_id"]) for candidate in candidates}
+    rows = []
+
+    if allow_orphan_s1:
+        for index, peak in enumerate(s1_peaks):
+            if int(peak["peak_id"]) in paired_s1_ids:
+                continue
+            row = np.zeros(1, dtype=S1_S2_PAIR_CANDIDATES_DTYPE)[0]
+            row["pair_id"] = -1
+            row["s1_peak_id"] = int(peak["peak_id"])
+            row["s2_peak_id"] = -1
+            row["s1_index"] = index
+            row["s2_index"] = -1
+            row["s1_time"] = int(peak["center_time"])
+            row["s2_time"] = -1
+            row["drift_time"] = -1
+            row["drift_time_ns"] = -1.0
+            row["s1_area"] = float(peak["area"])
+            row["s1_width"] = float(peak["width"])
+            row["s1_n_channels"] = int(peak["n_channels"])
+            row["flags"] = FLAG_ORPHAN_S1
+            rows.append(row)
+
+    if allow_orphan_s2:
+        for index, peak in enumerate(s2_peaks):
+            if int(peak["peak_id"]) in paired_s2_ids:
+                continue
+            row = np.zeros(1, dtype=S1_S2_PAIR_CANDIDATES_DTYPE)[0]
+            row["pair_id"] = -1
+            row["s1_peak_id"] = -1
+            row["s2_peak_id"] = int(peak["peak_id"])
+            row["s1_index"] = -1
+            row["s2_index"] = index
+            row["s1_time"] = -1
+            row["s2_time"] = int(peak["center_time"])
+            row["drift_time"] = -1
+            row["drift_time_ns"] = -1.0
+            row["s2_area"] = float(peak["area"])
+            row["s2_width"] = float(peak["width"])
+            row["s2_n_channels"] = int(peak["n_channels"])
+            row["flags"] = FLAG_ORPHAN_S2
+            rows.append(row)
+
+    return np.array(rows, dtype=S1_S2_PAIR_CANDIDATES_DTYPE)
+
+
 class MockContext:
     """Mock Context 用于测试"""
 
@@ -441,6 +496,105 @@ def test_orphan_s2():
     assert candidates[0]["s2_peak_id"] == 10
     assert candidates[0]["s2_width"] == pytest.approx(720.0)
     assert candidates[0]["flags"] & FLAG_ORPHAN_S2
+
+
+def test_vectorized_orphans_match_legacy_oracle_for_mixed_input():
+    """混合输入逐字段验证 orphan 行、顺序和 sentinel 与旧实现一致。"""
+    peaks = np.array(
+        [
+            create_test_peak(peak_id=12, time_ns=100000, area=120.5, width_ns=81.0),
+            create_test_peak(peak_id=1, time_ns=1000, area=100.25, width_ns=82.0),
+            create_test_peak(peak_id=13, time_ns=400000, area=130.5, width_ns=83.0),
+            create_test_peak(peak_id=30, time_ns=20000, area=5000.0, width_ns=700.0),
+            create_test_peak(peak_id=40, time_ns=200000, area=6000.0, width_ns=710.0),
+        ]
+    )
+    labels = np.array(
+        [
+            create_test_label(peak_id=12, label=LABEL_S1),
+            create_test_label(peak_id=1, label=LABEL_S1),
+            create_test_label(peak_id=13, label=LABEL_S1),
+            create_test_label(peak_id=30, label=LABEL_S2),
+            create_test_label(peak_id=40, label=LABEL_S2),
+        ]
+    )
+    plugin = S1S2PairCandidatesPlugin()
+    ctx = MockContext()
+    ctx.set_data("test_run", "peaks", peaks)
+    ctx.set_data("test_run", "peak_classification", labels)
+    ctx.set_config({"allow_orphan_s1": True, "allow_orphan_s2": True})
+
+    result = plugin.compute(ctx, "test_run")
+    orphan_mask = (result["flags"] & (FLAG_ORPHAN_S1 | FLAG_ORPHAN_S2)) != 0
+    expected = legacy_orphan_rows(
+        peaks[[0, 1, 2]],
+        peaks[[3, 4]],
+        result[~orphan_mask],
+    )
+
+    np.testing.assert_array_equal(result[orphan_mask], expected)
+    np.testing.assert_array_equal(result[orphan_mask]["s1_peak_id"], [12, 13, -1])
+    np.testing.assert_array_equal(result[orphan_mask]["s2_peak_id"], [-1, -1, 40])
+
+
+def test_vectorized_orphans_cover_empty_single_type_and_all_paired_paths():
+    plugin = S1S2PairCandidatesPlugin()
+    empty_peaks = np.zeros(0, dtype=PEAKS_DTYPE)
+    empty_candidates = np.zeros(0, dtype=S1_S2_PAIR_CANDIDATES_DTYPE)
+    s1_peaks = np.array([create_test_peak(peak_id=7, time_ns=1000, area=70.0)])
+    s2_peaks = np.array([create_test_peak(peak_id=8, time_ns=20000, area=800.0)])
+
+    empty_result = plugin._handle_empty_or_orphan_only(empty_peaks, empty_peaks, True, True)
+    assert empty_result.dtype == S1_S2_PAIR_CANDIDATES_DTYPE
+    assert len(empty_result) == 0
+
+    only_s1 = plugin._handle_empty_or_orphan_only(s1_peaks, empty_peaks, True, True)
+    np.testing.assert_array_equal(
+        only_s1,
+        legacy_orphan_rows(s1_peaks, empty_peaks, empty_candidates),
+    )
+
+    only_s2 = plugin._handle_empty_or_orphan_only(empty_peaks, s2_peaks, True, True)
+    np.testing.assert_array_equal(
+        only_s2,
+        legacy_orphan_rows(empty_peaks, s2_peaks, empty_candidates),
+    )
+
+    paired = np.zeros(1, dtype=S1_S2_PAIR_CANDIDATES_DTYPE)
+    paired["s1_peak_id"] = 7
+    paired["s2_peak_id"] = 8
+    no_orphans = plugin._generate_orphan_records(s1_peaks, s2_peaks, paired, True, True)
+    assert no_orphans.dtype == S1_S2_PAIR_CANDIDATES_DTYPE
+    assert len(no_orphans) == 0
+
+
+def test_vectorized_orphan_membership_handles_duplicate_unsorted_peak_ids():
+    """重复/无序 ID 的 membership 结果与旧 set 语义一致。"""
+    s1_peaks = np.array(
+        [
+            create_test_peak(peak_id=9, time_ns=1000, area=90.0),
+            create_test_peak(peak_id=3, time_ns=2000, area=30.0),
+            create_test_peak(peak_id=9, time_ns=3000, area=91.0),
+        ]
+    )
+    s2_peaks = np.array(
+        [
+            create_test_peak(peak_id=8, time_ns=20000, area=800.0),
+            create_test_peak(peak_id=4, time_ns=21000, area=400.0),
+        ]
+    )
+    candidates = np.zeros(1, dtype=S1_S2_PAIR_CANDIDATES_DTYPE)
+    candidates["s1_peak_id"] = 9
+    candidates["s2_peak_id"] = 8
+
+    result = S1S2PairCandidatesPlugin()._generate_orphan_records(
+        s1_peaks, s2_peaks, candidates, True, True
+    )
+    expected = legacy_orphan_rows(s1_peaks, s2_peaks, candidates)
+
+    np.testing.assert_array_equal(result, expected)
+    np.testing.assert_array_equal(result["s1_peak_id"], [3, -1])
+    np.testing.assert_array_equal(result["s2_peak_id"], [-1, 4])
 
 
 def test_min_area_threshold():

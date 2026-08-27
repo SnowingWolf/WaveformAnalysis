@@ -62,8 +62,8 @@ print(preview)
 | [`records_asymmetry_mask`](records_asymmetry_mask.md) | `RecordsAsymmetryMaskPlugin` | 记录处理 | `records`, `wave_pool` | `array` | `static` | `0.2.0` |
 | [`records_detector_mask`](records_detector_mask.md) | `RecordsDetectorMaskPlugin` | 记录处理 | `records`, `records_asymmetry_mask` | `array` | `static` | `0.1.0` |
 | [`records_veto_mask`](records_veto_mask.md) | `RecordsVetoMaskPlugin` | 记录处理 | `records`, `records_asymmetry_mask` | `array` | `static` | `0.1.0` |
-| [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md) | `S1S2PairCandidatesPlugin` | 事件分析 | `peak_classification`, `peaks` | `structured_array` | `static` | `0.1.3` |
-| [`s1_s2_pairs`](s1_s2_pairs.md) | `S1S2PairSelectionPlugin` | 事件分析 | `s1_s2_pair_candidates` | `structured_array` | `static` | `0.2.0` |
+| [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md) | `S1S2PairCandidatesPlugin` | 事件分析 | `peak_classification`, `peaks` | `structured_array` | `static` | `0.2.0` |
+| [`s1_s2_pairs`](s1_s2_pairs.md) | `S1S2PairSelectionPlugin` | 事件分析 | `s1_s2_pair_candidates` | `structured_array` | `static` | `0.3.0` |
 | [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | 波形处理 | `raw_files` | `structured_array` | `static` | `0.10.0` |
 | [`wave_pool`](wave_pool.md) | `WavePoolPlugin` | 波形处理 | `raw_files` | `array` | `static` | `0.14.2` |
 | [`wave_pool_filtered`](wave_pool_filtered.md) | `WavePoolFilteredPlugin` | 波形处理 | `records`, `wave_pool` | `array` | `static` | `3.0.0` |

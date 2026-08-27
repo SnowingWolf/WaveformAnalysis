@@ -1,0 +1,74 @@
+# execution_report
+
+- `task_id`: `s1_s2_orphan_hotpath`
+- `workflow_cost`: `strict`
+- `workflow_shape`: `staged`
+- `executor_role`: `executor.plugin`
+- `agent_profile`: `graph_engineer`
+- `changed_paths`:
+  - `waveform_analysis/core/plugins/builtin/s1_s2_pair_candidates/plugin.py`
+  - `waveform_analysis/core/plugins/builtin/s1_s2_pair_candidates/manifest.yaml`
+  - `waveform_analysis/core/plugins/builtin/s1_s2_pair_candidates/tests/test_s1_s2_pairing.py`
+  - `waveform_analysis/core/plugins/builtin/s1_s2_pairs/plugin.py`
+  - `waveform_analysis/core/plugins/builtin/s1_s2_pairs/manifest.yaml`
+  - `waveform_analysis/core/plugins/builtin/s1_s2_pairs/tests/test_s1_s2_pairs.py`
+  - `docs/plugins/reference/agent/INDEX.md`
+  - `docs/plugins/reference/agent/s1_s2_pair_candidates.md`
+  - `docs/plugins/reference/agent/s1_s2_pairs.md`
+  - `docs/plugins/reference/builtin/auto/INDEX.md`
+  - `docs/plugins/reference/builtin/auto/s1_s2_pair_candidates.md`
+  - `docs/plugins/reference/builtin/auto/s1_s2_pairs.md`
+  - `docs/agents/protocol/artifacts/s1_s2_orphan_hotpath_plan_brief.md`
+  - `docs/agents/protocol/artifacts/s1_s2_orphan_hotpath_execution_report.md`
+- `actions_taken`:
+  - 将 `s1_s2_pair_candidates` 的 orphan membership 改为按启用侧执行 `np.isin`/`flatnonzero`，并通过一个最终 structured-array 分配和批量字段写入生成 S1/S2 orphan；保留 S1 orphan 在前、S2 orphan 在后的行序、dtype、sentinel、flags 和字段值；字段填充不保留大块 fancy-index source 临时数组。
+  - 统一空输入、仅 S1、仅 S2 和混合输入的 orphan 路径，移除生产路径中的逐行 dict/list 构造；单侧 orphan 开关不会为另一侧创建无用 mask。
+  - 将 `s1_s2_pairs` 的完整 pair mask 放在复制、面积筛选、打分和排名之前，输出不再包含任一 peak ID 小于 0 的 orphan；不改变完整 pair 的选择逻辑。
+  - 按计划升级版本：`s1_s2_pair_candidates 0.1.3 -> 0.2.0`、`s1_s2_pairs 0.2.0 -> 0.3.0`，同步两个 manifest 和 agent/auto 生成页面。
+  - 增加独立旧实现 oracle 的逐字段回归，以及空、单类、全配对、混合、重复/无序 ID 边界测试；增加 pairs orphan 过滤、输入不原地修改和 selected 下游边界测试。
+- `commands_run`:
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q --no-cov waveform_analysis/core/plugins/builtin/s1_s2_pair_candidates/tests waveform_analysis/core/plugins/builtin/s1_s2_pairs/tests waveform_analysis/core/plugins/builtin/position_reconstruction/tests`：PASS，34 passed。
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q --no-cov waveform_analysis/core/plugins/builtin/events/tests waveform_analysis/core/plugins/builtin/energy_reconstruction/tests`：PASS，7 passed。
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q --no-cov tests/contracts/test_plugin_shim_compat.py tests/plugins/test_plugin_set_peaks_compat.py waveform_analysis/core/plugins/builtin/s1_s2_pair_candidates/tests waveform_analysis/core/plugins/builtin/s1_s2_pairs/tests waveform_analysis/core/plugins/builtin/position_reconstruction/tests waveform_analysis/core/plugins/builtin/events/tests waveform_analysis/core/plugins/builtin/energy_reconstruction/tests`：PASS，70 passed。
+  - 100k 单侧 orphan（`allow_orphan_s1=True`, `allow_orphan_s2=False`）独立子进程基准：旧 dict/list 路径 median `1.3983348669 s`，新 NumPy 路径 median `0.0036353902 s`，约 `384.50x`（`99.74%`）；两者均 100,000 行、13,700,000 bytes、最大 RSS 分别为 `280436736` 和 `181022720` bytes，SHA-256 `40b1eb85e61bf64e21fd91056bab3b5641fb44b96e3070cd19ed5d54b8c7fd1d` 相同。
+  - Run `00196` 只读 memmap 对照（未调用 Context 写缓存，结果在最终 allocation-lifetime refinement 之前取得）：新旧 candidate 均 14,875,145 行、2,037,894,865 bytes，SHA-256 `b5e12802bd2026654fb0e947b79cbf1644cb9d72e4cb13e6f88c56a1ad82fd77` 相同；orphan 均 14,753,572 行、完整 pair 均 121,573 行。新 candidate compute 计时 `16.3047 s`，该值包含冷 memmap 触页。
+  - Run `00196` 下游只读选择：新 `s1_s2_pairs` 118,979 行、36,733 selected，`s1_peak_id<0` 和 `s2_peak_id<0` 均为 0；旧同 lineage 缓存分别有 14,890 和 14,738,682 个负端 ID。新选择计时 `1.0905 s`，计算过程峰值 RSS 约 `7.245 GiB`。
+  - 尝试在最终 allocation-lifetime refinement 后重跑完整 Run `00196` 对照，但该单项在本轮收尾时被中断；未写入或删除正式缓存。由于该 refinement 只移除字段级 fancy-index 临时数组、未改变 membership/字段赋值语义，保留上一个只读 hash 结果作为算法等价证据，并将最终重复物化列为 Reviewer 可选复核项。
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m black --check ...`（4 个任务 Python 文件）：PASS。
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m ruff check ...`（4 个任务 Python 文件）：PASS。
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m compileall -q waveform_analysis`：PASS。
+  - `waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/`：FAIL，当前 shell 环境没有安装 `waveform-docs` console script（command not found）。
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.utils.cli_docs generate plugins-auto -o docs/plugins/reference/builtin/auto/`：PASS，生成 37 个 builtin 页面。
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.utils.cli_docs generate plugins-agent -o docs/plugins/reference/agent/`：PASS，生成 37 个 agent 页面。
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/assess_change_impact.py --base HEAD`：PASS，2 个低 lineage risk，列出 `s1_s2_pairs` 及 energy/events/position 下游。
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/schema_compat_check.py --base HEAD --run-smoke`：PASS，dtype changes `0`，smoke chain PASS。
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/render_agent_docs.py --check`：PASS。
+  - `scripts/check_doc_sync.sh`：PASS。
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py --check-sync --base HEAD`：PASS，0 errors、0 warnings。
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.utils.cli_docs check coverage --strict --fail-on-warning`：PASS，36/36 plugins、100% coverage、0 errors/warnings。
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.utils.cli_docs check links --docs-dir docs`：PASS，496 个本地引用全部有效。
+- `open_risks`:
+  - 显式启用 orphan 时，candidate 主表仍按兼容契约保留约 2 GiB 输出；本次只消除了 Python row/dict 热点，并由 pairs 在进入主链前过滤 orphan。若未来不需要 orphan QA，应另行提出配置/产品语义变更，不能在本任务中默认删除。
+  - `waveform-docs` 可执行入口在当前 shell 不可用，已使用同一 CLI 的 pyroot-kernel module invocation 完成生成和 coverage；Reviewer 如要求 console-script 形式，需要在环境安装 editable package 后复跑入口命令。
+  - 真实 Run `00196` 对照依赖现有 cache 的只读 memmap，未写入新版 lineage 缓存；hash 等价证据来自最终 allocation-lifetime refinement 之前，最终版本的完整重复对照受本轮单项时长限制未完成，未做全量重新物化/落盘验证。
+  - 真实选择过程中观察到既有数据中的非正 S1 area 触发 `log1p` warning；该行为不由本任务引入，且完整 pair 过滤和选择结果仍按现有逻辑执行。
+- `requested_review_focus`:
+  - 核对 `_build_orphan_records` 的单次分配、S1/S2 行序、全部 sentinel/flags/zero 字段与旧 oracle 的逐字段等价。
+  - 核对单侧 orphan 开关是否避免无用 membership mask，以及显式 orphan 配置的 dtype/字段/缓存 lineage 版本升级。
+  - 核对 `s1_s2_pairs` 在 `.copy()`、面积筛选、score/rank 前过滤完整 pair，并确认 downstream selected 数据不再携带负 peak ID。
+  - 复核 Run `00196` 两份 candidate SHA-256、行数和 100k benchmark 口径，区分冷 memmap 触页成本与 orphan 生成算法成本。
+
+## Optional Notes
+
+- `gates_executed`:
+  - 定向 candidate/pairs/position/events/energy、shim compatibility：PASS。
+  - agent/auto 文档生成、coverage、links、render、doc sync、anchors：PASS（console script 缺失，等价 module 命令 PASS）。
+  - impact、schema smoke、compileall、Ruff、Black：PASS。
+  - 计划要求的 synthetic oracle、100k old/new benchmark：PASS；Run `00196` read-only memmap/hash 对照：PASS（最终 refinement 前的只读证据），最终版本重复对照因单项时长限制未完成，已记录原因。
+- `docs_updated`:
+  - `s1_s2_pair_candidates` 与 `s1_s2_pairs` 的 agent/auto reference 页面及两个索引已按版本和行为重新生成。
+- `plan_drift`:
+  - 无范围漂移；没有新增 provides、依赖、字段、配置或独立 orphan 产品，没有写/删正式缓存。
+  - 仅因 `waveform-docs` console script 在当前环境不可用，使用仓库同一 CLI 模块入口完成相同生成操作。
+- `commit_status`:
+  - 执行报告与既有 `plan_brief` 纳入 scoped commit；最终 hash 由 Executor handoff 记录。

@@ -5,7 +5,7 @@ profile: "agent"
 provides: "s1_s2_pairs"
 plugin_class: "S1S2PairSelectionPlugin"
 module: "waveform_analysis.core.plugins.builtin.s1_s2_pairs.plugin"
-version: "0.2.0"
+version: "0.3.0"
 summary: "Select best S1-S2 pairs from candidates"
 depends_on: ["s1_s2_pair_candidates"]
 declared_depends_on: ["s1_s2_pair_candidates"]
@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "c0d8c444d1d3c15e9c74f53cf7f368da414f6a77d62a307e98d813f6ce2aca22"
+source_fingerprint: "816f619d98e09bab33a9c2e824e56d2402e93bf64a4d183fd526e5e747a8eff3"
 generated: true
 ---
 # s1_s2_pairs
@@ -31,14 +31,14 @@ S1-S2 配对选择插件
 
 选择模式: - largest: 选择面积最大的 S1 (v0.1 实现) - nearest: 选择时间最近的 S1 (预留) - best_score: 综合打分 (预留) - all: 不做选择,保留所有候选 (预留)
 
-输出: - 修改 candidates 的 selected flag - 填充 score 字段 - 计算 delta_score_to_next_best - 计算 rank_for_s2
+输出: - 过滤掉缺少 S1 或 S2 的 orphan 行 - 修改 candidates 的 selected flag - 填充 score 字段 - 计算 delta_score_to_next_best - 计算 rank_for_s2
 
 | Item | Value |
 | --- | --- |
 | Provides | `s1_s2_pairs` |
 | Plugin Class | `S1S2PairSelectionPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.s1_s2_pairs.plugin` |
-| Version | `0.2.0` |
+| Version | `0.3.0` |
 | Category | 事件分析 |
 | Output Container | `structured_array` |
 | Execution Mode | `static` |
@@ -47,7 +47,7 @@ S1-S2 配对选择插件
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `c0d8c444d1d3c15e9c74f53cf7f368da414f6a77d62a307e98d813f6ce2aca22` |
+| Source Fingerprint | `816f619d98e09bab33a9c2e824e56d2402e93bf64a4d183fd526e5e747a8eff3` |
 
 ### Dependencies
 
@@ -59,7 +59,7 @@ S1-S2 配对选择插件
 ### How It Works
 
 1. 选择最佳配对
-2. 算法: 1. 获取候选 2. 过滤不满足物理约束的候选 (S1_area < S2_area) 3. 计算 score (根据 selection_mode) 4. 为每个 S2 选择最优 S1 5. 设置 selected flag 6. 计算 delta_score_to_next_best 7. 计算 rank_for_s2 8. 标记 CLOSE_COMPETITOR
+2. 算法: 1. 获取候选 2. 过滤缺少任一端 peak ID 的 orphan 3. 过滤不满足物理约束的候选 (S1_area < S2_area) 4. 计算 score (根据 selection_mode) 5. 为每个 S2 选择最优 S1 6. 设置 selected flag 7. 计算 delta_score_to_next_best 8. 计算 rank_for_s2 9. 标记 CLOSE_COMPETITOR
 
 ## Configuration
 
@@ -124,7 +124,7 @@ result = ctx.get_data("run_001", "s1_s2_pairs")
 ### Behavior
 
 - S1-S2 配对选择插件
-- 此插件对候选进行打分并选择最佳配对。 第一版实现 largest 模式,其他模式预留接口。
+- 此插件对候选进行打分并选择最佳配对。 输入候选中的 orphan 行只用于候选层 QA；本插件会在复制、打分和排名前 过滤掉任一 peak ID 为负的行，因此输出主链只包含完整 S1-S2 配对。 第一版实现 largest 模式,其他模式预留接口。
 ### Failure Modes
 
 - 任一声明依赖（`s1_s2_pair_candidates`）缺失或字段不符合输入契约时，执行会失败。

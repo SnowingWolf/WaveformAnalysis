@@ -1,6 +1,6 @@
 provides: s1_s2_pair_candidates
 plugin_class: S1S2PairCandidatesPlugin
-version: 0.1.3
+version: 0.2.0
 depends_on:
   - peak_classification
   - peaks

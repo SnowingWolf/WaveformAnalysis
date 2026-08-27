@@ -1,10 +1,12 @@
 """S1-S2 配对选择插件
 
 此插件对候选进行打分并选择最佳配对。
+输入候选中的 orphan 行只用于候选层 QA；本插件会在复制、打分和排名前
+过滤掉任一 peak ID 为负的行，因此输出主链只包含完整 S1-S2 配对。
 第一版实现 largest 模式,其他模式预留接口。
 
 Author: Claude Code
-Version: 0.1.0
+Version: 0.3.0
 """
 
 from typing import Any
@@ -30,6 +32,7 @@ class S1S2PairSelectionPlugin(Plugin):
     - all: 不做选择,保留所有候选 (预留)
 
     输出:
+    - 过滤掉缺少 S1 或 S2 的 orphan 行
     - 修改 candidates 的 selected flag
     - 填充 score 字段
     - 计算 delta_score_to_next_best
@@ -39,7 +42,7 @@ class S1S2PairSelectionPlugin(Plugin):
     provides = "s1_s2_pairs"
     depends_on = ["s1_s2_pair_candidates"]
     description = "Select best S1-S2 pairs from candidates"
-    version = "0.2.0"
+    version = "0.3.0"
     save_when = "always"
     output_dtype = S1_S2_PAIR_CANDIDATES_DTYPE
 
@@ -68,21 +71,24 @@ class S1S2PairSelectionPlugin(Plugin):
 
         算法:
         1. 获取候选
-        2. 过滤不满足物理约束的候选 (S1_area < S2_area)
-        3. 计算 score (根据 selection_mode)
-        4. 为每个 S2 选择最优 S1
-        5. 设置 selected flag
-        6. 计算 delta_score_to_next_best
-        7. 计算 rank_for_s2
-        8. 标记 CLOSE_COMPETITOR
+        2. 过滤缺少任一端 peak ID 的 orphan
+        3. 过滤不满足物理约束的候选 (S1_area < S2_area)
+        4. 计算 score (根据 selection_mode)
+        5. 为每个 S2 选择最优 S1
+        6. 设置 selected flag
+        7. 计算 delta_score_to_next_best
+        8. 计算 rank_for_s2
+        9. 标记 CLOSE_COMPETITOR
         """
         # 获取候选
         candidates = context.get_data(run_id, "s1_s2_pair_candidates")
 
-        # 复制以避免修改原数据
-        candidates = candidates.copy()
+        # 物理配对主链只接受完整的 S1-S2 行。先过滤 orphan，再复制，
+        # 避免把大体积 orphan 表带入后续面积筛选、打分和排名。
+        complete_pair_mask = (candidates["s1_peak_id"] >= 0) & (candidates["s2_peak_id"] >= 0)
+        candidates = candidates[complete_pair_mask].copy()
 
-        # 空数据处理
+        # 空数据处理（包括输入只有 orphan 的情况）
         if len(candidates) == 0:
             return candidates
 
@@ -93,12 +99,7 @@ class S1S2PairSelectionPlugin(Plugin):
 
         # 过滤: S2_area > S1_area (物理约束)
         if require_s2_larger:
-            # 保留孤立信号和满足约束的候选
-            mask = (
-                (candidates["s2_peak_id"] == -1)
-                | (candidates["s1_peak_id"] == -1)
-                | (candidates["s2_area"] > candidates["s1_area"])
-            )
+            mask = candidates["s2_area"] > candidates["s1_area"]
             candidates = candidates[mask]
 
             # 如果过滤后没有候选了，直接返回

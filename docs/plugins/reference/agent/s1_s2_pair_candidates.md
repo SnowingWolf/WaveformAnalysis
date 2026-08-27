@@ -5,7 +5,7 @@ profile: "agent"
 provides: "s1_s2_pair_candidates"
 plugin_class: "S1S2PairCandidatesPlugin"
 module: "waveform_analysis.core.plugins.builtin.s1_s2_pair_candidates.plugin"
-version: "0.1.3"
+version: "0.2.0"
 summary: "Generate all physically allowed S1-S2 pairing candidates"
 depends_on: ["peak_classification", "peaks"]
 declared_depends_on: ["peak_classification", "peaks"]
@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "ce140efec954613eb2fdb8766b6b6ace72c5c2ab2dba8a9dc1cd2115b0572305"
+source_fingerprint: "24c6a772f5c5986bc9a7b4d67680500860781fd93fd0686ad547f131d8ed8cbf"
 generated: true
 ---
 # s1_s2_pair_candidates
@@ -40,7 +40,7 @@ Hard constraints (物理必须满足): - t_S2 > t_S1 (时间因果性) - min_dri
 | Provides | `s1_s2_pair_candidates` |
 | Plugin Class | `S1S2PairCandidatesPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.s1_s2_pair_candidates.plugin` |
-| Version | `0.1.3` |
+| Version | `0.2.0` |
 | Category | 事件分析 |
 | Output Container | `structured_array` |
 | Execution Mode | `static` |
@@ -49,7 +49,7 @@ Hard constraints (物理必须满足): - t_S2 > t_S1 (时间因果性) - min_dri
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `ce140efec954613eb2fdb8766b6b6ace72c5c2ab2dba8a9dc1cd2115b0572305` |
+| Source Fingerprint | `24c6a772f5c5986bc9a7b4d67680500860781fd93fd0686ad547f131d8ed8cbf` |
 
 ### Dependencies
 

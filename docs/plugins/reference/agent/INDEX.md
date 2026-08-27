@@ -57,8 +57,8 @@ result = ctx.get_data("run_001", "events")
 | [`records_asymmetry_mask`](records_asymmetry_mask.md) | `RecordsAsymmetryMaskPlugin` | `records`, `wave_pool` | `records`, `wave_pool` | - | `array` | `static` | `source` | `0.2.0` |
 | [`records_detector_mask`](records_detector_mask.md) | `RecordsDetectorMaskPlugin` | `records`, `records_asymmetry_mask` | `records`, `records_asymmetry_mask` | - | `array` | `static` | `source` | `0.1.0` |
 | [`records_veto_mask`](records_veto_mask.md) | `RecordsVetoMaskPlugin` | `records`, `records_asymmetry_mask` | `records`, `records_asymmetry_mask` | - | `array` | `static` | `source` | `0.1.0` |
-| [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md) | `S1S2PairCandidatesPlugin` | `peak_classification`, `peaks` | `peak_classification`, `peaks` | - | `structured_array` | `static` | `source` | `0.1.3` |
-| [`s1_s2_pairs`](s1_s2_pairs.md) | `S1S2PairSelectionPlugin` | `s1_s2_pair_candidates` | `s1_s2_pair_candidates` | - | `structured_array` | `static` | `source` | `0.2.0` |
+| [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md) | `S1S2PairCandidatesPlugin` | `peak_classification`, `peaks` | `peak_classification`, `peaks` | - | `structured_array` | `static` | `source` | `0.2.0` |
+| [`s1_s2_pairs`](s1_s2_pairs.md) | `S1S2PairSelectionPlugin` | `s1_s2_pair_candidates` | `s1_s2_pair_candidates` | - | `structured_array` | `static` | `source` | `0.3.0` |
 | [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | - | `raw_files` | `daq_adapter`, `use_upstream_baseline` | `structured_array` | `static` | `source` | `0.10.0` |
 | [`wave_pool`](wave_pool.md) | `WavePoolPlugin` | - | `raw_files` | `daq_adapter`, `input_source` | `array` | `static` | `source` | `0.14.2` |
 | [`wave_pool_filtered`](wave_pool_filtered.md) | `WavePoolFilteredPlugin` | `records`, `wave_pool` | `records`, `wave_pool` | - | `array` | `static` | `source` | `3.0.0` |
