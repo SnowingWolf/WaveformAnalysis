@@ -8,7 +8,7 @@
 - corner_hist: 散点矩阵（corner plot），展示多变量的两两关系
   * 对角线显示单变量分布直方图
   * 下三角显示二维直方图
-  * 支持对数刻度和自定义分箱
+  * 支持线性、对数、对称对数刻度和自定义分箱
 - plot_1d_cut_on_corner: 在 corner plot 上绘制单变量切割线
 - plot_2d_cut_on_corner: 在 corner plot 上绘制二维切割曲线
 
@@ -56,6 +56,7 @@ logger = logging.getLogger(__name__)
 try:
     from matplotlib.colors import LogNorm, Normalize
     import matplotlib.pyplot as plt
+    from matplotlib.scale import SymmetricalLogTransform
 
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
@@ -66,6 +67,19 @@ _NUMBA_AVAILABLE = None
 _numba_histogram2d = None
 
 __all__ = ["corner_hist", "plot_1d_cut_on_corner", "plot_2d_cut_on_corner"]
+
+
+def _symlog_bin_edges(lo, hi, nbin, linthresh):
+    """Return bins that are evenly spaced in Matplotlib symlog space."""
+    transform = SymmetricalLogTransform(base=10, linthresh=linthresh, linscale=1)
+    transformed_limits = transform.transform(np.asarray([lo, hi], dtype=np.float64))
+    transformed_edges = np.linspace(transformed_limits[0], transformed_limits[1], nbin + 1)
+    edges = transform.inverted().transform(transformed_edges)
+    # Transform round-trips can move the endpoints slightly inward. Restore
+    # the caller's exact limits so samples equal to min/max remain in range.
+    edges[0] = lo
+    edges[-1] = hi
+    return edges
 
 
 def _ensure_numba_histogram2d():
@@ -119,6 +133,14 @@ def _ensure_numba_histogram2d():
                 # side='right' 确保边界行为与 np.histogram2d 一致
                 ix = np.searchsorted(xedges, xi, side="right") - 1
                 iy = np.searchsorted(yedges, yi, side="right") - 1
+
+                # NumPy histograms include the rightmost edge in the final
+                # bin. ``searchsorted(..., side='right')`` otherwise maps an
+                # exact maximum one position past the valid range.
+                if ix == nx and xi == xedges[nx]:
+                    ix = nx - 1
+                if iy == ny and yi == yedges[ny]:
+                    iy = ny - 1
 
                 # 边界检查：只有在有效范围内的点才计入
                 if 0 <= ix < nx and 0 <= iy < ny:
@@ -211,6 +233,8 @@ def corner_hist(
     show_ticks: bool = True,
     show_ticklabels: bool | tuple | None = None,
     hist_density: bool = False,
+    symlog_linthresh: float | list[float] = 1.0,
+    tight_layout: bool = True,
 ):
     """
     绘制散点矩阵（corner plot）用于多变量分布分析。
@@ -243,8 +267,9 @@ def corner_hist(
         坐标轴刻度类型。可以是：
 
         - 'linear'：线性刻度
-        - 'log'：对数刻度
-        - list：每个变量指定不同刻度，如 ['log', 'log', 'linear']
+        - 'log'：对数刻度，只保留正值
+        - 'symlog'：对称对数刻度，保留负值、零和正值
+        - list：每个变量指定不同刻度，如 ['symlog', 'log', 'linear']
     weights : ndarray, optional
         事件权重，长度与每个数据数组相同。
     figsize_per_panel : float, default=3.0
@@ -312,6 +337,13 @@ def corner_hist(
     hist_density : bool, default=False
         对角线 1D 直方图是否按概率密度归一化（density=True，积分=1）。
         默认 False = 原始计数。叠加对比前后景时建议 True，让两层用同一归一化可直接比形状。
+    symlog_linthresh : float or list of float, default=1.0
+        `symlog` 中心线性区域的半宽。可为所有变量指定同一个正数，或按变量
+        提供正数列表。整数 bins 会在相同的 symlog 变换空间内等距生成。
+    tight_layout : bool, default=True
+        新建 figure 后是否自动调用一次 ``fig.tight_layout()``。复用 ``fig`` 和
+        ``axes`` 叠加数据时不会重复布局；需要更新布局时请在最后手工调用。
+        大矩阵可设为 False 以跳过通常较昂贵的自动布局。
 
     返回
     -------
@@ -356,6 +388,15 @@ def corner_hist(
     ... )
     >>> fig.savefig('corner_log.png')
     >>>
+    >>> # 对称对数刻度同时展示负值、零和正值
+    >>> signed = [np.linspace(-1e3, 1e3, 2000), np.random.randn(2000)]
+    >>> fig, axes = corner_hist(
+    ...     signed,
+    ...     names=['Signed area', 'Residual'],
+    ...     scales=['symlog', 'linear'],
+    ...     symlog_linthresh=[10.0, 1.0],
+    ... )
+    >>>
     >>> # 叠加对比：mask 前后数据
     >>> fig, axes = corner_hist(data_before, names=names, hist_color='blue',
     ...                         hist_alpha=0.5, hist2d_alpha=0.5)
@@ -367,7 +408,7 @@ def corner_hist(
     注意
     -----
     - 本函数依赖 matplotlib 库
-    - 对数刻度要求数据为正值，负值和零会被自动过滤
+    - 对数刻度要求数据为正值，负值和零会被自动过滤；symlog 会保留它们
     - 大量数据点可能导致绘图速度较慢，建议使用合适的 bins 数量
     - 使用 fig/axes 叠加时，确保两次调用的 names 顺序一致
 
@@ -436,10 +477,21 @@ def corner_hist(
 
     scales = expand_param(scales, default="linear", name="scales")
     ranges = expand_param(ranges, default=None, name="ranges")
+    symlog_linthresh = expand_param(
+        symlog_linthresh,
+        default=1.0,
+        name="symlog_linthresh",
+    )
 
     for s in scales:
-        if s not in ("linear", "log"):
-            raise ValueError("scales 只支持 'linear' 或 'log'。")
+        if s not in ("linear", "log", "symlog"):
+            raise ValueError("scales 只支持 'linear'、'log' 或 'symlog'。")
+
+    for value in symlog_linthresh:
+        if not isinstance(value, int | float | np.integer | np.floating):
+            raise ValueError("symlog_linthresh 必须为有限正数。")
+        if not np.isfinite(value) or value <= 0:
+            raise ValueError("symlog_linthresh 必须为有限正数。")
 
     # 处理 bins 参数
     if isinstance(bins, int | np.integer):
@@ -477,7 +529,7 @@ def corner_hist(
         weights = weights[mask]
 
     # 解析分箱边界
-    def resolve_bins(x, b, r, scale):
+    def resolve_bins(x, b, r, scale, linthresh):
         # 显式指定的分箱边界
         if not isinstance(b, int | np.integer):
             edges = np.asarray(b)
@@ -495,7 +547,10 @@ def corner_hist(
             # 空数据或全 NaN 的处理
             if len(x) == 0 or not np.any(np.isfinite(x)):
                 # 返回默认范围
-                lo, hi = 0.0, 1.0
+                if scale == "symlog":
+                    lo, hi = -linthresh, linthresh
+                else:
+                    lo, hi = 0.0, 1.0
             else:
                 lo, hi = np.nanmin(x), np.nanmax(x)
 
@@ -504,9 +559,12 @@ def corner_hist(
             lo, hi = 0.0, 1.0
 
         if lo == hi:
-            eps = 1e-12 if lo == 0 else abs(lo) * 1e-12
-            lo -= eps
-            hi += eps
+            if scale == "symlog" and lo == 0:
+                lo, hi = -linthresh, linthresh
+            else:
+                eps = 1e-12 if lo == 0 else abs(lo) * 1e-12
+                lo -= eps
+                hi += eps
 
         if scale == "log":
             if lo <= 0:
@@ -523,11 +581,21 @@ def corner_hist(
 
             return np.logspace(np.log10(lo), np.log10(hi), nbin + 1)
 
+        if scale == "symlog":
+            return _symlog_bin_edges(lo, hi, nbin, linthresh)
+
         return np.linspace(lo, hi, nbin + 1)
 
     bin_edges = [
-        resolve_bins(x, b, r, scale)
-        for x, b, r, scale in zip(data, bins, ranges, scales, strict=False)
+        resolve_bins(x, b, r, scale, linthresh)
+        for x, b, r, scale, linthresh in zip(
+            data,
+            bins,
+            ranges,
+            scales,
+            symlog_linthresh,
+            strict=False,
+        )
     ]
 
     # 创建或复用图形
@@ -554,6 +622,13 @@ def corner_hist(
         norm = Normalize(vmin=hist2d_vmin, vmax=hist2d_vmax)
     else:
         raise ValueError("hist2d_norm 只支持 'log' 或 None。")
+
+    def set_axis_scale(ax, axis, scale, linthresh):
+        setter = ax.set_xscale if axis == "x" else ax.set_yscale
+        if scale == "symlog":
+            setter("symlog", linthresh=linthresh)
+        elif scale != "linear" or not created_new_figure:
+            setter(scale)
 
     for i in range(n):
         for j in range(n):
@@ -595,7 +670,7 @@ def corner_hist(
                     density=hist_density,
                 )
 
-                ax.set_xscale(xscale)
+                set_axis_scale(ax, "x", xscale, symlog_linthresh[j])
                 ax.set_yscale("log")
 
             # 非对角线：2D 直方图
@@ -619,8 +694,8 @@ def corner_hist(
                     if add_colorbar:
                         fig.colorbar(mesh, ax=ax)
 
-                ax.set_xscale(xscale)
-                ax.set_yscale(yscale)
+                set_axis_scale(ax, "x", xscale, symlog_linthresh[j])
+                set_axis_scale(ax, "y", yscale, symlog_linthresh[i])
 
             # label 控制
             if label_mode == "outer":
@@ -706,7 +781,8 @@ def corner_hist(
             fontweight=label_fontweight,
         )
 
-    fig.tight_layout()
+    if tight_layout and created_new_figure:
+        fig.tight_layout()
     return fig, axes
 
 

@@ -20,6 +20,7 @@ from waveform_analysis.utils.visualization.statistical_plots import (
     _ensure_numba_histogram2d,
     _numba_histogram2d,
     _safe_histogram2d,
+    _symlog_bin_edges,
     corner_hist,
 )
 
@@ -127,6 +128,18 @@ class TestHistogram2DCorrectness:
         np.testing.assert_array_equal(H_numpy, H_numba)
         assert H_numba.sum() == 0  # 所有点都在范围外
 
+    def test_rightmost_edges_match_numpy(self):
+        xbins = np.array([-10.0, 0.0, 10.0])
+        ybins = np.array([-5.0, 0.0, 5.0])
+        x = np.array([-10.0, 0.0, 10.0])
+        y = np.array([-5.0, 0.0, 5.0])
+
+        expected, _, _ = np.histogram2d(x, y, bins=[xbins, ybins])
+        actual = _safe_histogram2d(x, y, xbins, ybins)
+
+        np.testing.assert_array_equal(actual, expected.T)
+        assert actual.sum() == len(x)
+
     def test_different_dtypes(self):
         """测试不同数据类型"""
         np.random.seed(45)
@@ -220,6 +233,138 @@ class TestCornerHistIntegration:
 
         assert fig is not None
         assert axes.shape == (3, 3)
+
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
+
+    def test_corner_hist_with_mixed_symlog_scales(self):
+        data = [
+            np.linspace(-1e3, 1e3, 5001),
+            np.linspace(-20, 20, 5001),
+            np.geomspace(1e-2, 1e2, 5001),
+        ]
+
+        fig, axes = corner_hist(
+            data,
+            names=["signed", "linear", "positive"],
+            scales=["symlog", "linear", "log"],
+            symlog_linthresh=[5.0, 1.0, 1.0],
+            bins=30,
+        )
+
+        assert axes[0, 0].get_xscale() == "symlog"
+        assert axes[1, 0].get_xscale() == "symlog"
+        assert axes[1, 0].xaxis.get_transform().linthresh == 5.0
+        assert axes[1, 0].get_yscale() == "linear"
+        assert axes[2, 1].get_yscale() == "log"
+
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
+
+    def test_symlog_bins_are_uniform_in_transform_space(self):
+        from matplotlib.scale import SymmetricalLogTransform
+
+        edges = _symlog_bin_edges(-1e3, 1e3, 40, linthresh=5.0)
+        transform = SymmetricalLogTransform(base=10, linthresh=5.0, linscale=1)
+        transformed_edges = transform.transform(edges)
+
+        assert np.all(np.diff(edges) > 0)
+        assert edges[0] == -1e3
+        assert edges[-1] == 1e3
+        assert np.any(edges < 0)
+        assert np.any(edges > 0)
+        np.testing.assert_allclose(
+            np.diff(transformed_edges),
+            np.diff(transformed_edges)[0],
+            rtol=1e-12,
+            atol=1e-12,
+        )
+
+        values = np.array([-1e3, 0.0, 1e3])
+        counts, _ = np.histogram(values, bins=edges)
+        assert counts.sum() == len(values)
+
+        counts_2d = _safe_histogram2d(values, values, edges, edges)
+        assert counts_2d.sum() == len(values)
+
+    def test_symlog_retains_negative_zero_and_positive_values(self, monkeypatch):
+        from waveform_analysis.utils.visualization import statistical_plots
+
+        captured = {}
+
+        def capture_histogram(x, y, xbins, ybins, weights=None):
+            captured["x"] = np.asarray(x)
+            captured["y"] = np.asarray(y)
+            return np.zeros((len(ybins) - 1, len(xbins) - 1))
+
+        monkeypatch.setattr(statistical_plots, "_safe_histogram2d", capture_histogram)
+        signed = np.array([-10.0, 0.0, 10.0])
+        fig, _ = corner_hist(
+            [signed, signed],
+            scales=["symlog", "linear"],
+            symlog_linthresh=1.0,
+            bins=10,
+            tight_layout=False,
+        )
+
+        np.testing.assert_array_equal(captured["x"], signed)
+        np.testing.assert_array_equal(captured["y"], signed)
+
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
+
+    @pytest.mark.parametrize("value", [0, -1, np.inf, np.nan, "invalid"])
+    def test_invalid_symlog_linthresh(self, value):
+        with pytest.raises(ValueError, match="symlog_linthresh"):
+            corner_hist(
+                [np.array([-1.0, 0.0, 1.0])],
+                scales="symlog",
+                symlog_linthresh=value,
+            )
+
+    def test_symlog_linthresh_length_must_match_data(self):
+        with pytest.raises(ValueError, match="symlog_linthresh 长度"):
+            corner_hist(
+                [np.array([-1.0, 1.0]), np.array([-2.0, 2.0])],
+                scales="symlog",
+                symlog_linthresh=[1.0],
+            )
+
+    def test_layout_runs_once_for_new_figure_and_not_overlay(self, monkeypatch):
+        from matplotlib.figure import Figure
+
+        calls = 0
+        original = Figure.tight_layout
+
+        def counted_tight_layout(self, *args, **kwargs):
+            nonlocal calls
+            calls += 1
+            return original(self, *args, **kwargs)
+
+        monkeypatch.setattr(Figure, "tight_layout", counted_tight_layout)
+        data = [np.linspace(-5, 5, 1000), np.linspace(-2, 2, 1000)]
+
+        fig, axes = corner_hist(data, bins=20)
+        assert calls == 1
+
+        corner_hist(data, bins=20, fig=fig, axes=axes)
+        assert calls == 1
+
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
+
+    def test_tight_layout_can_be_disabled(self, monkeypatch):
+        from matplotlib.figure import Figure
+
+        def unexpected_tight_layout(self, *args, **kwargs):
+            raise AssertionError("tight_layout should not be called")
+
+        monkeypatch.setattr(Figure, "tight_layout", unexpected_tight_layout)
+        fig, _ = corner_hist([np.arange(10.0)], tight_layout=False)
 
         import matplotlib.pyplot as plt
 
@@ -325,6 +470,8 @@ class TestCornerHistIntegration:
             "show_ticks",
             "show_ticklabels",
             "hist_density",
+            "symlog_linthresh",
+            "tight_layout",
         ]
 
 

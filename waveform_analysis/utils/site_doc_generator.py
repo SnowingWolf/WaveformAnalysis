@@ -1153,7 +1153,7 @@ _PARAMETER_HELP = {
     "names": "变量名称列表。",
     "bins": "直方图分箱数或每个变量的分箱边界。",
     "ranges": "每个变量的显示范围。",
-    "scales": "线性或对数坐标设置。",
+    "scales": "线性、对数或对称对数坐标设置。",
     "weights": "与样本等长的可选权重。",
     "figsize_per_panel": "每个矩阵面板的边长。",
     "cmap": "二维直方图色图。",
@@ -1175,6 +1175,8 @@ _PARAMETER_HELP = {
     "tick_labelsize": "刻度字号。",
     "diag_title": "是否在对角线显示变量标题。",
     "show_ticks": "是否显示刻度。",
+    "symlog_linthresh": "对称对数坐标中心线性区域的半宽。",
+    "tight_layout": "新建 corner figure 后是否自动执行一次 tight layout。",
     "var": "要添加一维阈值的变量名。",
     "value": "一维阈值位置。",
     "xvar": "二维曲线的 x 变量名。",
@@ -1254,7 +1256,10 @@ _CALLABLE_NOTES = {
     "plot_lineage": ("`mermaid` 返回文本；`labview` 和 `plotly` 返回图形对象。",),
     "clear_cache_for": ("设置 `downstream=True` 前应确认影响范围。",),
     "diagnose_cache": ("默认 `dry_run=True`，不会修改缓存。",),
-    "corner_hist": ("对数坐标要求对应数据和范围为正数。",),
+    "corner_hist": (
+        "对数坐标要求对应数据和范围为正数；对称对数坐标可保留负值和零。",
+        "叠加绘图不会重复执行 tight layout；需要时请在最后手工调用一次。",
+    ),
     "plot_peak_channels_with_sum": ("批量检查多个 peak 时应使用 `create_peak_plotter()`。",),
     "create_peak_plotter": ("返回函数会持有预加载数组，使用完毕后释放引用。",),
     "render_position_dashboard_2d": (
@@ -2483,9 +2488,25 @@ VISUALIZATION_DOCUMENTATION_PAGES = (
                         _callable_parameters(corner_hist),
                         returns=_CALLABLE_RETURNS["corner_hist"],
                         notes=_CALLABLE_NOTES["corner_hist"],
-                        example="""fig, axes = corner_hist([area, height, width], names=[\"area\", \"height\", \"width\"])
-plot_1d_cut_on_corner(axes, [\"area\", \"height\", \"width\"], \"area\", 1000)
-plot_2d_cut_on_corner(axes, [\"area\", \"height\", \"width\"], \"area\", \"height\", lambda x: 0.1 * x)
+                        example="""fig, axes = corner_hist(
+    [signed_area, height, width],
+    names=[\"signed_area\", \"height\", \"width\"],
+    scales=[\"symlog\", \"log\", \"linear\"],
+    symlog_linthresh=[10.0, 1.0, 1.0],
+)
+plot_1d_cut_on_corner(
+    axes,
+    [\"signed_area\", \"height\", \"width\"],
+    \"signed_area\",
+    1000,
+)
+plot_2d_cut_on_corner(
+    axes,
+    [\"signed_area\", \"height\", \"width\"],
+    \"signed_area\",
+    \"height\",
+    lambda x: 0.1 * x,
+)
 fig.savefig(\"corner.png\", dpi=150)
 """,
                     ),
