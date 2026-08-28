@@ -6,7 +6,7 @@
 - `workflow_shape`: `staged`
 - `lifecycle_profile`: `qa_review`
 - `risk_level`: `medium`
-- `scope_in`: repair the Python CI failures at commit `99d757d` by modernizing lint-only type annotations, aligning the CI Black version with pre-commit, and correcting the slow-test synthetic timestamp model
+- `scope_in`: repair the Python CI failures at commit `99d757d` by modernizing lint-only type annotations, bounding CI lint/format tool versions to verified repository baselines, and correcting the slow-test synthetic timestamp model
 - `scope_out`: production plugin behavior, waveform overlap policy, plugin contracts, generated documentation, and unrelated tests
 - `required_gates`:
   - `ruff_check`

@@ -8,6 +8,7 @@
   - `ruff_check: pass`
   - `black_check: pass`
   - `black_version_alignment: pass (CI/dev and pre-commit use 25.1.0)`
+  - `ruff_version_baseline: pass (CI/dev 0.6.4 passes all files; staged pre-commit remains stricter at 0.8.6)`
   - `plugin_dependency_check: pass`
   - `pytest_fast_complete: pass (1586 passed, 3 skipped)`
   - `pytest_slow_complete: pass (15 passed)`

@@ -17,6 +17,7 @@
 - `actions_taken`:
   - replaced deprecated `typing` aliases with Python 3.10+ built-in annotations in the three Ruff-failing scripts
   - pinned Black 25.1.0 in the dev dependencies to match the repository pre-commit hook and prevent formatter drift in CI
+  - pinned CI/dev Ruff 0.6.4 after verifying it passes the complete repository; pre-commit remains on the stricter 0.8.6 staged-file policy
   - made the stress-test record and hit timestamps physically consistent in picoseconds, preserving the canonical overlap-conflict policy
   - made Context help render run-resolved dependency details instead of declared details in resolved and fallback modes
 - `commands_run`:
@@ -56,4 +57,5 @@
 
 - the first complete fast run exposed a Context help failure that the original Ruff failure had masked; scope expanded only to the minimal help-rendering fix and its existing regression test
 - the first commit attempt exposed Black 25.1 versus 26.1 formatter drift; the CI dependency was aligned with the repository's pinned pre-commit version
+- the first remote rerun still failed at Ruff because CI installed an unbounded newer release; CI was pinned to Ruff 0.6.4, the version verified against the complete repository without expanding into historical lint cleanup
 - the `waveform-docs` shell entry point was unavailable locally, so the equivalent module entry point was used

@@ -45,7 +45,7 @@ dev = [
     "PyYAML>=6.0.0",
     "black==25.1.0",
     "mypy>=0.950",
-    "ruff>=0.1.0",
+    "ruff==0.6.4",
     "ipython>=8.0.0",
     "jupyter>=1.0.0",
     "nbformat>=4.2.0",
