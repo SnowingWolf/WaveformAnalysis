@@ -7,7 +7,6 @@ import json
 from pathlib import Path
 import subprocess
 import sys
-from typing import Dict, List, Optional, Set, Tuple
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PLUGIN_ROOT = "waveform_analysis/core/plugins"
@@ -19,10 +18,10 @@ class PluginMeta:
     def __init__(
         self,
         class_name: str,
-        provides: Optional[str] = None,
-        depends_on: Optional[List[str]] = None,
-        output_dtype: Optional[str] = None,
-        version: Optional[str] = None,
+        provides: str | None = None,
+        depends_on: list[str] | None = None,
+        output_dtype: str | None = None,
+        version: str | None = None,
     ):
         self.class_name = class_name
         self.provides = provides
@@ -30,7 +29,7 @@ class PluginMeta:
         self.output_dtype = output_dtype
         self.version = version
 
-    def to_dict(self) -> Dict[str, object]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "class_name": self.class_name,
             "provides": self.provides,
@@ -40,7 +39,7 @@ class PluginMeta:
         }
 
 
-def _run_git(args: List[str], check: bool = True) -> str:
+def _run_git(args: list[str], check: bool = True) -> str:
     result = subprocess.run(
         ["git"] + args,
         cwd=str(PROJECT_ROOT),
@@ -61,15 +60,15 @@ def _is_plugin_like_class(node: ast.ClassDef) -> bool:
     return False
 
 
-def _extract_string(node: ast.AST) -> Optional[str]:
+def _extract_string(node: ast.AST) -> str | None:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
     return None
 
 
-def _extract_depends(node: ast.AST) -> List[str]:
-    values: List[str] = []
-    if isinstance(node, (ast.List, ast.Tuple)):
+def _extract_depends(node: ast.AST) -> list[str]:
+    values: list[str] = []
+    if isinstance(node, ast.List | ast.Tuple):
         for elt in node.elts:
             if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
                 values.append(elt.value)
@@ -80,9 +79,9 @@ def _extract_depends(node: ast.AST) -> List[str]:
     return values
 
 
-def _extract_plugin_meta(source: str) -> Dict[str, PluginMeta]:
+def _extract_plugin_meta(source: str) -> dict[str, PluginMeta]:
     tree = ast.parse(source)
-    result: Dict[str, PluginMeta] = {}
+    result: dict[str, PluginMeta] = {}
     for node in tree.body:
         if not isinstance(node, ast.ClassDef):
             continue
@@ -119,7 +118,7 @@ def _read_file(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def _read_base_file(base: str, rel_path: str) -> Optional[str]:
+def _read_base_file(base: str, rel_path: str) -> str | None:
     result = subprocess.run(
         ["git", "show", f"{base}:{rel_path}"],
         cwd=str(PROJECT_ROOT),
@@ -131,7 +130,7 @@ def _read_base_file(base: str, rel_path: str) -> Optional[str]:
     return result.stdout
 
 
-def _changed_plugin_files(base: str) -> List[str]:
+def _changed_plugin_files(base: str) -> list[str]:
     raw = _run_git(["diff", "--name-only", base, "--", PLUGIN_ROOT])
     files = []
     for line in raw.splitlines():
@@ -143,9 +142,9 @@ def _changed_plugin_files(base: str) -> List[str]:
     return sorted(set(files))
 
 
-def _collect_current_plugin_graph() -> Tuple[Dict[str, PluginMeta], Dict[str, Set[str]]]:
-    provider_meta: Dict[str, PluginMeta] = {}
-    dep_to_consumers: Dict[str, Set[str]] = {}
+def _collect_current_plugin_graph() -> tuple[dict[str, PluginMeta], dict[str, set[str]]]:
+    provider_meta: dict[str, PluginMeta] = {}
+    dep_to_consumers: dict[str, set[str]] = {}
 
     for path in (PROJECT_ROOT / PLUGIN_ROOT).rglob("*.py"):
         if "__pycache__" in str(path):
@@ -162,9 +161,9 @@ def _collect_current_plugin_graph() -> Tuple[Dict[str, PluginMeta], Dict[str, Se
     return provider_meta, dep_to_consumers
 
 
-def _collect_downstream(start_names: List[str], dep_to_consumers: Dict[str, Set[str]]) -> List[str]:
-    visited: Set[str] = set()
-    queue: List[str] = list(start_names)
+def _collect_downstream(start_names: list[str], dep_to_consumers: dict[str, set[str]]) -> list[str]:
+    visited: set[str] = set()
+    queue: list[str] = list(start_names)
 
     while queue:
         cur = queue.pop(0)
@@ -177,7 +176,7 @@ def _collect_downstream(start_names: List[str], dep_to_consumers: Dict[str, Set[
     return sorted(visited)
 
 
-def _risk_level(change_keys: List[str], version_changed: bool) -> str:
+def _risk_level(change_keys: list[str], version_changed: bool) -> str:
     key_set = set(change_keys)
     if "class_added" in key_set or "class_removed" in key_set:
         return "high"
@@ -190,11 +189,11 @@ def _risk_level(change_keys: List[str], version_changed: bool) -> str:
     return "low"
 
 
-def assess(base: str) -> Dict[str, object]:
+def assess(base: str) -> dict[str, object]:
     changed_files = _changed_plugin_files(base)
     provider_meta, dep_to_consumers = _collect_current_plugin_graph()
 
-    records: List[Dict[str, object]] = []
+    records: list[dict[str, object]] = []
 
     for rel_path in changed_files:
         current_path = PROJECT_ROOT / rel_path
@@ -209,7 +208,7 @@ def assess(base: str) -> Dict[str, object]:
         for cls in class_names:
             before = old_meta.get(cls)
             after = new_meta.get(cls)
-            change_keys: List[str] = []
+            change_keys: list[str] = []
 
             if before is None and after is not None:
                 change_keys.append("class_added")
@@ -243,7 +242,7 @@ def assess(base: str) -> Dict[str, object]:
             version_changed = "version" in change_keys
             risk = _risk_level(change_keys, version_changed)
 
-            notes: List[str] = []
+            notes: list[str] = []
             if "output_dtype" in change_keys and not version_changed:
                 notes.append("output_dtype changed but version unchanged")
             if "depends_on" in change_keys and not version_changed:
@@ -281,7 +280,7 @@ def assess(base: str) -> Dict[str, object]:
     return summary
 
 
-def _print_report(report: Dict[str, object]) -> None:
+def _print_report(report: dict[str, object]) -> None:
     print("=== assess_change_impact ===")
     print("base: {}".format(report["base"]))
     print("changed plugin files: {}".format(len(report["changed_plugin_files"])))

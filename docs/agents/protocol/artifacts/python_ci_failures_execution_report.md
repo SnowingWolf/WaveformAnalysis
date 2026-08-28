@@ -1,0 +1,59 @@
+# execution_report
+
+- `task_id`: `python_ci_failures_20260828`
+- `workflow_cost`: `standard`
+- `workflow_shape`: `staged`
+- `executor_role`: `executor.qa`
+- `changed_paths`:
+  - `scripts/assess_change_impact.py`
+  - `scripts/precommit/black_per_file.py`
+  - `scripts/scaffold_plugin.py`
+  - `pyproject.toml`
+  - `tests/plugins/test_stress_tests.py`
+  - `waveform_analysis/utils/context_help.py`
+  - `docs/agents/protocol/artifacts/python_ci_failures_plan_brief.md`
+  - `docs/agents/protocol/artifacts/python_ci_failures_execution_report.md`
+  - `docs/agents/protocol/artifacts/python_ci_failures_review_report.md`
+- `actions_taken`:
+  - replaced deprecated `typing` aliases with Python 3.10+ built-in annotations in the three Ruff-failing scripts
+  - pinned Black 25.1.0 in the dev dependencies to match the repository pre-commit hook and prevent formatter drift in CI
+  - made the stress-test record and hit timestamps physically consistent in picoseconds, preserving the canonical overlap-conflict policy
+  - made Context help render run-resolved dependency details instead of declared details in resolved and fallback modes
+- `commands_run`:
+  - `ruff check .`
+  - `python scripts/precommit/black_per_file.py --check <changed Python files>`
+  - `python scripts/check_plugin_deps.py`
+  - `python -m pytest`
+  - `python -m pytest -m slow -o addopts=""`
+  - `python -m waveform_analysis.utils.cli_docs generate plugins-auto -o docs/plugins/reference/builtin/auto/`
+  - `python -m waveform_analysis.utils.cli_docs generate plugins-agent -o docs/plugins/reference/agent/`
+  - `python scripts/assess_change_impact.py --base HEAD`
+  - `python scripts/schema_compat_check.py --base HEAD --run-smoke`
+  - `python scripts/render_agent_docs.py --check`
+  - `WAVEFORM_PYTHON=... scripts/check_doc_sync.sh`
+  - `python scripts/check_doc_anchors.py --check-sync --base HEAD`
+- `open_risks`:
+  - Python 3.10 and 3.11 are not installed locally; their matrix jobs require remote CI confirmation after push
+- `requested_review_focus`:
+  - confirm the test fixture no longer creates physically impossible overlapping records
+  - confirm Context help changes presentation only and do not alter DAG dependency resolution
+
+## run_tests Notes
+
+- `tests_selected`:
+  - complete fast suite
+  - complete slow suite
+  - Context help focused suite
+- `tests_run`:
+  - fast: `1586 passed, 3 skipped, 15 deselected`
+  - slow: `15 passed, 1589 deselected`
+  - Context help: `8 passed`
+- `test_results_summary`: all requested local tests and quality gates passed
+- `not_executed_and_why`:
+  - exact local Python 3.10/3.11 runs were unavailable; GitHub Actions provides the authoritative matrix
+
+## Plan Drift
+
+- the first complete fast run exposed a Context help failure that the original Ruff failure had masked; scope expanded only to the minimal help-rendering fix and its existing regression test
+- the first commit attempt exposed Black 25.1 versus 26.1 formatter drift; the CI dependency was aligned with the repository's pinned pre-commit version
+- the `waveform-docs` shell entry point was unavailable locally, so the equivalent module entry point was used

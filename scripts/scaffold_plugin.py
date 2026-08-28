@@ -7,7 +7,6 @@ import argparse
 from pathlib import Path
 import re
 import textwrap
-from typing import List
 
 PLUGIN_TEMPLATE = textwrap.dedent(
     '''\
@@ -149,7 +148,7 @@ def to_snake(name: str) -> str:
     return s2.lower().strip("_")
 
 
-def parse_depends(value: str) -> List[str]:
+def parse_depends(value: str) -> list[str]:
     if not value:
         return []
     items = [item.strip() for item in value.split(",")]
@@ -168,7 +167,7 @@ def ensure_init(package_dir: Path) -> None:
 def render_plugin(
     class_name: str,
     provides: str,
-    depends_on: List[str],
+    depends_on: list[str],
     description: str,
 ) -> str:
     if depends_on:
@@ -212,7 +211,7 @@ def render_tests(class_name: str, module_name: str, provides: str) -> str:
     )
 
 
-def render_doc(class_name: str, module_name: str, provides: str, depends_on: List[str]) -> str:
+def render_doc(class_name: str, module_name: str, provides: str, depends_on: list[str]) -> str:
     if depends_on:
         depends_on_human = ", ".join(f"`{name}`" for name in depends_on)
     else:

@@ -49,11 +49,16 @@ def _is_jupyter() -> bool:
 
 
 def _plugin_plain(view: PluginDocumentationView, dependency_mode: str) -> str:
+    dependency_details = (
+        view.dependency_details
+        if dependency_mode == "declared"
+        else view.resolved_dependency_details
+    )
     dependency_lines = [
         f"- {detail.name}"
         f"{f' ({detail.version_constraint})' if detail.version_constraint else ''}: "
         f"{detail.description or 'No producer description available.'}"
-        for detail in view.dependency_details
+        for detail in dependency_details
     ] or ["- -"]
     workflow_lines = [
         f"{index}. {step}" for index, step in enumerate(view.workflow_steps, start=1)
@@ -69,7 +74,7 @@ def _plugin_plain(view: PluginDocumentationView, dependency_mode: str) -> str:
         for field in view.output_fields
     ] or [f"- {view.output_kind}: {view.output_summary}"]
     downstream = ", ".join(view.downstream_consumers) or "terminal output / no registered consumer"
-    dependency_names = ", ".join(detail.name for detail in view.dependency_details) or "-"
+    dependency_names = ", ".join(detail.name for detail in dependency_details) or "-"
     fallback = _fallback_plain(view)
     return (
         f"Plugin: {view.provides}\n"
@@ -96,6 +101,11 @@ def _plugin_plain(view: PluginDocumentationView, dependency_mode: str) -> str:
 
 
 def _plugin_html(view: PluginDocumentationView, dependency_mode: str) -> str:
+    dependency_details = (
+        view.dependency_details
+        if dependency_mode == "declared"
+        else view.resolved_dependency_details
+    )
     workflow_items = (
         "".join(f"<li>{escape(step)}</li>" for step in view.workflow_steps) or "<li>-</li>"
     )
@@ -108,7 +118,7 @@ def _plugin_html(view: PluginDocumentationView, dependency_mode: str) -> str:
             f"<td>{escape(', '.join(detail.required_fields) or '-')}</td>"
             f"<td>{escape(detail.description or 'No producer description available.')}</td>"
             "</tr>"
-            for detail in view.dependency_details
+            for detail in dependency_details
         )
         or '<tr><td colspan="5">-</td></tr>'
     )
