@@ -11,6 +11,7 @@
   - `pyproject.toml`
   - `tests/plugins/test_stress_tests.py`
   - `waveform_analysis/utils/context_help.py`
+  - `waveform_analysis/visualization/dashboard_original.py`
   - `docs/agents/protocol/artifacts/python_ci_failures_plan_brief.md`
   - `docs/agents/protocol/artifacts/python_ci_failures_execution_report.md`
   - `docs/agents/protocol/artifacts/python_ci_failures_review_report.md`
@@ -20,6 +21,7 @@
   - pinned CI/dev Ruff 0.6.4 after verifying it passes the complete repository; pre-commit remains on the stricter 0.8.6 staged-file policy
   - made the stress-test record and hit timestamps physically consistent in picoseconds, preserving the canonical overlap-conflict policy
   - made Context help render run-resolved dependency details instead of declared details in resolved and fallback modes
+  - applied Black 25.1 formatting to the single legacy Python file found by the CI-wide Black scope
 - `commands_run`:
   - `ruff check .`
   - `python scripts/precommit/black_per_file.py --check <changed Python files>`
@@ -58,4 +60,5 @@
 - the first complete fast run exposed a Context help failure that the original Ruff failure had masked; scope expanded only to the minimal help-rendering fix and its existing regression test
 - the first commit attempt exposed Black 25.1 versus 26.1 formatter drift; the CI dependency was aligned with the repository's pinned pre-commit version
 - the first remote rerun still failed at Ruff because CI installed an unbounded newer release; CI was pinned to Ruff 0.6.4, the version verified against the complete repository without expanding into historical lint cleanup
+- the next remote rerun reached Black and exposed one pre-existing unformatted Python file; the repository-wide pre-commit Black pass confirmed it was the only Python formatting drift
 - the `waveform-docs` shell entry point was unavailable locally, so the equivalent module entry point was used
