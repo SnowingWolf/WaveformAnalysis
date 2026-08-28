@@ -1,9 +1,12 @@
+from importlib import import_module
 from unittest.mock import patch
 
 import numpy as np
 
 from tests.utils import DummyContext
 from waveform_analysis.core.data.records_view import RecordsView
+
+records_view_module = import_module("waveform_analysis.core.data.records_view")
 from waveform_analysis.core.plugins.builtin.waveform_width_integral import (
     WaveformWidthIntegralPlugin,
 )
@@ -40,7 +43,7 @@ def test_waveform_width_integral_reads_records_view_when_wave_source_records():
     )
     rv = RecordsView(records, wave_pool)
 
-    with patch("waveform_analysis.core.data.records_view.records_view", return_value=rv) as mocked:
+    with patch.object(records_view_module, "records_view", return_value=rv) as mocked:
         out = plugin.compute(ctx, "run_001")
 
     assert mocked.call_count == 1
@@ -73,7 +76,7 @@ def test_waveform_width_integral_reads_filtered_pool_when_records_use_filtered()
     )
     rv = RecordsView(records, wave_pool_filtered)
 
-    with patch("waveform_analysis.core.data.records_view.records_view", return_value=rv) as mocked:
+    with patch.object(records_view_module, "records_view", return_value=rv) as mocked:
         plugin.compute(ctx, "run_001")
 
     assert mocked.call_args.kwargs["wave_pool_name"] == "wave_pool_filtered"

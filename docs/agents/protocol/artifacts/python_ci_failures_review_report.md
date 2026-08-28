@@ -18,11 +18,13 @@
   - `schema_compat_check: pass (0 dtype changes; smoke passed)`
   - `doc_sync: pass`
   - `doc_anchors: pass (29 anchors, 0 errors, 0 warnings)`
+  - `python_3_10_compileall: pass`
+  - `python_3_10_fast_suite: pass (1583 passed, 6 skipped, 15 deselected)`
 - `decision`: `completed`
 - `blocking_findings`:
   - none
 - `residual_risks`:
-  - remote Python 3.10/3.11 jobs remain to confirm after push
+  - remote Python 3.10/3.11 jobs remain to confirm the compatibility fix after push
 - `follow_up_actions`:
   - commit and push the scoped repair
   - inspect the new GitHub Actions run through completion

@@ -76,6 +76,7 @@ def _plugin_plain(view: PluginDocumentationView, dependency_mode: str) -> str:
     downstream = ", ".join(view.downstream_consumers) or "terminal output / no registered consumer"
     dependency_names = ", ".join(detail.name for detail in dependency_details) or "-"
     fallback = _fallback_plain(view)
+    overview = "\n\n".join(view.overview_paragraphs)
     return (
         f"Plugin: {view.provides}\n"
         f"Class: {view.name}\n"
@@ -83,7 +84,7 @@ def _plugin_plain(view: PluginDocumentationView, dependency_mode: str) -> str:
         f"Module: {view.module_path}\n"
         f"Summary: {view.summary or '-'}\n"
         + (
-            f"\nOverview:\n{'\n\n'.join(view.overview_paragraphs)}\n"
+            f"\nOverview:\n{overview}\n"
             if view.overview_paragraphs
             else (f"\nOverview:\n{view.overview}\n" if view.overview else "")
         )

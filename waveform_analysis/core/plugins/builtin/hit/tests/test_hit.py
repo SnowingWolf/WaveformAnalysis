@@ -3,6 +3,7 @@
 用例从 tests/plugins/test_plugin_auto_config_hitfinder.py 迁入并改用 bundle 路径。
 """
 
+from importlib import import_module
 from unittest.mock import patch
 
 import numpy as np
@@ -10,6 +11,8 @@ import numpy as np
 from tests.utils import DummyContext, make_records, make_st_waveforms
 from waveform_analysis.core.data.records_view import RecordsView
 from waveform_analysis.core.plugins.builtin.hit import HIT_DTYPE, HitFinderPlugin
+
+records_view_module = import_module("waveform_analysis.core.data.records_view")
 
 
 def test_hitfinder_empty_dtype():
@@ -93,7 +96,7 @@ def test_hitfinder_reads_records_view_when_wave_source_records():
 
     rv = RecordsView(records, wave_pool)
 
-    with patch("waveform_analysis.core.data.records_view.records_view", return_value=rv) as mocked:
+    with patch.object(records_view_module, "records_view", return_value=rv) as mocked:
         result = plugin.compute(ctx, "run_001")
 
     assert mocked.call_count == 1
