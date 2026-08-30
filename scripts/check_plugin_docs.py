@@ -45,7 +45,7 @@ def main():
             [
                 sys.executable,
                 "-m",
-                "waveform_analysis.utils.cli_docs",
+                "waveform_analysis.documentation.cli",
                 "generate",
                 "plugins-auto",
                 "-o",
@@ -63,7 +63,7 @@ def main():
     cmd = [
         sys.executable,
         "-m",
-        "waveform_analysis.utils.cli_docs",
+        "waveform_analysis.documentation.cli",
         "check",
         "coverage",
         "-d",

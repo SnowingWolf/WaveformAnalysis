@@ -122,7 +122,7 @@ def _check_generated_docs_sync() -> tuple[bool, dict[str, object]]:
             [
                 sys.executable,
                 "-m",
-                "waveform_analysis.utils.cli_docs",
+                "waveform_analysis.documentation.cli",
                 "generate",
                 "plugins-auto",
                 "-o",
@@ -138,7 +138,7 @@ def _check_generated_docs_sync() -> tuple[bool, dict[str, object]]:
             [
                 sys.executable,
                 "-m",
-                "waveform_analysis.utils.cli_docs",
+                "waveform_analysis.documentation.cli",
                 "generate",
                 "plugins-agent",
                 "-o",

@@ -55,7 +55,7 @@ CLI 工具通过 `pyproject.toml` 中的 `[project.scripts]` 配置自动安装�
 [project.scripts]
 waveform-process = "waveform_analysis.cli:main"
 waveform-cache = "waveform_analysis.cli_cache:main"
-waveform-docs = "waveform_analysis.utils.cli_docs:main"
+waveform-docs = "waveform_analysis.documentation.cli:main"
 ```
 
 安装包后命令自动可用：

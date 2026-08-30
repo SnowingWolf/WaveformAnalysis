@@ -57,7 +57,7 @@ from .storage.cache_manager import RuntimeCacheManager
 from .storage.memmap import MemmapStorage
 
 if TYPE_CHECKING:
-    from ..utils.context_help import HelpDocument
+    from ..documentation.context_help import HelpDocument
 
 
 def _safe_copy_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -2423,7 +2423,10 @@ class Context:
         run_id: str | None = None,
     ) -> HelpDocument:
         """Return terminal text and a rich Jupyter representation for a help topic."""
-        from waveform_analysis.utils.context_help import build_context_help, show_context_help
+        from waveform_analysis.documentation.context_help import (
+            build_context_help,
+            show_context_help,
+        )
 
         return show_context_help(build_context_help(self, topic, run_id=run_id))
 

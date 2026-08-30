@@ -76,7 +76,7 @@ Repository = "https://github.com/SnowingWolf/WaveformAnalysis.git"
 
 [project.scripts]
 waveform-process = "waveform_analysis.cli:main"
-waveform-docs = "waveform_analysis.utils.cli_docs:main"
+waveform-docs = "waveform_analysis.documentation.cli:main"
 waveform-cache = "waveform_analysis.cli_cache:main"
 
 [tool.setuptools.packages.find]
@@ -94,11 +94,12 @@ waveform_analysis = [
     "documentation/dtype_field_notes.yaml",
     "documentation/prompts/*.md",
     "documentation/schemas/*.json",
-    "utils/templates/*.j2",
-    "utils/templates/web/*.j2",
-    "utils/templates/web/assets/*",
-    "utils/templates/web/assets/react/*",
-    "utils/templates/web/assets/plugin-sets/*",
+    "documentation/templates/*.j2",
+    "documentation/templates/web/*.j2",
+    "documentation/templates/web/assets/*",
+    "documentation/templates/web/assets/mermaid/*",
+    "documentation/templates/web/assets/react/*",
+    "documentation/templates/web/assets/plugin-sets/*",
 ]
 
 [tool.black]

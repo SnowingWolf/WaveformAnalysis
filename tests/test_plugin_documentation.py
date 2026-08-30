@@ -152,7 +152,7 @@ def test_standalone_web_generation_keeps_fixed_sidebar_navigation(tmp_path):
 def test_plugin_set_images_are_declared_as_wheel_package_data():
     pyproject = Path(__file__).parents[1] / "pyproject.toml"
     package_data = pyproject.read_text(encoding="utf-8")
-    assert '"utils/templates/web/assets/plugin-sets/*",' in package_data
+    assert '"documentation/templates/web/assets/plugin-sets/*",' in package_data
 
 
 def test_web_lineage_omits_unknown_inputs_and_lists_isolated_plugins(tmp_path):
@@ -624,7 +624,9 @@ def test_output_schema_conflicts_with_dtype_fail_explicitly():
 
 
 def test_web_templates_and_assets_are_source_package_data():
-    template_root = Path(__file__).parents[1] / "waveform_analysis" / "utils" / "templates" / "web"
+    template_root = (
+        Path(__file__).parents[1] / "waveform_analysis" / "documentation" / "templates" / "web"
+    )
     assert (template_root / "index.html.j2").is_file()
     assert (template_root / "plugin.html.j2").is_file()
     assert (template_root / "assets" / "site.css").is_file()
