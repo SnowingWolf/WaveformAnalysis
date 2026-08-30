@@ -844,4 +844,7 @@ class DAQAnalyzer:
 
 __all__ = ["DAQAnalyzer"]
 
+from waveform_analysis.acquisition.daq.discovery import scan_all_runs
+
+DAQAnalyzer.scan_all_runs = scan_all_runs
 DAQAnalyzer.__module__ = "waveform_analysis.utils.daq.daq_analyzer"

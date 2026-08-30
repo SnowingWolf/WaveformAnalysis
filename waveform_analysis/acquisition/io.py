@@ -398,7 +398,7 @@ def _read_files_pyarrow(
         return np.vstack(padded)
 
 
-def parse_files_generator(
+def _parse_files_generator_legacy(
     file_paths: list[str],
     skiprows: int = 2,
     delimiter: str = ";",
@@ -480,7 +480,22 @@ def parse_files_generator(
             logger.debug(f"Streaming failed for {fp}: {e}")
 
 
-def parse_and_stack_files(
+from waveform_analysis.acquisition.readers.base_csv import parse_files_generator  # noqa: E402
+from waveform_analysis.acquisition.readers.polars_backend import (  # noqa: E402
+    read_csv_polars as _read_csv_polars,
+)
+from waveform_analysis.acquisition.readers.polars_backend import (
+    read_files_polars as _read_files_polars,
+)
+from waveform_analysis.acquisition.readers.pyarrow_backend import (  # noqa: E402
+    read_csv_pyarrow as _read_csv_pyarrow,
+)
+from waveform_analysis.acquisition.readers.pyarrow_backend import (
+    read_files_pyarrow as _read_files_pyarrow,
+)
+
+
+def _parse_and_stack_files_impl(
     file_paths: list[str],
     skiprows: int = 2,
     delimiter: str = ";",
@@ -943,3 +958,8 @@ def parse_and_stack_files(
             else:
                 padded.append(a.astype(object))
         return np.vstack(padded)
+
+
+from waveform_analysis.acquisition.readers.orchestrator import (  # noqa: E402
+    parse_and_stack_files,
+)

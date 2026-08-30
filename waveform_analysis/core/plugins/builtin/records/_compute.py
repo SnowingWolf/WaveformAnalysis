@@ -140,7 +140,7 @@ def _resolve_dt_ns(context: Any, plugin: Plugin, adapter_name: str | None = None
         daq_adapter = adapter_name or context.config.get("daq_adapter")
         if daq_adapter:
             try:
-                from waveform_analysis.utils.formats import get_adapter
+                from waveform_analysis.acquisition.formats import get_adapter
 
                 adapter = get_adapter(daq_adapter)
                 sampling_rate = adapter.sampling_rate_hz
@@ -201,7 +201,7 @@ def _resolve_file_epoch_ns(adapter_name: str | None, raw_files: list) -> int | N
     if not adapter_name:
         return None
 
-    from waveform_analysis.utils.formats import get_adapter
+    from waveform_analysis.acquisition.formats import get_adapter
 
     adapter = get_adapter(adapter_name)
     first_file = next((group[0] for group in raw_files if group), None)

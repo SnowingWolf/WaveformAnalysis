@@ -50,7 +50,7 @@ from waveform_analysis.core.utils.baseline import (
 )
 
 if TYPE_CHECKING:
-    from waveform_analysis.utils.formats.base import ColumnMapping, FormatSpec
+    from waveform_analysis.acquisition.formats.base import ColumnMapping, FormatSpec
 
 # Setup logger
 logger = logging.getLogger(__name__)
@@ -65,7 +65,7 @@ def _parse_file_to_npy(
     """Parse a single file and persist to .npy to avoid large IPC payloads."""
     import tempfile
 
-    from waveform_analysis.utils.io import parse_and_stack_files
+    from waveform_analysis.acquisition.io import parse_and_stack_files
 
     ch_idx, file_idx, fp, skiprows, chunksize, delimiter, engine = args
     arr = parse_and_stack_files(
@@ -326,7 +326,7 @@ def _structure_waveforms_streaming(
     from pathlib import Path
     import tempfile
 
-    from waveform_analysis.utils.formats import get_adapter
+    from waveform_analysis.acquisition.formats import get_adapter
 
     daq_adapter = config.format_spec.name.replace("_csv", "")
     adapter = get_adapter(daq_adapter)
@@ -492,7 +492,7 @@ class WaveformStructConfig:
 
         注意：不再硬编码 wave_length，依赖自动检测
         """
-        from waveform_analysis.utils.formats import VX2730_SPEC
+        from waveform_analysis.acquisition.formats import VX2730_SPEC
 
         return cls(format_spec=VX2730_SPEC, wave_length=None)
 
@@ -502,7 +502,7 @@ class WaveformStructConfig:
 
         注意：不再从适配器获取 expected_samples，依赖自动检测
         """
-        from waveform_analysis.utils.formats import get_adapter
+        from waveform_analysis.acquisition.formats import get_adapter
 
         adapter = get_adapter(adapter_name)
         return cls(format_spec=adapter.format_spec, wave_length=None)
@@ -1047,7 +1047,7 @@ class WaveformsPlugin(Plugin):
         """
         from pathlib import Path
 
-        from waveform_analysis.utils.formats import get_adapter
+        from waveform_analysis.acquisition.formats import get_adapter
 
         raw_files = context.get_data(run_id, "raw_files")
         n_channels = len(raw_files)
@@ -1228,8 +1228,8 @@ class WaveformsPlugin(Plugin):
         """扁平化文件读取：全局文件池并行解析，之后按通道聚合。"""
         from concurrent.futures import as_completed
 
+        from waveform_analysis.acquisition.io import parse_and_stack_files
         from waveform_analysis.core.execution.manager import get_executor
-        from waveform_analysis.utils.io import parse_and_stack_files
 
         engine = (parse_engine or "auto").lower()
         tasks: list[tuple[int, int, str, int, str, str]] = []

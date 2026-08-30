@@ -614,4 +614,13 @@ class DAQRun:
         }
 
 
+from waveform_analysis.acquisition.daq.discovery import (
+    scan_channel_files,
+    scan_default,
+    scan_with_layout,
+)
+
+DAQRun._scan_channel_files = scan_channel_files
+DAQRun._scan_default = scan_default
+DAQRun._scan_with_layout = scan_with_layout
 DAQRun.__module__ = "waveform_analysis.utils.daq.daq_run"
