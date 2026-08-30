@@ -260,3 +260,8 @@ def test_acquisition_responsibility_modules_share_facade_objects():
     assert daq_discovery.scan_all_runs is canonical_daq_analyzer.DAQAnalyzer.scan_all_runs
     assert daq_discovery.scan_default is canonical_daq_run.DAQRun._scan_default
     assert daq_presentation.display_overview is canonical_daq_analyzer.DAQAnalyzer.display_overview
+
+
+def test_unreachable_legacy_doc_generator_entry_is_absent():
+    cli = importlib.import_module("waveform_analysis.documentation.cli")
+    assert not hasattr(cli, "generate_docs")

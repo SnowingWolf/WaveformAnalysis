@@ -10,6 +10,11 @@
 
 - 插件索引 web 页：为 7 个插件集合（io/waveform/hit/peaks/basic_features/tabular/events）区块加入真实波形配图，由 `examples/generate_plugin_set_images.py` 从真实 DAQ 数据经真实插件链（hit → hit_merged → peaklets → peaks）生成。
 
+### Refactoring and performance
+
+- 将文档、可视化、分析与采集实现从 `waveform_analysis.utils` 迁入按职责划分的规范包，同时保留旧导入路径、对象身份和 monkeypatch 兼容性。
+- `PositionReconstructionPlugin` 改为批量消费 `peaklet_channels`，避免逐事件构造 Accessor，并升级到 `0.4.0` 以正确失效缓存 lineage。
+
 ## v1.5.0
 
 This release focuses on Context 公共 API 收敛、峰重建与 peaklet 管线优化、S1-S2 配对与访问器、可视化 dashboard 交互增强，以及离线文档站点的大规模重构。

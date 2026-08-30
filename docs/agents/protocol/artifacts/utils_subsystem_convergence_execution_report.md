@@ -1,0 +1,71 @@
+# execution_report
+
+- `task_id`: `utils_subsystem_convergence`
+- `workflow_cost`: `strict`
+- `workflow_shape`: `staged`
+- `executor_role`: `executor.plugin`
+- `agent_profile`: `none`
+- `changed_paths`:
+  - `waveform_analysis/_module_aliases.py`
+  - `waveform_analysis/visualization/**`
+  - `waveform_analysis/analysis/**`
+  - `waveform_analysis/acquisition/**`
+  - `waveform_analysis/utils/**`
+  - `waveform_analysis/core/plugins/builtin/position_reconstruction/**`
+  - `waveform_analysis/core/{context.py,context_time.py,config,foundation,processing}/**`
+  - `waveform_analysis/documentation/**`
+  - `tests/contracts/**`
+  - visualization, analysis, acquisition, and position-reconstruction focused tests
+  - `README.md`, `CHANGELOG.md`, generated position-reconstruction references
+- `actions_taken`:
+  - Froze the remaining utils public surface, signatures, lazy imports, structured outputs, registries, and representative behavior.
+  - Moved visualization, analysis, and acquisition implementations to canonical packages and installed identity-preserving legacy module aliases.
+  - Added responsibility-oriented visualization, Accessor, acquisition-reader, and DAQ-service modules without changing public behavior.
+  - Replaced per-event `PeakChannelAccessor` construction in position reconstruction with one batched `peaklet_channels` load, unique-ID grouping, and inverse-index refill; bumped the plugin to `0.4.0`.
+  - Reduced utils to lazy exports and aliases, removed the unreachable `utils.doc_generator` CLI function, and documented canonical package entry points.
+  - Built a wheel from a clean Git archive and verified canonical/legacy imports plus packaged documentation assets from an isolated target install.
+- `commands_run`:
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q`
+  - focused visualization, analysis, acquisition, documentation, and position-reconstruction pytest selections
+  - `waveform_analysis.documentation.cli generate plugins-auto|plugins-agent|plugins-web|site-web` to independent `/tmp` trees
+  - `diff -qr` for every generated tree against the frozen baseline
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m ruff check .`
+  - `scripts/check_doc_sync.sh`
+  - `python scripts/render_agent_docs.py --check`
+  - `python scripts/check_doc_anchors.py --check-sync --base HEAD`
+  - `python -m waveform_analysis.documentation.cli check coverage --strict --fail-on-warning`
+  - `python -m waveform_analysis.documentation.cli check links --strict --fail-on-warning`
+  - `python scripts/assess_change_impact.py --base 8ad76f9`
+  - `python scripts/schema_compat_check.py --base 8ad76f9 --run-smoke`
+  - `python scripts/performance_regression_check.py --base 8ad76f9`
+  - `python scripts/release_artifact_sync.py --base HEAD --skip-tests --skip-perf`
+  - clean `git archive`, `python -m build --wheel`, isolated `pip --target`, canonical/legacy import and asset checks
+- `open_risks`:
+  - The release wrapper's nested test and performance invocations were skipped because the same full test and performance gates were executed separately; nested long-running attempts were stopped after NFS/process instability.
+  - Full-repository Black check still reports pre-existing formatting debt in `waveform_analysis/core/storage/backends.py`, which was not touched; all staged files passed the repository's pinned pre-commit Black hook.
+- `requested_review_focus`:
+  - Confirm old and canonical modules share object identity, especially private monkeypatch targets and acquisition registries.
+  - Confirm the position plugin's dtype, ordering, flags, missing-data semantics, version, and Run 00196 evidence.
+  - Confirm structural stages have no generated-output drift and that the clean wheel contains all new packages and assets.
+  - Confirm commit boundaries match the nine requested scoped commits.
+
+## Optional Notes
+
+- `tests_run`:
+  - Full suite: 1600 passed and 3 skipped in the sandbox; the only 3 failures were local-socket permission errors and all 3 passed when rerun with temporary `127.0.0.1` binding permission.
+  - Acquisition stage: 106 focused tests passed.
+  - Documentation/facade stage: 57 focused tests passed with 2 intentionally deselected by project configuration.
+- `gates_executed`:
+  - Ruff passed.
+  - Strict documentation coverage passed at 100% with zero warnings.
+  - Markdown links, fragments, doc sync, rendered agent docs, and anchors passed.
+  - Change impact found only the intended `PositionReconstructionPlugin` version change; schema smoke reported zero dtype changes.
+  - Standalone performance regression passed; release artifact synchronization passed for version/changelog, generated docs, and doc synchronization while deferring duplicate nested tests/perf to the separately recorded gates.
+- `docs_updated`:
+  - Added canonical package imports to `README.md` and an Unreleased changelog entry.
+  - Updated only the expected generated position-reconstruction references; `docs/_site` was not modified.
+- `plan_drift`:
+  - Executable imports in `st_waveforms` and `records/_compute.py` retain legacy spelling so plugin source fingerprints and generated artifacts remain byte-stable. Those imports resolve to the canonical acquisition module objects through identity-preserving aliases, and legacy monkeypatch tests continue to observe the same registries.
+- `real_data_evidence`:
+  - Run 00196: 26,002 rows matched the cached oracle; shape, dtype, order, IDs, flags, strings, and integers were exact; floats passed `rtol=1e-6, atol=1e-5, equal_nan=True`.
+  - Five-run medians: old `46.2109 s`, new `0.198669 s` (0.43% of old); peak RSS old `7,051,472,896`, new `1,076,125,696` bytes (15.3% of old).
