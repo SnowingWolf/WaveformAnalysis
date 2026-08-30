@@ -9,6 +9,7 @@ import sys
 
 import matplotlib
 import numpy as np
+import pytest
 
 matplotlib.use("Agg")
 
@@ -85,6 +86,68 @@ def test_utils_registry_and_representative_visual_structure_match_snapshot():
         matplotlib.pyplot.close(fig)
 
 
+def test_utils_exception_dtype_daq_and_parsing_contracts(tmp_path):
+    from waveform_analysis.core.plugins.builtin.position_reconstruction import (
+        POSITION_RECONSTRUCTION_DTYPE,
+    )
+    from waveform_analysis.utils import adaptive_sample_count
+    from waveform_analysis.utils.daq import DAQAnalyzer
+    from waveform_analysis.utils.io import parse_and_stack_files
+    from waveform_analysis.utils.peak_channel_accessor import (
+        PeakChannelDataUnavailableError,
+        WaveformOverlapConflictError,
+    )
+    from waveform_analysis.utils.s1_s2_pair_accessor import WaveformNotFoundError
+
+    snapshot = _snapshot()
+    exception_types = {
+        "PeakChannelDataUnavailableError": PeakChannelDataUnavailableError,
+        "WaveformOverlapConflictError": WaveformOverlapConflictError,
+        "WaveformNotFoundError": WaveformNotFoundError,
+    }
+    for name, exception_type in exception_types.items():
+        assert exception_type.__base__.__name__ == snapshot["exception_contracts"][name]
+
+    for key, call in (("adaptive_sample_count_negative", lambda: adaptive_sample_count(-1)),):
+        expected_type, expected_message = snapshot["exception_contracts"][key]
+        with pytest.raises(Exception) as caught:
+            call()
+        assert type(caught.value).__name__ == expected_type
+        assert str(caught.value) == expected_message
+
+    expected_dtype = snapshot["structured_dtypes"]["position_reconstruction"]
+    assert [list(field) for field in POSITION_RECONSTRUCTION_DTYPE.descr] == expected_dtype
+
+    raw_dir = tmp_path / "DAQ" / "run" / "RAW"
+    raw_dir.mkdir(parents=True)
+    fixture_path = raw_dir / "RUN_CH0_0.CSV"
+    fixture_path.write_text(
+        "meta\nheader\n0;0;100;0;0;0;0;1;2\n",
+        encoding="utf-8",
+    )
+    expected_type, expected_message = snapshot["exception_contracts"][
+        "parse_and_stack_files_invalid_engine"
+    ]
+    with pytest.raises(Exception) as caught:
+        parse_and_stack_files([str(fixture_path)], engine="invalid")
+    assert type(caught.value).__name__ == expected_type
+    assert str(caught.value) == expected_message
+
+    parsed = parse_and_stack_files([str(fixture_path)], engine="pandas", n_jobs=1)
+    expected_parse = snapshot["parse_fixture"]
+    assert list(parsed.shape) == expected_parse["shape"]
+    assert parsed.dtype.str == expected_parse["dtype"]
+    assert parsed.tolist() == expected_parse["values"]
+
+    analyzer = DAQAnalyzer(tmp_path / "DAQ")
+    analyzer.scan_all_runs()
+    run = analyzer.get_run("run")
+    assert run is not None
+    observed_run = run.to_dict()
+    expected_run = snapshot["daq_fixture"]
+    assert {key: observed_run[key] for key in expected_run} == expected_run
+
+
 def test_importing_utils_remains_lazy_in_fresh_process():
     code = """
 import json
@@ -118,7 +181,7 @@ print(json.dumps({
     assert observed["sampling_loaded"] is False
 
 
-def test_visualization_legacy_modules_share_canonical_implementations():
+def test_visualization_legacy_modules_share_canonical_implementations(monkeypatch):
     pairs = (
         ("lineage_visualizer", "plot_lineage_labview"),
         ("statistical_plots", "corner_hist"),
@@ -134,8 +197,12 @@ def test_visualization_legacy_modules_share_canonical_implementations():
 
     canonical_package = importlib.import_module("waveform_analysis.visualization")
     legacy_package = importlib.import_module("waveform_analysis.utils.visualization")
+    assert legacy_package is canonical_package
     for public_name in legacy_package.__all__:
         assert getattr(legacy_package, public_name) is getattr(canonical_package, public_name)
+    marker = object()
+    monkeypatch.setattr(legacy_package, "plot_waveforms", marker)
+    assert canonical_package.plot_waveforms is marker
 
 
 def test_visualization_responsibility_modules_preserve_public_objects():

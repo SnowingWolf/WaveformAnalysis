@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "root_all": [
     "DAQRun",
     "DAQAnalyzer",
@@ -111,6 +111,78 @@
       "_ensure_numba_histogram2d",
       "_numba_histogram2d",
       "_safe_histogram2d"
+    ],
+    "waveform_analysis.utils.io": [
+      "_POLARS_AVAILABLE",
+      "_PYARROW_AVAILABLE",
+      "_read_csv_polars",
+      "_read_csv_pyarrow",
+      "_read_files_polars",
+      "_read_files_pyarrow"
+    ],
+    "waveform_analysis.utils.formats": [
+      "ensure_builtin_formats_registered"
+    ],
+    "waveform_analysis.utils.formats.adapter": [
+      "_ADAPTER_REGISTRY"
+    ],
+    "waveform_analysis.utils.formats.registry": [
+      "_FORMAT_REGISTRY",
+      "_FORMAT_SPECS"
+    ],
+    "waveform_analysis.utils.daq.daq_analyzer": [
+      "_in_notebook",
+      "_ipydisplay"
+    ]
+  },
+  "exception_contracts": {
+    "PeakChannelDataUnavailableError": "RuntimeError",
+    "WaveformOverlapConflictError": "ValueError",
+    "WaveformNotFoundError": "Exception",
+    "adaptive_sample_count_negative": [
+      "ValueError",
+      "n must be non-negative."
+    ],
+    "parse_and_stack_files_invalid_engine": [
+      "ValueError",
+      "Invalid engine: invalid"
+    ]
+  },
+  "daq_fixture": {
+    "run_name": "run",
+    "file_count": 1,
+    "total_bytes": 32,
+    "channels": [0],
+    "channel_count": 1
+  },
+  "parse_fixture": {
+    "shape": [1, 9],
+    "dtype": "<i8",
+    "values": [[0, 0, 100, 0, 0, 0, 0, 1, 2]]
+  },
+  "structured_dtypes": {
+    "position_reconstruction": [
+      ["event_id", "<i8"],
+      ["pair_id", "<i8"],
+      ["s1_peak_id", "<i8"],
+      ["s2_peak_id", "<i8"],
+      ["x", "<f4"],
+      ["y", "<f4"],
+      ["z", "<f4"],
+      ["r", "<f4"],
+      ["x_err", "<f4"],
+      ["y_err", "<f4"],
+      ["z_err", "<f4"],
+      ["xy_chi2", "<f4"],
+      ["xy_ndf", "<i2"],
+      ["z_quality", "<f4"],
+      ["position_goodness", "<f4"],
+      ["xy_method", "<U16"],
+      ["z_method", "<U16"],
+      ["drift_time_ns", "<f4"],
+      ["s2_area", "<f4"],
+      ["s2_n_channels", "<i2"],
+      ["flags", "<u4"]
     ]
   },
   "registries": {

@@ -3,9 +3,6 @@
 from importlib import import_module
 
 __all__ = [
-    "render_position_dashboard",
-    "render_position_dashboard_2d",
-    "render_position_dashboard_with_2d_hist",
     "plot_lineage_labview",
     "plot_lineage_plotly",
     "plot_waveforms",
