@@ -229,3 +229,34 @@ def test_acquisition_legacy_modules_share_registries_and_implementations():
     assert legacy_io is canonical_io
     assert legacy_daq.DAQAnalyzer is canonical_daq.DAQAnalyzer
     assert legacy_io.parse_and_stack_files is canonical_io.parse_and_stack_files
+    assert legacy_io.parse_files_generator is canonical_io.parse_files_generator
+
+
+def test_acquisition_responsibility_modules_share_facade_objects():
+    canonical_io = importlib.import_module("waveform_analysis.acquisition.io")
+    base_csv = importlib.import_module("waveform_analysis.acquisition.readers.base_csv")
+    orchestrator = importlib.import_module("waveform_analysis.acquisition.readers.orchestrator")
+    polars_backend = importlib.import_module("waveform_analysis.acquisition.readers.polars_backend")
+    pyarrow_backend = importlib.import_module(
+        "waveform_analysis.acquisition.readers.pyarrow_backend"
+    )
+    assert base_csv.parse_files_generator is canonical_io.parse_files_generator
+    assert orchestrator.parse_and_stack_files is canonical_io.parse_and_stack_files
+    assert polars_backend.read_csv_polars is canonical_io._read_csv_polars
+    assert polars_backend.read_files_polars is canonical_io._read_files_polars
+    assert pyarrow_backend.read_csv_pyarrow is canonical_io._read_csv_pyarrow
+    assert pyarrow_backend.read_files_pyarrow is canonical_io._read_files_pyarrow
+
+    daq_models = importlib.import_module("waveform_analysis.acquisition.daq.models")
+    daq_service = importlib.import_module("waveform_analysis.acquisition.daq.service")
+    daq_discovery = importlib.import_module("waveform_analysis.acquisition.daq.discovery")
+    daq_presentation = importlib.import_module("waveform_analysis.acquisition.daq.presentation")
+    canonical_daq_run = importlib.import_module("waveform_analysis.acquisition.daq.daq_run")
+    canonical_daq_analyzer = importlib.import_module(
+        "waveform_analysis.acquisition.daq.daq_analyzer"
+    )
+    assert daq_models.DAQRun is canonical_daq_run.DAQRun
+    assert daq_service.DAQAnalyzer is canonical_daq_analyzer.DAQAnalyzer
+    assert daq_discovery.scan_all_runs is canonical_daq_analyzer.DAQAnalyzer.scan_all_runs
+    assert daq_discovery.scan_default is canonical_daq_run.DAQRun._scan_default
+    assert daq_presentation.display_overview is canonical_daq_analyzer.DAQAnalyzer.display_overview
