@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "15e9a0f503d0cb2a0c3a4a1482a5a36056269155188ff07d39873b7a4330f3c6"
+source_fingerprint: "f20c76e90074744afc736f96da93d7c411de9c26a3b3e9d105415a01f3293de9"
 generated: true
 ---
 # position_reconstruction
@@ -53,7 +53,7 @@ v0.2.0 功能: - Z 坐标: 基于 drift_time * drift_velocity（向量化） - X
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `15e9a0f503d0cb2a0c3a4a1482a5a36056269155188ff07d39873b7a4330f3c6` |
+| Source Fingerprint | `f20c76e90074744afc736f96da93d7c411de9c26a3b3e9d105415a01f3293de9` |
 
 ### Dependencies
 

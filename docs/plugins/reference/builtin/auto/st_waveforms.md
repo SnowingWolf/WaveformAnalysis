@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "87eac8a247255c144aaad75170b1670882a1fa6a8591f37e64b8532bc9627b8f"
+source_fingerprint: "8da6036282bdf2e7af7ac059dc7afe7883d597904e75df0a13790ce1d3556c0d"
 generated: true
 ---
 # st_waveforms
@@ -43,7 +43,7 @@ Plugin to extract and structure waveforms from raw files.
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `87eac8a247255c144aaad75170b1670882a1fa6a8591f37e64b8532bc9627b8f` |
+| Source Fingerprint | `8da6036282bdf2e7af7ac059dc7afe7883d597904e75df0a13790ce1d3556c0d` |
 
 ### Dependencies
 
