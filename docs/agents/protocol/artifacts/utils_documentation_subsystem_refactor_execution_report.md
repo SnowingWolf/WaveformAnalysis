@@ -1,0 +1,81 @@
+# execution_report
+
+- `task_id`: `utils_documentation_subsystem_refactor`
+- `workflow_cost`: `strict`
+- `workflow_shape`: `staged`
+- `executor_role`: `executor.docs`
+- `agent_profile`: `none`
+- `changed_paths`:
+  - `.pre-commit-config.yaml`
+  - `docs/agents/protocol/artifacts/utils_documentation_subsystem_refactor_plan_brief.md`
+  - `docs/cli/README.md`
+  - `pyproject.toml`
+  - `scripts/check_plugin_docs.py`
+  - `scripts/release_artifact_sync.py`
+  - `tests/test_documentation_import_compat.py`
+  - `tests/test_plugin_documentation.py`
+  - `waveform_analysis/core/context.py`
+  - `waveform_analysis/documentation/`
+  - `waveform_analysis/utils/cli_docs.py`
+  - `waveform_analysis/utils/context_help.py`
+  - `waveform_analysis/utils/doc_coverage.py`
+  - `waveform_analysis/utils/doc_links.py`
+  - `waveform_analysis/utils/plugin_doc_generator.py`
+  - `waveform_analysis/utils/site_doc_generator.py`
+  - `waveform_analysis/utils/site_guides.py`
+- `actions_taken`:
+  - Moved the documentation CLI, help, quality checks, guides, generators, templates, and assets to the canonical `waveform_analysis.documentation` package.
+  - Preserved legacy modules as aliases of the canonical module objects, including private attributes and monkeypatch targets, without deprecation warnings.
+  - Split plugin documentation into catalog, models, validation, resources, and generator responsibilities.
+  - Split site documentation into catalog, models, rendering, and generator responsibilities.
+  - Added canonical package exports, compatibility contract tests, canonical console-script metadata, and complete nested asset package data.
+  - Preserved generated routes and bytes; no generated `docs/_site` files were changed.
+- `commands_run`:
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q <14 documentation test modules>`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli generate plugins-auto -o docs/plugins/reference/builtin/auto/`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli generate plugins-agent -o docs/plugins/reference/agent/`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli generate plugins-web -o /tmp/waveform-plugins-web-final-20260830`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.utils.cli_docs generate site-web -o /tmp/waveform-site-web-final-20260830`
+  - `diff -qr /tmp/waveform-docs-baseline-20260830-a /tmp/waveform-site-web-final-20260830`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli check links --docs-dir docs`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli check coverage --strict --fail-on-warning --docs-dir docs`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/render_agent_docs.py --check`
+  - `scripts/check_doc_sync.sh`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py --check-sync --base HEAD~3`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/assess_change_impact.py --base HEAD~3`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/schema_compat_check.py --base HEAD~3 --run-smoke`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m ruff check <changed Python paths>`
+  - `/home/wxy/.cache/pre-commit/repo8tjjr1gp/py_env-python3.12/bin/black --check --workers 1 waveform_analysis/documentation/plugin_docs/generator.py`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m build --wheel --no-isolation --outdir /tmp/waveform-wheel-mermaid-20260830`
+  - `PYTHONPATH=/tmp/waveform-wheel-install-mermaid-20260830 /tmp/waveform-wheel-install-mermaid-20260830/bin/waveform-docs --help`
+- `open_risks`:
+  - The doc-anchor check reports one non-blocking warning because `waveform_analysis/core/context.py` changed only its documentation-helper import path while linked architecture pages intentionally did not change; it reports zero errors.
+- `requested_review_focus`:
+  - Confirm new and legacy module identity, private attribute forwarding, and both CLI entry paths.
+  - Confirm the two generator splits preserve module-level imports and do not introduce output drift.
+  - Confirm package data includes every template and nested asset while excluding the retired `utils/templates` path.
+  - Confirm no Accessor, DAQ, I/O, plugin contract, dtype, cache lineage, package-root export, or `docs/_site` behavior entered scope.
+
+## Verification Results
+
+- `tests_run`:
+  - `161 passed, 2 deselected, 2 pre-existing deprecation warnings` across the focused documentation suite, including the three tests that bind temporary `127.0.0.1` ports.
+  - Four compatibility tests cover canonical/legacy identity, signatures, `__all__`/`dir()`, private monkeypatch forwarding, and module CLI entry points.
+- `gates_executed`:
+  - Site generation: CLI reported 118 items; 115 actual files; two pre-change baselines and every phase output were byte-for-byte identical.
+  - Plugin generation: `plugins-auto` 37 files with no tracked drift; `plugins-agent` 37 files with no tracked drift; `plugins-web` 36 plugins and 51 files.
+  - Link check: 302 Markdown files, 503 local references, zero failures.
+  - Strict documentation coverage: 36/36 plugins, 100%, zero errors, zero warnings.
+  - Agent-doc rendering and doc-sync checks passed.
+  - Doc anchors: zero errors and one explained import-only warning.
+  - Change impact: zero plugin files and zero contract risks.
+  - Schema smoke: 31 checked files, zero dtype changes; smoke chain passed.
+  - Ruff and the project-pinned pre-commit Black formatter passed.
+  - Clean-archive wheel contains canonical templates plus general, Mermaid, React, and plugin-set assets; contains no legacy `utils/templates`; installed `waveform-docs --help` passed.
+- `docs_updated`:
+  - Updated the maintained CLI entry-point reference and package metadata only.
+  - Historical protocol artifacts and generated `docs/_site` were not rewritten.
+- `plan_drift`:
+  - None. A stale local `build/` directory initially made a live-tree wheel inspection unreliable, so the authoritative wheel was rebuilt from a clean Git archive.
+- `not_executed_and_why`:
+  - The repository environment did not have a globally installed `waveform-docs` executable. The console script was therefore verified from the clean built wheel after isolated `--target` installation.
