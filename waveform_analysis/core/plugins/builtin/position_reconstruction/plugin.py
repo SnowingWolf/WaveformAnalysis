@@ -27,12 +27,13 @@
 - v0.2.0: 向量化优化，性能提升 10-100x
 - v0.2.1: 修正默认漂移速度单位，确保 drift_time_ns 输出的 Z 坐标为 mm
 - v0.3.0: 声明 peaklet_channels 依赖，使 XY 通道面积进入缓存 lineage
+- v0.4.0: 直接批量消费 peaklet_channels，移除逐事件 Accessor 构造和查询
 
 Author: Claude Code
-Version: 0.3.0
+Version: 0.4.0
 """
 
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -42,10 +43,6 @@ from waveform_analysis.core.hardware.geometry import (
     load_pmt_layout_from_config,
 )
 from waveform_analysis.core.plugins.core.base import Option, Plugin
-from waveform_analysis.utils.peak_channel_accessor import (
-    PeakChannelAccessor,
-    PeakChannelDataUnavailableError,
-)
 
 # ============================================================================
 # 质量标志定义
@@ -135,7 +132,7 @@ class PositionReconstructionPlugin(Plugin):
     provides = "position_reconstruction"
     depends_on = ["s1_s2_pairs", "peaklet_channels"]
     description = "Reconstruct 3D position from S1-S2 pairs using vectorized CoG method"
-    version = "0.3.0"
+    version = "0.4.0"
     save_when = "always"
     output_dtype = POSITION_RECONSTRUCTION_DTYPE
 
@@ -253,80 +250,111 @@ class PositionReconstructionPlugin(Plugin):
             (x_array, y_array, n_channels_array) 元组
         """
         n_events = len(s2_peak_ids)
-
-        # 初始化结果数组
         x_array = np.full(n_events, np.nan, dtype=np.float32)
         y_array = np.full(n_events, np.nan, dtype=np.float32)
         n_channels_array = np.zeros(n_events, dtype=np.int16)
 
-        # 预计算 PMT 映射表
-        pmt_map = self._build_pmt_mapping(layout)
-
-        # 获取通道访问器
-        try:
-            channel_accessor = PeakChannelAccessor(context, run_id)
-        except (KeyError, TypeError, AttributeError, PeakChannelDataUnavailableError):
-            # 通道数据不可用
+        # Preserve the historical comparison semantics: NaN is not considered
+        # "below threshold" and therefore still attempts channel reconstruction.
+        eligible_mask = ~(np.asarray(s2_areas) < min_s2_area)
+        if not np.any(eligible_mask):
             return x_array, y_array, n_channels_array
 
-        # 批量处理所有事件
-        for i, (s2_peak_id, s2_area) in enumerate(zip(s2_peak_ids, s2_areas, strict=False)):
-            # 检查 S2 信号强度
-            if s2_area < min_s2_area:
-                continue
+        try:
+            peaklet_channels = context.get_data(run_id, "peaklet_channels")
+        except Exception:
+            return x_array, y_array, n_channels_array
 
-            # 获取通道级数据
-            try:
-                channels = channel_accessor.get_channels(peak_id=int(s2_peak_id))
-            except (
-                KeyError,
-                IndexError,
-                TypeError,
-                AttributeError,
-                PeakChannelDataUnavailableError,
-            ):
-                continue
+        required_fields = {"peaklet_id", "board", "channel", "area"}
+        names = (
+            set(peaklet_channels.dtype.names or ())
+            if isinstance(peaklet_channels, np.ndarray)
+            else set()
+        )
+        if not isinstance(peaklet_channels, np.ndarray) or not required_fields.issubset(names):
+            return x_array, y_array, n_channels_array
+        if len(peaklet_channels) == 0 or not layout.entries:
+            return x_array, y_array, n_channels_array
 
-            if not channels:
-                continue
+        eligible_indices = np.flatnonzero(eligible_mask)
+        unique_peak_ids, inverse = np.unique(
+            np.asarray(s2_peak_ids)[eligible_indices], return_inverse=True
+        )
 
-            # 向量化提取通道信息
-            channel_data = []
-            for ch in channels:
-                board = ch.get("board", 0)
-                channel_id = ch["channel"]
-                area = ch["area"]
+        channel_peak_ids = peaklet_channels["peaklet_id"]
+        channel_order = np.argsort(channel_peak_ids, kind="stable")
+        sorted_peak_ids = channel_peak_ids[channel_order]
+        left = np.searchsorted(sorted_peak_ids, unique_peak_ids, side="left")
+        right = np.searchsorted(sorted_peak_ids, unique_peak_ids, side="right")
+        counts = right - left
+        total_rows = int(np.sum(counts, dtype=np.int64))
+        if total_rows == 0:
+            return x_array, y_array, n_channels_array
 
-                if area <= 0:
-                    continue
+        group_indices = np.repeat(np.arange(len(unique_peak_ids), dtype=np.intp), counts)
+        repeated_left = np.repeat(left, counts)
+        repeated_offsets = np.repeat(np.cumsum(counts) - counts, counts)
+        row_positions = repeated_left + np.arange(total_rows, dtype=np.intp) - repeated_offsets
+        selected_rows = channel_order[row_positions]
 
-                # 快速查找 PMT 信息
-                pmt_info = pmt_map.get((board, channel_id))
-                if pmt_info is None:
-                    continue
+        key_dtype = np.dtype([("board", "i8"), ("channel", "i8")])
+        layout_keys = np.empty(len(layout.entries), dtype=key_dtype)
+        layout_x = np.empty(len(layout.entries), dtype=np.float32)
+        layout_y = np.empty(len(layout.entries), dtype=np.float32)
+        layout_gain = np.empty(len(layout.entries), dtype=np.float32)
+        for index, entry in enumerate(layout.entries):
+            layout_keys[index] = (entry.board_id, entry.channel_id)
+            layout_x[index] = entry.x_mm
+            layout_y[index] = entry.y_mm
+            layout_gain[index] = entry.gain
+        layout_order = np.argsort(layout_keys, kind="stable")
+        layout_keys = layout_keys[layout_order]
+        layout_x = layout_x[layout_order]
+        layout_y = layout_y[layout_order]
+        layout_gain = layout_gain[layout_order]
 
-                x_mm, y_mm, gain = pmt_info
-                channel_data.append((area, x_mm, y_mm, gain))
+        row_keys = np.empty(total_rows, dtype=key_dtype)
+        row_keys["board"] = peaklet_channels["board"][selected_rows]
+        row_keys["channel"] = peaklet_channels["channel"][selected_rows]
+        layout_positions = np.searchsorted(layout_keys, row_keys)
+        safe_layout_positions = np.minimum(layout_positions, len(layout_keys) - 1)
+        mapped_mask = (layout_positions < len(layout_keys)) & (
+            layout_keys[safe_layout_positions] == row_keys
+        )
+        areas = np.asarray(peaklet_channels["area"][selected_rows], dtype=np.float32)
+        # The legacy loop skipped only ``area <= 0``. In particular, NaN rows
+        # were retained and propagated to a non-reconstructed (NaN) result.
+        valid_rows = mapped_mask & ~(areas <= 0)
+        if not np.any(valid_rows):
+            return x_array, y_array, n_channels_array
 
-            if not channel_data:
-                continue
+        valid_groups = group_indices[valid_rows]
+        valid_layout_positions = safe_layout_positions[valid_rows]
+        q_corrected = areas[valid_rows] / layout_gain[valid_layout_positions]
+        sum_q = np.bincount(valid_groups, weights=q_corrected, minlength=len(unique_peak_ids))
+        sum_x = np.bincount(
+            valid_groups,
+            weights=q_corrected * layout_x[valid_layout_positions],
+            minlength=len(unique_peak_ids),
+        )
+        sum_y = np.bincount(
+            valid_groups,
+            weights=q_corrected * layout_y[valid_layout_positions],
+            minlength=len(unique_peak_ids),
+        )
+        channel_counts = np.bincount(valid_groups, minlength=len(unique_peak_ids))
 
-            # 转换为 NumPy 数组（向量化计算）
-            channel_array = np.array(channel_data, dtype=np.float32)
-            areas = channel_array[:, 0]
-            x_positions = channel_array[:, 1]
-            y_positions = channel_array[:, 2]
-            gains = channel_array[:, 3]
+        valid_peaks = sum_q > 0
+        unique_x = np.full(len(unique_peak_ids), np.nan, dtype=np.float32)
+        unique_y = np.full(len(unique_peak_ids), np.nan, dtype=np.float32)
+        unique_n_channels = np.zeros(len(unique_peak_ids), dtype=np.int16)
+        unique_x[valid_peaks] = sum_x[valid_peaks] / sum_q[valid_peaks]
+        unique_y[valid_peaks] = sum_y[valid_peaks] / sum_q[valid_peaks]
+        unique_n_channels[valid_peaks] = channel_counts[valid_peaks]
 
-            # 增益校正（向量化）
-            q_corrected = areas / gains
-
-            # 计算加权重心（向量化）
-            sum_q = np.sum(q_corrected)
-            if sum_q > 0:
-                x_array[i] = np.sum(q_corrected * x_positions) / sum_q
-                y_array[i] = np.sum(q_corrected * y_positions) / sum_q
-                n_channels_array[i] = len(channel_data)
+        x_array[eligible_indices] = unique_x[inverse]
+        y_array[eligible_indices] = unique_y[inverse]
+        n_channels_array[eligible_indices] = unique_n_channels[inverse]
 
         return x_array, y_array, n_channels_array
 

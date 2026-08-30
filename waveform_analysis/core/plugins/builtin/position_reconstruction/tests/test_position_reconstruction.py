@@ -2,7 +2,7 @@
 
 测试内容：
 1. PMT 几何布局系统
-2. PositionReconstructionPlugin (v0.3.0)
+2. PositionReconstructionPlugin (v0.4.0)
 3. S1S2PairAccessor.positions()
 """
 
@@ -121,7 +121,7 @@ def test_plugin_initialization():
 
     assert plugin.provides == "position_reconstruction"
     assert plugin.depends_on == ["s1_s2_pairs", "peaklet_channels"]
-    assert plugin.version == "0.3.0"
+    assert plugin.version == "0.4.0"
     assert plugin.output_dtype == POSITION_RECONSTRUCTION_DTYPE
 
     # 检查配置选项
@@ -233,6 +233,140 @@ def test_plugin_with_mock_data():
     # 第2个: 150 < 200, 应该被标记
     assert result["flags"][0] & FLAG_LOW_S2_SIGNAL == 0  # 第1个信号足够强
     assert result["flags"][1] & FLAG_LOW_S2_SIGNAL != 0  # 第2个信号太弱
+
+
+def test_plugin_batches_peaklet_channels_and_refills_duplicate_s2_ids():
+    plugin = PositionReconstructionPlugin()
+    plugin._layout_cache = PmtLayout(
+        entries=(
+            PmtEntry(1, "A", 0.0, 0.0, 0, 1, "anode", "negative", gain=1.0),
+            PmtEntry(2, "B", 10.0, 20.0, 1, 1, "anode", "negative", gain=2.0),
+        ),
+        source="test",
+    )
+    pairs_dtype = np.dtype(
+        [
+            ("pair_id", "i8"),
+            ("s1_peak_id", "i8"),
+            ("s2_peak_id", "i8"),
+            ("selected", bool),
+            ("drift_time_ns", "f4"),
+            ("s2_area", "f4"),
+            ("s2_n_channels", "i2"),
+        ]
+    )
+    pairs = np.zeros(5, dtype=pairs_dtype)
+    pairs["pair_id"] = np.arange(5)
+    pairs["s1_peak_id"] = np.arange(100, 105)
+    pairs["s2_peak_id"] = [10, 10, 20, 30, 40]
+    pairs["selected"] = True
+    pairs["drift_time_ns"] = 1000.0
+    pairs["s2_area"] = [500.0, 600.0, 50.0, 500.0, 500.0]
+
+    channel_dtype = np.dtype(
+        [
+            ("peaklet_id", "i8"),
+            ("board", "i2"),
+            ("channel", "i2"),
+            ("area", "f4"),
+        ]
+    )
+    channels = np.zeros(5, dtype=channel_dtype)
+    channels["peaklet_id"] = [40, 10, 10, 10, 40]
+    channels["board"] = [0, 1, 0, 9, 0]
+    channels["channel"] = [1, 1, 1, 9, 1]
+    channels["area"] = [-5.0, 6.0, 2.0, 100.0, 0.0]
+
+    class SimpleContext:
+        config = {}
+
+        def __init__(self):
+            self.calls = []
+
+        def get_config(self, current_plugin, key):
+            return current_plugin.options[key].default
+
+        def get_data(self, run_id, data_name):
+            self.calls.append((run_id, data_name))
+            return {"s1_s2_pairs": pairs, "peaklet_channels": channels}[data_name]
+
+    context = SimpleContext()
+    result = plugin.compute(context, "run")
+
+    np.testing.assert_allclose(result["x"][:2], [6.0, 6.0], rtol=0, atol=1e-6)
+    np.testing.assert_allclose(result["y"][:2], [12.0, 12.0], rtol=0, atol=1e-6)
+    assert np.all(result["xy_method"][:2] == "cog")
+    assert np.all((result["flags"][:2] & FLAG_XY_RECONSTRUCTED) != 0)
+    assert np.isnan(result["x"][2:]).all()
+    assert result["flags"][2] & FLAG_LOW_S2_SIGNAL
+    assert context.calls.count(("run", "peaklet_channels")) == 1
+
+
+def test_batched_xy_matches_legacy_event_loop_semantics():
+    rng = np.random.default_rng(20260831)
+    plugin = PositionReconstructionPlugin()
+    layout = load_fallback_layout()
+    peak_ids = np.arange(40, dtype=np.int64)
+    channel_dtype = np.dtype(
+        [
+            ("peaklet_id", "i8"),
+            ("board", "i2"),
+            ("channel", "i2"),
+            ("area", "f4"),
+        ]
+    )
+    channels = np.zeros(len(peak_ids) * 8, dtype=channel_dtype)
+    channels["peaklet_id"] = np.repeat(peak_ids, 8)
+    channels["board"] = 0
+    channels["channel"] = np.tile(np.arange(8, 16), len(peak_ids))
+    channels["area"] = rng.normal(200.0, 100.0, len(channels)).astype(np.float32)
+    channels["area"][::37] = -1.0
+    channels["area"][::113] = np.nan
+    rng.shuffle(channels)
+
+    event_peak_ids = rng.choice(peak_ids, 100, replace=True)
+    event_areas = rng.uniform(0.0, 300.0, 100).astype(np.float32)
+    event_areas[3] = np.nan
+
+    class SimpleContext:
+        def get_data(self, run_id, data_name):
+            assert data_name == "peaklet_channels"
+            return channels
+
+    observed = plugin._compute_xy_cog_vectorized(
+        SimpleContext(), "run", event_peak_ids, event_areas, 100.0, layout
+    )
+
+    pmt_map = {
+        (entry.board_id, entry.channel_id): (entry.x_mm, entry.y_mm, entry.gain)
+        for entry in layout.entries
+    }
+    expected_x = np.full(100, np.nan, dtype=np.float32)
+    expected_y = np.full(100, np.nan, dtype=np.float32)
+    expected_n = np.zeros(100, dtype=np.int16)
+    for index, (peak_id, s2_area) in enumerate(zip(event_peak_ids, event_areas, strict=False)):
+        if s2_area < 100.0:
+            continue
+        channel_data = []
+        for row in channels[channels["peaklet_id"] == peak_id]:
+            if row["area"] <= 0:
+                continue
+            pmt_info = pmt_map.get((int(row["board"]), int(row["channel"])))
+            if pmt_info is not None:
+                channel_data.append((row["area"], *pmt_info))
+        if not channel_data:
+            continue
+        channel_array = np.array(channel_data, dtype=np.float32)
+        corrected = channel_array[:, 0] / channel_array[:, 3]
+        sum_q = np.sum(corrected)
+        if sum_q > 0:
+            expected_x[index] = np.sum(corrected * channel_array[:, 1]) / sum_q
+            expected_y[index] = np.sum(corrected * channel_array[:, 2]) / sum_q
+            expected_n[index] = len(channel_data)
+
+    np.testing.assert_allclose(observed[0], expected_x, rtol=1e-6, atol=1e-5, equal_nan=True)
+    np.testing.assert_allclose(observed[1], expected_y, rtol=1e-6, atol=1e-5, equal_nan=True)
+    np.testing.assert_array_equal(observed[2], expected_n)
 
 
 def test_default_drift_velocity_outputs_z_in_mm():

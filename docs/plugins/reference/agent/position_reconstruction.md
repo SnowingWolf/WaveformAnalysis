@@ -5,7 +5,7 @@ profile: "agent"
 provides: "position_reconstruction"
 plugin_class: "PositionReconstructionPlugin"
 module: "waveform_analysis.core.plugins.builtin.position_reconstruction.plugin"
-version: "0.3.0"
+version: "0.4.0"
 summary: "Reconstruct 3D position from S1-S2 pairs using vectorized CoG method"
 depends_on: ["s1_s2_pairs", "peaklet_channels"]
 declared_depends_on: ["s1_s2_pairs", "peaklet_channels"]
@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "c7b5ce3151198d54f235d1965bd5a1a2f9d3f0498a877cb328b7deccb4340f98"
+source_fingerprint: "15e9a0f503d0cb2a0c3a4a1482a5a36056269155188ff07d39873b7a4330f3c6"
 generated: true
 ---
 # position_reconstruction
@@ -44,7 +44,7 @@ v0.2.0 功能: - Z 坐标: 基于 drift_time * drift_velocity（向量化） - X
 | Provides | `position_reconstruction` |
 | Plugin Class | `PositionReconstructionPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.position_reconstruction.plugin` |
-| Version | `0.3.0` |
+| Version | `0.4.0` |
 | Category | 其他 |
 | Output Container | `structured_array` |
 | Execution Mode | `static` |
@@ -53,7 +53,7 @@ v0.2.0 功能: - Z 坐标: 基于 drift_time * drift_velocity（向量化） - X
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `c7b5ce3151198d54f235d1965bd5a1a2f9d3f0498a877cb328b7deccb4340f98` |
+| Source Fingerprint | `15e9a0f503d0cb2a0c3a4a1482a5a36056269155188ff07d39873b7a4330f3c6` |
 
 ### Dependencies
 
