@@ -51,24 +51,13 @@ Note:
 import numpy as np
 
 from waveform_analysis.core.hardware.channel import HardwareChannel
-
-
-def _parse_channel_selector(channel: HardwareChannel | tuple[int, int] | str) -> HardwareChannel:
-    if isinstance(channel, HardwareChannel):
-        return channel
-    if isinstance(channel, tuple) and len(channel) == 2:
-        return HardwareChannel(int(channel[0]), int(channel[1]))
-    if isinstance(channel, str) and ":" in channel:
-        board, ch = channel.split(":", 1)
-        return HardwareChannel(int(board.strip()), int(ch.strip()))
-    raise ValueError(
-        f"Invalid channel selector {channel!r}; expected HardwareChannel, (board, channel), "
-        'or "board:channel".'
-    )
-
-
-def _channel_label(channel: HardwareChannel) -> str:
-    return f"B{channel.board}:Ch{channel.channel}"
+from waveform_analysis.visualization.waveforms.data import prepare_waveform_channels
+from waveform_analysis.visualization.waveforms.selectors import (
+    channel_label as _channel_label,
+)
+from waveform_analysis.visualization.waveforms.selectors import (
+    parse_channel_selector as _parse_channel_selector,
+)
 
 
 def plot_waveforms(
@@ -95,32 +84,7 @@ def plot_waveforms(
         print("Please install plotly: pip install plotly")
         return
 
-    if isinstance(waveforms, np.ndarray) and waveforms.dtype.names is not None:
-        if "channel" not in waveforms.dtype.names or "board" not in waveforms.dtype.names:
-            raise ValueError("waveforms missing 'board'/'channel' fields")
-        if channels is None:
-            channels = sorted(
-                {
-                    HardwareChannel(int(board), int(ch))
-                    for board, ch in zip(waveforms["board"], waveforms["channel"], strict=False)
-                }
-            )
-        else:
-            channels = [_parse_channel_selector(channel) for channel in channels]
-        waveform_lookup = {
-            hw_channel: waveforms[
-                (waveforms["board"] == hw_channel.board)
-                & (waveforms["channel"] == hw_channel.channel)
-            ]
-            for hw_channel in channels
-        }
-    else:
-        if isinstance(waveforms, np.ndarray) and waveforms.ndim == 2:
-            # Single channel case
-            waveforms = [waveforms]
-        if channels is None:
-            channels = list(range(len(waveforms)))
-        waveform_lookup = {ch: waveforms[ch] for ch in channels}
+    channels, waveform_lookup = prepare_waveform_channels(waveforms, channels)
 
     fig = make_subplots(
         rows=len(channels),

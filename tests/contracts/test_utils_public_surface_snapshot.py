@@ -136,3 +136,29 @@ def test_visualization_legacy_modules_share_canonical_implementations():
     legacy_package = importlib.import_module("waveform_analysis.utils.visualization")
     for public_name in legacy_package.__all__:
         assert getattr(legacy_package, public_name) is getattr(canonical_package, public_name)
+
+
+def test_visualization_responsibility_modules_preserve_public_objects():
+    from waveform_analysis.visualization import (
+        corner_hist,
+        plot_lineage_labview,
+        plot_lineage_plotly,
+        plot_waveforms,
+    )
+    from waveform_analysis.visualization.lineage.matplotlib_renderer import (
+        plot_lineage_labview as split_labview,
+    )
+    from waveform_analysis.visualization.lineage.plotly_renderer import (
+        plot_lineage_plotly as split_plotly,
+    )
+    from waveform_analysis.visualization.statistical.corner import (
+        corner_hist as split_corner_hist,
+    )
+    from waveform_analysis.visualization.waveforms.renderer import (
+        plot_waveforms as split_plot_waveforms,
+    )
+
+    assert split_labview is plot_lineage_labview
+    assert split_plotly is plot_lineage_plotly
+    assert split_corner_hist is corner_hist
+    assert split_plot_waveforms is plot_waveforms

@@ -153,70 +153,17 @@ from waveform_analysis.core.foundation.model import (
     build_lineage_graph,
 )
 from waveform_analysis.core.foundation.utils import LineageStyle, get_plugins_from_context
-
-
-def _classify_node_type(node: NodeModel) -> str:
-    """
-    分类节点类型，用于颜色高亮。
-
-    返回值：
-        - 'raw_data': 原始数据/输入节点（蓝色）
-        - 'structured_array': 结构化数组节点（绿色）
-        - 'dataframe': DataFrame/表格数据节点（橙色）
-        - 'grouped': 聚合/分组数据节点（紫色）
-        - 'side_effect': 副作用/导出节点（粉红色）
-        - 'intermediate': 中间处理节点（默认白色）
-    """
-    plugin_class_lower = node.plugin_class.lower()
-    node_key_lower = node.key.lower()
-
-    # 1. 原始数据节点（文件读取、数据加载）
-    if any(keyword in plugin_class_lower for keyword in ["rawfiles", "loader", "reader"]):
-        return "raw_data"
-
-    # 2. DataFrame 节点
-    if "dataframe" in plugin_class_lower or "dataframe" in node_key_lower or node.key == "df":
-        return "dataframe"
-    for port in node.out_ports:
-        if "dataframe" in port.dtype.lower():
-            return "dataframe"
-
-    # 3. 聚合/分组节点
-    if any(keyword in plugin_class_lower for keyword in ["group", "pair", "aggregate", "merge"]):
-        return "grouped"
-    if any(keyword in node_key_lower for keyword in ["grouped", "paired", "merged"]):
-        return "grouped"
-
-    # 4. 副作用节点（导出、保存）
-    if any(keyword in plugin_class_lower for keyword in ["export", "save", "write"]):
-        return "side_effect"
-
-    # 5. 结构化数组节点（有多个字段的 dtype）
-    for port in node.out_ports:
-        dtype_str = port.dtype.lower()
-        # 检查是否包含多个字段
-        if ("[(" in dtype_str or ", " in dtype_str) and "list" not in dtype_str:
-            return "structured_array"
-
-    # 6. 默认为中间处理节点
-    return "intermediate"
-
-
-def _get_node_colors(node_type: str) -> tuple:
-    """
-    根据节点类型返回颜色配置。
-
-    返回: (background_color, border_color, header_color)
-    """
-    color_scheme = {
-        "raw_data": ("#e3f2fd", "#1976d2", "#bbdefb"),  # 蓝色系 - 数据源
-        "structured_array": ("#e8f5e9", "#388e3c", "#c8e6c9"),  # 绿色系 - 结构化数据
-        "dataframe": ("#fff3e0", "#f57c00", "#ffe0b2"),  # 橙色系 - 表格数据
-        "grouped": ("#f3e5f5", "#7b1fa2", "#e1bee7"),  # 紫色系 - 聚合数据
-        "side_effect": ("#fce4ec", "#c2185b", "#f8bbd0"),  # 粉红色系 - 输出操作
-        "intermediate": ("#fafafa", "#424242", "#e0e0e0"),  # 灰色系 - 中间处理
-    }
-    return color_scheme.get(node_type, color_scheme["intermediate"])
+from waveform_analysis.visualization.lineage.model import (
+    classify_node_type as _classify_node_type,
+)
+from waveform_analysis.visualization.lineage.model import get_node_colors as _get_node_colors
+from waveform_analysis.visualization.lineage.routing import (
+    classify_edge_category as _classify_edge_category,
+)
+from waveform_analysis.visualization.lineage.routing import mpl_dash as _mpl_dash
+from waveform_analysis.visualization.lineage.routing import (
+    resolve_wire_style as _resolve_wire_style,
+)
 
 
 def _build_node_boxes(
@@ -556,54 +503,6 @@ def _route_edge_path(
 
     label_pos = (mx, (y1 + y2) / 2.0)
     return default_path, label_pos
-
-
-def _classify_edge_category(dtype: str) -> str:
-    if not dtype:
-        return "unknown"
-
-    dtype_lower = dtype.lower()
-    if "dataframe" in dtype_lower:
-        return "dataframe"
-    if "list" in dtype_lower and "ndarray" in dtype_lower:
-        return "list_array"
-    if "[(" in dtype_lower or "structured" in dtype_lower:
-        return "structured"
-    if "ndarray" in dtype_lower:
-        return "array"
-    return "unknown"
-
-
-def _resolve_wire_style(edge: Any, style: LineageStyle) -> dict:
-    dtype = edge.dtype or ""
-    color = style.type_colors.get(dtype, style.type_colors.get("Unknown", "#95a5a6"))
-    width = style.wire_linewidth
-    alpha = style.wire_alpha
-    dash = "solid"
-
-    category = _classify_edge_category(dtype)
-    category_style = getattr(style, "wire_style_by_category", {}).get(category, {})
-    color = category_style.get("color", color)
-    width = category_style.get("width", width)
-    alpha = category_style.get("alpha", alpha)
-    dash = category_style.get("dash", dash)
-
-    match_text = f"{edge.source_node_id} {edge.target_node_id} {dtype}".lower()
-    for match, overrides in getattr(style, "wire_style_overrides", {}).items():
-        if match.lower() in match_text:
-            color = overrides.get("color", color)
-            width = overrides.get("width", width)
-            alpha = overrides.get("alpha", alpha)
-            dash = overrides.get("dash", dash)
-
-    return {"color": color, "width": width, "alpha": alpha, "dash": dash}
-
-
-def _mpl_dash(dash: str | None) -> str:
-    if not dash or dash == "solid":
-        return "solid"
-    mapping = {"dash": "dashed", "dot": "dotted", "dashdot": "dashdot"}
-    return mapping.get(dash, dash)
 
 
 def _wrap_text_lines(text: str, max_width: int, max_lines: int | None = None) -> list[str]:

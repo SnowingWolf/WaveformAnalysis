@@ -56,7 +56,6 @@ logger = logging.getLogger(__name__)
 try:
     from matplotlib.colors import LogNorm, Normalize
     import matplotlib.pyplot as plt
-    from matplotlib.scale import SymmetricalLogTransform
 
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
@@ -68,18 +67,9 @@ _numba_histogram2d = None
 
 __all__ = ["corner_hist", "plot_1d_cut_on_corner", "plot_2d_cut_on_corner"]
 
-
-def _symlog_bin_edges(lo, hi, nbin, linthresh):
-    """Return bins that are evenly spaced in Matplotlib symlog space."""
-    transform = SymmetricalLogTransform(base=10, linthresh=linthresh, linscale=1)
-    transformed_limits = transform.transform(np.asarray([lo, hi], dtype=np.float64))
-    transformed_edges = np.linspace(transformed_limits[0], transformed_limits[1], nbin + 1)
-    edges = transform.inverted().transform(transformed_edges)
-    # Transform round-trips can move the endpoints slightly inward. Restore
-    # the caller's exact limits so samples equal to min/max remain in range.
-    edges[0] = lo
-    edges[-1] = hi
-    return edges
+from waveform_analysis.visualization.statistical.binning import (
+    symlog_bin_edges as _symlog_bin_edges,
+)
 
 
 def _ensure_numba_histogram2d():
