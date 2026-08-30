@@ -9,6 +9,7 @@
 - `workflow_cost`: `standard`
 - `primary_doc`: `docs/agents/workflows.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/schema_compat_check.md`
+- `executor_role`: `executor.qa`
 
 ## Blocking Gates
 - `schema_report_generated`

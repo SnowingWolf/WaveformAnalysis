@@ -1,0 +1,1195 @@
+{
+  "kind": "HistoricalAgentArtifactArchiveManifest",
+  "version": 1,
+  "hash_algorithm": "sha256",
+  "source_root": "docs/agents/protocol/artifacts",
+  "archive_root": "docs/agents/runs/archive/legacy",
+  "file_count": 148,
+  "total_bytes": 408457,
+  "entries": [
+    {
+      "original_path": "docs/agents/protocol/artifacts/accessor_index_responsibility_task_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/accessor_index_responsibility/task_report.md",
+      "task_id": "accessor_index_responsibility",
+      "artifact_type": "task_report",
+      "size": 1344,
+      "sha256": "9e9e0ebb1d86f67f21a0e9f8fad1fd36f350bd626682c09feb7c56c62bd6dba6"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/accessor_records_view_card_task_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/accessor_records_view_card/task_report.md",
+      "task_id": "accessor_records_view_card",
+      "artifact_type": "task_report",
+      "size": 1738,
+      "sha256": "6958d145de4a867a6b4faea58001777ff3746b50e1d49b4759caa731a62deec3"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/adaptive_2d_sampling_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/adaptive-2d-sampling-public-api-v1/execution_report.md",
+      "task_id": "adaptive-2d-sampling-public-api-v1",
+      "artifact_type": "execution_report",
+      "size": 5561,
+      "sha256": "0f6fa144e53ca0970bbd23bb0a99fde1a704e90d2763110ffe33d014f216e821"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/adaptive_2d_sampling_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/adaptive-2d-sampling-public-api-v1/plan_brief.md",
+      "task_id": "adaptive-2d-sampling-public-api-v1",
+      "artifact_type": "plan_brief",
+      "size": 2801,
+      "sha256": "ae8bcea0ecc6f525ccc3e55732c8e5d334adadd955dc10c60840a18a53adf7a7"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/adaptive_2d_sampling_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/adaptive-2d-sampling-public-api-v1/review_report.md",
+      "task_id": "adaptive-2d-sampling-public-api-v1",
+      "artifact_type": "review_report",
+      "size": 5154,
+      "sha256": "5dbb1b537e74783c0002eb15e9c22fa142ff48df4454373cbb6f16430aee5814"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/agent_doc_contract_validation_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/agent_doc_contract_validation/execution_report.md",
+      "task_id": "agent_doc_contract_validation",
+      "artifact_type": "execution_report",
+      "size": 2732,
+      "sha256": "41b87885d294faf565b14b2c6ce25b4f7bdf9ae8ea04ab5de0564482810158ed"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/agent_doc_contract_validation_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/agent_doc_contract_validation/plan_brief.md",
+      "task_id": "agent_doc_contract_validation",
+      "artifact_type": "plan_brief",
+      "size": 1287,
+      "sha256": "faf54ef5f51e782c75f815afc8ceb3186c9bbb5ceb4f7f2f57ce88957015d50c"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/agent_doc_contract_validation_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/agent_doc_contract_validation/review_report.md",
+      "task_id": "agent_doc_contract_validation",
+      "artifact_type": "review_report",
+      "size": 1580,
+      "sha256": "277262f121252322d332010d74521c8647899b0e78ea88245039fdea132ed7ca"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/agent_profile_lifecycle_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/agent_profile_lifecycle/execution_report.md",
+      "task_id": "agent_profile_lifecycle",
+      "artifact_type": "execution_report",
+      "size": 2178,
+      "sha256": "a2f5f708f03a76e27e5a1b7d38b208b367fe674a15ab0179a16a5b1c32c98bf7"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/agent_profile_lifecycle_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/agent_profile_lifecycle/plan_brief.md",
+      "task_id": "agent_profile_lifecycle",
+      "artifact_type": "plan_brief",
+      "size": 1718,
+      "sha256": "2ae621dfe1bcf25fd543e53cda71bbc2944803a1a3c25d675e317da32b580f93"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/agent_profile_lifecycle_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/agent_profile_lifecycle/review_report.md",
+      "task_id": "agent_profile_lifecycle",
+      "artifact_type": "review_report",
+      "size": 1312,
+      "sha256": "d27e57538ca20ac9a56ced6939e5ea66943dd23b07249831f909c8f3f9dc62bb"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/architecture_docs_refresh_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/architecture_docs_refresh_20260730/execution_report.md",
+      "task_id": "architecture_docs_refresh_20260730",
+      "artifact_type": "execution_report",
+      "size": 7130,
+      "sha256": "f66154f2ab6beb3d2d2fbd9561bc1cdcbe615f9fdb7ee85f8e71c6bf10338199"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/architecture_docs_refresh_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/architecture_docs_refresh_20260730/plan_brief.md",
+      "task_id": "architecture_docs_refresh_20260730",
+      "artifact_type": "plan_brief",
+      "size": 1785,
+      "sha256": "b1539587dfc2fde39cc2d5fbc6ef8d84b16a4d74879a9dcd51c7aeda840d3957"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/architecture_docs_refresh_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/architecture_docs_refresh_20260730/review_report.md",
+      "task_id": "architecture_docs_refresh_20260730",
+      "artifact_type": "review_report",
+      "size": 5487,
+      "sha256": "e08eb9ad82aab4cefb96b06881b23b45b71936fbd2d642625f16513d0cf77564"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/architecture_docs_retire_data_access_compat_inventory.md",
+      "archive_path": "docs/agents/runs/archive/legacy/architecture_docs_refresh_20260730/compat_inventory.md",
+      "task_id": "architecture_docs_refresh_20260730",
+      "artifact_type": "compat_inventory",
+      "size": 3559,
+      "sha256": "6fc906c23f79197c674731bbfe8cd4d69ba6277514175ec278e8db0eae5f3591"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/cache_lineage_key_stability_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/cache-lineage-key-stability/execution_report.md",
+      "task_id": "cache-lineage-key-stability",
+      "artifact_type": "execution_report",
+      "size": 4169,
+      "sha256": "8bd1933e629f6b182f76d82f3f382723b8aa595eebbfd0f5d595efdebd18eccd"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/cache_lineage_key_stability_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/cache-lineage-key-stability/plan_brief.md",
+      "task_id": "cache-lineage-key-stability",
+      "artifact_type": "plan_brief",
+      "size": 3968,
+      "sha256": "d257f8335a463894e9a74bd63b9eb06cd46a45da7273178b4183f09aef002b02"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/cache_lineage_key_stability_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/cache-lineage-key-stability/review_report.md",
+      "task_id": "cache-lineage-key-stability",
+      "artifact_type": "review_report",
+      "size": 2831,
+      "sha256": "5b8ef33ad6f4a28492de58329ae614dba93714be084bb0526ec96335e0e4bcb7"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/context_api_compat_inventory.md",
+      "archive_path": "docs/agents/runs/archive/legacy/context_api_convergence_phase1/compat_inventory.md",
+      "task_id": "context_api_convergence_phase1",
+      "artifact_type": "compat_inventory",
+      "size": 10077,
+      "sha256": "933630870e55f996cbbbff45640bd2229f58951fcdb196d9023f1ae29288d72e"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/context_api_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/context_api_convergence_phase1/execution_report.md",
+      "task_id": "context_api_convergence_phase1",
+      "artifact_type": "execution_report",
+      "size": 3654,
+      "sha256": "9951478747cbe1f4c06d9fb37474ec089261a5343d1764322eb88613759ad720"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/context_api_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/context_api_convergence_phase1/plan_brief.md",
+      "task_id": "context_api_convergence_phase1",
+      "artifact_type": "plan_brief",
+      "size": 2800,
+      "sha256": "9b7fb2d792307be624000670b8e03760610851b3c7d2dea57d3945a7e3afba47"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/context_api_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/context_api_convergence_phase1/review_report.md",
+      "task_id": "context_api_convergence_phase1",
+      "artifact_type": "review_report",
+      "size": 4649,
+      "sha256": "bccbe264a1f57a0d547bcb886d3704b480102f7a6f7b9b3e4f9417cb5115fb67"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/context_executor_doc_integration_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/context_executor_doc_integration_20260826/execution_report.md",
+      "task_id": "context_executor_doc_integration_20260826",
+      "artifact_type": "execution_report",
+      "size": 2543,
+      "sha256": "6e38374ba5c5a7d8757ce086a47c60319bf7eabf6956ee35123cda8fecd8aaf8"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/context_executor_doc_integration_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/context_executor_doc_integration_20260826/plan_brief.md",
+      "task_id": "context_executor_doc_integration_20260826",
+      "artifact_type": "plan_brief",
+      "size": 1475,
+      "sha256": "c85dc3946692afac50bce1977324ae26451295654e33f51e74f2db520fdf101c"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/context_executor_doc_integration_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/context_executor_doc_integration_20260826/review_report.md",
+      "task_id": "context_executor_doc_integration_20260826",
+      "artifact_type": "review_report",
+      "size": 2009,
+      "sha256": "7c2d3e1d3687a1f336763bb513169e12613e616da145acf91111a59f2a8e2065"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/context_help_plugin_docs_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/context-help-plugin-docs-20260722/execution_report.md",
+      "task_id": "context-help-plugin-docs-20260722",
+      "artifact_type": "execution_report",
+      "size": 2524,
+      "sha256": "327ccfb444f90fc254d09b7b6080c798a152869d303c8c0a7b833352e356fdc2"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/context_help_plugin_docs_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/context-help-plugin-docs-20260722/plan_brief.md",
+      "task_id": "context-help-plugin-docs-20260722",
+      "artifact_type": "plan_brief",
+      "size": 1758,
+      "sha256": "b2dfb07418766384302ad10e5ffafcc905a4c3b2822e6158237a641a95aeaed0"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/context_help_plugin_docs_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/context-help-plugin-docs-20260722/review_report.md",
+      "task_id": "context-help-plugin-docs-20260722",
+      "artifact_type": "review_report",
+      "size": 1289,
+      "sha256": "424a783b8da97c96a9e33386f864ed4a84b451ee02ea514838f612a657abfb2f"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/context_help_quickstart_compat_inventory.md",
+      "archive_path": "docs/agents/runs/archive/legacy/context-help-plugin-docs-20260722/compat_inventory.md",
+      "task_id": "context-help-plugin-docs-20260722",
+      "artifact_type": "compat_inventory",
+      "size": 1724,
+      "sha256": "c088f53b0a285e5a9a9102c1421bd39290dc22bb6ecbff19cda6b34b0bdff1d9"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/corner_hist_symlog_performance_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/corner-hist-symlog-performance/execution_report.md",
+      "task_id": "corner-hist-symlog-performance",
+      "artifact_type": "execution_report",
+      "size": 3337,
+      "sha256": "666c8a2058c4855303cfaf35446e040348e0d9a78bba976ea4a453e4beee2568"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/corner_hist_symlog_performance_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/corner-hist-symlog-performance/plan_brief.md",
+      "task_id": "corner-hist-symlog-performance",
+      "artifact_type": "plan_brief",
+      "size": 2364,
+      "sha256": "0bbad5f86b019b32ce8877ab34e3c2f6474d4a7c9b0ab095247c6280760bd75e"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/corner_hist_symlog_performance_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/corner-hist-symlog-performance/review_report.md",
+      "task_id": "corner-hist-symlog-performance",
+      "artifact_type": "review_report",
+      "size": 1607,
+      "sha256": "dd9bdff6bb6350be4797d901287c5ccfc248c657bc9fb0bb4424fb8eb00387be"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/docs_unification_preview_task_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/docs_unification_preview/task_report.md",
+      "task_id": "docs_unification_preview",
+      "artifact_type": "task_report",
+      "size": 1919,
+      "sha256": "c58981afc34d5c6967d8b6e670dc3e97fb75a59c1f784c35f3a21ebbb02c8fad"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/dtype_field_notes_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/dtype_field_notes/execution_report.md",
+      "task_id": "dtype_field_notes",
+      "artifact_type": "execution_report",
+      "size": 3155,
+      "sha256": "d37fcfa380372a9e25829dda658bacada708f80a8135ca726bb72c5f962fd2d7"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/dtype_field_notes_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/dtype_field_notes/plan_brief.md",
+      "task_id": "dtype_field_notes",
+      "artifact_type": "plan_brief",
+      "size": 1636,
+      "sha256": "cfcc69f79b9ce4e2334f2ef773892a6326baab4ec195a180159482f7c90025b5"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/dtype_field_notes_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/dtype_field_notes/review_report.md",
+      "task_id": "dtype_field_notes",
+      "artifact_type": "review_report",
+      "size": 1751,
+      "sha256": "1955b8630d9b7ca93271748cec08f069b24ef444081d866d87d63d5e5fa45270"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/dynamic_lineage_docs_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/dynamic-lineage-docs-20260729/execution_report.md",
+      "task_id": "dynamic-lineage-docs-20260729",
+      "artifact_type": "execution_report",
+      "size": 4078,
+      "sha256": "94a8ac8b0668586aa2856192046fa6821b8376f64142fb5da206231358597e90"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/dynamic_lineage_docs_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/dynamic-lineage-docs-20260729/plan_brief.md",
+      "task_id": "dynamic-lineage-docs-20260729",
+      "artifact_type": "plan_brief",
+      "size": 1326,
+      "sha256": "2a1df1700ef62f9f10786f0db68a859bc2723490da3ac0a746059077b8332d50"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/dynamic_lineage_docs_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/dynamic-lineage-docs-20260729/review_report.md",
+      "task_id": "dynamic-lineage-docs-20260729",
+      "artifact_type": "review_report",
+      "size": 1992,
+      "sha256": "a69ccd58462433d73e18436fc73113df51570b8d19735721ca2a26a86e083c22"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/graph_engineer_profile_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/graph_engineer_profile/execution_report.md",
+      "task_id": "graph_engineer_profile",
+      "artifact_type": "execution_report",
+      "size": 2968,
+      "sha256": "fbed288725c8ae716a281105f4a9f00982ef81d61c357ca770f84b4b33a9819c"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/graph_engineer_profile_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/graph_engineer_profile/plan_brief.md",
+      "task_id": "graph_engineer_profile",
+      "artifact_type": "plan_brief",
+      "size": 1965,
+      "sha256": "ac364677d83ba59820f2693d11fcae0442f2071a9d1ed2a282303a4ad9023974"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/graph_engineer_profile_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/graph_engineer_profile/review_report.md",
+      "task_id": "graph_engineer_profile",
+      "artifact_type": "review_report",
+      "size": 1485,
+      "sha256": "a9e9dff832e105079be0c40428c71af238c60f4e3c15b4535581731157c61bf1"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/historical_cache_log_task_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/historical_cache_log_20260827/task_report.md",
+      "task_id": "historical_cache_log_20260827",
+      "artifact_type": "task_report",
+      "size": 1546,
+      "sha256": "d405c578b228270ca14935590ed80bf023a3fe7aeb6f52667fad80b6ff9c86eb"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/hit_merged_features_numba_fallback_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/hit_merged_features_numba_fallback/execution_report.md",
+      "task_id": "hit_merged_features_numba_fallback",
+      "artifact_type": "execution_report",
+      "size": 2232,
+      "sha256": "f9ea3fc0a4f2c21fd659a4991fbabc9c2dd97e12198aceed2de6fcdfa740a988"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/hit_merged_features_numba_fallback_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/hit_merged_features_numba_fallback/plan_brief.md",
+      "task_id": "hit_merged_features_numba_fallback",
+      "artifact_type": "plan_brief",
+      "size": 1770,
+      "sha256": "b360e0cfd5d175064c3151e87468652ceb36b696ca3220fe23db749dadcdc7bb"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/hit_merged_features_numba_fallback_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/hit_merged_features_numba_fallback/review_report.md",
+      "task_id": "hit_merged_features_numba_fallback",
+      "artifact_type": "review_report",
+      "size": 2207,
+      "sha256": "90b51240ff7120bcda1064cb2bd5cb7bf4351b7adbc8bc93f1a0eb5bbaa5b709"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/hit_merged_features_repair_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/hit_merged_features_fallback_repair_20260722/execution_report.md",
+      "task_id": "hit_merged_features_fallback_repair_20260722",
+      "artifact_type": "execution_report",
+      "size": 2804,
+      "sha256": "eb5b8466ddc983d4e79fadd3266b0543f1bd24a821e45a89e557d6ac2c141961"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/hit_merged_features_repair_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/hit_merged_features_fallback_repair_20260722/plan_brief.md",
+      "task_id": "hit_merged_features_fallback_repair_20260722",
+      "artifact_type": "plan_brief",
+      "size": 1929,
+      "sha256": "69cc15ce5a4b57c598186cb7c244636d774095bb06881b9827ee5ad5503fab6a"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/hit_merged_features_repair_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/hit_merged_features_fallback_repair_20260722/review_report.md",
+      "task_id": "hit_merged_features_fallback_repair_20260722",
+      "artifact_type": "review_report",
+      "size": 1267,
+      "sha256": "edf17d29149737ef418993b75144dd166487967ba59bccf96a2b77db0085abd7"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/html_docs_accessor_detail_v1_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/html-docs-accessor-detail-v1/execution_report.md",
+      "task_id": "html-docs-accessor-detail-v1",
+      "artifact_type": "execution_report",
+      "size": 3202,
+      "sha256": "eb8c7806e449db45ae0ab0a87faf26d01d30e3287d068a33620f699a431b1af5"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/html_docs_accessor_detail_v1_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/html-docs-accessor-detail-v1/plan_brief.md",
+      "task_id": "html-docs-accessor-detail-v1",
+      "artifact_type": "plan_brief",
+      "size": 1960,
+      "sha256": "6ce6191ae174c2ed9ba8faa5ed02dd713cec7126ef2b7552710a52959cb49c0f"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/html_docs_accessor_detail_v1_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/html-docs-accessor-detail-v1/review_report.md",
+      "task_id": "html-docs-accessor-detail-v1",
+      "artifact_type": "review_report",
+      "size": 1804,
+      "sha256": "bb6cf7ef9b49a7a87ced2396d24afcf26f35755053bd77de56ca15061b7ff66f"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/html_docs_mdn_redesign_v1_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/html-docs-mdn-redesign-v1/execution_report.md",
+      "task_id": "html-docs-mdn-redesign-v1",
+      "artifact_type": "execution_report",
+      "size": 2969,
+      "sha256": "a8908f92bbd245e7cdff08ce649bea62c9d58d182826f3ea65e28b5b4257c2a7"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/html_docs_mdn_redesign_v1_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/html-docs-mdn-redesign-v1/plan_brief.md",
+      "task_id": "html-docs-mdn-redesign-v1",
+      "artifact_type": "plan_brief",
+      "size": 1962,
+      "sha256": "9f22df411be793fde9386f8244305d968240abb5dcbbe9fa2271ccbb4d5991b8"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/html_docs_mdn_redesign_v1_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/html-docs-mdn-redesign-v1/review_report.md",
+      "task_id": "html-docs-mdn-redesign-v1",
+      "artifact_type": "review_report",
+      "size": 1536,
+      "sha256": "eafb752292e47add23868797b61bca4728042c93c158ce3a6b7c88c1f22ba219"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/html_docs_site_v1_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/html-docs-site-v1/execution_report.md",
+      "task_id": "html-docs-site-v1",
+      "artifact_type": "execution_report",
+      "size": 3441,
+      "sha256": "661456dd762d7490061e66e714ceba9868e1fcc3191d1b4908244fb38545f59e"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/html_docs_site_v1_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/html-docs-site-v1/plan_brief.md",
+      "task_id": "html-docs-site-v1",
+      "artifact_type": "plan_brief",
+      "size": 3298,
+      "sha256": "0c9ae2c836ed6ad41a1b3dae043dd2a206bd129218380404df31fcf55fb26163"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/html_docs_site_v1_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/html-docs-site-v1/review_report.md",
+      "task_id": "html-docs-site-v1",
+      "artifact_type": "review_report",
+      "size": 2175,
+      "sha256": "d5624b8bea22a67d9c0e22a433320702089c474312abfbc2c43a6b3b947a0678"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/lineage_display_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/lineage-display-adaptive-layout/execution_report.md",
+      "task_id": "lineage-display-adaptive-layout",
+      "artifact_type": "execution_report",
+      "size": 2057,
+      "sha256": "51c24a11743fe7a588411cc0c0b0235f0655550d110c50ce7375d553d8daa88c"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/lineage_display_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/lineage-display-adaptive-layout/plan_brief.md",
+      "task_id": "lineage-display-adaptive-layout",
+      "artifact_type": "plan_brief",
+      "size": 1531,
+      "sha256": "e73b5305a15c96b7bdebbe810363dfc4cb70053ab2a80f86cc6ecea6bc5e12c5"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/lineage_display_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/lineage-display-adaptive-layout/review_report.md",
+      "task_id": "lineage-display-adaptive-layout",
+      "artifact_type": "review_report",
+      "size": 1136,
+      "sha256": "35fc216898f9566a47f2b219635bdc5ffdd51fd091f0c1718e3f461ea71adbcf"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/lineage_layout_task_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/lineage_layout_center_and_routes/task_report.md",
+      "task_id": "lineage_layout_center_and_routes",
+      "artifact_type": "task_report",
+      "size": 1125,
+      "sha256": "14fb89b5c0e5e1f0ce2d5ecef0188d7ddbb76ee9a1293083688843a6823fbcde"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/lineage_reload_consistency_task_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/lineage_reload_consistency/task_report.md",
+      "task_id": "lineage_reload_consistency",
+      "artifact_type": "task_report",
+      "size": 2020,
+      "sha256": "4052dc9695e509bf8816d4562ce89d67b37c8568b2de18d466e70c7109a31a78"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/lineage_virtual_hide_semantics_task_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/lineage_virtual_hide_semantics/task_report.md",
+      "task_id": "lineage_virtual_hide_semantics",
+      "artifact_type": "task_report",
+      "size": 1464,
+      "sha256": "3a9b35288bbef3aa951e3ec6d91bfb20a4e839fea5e80a430f4fea60a0611356"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/lineage_virtual_plugins_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/lineage-virtual-plugins/execution_report.md",
+      "task_id": "lineage-virtual-plugins",
+      "artifact_type": "execution_report",
+      "size": 3575,
+      "sha256": "1d0259fc8584a782033fb235e8f3a430f06a1a1a9cffb4cecbb5349328fea68f"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/lineage_virtual_plugins_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/lineage-virtual-plugins/plan_brief.md",
+      "task_id": "lineage-virtual-plugins",
+      "artifact_type": "plan_brief",
+      "size": 1851,
+      "sha256": "8a54c7ddd2a0c99c122cfe8353eb71e1ac60e58aedac5f219a5c688f3e7785f0"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/lineage_virtual_plugins_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/lineage-virtual-plugins/review_report.md",
+      "task_id": "lineage-virtual-plugins",
+      "artifact_type": "review_report",
+      "size": 1685,
+      "sha256": "5aad75cefba949ae2d0e749e4d4f0c363c67856f533b78ea652b942138370fd2"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/lineage_virtual_toggle_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/lineage-virtual-toggle-20260729/execution_report.md",
+      "task_id": "lineage-virtual-toggle-20260729",
+      "artifact_type": "execution_report",
+      "size": 2481,
+      "sha256": "e93f3b71337e1d3a13794d1e203127df9ba80ddce1ce93bcc01054b663ad6783"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/lineage_virtual_toggle_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/lineage-virtual-toggle-20260729/plan_brief.md",
+      "task_id": "lineage-virtual-toggle-20260729",
+      "artifact_type": "plan_brief",
+      "size": 1030,
+      "sha256": "12ba6851226178f2efeeb24d60d6d1b105d0a90c155f39a3afa00c7e0f2b50da"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/lineage_virtual_toggle_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/lineage-virtual-toggle-20260729/review_report.md",
+      "task_id": "lineage-virtual-toggle-20260729",
+      "artifact_type": "review_report",
+      "size": 1012,
+      "sha256": "b02c18102f4e94d7899da4c81bea7d589f950d94f99e42e7481ea89182852460"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/lineage_wire_rendering_task_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/lineage_wire_rendering_and_full_view/task_report.md",
+      "task_id": "lineage_wire_rendering_and_full_view",
+      "artifact_type": "task_report",
+      "size": 2347,
+      "sha256": "2e64e8a0fd4235cdf780cced7c0cbbdc208d521bc6114c632b0ba1154834bf55"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/markdown_guides_site_integration_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/markdown_guides_site_integration/plan_brief.md",
+      "task_id": "markdown_guides_site_integration",
+      "artifact_type": "plan_brief",
+      "size": 1573,
+      "sha256": "ba803d6fac9d7010fe29a80d5cfcfc9f672ec827044c8484d09d7a2bf9153121"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/merged_feature_channel_hotpath_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/merged_feature_channel_hotpath/execution_report.md",
+      "task_id": "merged_feature_channel_hotpath",
+      "artifact_type": "execution_report",
+      "size": 3356,
+      "sha256": "72f8cb12e586da3a5bc9f8ed81838c55f266a9c854f4ec5a90c6cda148d35b25"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/merged_feature_channel_hotpath_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/merged_feature_channel_hotpath/plan_brief.md",
+      "task_id": "merged_feature_channel_hotpath",
+      "artifact_type": "plan_brief",
+      "size": 1857,
+      "sha256": "fe87b3c0a0945f1f676e867f2bf6596cfa4de80bff3aad837599db4a0beaebce"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/merged_feature_channel_hotpath_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/merged_feature_channel_hotpath/review_report.md",
+      "task_id": "merged_feature_channel_hotpath",
+      "artifact_type": "review_report",
+      "size": 2815,
+      "sha256": "be7da867940d2b94c1876d08627a4fb84526d2ce43f831adb66e247f9c0b6348"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/pdf_export_utility_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/pdf_export_utility/execution_report.md",
+      "task_id": "pdf_export_utility",
+      "artifact_type": "execution_report",
+      "size": 2313,
+      "sha256": "31fa42d45411936bb02d21c6ada425778dc4969d9fd71d0f5a10aa4449de077a"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/pdf_export_utility_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/pdf_export_utility/plan_brief.md",
+      "task_id": "pdf_export_utility",
+      "artifact_type": "plan_brief",
+      "size": 1290,
+      "sha256": "99a38cee0a6466273fdb31b6a11bda2ad4a4086d366c6890f9a4693d0c642153"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/pdf_export_utility_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/pdf_export_utility/review_report.md",
+      "task_id": "pdf_export_utility",
+      "artifact_type": "review_report",
+      "size": 1169,
+      "sha256": "8b26cb31f731ba8b1787c8976b2632786b1478cf2a723fde38e0071a2a552e32"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peak_channel_api_docs_v2_compat_inventory.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peak-channel-api-docs-v2/compat_inventory.md",
+      "task_id": "peak-channel-api-docs-v2",
+      "artifact_type": "compat_inventory",
+      "size": 2111,
+      "sha256": "c6dcf98a26458c80a96643b5e6624a0bd0fbed6e29a1b7fc8ba982a727d531a1"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peak_channel_api_docs_v2_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peak-channel-api-docs-v2/execution_report.md",
+      "task_id": "peak-channel-api-docs-v2",
+      "artifact_type": "execution_report",
+      "size": 1634,
+      "sha256": "1fb542ec3d6c859ead3dd9a9981ca677e29876a249665d9730498afdfd9e0064"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peak_channel_api_docs_v2_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peak-channel-api-docs-v2/plan_brief.md",
+      "task_id": "peak-channel-api-docs-v2",
+      "artifact_type": "plan_brief",
+      "size": 974,
+      "sha256": "62d67b7d4844fb554a26eb3dd730a800f577e125e086eec747de36e00430e404"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peak_channel_api_docs_v2_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peak-channel-api-docs-v2/review_report.md",
+      "task_id": "peak-channel-api-docs-v2",
+      "artifact_type": "review_report",
+      "size": 1146,
+      "sha256": "105b72d6db0de015f64394443fe1ba68224b8044f26aef4767de5e8404013745"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peak_waveform_dedup_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peak_waveform_dedup_and_area_conservation/execution_report.md",
+      "task_id": "peak_waveform_dedup_and_area_conservation",
+      "artifact_type": "execution_report",
+      "size": 8503,
+      "sha256": "13196ec5f22f579f489d31a70dfa0c2466b3da83ed0b3ab193ae4b64e8f112db"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peak_waveform_dedup_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peak_waveform_dedup_and_area_conservation/plan_brief.md",
+      "task_id": "peak_waveform_dedup_and_area_conservation",
+      "artifact_type": "plan_brief",
+      "size": 12054,
+      "sha256": "28d1e1e5104f0267dcde3deaa3fda613d3a7f29a0464568022f6b566995d4c9c"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peak_waveform_dedup_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peak_waveform_dedup_and_area_conservation/review_report.md",
+      "task_id": "peak_waveform_dedup_and_area_conservation",
+      "artifact_type": "review_report",
+      "size": 4784,
+      "sha256": "49c6b62811f63d9409cc9ed31ab12f3b5e2892c87a3a9f025f646a55d8183556"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peaklet_channel_sort_canonical_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peaklet_channel_sort_canonical/execution_report.md",
+      "task_id": "peaklet_channel_sort_canonical",
+      "artifact_type": "execution_report",
+      "size": 2765,
+      "sha256": "3cad5c0e426e2f7ec38347a0360cfc7a1270f3768e5d618750cffd2ed2f7fe1d"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peaklet_channel_sort_canonical_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peaklet_channel_sort_canonical/plan_brief.md",
+      "task_id": "peaklet_channel_sort_canonical",
+      "artifact_type": "plan_brief",
+      "size": 2362,
+      "sha256": "afcd711cb18c488bc45dd9fe8b814e15a8255932e94980689f78404bb1267585"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peaklet_channel_sort_canonical_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peaklet_channel_sort_canonical/review_report.md",
+      "task_id": "peaklet_channel_sort_canonical",
+      "artifact_type": "review_report",
+      "size": 2457,
+      "sha256": "cefb92c31f12a35a0247f89f4d574ded5716d5f73789443872f7d3318fa41d22"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peaklet_channels_phase2_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peaklet_channels_phase2/execution_report.md",
+      "task_id": "peaklet_channels_phase2",
+      "artifact_type": "execution_report",
+      "size": 6404,
+      "sha256": "ed7559d28b01688d51038e15d5e054f504ad8c7eb376f47ea04c09e26937ce40"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peaklet_channels_phase2_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peaklet_channels_phase2/plan_brief.md",
+      "task_id": "peaklet_channels_phase2",
+      "artifact_type": "plan_brief",
+      "size": 2743,
+      "sha256": "a4b3375d2f00acb62151c1880ac45ad1e6ec78e06126dbc5e10b2204d377451e"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peaklet_channels_phase2_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peaklet_channels_phase2/review_report.md",
+      "task_id": "peaklet_channels_phase2",
+      "artifact_type": "review_report",
+      "size": 3170,
+      "sha256": "bf1146c47147ae8ee1590690181f0a75c7c730b18ff984a5461017ca2c46d2dc"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peaklet_cold_path_optimization_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peaklet_cold_path_optimization_20260819/execution_report.md",
+      "task_id": "peaklet_cold_path_optimization_20260819",
+      "artifact_type": "execution_report",
+      "size": 7563,
+      "sha256": "fcc68cc4e730df887d184d63b7be31db445b523b2ed74d7d40dc276394b80023"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peaklet_cold_path_optimization_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peaklet_cold_path_optimization_20260819/plan_brief.md",
+      "task_id": "peaklet_cold_path_optimization_20260819",
+      "artifact_type": "plan_brief",
+      "size": 2936,
+      "sha256": "30e0ab53f6550316cc174b93f8a8a6240710e502298ac5206e2dad591c3cf8f9"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peaklet_cold_path_optimization_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peaklet_cold_path_optimization_20260819/review_report.md",
+      "task_id": "peaklet_cold_path_optimization_20260819",
+      "artifact_type": "review_report",
+      "size": 2357,
+      "sha256": "5326954b03ed394026057e939553625a9dc9a8ce633c2752cb94a0120719947b"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peaklet_pipeline_optimization_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peaklet_pipeline_optimization/execution_report.md",
+      "task_id": "peaklet_pipeline_optimization",
+      "artifact_type": "execution_report",
+      "size": 7219,
+      "sha256": "8fdbcfda23e742795dd0ece8f857ce1d960ea4933f0853d5e5bb7d77f40dcf4f"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peaklet_pipeline_optimization_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peaklet_pipeline_optimization/plan_brief.md",
+      "task_id": "peaklet_pipeline_optimization",
+      "artifact_type": "plan_brief",
+      "size": 2859,
+      "sha256": "7a1523155529aa19f7ae86c128ca91ba2881902ef635b175e2bd204dba0e9701"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peaklet_pipeline_optimization_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peaklet_pipeline_optimization/review_report.md",
+      "task_id": "peaklet_pipeline_optimization",
+      "artifact_type": "review_report",
+      "size": 3086,
+      "sha256": "aba77fb53e93711d82676f355adcdb05f07e97829c81bd042f45e9ff13bf8a23"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peaklet_waveforms_numba_docs_task_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peaklet_waveforms_numba_docs/task_report.md",
+      "task_id": "peaklet_waveforms_numba_docs",
+      "artifact_type": "task_report",
+      "size": 1265,
+      "sha256": "eb58c665aa6d76dba4f6e61e737809c358beb3dbafec853a9f54469f184e9c19"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peaklet_waveforms_numba_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peaklet_waveforms_numba_performance/execution_report.md",
+      "task_id": "peaklet_waveforms_numba_performance",
+      "artifact_type": "execution_report",
+      "size": 1270,
+      "sha256": "04ba0d791430556c917649a3f37f71baa778097cd4b88d125393aafb576e207e"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peaklet_waveforms_numba_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peaklet_waveforms_numba_performance/plan_brief.md",
+      "task_id": "peaklet_waveforms_numba_performance",
+      "artifact_type": "plan_brief",
+      "size": 1017,
+      "sha256": "ede010ea76698f74f59cd3af3cdfd032984e6ebc42ad8d2f527446ce56987952"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/peaklet_waveforms_numba_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/peaklet_waveforms_numba_performance/review_report.md",
+      "task_id": "peaklet_waveforms_numba_performance",
+      "artifact_type": "review_report",
+      "size": 1109,
+      "sha256": "fbc1e5b32925a04b31b9710b2544d0f466d6472392b4979c1858bdfb08b3aa7b"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/plugin_bundle_guide_task_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/plugin_bundle_guide/task_report.md",
+      "task_id": "plugin_bundle_guide",
+      "artifact_type": "task_report",
+      "size": 2558,
+      "sha256": "c9b25007f2d5467ffab68688376063454f841b9a410f01121277b16a132c0ede"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/plugin_doc_quality_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/plugin-doc-quality-20260826/execution_report.md",
+      "task_id": "plugin-doc-quality-20260826",
+      "artifact_type": "execution_report",
+      "size": 3375,
+      "sha256": "d219f37e12b293dd3fc2ffc5d66f9be13e2a24572d79c3cc449cf9f0ef24e41c"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/plugin_doc_quality_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/plugin-doc-quality-20260826/plan_brief.md",
+      "task_id": "plugin-doc-quality-20260826",
+      "artifact_type": "plan_brief",
+      "size": 3113,
+      "sha256": "0cc2e7a52ddf7491082acaa5fd8c6dadde9bec00a7aecc16ca3e0a1c11912305"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/plugin_doc_quality_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/plugin-doc-quality-20260826/review_report.md",
+      "task_id": "plugin-doc-quality-20260826",
+      "artifact_type": "review_report",
+      "size": 2811,
+      "sha256": "e05fa9d33c0f9e37dd88abca00867945067b5a50003541d5dc5a63f4334fedd9"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/plugin_documentation_content_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/enrich-plugin-documentation-content-20260722/plan_brief.md",
+      "task_id": "enrich-plugin-documentation-content-20260722",
+      "artifact_type": "plan_brief",
+      "size": 1854,
+      "sha256": "8e612a971a65d77bccb1a9321454caed79001b883071fcfd44de494d12fc2b9c"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/plugin_system_navigation_api_task_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/plugin_system_navigation_api_20260731/task_report.md",
+      "task_id": "plugin_system_navigation_api_20260731",
+      "artifact_type": "task_report",
+      "size": 3481,
+      "sha256": "2b0e5ac2a6e050b3892c216b9662bf9a6890e88a324bb40e14c17c41383e49a8"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/plugin_web_lineage_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/plugin-web-clickable-lineage/execution_report.md",
+      "task_id": "plugin-web-clickable-lineage",
+      "artifact_type": "execution_report",
+      "size": 3381,
+      "sha256": "df255467f0160f668ade27695a4530195f0ad41b2370776af66af03990a60170"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/plugin_web_lineage_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/plugin-web-clickable-lineage/plan_brief.md",
+      "task_id": "plugin-web-clickable-lineage",
+      "artifact_type": "plan_brief",
+      "size": 2122,
+      "sha256": "d1ee3a3220a09da2ee61ca0b512f89aebf00d3b5842e22732aa43089e0bc9483"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/plugin_web_lineage_port_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/lineage-reactflow-port-alignment-20260728/execution_report.md",
+      "task_id": "lineage-reactflow-port-alignment-20260728",
+      "artifact_type": "execution_report",
+      "size": 3765,
+      "sha256": "c54ed6aff4d8d47af7d2b50ad80de20ee79a133cd3cbdd6d7b9321aa0df689dc"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/plugin_web_lineage_port_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/lineage-reactflow-port-alignment-20260728/plan_brief.md",
+      "task_id": "lineage-reactflow-port-alignment-20260728",
+      "artifact_type": "plan_brief",
+      "size": 3372,
+      "sha256": "886a168ac12a3900bc0b37868cc03cfc9ab06b871ffa53c2a2ae976151effd42"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/plugin_web_lineage_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/plugin-web-clickable-lineage/review_report.md",
+      "task_id": "plugin-web-clickable-lineage",
+      "artifact_type": "review_report",
+      "size": 1648,
+      "sha256": "312528b10ac8baada8547173b0a9c2526c1ff4912fdea010db045eca025a2f0a"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/pr-commit-description-rule_task_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/pr-commit-description-rule/task_report.md",
+      "task_id": "pr-commit-description-rule",
+      "artifact_type": "task_report",
+      "size": 1636,
+      "sha256": "2bda38c0940914deba68301f69d9e3b8c66850ea49192ff2724e85446280c767"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/published_agent_doc_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/published_agent_doc_delivery/execution_report.md",
+      "task_id": "published_agent_doc_delivery",
+      "artifact_type": "execution_report",
+      "size": 1960,
+      "sha256": "5458f32cf83c2d0675821f865da6a103302abad11e5a3d1a5d20d62d3b250b6a"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/published_agent_doc_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/published_agent_doc_delivery/review_report.md",
+      "task_id": "published_agent_doc_delivery",
+      "artifact_type": "review_report",
+      "size": 1386,
+      "sha256": "cb10061902ba18a56e3b69c1e9aa3384b1c5aba1477331a27bc7a6686fdbd022"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/python_ci_failures_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/python_ci_failures_20260828/execution_report.md",
+      "task_id": "python_ci_failures_20260828",
+      "artifact_type": "execution_report",
+      "size": 4827,
+      "sha256": "d099065510676295dc1cfe7c2f4cead314dc064b756b98fa8ab5fa070b29604c"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/python_ci_failures_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/python_ci_failures_20260828/plan_brief.md",
+      "task_id": "python_ci_failures_20260828",
+      "artifact_type": "plan_brief",
+      "size": 1311,
+      "sha256": "9d50cb77bf0133e97febb365e1597c297f61050d798305639dc9d634d207b2f8"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/python_ci_failures_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/python_ci_failures_20260828/review_report.md",
+      "task_id": "python_ci_failures_20260828",
+      "artifact_type": "review_report",
+      "size": 1844,
+      "sha256": "00b1b618bf92d2a23cddbaf8423020229f8ad59b6debe4180fae5803c53e0c4d"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/records_view_docs_task_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/records_view_site_docs_20260729/task_report.md",
+      "task_id": "records_view_site_docs_20260729",
+      "artifact_type": "task_report",
+      "size": 1997,
+      "sha256": "af4a5cf546e673db4364d66dcbf19c6193b9e764f80eadde588df0b2c743a1e7"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/records_view_merge_task_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/records_view_merge_20260730/task_report.md",
+      "task_id": "records_view_merge_20260730",
+      "artifact_type": "task_report",
+      "size": 3038,
+      "sha256": "3e58618f497aab357ca99d3891cd8a5ebff8b42976f9c0847bab5763f1e08bcf"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/records_wave_pool_site_web_task_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/records_wave_pool_site_web/task_report.md",
+      "task_id": "records_wave_pool_site_web",
+      "artifact_type": "task_report",
+      "size": 2192,
+      "sha256": "074759fc3466216f3eebb83ba42cc976b831659975071c4b0ca25d9cdbee164c"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/retire_context_has_explicit_config_compat_inventory.md",
+      "archive_path": "docs/agents/runs/archive/legacy/retire_context_has_explicit_config/compat_inventory.md",
+      "task_id": "retire_context_has_explicit_config",
+      "artifact_type": "compat_inventory",
+      "size": 1023,
+      "sha256": "4aec05e42f301ba01223b46bccae16da8f3146a00075ad7198929565a5cfa941"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/retire_context_has_explicit_config_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/retire_context_has_explicit_config/execution_report.md",
+      "task_id": "retire_context_has_explicit_config",
+      "artifact_type": "execution_report",
+      "size": 729,
+      "sha256": "deb3439cdf3528e4922a15d9ae9808e9e9e9b1f7e8256b4989be6e1b2d795936"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/retire_context_has_explicit_config_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/retire_context_has_explicit_config/plan_brief.md",
+      "task_id": "retire_context_has_explicit_config",
+      "artifact_type": "plan_brief",
+      "size": 762,
+      "sha256": "6cb5018fc50398e49cf989c8338cc01177d72107dbba94491e169aed378a5683"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/retire_context_has_explicit_config_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/retire_context_has_explicit_config/review_report.md",
+      "task_id": "retire_context_has_explicit_config",
+      "artifact_type": "review_report",
+      "size": 592,
+      "sha256": "3b3b055904b1792ace26249749b1d61ee172b6a8892452f18d210788e222bbc5"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/retire_plugin_mixin_domain_compat_inventory.md",
+      "archive_path": "docs/agents/runs/archive/legacy/retire_plugin_mixin_domain/compat_inventory.md",
+      "task_id": "retire_plugin_mixin_domain",
+      "artifact_type": "compat_inventory",
+      "size": 1854,
+      "sha256": "9d5c7402b2267a4328973f37b2281982af24dd5d02555148540d481fea4dd8b7"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/retire_plugin_mixin_domain_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/retire_plugin_mixin_domain/execution_report.md",
+      "task_id": "retire_plugin_mixin_domain",
+      "artifact_type": "execution_report",
+      "size": 4572,
+      "sha256": "0a25c8572b78d842c11029f0b755250c041cb9b64418a8db24d77f2d0464152c"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/retire_plugin_mixin_domain_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/retire_plugin_mixin_domain/plan_brief.md",
+      "task_id": "retire_plugin_mixin_domain",
+      "artifact_type": "plan_brief",
+      "size": 2431,
+      "sha256": "2a08a2101a15e4049432f2135a4cb057fc3adc3cb237891ac693ed37612b85af"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/retire_plugin_mixin_domain_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/retire_plugin_mixin_domain/review_report.md",
+      "task_id": "retire_plugin_mixin_domain",
+      "artifact_type": "review_report",
+      "size": 1547,
+      "sha256": "8dbd4bb0770c3c061d8361375414a621ab0eb4c5b818b5b727d09b1d9bd9c8e1"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/s1_s2_orphan_hotpath_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/s1_s2_orphan_hotpath/execution_report.md",
+      "task_id": "s1_s2_orphan_hotpath",
+      "artifact_type": "execution_report",
+      "size": 9579,
+      "sha256": "01833c794f5cc9728f0a4a064c221cdccbe5fc149b28b1b9ecf78ea0ea6d9dd6"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/s1_s2_orphan_hotpath_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/s1_s2_orphan_hotpath/plan_brief.md",
+      "task_id": "s1_s2_orphan_hotpath",
+      "artifact_type": "plan_brief",
+      "size": 4519,
+      "sha256": "cedc6c44c95700e8201d99cb49886094114ae70847b4982bffd5f44cf206fa67"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/s1_s2_orphan_hotpath_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/s1_s2_orphan_hotpath/review_report.md",
+      "task_id": "s1_s2_orphan_hotpath",
+      "artifact_type": "review_report",
+      "size": 6330,
+      "sha256": "1f88777171fb34117eba75da0c7bdf3b860bc7091f408f8e4dce9890ad56ae00"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/site_doc_generator_refactor_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/site_doc_generator_refactor/plan_brief.md",
+      "task_id": "site_doc_generator_refactor",
+      "artifact_type": "plan_brief",
+      "size": 1646,
+      "sha256": "2f18ab4d71c8bc9f9b698bfceedf983c5863c7cefcf4bf34b72b096f85e306a7"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/site_doc_generator_review_fixes_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/site_doc_generator_review_fixes/execution_report.md",
+      "task_id": "site_doc_generator_review_fixes",
+      "artifact_type": "execution_report",
+      "size": 5122,
+      "sha256": "6a3d6510b20d1cb3e3f64cbb6c452813a2654d3699696a533e647c34c8e790e9"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/site_doc_generator_review_fixes_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/site_doc_generator_review_fixes/plan_brief.md",
+      "task_id": "site_doc_generator_review_fixes",
+      "artifact_type": "plan_brief",
+      "size": 2498,
+      "sha256": "7eaab09fd7d1b581133ec89f1a7d2d1b021dd1cdb45880b6917e62670bbb258e"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/site_doc_generator_review_fixes_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/site_doc_generator_review_fixes/review_report.md",
+      "task_id": "site_doc_generator_review_fixes",
+      "artifact_type": "review_report",
+      "size": 2106,
+      "sha256": "e58c6e7654f01147cb7883a2ac18460ab7477e259615b9bbb437659e2afb22cb"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/site_plugin_navigation_task_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/site_plugin_navigation_20260730/task_report.md",
+      "task_id": "site_plugin_navigation_20260730",
+      "artifact_type": "task_report",
+      "size": 1710,
+      "sha256": "0340290053af226cd7554ab8cc6aaffdeb9c2c0e31badd0f4a0ac4c4b1383596"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/site_web_atomic_publish_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/site_web_atomic_publish/execution_report.md",
+      "task_id": "site_web_atomic_publish",
+      "artifact_type": "execution_report",
+      "size": 3110,
+      "sha256": "11b85990b64e3f2af094ff89aebd9e1fa6acc4d70f95ea4cf5d76cf21ed9e416"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/site_web_atomic_publish_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/site_web_atomic_publish/plan_brief.md",
+      "task_id": "site_web_atomic_publish",
+      "artifact_type": "plan_brief",
+      "size": 1267,
+      "sha256": "b2f125d08c680a83405e3298e624b30cfe0ea3520882cdffe9411a1220fb71e6"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/site_web_atomic_publish_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/site_web_atomic_publish/review_report.md",
+      "task_id": "site_web_atomic_publish",
+      "artifact_type": "review_report",
+      "size": 1344,
+      "sha256": "0f5b5579fedd109a159afc69f9784895d952bf74f43294b833bd75935ad325a6"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/utils_documentation_subsystem_refactor_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/utils_documentation_subsystem_refactor/execution_report.md",
+      "task_id": "utils_documentation_subsystem_refactor",
+      "artifact_type": "execution_report",
+      "size": 6458,
+      "sha256": "7534e365575207d1baf7f01b831ba98b95f6d6244204a84e112cb53130f3ca38"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/utils_documentation_subsystem_refactor_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/utils_documentation_subsystem_refactor/plan_brief.md",
+      "task_id": "utils_documentation_subsystem_refactor",
+      "artifact_type": "plan_brief",
+      "size": 2109,
+      "sha256": "c19060ba0d8c418228d6fa7ebcd20d3973ced4a9e7bbc547595353e0932af710"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/utils_documentation_subsystem_refactor_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/utils_documentation_subsystem_refactor/review_report.md",
+      "task_id": "utils_documentation_subsystem_refactor",
+      "artifact_type": "review_report",
+      "size": 2981,
+      "sha256": "4f8fddd4efb38cab86638463e7d39692b3f3d805a393e50d8486c7b14d5e7c6a"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/utils_subsystem_convergence_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/utils_subsystem_convergence/execution_report.md",
+      "task_id": "utils_subsystem_convergence",
+      "artifact_type": "execution_report",
+      "size": 5691,
+      "sha256": "10e1337e6ed26026d22af63d87465a45ef8b552eacde11084bd6f181db1bba14"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/utils_subsystem_convergence_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/utils_subsystem_convergence/plan_brief.md",
+      "task_id": "utils_subsystem_convergence",
+      "artifact_type": "plan_brief",
+      "size": 4248,
+      "sha256": "976e052a98786a5d789b8ea520abb31840355d24de6687ffed34ec9860cc658d"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/workflow_shape_fast_path_execution_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/workflow_shape_fast_path/execution_report.md",
+      "task_id": "workflow_shape_fast_path",
+      "artifact_type": "execution_report",
+      "size": 3040,
+      "sha256": "028316775bbd6dd7854ecccbfa54ba0e623303c8f9a3b7a6f492e421c7aed340"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/workflow_shape_fast_path_plan_brief.md",
+      "archive_path": "docs/agents/runs/archive/legacy/workflow_shape_fast_path/plan_brief.md",
+      "task_id": "workflow_shape_fast_path",
+      "artifact_type": "plan_brief",
+      "size": 2055,
+      "sha256": "320fcf374f352dd21447bec6f7ce8b6452834970431dfe51824c1ea1939c4aae"
+    },
+    {
+      "original_path": "docs/agents/protocol/artifacts/workflow_shape_fast_path_review_report.md",
+      "archive_path": "docs/agents/runs/archive/legacy/workflow_shape_fast_path/review_report.md",
+      "task_id": "workflow_shape_fast_path",
+      "artifact_type": "review_report",
+      "size": 1467,
+      "sha256": "605520f46631f8385685774a402823d208337a17fb00e28b0c56159d9be0daaa"
+    }
+  ]
+}

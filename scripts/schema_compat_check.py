@@ -10,6 +10,23 @@ import sys
 
 from _quality_common import run_smoke_chain
 
+try:
+    from scripts.change_scope import (
+        build_scope_report,
+        classify_paths,
+        discover_changed_paths,
+        load_task_scope,
+        resolve_base,
+    )
+except ImportError:  # direct ``python scripts/schema_compat_check.py`` execution
+    from change_scope import (  # type: ignore[no-redef]
+        build_scope_report,
+        classify_paths,
+        discover_changed_paths,
+        load_task_scope,
+        resolve_base,
+    )
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -93,14 +110,23 @@ def _parse_dtype_defs(source: str) -> dict[str, dict[str, str]]:
     return result
 
 
-def _changed_python_files(base: str) -> list[str]:
-    raw = _run_git(["diff", "--name-only", base, "--", "waveform_analysis", "scripts", "tests"])
-    files = []
-    for line in raw.splitlines():
-        line = line.strip()
-        if line.endswith(".py"):
-            files.append(line)
-    return sorted(set(files))
+def _changed_python_files(base: str, task: str | Path | None = None) -> list[str]:
+    effective_base = resolve_base(base, task, project_root=PROJECT_ROOT)
+    paths = discover_changed_paths(effective_base, project_root=PROJECT_ROOT)
+    paths = tuple(
+        path
+        for path in paths
+        if (
+            path.startswith("waveform_analysis/")
+            or path.startswith("scripts/")
+            or path.startswith("tests/")
+        )
+        and path.endswith(".py")
+    )
+    if task is not None:
+        task_scope = load_task_scope(task, project_root=PROJECT_ROOT)
+        paths, _out_of_scope = classify_paths(paths, task_scope.allowed_paths)
+    return sorted(set(paths))
 
 
 def _build_dtype_change_report(base: str, rel_path: str) -> list[dict[str, object]]:
@@ -227,12 +253,25 @@ def _check_runtime_contracts() -> list[str]:
     return issues
 
 
-def check_schema(base: str, run_smoke: bool) -> dict[str, object]:
-    files = _changed_python_files(base)
+def check_schema(
+    base: str,
+    run_smoke: bool,
+    task: str | Path | None = None,
+) -> dict[str, object]:
+    effective_base = resolve_base(base, task, project_root=PROJECT_ROOT)
+    scope_report = (
+        build_scope_report(base=base, task=task, project_root=PROJECT_ROOT)
+        if task is not None
+        else None
+    )
+    files = _changed_python_files(effective_base, task=None)
+    if scope_report is not None:
+        allowed = set(scope_report.in_scope_paths)
+        files = [path for path in files if path in allowed]
 
     dtype_changes: list[dict[str, object]] = []
     for rel_path in files:
-        dtype_changes.extend(_build_dtype_change_report(base, rel_path))
+        dtype_changes.extend(_build_dtype_change_report(effective_base, rel_path))
 
     migration_items = _build_migration_items(dtype_changes)
     contract_issues = _check_runtime_contracts()
@@ -253,13 +292,15 @@ def check_schema(base: str, run_smoke: bool) -> dict[str, object]:
             smoke_error = str(exc)
 
     return {
-        "base": base,
+        "base": effective_base,
         "checked_files": files,
         "dtype_changes": dtype_changes,
         "migration_checklist": migration_items,
         "contract_issues": contract_issues,
         "smoke_result": smoke,
         "smoke_error": smoke_error,
+        "scope": scope_report.to_dict() if scope_report is not None else None,
+        "scope_error": scope_report.has_recorded_scope_error if scope_report is not None else False,
     }
 
 
@@ -268,6 +309,20 @@ def _print_report(report: dict[str, object]) -> None:
     print("base: {}".format(report["base"]))
     print("checked files: {}".format(len(report["checked_files"])))
     print("dtype changes: {}".format(len(report["dtype_changes"])))
+    scope = report.get("scope")
+    if scope:
+        print("in-scope changed paths: {}".format(len(scope["in_scope_paths"])))
+        print(
+            "out-of-scope dirty paths (reported, non-blocking): {}".format(
+                len(scope["out_of_scope_paths"])
+            )
+        )
+        for path in scope["out_of_scope_paths"]:
+            print(f"  out-of-scope: {path}")
+        if scope["recorded_out_of_scope_paths"]:
+            print("recorded status.execution.changed_paths outside allowed_paths:")
+            for path in scope["recorded_out_of_scope_paths"]:
+                print(f"  ERROR: {path}")
     print()
 
     if report["dtype_changes"]:
@@ -313,7 +368,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Check dtype/schema compatibility and run smoke chain"
     )
-    parser.add_argument("--base", default="HEAD", help="Git base ref (default: HEAD)")
+    parser.add_argument(
+        "--base", default=None, help="Git base ref (default: HEAD; task base in task mode)"
+    )
+    parser.add_argument(
+        "--task", default=None, help="task YAML; use its stable scope base and allowed paths"
+    )
     parser.add_argument(
         "--run-smoke",
         action="store_true",
@@ -323,7 +383,7 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        report = check_schema(base=args.base, run_smoke=args.run_smoke)
+        report = check_schema(base=args.base, run_smoke=args.run_smoke, task=args.task)
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
@@ -338,7 +398,7 @@ def main() -> int:
 
     has_contract_issue = bool(report["contract_issues"])
     smoke_failed = bool(args.run_smoke and report["smoke_error"])
-    return 1 if (has_contract_issue or smoke_failed) else 0
+    return 1 if (has_contract_issue or smoke_failed or report.get("scope_error")) else 0
 
 
 if __name__ == "__main__":

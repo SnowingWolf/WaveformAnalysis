@@ -9,6 +9,7 @@
 - `workflow_cost`: `standard`
 - `primary_doc`: `docs/agents/workflows.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/performance_regression_check.md`
+- `executor_role`: `executor.qa`
 
 ## Blocking Gates
 - `performance_report_generated`

@@ -6,12 +6,15 @@
 - `docs/agents/index.yaml`
 - `docs/agents/protocol/README.md`
 - `docs/agents/protocol/task-lifecycle.md`
+- `docs/agents/schema/agent-task.schema.json`
+- `docs/agents/runs/current/`（活动 task.yaml）
+- `docs/agents/runs/archive/legacy/`（只读历史归档）
 - `docs/agents/protocol/artifacts/plan_brief.md`
 - `docs/agents/protocol/artifacts/compat_inventory.md`
 - `docs/agents/protocol/artifacts/execution_report.md`
 - `docs/agents/protocol/artifacts/review_report.md`
-- `docs/agents/protocol/route-profiles/template.md`
 - `docs/agents/protocol/artifacts/task_report.md`
+- `docs/agents/protocol/route-profiles/template.md`
 - `docs/agents/protocol/route-profiles/modify_plugin.md`
 - `docs/agents/protocol/route-profiles/retire_compat.md`
 - `docs/agents/protocol/route-profiles/generate_docs.md`
@@ -26,6 +29,7 @@
 ## Route Profiles
 <!-- BEGIN GENERATED: route_profile_index -->
 - `docs/agents/protocol/route-profiles/modify_plugin.md`
+- `docs/agents/protocol/route-profiles/modify_code.md`
 - `docs/agents/protocol/route-profiles/retire_compat.md`
 - `docs/agents/protocol/route-profiles/debug_cache.md`
 - `docs/agents/protocol/route-profiles/generate_docs.md`
@@ -34,7 +38,9 @@
 - `docs/agents/protocol/route-profiles/schema_compat_check.md`
 - `docs/agents/protocol/route-profiles/performance_regression_check.md`
 - `docs/agents/protocol/route-profiles/release_artifact_sync.md`
-- `release_check` 复用 `docs/agents/protocol/route-profiles/release_artifact_sync.md`
+- `modify_context` 兼容别名 -> `docs/agents/protocol/route-profiles/modify_code.md`
+- `refactor` 兼容别名 -> `docs/agents/protocol/route-profiles/modify_code.md`
+- `release_check` 兼容别名 -> `docs/agents/protocol/route-profiles/release_artifact_sync.md`
 <!-- END GENERATED: route_profile_index -->
 
 ## Adapters

@@ -1,3 +1,5 @@
+import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -227,6 +229,34 @@ def test_build_generated_sections_include_graph_engineer_profile():
     assert "`reviewing`：`review_subject`" in catalog
 
 
+def test_modify_code_profile_is_independent_and_uses_code_executor(tmp_path):
+    profile_path = (
+        render_agent_docs.PROJECT_ROOT
+        / "docs"
+        / "agents"
+        / "protocol"
+        / "route-profiles"
+        / "modify_code.md"
+    )
+    profile = profile_path.read_text(encoding="utf-8")
+    assert "`executor.code`" in profile
+    assert "`executor.plugin`" not in profile
+
+    manifest = _load_manifest()
+    route = next(item for item in manifest["task_routes"] if item["task"] == "modify_code")
+    route["profile_doc"] = "docs/agents/protocol/route-profiles/modify_code.md"
+    sections = render_agent_docs.build_generated_sections(manifest, tmp_path)
+    rendered = render_agent_docs.render_file(profile_path, sections)
+
+    assert "`task`: `modify_code`" in rendered
+    assert "`profile_doc`: `docs/agents/protocol/route-profiles/modify_code.md`" in rendered
+    assert "`executor_role`: `executor.code`" in rendered
+    assert (
+        "modify_plugin.md"
+        not in rendered.split("<!-- END GENERATED: profile_summary_modify_code -->", 1)[0]
+    )
+
+
 def test_collect_targets_include_retire_compat_profile():
     targets = render_agent_docs.collect_targets()
     assert any(path.name == "retire_compat.md" for path in targets)
@@ -270,3 +300,134 @@ def test_profile_route_templates_expose_profile_handoff_fields():
             assert "`agent_profile`" in executor_section
             assert "`agent_profile`" in reviewer_section
             assert "`agent_profile_review`" in reviewer_section
+
+
+def test_build_generated_sections_discovers_manifest_routes_without_route_allowlist(tmp_path):
+    manifest = _load_manifest()
+    manifest["task_routes"] = [
+        route for route in manifest["task_routes"] if route["task"] != "modify_plugin"
+    ]
+    manifest["task_routes"].insert(
+        0,
+        {
+            "task": "custom_route",
+            "summary": "测试用自定义 route",
+            "workflow_mode": "shape_driven",
+            "workflow_cost": "light",
+            "primary_doc": "docs/agents/workflows.md",
+            "profile_doc": "docs/agents/protocol/route-profiles/custom_route.md",
+            "aliases": [],
+            "secondary_docs": [],
+            "read_order": ["AGENTS.md"],
+            "blocking_gates": ["custom_gate"],
+            "gate_trigger_policy": ["custom policy"],
+            "commands": ["custom command"],
+        },
+    )
+
+    sections = render_agent_docs.build_generated_sections(manifest, tmp_path)
+
+    assert "profile_summary_custom_route" in sections
+    assert "`custom_route`" in sections["supported_routes"]
+    assert "custom_route.md" in sections["route_profile_index"]
+    assert "profile_summary_modify_plugin" not in sections
+
+
+def test_build_generated_sections_reflects_manifest_shape_cost_and_state_changes(tmp_path):
+    manifest = _load_manifest()
+    shape_contract = manifest["workflow_shape_contract"]
+    shape_contract["allowed_shapes"].append("queued")
+    shape_contract["shapes"]["queued"] = {
+        "mutation": "read_only",
+        "artifact": "none",
+        "terminal_condition": "queued_task",
+        "topology": "queue",
+    }
+    shape_contract["default_by_workflow_cost"]["experimental"] = "queued"
+    shape_contract["allowed_by_workflow_cost"]["experimental"] = ["queued"]
+    manifest["lifecycle"]["primary_states"].append("queued")
+    manifest["lifecycle"]["transitions"].append(
+        {"from": "created", "to": "queued", "condition": "queue_requested"}
+    )
+
+    sections = render_agent_docs.build_generated_sections(manifest, tmp_path)
+
+    assert "`experimental`" in sections["workflow_cost_catalog"]
+    assert "`queued`" in sections["workflow_shape_catalog"]
+    assert "`queued` (queue_requested)" in sections["lifecycle_state_catalog"]
+
+
+def test_collect_targets_discovers_new_marked_profile(tmp_path):
+    profile = tmp_path / "docs" / "agents" / "protocol" / "route-profiles" / "custom.md"
+    profile.parent.mkdir(parents=True)
+    profile.write_text(
+        "<!-- BEGIN GENERATED: profile_summary_custom -->\n"
+        "placeholder\n"
+        "<!-- END GENERATED: profile_summary_custom -->\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text("no markers\n", encoding="utf-8")
+
+    targets = render_agent_docs.collect_targets(tmp_path)
+
+    assert targets == [profile]
+
+
+def test_render_active_plan_view_reads_current_task_records(tmp_path):
+    task_path = tmp_path / "docs" / "agents" / "runs" / "current" / "demo" / "task.yaml"
+    task_path.parent.mkdir(parents=True)
+    task_path.write_text(
+        yaml.safe_dump(
+            {
+                "metadata": {"id": "demo"},
+                "spec": {
+                    "route": "modify_code",
+                    "workflow_cost": "standard",
+                    "workflow_shape": "staged",
+                },
+                "status": {"state": "planning", "condition": "NeedsRevalidation"},
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    rendered = render_agent_docs.render_active_plan_view(tmp_path)
+
+    view = yaml.safe_load(rendered)
+    assert view["source"] == "docs/agents/runs/current/*/task.yaml"
+    assert view["active_plans"] == [
+        {
+            "task_id": "demo",
+            "state": "planning",
+            "route": "modify_code",
+            "workflow_cost": "standard",
+            "workflow_shape": "staged",
+            "condition": "NeedsRevalidation",
+            "task_file": "docs/agents/runs/current/demo/task.yaml",
+            "legacy_plan": "docs/agents/runs/current/demo/legacy-plan.md",
+        }
+    ]
+
+
+def test_legacy_archive_manifest_preserves_count_size_and_hashes():
+    manifest_path = (
+        render_agent_docs.PROJECT_ROOT
+        / "docs"
+        / "agents"
+        / "runs"
+        / "archive"
+        / "legacy"
+        / "MANIFEST.json"
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    entries = manifest["entries"]
+
+    assert manifest["file_count"] == 148
+    assert len(entries) == 148
+    assert len({entry["archive_path"] for entry in entries}) == 148
+    for entry in entries:
+        archived = render_agent_docs.PROJECT_ROOT / entry["archive_path"]
+        content = archived.read_bytes()
+        assert len(content) == entry["size"]
+        assert hashlib.sha256(content).hexdigest() == entry["sha256"]

@@ -1,0 +1,244 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://waveform-analysis.invalid/schemas/agent-task/v1",
+  "title": "WaveformAnalysis AgentTask",
+  "description": "Repository-local lifecycle record for a scoped agent task.",
+  "type": "object",
+  "required": [
+    "api_version",
+    "kind",
+    "metadata",
+    "spec",
+    "status"
+  ],
+  "properties": {
+    "api_version": {
+      "const": "waveform-analysis/agent-task/v1"
+    },
+    "kind": {
+      "const": "AgentTask"
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "spec": {
+      "$ref": "#/$defs/spec"
+    },
+    "status": {
+      "$ref": "#/$defs/status"
+    }
+  },
+  "$defs": {
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{64}$"
+    },
+    "git_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{40}$"
+    },
+    "repository_relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*(?:^|[/\\\\])\\.\\.(?:[/\\\\]|$)).+$"
+    },
+    "string_list": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/non_empty_string"
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "required": [
+        "id",
+        "generation",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "created_at": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "updated_at": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "base_sha",
+        "allowed_paths"
+      ],
+      "properties": {
+        "base_sha": {
+          "$ref": "#/$defs/git_sha"
+        },
+        "allowed_paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/repository_relative_path"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "spec": {
+      "type": "object",
+      "required": [
+        "goal",
+        "route",
+        "workflow_cost",
+        "workflow_shape",
+        "risk_level",
+        "scope",
+        "acceptance_criteria",
+        "required_gates",
+        "assignment"
+      ],
+      "properties": {
+        "goal": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "route": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "workflow_cost": {
+          "enum": [
+            "light",
+            "standard",
+            "strict"
+          ]
+        },
+        "workflow_shape": {
+          "enum": [
+            "direct",
+            "compact",
+            "staged"
+          ]
+        },
+        "risk_level": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "acceptance_criteria": {
+          "$ref": "#/$defs/string_list"
+        },
+        "required_gates": {
+          "$ref": "#/$defs/string_list"
+        },
+        "assignment": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "transition": {
+      "type": "object",
+      "required": [
+        "to",
+        "at"
+      ],
+      "properties": {
+        "from": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "to": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "at": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "actor": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "condition": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "status": {
+      "type": "object",
+      "required": [
+        "state",
+        "transitions",
+        "plan_sha256",
+        "execution",
+        "review",
+        "approval",
+        "handoff"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "created",
+            "planning",
+            "awaiting_user_input",
+            "awaiting_approval",
+            "ready_for_execution",
+            "executing",
+            "reviewing",
+            "rework_required",
+            "blocked",
+            "completed",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "transitions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/transition"
+          }
+        },
+        "plan_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-fA-F]{64}$"
+        },
+        "execution": {
+          "type": "object"
+        },
+        "review": {
+          "type": "object"
+        },
+        "approval": {
+          "type": "object"
+        },
+        "handoff": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

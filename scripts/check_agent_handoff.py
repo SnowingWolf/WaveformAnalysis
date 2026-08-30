@@ -9,6 +9,21 @@ from pathlib import Path
 import subprocess
 import sys
 
+try:
+    from scripts.change_scope import (
+        ScopeError,
+        classify_status_lines,
+        load_task_scope,
+        path_is_allowed,
+    )
+except ImportError:  # direct ``python scripts/check_agent_handoff.py`` execution
+    from change_scope import (  # type: ignore[no-redef]
+        ScopeError,
+        classify_status_lines,
+        load_task_scope,
+        path_is_allowed,
+    )
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -114,18 +129,22 @@ def evaluate_final_note(note: str) -> tuple[int, str]:
     return 0, "PASS: final note records required handoff checks and commit state."
 
 
-def _print_summary(lines: list[str]) -> None:
+def _print_summary(lines: list[str], out_of_scope_lines: list[str] | None = None) -> None:
     summary = summarize_status(lines)
     print("=== agent handoff status ===")
     print(f"staged: {summary.staged}, unstaged: {summary.unstaged}, untracked: {summary.untracked}")
 
-    if not lines:
-        return
+    if lines:
+        print()
+        print("pending changes:")
+        for line in lines:
+            print(f"  {line}")
 
-    print()
-    print("pending changes:")
-    for line in lines:
-        print(f"  {line}")
+    if out_of_scope_lines:
+        print()
+        print("out-of-scope changes (reported, non-blocking):")
+        for line in out_of_scope_lines:
+            print(f"  {line}")
 
     staged_stat = get_diff_stat(cached=True)
     unstaged_stat = get_diff_stat(cached=False)
@@ -158,6 +177,11 @@ def main() -> int:
         help="Ignore untracked files when evaluating pending changes",
     )
     parser.add_argument(
+        "--task",
+        default=None,
+        help="Task YAML; only residual changes under spec.scope.allowed_paths block handoff",
+    )
+    parser.add_argument(
         "--final-note",
         default=None,
         help=(
@@ -173,14 +197,42 @@ def main() -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
+    out_of_scope_lines: list[str] = []
+    recorded_scope_error = False
+    if args.task:
+        try:
+            task_scope = load_task_scope(args.task, project_root=PROJECT_ROOT)
+            lines, out_of_scope_lines = classify_status_lines(lines, task_scope.allowed_paths)
+            recorded_scope_error = any(
+                not path_is_allowed(path, task_scope.allowed_paths)
+                for path in task_scope.recorded_changed_paths
+            )
+            print(f"Task scope base: {task_scope.base_sha}")
+            if task_scope.recorded_changed_paths:
+                print(
+                    "Task status.execution.changed_paths: "
+                    + ", ".join(task_scope.recorded_changed_paths)
+                )
+            if recorded_scope_error:
+                print("ERROR: recorded status.execution.changed_paths outside allowed_paths")
+                for path in task_scope.recorded_changed_paths:
+                    if not path_is_allowed(path, task_scope.allowed_paths):
+                        print(f"  {path}")
+        except ScopeError as exc:
+            print(f"ERROR: task scope invalid: {exc}", file=sys.stderr)
+            return 2
+
     code, message = evaluate_handoff(
         lines,
         allow_uncommitted=args.allow_uncommitted,
         reason=args.reason,
     )
-    _print_summary(lines)
+    _print_summary(lines, out_of_scope_lines=out_of_scope_lines)
     print()
     print(message)
+    if recorded_scope_error:
+        print("FAIL: task record contains paths outside its allowed scope.")
+        code = code or 1
     if args.final_note is None:
         return code
 

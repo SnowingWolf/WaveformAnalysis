@@ -1,0 +1,55 @@
+name: Agent Workflow v6 Check
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  agent-workflow:
+    name: Validate agent workflow contract and docs
+    runs-on: ubuntu-latest
+    env:
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+    steps:
+      - name: Check out complete pull-request history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project and documentation dependencies
+        run: python -m pip install -e ".[dev,docgen]"
+
+      - name: Validate all AgentTask records
+        run: python scripts/agent_workflow.py validate --all --strict
+
+      - name: Check generated agent documentation
+        run: python scripts/render_agent_docs.py --check
+
+      - name: Verify legacy archive against pull-request base
+        run: python scripts/check_agent_archive.py --base "${PR_BASE_SHA}"
+
+      - name: Assess complete pull-request change impact
+        run: python scripts/assess_change_impact.py --base "${PR_BASE_SHA}"
+
+      - name: Check complete pull-request schema compatibility
+        run: python scripts/schema_compat_check.py --base "${PR_BASE_SHA}" --run-smoke
+
+      - name: Run agent workflow gate tests
+        run: >-
+          python -m pytest -q
+          tests/test_agent_workflow.py
+          tests/test_change_scope.py
+          tests/test_check_agent_archive.py
+          tests/test_check_agent_handoff.py
+          tests/test_render_agent_docs.py
+          tests/test_agent_quality_checks.py
+
+      - name: Run complete pull-request doc sync
+        run: bash scripts/check_doc_sync.sh --base "${PR_BASE_SHA}"

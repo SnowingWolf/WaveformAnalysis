@@ -8,6 +8,23 @@ from pathlib import Path
 import subprocess
 import sys
 
+try:
+    from scripts.change_scope import (
+        build_scope_report,
+        classify_paths,
+        discover_changed_paths,
+        load_task_scope,
+        resolve_base,
+    )
+except ImportError:  # direct ``python scripts/assess_change_impact.py`` execution
+    from change_scope import (  # type: ignore[no-redef]
+        build_scope_report,
+        classify_paths,
+        discover_changed_paths,
+        load_task_scope,
+        resolve_base,
+    )
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PLUGIN_ROOT = "waveform_analysis/core/plugins"
 
@@ -130,16 +147,15 @@ def _read_base_file(base: str, rel_path: str) -> str | None:
     return result.stdout
 
 
-def _changed_plugin_files(base: str) -> list[str]:
-    raw = _run_git(["diff", "--name-only", base, "--", PLUGIN_ROOT])
-    files = []
-    for line in raw.splitlines():
-        line = line.strip()
-        if not line.endswith(".py"):
-            continue
-        if line:
-            files.append(line)
-    return sorted(set(files))
+def _changed_plugin_files(base: str, task: str | Path | None = None) -> list[str]:
+    effective_base = resolve_base(base, task, project_root=PROJECT_ROOT)
+    paths = discover_changed_paths(effective_base, project_root=PROJECT_ROOT)
+    if task is not None:
+        task_scope = load_task_scope(task, project_root=PROJECT_ROOT)
+        paths, _out_of_scope = classify_paths(paths, task_scope.allowed_paths)
+    return sorted(
+        path for path in paths if path.startswith(PLUGIN_ROOT + "/") and path.endswith(".py")
+    )
 
 
 def _collect_current_plugin_graph() -> tuple[dict[str, PluginMeta], dict[str, set[str]]]:
@@ -189,15 +205,24 @@ def _risk_level(change_keys: list[str], version_changed: bool) -> str:
     return "low"
 
 
-def assess(base: str) -> dict[str, object]:
-    changed_files = _changed_plugin_files(base)
+def assess(base: str, task: str | Path | None = None) -> dict[str, object]:
+    effective_base = resolve_base(base, task, project_root=PROJECT_ROOT)
+    scope_report = (
+        build_scope_report(base=base, task=task, project_root=PROJECT_ROOT)
+        if task is not None
+        else None
+    )
+    changed_files = _changed_plugin_files(effective_base, task=None)
+    if scope_report is not None:
+        allowed = set(scope_report.in_scope_paths)
+        changed_files = [path for path in changed_files if path in allowed]
     provider_meta, dep_to_consumers = _collect_current_plugin_graph()
 
     records: list[dict[str, object]] = []
 
     for rel_path in changed_files:
         current_path = PROJECT_ROOT / rel_path
-        old_src = _read_base_file(base, rel_path)
+        old_src = _read_base_file(effective_base, rel_path)
         new_src = _read_file(current_path) if current_path.exists() else None
 
         old_meta = _extract_plugin_meta(old_src) if old_src else {}
@@ -266,7 +291,7 @@ def assess(base: str) -> dict[str, object]:
             )
 
     summary = {
-        "base": base,
+        "base": effective_base,
         "changed_plugin_files": changed_files,
         "changed_plugin_count": len(records),
         "risk_counts": {
@@ -276,6 +301,8 @@ def assess(base: str) -> dict[str, object]:
         },
         "known_providers": sorted(provider_meta.keys()),
         "records": records,
+        "scope": scope_report.to_dict() if scope_report is not None else None,
+        "scope_error": scope_report.has_recorded_scope_error if scope_report is not None else False,
     }
     return summary
 
@@ -285,6 +312,20 @@ def _print_report(report: dict[str, object]) -> None:
     print("base: {}".format(report["base"]))
     print("changed plugin files: {}".format(len(report["changed_plugin_files"])))
     print("risk counts: high={high}, medium={medium}, low={low}".format(**report["risk_counts"]))
+    scope = report.get("scope")
+    if scope:
+        print("in-scope changed paths: {}".format(len(scope["in_scope_paths"])))
+        print(
+            "out-of-scope dirty paths (reported, non-blocking): {}".format(
+                len(scope["out_of_scope_paths"])
+            )
+        )
+        for path in scope["out_of_scope_paths"]:
+            print(f"  out-of-scope: {path}")
+        if scope["recorded_out_of_scope_paths"]:
+            print("recorded status.execution.changed_paths outside allowed_paths:")
+            for path in scope["recorded_out_of_scope_paths"]:
+                print(f"  ERROR: {path}")
     print()
 
     records = report["records"]
@@ -307,12 +348,17 @@ def _print_report(report: dict[str, object]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Assess plugin change impact and lineage risk")
-    parser.add_argument("--base", default="HEAD", help="Git base ref (default: HEAD)")
+    parser.add_argument(
+        "--base", default=None, help="Git base ref (default: HEAD; task base in task mode)"
+    )
+    parser.add_argument(
+        "--task", default=None, help="task YAML; use its stable scope base and allowed paths"
+    )
     parser.add_argument("--json-out", default=None, help="Write full report JSON to path")
     args = parser.parse_args()
 
     try:
-        report = assess(args.base)
+        report = assess(args.base, task=args.task)
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
@@ -326,7 +372,7 @@ def main() -> int:
         print(f"JSON report written to {out}")
 
     high = report["risk_counts"]["high"]
-    return 1 if high > 0 else 0
+    return 1 if high > 0 or report.get("scope_error") else 0
 
 
 if __name__ == "__main__":

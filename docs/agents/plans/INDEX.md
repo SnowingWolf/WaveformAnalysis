@@ -1,60 +1,17 @@
-# Agent Plan Registry
+# Agent Plan Registry (compatibility view)
 
-This directory is the shared plan registry for human users and AI agents.
+Active task state is owned by the v6 records under
+`docs/agents/runs/current/<task-id>/task.yaml`. This file is generated for old
+links and readers; edit the task record and rerun
+`python scripts/render_agent_docs.py --write` instead of editing this view.
 
-When starting a new task, read this file first, then read `active.yaml`, then open the relevant plan file under `current/`.
+<!-- BEGIN GENERATED: current_task_registry -->
+| task_id | state | route | cost | shape | condition | record |
+| --- | --- | --- | --- | --- | --- | --- |
+| `get-data-output-unification` | `planning` | `modify_code` | `standard` | `staged` | `NeedsRevalidation` | `docs/agents/runs/current/get-data-output-unification/task.yaml` |
+| `hit-merged-peaklet-responsibility` | `planning` | `modify_code` | `standard` | `staged` | `NeedsRevalidation` | `docs/agents/runs/current/hit-merged-peaklet-responsibility/task.yaml` |
+| `hit-threshold-ragged-optimization` | `planning` | `modify_plugin` | `standard` | `staged` | `NeedsRevalidation` | `docs/agents/runs/current/hit-threshold-ragged-optimization/task.yaml` |
+<!-- END GENERATED: current_task_registry -->
 
-This registry does not replace task-level artifacts such as `plan_brief`, `execution_report`, or `review_report`. It only indexes active plans and records cross-session status.
-
----
-
-## Current Active Plan
-
-| task_id | status | route | owner_role | plan | next_action | updated_at |
-|---|---|---|---|---|---|---|
-| get-data-output-unification | doing | modify_context | executor | [current/get-data-output-unification.md](current/get-data-output-unification.md) | Unify ctx.get_data output behavior | 2026-06-05 |
-
----
-
-## Todo
-
-| task_id | route | owner_role | plan | next_action |
-|---|---|---|---|---|
-| hit-threshold-ragged-optimization | modify_plugin | executor | [current/hit-threshold-ragged-optimization.md](current/hit-threshold-ragged-optimization.md) | Optimize records ragged waveform access |
-| hit-merged-peaklet-responsibility | refactor | planner | [current/hit-merged-peaklet-responsibility.md](current/hit-merged-peaklet-responsibility.md) | Clarify plugin responsibility boundaries |
-
----
-
-## Blocked
-
-| task_id | reason | required_decision | plan |
-|---|---|---|---|
-
----
-
-## Done
-
-| task_id | completed_at | summary | archive |
-|---|---|---|---|
-
----
-
-## Cancelled
-
-| task_id | cancelled_at | reason | archive |
-|---|---|---|---|
-
----
-
-## Operating Rules
-
-1. Read this file before starting an Agent task.
-2. Read `active.yaml` to identify machine-readable active plans.
-3. Work on only one plan at a time.
-4. Do not modify unrelated code while executing a plan.
-5. After finishing a task, update:
-   - the plan file
-   - `INDEX.md`
-   - `active.yaml`
-6. Move completed or cancelled plans from `current/` to `archive/`.
-7. Keep `INDEX.md` short. Detailed reasoning belongs in individual plan files.
+Legacy plan text is retained as `legacy-plan.md` beside each current task. It is
+historical input and is not a second source of truth.

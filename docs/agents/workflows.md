@@ -2,6 +2,11 @@
 
 本页定义常见任务的标准 workflow。状态机真源见 `lifecycle.md`，机器可读路由见 `index.yaml`。
 
+活动任务只使用 `docs/agents/runs/current/<task-id>/task.yaml`：计划写入
+`spec`，执行、审查、批准和交接证据写入 `status`。本页保留旧 artifact
+字段的流程语义；`docs/agents/protocol/artifacts/` 下五个通用 Markdown
+模板仅用于兼容旧链接，历史报告位于 `runs/archive/legacy/`。
+
 ## 通用协作模型
 - `workflow_shape=staged` 的默认拓扑为 `Planner -> Executor -> Reviewer`；`compact` 可由单 agent 内联完成计划、执行和复核；`direct` 只用于只读简单任务。
 - `staged` 主状态：`created -> planning -> ready_for_execution -> executing -> reviewing -> completed`
@@ -9,10 +14,16 @@
 - 阻断式审查：`staged` 未经 `Reviewer` 放行不得进入 `completed`；快速路径命中升级条件时必须转为 `staged`。
 
 ### Shape 选择与升级
-- `light` 默认 `compact`，纯只读解释、查看、定向查询可选 `direct`。
-- `standard` 与 `strict` 默认 `staged`。
-- 触及 public surface、插件契约、dtype/字段、cache lineage、compat 删除、release、审批、破坏性动作、scope 扩大或 gate 失败，必须升级到 `staged`。
-- `direct` 的 mutation 必须是 `read_only`，不得产生仓库改动；`compact` 只能做低风险、局部、可回滚的 scoped write。
+<!-- BEGIN GENERATED: workflow_shape_catalog -->
+| workflow_shape | mutation | artifact | topology | terminal condition |
+| --- | --- | --- | --- | --- |
+| `direct` | `read_only` | `none` | `single_actor_inline` | `direct_task_verified` |
+| `compact` | `low_risk_scoped_write` | `task_report` | `single_actor_with_inline_checkpoints` | `compact_task_report_ready` |
+| `staged` | `route_scoped` | `plan_brief, execution_report, review_report` | `planner_executor_reviewer` | `all_blocking_gates_pass` |
+<!-- END GENERATED: workflow_shape_catalog -->
+
+- 默认 shape、允许 shape 与升级触发条件统一维护在 `docs/agents/index.yaml`。
+- `direct` 不得产生仓库改动；命中任一升级条件时必须切换到 `staged`。
 
 ### Role 与 Profile
 - role（如 `executor.plugin`）定义状态所有权与交接责任。
@@ -25,11 +36,13 @@
 
 `workflow_cost` 用来控制一次任务的流程重量。它不替代主状态机，只决定 artifact 填写粒度和 gate 数量。
 
-| workflow_cost | 适用范围 | Artifact 口径 | Gate 口径 |
+<!-- BEGIN GENERATED: workflow_cost_catalog -->
+| workflow_cost | 默认 shape | 允许 shape | routes |
 | --- | --- | --- | --- |
-| `light` | 只读解释、定向测试、文档小修、缓存诊断 | 默认 `compact` 单份 `task_report`；只读简单任务可 `direct` | 只跑当前目标必需的最小 gate |
-| `standard` | 普通代码、插件内部算法、QA 扫描 | 完整填写通用 artifact | 跑 route 默认 gate 与定向测试 |
-| `strict` | 插件契约、dtype/字段、compat 删除、发布前检查 | 完整 artifact，不得压缩 | 固定 gate 必须全部记录 PASS/FAIL |
+| `light` | `compact` | `direct, compact, staged` | `debug_cache`, `generate_docs`, `run_tests` |
+| `standard` | `staged` | `staged` | `modify_plugin`, `modify_code`, `assess_change_impact`, `schema_compat_check`, `performance_regression_check` |
+| `strict` | `staged` | `staged` | `retire_compat`, `release_artifact_sync` |
+<!-- END GENERATED: workflow_cost_catalog -->
 
 ### 升级规则
 1. route 默认成本见 `docs/agents/index.yaml` 的 `workflow_cost`。
@@ -38,22 +51,12 @@
 4. 仅文档改动默认使用 `light`；若文档同步的是代码契约变化，继承源 route 成本。
 
 ## 通用交接产物
-- `plan_brief`
-  - 由 `Planner` 生成
-  - `planning -> ready_for_execution` 前必须存在
-- `compat_inventory`
-  - 仅用于 `retire_compat`
-  - 在 `planning` 阶段先于 `plan_brief` 完成，用于锁定删除范围
-- `execution_report`
-  - 由 `Executor` 生成
-  - `executing -> reviewing` 前必须存在
-- `review_report`
-  - 由 `Reviewer` 生成
-  - `reviewing -> completed` 前必须存在
-- `task_report`
-  - 仅用于 `compact`
-  - 由同一执行者在内联验证后生成，`executing -> completed` 前必须存在
-  - 至少记录 `task_id`、`workflow_shape`、`actions_taken`、`verification`、`decision`、`changed_paths`、`commit_status`、`open_risks`
+- `task.yaml.spec`：由 `Planner` 完成；`planning -> ready_for_execution` 前必须包含目标、route、成本、shape、范围、验收条件、gates 与 assignment。
+- `task.yaml.status.execution`：由 `Executor` 写入；`executing -> reviewing` 前必须记录实际路径、命令与结果。
+- `task.yaml.status.review`：由阻断式 `Reviewer` 写入；`reviewing -> completed` 前必须记录 gate 结果、decision、阻断发现与残余风险。
+- `task.yaml.status.approval`：仅在需要用户批准或权限批准时写入，并绑定当前 spec digest。
+- `task.yaml.status.handoff`：记录 commit 状态、交接摘要和后续动作；`compact` 也使用同一 task record。
+- 旧 `plan_brief`、`compat_inventory`、`execution_report`、`review_report`、`task_report` 仅保留为 deprecated 兼容路径，不得作为第二真源。
 - `light` 模式最低字段：
   - `plan_brief`: `task_id`、`route`、`workflow_cost`、`scope_in`、`required_gates`、`executor_role`
   - `execution_report`: `task_id`、`workflow_cost`、`actions_taken`、`commands_run`、`open_risks`

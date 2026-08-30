@@ -16,7 +16,6 @@ import argparse
 import os
 from pathlib import Path
 import re
-import subprocess
 import sys
 from typing import NamedTuple
 
@@ -24,6 +23,25 @@ try:
     from scripts._python_compat import require_supported_python
 except ImportError:  # direct ``python scripts/check_doc_anchors.py`` execution
     from _python_compat import require_supported_python
+
+try:
+    from scripts.change_scope import (
+        ScopeError,
+        build_scope_report,
+        classify_paths,
+        discover_changed_paths,
+        load_task_scope,
+        resolve_base,
+    )
+except ImportError:  # direct ``python scripts/check_doc_anchors.py`` execution
+    from change_scope import (  # type: ignore[no-redef]
+        ScopeError,
+        build_scope_report,
+        classify_paths,
+        discover_changed_paths,
+        load_task_scope,
+        resolve_base,
+    )
 
 if not require_supported_python("check_doc_anchors.py"):
     raise SystemExit(1)
@@ -193,7 +211,7 @@ def validate_anchors(anchors: list[DocAnchor]) -> list[Issue]:
     return issues
 
 
-def get_changed_files(base: str) -> tuple[set[str], set[str]]:
+def get_changed_files(base: str, task: str | Path | None = None) -> tuple[set[str], set[str]]:
     """获取相对于 base 的变更文件
 
     Args:
@@ -203,41 +221,34 @@ def get_changed_files(base: str) -> tuple[set[str], set[str]]:
         (changed_code_files, changed_doc_files) 元组
     """
     try:
-        # 获取变更的代码文件
-        result = subprocess.run(
-            [
-                "git",
-                "diff",
-                "--name-only",
-                base,
-                "--",
-                "waveform_analysis/",
-                "*.py",
-                ":!docs/",
-                ":!tests/",
-            ],
-            capture_output=True,
-            text=True,
-            cwd=PROJECT_ROOT,
-        )
-        code_files = set(result.stdout.strip().split("\n")) if result.stdout.strip() else set()
+        paths = discover_changed_paths(base, project_root=PROJECT_ROOT)
+        if task is not None:
+            task_scope = load_task_scope(task, project_root=PROJECT_ROOT)
+            paths, _out_of_scope = classify_paths(paths, task_scope.allowed_paths)
 
-        # 获取变更的文档文件
-        result = subprocess.run(
-            ["git", "diff", "--name-only", base, "--", "docs/"],
-            capture_output=True,
-            text=True,
-            cwd=PROJECT_ROOT,
-        )
-        doc_files = set(result.stdout.strip().split("\n")) if result.stdout.strip() else set()
-
-        return code_files, doc_files
+        code_files = {
+            path
+            for path in paths
+            if (path.startswith("waveform_analysis/") or path.endswith(".py"))
+            and not path.startswith("docs/")
+            and not path.startswith("tests/")
+        }
+        doc_files = {path for path in paths if path.startswith("docs/")}
+        return set(code_files), set(doc_files)
+    except ScopeError:
+        # A bad task scope or Git base must fail closed. Returning an empty
+        # change set would incorrectly turn a broken gate into a pass.
+        raise
     except Exception as e:
         print(f"Warning: Failed to get git diff: {e}", file=sys.stderr)
         return set(), set()
 
 
-def check_sync(base: str, anchors: list[DocAnchor]) -> list[Issue]:
+def check_sync(
+    base: str,
+    anchors: list[DocAnchor],
+    task: str | Path | None = None,
+) -> list[Issue]:
     """检查代码变更是否需要同步文档
 
     Args:
@@ -248,7 +259,7 @@ def check_sync(base: str, anchors: list[DocAnchor]) -> list[Issue]:
         Issue 列表
     """
     issues = []
-    changed_code, changed_docs = get_changed_files(base)
+    changed_code, changed_docs = get_changed_files(base, task=task)
 
     if not changed_code:
         return issues
@@ -312,6 +323,22 @@ def scan_all_files() -> list[DocAnchor]:
     return all_anchors
 
 
+def scan_task_files(paths: list[str]) -> list[DocAnchor]:
+    """Scan only Python files in a task's in-scope changed-path set."""
+
+    anchors: list[DocAnchor] = []
+    seen: set[Path] = set()
+    for relative in paths:
+        path = (PROJECT_ROOT / relative).resolve()
+        if path in seen or not path.is_file() or path.suffix != ".py":
+            continue
+        if "__pycache__" in path.parts:
+            continue
+        seen.add(path)
+        anchors.extend(find_doc_anchors(path))
+    return anchors
+
+
 def print_issues(issues: list[Issue]) -> tuple[int, int]:
     """打印问题列表
 
@@ -368,15 +395,46 @@ def print_summary(anchors: list[DocAnchor], error_count: int, warning_count: int
 def main():
     parser = argparse.ArgumentParser(description="检查代码中的 DOC 注释")
     parser.add_argument("--check-sync", action="store_true", help="检查代码变更是否需要同步文档")
-    parser.add_argument("--base", default="HEAD", help="Git 基准引用（默认 HEAD）")
+    parser.add_argument(
+        "--base",
+        default=None,
+        help="Git 基准引用（默认 HEAD；task 模式使用 task base）",
+    )
+    parser.add_argument("--task", default=None, help="task YAML；按 spec.scope 过滤本地变更")
     parser.add_argument("--verbose", "-v", action="store_true", help="显示详细信息")
     args = parser.parse_args()
 
     print("Doc Anchor 检查")
     print("=" * 50)
 
-    # 扫描所有 DOC 注释
-    anchors = scan_all_files()
+    scope_report = None
+    if args.task:
+        try:
+            scope_report = build_scope_report(
+                base=args.base,
+                task=args.task,
+                project_root=PROJECT_ROOT,
+            )
+        except ScopeError as exc:
+            print(f"ERROR: task scope invalid: {exc}", file=sys.stderr)
+            return 1
+        print(f"Task scope base: {scope_report.base_sha}")
+        if scope_report.out_of_scope_paths:
+            print("Out-of-scope dirty paths (reported, non-blocking):")
+            for path in scope_report.out_of_scope_paths:
+                print(f"  {path}")
+        if scope_report.recorded_out_of_scope_paths:
+            print("Recorded status.execution.changed_paths outside allowed_paths:")
+            for path in scope_report.recorded_out_of_scope_paths:
+                print(f"  {path}")
+
+    # A task gate must not be affected by unrelated repository-wide anchors.
+    # Full-base/PR checks retain the historical all-files scan.
+    if scope_report is None:
+        anchors = scan_all_files()
+    else:
+        anchors = scan_task_files(list(scope_report.in_scope_paths))
+        print(f"Task-scoped DOC anchors: {len(anchors)}")
 
     if args.verbose:
         print(f"\n找到 {len(anchors)} 个 DOC 注释:")
@@ -392,9 +450,26 @@ def main():
 
     # 检查同步（如果启用）
     if args.check_sync:
-        print(f"\n检查代码与文档同步 (base: {args.base})...")
-        sync_issues = check_sync(args.base, anchors)
+        try:
+            effective_base = scope_report.base_sha if scope_report else resolve_base(args.base)
+            print(f"\n检查代码与文档同步 (base: {effective_base})...")
+            sync_issues = check_sync(effective_base, anchors, task=args.task)
+        except ScopeError as exc:
+            print(f"ERROR: Git base or task scope invalid: {exc}", file=sys.stderr)
+            return 1
         issues.extend(sync_issues)
+
+    if scope_report and scope_report.recorded_out_of_scope_paths:
+        for path in scope_report.recorded_out_of_scope_paths:
+            issues.append(
+                Issue(
+                    file_path=path,
+                    line_num=0,
+                    severity="error",
+                    message="task status.execution.changed_paths 超出 allowed_paths",
+                    raw_line="",
+                )
+            )
 
     # 打印问题
     if issues:

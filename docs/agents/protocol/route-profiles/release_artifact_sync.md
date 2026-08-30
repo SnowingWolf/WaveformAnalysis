@@ -9,6 +9,7 @@
 - `workflow_cost`: `strict`
 - `primary_doc`: `docs/agents/workflows.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/release_artifact_sync.md`
+- `executor_role`: `executor.qa`
 - `aliases`: `release_check`
 
 ## Blocking Gates

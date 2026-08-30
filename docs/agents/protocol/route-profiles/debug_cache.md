@@ -9,6 +9,7 @@
 - `workflow_cost`: `light`
 - `primary_doc`: `docs/agents/workflows.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/debug_cache.md`
+- `executor_role`: `executor.config`
 
 ## Blocking Gates
 - `diagnosis_reproduced`

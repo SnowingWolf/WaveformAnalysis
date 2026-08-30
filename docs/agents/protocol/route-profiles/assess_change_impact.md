@@ -9,6 +9,7 @@
 - `workflow_cost`: `standard`
 - `primary_doc`: `docs/agents/workflows.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/assess_change_impact.md`
+- `executor_role`: `executor.qa`
 
 ## Blocking Gates
 - `impact_report_generated`

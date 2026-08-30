@@ -9,6 +9,7 @@
 - `workflow_cost`: `light`
 - `primary_doc`: `docs/agents/references.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/generate_docs.md`
+- `executor_role`: `executor.docs`
 
 ## Blocking Gates
 - `doc_sync`
