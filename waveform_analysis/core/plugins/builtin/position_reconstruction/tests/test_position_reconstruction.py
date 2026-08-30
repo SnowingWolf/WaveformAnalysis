@@ -369,6 +369,39 @@ def test_batched_xy_matches_legacy_event_loop_semantics():
     np.testing.assert_array_equal(observed[2], expected_n)
 
 
+def test_batched_xy_duplicate_layout_key_keeps_last_entry():
+    plugin = PositionReconstructionPlugin()
+    layout = PmtLayout(
+        entries=(
+            PmtEntry(1, "FIRST", 0.0, 0.0, 0, 7, "anode", "negative", gain=1.0),
+            PmtEntry(2, "LAST", 10.0, 20.0, 0, 7, "anode", "negative", gain=1.0),
+        ),
+        source="duplicate-key-test",
+    )
+    channels = np.array(
+        [(11, 0, 7, 100.0)],
+        dtype=[("peaklet_id", "i8"), ("board", "i2"), ("channel", "i2"), ("area", "f4")],
+    )
+
+    class SimpleContext:
+        def get_data(self, run_id, data_name):
+            assert data_name == "peaklet_channels"
+            return channels
+
+    x, y, n_channels = plugin._compute_xy_cog_vectorized(
+        SimpleContext(),
+        "run",
+        np.array([11], dtype=np.int64),
+        np.array([100.0], dtype=np.float32),
+        0.0,
+        layout,
+    )
+
+    np.testing.assert_array_equal(x, np.array([10.0], dtype=np.float32))
+    np.testing.assert_array_equal(y, np.array([20.0], dtype=np.float32))
+    np.testing.assert_array_equal(n_channels, np.array([1], dtype=np.int16))
+
+
 def test_default_drift_velocity_outputs_z_in_mm():
     """默认漂移速度以 mm/ns 表达，Z 输出单位为 mm。"""
     plugin = PositionReconstructionPlugin()

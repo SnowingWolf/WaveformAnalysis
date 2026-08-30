@@ -312,6 +312,15 @@ class PositionReconstructionPlugin(Plugin):
         layout_x = layout_x[layout_order]
         layout_y = layout_y[layout_order]
         layout_gain = layout_gain[layout_order]
+        # ``_build_pmt_mapping`` historically used a dict comprehension, so a
+        # duplicate hardware key kept the final layout entry. Stable sorting
+        # preserves source order within equal-key runs; retaining each run's
+        # final row therefore keeps that exact compatibility rule.
+        keep_last = np.r_[layout_keys[1:] != layout_keys[:-1], True]
+        layout_keys = layout_keys[keep_last]
+        layout_x = layout_x[keep_last]
+        layout_y = layout_y[keep_last]
+        layout_gain = layout_gain[keep_last]
 
         row_keys = np.empty(total_rows, dtype=key_dtype)
         row_keys["board"] = peaklet_channels["board"][selected_rows]
