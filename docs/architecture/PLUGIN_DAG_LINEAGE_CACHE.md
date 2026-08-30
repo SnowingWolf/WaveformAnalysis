@@ -153,6 +153,9 @@ Context 先解析目标的依赖顺序，再计算各节点当前缓存键。执
 
 ## 5. Lineage
 
+Context 按需从 `waveform_analysis.visualization` 加载 lineage renderer，避免普通数据处理
+提前导入 Matplotlib 或 Plotly；`waveform_analysis.utils.visualization` 保持为同一模块对象的兼容入口。
+
 ### Lineage 与缓存身份
 
 #### 5.1 结果身份的组成

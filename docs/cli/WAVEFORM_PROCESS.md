@@ -4,6 +4,9 @@
 
 `waveform-process` 是 WaveformAnalysis 的主要命令行工具，用于处理波形数据和扫描 DAQ 目录。[^source]
 
+CLI 的 DAQ 扫描实现由 `waveform_analysis.acquisition.daq.DAQAnalyzer` 提供；
+`waveform_analysis.utils.daq` 仅作为不发出弃用警告的兼容入口继续可用。
+
 ---
 
 ## 命令概述

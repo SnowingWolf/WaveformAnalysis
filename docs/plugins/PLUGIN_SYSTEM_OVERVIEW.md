@@ -190,6 +190,9 @@ class ConfiguredPlugin(Plugin):
 
 ## 依赖解析与 lineage
 
+`Context.plot_lineage()` 按需调用 `waveform_analysis.visualization` 中的 renderer；规范实现与
+Context 核心保持单向依赖，旧的 `waveform_analysis.utils.visualization` 路径仍映射到同一模块对象。
+
 静态依赖来自类属性；动态依赖覆盖 `resolve_depends_on(context, run_id=None)`。动态解析器的返回值
 就是本次运行的实际输入边，Context 会在构建执行计划、检查版本约束和计算 lineage 时使用同一结果。
 Context 递归缓存的是不含 `adapter_info` 的基础 lineage，adapter 信息仅在顶层补充一次，因此缓存

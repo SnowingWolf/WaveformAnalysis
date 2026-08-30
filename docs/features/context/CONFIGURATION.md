@@ -54,6 +54,8 @@ ctx.set_config(
 ## 适配器推断
 
 配置解析器会从 DAQ adapter 的格式信息推断部分插件配置。推荐显式设置全局 `daq_adapter`，避免同一处理链路内不同插件推断来源不一致。
+Adapter registry 的规范入口是 `waveform_analysis.acquisition.formats`；旧的
+`waveform_analysis.utils.formats` 与其共享同一 registry 和对象身份。
 
 当前可推断的典型值包括：
 
