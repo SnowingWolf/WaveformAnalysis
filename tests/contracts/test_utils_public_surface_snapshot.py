@@ -197,3 +197,35 @@ def test_analysis_accessor_responsibility_modules_preserve_method_objects():
     assert get_sum_waveform is PeakChannelAccessor.get_sum_waveform
     assert mask is S1S2PairAccessor.mask
     assert pair_plot is S1S2PairAccessor.plot
+
+
+def test_acquisition_legacy_modules_share_registries_and_implementations():
+    canonical_formats = importlib.import_module("waveform_analysis.acquisition.formats")
+    legacy_formats = importlib.import_module("waveform_analysis.utils.formats")
+    assert legacy_formats is canonical_formats
+
+    canonical_registry = importlib.import_module("waveform_analysis.acquisition.formats.registry")
+    legacy_registry = importlib.import_module("waveform_analysis.utils.formats.registry")
+    canonical_adapter = importlib.import_module("waveform_analysis.acquisition.formats.adapter")
+    legacy_adapter = importlib.import_module("waveform_analysis.utils.formats.adapter")
+    assert legacy_registry is canonical_registry
+    assert legacy_adapter is canonical_adapter
+    assert legacy_registry._FORMAT_REGISTRY is canonical_registry._FORMAT_REGISTRY
+    assert legacy_registry._FORMAT_SPECS is canonical_registry._FORMAT_SPECS
+    assert legacy_adapter._ADAPTER_REGISTRY is canonical_adapter._ADAPTER_REGISTRY
+
+    formats_before = canonical_formats.list_formats()
+    adapters_before = canonical_formats.list_adapters()
+    canonical_formats.ensure_builtin_formats_registered()
+    canonical_formats.ensure_builtin_formats_registered()
+    assert canonical_formats.list_formats() == formats_before
+    assert canonical_formats.list_adapters() == adapters_before
+
+    canonical_daq = importlib.import_module("waveform_analysis.acquisition.daq")
+    legacy_daq = importlib.import_module("waveform_analysis.utils.daq")
+    canonical_io = importlib.import_module("waveform_analysis.acquisition.io")
+    legacy_io = importlib.import_module("waveform_analysis.utils.io")
+    assert legacy_daq is canonical_daq
+    assert legacy_io is canonical_io
+    assert legacy_daq.DAQAnalyzer is canonical_daq.DAQAnalyzer
+    assert legacy_io.parse_and_stack_files is canonical_io.parse_and_stack_files

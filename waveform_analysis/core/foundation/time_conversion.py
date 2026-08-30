@@ -41,8 +41,8 @@ from typing import Any
 
 import numpy as np
 
+from waveform_analysis.acquisition.formats.base import TimestampUnit
 from waveform_analysis.core.foundation.utils import exporter
-from waveform_analysis.utils.formats.base import TimestampUnit
 
 export, __all__ = exporter()
 

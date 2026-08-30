@@ -1,0 +1,129 @@
+"""DAQ 工具：包含 DAQRun 和 DAQAnalyzer
+
+This module exposes DAQRun and DAQAnalyzer from their dedicated modules so
+external imports can continue to use ``waveform_analysis.utils.daq`` as the
+public entrypoint.
+"""
+
+from __future__ import annotations
+
+from importlib import import_module
+import logging
+from typing import TYPE_CHECKING, Any
+
+from waveform_analysis.core.foundation.utils import exporter
+
+logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from .daq_analyzer import DAQAnalyzer
+    from .daq_run import DAQRun
+
+
+export, __all__ = exporter()
+_LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
+    "DAQAnalyzer": (".daq_analyzer", "DAQAnalyzer"),
+    "DAQRun": (".daq_run", "DAQRun"),
+}
+
+
+class _DAQRunAdapter:
+    """Lightweight adapter exposing a stable minimal DAQRun protocol:
+
+    - get_channel_paths(n_channels) -> List[List[str]]  (n_channels can be None)
+    - channel_files -> dict mapping ch -> list(entries)z
+
+    This adapter wraps objects that either already implement the method,
+    or provide a `channel_files` attribute, or are plain dict mappings.
+    """
+
+    def __init__(self, src: Any):
+        """
+        初始化 DAQ 运行适配器
+
+        包装不同来源的 DAQ 运行对象，提供统一的接口。
+
+        Args:
+            src: DAQ 运行对象（可以是 DAQRun, dict, 或任何提供 channel_files 的对象）
+
+        Note:
+            适配器会尝试调用 get_channel_paths 方法，如果不存在则从 channel_files 属性构建。
+        """
+        self._src = src
+
+    def _infer_channel_count(self) -> int | None:
+        cf = getattr(self._src, "channel_files", None)
+        if isinstance(cf, dict) and cf:
+            return max(int(k) for k in cf.keys()) + 1
+        if isinstance(self._src, dict) and self._src:
+            return max(int(k) for k in self._src.keys()) + 1
+        return None
+
+    def get_channel_paths(self, n_channels: int | None):
+        if n_channels is None:
+            inferred = self._infer_channel_count()
+            if inferred is None:
+                logger.warning("Unable to infer channel count from DAQ run metadata.")
+                return []
+            n_channels = inferred
+
+        # If source already provides the method, prefer it
+        if hasattr(self._src, "get_channel_paths"):
+            try:
+                return self._src.get_channel_paths(n_channels)
+            except Exception:
+                logger.debug("get_channel_paths existed but raised; falling back", exc_info=True)
+
+        # If source exposes channel_files mapping, construct ordered paths
+        cf = getattr(self._src, "channel_files", None)
+        if cf is not None and isinstance(cf, dict):
+            out = [[] for _ in range(n_channels)]
+            for ch in range(n_channels):
+                entries = cf.get(ch, [])
+                # entries may be dicts with 'path' and optional 'index', or plain paths
+                # Preserve provided order; entries is expected to be in acquisition order
+                paths = [str(e.get("path")) if isinstance(e, dict) else str(e) for e in entries]
+                out[ch] = paths
+            return out
+
+        # If source is itself a dict mapping
+        if isinstance(self._src, dict):
+            out = [[] for _ in range(n_channels)]
+            for ch in range(n_channels):
+                entries = self._src.get(ch, [])
+                paths = [str(e.get("path")) if isinstance(e, dict) else str(e) for e in entries]
+                out[ch] = paths
+            return out
+
+        # Unknown shape: return empty lists
+        return [[] for _ in range(n_channels)]
+
+
+@export
+def adapt_daq_run(obj: Any):
+    """Return an adapter providing `get_channel_paths(n_channels)` for obj.
+
+    Use this in loader/dataset to normalize inputs from different DAQ tooling.
+    """
+    return _DAQRunAdapter(obj)
+
+
+_DAQRunAdapter.__module__ = "waveform_analysis.utils.daq.daq"
+adapt_daq_run.__module__ = "waveform_analysis.utils.daq.daq"
+
+
+def __getattr__(name: str):
+    if name in _LAZY_ATTRS:
+        module_name, attr_name = _LAZY_ATTRS[name]
+        module = import_module(module_name, __package__)
+        value = getattr(module, attr_name) if attr_name else module
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+
+def __dir__():
+    return sorted(set(globals()) | set(__all__) | set(_LAZY_ATTRS))
+
+
+__all__ = ["DAQAnalyzer", "DAQRun", "adapt_daq_run"]

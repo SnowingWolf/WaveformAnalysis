@@ -8,9 +8,9 @@ from importlib.metadata import version as package_version
 from pathlib import Path
 import sys
 
+from waveform_analysis.acquisition.daq import DAQAnalyzer
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins import profiles
-from waveform_analysis.utils.daq import DAQAnalyzer
 
 
 def _pkg_version() -> str:

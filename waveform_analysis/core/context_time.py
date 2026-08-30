@@ -445,8 +445,8 @@ class ContextTimeDomain:
         }
 
     def set_epoch(self, run_id: str, epoch: datetime | float | str, time_unit: str = "ns") -> None:
+        from waveform_analysis.acquisition.formats.base import TimestampUnit
         from waveform_analysis.core.foundation.time_conversion import EpochInfo
-        from waveform_analysis.utils.formats.base import TimestampUnit
 
         unit_map = {
             "ps": TimestampUnit.PICOSECONDS,

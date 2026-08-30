@@ -1567,7 +1567,7 @@ def _build_records_part_refs_for_channel(
     chunksize: int | None,
     use_process_pool: bool,
 ) -> tuple[int, list[_RecordsPartRef], dict[str, tuple[float, int]]]:
-    from waveform_analysis.utils.formats import get_adapter
+    from waveform_analysis.acquisition.formats import get_adapter
 
     adapter = get_adapter(adapter_name)
     reader = adapter.format_reader
@@ -1994,7 +1994,7 @@ def _build_v1725_records_part_from_waves(
     if not waves:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
-    from waveform_analysis.utils.formats.v1725_numba import (
+    from waveform_analysis.acquisition.formats.v1725_numba import (
         fill_v1725_records_metadata_parallel,
         fill_v1725_records_metadata_serial,
     )
@@ -2113,7 +2113,7 @@ def build_records_from_v1725_files(
     if not file_paths:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
-    from waveform_analysis.utils.formats import get_adapter
+    from waveform_analysis.acquisition.formats import get_adapter
 
     adapter = get_adapter("v1725")
     reader = adapter.format_reader

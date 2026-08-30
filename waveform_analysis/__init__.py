@@ -90,8 +90,8 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "IntegrityChecker": (".core.storage", "IntegrityChecker"),
     "MemmapStorage": (".core.storage", "MemmapStorage"),
     "StorageBackend": (".core.storage", "StorageBackend"),
-    "DAQAnalyzer": (".utils.daq", "DAQAnalyzer"),
-    "DAQRun": (".utils.daq", "DAQRun"),
+    "DAQAnalyzer": (".acquisition.daq", "DAQAnalyzer"),
+    "DAQRun": (".acquisition.daq", "DAQRun"),
     "render_position_dashboard": (".visualization", "render_position_dashboard"),
     "render_position_dashboard_2d": (".visualization", "render_position_dashboard_2d"),
 }

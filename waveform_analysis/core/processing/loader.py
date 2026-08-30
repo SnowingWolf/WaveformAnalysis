@@ -16,11 +16,11 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
+from waveform_analysis.acquisition.daq import adapt_daq_run
 from waveform_analysis.core.foundation.utils import exporter
-from waveform_analysis.utils.daq import adapt_daq_run
 
 if TYPE_CHECKING:
-    from waveform_analysis.utils.formats import DAQAdapter
+    from waveform_analysis.acquisition.formats import DAQAdapter
 
 # 初始化 exporter
 export, __all__ = exporter()
@@ -85,7 +85,7 @@ class WaveformLoaderCSV:
 
     def _load_adapter(self, adapter_name: str) -> None:
         """延迟加载适配器"""
-        from waveform_analysis.utils.formats import get_adapter
+        from waveform_analysis.acquisition.formats import get_adapter
 
         self._adapter = get_adapter(adapter_name)
 
@@ -215,7 +215,7 @@ class WaveformLoaderCSV:
             channel_workers: **新增** 通道级并行度；>1 时为每个通道分配线程并行解析。
             channel_executor: 通道级并行的执行器类型，"thread" (默认) 或 "process"。
         """
-        from waveform_analysis.utils.io import parse_and_stack_files
+        from waveform_analysis.acquisition.io import parse_and_stack_files
 
         if channel_workers is None or channel_workers <= 1:
             waveforms = []
@@ -277,7 +277,7 @@ class WaveformLoaderCSV:
         """
         流式加载波形，每次返回一个 chunk 的数据。
         """
-        from waveform_analysis.utils.io import parse_files_generator
+        from waveform_analysis.acquisition.io import parse_files_generator
 
         gens = [parse_files_generator(files, chunksize=chunksize) for files in raw_filess]
         return zip(*gens, strict=False)
