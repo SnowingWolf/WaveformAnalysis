@@ -570,7 +570,7 @@ class S1S2PairAccessor:
             else None
         )
 
-        from waveform_analysis.utils.visualization._s1_s2_candidates import (
+        from waveform_analysis.visualization._s1_s2_candidates import (
             _plot_s2_candidates,
         )
 

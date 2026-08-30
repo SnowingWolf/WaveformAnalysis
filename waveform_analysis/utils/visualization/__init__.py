@@ -1,6 +1,23 @@
-"""可视化模块 - 血缘关系、波形和统计图表。"""
+"""Backward-compatible lazy facade for :mod:`waveform_analysis.visualization`."""
 
-# 延迟导入以避免循环依赖
+from importlib import import_module
+
+from waveform_analysis._module_aliases import register_module_aliases
+
+_CANONICAL = "waveform_analysis.visualization"
+register_module_aliases(
+    {
+        f"{__name__}.{child}": f"{_CANONICAL}.{child}"
+        for child in (
+            "_s1_s2_candidates",
+            "lineage_visualizer",
+            "pdf_export",
+            "statistical_plots",
+            "waveform_visualizer",
+        )
+    }
+)
+
 __all__ = [
     "plot_lineage_labview",
     "plot_lineage_plotly",
@@ -13,43 +30,26 @@ __all__ = [
     "save_figures_pdf",
 ]
 
+_LAZY_ATTRS = {
+    "plot_lineage_labview": ("lineage_visualizer", "plot_lineage_labview"),
+    "plot_lineage_plotly": ("lineage_visualizer", "plot_lineage_plotly"),
+    "plot_waveforms": ("waveform_visualizer", "plot_waveforms"),
+    "plot_peak_channels_with_sum": (
+        "waveform_visualizer",
+        "plot_peak_channels_with_sum",
+    ),
+    "create_peak_plotter": ("waveform_visualizer", "create_peak_plotter"),
+    "corner_hist": ("statistical_plots", "corner_hist"),
+    "plot_1d_cut_on_corner": ("statistical_plots", "plot_1d_cut_on_corner"),
+    "plot_2d_cut_on_corner": ("statistical_plots", "plot_2d_cut_on_corner"),
+    "save_figures_pdf": ("pdf_export", "save_figures_pdf"),
+}
+
 
 def __getattr__(name: str):
-    """懒加载导入，避免循环依赖"""
-    if name == "plot_lineage_labview":
-        from .lineage_visualizer import plot_lineage_labview
-
-        return plot_lineage_labview
-    elif name == "plot_lineage_plotly":
-        from .lineage_visualizer import plot_lineage_plotly
-
-        return plot_lineage_plotly
-    elif name == "plot_waveforms":
-        from .waveform_visualizer import plot_waveforms
-
-        return plot_waveforms
-    elif name == "plot_peak_channels_with_sum":
-        from .waveform_visualizer import plot_peak_channels_with_sum
-
-        return plot_peak_channels_with_sum
-    elif name == "create_peak_plotter":
-        from .waveform_visualizer import create_peak_plotter
-
-        return create_peak_plotter
-    elif name == "corner_hist":
-        from .statistical_plots import corner_hist
-
-        return corner_hist
-    elif name == "plot_1d_cut_on_corner":
-        from .statistical_plots import plot_1d_cut_on_corner
-
-        return plot_1d_cut_on_corner
-    elif name == "plot_2d_cut_on_corner":
-        from .statistical_plots import plot_2d_cut_on_corner
-
-        return plot_2d_cut_on_corner
-    elif name == "save_figures_pdf":
-        from .pdf_export import save_figures_pdf
-
-        return save_figures_pdf
-    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+    """Resolve legacy attributes from their canonical implementation modules."""
+    try:
+        module_name, attr_name = _LAZY_ATTRS[name]
+    except KeyError as exc:
+        raise AttributeError(f"module '{__name__}' has no attribute '{name}'") from exc
+    return getattr(import_module(f"{_CANONICAL}.{module_name}"), attr_name)

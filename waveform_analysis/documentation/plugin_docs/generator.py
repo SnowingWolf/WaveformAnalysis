@@ -1402,7 +1402,7 @@ class PluginDocGenerator:
     ) -> dict[str, Any]:
         """Return the runtime lineage model as an offline React Flow payload."""
         from waveform_analysis.core.foundation.utils import LineageStyle
-        from waveform_analysis.utils.visualization.lineage_visualizer import (
+        from waveform_analysis.visualization.lineage_visualizer import (
             _classify_edge_category,
             _classify_node_type,
             _resolve_wire_style,

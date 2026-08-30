@@ -20,19 +20,19 @@ from waveform_analysis.utils.formats import (
 )
 from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
 from waveform_analysis.utils.s1_s2_pair_accessor import S1S2PairAccessor
-from waveform_analysis.utils.visualization.statistical_plots import (
+from waveform_analysis.visualization import (
+    render_position_dashboard_2d,
+    render_position_dashboard_with_2d_hist,
+)
+from waveform_analysis.visualization.statistical_plots import (
     corner_hist,
     plot_1d_cut_on_corner,
     plot_2d_cut_on_corner,
 )
-from waveform_analysis.utils.visualization.waveform_visualizer import (
+from waveform_analysis.visualization.waveform_visualizer import (
     create_peak_plotter,
     plot_peak_channels_with_sum,
     plot_waveforms,
-)
-from waveform_analysis.visualization import (
-    render_position_dashboard_2d,
-    render_position_dashboard_with_2d_hist,
 )
 
 from .models import (

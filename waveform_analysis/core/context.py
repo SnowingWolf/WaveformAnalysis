@@ -31,10 +31,6 @@ import warnings
 import numpy as np
 
 # 3. Local imports (使用相对导入)
-from ..utils.visualization.lineage_visualizer import (
-    plot_lineage_labview,
-    plot_lineage_plotly,
-)
 from .config import (
     AdapterInfo,
     CompatManager,
@@ -1351,6 +1347,11 @@ class Context:
 
         if not show_virtual_plugins:
             model = model.without_lineage_virtual_nodes(data_name)
+
+        from ..visualization.lineage_visualizer import (
+            plot_lineage_labview,
+            plot_lineage_plotly,
+        )
 
         if kind == "labview":
             return plot_lineage_labview(model, data_name, context=self, **kwargs)

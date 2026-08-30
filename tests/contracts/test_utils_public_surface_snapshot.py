@@ -116,3 +116,23 @@ print(json.dumps({
         "pyarrow": False,
     }
     assert observed["sampling_loaded"] is False
+
+
+def test_visualization_legacy_modules_share_canonical_implementations():
+    pairs = (
+        ("lineage_visualizer", "plot_lineage_labview"),
+        ("statistical_plots", "corner_hist"),
+        ("waveform_visualizer", "plot_waveforms"),
+        ("pdf_export", "save_figures_pdf"),
+    )
+    for leaf, public_name in pairs:
+        canonical = importlib.import_module(f"waveform_analysis.visualization.{leaf}")
+        legacy = importlib.import_module(f"waveform_analysis.utils.visualization.{leaf}")
+        assert legacy is canonical
+        assert getattr(legacy, public_name) is getattr(canonical, public_name)
+        assert canonical.__name__ == f"waveform_analysis.visualization.{leaf}"
+
+    canonical_package = importlib.import_module("waveform_analysis.visualization")
+    legacy_package = importlib.import_module("waveform_analysis.utils.visualization")
+    for public_name in legacy_package.__all__:
+        assert getattr(legacy_package, public_name) is getattr(canonical_package, public_name)
