@@ -707,4 +707,23 @@ class S1S2PairAccessor:
 
 # Preserve historical introspection and pickle metadata while the implementation
 # lives at the canonical analysis path.
+from waveform_analysis.analysis.accessors.pairs.filters import mask
+from waveform_analysis.analysis.accessors.pairs.indexes import (
+    build_indices,
+    build_one_to_many_index,
+)
+from waveform_analysis.analysis.accessors.pairs.waveform_access import (
+    load_waveform_layer,
+    normalize_waveform_time,
+    pair_waveforms,
+    waveform,
+)
+
+S1S2PairAccessor._build_indices = build_indices
+S1S2PairAccessor._build_one_to_many_index = staticmethod(build_one_to_many_index)
+S1S2PairAccessor.mask = mask
+S1S2PairAccessor._load_waveform_layer = load_waveform_layer
+S1S2PairAccessor._normalize_waveform_time = normalize_waveform_time
+S1S2PairAccessor.waveform = waveform
+S1S2PairAccessor.pair_waveforms = pair_waveforms
 S1S2PairAccessor.__module__ = "waveform_analysis.utils.s1_s2_pair_accessor"

@@ -1277,4 +1277,17 @@ class PeakChannelAccessor:
 
 # Preserve historical introspection and pickle metadata while the implementation
 # lives at the canonical analysis path.
+from waveform_analysis.analysis.accessors.peak.indexes import (
+    build_feature_indices,
+    build_waveform_indices,
+)
+from waveform_analysis.analysis.accessors.peak.sum_waveforms import (
+    get_sum_waveform,
+    load_sum_waveform_layer,
+)
+
+PeakChannelAccessor._build_feature_indices = build_feature_indices
+PeakChannelAccessor._build_waveform_indices = build_waveform_indices
+PeakChannelAccessor._load_sum_waveform_layer = load_sum_waveform_layer
+PeakChannelAccessor.get_sum_waveform = get_sum_waveform
 PeakChannelAccessor.__module__ = "waveform_analysis.utils.peak_channel_accessor"
