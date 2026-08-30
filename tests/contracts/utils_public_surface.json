@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "root_all": [
+    "DAQRun",
+    "DAQAnalyzer",
+    "get_raw_files",
+    "get_waveforms",
+    "get_waveforms_generator",
+    "filter_events_by_function",
+    "filter_coincidence_events",
+    "extract_channel_attributes",
+    "plot_lineage_labview",
+    "plot_lineage_plotly",
+    "plot_waveforms",
+    "plot_peak_channels_with_sum",
+    "create_peak_plotter",
+    "save_figures_pdf",
+    "corner_hist",
+    "plot_1d_cut_on_corner",
+    "plot_2d_cut_on_corner",
+    "get_merged_indices_for_peak",
+    "get_hit_indices_for_merged",
+    "get_hits_for_merged",
+    "get_hits_for_peak",
+    "build_peak_to_merged_lookup",
+    "build_merged_to_hit_lookup",
+    "S1S2PairAccessor",
+    "PeakChannelAccessor",
+    "adaptive_sample_count",
+    "adaptive_stratified_sample_2d"
+  ],
+  "root_dir_extra": ["parse_files_generator"],
+  "module_public_names": {
+    "waveform_analysis.utils.cache_tools": ["list_channel_cache_keys"],
+    "waveform_analysis.utils.event_filters": [
+      "extract_channel_attributes",
+      "filter_coincidence_events",
+      "filter_events_by_function"
+    ],
+    "waveform_analysis.utils.io": ["parse_and_stack_files", "parse_files_generator"],
+    "waveform_analysis.utils.peak_channel_accessor": [
+      "PeakChannelAccessor",
+      "PeakChannelDataUnavailableError",
+      "WaveformOverlapConflictError"
+    ],
+    "waveform_analysis.utils.query_helpers": [
+      "build_merged_to_hit_lookup",
+      "build_peak_to_merged_lookup",
+      "get_hit_indices_for_merged",
+      "get_hits_for_merged",
+      "get_hits_for_peak",
+      "get_merged_indices_for_peak"
+    ],
+    "waveform_analysis.utils.s1_s2_pair_accessor": [
+      "S1S2PairAccessor",
+      "WaveformNotFoundError"
+    ],
+    "waveform_analysis.utils.sampling": [
+      "adaptive_sample_count",
+      "adaptive_stratified_sample_2d"
+    ],
+    "waveform_analysis.utils.visualization": [
+      "corner_hist",
+      "create_peak_plotter",
+      "plot_1d_cut_on_corner",
+      "plot_2d_cut_on_corner",
+      "plot_lineage_labview",
+      "plot_lineage_plotly",
+      "plot_peak_channels_with_sum",
+      "plot_waveforms",
+      "save_figures_pdf"
+    ],
+    "waveform_analysis.utils.daq": ["DAQAnalyzer", "DAQRun", "adapt_daq_run"],
+    "waveform_analysis.utils.formats": [
+      "ColumnMapping",
+      "DAQAdapter",
+      "DirectoryLayout",
+      "FLAT_LAYOUT",
+      "FormatReader",
+      "FormatSpec",
+      "GenericCSVReader",
+      "RawTimestampMode",
+      "TimestampUnit",
+      "V1725Adapter",
+      "V1725Reader",
+      "V1725Spec",
+      "V1725_ADAPTER",
+      "V1725_LAYOUT",
+      "V1725_SPEC",
+      "VX2730Reader",
+      "VX2730Spec",
+      "VX2730_ADAPTER",
+      "VX2730_LAYOUT",
+      "VX2730_SPEC",
+      "get_adapter",
+      "get_format_reader",
+      "get_format_spec",
+      "is_adapter_registered",
+      "is_format_registered",
+      "list_adapters",
+      "list_formats",
+      "register_adapter",
+      "register_format",
+      "unregister_adapter",
+      "unregister_format"
+    ]
+  },
+  "private_patch_points": {
+    "waveform_analysis.utils.visualization.statistical_plots": [
+      "_NUMBA_AVAILABLE",
+      "_ensure_numba_histogram2d",
+      "_numba_histogram2d",
+      "_safe_histogram2d"
+    ]
+  },
+  "registries": {
+    "formats": ["vx2730_csv", "v1725_bin"],
+    "adapters": ["v1725", "vx2730"],
+    "v1725_adapter_type": "V1725Adapter",
+    "vx2730_adapter_type": "DAQAdapter"
+  },
+  "key_signatures": {
+    "DAQAnalyzer": "(daq_root: 'str | Path' = 'DAQ', daq_adapter: 'str | DAQAdapter | None' = None, directory_layout: 'DirectoryLayout | None' = None, max_waves_for_channels: 'int' = 1000) -> 'None'",
+    "DAQRun": "(run_name: 'str', run_path: 'str | Path', daq_adapter: 'str | DAQAdapter | None' = None, directory_layout: 'DirectoryLayout | None' = None, max_waves_for_channels: 'int' = 50)",
+    "PeakChannelAccessor": "(context: Any, run_id: str, lazy_load: bool = False)",
+    "S1S2PairAccessor": "(context: Any, run_id: str, source: str = 'pairs', selected_only: bool = False, lazy_pairs: bool = False, lazy_waveform: bool = True)",
+    "adaptive_sample_count": "(n: 'int', n_full: 'int' = 4, n_max: 'int' = 12) -> 'int'",
+    "parse_and_stack_files": "(file_paths: list[str], skiprows: int = 2, delimiter: str = ';', chunksize: int | None = None, engine: str = 'auto', n_jobs: int = 1, use_process_pool: bool = False, show_progress: bool = False, progress_desc: str | None = None, format_type: str | None = None, format_reader: Optional[ForwardRef('FormatReader')] = None, samples_start: int = 7) -> numpy.ndarray"
+  }
+}
