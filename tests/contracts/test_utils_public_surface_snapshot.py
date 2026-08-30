@@ -231,6 +231,52 @@ def test_visualization_responsibility_modules_preserve_public_objects():
     assert split_plot_waveforms is plot_waveforms
 
 
+@pytest.mark.parametrize(
+    ("module_name", "public_name"),
+    (
+        (
+            "waveform_analysis.visualization.lineage.matplotlib_renderer",
+            "plot_lineage_labview",
+        ),
+        (
+            "waveform_analysis.visualization.lineage.plotly_renderer",
+            "plot_lineage_plotly",
+        ),
+        (
+            "waveform_analysis.visualization.lineage",
+            "plot_lineage_labview",
+        ),
+        (
+            "waveform_analysis.visualization.waveforms.renderer",
+            "plot_waveforms",
+        ),
+        (
+            "waveform_analysis.acquisition.readers.orchestrator",
+            "parse_and_stack_files",
+        ),
+    ),
+)
+def test_split_entry_points_import_directly_in_fresh_process(module_name, public_name):
+    code = f"""
+import importlib
+import inspect
+module = importlib.import_module({module_name!r})
+value = getattr(module, {public_name!r})
+print(value.__name__)
+print(inspect.signature(value))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    expected_name = public_name
+    if public_name.startswith("plot_lineage_"):
+        expected_name = f"_{public_name}_impl"
+    assert result.stdout.splitlines()[0] == expected_name
+
+
 def test_analysis_legacy_modules_share_canonical_implementations():
     pairs = (
         ("peak_channel_accessor", "peak_channel_accessor", "PeakChannelAccessor"),
