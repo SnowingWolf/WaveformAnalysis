@@ -564,7 +564,16 @@ def _node_heights_for(model: LineageGraphModel, style: LineageStyle) -> dict[str
     return heights
 
 
-def plot_lineage_labview(
+from waveform_analysis.visualization.lineage.layout import (  # noqa: E402
+    _layout_nodes_source_to_target,
+    _layout_view_metrics,
+    _node_heights_for,
+    _set_port_positions,
+    _wrap_text_lines,
+)
+
+
+def _plot_lineage_labview_impl(
     lineage: Any,
     target_name: str,
     context: Any = None,
@@ -1158,7 +1167,7 @@ def _add_interactive_features(
     fig.canvas.mpl_connect("button_press_event", on_click)
 
 
-def plot_lineage_plotly(
+def _plot_lineage_plotly_impl(
     lineage: Any,
     target_name: str,
     context: Any = None,
@@ -1614,3 +1623,11 @@ def plot_lineage_plotly(
     if show:
         fig.show()
     return fig
+
+
+from waveform_analysis.visualization.lineage.matplotlib_renderer import (  # noqa: E402
+    plot_lineage_labview,
+)
+from waveform_analysis.visualization.lineage.plotly_renderer import (  # noqa: E402
+    plot_lineage_plotly,
+)

@@ -194,6 +194,14 @@ def _safe_histogram2d(x, y, xbins, ybins, weights=None):
     return H.T
 
 
+# The backend owns histogram execution; these aliases intentionally remain
+# module globals so existing monkeypatch targets keep controlling ``corner_hist``.
+from waveform_analysis.visualization.statistical.histogram import (  # noqa: E402
+    _ensure_numba_histogram2d,
+    _safe_histogram2d,
+)
+
+
 def corner_hist(
     data: list | tuple,
     names: list[str] | None = None,
@@ -1083,3 +1091,11 @@ def plot_2d_cut_on_corner(
         linewidth=linewidth,
         label=label,
     )
+
+
+# Cut rendering is implemented independently from the corner layout while the
+# historical module continues to expose the same function objects.
+from waveform_analysis.visualization.statistical.cuts import (  # noqa: E402
+    plot_1d_cut_on_corner,
+    plot_2d_cut_on_corner,
+)
