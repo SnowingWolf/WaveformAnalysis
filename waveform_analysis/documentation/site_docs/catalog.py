@@ -5,6 +5,8 @@ from typing import Any
 
 import numpy as np
 
+from waveform_analysis.analysis.peak_channel_accessor import PeakChannelAccessor
+from waveform_analysis.analysis.s1_s2_pair_accessor import S1S2PairAccessor
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.data import RecordsView, records_view
 from waveform_analysis.core.plugins.plugin_sets import PLUGIN_SETS
@@ -18,8 +20,6 @@ from waveform_analysis.utils.formats import (
     register_adapter,
     register_format,
 )
-from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
-from waveform_analysis.utils.s1_s2_pair_accessor import S1S2PairAccessor
 from waveform_analysis.visualization import (
     render_position_dashboard_2d,
     render_position_dashboard_with_2d_hist,

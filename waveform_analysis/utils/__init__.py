@@ -43,9 +43,18 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
         "waveform_analysis.core.processing.loader",
         "get_waveforms_generator",
     ),
-    "filter_events_by_function": (".event_filters", "filter_events_by_function"),
-    "filter_coincidence_events": (".event_filters", "filter_coincidence_events"),
-    "extract_channel_attributes": (".event_filters", "extract_channel_attributes"),
+    "filter_events_by_function": (
+        "waveform_analysis.analysis.filters",
+        "filter_events_by_function",
+    ),
+    "filter_coincidence_events": (
+        "waveform_analysis.analysis.filters",
+        "filter_coincidence_events",
+    ),
+    "extract_channel_attributes": (
+        "waveform_analysis.analysis.filters",
+        "extract_channel_attributes",
+    ),
     "parse_files_generator": (".io", "parse_files_generator"),
     "plot_lineage_labview": (".visualization", "plot_lineage_labview"),
     "plot_lineage_plotly": (".visualization", "plot_lineage_plotly"),
@@ -56,16 +65,40 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "corner_hist": (".visualization.statistical_plots", "corner_hist"),
     "plot_1d_cut_on_corner": (".visualization.statistical_plots", "plot_1d_cut_on_corner"),
     "plot_2d_cut_on_corner": (".visualization.statistical_plots", "plot_2d_cut_on_corner"),
-    "get_merged_indices_for_peak": (".query_helpers", "get_merged_indices_for_peak"),
-    "get_hit_indices_for_merged": (".query_helpers", "get_hit_indices_for_merged"),
-    "get_hits_for_merged": (".query_helpers", "get_hits_for_merged"),
-    "get_hits_for_peak": (".query_helpers", "get_hits_for_peak"),
-    "build_peak_to_merged_lookup": (".query_helpers", "build_peak_to_merged_lookup"),
-    "build_merged_to_hit_lookup": (".query_helpers", "build_merged_to_hit_lookup"),
-    "S1S2PairAccessor": (".s1_s2_pair_accessor", "S1S2PairAccessor"),
-    "PeakChannelAccessor": (".peak_channel_accessor", "PeakChannelAccessor"),
-    "adaptive_sample_count": (".sampling", "adaptive_sample_count"),
-    "adaptive_stratified_sample_2d": (".sampling", "adaptive_stratified_sample_2d"),
+    "get_merged_indices_for_peak": (
+        "waveform_analysis.analysis.queries",
+        "get_merged_indices_for_peak",
+    ),
+    "get_hit_indices_for_merged": (
+        "waveform_analysis.analysis.queries",
+        "get_hit_indices_for_merged",
+    ),
+    "get_hits_for_merged": ("waveform_analysis.analysis.queries", "get_hits_for_merged"),
+    "get_hits_for_peak": ("waveform_analysis.analysis.queries", "get_hits_for_peak"),
+    "build_peak_to_merged_lookup": (
+        "waveform_analysis.analysis.queries",
+        "build_peak_to_merged_lookup",
+    ),
+    "build_merged_to_hit_lookup": (
+        "waveform_analysis.analysis.queries",
+        "build_merged_to_hit_lookup",
+    ),
+    "S1S2PairAccessor": (
+        "waveform_analysis.analysis.s1_s2_pair_accessor",
+        "S1S2PairAccessor",
+    ),
+    "PeakChannelAccessor": (
+        "waveform_analysis.analysis.peak_channel_accessor",
+        "PeakChannelAccessor",
+    ),
+    "adaptive_sample_count": (
+        "waveform_analysis.analysis.sampling",
+        "adaptive_sample_count",
+    ),
+    "adaptive_stratified_sample_2d": (
+        "waveform_analysis.analysis.sampling",
+        "adaptive_stratified_sample_2d",
+    ),
 }
 
 

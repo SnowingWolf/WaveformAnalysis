@@ -162,3 +162,25 @@ def test_visualization_responsibility_modules_preserve_public_objects():
     assert split_plotly is plot_lineage_plotly
     assert split_corner_hist is corner_hist
     assert split_plot_waveforms is plot_waveforms
+
+
+def test_analysis_legacy_modules_share_canonical_implementations():
+    pairs = (
+        ("peak_channel_accessor", "peak_channel_accessor", "PeakChannelAccessor"),
+        ("s1_s2_pair_accessor", "s1_s2_pair_accessor", "S1S2PairAccessor"),
+        ("query_helpers", "queries", "get_hits_for_peak"),
+        ("event_filters", "filters", "filter_events_by_function"),
+        ("sampling", "sampling", "adaptive_stratified_sample_2d"),
+        ("cache_tools", "cache_queries", "list_channel_cache_keys"),
+    )
+    for legacy_leaf, canonical_leaf, public_name in pairs:
+        legacy = importlib.import_module(f"waveform_analysis.utils.{legacy_leaf}")
+        canonical = importlib.import_module(f"waveform_analysis.analysis.{canonical_leaf}")
+        assert legacy is canonical
+        assert getattr(legacy, public_name) is getattr(canonical, public_name)
+
+    import waveform_analysis.analysis as analysis
+    import waveform_analysis.utils as utils
+
+    for public_name in analysis.__all__:
+        assert getattr(utils, public_name) is getattr(analysis, public_name)
