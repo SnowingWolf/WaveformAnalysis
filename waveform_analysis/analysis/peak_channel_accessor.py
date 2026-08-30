@@ -25,6 +25,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from waveform_analysis.analysis.accessors.peak.feature_loading import (
+    load_peaklet_channels,
+)
 from waveform_analysis.analysis.queries import get_hits_for_merged, get_hits_for_peak
 from waveform_analysis.core.plugins.builtin.shared.waveform_merge import (
     WaveformOverlapConflictError,
@@ -108,37 +111,9 @@ class PeakChannelAccessor:
         self._hit_merged = self.context.get_data(self.run_id, "hit_merged")
         self._hit_merged_features = self.context.get_data(self.run_id, "hit_merged_features")
 
-        # peaklet_channels is the canonical per-channel aggregation product.
-        try:
-            peaklet_channels = self.context.get_data(self.run_id, "peaklet_channels")
-        except Exception as error:
-            raise PeakChannelDataUnavailableError(
-                "PeakChannelAccessor requires the 'peaklet_channels' product. "
-                "Register PeakletChannelsPlugin and regenerate this run."
-            ) from error
-
-        required_fields = {
-            "peaklet_id",
-            "board",
-            "channel",
-            "area",
-            "height",
-            "n_hits",
-            "area_fraction",
-        }
-        names = (
-            set(peaklet_channels.dtype.names or ())
-            if isinstance(peaklet_channels, np.ndarray)
-            else set()
+        self._peaklet_channels = load_peaklet_channels(
+            self.context, self.run_id, PeakChannelDataUnavailableError
         )
-        if not isinstance(peaklet_channels, np.ndarray) or not required_fields.issubset(names):
-            missing_fields = sorted(required_fields - names)
-            detail = f" Missing fields: {', '.join(missing_fields)}." if missing_fields else ""
-            raise PeakChannelDataUnavailableError(
-                "PeakChannelAccessor requires 'peaklet_channels' as a structured array with the "
-                f"canonical per-channel fields.{detail} Regenerate the product with PeakletChannelsPlugin."
-            )
-        self._peaklet_channels = peaklet_channels
 
         # peaks 是可选的
         try:

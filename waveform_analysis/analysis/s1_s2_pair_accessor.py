@@ -42,6 +42,8 @@ from typing import Any
 
 import numpy as np
 
+from waveform_analysis.analysis.accessors.pairs.pair_table import pair_data_key
+
 
 class WaveformNotFoundError(Exception):
     """波形未找到异常"""
@@ -131,17 +133,7 @@ class S1S2PairAccessor:
         if self._pairs_loaded:
             return
 
-        # 根据 source 选择数据键名
-        if self.source == "pairs":
-            data_key = "s1_s2_pairs"
-        elif self.source == "candidates":
-            data_key = "s1_s2_pair_candidates"
-        elif self.source == "events":
-            data_key = "events"
-        else:
-            raise ValueError(
-                f"Invalid source '{self.source}'. Must be 'pairs', 'candidates', or 'events'."
-            )
+        data_key = pair_data_key(self.source)
 
         # 加载数据
         if data_key == "s1_s2_pair_candidates" and self._candidate_pair_table is not None:

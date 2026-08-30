@@ -184,3 +184,16 @@ def test_analysis_legacy_modules_share_canonical_implementations():
 
     for public_name in analysis.__all__:
         assert getattr(utils, public_name) is getattr(analysis, public_name)
+
+
+def test_analysis_accessor_responsibility_modules_preserve_method_objects():
+    from waveform_analysis.analysis import PeakChannelAccessor, S1S2PairAccessor
+    from waveform_analysis.analysis.accessors.pairs.filters import mask
+    from waveform_analysis.analysis.accessors.pairs.plotting import plot as pair_plot
+    from waveform_analysis.analysis.accessors.peak.plotting import plot as peak_plot
+    from waveform_analysis.analysis.accessors.peak.sum_waveforms import get_sum_waveform
+
+    assert peak_plot is PeakChannelAccessor.plot
+    assert get_sum_waveform is PeakChannelAccessor.get_sum_waveform
+    assert mask is S1S2PairAccessor.mask
+    assert pair_plot is S1S2PairAccessor.plot
