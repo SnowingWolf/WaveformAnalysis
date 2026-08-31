@@ -205,8 +205,8 @@ waveform-process --run-name run_001 --verbose
 CLI 与 `Context` 的执行路径一致，下面是对应的最简代码：
 
 ```python
-from waveform_analysis.core import Context
-from waveform_analysis.core.plugins import profiles
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
 ctx = Context()
 ctx.register(*profiles.cpu_default())

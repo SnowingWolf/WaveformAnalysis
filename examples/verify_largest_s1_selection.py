@@ -3,8 +3,8 @@
 验证 S1-S2 配对是否按照"最大 S1"逻辑选择
 """
 
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import (
+from waveform_analysis import Context
+from waveform_analysis.plugins import (
     HitFinderPlugin,
     HitMergedFeaturesPlugin,
     HitMergePlugin,
@@ -13,10 +13,12 @@ from waveform_analysis.core.plugins.builtin.cpu import (
     PeakletPlugin,
     PeakletWaveformPlugin,
     PeaksPlugin,
-    RawFilesPlugin,
     S1S2PairCandidatesPlugin,
     S1S2PairSelectionPlugin,
     WaveformsPlugin,
+)
+from waveform_analysis.plugins import (
+    RawFileNamesPlugin as RawFilesPlugin,
 )
 
 

@@ -92,8 +92,8 @@ structured_array output with fields: peak_id, time_start, time_end, dt, wave_off
 ### Minimal Example
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import profiles
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
 ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 ctx.register(*profiles.cpu_default())

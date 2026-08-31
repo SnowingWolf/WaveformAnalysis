@@ -7,13 +7,15 @@
 2. normalize_to_pe=True: area/height 直接归一化为 PE，area_pe/height_pe 为 NaN
 """
 
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import (
+from waveform_analysis import Context
+from waveform_analysis.plugins import (
     HitFinderPlugin,
     HitMergedFeaturesPlugin,
     HitMergePlugin,
-    RawFilesPlugin,
     WaveformsPlugin,
+)
+from waveform_analysis.plugins import (
+    RawFileNamesPlugin as RawFilesPlugin,
 )
 
 

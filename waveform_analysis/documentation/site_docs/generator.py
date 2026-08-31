@@ -552,8 +552,8 @@ class DocumentationSiteGenerator:
         accessor_dir = output_dir / "accessors"
         accessor_dir.mkdir(parents=True, exist_ok=True)
         home_path = output_dir / "index.html"
-        context_plugin_example = """from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import profiles
+        context_plugin_example = """from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
 run_id = \"run_001\"
 ctx = Context(config={\"data_root\": \"DAQ\", \"daq_adapter\": \"vx2730\"})

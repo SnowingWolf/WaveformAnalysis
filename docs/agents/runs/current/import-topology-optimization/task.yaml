@@ -54,13 +54,17 @@ spec:
       - luna_cli_and_docs
       - luna_blocking_reviewer
 status:
-  state: executing
-  condition: ExecutorAssigned
+  state: reviewing
+  condition: ExecutionReportReady
   conditions:
     - type: PlanBriefReady
       status: 'True'
       reason: user_approved_plan
       message: Clean baseline and generated documentation artifacts captured under /tmp.
+    - type: ExecutionReportReady
+      status: 'True'
+      reason: docs_import_paths_complete
+      message: Public import-path sources were updated, generated outputs were refreshed, and the execution gates were recorded.
   transitions:
     - from: null
       to: planning
@@ -77,32 +81,92 @@ status:
       at: '2026-08-31'
       actor: executor.code
       condition: executor_assigned
+    - from: executing
+      to: reviewing
+      at: '2026-08-31'
+      actor: executor.code
+      condition: execution_report_ready
   plan_sha256: null
   execution:
-    stage: 3
-    stage_name: cli_runtime_imports
+    stage: 3B
+    stage_name: public_import_paths
     executor_role: executor.code
     started_at: '2026-08-31'
-    state: completed
+    state: reviewing
+    execution_report: ready
     completed_commits:
+      - 44bff79d63b15b56f76a8e55b058ad51fef813f1
+      - 023d5a1b31484ffd2b06060d0fc2126771276ace
+      - accff61533c1e101c1667dec8c51987f18a61050
+      - b38f3074571a8a97329c5bad42394cfbac9e7877
       - 11622959af224d1f42084480169efd3a4e010c23
+      - 33a9770ba73c6a578baed8834be3bc06030211a4
     current_scope:
-      - waveform_analysis/cli.py
-      - tests/test_cli_show_daq.py
-      - tests/contracts/test_cli_import_contract.py
+      - AGENTS.md
+      - docs/development/contributing/IMPORT_STYLE_GUIDE.md
+      - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+      - docs/user-guide/QUICKSTART_GUIDE.md
+      - docs/user-guide/EXAMPLES_GUIDE.md
+      - docs/cli/WAVEFORM_PROCESS.md
+      - waveform_analysis/documentation/plugin_docs
+      - waveform_analysis/documentation/site_docs
+      - waveform_analysis/documentation/templates
+      - examples
+      - docs/plugins/reference/builtin/auto
+      - docs/plugins/reference/agent
     actions_taken:
-      - Deferred DAQAnalyzer, Context, and profiles behind module-level lazy attributes.
-      - Added a branch-local runtime loader that honors existing CLI monkeypatch targets.
-      - Kept Path and package_version module attributes and parser behavior unchanged.
-      - Added fresh-process contracts for parser-only, DAQ, context, cache, and documentation CLI imports.
+      - Standardized public user-facing imports to waveform_analysis, waveform_analysis.plugins, and the corresponding domain facades.
+      - Preserved private helpers, dtype constants, core implementation imports, compatibility paths, plugin facts, schemas, and configuration text.
+      - Updated generator and template sources, then regenerated tracked plugins-auto and plugins-agent references.
+      - Generated plugins-web and site-web into fresh /tmp/wa-import-after-* directories for source-to-output comparison.
+    changed_paths:
+      - AGENTS.md
+      - docs/development/contributing/IMPORT_STYLE_GUIDE.md
+      - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+      - docs/user-guide/QUICKSTART_GUIDE.md
+      - docs/user-guide/EXAMPLES_GUIDE.md
+      - docs/cli/WAVEFORM_PROCESS.md
+      - waveform_analysis/documentation/plugin_docs/generator.py
+      - waveform_analysis/documentation/site_docs/catalog.py
+      - waveform_analysis/documentation/site_docs/generator.py
+      - waveform_analysis/documentation/templates/plugin_index.md.j2
+      - waveform_analysis/documentation/templates/plugin_index_agent.md.j2
+      - waveform_analysis/documentation/templates/web/plugin.html.j2
+      - examples
+      - docs/plugins/reference/builtin/auto
+      - docs/plugins/reference/agent
+    commands_run:
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q tests/test_accessor_index_documentation.py tests/test_doc_generator.py tests/test_documentation_dag.py tests/test_plugin_documentation.py tests/test_site_plugin_guides_documentation.py tests/test_documentation_import_compat.py tests/contracts/test_public_plugins_facade.py tests/contracts/test_import_topology_contract.py
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli generate plugins-auto -o docs/plugins/reference/builtin/auto/
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli generate plugins-agent -o docs/plugins/reference/agent/
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli generate plugins-web -o /tmp/wa-import-after-plugins-web
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli generate site-web -o /tmp/wa-import-after-site-web
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli check coverage --strict --fail-on-warning
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli check links
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/render_agent_docs.py --check
+      - scripts/check_doc_sync.sh
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py --check-sync --base HEAD
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m ruff check <changed Python files>
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m black --check <changed Python files>
+      - git diff --check
     verification:
-      cli_targeted_tests: 27 passed
-      import_contracts: passed
-      fresh_import_side_effects: passed
+      docs_targeted_tests: 103 passed, 2 deselected, 2 warnings
+      plugins_auto_generation: passed, 36 plugins and 37 generated files
+      plugins_agent_generation: passed, 36 plugins and 37 generated files
+      plugins_web_generation: passed, 36 plugins and 51 generated files
+      site_web_generation: passed, 118 generated files
+      generated_docs_diff: passed, usage/import/search text only; fresh web outputs retained identical file sets, routes, navigation, plugin facts, dtype, and configuration
+      baseline_file_set_note: pre-existing tracked s1_s2.md is present in current plugins-auto/agent but absent from the supplied baseline; this stage did not add or remove it
+      strict_doc_coverage: passed, 100.0 percent, 36 of 36 plugins, 0 warnings
+      doc_links: passed, 311 Markdown files and 506 local references
+      render_agent_docs_check: blocked by pre-existing OUTDATED docs/agents/plans/INDEX.md and docs/agents/plans/active.yaml outside this stage scope
+      doc_sync: blocked by the same pre-existing plans generated-view drift
+      doc_anchors: passed, 29 anchors, 0 errors, 0 warnings
       ruff: passed
-      black_check: passed
+      black_check: passed, 19 files unchanged
       diff_check: passed
-    open_risks: []
+    open_risks:
+      - Existing agent-plan compatibility views remain outdated and are outside the approved stage scope; no plans files were modified.
   review: {}
   approval: {}
   handoff: {}

@@ -10,8 +10,8 @@
 ### 基础分析流程
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import profiles
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
 # 初始化
 ctx = Context(storage_dir='./strax_data')
@@ -177,7 +177,7 @@ batch_export(
 ### 热重载插件（开发模式）
 
 ```python
-from waveform_analysis.core.plugins.core.hot_reload import enable_hot_reload
+from waveform_analysis import enable_hot_reload
 
 # 启用自动重载
 reloader = enable_hot_reload(
@@ -197,7 +197,7 @@ reloader.disable_auto_reload()
 ### 性能分析
 
 ```python
-from waveform_analysis.core.context import Context
+from waveform_analysis import Context
 
 # 启用统计收集
 ctx = Context(stats_mode='detailed')
@@ -218,10 +218,7 @@ for plugin_name, plugin_stats in stats.items():
 ### 信号处理
 
 ```python
-from waveform_analysis.core.plugins.builtin.cpu import (
-    FilteredWaveformsPlugin,
-    HitFinderPlugin,
-)
+from waveform_analysis.plugins import FilteredWaveformsPlugin, HitFinderPlugin
 
 # 假设 ctx 已初始化并注册基础插件
 # 注册信号处理插件

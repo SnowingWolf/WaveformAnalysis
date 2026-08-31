@@ -652,10 +652,14 @@ class PluginDocGenerator:
         provides = str(getattr(plugin, "provides", "output"))
         if provides == "cache_analysis":
             module = plugin_class.__module__
+            if module.startswith("waveform_analysis.core.plugins.builtin"):
+                plugin_import = f"from waveform_analysis.plugins import {plugin_class.__name__}"
+            else:
+                plugin_import = f"from {module} import {plugin_class.__name__}"
             return inspect.cleandoc(
                 f"""
-                from waveform_analysis.core.context import Context
-                from {module} import {plugin_class.__name__}
+                from waveform_analysis import Context
+                {plugin_import}
 
                 ctx = Context(config={{"data_root": "DAQ"}})
                 ctx.register({plugin_class.__name__}())
@@ -664,8 +668,8 @@ class PluginDocGenerator:
             )
         return inspect.cleandoc(
             f"""
-            from waveform_analysis.core.context import Context
-            from waveform_analysis.core.plugins import profiles
+            from waveform_analysis import Context
+            from waveform_analysis.plugins import profiles
 
             ctx = Context(config={{"data_root": "DAQ", "daq_adapter": "vx2730"}})
             ctx.register(*profiles.cpu_default())

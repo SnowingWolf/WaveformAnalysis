@@ -85,8 +85,8 @@ Cache summary, entries, and diagnostics.
 ### Minimal Example
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cache_analysis.plugin import CacheAnalysisPlugin
+from waveform_analysis import Context
+from waveform_analysis.plugins import CacheAnalysisPlugin
 
 ctx = Context(config={"data_root": "DAQ"})
 ctx.register(CacheAnalysisPlugin())

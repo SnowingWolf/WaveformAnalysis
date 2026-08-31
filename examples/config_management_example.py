@@ -8,11 +8,9 @@
 3. set_config() - 设置全局和插件特定配置
 """
 
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin,
-    WaveformsPlugin,
-)
+from waveform_analysis import Context
+from waveform_analysis.plugins import RawFileNamesPlugin as RawFilesPlugin
+from waveform_analysis.plugins import WaveformsPlugin
 
 
 def main():

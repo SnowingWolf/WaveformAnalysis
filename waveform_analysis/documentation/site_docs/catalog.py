@@ -301,7 +301,7 @@ ACCESSOR_DOCUMENTATION_REGISTRY = (
                 ),
             ),
         ),
-        example="""from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
+        example="""from waveform_analysis.analysis import PeakChannelAccessor
 
 accessor = PeakChannelAccessor(ctx, run_id="run_001", lazy_load=True)
 channels = accessor.get_channels(peak_id=919)""",
@@ -603,7 +603,7 @@ fig, axes = accessor.plot(peak_id=919, view="sum-comparison")
                 ),
             ),
         ),
-        example="""from waveform_analysis.utils import S1S2PairAccessor
+        example="""from waveform_analysis.analysis import S1S2PairAccessor
 
 accessor = S1S2PairAccessor(ctx, run_id)
 fig, (ax_s1, ax_s2), info = accessor.plot_s2_candidates(
@@ -1198,9 +1198,9 @@ _CONTEXT_NARRATIVE_SECTIONS = (
                 code=(
                     "from concurrent.futures import as_completed\n"
                     "\n"
-                    "from waveform_analysis.core.context import Context\n"
-                    "from waveform_analysis.core.execution import get_config, get_executor\n"
-                    "from waveform_analysis.core.plugins import profiles\n"
+                    "from waveform_analysis import Context\n"
+                    "from waveform_analysis import get_config, get_executor\n"
+                    "from waveform_analysis.plugins import profiles\n"
                     "\n"
                     'run_id = "run_001"\n'
                     'ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})\n'
@@ -1730,12 +1730,12 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                 _adapter_callable_spec(
                     "list_adapters",
                     list_adapters,
-                    "列出当前进程已注册的 adapter 名称；导入 `waveform_analysis.utils.formats` 后内置 `vx2730` 与 `v1725` 可用。",
+                    "列出当前进程已注册的 adapter 名称；导入 `waveform_analysis.acquisition.formats` 后内置 `vx2730` 与 `v1725` 可用。",
                     returns="已注册 adapter 名称列表。",
                     example=(
-                        "from waveform_analysis.core.context import Context\n"
-                        "from waveform_analysis.core.plugins import profiles\n"
-                        "from waveform_analysis.utils.formats import get_adapter, list_adapters\n\n"
+                        "from waveform_analysis import Context\n"
+                        "from waveform_analysis.plugins import profiles\n"
+                        "from waveform_analysis.acquisition.formats import get_adapter, list_adapters\n\n"
                         'run_id = "run_001"\n'
                         'adapter_name = "vx2730"\n'
                         "assert adapter_name in list_adapters()\n\n"
@@ -1798,7 +1798,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     "完整 DAQ 数据格式规范：列映射、时间戳单位、分隔符、文件模式、头部行数、采样率、元数据。",
                     returns="`FormatSpec` 实例，参与血缘哈希与配置推断。",
                     example=(
-                        "from waveform_analysis.utils.formats import (\n"
+                        "from waveform_analysis.acquisition.formats import (\n"
                         "    FormatSpec, ColumnMapping, TimestampUnit,\n"
                         ")\n"
                         "spec = FormatSpec(\n"
@@ -1815,7 +1815,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     "DAQ 目录结构配置：原始数据子目录、运行路径模板、文件 glob、通道识别正则、文件索引正则。",
                     returns="`DirectoryLayout` 实例，提供 `get_raw_path`/`group_files_by_channel` 等方法。",
                     example=(
-                        "from waveform_analysis.utils.formats import DirectoryLayout\n"
+                        "from waveform_analysis.acquisition.formats import DirectoryLayout\n"
                         "layout = DirectoryLayout(\n"
                         '    name="my_layout",\n'
                         '    raw_subdir="data",\n'
@@ -1830,7 +1830,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     "通用 CSV 格式读取器，可通过 FormatSpec 配置读取任意 CSV 格式的 DAQ 数据。",
                     returns="`GenericCSVReader` 实例，提供 `read_file`/`read_files`/`extract_columns`/`validate_data` 方法。",
                     example=(
-                        "from waveform_analysis.utils.formats import (\n"
+                        "from waveform_analysis.acquisition.formats import (\n"
                         "    GenericCSVReader, FormatSpec, ColumnMapping,\n"
                         ")\n"
                         "spec = FormatSpec(\n"
@@ -1859,7 +1859,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     "完整 DAQ 适配器：组合格式读取器与目录布局，提供统一的 DAQ 数据访问接口。",
                     returns="`DAQAdapter` 实例。",
                     example=(
-                        "from waveform_analysis.utils.formats import (\n"
+                        "from waveform_analysis.acquisition.formats import (\n"
                         "    DAQAdapter, VX2730Reader, VX2730_LAYOUT,\n"
                         ")\n"
                         "adapter = DAQAdapter(\n"
@@ -1886,7 +1886,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     "注册 DAQ 格式：绑定格式名称、读取器类与 FormatSpec。",
                     returns="无返回值。",
                     example=(
-                        "from waveform_analysis.utils.formats import (\n"
+                        "from waveform_analysis.acquisition.formats import (\n"
                         "    GenericCSVReader, FormatSpec, register_format,\n"
                         ")\n"
                         'register_format("my_format", GenericCSVReader, my_spec)'
@@ -1902,8 +1902,8 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                         "注册表是进程内状态；新的 Python 进程需要再次导入或注册自定义 adapter。",
                     ),
                     example=(
-                        "from waveform_analysis.core.context import Context\n"
-                        "from waveform_analysis.utils.formats import (\n"
+                        "from waveform_analysis import Context\n"
+                        "from waveform_analysis.acquisition.formats import (\n"
                         "    ColumnMapping, DAQAdapter, DirectoryLayout, FormatSpec,\n"
                         "    GenericCSVReader, TimestampUnit, register_adapter,\n"
                         ")\n\n"
@@ -1929,7 +1929,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     "按名称获取已注册的 DAQ 适配器实例。",
                     returns="`DAQAdapter` 实例。",
                     example=(
-                        "from waveform_analysis.utils.formats import get_adapter\n"
+                        "from waveform_analysis.acquisition.formats import get_adapter\n"
                         'adapter = get_adapter("vx2730")\n'
                         'data = adapter.load_channel("DAQ", "run_001", channel=0)'
                     ),
@@ -1950,7 +1950,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     "获取 VX2730 适配器：CSV 格式，分号分隔，首文件 2 行头部，时间戳单位为皮秒，采样率 500 MHz。",
                     returns="VX2730 `DAQAdapter` 实例。",
                     example=(
-                        "from waveform_analysis.utils.formats import get_adapter\n"
+                        "from waveform_analysis.acquisition.formats import get_adapter\n"
                         'adapter = get_adapter("vx2730")\n'
                         'channel_files = adapter.scan_run("DAQ", "run_001")'
                     ),
@@ -1961,7 +1961,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     "获取 V1725 适配器：解析多通道波形的 .bin 文件，sample index → ps，使用 Numba 加速。",
                     returns="V1725 `DAQAdapter` 实例。",
                     example=(
-                        "from waveform_analysis.utils.formats import get_adapter\n"
+                        "from waveform_analysis.acquisition.formats import get_adapter\n"
                         'adapter = get_adapter("v1725")'
                     ),
                 ),

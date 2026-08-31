@@ -88,8 +88,8 @@ DAQ/                          # data_root（可配置）
 ## 最小代码
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import profiles
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
 # 1. 创建 Context
 ctx = Context(storage_dir='./cache')
@@ -309,8 +309,8 @@ ctx.plot_lineage('basic_features', kind='labview')
 # -*- coding: utf-8 -*-
 """基础波形分析"""
 
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import profiles
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
 def main():
     # 1. 初始化 Context
@@ -373,9 +373,8 @@ if __name__ == '__main__':
 处理大数据，分块处理，内存友好。
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.core.streaming import get_streaming_context
-from waveform_analysis.core.plugins import profiles
+from waveform_analysis import Context, get_streaming_context
+from waveform_analysis.plugins import profiles
 
 # 初始化
 ctx = Context(storage_dir='./strax_data')
@@ -397,10 +396,8 @@ for chunk in stream_ctx.get_stream('st_waveforms'):
 ### 使用内置适配器（推荐）
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin, WaveformsPlugin
-)
+from waveform_analysis import Context
+from waveform_analysis.plugins import RawFileNamesPlugin as RawFilesPlugin, WaveformsPlugin
 
 # 初始化 Context
 ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
@@ -417,9 +414,14 @@ print(f"Loaded {len(st_waveforms)} channels")
 ### 注册自定义适配器
 
 ```python
-from waveform_analysis.utils.formats import register_adapter, DAQAdapter
-from waveform_analysis.utils.formats.base import FormatSpec, ColumnMapping, TimestampUnit
-from waveform_analysis.utils.formats.directory import DirectoryLayout
+from waveform_analysis.acquisition.formats import (
+    ColumnMapping,
+    DAQAdapter,
+    DirectoryLayout,
+    FormatSpec,
+    TimestampUnit,
+    register_adapter,
+)
 
 # 定义格式规范
 my_spec = FormatSpec(

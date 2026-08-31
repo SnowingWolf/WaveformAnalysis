@@ -8,7 +8,7 @@ def quick_plot_pair(accessor, pair_id):
     """快速绘制一个配对的波形（适合 notebook）
 
     用法：
-    >>> from waveform_analysis.utils import S1S2PairAccessor
+    >>> from waveform_analysis.analysis import S1S2PairAccessor
     >>> accessor = S1S2PairAccessor(ctx, run_id)
     >>> quick_plot_pair(accessor, pair_id=0)
     """

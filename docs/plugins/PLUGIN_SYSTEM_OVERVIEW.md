@@ -41,7 +41,7 @@ flowchart LR
 ```python
 import numpy as np
 
-from waveform_analysis.core.plugins.core.base import Option, Plugin
+from waveform_analysis.plugins import Option, Plugin
 
 
 class RecordScalePlugin(Plugin):
@@ -91,8 +91,8 @@ class RecordScalePlugin(Plugin):
 `output_kind` 和输出 schema。
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import profiles
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
 # Context 保存配置、插件注册表和 Storage；storage_dir 可按项目需要指定。
 ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
@@ -165,7 +165,7 @@ print(resolved.to_dict())
 alias 如果存在，会先规范化为当前选项名。
 
 ```python
-from waveform_analysis.core.plugins.core.base import Option, option, takes_config
+from waveform_analysis.plugins import Option, option, takes_config
 
 
 @option("threshold", default=12.0, type=float, min_value=0.0)
@@ -289,7 +289,7 @@ flowchart LR
 5. 在并行模式下分批提交任务并保持输出顺序；不可 pickle 的进程任务回退到线程执行器。
 
 ```python
-from waveform_analysis.core.plugins.core.streaming import StreamingPlugin
+from waveform_analysis.plugins import StreamingPlugin
 from waveform_analysis.core.processing.chunk import Chunk
 
 
@@ -327,7 +327,7 @@ class ThresholdStreamPlugin(StreamingPlugin):
 ```python
 import numpy as np
 
-from waveform_analysis.core.plugins.core.batch_processing import BatchProcessingPlugin
+from waveform_analysis.plugins import BatchProcessingPlugin
 from waveform_analysis.core.processing.chunk import Chunk
 
 
@@ -462,13 +462,11 @@ from waveform_analysis.core.plugins.builtin.peaklets.plugin import PeakletPlugin
 __all__ = ["PeakletPlugin", "PEAKLET_DTYPE"]
 ```
 
-推荐从 bundle 根路径导入：
+插件类从 public plugin facade 导入；dtype 常量仍从其 canonical leaf 导入：
 
 ```python
-from waveform_analysis.core.plugins.builtin.peaklets import (
-    PEAKLET_DTYPE,
-    PeakletPlugin,
-)
+from waveform_analysis.core.plugins.builtin.peaklets._compute import PEAKLET_DTYPE
+from waveform_analysis.plugins import PeakletPlugin
 ```
 
 外部代码不应依赖 `plugin.py`、`_compute.py` 或其他私有文件的位置。内部实现可以调整，
@@ -826,7 +824,7 @@ Plugin Set 是最小可复用插件组，每个 set 只关注单一职责。
 示例：
 
 ```python
-from waveform_analysis.core.plugins.plugin_sets import plugins_io, plugins_waveform
+from waveform_analysis.plugins import plugins_io, plugins_waveform
 
 io_plugins = plugins_io()
 waveform_plugins = plugins_waveform()
@@ -837,7 +835,7 @@ waveform_plugins = plugins_waveform()
 
 ```python
 from waveform_analysis.core.data import records_view
-from waveform_analysis.core.plugins.plugin_sets import plugins_io, plugins_waveform
+from waveform_analysis.plugins import plugins_io, plugins_waveform
 
 ctx.register(*plugins_io(), *plugins_waveform())
 rv = records_view(ctx, run_id)
@@ -859,8 +857,8 @@ Profile 是对多个 Plugin Set 的组合，代表一条可执行 pipeline。
 ### CPU 默认 Profile
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import profiles
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
 ctx = Context()
 ctx.register(*profiles.cpu_default())

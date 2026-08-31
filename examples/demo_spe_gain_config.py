@@ -10,12 +10,14 @@ gain_adc_per_pe 表示每个光电子对应的 ADC 计数值。
 - height_pe: 峰高（单位：光电子数）
 """
 
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import (
+from waveform_analysis import Context
+from waveform_analysis.plugins import (
     BasicFeaturesPlugin,
     DataFramePlugin,
-    RawFilesPlugin,
     WaveformsPlugin,
+)
+from waveform_analysis.plugins import (
+    RawFileNamesPlugin as RawFilesPlugin,
 )
 
 

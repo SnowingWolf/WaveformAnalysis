@@ -89,8 +89,8 @@ structured_array output with fields: height, amp, area, max_abs_diff, timestamp,
 ### Minimal Example
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import profiles
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
 ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 ctx.register(*profiles.cpu_default())

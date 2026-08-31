@@ -7,7 +7,7 @@ PeakChannelAccessor 使用示例
 
 import numpy as np
 
-from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
+from waveform_analysis.analysis import PeakChannelAccessor
 
 
 def demo_feature_access(accessor, peak_id=0):
@@ -178,7 +178,7 @@ def main():
     print(
         """
 # 1. 创建访问器
-from waveform_analysis.utils.peak_channel_accessor import PeakChannelAccessor
+from waveform_analysis.analysis import PeakChannelAccessor
 
 accessor = PeakChannelAccessor(context, run_id)
 

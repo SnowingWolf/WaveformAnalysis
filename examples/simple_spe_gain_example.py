@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 """单光子增益配置简单示例"""
 
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import (
+from waveform_analysis import Context
+from waveform_analysis.plugins import (
     BasicFeaturesPlugin,
     DataFramePlugin,
-    RawFilesPlugin,
     WaveformsPlugin,
+)
+from waveform_analysis.plugins import (
+    RawFileNamesPlugin as RawFilesPlugin,
 )
 
 # 创建 Context

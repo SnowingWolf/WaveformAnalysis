@@ -12,12 +12,14 @@ from pathlib import Path
 
 import yaml
 
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import (
+from waveform_analysis import Context
+from waveform_analysis.plugins import (
     BasicFeaturesPlugin,
     DataFramePlugin,
-    RawFilesPlugin,
     WaveformsPlugin,
+)
+from waveform_analysis.plugins import (
+    RawFileNamesPlugin as RawFilesPlugin,
 )
 
 

@@ -8,11 +8,9 @@
 3. 以编程方式获取配置信息
 """
 
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin,
-    WaveformsPlugin,
-)
+from waveform_analysis import Context
+from waveform_analysis.plugins import RawFileNamesPlugin as RawFilesPlugin
+from waveform_analysis.plugins import WaveformsPlugin
 
 
 def main():

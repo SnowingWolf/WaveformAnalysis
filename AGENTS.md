@@ -221,7 +221,9 @@ waveform-process --show-daq --daq-root DAQ
 - 需要 records-backed 波形访问时统一使用 `records_view(ctx, run_id)`。
 
 ## Recommended Practices
-- 推荐导入路径：`waveform_analysis.core.plugins.builtin.cpu`。
+- 推荐导入路径：Context 使用 `waveform_analysis`，插件类、profile 和 plugin set 使用
+  `waveform_analysis.plugins`；analysis、acquisition、visualization 和 documentation API
+  分别从对应的 domain package 导入。
 
 ## Plugin Contract Checklist
 新增/修改插件时至少确认：

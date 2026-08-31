@@ -6,8 +6,8 @@ WaveformWidthPlugin 使用示例
 
 import numpy as np
 
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import (
+from waveform_analysis import Context
+from waveform_analysis.plugins import (
     FilteredWaveformsPlugin,
     HitFinderPlugin,
     WaveformsPlugin,

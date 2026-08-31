@@ -8,6 +8,24 @@
 
 ---
 
+## 面向用户的公共 API
+
+用户代码应优先从稳定的 domain facade 导入公开 API；这些入口与内部文件布局解耦：
+
+```python
+from waveform_analysis import Context
+from waveform_analysis.plugins import Plugin, profiles
+from waveform_analysis.analysis import PeakChannelAccessor
+from waveform_analysis.acquisition import DAQAnalyzer
+from waveform_analysis.visualization import plot_lineage_labview
+from waveform_analysis.documentation import PluginDocGenerator
+```
+
+dtype 常量、私有 helper 和包内部源码依赖继续从其 canonical leaf 导入。旧的
+`core`/`utils` 路径只用于兼容性或迁移说明。
+
+---
+
 ## 基本原则
 
 ### 1. 优先使用绝对导入
@@ -30,7 +48,7 @@ from ...chunk_utils import Chunk
 ```python
 # 在 plugins/core/base.py 中
 from .streaming import StreamingPlugin
-from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin
+from waveform_analysis.plugins import RawFileNamesPlugin
 ```
 
 **不推荐：**
@@ -141,7 +159,7 @@ mypy waveform_analysis/ --show-error-codes
 
 **A:** 只在同一包内的文件之间使用相对导入。例如：
 - `plugins/core/base.py` → `plugins/core/streaming.py`: 使用 `from .streaming import`
-- `plugins/core/base.py` → `plugins/builtin/cpu/standard.py`: 使用 `from waveform_analysis.core.plugins.builtin.cpu import`
+   - `plugins/core/base.py` → `plugins/builtin/cpu/standard.py`: 使用 `from waveform_analysis.plugins import`
 
 ### Q: 什么时候使用绝对导入？
 
@@ -196,7 +214,7 @@ from waveform_analysis.core.processing.chunk import Chunk, get_endtime
 
 # 同一包内（相对导入）
 from .base import Plugin
-from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin
+from waveform_analysis.plugins import RawFileNamesPlugin
 ```
 
 ### ❌ 错误示例
