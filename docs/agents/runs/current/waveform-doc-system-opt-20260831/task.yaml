@@ -1,0 +1,629 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: waveform-doc-system-opt-20260831
+  generation: 4
+  created_at: '2026-09-01T00:00:00+08:00'
+  updated_at: '2026-08-31T21:25:11Z'
+spec:
+  goal: 将 WaveformAnalysis 离线文档系统全量重构为 Next.js 静态站点：保留 `waveform-docs generate site-web`
+    作为唯一 HTML 入口，删除已批准的七个 `waveform_analysis.utils` 文档兼容 alias、Jinja HTML 生成链、 `plugins-web`
+    CLI 及旧 `.html` redirect，并只留下可审计的迁移映射。
+  route: retire_compat
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: high
+  scope:
+    base_sha: 59438b87c23d48493cbfd6fe71ab3fb91452bc98
+    allowed_paths:
+    - waveform_analysis/documentation
+    - waveform_analysis/utils
+    - docs/site-next
+    - docs/site-react
+    - docs/cli
+    - docs/agents
+    - docs/architecture/README.md
+    - docs/site-guides.yaml
+    - docs/site-route-migration.yaml
+    - tests
+    - scripts
+    - .github
+    - pyproject.toml
+    - .gitignore
+    - Makefile
+    - examples/generate_plugin_set_images.py
+  scope_in:
+  - 新建并提交 `docs/site-next` Next.js 应用，产出离线静态站点；采用当前已批准的 精密科学仪器视觉方向，覆盖导航、搜索、插件/Context/Accessor/可视化参考、谱系图、
+    代码展示、响应式与无障碍交互。
+  - 将 `site-web` 改为 Next 静态构建、完整性/本地链接校验和原子发布的唯一 HTML 入口；构建期间不再调用 Jinja renderer 或旧
+    Vite bundle。
+  - 删除清单中七个 `waveform_analysis.utils` 文档模块及其调用方兼容 import，迁移 内部代码、测试、Makefile、CI 和维护文档到
+    canonical documentation 入口。
+  - 删除 Jinja web templates、`DocumentationSiteGenerator` 的旧 HTML 生成实现及 `PluginDocGenerator.generate_web`
+    路径；保留仍被 agent/builtin Markdown 文档链需要的 canonical facts、schemas 和非 HTML 生成能力。
+  - 删除只为旧 Jinja `plugin-sets` 图片目录生产资源的 `examples/generate_plugin_set_images.py`；Next
+    站点不消费该离线脚本或其旧资产。
+  - 同步由本 task 记录机械生成的 `docs/agents/plans/INDEX.md` 与 `docs/agents/plans/active.yaml`；不修改其生成器或协议语义。
+  - 删除 `plugins-web` 公共 CLI 选择、分支、测试和文档；更新 `site-guides.yaml`/Next 路由为 canonical 路径，并建立一份旧路径到新路径的迁移映射文件，不生成
+    redirect。
+  - 保留插件契约、dtype、分析/DAQ 逻辑、缓存 lineage、Agent 文档协议和 `plugins-auto`/`plugins-agent` 语义；仅迁移其文档消费入口。
+  scope_out:
+  - waveform_analysis 插件 provides/depends_on/options/output_dtype、算法和数据契约。
+  - Context、Accessor、DAQ、分析、缓存存储和 lineage 运行时行为。
+  - '`docs/agents` 中除本 task 记录及其两个机械生成计划视图外的协议、历史归档和导航内容。'
+  - 旧 HTML redirect、旧 `.html` URL 兼容层以及 `file://` 直接打开承诺；迁移映射是唯一保留物。
+  - 与本次站点路由迁移无关的 README 内容清理、业务文档重写和生成的 `docs/_site` 入库。
+  acceptance_criteria:
+  - '`waveform-docs generate site-web` 在干净环境中成功构建 Next 静态导出并原子发布到 目标目录；完整性检查、路由边界检查和本地链接/锚点检查通过，且不执行
+    Jinja HTML 链。'
+  - '`waveform-docs generate plugins-web` 不再是可用命令；源码、CI、Makefile、测试和 活跃文档不再引用它，`site-web`
+    是唯一全量 HTML 生成入口。'
+  - 七个 `waveform_analysis.utils` 文档 alias 文件从源码和 clean wheel 中消失；内部 caller/test 使用
+    `waveform_analysis.documentation` canonical 路径，canonical Markdown/agent 文档生成与覆盖检查仍通过。
+  - '`DocumentationSiteGenerator`、Jinja `templates/web/**` 和 `PluginDocGenerator.generate_web`
+    旧路径被移除或替换为 Next 数据/build adapter； 不存在旧 renderer 的隐式 fallback。'
+  - 旧 `.html` redirect 文件、`window.location`/meta-refresh 兼容实现和旧 route aliases 均不进入
+    Next 输出；迁移映射完整覆盖旧 route family，并为每条映射指定 canonical extensionless route 或明确的人工迁移动作。
+  - Next 站点保留现有 36 个插件的事实、配置、dtype/字段、Context/Accessor/可视化参考、 搜索和 lineage 交互；所有运行时静态资源本地打包，不访问
+    CDN 或外部网络。
+  - 精密科学仪器视觉方向在桌面和窄屏通过截图/浏览器验收：信息密度、测量网格、状态/信号 色彩、键盘焦点、语义标题、对比度和 reduced-motion 行为均有可复核证据。
+  - Python 定向测试、Next typecheck/build、路由/无旧兼容负向测试、文档链接/覆盖率、 agent docs、影响面和 schema
+    smoke gate 全部通过；不得改动插件/数据/缓存契约。
+  - 完成后只提交本任务范围内改动，Executor 与 Reviewer 在 task status 中记录完整命令、 gate 结果、剩余风险和 commit
+    SHA。
+  required_gates:
+  - compat_inventory_ready
+  - deletion_scope_confirmed
+  - user_confirmation_recorded
+  - next_typecheck
+  - next_static_export
+  - site_web_unique_entry
+  - route_migration_completeness
+  - no_legacy_redirects
+  - no_plugins_web_cli
+  - removed_utils_imports
+  - canonical_doc_generation
+  - strict_doc_coverage
+  - doc_links
+  - browser_review
+  - responsive_accessibility
+  - offline_asset_check
+  - doc_sync
+  - doc_anchors
+  - assess_change_impact
+  - schema_compat_check
+  - clean_wheel_packaging
+  - diff_scope_check
+  - handoff_check
+  assignment:
+    planner_role: planner
+    executor_role: executor.config
+    reviewer_role: reviewer
+    controller: /root
+    execution_sequence:
+    - luna_next_contract: freeze Next data schema, canonical route matrix, and static-export
+        boundary
+    - luna_next_frontend: implement docs/site-next pages, precision-instrument UI,
+        search, and lineage
+    - luna_site_adapter: connect site-web to Next build/export and atomic publish;
+        remove Jinja path
+    - luna_compat_retirement: remove seven utils aliases, generate_web, plugins-web,
+        and redirects
+    - luna_tests_ci_docs: migrate tests/CI/docs, add negative compatibility and clean-wheel
+        checks
+    - luna_integration: run full strict gates and produce scoped execution evidence
+    - luna_blocking_reviewer: independently review diff, gates, migration inventory,
+        and handoff
+    parallel_tracks:
+    - next_frontend_and_data_contract_after_route_matrix
+    - compatibility_inventory_test_migration
+    serialization_rules:
+    - Freeze route/data contracts and capture a clean baseline before destructive
+      deletions.
+    - Land Next build output and site-web integration before deleting Jinja/templates
+      or old aliases.
+    - Update all callers/tests/CI/docs before removing the seven module files and
+      plugins-web choice.
+    - Run no-legacy-route, clean-wheel, browser, doc, impact, schema and handoff gates
+      only after all tracks merge.
+  execution_plan:
+    implementation_contract:
+      app_root: docs/site-next
+      canonical_cli: waveform-docs generate site-web
+      output_contract: static Next export atomically published to requested output
+        directory
+      canonical_url_style: extensionless routes; route/index.html may be a physical
+        export detail, not a public legacy URL
+      migration_map: docs/site-route-migration.yaml
+      runtime: offline local assets; no CDN, server-side dynamic dependency, or file://
+        guarantee
+    data_and_routes:
+    - Export validated plugin/context/accessor/visualization facts as a versioned
+      Next input contract.
+    - Convert current site-guides navigation into one canonical route registry consumed
+      by Next.
+    - Record every existing public `.html` family and six generated redirect pages
+      in the migration map.
+    - Fail on duplicate routes, missing providers, stale search URLs, broken fragments,
+      or output escape.
+    removal_order:
+    - Capture current generation/test baseline and freeze route map.
+    - Implement and validate Next static site plus site-web adapter.
+    - Migrate callers/tests/CI/docs to canonical paths and new routes.
+    - Remove compatibility inventory items with delete_action remove.
+    - Run strict review gates and commit only scoped changes.
+    mandatory_commands:
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q <targeted documentation
+      and CLI tests>
+    - npm ci --prefix docs/site-next
+    - npm run check --prefix docs/site-next
+    - npm run build --prefix docs/site-next
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli
+      generate plugins-auto -o docs/plugins/reference/builtin/auto/
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli
+      generate plugins-agent -o docs/plugins/reference/agent/
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli
+      check links --docs-dir docs
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli
+      check coverage --strict --fail-on-warning
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/assess_change_impact.py
+      --base 59438b87c23d48493cbfd6fe71ab3fb91452bc98
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/schema_compat_check.py
+      --base 59438b87c23d48493cbfd6fe71ab3fb91452bc98 --run-smoke
+    - scripts/check_doc_sync.sh --base 59438b87c23d48493cbfd6fe71ab3fb91452bc98
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py
+      --check-sync --base 59438b87c23d48493cbfd6fe71ab3fb91452bc98
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/agent_workflow.py
+      validate waveform-doc-system-opt-20260831 --strict
+    - git diff --check
+    - git status --short
+    - git diff --stat
+  compat_inventory:
+    task_id: waveform-doc-system-opt-20260831
+    route: retire_compat
+    inventory_scope: 已批准的文档发布兼容面：七个 utils 文档 alias、Jinja HTML site generator、 plugins-web
+      CLI、旧 HTML redirect/route 和 file:// 直接打开约定。
+    canonical_policy: Next.js static export 是唯一 HTML site producer；`waveform_analysis.documentation`
+      仅保留 canonical agent/Markdown facts and checks；不保留 alias、redirect、双轨 renderer
+      或 file:// fallback。所有旧 URL 只进入 docs/site-route-migration.yaml。
+    user_decision:
+      full_redesign: approved
+      tracked_reproducible: approved
+      remove_legacy: approved
+      delivery: commit
+    compat_items:
+    - compat_id: utils_cli_docs_alias
+      kind: public_python_api
+      canonical_form: waveform_analysis.documentation.cli
+      legacy_form: waveform_analysis.utils.cli_docs
+      runtime_surface: public_python_module_and_cli_module_entrypoint
+      delete_action: remove
+      risk_level: high
+      migration_note: 更新所有仓库 caller、CI、Makefile 和测试为 canonical module；clean wheel
+        断言旧 import 不存在，保留 waveform-docs console script 的 canonical entrypoint。
+    - compat_id: utils_context_help_alias
+      kind: public_python_api
+      canonical_form: waveform_analysis.documentation.context_help
+      legacy_form: waveform_analysis.utils.context_help
+      runtime_surface: public_python_module_and_Context_help_dependency
+      delete_action: remove
+      risk_level: high
+      migration_note: Context 已经从 documentation.context_help 导入；迁移测试和 monkeypatch
+        到 canonical module，并用 clean-process import failure 证明 alias 未保留。
+    - compat_id: utils_doc_coverage_alias
+      kind: public_python_api
+      canonical_form: waveform_analysis.documentation.doc_coverage
+      legacy_form: waveform_analysis.utils.doc_coverage
+      runtime_surface: public_python_module_and_quality_check
+      delete_action: remove
+      risk_level: high
+      migration_note: 覆盖率检查改用 canonical import；保留 strict/fail-on-warning 语义，删除 utils
+        alias。
+    - compat_id: utils_doc_links_alias
+      kind: public_python_api
+      canonical_form: waveform_analysis.documentation.doc_links
+      legacy_form: waveform_analysis.utils.doc_links
+      runtime_surface: public_python_module_and_link_checker
+      delete_action: remove
+      risk_level: high
+      migration_note: 链接检查测试和 CLI 直接导入 canonical module；新 Next route/link checker
+        作为 site gate 接入，不添加旧 alias。
+    - compat_id: utils_plugin_doc_generator_alias
+      kind: public_python_api
+      canonical_form: waveform_analysis.documentation.plugin_doc_generator
+      legacy_form: waveform_analysis.utils.plugin_doc_generator
+      runtime_surface: public_python_module_and_plugin_markdown_generation
+      delete_action: remove
+      risk_level: high
+      migration_note: '`plugins-auto`/`plugins-agent` 迁移到 canonical import；仅保留 Markdown/facts
+        能力， 旧 web/Jinja `generate_web` 单独删除并由 Next site-web 接管。'
+    - compat_id: utils_site_doc_generator_alias
+      kind: public_python_api
+      canonical_form: docs/site-next plus waveform-docs generate site-web
+      legacy_form: waveform_analysis.utils.site_doc_generator
+      runtime_surface: public_python_module_and_full_html_site_generation
+      delete_action: remove
+      risk_level: high
+      migration_note: 不保留 DocumentationSiteGenerator 类 API；调用方迁移到 site-web build contract，
+        Next 输出使用 extensionless public routes，旧 Python HTML generator 不作 fallback。
+    - compat_id: utils_site_guides_alias
+      kind: public_python_api
+      canonical_form: waveform_analysis.documentation.site_guides or versioned Next
+        route data contract
+      legacy_form: waveform_analysis.utils.site_guides
+      runtime_surface: public_python_module_and_navigation_manifest_parser
+      delete_action: remove
+      risk_level: high
+      migration_note: 迁移 manifest/frontmatter 事实到 canonical data adapter；不保留 utils
+        alias，不让旧 HTML renderer 继续消费旧 route 字段，路由冲突/缺失在 Next build 阶段失败。
+    - compat_id: documentation_site_generator_jinja_chain
+      kind: html_renderer_compat
+      canonical_form: Next.js static export invoked by site-web
+      legacy_form: DocumentationSiteGenerator, waveform_analysis.documentation.site_docs.generator,
+        waveform_analysis.documentation.site_doc_generator, templates/web/**/*.j2,
+        and PluginDocGenerator.generate_web
+      runtime_surface: public_offline_html_site_and_build_pipeline
+      delete_action: remove
+      risk_level: high
+      migration_note: 先完成 Next data/build adapter 与 output/link tests，再删除全部 Jinja
+        web templates、 old renderer and generate_web; retain only non-HTML plugin
+        Markdown/facts generation.
+    - compat_id: plugins_web_cli
+      kind: public_cli
+      canonical_form: waveform-docs generate site-web
+      legacy_form: waveform-docs generate plugins-web and cli generate_plugins_web
+        branch/choice
+      runtime_surface: public_cli_command_and_docs_ci_entry
+      delete_action: remove
+      risk_level: high
+      migration_note: 从 argparse choices、dispatch、tests、docs、Makefile/CI 中移除；site-web
+        全量输出 同时覆盖插件内容，命令不存在不得静默转发。
+    - compat_id: legacy_html_redirects
+      kind: public_route_redirect
+      canonical_form: docs/site-route-migration.yaml entries to extensionless Next
+        routes
+      legacy_form: generated redirects plugins/system.html, plugins/template-api.html,
+        plugins/authoring.html, contexts/records-wave-pool.html, architecture/CONTEXT_PROCESSOR_WORKFLOW.html,
+        and features/advanced/EXECUTOR_MANAGER_GUIDE.html
+      runtime_surface: public_site_urls_and_search/navigation
+      delete_action: remove
+      risk_level: high
+      migration_note: 只写旧 route -> 新 route 映射；不生成 HTML redirect、window.location、meta
+        refresh， 不把旧 URL 放入 search index 或 navigation。
+    - compat_id: legacy_html_route_suffixes
+      kind: public_route_format
+      canonical_form: extensionless Next routes with static export index.html implementation
+        detail
+      legacy_form: current site-guides.yaml and generated links ending in .html
+      runtime_surface: public_site_route_contract_and_internal_links
+      delete_action: remove
+      risk_level: high
+      migration_note: 更新 manifest、Markdown links、search payload、tests and browser
+        checks；旧 `.html` route family must be absent from public navigation/output
+        and fully listed in migration map。
+    - compat_id: file_url_site_access
+      kind: runtime_compatibility
+      canonical_form: site-web generated static export served by documented local
+        HTTP/static host
+      legacy_form: opening generated HTML directly with file:// as an implicit supported
+        contract
+      runtime_surface: offline_site_runtime_and_asset_resolution
+      delete_action: remove
+      risk_level: medium
+      migration_note: 不保留 file:// 兼容承诺；Next build and `waveform-docs serve`/static
+        host are the supported preview paths，所有 assets/data requests must be same-origin
+        and locally packaged。
+    - compat_id: legacy_plugin_set_image_producer
+      kind: build_asset_compat
+      canonical_form: docs/site-next locally bundled visual system
+      legacy_form: examples/generate_plugin_set_images.py writing templates/web/assets/plugin-sets
+      runtime_surface: legacy_jinja_only_asset_generation
+      delete_action: remove
+      risk_level: low
+      migration_note: 该脚本只写入已删除的 Jinja 资产目录，Next 数据模型与 UI 不消费这些 PNG；随旧 renderer 一并删除，不保留失效入口。
+  high_risk_items_redirected: true
+  high_risk_redirect_note: public CLI/module/route removals are handled as explicit
+    strict migration workstreams with user confirmation, impact/schema/clean-wheel
+    gates; no plugin contract or dtype deletion is included, so no modify_plugin split
+    is required。
+  blocking_assumptions:
+  - User confirmation applies to every compat_inventory item above, including public
+    CLI/module and route removal.
+  - Next dependencies can be installed or are available in the executor environment;
+    otherwise record blocked, not pass.
+  - The route/data contract is frozen before destructive deletion; any scope change
+    increments metadata.generation and re-plans.
+status:
+  state: completed
+  condition: PlanBriefReadyWithUserConfirmation
+  conditions:
+  - type: PlanBriefReady
+    status: 'True'
+    reason: strict_compat_inventory_complete
+    message: Planner completed the retire_compat inventory, execution split, acceptance
+      criteria, and blocking gates for the approved full Next.js redesign.
+  - type: UserConfirmation
+    status: 'True'
+    reason: user_approved_high_risk_scope
+    message: User explicitly approved full_redesign, tracked_reproducible, remove_legacy,
+      and delivery=commit, including seven utils aliases, Jinja chain, plugins-web,
+      redirects, and file:// removal.
+  transitions:
+  - from: null
+    to: planning
+    at: '2026-09-01T00:00:00+08:00'
+    actor: planner
+    condition: task_initialized
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-01T00:00:00+08:00'
+    actor: planner
+    condition: plan_brief_ready_user_confirmed
+  - from: ready_for_execution
+    to: executing
+    at: '2026-08-31T17:36:14Z'
+    actor: executor.config
+    condition: executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-08-31T18:21:26Z'
+    actor: executor.config
+    condition: boundary_audit_found_orphan_legacy_asset_producer
+  - from: reviewing
+    to: rework_required
+    at: '2026-08-31T18:21:26Z'
+    actor: reviewer
+    condition: scope_inventory_incomplete
+  - from: rework_required
+    to: planning
+    at: '2026-08-31T18:21:26Z'
+    actor: planner
+    condition: approved_remove_legacy_scope_boundary_correction
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-08-31T18:24:50Z'
+    actor: planner
+    condition: generation_2_plan_ready_original_remove_legacy_approval_applies
+  - from: ready_for_execution
+    to: executing
+    at: '2026-08-31T18:24:51Z'
+    actor: executor.config
+    condition: generation_2_executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-08-31T18:44:26Z'
+    actor: executor.config
+    condition: doc_sync_detected_generated_view_scope_conflict
+  - from: reviewing
+    to: rework_required
+    at: '2026-08-31T18:44:26Z'
+    actor: reviewer
+    condition: generated_task_view_must_follow_task_source
+  - from: rework_required
+    to: planning
+    at: '2026-08-31T18:44:26Z'
+    actor: planner
+    condition: doc_sync_generated_view_scope_correction
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-08-31T18:45:05Z'
+    actor: planner
+    condition: generation_3_plan_ready_original_delivery_and_doc_sync_approval_applies
+  - from: ready_for_execution
+    to: executing
+    at: '2026-08-31T18:45:05Z'
+    actor: executor.config
+    condition: generation_3_executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-08-31T19:19:06Z'
+    actor: executor.config
+    condition: final_scope_gate_found_manifest_allowlist_gap
+  - from: reviewing
+    to: rework_required
+    at: '2026-08-31T19:19:19Z'
+    actor: reviewer
+    condition: machine_scope_does_not_cover_approved_docs_paths
+  - from: rework_required
+    to: planning
+    at: '2026-08-31T19:19:26Z'
+    actor: planner
+    condition: align_machine_scope_with_already_approved_docs_artifacts
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-08-31T19:19:49Z'
+    actor: planner
+    condition: generation_4_plan_ready_original_remove_legacy_and_commit_approval_applies
+  - from: ready_for_execution
+    to: executing
+    at: '2026-08-31T19:19:58Z'
+    actor: executor.config
+    condition: generation_4_executor_assigned_scope_record_only_rework
+  - from: executing
+    to: reviewing
+    at: '2026-08-31T19:20:49Z'
+    actor: executor.config
+    condition: implementation_and_strict_gates_ready_for_independent_review
+  - from: reviewing
+    to: rework_required
+    at: '2026-08-31T19:29:48Z'
+    actor: reviewer
+    condition: final_reviewer_found_lineage_kind_regression
+  - from: rework_required
+    to: executing
+    at: '2026-08-31T19:29:55Z'
+    actor: executor.config
+    condition: fix_lineage_kind_mapping_and_rerun_failed_gates
+  - from: executing
+    to: reviewing
+    at: '2026-08-31T20:15:27Z'
+    actor: executor.config
+    condition: final_lineage_rework_and_all_executor_gates_pass
+  - from: reviewing
+    to: rework_required
+    at: '2026-08-31T20:29:08Z'
+    actor: reviewer
+    condition: final_cached_diff_check_found_trailing_whitespace
+  - from: rework_required
+    to: executing
+    at: '2026-08-31T20:29:15Z'
+    actor: executor.config
+    condition: normalize_tracked_next_assets_and_rerun_packaging_gate
+  - from: executing
+    to: reviewing
+    at: '2026-08-31T20:29:50Z'
+    actor: executor.config
+    condition: deterministic_build_normalization_and_clean_wheel_rework_pass
+  - from: reviewing
+    to: rework_required
+    at: '2026-08-31T20:31:56Z'
+    actor: reviewer
+    condition: reviewer_requires_explicit_whitespace_normalizer_contract
+  - from: rework_required
+    to: executing
+    at: '2026-08-31T20:32:03Z'
+    actor: executor.config
+    condition: implement_explicit_tested_whitespace_normalizer
+  - from: executing
+    to: reviewing
+    at: '2026-08-31T20:40:11Z'
+    actor: executor.config
+    condition: explicit_whitespace_contract_and_final_clean_wheel_pass
+  - from: reviewing
+    to: rework_required
+    at: '2026-08-31T20:43:35Z'
+    actor: reviewer
+    condition: precommit_hooks_found_generated_eof_contract_gap
+  - from: rework_required
+    to: executing
+    at: '2026-08-31T20:43:41Z'
+    actor: executor.config
+    condition: implement_eof_normalization_and_scoped_large_artifact_commit_exception
+  - from: executing
+    to: reviewing
+    at: '2026-08-31T21:17:50Z'
+    actor: executor.config
+    condition: eof_normalization_precommit_and_final_clean_wheel_pass
+  - from: reviewing
+    to: completed
+    at: '2026-08-31T21:25:11Z'
+    actor: reviewer
+    condition: all_23_blocking_gates_pass_and_implementation_committed
+  plan_sha256: 548fad273456c0f3381d1b27a72b1da72ffe6a3a9677963dafd21c6cd7a0247a
+  execution:
+    execution_report:
+      actor: executor.config
+      plan_sha256: 548fad273456c0f3381d1b27a72b1da72ffe6a3a9677963dafd21c6cd7a0247a
+      summary: Next.js 16 static docs, site-model/v1, canonical site-web, reproducible
+        prebuilt wheel assets, legacy removal, lineage repairs, and deterministic
+        hook-compatible text normalization completed
+      compat_items_removed:
+      - seven utils documentation aliases
+      - Jinja web renderer and templates
+      - DocumentationSiteGenerator and generate_web
+      - plugins-web CLI
+      - legacy redirects and Vite site-react
+      - legacy plugin-set image producer
+      commands_run:
+      - npm check; Vitest 6 tests; Next build 91 static pages
+      - 'pytest -q: 1705 passed, 2 skipped, 15 deselected'
+      - 'explicit whitespace and EOF normalizer plus prebuilt manifest pytest: 8 passed'
+      - 'source and wheel site-web exports: 629 files each'
+      - 'strict coverage: 100 percent; Markdown links: 311 files and 507 references'
+      - 'Playwright Firefox: overview=20 full=36 no-virtual=27 groups=5 kinds=6 visible=20
+        canvas=888x974'
+      - 'browser diagnostics: console=0 page=0 external=0 failed=0'
+      - doc sync and 29 anchors PASS; impact 0 plugin changes; schema smoke PASS
+      - pre-commit ruff black trailing-whitespace end-of-file-fixer and check-yaml
+        PASS
+      - check-added-large-files intentionally skipped only for two user-approved tracked
+        reproducible build artifacts
+      - clean wheel 7.6 MB sha256 b35b8abdfdf1a98bd526470ed2f66f464c81984c6c6c86bb6a098960c34c21cc
+      - wheel without Node exported 629 files; seven removed aliases and legacy wheel
+        members absent
+      - git diff --cached --check PASS after hook-compatible deterministic text normalization
+      - 'change_scope: no out-of-scope paths'
+      verification: PASS
+      open_risks:
+      - dynamic lineage API remains optional; static 36-node fallback is the offline
+        contract
+      - static Next export requires an HTTP static host rather than file URL
+      - lineage inspector intentionally truncates very long names with ellipsis
+    fidelity_ledger:
+    - point: header, left rail, content and TOC composition
+      result: faithful to accepted concept
+    - point: navy and teal scientific instrument palette with measured grid
+      result: faithful
+    - point: source-backed signal pipeline cards
+      result: faithful after SVG refinement
+    - point: records contract page density and table hierarchy
+      result: faithful with complete real fields
+    - point: lineage workspace, type colors, minimap, controls and inspector
+      result: faithful and real 36-node graph verified
+    - point: lineage Full and virtual-node interactions
+      result: verified with fixed view semantics and stable fitView
+    - point: mobile drawer, bottom actions and reduced motion
+      result: faithful and browser verified
+  review:
+    reviewer_actor: reviewer
+    decision: approved
+    plan_sha256: 548fad273456c0f3381d1b27a72b1da72ffe6a3a9677963dafd21c6cd7a0247a
+    gate_results:
+      compat_inventory_ready: PASS
+      deletion_scope_confirmed: PASS
+      user_confirmation_recorded: PASS
+      next_typecheck: PASS
+      next_static_export: PASS
+      site_web_unique_entry: PASS
+      route_migration_completeness: PASS
+      no_legacy_redirects: PASS
+      no_plugins_web_cli: PASS
+      removed_utils_imports: PASS
+      canonical_doc_generation: PASS
+      strict_doc_coverage: PASS
+      doc_links: PASS
+      browser_review: PASS
+      responsive_accessibility: PASS
+      offline_asset_check: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      clean_wheel_packaging: PASS
+      diff_scope_check: PASS
+      handoff_check: PASS
+    blocking_findings: []
+    residual_risks:
+    - check-added-large-files was scoped-skipped for the two user-approved tracked
+      reproducible build artifacts; every other staged hook passed
+    - dynamic lineage API is optional and the static host must be accessed over HTTP
+      rather than file URLs
+    - very long lineage inspector names use single-line ellipsis
+  approval:
+    evidence:
+    - User approved full_redesign, tracked_reproducible, remove_legacy, and delivery=commit;
+      these exact documentation paths were already named in scope_in.
+    plan_sha256: 548fad273456c0f3381d1b27a72b1da72ffe6a3a9677963dafd21c6cd7a0247a
+    approved_at: '2026-08-31T19:19:49Z'
+    actor: planner
+  handoff:
+    implementation_commit: 68e731969e9cb594f3311b44883f873dc0138dbe
+    commit_status: committed
+    precommit_check: PASS with scoped check-added-large-files skip for approved tracked
+      artifacts
+    git_status_checked: true
+    git_diff_stat_checked: true
+    scope_check: PASS; implementation commit contains only task allowlist files and
+      excludes docs/agents task artifacts
+    cached_diff_check: PASS
+    verification:
+      full_pytest: 1705 passed, 2 skipped, 15 deselected
+      next: typecheck PASS, 6 tests PASS, 91 static pages PASS
+      browser: desktop and mobile PASS; no console, page, external-request, or failed-response
+        errors
+      wheel: 7.6 MB sha256 b35b8abdfdf1a98bd526470ed2f66f464c81984c6c6c86bb6a098960c34c21cc;
+        629-file no-Node export PASS
+      required_gates: 23 of 23 PASS
