@@ -1,0 +1,95 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: import-topology-optimization
+  generation: 1
+  created_at: '2026-08-31'
+  updated_at: '2026-08-31'
+spec:
+  goal: >-
+    Provide stable domain-level imports and defer aggregate-package and CLI
+    runtime imports without changing legacy APIs, plugin behavior, registries,
+    schemas, lineage, or generated documentation semantics.
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: high
+  scope:
+    base_sha: 44bff79d63b15b56f76a8e55b058ad51fef813f1
+    allowed_paths:
+      - waveform_analysis
+      - tests
+      - docs
+      - examples
+  acceptance_criteria:
+    - Domain-level plugin imports are available from waveform_analysis.plugins.
+    - Existing core and utils imports preserve identity, signatures, errors, registries, and monkeypatch targets.
+    - Aggregate packages and waveform-process help do not eagerly import unrelated scientific or plugin implementation modules.
+    - Plugin behavior, dtype, versions, cache lineage, routes, and generated documentation facts remain unchanged.
+    - Source and clean-wheel import matrices pass in both canonical-first and legacy-first order.
+  required_gates:
+    - import_contract_tests
+    - targeted_tests
+    - full_pytest
+    - ruff
+    - black_check
+    - generated_docs_diff
+    - strict_doc_coverage
+    - doc_links
+    - doc_sync
+    - doc_anchors
+    - assess_change_impact
+    - schema_compat_check
+    - performance_regression_check
+    - release_artifact_sync
+    - clean_wheel_imports
+    - agent_handoff
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+    execution_sequence:
+      - luna_contract_and_plugins
+      - luna_core_lazy_exports
+      - luna_cli_and_docs
+      - luna_blocking_reviewer
+status:
+  state: executing
+  condition: ExecutorAssigned
+  conditions:
+    - type: PlanBriefReady
+      status: 'True'
+      reason: user_approved_plan
+      message: Clean baseline and generated documentation artifacts captured under /tmp.
+  transitions:
+    - from: null
+      to: planning
+      at: '2026-08-31'
+      actor: planner
+      condition: task_initialized
+    - from: planning
+      to: ready_for_execution
+      at: '2026-08-31'
+      actor: planner
+      condition: plan_brief_ready
+    - from: ready_for_execution
+      to: executing
+      at: '2026-08-31'
+      actor: executor.code
+      condition: executor_assigned
+  plan_sha256: null
+  execution:
+    stage: 1
+    stage_name: contract_and_plugins_facade
+    executor_role: executor.code
+    started_at: '2026-08-31'
+    state: executing
+    baseline:
+      docs_dir: /tmp/wa-import-baseline-44bff79.5ZDBQl
+      targeted_tests: 55 passed
+      plugins_markdown_files: 37
+      plugins_web_files: 51
+      site_web_cli_items: 118
+  review: {}
+  approval: {}
+  handoff: {}
