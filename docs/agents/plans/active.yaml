@@ -26,3 +26,11 @@ active_plans:
   condition: NeedsRevalidation
   task_file: docs/agents/runs/current/hit-threshold-ragged-optimization/task.yaml
   legacy_plan: docs/agents/runs/current/hit-threshold-ragged-optimization/legacy-plan.md
+- task_id: import-topology-optimization
+  state: reviewing
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: ExecutionReportReady
+  task_file: docs/agents/runs/current/import-topology-optimization/task.yaml
+  legacy_plan: docs/agents/runs/current/import-topology-optimization/legacy-plan.md

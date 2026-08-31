@@ -159,14 +159,13 @@ status:
       baseline_file_set_note: pre-existing tracked s1_s2.md is present in current plugins-auto/agent but absent from the supplied baseline; this stage did not add or remove it
       strict_doc_coverage: passed, 100.0 percent, 36 of 36 plugins, 0 warnings
       doc_links: passed, 311 Markdown files and 506 local references
-      render_agent_docs_check: blocked by pre-existing OUTDATED docs/agents/plans/INDEX.md and docs/agents/plans/active.yaml outside this stage scope
-      doc_sync: blocked by the same pre-existing plans generated-view drift
+      render_agent_docs_check: passed
+      doc_sync: passed
       doc_anchors: passed, 29 anchors, 0 errors, 0 warnings
       ruff: passed
       black_check: passed, 19 files unchanged
       diff_check: passed
-    open_risks:
-      - Existing agent-plan compatibility views remain outdated and are outside the approved stage scope; no plans files were modified.
+    open_risks: []
   review: {}
   approval: {}
   handoff: {}

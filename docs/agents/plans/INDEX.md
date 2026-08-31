@@ -11,6 +11,7 @@ links and readers; edit the task record and rerun
 | `get-data-output-unification` | `planning` | `modify_code` | `standard` | `staged` | `NeedsRevalidation` | `docs/agents/runs/current/get-data-output-unification/task.yaml` |
 | `hit-merged-peaklet-responsibility` | `planning` | `modify_code` | `standard` | `staged` | `NeedsRevalidation` | `docs/agents/runs/current/hit-merged-peaklet-responsibility/task.yaml` |
 | `hit-threshold-ragged-optimization` | `planning` | `modify_plugin` | `standard` | `staged` | `NeedsRevalidation` | `docs/agents/runs/current/hit-threshold-ragged-optimization/task.yaml` |
+| `import-topology-optimization` | `reviewing` | `modify_code` | `strict` | `staged` | `ExecutionReportReady` | `docs/agents/runs/current/import-topology-optimization/task.yaml` |
 <!-- END GENERATED: current_task_registry -->
 
 Legacy plan text is retained as `legacy-plan.md` beside each current task. It is
