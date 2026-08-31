@@ -79,35 +79,25 @@ status:
       condition: executor_assigned
   plan_sha256: null
   execution:
-    stage: 2B
-    stage_name: plugin_lazy_exports
+    stage: 3
+    stage_name: cli_runtime_imports
     executor_role: executor.code
     started_at: '2026-08-31'
     state: completed
     completed_commits:
-      - b38f3074571a8a97329c5bad42394cfbac9e7877
+      - 11622959af224d1f42084480169efd3a4e010c23
     current_scope:
-      - waveform_analysis/core/plugins/__init__.py
-      - waveform_analysis/core/plugins/core/__init__.py
-      - waveform_analysis/core/plugins/builtin/__init__.py
-      - waveform_analysis/core/plugins/builtin/cpu/__init__.py
-      - waveform_analysis/core/plugins/builtin/hit/__init__.py
-      - waveform_analysis/core/plugins/builtin/peaks/__init__.py
-      - waveform_analysis/core/plugins/builtin/streaming/__init__.py
-      - waveform_analysis/core/plugins/builtin/streaming/cpu/__init__.py
-      - waveform_analysis/core/plugins/profiles.py
-      - waveform_analysis/core/plugins/plugin_sets/__init__.py
-      - tests/contracts/test_plugin_lazy_exports.py
+      - waveform_analysis/cli.py
+      - tests/test_cli_show_daq.py
+      - tests/contracts/test_cli_import_contract.py
     actions_taken:
-      - Replaced the eight plugin aggregate initializers with shared lazy export maps.
-      - Mapped builtin exports directly to canonical bundles instead of routing through cpu.
-      - Deferred cpu standard_plugins construction while preserving legacy classifier exports and cached list identity.
-      - Deferred profiles/plugin_sets leaf resolution and registry construction without moving plugin behavior.
-      - Kept plugin-set leaf plugin imports inside factory calls, preserving order and warnings.
+      - Deferred DAQAnalyzer, Context, and profiles behind module-level lazy attributes.
+      - Added a branch-local runtime loader that honors existing CLI monkeypatch targets.
+      - Kept Path and package_version module attributes and parser behavior unchanged.
+      - Added fresh-process contracts for parser-only, DAQ, context, cache, and documentation CLI imports.
     verification:
-      plugin_lazy_export_tests: 26 passed
-      import_contracts_shims_profiles_sets: 71 passed
-      context_registration_smoke: passed (36 plugins)
+      cli_targeted_tests: 27 passed
+      import_contracts: passed
       fresh_import_side_effects: passed
       ruff: passed
       black_check: passed

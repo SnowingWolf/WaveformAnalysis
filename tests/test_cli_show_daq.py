@@ -91,3 +91,40 @@ def test_cli_scan_daq_passes_daq_adapter(monkeypatch, tmp_path: Path):
     code = cli.main()
     assert code == 0
     assert captured["daq_adapter"] == "v1725"
+
+
+def test_cli_show_config_uses_monkeypatched_runtime_attributes(monkeypatch):
+    captured = {}
+
+    class _FakeContext:
+        def __init__(self, config):
+            captured["config"] = config
+
+        def register(self, *plugins):
+            captured["plugins"] = plugins
+
+        def set_config(self, config):
+            captured["runtime_config"] = config
+
+        def get_adapter_info(self):
+            return None
+
+        def show_resolved_config(self, **kwargs):
+            captured["show_kwargs"] = kwargs
+
+    class _FakeProfiles:
+        @staticmethod
+        def get_profile(name):
+            captured["profile"] = name
+            return lambda: ("fake-plugin",)
+
+    monkeypatch.setattr(cli, "Context", _FakeContext)
+    monkeypatch.setattr(cli, "profiles", _FakeProfiles)
+    monkeypatch.setattr(sys, "argv", ["waveform-process", "--show-config", "--verbose"])
+
+    code = cli.main()
+
+    assert code == 0
+    assert captured["profile"] == "cpu"
+    assert captured["plugins"] == ("fake-plugin",)
+    assert captured["show_kwargs"] == {"verbose": True}

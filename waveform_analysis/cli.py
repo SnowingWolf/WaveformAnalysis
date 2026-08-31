@@ -3,14 +3,53 @@
 """
 
 import argparse
+from importlib import import_module as _import_module
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
 from pathlib import Path
 import sys
 
-from waveform_analysis.acquisition.daq import DAQAnalyzer
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import profiles
+_LAZY_ATTRS = {
+    "DAQAnalyzer": ("waveform_analysis.acquisition.daq", "DAQAnalyzer"),
+    "Context": ("waveform_analysis.core.context", "Context"),
+    "profiles": ("waveform_analysis.core.plugins", "profiles"),
+}
+
+_MISSING = object()
+
+
+def _load_runtime(*names: str) -> dict[str, object]:
+    """Load the requested runtime objects while honoring module patches.
+
+    The names are intentionally resolved through this module's namespace first.
+    This keeps the historical ``waveform_analysis.cli.<name>`` monkeypatch
+    points effective without importing any runtime modules for parser-only
+    invocations.
+    """
+
+    loaded = {}
+    for name in names:
+        value = globals().get(name, _MISSING)
+        if value is _MISSING:
+            module_name, attribute_name = _LAZY_ATTRS[name]
+            value = getattr(_import_module(module_name), attribute_name)
+            globals()[name] = value
+        loaded[name] = value
+    return loaded
+
+
+def __getattr__(name: str):
+    """Resolve historical CLI runtime attributes on first access."""
+
+    if name not in _LAZY_ATTRS:
+        raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+    return _load_runtime(name)[name]
+
+
+def __dir__():
+    """Keep lazy runtime names visible to introspection and monkeypatch tools."""
+
+    return sorted(set(globals()) | set(_LAZY_ATTRS))
 
 
 def _pkg_version() -> str:
@@ -114,7 +153,8 @@ def main():
 
         # DAQ 扫描分支
         if args.scan_daq:
-            analyzer = DAQAnalyzer(args.daq_root, daq_adapter=args.daq_adapter)
+            daq_analyzer = _load_runtime("DAQAnalyzer")["DAQAnalyzer"]
+            analyzer = daq_analyzer(args.daq_root, daq_adapter=args.daq_adapter)
             analyzer.scan_all_runs()
             out = analyzer.save_to_json(args.daq_out)
             if out is None:
@@ -126,21 +166,25 @@ def main():
 
         # CLI 显示单个运行的 DAQ 信息
         if args.show_daq:
-            analyzer = DAQAnalyzer(args.daq_root, daq_adapter=args.daq_adapter)
+            daq_analyzer = _load_runtime("DAQAnalyzer")["DAQAnalyzer"]
+            analyzer = daq_analyzer(args.daq_root, daq_adapter=args.daq_adapter)
             analyzer.scan_all_runs()
             analyzer.display_run_channel_details(args.show_daq, show_files=args.show_daq_files)
             return 0
 
         # 显示配置信息
         if args.show_config:
-            ctx = Context(
+            runtime = _load_runtime("Context", "profiles")
+            context = runtime["Context"]
+            profile_module = runtime["profiles"]
+            ctx = context(
                 config={
                     "data_root": args.daq_root,
                     "n_channels": args.n_channels,
                     "daq_adapter": args.daq_adapter,
                 }
             )
-            profile_factory = profiles.get_profile(args.profile)
+            profile_factory = profile_module.get_profile(args.profile)
             ctx.register(*profile_factory())
             ctx.set_config(
                 {
@@ -170,14 +214,17 @@ def main():
             return 0
 
         # 正常数据处理分支
-        ctx = Context(
+        runtime = _load_runtime("Context", "profiles")
+        context = runtime["Context"]
+        profile_module = runtime["profiles"]
+        ctx = context(
             config={
                 "data_root": args.daq_root,
                 "n_channels": args.n_channels,
                 "daq_adapter": args.daq_adapter,
             }
         )
-        profile_factory = profiles.get_profile(args.profile)
+        profile_factory = profile_module.get_profile(args.profile)
         ctx.register(*profile_factory())
         ctx.set_config(
             {
