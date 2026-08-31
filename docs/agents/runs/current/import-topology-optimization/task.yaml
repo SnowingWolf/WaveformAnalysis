@@ -4,7 +4,7 @@ metadata:
   id: import-topology-optimization
   generation: 1
   created_at: '2026-08-31'
-  updated_at: '2026-08-31'
+  updated_at: '2026-08-31T07:13:01Z'
 spec:
   goal: >-
     Provide stable domain-level imports and defer aggregate-package and CLI
@@ -54,8 +54,8 @@ spec:
       - luna_cli_and_docs
       - luna_blocking_reviewer
 status:
-  state: reviewing
-  condition: ExecutionReportReady
+  state: executing
+  condition: ReworkExecutionStarted
   conditions:
     - type: PlanBriefReady
       status: 'True'
@@ -86,14 +86,24 @@ status:
       at: '2026-08-31'
       actor: executor.code
       condition: execution_report_ready
-  plan_sha256: null
+    - from: reviewing
+      to: rework_required
+      at: '2026-08-31T07:12:58Z'
+      actor: reviewer
+      condition: fixable_contract_test_isolation
+    - from: rework_required
+      to: executing
+      at: '2026-08-31T07:13:01Z'
+      actor: executor.code
+      condition: scope_unchanged_rework
+  plan_sha256: f977a9a0a7f3934fa836c5b5144f05e2e853d8fa7eed99fe1ba613fce182fd2f
   execution:
     stage: 3B
     stage_name: public_import_paths
     executor_role: executor.code
     started_at: '2026-08-31'
-    state: reviewing
-    execution_report: ready
+    state: executing
+    execution_report: rework_in_progress
     completed_commits:
       - 44bff79d63b15b56f76a8e55b058ad51fef813f1
       - 023d5a1b31484ffd2b06060d0fc2126771276ace
@@ -166,6 +176,47 @@ status:
       black_check: passed, 19 files unchanged
       diff_check: passed
     open_risks: []
-  review: {}
+  review:
+    reviewer: reviewer
+    decision: rework_required
+    scope_changed: false
+    rework_reason: >-
+      Three parameterized lazy-export identity cases assert first-access state in
+      the shared pytest process; earlier contract tests can populate module globals,
+      causing full-suite order-dependent failures despite correct fresh-process
+      behavior.
+    required_fixes:
+      - >-
+        Run the first-access name-not-in-vars assertion in a fresh subprocess for
+        every parameterized identity case while retaining getattr cache and
+        canonical identity assertions.
+    owner_role: executor.code
+    required_gates_to_rerun:
+      - plugin_lazy_export_tests
+      - import_contract_tests
+      - plugin_shim_compat
+      - profiles_plugin_sets
+      - context_registration_smoke
+      - ruff
+      - black_check
+      - diff_check
+    gates_to_rerun:
+      - plugin_lazy_export_tests
+      - import_contract_tests
+      - plugin_shim_compat
+      - profiles_plugin_sets
+      - context_registration_smoke
+      - ruff
+      - black_check
+      - diff_check
+    blocking_vs_non_blocking_findings:
+      blocking:
+        - Order-dependent first-access assertions in test_plugin_lazy_exports.py
+      non_blocking: []
+    compat_items:
+      - Do not weaken lazy export, caching, identity, or import-order contracts.
+    residual_risks: []
+    follow_up_actions:
+      - Rerun the requested isolated and combined contract/plugin tests before commit.
   approval: {}
   handoff: {}

@@ -396,13 +396,22 @@ def test_plugin_aggregator_dir_keeps_legacy_extra_names():
     ],
 )
 def test_lazy_export_identity_and_cache(module_name, name, canonical_module, canonical_name):
-    module = importlib.import_module(module_name)
-    assert name not in vars(module)
-    value = getattr(module, name)
-    canonical = getattr(importlib.import_module(canonical_module), canonical_name)
-    assert value is canonical
-    assert vars(module)[name] is value
-    assert getattr(module, name) is value
+    observed = _run_fresh(
+        f"""
+import importlib
+import json
+
+module = importlib.import_module({module_name!r})
+assert {name!r} not in vars(module)
+value = getattr(module, {name!r})
+canonical = getattr(importlib.import_module({canonical_module!r}), {canonical_name!r})
+assert value is canonical
+assert vars(module)[{name!r}] is value
+assert getattr(module, {name!r}) is value
+print(json.dumps({{'ok': True}}))
+"""
+    )
+    assert observed == {"ok": True}
 
 
 def test_cpu_legacy_exports_and_standard_plugins_are_cached():
