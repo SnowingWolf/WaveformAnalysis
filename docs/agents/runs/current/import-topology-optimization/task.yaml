@@ -79,35 +79,35 @@ status:
       condition: executor_assigned
   plan_sha256: null
   execution:
-    stage: 2
-    stage_name: core_lazy_exports
+    stage: 2B
+    stage_name: plugin_lazy_exports
     executor_role: executor.code
     started_at: '2026-08-31'
     state: completed
     completed_commits:
-      - 023d5a1b31484ffd2b06060d0fc2126771276ace
+      - b38f3074571a8a97329c5bad42394cfbac9e7877
     current_scope:
-      - waveform_analysis/__init__.py
-      - waveform_analysis/_lazy_exports.py
-      - waveform_analysis/_version.py
-      - waveform_analysis/core/__init__.py
-      - waveform_analysis/core/foundation/__init__.py
-      - waveform_analysis/core/hardware/__init__.py
-      - waveform_analysis/core/config/__init__.py
-      - waveform_analysis/core/execution/__init__.py
-      - waveform_analysis/core/data/__init__.py
-      - waveform_analysis/core/storage/__init__.py
-      - waveform_analysis/core/processing/__init__.py
-      - tests/contracts/test_core_lazy_exports.py
+      - waveform_analysis/core/plugins/__init__.py
+      - waveform_analysis/core/plugins/core/__init__.py
+      - waveform_analysis/core/plugins/builtin/__init__.py
+      - waveform_analysis/core/plugins/builtin/cpu/__init__.py
+      - waveform_analysis/core/plugins/builtin/hit/__init__.py
+      - waveform_analysis/core/plugins/builtin/peaks/__init__.py
+      - waveform_analysis/core/plugins/builtin/streaming/__init__.py
+      - waveform_analysis/core/plugins/builtin/streaming/cpu/__init__.py
+      - waveform_analysis/core/plugins/profiles.py
+      - waveform_analysis/core/plugins/plugin_sets/__init__.py
+      - tests/contracts/test_plugin_lazy_exports.py
     actions_taken:
-      - Deferred root package version resolution to first __version__ access.
-      - Replaced eight core domain package initializers with shared lazy export maps.
-      - Preserved __all__, dir, canonical leaf identity, import order, and singleton contracts.
-      - Added a narrow module-class guard for the data.records_view name collision.
+      - Replaced the eight plugin aggregate initializers with shared lazy export maps.
+      - Mapped builtin exports directly to canonical bundles instead of routing through cpu.
+      - Deferred cpu standard_plugins construction while preserving legacy classifier exports and cached list identity.
+      - Deferred profiles/plugin_sets leaf resolution and registry construction without moving plugin behavior.
+      - Kept plugin-set leaf plugin imports inside factory calls, preserving order and warnings.
     verification:
-      import_contract_tests: 43 passed
-      core_lazy_export_tests: 30 passed
-      targeted_core_tests: 137 passed
+      plugin_lazy_export_tests: 26 passed
+      import_contracts_shims_profiles_sets: 71 passed
+      context_registration_smoke: passed (36 plugins)
       fresh_import_side_effects: passed
       ruff: passed
       black_check: passed

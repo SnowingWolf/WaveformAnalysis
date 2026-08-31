@@ -6,28 +6,11 @@ peaks bundle - provides 'peaks'。
 ``peaks.peaklet_channels``）由同目录下的 shim 模块继续提供。
 """
 
-from waveform_analysis.core.plugins.builtin.peaklet_channels import (
-    PEAKLET_CHANNELS_DTYPE,
-    PeakletChannelsPlugin,
+from waveform_analysis._lazy_exports import LazyExport as _LazyExport
+from waveform_analysis._lazy_exports import lazy_dir as _lazy_dir
+from waveform_analysis._lazy_exports import (
+    resolve_lazy_attribute as _resolve_lazy_attribute,
 )
-from waveform_analysis.core.plugins.builtin.peaklet_components import (
-    PEAKLET_COMPONENTS_DTYPE,
-    PeakletComponentsPlugin,
-)
-from waveform_analysis.core.plugins.builtin.peaklet_features import (
-    PEAKLET_FEATURES_DTYPE,
-    PeakletFeaturesPlugin,
-)
-from waveform_analysis.core.plugins.builtin.peaklet_waveform_pool import (
-    PeakletWaveformPoolPlugin,
-)
-from waveform_analysis.core.plugins.builtin.peaklet_waveforms import (
-    PEAKLET_WAVEFORMS_DTYPE,
-    PeakletWaveformPlugin,
-)
-from waveform_analysis.core.plugins.builtin.peaklets import PEAKLET_DTYPE, PeakletPlugin
-from waveform_analysis.core.plugins.builtin.peaklets._compute import PEAKS_DTYPE
-from waveform_analysis.core.plugins.builtin.peaks.plugin import PeaksPlugin
 
 __all__ = [
     # Peaklet 插件
@@ -46,3 +29,60 @@ __all__ = [
     "PEAKLET_CHANNELS_DTYPE",
     "PEAKS_DTYPE",
 ]
+
+
+_BUILTIN = "waveform_analysis.core.plugins.builtin"
+_LAZY_EXPORTS: dict[str, _LazyExport] = {
+    "PeakletPlugin": (f"{_BUILTIN}.peaklets", "PeakletPlugin"),
+    "PeakletComponentsPlugin": (
+        f"{_BUILTIN}.peaklet_components",
+        "PeakletComponentsPlugin",
+    ),
+    "PeakletWaveformPlugin": (
+        f"{_BUILTIN}.peaklet_waveforms",
+        "PeakletWaveformPlugin",
+    ),
+    "PeakletWaveformPoolPlugin": (
+        f"{_BUILTIN}.peaklet_waveform_pool",
+        "PeakletWaveformPoolPlugin",
+    ),
+    "PeakletFeaturesPlugin": (
+        f"{_BUILTIN}.peaklet_features",
+        "PeakletFeaturesPlugin",
+    ),
+    "PeakletChannelsPlugin": (
+        f"{_BUILTIN}.peaklet_channels",
+        "PeakletChannelsPlugin",
+    ),
+    "PeaksPlugin": (f"{_BUILTIN}.peaks.plugin", "PeaksPlugin"),
+    "PEAKLET_DTYPE": (f"{_BUILTIN}.peaklets", "PEAKLET_DTYPE"),
+    "PEAKLET_COMPONENTS_DTYPE": (
+        f"{_BUILTIN}.peaklet_components",
+        "PEAKLET_COMPONENTS_DTYPE",
+    ),
+    "PEAKLET_WAVEFORMS_DTYPE": (
+        f"{_BUILTIN}.peaklet_waveforms",
+        "PEAKLET_WAVEFORMS_DTYPE",
+    ),
+    "PEAKLET_FEATURES_DTYPE": (
+        f"{_BUILTIN}.peaklet_features",
+        "PEAKLET_FEATURES_DTYPE",
+    ),
+    "PEAKLET_CHANNELS_DTYPE": (
+        f"{_BUILTIN}.peaklet_channels",
+        "PEAKLET_CHANNELS_DTYPE",
+    ),
+    "PEAKS_DTYPE": (f"{_BUILTIN}.peaklets._compute", "PEAKS_DTYPE"),
+    # The historical peaks.* shim modules remain available through getattr().
+    "plugin": (f"{__name__}.plugin", None),
+}
+
+_LAZY_ATTRS = _LAZY_EXPORTS
+
+
+def __getattr__(name: str):
+    return _resolve_lazy_attribute(name, _LAZY_EXPORTS, globals())
+
+
+def __dir__():
+    return _lazy_dir(globals(), _LAZY_EXPORTS, __all__)

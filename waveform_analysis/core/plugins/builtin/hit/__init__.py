@@ -13,18 +13,11 @@ Hit 插件模块 - Hit 检测与处理管道
 **功能域**: Hit Detection & Processing
 """
 
-from .hit_finder import THRESHOLD_HIT_DTYPE, ThresholdHitPlugin
-from .hit_grouped import HitGroupedPlugin
-from .hit_merge import (
-    HIT_MERGE_CLUSTERS_DTYPE,
-    HIT_MERGED_COMPONENTS_DTYPE,
-    HIT_MERGED_DTYPE,
-    HitMergeClustersPlugin,
-    HitMergedComponentsPlugin,
-    HitMergePlugin,
+from waveform_analysis._lazy_exports import LazyExport as _LazyExport
+from waveform_analysis._lazy_exports import lazy_dir as _lazy_dir
+from waveform_analysis._lazy_exports import (
+    resolve_lazy_attribute as _resolve_lazy_attribute,
 )
-from .hit_merged_features import HIT_MERGED_FEATURES_DTYPE, HitMergedFeaturesPlugin
-from .plugin import HIT_DTYPE, HitFinderPlugin
 
 __all__ = [
     # Hit 插件
@@ -43,3 +36,61 @@ __all__ = [
     "HIT_MERGED_COMPONENTS_DTYPE",
     "HIT_MERGED_FEATURES_DTYPE",
 ]
+
+
+_BUILTIN = "waveform_analysis.core.plugins.builtin"
+_LAZY_EXPORTS: dict[str, _LazyExport] = {
+    "HitFinderPlugin": (f"{_BUILTIN}.hit.plugin", "HitFinderPlugin"),
+    "ThresholdHitPlugin": (
+        f"{_BUILTIN}.hit_threshold",
+        "ThresholdHitPlugin",
+    ),
+    "HitMergePlugin": (f"{_BUILTIN}.hit_merged", "HitMergePlugin"),
+    "HitMergeClustersPlugin": (
+        f"{_BUILTIN}.hit_merge_clusters",
+        "HitMergeClustersPlugin",
+    ),
+    "HitMergedComponentsPlugin": (
+        f"{_BUILTIN}.hit_merged_components",
+        "HitMergedComponentsPlugin",
+    ),
+    "HitMergedFeaturesPlugin": (
+        f"{_BUILTIN}.hit_merged_features",
+        "HitMergedFeaturesPlugin",
+    ),
+    "HitGroupedPlugin": (f"{_BUILTIN}.hit_grouped", "HitGroupedPlugin"),
+    "HIT_DTYPE": (f"{_BUILTIN}.hit.plugin", "HIT_DTYPE"),
+    "THRESHOLD_HIT_DTYPE": (
+        f"{_BUILTIN}.hit_threshold",
+        "THRESHOLD_HIT_DTYPE",
+    ),
+    "HIT_MERGED_DTYPE": (f"{_BUILTIN}.hit_merged", "HIT_MERGED_DTYPE"),
+    "HIT_MERGE_CLUSTERS_DTYPE": (
+        f"{_BUILTIN}.hit_merge_clusters",
+        "HIT_MERGE_CLUSTERS_DTYPE",
+    ),
+    "HIT_MERGED_COMPONENTS_DTYPE": (
+        f"{_BUILTIN}.hit_merged_components",
+        "HIT_MERGED_COMPONENTS_DTYPE",
+    ),
+    "HIT_MERGED_FEATURES_DTYPE": (
+        f"{_BUILTIN}.hit_merged_features",
+        "HIT_MERGED_FEATURES_DTYPE",
+    ),
+    # Keep the legacy child shims visible and directly importable.
+    "hit_finder": (f"{__name__}.hit_finder", None),
+    "hit_grouped": (f"{__name__}.hit_grouped", None),
+    "hit_merge": (f"{__name__}.hit_merge", None),
+    "hit_merged_features": (f"{__name__}.hit_merged_features", None),
+    "plugin": (f"{__name__}.plugin", None),
+}
+
+_LAZY_ATTRS = _LAZY_EXPORTS
+
+
+def __getattr__(name: str):
+    return _resolve_lazy_attribute(name, _LAZY_EXPORTS, globals())
+
+
+def __dir__():
+    return _lazy_dir(globals(), _LAZY_EXPORTS, __all__)

@@ -18,114 +18,231 @@ CPU 插件模块 - 使用 NumPy/SciPy 实现
 ``__all__`` 保持全量以维持向后兼容。
 """
 
-# 已迁移插件均经 _LAZY_IMPORTS 懒加载（见下）；仅保留未迁移的 s1_s2_classifier 急切导入
-from .s1_s2_classifier import (
-    LABEL_S1,
-    LABEL_S2,
-    LABEL_UNKNOWN,
-    S1_S2_CLASSIFIER_DTYPE,
-    S1S2ClassifierPlugin,
+from waveform_analysis._lazy_exports import LazyExport as _LazyExport
+from waveform_analysis._lazy_exports import lazy_dir as _lazy_dir
+from waveform_analysis._lazy_exports import (
+    resolve_lazy_attribute as _resolve_lazy_attribute,
 )
 
-# Lazy imports for backward compatibility - redirect to new locations
-_LAZY_IMPORTS = {
-    # Peaklet plugins (迁移到 peaks/)
-    "PeakletPlugin": "..peaklets",
-    "PeakletComponentsPlugin": "..peaklet_components",
-    "PeakletWaveformPlugin": "..peaklet_waveforms",
-    "PeakletWaveformPoolPlugin": "..peaklet_waveform_pool",
-    "PeakletFeaturesPlugin": "..peaklet_features",
-    "PeaksPlugin": "..peaks",
-    "PeakletChannelsPlugin": "..peaklet_channels",
-    "PEAKLET_DTYPE": "..peaklets",
-    "PEAKLET_COMPONENTS_DTYPE": "..peaklet_components",
-    "PEAKLET_WAVEFORMS_DTYPE": "..peaklet_waveforms",
-    "PEAKLET_FEATURES_DTYPE": "..peaklet_features",
-    "PEAKS_DTYPE": "..peaks",
-    "PEAKLET_CHANNELS_DTYPE": "..peaklet_channels",
-    # Hit plugins (迁移到 per-provides bundle)
-    "HitFinderPlugin": "..hit",
-    "HIT_DTYPE": "..hit",
-    "HitGroupedPlugin": "..hit_grouped",
-    "ThresholdHitPlugin": "..hit_threshold",
-    "HitMergePlugin": "..hit_merged",
-    "HitMergeClustersPlugin": "..hit_merge_clusters",
-    "HitMergedComponentsPlugin": "..hit_merged_components",
-    "HitMergedFeaturesPlugin": "..hit_merged_features",
-    "THRESHOLD_HIT_DTYPE": "..hit_threshold",
-    "HIT_MERGED_DTYPE": "..hit_merged",
-    "HIT_MERGE_CLUSTERS_DTYPE": "..hit_merge_clusters",
-    "HIT_MERGED_COMPONENTS_DTYPE": "..hit_merged_components",
-    "HIT_MERGED_FEATURES_DTYPE": "..hit_merged_features",
-    # Phase 4c 迁移：cpu 单插件模块 → per-plugin bundle
-    "RawFileNamesPlugin": "..raw_files",
-    "WaveformsPlugin": "..st_waveforms",
-    "WaveformStruct": "..st_waveforms",
-    "WaveformStructConfig": "..st_waveforms",
-    "BasicFeaturesPlugin": "..basic_features",
-    "BASIC_FEATURES_DTYPE": "..basic_features",
-    "DataFramePlugin": "..df",
-    "FilteredWaveformsPlugin": "..filtered_waveforms",
-    "CacheAnalysisPlugin": "..cache_analysis",
-    "PeakClassificationPlugin": "..peak_classification",
-    "PEAK_CLASSIFICATION_DTYPE": "..peak_classification",
-    "LABEL_S1_S2": "..peak_classification",
-    "S1S2PairCandidatesPlugin": "..s1_s2_pair_candidates",
-    "S1S2PairSelectionPlugin": "..s1_s2_pairs",
-    "S1_S2_PAIR_CANDIDATES_DTYPE": "..s1_s2_pair_candidates",
-    "FLAG_VALID_TIME": "..s1_s2_pair_candidates",
-    "FLAG_RATIO_IN_RANGE": "..s1_s2_pair_candidates",
-    "FLAG_S1_LOW_QUALITY": "..s1_s2_pair_candidates",
-    "FLAG_S2_LOW_QUALITY": "..s1_s2_pair_candidates",
-    "FLAG_MULTI_S1_CANDIDATE": "..s1_s2_pair_candidates",
-    "FLAG_MULTI_S2_CANDIDATE": "..s1_s2_pair_candidates",
-    "FLAG_CLOSE_COMPETITOR": "..s1_s2_pair_candidates",
-    "FLAG_ORPHAN_S1": "..s1_s2_pair_candidates",
-    "FLAG_ORPHAN_S2": "..s1_s2_pair_candidates",
-    "FLAG_NEAR_CHUNK_BOUNDARY": "..s1_s2_pair_candidates",
-    "WaveformWidthPlugin": "..waveform_width",
-    "WAVEFORM_WIDTH_DTYPE": "..waveform_width",
-    "WaveformWidthIntegralPlugin": "..waveform_width_integral",
-    "WAVEFORM_WIDTH_INTEGRAL_DTYPE": "..waveform_width_integral",
-    "EnergyReconstructionPlugin": "..energy_reconstruction",
-    "ENERGY_RECONSTRUCTION_DTYPE": "..energy_reconstruction",
-    "PositionReconstructionPlugin": "..position_reconstruction",
-    "EventPlugin": "..events",
-    # Records family (迁移到 records/ / wave_pool/ / wave_pool_filtered/)
-    "RecordsPlugin": "..records",
-    "WavePoolPlugin": "..wave_pool",
-    "WavePoolFilteredPlugin": "..wave_pool_filtered",
-    "RecordsAsymmetryMaskPlugin": "..records_asymmetry_mask",
-    "RecordsDetectorMaskPlugin": "..records_detector_mask",
-    "RecordsVetoMaskPlugin": "..records_veto_mask",
-    # Event analysis (迁移到 df_events/ / df_paired/)
-    "GroupedEventsPlugin": "..df_events",
-    "PairedEventsPlugin": "..df_paired",
+_BUILTIN = "waveform_analysis.core.plugins.builtin"
+
+_LAZY_EXPORTS: dict[str, _LazyExport] = {
+    # Standard plugin bundles.
+    "RawFileNamesPlugin": (f"{_BUILTIN}.raw_files", "RawFileNamesPlugin"),
+    "RawFilesPlugin": (f"{_BUILTIN}.raw_files", "RawFileNamesPlugin"),
+    "WaveformsPlugin": (f"{_BUILTIN}.st_waveforms", "WaveformsPlugin"),
+    "StWaveformsPlugin": (f"{_BUILTIN}.st_waveforms", "WaveformsPlugin"),
+    "WaveformStruct": (f"{_BUILTIN}.st_waveforms", "WaveformStruct"),
+    "WaveformStructConfig": (f"{_BUILTIN}.st_waveforms", "WaveformStructConfig"),
+    "HitFinderPlugin": (f"{_BUILTIN}.hit", "HitFinderPlugin"),
+    "HIT_DTYPE": (f"{_BUILTIN}.hit", "HIT_DTYPE"),
+    "BasicFeaturesPlugin": (f"{_BUILTIN}.basic_features", "BasicFeaturesPlugin"),
+    "BASIC_FEATURES_DTYPE": (f"{_BUILTIN}.basic_features", "BASIC_FEATURES_DTYPE"),
+    "DataFramePlugin": (f"{_BUILTIN}.df", "DataFramePlugin"),
+    "EventPlugin": (f"{_BUILTIN}.events", "EventPlugin"),
+    "GroupedEventsPlugin": (f"{_BUILTIN}.df_events", "GroupedEventsPlugin"),
+    "PairedEventsPlugin": (f"{_BUILTIN}.df_paired", "PairedEventsPlugin"),
+    "PositionReconstructionPlugin": (
+        f"{_BUILTIN}.position_reconstruction",
+        "PositionReconstructionPlugin",
+    ),
+    "EnergyReconstructionPlugin": (
+        f"{_BUILTIN}.energy_reconstruction",
+        "EnergyReconstructionPlugin",
+    ),
+    "ENERGY_RECONSTRUCTION_DTYPE": (
+        f"{_BUILTIN}.energy_reconstruction",
+        "ENERGY_RECONSTRUCTION_DTYPE",
+    ),
+    "FilteredWaveformsPlugin": (
+        f"{_BUILTIN}.filtered_waveforms",
+        "FilteredWaveformsPlugin",
+    ),
+    "PeakClassificationPlugin": (
+        f"{_BUILTIN}.peak_classification",
+        "PeakClassificationPlugin",
+    ),
+    "PEAK_CLASSIFICATION_DTYPE": (
+        f"{_BUILTIN}.peak_classification",
+        "PEAK_CLASSIFICATION_DTYPE",
+    ),
+    "LABEL_S1_S2": (f"{_BUILTIN}.peak_classification", "LABEL_S1_S2"),
+    "S1S2PairCandidatesPlugin": (
+        f"{_BUILTIN}.s1_s2_pair_candidates",
+        "S1S2PairCandidatesPlugin",
+    ),
+    "S1S2PairSelectionPlugin": (
+        f"{_BUILTIN}.s1_s2_pairs",
+        "S1S2PairSelectionPlugin",
+    ),
+    "S1_S2_PAIR_CANDIDATES_DTYPE": (
+        f"{_BUILTIN}.s1_s2_pair_candidates",
+        "S1_S2_PAIR_CANDIDATES_DTYPE",
+    ),
+    "FLAG_VALID_TIME": (f"{_BUILTIN}.s1_s2_pair_candidates", "FLAG_VALID_TIME"),
+    "FLAG_RATIO_IN_RANGE": (f"{_BUILTIN}.s1_s2_pair_candidates", "FLAG_RATIO_IN_RANGE"),
+    "FLAG_S1_LOW_QUALITY": (f"{_BUILTIN}.s1_s2_pair_candidates", "FLAG_S1_LOW_QUALITY"),
+    "FLAG_S2_LOW_QUALITY": (f"{_BUILTIN}.s1_s2_pair_candidates", "FLAG_S2_LOW_QUALITY"),
+    "FLAG_MULTI_S1_CANDIDATE": (
+        f"{_BUILTIN}.s1_s2_pair_candidates",
+        "FLAG_MULTI_S1_CANDIDATE",
+    ),
+    "FLAG_MULTI_S2_CANDIDATE": (
+        f"{_BUILTIN}.s1_s2_pair_candidates",
+        "FLAG_MULTI_S2_CANDIDATE",
+    ),
+    "FLAG_CLOSE_COMPETITOR": (
+        f"{_BUILTIN}.s1_s2_pair_candidates",
+        "FLAG_CLOSE_COMPETITOR",
+    ),
+    "FLAG_ORPHAN_S1": (f"{_BUILTIN}.s1_s2_pair_candidates", "FLAG_ORPHAN_S1"),
+    "FLAG_ORPHAN_S2": (f"{_BUILTIN}.s1_s2_pair_candidates", "FLAG_ORPHAN_S2"),
+    "FLAG_NEAR_CHUNK_BOUNDARY": (
+        f"{_BUILTIN}.s1_s2_pair_candidates",
+        "FLAG_NEAR_CHUNK_BOUNDARY",
+    ),
+    "WaveformWidthPlugin": (f"{_BUILTIN}.waveform_width", "WaveformWidthPlugin"),
+    "WAVEFORM_WIDTH_DTYPE": (f"{_BUILTIN}.waveform_width", "WAVEFORM_WIDTH_DTYPE"),
+    "WaveformWidthIntegralPlugin": (
+        f"{_BUILTIN}.waveform_width_integral",
+        "WaveformWidthIntegralPlugin",
+    ),
+    "WAVEFORM_WIDTH_INTEGRAL_DTYPE": (
+        f"{_BUILTIN}.waveform_width_integral",
+        "WAVEFORM_WIDTH_INTEGRAL_DTYPE",
+    ),
+    "CacheAnalysisPlugin": (f"{_BUILTIN}.cache_analysis", "CacheAnalysisPlugin"),
+    "RecordsPlugin": (f"{_BUILTIN}.records", "RecordsPlugin"),
+    "WavePoolPlugin": (f"{_BUILTIN}.wave_pool", "WavePoolPlugin"),
+    "WavePoolFilteredPlugin": (
+        f"{_BUILTIN}.wave_pool_filtered",
+        "WavePoolFilteredPlugin",
+    ),
+    "RecordsAsymmetryMaskPlugin": (
+        f"{_BUILTIN}.records_asymmetry_mask",
+        "RecordsAsymmetryMaskPlugin",
+    ),
+    "RecordsDetectorMaskPlugin": (
+        f"{_BUILTIN}.records_detector_mask",
+        "RecordsDetectorMaskPlugin",
+    ),
+    "RecordsVetoMaskPlugin": (
+        f"{_BUILTIN}.records_veto_mask",
+        "RecordsVetoMaskPlugin",
+    ),
+    # Hit compatibility exports.
+    "HitGroupedPlugin": (f"{_BUILTIN}.hit_grouped", "HitGroupedPlugin"),
+    "ThresholdHitPlugin": (f"{_BUILTIN}.hit_threshold", "ThresholdHitPlugin"),
+    "HitMergePlugin": (f"{_BUILTIN}.hit_merged", "HitMergePlugin"),
+    "HitMergeClustersPlugin": (
+        f"{_BUILTIN}.hit_merge_clusters",
+        "HitMergeClustersPlugin",
+    ),
+    "HitMergedComponentsPlugin": (
+        f"{_BUILTIN}.hit_merged_components",
+        "HitMergedComponentsPlugin",
+    ),
+    "HitMergedFeaturesPlugin": (
+        f"{_BUILTIN}.hit_merged_features",
+        "HitMergedFeaturesPlugin",
+    ),
+    "THRESHOLD_HIT_DTYPE": (f"{_BUILTIN}.hit_threshold", "THRESHOLD_HIT_DTYPE"),
+    "HIT_MERGED_DTYPE": (f"{_BUILTIN}.hit_merged", "HIT_MERGED_DTYPE"),
+    "HIT_MERGE_CLUSTERS_DTYPE": (
+        f"{_BUILTIN}.hit_merge_clusters",
+        "HIT_MERGE_CLUSTERS_DTYPE",
+    ),
+    "HIT_MERGED_COMPONENTS_DTYPE": (
+        f"{_BUILTIN}.hit_merged_components",
+        "HIT_MERGED_COMPONENTS_DTYPE",
+    ),
+    "HIT_MERGED_FEATURES_DTYPE": (
+        f"{_BUILTIN}.hit_merged_features",
+        "HIT_MERGED_FEATURES_DTYPE",
+    ),
+    # Peaklet compatibility exports.
+    "PeakletPlugin": (f"{_BUILTIN}.peaklets", "PeakletPlugin"),
+    "PeakletComponentsPlugin": (
+        f"{_BUILTIN}.peaklet_components",
+        "PeakletComponentsPlugin",
+    ),
+    "PeakletWaveformPlugin": (
+        f"{_BUILTIN}.peaklet_waveforms",
+        "PeakletWaveformPlugin",
+    ),
+    "PeakletWaveformPoolPlugin": (
+        f"{_BUILTIN}.peaklet_waveform_pool",
+        "PeakletWaveformPoolPlugin",
+    ),
+    "PeakletFeaturesPlugin": (
+        f"{_BUILTIN}.peaklet_features",
+        "PeakletFeaturesPlugin",
+    ),
+    "PeakletChannelsPlugin": (
+        f"{_BUILTIN}.peaklet_channels",
+        "PeakletChannelsPlugin",
+    ),
+    "PeaksPlugin": (f"{_BUILTIN}.peaks", "PeaksPlugin"),
+    "PEAKLET_DTYPE": (f"{_BUILTIN}.peaklets", "PEAKLET_DTYPE"),
+    "PEAKLET_COMPONENTS_DTYPE": (
+        f"{_BUILTIN}.peaklet_components",
+        "PEAKLET_COMPONENTS_DTYPE",
+    ),
+    "PEAKLET_WAVEFORMS_DTYPE": (
+        f"{_BUILTIN}.peaklet_waveforms",
+        "PEAKLET_WAVEFORMS_DTYPE",
+    ),
+    "PEAKLET_FEATURES_DTYPE": (
+        f"{_BUILTIN}.peaklet_features",
+        "PEAKLET_FEATURES_DTYPE",
+    ),
+    "PEAKLET_CHANNELS_DTYPE": (
+        f"{_BUILTIN}.peaklet_channels",
+        "PEAKLET_CHANNELS_DTYPE",
+    ),
+    "PEAKS_DTYPE": (f"{_BUILTIN}.peaks", "PEAKS_DTYPE"),
+    # Legacy S1/S2 classifier exports intentionally stay on the old module.
+    "S1S2ClassifierPlugin": (f"{__name__}.s1_s2_classifier", "S1S2ClassifierPlugin"),
+    "S1_S2_CLASSIFIER_DTYPE": (
+        f"{__name__}.s1_s2_classifier",
+        "S1_S2_CLASSIFIER_DTYPE",
+    ),
+    "LABEL_S1": (f"{__name__}.s1_s2_classifier", "LABEL_S1"),
+    "LABEL_S2": (f"{__name__}.s1_s2_classifier", "LABEL_S2"),
+    "LABEL_UNKNOWN": (f"{__name__}.s1_s2_classifier", "LABEL_UNKNOWN"),
+    # Compatibility profile/list entries.
+    "cpu_default": ("waveform_analysis.core.plugins.profiles", "cpu_default"),
+    # Historical child modules which were visible after eager imports.
+    "_dt_compat": (f"{__name__}._dt_compat", None),
+    "_record_utils": (f"{__name__}._record_utils", None),
+    "_wave_source": (f"{__name__}._wave_source", None),
+    "filtering": (f"{__name__}.filtering", None),
+    "peak_finding": (f"{__name__}.peak_finding", None),
+    "s1_s2_classifier": (f"{__name__}.s1_s2_classifier", None),
 }
 
-# 兼容别名（懒解析，保持 __all__ 中同名导出与主符号同一对象）
+# Keep the migration-era private names available for compatibility tooling.
 _ALIASES = {
     "StWaveformsPlugin": "WaveformsPlugin",
     "RawFilesPlugin": "RawFileNamesPlugin",
 }
+_LAZY_IMPORTS = {
+    name: module_name
+    for name, (module_name, attribute_name) in _LAZY_EXPORTS.items()
+    if attribute_name is not None
+}
 
 
-def __getattr__(name):
-    """Lazy loading for backward compatibility."""
-    if name in _LAZY_IMPORTS:
-        module_path = _LAZY_IMPORTS[name]
-        from importlib import import_module
+def __getattr__(name: str):
+    if name == "standard_plugins":
+        cpu_default_factory = globals().get("cpu_default")
+        if cpu_default_factory is None:
+            cpu_default_factory = _resolve_lazy_attribute("cpu_default", _LAZY_EXPORTS, globals())
+        value = cpu_default_factory()
+        globals()[name] = value
+        return value
+    return _resolve_lazy_attribute(name, _LAZY_EXPORTS, globals())
 
-        module = import_module(module_path, __package__)
-        return getattr(module, name)
-    if name in _ALIASES:
-        return __getattr__(_ALIASES[name])
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
-from waveform_analysis.core.plugins.profiles import cpu_default
-
-standard_plugins = cpu_default()
 
 __all__ = [
     # 标准插件
@@ -212,3 +329,7 @@ __all__ = [
     "PEAKLET_CHANNELS_DTYPE",
     "PEAKS_DTYPE",
 ]
+
+
+def __dir__():
+    return _lazy_dir(globals(), _LAZY_EXPORTS, __all__)
