@@ -59,6 +59,7 @@ __all__ = [
     "StorageBackend",
     "CompressionManager",
     "IntegrityChecker",
+    "plugins",
 ]
 
 
@@ -94,6 +95,7 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
     "DAQRun": (".acquisition.daq", "DAQRun"),
     "render_position_dashboard": (".visualization", "render_position_dashboard"),
     "render_position_dashboard_2d": (".visualization", "render_position_dashboard_2d"),
+    "plugins": (".plugins", None),
 }
 
 
