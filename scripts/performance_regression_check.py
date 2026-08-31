@@ -14,6 +14,7 @@ import tempfile
 from _quality_common import benchmark_hot_targets
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_REPEATS = 5
 
 
 BENCH_SNIPPET = r"""
@@ -86,7 +87,7 @@ def build_context(storage_dir, data_root):
     return ctx
 
 
-def benchmark_hot_targets(targets, repeats=2):
+def benchmark_hot_targets(targets, repeats=5):
     samples = {name: [] for name in targets}
     for _ in range(repeats):
         for target in targets:
@@ -133,7 +134,7 @@ def benchmark_hot_targets(targets, repeats=2):
 
 def main():
     targets = json.loads(os.environ["QUALITY_TARGETS_JSON"])
-    repeats = int(os.environ.get("QUALITY_REPEATS", "2"))
+    repeats = int(os.environ.get("QUALITY_REPEATS", "5"))
     report = benchmark_hot_targets(targets=targets, repeats=repeats)
     print(json.dumps(report, ensure_ascii=False))
 
@@ -332,7 +333,9 @@ def main() -> int:
         default="st_waveforms,hit,hit_threshold,df,df_events",
         help="Comma-separated targets (default: st_waveforms,hit,hit_threshold,df,df_events)",
     )
-    parser.add_argument("--repeats", type=int, default=2, help="Benchmark repeats per target")
+    parser.add_argument(
+        "--repeats", type=int, default=DEFAULT_REPEATS, help="Benchmark repeats per target"
+    )
     parser.add_argument("--time-threshold-pct", type=float, default=10.0)
     parser.add_argument("--mem-threshold-pct", type=float, default=15.0)
     parser.add_argument("--json-out", default=None, help="Write report JSON to path")

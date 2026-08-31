@@ -91,6 +91,53 @@ def test_performance_regression_check_cli_runs(tmp_path):
     assert "hit_threshold" in payload["after"]
 
 
+def test_performance_regression_check_defaults_to_five_repeats(monkeypatch):
+    monkeypatch.syspath_prepend(str(PROJECT_ROOT / "scripts"))
+    from scripts import performance_regression_check
+
+    repeats_seen = {}
+
+    def fake_run_base(base, targets, repeats):
+        repeats_seen["base"] = repeats
+        return {}, ""
+
+    def fake_run_current(targets, repeats):
+        repeats_seen["current"] = repeats
+        return {}
+
+    def fake_compare(base_report, current_report, time_threshold_pct, mem_threshold_pct):
+        return {
+            "rows": [],
+            "regressions": [],
+            "time_threshold_pct": time_threshold_pct,
+            "mem_threshold_pct": mem_threshold_pct,
+        }
+
+    monkeypatch.setattr(performance_regression_check, "_run_base", fake_run_base)
+    monkeypatch.setattr(performance_regression_check, "_run_current", fake_run_current)
+    monkeypatch.setattr(performance_regression_check, "compare", fake_compare)
+
+    monkeypatch.setattr(sys, "argv", ["performance_regression_check.py", "--base", "HEAD"])
+    assert performance_regression_check.main() == 0
+    assert repeats_seen == {"base": 5, "current": 5}
+
+
+def test_release_artifact_sync_defaults_to_five_perf_repeats(monkeypatch):
+    from scripts import release_artifact_sync
+
+    captured = {}
+
+    def fake_run_release_sync(**kwargs):
+        captured.update(kwargs)
+        return {"base": kwargs["base"], "overall_ok": True, "checks": []}
+
+    monkeypatch.setattr(release_artifact_sync, "run_release_sync", fake_run_release_sync)
+
+    monkeypatch.setattr(sys, "argv", ["release_artifact_sync.py", "--base", "HEAD"])
+    assert release_artifact_sync.main() == 0
+    assert captured["perf_repeats"] == 5
+
+
 def test_performance_compare_uses_median_and_ignores_sub_megabyte_noise(monkeypatch):
     monkeypatch.syspath_prepend(str(PROJECT_ROOT / "scripts"))
     from scripts.performance_regression_check import compare

@@ -12,6 +12,7 @@ import tempfile
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 AUTO_DOCS_DIR = PROJECT_ROOT / "docs" / "plugins" / "reference" / "builtin" / "auto"
 AGENT_DOCS_DIR = PROJECT_ROOT / "docs" / "plugins" / "reference" / "agent"
+DEFAULT_PERF_REPEATS = 5
 
 # A small set of hand-maintained compatibility pages intentionally remains
 # available even though the current plugin registry no longer emits them as
@@ -313,7 +314,9 @@ def _print_report(report: dict[str, object]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Unified release artifact synchronization checks")
     parser.add_argument("--base", default="HEAD", help="Git base ref (default: HEAD)")
-    parser.add_argument("--perf-repeats", type=int, default=1, help="Perf check repeats")
+    parser.add_argument(
+        "--perf-repeats", type=int, default=DEFAULT_PERF_REPEATS, help="Perf check repeats"
+    )
     parser.add_argument("--time-threshold-pct", type=float, default=10.0)
     parser.add_argument("--mem-threshold-pct", type=float, default=15.0)
     parser.add_argument("--skip-perf", action="store_true")
