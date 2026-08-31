@@ -57,8 +57,6 @@ docs = [
 ]
 docgen = [
     "jinja2>=3.0.0",
-    "mistune>=3.0.0,<4.0.0",
-    "pygments>=2.0.0",
 ]
 scientific = [
     "iminuit>=2.0.0",
@@ -95,11 +93,7 @@ waveform_analysis = [
     "documentation/prompts/*.md",
     "documentation/schemas/*.json",
     "documentation/templates/*.j2",
-    "documentation/templates/web/*.j2",
-    "documentation/templates/web/assets/*",
-    "documentation/templates/web/assets/mermaid/*",
-    "documentation/templates/web/assets/react/*",
-    "documentation/templates/web/assets/plugin-sets/*",
+    "documentation/site_dist/**/*",
 ]
 
 [tool.black]

@@ -125,60 +125,13 @@ PluginDocInfo = PluginDocumentationView
 
 
 @dataclass(frozen=True)
-class _WebLineageNode:
-    """One positioned node in the generated, documentation-only DAG."""
-
-    node_id: str
-    label: str
-    href: str | None
-    placeholder: bool
-    x: int
-    y: int
-    width: int
-    height: int
-    documentation_completeness: int | None
-    dag_impact: int | None
-    tooltip: str
-    aria_label: str
-    has_input: bool = False
-    has_output: bool = False
-    is_focus: bool = False
-
-
-@dataclass(frozen=True)
-class _WebLineageEdge:
-    """A rendered dependency wire between two web-lineage nodes."""
-
-    source_id: str
-    target_id: str
-    path: str
-
-
-@dataclass(frozen=True)
-class _WebLineageGraph:
-    """Template-ready static SVG graph for the plugin reference website."""
-
-    title: str
-    description: str
-    view_box: str
-    width: int
-    height: int
-    nodes: list[_WebLineageNode]
-    edges: list[_WebLineageEdge]
-    isolated_nodes: list[_WebLineageNode]
-    global_focus_href: str | None = None
-    is_local: bool = False
-
-
-@dataclass(frozen=True)
-class _WebPluginSet:
-    """A canonical execution plugin set rendered on the static index."""
+class _PluginSetDocumentation:
+    """A canonical execution plugin set used by documentation facts."""
 
     name: str
     label: str
     plugins: list[PluginDocumentationView]
     description: str = ""
-    image: str = ""
 
 
 class _DefaultDocumentationContext:

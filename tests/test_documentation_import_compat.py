@@ -1,69 +1,53 @@
-"""Compatibility contracts for the documentation subsystem relocation."""
+"""Import and CLI contracts for the canonical documentation package."""
 
 from __future__ import annotations
 
 import importlib
-import inspect
 import subprocess
 import sys
 
-LEGACY_TO_CANONICAL = {
-    "waveform_analysis.utils.cli_docs": "waveform_analysis.documentation.cli",
-    "waveform_analysis.utils.context_help": "waveform_analysis.documentation.context_help",
-    "waveform_analysis.utils.doc_coverage": "waveform_analysis.documentation.doc_coverage",
-    "waveform_analysis.utils.doc_links": "waveform_analysis.documentation.doc_links",
-    "waveform_analysis.utils.plugin_doc_generator": (
-        "waveform_analysis.documentation.plugin_doc_generator"
-    ),
-    "waveform_analysis.utils.site_doc_generator": (
-        "waveform_analysis.documentation.site_doc_generator"
-    ),
-    "waveform_analysis.utils.site_guides": "waveform_analysis.documentation.site_guides",
-}
+import pytest
+
+LEGACY_MODULES = (
+    "waveform_analysis.utils.cli_docs",
+    "waveform_analysis.utils.context_help",
+    "waveform_analysis.utils.doc_coverage",
+    "waveform_analysis.utils.doc_links",
+    "waveform_analysis.utils.plugin_doc_generator",
+    "waveform_analysis.utils.site_doc_generator",
+    "waveform_analysis.utils.site_guides",
+)
 
 
-def test_legacy_modules_are_canonical_module_aliases():
-    for legacy_name, canonical_name in LEGACY_TO_CANONICAL.items():
-        legacy = importlib.import_module(legacy_name)
-        canonical = importlib.import_module(canonical_name)
-        assert legacy is canonical
-        assert dir(legacy) == dir(canonical)
+@pytest.mark.parametrize("module_name", LEGACY_MODULES)
+def test_legacy_documentation_aliases_are_removed(module_name):
+    with pytest.raises(ModuleNotFoundError) as raised:
+        importlib.import_module(module_name)
+    assert raised.value.name == module_name
 
 
-def test_public_generator_exports_are_identical():
-    from waveform_analysis.documentation import DocumentationSiteGenerator, PluginDocGenerator
-    from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator as LegacyPlugin
-    from waveform_analysis.utils.site_doc_generator import (
-        DocumentationSiteGenerator as LegacySite,
+def test_canonical_documentation_exports_are_available():
+    from waveform_analysis.documentation import PluginDocGenerator, build_site_model
+    from waveform_analysis.documentation.cli import main
+    from waveform_analysis.documentation.context_help import HelpDocument
+    from waveform_analysis.documentation.doc_coverage import DocCoverageChecker
+    from waveform_analysis.documentation.doc_links import check_markdown_links
+
+    assert callable(main)
+    assert PluginDocGenerator.__module__ == "waveform_analysis.documentation.plugin_docs.generator"
+    assert callable(build_site_model)
+    assert HelpDocument.__module__ == "waveform_analysis.documentation.context_help"
+    assert callable(DocCoverageChecker)
+    assert callable(check_markdown_links)
+
+
+def test_canonical_cli_module_entrypoint():
+    result = subprocess.run(
+        [sys.executable, "-m", "waveform_analysis.documentation.cli", "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
     )
-
-    assert DocumentationSiteGenerator is LegacySite
-    assert PluginDocGenerator is LegacyPlugin
-    assert inspect.signature(DocumentationSiteGenerator) == inspect.signature(LegacySite)
-    assert inspect.signature(PluginDocGenerator) == inspect.signature(LegacyPlugin)
-
-
-def test_private_attribute_monkeypatch_is_shared(monkeypatch):
-    legacy = importlib.import_module("waveform_analysis.utils.context_help")
-    canonical = importlib.import_module("waveform_analysis.documentation.context_help")
-
-    def marker():
-        return False
-
-    monkeypatch.setattr(legacy, "_is_jupyter", marker)
-    assert canonical._is_jupyter is marker
-
-
-def test_legacy_and_canonical_cli_module_entrypoints():
-    for module_name in (
-        "waveform_analysis.utils.cli_docs",
-        "waveform_analysis.documentation.cli",
-    ):
-        result = subprocess.run(
-            [sys.executable, "-m", module_name, "--help"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        assert result.returncode == 0, result.stderr
-        assert "waveform-docs" in result.stdout
+    assert result.returncode == 0, result.stderr
+    assert "waveform-docs" in result.stdout
+    assert "plugins-web" not in result.stdout

@@ -3,7 +3,7 @@ import pytest
 
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.core.base import Option, Plugin
-from waveform_analysis.utils.context_help import HelpDocument
+from waveform_analysis.documentation.context_help import HelpDocument
 
 
 class _HelpPlugin(Plugin):
@@ -72,7 +72,7 @@ def test_terminal_help_prints_once_and_returns_document(tmp_path, capsys):
 
 def test_jupyter_help_does_not_print(tmp_path, capsys, monkeypatch):
     ctx = Context(storage_dir=str(tmp_path))
-    monkeypatch.setattr("waveform_analysis.utils.context_help._is_jupyter", lambda: True)
+    monkeypatch.setattr("waveform_analysis.documentation.context_help._is_jupyter", lambda: True)
     document = ctx.help("examples")
     assert capsys.readouterr().out == ""
     assert "<h2>Examples</h2>" in document._repr_html_()

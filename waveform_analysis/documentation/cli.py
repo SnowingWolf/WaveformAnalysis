@@ -12,16 +12,14 @@ from __future__ import annotations
 
 import argparse
 from functools import partial
-from html.parser import HTMLParser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import importlib
 import json
 from pathlib import Path
-import re
 import shutil
 import sys
 import tempfile
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
 import uuid
 
 EXIT_OK = 0
@@ -71,7 +69,7 @@ def main():
     gen_parser = subparsers.add_parser("generate", help="生成文档")
     gen_parser.add_argument(
         "doc_type",
-        choices=["plugins-auto", "plugins-agent", "plugins-web", "site-web"],
+        choices=["plugins-auto", "plugins-agent", "site-web"],
         help="文档类型",
     )
     gen_parser.add_argument("--output", "-o", type=str, help="输出路径（文件或目录）")
@@ -214,8 +212,6 @@ def cmd_agent_doc(args):
 
 def cmd_generate(args):
     """处理 generate 命令"""
-    if args.doc_type == "plugins-web":
-        return generate_plugins_web(args)
     if args.doc_type == "site-web":
         return generate_site_web(args)
     if args.doc_type == "plugins-agent":
@@ -225,190 +221,21 @@ def cmd_generate(args):
             default_output="docs/plugins/reference/agent",
             label="agent 插件文档",
         )
-    return generate_plugins_docs(
-        args=args,
-        profile="auto",
-        default_output="docs/plugins/reference/builtin/auto",
-        label="builtin 插件文档",
-    )
+    if args.doc_type == "plugins-auto":
+        return generate_plugins_docs(
+            args=args,
+            profile="auto",
+            default_output="docs/plugins/reference/builtin/auto",
+            label="builtin 插件文档",
+        )
+    raise ValueError(f"unsupported document type: {args.doc_type}")
 
 
-def generate_plugins_web(args):
-    """Generate the offline plugin HTML site."""
-    if args.plugin:
-        print("❌ plugins-web only supports full-site generation")
-        return 1
-    try:
-        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
+def _validate_generated_site(output_dir: Path, *, model: dict) -> None:
+    """Validate only the canonical Next export and its required site model."""
+    from waveform_analysis.documentation.site_web import validate_static_export
 
-        output_path = Path(args.output or "docs/_site")
-        generator = PluginDocGenerator()
-        count = generator.load_builtin_plugins()
-        results = generator.generate_web(output_path)
-        print(f"✅ 已生成插件静态站点: {count} 个插件")
-        print(f"   输出目录: {output_path}")
-        print(f"   文件数: {len(results)}")
-        return 0
-    except Exception as exc:
-        print(f"❌ 生成静态站点时出错: {exc}")
-        return 1
-
-
-_REQUIRED_SITE_RESULT_KEYS = {
-    "SITE_INDEX",
-    "INDEX",
-    "ROOT_LINEAGE",
-    "LINEAGE_INDEX",
-    "ACCESSOR_INDEX",
-    "CONTEXT_INDEX",
-    "context:records-view",
-    "context:records-wave-pool",
-    "ADAPTER_INDEX",
-    "VISUALIZATION_INDEX",
-}
-
-
-class _SiteReferenceParser(HTMLParser):
-    """Collect local navigation and asset references from one generated page."""
-
-    def __init__(self):
-        super().__init__(convert_charrefs=True)
-        self.references: list[str] = []
-        self.anchors: set[str] = set()
-        self.aria_controls: list[str] = []
-
-    def handle_starttag(self, _tag, attrs):
-        values = {name.lower(): value for name, value in attrs if value is not None}
-        for name in ("href", "src"):
-            value = values.get(name)
-            if value:
-                self.references.append(value)
-        for name in ("id", "name"):
-            value = values.get(name)
-            if value:
-                self.anchors.add(value)
-        controls = values.get("aria-controls")
-        if controls:
-            self.aria_controls.extend(token for token in controls.split() if token)
-
-
-def _resolve_site_reference(root: Path, page: Path, reference: str) -> tuple[Path | None, str]:
-    """Resolve one local HTML URL and return its target plus fragment."""
-
-    parsed = urlparse(reference)
-    if parsed.scheme or parsed.netloc:
-        return None, unquote(parsed.fragment)
-    path_text = unquote(parsed.path)
-    if not path_text:
-        target = page.resolve()
-    else:
-        target = (
-            root / path_text.lstrip("/") if path_text.startswith("/") else page.parent / path_text
-        ).resolve()
-        if target.is_dir():
-            target /= "index.html"
-    return target, unquote(parsed.fragment)
-
-
-def _extract_search_index_urls(path: Path) -> list[str]:
-    """Read URLs from a generated ``assets/search-index.js`` file."""
-
-    text = path.read_text(encoding="utf-8")
-    match = re.search(r"(?:window\.)?WAVEFORM_DOCS_SEARCH\s*=\s*", text)
-    if not match:
-        raise ValueError(f"搜索索引缺少 WAVEFORM_DOCS_SEARCH 数组: {path.name}")
-    try:
-        payload = text[match.end() :].lstrip()
-        entries, end = json.JSONDecoder().raw_decode(payload)
-        if payload[end:].strip().strip(";").strip():
-            raise ValueError("搜索索引数组后存在非空内容")
-    except (json.JSONDecodeError, TypeError) as exc:
-        raise ValueError(f"搜索索引不是有效 JSON: {path.name}: {exc}") from exc
-    except ValueError as exc:
-        raise ValueError(f"搜索索引不是有效 JSON: {path.name}: {exc}") from exc
-    if not isinstance(entries, list):
-        raise ValueError(f"搜索索引必须是数组: {path.name}")
-    urls: list[str] = []
-    for index, entry in enumerate(entries):
-        if not isinstance(entry, dict) or not isinstance(entry.get("url"), str):
-            raise ValueError(f"搜索索引第 {index + 1} 项缺少字符串 url: {path.name}")
-        urls.append(entry["url"])
-    return urls
-
-
-def _validate_generated_site(output_dir: Path, results: dict[str, Path]) -> None:
-    """Reject incomplete builds and broken local HTML references before publication."""
-    missing_keys = sorted(_REQUIRED_SITE_RESULT_KEYS - results.keys())
-    if missing_keys:
-        raise ValueError(f"site-web 生成结果缺少必要页面: {', '.join(missing_keys)}")
-
-    root = output_dir.resolve()
-    for name, generated_path in results.items():
-        path = Path(generated_path).resolve()
-        if not path.is_relative_to(root):
-            raise ValueError(f"site-web 生成结果越过输出目录: {name} -> {path}")
-        if not path.is_file():
-            raise ValueError(f"site-web 生成结果不存在: {name} -> {path}")
-
-    html_pages = sorted(output_dir.rglob("*.html"))
-    page_anchors: dict[Path, set[str]] = {}
-    page_parsers: dict[Path, _SiteReferenceParser] = {}
-    for page in html_pages:
-        parser = _SiteReferenceParser()
-        parser.feed(page.read_text(encoding="utf-8"))
-        page_anchors[page.resolve()] = parser.anchors
-        page_parsers[page.resolve()] = parser
-
-    broken: list[str] = []
-    for page in html_pages:
-        parser = page_parsers[page.resolve()]
-        for reference in parser.references:
-            target, fragment = _resolve_site_reference(root, page, reference)
-            if target is None:
-                continue
-            if not target.is_relative_to(root):
-                broken.append(f"{page.relative_to(output_dir)} -> {reference}")
-                continue
-            if not target.is_file():
-                broken.append(f"{page.relative_to(output_dir)} -> {reference}")
-                continue
-            if fragment and target.suffix.lower() in {".html", ".htm"}:
-                anchors = page_anchors.get(target.resolve(), set())
-                if not any(anchor.casefold() == fragment.casefold() for anchor in anchors):
-                    broken.append(
-                        f"{page.relative_to(output_dir)} -> {reference} (fragment 不存在)"
-                    )
-
-        for control in parser.aria_controls:
-            if control not in parser.anchors:
-                broken.append(
-                    f"{page.relative_to(output_dir)} -> aria-controls={control} (DOM 节点不存在)"
-                )
-
-    for search_index in sorted(output_dir.rglob("search-index.js")):
-        try:
-            search_urls = _extract_search_index_urls(search_index)
-        except ValueError as exc:
-            broken.append(str(exc))
-            continue
-        search_source = root / "index.html"
-        for url in search_urls:
-            target, fragment = _resolve_site_reference(root, search_source, url)
-            if target is None:
-                continue
-            if not target.is_relative_to(root) or not target.is_file():
-                broken.append(f"{search_index.relative_to(output_dir)} -> {url}")
-                continue
-            if fragment and target.suffix.lower() in {".html", ".htm"}:
-                anchors = page_anchors.get(target.resolve(), set())
-                if not any(anchor.casefold() == fragment.casefold() for anchor in anchors):
-                    broken.append(
-                        f"{search_index.relative_to(output_dir)} -> {url} (fragment 不存在)"
-                    )
-    if broken:
-        preview = "; ".join(broken[:10])
-        suffix = f"; 另有 {len(broken) - 10} 项" if len(broken) > 10 else ""
-        raise ValueError(f"site-web 包含无效本地链接: {preview}{suffix}")
+    validate_static_export(output_dir, model=model, require_model=True)
 
 
 def _atomic_generate_site(output_path: Path, generator) -> dict[str, Path]:
@@ -423,7 +250,13 @@ def _atomic_generate_site(output_path: Path, generator) -> dict[str, Path]:
     backup_path = output_path.parent / f".{output_path.name}.backup-{uuid.uuid4().hex}"
     try:
         results = generator.generate(staging_path)
-        _validate_generated_site(staging_path, results)
+        model_path = results.get("SITE_MODEL")
+        if model_path is None or not Path(model_path).is_file():
+            raise ValueError("site-web generator did not return the required site-model/v1 file")
+        from waveform_analysis.documentation.site_model import load_site_model
+
+        model = load_site_model(Path(model_path))
+        _validate_generated_site(staging_path, model=model)
         remapped = {
             name: output_path / Path(path).resolve().relative_to(staging_path.resolve())
             for name, path in results.items()
@@ -450,20 +283,14 @@ def generate_site_web(args):
         print("❌ site-web 仅支持全量生成，不能使用 --plugin")
         return 1
     try:
-        from waveform_analysis.documentation.site_doc_generator import DocumentationSiteGenerator
+        from waveform_analysis.documentation.site_web import SiteWebBuilder
 
         output_path = Path(args.output or "docs/_site")
-        generator = DocumentationSiteGenerator()
-        results = _atomic_generate_site(output_path, generator)
-        print("✅ 已生成 WaveformAnalysis HTML 文档总站")
+        generator = SiteWebBuilder(project_root=Path.cwd())
+        _atomic_generate_site(output_path, generator)
+        print("✅ 已生成 WaveformAnalysis Next 静态文档总站")
         print(f"   输出目录: {output_path}")
-        print(f"   文件数: {len(results)}")
-        guide_warnings = getattr(generator, "guide_warnings", ())
-        if guide_warnings:
-            print(f"   Markdown 链接警告: {len(guide_warnings)}")
-            for warning in guide_warnings:
-                print(f"   ⚠️ {warning}")
-            return EXIT_WARNING
+        print(f"   文件数: {sum(1 for path in output_path.rglob('*') if path.is_file())}")
         return EXIT_OK
     except Exception as exc:
         print(f"❌ 生成 HTML 文档总站时出错: {exc}")
@@ -513,9 +340,9 @@ def _lineage_payload_provider(factory_reference: str):
         raise ValueError(f"Context 工厂不可调用: {factory_reference}")
 
     def provide():
-        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
+        from waveform_analysis.documentation.site_model import build_lineage_facts
 
-        return PluginDocGenerator().build_lineage_payload_for_context(factory())
+        return build_lineage_facts(context=factory())
 
     # Fail before serving rather than exposing a nominal API that always returns 500.
     provide()

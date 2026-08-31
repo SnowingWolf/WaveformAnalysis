@@ -4,14 +4,22 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Any
 
-from markupsafe import Markup
-
-from .rendering import _CONTENT_BLOCK_KINDS, _safe_mathml
+_CONTENT_BLOCK_KINDS = {
+    "paragraph",
+    "heading",
+    "list",
+    "note",
+    "code",
+    "image",
+    "mathml",
+    "mermaid",
+    "table",
+}
 
 
 @dataclass(frozen=True)
 class DocumentationContentBlock:
-    """A controlled, offline-safe documentation element rendered by a web template."""
+    """A controlled, offline-safe documentation element in the site model."""
 
     kind: str
     text: str = ""
@@ -58,7 +66,8 @@ class DocumentationContentBlock:
         if self.kind == "mathml":
             if not self.mathml:
                 raise ValueError("A MathML content block requires mathml")
-            _safe_mathml(self.mathml)
+            if any(token in self.mathml.casefold() for token in ("<script", "javascript:")):
+                raise ValueError("MathML content must not contain executable markup")
         if self.kind == "mermaid" and not self.mermaid:
             raise ValueError("A mermaid content block requires mermaid source")
         if self.kind == "table":
@@ -114,12 +123,12 @@ class AccessorMemberView:
     name: str
     kind: str
     signature: str
-    signature_html: Markup
+    signature_html: str
     description: str
     parameters: tuple[AccessorParameterSpec, ...]
     returns: str
     notes: tuple[str, ...]
-    example_html: Markup
+    example_html: str
 
 
 @dataclass(frozen=True)
@@ -130,7 +139,7 @@ class AccessorDocumentationView:
     summary: str
     introduction: str
     purpose: str
-    example_html: Markup
+    example_html: str
     constructor_signature: str
     constructor_parameters: tuple[AccessorParameterSpec, ...]
     members: tuple[AccessorMemberView, ...]
@@ -182,12 +191,12 @@ class CallableDocumentationPageSpec:
 @dataclass(frozen=True)
 class CallableDocumentationView:
     name: str
-    signature_html: Markup
+    signature_html: str
     description: str
     parameters: tuple[AccessorParameterSpec, ...]
     returns: str
     notes: tuple[str, ...]
-    example_html: Markup
+    example_html: str
     kind: str
 
 

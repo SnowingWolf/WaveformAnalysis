@@ -1,0 +1,1744 @@
+{
+  "schema": "site-model/v1",
+  "modelVersion": "1.0.0-fixture",
+  "project": {
+    "name": "WaveformAnalysis",
+    "version": "1.4.0",
+    "tagline": "从 DAQ 波形到事件构建，理解处理链、数据产物与分析接口。"
+  },
+  "provenance": "fixture",
+  "navigation": [
+    {
+      "id": "getting-started",
+      "title": "开始使用",
+      "items": [
+        {
+          "label": "快速开始",
+          "href": "/",
+          "icon": "file"
+        },
+        {
+          "label": "安装",
+          "href": "/user-guide/QUICKSTART_GUIDE/",
+          "icon": "terminal"
+        },
+        {
+          "label": "示例工作流",
+          "href": "/user-guide/EXAMPLES_GUIDE/",
+          "icon": "code"
+        },
+        {
+          "label": "常见问题",
+          "href": "/user-guide/FAQ/",
+          "icon": "help"
+        }
+      ]
+    },
+    {
+      "id": "concepts",
+      "title": "核心概念",
+      "items": [
+        {
+          "label": "处理链概览",
+          "href": "/lineage/",
+          "icon": "layers"
+        },
+        {
+          "label": "数据模型",
+          "href": "/architecture/data-products/",
+          "icon": "database"
+        },
+        {
+          "label": "处理 DAG",
+          "href": "/lineage/",
+          "icon": "nodes"
+        },
+        {
+          "label": "数据产物",
+          "href": "/architecture/data-products/",
+          "icon": "cube"
+        },
+        {
+          "label": "配置系统",
+          "href": "/contexts/context/",
+          "icon": "settings"
+        }
+      ]
+    },
+    {
+      "id": "plugin-system",
+      "title": "插件系统",
+      "items": [
+        {
+          "label": "插件概述",
+          "href": "/plugins/",
+          "icon": "puzzle"
+        },
+        {
+          "label": "插件类型",
+          "href": "/plugins/PLUGIN_TYPES/",
+          "icon": "code"
+        },
+        {
+          "label": "插件开发",
+          "href": "/plugins/PLUGIN_DEVELOPMENT/",
+          "icon": "code"
+        },
+        {
+          "label": "插件目录",
+          "href": "/plugins/",
+          "icon": "file"
+        }
+      ]
+    },
+    {
+      "id": "data-cache",
+      "title": "数据与缓存",
+      "items": [
+        {
+          "label": "输入数据",
+          "href": "/plugins/raw_files/",
+          "icon": "file"
+        },
+        {
+          "label": "缓存与持久化",
+          "href": "/architecture/plugin-cache/",
+          "icon": "database"
+        },
+        {
+          "label": "I/O 接口",
+          "href": "/user-guide/IO/",
+          "icon": "folder"
+        }
+      ]
+    },
+    {
+      "id": "analysis",
+      "title": "分析接口",
+      "items": [
+        {
+          "label": "Context API",
+          "href": "/contexts/context/",
+          "icon": "api"
+        },
+        {
+          "label": "Accessor API",
+          "href": "/accessors/",
+          "icon": "api"
+        },
+        {
+          "label": "查询与选择",
+          "href": "/accessors/records-view/",
+          "icon": "search"
+        }
+      ]
+    },
+    {
+      "id": "developer",
+      "title": "开发者指南",
+      "items": [
+        {
+          "label": "架构设计",
+          "href": "/architecture/system/",
+          "icon": "architecture"
+        },
+        {
+          "label": "测试指南",
+          "href": "/development/testing/",
+          "icon": "check"
+        },
+        {
+          "label": "贡献指南",
+          "href": "/development/contributing/",
+          "icon": "contribute"
+        },
+        {
+          "label": "发布流程",
+          "href": "/development/release/",
+          "icon": "release"
+        }
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "path": "/",
+      "title": "WaveformAnalysis",
+      "kind": "home"
+    },
+    {
+      "path": "/plugins/",
+      "title": "插件参考",
+      "kind": "plugin"
+    },
+    {
+      "path": "/contexts/",
+      "title": "Context 与适配器",
+      "kind": "context"
+    },
+    {
+      "path": "/accessors/",
+      "title": "Accessor 接口",
+      "kind": "accessor"
+    },
+    {
+      "path": "/visualizations/",
+      "title": "可视化",
+      "kind": "visualization"
+    },
+    {
+      "path": "/plugins/raw_files/",
+      "title": "raw_files",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/records/",
+      "title": "records",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/wave_pool/",
+      "title": "wave_pool",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/wave_pool_filtered/",
+      "title": "wave_pool_filtered",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/hit_threshold/",
+      "title": "hit_threshold",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/hit/",
+      "title": "hit",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/hit_merged/",
+      "title": "hit_merged",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/hit_merge_clusters/",
+      "title": "hit_merge_clusters",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/hit_merged_components/",
+      "title": "hit_merged_components",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/hit_merged_features/",
+      "title": "hit_merged_features",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/peaklets/",
+      "title": "peaklets",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/peaklet_components/",
+      "title": "peaklet_components",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/peaklet_features/",
+      "title": "peaklet_features",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/peaklet_channels/",
+      "title": "peaklet_channels",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/peaklet_waveform_pool/",
+      "title": "peaklet_waveform_pool",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/peaklet_waveforms/",
+      "title": "peaklet_waveforms",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/peaks/",
+      "title": "peaks",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/events/",
+      "title": "events",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/hit_grouped/",
+      "title": "hit_grouped",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/records_asymmetry_mask/",
+      "title": "records_asymmetry_mask",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/records_detector_mask/",
+      "title": "records_detector_mask",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/records_veto_mask/",
+      "title": "records_veto_mask",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/st_waveforms/",
+      "title": "st_waveforms",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/waveform_width/",
+      "title": "waveform_width",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/waveform_width_integral/",
+      "title": "waveform_width_integral",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/basic_features/",
+      "title": "basic_features",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/peak_classification/",
+      "title": "peak_classification",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/s1_s2_pair_candidates/",
+      "title": "s1_s2_pair_candidates",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/s1_s2_pairs/",
+      "title": "s1_s2_pairs",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/position_reconstruction/",
+      "title": "position_reconstruction",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/energy_reconstruction/",
+      "title": "energy_reconstruction",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/df/",
+      "title": "df",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/df_events/",
+      "title": "df_events",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/df_paired/",
+      "title": "df_paired",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/cache_analysis/",
+      "title": "cache_analysis",
+      "kind": "plugin"
+    },
+    {
+      "path": "/lineage/",
+      "title": "插件谱系",
+      "kind": "lineage"
+    },
+    {
+      "path": "/contexts/context/",
+      "title": "Context",
+      "kind": "context"
+    },
+    {
+      "path": "/contexts/records-view/",
+      "title": "RecordsView",
+      "kind": "context"
+    },
+    {
+      "path": "/accessors/peak-channel-accessor/",
+      "title": "PeakChannelAccessor",
+      "kind": "accessor"
+    },
+    {
+      "path": "/accessors/s1-s2-pair-accessor/",
+      "title": "S1S2PairAccessor",
+      "kind": "accessor"
+    },
+    {
+      "path": "/accessors/records-view/",
+      "title": "RecordsView",
+      "kind": "accessor"
+    },
+    {
+      "path": "/visualizations/statistical-plots/",
+      "title": "统计图",
+      "kind": "visualization"
+    },
+    {
+      "path": "/visualizations/waveform-plots/",
+      "title": "波形图",
+      "kind": "visualization"
+    },
+    {
+      "path": "/visualizations/position-dashboard/",
+      "title": "位置二维 Dashboard",
+      "kind": "visualization"
+    },
+    {
+      "path": "/user-guide/QUICKSTART_GUIDE/",
+      "title": "安装",
+      "kind": "guide"
+    },
+    {
+      "path": "/user-guide/EXAMPLES_GUIDE/",
+      "title": "示例工作流",
+      "kind": "guide"
+    },
+    {
+      "path": "/user-guide/FAQ/",
+      "title": "常见问题",
+      "kind": "guide"
+    },
+    {
+      "path": "/architecture/system/",
+      "title": "系统架构",
+      "kind": "guide"
+    },
+    {
+      "path": "/architecture/data-products/",
+      "title": "数据产物",
+      "kind": "guide"
+    },
+    {
+      "path": "/architecture/plugin-cache/",
+      "title": "插件缓存",
+      "kind": "guide"
+    },
+    {
+      "path": "/plugins/PLUGIN_TYPES/",
+      "title": "插件类型",
+      "kind": "plugin"
+    },
+    {
+      "path": "/plugins/PLUGIN_DEVELOPMENT/",
+      "title": "插件开发",
+      "kind": "plugin"
+    },
+    {
+      "path": "/user-guide/IO/",
+      "title": "I/O 接口",
+      "kind": "guide"
+    },
+    {
+      "path": "/development/testing/",
+      "title": "测试指南",
+      "kind": "guide"
+    },
+    {
+      "path": "/development/contributing/",
+      "title": "贡献指南",
+      "kind": "guide"
+    },
+    {
+      "path": "/development/release/",
+      "title": "发布流程",
+      "kind": "guide"
+    }
+  ],
+  "plugins": [
+    {
+      "provides": "raw_files",
+      "pluginClass": "RawFileNamesPlugin",
+      "version": "0.0.2",
+      "executionKind": "static",
+      "outputKind": "raw_data",
+      "category": "I/O",
+      "summary": "扫描 DAQ 原始文件并建立运行输入。",
+      "dependsOn": [],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"raw_files\")",
+      "route": "/plugins/raw_files/",
+      "provenance": "fixture"
+    },
+    {
+      "provides": "records",
+      "pluginClass": "RecordsPlugin",
+      "version": "0.14.2",
+      "executionKind": "static",
+      "outputKind": "structured_array",
+      "category": "记录处理",
+      "summary": "将 DAQ 原始文件转换为结构化 records，并保存波形索引。",
+      "dependsOn": [
+        "raw_files"
+      ],
+      "config": [
+        {
+          "name": "daq_adapter",
+          "value": "vx2730",
+          "description": "DAQ 适配器名称。"
+        },
+        {
+          "name": "input_source",
+          "value": "raw_files",
+          "description": "records bundle 输入源。"
+        },
+        {
+          "name": "dt",
+          "value": "None",
+          "description": "采样间隔，缺省取适配器语义。"
+        },
+        {
+          "name": "keep_on_disk",
+          "value": "true",
+          "description": "是否保持 bundle 磁盘驻留。"
+        }
+      ],
+      "fields": [
+        {
+          "name": "timestamp",
+          "dtype": "int64",
+          "unit": "ps",
+          "description": "ADC 事件时间戳。"
+        },
+        {
+          "name": "pid",
+          "dtype": "int32",
+          "unit": "—",
+          "description": "分区标识，用于稳定排序。"
+        },
+        {
+          "name": "board",
+          "dtype": "int16",
+          "unit": "—",
+          "description": "硬件板卡编号。"
+        },
+        {
+          "name": "channel",
+          "dtype": "int16",
+          "unit": "—",
+          "description": "板内物理通道编号。"
+        },
+        {
+          "name": "baseline",
+          "dtype": "float64",
+          "unit": "ADC",
+          "description": "全局波形基线。"
+        },
+        {
+          "name": "baseline_upstream",
+          "dtype": "float64",
+          "unit": "ADC",
+          "description": "上游提供的基线。"
+        },
+        {
+          "name": "polarity",
+          "dtype": "<U8",
+          "unit": "—",
+          "description": "硬件真实信号极性。"
+        },
+        {
+          "name": "record_id",
+          "dtype": "int64",
+          "unit": "—",
+          "description": "排序后的稳定记录编号。"
+        },
+        {
+          "name": "dt",
+          "dtype": "int32",
+          "unit": "ns",
+          "description": "样本间隔。"
+        },
+        {
+          "name": "trigger_type",
+          "dtype": "int16",
+          "unit": "—",
+          "description": "触发类型编码。"
+        },
+        {
+          "name": "flags",
+          "dtype": "uint32",
+          "unit": "—",
+          "description": "记录标志位。"
+        },
+        {
+          "name": "wave_offset",
+          "dtype": "int64",
+          "unit": "—",
+          "description": "wave_pool 起始索引。"
+        },
+        {
+          "name": "event_length",
+          "dtype": "int32",
+          "unit": "samples",
+          "description": "波形样本长度。"
+        },
+        {
+          "name": "time",
+          "dtype": "int64",
+          "unit": "ns",
+          "description": "系统时间，可选语义。"
+        }
+      ],
+      "usage": "from waveform_analysis import Context\nfrom waveform_analysis.plugins import profiles\n\nctx = Context(config={\"data_root\": \"DAQ\", \"daq_adapter\": \"vx2730\"})\nctx.register(*profiles.cpu_default())\nresult = ctx.get_data(\"run_001\", \"records\")",
+      "route": "/plugins/records/",
+      "provenance": "fixture"
+    },
+    {
+      "provides": "wave_pool",
+      "version": "0.14.2",
+      "executionKind": "static",
+      "outputKind": "array",
+      "category": "波形",
+      "summary": "将 records 对应的样本放入连续波形池。",
+      "dependsOn": [
+        "records"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"wave_pool\")",
+      "route": "/plugins/wave_pool/",
+      "provenance": "fixture",
+      "pluginClass": "WavePoolPlugin"
+    },
+    {
+      "provides": "wave_pool_filtered",
+      "version": "3.0.0",
+      "executionKind": "static",
+      "outputKind": "array",
+      "category": "波形",
+      "summary": "提供 records-backed 的滤波波形池。",
+      "dependsOn": [
+        "records",
+        "wave_pool"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"wave_pool_filtered\")",
+      "route": "/plugins/wave_pool_filtered/",
+      "provenance": "fixture",
+      "pluginClass": "WavePoolFilteredPlugin"
+    },
+    {
+      "provides": "hit_threshold",
+      "version": "1.2.2",
+      "executionKind": "static",
+      "outputKind": "structured_array",
+      "category": "Hit",
+      "summary": "在波形上应用阈值并输出 threshold hits。",
+      "dependsOn": [
+        "wave_pool"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"hit_threshold\")",
+      "route": "/plugins/hit_threshold/",
+      "provenance": "fixture",
+      "pluginClass": "ThresholdHitPlugin"
+    },
+    {
+      "provides": "hit",
+      "version": "3.0.0",
+      "executionKind": "static",
+      "outputKind": "structured_array",
+      "category": "Hit",
+      "summary": "整理阈值命中结果。",
+      "dependsOn": [
+        "hit_threshold"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"hit\")",
+      "route": "/plugins/hit/",
+      "provenance": "fixture",
+      "pluginClass": "HitFinderPlugin"
+    },
+    {
+      "provides": "hit_merged",
+      "version": "2.1.0",
+      "executionKind": "static",
+      "outputKind": "structured_array",
+      "category": "Hit",
+      "summary": "合并相邻或相关的 threshold hits。",
+      "dependsOn": [
+        "hit_threshold"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"hit_merged\")",
+      "route": "/plugins/hit_merged/",
+      "provenance": "fixture",
+      "pluginClass": "HitMergePlugin"
+    },
+    {
+      "provides": "hit_merge_clusters",
+      "version": "1.1.0",
+      "executionKind": "static",
+      "outputKind": "structured_array",
+      "category": "Hit",
+      "summary": "为合并 hit 提供聚类信息。",
+      "dependsOn": [
+        "hit_merged"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"hit_merge_clusters\")",
+      "route": "/plugins/hit_merge_clusters/",
+      "provenance": "fixture",
+      "pluginClass": "HitMergeClustersPlugin"
+    },
+    {
+      "provides": "hit_merged_components",
+      "version": "1.1.0",
+      "executionKind": "static",
+      "outputKind": "structured_array",
+      "category": "Hit",
+      "summary": "列出 merged hit 的组成组件。",
+      "dependsOn": [
+        "hit_merged"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"hit_merged_components\")",
+      "route": "/plugins/hit_merged_components/",
+      "provenance": "fixture",
+      "pluginClass": "HitMergedComponentsPlugin"
+    },
+    {
+      "provides": "hit_merged_features",
+      "version": "1.1.3",
+      "executionKind": "static",
+      "outputKind": "structured_array",
+      "category": "特征",
+      "summary": "计算 merged hit 的基础特征。",
+      "dependsOn": [
+        "hit_merged"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"hit_merged_features\")",
+      "route": "/plugins/hit_merged_features/",
+      "provenance": "fixture",
+      "pluginClass": "HitMergedFeaturesPlugin"
+    },
+    {
+      "provides": "peaklets",
+      "version": "1.2.0",
+      "executionKind": "static",
+      "outputKind": "array",
+      "category": "Peak",
+      "summary": "从 merged hits 中提取 peaklets。",
+      "dependsOn": [
+        "hit_merged"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"peaklets\")",
+      "route": "/plugins/peaklets/",
+      "provenance": "fixture",
+      "pluginClass": "PeakletPlugin"
+    },
+    {
+      "provides": "peaklet_components",
+      "version": "1.4.0",
+      "executionKind": "static",
+      "outputKind": "array",
+      "category": "Peak",
+      "summary": "保存 peaklet 到 merged hit 的组成关系。",
+      "dependsOn": [
+        "peaklets"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"peaklet_components\")",
+      "route": "/plugins/peaklet_components/",
+      "provenance": "fixture",
+      "pluginClass": "PeakletComponentsPlugin"
+    },
+    {
+      "provides": "peaklet_features",
+      "version": "5.0.0",
+      "executionKind": "static",
+      "outputKind": "structured_array",
+      "category": "特征",
+      "summary": "计算 peaklet 级特征。",
+      "dependsOn": [
+        "peaklets"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"peaklet_features\")",
+      "route": "/plugins/peaklet_features/",
+      "provenance": "fixture",
+      "pluginClass": "PeakletFeaturesPlugin"
+    },
+    {
+      "provides": "peaklet_channels",
+      "version": "2.0.5",
+      "executionKind": "static",
+      "outputKind": "structured_array",
+      "category": "特征",
+      "summary": "按 (board, channel) 聚合 peaklet 通道特征。",
+      "dependsOn": [
+        "peaklet_components"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"peaklet_channels\")",
+      "route": "/plugins/peaklet_channels/",
+      "provenance": "fixture",
+      "pluginClass": "PeakletChannelsPlugin"
+    },
+    {
+      "provides": "peaklet_waveform_pool",
+      "version": "3.0.0",
+      "executionKind": "static",
+      "outputKind": "array",
+      "category": "波形",
+      "summary": "构建 peaklet 波形索引。",
+      "dependsOn": [
+        "peaklets",
+        "wave_pool"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"peaklet_waveform_pool\")",
+      "route": "/plugins/peaklet_waveform_pool/",
+      "provenance": "fixture",
+      "pluginClass": "PeakletWaveformPoolPlugin"
+    },
+    {
+      "provides": "peaklet_waveforms",
+      "version": "2.1.1",
+      "executionKind": "static",
+      "outputKind": "array",
+      "category": "波形",
+      "summary": "恢复 peaklet 波形。",
+      "dependsOn": [
+        "peaklet_waveform_pool"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"peaklet_waveforms\")",
+      "route": "/plugins/peaklet_waveforms/",
+      "provenance": "fixture",
+      "pluginClass": "PeakletWaveformPlugin"
+    },
+    {
+      "provides": "peaks",
+      "version": "5.0.0",
+      "executionKind": "static",
+      "outputKind": "array",
+      "category": "Peak",
+      "summary": "将 peaklets 聚合为分析 peaks。",
+      "dependsOn": [
+        "peaklets"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"peaks\")",
+      "route": "/plugins/peaks/",
+      "provenance": "fixture",
+      "pluginClass": "PeaksPlugin"
+    },
+    {
+      "provides": "events",
+      "version": "0.0.3",
+      "executionKind": "static",
+      "outputKind": "array",
+      "category": "Event",
+      "summary": "从 peaks 构建事件级结果。",
+      "dependsOn": [
+        "peaks"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"events\")",
+      "route": "/plugins/events/",
+      "provenance": "fixture",
+      "pluginClass": "EventPlugin"
+    },
+    {
+      "provides": "hit_grouped",
+      "version": "0.5.0",
+      "executionKind": "static",
+      "outputKind": "array",
+      "category": "Hit",
+      "summary": "按事件对 hits 分组。",
+      "dependsOn": [
+        "hit"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"hit_grouped\")",
+      "route": "/plugins/hit_grouped/",
+      "provenance": "fixture",
+      "pluginClass": "HitGroupedPlugin"
+    },
+    {
+      "provides": "records_asymmetry_mask",
+      "version": "0.2.0",
+      "executionKind": "static",
+      "outputKind": "boolean_array",
+      "category": "Mask",
+      "summary": "生成 records 不对称性筛选掩码。",
+      "dependsOn": [
+        "records"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"records_asymmetry_mask\")",
+      "route": "/plugins/records_asymmetry_mask/",
+      "provenance": "fixture",
+      "pluginClass": "RecordsAsymmetryMaskPlugin"
+    },
+    {
+      "provides": "records_detector_mask",
+      "version": "0.1.0",
+      "executionKind": "static",
+      "outputKind": "boolean_array",
+      "category": "Mask",
+      "summary": "生成探测器区域筛选掩码。",
+      "dependsOn": [
+        "records"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"records_detector_mask\")",
+      "route": "/plugins/records_detector_mask/",
+      "provenance": "fixture",
+      "pluginClass": "RecordsDetectorMaskPlugin"
+    },
+    {
+      "provides": "records_veto_mask",
+      "version": "0.1.0",
+      "executionKind": "static",
+      "outputKind": "boolean_array",
+      "category": "Mask",
+      "summary": "生成 veto 条件筛选掩码。",
+      "dependsOn": [
+        "records"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"records_veto_mask\")",
+      "route": "/plugins/records_veto_mask/",
+      "provenance": "fixture",
+      "pluginClass": "RecordsVetoMaskPlugin"
+    },
+    {
+      "provides": "st_waveforms",
+      "version": "0.10.0",
+      "executionKind": "static",
+      "outputKind": "structured_array",
+      "category": "输入",
+      "summary": "提供 st_waveforms 输入产物。",
+      "dependsOn": [],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"st_waveforms\")",
+      "route": "/plugins/st_waveforms/",
+      "provenance": "fixture",
+      "pluginClass": "WaveformsPlugin"
+    },
+    {
+      "provides": "waveform_width",
+      "version": "3.0.0",
+      "executionKind": "static",
+      "outputKind": "structured_array",
+      "category": "特征",
+      "summary": "计算波形宽度特征。",
+      "dependsOn": [
+        "records"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"waveform_width\")",
+      "route": "/plugins/waveform_width/",
+      "provenance": "fixture",
+      "pluginClass": "WaveformWidthPlugin"
+    },
+    {
+      "provides": "waveform_width_integral",
+      "version": "2.7.0",
+      "executionKind": "static",
+      "outputKind": "structured_array",
+      "category": "特征",
+      "summary": "用积分估计波形宽度。",
+      "dependsOn": [
+        "records"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"waveform_width_integral\")",
+      "route": "/plugins/waveform_width_integral/",
+      "provenance": "fixture",
+      "pluginClass": "WaveformWidthIntegralPlugin"
+    },
+    {
+      "provides": "basic_features",
+      "version": "4.1.0",
+      "executionKind": "static",
+      "outputKind": "structured_array",
+      "category": "特征",
+      "summary": "为 records 提供基础特征。",
+      "dependsOn": [
+        "records"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"basic_features\")",
+      "route": "/plugins/basic_features/",
+      "provenance": "fixture",
+      "pluginClass": "BasicFeaturesPlugin"
+    },
+    {
+      "provides": "peak_classification",
+      "version": "1.2.1",
+      "executionKind": "static",
+      "outputKind": "structured_array",
+      "category": "分类",
+      "summary": "对 peaks 进行分类。",
+      "dependsOn": [
+        "peaks"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"peak_classification\")",
+      "route": "/plugins/peak_classification/",
+      "provenance": "fixture",
+      "pluginClass": "PeakClassificationPlugin"
+    },
+    {
+      "provides": "s1_s2_pair_candidates",
+      "version": "0.2.0",
+      "executionKind": "static",
+      "outputKind": "array",
+      "category": "事件",
+      "summary": "生成 S1/S2 配对候选。",
+      "dependsOn": [
+        "s1_s2"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"s1_s2_pair_candidates\")",
+      "route": "/plugins/s1_s2_pair_candidates/",
+      "provenance": "fixture",
+      "pluginClass": "S1S2PairCandidatesPlugin"
+    },
+    {
+      "provides": "s1_s2_pairs",
+      "version": "0.3.0",
+      "executionKind": "static",
+      "outputKind": "array",
+      "category": "事件",
+      "summary": "筛选有效 S1/S2 配对。",
+      "dependsOn": [
+        "s1_s2_pair_candidates"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"s1_s2_pairs\")",
+      "route": "/plugins/s1_s2_pairs/",
+      "provenance": "fixture",
+      "pluginClass": "S1S2PairSelectionPlugin"
+    },
+    {
+      "provides": "position_reconstruction",
+      "version": "0.4.0",
+      "executionKind": "static",
+      "outputKind": "structured_array",
+      "category": "分析",
+      "summary": "重建事件位置。",
+      "dependsOn": [
+        "peaks"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"position_reconstruction\")",
+      "route": "/plugins/position_reconstruction/",
+      "provenance": "fixture",
+      "pluginClass": "PositionReconstructionPlugin"
+    },
+    {
+      "provides": "energy_reconstruction",
+      "version": "0.1.0",
+      "executionKind": "static",
+      "outputKind": "structured_array",
+      "category": "分析",
+      "summary": "重建事件能量。",
+      "dependsOn": [
+        "peaks"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"energy_reconstruction\")",
+      "route": "/plugins/energy_reconstruction/",
+      "provenance": "fixture",
+      "pluginClass": "EnergyReconstructionPlugin"
+    },
+    {
+      "provides": "df",
+      "version": "1.7.0",
+      "executionKind": "static",
+      "outputKind": "dataframe",
+      "category": "表格",
+      "summary": "将产物适配为表格数据。",
+      "dependsOn": [
+        "records"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"df\")",
+      "route": "/plugins/df/",
+      "provenance": "fixture",
+      "pluginClass": "DataFramePlugin"
+    },
+    {
+      "provides": "df_events",
+      "version": "0.0.1",
+      "executionKind": "static",
+      "outputKind": "dataframe",
+      "category": "表格",
+      "summary": "提供事件级 DataFrame。",
+      "dependsOn": [
+        "events"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"df_events\")",
+      "route": "/plugins/df_events/",
+      "provenance": "fixture",
+      "pluginClass": "GroupedEventsPlugin"
+    },
+    {
+      "provides": "df_paired",
+      "version": "0.0.1",
+      "executionKind": "static",
+      "outputKind": "dataframe",
+      "category": "表格",
+      "summary": "提供配对级 DataFrame。",
+      "dependsOn": [
+        "s1_s2_pairs"
+      ],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"df_paired\")",
+      "route": "/plugins/df_paired/",
+      "provenance": "fixture",
+      "pluginClass": "PairedEventsPlugin"
+    },
+    {
+      "provides": "cache_analysis",
+      "version": "0.1.0",
+      "executionKind": "static",
+      "outputKind": "report",
+      "category": "诊断",
+      "summary": "分析缓存命中、lineage 与执行状态。",
+      "dependsOn": [],
+      "config": [],
+      "fields": [],
+      "usage": "ctx.get_data(run_id, \"cache_analysis\")",
+      "route": "/plugins/cache_analysis/",
+      "provenance": "fixture",
+      "pluginClass": "CacheAnalysisPlugin"
+    }
+  ],
+  "contexts": [
+    {
+      "slug": "context",
+      "name": "Context",
+      "summary": "协调显式 run_id、插件 DAG、配置解析、lineage 与缓存复用。",
+      "profiles": [],
+      "examples": [],
+      "route": "/contexts/context/",
+      "provenance": "fixture"
+    },
+    {
+      "slug": "records-view",
+      "name": "RecordsView",
+      "summary": "从 records 与 wave_pool 读取稳定的 records-backed 波形窗口。",
+      "profiles": [],
+      "examples": [],
+      "route": "/contexts/records-view/",
+      "provenance": "fixture"
+    }
+  ],
+  "accessors": [
+    {
+      "slug": "peak-channel-accessor",
+      "name": "PeakChannelAccessor",
+      "summary": "按 peak 查询 threshold hits、通道级特征与波形。",
+      "inputs": [],
+      "methods": [],
+      "route": "/accessors/peak-channel-accessor/",
+      "provenance": "fixture"
+    },
+    {
+      "slug": "s1-s2-pair-accessor",
+      "name": "S1S2PairAccessor",
+      "summary": "按事件筛选 S1/S2 配对并读取波形与位置。",
+      "inputs": [],
+      "methods": [],
+      "route": "/accessors/s1-s2-pair-accessor/",
+      "provenance": "fixture"
+    },
+    {
+      "slug": "records-view",
+      "name": "RecordsView",
+      "summary": "通过 record_id 访问原始或滤波波形。",
+      "inputs": [],
+      "methods": [],
+      "route": "/accessors/records-view/",
+      "provenance": "fixture"
+    }
+  ],
+  "visualizations": [
+    {
+      "slug": "statistical-plots",
+      "name": "统计图",
+      "summary": "Corner histogram 与 cut overlay 的统计绘图接口。",
+      "outputs": [],
+      "route": "/visualizations/statistical-plots/",
+      "provenance": "fixture"
+    },
+    {
+      "slug": "waveform-plots",
+      "name": "波形图",
+      "summary": "面向 records-backed 产物的波形绘图接口。",
+      "outputs": [],
+      "route": "/visualizations/waveform-plots/",
+      "provenance": "fixture"
+    },
+    {
+      "slug": "position-dashboard",
+      "name": "位置二维 Dashboard",
+      "summary": "将位置重建结果呈现为二维分析视图。",
+      "outputs": [],
+      "route": "/visualizations/position-dashboard/",
+      "provenance": "fixture"
+    }
+  ],
+  "guides": [
+    {
+      "slug": "user-guide/installation",
+      "title": "安装",
+      "section": "用户指南",
+      "summary": "安装依赖并检查本地文档站点。",
+      "route": "/user-guide/QUICKSTART_GUIDE/",
+      "provenance": "fixture",
+      "sections": [
+        {
+          "id": "install",
+          "title": "安装",
+          "paragraphs": [
+            "安装 WaveformAnalysis 与文档工具后，可在本地 HTTP 静态服务器上预览站点。"
+          ],
+          "bullets": [
+            "使用 Python 3.10+。",
+            "确认本地数据目录与 run_id 显式传递。"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "user-guide/examples",
+      "title": "示例工作流",
+      "section": "用户指南",
+      "summary": "从 raw_files 开始运行一个最小处理链。",
+      "route": "/user-guide/EXAMPLES_GUIDE/",
+      "provenance": "fixture",
+      "sections": [
+        {
+          "id": "workflow",
+          "title": "最小示例",
+          "paragraphs": [
+            "先建立 Context、注册 profile，再请求 records 或更高层产物。"
+          ],
+          "code": "from waveform_analysis import Context\nfrom waveform_analysis.plugins import profiles\n\nctx = Context(config={\"data_root\": \"DAQ\", \"daq_adapter\": \"vx2730\"})\nctx.register(*profiles.cpu_default())\nrecords = ctx.get_data(\"run_001\", \"records\")"
+        }
+      ]
+    },
+    {
+      "slug": "user-guide/faq",
+      "title": "常见问题",
+      "section": "用户指南",
+      "summary": "处理链、缓存和波形访问的常见排查入口。",
+      "route": "/user-guide/FAQ/",
+      "provenance": "fixture",
+      "sections": [
+        {
+          "id": "faq",
+          "title": "排查顺序",
+          "paragraphs": [
+            "先检查 run_id、resolved config 与依赖图，再检查缓存 lineage。"
+          ],
+          "bullets": [
+            "记录与波形池必须保持索引一致。",
+            "不要依赖隐式当前运行。"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "architecture/system",
+      "title": "系统架构",
+      "section": "架构",
+      "summary": "Context、插件 DAG 与缓存的职责边界。",
+      "route": "/architecture/system/",
+      "provenance": "fixture",
+      "sections": [
+        {
+          "id": "architecture",
+          "title": "职责边界",
+          "paragraphs": [
+            "Context 协调配置和执行，插件负责单一产物，缓存 lineage 记录可复用性。"
+          ],
+          "bullets": [
+            "通道唯一键为 (board, channel)。",
+            "所有数据访问显式传入 run_id。"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "architecture/data-products",
+      "title": "数据产物",
+      "section": "架构",
+      "summary": "records 与 wave_pool 的数据模型。",
+      "route": "/architecture/data-products/",
+      "provenance": "fixture",
+      "sections": [
+        {
+          "id": "records",
+          "title": "records-backed 数据流",
+          "paragraphs": [
+            "典型数据流为 raw_files → records + wave_pool → filtered waveforms/features。"
+          ],
+          "code": "records_view(ctx, run_id)"
+        }
+      ]
+    },
+    {
+      "slug": "architecture/plugin-cache",
+      "title": "插件缓存",
+      "section": "架构",
+      "summary": "插件版本、配置和 dtype 如何参与缓存 lineage。",
+      "route": "/architecture/plugin-cache/",
+      "provenance": "fixture",
+      "sections": [
+        {
+          "id": "cache",
+          "title": "Lineage",
+          "paragraphs": [
+            "行为、输出字段或 tracked 配置变化会让旧缓存失效。"
+          ],
+          "bullets": [
+            "插件 version 是缓存契约的一部分。",
+            "配置来源可通过 resolved config 审计。"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "plugins/types",
+      "title": "插件类型",
+      "section": "插件系统",
+      "summary": "了解静态与流式插件的输出边界。",
+      "route": "/plugins/PLUGIN_TYPES/",
+      "provenance": "fixture",
+      "sections": [
+        {
+          "id": "types",
+          "title": "插件职责",
+          "paragraphs": [
+            "插件通过 provides、depends_on 和 output dtype 加入 DAG。"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "plugins/development",
+      "title": "插件开发",
+      "section": "插件系统",
+      "summary": "创建可审计、可测试的插件。",
+      "route": "/plugins/PLUGIN_DEVELOPMENT/",
+      "provenance": "fixture",
+      "sections": [
+        {
+          "id": "development",
+          "title": "开发清单",
+          "paragraphs": [
+            "新增插件时确认依赖、选项、输出字段、版本和文档。"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "user-guide/io",
+      "title": "I/O 接口",
+      "section": "用户指南",
+      "summary": "DAQ 适配器与本地输入目录。",
+      "route": "/user-guide/IO/",
+      "provenance": "fixture",
+      "sections": [
+        {
+          "id": "io",
+          "title": "输入边界",
+          "paragraphs": [
+            "DAQ 适配器收敛文件格式、目录布局、采样率和时间戳语义。"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "development/testing",
+      "title": "测试指南",
+      "section": "开发者指南",
+      "summary": "从定向契约测试到静态站点质量闸门。",
+      "route": "/development/testing/",
+      "provenance": "fixture",
+      "sections": [
+        {
+          "id": "testing",
+          "title": "质量闸门",
+          "paragraphs": [
+            "前端运行 check、test、build；数据契约运行 schema 和链接检查。"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "development/contributing",
+      "title": "贡献指南",
+      "section": "开发者指南",
+      "summary": "提交可复核的代码和文档变更。",
+      "route": "/development/contributing/",
+      "provenance": "fixture",
+      "sections": [
+        {
+          "id": "contributing",
+          "title": "变更边界",
+          "paragraphs": [
+            "保持插件职责单一，提交前记录验证命令和剩余风险。"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "development/release",
+      "title": "发布流程",
+      "section": "开发者指南",
+      "summary": "静态导出、完整性校验与原子发布。",
+      "route": "/development/release/",
+      "provenance": "fixture",
+      "sections": [
+        {
+          "id": "release",
+          "title": "离线发布",
+          "paragraphs": [
+            "Next 静态导出由 site-web 原子发布到目标目录，并通过本地 HTTP 预览。"
+          ]
+        }
+      ]
+    }
+  ],
+  "lineage": {
+    "nodes": [
+      {
+        "id": "raw_files",
+        "label": "raw_files",
+        "pluginClass": "RawFilesPlugin",
+        "kind": "raw",
+        "summary": "原始文件读取",
+        "version": "0.14.2",
+        "inputs": [],
+        "outputs": [
+          {
+            "id": "raw_files.out",
+            "name": "raw_files",
+            "dtype": "structured_array",
+            "side": "output"
+          }
+        ]
+      },
+      {
+        "id": "records",
+        "label": "records",
+        "pluginClass": "RecordsPlugin",
+        "kind": "record",
+        "summary": "记录构建",
+        "version": "0.14.2",
+        "inputs": [
+          {
+            "id": "records.in",
+            "name": "raw_files",
+            "dtype": "structured_array",
+            "side": "input"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "records.out",
+            "name": "records",
+            "dtype": "structured_array",
+            "side": "output"
+          }
+        ]
+      },
+      {
+        "id": "wave_pool",
+        "label": "wave_pool",
+        "pluginClass": "WavePoolPlugin",
+        "kind": "signal",
+        "summary": "连续波形池",
+        "version": "0.14.2",
+        "inputs": [
+          {
+            "id": "wave_pool.in",
+            "name": "records",
+            "dtype": "structured_array",
+            "side": "input"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "wave_pool.out",
+            "name": "wave_pool",
+            "dtype": "array",
+            "side": "output"
+          }
+        ]
+      },
+      {
+        "id": "hit_threshold",
+        "label": "hit_threshold",
+        "pluginClass": "HitThresholdPlugin",
+        "kind": "signal",
+        "summary": "阈值判定",
+        "version": "0.14.2",
+        "inputs": [
+          {
+            "id": "hit_threshold.in",
+            "name": "wave_pool",
+            "dtype": "array",
+            "side": "input"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "hit_threshold.out",
+            "name": "hit_threshold",
+            "dtype": "structured_array",
+            "side": "output"
+          }
+        ]
+      },
+      {
+        "id": "hit_merged",
+        "label": "hit_merged",
+        "pluginClass": "HitMergedPlugin",
+        "kind": "signal",
+        "summary": "命中合并",
+        "version": "0.14.2",
+        "inputs": [
+          {
+            "id": "hit_merged.in",
+            "name": "hit_threshold",
+            "dtype": "structured_array",
+            "side": "input"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "hit_merged.out",
+            "name": "hit_merged",
+            "dtype": "structured_array",
+            "side": "output"
+          }
+        ]
+      },
+      {
+        "id": "peaklets",
+        "label": "peaklets",
+        "pluginClass": "PeakletsPlugin",
+        "kind": "peak",
+        "summary": "峰团提取",
+        "version": "0.14.2",
+        "inputs": [
+          {
+            "id": "peaklets.in",
+            "name": "hit_merged",
+            "dtype": "structured_array",
+            "side": "input"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "peaklets.out",
+            "name": "peaklets",
+            "dtype": "array",
+            "side": "output"
+          }
+        ]
+      },
+      {
+        "id": "peaks",
+        "label": "peaks",
+        "pluginClass": "PeaksPlugin",
+        "kind": "peak",
+        "summary": "峰参数拟合",
+        "version": "0.14.2",
+        "inputs": [
+          {
+            "id": "peaks.in",
+            "name": "peaklets",
+            "dtype": "array",
+            "side": "input"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "peaks.out",
+            "name": "peaks",
+            "dtype": "array",
+            "side": "output"
+          }
+        ]
+      },
+      {
+        "id": "events",
+        "label": "events",
+        "pluginClass": "EventsPlugin",
+        "kind": "event",
+        "summary": "事件构建",
+        "version": "0.14.2",
+        "inputs": [
+          {
+            "id": "events.in",
+            "name": "peaks",
+            "dtype": "array",
+            "side": "input"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "events.out",
+            "name": "events",
+            "dtype": "array",
+            "side": "output"
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "id": "raw_files-records",
+        "source": "raw_files",
+        "sourcePort": "raw_files.out",
+        "target": "records",
+        "targetPort": "records.in",
+        "dtype": "structured_array",
+        "kind": "main"
+      },
+      {
+        "id": "records-wave_pool",
+        "source": "records",
+        "sourcePort": "records.out",
+        "target": "wave_pool",
+        "targetPort": "wave_pool.in",
+        "dtype": "structured_array",
+        "kind": "main"
+      },
+      {
+        "id": "wave_pool-hit_threshold",
+        "source": "wave_pool",
+        "sourcePort": "wave_pool.out",
+        "target": "hit_threshold",
+        "targetPort": "hit_threshold.in",
+        "dtype": "array",
+        "kind": "main"
+      },
+      {
+        "id": "hit_threshold-hit_merged",
+        "source": "hit_threshold",
+        "sourcePort": "hit_threshold.out",
+        "target": "hit_merged",
+        "targetPort": "hit_merged.in",
+        "dtype": "structured_array",
+        "kind": "main"
+      },
+      {
+        "id": "hit_merged-peaklets",
+        "source": "hit_merged",
+        "sourcePort": "hit_merged.out",
+        "target": "peaklets",
+        "targetPort": "peaklets.in",
+        "dtype": "structured_array",
+        "kind": "main"
+      },
+      {
+        "id": "peaklets-peaks",
+        "source": "peaklets",
+        "sourcePort": "peaklets.out",
+        "target": "peaks",
+        "targetPort": "peaks.in",
+        "dtype": "array",
+        "kind": "main"
+      },
+      {
+        "id": "peaks-events",
+        "source": "peaks",
+        "sourcePort": "peaks.out",
+        "target": "events",
+        "targetPort": "events.in",
+        "dtype": "array",
+        "kind": "main"
+      }
+    ],
+    "views": {
+      "overview": [
+        "raw_files",
+        "records",
+        "wave_pool",
+        "hit_threshold",
+        "hit_merged",
+        "peaklets",
+        "peaks",
+        "events"
+      ],
+      "full": [
+        "raw_files",
+        "records",
+        "wave_pool",
+        "hit_threshold",
+        "hit_merged",
+        "peaklets",
+        "peaks",
+        "events"
+      ]
+    }
+  }
+}

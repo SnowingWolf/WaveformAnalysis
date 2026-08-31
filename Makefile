@@ -45,7 +45,7 @@ check-docs-sync:
 	@$(WAVEFORM_PYTHON) scripts/check_doc_anchors.py --check-sync --base origin/main
 
 check-doc-links:
-	@$(WAVEFORM_PYTHON) -m waveform_analysis.utils.cli_docs check links --docs-dir docs
+	@$(WAVEFORM_PYTHON) -m waveform_analysis.documentation.cli check links --docs-dir docs
 
 check-plugin-deps:
 	python scripts/check_plugin_deps.py
@@ -54,4 +54,7 @@ test-bundles:
 	pytest -q waveform_analysis/core/plugins/builtin
 
 docs-bundles:
-	$(WAVEFORM_PYTHON) -m waveform_analysis.utils.cli_docs generate plugins-agent -o docs/plugins/reference/agent/
+	$(WAVEFORM_PYTHON) -m waveform_analysis.documentation.cli generate plugins-agent -o docs/plugins/reference/agent/
+
+docs-site-dist:
+	$(WAVEFORM_PYTHON) scripts/build_docs_site_dist.py

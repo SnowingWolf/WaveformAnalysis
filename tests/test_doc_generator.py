@@ -56,7 +56,7 @@ class TestPluginDocGenerator:
 
     def test_extract_doc_info_from_plugin(self):
         """测试从插件提取文档信息"""
-        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
 
         generator = PluginDocGenerator()
         doc_info = generator.extract_doc_info(MockPlugin, MockPlugin())
@@ -69,7 +69,7 @@ class TestPluginDocGenerator:
 
     def test_extract_config_options(self):
         """测试提取配置选项"""
-        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
 
         generator = PluginDocGenerator()
         doc_info = generator.extract_doc_info(MockPlugin, MockPlugin())
@@ -85,7 +85,7 @@ class TestPluginDocGenerator:
 
     def test_extract_output_fields(self):
         """测试提取输出字段"""
-        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
 
         generator = PluginDocGenerator()
         doc_info = generator.extract_doc_info(MockPlugin, MockPlugin())
@@ -102,7 +102,7 @@ class TestPluginDocGenerator:
         from waveform_analysis.core.plugins.builtin.cpu.peak_classification import (
             PeakClassificationPlugin,
         )
-        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
 
         generator = PluginDocGenerator()
         plugin = PeakClassificationPlugin()
@@ -113,14 +113,14 @@ class TestPluginDocGenerator:
         assert doc_info.field_notes["peak_id"].startswith("Zero-based index")
         assert fields["label"].doc.startswith("Classification code")
 
-        html = generator.render_plugin_html(doc_info)
-        assert "No field description available." not in html
-        assert "Classification code: 0=unknown, 1=S1, 2=S2, 3=S1_S2" in html
+        markdown = generator.render_plugin_page(doc_info, profile="auto")
+        assert "No field description available." not in markdown
+        assert "Classification code: 0=unknown, 1=S1, 2=S2, 3=S1_S2" in markdown
 
     def test_bundled_dtype_field_notes_cover_registered_output_fields(self):
         """Every registered output field has one bundled source-reviewed narrative."""
         from waveform_analysis.documentation.field_notes import load_dtype_field_notes
-        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
 
         generator = PluginDocGenerator()
         generator.load_builtin_plugins()
@@ -156,7 +156,7 @@ class TestPluginDocGenerator:
 
     def test_category_detection(self):
         """测试类别检测"""
-        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
 
         generator = PluginDocGenerator()
 
@@ -200,7 +200,7 @@ class TestPluginDocGenerator:
 
     def test_render_plugin_page(self):
         """测试渲染插件页面"""
-        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
 
         generator = PluginDocGenerator()
         generator.register_plugin(MockPlugin)
@@ -217,7 +217,7 @@ class TestPluginDocGenerator:
 
     def test_render_plugin_page_uses_custom_usage_example(self):
         """Plugins can replace the generic registration example when dependencies require it."""
-        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
 
         class CustomUsagePlugin(MockPlugin):
             provides = "custom_usage"
@@ -235,7 +235,7 @@ class TestPluginDocGenerator:
 
     def test_render_index_page(self):
         """测试渲染索引页面"""
-        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
 
         generator = PluginDocGenerator()
         generator.register_plugin(MockPlugin)
@@ -248,7 +248,7 @@ class TestPluginDocGenerator:
 
     def test_render_agent_plugin_page(self):
         """测试渲染 agent 插件页面"""
-        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
 
         generator = PluginDocGenerator()
         doc_info = generator.extract_doc_info(MockPlugin, MockPlugin())
@@ -261,7 +261,7 @@ class TestPluginDocGenerator:
 
     def test_render_agent_index_page(self):
         """测试渲染 agent 索引页面"""
-        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
 
         generator = PluginDocGenerator()
         generator.register_plugin(MockPlugin)
@@ -274,7 +274,7 @@ class TestPluginDocGenerator:
 
     def test_generate_all_creates_files(self):
         """测试生成所有文档创建文件"""
-        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
 
         generator = PluginDocGenerator()
         generator.register_plugin(MockPlugin)
@@ -297,7 +297,7 @@ class TestPluginDocGenerator:
 
     def test_generate_all_agent_creates_files(self):
         """测试生成 agent 文档创建文件"""
-        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
 
         generator = PluginDocGenerator()
         generator.register_plugin(MockPlugin)
@@ -317,7 +317,7 @@ class TestPluginDocGenerator:
 
     def test_load_builtin_plugins(self):
         """测试加载内置插件"""
-        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
 
         generator = PluginDocGenerator()
         count = generator.load_builtin_plugins()
@@ -335,7 +335,7 @@ class TestPluginDocGenerator:
 
     def test_dynamic_dependency_view_preserves_declared_and_resolved_contracts(self):
         """Dynamic plugins expose both their declaration and the documentation profile result."""
-        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
 
         generator = PluginDocGenerator()
         generator.load_builtin_plugins()
@@ -360,7 +360,7 @@ class TestDocCoverageChecker:
 
     def test_get_builtin_plugins(self):
         """测试获取内置插件"""
-        from waveform_analysis.utils.doc_coverage import DocCoverageChecker
+        from waveform_analysis.documentation.doc_coverage import DocCoverageChecker
 
         checker = DocCoverageChecker()
         plugins = checker.get_builtin_plugins()
@@ -376,7 +376,7 @@ class TestDocCoverageChecker:
 
     def test_check_coverage_missing_docs(self):
         """测试检查覆盖率（缺少文档）"""
-        from waveform_analysis.utils.doc_coverage import DocCoverageChecker
+        from waveform_analysis.documentation.doc_coverage import DocCoverageChecker
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # 使用空目录作为文档目录
@@ -396,8 +396,8 @@ class TestDocCoverageChecker:
 
     def test_check_coverage_all_documented(self):
         """测试检查覆盖率（全部文档化）"""
-        from waveform_analysis.utils.doc_coverage import DocCoverageChecker
-        from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+        from waveform_analysis.documentation.doc_coverage import DocCoverageChecker
+        from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
 
         with tempfile.TemporaryDirectory() as tmpdir:
             auto_docs_dir = Path(tmpdir) / "auto"
@@ -423,7 +423,7 @@ class TestDocCoverageChecker:
 
     def test_strict_content_quality_detects_generated_drift(self, tmp_path):
         """Strict coverage must catch a stale generated page, not just missing files."""
-        from waveform_analysis.utils.doc_coverage import DocCoverageChecker
+        from waveform_analysis.documentation.doc_coverage import DocCoverageChecker
 
         repository_root = Path(__file__).parents[1]
         auto_docs = tmp_path / "auto"
@@ -456,7 +456,7 @@ class TestDocCoverageChecker:
 
     def test_coverage_uses_frontmatter_identity_and_reports_drift(self):
         """Filename-only copies must not silently satisfy plugin coverage."""
-        from waveform_analysis.utils.doc_coverage import DocCoverageChecker
+        from waveform_analysis.documentation.doc_coverage import DocCoverageChecker
 
         with tempfile.TemporaryDirectory() as tmpdir:
             auto_docs_dir = Path(tmpdir) / "auto"
@@ -491,7 +491,7 @@ class TestDocCoverageChecker:
 
     def test_check_spec_quality_warnings(self):
         """测试检查 spec 质量警告"""
-        from waveform_analysis.utils.doc_coverage import DocCoverageChecker
+        from waveform_analysis.documentation.doc_coverage import DocCoverageChecker
 
         checker = DocCoverageChecker()
         issues = checker.check_spec_quality(MockPluginNoDoc)
@@ -507,7 +507,7 @@ class TestDocCoverageChecker:
 
     def test_report_passed_property(self):
         """测试报告的 passed 属性"""
-        from waveform_analysis.utils.doc_coverage import CoverageIssue, CoverageReport
+        from waveform_analysis.documentation.doc_coverage import CoverageIssue, CoverageReport
 
         # 无问题的报告
         report_ok = CoverageReport(
@@ -552,7 +552,7 @@ class TestDocCoverageChecker:
 
     def test_print_report(self, capsys):
         """测试打印报告"""
-        from waveform_analysis.utils.doc_coverage import (
+        from waveform_analysis.documentation.doc_coverage import (
             CoverageIssue,
             CoverageReport,
             DocCoverageChecker,
@@ -588,7 +588,7 @@ class TestCLI:
 
     def test_cli_help(self, monkeypatch, capsys):
         """测试 CLI 帮助"""
-        from waveform_analysis.utils import cli_docs
+        from waveform_analysis.documentation import cli as cli_docs
 
         monkeypatch.setattr("sys.argv", ["waveform-docs", "--help"])
 
@@ -603,7 +603,7 @@ class TestCLI:
     @pytest.mark.slow
     def test_cli_generate_plugins_auto(self, monkeypatch, capsys):
         """测试 CLI 生成插件文档"""
-        from waveform_analysis.utils import cli_docs
+        from waveform_analysis.documentation import cli as cli_docs
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setattr(
@@ -623,7 +623,7 @@ class TestCLI:
     @pytest.mark.slow
     def test_cli_check_coverage(self, monkeypatch, capsys):
         """测试 CLI 检查覆盖率"""
-        from waveform_analysis.utils import cli_docs
+        from waveform_analysis.documentation import cli as cli_docs
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir) / "plugins" / "builtin" / "auto"
@@ -646,7 +646,8 @@ class TestCLI:
 
     def test_cli_check_coverage_uses_warning_exit_code(self, monkeypatch):
         """Warning-only quality results use the shared exit code 2."""
-        from waveform_analysis.utils import cli_docs, doc_coverage
+        from waveform_analysis.documentation import cli as cli_docs
+        from waveform_analysis.documentation import doc_coverage
 
         report = doc_coverage.CoverageReport(
             total_plugins=1,

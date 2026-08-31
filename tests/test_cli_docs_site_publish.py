@@ -1,26 +1,58 @@
 from functools import partial
 from http.server import ThreadingHTTPServer
+import json
 from pathlib import Path
 from threading import Thread
-from types import SimpleNamespace
 from urllib.request import urlopen
 
 import pytest
 
-from waveform_analysis.utils import cli_docs
+from scripts.build_docs_site_dist import _without_trailing_whitespace
+from waveform_analysis.documentation import cli
+from waveform_analysis.documentation.site_web import (
+    NextSiteBuilder,
+    SiteExportValidationError,
+    SiteWebBuildError,
+    copy_prebuilt_site,
+    validate_static_export,
+    write_prebuilt_manifest,
+)
 
-REQUIRED_PATHS = {
-    "SITE_INDEX": "index.html",
-    "INDEX": "plugins/index.html",
-    "ROOT_LINEAGE": "lineage.html",
-    "LINEAGE_INDEX": "plugins/lineage.html",
-    "ACCESSOR_INDEX": "accessors/index.html",
-    "CONTEXT_INDEX": "contexts/index.html",
-    "context:records-view": "contexts/records-view.html",
-    "context:records-wave-pool": "contexts/records-wave-pool.html",
-    "ADAPTER_INDEX": "adapters/index.html",
-    "VISUALIZATION_INDEX": "visualizations/index.html",
-}
+
+def _fixture_model() -> dict:
+    return {
+        "schema": "site-model/v1",
+        "modelVersion": "1",
+        "project": {"name": "fixture", "version": "0", "tagline": "Fixture"},
+        "provenance": "fixture",
+        "navigation": [],
+        "routes": [
+            {"path": "/", "title": "Home", "kind": "home"},
+            {"path": "/plugins/records/", "title": "records", "kind": "plugin"},
+        ],
+        "plugins": [
+            {
+                "provides": "records",
+                "pluginClass": "RecordsPlugin",
+                "version": "0.14.2",
+                "executionKind": "static",
+                "outputKind": "structured_array",
+                "category": "other",
+                "summary": "Records fixture",
+                "dependsOn": ["raw_files"],
+                "config": [],
+                "fields": [],
+                "usage": "",
+                "route": "/plugins/records/",
+                "provenance": "fixture",
+            }
+        ],
+        "contexts": [],
+        "accessors": [],
+        "visualizations": [],
+        "guides": [],
+        "lineage": {"nodes": [], "edges": [], "views": {"overview": [], "full": []}},
+    }
 
 
 class _FakeSiteGenerator:
@@ -30,13 +62,15 @@ class _FakeSiteGenerator:
 
     def generate(self, output_dir: Path) -> dict[str, Path]:
         output_dir.mkdir(parents=True, exist_ok=True)
-        results = {}
-        for name, relative_path in REQUIRED_PATHS.items():
-            path = output_dir / relative_path
-            path.parent.mkdir(parents=True, exist_ok=True)
-            link = '<a href="missing.html">broken</a>' if self.broken_link else ""
-            path.write_text(f"<!doctype html><title>{name}</title>{link}", encoding="utf-8")
-            results[name] = path
+        index = output_dir / "index.html"
+        link = '<a href="missing.html">broken</a>' if self.broken_link else ""
+        index.write_text(f"<!doctype html><title>Home</title>{link}", encoding="utf-8")
+        records_page = output_dir / "plugins" / "records" / "index.html"
+        records_page.parent.mkdir(parents=True, exist_ok=True)
+        records_page.write_text("<!doctype html><title>records</title>", encoding="utf-8")
+        model_path = output_dir / "site-model.v1.json"
+        model_path.write_text(json.dumps(_fixture_model()), encoding="utf-8")
+        results = {"SITE_INDEX": index, "SITE_MODEL": model_path}
         if self.fail:
             raise RuntimeError("generation failed")
         return results
@@ -47,10 +81,10 @@ def test_atomic_site_publish_replaces_the_complete_output(tmp_path):
     output.mkdir()
     (output / "stale.html").write_text("old", encoding="utf-8")
 
-    results = cli_docs._atomic_generate_site(output, _FakeSiteGenerator())
+    results = cli._atomic_generate_site(output, _FakeSiteGenerator())
 
     assert not (output / "stale.html").exists()
-    assert results["ACCESSOR_INDEX"] == output / "accessors" / "index.html"
+    assert results["SITE_MODEL"] == output / "site-model.v1.json"
     assert all(path.is_file() for path in results.values())
     assert not list(tmp_path.glob(".site.staging-*"))
     assert not list(tmp_path.glob(".site.backup-*"))
@@ -68,83 +102,107 @@ def test_atomic_site_publish_preserves_the_previous_site_on_failure(tmp_path, fa
     )
 
     with pytest.raises((RuntimeError, ValueError)):
-        cli_docs._atomic_generate_site(output, generator)
+        cli._atomic_generate_site(output, generator)
 
     assert original.read_text(encoding="utf-8") == "previous site"
     assert not list(tmp_path.glob(".site.staging-*"))
     assert not list(tmp_path.glob(".site.backup-*"))
 
 
-def test_site_validation_checks_html_fragments_and_aria_controls(tmp_path):
+def test_static_export_rejects_legacy_routes_and_path_escape(tmp_path):
     output = tmp_path / "site"
     output.mkdir()
-    index = output / "index.html"
-    index.write_text(
-        '<nav id="site-navigation"></nav><a href="page.html#missing">bad</a>'
-        '<button aria-controls="missing-node"></button>',
+    (output / "index.html").write_text(
+        '<a href="/plugins/records.html">legacy</a><img src="/../secret.png">',
         encoding="utf-8",
     )
-    page = output / "page.html"
-    page.write_text('<h1 id="present">Page</h1>', encoding="utf-8")
-    results = {name: output / relative for name, relative in REQUIRED_PATHS.items()}
-    for path in results.values():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if not path.exists():
-            path.write_text("<div id='site-navigation'></div>", encoding="utf-8")
-
-    with pytest.raises(ValueError, match="fragment 不存在|DOM 节点不存在"):
-        cli_docs._validate_generated_site(output, results)
+    with pytest.raises(
+        SiteExportValidationError,
+        match=r"legacy \.html route|missing local target",
+    ):
+        validate_static_export(output)
 
 
-def test_site_validation_checks_search_index_urls(tmp_path):
-    output = tmp_path / "site"
-    output.mkdir()
-    results = {}
-    for name, relative in REQUIRED_PATHS.items():
-        path = output / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("<div id='site-navigation'></div>", encoding="utf-8")
-        results[name] = path
-    (output / "assets").mkdir()
-    (output / "assets" / "search-index.js").write_text(
-        'window.WAVEFORM_DOCS_SEARCH=[{"title":"bad","url":"missing.html#x"}];\n',
+def test_next_build_requires_explicitly_installed_dependencies(tmp_path):
+    app = tmp_path / "app"
+    app.mkdir()
+    (app / "package.json").write_text(
+        '{"scripts":{"check":"true","build":"true"}}', encoding="utf-8"
+    )
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+
+    builder = NextSiteBuilder(project_root=tmp_path, app_root=app, command_runner=runner)
+    with pytest.raises(SiteWebBuildError, match="npm ci"):
+        builder.generate(tmp_path / "output")
+    assert calls == []
+
+
+def test_next_build_rejects_stale_fallback_export(tmp_path):
+    app = tmp_path / "app"
+    app.mkdir()
+    stale = app / "out"
+    stale.mkdir()
+    (stale / "index.html").write_text("stale", encoding="utf-8")
+    builder = NextSiteBuilder(project_root=tmp_path, app_root=app)
+    before = {stale: stale.stat().st_mtime_ns}
+
+    with pytest.raises(SiteWebBuildError, match="static export"):
+        builder._export_directory(tmp_path / "requested", 10**30, before)
+
+
+def test_prebuilt_manifest_hash_mismatch_fails_closed(tmp_path):
+    source = tmp_path / "prebuilt"
+    source.mkdir()
+    page = source / "index.html"
+    page.write_text("<!doctype html><title>ok</title>", encoding="utf-8")
+    (source / "site-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "site-web/v1",
+                "files": [{"path": "index.html", "size": page.stat().st_size, "sha256": "0" * 64}],
+            }
+        ),
         encoding="utf-8",
     )
+    with pytest.raises(SiteExportValidationError, match="hash manifest mismatch"):
+        copy_prebuilt_site(source, tmp_path / "output")
 
-    with pytest.raises(ValueError, match="search-index.js.*missing.html"):
-        cli_docs._validate_generated_site(output, results)
 
+def test_prebuilt_manifest_round_trip_is_node_free(tmp_path):
+    source = tmp_path / "prebuilt"
+    source.mkdir()
+    (source / "index.html").write_text("<!doctype html><title>ok</title>", encoding="utf-8")
+    records_page = source / "plugins" / "records" / "index.html"
+    records_page.parent.mkdir(parents=True)
+    records_page.write_text("<!doctype html><title>records</title>", encoding="utf-8")
+    (source / "site-model.v1.json").write_text(json.dumps(_fixture_model()), encoding="utf-8")
 
-def test_generate_site_web_uses_atomic_publication(tmp_path, monkeypatch):
-    from waveform_analysis.utils import site_doc_generator
+    manifest = write_prebuilt_manifest(source)
+    output = tmp_path / "output"
+    result = copy_prebuilt_site(source, output)
 
-    monkeypatch.setattr(
-        site_doc_generator,
-        "DocumentationSiteGenerator",
-        _FakeSiteGenerator,
-    )
-    output = tmp_path / "site"
-    output.mkdir()
-    (output / "stale.html").write_text("old", encoding="utf-8")
-
-    result = cli_docs.generate_site_web(SimpleNamespace(plugin=None, output=str(output)))
-
-    assert result == 0
-    assert not (output / "stale.html").exists()
-    assert (output / "accessors" / "index.html").is_file()
+    assert manifest.name == "site-manifest.json"
+    assert result["SITE_INDEX"] == output / "index.html"
+    assert result["SITE_MODEL"] == output / "site-model.v1.json"
 
 
 def test_documentation_server_disables_cache_and_reads_republished_files(tmp_path):
     page = tmp_path / "index.html"
     page.write_text("first build", encoding="utf-8")
-    server = ThreadingHTTPServer(
-        ("127.0.0.1", 0),
-        partial(
-            cli_docs._DocumentationRequestHandler,
-            directory=str(tmp_path),
-            lineage_payload_provider=None,
-        ),
-    )
+    try:
+        server = ThreadingHTTPServer(
+            ("127.0.0.1", 0),
+            partial(
+                cli._DocumentationRequestHandler,
+                directory=str(tmp_path),
+                lineage_payload_provider=None,
+            ),
+        )
+    except PermissionError as exc:
+        pytest.skip(f"socket creation is unavailable in this environment: {exc}")
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     url = f"http://127.0.0.1:{server.server_port}/index.html"
@@ -164,63 +222,22 @@ def test_documentation_server_disables_cache_and_reads_republished_files(tmp_pat
         server.server_close()
 
 
-def test_lineage_pages_use_depth_correct_navigation_links(tmp_path):
-    from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
-    from waveform_analysis.utils.site_guides import RenderedGuidePage, RenderedGuideSection
+def test_site_web_cli_has_no_plugins_web_dispatch():
+    parser_args = type("Args", (), {"doc_type": "plugins-web", "plugin": None, "output": None})()
+    with pytest.raises(ValueError, match="unsupported document type"):
+        cli.cmd_generate(parser_args)
 
-    generator = PluginDocGenerator()
-    nav_page = RenderedGuidePage(
-        source=None,
-        source_label="accessors/peak-channel-accessor.html",
-        route="accessors/peak-channel-accessor.html",
-        section_id="accessors-reference",
-        title="PeakChannelAccessor",
-        summary="",
-        html=None,
-        has_mermaid=False,
-        headings=(),
-        assets=(),
-        tag="reflect",
-    )
-    generator._get_web_jinja_env().globals["guide_sections"] = (
-        RenderedGuideSection(
-            section_id="accessors-reference",
-            title="Accessor 接口",
-            index_route="accessors/guides.html",
-            pages=(nav_page,),
-        ),
-    )
-    common = {
-        "lineage_json": "{}",
-        "asset_prefix": "assets/",
-        "site_home_href": "index.html",
-        "plugin_index_href": "plugins/index.html",
-        "plugin_href_prefix": "plugins/",
-        "context_index_href": "contexts/context.html",
-        "adapter_index_href": "adapters/adapter.html",
-        "visualization_index_href": "visualizations/index.html",
-        "visualization_detail_prefix": "visualizations/",
-        "site_root_prefix": "",
-    }
-    root_html = generator.render_lineage_html(
-        accessor_index_href="accessors/index.html",
-        **common,
-    )
-    nested_html = generator.render_lineage_html(
-        accessor_index_href="../accessors/index.html",
-        plugin_index_href="index.html",
-        site_home_href="../index.html",
-        plugin_href_prefix="",
-        asset_prefix="../assets/",
-        context_index_href="../contexts/context.html",
-        adapter_index_href="../adapters/adapter.html",
-        visualization_index_href="../visualizations/index.html",
-        visualization_detail_prefix="../visualizations/",
-        site_root_prefix="../",
-        lineage_json="{}",
-    )
 
-    assert 'href="accessors/peak-channel-accessor.html"' in root_html
-    assert 'href="../accessors/peak-channel-accessor.html"' in nested_html
-    assert 'href="None"' not in root_html
-    assert 'href="None"' not in nested_html
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        (b"", b""),
+        (b"alpha  \n beta\t\r\ngamma \rdelta\t", b"alpha\n beta\r\ngamma\rdelta\n"),
+        (b"alpha\r\nbeta\nbeta2\r", b"alpha\r\nbeta\nbeta2\r"),
+        (b"alpha\r\nbeta", b"alpha\r\nbeta\n"),
+        (b"alpha\r\nbeta\n\n\r", b"alpha\r\nbeta\n"),
+        (b" \t", b"\n"),
+    ],
+)
+def test_text_normalizer_preserves_line_endings_and_has_one_eof_newline(content, expected):
+    assert _without_trailing_whitespace(content) == expected

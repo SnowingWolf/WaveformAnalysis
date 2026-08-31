@@ -49,17 +49,6 @@ PLUGIN_SET_COLORS = {
     "other": ("#eef1f2", "#63727b", "#d9e0e3"),
 }
 
-# 插件集合配图：集合名 -> 资产相对路径（相对于输出 assets/），由 generate_web 从模板资产复制。
-PLUGIN_SET_IMAGES = {
-    "io": "plugin-sets/io.png",
-    "waveform": "plugin-sets/waveform.png",
-    "hit": "plugin-sets/hit.png",
-    "peaks": "plugin-sets/peaks.png",
-    "basic_features": "plugin-sets/basic_features.png",
-    "tabular": "plugin-sets/tabular.png",
-    "events": "plugin-sets/events.png",
-}
-
 DOCUMENTATION_DEFAULT_PROFILE = {
     "wave_source": "records",
     "use_filtered": False,

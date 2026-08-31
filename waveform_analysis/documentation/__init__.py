@@ -15,7 +15,6 @@ from .types import NodeExecutionRequest, NodeExecutionResult
 
 __all__ = [
     "DocumentationOrchestrator",
-    "DocumentationSiteGenerator",
     "DocumentationStatus",
     "FileArtifactStore",
     "extract_plugin_contract",
@@ -23,14 +22,23 @@ __all__ = [
     "NodeExecutionRequest",
     "NodeExecutionResult",
     "PluginDocGenerator",
+    "SiteModelError",
+    "build_site_model",
+    "validate_site_model",
+    "write_site_model",
+    "SiteWebBuilder",
     "PublishedAgentDocRegistry",
     "fingerprint_plugin_source",
     "load_plugin_documentation_dag",
 ]
 
 _LAZY_ATTRS = {
-    "DocumentationSiteGenerator": (".site_doc_generator", "DocumentationSiteGenerator"),
     "PluginDocGenerator": (".plugin_doc_generator", "PluginDocGenerator"),
+    "SiteModelError": (".site_model", "SiteModelError"),
+    "build_site_model": (".site_model", "build_site_model"),
+    "validate_site_model": (".site_model", "validate_site_model"),
+    "write_site_model": (".site_model", "write_site_model"),
+    "SiteWebBuilder": (".site_web", "SiteWebBuilder"),
 }
 
 

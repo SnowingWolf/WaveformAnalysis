@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://waveform-analysis.readthedocs.io/schemas/site-model-v1.json",
+  "title": "WaveformAnalysis site-model/v1",
+  "description": "HTML-free facts consumed by the offline Next.js documentation site.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "modelVersion", "project", "provenance", "navigation", "routes", "plugins", "contexts", "accessors", "visualizations", "guides", "lineage"],
+  "properties": {
+    "schema": { "const": "site-model/v1" },
+    "modelVersion": { "type": "string", "minLength": 1 },
+    "project": {
+      "type": "object", "additionalProperties": false, "required": ["name", "version", "tagline"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "tagline": { "type": "string", "minLength": 1 }
+      }
+    },
+    "provenance": { "enum": ["generated", "fixture"] },
+    "navigation": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["id", "title", "items"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object", "additionalProperties": false, "required": ["label", "href", "icon"],
+              "properties": {
+                "label": { "type": "string", "minLength": 1 },
+                "href": { "$ref": "#/$defs/route" },
+                "icon": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "routes": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["path", "title", "kind"],
+        "properties": {
+          "path": { "$ref": "#/$defs/route" },
+          "title": { "type": "string", "minLength": 1 },
+          "kind": { "enum": ["home", "plugin", "context", "accessor", "visualization", "lineage", "guide"] }
+        }
+      }
+    },
+    "plugins": { "type": "array", "items": { "$ref": "#/$defs/plugin" } },
+    "contexts": { "type": "array", "items": { "$ref": "#/$defs/context" } },
+    "accessors": { "type": "array", "items": { "$ref": "#/$defs/accessor" } },
+    "visualizations": { "type": "array", "items": { "$ref": "#/$defs/visualization" } },
+    "guides": { "type": "array", "items": { "$ref": "#/$defs/guide" } },
+    "lineage": { "$ref": "#/$defs/lineage" }
+  },
+  "$defs": {
+    "route": { "type": "string", "pattern": "^/(?:[A-Za-z0-9._~-]+/)*$", "not": { "pattern": "\\.html(?:$|/)" } },
+    "config": {
+      "type": "object", "additionalProperties": false, "required": ["name", "value", "description"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 }, "value": { "type": "string" }, "description": { "type": "string" }
+      }
+    },
+    "field": {
+      "type": "object", "additionalProperties": false, "required": ["name", "dtype", "unit", "description"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 }, "dtype": { "type": "string", "minLength": 1 }, "unit": { "type": "string" }, "description": { "type": "string" }
+      }
+    },
+    "plugin": {
+      "type": "object", "additionalProperties": false,
+      "required": ["provides", "pluginClass", "version", "executionKind", "outputKind", "category", "summary", "dependsOn", "config", "fields", "usage", "route", "provenance"],
+      "properties": {
+        "provides": { "type": "string", "minLength": 1 }, "pluginClass": { "type": "string", "minLength": 1 },
+        "version": { "type": ["string", "null"] }, "executionKind": { "enum": ["static", "streaming", "unknown"] },
+        "outputKind": { "type": "string", "minLength": 1 }, "category": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 }, "dependsOn": { "type": "array", "items": { "type": "string" } },
+        "config": { "type": "array", "items": { "$ref": "#/$defs/config" } }, "fields": { "type": "array", "items": { "$ref": "#/$defs/field" } },
+        "usage": { "type": "string" }, "route": { "$ref": "#/$defs/route" }, "provenance": { "enum": ["generated", "fixture"] }
+      }
+    },
+    "context": {
+      "type": "object", "additionalProperties": false, "required": ["slug", "name", "summary", "profiles", "examples", "route", "provenance"],
+      "properties": {
+        "slug": { "type": "string", "minLength": 1 }, "name": { "type": "string", "minLength": 1 }, "summary": { "type": "string", "minLength": 1 },
+        "profiles": { "type": "array", "items": { "type": "string" } }, "examples": { "type": "array", "items": { "type": "string" } },
+        "route": { "$ref": "#/$defs/route" }, "provenance": { "enum": ["generated", "fixture"] }
+      }
+    },
+    "accessor": {
+      "type": "object", "additionalProperties": false, "required": ["slug", "name", "summary", "inputs", "methods", "route", "provenance"],
+      "properties": {
+        "slug": { "type": "string", "minLength": 1 }, "name": { "type": "string", "minLength": 1 }, "summary": { "type": "string", "minLength": 1 },
+        "inputs": { "type": "array", "items": { "type": "string" } }, "methods": { "type": "array", "items": { "type": "string" } },
+        "route": { "$ref": "#/$defs/route" }, "provenance": { "enum": ["generated", "fixture"] }
+      }
+    },
+    "visualization": {
+      "type": "object", "additionalProperties": false, "required": ["slug", "name", "summary", "outputs", "route", "provenance"],
+      "properties": {
+        "slug": { "type": "string", "minLength": 1 }, "name": { "type": "string", "minLength": 1 }, "summary": { "type": "string", "minLength": 1 },
+        "outputs": { "type": "array", "items": { "type": "string" } }, "route": { "$ref": "#/$defs/route" }, "provenance": { "enum": ["generated", "fixture"] }
+      }
+    },
+    "guide-section": {
+      "type": "object", "additionalProperties": false, "required": ["id", "title", "paragraphs"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 }, "title": { "type": "string", "minLength": 1 }, "paragraphs": { "type": "array", "items": { "type": "string" } },
+        "bullets": { "type": "array", "items": { "type": "string" } }, "code": { "type": "string" },
+        "table": {
+          "type": "object", "additionalProperties": false, "required": ["headers", "rows"],
+          "properties": { "headers": { "type": "array", "items": { "type": "string" } }, "rows": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } } }
+        }
+      }
+    },
+    "guide": {
+      "type": "object", "additionalProperties": false, "required": ["slug", "title", "section", "summary", "sections", "route", "provenance"],
+      "properties": {
+        "slug": { "type": "string", "minLength": 1 }, "title": { "type": "string", "minLength": 1 }, "section": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 }, "sections": { "type": "array", "items": { "$ref": "#/$defs/guide-section" } },
+        "route": { "$ref": "#/$defs/route" }, "provenance": { "enum": ["generated", "fixture"] }
+      }
+    },
+    "port": {
+      "type": "object", "additionalProperties": false, "required": ["id", "name", "dtype", "side"],
+      "properties": { "id": { "type": "string", "minLength": 1 }, "name": { "type": "string", "minLength": 1 }, "dtype": { "type": "string", "minLength": 1 }, "side": { "enum": ["input", "output"] } }
+    },
+    "lineage-node": {
+      "type": "object", "additionalProperties": false, "required": ["id", "label", "pluginClass", "kind", "summary", "version", "inputs", "outputs"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 }, "label": { "type": "string", "minLength": 1 }, "pluginClass": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["raw", "record", "signal", "peak", "event", "virtual"] }, "summary": { "type": "string", "minLength": 1 }, "version": { "type": ["string", "null"] },
+        "inputs": { "type": "array", "items": { "$ref": "#/$defs/port" } }, "outputs": { "type": "array", "items": { "$ref": "#/$defs/port" } }
+      }
+    },
+    "lineage-edge": {
+      "type": "object", "additionalProperties": false, "required": ["id", "source", "sourcePort", "target", "targetPort", "dtype", "kind"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 }, "source": { "type": "string", "minLength": 1 }, "sourcePort": { "type": "string", "minLength": 1 },
+        "target": { "type": "string", "minLength": 1 }, "targetPort": { "type": "string", "minLength": 1 }, "dtype": { "type": "string", "minLength": 1 }, "kind": { "enum": ["main", "branch", "virtual"] }
+      }
+    },
+    "lineage": {
+      "type": "object", "additionalProperties": false, "required": ["nodes", "edges", "views"],
+      "properties": {
+        "nodes": { "type": "array", "items": { "$ref": "#/$defs/lineage-node" } }, "edges": { "type": "array", "items": { "$ref": "#/$defs/lineage-edge" } },
+        "views": {
+          "type": "object", "additionalProperties": false, "required": ["overview", "full"],
+          "properties": { "overview": { "type": "array", "items": { "type": "string" } }, "full": { "type": "array", "items": { "type": "string" } } }
+        }
+      }
+    }
+  }
+}

@@ -70,7 +70,7 @@ ACCESSOR_SELECTION_GUIDE = (
         entry="`record_id`",
         question="如何按稳定 record_id 读取原始或滤波波形？",
         scenario="records-backed 波形访问：窗口切片、批量填充与信号极性统一处理。",
-        route="../contexts/records-view.html",
+        route="/contexts/records-view/",
     ),
 )
 

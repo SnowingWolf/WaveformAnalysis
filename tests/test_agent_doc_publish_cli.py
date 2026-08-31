@@ -3,8 +3,8 @@ from pathlib import Path
 import yaml
 
 from waveform_analysis.documentation import DocumentationOrchestrator, FileArtifactStore
+from waveform_analysis.documentation.cli import main
 from waveform_analysis.documentation.types import DAGState
-from waveform_analysis.utils.cli_docs import main
 
 
 def _state(tmp_path: Path, *, current_node: str = "publish_agent_doc") -> FileArtifactStore:

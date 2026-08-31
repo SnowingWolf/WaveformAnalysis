@@ -6,85 +6,82 @@ sections:
   - id: user-guide
     title: 用户指南
     nav_weight: 5
-    index_route: user-guide/index.html
+    index_route: /user-guide/
     source_indexes:
       - docs/user-guide/README.md
     pages:
       - source: docs/user-guide/QUICKSTART_GUIDE.md
-        route: user-guide/QUICKSTART_GUIDE.html
+        route: /user-guide/QUICKSTART_GUIDE/
       - source: docs/user-guide/EXAMPLES_GUIDE.md
-        route: user-guide/EXAMPLES_GUIDE.html
+        route: /user-guide/EXAMPLES_GUIDE/
 
   - id: contexts-reference
     title: Context 与适配器
     nav_weight: 10
-    index_route: contexts/index.html
+    index_route: /contexts/
     pages:
-      - route: contexts/context.html
+      - route: /contexts/context/
         title: Context
         tag: reflect
-      - route: adapters/adapter.html
+      - route: /adapters/adapter/
         title: DAQ 适配器
         tag: reflect
 
   - id: plugin-system
     title: 插件系统
     nav_weight: 20
-    index_route: plugins/guides.html
+    index_route: /plugins/
     source_indexes:
       - docs/plugins/README.md
     pages:
       - source: docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
-        route: plugins/overview.html
+        route: /plugins/overview/
       - source: docs/plugins/guides/STREAMING_PLUGINS_GUIDE.md
-        route: plugins/guides/STREAMING_PLUGINS_GUIDE.html
+        route: /plugins/guides/STREAMING_PLUGINS_GUIDE/
       - source: docs/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR.md
-        route: plugins/reference/ADAPTER_PLUGIN_BEHAVIOR.html
+        route: /plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/
       - source: docs/plugins/reference/ADAPTER_SYSTEM_GUIDE.md
-        route: plugins/reference/ADAPTER_SYSTEM_GUIDE.html
+        route: /plugins/reference/ADAPTER_SYSTEM_GUIDE/
 
   - id: accessors-reference
     title: Accessor 接口
     nav_weight: 30
-    index_route: accessors/guides.html
+    index_route: /accessors/
     pages:
-      - route: accessors/index.html
-        title: Accessor 总览
-        tag: reflect
-      - route: accessors/peak-channel-accessor.html
+      - route: /accessors/peak-channel-accessor/
         title: PeakChannelAccessor
         tag: reflect
-      - route: accessors/s1-s2-pair-accessor.html
+      - route: /accessors/s1-s2-pair-accessor/
         title: S1S2PairAccessor
         tag: reflect
-      - route: contexts/records-view.html
+      - route: /contexts/records-view/
         title: RecordsView
         tag: reflect
 
   - id: architecture
     title: 系统架构与数据模型
     nav_weight: 40
-    index_route: architecture/index.html
+    index_route: /architecture/
     source_indexes:
       - docs/architecture/README.md
     pages:
       - source: docs/architecture/ARCHITECTURE.md
-        route: architecture/system.html
+        route: /architecture/system/
       - source: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
-        route: architecture/plugin-dag-lineage-cache.html
+        route: /architecture/plugin-dag-lineage-cache/
       - source: docs/architecture/PLUGIN_CACHE_ARCHITECTURE.md
-        route: architecture/plugin-cache-architecture.html
+        route: /architecture/plugin-cache-architecture/
       - source: docs/architecture/DATA_PRODUCTS.md
-        route: architecture/data-products.html
+        route: /architecture/data-products/
       - source: docs/architecture/ACCESSOR_ANALYSIS.md
-        route: architecture/accessor-analysis.html
+        route: /architecture/accessor-analysis/
       - source: docs/architecture/PROJECT_STRUCTURE.md
-        route: architecture/PROJECT_STRUCTURE.html
+        route: /architecture/PROJECT_STRUCTURE/
 
   - id: features
     title: 功能特性
     nav_weight: 50
-    index_route: features/index.html
+    index_route: /features/
     source_indexes:
       - docs/features/README.md
       - docs/features/context/README.md
@@ -92,80 +89,77 @@ sections:
       - docs/features/utils/README.md
     pages:
       - source: docs/features/context/ABSOLUTE_TIME_GUIDE.md
-        route: features/context/ABSOLUTE_TIME_GUIDE.html
+        route: /features/context/ABSOLUTE_TIME_GUIDE/
       - source: docs/features/context/BATCH_PROCESSOR.md
-        route: features/context/BATCH_PROCESSOR.html
+        route: /features/context/BATCH_PROCESSOR/
       - source: docs/features/context/CONFIGURATION.md
-        route: features/context/CONFIGURATION.html
+        route: /features/context/CONFIGURATION/
       - source: docs/features/context/DEPENDENCY_ANALYSIS_GUIDE.md
-        route: features/context/DEPENDENCY_ANALYSIS_GUIDE.html
+        route: /features/context/DEPENDENCY_ANALYSIS_GUIDE/
       - source: docs/features/context/LINEAGE_VISUALIZATION_GUIDE.md
-        route: features/context/LINEAGE_VISUALIZATION_GUIDE.html
+        route: /features/context/LINEAGE_VISUALIZATION_GUIDE/
       - source: docs/features/advanced/PROGRESS_TRACKING_GUIDE.md
-        route: features/advanced/PROGRESS_TRACKING_GUIDE.html
+        route: /features/advanced/PROGRESS_TRACKING_GUIDE/
       - source: docs/features/utils/DAQ_ANALYZER_GUIDE.md
-        route: features/utils/DAQ_ANALYZER_GUIDE.html
+        route: /features/utils/DAQ_ANALYZER_GUIDE/
       - source: docs/features/utils/ADAPTIVE_2D_SAMPLING_GUIDE.md
-        route: features/utils/ADAPTIVE_2D_SAMPLING_GUIDE.html
+        route: /features/utils/ADAPTIVE_2D_SAMPLING_GUIDE/
       - source: docs/features/utils/PDF_EXPORT_GUIDE.md
-        route: features/utils/PDF_EXPORT_GUIDE.html
+        route: /features/utils/PDF_EXPORT_GUIDE/
       - source: docs/features/visualizations/POSITION_DASHBOARD_GUIDE.md
-        route: features/visualizations/POSITION_DASHBOARD_GUIDE.html
+        route: /features/visualizations/POSITION_DASHBOARD_GUIDE/
 
   - id: visualizations-reference
     title: 可视化
     nav_weight: 60
-    index_route: visualizations/guides.html
+    index_route: /visualizations/
     pages:
-      - route: visualizations/index.html
-        title: 可视化总览
-        tag: reflect
-      - route: visualizations/statistical-plots.html
+      - route: /visualizations/statistical-plots/
         title: 统计图
         tag: reflect
-      - route: visualizations/waveform-plots.html
+      - route: /visualizations/waveform-plots/
         title: 波形图
         tag: reflect
-      - route: visualizations/position-dashboard.html
+      - route: /visualizations/position-dashboard/
         title: 位置二维 Dashboard
         tag: reflect
 
   - id: cli
     title: 命令行工具
     nav_weight: 80
-    index_route: cli/index.html
+    index_route: /cli/
     source_indexes:
       - docs/cli/README.md
     pages:
       - source: docs/cli/WAVEFORM_CACHE.md
-        route: cli/WAVEFORM_CACHE.html
+        route: /cli/WAVEFORM_CACHE/
       - source: docs/cli/WAVEFORM_DOCS.md
-        route: cli/WAVEFORM_DOCS.html
+        route: /cli/WAVEFORM_DOCS/
       - source: docs/cli/WAVEFORM_PROCESS.md
-        route: cli/WAVEFORM_PROCESS.html
+        route: /cli/WAVEFORM_PROCESS/
 
   - id: development
     title: 开发者指南
     nav_weight: 90
-    index_route: development/index.html
+    index_route: /development/
     source_indexes:
       - docs/development/README.md
       - docs/development/contributing/README.md
       - docs/development/plugin-development/README.md
     pages:
       - source: docs/development/CONTRACT_TESTS.md
-        route: development/CONTRACT_TESTS.html
+        route: /development/CONTRACT_TESTS/
       - source: docs/development/contributing/COMMIT_CONVENTION.md
-        route: development/contributing/COMMIT_CONVENTION.html
+        route: /development/contributing/COMMIT_CONVENTION/
       - source: docs/development/contributing/DOC_ANCHOR_GUIDE.md
-        route: development/contributing/DOC_ANCHOR_GUIDE.html
+        route: /development/contributing/DOC_ANCHOR_GUIDE/
       - source: docs/development/contributing/IMPORT_STYLE_GUIDE.md
-        route: development/contributing/IMPORT_STYLE_GUIDE.html
+        route: /development/contributing/IMPORT_STYLE_GUIDE/
       - source: docs/development/plugin-development/PLUGIN_SCAFFOLD.md
-        route: development/plugin-development/PLUGIN_SCAFFOLD.html
+        route: /development/plugin-development/PLUGIN_SCAFFOLD/
       - source: docs/development/plugin-development/PLUGIN_SPEC_GUIDE.md
-        route: development/plugin-development/PLUGIN_SPEC_GUIDE.html
+        route: /development/plugin-development/PLUGIN_SPEC_GUIDE/
       - source: docs/development/plugin-development/plugin_guide.md
-        route: development/plugin-development/plugin_guide.html
+        route: /development/plugin-development/plugin_guide/
       - source: docs/development/worktrees.md
-        route: development/worktrees.html
+        route: /development/worktrees/

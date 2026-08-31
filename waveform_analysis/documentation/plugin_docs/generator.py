@@ -13,20 +13,15 @@
 
 import ast
 from dataclasses import replace
-import hashlib
 import inspect
-import json
-import os
 from pathlib import Path
 import re
-import shutil
 import sys
 import textwrap
 from typing import Any
 from urllib.parse import quote
 import warnings
 
-from markupsafe import Markup, escape
 import numpy as np
 
 from waveform_analysis.core.foundation.utils import exporter
@@ -42,7 +37,6 @@ from waveform_analysis.documentation.plugin_docs.catalog import (
     MAIN_LINEAGE_PATH,
     PLUGIN_SET_COLORS,
     PLUGIN_SET_DESCRIPTIONS,
-    PLUGIN_SET_IMAGES,
     STANDALONE_PLUGIN_OUTPUTS,
 )
 from waveform_analysis.documentation.plugin_docs.models import (
@@ -52,10 +46,7 @@ from waveform_analysis.documentation.plugin_docs.models import (
     PluginDocInfo,
     PluginDocumentationView,
     _DefaultDocumentationContext,
-    _WebLineageEdge,
-    _WebLineageGraph,
-    _WebLineageNode,
-    _WebPluginSet,
+    _PluginSetDocumentation,
 )
 from waveform_analysis.documentation.plugin_docs.validation import (
     _escape_markdown_cell,
@@ -70,27 +61,6 @@ ConfigOptionInfo = export(ConfigOptionInfo)
 OutputFieldInfo = export(OutputFieldInfo)
 DependencyDocumentationInfo = export(DependencyDocumentationInfo)
 PluginDocumentationView = export(PluginDocumentationView)
-
-
-def _inline_code(value: str) -> Markup:
-    """Escape prose first, then render restricted emphasis and code notation."""
-    escaped = str(escape(value))
-    emphasized = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
-    return Markup(re.sub(r"`([^`]+)`", r"<code>\1</code>", emphasized))
-
-
-def _highlight_python(source: str) -> Markup:
-    """Return trusted offline Pygments markup for registry-controlled Python examples."""
-    try:
-        from pygments import highlight
-        from pygments.formatters import HtmlFormatter
-        from pygments.lexers import PythonLexer
-    except ImportError as exc:
-        raise RuntimeError(
-            "site-web plugin examples require Pygments. Install the documentation extra: "
-            'pip install -e ".[docgen]"'
-        ) from exc
-    return Markup(highlight(source, PythonLexer(), HtmlFormatter(nowrap=True)))
 
 
 @export
@@ -121,7 +91,6 @@ class PluginDocGenerator:
         self._plugins: list[tuple[type, Any]] = []  # (plugin_class, instance)
         self._load_errors: list[tuple[str, str]] = []
         self._jinja_env = None
-        self._web_jinja_env = None
         if published_agent_docs is None:
             from waveform_analysis.documentation import PublishedAgentDocRegistry
 
@@ -147,27 +116,6 @@ class PluginDocGenerator:
             )
             self._jinja_env.filters["markdown_cell"] = _escape_markdown_cell
         return self._jinja_env
-
-    def _get_web_jinja_env(self):
-        """Return an isolated, autoescaping environment for HTML output."""
-        if self._web_jinja_env is None:
-            try:
-                from jinja2 import Environment, FileSystemLoader, select_autoescape
-            except ImportError as exc:
-                raise ImportError(
-                    "jinja2 is required for documentation generation. "
-                    "Install it with: pip install jinja2"
-                ) from exc
-            self._web_jinja_env = Environment(
-                loader=FileSystemLoader(str(self.template_dir)),
-                autoescape=select_autoescape(enabled_extensions=("html", "xml"), default=True),
-                trim_blocks=True,
-                lstrip_blocks=True,
-                keep_trailing_newline=True,
-            )
-            self._web_jinja_env.filters["inline_code"] = _inline_code
-            self._web_jinja_env.filters["highlight_python"] = _highlight_python
-        return self._web_jinja_env
 
     def load_builtin_plugins(self) -> int:
         """加载所有内置插件
@@ -1192,7 +1140,7 @@ class PluginDocGenerator:
         earned = sum(weight * fraction for weight, fraction in weighted_scores)
         return round(100 * earned / total_weight) if total_weight else 0
 
-    def _with_web_scores(
+    def _with_lineage_scores(
         self,
         plugins: list[PluginDocumentationView],
         dependencies_by_provides: dict[str, list[str]] | None = None,
@@ -1240,13 +1188,13 @@ class PluginDocGenerator:
         return scored
 
     @staticmethod
-    def _web_plugin_sets(plugins: list[PluginDocumentationView]) -> list[_WebPluginSet]:
+    def _plugin_sets(plugins: list[PluginDocumentationView]) -> list[_PluginSetDocumentation]:
         """Group documentation views by the canonical execution plugin sets."""
         from waveform_analysis.core.plugins.plugin_sets import PLUGIN_SETS
 
         by_provides = {plugin.provides: plugin for plugin in plugins}
         assigned: set[str] = set()
-        groups: list[_WebPluginSet] = []
+        groups: list[_PluginSetDocumentation] = []
         for name, factory in PLUGIN_SETS.items():
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", DeprecationWarning)
@@ -1262,12 +1210,11 @@ class PluginDocGenerator:
             ]
             if members:
                 groups.append(
-                    _WebPluginSet(
+                    _PluginSetDocumentation(
                         name=name,
                         label=f"插件集合：{name.replace('_', ' ').title()}",
                         plugins=members,
                         description=PLUGIN_SET_DESCRIPTIONS.get(name, ""),
-                        image=PLUGIN_SET_IMAGES.get(name, ""),
                     )
                 )
 
@@ -1282,7 +1229,7 @@ class PluginDocGenerator:
         )
         if remaining:
             groups.append(
-                _WebPluginSet(
+                _PluginSetDocumentation(
                     name="other",
                     label="其他插件",
                     plugins=remaining,
@@ -1291,103 +1238,21 @@ class PluginDocGenerator:
             )
         return groups
 
-    @staticmethod
-    def _standalone_plugins(plugins):
-        return sorted(
-            (p for p in plugins if p.provides in STANDALONE_PLUGIN_OUTPUTS),
-            key=lambda p: p.provides,
-        )
-
     @classmethod
     def _terminal_outputs(cls, plugins, dependencies_by_provides):
-        names = {p.provides for p in plugins if p.provides not in STANDALONE_PLUGIN_OUTPUTS}
+        names = {
+            plugin.provides
+            for plugin in plugins
+            if plugin.provides not in STANDALONE_PLUGIN_OUTPUTS
+        }
         consumed = {
-            dep
+            dependency
             for plugin in plugins
             if plugin.provides in names
-            for dep in dependencies_by_provides.get(plugin.provides, [])
-            if dep in names
+            for dependency in dependencies_by_provides.get(plugin.provides, [])
+            if dependency in names
         }
         return names - consumed - {CORE_TERMINAL_OUTPUT}
-
-    @staticmethod
-    def _filter_lineage_graph(graph, hidden_outputs, *, title):
-        hidden_ids = {f"plugin:{name}" for name in hidden_outputs}
-        return replace(
-            graph,
-            title=title,
-            nodes=[n for n in graph.nodes if n.node_id not in hidden_ids],
-            edges=[
-                e
-                for e in graph.edges
-                if e.source_id not in hidden_ids and e.target_id not in hidden_ids
-            ],
-            isolated_nodes=[n for n in graph.isolated_nodes if n.node_id not in hidden_ids],
-        )
-
-    @staticmethod
-    def _place_terminal_outputs(graph, terminal_outputs):
-        terminal_ids = {f"plugin:{name}" for name in terminal_outputs}
-        by_id = {node.node_id: node for node in graph.nodes}
-        core = [node for node in graph.nodes if node.node_id not in terminal_ids]
-        track_y = max((node.y + node.height for node in core), default=0) + 140
-        positioned = {}
-        for track, node_id in enumerate(sorted(terminal_ids)):
-            node = by_id.get(node_id)
-            if node is None:
-                continue
-            positioned[node_id] = replace(
-                node,
-                x=36 + track * (node.width + 56),
-                y=track_y,
-            )
-        nodes = [positioned.get(node.node_id, node) for node in graph.nodes]
-        width = max((node.x + node.width for node in nodes), default=graph.width) + 36
-        height = max((node.y + node.height for node in nodes), default=graph.height) + 36
-        return replace(
-            graph, nodes=nodes, width=width, height=height, view_box=f"0 0 {width} {height}"
-        )
-
-    def _global_lineage_views(self, plugins, *, link_prefix, dependencies_by_provides):
-        graph_plugins = [p for p in plugins if p.provides not in STANDALONE_PLUGIN_OUTPUTS]
-        full = self._build_web_lineage_graph(
-            graph_plugins,
-            link_prefix=link_prefix,
-            dependencies_by_provides=dependencies_by_provides,
-        )
-        terminals = self._terminal_outputs(graph_plugins, dependencies_by_provides)
-        available = {plugin.provides for plugin in graph_plugins}
-        overview_outputs: set[str] = set()
-
-        def include_ancestors(output: str) -> None:
-            if output in overview_outputs or output not in available:
-                return
-            overview_outputs.add(output)
-            for dependency in dependencies_by_provides.get(output, []):
-                include_ancestors(dependency)
-
-        include_ancestors(CORE_TERMINAL_OUTPUT)
-        if not overview_outputs:
-            overview_outputs = available - terminals or available
-        hidden = available - overview_outputs
-        overview = self._filter_lineage_graph(full, hidden, title="处理概览")
-        return {"overview": overview, "full": replace(full, title="完整插件 DAG")}, terminals
-
-    @staticmethod
-    def _lineage_node_kind(provides: str) -> str:
-        if provides == "raw_files":
-            return "input"
-        if "wave" in provides or provides in {"records", "st_waveforms"}:
-            return "waveform"
-        if provides.startswith("hit") or provides.startswith("records_"):
-            return "hit"
-        if provides.startswith("peaklet"):
-            return "peaklet"
-        if provides in {"events", "df", "df_events", "df_paired"}:
-            return "output"
-        if provides.startswith("peak") or provides.startswith("s1_s2"):
-            return "peak"
-        return "default"
 
     @staticmethod
     def _lineage_edge_kind(source: str, target: str) -> str:
@@ -1436,7 +1301,7 @@ class PluginDocGenerator:
         plugin_by_name = {plugin.provides: plugin for plugin in graph_plugins}
         plugin_sets = {
             member.provides: group.name
-            for group in self._web_plugin_sets(graph_plugins)
+            for group in self._plugin_sets(graph_plugins)
             for member in group.plugins
         }
         nodes = []
@@ -1468,7 +1333,7 @@ class PluginDocGenerator:
                         "label": node.title or node.key,
                         "pluginClass": plugin.name,
                         "summary": plugin.summary,
-                        "href": f"{plugin_href_prefix}{plugin.provides}.html",
+                        "href": (f"{plugin_href_prefix.rstrip('/')}/{plugin.provides}/"),
                         "kind": node_kind,
                         "isLineageVirtual": node.is_lineage_virtual,
                         "pluginSet": plugin_sets.get(node_id, "other"),
@@ -1540,7 +1405,7 @@ class PluginDocGenerator:
             direct_dependencies = (lineage or {}).get("depends_on", {})
             dependencies[provides] = list(direct_dependencies)
 
-        plugins = self._with_web_scores(
+        plugins = self._with_lineage_scores(
             self.get_all_doc_info(), dependencies_by_provides=dependencies
         )
         return self._build_cytoscape_lineage_payload(
@@ -1592,290 +1457,6 @@ class PluginDocGenerator:
                         f"{edge[node_key]!r}, but the port belongs to {owner!r} as {kind!r}"
                     )
 
-    def _build_web_lineage_graph(
-        self,
-        plugins: list[PluginDocumentationView],
-        *,
-        link_prefix: str,
-        focus: str | None = None,
-        global_focus_prefix: str = "../index.html?focus=",
-        dependencies_by_provides: dict[str, list[str]] | None = None,
-    ) -> _WebLineageGraph:
-        """Build an escaped-template-ready dependency graph from static doc views."""
-        by_provides = {plugin.provides: plugin for plugin in plugins}
-        consumers: dict[str, set[str]] = {name: set() for name in by_provides}
-        for plugin in plugins:
-            for dependency in self._dependency_names(plugin, dependencies_by_provides):
-                if dependency in consumers:
-                    consumers[dependency].add(plugin.provides)
-
-        edge_names: list[tuple[str, str]] = []
-        isolated_names: set[str] = set()
-        if focus is None:
-            edge_names = [
-                (dependency, plugin.provides)
-                for plugin in plugins
-                for dependency in self._dependency_names(plugin, dependencies_by_provides)
-                if dependency in by_provides
-            ]
-            visible_names = {name for edge in edge_names for name in edge}
-            isolated_names = set(by_provides) - visible_names
-            title = "插件谱系"
-            description = (
-                "Declared builtin plugin dependencies. Isolated plugins and runtime-resolved "
-                "inputs are listed outside the graph."
-            )
-        else:
-            target = by_provides[focus]
-            visible_names = {focus}
-            dependencies = self._dependency_names(target, dependencies_by_provides)
-            for dependency in dependencies:
-                if dependency in by_provides:
-                    visible_names.add(dependency)
-                    edge_names.append((dependency, focus))
-            for consumer in sorted(consumers[focus]):
-                visible_names.add(consumer)
-                edge_names.append((focus, consumer))
-            title = "局部谱系"
-            description = "直接声明的插件输入与消费者。"
-
-        node_ids = {name: f"plugin:{name}" for name in visible_names}
-        known_edges = [
-            (node_ids[source], node_ids[target])
-            for source, target in edge_names
-            if source in node_ids and target in node_ids
-        ]
-        incoming: dict[str, set[str]] = {node_id: set() for node_id in node_ids.values()}
-        for source, target in known_edges:
-            incoming[target].add(source)
-
-        depths = {node_id: 0 for node_id, sources in incoming.items() if not sources}
-        for _ in range(len(node_ids)):
-            changed = False
-            for source, target in known_edges:
-                if source not in depths:
-                    continue
-                next_depth = depths[source] + 1
-                if next_depth > depths.get(target, -1):
-                    depths[target] = next_depth
-                    changed = True
-            if not changed:
-                break
-        for node_id in node_ids.values():
-            depths.setdefault(node_id, 0)
-
-        source_ids = {source for source, _ in known_edges}
-        target_ids = {target for _, target in known_edges}
-
-        if focus is not None:
-            # Plugin detail pages use the same left-to-right LabVIEW-style
-            # presentation as the analysis notebook: inputs, selected plugin,
-            # then consumers.  The global index keeps its compact top-down DAG.
-            inputs = sorted(
-                name for name in visible_names if (node_ids[name], node_ids[focus]) in known_edges
-            )
-            consumers_for_focus = sorted(
-                name for name in visible_names if (node_ids[focus], node_ids[name]) in known_edges
-            )
-            columns = (inputs, [focus], consumers_for_focus)
-            node_width = 224
-            node_height = 132
-            x_gap = 104
-            y_gap = 30
-            margin = 44
-            max_rows = max((len(column) for column in columns), default=1)
-            canvas_width = margin * 2 + 3 * node_width + 2 * x_gap
-            canvas_height = margin * 2 + max_rows * node_height + max(0, max_rows - 1) * y_gap
-            positions: dict[str, tuple[int, int]] = {}
-            nodes: list[_WebLineageNode] = []
-            for column_index, names in enumerate(columns):
-                column_height = len(names) * node_height + max(0, len(names) - 1) * y_gap
-                start_y = margin + (canvas_height - 2 * margin - column_height) // 2
-                for name in names:
-                    node_id = node_ids[name]
-                    x = margin + column_index * (node_width + x_gap)
-                    y = start_y
-                    start_y += node_height + y_gap
-                    positions[node_id] = (x, y)
-                    plugin = by_provides[name]
-                    documentation_completeness = plugin.documentation_completeness
-                    dag_impact = plugin.dag_impact
-                    tooltip = (
-                        f"{plugin.provides}. Documentation completeness "
-                        f"{documentation_completeness}/100; DAG impact {dag_impact}/100."
-                    )
-                    nodes.append(
-                        _WebLineageNode(
-                            node_id=node_id,
-                            label=name,
-                            href=f"{link_prefix}{plugin.provides}.html",
-                            placeholder=False,
-                            x=x,
-                            y=y,
-                            width=node_width,
-                            height=node_height,
-                            documentation_completeness=documentation_completeness,
-                            dag_impact=dag_impact,
-                            tooltip=tooltip,
-                            aria_label=tooltip + " Open plugin documentation.",
-                            has_input=node_id in target_ids,
-                            has_output=node_id in source_ids,
-                            is_focus=name == focus,
-                        )
-                    )
-            edges = []
-            for source, target in known_edges:
-                source_x, source_y = positions[source]
-                target_x, target_y = positions[target]
-                start_x = source_x + node_width
-                start_y = source_y + node_height // 2
-                end_x = target_x
-                end_y = target_y + node_height // 2
-                mid_x = (start_x + end_x) // 2
-                edges.append(
-                    _WebLineageEdge(
-                        source,
-                        target,
-                        f"M {start_x} {start_y} L {mid_x} {start_y} L {mid_x} {end_y} L {end_x} {end_y}",
-                    )
-                )
-            return _WebLineageGraph(
-                title=title,
-                description=description,
-                view_box=f"0 0 {canvas_width} {canvas_height}",
-                width=canvas_width,
-                height=canvas_height,
-                nodes=nodes,
-                edges=edges,
-                isolated_nodes=[],
-                global_focus_href=f"{global_focus_prefix}{quote(focus)}",
-                is_local=True,
-            )
-
-        layers: dict[int, list[str]] = {}
-        for name, node_id in node_ids.items():
-            layers.setdefault(depths[node_id], []).append(name)
-        for names in layers.values():
-            names.sort(key=lambda name: (name not in by_provides, name))
-
-        # Keep names legible in both the static SVG used by plugin pages and the
-        # interactive Plotly overview.  Width is data-dependent so long output
-        # names are not truncated into indistinguishable labels.
-        node_widths = {name: min(240, max(140, 32 + len(name) * 7)) for name in by_provides}
-        node_height = 64
-        x_gap = 48
-        y_gap = 28
-        margin = 36
-        max_depth = max(layers, default=0)
-        canvas_width = margin * 2 + max(
-            (
-                sum(node_widths[name] for name in names) + max(0, len(names) - 1) * x_gap
-                for names in layers.values()
-            ),
-            default=140,
-        )
-        canvas_height = margin * 2 + (max_depth + 1) * node_height + max_depth * y_gap
-
-        nodes: list[_WebLineageNode] = []
-        positions: dict[str, tuple[int, int]] = {}
-        for depth, names in sorted(layers.items()):
-            layer_width = sum(node_widths[name] for name in names) + max(0, len(names) - 1) * x_gap
-            start_x = margin + (canvas_width - 2 * margin - layer_width) // 2
-            for name in names:
-                node_id = node_ids[name]
-                node_width = node_widths[name]
-                x = start_x
-                y = margin + depth * (node_height + y_gap)
-                positions[node_id] = (x, y)
-                start_x += node_width + x_gap
-                plugin = by_provides[name]
-                placeholder = False
-                label = name
-                documentation_completeness = plugin.documentation_completeness
-                dag_impact = plugin.dag_impact
-                tooltip = (
-                    f"{plugin.provides}. Documentation completeness "
-                    f"{documentation_completeness}/100; DAG impact {dag_impact}/100."
-                )
-                aria_label = tooltip + " Open plugin documentation."
-                href = f"{link_prefix}{plugin.provides}.html"
-                nodes.append(
-                    _WebLineageNode(
-                        node_id=node_id,
-                        label=label,
-                        href=href,
-                        placeholder=placeholder,
-                        x=x,
-                        y=y,
-                        width=node_width,
-                        height=node_height,
-                        documentation_completeness=documentation_completeness,
-                        dag_impact=dag_impact,
-                        tooltip=tooltip,
-                        aria_label=aria_label,
-                        has_input=node_id in target_ids,
-                        has_output=node_id in source_ids,
-                    )
-                )
-
-        edges = []
-        for source, target in known_edges:
-            source_x, source_y = positions[source]
-            target_x, target_y = positions[target]
-            source_width = next(node.width for node in nodes if node.node_id == source)
-            target_width = next(node.width for node in nodes if node.node_id == target)
-            start_x = source_x + source_width // 2
-            start_y = source_y + node_height
-            end_x = target_x + target_width // 2
-            end_y = target_y
-            bend = max(32, (end_y - start_y) // 2)
-            path = (
-                f"M {start_x} {start_y} C {start_x} {start_y + bend}, "
-                f"{end_x} {end_y - bend}, {end_x} {end_y}"
-            )
-            edges.append(_WebLineageEdge(source, target, path))
-
-        isolated_nodes = []
-        for name in sorted(isolated_names):
-            plugin = by_provides[name]
-            documentation_completeness = plugin.documentation_completeness
-            dag_impact = plugin.dag_impact
-            tooltip = (
-                f"{plugin.provides}. No declared builtin dependencies or consumers. "
-                f"Documentation completeness {documentation_completeness}/100; "
-                f"DAG impact {dag_impact}/100."
-            )
-            isolated_nodes.append(
-                _WebLineageNode(
-                    node_id=f"plugin:{name}",
-                    label=name,
-                    href=f"{link_prefix}{plugin.provides}.html",
-                    placeholder=False,
-                    x=0,
-                    y=0,
-                    width=0,
-                    height=0,
-                    documentation_completeness=documentation_completeness,
-                    dag_impact=dag_impact,
-                    tooltip=tooltip,
-                    aria_label=tooltip + " Open plugin documentation.",
-                )
-            )
-
-        return _WebLineageGraph(
-            title=title,
-            description=description,
-            view_box=f"0 0 {canvas_width} {canvas_height}",
-            width=canvas_width,
-            height=canvas_height,
-            nodes=nodes,
-            edges=edges,
-            isolated_nodes=isolated_nodes,
-            global_focus_href=(
-                f"{global_focus_prefix}{quote(focus)}" if focus is not None else None
-            ),
-        )
-
     def _build_default_lineage_model(
         self,
         plugins: list[PluginDocumentationView],
@@ -1921,254 +1502,6 @@ class PluginDocGenerator:
         ]
         return model
 
-    def _build_global_plotly_figure(self, lineage_graph: _WebLineageGraph) -> Any:
-        """Render a compact, clickable plugin-only overview with Plotly.
-
-        The port-level renderer is intentionally reserved for the selected plugin's
-        direct neighborhood. Rendering every port on the overview makes even the
-        default builtin graph hard to scan.
-        """
-        try:
-            import plotly.graph_objects as go
-        except ImportError as exc:
-            raise ImportError("plotly is required for the plugins-web lineage view.") from exc
-
-        positions = {
-            node.node_id: (node.x + node.width / 2, node.y + node.height / 2)
-            for node in lineage_graph.nodes
-        }
-        node_shapes = []
-        edge_traces = []
-        annotations = []
-        node_meta = []
-        edge_meta = []
-        for node in lineage_graph.nodes:
-            x, y = positions[node.node_id]
-            node_shapes.append(
-                {
-                    "type": "rect",
-                    "x0": node.x,
-                    "y0": node.y,
-                    "x1": node.x + node.width,
-                    "y1": node.y + node.height,
-                    "fillcolor": "#ffffff",
-                    "line": {"color": "#087f5b", "width": 1.5},
-                    "layer": "below",
-                }
-            )
-            annotations.append(
-                {
-                    "x": x,
-                    "y": y,
-                    "text": f"<b>{self._lineage_display_label(node.label)}</b>",
-                    "showarrow": False,
-                    "align": "center",
-                    "font": {"size": 13, "color": "#17201d"},
-                }
-            )
-            node_meta.append(
-                {
-                    "id": node.node_id.removeprefix("plugin:"),
-                    "label": self._lineage_display_label(node.label),
-                    "row": node.y,
-                    "shape_index": len(node_shapes) - 1,
-                    "annotation_index": len(annotations) - 1,
-                }
-            )
-
-        for edge in lineage_graph.edges:
-            start = positions[edge.source_id]
-            end = positions[edge.target_id]
-            source_node = next(
-                node for node in lineage_graph.nodes if node.node_id == edge.source_id
-            )
-            target_node = next(
-                node for node in lineage_graph.nodes if node.node_id == edge.target_id
-            )
-            start_x, start_y = start[0], start[1] + source_node.height / 2
-            end_x, end_y = end[0], end[1] - target_node.height / 2
-            curve_offset = min(24, max(8, abs(end_x - start_x) * 0.12))
-            if end_x < start_x:
-                curve_offset = -curve_offset
-            midpoint = (
-                (start_x + end_x) / 2 + curve_offset,
-                (start_y + end_y) / 2,
-            )
-            trace_index = len(edge_traces)
-            edge_traces.append(
-                go.Scatter(
-                    x=[start_x, midpoint[0], end_x],
-                    y=[start_y, midpoint[1], end_y],
-                    mode="lines",
-                    line={
-                        "color": "#80908a",
-                        "width": 1.25,
-                        "shape": "spline",
-                        "smoothing": 0.35,
-                    },
-                    hoverinfo="skip",
-                    showlegend=False,
-                    name="plugin-overview-spline",
-                )
-            )
-            tangent_x, tangent_y = end_x - midpoint[0], end_y - midpoint[1]
-            tangent_length = max((tangent_x**2 + tangent_y**2) ** 0.5, 1.0)
-            arrow_index = len(annotations)
-            annotations.append(
-                {
-                    # Keep the arrowhead aligned with the final spline segment.
-                    "ax": end_x - tangent_x / tangent_length * 8,
-                    "ay": end_y - tangent_y / tangent_length * 8,
-                    "x": end_x,
-                    "y": end_y,
-                    "xref": "x",
-                    "yref": "y",
-                    "axref": "x",
-                    "ayref": "y",
-                    "showarrow": True,
-                    "arrowhead": 2,
-                    "arrowsize": 0.8,
-                    "arrowwidth": 1.25,
-                    "arrowcolor": "#80908a",
-                }
-            )
-            edge_meta.append(
-                {
-                    "source": edge.source_id.removeprefix("plugin:"),
-                    "target": edge.target_id.removeprefix("plugin:"),
-                    "trace_index": trace_index,
-                    "arrow_index": arrow_index,
-                }
-            )
-
-        x_values = [positions[node.node_id][0] for node in lineage_graph.nodes]
-        y_values = [positions[node.node_id][1] for node in lineage_graph.nodes]
-        bounds_padding = 44
-        x_min = min((shape["x0"] for shape in node_shapes), default=0) - bounds_padding
-        x_max = (
-            max((shape["x1"] for shape in node_shapes), default=lineage_graph.width)
-            + bounds_padding
-        )
-        y_min = min((shape["y0"] for shape in node_shapes), default=0) - bounds_padding
-        y_max = (
-            max((shape["y1"] for shape in node_shapes), default=lineage_graph.height)
-            + bounds_padding
-        )
-        customdata = [node.node_id.removeprefix("plugin:") for node in lineage_graph.nodes]
-        hovertext = [node.tooltip for node in lineage_graph.nodes]
-        figure = go.Figure(
-            data=edge_traces
-            + [
-                go.Scatter(
-                    x=x_values,
-                    y=y_values,
-                    mode="markers",
-                    marker={"size": 210, "opacity": 0},
-                    customdata=customdata,
-                    hoverinfo="text",
-                    hovertext=hovertext,
-                    showlegend=False,
-                    name="plugin-overview-nodes",
-                )
-            ]
-        )
-        figure.update_layout(
-            shapes=node_shapes,
-            annotations=annotations,
-            meta={
-                "node_shape_indices": {name: index for index, name in enumerate(customdata)},
-                "nodes": node_meta,
-                "edges": edge_meta,
-            },
-            autosize=True,
-            uirevision="plugin-doc-lineage",
-            margin={"l": 20, "r": 20, "t": 24, "b": 20},
-            paper_bgcolor="#ffffff",
-            plot_bgcolor="#ffffff",
-            # The client refines these bounds to the live container; the static first
-            # frame must still fit the current Core/All node set rather than the full DAG.
-            xaxis={"visible": False, "range": [x_min, x_max]},
-            yaxis={
-                "visible": False,
-                "range": [y_max, y_min],
-            },
-        )
-        return figure
-
-    @staticmethod
-    def _lineage_display_label(name: str) -> str:
-        """Wrap long output names at an underscore without changing their identity."""
-        if len(name) <= 16 or "_" not in name:
-            return name
-        parts = name.split("_")
-        prefix = ""
-        for part in parts[:-1]:
-            candidate = f"{prefix}{part}_"
-            if len(candidate) > 14:
-                break
-            prefix = candidate
-        if prefix:
-            return f"{prefix}<br>{name[len(prefix):]}"
-        return name
-
-    def _render_global_plotly_html(self, lineage_graph: _WebLineageGraph) -> str:
-        return self._build_global_plotly_figure(lineage_graph).to_html(
-            full_html=False,
-            include_plotlyjs=False,
-            config={"scrollZoom": True, "displaylogo": False, "responsive": True},
-            div_id="plugin-global-lineage",
-        )
-
-    @staticmethod
-    def _direct_lineage_model(model: Any, provides: str) -> Any:
-        """Return the selected plugin and only its direct port-level neighbors."""
-        from waveform_analysis.core.foundation.model import LineageGraphModel
-
-        included_edges = [
-            edge
-            for edge in model.edges
-            if edge.source_node_id == provides or edge.target_node_id == provides
-        ]
-        included_nodes = {provides}
-        for edge in included_edges:
-            included_nodes.add(edge.source_node_id)
-            included_nodes.add(edge.target_node_id)
-        port_ids = {
-            port_id
-            for edge in included_edges
-            for port_id in (edge.source_port_id, edge.target_port_id)
-        }
-        incoming = {node_id: set() for node_id in included_nodes}
-        for edge in included_edges:
-            incoming.setdefault(edge.target_node_id, set()).add(edge.source_node_id)
-        depths = {node_id: 0 for node_id, sources in incoming.items() if not sources}
-        for _ in range(len(included_nodes)):
-            changed = False
-            for edge in included_edges:
-                if edge.source_node_id not in depths:
-                    continue
-                depth = depths[edge.source_node_id] + 1
-                if depth > depths.get(edge.target_node_id, -1):
-                    depths[edge.target_node_id] = depth
-                    changed = True
-            if not changed:
-                break
-        nodes = {
-            node_id: replace(
-                model.nodes[node_id],
-                in_ports=[port for port in model.nodes[node_id].in_ports if port.id in port_ids],
-                out_ports=[port for port in model.nodes[node_id].out_ports if port.id in port_ids],
-                depth=depths.get(node_id, 0),
-            )
-            for node_id in included_nodes
-            if node_id in model.nodes
-        }
-        return LineageGraphModel(
-            nodes=nodes,
-            edges=included_edges,
-            metadata=dict(model.metadata),
-        )
-
     def _build_detail_lineage_relations(
         self,
         plugins: list[PluginDocumentationView],
@@ -2195,402 +1528,6 @@ class PluginDocGenerator:
         for provides, direct_consumers in consumers.items():
             relations[provides]["consumers"] = sorted(direct_consumers)
         return relations
-
-    def render_plugin_html(
-        self,
-        doc_info: PluginDocumentationView,
-        *,
-        lineage_graph: _WebLineageGraph | None = None,
-        asset_prefix: str = "../assets/",
-        site_home_href: str = "../index.html",
-        plugin_index_href: str = "../index.html",
-        accessor_index_href: str | None = None,
-        context_index_href: str | None = None,
-        adapter_index_href: str | None = None,
-        visualization_index_href: str | None = None,
-        visualization_detail_prefix: str | None = None,
-        site_root_prefix: str = "../",
-        react_asset_version: str = "",
-    ) -> str:
-        """Render one standalone plugin HTML page with escaped metadata."""
-        return (
-            self._get_web_jinja_env()
-            .get_template("web/plugin.html.j2")
-            .render(
-                plugin=doc_info,
-                lineage_graph=lineage_graph,
-                load_mermaid=bool(doc_info.workflow_diagram),
-                asset_prefix=asset_prefix,
-                site_home_href=site_home_href,
-                plugin_index_href=plugin_index_href,
-                accessor_index_href=accessor_index_href,
-                context_index_href=context_index_href,
-                adapter_index_href=adapter_index_href,
-                visualization_index_href=visualization_index_href,
-                visualization_detail_prefix=visualization_detail_prefix,
-                site_root_prefix=site_root_prefix,
-                react_asset_version=react_asset_version,
-            )
-        )
-
-    def render_index_html(
-        self,
-        plugins: list[PluginDocumentationView],
-        *,
-        lineage_graph: _WebLineageGraph | None = None,
-        dependencies_by_provides: dict[str, list[str]] | None = None,
-        global_lineage_html: str | None = None,
-        asset_prefix: str = "assets/",
-        site_home_href: str = "index.html",
-        plugin_href_prefix: str = "plugins/",
-        plugin_index_href: str = "index.html",
-        accessor_index_href: str | None = None,
-        context_index_href: str | None = None,
-        adapter_index_href: str | None = None,
-        visualization_index_href: str | None = None,
-        visualization_detail_prefix: str | None = None,
-        lineage_details_json: str | None = None,
-        global_lineage_json: str | None = None,
-        terminal_outputs: set[str] | None = None,
-        lineage_href: str = "lineage.html",
-        site_root_prefix: str = "",
-        react_asset_version: str = "",
-    ) -> str:
-        """Render the searchable static-site index."""
-        scored_plugins = self._with_web_scores(plugins, dependencies_by_provides)
-        lineage_graph = lineage_graph or self._build_web_lineage_graph(
-            scored_plugins,
-            link_prefix="plugins/",
-            dependencies_by_provides=dependencies_by_provides,
-        )
-        plugin_sets = self._web_plugin_sets(scored_plugins)
-        standalone_plugins = self._standalone_plugins(scored_plugins)
-        return (
-            self._get_web_jinja_env()
-            .get_template("web/index.html.j2")
-            .render(
-                plugins=sorted(scored_plugins, key=lambda item: item.provides),
-                plugin_sets=plugin_sets,
-                lineage_graph=lineage_graph,
-                global_lineage_html=Markup(global_lineage_html),
-                asset_prefix=asset_prefix,
-                site_home_href=site_home_href,
-                plugin_href_prefix=plugin_href_prefix,
-                plugin_index_href=plugin_index_href,
-                accessor_index_href=accessor_index_href,
-                context_index_href=context_index_href,
-                adapter_index_href=adapter_index_href,
-                visualization_index_href=visualization_index_href,
-                visualization_detail_prefix=visualization_detail_prefix,
-                standalone_plugins=standalone_plugins,
-                terminal_outputs=sorted(terminal_outputs or set()),
-                lineage_href=lineage_href,
-                lineage_details_json=(
-                    Markup(lineage_details_json) if lineage_details_json is not None else None
-                ),
-                global_lineage_json=(
-                    Markup(global_lineage_json) if global_lineage_json is not None else None
-                ),
-                site_root_prefix=site_root_prefix,
-                react_asset_version=react_asset_version,
-            )
-        )
-
-    def render_lineage_html(
-        self,
-        *,
-        lineage_json: str,
-        asset_prefix: str,
-        site_home_href: str,
-        plugin_index_href: str,
-        plugin_href_prefix: str,
-        accessor_index_href: str | None,
-        context_index_href: str | None,
-        adapter_index_href: str | None,
-        visualization_index_href: str | None,
-        visualization_detail_prefix: str | None,
-        site_root_prefix: str,
-        react_asset_version: str = "",
-        lineage_index_href: str | None = None,
-    ) -> str:
-        return (
-            self._get_web_jinja_env()
-            .get_template("web/lineage.html.j2")
-            .render(
-                lineage_json=Markup(lineage_json),
-                asset_prefix=asset_prefix,
-                site_home_href=site_home_href,
-                plugin_index_href=plugin_index_href,
-                plugin_href_prefix=plugin_href_prefix,
-                accessor_index_href=accessor_index_href,
-                context_index_href=context_index_href,
-                adapter_index_href=adapter_index_href,
-                visualization_index_href=visualization_index_href,
-                visualization_detail_prefix=visualization_detail_prefix,
-                site_root_prefix=site_root_prefix,
-                react_asset_version=react_asset_version,
-                lineage_index_href=lineage_index_href,
-            )
-        )
-
-    def generate_web(
-        self,
-        output_dir: Path,
-        *,
-        index_relative_path: str = "index.html",
-        plugin_relative_dir: str = "plugins",
-        asset_relative_dir: str = "assets",
-        site_home_href: str = "index.html",
-        accessor_relative_path: str | None = None,
-        context_relative_path: str | None = None,
-        adapter_relative_path: str | None = None,
-        visualization_relative_path: str | None = None,
-        extra_search_entries: list[dict[str, str]] | None = None,
-    ) -> dict[str, Path]:
-        """Generate an offline HTML plugin reference site."""
-        output_dir = Path(output_dir)
-        index_path = output_dir / index_relative_path
-        lineage_path = index_path.with_name("lineage.html")
-        plugin_dir = output_dir / plugin_relative_dir
-        asset_dir = output_dir / asset_relative_dir
-        index_dir = index_path.parent
-        plugin_dir.mkdir(parents=True, exist_ok=True)
-        asset_dir.mkdir(parents=True, exist_ok=True)
-        index_dir.mkdir(parents=True, exist_ok=True)
-        source_assets = self.template_dir / "web" / "assets"
-        react_asset_version = hashlib.sha256(
-            (source_assets / "react" / "waveform-docs.js").read_bytes()
-            + (source_assets / "react" / "waveform-docs.css").read_bytes()
-        ).hexdigest()[:12]
-        index_asset_prefix = Path(os.path.relpath(asset_dir, index_dir)).as_posix() + "/"
-        index_site_root_prefix = Path(os.path.relpath(output_dir, index_dir)).as_posix()
-        if index_site_root_prefix == ".":
-            index_site_root_prefix = ""
-        elif not index_site_root_prefix.endswith("/"):
-            index_site_root_prefix += "/"
-        detail_asset_prefix = Path(os.path.relpath(asset_dir, plugin_dir)).as_posix() + "/"
-        index_plugin_prefix = Path(os.path.relpath(plugin_dir, index_dir)).as_posix()
-        if index_plugin_prefix == ".":
-            index_plugin_prefix = ""
-        else:
-            index_plugin_prefix += "/"
-        detail_home_href = Path(os.path.relpath(output_dir / site_home_href, plugin_dir)).as_posix()
-        detail_site_root_prefix = Path(os.path.relpath(output_dir, plugin_dir)).as_posix()
-        if detail_site_root_prefix == ".":
-            detail_site_root_prefix = ""
-        elif not detail_site_root_prefix.endswith("/"):
-            detail_site_root_prefix += "/"
-        plugin_index_href = Path(os.path.relpath(index_path, plugin_dir)).as_posix()
-        detail_lineage_href = Path(os.path.relpath(lineage_path, plugin_dir)).as_posix()
-        detail_accessor_href = (
-            Path(os.path.relpath(output_dir / accessor_relative_path, plugin_dir)).as_posix()
-            if accessor_relative_path
-            else None
-        )
-        index_accessor_href = (
-            Path(os.path.relpath(output_dir / accessor_relative_path, index_dir)).as_posix()
-            if accessor_relative_path
-            else None
-        )
-        detail_context_href = (
-            Path(os.path.relpath(output_dir / context_relative_path, plugin_dir)).as_posix()
-            if context_relative_path
-            else None
-        )
-        index_context_href = (
-            Path(os.path.relpath(output_dir / context_relative_path, index_dir)).as_posix()
-            if context_relative_path
-            else None
-        )
-        detail_adapter_href = (
-            Path(os.path.relpath(output_dir / adapter_relative_path, plugin_dir)).as_posix()
-            if adapter_relative_path
-            else None
-        )
-        index_adapter_href = (
-            Path(os.path.relpath(output_dir / adapter_relative_path, index_dir)).as_posix()
-            if adapter_relative_path
-            else None
-        )
-        detail_visualization_href = (
-            Path(os.path.relpath(output_dir / visualization_relative_path, plugin_dir)).as_posix()
-            if visualization_relative_path
-            else None
-        )
-        index_visualization_href = (
-            Path(os.path.relpath(output_dir / visualization_relative_path, index_dir)).as_posix()
-            if visualization_relative_path
-            else None
-        )
-        visualization_dir = (
-            output_dir / visualization_relative_path if visualization_relative_path else None
-        )
-        if visualization_dir is not None:
-            visualization_dir = visualization_dir.parent
-        detail_visualization_prefix = (
-            Path(os.path.relpath(visualization_dir, plugin_dir)).as_posix() + "/"
-            if visualization_dir is not None
-            else None
-        )
-        index_visualization_prefix = (
-            Path(os.path.relpath(visualization_dir, index_dir)).as_posix() + "/"
-            if visualization_dir is not None
-            else None
-        )
-        default_dependencies = self._default_dependency_map()
-        plugins = self._with_web_scores(
-            self.get_all_doc_info(), dependencies_by_provides=default_dependencies
-        )
-        global_views, terminal_outputs = self._global_lineage_views(
-            plugins,
-            link_prefix=index_plugin_prefix,
-            dependencies_by_provides=default_dependencies,
-        )
-        global_graph = global_views["overview"]
-        generated: dict[str, Path] = {}
-        for plugin in plugins:
-            path = plugin_dir / f"{plugin.provides}.html"
-            path.write_text(
-                self.render_plugin_html(
-                    plugin,
-                    lineage_graph=(
-                        None
-                        if plugin.provides in STANDALONE_PLUGIN_OUTPUTS
-                        else self._build_web_lineage_graph(
-                            [p for p in plugins if p.provides not in STANDALONE_PLUGIN_OUTPUTS],
-                            link_prefix="",
-                            focus=plugin.provides,
-                            global_focus_prefix=f"{detail_lineage_href}?view=focus&focus=",
-                            dependencies_by_provides=default_dependencies,
-                        )
-                    ),
-                    asset_prefix=detail_asset_prefix,
-                    site_home_href=detail_home_href,
-                    plugin_index_href=plugin_index_href,
-                    accessor_index_href=detail_accessor_href,
-                    context_index_href=detail_context_href,
-                    adapter_index_href=detail_adapter_href,
-                    visualization_index_href=detail_visualization_href,
-                    visualization_detail_prefix=detail_visualization_prefix,
-                    site_root_prefix=detail_site_root_prefix,
-                    react_asset_version=react_asset_version,
-                ),
-                encoding="utf-8",
-            )
-            generated[plugin.provides] = path
-        lineage_payload = self._build_cytoscape_lineage_payload(
-            plugins,
-            default_dependencies,
-            plugin_href_prefix=index_plugin_prefix,
-        )
-        lineage_json = json.dumps(lineage_payload, ensure_ascii=True, separators=(",", ":"))
-        lineage_json = (
-            lineage_json.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
-        )
-        index_path.write_text(
-            self.render_index_html(
-                plugins,
-                lineage_graph=global_graph,
-                dependencies_by_provides=default_dependencies,
-                asset_prefix=index_asset_prefix,
-                site_home_href=Path(
-                    os.path.relpath(output_dir / site_home_href, index_dir)
-                ).as_posix(),
-                plugin_href_prefix=index_plugin_prefix,
-                plugin_index_href=Path(os.path.relpath(index_path, index_dir)).as_posix(),
-                accessor_index_href=index_accessor_href,
-                context_index_href=index_context_href,
-                adapter_index_href=index_adapter_href,
-                visualization_index_href=index_visualization_href,
-                visualization_detail_prefix=index_visualization_prefix,
-                global_lineage_json=lineage_json,
-                terminal_outputs=terminal_outputs,
-                lineage_href=Path(os.path.relpath(lineage_path, index_dir)).as_posix(),
-                site_root_prefix=index_site_root_prefix,
-                react_asset_version=react_asset_version,
-            ),
-            encoding="utf-8",
-        )
-        generated["INDEX"] = index_path
-        lineage_path.write_text(
-            self.render_lineage_html(
-                lineage_json=lineage_json,
-                asset_prefix=index_asset_prefix,
-                site_home_href=Path(
-                    os.path.relpath(output_dir / site_home_href, index_dir)
-                ).as_posix(),
-                plugin_index_href=Path(os.path.relpath(index_path, index_dir)).as_posix(),
-                plugin_href_prefix=index_plugin_prefix,
-                accessor_index_href=index_accessor_href,
-                context_index_href=index_context_href,
-                adapter_index_href=index_adapter_href,
-                visualization_index_href=index_visualization_href,
-                visualization_detail_prefix=index_visualization_prefix,
-                site_root_prefix=index_site_root_prefix,
-                react_asset_version=react_asset_version,
-            ),
-            encoding="utf-8",
-        )
-        generated["LINEAGE_INDEX"] = lineage_path
-        for name in ("site.css", "site.js"):
-            target = asset_dir / name
-            shutil.copyfile(source_assets / name, target)
-            generated[f"asset:{name}"] = target
-        for rel in PLUGIN_SET_IMAGES.values():
-            source = source_assets / rel
-            if not source.is_file():
-                raise FileNotFoundError(f"插件集合配图缺失: {source}")
-            target = asset_dir / rel
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source, target)
-            generated[f"asset:{rel}"] = target
-        search_entries = []
-        for plugin in plugins:
-            base_url = f"{plugin_relative_dir}/{plugin.provides}.html"
-            # 每插件仅一条词条，避免同一 title 按分节锚点重复出现；分节名并入关键词以保留命中。
-            search_entries.append(
-                {
-                    "title": plugin.provides,
-                    "summary": plugin.summary or plugin.description or "暂无说明。",
-                    "kind": "插件",
-                    "url": f"{base_url}#overview",
-                    "keywords": " ".join(
-                        [
-                            plugin.provides,
-                            plugin.name,
-                            plugin.category,
-                            plugin.output_kind,
-                            "概览",
-                            "配置",
-                            "输出",
-                        ]
-                    ),
-                }
-            )
-        search_entries.extend(extra_search_entries or [])
-        search_asset = asset_dir / "search-index.js"
-        search_asset.write_text(
-            "window.WAVEFORM_DOCS_SEARCH="
-            + json.dumps(search_entries, ensure_ascii=True, separators=(",", ":"))
-            .replace("<", "\\u003c")
-            .replace(">", "\\u003e")
-            .replace("&", "\\u0026")
-            + ";\n",
-            encoding="utf-8",
-        )
-        generated["asset:search-index.js"] = search_asset
-        for name in ("waveform-docs.js", "waveform-docs.css"):
-            target = asset_dir / "react" / name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source_assets / "react" / name, target)
-            generated[f"asset:react/{name}"] = target
-        graph_asset = asset_dir / "lineage-graph.json"
-        graph_asset.write_text(
-            json.dumps(lineage_payload, ensure_ascii=True, separators=(",", ":")),
-            encoding="utf-8",
-        )
-        generated["asset:lineage-graph.json"] = graph_asset
-        return generated
 
     def generate_all(self, output_dir: Path, profile: str = "auto") -> dict[str, Path]:
         """生成所有文档

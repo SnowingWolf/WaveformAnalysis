@@ -3,7 +3,7 @@
 **导航**: [文档中心](../README.md) > 系统架构与数据模型
 
 理解 Plugin 如何运行、数据如何关联，以及单 run、多 run 与并行资源的处理边界。Context 的执行工作流、
-ExecutorManager 和 Context API 已收敛到站点的 Context 单一入口（`contexts/context.html#execution-framework`）。
+ExecutorManager 和 Context API 已收敛到站点的 Context 单一入口（`/contexts/context/#execution-framework`）。
 
 ## 文档列表
 

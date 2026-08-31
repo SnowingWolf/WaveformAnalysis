@@ -4,21 +4,15 @@ on:
   push:
     paths:
       - 'waveform_analysis/core/plugins/**'
-      - 'waveform_analysis/utils/plugin_doc_generator.py'
-      - 'waveform_analysis/utils/context_help.py'
-      - 'waveform_analysis/utils/cli_docs.py'
-      - 'waveform_analysis/utils/doc_coverage.py'
-      - 'waveform_analysis/utils/templates/**'
+      - 'waveform_analysis/documentation/**'
+      - 'docs/site-next/**'
       - 'docs/plugins/**'
       - '.github/workflows/docs-check.yml'
   pull_request:
     paths:
       - 'waveform_analysis/core/plugins/**'
-      - 'waveform_analysis/utils/plugin_doc_generator.py'
-      - 'waveform_analysis/utils/context_help.py'
-      - 'waveform_analysis/utils/cli_docs.py'
-      - 'waveform_analysis/utils/doc_coverage.py'
-      - 'waveform_analysis/utils/templates/**'
+      - 'waveform_analysis/documentation/**'
+      - 'docs/site-next/**'
       - 'docs/plugins/**'
       - '.github/workflows/docs-check.yml'
 
@@ -33,6 +27,17 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: docs/site-next/package-lock.json
+
+      - name: Install Next dependencies
+        run: npm ci
+        working-directory: docs/site-next
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -40,13 +45,16 @@ jobs:
 
       - name: Generate plugin documentation
         run: |
-          python -m waveform_analysis.utils.cli_docs generate plugins-auto -o docs/plugins/reference/builtin/auto/
-          python -m waveform_analysis.utils.cli_docs generate plugins-agent -o docs/plugins/reference/agent/
-          python -m waveform_analysis.utils.cli_docs generate plugins-web -o "${RUNNER_TEMP}/waveform-docs-site"
+          python -m waveform_analysis.documentation.cli generate plugins-auto -o docs/plugins/reference/builtin/auto/
+          python -m waveform_analysis.documentation.cli generate plugins-agent -o docs/plugins/reference/agent/
 
       - name: Check documentation coverage
         run: |
-          python -m waveform_analysis.utils.cli_docs check coverage --strict --fail-on-warning
+          python -m waveform_analysis.documentation.cli check coverage --strict --fail-on-warning
+
+      - name: Build and validate Next static site
+        run: |
+          python -m waveform_analysis.documentation.cli generate site-web -o "${RUNNER_TEMP}/waveform-docs-site"
 
       - name: Check for uncommitted doc changes
         run: |

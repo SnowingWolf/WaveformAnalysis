@@ -304,7 +304,6 @@ docs/_site/
 !docs/**/*.png
 !docs/**/*.jpg
 !examples/**/*.png
-!waveform_analysis/utils/templates/web/assets/plugin-sets/*.png
 
 # NFS temporary files
 .nfs*
@@ -340,6 +339,10 @@ list_all.ipynb
 # Pipfile.lock
 package-lock.json
 package.json
+!docs/site-next/package-lock.json
+!docs/site-next/package.json
+docs/site-next/.next/
+docs/site-next/out/
 
 # Node dependencies
 node_modules/

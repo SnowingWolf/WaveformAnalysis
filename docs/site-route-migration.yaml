@@ -1,0 +1,205 @@
+schema_version: 1
+canonical_style: extensionless-trailing-slash
+description: >-
+  Historical HTML routes are listed for documentation and link migration only.
+  The site build does not emit redirect pages or HTML aliases.
+mappings:
+  - from: /index.html
+    to: /
+  - from: /lineage.html
+    to: /lineage/
+  - from: /plugins/index.html
+    to: /plugins/
+  - from: /adapters/index.html
+    to: /adapters/
+  - from: /accessors/index.html
+    to: /accessors/
+  - from: /contexts/index.html
+    to: /contexts/
+  - from: /visualizations/index.html
+    to: /visualizations/
+  - from: /user-guide/index.html
+    to: /user-guide/
+  - from: /user-guide/QUICKSTART_GUIDE.html
+    to: /user-guide/QUICKSTART_GUIDE/
+  - from: /user-guide/EXAMPLES_GUIDE.html
+    to: /user-guide/EXAMPLES_GUIDE/
+  - from: /contexts/context.html
+    to: /contexts/context/
+  - from: /contexts/records-view.html
+    to: /contexts/records-view/
+  - from: /adapters/adapter.html
+    to: /adapters/adapter/
+  - from: /plugins/guides.html
+    to: /plugins/
+  - from: /plugins/overview.html
+    to: /plugins/overview/
+  - from: /plugins/guides/STREAMING_PLUGINS_GUIDE.html
+    to: /plugins/guides/STREAMING_PLUGINS_GUIDE/
+  - from: /plugins/reference/ADAPTER_PLUGIN_BEHAVIOR.html
+    to: /plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/
+  - from: /plugins/reference/ADAPTER_SYSTEM_GUIDE.html
+    to: /plugins/reference/ADAPTER_SYSTEM_GUIDE/
+  - from: /accessors/guides.html
+    to: /accessors/
+  - from: /accessors/peak-channel-accessor.html
+    to: /accessors/peak-channel-accessor/
+  - from: /accessors/s1-s2-pair-accessor.html
+    to: /accessors/s1-s2-pair-accessor/
+  - from: /architecture/index.html
+    to: /architecture/
+  - from: /architecture/system.html
+    to: /architecture/system/
+  - from: /architecture/plugin-dag-lineage-cache.html
+    to: /architecture/plugin-dag-lineage-cache/
+  - from: /architecture/plugin-cache-architecture.html
+    to: /architecture/plugin-cache-architecture/
+  - from: /architecture/data-products.html
+    to: /architecture/data-products/
+  - from: /architecture/accessor-analysis.html
+    to: /architecture/accessor-analysis/
+  - from: /architecture/PROJECT_STRUCTURE.html
+    to: /architecture/PROJECT_STRUCTURE/
+  - from: /features/index.html
+    to: /features/
+  - from: /features/context/ABSOLUTE_TIME_GUIDE.html
+    to: /features/context/ABSOLUTE_TIME_GUIDE/
+  - from: /features/context/BATCH_PROCESSOR.html
+    to: /features/context/BATCH_PROCESSOR/
+  - from: /features/context/CONFIGURATION.html
+    to: /features/context/CONFIGURATION/
+  - from: /features/context/DEPENDENCY_ANALYSIS_GUIDE.html
+    to: /features/context/DEPENDENCY_ANALYSIS_GUIDE/
+  - from: /features/context/LINEAGE_VISUALIZATION_GUIDE.html
+    to: /features/context/LINEAGE_VISUALIZATION_GUIDE/
+  - from: /features/advanced/PROGRESS_TRACKING_GUIDE.html
+    to: /features/advanced/PROGRESS_TRACKING_GUIDE/
+  - from: /features/utils/DAQ_ANALYZER_GUIDE.html
+    to: /features/utils/DAQ_ANALYZER_GUIDE/
+  - from: /features/utils/ADAPTIVE_2D_SAMPLING_GUIDE.html
+    to: /features/utils/ADAPTIVE_2D_SAMPLING_GUIDE/
+  - from: /features/utils/PDF_EXPORT_GUIDE.html
+    to: /features/utils/PDF_EXPORT_GUIDE/
+  - from: /features/visualizations/POSITION_DASHBOARD_GUIDE.html
+    to: /features/visualizations/POSITION_DASHBOARD_GUIDE/
+  - from: /visualizations/guides.html
+    to: /visualizations/
+  - from: /visualizations/statistical-plots.html
+    to: /visualizations/statistical-plots/
+  - from: /visualizations/waveform-plots.html
+    to: /visualizations/waveform-plots/
+  - from: /visualizations/position-dashboard.html
+    to: /visualizations/position-dashboard/
+  - from: /cli/index.html
+    to: /cli/
+  - from: /cli/WAVEFORM_CACHE.html
+    to: /cli/WAVEFORM_CACHE/
+  - from: /cli/WAVEFORM_DOCS.html
+    to: /cli/WAVEFORM_DOCS/
+  - from: /cli/WAVEFORM_PROCESS.html
+    to: /cli/WAVEFORM_PROCESS/
+  - from: /development/index.html
+    to: /development/
+  - from: /development/CONTRACT_TESTS.html
+    to: /development/CONTRACT_TESTS/
+  - from: /development/contributing/COMMIT_CONVENTION.html
+    to: /development/contributing/COMMIT_CONVENTION/
+  - from: /development/contributing/DOC_ANCHOR_GUIDE.html
+    to: /development/contributing/DOC_ANCHOR_GUIDE/
+  - from: /development/contributing/IMPORT_STYLE_GUIDE.html
+    to: /development/contributing/IMPORT_STYLE_GUIDE/
+  - from: /development/plugin-development/PLUGIN_SCAFFOLD.html
+    to: /development/plugin-development/PLUGIN_SCAFFOLD/
+  - from: /development/plugin-development/PLUGIN_SPEC_GUIDE.html
+    to: /development/plugin-development/PLUGIN_SPEC_GUIDE/
+  - from: /development/plugin-development/plugin_guide.html
+    to: /development/plugin-development/plugin_guide/
+  - from: /development/worktrees.html
+    to: /development/worktrees/
+  - from: /plugins/basic_features.html
+    to: /plugins/basic_features/
+  - from: /plugins/cache_analysis.html
+    to: /plugins/cache_analysis/
+  - from: /plugins/df.html
+    to: /plugins/df/
+  - from: /plugins/df_events.html
+    to: /plugins/df_events/
+  - from: /plugins/df_paired.html
+    to: /plugins/df_paired/
+  - from: /plugins/energy_reconstruction.html
+    to: /plugins/energy_reconstruction/
+  - from: /plugins/events.html
+    to: /plugins/events/
+  - from: /plugins/filtered_waveforms.html
+    to: /plugins/filtered_waveforms/
+  - from: /plugins/hit.html
+    to: /plugins/hit/
+  - from: /plugins/hit_grouped.html
+    to: /plugins/hit_grouped/
+  - from: /plugins/hit_merge_clusters.html
+    to: /plugins/hit_merge_clusters/
+  - from: /plugins/hit_merged.html
+    to: /plugins/hit_merged/
+  - from: /plugins/hit_merged_components.html
+    to: /plugins/hit_merged_components/
+  - from: /plugins/hit_merged_features.html
+    to: /plugins/hit_merged_features/
+  - from: /plugins/hit_threshold.html
+    to: /plugins/hit_threshold/
+  - from: /plugins/peak_classification.html
+    to: /plugins/peak_classification/
+  - from: /plugins/peaklet_channels.html
+    to: /plugins/peaklet_channels/
+  - from: /plugins/peaklet_components.html
+    to: /plugins/peaklet_components/
+  - from: /plugins/peaklet_features.html
+    to: /plugins/peaklet_features/
+  - from: /plugins/peaklet_waveform_pool.html
+    to: /plugins/peaklet_waveform_pool/
+  - from: /plugins/peaklet_waveforms.html
+    to: /plugins/peaklet_waveforms/
+  - from: /plugins/peaklets.html
+    to: /plugins/peaklets/
+  - from: /plugins/peaks.html
+    to: /plugins/peaks/
+  - from: /plugins/position_reconstruction.html
+    to: /plugins/position_reconstruction/
+  - from: /plugins/raw_files.html
+    to: /plugins/raw_files/
+  - from: /plugins/records.html
+    to: /plugins/records/
+  - from: /plugins/records_asymmetry_mask.html
+    to: /plugins/records_asymmetry_mask/
+  - from: /plugins/records_detector_mask.html
+    to: /plugins/records_detector_mask/
+  - from: /plugins/records_veto_mask.html
+    to: /plugins/records_veto_mask/
+  - from: /plugins/s1_s2_pair_candidates.html
+    to: /plugins/s1_s2_pair_candidates/
+  - from: /plugins/s1_s2_pairs.html
+    to: /plugins/s1_s2_pairs/
+  - from: /plugins/signal_peaks_stream.html
+    to: /plugins/hit/
+    note: 旧流式 signal peaks 页面已退出当前公开插件目录；迁移到正式 hit 检测入口。
+  - from: /plugins/st_waveforms.html
+    to: /plugins/st_waveforms/
+  - from: /plugins/wave_pool.html
+    to: /plugins/wave_pool/
+  - from: /plugins/wave_pool_filtered.html
+    to: /plugins/wave_pool_filtered/
+  - from: /plugins/waveform_width.html
+    to: /plugins/waveform_width/
+  - from: /plugins/waveform_width_integral.html
+    to: /plugins/waveform_width_integral/
+  - from: /plugins/system.html
+    to: /plugins/overview/
+  - from: /plugins/template-api.html
+    to: /plugins/overview/
+  - from: /plugins/authoring.html
+    to: /plugins/overview/
+  - from: /contexts/records-wave-pool.html
+    to: /contexts/records-view/#data-model
+  - from: /architecture/CONTEXT_PROCESSOR_WORKFLOW.html
+    to: /contexts/context/#execution-framework
+  - from: /features/advanced/EXECUTOR_MANAGER_GUIDE.html
+    to: /contexts/context/#execution-framework

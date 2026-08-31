@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from waveform_analysis.utils import cli_docs
-from waveform_analysis.utils.doc_links import check_markdown_links
+from waveform_analysis.documentation import cli as cli_docs
+from waveform_analysis.documentation.doc_links import check_markdown_links
 
 
 def test_markdown_link_checker_validates_files_resources_and_fragments(tmp_path: Path):
