@@ -14,6 +14,9 @@
 
 - 将文档、可视化、分析与采集实现从 `waveform_analysis.utils` 迁入按职责划分的规范包，同时保留旧导入路径、对象身份和 monkeypatch 兼容性。
 - `PositionReconstructionPlugin` 改为批量消费 `peaklet_channels`，避免逐事件构造 Accessor，并升级到 `0.4.0` 以正确失效缓存 lineage。
+- 新增 `waveform_analysis.plugins` 公共 facade，并将 `Context`、插件类、profile 与 plugin set 的用户导入统一到公开入口；旧的 `core`/`utils` 导入路径继续保留兼容性。
+- 延迟 `waveform_analysis` core 导出、插件 bundle 与 CLI runtime imports；help/version/参数错误路径不加载业务模块，同时保持 console entry point 与既有 monkeypatch 目标。
+- 本次导入拓扑调整不改变任何插件 version、dtype、缓存 lineage 或处理行为。
 
 ## v1.5.0
 
