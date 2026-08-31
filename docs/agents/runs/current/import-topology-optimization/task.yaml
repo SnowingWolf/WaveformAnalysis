@@ -79,24 +79,40 @@ status:
       condition: executor_assigned
   plan_sha256: null
   execution:
-    stage: 1
-    stage_name: public_plugins_facade
+    stage: 2
+    stage_name: core_lazy_exports
     executor_role: executor.code
     started_at: '2026-08-31'
-    state: executing
+    state: completed
     completed_commits:
       - 023d5a1b31484ffd2b06060d0fc2126771276ace
     current_scope:
-      - waveform_analysis/_lazy_exports.py
-      - waveform_analysis/plugins/__init__.py
       - waveform_analysis/__init__.py
-      - tests/contracts/test_public_plugins_facade.py
-    baseline:
-      docs_dir: /tmp/wa-import-baseline-44bff79.5ZDBQl
-      targeted_tests: 55 passed
-      plugins_markdown_files: 37
-      plugins_web_files: 51
-      site_web_cli_items: 118
+      - waveform_analysis/_lazy_exports.py
+      - waveform_analysis/_version.py
+      - waveform_analysis/core/__init__.py
+      - waveform_analysis/core/foundation/__init__.py
+      - waveform_analysis/core/hardware/__init__.py
+      - waveform_analysis/core/config/__init__.py
+      - waveform_analysis/core/execution/__init__.py
+      - waveform_analysis/core/data/__init__.py
+      - waveform_analysis/core/storage/__init__.py
+      - waveform_analysis/core/processing/__init__.py
+      - tests/contracts/test_core_lazy_exports.py
+    actions_taken:
+      - Deferred root package version resolution to first __version__ access.
+      - Replaced eight core domain package initializers with shared lazy export maps.
+      - Preserved __all__, dir, canonical leaf identity, import order, and singleton contracts.
+      - Added a narrow module-class guard for the data.records_view name collision.
+    verification:
+      import_contract_tests: 43 passed
+      core_lazy_export_tests: 30 passed
+      targeted_core_tests: 137 passed
+      fresh_import_side_effects: passed
+      ruff: passed
+      black_check: passed
+      diff_check: passed
+    open_risks: []
   review: {}
   approval: {}
   handoff: {}
