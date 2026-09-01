@@ -182,6 +182,13 @@ Context、Accessor、可视化、guide 和 lineage facts。站点使用静态导
 会检查所有模型 route、HTML 本地链接、fragment 和路径边界。需要预览时请使用
 `waveform-docs serve`，不要把导出的 `index.html` 当作无服务器协议使用。
 
+参考页不会只投影标题和摘要：插件的依赖、配置、输出字段、使用方式和失败模式，以及 Context、
+Accessor、适配器和可视化 API 的签名、参数、返回值、示例与叙述章节都会进入同一个 site model，
+再由 Next 完整渲染。`records_view()` / `RecordsView` 作为 records-backed 只读 Accessor 收录，
+canonical route 为 `/accessors/records-view/`；历史 Context URL 只保留在路由迁移清单中。
+`docs/site-content-baseline.json` 保存迁移时的逐路由 rich-content 覆盖基线；测试会阻止参考页、章节、
+公开成员、插件字段或正文区块在未显式更新基线时被静默删除。
+
 默认 lineage 来自真实插件注册表和解析后的依赖关系；`serve --lineage-context-factory` 才会
 按请求创建 Context 并返回动态拓扑。该接口只返回端口、dtype、版本和依赖等元数据，不读取
 run data，也不执行插件 compute。

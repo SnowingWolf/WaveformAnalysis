@@ -54,7 +54,7 @@ sections:
       - route: /accessors/s1-s2-pair-accessor/
         title: S1S2PairAccessor
         tag: reflect
-      - route: /contexts/records-view/
+      - route: /accessors/records-view/
         title: RecordsView
         tag: reflect
 

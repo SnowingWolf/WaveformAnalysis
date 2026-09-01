@@ -30,6 +30,16 @@ def test_repository_manifest_contains_canonical_fact_routes():
         for section in manifest.sections
         for page in section.pages
     )
+    assert any(
+        page.route == "/accessors/records-view/"
+        for section in manifest.sections
+        for page in section.pages
+    )
+    assert not any(
+        page.route == "/contexts/records-view/"
+        for section in manifest.sections
+        for page in section.pages
+    )
 
 
 def test_manifest_loads_markdown_and_reflected_facts(tmp_path):

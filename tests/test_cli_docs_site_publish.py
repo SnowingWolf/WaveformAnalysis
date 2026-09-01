@@ -45,6 +45,12 @@ def _fixture_model() -> dict:
                 "usage": "",
                 "route": "/plugins/records/",
                 "provenance": "fixture",
+                "sections": [
+                    {"id": "overview", "title": "Overview", "blocks": []},
+                    {"id": "configuration", "title": "Configuration", "blocks": []},
+                    {"id": "output", "title": "Output", "blocks": []},
+                    {"id": "usage", "title": "Usage", "blocks": []},
+                ],
             }
         ],
         "contexts": [],

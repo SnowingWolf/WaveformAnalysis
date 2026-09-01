@@ -48,7 +48,8 @@ from .models import (
     DocumentationContentBlock,
 )
 
-# accessors/ 下全部 Accessor 页面；RecordsView 位于 contexts/，route 指向其真实页面。
+# Accessor 选择入口。RecordsView 是 records-backed 的只读访问层，文档中与
+# 查询型 Accessor 放在同一分类，避免用户在 Context 与 Accessor 之间来回猜测。
 ACCESSOR_SELECTION_GUIDE = (
     AccessorSelectionGuideItem(
         name="PeakChannelAccessor",
@@ -70,7 +71,7 @@ ACCESSOR_SELECTION_GUIDE = (
         entry="`record_id`",
         question="如何按稳定 record_id 读取原始或滤波波形？",
         scenario="records-backed 波形访问：窗口切片、批量填充与信号极性统一处理。",
-        route="/contexts/records-view/",
+        route="/accessors/records-view/",
     ),
 )
 

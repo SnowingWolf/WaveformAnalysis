@@ -27,6 +27,31 @@ export type OutputField = {
   description: string;
 };
 
+export type ReferenceContentBlock = {
+  kind: "paragraph" | "heading" | "list" | "note" | "code" | "image" | "mathml" | "mermaid" | "table";
+  text?: string;
+  items?: string[];
+  ordered?: boolean;
+  heading_level?: 3 | 4;
+  title?: string;
+  tone?: string;
+  code?: string;
+  language?: string;
+  image_src?: string;
+  image_alt?: string;
+  image_caption?: string;
+  mathml?: string;
+  mermaid?: string;
+  table_headers?: string[];
+  table_rows?: string[][];
+};
+
+export type ReferenceSection = {
+  id: string;
+  title: string;
+  blocks: ReferenceContentBlock[];
+};
+
 export type PluginModel = {
   provides: string;
   pluginClass?: string;
@@ -39,6 +64,7 @@ export type PluginModel = {
   config: ConfigEntry[];
   fields: OutputField[];
   usage: string;
+  sections: ReferenceSection[];
   route: string;
   provenance: "generated" | "fixture";
 };
@@ -49,6 +75,7 @@ export type ContextModel = {
   summary: string;
   profiles: string[];
   examples: string[];
+  sections: ReferenceSection[];
   route: string;
   provenance: "generated" | "fixture";
 };
@@ -59,6 +86,13 @@ export type AccessorModel = {
   summary: string;
   inputs: string[];
   methods: string[];
+  pageKind: "class" | "callable";
+  selection: {
+    entry: string;
+    question: string;
+    scenario: string;
+  };
+  sections: ReferenceSection[];
   route: string;
   provenance: "generated" | "fixture";
 };
@@ -68,6 +102,7 @@ export type VisualizationModel = {
   name: string;
   summary: string;
   outputs: string[];
+  sections: ReferenceSection[];
   route: string;
   provenance: "generated" | "fixture";
 };
@@ -316,6 +351,62 @@ function validateCollection<T>(value: unknown, name: string, validate: (value: u
   return value.map(validate);
 }
 
+function optionalBoolean(record: Record<string, unknown>, key: string, path: string): boolean | undefined {
+  const value = record[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== "boolean") throw new SiteModelValidationError(`${path}.${key} must be boolean`);
+  return value;
+}
+
+function optionalStringArrayValue(record: Record<string, unknown>, key: string, path: string): string[] | undefined {
+  return record[key] === undefined ? undefined : requiredStringArray(record, key, path);
+}
+
+function validateStringRows(value: unknown, path: string): string[][] {
+  if (!Array.isArray(value) || !value.every((row) => Array.isArray(row) && row.every((cell) => typeof cell === "string"))) {
+    throw new SiteModelValidationError(`${path} must be string[][]`);
+  }
+  return value as string[][];
+}
+
+function validateReferenceSections(value: unknown, path: string): ReferenceSection[] {
+  return validateCollection(value, path, (section, sectionIndex) => {
+    if (!isRecord(section)) throw new SiteModelValidationError(`${path}[${sectionIndex}] must be an object`);
+    const sectionPath = `${path}[${sectionIndex}]`;
+    const blocks = validateCollection(section.blocks, `${sectionPath}.blocks`, (block, blockIndex): ReferenceContentBlock => {
+      if (!isRecord(block)) throw new SiteModelValidationError(`${sectionPath}.blocks[${blockIndex}] must be an object`);
+      const blockPath = `${sectionPath}.blocks[${blockIndex}]`;
+      const kind = requiredString(block, "kind", blockPath);
+      if (!["paragraph", "heading", "list", "note", "code", "image", "mathml", "mermaid", "table"].includes(kind)) {
+        throw new SiteModelValidationError(`${blockPath}.kind is not supported`);
+      }
+      const headingLevel = block.heading_level;
+      if (headingLevel !== undefined && headingLevel !== 3 && headingLevel !== 4) {
+        throw new SiteModelValidationError(`${blockPath}.heading_level must be 3 or 4`);
+      }
+      return {
+        kind: kind as ReferenceContentBlock["kind"],
+        text: optionalString(block, "text", blockPath) ?? undefined,
+        items: optionalStringArrayValue(block, "items", blockPath),
+        ordered: optionalBoolean(block, "ordered", blockPath),
+        heading_level: headingLevel as 3 | 4 | undefined,
+        title: optionalString(block, "title", blockPath) ?? undefined,
+        tone: optionalString(block, "tone", blockPath) ?? undefined,
+        code: optionalString(block, "code", blockPath) ?? undefined,
+        language: optionalString(block, "language", blockPath) ?? undefined,
+        image_src: optionalString(block, "image_src", blockPath) ?? undefined,
+        image_alt: optionalString(block, "image_alt", blockPath) ?? undefined,
+        image_caption: optionalString(block, "image_caption", blockPath) ?? undefined,
+        mathml: optionalString(block, "mathml", blockPath) ?? undefined,
+        mermaid: optionalString(block, "mermaid", blockPath) ?? undefined,
+        table_headers: optionalStringArrayValue(block, "table_headers", blockPath),
+        table_rows: block.table_rows === undefined ? undefined : validateStringRows(block.table_rows, `${blockPath}.table_rows`),
+      };
+    });
+    return { id: requiredString(section, "id", sectionPath), title: requiredString(section, "title", sectionPath), blocks };
+  });
+}
+
 function validatePlugin(value: unknown, index: number): PluginModel {
   if (!isRecord(value)) throw new SiteModelValidationError(`plugins[${index}] must be an object`);
   const path = `plugins[${index}]`;
@@ -356,6 +447,7 @@ function validatePlugin(value: unknown, index: number): PluginModel {
     config,
     fields,
     usage: requiredString(value, "usage", path),
+    sections: validateReferenceSections(value.sections, `${path}.sections`),
     route: requiredString(value, "route", path),
     provenance: provenance as PluginModel["provenance"],
   };
@@ -368,7 +460,8 @@ function validateContext(value: unknown, index: number): ContextModel {
   if (!["generated", "fixture"].includes(provenance)) throw new SiteModelValidationError(`${path}.provenance is not supported`);
   return {
     slug: requiredString(value, "slug", path), name: requiredString(value, "name", path), summary: requiredString(value, "summary", path),
-    profiles: requiredStringArray(value, "profiles", path), examples: requiredStringArray(value, "examples", path), route: requiredString(value, "route", path),
+    profiles: requiredStringArray(value, "profiles", path), examples: requiredStringArray(value, "examples", path),
+    sections: validateReferenceSections(value.sections, `${path}.sections`), route: requiredString(value, "route", path),
     provenance: provenance as ContextModel["provenance"],
   };
 }
@@ -378,9 +471,19 @@ function validateAccessor(value: unknown, index: number): AccessorModel {
   const path = `accessors[${index}]`;
   const provenance = requiredString(value, "provenance", path);
   if (!["generated", "fixture"].includes(provenance)) throw new SiteModelValidationError(`${path}.provenance is not supported`);
+  const pageKind = requiredString(value, "pageKind", path);
+  if (!["class", "callable"].includes(pageKind)) throw new SiteModelValidationError(`${path}.pageKind is not supported`);
+  if (!isRecord(value.selection)) throw new SiteModelValidationError(`${path}.selection must be an object`);
   return {
     slug: requiredString(value, "slug", path), name: requiredString(value, "name", path), summary: requiredString(value, "summary", path),
-    inputs: requiredStringArray(value, "inputs", path), methods: requiredStringArray(value, "methods", path), route: requiredString(value, "route", path),
+    inputs: requiredStringArray(value, "inputs", path), methods: requiredStringArray(value, "methods", path),
+    pageKind: pageKind as AccessorModel["pageKind"],
+    selection: {
+      entry: requiredString(value.selection, "entry", `${path}.selection`),
+      question: requiredString(value.selection, "question", `${path}.selection`),
+      scenario: requiredString(value.selection, "scenario", `${path}.selection`),
+    },
+    sections: validateReferenceSections(value.sections, `${path}.sections`), route: requiredString(value, "route", path),
     provenance: provenance as AccessorModel["provenance"],
   };
 }
@@ -392,7 +495,7 @@ function validateVisualization(value: unknown, index: number): VisualizationMode
   if (!["generated", "fixture"].includes(provenance)) throw new SiteModelValidationError(`${path}.provenance is not supported`);
   return {
     slug: requiredString(value, "slug", path), name: requiredString(value, "name", path), summary: requiredString(value, "summary", path),
-    outputs: requiredStringArray(value, "outputs", path), route: requiredString(value, "route", path),
+    outputs: requiredStringArray(value, "outputs", path), sections: validateReferenceSections(value.sections, `${path}.sections`), route: requiredString(value, "route", path),
     provenance: provenance as VisualizationModel["provenance"],
   };
 }

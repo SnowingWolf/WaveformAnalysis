@@ -73,37 +73,106 @@
     },
     "plugin": {
       "type": "object", "additionalProperties": false,
-      "required": ["provides", "pluginClass", "version", "executionKind", "outputKind", "category", "summary", "dependsOn", "config", "fields", "usage", "route", "provenance"],
+      "required": ["provides", "pluginClass", "version", "executionKind", "outputKind", "category", "summary", "dependsOn", "config", "fields", "usage", "sections", "route", "provenance"],
       "properties": {
         "provides": { "type": "string", "minLength": 1 }, "pluginClass": { "type": "string", "minLength": 1 },
         "version": { "type": ["string", "null"] }, "executionKind": { "enum": ["static", "streaming", "unknown"] },
         "outputKind": { "type": "string", "minLength": 1 }, "category": { "type": "string", "minLength": 1 },
         "summary": { "type": "string", "minLength": 1 }, "dependsOn": { "type": "array", "items": { "type": "string" } },
         "config": { "type": "array", "items": { "$ref": "#/$defs/config" } }, "fields": { "type": "array", "items": { "$ref": "#/$defs/field" } },
-        "usage": { "type": "string" }, "route": { "$ref": "#/$defs/route" }, "provenance": { "enum": ["generated", "fixture"] }
+        "usage": { "type": "string" }, "sections": { "type": "array", "items": { "$ref": "#/$defs/reference-section" } },
+        "route": { "$ref": "#/$defs/route" }, "provenance": { "enum": ["generated", "fixture"] }
       }
     },
     "context": {
-      "type": "object", "additionalProperties": false, "required": ["slug", "name", "summary", "profiles", "examples", "route", "provenance"],
+      "type": "object", "additionalProperties": false, "required": ["slug", "name", "title", "eyebrow", "summary", "introduction", "profiles", "examples", "groups", "narrative_sections", "sections", "route", "provenance"],
       "properties": {
         "slug": { "type": "string", "minLength": 1 }, "name": { "type": "string", "minLength": 1 }, "summary": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 }, "eyebrow": { "type": "string", "minLength": 1 }, "introduction": { "type": "string", "minLength": 1 },
         "profiles": { "type": "array", "items": { "type": "string" } }, "examples": { "type": "array", "items": { "type": "string" } },
+        "groups": { "type": "array", "items": { "$ref": "#/$defs/callable-group" } },
+        "narrative_sections": { "type": "array", "items": { "$ref": "#/$defs/narrative-section" } },
+        "sections": { "type": "array", "items": { "$ref": "#/$defs/reference-section" } },
         "route": { "$ref": "#/$defs/route" }, "provenance": { "enum": ["generated", "fixture"] }
       }
     },
     "accessor": {
-      "type": "object", "additionalProperties": false, "required": ["slug", "name", "summary", "inputs", "methods", "route", "provenance"],
+      "type": "object", "additionalProperties": false, "required": ["slug", "name", "summary", "pageKind", "inputs", "methods", "sections", "selection", "route", "provenance"],
       "properties": {
         "slug": { "type": "string", "minLength": 1 }, "name": { "type": "string", "minLength": 1 }, "summary": { "type": "string", "minLength": 1 },
+        "pageKind": { "enum": ["class", "callable"] },
         "inputs": { "type": "array", "items": { "type": "string" } }, "methods": { "type": "array", "items": { "type": "string" } },
+        "module_path": { "type": "string" }, "introduction": { "type": "string" }, "purpose": { "type": "string" }, "example": { "type": "string" },
+        "constructor_signature": { "type": "string" }, "constructor_parameters": { "type": "array", "items": { "$ref": "#/$defs/parameter" } },
+        "members": { "type": "array", "items": { "$ref": "#/$defs/callable-member" } },
+        "overview_title": { "type": "string" }, "overview_blocks": { "type": "array", "items": { "$ref": "#/$defs/content-block" } },
+        "title": { "type": "string" }, "eyebrow": { "type": "string" },
+        "profiles": { "type": "array", "items": { "type": "string" } }, "examples": { "type": "array", "items": { "type": "string" } },
+        "groups": { "type": "array", "items": { "$ref": "#/$defs/callable-group" } },
+        "narrative_sections": { "type": "array", "items": { "$ref": "#/$defs/narrative-section" } },
+        "sections": { "type": "array", "items": { "$ref": "#/$defs/reference-section" } },
+        "selection": {
+          "type": "object", "additionalProperties": false, "required": ["entry", "question", "scenario"],
+          "properties": { "entry": { "type": "string", "minLength": 1 }, "question": { "type": "string", "minLength": 1 }, "scenario": { "type": "string", "minLength": 1 } }
+        },
         "route": { "$ref": "#/$defs/route" }, "provenance": { "enum": ["generated", "fixture"] }
       }
     },
     "visualization": {
-      "type": "object", "additionalProperties": false, "required": ["slug", "name", "summary", "outputs", "route", "provenance"],
+      "type": "object", "additionalProperties": false, "required": ["slug", "name", "title", "eyebrow", "summary", "introduction", "profiles", "examples", "groups", "narrative_sections", "sections", "outputs", "route", "provenance"],
       "properties": {
         "slug": { "type": "string", "minLength": 1 }, "name": { "type": "string", "minLength": 1 }, "summary": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 }, "eyebrow": { "type": "string", "minLength": 1 }, "introduction": { "type": "string", "minLength": 1 },
+        "profiles": { "type": "array", "items": { "type": "string" } }, "examples": { "type": "array", "items": { "type": "string" } },
+        "groups": { "type": "array", "items": { "$ref": "#/$defs/callable-group" } },
+        "narrative_sections": { "type": "array", "items": { "$ref": "#/$defs/narrative-section" } },
+        "sections": { "type": "array", "items": { "$ref": "#/$defs/reference-section" } },
         "outputs": { "type": "array", "items": { "type": "string" } }, "route": { "$ref": "#/$defs/route" }, "provenance": { "enum": ["generated", "fixture"] }
+      }
+    },
+    "parameter": {
+      "type": "object", "additionalProperties": false, "required": ["name", "description"],
+      "properties": { "name": { "type": "string", "minLength": 1 }, "description": { "type": "string" } }
+    },
+    "callable-member": {
+      "type": "object", "additionalProperties": false, "required": ["name", "kind", "signature", "description", "parameters", "returns", "notes", "example"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 }, "kind": { "type": "string", "minLength": 1 }, "signature": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" }, "parameters": { "type": "array", "items": { "$ref": "#/$defs/parameter" } },
+        "returns": { "type": "string" }, "notes": { "type": "array", "items": { "type": "string" } }, "example": { "type": "string" }
+      }
+    },
+    "callable-group": {
+      "type": "object", "additionalProperties": false, "required": ["anchor", "title", "description", "members"],
+      "properties": {
+        "anchor": { "type": "string", "minLength": 1 }, "title": { "type": "string", "minLength": 1 }, "description": { "type": "string" },
+        "members": { "type": "array", "items": { "$ref": "#/$defs/callable-member" } }
+      }
+    },
+    "narrative-section": {
+      "type": "object", "additionalProperties": false, "required": ["anchor", "title", "blocks"],
+      "properties": {
+        "anchor": { "type": "string", "minLength": 1 }, "title": { "type": "string", "minLength": 1 },
+        "blocks": { "type": "array", "items": { "$ref": "#/$defs/content-block" } }
+      }
+    },
+    "reference-section": {
+      "type": "object", "additionalProperties": false, "required": ["id", "title", "blocks"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 }, "title": { "type": "string", "minLength": 1 },
+        "blocks": { "type": "array", "items": { "$ref": "#/$defs/content-block" } }
+      }
+    },
+    "content-block": {
+      "type": "object", "additionalProperties": false, "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["paragraph", "heading", "list", "note", "code", "image", "mathml", "mermaid", "table"] },
+        "text": { "type": "string" }, "items": { "type": "array", "items": { "type": "string" } }, "ordered": { "type": "boolean" },
+        "heading_level": { "type": "integer", "enum": [3, 4] }, "title": { "type": "string" }, "tone": { "type": "string" },
+        "code": { "type": "string" }, "language": { "type": "string" }, "image_src": { "type": "string" }, "image_alt": { "type": "string" },
+        "image_caption": { "type": "string" }, "mathml": { "type": "string" }, "mermaid": { "type": "string" },
+        "table_headers": { "type": "array", "items": { "type": "string" } },
+        "table_rows": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } }
       }
     },
     "guide-section": {

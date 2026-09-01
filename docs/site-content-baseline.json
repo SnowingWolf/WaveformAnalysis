@@ -1,0 +1,1606 @@
+{
+  "description": "Migration coverage baseline captured from the pre-Next rich reference catalog. Required routes, sections, API members, plugin fields, and block-kind minima must remain present unless this baseline is deliberately reviewed and updated.",
+  "pages": [
+    {
+      "kind": "accessor",
+      "minimum_blocks": {
+        "code": 11,
+        "heading": 27,
+        "list": 9,
+        "note": 1,
+        "paragraph": 29,
+        "table": 10
+      },
+      "required_config": [],
+      "required_fields": [],
+      "required_members": [
+        "clear_waveform_cache",
+        "get_channels",
+        "get_hits",
+        "get_merged_hits",
+        "get_sum_waveform",
+        "plot"
+      ],
+      "required_sections": [
+        "overview",
+        "quickstart",
+        "constructor",
+        "channel-identification",
+        "data-loading",
+        "waveform-semantics",
+        "members"
+      ],
+      "route": "/accessors/peak-channel-accessor/",
+      "title": "PeakChannelAccessor"
+    },
+    {
+      "kind": "accessor",
+      "minimum_blocks": {
+        "code": 12,
+        "heading": 26,
+        "list": 6,
+        "mermaid": 2,
+        "note": 3,
+        "paragraph": 20,
+        "table": 8
+      },
+      "required_config": [],
+      "required_fields": [],
+      "required_members": [
+        "RecordsView",
+        "get_wave_pool_view",
+        "query_time_window",
+        "records_view",
+        "signals",
+        "waves"
+      ],
+      "required_sections": [
+        "overview",
+        "data-model",
+        "downstream-access",
+        "shared-cache",
+        "input-routing",
+        "ownership",
+        "construction",
+        "wave-access",
+        "signal-access",
+        "time-query"
+      ],
+      "route": "/accessors/records-view/",
+      "title": "RecordsView"
+    },
+    {
+      "kind": "accessor",
+      "minimum_blocks": {
+        "code": 17,
+        "heading": 37,
+        "list": 4,
+        "note": 3,
+        "paragraph": 30,
+        "table": 12
+      },
+      "required_config": [],
+      "required_fields": [],
+      "required_members": [
+        "clear_cache",
+        "mask",
+        "pair",
+        "pair_waveforms",
+        "pairs",
+        "pairs_for_s1",
+        "pairs_for_s2",
+        "plot",
+        "plot_s2_candidates",
+        "positions",
+        "release_layer",
+        "waveform"
+      ],
+      "required_sections": [
+        "overview",
+        "quickstart",
+        "constructor",
+        "pair-sources",
+        "filtering-semantics",
+        "waveforms-positions",
+        "cache-release",
+        "members"
+      ],
+      "route": "/accessors/s1-s2-pair-accessor/",
+      "title": "S1S2PairAccessor"
+    },
+    {
+      "kind": "context",
+      "minimum_blocks": {
+        "code": 24,
+        "heading": 48,
+        "list": 3,
+        "paragraph": 30,
+        "table": 9
+      },
+      "required_config": [],
+      "required_fields": [],
+      "required_members": [
+        "Context.get_adapter_info",
+        "Context.get_resolved_config",
+        "DAQAdapter",
+        "DirectoryLayout",
+        "FormatSpec",
+        "GenericCSVReader",
+        "get_adapter",
+        "get_adapter_v1725",
+        "get_adapter_vx2730",
+        "list_adapters",
+        "register_adapter",
+        "register_format"
+      ],
+      "required_sections": [
+        "overview",
+        "recommended-workflow",
+        "core-abstractions",
+        "complete-adapter",
+        "registry",
+        "builtin-adapters"
+      ],
+      "route": "/adapters/adapter/",
+      "title": "DAQ 适配器"
+    },
+    {
+      "kind": "context",
+      "minimum_blocks": {
+        "code": 47,
+        "heading": 133,
+        "list": 9,
+        "mermaid": 1,
+        "note": 1,
+        "paragraph": 89,
+        "table": 37
+      },
+      "required_config": [],
+      "required_fields": [],
+      "required_members": [
+        "Context",
+        "analyze_cache",
+        "analyze_dependencies",
+        "auto_extract_epoch",
+        "build_time_index",
+        "cache_stats",
+        "clear_cache_for",
+        "clear_config_cache",
+        "clear_performance_caches",
+        "clone",
+        "create_context_factory",
+        "diagnose_cache",
+        "discover_and_register_plugins",
+        "from_config_json",
+        "get_adapter_info",
+        "get_config",
+        "get_config_value",
+        "get_data",
+        "get_data_time_range_absolute",
+        "get_epoch",
+        "get_lineage",
+        "get_performance_report",
+        "get_plugin",
+        "get_plugin_run_config",
+        "get_resolved_config",
+        "get_run_config",
+        "get_run_hardware_channels",
+        "help",
+        "key_for",
+        "list_plugin_configs",
+        "list_provided_data",
+        "plot_lineage",
+        "preview_execution",
+        "register",
+        "resolve_dependencies",
+        "set_config",
+        "set_epoch",
+        "show_config",
+        "show_resolved_config",
+        "time_range",
+        "validate_run_config"
+      ],
+      "required_sections": [
+        "overview",
+        "execution-framework",
+        "initialization",
+        "configuration",
+        "data-access",
+        "dag-and-execution",
+        "cache-diagnostics"
+      ],
+      "route": "/contexts/context/",
+      "title": "Context"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 3,
+        "table": 4
+      },
+      "required_config": [
+        "area_range",
+        "batch_size",
+        "channel_config",
+        "compute_max_abs_diff",
+        "fixed_baseline",
+        "height_range",
+        "use_filtered",
+        "wave_source"
+      ],
+      "required_fields": [
+        "amp",
+        "area",
+        "board",
+        "channel",
+        "height",
+        "max_abs_diff",
+        "record_id",
+        "timestamp"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/basic_features/",
+      "title": "basic_features"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 3,
+        "paragraph": 4,
+        "table": 3
+      },
+      "required_config": [
+        "compressed_only",
+        "data_name",
+        "export_format",
+        "export_name",
+        "export_path",
+        "include_diagnostics",
+        "include_entries",
+        "include_metadata",
+        "max_age_days",
+        "max_entries",
+        "max_size_bytes",
+        "min_age_days",
+        "min_size_bytes",
+        "scan_all_runs",
+        "verbose"
+      ],
+      "required_fields": [],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/cache_analysis/",
+      "title": "cache_analysis"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 3,
+        "table": 4
+      },
+      "required_config": [
+        "gain_adc_per_pe",
+        "use_filtered",
+        "wave_source"
+      ],
+      "required_fields": [],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/df/",
+      "title": "df"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 3,
+        "table": 4
+      },
+      "required_config": [
+        "time_window_ns"
+      ],
+      "required_fields": [],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/df_events/",
+      "title": "df_events"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 3,
+        "paragraph": 5,
+        "table": 3
+      },
+      "required_config": [],
+      "required_fields": [],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/df_paired/",
+      "title": "df_paired"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 3,
+        "paragraph": 9,
+        "table": 4
+      },
+      "required_config": [
+        "s1_energy_scale",
+        "s2_energy_scale"
+      ],
+      "required_fields": [
+        "drift_time_ns",
+        "energy_chi2",
+        "energy_goodness",
+        "energy_ndf",
+        "event_id",
+        "flags",
+        "pair_id",
+        "s1_area",
+        "s1_energy",
+        "s1_energy_err",
+        "s1_energy_fraction",
+        "s1_method",
+        "s1_n_channels",
+        "s1_peak_id",
+        "s2_area",
+        "s2_energy",
+        "s2_energy_err",
+        "s2_method",
+        "s2_n_channels",
+        "s2_peak_id",
+        "total_energy",
+        "total_energy_err"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/energy_reconstruction/",
+      "title": "energy_reconstruction"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 3,
+        "paragraph": 9,
+        "table": 4
+      },
+      "required_config": [
+        "fiducial_radius",
+        "fiducial_z_range",
+        "min_s1",
+        "min_s2"
+      ],
+      "required_fields": [
+        "drift_time_ns",
+        "event_id",
+        "event_number",
+        "flags",
+        "log10_s2_s1",
+        "n_s1_candidates_for_s2",
+        "n_s2_candidates_for_s1",
+        "pair_id",
+        "r",
+        "run_id",
+        "s1_area",
+        "s1_area_fraction_top",
+        "s1_n_channels",
+        "s1_peak_id",
+        "s1_rise_time",
+        "s1_time",
+        "s2_area",
+        "s2_area_fraction_top",
+        "s2_n_channels",
+        "s2_peak_id",
+        "s2_rise_time",
+        "s2_time",
+        "x",
+        "y",
+        "z"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/events/",
+      "title": "events"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 5,
+        "table": 4
+      },
+      "required_config": [
+        "batch_size",
+        "channel_config",
+        "filter_order",
+        "filter_type",
+        "fs",
+        "highcut",
+        "lowcut",
+        "max_workers",
+        "sg_poly_order",
+        "sg_window_size"
+      ],
+      "required_fields": [
+        "baseline",
+        "baseline_upstream",
+        "board",
+        "channel",
+        "dt",
+        "event_length",
+        "polarity",
+        "record_id",
+        "timestamp",
+        "wave"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/filtered_waveforms/",
+      "title": "filtered_waveforms"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 4,
+        "table": 4
+      },
+      "required_config": [
+        "chunk_size",
+        "distance",
+        "dt",
+        "height",
+        "height_method",
+        "height_window_extension",
+        "n_workers",
+        "parallel",
+        "parallel_min_events",
+        "prominence",
+        "threshold",
+        "use_derivative",
+        "use_filtered",
+        "wave_source",
+        "width"
+      ],
+      "required_fields": [
+        "board",
+        "channel",
+        "dt",
+        "edge_end",
+        "edge_start",
+        "height",
+        "integral",
+        "position",
+        "record_id",
+        "timestamp"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/hit/",
+      "title": "hit"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 3,
+        "paragraph": 4,
+        "table": 4
+      },
+      "required_config": [
+        "dt",
+        "time_window_ns"
+      ],
+      "required_fields": [],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/hit_grouped/",
+      "title": "hit_grouped"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 3,
+        "paragraph": 5,
+        "table": 3
+      },
+      "required_config": [],
+      "required_fields": [
+        "cluster_index",
+        "hit_index"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/hit_merge_clusters/",
+      "title": "hit_merge_clusters"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 6,
+        "list": 4,
+        "mermaid": 1,
+        "paragraph": 6,
+        "table": 4
+      },
+      "required_config": [
+        "dt",
+        "max_total_width_ns",
+        "merge_gap_ns"
+      ],
+      "required_fields": [
+        "board",
+        "channel",
+        "component_count",
+        "component_offset",
+        "dt",
+        "is_single_record",
+        "merged_id",
+        "position",
+        "record_id",
+        "sample_end",
+        "sample_start",
+        "time_end",
+        "time_start",
+        "timestamp",
+        "width"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/hit_merged/",
+      "title": "hit_merged"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 3,
+        "table": 4
+      },
+      "required_config": [
+        "validate_components"
+      ],
+      "required_fields": [
+        "hit_index",
+        "merged_index"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/hit_merged_components/",
+      "title": "hit_merged_components"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 3,
+        "table": 4
+      },
+      "required_config": [
+        "clip_negative_signal",
+        "dt",
+        "feature_num_threads",
+        "gain_adc_per_pe",
+        "log_feature_diagnostics",
+        "normalize_to_pe",
+        "use_filtered",
+        "wave_source"
+      ],
+      "required_fields": [
+        "area",
+        "area_pe",
+        "board",
+        "center_time",
+        "channel",
+        "fall_time",
+        "height",
+        "height_pe",
+        "max_time",
+        "merged_index",
+        "n_hits",
+        "record_id",
+        "rise_time",
+        "time_end",
+        "time_start",
+        "valid",
+        "width"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/hit_merged_features/",
+      "title": "hit_merged_features"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 4,
+        "table": 4
+      },
+      "required_config": [
+        "asymmetry_cut_enabled",
+        "backend",
+        "channel_config",
+        "channel_role_cut_enabled",
+        "chunk_parallel",
+        "dt",
+        "left_extension",
+        "n_workers",
+        "parallel_chunk_size",
+        "parallel_min_records",
+        "right_extension",
+        "streaming_chunk_size",
+        "threshold",
+        "use_filtered",
+        "wave_source"
+      ],
+      "required_fields": [
+        "board",
+        "channel",
+        "dt",
+        "edge_end",
+        "edge_start",
+        "position",
+        "record_id",
+        "timestamp",
+        "width"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/hit_threshold/",
+      "title": "hit_threshold"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 5,
+        "table": 4
+      },
+      "required_config": [
+        "default_label",
+        "priority_order",
+        "s1_s2_selection",
+        "s1_selection",
+        "s2_selection",
+        "strict"
+      ],
+      "required_fields": [
+        "label",
+        "peak_id"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/peak_classification/",
+      "title": "peak_classification"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 3,
+        "table": 4
+      },
+      "required_config": [
+        "clip_negative_signal",
+        "use_filtered",
+        "wave_source"
+      ],
+      "required_fields": [
+        "area",
+        "area_fraction",
+        "board",
+        "channel",
+        "height",
+        "n_hits",
+        "peaklet_id"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/peaklet_channels/",
+      "title": "peaklet_channels"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 3,
+        "table": 4
+      },
+      "required_config": [
+        "dt",
+        "max_total_width_ns",
+        "time_window_ns"
+      ],
+      "required_fields": [
+        "merged_index",
+        "peak_id"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/peaklet_components/",
+      "title": "peaklet_components"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 4,
+        "table": 3
+      },
+      "required_config": [],
+      "required_fields": [
+        "area",
+        "center_time",
+        "fall_time",
+        "height",
+        "peak_id",
+        "range_90p_area",
+        "rise_time",
+        "rise_time_10_50",
+        "time_end",
+        "time_peak",
+        "time_start",
+        "width",
+        "width_25_75"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/peaklet_features/",
+      "title": "peaklet_features"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 4,
+        "table": 3
+      },
+      "required_config": [],
+      "required_fields": [
+        "value"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/peaklet_waveform_pool/",
+      "title": "peaklet_waveform_pool"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 6,
+        "list": 4,
+        "mermaid": 1,
+        "paragraph": 3,
+        "table": 4
+      },
+      "required_config": [
+        "clip_negative_signal",
+        "debug_numba",
+        "log_waveform_diagnostics",
+        "n_workers",
+        "parallel_threshold",
+        "use_filtered"
+      ],
+      "required_fields": [
+        "dt",
+        "peak_id",
+        "time_end",
+        "time_start",
+        "wave_length",
+        "wave_offset"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/peaklet_waveforms/",
+      "title": "peaklet_waveforms"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 5,
+        "table": 4
+      },
+      "required_config": [
+        "dt",
+        "max_total_width_ns",
+        "time_window_ns"
+      ],
+      "required_fields": [
+        "center_time",
+        "component_count",
+        "component_offset",
+        "n_channels",
+        "n_hits",
+        "time_end",
+        "time_start"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/peaklets/",
+      "title": "peaklets"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 6,
+        "table": 3
+      },
+      "required_config": [],
+      "required_fields": [
+        "area",
+        "center_time",
+        "fall_time",
+        "height",
+        "n_channels",
+        "n_hits",
+        "peak_id",
+        "range_90p_area",
+        "rise_time",
+        "rise_time_10_50",
+        "time_end",
+        "time_peak",
+        "time_start",
+        "width",
+        "width_25_75"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/peaks/",
+      "title": "peaks"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 9,
+        "table": 4
+      },
+      "required_config": [
+        "detector_radius_mm",
+        "drift_velocity",
+        "edge_threshold_mm",
+        "min_s2_area_for_xy"
+      ],
+      "required_fields": [
+        "drift_time_ns",
+        "event_id",
+        "flags",
+        "pair_id",
+        "position_goodness",
+        "r",
+        "s1_peak_id",
+        "s2_area",
+        "s2_n_channels",
+        "s2_peak_id",
+        "x",
+        "x_err",
+        "xy_chi2",
+        "xy_method",
+        "xy_ndf",
+        "y",
+        "y_err",
+        "z",
+        "z_err",
+        "z_method",
+        "z_quality"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/position_reconstruction/",
+      "title": "position_reconstruction"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 3,
+        "table": 3
+      },
+      "required_config": [
+        "daq_adapter",
+        "data_root"
+      ],
+      "required_fields": [],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/raw_files/",
+      "title": "raw_files"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 5,
+        "table": 4
+      },
+      "required_config": [
+        "baseline_samples",
+        "channel_executor",
+        "channel_workers",
+        "chunksize",
+        "daq_adapter",
+        "dt",
+        "input_source",
+        "keep_on_disk",
+        "memory_budget_gb",
+        "n_jobs",
+        "parse_engine",
+        "records_part_size",
+        "use_process_pool",
+        "v1725_part_size"
+      ],
+      "required_fields": [
+        "baseline",
+        "baseline_upstream",
+        "board",
+        "channel",
+        "dt",
+        "event_length",
+        "flags",
+        "pid",
+        "polarity",
+        "record_id",
+        "time",
+        "timestamp",
+        "trigger_type",
+        "wave_offset"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/records/",
+      "title": "records"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 3,
+        "table": 4
+      },
+      "required_config": [
+        "asymmetry_chunk_size",
+        "asymmetry_cut_min",
+        "asymmetry_num_threads",
+        "asymmetry_parallel",
+        "asymmetry_polarity_mode"
+      ],
+      "required_fields": [
+        "value"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/records_asymmetry_mask/",
+      "title": "records_asymmetry_mask"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 3,
+        "paragraph": 4,
+        "table": 4
+      },
+      "required_config": [
+        "channel_config"
+      ],
+      "required_fields": [
+        "value"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/records_detector_mask/",
+      "title": "records_detector_mask"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 3,
+        "paragraph": 6,
+        "table": 4
+      },
+      "required_config": [
+        "channel_config"
+      ],
+      "required_fields": [
+        "value"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/records_veto_mask/",
+      "title": "records_veto_mask"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 7,
+        "table": 4
+      },
+      "required_config": [
+        "allow_orphan_s1",
+        "allow_orphan_s2",
+        "max_drift_time",
+        "min_drift_time",
+        "min_s1_area",
+        "min_s2_area",
+        "time_field"
+      ],
+      "required_fields": [
+        "delta_score_to_next_best",
+        "drift_time",
+        "drift_time_ns",
+        "flags",
+        "log10_s2_s1",
+        "n_s1_candidates_for_s2",
+        "n_s2_candidates_for_s1",
+        "pair_id",
+        "rank_for_s1",
+        "rank_for_s2",
+        "s1_area",
+        "s1_index",
+        "s1_n_channels",
+        "s1_peak_id",
+        "s1_time",
+        "s1_width",
+        "s2_area",
+        "s2_index",
+        "s2_n_channels",
+        "s2_peak_id",
+        "s2_time",
+        "s2_width",
+        "score_ambiguity",
+        "score_pattern",
+        "score_ratio",
+        "score_s1_quality",
+        "score_s2_quality",
+        "score_time",
+        "score_total",
+        "selected"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/s1_s2_pair_candidates/",
+      "title": "s1_s2_pair_candidates"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 6,
+        "table": 4
+      },
+      "required_config": [
+        "close_competitor_threshold",
+        "require_s2_larger_than_s1",
+        "selection_mode"
+      ],
+      "required_fields": [
+        "delta_score_to_next_best",
+        "drift_time",
+        "drift_time_ns",
+        "flags",
+        "log10_s2_s1",
+        "n_s1_candidates_for_s2",
+        "n_s2_candidates_for_s1",
+        "pair_id",
+        "rank_for_s1",
+        "rank_for_s2",
+        "s1_area",
+        "s1_index",
+        "s1_n_channels",
+        "s1_peak_id",
+        "s1_time",
+        "s1_width",
+        "s2_area",
+        "s2_index",
+        "s2_n_channels",
+        "s2_peak_id",
+        "s2_time",
+        "s2_width",
+        "score_ambiguity",
+        "score_pattern",
+        "score_ratio",
+        "score_s1_quality",
+        "score_s2_quality",
+        "score_time",
+        "score_total",
+        "selected"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/s1_s2_pairs/",
+      "title": "s1_s2_pairs"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 4,
+        "table": 4
+      },
+      "required_config": [
+        "baseline_samples",
+        "chunksize",
+        "daq_adapter",
+        "dt",
+        "n_jobs",
+        "parse_engine",
+        "streaming_mode",
+        "use_process_pool",
+        "use_upstream_baseline",
+        "wave_length"
+      ],
+      "required_fields": [
+        "baseline",
+        "baseline_upstream",
+        "board",
+        "channel",
+        "dt",
+        "event_length",
+        "polarity",
+        "record_id",
+        "timestamp",
+        "wave"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/st_waveforms/",
+      "title": "st_waveforms"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 4,
+        "paragraph": 5,
+        "table": 4
+      },
+      "required_config": [
+        "baseline_samples",
+        "channel_executor",
+        "channel_workers",
+        "chunksize",
+        "daq_adapter",
+        "dt",
+        "input_source",
+        "keep_on_disk",
+        "memory_budget_gb",
+        "n_jobs",
+        "parse_engine",
+        "records_part_size",
+        "use_process_pool",
+        "v1725_part_size"
+      ],
+      "required_fields": [
+        "value"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/wave_pool/",
+      "title": "wave_pool"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 3,
+        "paragraph": 4,
+        "table": 4
+      },
+      "required_config": [
+        "batch_size",
+        "channel_config",
+        "filter_order",
+        "filter_type",
+        "fs",
+        "highcut",
+        "lowcut",
+        "max_workers",
+        "sg_poly_order",
+        "sg_window_size"
+      ],
+      "required_fields": [
+        "value"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/wave_pool_filtered/",
+      "title": "wave_pool_filtered"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 3,
+        "paragraph": 6,
+        "table": 4
+      },
+      "required_config": [
+        "fall_high",
+        "fall_low",
+        "interpolation",
+        "rise_high",
+        "rise_low",
+        "sampling_rate",
+        "use_filtered"
+      ],
+      "required_fields": [
+        "board",
+        "channel",
+        "fall_time",
+        "fall_time_samples",
+        "peak_height",
+        "peak_position",
+        "record_id",
+        "rise_time",
+        "rise_time_samples",
+        "timestamp",
+        "total_width",
+        "total_width_samples"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/waveform_width/",
+      "title": "waveform_width"
+    },
+    {
+      "kind": "plugin",
+      "minimum_blocks": {
+        "code": 1,
+        "heading": 5,
+        "list": 3,
+        "paragraph": 5,
+        "table": 4
+      },
+      "required_config": [
+        "dt",
+        "q_high",
+        "q_low",
+        "sampling_rate",
+        "use_filtered",
+        "wave_source"
+      ],
+      "required_fields": [
+        "board",
+        "channel",
+        "q_total",
+        "record_id",
+        "t_high",
+        "t_high_samples",
+        "t_low",
+        "t_low_samples",
+        "timestamp",
+        "width",
+        "width_samples"
+      ],
+      "required_members": [],
+      "required_sections": [
+        "overview",
+        "configuration",
+        "output",
+        "usage"
+      ],
+      "route": "/plugins/waveform_width_integral/",
+      "title": "waveform_width_integral"
+    },
+    {
+      "kind": "visualization",
+      "minimum_blocks": {
+        "code": 4,
+        "heading": 9,
+        "list": 2,
+        "note": 2,
+        "paragraph": 10,
+        "table": 3
+      },
+      "required_config": [],
+      "required_fields": [],
+      "required_members": [
+        "render_position_dashboard_2d",
+        "render_position_dashboard_with_2d_hist"
+      ],
+      "required_sections": [
+        "overview",
+        "input-contract",
+        "usage-and-output",
+        "compatibility",
+        "position-dashboard-api"
+      ],
+      "route": "/visualizations/position-dashboard/",
+      "title": "位置二维 Dashboard"
+    },
+    {
+      "kind": "visualization",
+      "minimum_blocks": {
+        "code": 4,
+        "heading": 13,
+        "list": 3,
+        "paragraph": 8,
+        "table": 3
+      },
+      "required_config": [],
+      "required_fields": [],
+      "required_members": [
+        "corner_hist",
+        "plot_1d_cut_on_corner",
+        "plot_2d_cut_on_corner"
+      ],
+      "required_sections": [
+        "overview",
+        "statistical-plots"
+      ],
+      "route": "/visualizations/statistical-plots/",
+      "title": "统计图"
+    },
+    {
+      "kind": "visualization",
+      "minimum_blocks": {
+        "code": 6,
+        "heading": 14,
+        "list": 2,
+        "paragraph": 8,
+        "table": 3
+      },
+      "required_config": [],
+      "required_fields": [],
+      "required_members": [
+        "create_peak_plotter",
+        "plot_peak_channels_with_sum",
+        "plot_waveforms"
+      ],
+      "required_sections": [
+        "overview",
+        "waveform-plots"
+      ],
+      "route": "/visualizations/waveform-plots/",
+      "title": "波形图"
+    }
+  ],
+  "schema": "site-rich-content-baseline/v1"
+}

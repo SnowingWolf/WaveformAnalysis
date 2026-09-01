@@ -27,7 +27,8 @@ mappings:
   - from: /contexts/context.html
     to: /contexts/context/
   - from: /contexts/records-view.html
-    to: /contexts/records-view/
+    to: /accessors/records-view/
+    note: RecordsView 现作为 records-backed Accessor 统一收录。
   - from: /adapters/adapter.html
     to: /adapters/adapter/
   - from: /plugins/guides.html
@@ -46,6 +47,8 @@ mappings:
     to: /accessors/peak-channel-accessor/
   - from: /accessors/s1-s2-pair-accessor.html
     to: /accessors/s1-s2-pair-accessor/
+  - from: /accessors/records-view.html
+    to: /accessors/records-view/
   - from: /architecture/index.html
     to: /architecture/
   - from: /architecture/system.html
@@ -198,7 +201,7 @@ mappings:
   - from: /plugins/authoring.html
     to: /plugins/overview/
   - from: /contexts/records-wave-pool.html
-    to: /contexts/records-view/#data-model
+    to: /accessors/records-view/#data-model
   - from: /architecture/CONTEXT_PROCESSOR_WORKFLOW.html
     to: /contexts/context/#execution-framework
   - from: /features/advanced/EXECUTOR_MANAGER_GUIDE.html

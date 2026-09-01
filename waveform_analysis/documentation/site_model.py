@@ -309,7 +309,11 @@ def _serialize_callable_spec(spec: Any, *, section: str) -> dict[str, Any]:
         members: list[dict[str, Any]] = []
         for member in group.members:
             signature = str(inspect.signature(member.callable))
-            live_names = tuple(inspect.signature(member.callable).parameters)
+            live_names = tuple(
+                name
+                for name in inspect.signature(member.callable).parameters
+                if name not in {"self", "cls"}
+            )
             documented_names = tuple(parameter.name for parameter in member.parameters)
             if live_names != documented_names:
                 raise SiteModelError(
@@ -355,58 +359,306 @@ def _serialize_callable_spec(spec: Any, *, section: str) -> dict[str, Any]:
     }
 
 
-def _accessor_contract(spec: Any) -> dict[str, Any]:
-    """Build the compact Accessor facts consumed by the initial UI."""
+def _paragraph(text: Any) -> dict[str, Any]:
+    return {"kind": "paragraph", "text": str(text)}
 
-    methods = [str(member.name) for member in spec.members]
-    inputs = [str(parameter.name) for parameter in spec.constructor_parameters]
+
+def _heading(text: Any, level: int = 3) -> dict[str, Any]:
+    return {"kind": "heading", "text": str(text), "heading_level": level}
+
+
+def _code(code: Any, language: str = "python") -> dict[str, Any]:
+    return {"kind": "code", "code": str(code), "language": language}
+
+
+def _items(items: Iterable[Any], *, ordered: bool = False) -> dict[str, Any]:
+    return {"kind": "list", "items": [str(item) for item in items], "ordered": ordered}
+
+
+def _table(headers: Iterable[Any], rows: Iterable[Iterable[Any]]) -> dict[str, Any]:
     return {
-        "slug": str(spec.slug),
-        "name": str(spec.accessor_class.__name__),
-        "summary": _plain(spec.summary) or str(spec.accessor_class.__name__),
-        "inputs": inputs,
-        "methods": methods,
-        "route": canonical_route(f"/accessors/{spec.slug}"),
+        "kind": "table",
+        "table_headers": [str(header) for header in headers],
+        "table_rows": [[str(cell) for cell in row] for row in rows],
+    }
+
+
+def _member_blocks(member: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Project one reflected API member without dropping its public contract."""
+
+    blocks: list[dict[str, Any]] = [
+        _heading(member["name"]),
+        _code(member["signature"]),
+        _paragraph(member["description"]),
+    ]
+    parameters = list(member.get("parameters", []))
+    if parameters:
+        blocks.extend(
+            [
+                _heading("参数", 4),
+                _table(
+                    ("参数", "说明"),
+                    ((parameter["name"], parameter["description"]) for parameter in parameters),
+                ),
+            ]
+        )
+    if member.get("returns"):
+        blocks.extend([_heading("返回值", 4), _paragraph(member["returns"])])
+    if member.get("notes"):
+        blocks.extend([_heading("使用注意", 4), _items(member["notes"])])
+    if member.get("example"):
+        blocks.extend([_heading("示例", 4), _code(member["example"])])
+    return blocks
+
+
+def _accessor_sections(rich: Mapping[str, Any]) -> list[dict[str, Any]]:
+    overview = [_paragraph(rich["introduction"]), *rich["overview_blocks"]]
+    if not rich["overview_blocks"] and rich.get("purpose"):
+        overview.extend([_heading("适用场景"), _paragraph(rich["purpose"])])
+    sections: list[dict[str, Any]] = [
+        {"id": "overview", "title": rich["overview_title"], "blocks": overview},
+        {"id": "quickstart", "title": "快速开始", "blocks": [_code(rich["example"])]},
+        {
+            "id": "constructor",
+            "title": "构造器",
+            "blocks": [
+                _code(f"{rich['name']}{rich['constructor_signature']}"),
+                *(
+                    [
+                        _table(
+                            ("参数", "说明"),
+                            (
+                                (parameter["name"], parameter["description"])
+                                for parameter in rich["constructor_parameters"]
+                            ),
+                        )
+                    ]
+                    if rich["constructor_parameters"]
+                    else []
+                ),
+            ],
+        },
+    ]
+    sections.extend(
+        {
+            "id": narrative["anchor"],
+            "title": narrative["title"],
+            "blocks": narrative["blocks"],
+        }
+        for narrative in rich["narrative_sections"]
+    )
+    member_blocks: list[dict[str, Any]] = []
+    for member in rich["members"]:
+        member_blocks.extend(_member_blocks(member))
+    sections.append({"id": "members", "title": "公开成员", "blocks": member_blocks})
+    return sections
+
+
+def _callable_sections(rich: Mapping[str, Any]) -> list[dict[str, Any]]:
+    sections: list[dict[str, Any]] = [
+        {"id": "overview", "title": "整体介绍", "blocks": [_paragraph(rich["introduction"])]}
+    ]
+    sections.extend(
+        {
+            "id": narrative["anchor"],
+            "title": narrative["title"],
+            "blocks": narrative["blocks"],
+        }
+        for narrative in rich["narrative_sections"]
+    )
+    for group in rich["groups"]:
+        blocks: list[dict[str, Any]] = []
+        if group.get("description"):
+            blocks.append(_paragraph(group["description"]))
+        for member in group["members"]:
+            blocks.extend(_member_blocks(member))
+        sections.append({"id": group["anchor"], "title": group["title"], "blocks": blocks})
+    return sections
+
+
+def _accessor_contract(spec: Any) -> dict[str, Any]:
+    """Build list facts plus the complete curated Accessor reference."""
+
+    rich = _serialize_accessor_spec(spec)
+    return {
+        **rich,
+        "pageKind": "class",
+        "inputs": [str(parameter.name) for parameter in spec.constructor_parameters],
+        "methods": [str(member.name) for member in spec.members],
+        "sections": _accessor_sections(rich),
         "provenance": "generated",
     }
 
 
 def _callable_contract(spec: Any, *, section: str) -> dict[str, Any]:
-    groups = list(spec.groups)
-    profiles = [str(group.title) for group in groups]
-    examples = [
-        str(member.example)
-        for group in groups
-        for member in group.members
-        if getattr(member, "example", "")
-    ]
-    return {
-        "slug": str(spec.slug),
-        "name": str(spec.title),
-        "summary": _plain(spec.summary) or str(spec.title),
-        "profiles": profiles,
-        "examples": examples,
-        "route": canonical_route(f"/{section}/{spec.slug}"),
+    rich = _serialize_callable_spec(spec, section=section)
+    members = [member for group in rich["groups"] for member in group["members"]]
+    parameters = list(
+        dict.fromkeys(parameter["name"] for member in members for parameter in member["parameters"])
+    )
+    result = {
+        **rich,
+        "name": rich["title"],
+        "profiles": [group["title"] for group in rich["groups"]],
+        "examples": [member["example"] for member in members if member.get("example")],
+        "sections": _callable_sections(rich),
         "provenance": "generated",
     }
+    if section == "accessors":
+        result.update(
+            {
+                "pageKind": "callable",
+                "inputs": parameters,
+                "methods": [member["name"] for member in members],
+            }
+        )
+    return result
 
 
 def _visualization_contract(spec: Any) -> dict[str, Any]:
-    groups = list(spec.groups)
-    outputs = [
-        str(member.returns)
-        for group in groups
-        for member in group.members
-        if getattr(member, "returns", "")
+    result = _callable_contract(spec, section="visualizations")
+    result["outputs"] = [
+        member["returns"]
+        for group in result["groups"]
+        for member in group["members"]
+        if member.get("returns")
     ]
-    return {
-        "slug": str(spec.slug),
-        "name": str(spec.title),
-        "summary": _plain(spec.summary) or str(spec.title),
-        "outputs": outputs,
-        "route": canonical_route(f"/visualizations/{spec.slug}"),
-        "provenance": "generated",
-    }
+    return result
+
+
+def _plugin_sections(view: Any) -> list[dict[str, Any]]:
+    overview_blocks: list[dict[str, Any]] = []
+    overview = list(getattr(view, "overview_paragraphs", ()) or ())
+    if not overview and getattr(view, "overview", ""):
+        overview = [view.overview]
+    overview_blocks.extend(_paragraph(item) for item in overview)
+    status = getattr(view, "documentation_status", None)
+    overview_blocks.append(
+        _table(
+            ("项目", "值"),
+            (
+                ("插件类", getattr(view, "name", "")),
+                ("模块", getattr(view, "module_path", "")),
+                ("版本", getattr(view, "version", "")),
+                ("输出容器", getattr(view, "output_kind", "")),
+                ("执行模式", getattr(view, "execution_kind", "")),
+                ("保存策略", getattr(view, "save_when", "")),
+                ("运行配置", "yes" if getattr(view, "uses_run_config", False) else "no"),
+                ("超时", getattr(view, "timeout", None) or "none"),
+                ("副作用", "yes" if getattr(view, "is_side_effect", False) else "no"),
+                ("叙述来源", getattr(status, "source", "unknown") if status else "unknown"),
+                ("源码 fingerprint", getattr(view, "source_fingerprint", None) or "unavailable"),
+            ),
+        )
+    )
+    overview_blocks.extend(
+        [
+            _heading("依赖"),
+            _paragraph(f"默认画像：{getattr(view, 'dependency_profile', '') or 'default'}。"),
+        ]
+    )
+    dependencies = list(getattr(view, "resolved_dependency_details", ()) or ())
+    if dependencies:
+        overview_blocks.append(
+            _table(
+                ("依赖", "版本约束", "解析方式", "必需字段", "说明"),
+                (
+                    (
+                        dependency.name,
+                        dependency.version_constraint or "-",
+                        dependency.resolution,
+                        ", ".join(dependency.required_fields) or "-",
+                        dependency.description or "暂无生产者说明。",
+                    )
+                    for dependency in dependencies
+                ),
+            )
+        )
+    overview_blocks.append(_heading("工作方式"))
+    workflow_steps = list(getattr(view, "workflow_steps", ()) or ())
+    if workflow_steps:
+        overview_blocks.append(_items(workflow_steps, ordered=True))
+    workflow_diagram = str(getattr(view, "workflow_diagram", "") or "")
+    if workflow_diagram:
+        overview_blocks.extend(
+            [
+                _heading("处理流程图"),
+                {"kind": "mermaid", "mermaid": workflow_diagram},
+            ]
+        )
+
+    config_rows = [
+        (
+            option.name,
+            option.type,
+            option.default,
+            option.units or "-",
+            "是" if option.tracked else "否",
+            "是" if option.deprecated else "否",
+            getattr(view, "config_notes", {}).get(option.name, option.doc or "暂无说明。"),
+        )
+        for option in getattr(view, "config_options", ())
+    ]
+    config_blocks = (
+        [_table(("名称", "类型", "默认值", "单位", "跟踪", "弃用", "说明"), config_rows)]
+        if config_rows
+        else [_paragraph("此插件没有插件级配置。")]
+    )
+    fields = list(getattr(view, "output_fields", ()) or ())
+    output_blocks: list[dict[str, Any]] = []
+    if getattr(view, "output_summary", ""):
+        output_blocks.append(_paragraph(view.output_summary))
+    output_blocks.append(
+        _table(
+            ("字段", "DType", "单位", "含义"),
+            (
+                (
+                    (
+                        field.name,
+                        field.dtype,
+                        field.units or "-",
+                        field.doc
+                        or getattr(view, "field_notes", {}).get(field.name, "暂无字段说明。"),
+                    )
+                    for field in fields
+                )
+                if fields
+                else (
+                    (
+                        "容器",
+                        getattr(view, "output_kind", ""),
+                        "-",
+                        getattr(view, "output_summary", ""),
+                    ),
+                )
+            ),
+        )
+    )
+    usage_blocks: list[dict[str, Any]] = []
+    if getattr(view, "usage_example", ""):
+        usage_blocks.append(_code(view.usage_example))
+    notes = [
+        *list(getattr(view, "behavior_notes", ()) or ()),
+        *list(getattr(view, "execution_notes", ()) or ()),
+    ]
+    if notes:
+        usage_blocks.extend([_heading("行为与运行影响"), _items(notes)])
+    failure_modes = list(getattr(view, "failure_modes", ()) or ())
+    if failure_modes:
+        usage_blocks.extend([_heading("失败模式", 4), _items(failure_modes)])
+    consumers = list(getattr(view, "downstream_consumers", ()) or ())
+    usage_blocks.extend(
+        [
+            _heading("下游消费者", 4),
+            _items(consumers) if consumers else _paragraph("终端输出，没有声明直接的内置消费者。"),
+        ]
+    )
+    return [
+        {"id": "overview", "title": "概览", "blocks": overview_blocks},
+        {"id": "configuration", "title": "配置", "blocks": config_blocks},
+        {"id": "output", "title": "输出", "blocks": output_blocks},
+        {"id": "usage", "title": "使用", "blocks": usage_blocks},
+    ]
 
 
 def _plugin_record(view: Any) -> dict[str, Any]:
@@ -454,6 +706,7 @@ def _plugin_record(view: Any) -> dict[str, Any]:
         "config": config,
         "fields": fields,
         "usage": str(getattr(view, "usage_example", "") or ""),
+        "sections": _plugin_sections(view),
         "route": canonical_route(f"/plugins/{provides}"),
         "provenance": "generated",
     }
@@ -883,12 +1136,12 @@ def _register_route(routes: dict[str, dict[str, Any]], record: dict[str, Any]) -
         "/contexts/index/",
         "/contexts/",
         "/contexts/context/",
-        "/contexts/records-view/",
         "/adapters/adapter/",
         "/accessors/index/",
         "/accessors/",
         "/accessors/peak-channel-accessor/",
         "/accessors/s1-s2-pair-accessor/",
+        "/accessors/records-view/",
         "/visualizations/index/",
         "/visualizations/",
         "/plugins/",
@@ -936,12 +1189,25 @@ def build_site_model(
         )
 
     accessors = [_accessor_contract(spec) for spec in ACCESSOR_DOCUMENTATION_REGISTRY]
+    accessors.append(_callable_contract(RECORDS_VIEW_DOCUMENTATION_PAGE, section="accessors"))
+    selection_by_slug = {
+        item.slug: {
+            "entry": item.entry,
+            "question": item.question,
+            "scenario": item.scenario,
+        }
+        for item in ACCESSOR_SELECTION_GUIDE
+    }
+    for accessor in accessors:
+        try:
+            accessor["selection"] = selection_by_slug[accessor["slug"]]
+        except KeyError as exc:
+            raise SiteModelError(
+                f"Accessor selection guide is missing {accessor['slug']!r}"
+            ) from exc
     for accessor in accessors:
         _register_route(routes, _route_record(accessor["route"], "accessor", accessor["name"]))
-    context_specs = [
-        (CONTEXT_DOCUMENTATION_PAGE, "contexts"),
-        (RECORDS_VIEW_DOCUMENTATION_PAGE, "contexts"),
-    ]
+    context_specs = [(CONTEXT_DOCUMENTATION_PAGE, "contexts")]
     context_pages = [_callable_contract(spec, section=section) for spec, section in context_specs]
     adapter_pages = [_callable_contract(ADAPTER_DOCUMENTATION_PAGE, section="adapters")]
     visualization_pages = [
@@ -997,7 +1263,7 @@ def build_site_model(
 
     model: dict[str, Any] = {
         "schema": SITE_MODEL_VERSION,
-        "modelVersion": "1.0.0",
+        "modelVersion": "1.1.0",
         "project": {
             "name": "WaveformAnalysis",
             "version": _package_version(),

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import rawModel from "../fixture/site-model.v1.json";
 import { parseSiteModel, SiteModelValidationError } from "./site-model";
+import { searchEntries, searchResults } from "./search";
 
 describe("site-model/v1", () => {
   it("accepts the fixture and preserves the records contract", () => {
@@ -13,6 +14,29 @@ describe("site-model/v1", () => {
     expect(records?.route).toBe("/plugins/records/");
     expect(model.routes.some((route) => route.path === "/plugins/records/" && route.kind === "plugin")).toBe(true);
     expect(model.contexts.some((page) => page.slug === "context")).toBe(true);
+    expect(model.contexts.some((page) => page.slug === "records-view")).toBe(false);
+    const recordsView = model.accessors.find((page) => page.slug === "records-view");
+    expect(recordsView?.route).toBe("/accessors/records-view/");
+    expect(recordsView?.pageKind).toBe("callable");
+    expect(recordsView?.sections.map((section) => section.id)).toContain("wave-access");
+    expect(recordsView?.methods).toContain("waves");
+    const entries = searchEntries(model);
+    const recordsSearch = entries.find((entry) => entry.url === "/accessors/records-view/");
+    expect(recordsSearch?.kind).toBe("Accessor");
+    for (const keyword of [
+      "record_id",
+      "wave_pool",
+      "query_time_window",
+      "sample_start",
+      "sample_end",
+      "pad_to",
+      "baseline_correct",
+    ]) {
+      expect(recordsSearch?.keywords).toContain(keyword);
+      expect(searchResults(entries, keyword).some((entry) => entry.url === "/accessors/records-view/")).toBe(true);
+    }
+    expect(entries.reduce((size, entry) => size + entry.keywords.length, 0)).toBeLessThan(500_000);
+    expect(model.plugins.every((plugin) => plugin.sections.length === 4)).toBe(true);
     expect(model.routes.every((route) => !route.path.endsWith(".html"))).toBe(true);
   });
 

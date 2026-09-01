@@ -3,7 +3,7 @@
 import { StaticLink as Link } from "./StaticLink";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { SiteShellModel } from "@/lib/search";
+import { searchResults, type SiteShellModel } from "@/lib/search";
 import { iconNames, Icon, type IconName } from "./icons";
 
 export type TocItem = { id: string; label: string };
@@ -30,11 +30,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
 function SearchDialog({ model, onClose }: { model: SiteShellModel; onClose: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
-  const entries = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase();
-    if (!normalized) return model.search.slice(0, 8);
-    return model.search.filter((entry) => `${entry.title} ${entry.summary} ${entry.keywords}`.toLocaleLowerCase().includes(normalized)).slice(0, 12);
-  }, [model, query]);
+  const entries = useMemo(() => searchResults(model.search, query, query.trim() ? 12 : 8), [model, query]);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 

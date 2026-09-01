@@ -1,9 +1,18 @@
+from collections import Counter
+import inspect
 import json
 from pathlib import Path
 
 import pytest
 import yaml
 
+from waveform_analysis.documentation.site_docs.catalog import (
+    ACCESSOR_DOCUMENTATION_REGISTRY,
+    ADAPTER_DOCUMENTATION_PAGE,
+    CONTEXT_DOCUMENTATION_PAGE,
+    RECORDS_VIEW_DOCUMENTATION_PAGE,
+    VISUALIZATION_DOCUMENTATION_PAGES,
+)
 from waveform_analysis.documentation.site_model import (
     SITE_MODEL_SCHEMA_PATH,
     SITE_MODEL_VERSION,
@@ -13,6 +22,27 @@ from waveform_analysis.documentation.site_model import (
     canonical_route,
     validate_site_model,
 )
+
+
+def _assert_callable_page_is_complete(page, spec):
+    assert page["groups"]
+    assert page["sections"]
+    serialized = json.dumps(page["sections"], ensure_ascii=False)
+    serialized_groups = {group["anchor"]: group for group in page["groups"]}
+    for group in spec.groups:
+        members_by_name = {
+            member["name"]: member for member in serialized_groups[group.anchor]["members"]
+        }
+        for member in group.members:
+            assert member.name in serialized
+            serialized_member = members_by_name[member.name]
+            assert serialized_member["signature"] == str(inspect.signature(member.callable))
+            assert [parameter["name"] for parameter in serialized_member["parameters"]] == [
+                parameter.name for parameter in member.parameters
+            ]
+            if member.returns:
+                assert serialized_member["returns"] == member.returns
+                assert member.returns in serialized
 
 
 def test_site_model_v1_uses_real_plugin_and_guide_facts_without_html():
@@ -61,6 +91,106 @@ def test_site_model_builder_has_no_markdown_html_renderer():
     assert not hasattr(site_guides, "render_guide_manifest")
     model = build_site_model(Path(__file__).parents[1])
     assert model["guides"]
+
+
+def test_site_model_preserves_rich_reference_content_and_accessor_classification():
+    model = build_site_model(Path(__file__).parents[1])
+    accessors = {page["slug"]: page for page in model["accessors"]}
+    contexts = {page["slug"]: page for page in model["contexts"]}
+    visualizations = {page["slug"]: page for page in model["visualizations"]}
+
+    assert set(accessors) == {
+        *(spec.slug for spec in ACCESSOR_DOCUMENTATION_REGISTRY),
+        "records-view",
+    }
+    assert "records-view" not in contexts
+    records_view_page = accessors["records-view"]
+    assert records_view_page["route"] == "/accessors/records-view/"
+    assert records_view_page["pageKind"] == "callable"
+    assert records_view_page["selection"]["entry"] == "`record_id`"
+    assert set(records_view_page["methods"]) == {
+        member.name for group in RECORDS_VIEW_DOCUMENTATION_PAGE.groups for member in group.members
+    }
+    records_sections = {section["id"] for section in records_view_page["sections"]}
+    assert {"data-model", "wave-access", "shared-cache", "ownership"} <= records_sections
+
+    for spec in ACCESSOR_DOCUMENTATION_REGISTRY:
+        page = accessors[spec.slug]
+        assert page["pageKind"] == "class"
+        assert page["methods"] == [member.name for member in spec.members]
+        assert {section.anchor for section in spec.narrative_sections} <= {
+            section["id"] for section in page["sections"]
+        }
+        serialized = json.dumps(page["sections"], ensure_ascii=False)
+        assert all(member.name in serialized for member in spec.members)
+        assert all(member.returns in serialized for member in spec.members if member.returns)
+
+    context = contexts["context"]
+    assert len(context["groups"]) == len(CONTEXT_DOCUMENTATION_PAGE.groups)
+    assert sum(len(group["members"]) for group in context["groups"]) == sum(
+        len(group.members) for group in CONTEXT_DOCUMENTATION_PAGE.groups
+    )
+    _assert_callable_page_is_complete(context, CONTEXT_DOCUMENTATION_PAGE)
+    adapter = contexts["adapter"]
+    _assert_callable_page_is_complete(adapter, ADAPTER_DOCUMENTATION_PAGE)
+    _assert_callable_page_is_complete(records_view_page, RECORDS_VIEW_DOCUMENTATION_PAGE)
+    assert set(visualizations) == {spec.slug for spec in VISUALIZATION_DOCUMENTATION_PAGES}
+    for spec in VISUALIZATION_DOCUMENTATION_PAGES:
+        _assert_callable_page_is_complete(visualizations[spec.slug], spec)
+    assert all(
+        [section["id"] for section in plugin["sections"]]
+        == ["overview", "configuration", "output", "usage"]
+        for plugin in model["plugins"]
+    )
+
+
+def test_site_model_meets_pre_next_rich_content_coverage_baseline():
+    project_root = Path(__file__).parents[1]
+    model = build_site_model(project_root)
+    baseline = json.loads(
+        (project_root / "docs" / "site-content-baseline.json").read_text(encoding="utf-8")
+    )
+    assert baseline["schema"] == "site-rich-content-baseline/v1"
+
+    current_pages = {}
+    for kind, collection in (
+        ("plugin", model["plugins"]),
+        ("context", model["contexts"]),
+        ("accessor", model["accessors"]),
+        ("visualization", model["visualizations"]),
+    ):
+        for page in collection:
+            current_pages[page["route"]] = (kind, page)
+
+    baseline_routes = {entry["route"] for entry in baseline["pages"]}
+    assert baseline_routes == set(current_pages), "rich reference page inventory changed"
+    for expected in baseline["pages"]:
+        kind, page = current_pages[expected["route"]]
+        assert kind == expected["kind"]
+        assert set(expected["required_sections"]) <= {section["id"] for section in page["sections"]}
+
+        member_names = set(page.get("methods", [])) or {
+            member["name"] for group in page.get("groups", []) for member in group["members"]
+        }
+        assert set(expected["required_members"]) <= member_names
+        assert set(expected["required_config"]) <= {
+            entry["name"] for entry in page.get("config", [])
+        }
+        assert set(expected["required_fields"]) <= {
+            entry["name"] for entry in page.get("fields", [])
+        }
+
+        block_counts = Counter(
+            block["kind"] for section in page["sections"] for block in section["blocks"]
+        )
+        assert sum(expected["minimum_blocks"].values()) > 0
+        for block_kind, minimum in expected["minimum_blocks"].items():
+            assert block_counts[block_kind] >= minimum, (
+                expected["route"],
+                block_kind,
+                block_counts[block_kind],
+                minimum,
+            )
 
 
 def test_canonical_route_rejects_legacy_html_spelling():

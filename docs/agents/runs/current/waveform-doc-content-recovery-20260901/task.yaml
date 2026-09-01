@@ -1,0 +1,213 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: waveform-doc-content-recovery-20260901
+  generation: 4
+  created_at: '2026-09-01T11:36:10Z'
+  updated_at: '2026-09-01T12:38:02Z'
+spec:
+  goal: 恢复 Next.js 文档迁移中被 compact projection 丢弃的完整参考内容，重建 Accessor 选择卡片，并将 RecordsView/records_view
+    归入 Accessor 分类。
+  route: modify_code
+  workflow_cost: standard
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: 2fe4319151fe34ab33b0e7bb1f88dedeb9617cc0
+    allowed_paths:
+    - docs/site-next
+    - docs/site-guides.yaml
+    - docs/site-content-baseline.json
+    - docs/site-route-migration.yaml
+    - docs/cli/WAVEFORM_DOCS.md
+    - waveform_analysis/documentation/site_model.py
+    - waveform_analysis/documentation/site_docs/catalog.py
+    - waveform_analysis/documentation/schemas/SiteModel.schema.json
+    - waveform_analysis/documentation/site_dist
+    - tests/test_site_model.py
+    - tests/test_site_guides.py
+    - tests/test_cli_docs_site_publish.py
+    - tests/test_records_view_documentation.py
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/runs/current/waveform-doc-content-recovery-20260901/task.yaml
+  acceptance_criteria:
+  - Accessor、Context、Adapter、Visualization 与插件详情重新展示注册表中的完整叙事、签名、参数、返回值、注意事项、示例和表格。
+  - RecordsView 出现在 Accessor 索引、导航与搜索中，并使用 /accessors/records-view/ 路由。
+  - 旧站点丰富内容与当前 site-model 的覆盖差异有自动化 gate，避免再次退化为摘要页。
+  - Next 类型检查、单元测试、静态导出、文档同步、锚点与桌面/移动浏览器检查通过。
+  required_gates:
+  - site_model_tests
+  - next_typecheck
+  - next_unit_tests
+  - next_static_export
+  - content_coverage_audit
+  - browser_review
+  - responsive_review
+  - doc_sync
+  - doc_anchors
+  - handoff_check
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+    controller: /root
+    planner: /root/docs_next_backend
+    executor: /root
+    reviewer: /root/docs_next_final_reviewer
+  scope_in:
+  - 以 site_docs/catalog.py 的 rich facts 和 Markdown 真源为唯一内容源，禁止手改 site_dist 页面。
+  - 为 Plugin、Accessor、Context、Adapter、Visualization 恢复有序正文区块、签名、参数、返回值、注意事项、示例、表格与
+    Mermaid 源码。
+  - 恢复 Accessor 选择卡片与三类入口，并将 RecordsView/records_view 迁移为 Accessor canonical page。
+  - 让搜索索引覆盖 rich content 关键词与成员名，并保持 canonical route 唯一。
+  - 为 rich-content 数量、反射成员覆盖、路由分类、搜索和静态导出增加回归测试。
+  - 重新生成并校验可复现的 tracked site_dist，systemd 服务自动读取新产物。
+  scope_out:
+  - 插件运行时行为、dtype、lineage、缓存与公开 Python API。
+  - 恢复已删除的 Jinja/Mistune/Pygments renderer 或双轨 HTML 构建。
+  - 将旧 .html 路由重新作为 canonical 页面。
+  blocking_assumptions:
+  - 用户“把 records_view 也视为 accessor”授权将 canonical route 设为 /accessors/records-view/；旧
+    Context route 仅进入迁移清单，不生成重复页面。
+  - 当前 catalog 中的 rich facts 是重构前页面内容的现行真源；git 历史只用于覆盖审计。
+status:
+  state: reviewing
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-09-01T11:36:23Z'
+    actor: /root
+    condition: task_initialized
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-01T11:38:31Z'
+    actor: /root/docs_next_backend
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-01T11:38:31Z'
+    actor: /root
+    condition: executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-09-01T11:48:59Z'
+    actor: /root
+    condition: execution_report_ready
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-01T11:48:59Z'
+    actor: reviewer
+    condition: fixable_gate_failure
+  - from: rework_required
+    to: planning
+    at: '2026-09-01T11:49:00Z'
+    actor: /root
+    condition: scope_changed
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-01T11:49:21Z'
+    actor: /root/docs_next_backend
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-01T11:49:21Z'
+    actor: /root
+    condition: executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-09-01T12:03:38Z'
+    actor: /root
+    condition: execution_report_ready
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-01T12:03:38Z'
+    actor: reviewer
+    condition: generated_plan_indexes_out_of_scope
+  - from: rework_required
+    to: planning
+    at: '2026-09-01T12:03:39Z'
+    actor: /root
+    condition: scope_changed
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-01T12:03:53Z'
+    actor: /root/docs_next_backend
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-01T12:03:53Z'
+    actor: /root
+    condition: executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-09-01T12:06:32Z'
+    actor: /root
+    condition: execution_report_ready
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-01T12:16:16Z'
+    actor: reviewer
+    condition: search_and_coverage_baseline_gates_failed
+  - from: rework_required
+    to: planning
+    at: '2026-09-01T12:16:16Z'
+    actor: /root
+    condition: scope_changed
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-01T12:16:26Z'
+    actor: /root/docs_next_backend
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-01T12:16:27Z'
+    actor: /root
+    condition: executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-09-01T12:38:02Z'
+    actor: /root
+    condition: execution_report_ready
+  plan_sha256: 42f22940d1cae316287e009794eff2bf844fb3ed2a377cebc1a6fdce97e755e3
+  execution:
+    summary: Restored full rich reference content in the Next.js site model and renderer;
+      classified RecordsView as a first-class Accessor with canonical /accessors/records-view/
+      route; added independent pre-migration content baseline and complete rich-content
+      search indexing.
+    changed_paths:
+    - waveform_analysis/documentation/site_model.py
+    - waveform_analysis/documentation/site_docs/catalog.py
+    - waveform_analysis/documentation/schemas/SiteModel.schema.json
+    - docs/site-next
+    - docs/site-content-baseline.json
+    - docs/site-guides.yaml
+    - docs/site-route-migration.yaml
+    - docs/cli/WAVEFORM_DOCS.md
+    - tests/test_site_model.py
+    - tests/test_site_guides.py
+    - tests/test_cli_docs_site_publish.py
+    - waveform_analysis/documentation/site_dist
+    verification:
+      site_model_tests: 'PASS: 34 passed'
+      doc_link_tests: 'PASS: 7 passed'
+      next_typecheck: PASS
+      next_unit_tests: 'PASS: 7 passed'
+      next_static_export: 'PASS: 91 pages; 629 tracked manifest files'
+      content_coverage_audit: 'PASS: independent 44-page rich reference baseline'
+      browser_review: 'PASS: desktop Accessor cards, RecordsView rich sections, seven
+        search terms, zero console/page/request errors'
+      responsive_review: 'PASS: 390x844 single-column layout without horizontal overflow'
+      doc_sync: PASS
+      doc_anchors: 'PASS: 0 errors, 0 warnings'
+      formatting: 'PASS: Ruff; Black applied; git diff --check'
+      reproducibility: 'PASS: two builds identical; manifest bc93b2b82d01ddb6220c07ba698eb3279f2071e7c21be1ec8a3d9635cd9a5287;
+        model 7179274a506e0ad1988bf842d5019e6d2abfbf446a68073471f56f05db826e10'
+      service: 'PASS: waveform-docs.service active; new routes HTTP 200; removed legacy
+        Context route HTTP 404'
+  review: {}
+  approval: {}
+  handoff: {}
