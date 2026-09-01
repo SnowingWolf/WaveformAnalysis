@@ -35,7 +35,7 @@ active_plans:
   task_file: docs/agents/runs/current/import-topology-optimization/task.yaml
   legacy_plan: docs/agents/runs/current/import-topology-optimization/legacy-plan.md
 - task_id: waveform-doc-content-recovery-20260901
-  state: reviewing
+  state: completed
   route: modify_code
   workflow_cost: standard
   workflow_shape: staged

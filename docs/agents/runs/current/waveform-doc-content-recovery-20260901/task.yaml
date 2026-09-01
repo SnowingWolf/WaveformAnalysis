@@ -4,7 +4,7 @@ metadata:
   id: waveform-doc-content-recovery-20260901
   generation: 4
   created_at: '2026-09-01T11:36:10Z'
-  updated_at: '2026-09-01T12:38:02Z'
+  updated_at: '2026-09-01T12:44:49Z'
 spec:
   goal: 恢复 Next.js 文档迁移中被 compact projection 丢弃的完整参考内容，重建 Accessor 选择卡片，并将 RecordsView/records_view
     归入 Accessor 分类。
@@ -72,7 +72,7 @@ spec:
     Context route 仅进入迁移清单，不生成重复页面。
   - 当前 catalog 中的 rich facts 是重构前页面内容的现行真源；git 历史只用于覆盖审计。
 status:
-  state: reviewing
+  state: completed
   transitions:
   - from: created
     to: planning
@@ -172,6 +172,11 @@ status:
     at: '2026-09-01T12:38:02Z'
     actor: /root
     condition: execution_report_ready
+  - from: reviewing
+    to: completed
+    at: '2026-09-01T12:44:49Z'
+    actor: reviewer
+    condition: all_blocking_gates_pass
   plan_sha256: 42f22940d1cae316287e009794eff2bf844fb3ed2a377cebc1a6fdce97e755e3
   execution:
     summary: Restored full rich reference content in the Next.js site model and renderer;
@@ -208,6 +213,32 @@ status:
         model 7179274a506e0ad1988bf842d5019e6d2abfbf446a68073471f56f05db826e10'
       service: 'PASS: waveform-docs.service active; new routes HTTP 200; removed legacy
         Context route HTTP 404'
-  review: {}
+  review:
+    reviewer_actor: /root/docs_next_final_reviewer
+    decision: approved
+    plan_sha256: 42f22940d1cae316287e009794eff2bf844fb3ed2a377cebc1a6fdce97e755e3
+    gate_results:
+      site_model_tests: PASS
+      next_typecheck: PASS
+      next_unit_tests: PASS
+      next_static_export: PASS
+      content_coverage_audit: PASS
+      browser_review: PASS
+      responsive_review: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      handoff_check: PASS
+    blocking_findings: []
+    residual_risks:
+    - The baseline does not yet record a source commit fingerprint and does not audit
+      Markdown guide prose.
+    - Mermaid and MathML are rendered as copyable source; client-side search payload
+      size should be monitored as content grows.
   approval: {}
-  handoff: {}
+  handoff:
+    implementation_commit: 44094a8e32fcf5ff235a03ed1ad7e0d9ace48d2f
+    preview_url: http://10.18.154.11:8767/accessors/
+    service: waveform-docs.service active
+    artifact_hashes:
+      manifest: bc93b2b82d01ddb6220c07ba698eb3279f2071e7c21be1ec8a3d9635cd9a5287
+      site_model: 7179274a506e0ad1988bf842d5019e6d2abfbf446a68073471f56f05db826e10
