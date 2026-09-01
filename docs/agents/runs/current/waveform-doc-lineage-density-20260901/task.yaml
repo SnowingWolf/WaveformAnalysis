@@ -60,8 +60,8 @@ spec:
     planner: /root/docs_next_backend
     reviewer: /root/docs_next_final_reviewer
 status:
-  state: reviewing
-  condition: ExecutionReportReady
+  state: completed
+  condition: AllBlockingGatesPass
   plan_sha256: 085d4bee7bd106487f89244ae79b207912e8d9ca9e4170abf216148e9cb155a7
   conditions: []
   transitions:
@@ -85,6 +85,11 @@ status:
       at: '2026-09-01'
       actor: /root
       condition: execution_report_ready
+    - from: reviewing
+      to: completed
+      at: '2026-09-01'
+      actor: reviewer
+      condition: all_blocking_gates_pass
   execution:
     owner: /root
     actions_taken:
@@ -120,6 +125,35 @@ status:
       - 静态预览请求可选 /api/lineage 时返回 404，并按既有设计使用 static fallback；不影响图谱内容。
       - Browser 插件不可用，本轮按前端调试 skill 使用本地 Playwright Firefox 验证。
       - check-added-large-files 仅对已批准跟踪的 1598 KB 内容哈希 chunk scoped skip；其余 hooks 必须通过。
-  review: {}
+  review:
+    reviewer_actor: /root/docs_next_final_reviewer
+    decision: approved
+    plan_sha256: 085d4bee7bd106487f89244ae79b207912e8d9ca9e4170abf216148e9cb155a7
+    gate_results:
+      next_typecheck: PASS
+      next_unit_tests: PASS
+      next_static_export: PASS
+      browser_review: PASS
+      responsive_review: PASS
+      diff_scope_check: PASS
+      handoff_check: PASS
+    blocking_findings: []
+    residual_risks:
+      - 选择节点仍会触发 ELK relayout，36 节点规模下未形成阻断，可后续独立优化。
+      - 纯静态站点的 /api/lineage 返回 404 并按设计使用 static fallback。
+      - 固定 build ID 要求发布时同步替换完整静态产物，chunk 内容哈希继续承担缓存身份。
   approval: {}
-  handoff: {}
+  handoff:
+    implementation_commit: f8ed453
+    commit_status: committed
+    git_status_checked: true
+    git_diff_stat_checked: true
+    cached_diff_check: PASS
+    scope_check: PASS
+    precommit_check: PASS; check-added-large-files scoped skip only for approved tracked 1598 KB generated chunk
+    preview_url: http://10.18.154.11:8767/lineage/
+    verification:
+      next: typecheck PASS; 7 tests PASS; 91 static routes PASS
+      browser: 1440x1100 and 390x844 PASS; 36 nodes; 0 overflow violations; 0 console/page errors
+      reproducibility: two identical normalized site hashes before hook normalization; stable build ID committed
+      prebuilt_manifest: 2 tests PASS and reviewer verified all 629 entries
