@@ -300,19 +300,19 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .lineage-node:hover, .lineage-node.is-selected { border-width: 2px; box-shadow: 0 0 0 3px rgb(12 137 152 / 13%), 0 5px 13px rgb(22 34 58 / 11%); }
 .lineage-node--virtual { border-style: dashed; }
 .lineage-node header { display: grid; height: 57px; align-content: center; gap: 2px; padding: 7px 9px; border-bottom: 1px solid var(--node-border); border-radius: 4px 4px 0 0; background: var(--node-header); text-align: center; }
+.lineage-node header strong, .lineage-node header span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lineage-node header strong { color: var(--ink); font-family: var(--font-mono); font-size: 13px; line-height: 1.2; }
 .lineage-node header span { color: var(--muted); font-size: 9px; line-height: 1.2; }
 .lineage-node__ports { position: absolute; inset: 0; pointer-events: none; }
 .lineage-port { position: absolute; top: var(--port-top); display: flex; align-items: center; width: 50%; height: 27px; gap: 4px; pointer-events: auto; white-space: nowrap; }
 .lineage-port--input { left: 0; justify-content: flex-start; padding-left: 9px; }
 .lineage-port--output { right: 0; justify-content: flex-end; padding-right: 9px; }
-.lineage-port__label { max-width: 96px; overflow: hidden; padding: 0; border: 0; background: transparent; color: var(--ink-soft); font-family: var(--font-mono); font-size: 10px; text-overflow: ellipsis; cursor: pointer; }
-.lineage-port__type { max-width: 83px; overflow: hidden; color: var(--muted); font-family: var(--font-mono); font-size: 8px; text-overflow: ellipsis; }
+.lineage-port__label { min-width: 0; max-width: 82px; overflow: hidden; padding: 0; border: 0; background: transparent; color: var(--ink-soft); font-family: var(--font-mono); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .lineage-port--output .lineage-port__label { color: var(--teal-dark); }
 .lineage-handle { width: 8px !important; height: 8px !important; border: 2px solid #fff !important; background: var(--node-border) !important; opacity: 1; }
 .lineage-port--input .lineage-handle { left: -5px; }
 .lineage-port--output .lineage-handle { right: -5px; }
-.lineage-node footer { position: absolute; right: 0; bottom: 0; left: 0; min-height: 26px; padding: 5px 7px; border-top: 1px solid var(--line); border-radius: 0 0 4px 4px; color: var(--muted); font-family: var(--font-mono); font-size: 9px; text-align: center; }
+.lineage-node footer { position: absolute; right: 0; bottom: 0; left: 0; height: 26px; overflow: hidden; padding: 5px 7px; border-top: 1px solid var(--line); border-radius: 0 0 4px 4px; color: var(--muted); font-family: var(--font-mono); font-size: 9px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .lineage-inspector { min-width: 0; min-height: 0; overflow: auto; border-left: 1px solid var(--line); background: #fff; }
 .inspector-head { display: flex; align-items: flex-start; justify-content: space-between; min-height: 75px; padding: 20px 18px 12px; border-bottom: 1px solid var(--line); }
 .inspector-head h2 { margin: 0; color: var(--ink); font-family: var(--font-mono); font-size: 16px; letter-spacing: -.035em; }
@@ -327,10 +327,10 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .inspector-contract { display: grid; grid-template-columns: 43px minmax(0, 1fr); gap: 5px 11px; font-size: 11px; }
 .inspector-contract span { color: var(--muted); }
 .inspector-contract strong { overflow: hidden; color: var(--ink-soft); font-family: var(--font-mono); font-size: 10px; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
-.inspector-port { display: grid; grid-template-columns: 10px minmax(0, 1fr) max-content; align-items: center; gap: 7px; min-height: 31px; padding: 4px 7px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+.inspector-port { display: grid; grid-template-columns: 10px minmax(0, .7fr) minmax(0, 1.3fr); align-items: center; gap: 7px; min-height: 31px; padding: 4px 7px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
 .inspector-port + .inspector-port { margin-top: 5px; }
 .inspector-port strong { overflow: hidden; color: var(--ink-soft); font-family: var(--font-mono); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.inspector-port small { color: var(--muted); font-family: var(--font-mono); font-size: 9px; }
+.inspector-port small { min-width: 0; overflow: hidden; color: var(--muted); font-family: var(--font-mono); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .inspector-consumers > span { display: flex; align-items: center; gap: 8px; min-height: 29px; color: var(--ink-soft); font-family: var(--font-mono); font-size: 10px; }
 .inspector-empty { padding: 30px 18px; color: var(--muted); font-size: 12px; }
 .lineage-loading, .lineage-loading-screen { position: absolute; z-index: 5; display: inline-flex; align-items: center; padding: 7px 10px; border: 1px solid var(--line); border-radius: 4px; background: #fff; color: var(--muted); font-size: 11px; box-shadow: var(--shadow); }

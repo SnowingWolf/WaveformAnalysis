@@ -1,0 +1,465 @@
+export const SITE_MODEL_SCHEMA = "site-model/v1" as const;
+
+export type SiteModelSchema = typeof SITE_MODEL_SCHEMA;
+
+export type NavigationItem = {
+  label: string;
+  href: string;
+  icon: string;
+};
+
+export type NavigationGroup = {
+  id: string;
+  title: string;
+  items: NavigationItem[];
+};
+
+export type ConfigEntry = {
+  name: string;
+  value: string;
+  description: string;
+};
+
+export type OutputField = {
+  name: string;
+  dtype: string;
+  unit: string;
+  description: string;
+};
+
+export type PluginModel = {
+  provides: string;
+  pluginClass?: string;
+  version: string | null;
+  executionKind: "static" | "streaming" | "unknown";
+  outputKind: string;
+  category: string;
+  summary: string;
+  dependsOn: string[];
+  config: ConfigEntry[];
+  fields: OutputField[];
+  usage: string;
+  route: string;
+  provenance: "generated" | "fixture";
+};
+
+export type ContextModel = {
+  slug: string;
+  name: string;
+  summary: string;
+  profiles: string[];
+  examples: string[];
+  route: string;
+  provenance: "generated" | "fixture";
+};
+
+export type AccessorModel = {
+  slug: string;
+  name: string;
+  summary: string;
+  inputs: string[];
+  methods: string[];
+  route: string;
+  provenance: "generated" | "fixture";
+};
+
+export type VisualizationModel = {
+  slug: string;
+  name: string;
+  summary: string;
+  outputs: string[];
+  route: string;
+  provenance: "generated" | "fixture";
+};
+
+export type GuideSection = {
+  id: string;
+  title: string;
+  paragraphs: string[];
+  bullets?: string[];
+  table?: {
+    headers: string[];
+    rows: string[][];
+  };
+  code?: string;
+};
+
+export type GuideModel = {
+  slug: string;
+  title: string;
+  section: string;
+  summary: string;
+  sections: GuideSection[];
+  route: string;
+  provenance: "generated" | "fixture";
+};
+
+export type LineagePort = {
+  id: string;
+  name: string;
+  dtype: string;
+  side: "input" | "output";
+};
+
+export type LineageNode = {
+  id: string;
+  label: string;
+  pluginClass: string;
+  kind: "raw" | "record" | "signal" | "peak" | "event" | "virtual";
+  summary: string;
+  version: string | null;
+  inputs: LineagePort[];
+  outputs: LineagePort[];
+};
+
+export type LineageEdge = {
+  id: string;
+  source: string;
+  sourcePort: string;
+  target: string;
+  targetPort: string;
+  dtype: string;
+  kind: "main" | "branch" | "virtual";
+};
+
+export type LineageModel = {
+  nodes: LineageNode[];
+  edges: LineageEdge[];
+  views: {
+    overview: string[];
+    full: string[];
+  };
+};
+
+export type RouteEntry = {
+  path: string;
+  title: string;
+  kind: "home" | "plugin" | "context" | "accessor" | "visualization" | "lineage" | "guide";
+};
+
+export type SiteModel = {
+  schema: SiteModelSchema;
+  modelVersion: string;
+  project: {
+    name: string;
+    version: string;
+    tagline: string;
+  };
+  provenance: "generated" | "fixture";
+  navigation: NavigationGroup[];
+  routes: RouteEntry[];
+  plugins: PluginModel[];
+  contexts: ContextModel[];
+  accessors: AccessorModel[];
+  visualizations: VisualizationModel[];
+  guides: GuideModel[];
+  lineage: LineageModel;
+};
+
+export class SiteModelValidationError extends Error {
+  constructor(message: string) {
+    super(`Invalid site-model/v1: ${message}`);
+    this.name = "SiteModelValidationError";
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function requiredString(record: Record<string, unknown>, key: string, path: string): string {
+  const value = record[key];
+  if (typeof value !== "string" || value.length === 0) {
+    throw new SiteModelValidationError(`${path}.${key} must be a non-empty string`);
+  }
+  return value;
+}
+
+function requiredStringArray(record: Record<string, unknown>, key: string, path: string): string[] {
+  const value = record[key];
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new SiteModelValidationError(`${path}.${key} must be a string[]`);
+  }
+  return value;
+}
+
+function optionalString(record: Record<string, unknown>, key: string, path: string): string | null {
+  const value = record[key];
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string") {
+    throw new SiteModelValidationError(`${path}.${key} must be string | null`);
+  }
+  return value;
+}
+
+function validatePorts(value: unknown, path: string, side: LineagePort["side"]): LineagePort[] {
+  if (!Array.isArray(value)) throw new SiteModelValidationError(`${path} must be an array`);
+  return value.map((item, index) => {
+    if (!isRecord(item)) throw new SiteModelValidationError(`${path}[${index}] must be an object`);
+    const portPath = `${path}[${index}]`;
+    return {
+      id: requiredString(item, "id", portPath),
+      name: requiredString(item, "name", portPath),
+      dtype: requiredString(item, "dtype", portPath),
+      side,
+    };
+  });
+}
+
+function validateLineage(value: unknown): LineageModel {
+  if (!isRecord(value)) throw new SiteModelValidationError("lineage must be an object");
+  const nodesValue = value.nodes;
+  if (!Array.isArray(nodesValue)) throw new SiteModelValidationError("lineage.nodes must be an array");
+  const nodes = nodesValue.map((item, index): LineageNode => {
+    if (!isRecord(item)) throw new SiteModelValidationError(`lineage.nodes[${index}] must be an object`);
+    const path = `lineage.nodes[${index}]`;
+    const kind = requiredString(item, "kind", path);
+    if (!["raw", "record", "signal", "peak", "event", "virtual"].includes(kind)) {
+      throw new SiteModelValidationError(`${path}.kind is not supported`);
+    }
+    return {
+      id: requiredString(item, "id", path),
+      label: requiredString(item, "label", path),
+      pluginClass: requiredString(item, "pluginClass", path),
+      kind: kind as LineageNode["kind"],
+      summary: requiredString(item, "summary", path),
+      version: optionalString(item, "version", path),
+      inputs: validatePorts(item.inputs, `${path}.inputs`, "input"),
+      outputs: validatePorts(item.outputs, `${path}.outputs`, "output"),
+    };
+  });
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  if (nodeIds.size !== nodes.length) throw new SiteModelValidationError("lineage node ids must be unique");
+  if (!Array.isArray(value.edges)) throw new SiteModelValidationError("lineage.edges must be an array");
+  const ports = new Map<string, LineagePort>();
+  nodes.forEach((node) => [...node.inputs, ...node.outputs].forEach((port) => ports.set(`${node.id}:${port.id}`, port)));
+  const edges = value.edges.map((item, index): LineageEdge => {
+    if (!isRecord(item)) throw new SiteModelValidationError(`lineage.edges[${index}] must be an object`);
+    const path = `lineage.edges[${index}]`;
+    const edge = {
+      id: requiredString(item, "id", path),
+      source: requiredString(item, "source", path),
+      sourcePort: requiredString(item, "sourcePort", path),
+      target: requiredString(item, "target", path),
+      targetPort: requiredString(item, "targetPort", path),
+      dtype: requiredString(item, "dtype", path),
+      kind: requiredString(item, "kind", path) as LineageEdge["kind"],
+    };
+    if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) {
+      throw new SiteModelValidationError(`${path} references an unknown node`);
+    }
+    const sourcePort = ports.get(`${edge.source}:${edge.sourcePort}`);
+    const targetPort = ports.get(`${edge.target}:${edge.targetPort}`);
+    if (sourcePort?.side !== "output" || targetPort?.side !== "input") {
+      throw new SiteModelValidationError(`${path} must connect output to input`);
+    }
+    return edge;
+  });
+  const viewsValue = value.views;
+  if (!isRecord(viewsValue)) throw new SiteModelValidationError("lineage.views must be an object");
+  const overview = requiredStringArray(viewsValue, "overview", "lineage.views");
+  const full = requiredStringArray(viewsValue, "full", "lineage.views");
+  [...overview, ...full].forEach((id) => {
+    if (!nodeIds.has(id)) throw new SiteModelValidationError(`lineage view references unknown node ${id}`);
+  });
+  return { nodes, edges, views: { overview, full } };
+}
+
+function validateNavigation(value: unknown): NavigationGroup[] {
+  if (!Array.isArray(value)) throw new SiteModelValidationError("navigation must be an array");
+  return value.map((item, index) => {
+    if (!isRecord(item)) throw new SiteModelValidationError(`navigation[${index}] must be an object`);
+    const path = `navigation[${index}]`;
+    const itemsValue = item.items;
+    if (!Array.isArray(itemsValue)) throw new SiteModelValidationError(`${path}.items must be an array`);
+    return {
+      id: requiredString(item, "id", path),
+      title: requiredString(item, "title", path),
+      items: itemsValue.map((entry, entryIndex) => {
+        if (!isRecord(entry)) throw new SiteModelValidationError(`${path}.items[${entryIndex}] must be an object`);
+        const entryPath = `${path}.items[${entryIndex}]`;
+        return {
+          label: requiredString(entry, "label", entryPath),
+          href: requiredString(entry, "href", entryPath),
+          icon: requiredString(entry, "icon", entryPath),
+        };
+      }),
+    };
+  });
+}
+
+function validateRoutes(value: unknown): RouteEntry[] {
+  if (!Array.isArray(value)) throw new SiteModelValidationError("routes must be an array");
+  const routes = value.map((item, index) => {
+    if (!isRecord(item)) throw new SiteModelValidationError(`routes[${index}] must be an object`);
+    const path = `routes[${index}]`;
+    const kind = requiredString(item, "kind", path);
+    if (!["home", "plugin", "context", "accessor", "visualization", "lineage", "guide"].includes(kind)) {
+      throw new SiteModelValidationError(`${path}.kind is not supported`);
+    }
+    return {
+      path: requiredString(item, "path", path),
+      title: requiredString(item, "title", path),
+      kind: kind as RouteEntry["kind"],
+    };
+  });
+  const paths = new Set(routes.map((route) => route.path));
+  if (paths.size !== routes.length) throw new SiteModelValidationError("routes must not contain duplicate paths");
+  if (routes.some((route) => route.path.endsWith(".html"))) {
+    throw new SiteModelValidationError("routes must use extensionless paths");
+  }
+  return routes;
+}
+
+function validateCollection<T>(value: unknown, name: string, validate: (value: unknown, index: number) => T): T[] {
+  if (!Array.isArray(value)) throw new SiteModelValidationError(`${name} must be an array`);
+  return value.map(validate);
+}
+
+function validatePlugin(value: unknown, index: number): PluginModel {
+  if (!isRecord(value)) throw new SiteModelValidationError(`plugins[${index}] must be an object`);
+  const path = `plugins[${index}]`;
+  const executionKind = requiredString(value, "executionKind", path);
+  if (!["static", "streaming", "unknown"].includes(executionKind)) {
+    throw new SiteModelValidationError(`${path}.executionKind is not supported`);
+  }
+  const config = validateCollection(value.config, `${path}.config`, (item, itemIndex) => {
+    if (!isRecord(item)) throw new SiteModelValidationError(`${path}.config[${itemIndex}] must be an object`);
+    const itemPath = `${path}.config[${itemIndex}]`;
+    return {
+      name: requiredString(item, "name", itemPath),
+      value: requiredString(item, "value", itemPath),
+      description: requiredString(item, "description", itemPath),
+    };
+  });
+  const fields = validateCollection(value.fields, `${path}.fields`, (item, itemIndex) => {
+    if (!isRecord(item)) throw new SiteModelValidationError(`${path}.fields[${itemIndex}] must be an object`);
+    const itemPath = `${path}.fields[${itemIndex}]`;
+    return {
+      name: requiredString(item, "name", itemPath),
+      dtype: requiredString(item, "dtype", itemPath),
+      unit: requiredString(item, "unit", itemPath),
+      description: requiredString(item, "description", itemPath),
+    };
+  });
+  const provenance = requiredString(value, "provenance", path);
+  if (!["generated", "fixture"].includes(provenance)) throw new SiteModelValidationError(`${path}.provenance is not supported`);
+  return {
+    provides: requiredString(value, "provides", path),
+    pluginClass: typeof value.pluginClass === "string" ? value.pluginClass : undefined,
+    version: optionalString(value, "version", path),
+    executionKind: executionKind as PluginModel["executionKind"],
+    outputKind: requiredString(value, "outputKind", path),
+    category: requiredString(value, "category", path),
+    summary: requiredString(value, "summary", path),
+    dependsOn: requiredStringArray(value, "dependsOn", path),
+    config,
+    fields,
+    usage: requiredString(value, "usage", path),
+    route: requiredString(value, "route", path),
+    provenance: provenance as PluginModel["provenance"],
+  };
+}
+
+function validateContext(value: unknown, index: number): ContextModel {
+  if (!isRecord(value)) throw new SiteModelValidationError(`contexts[${index}] must be an object`);
+  const path = `contexts[${index}]`;
+  const provenance = requiredString(value, "provenance", path);
+  if (!["generated", "fixture"].includes(provenance)) throw new SiteModelValidationError(`${path}.provenance is not supported`);
+  return {
+    slug: requiredString(value, "slug", path), name: requiredString(value, "name", path), summary: requiredString(value, "summary", path),
+    profiles: requiredStringArray(value, "profiles", path), examples: requiredStringArray(value, "examples", path), route: requiredString(value, "route", path),
+    provenance: provenance as ContextModel["provenance"],
+  };
+}
+
+function validateAccessor(value: unknown, index: number): AccessorModel {
+  if (!isRecord(value)) throw new SiteModelValidationError(`accessors[${index}] must be an object`);
+  const path = `accessors[${index}]`;
+  const provenance = requiredString(value, "provenance", path);
+  if (!["generated", "fixture"].includes(provenance)) throw new SiteModelValidationError(`${path}.provenance is not supported`);
+  return {
+    slug: requiredString(value, "slug", path), name: requiredString(value, "name", path), summary: requiredString(value, "summary", path),
+    inputs: requiredStringArray(value, "inputs", path), methods: requiredStringArray(value, "methods", path), route: requiredString(value, "route", path),
+    provenance: provenance as AccessorModel["provenance"],
+  };
+}
+
+function validateVisualization(value: unknown, index: number): VisualizationModel {
+  if (!isRecord(value)) throw new SiteModelValidationError(`visualizations[${index}] must be an object`);
+  const path = `visualizations[${index}]`;
+  const provenance = requiredString(value, "provenance", path);
+  if (!["generated", "fixture"].includes(provenance)) throw new SiteModelValidationError(`${path}.provenance is not supported`);
+  return {
+    slug: requiredString(value, "slug", path), name: requiredString(value, "name", path), summary: requiredString(value, "summary", path),
+    outputs: requiredStringArray(value, "outputs", path), route: requiredString(value, "route", path),
+    provenance: provenance as VisualizationModel["provenance"],
+  };
+}
+
+function validateGuide(value: unknown, index: number): GuideModel {
+  if (!isRecord(value)) throw new SiteModelValidationError(`guides[${index}] must be an object`);
+  const path = `guides[${index}]`;
+  const provenance = requiredString(value, "provenance", path);
+  if (!["generated", "fixture"].includes(provenance)) throw new SiteModelValidationError(`${path}.provenance is not supported`);
+  const sections = validateCollection(value.sections, `${path}.sections`, (item, sectionIndex) => {
+    if (!isRecord(item)) throw new SiteModelValidationError(`${path}.sections[${sectionIndex}] must be an object`);
+    const sectionPath = `${path}.sections[${sectionIndex}]`;
+    const section: GuideSection = {
+      id: requiredString(item, "id", sectionPath), title: requiredString(item, "title", sectionPath),
+      paragraphs: requiredStringArray(item, "paragraphs", sectionPath),
+    };
+    if (item.bullets !== undefined) section.bullets = requiredStringArray(item, "bullets", sectionPath);
+    if (item.code !== undefined) section.code = requiredString(item, "code", sectionPath);
+    if (item.table !== undefined) {
+      if (!isRecord(item.table)) throw new SiteModelValidationError(`${sectionPath}.table must be an object`);
+      section.table = {
+        headers: requiredStringArray(item.table, "headers", `${sectionPath}.table`),
+        rows: Array.isArray(item.table.rows) && item.table.rows.every((row) => Array.isArray(row) && row.every((cell) => typeof cell === "string"))
+          ? item.table.rows as string[][]
+          : (() => { throw new SiteModelValidationError(`${sectionPath}.table.rows must be string[][]`); })(),
+      };
+    }
+    return section;
+  });
+  return {
+    slug: requiredString(value, "slug", path), title: requiredString(value, "title", path), section: requiredString(value, "section", path),
+    summary: requiredString(value, "summary", path), sections, route: requiredString(value, "route", path),
+    provenance: provenance as GuideModel["provenance"],
+  };
+}
+
+export function parseSiteModel(value: unknown): SiteModel {
+  if (!isRecord(value)) throw new SiteModelValidationError("root must be an object");
+  const schema = requiredString(value, "schema", "root");
+  if (schema !== SITE_MODEL_SCHEMA) throw new SiteModelValidationError(`schema must equal ${SITE_MODEL_SCHEMA}`);
+  if (!isRecord(value.project)) throw new SiteModelValidationError("project must be an object");
+  const provenance = requiredString(value, "provenance", "root");
+  if (!["generated", "fixture"].includes(provenance)) throw new SiteModelValidationError("root.provenance is not supported");
+  const model: SiteModel = {
+    schema: SITE_MODEL_SCHEMA,
+    modelVersion: requiredString(value, "modelVersion", "root"),
+    project: {
+      name: requiredString(value.project, "name", "root.project"),
+      version: requiredString(value.project, "version", "root.project"),
+      tagline: requiredString(value.project, "tagline", "root.project"),
+    },
+    provenance: provenance as SiteModel["provenance"],
+    navigation: validateNavigation(value.navigation),
+    routes: validateRoutes(value.routes),
+    plugins: validateCollection(value.plugins, "plugins", validatePlugin),
+    contexts: validateCollection(value.contexts, "contexts", validateContext),
+    accessors: validateCollection(value.accessors, "accessors", validateAccessor),
+    visualizations: validateCollection(value.visualizations, "visualizations", validateVisualization),
+    guides: validateCollection(value.guides, "guides", validateGuide),
+    lineage: validateLineage(value.lineage),
+  };
+  const records = model.plugins.find((plugin) => plugin.provides === "records");
+  if (!records || records.version !== "0.14.2" || records.dependsOn[0] !== "raw_files") {
+    throw new SiteModelValidationError("records fixture must be v0.14.2 with raw_files as its first dependency");
+  }
+  if (!model.routes.some((route) => route.path === "/plugins/records/" && route.kind === "plugin")) {
+    throw new SiteModelValidationError("records plugin route is missing");
+  }
+  return model;
+}
