@@ -1858,13 +1858,25 @@ def build_site_model(
             section_pages.append(page_record)
         index_record = _route_record(section["route"], "guide-index", section["title"])
         _register_route(routes, index_record)
+        if section["id"] == "cli":
+            navigation_item = next(
+                item for item in navigation[1]["items"] if item["href"] == section["route"]
+            )
+            navigation_item["children"] = [
+                {
+                    "label": page["title"],
+                    "href": page["route"],
+                    "icon": "file",
+                }
+                for page in section_pages
+            ]
         # Keep route ownership and navigation explicit; Markdown body sections
         # live in the separate guides collection below.
         section["pages"] = section_pages
 
     model: dict[str, Any] = {
         "schema": SITE_MODEL_VERSION,
-        "modelVersion": "1.1.0",
+        "modelVersion": "1.2.0",
         "project": {
             "name": "WaveformAnalysis",
             "version": _package_version(),
@@ -1944,6 +1956,30 @@ def validate_site_model(model: Mapping[str, Any]) -> None:
         kind = record.get("kind")
         if kind not in valid_kinds:
             raise SiteModelError(f"routes[{index}].kind is not supported: {kind!r}")
+
+    def validate_navigation_items(items: Any, *, path: str) -> None:
+        if not isinstance(items, list):
+            raise SiteModelError(f"{path} must be an array")
+        for item_index, item in enumerate(items):
+            item_path = f"{path}[{item_index}]"
+            if not isinstance(item, Mapping):
+                raise SiteModelError(f"{item_path} must be an object")
+            for key in ("label", "href", "icon"):
+                if not isinstance(item.get(key), str) or not item[key]:
+                    raise SiteModelError(f"{item_path}.{key} must be a non-empty string")
+            href = canonical_route(item["href"], field=f"{item_path}.href")
+            if href not in seen:
+                raise SiteModelError(f"{item_path}.href references an unknown route {href!r}")
+            if "children" in item:
+                validate_navigation_items(item["children"], path=f"{item_path}.children")
+
+    navigation = model["navigation"]
+    if not isinstance(navigation, list):
+        raise SiteModelError("site model navigation must be an array")
+    for section_index, section in enumerate(navigation):
+        if not isinstance(section, Mapping):
+            raise SiteModelError(f"navigation[{section_index}] must be an object")
+        validate_navigation_items(section.get("items"), path=f"navigation[{section_index}].items")
     if model.get("provenance") not in {"generated", "fixture"}:
         raise SiteModelError("site model provenance must be generated or fixture")
     project = model["project"]

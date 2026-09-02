@@ -6,6 +6,7 @@ export type NavigationItem = {
   label: string;
   href: string;
   icon: string;
+  children?: NavigationItem[];
 };
 
 export type NavigationGroup = {
@@ -335,6 +336,24 @@ function validateLineage(value: unknown): LineageModel {
   return { nodes, edges, views: { overview, full } };
 }
 
+function validateNavigationItem(value: unknown, path: string): NavigationItem {
+  if (!isRecord(value)) throw new SiteModelValidationError(`${path} must be an object`);
+  const childrenValue = value.children;
+  if (childrenValue !== undefined && !Array.isArray(childrenValue)) {
+    throw new SiteModelValidationError(`${path}.children must be an array`);
+  }
+  const item: NavigationItem = {
+    label: requiredString(value, "label", path),
+    href: requiredString(value, "href", path),
+    icon: requiredString(value, "icon", path),
+  };
+  if (Array.isArray(childrenValue)) {
+    item.children = childrenValue.map((child, index) =>
+      validateNavigationItem(child, `${path}.children[${index}]`));
+  }
+  return item;
+}
+
 function validateNavigation(value: unknown): NavigationGroup[] {
   if (!Array.isArray(value)) throw new SiteModelValidationError("navigation must be an array");
   return value.map((item, index) => {
@@ -345,15 +364,8 @@ function validateNavigation(value: unknown): NavigationGroup[] {
     return {
       id: requiredString(item, "id", path),
       title: requiredString(item, "title", path),
-      items: itemsValue.map((entry, entryIndex) => {
-        if (!isRecord(entry)) throw new SiteModelValidationError(`${path}.items[${entryIndex}] must be an object`);
-        const entryPath = `${path}.items[${entryIndex}]`;
-        return {
-          label: requiredString(entry, "label", entryPath),
-          href: requiredString(entry, "href", entryPath),
-          icon: requiredString(entry, "icon", entryPath),
-        };
-      }),
+      items: itemsValue.map((entry, entryIndex) =>
+        validateNavigationItem(entry, `${path}.items[${entryIndex}]`)),
     };
   });
 }

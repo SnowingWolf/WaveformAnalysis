@@ -27,14 +27,7 @@
           "title": { "type": "string", "minLength": 1 },
           "items": {
             "type": "array",
-            "items": {
-              "type": "object", "additionalProperties": false, "required": ["label", "href", "icon"],
-              "properties": {
-                "label": { "type": "string", "minLength": 1 },
-                "href": { "$ref": "#/$defs/route" },
-                "icon": { "type": "string", "minLength": 1 }
-              }
-            }
+            "items": { "$ref": "#/$defs/navigation-item" }
           }
         }
       }
@@ -60,6 +53,15 @@
   },
   "$defs": {
     "route": { "type": "string", "pattern": "^/(?:[A-Za-z0-9._~-]+/)*$", "not": { "pattern": "\\.html(?:$|/)" } },
+    "navigation-item": {
+      "type": "object", "additionalProperties": false, "required": ["label", "href", "icon"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "href": { "$ref": "#/$defs/route" },
+        "icon": { "type": "string", "minLength": 1 },
+        "children": { "type": "array", "items": { "$ref": "#/$defs/navigation-item" } }
+      }
+    },
     "config": {
       "type": "object", "additionalProperties": false, "required": ["name", "value", "description"],
       "properties": {

@@ -61,6 +61,20 @@ describe("site-model/v1", () => {
     expect(() => parseSiteModel({ ...rawModel, schema: "site-model/v0" })).toThrow(SiteModelValidationError);
   });
 
+  it("accepts optional navigation children and rejects malformed child collections", () => {
+    const withChildren = structuredClone(rawModel) as unknown as {
+      navigation: Array<{ items: Array<Record<string, unknown>> }>;
+    };
+    withChildren.navigation[1].items[7].children = [
+      { label: "waveform-docs", href: "/cli/WAVEFORM_DOCS/", icon: "file" },
+    ];
+    const parsed = parseSiteModel(withChildren);
+    expect(parsed.navigation[1].items[7].children?.[0].href).toBe("/cli/WAVEFORM_DOCS/");
+
+    withChildren.navigation[1].items[7].children = { href: "/cli/WAVEFORM_DOCS/" };
+    expect(() => parseSiteModel(withChildren)).toThrow(/children must be an array/);
+  });
+
   it("rejects lineage edges that do not connect declared ports", () => {
     const invalid = structuredClone(rawModel) as { lineage: { edges: Array<Record<string, unknown>> } };
     invalid.lineage.edges[0] = { ...invalid.lineage.edges[0], sourcePort: "missing" };

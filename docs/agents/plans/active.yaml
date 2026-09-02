@@ -50,6 +50,14 @@ active_plans:
   condition: AllBlockingGatesPass
   task_file: docs/agents/runs/current/waveform-doc-lineage-density-20260901/task.yaml
   legacy_plan: docs/agents/runs/current/waveform-doc-lineage-density-20260901/legacy-plan.md
+- task_id: waveform-doc-nested-nav-20260902
+  state: completed
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/waveform-doc-nested-nav-20260902/task.yaml
+  legacy_plan: docs/agents/runs/current/waveform-doc-nested-nav-20260902/legacy-plan.md
 - task_id: waveform-doc-sidebar-expand-20260902
   state: completed
   route: modify_code

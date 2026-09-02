@@ -86,6 +86,26 @@ def test_site_model_v1_uses_real_plugin_and_guide_facts_without_html():
     assert SITE_MODEL_SCHEMA_PATH.is_file()
     assert len(model["source_indexes"]) == 11
     assert sum(bool(guide.get("source")) for guide in model["guides"]) == 33
+    reference = next(section for section in model["navigation"] if section["id"] == "reference")
+    cli_navigation = next(item for item in reference["items"] if item["href"] == "/cli/")
+    assert [(item["label"], item["href"]) for item in cli_navigation["children"]] == [
+        ("waveform-cache 命令参考", "/cli/WAVEFORM_CACHE/"),
+        ("waveform-docs 命令参考", "/cli/WAVEFORM_DOCS/"),
+        ("waveform-process 命令参考", "/cli/WAVEFORM_PROCESS/"),
+    ]
+    assert not next(item for item in reference["items"] if item["href"] == "/plugins/").get(
+        "children"
+    )
+
+
+def test_site_model_rejects_navigation_children_with_unknown_routes():
+    model = build_site_model(Path(__file__).parents[1])
+    reference = next(section for section in model["navigation"] if section["id"] == "reference")
+    cli_navigation = next(item for item in reference["items"] if item["href"] == "/cli/")
+    cli_navigation["children"].append({"label": "Missing", "href": "/cli/MISSING/", "icon": "file"})
+
+    with pytest.raises(SiteModelError, match="unknown route"):
+        validate_site_model(model)
 
 
 def test_site_model_builder_has_no_markdown_html_renderer():

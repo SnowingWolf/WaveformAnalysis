@@ -4,6 +4,7 @@ import { StaticLink as Link } from "./StaticLink";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import type { SiteShellModel } from "@/lib/search";
+import type { NavigationItem } from "@/lib/site-model";
 import { iconNames, Icon, type IconName } from "./icons";
 import { SearchDialog } from "./SearchDialog";
 
@@ -21,6 +22,11 @@ function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href.replace(/\/$/, "")}/`);
 }
 
+function hasActiveChild(pathname: string, item: NavigationItem): boolean {
+  return (item.children ?? []).some((child) =>
+    isActive(pathname, child.href) || hasActiveChild(pathname, child));
+}
+
 export function Brand({ compact = false }: { compact?: boolean }) {
   return <Link className={`brand${compact ? " brand--compact" : ""}`} href="/" aria-label="WaveformAnalysis 首页">
     <img src="/assets/waveform-mark.svg" width="52" height="30" alt="" />
@@ -28,8 +34,14 @@ export function Brand({ compact = false }: { compact?: boolean }) {
   </Link>;
 }
 
-function SideNav({ model, pathname, onNavigate }: { model: SiteShellModel; pathname: string; onNavigate?: () => void }) {
+function SideNav({ model, pathname, instanceId, onNavigate }: { model: SiteShellModel; pathname: string; instanceId: string; onNavigate?: () => void }) {
   const [openSections, setOpenSections] = useState(() => new Set(model.navigation.map((section) => section.id)));
+  const [openItems, setOpenItems] = useState(() => new Set(
+    model.navigation.flatMap((section) => section.items
+      .filter((item) => (item.children?.length ?? 0) > 0
+        && (isActive(pathname, item.href) || hasActiveChild(pathname, item)))
+      .map((item) => `${section.id}:${item.href}`)),
+  ));
   return <nav className="side-nav" aria-label="文档导航">
     {model.navigation.map((section) => {
       const open = openSections.has(section.id);
@@ -37,9 +49,39 @@ function SideNav({ model, pathname, onNavigate }: { model: SiteShellModel; pathn
         <button className="side-nav__heading" type="button" aria-expanded={open} onClick={() => setOpenSections((current) => { const next = new Set(current); if (next.has(section.id)) next.delete(section.id); else next.add(section.id); return next; })}>
           <span>{section.title}</span><Icon name="chevron" size={15} className={open ? "chevron--down" : ""} />
         </button>
-        {open && <div className="side-nav__items">{section.items.map((item) => <Link key={`${section.id}:${item.href}:${item.label}`} href={item.href} onClick={onNavigate} className={`side-nav__item${isActive(pathname, item.href) ? " is-active" : ""}`}>
-          <Icon name={iconNames.has(item.icon as IconName) ? item.icon as IconName : "file"} size={16} /><span>{item.label}</span>
-        </Link>)}</div>}
+        {open && <div className="side-nav__items">{section.items.map((item, itemIndex) => {
+          const itemKey = `${section.id}:${item.href}`;
+          const children = item.children ?? [];
+          const childrenOpen = openItems.has(itemKey);
+          const childrenId = `side-nav-${instanceId}-children-${section.id}-${itemIndex}`;
+          return <div className="side-nav__entry" key={`${itemKey}:${item.label}`}>
+            <div className="side-nav__row">
+              <Link href={item.href} onClick={onNavigate} className={`side-nav__item${isActive(pathname, item.href) ? " is-active" : ""}`}>
+                <Icon name={iconNames.has(item.icon as IconName) ? item.icon as IconName : "file"} size={16} /><span>{item.label}</span>
+              </Link>
+              {children.length > 0 ? <button
+                className="side-nav__toggle"
+                type="button"
+                aria-expanded={childrenOpen}
+                aria-controls={childrenId}
+                aria-label={`${childrenOpen ? "收起" : "展开"}${item.label}子页面`}
+                onClick={() => setOpenItems((current) => {
+                  const next = new Set(current);
+                  if (next.has(itemKey)) next.delete(itemKey); else next.add(itemKey);
+                  return next;
+                })}
+              ><Icon name="chevron" size={14} className={childrenOpen ? "chevron--down" : ""} /></button> : null}
+            </div>
+            {childrenOpen ? <div className="side-nav__children" id={childrenId}>
+              {children.map((child) => <Link
+                key={`${itemKey}:${child.href}:${child.label}`}
+                href={child.href}
+                onClick={onNavigate}
+                className={`side-nav__item side-nav__item--child${isActive(pathname, child.href) ? " is-active" : ""}`}
+              ><span>{child.label}</span></Link>)}
+            </div> : null}
+          </div>;
+        })}</div>}
       </section>;
     })}
     <div className="side-nav__version"><span>版本</span><strong className="mono">{model.project.version}</strong></div>
@@ -104,8 +146,8 @@ export function SiteShell({ model, children, toc = [], title = "文档", compact
     </header>
     <div className="site-progress" aria-hidden="true" />
     <div className="site-layout">
-      <aside className={`left-rail${compactNav ? " left-rail--compact" : ""}`}><SideNav model={model} pathname={pathname} /></aside>
-      {drawerOpen && <div className="drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDrawerOpen(false); }}><aside className="mobile-drawer" aria-label="移动端文档导航"><div className="mobile-drawer__head"><Brand compact /><button className="icon-button" type="button" onClick={() => setDrawerOpen(false)} aria-label="关闭导航"><Icon name="close" size={22} /></button></div><SideNav model={model} pathname={pathname} onNavigate={() => setDrawerOpen(false)} /></aside></div>}
+      <aside className={`left-rail${compactNav ? " left-rail--compact" : ""}`}><SideNav model={model} pathname={pathname} instanceId="desktop" /></aside>
+      {drawerOpen && <div className="drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDrawerOpen(false); }}><aside className="mobile-drawer" aria-label="移动端文档导航"><div className="mobile-drawer__head"><Brand compact /><button className="icon-button" type="button" onClick={() => setDrawerOpen(false)} aria-label="关闭导航"><Icon name="close" size={22} /></button></div><SideNav model={model} pathname={pathname} instanceId="drawer" onNavigate={() => setDrawerOpen(false)} /></aside></div>}
       <main className="main-column" id="main-content" tabIndex={-1}>{children}</main>
       <TableOfContents items={toc} />
     </div>

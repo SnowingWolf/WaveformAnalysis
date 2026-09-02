@@ -1,0 +1,142 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: waveform-doc-nested-nav-20260902
+  generation: 1
+  created_at: '2026-09-02T05:17:09Z'
+  updated_at: '2026-09-02T05:47:59Z'
+spec:
+  goal: 让文档左栏的指南类入口可展开具体子页面，优先恢复命令行工具下 WAVEFORM_PROCESS、WAVEFORM_DOCS、WAVEFORM_CACHE
+    的发现与导航，并保持现有分组、移动抽屉和客户端负载边界。
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: 1b1a0b8237c5a9c95580c789f77ee973fe6ad73d
+    allowed_paths:
+    - waveform_analysis/documentation/site_model.py
+    - waveform_analysis/documentation/schemas/SiteModel.schema.json
+    - docs/site-next/lib/site-model.ts
+    - docs/site-next/lib/site-model.test.ts
+    - docs/site-next/lib/search.ts
+    - docs/site-next/lib/search-index.test.ts
+    - docs/site-next/fixture/site-model.v1.json
+    - docs/site-next/components/SiteShell.tsx
+    - docs/site-next/app/globals.css
+    - tests/test_site_model.py
+    - waveform_analysis/documentation/site_dist
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/runs/current/waveform-doc-nested-nav-20260902/task.yaml
+  acceptance_criteria:
+  - 桌面左栏的命令行工具入口可展开并显示 WAVEFORM_PROCESS、WAVEFORM_DOCS、WAVEFORM_CACHE 子页面。
+  - 当前页面所属的指南入口默认展开，子链接具有正确 active 状态且父索引仍可访问。
+  - 不把插件全集塞入侧栏；移动抽屉与其他指南类入口不回归。
+  - site-model schema/validator、Next 单测与静态导出、Firefox 真实交互全部通过。
+  required_gates:
+  - scope_check
+  - python_site_model_tests
+  - next_typecheck
+  - next_unit_tests
+  - next_static_export
+  - firefox_nested_nav_review
+  - doc_sync
+  - handoff_check
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-09-02T05:19:29Z'
+    actor: planner
+    condition: planning_started
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-02T05:19:30Z'
+    actor: planner
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-02T05:19:30Z'
+    actor: executor.code
+    condition: executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-09-02T05:37:54Z'
+    actor: executor.code
+    condition: execution_report_ready
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-02T05:44:23Z'
+    actor: reviewer
+    condition: blocking_review_changes_requested
+  - from: rework_required
+    to: executing
+    at: '2026-09-02T05:44:23Z'
+    actor: executor.code
+    condition: rework_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-09-02T05:47:26Z'
+    actor: executor.code
+    condition: rework_execution_report_ready
+  - from: reviewing
+    to: completed
+    at: '2026-09-02T05:47:59Z'
+    actor: reviewer
+    condition: all_blocking_gates_pass
+  plan_sha256: 8070b9209f5f82ee232e40e42c5971b57323a72709c349abfd867c0e0cfcf441
+  execution:
+    summary: 为命令行工具生成可递归子导航；父索引与独立折叠按钮并存，当前子树默认展开；子页进入搜索回退索引；为桌面和 drawer 导航实例使用唯一
+      ID 前缀；重建静态站点。
+    changed_paths:
+    - waveform_analysis/documentation/site_model.py
+    - waveform_analysis/documentation/schemas/SiteModel.schema.json
+    - docs/site-next/lib/site-model.ts
+    - docs/site-next/lib/search.ts
+    - docs/site-next/components/SiteShell.tsx
+    - docs/site-next/app/globals.css
+    - tests/test_site_model.py
+    - docs/site-next/lib/site-model.test.ts
+    - docs/site-next/lib/search-index.test.ts
+    - docs/site-next/fixture/site-model.v1.json
+    - waveform_analysis/documentation/site_dist
+    command_results:
+      scope_check: PASS
+      python_site_model_tests: 'PASS: 11 passed'
+      next_typecheck: PASS
+      next_unit_tests: 'PASS: 16 tests'
+      next_static_export: 'PASS: 92 pages'
+      firefox_nested_nav_review: 'PASS: 1440/800/390; keyboard Enter/Space; duplicate
+        SideNav IDs 0; aria-controls target count 1 and visible; console/network errors
+        0'
+      doc_sync: PASS
+      handoff_check: PASS with declared uncommitted reason
+    rework: Reviewer P1 fixed by instanceId desktop/drawer prefixes; Firefox verified
+      unique SideNav IDs and visible single ARIA target.
+    open_risks:
+    - UI 当前只展示一层 children；更深层级的视觉渲染作为后续增强。
+  review:
+    reviewer_actor: reviewer
+    decision: approved
+    plan_sha256: 8070b9209f5f82ee232e40e42c5971b57323a72709c349abfd867c0e0cfcf441
+    blocking_findings: []
+    gate_results:
+      scope_check: PASS
+      python_site_model_tests: PASS
+      next_typecheck: PASS
+      next_unit_tests: PASS
+      next_static_export: PASS
+      firefox_nested_nav_review: PASS
+      doc_sync: PASS
+      handoff_check: PASS
+    residual_risks:
+    - UI 当前只渲染一层 children；未来引入更深层导航时需递归渲染。
+    - Drawer 完整 focus trap/return-focus 可作为后续增强。
+  approval: {}
+  handoff: {}

@@ -136,12 +136,20 @@ describe("search-index/v1", () => {
     const navigation = [{
       id: "reference",
       title: "参考",
-      items: [{ label: "RecordsView", href: "/accessors/records-view/", icon: "api" }],
+      items: [{
+        label: "命令行工具",
+        href: "/cli/",
+        icon: "guide",
+        children: [{ label: "waveform-docs", href: "/cli/WAVEFORM_DOCS/", icon: "file" }],
+      }],
     }];
     const fallback = navigationSearchEntries(navigation);
 
-    expect(searchResults(fallback, "records")).toEqual([
-      expect.objectContaining({ url: "/accessors/records-view/" }),
+    expect(searchResults(fallback, "waveform-docs")).toEqual([
+      expect.objectContaining({
+        url: "/cli/WAVEFORM_DOCS/",
+        summary: "参考 · 命令行工具",
+      }),
     ]);
   });
 });

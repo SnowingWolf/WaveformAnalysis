@@ -91,11 +91,20 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .side-nav__heading svg { color: var(--muted); transform: rotate(90deg); transition: transform .18s ease; }
 .side-nav__heading svg.chevron--down { transform: rotate(270deg); }
 .side-nav__items { display: grid; }
+.side-nav__entry { min-width: 0; }
+.side-nav__row { display: flex; min-width: 0; align-items: stretch; }
+.side-nav__row > .side-nav__item { min-width: 0; flex: 1; padding-right: 7px; }
 .side-nav__item { display: flex; align-items: center; gap: 10px; min-height: 33px; padding: 5px 24px 5px 32px; border-left: 3px solid transparent; color: var(--ink-soft); font-size: 13px; transition: background .16s ease, color .16s ease, border-color .16s ease; }
 .side-nav__item svg { flex: 0 0 auto; color: #53617a; }
 .side-nav__item:hover { background: var(--surface); color: var(--teal-dark); }
 .side-nav__item.is-active { border-left-color: var(--teal); background: #eaf4f6; color: var(--teal-dark); font-weight: 650; }
 .side-nav__item.is-active svg { color: var(--teal); }
+.side-nav__toggle { display: grid; width: 38px; flex: 0 0 38px; place-items: center; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.side-nav__toggle:hover { background: var(--surface); color: var(--teal-dark); }
+.side-nav__toggle svg { transform: rotate(90deg); transition: transform .18s ease; }
+.side-nav__toggle svg.chevron--down { transform: rotate(270deg); }
+.side-nav__children { display: grid; padding: 2px 0 6px; background: color-mix(in srgb, var(--surface) 55%, transparent); }
+.side-nav__item--child { min-height: 30px; padding: 4px 18px 4px 55px; font-family: var(--font-mono); font-size: 11px; }
 .side-nav__version { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin: 17px 16px 0 30px; color: var(--muted); font-size: 12px; }
 .side-nav__version strong { padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--paper); color: var(--ink-soft); font-family: var(--font-mono); font-size: 12px; font-weight: 500; }
 .toc { position: sticky; top: 61px; align-self: start; height: calc(100vh - 61px); padding: 25px 24px; border-left: 1px solid var(--line); overflow: auto; }

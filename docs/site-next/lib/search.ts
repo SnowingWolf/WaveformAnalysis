@@ -272,13 +272,24 @@ export function searchEntries(model: SiteModel): SearchEntry[] {
 
 /** Convert navigation into a useful, intentionally small error-state index. */
 export function navigationSearchEntries(navigation: NavigationGroup[]): SearchEntry[] {
-  return navigation.flatMap((section) => section.items.map((item) => ({
-    title: item.label,
-    summary: section.title,
-    kind: section.title,
-    url: item.href,
-    keywords: uniqueSearchTokens([section.title, item.label, item.href]),
-  })));
+  const entriesFor = (
+    items: NavigationGroup["items"],
+    sectionTitle: string,
+    ancestors: string[] = [],
+  ): SearchEntry[] => items.flatMap((item) => {
+    const labels = [...ancestors, item.label];
+    return [
+      {
+        title: item.label,
+        summary: [sectionTitle, ...ancestors].join(" · "),
+        kind: sectionTitle,
+        url: item.href,
+        keywords: uniqueSearchTokens([sectionTitle, ...labels, item.href]),
+      },
+      ...entriesFor(item.children ?? [], sectionTitle, labels),
+    ];
+  });
+  return navigation.flatMap((section) => entriesFor(section.items, section.title));
 }
 
 /** Rank matching entries before applying the dialog result limit. */
